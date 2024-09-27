@@ -140,6 +140,12 @@ read one (
 	where bucket_metainfo.name = ?
 )
 
+read one (
+    select bucket_metainfo.object_lock_enabled bucket_metainfo.default_retention_mode bucket_metainfo.default_retention_days bucket_metainfo.default_retention_years
+	where bucket_metainfo.project_id = ?
+	where bucket_metainfo.name = ?
+)
+
 read has (
 	select bucket_metainfo
 	where bucket_metainfo.project_id = ?

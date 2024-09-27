@@ -70,6 +70,14 @@ type UpdateBucketObjectLockParams struct {
 	DefaultRetentionYears **int
 }
 
+// BucketObjectLockSettings contains a bucket's object lock configurations.
+type BucketObjectLockSettings struct {
+	ObjectLockEnabled     bool
+	DefaultRetentionMode  storj.RetentionMode
+	DefaultRetentionDays  int
+	DefaultRetentionYears int
+}
+
 // ListDirection specifies listing direction.
 type ListDirection = pb.ListDirection
 
@@ -159,6 +167,8 @@ type DB interface {
 	UpdateUserAgent(ctx context.Context, projectID uuid.UUID, bucketName string, userAgent []byte) error
 	// UpdateBucketObjectLockSettings updates object lock settings for a bucket without an extra database query.
 	UpdateBucketObjectLockSettings(ctx context.Context, params UpdateBucketObjectLockParams) (_ Bucket, err error)
+	// GetBucketObjectLockSettings returns a bucket's object lock settings.
+	GetBucketObjectLockSettings(ctx context.Context, bucketName []byte, projectID uuid.UUID) (settings *BucketObjectLockSettings, err error)
 	// DeleteBucket deletes a bucket
 	DeleteBucket(ctx context.Context, bucketName []byte, projectID uuid.UUID) (err error)
 	// ListBuckets returns all buckets for a project

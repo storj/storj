@@ -340,6 +340,37 @@ func (db *bucketsDB) UpdateBucketObjectLockSettings(ctx context.Context, params 
 	return convertDBXtoBucket(dbxBucket)
 }
 
+// GetBucketObjectLockSettings returns a bucket's object lock settings.
+func (db *bucketsDB) GetBucketObjectLockSettings(ctx context.Context, bucketName []byte, projectID uuid.UUID) (settings *buckets.BucketObjectLockSettings, err error) {
+	defer mon.Task()(&ctx)(&err)
+	dbxSettings, err := db.db.Get_BucketMetainfo_ObjectLockEnabled_BucketMetainfo_DefaultRetentionMode_BucketMetainfo_DefaultRetentionDays_BucketMetainfo_DefaultRetentionYears_By_ProjectId_And_Name(ctx,
+		dbx.BucketMetainfo_ProjectId(projectID[:]),
+		dbx.BucketMetainfo_Name(bucketName),
+	)
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return nil, buckets.ErrBucketNotFound.New("%s", bucketName)
+		}
+		return nil, buckets.ErrBucket.Wrap(err)
+	}
+
+	settings = &buckets.BucketObjectLockSettings{
+		ObjectLockEnabled: dbxSettings.ObjectLockEnabled,
+	}
+
+	if dbxSettings.DefaultRetentionMode != nil {
+		settings.DefaultRetentionMode = storj.RetentionMode(*dbxSettings.DefaultRetentionMode)
+	}
+	if dbxSettings.DefaultRetentionDays != nil {
+		settings.DefaultRetentionDays = *dbxSettings.DefaultRetentionDays
+	}
+	if dbxSettings.DefaultRetentionYears != nil {
+		settings.DefaultRetentionYears = *dbxSettings.DefaultRetentionYears
+	}
+
+	return settings, nil
+}
+
 // UpdateUserAgent updates buckets user agent.
 func (db *bucketsDB) UpdateUserAgent(ctx context.Context, projectID uuid.UUID, bucketName string, userAgent []byte) (err error) {
 	defer mon.Task()(&ctx)(&err)

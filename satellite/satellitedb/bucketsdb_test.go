@@ -34,6 +34,13 @@ func TestUpdateBucketObjectLockSettings(t *testing.T) {
 		})
 		require.NoError(t, err)
 
+		settings, err := bucketsDB.GetBucketObjectLockSettings(ctx, []byte(bucketName), projectID)
+		require.NoError(t, err)
+		require.False(t, settings.ObjectLockEnabled)
+		require.Equal(t, storj.NoRetention, settings.DefaultRetentionMode)
+		require.Zero(t, settings.DefaultRetentionDays)
+		require.Zero(t, settings.DefaultRetentionYears)
+
 		updateParams := buckets.UpdateBucketObjectLockParams{
 			ProjectID:         projectID,
 			Name:              bucketName,
@@ -43,6 +50,10 @@ func TestUpdateBucketObjectLockSettings(t *testing.T) {
 		bucket, err := bucketsDB.UpdateBucketObjectLockSettings(ctx, updateParams)
 		require.NoError(t, err)
 		require.True(t, bucket.ObjectLockEnabled)
+
+		settings, err = bucketsDB.GetBucketObjectLockSettings(ctx, []byte(bucketName), projectID)
+		require.NoError(t, err)
+		require.True(t, settings.ObjectLockEnabled)
 
 		updateParams.ObjectLockEnabled = false
 
@@ -58,11 +69,19 @@ func TestUpdateBucketObjectLockSettings(t *testing.T) {
 		require.NoError(t, err)
 		require.Equal(t, storj.ComplianceMode, bucket.DefaultRetentionMode)
 
+		settings, err = bucketsDB.GetBucketObjectLockSettings(ctx, []byte(bucketName), projectID)
+		require.NoError(t, err)
+		require.Equal(t, mode, settings.DefaultRetentionMode)
+
 		mode = storj.NoRetention
 
 		bucket, err = bucketsDB.UpdateBucketObjectLockSettings(ctx, updateParams)
 		require.NoError(t, err)
 		require.Equal(t, storj.NoRetention, bucket.DefaultRetentionMode)
+
+		settings, err = bucketsDB.GetBucketObjectLockSettings(ctx, []byte(bucketName), projectID)
+		require.NoError(t, err)
+		require.Equal(t, mode, settings.DefaultRetentionMode)
 
 		days := 10
 		daysPtr := &days
@@ -81,6 +100,10 @@ func TestUpdateBucketObjectLockSettings(t *testing.T) {
 		require.Nil(t, bucket.DefaultRetentionDays)
 		require.NotNil(t, bucket.DefaultRetentionYears)
 		require.Equal(t, years, *bucket.DefaultRetentionYears)
+
+		settings, err = bucketsDB.GetBucketObjectLockSettings(ctx, []byte(bucketName), projectID)
+		require.NoError(t, err)
+		require.Equal(t, years, settings.DefaultRetentionYears)
 
 		updateParams.DefaultRetentionMode = nil
 		updateParams.DefaultRetentionYears = nil
@@ -101,6 +124,10 @@ func TestUpdateBucketObjectLockSettings(t *testing.T) {
 		require.Nil(t, bucket.DefaultRetentionYears)
 		require.NotNil(t, bucket.DefaultRetentionDays)
 		require.Equal(t, days, *bucket.DefaultRetentionDays)
+
+		settings, err = bucketsDB.GetBucketObjectLockSettings(ctx, []byte(bucketName), projectID)
+		require.NoError(t, err)
+		require.Equal(t, days, settings.DefaultRetentionDays)
 
 		daysPtr = nil
 

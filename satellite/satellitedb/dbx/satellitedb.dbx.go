@@ -14123,6 +14123,13 @@ type Metadata_Row struct {
 	Metadata []byte
 }
 
+type ObjectLockEnabled_DefaultRetentionMode_DefaultRetentionDays_DefaultRetentionYears_Row struct {
+	ObjectLockEnabled     bool
+	DefaultRetentionMode  *int
+	DefaultRetentionDays  *int
+	DefaultRetentionYears *int
+}
+
 type ObjectLockEnabled_Row struct {
 	ObjectLockEnabled bool
 }
@@ -19395,6 +19402,32 @@ func (obj *pgxImpl) Get_BucketMetainfo_ObjectLockEnabled_By_ProjectId_And_Name(c
 	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&row.ObjectLockEnabled)
 	if err != nil {
 		return (*ObjectLockEnabled_Row)(nil), obj.makeErr(err)
+	}
+	return row, nil
+
+}
+
+func (obj *pgxImpl) Get_BucketMetainfo_ObjectLockEnabled_BucketMetainfo_DefaultRetentionMode_BucketMetainfo_DefaultRetentionDays_BucketMetainfo_DefaultRetentionYears_By_ProjectId_And_Name(ctx context.Context,
+	bucket_metainfo_project_id BucketMetainfo_ProjectId_Field,
+	bucket_metainfo_name BucketMetainfo_Name_Field) (
+	row *ObjectLockEnabled_DefaultRetentionMode_DefaultRetentionDays_DefaultRetentionYears_Row, err error) {
+	defer mon.Task()(&ctx)(&err)
+	if !obj.txn && txutil.IsInsideTx(ctx) {
+		panic("using DB when inside of a transaction")
+	}
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT bucket_metainfos.object_lock_enabled, bucket_metainfos.default_retention_mode, bucket_metainfos.default_retention_days, bucket_metainfos.default_retention_years FROM bucket_metainfos WHERE bucket_metainfos.project_id = ? AND bucket_metainfos.name = ?")
+
+	var __values []any
+	__values = append(__values, bucket_metainfo_project_id.value(), bucket_metainfo_name.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	row = &ObjectLockEnabled_DefaultRetentionMode_DefaultRetentionDays_DefaultRetentionYears_Row{}
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&row.ObjectLockEnabled, &row.DefaultRetentionMode, &row.DefaultRetentionDays, &row.DefaultRetentionYears)
+	if err != nil {
+		return (*ObjectLockEnabled_DefaultRetentionMode_DefaultRetentionDays_DefaultRetentionYears_Row)(nil), obj.makeErr(err)
 	}
 	return row, nil
 
@@ -29338,6 +29371,32 @@ func (obj *pgxcockroachImpl) Get_BucketMetainfo_ObjectLockEnabled_By_ProjectId_A
 	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&row.ObjectLockEnabled)
 	if err != nil {
 		return (*ObjectLockEnabled_Row)(nil), obj.makeErr(err)
+	}
+	return row, nil
+
+}
+
+func (obj *pgxcockroachImpl) Get_BucketMetainfo_ObjectLockEnabled_BucketMetainfo_DefaultRetentionMode_BucketMetainfo_DefaultRetentionDays_BucketMetainfo_DefaultRetentionYears_By_ProjectId_And_Name(ctx context.Context,
+	bucket_metainfo_project_id BucketMetainfo_ProjectId_Field,
+	bucket_metainfo_name BucketMetainfo_Name_Field) (
+	row *ObjectLockEnabled_DefaultRetentionMode_DefaultRetentionDays_DefaultRetentionYears_Row, err error) {
+	defer mon.Task()(&ctx)(&err)
+	if !obj.txn && txutil.IsInsideTx(ctx) {
+		panic("using DB when inside of a transaction")
+	}
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT bucket_metainfos.object_lock_enabled, bucket_metainfos.default_retention_mode, bucket_metainfos.default_retention_days, bucket_metainfos.default_retention_years FROM bucket_metainfos WHERE bucket_metainfos.project_id = ? AND bucket_metainfos.name = ?")
+
+	var __values []any
+	__values = append(__values, bucket_metainfo_project_id.value(), bucket_metainfo_name.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	row = &ObjectLockEnabled_DefaultRetentionMode_DefaultRetentionDays_DefaultRetentionYears_Row{}
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&row.ObjectLockEnabled, &row.DefaultRetentionMode, &row.DefaultRetentionDays, &row.DefaultRetentionYears)
+	if err != nil {
+		return (*ObjectLockEnabled_DefaultRetentionMode_DefaultRetentionDays_DefaultRetentionYears_Row)(nil), obj.makeErr(err)
 	}
 	return row, nil
 
@@ -39859,6 +39918,32 @@ func (obj *spannerImpl) Get_BucketMetainfo_ObjectLockEnabled_By_ProjectId_And_Na
 
 }
 
+func (obj *spannerImpl) Get_BucketMetainfo_ObjectLockEnabled_BucketMetainfo_DefaultRetentionMode_BucketMetainfo_DefaultRetentionDays_BucketMetainfo_DefaultRetentionYears_By_ProjectId_And_Name(ctx context.Context,
+	bucket_metainfo_project_id BucketMetainfo_ProjectId_Field,
+	bucket_metainfo_name BucketMetainfo_Name_Field) (
+	row *ObjectLockEnabled_DefaultRetentionMode_DefaultRetentionDays_DefaultRetentionYears_Row, err error) {
+	defer mon.Task()(&ctx)(&err)
+	if !obj.txn && txutil.IsInsideTx(ctx) {
+		panic("using DB when inside of a transaction")
+	}
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT bucket_metainfos.object_lock_enabled, bucket_metainfos.default_retention_mode, bucket_metainfos.default_retention_days, bucket_metainfos.default_retention_years FROM bucket_metainfos WHERE bucket_metainfos.project_id = ? AND bucket_metainfos.name = ?")
+
+	var __values []any
+	__values = append(__values, bucket_metainfo_project_id.value(), bucket_metainfo_name.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	row = &ObjectLockEnabled_DefaultRetentionMode_DefaultRetentionDays_DefaultRetentionYears_Row{}
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&row.ObjectLockEnabled, &row.DefaultRetentionMode, &row.DefaultRetentionDays, &row.DefaultRetentionYears)
+	if err != nil {
+		return (*ObjectLockEnabled_DefaultRetentionMode_DefaultRetentionDays_DefaultRetentionYears_Row)(nil), obj.makeErr(err)
+	}
+	return row, nil
+
+}
+
 func (obj *spannerImpl) Has_BucketMetainfo_By_ProjectId_And_Name(ctx context.Context,
 	bucket_metainfo_project_id BucketMetainfo_ProjectId_Field,
 	bucket_metainfo_name BucketMetainfo_Name_Field) (
@@ -45269,6 +45354,11 @@ type Methods interface {
 		bucket_metainfo_project_id BucketMetainfo_ProjectId_Field,
 		bucket_metainfo_name BucketMetainfo_Name_Field) (
 		row *CreatedBy_CreatedAt_Placement_Row, err error)
+
+	Get_BucketMetainfo_ObjectLockEnabled_BucketMetainfo_DefaultRetentionMode_BucketMetainfo_DefaultRetentionDays_BucketMetainfo_DefaultRetentionYears_By_ProjectId_And_Name(ctx context.Context,
+		bucket_metainfo_project_id BucketMetainfo_ProjectId_Field,
+		bucket_metainfo_name BucketMetainfo_Name_Field) (
+		row *ObjectLockEnabled_DefaultRetentionMode_DefaultRetentionDays_DefaultRetentionYears_Row, err error)
 
 	Get_BucketMetainfo_ObjectLockEnabled_By_ProjectId_And_Name(ctx context.Context,
 		bucket_metainfo_project_id BucketMetainfo_ProjectId_Field,
