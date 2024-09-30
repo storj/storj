@@ -221,12 +221,15 @@ func FilterSelector(loadTimeFilter NodeFilter, init NodeSelectorInit) NodeSelect
 
 // BalancedGroupBasedSelector first selects a group with equal chance (like last_net) and choose one single node randomly. .
 // One group can be tried multiple times, and if the node is already selected, it will be ignored.
-func BalancedGroupBasedSelector(attribute NodeAttribute) NodeSelectorInit {
+func BalancedGroupBasedSelector(attribute NodeAttribute, uploadFilter NodeFilter) NodeSelectorInit {
 	return func(nodes []*SelectedNode, filter NodeFilter) NodeSelector {
 		mon.IntVal("selector_balanced_input_nodes").Observe(int64(len(nodes)))
 		nodeByAttribute := make(map[string][]*SelectedNode)
 		for _, node := range nodes {
 			if filter != nil && !filter.Match(node) {
+				continue
+			}
+			if uploadFilter != nil && !uploadFilter.Match(node) {
 				continue
 			}
 			a := attribute(*node)

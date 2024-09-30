@@ -1208,6 +1208,7 @@ func TestEndpoint_Object_With_StorageNodes(t *testing.T) {
 				config.Overlay.GeoIP.MockCountries = []string{"DE"}
 			},
 		},
+		EnableSpanner: true,
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 		apiKey := planet.Uplinks[0].APIKey[planet.Satellites[0].ID()]
 		metainfoClient, err := planet.Uplinks[0].DialMetainfo(ctx, planet.Satellites[0], apiKey)
