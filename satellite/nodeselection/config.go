@@ -281,7 +281,14 @@ func SelectorFromString(expr string, environment *PlacementConfigEnvironment) (N
 			if err != nil {
 				return nil, err
 			}
-			return BalancedGroupBasedSelector(attr), nil
+			return BalancedGroupBasedSelector(attr, nil), nil
+		},
+		"balancedf": func(attribute string, filter NodeFilter) (NodeSelectorInit, error) {
+			attr, err := CreateNodeAttribute(attribute)
+			if err != nil {
+				return nil, err
+			}
+			return BalancedGroupBasedSelector(attr, filter), nil
 		},
 		"filterbest": FilterBest,
 		"bestofn":    BestOfN,
