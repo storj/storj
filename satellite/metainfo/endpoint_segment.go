@@ -144,6 +144,8 @@ func (endpoint *Endpoint) beginSegment(ctx context.Context, req *pb.SegmentBegin
 		return nil, endpoint.ConvertMetabaseErr(err)
 	}
 
+	redundancyScheme := endpoint.getRSProto(storj.PlacementConstraint(streamID.Placement))
+
 	segmentID, err := endpoint.packSegmentID(ctx, &internalpb.SegmentID{
 		StreamId:            streamID,
 		PartNumber:          req.Position.PartNumber,
@@ -151,6 +153,7 @@ func (endpoint *Endpoint) beginSegment(ctx context.Context, req *pb.SegmentBegin
 		OriginalOrderLimits: addressedLimits,
 		RootPieceId:         rootPieceID,
 		CreationDate:        time.Now(),
+		RedundancyScheme:    redundancyScheme,
 	})
 	if err != nil {
 		endpoint.log.Error("internal", zap.Error(err))
@@ -164,7 +167,7 @@ func (endpoint *Endpoint) beginSegment(ctx context.Context, req *pb.SegmentBegin
 		SegmentId:        segmentID,
 		AddressedLimits:  addressedLimits,
 		PrivateKey:       piecePrivateKey,
-		RedundancyScheme: endpoint.getRSProto(storj.PlacementConstraint(streamID.Placement)),
+		RedundancyScheme: redundancyScheme,
 	}, nil
 }
 
@@ -291,7 +294,10 @@ func (endpoint *Endpoint) CommitSegment(ctx context.Context, req *pb.SegmentComm
 	endpoint.usageTracking(keyInfo, req.Header, fmt.Sprintf("%T", req))
 
 	// cheap basic verification
-	rsParam := endpoint.getRSProto(storj.PlacementConstraint(streamID.Placement))
+	rsParam := segmentID.RedundancyScheme
+	if rsParam == nil {
+		rsParam = endpoint.getRSProto(storj.PlacementConstraint(streamID.Placement))
+	}
 	if numResults := len(req.UploadResult); numResults < int(rsParam.GetSuccessThreshold()) {
 		endpoint.log.Debug("the results of uploaded pieces for the segment is below the redundancy optimal threshold",
 			zap.Int("upload pieces results", numResults),

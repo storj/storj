@@ -101,7 +101,14 @@ func TestChore(t *testing.T) {
 		assert.Equal(t, expected, actual, "unexpected balance for user %s (%q)", userID, names[userID])
 	}
 
-	runTest := func(ctx *testcontext.Context, t *testing.T, consoleDB console.DB, db billing.TransactionsDB, bonusRate int64, mikeTXs, joeTXs, robertTXs []billing.Transaction, mikeBalance, joeBalance, robertBalance currency.Amount, usageLimitsConfig console.UsageLimitsConfig, userBalanceForUpgrade int64, freezeService *console.AccountFreezeService, analyticsService *analytics.Service) {
+	runTest := func(ctx *testcontext.Context, t *testing.T, consoleDB console.DB, db billing.TransactionsDB, bonusRate int64,
+		mikeTXs, joeTXs, robertTXs []billing.Transaction,
+		mikeBalance, joeBalance, robertBalance currency.Amount,
+		usageLimitsConfig console.UsageLimitsConfig,
+		userBalanceForUpgrade int64,
+		freezeService *console.AccountFreezeService,
+		analyticsService *analytics.Service,
+	) {
 		paymentTypes := []billing.PaymentType{
 			newFakePaymentType(billing.StorjScanEthereumSource,
 				[]billing.Transaction{mike1, joe1, joe2},
@@ -138,7 +145,7 @@ func TestChore(t *testing.T) {
 
 	t.Run("without StorjScan bonus", func(t *testing.T) {
 		testplanet.Run(t, testplanet.Config{
-			SatelliteCount: 1, StorageNodeCount: 0, UplinkCount: 0, // TODO(spanner): EnableSpanner, currently flaky
+			SatelliteCount: 1, StorageNodeCount: 0, UplinkCount: 0, EnableSpanner: true,
 		}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 			sat := planet.Satellites[0]
 			db := sat.DB
@@ -162,7 +169,7 @@ func TestChore(t *testing.T) {
 
 	t.Run("with StorjScan bonus", func(t *testing.T) {
 		testplanet.Run(t, testplanet.Config{
-			SatelliteCount: 1, StorageNodeCount: 0, UplinkCount: 0, // TODO(spanner): EnableSpanner, currently flaky
+			SatelliteCount: 1, StorageNodeCount: 0, UplinkCount: 0, EnableSpanner: true,
 		}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 			sat := planet.Satellites[0]
 			db := sat.DB
@@ -187,7 +194,7 @@ func TestChore(t *testing.T) {
 
 func TestChore_UpgradeUserObserver(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
-		SatelliteCount: 1, StorageNodeCount: 0, UplinkCount: 0, // TODO(spanner): EnableSpanner, currently flaky
+		SatelliteCount: 1, StorageNodeCount: 0, UplinkCount: 0, EnableSpanner: true,
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 		sat := planet.Satellites[0]
 		db := sat.DB
@@ -337,7 +344,7 @@ func TestChore_UpgradeUserObserver(t *testing.T) {
 
 func TestChore_PayInvoiceObserver(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
-		SatelliteCount: 1, StorageNodeCount: 0, UplinkCount: 0, // TODO(spanner): EnableSpanner, currently flaky
+		SatelliteCount: 1, StorageNodeCount: 0, UplinkCount: 0, EnableSpanner: true,
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 		sat := planet.Satellites[0]
 		db := sat.DB
