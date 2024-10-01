@@ -429,3 +429,8 @@ func (endpoint *Endpoint) getRSProto(placementID storj.PlacementConstraint) *pb.
 		ErasureShareSize: rs.ErasureShareSize.Int32(),
 	}
 }
+
+// TestingSetRSConfig set endpoint RS config for testing.
+func (endpoint *Endpoint) TestingSetRSConfig(rs RSConfig) {
+	endpoint.config.RS = rs
+}
