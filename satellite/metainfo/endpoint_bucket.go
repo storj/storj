@@ -180,7 +180,7 @@ func (endpoint *Endpoint) CreateBucket(ctx context.Context, req *pb.BucketCreate
 	if req.ObjectLockEnabled {
 		perms = append(perms, VerifyPermission{
 			Action: macaroon.Action{
-				Op:     macaroon.ActionPutObjectRetention,
+				Op:     macaroon.ActionPutBucketObjectLockConfiguration,
 				Bucket: req.Name,
 				Time:   time.Now(),
 			},
