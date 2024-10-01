@@ -106,7 +106,7 @@
 </template>
 
 <script setup lang="ts">
-import { defineModel, ref, watch } from 'vue';
+import { ref, watch } from 'vue';
 import {
     VAlert,
     VBtn,
