@@ -78,7 +78,7 @@
             <template #item.location="{ item }">
                 <div class="text-no-wrap">
                     <v-icon size="28" class="mr-1 pa-1 rounded-lg border">
-                        <component :is="Earth" :size="18" />
+                        <component :is="item.location === 'global' ? Earth : LandPlot" :size="18" />
                     </v-icon>
                     <v-chip variant="tonal" color="default" size="small" class="text-capitalize">
                         {{ item.location || `unknown(${item.defaultPlacement})` }}
@@ -225,6 +225,7 @@ import {
     ArrowRight,
     Earth,
     History,
+    LandPlot,
 } from 'lucide-vue-next';
 
 import { Memory, Size } from '@/utils/bytesSize';
