@@ -34,3 +34,8 @@ export class Retention {
         return this.enabled() && new Date() < this.retainUntil;
     }
 }
+
+export interface ObjectLockStatus {
+    retention: Retention;
+    legalHold: boolean;
+}

@@ -42,7 +42,7 @@ import { DEFAULT_PAGE_LIMIT } from '@/types/pagination';
 import { ObjectDeleteError, DuplicateUploadError } from '@/utils/error';
 import { useConfigStore } from '@/store/modules/configStore';
 import { LocalData } from '@/utils/localData';
-import { Retention } from '@/types/objectLock';
+import { ObjectLockStatus, Retention } from '@/types/objectLock';
 
 export type BrowserObject = {
     Key: string;
@@ -62,6 +62,7 @@ export type BrowserObject = {
 
 export type FullBrowserObject = BrowserObject & {
     retention?: Retention;
+    legalHold?: boolean;
 };
 
 export enum FailedUploadMessage {
@@ -866,6 +867,20 @@ export const useObjectBrowserStore = defineStore('objectBrowser', () => {
         return Retention.empty();
     }
 
+    async function getObjectLockStatus(file: BrowserObject): Promise<ObjectLockStatus> {
+        assertIsInitialized(state);
+
+        const results = await Promise.all([
+            getObjectRetention(file),
+            getObjectLegalHold(file),
+        ]);
+
+        return {
+            retention: results[0],
+            legalHold: results[1],
+        };
+    }
+
     async function bulkDeleteObjects(files: _Object[] | BrowserObject[]): Promise<number> {
         assertIsInitialized(state);
 
@@ -1238,6 +1253,7 @@ export const useObjectBrowserStore = defineStore('objectBrowser', () => {
         restoreObject,
         createFolder,
         getObjectRetention,
+        getObjectLockStatus,
         lockObject,
         legalHoldObject,
         getObjectLegalHold,

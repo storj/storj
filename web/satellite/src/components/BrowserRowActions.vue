@@ -262,12 +262,12 @@ async function onDeleteClick(): Promise<void> {
     }
     isGettingRetention.value = true;
     try {
-        const retention = await obStore.getObjectRetention(props.file);
-        if (!retention.active()) {
+        const lockStatus = await obStore.getObjectLockStatus(props.file);
+        if (!lockStatus.retention.active() && !lockStatus.legalHold) {
             emit('deleteFileClick');
             return;
         }
-        emit('lockedObjectDelete', { ...props.file, retention });
+        emit('lockedObjectDelete', { ...props.file, retention: lockStatus.retention, legalHold: lockStatus.legalHold });
     } catch (error) {
         error.message = `Error deleting object. ${error.message}`;
         notify.notifyError(error, AnalyticsErrorEventSource.FILE_BROWSER_ENTRY);
