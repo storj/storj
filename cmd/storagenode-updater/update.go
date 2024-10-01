@@ -5,7 +5,9 @@ package main
 
 import (
 	"context"
+	"io"
 	"os"
+	"path/filepath"
 
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
@@ -13,7 +15,7 @@ import (
 	"storj.io/common/version"
 )
 
-func update(ctx context.Context, restartMethod, serviceName, binaryLocation string, ver version.Process) error {
+func update(ctx context.Context, restartMethod, serviceName, binaryLocation, storeDir string, ver version.Process) error {
 	currentVersion, err := binaryVersion(binaryLocation)
 	if err != nil {
 		return errs.Wrap(err)
@@ -56,6 +58,10 @@ func update(ctx context.Context, restartMethod, serviceName, binaryLocation stri
 		return errs.Combine(err, os.Remove(newVersionPath))
 	}
 
+	if err = copyToStore(binaryLocation, storeDir); err != nil {
+		return errs.Wrap(err)
+	}
+
 	var backupPath string
 	if serviceName == updaterServiceName {
 		// NB: don't include old version number for updater binary backup
@@ -67,6 +73,50 @@ func update(ctx context.Context, restartMethod, serviceName, binaryLocation stri
 	if err = restartAndCleanup(ctx, log, restartMethod, serviceName, binaryLocation, newVersionPath, backupPath); err != nil {
 		return errs.Wrap(err)
 	}
+	return nil
+}
+
+// copyToStore copies binary to store directory if the storeDir is set and different from the binary location.
+func copyToStore(binaryLocation, storeDir string) error {
+	if storeDir == "" {
+		return nil
+	}
+
+	dir, base := filepath.Split(binaryLocation)
+	if dir == storeDir {
+		return nil
+	}
+
+	storeLocation := filepath.Join(storeDir, base)
+
+	log := zap.L().With(zap.String("Service", "copyToStore"))
+
+	// copy binary to store
+	log.Info("Copying binary to store.", zap.String("From", binaryLocation), zap.String("To", storeLocation))
+	src, err := os.Open(binaryLocation)
+	if err != nil {
+		return errs.Wrap(err)
+	}
+	defer func() {
+		err = errs.Combine(err, src.Close())
+	}()
+
+	dest, err := os.OpenFile(storeLocation, os.O_WRONLY|os.O_CREATE, 0755)
+	if err != nil {
+		return errs.Wrap(err)
+	}
+
+	defer func() {
+		err = errs.Combine(err, dest.Close())
+	}()
+
+	_, err = io.Copy(dest, src)
+	if err != nil {
+		return errs.Wrap(err)
+	}
+
+	log.Info("Binary copied to store.", zap.String("From", binaryLocation), zap.String("To", storeLocation))
+
 	return nil
 }
 
