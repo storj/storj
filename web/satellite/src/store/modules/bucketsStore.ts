@@ -83,6 +83,12 @@ export const useBucketsStore = defineStore('buckets', () => {
         state.page = await api.get(projectID, before, state.cursor);
     }
 
+    async function getSingleBucket(projectID: string, bucketName: string): Promise<Bucket> {
+        const before = new Date();
+
+        return await api.getSingle(projectID, bucketName, before);
+    }
+
     async function getAllBucketsNames(projectID: string): Promise<void> {
         state.allBucketNames = await api.getAllBucketNames(projectID);
     }
@@ -364,6 +370,7 @@ export const useBucketsStore = defineStore('buckets', () => {
         state,
         setBucketsSearch,
         getBuckets,
+        getSingleBucket,
         getAllBucketsNames,
         getAllBucketsMetadata,
         setPromptForPassphrase,
