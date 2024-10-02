@@ -27,9 +27,6 @@ export interface Operation {
 	// null is used when the API operation doesn't return any payload (e.g. PUT
 	// operations).
 	func: (...p: unknown[]) => Promise<Record<string, unknown> | null>;
-	// deprecated indicates that this operation should be executed through our new
-	// internal satellite admin.
-	deprecated: boolean;
 }
 
 export type ParamUI = InputText | Select | Textarea;

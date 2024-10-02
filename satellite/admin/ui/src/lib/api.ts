@@ -38,66 +38,6 @@ export class Admin {
 				}
 			}
 		],
-		bucket: [
-			{
-				name: 'get',
-				desc: 'Get the information of the specified bucket',
-				params: [
-					['Project ID', new InputText('text', true)],
-					['Bucket name', new InputText('text', true)]
-				],
-				func: async (projectId: string, bucketName: string): Promise<Record<string, unknown>> => {
-					return this.fetch('GET', `projects/${projectId}/buckets/${bucketName}`);
-				},
-				deprecated: true
-			},
-			{
-				name: 'delete geofencing',
-				desc: 'Delete the geofencing configuration of the specified bucket. The bucket MUST be empty',
-				params: [
-					['Project ID', new InputText('text', true)],
-					['Bucket name', new InputText('text', true)]
-				],
-				func: async (projectId: string, bucketName: string): Promise<null> => {
-					return this.fetch(
-						'DELETE',
-						`projects/${projectId}/buckets/${bucketName}/geofence`
-					) as Promise<null>;
-				},
-				deprecated: true
-			},
-			{
-				name: 'set geofencing',
-				desc: 'Set the geofencing configuration of the specified bucket. The bucket MUST be empty',
-				params: [
-					['Project ID', new InputText('text', true)],
-					['Bucket name', new InputText('text', true)],
-					[
-						'Region',
-						new Select(false, true, [
-							{ text: 'European Union', value: 'EU' },
-							{ text: 'European Economic Area', value: 'EEA' },
-							{ text: 'United States', value: 'US' },
-							{ text: 'Germany', value: 'DE' },
-							{ text: 'No Russia and/or other sanctioned country', value: 'NR' }
-						])
-					]
-				],
-				func: async (projectId: string, bucketName: string, region: string): Promise<null> => {
-					const query = this.urlQueryFromObject({ region });
-					if (query === '') {
-						throw new APIError('region cannot be empty');
-					}
-
-					return this.fetch(
-						'POST',
-						`projects/${projectId}/buckets/${bucketName}/geofence`,
-						query
-					) as Promise<null>;
-				},
-				deprecated: true
-			}
-		],
 		oauth_clients: [
 			{
 				name: 'create',
@@ -181,49 +121,6 @@ export class Admin {
 				}
 			},
 			{
-				name: 'get',
-				desc: 'Get the information of a specific project',
-				params: [['Project ID', new InputText('text', true)]],
-				func: async (projectId: string): Promise<Record<string, unknown>> => {
-					return this.fetch('GET', `projects/${projectId}`);
-				},
-				deprecated: true
-			},
-			{
-				name: 'update',
-				desc: 'Update the information of a specific project',
-				params: [
-					['Project ID', new InputText('text', true)],
-					['Project Name', new InputText('text', true)],
-					['Description', new InputText('text', false)]
-				],
-				func: async (
-					projectId: string,
-					projectName: string,
-					description: string
-				): Promise<null> => {
-					return this.fetch('PUT', `projects/${projectId}`, null, {
-						projectName,
-						description
-					}) as Promise<null>;
-				},
-				deprecated: true
-			},
-			{
-				name: 'update user agent',
-				desc: 'Update projects user agent',
-				params: [
-					['Project ID', new InputText('text', true)],
-					['User Agent', new InputText('text', true)]
-				],
-				func: async (projectId: string, userAgent: string): Promise<null> => {
-					return this.fetch('PATCH', `projects/${projectId}/useragent`, null, {
-						userAgent
-					}) as Promise<null>;
-				},
-				deprecated: true
-			},
-			{
 				name: 'create API key',
 				desc: 'Create a new API key for a specific project',
 				params: [
@@ -265,112 +162,6 @@ export class Admin {
 				func: async (projectId: string): Promise<Record<string, unknown>> => {
 					return this.fetch('GET', `projects/${projectId}/usage`);
 				}
-			},
-			{
-				name: 'get project limits',
-				desc: 'Get the current limits of a specific project. NULL values means that the satellite applies the configured defaults',
-				params: [['Project ID', new InputText('text', true)]],
-				func: async (projectId: string): Promise<Record<string, unknown>> => {
-					return this.fetch('GET', `projects/${projectId}/limit`);
-				},
-				deprecated: true
-			},
-			{
-				name: 'update project limits',
-				desc: 'Update the limits of a specific project. Only the non-blank fields are updated. Fields with the 0 value are set to 0, which is not the default value. The fields that accept -1 set the value to null, which is the value that indicate the satellite to apply the configured defaults',
-				params: [
-					['Project ID', new InputText('text', true)],
-					['Storage (in bytes or notations like 1GB, 2tb)', new InputText('text', false)],
-					['Bandwidth (in bytes or notations like 1GB, 2tb)', new InputText('text', false)],
-					['Buckets: maximum number (accepts -1)', new InputText('number', false)],
-					['Segments (maximum number)', new InputText('number', false)],
-					['Rate: requests per second (accepts -1)', new InputText('number', false)],
-					['Burst: max concurrent requests (accepts -1)', new InputText('number', false)],
-					['Rate (head): head requests per second (accepts -1)', new InputText('number', false)],
-					[
-						'Burst (head): max concurrent head requests (accepts -1)',
-						new InputText('number', false)
-					],
-					['Rate (get): get requests per second (accepts -1)', new InputText('number', false)],
-					['Burst (get): max concurrent get requests (accepts -1)', new InputText('number', false)],
-					['Rate (put): put requests per second (accepts -1)', new InputText('number', false)],
-					['Burst (put): max concurrent put requests (accepts -1)', new InputText('number', false)],
-					['Rate (list): list requests per second (accepts -1)', new InputText('number', false)],
-					[
-						'Burst (list): max concurrent list requests (accepts -1)',
-						new InputText('number', false)
-					],
-					[
-						'Rate (delete): delete requests per second (accepts -1)',
-						new InputText('number', false)
-					],
-					[
-						'Burst (delete): max concurrent delete requests (accepts -1)',
-						new InputText('number', false)
-					]
-				],
-				func: async (
-					projectId: string,
-					usage: string,
-					bandwidth: string,
-					buckets: number,
-					segments: number,
-					rate: number,
-					burst: number,
-					rateHead: number,
-					burstHead: number,
-					rateGet: number,
-					burstGet: number,
-					ratePut: number,
-					burstPut: number,
-					rateList: number,
-					burstList: number,
-					rateDelete: number,
-					burstDelete: number
-				): Promise<null> => {
-					usage = this.emptyToUndefined(usage);
-					bandwidth = this.emptyToUndefined(bandwidth);
-					buckets = this.nullToUndefined(buckets);
-					segments = this.nullToUndefined(segments);
-					rate = this.nullToUndefined(rate);
-					burst = this.nullToUndefined(burst);
-					rateHead = this.nullToUndefined(rateHead);
-					burstHead = this.nullToUndefined(burstHead);
-					rateGet = this.nullToUndefined(rateGet);
-					burstGet = this.nullToUndefined(burstGet);
-					ratePut = this.nullToUndefined(ratePut);
-					burstPut = this.nullToUndefined(burstPut);
-					rateList = this.nullToUndefined(rateList);
-					burstList = this.nullToUndefined(burstList);
-					rateDelete = this.nullToUndefined(rateDelete);
-					burstDelete = this.nullToUndefined(burstDelete);
-
-					const query = this.urlQueryFromObject({
-						usage,
-						bandwidth,
-						buckets,
-						segments,
-						rate,
-						burst,
-						rateHead,
-						burstHead,
-						rateGet,
-						burstGet,
-						ratePut,
-						burstPut,
-						rateList,
-						burstList,
-						rateDelete,
-						burstDelete
-					});
-
-					if (query === '') {
-						throw new APIError('nothing to update, at least one limit must be set');
-					}
-
-					return this.fetch('PUT', `projects/${projectId}/limit`, query) as Promise<null>;
-				},
-				deprecated: true
 			},
 			{
 				name: 'Set geofence',
@@ -434,15 +225,6 @@ export class Admin {
 				}
 			},
 			{
-				name: 'get',
-				desc: "Get the information of a user's account",
-				params: [['email', new InputText('email', true)]],
-				func: async (email: string): Promise<Record<string, unknown>> => {
-					return this.fetch('GET', `users/${email}`);
-				},
-				deprecated: true
-			},
-			{
 				name: 'get users pending deletion',
 				desc: 'Get the information of a users pending deletion and have no unpaid invoices',
 				params: [
@@ -465,64 +247,6 @@ export class Admin {
 						'users-requested-for-deletion.csv'
 					);
 				}
-			},
-			{
-				name: 'get user limits',
-				desc: 'Get the current limits for a user',
-				params: [['email', new InputText('email', true)]],
-				func: async (email: string): Promise<Record<string, unknown>> => {
-					return this.fetch('GET', `users/${email}/limits`);
-				},
-				deprecated: true
-			},
-			{
-				name: 'update',
-				desc: `Update the information of a user's account.
-Blank fields will not be updated.`,
-				params: [
-					["current user's email", new InputText('email', true)],
-					['new email', new InputText('email', false)],
-					['full name', new InputText('text', false)],
-					['short name', new InputText('text', false)],
-					['password hash', new InputText('text', false)],
-					['project limit (max number)', new InputText('number', false)],
-					['project storage limit (in bytes)', new InputText('number', false)],
-					['project bandwidth limit (in bytes)', new InputText('number', false)],
-					['project segment limit (max number)', new InputText('number', false)],
-					[
-						'paid tier',
-						new Select(false, false, [
-							{ text: '', value: '' },
-							{ text: 'true', value: 'true' },
-							{ text: 'false', value: 'false' }
-						])
-					]
-				],
-				func: async (
-					currentEmail: string,
-					email?: string,
-					fullName?: string,
-					shortName?: string,
-					passwordHash?: string,
-					projectLimit?: number,
-					projectStorageLimit?: number,
-					projectBandwidthLimit?: number,
-					projectSegmentLimit?: number,
-					paidTierStr?: boolean
-				): Promise<null> => {
-					return this.fetch('PUT', `users/${currentEmail}`, null, {
-						email,
-						fullName,
-						shortName,
-						passwordHash,
-						projectLimit,
-						projectStorageLimit,
-						projectBandwidthLimit,
-						projectSegmentLimit,
-						paidTierStr
-					}) as Promise<null>;
-				},
-				deprecated: true
 			},
 			{
 				name: "update user's project limits",
@@ -552,20 +276,6 @@ Blank fields will not be updated.`,
 						segment
 					}) as Promise<null>;
 				}
-			},
-			{
-				name: 'update user agent',
-				desc: `Update user's user agent.`,
-				params: [
-					["current user's email", new InputText('email', true)],
-					['user agent', new InputText('text', true)]
-				],
-				func: async (currentEmail: string, userAgent: string): Promise<null> => {
-					return this.fetch('PATCH', `users/${currentEmail}/useragent`, null, {
-						userAgent
-					}) as Promise<null>;
-				},
-				deprecated: true
 			},
 			{
 				name: 'activate account/disable bot restriction',
@@ -657,38 +367,6 @@ Blank fields will not be updated.`,
 				func: async (email: string): Promise<null> => {
 					return this.fetch('DELETE', `users/${email}/billing-warning`) as Promise<null>;
 				}
-			},
-			{
-				name: 'set geofencing',
-				desc: 'Set account level geofence for a user',
-				params: [
-					['email', new InputText('email', true)],
-					[
-						'Region',
-						new Select(false, true, [
-							{ text: 'European Union', value: 'EU' },
-							{ text: 'European Economic Area', value: 'EEA' },
-							{ text: 'United States', value: 'US' },
-							{ text: 'Germany', value: 'DE' },
-							{ text: 'No Russia and/or other sanctioned country', value: 'NR' }
-						])
-					]
-				],
-				func: async (email: string, region: string): Promise<null> => {
-					return this.fetch('PATCH', `users/${email}/geofence`, null, {
-						region
-					}) as Promise<null>;
-				},
-				deprecated: true
-			},
-			{
-				name: 'delete geofencing',
-				desc: 'Delete account level geofence for a user',
-				params: [['email', new InputText('email', true)]],
-				func: async (email: string): Promise<null> => {
-					return this.fetch('DELETE', `users/${email}/geofence`) as Promise<null>;
-				},
-				deprecated: true
 			},
 			{
 				name: 'update free trial expiration',
