@@ -578,7 +578,6 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, revocationDB exten
 			blobStore,
 			peer.DB.V0PieceInfo(),
 			pieceExpiration,
-			peer.DB.PieceSpaceUsedDB(),
 			config.Pieces,
 		)
 
@@ -613,10 +612,10 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, revocationDB exten
 				process.NamedLog(log, "piecestore:cache"),
 				peer.Storage2.BlobsCache,
 				peer.Storage2.Store,
+				peer.DB.PieceSpaceUsedDB(),
 				config.Storage2.CacheSyncInterval,
 				config.Storage2.PieceScanOnStartup,
 			)
-
 			peer.Services.Add(lifecycle.Item{
 				Name:  "piecestore:cache",
 				Run:   peer.Storage2.CacheService.Run,

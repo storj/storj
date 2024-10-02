@@ -283,8 +283,8 @@ func NewMudPeer(zapLogger *zap.Logger, full *identity.FullIdentity, db DB, revoc
 		}, logWrapper("piecedeleter"))
 		mud.Tag[*pieces.Deleter, Service](ball, Service{})
 
-		mud.Provide[*pieces.CacheService](ball, func(log *zap.Logger, usageCache *pieces.BlobsUsageCache, store *pieces.Store, storage2Config piecestore.Config) *pieces.CacheService {
-			return pieces.NewService(log, usageCache, store, storage2Config.CacheSyncInterval, storage2Config.PieceScanOnStartup)
+		mud.Provide[*pieces.CacheService](ball, func(log *zap.Logger, usageCache *pieces.BlobsUsageCache, store *pieces.Store, usedSpaceDB pieces.PieceSpaceUsedDB, storage2Config piecestore.Config) *pieces.CacheService {
+			return pieces.NewService(log, usageCache, store, usedSpaceDB, storage2Config.CacheSyncInterval, storage2Config.PieceScanOnStartup)
 		}, logWrapper("piecestore:cache"))
 
 		mud.Provide[monitor.SpaceReport](ball, func(log *zap.Logger, store *pieces.Store, config monitor.Config) monitor.SpaceReport {

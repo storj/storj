@@ -136,7 +136,7 @@ func createEndpoint(ctx context.Context, satIdent, snIdent *identity.FullIdentit
 	} else {
 		expirationStore = snDB.PieceExpirationDB()
 	}
-	piecesStore := pieces.NewStore(log, filewalker, nil, blobsCache, snDB.V0PieceInfo(), expirationStore, snDB.PieceSpaceUsedDB(), cfg.Pieces)
+	piecesStore := pieces.NewStore(log, filewalker, nil, blobsCache, snDB.V0PieceInfo(), expirationStore, cfg.Pieces)
 
 	tlsOptions := try.E1(tlsopts.NewOptions(snIdent, cfg.Server.Config, nil))
 
