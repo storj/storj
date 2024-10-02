@@ -16,7 +16,7 @@
             show-expand
             :item-value="(item: BrowserObjectWrapper) => item.browserObject"
             :items-length="allFiles.length"
-            :item-selectable="(item: BrowserObjectWrapper) => item.browserObject.type !== 'folder' && !item.browserObject.Versions?.length"
+            :item-selectable="(item: BrowserObjectWrapper) => !item.browserObject.Versions?.length"
             :must-sort="false"
             hover
         >
@@ -120,7 +120,6 @@
                 <tr v-if="shouldRenderRow(item.raw.browserObject)">
                     <td class="v-data-table__td v-data-table-column--no-padding v-data-table-column--align-start">
                         <v-checkbox-btn
-                            v-if="!isFolder(item.raw.browserObject)"
                             :model-value="areAllVersionsSelected(item.raw.browserObject)"
                             :indeterminate="areSomeVersionsSelected(item.raw.browserObject)"
                             hide-details
@@ -153,13 +152,21 @@
                     <td />
                     <td />
                     <td />
-                    <td>
+                    <td class="text-right">
                         <VBtn
                             v-if="!isFolder(item.raw.browserObject)"
                             :icon="getExpandOrCollapseIcon(item.raw.browserObject)"
                             size="small"
                             variant="text"
                             @click="toggleFileExpanded(item.raw.browserObject)"
+                        />
+                        <browser-row-actions
+                            v-else
+                            :deleting="isBeingDeleted(item.raw.browserObject)"
+                            :file="item.raw.browserObject"
+                            align="right"
+                            @delete-file-click="onDeleteFileClick(item.raw.browserObject)"
+                            @share-click="onShareClick(item.raw.browserObject)"
                         />
                     </td>
                 </tr>
@@ -542,6 +549,9 @@ function shouldRenderRow(file: BrowserObject): boolean {
  * Returns whether a files versions are all selected.
  */
 function areAllVersionsSelected(file: BrowserObject): boolean {
+    if (file.type === 'folder') {
+        return selectedFiles.value.includes(file);
+    }
     return !!file.Versions?.every(v => selectedFiles.value.includes(v));
 }
 
@@ -567,6 +577,14 @@ function toggleFileExpanded(file: BrowserObject): void {
  * Handles version selection.
  */
 function updateSelectedVersions(file: BrowserObject, selected: boolean): void {
+    if (file.type === 'folder') {
+        if (selected) {
+            obStore.updateSelectedFiles([...selectedFiles.value, file]);
+        } else {
+            obStore.updateSelectedFiles(selectedFiles.value.filter(f => f !== file));
+        }
+        return;
+    }
     if (selected) {
         obStore.updateSelectedFiles([...selectedFiles.value, ...file.Versions ?? []]);
     } else {
@@ -647,6 +665,14 @@ async function fetchFiles(page = 1, saveNextToken = true): Promise<void> {
 function onDeleteFileClick(file: BrowserObject): void {
     fileToDelete.value = file;
     isDeleteFileDialogShown.value = true;
+}
+
+/**
+ * Handles Share button click event.
+ */
+function onShareClick(file: BrowserObject): void {
+    fileToShare.value = file;
+    isShareDialogShown.value = true;
 }
 
 /**
