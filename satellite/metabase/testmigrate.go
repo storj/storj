@@ -208,7 +208,7 @@ func (s *SpannerAdapter) TestMigrateToLatest(ctx context.Context) error {
 	}
 
 	_, err := s.adminClient.UpdateDatabaseDdl(ctx, &databasepb.UpdateDatabaseDdlRequest{
-		Database:   s.database,
+		Database:   s.connParams.DatabasePath(),
 		Statements: statements,
 	})
 	if err != nil {
