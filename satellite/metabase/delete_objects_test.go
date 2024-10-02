@@ -22,11 +22,6 @@ func TestDeleteExpiredObjects(t *testing.T) {
 		obj2 := metabasetest.RandObjectStream()
 		obj3 := metabasetest.RandObjectStream()
 
-		now := time.Now()
-		zombieDeadline := now.Add(24 * time.Hour)
-		pastTime := now.Add(-1 * time.Hour)
-		futureTime := now.Add(1 * time.Hour)
-
 		t.Run("none", func(t *testing.T) {
 			defer metabasetest.DeleteAll{}.Check(ctx, t, db)
 
@@ -41,8 +36,13 @@ func TestDeleteExpiredObjects(t *testing.T) {
 		t.Run("partial objects", func(t *testing.T) {
 			defer metabasetest.DeleteAll{}.Check(ctx, t, db)
 
+			now := time.Now()
+			zombieDeadline := now.Add(24 * time.Hour)
+			pastTime := now.Add(-1 * time.Hour)
+			futureTime := now.Add(1 * time.Hour)
+
 			// pending object without expiration time
-			metabasetest.BeginObjectExactVersion{
+			pending1 := metabasetest.BeginObjectExactVersion{
 				Opts: metabase.BeginObjectExactVersion{
 					ObjectStream: obj1,
 					Encryption:   metabasetest.DefaultEncryption,
@@ -59,7 +59,7 @@ func TestDeleteExpiredObjects(t *testing.T) {
 			}.Check(ctx, t, db)
 
 			// pending object with expiration time in the future
-			metabasetest.BeginObjectExactVersion{
+			pending3 := metabasetest.BeginObjectExactVersion{
 				Opts: metabase.BeginObjectExactVersion{
 					ObjectStream: obj3,
 					ExpiresAt:    &futureTime,
@@ -77,7 +77,7 @@ func TestDeleteExpiredObjects(t *testing.T) {
 				Objects: []metabase.RawObject{
 					{
 						ObjectStream: obj1,
-						CreatedAt:    now,
+						CreatedAt:    pending1.CreatedAt,
 						Status:       metabase.Pending,
 
 						Encryption:             metabasetest.DefaultEncryption,
@@ -85,7 +85,7 @@ func TestDeleteExpiredObjects(t *testing.T) {
 					},
 					{
 						ObjectStream: obj3,
-						CreatedAt:    now,
+						CreatedAt:    pending3.CreatedAt,
 						ExpiresAt:    &futureTime,
 						Status:       metabase.Pending,
 
@@ -113,6 +113,10 @@ func TestDeleteExpiredObjects(t *testing.T) {
 
 		t.Run("committed objects", func(t *testing.T) {
 			defer metabasetest.DeleteAll{}.Check(ctx, t, db)
+
+			now := time.Now()
+			pastTime := now.Add(-1 * time.Hour)
+			futureTime := now.Add(1 * time.Hour)
 
 			object1, _ := metabasetest.CreateTestObject{}.Run(ctx, t, db, obj1, 1)
 			metabasetest.CreateTestObject{
@@ -168,6 +172,9 @@ func TestDeleteExpiredObjects(t *testing.T) {
 		t.Run("concurrent deletes", func(t *testing.T) {
 			defer metabasetest.DeleteAll{}.Check(ctx, t, db)
 
+			now := time.Now()
+			pastTime := now.Add(-1 * time.Hour)
+
 			for _, batchSize := range []int{0, 1, 2, 3, 8, 100} {
 				for i := 0; i < 13; i++ {
 					_ = metabasetest.CreateExpiredObject(ctx, t, db, metabasetest.RandObjectStream(), 3, pastTime)
@@ -192,17 +199,12 @@ func TestDeleteZombieObjects(t *testing.T) {
 		obj2 := metabasetest.RandObjectStream()
 		obj3 := metabasetest.RandObjectStream()
 
-		now := time.Now()
-		zombieDeadline := now.Add(24 * time.Hour)
-		pastTime := now.Add(-1 * time.Hour)
-		futureTime := now.Add(1 * time.Hour)
-
 		t.Run("none", func(t *testing.T) {
 			defer metabasetest.DeleteAll{}.Check(ctx, t, db)
 
 			metabasetest.DeleteZombieObjects{
 				Opts: metabase.DeleteZombieObjects{
-					DeadlineBefore: now,
+					DeadlineBefore: time.Now(),
 				},
 			}.Check(ctx, t, db)
 			metabasetest.Verify{}.Check(ctx, t, db)
@@ -210,6 +212,11 @@ func TestDeleteZombieObjects(t *testing.T) {
 
 		t.Run("partial objects", func(t *testing.T) {
 			defer metabasetest.DeleteAll{}.Check(ctx, t, db)
+
+			now := time.Now()
+			zombieDeadline := now.Add(24 * time.Hour)
+			pastTime := now.Add(-1 * time.Hour)
+			futureTime := now.Add(1 * time.Hour)
 
 			// zombie object with default deadline
 			metabasetest.BeginObjectExactVersion{
@@ -268,6 +275,8 @@ func TestDeleteZombieObjects(t *testing.T) {
 
 		t.Run("partial object with segment", func(t *testing.T) {
 			defer metabasetest.DeleteAll{}.Check(ctx, t, db)
+
+			now := time.Now()
 
 			metabasetest.BeginObjectExactVersion{
 				Opts: metabase.BeginObjectExactVersion{
@@ -400,8 +409,8 @@ func TestDeleteZombieObjects(t *testing.T) {
 
 			metabasetest.DeleteZombieObjects{
 				Opts: metabase.DeleteZombieObjects{
-					DeadlineBefore:   now.Add(25 * time.Hour),
-					InactiveDeadline: now.Add(48 * time.Hour),
+					DeadlineBefore:   time.Now().Add(25 * time.Hour),
+					InactiveDeadline: time.Now().Add(48 * time.Hour),
 					BatchSize:        4,
 				},
 			}.Check(ctx, t, db)
@@ -411,6 +420,10 @@ func TestDeleteZombieObjects(t *testing.T) {
 
 		t.Run("committed objects", func(t *testing.T) {
 			defer metabasetest.DeleteAll{}.Check(ctx, t, db)
+
+			now := time.Now()
+			pastTime := now.Add(-1 * time.Hour)
+			futureTime := now.Add(1 * time.Hour)
 
 			object1, _ := metabasetest.CreateTestObject{}.Run(ctx, t, db, obj1, 1)
 
@@ -516,8 +529,8 @@ func TestDeleteZombieObjects(t *testing.T) {
 
 			metabasetest.DeleteZombieObjects{
 				Opts: metabase.DeleteZombieObjects{
-					DeadlineBefore:   now,
-					InactiveDeadline: now.Add(1 * time.Hour),
+					DeadlineBefore:   time.Now(),
+					InactiveDeadline: time.Now().Add(1 * time.Hour),
 				},
 			}.Check(ctx, t, db)
 

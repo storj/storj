@@ -20,8 +20,6 @@ import (
 func TestDeletePendingObject(t *testing.T) {
 	metabasetest.Run(t, func(ctx *testcontext.Context, t *testing.T, db *metabase.DB) {
 		obj := metabasetest.RandObjectStream()
-		now := time.Now()
-		zombieDeadline := now.Add(24 * time.Hour)
 
 		for _, test := range metabasetest.InvalidObjectStreams(obj) {
 			test := test
@@ -53,6 +51,9 @@ func TestDeletePendingObject(t *testing.T) {
 
 		t.Run("non existing object version", func(t *testing.T) {
 			defer metabasetest.DeleteAll{}.Check(ctx, t, db)
+
+			now := time.Now()
+			zombieDeadline := now.Add(24 * time.Hour)
 
 			metabasetest.BeginObjectExactVersion{
 				Opts: metabase.BeginObjectExactVersion{
@@ -91,6 +92,7 @@ func TestDeletePendingObject(t *testing.T) {
 		t.Run("delete committed object", func(t *testing.T) {
 			defer metabasetest.DeleteAll{}.Check(ctx, t, db)
 
+			now := time.Now()
 			object := metabasetest.CreateObject(ctx, t, db, obj, 0)
 
 			metabasetest.DeletePendingObject{
@@ -116,6 +118,9 @@ func TestDeletePendingObject(t *testing.T) {
 
 		t.Run("without segments with wrong StreamID", func(t *testing.T) {
 			defer metabasetest.DeleteAll{}.Check(ctx, t, db)
+
+			now := time.Now()
+			zombieDeadline := now.Add(24 * time.Hour)
 
 			metabasetest.BeginObjectExactVersion{
 				Opts: metabase.BeginObjectExactVersion{
@@ -156,6 +161,8 @@ func TestDeletePendingObject(t *testing.T) {
 		t.Run("without segments", func(t *testing.T) {
 			defer metabasetest.DeleteAll{}.Check(ctx, t, db)
 
+			now := time.Now()
+
 			metabasetest.BeginObjectExactVersion{
 				Opts: metabase.BeginObjectExactVersion{
 					ObjectStream: obj,
@@ -184,6 +191,8 @@ func TestDeletePendingObject(t *testing.T) {
 		t.Run("with segments", func(t *testing.T) {
 			defer metabasetest.DeleteAll{}.Check(ctx, t, db)
 
+			now := time.Now()
+
 			metabasetest.CreatePendingObject(ctx, t, db, obj, 2)
 
 			metabasetest.DeletePendingObject{
@@ -207,6 +216,8 @@ func TestDeletePendingObject(t *testing.T) {
 
 		t.Run("with inline segment", func(t *testing.T) {
 			defer metabasetest.DeleteAll{}.Check(ctx, t, db)
+
+			now := time.Now()
 
 			metabasetest.BeginObjectExactVersion{
 				Opts: metabase.BeginObjectExactVersion{
@@ -256,8 +267,6 @@ func TestDeleteObjectExactVersion(t *testing.T) {
 		obj := metabasetest.RandObjectStream()
 
 		location := obj.Location()
-
-		now := time.Now()
 
 		for _, test := range metabasetest.InvalidObjectLocations(location) {
 			test := test
@@ -320,6 +329,8 @@ func TestDeleteObjectExactVersion(t *testing.T) {
 
 		t.Run("Delete partial object", func(t *testing.T) {
 			defer metabasetest.DeleteAll{}.Check(ctx, t, db)
+
+			now := time.Now()
 
 			metabasetest.BeginObjectExactVersion{
 				Opts: metabase.BeginObjectExactVersion{

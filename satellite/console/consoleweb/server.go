@@ -97,6 +97,7 @@ type Config struct {
 	GeneratedAPIEnabled             bool          `help:"indicates if generated console api should be used" default:"true"`
 	OptionalSignupSuccessURL        string        `help:"optional url to external registration success page" default:""`
 	HomepageURL                     string        `help:"url link to storj.io homepage" default:"https://www.storj.io"`
+	ValdiSignUpURL                  string        `help:"url link to Valdi sign up page" default:""`
 	NativeTokenPaymentsEnabled      bool          `help:"indicates if storj native token payments system is enabled" default:"false"`
 	PricingPackagesEnabled          bool          `help:"whether to allow purchasing pricing packages" default:"true"`
 	GalleryViewEnabled              bool          `help:"whether to show new gallery view" default:"true"`
@@ -910,6 +911,7 @@ func (server *Server) frontendConfigHandler(w http.ResponseWriter, r *http.Reque
 		DomainsPageEnabled:                server.config.DomainsPageEnabled,
 		ActiveSessionsViewEnabled:         server.config.ActiveSessionsViewEnabled,
 		ObjectLockUIEnabled:               server.objectLockAndVersioningConfig.ObjectLockEnabled && server.config.ObjectLockUIEnabled,
+		ValdiSignUpURL:                    server.config.ValdiSignUpURL,
 	}
 
 	err := json.NewEncoder(w).Encode(&cfg)
