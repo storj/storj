@@ -20,8 +20,6 @@ import (
 
 func TestIterateLoopSegments(t *testing.T) {
 	metabasetest.Run(t, func(ctx *testcontext.Context, t *testing.T, db *metabase.DB) {
-		now := time.Now()
-
 		t.Run("Limit is negative", func(t *testing.T) {
 			defer metabasetest.DeleteAll{}.Check(ctx, t, db)
 			metabasetest.IterateLoopSegments{
@@ -130,6 +128,8 @@ func TestIterateLoopSegments(t *testing.T) {
 		t.Run("segments from pending and committed objects", func(t *testing.T) {
 			defer metabasetest.DeleteAll{}.Check(ctx, t, db)
 
+			now := time.Now()
+
 			pending := metabasetest.RandObjectStream()
 			metabasetest.CreatePendingObject(ctx, t, db, pending, 2)
 
@@ -195,6 +195,8 @@ func TestIterateLoopSegments(t *testing.T) {
 
 		t.Run("streamID range", func(t *testing.T) {
 			defer metabasetest.DeleteAll{}.Check(ctx, t, db)
+
+			now := time.Now()
 
 			numberOfObjects := 10
 			numberOfSegmentsPerObject := 3

@@ -1249,7 +1249,6 @@ func TestCommitSegment(t *testing.T) {
 		ApplicationName: "metabase-tests",
 	}, func(ctx *testcontext.Context, t *testing.T, db *metabase.DB) {
 		obj := metabasetest.RandObjectStream()
-		now := time.Now()
 
 		for _, test := range metabasetest.InvalidObjectStreams(obj) {
 			test := test
@@ -1573,7 +1572,7 @@ func TestCommitSegment(t *testing.T) {
 					{
 						StreamID:  obj.StreamID,
 						Position:  metabase.SegmentPosition{Part: 0, Index: 0},
-						CreatedAt: now,
+						CreatedAt: now1,
 
 						RootPieceID:       rootPieceID,
 						EncryptedKey:      encryptedKey,
@@ -1665,7 +1664,7 @@ func TestCommitSegment(t *testing.T) {
 					{
 						StreamID:  obj.StreamID,
 						Position:  metabase.SegmentPosition{Part: 0, Index: 0},
-						CreatedAt: now,
+						CreatedAt: now1,
 
 						RootPieceID:       rootPieceID2,
 						EncryptedKey:      encryptedKey,
@@ -3208,11 +3207,12 @@ func TestCommitObjectVersioned(t *testing.T) {
 	metabasetest.Run(t, func(ctx *testcontext.Context, t *testing.T, db *metabase.DB) {
 		obj := metabasetest.RandObjectStream()
 		obj.Version = metabase.NextVersion
-		now := time.Now()
-		zombieExpiration := now.Add(24 * time.Hour)
 
 		t.Run("Commit versioned only", func(t *testing.T) {
 			defer metabasetest.DeleteAll{}.Check(ctx, t, db)
+
+			now := time.Now()
+			zombieExpiration := now.Add(24 * time.Hour)
 
 			v1 := obj
 			metabasetest.BeginObjectNextVersion{
@@ -3326,6 +3326,9 @@ func TestCommitObjectVersioned(t *testing.T) {
 
 		t.Run("Commit unversioned then versioned", func(t *testing.T) {
 			defer metabasetest.DeleteAll{}.Check(ctx, t, db)
+
+			now := time.Now()
+			zombieExpiration := now.Add(24 * time.Hour)
 
 			v1 := obj
 			metabasetest.BeginObjectNextVersion{
@@ -3497,6 +3500,9 @@ func TestCommitObjectVersioned(t *testing.T) {
 		t.Run("Commit versioned then unversioned", func(t *testing.T) {
 			defer metabasetest.DeleteAll{}.Check(ctx, t, db)
 
+			now := time.Now()
+			zombieExpiration := now.Add(24 * time.Hour)
+
 			v1 := obj
 			metabasetest.BeginObjectNextVersion{
 				Opts: metabase.BeginObjectNextVersion{
@@ -3667,6 +3673,9 @@ func TestCommitObjectVersioned(t *testing.T) {
 
 		t.Run("Commit mixed versioned and unversioned", func(t *testing.T) {
 			defer metabasetest.DeleteAll{}.Check(ctx, t, db)
+
+			now := time.Now()
+			zombieExpiration := now.Add(24 * time.Hour)
 
 			v1 := obj
 			metabasetest.BeginObjectNextVersion{
@@ -3900,6 +3909,9 @@ func TestCommitObjectVersioned(t *testing.T) {
 
 		t.Run("Commit large number mixed versioned and unversioned", func(t *testing.T) {
 			defer metabasetest.DeleteAll{}.Check(ctx, t, db)
+
+			now := time.Now()
+			zombieExpiration := now.Add(24 * time.Hour)
 
 			// half the commits are versioned half are unversioned
 			numCommits := 1000
