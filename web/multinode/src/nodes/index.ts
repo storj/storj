@@ -61,6 +61,7 @@ export class CreateNodeFields {
         public id: string = '',
         public apiSecret: string = '',
         public publicAddress: string = '',
+        public name: string = '',
     ) {}
 }
 
