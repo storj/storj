@@ -853,7 +853,6 @@ export const useObjectBrowserStore = defineStore('objectBrowser', () => {
                 error.message.includes('object retention not found')
                || error.message.includes('missing retention configuration')
                || error.message.includes('object does not have a retention configuration')
-
             ) {
                 return {} as GetObjectRetentionCommandOutput;
             }

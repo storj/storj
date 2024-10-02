@@ -263,7 +263,7 @@ async function onDeleteClick(): Promise<void> {
     isGettingRetention.value = true;
     try {
         const lockStatus = await obStore.getObjectLockStatus(props.file);
-        if (!lockStatus.retention.active() && !lockStatus.legalHold) {
+        if (!lockStatus.retention.active && !lockStatus.legalHold) {
             emit('deleteFileClick');
             return;
         }

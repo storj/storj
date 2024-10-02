@@ -179,11 +179,11 @@ async function checkLockedVersions() {
         }
         const id = result.value.id;
         const lockStatus = result.value.lockStatus;
-        if (!lockStatus.retention.active() && !lockStatus.legalHold) {
+        if (!lockStatus.retention.active && !lockStatus.legalHold) {
             continue;
         }
         let untilText = '';
-        if (lockStatus.retention.active()) {
+        if (lockStatus.retention.active) {
             untilText = formatDate(lockStatus.retention.retainUntil);
         }
         if (lockStatus.legalHold) {

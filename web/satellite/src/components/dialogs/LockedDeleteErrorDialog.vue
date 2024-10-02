@@ -78,7 +78,7 @@
                         </v-chip>
                     </template>
 
-                    <template v-if="file?.retention?.active()">
+                    <template v-if="file?.retention?.active">
                         <p class="mt-3 mb-1 font-weight-bold text-body-2">
                             Lock Mode:
                         </p>
