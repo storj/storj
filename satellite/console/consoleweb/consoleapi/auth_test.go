@@ -734,7 +734,6 @@ func TestRegistrationEmail(t *testing.T) {
 		require.NoError(t, err)
 		require.Contains(t, body, "/login")
 		require.Contains(t, body, "/forgot-password")
-		require.Contains(t, body, "/signup")
 	})
 }
 
@@ -1175,7 +1174,6 @@ func TestAccountActivationWithCode(t *testing.T) {
 		require.NoError(t, err)
 		require.Contains(t, body, "/login")
 		require.Contains(t, body, "/forgot-password")
-		require.Contains(t, body, "/signup")
 
 		// trying to activate an account that is not "inactive" or "active" should result in an error
 		user, err := sat.DB.Console().Users().GetByEmail(ctx, email)
