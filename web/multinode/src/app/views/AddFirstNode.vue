@@ -104,7 +104,7 @@ export default class AddFirstNode extends Vue {
     /**
      * Sets node name field from value string.
      */
-     public setNodeName(value: string): void {
+    public setNodeName(value: string): void {
         this.nodeToAdd.name = value.trim();
         this.nameError = '';
     }
