@@ -134,80 +134,106 @@ pipeline {
             }
         }
 
-        stage('Cross Compile') {
-            steps {
-                // verify most of the commands, we cannot check everything since some of them
-                // have a C dependency and we don't have cross-compilation in storj/ci image
-                sh 'check-cross-compile storj.io/storj/cmd/uplink storj.io/storj/cmd/satellite storj.io/storj/cmd/storagenode-updater storj.io/storj/cmd/storj-sim'
+        stage('All') {
+            parallel {
 
-                dir("cmd/storagenode-updater") {
-                    sh 'GOOS=windows GOARCH=amd64 go vet -tags service .'
+            stage('Cross Compile') {
+                steps {
+                    // verify most of the commands, we cannot check everything since some of them
+                    // have a C dependency and we don't have cross-compilation in storj/ci image
+                    sh 'check-cross-compile storj.io/storj/cmd/uplink storj.io/storj/cmd/satellite storj.io/storj/cmd/storagenode-updater storj.io/storj/cmd/storj-sim'
+
+                    dir("cmd/storagenode-updater") {
+                        sh 'GOOS=windows GOARCH=amd64 go vet -tags service .'
+                    }
                 }
             }
-        }
 
-        stage('Tests') {
-            environment {
-                STORJ_TEST_HOST = '127.0.0.20;127.0.0.21;127.0.0.22;127.0.0.23;127.0.0.24;127.0.0.25'
-                STORJ_TEST_COCKROACH = 'cockroach://root@localhost:26256/testcockroach?sslmode=disable;' +
-                    'cockroach://root@localhost:26257/testcockroach?sslmode=disable'
+            stage('Tests') {
+                environment {
+                    STORJ_TEST_HOST = '127.0.0.20;127.0.0.21;127.0.0.22;127.0.0.23;127.0.0.24;127.0.0.25'
+                    STORJ_TEST_COCKROACH = 'cockroach://root@localhost:26256/testcockroach?sslmode=disable;' +
+                        'cockroach://root@localhost:26257/testcockroach?sslmode=disable'
 
-                SPANNER_EMULATOR_HOST= 'localhost:9010'
-                STORJ_TEST_SPANNER = 'spanner://projects/storj-build/instances/test-instance/databases/metabase'
+                    SPANNER_EMULATOR_HOST= 'localhost:9010'
+                    STORJ_TEST_SPANNER = 'spanner://projects/storj-build/instances/test-instance/databases/metabase'
 
-                STORJ_TEST_COCKROACH_NODROP = 'true'
-                STORJ_TEST_POSTGRES = 'omit'
-                STORJ_TEST_LOG_LEVEL = 'info'
-                COVERFLAGS = "${ env.BRANCH_NAME == 'main' ? '-coverprofile=.build/coverprofile -coverpkg=storj.io/storj/private/...,storj.io/storj/satellite/...,storj.io/storj/storagenode/...,storj.io/storj/versioncontrol/...' : ''}"
-                GOCACHE = "${ env.BRANCH_NAME == 'main' ? '/root/.cache/go-build-main' : '/root/.cache/go-build'}"
-                GOEXPERIMENT = 'nocoverageredesign'
-            }
-            steps {
-                sh 'cockroach sql --insecure --host=localhost:26256 -e \'create database testcockroach;\''
-                sh 'cockroach sql --insecure --host=localhost:26257 -e \'create database testcockroach;\''
+                    STORJ_TEST_COCKROACH_NODROP = 'true'
+                    STORJ_TEST_POSTGRES = 'omit'
+                    STORJ_TEST_LOG_LEVEL = 'info'
+                    COVERFLAGS = "${ env.BRANCH_NAME == 'main' ? '-coverprofile=.build/coverprofile -coverpkg=storj.io/storj/private/...,storj.io/storj/satellite/...,storj.io/storj/storagenode/...,storj.io/storj/versioncontrol/...' : ''}"
+                    GOCACHE = "${ env.BRANCH_NAME == 'main' ? '/root/.cache/go-build-main' : '/root/.cache/go-build'}"
+                    GOEXPERIMENT = 'nocoverageredesign'
+                }
+                steps {
+                    sh 'cockroach sql --insecure --host=localhost:26256 -e \'create database testcockroach;\''
+                    sh 'cockroach sql --insecure --host=localhost:26257 -e \'create database testcockroach;\''
 
-                sh '/usr/local/bin/spanner_gateway -grpc_binary $WORKSPACE/scripts/start-spanner-emulator.sh &'
+                    sh '/usr/local/bin/spanner_gateway -grpc_binary $WORKSPACE/scripts/start-spanner-emulator.sh &'
 
-                sh 'gcloud spanner instances create test-instance --config=emulator --description="Test Instance" --nodes=1'
-                sh 'gcloud spanner databases create metabase --instance=test-instance'
+                    sh 'gcloud spanner instances create test-instance --config=emulator --description="Test Instance" --nodes=1'
+                    sh 'gcloud spanner databases create metabase --instance=test-instance'
 
-                sh 'use-ports -from 1024 -to 10000 &'
+                    sh 'use-ports -from 1024 -to 10000 &'
 
-                sh 'go test -parallel 6 -p 12 -vet=off $COVERFLAGS -timeout 32m -json -race ./... 2>&1 | tee .build/tests.json | xunit -out .build/tests.xml'
-            }
+                    sh 'go test -parallel 6 -p 12 -vet=off $COVERFLAGS -timeout 32m -json -race ./... 2>&1 | tee .build/tests.json | xunit -out .build/tests.xml'
+                }
 
-            post {
-                always {
-                    archiveArtifacts artifacts: '.build/tests.json'
-                    sh script: 'cat .build/tests.json | tparse -all -slow 100', returnStatus: true
-                    junit '.build/tests.xml'
+                post {
+                    always {
+                        archiveArtifacts artifacts: '.build/tests.json'
+                        sh script: 'cat .build/tests.json | tparse -all -slow 100', returnStatus: true
+                        junit '.build/tests.xml'
 
-                    script {
-                        if(fileExists(".build/coverprofile")){
-                            sh script: 'filter-cover-profile < .build/coverprofile > .build/clean.coverprofile', returnStatus: true
-                            sh script: 'gocov convert .build/clean.coverprofile > .build/cover.json', returnStatus: true
-                            sh script: 'gocov-xml  < .build/cover.json > .build/cobertura.xml', returnStatus: true
-                            cobertura coberturaReportFile: '.build/cobertura.xml',
-                                lineCoverageTargets: '70, 60, 50',
-                                autoUpdateHealth: false,
-                                autoUpdateStability: false,
-                                failUnhealthy: true
+                        script {
+                            if(fileExists(".build/coverprofile")){
+                                sh script: 'filter-cover-profile < .build/coverprofile > .build/clean.coverprofile', returnStatus: true
+                                sh script: 'gocov convert .build/clean.coverprofile > .build/cover.json', returnStatus: true
+                                sh script: 'gocov-xml  < .build/cover.json > .build/cobertura.xml', returnStatus: true
+                                cobertura coberturaReportFile: '.build/cobertura.xml',
+                                    lineCoverageTargets: '70, 60, 50',
+                                    autoUpdateHealth: false,
+                                    autoUpdateStability: false,
+                                    failUnhealthy: true
+                            }
                         }
                     }
                 }
             }
-        }
 
-        stage('Check Benchmark') {
-            environment {
-                STORJ_TEST_COCKROACH = 'omit'
-                STORJ_TEST_SPANNER = 'omit'
-                STORJ_TEST_POSTGRES = 'postgres://postgres@localhost/benchstorj?sslmode=disable'
-                 GOCACHE = '/root/.cache/go-build-benchmarks'
+            stage('Check Benchmark') {
+                environment {
+                    STORJ_TEST_COCKROACH = 'omit'
+                    STORJ_TEST_SPANNER = 'omit'
+                    STORJ_TEST_POSTGRES = 'postgres://postgres@localhost/benchstorj?sslmode=disable'
+                    GOCACHE = '/root/.cache/go-build-benchmarks'
+                }
+                steps {
+                    sh 'psql -U postgres -c \'create database benchstorj;\''
+                    sh 'go test -parallel 1 -p 1 -vet=off -timeout 20m -short -run XYZXYZXYZXYZ -bench . -benchtime 1x ./...'
+                }
             }
-            steps {
-                sh 'psql -U postgres -c \'create database benchstorj;\''
-                sh 'go test -parallel 1 -p 1 -vet=off -timeout 20m -short -run XYZXYZXYZXYZ -bench . -benchtime 1x ./...'
+
+            stage('Satellite UI Tests') {
+                environment {
+                    STORJ_TEST_COCKROACH = 'cockroach://root@localhost:26256/uitestcockroach?sslmode=disable'
+                    STORJ_TEST_COCKROACH_NODROP = 'true'
+                    STORJ_TEST_POSTGRES = 'omit'
+                    STORJ_TEST_LOG_LEVEL = 'debug'
+                }
+
+                steps {
+                    sh 'cockroach sql --insecure --host=localhost:26256 -e \'create database uitestcockroach;\''
+                    sh 'make test-satellite-ui'
+                }
+
+                post {
+                    failure {
+                        sh script: 'tar -zcvf .build/test-results.tar.gz ./testsuite/playwright-ui/test-results/'
+                        archiveArtifacts artifacts: '.build/test-results.tar.gz'
+                    }
+                }
+            }
             }
         }
 
@@ -243,27 +269,6 @@ pipeline {
                         sh 'make test-sim'
                         sh 'cockroach sql --insecure --host=localhost:26257 -e \'drop database testcockroach4;\''
                     }
-                }
-            }
-        }
-
-        stage('Satellite UI Tests') {
-            environment {
-                STORJ_TEST_COCKROACH = 'cockroach://root@localhost:26256/uitestcockroach?sslmode=disable'
-                STORJ_TEST_COCKROACH_NODROP = 'true'
-                STORJ_TEST_POSTGRES = 'omit'
-                STORJ_TEST_LOG_LEVEL = 'debug'
-            }
-
-            steps {
-                sh 'cockroach sql --insecure --host=localhost:26256 -e \'create database uitestcockroach;\''
-                sh 'make test-satellite-ui'
-            }
-
-            post {
-                failure {
-                    sh script: 'tar -zcvf .build/test-results.tar.gz ./testsuite/playwright-ui/test-results/'
-                    archiveArtifacts artifacts: '.build/test-results.tar.gz'
                 }
             }
         }
