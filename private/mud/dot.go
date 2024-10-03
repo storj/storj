@@ -39,8 +39,8 @@ func Dot(w io.Writer, components []*Component) (err error) {
 	p("\tnode [style=filled, shape=box, fillcolor=white];\n")
 	defer p("}\n")
 
-	annotationStr := func(c *Component) string {
-		annotations := []string{}
+	tagsStr := func(c *Component) string {
+		var annotations []string
 		for _, tag := range c.tags {
 			annotations = append(annotations, fmt.Sprintf("%s", tag))
 		}
@@ -56,12 +56,19 @@ func Dot(w io.Writer, components []*Component) (err error) {
 	for _, component := range components {
 		componentID := typeLabel(component.target)
 
-		entries := []string{"label=\"" + component.Name() + annotationStr(component) + "\""}
+		// it's an unimportant dependency. Let's hide it.
+		if strings.Contains(component.Name(), "zap.Logger") {
+			continue
+		}
+		entries := []string{"label=\"" + component.Name() + tagsStr(component) + "\""}
 		if component.instance == nil {
 			entries = append(entries, "color=darkgray", "fontcolor=darkgray")
-		}
-		if component.run != nil && !component.run.started.IsZero() && component.run.finished.IsZero() {
-			entries = append(entries, "fillcolor=green")
+		} else if component.run != nil && !component.run.started.IsZero() {
+			if component.run.finished.IsZero() {
+				entries = append(entries, "fillcolor=green")
+			} else {
+				entries = append(entries, "fillcolor=blue")
+			}
 		}
 
 		entries = append(entries, "URL=\"./"+strings.ReplaceAll(componentID, "/", "_")+"\"")

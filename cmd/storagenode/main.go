@@ -32,7 +32,7 @@ func main() {
 	}
 
 	process.ExecWithCustomOptions(rootCmd, process.ExecOptions{
-		InitDefaultDebugServer: allowDefaults,
+		InitDefaultDebugServer: false,
 		InitTracing:            allowDefaults,
 		InitProfiler:           allowDefaults,
 		LoggerFactory:          loggerFunc,
