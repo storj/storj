@@ -67,7 +67,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed } from 'vue';
+import { computed, onMounted, ref, watch } from 'vue';
 import { useRouter } from 'vue-router';
 import {
     VDialog,
@@ -95,6 +95,7 @@ const bucketsStore = useBucketsStore();
 const configStore = useConfigStore();
 const projectsStore = useProjectsStore();
 const router = useRouter();
+const bucket = ref<Bucket>(new Bucket());
 
 const props = defineProps<{
     bucketName: string,
@@ -119,26 +120,45 @@ const showRegionTag = computed<boolean>(() => {
     return configStore.state.config.enableRegionTag;
 });
 
-function redirectToBucketsPage(): void {
-    router.push({
-        name: ROUTES.Buckets.name,
-        params: { id: projectsStore.state.selectedProject.urlId },
-    });
-}
-
-const bucket = computed((): Bucket => {
-    if (!projectsStore.state.selectedProject.id) return new Bucket();
+/**
+ * Fetch the bucket data if it's not avaliable
+ */
+async function loadBucketData() {
+    if (!projectsStore.state.selectedProject.id) {
+        bucket.value = new Bucket();
+        return;
+    }
 
     const data = bucketsStore.state.page.buckets.find(
         (bucket: Bucket) => bucket.name === props.bucketName,
     );
 
-    if (!data) {
-        redirectToBucketsPage();
-
-        return new Bucket();
+    if (data) {
+        bucket.value = data; 
+    } else {
+        try {
+            const fetchedBucket = await bucketsStore.getSingleBucket(
+                projectsStore.state.selectedProject.id,
+                props.bucketName,
+            );
+            
+            bucket.value = fetchedBucket; 
+        } catch (error) {
+            console.error("Failed to fetch bucket data", error);
+            bucket.value = new Bucket(); 
+        }
     }
+}
 
-    return data;
+/**
+ *  Load the bucket data when dialog is opened
+ */
+watch(model, (newValue) => {
+    if (newValue) {
+        loadBucketData(); 
+    }
 });
+
+
+
 </script>
