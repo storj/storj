@@ -294,9 +294,12 @@ func Module(ball *mud.Ball) {
 			return pieces.NewTrashChore(
 				log,
 				24*time.Hour,
-				7*24*time.Hour,
+				trashExpiryInterval,
 				trust, store)
 		}, logWrapper("pieces:trash"))
+		mud.Provide[*pieces.TrashRunOnce](ball, func(log *zap.Logger, trust *trust.Pool, store *pieces.Store, stop *modular.StopTrigger) *pieces.TrashRunOnce {
+			return pieces.NewTrashRunOnce(log, trust, store, trashExpiryInterval, stop)
+		})
 		mud.Tag[*pieces.TrashChore, modular.Service](ball, modular.Service{})
 		mud.Provide[*piecestore.Endpoint](ball, piecestore.NewEndpoint, logWrapper("piecestore"))
 
