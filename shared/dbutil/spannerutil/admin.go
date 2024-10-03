@@ -13,9 +13,6 @@ import (
 	databasepb "cloud.google.com/go/spanner/admin/database/apiv1/databasepb"
 	instance "cloud.google.com/go/spanner/admin/instance/apiv1"
 	instancepb "cloud.google.com/go/spanner/admin/instance/apiv1/instancepb"
-	"google.golang.org/api/option"
-	"google.golang.org/grpc"
-	"google.golang.org/grpc/credentials/insecure"
 )
 
 // EmulatorAdmin provides facilities to communicate with the Spanner Emulator to create
@@ -27,12 +24,8 @@ type EmulatorAdmin struct {
 }
 
 // OpenEmulatorAdmin creates a new emulator admin that uses the specified endpoint.
-func OpenEmulatorAdmin(ctx context.Context, hostport string) (*EmulatorAdmin, error) {
-	options := []option.ClientOption{
-		option.WithEndpoint(hostport),
-		option.WithGRPCDialOption(grpc.WithTransportCredentials(insecure.NewCredentials())),
-		option.WithoutAuthentication(),
-	}
+func OpenEmulatorAdmin(ctx context.Context, params ConnParams) (*EmulatorAdmin, error) {
+	options := params.ClientOptions()
 
 	instanceClient, err := instance.NewInstanceAdminClient(ctx, options...)
 	if err != nil {
@@ -45,20 +38,24 @@ func OpenEmulatorAdmin(ctx context.Context, hostport string) (*EmulatorAdmin, er
 	}
 
 	return &EmulatorAdmin{
-		HostPort:  hostport,
+		HostPort:  params.Host,
 		Instances: instanceClient,
 		Databases: databaseClient,
 	}, nil
 }
 
 // CreateInstance creates a new instance with the specified name.
-func (admin *EmulatorAdmin) CreateInstance(ctx context.Context, projectID, instanceID string) error {
+func (admin *EmulatorAdmin) CreateInstance(ctx context.Context, params ConnParams) error {
+	if params.Project == "" || params.Instance == "" {
+		return errors.New("project and instance are required")
+	}
+
 	op, err := admin.Instances.CreateInstance(ctx, &instancepb.CreateInstanceRequest{
-		Parent:     "projects/" + projectID,
-		InstanceId: instanceID,
+		Parent:     params.ProjectPath(),
+		InstanceId: params.Instance,
 		Instance: &instancepb.Instance{
-			Config:      "projects/" + projectID + "/instanceConfigs/emulator-config",
-			DisplayName: instanceID,
+			Config:      params.ProjectPath() + "/instanceConfigs/emulator-config",
+			DisplayName: params.Instance,
 			NodeCount:   1,
 		},
 	})
@@ -74,9 +71,13 @@ func (admin *EmulatorAdmin) CreateInstance(ctx context.Context, projectID, insta
 }
 
 // DeleteInstance deletes an instance with the specified name.
-func (admin *EmulatorAdmin) DeleteInstance(ctx context.Context, projectID, instanceID string) error {
+func (admin *EmulatorAdmin) DeleteInstance(ctx context.Context, params ConnParams) error {
+	if params.Project == "" || params.Instance == "" {
+		return errors.New("project and instance are required")
+	}
+
 	err := admin.Instances.DeleteInstance(ctx, &instancepb.DeleteInstanceRequest{
-		Name: "projects/" + projectID + "/instances/" + instanceID,
+		Name: params.InstancePath(),
 	})
 	if err != nil {
 		return fmt.Errorf("failed DeleteInstance: %w", err)
@@ -85,10 +86,14 @@ func (admin *EmulatorAdmin) DeleteInstance(ctx context.Context, projectID, insta
 }
 
 // CreateDatabase creates a new database with the specified name.
-func (admin *EmulatorAdmin) CreateDatabase(ctx context.Context, projectID, instanceID, databaseID string, ddls ...string) error {
+func (admin *EmulatorAdmin) CreateDatabase(ctx context.Context, params ConnParams, ddls ...string) error {
+	if params.Project == "" || params.Instance == "" || params.Database == "" {
+		return errors.New("project, instance and database are required")
+	}
+
 	op, err := admin.Databases.CreateDatabase(ctx, &databasepb.CreateDatabaseRequest{
-		Parent:          "projects/" + projectID + "/instances/" + instanceID,
-		CreateStatement: "CREATE DATABASE `" + databaseID + "`",
+		Parent:          params.InstancePath(),
+		CreateStatement: "CREATE DATABASE `" + params.Database + "`",
 		ExtraStatements: ddls,
 	})
 	if err != nil {
@@ -101,9 +106,13 @@ func (admin *EmulatorAdmin) CreateDatabase(ctx context.Context, projectID, insta
 }
 
 // DropDatabase deletes the specified database.
-func (admin *EmulatorAdmin) DropDatabase(ctx context.Context, projectID, instanceID, databaseID string) error {
+func (admin *EmulatorAdmin) DropDatabase(ctx context.Context, params ConnParams) error {
+	if params.Project == "" || params.Instance == "" || params.Database == "" {
+		return errors.New("project, instance and database are required")
+	}
+
 	err := admin.Databases.DropDatabase(ctx, &databasepb.DropDatabaseRequest{
-		Database: "projects/" + projectID + "/instances/" + instanceID + "/databases/" + databaseID,
+		Database: params.DatabasePath(),
 	})
 	if err != nil {
 		return fmt.Errorf("failed DropDatabase: %w", err)
@@ -112,15 +121,17 @@ func (admin *EmulatorAdmin) DropDatabase(ctx context.Context, projectID, instanc
 }
 
 // DialDatabase creates a new connection to the spanner instance.
-func (admin *EmulatorAdmin) DialDatabase(ctx context.Context, projectID, instanceID, databaseID string) (*spanner.Client, error) {
+func DialDatabase(ctx context.Context, params ConnParams) (*spanner.Client, error) {
+	if params.Project == "" || params.Instance == "" || params.Database == "" {
+		return nil, errors.New("project, instance and database are required")
+	}
+
 	return spanner.NewClientWithConfig(ctx,
-		"projects/"+projectID+"/instances/"+instanceID+"/databases/"+databaseID,
+		params.DatabasePath(),
 		spanner.ClientConfig{
 			DisableRouteToLeader: true,
 		},
-		option.WithEndpoint(admin.HostPort),
-		option.WithGRPCDialOption(grpc.WithTransportCredentials(insecure.NewCredentials())),
-		option.WithoutAuthentication(),
+		params.ClientOptions()...,
 	)
 }
 
