@@ -8,7 +8,7 @@
         max-width="460px"
         transition="fade-transition"
     >
-        <v-card>
+        <v-card :loading="isLoading">
             <v-card-item class="pa-6">
                 <template #prepend>
                     <v-sheet
@@ -67,8 +67,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed, onMounted, ref, watch } from 'vue';
-import { useRouter } from 'vue-router';
+import { computed, ref, watch } from 'vue';
 import {
     VDialog,
     VCard,
@@ -88,14 +87,17 @@ import { ReceiptText } from 'lucide-vue-next';
 import { Bucket } from '@/types/buckets';
 import { useBucketsStore } from '@/store/modules/bucketsStore';
 import { useProjectsStore } from '@/store/modules/projectsStore';
-import { ROUTES } from '@/router';
 import { useConfigStore } from '@/store/modules/configStore';
+import { useNotify } from '@/utils/hooks';
+import { useLoading } from '@/composables/useLoading';
+import { AnalyticsErrorEventSource } from '@/utils/constants/analyticsEventNames';
 
 const bucketsStore = useBucketsStore();
 const configStore = useConfigStore();
 const projectsStore = useProjectsStore();
-const router = useRouter();
 const bucket = ref<Bucket>(new Bucket());
+const notify = useNotify();
+const { isLoading, withLoading } = useLoading();
 
 const props = defineProps<{
     bucketName: string,
@@ -136,18 +138,16 @@ async function loadBucketData() {
     if (data) {
         bucket.value = data;
     } else {
-        try {
-            const fetchedBucket = await bucketsStore.getSingleBucket(
-                projectsStore.state.selectedProject.id,
-                props.bucketName,
-            );
-
-            bucket.value = fetchedBucket;
-        } catch (error) {
-            console.error('Failed to fetch bucket data', error);
-            bucket.value = new Bucket();
-        }
+        withLoading(async () => {
+            try {
+                bucket.value = await bucketsStore.getSingleBucket(projectsStore.state.selectedProject.id, props.bucketName);
+            } catch (error) {
+                notify.notifyError(error, AnalyticsErrorEventSource.BUCKET_DETAILS_MODAL);
+                bucket.value = new Bucket();
+            }
+        });
     }
+
 }
 
 /**
