@@ -134,18 +134,18 @@ async function loadBucketData() {
     );
 
     if (data) {
-        bucket.value = data; 
+        bucket.value = data;
     } else {
         try {
             const fetchedBucket = await bucketsStore.getSingleBucket(
                 projectsStore.state.selectedProject.id,
                 props.bucketName,
             );
-            
-            bucket.value = fetchedBucket; 
+
+            bucket.value = fetchedBucket;
         } catch (error) {
-            console.error("Failed to fetch bucket data", error);
-            bucket.value = new Bucket(); 
+            console.error('Failed to fetch bucket data', error);
+            bucket.value = new Bucket();
         }
     }
 }
@@ -155,10 +155,8 @@ async function loadBucketData() {
  */
 watch(model, (newValue) => {
     if (newValue) {
-        loadBucketData(); 
+        loadBucketData();
     }
 });
-
-
 
 </script>
