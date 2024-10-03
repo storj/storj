@@ -35,8 +35,8 @@ func ClumpingByAttribute(attr NodeAttribute, maxAllowed int) Invariant {
 		res := intset.NewSet(maxPieceNum)
 
 		for index, nodeRecord := range nodes {
-			attribute := attr(nodeRecord)
-			if attribute == "" {
+			attribute, ok := attr(nodeRecord).(string)
+			if !ok || attribute == "" {
 				continue
 			}
 			pieceNum := pieces[index].Number
