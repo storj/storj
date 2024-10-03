@@ -47,141 +47,143 @@
                         />
                     </v-window-item>
 
-                    <v-window-item :value="OnboardingStep.PlanTypeSelection">
-                        <account-type-step
-                            @free-click="() => onSelectPricingPlan(FREE_PLAN_INFO)"
-                            @pro-click="toNextStep"
-                            @back="toPrevStep"
-                        />
-                    </v-window-item>
+                    <template v-if="billingEnabled">
+                        <v-window-item :value="OnboardingStep.PlanTypeSelection">
+                            <account-type-step
+                                @free-click="() => onSelectPricingPlan(FREE_PLAN_INFO)"
+                                @pro-click="toNextStep"
+                                @back="toPrevStep"
+                            />
+                        </v-window-item>
 
-                    <v-window-item :value="OnboardingStep.PaymentMethodSelection">
-                        <v-container>
-                            <v-row justify="center">
-                                <v-col class="text-center py-4">
-                                    <icon-storj-logo />
-                                    <div class="text-overline mt-2 mb-1">
-                                        Account Setup
-                                    </div>
-                                    <h2>Activate your account</h2>
-                                </v-col>
-                            </v-row>
-                            <v-row justify="center" align="center">
-                                <v-col cols="12" sm="8" md="6" lg="4">
-                                    <p class="text-body-2 my-2">
-                                        Add a credit card to activate your Pro Account, or deposit
-                                        more than $10 in STORJ tokens to upgrade and get 10% bonus
-                                        on your STORJ tokens deposit.
-                                    </p>
-                                    <v-row justify="center" class="pb-5 pt-3">
-                                        <v-col>
+                        <v-window-item :value="OnboardingStep.PaymentMethodSelection">
+                            <v-container>
+                                <v-row justify="center">
+                                    <v-col class="text-center py-4">
+                                        <icon-storj-logo />
+                                        <div class="text-overline mt-2 mb-1">
+                                            Account Setup
+                                        </div>
+                                        <h2>Activate your account</h2>
+                                    </v-col>
+                                </v-row>
+                                <v-row justify="center" align="center">
+                                    <v-col cols="12" sm="8" md="6" lg="4">
+                                        <p class="text-body-2 my-2">
+                                            Add a credit card to activate your Pro Account, or deposit
+                                            more than $10 in STORJ tokens to upgrade and get 10% bonus
+                                            on your STORJ tokens deposit.
+                                        </p>
+                                        <v-row justify="center" class="pb-5 pt-3">
+                                            <v-col>
+                                                <v-btn
+                                                    variant="flat"
+                                                    color="primary"
+                                                    :disabled="isLoading"
+                                                    :prepend-icon="CreditCard"
+                                                    block
+                                                    @click="() => onSelectPricingPlan(PRO_PLAN_INFO)"
+                                                >
+                                                    Add Credit Card
+                                                </v-btn>
+                                            </v-col>
+                                            <v-col>
+                                                <v-btn
+                                                    variant="flat"
+                                                    :loading="isLoading"
+                                                    :prepend-icon="CirclePlus"
+                                                    block
+                                                    @click="onAddTokens"
+                                                >
+                                                    Add STORJ Tokens
+                                                </v-btn>
+                                            </v-col>
+                                        </v-row>
+                                        <div class="pb-4">
                                             <v-btn
-                                                variant="flat"
-                                                color="primary"
+                                                block
+                                                variant="text"
+                                                color="default"
+                                                :prepend-icon="ChevronLeft"
                                                 :disabled="isLoading"
-                                                :prepend-icon="CreditCard"
-                                                block
-                                                @click="() => onSelectPricingPlan(PRO_PLAN_INFO)"
+                                                @click="toPrevStep"
                                             >
-                                                Add Credit Card
+                                                Back
                                             </v-btn>
-                                        </v-col>
-                                        <v-col>
-                                            <v-btn
-                                                variant="flat"
-                                                :loading="isLoading"
-                                                :prepend-icon="CirclePlus"
-                                                block
-                                                @click="onAddTokens"
-                                            >
-                                                Add STORJ Tokens
-                                            </v-btn>
-                                        </v-col>
-                                    </v-row>
-                                    <div class="pb-4">
-                                        <v-btn
-                                            block
-                                            variant="text"
-                                            color="default"
-                                            :prepend-icon="ChevronLeft"
-                                            :disabled="isLoading"
-                                            @click="toPrevStep"
-                                        >
-                                            Back
-                                        </v-btn>
-                                    </div>
-                                </v-col>
-                            </v-row>
-                        </v-container>
-                    </v-window-item>
+                                        </div>
+                                    </v-col>
+                                </v-row>
+                            </v-container>
+                        </v-window-item>
 
-                    <v-window-item :value="OnboardingStep.AddTokens">
-                        <v-container>
-                            <v-row justify="center">
-                                <v-col class="text-center py-4">
-                                    <icon-storj-logo />
-                                    <div class="text-overline mt-2 mb-1">
-                                        Account Setup
-                                    </div>
-                                    <h2>Activate your account</h2>
-                                </v-col>
-                            </v-row>
-                            <v-row justify="center" align="center">
-                                <v-col cols="12" sm="8" md="6" lg="4">
-                                    <AddTokensStep
-                                        @back="toPrevStep"
-                                        @success="toNextStep"
+                        <v-window-item :value="OnboardingStep.AddTokens">
+                            <v-container>
+                                <v-row justify="center">
+                                    <v-col class="text-center py-4">
+                                        <icon-storj-logo />
+                                        <div class="text-overline mt-2 mb-1">
+                                            Account Setup
+                                        </div>
+                                        <h2>Activate your account</h2>
+                                    </v-col>
+                                </v-row>
+                                <v-row justify="center" align="center">
+                                    <v-col cols="12" sm="8" md="6" lg="4">
+                                        <AddTokensStep
+                                            @back="toPrevStep"
+                                            @success="toNextStep"
+                                        />
+                                    </v-col>
+                                </v-row>
+                            </v-container>
+                        </v-window-item>
+
+                        <!-- Pricing plan steps -->
+                        <v-window-item :value="OnboardingStep.PricingPlanSelection">
+                            <v-container>
+                                <v-row justify="center">
+                                    <v-col class="text-center py-4">
+                                        <icon-storj-logo height="50" width="50" class="rounded-xlg bg-background pa-2 border" />
+                                        <div class="text-overline mt-2 mb-1">
+                                            Pricing Plan
+                                        </div>
+                                        <h2>Select a pricing plan</h2>
+                                    </v-col>
+                                </v-row>
+                                <v-row justify="center" align="center">
+                                    <pricing-plan-selection-step
+                                        show-free-plan
+                                        @select="onSelectPricingPlan"
                                     />
-                                </v-col>
-                            </v-row>
-                        </v-container>
-                    </v-window-item>
+                                </v-row>
+                            </v-container>
+                        </v-window-item>
 
-                    <!-- Pricing plan steps -->
-                    <v-window-item :value="OnboardingStep.PricingPlanSelection">
-                        <v-container>
-                            <v-row justify="center">
-                                <v-col class="text-center py-4">
-                                    <icon-storj-logo height="50" width="50" class="rounded-xlg bg-background pa-2 border" />
-                                    <div class="text-overline mt-2 mb-1">
-                                        Pricing Plan
-                                    </div>
-                                    <h2>Select a pricing plan</h2>
-                                </v-col>
-                            </v-row>
-                            <v-row justify="center" align="center">
-                                <pricing-plan-selection-step
-                                    show-free-plan
-                                    @select="onSelectPricingPlan"
-                                />
-                            </v-row>
-                        </v-container>
-                    </v-window-item>
-
-                    <v-window-item :value="OnboardingStep.PricingPlan">
-                        <v-container>
-                            <v-row justify="center">
-                                <v-col class="text-center py-4">
-                                    <icon-storj-logo height="50" width="50" class="rounded-xlg bg-background pa-2 border" />
-                                    <div class="text-overline mt-2 mb-1">
-                                        Account Setup
-                                    </div>
-                                    <h2>Activate your account</h2>
-                                </v-col>
-                            </v-row>
-                            <v-row justify="center" align="center">
-                                <v-col cols="12" sm="8" md="6" lg="4">
-                                    <PricingPlanStep
-                                        v-model:loading="isLoading"
-                                        :plan="plan"
-                                        is-account-setup
-                                        @back="toPrevStep"
-                                        @success="toNextStep"
-                                    />
-                                </v-col>
-                            </v-row>
-                        </v-container>
-                    </v-window-item>
+                        <v-window-item :value="OnboardingStep.PricingPlan">
+                            <v-container>
+                                <v-row justify="center">
+                                    <v-col class="text-center py-4">
+                                        <icon-storj-logo height="50" width="50" class="rounded-xlg bg-background pa-2 border" />
+                                        <div class="text-overline mt-2 mb-1">
+                                            Account Setup
+                                        </div>
+                                        <h2>Activate your account</h2>
+                                    </v-col>
+                                </v-row>
+                                <v-row justify="center" align="center">
+                                    <v-col cols="12" sm="8" md="6" lg="4">
+                                        <PricingPlanStep
+                                            v-model:loading="isLoading"
+                                            :plan="plan"
+                                            is-account-setup
+                                            @back="toPrevStep"
+                                            @success="toNextStep"
+                                        />
+                                    </v-col>
+                                </v-row>
+                            </v-container>
+                        </v-window-item>
+                    </template>
 
                     <v-window-item v-if="satelliteManagedEncryptionEnabled" :value="OnboardingStep.ManagedPassphraseOptIn">
                         <managed-passphrase-opt-in-step
@@ -287,6 +289,10 @@ const stepInfos = {
         const info = new StepInfo(
             OnboardingStep.AccountTypeSelection,
             () => {
+                if (!billingEnabled.value) {
+                    if (allowManagedPassphraseStep.value) return OnboardingStep.ManagedPassphraseOptIn;
+                    return OnboardingStep.SetupComplete;
+                }
                 if (pkgAvailable.value) return OnboardingStep.PricingPlanSelection;
                 return OnboardingStep.PlanTypeSelection;
             },
@@ -303,6 +309,10 @@ const stepInfos = {
         const info = new StepInfo(
             OnboardingStep.AccountTypeSelection,
             () => {
+                if (!billingEnabled.value) {
+                    if (allowManagedPassphraseStep.value) return OnboardingStep.ManagedPassphraseOptIn;
+                    return OnboardingStep.SetupComplete;
+                }
                 if (pkgAvailable.value) return OnboardingStep.PricingPlanSelection;
                 return OnboardingStep.PlanTypeSelection;
             },
@@ -363,10 +373,8 @@ const stepInfos = {
             OnboardingStep.SetupComplete,
         );
         info.beforeNext =  async () => {
-            await Promise.all([
-                userStore.updateSettings({ onboardingStep: info.next.value }),
-                info.ref.value?.setup?.(),
-            ]);
+            await info.ref.value?.setup?.();
+            await userStore.updateSettings({ onboardingStep: info.next.value });
         };
         return info;
     })(),
@@ -396,6 +404,8 @@ const otherUseCase = ref<string | undefined>(undefined);
 const functionalArea = ref<string | undefined>(undefined);
 const haveSalesContact = ref<boolean>(false);
 const interestedInPartnering = ref<boolean>(false);
+
+const billingEnabled = computed(() => configStore.state.config.billingFeaturesEnabled);
 
 const pkgAvailable = computed(() => billingStore.state.pricingPlansAvailable);
 
@@ -437,7 +447,6 @@ function onSelectPricingPlan(p: PricingPlanInfo) {
 function onAddTokens() {
     withLoading(async () => {
         try {
-            await new Promise((r) => setTimeout(r, 3000));
             await billingStore.claimWallet();
             analyticsStore.eventTriggered(AnalyticsEvent.ADD_FUNDS_CLICKED);
             toNextStep();
