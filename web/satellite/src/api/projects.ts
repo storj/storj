@@ -11,6 +11,7 @@ import {
     ProjectsApi,
     ProjectsCursor,
     ProjectsPage,
+    ProjectDeletionData,
     ProjectsStorageBandwidthDaily,
     ProjectInvitationResponse,
     Emission,
@@ -22,6 +23,7 @@ import { HttpClient } from '@/utils/httpClient';
 import { Time } from '@/utils/time';
 import { APIError } from '@/utils/error';
 import { getVersioning } from '@/types/versioning';
+import { DeleteProjectStep } from '@/types/accountActions';
 
 export class ProjectsHttpApi implements ProjectsApi {
     private readonly http: HttpClient = new HttpClient();
@@ -92,6 +94,43 @@ export class ProjectsHttpApi implements ProjectsApi {
             p.storageUsed,
             p.bandwidthUsed,
         ));
+    }
+
+    /**
+     * Delete project.
+     *
+     * @throws Error
+     */
+    public async delete(projectId: string, step: DeleteProjectStep, data: string): Promise<ProjectDeletionData | null> {
+        const path = `${this.ROOT_PATH}/${projectId}`;
+
+        const body = JSON.stringify({
+            step,
+            data,
+        });
+
+        const response = await this.http.delete(path, body);
+
+        if (response.ok) {
+            return null;
+        }
+
+        const result = await response.json();
+
+        if (response.status === 409) {
+            return new ProjectDeletionData(
+                result.buckets,
+                result.apiKeys,
+                result.currentUsage,
+                result.invoicingIncomplete,
+            );
+        }
+
+        throw new APIError({
+            status: response.status,
+            message: result.error || 'Can not delete project. Please try again later',
+            requestID: response.headers.get('x-request-id'),
+        });
     }
 
     /**

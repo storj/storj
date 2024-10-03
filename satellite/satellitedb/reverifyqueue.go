@@ -246,7 +246,7 @@ func convertDBJob(ctx context.Context, info *dbx.ReverificationAudits) (pendingJ
 		return nil, audit.ContainError.Wrap(err)
 	}
 	if info.LastAttempt != nil {
-		pendingJob.LastAttempt = *info.LastAttempt
+		pendingJob.LastAttempt = info.LastAttempt
 	}
 
 	return pendingJob, nil

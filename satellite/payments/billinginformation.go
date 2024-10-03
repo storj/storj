@@ -23,6 +23,7 @@ type TaxID struct {
 
 // BillingInformation contains a user's billing information.
 type BillingInformation struct {
-	Address *BillingAddress `json:"address"`
-	TaxIDs  []TaxID         `json:"taxIDs"`
+	Address          *BillingAddress `json:"address"`
+	TaxIDs           []TaxID         `json:"taxIDs"`
+	InvoiceReference string          `json:"invoiceReference"`
 }

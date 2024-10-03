@@ -354,7 +354,7 @@ func TestBalancedSelector(t *testing.T) {
 	}
 
 	ctx := testcontext.New(t)
-	selector := nodeselection.BalancedGroupBasedSelector(attribute)(nodes, nil)
+	selector := nodeselection.BalancedGroupBasedSelector(attribute, nil)(nodes, nil)
 
 	var badSelection atomic.Int64
 	for i := 0; i < 1000; i++ {
@@ -375,7 +375,7 @@ func TestBalancedSelector(t *testing.T) {
 
 			histogram := map[string]int{}
 			for _, node := range selectedNodes {
-				histogram[attribute(*node)] = histogram[attribute(*node)] + 1
+				histogram[attribute(*node).(string)] = histogram[attribute(*node).(string)] + 1
 			}
 			for _, c := range histogram {
 				if c > 5 {
@@ -424,7 +424,7 @@ func TestBalancedSelectorWithExisting(t *testing.T) {
 		}
 	}
 
-	selector := nodeselection.BalancedGroupBasedSelector(attribute)(nodes, nil)
+	selector := nodeselection.BalancedGroupBasedSelector(attribute, nil)(nodes, nil)
 
 	histogram := map[string]int{}
 	for i := 0; i < 1000; i++ {
@@ -434,7 +434,7 @@ func TestBalancedSelectorWithExisting(t *testing.T) {
 		require.Len(t, selectedNodes, 7)
 
 		for _, node := range selectedNodes {
-			histogram[attribute(*node)]++
+			histogram[attribute(*node).(string)]++
 		}
 	}
 	// from the initial {"A": 3, "B": 10, "C": 30, "D": 5, "E": 1}
@@ -863,7 +863,7 @@ func TestIfWithEqSelector(t *testing.T) {
 	require.NoError(t, err)
 
 	selector := nodeselection.BalancedGroupBasedSelector(nodeselection.IfSelector(
-		nodeselection.EqualSelector(surgeTag, "true"), lastIpPortAttribute, lastNetAttribute))(nodes, nil)
+		nodeselection.EqualSelector(surgeTag, "true"), lastIpPortAttribute, lastNetAttribute), nil)(nodes, nil)
 
 	const (
 		reqCount       = 3

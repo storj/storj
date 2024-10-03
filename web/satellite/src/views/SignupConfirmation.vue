@@ -19,7 +19,7 @@
                         size="large"
                         :disabled="secondsToWait !== 0"
                         :loading="isLoading"
-                        @click="resendMail"
+                        @click="onResendClick"
                     >
                         <template v-if="secondsToWait !== 0">
                             Resend in {{ timeToEnableResendEmailButton }}
@@ -88,7 +88,7 @@
                 </v-card>
                 <p class="pt-9 text-center text-body-2">
                     Didn't receive a verification email?
-                    <a class="link" @click="resendMail">
+                    <a class="link" @click="onResendClick">
                         <template v-if="secondsToWait !== 0">
                             Resend in {{ timeToEnableResendEmailButton }}
                         </template>
@@ -100,10 +100,21 @@
             </v-col>
         </v-row>
     </v-container>
+    <VueHcaptcha
+        v-if="captchaConfig?.hcaptcha.enabled"
+        ref="hcaptcha"
+        :sitekey="captchaConfig.hcaptcha.siteKey"
+        :re-captcha-compat="false"
+        size="invisible"
+        @verify="onCaptchaVerified"
+        @expired="onCaptchaError"
+        @error="onCaptchaError"
+    />
 </template>
 
 <script setup lang="ts">
 import { computed, onBeforeUnmount, onMounted, ref } from 'vue';
+import VueHcaptcha from '@hcaptcha/vue3-hcaptcha';
 import { useRoute, useRouter } from 'vue-router';
 import {
     VBtn,
@@ -128,6 +139,7 @@ import { useAnalyticsStore } from '@/store/modules/analyticsStore';
 import { useAppStore } from '@/store/modules/appStore';
 import { AnalyticsEvent } from '@/utils/constants/analyticsEventNames';
 import { ROUTES } from '@/router';
+import { MultiCaptchaConfig } from '@/types/config.gen';
 
 const props = withDefaults(defineProps<{
     email?: string;
@@ -150,6 +162,10 @@ const notify = useNotify();
 
 const { isLoading, withLoading } = useLoading();
 
+const captchaResponseToken = ref('');
+const captchaError = ref(false);
+const hcaptcha = ref<VueHcaptcha | null>(null);
+
 const code = ref('');
 const signupId = ref<string>(props.signupReqId || '');
 const isUnauthorizedMessageShown = ref<boolean>(false);
@@ -159,6 +175,42 @@ const intervalId = ref<ReturnType<typeof setInterval>>();
 
 const userEmail = computed((): string => {
     return props.email || decodeURIComponent(route.query.email?.toString() || '') || '';
+});
+
+/**
+ * Holds on resend email button click logic.
+ */
+async function onResendClick(): Promise<void> {
+    if (hcaptcha.value && !captchaResponseToken.value) {
+        hcaptcha.value?.execute();
+        return;
+    }
+
+    resendMail();
+}
+
+/**
+ * Handles captcha verification response.
+ */
+function onCaptchaVerified(response: string): void {
+    captchaResponseToken.value = response;
+    captchaError.value = false;
+    resendMail();
+}
+
+/**
+ * Handles captcha error and expiry.
+ */
+function onCaptchaError(): void {
+    captchaResponseToken.value = '';
+    captchaError.value = true;
+}
+
+/**
+ * This component's captcha configuration.
+ */
+const captchaConfig = computed((): MultiCaptchaConfig | undefined => {
+    return configStore.state.config.captcha?.registration;
 });
 
 /**
@@ -200,11 +252,14 @@ function resendMail(): void {
         }
 
         try {
-            signupId.value = await auth.resendEmail(email);
+            signupId.value = await auth.resendEmail(email, captchaResponseToken.value);
             code.value = '';
         } catch (error) {
             notify.notifyError(error);
         }
+
+        hcaptcha.value?.reset();
+        captchaResponseToken.value = '';
 
         startResendEmailCountdown();
     });

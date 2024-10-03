@@ -101,7 +101,14 @@ func TestChore(t *testing.T) {
 		assert.Equal(t, expected, actual, "unexpected balance for user %s (%q)", userID, names[userID])
 	}
 
-	runTest := func(ctx *testcontext.Context, t *testing.T, consoleDB console.DB, db billing.TransactionsDB, bonusRate int64, mikeTXs, joeTXs, robertTXs []billing.Transaction, mikeBalance, joeBalance, robertBalance currency.Amount, usageLimitsConfig console.UsageLimitsConfig, userBalanceForUpgrade int64, freezeService *console.AccountFreezeService, analyticsService *analytics.Service) {
+	runTest := func(ctx *testcontext.Context, t *testing.T, consoleDB console.DB, db billing.TransactionsDB, bonusRate int64,
+		mikeTXs, joeTXs, robertTXs []billing.Transaction,
+		mikeBalance, joeBalance, robertBalance currency.Amount,
+		usageLimitsConfig console.UsageLimitsConfig,
+		userBalanceForUpgrade int64,
+		freezeService *console.AccountFreezeService,
+		analyticsService *analytics.Service,
+	) {
 		paymentTypes := []billing.PaymentType{
 			newFakePaymentType(billing.StorjScanEthereumSource,
 				[]billing.Transaction{mike1, joe1, joe2},

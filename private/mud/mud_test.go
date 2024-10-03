@@ -56,6 +56,29 @@ func TestView(t *testing.T) {
 	require.NoError(t, err)
 }
 
+func TestWrapper(t *testing.T) {
+	ball := NewBall()
+	Provide[DB](ball, NewDB)
+	Provide[Service1](ball, NewService1, NewWrapper[DB](func(db DB) DB {
+		return DB{
+			status: "wrapped-" + db.status,
+		}
+	}))
+
+	ctx := testcontext.New(t)
+
+	err := ForEach(ball, func(component *Component) error {
+		return component.Init(ctx)
+	}, All)
+	require.NoError(t, err)
+
+	result, err := Execute[string](ctx, ball, func(service1 Service1) string {
+		return service1.DB.status
+	})
+	require.NoError(t, err)
+	require.Equal(t, "wrapped-auto", result)
+}
+
 func TestTags(t *testing.T) {
 	ball := NewBall()
 	Supply[*DB](ball, &DB{status: "test"})

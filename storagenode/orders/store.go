@@ -37,26 +37,12 @@ type FileStore struct {
 	unsentDir  string
 	archiveDir string
 
-	// NOTE: When two mutexes have to be acquired, always acquire and release them with the same
-	// order because there may be situations where two goroutines are waiting for each other forever,
-	// a.k.a deadlock.
-	// - First activeMu, then unsentMu
-	// - First archiveMu, then unsentMu
+	// always acquire the activeMu after the unsentMu to avoid deadlocks. if someone acquires
+	// activeMu before unsentMu, then you can be in a situation where two goroutines are waiting for
+	// each other forever. similarly, always acquire archiveMu before activeMu and unsentMu to avoid
+	// deadlocks.
 	//
-	// Examples:
-	// ```
-	// store.activeMu.Lock()
-	// defer store.activeMu.Unlock()
-	// store.unsentMu.Lock()
-	// defer store.unsentMu.Unlock()
-	// ```
-	//
-	// ```
-	// store.archiveMu.Lock()
-	// defer store.archiveMu.Unlock()
-	// store.unsentMu.Lock()
-	// defer store.unsentMu.Unlock()
-	// ```
+	// in summary, the priority is: archiveMu -> unsentMu -> activeMu.
 
 	// mutex for the active map
 	activeMu sync.Mutex
@@ -94,10 +80,10 @@ func NewFileStore(log *zap.Logger, ordersDir string, orderLimitGracePeriod time.
 
 // Close closes the file store.
 func (store *FileStore) Close() (err error) {
-	store.activeMu.Lock()
-	defer store.activeMu.Unlock()
 	store.unsentMu.Lock()
 	defer store.unsentMu.Unlock()
+	store.activeMu.Lock()
+	defer store.activeMu.Unlock()
 
 	for fileName, file := range store.unsentOrdersFiles {
 		err = errs.Combine(err, OrderError.Wrap(file.Close()))
@@ -110,6 +96,8 @@ func (store *FileStore) Close() (err error) {
 // BeginEnqueue returns a function that can be called to enqueue the passed in Info. If the Info
 // is too old to be enqueued, then an error is returned.
 func (store *FileStore) BeginEnqueue(satelliteID storj.NodeID, createdAt time.Time) (commit func(*ordersfile.Info) error, err error) {
+	store.unsentMu.Lock()
+	defer store.unsentMu.Unlock()
 	store.activeMu.Lock()
 	defer store.activeMu.Unlock()
 
@@ -124,10 +112,11 @@ func (store *FileStore) BeginEnqueue(satelliteID storj.NodeID, createdAt time.Ti
 	store.enqueueStartedLocked(satelliteID, createdAt)
 
 	return func(info *ordersfile.Info) error {
-		store.activeMu.Lock()
-		defer store.activeMu.Unlock()
+		// always acquire the activeMu after the unsentMu to avoid deadlocks
 		store.unsentMu.Lock()
 		defer store.unsentMu.Unlock()
+		store.activeMu.Lock()
+		defer store.activeMu.Unlock()
 
 		// always remove the in flight operation
 		defer store.enqueueFinishedLocked(satelliteID, createdAt)
@@ -230,11 +219,13 @@ type UnsentInfo struct {
 // needs to be called twice, with calls to `Archive` in between each call, to see all unsent orders.
 func (store *FileStore) ListUnsentBySatellite(ctx context.Context, now time.Time) (infoMap map[storj.NodeID]UnsentInfo, err error) {
 	defer mon.Task()(&ctx)(&err)
-	// shouldn't be necessary, but acquire archiveMu to ensure we do not attempt to archive files during list
+
+	// ensure no one modifies the archive directory while listing. this implicitly protects the
+	// unsent directory from losing files because to add to the archive directory it must come from
+	// the unsent directory. we don't need a long term lock on the unsent directory this way which
+	// allows adding orders to proceed.
 	store.archiveMu.Lock()
 	defer store.archiveMu.Unlock()
-	store.unsentMu.Lock()
-	defer store.unsentMu.Unlock()
 
 	var errList errs.Group
 	infoMap = make(map[storj.NodeID]UnsentInfo)
@@ -262,12 +253,14 @@ func (store *FileStore) ListUnsentBySatellite(ctx context.Context, now time.Time
 			return nil
 		}
 
+		// read in the unsent orders into memory and store it for the satellite
 		newUnsentInfo, err := store.getUnsentInfoFromUnsentFile(store.unsentDir, name, fileInfo)
 		if err != nil {
 			errList.Add(OrderError.Wrap(err))
 			return nil
 		}
 		infoMap[fileInfo.SatelliteID] = newUnsentInfo
+
 		return nil
 	}))
 
@@ -275,17 +268,25 @@ func (store *FileStore) ListUnsentBySatellite(ctx context.Context, now time.Time
 }
 
 func (store *FileStore) getUnsentInfoFromUnsentFile(dir, fileName string, fileInfo *ordersfile.UnsentInfo) (UnsentInfo, error) {
-	newUnsentInfo := UnsentInfo{
-		CreatedAtHour: fileInfo.CreatedAtHour,
-		Version:       fileInfo.Version,
-	}
+	// close writable file and delete from map since we are done with it. we drop the mutex before
+	// doing file operations to avoid holding unsentMu because that is used to add new orders.
+	// there's no need to worry about keeping the file inside of the map if the Close call errors,
+	// because the file descriptor will be invalidated either way.
 
-	// close writable file and delete from map since we are done with it.
-	if file, ok := store.unsentOrdersFiles[fileName]; ok {
+	store.unsentMu.Lock()
+	file, ok := store.unsentOrdersFiles[fileName]
+	delete(store.unsentOrdersFiles, fileName)
+	store.unsentMu.Unlock()
+
+	if ok {
 		if err := file.Close(); err != nil {
 			return UnsentInfo{}, OrderError.Wrap(err)
 		}
-		delete(store.unsentOrdersFiles, fileName)
+	}
+
+	newUnsentInfo := UnsentInfo{
+		CreatedAtHour: fileInfo.CreatedAtHour,
+		Version:       fileInfo.Version,
 	}
 
 	of, err := ordersfile.OpenReadable(filepath.Join(dir, fileName), fileInfo.Version)

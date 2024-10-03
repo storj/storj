@@ -8,9 +8,11 @@ import (
 	"time"
 
 	"github.com/stretchr/testify/require"
+	"go.uber.org/zap"
 
 	"storj.io/common/memory"
 	"storj.io/common/pb"
+	"storj.io/common/storj"
 	"storj.io/common/testcontext"
 	"storj.io/common/testrand"
 	"storj.io/common/uuid"
@@ -23,6 +25,7 @@ import (
 	"storj.io/storj/satellite/metabase"
 	"storj.io/storj/satellite/orders"
 	"storj.io/storj/satellite/satellitedb/satellitedbtest"
+	"storj.io/uplink/private/metaclient"
 )
 
 func TestDailyUsage(t *testing.T) {
@@ -261,6 +264,90 @@ func TestGetProjectTotal(t *testing.T) {
 			require.Equal(t, usage.Egress, rollups[0].Inline+rollups[0].Settled)
 			require.Equal(t, usage.Since, rollups[0].IntervalStart)
 			require.Equal(t, usage.Before, rollups[1].IntervalStart)
+		},
+	)
+}
+
+func TestSingleBucketTotal(t *testing.T) {
+	testplanet.Run(t, testplanet.Config{SatelliteCount: 1, StorageNodeCount: 0, UplinkCount: 1, EnableSpanner: true,
+		Reconfigure: testplanet.Reconfigure{
+			Satellite: func(log *zap.Logger, index int, config *satellite.Config) {
+				config.Metainfo.UseBucketLevelObjectVersioning = true
+			},
+		}},
+		func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+			project := planet.Uplinks[0].Projects[0]
+			sat := planet.Satellites[0]
+			db := sat.DB
+
+			bucketName := testrand.BucketName()
+			now := time.Now()
+			before := now.Add(time.Hour * 10)
+
+			err := planet.Uplinks[0].CreateBucket(ctx, sat, bucketName)
+			require.NoError(t, err)
+
+			client, err := planet.Uplinks[0].Projects[0].DialMetainfo(ctx)
+			require.NoError(t, err)
+			defer func() {
+				require.NoError(t, client.Close())
+			}()
+
+			err = client.SetBucketVersioning(ctx, metaclient.SetBucketVersioningParams{
+				Name:       []byte(bucketName),
+				Versioning: true,
+			})
+			require.NoError(t, err)
+
+			storedBucket, err := db.Buckets().GetBucket(ctx, []byte(bucketName), project.ID)
+			require.NoError(t, err)
+
+			storedBucket.Placement = storj.EU
+			_, err = db.Buckets().UpdateBucket(ctx, storedBucket)
+			require.NoError(t, err)
+
+			// The 3rd tally is only present to prevent CreateStorageTally from skipping the 2nd.
+			var tallies []accounting.BucketStorageTally
+			for i := 0; i < 3; i++ {
+				interval := now.Add(time.Hour * time.Duration(i+1))
+				tally := randTally(bucketName, project.ID, interval)
+				tallies = append(tallies, tally)
+				require.NoError(t, db.ProjectAccounting().CreateStorageTally(ctx, tally))
+			}
+
+			var rollups []orders.BucketBandwidthRollup
+			var expectedEgress int64
+			for i := 0; i < 2; i++ {
+				rollup := randRollup(bucketName, project.ID, tallies[i].IntervalStart)
+				rollups = append(rollups, rollup)
+				expectedEgress += rollup.Inline + rollup.Settled
+			}
+			require.NoError(t, db.Orders().UpdateBandwidthBatch(ctx, rollups))
+
+			usage, err := db.ProjectAccounting().GetSingleBucketTotals(ctx, project.ID, bucketName, before)
+			require.NoError(t, err)
+
+			require.Equal(t, memory.Size(tallies[2].Bytes()).GB(), usage.Storage)
+			require.Equal(t, tallies[2].TotalSegmentCount, usage.SegmentCount)
+			require.Equal(t, tallies[2].ObjectCount, usage.ObjectCount)
+			require.Equal(t, memory.Size(expectedEgress).GB(), usage.Egress)
+			require.Equal(t, buckets.VersioningEnabled, usage.Versioning)
+			require.Equal(t, storj.EU, usage.DefaultPlacement)
+
+			err = client.SetBucketVersioning(ctx, metaclient.SetBucketVersioningParams{
+				Name:       []byte(bucketName),
+				Versioning: false,
+			})
+			require.NoError(t, err)
+
+			storedBucket.Placement = storj.EveryCountry
+			_, err = db.Buckets().UpdateBucket(ctx, storedBucket)
+			require.NoError(t, err)
+
+			usage, err = db.ProjectAccounting().GetSingleBucketTotals(ctx, project.ID, bucketName, before)
+			require.NoError(t, err)
+			require.Equal(t, buckets.VersioningSuspended, usage.Versioning)
+			require.Equal(t, storj.EveryCountry, usage.DefaultPlacement)
 		},
 	)
 }

@@ -24,9 +24,6 @@ func TestGetObjectExactVersion(t *testing.T) {
 
 		location := obj.Location()
 
-		now := time.Now()
-		zombieDeadline := now.Add(24 * time.Hour)
-
 		for _, test := range metabasetest.InvalidObjectLocations(location) {
 			test := test
 			t.Run(test.Name, func(t *testing.T) {
@@ -76,6 +73,8 @@ func TestGetObjectExactVersion(t *testing.T) {
 		t.Run("Get not existing version", func(t *testing.T) {
 			defer metabasetest.DeleteAll{}.Check(ctx, t, db)
 
+			now := time.Now()
+
 			metabasetest.CreateObject(ctx, t, db, obj, 0)
 
 			metabasetest.GetObjectExactVersion{
@@ -102,6 +101,9 @@ func TestGetObjectExactVersion(t *testing.T) {
 
 		t.Run("Get pending object", func(t *testing.T) {
 			defer metabasetest.DeleteAll{}.Check(ctx, t, db)
+
+			now := time.Now()
+			zombieDeadline := now.Add(24 * time.Hour)
 
 			metabasetest.BeginObjectExactVersion{
 				Opts: metabase.BeginObjectExactVersion{
@@ -136,7 +138,10 @@ func TestGetObjectExactVersion(t *testing.T) {
 
 		t.Run("Get expired object", func(t *testing.T) {
 			defer metabasetest.DeleteAll{}.Check(ctx, t, db)
+
+			now := time.Now()
 			expiresAt := now.Add(-2 * time.Hour)
+
 			metabasetest.CreateExpiredObject(ctx, t, db, obj, 0, expiresAt)
 			metabasetest.GetObjectExactVersion{
 				Opts: metabase.GetObjectExactVersion{
@@ -251,6 +256,8 @@ func TestGetObjectExactVersion(t *testing.T) {
 		t.Run("Retention", func(t *testing.T) {
 			defer metabasetest.DeleteAll{}.Check(ctx, t, db)
 
+			now := time.Now()
+
 			retention := metabase.Retention{
 				Mode:        storj.ComplianceMode,
 				RetainUntil: now.Add(time.Hour),
@@ -282,6 +289,8 @@ func TestGetObjectExactVersion(t *testing.T) {
 		t.Run("Legal hold", func(t *testing.T) {
 			defer metabasetest.DeleteAll{}.Check(ctx, t, db)
 
+			now := time.Now()
+
 			metabasetest.CreateTestObject{
 				BeginObjectExactVersion: &metabase.BeginObjectExactVersion{
 					ObjectStream: obj,
@@ -311,8 +320,6 @@ func TestGetObjectLastCommitted(t *testing.T) {
 	metabasetest.Run(t, func(ctx *testcontext.Context, t *testing.T, db *metabase.DB) {
 		obj := metabasetest.RandObjectStream()
 		location := obj.Location()
-		now := time.Now()
-		zombieDeadline := now.Add(24 * time.Hour)
 
 		for _, test := range metabasetest.InvalidObjectLocations(location) {
 			test := test
@@ -343,6 +350,10 @@ func TestGetObjectLastCommitted(t *testing.T) {
 
 		t.Run("Get pending object", func(t *testing.T) {
 			defer metabasetest.DeleteAll{}.Check(ctx, t, db)
+
+			now := time.Now()
+			zombieDeadline := now.Add(24 * time.Hour)
+
 			metabasetest.BeginObjectExactVersion{
 				Opts: metabase.BeginObjectExactVersion{
 					ObjectStream: obj,
@@ -373,6 +384,9 @@ func TestGetObjectLastCommitted(t *testing.T) {
 
 		t.Run("Get object", func(t *testing.T) {
 			defer metabasetest.DeleteAll{}.Check(ctx, t, db)
+
+			now := time.Now()
+
 			encryptedMetadata := testrand.Bytes(1024)
 			encryptedMetadataNonce := testrand.Nonce()
 			encryptedMetadataKey := testrand.Bytes(265)
@@ -429,6 +443,8 @@ func TestGetObjectLastCommitted(t *testing.T) {
 
 		t.Run("Get object last committed version from multiple", func(t *testing.T) {
 			defer metabasetest.DeleteAll{}.Check(ctx, t, db)
+
+			now := time.Now()
 
 			firstObject := obj
 			firstObject.Version = metabase.Version(1)
@@ -538,6 +554,8 @@ func TestGetObjectLastCommitted(t *testing.T) {
 		t.Run("Get latest copied object version with duplicate metadata", func(t *testing.T) {
 			defer metabasetest.DeleteAll{}.Check(ctx, t, db)
 
+			now := time.Now()
+
 			copyObjStream := metabasetest.RandObjectStream()
 			copyObjStream.Version = 1 // auto assigned the first available version
 			originalObject := metabasetest.CreateObject(ctx, t, db, obj, 0)
@@ -589,8 +607,6 @@ func TestGetSegmentByPosition(t *testing.T) {
 	metabasetest.Run(t, func(ctx *testcontext.Context, t *testing.T, db *metabase.DB) {
 		obj := metabasetest.RandObjectStream()
 
-		now := time.Now()
-
 		t.Run("StreamID missing", func(t *testing.T) {
 			defer metabasetest.DeleteAll{}.Check(ctx, t, db)
 
@@ -619,6 +635,8 @@ func TestGetSegmentByPosition(t *testing.T) {
 
 		t.Run("Get segment", func(t *testing.T) {
 			defer metabasetest.DeleteAll{}.Check(ctx, t, db)
+
+			now := time.Now()
 
 			obj1 := metabasetest.CreateObject(ctx, t, db, metabasetest.RandObjectStream(), 1)
 
@@ -706,6 +724,8 @@ func TestGetSegmentByPosition(t *testing.T) {
 
 		t.Run("Get segment copy", func(t *testing.T) {
 			defer metabasetest.DeleteAll{}.Check(ctx, t, db)
+
+			now := time.Now()
 
 			objStream := metabasetest.RandObjectStream()
 			copyObjStream := metabasetest.RandObjectStream()
@@ -842,6 +862,8 @@ func TestGetSegmentByPosition(t *testing.T) {
 
 		t.Run("Get empty inline segment copy", func(t *testing.T) {
 			defer metabasetest.DeleteAll{}.Check(ctx, t, db)
+
+			now := time.Now()
 
 			objStream := metabasetest.RandObjectStream()
 			copyObjStream := metabasetest.RandObjectStream()
@@ -1005,6 +1027,8 @@ func TestGetSegmentByPosition(t *testing.T) {
 
 		t.Run("Get inline segment copy", func(t *testing.T) {
 			defer metabasetest.DeleteAll{}.Check(ctx, t, db)
+
+			now := time.Now()
 
 			objStream := metabasetest.RandObjectStream()
 			copyObjStream := metabasetest.RandObjectStream()
@@ -1184,7 +1208,6 @@ func TestGetLatestObjectLastSegment(t *testing.T) {
 	metabasetest.Run(t, func(ctx *testcontext.Context, t *testing.T, db *metabase.DB) {
 		obj := metabasetest.RandObjectStream()
 		location := obj.Location()
-		now := time.Now()
 
 		for _, test := range metabasetest.InvalidObjectLocations(location) {
 			test := test
@@ -1218,6 +1241,8 @@ func TestGetLatestObjectLastSegment(t *testing.T) {
 
 		t.Run("Get last segment", func(t *testing.T) {
 			defer metabasetest.DeleteAll{}.Check(ctx, t, db)
+
+			now := time.Now()
 
 			metabasetest.CreateObject(ctx, t, db, obj, 2)
 
@@ -1369,6 +1394,8 @@ func TestGetLatestObjectLastSegment(t *testing.T) {
 
 		t.Run("Get empty inline segment copy", func(t *testing.T) {
 			defer metabasetest.DeleteAll{}.Check(ctx, t, db)
+
+			now := time.Now()
 
 			objStream := metabasetest.RandObjectStream()
 			copyObjStream := metabasetest.RandObjectStream()
@@ -1529,6 +1556,8 @@ func TestGetLatestObjectLastSegment(t *testing.T) {
 
 		t.Run("Get inline segment copy", func(t *testing.T) {
 			defer metabasetest.DeleteAll{}.Check(ctx, t, db)
+
+			now := time.Now()
 
 			objStream := metabasetest.RandObjectStream()
 			copyObjStream := metabasetest.RandObjectStream()
@@ -1838,8 +1867,6 @@ func TestGetLatestObjectLastSegment(t *testing.T) {
 func TestBucketEmpty(t *testing.T) {
 	metabasetest.Run(t, func(ctx *testcontext.Context, t *testing.T, db *metabase.DB) {
 		obj := metabasetest.RandObjectStream()
-		now := time.Now()
-		zombieDeadline := now.Add(24 * time.Hour)
 
 		t.Run("ProjectID missing", func(t *testing.T) {
 			defer metabasetest.DeleteAll{}.Check(ctx, t, db)
@@ -1883,6 +1910,9 @@ func TestBucketEmpty(t *testing.T) {
 
 		t.Run("BucketEmpty false with pending object", func(t *testing.T) {
 			defer metabasetest.DeleteAll{}.Check(ctx, t, db)
+
+			now := time.Now()
+			zombieDeadline := now.Add(24 * time.Hour)
 
 			metabasetest.BeginObjectExactVersion{
 				Opts: metabase.BeginObjectExactVersion{

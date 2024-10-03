@@ -210,6 +210,59 @@ func (b *Buckets) GetBucketTotals(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
+// GetSingleBucketTotals returns a single bucket usage totals since project creation.
+func (b *Buckets) GetSingleBucketTotals(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	var err error
+	defer mon.Task()(&ctx)(&err)
+
+	w.Header().Set("Content-Type", "application/json")
+
+	projectIDString := r.URL.Query().Get("projectID")
+	if projectIDString == "" {
+		b.serveJSONError(ctx, w, http.StatusBadRequest, errs.New(missingParamErrMsg, "projectID"))
+		return
+	}
+	projectID, err := uuid.FromString(projectIDString)
+	if err != nil {
+		b.serveJSONError(ctx, w, http.StatusBadRequest, errs.New(invalidParamErrMsg, projectIDString, "projectID", err))
+		return
+	}
+
+	beforeString := r.URL.Query().Get("before")
+	if beforeString == "" {
+		b.serveJSONError(ctx, w, http.StatusBadRequest, errs.New(missingParamErrMsg, "before"))
+		return
+	}
+	before, err := time.Parse(dateLayout, beforeString)
+	if err != nil {
+		b.serveJSONError(ctx, w, http.StatusBadRequest, errs.New(invalidParamErrMsg, beforeString, "before", err))
+		return
+	}
+
+	bucketString := r.URL.Query().Get("bucket")
+	if len(bucketString) < 3 || len(bucketString) > 63 {
+		b.serveJSONError(ctx, w, http.StatusBadRequest, errs.New(invalidParamErrMsg, bucketString, "bucket", errs.New("bucket name must be at least 3 and no more than 63 characters long")))
+		return
+	}
+
+	totals, err := b.service.GetSingleBucketTotals(ctx, projectID, bucketString, before)
+	if err != nil {
+		if console.ErrUnauthorized.Has(err) {
+			b.serveJSONError(ctx, w, http.StatusUnauthorized, err)
+			return
+		}
+
+		b.serveJSONError(ctx, w, http.StatusInternalServerError, err)
+		return
+	}
+
+	err = json.NewEncoder(w).Encode(totals)
+	if err != nil {
+		b.log.Error("failed to write json single bucket totals response", zap.Error(ErrBucketsAPI.Wrap(err)))
+	}
+}
+
 // serveJSONError writes JSON error to response output stream.
 func (b *Buckets) serveJSONError(ctx context.Context, w http.ResponseWriter, status int, err error) {
 	web.ServeJSONError(ctx, b.log, w, status, err)

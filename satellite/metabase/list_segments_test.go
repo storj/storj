@@ -17,7 +17,6 @@ import (
 func TestListSegments(t *testing.T) {
 	metabasetest.Run(t, func(ctx *testcontext.Context, t *testing.T, db *metabase.DB) {
 		obj := metabasetest.RandObjectStream()
-		now := time.Now()
 
 		t.Run("StreamID missing", func(t *testing.T) {
 			defer metabasetest.DeleteAll{}.Check(ctx, t, db)
@@ -62,6 +61,8 @@ func TestListSegments(t *testing.T) {
 
 		t.Run("segments", func(t *testing.T) {
 			defer metabasetest.DeleteAll{}.Check(ctx, t, db)
+
+			now := time.Now()
 
 			expectedObject := metabasetest.CreateObject(ctx, t, db, obj, 10)
 
@@ -162,6 +163,8 @@ func TestListSegments(t *testing.T) {
 
 		t.Run("unordered parts", func(t *testing.T) {
 			defer metabasetest.DeleteAll{}.Check(ctx, t, db)
+
+			now := time.Now()
 
 			var testCases = []struct {
 				segments []metabase.SegmentPosition

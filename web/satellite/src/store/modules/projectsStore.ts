@@ -19,12 +19,14 @@ import {
     ProjectInvitationResponse,
     Emission,
     ProjectConfig,
+    ProjectDeletionData,
 } from '@/types/projects';
 import { ProjectsHttpApi } from '@/api/projects';
 import { DEFAULT_PAGE_LIMIT } from '@/types/pagination';
 import { hexToBase64 } from '@/utils/strings';
 import { Duration, Time } from '@/utils/time';
 import { useConfigStore } from '@/store/modules/configStore';
+import { DeleteProjectStep } from '@/types/accountActions';
 
 const DEFAULT_PROJECT = new Project('', '', '', '', '', 0);
 const DEFAULT_INVITATION = new ProjectInvitation('', '', '', '', new Date());
@@ -93,6 +95,14 @@ export const useProjectsStore = defineStore('projects', () => {
         setProjects(projects);
 
         return projects;
+    }
+
+    async function deleteProject(projectId: string, step: DeleteProjectStep, data: string): Promise<ProjectDeletionData | null> {
+        const resp = await api.delete(projectId, step, data);
+        if (!resp && step === DeleteProjectStep.ConfirmDeleteStep) {
+            state.projects = state.projects.filter((p) => p.id !== projectId);
+        }
+        return resp;
     }
 
     function calculateURLIds(): void {
@@ -349,6 +359,7 @@ export const useProjectsStore = defineStore('projects', () => {
         promptForVersioningBeta,
         usersFirstProject,
         getProjects,
+        deleteProject,
         getOwnedProjects,
         getDailyProjectData,
         createProject,

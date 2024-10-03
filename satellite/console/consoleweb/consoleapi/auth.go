@@ -974,9 +974,9 @@ func (a *Auth) ForgotPassword(w http.ResponseWriter, r *http.Request) {
 	)
 }
 
-// ResendEmailWithCaptcha generates activation token by e-mail address and sends email account activation email to user.
+// ResendEmail generates activation token by e-mail address and sends email account activation email to user.
 // If the account is already activated, a password reset e-mail is sent instead.
-func (a *Auth) ResendEmailWithCaptcha(w http.ResponseWriter, r *http.Request) {
+func (a *Auth) ResendEmail(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	var err error
 	defer mon.Task()(&ctx)(&err)
@@ -1009,93 +1009,6 @@ func (a *Auth) ResendEmailWithCaptcha(w http.ResponseWriter, r *http.Request) {
 	}
 
 	verified, unverified, err := a.service.GetUserByEmailWithUnverified(ctx, resendEmail.Email)
-	if err != nil {
-		return
-	}
-
-	if verified != nil {
-		recoveryToken, err := a.service.GeneratePasswordRecoveryToken(ctx, verified.ID)
-		if err != nil {
-			a.serveJSONError(ctx, w, err)
-			return
-		}
-
-		userName := verified.ShortName
-		if verified.ShortName == "" {
-			userName = verified.FullName
-		}
-
-		a.mailService.SendRenderedAsync(
-			ctx,
-			[]post.Address{{Address: verified.Email, Name: userName}},
-			&console.ForgotPasswordEmail{
-				Origin:                     a.ExternalAddress,
-				ResetLink:                  a.PasswordRecoveryURL + "?token=" + recoveryToken,
-				CancelPasswordRecoveryLink: a.CancelPasswordRecoveryURL + "?token=" + recoveryToken,
-				LetUsKnowURL:               a.LetUsKnowURL,
-				ContactInfoURL:             a.ContactInfoURL,
-				TermsAndConditionsURL:      a.TermsAndConditionsURL,
-			},
-		)
-		return
-	}
-
-	user := unverified[0]
-
-	if a.ActivationCodeEnabled {
-		user, err = a.service.SetActivationCodeAndSignupID(ctx, user)
-		if err != nil {
-			a.serveJSONError(ctx, w, err)
-			return
-		}
-
-		a.mailService.SendRenderedAsync(
-			ctx,
-			[]post.Address{{Address: user.Email}},
-			&console.AccountActivationCodeEmail{
-				ActivationCode: user.ActivationCode,
-			},
-		)
-
-		return
-	}
-
-	token, err := a.service.GenerateActivationToken(ctx, user.ID, user.Email)
-	if err != nil {
-		a.serveJSONError(ctx, w, err)
-		return
-	}
-
-	link := a.ActivateAccountURL + "?token=" + token
-	contactInfoURL := a.ContactInfoURL
-	termsAndConditionsURL := a.TermsAndConditionsURL
-
-	a.mailService.SendRenderedAsync(
-		ctx,
-		[]post.Address{{Address: user.Email}},
-		&console.AccountActivationEmail{
-			Origin:                a.ExternalAddress,
-			ActivationLink:        link,
-			TermsAndConditionsURL: termsAndConditionsURL,
-			ContactInfoURL:        contactInfoURL,
-		},
-	)
-}
-
-// ResendEmail generates activation token by e-mail address and sends email account activation email to user.
-// If the account is already activated, a password reset e-mail is sent instead.
-func (a *Auth) ResendEmail(w http.ResponseWriter, r *http.Request) {
-	ctx := r.Context()
-	var err error
-	defer mon.Task()(&ctx)(&err)
-
-	params := mux.Vars(r)
-	email, ok := params["email"]
-	if !ok {
-		return
-	}
-
-	verified, unverified, err := a.service.GetUserByEmailWithUnverified(ctx, email)
 	if err != nil {
 		return
 	}

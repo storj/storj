@@ -33,6 +33,7 @@ import (
 	"storj.io/storj/satellite/metrics"
 	"storj.io/storj/satellite/nodeselection"
 	"storj.io/storj/satellite/repair/checker"
+	"storj.io/storj/shared/dbutil"
 )
 
 func TestLoopCount(t *testing.T) {
@@ -388,7 +389,7 @@ func TestAllInOne(t *testing.T) {
 
 		require.NoError(t, planet.Uplinks[0].CreateBucket(ctx, satellite, "bf-bucket"))
 
-		metabaseProvider := rangedloop.NewMetabaseRangeSplitter(satellite.Metabase.DB, 0, 10)
+		metabaseProvider := rangedloop.NewMetabaseRangeSplitter(satellite.Metabase.DB, 0, 0, 10)
 
 		config := rangedloop.Config{
 			Parallelism: 8,
@@ -472,7 +473,7 @@ func TestLoopBoundaries(t *testing.T) {
 			var visitedSegments []Segment
 			var mu sync.Mutex
 
-			provider := rangedloop.NewMetabaseRangeSplitter(db, 0, batchSize)
+			provider := rangedloop.NewMetabaseRangeSplitter(db, 0, 0, batchSize)
 			config := rangedloop.Config{
 				Parallelism: parallelism,
 				BatchSize:   batchSize,
@@ -557,4 +558,34 @@ func TestInlineSegmentDetection(t *testing.T) {
 
 	require.Equal(t, 2, inlineSegments)
 	require.Equal(t, 1, remoteSegments)
+}
+
+func TestRangedLoop_SpannerStaleReads(t *testing.T) {
+	metabasetest.Run(t, func(ctx *testcontext.Context, t *testing.T, db *metabase.DB) {
+		if db.Implementation() != dbutil.Spanner {
+			t.Skip("test requires Spanner")
+		}
+
+		countObserver := &rangedlooptest.CountObserver{}
+		metabasetest.CreateObject(ctx, t, db, metabasetest.RandObjectStream(), 1)
+
+		config := rangedloop.Config{
+			Parallelism: 1,
+			BatchSize:   10,
+		}
+
+		// using stale read from before creating object
+		provider := rangedloop.NewMetabaseRangeSplitter(db, 0, time.Hour, 10)
+		service := rangedloop.NewService(zaptest.NewLogger(t), config, provider, []rangedloop.Observer{countObserver})
+		_, err := service.RunOnce(ctx)
+		require.NoError(t, err)
+		require.Equal(t, 0, countObserver.NumSegments)
+
+		// using stale read but object should be already visible
+		provider = rangedloop.NewMetabaseRangeSplitter(db, 0, time.Microsecond, 10)
+		service = rangedloop.NewService(zaptest.NewLogger(t), config, provider, []rangedloop.Observer{countObserver})
+		_, err = service.RunOnce(ctx)
+		require.NoError(t, err)
+		require.Equal(t, 1, countObserver.NumSegments)
+	})
 }

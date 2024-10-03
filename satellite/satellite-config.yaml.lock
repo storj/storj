@@ -559,6 +559,9 @@ compensation.withheld-percents: 75,75,75,50,50,50,25,25,25,0,0,0,0,0,0
 # amount of base units of US micro dollars needed to upgrade user's tier status
 # console.user-balance-for-upgrade: 10000000
 
+# url link to Valdi sign up page
+# console.valdi-sign-up-url: ""
+
 # list of partners whose users will not see billing UI.
 # console.var-partners: []
 
@@ -1224,6 +1227,9 @@ identity.key-path: /root/.local/share/storj/identity/satellite/identity.key
 
 # how many chunks of segments to process in parallel
 # ranged-loop.parallelism: 2
+
+# sets spanner stale read timestamp as now()-interval
+# ranged-loop.spanner-stale-interval: 0s
 
 # ratio where to consider processed count as supicious
 # ranged-loop.suspicious-processed-ratio: 0.03
