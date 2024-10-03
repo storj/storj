@@ -826,7 +826,9 @@ func TestEndpoint_Object_No_StorageNodes(t *testing.T) {
 }
 
 func TestEndpoint_Object_Limit(t *testing.T) {
-	const uploadLimitSingleObject = 200 * time.Millisecond
+	// Spanner could be quite slow sometimes, 1 second seems quite enough for the last test failures
+	// that we got due to not hitting the limit.
+	const uploadLimitSingleObject = 1 * time.Second
 
 	testplanet.Run(t, testplanet.Config{
 		SatelliteCount: 1, UplinkCount: 1,
