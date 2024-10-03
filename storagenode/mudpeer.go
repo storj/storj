@@ -23,6 +23,7 @@ import (
 	"storj.io/storj/private/mud"
 	"storj.io/storj/private/server"
 	"storj.io/storj/private/version/checker"
+	"storj.io/storj/shared/debug"
 	"storj.io/storj/storagenode/bandwidth"
 	"storj.io/storj/storagenode/blobstore"
 	"storj.io/storj/storagenode/contact"
@@ -110,6 +111,11 @@ func NewMudPeer(zapLogger *zap.Logger, full *identity.FullIdentity, db DB, revoc
 
 	{ // setup notification service.
 		mud.Provide[*notifications.Service](ball, notifications.NewService)
+	}
+
+	{ // setup debug
+		debug.Module(ball)
+		mud.Tag[debug.Wrapper, Service](ball, Service{})
 	}
 
 	var err error
