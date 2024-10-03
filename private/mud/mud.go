@@ -11,6 +11,7 @@ import (
 
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
+	"golang.org/x/exp/slices"
 )
 
 // Ball is the component registry.
@@ -124,6 +125,13 @@ func ForEach(ball *Ball, callback func(component *Component) error, selectors ..
 // ForEachDependency executes a callback action on all the components, matching the target selector and dependencies, but only if selectors parameter is matching them.
 func ForEachDependency(ball *Ball, target ComponentSelector, callback func(component *Component) error, selectors ...ComponentSelector) error {
 	return forEachComponent(FindSelectedWithDependencies(ball, target), callback, selectors...)
+}
+
+// ForEachDependencyReverse executes a callback action on all the components in reverse order, matching the target selector and dependencies, but only if selectors parameter is matching them.
+func ForEachDependencyReverse(ball *Ball, target ComponentSelector, callback func(component *Component) error, selectors ...ComponentSelector) error {
+	components := FindSelectedWithDependencies(ball, target)
+	slices.Reverse(components)
+	return forEachComponent(components, callback, selectors...)
 }
 
 // Initialize components as ForEach callback.

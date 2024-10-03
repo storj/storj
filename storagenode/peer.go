@@ -320,6 +320,14 @@ type Peer struct {
 	}
 }
 
+// PeerRunner is the interface for running a Storage Node.
+type PeerRunner interface {
+	Run(ctx context.Context) error
+	Close() error
+}
+
+var _ PeerRunner = (*Peer)(nil)
+
 // New creates a new Storage Node.
 func New(log *zap.Logger, full *identity.FullIdentity, db DB, revocationDB extensions.RevocationDB, config Config, versionInfo version.Info, atomicLogLevel *zap.AtomicLevel) (*Peer, error) {
 	peer := &Peer{
