@@ -25,6 +25,7 @@ func MigrateEncryptionPassphrases(ctx context.Context, log *zap.Logger, conn *pg
 	var rowsFound bool
 
 	kmsService := kms.NewService(kms.Config{
+		Provider:         config.Provider,
 		KeyInfos:         config.AllKeyInfos(),
 		DefaultMasterKey: config.NewKeyID(),
 		MockClient:       config.TestMockKmsClient,

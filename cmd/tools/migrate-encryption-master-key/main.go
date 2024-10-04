@@ -46,8 +46,10 @@ func init() {
 type Config struct {
 	SatelliteDB string
 	Limit       int
-	OldKeyInfo  kms.KeyInfos
-	NewKeyInfo  kms.KeyInfos
+
+	Provider   string
+	OldKeyInfo kms.KeyInfos
+	NewKeyInfo kms.KeyInfos
 
 	// TestMockKmsClient is used to mock the kms client for testing.
 	TestMockKmsClient bool
@@ -85,6 +87,7 @@ func (config *Config) AllKeyInfos() kms.KeyInfos {
 // BindFlags adds bench flags to the the flagset.
 func (config *Config) BindFlags(flag *flag.FlagSet) {
 	flag.StringVar(&config.SatelliteDB, "satellitedb", "", "connection URL for satelliteDB")
+	flag.StringVar(&config.Provider, "provider", "gsm", "the provider of the passphrase encryption keys: 'gsm' for google, 'local' for local files")
 	flag.AddGoFlag(&goFlag.Flag{
 		Name:  "old-key-info",
 		Usage: "the key from which to migrate projects, in the form key-id:version,checksum",
@@ -109,6 +112,9 @@ func (config *Config) VerifyFlags() error {
 	}
 	if len(config.NewKeyInfo.Values) == 0 {
 		errlist.Add(errors.New("flag '--new-key-info' is not set"))
+	}
+	if config.Provider == "" {
+		errlist.Add(errors.New("flag '--provider' is not set"))
 	}
 	return errlist.Err()
 }

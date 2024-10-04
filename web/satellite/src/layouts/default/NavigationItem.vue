@@ -6,7 +6,7 @@
         <template #prepend>
             <slot name="prepend" />
         </template>
-        <v-list-item-title class="ml-4">{{ title }}</v-list-item-title>
+        <v-list-item-title class="ml-4">{{ title }} <slot name="chip" /> </v-list-item-title>
         <v-list-item-subtitle v-if="subtitle" class="ml-4">{{ subtitle }}</v-list-item-subtitle>
         <template #append>
             <slot name="append" />

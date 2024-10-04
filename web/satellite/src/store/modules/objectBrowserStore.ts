@@ -19,7 +19,6 @@ import {
     paginateListObjectsV2,
     PutObjectCommand,
     PutObjectRetentionCommand,
-    ObjectLockRetentionMode,
     S3Client,
     S3ClientConfig,
     GetObjectRetentionCommand,
@@ -27,6 +26,7 @@ import {
     ObjectVersion,
     DeleteMarkerEntry,
     DeleteObjectsCommand,
+    ObjectLockMode,
 } from '@aws-sdk/client-s3';
 import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
 import { Progress, Upload } from '@aws-sdk/lib-storage';
@@ -798,7 +798,7 @@ export const useObjectBrowserStore = defineStore('objectBrowser', () => {
         }
     }
 
-    async function lockObject(file: BrowserObject, until: Date): Promise<void> {
+    async function lockObject(file: BrowserObject, mode: ObjectLockMode, until: Date): Promise<void> {
         assertIsInitialized(state);
 
         await state.s3.send(new PutObjectRetentionCommand({
@@ -806,7 +806,7 @@ export const useObjectBrowserStore = defineStore('objectBrowser', () => {
             Key: state.path + file.Key,
             VersionId: file['VersionId'] ?? undefined,
             Retention: {
-                Mode: ObjectLockRetentionMode.COMPLIANCE,
+                Mode: mode,
                 RetainUntilDate: until,
             },
         }));
@@ -1039,7 +1039,7 @@ export const useObjectBrowserStore = defineStore('objectBrowser', () => {
                 }
                 if (result.status === 'rejected') {
                     const deleteError = (result as PromiseRejectedResult).reason as ObjectDeleteError;
-                    return count + deleteError.deletedCount ?? 0;
+                    return count + deleteError.deletedCount || 0;
                 }
                 return count;
             }, 0);

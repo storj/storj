@@ -60,18 +60,42 @@
                         {{ file?.Key }}
                     </v-chip>
 
+                    <template v-if="file?.VersionId">
+                        <p class="my-2 font-weight-bold text-body-2">
+                            Version:
+                        </p>
+
+                        <v-chip
+                            variant="tonal"
+                            filter
+                            color="default"
+                            class="mb-4 font-weight-bold"
+                        >
+                            {{ file?.VersionId }}
+                        </v-chip>
+                    </template>
+
                     <p class="my-2 font-weight-bold text-body-2">
-                        Version:
+                        Select lock type:
                     </p>
 
-                    <v-chip
-                        variant="tonal"
+                    <p class="mb-2 text-body-2">
+                        Governance allows authorized users to modify the lock.
+                        Compliance prevents any changes to the lock.
+                    </p>
+
+                    <v-chip-group
+                        v-model="lockType"
+                        class="mb-4"
+                        selected-class="text-primary font-weight-bold"
+                        mandatory
+                        column
                         filter
-                        color="default"
-                        class="mb-4 font-weight-bold"
                     >
-                        {{ file?.VersionId }}
-                    </v-chip>
+                        <v-chip v-for="type in [GOVERNANCE_LOCK, COMPLIANCE_LOCK]" :key="type" :value="type">
+                            {{ type.substring(0, 1) + type.substring(1).toLowerCase() }}
+                        </v-chip>
+                    </v-chip-group>
 
                     <p class="mb-2 font-weight-bold text-body-2">
                         Select the lock retention period:
@@ -80,6 +104,7 @@
                     <v-chip-group
                         v-model="selectedRange"
                         class="mb-4"
+                        selected-class="text-primary font-weight-bold"
                         mandatory
                         column
                         filter
@@ -136,7 +161,7 @@
 </template>
 
 <script setup lang="ts">
-import { defineModel, ref, watch } from 'vue';
+import { ref, watch } from 'vue';
 import {
     VBtn,
     VCard,
@@ -158,6 +183,7 @@ import { useLoading } from '@/composables/useLoading';
 import { useNotify } from '@/utils/hooks';
 import { AnalyticsErrorEventSource } from '@/utils/constants/analyticsEventNames';
 import { Time } from '@/utils/time';
+import { COMPLIANCE_LOCK, GOVERNANCE_LOCK, ObjLockMode } from '@/types/objectLock';
 
 interface LockUntilRange {
     label: string,
@@ -167,14 +193,11 @@ interface LockUntilRange {
 const customRangeLabel = { label: 'Choose a custom date' };
 const ranges: LockUntilRange[] = [
     { label: '1 Day', date: dateAfterDays(1) },
-    { label: '2 Days', date: dateAfterDays(2) },
     { label: '1 Week', date: dateAfterDays(7) },
     { label: '2 Weeks', date: dateAfterDays(14) },
     { label: '1 Month', date: dateAfterDays(30) },
-    { label: '3 Months', date: dateAfterDays(90) },
     { label: '6 Months', date: dateAfterDays(180) },
     { label: '1 Year', date: dateAfterDays(365) },
-    { label: '2 Years', date: dateAfterDays(730) },
     { label: '3 Years', date: dateAfterDays(1095) },
     { label: '5 Years', date: dateAfterDays(1825) },
     { label: '7 Years', date: dateAfterDays(2555) },
@@ -200,6 +223,7 @@ const emit = defineEmits<{
 const innerContent = ref<VCard | null>(null);
 
 const selectedRange = ref<LockUntilRange>();
+const lockType = ref<ObjLockMode>();
 
 const customUntilDate = ref<Date>();
 
@@ -214,6 +238,10 @@ function lockObject() {
         if (!props.file) {
             return;
         }
+        if (!lockType.value) {
+            notify.warning('Select a lock type');
+            return;
+        }
         let date: Date | undefined;
         if (selectedRange.value?.label === customRangeLabel.label) {
             date = customUntilDate.value;
@@ -225,7 +253,7 @@ function lockObject() {
             return;
         }
         try {
-            await obStore.lockObject(props.file, date);
+            await obStore.lockObject(props.file, lockType.value, date);
             notify.success(`Object locked until ${Time.formattedDate(date)}`);
             emit('fileLocked');
             model.value = false;
@@ -240,5 +268,12 @@ watch(selectedRange, (_) => {
     customUntilDate.value = undefined;
 });
 
-watch(innerContent, comp => !comp && emit('contentRemoved'));
+watch(innerContent, comp => {
+    if (comp) {
+        return;
+    }
+    emit('contentRemoved');
+    lockType.value = undefined;
+    selectedRange.value = undefined;
+});
 </script>
