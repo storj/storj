@@ -80,6 +80,7 @@ type blobWriter struct {
 	ref           blobstore.BlobRef
 	store         *blobStore
 	closed        bool
+	flushed       bool
 	formatVersion blobstore.FormatVersion
 	buffer        *bufio.Writer
 	fh            *os.File
@@ -135,6 +136,8 @@ func (blob *blobWriter) Commit(ctx context.Context) (err error) {
 		return err
 	}
 
+	blob.flushed = true
+
 	err = blob.store.dir.Commit(ctx, blob.fh, blob.sync, blob.ref, blob.formatVersion)
 	return Error.Wrap(errs.Combine(err, blob.track.Close()))
 }
@@ -144,6 +147,8 @@ func (blob *blobWriter) Seek(offset int64, whence int) (int64, error) {
 	if err := blob.buffer.Flush(); err != nil {
 		return 0, err
 	}
+
+	blob.flushed = true
 
 	return blob.fh.Seek(offset, whence)
 }
@@ -156,6 +161,31 @@ func (blob *blobWriter) Size() (int64, error) {
 	}
 
 	return pos, err
+}
+
+// allocation to match V1PieceHeaderReservedArea but we cannot import it here.
+var headerAllocation = [512]byte{}
+
+// ReserveHeader reserves header area at the beginning of the blob.
+func (blob *blobWriter) ReserveHeader(size int64) error {
+	if blob.flushed || blob.buffer.Buffered() > 0 {
+		return Error.New("cannot reserve header after writing data")
+	}
+
+	if size == 0 {
+		return nil
+	}
+
+	// small optimization to avoid allocation for mostly used header size
+	var allocation []byte
+	if size <= int64(len(headerAllocation)) {
+		allocation = headerAllocation[:size]
+	} else {
+		allocation = make([]byte, size)
+	}
+
+	_, err := blob.buffer.Write(allocation)
+	return err
 }
 
 // StorageFormatVersion indicates what storage format version the blob is using.
