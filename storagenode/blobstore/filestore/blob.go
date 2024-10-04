@@ -83,20 +83,20 @@ type blobWriter struct {
 	flushed       bool
 	formatVersion blobstore.FormatVersion
 	buffer        *bufio.Writer
-	fh            *os.File
+	file          *lazyFile
 	sync          bool
 
 	track leak.Ref
 }
 
-func newBlobWriter(track leak.Ref, ref blobstore.BlobRef, store *blobStore, formatVersion blobstore.FormatVersion, file *os.File, bufferSize int, sync bool) *blobWriter {
+func newBlobWriter(track leak.Ref, ref blobstore.BlobRef, store *blobStore, formatVersion blobstore.FormatVersion, file *lazyFile, bufferSize int, sync bool) *blobWriter {
 	return &blobWriter{
 		ref:           ref,
 		store:         store,
 		closed:        false,
 		formatVersion: formatVersion,
 		buffer:        bufio.NewWriterSize(file, bufferSize),
-		fh:            file,
+		file:          file,
 		sync:          sync,
 
 		track: track,
@@ -117,8 +117,13 @@ func (blob *blobWriter) Cancel(ctx context.Context) (err error) {
 	}
 	blob.closed = true
 
-	err = blob.fh.Close()
-	removeErr := os.Remove(blob.fh.Name())
+	// buffer was not flushed to disk yet
+	if blob.file.fh == nil {
+		return blob.track.Close()
+	}
+
+	err = blob.file.fh.Close()
+	removeErr := os.Remove(blob.file.fh.Name())
 	return Error.Wrap(errs.Combine(err, removeErr, blob.track.Close()))
 }
 
@@ -138,7 +143,13 @@ func (blob *blobWriter) Commit(ctx context.Context) (err error) {
 
 	blob.flushed = true
 
-	err = blob.store.dir.Commit(ctx, blob.fh, blob.sync, blob.ref, blob.formatVersion)
+	if blob.file.fh == nil {
+		if err := blob.file.createFile(); err != nil {
+			return err
+		}
+	}
+
+	err = blob.store.dir.Commit(ctx, blob.file.fh, blob.sync, blob.ref, blob.formatVersion)
 	return Error.Wrap(errs.Combine(err, blob.track.Close()))
 }
 
@@ -150,7 +161,13 @@ func (blob *blobWriter) Seek(offset int64, whence int) (int64, error) {
 
 	blob.flushed = true
 
-	return blob.fh.Seek(offset, whence)
+	if blob.file.fh == nil {
+		if err := blob.file.createFile(); err != nil {
+			return 0, err
+		}
+	}
+
+	return blob.file.fh.Seek(offset, whence)
 }
 
 // Size returns how much has been written so far.

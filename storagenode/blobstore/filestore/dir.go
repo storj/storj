@@ -201,7 +201,7 @@ func (dir *Dir) CreateTemporaryFile(ctx context.Context) (_ *os.File, err error)
 }
 
 // CreateNamedFile creates a preallocated file in the correct destination directory.
-func (dir *Dir) CreateNamedFile(ctx context.Context, ref blobstore.BlobRef, formatVersion blobstore.FormatVersion) (file *os.File, err error) {
+func (dir *Dir) CreateNamedFile(ref blobstore.BlobRef, formatVersion blobstore.FormatVersion) (file *os.File, err error) {
 	path, err := dir.blobToBasePath(ref)
 	if err != nil {
 		return nil, err
