@@ -4,6 +4,7 @@
 package nodeselection
 
 import (
+	"fmt"
 	"math"
 	"math/rand"
 	"sort"
@@ -89,11 +90,9 @@ func AttributeGroupSelector(attribute NodeAttribute) NodeSelectorInit {
 			if filter != nil && !filter.Match(node) {
 				continue
 			}
-			a := attribute(*node)
-			if _, found := nodeByAttribute[a]; !found {
-				nodeByAttribute[a] = make([]*SelectedNode, 0)
+			if a, ok := attribute(*node).(string); ok {
+				nodeByAttribute[a] = append(nodeByAttribute[a], node)
 			}
-			nodeByAttribute[a] = append(nodeByAttribute[a], node)
 		}
 
 		var attributes []string
@@ -133,7 +132,7 @@ func AttributeGroupSelector(attribute NodeAttribute) NodeSelectorInit {
 
 // IfSelector selects the first node attribute if the condition is true, otherwise the second node attribute.
 func IfSelector(condition func(SelectedNode) bool, conditionTrue, conditionFalse NodeAttribute) NodeAttribute {
-	return func(node SelectedNode) string {
+	return func(node SelectedNode) any {
 		if condition(node) {
 			return conditionTrue(node)
 		}
@@ -220,7 +219,7 @@ func FilterSelector(loadTimeFilter NodeFilter, init NodeSelectorInit) NodeSelect
 
 // BalancedGroupBasedSelector first selects a group with equal chance (like last_net) and choose one single node randomly. .
 // One group can be tried multiple times, and if the node is already selected, it will be ignored.
-func BalancedGroupBasedSelector(attribute NodeAttribute) NodeSelectorInit {
+func BalancedGroupBasedSelector(attribute NodeAttribute, uploadFilter NodeFilter) NodeSelectorInit {
 	return func(nodes []*SelectedNode, filter NodeFilter) NodeSelector {
 		mon.IntVal("selector_balanced_input_nodes").Observe(int64(len(nodes)))
 		nodeByAttribute := make(map[string][]*SelectedNode)
@@ -228,11 +227,13 @@ func BalancedGroupBasedSelector(attribute NodeAttribute) NodeSelectorInit {
 			if filter != nil && !filter.Match(node) {
 				continue
 			}
-			a := attribute(*node)
-			if _, found := nodeByAttribute[a]; !found {
-				nodeByAttribute[a] = make([]*SelectedNode, 0)
+
+			if uploadFilter != nil && !uploadFilter.Match(node) {
+				continue
 			}
-			nodeByAttribute[a] = append(nodeByAttribute[a], node)
+			if a, ok := attribute(*node).(string); ok {
+				nodeByAttribute[a] = append(nodeByAttribute[a], node)
+			}
 		}
 
 		var groupedNodes [][]*SelectedNode
@@ -300,7 +301,7 @@ func BalancedGroupBasedSelector(attribute NodeAttribute) NodeSelectorInit {
 
 // ChoiceOfTwo will repeat the selection and choose the better node pair-wise.
 // NOTE: it may break other pre-conditions, like the results of the balanced selector...
-func ChoiceOfTwo(tracker UploadSuccessTracker, delegate NodeSelectorInit) NodeSelectorInit {
+func ChoiceOfTwo(tracker ScoreNode, delegate NodeSelectorInit) NodeSelectorInit {
 	return ChoiceOfN(tracker, 2, delegate)
 }
 
@@ -360,7 +361,7 @@ func choiceOfNReduction(getSuccessRate func(*SelectedNode) float64, n int, nodes
 // from groups of n size. n is an int64 type due to a mito scripting shortcoming
 // but really an int16 should be fine.
 // NOTE: it may break other pre-conditions, like the results of the balanced selector...
-func ChoiceOfN(tracker UploadSuccessTracker, n int64, delegate NodeSelectorInit) NodeSelectorInit {
+func ChoiceOfN(tracker ScoreNode, n int64, delegate NodeSelectorInit) NodeSelectorInit {
 	return func(allNodes []*SelectedNode, filter NodeFilter) NodeSelector {
 		selector := delegate(allNodes, filter)
 		return func(requester storj.NodeID, m int, excluded []storj.NodeID, alreadySelected []*SelectedNode) (selected []*SelectedNode, err error) {
@@ -370,6 +371,168 @@ func ChoiceOfN(tracker UploadSuccessTracker, n int64, delegate NodeSelectorInit)
 			}
 
 			return choiceOfNReduction(tracker.Get(requester), int(n), nodes, m), nil
+		}
+	}
+}
+
+// ScoreSelection can help to choose between two selections with assigning a score. The higher score is better.
+type ScoreSelection func(uplink storj.NodeID, selected []*SelectedNode) float64
+
+// ScoreNode can help to assign a score to a node. The higher score is better. float.Nan is valid, if no information is available.
+type ScoreNode interface {
+	Get(uplink storj.NodeID) func(node *SelectedNode) float64
+}
+
+// ScoreNodeFunc implements ScoreNode interface with a single func.
+type ScoreNodeFunc func(uplink storj.NodeID, node *SelectedNode) float64
+
+// Get implements ScoreNode.
+func (s ScoreNodeFunc) Get(id storj.NodeID) func(node *SelectedNode) float64 {
+	return func(node *SelectedNode) float64 {
+		return s(id, node)
+	}
+}
+
+// Desc is a score node, which reverses the score of the original node.
+func Desc(original ScoreNode) ScoreNode {
+	return ScoreNodeFunc(func(uplink storj.NodeID, node *SelectedNode) float64 {
+		return -original.Get(uplink)(node)
+	})
+}
+
+// Min is a ScoreNode, which uses the lowest values. Parameters can be ScoreNodes or static float64/int64.
+func Min(sources ...interface{}) ScoreNode {
+	return ScoreNodeFunc(func(uplink storj.NodeID, node *SelectedNode) float64 {
+		minScore := math.NaN()
+		for _, source := range sources {
+			switch st := source.(type) {
+			case float64:
+				if math.IsNaN(minScore) || st < minScore {
+					minScore = st
+				}
+			case int64:
+				if math.IsNaN(minScore) || float64(st) < minScore {
+					minScore = float64(st)
+				}
+			case ScoreNode:
+				get := st.Get(uplink)(node)
+				if math.IsNaN(minScore) || get < minScore {
+					minScore = get
+				}
+			default:
+				panic(fmt.Sprintf("min is supported only between float64,int64 and SourceNode (like the tracker), but got %T", source))
+			}
+		}
+		return minScore
+	})
+}
+
+// PieceCount scores the node based on the piece count.
+func PieceCount(divider int64) ScoreNode {
+	return ScoreNodeFunc(func(uplink storj.NodeID, node *SelectedNode) float64 {
+		return float64(node.PieceCount) / float64(divider)
+	})
+}
+
+// LastBut scores a selection based on the worst node (but skip the worst n nodes).
+func LastBut(attr ScoreNode, skip int64) ScoreSelection {
+	return scoreBy(attr, func(l int) int {
+		return int(skip)
+	})
+}
+
+// Median scores the selection based on the median of the attribute.
+func Median(attr ScoreNode) ScoreSelection {
+	return scoreBy(attr, func(l int) int {
+		return l/2 + 1
+	})
+}
+
+func scoreBy(attr ScoreNode, indexer func(int) int) ScoreSelection {
+	return func(uplink storj.NodeID, nodes []*SelectedNode) float64 {
+		if len(nodes) == 0 {
+			return 0
+		}
+
+		orig := attr.Get(uplink)
+
+		var scores []float64
+		for node := range nodes {
+
+			val := orig(nodes[node])
+			if !math.IsNaN(val) {
+				scores = append(scores, val)
+			}
+		}
+		slices.Sort(scores)
+		if len(scores) == 0 {
+			return math.NaN()
+		}
+		desiredIndex := indexer(len(scores))
+		if desiredIndex < 0 || desiredIndex >= len(scores) {
+			return math.NaN()
+		}
+		return scores[desiredIndex]
+	}
+}
+
+// MaxGroup returns with the size of the biggest group in the node selection.
+func MaxGroup(attr NodeAttribute) ScoreSelection {
+	return func(uplink storj.NodeID, selected []*SelectedNode) float64 {
+		var attributes []string
+		for _, node := range selected {
+			if a, ok := attr(*node).(string); ok {
+				attributes = append(attributes, a)
+			}
+		}
+		sort.Strings(attributes)
+		maxGroup := 0
+		currentGroup := 0
+		for ix, attr := range attributes {
+			if ix > 0 && attributes[ix-1] == attr {
+				currentGroup++
+			} else {
+				currentGroup = 1
+			}
+			if maxGroup < currentGroup {
+				maxGroup = currentGroup
+			}
+		}
+
+		return float64(maxGroup)
+	}
+}
+
+// ChoiceOfNSelection is similar to ChoiceOfN, but doesn't break the pre-conditions of the original selector.
+// it chooses from selections, without mixing nodes. scoreSources are ar judging the selections in order.
+func ChoiceOfNSelection(n int64, delegate NodeSelectorInit, scoreSource ...ScoreSelection) NodeSelectorInit {
+	return func(allNodes []*SelectedNode, filter NodeFilter) NodeSelector {
+		selector := delegate(allNodes, filter)
+		return func(requester storj.NodeID, m int, excluded []storj.NodeID, alreadySelected []*SelectedNode) (selected []*SelectedNode, err error) {
+			var bestSelection []*SelectedNode
+			var bestScores []float64
+
+			for i := 0; i < int(n); i++ {
+				nodes, err := selector(requester, m, excluded, alreadySelected)
+				if err != nil {
+					return nil, err
+				}
+				if len(nodes) >= m {
+
+					var score []float64
+					for _, scoreFunc := range scoreSource {
+						score = append(score, scoreFunc(requester, nodes))
+					}
+
+					if len(bestScores) == 0 || slices.Compare(score, bestScores) > 0 {
+						bestSelection = nodes
+						bestScores = score
+					}
+
+				}
+			}
+
+			return bestSelection, nil
 		}
 	}
 }
@@ -493,7 +656,7 @@ func FilterBest(tracker UploadSuccessTracker, selection string, uplink string, d
 }
 
 // BestOfN selects more nodes than the required one, and choose the fastest from those.
-func BestOfN(tracker UploadSuccessTracker, ratio float64, delegate NodeSelectorInit) NodeSelectorInit {
+func BestOfN(tracker ScoreNode, ratio float64, delegate NodeSelectorInit) NodeSelectorInit {
 	return func(nodes []*SelectedNode, filter NodeFilter) NodeSelector {
 		wrappedSelector := delegate(nodes, filter)
 		return func(requester storj.NodeID, n int, excluded []storj.NodeID, alreadySelected []*SelectedNode) ([]*SelectedNode, error) {

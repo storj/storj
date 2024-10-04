@@ -63,7 +63,7 @@ describe('actions', () => {
 
         try {
             await store.getProjects();
-        } catch (error) {
+        } catch {
             expect(store.state.projects.length).toBe(0);
             expect(store.state.currentLimits.bandwidthLimit).toBe(0);
         }
@@ -90,7 +90,7 @@ describe('actions', () => {
         try {
             await store.createProject(new ProjectFields());
             expect(true).toBe(false);
-        } catch (error) {
+        } catch {
             expect(store.state.projects.length).toBe(0);
             expect(store.state.currentLimits.bandwidthLimit).toBe(0);
         }

@@ -13,8 +13,8 @@ import (
 //
 // architecture: Service
 type SecretsService interface {
-	// GetKey gets a key from the secret service.
-	GetKey(ctx context.Context, keyInfo KeyInfo) (*storj.Key, error)
+	// GetKeys gets key from the source.
+	GetKeys(ctx context.Context) (map[int]*storj.Key, error)
 	// Close closes the service.
 	Close() error
 }

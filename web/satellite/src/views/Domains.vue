@@ -10,7 +10,7 @@
         />
 
         <v-col>
-            <v-row class="mt-2 mb-4">
+            <v-row class="mt-1 mb-3">
                 <v-btn :prepend-icon="CirclePlus">
                     New Domain
                     <NewDomainDialog v-model="isNewDomainDialog" />

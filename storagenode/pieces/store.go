@@ -127,6 +127,7 @@ type PieceSpaceUsedDB interface {
 	GetTrashTotal(ctx context.Context) (int64, error)
 	// UpdateTrashTotal updates the record for total spaced used for trash with a new value
 	UpdateTrashTotal(ctx context.Context, newTotal int64) error
+	// StoreUsageBeforeScan stores the total space used by pieces per satellite before the piece walker starts
 }
 
 // StoredPieceAccess allows inspection and manipulation of a piece during iteration with
@@ -170,11 +171,14 @@ type Config struct {
 	FlatExpirationStorePath          string        `help:"where to store flat piece expiration files, relative to the data directory" default:"piece_expirations"`
 	FlatExpirationStoreMaxBufferTime time.Duration `help:"maximum time to buffer writes to the flat expiration store before flushing" default:"5m"`
 	FlatExpirationIncludeSQLite      bool          `help:"use and remove piece expirations from the sqlite database _also_ when the flat expiration store is enabled" default:"true"`
+
+	TrashChoreInterval time.Duration `help:"how often to empty check the trash, and delete old files" default:"24h"`
 }
 
 // DefaultConfig is the default value for the Config.
 var DefaultConfig = Config{
-	WritePreallocSize: 4 * memory.MiB,
+	WritePreallocSize:  4 * memory.MiB,
+	TrashChoreInterval: 24 * time.Hour,
 }
 
 // Store implements storing pieces onto a blob storage implementation.
@@ -400,8 +404,11 @@ func (store *Store) DeleteExpiredBatchSkipV0(ctx context.Context, expireAt time.
 func (store *Store) DeleteSatelliteBlobs(ctx context.Context, satellite storj.NodeID) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	err = store.blobs.DeleteNamespace(ctx, satellite.Bytes())
-	return Error.Wrap(err)
+	if err = store.blobs.DeleteNamespace(ctx, satellite.Bytes()); err != nil {
+		return Error.Wrap(err)
+	}
+
+	return Error.Wrap(store.Filewalker.usedSpaceDB.Delete(ctx, satellite))
 }
 
 var monTrash = mon.Task()
@@ -564,14 +571,14 @@ func (store *Store) GetHashAndLimit(ctx context.Context, satellite storj.NodeID,
 func (store *Store) WalkSatellitePieces(ctx context.Context, satellite storj.NodeID, walkFunc func(StoredPieceAccess) error) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	return store.WalkSatellitePiecesFromPrefix(ctx, satellite, "", walkFunc)
+	return store.WalkSatellitePiecesWithSkipPrefix(ctx, satellite, nil, walkFunc)
 }
 
-// WalkSatellitePiecesFromPrefix is like WalkSatellitePieces, but starts at a specific prefix.
-func (store *Store) WalkSatellitePiecesFromPrefix(ctx context.Context, satellite storj.NodeID, startPrefix string, walkFunc func(StoredPieceAccess) error) (err error) {
+// WalkSatellitePiecesWithSkipPrefix is like WalkSatellitePieces, but accepts a skipPrefixFn.
+func (store *Store) WalkSatellitePiecesWithSkipPrefix(ctx context.Context, satellite storj.NodeID, skipPrefixFn blobstore.SkipPrefixFn, walkFunc func(StoredPieceAccess) error) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	return store.Filewalker.WalkSatellitePieces(ctx, satellite, startPrefix, walkFunc)
+	return store.Filewalker.WalkSatellitePieces(ctx, satellite, skipPrefixFn, walkFunc)
 }
 
 // WalkSatellitePiecesToTrash walks the satellite pieces and moves the pieces that are trash to the
@@ -777,8 +784,8 @@ func (store *Store) SpaceUsedTotalAndBySatellite(ctx context.Context) (piecesTot
 	}
 
 	totalBySatellite = map[storj.NodeID]SatelliteUsage{}
-	var group errs.Group
 
+	var group errs.Group
 	for _, satelliteID := range satelliteIDs {
 		satPiecesTotal, satPiecesContentSize, err := store.WalkAndComputeSpaceUsedBySatellite(ctx, satelliteID, store.lazyFilewalkerEnabled())
 		if err != nil {
@@ -793,7 +800,13 @@ func (store *Store) SpaceUsedTotalAndBySatellite(ctx context.Context) (piecesTot
 			ContentSize: satPiecesContentSize,
 		}
 	}
-	return piecesTotal, piecesContentSize, totalBySatellite, group.Err()
+
+	err = group.Err()
+	if err != nil {
+		return 0, 0, nil, Error.Wrap(err)
+	}
+
+	return piecesTotal, piecesContentSize, totalBySatellite, nil
 }
 
 // GetV0PieceInfo fetches the Info record from the V0 piece info database. Obviously,

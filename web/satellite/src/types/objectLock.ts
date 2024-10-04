@@ -3,6 +3,10 @@
 
 import { ObjectLockMode } from '@aws-sdk/client-s3';
 
+export const COMPLIANCE_LOCK = ObjectLockMode.COMPLIANCE;
+export const GOVERNANCE_LOCK = ObjectLockMode.GOVERNANCE;
+export type ObjLockMode = typeof GOVERNANCE_LOCK | typeof COMPLIANCE_LOCK
+
 export class Retention {
     mode: ObjectLockMode | '';
     retainUntil: Date;

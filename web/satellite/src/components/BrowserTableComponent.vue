@@ -41,7 +41,7 @@
         >
             <template #no-data>
                 <p class="text-body-2 cursor-pointer py-14 rounded-xlg my-4" @click="emit('uploadClick')">
-                    {{ search ? 'No data found' : 'Drag and drop files or folders here, or click to upload files.' }}
+                    {{ search ? 'No data found' : 'Drag and drop objects or folders here, or click to upload objects.' }}
                 </p>
             </template>
             <template #item="{ index, props: rowProps }">
@@ -67,7 +67,7 @@
                                 content-class="py-2"
                                 @update:model-value="() => {}"
                             >
-                                Click on the file name to preview.
+                                Click on the object name to preview.
                                 <template #activator="{ props: activatorProps }">
                                     <span v-bind="activatorProps">{{ (item as BrowserObjectWrapper).browserObject.Key }}</span>
                                 </template>
@@ -597,7 +597,7 @@ async function fetchFiles(page = 1, saveNextToken = true): Promise<void> {
             }
         }
     } catch (err) {
-        err.message = `Error fetching files. ${err.message}`;
+        err.message = `Error fetching objects. ${err.message}`;
         notify.notifyError(err, AnalyticsErrorEventSource.FILE_BROWSER_LIST_CALL);
     }
 

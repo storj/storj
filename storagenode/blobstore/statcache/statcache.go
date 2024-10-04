@@ -82,8 +82,8 @@ func (s *CachedStatBlobstore) StatWithStorageFormat(ctx context.Context, ref blo
 }
 
 // WalkNamespace implements blobstore.Blobs.
-func (s *CachedStatBlobstore) WalkNamespace(ctx context.Context, namespace []byte, startFromPrefix string, walkFunc func(blobstore.BlobInfo) error) error {
-	return s.Blobs.WalkNamespace(ctx, namespace, startFromPrefix, func(info blobstore.BlobInfo) error {
+func (s *CachedStatBlobstore) WalkNamespace(ctx context.Context, namespace []byte, skipPrefixFn blobstore.SkipPrefixFn, walkFunc func(blobstore.BlobInfo) error) error {
+	return s.Blobs.WalkNamespace(ctx, namespace, skipPrefixFn, func(info blobstore.BlobInfo) error {
 		return walkFunc(BlobInfo{
 			BlobInfo: info,
 			cache:    s.cache,

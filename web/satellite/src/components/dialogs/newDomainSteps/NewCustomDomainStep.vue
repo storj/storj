@@ -9,7 +9,7 @@
                 <v-text-field
                     v-model="domain"
                     label="Website URL"
-                    placeholder="yourdomain.com"
+                    placeholder="www.yourdomain.com"
                     variant="outlined"
                     :rules="[RequiredRule, DomainRule]"
                     required

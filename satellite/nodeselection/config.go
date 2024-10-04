@@ -5,6 +5,7 @@ package nodeselection
 
 import (
 	"bytes"
+	"fmt"
 	"os"
 	"strings"
 
@@ -37,6 +38,7 @@ type placementDefinition struct {
 
 // UploadSuccessTracker can give hints about the frequency of the long-tail cancellation per node.
 type UploadSuccessTracker interface {
+	// Get gives a Score to the node based on the upload success rate. Can be math.NaN (no information). Higher is better.
 	Get(uplink storj.NodeID) func(node *SelectedNode) float64
 }
 
@@ -279,7 +281,14 @@ func SelectorFromString(expr string, environment *PlacementConfigEnvironment) (N
 			if err != nil {
 				return nil, err
 			}
-			return BalancedGroupBasedSelector(attr), nil
+			return BalancedGroupBasedSelector(attr, nil), nil
+		},
+		"balancedf": func(attribute string, filter NodeFilter) (NodeSelectorInit, error) {
+			attr, err := CreateNodeAttribute(attribute)
+			if err != nil {
+				return nil, err
+			}
+			return BalancedGroupBasedSelector(attr, filter), nil
 		},
 		"filterbest": FilterBest,
 		"bestofn":    BestOfN,
@@ -301,7 +310,28 @@ func SelectorFromString(expr string, environment *PlacementConfigEnvironment) (N
 			}
 			return IfSelector(condition, trueAttr, falseAttr), nil
 		},
-		"dual": DualSelector,
+		"min":                Min,
+		"dual":               DualSelector,
+		"choiceofnselection": ChoiceOfNSelection,
+		"lastbut":            LastBut,
+		"median":             Median,
+		"piececount":         PieceCount,
+		"desc":               Desc,
+
+		"maxgroup": func(attribute interface{}) ScoreSelection {
+			switch value := attribute.(type) {
+			case NodeAttribute:
+				return MaxGroup(value)
+			case string:
+				attr, err := CreateNodeAttribute(value)
+				if err != nil {
+					panic("Invalid node attribute: " + value + " " + err.Error())
+				}
+				return MaxGroup(attr)
+			default:
+				panic(fmt.Sprintf("Argument of maxgroup must be a node attribute (or string), not %T", attribute))
+			}
+		},
 	}
 	for k, v := range supportedFilters {
 		env[k] = v

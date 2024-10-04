@@ -56,7 +56,7 @@ type BreadcrumbItem = {
 }
 
 /**
- * Returns breadcrumb items corresponding to parts in the file browser path.
+ * Returns breadcrumb items corresponding to parts in the object browser path.
  */
 const items = computed<BreadcrumbItem[]>(() => {
     const bucketsURL = `${ROUTES.Projects.path}/${projectsStore.state.selectedProject.urlId}/${ROUTES.Buckets.path}`;

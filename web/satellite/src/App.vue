@@ -26,7 +26,7 @@ import { useRoute, useRouter } from 'vue-router';
 
 import { useConfigStore } from '@/store/modules/configStore';
 import { useAppStore } from '@/store/modules/appStore';
-import { APIError } from '@/utils/error';
+import { APIError, ObjectDeleteError } from '@/utils/error';
 import { ErrorUnauthorized } from '@/api/errors/ErrorUnauthorized';
 import { useABTestingStore } from '@/store/modules/abTestingStore';
 import { useUsersStore } from '@/store/modules/usersStore';
@@ -241,19 +241,25 @@ obStore.$onAction(({ name, after, args }) => {
         after(async (_) => {
             const request = args[0];
             let label = args[1] ?? 'file';
+            let deletedCount = 0;
             try {
-                await request;
+                deletedCount = await request;
             } catch (error) {
                 error.message = `Deleting failed. ${error.message}`;
                 notify.notifyError(error, AnalyticsErrorEventSource.OVERALL_APP_WRAPPER_ERROR);
+                if (error instanceof ObjectDeleteError) {
+                    deletedCount = error.deletedCount;
+                } else {
+                    obStore.filesDeleted();
+                    return;
+                }
             }
 
-            if (obStore.state.deletedFilesCount > 0) {
-                label = obStore.state.deletedFilesCount > 1 ? `${label}s` : label;
-                notify.success(`${obStore.state.deletedFilesCount} ${label} deleted`);
+            if (deletedCount) {
+                label = deletedCount > 1 ? `${label}s` : label;
+                notify.success(`${deletedCount} ${label} deleted`);
                 obStore.filesDeleted();
             }
-            obStore.clearDeletedCount();
         });
     }
 });
@@ -289,7 +295,7 @@ watch(() => projectsStore.state.selectedProject, async (project, oldProject) => 
         } else if (config.hasManagedPassphrase) { // satellite failed to provide decrypted passphrase
             appStore.setManagedPassphraseNotRetrievable(true);
             throw new Error('Unable to acquire managed encryption passphrase');
-        }  else if (
+        } else if (
             usersStore.getShouldPromptPassphrase(project.ownerId === usersStore.state.user.id) &&
             !user.value.freezeStatus.trialExpiredFrozen &&
             route.name !== ROUTES.Bucket.name

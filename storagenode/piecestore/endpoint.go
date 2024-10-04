@@ -13,6 +13,7 @@ import (
 	"net"
 	"os"
 	"reflect"
+	"runtime/trace"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -85,7 +86,8 @@ type Config struct {
 	Orders  orders.Config
 }
 
-type pingStatsSource interface {
+// PingStatsSource stores the last time when the target was pinged.
+type PingStatsSource interface {
 	WasPinged(when time.Time)
 }
 
@@ -102,7 +104,7 @@ type Endpoint struct {
 	trust     *trust.Pool
 	monitor   *monitor.Service
 	retain    *retain.Service
-	pingStats pingStatsSource
+	pingStats PingStatsSource
 
 	store        *pieces.Store
 	trashChore   *pieces.TrashChore
@@ -115,7 +117,7 @@ type Endpoint struct {
 }
 
 // NewEndpoint creates a new piecestore endpoint.
-func NewEndpoint(log *zap.Logger, ident *identity.FullIdentity, trust *trust.Pool, monitor *monitor.Service, retain *retain.Service, pingStats pingStatsSource, store *pieces.Store, trashChore *pieces.TrashChore, pieceDeleter *pieces.Deleter, ordersStore *orders.FileStore, usage bandwidth.DB, usedSerials *usedserials.Table, config Config) (*Endpoint, error) {
+func NewEndpoint(log *zap.Logger, ident *identity.FullIdentity, trust *trust.Pool, monitor *monitor.Service, retain *retain.Service, pingStats PingStatsSource, store *pieces.Store, trashChore *pieces.TrashChore, pieceDeleter *pieces.Deleter, ordersStore *orders.FileStore, usage bandwidth.DB, usedSerials *usedserials.Table, config Config) (*Endpoint, error) {
 	return &Endpoint{
 		log:    log,
 		config: config,
@@ -280,6 +282,14 @@ func (endpoint *Endpoint) Upload(stream pb.DRPCPiecestore_UploadStream) (err err
 	ctx := stream.Context()
 	defer monLiveRequests(&ctx)(&err)
 	defer mon.Task()(&ctx)(&err)
+
+	if trace.IsEnabled() {
+		if tr, ok := drpcctx.Transport(ctx); ok {
+			if conn, ok := tr.(net.Conn); ok {
+				trace.Logf(ctx, "connection-info", "local:%v remote:%v", conn.LocalAddr(), conn.RemoteAddr())
+			}
+		}
+	}
 
 	cancelStream, ok := getCanceler(stream)
 	if !ok {
@@ -605,6 +615,14 @@ func (endpoint *Endpoint) Download(stream pb.DRPCPiecestore_DownloadStream) (err
 	ctx := stream.Context()
 	defer monLiveRequests(&ctx)(&err)
 	defer mon.Task()(&ctx)(&err)
+
+	if trace.IsEnabled() {
+		if tr, ok := drpcctx.Transport(ctx); ok {
+			if conn, ok := tr.(net.Conn); ok {
+				trace.Logf(ctx, "connection-info", "local:%v remote:%v", conn.LocalAddr(), conn.RemoteAddr())
+			}
+		}
+	}
 
 	cancelStream, ok := getCanceler(stream)
 	if !ok {

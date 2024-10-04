@@ -147,7 +147,7 @@ onBeforeMount(async () => {
                 downloadMoreInfo.value = config[partner].downloadMoreInfo;
             }
         }
-    } catch (e) {
+    } catch {
         notify.error('No configuration file for page.', null);
     }
 });

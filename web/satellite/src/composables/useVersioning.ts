@@ -19,13 +19,6 @@ export function useVersioning() {
     const worker = computed((): Worker | null => agStore.state.accessGrantsWebWorker);
 
     /**
-     * Returns edge credentials for bucket creation from store.
-     */
-    const edgeCredentialsForVersioning = computed((): EdgeCredentials => {
-        return bucketsStore.state.edgeCredentialsForVersioning;
-    });
-
-    /**
      * Returns object browser api key from store.
      */
     const apiKey = computed((): string => {

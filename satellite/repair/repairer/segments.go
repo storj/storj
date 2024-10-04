@@ -18,6 +18,7 @@ import (
 	"storj.io/common/pb"
 	"storj.io/common/storj"
 	"storj.io/common/sync2"
+	"storj.io/eventkit"
 	"storj.io/storj/satellite/audit"
 	"storj.io/storj/satellite/metabase"
 	"storj.io/storj/satellite/nodeselection"
@@ -45,6 +46,8 @@ var (
 	segmentDeletedError = errs.Class("segment deleted during repair")
 	// segmentModifiedError is the errs class used when a segment has been changed in any way.
 	segmentModifiedError = errs.Class("segment has been modified")
+
+	ek = eventkit.Package()
 )
 
 // irreparableError identifies situations where a segment could not be repaired due to reasons
@@ -250,6 +253,33 @@ func (repairer *SegmentRepairer) Repair(ctx context.Context, queueSegment queue.
 			zap.Int16("Pieces Required", newRedundancy.RequiredShares),
 			zap.Uint16("Placement", uint16(segment.Placement)),
 		)
+		tags := make([]eventkit.Tag, 0, 18)
+		tags = append(tags,
+			eventkit.Bytes("stream-id", queueSegment.StreamID.Bytes()),
+			eventkit.Int64("stream-position", int64(queueSegment.Position.Encode())),
+			eventkit.Int64("segment-size", int64(segment.EncryptedSize)),
+			eventkit.Int64("placement", int64(segment.Placement)),
+			eventkit.Int64("pieces-required", int64(newRedundancy.RequiredShares)),
+			eventkit.Int64("pieces-missing", int64(piecesCheck.Missing.Count())),
+			eventkit.Int64("pieces-retrievable", int64(piecesCheck.Retrievable.Count())),
+			eventkit.Int64("pieces-suspended", int64(piecesCheck.Suspended.Count())),
+			eventkit.Int64("pieces-clumped", int64(piecesCheck.Clumped.Count())),
+			eventkit.Int64("pieces-exiting", int64(piecesCheck.Exiting.Count())),
+			eventkit.Int64("pieces-out-of-placement", int64(piecesCheck.OutOfPlacement.Count())),
+			eventkit.Int64("pieces-in-excluded-country", int64(piecesCheck.InExcludedCountry.Count())),
+			eventkit.Int64("pieces-forcing-repair", int64(piecesCheck.ForcingRepair.Count())),
+			eventkit.Int64("pieces-unhealthy", int64(piecesCheck.Unhealthy.Count())),
+			eventkit.Int64("pieces-healthy", int64(piecesCheck.Healthy.Count())),
+			eventkit.Timestamp("created-at", segment.CreatedAt),
+		)
+		if segment.RepairedAt != nil {
+			tags = append(tags, eventkit.Timestamp("repaired-at", *segment.RepairedAt))
+		}
+		if segment.ExpiresAt != nil {
+			tags = append(tags, eventkit.Timestamp("expires-at", *segment.ExpiresAt))
+		}
+		ek.Event("irreparable_segment", tags...)
+
 		return false, nil
 	}
 
@@ -489,6 +519,39 @@ func (repairer *SegmentRepairer) Repair(ctx context.Context, queueSegment queue.
 				zap.Strings("Unknown Errors List", unknownErrs),
 				zap.Uint16("Placement", uint16(segment.Placement)),
 			)
+
+			tags := make([]eventkit.Tag, 0, 23)
+			tags = append(tags,
+				eventkit.Bytes("stream-id", queueSegment.StreamID.Bytes()),
+				eventkit.Int64("stream-position", int64(queueSegment.Position.Encode())),
+				eventkit.Int64("segment-size", int64(segment.EncryptedSize)),
+				eventkit.Int64("placement", int64(segment.Placement)),
+				eventkit.Int64("pieces-required", int64(newRedundancy.RequiredShares)),
+				eventkit.Int64("pieces-missing", int64(piecesCheck.Missing.Count())),
+				eventkit.Int64("pieces-retrievable", int64(piecesCheck.Retrievable.Count())),
+				eventkit.Int64("pieces-suspended", int64(piecesCheck.Suspended.Count())),
+				eventkit.Int64("pieces-clumped", int64(piecesCheck.Clumped.Count())),
+				eventkit.Int64("pieces-exiting", int64(piecesCheck.Exiting.Count())),
+				eventkit.Int64("pieces-out-of-placement", int64(piecesCheck.OutOfPlacement.Count())),
+				eventkit.Int64("pieces-in-excluded-country", int64(piecesCheck.InExcludedCountry.Count())),
+				eventkit.Int64("pieces-forcing-repair", int64(piecesCheck.ForcingRepair.Count())),
+				eventkit.Int64("pieces-unhealthy", int64(piecesCheck.Unhealthy.Count())),
+				eventkit.Int64("pieces-healthy", int64(piecesCheck.Healthy.Count())),
+				eventkit.Timestamp("created-at", segment.CreatedAt),
+				eventkit.Int64("piece-fetch-successful", int64(len(piecesReport.Successful))),
+				eventkit.Int64("piece-fetch-failed", int64(len(piecesReport.Failed))),
+				eventkit.Int64("piece-fetch-offline", int64(len(piecesReport.Offline))),
+				eventkit.Int64("piece-fetch-contained", int64(len(piecesReport.Contained))),
+				eventkit.Int64("piece-fetch-unknown", int64(len(piecesReport.Unknown))),
+			)
+			if segment.RepairedAt != nil {
+				tags = append(tags, eventkit.Timestamp("repaired-at", *segment.RepairedAt))
+			}
+			if segment.ExpiresAt != nil {
+				tags = append(tags, eventkit.Timestamp("expires-at", *segment.ExpiresAt))
+			}
+			ek.Event("irretrievable_segment", tags...)
+
 			// repair will be attempted again if the segment remains unhealthy.
 			return false, nil
 		}
@@ -767,7 +830,7 @@ type AdminFetchInfo struct {
 // limits from the storage nodes on which they are stored, and returns them intact to
 // the caller rather than decoding or decrypting or verifying anything. This is to be
 // used for debugging purposes.
-func (repairer *SegmentRepairer) AdminFetchPieces(ctx context.Context, seg *metabase.Segment, saveDir string) (pieceInfos []AdminFetchInfo, err error) {
+func (repairer *SegmentRepairer) AdminFetchPieces(ctx context.Context, log *zap.Logger, seg *metabase.Segment, saveDir string) (pieceInfos []AdminFetchInfo, err error) {
 	if seg.Inline() {
 		return nil, errs.New("cannot download an inline segment")
 	}
@@ -798,6 +861,15 @@ func (repairer *SegmentRepairer) AdminFetchPieces(ctx context.Context, seg *meta
 		limiter.Go(ctx, func() {
 			info := cachedNodesInfo[limit.GetLimit().StorageNodeId]
 			address := limit.GetStorageNodeAddress().GetAddress()
+
+			log.Debug("piece download attempt",
+				zap.Stringer("Node ID", limit.Limit.StorageNodeId),
+				zap.Stringer("Piece ID", limit.Limit.PieceId),
+				zap.Int("piece index", currentLimitIndex),
+				zap.String("address", limit.GetStorageNodeAddress().Address),
+				zap.String("last_ip_port", info.LastIPPort),
+				zap.Binary("serial", limit.Limit.SerialNumber[:]))
+
 			var triedLastIPPort bool
 			if info.LastIPPort != "" && info.LastIPPort != address {
 				address = info.LastIPPort

@@ -6,11 +6,13 @@ package bloomfilter_test
 import (
 	"archive/zip"
 	"bytes"
+	"context"
 	"fmt"
 	"io"
 	"sort"
 	"strconv"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap"
@@ -26,6 +28,7 @@ import (
 	"storj.io/storj/satellite"
 	"storj.io/storj/satellite/gc/bloomfilter"
 	"storj.io/storj/satellite/internalpb"
+	"storj.io/storj/satellite/metabase"
 	"storj.io/storj/satellite/metabase/rangedloop"
 	"storj.io/storj/satellite/metabase/rangedloop/rangedlooptest"
 	"storj.io/storj/satellite/overlay"
@@ -111,7 +114,7 @@ func TestObserverGarbageCollectionBloomFilters(t *testing.T) {
 					// TODO: see comment above. ideally this should use the rangedloop
 					// service instantiated for the testplanet.
 					rangedloopConfig := planet.Satellites[0].Config.RangedLoop
-					segments := rangedloop.NewMetabaseRangeSplitter(planet.Satellites[0].Metabase.DB, rangedloopConfig.AsOfSystemInterval, rangedloopConfig.BatchSize)
+					segments := rangedloop.NewMetabaseRangeSplitter(planet.Satellites[0].Metabase.DB, rangedloopConfig.AsOfSystemInterval, rangedloopConfig.SpannerStaleInterval, rangedloopConfig.BatchSize)
 					rangedLoop := rangedloop.NewService(zap.NewNop(), planet.Satellites[0].Config.RangedLoop, segments,
 						[]rangedloop.Observer{observer})
 
@@ -231,7 +234,7 @@ func TestObserverGarbageCollectionBloomFilters_AllowNotEmptyBucket(t *testing.T)
 				// TODO: see comment above. ideally this should use the rangedloop
 				// service instantiated for the testplanet.
 				rangedloopConfig := planet.Satellites[0].Config.RangedLoop
-				segments := rangedloop.NewMetabaseRangeSplitter(planet.Satellites[0].Metabase.DB, rangedloopConfig.AsOfSystemInterval, rangedloopConfig.BatchSize)
+				segments := rangedloop.NewMetabaseRangeSplitter(planet.Satellites[0].Metabase.DB, rangedloopConfig.AsOfSystemInterval, rangedloopConfig.SpannerStaleInterval, rangedloopConfig.BatchSize)
 				rangedLoop := rangedloop.NewService(zap.NewNop(), planet.Satellites[0].Config.RangedLoop, segments,
 					[]rangedloop.Observer{observer})
 
@@ -320,4 +323,110 @@ func TestObserverGarbageCollection_MultipleRanges(t *testing.T) {
 			})
 		}
 	})
+}
+
+func TestObserverGarbageCollection_CreationDate_MultipleSources(t *testing.T) {
+	ctx := testcontext.New(t)
+	defer ctx.Cleanup()
+
+	config := rangedloop.Config{Parallelism: 2, BatchSize: 3}
+
+	testNodeID := testrand.NodeID()
+	testPieces := metabase.Pieces{
+		{Number: 1, StorageNode: testNodeID},
+	}
+
+	overlay := &mockOverlay{
+		pieceCounts: map[storj.NodeID]int64{
+			testNodeID: 1,
+		},
+	}
+
+	segments := func(source string, creationTime time.Time, length int) (segments []rangedloop.Segment) {
+		for i := 0; i < length; i++ {
+			segments = append(segments, rangedloop.Segment{
+				Pieces:      testPieces,
+				CreatedAt:   creationTime,
+				RootPieceID: testrand.PieceID(),
+				Source:      source,
+			})
+		}
+		return segments
+	}
+
+	concat := func(segments ...[]rangedloop.Segment) (result []rangedloop.Segment) {
+		for _, segs := range segments {
+			result = append(result, segs...)
+		}
+		return result
+	}
+
+	type testCase struct {
+		Segments             []rangedloop.Segment
+		ExpectedCreationTime time.Time
+	}
+
+	startTime := time.Now()
+	for i, tc := range []testCase{
+		{
+			Segments:             segments("A", startTime.Add(time.Hour), 5),
+			ExpectedCreationTime: startTime,
+		},
+		{
+			Segments: concat(
+				segments("A", startTime.Add(2*time.Hour), 5),
+				segments("B", startTime.Add(3*time.Hour), 5),
+				segments("C", startTime.Add(4*time.Hour), 5),
+			),
+			ExpectedCreationTime: startTime,
+		},
+		{
+			Segments: concat(
+				segments("A", startTime.Add(-time.Hour), 3),
+				segments("B", startTime.Add(time.Hour), 3),
+				segments("C", startTime.Add(2*time.Hour), 3),
+			),
+			ExpectedCreationTime: startTime.Add(-time.Hour),
+		},
+		{
+			Segments: concat(
+				segments("A", startTime.Add(-time.Hour), 6),
+				segments("B", startTime.Add(-2*time.Hour), 6),
+				segments("C", startTime.Add(-3*time.Hour), 6),
+			),
+			ExpectedCreationTime: startTime.Add(-3 * time.Hour),
+		},
+		{
+			Segments: concat(
+				segments("A", startTime.Add(-time.Hour), 3),
+				segments("B", startTime.Add(-2*time.Hour), 3),
+				segments("C", startTime.Add(-3*time.Hour), 3),
+				segments("A", startTime.Add(time.Hour), 3),
+				segments("B", startTime.Add(time.Hour), 3),
+				segments("C", startTime.Add(time.Hour), 3),
+			),
+			ExpectedCreationTime: startTime,
+		},
+	} {
+		provider := &rangedlooptest.RangeSplitter{Segments: tc.Segments}
+
+		log := zaptest.NewLogger(t)
+		observer := bloomfilter.NewObserver(log, bloomfilter.Config{AccessGrant: "test", Bucket: "test"}, overlay)
+
+		rangedLoop := rangedloop.NewService(zap.NewNop(), config, provider,
+			[]rangedloop.Observer{observer},
+		)
+
+		_, err := rangedLoop.RunOnce(ctx)
+		require.NoError(t, err)
+		require.WithinDuration(t, tc.ExpectedCreationTime, observer.TestingCreationTime(), time.Second, "case %d", i)
+	}
+}
+
+type mockOverlay struct {
+	pieceCounts map[storj.NodeID]int64
+}
+
+func (o *mockOverlay) ActiveNodesPieceCounts(ctx context.Context) (pieceCounts map[storj.NodeID]int64, err error) {
+	return pieceCounts, nil
 }

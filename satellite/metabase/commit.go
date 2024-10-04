@@ -523,8 +523,6 @@ type CommitSegment struct {
 	Pieces Pieces
 
 	Placement storj.PlacementConstraint
-
-	mode string
 }
 
 // CommitSegment commits segment to the database.
@@ -565,7 +563,6 @@ func (db *DB) CommitSegment(ctx context.Context, opts CommitSegment) (err error)
 		return Error.New("unable to convert pieces to aliases: %w", err)
 	}
 
-	opts.mode = db.config.TestingCommitSegmentMode
 	err = db.ChooseAdapter(opts.ProjectID).CommitPendingObjectSegment(ctx, opts, aliasPieces)
 	if err != nil {
 		if ErrPendingObjectMissing.Has(err) {
@@ -613,7 +610,9 @@ func (p *PostgresAdapter) CommitPendingObjectSegment(ctx context.Context, opts C
 			encrypted_size = $6, plain_offset = $7, plain_size = $8, encrypted_etag = $9,
 			redundancy = $10,
 			remote_alias_pieces = $11,
-			placement = $17
+			placement = $17,
+			-- clear fields in case it was inline segment before
+			inline_data = NULL
 		`, opts.Position, opts.ExpiresAt,
 		opts.RootPieceID, opts.EncryptedKeyNonce, opts.EncryptedKey,
 		opts.EncryptedSize, opts.PlainOffset, opts.PlainSize, opts.EncryptedETag,
@@ -627,90 +626,25 @@ func (p *PostgresAdapter) CommitPendingObjectSegment(ctx context.Context, opts C
 			return ErrPendingObjectMissing.New("")
 		}
 	}
-	return err
+
+	return Error.Wrap(err)
 }
 
 // CommitPendingObjectSegment commits segment to the database.
 func (p *CockroachAdapter) CommitPendingObjectSegment(ctx context.Context, opts CommitSegment, aliasPieces AliasPieces) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	switch opts.mode {
-	case commitSegmentModeTransaction:
-		err = txutil.WithTx(ctx, p.db, nil, func(ctx context.Context, tx tagsql.Tx) error {
-			rows, err := tx.QueryContext(ctx, `
-				SELECT 1
-				FROM objects
-				WHERE (project_id, bucket_name, object_key, version, stream_id) = ($1, $2, $3, $4, $5)
-				AND status = `+statusPending+`
-			`, opts.ProjectID, opts.BucketName, opts.ObjectKey, opts.Version, opts.StreamID)
-			if err != nil {
-				return errs.Wrap(err)
-			}
-
-			pendingObjectFound := rows.Next()
-			if err := errs.Combine(rows.Err(), rows.Close()); err != nil {
-				return errs.Wrap(err)
-			}
-
-			if !pendingObjectFound {
-				return ErrPendingObjectMissing.New("")
-			}
-
-			_, err = tx.ExecContext(ctx, `
-				UPSERT INTO segments (
-					stream_id, position,
-					expires_at, root_piece_id, encrypted_key_nonce, encrypted_key,
-					encrypted_size, plain_offset, plain_size, encrypted_etag,
-					redundancy,
-					remote_alias_pieces,
-					placement
-				) VALUES (
-					$1, $2,
-					$3, $4, $5,
-					$6, $7, $8, $9,
-					$10, $11, $12,
-					$13
-				)`, opts.StreamID, opts.Position, opts.ExpiresAt,
-				opts.RootPieceID, opts.EncryptedKeyNonce, opts.EncryptedKey,
-				opts.EncryptedSize, opts.PlainOffset, opts.PlainSize, opts.EncryptedETag,
-				redundancyScheme{&opts.Redundancy},
-				aliasPieces,
-				opts.Placement,
-			)
-			return errs.Wrap(err)
-		})
-	case commitSegmentModeNoCheck:
-		_, err = p.db.ExecContext(ctx, `
+	// Verify that object exists and is partial.
+	_, err = p.db.ExecContext(ctx, `
 			UPSERT INTO segments (
 				stream_id, position,
 				expires_at, root_piece_id, encrypted_key_nonce, encrypted_key,
 				encrypted_size, plain_offset, plain_size, encrypted_etag,
 				redundancy,
 				remote_alias_pieces,
-				placement
-			) VALUES (
-				$1, $2,
-				$3, $4, $5,
-				$6, $7, $8, $9,
-				$10, $11, $12,
-				$13
-			)`, opts.StreamID, opts.Position, opts.ExpiresAt,
-			opts.RootPieceID, opts.EncryptedKeyNonce, opts.EncryptedKey,
-			opts.EncryptedSize, opts.PlainOffset, opts.PlainSize, opts.EncryptedETag,
-			redundancyScheme{&opts.Redundancy},
-			aliasPieces,
-			opts.Placement,
-		)
-	default:
-		// Verify that object exists and is partial.
-		_, err = p.db.ExecContext(ctx, `
-			UPSERT INTO segments (
-				stream_id, position,
-				expires_at, root_piece_id, encrypted_key_nonce, encrypted_key,
-				encrypted_size, plain_offset, plain_size, encrypted_etag,
-				redundancy,
-				remote_alias_pieces,
-				placement
+				placement,
+				-- clear fields in case it was inline segment before
+				inline_data
 			) VALUES (
 				(
 					SELECT stream_id
@@ -722,23 +656,23 @@ func (p *CockroachAdapter) CommitPendingObjectSegment(ctx context.Context, opts 
 				$6, $7, $8, $9,
 				$10,
 				$11,
-				$17
+				$17,
+				NULL
 			)`, opts.Position, opts.ExpiresAt,
-			opts.RootPieceID, opts.EncryptedKeyNonce, opts.EncryptedKey,
-			opts.EncryptedSize, opts.PlainOffset, opts.PlainSize, opts.EncryptedETag,
-			redundancyScheme{&opts.Redundancy},
-			aliasPieces,
-			opts.ProjectID, opts.BucketName, opts.ObjectKey, opts.Version, opts.StreamID,
-			opts.Placement,
-		)
-		if err != nil {
-			if code := pgerrcode.FromError(err); code == pgxerrcode.NotNullViolation {
-				return ErrPendingObjectMissing.New("")
-			}
+		opts.RootPieceID, opts.EncryptedKeyNonce, opts.EncryptedKey,
+		opts.EncryptedSize, opts.PlainOffset, opts.PlainSize, opts.EncryptedETag,
+		redundancyScheme{&opts.Redundancy},
+		aliasPieces,
+		opts.ProjectID, opts.BucketName, opts.ObjectKey, opts.Version, opts.StreamID,
+		opts.Placement,
+	)
+	if err != nil {
+		if code := pgerrcode.FromError(err); code == pgxerrcode.NotNullViolation {
+			return ErrPendingObjectMissing.New("")
 		}
 	}
 
-	return err
+	return Error.Wrap(err)
 }
 
 // CommitPendingObjectSegment commits segment to the database.
@@ -755,7 +689,9 @@ func (s *SpannerAdapter) CommitPendingObjectSegment(ctx context.Context, opts Co
 					encrypted_size, plain_offset, plain_size, encrypted_etag,
 					redundancy,
 					remote_alias_pieces,
-					placement
+					placement,
+					-- clear column in case it was inline segment before
+					inline_data
 				) VALUES (
 					(
 						SELECT stream_id
@@ -767,7 +703,8 @@ func (s *SpannerAdapter) CommitPendingObjectSegment(ctx context.Context, opts Co
 					@encrypted_size, @plain_offset, @plain_size, @encrypted_etag,
 					@redundancy,
 					@alias_pieces,
-					@placement
+					@placement,
+					NULL
 				)
 			`,
 			Params: map[string]interface{}{
@@ -824,8 +761,6 @@ type CommitInlineSegment struct {
 	EncryptedETag []byte
 
 	InlineData []byte
-
-	mode string
 }
 
 // Verify verifies commit inline segment reqest fields.
@@ -857,8 +792,6 @@ func (db *DB) CommitInlineSegment(ctx context.Context, opts CommitInlineSegment)
 
 	// TODO: do we have a lower limit for inline data?
 	// TODO should we move check for max inline segment from metainfo here
-
-	opts.mode = db.config.TestingCommitSegmentMode
 	err = db.ChooseAdapter(opts.ProjectID).CommitInlineSegment(ctx, opts)
 	if err != nil {
 		if ErrPendingObjectMissing.Has(err) {
@@ -897,7 +830,9 @@ func (p *PostgresAdapter) CommitInlineSegment(ctx context.Context, opts CommitIn
 				expires_at = $2,
 				root_piece_id = $3, encrypted_key_nonce = $4, encrypted_key = $5,
 				encrypted_size = $6, plain_offset = $7, plain_size = $8, encrypted_etag = $9,
-				inline_data = $10
+				inline_data = $10,
+				-- clear columns in case it was remote segment before
+				redundancy = 0, remote_alias_pieces = NULL
 		`, opts.Position, opts.ExpiresAt,
 		storj.PieceID{}, opts.EncryptedKeyNonce, opts.EncryptedKey,
 		len(opts.InlineData), opts.PlainOffset, opts.PlainSize, opts.EncryptedETag,
@@ -915,75 +850,14 @@ func (p *PostgresAdapter) CommitInlineSegment(ctx context.Context, opts CommitIn
 
 // CommitInlineSegment commits inline segment to the database.
 func (p *CockroachAdapter) CommitInlineSegment(ctx context.Context, opts CommitInlineSegment) (err error) {
-	switch opts.mode {
-	case commitSegmentModeTransaction:
-		err = txutil.WithTx(ctx, p.db, nil, func(ctx context.Context, tx tagsql.Tx) error {
-			rows, err := tx.QueryContext(ctx, `
-				SELECT 1
-				FROM objects
-				WHERE
-				(project_id, bucket_name, object_key, version, stream_id) = ($1, $2, $3, $4, $5)
-				AND status = `+statusPending+`
-			`, opts.ProjectID, opts.BucketName, opts.ObjectKey, opts.Version, opts.StreamID)
-			if err != nil {
-				return errs.Wrap(err)
-			}
-
-			pendingObjectFound := rows.Next()
-			if err := errs.Combine(rows.Err(), rows.Close()); err != nil {
-				return errs.Wrap(err)
-			}
-
-			if !pendingObjectFound {
-				return ErrPendingObjectMissing.New("")
-			}
-
-			_, err = tx.ExecContext(ctx, `
-				UPSERT INTO segments (
-					stream_id, position, expires_at,
-					root_piece_id, encrypted_key_nonce, encrypted_key,
-					encrypted_size, plain_offset, plain_size, encrypted_etag,
-					inline_data
-				) VALUES (
-					$11,
-					$1, $2,
-					$3, $4, $5,
-					$6, $7, $8, $9,
-					$10
-				)
-			`, opts.Position, opts.ExpiresAt,
-				storj.PieceID{}, opts.EncryptedKeyNonce, opts.EncryptedKey,
-				len(opts.InlineData), opts.PlainOffset, opts.PlainSize, opts.EncryptedETag,
-				opts.InlineData,
-				opts.StreamID,
-			)
-			return errs.Wrap(err)
-		})
-	case commitSegmentModeNoCheck:
-		_, err = p.db.ExecContext(ctx, `
+	_, err = p.db.ExecContext(ctx, `
 			UPSERT INTO segments (
 				stream_id, position, expires_at,
 				root_piece_id, encrypted_key_nonce, encrypted_key,
 				encrypted_size, plain_offset, plain_size, encrypted_etag,
-				inline_data
-			) VALUES (
-				$1, $2,
-				$3, $4, $5,
-				$6, $7, $8, $9,
-				$10, $11
-			)
-		`, opts.StreamID, opts.Position, opts.ExpiresAt,
-			storj.PieceID{}, opts.EncryptedKeyNonce, opts.EncryptedKey,
-			len(opts.InlineData), opts.PlainOffset, opts.PlainSize, opts.EncryptedETag,
-			opts.InlineData,
-		)
-	default:
-		_, err = p.db.ExecContext(ctx, `
-			UPSERT INTO segments (
-				stream_id, position, expires_at,
-				root_piece_id, encrypted_key_nonce, encrypted_key,
-				encrypted_size, plain_offset, plain_size, encrypted_etag,
-				inline_data
+				inline_data,
+				-- clear columns in case it was remote segment before
+				redundancy, remote_alias_pieces
 			) VALUES (
 				(
 					SELECT stream_id
@@ -994,18 +868,18 @@ func (p *CockroachAdapter) CommitInlineSegment(ctx context.Context, opts CommitI
 				$1, $2,
 				$3, $4, $5,
 				$6, $7, $8, $9,
-				$10
+				$10,
+				0, NULL
 			)
 		`, opts.Position, opts.ExpiresAt,
-			storj.PieceID{}, opts.EncryptedKeyNonce, opts.EncryptedKey,
-			len(opts.InlineData), opts.PlainOffset, opts.PlainSize, opts.EncryptedETag,
-			opts.InlineData,
-			opts.ProjectID, opts.BucketName, opts.ObjectKey, opts.Version, opts.StreamID,
-		)
-		if err != nil {
-			if code := pgerrcode.FromError(err); code == pgxerrcode.NotNullViolation {
-				return ErrPendingObjectMissing.New("")
-			}
+		storj.PieceID{}, opts.EncryptedKeyNonce, opts.EncryptedKey,
+		len(opts.InlineData), opts.PlainOffset, opts.PlainSize, opts.EncryptedETag,
+		opts.InlineData,
+		opts.ProjectID, opts.BucketName, opts.ObjectKey, opts.Version, opts.StreamID,
+	)
+	if err != nil {
+		if code := pgerrcode.FromError(err); code == pgxerrcode.NotNullViolation {
+			return ErrPendingObjectMissing.New("")
 		}
 	}
 
@@ -1021,7 +895,9 @@ func (s *SpannerAdapter) CommitInlineSegment(ctx context.Context, opts CommitInl
 					stream_id, position, expires_at,
 					root_piece_id, encrypted_key_nonce, encrypted_key,
 					encrypted_size, plain_offset, plain_size, encrypted_etag,
-					inline_data, redundancy
+					inline_data,
+					-- clear columns in case it was remote segment before
+					 redundancy, remote_alias_pieces
 				) VALUES (
 					(
 						SELECT stream_id
@@ -1031,7 +907,8 @@ func (s *SpannerAdapter) CommitInlineSegment(ctx context.Context, opts CommitInl
 					), @position, @expires_at,
 					@root_piece_id, @encrypted_key_nonce, @encrypted_key,
 					@encrypted_size, @plain_offset, @plain_size, @encrypted_etag,
-					@inline_data, 0
+					@inline_data,
+					0, NULL
 				)
 			`,
 			Params: map[string]interface{}{
@@ -1471,6 +1348,7 @@ type CommitInlineObject struct {
 	EncryptedMetadataEncryptedKey []byte // optional
 
 	Retention Retention // optional
+	LegalHold bool
 
 	DisallowDelete bool
 
@@ -1498,12 +1376,17 @@ func (c *CommitInlineObject) Verify() error {
 		return ErrInvalidRequest.New("EncryptedMetadataNonce and EncryptedMetadataEncryptedKey must be set if EncryptedMetadata is set")
 	}
 
-	if err := c.Retention.verifyWithoutGovernance(); err != nil {
+	if err := c.Retention.Verify(); err != nil {
 		return ErrInvalidRequest.Wrap(err)
 	}
 
-	if c.Retention.Enabled() && c.ExpiresAt != nil {
-		return ErrInvalidRequest.New("ExpiresAt must not be set if Retention is set")
+	if c.ExpiresAt != nil {
+		switch {
+		case c.Retention.Enabled():
+			return ErrInvalidRequest.New("ExpiresAt must not be set if Retention is set")
+		case c.LegalHold:
+			return ErrInvalidRequest.New("ExpiresAt must not be set if LegalHold is set")
+		}
 	}
 
 	return nil
@@ -1547,6 +1430,7 @@ func (db *DB) CommitInlineObject(ctx context.Context, opts CommitInlineObject) (
 		object.EncryptedMetadataEncryptedKey = opts.EncryptedMetadataEncryptedKey
 		object.EncryptedMetadataNonce = opts.EncryptedMetadataNonce
 		object.Retention = opts.Retention
+		object.LegalHold = opts.LegalHold
 
 		segment := &Segment{
 			StreamID:          opts.StreamID,
@@ -1601,7 +1485,10 @@ func (ptx *postgresTransactionAdapter) finalizeInlineObjectCommit(ctx context.Co
 		object.TotalPlainSize, object.TotalEncryptedSize,
 		nil,
 		object.EncryptedMetadata, object.EncryptedMetadataNonce, object.EncryptedMetadataEncryptedKey,
-		lockModeWrapper{retentionMode: &object.Retention.Mode}, timeWrapper{&object.Retention.RetainUntil},
+		lockModeWrapper{
+			retentionMode: &object.Retention.Mode,
+			legalHold:     &object.LegalHold,
+		}, timeWrapper{&object.Retention.RetainUntil},
 	).Scan(&object.CreatedAt)
 	if err != nil {
 		return Error.New("failed to create object: %w", err)
@@ -1672,8 +1559,11 @@ func (stx *spannerTransactionAdapter) finalizeInlineObjectCommit(ctx context.Con
 			"encrypted_metadata":               object.EncryptedMetadata,
 			"encrypted_metadata_nonce":         object.EncryptedMetadataNonce,
 			"encrypted_metadata_encrypted_key": object.EncryptedMetadataEncryptedKey,
-			"retention_mode":                   lockModeWrapper{retentionMode: &object.Retention.Mode},
-			"retain_until":                     timeWrapper{&object.Retention.RetainUntil},
+			"retention_mode": lockModeWrapper{
+				retentionMode: &object.Retention.Mode,
+				legalHold:     &object.LegalHold,
+			},
+			"retain_until": timeWrapper{&object.Retention.RetainUntil},
 		},
 	}).Do(func(row *spanner.Row) error {
 		err := row.Columns(&object.CreatedAt)

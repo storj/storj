@@ -17,8 +17,6 @@ import (
 	"storj.io/storj/private/slices2"
 	"storj.io/storj/satellite/payments/billing"
 	"storj.io/storj/satellite/satellitedb/dbx"
-	"storj.io/storj/shared/dbutil/pgutil/pgerrcode"
-	"storj.io/storj/shared/dbutil/spannerutil"
 )
 
 // ensures that *billingDB implements billing.TransactionsDB.
@@ -81,7 +79,7 @@ func (db billingDB) Insert(ctx context.Context, primaryTx billing.Transaction, s
 		switch {
 		case err == nil:
 			return txIDs, nil
-		case pgerrcode.IsConstraintViolation(err), spannerutil.IsAlreadyExists(err):
+		case dbx.IsConstraintError(err):
 			time.Sleep(backoff)
 			backoff *= 2
 		default:

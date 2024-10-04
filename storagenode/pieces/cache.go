@@ -494,6 +494,7 @@ func (blobs *BlobsUsageCache) DeleteNamespace(ctx context.Context, namespace []b
 	}
 
 	blobs.Update(ctx, satelliteID, -piecesTotal, -piecesContentSize, 0)
+
 	return nil
 }
 

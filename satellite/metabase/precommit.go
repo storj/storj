@@ -328,7 +328,10 @@ func (ptx *postgresTransactionAdapter) precommitDeleteUnversioned(ctx context.Co
 			&totalEncryptedSize,
 			&fixedSegmentSize,
 			&encryptionParams,
-			lockModeWrapper{retentionMode: &deleted.Retention.Mode},
+			lockModeWrapper{
+				retentionMode: &deleted.Retention.Mode,
+				legalHold:     &deleted.LegalHold,
+			},
 			timeWrapper{&deleted.Retention.RetainUntil},
 			&result.DeletedObjectCount,
 			&result.DeletedSegmentCount,
@@ -361,10 +364,13 @@ func (ptx *postgresTransactionAdapter) precommitDeleteUnversioned(ctx context.Co
 	deleted.TotalEncryptedSize = totalEncryptedSize.Int64
 	deleted.FixedSegmentSize = fixedSegmentSize.Int32
 
-	// check of retention is active and avoid deletion if it is
-	// this shouldn't happen in real life unless we will have a bug
-	// where unversioned object will have retention set.
-	if deleted.Retention.ActiveNow() {
+	// Avoid deleting if Object Lock restrictions are imposed.
+	// This should never occur unless we have a bug allowing
+	// such settings to exist on unversioned objects.
+	switch {
+	case deleted.LegalHold:
+		return PrecommitConstraintResult{}, ErrObjectLock.New(legalHoldErrMsg)
+	case deleted.Retention.ActiveNow():
 		return PrecommitConstraintResult{}, ErrObjectLock.New(retentionErrMsg)
 	}
 
@@ -466,7 +472,10 @@ func (ptx *postgresTransactionAdapter) precommitDeleteUnversionedWithSQLCheck(ct
 			&totalEncryptedSize,
 			&fixedSegmentSize,
 			&encryptionParams,
-			lockModeWrapper{retentionMode: &deleted.Retention.Mode},
+			lockModeWrapper{
+				retentionMode: &deleted.Retention.Mode,
+				legalHold:     &deleted.LegalHold,
+			},
 			timeWrapper{&deleted.Retention.RetainUntil},
 			&result.DeletedObjectCount,
 			&result.DeletedSegmentCount,
@@ -588,7 +597,10 @@ func (ptx *postgresTransactionAdapter) precommitDeleteUnversionedWithVersionChec
 			&totalEncryptedSize,
 			&fixedSegmentSize,
 			&encryptionParams,
-			lockModeWrapper{retentionMode: &deleted.Retention.Mode},
+			lockModeWrapper{
+				retentionMode: &deleted.Retention.Mode,
+				legalHold:     &deleted.LegalHold,
+			},
 			timeWrapper{&deleted.Retention.RetainUntil},
 			&result.DeletedObjectCount,
 			&result.DeletedSegmentCount,
@@ -695,10 +707,13 @@ func (stx *spannerTransactionAdapter) precommitDeleteUnversioned(ctx context.Con
 	}
 
 	if len(result.Deleted) == 1 {
-		// check of retention is active and avoid deletion if it is
-		// this shouldn't happen in real life unless we will have a bug
-		// where unversioned object will have retention set.
-		if result.Deleted[0].Retention.ActiveNow() {
+		// Avoid deleting if Object Lock restrictions are imposed.
+		// This should never occur unless we have a bug allowing
+		// such settings to exist on unversioned objects.
+		switch {
+		case result.Deleted[0].LegalHold:
+			return PrecommitConstraintResult{}, ErrObjectLock.New(legalHoldErrMsg)
+		case result.Deleted[0].Retention.ActiveNow():
 			return PrecommitConstraintResult{}, ErrObjectLock.New(retentionErrMsg)
 		}
 
@@ -898,6 +913,7 @@ func (ptx *postgresTransactionAdapter) precommitDeleteUnversionedWithNonPendingU
 		FROM objects
 		WHERE (project_id, bucket_name, object_key) = ($1, $2, $3)
 		ORDER BY version DESC
+		FOR UPDATE
 		`, opts.ProjectID, opts.BucketName, opts.ObjectKey,
 	))(func(rows tagsql.Rows) error {
 		for rows.Next() {

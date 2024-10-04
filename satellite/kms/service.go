@@ -47,34 +47,38 @@ func NewService(config Config) *Service {
 func (s *Service) Initialize(ctx context.Context) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	secretsService, err := newGsmService(ctx, s.config)
-	if err != nil {
-		return err
+	var secretsService SecretsService
+	switch s.config.Provider {
+	case "gsm":
+		secretsService, err = newGsmService(ctx, s.config)
+		if err != nil {
+			return err
+		}
+	case "local":
+		secretsService = newLocalFileService(s.config)
+	default:
+		return Error.New("invalid encryption key provider: '%s'. See description of --kms.provider for supported values.", s.config.Provider)
 	}
+
 	defer func() {
 		err = errs.Combine(err, secretsService.Close())
 	}()
 
-	for id, k := range s.config.KeyInfos.Values {
-		key, err := secretsService.GetKey(ctx, k)
-		if err != nil {
-			return err
-		}
-
-		s.keys[id] = key
-
-		if id == s.config.DefaultMasterKey {
-			s.defaultKey = key
-		}
+	s.keys, err = secretsService.GetKeys(ctx)
+	if err != nil {
+		return Error.New("error getting keys: %w", err)
 	}
 
-	if s.defaultKey == nil {
+	key := s.keys[s.config.DefaultMasterKey]
+	if key == nil {
 		return Error.New("master key not set")
 	}
 
+	s.defaultKey = key
+
 	s.initialized.Release()
 
-	return err
+	return nil
 }
 
 // GenerateEncryptedPassphrase generates a cryptographically random passphrase,

@@ -79,7 +79,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, watch } from 'vue';
+import { ref, watch } from 'vue';
 import { VDialog, VCard, VRow, VCol, VTextField, VForm, VBtn, VCardItem, VCardTitle, VDivider, VCardActions } from 'vuetify/components';
 import { TicketPercent } from 'lucide-vue-next';
 

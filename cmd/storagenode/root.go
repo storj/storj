@@ -55,6 +55,7 @@ func newRootCmd(setDefaults bool) (*cobra.Command, *Factory) {
 		newDashboardCmd(factory),
 		newDiagCmd(factory),
 		newRunCmd(factory),
+		newExecCmd(factory),
 		newNodeInfoCmd(factory),
 		newIssueAPIKeyCmd(factory),
 		newGracefulExitInitCmd(factory),

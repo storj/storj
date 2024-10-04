@@ -18,6 +18,14 @@ export interface BucketsApi {
     get(projectId: string, before: Date, cursor: BucketCursor): Promise<BucketPage>;
 
     /**
+     * Fetch single bucket data.
+     *
+     * @returns Bucket
+     * @throws Error
+     */
+    getSingle(projectId: string, bucketName: string, before: Date): Promise<Bucket>;
+
+    /**
      * Fetch all bucket names
      *
      * @returns string[]

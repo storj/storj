@@ -13,10 +13,9 @@ import (
 	"time"
 
 	"cloud.google.com/go/spanner"
-	database "cloud.google.com/go/spanner/admin/database/apiv1"
-	"cloud.google.com/go/spanner/admin/database/apiv1/databasepb"
-	_ "github.com/jackc/pgx/v5"        // registers pgx as a tagsql driver.
-	_ "github.com/jackc/pgx/v5/stdlib" // registers pgx as a tagsql driver.
+	_ "github.com/googleapis/go-sql-spanner" // registers spanner as a tagsql driver.
+	_ "github.com/jackc/pgx/v5"              // registers pgx as a tagsql driver.
+	_ "github.com/jackc/pgx/v5/stdlib"       // registers pgx as a tagsql driver.
 	"github.com/spacemonkeygo/monkit/v3"
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
@@ -49,13 +48,9 @@ type Config struct {
 	NodeAliasCacheFullRefresh bool
 
 	TestingUniqueUnversioned   bool
-	TestingCommitSegmentMode   string
 	TestingPrecommitDeleteMode TestingPrecommitDeleteMode
 	TestingSpannerProjects     map[uuid.UUID]struct{}
 }
-
-const commitSegmentModeTransaction = "transaction"
-const commitSegmentModeNoCheck = "no-pending-object-check"
 
 // DB implements a database for storing objects and segments.
 type DB struct {
@@ -312,29 +307,8 @@ func (c *CockroachAdapter) MigrateToLatest(ctx context.Context) error {
 
 // MigrateToLatest migrates database to the latest version.
 func (s *SpannerAdapter) MigrateToLatest(ctx context.Context) error {
-	dbConn := strings.TrimPrefix(s.database, "spanner://")
-	req := &databasepb.UpdateDatabaseDdlRequest{
-		Database: strings.Split(dbConn, "?")[0],
-	}
-
-	for _, ddl := range strings.Split(spannerDDL, ";") {
-		if strings.TrimSpace(ddl) != "" {
-			req.Statements = append(req.Statements, ddl)
-		}
-	}
-	adminClient, err := database.NewDatabaseAdminClient(ctx)
-	if err != nil {
-		return errs.Wrap(err)
-	}
-
-	resp, err := adminClient.UpdateDatabaseDdl(ctx, req)
-	if err != nil {
-		return errs.Wrap(err)
-	}
-
-	// TODO(spanner): create a Migration and run it here
-
-	return errs.Wrap(resp.Wait(ctx))
+	migration := s.SpannerMigration()
+	return migration.Run(ctx, s.log.Named("migrate"))
 }
 
 // CheckVersion checks the database is the correct version.
@@ -352,6 +326,12 @@ func (db *DB) CheckVersion(ctx context.Context) error {
 func (p *PostgresAdapter) CheckVersion(ctx context.Context) error {
 	migration := p.PostgresMigration()
 	return migration.ValidateVersions(ctx, p.log)
+}
+
+// CheckVersion checks the database is the correct version.
+func (s *SpannerAdapter) CheckVersion(ctx context.Context) error {
+	migration := s.SpannerMigration()
+	return migration.ValidateVersions(ctx, s.log)
 }
 
 // PostgresMigration returns steps needed for migrating postgres database.
@@ -674,6 +654,31 @@ func (p *PostgresAdapter) PostgresMigration() *migrate.Migration {
 					`DROP TABLE IF EXISTS pending_objects`,
 					`DROP TABLE IF EXISTS segment_copies`,
 				},
+			},
+		},
+	}
+}
+
+// SpannerMigration returns steps needed for migrating spanner database.
+func (s *SpannerAdapter) SpannerMigration() *migrate.Migration {
+	db := s.sqlClient
+
+	var firstStepDDL []string
+	for _, statement := range strings.Split(spannerDDL, ";") {
+		if strings.TrimSpace(statement) != "" {
+			firstStepDDL = append(firstStepDDL, statement)
+		}
+	}
+
+	// TODO: merge this with satellite migration code or a way to keep them in sync.
+	return &migrate.Migration{
+		Table: "spanner_metabase_versions",
+		Steps: []*migrate.Step{
+			{
+				DB:          &db,
+				Description: "initial setup",
+				Version:     1,
+				Action:      migrate.SQL(firstStepDDL),
 			},
 		},
 	}

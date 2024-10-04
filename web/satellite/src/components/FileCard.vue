@@ -153,7 +153,7 @@ const cachedObjectPreviewURLs = computed((): Map<string, PreviewCache> => {
 });
 
 /**
- * Retrieve the encoded filepath.
+ * Retrieve the encoded objectpath.
  */
 const encodedFilePath = computed((): string => {
     return encodeURIComponent(`${bucket.value}/${props.item.browserObject.path}${props.item.browserObject.Key}`);
@@ -182,7 +182,7 @@ const previewType = computed<PreviewType>(() => {
 });
 
 /**
- * Returns files being deleted from store.
+ * Returns objects being deleted from store.
  */
 const filesBeingDeleted = computed((): Set<string> => obStore.state.filesToBeDeleted);
 

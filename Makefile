@@ -428,7 +428,7 @@ storagenode_%: storagenode-console
 	$(MAKE) binary-check COMPONENT=storagenode GOARCH=$(word 3, $(subst _, ,$@)) GOOS=$(word 2, $(subst _, ,$@))
 .PHONY: storagenode-updater_windows_amd64
 storagenode-updater_windows_amd64:
-	EXTRA_ARGS="-tags=service" $(MAKE) binary-check COMPONENT=storagenode-updater GOARCH=amd64 GOOS=windows GO_VERSION=${GO_VERSION_STORAGENODE_WINDOWS}
+	EXTRA_ARGS="-tags=service" $(MAKE) binary-check COMPONENT=storagenode-updater GOARCH=amd64 GOOS=windows GO_VERSION=${GO_VERSION}
 .PHONY: storagenode-updater_%
 storagenode-updater_%:
 	EXTRA_ARGS="-tags=service" $(MAKE) binary-check COMPONENT=storagenode-updater GOARCH=$(word 3, $(subst _, ,$@)) GOOS=$(word 2, $(subst _, ,$@))

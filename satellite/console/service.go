@@ -427,6 +427,20 @@ func (payment Payments) SaveBillingAddress(ctx context.Context, address payments
 	return newInfo, Error.Wrap(err)
 }
 
+// AddInvoiceReference adds a new default invoice reference to be displayed on each invoice and returns the updated billing information.
+func (payment Payments) AddInvoiceReference(ctx context.Context, reference string) (_ *payments.BillingInformation, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	user, err := payment.service.getUserAndAuditLog(ctx, "add invoice reference")
+	if err != nil {
+		return nil, Error.Wrap(err)
+	}
+
+	newInfo, err := payment.service.accounts.AddDefaultInvoiceReference(ctx, user.ID, reference)
+
+	return newInfo, Error.Wrap(err)
+}
+
 // AddTaxID adds a new tax ID for a user and returns the updated billing information.
 func (payment Payments) AddTaxID(ctx context.Context, taxID payments.TaxID) (_ *payments.BillingInformation, err error) {
 	defer mon.Task()(&ctx)(&err)
@@ -917,26 +931,30 @@ func (s *Service) checkRegistrationSecret(ctx context.Context, tokenSecret Regis
 	return registrationToken, nil
 }
 
+// VerifyRegistrationCaptcha verifies the registration captcha response.
+func (s *Service) VerifyRegistrationCaptcha(ctx context.Context, captchaResp, userIP string) (valid bool, score *float64, err error) {
+	defer mon.Task()(&ctx)(&err)
+	if s.registrationCaptchaHandler != nil {
+		return s.registrationCaptchaHandler.Verify(ctx, captchaResp, userIP)
+	}
+	return true, nil, nil
+}
+
 // CreateUser gets password hash value and creates new inactive User.
 func (s *Service) CreateUser(ctx context.Context, user CreateUser, tokenSecret RegistrationSecret) (u *User, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	var captchaScore *float64
-
 	mon.Counter("create_user_attempt").Inc(1) //mon:locked
 
-	if s.config.Captcha.Registration.Recaptcha.Enabled || s.config.Captcha.Registration.Hcaptcha.Enabled {
-		valid, score, err := s.registrationCaptchaHandler.Verify(ctx, user.CaptchaResponse, user.IP)
-		if err != nil {
-			mon.Counter("create_user_captcha_error").Inc(1) //mon:locked
-			s.log.Error("captcha authorization failed", zap.Error(err))
-			return nil, ErrCaptcha.Wrap(err)
-		}
-		if !valid {
-			mon.Counter("create_user_captcha_unsuccessful").Inc(1) //mon:locked
-			return nil, ErrCaptcha.New("captcha validation unsuccessful")
-		}
-		captchaScore = score
+	valid, captchaScore, err := s.VerifyRegistrationCaptcha(ctx, user.CaptchaResponse, user.IP)
+	if err != nil {
+		mon.Counter("create_user_captcha_error").Inc(1) //mon:locked
+		s.log.Error("captcha authorization failed", zap.Error(err))
+		return nil, ErrCaptcha.Wrap(err)
+	}
+	if !valid {
+		mon.Counter("create_user_captcha_unsuccessful").Inc(1) //mon:locked
+		return nil, ErrCaptcha.New("captcha validation unsuccessful")
 	}
 
 	if err := user.IsValid(user.AllowNoName); err != nil {
@@ -4086,6 +4104,28 @@ func (s *Service) GetBucketTotals(ctx context.Context, projectID uuid.UUID, curs
 	for i := range usage.BucketUsages {
 		placementID := usage.BucketUsages[i].DefaultPlacement
 		usage.BucketUsages[i].Location = s.placements[placementID].Name
+	}
+
+	return usage, nil
+}
+
+// GetSingleBucketTotals retrieves a single bucket total usages since project creation.
+func (s *Service) GetSingleBucketTotals(ctx context.Context, projectID uuid.UUID, bucketName string, before time.Time) (_ *accounting.BucketUsage, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	user, err := s.getUserAndAuditLog(ctx, "get single bucket totals", zap.String("projectID", projectID.String()))
+	if err != nil {
+		return nil, ErrUnauthorized.Wrap(err)
+	}
+
+	isMember, err := s.isProjectMember(ctx, user.ID, projectID)
+	if err != nil {
+		return nil, ErrUnauthorized.Wrap(err)
+	}
+
+	usage, err := s.projectAccounting.GetSingleBucketTotals(ctx, isMember.project.ID, bucketName, before)
+	if err != nil {
+		return nil, Error.Wrap(err)
 	}
 
 	return usage, nil

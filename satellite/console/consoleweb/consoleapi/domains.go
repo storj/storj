@@ -19,6 +19,11 @@ import (
 	"storj.io/storj/satellite/console"
 )
 
+var (
+	// ErrDomainsAPI - console domains api error type.
+	ErrDomainsAPI = errs.Class("console domains")
+)
+
 // Domains is an api controller that exposes all domains functionality.
 type Domains struct {
 	log     *zap.Logger
@@ -31,6 +36,15 @@ func NewDomains(log *zap.Logger, service *console.Service) *Domains {
 		log:     log,
 		service: service,
 	}
+}
+
+type checkDNSRecordsResponse struct {
+	IsSuccess     bool     `json:"isSuccess"`
+	IsVerifyError bool     `json:"isVerifyError"`
+	ExpectedCNAME string   `json:"expectedCNAME"`
+	ExpectedTXT   []string `json:"expectedTXT"`
+	GotCNAME      string   `json:"gotCNAME"`
+	GotTXT        []string `json:"gotTXT"`
 }
 
 // CheckDNSRecords checks DNS records by provided domain.
@@ -71,18 +85,21 @@ func (d *Domains) CheckDNSRecords(w http.ResponseWriter, r *http.Request) {
 
 	cname, err := net.LookupCNAME(domain)
 	if err != nil {
-		d.serveJSONError(ctx, w, http.StatusNotFound, err)
+		d.sendResponse(w, checkDNSRecordsResponse{IsVerifyError: true})
 		return
 	}
 
 	txt, err := net.LookupTXT("txt-" + domain)
 	if err != nil {
-		d.serveJSONError(ctx, w, http.StatusNotFound, err)
+		d.sendResponse(w, checkDNSRecordsResponse{IsVerifyError: true})
 		return
 	}
 
 	if payload.CNAME != cname {
-		d.serveJSONError(ctx, w, http.StatusConflict, errs.New("CNAME is not correct. Got: %s, Expected: %s", cname, payload.CNAME))
+		d.sendResponse(w, checkDNSRecordsResponse{
+			ExpectedCNAME: payload.CNAME,
+			GotCNAME:      cname,
+		})
 		return
 	}
 
@@ -91,7 +108,20 @@ func (d *Domains) CheckDNSRecords(w http.ResponseWriter, r *http.Request) {
 
 	equal := reflect.DeepEqual(txt, payload.TXT)
 	if !equal {
-		d.serveJSONError(ctx, w, http.StatusConflict, errs.New("TXT is not correct. Got: %v, Expected %v", txt, payload.TXT))
+		d.sendResponse(w, checkDNSRecordsResponse{
+			ExpectedTXT: payload.TXT,
+			GotTXT:      txt,
+		})
+		return
+	}
+
+	d.sendResponse(w, checkDNSRecordsResponse{IsSuccess: true})
+}
+
+func (d *Domains) sendResponse(w http.ResponseWriter, response checkDNSRecordsResponse) {
+	err := json.NewEncoder(w).Encode(response)
+	if err != nil {
+		d.log.Error("failed to write json check DNS records response", zap.Error(ErrDomainsAPI.Wrap(err)))
 	}
 }
 

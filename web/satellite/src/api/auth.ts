@@ -36,12 +36,19 @@ export class AuthHttpApi implements UsersApi {
      * Used to resend an registration confirmation email.
      *
      * @param email - email of newly created user
-     * @returns requestID to be used for code activation.
+     * @param captchaResponse - captcha response token
+     * @returns requestID to be used for code activation
      * @throws Error
      */
-    public async resendEmail(email: string): Promise<string> {
-        const path = `${this.ROOT_PATH}/resend-email/${email}`;
-        const response = await this.http.post(path, email);
+    public async resendEmail(email: string, captchaResponse: string): Promise<string> {
+        const path = `${this.ROOT_PATH}/resend-email`;
+
+        const body = {
+            email,
+            captchaResponse,
+        };
+
+        const response = await this.http.post(path, JSON.stringify(body));
         if (response.ok) {
             return response.headers.get('x-request-id') ?? '';
         }

@@ -46,7 +46,6 @@
                     <v-chip
                         variant="tonal"
                         filter
-                        value="filename"
                         color="default"
                     >
                         {{ file?.Key }}
@@ -59,7 +58,6 @@
                         <v-chip
                             variant="tonal"
                             filter
-                            value="filename"
                             color="default"
                         >
                             {{ file?.VersionId }}
@@ -74,7 +72,6 @@
                         <v-chip
                             variant="tonal"
                             filter
-                            value="filename"
                             color="error"
                         >
                             {{ formatDate(file?.retention?.retainUntil) }}
@@ -82,7 +79,7 @@
                     </template>
 
                     <v-alert class="my-4" type="error" variant="outlined" border>
-                        This version of the file is currently locked and cannot be deleted.
+                        This version of the object is currently locked and cannot be deleted.
                         Locking prevents accidental or unauthorized changes to important data.
                     </v-alert>
                 </v-col>
@@ -109,7 +106,7 @@
 </template>
 
 <script setup lang="ts">
-import { defineModel, ref, watch } from 'vue';
+import { ref, watch } from 'vue';
 import {
     VAlert,
     VBtn,

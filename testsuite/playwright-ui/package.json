@@ -1,6 +1,7 @@
 {
   "name": "storj-playwright-ui",
   "version": "1.0.0",
+  "private": true,
   "scripts": {
     "allure:generate": "npx allure generate ./allure-results --clean",
     "allure:local": "allure-combine ./allure-report --dest ./test-results/",

@@ -242,7 +242,7 @@ func (store *blobStore) SpaceUsedForBlobs(ctx context.Context) (space int64, err
 // SpaceUsedForBlobsInNamespace adds up how much is used in the given namespace for blob storage.
 func (store *blobStore) SpaceUsedForBlobsInNamespace(ctx context.Context, namespace []byte) (int64, error) {
 	var totalUsed int64
-	err := store.WalkNamespace(ctx, namespace, "", func(info blobstore.BlobInfo) error {
+	err := store.WalkNamespace(ctx, namespace, nil, func(info blobstore.BlobInfo) error {
 		statInfo, statErr := info.Stat(ctx)
 		if statErr != nil {
 			store.log.Error("failed to stat blob", zap.Binary("namespace", namespace), zap.Binary("key", info.BlobRef().Key), zap.Error(statErr))
@@ -325,8 +325,8 @@ func (store *blobStore) ListNamespaces(ctx context.Context) (ids [][]byte, err e
 // WalkNamespace executes walkFunc for each locally stored blob in the given namespace. If walkFunc
 // returns a non-nil error, WalkNamespace will stop iterating and return the error immediately. The
 // ctx parameter is intended specifically to allow canceling iteration early.
-func (store *blobStore) WalkNamespace(ctx context.Context, namespace []byte, startFromPrefix string, walkFunc func(blobstore.BlobInfo) error) (err error) {
-	return store.dir.WalkNamespace(ctx, namespace, startFromPrefix, walkFunc)
+func (store *blobStore) WalkNamespace(ctx context.Context, namespace []byte, skipPrefixFn blobstore.SkipPrefixFn, walkFunc func(blobstore.BlobInfo) error) (err error) {
+	return store.dir.WalkNamespace(ctx, namespace, skipPrefixFn, walkFunc)
 }
 
 // walkNamespaceInTrash executes walkFunc for each blob stored in the trash under the given

@@ -41,11 +41,11 @@
                 <template v-if="mapURL">
                     <img class="w-100" :src="mapURL" alt="map">
                     <p class="font-weight-bold my-4">
-                        This map shows the real-time locations of this file’s pieces.
+                        This map shows the real-time locations of this object’s pieces.
                     </p>
                 </template>
                 <p>
-                    Storj splits files into smaller pieces, then distributes those pieces
+                    Storj splits objects into smaller pieces, then distributes those pieces
                     over a global network of nodes and recompiles them securely on download.
                 </p>
             </div>
@@ -128,7 +128,7 @@ const bucket = computed<string>(() => {
 });
 
 /**
- * Retrieve the encoded filepath.
+ * Retrieve the encoded objectpath.
  */
 const encodedFilePath = computed<string>(() => {
     return encodeURIComponent(`${bucket.value}/${obStore.state.objectPathForModal.trim()}`);
