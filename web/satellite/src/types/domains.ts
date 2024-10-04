@@ -10,7 +10,7 @@ export interface DomainsAPI {
      *
      * @throws Error
      */
-    checkDNSRecords(domain: string, cname: string, txt: string[]): Promise<void>;
+    checkDNSRecords(domain: string, cname: string, txt: string[]): Promise<CheckDNSResponse>;
 }
 
 export class Domain {
@@ -30,4 +30,13 @@ export enum NewDomainFlowStep {
     SetupTXT,
     VerifyDomain,
     DomainConnected,
+}
+
+export type CheckDNSResponse = {
+    isSuccess: boolean
+    isVerifyError: boolean
+    expectedCNAME: string
+    expectedTXT: string[]
+    gotCNAME: string
+    gotTXT: string[]
 }

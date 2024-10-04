@@ -23,3 +23,14 @@ export enum DeleteAccountStep {
     PayInvoicesStep,
     WaitForInvoicingStep,
 }
+
+export enum DeleteProjectStep {
+    InitStep = 0,
+    VerifyPasswordStep,
+    Verify2faStep,
+    VerifyEmailStep,
+    ConfirmDeleteStep,
+    DeleteBucketsStep,
+    DeleteAccessKeysStep,
+    WaitForInvoicingStep,
+}

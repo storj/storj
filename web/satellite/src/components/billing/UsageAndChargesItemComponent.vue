@@ -118,7 +118,6 @@ import { Size } from '@/utils/bytesSize';
 import { SHORT_MONTHS_NAMES } from '@/utils/constants/date';
 import { useBillingStore } from '@/store/modules/billingStore';
 import { useProjectsStore } from '@/store/modules/projectsStore';
-import { useNotify } from '@/utils/hooks';
 
 import DetailedUsageReportDialog from '@/components/dialogs/DetailedUsageReportDialog.vue';
 
@@ -138,8 +137,6 @@ const props = withDefaults(defineProps<{
 
 const billingStore = useBillingStore();
 const projectsStore = useProjectsStore();
-
-const notify = useNotify();
 
 /**
  * An array of tuples containing the partner name and usage charge for the specified project ID.

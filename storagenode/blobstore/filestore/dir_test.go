@@ -382,7 +382,7 @@ func BenchmarkDir_WalkNamespace(b *testing.B) {
 	}
 	b.Run("1024-prefixes", func(b *testing.B) {
 		for i := 0; i < b.N; i++ {
-			err := dir.WalkNamespace(ctx, satelliteID.Bytes(), "", func(ref blobstore.BlobInfo) error {
+			err := dir.WalkNamespace(ctx, satelliteID.Bytes(), nil, func(ref blobstore.BlobInfo) error {
 				return nil
 			})
 			require.NoError(b, err)
@@ -397,7 +397,7 @@ func BenchmarkDir_WalkNamespace(b *testing.B) {
 	}
 	b.Run("64-prefixes", func(b *testing.B) {
 		for i := 0; i < b.N; i++ {
-			err := dir.WalkNamespace(ctx, satelliteID2.Bytes(), "", func(ref blobstore.BlobInfo) error {
+			err := dir.WalkNamespace(ctx, satelliteID2.Bytes(), nil, func(ref blobstore.BlobInfo) error {
 				return nil
 			})
 			require.NoError(b, err)
@@ -412,7 +412,7 @@ func BenchmarkDir_WalkNamespace(b *testing.B) {
 	}
 	b.Run("512-prefixes", func(b *testing.B) {
 		for i := 0; i < b.N; i++ {
-			err := dir.WalkNamespace(ctx, satelliteID3.Bytes(), "", func(ref blobstore.BlobInfo) error {
+			err := dir.WalkNamespace(ctx, satelliteID3.Bytes(), nil, func(ref blobstore.BlobInfo) error {
 				return nil
 			})
 			require.NoError(b, err)

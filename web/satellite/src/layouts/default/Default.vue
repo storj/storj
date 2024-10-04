@@ -67,7 +67,7 @@ async function selectProject(urlId: string): Promise<void> {
     let projects: Project[];
     try {
         projects = await projectsStore.getProjects();
-    } catch (_) {
+    } catch {
         goToDashboard();
         return;
     }

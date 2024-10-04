@@ -850,7 +850,7 @@ func TestCreateBucketWithObjectLockEnabled(t *testing.T) {
 			})
 			rpctest.RequireCode(t, err, rpcstatus.PermissionDenied)
 
-			restrictedApiKey, err := apiKey.Restrict(macaroon.Caveat{DisallowPutRetention: true})
+			restrictedApiKey, err := apiKey.Restrict(macaroon.Caveat{DisallowPutBucketObjectLockConfiguration: true})
 			require.NoError(t, err)
 
 			_, err = endpoint.CreateBucket(ctx, &pb.CreateBucketRequest{

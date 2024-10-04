@@ -218,11 +218,13 @@ func TestBillingInformation(t *testing.T) {
 		require.NoError(t, err)
 		require.Equal(t, address, *newInfo.Address)
 		require.Empty(t, newInfo.TaxIDs)
+		require.Empty(t, newInfo.InvoiceReference)
 
 		newInfo, err = accounts.GetBillingInformation(ctx, userID)
 		require.NoError(t, err)
 		require.Equal(t, address, *newInfo.Address)
 		require.Empty(t, newInfo.TaxIDs)
+		require.Empty(t, newInfo.InvoiceReference)
 
 		address.Name = "New Company"
 		address.City = "New City"
@@ -230,6 +232,7 @@ func TestBillingInformation(t *testing.T) {
 		require.NoError(t, err)
 		require.Equal(t, address, *newInfo.Address)
 		require.Empty(t, newInfo.TaxIDs)
+		require.Empty(t, newInfo.InvoiceReference)
 
 		newInfo, err = accounts.AddTaxID(ctx, userID, taxID)
 		require.NoError(t, err)
@@ -238,10 +241,19 @@ func TestBillingInformation(t *testing.T) {
 		require.NotEmpty(t, newInfo.TaxIDs[0].ID)
 		require.Equal(t, taxID.Tax.Code, newInfo.TaxIDs[0].Tax.Code)
 		require.Equal(t, taxID.Value, newInfo.TaxIDs[0].Value)
+		require.Empty(t, newInfo.InvoiceReference)
 
 		newInfo, err = accounts.RemoveTaxID(ctx, userID, newInfo.TaxIDs[0].ID)
 		require.NoError(t, err)
 		require.Equal(t, address, *newInfo.Address)
 		require.Empty(t, newInfo.TaxIDs)
+		require.Empty(t, newInfo.InvoiceReference)
+
+		reference := "Some reference"
+		newInfo, err = accounts.AddDefaultInvoiceReference(ctx, userID, reference)
+		require.NoError(t, err)
+		require.Equal(t, address, *newInfo.Address)
+		require.Empty(t, newInfo.TaxIDs)
+		require.Equal(t, reference, newInfo.InvoiceReference)
 	})
 }

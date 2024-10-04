@@ -66,12 +66,14 @@ type FrontendConfig struct {
 	SatelliteManagedEncryptionEnabled bool                  `json:"satelliteManagedEncryptionEnabled"`
 	EmailChangeFlowEnabled            bool                  `json:"emailChangeFlowEnabled"`
 	SelfServeAccountDeleteEnabled     bool                  `json:"selfServeAccountDeleteEnabled"`
+	DeleteProjectEnabled              bool                  `json:"deleteProjectEnabled"`
 	NoLimitsUiEnabled                 bool                  `json:"noLimitsUiEnabled"`
 	AltObjBrowserPagingEnabled        bool                  `json:"altObjBrowserPagingEnabled"`
 	AltObjBrowserPagingThreshold      int                   `json:"altObjBrowserPagingThreshold"`
 	DomainsPageEnabled                bool                  `json:"domainsPageEnabled"`
 	ActiveSessionsViewEnabled         bool                  `json:"activeSessionsViewEnabled"`
 	ObjectLockUIEnabled               bool                  `json:"objectLockUIEnabled"`
+	ValdiSignUpURL                    string                `json:"valdiSignUpURL"`
 }
 
 // Satellites is a configuration value that contains a list of satellite names and addresses.

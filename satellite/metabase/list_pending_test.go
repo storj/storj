@@ -1545,9 +1545,6 @@ func TestIteratePendingObjectsWithObjectKey(t *testing.T) {
 
 		location := obj.Location()
 
-		now := time.Now()
-		zombieDeadline := now.Add(24 * time.Hour)
-
 		for _, test := range metabasetest.InvalidObjectLocations(location) {
 			test := test
 			t.Run(test.Name, func(t *testing.T) {
@@ -1579,6 +1576,10 @@ func TestIteratePendingObjectsWithObjectKey(t *testing.T) {
 		})
 		t.Run("non existing object", func(t *testing.T) {
 			defer metabasetest.DeleteAll{}.Check(ctx, t, db)
+
+			now := time.Now()
+			zombieDeadline := now.Add(24 * time.Hour)
+
 			pending := metabasetest.RandObjectStream()
 			metabasetest.CreatePendingObject(ctx, t, db, pending, 0)
 
@@ -1608,6 +1609,9 @@ func TestIteratePendingObjectsWithObjectKey(t *testing.T) {
 
 		t.Run("less and more objects than limit", func(t *testing.T) {
 			defer metabasetest.DeleteAll{}.Check(ctx, t, db)
+
+			now := time.Now()
+			zombieDeadline := now.Add(24 * time.Hour)
 
 			pending := []metabase.ObjectStream{metabasetest.RandObjectStream(), metabasetest.RandObjectStream(), metabasetest.RandObjectStream()}
 
@@ -1660,6 +1664,9 @@ func TestIteratePendingObjectsWithObjectKey(t *testing.T) {
 		t.Run("prefixed object key", func(t *testing.T) {
 			defer metabasetest.DeleteAll{}.Check(ctx, t, db)
 
+			now := time.Now()
+			zombieDeadline := now.Add(24 * time.Hour)
+
 			pending := metabasetest.RandObjectStream()
 			pending.ObjectKey = metabase.ObjectKey("a/prefixed/" + string(location.ObjectKey))
 			metabasetest.CreatePendingObject(ctx, t, db, pending, 0)
@@ -1685,6 +1692,10 @@ func TestIteratePendingObjectsWithObjectKey(t *testing.T) {
 
 		t.Run("using streamID cursor", func(t *testing.T) {
 			defer metabasetest.DeleteAll{}.Check(ctx, t, db)
+
+			now := time.Now()
+			zombieDeadline := now.Add(24 * time.Hour)
+
 			pending := []metabase.ObjectStream{metabasetest.RandObjectStream(), metabasetest.RandObjectStream(), metabasetest.RandObjectStream()}
 
 			location := pending[0].Location()
@@ -1730,6 +1741,9 @@ func TestIteratePendingObjectsWithObjectKey(t *testing.T) {
 
 		t.Run("same key different versions", func(t *testing.T) {
 			defer metabasetest.DeleteAll{}.Check(ctx, t, db)
+
+			now := time.Now()
+			zombieDeadline := now.Add(24 * time.Hour)
 
 			obj1 := metabasetest.RandObjectStream()
 			obj2 := obj1
@@ -1837,6 +1851,9 @@ func TestIteratePendingObjectsWithObjectKey(t *testing.T) {
 
 		t.Run("batch iterate committed versioned, unversioned, and delete markers with pending object", func(t *testing.T) {
 			defer metabasetest.DeleteAll{}.Check(ctx, t, db)
+
+			now := time.Now()
+			zombieDeadline := now.Add(24 * time.Hour)
 
 			var objects []metabase.RawObject
 			var expected []metabase.ObjectEntry

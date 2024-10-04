@@ -652,32 +652,38 @@ func (db *StoragenodeAccounting) QueryStorageNodeUsage(ctx context.Context, node
 		var nodeStorageUsages []accounting.StorageNodeUsage
 		query := `
 			SELECT SUM(r1.at_rest_total) AS at_rest_total,
-				date(r1.start_time) AS start_time,
+				DATE(r1.start_time, 'UTC') AS start_time,
 				COALESCE(MAX(r1.interval_end_time), MAX(r1.start_time)) AS interval_end_time
 			FROM accounting_rollups r1
-			WHERE r1.node_id = ? AND ? <= r1.start_time AND r1.start_time <= ?
-			GROUP BY DATE(r1.start_time)
+			WHERE r1.node_id = @node_id
+			AND @start <= r1.start_time
+			AND r1.start_time <= @end
+			GROUP BY DATE(r1.start_time, 'UTC')
 
 			UNION DISTINCT
 
 			SELECT SUM(t.data_total) AS at_rest_total,
-				DATE(t.interval_end_time) AS start_time,
+				DATE(t.interval_end_time, 'UTC') AS start_time,
 				MAX(t.interval_end_time) AS interval_end_time
-			FROM storagenode_storage_tallies t
-			WHERE t.node_id = ?
+				FROM storagenode_storage_tallies t
+				WHERE t.node_id = @node_id
 				AND NOT EXISTS (
 					SELECT node_id FROM accounting_rollups r2
-					WHERE r2.node_id = ? AND  ? <= r2.start_time AND r2.start_time <= ?
-						AND DATE(r2.start_time) = DATE(t.interval_end_time)
-						AND DATE(r2.start_time) = DATE(t.interval_end_time)
-					)
-				AND (SELECT value FROM accounting_timestamps WHERE name = ?) < t.interval_end_time
-				AND t.interval_end_time <= ?
-			GROUP BY DATE(t.interval_end_time) ORDER BY start_time;
+					WHERE r2.node_id = @node_id
+					AND @start <= r2.start_time
+					AND r2.start_time <= @end
+					AND DATE(r2.start_time, 'UTC') = DATE(t.interval_end_time, 'UTC')
+				)
+				AND (SELECT value FROM accounting_timestamps WHERE name = @name) < t.interval_end_time
+				AND t.interval_end_time <= @end
+				GROUP BY DATE(t.interval_end_time, 'UTC')
+			ORDER BY start_time;
 			`
 		rows, err := db.db.QueryContext(ctx, query,
-			nodeID.Bytes(), start, end, nodeID.Bytes(), nodeID.Bytes(),
-			start, end, accounting.LastRollup, end)
+			sql.Named("node_id", nodeID.Bytes()),
+			sql.Named("start", start),
+			sql.Named("end", end),
+			sql.Named("name", accounting.LastRollup))
 
 		if err != nil {
 			return nil, Error.Wrap(err)

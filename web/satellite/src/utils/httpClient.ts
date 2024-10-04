@@ -98,8 +98,7 @@ export class HttpClient {
 
                 await fetch(logoutPath, request);
                 // eslint-disable-next-line no-empty
-            } catch (error) {
-            }
+            } catch { }
 
             setTimeout(() => {
                 // path may have changed after timeout.

@@ -31,7 +31,7 @@ module.exports = {
         'vue/html-indent': ['warn', 4],
         '@stylistic/indent': ['warn', 4, { 'SwitchCase': 0 }],
 
-        '@typescript-eslint/no-unused-vars': 'off',
+        '@typescript-eslint/no-unused-vars': ['warn', { 'argsIgnorePattern': '^_' }],
         '@typescript-eslint/no-empty-function': 'off',
         '@typescript-eslint/no-var-requires': 'off',
 

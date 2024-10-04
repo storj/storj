@@ -117,7 +117,7 @@ type Blobs interface {
 	// storage format V1 or greater, in the given namespace. If walkFunc returns a non-nil
 	// error, WalkNamespace will stop iterating and return the error immediately. The ctx
 	// parameter is intended to allow canceling iteration early.
-	WalkNamespace(ctx context.Context, namespace []byte, startFromPrefix string, walkFunc func(BlobInfo) error) error
+	WalkNamespace(ctx context.Context, namespace []byte, skipPrefixFn SkipPrefixFn, walkFunc func(BlobInfo) error) error
 
 	// CheckWritability tests writability of the storage directory by creating and deleting a file.
 	CheckWritability(ctx context.Context) error
@@ -130,6 +130,9 @@ type Blobs interface {
 	// Close closes the blob store and any resources associated with it.
 	Close() error
 }
+
+// SkipPrefixFn returns true if a prefix should be skipped.
+type SkipPrefixFn func(prefix string) bool
 
 // BlobInfo allows lazy inspection of a blob and its underlying file during iteration with
 // WalkNamespace-type methods.

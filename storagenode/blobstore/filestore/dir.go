@@ -62,7 +62,7 @@ type Dir struct {
 	info atomic.Pointer[infoAge]
 }
 
-const infoMaxAge = time.Second
+const infoMaxAge = time.Minute
 
 type infoAge struct {
 	info blobstore.DiskInfo
@@ -621,7 +621,7 @@ func (dir *Dir) forEachTrashDayDir(ctx context.Context, namespace []byte, f func
 
 func (dir *Dir) walkTrashDayDir(ctx context.Context, namespace []byte, dirTime time.Time, f func(info blobstore.BlobInfo) error) (err error) {
 	trashPath := dir.trashPath(namespace, dirTime)
-	return dir.walkNamespaceUnderPath(ctx, namespace, trashPath, "", f)
+	return dir.walkNamespaceUnderPath(ctx, namespace, trashPath, nil, f)
 }
 
 func (dir *Dir) listTrashDayDirs(ctx context.Context, namespace []byte) (dirTimes []time.Time, err error) {
@@ -850,19 +850,19 @@ func (dir *Dir) listNamespacesInPath(ctx context.Context, path string) (ids [][]
 // greater, in the given namespace. If walkFunc returns a non-nil error, WalkNamespace will stop
 // iterating and return the error immediately. The ctx parameter is intended specifically to allow
 // canceling iteration early.
-func (dir *Dir) WalkNamespace(ctx context.Context, namespace []byte, startFromPrefix string, walkFunc func(blobstore.BlobInfo) error) (err error) {
+func (dir *Dir) WalkNamespace(ctx context.Context, namespace []byte, skipPrefixFn blobstore.SkipPrefixFn, walkFunc func(blobstore.BlobInfo) error) (err error) {
 	defer mon.Task()(&ctx)(&err)
-	return dir.walkNamespaceInPath(ctx, namespace, dir.blobsdir, startFromPrefix, walkFunc)
+	return dir.walkNamespaceInPath(ctx, namespace, dir.blobsdir, skipPrefixFn, walkFunc)
 }
 
-func (dir *Dir) walkNamespaceInPath(ctx context.Context, namespace []byte, path, startPrefix string, walkFunc func(blobstore.BlobInfo) error) (err error) {
+func (dir *Dir) walkNamespaceInPath(ctx context.Context, namespace []byte, path string, skipPrefixFn blobstore.SkipPrefixFn, walkFunc func(blobstore.BlobInfo) error) (err error) {
 	defer mon.Task()(&ctx)(&err)
 	namespaceDir := PathEncoding.EncodeToString(namespace)
 	nsDir := filepath.Join(path, namespaceDir)
-	return dir.walkNamespaceUnderPath(ctx, namespace, nsDir, startPrefix, walkFunc)
+	return dir.walkNamespaceUnderPath(ctx, namespace, nsDir, skipPrefixFn, walkFunc)
 }
 
-func (dir *Dir) walkNamespaceUnderPath(ctx context.Context, namespace []byte, nsDir, startPrefix string, walkFunc func(blobstore.BlobInfo) error) (err error) {
+func (dir *Dir) walkNamespaceUnderPath(ctx context.Context, namespace []byte, nsDir string, skipPrefixFn blobstore.SkipPrefixFn, walkFunc func(blobstore.BlobInfo) error) (err error) {
 	subdirNames, err := readAllDirNames(nsDir)
 	if err != nil {
 		if errors.Is(err, fs.ErrNotExist) {
@@ -878,12 +878,6 @@ func (dir *Dir) walkNamespaceUnderPath(ctx context.Context, namespace []byte, ns
 	// sort the dir names, so we can start from the startPrefix
 	sortPrefixes(subdirNames)
 
-	// just a little optimization: if we were somehow given a startPrefix that
-	// is the last subdir, we can skip the rest and just start from there.
-	if startPrefix != "" && subdirNames[len(subdirNames)-1] == startPrefix {
-		subdirNames = subdirNames[:len(subdirNames)-1]
-	}
-
 	for _, keyPrefix := range subdirNames {
 		if len(keyPrefix) != 2 {
 			// just an invalid subdir; could be garbage of many kinds. probably
@@ -891,7 +885,7 @@ func (dir *Dir) walkNamespaceUnderPath(ctx context.Context, namespace []byte, ns
 			continue
 		}
 
-		if startPrefix != "" && startPrefix > keyPrefix {
+		if skipPrefixFn != nil && skipPrefixFn(keyPrefix) {
 			continue
 		}
 		err := walkNamespaceWithPrefix(ctx, namespace, nsDir, keyPrefix, walkFunc)

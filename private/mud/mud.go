@@ -155,9 +155,9 @@ func forEachComponent(components []*Component, callback func(component *Componen
 }
 
 // Execute executes a function with injecting all the required dependencies with type based Dependency Injection.
-func Execute[A any](ctx context.Context, ball *Ball, factory interface{}) (A, error) {
+func Execute[A any](ctx context.Context, ball *Ball, factory interface{}, options ...any) (A, error) {
 	var a A
-	response, err := runWithParams(ctx, ball, factory)
+	response, err := runWithParams(ctx, ball, factory, options...)
 	if err != nil {
 		return a, err
 	}
@@ -183,7 +183,7 @@ func Execute0(ctx context.Context, ball *Ball, factory interface{}) error {
 }
 
 // injectAnd execute calls the `factory` method, finding all required parameters in the registry.
-func runWithParams(ctx context.Context, ball *Ball, factory interface{}) ([]reflect.Value, error) {
+func runWithParams(ctx context.Context, ball *Ball, factory interface{}, options ...any) ([]reflect.Value, error) {
 	ft := reflect.TypeOf(factory)
 	if reflect.Func != ft.Kind() {
 		panic("Provider argument must be a func()")
@@ -212,7 +212,11 @@ func runWithParams(ctx context.Context, ball *Ball, factory interface{}) ([]refl
 			if dep.instance == nil {
 				return nil, specificError(ft.In(i), i, "instance is nil (not yet initialized)")
 			}
-			args = append(args, reflect.ValueOf(dep.instance))
+			val := dep.instance
+			if wrapper, found := getWrapperByType(ft.In(i), options); found {
+				val = wrapper.wrapper(val)
+			}
+			args = append(args, reflect.ValueOf(val))
 			continue
 		}
 		return nil, specificError(ft.In(i), i, "instance is not registered")
@@ -222,11 +226,41 @@ func runWithParams(ctx context.Context, ball *Ball, factory interface{}) ([]refl
 	return reflect.ValueOf(factory).Call(args), nil
 }
 
+// Wrapper can be used during injection to decorate existing instances.
+type Wrapper struct {
+	wrappedType reflect.Type
+	wrapper     func(any) any
+}
+
+// NewWrapper registers a new injection wrapper.
+func NewWrapper[T any](f func(T) T) Wrapper {
+	var t [0]T
+	tzpe := reflect.TypeOf(t).Elem()
+	return Wrapper{
+		wrappedType: tzpe,
+		wrapper: func(a any) any {
+			return f(a.(T))
+		},
+	}
+}
+
+// getWrapperByType finds the wrapper for specific type.
+func getWrapperByType(in reflect.Type, options []any) (Wrapper, bool) {
+	for _, opt := range options {
+		if w, ok := opt.(Wrapper); ok {
+			if w.wrappedType == in {
+				return w, true
+			}
+		}
+	}
+	return Wrapper{}, false
+}
+
 // Provide registers a new instance to the dependency pool.
 // Run/Close methods are auto-detected (stage is created if they exist).
-func Provide[A any](ball *Ball, factory interface{}) {
+func Provide[A any](ball *Ball, factory interface{}, options ...any) {
 	RegisterManual[A](ball, func(ctx context.Context) (A, error) {
-		return Execute[A](ctx, ball, factory)
+		return Execute[A](ctx, ball, factory, options...)
 	})
 
 	t := typeOf[A]()

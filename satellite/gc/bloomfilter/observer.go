@@ -13,7 +13,6 @@ import (
 
 	"storj.io/common/storj"
 	"storj.io/storj/satellite/metabase/rangedloop"
-	"storj.io/storj/satellite/overlay"
 	"storj.io/storj/shared/bloomfilter"
 	"storj.io/storj/shared/nodeidmap"
 )
@@ -24,6 +23,11 @@ var mon = monkit.Package()
 type TestingObserver interface {
 	TestingRetainInfos() nodeidmap.Map[*RetainInfo]
 	TestingForceTableSize(size int)
+}
+
+// Overlay minimal set of overlay functions that are needed for the observer.
+type Overlay interface {
+	ActiveNodesPieceCounts(ctx context.Context) (pieceCounts map[storj.NodeID]int64, err error)
 }
 
 // RetainInfo contains info needed for a storage node to retain important data and delete garbage data.
@@ -39,14 +43,14 @@ type Observer struct {
 	log     *zap.Logger
 	config  Config
 	upload  *Upload
-	overlay overlay.DB
+	overlay Overlay
 
 	// The following fields are reset for each loop.
-	startTime          time.Time
-	lastPieceCounts    map[storj.NodeID]int64
-	retainInfos        nodeidmap.Map[*RetainInfo]
-	latestCreationTime time.Time
-	seed               byte
+	startTime       time.Time
+	lastPieceCounts map[storj.NodeID]int64
+	retainInfos     nodeidmap.Map[*RetainInfo]
+	creationTime    time.Time
+	seed            byte
 
 	forcedTableSize int
 }
@@ -55,7 +59,7 @@ var _ (rangedloop.Observer) = (*Observer)(nil)
 var _ (rangedloop.Partial) = (*observerFork)(nil)
 
 // NewObserver creates a new instance of the gc rangedloop observer.
-func NewObserver(log *zap.Logger, config Config, overlay overlay.DB) *Observer {
+func NewObserver(log *zap.Logger, config Config, overlay Overlay) *Observer {
 	return &Observer{
 		log:     log,
 		overlay: overlay,
@@ -87,7 +91,7 @@ func (obs *Observer) Start(ctx context.Context, startTime time.Time) (err error)
 	obs.startTime = startTime
 	obs.lastPieceCounts = lastPieceCounts
 	obs.retainInfos = nodeidmap.MakeSized[*RetainInfo](len(lastPieceCounts))
-	obs.latestCreationTime = time.Time{}
+	obs.creationTime = time.Now()
 	obs.seed = bloomfilter.GenerateSeed()
 	return nil
 }
@@ -123,9 +127,11 @@ func (obs *Observer) Join(ctx context.Context, partial rangedloop.Partial) (err 
 		return errs.Combine(failures...)
 	}
 
-	// Replace the latestCreationTime if the partial observed a later time.
-	if obs.latestCreationTime.IsZero() || obs.latestCreationTime.Before(pieceTracker.latestCreationTime) {
-		obs.latestCreationTime = pieceTracker.latestCreationTime
+	// find oldest from all latest creation time and GC observer start
+	for _, lct := range pieceTracker.latestCreationTime {
+		if lct != (time.Time{}) && lct.Before(obs.creationTime) {
+			obs.creationTime = lct
+		}
 	}
 
 	return nil
@@ -134,7 +140,7 @@ func (obs *Observer) Join(ctx context.Context, partial rangedloop.Partial) (err 
 // Finish uploads the bloom filters.
 func (obs *Observer) Finish(ctx context.Context) (err error) {
 	defer mon.Task()(&ctx)(&err)
-	if err := obs.upload.UploadBloomFilters(ctx, obs.latestCreationTime, obs.retainInfos); err != nil {
+	if err := obs.upload.UploadBloomFilters(ctx, obs.creationTime, obs.retainInfos); err != nil {
 		return err
 	}
 	obs.log.Debug("collecting bloom filters finished")
@@ -151,6 +157,11 @@ func (obs *Observer) TestingForceTableSize(size int) {
 	obs.forcedTableSize = size
 }
 
+// TestingCreationTime gets the creation time which will be used to set bloom filter CreationDate.
+func (obs *Observer) TestingCreationTime() time.Time {
+	return obs.creationTime
+}
+
 type observerFork struct {
 	log    *zap.Logger
 	config Config
@@ -161,9 +172,11 @@ type observerFork struct {
 
 	retainInfos nodeidmap.Map[*RetainInfo]
 	// latestCreationTime will be used to set bloom filter CreationDate.
-	// Because bloom filter service needs to be run against immutable database snapshot
-	// we can set CreationDate for bloom filters as a latest segment CreatedAt value.
-	latestCreationTime time.Time
+	// Because bloom filter service needs to be run against immutable database view
+	// we can set CreationDate using this logic:
+	// * find latest segment creation time for each source
+	// * choose the oldest one from all latest creation time and GC observer start time
+	latestCreationTime map[string]time.Time
 
 	forcedTableSize int
 }
@@ -172,38 +185,30 @@ type observerFork struct {
 // The seed is passed so that it can be shared among all parallel forks.
 func newObserverFork(log *zap.Logger, config Config, pieceCounts map[storj.NodeID]int64, seed byte, startTime time.Time, forcedTableSize int) *observerFork {
 	return &observerFork{
-		log:             log,
-		config:          config,
-		pieceCounts:     pieceCounts,
-		seed:            seed,
-		startTime:       startTime,
-		forcedTableSize: forcedTableSize,
-		retainInfos:     nodeidmap.MakeSized[*RetainInfo](len(pieceCounts)),
+		log:                log,
+		config:             config,
+		pieceCounts:        pieceCounts,
+		seed:               seed,
+		startTime:          startTime,
+		forcedTableSize:    forcedTableSize,
+		retainInfos:        nodeidmap.MakeSized[*RetainInfo](len(pieceCounts)),
+		latestCreationTime: make(map[string]time.Time),
 	}
 }
 
 // Process adds pieces to the bloom filter from remote segments.
 func (fork *observerFork) Process(ctx context.Context, segments []rangedloop.Segment) error {
+	now := time.Now()
 	for _, segment := range segments {
 		if segment.Inline() {
 			continue
 		}
 
-		if fork.config.ExcludeExpiredPieces && segment.Expired(time.Now()) {
+		if fork.config.ExcludeExpiredPieces && segment.Expired(now) {
 			continue
 		}
 
-		// sanity check to detect if loop is not running against live database
-		if segment.CreatedAt.After(fork.startTime) {
-			fork.log.Error("segment created after loop started", zap.Stringer("StreamID", segment.StreamID),
-				zap.Time("loop started", fork.startTime),
-				zap.Time("segment created", segment.CreatedAt))
-			return errs.New("segment created after loop started")
-		}
-
-		if fork.latestCreationTime.Before(segment.CreatedAt) {
-			fork.latestCreationTime = segment.CreatedAt
-		}
+		fork.updateLatestCreationTime(segment)
 
 		deriver := segment.RootPieceID.Deriver()
 		for _, piece := range segment.Pieces {
@@ -212,6 +217,16 @@ func (fork *observerFork) Process(ctx context.Context, segments []rangedloop.Seg
 		}
 	}
 	return nil
+}
+
+func (fork *observerFork) updateLatestCreationTime(segment rangedloop.Segment) {
+	if lct, found := fork.latestCreationTime[segment.Source]; found {
+		if lct.Before(segment.CreatedAt) {
+			fork.latestCreationTime[segment.Source] = segment.CreatedAt
+		}
+	} else {
+		fork.latestCreationTime[segment.Source] = segment.CreatedAt
+	}
 }
 
 // add adds a pieceID to the relevant node's RetainInfo.

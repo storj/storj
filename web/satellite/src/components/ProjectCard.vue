@@ -128,8 +128,12 @@ const isDeclining = ref<boolean>(false);
  */
 function openProject(): void {
     if (!props.item) return;
+
+    // There is no reason to clear s3 data if the user is navigating to the previously selected project.
+    if (projectsStore.state.selectedProject.id !== props.item.id) bucketsStore.clearS3Data();
+
     projectsStore.selectProject(props.item.id);
-    bucketsStore.clearS3Data();
+
     router.push({
         name: ROUTES.Dashboard.name,
         params: { id: projectsStore.state.selectedProject.urlId },

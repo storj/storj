@@ -4,6 +4,7 @@
 import { DEFAULT_PAGE_LIMIT } from '@/types/pagination';
 import { ProjectRole } from '@/types/projectMembers';
 import { Versioning } from '@/types/versioning';
+import { DeleteProjectStep } from '@/types/accountActions';
 
 /**
  * Exposes all project-related functionality.
@@ -23,6 +24,17 @@ export interface ProjectsApi {
      * @throws Error
      */
     get(): Promise<Project[]>;
+
+    /**
+     * Delete project.
+     *
+     * @param projectId
+     * @param step
+     * @param data
+     * @throws Error
+     */
+    delete(projectId: string, step: DeleteProjectStep, data: string): Promise<ProjectDeletionData | null>;
+
     /**
      * Fetch config for project.
      *
@@ -288,6 +300,18 @@ export class ProjectsCursor {
     public constructor(
         public limit: number = DEFAULT_PAGE_LIMIT,
         public page: number = 1,
+    ) {}
+}
+
+/**
+ * ProjectDeletionData represents data returned by project deletion endpoint.
+ */
+export class ProjectDeletionData {
+    public constructor(
+        public buckets: number,
+        public apiKeys: number,
+        public currentUsage: boolean,
+        public invoicingIncomplete: boolean,
     ) {}
 }
 

@@ -131,7 +131,7 @@ func TestStorageNodeUsage(t *testing.T) {
 				}
 			}
 		})
-	})
+	}, satellitedbtest.WithSpanner())
 }
 
 // There can be more than one rollup in a day. Test that the sums are grouped by day.

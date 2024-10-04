@@ -6,7 +6,7 @@
 </template>
 
 <script setup lang="ts">
-const props = defineProps<{
+defineProps<{
     subtitle: string;
     link?: string;
 }>();

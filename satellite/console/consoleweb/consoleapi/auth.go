@@ -981,13 +981,34 @@ func (a *Auth) ResendEmail(w http.ResponseWriter, r *http.Request) {
 	var err error
 	defer mon.Task()(&ctx)(&err)
 
-	params := mux.Vars(r)
-	email, ok := params["email"]
-	if !ok {
+	var resendEmail struct {
+		Email           string `json:"email"`
+		CaptchaResponse string `json:"captchaResponse"`
+	}
+
+	err = json.NewDecoder(r.Body).Decode(&resendEmail)
+	if err != nil {
+		a.serveJSONError(ctx, w, err)
 		return
 	}
 
-	verified, unverified, err := a.service.GetUserByEmailWithUnverified(ctx, email)
+	ip, err := web.GetRequestIP(r)
+	if err != nil {
+		a.serveJSONError(ctx, w, err)
+		return
+	}
+
+	valid, _, err := a.service.VerifyRegistrationCaptcha(ctx, resendEmail.CaptchaResponse, ip)
+	if err != nil {
+		a.serveJSONError(ctx, w, err)
+		return
+	}
+	if !valid {
+		a.serveJSONError(ctx, w, console.ErrCaptcha.New("captcha validation unsuccessful"))
+		return
+	}
+
+	verified, unverified, err := a.service.GetUserByEmailWithUnverified(ctx, resendEmail.Email)
 	if err != nil {
 		return
 	}

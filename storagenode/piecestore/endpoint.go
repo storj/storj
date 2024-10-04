@@ -13,6 +13,7 @@ import (
 	"net"
 	"os"
 	"reflect"
+	"runtime/trace"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -280,6 +281,14 @@ func (endpoint *Endpoint) Upload(stream pb.DRPCPiecestore_UploadStream) (err err
 	ctx := stream.Context()
 	defer monLiveRequests(&ctx)(&err)
 	defer mon.Task()(&ctx)(&err)
+
+	if trace.IsEnabled() {
+		if tr, ok := drpcctx.Transport(ctx); ok {
+			if conn, ok := tr.(net.Conn); ok {
+				trace.Logf(ctx, "connection-info", "local:%v remote:%v", conn.LocalAddr(), conn.RemoteAddr())
+			}
+		}
+	}
 
 	cancelStream, ok := getCanceler(stream)
 	if !ok {
@@ -605,6 +614,14 @@ func (endpoint *Endpoint) Download(stream pb.DRPCPiecestore_DownloadStream) (err
 	ctx := stream.Context()
 	defer monLiveRequests(&ctx)(&err)
 	defer mon.Task()(&ctx)(&err)
+
+	if trace.IsEnabled() {
+		if tr, ok := drpcctx.Transport(ctx); ok {
+			if conn, ok := tr.(net.Conn); ok {
+				trace.Logf(ctx, "connection-info", "local:%v remote:%v", conn.LocalAddr(), conn.RemoteAddr())
+			}
+		}
+	}
 
 	cancelStream, ok := getCanceler(stream)
 	if !ok {

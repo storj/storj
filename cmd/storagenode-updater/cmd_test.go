@@ -86,11 +86,14 @@ func TestAutoUpdater(t *testing.T) {
 	// write identity files to disk for use in rollout calculation
 	identConfig := testIdentityFiles(ctx, t)
 
+	fakeStoreDir := ctx.Dir("fake-store")
+
 	// run updater (update)
 	args := []string{"run",
 		"--config-dir", ctx.Dir(),
 		"--version.server-address", "http://" + versionControlPeer.Addr(),
 		"--binary-location", storagenodePath,
+		"--binary-store-dir", fakeStoreDir,
 		"--version.check-interval", "0s",
 		"--identity.cert-path", identConfig.CertPath,
 		"--identity.key-path", identConfig.KeyPath,
@@ -135,6 +138,12 @@ func TestAutoUpdater(t *testing.T) {
 	require.Error(t, err)
 	require.ErrorIs(t, err, fs.ErrNotExist)
 	require.Nil(t, backupUpdaterInfo)
+
+	// check that the new binary is in the store
+	newStoragenode := filepath.Join(fakeStoreDir, "storagenode.exe")
+	newStoragenodeInfo, err := os.Stat(newStoragenode)
+	require.NoError(t, err)
+	require.NotNil(t, newStoragenodeInfo)
 }
 
 // CompileWithVersion compiles the specified package with the version variables set

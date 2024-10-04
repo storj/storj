@@ -7,7 +7,7 @@
             v-for="(step, i) in steps"
             :key="i"
             cols="12"
-            md="6"
+            :md="steps.length === ONBOARDING_STEPPER_STEPS.length ? 6 : 4"
             :lg="steps.length === ONBOARDING_STEPPER_STEPS.length ? 3 : 4"
             :xl="steps.length === ONBOARDING_STEPPER_STEPS.length ? 3 : 4"
         >
@@ -158,8 +158,8 @@ const steps = computed<StepData[]>(() => {
         case OnboardingStep.UploadFiles:
             return {
                 ...data,
-                title: 'Upload Files',
-                description: 'You are ready to upload files in your bucket, and share with the world.',
+                title: 'Upload Objects',
+                description: 'You are ready to upload objects in your bucket, and share with the world.',
                 buttonTxt: 'Go to Upload',
                 color: uploadStepInfo.value.color,
                 variant: uploadStepInfo.value.variant as VBtn['$props']['variant'],
@@ -284,7 +284,7 @@ function onCreateBucket(): void {
 }
 
 /**
- * Opens the file browser for the bucket being tracked in onboarding if any
+ * Opens the object browser for the bucket being tracked in onboarding if any
  * or select the only bucket the user has created
  * or redirect to the buckets list.
  */
@@ -310,7 +310,7 @@ function uploadFilesClicked(): void {
 }
 
 /**
- * Opens the file browser for the bucket being tracked in onboarding.
+ * Opens the object browser for the bucket being tracked in onboarding.
  * This dialog could've been created from the bucket creation step,
  * or selected from the buckets list.
  */

@@ -52,7 +52,7 @@ func TestDeleter(t *testing.T) {
 					WritePreallocSize: 4 * memory.MiB,
 					DeleteToTrash:     testCase.deleteToTrash,
 				}
-				store := pieces.NewStore(log, pieces.NewFileWalker(log, blobs, v0PieceInfo, db.GCFilewalkerProgress()), nil, blobs, v0PieceInfo, db.PieceExpirationDB(), nil, conf)
+				store := pieces.NewStore(log, pieces.NewFileWalker(log, blobs, v0PieceInfo, db.GCFilewalkerProgress(), db.UsedSpacePerPrefix()), nil, blobs, v0PieceInfo, db.PieceExpirationDB(), nil, conf)
 				deleter := pieces.NewDeleter(log, store, 1, 10000)
 				defer ctx.Check(deleter.Close)
 				deleter.SetupTest()

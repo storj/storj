@@ -9,6 +9,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/google/go-cmp/cmp"
+	"github.com/google/go-cmp/cmp/cmpopts"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap"
@@ -276,7 +278,7 @@ func TestRandomizedSelectionCache(t *testing.T) {
 
 func TestNodeInfo(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
-		SatelliteCount: 1, StorageNodeCount: 1, UplinkCount: 0,
+		SatelliteCount: 1, StorageNodeCount: 1, UplinkCount: 0, EnableSpanner: true,
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 		planet.StorageNodes[0].Storage2.Monitor.Loop.Pause()
 
@@ -297,7 +299,7 @@ func TestNodeInfo(t *testing.T) {
 
 func TestGetNodes(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
-		SatelliteCount: 1, StorageNodeCount: 6, UplinkCount: 1,
+		SatelliteCount: 1, StorageNodeCount: 6, UplinkCount: 1, EnableSpanner: true,
 		Reconfigure: testplanet.Reconfigure{
 			Satellite: func(log *zap.Logger, index int, config *satellite.Config) {
 				config.Reputation.AuditHistory = reputation.AuditHistoryConfig{
@@ -534,12 +536,12 @@ func TestUpdateCheckIn(t *testing.T) {
 		nodeInfo, err = db.OverlayCache().Get(ctx, updated2Node.Id)
 		require.NoError(t, err)
 		require.Nil(t, nodeInfo.LastOfflineEmail)
-	})
+	}, satellitedbtest.WithSpanner())
 }
 
 func TestUpdateReputation(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
-		SatelliteCount: 1, StorageNodeCount: 1, UplinkCount: 0,
+		SatelliteCount: 1, StorageNodeCount: 1, UplinkCount: 0, EnableSpanner: true,
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 		service := planet.Satellites[0].Overlay.Service
 		overlaydb := planet.Satellites[0].Overlay.DB
@@ -570,9 +572,9 @@ func TestUpdateReputation(t *testing.T) {
 		info, err = service.Get(ctx, node.ID())
 		require.NoError(t, err)
 		require.Equal(t, reputationUpdate.Disqualified, info.Disqualified)
-		require.Equal(t, reputationUpdate.UnknownAuditSuspended, info.UnknownAuditSuspended)
-		require.Equal(t, reputationUpdate.OfflineSuspended, info.OfflineSuspended)
-		require.Equal(t, reputationUpdate.VettedAt, info.Reputation.Status.VettedAt)
+		require.Zero(t, cmp.Diff(info.UnknownAuditSuspended, reputationUpdate.UnknownAuditSuspended, cmpopts.EquateApproxTime(0)))
+		require.Zero(t, cmp.Diff(info.OfflineSuspended, reputationUpdate.OfflineSuspended, cmpopts.EquateApproxTime(0)))
+		require.Zero(t, cmp.Diff(info.Reputation.Status.VettedAt, reputationUpdate.VettedAt, cmpopts.EquateApproxTime(0)))
 
 		reputationUpdate.Disqualified = &t0
 		repChange = []nodeevents.Type{nodeevents.Disqualified}
@@ -581,7 +583,7 @@ func TestUpdateReputation(t *testing.T) {
 
 		info, err = service.Get(ctx, node.ID())
 		require.NoError(t, err)
-		require.Equal(t, reputationUpdate.Disqualified, info.Disqualified)
+		require.Zero(t, cmp.Diff(info.Disqualified, reputationUpdate.Disqualified, cmpopts.EquateApproxTime(0)))
 
 		nodeInfo, err := overlaydb.UpdateExitStatus(ctx, &overlay.ExitStatusRequest{
 			NodeID:              node.ID(),

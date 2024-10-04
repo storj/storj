@@ -86,7 +86,7 @@ func (db *satelliteDB) MigrateToLatest(ctx context.Context) error {
 		return migration.Run(ctx, db.log.Named("migrate"))
 	case dbutil.Spanner:
 		// TODO(spanner): add incremental migration support
-		return migrate.CreateSpanner(ctx, "database", db.DB)
+		return migrate.CreateSpanner(ctx, "database", db.DB, false)
 	default:
 		return migrate.Create(ctx, "database", db.DB)
 	}
@@ -150,7 +150,7 @@ func (db *satelliteDBTesting) TestMigrateToLatest(ctx context.Context) error {
 		return testMigration.Run(ctx, db.log.Named("migrate"))
 	case dbutil.Spanner:
 		// TODO(spanner): add incremental migration support
-		return migrate.CreateSpanner(ctx, "database", db.DB)
+		return migrate.CreateSpanner(ctx, "database", db.DB, true)
 	default:
 		return migrate.Create(ctx, "database", db.DB)
 	}
