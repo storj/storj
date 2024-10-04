@@ -11,6 +11,8 @@ import {
     ListObjectsV2Command,
     PutBucketVersioningCommand,
     BucketVersioningStatus,
+    PutObjectLockConfigurationCommand,
+    ObjectLockRule,
 } from '@aws-sdk/client-s3';
 import { SignatureV4 } from '@smithy/signature-v4';
 
@@ -30,6 +32,11 @@ import { DEFAULT_PAGE_LIMIT } from '@/types/pagination';
 import { Duration } from '@/utils/time';
 
 const FIRST_PAGE = 1;
+
+export enum ClientType {
+    REGULAR,
+    FOR_CREATE,
+}
 
 export class BucketsState {
     public allBucketNames: string[] = [];
@@ -280,6 +287,21 @@ export const useBucketsStore = defineStore('buckets', () => {
         }
     }
 
+    async function setObjectLockConfig(name: string, clientType: ClientType, rule?: ObjectLockRule): Promise<void> {
+        let client: S3Client = state.s3Client;
+        if (clientType === ClientType.FOR_CREATE) {
+            client = state.s3ClientForCreate;
+        }
+
+        await client.send(new PutObjectLockConfigurationCommand({
+            Bucket: name,
+            ObjectLockConfiguration: {
+                ObjectLockEnabled: 'Enabled',
+                Rule: rule,
+            },
+        }));
+    }
+
     async function createBucketWithNoPassphrase(name: string, enableObjectLock: boolean, enableBucketVersioning: boolean): Promise<void> {
         await state.s3ClientForCreate.send(new CreateBucketCommand({
             Bucket: name,
@@ -384,6 +406,7 @@ export const useBucketsStore = defineStore('buckets', () => {
         setEdgeCredentialsForDelete,
         setEdgeCredentialsForCreate,
         setEdgeCredentialsForVersioning,
+        setObjectLockConfig,
         setS3Client,
         setPassphrase,
         setApiKey,

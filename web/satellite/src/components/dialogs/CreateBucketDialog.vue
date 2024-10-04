@@ -88,7 +88,7 @@
                                     <v-chip
                                         variant="outlined"
                                         filter
-                                        color="default"
+                                        color="info"
                                         :value="false"
                                     >
                                         No
@@ -96,16 +96,18 @@
                                     <v-chip
                                         variant="outlined"
                                         filter
-                                        color="default"
+                                        color="info"
                                         :value="true"
                                     >
                                         Yes
                                     </v-chip>
                                 </v-chip-group>
-                                <v-alert v-if="enableObjectLock" variant="tonal" color="default">
-                                    <p class="font-weight-bold text-body-2 mb-1">Enable Object Lock (Compliance Mode)</p>
-                                    <p class="text-subtitle-2">No user, including the project owner can overwrite, delete, or alter object lock settings.</p>
-                                </v-alert>
+                                <SetDefaultObjectLockConfig
+                                    v-if="enableObjectLock"
+                                    @updateDefaultMode="newMode => defaultRetentionMode = newMode"
+                                    @updatePeriodValue="newPeriod => defaultRetentionPeriod = newPeriod"
+                                    @updatePeriodUnit="newUnit => defaultRetentionPeriodUnit = newUnit"
+                                />
                                 <v-alert v-else variant="tonal" color="default">
                                     <p class="font-weight-bold text-body-2 mb-1">Object Lock Disabled (Default)</p>
                                     <p class="text-subtitle-2">Objects can be deleted or overwritten.</p>
@@ -183,6 +185,22 @@
                                     class="mt-1 mb-4 font-weight-bold"
                                 >
                                     {{ enableObjectLock ? 'Enabled' : 'Disabled' }}
+                                </v-chip>
+                                <p>Default Retention Mode:</p>
+                                <v-chip
+                                    variant="tonal"
+                                    color="default"
+                                    class="mt-1 mb-4 font-weight-bold text-capitalize"
+                                >
+                                    {{ defaultRetentionMode?.toLowerCase() ?? 'Not Set' }}
+                                </v-chip>
+                                <p>Default Retention Period:</p>
+                                <v-chip
+                                    variant="tonal"
+                                    color="default"
+                                    class="mt-1 mb-4 font-weight-bold"
+                                >
+                                    {{ defaultRetPeriodResult }}
                                 </v-chip>
                             </template>
 
@@ -264,12 +282,12 @@ import {
     VDialog,
     VDivider,
     VForm,
+    VIcon,
     VRow,
     VSheet,
     VTextField,
     VWindow,
     VWindowItem,
-    VIcon,
 } from 'vuetify/components';
 import { ArrowRight, Check } from 'lucide-vue-next';
 import { useRouter } from 'vue-router';
@@ -280,13 +298,16 @@ import { useNotify } from '@/utils/hooks';
 import { AnalyticsErrorEventSource, AnalyticsEvent } from '@/utils/constants/analyticsEventNames';
 import { useAccessGrantsStore } from '@/store/modules/accessGrantsStore';
 import { useProjectsStore } from '@/store/modules/projectsStore';
-import { useBucketsStore } from '@/store/modules/bucketsStore';
+import { ClientType, useBucketsStore } from '@/store/modules/bucketsStore';
 import { LocalData } from '@/utils/localData';
 import { useAnalyticsStore } from '@/store/modules/analyticsStore';
 import { AccessGrant, EdgeCredentials } from '@/types/accessGrants';
 import { StepInfo, ValidationRule } from '@/types/common';
 import { Versioning } from '@/types/versioning';
 import { ROUTES } from '@/router';
+import { DefaultObjectLockPeriodUnit, ObjLockMode } from '@/types/objectLock';
+
+import SetDefaultObjectLockConfig from '@/components/dialogs/defaultBucketLockConfig/SetDefaultObjectLockConfig.vue';
 
 enum CreateStep {
     Name = 1,
@@ -374,8 +395,22 @@ const enableVersioning = ref<boolean>(false);
 const enableObjectLock = ref<boolean>(false);
 const bucketName = ref<string>('');
 const worker = ref<Worker | null>(null);
+const defaultRetentionMode = ref<ObjLockMode>();
+const defaultRetentionPeriod = ref<number>(0);
+const defaultRetentionPeriodUnit = ref<DefaultObjectLockPeriodUnit>(DefaultObjectLockPeriodUnit.DAYS);
 
 const project = computed(() => projectsStore.state.selectedProject);
+
+const defaultRetPeriodResult = computed<string>(() => {
+    if (defaultRetentionPeriod.value === 0) return 'Not Set';
+
+    let unit = defaultRetentionPeriodUnit.value.toString();
+    if (defaultRetentionPeriod.value === 1) {
+        unit = unit.slice(0, -1);
+    }
+
+    return `${defaultRetentionPeriod.value} ${unit}`;
+});
 
 /**
  * Whether versioning has been enabled for current project.
@@ -554,6 +589,16 @@ async function openBucket(): Promise<void> {
     });
 }
 
+async function setObjectLockConfig(clientType: ClientType): Promise<void> {
+    await bucketsStore.setObjectLockConfig(bucketName.value, clientType, {
+        DefaultRetention: {
+            Mode: defaultRetentionMode.value,
+            Days: defaultRetentionPeriodUnit.value === DefaultObjectLockPeriodUnit.DAYS ? defaultRetentionPeriod.value : undefined,
+            Years: defaultRetentionPeriodUnit.value === DefaultObjectLockPeriodUnit.YEARS ? defaultRetentionPeriod.value : undefined,
+        },
+    });
+}
+
 /**
  * Validates provided bucket's name and creates a bucket.
  */
@@ -570,6 +615,7 @@ async function onCreate(): Promise<void> {
             await bucketsStore.setS3Client(projectID);
         }
         await bucketsStore.createBucket(bucketName.value, enableObjectLock.value, enableVersioning.value);
+        if (enableObjectLock.value && defaultRetentionMode.value) await setObjectLockConfig(ClientType.REGULAR);
         await bucketsStore.getBuckets(1, projectID);
         analyticsStore.eventTriggered(AnalyticsEvent.BUCKET_CREATED);
 
@@ -584,6 +630,7 @@ async function onCreate(): Promise<void> {
 
     if (edgeCredentialsForCreate.value.accessKeyId) {
         await bucketsStore.createBucketWithNoPassphrase(bucketName.value, enableObjectLock.value, enableVersioning.value);
+        if (enableObjectLock.value && defaultRetentionMode.value) await setObjectLockConfig(ClientType.FOR_CREATE);
         await bucketsStore.getBuckets(1, projectID);
         analyticsStore.eventTriggered(AnalyticsEvent.BUCKET_CREATED);
         if (!bucketWasCreated.value) {
@@ -655,6 +702,7 @@ async function onCreate(): Promise<void> {
     const creds: EdgeCredentials = await agStore.getEdgeCredentials(accessGrant);
     bucketsStore.setEdgeCredentialsForCreate(creds);
     await bucketsStore.createBucketWithNoPassphrase(bucketName.value, enableObjectLock.value, enableVersioning.value);
+    if (enableObjectLock.value && defaultRetentionMode.value) await setObjectLockConfig(ClientType.FOR_CREATE);
     await bucketsStore.getBuckets(1, projectID);
     analyticsStore.eventTriggered(AnalyticsEvent.BUCKET_CREATED);
 
@@ -691,5 +739,8 @@ watch(innerContent, newContent => {
     stepNumber.value = 1;
     enableVersioning.value = false;
     enableObjectLock.value = false;
+    defaultRetentionMode.value = undefined;
+    defaultRetentionPeriod.value = 0;
+    defaultRetentionPeriodUnit.value = DefaultObjectLockPeriodUnit.DAYS;
 });
 </script>
