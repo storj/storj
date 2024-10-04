@@ -839,7 +839,7 @@ func TestIncreaseLimit(t *testing.T) {
 	})
 }
 
-func TestResendActivationEmailWithCaptcha(t *testing.T) {
+func TestResendActivationEmail(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
 		SatelliteCount: 1, StorageNodeCount: 0, UplinkCount: 0,
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
@@ -855,120 +855,6 @@ func TestResendActivationEmailWithCaptcha(t *testing.T) {
 		resendEmail := func() {
 			url := planet.Satellites[0].ConsoleURL() + "/api/v0/auth/resend-email"
 			req, err := http.NewRequestWithContext(ctx, http.MethodPost, url, bytes.NewBufferString(fmt.Sprintf(`{"email":"%s"}`, user.Email)))
-			require.NoError(t, err)
-
-			result, err := http.DefaultClient.Do(req)
-			require.NoError(t, err)
-			require.NoError(t, result.Body.Close())
-			require.Equal(t, http.StatusOK, result.StatusCode)
-		}
-
-		sender := &EmailVerifier{Context: ctx}
-		sat.API.Mail.Service.Sender = sender
-
-		// Expect password reset e-mail to be sent when using verified e-mail address.
-		resendEmail()
-		body, err := sender.Data.Get(ctx)
-		require.NoError(t, err)
-		require.Contains(t, body, "/password-recovery")
-
-		// Expect activation e-mail to be sent when using unverified e-mail address.
-		user.Status = console.Inactive
-		require.NoError(t, usersRepo.Update(ctx, user.ID, console.UpdateUserRequest{
-			Status: &user.Status,
-		}))
-
-		resendEmail()
-		body, err = sender.Data.Get(ctx)
-		require.NoError(t, err)
-		if sat.Config.Console.SignupActivationCodeEnabled {
-			_, users, err := sat.DB.Console().Users().GetByEmailWithUnverified(ctx, user.Email)
-			require.NoError(t, err)
-			require.Len(t, users, 1)
-			require.Contains(t, body, users[0].ActivationCode)
-		} else {
-			require.Contains(t, body, "/activation")
-		}
-	})
-}
-
-func TestResendActivationEmailWithCaptcha_CodeEnabled(t *testing.T) {
-	testplanet.Run(t, testplanet.Config{
-		SatelliteCount: 1, StorageNodeCount: 0, UplinkCount: 0,
-		Reconfigure: testplanet.Reconfigure{
-			Satellite: func(log *zap.Logger, index int, config *satellite.Config) {
-				config.Console.SignupActivationCodeEnabled = true
-			},
-		},
-	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
-		sat := planet.Satellites[0]
-		usersRepo := sat.DB.Console().Users()
-
-		user, err := sat.AddUser(ctx, console.CreateUser{
-			FullName: "Test User",
-			Email:    "test@mail.test",
-		}, 1)
-		require.NoError(t, err)
-
-		// Expect activation e-mail to be sent when using unverified e-mail address.
-		user.Status = console.Inactive
-		require.NoError(t, usersRepo.Update(ctx, user.ID, console.UpdateUserRequest{
-			Status: &user.Status,
-		}))
-
-		sender := &EmailVerifier{Context: ctx}
-		sat.API.Mail.Service.Sender = sender
-
-		resendURL := planet.Satellites[0].ConsoleURL() + "/api/v0/auth/resend-email"
-		req, err := http.NewRequestWithContext(ctx, http.MethodPost, resendURL, bytes.NewBufferString(fmt.Sprintf(`{"email":"%s"}`, user.Email)))
-		require.NoError(t, err)
-
-		result, err := http.DefaultClient.Do(req)
-		require.NoError(t, err)
-		require.NoError(t, result.Body.Close())
-		require.Equal(t, http.StatusOK, result.StatusCode)
-
-		body, err := sender.Data.Get(ctx)
-		require.NoError(t, err)
-		require.Contains(t, body, "code")
-
-		regex := regexp.MustCompile(`(\d{6})\n\s*<\/h1>`)
-		code := strings.Replace(regex.FindString(body.(string)), "</h1>", "", 1)
-		code = strings.TrimSpace(code)
-		require.Contains(t, body, code)
-
-		// resending should send a new code.
-		result, err = http.DefaultClient.Do(req)
-		require.NoError(t, err)
-		require.NoError(t, result.Body.Close())
-		require.Equal(t, http.StatusOK, result.StatusCode)
-
-		body, err = sender.Data.Get(ctx)
-		require.NoError(t, err)
-		require.Contains(t, body, "code")
-
-		newCode := strings.Replace(regex.FindString(body.(string)), "</h1>", "", 1)
-		newCode = strings.TrimSpace(newCode)
-		require.NotEqual(t, code, newCode)
-	})
-}
-
-func TestResendActivationEmail(t *testing.T) {
-	testplanet.Run(t, testplanet.Config{
-		SatelliteCount: 1, StorageNodeCount: 0, UplinkCount: 0,
-	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
-		sat := planet.Satellites[0]
-		usersRepo := sat.DB.Console().Users()
-
-		user, err := sat.AddUser(ctx, console.CreateUser{
-			FullName: "Test User",
-			Email:    "test@mail.test",
-		}, 1)
-		require.NoError(t, err)
-
-		resendEmail := func() {
-			url := planet.Satellites[0].ConsoleURL() + "/api/v0/auth/resend-email/" + user.Email
-			req, err := http.NewRequestWithContext(ctx, http.MethodPost, url, bytes.NewBufferString(user.Email))
 			require.NoError(t, err)
 
 			result, err := http.DefaultClient.Do(req)
@@ -1033,8 +919,8 @@ func TestResendActivationEmail_CodeEnabled(t *testing.T) {
 		sender := &EmailVerifier{Context: ctx}
 		sat.API.Mail.Service.Sender = sender
 
-		resendURL := planet.Satellites[0].ConsoleURL() + "/api/v0/auth/resend-email/" + user.Email
-		req, err := http.NewRequestWithContext(ctx, http.MethodPost, resendURL, bytes.NewBufferString(user.Email))
+		resendURL := planet.Satellites[0].ConsoleURL() + "/api/v0/auth/resend-email"
+		req, err := http.NewRequestWithContext(ctx, http.MethodPost, resendURL, bytes.NewBufferString(fmt.Sprintf(`{"email":"%s"}`, user.Email)))
 		require.NoError(t, err)
 
 		result, err := http.DefaultClient.Do(req)

@@ -147,6 +147,14 @@ export interface PaymentsApi {
     getBillingInformation(): Promise<BillingInformation>;
 
     /**
+     * add user's default invoice reference.
+     *
+     * @param reference - invoice reference to be shown on invoices
+     * @throws Error
+     */
+    addInvoiceReference(reference: string): Promise<BillingInformation>;
+
+    /**
      * save user's billing information.
      *
      * @param address - billing information to save
@@ -806,4 +814,5 @@ export interface TaxID {
 export interface BillingInformation {
     address?: BillingAddress,
     taxIDs?: TaxID[],
+    invoiceReference: string,
 }

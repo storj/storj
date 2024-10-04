@@ -9,6 +9,7 @@ import (
 	"sync/atomic"
 	"testing"
 
+	"github.com/jtolio/mito"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
@@ -353,7 +354,7 @@ func TestBalancedSelector(t *testing.T) {
 	}
 
 	ctx := testcontext.New(t)
-	selector := nodeselection.BalancedGroupBasedSelector(attribute)(nodes, nil)
+	selector := nodeselection.BalancedGroupBasedSelector(attribute, nil)(nodes, nil)
 
 	var badSelection atomic.Int64
 	for i := 0; i < 1000; i++ {
@@ -374,7 +375,7 @@ func TestBalancedSelector(t *testing.T) {
 
 			histogram := map[string]int{}
 			for _, node := range selectedNodes {
-				histogram[attribute(*node)] = histogram[attribute(*node)] + 1
+				histogram[attribute(*node).(string)] = histogram[attribute(*node).(string)] + 1
 			}
 			for _, c := range histogram {
 				if c > 5 {
@@ -423,7 +424,7 @@ func TestBalancedSelectorWithExisting(t *testing.T) {
 		}
 	}
 
-	selector := nodeselection.BalancedGroupBasedSelector(attribute)(nodes, nil)
+	selector := nodeselection.BalancedGroupBasedSelector(attribute, nil)(nodes, nil)
 
 	histogram := map[string]int{}
 	for i := 0; i < 1000; i++ {
@@ -433,7 +434,7 @@ func TestBalancedSelectorWithExisting(t *testing.T) {
 		require.Len(t, selectedNodes, 7)
 
 		for _, node := range selectedNodes {
-			histogram[attribute(*node)]++
+			histogram[attribute(*node).(string)]++
 		}
 	}
 	// from the initial {"A": 3, "B": 10, "C": 30, "D": 5, "E": 1}
@@ -862,7 +863,7 @@ func TestIfWithEqSelector(t *testing.T) {
 	require.NoError(t, err)
 
 	selector := nodeselection.BalancedGroupBasedSelector(nodeselection.IfSelector(
-		nodeselection.EqualSelector(surgeTag, "true"), lastIpPortAttribute, lastNetAttribute))(nodes, nil)
+		nodeselection.EqualSelector(surgeTag, "true"), lastIpPortAttribute, lastNetAttribute), nil)(nodes, nil)
 
 	const (
 		reqCount       = 3
@@ -1150,4 +1151,36 @@ func TestChoiceOfNSelection(t *testing.T) {
 
 	// First group has the less piece counts
 	require.Equal(t, "0@", selection[0].Email[0:2])
+}
+
+func TestMin(t *testing.T) {
+	tracker := &mockTracker{}
+
+	// score of node1 is 10 (default)
+	node1 := testrand.NodeID()
+
+	// score of node2 is 1 (slow node)
+	node2 := testrand.NodeID()
+	tracker.slowNodes = append(tracker.slowNodes, node2)
+
+	env := map[interface{}]interface{}{
+		"min":     nodeselection.Min,
+		"tracker": tracker,
+	}
+	test := func(expression string, node storj.NodeID, expected float64) {
+		evaluated, err := mito.Eval(expression, env)
+		require.NoError(t, err)
+		f := evaluated.(nodeselection.ScoreNode).Get(storj.NodeID{})(&nodeselection.SelectedNode{
+			ID: node,
+		})
+		require.Equal(t, expected, f)
+	}
+
+	test("min(tracker,1)", node1, float64(1))
+	test("min(tracker,1)", node2, float64(1))
+	test("min(tracker,1.2)", node2, float64(1))
+
+	test("min(15.9,tracker)", node1, float64(10))
+	test("min(15,tracker)", node1, float64(10))
+	test("min(15,tracker)", node2, float64(1))
 }

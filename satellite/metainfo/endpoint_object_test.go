@@ -639,16 +639,7 @@ func TestEndpoint_Object_No_StorageNodes(t *testing.T) {
 			require.NoError(t, err)
 
 			params := metaclient.BeginObjectParams{
-				Bucket:             []byte(bucketName),
-				EncryptedObjectKey: []byte("encrypted-path"),
-				Redundancy: storj.RedundancyScheme{
-					Algorithm:      storj.ReedSolomon,
-					ShareSize:      256,
-					RequiredShares: 1,
-					RepairShares:   1,
-					OptimalShares:  3,
-					TotalShares:    4,
-				},
+				Bucket: []byte(bucketName),
 				EncryptionParameters: storj.EncryptionParameters{
 					BlockSize:   256,
 					CipherSuite: storj.EncNull,
@@ -1208,6 +1199,7 @@ func TestEndpoint_Object_With_StorageNodes(t *testing.T) {
 				config.Overlay.GeoIP.MockCountries = []string{"DE"}
 			},
 		},
+		EnableSpanner: true,
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 		apiKey := planet.Uplinks[0].APIKey[planet.Satellites[0].ID()]
 		metainfoClient, err := planet.Uplinks[0].DialMetainfo(ctx, planet.Satellites[0], apiKey)
@@ -1229,6 +1221,32 @@ func TestEndpoint_Object_With_StorageNodes(t *testing.T) {
 			}
 		}
 
+		fullIDMap := make(map[storj.NodeID]*identity.FullIdentity)
+		for _, node := range planet.StorageNodes {
+			fullIDMap[node.ID()] = node.Identity
+		}
+
+		makeResult := func(num int32, limits []*pb.AddressedOrderLimit) *pb.SegmentPieceUploadResult {
+			nodeID := limits[num].Limit.StorageNodeId
+			hash := &pb.PieceHash{
+				PieceId:   limits[num].Limit.PieceId,
+				PieceSize: 1048832,
+				Timestamp: time.Now(),
+			}
+
+			fullID := fullIDMap[nodeID]
+			require.NotNil(t, fullID)
+			signer := signing.SignerFromFullIdentity(fullID)
+			signedHash, err := signing.SignPieceHash(ctx, signer, hash)
+			require.NoError(t, err)
+
+			return &pb.SegmentPieceUploadResult{
+				PieceNum: num,
+				NodeId:   nodeID,
+				Hash:     signedHash,
+			}
+		}
+
 		t.Run("begin commit", func(t *testing.T) {
 			defer ctx.Check(deleteBucket(bucketName))
 
@@ -1246,14 +1264,6 @@ func TestEndpoint_Object_With_StorageNodes(t *testing.T) {
 			params := metaclient.BeginObjectParams{
 				Bucket:             []byte(bucket.Name),
 				EncryptedObjectKey: []byte("encrypted-path"),
-				Redundancy: storj.RedundancyScheme{
-					Algorithm:      storj.ReedSolomon,
-					ShareSize:      256,
-					RequiredShares: 1,
-					RepairShares:   1,
-					OptimalShares:  3,
-					TotalShares:    4,
-				},
 				EncryptionParameters: storj.EncryptionParameters{
 					CipherSuite: storj.EncAESGCM,
 					BlockSize:   256,
@@ -1277,31 +1287,6 @@ func TestEndpoint_Object_With_StorageNodes(t *testing.T) {
 			})
 			require.NoError(t, err)
 
-			fullIDMap := make(map[storj.NodeID]*identity.FullIdentity)
-			for _, node := range planet.StorageNodes {
-				fullIDMap[node.ID()] = node.Identity
-			}
-
-			makeResult := func(num int32) *pb.SegmentPieceUploadResult {
-				nodeID := response.Limits[num].Limit.StorageNodeId
-				hash := &pb.PieceHash{
-					PieceId:   response.Limits[num].Limit.PieceId,
-					PieceSize: 1048832,
-					Timestamp: time.Now(),
-				}
-
-				fullID := fullIDMap[nodeID]
-				require.NotNil(t, fullID)
-				signer := signing.SignerFromFullIdentity(fullID)
-				signedHash, err := signing.SignPieceHash(ctx, signer, hash)
-				require.NoError(t, err)
-
-				return &pb.SegmentPieceUploadResult{
-					PieceNum: num,
-					NodeId:   nodeID,
-					Hash:     signedHash,
-				}
-			}
 			err = metainfoClient.CommitSegment(ctx, metaclient.CommitSegmentParams{
 				SegmentID: response.SegmentID,
 				Encryption: metaclient.SegmentEncryption{
@@ -1310,9 +1295,9 @@ func TestEndpoint_Object_With_StorageNodes(t *testing.T) {
 				PlainSize:         5000,
 				SizeEncryptedData: memory.MiB.Int64(),
 				UploadResult: []*pb.SegmentPieceUploadResult{
-					makeResult(0),
-					makeResult(1),
-					makeResult(2),
+					makeResult(0, response.Limits),
+					makeResult(1, response.Limits),
+					makeResult(2, response.Limits),
 				},
 			})
 			require.NoError(t, err)
@@ -1819,6 +1804,60 @@ func TestEndpoint_Object_With_StorageNodes(t *testing.T) {
 			data, err := planet.Uplinks[0].Download(ctx, planet.Satellites[0], bucketName, objectName)
 			require.NoError(t, err)
 			require.Equal(t, expectedData, data)
+		})
+
+		t.Run("upload while RS changes", func(t *testing.T) {
+			defer ctx.Check(deleteBucket("bucket"))
+
+			require.NoError(t, planet.Uplinks[0].CreateBucket(ctx, planet.Satellites[0], "bucket"))
+
+			endpoint := planet.Satellites[0].Metainfo.Endpoint
+
+			beginResp, err := endpoint.BeginObject(ctx, &pb.BeginObjectRequest{
+				Header:             &pb.RequestHeader{ApiKey: apiKey.SerializeRaw()},
+				Bucket:             []byte("bucket"),
+				EncryptedObjectKey: []byte("test-object"),
+				EncryptionParameters: &pb.EncryptionParameters{
+					CipherSuite: pb.CipherSuite_ENC_AESGCM,
+				},
+			})
+			require.NoError(t, err)
+
+			peerctx := rpcpeer.NewContext(ctx, &rpcpeer.Peer{
+				State: tls.ConnectionState{
+					PeerCertificates: planet.Uplinks[0].Identity.Chain(),
+				}})
+
+			beginSegResp, err := endpoint.BeginSegment(peerctx, &pb.BeginSegmentRequest{
+				Header:        &pb.RequestHeader{ApiKey: apiKey.SerializeRaw()},
+				Position:      &pb.SegmentPosition{},
+				StreamId:      beginResp.StreamId,
+				MaxOrderLimit: memory.MiB.Int64(),
+			})
+			require.NoError(t, err)
+
+			// change RS values in between begin and commit requests. RS values should be passed between
+			// requests and not use current endpoint defaults (or placement).
+			planet.Satellites[0].Metainfo.Endpoint.TestingSetRSConfig(metainfo.RSConfig{
+				Min:     1,
+				Repair:  2,
+				Success: 10,
+				Total:   10,
+			})
+
+			_, err = endpoint.CommitSegment(peerctx, &pb.CommitSegmentRequest{
+				Header:    &pb.RequestHeader{ApiKey: apiKey.SerializeRaw()},
+				SegmentId: beginSegResp.SegmentId,
+				UploadResult: []*pb.SegmentPieceUploadResult{
+					makeResult(0, beginSegResp.AddressedLimits),
+					makeResult(1, beginSegResp.AddressedLimits),
+				},
+				EncryptedKey:      testrand.Bytes(32),
+				EncryptedKeyNonce: testrand.Nonce(),
+				PlainSize:         512,
+				SizeEncryptedData: memory.MiB.Int64(),
+			})
+			require.NoError(t, err)
 		})
 	})
 }

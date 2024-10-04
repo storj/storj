@@ -320,6 +320,14 @@ type Peer struct {
 	}
 }
 
+// PeerRunner is the interface for running a Storage Node.
+type PeerRunner interface {
+	Run(ctx context.Context) error
+	Close() error
+}
+
+var _ PeerRunner = (*Peer)(nil)
+
 // New creates a new Storage Node.
 func New(log *zap.Logger, full *identity.FullIdentity, db DB, revocationDB extensions.RevocationDB, config Config, versionInfo version.Info, atomicLogLevel *zap.AtomicLevel) (*Peer, error) {
 	peer := &Peer{
@@ -481,8 +489,12 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, revocationDB exten
 		peer.Contact.PingStats = new(contact.PingStats)
 		peer.Contact.QUICStats = contact.NewQUICStats(peer.Server.IsQUICEnabled())
 
-		tags := pb.SignedNodeTagSets(config.Contact.Tags)
-		peer.Contact.Service = contact.NewService(process.NamedLog(peer.Log, "contact:service"), peer.Dialer, self, peer.Storage2.Trust, peer.Contact.QUICStats, &tags)
+		tags, err := contact.GetTags(context.Background(), config.Contact, peer.Identity)
+		if err != nil {
+			return nil, errs.Combine(err, peer.Close())
+		}
+
+		peer.Contact.Service = contact.NewService(process.NamedLog(peer.Log, "contact:service"), peer.Dialer, self, peer.Storage2.Trust, peer.Contact.QUICStats, tags)
 
 		peer.Contact.Chore = contact.NewChore(process.NamedLog(peer.Log, "contact:chore"), config.Contact.Interval, peer.Contact.Service)
 		peer.Services.Add(lifecycle.Item{
@@ -573,8 +585,8 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, revocationDB exten
 
 		peer.Storage2.TrashChore = pieces.NewTrashChore(
 			process.NamedLog(log, "pieces:trash"),
-			24*time.Hour,   // choreInterval: how often to run the chore
-			7*24*time.Hour, // trashExpiryInterval: when items in the trash should be deleted
+			config.Pieces.TrashChoreInterval, // choreInterval: how often to run the chore
+			7*24*time.Hour,                   // trashExpiryInterval: when items in the trash should be deleted
 			peer.Storage2.Trust,
 			peer.Storage2.Store,
 		)

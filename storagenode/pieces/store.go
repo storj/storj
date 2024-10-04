@@ -171,11 +171,14 @@ type Config struct {
 	FlatExpirationStorePath          string        `help:"where to store flat piece expiration files, relative to the data directory" default:"piece_expirations"`
 	FlatExpirationStoreMaxBufferTime time.Duration `help:"maximum time to buffer writes to the flat expiration store before flushing" default:"5m"`
 	FlatExpirationIncludeSQLite      bool          `help:"use and remove piece expirations from the sqlite database _also_ when the flat expiration store is enabled" default:"true"`
+
+	TrashChoreInterval time.Duration `help:"how often to empty check the trash, and delete old files" default:"24h"`
 }
 
 // DefaultConfig is the default value for the Config.
 var DefaultConfig = Config{
-	WritePreallocSize: 4 * memory.MiB,
+	WritePreallocSize:  4 * memory.MiB,
+	TrashChoreInterval: 24 * time.Hour,
 }
 
 // Store implements storing pieces onto a blob storage implementation.

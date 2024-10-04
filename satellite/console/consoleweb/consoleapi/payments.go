@@ -807,6 +807,41 @@ func (p *Payments) SaveBillingAddress(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
+// AddInvoiceReference adds a default invoice reference to be displayed on every invoice.
+func (p *Payments) AddInvoiceReference(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	var err error
+	defer mon.Task()(&ctx)(&err)
+
+	var body struct {
+		Reference string `json:"reference"`
+	}
+	if err = json.NewDecoder(r.Body).Decode(&body); err != nil {
+		p.serveJSONError(ctx, w, http.StatusBadRequest, err)
+		return
+	}
+
+	if len(body.Reference) > 140 {
+		p.serveJSONError(ctx, w, http.StatusBadRequest, errs.New("reference is too long"))
+		return
+	}
+
+	newInfo, err := p.service.Payments().AddInvoiceReference(ctx, body.Reference)
+	if err != nil {
+		if console.ErrUnauthorized.Has(err) {
+			p.serveJSONError(ctx, w, http.StatusUnauthorized, err)
+			return
+		}
+
+		web.ServeCustomJSONError(ctx, p.log, w, http.StatusInternalServerError, err, errs.Unwrap(err).Error())
+		return
+	}
+
+	if err = json.NewEncoder(w).Encode(newInfo); err != nil {
+		p.log.Error("failed encode billing information", zap.Error(ErrPaymentsAPI.Wrap(err)))
+	}
+}
+
 // AddTaxID adds a tax ID to a user.
 func (p *Payments) AddTaxID(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()

@@ -1148,7 +1148,84 @@ func (db *ProjectAccounting) prefixMatch(expr string, prefix []byte) (string, []
 	default:
 		return "", nil, errs.New("unhandled database: %v", db.db.driver)
 	}
+}
 
+// GetSingleBucketTotals retrieves single bucket usage totals for period of time.
+func (db *ProjectAccounting) GetSingleBucketTotals(ctx context.Context, projectID uuid.UUID, bucketName string, before time.Time) (usage *accounting.BucketUsage, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	bucketQuery := db.db.Rebind(`SELECT versioning, placement, object_lock_enabled, created_at FROM bucket_metainfos
+	WHERE project_id = ? AND name = ?`)
+	bucketRow := db.db.QueryRowContext(ctx, bucketQuery, projectID[:], []byte(bucketName))
+
+	var bucketData struct {
+		versioning        satbuckets.Versioning
+		objectLockEnabled bool
+		placement         storj.PlacementConstraint
+		createdAt         time.Time
+	}
+
+	err = bucketRow.Scan(&bucketData.versioning, &bucketData.placement, &bucketData.objectLockEnabled, &bucketData.createdAt)
+	if err != nil {
+		return nil, err
+	}
+
+	usage = &accounting.BucketUsage{
+		ProjectID:         projectID,
+		BucketName:        bucketName,
+		Versioning:        bucketData.versioning,
+		ObjectLockEnabled: bucketData.objectLockEnabled,
+		DefaultPlacement:  bucketData.placement,
+		Since:             bucketData.createdAt,
+		Before:            before,
+	}
+
+	rollupsQuery := db.db.Rebind(`SELECT COALESCE(SUM(settled) + SUM(inline), 0)
+		FROM bucket_bandwidth_rollups
+		WHERE project_id = ? AND bucket_name = ? AND interval_start >= ? AND interval_start <= ? AND action = ?`)
+
+	// use int64 for compatibility with Spanner
+	actionGet := int64(pb.PieceAction_GET)
+	rollupRow := db.db.QueryRowContext(ctx, rollupsQuery, projectID[:], []byte(bucketName), bucketData.createdAt, before, actionGet)
+
+	var egress int64
+	err = rollupRow.Scan(&egress)
+	if err != nil {
+		if !errors.Is(err, sql.ErrNoRows) {
+			return nil, err
+		}
+	}
+
+	usage.Egress = memory.Size(egress).GB()
+
+	storageQuery := db.db.Rebind(`SELECT total_bytes, inline, remote, object_count, total_segments_count
+		FROM bucket_storage_tallies
+		WHERE project_id = ? AND bucket_name = ? AND interval_start >= ? AND interval_start <= ?
+		ORDER BY interval_start DESC
+		LIMIT 1`)
+
+	storageRow := db.db.QueryRowContext(ctx, storageQuery, projectID[:], []byte(bucketName), bucketData.createdAt, before)
+
+	var (
+		tally          accounting.BucketStorageTally
+		inline, remote int64
+	)
+	err = storageRow.Scan(&tally.TotalBytes, &inline, &remote, &tally.ObjectCount, &tally.TotalSegmentCount)
+	if err != nil {
+		if !errors.Is(err, sql.ErrNoRows) {
+			return nil, err
+		}
+	}
+
+	if tally.TotalBytes == 0 {
+		tally.TotalBytes = inline + remote
+	}
+
+	usage.Storage = memory.Size(tally.Bytes()).GB()
+	usage.SegmentCount = tally.TotalSegmentCount
+	usage.ObjectCount = tally.ObjectCount
+
+	return usage, nil
 }
 
 // GetBucketTotals retrieves bucket usage totals for period of time.

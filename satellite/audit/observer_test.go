@@ -52,7 +52,7 @@ func TestAuditCollector(t *testing.T) {
 
 		observer := audit.NewObserver(zaptest.NewLogger(t), satellite.Audit.VerifyQueue, satellite.Config.Audit)
 
-		ranges := rangedloop.NewMetabaseRangeSplitter(satellite.Metabase.DB, 0, 100)
+		ranges := rangedloop.NewMetabaseRangeSplitter(satellite.Metabase.DB, 0, 0, 100)
 		loop := rangedloop.NewService(zaptest.NewLogger(t), satellite.Config.RangedLoop, ranges, []rangedloop.Observer{observer})
 		_, err := loop.RunOnce(ctx)
 		require.NoError(t, err)

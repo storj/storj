@@ -42,7 +42,8 @@ type Config struct {
 	// Chore config values
 	Interval time.Duration `help:"how frequently the node contact chore should run" releaseDefault:"1h" devDefault:"30s"`
 
-	Tags SignedTags `help:"protobuf serialized signed node tags in hex (base64) format"`
+	Tags           SignedTags `help:"protobuf serialized signed node tags in hex (base64) format"`
+	SelfSignedTags []string   `help:"coma separated key=value pairs, which will be self signed and used as tags"`
 }
 
 // SignedTags represents base64 encoded signed tags.

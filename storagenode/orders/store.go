@@ -38,8 +38,11 @@ type FileStore struct {
 	archiveDir string
 
 	// always acquire the activeMu after the unsentMu to avoid deadlocks. if someone acquires
-	// activeMu before unsentMu, then you can be in a situation where two goroutines are
-	// waiting for each other forever.
+	// activeMu before unsentMu, then you can be in a situation where two goroutines are waiting for
+	// each other forever. similarly, always acquire archiveMu before activeMu and unsentMu to avoid
+	// deadlocks.
+	//
+	// in summary, the priority is: archiveMu -> unsentMu -> activeMu.
 
 	// mutex for the active map
 	activeMu sync.Mutex
@@ -216,7 +219,11 @@ type UnsentInfo struct {
 // needs to be called twice, with calls to `Archive` in between each call, to see all unsent orders.
 func (store *FileStore) ListUnsentBySatellite(ctx context.Context, now time.Time) (infoMap map[storj.NodeID]UnsentInfo, err error) {
 	defer mon.Task()(&ctx)(&err)
-	// shouldn't be necessary, but acquire archiveMu to ensure we do not attempt to archive files during list
+
+	// ensure no one modifies the archive directory while listing. this implicitly protects the
+	// unsent directory from losing files because to add to the archive directory it must come from
+	// the unsent directory. we don't need a long term lock on the unsent directory this way which
+	// allows adding orders to proceed.
 	store.archiveMu.Lock()
 	defer store.archiveMu.Unlock()
 
@@ -246,12 +253,14 @@ func (store *FileStore) ListUnsentBySatellite(ctx context.Context, now time.Time
 			return nil
 		}
 
+		// read in the unsent orders into memory and store it for the satellite
 		newUnsentInfo, err := store.getUnsentInfoFromUnsentFile(store.unsentDir, name, fileInfo)
 		if err != nil {
 			errList.Add(OrderError.Wrap(err))
 			return nil
 		}
 		infoMap[fileInfo.SatelliteID] = newUnsentInfo
+
 		return nil
 	}))
 
@@ -259,17 +268,25 @@ func (store *FileStore) ListUnsentBySatellite(ctx context.Context, now time.Time
 }
 
 func (store *FileStore) getUnsentInfoFromUnsentFile(dir, fileName string, fileInfo *ordersfile.UnsentInfo) (UnsentInfo, error) {
-	newUnsentInfo := UnsentInfo{
-		CreatedAtHour: fileInfo.CreatedAtHour,
-		Version:       fileInfo.Version,
-	}
+	// close writable file and delete from map since we are done with it. we drop the mutex before
+	// doing file operations to avoid holding unsentMu because that is used to add new orders.
+	// there's no need to worry about keeping the file inside of the map if the Close call errors,
+	// because the file descriptor will be invalidated either way.
 
-	// close writable file and delete from map since we are done with it.
-	if file, ok := store.unsentOrdersFiles[fileName]; ok {
+	store.unsentMu.Lock()
+	file, ok := store.unsentOrdersFiles[fileName]
+	delete(store.unsentOrdersFiles, fileName)
+	store.unsentMu.Unlock()
+
+	if ok {
 		if err := file.Close(); err != nil {
 			return UnsentInfo{}, OrderError.Wrap(err)
 		}
-		delete(store.unsentOrdersFiles, fileName)
+	}
+
+	newUnsentInfo := UnsentInfo{
+		CreatedAtHour: fileInfo.CreatedAtHour,
+		Version:       fileInfo.Version,
 	}
 
 	of, err := ordersfile.OpenReadable(filepath.Join(dir, fileName), fileInfo.Version)
@@ -310,10 +327,10 @@ func (store *FileStore) getUnsentInfoFromUnsentFile(dir, fileName string, fileIn
 
 // Archive moves a file from "unsent" to "archive".
 func (store *FileStore) Archive(satelliteID storj.NodeID, unsentInfo UnsentInfo, archivedAt time.Time, status pb.SettlementWithWindowResponse_Status) error {
-	store.unsentMu.Lock()
-	defer store.unsentMu.Unlock()
 	store.archiveMu.Lock()
 	defer store.archiveMu.Unlock()
+	store.unsentMu.Lock()
+	defer store.unsentMu.Unlock()
 
 	return OrderError.Wrap(ordersfile.MoveUnsent(
 		store.unsentDir,

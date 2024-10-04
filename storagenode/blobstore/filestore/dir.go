@@ -62,7 +62,7 @@ type Dir struct {
 	info atomic.Pointer[infoAge]
 }
 
-const infoMaxAge = time.Second
+const infoMaxAge = time.Minute
 
 type infoAge struct {
 	info blobstore.DiskInfo

@@ -113,7 +113,7 @@ func TestGarbageCollection(t *testing.T) {
 				// Wait for bloom filter observer to finish
 				rangedloopConfig := planet.Satellites[0].Config.RangedLoop
 
-				mbSegments := rangedloop.NewMetabaseRangeSplitter(planet.Satellites[0].Metabase.DB, rangedloopConfig.AsOfSystemInterval, rangedloopConfig.BatchSize)
+				mbSegments := rangedloop.NewMetabaseRangeSplitter(planet.Satellites[0].Metabase.DB, rangedloopConfig.AsOfSystemInterval, rangedloopConfig.SpannerStaleInterval, rangedloopConfig.BatchSize)
 				rangedLoop := rangedloop.NewService(zap.NewNop(), planet.Satellites[0].Config.RangedLoop, mbSegments,
 					[]rangedloop.Observer{observer})
 
@@ -226,7 +226,7 @@ func TestGarbageCollectionWithCopies(t *testing.T) {
 				rangedloopConfig := planet.Satellites[0].Config.RangedLoop
 
 				observer := bloomfilter.NewObserver(zaptest.NewLogger(t), config, planet.Satellites[0].Overlay.DB)
-				segments := rangedloop.NewMetabaseRangeSplitter(planet.Satellites[0].Metabase.DB, rangedloopConfig.AsOfSystemInterval, rangedloopConfig.BatchSize)
+				segments := rangedloop.NewMetabaseRangeSplitter(planet.Satellites[0].Metabase.DB, rangedloopConfig.AsOfSystemInterval, rangedloopConfig.SpannerStaleInterval, rangedloopConfig.BatchSize)
 				rangedLoop := rangedloop.NewService(zap.NewNop(), planet.Satellites[0].Config.RangedLoop, segments,
 					[]rangedloop.Observer{observer})
 
@@ -380,7 +380,7 @@ func TestGarbageCollectionWithCopiesWithDuplicateMetadata(t *testing.T) {
 				// Wait for bloom filter observer to finish
 				rangedloopConfig := planet.Satellites[0].Config.RangedLoop
 
-				segments := rangedloop.NewMetabaseRangeSplitter(planet.Satellites[0].Metabase.DB, rangedloopConfig.AsOfSystemInterval, rangedloopConfig.BatchSize)
+				segments := rangedloop.NewMetabaseRangeSplitter(planet.Satellites[0].Metabase.DB, rangedloopConfig.AsOfSystemInterval, rangedloopConfig.SpannerStaleInterval, rangedloopConfig.BatchSize)
 				rangedLoop := rangedloop.NewService(zap.NewNop(), planet.Satellites[0].Config.RangedLoop, segments,
 					[]rangedloop.Observer{observer})
 
@@ -488,7 +488,7 @@ func TestGarbageCollection_PendingObject(t *testing.T) {
 		} {
 			t.Run(fmt.Sprintf("%T", observer), func(t *testing.T) {
 				rangedloopConfig := planet.Satellites[0].Config.RangedLoop
-				provider := rangedloop.NewMetabaseRangeSplitter(planet.Satellites[0].Metabase.DB, rangedloopConfig.AsOfSystemInterval, rangedloopConfig.BatchSize)
+				provider := rangedloop.NewMetabaseRangeSplitter(planet.Satellites[0].Metabase.DB, rangedloopConfig.AsOfSystemInterval, rangedloopConfig.SpannerStaleInterval, rangedloopConfig.BatchSize)
 				rangedLoop := rangedloop.NewService(zap.NewNop(), planet.Satellites[0].Config.RangedLoop, provider,
 					[]rangedloop.Observer{observer})
 
