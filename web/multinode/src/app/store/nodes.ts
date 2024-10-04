@@ -106,9 +106,13 @@ export class NodesModule implements Module<NodesState, RootState> {
      */
     public async fetchOnline(ctx: ActionContext<NodesState, RootState>): Promise<void> {
         const nodes = ctx.state.selectedSatellite ? await this.nodes.listBySatellite(ctx.state.selectedSatellite.id) : await this.nodes.list();
-        
-        const onlineNodes = nodes.filter((node: Node) => node.status === NodeStatus['online']);
-        
+        let onlineNodes;
+        if (nodes || Array.isArray(nodes)) {
+            onlineNodes = nodes.filter((node: Node) => node.status === NodeStatus['online']);
+        } else {
+            onlineNodes = nodes;
+        }
+
         ctx.commit('populate', onlineNodes);
     }
 

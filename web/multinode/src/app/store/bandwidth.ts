@@ -6,7 +6,6 @@ import { ActionContext, ActionTree, GetterTree, Module, MutationTree } from 'vue
 import { RootState } from '@/app/store/index';
 import { BandwidthTraffic } from '@/bandwidth';
 import { Bandwidth } from '@/bandwidth/service';
-import { NodeStatus } from '@/nodes';
 
 /**
  * BandwidthState is a representation of bandwidth egress and ingress.
