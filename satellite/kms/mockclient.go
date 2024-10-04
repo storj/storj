@@ -23,7 +23,7 @@ var (
 )
 
 type mockGsmClient struct {
-	keyInfos KeyInfos
+	config Config
 }
 
 func (c *mockGsmClient) AccessSecretVersion(ctx context.Context, req *secretmanagerpb.AccessSecretVersionRequest) (_ *secretmanagerpb.AccessSecretVersionResponse, err error) {
@@ -40,7 +40,7 @@ func (c *mockGsmClient) AccessSecretVersion(ctx context.Context, req *secretmana
 	}
 
 	var checksum int64
-	for _, ki := range c.keyInfos.Values {
+	for _, ki := range c.config.KeyInfos.Values {
 		if ki.SecretVersion == req.Name {
 			if req.Name == MockChecksumMismatch {
 				checksum = ki.SecretChecksum + 1

@@ -817,8 +817,11 @@ identity.key-path: /root/.local/share/storj/identity/satellite/identity.key
 # the key ID to use for passphrase encryption.
 # key-management.default-master-key: 1
 
-# semicolon-separated key-id:version,checksum.
+# semicolon-separated key-id:version,checksum. With 'gsm' provider, version is the resource name. With 'local', it is the file path. Checksum is the integer crc32c checksum of the key data
 # key-management.key-infos: ""
+
+# the provider of the passphrase encryption keys: 'gsm' for google, 'local' for a local file
+# key-management.provider: gsm
 
 # as of system interval
 # live-accounting.as-of-system-interval: -10s

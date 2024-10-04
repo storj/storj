@@ -29,7 +29,8 @@ func TestMigrateEncryptionPassphrases(t *testing.T) {
 	log := zaptest.NewLogger(t)
 
 	config := migrator.Config{
-		Limit: 2,
+		Provider: "gsm",
+		Limit:    2,
 		OldKeyInfo: kms.KeyInfos{
 			Values: map[int]kms.KeyInfo{
 				1: {SecretVersion: "some-old-key"},
@@ -43,6 +44,7 @@ func TestMigrateEncryptionPassphrases(t *testing.T) {
 		TestMockKmsClient: true,
 	}
 	oldKeyKmsService := kms.NewService(kms.Config{
+		Provider:         config.Provider,
 		KeyInfos:         config.AllKeyInfos(),
 		DefaultMasterKey: config.OldKeyID(),
 		MockClient:       config.TestMockKmsClient,
@@ -51,6 +53,7 @@ func TestMigrateEncryptionPassphrases(t *testing.T) {
 	require.NoError(t, err)
 
 	newKeyKmsService := kms.NewService(kms.Config{
+		Provider:         config.Provider,
 		KeyInfos:         config.AllKeyInfos(),
 		DefaultMasterKey: config.NewKeyID(),
 		MockClient:       config.TestMockKmsClient,

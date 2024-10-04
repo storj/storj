@@ -51,7 +51,9 @@ export enum AnalyticsEvent {
     ARRIVED_FROM_SOURCE = 'Arrived From Source',
     APPLICATIONS_SETUP_CLICKED = 'Applications Setup Clicked',
     APPLICATIONS_SETUP_COMPLETED = 'Applications Setup Completed',
-    APPLICATIONS_DOCS_CLICKED = 'Applications Docs Clicked'
+    APPLICATIONS_DOCS_CLICKED = 'Applications Docs Clicked',
+    CLOUD_GPU_NAVIGATION_ITEM_CLICKED = 'Cloud GPU Navigation Item Clicked',
+    CLOUD_GPU_SIGN_UP_CLICKED = 'Cloud GPU Sign Up Clicked',
 }
 
 export enum AnalyticsErrorEventSource {
@@ -65,6 +67,7 @@ export enum AnalyticsErrorEventSource {
     BILLING_STRIPE_CARD_INPUT = 'Billing stripe card input',
     BILLING_AREA = 'Billing area',
     BILLING_STORJ_TOKEN_CONTAINER = 'Billing STORJ token container',
+    BUCKET_DETAILS_MODAL = 'Bucket details modal',
     CREATE_AG_MODAL = 'Create access grant modal',
     SETUP_ACCESS_MODAL = 'Setup access modal',
     CONFIRM_DELETE_AG_MODAL = 'Confirm delete access grant modal',
@@ -123,7 +126,8 @@ export enum AnalyticsErrorEventSource {
 export enum PageVisitSource {
     DOCS = 'docs',
     FORUM = 'forum',
-    SUPPORT = 'support'
+    SUPPORT = 'support',
+    VALDI = 'valdi'
 }
 
 export const SATELLITE_MANAGED_ENCRYPTION_DOCS_PAGE = 'https://docs.storj.io/learn/concepts/encryption-key/storj-vs-user-managed-encryption';
