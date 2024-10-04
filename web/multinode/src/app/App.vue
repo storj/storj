@@ -12,12 +12,14 @@
 
 <script lang="ts">
 import { Component, Vue } from 'vue-property-decorator';
+import { VApp } from 'vuetify/lib';
 
 import Notifications from './components/notification/Notifications.vue';
 
 // @vue/component
 @Component({
     components:{
+        VApp,
         Notifications,
     },
 })

@@ -30,12 +30,15 @@ export class NotificationsModule implements Module<NotificationsState, RootState
 
         this.mutations = {
             add: this.addNotification,
+            delete: this.deleteNotification,
+            pause: this.pauseNotification,
+            resume: this.resumeNotification,
         };
 
         this.actions = {
-            delete: this.deleteNotification.bind(this),
-            pause: this.pauseNotification.bind(this),
-            resume: this.resumeNotification.bind(this),
+            delete: this.delete.bind(this),
+            pause: this.pause.bind(this),
+            resume: this.resume.bind(this),
             success: this.notifySuccess.bind(this),
             info: this.notifyInfo.bind(this),
             warning: this.notifyWarning.bind(this),
@@ -55,28 +58,28 @@ export class NotificationsModule implements Module<NotificationsState, RootState
 
     /**
      * Delete notification from the queue
-     * @param ctx - context of the Vuex action.
+     * @param state - state of the module
      * @param id - Id of the notification to be deleted.
      */
-    public deleteNotification(ctx: ActionContext<NotificationsState, RootState>, id: string) {
-        if (this.state.notificationQueue.length < 1) {
+    public deleteNotification(state: NotificationsState, id: string) {
+        if (state.notificationQueue.length < 1) {
             return;
         }
 
-        const selectedNotification = this.state.notificationQueue.find(n => n.id === id);
+        const selectedNotification = state.notificationQueue.find(n => n.id === id);
         if (selectedNotification) {
             selectedNotification.pause();
-            this.state.notificationQueue.splice(this.state.notificationQueue.indexOf(selectedNotification), 1);
+            state.notificationQueue.splice(state.notificationQueue.indexOf(selectedNotification), 1);
         }
     }
 
     /**
      * Pause the curent notification
-     * @param ctx - context of the Vuex action.
+     * @param state - state of the module
      * @param id - Id of the notification to be paused.
      */
-    public pauseNotification(ctx: ActionContext<NotificationsState, RootState>, id: string) {
-        const selectedNotification = this.state.notificationQueue.find(n => n.id === id);
+    public pauseNotification(state: NotificationsState, id: string) {
+        const selectedNotification = state.notificationQueue.find(n => n.id === id);
         if (selectedNotification) {
             selectedNotification.pause();
         }
@@ -84,14 +87,41 @@ export class NotificationsModule implements Module<NotificationsState, RootState
 
     /**
      * Resume the timer the notification
-     * @param ctx - context of the Vuex action.
+     * @param state - state of the module
      * @param id - Id of the notification to be resumed.
      */
-    public resumeNotification(ctx: ActionContext<NotificationsState, RootState>, id: string) {
-        const selectedNotification = this.state.notificationQueue.find(n => n.id === id);
+    public resumeNotification(state: NotificationsState, id: string) {
+        const selectedNotification = state.notificationQueue.find(n => n.id === id);
         if (selectedNotification) {
             selectedNotification.start();
         }
+    }
+
+    /**
+     * Delete notification from the queue
+     * @param ctx - context of the Vuex action.
+     * @param id - Id of the notification to be deleted.
+     */
+    public delete(ctx: ActionContext<NotificationsState, RootState>, id: string) {
+        ctx.commit('delete', id);
+    }
+
+    /**
+     * Pause the curent notification
+     * @param ctx - context of the Vuex action.
+     * @param id - Id of the notification to be paused.
+     */
+    public pause(ctx: ActionContext<NotificationsState, RootState>, id: string) {
+        ctx.commit('pause', id);
+    }
+
+    /**
+     * Resume the timer the notification
+     * @param ctx - context of the Vuex action.
+     * @param id - Id of the notification to be resumed.
+     */
+    public resume(ctx: ActionContext<NotificationsState, RootState>, id: string) {
+        ctx.commit('resume', id);
     }
 
     /**
@@ -101,7 +131,7 @@ export class NotificationsModule implements Module<NotificationsState, RootState
      */
     public notifySuccess(ctx: ActionContext<NotificationsState, RootState>, payload: NotificationPayload): void {
         const notification: DelayedNotification = new DelayedNotification(
-            () => this.deleteNotification(ctx, notification.id),
+            () => this.delete(ctx, notification.id),
             NotificationType.Success,
             payload.message,
             payload.title,
@@ -117,7 +147,7 @@ export class NotificationsModule implements Module<NotificationsState, RootState
      */
     public notifyInfo(ctx: ActionContext<NotificationsState, RootState>, payload: NotificationPayload): void {
         const notification: DelayedNotification = new DelayedNotification(
-            () => this.deleteNotification(ctx, notification.id),
+            () => this.delete(ctx, notification.id),
             NotificationType.Info,
             payload.message,
             payload.title,
@@ -133,7 +163,7 @@ export class NotificationsModule implements Module<NotificationsState, RootState
      */
     public notifyWarning(ctx: ActionContext<NotificationsState, RootState>, payload: NotificationPayload): void {
         const notification: DelayedNotification = new DelayedNotification(
-            () => this.deleteNotification(ctx, notification.id),
+            () => this.delete(ctx, notification.id),
             NotificationType.Warning,
             payload.message,
             payload.title,
@@ -149,7 +179,7 @@ export class NotificationsModule implements Module<NotificationsState, RootState
      */
     public notifyError(ctx: ActionContext<NotificationsState, RootState>, payload: NotificationPayload): void {
         const notification: DelayedNotification = new DelayedNotification(
-            () => this.deleteNotification(ctx, notification.id),
+            () => this.delete(ctx, notification.id),
             NotificationType.Error,
             payload.message,
             payload.title,
