@@ -121,6 +121,7 @@ export enum AnalyticsErrorEventSource {
     VERSIONING_BETA_BANNER = 'Versioning beta banner',
     UPLOAD_OVERWRITE_WARNING_DIALOG = 'Upload Overwrite Warning Dialog',
     LOCK_OBJECT_DIALOG = 'Lock Object Dialog',
+    LEGAL_HOLD_DIALOG = 'Legal Hold Dialog',
 }
 
 export enum PageVisitSource {

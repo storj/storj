@@ -53,6 +53,27 @@ var DefaultConfig = Config{
 	ForceSync:       false,
 }
 
+type lazyFile struct {
+	ref blobstore.BlobRef
+	dir *Dir
+
+	fh *os.File
+}
+
+func (f *lazyFile) Write(p []byte) (_ int, err error) {
+	if f.fh == nil {
+		if err := f.createFile(); err != nil {
+			return 0, err
+		}
+	}
+	return f.fh.Write(p)
+}
+
+func (f *lazyFile) createFile() (err error) {
+	f.fh, err = f.dir.CreateNamedFile(f.ref, MaxFormatVersionSupported)
+	return err
+}
+
 // blobStore implements a blob store.
 type blobStore struct {
 	log    *zap.Logger
@@ -208,15 +229,17 @@ func (store *blobStore) EmptyTrash(ctx context.Context, namespace []byte, trashe
 // Create creates a new blob that can be written.
 func (store *blobStore) Create(ctx context.Context, ref blobstore.BlobRef) (_ blobstore.BlobWriter, err error) {
 	defer mon.Task()(&ctx)(&err)
-	var file *os.File
+	file := &lazyFile{
+		ref: ref,
+		dir: store.dir,
+	}
 	if store.config.ForceSync {
-		file, err = store.dir.CreateTemporaryFile(ctx)
-	} else {
-		file, err = store.dir.CreateNamedFile(ctx, ref, MaxFormatVersionSupported)
+		file.fh, err = store.dir.CreateTemporaryFile(ctx)
+		if err != nil {
+			return nil, Error.Wrap(err)
+		}
 	}
-	if err != nil {
-		return nil, Error.Wrap(err)
-	}
+
 	return newBlobWriter(store.track.Child("blobWriter", 1), ref, store, MaxFormatVersionSupported, file, store.config.WriteBufferSize.Int(), store.config.ForceSync), nil
 }
 
@@ -341,7 +364,11 @@ func (store *blobStore) walkNamespaceInTrash(ctx context.Context, namespace []by
 func (store *blobStore) TestCreateV0(ctx context.Context, ref blobstore.BlobRef) (_ blobstore.BlobWriter, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	file, err := store.dir.CreateTemporaryFile(ctx)
+	file := &lazyFile{
+		ref: ref,
+		dir: store.dir,
+	}
+	file.fh, err = store.dir.CreateTemporaryFile(ctx)
 	if err != nil {
 		return nil, Error.Wrap(err)
 	}

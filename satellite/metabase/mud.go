@@ -8,7 +8,6 @@ import (
 	"crypto/rand"
 	_ "embed"
 	"encoding/hex"
-	"regexp"
 	"strings"
 	"time"
 
@@ -18,6 +17,7 @@ import (
 	"go.uber.org/zap"
 
 	"storj.io/storj/private/mud"
+	"storj.io/storj/shared/dbutil/spannerutil"
 )
 
 //go:embed adapter_spanner_scheme.sql
@@ -37,36 +37,39 @@ func SpannerTestModule(ball *mud.Ball, spannerConnection string) {
 
 // SpannerTestDatabase manages Spanner database and migration for tests.
 type SpannerTestDatabase struct {
-	Database string
-	client   *database.DatabaseAdminClient
+	connParams spannerutil.ConnParams
+	client     *database.DatabaseAdminClient
 }
 
 // NewSpannerTestDatabase creates the database (=creates / migrates the database).
 func NewSpannerTestDatabase(ctx context.Context, logger *zap.Logger, spannerConnection string, withMigration bool) (SpannerTestDatabase, error) {
-	spannerConnection = strings.TrimPrefix(spannerConnection, "spanner://")
+	params, err := spannerutil.ParseConnStr(spannerConnection)
+	if err != nil {
+		return SpannerTestDatabase{}, errs.New("invalid connstr: %w", err)
+	}
+
 	data := make([]byte, 8)
-	_, err := rand.Read(data)
+	_, err = rand.Read(data)
 	if err != nil {
 		return SpannerTestDatabase{}, errs.Wrap(err)
 	}
 
-	adminClient, err := database.NewDatabaseAdminClient(ctx)
+	adminClient, err := database.NewDatabaseAdminClient(ctx, params.ClientOptions()...)
 	if err != nil {
 		return SpannerTestDatabase{}, errs.Wrap(err)
 	}
 
-	databaseName := spannerConnection + "_" + hex.EncodeToString(data)
-	logger.Info("Creating temporary spanner database", zap.String("db", databaseName))
+	params.Database += "_" + hex.EncodeToString(data)
+	logger.Info("Creating temporary spanner database", zap.String("db", params.Database))
 
-	matches := regexp.MustCompile("^(.*)/databases/(.*)$").FindStringSubmatch(databaseName)
-	if matches == nil || len(matches) != 3 {
-		return SpannerTestDatabase{}, errs.New("database connection should be defined in the form of 'projects/<PROJECT>/instances/<INSTANCE>/databases/<DATABASE>', but it was %q", spannerConnection)
+	if !params.AllDefined() {
+		return SpannerTestDatabase{}, errs.New("database connection should be defined in the form of 'spanner://<host:port>/projects/<PROJECT>/instances/<INSTANCE>/databases/<DATABASE>', but it was %q", spannerConnection)
 	}
 
 	req := &databasepb.CreateDatabaseRequest{
-		Parent:          matches[1],
+		Parent:          params.InstancePath(),
 		DatabaseDialect: databasepb.DatabaseDialect_GOOGLE_STANDARD_SQL,
-		CreateStatement: "CREATE DATABASE " + matches[2],
+		CreateStatement: "CREATE DATABASE `" + params.Database + "`",
 	}
 
 	if withMigration {
@@ -85,14 +88,14 @@ func NewSpannerTestDatabase(ctx context.Context, logger *zap.Logger, spannerConn
 		return SpannerTestDatabase{}, errs.Wrap(err)
 	}
 	return SpannerTestDatabase{
-		Database: databaseName,
-		client:   adminClient,
+		connParams: params,
+		client:     adminClient,
 	}, nil
 }
 
 // Connection returns with the used connection string (with added unique suffix).
 func (d SpannerTestDatabase) Connection() string {
-	return "spanner://" + d.Database
+	return d.connParams.ConnStr()
 }
 
 // Close drops the temporary test database.
@@ -100,7 +103,7 @@ func (d SpannerTestDatabase) Close() error {
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 	err := d.client.DropDatabase(ctx, &databasepb.DropDatabaseRequest{
-		Database: d.Database,
+		Database: d.connParams.DatabasePath(),
 	})
 	return errs.Combine(err, d.client.Close())
 }
@@ -108,6 +111,6 @@ func (d SpannerTestDatabase) Close() error {
 // NewTestSpannerConfig creates SpannerConfig for testing.
 func NewTestSpannerConfig(database SpannerTestDatabase) SpannerConfig {
 	return SpannerConfig{
-		Database: database.Database,
+		Database: database.connParams.ConnStr(),
 	}
 }

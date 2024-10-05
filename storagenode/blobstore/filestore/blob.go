@@ -80,22 +80,23 @@ type blobWriter struct {
 	ref           blobstore.BlobRef
 	store         *blobStore
 	closed        bool
+	flushed       bool
 	formatVersion blobstore.FormatVersion
 	buffer        *bufio.Writer
-	fh            *os.File
+	file          *lazyFile
 	sync          bool
 
 	track leak.Ref
 }
 
-func newBlobWriter(track leak.Ref, ref blobstore.BlobRef, store *blobStore, formatVersion blobstore.FormatVersion, file *os.File, bufferSize int, sync bool) *blobWriter {
+func newBlobWriter(track leak.Ref, ref blobstore.BlobRef, store *blobStore, formatVersion blobstore.FormatVersion, file *lazyFile, bufferSize int, sync bool) *blobWriter {
 	return &blobWriter{
 		ref:           ref,
 		store:         store,
 		closed:        false,
 		formatVersion: formatVersion,
 		buffer:        bufio.NewWriterSize(file, bufferSize),
-		fh:            file,
+		file:          file,
 		sync:          sync,
 
 		track: track,
@@ -116,8 +117,13 @@ func (blob *blobWriter) Cancel(ctx context.Context) (err error) {
 	}
 	blob.closed = true
 
-	err = blob.fh.Close()
-	removeErr := os.Remove(blob.fh.Name())
+	// buffer was not flushed to disk yet
+	if blob.file.fh == nil {
+		return blob.track.Close()
+	}
+
+	err = blob.file.fh.Close()
+	removeErr := os.Remove(blob.file.fh.Name())
 	return Error.Wrap(errs.Combine(err, removeErr, blob.track.Close()))
 }
 
@@ -135,7 +141,15 @@ func (blob *blobWriter) Commit(ctx context.Context) (err error) {
 		return err
 	}
 
-	err = blob.store.dir.Commit(ctx, blob.fh, blob.sync, blob.ref, blob.formatVersion)
+	blob.flushed = true
+
+	if blob.file.fh == nil {
+		if err := blob.file.createFile(); err != nil {
+			return err
+		}
+	}
+
+	err = blob.store.dir.Commit(ctx, blob.file.fh, blob.sync, blob.ref, blob.formatVersion)
 	return Error.Wrap(errs.Combine(err, blob.track.Close()))
 }
 
@@ -145,7 +159,15 @@ func (blob *blobWriter) Seek(offset int64, whence int) (int64, error) {
 		return 0, err
 	}
 
-	return blob.fh.Seek(offset, whence)
+	blob.flushed = true
+
+	if blob.file.fh == nil {
+		if err := blob.file.createFile(); err != nil {
+			return 0, err
+		}
+	}
+
+	return blob.file.fh.Seek(offset, whence)
 }
 
 // Size returns how much has been written so far.
@@ -156,6 +178,31 @@ func (blob *blobWriter) Size() (int64, error) {
 	}
 
 	return pos, err
+}
+
+// allocation to match V1PieceHeaderReservedArea but we cannot import it here.
+var headerAllocation = [512]byte{}
+
+// ReserveHeader reserves header area at the beginning of the blob.
+func (blob *blobWriter) ReserveHeader(size int64) error {
+	if blob.flushed || blob.buffer.Buffered() > 0 {
+		return Error.New("cannot reserve header after writing data")
+	}
+
+	if size == 0 {
+		return nil
+	}
+
+	// small optimization to avoid allocation for mostly used header size
+	var allocation []byte
+	if size <= int64(len(headerAllocation)) {
+		allocation = headerAllocation[:size]
+	} else {
+		allocation = make([]byte, size)
+	}
+
+	_, err := blob.buffer.Write(allocation)
+	return err
 }
 
 // StorageFormatVersion indicates what storage format version the blob is using.
