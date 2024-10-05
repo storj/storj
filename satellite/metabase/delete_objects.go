@@ -441,23 +441,25 @@ func (s *SpannerAdapter) DeleteObjectsAndSegments(ctx context.Context, objects [
 		for _, numDeleted := range numDeleteds {
 			objectsDeleted += numDeleted
 		}
-		streamIDs := make([][]byte, 0, len(objects))
-		for _, obj := range objects {
-			streamIDs = append(streamIDs, obj.StreamID.Bytes())
+
+		stmts := make([]spanner.Statement, len(objects))
+		for ix, object := range objects {
+			stmts[ix] = spanner.Statement{
+				SQL: `DELETE FROM segments WHERE @stream_id = stream_id`,
+				Params: map[string]interface{}{
+					"stream_id": object.StreamID.Bytes(),
+				},
+			}
 		}
-		numSegments, err := tx.Update(ctx, spanner.Statement{
-			SQL: `
-				DELETE FROM segments
-				WHERE ARRAY_INCLUDES(@stream_ids, stream_id)
-			`,
-			Params: map[string]interface{}{
-				"stream_ids": streamIDs,
-			},
-		})
-		if err != nil {
-			return Error.Wrap(err)
+		if len(stmts) > 0 {
+			numSegments, err := tx.BatchUpdate(ctx, stmts)
+			if err != nil {
+				return Error.Wrap(err)
+			}
+			for _, v := range numSegments {
+				segmentsDeleted += v
+			}
 		}
-		segmentsDeleted += numSegments
 		return nil
 	})
 	if err != nil {
@@ -552,12 +554,14 @@ func (s *SpannerAdapter) DeleteInactiveObjectsAndSegments(ctx context.Context, o
 				},
 			})
 		}
-		numDeleteds, err := tx.BatchUpdate(ctx, statements)
-		if err != nil {
-			return Error.Wrap(err)
-		}
-		for _, numDeleted := range numDeleteds {
-			objectsDeleted += numDeleted
+		if len(statements) > 0 {
+			numDeleteds, err := tx.BatchUpdate(ctx, statements)
+			if err != nil {
+				return Error.Wrap(err)
+			}
+			for _, numDeleted := range numDeleteds {
+				objectsDeleted += numDeleted
+			}
 		}
 		streamIDs := make([][]byte, 0, len(objects))
 		for _, obj := range objects {

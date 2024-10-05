@@ -20,6 +20,8 @@ class AppState {
     public isExpirationDialogShown = false;
     public isAccountSetupDialogShown = false;
     public isProjectPassphraseDialogShown = false;
+    public managedPassphraseNotRetrievable = false;
+    public managedPassphraseErrorDialogShown = false;
     public pathBeforeAccountPage: string | null = null;
     public isNavigating = false;
 }
@@ -95,6 +97,14 @@ export const useAppStore = defineStore('app', () => {
         state.isProjectPassphraseDialogShown = isShown ?? !state.isProjectPassphraseDialogShown;
     }
 
+    function toggleManagedPassphraseErrorDialog(isShown?: boolean): void {
+        state.managedPassphraseErrorDialogShown = isShown ?? !state.managedPassphraseErrorDialogShown;
+    }
+
+    function setManagedPassphraseNotRetrievable(notRetrievable: boolean) {
+        state.managedPassphraseNotRetrievable = notRetrievable;
+    }
+
     function setPathBeforeAccountPage(path: string) {
         state.pathBeforeAccountPage = path;
     }
@@ -121,6 +131,8 @@ export const useAppStore = defineStore('app', () => {
         state.isUpgradeFlowDialogShown = false;
         state.pathBeforeAccountPage = null;
         state.isAccountSetupDialogShown = false;
+        state.managedPassphraseNotRetrievable = false;
+        state.managedPassphraseErrorDialogShown = false;
     }
 
     return {
@@ -130,6 +142,8 @@ export const useAppStore = defineStore('app', () => {
         hasProjectTableViewConfigured,
         toggleHasJustLoggedIn,
         toggleProjectPassphraseDialog,
+        setManagedPassphraseNotRetrievable,
+        toggleManagedPassphraseErrorDialog,
         toggleExpirationDialog,
         setUploadingModal,
         setErrorPage,

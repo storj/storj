@@ -7,6 +7,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/google/go-cmp/cmp"
+	"github.com/google/go-cmp/cmp/cmpopts"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap"
 
@@ -19,7 +21,7 @@ import (
 
 func TestEmailChoreUpdatesVerificationReminders(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
-		SatelliteCount: 1, StorageNodeCount: 0, UplinkCount: 0,
+		SatelliteCount: 1, StorageNodeCount: 0, UplinkCount: 0, EnableSpanner: true,
 		Reconfigure: testplanet.Reconfigure{
 			Satellite: func(log *zap.Logger, index int, config *satellite.Config) {
 				config.EmailReminders.FirstVerificationReminder = 0
@@ -136,7 +138,7 @@ func TestEmailChoreUpdatesVerificationReminders(t *testing.T) {
 
 func TestEmailChoreLinkActivatesAccount(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
-		SatelliteCount: 1, StorageNodeCount: 0, UplinkCount: 0,
+		SatelliteCount: 1, StorageNodeCount: 0, UplinkCount: 0, EnableSpanner: true,
 		Reconfigure: testplanet.Reconfigure{
 			Satellite: func(log *zap.Logger, index int, config *satellite.Config) {
 				config.EmailReminders.FirstVerificationReminder = 0
@@ -173,7 +175,7 @@ func TestEmailChoreLinkActivatesAccount(t *testing.T) {
 
 func TestEmailChoreUpdatesTrialNotifications(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
-		SatelliteCount: 1, StorageNodeCount: 0, UplinkCount: 0,
+		SatelliteCount: 1, StorageNodeCount: 0, UplinkCount: 0, EnableSpanner: true,
 		Reconfigure: testplanet.Reconfigure{
 			Satellite: func(log *zap.Logger, index int, config *satellite.Config) {
 				config.EmailReminders.EnableTrialExpirationReminders = true
@@ -238,13 +240,13 @@ func TestEmailChoreUpdatesTrialNotifications(t *testing.T) {
 		user2, err := users.Get(ctx, id2)
 		require.NoError(t, err)
 		require.False(t, user2.PaidTier)
-		require.Equal(t, tomorrow.Truncate(time.Millisecond), user2.TrialExpiration.Truncate(time.Millisecond))
+		require.Zero(t, cmp.Diff(user2.TrialExpiration.Truncate(time.Millisecond), tomorrow.Truncate(time.Millisecond), cmpopts.EquateApproxTime(0)))
 		require.Equal(t, int(console.NoTrialNotification), user2.TrialNotifications)
 
 		user3, err := users.Get(ctx, id3)
 		require.NoError(t, err)
 		require.False(t, user3.PaidTier)
-		require.Equal(t, yesterday.Truncate(time.Millisecond), user3.TrialExpiration.Truncate(time.Millisecond))
+		require.Zero(t, cmp.Diff(user3.TrialExpiration.Truncate(time.Millisecond), yesterday.Truncate(time.Millisecond), cmpopts.EquateApproxTime(0)))
 		require.Equal(t, int(console.TrialExpirationReminder), user3.TrialNotifications)
 
 		chore.Loop.TriggerWait()

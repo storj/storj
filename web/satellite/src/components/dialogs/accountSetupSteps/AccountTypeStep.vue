@@ -5,10 +5,10 @@
     <v-container>
         <v-row justify="center">
             <v-col class="text-center py-4">
-                <icon-storj-logo />
-                <div class="text-overline mt-2 mb-1">
+                <icon-storj-logo height="50" width="50" class="rounded-xlg bg-background pa-2 border" />
+                <p class="text-overline mt-2 mb-1">
                     Account Type
-                </div>
+                </p>
                 <h2>Choose your account type</h2>
             </v-col>
         </v-row>
@@ -26,9 +26,9 @@
                         <v-btn
                             id="free-plan"
                             class="mt-4 mb-4"
-                            color="text-secondary"
-                            variant="outlined"
-                            @click="emit('select', FREE_PLAN_INFO)"
+                            color="primary"
+                            variant="flat"
+                            @click="emit('freeClick')"
                         >
                             <template #append>
                                 <v-icon :icon="ArrowRight" />
@@ -67,10 +67,10 @@
                         <p class="text-medium-emphasis text-caption">no minimum, billed monthly.</p>
 
                         <v-btn
-                            variant="flat"
-                            color="primary"
+                            variant="outlined"
+                            color="text-secondary"
                             class="mt-4 mb-4"
-                            @click="emit('select', PRO_PLAN_INFO)"
+                            @click="emit('proClick')"
                         >
                             Start Pro Account
                             <template #append>
@@ -143,12 +143,11 @@
 import { VBtn, VCard, VCol, VContainer, VDivider, VIcon, VRow } from 'vuetify/components';
 import { ArrowRight, Check, ChevronLeft } from 'lucide-vue-next';
 
-import { FREE_PLAN_INFO, PricingPlanInfo, PRO_PLAN_INFO } from '@/types/common';
-
 import IconStorjLogo from '@/components/icons/IconStorjLogo.vue';
 
 const emit = defineEmits<{
-    select: [PricingPlanInfo];
+    freeClick: [];
+    proClick: [];
     back: [];
 }>();
 </script>

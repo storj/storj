@@ -22,8 +22,11 @@ const (
 	noLockWithExpirationErrMsg         = "Object Lock settings must not be placed on an object with an expiration date"
 	noLockWithExpirationSegmentsErrMsg = "Object Lock settings must not be placed on an object with segments having an expiration date"
 	noLockOnUncommittedErrMsg          = "Object Lock settings must only be placed on committed objects"
+	noLockFromUncommittedErrMsg        = "Object Lock settings must only be retrieved from committed objects"
 	noShortenRetentionErrMsg           = "retention period cannot be shortened"
 	noRemoveRetentionErrMsg            = "an active retention configuration cannot be removed"
+	noChangeRetentionModeErrMsg        = "retention mode cannot be changed"
+	noLockOnDeleteMarkerErrMsg         = "Object Lock settings must not be placed on delete markers"
 )
 
 var (
@@ -284,14 +287,16 @@ func (p *PostgresAdapter) SetObjectExactVersionLegalHold(ctx context.Context, op
 	}
 
 	if !updated {
-		if !status.IsCommitted() {
+		switch {
+		case status.IsDeleteMarker():
+			return ErrObjectStatus.New(noLockOnDeleteMarkerErrMsg)
+		case !status.IsCommitted():
 			return ErrObjectStatus.New(noLockOnUncommittedErrMsg)
-		}
-		if expiresAt != nil {
+		case expiresAt != nil:
 			return ErrObjectExpiration.New(noLockWithExpirationErrMsg)
+		default:
+			return Error.New("unable to update object legal hold configuration")
 		}
-
-		return Error.New("unable to update object legal hold configuration")
 	}
 
 	return nil
@@ -328,10 +333,12 @@ func (s *SpannerAdapter) SetObjectExactVersionLegalHold(ctx context.Context, opt
 			return errs.New("unable to query object info before setting legal hold: %w", err)
 		}
 
-		if !result.Status.IsCommitted() {
+		switch {
+		case result.Status.IsDeleteMarker():
+			return ErrObjectStatus.New(noLockOnDeleteMarkerErrMsg)
+		case !result.Status.IsCommitted():
 			return ErrObjectStatus.New(noLockOnUncommittedErrMsg)
-		}
-		if result.ExpiresAt != nil {
+		case result.ExpiresAt != nil:
 			return ErrObjectExpiration.New(noLockWithExpirationErrMsg)
 		}
 
@@ -379,17 +386,18 @@ func (p *PostgresAdapter) SetObjectLastCommittedLegalHold(ctx context.Context, o
 	defer mon.Task()(&ctx)(&err)
 
 	var (
+		status    ObjectStatus
 		expiresAt *time.Time
 		updated   bool
 	)
 
 	err = p.db.QueryRowContext(ctx, `
 		WITH pre_update_info AS (
-			SELECT version, expires_at
+			SELECT status, version, expires_at
 			FROM objects
 			WHERE
 				(project_id, bucket_name, object_key) = ($1, $2, $3)
-				AND status IN `+statusesCommitted+`
+				AND status <> `+statusPending+`
 			ORDER BY version DESC
 			LIMIT 1
 		), updated AS (
@@ -402,15 +410,16 @@ func (p *PostgresAdapter) SetObjectLastCommittedLegalHold(ctx context.Context, o
 			WHERE
 				(project_id, bucket_name, object_key) = ($1, $2, $3)
 				AND version IN (SELECT version FROM pre_update_info)
+				AND status IN `+statusesCommitted+`
 				AND expires_at IS NULL
 			RETURNING 1
 		)
-		SELECT expires_at, EXISTS(SELECT 1 FROM updated) FROM pre_update_info`,
+		SELECT status, expires_at, EXISTS(SELECT 1 FROM updated) FROM pre_update_info`,
 		opts.ProjectID,
 		opts.BucketName,
 		opts.ObjectKey,
 		opts.Enabled,
-	).Scan(&expiresAt, &updated)
+	).Scan(&status, &expiresAt, &updated)
 
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
@@ -420,11 +429,14 @@ func (p *PostgresAdapter) SetObjectLastCommittedLegalHold(ctx context.Context, o
 	}
 
 	if !updated {
-		if expiresAt != nil {
+		switch {
+		case status.IsDeleteMarker():
+			return ErrObjectStatus.New(noLockOnDeleteMarkerErrMsg)
+		case expiresAt != nil:
 			return ErrObjectExpiration.New(noLockWithExpirationErrMsg)
+		default:
+			return Error.New("unable to update object legal hold configuration")
 		}
-
-		return Error.New("unable to update object legal hold configuration")
 	}
 
 	return nil
@@ -443,11 +455,11 @@ func (s *SpannerAdapter) SetObjectLastCommittedLegalHold(ctx context.Context, op
 	_, err = s.client.ReadWriteTransaction(ctx, func(ctx context.Context, tx *spanner.ReadWriteTransaction) error {
 		result, err := spannerutil.CollectRow(tx.Query(ctx, spanner.Statement{
 			SQL: `
-				SELECT version, expires_at, retention_mode
+				SELECT status, version, expires_at, retention_mode
 				FROM objects
 				WHERE
 					(project_id, bucket_name, object_key) = (@project_id, @bucket_name, @object_key)
-					AND status IN ` + statusesCommitted + `
+					AND status <> ` + statusPending + `
 				ORDER BY version DESC
 				LIMIT 1
 			`,
@@ -458,6 +470,7 @@ func (s *SpannerAdapter) SetObjectLastCommittedLegalHold(ctx context.Context, op
 			},
 		}), func(row *spanner.Row, item *info) error {
 			return errs.Wrap(row.Columns(
+				&item.Status,
 				&item.version,
 				&item.ExpiresAt,
 				lockModeWrapper{retentionMode: &item.Retention.Mode},
@@ -470,7 +483,10 @@ func (s *SpannerAdapter) SetObjectLastCommittedLegalHold(ctx context.Context, op
 			return errs.New("unable to query object info before setting legal hold: %w", err)
 		}
 
-		if result.ExpiresAt != nil {
+		switch {
+		case result.Status.IsDeleteMarker():
+			return ErrObjectStatus.New(noLockOnDeleteMarkerErrMsg)
+		case result.ExpiresAt != nil:
 			return ErrObjectExpiration.New(noLockWithExpirationErrMsg)
 		}
 
@@ -482,7 +498,7 @@ func (s *SpannerAdapter) SetObjectLastCommittedLegalHold(ctx context.Context, op
 	})
 
 	if err != nil {
-		if ErrObjectNotFound.Has(err) || ErrObjectExpiration.Has(err) {
+		if ErrObjectNotFound.Has(err) || ErrObjectExpiration.Has(err) || ErrObjectStatus.Has(err) {
 			return errs.Wrap(err)
 		}
 		return Error.Wrap(err)
@@ -527,7 +543,8 @@ type SetObjectExactVersionRetention struct {
 	ObjectLocation
 	Version Version
 
-	Retention Retention
+	Retention        Retention
+	BypassGovernance bool
 }
 
 // Verify verifies the request fields.
@@ -535,7 +552,7 @@ func (opts *SetObjectExactVersionRetention) Verify() (err error) {
 	if err = opts.ObjectLocation.Verify(); err != nil {
 		return err
 	}
-	if err = opts.Retention.verifyWithoutGovernance(); err != nil {
+	if err = opts.Retention.Verify(); err != nil {
 		return ErrInvalidRequest.Wrap(err)
 	}
 	return nil
@@ -570,24 +587,31 @@ func (p *PostgresAdapter) SetObjectExactVersionRetention(ctx context.Context, op
 		), updated AS (
 			UPDATE objects
 			SET
-				retention_mode = $5,
-				retain_until   = $6
+				retention_mode = CASE
+					WHEN $6 != `+retentionModeNone+` THEN (COALESCE(retention_mode, `+retentionModeNone+`) & ~`+retentionModeComplianceAndGovernanceMask+`) | $6
+					ELSE retention_mode & ~`+retentionModeComplianceAndGovernanceMask+`
+				END,
+				retain_until   = $7
 			WHERE
 				(project_id, bucket_name, object_key, version) = ($1, $2, $3, $4)
 				AND status IN `+statusesCommitted+`
 				AND expires_at IS NULL
-				AND CASE COALESCE(retention_mode, `+retentionModeNone+`)
-					WHEN `+retentionModeNone+` THEN TRUE
-					WHEN `+retentionModeCompliance+` THEN (
-						CASE
-							WHEN retain_until IS NULL THEN FALSE -- invalid
+				AND CASE
+					WHEN COALESCE(retention_mode, `+retentionModeNone+`) & `+retentionModeComplianceAndGovernanceMask+` = 0 THEN TRUE
+					WHEN
+						-- Invalid retention configuration
+						retention_mode & `+retentionModeComplianceAndGovernanceMask+` NOT IN `+retentionModesComplianceAndGovernance+`
+						OR retain_until IS NULL
+						THEN FALSE
+					ELSE
+						retention_mode & `+retentionModeGovernance+` != 0 AND $5 -- Governance bypass
+						OR CASE
 							-- Removal is only allowed if the period has expired.
-							WHEN $6::TIMESTAMPTZ IS NULL THEN retain_until <= $7
-							-- Alteration is only allowed if the period isn't being shortened.
-							ELSE retain_until <= $6
+							WHEN $7::TIMESTAMPTZ IS NULL THEN retain_until <= $8
+							-- Alteration is only allowed if the period isn't being shortened
+							-- and the mode isn't being changed.
+							ELSE retain_until <= $7 AND retention_mode & `+retentionModeComplianceAndGovernanceMask+` = $6
 						END
-					)
-					ELSE FALSE
 				END
 			RETURNING 1
 		)
@@ -596,6 +620,7 @@ func (p *PostgresAdapter) SetObjectExactVersionRetention(ctx context.Context, op
 		opts.BucketName,
 		opts.ObjectKey,
 		opts.Version,
+		opts.BypassGovernance,
 		lockModeWrapper{retentionMode: &opts.Retention.Mode},
 		timeWrapper{&opts.Retention.RetainUntil},
 		now,
@@ -615,7 +640,7 @@ func (p *PostgresAdapter) SetObjectExactVersionRetention(ctx context.Context, op
 	}
 
 	if !updated {
-		if err = info.verify(opts.Retention, now); err != nil {
+		if err = info.verify(opts.Retention, opts.BypassGovernance, now); err != nil {
 			return errs.Wrap(err)
 		}
 		return Error.New("unable to update object retention configuration")
@@ -658,7 +683,7 @@ func (s *SpannerAdapter) SetObjectExactVersionRetention(ctx context.Context, opt
 			return errs.New("unable to query object info before setting retention: %w", err)
 		}
 
-		if err = result.verify(opts.Retention, now); err != nil {
+		if err = result.verify(opts.Retention, opts.BypassGovernance, now); err != nil {
 			return errs.Wrap(err)
 		}
 
@@ -682,7 +707,10 @@ func (s *SpannerAdapter) setObjectExactVersionRetention(ctx context.Context, tx 
 		SQL: `
 			UPDATE objects
 			SET
-				retention_mode = @retention_mode,
+				retention_mode = CASE
+					WHEN @retention_mode != ` + retentionModeNone + ` THEN (COALESCE(retention_mode, ` + retentionModeNone + `) & ~` + retentionModeComplianceAndGovernanceMask + `) | @retention_mode
+					ELSE retention_mode & ~` + retentionModeComplianceAndGovernanceMask + `
+				END,
 				retain_until   = @retain_until
 			WHERE
 				(project_id, bucket_name, object_key, version) = (@project_id, @bucket_name, @object_key, @version)
@@ -711,7 +739,9 @@ func (s *SpannerAdapter) setObjectExactVersionRetention(ctx context.Context, tx 
 // the retention configuration of the most recently committed version of an object.
 type SetObjectLastCommittedRetention struct {
 	ObjectLocation
-	Retention Retention
+
+	Retention        Retention
+	BypassGovernance bool
 }
 
 // Verify verifies the request fields.
@@ -719,7 +749,7 @@ func (opts SetObjectLastCommittedRetention) Verify() (err error) {
 	if err = opts.ObjectLocation.Verify(); err != nil {
 		return err
 	}
-	if err = opts.Retention.verifyWithoutGovernance(); err != nil {
+	if err = opts.Retention.Verify(); err != nil {
 		return ErrInvalidRequest.Wrap(err)
 	}
 	return nil
@@ -750,45 +780,55 @@ func (p *PostgresAdapter) SetObjectLastCommittedRetention(ctx context.Context, o
 
 	err = p.db.QueryRowContext(ctx, `
 		WITH pre_update_info AS (
-			SELECT version, expires_at, retention_mode, retain_until
+			SELECT status, version, expires_at, retention_mode, retain_until
 			FROM objects
 			WHERE
 				(project_id, bucket_name, object_key) = ($1, $2, $3)
-				AND status IN `+statusesCommitted+`
+				AND status <> `+statusPending+`
 			ORDER BY version DESC
 			LIMIT 1
 		), updated AS (
 			UPDATE objects
 			SET
-				retention_mode = $4,
-				retain_until   = $5
+				retention_mode = CASE
+					WHEN $5 != `+retentionModeNone+` THEN (COALESCE(retention_mode, `+retentionModeNone+`) & ~`+retentionModeComplianceAndGovernanceMask+`) | $5
+					ELSE retention_mode & ~`+retentionModeComplianceAndGovernanceMask+`
+				END,
+				retain_until   = $6
 			WHERE
 				(project_id, bucket_name, object_key) = ($1, $2, $3)
 				AND version IN (SELECT version FROM pre_update_info)
+				AND status IN `+statusesCommitted+`
 				AND expires_at IS NULL
-				AND CASE COALESCE(retention_mode, `+retentionModeNone+`)
-					WHEN `+retentionModeNone+` THEN TRUE
-					WHEN `+retentionModeCompliance+` THEN (
-						CASE
-							WHEN retain_until IS NULL THEN FALSE -- invalid
+				AND CASE
+					WHEN COALESCE(retention_mode, `+retentionModeNone+`) & `+retentionModeComplianceAndGovernanceMask+` = 0 THEN TRUE
+					WHEN
+						-- Invalid retention configuration
+						retention_mode & `+retentionModeComplianceAndGovernanceMask+` NOT IN `+retentionModesComplianceAndGovernance+`
+						OR retain_until IS NULL
+						THEN FALSE
+					ELSE
+						retention_mode & `+retentionModeGovernance+` != 0 AND $4 -- Governance bypass
+						OR CASE
 							-- Removal is only allowed if the period has expired.
-							WHEN $5::TIMESTAMPTZ IS NULL THEN retain_until <= $6
-							-- Alteration is only allowed if the period isn't being shortened.
-							ELSE retain_until <= $5
+							WHEN $6::TIMESTAMPTZ IS NULL THEN retain_until <= $7
+							-- Alteration is only allowed if the period isn't being shortened
+							-- and the mode isn't being changed.
+							ELSE retain_until <= $6 AND retention_mode & `+retentionModeComplianceAndGovernanceMask+` = $5
 						END
-					)
-					ELSE FALSE
 				END
 			RETURNING 1
 		)
-		SELECT expires_at, retention_mode, retain_until, EXISTS(SELECT * FROM updated) from pre_update_info`,
+		SELECT status, expires_at, retention_mode, retain_until, EXISTS(SELECT * FROM updated) from pre_update_info`,
 		opts.ProjectID,
 		opts.BucketName,
 		opts.ObjectKey,
+		opts.BypassGovernance,
 		lockModeWrapper{retentionMode: &opts.Retention.Mode},
 		timeWrapper{&opts.Retention.RetainUntil},
 		now,
 	).Scan(
+		&info.Status,
 		&info.ExpiresAt,
 		lockModeWrapper{retentionMode: &info.Retention.Mode},
 		timeWrapper{&info.Retention.RetainUntil},
@@ -803,7 +843,7 @@ func (p *PostgresAdapter) SetObjectLastCommittedRetention(ctx context.Context, o
 	}
 
 	if !updated {
-		if err = info.verifyWithoutStatus(opts.Retention, now); err != nil {
+		if err = info.verify(opts.Retention, opts.BypassGovernance, now); err != nil {
 			return errs.Wrap(err)
 		}
 		return Error.New("unable to update object retention configuration")
@@ -827,11 +867,11 @@ func (s *SpannerAdapter) SetObjectLastCommittedRetention(ctx context.Context, op
 	_, err = s.client.ReadWriteTransaction(ctx, func(ctx context.Context, tx *spanner.ReadWriteTransaction) error {
 		result, err := spannerutil.CollectRow(tx.Query(ctx, spanner.Statement{
 			SQL: `
-				SELECT version, expires_at, retention_mode, retain_until
+				SELECT status, version, expires_at, retention_mode, retain_until
 				FROM objects
 				WHERE
 					(project_id, bucket_name, object_key) = (@project_id, @bucket_name, @object_key)
-					AND status IN ` + statusesCommitted + `
+					AND status <> ` + statusPending + `
 				ORDER BY version DESC
 				LIMIT 1
 			`,
@@ -842,6 +882,7 @@ func (s *SpannerAdapter) SetObjectLastCommittedRetention(ctx context.Context, op
 			},
 		}), func(row *spanner.Row, item *info) error {
 			return errs.Wrap(row.Columns(
+				&item.Status,
 				&item.version,
 				&item.ExpiresAt,
 				lockModeWrapper{retentionMode: &item.Retention.Mode},
@@ -855,7 +896,7 @@ func (s *SpannerAdapter) SetObjectLastCommittedRetention(ctx context.Context, op
 			return errs.New("unable to query object info before setting retention: %w", err)
 		}
 
-		if err = result.verifyWithoutStatus(opts.Retention, now); err != nil {
+		if err = result.verify(opts.Retention, opts.BypassGovernance, now); err != nil {
 			return errs.Wrap(err)
 		}
 
@@ -867,7 +908,7 @@ func (s *SpannerAdapter) SetObjectLastCommittedRetention(ctx context.Context, op
 	})
 
 	if err != nil {
-		if ErrObjectNotFound.Has(err) || ErrObjectExpiration.Has(err) || ErrObjectLock.Has(err) {
+		if ErrObjectNotFound.Has(err) || ErrObjectExpiration.Has(err) || ErrObjectLock.Has(err) || ErrObjectStatus.Has(err) {
 			return errs.Wrap(err)
 		}
 		return Error.Wrap(err)
@@ -885,28 +926,26 @@ type preUpdateRetentionInfo struct {
 }
 
 // verify returns an error if the object's retention shouldn't be updated.
-func (info *preUpdateRetentionInfo) verify(newRetention Retention, now time.Time) error {
-	if !info.Status.IsCommitted() {
+func (info *preUpdateRetentionInfo) verify(newRetention Retention, bypassGovernance bool, now time.Time) error {
+	switch {
+	case info.Status.IsDeleteMarker():
+		return ErrObjectStatus.New(noLockOnDeleteMarkerErrMsg)
+	case !info.Status.IsCommitted():
 		return ErrObjectStatus.New(noLockOnUncommittedErrMsg)
-	}
-	return errs.Wrap(info.verifyWithoutStatus(newRetention, now))
-}
-
-// verifyWithoutStatus returns an error if the object's retention shouldn't be updated,
-// ignoring the status.
-func (info *preUpdateRetentionInfo) verifyWithoutStatus(newRetention Retention, now time.Time) error {
-	if info.ExpiresAt != nil {
+	case info.ExpiresAt != nil:
 		return ErrObjectExpiration.New(noLockWithExpirationErrMsg)
 	}
 
-	if err := info.Retention.verifyWithoutGovernance(); err != nil {
+	if err := info.Retention.Verify(); err != nil {
 		return errs.Wrap(err)
 	}
 
-	if info.Retention.Active(now) {
+	if info.Retention.Active(now) && !(info.Retention.Mode == storj.GovernanceMode && bypassGovernance) {
 		switch {
 		case !newRetention.Enabled():
 			return ErrObjectLock.New(noRemoveRetentionErrMsg)
+		case info.Retention.Mode != newRetention.Mode:
+			return ErrObjectLock.New(noChangeRetentionModeErrMsg)
 		case newRetention.RetainUntil.Before(info.Retention.RetainUntil):
 			return ErrObjectLock.New(noShortenRetentionErrMsg)
 		}

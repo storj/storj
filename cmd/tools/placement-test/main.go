@@ -17,8 +17,8 @@ import (
 
 	"storj.io/common/process"
 	"storj.io/common/storj"
-	"storj.io/common/storj/location"
 	"storj.io/storj/satellite/nodeselection"
+	"storj.io/storj/shared/location"
 )
 
 var (

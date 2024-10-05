@@ -165,7 +165,7 @@ const emit = defineEmits(['newProject']);
 
 const dialog = ref(false);
 
-const encryption = computed(() => projectsStore.state.selectedProjectConfig.passphrase ? 'auto' : 'manual');
+const encryption = computed(() => projectsStore.state.selectedProjectConfig.hasManagedPassphrase ? 'auto' : 'manual');
 
 function goToDocs() {
     analyticsStore.pageVisit(SATELLITE_MANAGED_ENCRYPTION_DOCS_PAGE, PageVisitSource.DOCS);

@@ -79,6 +79,10 @@ export const useBillingStore = defineStore('billing', () => {
         state.billingInformation = await api.removeTaxID(ID);
     }
 
+    async function addInvoiceReference(reference: string): Promise<void> {
+        state.billingInformation = await api.addInvoiceReference(reference);
+    }
+
     async function getBillingInformation(): Promise<void> {
         state.billingInformation = await api.getBillingInformation();
     }
@@ -117,28 +121,6 @@ export const useBillingStore = defineStore('billing', () => {
 
     async function attemptPayments(): Promise<void> {
         await api.attemptPayments();
-    }
-
-    function toggleCardSelection(id: string): void {
-        state.creditCards = state.creditCards.map(card => {
-            if (card.id === id) {
-                card.isSelected = !card.isSelected;
-
-                return card;
-            }
-
-            card.isSelected = false;
-
-            return card;
-        });
-    }
-
-    function clearCardsSelection(): void {
-        state.creditCards = state.creditCards.map(card => {
-            card.isSelected = false;
-
-            return card;
-        });
     }
 
     function clearPendingPayments(): void {
@@ -190,18 +172,6 @@ export const useBillingStore = defineStore('billing', () => {
         const now = new Date();
         const endUTC = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate(), now.getUTCHours(), now.getUTCMinutes()));
         const startUTC = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1, 0, 0));
-
-        state.projectCharges = await api.projectsUsageAndCharges(startUTC, endUTC);
-
-        const dateRange = new DateRange(startUTC, endUTC);
-        state.startDate = dateRange.startDate;
-        state.endDate = dateRange.endDate;
-    }
-
-    async function getProjectUsageAndChargesPreviousRollup(): Promise<void> {
-        const now = new Date();
-        const startUTC = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() - 1, 1, 0, 0));
-        const endUTC = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 0, 23, 59, 59));
 
         state.projectCharges = await api.projectsUsageAndCharges(startUTC, endUTC);
 
@@ -262,6 +232,7 @@ export const useBillingStore = defineStore('billing', () => {
         addTaxID,
         removeTaxID,
         getBillingInformation,
+        addInvoiceReference,
         saveBillingAddress,
         claimWallet,
         setupAccount,
@@ -269,14 +240,11 @@ export const useBillingStore = defineStore('billing', () => {
         addCreditCard,
         addCardByPaymentMethodID,
         attemptPayments,
-        toggleCardSelection,
-        clearCardsSelection,
         makeCardDefault,
         removeCreditCard,
         getPaymentsHistory,
         getNativePaymentsHistory,
         getProjectUsageAndChargesCurrentRollup,
-        getProjectUsageAndChargesPreviousRollup,
         getPaymentsWithConfirmations,
         clearPendingPayments,
         getProjectUsagePriceModel,

@@ -3,9 +3,11 @@
 
 <template>
     <v-card>
+        <!-- We cast expandedFiles to type 'any' because of the weird Vuetify limitation/bug -->
+        <!-- https://github.com/vuetifyjs/vuetify/issues/20006 -->
         <v-data-table-server
             v-model="selectedFiles"
-            v-model:expanded="expandedFiles"
+            v-model:expanded="expandedFiles as any"
             :loading="isFetching || loading"
             :headers="headers"
             :items="filesAndVersions"
@@ -36,10 +38,12 @@
                         />
                     </td>
                     <td>
-                        <v-list-item
-                            class="text-caption pl-1 ml-n1"
+                        <v-btn
+                            class="text-caption pl-1 ml-n1 justify-start rounded-lg w-100"
+                            variant="text"
+                            color="default"
+                            block
                             :disabled="filesBeingDeleted.has(file.path + file.Key + file.VersionId)"
-                            link
                             @click="() => onFileClick(file)"
                         >
                             <template #prepend>
@@ -48,7 +52,7 @@
                             </template>
                             {{ file.Key }}
                             <v-chip v-if="file.isLatest" class="ml-2" size="small" variant="tonal" color="primary">LATEST</v-chip>
-                        </v-list-item>
+                        </v-btn>
                     </td>
                     <td>
                         <p class="text-caption">
@@ -66,7 +70,25 @@
                     </td>
                     <td>
                         <p class="text-caption">
-                            {{ file.VersionId }}
+                            <v-hover v-if="file.VersionId">
+                                <template #default="{ isHovering, props }">
+                                    <v-chip
+                                        v-bind="props"
+                                        size="small"
+                                        :variant="isHovering ? 'tonal' : 'text'"
+                                        class="cursor-pointer"
+                                        @click="() => copyToClipboard(file.VersionId)"
+                                    >
+                                        <template #append>
+                                            <v-icon class="ml-2" :class="{ 'invisible': !isHovering }" :icon="Copy" />
+                                        </template>
+                                        <template #default>
+                                            <span v-if="mdAndDown">{{ '...' + file.VersionId.slice(-9) }}</span>
+                                            <span v-else>{{ file.VersionId }}</span>
+                                        </template>
+                                    </v-chip>
+                                </template>
+                            </v-hover>
                         </p>
                     </td>
                     <td>
@@ -79,7 +101,8 @@
                             @preview-click="onFileClick(file)"
                             @delete-file-click="onDeleteFileClick(file)"
                             @restore-object-click="onRestoreObjectClick(file)"
-                            @lock-object-click="onLockObjectClick(item.browserObject)"
+                            @lock-object-click="onLockObjectClick(file)"
+                            @legal-hold-click="onLegalHoldClick(file)"
                             @locked-object-delete="(fullObject) => onLockedObjectDelete(fullObject)"
                         />
                     </td>
@@ -89,7 +112,7 @@
 
             <template #no-data>
                 <p class="text-body-2 cursor-pointer py-14 rounded-xlg my-4" @click="emit('uploadClick')">
-                    {{ search ? 'No data found' : 'Drag and drop files or folders here, or click to upload files.' }}
+                    {{ search ? 'No data found' : 'Drag and drop objects or folders here, or click to upload objects.' }}
                 </p>
             </template>
 
@@ -132,6 +155,7 @@
                     <td />
                     <td>
                         <VBtn
+                            v-if="!isFolder(item.raw.browserObject)"
                             :icon="getExpandOrCollapseIcon(item.raw.browserObject)"
                             size="small"
                             variant="text"
@@ -225,7 +249,11 @@
     <lock-object-dialog
         v-model="isLockDialogShown"
         :file="lockActionFile"
-        @file-locked="refreshPage"
+        @content-removed="lockActionFile = null"
+    />
+    <legal-hold-object-dialog
+        v-model="isLegalHoldDialogShown"
+        :file="lockActionFile"
         @content-removed="lockActionFile = null"
     />
     <locked-delete-error-dialog
@@ -246,12 +274,14 @@ import {
     VChip,
     VCol,
     VDataTableServer,
-    VListItem,
     VRow,
     VSelect,
     VSnackbar,
+    VHover,
+    VIcon,
 } from 'vuetify/components';
-import { ChevronLeft, ChevronRight } from 'lucide-vue-next';
+import { ChevronLeft, ChevronRight, Copy } from 'lucide-vue-next';
+import { useDisplay } from 'vuetify';
 
 import {
     BrowserObject,
@@ -268,6 +298,7 @@ import { BrowserObjectTypeInfo, BrowserObjectWrapper, EXTENSION_INFOS, FILE_INFO
 import { ROUTES } from '@/router';
 import { Time } from '@/utils/time';
 import { DEFAULT_PAGE_LIMIT } from '@/types/pagination';
+import { DataTableHeader } from '@/types/common';
 
 import BrowserRowActions from '@/components/BrowserRowActions.vue';
 import FilePreviewDialog from '@/components/dialogs/FilePreviewDialog.vue';
@@ -279,8 +310,9 @@ import IconVersioningClock from '@/components/icons/IconVersioningClock.vue';
 import DeleteVersionsDialog from '@/components/dialogs/DeleteVersionsDialog.vue';
 import LockObjectDialog from '@/components/dialogs/LockObjectDialog.vue';
 import LockedDeleteErrorDialog from '@/components/dialogs/LockedDeleteErrorDialog.vue';
+import LegalHoldObjectDialog from '@/components/dialogs/LegalHoldObjectDialog.vue';
 
-const props = defineProps<{
+const compProps = defineProps<{
     forceEmpty?: boolean;
     loading?: boolean;
 }>();
@@ -292,6 +324,7 @@ const emit = defineEmits<{
 const obStore = useObjectBrowserStore();
 const projectsStore = useProjectsStore();
 const bucketsStore = useBucketsStore();
+const { mdAndDown } = useDisplay();
 
 const notify = useNotify();
 const router = useRouter();
@@ -301,7 +334,7 @@ const search = ref<string>('');
 const previewDialog = ref<boolean>(false);
 const fileToDelete = ref<BrowserObject | null>(null);
 const fileToRestore = ref<BrowserObject | null>(null);
-const fileToPreview = ref<BrowserObject | null>(null);
+const fileToPreview = ref<BrowserObject | undefined>(undefined);
 const lockActionFile = ref<BrowserObject | null>(null);
 const fileVersionsToPreview = ref<BrowserObject[]>();
 const isDeleteFileDialogShown = ref<boolean>(false);
@@ -309,6 +342,7 @@ const fileToShare = ref<BrowserObject | null>(null);
 const isShareDialogShown = ref<boolean>(false);
 const isRestoreDialogShown = ref<boolean>(false);
 const isLockDialogShown = ref<boolean>(false);
+const isLegalHoldDialogShown = ref<boolean>(false);
 const isLockedObjectDeleteDialogShown = ref<boolean>(false);
 
 const pageSizes = [DEFAULT_PAGE_LIMIT, 25, 50, 100];
@@ -316,7 +350,7 @@ const pageSizes = [DEFAULT_PAGE_LIMIT, 25, 50, 100];
 /**
  * Returns table headers.
  */
-const headers = computed(() => {
+const headers = computed<DataTableHeader[]>(() => {
     return [
         { title: 'Name', align: 'start', key: 'name', sortable: false },
         { title: 'Type', key: 'type', sortable: false },
@@ -364,7 +398,7 @@ const cursor = computed<ObjectBrowserCursor>(() => obStore.state.cursor);
  * Returns every file under the current path.
  */
 const allFiles = computed<BrowserObjectWrapper[]>(() => {
-    if (props.forceEmpty) return [];
+    if (compProps.forceEmpty) return [];
 
     return obStore.state.files.map<BrowserObjectWrapper>(file => {
         const { name, ext, typeInfo } = getFileInfo(file);
@@ -378,7 +412,7 @@ const allFiles = computed<BrowserObjectWrapper[]>(() => {
 });
 
 const filesAndVersions = computed<BrowserObjectWrapper[]>(() => {
-    if (props.forceEmpty) return [];
+    if (compProps.forceEmpty) return [];
 
     const versions = allFiles.value.flatMap(parent => {
         return parent.browserObject.Versions?.map<BrowserObjectWrapper>(version => {
@@ -573,8 +607,20 @@ function onFileClick(file: BrowserObject): void {
     previewDialog.value = true;
 }
 
+/**
+ * Copies the version ID to the clipboard.
+ */
+function copyToClipboard(versionId?: string): void {
+    if (!versionId) return;
+    navigator.clipboard.writeText(versionId).then(() => {
+        notify.success('Version ID copied to clipboard');
+    }).catch(err => {
+        notify.notifyError(err, AnalyticsErrorEventSource.FILE_BROWSER);
+    });
+}
+
 async function fetchFiles(page = 1, saveNextToken = true): Promise<void> {
-    if (isFetching.value || props.forceEmpty) return;
+    if (isFetching.value || compProps.forceEmpty) return;
 
     obStore.updateSelectedFiles([]);
     obStore.updateVersionsExpandedKeys([]);
@@ -616,6 +662,14 @@ function onLockObjectClick(file: BrowserObject): void {
 }
 
 /**
+ * Handles legal hold button click event.
+ */
+function onLegalHoldClick(file: BrowserObject): void {
+    lockActionFile.value = file;
+    isLegalHoldDialogShown.value = true;
+}
+
+/**
  * Handles locked object delete error.
  */
 function onLockedObjectDelete(file: FullBrowserObject): void {
@@ -637,7 +691,7 @@ watch(filePath, () => {
     obStore.clearTokens();
     fetchFiles();
 }, { immediate: true });
-watch(() => props.forceEmpty, v => !v && fetchFiles());
+watch(() => compProps.forceEmpty, v => !v && fetchFiles());
 </script>
 
 <style scoped lang="scss">

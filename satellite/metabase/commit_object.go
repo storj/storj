@@ -545,25 +545,26 @@ func (stx *spannerTransactionAdapter) deleteSegmentsNotInCommit(ctx context.Cont
 		return 0, nil
 	}
 
-	positions := make([]int64, 0, len(segments))
-	for _, p := range segments {
-		positions = append(positions, int64(p.Encode()))
+	stmts := make([]spanner.Statement, len(segments))
+	for ix, segment := range segments {
+		stmts[ix] = spanner.Statement{
+			SQL: `DELETE FROM segments WHERE stream_id = @stream_id AND position = @position`,
+			Params: map[string]interface{}{
+				"stream_id": streamID,
+				"position":  int64(segment.Encode()),
+			},
+		}
 	}
 
-	deletedSegmentCount, err = stx.tx.Update(ctx, spanner.Statement{
-		SQL: `
-			DELETE FROM segments
-			WHERE stream_id = @stream_id AND ARRAY_INCLUDES(@positions, position)
-		`,
-		Params: map[string]interface{}{
-			"stream_id": streamID,
-			"positions": positions,
-		},
-	})
-	if err != nil {
-		return 0, Error.New("unable to delete segments: %w", err)
+	if len(stmts) > 0 {
+		deleted, err := stx.tx.BatchUpdate(ctx, stmts)
+		if err != nil {
+			return 0, Error.New("unable to delete segments: %w", err)
+		}
+		for _, v := range deleted {
+			deletedSegmentCount += v
+		}
 	}
-
 	return deletedSegmentCount, nil
 }
 

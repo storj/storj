@@ -44,7 +44,6 @@ func TestStoreLoad(t *testing.T) {
 	defer ctx.Check(store.Close)
 
 	data := testrand.Bytes(blobSize)
-	temp := make([]byte, len(data))
 
 	refs := []blobstore.BlobRef{}
 
@@ -61,9 +60,16 @@ func TestStoreLoad(t *testing.T) {
 		writer, err := store.Create(ctx, ref)
 		require.NoError(t, err)
 
+		err = writer.ReserveHeader(int64(i))
+		require.NoError(t, err)
+
 		n, err := writer.Write(data)
 		require.NoError(t, err)
 		require.Equal(t, n, len(data))
+
+		// we cannot reserve header after writing data
+		err = writer.ReserveHeader(int64(i))
+		require.Error(t, err)
 
 		require.NoError(t, writer.Commit(ctx))
 		// after committing we should be able to call cancel without an error
@@ -96,19 +102,21 @@ func TestStoreLoad(t *testing.T) {
 	}
 
 	// try reading all the blobs
-	for _, ref := range refs {
+	for i, ref := range refs {
 		reader, err := store.Open(ctx, ref)
 		require.NoError(t, err)
 
 		size, err := reader.Size()
 		require.NoError(t, err)
-		require.Equal(t, size, int64(len(data)))
+		// compare to data size and header size
+		require.Equal(t, size, int64(len(data)+i))
 
+		temp := make([]byte, len(data)+i)
 		_, err = io.ReadFull(reader, temp)
 		require.NoError(t, err)
 
 		require.NoError(t, reader.Close())
-		require.Equal(t, data, temp)
+		require.Equal(t, append(make([]byte, i), data...), temp)
 	}
 
 	// delete the blobs
@@ -426,7 +434,7 @@ func TestStoreTraversals(t *testing.T) {
 		// keep track of which blobs we visit with WalkNamespace
 		found := make([]bool, len(expected.blobs))
 
-		err = store.WalkNamespace(ctx, expected.namespace, "", func(info blobstore.BlobInfo) error {
+		err = store.WalkNamespace(ctx, expected.namespace, nil, func(info blobstore.BlobInfo) error {
 			gotBlobRef := info.BlobRef()
 			assert.Equal(t, expected.namespace, gotBlobRef.Namespace)
 			// find which blob this is in expected.blobs
@@ -460,7 +468,7 @@ func TestStoreTraversals(t *testing.T) {
 
 	// test WalkNamespace on a nonexistent namespace also
 	namespaceBase[len(namespaceBase)-1] = byte(numNamespaces)
-	err = store.WalkNamespace(ctx, namespaceBase, "", func(_ blobstore.BlobInfo) error {
+	err = store.WalkNamespace(ctx, namespaceBase, nil, func(_ blobstore.BlobInfo) error {
 		t.Fatal("this should not have been called")
 		return nil
 	})
@@ -469,7 +477,7 @@ func TestStoreTraversals(t *testing.T) {
 	// check that WalkNamespace stops iterating after an error return
 	iterations := 0
 	expectedErr := errs.New("an expected error")
-	err = store.WalkNamespace(ctx, recordsToInsert[numNamespaces-1].namespace, "", func(_ blobstore.BlobInfo) error {
+	err = store.WalkNamespace(ctx, recordsToInsert[numNamespaces-1].namespace, nil, func(_ blobstore.BlobInfo) error {
 		iterations++
 		if iterations == 2 {
 			return expectedErr

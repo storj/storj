@@ -44,7 +44,7 @@
                 <v-row>
                     <v-col>
                         <p>
-                            Object Lock, enabled through Object Versioning, allows you to lock individual files from being deleted or overwritten for a specified period of time.
+                            Object Lock, enabled through Object Versioning, allows you to lock individual objects from being deleted or overwritten for a specified period of time.
                         </p>
 
                         <v-expansion-panels static>
@@ -58,8 +58,8 @@
                                 <v-expansion-panel-text class="text-body-2">
                                     <p class="my-2">Object Lock is available for buckets with Object Versioning enabled.</p>
                                     <p class="my-2">A new column displaying the lock status will appear in your buckets page.</p>
-                                    <p class="my-2">When object lock is enabled, you can lock files and choose the retention period.</p>
-                                    <p class="my-2">You can view locked files and their retention period in the browser.</p>
+                                    <p class="my-2">When object lock is enabled, you can lock objects and choose the retention period.</p>
+                                    <p class="my-2">You can view locked objects and their retention period in the browser.</p>
                                 </v-expansion-panel-text>
                             </v-expansion-panel>
                         </v-expansion-panels>
@@ -73,14 +73,20 @@
                             >
                                 <v-expansion-panel-text class="text-body-2">
                                     <p class="my-2">1. Ensure Object Versioning is enabled for your bucket. Then, enable Object Lock for that versioned bucket.</p>
-                                    <p class="my-2">2. Upload files to your versioned bucket and lock them as needed. Each change will create a new version of the file.</p>
-                                    <p class="my-2">3. Once locked, files cannot be deleted or overwritten until the retention period expires.</p>
+                                    <p class="my-2">2. Upload objects to your versioned bucket and lock them as needed. Each change will create a new version of the object.</p>
+                                    <p class="my-2">3. Once locked, objects cannot be deleted or overwritten until the retention period expires.</p>
                                 </v-expansion-panel-text>
                             </v-expansion-panel>
                         </v-expansion-panels>
 
                         <p class="text-body-2">
-                            For more information, <a href="" class="link" @click="goToDocs">visit the documentation</a>.
+                            For more information, <a
+                                :href="docsLink"
+                                class="link"
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                @click="trackGoToDocs"
+                            >visit the documentation</a>.
                         </p>
                     </v-col>
                 </v-row>
@@ -105,7 +111,10 @@
                         <v-btn
                             variant="flat"
                             block
-                            @click="goToDocs"
+                            link
+                            :href="docsLink"
+                            target="_blank"
+                            @click="trackGoToDocs"
                         >
                             Read Documentation
                         </v-btn>
@@ -141,9 +150,10 @@ const analyticsStore = useAnalyticsStore();
 
 const model = defineModel<boolean>({ default: false });
 
-function goToDocs() {
-    analyticsStore.pageVisit('https://docs.storj.io/dcs/buckets/object-versioning', PageVisitSource.DOCS);
+const docsLink = 'https://storj.dev/dcs/api/s3/object-lock';
+
+function trackGoToDocs() {
+    analyticsStore.pageVisit(docsLink, PageVisitSource.DOCS);
     analyticsStore.eventTriggered(AnalyticsEvent.VIEW_DOCS_CLICKED);
-    window.open('https://docs.storj.io/dcs/buckets/object-versioning', '_blank', 'noreferrer');
 }
 </script>

@@ -124,7 +124,7 @@ const notify = useNotify();
 const startDate = ref<number>(Date.now());
 const isExpanded = ref<boolean>(false);
 const previewDialog = ref<boolean>(false);
-const fileToPreview = ref<BrowserObject | null>(null);
+const fileToPreview = ref<BrowserObject | undefined>();
 
 /**
  * Indicates whether objects upload modal should be shown.
@@ -136,7 +136,7 @@ const isObjectsUploadModal = computed<boolean>(() => appStore.state.isUploadingM
  */
 const statusLabel = computed((): string => {
     if (!uploading.value.length) return 'No items to upload';
-    let inProgress = 0, finished = 0, failed = 0, cancelled = 0;
+    let inProgress = 0, failed = 0, cancelled = 0;
     uploading.value.forEach(u => {
         switch (u.status) {
         case UploadingStatus.InProgress:
@@ -147,9 +147,6 @@ const statusLabel = computed((): string => {
             break;
         case UploadingStatus.Cancelled:
             cancelled++;
-            break;
-        default:
-            finished++;
         }
     });
 

@@ -48,7 +48,7 @@
                     <v-form v-model="formValid" class="pa-6 pb-3" @submit.prevent="toNextStep">
                         <v-row>
                             <v-col>
-                                <p>Buckets are used to store and organize your files. Enter a bucket name using lowercase characters.</p>
+                                <p>Buckets are used to store and organize your objects. Enter a bucket name using lowercase characters.</p>
                                 <v-text-field
                                     id="Bucket Name"
                                     v-model="bucketName"
@@ -74,7 +74,7 @@
                         <v-row>
                             <v-col>
                                 <p class="font-weight-bold mb-2">Do you need object lock?</p>
-                                <p>Enabling object lock will prevent files from being deleted or overwritten for a specified period of time.</p>
+                                <p>Enabling object lock will prevent objects from being deleted or overwritten for a specified period of time.</p>
                                 <v-chip-group
                                     v-model="enableObjectLock"
                                     filter
@@ -105,7 +105,7 @@
                                 </v-alert>
                                 <v-alert v-else variant="tonal" color="default">
                                     <p class="font-weight-bold text-body-2 mb-1">Object Lock Disabled (Default)</p>
-                                    <p class="text-subtitle-2">Files can be deleted or overwritten.</p>
+                                    <p class="text-subtitle-2">Objects can be deleted or overwritten.</p>
                                 </v-alert>
                             </v-col>
                         </v-row>
@@ -117,7 +117,7 @@
                         <v-row>
                             <v-col>
                                 <p class="font-weight-bold mb-2">Do you want to enable versioning?</p>
-                                <p>Enabling object versioning allows you to preserve, retrieve, and restore previous versions of a file, offering protection against unintentional modifications or deletions.</p>
+                                <p>Enabling object versioning allows you to preserve, retrieve, and restore previous versions of an object, offering protection against unintentional modifications or deletions.</p>
                                 <v-chip-group
                                     v-model="enableVersioning"
                                     :disabled="enableObjectLock"
@@ -127,7 +127,7 @@
                                     mandatory
                                 >
                                     <v-chip
-                                        :disabled="enableObjectLock"
+                                        v-if="!enableObjectLock"
                                         variant="outlined"
                                         filter
                                         :value="false"
@@ -143,33 +143,18 @@
                                         Enabled
                                     </v-chip>
                                 </v-chip-group>
+                                <v-alert v-if="enableObjectLock" variant="tonal" color="default" class="mb-3">
+                                    <p class="text-subtitle-2 font-weight-bold">Versioning must be enabled for object lock to work.</p>
+                                </v-alert>
                                 <v-alert v-if="enableVersioning" variant="tonal" color="default">
-                                    <p class="text-subtitle-2">Keep multiple versions of each file in the same bucket. Additional storage costs apply for each version.</p>
+                                    <p class="text-subtitle-2">Keep multiple versions of each object in the same bucket. Additional storage costs apply for each version.</p>
                                 </v-alert>
                                 <v-alert v-else variant="tonal" color="default">
-                                    <p class="text-subtitle-2">Uploading a file with the same name will overwrite the existing file in this bucket.</p>
+                                    <p class="text-subtitle-2">Uploading an object with the same name will overwrite the existing object in this bucket.</p>
                                 </v-alert>
                             </v-col>
                         </v-row>
                     </v-form>
-                </v-window-item>
-                <v-window-item :value="CreateStep.Success">
-                    <div class="pa-7">
-                        <v-row>
-                            <v-col>
-                                <p><strong>Bucket successfully created.</strong></p>
-                                <v-chip
-                                    variant="tonal"
-                                    value="Disabled"
-                                    color="default"
-                                    class="my-4 font-weight-bold"
-                                >
-                                    {{ bucketName }}
-                                </v-chip>
-                                <p>You can choose to open the bucket and start uploading files, or close this dialog and get back to the buckets page.</p>
-                            </v-col>
-                        </v-row>
-                    </div>
                 </v-window-item>
 
                 <v-window-item :value="CreateStep.Confirmation">
@@ -212,6 +197,25 @@
                         </v-col>
                     </v-row>
                 </v-window-item>
+
+                <v-window-item :value="CreateStep.Success">
+                    <div class="pa-7">
+                        <v-row>
+                            <v-col>
+                                <p><strong><v-icon :icon="Check" size="small" /> Bucket successfully created.</strong></p>
+                                <v-chip
+                                    variant="tonal"
+                                    value="Disabled"
+                                    color="primary"
+                                    class="my-4 font-weight-bold"
+                                >
+                                    {{ bucketName }}
+                                </v-chip>
+                                <p>You open the bucket and start uploading objects, or close this dialog and get back to view all buckets.</p>
+                            </v-col>
+                        </v-row>
+                    </div>
+                </v-window-item>
             </v-window>
             <v-divider />
 
@@ -226,7 +230,7 @@
                         <v-btn
                             :disabled="!formValid"
                             :loading="isLoading"
-                            :append-icon="step === CreateStep.Success ? ArrowRight : undefined"
+                            :append-icon="ArrowRight"
                             color="primary"
                             variant="flat"
                             block
@@ -261,8 +265,9 @@ import {
     VTextField,
     VWindow,
     VWindowItem,
+    VIcon,
 } from 'vuetify/components';
-import { ArrowRight } from 'lucide-vue-next';
+import { ArrowRight, Check } from 'lucide-vue-next';
 import { useRouter } from 'vue-router';
 
 import { useLoading } from '@/composables/useLoading';

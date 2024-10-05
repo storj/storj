@@ -133,7 +133,7 @@ import { useAccessGrantsStore } from '@/store/modules/accessGrantsStore';
 import { useNotify } from '@/utils/hooks';
 import { useProjectsStore } from '@/store/modules/projectsStore';
 import { DEFAULT_PAGE_LIMIT } from '@/types/pagination';
-import { SortDirection, tableSizeOptions, MAX_SEARCH_VALUE_LENGTH } from '@/types/common';
+import { SortDirection, tableSizeOptions, MAX_SEARCH_VALUE_LENGTH, DataTableHeader } from '@/types/common';
 
 import DeleteAccessDialog from '@/components/dialogs/DeleteAccessDialog.vue';
 
@@ -149,7 +149,7 @@ const isDeleteAccessDialogShown = ref<boolean>(false);
 const accessToDelete = ref<AccessGrant | undefined>();
 const selected = ref<AccessGrant[]>([]);
 
-const headers = [
+const headers: DataTableHeader[] = [
     {
         title: 'Access Name',
         align: 'start',

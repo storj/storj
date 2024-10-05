@@ -89,7 +89,7 @@ func trashCmdRun(opts *RunOptions) (err error) {
 		err = errs.Combine(err, db.Close())
 	}()
 
-	filewalker := pieces.NewFileWalker(log, db.Pieces(), db.V0PieceInfo(), db.GCFilewalkerProgress())
+	filewalker := pieces.NewFileWalker(log, db.Pieces(), db.V0PieceInfo(), db.GCFilewalkerProgress(), db.UsedSpacePerPrefix())
 	bytesDeleted, keysDeleted, err := filewalker.WalkCleanupTrash(opts.Ctx, req.SatelliteID, req.DateBefore)
 	if err != nil {
 		return err

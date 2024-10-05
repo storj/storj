@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/gogo/protobuf/types"
 	"github.com/spacemonkeygo/monkit/v3"
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
@@ -35,6 +36,7 @@ const (
 	objectLockDisabledErrMsg = "Object Lock feature is not enabled"
 	bucketNoLockErrMsg       = "Object Lock is not enabled for this bucket"
 	methodNotAllowedErrMsg   = "method not allowed"
+	objectInvalidStateErrMsg = "The operation is not permitted for this object"
 )
 
 // BeginObject begins object.
@@ -48,8 +50,6 @@ func (endpoint *Endpoint) BeginObject(ctx context.Context, req *pb.ObjectBeginRe
 	}
 
 	now := time.Now()
-
-	var canDelete, canLock bool
 
 	actions := []VerifyPermission{
 		{
@@ -66,8 +66,7 @@ func (endpoint *Endpoint) BeginObject(ctx context.Context, req *pb.ObjectBeginRe
 				EncryptedPath: req.EncryptedObjectKey,
 				Time:          now,
 			},
-			ActionPermitted: &canDelete,
-			Optional:        true,
+			Optional: true,
 		},
 	}
 
@@ -81,7 +80,16 @@ func (endpoint *Endpoint) BeginObject(ctx context.Context, req *pb.ObjectBeginRe
 				EncryptedPath: req.EncryptedObjectKey,
 				Time:          now,
 			},
-			ActionPermitted: &canLock,
+		})
+	}
+	if req.LegalHold {
+		actions = append(actions, VerifyPermission{
+			Action: macaroon.Action{
+				Op:            macaroon.ActionPutObjectLegalHold,
+				Bucket:        req.Bucket,
+				EncryptedPath: req.EncryptedObjectKey,
+				Time:          now,
+			},
 		})
 	}
 
@@ -91,8 +99,8 @@ func (endpoint *Endpoint) BeginObject(ctx context.Context, req *pb.ObjectBeginRe
 	}
 	endpoint.usageTracking(keyInfo, req.Header, fmt.Sprintf("%T", req))
 
-	if retention.Enabled() && !endpoint.config.ObjectLockEnabled {
-		return nil, rpcstatus.Error(rpcstatus.FailedPrecondition, objectLockDisabledErrMsg)
+	if (retention.Enabled() || req.LegalHold) && !endpoint.config.ObjectLockEnabled {
+		return nil, rpcstatus.Error(rpcstatus.ObjectLockEndpointsDisabled, objectLockDisabledErrMsg)
 	}
 
 	maxObjectTTL, err := endpoint.getMaxObjectTTL(ctx, req.Header)
@@ -117,7 +125,7 @@ func (endpoint *Endpoint) BeginObject(ctx context.Context, req *pb.ObjectBeginRe
 		expiresAt = ttl
 	}
 
-	if retention.Enabled() {
+	if retention.Enabled() || req.LegalHold {
 		switch {
 		case maxObjectTTL != nil:
 			return nil, rpcstatus.Error(rpcstatus.InvalidArgument,
@@ -152,11 +160,11 @@ func (endpoint *Endpoint) BeginObject(ctx context.Context, req *pb.ObjectBeginRe
 		return nil, rpcstatus.Error(rpcstatus.Internal, "unable to get bucket placement")
 	}
 
-	if retention.Enabled() {
+	if retention.Enabled() || req.LegalHold {
 		if bucket.Versioning != buckets.VersioningEnabled {
-			return nil, rpcstatus.Errorf(rpcstatus.FailedPrecondition, "cannot specify Object Lock settings when uploading into a bucket without Versioning enabled")
+			return nil, rpcstatus.Errorf(rpcstatus.ObjectLockInvalidBucketState, "cannot specify Object Lock settings when uploading into a bucket without Versioning enabled")
 		} else if !bucket.ObjectLockEnabled {
-			return nil, rpcstatus.Errorf(rpcstatus.FailedPrecondition, "cannot specify Object Lock settings when uploading into a bucket without Object Lock enabled")
+			return nil, rpcstatus.Errorf(rpcstatus.ObjectLockBucketRetentionConfigurationMissing, "cannot specify Object Lock settings when uploading into a bucket without Object Lock enabled")
 		}
 	}
 
@@ -197,6 +205,7 @@ func (endpoint *Endpoint) BeginObject(ctx context.Context, req *pb.ObjectBeginRe
 		EncryptedMetadataNonce:        nonce,
 
 		Retention: retention,
+		LegalHold: req.LegalHold,
 	}
 	if !expiresAt.IsZero() {
 		opts.ExpiresAt = &expiresAt
@@ -266,7 +275,7 @@ func (endpoint *Endpoint) CommitObject(ctx context.Context, req *pb.ObjectCommit
 	}
 
 	now := time.Now()
-	var allowDelete, canGetRetention bool
+	var allowDelete, canGetRetention, canGetLegalHold bool
 	keyInfo, err := endpoint.ValidateAuthN(ctx, req.Header, console.RateLimitPut,
 		VerifyPermission{
 			Action: macaroon.Action{
@@ -294,6 +303,16 @@ func (endpoint *Endpoint) CommitObject(ctx context.Context, req *pb.ObjectCommit
 				Time:          now,
 			},
 			ActionPermitted: &canGetRetention,
+			Optional:        true,
+		},
+		VerifyPermission{
+			Action: macaroon.Action{
+				Op:            macaroon.ActionGetObjectLegalHold,
+				Bucket:        streamID.Bucket,
+				EncryptedPath: streamID.EncryptedObjectKey,
+				Time:          now,
+			},
+			ActionPermitted: &canGetLegalHold,
 			Optional:        true,
 		},
 	)
@@ -382,6 +401,9 @@ func (endpoint *Endpoint) CommitObject(ctx context.Context, req *pb.ObjectCommit
 	if !canGetRetention {
 		pbObject.Retention = nil
 	}
+	if !canGetLegalHold {
+		pbObject.LegalHold = nil
+	}
 
 	mon.Meter("req_commit_object").Mark(1)
 
@@ -403,7 +425,7 @@ func (endpoint *Endpoint) CommitInlineObject(ctx context.Context, beginObjectReq
 	}
 
 	now := time.Now()
-	var allowDelete bool
+	var allowDelete, canGetRetention, canGetLegalHold bool
 	actions := []VerifyPermission{
 		{
 			Action: macaroon.Action{
@@ -421,6 +443,24 @@ func (endpoint *Endpoint) CommitInlineObject(ctx context.Context, beginObjectReq
 			},
 			ActionPermitted: &allowDelete,
 			Optional:        true,
+		}, {
+			Action: macaroon.Action{
+				Op:            macaroon.ActionGetObjectRetention,
+				Bucket:        beginObjectReq.Bucket,
+				EncryptedPath: beginObjectReq.EncryptedObjectKey,
+				Time:          now,
+			},
+			ActionPermitted: &canGetRetention,
+			Optional:        true,
+		}, {
+			Action: macaroon.Action{
+				Op:            macaroon.ActionGetObjectLegalHold,
+				Bucket:        beginObjectReq.Bucket,
+				EncryptedPath: beginObjectReq.EncryptedObjectKey,
+				Time:          now,
+			},
+			ActionPermitted: &canGetLegalHold,
+			Optional:        true,
 		},
 	}
 
@@ -429,6 +469,17 @@ func (endpoint *Endpoint) CommitInlineObject(ctx context.Context, beginObjectReq
 		actions = append(actions, VerifyPermission{
 			Action: macaroon.Action{
 				Op:            macaroon.ActionPutObjectRetention,
+				Bucket:        beginObjectReq.Bucket,
+				EncryptedPath: beginObjectReq.EncryptedObjectKey,
+				Time:          now,
+			},
+		})
+	}
+
+	if beginObjectReq.LegalHold {
+		actions = append(actions, VerifyPermission{
+			Action: macaroon.Action{
+				Op:            macaroon.ActionPutObjectLegalHold,
 				Bucket:        beginObjectReq.Bucket,
 				EncryptedPath: beginObjectReq.EncryptedObjectKey,
 				Time:          now,
@@ -447,8 +498,8 @@ func (endpoint *Endpoint) CommitInlineObject(ctx context.Context, beginObjectReq
 	endpoint.usageTracking(keyInfo, makeInlineSegReq.Header, fmt.Sprintf("%T", makeInlineSegReq))
 	endpoint.usageTracking(keyInfo, commitObjectReq.Header, fmt.Sprintf("%T", commitObjectReq))
 
-	if retention.Enabled() && !endpoint.config.ObjectLockEnabled {
-		return nil, nil, nil, rpcstatus.Error(rpcstatus.FailedPrecondition, objectLockDisabledErrMsg)
+	if (retention.Enabled() || beginObjectReq.LegalHold) && !endpoint.config.ObjectLockEnabled {
+		return nil, nil, nil, rpcstatus.Error(rpcstatus.ObjectLockEndpointsDisabled, objectLockDisabledErrMsg)
 	}
 
 	maxObjectTTL, err := endpoint.getMaxObjectTTL(ctx, beginObjectReq.Header)
@@ -475,6 +526,17 @@ func (endpoint *Endpoint) CommitInlineObject(ctx context.Context, beginObjectReq
 		expiresAt = &ttl
 	}
 
+	if retention.Enabled() || beginObjectReq.LegalHold {
+		switch {
+		case maxObjectTTL != nil:
+			return nil, nil, nil, rpcstatus.Error(rpcstatus.InvalidArgument,
+				"cannot specify Object Lock settings when using an API key that enforces an object expiration time")
+		case !beginObjectReq.ExpiresAt.IsZero():
+			return nil, nil, nil, rpcstatus.Error(rpcstatus.InvalidArgument,
+				"cannot specify Object Lock settings and an object expiration time")
+		}
+	}
+
 	objectKeyLength := len(beginObjectReq.EncryptedObjectKey)
 	if objectKeyLength > endpoint.config.MaxEncryptedObjectKeyLength {
 		return nil, nil, nil, rpcstatus.Errorf(rpcstatus.InvalidArgument, "key length is too big, got %v, maximum allowed is %v", objectKeyLength, endpoint.config.MaxEncryptedObjectKeyLength)
@@ -499,8 +561,8 @@ func (endpoint *Endpoint) CommitInlineObject(ctx context.Context, beginObjectReq
 		return nil, nil, nil, rpcstatus.Error(rpcstatus.Internal, "unable to get bucket placement")
 	}
 
-	if retention.Enabled() && !bucket.ObjectLockEnabled {
-		return nil, nil, nil, rpcstatus.Errorf(rpcstatus.FailedPrecondition, "cannot specify Object Lock settings when uploading into a bucket without Object Lock enabled")
+	if (retention.Enabled() || beginObjectReq.LegalHold) && !bucket.ObjectLockEnabled {
+		return nil, nil, nil, rpcstatus.Errorf(rpcstatus.ObjectLockBucketRetentionConfigurationMissing, "cannot specify Object Lock settings when uploading into a bucket without Object Lock enabled")
 	}
 
 	if err := endpoint.ensureAttribution(ctx, beginObjectReq.Header, keyInfo, beginObjectReq.Bucket, nil, false); err != nil {
@@ -579,6 +641,7 @@ func (endpoint *Endpoint) CommitInlineObject(ctx context.Context, beginObjectReq
 		EncryptedMetadataNonce:        metadataNonce,
 
 		Retention: retention,
+		LegalHold: beginObjectReq.LegalHold,
 
 		DisallowDelete: !allowDelete,
 
@@ -604,6 +667,12 @@ func (endpoint *Endpoint) CommitInlineObject(ctx context.Context, beginObjectReq
 	if err != nil {
 		endpoint.log.Error("unable to convert metabase object", zap.Error(err))
 		return nil, nil, nil, rpcstatus.Error(rpcstatus.Internal, "internal error")
+	}
+	if !canGetRetention {
+		pbObject.Retention = nil
+	}
+	if !canGetLegalHold {
+		pbObject.LegalHold = nil
 	}
 
 	endpoint.log.Debug("Object Inline Upload", zap.Stringer("Project ID", keyInfo.ProjectID), zap.String("operation", "put"), zap.String("type", "object"))
@@ -764,7 +833,7 @@ func (endpoint *Endpoint) GetObject(ctx context.Context, req *pb.ObjectGetReques
 		object.Retention = nil
 	}
 	if !canGetLegalHold {
-		object.LegalHold = false
+		object.LegalHold = nil
 	}
 
 	endpoint.log.Debug("Object Get", zap.Stringer("Project ID", keyInfo.ProjectID), zap.String("operation", "get"), zap.String("type", "object"))
@@ -1032,7 +1101,7 @@ func (endpoint *Endpoint) DownloadObject(ctx context.Context, req *pb.ObjectDown
 		protoObject.Retention = nil
 	}
 	if !canGetLegalHold {
-		protoObject.LegalHold = false
+		protoObject.LegalHold = nil
 	}
 
 	segmentList, err := convertSegmentListResults(segments)
@@ -1558,18 +1627,17 @@ func (endpoint *Endpoint) BeginDeleteObject(ctx context.Context, req *pb.ObjectB
 
 	now := time.Now()
 
-	var canRead, canList, canGetRetention, canBypassGovernance bool
+	var canRead, canList, canGetRetention bool
 
-	keyInfo, err := endpoint.ValidateAuthN(ctx, req.Header, console.RateLimitDelete,
-		VerifyPermission{
+	actions := []VerifyPermission{
+		{
 			Action: macaroon.Action{
 				Op:            macaroon.ActionDelete,
 				Bucket:        req.Bucket,
 				EncryptedPath: req.EncryptedObjectKey,
 				Time:          now,
 			},
-		},
-		VerifyPermission{
+		}, {
 			Action: macaroon.Action{
 				Op:            macaroon.ActionRead,
 				Bucket:        req.Bucket,
@@ -1578,8 +1646,7 @@ func (endpoint *Endpoint) BeginDeleteObject(ctx context.Context, req *pb.ObjectB
 			},
 			ActionPermitted: &canRead,
 			Optional:        true,
-		},
-		VerifyPermission{
+		}, {
 			Action: macaroon.Action{
 				Op:            macaroon.ActionList,
 				Bucket:        req.Bucket,
@@ -1588,8 +1655,7 @@ func (endpoint *Endpoint) BeginDeleteObject(ctx context.Context, req *pb.ObjectB
 			},
 			ActionPermitted: &canList,
 			Optional:        true,
-		},
-		VerifyPermission{
+		}, {
 			Action: macaroon.Action{
 				Op:            macaroon.ActionGetObjectRetention,
 				Bucket:        req.Bucket,
@@ -1599,17 +1665,20 @@ func (endpoint *Endpoint) BeginDeleteObject(ctx context.Context, req *pb.ObjectB
 			ActionPermitted: &canGetRetention,
 			Optional:        true,
 		},
-		VerifyPermission{
+	}
+
+	if req.BypassGovernanceRetention {
+		actions = append(actions, VerifyPermission{
 			Action: macaroon.Action{
 				Op:            macaroon.ActionBypassGovernanceRetention,
 				Bucket:        req.Bucket,
 				EncryptedPath: req.EncryptedObjectKey,
 				Time:          now,
 			},
-			ActionPermitted: &canBypassGovernance,
-			Optional:        !req.BypassGovernanceRetention,
-		},
-	)
+		})
+	}
+
+	keyInfo, err := endpoint.ValidateAuthN(ctx, req.Header, console.RateLimitDelete, actions...)
 	if err != nil {
 		return nil, err
 	}
@@ -1872,7 +1941,7 @@ func (endpoint *Endpoint) GetObjectLegalHold(ctx context.Context, req *pb.GetObj
 	endpoint.usageTracking(keyInfo, req.Header, fmt.Sprintf("%T", req))
 
 	if !endpoint.config.ObjectLockEnabled {
-		return nil, rpcstatus.Error(rpcstatus.FailedPrecondition, objectLockDisabledErrMsg)
+		return nil, rpcstatus.Error(rpcstatus.ObjectLockEndpointsDisabled, objectLockDisabledErrMsg)
 	}
 
 	bucketLockEnabled, err := endpoint.buckets.GetBucketObjectLockEnabled(ctx, req.Bucket, keyInfo.ProjectID)
@@ -1884,7 +1953,7 @@ func (endpoint *Endpoint) GetObjectLegalHold(ctx context.Context, req *pb.GetObj
 		return nil, rpcstatus.Error(rpcstatus.Internal, "unable to get bucket's Object Lock configuration")
 	}
 	if !bucketLockEnabled {
-		return nil, rpcstatus.Error(rpcstatus.FailedPrecondition, bucketNoLockErrMsg)
+		return nil, rpcstatus.Error(rpcstatus.ObjectLockBucketRetentionConfigurationMissing, bucketNoLockErrMsg)
 	}
 
 	loc := metabase.ObjectLocation{
@@ -1911,7 +1980,7 @@ func (endpoint *Endpoint) GetObjectLegalHold(ctx context.Context, req *pb.GetObj
 	}
 	if err != nil {
 		if metabase.ErrMethodNotAllowed.Has(err) {
-			return nil, rpcstatus.Error(rpcstatus.MethodNotAllowed, methodNotAllowedErrMsg)
+			return nil, rpcstatus.Error(rpcstatus.ObjectLockInvalidObjectState, objectInvalidStateErrMsg)
 		}
 		return nil, endpoint.ConvertMetabaseErr(err)
 	}
@@ -1944,7 +2013,7 @@ func (endpoint *Endpoint) SetObjectLegalHold(ctx context.Context, req *pb.SetObj
 	endpoint.usageTracking(keyInfo, req.Header, fmt.Sprintf("%T", req))
 
 	if !endpoint.config.ObjectLockEnabled {
-		return nil, rpcstatus.Error(rpcstatus.FailedPrecondition, objectLockDisabledErrMsg)
+		return nil, rpcstatus.Error(rpcstatus.ObjectLockEndpointsDisabled, objectLockDisabledErrMsg)
 	}
 
 	bucketLockEnabled, err := endpoint.buckets.GetBucketObjectLockEnabled(ctx, req.Bucket, keyInfo.ProjectID)
@@ -1956,7 +2025,7 @@ func (endpoint *Endpoint) SetObjectLegalHold(ctx context.Context, req *pb.SetObj
 		return nil, rpcstatus.Error(rpcstatus.Internal, "unable to get bucket's Object Lock configuration")
 	}
 	if !bucketLockEnabled {
-		return nil, rpcstatus.Error(rpcstatus.FailedPrecondition, bucketNoLockErrMsg)
+		return nil, rpcstatus.Error(rpcstatus.ObjectLockBucketRetentionConfigurationMissing, bucketNoLockErrMsg)
 	}
 
 	loc := metabase.ObjectLocation{
@@ -1984,7 +2053,7 @@ func (endpoint *Endpoint) SetObjectLegalHold(ctx context.Context, req *pb.SetObj
 	}
 	if err != nil {
 		if metabase.ErrObjectStatus.Has(err) {
-			return nil, rpcstatus.Error(rpcstatus.FailedPrecondition, err.Error())
+			return nil, rpcstatus.Error(rpcstatus.ObjectLockInvalidObjectState, objectInvalidStateErrMsg)
 		}
 		return nil, endpoint.ConvertMetabaseErr(err)
 	}
@@ -2015,7 +2084,7 @@ func (endpoint *Endpoint) GetObjectRetention(ctx context.Context, req *pb.GetObj
 	endpoint.usageTracking(keyInfo, req.Header, fmt.Sprintf("%T", req))
 
 	if !endpoint.config.ObjectLockEnabled {
-		return nil, rpcstatus.Error(rpcstatus.FailedPrecondition, objectLockDisabledErrMsg)
+		return nil, rpcstatus.Error(rpcstatus.ObjectLockEndpointsDisabled, objectLockDisabledErrMsg)
 	}
 
 	bucketLockEnabled, err := endpoint.buckets.GetBucketObjectLockEnabled(ctx, req.Bucket, keyInfo.ProjectID)
@@ -2027,7 +2096,7 @@ func (endpoint *Endpoint) GetObjectRetention(ctx context.Context, req *pb.GetObj
 		return nil, rpcstatus.Error(rpcstatus.Internal, "unable to get bucket's Object Lock configuration")
 	}
 	if !bucketLockEnabled {
-		return nil, rpcstatus.Error(rpcstatus.FailedPrecondition, bucketNoLockErrMsg)
+		return nil, rpcstatus.Error(rpcstatus.ObjectLockBucketRetentionConfigurationMissing, bucketNoLockErrMsg)
 	}
 
 	loc := metabase.ObjectLocation{
@@ -2054,13 +2123,13 @@ func (endpoint *Endpoint) GetObjectRetention(ctx context.Context, req *pb.GetObj
 	}
 	if err != nil {
 		if metabase.ErrMethodNotAllowed.Has(err) {
-			return nil, rpcstatus.Error(rpcstatus.MethodNotAllowed, methodNotAllowedErrMsg)
+			return nil, rpcstatus.Error(rpcstatus.ObjectLockInvalidObjectState, objectInvalidStateErrMsg)
 		}
 		return nil, endpoint.ConvertMetabaseErr(err)
 	}
 
 	if !retention.Enabled() {
-		return nil, rpcstatus.Error(rpcstatus.NotFound, "object does not have a retention configuration")
+		return nil, rpcstatus.Error(rpcstatus.ObjectLockObjectRetentionConfigurationMissing, "object does not have a retention configuration")
 	}
 
 	return &pb.GetObjectRetentionResponse{
@@ -2082,19 +2151,35 @@ func (endpoint *Endpoint) SetObjectRetention(ctx context.Context, req *pb.SetObj
 	}
 
 	now := time.Now()
-	keyInfo, err := endpoint.validateAuth(ctx, req.Header, macaroon.Action{
-		Op:            macaroon.ActionPutObjectRetention,
-		Bucket:        req.Bucket,
-		EncryptedPath: req.EncryptedObjectKey,
-		Time:          now,
-	}, console.RateLimitPut)
+
+	actions := []VerifyPermission{{
+		Action: macaroon.Action{
+			Op:            macaroon.ActionPutObjectRetention,
+			Bucket:        req.Bucket,
+			EncryptedPath: req.EncryptedObjectKey,
+			Time:          now,
+		},
+	}}
+
+	if req.BypassGovernanceRetention {
+		actions = append(actions, VerifyPermission{
+			Action: macaroon.Action{
+				Op:            macaroon.ActionBypassGovernanceRetention,
+				Bucket:        req.Bucket,
+				EncryptedPath: req.EncryptedObjectKey,
+				Time:          now,
+			},
+		})
+	}
+
+	keyInfo, err := endpoint.ValidateAuthN(ctx, req.Header, console.RateLimitPut, actions...)
 	if err != nil {
 		return nil, err
 	}
 	endpoint.usageTracking(keyInfo, req.Header, fmt.Sprintf("%T", req))
 
 	if !endpoint.config.ObjectLockEnabled {
-		return nil, rpcstatus.Error(rpcstatus.FailedPrecondition, objectLockDisabledErrMsg)
+		return nil, rpcstatus.Error(rpcstatus.ObjectLockEndpointsDisabled, objectLockDisabledErrMsg)
 	}
 
 	retention := protobufRetentionToMetabase(req.Retention)
@@ -2108,7 +2193,7 @@ func (endpoint *Endpoint) SetObjectRetention(ctx context.Context, req *pb.SetObj
 		return nil, rpcstatus.Error(rpcstatus.Internal, "unable to get bucket's Object Lock configuration")
 	}
 	if !bucketLockEnabled {
-		return nil, rpcstatus.Error(rpcstatus.FailedPrecondition, bucketNoLockErrMsg)
+		return nil, rpcstatus.Error(rpcstatus.ObjectLockBucketRetentionConfigurationMissing, bucketNoLockErrMsg)
 	}
 
 	loc := metabase.ObjectLocation{
@@ -2119,8 +2204,9 @@ func (endpoint *Endpoint) SetObjectRetention(ctx context.Context, req *pb.SetObj
 
 	if len(req.ObjectVersion) == 0 {
 		err = endpoint.metabase.SetObjectLastCommittedRetention(ctx, metabase.SetObjectLastCommittedRetention{
-			ObjectLocation: loc,
-			Retention:      retention,
+			ObjectLocation:   loc,
+			Retention:        retention,
+			BypassGovernance: req.BypassGovernanceRetention,
 		})
 	} else {
 		var sv metabase.StreamVersionID
@@ -2129,14 +2215,15 @@ func (endpoint *Endpoint) SetObjectRetention(ctx context.Context, req *pb.SetObj
 			return nil, endpoint.ConvertMetabaseErr(err)
 		}
 		err = endpoint.metabase.SetObjectExactVersionRetention(ctx, metabase.SetObjectExactVersionRetention{
-			ObjectLocation: loc,
-			Version:        sv.Version(),
-			Retention:      retention,
+			ObjectLocation:   loc,
+			Version:          sv.Version(),
+			Retention:        retention,
+			BypassGovernance: req.BypassGovernanceRetention,
 		})
 	}
 	if err != nil {
-		if metabase.ErrObjectLock.Has(err) || metabase.ErrObjectStatus.Has(err) {
-			return nil, rpcstatus.Error(rpcstatus.FailedPrecondition, err.Error())
+		if metabase.ErrObjectStatus.Has(err) || metabase.ErrObjectExpiration.Has(err) {
+			return nil, rpcstatus.Error(rpcstatus.ObjectLockInvalidObjectState, objectInvalidStateErrMsg)
 		}
 		return nil, endpoint.ConvertMetabaseErr(err)
 	}
@@ -2240,7 +2327,9 @@ func (endpoint *Endpoint) objectToProto(ctx context.Context, object metabase.Obj
 		},
 
 		Retention: retention,
-		LegalHold: object.LegalHold,
+		LegalHold: &types.BoolValue{
+			Value: object.LegalHold,
+		},
 	}
 
 	return result, nil
@@ -2679,7 +2768,7 @@ func (endpoint *Endpoint) FinishMoveObject(ctx context.Context, req *pb.ObjectFi
 
 	objectLockRequested := retention.Enabled() || req.LegalHold
 	if objectLockRequested && !endpoint.config.ObjectLockEnabled {
-		return nil, rpcstatus.Error(rpcstatus.FailedPrecondition, objectLockDisabledErrMsg)
+		return nil, rpcstatus.Error(rpcstatus.ObjectLockEndpointsDisabled, objectLockDisabledErrMsg)
 	}
 
 	var versioningEnabled bool
@@ -2694,7 +2783,7 @@ func (endpoint *Endpoint) FinishMoveObject(ctx context.Context, req *pb.ObjectFi
 			return nil, rpcstatus.Error(rpcstatus.Internal, "unable to copy object")
 		}
 		if !enabled {
-			return nil, rpcstatus.Errorf(rpcstatus.FailedPrecondition, "cannot specify Object Lock settings when uploading into a bucket without Object Lock enabled")
+			return nil, rpcstatus.Errorf(rpcstatus.ObjectLockBucketRetentionConfigurationMissing, "cannot specify Object Lock settings when uploading into a bucket without Object Lock enabled")
 		}
 		versioningEnabled = true
 	} else {
@@ -2959,7 +3048,7 @@ func (endpoint *Endpoint) FinishCopyObject(ctx context.Context, req *pb.ObjectFi
 			return nil, rpcstatus.Error(rpcstatus.Internal, "unable to copy object")
 		}
 		if !enabled {
-			return nil, rpcstatus.Errorf(rpcstatus.FailedPrecondition, "cannot specify Object Lock settings when uploading into a bucket without Object Lock enabled")
+			return nil, rpcstatus.Errorf(rpcstatus.ObjectLockBucketRetentionConfigurationMissing, "cannot specify Object Lock settings when uploading into a bucket without Object Lock enabled")
 		}
 		versioningEnabled = true
 	} else {

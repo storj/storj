@@ -28,6 +28,10 @@ func binaryVersion(location string) (version.SemVer, error) {
 		return version.SemVer{}, err
 	}
 
+	return parseVersion(out)
+}
+
+func parseVersion(out []byte) (version.SemVer, error) {
 	scanner := bufio.NewScanner(bytes.NewReader(out))
 	for scanner.Scan() {
 		line := scanner.Text()

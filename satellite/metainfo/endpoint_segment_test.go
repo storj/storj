@@ -838,7 +838,7 @@ func TestCommitSegment_RejectRetryDuplicate(t *testing.T) {
 
 func TestSegmentPlacementConstraints(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
-		SatelliteCount: 1, StorageNodeCount: 4, UplinkCount: 1,
+		SatelliteCount: 1, StorageNodeCount: 4, UplinkCount: 1, EnableSpanner: true,
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 		satellite := planet.Satellites[0]
 		apiKey := planet.Uplinks[0].APIKey[planet.Satellites[0].ID()]

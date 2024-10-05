@@ -22,10 +22,10 @@
                 class="alert"
                 color="success"
             >
-                Drop your files to put it into the “{{ bucket }}” bucket.
+                Drop your objects to put it into the “{{ bucket }}” bucket.
             </v-alert>
 
-            <p class="info font-weight-bold text-h3 text-center">Drag and drop files here to upload</p>
+            <p class="info font-weight-bold text-h3 text-center">Drag and drop objects here to upload</p>
         </div>
     </v-dialog>
 </template>
@@ -33,7 +33,7 @@
 <script setup lang="ts">
 import { VAlert, VDialog } from 'vuetify/components';
 
-const props = defineProps<{
+defineProps<{
     bucket: string,
 }>();
 

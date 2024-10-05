@@ -60,23 +60,6 @@ type DBContainer interface {
 	GetDB() tagsql.DB
 }
 
-// withTx is a helper method which executes callback in transaction scope.
-func withTx(ctx context.Context, db tagsql.DB, cb func(tx tagsql.Tx) error) error {
-	tx, err := db.BeginTx(ctx, nil)
-	if err != nil {
-		return err
-	}
-	defer func() {
-		if err != nil {
-			err = errs.Combine(err, tx.Rollback())
-			return
-		}
-
-		err = tx.Commit()
-	}()
-	return cb(tx)
-}
-
 // Config configures storage node database.
 type Config struct {
 	// TODO: figure out better names
@@ -1603,18 +1586,6 @@ func (db *DB) Migration(ctx context.Context) *migrate.Migration {
 				Description: "Add unknown_audit_reputation_score field to reputation db",
 				Version:     40,
 				Action: migrate.Func(func(ctx context.Context, _ *zap.Logger, rdb tagsql.DB, rtx tagsql.Tx) (err error) {
-					stx, err := db.satellitesDB.Begin(ctx)
-					if err != nil {
-						return errs.Wrap(err)
-					}
-					defer func() {
-						if err != nil {
-							err = errs.Combine(err, stx.Rollback())
-						} else {
-							err = errs.Wrap(stx.Commit())
-						}
-					}()
-
 					_, err = rtx.Exec(ctx, `ALTER TABLE reputation ADD COLUMN audit_unknown_reputation_score REAL`)
 					if err != nil {
 						return errs.Wrap(err)
@@ -1751,18 +1722,6 @@ func (db *DB) Migration(ctx context.Context) *migrate.Migration {
 				Description: "Add online_score and offline_suspended fields to reputation db, rename disqualified and suspended to disqualified_at and suspended_at",
 				Version:     44,
 				Action: migrate.Func(func(ctx context.Context, _ *zap.Logger, rdb tagsql.DB, rtx tagsql.Tx) (err error) {
-					stx, err := db.satellitesDB.Begin(ctx)
-					if err != nil {
-						return errs.Wrap(err)
-					}
-					defer func() {
-						if err != nil {
-							err = errs.Combine(err, stx.Rollback())
-						} else {
-							err = errs.Wrap(stx.Commit())
-						}
-					}()
-
 					_, err = rtx.Exec(ctx, `ALTER TABLE reputation ADD COLUMN online_score REAL`)
 					if err != nil {
 						return errs.Wrap(err)
@@ -1850,18 +1809,6 @@ func (db *DB) Migration(ctx context.Context) *migrate.Migration {
 				Description: "Add offline_under_review_at field to reputation db",
 				Version:     45,
 				Action: migrate.Func(func(ctx context.Context, _ *zap.Logger, rdb tagsql.DB, rtx tagsql.Tx) (err error) {
-					stx, err := db.satellitesDB.Begin(ctx)
-					if err != nil {
-						return errs.Wrap(err)
-					}
-					defer func() {
-						if err != nil {
-							err = errs.Combine(err, stx.Rollback())
-						} else {
-							err = errs.Wrap(stx.Commit())
-						}
-					}()
-
 					_, err = rtx.Exec(ctx, `ALTER TABLE reputation ADD COLUMN offline_under_review_at TIMESTAMP`)
 					if err != nil {
 						return errs.Wrap(err)
@@ -2311,6 +2258,15 @@ func (db *DB) Migration(ctx context.Context) *migrate.Migration {
 				Version:     61,
 				Action: migrate.SQL{
 					`DELETE FROM piece_space_used WHERE satellite_id IS NULL;`,
+				},
+			},
+			{
+				DB:          &db.usedSpacePerPrefixDB.DB,
+				Description: "Add total_content_size, piece_counts, resume_point columns to used_space_per_prefix table",
+				Version:     62,
+				Action: migrate.SQL{
+					`ALTER TABLE used_space_per_prefix ADD COLUMN total_content_size INTEGER NOT NULL DEFAULT 0`,
+					`ALTER TABLE used_space_per_prefix ADD COLUMN piece_counts INTEGER NOT NULL DEFAULT 0`,
 				},
 			},
 		},

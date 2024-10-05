@@ -75,7 +75,7 @@
         <template #no-data>
             <div class="d-flex justify-center">
                 <p class="text-body-2 cursor-pointer py-16 rounded-xlg w-100 text-center bg-light border" @click="emit('uploadClick')">
-                    {{ search ? 'No data found' : 'Drag and drop files or folders here, or click to upload files.' }}
+                    {{ search ? 'No data found' : 'Drag and drop objects or folders here, or click to upload objects.' }}
                 </p>
             </div>
         </template>
@@ -89,6 +89,9 @@
                         @preview-click="onFileClick(item.raw.browserObject)"
                         @delete-file-click="onDeleteFileClick(item.raw.browserObject)"
                         @share-click="onShareClick(item.raw.browserObject)"
+                        @lock-object-click="onLockObjectClick(item.raw.browserObject)"
+                        @legal-hold-click="onLegalHoldClick(item.raw.browserObject)"
+                        @locked-object-delete="(fullObject) => onLockedObjectDelete(fullObject)"
                     />
                 </v-col>
             </v-row>
@@ -154,14 +157,37 @@
     />
 
     <delete-file-dialog
+        v-if="!isBucketVersioned"
         v-model="isDeleteFileDialogShown"
         :files="filesToDelete"
+        @content-removed="fileToDelete = null"
+    />
+    <delete-versioned-file-dialog
+        v-else
+        v-model="isDeleteFileDialogShown"
+        :files="filesToDelete"
+        @content-removed="fileToDelete = null"
     />
     <share-dialog
         v-model="isShareDialogShown"
         :bucket-name="bucketName"
         :file="fileToShare || undefined"
         @content-removed="fileToShare = null"
+    />
+    <lock-object-dialog
+        v-model="isLockDialogShown"
+        :file="lockActionFile"
+        @content-removed="lockActionFile = null"
+    />
+    <legal-hold-object-dialog
+        v-model="isLegalHoldDialogShown"
+        :file="lockActionFile"
+        @content-removed="lockActionFile = null"
+    />
+    <locked-delete-error-dialog
+        v-model="isLockedObjectDeleteDialogShown"
+        :file="lockActionFile"
+        @content-removed="lockActionFile = null"
     />
 </template>
 
@@ -186,6 +212,7 @@ import { ChevronLeft, ChevronRight, Search, ChevronDown, ArrowDownNarrowWide, Ar
 
 import {
     BrowserObject,
+    FullBrowserObject,
     MAX_KEY_COUNT,
     ObjectBrowserCursor,
     PreviewCache,
@@ -198,16 +225,24 @@ import { useBucketsStore } from '@/store/modules/bucketsStore';
 import { BrowserObjectTypeInfo, BrowserObjectWrapper, EXTENSION_INFOS, FILE_INFO, FOLDER_INFO } from '@/types/browser';
 import { useAnalyticsStore } from '@/store/modules/analyticsStore';
 import { ROUTES } from '@/router';
+import { BucketMetadata } from '@/types/buckets';
+import { Versioning } from '@/types/versioning';
+import { SortItem } from '@/types/common';
 
 import FilePreviewDialog from '@/components/dialogs/FilePreviewDialog.vue';
 import DeleteFileDialog from '@/components/dialogs/DeleteFileDialog.vue';
 import ShareDialog from '@/components/dialogs/ShareDialog.vue';
 import FileCard from '@/components/FileCard.vue';
+import DeleteVersionedFileDialog from '@/components/dialogs/DeleteVersionedFileDialog.vue';
+import LockObjectDialog from '@/components/dialogs/LockObjectDialog.vue';
+import LockedDeleteErrorDialog from '@/components/dialogs/LockedDeleteErrorDialog.vue';
+import LegalHoldObjectDialog from '@/components/dialogs/LegalHoldObjectDialog.vue';
 
 type SortKey = 'name' | 'type' | 'size' | 'date';
 
 const props = defineProps<{
     forceEmpty?: boolean;
+    bucket?: BucketMetadata;
 }>();
 
 const emit = defineEmits<{
@@ -226,17 +261,22 @@ const isFetching = ref<boolean>(false);
 const search = ref<string>('');
 const selected = ref([]);
 const previewDialog = ref<boolean>(false);
-const fileToPreview = ref<BrowserObject | null>(null);
-const filesToDelete = ref<BrowserObject[]>([]);
+const lockActionFile = ref<FullBrowserObject | null>(null);
+const fileToPreview = ref<BrowserObject | undefined>();
+const fileToDelete = ref<BrowserObject | null>(null);
 const isDeleteFileDialogShown = ref<boolean>(false);
 const fileToShare = ref<BrowserObject | null>(null);
 const isShareDialogShown = ref<boolean>(false);
+const isLockDialogShown = ref<boolean>(false);
+const isLegalHoldDialogShown = ref<boolean>(false);
+const isLockedObjectDeleteDialogShown = ref<boolean>(false);
 const routePageCache = new Map<string, number>();
+
 let previewQueue: BrowserObjectWrapper[] = [];
 let processingPreview = false;
 
 const sortKey = ref<string>('name');
-const sortOrder = ref<string>('asc');
+const sortOrder = ref<'asc' | 'desc'>('asc');
 const sortKeys = ['Name', 'Type', 'Size', 'Date'];
 const pageSizes = [
     { title: '12', value: 12 },
@@ -245,6 +285,14 @@ const pageSizes = [
     { title: '144', value: 144 },
 ];
 const collator = new Intl.Collator('en', { sensitivity: 'case' });
+
+/**
+ * Returns the selected files to the delete dialog.
+ */
+const filesToDelete = computed<BrowserObject[]>(() => {
+    if (fileToDelete.value) return [fileToDelete.value];
+    return obStore.state.selectedFiles;
+});
 
 /**
  * Indicates if alternative pagination has next page.
@@ -296,6 +344,13 @@ const lastPage = computed<number>(() => {
 });
 
 /**
+ * Whether this bucket is versioned/version-suspended.
+ */
+const isBucketVersioned = computed<boolean>(() => {
+    return props.bucket?.versioning !== Versioning.NotSupported && props.bucket?.versioning !== Versioning.Unversioned;
+});
+
+/**
  * Returns every file under the current path.
  */
 const allFiles = computed<BrowserObjectWrapper[]>(() => {
@@ -329,7 +384,7 @@ const filteredFiles = computed<BrowserObjectWrapper[]>(() => {
 /**
  * The sorting criteria to be used for the file list.
  */
-const sortBy = computed(() => [{ key: sortKey.value, order: sortOrder.value }]);
+const sortBy = computed<SortItem[]>(() => [{ key: sortKey.value, order: sortOrder.value }]);
 
 /**
  * Returns the files to be displayed in the browser.
@@ -497,11 +552,16 @@ async function fetchFiles(page = 1, saveNextToken = true): Promise<void> {
     isFetching.value = false;
 }
 
+function refreshPage(): void {
+    fetchFiles(cursor.value.page, false);
+    obStore.updateSelectedFiles([]);
+}
+
 /**
  * Handles delete button click event for files.
  */
 function onDeleteFileClick(file: BrowserObject): void {
-    filesToDelete.value = [file];
+    fileToDelete.value = file;
     isDeleteFileDialogShown.value = true;
 }
 
@@ -511,6 +571,30 @@ function onDeleteFileClick(file: BrowserObject): void {
 function onShareClick(file: BrowserObject): void {
     fileToShare.value = file;
     isShareDialogShown.value = true;
+}
+
+/**
+ * Handles lock object button click event.
+ */
+function onLockObjectClick(file: BrowserObject): void {
+    lockActionFile.value = file;
+    isLockDialogShown.value = true;
+}
+
+/**
+ * Handles legal hold button click event.
+ */
+function onLegalHoldClick(file: BrowserObject): void {
+    lockActionFile.value = file;
+    isLegalHoldDialogShown.value = true;
+}
+
+/**
+ * Handles locked object delete error.
+ */
+function onLockedObjectDelete(file: FullBrowserObject): void {
+    lockActionFile.value = file;
+    isLockedObjectDeleteDialogShown.value = true;
 }
 
 /**
@@ -595,7 +679,7 @@ obStore.$onAction(({ name, after }) => {
     if (name === 'filesDeleted') {
         after((_) => {
             fetchFiles();
-            filesToDelete.value = [];
+            fileToDelete.value = null;
             obStore.updateSelectedFiles([]);
         });
     }

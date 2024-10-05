@@ -337,6 +337,32 @@ func TestSetPermission_Uplink(t *testing.T) {
 			require.True(t, errors.Is(err, uplink.ErrPermissionDenied))
 		})
 
+		oneHour := time.Hour
+		withAccessKey(ctx, t, planet, passphrase, b64Salt, "max object ttl", []string{}, consolewasm.Permission{
+			AllowDownload: true,
+			AllowUpload:   true,
+			AllowList:     true,
+			AllowDelete:   true,
+			MaxObjectTTL:  &oneHour,
+		}, func(t *testing.T, project *uplink.Project) {
+			_, err = project.EnsureBucket(ctx, testbucket3)
+			require.NoError(t, err)
+
+			upload, err := project.UploadObject(ctx, testbucket3, testfilename2, nil)
+			require.NoError(t, err)
+			_, err = upload.Write(testdata)
+			require.NoError(t, err)
+			err = upload.Commit()
+			require.NoError(t, err)
+
+			object, err := project.StatObject(ctx, testbucket3, testfilename2)
+			require.NoError(t, err)
+			require.WithinDuration(t, time.Now().Add(oneHour), object.System.Expires, time.Minute)
+
+			_, err = project.DeleteBucketWithObjects(ctx, testbucket3)
+			require.NoError(t, err)
+		})
+
 		withAccessKey(ctx, t, planet, passphrase, b64Salt, "all", []string{}, consolewasm.Permission{
 			AllowDownload: true,
 			AllowUpload:   true,
@@ -344,6 +370,7 @@ func TestSetPermission_Uplink(t *testing.T) {
 			AllowDelete:   true,
 			NotBefore:     time.Now().Add(-24 * time.Hour),
 			NotAfter:      time.Now().Add(24 * time.Hour),
+			MaxObjectTTL:  &oneHour,
 		}, func(t *testing.T, project *uplink.Project) {
 			// All operation allowed
 			_, err = project.CreateBucket(ctx, testbucket3)
@@ -358,6 +385,7 @@ func TestSetPermission_Uplink(t *testing.T) {
 
 			objects := getAllObjects(ctx, project, testbucket3)
 			require.Equal(t, 1, len(objects))
+			require.WithinDuration(t, time.Now().Add(oneHour), objects[0].System.Expires, time.Minute)
 
 			download, err := project.DownloadObject(ctx, testbucket3, testfilename2, nil)
 			require.NoError(t, err)
@@ -378,7 +406,7 @@ func TestSetPermission_Uplink(t *testing.T) {
 
 func getAllObjects(ctx *testcontext.Context, project *uplink.Project, bucket string) []*uplink.Object {
 	var objects = []*uplink.Object{}
-	iter := project.ListObjects(ctx, bucket, nil)
+	iter := project.ListObjects(ctx, bucket, &uplink.ListObjectsOptions{System: true})
 	for iter.Next() {
 		objects = append(objects, iter.Item())
 	}

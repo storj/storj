@@ -22,7 +22,7 @@
                         </v-sheet>
                     </template>
                     <v-card-title class="font-weight-bold">
-                        File Overwrite Warning
+                        Object Overwrite Warning
                     </v-card-title>
                     <template #append>
                         <v-btn
@@ -44,14 +44,14 @@
                         You are uploading to an unversioned bucket.
                     </p>
                     <p>
-                        This non-exhaustive list of files you are uploading have the same names as existing files in this bucket:
+                        This non-exhaustive list of objects you are uploading have the same names as existing objects in this bucket:
                     </p>
                     <v-chip v-for="name in filenames" :key="name" class="font-weight-bold text-wrap mt-3 mr-1 py-2">
                         {{ name }}
                     </v-chip>
                     <p />
                     <v-alert color="default" border variant="tonal" class="my-4">
-                        If you continue with the upload, the existing file(s) will be permanently overwritten, and previous versions cannot be recovered.
+                        If you continue with the upload, the existing object(s) will be permanently overwritten, and previous versions cannot be recovered.
                     </v-alert>
                     <v-checkbox-btn v-model="dismissPermanently" density="comfortable" class="mb-2 ml-n2" label="Do not show this warning again." />
                 </v-col>

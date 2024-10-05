@@ -12,6 +12,7 @@ import (
 	"sync/atomic"
 
 	"storj.io/common/storj"
+	"storj.io/storj/satellite/nodeselection"
 )
 
 // SuccessTracker describes a type that is told about successes of nodes and
@@ -25,7 +26,7 @@ type SuccessTracker interface {
 	// Get returns a value that represents how successful a node is expected to
 	// be. It can return NaN to indicate that it has no information about the
 	// node.
-	Get(node storj.NodeID) float64
+	Get(node *nodeselection.SelectedNode) float64
 
 	// BumpGeneration should be called periodically to clear out stale
 	// information.
@@ -97,7 +98,7 @@ func (t *SuccessTrackers) GetTracker(uplink storj.NodeID) SuccessTracker {
 
 // Get returns a function that can be used to get an estimate of how good a node
 // is for a given uplink.
-func (t *SuccessTrackers) Get(uplink storj.NodeID) func(node storj.NodeID) float64 {
+func (t *SuccessTrackers) Get(uplink storj.NodeID) func(node *nodeselection.SelectedNode) float64 {
 	return t.GetTracker(uplink).Get
 }
 
@@ -131,8 +132,8 @@ func (t *percentSuccessTracker) Increment(node storj.NodeID, success bool) {
 	ctrs[gen].Add(v)
 }
 
-func (t *percentSuccessTracker) Get(node storj.NodeID) float64 {
-	ctrsI, ok := t.data.Load(node)
+func (t *percentSuccessTracker) Get(node *nodeselection.SelectedNode) float64 {
+	ctrsI, ok := t.data.Load(node.ID)
 	if !ok {
 		return math.NaN() // no counter yet means NaN
 	}
@@ -201,8 +202,8 @@ func (t *bitshiftSuccessTracker) Increment(node storj.NodeID, success bool) {
 	increment(ctr, success)
 }
 
-func (t *bitshiftSuccessTracker) Get(node storj.NodeID) float64 {
-	ctrI, ok := t.data.Load(node)
+func (t *bitshiftSuccessTracker) Get(node *nodeselection.SelectedNode) float64 {
+	ctrI, ok := t.data.Load(node.ID)
 	if !ok {
 		return math.NaN() // no counter yet means NaN
 	}
@@ -285,8 +286,8 @@ func (t *bigBitshiftSuccessTracker) Increment(node storj.NodeID, success bool) {
 }
 
 // Get implements SuccessTracker.
-func (t *bigBitshiftSuccessTracker) Get(node storj.NodeID) float64 {
-	ctrI, ok := t.data.Load(node)
+func (t *bigBitshiftSuccessTracker) Get(node *nodeselection.SelectedNode) float64 {
+	ctrI, ok := t.data.Load(node.ID)
 	if !ok {
 		return math.NaN() // no counter yet means NaN
 	}

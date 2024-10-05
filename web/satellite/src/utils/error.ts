@@ -36,3 +36,15 @@ export class DuplicateUploadError extends Error {
         super('Duplicate upload');
     }
 }
+
+/**
+ *  A custom error class for reporting error for object deletes.
+ */
+export class ObjectDeleteError extends Error {
+    constructor(
+        public deletedCount: number,
+        public message: string,
+    ) {
+        super(message);
+    }
+}

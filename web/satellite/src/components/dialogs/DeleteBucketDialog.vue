@@ -261,7 +261,7 @@ async function onDelete(): Promise<void> {
             const accessGrant = accessGrantEvent.data.value;
 
             const edgeCredentials: EdgeCredentials = await agStore.getEdgeCredentials(accessGrant);
-            bucketsStore.setEdgeCredentialsForDelete(edgeCredentials);
+            bucketsStore.setEdgeCredentialsForDelete(edgeCredentials, bucket.value?.objectLockEnabled);
             const deleteRequest = bucketsStore.deleteBucket(props.bucketName);
             bucketsStore.handleDeleteBucketRequest(props.bucketName, deleteRequest);
         } catch (error) {

@@ -189,7 +189,11 @@ async function onCardAdded(res: string): Promise<void> {
         if (props.plan.type === PricingPlanType.PARTNER) {
             await billingStore.purchasePricingPackage(res, paymentElementEnabled.value);
         } else {
-            paymentElementEnabled.value ? await billingStore.addCardByPaymentMethodID(res) : await billingStore.addCreditCard(res);
+            if (paymentElementEnabled.value) {
+                await billingStore.addCardByPaymentMethodID(res);
+            } else {
+                await billingStore.addCreditCard(res);
+            }
         }
         onSuccess();
 

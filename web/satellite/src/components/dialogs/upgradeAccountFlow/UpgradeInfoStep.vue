@@ -68,7 +68,7 @@ import { ArrowRight } from 'lucide-vue-next';
 
 import { useUsersStore } from '@/store/modules/usersStore';
 import { useNotify } from '@/utils/hooks';
-import { useTrialCheck } from '@/composables/useTrialCheck';
+import { usePreCheck } from '@/composables/usePreCheck';
 import { User } from '@/types/users';
 import { Size } from '@/utils/bytesSize';
 
@@ -77,7 +77,7 @@ import InfoBullet from '@/components/dialogs/upgradeAccountFlow/InfoBullet.vue';
 const usersStore = useUsersStore();
 const notify = useNotify();
 const { smAndDown } = useDisplay();
-const { isExpired, expirationInfo } = useTrialCheck();
+const { isExpired, expirationInfo } = usePreCheck();
 
 defineProps<{
     loading: boolean;
@@ -147,7 +147,7 @@ onBeforeMount(async () => {
                 downloadMoreInfo.value = config[partner].downloadMoreInfo;
             }
         }
-    } catch (e) {
+    } catch {
         notify.error('No configuration file for page.', null);
     }
 });

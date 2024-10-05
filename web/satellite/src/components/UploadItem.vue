@@ -78,7 +78,7 @@ const uploadStatus = computed((): string => {
     }
 });
 
-const icon = computed((): FunctionalComponent => {
+const icon = computed((): FunctionalComponent | undefined => {
     if (props.item.status === UploadingStatus.Finished) {
         return CircleCheck;
     } else if (props.item.status === UploadingStatus.Failed) {
@@ -86,7 +86,7 @@ const icon = computed((): FunctionalComponent => {
     } else if (props.item.status === UploadingStatus.Cancelled) {
         return Ban;
     } else {
-        return '';
+        return undefined;
     }
 });
 

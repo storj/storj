@@ -4,14 +4,14 @@
 <template>
     <v-alert
         v-if="alertVisible"
-        class="my-4 pb-4"
+        class="my-4 pb-4 text-primary"
         variant="tonal"
         color="default"
-        title="Object Versioning Beta Available"
+        title="Object Versioning Beta Available - Now with Object Lock"
         closable
         @click:close="closeAlert"
     >
-        <p class="text-body-2 mt-2 mb-3">Choose if you want to take part of the beta, and enable versioning for this project.</p>
+        <p class="text-body-2 mt-2 mb-3">Choose if you want to take part of the beta, and enable versioning with object lock for this project.</p>
         <v-btn
             color="default"
             :append-icon="ArrowRight"

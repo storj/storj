@@ -43,7 +43,8 @@ func CollectRows[T any](iter *spanner.RowIterator, scan func(row *spanner.Row, i
 	}
 }
 
-// CollectRow scans a single row into a slice.
+// CollectRow scans a single row query. It returns errors if the iterator doesn't have exactly one
+// row.
 func CollectRow[T any](iter *spanner.RowIterator, scan func(row *spanner.Row, item *T) error) (r T, _ error) {
 	defer iter.Stop()
 

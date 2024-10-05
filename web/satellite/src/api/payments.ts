@@ -510,6 +510,28 @@ export class PaymentsHttpApi implements PaymentsApi {
     }
 
     /**
+     * add user's default invoice reference.
+     *
+     * @param reference - invoice reference to be shown on invoices
+     * @throws Error
+     */
+    public async addInvoiceReference(reference: string): Promise<BillingInformation> {
+        const path = `${this.ROOT_PATH}/account/invoice-reference`;
+        const response = await this.client.post(path, JSON.stringify({ reference }));
+
+        const result = await response.json();
+        if (!response.ok) {
+            throw new APIError({
+                status: response.status,
+                message: result.error || 'Could not save billing information',
+                requestID: response.headers.get('x-request-id'),
+            });
+        }
+
+        return result;
+    }
+
+    /**
      * save user's billing information.
      *
      * @param address - billing information to save

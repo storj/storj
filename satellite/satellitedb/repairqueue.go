@@ -381,6 +381,8 @@ func (r *repairQueue) Select(ctx context.Context, n int, includedPlacements []st
 			if err != nil {
 				return errs.Wrap(err)
 			}
+			// important: clear segments in case this transaction is being retried
+			segments = segments[:0]
 			err = scanSegments(rows)
 			if err != nil {
 				return err
