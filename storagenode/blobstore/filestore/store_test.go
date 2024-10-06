@@ -44,7 +44,6 @@ func TestStoreLoad(t *testing.T) {
 	defer ctx.Check(store.Close)
 
 	data := testrand.Bytes(blobSize)
-	temp := make([]byte, len(data))
 
 	refs := []blobstore.BlobRef{}
 
@@ -61,9 +60,16 @@ func TestStoreLoad(t *testing.T) {
 		writer, err := store.Create(ctx, ref)
 		require.NoError(t, err)
 
+		err = writer.ReserveHeader(int64(i))
+		require.NoError(t, err)
+
 		n, err := writer.Write(data)
 		require.NoError(t, err)
 		require.Equal(t, n, len(data))
+
+		// we cannot reserve header after writing data
+		err = writer.ReserveHeader(int64(i))
+		require.Error(t, err)
 
 		require.NoError(t, writer.Commit(ctx))
 		// after committing we should be able to call cancel without an error
@@ -96,19 +102,21 @@ func TestStoreLoad(t *testing.T) {
 	}
 
 	// try reading all the blobs
-	for _, ref := range refs {
+	for i, ref := range refs {
 		reader, err := store.Open(ctx, ref)
 		require.NoError(t, err)
 
 		size, err := reader.Size()
 		require.NoError(t, err)
-		require.Equal(t, size, int64(len(data)))
+		// compare to data size and header size
+		require.Equal(t, size, int64(len(data)+i))
 
+		temp := make([]byte, len(data)+i)
 		_, err = io.ReadFull(reader, temp)
 		require.NoError(t, err)
 
 		require.NoError(t, reader.Close())
-		require.Equal(t, data, temp)
+		require.Equal(t, append(make([]byte, i), data...), temp)
 	}
 
 	// delete the blobs

@@ -93,6 +93,14 @@
                                     Lock
                                 </v-list-item-title>
                             </v-list-item>
+                            <v-list-item v-if="objectLockEnabledForBucket" density="comfortable" link @click="emit('legalHoldClick')">
+                                <template #prepend>
+                                    <component :is="FileLock2" :size="18" />
+                                </template>
+                                <v-list-item-title class="ml-3 text-body-2 font-weight-medium">
+                                    Legal Hold
+                                </v-list-item-title>
+                            </v-list-item>
                             <v-list-item v-if="isVersion && !isFileDeleted && !file.isLatest && !file.isDeleteMarker" density="comfortable" link @click="emit('restoreObjectClick')">
                                 <template #prepend>
                                     <component :is="Redo2" :size="18" />
@@ -145,7 +153,7 @@ import {
     VIcon,
     VBtn, VTooltip,
 } from 'vuetify/components';
-import { Ellipsis, Share, Download, ZoomIn, Trash2, Redo2, Lock } from 'lucide-vue-next';
+import { Ellipsis, Share, Download, ZoomIn, Trash2, Redo2, Lock, FileLock2 } from 'lucide-vue-next';
 
 import {
     BrowserObject,
@@ -181,6 +189,7 @@ const emit = defineEmits<{
     shareClick: [];
     restoreObjectClick: [];
     lockObjectClick: [];
+    legalHoldClick: [];
     lockedObjectDelete: [FullBrowserObject];
 }>();
 

@@ -27,6 +27,9 @@ import {
     DeleteMarkerEntry,
     DeleteObjectsCommand,
     ObjectLockMode,
+    PutObjectLegalHoldCommand,
+    GetObjectLegalHoldCommand,
+    ObjectLockLegalHoldStatus,
 } from '@aws-sdk/client-s3';
 import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
 import { Progress, Upload } from '@aws-sdk/lib-storage';
@@ -812,6 +815,31 @@ export const useObjectBrowserStore = defineStore('objectBrowser', () => {
         }));
     }
 
+    async function legalHoldObject(file: BrowserObject, status: ObjectLockLegalHoldStatus): Promise<void> {
+        assertIsInitialized(state);
+
+        await state.s3.send(new PutObjectLegalHoldCommand({
+            Bucket: state.bucket,
+            Key: state.path + file.Key,
+            VersionId: file['VersionId'] ?? undefined,
+            LegalHold: {
+                Status: status,
+            },
+        }));
+    }
+
+    async function getObjectLegalHold(file: BrowserObject): Promise<boolean> {
+        assertIsInitialized(state);
+
+        const res = await state.s3.send(new GetObjectLegalHoldCommand({
+            Bucket: state.bucket,
+            Key: state.path + file.Key,
+            VersionId: file['VersionId'] ?? undefined,
+        }));
+
+        return res?.LegalHold?.Status === ObjectLockLegalHoldStatus.ON;
+    }
+
     async function getObjectRetention(file: BrowserObject): Promise<Retention> {
         assertIsInitialized(state);
 
@@ -1211,6 +1239,8 @@ export const useObjectBrowserStore = defineStore('objectBrowser', () => {
         createFolder,
         getObjectRetention,
         lockObject,
+        legalHoldObject,
+        getObjectLegalHold,
         deleteObject,
         deleteObjectWithVersions,
         deleteFolder,

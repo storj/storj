@@ -11,7 +11,7 @@ import (
 
 	"cloud.google.com/go/spanner"
 	database "cloud.google.com/go/spanner/admin/database/apiv1"
-	"cloud.google.com/go/spanner/admin/database/apiv1/databasepb"
+	databasepb "cloud.google.com/go/spanner/admin/database/apiv1/databasepb"
 	"github.com/stretchr/testify/require"
 	"github.com/zeebo/errs"
 
@@ -27,21 +27,20 @@ var Error = errs.Class("spannertest")
 // RunClient creates a new temporary spanner database, executes the ddls and finally connects a spanner client to it.
 func RunClient(ctx context.Context, t *testing.T, ddls string, run func(t *testing.T, client *spanner.Client)) {
 	connurl := dbtest.PickSpanner(t)
-	schemeconnstr := strings.TrimPrefix(connurl, "spanner://")
-	connstr := schemeconnstr + "_" + strings.ToLower(string(testrand.RandAlphaNumeric(8)))
-	project, instance, databaseName, err := spannerutil.ParseConnStr(connstr)
+
+	params, err := spannerutil.ParseConnStr(connurl)
 	require.NoError(t, err)
 
-	admin, err := database.NewDatabaseAdminClient(ctx)
+	params.Database += "_" + strings.ToLower(string(testrand.RandAlphaNumeric(8)))
+
+	admin, err := database.NewDatabaseAdminClient(ctx, params.ClientOptions()...)
 	require.NoError(t, err)
-	defer func() {
-		require.NoError(t, admin.Close())
-	}()
+	defer func() { require.NoError(t, admin.Close()) }()
 
 	req := &databasepb.CreateDatabaseRequest{
-		Parent:          "projects/" + project + "/instances/" + instance,
+		Parent:          params.InstancePath(),
 		DatabaseDialect: databasepb.DatabaseDialect_GOOGLE_STANDARD_SQL,
-		CreateStatement: "CREATE DATABASE " + *databaseName,
+		CreateStatement: "CREATE DATABASE `" + params.Database + "`",
 	}
 
 	for _, ddl := range strings.Split(ddls, ";") {
@@ -61,12 +60,12 @@ func RunClient(ctx context.Context, t *testing.T, ddls string, run func(t *testi
 		defer cancel()
 
 		err := admin.DropDatabase(ctx, &databasepb.DropDatabaseRequest{
-			Database: connstr,
+			Database: params.DatabasePath(),
 		})
 		require.NoError(t, err)
 	}()
 
-	client, err := spanner.NewClient(ctx, connstr)
+	client, err := spanner.NewClient(ctx, params.DatabasePath(), params.ClientOptions()...)
 	require.NoError(t, err)
 	defer client.Close()
 

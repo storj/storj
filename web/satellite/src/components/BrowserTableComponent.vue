@@ -97,6 +97,7 @@
                             @delete-file-click="onDeleteFileClick((item as BrowserObjectWrapper).browserObject)"
                             @share-click="onShareClick((item as BrowserObjectWrapper).browserObject)"
                             @lock-object-click="onLockObjectClick((item as BrowserObjectWrapper).browserObject)"
+                            @legal-hold-click="onLegalHoldClick((item as BrowserObjectWrapper).browserObject)"
                             @locked-object-delete="(fullObject) => onLockedObjectDelete(fullObject)"
                         />
                     </template>
@@ -187,7 +188,11 @@
     <lock-object-dialog
         v-model="isLockDialogShown"
         :file="lockActionFile"
-        @file-locked="refreshPage"
+        @content-removed="lockActionFile = null"
+    />
+    <legal-hold-object-dialog
+        v-model="isLegalHoldDialogShown"
+        :file="lockActionFile"
         @content-removed="lockActionFile = null"
     />
     <locked-delete-error-dialog
@@ -244,6 +249,7 @@ import ShareDialog from '@/components/dialogs/ShareDialog.vue';
 import DeleteVersionedFileDialog from '@/components/dialogs/DeleteVersionedFileDialog.vue';
 import LockObjectDialog from '@/components/dialogs/LockObjectDialog.vue';
 import LockedDeleteErrorDialog from '@/components/dialogs/LockedDeleteErrorDialog.vue';
+import LegalHoldObjectDialog from '@/components/dialogs/LegalHoldObjectDialog.vue';
 
 type SortKey = 'name' | 'type' | 'size' | 'date';
 
@@ -286,6 +292,7 @@ const isDeleteFileDialogShown = ref<boolean>(false);
 const fileToShare = ref<BrowserObject | null>(null);
 const isShareDialogShown = ref<boolean>(false);
 const isLockDialogShown = ref<boolean>(false);
+const isLegalHoldDialogShown = ref<boolean>(false);
 const isLockedObjectDeleteDialogShown = ref<boolean>(false);
 const routePageCache = new Map<string, number>();
 
@@ -626,6 +633,14 @@ function onShareClick(file: BrowserObject): void {
 function onLockObjectClick(file: BrowserObject): void {
     lockActionFile.value = file;
     isLockDialogShown.value = true;
+}
+
+/**
+ * Handles legal hold button click event.
+ */
+function onLegalHoldClick(file: BrowserObject): void {
+    lockActionFile.value = file;
+    isLegalHoldDialogShown.value = true;
 }
 
 /**

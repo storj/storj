@@ -75,7 +75,7 @@ type Writer struct {
 func NewWriter(log *zap.Logger, blobWriter blobstore.BlobWriter, blobs blobstore.Blobs, satellite storj.NodeID, hashAlgorithm pb.PieceHashAlgorithm) (*Writer, error) {
 	w := &Writer{log: log}
 	if blobWriter.StorageFormatVersion() >= filestore.FormatV1 {
-		// We skip past the reserved header area for now- we want the header to be at the
+		// We are reserving header area for now- we want the header to be at the
 		// beginning of the file, to make it quick to seek there and also to make it easier
 		// to identify situations where a blob file has been truncated incorrectly. And we
 		// don't know what exactly is going to be in the header yet--we won't know what the
@@ -84,7 +84,7 @@ func NewWriter(log *zap.Logger, blobWriter blobstore.BlobWriter, blobs blobstore
 		//
 		// Once the writer calls Commit() on this writer, we will seek back to the beginning
 		// of the file and write the header.
-		if _, err := blobWriter.Seek(V1PieceHeaderReservedArea, io.SeekStart); err != nil {
+		if err := blobWriter.ReserveHeader(int64(V1PieceHeaderReservedArea)); err != nil {
 			return nil, Error.Wrap(err)
 		}
 	}

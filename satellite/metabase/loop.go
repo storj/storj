@@ -5,6 +5,7 @@ package metabase
 
 import (
 	"context"
+	"database/sql"
 	"errors"
 	"math"
 	"time"
@@ -410,15 +411,34 @@ func (it *spannerLoopSegmentIterator) scanItem(ctx context.Context, item *LoopSe
 	var createdAt time.Time
 	var repairedAt, expiresAt spanner.NullTime
 	var encryptedSize, plainOffset, plainSize, placement int64
-	if err := it.curRow.Columns(&item.StreamID, &position,
-		&createdAt, &expiresAt, &repairedAt,
-		&item.RootPieceID,
-		&encryptedSize, &plainOffset, &plainSize,
-		redundancyScheme{&item.Redundancy},
-		&item.AliasPieces,
-		&placement,
-	); err != nil {
-		return Error.New("failed to scan segment: %w", err)
+
+	if it.db.Implementation() == dbutil.Spanner {
+		spannerPlacement := sql.NullInt64{}
+		if err := it.curRow.Columns(&item.StreamID, &position,
+			&createdAt, &expiresAt, &repairedAt,
+			&item.RootPieceID,
+			&encryptedSize, &plainOffset, &plainSize,
+			redundancyScheme{&item.Redundancy},
+			&item.AliasPieces,
+			&spannerPlacement,
+		); err != nil {
+			return Error.New("failed to scan segment: %w", err)
+		}
+		if spannerPlacement.Valid {
+			placement = spannerPlacement.Int64
+		}
+	} else {
+		if err := it.curRow.Columns(&item.StreamID, &position,
+			&createdAt, &expiresAt, &repairedAt,
+			&item.RootPieceID,
+			&encryptedSize, &plainOffset, &plainSize,
+			redundancyScheme{&item.Redundancy},
+			&item.AliasPieces,
+			&placement,
+		); err != nil {
+			return Error.New("failed to scan segment: %w", err)
+		}
+
 	}
 
 	item.Position = SegmentPositionFromEncoded(uint64(position))

@@ -35,6 +35,7 @@ import (
 	"storj.io/storj/satellite/snopayouts"
 	"storj.io/storj/shared/dbutil"
 	"storj.io/storj/shared/dbutil/pgutil"
+	"storj.io/storj/shared/dbutil/spannerutil"
 	"storj.io/storj/shared/lrucache"
 	"storj.io/storj/shared/tagsql"
 )
@@ -132,14 +133,22 @@ func open(ctx context.Context, log *zap.Logger, databaseURL string, opts Options
 		}
 	}
 
-	dbxDB, err := dbx.Open(driver, source)
+	dbxSource := source
+	if impl == dbutil.Spanner {
+		params, err := spannerutil.ParseConnStr(source)
+		if err != nil {
+			return nil, Error.New("invalid connection string for Spanner: %w", err)
+		}
+		dbxSource = params.GoSqlSpannerConnStr()
+	}
+
+	dbxDB, err := dbx.Open(driver, dbxSource)
 	if err != nil {
-		return nil, Error.New("failed opening database via DBX at %q: %v",
-			source, err)
+		return nil, Error.New("failed opening database via DBX at %q: %v", dbxSource, err)
 	}
 
 	if log.Level() == zap.DebugLevel {
-		log.Debug("Connected to:", zap.String("db source", logging.Redacted(source)))
+		log.Debug("Connected to:", zap.String("db source", logging.Redacted(dbxSource)))
 	}
 
 	name := "satellitedb"
