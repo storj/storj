@@ -5,9 +5,12 @@ package migrate
 
 import (
 	"context"
+	"crypto/rand"
 	"database/sql"
+	"encoding/hex"
 	"errors"
 	"fmt"
+	"regexp"
 	"strings"
 
 	spannerdriver "github.com/googleapis/go-sql-spanner"
@@ -61,7 +64,7 @@ func Create(ctx context.Context, identifier string, db DBX) error {
 }
 
 // CreateSpanner creates the migration schema necessary to execute migrations in Spanner.
-func CreateSpanner(ctx context.Context, identifier string, db DBX) error {
+func CreateSpanner(ctx context.Context, identifier string, db DBX, forEmulator bool) error {
 	schema := strings.Join(db.Schema(), ";\n")
 
 	// Spanner does not support DDL in transactions https://github.com/googleapis/go-sql-spanner?tab=readme-ov-file#ddl-statements
@@ -94,7 +97,26 @@ func CreateSpanner(ctx context.Context, identifier string, db DBX) error {
 			return fmt.Errorf("conn.Raw failed: %w", err)
 		}
 
+		// TODO(spanner): workaround for bug in spanner emulator where
+		// sequence names collide between databases.
+		var uniqueSuffix string
+
 		for _, schemaDDL := range db.Schema() {
+			if forEmulator {
+				if uniqueSuffix == "" {
+					uniqueSuffix = generateUniqueSuffix()
+				}
+
+				if strings.Contains(schemaDDL, "SEQUENCE") {
+					schemaDDL = rxSpannerCreateSequence.ReplaceAllStringFunc(schemaDDL, func(match string) string {
+						return match + "_" + uniqueSuffix
+					})
+					schemaDDL = rxSpannerNextSequence.ReplaceAllStringFunc(schemaDDL, func(match string) string {
+						return match + "_" + uniqueSuffix
+					})
+				}
+			}
+
 			if _, err := conn.ExecContext(ctx, schemaDDL); err != nil {
 				return err
 			}
@@ -121,5 +143,15 @@ func CreateSpanner(ctx context.Context, identifier string, db DBX) error {
 	}
 
 	return Error.Wrap(err)
-
 }
+
+func generateUniqueSuffix() string {
+	var uniqueSuffix [8]byte
+	_, _ = rand.Read(uniqueSuffix[:])
+	return hex.EncodeToString(uniqueSuffix[:])
+}
+
+var (
+	rxSpannerCreateSequence = regexp.MustCompile(`CREATE SEQUENCE ([a-zA-Z_]+)`)
+	rxSpannerNextSequence   = regexp.MustCompile(`GET_NEXT_SEQUENCE_VALUE\(SEQUENCE ([a-zA-Z_]+)`)
+)

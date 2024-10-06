@@ -8,7 +8,10 @@ import (
 	"testing"
 	"time"
 
+	"github.com/google/go-cmp/cmp"
+	"github.com/google/go-cmp/cmp/cmpopts"
 	"github.com/stretchr/testify/require"
+	"github.com/zeebo/errs"
 
 	"storj.io/common/errs2"
 	"storj.io/common/testcontext"
@@ -177,7 +180,6 @@ func TestParallel(t *testing.T) {
 	satellitedbtest.Run(t, func(ctx *testcontext.Context, t *testing.T, db satellite.DB) {
 		q := db.RepairQueue()
 		const N = 20
-		entries := make(chan queue.InjuredSegment, N)
 
 		expectedSegments := make([]queue.InjuredSegment, N)
 		for i := 0; i < N; i++ {
@@ -194,6 +196,12 @@ func TestParallel(t *testing.T) {
 			inserts.Go(func() error {
 				alreadyInserted, err := q.Insert(ctx, &expectedSegments[i])
 				require.False(t, alreadyInserted)
+
+				// just to make expectedSegments match the values to be retrieved
+				now := time.Now()
+				expectedSegments[i].AttemptedAt = &now
+				expectedSegments[i].InsertedAt = now
+				expectedSegments[i].UpdatedAt = now
 				return err
 			})
 		}
@@ -204,12 +212,17 @@ func TestParallel(t *testing.T) {
 		require.Equal(t, N, count)
 
 		// Remove from queue concurrently
+		items := make([]queue.InjuredSegment, N)
 		var remove errs2.Group
 		for i := 0; i < N; i++ {
+			i := i
 			remove.Go(func() error {
 				s, err := q.Select(ctx, 1, nil, nil)
 				if err != nil {
 					return err
+				}
+				if len(s) != 1 {
+					return errs.New("got %d segments, expected 1: %+v", len(s), s)
 				}
 
 				err = q.Delete(ctx, s[0])
@@ -217,29 +230,20 @@ func TestParallel(t *testing.T) {
 					return err
 				}
 
-				entries <- s[0]
+				items[i] = s[0]
 				return nil
 			})
 		}
 
 		require.Empty(t, remove.Wait(), "unexpected queue.Select/Delete errors")
-		close(entries)
-
-		var items []queue.InjuredSegment
-		for segment := range entries {
-			items = append(items, segment)
-		}
 
 		sort.Slice(items, func(i, k int) bool {
 			return items[i].SegmentHealth < items[k].SegmentHealth
 		})
 
 		// check if the enqueued and dequeued elements match
-		for i := 0; i < N; i++ {
-			require.Equal(t, expectedSegments[i].StreamID, items[i].StreamID)
-			require.Equal(t, expectedSegments[i].Position, items[i].Position)
-			require.Equal(t, expectedSegments[i].SegmentHealth, items[i].SegmentHealth)
-		}
+		diff := cmp.Diff(expectedSegments, items, cmpopts.EquateApproxTime(time.Hour))
+		require.Zero(t, diff)
 
 		count, err = q.Count(ctx)
 		require.NoError(t, err)

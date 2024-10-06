@@ -139,7 +139,7 @@ func Open(ctx context.Context, log *zap.Logger, connstr string, config Config) (
 			}
 		case dbutil.Spanner:
 			adapter, err := NewSpannerAdapter(ctx, SpannerConfig{
-				Database:        spannerutil.DSNFromURL(source),
+				Database:        source,
 				ApplicationName: config.ApplicationName,
 			}, log)
 			if err != nil {

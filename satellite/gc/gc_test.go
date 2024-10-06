@@ -39,7 +39,7 @@ import (
 // * Check that pieces of the kept object are not deleted on the storagenode.
 func TestGarbageCollection(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
-		SatelliteCount: 2, StorageNodeCount: 1, UplinkCount: 1,
+		SatelliteCount: 2, StorageNodeCount: 1, UplinkCount: 1, EnableSpanner: true,
 		Reconfigure: testplanet.Reconfigure{
 			StorageNode: func(index int, config *storagenode.Config) {
 				config.Retain.MaxTimeSkew = -time.Minute
@@ -151,7 +151,7 @@ func TestGarbageCollection(t *testing.T) {
 // affecting GC and nothing unexpected was deleted from storage nodes.
 func TestGarbageCollectionWithCopies(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
-		SatelliteCount: 1, StorageNodeCount: 4, UplinkCount: 1,
+		SatelliteCount: 1, StorageNodeCount: 4, UplinkCount: 1, EnableSpanner: true,
 		Reconfigure: testplanet.Reconfigure{
 			Satellite: testplanet.ReconfigureRS(2, 3, 4, 4),
 		},
@@ -306,7 +306,7 @@ func TestGarbageCollectionWithCopies(t *testing.T) {
 // affecting GC and nothing unexpected was deleted from storage nodes.
 func TestGarbageCollectionWithCopiesWithDuplicateMetadata(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
-		SatelliteCount: 1, StorageNodeCount: 4, UplinkCount: 1,
+		SatelliteCount: 1, StorageNodeCount: 4, UplinkCount: 1, EnableSpanner: true,
 		Reconfigure: testplanet.Reconfigure{
 			Satellite: testplanet.ReconfigureRS(2, 3, 4, 4),
 		},
@@ -460,7 +460,7 @@ func TestGarbageCollectionWithCopiesWithDuplicateMetadata(t *testing.T) {
 // are also processed by GC piece tracker.
 func TestGarbageCollection_PendingObject(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
-		SatelliteCount: 1, StorageNodeCount: 1, UplinkCount: 1,
+		SatelliteCount: 1, StorageNodeCount: 1, UplinkCount: 1, EnableSpanner: true,
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 		access := planet.Uplinks[0].Access[planet.Satellites[0].ID()]
 		accessString, err := access.Serialize()

@@ -151,6 +151,20 @@
                                 Share Bucket
                             </v-list-item-title>
                         </v-list-item>
+                        <v-list-item
+                            density="comfortable"
+                            link
+                            @click="isBucketDetailsDialogShown = true"
+                        >
+                            <template #prepend>
+                                <component :is="ReceiptText" :size="18" />
+                            </template>
+                            <v-list-item-title
+                                class="ml-3 text-body-2 font-weight-medium"
+                            >
+                                Bucket Details
+                            </v-list-item-title>
+                        </v-list-item>
                         <v-divider class="my-1" />
                         <v-list-item
                             density="comfortable"
@@ -233,6 +247,7 @@
     <browser-new-folder-dialog v-model="isNewFolderDialogOpen" />
     <enter-bucket-passphrase-dialog v-model="isBucketPassphraseDialogOpen" @passphrase-entered="initObjectStore" />
     <share-dialog v-model="isShareBucketDialogShown" :bucket-name="bucketName" />
+    <bucket-details-dialog v-model="isBucketDetailsDialogShown" :bucket-name="bucketName" />
     <delete-bucket-dialog v-model="isDeleteBucketDialogShown" :bucket-name="bucketName" @deleted="onBucketDeleted" />
     <toggle-versioning-dialog v-model="bucketToToggleVersioning" @toggle="() => bucketsStore.getAllBucketsMetadata(projectId)" />
     <upload-overwrite-warning-dialog
@@ -270,6 +285,7 @@ import { FileUp,
     Settings,
     Upload,
     Share,
+    ReceiptText,
     Trash2,
     History,
     CirclePause,
@@ -303,6 +319,7 @@ import DropzoneDialog from '@/components/dialogs/DropzoneDialog.vue';
 import BrowserCardViewComponent from '@/components/BrowserCardViewComponent.vue';
 import IconFolder from '@/components/icons/IconFolder.vue';
 import ShareDialog from '@/components/dialogs/ShareDialog.vue';
+import BucketDetailsDialog from '@/components/dialogs/BucketDetailsDialog.vue';
 import DeleteBucketDialog from '@/components/dialogs/DeleteBucketDialog.vue';
 import ToggleVersioningDialog from '@/components/dialogs/ToggleVersioningDialog.vue';
 import UploadOverwriteWarningDialog from '@/components/dialogs/UploadOverwriteWarningDialog.vue';
@@ -331,6 +348,7 @@ const isDragging = ref<boolean>(false);
 const isBucketPassphraseDialogOpen = ref<boolean>(false);
 const isNewFolderDialogOpen = ref<boolean>(false);
 const isShareBucketDialogShown = ref<boolean>(false);
+const isBucketDetailsDialogShown = ref<boolean>(false);
 const isDeleteBucketDialogShown = ref<boolean>(false);
 const isDuplicateUploadDialogShown = ref<boolean>(false);
 const bucketToToggleVersioning = ref<BucketMetadata | null>(null);

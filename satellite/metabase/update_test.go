@@ -24,8 +24,6 @@ func TestUpdateSegmentPieces(t *testing.T) {
 	metabasetest.Run(t, func(ctx *testcontext.Context, t *testing.T, db *metabase.DB) {
 		obj := metabasetest.RandObjectStream()
 
-		now := time.Now()
-
 		validPieces := []metabase.Piece{{
 			Number:      1,
 			StorageNode: testrand.NodeID(),
@@ -237,6 +235,8 @@ func TestUpdateSegmentPieces(t *testing.T) {
 		t.Run("segment pieces column was changed", func(t *testing.T) {
 			defer metabasetest.DeleteAll{}.Check(ctx, t, db)
 
+			now := time.Now()
+
 			obj := metabasetest.CreateObject(ctx, t, db, obj, 1)
 
 			newRedundancy := storj.RedundancyScheme{
@@ -289,6 +289,8 @@ func TestUpdateSegmentPieces(t *testing.T) {
 
 		t.Run("update pieces", func(t *testing.T) {
 			defer metabasetest.DeleteAll{}.Check(ctx, t, db)
+
+			now := time.Now()
 
 			object := metabasetest.CreateObject(ctx, t, db, obj, 1)
 
@@ -344,6 +346,8 @@ func TestUpdateSegmentPieces(t *testing.T) {
 
 		t.Run("update pieces and repair at", func(t *testing.T) {
 			defer metabasetest.DeleteAll{}.Check(ctx, t, db)
+
+			now := time.Now()
 
 			object := metabasetest.CreateObject(ctx, t, db, obj, 1)
 
@@ -646,11 +650,6 @@ func TestSetObjectLastCommittedLegalHold(t *testing.T) {
 		objStream := metabasetest.RandObjectStream()
 		loc := objStream.Location()
 
-		activeRetention := metabase.Retention{
-			Mode:        storj.ComplianceMode,
-			RetainUntil: time.Now().Add(time.Hour),
-		}
-
 		createObject := func(t *testing.T, objStream metabase.ObjectStream, retention metabase.Retention, legalHold bool) metabase.Object {
 			obj, _ := metabasetest.CreateTestObject{
 				BeginObjectExactVersion: &metabase.BeginObjectExactVersion{
@@ -672,7 +671,10 @@ func TestSetObjectLastCommittedLegalHold(t *testing.T) {
 
 			objStream := objStream
 
-			obj1 := createObject(t, objStream, activeRetention, false)
+			obj1 := createObject(t, objStream, metabase.Retention{
+				Mode:        storj.ComplianceMode,
+				RetainUntil: time.Now().Add(time.Hour),
+			}, false)
 			objStream.Version++
 			obj2 := createObject(t, objStream, metabase.Retention{}, false)
 
@@ -698,7 +700,10 @@ func TestSetObjectLastCommittedLegalHold(t *testing.T) {
 			defer metabasetest.DeleteAll{}.Check(ctx, t, db)
 
 			objStream := objStream
-			createObject(t, objStream, activeRetention, true)
+			createObject(t, objStream, metabase.Retention{
+				Mode:        storj.ComplianceMode,
+				RetainUntil: time.Now().Add(time.Hour),
+			}, true)
 
 			metabasetest.SetObjectLastCommittedLegalHold{
 				Opts: metabase.SetObjectLastCommittedLegalHold{
@@ -838,9 +843,6 @@ func TestSetObjectExactVersionRetention(t *testing.T) {
 		objStream := metabasetest.RandObjectStream()
 		loc := objStream.Location()
 
-		future := time.Now().Add(time.Hour)
-		past := time.Now().Add(-time.Minute)
-
 		createObject := func(t *testing.T, objStream metabase.ObjectStream, retention metabase.Retention) metabase.Object {
 			obj, _ := metabasetest.CreateTestObject{
 				BeginObjectExactVersion: &metabase.BeginObjectExactVersion{
@@ -872,6 +874,8 @@ func TestSetObjectExactVersionRetention(t *testing.T) {
 			for _, tt := range testCases {
 				t.Run(tt.name, func(t *testing.T) {
 					defer metabasetest.DeleteAll{}.Check(ctx, t, db)
+
+					future := time.Now().Add(time.Hour)
 
 					objStream := objStream
 
@@ -924,6 +928,9 @@ func TestSetObjectExactVersionRetention(t *testing.T) {
 			for _, tt := range testCases {
 				t.Run(tt.name, func(t *testing.T) {
 					defer metabasetest.DeleteAll{}.Check(ctx, t, db)
+
+					future := time.Now().Add(time.Hour)
+					past := time.Now().Add(-time.Minute)
 
 					objStream := objStream
 
@@ -1011,6 +1018,8 @@ func TestSetObjectExactVersionRetention(t *testing.T) {
 				t.Run(tt.name, func(t *testing.T) {
 					defer metabasetest.DeleteAll{}.Check(ctx, t, db)
 
+					future := time.Now().Add(time.Hour)
+
 					obj := createObject(t, objStream, metabase.Retention{
 						Mode:        tt.mode,
 						RetainUntil: future,
@@ -1063,6 +1072,8 @@ func TestSetObjectExactVersionRetention(t *testing.T) {
 
 		t.Run("Change retention mode", func(t *testing.T) {
 			defer metabasetest.DeleteAll{}.Check(ctx, t, db)
+
+			future := time.Now().Add(time.Hour)
 
 			obj := createObject(t, objStream, metabase.Retention{
 				Mode:        storj.GovernanceMode,
@@ -1128,13 +1139,14 @@ func TestSetObjectExactVersionRetention(t *testing.T) {
 			}.Check(ctx, t, db)
 		})
 
-		retention := metabase.Retention{
-			Mode:        storj.ComplianceMode,
-			RetainUntil: future,
-		}
-
 		t.Run("Invalid retention", func(t *testing.T) {
 			defer metabasetest.DeleteAll{}.Check(ctx, t, db)
+
+			future := time.Now().Add(time.Hour)
+			retention := metabase.Retention{
+				Mode:        storj.ComplianceMode,
+				RetainUntil: future,
+			}
 
 			obj := createObject(t, objStream, retention)
 
@@ -1171,6 +1183,12 @@ func TestSetObjectExactVersionRetention(t *testing.T) {
 		t.Run("Missing object", func(t *testing.T) {
 			defer metabasetest.DeleteAll{}.Check(ctx, t, db)
 
+			future := time.Now().Add(time.Hour)
+			retention := metabase.Retention{
+				Mode:        storj.ComplianceMode,
+				RetainUntil: future,
+			}
+
 			metabasetest.SetObjectExactVersionRetention{
 				Opts: metabase.SetObjectExactVersionRetention{
 					ObjectLocation: loc,
@@ -1199,6 +1217,12 @@ func TestSetObjectExactVersionRetention(t *testing.T) {
 		t.Run("Pending object", func(t *testing.T) {
 			defer metabasetest.DeleteAll{}.Check(ctx, t, db)
 
+			future := time.Now().Add(time.Hour)
+			retention := metabase.Retention{
+				Mode:        storj.ComplianceMode,
+				RetainUntil: future,
+			}
+
 			pending := metabasetest.BeginObjectExactVersion{
 				Opts: metabase.BeginObjectExactVersion{
 					ObjectStream: objStream,
@@ -1223,6 +1247,12 @@ func TestSetObjectExactVersionRetention(t *testing.T) {
 
 		t.Run("Delete marker", func(t *testing.T) {
 			defer metabasetest.DeleteAll{}.Check(ctx, t, db)
+
+			future := time.Now().Add(time.Hour)
+			retention := metabase.Retention{
+				Mode:        storj.ComplianceMode,
+				RetainUntil: future,
+			}
 
 			object := metabasetest.CreateObject(ctx, t, db, objStream, 0)
 
@@ -1250,6 +1280,12 @@ func TestSetObjectExactVersionRetention(t *testing.T) {
 
 		t.Run("Object with TTL", func(t *testing.T) {
 			defer metabasetest.DeleteAll{}.Check(ctx, t, db)
+
+			future := time.Now().Add(time.Hour)
+			retention := metabase.Retention{
+				Mode:        storj.ComplianceMode,
+				RetainUntil: future,
+			}
 
 			ttlObj, _ := metabasetest.CreateTestObject{
 				BeginObjectExactVersion: &metabase.BeginObjectExactVersion{
@@ -1284,9 +1320,6 @@ func TestSetObjectLastCommittedRetention(t *testing.T) {
 		objStream := metabasetest.RandObjectStream()
 		loc := objStream.Location()
 
-		future := time.Now().Add(time.Hour)
-		past := time.Now().Add(-time.Minute)
-
 		createObject := func(t *testing.T, objStream metabase.ObjectStream, retention metabase.Retention) metabase.Object {
 			obj, _ := metabasetest.CreateTestObject{
 				BeginObjectExactVersion: &metabase.BeginObjectExactVersion{
@@ -1318,6 +1351,8 @@ func TestSetObjectLastCommittedRetention(t *testing.T) {
 			for _, tt := range testCases {
 				t.Run(tt.name, func(t *testing.T) {
 					defer metabasetest.DeleteAll{}.Check(ctx, t, db)
+
+					future := time.Now().Add(time.Hour)
 
 					objStream := objStream
 
@@ -1359,6 +1394,9 @@ func TestSetObjectLastCommittedRetention(t *testing.T) {
 			for _, tt := range testCases {
 				t.Run(tt.name, func(t *testing.T) {
 					defer metabasetest.DeleteAll{}.Check(ctx, t, db)
+
+					future := time.Now().Add(time.Hour)
+					past := time.Now().Add(-time.Minute)
 
 					objStream := objStream
 
@@ -1442,6 +1480,8 @@ func TestSetObjectLastCommittedRetention(t *testing.T) {
 				t.Run(tt.name, func(t *testing.T) {
 					defer metabasetest.DeleteAll{}.Check(ctx, t, db)
 
+					future := time.Now().Add(time.Hour)
+
 					obj := createObject(t, objStream, metabase.Retention{
 						Mode:        tt.mode,
 						RetainUntil: future,
@@ -1493,6 +1533,8 @@ func TestSetObjectLastCommittedRetention(t *testing.T) {
 
 		t.Run("Change retention mode", func(t *testing.T) {
 			defer metabasetest.DeleteAll{}.Check(ctx, t, db)
+
+			future := time.Now().Add(time.Hour)
 
 			obj := createObject(t, objStream, metabase.Retention{
 				Mode:        storj.GovernanceMode,
@@ -1557,13 +1599,14 @@ func TestSetObjectLastCommittedRetention(t *testing.T) {
 			}.Check(ctx, t, db)
 		})
 
-		retention := metabase.Retention{
-			Mode:        storj.ComplianceMode,
-			RetainUntil: future,
-		}
-
 		t.Run("Invalid retention", func(t *testing.T) {
 			defer metabasetest.DeleteAll{}.Check(ctx, t, db)
+
+			future := time.Now().Add(time.Hour)
+			retention := metabase.Retention{
+				Mode:        storj.ComplianceMode,
+				RetainUntil: future,
+			}
 
 			obj := createObject(t, objStream, retention)
 
@@ -1599,6 +1642,12 @@ func TestSetObjectLastCommittedRetention(t *testing.T) {
 		t.Run("Missing object", func(t *testing.T) {
 			defer metabasetest.DeleteAll{}.Check(ctx, t, db)
 
+			future := time.Now().Add(time.Hour)
+			retention := metabase.Retention{
+				Mode:        storj.ComplianceMode,
+				RetainUntil: future,
+			}
+
 			metabasetest.SetObjectLastCommittedRetention{
 				Opts: metabase.SetObjectLastCommittedRetention{
 					ObjectLocation: loc,
@@ -1612,6 +1661,12 @@ func TestSetObjectLastCommittedRetention(t *testing.T) {
 
 		t.Run("Pending object", func(t *testing.T) {
 			defer metabasetest.DeleteAll{}.Check(ctx, t, db)
+
+			future := time.Now().Add(time.Hour)
+			retention := metabase.Retention{
+				Mode:        storj.ComplianceMode,
+				RetainUntil: future,
+			}
 
 			objStream := objStream
 
@@ -1660,6 +1715,12 @@ func TestSetObjectLastCommittedRetention(t *testing.T) {
 		t.Run("Delete marker", func(t *testing.T) {
 			defer metabasetest.DeleteAll{}.Check(ctx, t, db)
 
+			future := time.Now().Add(time.Hour)
+			retention := metabase.Retention{
+				Mode:        storj.ComplianceMode,
+				RetainUntil: future,
+			}
+
 			object := metabasetest.CreateObject(ctx, t, db, objStream, 0)
 
 			deleteResult, err := db.DeleteObjectLastCommitted(ctx, metabase.DeleteObjectLastCommitted{
@@ -1685,6 +1746,12 @@ func TestSetObjectLastCommittedRetention(t *testing.T) {
 
 		t.Run("Object with TTL", func(t *testing.T) {
 			defer metabasetest.DeleteAll{}.Check(ctx, t, db)
+
+			future := time.Now().Add(time.Hour)
+			retention := metabase.Retention{
+				Mode:        storj.ComplianceMode,
+				RetainUntil: future,
+			}
 
 			expiresAt := time.Now().Add(time.Minute)
 

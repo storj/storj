@@ -90,11 +90,9 @@ func AttributeGroupSelector(attribute NodeAttribute) NodeSelectorInit {
 			if filter != nil && !filter.Match(node) {
 				continue
 			}
-			a := attribute(*node)
-			if _, found := nodeByAttribute[a]; !found {
-				nodeByAttribute[a] = make([]*SelectedNode, 0)
+			if a, ok := attribute(*node).(string); ok {
+				nodeByAttribute[a] = append(nodeByAttribute[a], node)
 			}
-			nodeByAttribute[a] = append(nodeByAttribute[a], node)
 		}
 
 		var attributes []string
@@ -134,7 +132,7 @@ func AttributeGroupSelector(attribute NodeAttribute) NodeSelectorInit {
 
 // IfSelector selects the first node attribute if the condition is true, otherwise the second node attribute.
 func IfSelector(condition func(SelectedNode) bool, conditionTrue, conditionFalse NodeAttribute) NodeAttribute {
-	return func(node SelectedNode) string {
+	return func(node SelectedNode) any {
 		if condition(node) {
 			return conditionTrue(node)
 		}
@@ -229,14 +227,13 @@ func BalancedGroupBasedSelector(attribute NodeAttribute, uploadFilter NodeFilter
 			if filter != nil && !filter.Match(node) {
 				continue
 			}
+
 			if uploadFilter != nil && !uploadFilter.Match(node) {
 				continue
 			}
-			a := attribute(*node)
-			if _, found := nodeByAttribute[a]; !found {
-				nodeByAttribute[a] = make([]*SelectedNode, 0)
+			if a, ok := attribute(*node).(string); ok {
+				nodeByAttribute[a] = append(nodeByAttribute[a], node)
 			}
-			nodeByAttribute[a] = append(nodeByAttribute[a], node)
 		}
 
 		var groupedNodes [][]*SelectedNode
@@ -484,7 +481,9 @@ func MaxGroup(attr NodeAttribute) ScoreSelection {
 	return func(uplink storj.NodeID, selected []*SelectedNode) float64 {
 		var attributes []string
 		for _, node := range selected {
-			attributes = append(attributes, attr(*node))
+			if a, ok := attr(*node).(string); ok {
+				attributes = append(attributes, a)
+			}
 		}
 		sort.Strings(attributes)
 		maxGroup := 0
