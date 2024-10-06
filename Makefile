@@ -1,4 +1,4 @@
-GO_VERSION ?= 1.22.5
+GO_VERSION ?= 1.22.7
 GO_VERSION_STORAGENODE_WINDOWS ?= 1.20.14
 GOOS ?= linux
 GOARCH ?= amd64
@@ -416,13 +416,19 @@ satellite_%: satellite-admin-ui
 	$(MAKE) binary-check COMPONENT=satellite GOARCH=$(word 3, $(subst _, ,$@)) GOOS=$(word 2, $(subst _, ,$@))
 .PHONY: storagenode_windows_amd64
 storagenode_windows_amd64: storagenode-console
-	$(MAKE) binary-check COMPONENT=storagenode GOARCH=amd64 GOOS=windows GO_VERSION=${GO_VERSION_STORAGENODE_WINDOWS}
+	docker run --rm -i -v "${PWD}":/go/src/storj.io/storj \
+		-v /tmp/go-cache:/tmp/.cache/go-build -v /tmp/go-pkg:/go/pkg \
+		-w /go/src/storj.io/storj \
+		-u $(shell id -u):$(shell id -g) \
+		storjlabs/golang:${GO_VERSION} \
+		/bin/bash scripts/generate-gomod-for-storagenode-go1.20.sh go.mod go.storagenode.mod
+	$(MAKE) binary-check COMPONENT=storagenode GOARCH=amd64 GOOS=windows GO_VERSION=${GO_VERSION_STORAGENODE_WINDOWS} EXTRA_ARGS="-modfile go.storagenode.mod"
 .PHONY: storagenode_%
 storagenode_%: storagenode-console
 	$(MAKE) binary-check COMPONENT=storagenode GOARCH=$(word 3, $(subst _, ,$@)) GOOS=$(word 2, $(subst _, ,$@))
 .PHONY: storagenode-updater_windows_amd64
 storagenode-updater_windows_amd64:
-	EXTRA_ARGS="-tags=service" $(MAKE) binary-check COMPONENT=storagenode-updater GOARCH=amd64 GOOS=windows GO_VERSION=${GO_VERSION_STORAGENODE_WINDOWS}
+	EXTRA_ARGS="-tags=service" $(MAKE) binary-check COMPONENT=storagenode-updater GOARCH=amd64 GOOS=windows GO_VERSION=${GO_VERSION}
 .PHONY: storagenode-updater_%
 storagenode-updater_%:
 	EXTRA_ARGS="-tags=service" $(MAKE) binary-check COMPONENT=storagenode-updater GOARCH=$(word 3, $(subst _, ,$@)) GOOS=$(word 2, $(subst _, ,$@))

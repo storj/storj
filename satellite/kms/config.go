@@ -13,7 +13,8 @@ import (
 
 // Config is a configuration struct for secret management Service.
 type Config struct {
-	KeyInfos         KeyInfos `help:"semicolon-separated key-id:version,checksum." default:""`
+	Provider         string   `help:"the provider of the passphrase encryption keys: 'gsm' for google, 'local' for a local file" default:"gsm"`
+	KeyInfos         KeyInfos `help:"semicolon-separated key-id:version,checksum. With 'gsm' provider, version is the resource name. With 'local', it is the file path. Checksum is the integer crc32c checksum of the key data" default:""`
 	DefaultMasterKey int      `help:"the key ID to use for passphrase encryption." default:"1"`
 	TestMasterKey    string   `help:"[DEPRECATED] For testing, use --kms.mock-client and --kms.key-infos. A fake master key to be used for the purpose of testing." releaseDefault:"" devDefault:"test-master-key" hidden:"true"`
 	MockClient       bool     `help:"whether to use mock google secret manager service." releaseDefault:"false" devDefault:"false" testDefault:"true" hidden:"true"`

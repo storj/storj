@@ -171,6 +171,15 @@
 
             <v-divider class="my-2" />
 
+            <navigation-item v-if="valdiSignUpURL" title="Cloud GPUs" @click="onCloudGPUClicked">
+                <template #prepend>
+                    <component :is="Microchip" :size="18" />
+                </template>
+                <template #chip>
+                    <v-chip color="success" class="ml-1" size="small">New</v-chip>
+                </template>
+            </navigation-item>
+
             <!-- Resources Menu -->
             <v-menu location="end" transition="scale-transition">
                 <template #activator="{ props: activatorProps }">
@@ -247,6 +256,7 @@
 
     <create-project-dialog v-model="isCreateProjectDialogShown" />
     <manage-passphrase-dialog v-model="isManagePassphraseDialogShown" />
+    <cloud-gpu-dialog v-if="valdiSignUpURL" v-model="isCloudGpuDialogShown" />
     <enter-project-passphrase-dialog />
 </template>
 
@@ -281,6 +291,7 @@ import {
     MessagesSquare,
     MessageCircleQuestion,
     BookOpenText,
+    Microchip,
 } from 'lucide-vue-next';
 
 import { Project } from '@/types/projects';
@@ -290,13 +301,14 @@ import { useAppStore } from '@/store/modules/appStore';
 import { useUsersStore } from '@/store/modules/usersStore';
 import { AnalyticsEvent, PageVisitSource } from '@/utils/constants/analyticsEventNames';
 import { ROUTES } from '@/router';
-import { useTrialCheck } from '@/composables/useTrialCheck';
+import { usePreCheck } from '@/composables/usePreCheck';
 import { useConfigStore } from '@/store/modules/configStore';
 
 import CreateProjectDialog from '@/components/dialogs/CreateProjectDialog.vue';
 import ManagePassphraseDialog from '@/components/dialogs/ManagePassphraseDialog.vue';
 import NavigationItem from '@/layouts/default/NavigationItem.vue';
 import EnterProjectPassphraseDialog from '@/components/dialogs/EnterProjectPassphraseDialog.vue';
+import CloudGpuDialog from '@/components/dialogs/CloudGpuDialog.vue';
 
 const analyticsStore = useAnalyticsStore();
 const projectsStore = useProjectsStore();
@@ -307,7 +319,7 @@ const configStore = useConfigStore();
 const route = useRoute();
 const router = useRouter();
 
-const { withTrialCheck } = useTrialCheck();
+const { withTrialCheck } = usePreCheck();
 const { mdAndDown } = useDisplay();
 
 const model = computed<boolean>({
@@ -317,6 +329,7 @@ const model = computed<boolean>({
 
 const isCreateProjectDialogShown = ref<boolean>(false);
 const isManagePassphraseDialogShown = ref<boolean>(false);
+const isCloudGpuDialogShown = ref<boolean>(false);
 
 const domainsPageEnabled = computed<boolean>(() => configStore.state.config.domainsPageEnabled);
 
@@ -363,8 +376,10 @@ const sharedProjects = computed((): Project[] => {
  * Returns whether this project has passphrase managed by the satellite.
  */
 const hasManagedPassphrase = computed((): boolean => {
-    return !!projectsStore.state.selectedProjectConfig.passphrase;
+    return projectsStore.state.selectedProjectConfig.hasManagedPassphrase;
 });
+
+const valdiSignUpURL = computed<string>(() => configStore.state.config.valdiSignUpURL);
 
 /**
  * Conditionally closes the navigation drawer.
@@ -373,6 +388,12 @@ function closeDrawer(): void {
     if (mdAndDown.value) {
         model.value = false;
     }
+}
+
+function onCloudGPUClicked() {
+    closeDrawer();
+    analyticsStore.eventTriggered(AnalyticsEvent.CLOUD_GPU_NAVIGATION_ITEM_CLICKED);
+    isCloudGpuDialogShown.value = true;
 }
 
 /**

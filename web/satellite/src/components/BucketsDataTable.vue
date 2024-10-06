@@ -78,7 +78,7 @@
             <template #item.location="{ item }">
                 <div class="text-no-wrap">
                     <v-icon size="28" class="mr-1 pa-1 rounded-lg border">
-                        <component :is="Earth" :size="18" />
+                        <component :is="item.location === 'global' ? Earth : LandPlot" :size="18" />
                     </v-icon>
                     <v-chip variant="tonal" color="default" size="small" class="text-capitalize">
                         {{ item.location || `unknown(${item.defaultPlacement})` }}
@@ -131,20 +131,31 @@
                                 Open Bucket
                             </v-list-item-title>
                         </v-list-item>
-                        <v-list-item
-                            v-if="versioningUIEnabled && item.versioning !== Versioning.NotSupported"
-                            density="comfortable"
-                            link
-                            @click="() => onToggleVersioning(item)"
-                        >
-                            <template #prepend>
-                                <component :is="History" v-if="item.versioning !== Versioning.Enabled" :size="18" />
-                                <component :is="CirclePause" v-else :size="18" />
-                            </template>
-                            <v-list-item-title class="ml-3">
-                                {{ item.versioning !== Versioning.Enabled ? 'Enable Versioning' : 'Suspend Versioning' }}
-                            </v-list-item-title>
-                        </v-list-item>
+                        <div>
+                            <v-list-item
+                                v-if="versioningUIEnabled && item.versioning !== Versioning.NotSupported"
+                                density="comfortable"
+                                link
+                                :disabled="item.versioning === Versioning.Enabled && item.objectLockEnabled"
+                                @click="() => onToggleVersioning(item)"
+                            >
+                                <template #prepend>
+                                    <component :is="History" v-if="item.versioning !== Versioning.Enabled" :size="18" />
+                                    <component :is="CirclePause" v-else :size="18" />
+                                </template>
+                                <v-list-item-title class="ml-3">
+                                    {{ item.versioning !== Versioning.Enabled ? 'Enable Versioning' : 'Suspend Versioning' }}
+                                </v-list-item-title>
+                            </v-list-item>
+                            <v-tooltip
+                                v-if="item.versioning === Versioning.Enabled && item.objectLockEnabled"
+                                activator="parent"
+                                location="left"
+                                max-width="300"
+                            >
+                                Versioning cannot be suspended on a bucket with object lock enabled
+                            </v-tooltip>
+                        </div>
                         <v-list-item link @click="() => showShareBucketDialog(item.name)">
                             <template #prepend>
                                 <component :is="Share" :size="18" />
@@ -213,6 +224,8 @@ import {
     Trash2,
     ArrowRight,
     Earth,
+    History,
+    LandPlot,
 } from 'lucide-vue-next';
 
 import { Memory, Size } from '@/utils/bytesSize';
@@ -223,10 +236,10 @@ import { useNotify } from '@/utils/hooks';
 import { AnalyticsErrorEventSource } from '@/utils/constants/analyticsEventNames';
 import { useProjectsStore } from '@/store/modules/projectsStore';
 import { DEFAULT_PAGE_LIMIT } from '@/types/pagination';
-import { tableSizeOptions, MAX_SEARCH_VALUE_LENGTH } from '@/types/common';
+import { tableSizeOptions, MAX_SEARCH_VALUE_LENGTH, DataTableHeader } from '@/types/common';
 import { EdgeCredentials } from '@/types/accessGrants';
 import { ROUTES } from '@/router';
-import { useTrialCheck } from '@/composables/useTrialCheck';
+import { usePreCheck } from '@/composables/usePreCheck';
 import { Versioning } from '@/types/versioning';
 import { Time } from '@/utils/time';
 import { useObjectBrowserStore } from '@/store/modules/objectBrowserStore';
@@ -244,7 +257,7 @@ const configStore = useConfigStore();
 
 const notify = useNotify();
 const router = useRouter();
-const { withTrialCheck } = useTrialCheck();
+const { withTrialCheck, withManagedPassphraseCheck } = usePreCheck();
 
 const FIRST_PAGE = 1;
 const areBucketsFetching = ref<boolean>(true);
@@ -266,14 +279,6 @@ let passphraseDialogCallback: () => void = () => {};
 type SortItem = {
     key: keyof Bucket;
     order: boolean | 'asc' | 'desc';
-}
-
-type DataTableHeader = {
-    key: string;
-    title: string;
-    align?: 'start' | 'end' | 'center';
-    sortable?: boolean;
-    width?: number | string;
 }
 
 const displayedItems = computed<Bucket[]>(() => {
@@ -305,7 +310,7 @@ const headers = computed<DataTableHeader[]>(() => {
             key: 'name',
             sortable: isTableSortable.value,
         },
-        { title: 'Files', key: 'objectCount', sortable: isTableSortable.value },
+        { title: 'Objects', key: 'objectCount', sortable: isTableSortable.value },
         { title: 'Segments', key: 'segmentCount', sortable: isTableSortable.value },
         { title: 'Storage', key: 'storage', sortable: isTableSortable.value },
         { title: 'Download', key: 'egress', sortable: isTableSortable.value },
@@ -424,9 +429,9 @@ function sort(items: Bucket[], sortOptions: SortItem[] | undefined): void {
  * Toggles versioning for the bucket between Suspended and Enabled.
  */
 async function onToggleVersioning(bucket: Bucket) {
-    withTrialCheck(() => {
+    withTrialCheck(() => { withManagedPassphraseCheck(() => {
         bucketToToggleVersioning.value = new BucketMetadata(bucket.name, bucket.versioning);
-    });
+    });});
 }
 
 /**
@@ -435,7 +440,7 @@ async function onToggleVersioning(bucket: Bucket) {
 function getVersioningInfo(status: Versioning): string {
     switch (status) {
     case Versioning.Enabled:
-        return 'Version history saved for all files.';
+        return 'Version history saved for all objects.';
     case Versioning.Suspended:
         return 'Versioning is currently suspended.';
     case Versioning.NotSupported:
@@ -490,7 +495,7 @@ function onUpdateSort(value: SortItem[]): void {
  * Navigates to bucket page.
  */
 function openBucket(bucketName: string): void {
-    withTrialCheck(async () => {
+    withTrialCheck(async () => {withManagedPassphraseCheck(async () => {
         if (!bucketName) {
             return;
         }
@@ -519,7 +524,7 @@ function openBucket(bucketName: string): void {
         }
         passphraseDialogCallback = () => openBucket(selectedBucketName.value);
         isBucketPassphraseDialogOpen.value = true;
-    });
+    });});
 }
 
 /**
@@ -542,7 +547,7 @@ function showDeleteBucketDialog(bucketName: string): void {
  * Displays the Share Bucket dialog.
  */
 function showShareBucketDialog(bucketName: string): void {
-    withTrialCheck(() => {
+    withTrialCheck(() => { withManagedPassphraseCheck(() => {
         shareBucketName.value = bucketName;
         if (promptForPassphrase.value) {
             bucketsStore.setFileComponentBucketName(bucketName);
@@ -551,7 +556,7 @@ function showShareBucketDialog(bucketName: string): void {
             return;
         }
         isShareBucketDialogShown.value = true;
-    });
+    });});
 }
 
 /**

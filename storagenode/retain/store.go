@@ -15,9 +15,9 @@ import (
 	"github.com/zeebo/errs"
 	"golang.org/x/exp/maps"
 
-	"storj.io/common/bloomfilter"
 	"storj.io/common/pb"
 	"storj.io/common/storj"
+	"storj.io/storj/shared/bloomfilter"
 	"storj.io/storj/storagenode/blobstore/filestore"
 )
 

@@ -1,5 +1,4 @@
 #!/usr/bin/env bash
-
 set -eu
 set -o pipefail
 
@@ -24,7 +23,7 @@ if git describe --tags --exact-match --match "v[0-9]*.[0-9]*.[0-9]*"; then
   VERSION=$(git describe --tags --exact-match --match "v[0-9]*.[0-9]*.[0-9]*")
   echo $VERSION
 else
-  VERSION=v0.0.0
+  VERSION=$(git show -s --date='format:%Y.%m' --format='v%cd.%ct-%h' HEAD)
   RELEASE=false
 fi
 

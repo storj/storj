@@ -9,6 +9,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/google/go-cmp/cmp"
+	"github.com/google/go-cmp/cmp/cmpopts"
 	"github.com/stretchr/testify/require"
 
 	"storj.io/common/storj"
@@ -157,6 +159,17 @@ func TestGetUnverifiedNeedingReminderCutoff(t *testing.T) {
 	}, satellitedbtest.WithSpanner())
 }
 
+// Spanner does not record time zones and instead uses an absolute time system. TIMESTAMP values are always returned via time.Time
+// values in UTC (see: https://pkg.go.dev/cloud.google.com/go/spanner#Row). pgx, for Postgres/Cockroach/etc., returns time.Time
+// values always in the session local time, time.Local, (see: https://github.com/jackc/pgx/issues/2117). As such, we can't use require.Equal
+// for comparing two time.Time values as require.Equal uses strict equality (two objects are only equal if ALL fields recursively are identical).
+// e.g. two time.Time objects representing the same instant of time in two different timezones will evaluate to false by require.Equal.
+// Locally instantiated time.Time objects have their timezone as time.Local so in order to test the true intent, that the two time.Time
+// objects represent the same instant of time (regardless of timezone), we use cmp.Diff with cmpopts.EquateApproxTime below as well as other places.
+func usersAreEqual(t *testing.T, expected, actual *console.User) {
+	require.Equal(t, "", cmp.Diff(actual, expected, cmpopts.EquateApproxTime(0)))
+}
+
 func TestUpdateUser(t *testing.T) {
 	satellitedbtest.Run(t, func(ctx *testcontext.Context, t *testing.T, db satellite.DB) {
 		users := db.Console().Users()
@@ -233,7 +246,7 @@ func TestUpdateUser(t *testing.T) {
 		require.NoError(t, err)
 
 		u.FullName = newInfo.FullName
-		require.Equal(t, u, updatedUser)
+		usersAreEqual(t, u, updatedUser)
 
 		// update just shortname
 		shortNamePtr := &newInfo.ShortName
@@ -248,7 +261,7 @@ func TestUpdateUser(t *testing.T) {
 		require.NoError(t, err)
 
 		u.ShortName = newInfo.ShortName
-		require.Equal(t, u, updatedUser)
+		usersAreEqual(t, u, updatedUser)
 
 		// update just password hash
 		updateReq = console.UpdateUserRequest{
@@ -262,7 +275,7 @@ func TestUpdateUser(t *testing.T) {
 		require.NoError(t, err)
 
 		u.PasswordHash = newInfo.PasswordHash
-		require.Equal(t, u, updatedUser)
+		usersAreEqual(t, u, updatedUser)
 
 		// update just project limit
 		updateReq = console.UpdateUserRequest{
@@ -276,7 +289,7 @@ func TestUpdateUser(t *testing.T) {
 		require.NoError(t, err)
 
 		u.ProjectLimit = newInfo.ProjectLimit
-		require.Equal(t, u, updatedUser)
+		usersAreEqual(t, u, updatedUser)
 
 		// update just project bw limit
 		updateReq = console.UpdateUserRequest{
@@ -290,7 +303,7 @@ func TestUpdateUser(t *testing.T) {
 		require.NoError(t, err)
 
 		u.ProjectBandwidthLimit = newInfo.ProjectBandwidthLimit
-		require.Equal(t, u, updatedUser)
+		usersAreEqual(t, u, updatedUser)
 
 		// update just project storage limit
 		updateReq = console.UpdateUserRequest{
@@ -304,7 +317,7 @@ func TestUpdateUser(t *testing.T) {
 		require.NoError(t, err)
 
 		u.ProjectStorageLimit = newInfo.ProjectStorageLimit
-		require.Equal(t, u, updatedUser)
+		usersAreEqual(t, u, updatedUser)
 
 		// update just project segment limit
 		updateReq = console.UpdateUserRequest{
@@ -318,7 +331,7 @@ func TestUpdateUser(t *testing.T) {
 		require.NoError(t, err)
 
 		u.ProjectSegmentLimit = newInfo.ProjectSegmentLimit
-		require.Equal(t, u, updatedUser)
+		usersAreEqual(t, u, updatedUser)
 
 		// update just paid tier
 		updateReq = console.UpdateUserRequest{
@@ -332,7 +345,7 @@ func TestUpdateUser(t *testing.T) {
 		require.NoError(t, err)
 
 		u.PaidTier = newInfo.PaidTier
-		require.Equal(t, u, updatedUser)
+		usersAreEqual(t, u, updatedUser)
 
 		// update just mfa enabled
 		updateReq = console.UpdateUserRequest{
@@ -346,7 +359,7 @@ func TestUpdateUser(t *testing.T) {
 		require.NoError(t, err)
 
 		u.MFAEnabled = newInfo.MFAEnabled
-		require.Equal(t, u, updatedUser)
+		usersAreEqual(t, u, updatedUser)
 
 		// update just mfa secret key
 		secretKeyPtr := &newInfo.MFASecretKey
@@ -361,7 +374,7 @@ func TestUpdateUser(t *testing.T) {
 		require.NoError(t, err)
 
 		u.MFASecretKey = newInfo.MFASecretKey
-		require.Equal(t, u, updatedUser)
+		usersAreEqual(t, u, updatedUser)
 
 		// update just mfa recovery codes
 		updateReq = console.UpdateUserRequest{
@@ -375,7 +388,7 @@ func TestUpdateUser(t *testing.T) {
 		require.NoError(t, err)
 
 		u.MFARecoveryCodes = newInfo.MFARecoveryCodes
-		require.Equal(t, u, updatedUser)
+		usersAreEqual(t, u, updatedUser)
 
 		// update just failed login count
 		updateReq = console.UpdateUserRequest{
@@ -389,7 +402,7 @@ func TestUpdateUser(t *testing.T) {
 		require.NoError(t, err)
 
 		u.FailedLoginCount = newInfo.FailedLoginCount
-		require.Equal(t, u, updatedUser)
+		usersAreEqual(t, u, updatedUser)
 
 		// update just login lockout expiration
 		loginLockoutExpPtr := &newInfo.LoginLockoutExpiration
@@ -404,7 +417,7 @@ func TestUpdateUser(t *testing.T) {
 		require.NoError(t, err)
 
 		u.LoginLockoutExpiration = newInfo.LoginLockoutExpiration
-		require.Equal(t, u, updatedUser)
+		usersAreEqual(t, u, updatedUser)
 
 		// update just the placement
 		defaultPlacement := &newInfo.DefaultPlacement
@@ -419,7 +432,7 @@ func TestUpdateUser(t *testing.T) {
 		require.NoError(t, err)
 
 		u.DefaultPlacement = newInfo.DefaultPlacement
-		require.Equal(t, u, updatedUser)
+		usersAreEqual(t, u, updatedUser)
 
 		// update professional info
 		updateReq = console.UpdateUserRequest{
@@ -441,7 +454,7 @@ func TestUpdateUser(t *testing.T) {
 		u.Position = newInfo.Position
 		u.CompanyName = newInfo.CompanyName
 		u.EmployeeCount = newInfo.EmployeeCount
-		require.Equal(t, u, updatedUser)
+		usersAreEqual(t, u, updatedUser)
 
 		// update trial expiration and upgrade time.
 		newDate := now.Add(time.Hour)
@@ -458,7 +471,7 @@ func TestUpdateUser(t *testing.T) {
 		require.NoError(t, err)
 		require.WithinDuration(t, newDate, *updatedUser.TrialExpiration, time.Minute)
 		require.WithinDuration(t, newDate, *updatedUser.UpgradeTime, time.Minute)
-	})
+	}, satellitedbtest.WithSpanner())
 }
 
 func TestUpdateUserProjectLimits(t *testing.T) {
@@ -482,7 +495,7 @@ func TestUpdateUserProjectLimits(t *testing.T) {
 		require.Equal(t, limits.Bandwidth, user.ProjectBandwidthLimit)
 		require.Equal(t, limits.Storage, user.ProjectStorageLimit)
 		require.Equal(t, limits.Segment, user.ProjectSegmentLimit)
-	})
+	}, satellitedbtest.WithSpanner())
 }
 
 func TestUpdateDefaultPlacement(t *testing.T) {
@@ -510,7 +523,7 @@ func TestUpdateDefaultPlacement(t *testing.T) {
 		user, err = usersRepo.Get(ctx, user.ID)
 		require.NoError(t, err)
 		require.Equal(t, storj.EveryCountry, user.DefaultPlacement)
-	})
+	}, satellitedbtest.WithSpanner())
 }
 
 func TestGetUpgradeTime(t *testing.T) {
@@ -538,7 +551,7 @@ func TestGetUpgradeTime(t *testing.T) {
 		require.NoError(t, err)
 		require.NotNil(t, upgradeTime)
 		require.WithinDuration(t, now, *upgradeTime, time.Minute)
-	})
+	}, satellitedbtest.WithSpanner())
 }
 
 func TestUserSettings(t *testing.T) {
@@ -644,7 +657,7 @@ func TestUserSettings(t *testing.T) {
 			require.NoError(t, err)
 			require.Equal(t, noticeDismissal, settings.NoticeDismissal)
 		})
-	})
+	}, satellitedbtest.WithSpanner())
 }
 
 func TestDeleteUnverifiedBefore(t *testing.T) {

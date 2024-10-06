@@ -239,6 +239,9 @@ func TestApplyUpdatesEquivalentToMultipleUpdatesCached(t *testing.T) {
 			return errs2.IgnoreCanceled(err)
 		})
 		testApplyUpdatesEquivalentToMultipleUpdates(cancelCtx, t, cachingDB, config)
+
+		cancel()
+		ctx.Wait() // wait for the above cachingDB.Manage to return
 	}, satellitedbtest.WithSpanner())
 }
 

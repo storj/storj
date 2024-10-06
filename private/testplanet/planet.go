@@ -220,7 +220,7 @@ func (planet *Planet) createPeers(ctx context.Context, satelliteDatabases satell
 }
 
 // Start starts all the nodes.
-func (planet *Planet) Start(ctx context.Context) {
+func (planet *Planet) Start(ctx context.Context) error {
 	defer mon.Task()(&ctx)(nil)
 
 	ctx, cancel := context.WithCancel(ctx)
@@ -257,9 +257,12 @@ func (planet *Planet) Start(ctx context.Context) {
 		})
 	}
 
-	_ = group.Wait()
+	if err := group.Wait(); err != nil {
+		return err
+	}
 
 	planet.started = true
+	return nil
 }
 
 // StopPeer stops a single peer in the planet.

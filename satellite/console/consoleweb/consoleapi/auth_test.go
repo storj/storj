@@ -853,8 +853,8 @@ func TestResendActivationEmail(t *testing.T) {
 		require.NoError(t, err)
 
 		resendEmail := func() {
-			url := planet.Satellites[0].ConsoleURL() + "/api/v0/auth/resend-email/" + user.Email
-			req, err := http.NewRequestWithContext(ctx, http.MethodPost, url, bytes.NewBufferString(user.Email))
+			url := planet.Satellites[0].ConsoleURL() + "/api/v0/auth/resend-email"
+			req, err := http.NewRequestWithContext(ctx, http.MethodPost, url, bytes.NewBufferString(fmt.Sprintf(`{"email":"%s"}`, user.Email)))
 			require.NoError(t, err)
 
 			result, err := http.DefaultClient.Do(req)
@@ -919,8 +919,8 @@ func TestResendActivationEmail_CodeEnabled(t *testing.T) {
 		sender := &EmailVerifier{Context: ctx}
 		sat.API.Mail.Service.Sender = sender
 
-		resendURL := planet.Satellites[0].ConsoleURL() + "/api/v0/auth/resend-email/" + user.Email
-		req, err := http.NewRequestWithContext(ctx, http.MethodPost, resendURL, bytes.NewBufferString(user.Email))
+		resendURL := planet.Satellites[0].ConsoleURL() + "/api/v0/auth/resend-email"
+		req, err := http.NewRequestWithContext(ctx, http.MethodPost, resendURL, bytes.NewBufferString(fmt.Sprintf(`{"email":"%s"}`, user.Email)))
 		require.NoError(t, err)
 
 		result, err := http.DefaultClient.Do(req)

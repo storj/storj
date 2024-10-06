@@ -40,7 +40,7 @@
         <v-row class="d-flex align-center mt-2">
             <v-col cols="6" md="4" lg="2">
                 <CardStatsComponent
-                    title="Files"
+                    title="Objects"
                     subtitle="Project total"
                     :data="limits.objectCount.toLocaleString()"
                     :to="ROUTES.Buckets.path"
@@ -48,7 +48,7 @@
                 />
             </v-col>
             <v-col v-if="!emissionImpactViewEnabled" cols="6" md="4" lg="2">
-                <CardStatsComponent title="Segments" subtitle="All file pieces" :data="limits.segmentCount.toLocaleString()" :to="ROUTES.Buckets.path" />
+                <CardStatsComponent title="Segments" subtitle="All object pieces" :data="limits.segmentCount.toLocaleString()" :to="ROUTES.Buckets.path" />
             </v-col>
             <v-col cols="6" md="4" lg="2">
                 <CardStatsComponent title="Buckets" subtitle="In this project" :data="bucketsCount.toLocaleString()" :to="ROUTES.Buckets.path" />
@@ -132,7 +132,7 @@
                 >
                     <template #extraInfo>
                         <p>
-                            Segments are the encrypted parts of an uploaded file.
+                            Segments are the encrypted parts of an uploaded object.
                             <a
                                 class="link"
                                 href="https://docs.storj.io/dcs/pricing#per-segment-fee"
@@ -324,7 +324,7 @@ import { useLowTokenBalance } from '@/composables/useLowTokenBalance';
 import { ROUTES } from '@/router';
 import { AccountBalance, CreditCard } from '@/types/payments';
 import { useLoading } from '@/composables/useLoading';
-import { useTrialCheck } from '@/composables/useTrialCheck';
+import { usePreCheck } from '@/composables/usePreCheck';
 
 import PageTitleComponent from '@/components/PageTitleComponent.vue';
 import PageSubtitleComponent from '@/components/PageSubtitleComponent.vue';
@@ -363,7 +363,7 @@ const notify = useNotify();
 const router = useRouter();
 const isLowBalance = useLowTokenBalance();
 const { isLoading, withLoading } = useLoading();
-const { isTrialExpirationBanner, isUserProjectOwner, isExpired, withTrialCheck } = useTrialCheck();
+const { isTrialExpirationBanner, isUserProjectOwner, isExpired, withTrialCheck, withManagedPassphraseCheck } = usePreCheck();
 
 const chartWidth = ref<number>(0);
 const chartContainer = ref<ComponentPublicInstance>();
@@ -765,9 +765,9 @@ function getValueAndUnit(value: number): ValueUnit {
  * Starts create bucket flow if user's free trial is not expired.
  */
 function onCreateBucket(): void {
-    withTrialCheck(() => {
+    withTrialCheck(() => { withManagedPassphraseCheck(() => {
         isCreateBucketDialogOpen.value = true;
-    });
+    });});
 }
 
 /**

@@ -10,6 +10,7 @@ import "encryption.proto";
 import "gogo.proto";
 import "google/protobuf/timestamp.proto";
 import "metainfo.proto";
+import "pointerdb.proto";
 
 message StreamID {
     reserved 14;
@@ -41,6 +42,7 @@ message SegmentID {
     bytes root_piece_id = 5 [(gogoproto.customtype) = "PieceID", (gogoproto.nullable) = false];
     repeated .metainfo.AddressedOrderLimit original_order_limits = 6;
     google.protobuf.Timestamp creation_date = 7  [(gogoproto.stdtime) = true, (gogoproto.nullable) = false];
+    pointerdb.RedundancyScheme redundancy_scheme = 9;
 
     bytes satellite_signature = 8;
 }

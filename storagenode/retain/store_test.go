@@ -11,10 +11,10 @@ import (
 
 	"github.com/stretchr/testify/require"
 
-	"storj.io/common/bloomfilter"
 	"storj.io/common/pb"
 	"storj.io/common/testcontext"
 	"storj.io/common/testrand"
+	"storj.io/storj/shared/bloomfilter"
 	"storj.io/storj/storagenode/retain"
 )
 

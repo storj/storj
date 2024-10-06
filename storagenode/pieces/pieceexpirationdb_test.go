@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/stretchr/testify/require"
+	"go.uber.org/zap/zaptest"
 
 	"storj.io/common/testcontext"
 	"storj.io/common/testrand"
@@ -106,5 +107,163 @@ func TestPieceExpirationDB_noBuffering(t *testing.T) {
 		require.NoError(t, err)
 		require.Len(t, expired, 5)
 		require.Equal(t, expectedExpired[5:], expired)
+	})
+}
+
+func TestPieceExpirationBothDBs(t *testing.T) {
+	storagenodedbtest.Run(t, func(ctx *testcontext.Context, t *testing.T, db storagenode.DB) {
+		sqliteDB := db.PieceExpirationDB()
+
+		dataDir := ctx.Dir("pieceexpiration")
+		store, err := pieces.NewPieceExpirationStore(zaptest.NewLogger(t), sqliteDB, pieces.PieceExpirationConfig{
+			DataDir:               dataDir,
+			ConcurrentFileHandles: 2,
+			MaxBufferTime:         time.Second,
+		})
+		require.NoError(t, err)
+
+		// put values in both databases
+		satelliteID := testrand.NodeID()
+		pieceID1 := testrand.PieceID()
+		pieceID2 := testrand.PieceID()
+		pieceID3 := testrand.PieceID()
+		now := time.Now()
+
+		// put pieceID1 in both backends. We don't expect this to be a normal
+		// situation, but the code should be able to handle it.
+		err = store.SetExpiration(ctx, satelliteID, pieceID1, now.Add(24*time.Hour), 111)
+		require.NoError(t, err)
+		err = sqliteDB.SetExpiration(ctx, satelliteID, pieceID1, now.Add(24*time.Hour), 111)
+		require.NoError(t, err)
+
+		err = store.SetExpiration(ctx, satelliteID, pieceID2, now.Add(40*time.Hour), 222)
+		require.NoError(t, err)
+		err = sqliteDB.SetExpiration(ctx, satelliteID, pieceID3, now.Add(48*time.Hour), 333)
+		require.NoError(t, err)
+
+		// check to see that values are in both backends
+		expirationInfos, err := store.GetExpired(ctx, now.Add(72*time.Hour), -1)
+		require.NoError(t, err)
+		require.Contains(t, expirationInfos, pieces.ExpiredInfo{
+			SatelliteID: satelliteID,
+			PieceID:     pieceID1,
+			PieceSize:   111,
+		})
+		require.Contains(t, expirationInfos, pieces.ExpiredInfo{
+			SatelliteID: satelliteID,
+			PieceID:     pieceID2,
+			PieceSize:   222,
+		})
+		// (we don't expect PieceSize here; it is not stored in the sqlite db)
+		require.Contains(t, expirationInfos, pieces.ExpiredInfo{
+			SatelliteID: satelliteID,
+			PieceID:     pieceID3,
+		})
+
+		// delete up to now+36h
+		err = store.DeleteExpirations(ctx, now.Add(36*time.Hour))
+		require.NoError(t, err)
+
+		// piece1 should be deleted from both databases, and not the others
+		expirationInfos, err = store.GetExpired(ctx, now.Add(72*time.Hour), -1)
+		require.NoError(t, err)
+		require.Len(t, expirationInfos, 2)
+		require.Contains(t, expirationInfos, pieces.ExpiredInfo{
+			SatelliteID: satelliteID,
+			PieceID:     pieceID2,
+			PieceSize:   222,
+		})
+		require.Contains(t, expirationInfos, pieces.ExpiredInfo{
+			SatelliteID: satelliteID,
+			PieceID:     pieceID3,
+		})
+
+		// querying sqlite3 db only
+		expirationInfos, err = sqliteDB.GetExpired(ctx, now.Add(72*time.Hour), -1)
+		require.NoError(t, err)
+		require.Len(t, expirationInfos, 1)
+		require.Equal(t, pieces.ExpiredInfo{
+			SatelliteID: satelliteID,
+			PieceID:     pieceID3,
+		}, expirationInfos[0])
+	})
+}
+
+func TestPieceExpirationBatchBothDBs(t *testing.T) {
+	storagenodedbtest.Run(t, func(ctx *testcontext.Context, t *testing.T, db storagenode.DB) {
+		sqliteDB := db.PieceExpirationDB()
+
+		dataDir := ctx.Dir("pieceexpiration")
+		store, err := pieces.NewPieceExpirationStore(zaptest.NewLogger(t), sqliteDB, pieces.PieceExpirationConfig{
+			DataDir:               dataDir,
+			ConcurrentFileHandles: 2,
+			MaxBufferTime:         time.Second,
+		})
+		require.NoError(t, err)
+
+		// put values in both databases
+		satelliteID := testrand.NodeID()
+		pieceID1 := testrand.PieceID()
+		pieceID2 := testrand.PieceID()
+		pieceID3 := testrand.PieceID()
+		now := time.Now()
+
+		// put pieceID1 in both backends. We don't expect this to be a normal
+		// situation, but the code should be able to handle it.
+		err = store.SetExpiration(ctx, satelliteID, pieceID1, now.Add(24*time.Hour), 111)
+		require.NoError(t, err)
+		err = sqliteDB.SetExpiration(ctx, satelliteID, pieceID1, now.Add(24*time.Hour), 111)
+		require.NoError(t, err)
+
+		err = store.SetExpiration(ctx, satelliteID, pieceID2, now.Add(40*time.Hour), 222)
+		require.NoError(t, err)
+		err = sqliteDB.SetExpiration(ctx, satelliteID, pieceID3, now.Add(48*time.Hour), 333)
+		require.NoError(t, err)
+
+		// check to see that values are in both backends
+		expirationInfos, err := store.GetExpired(ctx, now.Add(72*time.Hour), -1)
+		require.NoError(t, err)
+		require.Contains(t, expirationInfos, pieces.ExpiredInfo{
+			SatelliteID: satelliteID,
+			PieceID:     pieceID1,
+			PieceSize:   111,
+		})
+		require.Contains(t, expirationInfos, pieces.ExpiredInfo{
+			SatelliteID: satelliteID,
+			PieceID:     pieceID2,
+			PieceSize:   222,
+		})
+		// (we don't expect PieceSize here; it is not stored in the sqlite db)
+		require.Contains(t, expirationInfos, pieces.ExpiredInfo{
+			SatelliteID: satelliteID,
+			PieceID:     pieceID3,
+		})
+
+		// delete up to now+36h
+		err = store.DeleteExpirationsBatch(ctx, now.Add(36*time.Hour), 10)
+		require.NoError(t, err)
+
+		// piece1 should be deleted from both databases, and not the others
+		expirationInfos, err = store.GetExpired(ctx, now.Add(72*time.Hour), -1)
+		require.NoError(t, err)
+		require.Len(t, expirationInfos, 2)
+		require.Contains(t, expirationInfos, pieces.ExpiredInfo{
+			SatelliteID: satelliteID,
+			PieceID:     pieceID2,
+			PieceSize:   222,
+		})
+		require.Contains(t, expirationInfos, pieces.ExpiredInfo{
+			SatelliteID: satelliteID,
+			PieceID:     pieceID3,
+		})
+
+		// querying sqlite3 db only
+		expirationInfos, err = sqliteDB.GetExpired(ctx, now.Add(72*time.Hour), -1)
+		require.NoError(t, err)
+		require.Len(t, expirationInfos, 1)
+		require.Equal(t, pieces.ExpiredInfo{
+			SatelliteID: satelliteID,
+			PieceID:     pieceID3,
+		}, expirationInfos[0])
 	})
 }

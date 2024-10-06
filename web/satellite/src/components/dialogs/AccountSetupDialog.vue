@@ -47,58 +47,143 @@
                         />
                     </v-window-item>
 
-                    <v-window-item :value="OnboardingStep.PlanTypeSelection">
-                        <account-type-step
-                            @select="onSelectPricingPlan"
-                            @back="toPrevStep"
-                        />
-                    </v-window-item>
+                    <template v-if="billingEnabled">
+                        <v-window-item :value="OnboardingStep.PlanTypeSelection">
+                            <account-type-step
+                                @free-click="() => onSelectPricingPlan(FREE_PLAN_INFO)"
+                                @pro-click="toNextStep"
+                                @back="toPrevStep"
+                            />
+                        </v-window-item>
 
-                    <!-- Pricing plan steps -->
-                    <v-window-item :value="OnboardingStep.PricingPlanSelection">
-                        <v-container>
-                            <v-row justify="center">
-                                <v-col class="text-center py-4">
-                                    <icon-storj-logo />
-                                    <div class="text-overline mt-2 mb-1">
-                                        Pricing Plan
-                                    </div>
-                                    <h2>Select a pricing plan</h2>
-                                </v-col>
-                            </v-row>
-                            <v-row justify="center" align="center">
-                                <pricing-plan-selection-step
-                                    show-free-plan
-                                    @select="onSelectPricingPlan"
-                                />
-                            </v-row>
-                        </v-container>
-                    </v-window-item>
+                        <v-window-item :value="OnboardingStep.PaymentMethodSelection">
+                            <v-container>
+                                <v-row justify="center">
+                                    <v-col class="text-center py-4">
+                                        <icon-storj-logo />
+                                        <div class="text-overline mt-2 mb-1">
+                                            Account Setup
+                                        </div>
+                                        <h2>Activate your account</h2>
+                                    </v-col>
+                                </v-row>
+                                <v-row justify="center" align="center">
+                                    <v-col cols="12" sm="8" md="6" lg="4">
+                                        <p class="text-body-2 my-2">
+                                            Add a credit card to activate your Pro Account, or deposit
+                                            more than $10 in STORJ tokens to upgrade and get 10% bonus
+                                            on your STORJ tokens deposit.
+                                        </p>
+                                        <v-row justify="center" class="pb-5 pt-3">
+                                            <v-col>
+                                                <v-btn
+                                                    variant="flat"
+                                                    color="primary"
+                                                    :disabled="isLoading"
+                                                    :prepend-icon="CreditCard"
+                                                    block
+                                                    @click="() => onSelectPricingPlan(PRO_PLAN_INFO)"
+                                                >
+                                                    Add Credit Card
+                                                </v-btn>
+                                            </v-col>
+                                            <v-col>
+                                                <v-btn
+                                                    variant="flat"
+                                                    :loading="isLoading"
+                                                    :prepend-icon="CirclePlus"
+                                                    block
+                                                    @click="onAddTokens"
+                                                >
+                                                    Add STORJ Tokens
+                                                </v-btn>
+                                            </v-col>
+                                        </v-row>
+                                        <div class="pb-4">
+                                            <v-btn
+                                                block
+                                                variant="text"
+                                                color="default"
+                                                :prepend-icon="ChevronLeft"
+                                                :disabled="isLoading"
+                                                @click="toPrevStep"
+                                            >
+                                                Back
+                                            </v-btn>
+                                        </div>
+                                    </v-col>
+                                </v-row>
+                            </v-container>
+                        </v-window-item>
 
-                    <v-window-item :value="OnboardingStep.PricingPlan">
-                        <v-container>
-                            <v-row justify="center">
-                                <v-col class="text-center py-4">
-                                    <icon-storj-logo />
-                                    <div class="text-overline mt-2 mb-1">
-                                        Account Setup
-                                    </div>
-                                    <h2>Activate your account</h2>
-                                </v-col>
-                            </v-row>
-                            <v-row justify="center" align="center">
-                                <v-col cols="12" sm="8" md="6" lg="4">
-                                    <PricingPlanStep
-                                        v-model:loading="isLoading"
-                                        :plan="plan"
-                                        is-account-setup
-                                        @back="toPrevStep"
-                                        @success="toNextStep"
+                        <v-window-item :value="OnboardingStep.AddTokens">
+                            <v-container>
+                                <v-row justify="center">
+                                    <v-col class="text-center py-4">
+                                        <icon-storj-logo />
+                                        <div class="text-overline mt-2 mb-1">
+                                            Account Setup
+                                        </div>
+                                        <h2>Activate your account</h2>
+                                    </v-col>
+                                </v-row>
+                                <v-row justify="center" align="center">
+                                    <v-col cols="12" sm="8" md="6" lg="4">
+                                        <AddTokensStep
+                                            @back="toPrevStep"
+                                            @success="toNextStep"
+                                        />
+                                    </v-col>
+                                </v-row>
+                            </v-container>
+                        </v-window-item>
+
+                        <!-- Pricing plan steps -->
+                        <v-window-item :value="OnboardingStep.PricingPlanSelection">
+                            <v-container>
+                                <v-row justify="center">
+                                    <v-col class="text-center py-4">
+                                        <icon-storj-logo height="50" width="50" class="rounded-xlg bg-background pa-2 border" />
+                                        <div class="text-overline mt-2 mb-1">
+                                            Pricing Plan
+                                        </div>
+                                        <h2>Select a pricing plan</h2>
+                                    </v-col>
+                                </v-row>
+                                <v-row justify="center" align="center">
+                                    <pricing-plan-selection-step
+                                        show-free-plan
+                                        @select="onSelectPricingPlan"
                                     />
-                                </v-col>
-                            </v-row>
-                        </v-container>
-                    </v-window-item>
+                                </v-row>
+                            </v-container>
+                        </v-window-item>
+
+                        <v-window-item :value="OnboardingStep.PricingPlan">
+                            <v-container>
+                                <v-row justify="center">
+                                    <v-col class="text-center py-4">
+                                        <icon-storj-logo height="50" width="50" class="rounded-xlg bg-background pa-2 border" />
+                                        <div class="text-overline mt-2 mb-1">
+                                            Account Setup
+                                        </div>
+                                        <h2>Activate your account</h2>
+                                    </v-col>
+                                </v-row>
+                                <v-row justify="center" align="center">
+                                    <v-col cols="12" sm="8" md="6" lg="4">
+                                        <PricingPlanStep
+                                            v-model:loading="isLoading"
+                                            :plan="plan"
+                                            is-account-setup
+                                            @back="toPrevStep"
+                                            @success="toNextStep"
+                                        />
+                                    </v-col>
+                                </v-row>
+                            </v-container>
+                        </v-window-item>
+                    </template>
 
                     <v-window-item v-if="satelliteManagedEncryptionEnabled" :value="OnboardingStep.ManagedPassphraseOptIn">
                         <managed-passphrase-opt-in-step
@@ -124,7 +209,8 @@
 
 <script setup lang="ts">
 import { Component, computed, onBeforeMount, Ref, ref, watch } from 'vue';
-import { VCard, VCardItem, VCol, VContainer, VDialog, VRow, VWindow, VWindowItem } from 'vuetify/components';
+import { VBtn, VCard, VCardItem, VCol, VContainer, VDialog, VRow, VWindow, VWindowItem } from 'vuetify/components';
+import { ChevronLeft, CirclePlus, CreditCard } from 'lucide-vue-next';
 
 import { useUsersStore } from '@/store/modules/usersStore';
 import {
@@ -134,15 +220,16 @@ import {
     SetUserSettingsData,
     UserSettings,
 } from '@/types/users';
-import { PricingPlanInfo } from '@/types/common';
+import { FREE_PLAN_INFO, PricingPlanInfo, PricingPlanType, PRO_PLAN_INFO } from '@/types/common';
 import { useConfigStore } from '@/store/modules/configStore';
 import { useAppStore } from '@/store/modules/appStore';
 import { useLoading } from '@/composables/useLoading';
 import { useBillingStore } from '@/store/modules/billingStore';
 import { useProjectsStore } from '@/store/modules/projectsStore';
 import { ManagePassphraseMode } from '@/types/projects';
-import { AnalyticsErrorEventSource } from '@/utils/constants/analyticsEventNames';
+import { AnalyticsErrorEventSource, AnalyticsEvent } from '@/utils/constants/analyticsEventNames';
 import { useNotify } from '@/utils/hooks';
+import { useAnalyticsStore } from '@/store/modules/analyticsStore';
 
 import ChoiceStep from '@/components/dialogs/accountSetupSteps/ChoiceStep.vue';
 import BusinessStep from '@/components/dialogs/accountSetupSteps/BusinessStep.vue';
@@ -153,6 +240,7 @@ import PricingPlanStep from '@/components/dialogs/upgradeAccountFlow/PricingPlan
 import ManagedPassphraseOptInStep from '@/components/dialogs/accountSetupSteps/ManagedPassphraseOptInStep.vue';
 import AccountTypeStep from '@/components/dialogs/accountSetupSteps/AccountTypeStep.vue';
 import IconStorjLogo from '@/components/icons/IconStorjLogo.vue';
+import AddTokensStep from '@/components/dialogs/upgradeAccountFlow/AddTokensStep.vue';
 
 type SetupLocation = OnboardingStep | undefined | (() => (OnboardingStep | undefined));
 interface SetupStep {
@@ -175,6 +263,7 @@ class StepInfo {
     }
 }
 
+const analyticsStore = useAnalyticsStore();
 const appStore = useAppStore();
 const billingStore = useBillingStore();
 const configStore = useConfigStore();
@@ -200,6 +289,10 @@ const stepInfos = {
         const info = new StepInfo(
             OnboardingStep.AccountTypeSelection,
             () => {
+                if (!billingEnabled.value) {
+                    if (allowManagedPassphraseStep.value) return OnboardingStep.ManagedPassphraseOptIn;
+                    return OnboardingStep.SetupComplete;
+                }
                 if (pkgAvailable.value) return OnboardingStep.PricingPlanSelection;
                 return OnboardingStep.PlanTypeSelection;
             },
@@ -216,6 +309,10 @@ const stepInfos = {
         const info = new StepInfo(
             OnboardingStep.AccountTypeSelection,
             () => {
+                if (!billingEnabled.value) {
+                    if (allowManagedPassphraseStep.value) return OnboardingStep.ManagedPassphraseOptIn;
+                    return OnboardingStep.SetupComplete;
+                }
                 if (pkgAvailable.value) return OnboardingStep.PricingPlanSelection;
                 return OnboardingStep.PlanTypeSelection;
             },
@@ -234,13 +331,31 @@ const stepInfos = {
     ),
     [OnboardingStep.PlanTypeSelection]: new StepInfo(
         () => accountType.value || OnboardingStep.AccountTypeSelection,
-        OnboardingStep.PricingPlan,
+        () => plan.value ? OnboardingStep.PricingPlan : OnboardingStep.PaymentMethodSelection,
     ),
+    [OnboardingStep.PaymentMethodSelection]: new StepInfo(
+        OnboardingStep.PlanTypeSelection,
+        () => plan.value ? OnboardingStep.PricingPlan : OnboardingStep.AddTokens,
+    ),
+    [OnboardingStep.AddTokens]: (() => {
+        const info = new StepInfo(
+            OnboardingStep.PaymentMethodSelection,
+            () => {
+                if (allowManagedPassphraseStep.value) return OnboardingStep.ManagedPassphraseOptIn;
+                return OnboardingStep.SetupComplete;
+            },
+        );
+        info.beforeNext =  async () => {
+            await userStore.updateSettings({ onboardingStep: info.next.value });
+        };
+        return info;
+    })(),
     [OnboardingStep.PricingPlan]: (() => {
         const info = new StepInfo(
             () => {
                 if (pkgAvailable.value) return OnboardingStep.PricingPlanSelection;
-                return OnboardingStep.PlanTypeSelection;
+                if (plan.value?.type === PricingPlanType.FREE) return  OnboardingStep.PlanTypeSelection;
+                return OnboardingStep.PaymentMethodSelection;
             },
             () => {
                 if (allowManagedPassphraseStep.value) return OnboardingStep.ManagedPassphraseOptIn;
@@ -258,10 +373,8 @@ const stepInfos = {
             OnboardingStep.SetupComplete,
         );
         info.beforeNext =  async () => {
-            await Promise.all([
-                userStore.updateSettings({ onboardingStep: info.next.value }),
-                info.ref.value?.setup?.(),
-            ]);
+            await info.ref.value?.setup?.();
+            await userStore.updateSettings({ onboardingStep: info.next.value });
         };
         return info;
     })(),
@@ -291,6 +404,8 @@ const otherUseCase = ref<string | undefined>(undefined);
 const functionalArea = ref<string | undefined>(undefined);
 const haveSalesContact = ref<boolean>(false);
 const interestedInPartnering = ref<boolean>(false);
+
+const billingEnabled = computed(() => configStore.state.config.billingFeaturesEnabled);
 
 const pkgAvailable = computed(() => billingStore.state.pricingPlansAvailable);
 
@@ -327,24 +442,41 @@ function onSelectPricingPlan(p: PricingPlanInfo) {
 }
 
 /**
+ * Claims wallet and sets add token step.
+ */
+function onAddTokens() {
+    withLoading(async () => {
+        try {
+            await billingStore.claimWallet();
+            analyticsStore.eventTriggered(AnalyticsEvent.ADD_FUNDS_CLICKED);
+            toNextStep();
+        } catch (error) {
+            notify.notifyError(error, AnalyticsErrorEventSource.ACCOUNT_SETUP_DIALOG);
+        }
+    });
+}
+
+/**
  * Decides whether to move to the success step or the pricing plan selection.
  */
-function toNextStep() {
+async function toNextStep() {
     const info = stepInfos[step.value];
     if (info.ref.value?.validate?.() === false) {
         return;
     }
-    withLoading(async () => {
-        try {
-            await info.beforeNext?.();
-        } catch (error) {
-            notify.notifyError(error, AnalyticsErrorEventSource.ACCOUNT_SETUP_DIALOG);
-            return;
-        }
-        if (info.next.value) {
-            step.value = info.next.value;
-        }
-    });
+
+    isLoading.value = true;
+    try {
+        await info.beforeNext?.();
+    } catch (error) {
+        notify.notifyError(error, AnalyticsErrorEventSource.ACCOUNT_SETUP_DIALOG);
+        return;
+    } finally {
+        isLoading.value = false;
+    }
+    if (info.next.value) {
+        step.value = info.next.value;
+    }
 }
 
 async function toPrevStep() {
@@ -352,6 +484,7 @@ async function toPrevStep() {
     if (info.prev.value) {
         step.value = info.prev.value;
     }
+    plan.value = undefined;
 }
 
 /**

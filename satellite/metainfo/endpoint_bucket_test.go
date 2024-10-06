@@ -639,7 +639,7 @@ func TestEnableSuspendBucketVersioning(t *testing.T) {
 				objectLockEnabled:        true,
 				initialVersioningState:   buckets.VersioningEnabled,
 				resultantVersioningState: buckets.VersioningEnabled,
-				expectedErrCode:          rpcstatus.PermissionDenied,
+				expectedErrCode:          rpcstatus.ObjectLockInvalidBucketState,
 			},
 		} {
 			t.Run(tt.name, func(t *testing.T) {
@@ -833,7 +833,7 @@ func TestCreateBucketWithObjectLockEnabled(t *testing.T) {
 				ObjectLockEnabled: true,
 			}
 			_, err = endpoint.CreateBucket(ctx, req)
-			rpctest.RequireCode(t, err, rpcstatus.FailedPrecondition)
+			rpctest.RequireCode(t, err, rpcstatus.ObjectLockDisabledForProject)
 		})
 
 		t.Run("Unauthorized API key", func(t *testing.T) {
@@ -850,7 +850,7 @@ func TestCreateBucketWithObjectLockEnabled(t *testing.T) {
 			})
 			rpctest.RequireCode(t, err, rpcstatus.PermissionDenied)
 
-			restrictedApiKey, err := apiKey.Restrict(macaroon.Caveat{DisallowPutRetention: true})
+			restrictedApiKey, err := apiKey.Restrict(macaroon.Caveat{DisallowPutBucketObjectLockConfiguration: true})
 			require.NoError(t, err)
 
 			_, err = endpoint.CreateBucket(ctx, &pb.CreateBucketRequest{
@@ -877,7 +877,7 @@ func TestCreateBucketWithObjectLockEnabled(t *testing.T) {
 			}
 
 			_, err = endpoint.CreateBucket(ctx, req)
-			rpctest.RequireCode(t, err, rpcstatus.FailedPrecondition)
+			rpctest.RequireCode(t, err, rpcstatus.ObjectLockDisabledForProject)
 
 			endpoint.TestSetUseBucketLevelVersioningByProjectID(project.ID, true)
 
@@ -888,7 +888,7 @@ func TestCreateBucketWithObjectLockEnabled(t *testing.T) {
 
 			req.Name = []byte(testrand.BucketName())
 			_, err = endpoint.CreateBucket(ctx, req)
-			rpctest.RequireCode(t, err, rpcstatus.FailedPrecondition)
+			rpctest.RequireCode(t, err, rpcstatus.ObjectLockDisabledForProject)
 
 			require.NoError(t, sat.API.Console.Service.UpdateVersioningOptInStatus(userCtx, project.ID, console.VersioningOptIn))
 			_, err = endpoint.CreateBucket(ctx, req)
@@ -954,7 +954,7 @@ func TestGetBucketObjectLockConfiguration(t *testing.T) {
 				},
 				Name: bucketName,
 			})
-			rpctest.RequireCode(t, err, rpcstatus.Unimplemented)
+			rpctest.RequireCode(t, err, rpcstatus.ObjectLockBucketRetentionConfigurationMissing)
 		})
 
 		t.Run("Object Lock not globally supported", func(t *testing.T) {
@@ -971,7 +971,7 @@ func TestGetBucketObjectLockConfiguration(t *testing.T) {
 				Name: bucketName,
 			}
 			_, err := endpoint.GetBucketObjectLockConfiguration(ctx, req)
-			rpctest.RequireCode(t, err, rpcstatus.FailedPrecondition)
+			rpctest.RequireCode(t, err, rpcstatus.ObjectLockEndpointsDisabled)
 		})
 
 		t.Run("Nonexistent bucket", func(t *testing.T) {

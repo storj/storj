@@ -9,7 +9,7 @@ import (
 
 	"github.com/stretchr/testify/require"
 
-	"storj.io/common/storj/location"
+	"storj.io/storj/shared/location"
 )
 
 func TestToCountryCode(t *testing.T) {

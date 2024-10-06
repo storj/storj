@@ -25,7 +25,7 @@
 <script setup lang="ts">
 import { VAlert, VRow } from 'vuetify/components';
 
-const props = defineProps<{
+defineProps<{
     ctaLabel: string
 }>();
 

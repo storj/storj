@@ -141,9 +141,15 @@ func TestRepairQueue_PlacementRestrictions(t *testing.T) {
 			require.NoError(t, err)
 			require.True(t, selected[0].Placement > 4)
 
-			selected, err = rq.Select(ctx, 1, []storj.PlacementConstraint{9}, []storj.PlacementConstraint{1, 2, 3, 4})
+			// the Select above does not order by the primary key, so it may update the segment with placement constraint 9.
+			// if so, explicitly update a different segment that is not yet updated (such as 8)
+			singlePlacement := storj.PlacementConstraint(9)
+			if selected[0].Placement == singlePlacement {
+				singlePlacement = storj.PlacementConstraint(8)
+			}
+			selected, err = rq.Select(ctx, 1, []storj.PlacementConstraint{singlePlacement}, []storj.PlacementConstraint{1, 2, 3, 4})
 			require.NoError(t, err)
-			require.Equal(t, storj.PlacementConstraint(9), selected[0].Placement)
+			require.Equal(t, singlePlacement, selected[0].Placement)
 
 			_, err = rq.Select(ctx, 1, []storj.PlacementConstraint{11}, nil)
 			require.Error(t, err)
@@ -302,5 +308,7 @@ func TestRepairQueue_Select_Concurrently(t *testing.T) {
 		}
 
 		require.ElementsMatch(t, segments, selectedSegments)
-	}, satellitedbtest.WithSpanner())
+	})
+	// Spanner disabled here until we have a fix for
+	// https://github.com/googleapis/go-sql-spanner/issues/300
 }

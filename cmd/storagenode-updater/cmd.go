@@ -64,6 +64,7 @@ var (
 		Version  checker.Config
 
 		BinaryLocation string `help:"the storage node executable binary location" default:"storagenode"`
+		BinaryStoreDir string `help:"dir to backup current binaries. Use it only for setups running the storagenode docker image. Path specified must be a host filesystem mounted destination." default:""`
 		ServiceName    string `help:"storage node OS service name" default:"storagenode"`
 		RestartMethod  string `help:"Method used to restart services. Default is 'kill'' (good for containers). 'service' is supported on FreeBSD, to use rc.d" default:"kill"`
 

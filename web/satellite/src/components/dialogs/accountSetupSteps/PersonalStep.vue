@@ -31,7 +31,7 @@
                         label="Use Case (optional)"
                         placeholder="Select your use case"
                         variant="outlined"
-                        class="mt-2"
+                        class="mt-1"
                         @update:model-value="(v) => analyticsStore.eventTriggered(AnalyticsEvent.USE_CASE_SELECTED, { useCase: v })"
                     />
                     <v-text-field
@@ -40,7 +40,7 @@
                         label="Specify Other Use Case"
                         variant="outlined"
                         autofocus
-                        class="mt-2"
+                        class="mt-1"
                     />
                 </v-col>
             </v-row>

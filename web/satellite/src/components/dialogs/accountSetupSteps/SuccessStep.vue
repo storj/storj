@@ -5,7 +5,8 @@
     <v-container class="fill-height" fluid>
         <v-row justify="center" align="center">
             <v-col class="text-center py-10">
-                <icon-blue-checkmark />
+                <component :is="CircleCheckBig" :size="40" />
+
                 <p class="text-overline mt-4 mb-2">
                     Account Complete
                 </p>
@@ -29,9 +30,9 @@
 
 <script setup lang="ts">
 import { VBtn, VCol, VContainer, VRow } from 'vuetify/components';
+import { CircleCheckBig, ChevronRight } from 'lucide-vue-next';
 import { nextTick } from 'vue';
 import { useRouter } from 'vue-router';
-import { ChevronRight } from 'lucide-vue-next';
 
 import { useUsersStore } from '@/store/modules/usersStore';
 import { AnalyticsEvent } from '@/utils/constants/analyticsEventNames';
@@ -40,8 +41,6 @@ import { useAppStore } from '@/store/modules/appStore';
 import { useAnalyticsStore } from '@/store/modules/analyticsStore';
 import { ROUTES } from '@/router';
 import { useProjectsStore } from '@/store/modules/projectsStore';
-
-import IconBlueCheckmark from '@/components/icons/IconBlueCheckmark.vue';
 
 const analyticsStore = useAnalyticsStore();
 const appStore = useAppStore();

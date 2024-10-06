@@ -7,7 +7,7 @@
         @dragover.prevent="isDragging = true"
     >
         <dropzone-dialog v-model="isDragging" :bucket="bucketName" @file-drop="onUpload" />
-        <page-title-component title="Browse Files" />
+        <page-title-component title="Browse Objects" />
 
         <browser-breadcrumbs-component />
         <v-col>
@@ -30,7 +30,7 @@
                                 <component :is="FileUp" :size="18" />
                             </template>
                             <v-list-item-title class="text-body-2 ml-3">
-                                Upload Files
+                                Upload Objects
                             </v-list-item-title>
                         </v-list-item>
 
@@ -91,24 +91,35 @@
                         />
                     </template>
                     <v-list class="pa-1">
-                        <v-list-item
-                            v-if="versioningUIEnabled"
-                            density="comfortable"
-                            link
-                            @click="onToggleVersioning"
-                        >
-                            <template #prepend>
-                                <component :is="History" v-if="bucket?.versioning !== Versioning.Enabled" :size="18" />
-                                <component :is="CirclePause" v-else :size="18" />
-                            </template>
-                            <v-list-item-title
-                                class="ml-3 text-body-2 font-weight-medium"
+                        <div>
+                            <v-list-item
+                                v-if="versioningUIEnabled"
+                                density="comfortable"
+                                link
+                                :disabled="bucket?.versioning === Versioning.Enabled && bucket?.objectLockEnabled"
+                                @click="onToggleVersioning"
                             >
-                                {{
-                                    bucket?.versioning !== Versioning.Enabled ? 'Enable Versioning' : 'Suspend Versioning'
-                                }}
-                            </v-list-item-title>
-                        </v-list-item>
+                                <template #prepend>
+                                    <component :is="History" v-if="bucket?.versioning !== Versioning.Enabled" :size="18" />
+                                    <component :is="CirclePause" v-else :size="18" />
+                                </template>
+                                <v-list-item-title
+                                    class="ml-3 text-body-2 font-weight-medium"
+                                >
+                                    {{
+                                        bucket?.versioning !== Versioning.Enabled ? 'Enable Versioning' : 'Suspend Versioning'
+                                    }}
+                                </v-list-item-title>
+                            </v-list-item>
+                            <v-tooltip
+                                v-if="bucket?.versioning === Versioning.Enabled && bucket?.objectLockEnabled"
+                                activator="parent"
+                                location="left"
+                                max-width="300"
+                            >
+                                Versioning cannot be suspended on a bucket with object lock enabled
+                            </v-tooltip>
+                        </div>
 
                         <v-list-item
                             v-if="versioningUIEnabled"
@@ -140,6 +151,20 @@
                                 Share Bucket
                             </v-list-item-title>
                         </v-list-item>
+                        <v-list-item
+                            density="comfortable"
+                            link
+                            @click="isBucketDetailsDialogShown = true"
+                        >
+                            <template #prepend>
+                                <component :is="ReceiptText" :size="18" />
+                            </template>
+                            <v-list-item-title
+                                class="ml-3 text-body-2 font-weight-medium"
+                            >
+                                Bucket Details
+                            </v-list-item-title>
+                        </v-list-item>
                         <v-divider class="my-1" />
                         <v-list-item
                             density="comfortable"
@@ -161,7 +186,7 @@
 
                 <v-spacer v-if="smAndUp" />
 
-                <v-col v-if="!showObjectVersions" class="pa-0 pt-5 pa-sm-0" cols="auto">
+                <v-col class="pa-0 pt-5 pa-sm-0" cols="auto">
                     <v-btn-toggle
                         mandatory
                         border
@@ -169,9 +194,13 @@
                         density="comfortable"
                         class="pa-1 bg-surface"
                     >
-                        <v-tooltip location="top">
+                        <v-tooltip v-if="showObjectVersions" location="top" activator="parent">
+                            Please hide versions to toggle the view.
+                        </v-tooltip>
+                        <v-tooltip :disabled="showObjectVersions" location="top">
                             <template #activator="{ props }">
                                 <v-btn
+                                    :disabled="showObjectVersions"
                                     size="small"
                                     rounded="xl"
                                     active-class="active"
@@ -187,6 +216,7 @@
                             Gallery view shows image previews using download bandwidth.
                         </v-tooltip>
                         <v-btn
+                            :disabled="showObjectVersions"
                             size="small"
                             rounded="xl"
                             active-class="active"
@@ -202,14 +232,22 @@
             </v-row>
         </v-col>
 
-        <browser-versions-table-component v-if="showObjectVersions" :loading="isFetching" :force-empty="!isInitialized" @upload-click="buttonFileUpload" />
-        <browser-card-view-component v-else-if="isCardView" :force-empty="!isInitialized" @upload-click="buttonFileUpload" />
-        <browser-table-component v-else :bucket="bucket" :loading="isFetching" :force-empty="!isInitialized" @upload-click="buttonFileUpload" />
+        <v-card v-if="isFetching">
+            <v-card-item>
+                <v-skeleton-loader type="card" />
+            </v-card-item>
+        </v-card>
+        <template v-else>
+            <browser-versions-table-component v-if="showObjectVersions" :loading="isFetching" :force-empty="!isInitialized" @upload-click="buttonFileUpload" />
+            <browser-card-view-component v-else-if="isCardView" :bucket="bucket" :force-empty="!isInitialized" @upload-click="buttonFileUpload" />
+            <browser-table-component v-else :bucket="bucket" :loading="isFetching" :force-empty="!isInitialized" @upload-click="buttonFileUpload" />
+        </template>
     </v-container>
 
     <browser-new-folder-dialog v-model="isNewFolderDialogOpen" />
     <enter-bucket-passphrase-dialog v-model="isBucketPassphraseDialogOpen" @passphrase-entered="initObjectStore" />
     <share-dialog v-model="isShareBucketDialogShown" :bucket-name="bucketName" />
+    <bucket-details-dialog v-model="isBucketDetailsDialogShown" :bucket-name="bucketName" />
     <delete-bucket-dialog v-model="isDeleteBucketDialogShown" :bucket-name="bucketName" @deleted="onBucketDeleted" />
     <toggle-versioning-dialog v-model="bucketToToggleVersioning" @toggle="() => bucketsStore.getAllBucketsMetadata(projectId)" />
     <upload-overwrite-warning-dialog
@@ -224,6 +262,8 @@
 import { computed, onMounted, ref, watch } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import {
+    VCard,
+    VCardItem,
     VContainer,
     VCol,
     VRow,
@@ -232,6 +272,7 @@ import {
     VList,
     VListItem,
     VListItemTitle,
+    VSkeletonLoader,
     VSpacer,
     VDivider,
     VBtnToggle,
@@ -244,6 +285,7 @@ import { FileUp,
     Settings,
     Upload,
     Share,
+    ReceiptText,
     Trash2,
     History,
     CirclePause,
@@ -264,7 +306,7 @@ import { useAppStore } from '@/store/modules/appStore';
 import { ROUTES } from '@/router';
 import { Versioning } from '@/types/versioning';
 import { BucketMetadata } from '@/types/buckets';
-import { useTrialCheck } from '@/composables/useTrialCheck';
+import { usePreCheck } from '@/composables/usePreCheck';
 import { DuplicateUploadError } from '@/utils/error';
 import { useUsersStore } from '@/store/modules/usersStore';
 
@@ -277,6 +319,7 @@ import DropzoneDialog from '@/components/dialogs/DropzoneDialog.vue';
 import BrowserCardViewComponent from '@/components/BrowserCardViewComponent.vue';
 import IconFolder from '@/components/icons/IconFolder.vue';
 import ShareDialog from '@/components/dialogs/ShareDialog.vue';
+import BucketDetailsDialog from '@/components/dialogs/BucketDetailsDialog.vue';
 import DeleteBucketDialog from '@/components/dialogs/DeleteBucketDialog.vue';
 import ToggleVersioningDialog from '@/components/dialogs/ToggleVersioningDialog.vue';
 import UploadOverwriteWarningDialog from '@/components/dialogs/UploadOverwriteWarningDialog.vue';
@@ -293,7 +336,7 @@ const router = useRouter();
 const route = useRoute();
 const notify = useNotify();
 const { smAndUp } = useDisplay();
-const { withTrialCheck } = useTrialCheck();
+const { withTrialCheck } = usePreCheck();
 
 const folderInput = ref<HTMLInputElement>();
 const fileInput = ref<HTMLInputElement>();
@@ -305,6 +348,7 @@ const isDragging = ref<boolean>(false);
 const isBucketPassphraseDialogOpen = ref<boolean>(false);
 const isNewFolderDialogOpen = ref<boolean>(false);
 const isShareBucketDialogShown = ref<boolean>(false);
+const isBucketDetailsDialogShown = ref<boolean>(false);
 const isDeleteBucketDialogShown = ref<boolean>(false);
 const isDuplicateUploadDialogShown = ref<boolean>(false);
 const bucketToToggleVersioning = ref<BucketMetadata | null>(null);
@@ -314,7 +358,12 @@ const duplicateFiles = ref<string[]>([]);
 /**
  * Whether versioning has been enabled for current project and allowed for this bucket specifically.
  */
-const versioningUIEnabled = computed(() => projectsStore.versioningUIEnabled && bucket.value && bucket.value.versioning !== Versioning.NotSupported);
+const versioningUIEnabled = computed(() => {
+    return projectsStore.versioningUIEnabled
+      && bucket.value
+      && bucket.value.versioning !== Versioning.NotSupported
+      && bucket.value.versioning !== Versioning.Unversioned;
+});
 
 /**
  * Whether the user should be warned when uploading duplicate files.
@@ -328,7 +377,7 @@ const ignoreDuplicateUploads = computed<boolean>(() => {
 /**
  * Whether object versions should be shown.
  */
-const showObjectVersions = computed(() => obStore.state.showObjectVersions);
+const showObjectVersions = computed(() =>  versioningUIEnabled.value && obStore.state.showObjectVersions.value);
 
 /**
  * Returns the name of the selected bucket.
@@ -539,6 +588,12 @@ onMounted(async () => {
             params: { id: projectUrlId.value },
         });
     }
+
+    if (appStore.state.managedPassphraseNotRetrievable) {
+        goToBuckets();
+        return;
+    }
+
     try {
         await bucketsStore.getAllBucketsMetadata(projectId.value);
     } catch (error) {
@@ -551,6 +606,11 @@ onMounted(async () => {
     if (!bucket.value) {
         goToBuckets();
         return;
+    }
+
+    if (versioningUIEnabled.value && !obStore.state.showObjectVersions.userModified) {
+        // only toggle this view as default if the user hasn't already changed it
+        obStore.toggleShowObjectVersions(true, false);
     }
 
     if (isPromptForPassphrase.value) {

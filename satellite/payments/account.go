@@ -32,6 +32,9 @@ type Accounts interface {
 	// AddTaxID adds a new tax ID for a user and returns the updated billing information.
 	AddTaxID(ctx context.Context, userID uuid.UUID, taxID TaxID) (*BillingInformation, error)
 
+	// AddDefaultInvoiceReference adds a new default invoice reference to be displayed on each invoice and returns the updated billing information.
+	AddDefaultInvoiceReference(ctx context.Context, userID uuid.UUID, reference string) (*BillingInformation, error)
+
 	// RemoveTaxID removes a tax ID from a user and returns the updated billing information.
 	RemoveTaxID(ctx context.Context, userID uuid.UUID, id string) (*BillingInformation, error)
 

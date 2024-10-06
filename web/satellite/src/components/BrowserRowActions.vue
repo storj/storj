@@ -3,7 +3,7 @@
 
 <template>
     <div class="text-no-wrap" :class="alignClass">
-        <v-tooltip v-if="deleting" location="top" text="Deleting file">
+        <v-tooltip v-if="deleting" location="top" text="Deleting object">
             <template #activator="{ props: loaderProps }">
                 <v-progress-circular class="text-right" width="2" size="22" color="error" indeterminate v-bind="loaderProps" />
             </template>
@@ -93,6 +93,14 @@
                                     Lock
                                 </v-list-item-title>
                             </v-list-item>
+                            <v-list-item v-if="objectLockEnabledForBucket" density="comfortable" link @click="emit('legalHoldClick')">
+                                <template #prepend>
+                                    <component :is="FileLock2" :size="18" />
+                                </template>
+                                <v-list-item-title class="ml-3 text-body-2 font-weight-medium">
+                                    Legal Hold
+                                </v-list-item-title>
+                            </v-list-item>
                             <v-list-item v-if="isVersion && !isFileDeleted && !file.isLatest && !file.isDeleteMarker" density="comfortable" link @click="emit('restoreObjectClick')">
                                 <template #prepend>
                                     <component :is="Redo2" :size="18" />
@@ -145,7 +153,7 @@ import {
     VIcon,
     VBtn, VTooltip,
 } from 'vuetify/components';
-import { Ellipsis, Share, Download, ZoomIn, Trash2, Redo2, Lock } from 'lucide-vue-next';
+import { Ellipsis, Share, Download, ZoomIn, Trash2, Redo2, Lock, FileLock2 } from 'lucide-vue-next';
 
 import {
     BrowserObject,
@@ -181,6 +189,7 @@ const emit = defineEmits<{
     shareClick: [];
     restoreObjectClick: [];
     lockObjectClick: [];
+    legalHoldClick: [];
     lockedObjectDelete: [FullBrowserObject];
 }>();
 
@@ -221,7 +230,7 @@ const disableDownload = computed<boolean>(() => {
 
 async function onDownloadClick(): Promise<void> {
     if (disableDownload.value) {
-        notify.error('Bandwidth limit exceeded, can not download this file.');
+        notify.error('Bandwidth limit exceeded, can not download this object.');
         return;
     }
 
@@ -237,7 +246,7 @@ async function onDownloadClick(): Promise<void> {
             'Download started',
         );
     } catch (error) {
-        error.message = `Error downloading file. ${error.message}`;
+        error.message = `Error downloading object. ${error.message}`;
         notify.notifyError(error, AnalyticsErrorEventSource.FILE_BROWSER_ENTRY);
     }
     isDownloading.value = false;
@@ -260,7 +269,7 @@ async function onDeleteClick(): Promise<void> {
         }
         emit('lockedObjectDelete', { ...props.file, retention });
     } catch (error) {
-        error.message = `Error deleting file. ${error.message}`;
+        error.message = `Error deleting object. ${error.message}`;
         notify.notifyError(error, AnalyticsErrorEventSource.FILE_BROWSER_ENTRY);
     } finally {
         isGettingRetention.value = false;

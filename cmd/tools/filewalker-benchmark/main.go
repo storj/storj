@@ -19,12 +19,12 @@ import (
 	"github.com/spf13/pflag"
 	"go.uber.org/zap"
 
-	"storj.io/common/bloomfilter"
 	"storj.io/common/cfgstruct"
 	"storj.io/common/memory"
 	"storj.io/common/pb"
 	"storj.io/common/storj"
 	"storj.io/common/testrand"
+	"storj.io/storj/shared/bloomfilter"
 	"storj.io/storj/storagenode"
 	"storj.io/storj/storagenode/blobstore/filestore"
 	"storj.io/storj/storagenode/pieces"
@@ -53,7 +53,7 @@ func main() {
 
 	blobsCache := pieces.NewBlobsUsageCache(log, snDB.Pieces())
 	filewalker := pieces.NewFileWalker(log, blobsCache, snDB.V0PieceInfo(),
-		snDB.GCFilewalkerProgress())
+		snDB.GCFilewalkerProgress(), snDB.UsedSpacePerPrefix())
 
 	piecesStore := pieces.NewStore(log, filewalker, nil, blobsCache, snDB.V0PieceInfo(), snDB.PieceExpirationDB(), snDB.PieceSpaceUsedDB(), cfg.Pieces)
 	testStore := pieces.StoreForTest{Store: piecesStore}

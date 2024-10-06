@@ -4,6 +4,7 @@
 package consolewasm
 
 import (
+	"errors"
 	"time"
 
 	"github.com/zeebo/errs"
@@ -40,6 +41,12 @@ type Permission struct {
 	// believes the time is after NotAfter.
 	// If set, this value should always be after NotBefore.
 	NotAfter time.Time
+	// MaxObjectTTL restricts the maximum time-to-live of objects.
+	// If set, new objects are uploaded with an expiration time that reflects
+	// the MaxObjectTTL period.
+	// If objects are uploaded with an explicit expiration time, the upload
+	// will be successful only if it is shorter than the MaxObjectTTL period.
+	MaxObjectTTL *time.Duration
 }
 
 // SetPermission restricts the api key with the permissions and returns an api key with restricted permissions.
@@ -60,6 +67,10 @@ func SetPermission(key string, buckets []string, permission Permission) (*macaro
 		return nil, errs.New("invalid time range")
 	}
 
+	if permission.MaxObjectTTL != nil && *(permission.MaxObjectTTL) <= 0 {
+		return nil, errors.New("non-positive ttl period")
+	}
+
 	caveat := macaroon.WithNonce(macaroon.Caveat{
 		DisallowReads:   !permission.AllowDownload,
 		DisallowWrites:  !permission.AllowUpload,
@@ -67,6 +78,7 @@ func SetPermission(key string, buckets []string, permission Permission) (*macaro
 		DisallowDeletes: !permission.AllowDelete,
 		NotBefore:       notBefore,
 		NotAfter:        notAfter,
+		MaxObjectTtl:    permission.MaxObjectTTL,
 	})
 
 	for _, b := range buckets {

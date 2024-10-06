@@ -714,7 +714,7 @@ func (chore *Chore) sendEmail(ctx context.Context, user *console.User, event *co
 	var message mailservice.Message
 	switch event.Type {
 	case console.BillingWarning:
-		days := int(chore.freezeConfig.BillingFreezeGracePeriod.Hours() / 24)
+		days := int(chore.freezeConfig.BillingWarnGracePeriod.Hours() / 24)
 		if event.NotificationsCount != 0 {
 			days = *event.DaysTillEscalation - elapsedTime
 		}

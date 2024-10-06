@@ -18,7 +18,6 @@ import (
 
 	"storj.io/common/pb"
 	"storj.io/common/storj"
-	"storj.io/common/storj/location"
 	"storj.io/common/version"
 	"storj.io/storj/satellite/nodeselection"
 	"storj.io/storj/satellite/overlay"
@@ -27,6 +26,7 @@ import (
 	"storj.io/storj/shared/dbutil/cockroachutil"
 	"storj.io/storj/shared/dbutil/pgutil"
 	"storj.io/storj/shared/dbutil/txutil"
+	"storj.io/storj/shared/location"
 	"storj.io/storj/shared/tagsql"
 )
 
@@ -70,7 +70,7 @@ func (cache *overlaycache) selectAllStorageNodesUpload(ctx context.Context, sele
 	switch cache.db.impl {
 	case dbutil.Cockroach, dbutil.Postgres:
 		query := `
-			SELECT id, address, email, wallet, last_net, last_ip_port, vetted_at, country_code, noise_proto, noise_public_key, debounce_limit, features, country_code, piece_count
+			SELECT id, address, email, wallet, last_net, last_ip_port, vetted_at, country_code, noise_proto, noise_public_key, debounce_limit, features, country_code, piece_count, free_disk
 			FROM nodes
 			` + cache.db.impl.AsOfSystemInterval(selectionCfg.AsOfSystemTime.Interval()) + `
 			WHERE disqualified IS NULL
@@ -100,7 +100,7 @@ func (cache *overlaycache) selectAllStorageNodesUpload(ctx context.Context, sele
 		rows, err = cache.db.Query(ctx, query, args...)
 	case dbutil.Spanner:
 		query := `
-			SELECT id, address, email, wallet, last_net, last_ip_port, vetted_at, country_code, noise_proto, noise_public_key, debounce_limit, features, country_code, piece_count
+			SELECT id, address, email, wallet, last_net, last_ip_port, vetted_at, country_code, noise_proto, noise_public_key, debounce_limit, features, country_code, piece_count, free_disk
 			FROM nodes
 			` + cache.db.impl.AsOfSystemInterval(selectionCfg.AsOfSystemTime.Interval()) + `
 			WHERE disqualified IS NULL
@@ -147,7 +147,7 @@ func (cache *overlaycache) selectAllStorageNodesUpload(ctx context.Context, sele
 		var vettedAt *time.Time
 		var noise noiseScanner
 		err = rows.Scan(&node.ID, &node.Address.Address, &email, &wallet, &node.LastNet, &lastIPPort, &vettedAt, &node.CountryCode, &noise.Proto,
-			&noise.PublicKey, &node.Address.DebounceLimit, &node.Address.Features, &node.CountryCode, &node.PieceCount)
+			&noise.PublicKey, &node.Address.DebounceLimit, &node.Address.Features, &node.CountryCode, &node.PieceCount, &node.FreeDisk)
 		if err != nil {
 			return nil, nil, err
 		}
@@ -202,7 +202,7 @@ func (cache *overlaycache) selectAllStorageNodesDownload(ctx context.Context, on
 	switch cache.db.impl {
 	case dbutil.Cockroach, dbutil.Postgres:
 		query := `
-			SELECT id, address, email, wallet, last_net, last_ip_port, noise_proto, noise_public_key, debounce_limit, features, country_code, piece_count,
+			SELECT id, address, email, wallet, last_net, last_ip_port, noise_proto, noise_public_key, debounce_limit, features, country_code, piece_count, free_disk,
 					exit_initiated_at IS NOT NULL AS exiting, (unknown_audit_suspended IS NOT NULL OR offline_suspended IS NOT NULL) AS suspended, vetted_at is not null as vetted
 			FROM nodes
 			` + cache.db.impl.AsOfSystemInterval(asOfConfig.Interval()) + `
@@ -218,7 +218,7 @@ func (cache *overlaycache) selectAllStorageNodesDownload(ctx context.Context, on
 		rows, err = cache.db.Query(ctx, query, args...)
 	case dbutil.Spanner:
 		query := `
-			SELECT id, address, email, wallet, last_net, last_ip_port, noise_proto, noise_public_key, debounce_limit, features, country_code, piece_count,
+			SELECT id, address, email, wallet, last_net, last_ip_port, noise_proto, noise_public_key, debounce_limit, features, country_code, piece_count, free_disk,
 					exit_initiated_at IS NOT NULL AS exiting, (unknown_audit_suspended IS NOT NULL OR offline_suspended IS NOT NULL) AS suspended, vetted_at is not null as vetted
 			FROM nodes
 			` + cache.db.impl.AsOfSystemInterval(asOfConfig.Interval()) + `
@@ -247,7 +247,7 @@ func (cache *overlaycache) selectAllStorageNodesDownload(ctx context.Context, on
 		var lastIPPort sql.NullString
 		var noise noiseScanner
 		var err = rows.Scan(&node.ID, &node.Address.Address, &node.Email, &node.Wallet, &node.LastNet, &lastIPPort, &noise.Proto,
-			&noise.PublicKey, &node.Address.DebounceLimit, &node.Address.Features, &node.CountryCode, &node.PieceCount,
+			&noise.PublicKey, &node.Address.DebounceLimit, &node.Address.Features, &node.CountryCode, &node.PieceCount, &node.FreeDisk,
 			&node.Exiting, &node.Suspended, &node.Vetted)
 		if err != nil {
 			return nil, err
@@ -553,7 +553,7 @@ func (cache *overlaycache) GetNodes(ctx context.Context, nodeIDs storj.NodeIDLis
 	switch cache.db.impl {
 	case dbutil.Cockroach, dbutil.Postgres:
 		err = withRows(cache.db.Query(ctx, `
-			SELECT n.id, n.address, n.email, n.wallet, n.last_net, n.last_ip_port, n.country_code, n.piece_count,
+			SELECT n.id, n.address, n.email, n.wallet, n.last_net, n.last_ip_port, n.country_code, n.piece_count, n.free_disk,
 				n.last_contact_success > $2 AS online,
 				(n.offline_suspended IS NOT NULL OR n.unknown_audit_suspended IS NOT NULL) AS suspended,
 				n.disqualified IS NOT NULL AS disqualified,
@@ -593,7 +593,7 @@ func (cache *overlaycache) GetNodes(ctx context.Context, nodeIDs storj.NodeIDLis
 		})
 	case dbutil.Spanner:
 		err = withRows(cache.db.Query(ctx, `
-			SELECT n.id, n.address, n.email, n.wallet, n.last_net, n.last_ip_port, n.country_code, n.piece_count,
+			SELECT n.id, n.address, n.email, n.wallet, n.last_net, n.last_ip_port, n.country_code, n.piece_count, n.free_disk,
 				n.last_contact_success > ? AS online,
 				(n.offline_suspended IS NOT NULL OR n.unknown_audit_suspended IS NOT NULL) AS suspended,
 				n.disqualified IS NOT NULL AS disqualified,
@@ -655,7 +655,7 @@ func (cache *overlaycache) GetParticipatingNodes(ctx context.Context, onlineWind
 	switch cache.db.impl {
 	case dbutil.Cockroach, dbutil.Postgres:
 		err = withRows(cache.db.Query(ctx, `
-			SELECT id, address, email, wallet, last_net, last_ip_port, country_code, piece_count,
+			SELECT id, address, email, wallet, last_net, last_ip_port, country_code, piece_count, free_disk,
 				last_contact_success > $1 AS online,
 				(offline_suspended IS NOT NULL OR unknown_audit_suspended IS NOT NULL) AS suspended,
 				false AS disqualified,
@@ -679,7 +679,7 @@ func (cache *overlaycache) GetParticipatingNodes(ctx context.Context, onlineWind
 		})
 	case dbutil.Spanner:
 		err = withRows(cache.db.Query(ctx, `
-			SELECT id, address, email, wallet, last_net, last_ip_port, country_code, piece_count,
+			SELECT id, address, email, wallet, last_net, last_ip_port, country_code, piece_count, free_disk,
 				last_contact_success > ? AS online,
 				(offline_suspended IS NOT NULL OR unknown_audit_suspended IS NOT NULL) AS suspended,
 				false AS disqualified,
@@ -749,7 +749,7 @@ func scanSelectedNode(rows tagsql.Rows) (nodeselection.SelectedNode, error) {
 	var nodeID nullNodeID
 	var address, email, wallet, lastNet, lastIPPort, countryCode sql.NullString
 	var online, suspended, disqualified, exiting, exited, vetted sql.NullBool
-	err := rows.Scan(&nodeID, &address, &email, &wallet, &lastNet, &lastIPPort, &countryCode, &node.PieceCount,
+	err := rows.Scan(&nodeID, &address, &email, &wallet, &lastNet, &lastIPPort, &countryCode, &node.PieceCount, &node.FreeDisk,
 		&online, &suspended, &disqualified, &exiting, &exited, &vetted)
 	if err != nil {
 		return nodeselection.SelectedNode{}, err
@@ -790,13 +790,14 @@ func scanSelectedNodeWithTagSpanner(rows tagsql.Rows) (_ nodeselection.SelectedN
 	var address, wallet, email, lastNet, lastIPPort, countryCode sql.NullString
 	var online, suspended, disqualified, exiting, exited, vetted sql.NullBool
 	var pieceCount sql.NullInt64
+	var freeDisk sql.NullInt64
 
 	var tag nodeselection.NodeTag
 	var name []byte
 	signedAt := &time.Time{}
 	signer := []byte{}
 
-	err = rows.Scan(&nodeID, &address, &email, &wallet, &lastNet, &lastIPPort, &countryCode, &pieceCount,
+	err = rows.Scan(&nodeID, &address, &email, &wallet, &lastNet, &lastIPPort, &countryCode, &pieceCount, &freeDisk,
 		&online, &suspended, &disqualified, &exiting, &exited, &name, &tag.Value, &signedAt, &signer, &vetted)
 	if err != nil {
 		return nodeselection.SelectedNode{}, nodeselection.NodeTag{}, true, err
@@ -823,6 +824,9 @@ func scanSelectedNodeWithTagSpanner(rows tagsql.Rows) (_ nodeselection.SelectedN
 	if pieceCount.Valid {
 		node.PieceCount = pieceCount.Int64
 	}
+	if freeDisk.Valid {
+		node.FreeDisk = freeDisk.Int64
+	}
 	node.Online = online.Bool
 	node.Suspended = suspended.Bool
 	node.Exiting = exiting.Bool
@@ -844,14 +848,14 @@ func scanSelectedNodeWithTag(rows tagsql.Rows) (_ nodeselection.SelectedNode, _ 
 	var nodeID nullNodeID
 	var address, wallet, email, lastNet, lastIPPort, countryCode sql.NullString
 	var online, suspended, disqualified, exiting, exited, vetted sql.NullBool
-	var pieceCount sql.NullInt64
+	var pieceCount, freeDisk sql.NullInt64
 
 	var tag nodeselection.NodeTag
 	var name []byte
 	signedAt := &time.Time{}
 	signer := nullNodeID{}
 
-	err = rows.Scan(&nodeID, &address, &email, &wallet, &lastNet, &lastIPPort, &countryCode, &pieceCount,
+	err = rows.Scan(&nodeID, &address, &email, &wallet, &lastNet, &lastIPPort, &countryCode, &pieceCount, &freeDisk,
 		&online, &suspended, &disqualified, &exiting, &exited, &name, &tag.Value, &signedAt, &signer, &vetted)
 	if err != nil {
 		return nodeselection.SelectedNode{}, nodeselection.NodeTag{}, true, err
@@ -877,6 +881,9 @@ func scanSelectedNodeWithTag(rows tagsql.Rows) (_ nodeselection.SelectedNode, _ 
 	}
 	if pieceCount.Valid {
 		node.PieceCount = pieceCount.Int64
+	}
+	if freeDisk.Valid {
+		node.FreeDisk = freeDisk.Int64
 	}
 	node.Online = online.Bool
 	node.Suspended = suspended.Bool

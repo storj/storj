@@ -46,6 +46,7 @@ import (
 	"storj.io/storj/satellite/payments/storjscan"
 	"storj.io/storj/satellite/payments/storjscan/blockchaintest"
 	"storj.io/storj/satellite/payments/stripe"
+	"storj.io/uplink/private/metaclient"
 )
 
 func TestService(t *testing.T) {
@@ -54,7 +55,7 @@ func TestService(t *testing.T) {
 		placements[i] = fmt.Sprintf("loc-%d", i)
 	}
 	testplanet.Run(t, testplanet.Config{
-		SatelliteCount: 1, StorageNodeCount: 1, UplinkCount: 4,
+		SatelliteCount: 1, StorageNodeCount: 1, UplinkCount: 4, EnableSpanner: true,
 		Reconfigure: testplanet.Reconfigure{
 			Satellite: func(log *zap.Logger, index int, config *satellite.Config) {
 				config.Payments.StripeCoinPayments.StripeFreeTierCouponID = stripe.MockCouponID1
@@ -65,6 +66,7 @@ func TestService(t *testing.T) {
 				config.Placement = nodeselection.ConfigurablePlacementRule{PlacementRules: plcStr}
 				config.Console.VarPartners = []string{"partner1"}
 				config.Console.DeleteProjectEnabled = true
+				config.Metainfo.UseBucketLevelObjectVersioning = true
 			},
 		},
 	},
@@ -1002,6 +1004,41 @@ func TestService(t *testing.T) {
 				for _, b := range bt.BucketUsages {
 					require.Equal(t, placements[int(b.DefaultPlacement)], b.Location)
 				}
+			})
+
+			t.Run("GetSingleBucketTotals", func(t *testing.T) {
+				bucketName := "test-single-bucket"
+
+				err = planet.Uplinks[1].CreateBucket(ctx, sat, bucketName)
+				require.NoError(t, err)
+
+				storedBucket, err := sat.DB.Buckets().GetBucket(ctx, []byte(bucketName), up2Proj.ID)
+				require.NoError(t, err)
+
+				_, err = service.GetSingleBucketTotals(userCtx1, up2Proj.ID, storedBucket.Name, time.Now())
+				require.True(t, console.ErrUnauthorized.Has(err))
+
+				client, err := planet.Uplinks[1].Projects[0].DialMetainfo(ctx)
+				require.NoError(t, err)
+				defer func() {
+					require.NoError(t, client.Close())
+				}()
+
+				err = client.SetBucketVersioning(ctx, metaclient.SetBucketVersioningParams{
+					Name:       []byte(storedBucket.Name),
+					Versioning: true,
+				})
+				require.NoError(t, err)
+
+				storedBucket.Placement = storj.EU
+
+				_, err = sat.DB.Buckets().UpdateBucket(ctx, storedBucket)
+				require.NoError(t, err)
+
+				bt, err := service.GetSingleBucketTotals(userCtx2, up2Proj.ID, storedBucket.Name, time.Now())
+				require.NoError(t, err)
+				require.Equal(t, storj.EU, bt.DefaultPlacement)
+				require.Equal(t, buckets.VersioningEnabled, bt.Versioning)
 			})
 
 			t.Run("GetBucketMetadata", func(t *testing.T) {
@@ -3808,7 +3845,7 @@ func TestSatelliteManagedProjectWithDisabledAndConfig(t *testing.T) {
 
 func TestPaymentsWalletPayments(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
-		SatelliteCount: 1, StorageNodeCount: 0, UplinkCount: 0,
+		SatelliteCount: 1, StorageNodeCount: 0, UplinkCount: 0, EnableSpanner: true,
 		Reconfigure: testplanet.Reconfigure{
 			Satellite: func(log *zap.Logger, index int, config *satellite.Config) {
 				config.Payments.BillingConfig.DisableLoop = false

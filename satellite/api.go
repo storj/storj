@@ -19,7 +19,6 @@ import (
 
 	"storj.io/common/debug"
 	"storj.io/common/identity"
-	"storj.io/common/nodetag"
 	"storj.io/common/pb"
 	"storj.io/common/peertls/extensions"
 	"storj.io/common/peertls/tlsopts"
@@ -57,6 +56,7 @@ import (
 	"storj.io/storj/satellite/payments/stripe"
 	"storj.io/storj/satellite/reputation"
 	"storj.io/storj/satellite/snopayouts"
+	"storj.io/storj/shared/nodetag"
 )
 
 // API is the satellite API process.

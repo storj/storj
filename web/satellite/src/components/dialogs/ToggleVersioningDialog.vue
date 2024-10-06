@@ -40,8 +40,8 @@
                     <v-alert color="info" variant="tonal" class="my-4">
                         {{
                             isSuspending
-                                ? 'By suspending versioning, uploading files with the same name will overwrite them. Previously stored versions will remain accessible.'
-                                : 'By enabling versioning, you can store multiple versions of each file. All versions count as additional storage used in this project.'
+                                ? 'By suspending versioning, uploading objects with the same name will overwrite them. Previously stored versions will remain accessible.'
+                                : 'By enabling versioning, you can store multiple versions of each object. All versions count as additional storage used in this project.'
                         }}
                     </v-alert>
                 </v-col>

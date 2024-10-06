@@ -148,6 +148,7 @@ import { AnalyticsErrorEventSource, AnalyticsEvent } from '@/utils/constants/ana
 import { useNotify } from '@/utils/hooks';
 import { ROUTES } from '@/router';
 import { useBucketsStore } from '@/store/modules/bucketsStore';
+import { DataTableHeader, SortItem } from '@/types/common';
 
 defineProps<{
     items: ProjectItemModel[],
@@ -168,8 +169,8 @@ const projectsStore = useProjectsStore();
 const router = useRouter();
 const notify = useNotify();
 
-const sortBy = [{ key: 'name', order: 'asc' }];
-const headers = [
+const sortBy: SortItem[] = [{ key: 'name', order: 'asc' }];
+const headers: DataTableHeader[] = [
     { title: 'Project', key: 'name', align: 'start' },
     { title: 'Role', key: 'role' },
     { title: 'Members', key: 'memberCount' },
@@ -183,8 +184,11 @@ const headers = [
  * Selects the project and navigates to the project dashboard.
  */
 function openProject(item: ProjectItemModel): void {
+    // There is no reason to clear s3 data if the user is navigating to the previously selected project.
+    if (projectsStore.state.selectedProject.id !== item.id) bucketsStore.clearS3Data();
+
     projectsStore.selectProject(item.id);
-    bucketsStore.clearS3Data();
+
     router.push({
         name: ROUTES.Dashboard.name,
         params: { id: projectsStore.state.selectedProject.urlId },

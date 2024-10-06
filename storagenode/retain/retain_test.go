@@ -12,7 +12,6 @@ import (
 	"go.uber.org/zap/zaptest"
 	"golang.org/x/sync/errgroup"
 
-	"storj.io/common/bloomfilter"
 	"storj.io/common/errs2"
 	"storj.io/common/identity/testidentity"
 	"storj.io/common/memory"
@@ -22,6 +21,7 @@ import (
 	"storj.io/common/testcontext"
 	"storj.io/common/testrand"
 	"storj.io/storj/cmd/storagenode/internalcmd"
+	"storj.io/storj/shared/bloomfilter"
 	"storj.io/storj/storagenode"
 	"storj.io/storj/storagenode/blobstore"
 	"storj.io/storj/storagenode/blobstore/filestore"
@@ -36,7 +36,7 @@ func TestRetainPieces(t *testing.T) {
 		log := zaptest.NewLogger(t)
 		blobs := pieces.NewBlobsUsageCache(log, db.Pieces())
 		v0PieceInfo := db.V0PieceInfo()
-		fw := pieces.NewFileWalker(log, blobs, v0PieceInfo, db.GCFilewalkerProgress())
+		fw := pieces.NewFileWalker(log, blobs, v0PieceInfo, db.GCFilewalkerProgress(), db.UsedSpacePerPrefix())
 		store := pieces.NewStore(log, fw, nil, blobs, v0PieceInfo, db.PieceExpirationDB(), db.PieceSpaceUsedDB(), pieces.DefaultConfig)
 		testStore := pieces.StoreForTest{Store: store}
 
@@ -217,7 +217,7 @@ func TestRetainPieces_lazyFilewalker(t *testing.T) {
 		log := zaptest.NewLogger(t)
 		blobs := pieces.NewBlobsUsageCache(log, db.Pieces())
 		v0PieceInfo := db.V0PieceInfo()
-		fw := pieces.NewFileWalker(log, blobs, v0PieceInfo, db.GCFilewalkerProgress())
+		fw := pieces.NewFileWalker(log, blobs, v0PieceInfo, db.GCFilewalkerProgress(), db.UsedSpacePerPrefix())
 		cfg := pieces.DefaultConfig
 		cfg.EnableLazyFilewalker = true
 
@@ -370,7 +370,7 @@ func TestRetainPieces_fromStore(t *testing.T) {
 		log := zaptest.NewLogger(t)
 		blobs := pieces.NewBlobsUsageCache(log, db.Pieces())
 		v0PieceInfo := db.V0PieceInfo()
-		fw := pieces.NewFileWalker(log, blobs, v0PieceInfo, db.GCFilewalkerProgress())
+		fw := pieces.NewFileWalker(log, blobs, v0PieceInfo, db.GCFilewalkerProgress(), db.UsedSpacePerPrefix())
 		cfg := pieces.DefaultConfig
 		cfg.EnableLazyFilewalker = true
 
