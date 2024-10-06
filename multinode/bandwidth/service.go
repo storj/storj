@@ -54,10 +54,10 @@ func (service *Service) Monthly(ctx context.Context) (_ Monthly, err error) {
 	cache := make(UsageRollupDailyCache)
 
 	for _, node := range listNodes {
-		
+
 		monthly, err := service.getMonthly(ctx, node)
 		if err != nil {
-			service.log.Error("Failed to fetch the monthly bandwidth summary of the node:",zap.Error(err))
+			service.log.Error("Failed to fetch the monthly bandwidth summary of the node:", zap.Error(err))
 			continue
 		}
 		totalMonthly.IngressSummary += monthly.IngressSummary
@@ -103,10 +103,10 @@ func (service *Service) MonthlySatellite(ctx context.Context, satelliteID storj.
 	cache := make(UsageRollupDailyCache)
 
 	for _, node := range listNodes {
-		
+
 		monthly, err := service.getMonthlySatellite(ctx, node, satelliteID)
 		if err != nil {
-			service.log.Error("Failed to fetch monthly bandwidth summary for the node and specific satellite",zap.Error(err))
+			service.log.Error("Failed to fetch monthly bandwidth summary for the node and specific satellite", zap.Error(err))
 			continue
 		}
 

@@ -139,12 +139,16 @@ func (service *Service) ListInfos(ctx context.Context) (_ []NodeInfo, err error)
 				ID:      node.ID,
 				Address: node.PublicAddress,
 			})
-			nodeStatus,nodeVersion,lastContact := service.FetchNodeMeta(ctx,node)
+			nodeStatus, nodeVersion, lastContact := service.FetchNodeMeta(ctx, node)
 			if nodeStatus != StatusOnline {
 				nodeInfo.Status = nodeStatus
 				return nodeInfo
 			}
-			
+
+			defer func() {
+				err = errs.Combine(err, conn.Close())
+			}()
+
 			storageClient := multinodepb.NewDRPCStorageClient(conn)
 			bandwidthClient := multinodepb.NewDRPCBandwidthClient(conn)
 			payoutClient := multinodepb.NewDRPCPayoutClient(conn)
@@ -214,8 +218,8 @@ func (service *Service) ListInfosSatellite(ctx context.Context, satelliteID stor
 				ID:      node.ID,
 				Address: node.PublicAddress,
 			})
-			
-			nodeStatus,nodeVersion,lastContact := service.FetchNodeMeta(ctx,node)
+
+			nodeStatus, nodeVersion, lastContact := service.FetchNodeMeta(ctx, node)
 			if nodeStatus != StatusOnline {
 				nodeInfoSatellite.Status = nodeStatus
 				return nodeInfoSatellite
@@ -275,7 +279,7 @@ func (service *Service) TrustedSatellites(ctx context.Context) (_ storj.NodeURLs
 
 	var trustedSatellites storj.NodeURLs
 	for _, node := range listNodes {
-		nodeStatus,_,_ := service.FetchNodeMeta(ctx, node)
+		nodeStatus, _, _ := service.FetchNodeMeta(ctx, node)
 		if nodeStatus != StatusOnline {
 			continue
 		}
@@ -332,15 +336,14 @@ func (service *Service) trustedSatellites(ctx context.Context, node Node) (_ sto
 	return nodeURLs, nil
 }
 
-
-// Fetch meta information about a node status, version, and last contact.
-func (service *Service) FetchNodeMeta(ctx context.Context, node Node) (_ Status,_*multinodepb.VersionResponse,_ *multinodepb.LastContactResponse) {
+// FetchNodeMeta information about a node status, version, and last contact.
+func (service *Service) FetchNodeMeta(ctx context.Context, node Node) (_ Status, _ *multinodepb.VersionResponse, _ *multinodepb.LastContactResponse) {
 	conn, err := service.dialer.DialNodeURL(ctx, storj.NodeURL{
 		ID:      node.ID,
 		Address: node.PublicAddress,
 	})
 	if err != nil {
-		service.log.Error("Failed to dial the node URL:",zap.Error(err))
+		service.log.Error("Failed to dial the node URL:", zap.Error(err))
 		return StatusNotReachable, nil, nil
 	}
 
@@ -357,19 +360,19 @@ func (service *Service) FetchNodeMeta(ctx context.Context, node Node) (_ Status,
 	nodeVersion, err := nodeClient.Version(ctx, &multinodepb.VersionRequest{Header: header})
 	if err != nil {
 		if rpcstatus.Code(err) == rpcstatus.Unauthenticated {
-			return StatusUnauthorized, nil,nil
+			return StatusUnauthorized, nil, nil
 		}
-		
-		service.log.Error("Could not fetch the version of the node:",zap.Error(err))
-		return StatusStorageNodeInternalError, nil,nil
+
+		service.log.Error("Could not fetch the version of the node:", zap.Error(err))
+		return StatusStorageNodeInternalError, nil, nil
 	}
 
 	lastContact, err := nodeClient.LastContact(ctx, &multinodepb.LastContactRequest{Header: header})
 	if err != nil {
 		// TODO: since rpcstatus.Unauthenticated was checked in nodeVersion this sort of error can be caused
 		// only if new apikey was issued during ListInfos method call.
-		service.log.Error("Could not fetch the lastcontact with the node:",zap.Error(err))
-		return StatusStorageNodeInternalError, nodeVersion,nil
+		service.log.Error("Could not fetch the lastcontact with the node:", zap.Error(err))
+		return StatusStorageNodeInternalError, nodeVersion, nil
 	}
 
 	now := time.Now().UTC()
@@ -377,7 +380,7 @@ func (service *Service) FetchNodeMeta(ctx context.Context, node Node) (_ Status,
 	if now.Sub(lastContact.LastContact) < time.Hour*3 {
 		return StatusOnline, nodeVersion, lastContact
 	}
-	
+
 	return StatusOffline, nodeVersion, lastContact
 }
 
