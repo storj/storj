@@ -70,9 +70,15 @@ const emit = defineEmits<{
     'updatePeriodUnit': [value: DefaultObjectLockPeriodUnit];
 }>();
 
-const defaultRetentionMode = ref<ObjLockMode>();
-const period = ref<number>(0);
-const periodUnit = ref<DefaultObjectLockPeriodUnit>(DefaultObjectLockPeriodUnit.DAYS);
+const props = defineProps<{
+    existingMode?: ObjLockMode;
+    existingPeriod?: number;
+    existingPeriodUnit?: DefaultObjectLockPeriodUnit;
+}>();
+
+const defaultRetentionMode = ref<ObjLockMode | undefined>(props.existingMode);
+const period = ref<number>(props.existingPeriod ?? 0);
+const periodUnit = ref<DefaultObjectLockPeriodUnit>(props.existingPeriodUnit ?? DefaultObjectLockPeriodUnit.DAYS);
 
 const dropdownModel = computed<(DefaultObjectLockPeriodUnit.DAYS | DefaultObjectLockPeriodUnit.YEARS)[]>({
     get: () => [ periodUnit.value ],
@@ -106,6 +112,11 @@ const rules = computed<ValidationRule<string>[]>(() => {
 });
 
 function updateInputText(value: string): void {
+    if (!value) {
+        period.value = 0;
+        return;
+    }
+
     const num = +value;
     if (isNaN(num) || isNaN(parseFloat(value))) return;
     period.value = num;
