@@ -61,7 +61,7 @@ func OpenUnique(ctx context.Context, connstr string, databasePrefix string) (*db
 		return nil, errs.New("failed to create database in spanner: %w", err)
 	}
 
-	db, err := tagsql.Open(ctx, "spanner", params.DatabasePath())
+	db, err := tagsql.Open(ctx, "spanner", params.GoSqlSpannerConnStr())
 	if err == nil {
 		// check that connection actually worked before trying createSchema, to make
 		// troubleshooting (lots) easier
