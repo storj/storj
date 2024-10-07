@@ -6,7 +6,9 @@
         v-model="model"
         width="auto"
         max-width="450px"
+        max-height="90vh"
         transition="fade-transition"
+        class="overflow-scroll"
         persistent
     >
         <v-card ref="innerContent">
@@ -43,7 +45,7 @@
 
             <v-divider />
 
-            <v-window v-model="step">
+            <v-window v-model="step" class="overflow-auto">
                 <v-window-item :value="CreateStep.Name">
                     <v-form v-model="formValid" class="pa-6 pb-3" @submit.prevent="toNextStep">
                         <v-row>
@@ -99,14 +101,65 @@
                                         Yes
                                     </v-chip>
                                 </v-chip-group>
-                                <v-alert v-if="enableObjectLock" variant="tonal" color="default">
+                                <p v-if="enableObjectLock">Select default object lock mode (Optional):</p>
+                                <v-chip-group
+                                    v-if="enableObjectLock"
+                                    v-model="lockType"
+                                    filter
+                                    selected-class="font-weight-bold"
+                                    class="mt-2 mb-2"
+                                    mandatory
+                                >
+                                    <v-chip
+                                        variant="outlined"
+                                        filter
+                                        color="default"
+                                        :value="GOVERNANCE_LOCK"
+                                    >
+                                        Governance
+                                    </v-chip>
+                                    <v-chip
+                                        variant="outlined"
+                                        filter
+                                        color="default"
+                                        :value="COMPLIANCE_LOCK"
+                                    >
+                                        Compliance
+                                    </v-chip>
+                                </v-chip-group>
+                                <v-alert v-if="enableObjectLock && lockType === COMPLIANCE_LOCK" variant="tonal" color="default">
                                     <p class="font-weight-bold text-body-2 mb-1">Enable Object Lock (Compliance Mode)</p>
                                     <p class="text-subtitle-2">No user, including the project owner can overwrite, delete, or alter object lock settings.</p>
                                 </v-alert>
-                                <v-alert v-else variant="tonal" color="default">
+                                <v-alert v-if="enableObjectLock && lockType === GOVERNANCE_LOCK" variant="tonal" color="default">
+                                    <p class="font-weight-bold text-body-2 mb-1">Enable Object Lock (Governance Mode)</p>
+                                    <p class="text-subtitle-2">Authorized users with special permissions can bypass retention settings and delete or modify objects.</p>
+                                </v-alert>
+                                <v-alert v-if="!enableObjectLock" variant="tonal" color="default">
                                     <p class="font-weight-bold text-body-2 mb-1">Object Lock Disabled (Default)</p>
                                     <p class="text-subtitle-2">Objects can be deleted or overwritten.</p>
                                 </v-alert>
+                                <p class="text-subtitle-2 my-2">Default retention period (Optional):</p>
+                                <v-select
+                                    v-model="selectedRange"
+                                    :disabled="!enableObjectLock"
+                                    clearable
+                                    variant="outlined"
+                                    :items="ranges"
+                                    item-title="label"
+                                    return-object
+                                />
+
+                                <v-date-picker
+                                    v-if="selectedRange?.label == customRangeLabel.label && enableObjectLock"
+                                    v-model="customUntilDate"
+                                    width="100%"
+                                    header="Choose Date"
+                                    show-adjacent-months
+                                    border
+                                    elevation="0"
+                                    rounded="lg"
+                                />
                             </v-col>
                         </v-row>
                     </v-form>
@@ -266,6 +319,7 @@ import {
     VWindow,
     VWindowItem,
     VIcon,
+    VSelect,
 } from 'vuetify/components';
 import { ArrowRight, Check } from 'lucide-vue-next';
 import { useRouter } from 'vue-router';
@@ -282,6 +336,8 @@ import { useAnalyticsStore } from '@/store/modules/analyticsStore';
 import { AccessGrant, EdgeCredentials } from '@/types/accessGrants';
 import { StepInfo, ValidationRule } from '@/types/common';
 import { Versioning } from '@/types/versioning';
+import { COMPLIANCE_LOCK, GOVERNANCE_LOCK, ObjLockMode, LockUntilRange } from '@/types/objectLock';
+import { dateAfterDays } from '@/utils/date';
 import { ROUTES } from '@/router';
 
 enum CreateStep {
@@ -363,8 +419,26 @@ const innerContent = ref<Component | null>(null);
 const formValid = ref<boolean>(false);
 const enableVersioning = ref<boolean>(false);
 const enableObjectLock = ref<boolean>(false);
+const lockType = ref<ObjLockMode>(COMPLIANCE_LOCK);
 const bucketName = ref<string>('');
 const worker = ref<Worker | null>(null);
+const selectedRange = ref<LockUntilRange>();
+const customUntilDate = ref<Date>();
+
+const customRangeLabel = { label: 'Choose a custom date' };
+const ranges: LockUntilRange[] = [
+    { label: '1 Day', date: dateAfterDays(1) },
+    { label: '1 Week', date: dateAfterDays(7) },
+    { label: '2 Weeks', date: dateAfterDays(14) },
+    { label: '1 Month', date: dateAfterDays(30) },
+    { label: '6 Months', date: dateAfterDays(180) },
+    { label: '1 Year', date: dateAfterDays(365) },
+    { label: '3 Years', date: dateAfterDays(1095) },
+    { label: '5 Years', date: dateAfterDays(1825) },
+    { label: '7 Years', date: dateAfterDays(2555) },
+    { label: '10 Years', date: dateAfterDays(3650) },
+    customRangeLabel,
+];
 
 const project = computed(() => projectsStore.state.selectedProject);
 
