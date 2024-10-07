@@ -2721,6 +2721,7 @@ func TestEndpoint_Object_MoveObjectWithDisallowedDeletes(t *testing.T) {
 func TestListObjectDuplicates(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
 		SatelliteCount: 1, StorageNodeCount: 0, UplinkCount: 1,
+		EnableSpanner: true,
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 		u := planet.Uplinks[0]
 		s := planet.Satellites[0]
