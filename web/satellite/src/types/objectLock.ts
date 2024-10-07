@@ -10,6 +10,11 @@ export type ObjLockMode = typeof GOVERNANCE_LOCK | typeof COMPLIANCE_LOCK
 export const LEGAL_HOLD_ON = ObjectLockLegalHoldStatus.ON;
 export const LEGAL_HOLD_OFF = ObjectLockLegalHoldStatus.OFF;
 
+export type LockUntilRange = {
+    label: string,
+    date?: Date,
+}
+
 export class Retention {
     mode: ObjectLockMode | '';
     retainUntil: Date;

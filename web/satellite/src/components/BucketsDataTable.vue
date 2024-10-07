@@ -156,6 +156,20 @@
                                 Versioning cannot be suspended on a bucket with object lock enabled
                             </v-tooltip>
                         </div>
+                        <div>
+                            <v-list-item
+                                v-if="item.versioning === Versioning.Enabled"
+                                density="comfortable"
+                                link
+                            >
+                                <template #prepend>
+                                    <component :is="Lock" :size="18" />
+                                </template>
+                                <v-list-item-title class="ml-3">
+                                    Object Lock
+                                </v-list-item-title>
+                            </v-list-item>
+                        </div>
                         <v-list-item link @click="() => showShareBucketDialog(item.name)">
                             <template #prepend>
                                 <component :is="Share" :size="18" />
@@ -226,6 +240,7 @@ import {
     Earth,
     History,
     LandPlot,
+    Lock,
 } from 'lucide-vue-next';
 
 import { Memory, Size } from '@/utils/bytesSize';

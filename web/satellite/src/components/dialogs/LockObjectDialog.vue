@@ -43,45 +43,11 @@
             <v-row>
                 <v-col class="pa-6 mx-3">
                     <p class="my-2">
-                        Locking this version will prevent it from being deleted or overwritten for the specified period of time.
-                    </p>
-
-                    <p class="mt-4 mb-2 font-weight-bold text-body-2">
-                        Name:
-                    </p>
-
-                    <v-chip
-                        variant="tonal"
-                        filter
-                        value="filename"
-                        color="default"
-                        class="mb-2 font-weight-bold"
-                    >
-                        {{ file?.Key }}
-                    </v-chip>
-
-                    <template v-if="file?.VersionId">
-                        <p class="my-2 font-weight-bold text-body-2">
-                            Version:
-                        </p>
-
-                        <v-chip
-                            variant="tonal"
-                            filter
-                            color="default"
-                            class="mb-4 font-weight-bold"
-                        >
-                            {{ file?.VersionId }}
-                        </v-chip>
-                    </template>
-
-                    <p class="my-2 font-weight-bold text-body-2">
-                        Select lock type:
+                        Enabling object lock will prevent objects from being deleted or overwritten for a specified period of time.
                     </p>
 
                     <p class="mb-2 text-body-2">
-                        Governance allows authorized users to modify the lock.
-                        Compliance prevents any changes to the lock.
+                        Select default object lock mode (Optional):
                     </p>
 
                     <v-chip-group
@@ -92,27 +58,32 @@
                         column
                         filter
                     >
-                        <v-chip v-for="type in [GOVERNANCE_LOCK, COMPLIANCE_LOCK]" :key="type" :value="type">
+                        <v-chip v-for="type in [GOVERNANCE_LOCK, COMPLIANCE_LOCK]" :key="type" variant="outlined":value="type">
                             {{ type.substring(0, 1) + type.substring(1).toLowerCase() }}
                         </v-chip>
                     </v-chip-group>
 
-                    <p class="mb-2 font-weight-bold text-body-2">
+                    <v-alert v-if="lockType === COMPLIANCE_LOCK" variant="tonal" color="default">
+                        <p class="font-weight-bold text-body-2 mb-1">Enable Object Lock (Compliance Mode)</p>
+                        <p class="text-subtitle-2">No user, including the project owner can overwrite, delete, or alter object lock settings.</p>
+                    </v-alert>
+                    <v-alert v-if="lockType === GOVERNANCE_LOCK" variant="tonal" color="default">
+                        <p class="font-weight-bold text-body-2 mb-1">Enable Object Lock (Governance Mode)</p>
+                        <p class="text-subtitle-2">Authorized users with special permissions can bypass retention settings and delete or modify objects.</p>
+                    </v-alert>
+
+                    <p class="my-2 font-weight-bold text-body-2">
                         Select the lock retention period:
                     </p>
 
-                    <v-chip-group
+                    <v-select
                         v-model="selectedRange"
-                        class="mb-4"
-                        selected-class="text-primary font-weight-bold"
-                        mandatory
-                        column
-                        filter
-                    >
-                        <v-chip v-for="range in ranges" :key="range.label" :value="range">
-                            {{ range.label }}
-                        </v-chip>
-                    </v-chip-group>
+                        clearable
+                        variant="outlined"
+                        :items="ranges"
+                        item-title="label"
+                        return-object
+                    />
 
                     <v-date-picker
                         v-if="selectedRange?.label == customRangeLabel.label"
@@ -164,6 +135,7 @@
 import { ref, watch } from 'vue';
 import {
     VBtn,
+    VAlert,
     VCard,
     VCardActions,
     VCardItem,
@@ -175,6 +147,7 @@ import {
     VDivider,
     VRow,
     VSheet,
+    VSelect,
 } from 'vuetify/components';
 import { Lock } from 'lucide-vue-next';
 
@@ -183,12 +156,8 @@ import { useLoading } from '@/composables/useLoading';
 import { useNotify } from '@/utils/hooks';
 import { AnalyticsErrorEventSource } from '@/utils/constants/analyticsEventNames';
 import { Time } from '@/utils/time';
-import { COMPLIANCE_LOCK, GOVERNANCE_LOCK, ObjLockMode } from '@/types/objectLock';
-
-interface LockUntilRange {
-    label: string,
-    date?: Date,
-}
+import { COMPLIANCE_LOCK, GOVERNANCE_LOCK, ObjLockMode, LockUntilRange } from '@/types/objectLock';
+import { dateAfterDays } from '@/utils/date';
 
 const customRangeLabel = { label: 'Choose a custom date' };
 const ranges: LockUntilRange[] = [
@@ -227,12 +196,6 @@ const lockType = ref<ObjLockMode>();
 
 const customUntilDate = ref<Date>();
 
-function dateAfterDays(days: number): Date {
-    const laterDate = new Date();
-    laterDate.setDate(new Date().getDate() + days);
-    return laterDate;
-}
-
 function lockObject() {
     withLoading(async () => {
         if (!props.file) {
@@ -265,6 +228,8 @@ function lockObject() {
 }
 
 watch(selectedRange, (_) => {
+    console.log(selectedRange);
+
     customUntilDate.value = undefined;
 });
 
