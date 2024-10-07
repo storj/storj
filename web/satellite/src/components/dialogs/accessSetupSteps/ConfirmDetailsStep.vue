@@ -24,7 +24,7 @@
 import { computed } from 'vue';
 import { VRow, VCol, VList, VListItem } from 'vuetify/components';
 
-import { Permission, AccessType } from '@/types/setupAccess';
+import { Permission, AccessType, ObjectLockPermission } from '@/types/setupAccess';
 
 interface Item {
     title: string;
@@ -35,6 +35,7 @@ const props = defineProps<{
     name: string;
     type: AccessType;
     permissions: Permission[];
+    objectLockPermissions: ObjectLockPermission[];
     buckets: string[];
     endDate: Date | null;
 }>();
@@ -43,12 +44,27 @@ const props = defineProps<{
  * Returns the data used to generate the info rows.
  */
 const items = computed<Item[]>(() => {
-    return [
+    const its = [
         { title: 'Name', value: props.name },
         { title: 'Type', value: props.type },
         { title: 'Permissions', value: props.permissions.join(', ') },
         { title: 'Buckets', value: props.buckets.join(', ') || 'All buckets' },
         { title: 'Expiration Date', value: props.endDate ? props.endDate.toLocaleString() : 'No expiration date' },
     ];
+
+    if (props.objectLockPermissions.length) {
+        its.splice(2, 0, { title: 'Object Lock Permissions', value: props.objectLockPermissions.join(', ') });
+    }
+
+    return its;
 });
 </script>
+
+<style scoped>
+:deep(.v-list-item-subtitle) {
+    -webkit-line-clamp: unset !important;
+    white-space: normal !important;
+    white-space-collapse: collapse !important;
+    text-wrap: wrap !important;
+}
+</style>
