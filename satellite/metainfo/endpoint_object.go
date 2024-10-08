@@ -168,6 +168,25 @@ func (endpoint *Endpoint) BeginObject(ctx context.Context, req *pb.ObjectBeginRe
 		}
 	}
 
+	if bucket.ObjectLock.Enabled && bucket.ObjectLock.DefaultRetentionMode != storj.NoRetention && !retention.Enabled() {
+		switch {
+		case maxObjectTTL != nil:
+			return nil, rpcstatus.Error(rpcstatus.ObjectLockUploadWithTTLAPIKeyAndDefaultRetention,
+				"cannot upload into a bucket with default retention settings using an API key that enforces an object expiration time")
+		case !req.ExpiresAt.IsZero():
+			return nil, rpcstatus.Error(rpcstatus.ObjectLockUploadWithTTLAndDefaultRetention,
+				"cannot specify an object expiration time when uploading into a bucket with default retention settings")
+		}
+
+		retention.Mode = bucket.ObjectLock.DefaultRetentionMode
+		switch {
+		case bucket.ObjectLock.DefaultRetentionDays != 0:
+			retention.RetainUntil = now.AddDate(0, 0, bucket.ObjectLock.DefaultRetentionDays)
+		case bucket.ObjectLock.DefaultRetentionYears != 0:
+			retention.RetainUntil = now.AddDate(bucket.ObjectLock.DefaultRetentionYears, 0, 0)
+		}
+	}
+
 	if err := endpoint.ensureAttribution(ctx, req.Header, keyInfo, req.Bucket, nil, false); err != nil {
 		return nil, err
 	}
