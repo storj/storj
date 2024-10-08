@@ -7,11 +7,8 @@ import (
 	"context"
 	"crypto/rand"
 	"encoding/hex"
-	"fmt"
 	"strings"
 
-	database "cloud.google.com/go/spanner/admin/database/apiv1"
-	"cloud.google.com/go/spanner/admin/database/apiv1/databasepb"
 	_ "github.com/googleapis/go-sql-spanner" // register the spanner driver
 	"github.com/spacemonkeygo/monkit/v3"
 	"github.com/zeebo/errs"
@@ -63,37 +60,6 @@ func OpenUnique(ctx context.Context, connstr string, databasePrefix string) (*db
 			return ephemeral.Close(ctx)
 		},
 	}, nil
-}
-
-// CreateDatabase creates a schema in spanner with the given name.
-func CreateDatabase(ctx context.Context, params ConnParams) error {
-	admin, err := database.NewDatabaseAdminClient(ctx, params.ClientOptions()...)
-	if err != nil {
-		return fmt.Errorf("failed to create database admin: %w", err)
-	}
-
-	ddl, err := admin.CreateDatabase(ctx, &databasepb.CreateDatabaseRequest{
-		Parent:          params.InstancePath(),
-		DatabaseDialect: databasepb.DatabaseDialect_GOOGLE_STANDARD_SQL,
-		CreateStatement: "CREATE DATABASE `" + params.Database + "`",
-		ExtraStatements: []string{},
-	})
-	if err != nil {
-		return fmt.Errorf("failed to create database: %w", err)
-	}
-
-	if _, err := ddl.Wait(ctx); err != nil {
-		return fmt.Errorf("failed to wait database creation: %w", err)
-	}
-	if err := admin.Close(); err != nil {
-		return fmt.Errorf("failed to close database admin: %w", err)
-	}
-	return nil
-}
-
-// EscapeCharacters escapes non-spanner name compatible characters.
-func EscapeCharacters(s string) string {
-	return strings.ReplaceAll(strings.ReplaceAll(s, `\`, `\\`), "`", "\\`")
 }
 
 // SplitDDL splits a multi-statement ddl into strings.
