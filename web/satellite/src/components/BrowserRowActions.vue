@@ -55,7 +55,7 @@
                 icon
             >
                 <v-icon :icon="Ellipsis" />
-                <v-menu activator="parent">
+                <v-menu v-model="isMenuOpen" activator="parent">
                     <v-list class="pa-1">
                         <template v-if="file.type !== 'folder' && !file.isDeleteMarker">
                             <v-list-item density="comfortable" link @click="emit('previewClick')">
@@ -85,20 +85,37 @@
                                     <v-progress-circular indeterminate size="23" width="2" />
                                 </div>
                             </v-list-item>
-                            <v-list-item v-if="objectLockEnabledForBucket" density="comfortable" link @click="emit('lockObjectClick')">
+                            <v-list-item
+                                v-if="objectLockEnabledForBucket"
+                                :variant="lockStatus?.retention.active ? 'tonal' : 'text'"
+                                :disabled="isGettingLockStatus"
+                                density="comfortable"
+                                link
+                                @click="emit('lockObjectClick')"
+                            >
                                 <template #prepend>
-                                    <component :is="Lock" :size="18" />
+                                    <v-progress-circular v-if="isGettingLockStatus" color="primary" indeterminate size="18" width="2" />
+                                    <component :is="Lock" v-else :size="18" />
                                 </template>
                                 <v-list-item-title class="ml-3 text-body-2 font-weight-medium">
-                                    Lock
+                                    Lock{{ lockStatus?.retention.active ? 'ed' : '' }}
                                 </v-list-item-title>
                             </v-list-item>
-                            <v-list-item v-if="objectLockEnabledForBucket" density="comfortable" link @click="emit('legalHoldClick')">
+                            <v-list-item
+                                v-if="objectLockEnabledForBucket"
+                                :variant="lockStatus?.legalHold ? 'tonal' : 'text'"
+                                :class="{ 'mt-1' : lockStatus?.retention.active && lockStatus?.legalHold }"
+                                :disabled="isGettingLockStatus"
+                                density="comfortable"
+                                link
+                                @click="emit('legalHoldClick')"
+                            >
                                 <template #prepend>
-                                    <component :is="FileLock2" :size="18" />
+                                    <v-progress-circular v-if="isGettingLockStatus" color="primary" indeterminate size="18" width="2" />
+                                    <component :is="FileLock2" v-else :size="18" />
                                 </template>
                                 <v-list-item-title class="ml-3 text-body-2 font-weight-medium">
-                                    Legal Hold
+                                    {{ lockStatus?.legalHold ? 'On' : '' }} Legal Hold
                                 </v-list-item-title>
                             </v-list-item>
                             <v-list-item v-if="isVersion && !isFileDeleted && !file.isLatest && !file.isDeleteMarker" density="comfortable" link @click="emit('restoreObjectClick')">
@@ -123,9 +140,9 @@
                         <v-divider v-if="!file.isDeleteMarker" class="my-1" />
 
                         <template v-if="(!file.isDeleteMarker) || (file.isDeleteMarker && isVersion)">
-                            <v-list-item :disabled="isGettingRetention" density="comfortable" link base-color="error" @click="onDeleteClick">
+                            <v-list-item :disabled="isGettingLockStatus" density="comfortable" link base-color="error" @click="onDeleteClick">
                                 <template #prepend>
-                                    <v-progress-circular v-if="isGettingRetention" indeterminate size="18" width="2" />
+                                    <v-progress-circular v-if="isGettingLockStatus" indeterminate size="18" width="2" />
                                     <component :is="Trash2" v-else :size="18" />
                                 </template>
                                 <v-list-item-title class="ml-3 text-body-2 font-weight-medium">
@@ -141,7 +158,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, h, computed } from 'vue';
+import { ref, h, computed, watch } from 'vue';
 import {
     VMenu,
     VList,
@@ -167,6 +184,7 @@ import { useProjectsStore } from '@/store/modules/projectsStore';
 import { BucketMetadata } from '@/types/buckets';
 import { useBucketsStore } from '@/store/modules/bucketsStore';
 import { useConfigStore } from '@/store/modules/configStore';
+import { ObjectLockStatus } from '@/types/objectLock';
 
 const bucketsStore = useBucketsStore();
 const configStore = useConfigStore();
@@ -193,8 +211,10 @@ const emit = defineEmits<{
     lockedObjectDelete: [FullBrowserObject];
 }>();
 
+const isMenuOpen = ref<boolean>(false);
 const isDownloading = ref<boolean>(false);
-const isGettingRetention = ref<boolean>(false);
+const isGettingLockStatus = ref<boolean>(false);
+const lockStatus = ref<ObjectLockStatus>();
 
 const alignClass = computed<string>(() => {
     return 'text-' + props.align;
@@ -253,28 +273,38 @@ async function onDownloadClick(): Promise<void> {
 }
 
 async function onDeleteClick(): Promise<void> {
-    if (!objectLockEnabledForBucket.value || props.file.type === 'folder') {
+    if (!lockStatus.value?.retention.active && !lockStatus.value?.legalHold) {
         emit('deleteFileClick');
         return;
     }
-    if (isGettingRetention.value) {
+    emit('lockedObjectDelete', { ...props.file, retention: lockStatus.value?.retention, legalHold: lockStatus.value?.legalHold });
+}
+
+async function getLockStatus() {
+    if (!objectLockEnabledForBucket.value || props.file.type === 'folder') {
         return;
     }
-    isGettingRetention.value = true;
+    if (isGettingLockStatus.value) {
+        return;
+    }
+    isGettingLockStatus.value = true;
     try {
-        const retention = await obStore.getObjectRetention(props.file);
-        if (!retention.active()) {
-            emit('deleteFileClick');
-            return;
-        }
-        emit('lockedObjectDelete', { ...props.file, retention });
+        lockStatus.value = await obStore.getObjectLockStatus(props.file);
     } catch (error) {
-        error.message = `Error deleting object. ${error.message}`;
+        error.message = `Error getting object lock status. ${error.message}`;
         notify.notifyError(error, AnalyticsErrorEventSource.FILE_BROWSER_ENTRY);
     } finally {
-        isGettingRetention.value = false;
+        isGettingLockStatus.value = false;
     }
 }
+
+watch(isMenuOpen, isOpen => {
+    if (!isOpen) {
+        lockStatus.value = undefined;
+        return;
+    }
+    getLockStatus();
+});
 
 </script>
 

@@ -152,8 +152,7 @@ pipeline {
                 STORJ_TEST_COCKROACH = 'cockroach://root@localhost:26256/testcockroach?sslmode=disable;' +
                     'cockroach://root@localhost:26257/testcockroach?sslmode=disable'
 
-                SPANNER_EMULATOR_HOST= 'localhost:9010'
-                STORJ_TEST_SPANNER = 'spanner://projects/storj-build/instances/test-instance/databases/metabase'
+                STORJ_TEST_SPANNER = 'spanner://localhost:9010/projects/storj-build/instances/test-instance/databases/metabase?emulator'
 
                 STORJ_TEST_COCKROACH_NODROP = 'true'
                 STORJ_TEST_POSTGRES = 'omit'
