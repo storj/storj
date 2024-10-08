@@ -60,6 +60,8 @@ type BlobWriter interface {
 	Commit(context.Context) error
 	// Size returns the size of the blob
 	Size() (int64, error)
+	// ReserveHeader reserves header area at the beginning of the blob.
+	ReserveHeader(int64) error
 	// StorageFormatVersion returns the storage format version associated with the blob.
 	StorageFormatVersion() FormatVersion
 }

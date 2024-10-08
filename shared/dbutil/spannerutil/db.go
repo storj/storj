@@ -8,7 +8,7 @@ import (
 	"crypto/rand"
 	"encoding/hex"
 	"fmt"
-	"regexp"
+	"os"
 	"strings"
 	"time"
 
@@ -17,6 +17,9 @@ import (
 	_ "github.com/googleapis/go-sql-spanner" // register the spanner driver
 	"github.com/spacemonkeygo/monkit/v3"
 	"github.com/zeebo/errs"
+	"google.golang.org/api/option"
+	"google.golang.org/grpc"
+	"google.golang.org/grpc/credentials/insecure"
 
 	"storj.io/common/context2"
 	"storj.io/storj/shared/dbutil"
@@ -24,11 +27,6 @@ import (
 )
 
 var mon = monkit.Package()
-
-var (
-	rxDatabaseForm = regexp.MustCompile("^projects/(.*)/instances/(.*)/databases/(.*)$")
-	rxInstanceForm = regexp.MustCompile("^projects/(.*)/instances/(.*)$")
-)
 
 // CreateRandomTestingDatabaseName creates a random schema name string.
 func CreateRandomTestingDatabaseName(n int) string {
@@ -43,11 +41,7 @@ func CreateRandomTestingDatabaseName(n int) string {
 // when closed. It is expected that this should normally be used by way of
 // "storj.io/storj/shared/dbutil/tempdb".OpenUnique() instead of calling it directly.
 func OpenUnique(ctx context.Context, connstr string, databasePrefix string) (*dbutil.TempDatabase, error) {
-	if !strings.HasPrefix(connstr, "spanner://") {
-		return nil, errs.New("expected a spanner URI, but got %q", connstr)
-	}
-
-	projectID, instance, _, err := ParseConnStr(connstr)
+	params, err := ParseConnStr(connstr)
 	if err != nil {
 		return nil, errs.New("failed to parse spanner connection string %s: %w", connstr, err)
 	}
@@ -59,14 +53,15 @@ func OpenUnique(ctx context.Context, connstr string, databasePrefix string) (*db
 		numRandomCharacters = possibleRandomCharacters
 	}
 	schemaName := databasePrefix + "_" + CreateRandomTestingDatabaseName(numRandomCharacters)
-	err = CreateDatabase(ctx, projectID, instance, schemaName)
+
+	// TODO(spanner): should we allow hardcoding a database name for testing with production spanner?
+	params.Database = EscapeCharacters(schemaName)
+	err = CreateDatabase(ctx, params)
 	if err != nil {
 		return nil, errs.New("failed to create database in spanner: %w", err)
 	}
 
-	uniqueURL := BuildURL(projectID, instance, &schemaName)
-	uniqueDSN := DSNFromURL(uniqueURL)
-	db, err := tagsql.Open(ctx, "spanner", uniqueDSN)
+	db, err := tagsql.Open(ctx, "spanner", params.GoSqlSpannerConnStr())
 	if err == nil {
 		// check that connection actually worked before trying createSchema, to make
 		// troubleshooting (lots) easier
@@ -79,13 +74,13 @@ func OpenUnique(ctx context.Context, connstr string, databasePrefix string) (*db
 	cleanup := func(cleanupDB tagsql.DB) error {
 		childCtx, cancel := context2.WithRetimeout(ctx, 15*time.Second)
 		defer cancel()
-		return dropDatabase(childCtx, uniqueDSN)
+		return dropDatabase(childCtx, params)
 	}
 
 	dbutil.Configure(ctx, db, "tmp_spanner", mon)
 	return &dbutil.TempDatabase{
 		DB:             db,
-		ConnStr:        uniqueURL,
+		ConnStr:        params.ConnStr(),
 		Schema:         schemaName,
 		Driver:         "spanner",
 		Implementation: dbutil.Spanner,
@@ -94,16 +89,16 @@ func OpenUnique(ctx context.Context, connstr string, databasePrefix string) (*db
 }
 
 // CreateDatabase creates a schema in spanner with the given name.
-func CreateDatabase(ctx context.Context, projectID, instanceID, databaseName string) error {
-	admin, err := database.NewDatabaseAdminClient(ctx)
+func CreateDatabase(ctx context.Context, params ConnParams) error {
+	admin, err := database.NewDatabaseAdminClient(ctx, params.ClientOptions()...)
 	if err != nil {
 		return fmt.Errorf("failed to create database admin: %w", err)
 	}
 
 	ddl, err := admin.CreateDatabase(ctx, &databasepb.CreateDatabaseRequest{
-		Parent:          "projects/" + projectID + "/instances/" + instanceID,
+		Parent:          params.InstancePath(),
 		DatabaseDialect: databasepb.DatabaseDialect_GOOGLE_STANDARD_SQL,
-		CreateStatement: "CREATE DATABASE " + EscapeIdentifier(databaseName),
+		CreateStatement: "CREATE DATABASE `" + params.Database + "`",
 		ExtraStatements: []string{},
 	})
 	if err != nil {
@@ -119,13 +114,13 @@ func CreateDatabase(ctx context.Context, projectID, instanceID, databaseName str
 	return nil
 }
 
-func dropDatabase(ctx context.Context, dsn string) error {
-	admin, err := database.NewDatabaseAdminClient(ctx)
+func dropDatabase(ctx context.Context, params ConnParams) error {
+	admin, err := database.NewDatabaseAdminClient(ctx, params.ClientOptions()...)
 	if err != nil {
 		return fmt.Errorf("failed to create database admin: %w", err)
 	}
 
-	if err := admin.DropDatabase(ctx, &databasepb.DropDatabaseRequest{Database: dsn}); err != nil {
+	if err := admin.DropDatabase(ctx, &databasepb.DropDatabaseRequest{Database: params.DatabasePath()}); err != nil {
 		return fmt.Errorf("failed to drop database: %w", err)
 	}
 
@@ -135,48 +130,160 @@ func dropDatabase(ctx context.Context, dsn string) error {
 	return nil
 }
 
-// EscapeIdentifier uses spanner escape characters to escape the given string.
-func EscapeIdentifier(s string) string {
-	return "`" + strings.ReplaceAll(strings.ReplaceAll(s, "\\", "\\\\"), "`", "\\`") + "`"
+// EscapeCharacters escapes non-spanner name compatible characters.
+func EscapeCharacters(s string) string {
+	return strings.ReplaceAll(strings.ReplaceAll(s, `\`, `\\`), "`", "\\`")
 }
 
-// BuildURL takes necessary and optional connection string parameters to build a spanner URL.
-func BuildURL(project string, instance string, database *string) string {
-	var connStr strings.Builder
-	connStr.WriteString("spanner://projects/")
-	connStr.WriteString(project)
-	connStr.WriteString("/instances/")
-	connStr.WriteString(instance)
-	if database != nil {
-		connStr.WriteString("/databases/")
-		connStr.WriteString(*database)
+// ConnParams contains arguments from a spanner URL.
+type ConnParams struct {
+	Host string
+
+	Project  string
+	Instance string
+	Database string
+
+	Emulator bool
+}
+
+// AllDefined returns whether project, instance and database are all defined.
+func (params *ConnParams) AllDefined() bool {
+	return params.Project != "" && params.Instance != "" && params.Database != ""
+}
+
+// ProjectPath returns "projects/<Project>".
+func (params *ConnParams) ProjectPath() string {
+	return "projects/" + params.Project
+}
+
+// InstancePath returns "projects/<Project>/instances/<Instance>".
+func (params *ConnParams) InstancePath() string {
+	return params.ProjectPath() + "/instances/" + params.Instance
+}
+
+// DatabasePath returns "projects/<Project>/instances/<Instance>/databases/<Database>".
+func (params *ConnParams) DatabasePath() string {
+	return params.InstancePath() + "/databases/" + params.Database
+}
+
+// ConnStr returns connection string.
+func (params *ConnParams) ConnStr() string {
+	s := "spanner://"
+	if params.Host != "" {
+		s += params.Host + "/"
 	}
-	return connStr.String()
+	s += params.DatabasePath()
+	if params.Emulator {
+		s += "?emulator"
+	}
+	return s
 }
 
-// DSNFromURL takes in a Spanner URL and returns back the DSN that is used to connect with Spanner packages.
-func DSNFromURL(url string) string {
-	return strings.TrimPrefix(url, "spanner://")
+// GoSqlSpannerConnStr returns connection string for github.com/googleapis/go-sql-spanner.
+func (params *ConnParams) GoSqlSpannerConnStr() string {
+	var s string
+	if params.Host != "" {
+		s += params.Host + "/"
+	}
+	s += params.DatabasePath()
+	if params.Emulator {
+		s += "?usePlainText=true"
+	}
+	return s
+}
+
+// ClientOptions returns arguments for dialing spanner clients.
+func (params *ConnParams) ClientOptions() (options []option.ClientOption) {
+	if params.Host != "" {
+		options = append(options, option.WithEndpoint(params.Host))
+	}
+	if params.Emulator {
+		options = append(options,
+			option.WithGRPCDialOption(grpc.WithTransportCredentials(insecure.NewCredentials())),
+			option.WithoutAuthentication(),
+		)
+	}
+
+	return options
 }
 
 // ParseConnStr parses a spanner connection string to return the relevant pieces of the connection.
-func ParseConnStr(full string) (project, instance string, database *string, err error) {
-	trim := strings.TrimPrefix(full, "spanner://")
+func ParseConnStr(full string) (params ConnParams, err error) {
+	initial := full
+	var ok bool
+	full, ok = strings.CutPrefix(full, "spanner://")
+	if !ok {
+		return ConnParams{}, Error.New("invalid Spanner connection string %q", initial)
+	}
 
-	matches := rxDatabaseForm.FindStringSubmatch(trim)
-	// database is an optional part of a connection string
-	if matches == nil || len(matches) != 4 {
-		matches = rxInstanceForm.FindStringSubmatch(trim)
-		if matches == nil || len(matches) != 3 {
-			return "", "", nil, Error.New("database connection should be defined in the form of  'spanner://projects/<PROJECT>/instances/<INSTANCE>/databases/<DATABASE>' or 'spanner://projects/<PROJECT>/instances/<INSTANCE>', but it was %q", full)
+	full, ok = strings.CutSuffix(full, "?emulator")
+	if ok {
+		params.Emulator = true
+	}
+
+	if !strings.HasPrefix(full, "projects") {
+		// we'll assume it's a host instead
+
+		before, after, _ := strings.Cut(full, "/")
+		params.Host = before
+		full = after
+	}
+
+	if params.Host == "" {
+		params.Host = os.Getenv("SPANNER_EMULATOR_HOST")
+		if params.Host != "" {
+			params.Emulator = true
 		}
 	}
 
-	project = matches[1]
-	instance = matches[2]
-	if len(matches) == 4 {
-		database = &matches[3]
+	// assume we are using an emulator when we are at home
+	if strings.HasPrefix(params.Host, "localhost") || strings.HasPrefix(params.Host, "127.0.0.1") {
+		params.Emulator = true
 	}
 
-	return project, instance, database, nil
+	if full == "" {
+		return params, nil
+	}
+	params.Project, full, ok = splitConnPathToken(full, "projects")
+	if !ok {
+		return params, Error.New("unable to parse project %q", initial)
+	}
+
+	if full == "" {
+		return params, nil
+	}
+	params.Instance, full, ok = splitConnPathToken(full, "instances")
+	if !ok {
+		return params, Error.New("unable to parse instance %q", initial)
+	}
+
+	if full == "" {
+		return params, nil
+	}
+	params.Database, full, ok = splitConnPathToken(full, "databases")
+	if !ok {
+		return params, Error.New("unable to parse database %q", initial)
+	}
+
+	if full != "" {
+		return params, Error.New("url not fully parsed: %q", initial)
+	}
+
+	return params, nil
+}
+
+func splitConnPathToken(v, prefix string) (value, rest string, ok bool) {
+	val, ok := strings.CutPrefix(v, prefix+"/")
+	if !ok {
+		return "", v, false
+	}
+	if val == "" {
+		return "", v, false
+	}
+
+	value, rest, _ = strings.Cut(val, "/")
+	if value == "" {
+		return "", v, false
+	}
+	return value, rest, true
 }

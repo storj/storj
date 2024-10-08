@@ -4,160 +4,153 @@
 package spannerutil
 
 import (
-	"fmt"
-	"reflect"
 	"testing"
+
+	"github.com/stretchr/testify/assert"
 )
 
-func TestBuildURL(t *testing.T) {
-	testProject := "test"
-	testInstance := "instance"
-	testDatabase := "database"
-
-	type args struct {
-		project  string
-		instance string
-		database *string
-	}
-	tests := []struct {
-		name string
-		args args
-		want string
-	}{
-		{
-			name: "full url with database succeeds",
-			args: args{
-				project:  testProject,
-				instance: testInstance,
-				database: &testDatabase,
-			},
-			want: fmt.Sprintf("spanner://projects/%s/instances/%s/databases/%s", testProject, testInstance, testDatabase),
-		},
-		{
-			name: "full url without database succeeds",
-			args: args{
-				project:  testProject,
-				instance: testInstance,
-				database: nil,
-			},
-			want: fmt.Sprintf("spanner://projects/%s/instances/%s", testProject, testInstance),
-		},
-	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			if got := BuildURL(tt.args.project, tt.args.instance, tt.args.database); got != tt.want {
-				t.Errorf("BuildURL() = %v, want %v", got, tt.want)
-			}
-		})
-	}
-}
-
 func TestParseConnStr(t *testing.T) {
-	testProject := "test"
-	testInstance := "instance"
-	testDatabase := "database"
-	testURL := fmt.Sprintf("spanner://projects/%s/instances/%s/databases/%s", testProject, testInstance, testDatabase)
-	partialURL := fmt.Sprintf("spanner://projects/%s/instances/%s", testProject, testInstance)
-	badURL := fmt.Sprintf("spaner://project/%s/instance/%s/database/%s", testProject, testInstance, testDatabase)
-	postgresURL := "postgres://user:secret@localhost"
+	t.Setenv("SPANNER_EMULATOR_HOST", "")
 
-	type args struct {
-		full string
-	}
 	tests := []struct {
-		name         string
-		args         args
-		wantProject  string
-		wantInstance string
-		wantDatabase *string
-		wantErr      bool
+		input   string
+		want    ConnParams
+		wantErr bool
 	}{
 		{
-			name:         "full url connection string parsed successfully",
-			args:         args{full: testURL},
-			wantProject:  testProject,
-			wantInstance: testInstance,
-			wantDatabase: &testDatabase,
-			wantErr:      false,
+			input:   "",
+			wantErr: true,
 		},
 		{
-			name:         "partial url connection string parsed successfully",
-			args:         args{full: partialURL},
-			wantProject:  testProject,
-			wantInstance: testInstance,
-			wantDatabase: nil,
-			wantErr:      false,
+			input:   "postgres://user:secret@localhost",
+			wantErr: true,
 		},
 		{
-			name:         "bad url connection string errors",
-			args:         args{full: badURL},
-			wantProject:  "",
-			wantInstance: "",
-			wantDatabase: nil,
-			wantErr:      true,
+			input: "spanner://spanner:9010/projects/PROJECT/instances/INSTANCE/databases/DATABASE?emulator",
+			want: ConnParams{
+				Host:     "spanner:9010",
+				Project:  "PROJECT",
+				Instance: "INSTANCE",
+				Database: "DATABASE",
+				Emulator: true,
+			},
 		},
 		{
-			name:         "postgres url connection string errors",
-			args:         args{full: postgresURL},
-			wantProject:  "",
-			wantInstance: "",
-			wantDatabase: nil,
-			wantErr:      true,
+			input: "spanner://spanner:9010/projects/PROJECT/instances/INSTANCE/databases/DATABASE",
+			want: ConnParams{
+				Host:     "spanner:9010",
+				Project:  "PROJECT",
+				Instance: "INSTANCE",
+				Database: "DATABASE",
+				Emulator: false,
+			},
+		},
+		{
+			input:   "spanner://spanner:9010/projects/PROJECT/instances/INSTANCE/databases/?emulator",
+			wantErr: true,
+		},
+		{
+			input: "spanner://spanner:9010/projects/PROJECT/instances/INSTANCE?emulator",
+			want: ConnParams{
+				Host:     "spanner:9010",
+				Project:  "PROJECT",
+				Instance: "INSTANCE",
+				Emulator: true,
+			},
+		},
+		{
+			input:   "spanner://spanner:9010/projects/PROJECT/instances/",
+			wantErr: true,
+		},
+		{
+			input: "spanner://spanner:9010/projects/PROJECT?emulator",
+			want: ConnParams{
+				Host:     "spanner:9010",
+				Project:  "PROJECT",
+				Emulator: true,
+			},
+		},
+		{
+			input:   "spanner://spanner:9010/projects?emulator",
+			wantErr: true,
+		},
+		{
+			input: "spanner://spanner:9010?emulator",
+			want: ConnParams{
+				Host:     "spanner:9010",
+				Emulator: true,
+			},
+		},
+		{
+			input: "spanner://localhost:9010",
+			want: ConnParams{
+				Host:     "localhost:9010",
+				Emulator: true,
+			},
+		},
+		{
+			input: "spanner://127.0.0.1:9010",
+			want: ConnParams{
+				Host:     "127.0.0.1:9010",
+				Emulator: true,
+			},
+		},
+		{
+			input: "spanner://projects/PROJECT/instances/INSTANCE/databases/DATABASE",
+			want: ConnParams{
+				Project:  "PROJECT",
+				Instance: "INSTANCE",
+				Database: "DATABASE",
+				Emulator: false,
+			},
+		},
+		{
+			input:   "spanner://projects/PROJECT/instances/INSTANCE/databases/?emulator",
+			wantErr: true,
+		},
+		{
+			input: "spanner://projects/PROJECT/instances/INSTANCE?emulator",
+			want: ConnParams{
+				Project:  "PROJECT",
+				Instance: "INSTANCE",
+				Emulator: true,
+			},
+		},
+		{
+			input:   "spanner://projects/PROJECT/instances/",
+			wantErr: true,
+		},
+		{
+			input: "spanner://projects/PROJECT?emulator",
+			want: ConnParams{
+				Project:  "PROJECT",
+				Emulator: true,
+			},
+		},
+		{
+			input:   "spanner://projects?emulator",
+			wantErr: true,
 		},
 	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			gotProject, gotInstance, gotDatabase, err := ParseConnStr(tt.args.full)
-			if (err != nil) != tt.wantErr {
-				t.Errorf("ParseConnStr() error = %v, wantErr %v", err, tt.wantErr)
-				return
+
+	for _, test := range tests {
+		got, err := ParseConnStr(test.input)
+		if test.wantErr {
+			if err == nil {
+				t.Errorf("%q: wanted error, but got %v", test.input, got)
 			}
-			if gotProject != tt.wantProject {
-				t.Errorf("ParseConnStr() gotProject = %v, want %v", gotProject, tt.wantProject)
-			}
-			if gotInstance != tt.wantInstance {
-				t.Errorf("ParseConnStr() gotInstance = %v, want %v", gotInstance, tt.wantInstance)
-			}
-			if !reflect.DeepEqual(gotDatabase, tt.wantDatabase) {
-				t.Errorf("ParseConnStr() gotDatabase = %v, want %v", gotDatabase, tt.wantDatabase)
-			}
-		})
+			continue
+		}
+		if err != nil {
+			t.Errorf("%q: parsing failed, %v", test.input, err)
+			continue
+		}
+
+		assert.Equal(t, test.want, got)
 	}
 }
 
-func TestDSNFromURL(t *testing.T) {
-	dsn := "projects/test-project/instances/test-instance/databases/test-database"
-	fullURL := "spanner://" + dsn
-
-	type args struct {
-		url string
-	}
-	tests := []struct {
-		name string
-		args args
-		want string
-	}{
-		{
-			name: "full url returns dsn",
-			args: args{url: fullURL},
-			want: dsn,
-		},
-		{
-			name: "dsn is unchanged",
-			args: args{url: dsn},
-			want: dsn,
-		},
-	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			if got := DSNFromURL(tt.args.url); got != tt.want {
-				t.Errorf("DSNFromURL() = %v, want %v", got, tt.want)
-			}
-		})
-	}
-}
-
-func TestEscapeIdentifier(t *testing.T) {
+func TestEscapeCharacters(t *testing.T) {
 	hyphen := "test-this-out"
 	underscores := "test_this_out"
 
@@ -169,17 +162,17 @@ func TestEscapeIdentifier(t *testing.T) {
 		{
 			name:  "string with hyphens is escaped successfully",
 			input: hyphen,
-			want:  "`" + hyphen + "`",
+			want:  hyphen,
 		},
 		{
 			name:  "string with underscores is escaped successfully",
 			input: underscores,
-			want:  "`" + underscores + "`",
+			want:  underscores,
 		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			if got := EscapeIdentifier(tt.input); got != tt.want {
+			if got := EscapeCharacters(tt.input); got != tt.want {
 				t.Errorf("EscapeIdentifier() = %v, want %v", got, tt.want)
 			}
 		})

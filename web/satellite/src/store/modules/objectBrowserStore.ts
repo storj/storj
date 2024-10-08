@@ -19,7 +19,6 @@ import {
     paginateListObjectsV2,
     PutObjectCommand,
     PutObjectRetentionCommand,
-    ObjectLockRetentionMode,
     S3Client,
     S3ClientConfig,
     GetObjectRetentionCommand,
@@ -27,6 +26,10 @@ import {
     ObjectVersion,
     DeleteMarkerEntry,
     DeleteObjectsCommand,
+    ObjectLockMode,
+    PutObjectLegalHoldCommand,
+    GetObjectLegalHoldCommand,
+    ObjectLockLegalHoldStatus,
 } from '@aws-sdk/client-s3';
 import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
 import { Progress, Upload } from '@aws-sdk/lib-storage';
@@ -39,7 +42,7 @@ import { DEFAULT_PAGE_LIMIT } from '@/types/pagination';
 import { ObjectDeleteError, DuplicateUploadError } from '@/utils/error';
 import { useConfigStore } from '@/store/modules/configStore';
 import { LocalData } from '@/utils/localData';
-import { Retention } from '@/types/objectLock';
+import { ObjectLockStatus, Retention } from '@/types/objectLock';
 
 export type BrowserObject = {
     Key: string;
@@ -59,6 +62,7 @@ export type BrowserObject = {
 
 export type FullBrowserObject = BrowserObject & {
     retention?: Retention;
+    legalHold?: boolean;
 };
 
 export enum FailedUploadMessage {
@@ -798,7 +802,7 @@ export const useObjectBrowserStore = defineStore('objectBrowser', () => {
         }
     }
 
-    async function lockObject(file: BrowserObject, until: Date): Promise<void> {
+    async function lockObject(file: BrowserObject, mode: ObjectLockMode, until: Date): Promise<void> {
         assertIsInitialized(state);
 
         await state.s3.send(new PutObjectRetentionCommand({
@@ -806,10 +810,35 @@ export const useObjectBrowserStore = defineStore('objectBrowser', () => {
             Key: state.path + file.Key,
             VersionId: file['VersionId'] ?? undefined,
             Retention: {
-                Mode: ObjectLockRetentionMode.COMPLIANCE,
+                Mode: mode,
                 RetainUntilDate: until,
             },
         }));
+    }
+
+    async function legalHoldObject(file: BrowserObject, status: ObjectLockLegalHoldStatus): Promise<void> {
+        assertIsInitialized(state);
+
+        await state.s3.send(new PutObjectLegalHoldCommand({
+            Bucket: state.bucket,
+            Key: state.path + file.Key,
+            VersionId: file['VersionId'] ?? undefined,
+            LegalHold: {
+                Status: status,
+            },
+        }));
+    }
+
+    async function getObjectLegalHold(file: BrowserObject): Promise<boolean> {
+        assertIsInitialized(state);
+
+        const res = await state.s3.send(new GetObjectLegalHoldCommand({
+            Bucket: state.bucket,
+            Key: state.path + file.Key,
+            VersionId: file['VersionId'] ?? undefined,
+        }));
+
+        return res?.LegalHold?.Status === ObjectLockLegalHoldStatus.ON;
     }
 
     async function getObjectRetention(file: BrowserObject): Promise<Retention> {
@@ -824,7 +853,6 @@ export const useObjectBrowserStore = defineStore('objectBrowser', () => {
                 error.message.includes('object retention not found')
                || error.message.includes('missing retention configuration')
                || error.message.includes('object does not have a retention configuration')
-
             ) {
                 return {} as GetObjectRetentionCommandOutput;
             }
@@ -836,6 +864,20 @@ export const useObjectBrowserStore = defineStore('objectBrowser', () => {
         }
 
         return Retention.empty();
+    }
+
+    async function getObjectLockStatus(file: BrowserObject): Promise<ObjectLockStatus> {
+        assertIsInitialized(state);
+
+        const results = await Promise.all([
+            getObjectRetention(file),
+            getObjectLegalHold(file),
+        ]);
+
+        return {
+            retention: results[0],
+            legalHold: results[1],
+        };
     }
 
     async function bulkDeleteObjects(files: _Object[] | BrowserObject[]): Promise<number> {
@@ -1039,7 +1081,7 @@ export const useObjectBrowserStore = defineStore('objectBrowser', () => {
                 }
                 if (result.status === 'rejected') {
                     const deleteError = (result as PromiseRejectedResult).reason as ObjectDeleteError;
-                    return count + deleteError.deletedCount ?? 0;
+                    return count + deleteError.deletedCount || 0;
                 }
                 return count;
             }, 0);
@@ -1210,7 +1252,10 @@ export const useObjectBrowserStore = defineStore('objectBrowser', () => {
         restoreObject,
         createFolder,
         getObjectRetention,
+        getObjectLockStatus,
         lockObject,
+        legalHoldObject,
+        getObjectLegalHold,
         deleteObject,
         deleteObjectWithVersions,
         deleteFolder,

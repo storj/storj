@@ -13,6 +13,7 @@ import (
 	"go.uber.org/zap"
 
 	"storj.io/storj/shared/dbutil"
+	"storj.io/storj/shared/dbutil/spannerutil"
 	"storj.io/storj/shared/tagsql"
 )
 
@@ -29,34 +30,39 @@ type SpannerAdapter struct {
 	adminClient *database.DatabaseAdminClient
 	sqlClient   tagsql.DB
 
-	// database name  for spanner connection in the form  projects/P/instances/I/databases/DB
-	database string
+	connParams spannerutil.ConnParams
 }
 
 // NewSpannerAdapter creates a new Spanner adapter.
 func NewSpannerAdapter(ctx context.Context, cfg SpannerConfig, log *zap.Logger) (*SpannerAdapter, error) {
-	adminClient, err := database.NewDatabaseAdminClient(ctx)
+	params, err := spannerutil.ParseConnStr(cfg.Database)
+	if err != nil {
+		return nil, errs.Wrap(err)
+	}
+
+	adminClient, err := database.NewDatabaseAdminClient(ctx, params.ClientOptions()...)
 	if err != nil {
 		return nil, errs.Wrap(err)
 	}
 	log = log.Named("spanner")
-	client, err := spanner.NewClientWithConfig(ctx, cfg.Database,
+
+	client, err := spanner.NewClientWithConfig(ctx, params.DatabasePath(),
 		spanner.ClientConfig{
 			Logger:               zap.NewStdLog(log.Named("stdlog")),
 			SessionPoolConfig:    spanner.DefaultSessionPoolConfig,
 			SessionLabels:        map[string]string{"application_name": cfg.ApplicationName},
 			DisableRouteToLeader: false,
-		})
+		}, params.ClientOptions()...)
 	if err != nil {
 		return nil, errs.Wrap(err)
 	}
-	sqlClient, err := sql.Open("spanner", cfg.Database)
+	sqlClient, err := sql.Open("spanner", params.GoSqlSpannerConnStr())
 	if err != nil {
 		return nil, errs.Wrap(err)
 	}
 	return &SpannerAdapter{
 		client:      client,
-		database:    cfg.Database,
+		connParams:  params,
 		adminClient: adminClient,
 		sqlClient:   tagsql.Wrap(sqlClient),
 		log:         log,

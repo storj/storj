@@ -76,6 +76,7 @@
                 @delete-file-click="emit('deleteFileClick', item.browserObject)"
                 @share-click="emit('shareClick', item.browserObject)"
                 @lock-object-click="emit('lockObjectClick', item.browserObject)"
+                @legal-hold-click="emit('legalHoldClick', item.browserObject)"
                 @locked-object-delete="(fullObject) => emit('lockedObjectDelete', fullObject)"
             />
             <v-card-item class="pt-0">
@@ -132,6 +133,7 @@ const emit = defineEmits<{
     deleteFileClick: [BrowserObject];
     shareClick: [BrowserObject];
     lockObjectClick: [BrowserObject];
+    legalHoldClick: [BrowserObject];
     lockedObjectDelete: [FullBrowserObject];
 }>();
 

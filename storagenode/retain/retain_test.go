@@ -5,6 +5,7 @@ package retain_test
 
 import (
 	"context"
+	"os"
 	"testing"
 	"time"
 
@@ -115,6 +116,7 @@ func TestRetainPieces(t *testing.T) {
 		require.Zero(t, usedForTrash)
 
 		retainCachePath := ctx.Dir("retain")
+		retainStoreCachePath := ctx.Dir("retain-store")
 
 		retainEnabled := retain.NewService(zaptest.NewLogger(t), store, retain.Config{
 			Status:      retain.Enabled,
@@ -137,6 +139,13 @@ func TestRetainPieces(t *testing.T) {
 			CachePath:   retainCachePath,
 		})
 
+		retainStore := retain.NewService(zaptest.NewLogger(t), store, retain.Config{
+			Status:      retain.Store,
+			Concurrency: 1,
+			MaxTimeSkew: 0,
+			CachePath:   retainStoreCachePath,
+		})
+
 		// start the retain services
 		runCtx, cancel := context.WithCancel(ctx)
 		defer cancel()
@@ -151,19 +160,15 @@ func TestRetainPieces(t *testing.T) {
 		group.Go(func() error {
 			return retainDebug.Run(runCtx)
 		})
+		group.Go(func() error {
+			return retainStore.Run(runCtx)
+		})
 
 		// expect that disabled and debug endpoints do not delete any pieces
 		req := &pb.RetainRequest{
 			CreationDate: time.Now(),
 			Filter:       filter.Bytes(),
 		}
-		queued := retainDisabled.Queue(satellite0.ID, req)
-		require.True(t, queued)
-		retainDisabled.TestWaitUntilEmpty()
-
-		queued = retainDebug.Queue(satellite0.ID, req)
-		require.True(t, queued)
-		retainDebug.TestWaitUntilEmpty()
 
 		satellite1Pieces, err := getAllPieceIDs(ctx, store, satellite1.ID)
 		require.NoError(t, err)
@@ -172,6 +177,35 @@ func TestRetainPieces(t *testing.T) {
 		satellite0Pieces, err := getAllPieceIDs(ctx, store, satellite0.ID)
 		require.NoError(t, err)
 		require.Equal(t, numPieces, len(satellite0Pieces))
+
+		{
+			queued := retainDisabled.Queue(satellite0.ID, req)
+			require.True(t, queued)
+			retainDisabled.TestWaitUntilEmpty()
+
+			// check we have deleted nothing for satellite0
+			piecesAfter, err := getAllPieceIDs(ctx, store, satellite0.ID)
+			require.NoError(t, err)
+			require.Equal(t, numPieces, len(piecesAfter))
+		}
+
+		{
+			queued := retainStore.Queue(satellite0.ID, req)
+			require.True(t, queued)
+
+			// check we have deleted nothing for satellite0
+			piecesAfter, err := getAllPieceIDs(ctx, store, satellite0.ID)
+			require.NoError(t, err)
+			require.Equal(t, numPieces, len(piecesAfter))
+
+			entries, err := os.ReadDir(retainStoreCachePath)
+			require.NoError(t, err)
+			require.Len(t, entries, 1)
+		}
+
+		queued := retainDebug.Queue(satellite0.ID, req)
+		require.True(t, queued)
+		retainDebug.TestWaitUntilEmpty()
 
 		// expect that enabled endpoint deletes the correct pieces
 		queued = retainEnabled.Queue(satellite0.ID, req)
