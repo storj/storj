@@ -54,10 +54,7 @@ type Bucket struct {
 	DefaultEncryptionParameters storj.EncryptionParameters
 	Placement                   storj.PlacementConstraint
 	Versioning                  Versioning
-	ObjectLockEnabled           bool
-	DefaultRetentionMode        storj.RetentionMode
-	DefaultRetentionDays        *int
-	DefaultRetentionYears       *int
+	ObjectLock                  ObjectLockSettings
 }
 
 // UpdateBucketObjectLockParams contains the parameters for updating bucket object lock settings.
@@ -70,9 +67,9 @@ type UpdateBucketObjectLockParams struct {
 	DefaultRetentionYears **int
 }
 
-// BucketObjectLockSettings contains a bucket's object lock configurations.
-type BucketObjectLockSettings struct {
-	ObjectLockEnabled     bool
+// ObjectLockSettings contains a bucket's object lock configurations.
+type ObjectLockSettings struct {
+	Enabled               bool
 	DefaultRetentionMode  storj.RetentionMode
 	DefaultRetentionDays  int
 	DefaultRetentionYears int
@@ -168,7 +165,7 @@ type DB interface {
 	// UpdateBucketObjectLockSettings updates object lock settings for a bucket without an extra database query.
 	UpdateBucketObjectLockSettings(ctx context.Context, params UpdateBucketObjectLockParams) (_ Bucket, err error)
 	// GetBucketObjectLockSettings returns a bucket's object lock settings.
-	GetBucketObjectLockSettings(ctx context.Context, bucketName []byte, projectID uuid.UUID) (settings *BucketObjectLockSettings, err error)
+	GetBucketObjectLockSettings(ctx context.Context, bucketName []byte, projectID uuid.UUID) (settings *ObjectLockSettings, err error)
 	// DeleteBucket deletes a bucket
 	DeleteBucket(ctx context.Context, bucketName []byte, projectID uuid.UUID) (err error)
 	// ListBuckets returns all buckets for a project

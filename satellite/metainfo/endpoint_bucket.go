@@ -241,7 +241,7 @@ func (endpoint *Endpoint) CreateBucket(ctx context.Context, req *pb.BucketCreate
 	bucketReq.Placement = project.DefaultPlacement
 
 	if endpoint.config.UseBucketLevelObjectVersioningByProject(project) {
-		if bucketReq.ObjectLockEnabled {
+		if bucketReq.ObjectLock.Enabled {
 			bucketReq.Versioning = buckets.VersioningEnabled
 		} else {
 			defaultVersioning, err := endpoint.projects.GetDefaultVersioning(ctx, keyInfo.ProjectID)
@@ -259,7 +259,7 @@ func (endpoint *Endpoint) CreateBucket(ctx context.Context, req *pb.BucketCreate
 		}
 	}
 
-	if bucketReq.ObjectLockEnabled && bucketReq.Versioning != buckets.VersioningEnabled {
+	if bucketReq.ObjectLock.Enabled && bucketReq.Versioning != buckets.VersioningEnabled {
 		return nil, rpcstatus.Error(rpcstatus.FailedPrecondition, "Object Lock may only be enabled for versioned buckets")
 	}
 
@@ -348,7 +348,7 @@ func (endpoint *Endpoint) DeleteBucket(ctx context.Context, req *pb.BucketDelete
 		endpoint.log.Error("internal", zap.Error(err))
 		return nil, rpcstatus.Error(rpcstatus.Internal, "unable to get bucket")
 	}
-	lockEnabled := bucket.ObjectLockEnabled
+	lockEnabled := bucket.ObjectLock.Enabled
 
 	if !keyInfo.CreatedBy.IsZero() {
 		member, err := endpoint.projectMembers.GetByMemberIDAndProjectID(ctx, keyInfo.CreatedBy, keyInfo.ProjectID)
@@ -566,7 +566,7 @@ func (endpoint *Endpoint) GetBucketObjectLockConfiguration(ctx context.Context, 
 		return nil, rpcstatus.Error(rpcstatus.Internal, "unable to get bucket's Object Lock configuration")
 	}
 
-	if !settings.ObjectLockEnabled {
+	if !settings.Enabled {
 		return nil, rpcstatus.Error(rpcstatus.ObjectLockBucketRetentionConfigurationMissing, bucketNoLockErrMsg)
 	}
 
@@ -664,11 +664,13 @@ func convertProtoToBucket(req *pb.BucketCreateRequest, keyInfo *console.APIKeyIn
 	}
 
 	return buckets.Bucket{
-		ID:                bucketID,
-		Name:              string(req.GetName()),
-		ProjectID:         keyInfo.ProjectID,
-		CreatedBy:         keyInfo.CreatedBy,
-		ObjectLockEnabled: req.GetObjectLockEnabled(),
+		ID:        bucketID,
+		Name:      string(req.GetName()),
+		ProjectID: keyInfo.ProjectID,
+		CreatedBy: keyInfo.CreatedBy,
+		ObjectLock: buckets.ObjectLockSettings{
+			Enabled: req.GetObjectLockEnabled(),
+		},
 	}, nil
 }
 

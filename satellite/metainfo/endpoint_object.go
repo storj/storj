@@ -163,7 +163,7 @@ func (endpoint *Endpoint) BeginObject(ctx context.Context, req *pb.ObjectBeginRe
 	if retention.Enabled() || req.LegalHold {
 		if bucket.Versioning != buckets.VersioningEnabled {
 			return nil, rpcstatus.Errorf(rpcstatus.ObjectLockInvalidBucketState, "cannot specify Object Lock settings when uploading into a bucket without Versioning enabled")
-		} else if !bucket.ObjectLockEnabled {
+		} else if !bucket.ObjectLock.Enabled {
 			return nil, rpcstatus.Errorf(rpcstatus.ObjectLockBucketRetentionConfigurationMissing, "cannot specify Object Lock settings when uploading into a bucket without Object Lock enabled")
 		}
 	}
@@ -561,7 +561,7 @@ func (endpoint *Endpoint) CommitInlineObject(ctx context.Context, beginObjectReq
 		return nil, nil, nil, rpcstatus.Error(rpcstatus.Internal, "unable to get bucket placement")
 	}
 
-	if (retention.Enabled() || beginObjectReq.LegalHold) && !bucket.ObjectLockEnabled {
+	if (retention.Enabled() || beginObjectReq.LegalHold) && !bucket.ObjectLock.Enabled {
 		return nil, nil, nil, rpcstatus.Errorf(rpcstatus.ObjectLockBucketRetentionConfigurationMissing, "cannot specify Object Lock settings when uploading into a bucket without Object Lock enabled")
 	}
 
@@ -2467,7 +2467,7 @@ func (endpoint *Endpoint) DeleteCommittedObject(ctx context.Context, opts Delete
 			Suspended:      suspended,
 
 			ObjectLock: metabase.ObjectLockDeleteOptions{
-				Enabled:          bucketData.ObjectLockEnabled,
+				Enabled:          bucketData.ObjectLock.Enabled,
 				BypassGovernance: opts.BypassGovernance,
 			},
 		})
@@ -2485,7 +2485,7 @@ func (endpoint *Endpoint) DeleteCommittedObject(ctx context.Context, opts Delete
 			Version:        sv.Version(),
 
 			ObjectLock: metabase.ObjectLockDeleteOptions{
-				Enabled:          bucketData.ObjectLockEnabled,
+				Enabled:          bucketData.ObjectLock.Enabled,
 				BypassGovernance: opts.BypassGovernance,
 			},
 		})

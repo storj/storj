@@ -305,9 +305,9 @@ func TestGetSingleBucketTotal(t *testing.T) {
 			storedBucket, err := db.Buckets().GetBucket(ctx, []byte(bucketName), project.ID)
 			require.NoError(t, err)
 			require.Equal(t, buckets.VersioningEnabled, storedBucket.Versioning)
-			require.Equal(t, storj.NoRetention, storedBucket.DefaultRetentionMode)
-			require.Nil(t, storedBucket.DefaultRetentionDays)
-			require.Nil(t, storedBucket.DefaultRetentionYears)
+			require.Equal(t, storj.NoRetention, storedBucket.ObjectLock.DefaultRetentionMode)
+			require.Zero(t, storedBucket.ObjectLock.DefaultRetentionDays)
+			require.Zero(t, storedBucket.ObjectLock.DefaultRetentionYears)
 
 			userCtx, err := sat.UserContext(ctx, project.Owner.ID)
 			require.NoError(t, err)
@@ -337,11 +337,10 @@ func TestGetSingleBucketTotal(t *testing.T) {
 
 			storedBucket, err = db.Buckets().GetBucket(ctx, []byte(bucketName), project.ID)
 			require.NoError(t, err)
-			require.True(t, storedBucket.ObjectLockEnabled)
-			require.Equal(t, storj.GovernanceMode, storedBucket.DefaultRetentionMode)
-			require.Nil(t, storedBucket.DefaultRetentionDays)
-			require.NotNil(t, storedBucket.DefaultRetentionYears)
-			require.Equal(t, 1, *storedBucket.DefaultRetentionYears)
+			require.True(t, storedBucket.ObjectLock.Enabled)
+			require.Equal(t, storj.GovernanceMode, storedBucket.ObjectLock.DefaultRetentionMode)
+			require.Zero(t, storedBucket.ObjectLock.DefaultRetentionDays)
+			require.Equal(t, 1, storedBucket.ObjectLock.DefaultRetentionYears)
 
 			storedBucket.Placement = storj.EU
 			_, err = db.Buckets().UpdateBucket(ctx, storedBucket)

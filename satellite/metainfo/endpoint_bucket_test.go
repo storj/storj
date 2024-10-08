@@ -249,9 +249,11 @@ func TestDeleteBucket(t *testing.T) {
 		t.Run("Delete bucket with Object Lock enabled as owner", func(t *testing.T) {
 			bucketName := metabase.BucketName(testrand.BucketName())
 			_, err := sat.DB.Buckets().CreateBucket(ctx, buckets.Bucket{
-				ProjectID:         project.ID,
-				Name:              bucketName.String(),
-				ObjectLockEnabled: true,
+				ProjectID: project.ID,
+				Name:      bucketName.String(),
+				ObjectLock: buckets.ObjectLockSettings{
+					Enabled: true,
+				},
 			})
 			require.NoError(t, err)
 
@@ -644,10 +646,12 @@ func TestEnableSuspendBucketVersioning(t *testing.T) {
 			t.Run(tt.name, func(t *testing.T) {
 				defer ctx.Check(deleteBucket)
 				bucket, err := satellite.API.DB.Buckets().CreateBucket(ctx, buckets.Bucket{
-					ProjectID:         projectID,
-					Name:              bucketName,
-					Versioning:        tt.initialVersioningState,
-					ObjectLockEnabled: tt.objectLockEnabled,
+					ProjectID:  projectID,
+					Name:       bucketName,
+					Versioning: tt.initialVersioningState,
+					ObjectLock: buckets.ObjectLockSettings{
+						Enabled: tt.objectLockEnabled,
+					},
 				})
 				require.NoError(t, err)
 				require.NotNil(t, bucket)
@@ -1295,10 +1299,12 @@ func TestSetBucketObjectLockConfiguration(t *testing.T) {
 
 			bucket, err := bucketsDB.GetBucket(ctx, bucketName, project.ID)
 			require.NoError(t, err)
-			require.True(t, bucket.ObjectLockEnabled)
-			require.Equal(t, storj.ComplianceMode, bucket.DefaultRetentionMode)
-			require.Equal(t, 1, *bucket.DefaultRetentionYears)
-			require.Nil(t, bucket.DefaultRetentionDays)
+			require.Equal(t, buckets.ObjectLockSettings{
+				Enabled:               true,
+				DefaultRetentionMode:  storj.ComplianceMode,
+				DefaultRetentionDays:  0,
+				DefaultRetentionYears: 1,
+			}, bucket.ObjectLock)
 
 			config.DefaultRetention = nil
 			_, err = endpoint.SetBucketObjectLockConfiguration(ctx, request)
@@ -1306,10 +1312,9 @@ func TestSetBucketObjectLockConfiguration(t *testing.T) {
 
 			bucket, err = bucketsDB.GetBucket(ctx, bucketName, project.ID)
 			require.NoError(t, err)
-			require.True(t, bucket.ObjectLockEnabled)
-			require.Equal(t, storj.NoRetention, bucket.DefaultRetentionMode)
-			require.Nil(t, bucket.DefaultRetentionYears)
-			require.Nil(t, bucket.DefaultRetentionDays)
+			require.Equal(t, buckets.ObjectLockSettings{
+				Enabled: true,
+			}, bucket.ObjectLock)
 		})
 	})
 }
