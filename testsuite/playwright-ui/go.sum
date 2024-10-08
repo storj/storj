@@ -1778,8 +1778,9 @@ github.com/zeebo/goof v0.0.0-20230907150950-e9457bc94477 h1:W/fHn8aWJEBCQcLeeNBo
 github.com/zeebo/goof v0.0.0-20230907150950-e9457bc94477/go.mod h1:nbQ8jtLiWGVGehuiqVKJp/Oc9FnzA56AZ0tG/srGTGY=
 github.com/zeebo/incenc v0.0.0-20180505221441-0d92902eec54 h1:+cwNE5KJ3pika4HuzmDHkDlK5myo0G9Sv+eO7WWxnUQ=
 github.com/zeebo/incenc v0.0.0-20180505221441-0d92902eec54/go.mod h1:EI8LcOBDlSL3POyqwC1eJhOYlMBMidES+613EtmmT5w=
-github.com/zeebo/mwc v0.0.4 h1:9dNXNLtUB4lUXoXgyhy3YrKoV0OD7oRiu907YMS0nl0=
 github.com/zeebo/mwc v0.0.4/go.mod h1:qNHfgp/ZCpQNcJHwKcO5EP3VgaBrW6DPohsK4QfyxxE=
+github.com/zeebo/mwc v0.0.6 h1:Kgs24P3WhWlBS67e8Iy7lHbXHMAab0LwTsP4845x9mc=
+github.com/zeebo/mwc v0.0.6/go.mod h1:0B32or6moOig1YGuqMoimBpU9QK9uYaGG2bBOuddqtE=
 github.com/zeebo/pcg v1.0.1 h1:lyqfGeWiv4ahac6ttHs+I5hwtH/+1mrhlCtVNQM2kHo=
 github.com/zeebo/pcg v1.0.1/go.mod h1:09F0S9iiKrwn9rlI5yjLkmrug154/YRW6KnnXVDM/l4=
 github.com/zeebo/structs v1.0.3-0.20230601144555-f2db46069602 h1:nMxsvi3pTJapmPpdShLdCO8sbCqd8XkjKYMssSJrfiM=
