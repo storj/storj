@@ -225,7 +225,7 @@ func loadSnapshotFromSQLPostgres(ctx context.Context, connstr, script string) (_
 	return snapshot, nil
 }
 
-// loadSnapshotFromSQLPostgres inserts script into connstr and loads schema for postgres db.
+// loadSchemaFromSQLPostgres inserts script into connstr and loads schema for postgres db.
 func loadSchemaFromSQLPostgres(ctx context.Context, connstr string, script []string) (_ *dbschema.Schema, err error) {
 	db, err := tempdb.OpenUnique(ctx, connstr, "load-schema")
 	if err != nil {
