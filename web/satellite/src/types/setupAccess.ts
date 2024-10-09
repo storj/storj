@@ -22,6 +22,7 @@ export enum SetupStep {
     PassphraseGenerated = 'passphraseGenerated',
     EnterNewPassphrase = 'enterNewPassphrase',
     ChoosePermissionsStep = 'choosePermission',
+    ObjectLockPermissionsStep = 'objectLockPermissions',
     SelectBucketsStep = 'selectBuckets',
     OptionalExpirationStep = 'optionalExpiration',
     ConfirmDetailsStep = 'confirmDetails',
@@ -41,7 +42,32 @@ export enum Permission {
     Delete = 'Delete',
 }
 
+export enum ObjectLockPermission {
+    All = 'all',
+    PutObjectRetention = 'PutObjectRetention',
+    GetObjectRetention = 'GetObjectRetention',
+    BypassGovernanceRetention = 'BypassGovernanceRetention',
+    PutObjectLegalHold = 'PutObjectLegalHold',
+    GetObjectLegalHold = 'GetObjectLegalHold',
+}
+
 export enum BucketsOption {
     All = 'all',
     Select = 'select',
+}
+
+export interface PermissionsMessage {
+    type: string;
+    buckets: string;
+    apiKey: string;
+    isDownload: boolean;
+    isUpload: boolean;
+    isList: boolean;
+    isDelete: boolean;
+    notBefore: string;
+    isPutObjectRetention?: boolean;
+    isGetObjectRetention?: boolean;
+    isBypassGovernanceRetention?: boolean;
+    isPutObjectLegalHold?: boolean;
+    isGetObjectLegalHold?: boolean;
 }

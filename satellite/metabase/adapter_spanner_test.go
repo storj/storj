@@ -5,7 +5,6 @@ package metabase_test
 
 import (
 	"context"
-	"os"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -14,17 +13,14 @@ import (
 	"storj.io/storj/private/mud"
 	"storj.io/storj/private/mud/mudtest"
 	"storj.io/storj/satellite/metabase"
+	"storj.io/storj/shared/dbutil/dbtest"
 )
 
 func TestBeginObjectSpanner(t *testing.T) {
-	spannerConnection := os.Getenv("STORJ_TEST_SPANNER")
-	if spannerConnection == "" || spannerConnection == "omit" {
-		t.Skip("STORJ_TEST_SPANNER is not defined, no available spanner instance to test")
-		return
-	}
+	spannerConnStr := dbtest.PickSpanner(t)
 
 	mudtest.Run[*metabase.SpannerAdapter](t, mudtest.WithTestLogger(t, func(ball *mud.Ball) {
-		metabase.SpannerTestModule(ball, spannerConnection)
+		metabase.SpannerTestModule(ball, spannerConnStr)
 	}),
 		func(ctx context.Context, t *testing.T, adapter *metabase.SpannerAdapter) {
 			uuid := testrand.UUID()

@@ -8,15 +8,12 @@ import (
 	"fmt"
 	"strings"
 
-	"cloud.google.com/go/spanner"
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
-	"google.golang.org/grpc/codes"
 
 	"storj.io/storj/private/migrate"
 	"storj.io/storj/shared/dbutil"
 	"storj.io/storj/shared/dbutil/pgutil"
-	"storj.io/storj/shared/dbutil/spannerutil"
 	"storj.io/storj/shared/tagsql"
 )
 
@@ -120,16 +117,7 @@ func (db *satelliteDBTesting) TestMigrateToLatest(ctx context.Context) error {
 		}
 
 	case dbutil.Spanner:
-		params, err := spannerutil.ParseConnStr(db.source)
-		if err != nil {
-			return ErrMigrateMinVersion.New("failed parsing connection string: %w", err)
-		}
-		if !params.AllDefined() {
-			return ErrMigrateMinVersion.New("spanner database needs to be fully defined for migration")
-		}
-		if err := spannerutil.CreateDatabase(ctx, params); err != nil && spanner.ErrCode(err) != codes.AlreadyExists {
-			return ErrMigrateMinVersion.New("failed creating database: %w", err)
-		}
+		// nothing to do here
 	default:
 		return Error.New("unsupported database: %v", db.impl)
 	}

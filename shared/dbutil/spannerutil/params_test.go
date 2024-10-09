@@ -149,32 +149,3 @@ func TestParseConnStr(t *testing.T) {
 		assert.Equal(t, test.want, got)
 	}
 }
-
-func TestEscapeCharacters(t *testing.T) {
-	hyphen := "test-this-out"
-	underscores := "test_this_out"
-
-	tests := []struct {
-		name  string
-		input string
-		want  string
-	}{
-		{
-			name:  "string with hyphens is escaped successfully",
-			input: hyphen,
-			want:  hyphen,
-		},
-		{
-			name:  "string with underscores is escaped successfully",
-			input: underscores,
-			want:  underscores,
-		},
-	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			if got := EscapeCharacters(tt.input); got != tt.want {
-				t.Errorf("EscapeIdentifier() = %v, want %v", got, tt.want)
-			}
-		})
-	}
-}

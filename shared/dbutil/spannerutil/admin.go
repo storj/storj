@@ -24,8 +24,8 @@ type EmulatorAdmin struct {
 }
 
 // OpenEmulatorAdmin creates a new emulator admin that uses the specified endpoint.
-func OpenEmulatorAdmin(ctx context.Context, params ConnParams) (*EmulatorAdmin, error) {
-	return &EmulatorAdmin{Params: params}, nil
+func OpenEmulatorAdmin(params ConnParams) *EmulatorAdmin {
+	return &EmulatorAdmin{Params: params}
 }
 
 func (admin *EmulatorAdmin) ensureInstances(ctx context.Context) error {

@@ -103,6 +103,13 @@
                     />
                 </v-window-item>
 
+                <v-window-item :value="SetupStep.ObjectLockPermissionsStep">
+                    <object-lock-permissions-step
+                        :ref="stepInfos[SetupStep.ObjectLockPermissionsStep].ref"
+                        @permissionsChanged="val => objectLockPermissions = val"
+                    />
+                </v-window-item>
+
                 <v-window-item :value="SetupStep.SelectBucketsStep">
                     <select-buckets-step
                         :ref="stepInfos[SetupStep.SelectBucketsStep].ref"
@@ -124,6 +131,7 @@
                         :name="name"
                         :type="accessType"
                         :permissions="permissions"
+                        :object-lock-permissions="objectLockPermissions"
                         :buckets="buckets"
                         :end-date="endDate"
                     />
@@ -211,7 +219,15 @@ import {
 import { useRoute } from 'vue-router';
 import { BookOpenText, KeyRound } from 'lucide-vue-next';
 
-import { AccessType, FlowType, PassphraseOption, Permission, SetupStep } from '@/types/setupAccess';
+import {
+    AccessType,
+    FlowType,
+    ObjectLockPermission,
+    PassphraseOption,
+    Permission,
+    PermissionsMessage,
+    SetupStep,
+} from '@/types/setupAccess';
 import { useBucketsStore } from '@/store/modules/bucketsStore';
 import { getUniqueName, IDialogFlowStep } from '@/types/common';
 import { AnalyticsErrorEventSource, AnalyticsEvent } from '@/utils/constants/analyticsEventNames';
@@ -236,6 +252,7 @@ import PassphraseGeneratedStep from '@/components/dialogs/commonPassphraseSteps/
 import OptionalExpirationStep from '@/components/dialogs/accessSetupSteps/OptionalExpirationStep.vue';
 import EncryptionInfoStep from '@/components/dialogs/accessSetupSteps/EncryptionInfoStep.vue';
 import ConfirmDetailsStep from '@/components/dialogs/accessSetupSteps/ConfirmDetailsStep.vue';
+import ObjectLockPermissionsStep from '@/components/dialogs/accessSetupSteps/ObjectLockPermissionsStep.vue';
 
 type SetupLocation = SetupStep | undefined | (() => (SetupStep | undefined));
 
@@ -306,6 +323,7 @@ const accessType = resettableRef<AccessType>(props.defaultAccessType ?? AccessTy
 const flowType = resettableRef<FlowType>(FlowType.FullAccess);
 const name = resettableRef<string>('');
 const permissions = resettableRef<Permission[]>([]);
+const objectLockPermissions = resettableRef<ObjectLockPermission[]>([]);
 const buckets = resettableRef<string[]>([]);
 const passphrase = resettableRef<string>(bucketsStore.state.passphrase);
 const endDate = resettableRef<Date | null>(null);
@@ -317,6 +335,14 @@ const credentials = resettableRef<EdgeCredentials>(new EdgeCredentials());
 const promptForPassphrase = computed<boolean>(() => bucketsStore.state.promptForPassphrase);
 
 const hasManagedPassphrase = computed<boolean>(() => projectsStore.state.selectedProjectConfig.hasManagedPassphrase);
+
+/**
+ * Whether object lock UI is enabled.
+ */
+const objectLockUIEnabled = computed<boolean>(() => {
+    return configStore.objectLockUIEnabled
+      && projectsStore.objectLockUIEnabledForProject;
+});
 
 const stepInfos: Record<SetupStep, StepInfo> = {
     [SetupStep.ChooseAccessStep]: new StepInfo(
@@ -415,12 +441,18 @@ const stepInfos: Record<SetupStep, StepInfo> = {
 
             return SetupStep.ChooseFlowStep;
         },
+        () => objectLockUIEnabled.value ? SetupStep.ObjectLockPermissionsStep : SetupStep.SelectBucketsStep,
+    ),
+    [SetupStep.ObjectLockPermissionsStep]: new StepInfo(
+        'Next ->',
+        'Back',
+        SetupStep.ChoosePermissionsStep,
         SetupStep.SelectBucketsStep,
     ),
     [SetupStep.SelectBucketsStep]: new StepInfo(
         'Next ->',
         'Back',
-        SetupStep.ChoosePermissionsStep,
+        () => objectLockUIEnabled.value ? SetupStep.ObjectLockPermissionsStep : SetupStep.ChoosePermissionsStep,
         SetupStep.OptionalExpirationStep,
     ),
     [SetupStep.OptionalExpirationStep]: new StepInfo(
@@ -489,7 +521,7 @@ async function createAPIKey(): Promise<void> {
 
     const noCaveats = flowType.value === FlowType.FullAccess;
 
-    let permissionsMsg = {
+    let permissionsMsg: PermissionsMessage = {
         'type': 'SetPermission',
         'buckets': JSON.stringify(noCaveats ? [] : buckets.value),
         'apiKey': cleanAPIKey.secret,
@@ -499,6 +531,17 @@ async function createAPIKey(): Promise<void> {
         'isDelete': noCaveats || permissions.value.includes(Permission.Delete),
         'notBefore': new Date().toISOString(),
     };
+
+    if (objectLockUIEnabled.value) {
+        permissionsMsg = {
+            ...permissionsMsg,
+            'isPutObjectRetention': noCaveats || objectLockPermissions.value.includes(ObjectLockPermission.PutObjectRetention),
+            'isGetObjectRetention': noCaveats || objectLockPermissions.value.includes(ObjectLockPermission.GetObjectRetention),
+            'isBypassGovernanceRetention': noCaveats || objectLockPermissions.value.includes(ObjectLockPermission.BypassGovernanceRetention),
+            'isPutObjectLegalHold': noCaveats || objectLockPermissions.value.includes(ObjectLockPermission.PutObjectLegalHold),
+            'isGetObjectLegalHold': noCaveats || objectLockPermissions.value.includes(ObjectLockPermission.GetObjectLegalHold),
+        };
+    }
 
     if (endDate.value && !noCaveats) permissionsMsg = Object.assign(permissionsMsg, { 'notAfter': endDate.value.toISOString() });
 
