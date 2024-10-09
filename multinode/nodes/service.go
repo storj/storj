@@ -139,8 +139,9 @@ func (service *Service) ListInfos(ctx context.Context) (_ []NodeInfo, err error)
 				ID:      node.ID,
 				Address: node.PublicAddress,
 			})
-			if err != nil {
-				nodeInfo.Status = StatusNotReachable
+			nodeStatus, nodeVersion, lastContact := service.FetchNodeMeta(ctx, node)
+			if nodeStatus != StatusOnline {
+				nodeInfo.Status = nodeStatus
 				return nodeInfo
 			}
 
@@ -148,32 +149,12 @@ func (service *Service) ListInfos(ctx context.Context) (_ []NodeInfo, err error)
 				err = errs.Combine(err, conn.Close())
 			}()
 
-			nodeClient := multinodepb.NewDRPCNodeClient(conn)
 			storageClient := multinodepb.NewDRPCStorageClient(conn)
 			bandwidthClient := multinodepb.NewDRPCBandwidthClient(conn)
 			payoutClient := multinodepb.NewDRPCPayoutClient(conn)
 
 			header := &multinodepb.RequestHeader{
 				ApiKey: node.APISecret[:],
-			}
-
-			nodeVersion, err := nodeClient.Version(ctx, &multinodepb.VersionRequest{Header: header})
-			if err != nil {
-				if rpcstatus.Code(err) == rpcstatus.Unauthenticated {
-					nodeInfo.Status = StatusUnauthorized
-					return nodeInfo
-				}
-
-				nodeInfo.Status = StatusStorageNodeInternalError
-				return nodeInfo
-			}
-
-			lastContact, err := nodeClient.LastContact(ctx, &multinodepb.LastContactRequest{Header: header})
-			if err != nil {
-				// TODO: since rpcstatus.Unauthenticated was checked in nodeVersion this sort of error can be caused
-				// only if new apikey was issued during ListInfos method call.
-				nodeInfo.Status = StatusStorageNodeInternalError
-				return nodeInfo
 			}
 
 			diskSpace, err := storageClient.DiskSpace(ctx, &multinodepb.DiskSpaceRequest{Header: header})
@@ -203,7 +184,7 @@ func (service *Service) ListInfos(ctx context.Context) (_ []NodeInfo, err error)
 			nodeInfo.DiskSpaceLeft = diskSpace.GetAvailable()
 			nodeInfo.BandwidthUsed = bandwidthSummary.GetUsed()
 			nodeInfo.TotalEarned = earned.Total
-			nodeInfo.Status = nodeStatus(lastContact.LastContact)
+			nodeInfo.Status = nodeStatus
 
 			return nodeInfo
 		}()
@@ -237,8 +218,10 @@ func (service *Service) ListInfosSatellite(ctx context.Context, satelliteID stor
 				ID:      node.ID,
 				Address: node.PublicAddress,
 			})
-			if err != nil {
-				nodeInfoSatellite.Status = StatusNotReachable
+
+			nodeStatus, nodeVersion, lastContact := service.FetchNodeMeta(ctx, node)
+			if nodeStatus != StatusOnline {
+				nodeInfoSatellite.Status = nodeStatus
 				return nodeInfoSatellite
 			}
 
@@ -251,25 +234,6 @@ func (service *Service) ListInfosSatellite(ctx context.Context, satelliteID stor
 
 			header := &multinodepb.RequestHeader{
 				ApiKey: node.APISecret[:],
-			}
-
-			nodeVersion, err := nodeClient.Version(ctx, &multinodepb.VersionRequest{Header: header})
-			if err != nil {
-				if rpcstatus.Code(err) == rpcstatus.Unauthenticated {
-					nodeInfoSatellite.Status = StatusUnauthorized
-					return nodeInfoSatellite
-				}
-
-				nodeInfoSatellite.Status = StatusStorageNodeInternalError
-				return nodeInfoSatellite
-			}
-
-			lastContact, err := nodeClient.LastContact(ctx, &multinodepb.LastContactRequest{Header: header})
-			if err != nil {
-				// TODO: since rpcstatus.Unauthenticated was checked in Version this sort of error can be caused
-				// only if new apikey was issued during ListInfosSatellite method call.
-				nodeInfoSatellite.Status = StatusStorageNodeInternalError
-				return nodeInfoSatellite
 			}
 
 			rep, err := nodeClient.Reputation(ctx, &multinodepb.ReputationRequest{
@@ -293,7 +257,7 @@ func (service *Service) ListInfosSatellite(ctx context.Context, satelliteID stor
 			nodeInfoSatellite.AuditScore = rep.Audit.Score
 			nodeInfoSatellite.SuspensionScore = rep.Audit.SuspensionScore
 			nodeInfoSatellite.TotalEarned = earned.Total
-			nodeInfoSatellite.Status = nodeStatus(lastContact.LastContact)
+			nodeInfoSatellite.Status = nodeStatus
 
 			return nodeInfoSatellite
 		}()
@@ -315,6 +279,10 @@ func (service *Service) TrustedSatellites(ctx context.Context) (_ storj.NodeURLs
 
 	var trustedSatellites storj.NodeURLs
 	for _, node := range listNodes {
+		nodeStatus, _, _ := service.FetchNodeMeta(ctx, node)
+		if nodeStatus != StatusOnline {
+			continue
+		}
 		nodeURLs, err := service.trustedSatellites(ctx, node)
 		if err != nil {
 			if ErrNodeNotReachable.Has(err) {
@@ -368,15 +336,52 @@ func (service *Service) trustedSatellites(ctx context.Context, node Node) (_ sto
 	return nodeURLs, nil
 }
 
-// nodeStatus chooses node status offline or online depends on LastContact.
-func nodeStatus(lastContact time.Time) Status {
-	now := time.Now().UTC()
-
-	if now.Sub(lastContact) < time.Hour*3 {
-		return StatusOnline
+// FetchNodeMeta information about a node status, version, and last contact.
+func (service *Service) FetchNodeMeta(ctx context.Context, node Node) (_ Status, _ *multinodepb.VersionResponse, _ *multinodepb.LastContactResponse) {
+	conn, err := service.dialer.DialNodeURL(ctx, storj.NodeURL{
+		ID:      node.ID,
+		Address: node.PublicAddress,
+	})
+	if err != nil {
+		service.log.Error("Failed to dial the node URL:", zap.Error(err))
+		return StatusNotReachable, nil, nil
 	}
 
-	return StatusOffline
+	defer func() {
+		err = errs.Combine(err, conn.Close())
+	}()
+
+	nodeClient := multinodepb.NewDRPCNodeClient(conn)
+
+	header := &multinodepb.RequestHeader{
+		ApiKey: node.APISecret[:],
+	}
+
+	nodeVersion, err := nodeClient.Version(ctx, &multinodepb.VersionRequest{Header: header})
+	if err != nil {
+		if rpcstatus.Code(err) == rpcstatus.Unauthenticated {
+			return StatusUnauthorized, nil, nil
+		}
+
+		service.log.Error("Could not fetch the version of the node:", zap.Error(err))
+		return StatusStorageNodeInternalError, nil, nil
+	}
+
+	lastContact, err := nodeClient.LastContact(ctx, &multinodepb.LastContactRequest{Header: header})
+	if err != nil {
+		// TODO: since rpcstatus.Unauthenticated was checked in nodeVersion this sort of error can be caused
+		// only if new apikey was issued during ListInfos method call.
+		service.log.Error("Could not fetch the lastcontact with the node:", zap.Error(err))
+		return StatusStorageNodeInternalError, nodeVersion, nil
+	}
+
+	now := time.Now().UTC()
+
+	if now.Sub(lastContact.LastContact) < time.Hour*3 {
+		return StatusOnline, nodeVersion, lastContact
+	}
+
+	return StatusOffline, nodeVersion, lastContact
 }
 
 // appendUniqueNodeURLs appends unique node urls from incoming slice.
