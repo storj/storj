@@ -20,7 +20,7 @@
     "vue-clipboard2": "0.3.3",
     "vue-property-decorator": "9.1.2",
     "vue-router": "3.5.3",
-    "vuetify": "2.6.0",
+    "vuetify": "2.7.2",
     "vuex": "3.6.2"
   },
   "devDependencies": {
@@ -60,6 +60,6 @@
     "vue-eslint-parser": "9.0.3",
     "vue-svg-loader": "0.17.0-beta.2",
     "vue-template-compiler": "2.7.10",
-    "vuetify-loader": "1.7.0"
+    "vuetify-loader": "1.9.2"
   }
 }
