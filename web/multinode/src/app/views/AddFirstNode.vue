@@ -49,6 +49,7 @@ import { Component, Vue } from 'vue-property-decorator';
 
 import { Config as RouterConfig } from '@/app/router';
 import { CreateNodeFields } from '@/nodes';
+import { Notify } from '@/app/plugins';
 
 import HeaderedInput from '@/app/components/common/HeaderedInput.vue';
 import VButton from '@/app/components/common/VButton.vue';
@@ -68,6 +69,7 @@ export default class AddFirstNode extends Vue {
     private idError = '';
     private publicIPError = '';
     private apiKeyError = '';
+    public notify = new Notify();
 
     /**
      * Sets node id field from value string.
@@ -106,8 +108,10 @@ export default class AddFirstNode extends Vue {
 
         try {
             await this.$store.dispatch('nodes/add', this.nodeToAdd);
-        } catch (error) {
+            this.notify.success({ message: 'Node Added Successfully ' });
+        } catch (error: any) {
             console.error(error);
+            this.notify.error({ message: error.message, title: error?.name });
             this.isLoading = false;
         }
 

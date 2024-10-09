@@ -22,6 +22,8 @@
 <script lang="ts">
 import { Component, Prop, Vue } from 'vue-property-decorator';
 
+import { Notify } from '@/app/plugins';
+
 import VButton from '@/app/components/common/VButton.vue';
 import VModal from '@/app/components/common/VModal.vue';
 
@@ -37,6 +39,7 @@ export default class AddNewNode extends Vue {
     public nodeId: string;
 
     public isModalShown = false;
+    public notify = new Notify();
 
     private isLoading = false;
 
@@ -57,6 +60,7 @@ export default class AddNewNode extends Vue {
 
         try {
             await this.$store.dispatch('nodes/delete', this.nodeId);
+            this.notify.info({ message: 'Node Deleted Successfully' });
             this.closeModal();
         } catch (error) {
             console.error(error);

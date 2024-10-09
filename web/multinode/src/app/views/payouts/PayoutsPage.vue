@@ -38,6 +38,7 @@ import { Component, Vue } from 'vue-property-decorator';
 
 import { UnauthorizedError } from '@/api';
 import { PayoutsState } from '@/app/store/payouts';
+import { Notify } from '@/app/plugins';
 
 import SatelliteSelectionDropdown from '@/app/components/common/SatelliteSelectionDropdown.vue';
 import BalanceArea from '@/app/components/payouts/BalanceArea.vue';
@@ -56,25 +57,30 @@ import PayoutsSummaryTable from '@/app/components/payouts/tables/payoutSummary/P
     },
 })
 export default class PayoutsPage extends Vue {
+
+    public notify = new Notify();
+
     public async mounted(): Promise<void> {
         try {
             await this.$store.dispatch('payouts/summary');
-        } catch (error) {
+        } catch (error: any) {
             if (error instanceof UnauthorizedError) {
                 // TODO: redirect to login screen.
             }
 
-            // TODO: notify error
+            this.notify.error({ message: error.message, title: error.name });
+
         }
 
         try {
             await this.$store.dispatch('payouts/expectations');
-        } catch (error) {
+        } catch (error: any) {
             if (error instanceof UnauthorizedError) {
                 // TODO: redirect to login screen.
             }
 
-            // TODO: notify error
+            this.notify.error({ message: error.message, title: error.name });
+
         }
     }
 

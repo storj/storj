@@ -72,6 +72,7 @@ import { Component, Vue } from 'vue-property-decorator';
 
 import { UnauthorizedError } from '@/api';
 import { BandwidthTraffic } from '@/bandwidth';
+import { Notify } from '@/app/plugins';
 
 import BandwidthChart from '@/app/components/bandwidth/BandwidthChart.vue';
 import EgressChart from '@/app/components/bandwidth/EgressChart.vue';
@@ -100,6 +101,7 @@ export default class BandwidthPage extends Vue {
     public diskSpaceChartHeight = 0;
     public isEgressChartShown = false;
     public isIngressChartShown = false;
+    public notify = new Notify();
     public $refs: {
         chart: HTMLElement;
         diskSpaceChart: HTMLElement;
@@ -132,12 +134,12 @@ export default class BandwidthPage extends Vue {
 
         try {
             await this.$store.dispatch('nodes/fetchOnline');
-        } catch (error) {
+        } catch (error:any) {
             if (error instanceof UnauthorizedError) {
                 // TODO: redirect to login screen.
             }
 
-            // TODO: notify error
+            this.notify.error({ message: error.message, title: error.name });
         }
 
         await this.fetchTraffic();
@@ -192,32 +194,34 @@ export default class BandwidthPage extends Vue {
     private async fetchTraffic(): Promise<void> {
         try {
             await this.$store.dispatch('bandwidth/fetch');
-        } catch (error) {
+        } catch (error: any) {
             if (error instanceof UnauthorizedError) {
                 // TODO: redirect to login screen.
             }
 
-            // TODO: notify error
+            this.notify.error({ message: error.message, title: error.name });
+
         }
 
         try {
             await this.$store.dispatch('storage/usage');
-        } catch (error) {
+        } catch (error: any) {
             if (error instanceof UnauthorizedError) {
                 // TODO: redirect to login screen.
             }
 
-            // TODO: notify error
+            this.notify.error({ message: error.message, title: error.name });
+
         }
 
         try {
             await this.$store.dispatch('storage/diskSpace');
-        } catch (error) {
+        } catch (error: any) {
             if (error instanceof UnauthorizedError) {
                 // TODO: redirect to login screen.
             }
 
-            // TODO: notify error
+            this.notify.error({ message: error.message, title: error.name });
         }
     }
 }
