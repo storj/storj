@@ -4,13 +4,14 @@
   "private": true,
   "scripts": {
     "serve": "vue-cli-service serve",
-    "lint": "vue-cli-service lint --max-warnings 0 --fix && stylelint . --max-warnings 0 --fix",
-    "lint-ci": "vue-cli-service lint --max-warnings 0 --no-fix && stylelint . --max-warnings 0 --no-fix",
     "build": "vue-cli-service build",
+    "lint": "vue-cli-service lint --max-warnings 0 --fix && stylelint . --max-warnings 0 --fix",
     "dev": "vue-cli-service build --mode development --watch",
+    "lint-ci": "vue-cli-service lint --max-warnings 0 --no-fix && stylelint . --max-warnings 0 --no-fix",
     "test": "vue-cli-service test:unit"
   },
   "dependencies": {
+    "@mdi/font": "7.4.47",
     "chart.js": "2.9.4",
     "core-js": "3.22.4",
     "vue": "2.7.10",
@@ -19,6 +20,7 @@
     "vue-clipboard2": "0.3.3",
     "vue-property-decorator": "9.1.2",
     "vue-router": "3.5.3",
+    "vuetify": "2.7.2",
     "vuex": "3.6.2"
   },
   "devDependencies": {
@@ -54,8 +56,10 @@
     "stylelint-scss": "4.2.0",
     "ts-jest": "27.1.4",
     "typescript": "4.6.4",
+    "vue-cli-plugin-vuetify": "~2.5.8",
     "vue-eslint-parser": "9.0.3",
     "vue-svg-loader": "0.17.0-beta.2",
-    "vue-template-compiler": "2.7.10"
+    "vue-template-compiler": "2.7.10",
+    "vuetify-loader": "1.9.2"
   }
 }
