@@ -495,7 +495,7 @@ function onUpdateSort(value: SortItem[]): void {
  * Navigates to bucket page.
  */
 function openBucket(bucketName: string): void {
-    withTrialCheck(async () => {withManagedPassphraseCheck(async () => {
+    withManagedPassphraseCheck(async () => {
         if (!bucketName) {
             return;
         }
@@ -524,7 +524,7 @@ function openBucket(bucketName: string): void {
         }
         passphraseDialogCallback = () => openBucket(selectedBucketName.value);
         isBucketPassphraseDialogOpen.value = true;
-    });});
+    });
 }
 
 /**
