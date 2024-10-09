@@ -36,6 +36,7 @@ import (
 	"storj.io/storj/satellite/compensation"
 	"storj.io/storj/satellite/console"
 	"storj.io/storj/satellite/console/consoleauth"
+	"storj.io/storj/satellite/console/consoleauth/sso"
 	"storj.io/storj/satellite/console/consoleweb"
 	"storj.io/storj/satellite/console/dbcleanup"
 	"storj.io/storj/satellite/console/emailreminders"
@@ -234,6 +235,8 @@ type Config struct {
 	DurabilityReport durability.ReportConfig
 
 	KeyManagement kms.Config
+
+	SSO sso.Config
 
 	HealthCheck healthcheck.Config
 

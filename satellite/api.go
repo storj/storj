@@ -36,6 +36,7 @@ import (
 	"storj.io/storj/satellite/buckets"
 	"storj.io/storj/satellite/console"
 	"storj.io/storj/satellite/console/consoleauth"
+	"storj.io/storj/satellite/console/consoleauth/sso"
 	"storj.io/storj/satellite/console/consoleweb"
 	"storj.io/storj/satellite/console/restkeys"
 	"storj.io/storj/satellite/console/userinfo"
@@ -180,6 +181,10 @@ type API struct {
 
 	KeyManagement struct {
 		Service *kms.Service
+	}
+
+	SSO struct {
+		Service *sso.Service
 	}
 
 	HealthCheck struct {
@@ -569,6 +574,12 @@ func NewAPI(log *zap.Logger, full *identity.FullIdentity, db DB,
 			}
 		}
 
+		{ // setup sso
+			if config.SSO.Enabled {
+				peer.SSO.Service = sso.NewService(config.SSO)
+			}
+		}
+
 		emissionService := emission.NewService(config.Emission)
 
 		{ // setup payments
@@ -646,6 +657,7 @@ func NewAPI(log *zap.Logger, full *identity.FullIdentity, db DB,
 
 		{ // setup console
 			consoleConfig := config.Console
+			consoleConfig.SsoEnabled = config.SSO.Enabled
 			peer.Console.Listener, err = net.Listen("tcp", consoleConfig.Address)
 			if err != nil {
 				return nil, errs.Combine(err, peer.Close())

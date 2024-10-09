@@ -131,6 +131,8 @@ type Config struct {
 	RateLimit web.RateLimiterConfig
 	ABTesting abtesting.Config
 
+	SsoEnabled bool `help:"whether SSO is enabled" default:"false" hidden:"true"`
+
 	console.Config
 }
 
@@ -912,6 +914,7 @@ func (server *Server) frontendConfigHandler(w http.ResponseWriter, r *http.Reque
 		ActiveSessionsViewEnabled:         server.config.ActiveSessionsViewEnabled,
 		ObjectLockUIEnabled:               server.objectLockAndVersioningConfig.ObjectLockEnabled && server.config.ObjectLockUIEnabled,
 		ValdiSignUpURL:                    server.config.ValdiSignUpURL,
+		SsoEnabled:                        server.config.SsoEnabled,
 	}
 
 	err := json.NewEncoder(w).Encode(&cfg)
