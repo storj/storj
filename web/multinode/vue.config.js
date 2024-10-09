@@ -6,11 +6,16 @@ const path = require('path');
 module.exports = {
     productionSourceMap: false,
     parallel: true,
-    lintOnSave: process.env.NODE_ENV !== 'production', // disables eslint for builds
+
+    // disables eslint for builds
+    lintOnSave: process.env.NODE_ENV !== 'production',
+
     assetsDir: 'static',
+
     configureWebpack: {
         plugins: [],
     },
+
     chainWebpack: config => {
         config.resolve.alias
             .set('@', path.resolve('src'));
@@ -36,5 +41,16 @@ module.exports = {
             .end()
             .use('vue-svg-loader')
             .loader('vue-svg-loader');
+    },
+
+    transpileDependencies: [
+        'vuetify',
+    ],
+    css: {
+        loaderOptions: {
+            scss: {
+                additionalData: `@import "@/styles/variables.scss";`,
+            },
+        },
     },
 };

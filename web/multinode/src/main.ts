@@ -7,6 +7,7 @@ import Router from 'vue-router';
 import { DirectiveBinding } from 'vue/types/options';
 
 import App from '@/app/App.vue';
+import { vuetify } from '@/app/plugins';
 import { router } from '@/app/router';
 import { store } from '@/app/store';
 import { Currency } from '@/app/utils/currency';
@@ -61,6 +62,7 @@ Vue.filter('floatToPercentage', (number: number): string => Percentage.fromFloat
 const app = new Vue({
     router,
     store,
+    vuetify,
     render: (h) => h(App),
 });
 
