@@ -328,6 +328,11 @@ func Module(ball *mud.Ball) {
 		mud.RegisterInterfaceImplementation[piecestore.EnqueueDeletes, *pieces.Deleter](ball)
 		mud.RegisterInterfaceImplementation[piecestore.QueueRetain, *retain.Service](ball)
 
+		mud.Provide[piecestore.PieceBackend](ball,
+			func(store *pieces.Store, trashChore piecestore.RestoreTrash, monitor *monitor.Service) piecestore.PieceBackend {
+				return piecestore.NewOldPieceBackend(store, trashChore, monitor)
+			})
+
 		mud.Provide[*piecestore.Endpoint](ball, piecestore.NewEndpoint, logWrapper("piecestore"))
 
 		mud.Provide[*orders.Service](ball, func(log *zap.Logger, ordersStore *orders.FileStore, ordersDB orders.DB, trust *trust.Pool, config orders.Config, tlsOptions *tlsopts.Options) *orders.Service {
