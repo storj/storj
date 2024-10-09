@@ -18,36 +18,53 @@ import (
 // EmulatorAdmin provides facilities to communicate with the Spanner Emulator to create
 // new instances and databases.
 type EmulatorAdmin struct {
-	HostPort  string
+	Params    ConnParams
 	Instances *instance.InstanceAdminClient
 	Databases *database.DatabaseAdminClient
 }
 
 // OpenEmulatorAdmin creates a new emulator admin that uses the specified endpoint.
 func OpenEmulatorAdmin(ctx context.Context, params ConnParams) (*EmulatorAdmin, error) {
-	options := params.ClientOptions()
+	return &EmulatorAdmin{Params: params}, nil
+}
 
-	instanceClient, err := instance.NewInstanceAdminClient(ctx, options...)
+func (admin *EmulatorAdmin) ensureInstances(ctx context.Context) error {
+	instanceClient, err := instance.NewInstanceAdminClient(ctx, admin.Params.ClientOptions()...)
 	if err != nil {
-		return nil, fmt.Errorf("failed to create instance admin: %w", err)
+		return fmt.Errorf("failed to create instance admin: %w", err)
 	}
+	admin.Instances = instanceClient
+	return nil
+}
 
-	databaseClient, err := database.NewDatabaseAdminClient(ctx, options...)
+func (admin *EmulatorAdmin) ensureDatabases(ctx context.Context) error {
+	databaseClient, err := database.NewDatabaseAdminClient(ctx, admin.Params.ClientOptions()...)
 	if err != nil {
-		return nil, errors.Join(fmt.Errorf("failed to create database admin: %w", err), instanceClient.Close())
+		return fmt.Errorf("failed to create database admin: %w", err)
 	}
+	admin.Databases = databaseClient
+	return nil
+}
 
-	return &EmulatorAdmin{
-		HostPort:  params.Host,
-		Instances: instanceClient,
-		Databases: databaseClient,
-	}, nil
+// Close closes the underlying clients.
+func (admin *EmulatorAdmin) Close() error {
+	var errInstances, errDatabases error
+	if admin.Instances != nil {
+		errInstances = admin.Instances.Close()
+	}
+	if admin.Databases != nil {
+		errDatabases = admin.Databases.Close()
+	}
+	return errors.Join(errInstances, errDatabases)
 }
 
 // CreateInstance creates a new instance with the specified name.
 func (admin *EmulatorAdmin) CreateInstance(ctx context.Context, params ConnParams) error {
 	if params.Project == "" || params.Instance == "" {
 		return errors.New("project and instance are required")
+	}
+	if err := admin.ensureInstances(ctx); err != nil {
+		return err
 	}
 
 	op, err := admin.Instances.CreateInstance(ctx, &instancepb.CreateInstanceRequest{
@@ -75,6 +92,9 @@ func (admin *EmulatorAdmin) DeleteInstance(ctx context.Context, params ConnParam
 	if params.Project == "" || params.Instance == "" {
 		return errors.New("project and instance are required")
 	}
+	if err := admin.ensureInstances(ctx); err != nil {
+		return err
+	}
 
 	err := admin.Instances.DeleteInstance(ctx, &instancepb.DeleteInstanceRequest{
 		Name: params.InstancePath(),
@@ -89,6 +109,9 @@ func (admin *EmulatorAdmin) DeleteInstance(ctx context.Context, params ConnParam
 func (admin *EmulatorAdmin) CreateDatabase(ctx context.Context, params ConnParams, ddls ...string) error {
 	if params.Project == "" || params.Instance == "" || params.Database == "" {
 		return errors.New("project, instance and database are required")
+	}
+	if err := admin.ensureDatabases(ctx); err != nil {
+		return err
 	}
 
 	op, err := admin.Databases.CreateDatabase(ctx, &databasepb.CreateDatabaseRequest{
@@ -109,6 +132,9 @@ func (admin *EmulatorAdmin) CreateDatabase(ctx context.Context, params ConnParam
 func (admin *EmulatorAdmin) DropDatabase(ctx context.Context, params ConnParams) error {
 	if params.Project == "" || params.Instance == "" || params.Database == "" {
 		return errors.New("project, instance and database are required")
+	}
+	if err := admin.ensureDatabases(ctx); err != nil {
+		return err
 	}
 
 	err := admin.Databases.DropDatabase(ctx, &databasepb.DropDatabaseRequest{
@@ -133,9 +159,4 @@ func DialDatabase(ctx context.Context, params ConnParams) (*spanner.Client, erro
 		},
 		params.ClientOptions()...,
 	)
-}
-
-// Close closes the underlying clients.
-func (admin *EmulatorAdmin) Close() error {
-	return errors.Join(admin.Instances.Close(), admin.Databases.Close())
 }

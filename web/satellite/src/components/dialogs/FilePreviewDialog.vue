@@ -424,7 +424,7 @@ async function onDeleteFileClick(): Promise<void> {
     isGettingRetention.value = true;
     try {
         const retention = await obStore.getObjectRetention(currentFile.value);
-        if (!retention.active()) {
+        if (!retention.active) {
             initDelete();
             return;
         }

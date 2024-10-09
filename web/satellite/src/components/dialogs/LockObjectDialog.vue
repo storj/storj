@@ -10,7 +10,7 @@
         transition="fade-transition"
         :persistent="isLoading"
     >
-        <v-card ref="innerContent" rounded="xlg">
+        <v-card ref="innerContent" :loading="isLoading" rounded="xlg">
             <v-sheet>
                 <v-card-item class="pa-6">
                     <template #prepend>
@@ -24,7 +24,7 @@
                         </v-sheet>
                     </template>
                     <v-card-title class="font-weight-bold">
-                        Lock
+                        {{ title }}
                     </v-card-title>
                     <template #append>
                         <v-btn
@@ -40,98 +40,171 @@
 
             <v-divider />
 
-            <v-row>
-                <v-col class="pa-6 mx-3">
-                    <p class="my-2">
-                        Locking this version will prevent it from being deleted or overwritten for the specified period of time.
-                    </p>
+            <v-window v-model="step" class="overflow-y-auto">
+                <v-window-item :value="LockStep.Settings">
+                    <v-row>
+                        <v-col class="pa-6 mx-3">
+                            <p class="my-2">
+                                {{ info }}
+                            </p>
 
-                    <p class="mt-4 mb-2 font-weight-bold text-body-2">
-                        Name:
-                    </p>
+                            <p class="mt-4 mb-2 font-weight-bold text-body-2">
+                                Name:
+                            </p>
 
-                    <v-chip
-                        variant="tonal"
-                        filter
-                        value="filename"
-                        color="default"
-                        class="mb-2 font-weight-bold"
-                    >
-                        {{ file?.Key }}
-                    </v-chip>
+                            <v-chip
+                                variant="tonal"
+                                filter
+                                value="filename"
+                                color="default"
+                                class="mb-2 font-weight-bold"
+                            >
+                                {{ file?.Key }}
+                            </v-chip>
 
-                    <template v-if="file?.VersionId">
-                        <p class="my-2 font-weight-bold text-body-2">
-                            Version:
-                        </p>
+                            <template v-if="file?.VersionId">
+                                <p class="my-2 font-weight-bold text-body-2">
+                                    Version:
+                                </p>
 
-                        <v-chip
-                            variant="tonal"
-                            filter
-                            color="default"
-                            class="mb-4 font-weight-bold"
-                        >
-                            {{ file?.VersionId }}
-                        </v-chip>
-                    </template>
+                                <v-chip
+                                    variant="tonal"
+                                    filter
+                                    color="default"
+                                    class="mb-4 font-weight-bold"
+                                >
+                                    {{ file?.VersionId }}
+                                </v-chip>
+                            </template>
 
-                    <p class="my-2 font-weight-bold text-body-2">
-                        Select lock type:
-                    </p>
+                            <template v-if="!existingRetention.active">
+                                <p class="my-2 font-weight-bold text-body-2">
+                                    Select lock type:
+                                </p>
 
-                    <p class="mb-2 text-body-2">
-                        Governance allows authorized users to modify the lock.
-                        Compliance prevents any changes to the lock.
-                    </p>
+                                <p class="mb-2 text-body-2">
+                                    Governance allows authorized users to modify the lock.
+                                    Compliance prevents any changes to the lock.
+                                </p>
 
-                    <v-chip-group
-                        v-model="lockType"
-                        class="mb-4"
-                        selected-class="text-primary font-weight-bold"
-                        mandatory
-                        column
-                        filter
-                    >
-                        <v-chip v-for="type in [GOVERNANCE_LOCK, COMPLIANCE_LOCK]" :key="type" :value="type">
-                            {{ type.substring(0, 1) + type.substring(1).toLowerCase() }}
-                        </v-chip>
-                    </v-chip-group>
+                                <v-chip-group
+                                    v-model="lockType"
+                                    class="mb-4"
+                                    selected-class="text-primary font-weight-bold"
+                                    mandatory
+                                    column
+                                    filter
+                                >
+                                    <v-chip v-for="type in [GOVERNANCE_LOCK, COMPLIANCE_LOCK]" :key="type" :value="type">
+                                        {{ type.substring(0, 1) + type.substring(1).toLowerCase() }}
+                                    </v-chip>
+                                </v-chip-group>
+                            </template>
 
-                    <p class="mb-2 font-weight-bold text-body-2">
-                        Select the lock retention period:
-                    </p>
+                            <template v-if="existingRetention.active">
+                                <p class="mb-2 font-weight-bold text-body-2">
+                                    Current lock expiration:
+                                </p>
 
-                    <v-chip-group
-                        v-model="selectedRange"
-                        class="mb-4"
-                        selected-class="text-primary font-weight-bold"
-                        mandatory
-                        column
-                        filter
-                    >
-                        <v-chip v-for="range in ranges" :key="range.label" :value="range">
-                            {{ range.label }}
-                        </v-chip>
-                    </v-chip-group>
+                                <v-chip
+                                    variant="tonal"
+                                    filter
+                                    color="default"
+                                    class="mb-4 font-weight-bold"
+                                >
+                                    {{ getFormattedExpiration(existingRetention.retainUntil) }}
+                                </v-chip>
+                            </template>
 
-                    <v-date-picker
-                        v-if="selectedRange?.label == customRangeLabel.label"
-                        v-model="customUntilDate"
-                        width="100%"
-                        header="Choose Date"
-                        show-adjacent-months
-                        border
-                        elevation="0"
-                        rounded="lg"
-                    />
-                </v-col>
-            </v-row>
+                            <p class="mb-2 font-weight-bold text-body-2">
+                                {{ existingRetention.active ? 'Extend lock by:' : 'Select the lock retention period:' }}
+                            </p>
+
+                            <v-chip-group
+                                v-model="selectedRange"
+                                class="mb-4"
+                                selected-class="text-primary font-weight-bold"
+                                mandatory
+                                column
+                                filter
+                            >
+                                <v-chip v-for="range in ranges" :key="range.label" :value="range">
+                                    {{ range.label }}
+                                </v-chip>
+                            </v-chip-group>
+
+                            <v-date-picker
+                                v-if="selectedRange?.label == customRangeLabel.label"
+                                v-model="customUntilDate"
+                                width="100%"
+                                header="Choose Date"
+                                show-adjacent-months
+                                border
+                                elevation="0"
+                                rounded="lg"
+                            />
+                        </v-col>
+                    </v-row>
+                </v-window-item>
+                <v-window-item :value="LockStep.Confirmation">
+                    <v-row>
+                        <v-col class="pa-6 mx-3">
+                            <p class="my-2">
+                                This file has been locked successfully.
+                            </p>
+
+                            <p class="mt-4 mb-2 font-weight-bold text-body-2">
+                                Name:
+                            </p>
+
+                            <v-chip
+                                variant="tonal"
+                                filter
+                                color="default"
+                                class="mb-2 font-weight-bold"
+                            >
+                                {{ file?.Key }}
+                            </v-chip>
+
+                            <template v-if="file?.VersionId">
+                                <p class="my-2 font-weight-bold text-body-2">
+                                    Version:
+                                </p>
+
+                                <v-chip
+                                    variant="tonal"
+                                    filter
+                                    color="default"
+                                    class="mb-2 font-weight-bold"
+                                >
+                                    {{ file?.VersionId }}
+                                </v-chip>
+                            </template>
+
+                            <template v-if="!!lockedUntil">
+                                <p class="my-2 font-weight-bold text-body-2">
+                                    Lock expiration:
+                                </p>
+
+                                <v-chip
+                                    variant="tonal"
+                                    filter
+                                    color="default"
+                                    class="mb-2 font-weight-bold"
+                                >
+                                    {{ lockedUntil }}
+                                </v-chip>
+                            </template>
+                        </v-col>
+                    </v-row>
+                </v-window-item>
+            </v-window>
 
             <v-divider />
 
             <v-card-actions class="pa-6">
                 <v-row>
-                    <v-col>
+                    <v-col v-if="step === LockStep.Settings">
                         <v-btn
                             variant="outlined"
                             color="default"
@@ -149,9 +222,9 @@
                             :disabled="!selectedRange?.date && !customUntilDate"
                             :loading="isLoading"
                             block
-                            @click="lockObject"
+                            @click="onLockOrExit"
                         >
-                            Set Lock
+                            {{ nextButtonLabel }}
                         </v-btn>
                     </v-col>
                 </v-row>
@@ -161,7 +234,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, watch } from 'vue';
+import { computed, ref, watch } from 'vue';
 import {
     VBtn,
     VCard,
@@ -170,11 +243,14 @@ import {
     VCardTitle,
     VChip,
     VChipGroup,
-    VCol, VDatePicker,
+    VCol,
+    VDatePicker,
     VDialog,
     VDivider,
     VRow,
     VSheet,
+    VWindow,
+    VWindowItem,
 } from 'vuetify/components';
 import { Lock } from 'lucide-vue-next';
 
@@ -183,7 +259,12 @@ import { useLoading } from '@/composables/useLoading';
 import { useNotify } from '@/utils/hooks';
 import { AnalyticsErrorEventSource } from '@/utils/constants/analyticsEventNames';
 import { Time } from '@/utils/time';
-import { COMPLIANCE_LOCK, GOVERNANCE_LOCK, ObjLockMode } from '@/types/objectLock';
+import { COMPLIANCE_LOCK, GOVERNANCE_LOCK, ObjLockMode, Retention } from '@/types/objectLock';
+
+enum LockStep {
+    Settings,
+    Confirmation,
+}
 
 interface LockUntilRange {
     label: string,
@@ -191,19 +272,6 @@ interface LockUntilRange {
 }
 
 const customRangeLabel = { label: 'Choose a custom date' };
-const ranges: LockUntilRange[] = [
-    { label: '1 Day', date: dateAfterDays(1) },
-    { label: '1 Week', date: dateAfterDays(7) },
-    { label: '2 Weeks', date: dateAfterDays(14) },
-    { label: '1 Month', date: dateAfterDays(30) },
-    { label: '6 Months', date: dateAfterDays(180) },
-    { label: '1 Year', date: dateAfterDays(365) },
-    { label: '3 Years', date: dateAfterDays(1095) },
-    { label: '5 Years', date: dateAfterDays(1825) },
-    { label: '7 Years', date: dateAfterDays(2555) },
-    { label: '10 Years', date: dateAfterDays(3650) },
-    customRangeLabel,
-];
 
 const obStore = useObjectBrowserStore();
 
@@ -217,23 +285,93 @@ const props = defineProps<{
 
 const emit = defineEmits<{
     'contentRemoved': [],
-    'fileLocked': [],
 }>();
 
 const innerContent = ref<VCard | null>(null);
 
+const step = ref<LockStep>(LockStep.Settings);
 const selectedRange = ref<LockUntilRange>();
 const lockType = ref<ObjLockMode>();
-
 const customUntilDate = ref<Date>();
+const existingRetention = ref<Retention>(new Retention('', new Date()));
 
-function dateAfterDays(days: number): Date {
-    const laterDate = new Date();
-    laterDate.setDate(new Date().getDate() + days);
+const ranges = computed<LockUntilRange[]>(() => {
+    const initDate = existingRetention.value.active ? existingRetention.value.retainUntil : new Date();
+
+    return [
+        { label: '1 Day', date: dateAfterDays(initDate, 1) },
+        { label: '1 Week', date: dateAfterDays(initDate, 7) },
+        { label: '2 Weeks', date: dateAfterDays(initDate, 14) },
+        { label: '1 Month', date: dateAfterDays(initDate, 30) },
+        { label: '6 Months', date: dateAfterDays(initDate, 180) },
+        { label: '1 Year', date: dateAfterDays(initDate, 365) },
+        { label: '3 Years', date: dateAfterDays(initDate, 1095) },
+        { label: '5 Years', date: dateAfterDays(initDate, 1825) },
+        { label: '7 Years', date: dateAfterDays(initDate, 2555) },
+        { label: '10 Years', date: dateAfterDays(initDate, 3650) },
+        customRangeLabel,
+    ];
+});
+
+const title = computed<string>(() => {
+    if (existingRetention.value.active) {
+        return step.value === LockStep.Settings ? 'Extend Lock' : 'Lock Extended Successfully';
+    }
+
+    return step.value === LockStep.Settings ? 'Lock' : 'Lock Successful';
+});
+
+const info = computed<string>(() => {
+    if (existingRetention.value.active) {
+        return 'This file is currently locked and cannot be deleted or overwritten.';
+    }
+
+    return 'Locking this version will prevent it from being deleted or overwritten for the specified period of time.';
+});
+
+const nextButtonLabel = computed<string>(() => {
+    if (existingRetention.value.active) {
+        return step.value === LockStep.Settings ? 'Extend Lock' : 'Close';
+    }
+
+    return step.value === LockStep.Settings ? 'Set Lock' : 'Close';
+});
+
+const lockedUntil = computed<string>(() => {
+    const until = selectedRange.value?.label === customRangeLabel.label ? customUntilDate.value : selectedRange.value?.date;
+    if (!until) {
+        return '';
+    }
+
+    return getFormattedExpiration(until);
+});
+
+function getFormattedExpiration(date: Date): string {
+    return `${
+        date.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })} at
+        ${date.toLocaleTimeString('en-GB', { hour: 'numeric', minute: 'numeric' })}
+    `;
+}
+
+function dateAfterDays(initDate: Date, days: number): Date {
+    const laterDate = new Date(initDate);
+    laterDate.setDate(initDate.getDate() + days);
     return laterDate;
 }
 
-function lockObject() {
+function onLockOrExit(): void {
+    if (step.value === LockStep.Settings) {
+        if (existingRetention.value.active) {
+            extendLock();
+        } else {
+            lockObject();
+        }
+    } else {
+        model.value = false;
+    }
+}
+
+function lockObject(): void {
     withLoading(async () => {
         if (!props.file) {
             return;
@@ -242,12 +380,8 @@ function lockObject() {
             notify.warning('Select a lock type');
             return;
         }
-        let date: Date | undefined;
-        if (selectedRange.value?.label === customRangeLabel.label) {
-            date = customUntilDate.value;
-        } else {
-            date = selectedRange.value?.date;
-        }
+
+        const date = selectLockDate();
         if (!date) {
             notify.warning('Select a date');
             return;
@@ -255,13 +389,47 @@ function lockObject() {
         try {
             await obStore.lockObject(props.file, lockType.value, date);
             notify.success(`Object locked until ${Time.formattedDate(date)}`);
-            emit('fileLocked');
-            model.value = false;
-        } catch (e) {
-            notify.notifyError(e, AnalyticsErrorEventSource.LOCK_OBJECT_DIALOG);
-            return;
+
+            step.value = LockStep.Confirmation;
+        } catch (error) {
+            notify.notifyError(error, AnalyticsErrorEventSource.LOCK_OBJECT_DIALOG);
         }
     });
+}
+
+function extendLock(): void {
+    withLoading(async () => {
+        if (!props.file) {
+            return;
+        }
+        if (!existingRetention.value.mode) {
+            notify.error('Unknown existing retention mode. Please restart the flow', AnalyticsErrorEventSource.LOCK_OBJECT_DIALOG);
+            return;
+        }
+
+        const date = selectLockDate();
+        if (!date) {
+            notify.warning('Select a date');
+            return;
+        }
+
+        try {
+            await obStore.lockObject(props.file, existingRetention.value.mode, date);
+            notify.success(`Object lock extended until ${Time.formattedDate(date)}`);
+
+            step.value = LockStep.Confirmation;
+        } catch (error) {
+            notify.notifyError(error, AnalyticsErrorEventSource.LOCK_OBJECT_DIALOG);
+        }
+    });
+}
+
+function selectLockDate(): Date | undefined {
+    if (selectedRange.value?.label === customRangeLabel.label) {
+        return customUntilDate.value;
+    } else {
+        return selectedRange.value?.date;
+    }
 }
 
 watch(selectedRange, (_) => {
@@ -270,10 +438,20 @@ watch(selectedRange, (_) => {
 
 watch(innerContent, comp => {
     if (comp) {
+        withLoading(async () => {
+            if (!props.file) return;
+
+            const ret = await obStore.getObjectRetention(props.file);
+            if (ret.active) existingRetention.value = ret;
+        });
+
         return;
     }
     emit('contentRemoved');
     lockType.value = undefined;
+    customUntilDate.value = undefined;
     selectedRange.value = undefined;
+    step.value = LockStep.Settings;
+    existingRetention.value = new Retention('', new Date());
 });
 </script>

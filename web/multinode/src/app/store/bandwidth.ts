@@ -57,7 +57,6 @@ export class BandwidthModule implements Module<BandwidthState, RootState> {
     public async fetch(ctx: ActionContext<BandwidthState, RootState>): Promise<void> {
         const selectedSatelliteId = ctx.rootState.nodes.selectedSatellite ? ctx.rootState.nodes.selectedSatellite.id : null;
         const selectedNodeId = ctx.rootState.nodes.selectedNode ? ctx.rootState.nodes.selectedNode.id : null;
-
         const traffic = await this.bandwidth.fetch(selectedSatelliteId, selectedNodeId);
 
         ctx.commit('populate', traffic);

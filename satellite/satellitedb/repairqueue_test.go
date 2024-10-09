@@ -308,7 +308,5 @@ func TestRepairQueue_Select_Concurrently(t *testing.T) {
 		}
 
 		require.ElementsMatch(t, segments, selectedSegments)
-	})
-	// Spanner disabled here until we have a fix for
-	// https://github.com/googleapis/go-sql-spanner/issues/300
+	}, satellitedbtest.WithSpanner())
 }

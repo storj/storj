@@ -247,7 +247,7 @@ const headers = ref<DataTableHeader[]>([
         key: 'name',
     },
     { title: 'Email', key: 'email' },
-    { title: 'Role', key: 'role' },
+    { title: 'Role', key: 'role', sortable: false },
     { title: 'Date Added', key: 'date' },
     { title: '', key: 'actions', sortable: false, width: 0 },
 ]);
@@ -274,8 +274,10 @@ const projectMembers = computed((): RenderedItem[] => {
     if (projectOwner) projectMembersToReturn.unshift(projectOwner);
 
     return projectMembersToReturn.map<RenderedItem>(member => {
+        const memberID = member.getUserID();
+
         let role = member.getRole();
-        if (member.getUserID() === projectOwner?.getUserID()) {
+        if (memberID && memberID === projectOwner?.getUserID()) {
             role = ProjectRole.Owner;
         } else if (member.isPending()) {
             if ((member as ProjectInvitationItemModel).expired) {
@@ -286,7 +288,7 @@ const projectMembers = computed((): RenderedItem[] => {
         }
 
         return {
-            id: member.getUserID(),
+            id: memberID,
             name: member.getName(),
             email: member.getEmail(),
             role,
@@ -368,7 +370,7 @@ async function onUpdateSortBy(sortBy: {key: keyof ProjectMemberOrderBy, order: k
 
     const sorting = sortBy[0];
 
-    pmStore.setSortingBy(ProjectMemberOrderBy[sorting.key]);
+    pmStore.setSortingBy(ProjectMemberOrderBy[sorting.key.toUpperCase()]);
     pmStore.setSortingDirection(SortDirection[sorting.order]);
 
     await fetch(FIRST_PAGE, cursor.value.limit);

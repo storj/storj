@@ -11,7 +11,7 @@ import { DEFAULT_PAGE_LIMIT } from '@/types/pagination';
 export enum ProjectMemberOrderBy {
     NAME = 1,
     EMAIL,
-    CREATED_AT,
+    DATE,
 }
 
 /**
@@ -128,7 +128,7 @@ export class ProjectMembersPage {
         return items.sort((a, b) => {
             let cmp: (a: ProjectMemberItemModel, b: ProjectMemberItemModel) => number;
 
-            if (this.order === ProjectMemberOrderBy.CREATED_AT) {
+            if (this.order === ProjectMemberOrderBy.DATE) {
                 cmp = (a, b) => a.getJoinDate().getTime() - b.getJoinDate().getTime();
             } else {
                 cmp = (a, b) => a.getName().toLowerCase().localeCompare(b.getName().toLowerCase());

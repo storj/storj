@@ -13,6 +13,8 @@ export enum NodeStatus {
     'online' = 'Online',
     'offline' = 'Offline',
     'not reachable' = 'Not reachable',
+    'unauthorized' = 'Unauthorized',
+    'storagenode internal error' = 'Internal Error'
 }
 
 /**
@@ -48,9 +50,6 @@ export class Node {
         return this.earned / PRICE_DIVIDER;
     }
 
-    public get statusText(): string {
-        return NodeStatus[this.status];
-    }
 }
 
 /**
