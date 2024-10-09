@@ -74,7 +74,6 @@ export default class AddNewNode extends Vue {
     private nameError = '';
     public notify = new Notify();
 
-
     public async openModal(): Promise<void> {
         this.isAddNewNodeModalShown = true;
     }
