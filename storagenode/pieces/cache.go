@@ -379,7 +379,6 @@ func (blobs *BlobsUsageCache) Update(ctx context.Context, satelliteID storj.Node
 	blobs.ensurePositiveCacheValue(&newVals.Total, "satPiecesTotal")
 	blobs.ensurePositiveCacheValue(&newVals.ContentSize, "satPiecesContentSize")
 	blobs.spaceUsedBySatellite[satelliteID] = newVals
-
 }
 
 func (blobs *BlobsUsageCache) ensurePositiveCacheValue(value *int64, name string) {
