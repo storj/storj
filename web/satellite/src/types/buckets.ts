@@ -18,6 +18,14 @@ export interface BucketsApi {
     get(projectId: string, before: Date, cursor: BucketCursor): Promise<BucketPage>;
 
     /**
+     * Fetch single bucket data.
+     *
+     * @returns Bucket
+     * @throws Error
+     */
+    getSingle(projectId: string, bucketName: string, before: Date): Promise<Bucket>;
+
+    /**
      * Fetch all bucket names
      *
      * @returns string[]
@@ -42,6 +50,7 @@ export class Bucket {
     public constructor(
         public name: string = '',
         public versioning: Versioning = Versioning.NotSupported,
+        public objectLockEnabled: boolean = false,
         public defaultPlacement: number = 0,
         public location: string = '',
         public storage: number = 0,
@@ -87,5 +96,6 @@ export class BucketMetadata {
         public name: string = '',
         public versioning: Versioning = Versioning.NotSupported,
         public placement: Placement = new Placement(),
+        public objectLockEnabled: boolean = false,
     ) { }
 }

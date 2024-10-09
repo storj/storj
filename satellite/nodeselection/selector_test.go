@@ -9,15 +9,16 @@ import (
 	"sync/atomic"
 	"testing"
 
+	"github.com/jtolio/mito"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
 	"storj.io/common/identity/testidentity"
 	"storj.io/common/storj"
-	"storj.io/common/storj/location"
 	"storj.io/common/testcontext"
 	"storj.io/common/testrand"
 	"storj.io/storj/satellite/nodeselection"
+	"storj.io/storj/shared/location"
 )
 
 func TestSelectByID(t *testing.T) {
@@ -353,7 +354,7 @@ func TestBalancedSelector(t *testing.T) {
 	}
 
 	ctx := testcontext.New(t)
-	selector := nodeselection.BalancedGroupBasedSelector(attribute)(nodes, nil)
+	selector := nodeselection.BalancedGroupBasedSelector(attribute, nil)(nodes, nil)
 
 	var badSelection atomic.Int64
 	for i := 0; i < 1000; i++ {
@@ -374,7 +375,7 @@ func TestBalancedSelector(t *testing.T) {
 
 			histogram := map[string]int{}
 			for _, node := range selectedNodes {
-				histogram[attribute(*node)] = histogram[attribute(*node)] + 1
+				histogram[attribute(*node).(string)] = histogram[attribute(*node).(string)] + 1
 			}
 			for _, c := range histogram {
 				if c > 5 {
@@ -423,7 +424,7 @@ func TestBalancedSelectorWithExisting(t *testing.T) {
 		}
 	}
 
-	selector := nodeselection.BalancedGroupBasedSelector(attribute)(nodes, nil)
+	selector := nodeselection.BalancedGroupBasedSelector(attribute, nil)(nodes, nil)
 
 	histogram := map[string]int{}
 	for i := 0; i < 1000; i++ {
@@ -433,7 +434,7 @@ func TestBalancedSelectorWithExisting(t *testing.T) {
 		require.Len(t, selectedNodes, 7)
 
 		for _, node := range selectedNodes {
-			histogram[attribute(*node)]++
+			histogram[attribute(*node).(string)]++
 		}
 	}
 	// from the initial {"A": 3, "B": 10, "C": 30, "D": 5, "E": 1}
@@ -862,7 +863,7 @@ func TestIfWithEqSelector(t *testing.T) {
 	require.NoError(t, err)
 
 	selector := nodeselection.BalancedGroupBasedSelector(nodeselection.IfSelector(
-		nodeselection.EqualSelector(surgeTag, "true"), lastIpPortAttribute, lastNetAttribute))(nodes, nil)
+		nodeselection.EqualSelector(surgeTag, "true"), lastIpPortAttribute, lastNetAttribute), nil)(nodes, nil)
 
 	const (
 		reqCount       = 3
@@ -1017,11 +1018,13 @@ type mockTracker struct {
 	slowNodes     []storj.NodeID
 }
 
-func (m *mockTracker) Get(uplink storj.NodeID) func(node storj.NodeID) float64 {
-	return func(node storj.NodeID) float64 {
+var _ nodeselection.UploadSuccessTracker = (*mockTracker)(nil)
+
+func (m *mockTracker) Get(uplink storj.NodeID) func(node *nodeselection.SelectedNode) float64 {
+	return func(node *nodeselection.SelectedNode) float64 {
 		if uplink == m.trustedUplink {
 			for _, slow := range m.slowNodes {
-				if slow == node {
+				if slow == node.ID {
 					return 1
 				}
 			}
@@ -1066,4 +1069,118 @@ func TestRoundWithProbability(t *testing.T) {
 			require.InDelta(t, n, float64(sum)/float64(count), 0.1)
 		})
 	}
+}
+
+func TestMaxGroup(t *testing.T) {
+	var nodes []*nodeselection.SelectedNode
+	for i := 0; i < 10; i++ {
+		nodes = append(nodes, &nodeselection.SelectedNode{
+			ID:         testrand.NodeID(),
+			LastIPPort: fmt.Sprintf("1.0.0.%d:8080", i),
+		})
+	}
+	attribute, err := nodeselection.CreateNodeAttribute("last_ip")
+	require.NoError(t, err)
+	require.Equal(t, float64(1), nodeselection.MaxGroup(attribute)(storj.NodeID{}, nodes))
+	nodes[9].LastIPPort = "1.0.0.1:8081"
+	nodes[0].LastIPPort = "1.0.0.1:8082"
+	nodes[5].LastIPPort = "1.0.0.1:8083"
+	require.Equal(t, float64(4), nodeselection.MaxGroup(attribute)(storj.NodeID{}, nodes))
+}
+
+func TestPieceCount(t *testing.T) {
+	require.Equal(t, float64(100), nodeselection.PieceCount(10).Get(storj.NodeID{})(&nodeselection.SelectedNode{
+		PieceCount: 1000,
+	}))
+}
+
+func TestLastBut(t *testing.T) {
+	var nodes []*nodeselection.SelectedNode
+	for i := 0; i < 10; i++ {
+		node := &nodeselection.SelectedNode{
+			ID:         testrand.NodeID(),
+			LastIPPort: fmt.Sprintf("1.0.0.%d:8080", i),
+		}
+		node.PieceCount = int64(i * 10)
+		nodes = append(nodes, node)
+	}
+
+	require.Equal(t, float64(0), nodeselection.LastBut(nodeselection.PieceCount(10), 0)(storj.NodeID{}, nodes))
+	require.Equal(t, float64(1), nodeselection.LastBut(nodeselection.PieceCount(10), 1)(storj.NodeID{}, nodes))
+	require.True(t, math.IsNaN(nodeselection.LastBut(nodeselection.PieceCount(10), 100)(storj.NodeID{}, nodes)))
+	require.Equal(t, float64(60), nodeselection.LastBut(nodeselection.ScoreNodeFunc(func(uplink storj.NodeID, node *nodeselection.SelectedNode) float64 {
+		if node.PieceCount < 50 {
+			return math.NaN()
+		}
+		return float64(node.PieceCount)
+	}), 1)(storj.NodeID{}, nodes))
+
+}
+
+func TestChoiceOfNSelection(t *testing.T) {
+	// pre-generate 4 selections
+	var selections [][]*nodeselection.SelectedNode
+	for i := 0; i < 4; i++ {
+		var selection []*nodeselection.SelectedNode
+		for j := 0; j < 10; j++ {
+			if i == 3 && j > 5 {
+				break
+			}
+			selection = append(selection, &nodeselection.SelectedNode{
+				ID:         testrand.NodeID(),
+				Email:      fmt.Sprintf("%d@%d", i, j),
+				PieceCount: int64(i*1000 + j*100),
+			})
+		}
+		selections = append(selections, selection)
+	}
+
+	ix := -1
+	predictableSelector := func(nodes []*nodeselection.SelectedNode, filter nodeselection.NodeFilter) nodeselection.NodeSelector {
+		return func(requester storj.NodeID, n int, excluded []storj.NodeID, alreadySelected []*nodeselection.SelectedNode) ([]*nodeselection.SelectedNode, error) {
+			ix++
+			return selections[ix], nil
+		}
+	}
+	selector := nodeselection.ChoiceOfNSelection(3, predictableSelector, nodeselection.LastBut(nodeselection.Desc(nodeselection.PieceCount(10)), 0))
+	initializedSelector := selector(nil, nil)
+	selection, err := initializedSelector(storj.NodeID{}, 10, nil, nil)
+	require.NoError(t, err)
+
+	require.Len(t, selection, 10)
+
+	// First group has the less piece counts
+	require.Equal(t, "0@", selection[0].Email[0:2])
+}
+
+func TestMin(t *testing.T) {
+	tracker := &mockTracker{}
+
+	// score of node1 is 10 (default)
+	node1 := testrand.NodeID()
+
+	// score of node2 is 1 (slow node)
+	node2 := testrand.NodeID()
+	tracker.slowNodes = append(tracker.slowNodes, node2)
+
+	env := map[interface{}]interface{}{
+		"min":     nodeselection.Min,
+		"tracker": tracker,
+	}
+	test := func(expression string, node storj.NodeID, expected float64) {
+		evaluated, err := mito.Eval(expression, env)
+		require.NoError(t, err)
+		f := evaluated.(nodeselection.ScoreNode).Get(storj.NodeID{})(&nodeselection.SelectedNode{
+			ID: node,
+		})
+		require.Equal(t, expected, f)
+	}
+
+	test("min(tracker,1)", node1, float64(1))
+	test("min(tracker,1)", node2, float64(1))
+	test("min(tracker,1.2)", node2, float64(1))
+
+	test("min(15.9,tracker)", node1, float64(10))
+	test("min(15,tracker)", node1, float64(10))
+	test("min(15,tracker)", node2, float64(1))
 }

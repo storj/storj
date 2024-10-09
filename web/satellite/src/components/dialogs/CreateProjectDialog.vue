@@ -15,8 +15,15 @@
         <v-card ref="innerContent">
             <v-card-item class="pa-6">
                 <template #prepend>
-                    <img v-if="isProjectLimitReached && usersStore.state.user.paidTier && showLimitIncreaseDialog" class="d-block" src="@/assets/icon-limit.svg" alt="Speedometer">
-                    <img v-else class="d-block" src="@/assets/icon-blue-box.svg" alt="Box">
+                    <v-sheet
+                        class="border-sm d-flex justify-center align-center"
+                        width="40"
+                        height="40"
+                        rounded="lg"
+                    >
+                        <component :is="Gauge" v-if="isProjectLimitReached && usersStore.state.user.paidTier && showLimitIncreaseDialog" :size="18" />
+                        <component :is="Box" v-else :size="18" />
+                    </v-sheet>
                 </template>
 
                 <v-card-title class="font-weight-bold">
@@ -93,14 +100,14 @@
                                     <v-chip color="primary" value="auto">
                                         Automatic
                                     </v-chip>
-                                    <v-chip color="primary" value="manual">Manual</v-chip>
+                                    <v-chip color="primary" value="manual">Self-managed</v-chip>
 
                                     <v-divider thickness="0" class="my-1" />
 
                                     <v-alert v-if="passphraseManageMode === 'auto'" variant="tonal" color="default">
                                         <p>
                                             <v-chip rounded="md" class="text-caption font-weight-medium" color="secondary" variant="tonal" size="small">
-                                                Recommended for most users and teams
+                                                Recommended for ease of use and teams
                                             </v-chip>
                                         </p>
                                         <p class="text-body-2 my-2 font-weight-bold">
@@ -110,7 +117,7 @@
                                             Fewer steps to upload, download, manage, and browse your data. No need to remember an additional encryption passphrase.
                                         </p>
                                         <p class="text-body-2 my-2">
-                                            The team members you invite will automatically have access to your project's data.
+                                            Team members you invite will automatically have access to your project's data.
                                         </p>
                                         <p class="text-body-2 m-2">
                                             <a class="link" @click="goToDocs">Learn more in the documentation.</a>
@@ -127,7 +134,7 @@
                                             You are responsible for securely managing your own data encryption passphrase.
                                         </p>
                                         <p class="text-body-2 my-2">
-                                            You will need to enter your passphrase each time you access your data. If you forget the passphrase, you can't recover your data.
+                                            You need to enter your passphrase each time you access your data. If you forget the passphrase, you can't recover your data.
                                         </p>
                                         <p class="text-body-2 my-2">
                                             Team members must share and enter the same encryption passphrase to access the data.
@@ -240,7 +247,7 @@
 </template>
 
 <script setup lang="ts">
-import { Component, ref, computed, watch } from 'vue';
+import { ref, computed, watch } from 'vue';
 import { useRouter } from 'vue-router';
 import {
     VAlert,
@@ -260,8 +267,9 @@ import {
     VOverlay,
     VWindow,
     VWindowItem,
+    VSheet,
 } from 'vuetify/components';
-import { ArrowRight, Plus } from 'lucide-vue-next';
+import { ArrowRight, Plus, Box, Gauge } from 'lucide-vue-next';
 
 import { RequiredRule, ValidationRule } from '@/types/common';
 import { ManagePassphraseMode, MAX_DESCRIPTION_LENGTH, MAX_NAME_LENGTH, Project, ProjectFields } from '@/types/projects';
@@ -296,7 +304,7 @@ const { isLoading, withLoading } = useLoading();
 const notify = useNotify();
 const router = useRouter();
 
-const innerContent = ref<Component | null>(null);
+const innerContent = ref<VCard | null>(null);
 const formValid = ref<boolean>(false);
 const inputText = ref<string>('');
 const name = ref<string>('');

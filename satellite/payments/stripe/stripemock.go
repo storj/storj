@@ -363,13 +363,27 @@ func (m *mockCustomers) Update(id string, params *stripe.CustomerParams) (*strip
 		customer.Balance = *params.Balance
 	}
 	if params.InvoiceSettings != nil {
+		customInvoiceSettings := &stripe.CustomerInvoiceSettings{}
+
 		if params.InvoiceSettings.DefaultPaymentMethod != nil {
-			customer.InvoiceSettings = &stripe.CustomerInvoiceSettings{
-				DefaultPaymentMethod: &stripe.PaymentMethod{
-					ID: *params.InvoiceSettings.DefaultPaymentMethod,
-				},
+			customInvoiceSettings.DefaultPaymentMethod = &stripe.PaymentMethod{
+				ID: *params.InvoiceSettings.DefaultPaymentMethod,
 			}
 		}
+		if params.InvoiceSettings.CustomFields != nil {
+			var customFields []*stripe.CustomerInvoiceSettingsCustomField
+			for _, field := range params.InvoiceSettings.CustomFields {
+				f := &stripe.CustomerInvoiceSettingsCustomField{
+					Name:  *field.Name,
+					Value: *field.Value,
+				}
+				customFields = append(customFields, f)
+			}
+
+			customInvoiceSettings.CustomFields = customFields
+		}
+
+		customer.InvoiceSettings = customInvoiceSettings
 	}
 
 	if params.Name != nil {
@@ -479,16 +493,23 @@ func (m *mockPaymentMethods) New(params *stripe.PaymentMethodParams) (*stripe.Pa
 		}
 	}
 
+	card := &stripe.PaymentMethodCard{
+		ExpMonth:    12,
+		ExpYear:     2050,
+		Brand:       "Mastercard",
+		Last4:       "4444",
+		Description: randID,
+		Fingerprint: "fingerprint" + *params.Card.Token,
+	}
+
+	if params.Card.ExpYear != nil && params.Card.ExpMonth != nil {
+		card.ExpYear = *params.Card.ExpYear
+		card.ExpMonth = *params.Card.ExpMonth
+	}
+
 	newMethod := &stripe.PaymentMethod{
-		ID: id,
-		Card: &stripe.PaymentMethodCard{
-			ExpMonth:    12,
-			ExpYear:     2050,
-			Brand:       "Mastercard",
-			Last4:       "4444",
-			Description: randID,
-			Fingerprint: "fingerprint" + *params.Card.Token,
-		},
+		ID:   id,
+		Card: card,
 		Type: stripe.PaymentMethodTypeCard,
 	}
 

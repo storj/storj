@@ -4,7 +4,7 @@ pipeline {
             label 'main'
             image 'storjlabs/ci:latest'
             alwaysPull true
-            args '-u root:root --cap-add SYS_PTRACE -v "/tmp/gomod":/go/pkg/mod -v /tmp/golangci-lint:/root/.cache/golangci-lint -v /tmp/gocache:/root/.cache/go-build -v "/tmp/npm":/npm'
+            args '-u root:root --cap-add SYS_PTRACE -v "/tmp/gomod":/go/pkg/mod -v /tmp/golangci-lint:/root/.cache/golangci-lint -v /tmp/gocache:/root/.cache/go-build -v /tmp/gocache-benchmarks:/root/.cache/go-build-benchmarks -v "/tmp/npm":/npm'
         }
     }
     options {
@@ -28,6 +28,7 @@ pipeline {
                 checkout scm
 
                 sh 'mkdir -p .build'
+                sh 'git restore-mtime'
 
                 // download dependencies
                 sh 'go mod download'
@@ -137,10 +138,11 @@ pipeline {
                 STORJ_TEST_COCKROACH = 'omit'
                 STORJ_TEST_SPANNER = 'omit'
                 STORJ_TEST_POSTGRES = 'postgres://postgres@localhost/benchstorj?sslmode=disable'
+                GOCACHE = '/root/.cache/go-build-benchmarks'
             }
             steps {
                 sh 'psql -U postgres -c \'create database benchstorj;\''
-                sh 'go test -parallel 1 -p 1 -vet=off -timeout 20m -short -run XYZXYZXYZXYZ -bench . -benchtime 1x ./...'
+                sh 'go test -parallel 1 -p 1 -vet=off -timeout 32m -short -run XYZXYZXYZXYZ -bench . -benchtime 1x ./...'
             }
         }
 

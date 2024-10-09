@@ -132,7 +132,8 @@ type BucketUsage struct {
 	DefaultPlacement storj.PlacementConstraint `json:"defaultPlacement"`
 	Location         string                    `json:"location"`
 
-	Versioning buckets.Versioning `json:"versioning"`
+	Versioning        buckets.Versioning `json:"versioning"`
+	ObjectLockEnabled bool               `json:"objectLockEnabled"`
 
 	Storage      float64 `json:"storage"`
 	Egress       float64 `json:"egress"`
@@ -303,6 +304,8 @@ type ProjectAccounting interface {
 	GetBucketUsageRollups(ctx context.Context, projectID uuid.UUID, since, before time.Time) ([]BucketUsageRollup, error)
 	// GetSingleBucketUsageRollup returns usage rollup per single bucket for specified period of time.
 	GetSingleBucketUsageRollup(ctx context.Context, projectID uuid.UUID, bucket string, since, before time.Time) (*BucketUsageRollup, error)
+	// GetSingleBucketTotals returns single bucket total usage summary since bucket creation.
+	GetSingleBucketTotals(ctx context.Context, projectID uuid.UUID, bucketName string, before time.Time) (usage *BucketUsage, err error)
 	// GetBucketTotals returns per bucket total usage summary since bucket creation.
 	GetBucketTotals(ctx context.Context, projectID uuid.UUID, cursor BucketUsageCursor, before time.Time) (*BucketUsagePage, error)
 	// ArchiveRollupsBefore archives rollups older than a given time and returns number of bucket bandwidth rollups archived.

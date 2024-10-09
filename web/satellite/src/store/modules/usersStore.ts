@@ -6,6 +6,7 @@ import { computed, DeepReadonly, reactive, readonly } from 'vue';
 
 import {
     ACCOUNT_SETUP_STEPS,
+    AccountDeletionData,
     DisableMFARequest,
     OnboardingStep,
     SessionsCursor,
@@ -60,8 +61,8 @@ export const useUsersStore = defineStore('users', () => {
         await api.changeEmail(step, data);
     }
 
-    async function deleteAccount(step: DeleteAccountStep, data: string): Promise<void> {
-        await api.deleteAccount(step, data);
+    async function deleteAccount(step: DeleteAccountStep, data: string): Promise<AccountDeletionData | null> {
+        return await api.deleteAccount(step, data);
     }
 
     async function getSessions(pageNumber: number, limit = DEFAULT_PAGE_LIMIT): Promise<SessionsPage> {

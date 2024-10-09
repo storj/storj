@@ -97,6 +97,7 @@ type Config struct {
 	GeneratedAPIEnabled             bool          `help:"indicates if generated console api should be used" default:"true"`
 	OptionalSignupSuccessURL        string        `help:"optional url to external registration success page" default:""`
 	HomepageURL                     string        `help:"url link to storj.io homepage" default:"https://www.storj.io"`
+	ValdiSignUpURL                  string        `help:"url link to Valdi sign up page" default:""`
 	NativeTokenPaymentsEnabled      bool          `help:"indicates if storj native token payments system is enabled" default:"false"`
 	PricingPackagesEnabled          bool          `help:"whether to allow purchasing pricing packages" default:"true"`
 	GalleryViewEnabled              bool          `help:"whether to show new gallery view" default:"true"`
@@ -111,6 +112,7 @@ type Config struct {
 	AltObjBrowserPagingThreshold    int           `help:"number of objects triggering simplified native S3 pagination" default:"10000"`
 	DomainsPageEnabled              bool          `help:"whether domains page should be shown" default:"false"`
 	ActiveSessionsViewEnabled       bool          `help:"whether active sessions table view should be shown" default:"false"`
+	ObjectLockUIEnabled             bool          `help:"whether object lock UI should be shown, regardless of whether the feature is enabled" default:"false"`
 
 	OauthCodeExpiry         time.Duration `help:"how long oauth authorization codes are issued for" default:"10m"`
 	OauthAccessTokenExpiry  time.Duration `help:"how long oauth access tokens are issued for" default:"24h"`
@@ -154,6 +156,8 @@ type Server struct {
 
 	stripePublicKey                 string
 	neededTokenPaymentConfirmations int
+
+	objectLockAndVersioningConfig console.ObjectLockAndVersioningConfig
 
 	AnalyticsConfig analytics.Config
 
@@ -219,7 +223,10 @@ func (a *apiAuth) RemoveAuthCookie(w http.ResponseWriter) {
 }
 
 // NewServer creates new instance of console server.
-func NewServer(logger *zap.Logger, config Config, service *console.Service, oidcService *oidc.Service, mailService *mailservice.Service, analytics *analytics.Service, abTesting *abtesting.Service, accountFreezeService *console.AccountFreezeService, listener net.Listener, stripePublicKey string, neededTokenPaymentConfirmations int, nodeURL storj.NodeURL, analyticsConfig analytics.Config, packagePlans paymentsconfig.PackagePlans) *Server {
+func NewServer(logger *zap.Logger, config Config, service *console.Service, oidcService *oidc.Service, mailService *mailservice.Service,
+	analytics *analytics.Service, abTesting *abtesting.Service, accountFreezeService *console.AccountFreezeService, listener net.Listener,
+	stripePublicKey string, neededTokenPaymentConfirmations int, nodeURL storj.NodeURL, objectLockAndVersioningConfig console.ObjectLockAndVersioningConfig,
+	analyticsConfig analytics.Config, packagePlans paymentsconfig.PackagePlans) *Server {
 	initAdditionalMimeTypes()
 
 	server := Server{
@@ -237,6 +244,7 @@ func NewServer(logger *zap.Logger, config Config, service *console.Service, oidc
 		nodeURL:                         nodeURL,
 		AnalyticsConfig:                 analyticsConfig,
 		packagePlans:                    packagePlans,
+		objectLockAndVersioningConfig:   objectLockAndVersioningConfig,
 	}
 
 	logger.Debug("Starting Satellite Console server.", zap.Stringer("Address", server.listener.Addr()))
@@ -290,6 +298,7 @@ func NewServer(logger *zap.Logger, config Config, service *console.Service, oidc
 	projectsRouter.Handle("", http.HandlerFunc(projectsController.CreateProject)).Methods(http.MethodPost, http.MethodOptions)
 	projectsRouter.Handle("/paged", http.HandlerFunc(projectsController.GetPagedProjects)).Methods(http.MethodGet, http.MethodOptions)
 	projectsRouter.Handle("/{id}", http.HandlerFunc(projectsController.UpdateProject)).Methods(http.MethodPatch, http.MethodOptions)
+	projectsRouter.Handle("/{id}", http.HandlerFunc(projectsController.DeleteProject)).Methods(http.MethodDelete, http.MethodOptions)
 	projectsRouter.Handle("/{id}/limits", http.HandlerFunc(projectsController.UpdateUserSpecifiedLimits)).Methods(http.MethodPatch, http.MethodOptions)
 	projectsRouter.Handle("/{id}/limit-increase", http.HandlerFunc(projectsController.RequestLimitIncrease)).Methods(http.MethodPost, http.MethodOptions)
 	projectsRouter.Handle("/{id}/members", http.HandlerFunc(projectsController.DeleteMembersAndInvitations)).Methods(http.MethodDelete, http.MethodOptions)
@@ -340,7 +349,7 @@ func NewServer(logger *zap.Logger, config Config, service *console.Service, oidc
 	authRouter.Handle("/register", server.ipRateLimiter.Limit(http.HandlerFunc(authController.Register))).Methods(http.MethodPost, http.MethodOptions)
 	authRouter.Handle("/code-activation", server.ipRateLimiter.Limit(http.HandlerFunc(authController.ActivateAccount))).Methods(http.MethodPatch, http.MethodOptions)
 	authRouter.Handle("/forgot-password", server.ipRateLimiter.Limit(http.HandlerFunc(authController.ForgotPassword))).Methods(http.MethodPost, http.MethodOptions)
-	authRouter.Handle("/resend-email/{email}", server.ipRateLimiter.Limit(http.HandlerFunc(authController.ResendEmail))).Methods(http.MethodPost, http.MethodOptions)
+	authRouter.Handle("/resend-email", server.ipRateLimiter.Limit(http.HandlerFunc(authController.ResendEmail))).Methods(http.MethodPost, http.MethodOptions)
 	authRouter.Handle("/reset-password", server.ipRateLimiter.Limit(http.HandlerFunc(authController.ResetPassword))).Methods(http.MethodPost, http.MethodOptions)
 	authRouter.Handle("/refresh-session", server.withAuth(http.HandlerFunc(authController.RefreshSession))).Methods(http.MethodPost, http.MethodOptions)
 	authRouter.Handle("/sessions", server.withAuth(http.HandlerFunc(authController.GetActiveSessions))).Methods(http.MethodGet, http.MethodOptions)
@@ -384,6 +393,7 @@ func NewServer(logger *zap.Logger, config Config, service *console.Service, oidc
 		paymentsRouter.HandleFunc("/account/billing-information", paymentController.GetBillingInformation).Methods(http.MethodGet, http.MethodOptions)
 		paymentsRouter.HandleFunc("/account/billing-address", paymentController.SaveBillingAddress).Methods(http.MethodPatch, http.MethodOptions)
 		paymentsRouter.HandleFunc("/account/tax-ids", paymentController.AddTaxID).Methods(http.MethodPost, http.MethodOptions)
+		paymentsRouter.HandleFunc("/account/invoice-reference", paymentController.AddInvoiceReference).Methods(http.MethodPost, http.MethodOptions)
 		paymentsRouter.HandleFunc("/account/tax-ids/{taxID}", paymentController.RemoveTaxID).Methods(http.MethodDelete, http.MethodOptions)
 		paymentsRouter.HandleFunc("/account", paymentController.SetupAccount).Methods(http.MethodPost, http.MethodOptions)
 		paymentsRouter.HandleFunc("/wallet", paymentController.GetWallet).Methods(http.MethodGet, http.MethodOptions)
@@ -411,6 +421,7 @@ func NewServer(logger *zap.Logger, config Config, service *console.Service, oidc
 	bucketsRouter.HandleFunc("/bucket-placements", bucketsController.GetBucketMetadata).Methods(http.MethodGet, http.MethodOptions)
 	bucketsRouter.HandleFunc("/bucket-metadata", bucketsController.GetBucketMetadata).Methods(http.MethodGet, http.MethodOptions)
 	bucketsRouter.HandleFunc("/usage-totals", bucketsController.GetBucketTotals).Methods(http.MethodGet, http.MethodOptions)
+	bucketsRouter.HandleFunc("/bucket-totals", bucketsController.GetSingleBucketTotals).Methods(http.MethodGet, http.MethodOptions)
 
 	apiKeysController := consoleapi.NewAPIKeys(logger, service)
 	apiKeysRouter := router.PathPrefix("/api/v0/api-keys").Subrouter()
@@ -893,11 +904,14 @@ func (server *Server) frontendConfigHandler(w http.ResponseWriter, r *http.Reque
 		SatelliteManagedEncryptionEnabled: server.config.SatelliteManagedEncryptionEnabled,
 		EmailChangeFlowEnabled:            server.config.EmailChangeFlowEnabled,
 		SelfServeAccountDeleteEnabled:     server.config.SelfServeAccountDeleteEnabled,
+		DeleteProjectEnabled:              server.config.DeleteProjectEnabled,
 		NoLimitsUiEnabled:                 server.config.NoLimitsUiEnabled,
 		AltObjBrowserPagingEnabled:        server.config.AltObjBrowserPagingEnabled,
 		AltObjBrowserPagingThreshold:      server.config.AltObjBrowserPagingThreshold,
 		DomainsPageEnabled:                server.config.DomainsPageEnabled,
 		ActiveSessionsViewEnabled:         server.config.ActiveSessionsViewEnabled,
+		ObjectLockUIEnabled:               server.objectLockAndVersioningConfig.ObjectLockEnabled && server.config.ObjectLockUIEnabled,
+		ValdiSignUpURL:                    server.config.ValdiSignUpURL,
 	}
 
 	err := json.NewEncoder(w).Encode(&cfg)

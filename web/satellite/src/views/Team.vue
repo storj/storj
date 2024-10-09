@@ -12,14 +12,14 @@
         />
 
         <v-col>
-            <v-row class="mt-2 mb-4">
+            <v-row class="mt-1 mb-3">
                 <div class="d-inline">
                     <v-btn
                         :loading="isLoading"
                         :disabled="!isLoading && !isUserAdmin"
+                        :prepend-icon="UserPlus"
                         @click="onAddMember"
                     >
-                        <IconNew class="mr-2" size="16" bold />
                         Add Members
                     </v-btn>
                     <v-tooltip v-if="!isLoading && !isUserAdmin" activator="parent" location="right">
@@ -38,9 +38,10 @@
 <script setup lang="ts">
 import { computed, onMounted, ref } from 'vue';
 import { VBtn, VCol, VContainer, VRow, VTooltip } from 'vuetify/components';
+import { UserPlus } from 'lucide-vue-next';
 
 import { useProjectsStore } from '@/store/modules/projectsStore';
-import { useTrialCheck } from '@/composables/useTrialCheck';
+import { usePreCheck } from '@/composables/usePreCheck';
 import { useLoading } from '@/composables/useLoading';
 import { useUsersStore } from '@/store/modules/usersStore';
 import { useProjectMembersStore } from '@/store/modules/projectMembersStore';
@@ -54,14 +55,13 @@ import PageTitleComponent from '@/components/PageTitleComponent.vue';
 import PageSubtitleComponent from '@/components/PageSubtitleComponent.vue';
 import TeamTableComponent from '@/components/TeamTableComponent.vue';
 import AddTeamMemberDialog from '@/components/dialogs/AddTeamMemberDialog.vue';
-import IconNew from '@/components/icons/IconNew.vue';
 import TrialExpirationBanner from '@/components/TrialExpirationBanner.vue';
 
 const usersStore = useUsersStore();
 const pmStore = useProjectMembersStore();
 const projectsStore = useProjectsStore();
 
-const { isTrialExpirationBanner, isUserProjectOwner, isExpired, withTrialCheck } = useTrialCheck();
+const { isTrialExpirationBanner, isUserProjectOwner, isExpired, withTrialCheck } = usePreCheck();
 const { isLoading, withLoading } = useLoading();
 const notify = useNotify();
 

@@ -5,6 +5,7 @@ package metabase
 
 import (
 	"context"
+	"database/sql"
 	"errors"
 	"math"
 	"time"
@@ -15,187 +16,11 @@ import (
 
 	"storj.io/common/storj"
 	"storj.io/common/uuid"
+	"storj.io/storj/shared/dbutil"
 	"storj.io/storj/shared/tagsql"
 )
 
 const loopIteratorBatchSizeLimit = intLimitRange(5000)
-
-// IterateLoopObjects contains arguments necessary for listing objects in metabase.
-type IterateLoopObjects struct {
-	BatchSize int
-
-	AsOfSystemTime     time.Time
-	AsOfSystemInterval time.Duration
-}
-
-// Verify verifies get object request fields.
-func (opts *IterateLoopObjects) Verify() error {
-	if opts.BatchSize < 0 {
-		return ErrInvalidRequest.New("BatchSize is negative")
-	}
-	return nil
-}
-
-// LoopObjectsIterator iterates over a sequence of LoopObjectEntry items.
-type LoopObjectsIterator interface {
-	Next(ctx context.Context, item *LoopObjectEntry) bool
-}
-
-// LoopObjectEntry contains information about object needed by metainfo loop.
-type LoopObjectEntry struct {
-	ObjectStream                       // metrics, repair, tally
-	Status                ObjectStatus // verify
-	CreatedAt             time.Time    // temp used by metabase-createdat-migration
-	ExpiresAt             *time.Time   // tally
-	SegmentCount          int32        // metrics
-	TotalEncryptedSize    int64        // tally
-	EncryptedMetadataSize int          // tally
-}
-
-// Expired checks if object is expired relative to now.
-func (o LoopObjectEntry) Expired(now time.Time) bool {
-	return o.ExpiresAt != nil && o.ExpiresAt.Before(now)
-}
-
-// IterateLoopObjects iterates through all objects in metabase.
-func (db *DB) IterateLoopObjects(ctx context.Context, opts IterateLoopObjects, fn func(context.Context, LoopObjectsIterator) error) (err error) {
-	defer mon.Task()(&ctx)(&err)
-
-	if err := opts.Verify(); err != nil {
-		return err
-	}
-
-	it := &loopIterator{
-		db:         db,
-		aliasCache: db.aliasCache,
-
-		batchSize: opts.BatchSize,
-
-		curIndex:           0,
-		cursor:             loopIterateCursor{},
-		asOfSystemTime:     opts.AsOfSystemTime,
-		asOfSystemInterval: opts.AsOfSystemInterval,
-	}
-
-	loopIteratorBatchSizeLimit.Ensure(&it.batchSize)
-
-	it.curRows, err = it.doNextQuery(ctx)
-	if err != nil {
-		return err
-	}
-
-	defer func() {
-		if rowsErr := it.curRows.Err(); rowsErr != nil {
-			err = errs.Combine(err, rowsErr)
-		}
-		err = errs.Combine(err, it.failErr, it.curRows.Close())
-	}()
-
-	return fn(ctx, it)
-}
-
-// loopIterator enables iteration of all objects in metabase.
-type loopIterator struct {
-	db *DB
-
-	batchSize          int
-	asOfSystemTime     time.Time
-	asOfSystemInterval time.Duration
-
-	curIndex int
-	curRows  tagsql.Rows
-	cursor   loopIterateCursor
-
-	// failErr is set when either scan or next query fails during iteration.
-	failErr    error
-	aliasCache *NodeAliasCache
-}
-
-type loopIterateCursor struct {
-	ProjectID  uuid.UUID
-	BucketName BucketName
-	ObjectKey  ObjectKey
-	Version    Version
-}
-
-// Next returns true if there was another item and copy it in item.
-func (it *loopIterator) Next(ctx context.Context, item *LoopObjectEntry) bool {
-	next := it.curRows.Next()
-	if !next {
-		if it.curIndex < it.batchSize {
-			return false
-		}
-
-		if it.curRows.Err() != nil {
-			return false
-		}
-
-		rows, err := it.doNextQuery(ctx)
-		if err != nil {
-			it.failErr = errs.Combine(it.failErr, err)
-			return false
-		}
-
-		if closeErr := it.curRows.Close(); closeErr != nil {
-			it.failErr = errs.Combine(it.failErr, closeErr, rows.Close())
-			return false
-		}
-
-		it.curRows = rows
-		it.curIndex = 0
-		if !it.curRows.Next() {
-			return false
-		}
-	}
-
-	err := it.scanItem(item)
-	if err != nil {
-		it.failErr = errs.Combine(it.failErr, err)
-		return false
-	}
-
-	it.curIndex++
-	it.cursor.ProjectID = item.ProjectID
-	it.cursor.BucketName = item.BucketName
-	it.cursor.ObjectKey = item.ObjectKey
-	it.cursor.Version = item.Version
-
-	return true
-}
-
-func (it *loopIterator) doNextQuery(ctx context.Context) (_ tagsql.Rows, err error) {
-	defer mon.Task()(&ctx)(&err)
-
-	return it.db.db.QueryContext(ctx, `
-		SELECT
-			project_id, bucket_name,
-			object_key, stream_id, version,
-			status,
-			created_at, expires_at,
-			segment_count, total_encrypted_size,
-			LENGTH(COALESCE(encrypted_metadata,''))
-		FROM objects
-		`+it.db.asOfTime(it.asOfSystemTime, it.asOfSystemInterval)+`
-		WHERE (project_id, bucket_name, object_key, version) > ($1, $2, $3, $4)
-		ORDER BY project_id ASC, bucket_name ASC, object_key ASC, version ASC
-		LIMIT $5
-		`, it.cursor.ProjectID, it.cursor.BucketName,
-		[]byte(it.cursor.ObjectKey), int(it.cursor.Version),
-		it.batchSize,
-	)
-}
-
-// scanItem scans doNextQuery results into LoopObjectEntry.
-func (it *loopIterator) scanItem(item *LoopObjectEntry) error {
-	return it.curRows.Scan(
-		&item.ProjectID, &item.BucketName,
-		&item.ObjectKey, &item.StreamID, &item.Version,
-		&item.Status,
-		&item.CreatedAt, &item.ExpiresAt,
-		&item.SegmentCount, &item.TotalEncryptedSize,
-		&item.EncryptedMetadataSize,
-	)
-}
 
 // SegmentIterator returns the next segment.
 type SegmentIterator func(ctx context.Context, segment *LoopSegmentEntry) bool
@@ -215,6 +40,7 @@ type LoopSegmentEntry struct {
 	Redundancy    storj.RedundancyScheme
 	Pieces        Pieces
 	Placement     storj.PlacementConstraint
+	Source        string
 }
 
 // Inline returns true if segment is inline.
@@ -229,11 +55,11 @@ type LoopSegmentsIterator interface {
 
 // IterateLoopSegments contains arguments necessary for listing segments in metabase.
 type IterateLoopSegments struct {
-	BatchSize          int
-	AsOfSystemTime     time.Time
-	AsOfSystemInterval time.Duration
-	StartStreamID      uuid.UUID
-	EndStreamID        uuid.UUID
+	BatchSize            int
+	StartStreamID        uuid.UUID
+	EndStreamID          uuid.UUID
+	AsOfSystemInterval   time.Duration
+	SpannerReadTimestamp time.Time
 }
 
 // Verify verifies segments request fields.
@@ -262,17 +88,36 @@ func (db *DB) IterateLoopSegments(ctx context.Context, opts IterateLoopSegments,
 
 	loopIteratorBatchSizeLimit.Ensure(&opts.BatchSize)
 
-	// TODO(spanner): this needs to iterate across multiple backends.
-	return db.ChooseAdapter(uuid.UUID{}).IterateLoopSegments(ctx, db.aliasCache, opts, fn)
+	for _, a := range db.adapters {
+		err := a.IterateLoopSegments(ctx, db.aliasCache, opts, fn)
+		if err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+type tagsqlAdapter interface {
+	Name() string
+	UnderlyingDB() tagsql.DB
+	Implementation() dbutil.Implementation
 }
 
 // IterateLoopSegments implements Adapter.
 func (p *PostgresAdapter) IterateLoopSegments(ctx context.Context, aliasCache *NodeAliasCache, opts IterateLoopSegments, fn func(context.Context, LoopSegmentsIterator) error) (err error) {
-	it := &postgresLoopSegmentIterator{
-		db:         p,
+	return tagsqlIterateLoopSegments(ctx, p, aliasCache, opts, fn)
+}
+
+// IterateLoopSegments implements Adapter.
+func (c *CockroachAdapter) IterateLoopSegments(ctx context.Context, aliasCache *NodeAliasCache, opts IterateLoopSegments, fn func(context.Context, LoopSegmentsIterator) error) (err error) {
+	return tagsqlIterateLoopSegments(ctx, c, aliasCache, opts, fn)
+}
+
+func tagsqlIterateLoopSegments(ctx context.Context, db tagsqlAdapter, aliasCache *NodeAliasCache, opts IterateLoopSegments, fn func(context.Context, LoopSegmentsIterator) error) (err error) {
+	it := &tagsqlLoopSegmentIterator{
+		db:         db,
 		aliasCache: aliasCache,
 
-		asOfSystemTime:     opts.AsOfSystemTime,
 		asOfSystemInterval: opts.AsOfSystemInterval,
 		batchSize:          opts.BatchSize,
 		batchPieces:        make([]Pieces, opts.BatchSize),
@@ -313,16 +158,15 @@ type loopSegmentIteratorCursor struct {
 	EndStreamID   uuid.UUID
 }
 
-// postgresLoopSegmentIterator enables iteration of all segments in metabase.
-type postgresLoopSegmentIterator struct {
-	db         *PostgresAdapter
+// tagsqlLoopSegmentIterator enables iteration of all segments in metabase.
+type tagsqlLoopSegmentIterator struct {
+	db         tagsqlAdapter
 	aliasCache *NodeAliasCache
 
 	batchSize int
 	// batchPieces are reused between result pages to reduce memory consumption
 	batchPieces []Pieces
 
-	asOfSystemTime     time.Time
 	asOfSystemInterval time.Duration
 
 	curIndex int
@@ -334,7 +178,7 @@ type postgresLoopSegmentIterator struct {
 }
 
 // Next returns true if there was another item and copy it in item.
-func (it *postgresLoopSegmentIterator) Next(ctx context.Context, item *LoopSegmentEntry) bool {
+func (it *tagsqlLoopSegmentIterator) Next(ctx context.Context, item *LoopSegmentEntry) bool {
 	next := it.curRows.Next()
 	if !next {
 		if it.curIndex < it.batchSize {
@@ -376,10 +220,12 @@ func (it *postgresLoopSegmentIterator) Next(ctx context.Context, item *LoopSegme
 	return true
 }
 
-func (it *postgresLoopSegmentIterator) doNextQuery(ctx context.Context) (_ tagsql.Rows, err error) {
+func (it *tagsqlLoopSegmentIterator) doNextQuery(ctx context.Context) (_ tagsql.Rows, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	return it.db.db.QueryContext(ctx, `
+	db := it.db.UnderlyingDB()
+	impl := it.db.Implementation()
+	return db.QueryContext(ctx, `
 		SELECT
 			stream_id, position,
 			created_at, expires_at, repaired_at,
@@ -390,7 +236,7 @@ func (it *postgresLoopSegmentIterator) doNextQuery(ctx context.Context) (_ tagsq
 			remote_alias_pieces,
 			placement
 		FROM segments
-		`+it.db.impl.AsOfSystemInterval(it.asOfSystemInterval)+`
+		`+impl.AsOfSystemInterval(it.asOfSystemInterval)+`
 		WHERE
 			(stream_id, position) > ($1, $2) AND stream_id <= $4
 		ORDER BY (stream_id, position) ASC
@@ -401,7 +247,7 @@ func (it *postgresLoopSegmentIterator) doNextQuery(ctx context.Context) (_ tagsq
 }
 
 // scanItem scans doNextQuery results into LoopSegmentEntry.
-func (it *postgresLoopSegmentIterator) scanItem(ctx context.Context, item *LoopSegmentEntry) error {
+func (it *tagsqlLoopSegmentIterator) scanItem(ctx context.Context, item *LoopSegmentEntry) error {
 	err := it.curRows.Scan(
 		&item.StreamID, &item.Position,
 		&item.CreatedAt, &item.ExpiresAt, &item.RepairedAt,
@@ -427,6 +273,7 @@ func (it *postgresLoopSegmentIterator) scanItem(ctx context.Context, item *LoopS
 	if err != nil {
 		return Error.New("failed to convert aliases to pieces: %w", err)
 	}
+	item.Source = it.db.Name()
 
 	return nil
 }
@@ -438,6 +285,8 @@ type spannerLoopSegmentIterator struct {
 	// TODO(spanner) would be nice to have it at some point
 	// batchPieces are reused between result pages to reduce memory consumption
 	// batchPieces []Pieces
+
+	readTimestamp time.Time
 
 	curIndex int
 	curRows  *spanner.RowIterator
@@ -516,7 +365,11 @@ func (it *spannerLoopSegmentIterator) doNextQuery(ctx context.Context) (_ *spann
 			"endstreamid": it.cursor.EndStreamID.Bytes(),
 			"batchsize":   it.batchSize,
 		}}
-	return it.db.client.Single().Query(ctx, stmt)
+
+	if it.readTimestamp.IsZero() {
+		return it.db.client.Single().Query(ctx, stmt)
+	}
+	return it.db.client.Single().WithTimestampBound(spanner.ReadTimestamp(it.readTimestamp)).Query(ctx, stmt)
 }
 
 // IterateLoopSegments implements Adapter.
@@ -524,6 +377,8 @@ func (s *SpannerAdapter) IterateLoopSegments(ctx context.Context, aliasCache *No
 	it := &spannerLoopSegmentIterator{
 		db:         s,
 		aliasCache: aliasCache,
+
+		readTimestamp: opts.SpannerReadTimestamp,
 
 		batchSize: opts.BatchSize,
 
@@ -556,45 +411,58 @@ func (it *spannerLoopSegmentIterator) scanItem(ctx context.Context, item *LoopSe
 	var createdAt time.Time
 	var repairedAt, expiresAt spanner.NullTime
 	var encryptedSize, plainOffset, plainSize, placement int64
-	var streamID, rootPieceID []byte
-	var aliasPieces AliasPieces
-	if err := it.curRow.Columns(&streamID, &position,
-		&createdAt, &repairedAt, &expiresAt,
-		&rootPieceID,
-		&encryptedSize, &plainOffset, &plainSize,
-		redundancyScheme{&item.Redundancy},
-		&aliasPieces,
-		&placement,
-	); err != nil {
-		return Error.New("failed to scan segment: %w", err)
+
+	if it.db.Implementation() == dbutil.Spanner {
+		spannerPlacement := sql.NullInt64{}
+		if err := it.curRow.Columns(&item.StreamID, &position,
+			&createdAt, &expiresAt, &repairedAt,
+			&item.RootPieceID,
+			&encryptedSize, &plainOffset, &plainSize,
+			redundancyScheme{&item.Redundancy},
+			&item.AliasPieces,
+			&spannerPlacement,
+		); err != nil {
+			return Error.New("failed to scan segment: %w", err)
+		}
+		if spannerPlacement.Valid {
+			placement = spannerPlacement.Int64
+		}
+	} else {
+		if err := it.curRow.Columns(&item.StreamID, &position,
+			&createdAt, &expiresAt, &repairedAt,
+			&item.RootPieceID,
+			&encryptedSize, &plainOffset, &plainSize,
+			redundancyScheme{&item.Redundancy},
+			&item.AliasPieces,
+			&placement,
+		); err != nil {
+			return Error.New("failed to scan segment: %w", err)
+		}
+
 	}
 
-	item.StreamID, err = uuid.FromBytes(streamID)
-	if err != nil {
-		return Error.New("failed to scan segment: %w", err)
-	}
 	item.Position = SegmentPositionFromEncoded(uint64(position))
 	item.CreatedAt = createdAt
-	item.RootPieceID, err = storj.PieceIDFromBytes(rootPieceID)
-	if err != nil {
-		return Error.New("failed to scan segment: %w", err)
-	}
 	if repairedAt.Valid {
 		item.RepairedAt = &repairedAt.Time
+	} else {
+		item.RepairedAt = nil
 	}
 	if expiresAt.Valid {
 		item.ExpiresAt = &expiresAt.Time
+	} else {
+		item.ExpiresAt = nil
 	}
 	item.EncryptedSize = int32(encryptedSize)
 	item.PlainOffset = plainOffset
 	item.PlainSize = int32(plainSize)
-	item.AliasPieces = aliasPieces
 
 	item.Placement = storj.PlacementConstraint(placement)
 	item.Pieces, err = it.aliasCache.ConvertAliasesToPieces(ctx, item.AliasPieces)
 	if err != nil {
 		return Error.New("failed to scan segment: %w", err)
 	}
+	item.Source = it.db.Name()
 
 	return nil
 }

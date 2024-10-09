@@ -3,7 +3,7 @@
 
 <template>
     <v-col cols="12" md="6" lg="6" xl="3">
-        <v-card class="px-2 py-4 h-100 align-content-space-between">
+        <v-card class="px-2 py-4 h-100 align-content-space-between flex-grow-1 d-flex flex-column">
             <v-card-item class="pb-0">
                 <img :src="app.src" :alt="app.name" width="48" height="48" class="rounded">
             </v-card-item>
@@ -20,7 +20,7 @@
                 </p>
             </v-card-item>
 
-            <v-card-item class="bottom">
+            <v-card-item class="bottom mt-auto">
                 <v-btn color="primary" :append-icon="ArrowRight" @click="onSetup">
                     Setup
                 </v-btn>
@@ -52,12 +52,12 @@
 
 <script setup lang="ts">
 import { computed, ref } from 'vue';
-import { VBtn, VCard, VCardItem, VChip, VCol, VIcon } from 'vuetify/components';
+import { VBtn, VCard, VCardItem, VChip, VCol } from 'vuetify/components';
 import { ArrowRight, SquareArrowOutUpRight } from 'lucide-vue-next';
 
 import { Application, UplinkApp } from '@/types/applications';
 import { AccessType, SetupStep } from '@/types/setupAccess';
-import { useTrialCheck } from '@/composables/useTrialCheck';
+import { usePreCheck } from '@/composables/usePreCheck';
 import { useAnalyticsStore } from '@/store/modules/analyticsStore';
 import { AnalyticsEvent } from '@/utils/constants/analyticsEventNames';
 
@@ -69,7 +69,7 @@ const props = defineProps<{
 
 const analyticsStore  = useAnalyticsStore();
 
-const { withTrialCheck } = useTrialCheck();
+const { withTrialCheck, withManagedPassphraseCheck } = usePreCheck();
 
 const dialog = ref<boolean>(false);
 
@@ -85,10 +85,10 @@ const neededAccessType = computed<AccessType>(() => {
  * Starts create S3 credentials flow.
  */
 function onSetup(): void {
-    withTrialCheck(() => {
+    withTrialCheck(() => { withManagedPassphraseCheck(() => {
         sendAnalytics(AnalyticsEvent.APPLICATIONS_SETUP_CLICKED);
         dialog.value = true;
-    });
+    });});
 }
 
 function sendAnalytics(e: AnalyticsEvent): void {

@@ -39,7 +39,7 @@ type ReverificationJob struct {
 	Locator       PieceLocator
 	InsertedAt    time.Time
 	ReverifyCount int
-	LastAttempt   time.Time
+	LastAttempt   *time.Time
 }
 
 // Reverifier pulls jobs from the reverification queue and fulfills them

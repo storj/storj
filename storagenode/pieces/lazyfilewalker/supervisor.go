@@ -11,8 +11,8 @@ import (
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 
-	"storj.io/common/bloomfilter"
 	"storj.io/common/storj"
+	"storj.io/storj/shared/bloomfilter"
 	"storj.io/storj/storagenode/pieces/lazyfilewalker/execwrapper"
 )
 
@@ -86,6 +86,7 @@ type UsedSpaceRequest struct {
 type UsedSpaceResponse struct {
 	PiecesTotal       int64 `json:"piecesTotal"`
 	PiecesContentSize int64 `json:"piecesContentSize"`
+	PieceCount        int64 `json:"pieceCount"`
 }
 
 // GCFilewalkerRequest is the request struct for the gc-filewalker process.
@@ -119,7 +120,7 @@ type TrashCleanupResponse struct {
 }
 
 // WalkAndComputeSpaceUsedBySatellite returns the total used space by satellite.
-func (fw *Supervisor) WalkAndComputeSpaceUsedBySatellite(ctx context.Context, satelliteID storj.NodeID) (piecesTotal int64, piecesContentSize int64, err error) {
+func (fw *Supervisor) WalkAndComputeSpaceUsedBySatellite(ctx context.Context, satelliteID storj.NodeID) (piecesTotal int64, piecesContentSize int64, pieceCount int64, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	req := UsedSpaceRequest{
@@ -132,14 +133,14 @@ func (fw *Supervisor) WalkAndComputeSpaceUsedBySatellite(ctx context.Context, sa
 	stdout := newGenericWriter(log)
 	err = newProcess(fw.testingUsedSpaceCmd, log, fw.executable, fw.usedSpaceArgs).run(ctx, stdout, req)
 	if err != nil {
-		return 0, 0, err
+		return 0, 0, 0, err
 	}
 
 	if err := stdout.Decode(&resp); err != nil {
-		return 0, 0, err
+		return 0, 0, 0, err
 	}
 
-	return resp.PiecesTotal, resp.PiecesContentSize, nil
+	return resp.PiecesTotal, resp.PiecesContentSize, resp.PieceCount, nil
 }
 
 // WalkSatellitePiecesToTrash walks the satellite pieces and moves the pieces that are trash to the trash using the trashFunc provided.

@@ -62,11 +62,14 @@ export class FrontendConfig {
     satelliteManagedEncryptionEnabled: boolean;
     emailChangeFlowEnabled: boolean;
     selfServeAccountDeleteEnabled: boolean;
+    deleteProjectEnabled: boolean;
     noLimitsUiEnabled: boolean;
     altObjBrowserPagingEnabled: boolean;
     altObjBrowserPagingThreshold: number;
     domainsPageEnabled: boolean;
     activeSessionsViewEnabled: boolean;
+    objectLockUIEnabled: boolean;
+    valdiSignUpURL: string;
 }
 
 export class MultiCaptchaConfig {

@@ -62,7 +62,7 @@
         </v-row>
 
         <v-row v-if="!isProjectOwnerPaidTier && billingEnabled">
-            <v-col cols="12">
+            <v-col cols="12" lg="4">
                 <v-card title="Free Trial">
                     <v-card-subtitle>
                         {{ storageLimitFormatted }} Storage / {{ bandwidthLimitFormatted }} Bandwidth. <br>
@@ -141,12 +141,12 @@
 
             <v-row>
                 <v-col cols="12" sm="6" lg="4">
-                    <v-card title="Object Versioning">
+                    <v-card title="Object Versioning (beta)">
                         <v-card-subtitle v-if="versioningUIEnabled">
-                            Versioning (beta) is enabled for this project.
+                            Versioning is enabled for this project.
                         </v-card-subtitle>
                         <v-card-subtitle v-else>
-                            Enable object versioning (beta) on this project.
+                            Enable object versioning on this project.
                         </v-card-subtitle>
 
                         <v-card-text>
@@ -162,36 +162,57 @@
                         </v-card-text>
                     </v-card>
                 </v-col>
+
+                <v-col v-if="objectLockEnabled" cols="12" sm="6" lg="4">
+                    <v-card title="Object Lock (Beta)">
+                        <v-card-subtitle v-if="objectLockUIEnabledForProject">
+                            Enabled through Object Versioning (beta).
+                        </v-card-subtitle>
+                        <v-card-subtitle v-else>
+                            Versioning is required to use this feature.
+                        </v-card-subtitle>
+
+                        <v-card-text>
+                            <v-divider class="mb-4" />
+                            <v-btn color="default" variant="outlined" size="small" :disabled="!objectLockUIEnabledForProject">
+                                View Details
+                                <lock-beta-dialog />
+                            </v-btn>
+                        </v-card-text>
+                    </v-card>
+                </v-col>
             </v-row>
         </template>
 
-        <v-row>
-            <v-col>
-                <h3 class="mt-5">Danger Zone</h3>
-            </v-col>
-        </v-row>
+        <template v-if="isProjectOwner && isProjectOwnerPaidTier && deleteProjectEnabled">
+            <v-row>
+                <v-col>
+                    <h3 class="mt-5">Danger Zone</h3>
+                </v-col>
+            </v-row>
 
-        <v-row>
-            <v-col cols="12" sm="6" lg="4">
-                <v-card title="Delete Project">
-                    <v-card-text>
-                        <v-chip color="default" variant="tonal" size="small" class="font-weight-bold">
-                            Not Available
-                        </v-chip>
-                        <v-divider class="my-4" />
-                        <v-btn variant="outlined" color="default" size="small" rounded="md" href="https://docs.storj.io/support/projects#delete-the-existing-project" target="_blank">
-                            Learn More
-                            <v-icon end :icon="SquareArrowOutUpRight" />
-                        </v-btn>
-                    </v-card-text>
-                </v-card>
-            </v-col>
-        </v-row>
+            <v-row>
+                <v-col cols="12" sm="6" lg="4">
+                    <v-card title="Delete Project">
+                        <v-card-text>
+                            <v-chip color="default" variant="tonal" size="small" class="font-weight-bold">
+                                Delete this project.
+                            </v-chip>
+                            <v-divider class="my-4" />
+                            <v-btn variant="outlined" color="error" size="small" rounded="md" @click="isDeleteProjectDialogShown = true">
+                                Delete
+                            </v-btn>
+                        </v-card-text>
+                    </v-card>
+                </v-col>
+            </v-row>
+        </template>
     </v-container>
 
     <create-project-dialog v-model="isCreateProjectDialogShown" />
     <edit-project-details-dialog v-model="isEditDetailsDialogShown" :field="fieldToChange" />
     <edit-project-limit-dialog v-model="isEditLimitDialogShown" :limit-type="limitToChange" />
+    <delete-project-dialog v-model="isDeleteProjectDialogShown" />
 </template>
 
 <script setup lang="ts">
@@ -221,7 +242,7 @@ import {
     AnalyticsErrorEventSource,
 } from '@/utils/constants/analyticsEventNames';
 import { useAppStore } from '@/store/modules/appStore';
-import { useTrialCheck } from '@/composables/useTrialCheck';
+import { usePreCheck } from '@/composables/usePreCheck';
 import { ProjectRole } from '@/types/projectMembers';
 
 import EditProjectDetailsDialog from '@/components/dialogs/EditProjectDetailsDialog.vue';
@@ -232,8 +253,11 @@ import TrialExpirationBanner from '@/components/TrialExpirationBanner.vue';
 import VersioningBetaDialog from '@/components/dialogs/VersioningBetaDialog.vue';
 import ProjectEncryptionInformationDialog from '@/components/dialogs/ProjectEncryptionInformationDialog.vue';
 import CreateProjectDialog from '@/components/dialogs/CreateProjectDialog.vue';
+import DeleteProjectDialog  from '@/components/dialogs/DeleteProjectDialog.vue';
+import LockBetaDialog from '@/components/dialogs/LockBetaDialog.vue';
 
 const isCreateProjectDialogShown = ref<boolean>(false);
+const isDeleteProjectDialogShown = ref<boolean>(false);
 const isEditDetailsDialogShown = ref<boolean>(false);
 const isEditLimitDialogShown = ref<boolean>(false);
 const isVersioningDialogShown = ref<boolean>(false);
@@ -247,7 +271,7 @@ const usersStore = useUsersStore();
 const configStore = useConfigStore();
 
 const notify = useNotify();
-const { isTrialExpirationBanner, isUserProjectOwner, isExpired } = useTrialCheck();
+const { isTrialExpirationBanner, isUserProjectOwner, isExpired } = usePreCheck();
 
 /**
  * Whether the new no-limits UI is enabled.
@@ -269,13 +293,26 @@ const project = computed<Project>(() => {
 });
 
 /**
+ * Returns whether project deletion is enabled.
+ */
+const deleteProjectEnabled = computed(() => {
+    return configStore.state.config.deleteProjectEnabled;
+});
+
+/**
+ * Returns whether this project is owner by the current user
+ */
+const isProjectOwner = computed(() => {
+    return project.value.ownerId === usersStore.state.user.id;
+});
+
+/**
  * Returns whether this project is owned by the current user
  * or whether they're an admin.
  */
 const isProjectOwnerOrAdmin = computed(() => {
-    const isOwner = project.value.ownerId === usersStore.state.user.id;
     const isAdmin = projectsStore.selectedProjectConfig.role === ProjectRole.Admin;
-    return isOwner || isAdmin;
+    return isProjectOwner.value || isAdmin;
 });
 
 const promptForVersioningBeta = computed<boolean>(() => projectsStore.promptForVersioningBeta);
@@ -286,9 +323,19 @@ const promptForVersioningBeta = computed<boolean>(() => projectsStore.promptForV
 const versioningUIEnabled = computed(() => projectsStore.versioningUIEnabled);
 
 /**
+ * Whether object lock has been enabled for current project.
+ */
+const objectLockUIEnabledForProject = computed(() => projectsStore.objectLockUIEnabledForProject);
+
+/**
+ * whether object lock UI is globally enabled.
+ */
+const objectLockEnabled = computed(() => configStore.objectLockUIEnabled);
+
+/**
  * whether this project has a satellite managed passphrase.
  */
-const hasManagedPassphrase = computed(() => !!projectsStore.state.selectedProjectConfig.passphrase);
+const hasManagedPassphrase = computed(() => projectsStore.state.selectedProjectConfig.hasManagedPassphrase);
 
 /**
  * Indicates if satellite managed encryption passphrase is enabled.

@@ -54,6 +54,7 @@ export class BucketsHttpApi implements BucketsApi {
                 new Bucket(
                     usage.bucketName,
                     getVersioning(usage.versioning),
+                    usage.objectLockEnabled,
                     usage.defaultPlacement,
                     usage.location,
                     usage.storage,
@@ -70,6 +71,47 @@ export class BucketsHttpApi implements BucketsApi {
             result.pageCount,
             result.currentPage,
             result.totalCount,
+        );
+    }
+
+    /**
+     * Fetch single bucket data.
+     *
+     * @returns Bucket
+     * @throws Error
+     */
+    public async getSingle(projectID: string, bucketName: string, before: Date): Promise<Bucket> {
+        const paramsString = new URLSearchParams({
+            projectID,
+            bucket: bucketName,
+            before: before.toISOString(),
+        }).toString();
+
+        const path = `${this.ROOT_PATH}/bucket-totals?${paramsString}`;
+        const response = await this.client.get(path);
+
+        if (!response.ok) {
+            throw new APIError({
+                status: response.status,
+                message: 'Cannot get single bucket data',
+                requestID: response.headers.get('x-request-id'),
+            });
+        }
+
+        const result = await response.json();
+
+        return new Bucket(
+            result.bucketName,
+            getVersioning(result.versioning),
+            result.objectLockEnabled,
+            result.defaultPlacement,
+            result.location,
+            result.storage,
+            result.egress,
+            result.objectCount,
+            result.segmentCount,
+            new Date(result.since),
+            new Date(result.before),
         );
     }
 
@@ -123,6 +165,7 @@ export class BucketsHttpApi implements BucketsApi {
                 bVersioning.placement.defaultPlacement,
                 bVersioning.placement.location,
             ),
+            bVersioning.objectLockEnabled,
         )) || [];
     }
 }

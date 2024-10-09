@@ -8,7 +8,7 @@
         max-width="460px"
         transition="fade-transition"
     >
-        <v-card>
+        <v-card :loading="isLoading">
             <v-card-item class="pa-6">
                 <template #prepend>
                     <v-sheet
@@ -17,7 +17,7 @@
                         height="40"
                         rounded="lg"
                     >
-                        <icon-bucket />
+                        <component :is="ReceiptText" :size="18" />
                     </v-sheet>
                 </template>
 
@@ -39,34 +39,18 @@
 
             <v-divider />
 
-            <v-card-item class="pa-6">
-                <h4>Name</h4>
-                <p class="text-body-2 mb-2">{{ bucket.name }}</p>
-
-                <h4>Files</h4>
-                <p class="text-body-2 mb-2">{{ bucket.objectCount.toLocaleString() }}</p>
-
-                <h4>Segments</h4>
-                <p class="text-body-2 mb-2">{{ bucket.segmentCount.toLocaleString() }}</p>
-
-                <h4>Storage</h4>
-                <p class="text-body-2 mb-2">{{ bucket.storage.toFixed(2) + 'GB' }}</p>
-
-                <div v-if="showRegionTag">
-                    <h4>Location</h4>
-                    <p class="text-body-2 mb-2">{{ bucket.location || `unknown(${bucket.defaultPlacement})` }}</p>
-                </div>
-
-                <div v-if="versioningUIEnabled">
-                    <h4>Versioning</h4>
-                    <p class="text-body-2 mb-2">{{ bucket.versioning }}</p>
-                </div>
-
-                <h4>Date Created</h4>
-                <p class="text-body-2 mb-2">{{ bucket.since.toUTCString() }}</p>
-
-                <h4>Last Updated</h4>
-                <p class="text-body-2">{{ bucket.before.toUTCString() }}</p>
+            <v-card-item>
+                <v-list lines="one">
+                    <v-list-item title="Name" :subtitle="bucket.name" class="px-0" />
+                    <v-list-item title="Objects" :subtitle="bucket.objectCount.toLocaleString()" class="px-0" />
+                    <v-list-item title="Segments" :subtitle="bucket.segmentCount.toLocaleString()" class="px-0" />
+                    <v-list-item title="Storage" :subtitle="bucket.storage.toFixed(2) + 'GB'" class="px-0" />
+                    <v-list-item v-if="showRegionTag" title="Location" :subtitle="bucket.location || `unknown(${bucket.defaultPlacement})`" class="px-0" />
+                    <v-list-item v-if="versioningUIEnabled" title="Versioning" :subtitle="bucket.versioning" class="px-0" />
+                    <v-list-item v-if="objectLockUIEnabled" title="Object lock" :subtitle="bucket.objectLockEnabled ? 'Enabled' : 'Disabled'" class="px-0" />
+                    <v-list-item title="Date Created" :subtitle="bucket.since.toUTCString()" class="px-0" />
+                    <v-list-item title="Last Updated" :subtitle="bucket.before.toUTCString()" class="px-0" />
+                </v-list>
             </v-card-item>
 
             <v-divider />
@@ -83,8 +67,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed } from 'vue';
-import { useRouter } from 'vue-router';
+import { computed, ref, watch } from 'vue';
 import {
     VDialog,
     VCard,
@@ -96,20 +79,25 @@ import {
     VCol,
     VBtn,
     VSheet,
+    VList,
+    VListItem,
 } from 'vuetify/components';
-
-import IconBucket from '../icons/IconBucket.vue';
+import { ReceiptText } from 'lucide-vue-next';
 
 import { Bucket } from '@/types/buckets';
 import { useBucketsStore } from '@/store/modules/bucketsStore';
 import { useProjectsStore } from '@/store/modules/projectsStore';
-import { ROUTES } from '@/router';
 import { useConfigStore } from '@/store/modules/configStore';
+import { useNotify } from '@/utils/hooks';
+import { useLoading } from '@/composables/useLoading';
+import { AnalyticsErrorEventSource } from '@/utils/constants/analyticsEventNames';
 
 const bucketsStore = useBucketsStore();
 const configStore = useConfigStore();
 const projectsStore = useProjectsStore();
-const router = useRouter();
+const bucket = ref<Bucket>(new Bucket());
+const notify = useNotify();
+const { isLoading, withLoading } = useLoading();
 
 const props = defineProps<{
     bucketName: string,
@@ -122,30 +110,53 @@ const model = defineModel<boolean>({ required: true });
  */
 const versioningUIEnabled = computed(() => projectsStore.versioningUIEnabled);
 
+/**
+ * Whether object lock UI is enabled.
+ */
+const objectLockUIEnabled = computed<boolean>(() => {
+    return configStore.objectLockUIEnabled
+      && projectsStore.objectLockUIEnabledForProject;
+});
+
 const showRegionTag = computed<boolean>(() => {
     return configStore.state.config.enableRegionTag;
 });
 
-function redirectToBucketsPage(): void {
-    router.push({
-        name: ROUTES.Buckets.name,
-        params: { id: projectsStore.state.selectedProject.urlId },
-    });
-}
-
-const bucket = computed((): Bucket => {
-    if (!projectsStore.state.selectedProject.id) return new Bucket();
+/**
+ * Fetch the bucket data if it's not avaliable
+ */
+async function loadBucketData() {
+    if (!projectsStore.state.selectedProject.id) {
+        bucket.value = new Bucket();
+        return;
+    }
 
     const data = bucketsStore.state.page.buckets.find(
         (bucket: Bucket) => bucket.name === props.bucketName,
     );
 
-    if (!data) {
-        redirectToBucketsPage();
-
-        return new Bucket();
+    if (data) {
+        bucket.value = data;
+    } else {
+        withLoading(async () => {
+            try {
+                bucket.value = await bucketsStore.getSingleBucket(projectsStore.state.selectedProject.id, props.bucketName);
+            } catch (error) {
+                notify.notifyError(error, AnalyticsErrorEventSource.BUCKET_DETAILS_MODAL);
+                bucket.value = new Bucket();
+            }
+        });
     }
 
-    return data;
+}
+
+/**
+ *  Load the bucket data when dialog is opened
+ */
+watch(model, (newValue) => {
+    if (newValue) {
+        loadBucketData();
+    }
 });
+
 </script>

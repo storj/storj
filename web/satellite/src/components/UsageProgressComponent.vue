@@ -46,12 +46,11 @@
 </template>
 
 <script setup lang="ts">
+import { FunctionalComponent, computed } from 'vue';
 import { VCard, VCardItem, VProgressLinear, VRow, VCol, VCardTitle, VTooltip, VIcon } from 'vuetify/components';
-import { Component, computed } from 'vue';
-import { Info } from 'lucide-vue-next';
+import { Info, ArrowDownToLine } from 'lucide-vue-next';
 
 import IconCloud from '@/components/icons/IconCloud.vue';
-import IconArrowDown from '@/components/icons/IconArrowDown.vue';
 import IconGlobe from '@/components/icons/IconGlobe.vue';
 import IconCircleCheck from '@/components/icons/IconCircleCheck.vue';
 import IconBucket from '@/components/icons/IconBucket.vue';
@@ -74,12 +73,12 @@ const emit = defineEmits<{
 }>();
 
 const slots = defineSlots<{
-    extraInfo?: Component;
+    extraInfo?: FunctionalComponent;
 }>();
 
 const iconComponents = {
     cloud: IconCloud,
-    'arrow-down': IconArrowDown,
+    'arrow-down': ArrowDownToLine,
     globe: IconGlobe,
     check: IconCircleCheck,
     bucket: IconBucket,

@@ -18,7 +18,7 @@
                             height="40"
                             rounded="lg"
                         >
-                            <icon-trash />
+                            <component :is="Trash2" :size="18" />
                         </v-sheet>
                     </template>
                     <v-card-title class="font-weight-bold text-error">
@@ -137,6 +137,7 @@ import {
     VSheet,
     VTextField,
 } from 'vuetify/components';
+import { Trash2 } from 'lucide-vue-next';
 
 import { Memory, Size } from '@/utils/bytesSize';
 import { AnalyticsErrorEventSource } from '@/utils/constants/analyticsEventNames';
@@ -150,8 +151,6 @@ import { useNotify } from '@/utils/hooks';
 import { Bucket } from '@/types/buckets';
 import { Versioning } from '@/types/versioning';
 import { UploadingStatus, useObjectBrowserStore } from '@/store/modules/objectBrowserStore';
-
-import IconTrash from '@/components/icons/IconTrash.vue';
 
 const props = defineProps<{
     bucketName: string;
@@ -262,7 +261,7 @@ async function onDelete(): Promise<void> {
             const accessGrant = accessGrantEvent.data.value;
 
             const edgeCredentials: EdgeCredentials = await agStore.getEdgeCredentials(accessGrant);
-            bucketsStore.setEdgeCredentialsForDelete(edgeCredentials);
+            bucketsStore.setEdgeCredentialsForDelete(edgeCredentials, bucket.value?.objectLockEnabled);
             const deleteRequest = bucketsStore.deleteBucket(props.bucketName);
             bucketsStore.handleDeleteBucketRequest(props.bucketName, deleteRequest);
         } catch (error) {

@@ -2,7 +2,7 @@
 // See LICENSE for copying information.
 
 <template>
-    <v-card variant="flat" rounded="lg">
+    <v-card variant="outlined" rounded="lg">
         <div class="h-100 d-flex flex-column justify-space-between">
             <a role="button" class="h-100" @click="previewClicked">
                 <template v-if="previewType === PreviewType.Image">
@@ -47,6 +47,7 @@
                                 :src="item.typeInfo.icon"
                                 :alt="item.typeInfo.title + 'icon'"
                                 :aria-roledescription="item.typeInfo.title + 'icon'"
+                                class="bg-background rounded-xlg"
                                 height="52"
                             >
                             </div>
@@ -74,6 +75,9 @@
                 @preview-click="emit('previewClick', item.browserObject)"
                 @delete-file-click="emit('deleteFileClick', item.browserObject)"
                 @share-click="emit('shareClick', item.browserObject)"
+                @lock-object-click="emit('lockObjectClick', item.browserObject)"
+                @legal-hold-click="emit('legalHoldClick', item.browserObject)"
+                @locked-object-delete="(fullObject) => emit('lockedObjectDelete', fullObject)"
             />
             <v-card-item class="pt-0">
                 <v-card-title>
@@ -93,7 +97,12 @@
 import { computed, ref } from 'vue';
 import { VCard, VCardItem, VCardSubtitle, VCardTitle, VImg, VProgressLinear } from 'vuetify/components';
 
-import { BrowserObject, PreviewCache, useObjectBrowserStore } from '@/store/modules/objectBrowserStore';
+import {
+    BrowserObject,
+    FullBrowserObject,
+    PreviewCache,
+    useObjectBrowserStore,
+} from '@/store/modules/objectBrowserStore';
 import { useBucketsStore } from '@/store/modules/bucketsStore';
 import { EXTENSION_PREVIEW_TYPES, PreviewType } from '@/types/browser';
 import { Time } from '@/utils/time';
@@ -123,6 +132,9 @@ const emit = defineEmits<{
     previewClick: [BrowserObject];
     deleteFileClick: [BrowserObject];
     shareClick: [BrowserObject];
+    lockObjectClick: [BrowserObject];
+    legalHoldClick: [BrowserObject];
+    lockedObjectDelete: [FullBrowserObject];
 }>();
 
 const videoEl = ref<HTMLVideoElement>();
@@ -132,9 +144,7 @@ const videoEl = ref<HTMLVideoElement>();
  */
 const objectPreviewUrl = computed((): string => {
     const cache = cachedObjectPreviewURLs.value.get(encodedFilePath.value);
-    const url = cache?.url;
-    if (!url) return '';
-    return `${url}?view=1`;
+    return cache?.url ?? '';
 });
 
 /**
@@ -145,7 +155,7 @@ const cachedObjectPreviewURLs = computed((): Map<string, PreviewCache> => {
 });
 
 /**
- * Retrieve the encoded filepath.
+ * Retrieve the encoded objectpath.
  */
 const encodedFilePath = computed((): string => {
     return encodeURIComponent(`${bucket.value}/${props.item.browserObject.path}${props.item.browserObject.Key}`);
@@ -174,7 +184,7 @@ const previewType = computed<PreviewType>(() => {
 });
 
 /**
- * Returns files being deleted from store.
+ * Returns objects being deleted from store.
  */
 const filesBeingDeleted = computed((): Set<string> => obStore.state.filesToBeDeleted);
 
@@ -205,7 +215,7 @@ function previewClicked() {
     max-width: 100%;
     max-height: 100%;
     aspect-ratio: 1;
-    object-fit: cover;
+    object-fit: contain;
 }
 
 .absolute {

@@ -33,7 +33,7 @@ export class AnalyticsHttpApi {
                 return;
             }
             console.error('Attempted to notify Satellite that ' + eventName + ' occurred. Got bad response status code: ' + response.status);
-        } catch (error) {
+        } catch {
             console.error('Could not notify satellite about ' + eventName + ' event occurrence (most likely blocked by browser).');
         }
     }
@@ -57,7 +57,7 @@ export class AnalyticsHttpApi {
                 return;
             }
             console.error('Attempted to notify Satellite that ' + eventName + ' occurred. Got bad response status code: ' + response.status);
-        } catch (error) {
+        } catch {
             console.error('Could not notify satellite about ' + eventName + ' event occurrence (most likely blocked by browser).');
         }
     }
@@ -79,7 +79,7 @@ export class AnalyticsHttpApi {
                 return;
             }
             console.error('Attempted to notify Satellite that ' + pageName + ' occurred. Got bad response status code: ' + response.status);
-        } catch (error) {
+        } catch {
             console.error('Could not notify satellite about ' + pageName + ' event occurrence (most likely blocked by browser).');
         }
     }
@@ -92,7 +92,7 @@ export class AnalyticsHttpApi {
                 return;
             }
             console.error('Attempted to notify Satellite that pageview occurred. Got bad response status code: ' + response.status);
-        } catch (error) {
+        } catch {
             console.error('Could not notify satellite about pageview event occurrence (most likely blocked by browser).');
         }
     }
@@ -119,7 +119,7 @@ export class AnalyticsHttpApi {
                 return;
             }
             console.error(`Attempted to notify Satellite that UI error occurred here: ${source}. Got bad response status code: ${response.status}`);
-        } catch (error) {
+        } catch {
             console.error(`Could not notify satellite about UI error here: ${source} (most likely blocked by browser).`);
         }
     }

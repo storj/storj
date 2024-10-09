@@ -16,7 +16,7 @@
                         height="40"
                         rounded="lg"
                     >
-                        <icon-trash />
+                        <component :is="Trash2" :size="18" />
                     </v-sheet>
                 </template>
                 <v-card-title class="font-weight-bold text-capitalize">Delete {{ fileTypes }}</v-card-title>
@@ -63,7 +63,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed, ref, Component, watch } from 'vue';
+import { computed, ref, watch } from 'vue';
 import {
     VDialog,
     VCard,
@@ -77,11 +77,10 @@ import {
     VBtn,
     VChip,
 } from 'vuetify/components';
+import { Trash2 } from 'lucide-vue-next';
 
 import { useBucketsStore } from '@/store/modules/bucketsStore';
 import { BrowserObject, useObjectBrowserStore } from '@/store/modules/objectBrowserStore';
-
-import IconTrash from '@/components/icons/IconTrash.vue';
 
 const props = defineProps<{
     files: BrowserObject[],
@@ -96,7 +95,7 @@ const model = defineModel<boolean>({ required: true });
 const obStore = useObjectBrowserStore();
 const bucketsStore = useBucketsStore();
 
-const innerContent = ref<Component | null>(null);
+const innerContent = ref<VCard | null>(null);
 
 const filePath = computed<string>(() => bucketsStore.state.fileComponentPath);
 
@@ -132,22 +131,22 @@ const isFolder = computed<boolean>(() => {
 });
 
 function onDeleteClick(): void {
-    let deleteRequest: Promise<void>;
+    let deleteRequest: Promise<number>;
     if (props.files.length === 1) {
         deleteRequest = deleteSingleFile(props.files[0]);
     } else if (props.files.length > 1) {
         // multiple files selected in the file browser.
         deleteRequest = obStore.deleteSelected();
     } else return;
-    obStore.handleDeleteObjectRequest(fileCount.value + folderCount.value + versionsCount.value, fileTypes.value, deleteRequest);
+    obStore.handleDeleteObjectRequest(deleteRequest);
     model.value = false;
 }
 
-async function deleteSingleFile(file: BrowserObject): Promise<void> {
+async function deleteSingleFile(file: BrowserObject): Promise<number> {
     if (isFolder.value) {
-        await obStore.deleteFolder(file, filePath.value ? filePath.value + '/' : '', false);
+        return await obStore.deleteFolder(filePath.value ? filePath.value + '/' : '', file);
     } else {
-        await obStore.deleteObject(filePath.value ? filePath.value + '/' : '', file, false, false);
+        return await obStore.deleteObject(filePath.value ? filePath.value + '/' : '', file);
     }
 }
 

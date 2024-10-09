@@ -51,7 +51,7 @@
                                     v-bind="darkProps"
                                     rounded="xl"
                                     :icon="Sun"
-                                    size="small"
+                                    size="x-small"
                                     class="px-4"
                                     aria-label="Toggle Light Theme"
                                     @click="toggleTheme('light')"
@@ -65,7 +65,7 @@
                                     v-bind="lightProps"
                                     rounded="xl"
                                     :icon="MoonStar"
-                                    size="small"
+                                    size="x-small"
                                     class="px-4"
                                     aria-label="Toggle Dark Theme"
                                     @click="toggleTheme('dark')"
@@ -79,7 +79,7 @@
                         v-bind="activatorProps"
                         variant="outlined"
                         color="default"
-                        class="ml-2 ml-sm-3 font-weight-medium"
+                        class="ml-2 ml-sm-3 mr-sm-1 font-weight-medium"
                     >
                         <template #append>
                             <img src="@/assets/icon-dropdown.svg" alt="Account Dropdown">
@@ -130,7 +130,7 @@
                     <template v-if="billingEnabled">
                         <v-list-item v-if="!isPaidTier" link class="my-1" @click="toggleUpgradeFlow">
                             <template #prepend>
-                                <icon-upgrade size="18" />
+                                <component :is="CircleArrowUp" :size="18" />
                             </template>
                             <v-list-item-title class="text-body-2 ml-4">
                                 Upgrade
@@ -140,7 +140,7 @@
 
                     <v-list-item v-if="billingEnabled" link class="my-1" router-link :to="billingPath" @click="closeSideNav">
                         <template #prepend>
-                            <icon-card size="18" />
+                            <component :is="CreditCard" :size="18" />
                         </template>
                         <v-list-item-title class="text-body-2 ml-4">
                             Billing
@@ -149,7 +149,7 @@
 
                     <v-list-item link class="my-1" router-link :to="settingsPath" @click="closeSideNav">
                         <template #prepend>
-                            <icon-settings size="18" />
+                            <component :is="Settings2" :size="18" />
                         </template>
                         <v-list-item-title class="text-body-2 ml-4">
                             Settings
@@ -157,7 +157,7 @@
                     </v-list-item>
                     <v-list-item link @click="onLogout">
                         <template #prepend>
-                            <icon-logout size="18" />
+                            <component :is="LogOut" :size="18" />
                         </template>
                         <v-list-item-title class="text-body-2 ml-4">
                             Sign Out
@@ -190,7 +190,14 @@ import {
     VChip,
     VProgressLinear,
 } from 'vuetify/components';
-import { MoonStar, Sun } from 'lucide-vue-next';
+import {
+    MoonStar,
+    Sun,
+    Settings2,
+    CreditCard,
+    CircleArrowUp,
+    LogOut,
+} from 'lucide-vue-next';
 
 import { useAppStore } from '@/store/modules/appStore';
 import { useNotify } from '@/utils/hooks';
@@ -200,10 +207,6 @@ import { ROUTES } from '@/router';
 import { User } from '@/types/users';
 import { useLogout } from '@/composables/useLogout';
 
-import IconCard from '@/components/icons/IconCard.vue';
-import IconUpgrade from '@/components/icons/IconUpgrade.vue';
-import IconSettings from '@/components/icons/IconSettings.vue';
-import IconLogout from '@/components/icons/IconLogout.vue';
 import IconSatellite from '@/components/icons/IconSatellite.vue';
 import AccountSetupDialog from '@/components/dialogs/AccountSetupDialog.vue';
 

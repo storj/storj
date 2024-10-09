@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"math/rand"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/require"
 	"github.com/zeebo/errs"
@@ -17,6 +18,7 @@ import (
 	"storj.io/common/memory"
 	"storj.io/common/testcontext"
 	"storj.io/common/testrand"
+	"storj.io/common/uuid"
 	"storj.io/storj/private/testplanet"
 	"storj.io/storj/satellite"
 	"storj.io/storj/satellite/console"
@@ -148,7 +150,7 @@ func updateProjectLimits(ctx context.Context, db console.Projects, p *console.Pr
 
 func TestAccountBillingFreeze(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
-		SatelliteCount: 1,
+		SatelliteCount: 1, EnableSpanner: true,
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 		sat := planet.Satellites[0]
 		usersDB := sat.DB.Console().Users()
@@ -217,7 +219,7 @@ func TestAccountBillingFreeze(t *testing.T) {
 		require.NotNil(t, freezes.BillingFreeze)
 		require.Equal(t, &billingFreezeGracePeriod, freezes.BillingFreeze.DaysTillEscalation)
 
-		err = service.EscalateBillingFreeze(ctx, user.ID, *freezes.BillingFreeze)
+		err = service.EscalateFreezeEvent(ctx, user.ID, *freezes.BillingFreeze)
 		require.NoError(t, err)
 
 		freezes, err = service.GetAll(ctx, user.ID)
@@ -233,7 +235,7 @@ func TestAccountBillingFreeze(t *testing.T) {
 
 func TestAccountBillingUnFreeze(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
-		SatelliteCount: 1,
+		SatelliteCount: 1, EnableSpanner: true,
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 		sat := planet.Satellites[0]
 		usersDB := sat.DB.Console().Users()
@@ -285,7 +287,7 @@ func TestAccountBillingUnFreeze(t *testing.T) {
 
 func TestAccountViolationFreeze(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
-		SatelliteCount: 1,
+		SatelliteCount: 1, EnableSpanner: true,
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 		sat := planet.Satellites[0]
 		usersDB := sat.DB.Console().Users()
@@ -391,7 +393,7 @@ func TestAccountViolationFreeze(t *testing.T) {
 
 func TestAccountLegalFreeze(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
-		SatelliteCount: 1,
+		SatelliteCount: 1, EnableSpanner: true,
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 		sat := planet.Satellites[0]
 		usersDB := sat.DB.Console().Users()
@@ -499,7 +501,7 @@ func TestAccountLegalFreeze(t *testing.T) {
 
 func TestRemoveAccountBillingWarning(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
-		SatelliteCount: 1,
+		SatelliteCount: 1, EnableSpanner: true,
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 		sat := planet.Satellites[0]
 		service := console.NewAccountFreezeService(sat.DB.Console(), sat.API.Analytics.Service, sat.Config.Console.AccountFreeze)
@@ -564,7 +566,7 @@ func TestRemoveAccountBillingWarning(t *testing.T) {
 
 func TestAccountFreezeAlreadyFrozen(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
-		SatelliteCount: 1,
+		SatelliteCount: 1, EnableSpanner: true,
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 		sat := planet.Satellites[0]
 		usersDB := sat.DB.Console().Users()
@@ -678,7 +680,7 @@ func TestFreezeEffects(t *testing.T) {
 				// disable limit caching
 				config.Metainfo.RateLimiter.CacheCapacity = 0
 			},
-		},
+		}, EnableSpanner: true,
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 		sat := planet.Satellites[0]
 		consoleService := sat.API.Console.Service
@@ -818,9 +820,97 @@ func TestFreezeEffects(t *testing.T) {
 	})
 }
 
+func TestGetDaysTillEscalation(t *testing.T) {
+	testplanet.Run(t, testplanet.Config{
+		SatelliteCount: 1, StorageNodeCount: 2, UplinkCount: 2,
+		Reconfigure: testplanet.Reconfigure{
+			Satellite: func(log *zap.Logger, index int, config *satellite.Config) {
+				config.AccountFreeze.Enabled = true
+				config.Console.AccountFreeze.BillingWarnGracePeriod = 384 * time.Hour
+				config.Console.AccountFreeze.TrialExpirationFreezeGracePeriod = 384 * time.Hour
+			},
+		},
+	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+		sat := planet.Satellites[0]
+		consoleService := sat.API.Console.Service
+		freezeService := console.NewAccountFreezeService(sat.DB.Console(), sat.API.Analytics.Service, sat.Config.Console.AccountFreeze)
+
+		uplink1 := planet.Uplinks[0]
+		user1, _, err := consoleService.GetUserByEmailWithUnverified(ctx, uplink1.User[sat.ID()].Email)
+		require.NoError(t, err)
+
+		gracePeriod := sat.Config.Console.AccountFreeze.BillingWarnGracePeriod
+		gracePeriodDays := int(gracePeriod.Hours() / 24)
+
+		require.NoError(t, freezeService.BillingWarnUser(ctx, user1.ID))
+
+		now := time.Now()
+
+		freezes, err := freezeService.GetAll(ctx, user1.ID)
+		require.NoError(t, err)
+		require.NotNil(t, freezes.BillingWarning)
+		require.Equal(t, gracePeriodDays, *freezes.BillingWarning.DaysTillEscalation)
+
+		days := freezeService.GetDaysTillEscalation(*freezes.BillingWarning, now)
+		require.NotNil(t, days)
+		require.Equal(t, gracePeriodDays, *days)
+
+		freezes.BillingWarning.DaysTillEscalation = nil
+		freezes.BillingWarning, err = sat.DB.Console().AccountFreezeEvents().Upsert(ctx, freezes.BillingWarning)
+		require.NoError(t, err)
+
+		days = freezeService.GetDaysTillEscalation(*freezes.BillingWarning, now)
+		require.Nil(t, days)
+
+		gracePeriod = sat.Config.Console.AccountFreeze.TrialExpirationFreezeGracePeriod
+		gracePeriodDays = int(gracePeriod.Hours() / 24)
+
+		require.NoError(t, freezeService.TrialExpirationFreezeUser(ctx, user1.ID))
+
+		now = time.Now()
+		midFuture := now.Add(gracePeriod / 2)
+		future := now.Add(gracePeriod).Add(time.Hour)
+
+		freezes, err = freezeService.GetAll(ctx, user1.ID)
+		require.NoError(t, err)
+		require.NotNil(t, freezes.TrialExpirationFreeze)
+		require.Equal(t, gracePeriodDays, *freezes.TrialExpirationFreeze.DaysTillEscalation)
+
+		days = freezeService.GetDaysTillEscalation(*freezes.TrialExpirationFreeze, now)
+		require.NotNil(t, days)
+		require.Equal(t, gracePeriodDays, *days)
+
+		days = freezeService.GetDaysTillEscalation(*freezes.TrialExpirationFreeze, midFuture)
+		require.NotNil(t, days)
+		require.InDelta(t, gracePeriodDays/2, *days, 1)
+
+		days = freezeService.GetDaysTillEscalation(*freezes.TrialExpirationFreeze, future)
+		require.NotNil(t, days)
+		require.Equal(t, 0, *days)
+
+		// Test for trial expiration frozen users with no days till escalation set.
+		// This is for users frozen before this change.
+		freezes.TrialExpirationFreeze.DaysTillEscalation = nil
+		freezes.TrialExpirationFreeze, err = sat.DB.Console().AccountFreezeEvents().Upsert(ctx, freezes.TrialExpirationFreeze)
+		require.NoError(t, err)
+
+		days = freezeService.GetDaysTillEscalation(*freezes.TrialExpirationFreeze, now)
+		require.NotNil(t, days)
+		require.Equal(t, gracePeriodDays, *days)
+
+		days = freezeService.GetDaysTillEscalation(*freezes.TrialExpirationFreeze, midFuture)
+		require.NotNil(t, days)
+		require.InDelta(t, gracePeriodDays/2, *days, 1)
+
+		days = freezeService.GetDaysTillEscalation(*freezes.TrialExpirationFreeze, future)
+		require.NotNil(t, days)
+		require.Equal(t, 0, *days)
+	})
+}
+
 func TestAccountBotFreezeUnfreeze(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
-		SatelliteCount: 1,
+		SatelliteCount: 1, EnableSpanner: true,
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 		sat := planet.Satellites[0]
 		usersDB := sat.DB.Console().Users()
@@ -910,7 +1000,7 @@ func TestAccountBotFreezeUnfreeze(t *testing.T) {
 
 func TestTrailExpirationFreeze(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
-		SatelliteCount: 1,
+		SatelliteCount: 1, EnableSpanner: true,
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 		sat := planet.Satellites[0]
 		usersDB := sat.DB.Console().Users()
@@ -976,6 +1066,111 @@ func TestTrailExpirationFreeze(t *testing.T) {
 		proj, err = projectsDB.Get(ctx, proj.ID)
 		require.NoError(t, err)
 		require.Equal(t, projLimits, getProjectLimits(proj))
+	})
+}
+
+func TestGetTrialExpirationFreezesToEscalate(t *testing.T) {
+	testplanet.Run(t, testplanet.Config{
+		SatelliteCount: 1, EnableSpanner: true,
+	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+		sat := planet.Satellites[0]
+		usersRepo := sat.DB.Console().Users()
+		accountFreezeRepo := sat.DB.Console().AccountFreezeEvents()
+
+		now := time.Now()
+		expired := now.Add(-time.Hour)
+		notExpired := now.Add(time.Hour)
+
+		uuids := []string{
+			"00000000-0000-0000-0000-000000000001",
+			"00000000-0000-0000-0000-000000000002",
+		}
+
+		for _, id := range uuids {
+			uid, err := uuid.FromString(id)
+			require.NoError(t, err)
+
+			u, err := usersRepo.Insert(ctx, &console.User{
+				ID:              uid,
+				FullName:        "expired",
+				Email:           email + "1",
+				PasswordHash:    []byte("123a123"),
+				TrialExpiration: &expired,
+			})
+			require.NoError(t, err)
+			_, err = accountFreezeRepo.Upsert(ctx, &console.AccountFreezeEvent{
+				UserID: u.ID,
+				Type:   console.TrialExpirationFreeze,
+			})
+			require.NoError(t, err)
+		}
+
+		expiredUser3, err := usersRepo.Insert(ctx, &console.User{
+			ID:              testrand.UUID(),
+			FullName:        "escalated",
+			Email:           email + "2",
+			PasswordHash:    []byte("123a123"),
+			Status:          console.PendingDeletion,
+			TrialExpiration: &expired,
+		})
+		require.NoError(t, err)
+
+		pendingDeletion := console.PendingDeletion
+		err = usersRepo.Update(ctx, expiredUser3.ID, console.UpdateUserRequest{
+			Status: &pendingDeletion,
+		})
+		require.NoError(t, err)
+
+		_, err = accountFreezeRepo.Upsert(ctx, &console.AccountFreezeEvent{
+			UserID: expiredUser3.ID,
+			Type:   console.TrialExpirationFreeze,
+		})
+		require.NoError(t, err)
+
+		_, err = usersRepo.Insert(ctx, &console.User{
+			ID:              testrand.UUID(),
+			FullName:        "not expired",
+			Email:           email + "2",
+			PasswordHash:    []byte("123a123"),
+			TrialExpiration: &notExpired,
+		})
+		require.NoError(t, err)
+
+		limit := 1
+		var next *console.FreezeEventsByEventAndUserStatusCursor
+		events, next, err := accountFreezeRepo.GetTrialExpirationFreezesToEscalate(ctx, limit, next)
+		require.NoError(t, err)
+		require.Len(t, events, 1, "expected 1 expired user")
+		require.Equal(t, uuids[0], events[0].UserID.String())
+		require.NotNil(t, next, "expected next to not be nil")
+
+		events, next, err = accountFreezeRepo.GetTrialExpirationFreezesToEscalate(ctx, limit, next)
+		require.NoError(t, err)
+		require.Len(t, events, 1, "expected 1 expired user")
+		require.Equal(t, uuids[1], events[0].UserID.String())
+		require.NotNil(t, next, "expected next to not be nil")
+
+		events, next, err = accountFreezeRepo.GetTrialExpirationFreezesToEscalate(ctx, limit, next)
+		require.NoError(t, err)
+		require.Len(t, events, 0, "expected 0 expired user")
+		require.Nil(t, next, "expected next to be nil")
+
+		limit = 50
+		events, _, err = accountFreezeRepo.GetTrialExpirationFreezesToEscalate(ctx, limit, next)
+		require.NoError(t, err)
+		require.Len(t, events, len(uuids), fmt.Sprintf("expected %d expired users", len(uuids)))
+		require.Equal(t, uuids[0], events[0].UserID.String())
+		require.Equal(t, uuids[1], events[1].UserID.String())
+
+		err = usersRepo.Update(ctx, events[0].UserID, console.UpdateUserRequest{
+			Status: &pendingDeletion,
+		})
+		require.NoError(t, err)
+
+		events, _, err = accountFreezeRepo.GetTrialExpirationFreezesToEscalate(ctx, limit, nil)
+		require.NoError(t, err)
+		require.Len(t, events, 1, "expected 1 expired user")
+		require.Equal(t, uuids[1], events[0].UserID.String())
 	})
 }
 

@@ -13,7 +13,6 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"storj.io/common/identity/testidentity"
-	"storj.io/common/nodetag"
 	"storj.io/common/pb"
 	"storj.io/common/rpc/rpcpeer"
 	"storj.io/common/rpc/rpcstatus"
@@ -21,6 +20,7 @@ import (
 	"storj.io/common/storj"
 	"storj.io/common/testcontext"
 	"storj.io/storj/private/testplanet"
+	"storj.io/storj/shared/nodetag"
 	"storj.io/storj/storagenode"
 	"storj.io/storj/storagenode/contact"
 )

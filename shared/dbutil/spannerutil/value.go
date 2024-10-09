@@ -59,6 +59,11 @@ func EncodeIntToValue[T constraints.Integer](i T) *structpb.Value {
 	return structpb.NewStringValue(strconv.FormatInt(int64(i), 10))
 }
 
+// EncodeFloat64ToValue encodes any float64 type to what Spanner expects via protobuf.
+func EncodeFloat64ToValue(i float64) *structpb.Value {
+	return structpb.NewNumberValue(i)
+}
+
 // EncodeDateToValue encodes civil.Date type to what Spanner expects via protobuf.
 func EncodeDateToValue(date civil.Date) *structpb.Value {
 	return structpb.NewStringValue(date.String())
@@ -77,6 +82,9 @@ func DateType() *spannerpb.Type { return &spannerpb.Type{Code: spannerpb.TypeCod
 
 // Int64Type is a convenience method to define a Spanner INT64 value.
 func Int64Type() *spannerpb.Type { return &spannerpb.Type{Code: spannerpb.TypeCode_INT64} }
+
+// Float64Type is a convenience method to define a Spanner FLOAT64 value.
+func Float64Type() *spannerpb.Type { return &spannerpb.Type{Code: spannerpb.TypeCode_FLOAT64} }
 
 // StringType is a convenience method to define a Spanner STRING value.
 func StringType() *spannerpb.Type { return &spannerpb.Type{Code: spannerpb.TypeCode_STRING} }

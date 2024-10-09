@@ -15,26 +15,28 @@ import (
 type MetabaseRangeSplitter struct {
 	db *metabase.DB
 
-	asOfSystemInterval time.Duration
-	batchSize          int
+	asOfSystemInterval   time.Duration
+	spannerStaleInterval time.Duration
+	batchSize            int
 }
 
 // MetabaseSegmentProvider implements SegmentProvider.
 type MetabaseSegmentProvider struct {
 	db *metabase.DB
 
-	uuidRange          UUIDRange
-	asOfSystemTime     time.Time
-	asOfSystemInterval time.Duration
-	batchSize          int
+	uuidRange            UUIDRange
+	asOfSystemInterval   time.Duration
+	spannerReadTimestamp time.Time
+	batchSize            int
 }
 
 // NewMetabaseRangeSplitter creates the segment provider.
-func NewMetabaseRangeSplitter(db *metabase.DB, asOfSystemInterval time.Duration, batchSize int) *MetabaseRangeSplitter {
+func NewMetabaseRangeSplitter(db *metabase.DB, asOfSystemInterval time.Duration, spannerStaleInterval time.Duration, batchSize int) *MetabaseRangeSplitter {
 	return &MetabaseRangeSplitter{
-		db:                 db,
-		asOfSystemInterval: asOfSystemInterval,
-		batchSize:          batchSize,
+		db:                   db,
+		asOfSystemInterval:   asOfSystemInterval,
+		spannerStaleInterval: spannerStaleInterval,
+		batchSize:            batchSize,
 	}
 }
 
@@ -45,16 +47,19 @@ func (provider *MetabaseRangeSplitter) CreateRanges(nRanges int, batchSize int) 
 		return nil, err
 	}
 
-	asOfSystemTime := time.Now()
+	spannerReadTimestamp := time.Time{}
+	if provider.spannerStaleInterval > 0 {
+		spannerReadTimestamp = time.Now().Add(-provider.spannerStaleInterval)
+	}
 
 	rangeProviders := []SegmentProvider{}
 	for _, uuidRange := range uuidRanges {
 		rangeProviders = append(rangeProviders, &MetabaseSegmentProvider{
-			db:                 provider.db,
-			uuidRange:          uuidRange,
-			asOfSystemTime:     asOfSystemTime,
-			asOfSystemInterval: provider.asOfSystemInterval,
-			batchSize:          batchSize,
+			db:                   provider.db,
+			uuidRange:            uuidRange,
+			asOfSystemInterval:   provider.asOfSystemInterval,
+			spannerReadTimestamp: spannerReadTimestamp,
+			batchSize:            batchSize,
 		})
 	}
 
@@ -79,11 +84,11 @@ func (provider *MetabaseSegmentProvider) Iterate(ctx context.Context, fn func([]
 	}
 
 	return provider.db.IterateLoopSegments(ctx, metabase.IterateLoopSegments{
-		BatchSize:          provider.batchSize,
-		AsOfSystemTime:     provider.asOfSystemTime,
-		AsOfSystemInterval: provider.asOfSystemInterval,
-		StartStreamID:      startStreamID,
-		EndStreamID:        endStreamID,
+		BatchSize:            provider.batchSize,
+		AsOfSystemInterval:   provider.asOfSystemInterval,
+		StartStreamID:        startStreamID,
+		EndStreamID:          endStreamID,
+		SpannerReadTimestamp: provider.spannerReadTimestamp,
 	}, func(ctx context.Context, iterator metabase.LoopSegmentsIterator) error {
 		segments := make([]Segment, 0, provider.batchSize)
 

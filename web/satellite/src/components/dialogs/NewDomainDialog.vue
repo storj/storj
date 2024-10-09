@@ -237,7 +237,7 @@ const isGenerating = ref<boolean>(false);
  */
 const isPromptForPassphrase = computed<boolean>(() => bucketsStore.state.promptForPassphrase);
 
-const hasManagedPassphrase = computed<boolean>(() => !!projectsStore.state.selectedProjectConfig.passphrase);
+const hasManagedPassphrase = computed<boolean>(() => projectsStore.state.selectedProjectConfig.hasManagedPassphrase);
 
 const stepInfos: Record<NewDomainFlowStep, StepInfo> = {
     [NewDomainFlowStep.CustomDomain]: new StepInfo(

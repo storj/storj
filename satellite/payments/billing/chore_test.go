@@ -10,6 +10,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/google/go-cmp/cmp"
+	"github.com/google/go-cmp/cmp/cmpopts"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"github.com/stripe/stripe-go/v75"
@@ -59,14 +61,36 @@ func TestChore(t *testing.T) {
 
 		actualTXs, err := db.List(ctx, userID)
 		require.NoError(t, err)
-		for i := 0; i < len(expectedTXs) && i < len(actualTXs); i++ {
-			assertTxEqual(t, expectedTXs[i], actualTXs[i], "unexpected transaction at index %d", i)
+
+		for _, actualTX := range actualTXs {
+			assert.NotZero(t, actualTX.ID, "ID from the database should not be zero")
+			assert.NotZero(t, actualTX.CreatedAt, "CreatedAt from the database should not be zero")
 		}
-		for i := len(expectedTXs); i < len(actualTXs); i++ {
-			assert.Fail(t, "extra unexpected transaction", "index=%d tx=%+v", i, actualTXs[i])
+
+		// Spanner may retry the billing transaction inserts, without changing the data values to be inserted, so the order the
+		// billing transactions are retrieved by tx timestamp might differ than the order they were sent to be inserted.
+		// e.g. billing transaction A and billing transaction B have the same TxTimestamp as set by the test and are called
+		// by the dbx Create method first with A and then B; however, especially with the emulator, A may be retried while B is not,
+		// so the insertion into the database happens for B before A. When listing billing transactions by TxTimestamp, B may then be
+		// returned by the database before A. Logically, the order should not matter, so compare billing transactions by looking up
+		// their unique properties rather than relying on the exact (indeterminate) insertion and retrieval order.
+		for i := len(expectedTXs) - 1; i >= 0; i-- {
+			for j := 0; j < len(actualTXs); j++ {
+				if transactionsAreEqual(expectedTXs[i], actualTXs[j]) {
+					expectedTXs[i] = expectedTXs[len(expectedTXs)-1]
+					expectedTXs = expectedTXs[:len(expectedTXs)-1]
+					actualTXs = append(actualTXs[:j], actualTXs[j+1:]...)
+					break
+				}
+			}
 		}
-		for i := len(actualTXs); i < len(expectedTXs); i++ {
-			assert.Fail(t, "missing expected transaction", "index=%d tx=%+v", i, expectedTXs[i])
+
+		for _, missingTX := range expectedTXs {
+			assert.Fail(t, "missing expected transaction", "tx=%+v", missingTX)
+		}
+		unexpectedTXs := actualTXs
+		for _, unexpectedTX := range unexpectedTXs {
+			assert.Fail(t, "extra unexpected transaction", "tx=%+v", unexpectedTX)
 		}
 	}
 
@@ -77,7 +101,14 @@ func TestChore(t *testing.T) {
 		assert.Equal(t, expected, actual, "unexpected balance for user %s (%q)", userID, names[userID])
 	}
 
-	runTest := func(ctx *testcontext.Context, t *testing.T, consoleDB console.DB, db billing.TransactionsDB, bonusRate int64, mikeTXs, joeTXs, robertTXs []billing.Transaction, mikeBalance, joeBalance, robertBalance currency.Amount, usageLimitsConfig console.UsageLimitsConfig, userBalanceForUpgrade int64, freezeService *console.AccountFreezeService, analyticsService *analytics.Service) {
+	runTest := func(ctx *testcontext.Context, t *testing.T, consoleDB console.DB, db billing.TransactionsDB, bonusRate int64,
+		mikeTXs, joeTXs, robertTXs []billing.Transaction,
+		mikeBalance, joeBalance, robertBalance currency.Amount,
+		usageLimitsConfig console.UsageLimitsConfig,
+		userBalanceForUpgrade int64,
+		freezeService *console.AccountFreezeService,
+		analyticsService *analytics.Service,
+	) {
 		paymentTypes := []billing.PaymentType{
 			newFakePaymentType(billing.StorjScanEthereumSource,
 				[]billing.Transaction{mike1, joe1, joe2},
@@ -114,7 +145,7 @@ func TestChore(t *testing.T) {
 
 	t.Run("without StorjScan bonus", func(t *testing.T) {
 		testplanet.Run(t, testplanet.Config{
-			SatelliteCount: 1, StorageNodeCount: 0, UplinkCount: 0,
+			SatelliteCount: 1, StorageNodeCount: 0, UplinkCount: 0, EnableSpanner: true,
 		}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 			sat := planet.Satellites[0]
 			db := sat.DB
@@ -138,7 +169,7 @@ func TestChore(t *testing.T) {
 
 	t.Run("with StorjScan bonus", func(t *testing.T) {
 		testplanet.Run(t, testplanet.Config{
-			SatelliteCount: 1, StorageNodeCount: 0, UplinkCount: 0,
+			SatelliteCount: 1, StorageNodeCount: 0, UplinkCount: 0, EnableSpanner: true,
 		}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 			sat := planet.Satellites[0]
 			db := sat.DB
@@ -163,7 +194,7 @@ func TestChore(t *testing.T) {
 
 func TestChore_UpgradeUserObserver(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
-		SatelliteCount: 1, StorageNodeCount: 0, UplinkCount: 0,
+		SatelliteCount: 1, StorageNodeCount: 0, UplinkCount: 0, EnableSpanner: true,
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 		sat := planet.Satellites[0]
 		db := sat.DB
@@ -313,7 +344,7 @@ func TestChore_UpgradeUserObserver(t *testing.T) {
 
 func TestChore_PayInvoiceObserver(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
-		SatelliteCount: 1, StorageNodeCount: 0, UplinkCount: 0,
+		SatelliteCount: 1, StorageNodeCount: 0, UplinkCount: 0, EnableSpanner: true,
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 		sat := planet.Satellites[0]
 		db := sat.DB
@@ -495,22 +526,20 @@ func (pt *fakePaymentType) GetNewTransactions(_ context.Context, _ string, lastT
 	return txs, nil
 }
 
-func assertTxEqual(t *testing.T, exp, act billing.Transaction, msgAndArgs ...interface{}) {
-	// Assert that the actual transaction has a database id and created at date
-	assert.NotZero(t, act.ID)
-	assert.NotEqual(t, time.Time{}, act.CreatedAt)
-
-	act.ID = 0
-	exp.ID = 0
-	act.CreatedAt = time.Time{}
-	exp.CreatedAt = time.Time{}
+func transactionsAreEqual(expected, actual billing.Transaction) bool {
+	// ignore anything created by the database
+	expected.ID = 0
+	actual.ID = 0
+	expected.CreatedAt = time.Time{}
+	actual.CreatedAt = time.Time{}
 
 	// Do a little hack to patch up the currency on the transactions since
 	// the amount loaded from the database is likely in micro dollars.
-	if exp.Amount.Currency() == currency.USDollars && act.Amount.Currency() == currency.USDollarsMicro {
-		exp.Amount = currency.AmountFromDecimal(
-			exp.Amount.AsDecimal().Truncate(act.Amount.Currency().DecimalPlaces()),
-			act.Amount.Currency())
+	if expected.Amount.Currency() == currency.USDollars && actual.Amount.Currency() == currency.USDollarsMicro {
+		expected.Amount = currency.AmountFromDecimal(
+			expected.Amount.AsDecimal().Truncate(actual.Amount.Currency().DecimalPlaces()),
+			actual.Amount.Currency())
 	}
-	assert.Equal(t, exp, act, msgAndArgs...)
+
+	return cmp.Equal(expected, actual, cmpopts.EquateApproxTime(0))
 }

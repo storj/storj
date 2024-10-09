@@ -28,6 +28,7 @@ pipeline {
                 checkout scm
 
                 sh 'mkdir -p .build'
+                sh 'git restore-mtime'
 
                 // download dependencies
                 sh 'go mod download'
@@ -116,10 +117,16 @@ pipeline {
                     steps {
                         sh 'golangci-lint --config /go/ci/.golangci.yml -j=2 --timeout=4m run'
                         sh 'protolock status'
-                        sh 'go.min vet ./...'
+                        sh 'go vet ./...'
                         dir("testsuite/storjscan") {
                             sh 'go vet ./...'
                         }
+                    }
+                }
+                stage('Storage Node 1.20') {
+                    steps {
+                        sh './scripts/generate-gomod-for-storagenode-go1.20.sh go.mod .build/go.storagenode.mod'
+                        sh 'go.min vet -modfile .build/go.storagenode.mod ./...'
                     }
                 }
             }
@@ -136,15 +143,14 @@ pipeline {
                 STORJ_TEST_LOG_LEVEL = 'info'
                 COVERFLAGS = "${ env.BRANCH_NAME == 'main' ? '-coverprofile=.build/coverprofile -coverpkg=storj.io/storj/private/...,storj.io/storj/satellite/...,storj.io/storj/storagenode/...,storj.io/storj/versioncontrol/...' : ''}"
                 GOEXPERIMENT = 'nocoverageredesign'
-                SPANNER_EMULATOR_HOST= 'localhost:9010'
-                STORJ_TEST_SPANNER = 'spanner://projects/storj-build/instances/test-instance/databases/metabase'
+                STORJ_TEST_SPANNER = 'spanner://localhost:9010/projects/storj-build/instances/test-instance/databases/metabase?emulator'
             }
             steps {
                 sh 'cockroach sql --insecure --host=localhost:26256 -e \'create database testcockroach;\''
                 sh 'cockroach sql --insecure --host=localhost:26257 -e \'create database testcockroach;\''
                 sh 'cockroach sql --insecure --host=localhost:26258 -e \'create database testcockroach;\''
 
-                sh '/usr/local/bin/spanner_gateway -grpc_binary /usr/local/bin/spanner_emulator &'
+                sh '/usr/local/bin/spanner_gateway -grpc_binary $WORKSPACE/scripts/start-spanner-emulator.sh &'
 
                 sh 'gcloud spanner instances create test-instance --config=emulator --description="Test Instance" --nodes=1'
                 sh 'gcloud spanner databases create metabase --instance=test-instance'

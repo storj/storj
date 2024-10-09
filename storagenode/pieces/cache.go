@@ -316,13 +316,23 @@ func (blobs *BlobsUsageCache) Delete(ctx context.Context, blobRef blobstore.Blob
 
 // DeleteWithStorageFormat gets the size of the piece that is going to be deleted then deletes it and
 // updates the space used cache accordingly.
-func (blobs *BlobsUsageCache) DeleteWithStorageFormat(ctx context.Context, ref blobstore.BlobRef, formatVer blobstore.FormatVersion) error {
-	pieceTotal, pieceContentSize, err := blobs.pieceSizes(ctx, ref)
-	if err != nil {
-		return Error.Wrap(err)
+func (blobs *BlobsUsageCache) DeleteWithStorageFormat(ctx context.Context, ref blobstore.BlobRef, formatVer blobstore.FormatVersion, sizeHint int64) error {
+	var pieceTotal int64
+	var pieceContentSize int64
+	if sizeHint != 0 {
+		pieceTotal = sizeHint
+		if formatVer >= filestore.FormatV1 {
+			pieceContentSize = sizeHint - V1PieceHeaderReservedArea
+		}
+	} else {
+		var err error
+		pieceTotal, pieceContentSize, err = blobs.pieceSizes(ctx, ref)
+		if err != nil {
+			return Error.Wrap(err)
+		}
 	}
 
-	if err := blobs.Blobs.DeleteWithStorageFormat(ctx, ref, formatVer); err != nil {
+	if err := blobs.Blobs.DeleteWithStorageFormat(ctx, ref, formatVer, sizeHint); err != nil {
 		return Error.Wrap(err)
 	}
 
@@ -484,6 +494,7 @@ func (blobs *BlobsUsageCache) DeleteNamespace(ctx context.Context, namespace []b
 	}
 
 	blobs.Update(ctx, satelliteID, -piecesTotal, -piecesContentSize, 0)
+
 	return nil
 }
 

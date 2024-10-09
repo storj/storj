@@ -4,11 +4,11 @@
 <template>
     <v-container>
         <v-row justify="center">
-            <v-col class="text-center pt-10 pb-7">
+            <v-col class="text-center py-4">
                 <icon-business />
-                <div class="text-overline mt-2 mb-1">
+                <p class="text-overline mt-2 mb-1">
                     Business Account
-                </div>
+                </p>
                 <h2 class="pb-3">Experience Storj for your business</h2>
                 <p>Tell us a bit about yourself and the company.</p>
             </v-col>

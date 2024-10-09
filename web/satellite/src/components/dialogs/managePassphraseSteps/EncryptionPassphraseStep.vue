@@ -5,7 +5,7 @@
     <div class="pa-6">
         <v-row>
             <v-col cols="12">
-                The encryption passphrase will be used to encrypt the files you upload in this project.
+                The encryption passphrase will be used to encrypt the objects you upload in this project.
                 You can generate a new encryption passphrase, or enter your own.
             </v-col>
             <v-col cols="12">

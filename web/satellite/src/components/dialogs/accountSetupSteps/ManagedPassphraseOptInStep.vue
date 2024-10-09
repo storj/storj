@@ -6,10 +6,10 @@
         <v-row justify="center">
             <v-col class="text-center py-4">
                 <img height="50" width="50" src="@/assets/icon-change-password.svg" alt="Change password">
-                <div class="text-overline mt-2 mb-1">
+                <p class="text-overline mt-2 mb-1">
                     Project Encryption
-                </div>
-                <h2>Choose the encryption method for your data</h2>
+                </p>
+                <h2>Choose how to manage the encryption for your data.</h2>
             </v-col>
         </v-row>
 
@@ -17,11 +17,11 @@
             <v-col cols="12" sm="10" md="6" lg="4">
                 <v-card variant="outlined" rounded="xlg" class="h-100">
                     <div class="d-flex flex-column justify-space-between pa-6">
-                        <h3 class="font-weight-black">Automatic</h3>
+                        <h3 class="font-weight-black">Automatic <v-chip size="x-small" variant="outlined" color="secondary" class="ml-1 mb-1 font-weight-bold">Standard</v-chip></h3>
                         <p>Storj securely manages the encryption and decryption of your project automatically.</p>
                         <p>
-                            <v-chip rounded="md" class="text-caption mt-2 mb-4 font-weight-medium" color="secondary" variant="tonal" size="small">
-                                Recommended for most users and teams
+                            <v-chip rounded="md" class="text-caption mt-2 mb-3 font-weight-medium" color="secondary" variant="tonal" size="small">
+                                Recommended for ease of use and teams
                             </v-chip>
                         </p>
 
@@ -33,7 +33,7 @@
 
                         <p class="text-body-2 my-2">
                             <b>Easy team management</b><br>
-                            The team members you invite will automatically have access to your project's data.
+                            Team members you invite will automatically have access to your project's data.
                         </p>
 
                         <p class="text-body-2 my-2">
@@ -58,17 +58,17 @@
             <v-col cols="12" sm="10" md="6" lg="4">
                 <v-card variant="outlined" rounded="xlg" class="h-100">
                     <div class="d-flex flex-column justify-space-between pa-6">
-                        <h3 class="font-weight-black primary">Manual</h3>
+                        <h3 class="font-weight-black primary">Self-managed <v-chip size="x-small" variant="outlined" class="ml-1 mb-1 font-weight-bold">Advanced</v-chip></h3>
                         <p>You are responsible for securely managing your own data encryption passphrase.</p>
                         <p>
-                            <v-chip rounded="md" class="text-caption mt-2 mb-4 font-weight-medium" color="secondary" size="small" variant="tonal">
+                            <v-chip rounded="md" class="text-caption mt-2 mb-3 font-weight-medium" color="secondary" size="small" variant="tonal">
                                 Best for control over your data encryption
                             </v-chip>
                         </p>
 
                         <p class="text-body-2 my-2">
                             <b>Passphrase experience</b><br>
-                            You will need to enter your passphrase each time you access your data.
+                            You need to enter your passphrase each time you access your data.
                             If you forget the passphrase, you can't recover your data.
                         </p>
 
@@ -84,11 +84,12 @@
                         <v-btn
                             :disabled="selectedMode !== 'manual' && loading"
                             :loading="selectedMode === 'manual' && loading"
+                            variant="outlined"
                             color="secondary"
                             class="mt-4"
                             @click="onModeChosen('manual')"
                         >
-                            Manual
+                            Self-managed
                             <template #append>
                                 <v-icon :icon="ArrowRight" />
                             </template>
@@ -103,7 +104,7 @@
 <script setup lang="ts">
 import { VBtn, VCard, VChip, VCol, VContainer, VIcon, VRow } from 'vuetify/components';
 import { ref } from 'vue';
-import { ArrowRight, ChevronLeft } from 'lucide-vue-next';
+import { ArrowRight } from 'lucide-vue-next';
 
 import { useProjectsStore } from '@/store/modules/projectsStore';
 import { useUsersStore } from '@/store/modules/usersStore';

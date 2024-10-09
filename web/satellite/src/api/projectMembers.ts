@@ -43,7 +43,7 @@ export class ProjectMembersHttpApi implements ProjectMembersApi {
      * @param cursor for pagination
      */
     public async get(projectId: string, cursor: ProjectMemberCursor): Promise<ProjectMembersPage> {
-        const path = `${this.ROOT_PATH}/${projectId}/members?limit=${cursor.limit}&page=${cursor.page}&order=${cursor.page}&order-direction=${cursor.orderDirection}&search=${cursor.search}`;
+        const path = `${this.ROOT_PATH}/${projectId}/members?limit=${cursor.limit}&page=${cursor.page}&order=${cursor.order}&order-direction=${cursor.orderDirection}&search=${cursor.search}`;
         const response = await this.http.get(path);
         const result = await response.json();
         if (!response.ok) {

@@ -9,7 +9,7 @@
                 <template v-if="pathBeforeAccountPage">
                     <navigation-item class="pa-4" title="Back" :to="pathBeforeAccountPage">
                         <template #prepend>
-                            <icon-circle-left />
+                            <component :is="ArrowLeft" :size="18" />
                         </template>
                     </navigation-item>
 
@@ -19,7 +19,7 @@
                 <!-- All Projects -->
                 <navigation-item title="All Projects" subtitle="Dashboard" :to="ROUTES.Projects.path" class="py-4" @click="closeDrawer">
                     <template #prepend>
-                        <icon-all-projects />
+                        <component :is="Layers" :size="18" />
                     </template>
                 </navigation-item>
 
@@ -31,7 +31,7 @@
 
                 <v-list-item v-if="!isPaidTier && billingEnabled" link lines="one" class="my-1 py-2" tabindex="0" @click="toggleUpgradeFlow" @keydown.space.prevent="toggleUpgradeFlow">
                     <template #prepend>
-                        <icon-upgrade size="18" />
+                        <component :is="CircleArrowUp" :size="18" />
                     </template>
                     <v-list-item-title class="ml-4">Upgrade</v-list-item-title>
                 </v-list-item>
@@ -39,14 +39,14 @@
                 <!-- Account Billing -->
                 <navigation-item v-if="billingEnabled" title="Billing" :to="ROUTES.Account.with(ROUTES.Billing).path" class="py-2">
                     <template #prepend>
-                        <icon-card />
+                        <component :is="CreditCard" :size="18" />
                     </template>
                 </navigation-item>
 
                 <!-- Account Settings -->
                 <navigation-item title="Settings" :to="ROUTES.Account.with(ROUTES.AccountSettings).path" class="py-2">
                     <template #prepend>
-                        <icon-settings />
+                        <component :is="Settings2" :size="18" />
                     </template>
                 </navigation-item>
 
@@ -56,7 +56,7 @@
                     <template #activator="{ props: activatorProps }">
                         <navigation-item title="Resources" v-bind="activatorProps">
                             <template #prepend>
-                                <IconResources />
+                                <component :is="BookMarked" :size="18" />
                             </template>
                             <template #append>
                                 <img src="@/assets/icon-right.svg" alt="Resources" width="10">
@@ -73,7 +73,7 @@
                             @click="() => trackViewDocsEvent('https://docs.storj.io/')"
                         >
                             <template #prepend>
-                                <IconDocs />
+                                <component :is="BookOpenText" :size="18" />
                             </template>
                             <v-list-item-title class="mx-4">
                                 Documentation
@@ -91,7 +91,7 @@
                             @click="() => trackViewForumEvent('https://forum.storj.io/')"
                         >
                             <template #prepend>
-                                <IconForum />
+                                <component :is="MessagesSquare" :size="18" />
                             </template>
                             <v-list-item-title class="mx-4">
                                 Community Forum
@@ -109,7 +109,7 @@
                             @click="() => trackViewSupportEvent('https://supportdcs.storj.io/hc/en-us')"
                         >
                             <template #prepend>
-                                <IconSupport />
+                                <component :is="MessageCircleQuestion" :size="18" />
                             </template>
                             <v-list-item-title class="mx-4">
                                 Storj Support
@@ -140,6 +140,17 @@ import {
     VMenu,
 } from 'vuetify/components';
 import { useDisplay } from 'vuetify';
+import {
+    BookMarked,
+    Layers,
+    Settings2,
+    CreditCard,
+    CircleArrowUp,
+    ArrowLeft,
+    MessagesSquare,
+    MessageCircleQuestion,
+    BookOpenText,
+} from 'lucide-vue-next';
 
 import { useAppStore } from '@/store/modules/appStore';
 import { useAnalyticsStore } from '@/store/modules/analyticsStore';
@@ -148,16 +159,7 @@ import { useUsersStore } from '@/store/modules/usersStore.js';
 import { ROUTES } from '@/router';
 import { AnalyticsEvent, PageVisitSource } from '@/utils/constants/analyticsEventNames.js';
 
-import IconCard from '@/components/icons/IconCard.vue';
-import IconSettings from '@/components/icons/IconSettings.vue';
 import NavigationItem from '@/layouts/default/NavigationItem.vue';
-import IconAllProjects from '@/components/icons/IconAllProjects.vue';
-import IconDocs from '@/components/icons/IconDocs.vue';
-import IconForum from '@/components/icons/IconForum.vue';
-import IconSupport from '@/components/icons/IconSupport.vue';
-import IconResources from '@/components/icons/IconResources.vue';
-import IconUpgrade from '@/components/icons/IconUpgrade.vue';
-import IconCircleLeft from '@/components/icons/IconCircleLeft.vue';
 
 const analyticsStore = useAnalyticsStore();
 const appStore = useAppStore();

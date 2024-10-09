@@ -9,9 +9,7 @@ import (
 	"errors"
 	"time"
 
-	"cloud.google.com/go/spanner"
 	"github.com/zeebo/errs"
-	"google.golang.org/protobuf/types/known/structpb"
 
 	"storj.io/common/currency"
 	"storj.io/storj/private/blockchain"
@@ -22,7 +20,6 @@ import (
 	"storj.io/storj/satellite/satellitedb/dbx"
 	"storj.io/storj/shared/dbutil"
 	"storj.io/storj/shared/dbutil/pgutil"
-	"storj.io/storj/shared/dbutil/spannerutil"
 	"storj.io/storj/shared/tagsql"
 )
 
@@ -113,54 +110,45 @@ func (storjscanPayments *storjscanPayments) InsertBatch(ctx context.Context, pay
 			createdAt)
 
 	case dbutil.Spanner:
-
-		storjscanPaymentsValue := spanner.GenericColumnValue{
-			Type: spannerutil.ArrayOf(
-				spannerutil.StructOf(
-					spannerutil.FieldOf("chain_id", spannerutil.Int64Type()),
-					spannerutil.FieldOf("block_hash", spannerutil.BytesType()),
-					spannerutil.FieldOf("block_number", spannerutil.Int64Type()),
-					spannerutil.FieldOf("transaction", spannerutil.BytesType()),
-					spannerutil.FieldOf("log_index", spannerutil.Int64Type()),
-					spannerutil.FieldOf("from_address", spannerutil.BytesType()),
-					spannerutil.FieldOf("to_address", spannerutil.BytesType()),
-					spannerutil.FieldOf("token_value", spannerutil.Int64Type()),
-					spannerutil.FieldOf("usd_value", spannerutil.Int64Type()),
-					spannerutil.FieldOf("status", spannerutil.StringType()),
-					spannerutil.FieldOf("block_timestamp", spannerutil.TimestampType()),
-				),
-			),
+		type payment struct {
+			ChainID        int64
+			BlockHash      []byte
+			BlockNumber    int64
+			Transaction    []byte
+			LogIndex       int64
+			FromAddress    []byte
+			ToAddress      []byte
+			TokenValue     int64
+			USDValue       int64
+			Status         string
+			BlockTimestamp time.Time
 		}
-		storjscanPaymentsValues := make([]*structpb.Value, 0, len(chainIDs))
-		for i := range chainIDs {
-			str := structpb.NewListValue(&structpb.ListValue{
-				Values: []*structpb.Value{
-					spannerutil.EncodeIntToValue(chainIDs[i]),
-					spannerutil.EncodeBytesToValue(blockHashes[i]),
-					spannerutil.EncodeIntToValue(blockNumbers[i]),
-					spannerutil.EncodeBytesToValue(transactions[i]),
-					spannerutil.EncodeIntToValue(logIndexes[i]),
-					spannerutil.EncodeBytesToValue(fromAddresses[i]),
-					spannerutil.EncodeBytesToValue(toAddresses[i]),
-					spannerutil.EncodeIntToValue(tokenValues[i]),
-					spannerutil.EncodeIntToValue(usdValues[i]),
-					spannerutil.EncodeStringToValue(statuses[i]),
-					spannerutil.EncodeTimeToValue(timestamps[i]),
-				},
-			})
-			storjscanPaymentsValues = append(storjscanPaymentsValues, str)
-		}
-		storjscanPaymentsValue.Value = structpb.NewListValue(&structpb.ListValue{Values: storjscanPaymentsValues})
 
-		query = `
+		// TODO(spanner): optimize this by not constructing the intermediate slices.
+		payments := make([]payment, len(chainIDs))
+		for i := range payments {
+			payments[i] = payment{
+				ChainID:        chainIDs[i],
+				BlockHash:      blockHashes[i],
+				BlockNumber:    blockNumbers[i],
+				Transaction:    transactions[i],
+				LogIndex:       int64(logIndexes[i]),
+				FromAddress:    fromAddresses[i],
+				ToAddress:      toAddresses[i],
+				TokenValue:     tokenValues[i],
+				USDValue:       usdValues[i],
+				Status:         statuses[i],
+				BlockTimestamp: timestamps[i],
+			}
+		}
+
+		_, err = storjscanPayments.db.ExecContext(ctx, `
 			INSERT INTO
 			storjscan_payments ( chain_id, block_hash, block_number, transaction, log_index,
 				from_address, to_address, token_value, usd_value, status, block_timestamp, created_at)
-			(SELECT chain_id, block_hash, block_number, transaction, log_index,
-				from_address, to_address, token_value, usd_value, status, block_timestamp, ? FROM UNNEST(?))
-			`
-		_, err = storjscanPayments.db.ExecContext(ctx, query, createdAt, storjscanPaymentsValue)
-
+			(SELECT ChainID, BlockHash, BlockNumber, Transaction, LogIndex,
+				FromAddress, ToAddress, TokenValue, USDValue, Status, BlockTimestamp, ? FROM UNNEST(?))
+		`, createdAt, payments)
 	default:
 		err = errors.New("database implementation not supported")
 	}
@@ -266,26 +254,28 @@ func (storjscanPayments storjscanPayments) ListConfirmed(ctx context.Context, so
 		rows, err = storjscanPayments.db.Query(ctx, storjscanPayments.db.Rebind(query), pgutil.Int8Array(chainIDs), blockNumber, logIndex, payments.PaymentStatusConfirmed)
 	case dbutil.Spanner:
 		query := `SELECT
-		   chain_id,
-		   block_hash,
-		   block_number,
-		   transaction,
-		   log_index,
-		   from_address,
-		   to_address,
-		   token_value,
-		   usd_value,
-		   status,
-		   block_timestamp
-		 FROM
-		   storjscan_payments
-		 WHERE chain_id IN UNNEST (?)
-		  AND (block_number > ? OR (block_number = ? AND log_index > ?))
-		  AND status = ?
-		 ORDER BY
-		   block_number,
-		   log_index`
+			chain_id,
+			block_hash,
+			block_number,
+			transaction,
+			log_index,
+			from_address,
+			to_address,
+			token_value,
+			usd_value,
+			status,
+			block_timestamp
+		FROM
+			storjscan_payments
+		WHERE chain_id IN UNNEST (?)
+			AND (block_number > ? OR (block_number = ? AND log_index > ?))
+			AND status = ?
+		ORDER BY
+			block_number,
+			log_index`
 		rows, err = storjscanPayments.db.Query(ctx, query, chainIDs, blockNumber, blockNumber, logIndex, payments.PaymentStatusConfirmed)
+	default:
+		return nil, Error.New("unsupported database: %v", storjscanPayments.db.impl)
 	}
 	if err != nil {
 		return nil, err

@@ -68,7 +68,7 @@
                                 @click="() => showChangeRoleDialog(item)"
                             >
                                 <template #prepend>
-                                    <icon-member />
+                                    <component :is="UserCog" :size="18" />
                                 </template>
                                 <v-list-item-title class="ml-3 text-body-2 font-weight-medium">
                                     Change Role
@@ -81,8 +81,8 @@
                                 @click="() => onResendOrCopyClick(item.expired, item.email)"
                             >
                                 <template #prepend>
-                                    <icon-upload v-if="item.expired" :size="18" />
-                                    <icon-copy v-else />
+                                    <component :is="Send" v-if="item.expired" :size="18" />
+                                    <component :is="Copy" v-else :size="18" />
                                 </template>
                                 <v-list-item-title class="ml-3 text-body-2 font-weight-medium">
                                     {{ item.expired ? 'Resend Invite' : 'Copy Invite Link' }}
@@ -99,7 +99,7 @@
                                 @click="() => onSingleDelete(item.email)"
                             >
                                 <template #prepend>
-                                    <icon-remove size="16" bold />
+                                    <component :is="UserMinus" :size="18" />
                                 </template>
                                 <v-list-item-title class="ml-3 text-body-2 font-weight-medium">
                                     Remove Member
@@ -145,7 +145,7 @@
                         @click="showDeleteDialog"
                     >
                         <template #prepend>
-                            <icon-remove size="16" bold />
+                            <component :is="UserMinus" :size="18" />
                         </template>
                         Remove
                     </v-btn>
@@ -174,7 +174,14 @@ import {
     VDivider,
 } from 'vuetify/components';
 import { useRouter } from 'vue-router';
-import { Ellipsis, Search } from 'lucide-vue-next';
+import {
+    Ellipsis,
+    Search,
+    Send,
+    Copy,
+    UserMinus,
+    UserCog }
+    from 'lucide-vue-next';
 
 import { Time } from '@/utils/time';
 import { useProjectMembersStore } from '@/store/modules/projectMembersStore';
@@ -192,21 +199,17 @@ import { useAnalyticsStore } from '@/store/modules/analyticsStore';
 import { DEFAULT_PAGE_LIMIT } from '@/types/pagination';
 import { useLoading } from '@/composables/useLoading';
 import { useNotify } from '@/utils/hooks';
-import { SortDirection, tableSizeOptions, MAX_SEARCH_VALUE_LENGTH } from '@/types/common';
+import { SortDirection, tableSizeOptions, MAX_SEARCH_VALUE_LENGTH, DataTableHeader } from '@/types/common';
 import { useUsersStore } from '@/store/modules/usersStore';
 import { useConfigStore } from '@/store/modules/configStore';
 import { ROUTES } from '@/router';
 import { User } from '@/types/users';
 
 import RemoveProjectMemberDialog from '@/components/dialogs/RemoveProjectMemberDialog.vue';
-import IconUpload from '@/components/icons/IconUpload.vue';
-import IconMember from '@/components/icons/IconMember.vue';
-import IconCopy from '@/components/icons/IconCopy.vue';
-import IconRemove from '@/components/icons/IconRemove.vue';
 import ChangeMemberRoleDialog from '@/components/dialogs/ChangeMemberRoleDialog.vue';
 
 type RenderedItem = {
-    id: string,
+    id: string | undefined,
     name: string,
     email: string,
     role: ProjectRole,
@@ -237,14 +240,14 @@ const selectedMembers = ref<string[]>([]);
 const memberToDelete = ref<string>();
 const memberToUpdate = ref<RenderedItem>();
 
-const headers = ref([
+const headers = ref<DataTableHeader[]>([
     {
         title: 'Name',
         align: 'start',
         key: 'name',
     },
     { title: 'Email', key: 'email' },
-    { title: 'Role', key: 'role' },
+    { title: 'Role', key: 'role', sortable: false },
     { title: 'Date Added', key: 'date' },
     { title: '', key: 'actions', sortable: false, width: 0 },
 ]);
@@ -268,11 +271,13 @@ const projectMembers = computed((): RenderedItem[] => {
     const projectMembersToReturn = projectMembers.filter((member) => member.getUserID() !== selectedProject.value.ownerId);
 
     // if the project owner exists, place at the front of the members list
-    projectOwner && projectMembersToReturn.unshift(projectOwner);
+    if (projectOwner) projectMembersToReturn.unshift(projectOwner);
 
-    return projectMembersToReturn.map(member => {
+    return projectMembersToReturn.map<RenderedItem>(member => {
+        const memberID = member.getUserID();
+
         let role = member.getRole();
-        if (member.getUserID() === projectOwner?.getUserID()) {
+        if (memberID && memberID === projectOwner?.getUserID()) {
             role = ProjectRole.Owner;
         } else if (member.isPending()) {
             if ((member as ProjectInvitationItemModel).expired) {
@@ -283,7 +288,7 @@ const projectMembers = computed((): RenderedItem[] => {
         }
 
         return {
-            id: member.getUserID(),
+            id: memberID,
             name: member.getName(),
             email: member.getEmail(),
             role,
@@ -365,7 +370,7 @@ async function onUpdateSortBy(sortBy: {key: keyof ProjectMemberOrderBy, order: k
 
     const sorting = sortBy[0];
 
-    pmStore.setSortingBy(ProjectMemberOrderBy[sorting.key]);
+    pmStore.setSortingBy(ProjectMemberOrderBy[sorting.key.toUpperCase()]);
     pmStore.setSortingDirection(SortDirection[sorting.order]);
 
     await fetch(FIRST_PAGE, cursor.value.limit);
@@ -375,7 +380,11 @@ async function onUpdateSortBy(sortBy: {key: keyof ProjectMemberOrderBy, order: k
  * Handles on invite raw action click logic depending on expiration status.
  */
 async function onResendOrCopyClick(expired: boolean, email: string): Promise<void> {
-    expired ? await resendInvite(email) : await copyInviteLink(email);
+    if (expired) {
+        await resendInvite(email);
+    } else {
+        await copyInviteLink(email);
+    }
 }
 
 /**

@@ -1,6 +1,8 @@
 // Copyright (C) 2019 Storj Labs, Inc.
 // See LICENSE for copying information.
 
+import { computed, ComputedRef, ref } from 'vue';
+
 import { Validator } from '@/utils/validation';
 import { useConfigStore } from '@/store/modules/configStore';
 
@@ -85,6 +87,19 @@ export function tableSizeOptions(itemCount: number, isObjectBrowser = false): {t
     return opts;
 }
 
+export type DataTableHeader = {
+    key: string;
+    title: string;
+    align?: 'start' | 'end' | 'center';
+    sortable?: boolean;
+    width?: number | string;
+}
+
+export type SortItem = {
+    key: string;
+    order?: boolean | 'asc' | 'desc';
+};
+
 export type ValidationRule<T> = string | boolean | ((value: T) => string | boolean);
 
 export function RequiredRule(value: unknown): string | boolean {
@@ -139,4 +154,47 @@ export function getUniqueName(name: string, allNames: string[]): string {
     }
 
     return currName;
+}
+
+export type SetupLocation<T> = undefined | (() => (T | undefined));
+
+export interface SetupStep {
+    setup?: () => void | Promise<void>;
+    validate?: () => boolean;
+}
+
+interface StepInfoData<T> {
+    prev?: SetupLocation<T>,
+    prevText?: string,
+    next?: SetupLocation<T>,
+    nextText?: string,
+    beforeNext?: () => Promise<void>,
+    setup?: () => void | Promise<void>,
+    validate?: () => boolean,
+    noRef?: boolean,
+}
+
+export class StepInfo<T> {
+    public ref = ref<SetupStep>();
+    public prev?: ComputedRef<T | undefined>;
+    public next?: ComputedRef<T | undefined>;
+    public prevText?: string;
+    public nextText?: string;
+    public beforeNext?: () => Promise<void>;
+    public setup?: () => void | Promise<void>;
+    public validate?: () => boolean;
+
+    constructor(data: StepInfoData<T>) {
+        if (!data.noRef) {
+            this.ref = ref<SetupStep>();
+        }
+        this.prev = data.prev ? computed<T | undefined>(data.prev) : undefined;
+        this.next = data.next ? computed<T | undefined>(data.next) : undefined;
+        this.beforeNext = data.beforeNext;
+        this.setup = data.setup;
+        this.validate = data.validate;
+
+        this.prevText = data.prevText ? data.prevText : (!data.prev) ? 'Cancel' : 'Back';
+        this.nextText = data.nextText ? data.nextText : (!data.next) ? 'Done' : 'Next';
+    }
 }

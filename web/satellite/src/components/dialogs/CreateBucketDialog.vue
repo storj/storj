@@ -45,10 +45,10 @@
 
             <v-window v-model="step">
                 <v-window-item :value="CreateStep.Name">
-                    <v-form v-model="formValid" class="pa-6 pb-3" @submit.prevent="createOrNext">
+                    <v-form v-model="formValid" class="pa-6 pb-3" @submit.prevent="toNextStep">
                         <v-row>
                             <v-col>
-                                <p>Buckets are used to store and organize your files. Enter a bucket name using lowercase characters.</p>
+                                <p>Buckets are used to store and organize your objects. Enter a bucket name using lowercase characters.</p>
                                 <v-text-field
                                     id="Bucket Name"
                                     v-model="bucketName"
@@ -68,20 +68,66 @@
                         </v-row>
                     </v-form>
                 </v-window-item>
-                <v-window-item :value="CreateStep.Versioning">
-                    <v-form v-model="versioningValid" class="pa-6">
+
+                <v-window-item :value="CreateStep.ObjectLock">
+                    <v-form v-model="formValid" class="pa-7">
                         <v-row>
                             <v-col>
-                                <p class="font-weight-bold mb-2">Do you want to enable versioning?</p>
-                                <p>Enabling object versioning allows you to preserve, retrieve, and restore previous versions of a file, offering protection against unintentional modifications or deletions.</p>
+                                <p class="font-weight-bold mb-2">Do you need object lock?</p>
+                                <p>Enabling object lock will prevent objects from being deleted or overwritten for a specified period of time.</p>
                                 <v-chip-group
-                                    v-model="enableVersioning"
+                                    v-model="enableObjectLock"
                                     filter
                                     selected-class="font-weight-bold"
                                     class="mt-2 mb-2"
                                     mandatory
                                 >
                                     <v-chip
+                                        variant="outlined"
+                                        filter
+                                        color="default"
+                                        :value="false"
+                                    >
+                                        No
+                                    </v-chip>
+                                    <v-chip
+                                        variant="outlined"
+                                        filter
+                                        color="default"
+                                        :value="true"
+                                    >
+                                        Yes
+                                    </v-chip>
+                                </v-chip-group>
+                                <v-alert v-if="enableObjectLock" variant="tonal" color="default">
+                                    <p class="font-weight-bold text-body-2 mb-1">Enable Object Lock (Compliance Mode)</p>
+                                    <p class="text-subtitle-2">No user, including the project owner can overwrite, delete, or alter object lock settings.</p>
+                                </v-alert>
+                                <v-alert v-else variant="tonal" color="default">
+                                    <p class="font-weight-bold text-body-2 mb-1">Object Lock Disabled (Default)</p>
+                                    <p class="text-subtitle-2">Objects can be deleted or overwritten.</p>
+                                </v-alert>
+                            </v-col>
+                        </v-row>
+                    </v-form>
+                </v-window-item>
+
+                <v-window-item :value="CreateStep.Versioning">
+                    <v-form v-model="formValid" class="pa-6">
+                        <v-row>
+                            <v-col>
+                                <p class="font-weight-bold mb-2">Do you want to enable versioning?</p>
+                                <p>Enabling object versioning allows you to preserve, retrieve, and restore previous versions of an object, offering protection against unintentional modifications or deletions.</p>
+                                <v-chip-group
+                                    v-model="enableVersioning"
+                                    :disabled="enableObjectLock"
+                                    filter
+                                    selected-class="font-weight-bold"
+                                    class="mt-2 mb-2"
+                                    mandatory
+                                >
+                                    <v-chip
+                                        v-if="!enableObjectLock"
                                         variant="outlined"
                                         filter
                                         :value="false"
@@ -97,30 +143,75 @@
                                         Enabled
                                     </v-chip>
                                 </v-chip-group>
+                                <v-alert v-if="enableObjectLock" variant="tonal" color="default" class="mb-3">
+                                    <p class="text-subtitle-2 font-weight-bold">Versioning must be enabled for object lock to work.</p>
+                                </v-alert>
                                 <v-alert v-if="enableVersioning" variant="tonal" color="default">
-                                    <p class="text-subtitle-2">Keep multiple versions of each file in the same bucket. Additional storage costs apply for each version.</p>
+                                    <p class="text-subtitle-2">Keep multiple versions of each object in the same bucket. Additional storage costs apply for each version.</p>
                                 </v-alert>
                                 <v-alert v-else variant="tonal" color="default">
-                                    <p class="text-subtitle-2">Uploading a file with the same name will overwrite the existing file in this bucket.</p>
+                                    <p class="text-subtitle-2">Uploading an object with the same name will overwrite the existing object in this bucket.</p>
                                 </v-alert>
                             </v-col>
                         </v-row>
                     </v-form>
                 </v-window-item>
-                <v-window-item :value="CreateStep.Success">
-                    <div class="pa-7">
-                        <v-row>
-                            <v-col>
-                                <p><strong>Bucket successfully created.</strong></p>
+
+                <v-window-item :value="CreateStep.Confirmation">
+                    <v-row class="pa-7">
+                        <v-col>
+                            <p class="mb-4">You are about to create a new bucket with the following settings:</p>
+                            <p>Name:</p>
+                            <v-chip
+                                variant="tonal"
+                                value="Disabled"
+                                color="default"
+                                class="mt-1 mb-4 font-weight-bold"
+                            >
+                                {{ bucketName }}
+                            </v-chip>
+
+                            <template v-if="objectLockUIEnabled">
+                                <p>Object Lock:</p>
                                 <v-chip
                                     variant="tonal"
                                     value="Disabled"
                                     color="default"
+                                    class="mt-1 mb-4 font-weight-bold"
+                                >
+                                    {{ enableObjectLock ? 'Enabled' : 'Disabled' }}
+                                </v-chip>
+                            </template>
+
+                            <template v-if="versioningUIEnabled">
+                                <p>Versioning:</p>
+                                <v-chip
+                                    variant="tonal"
+                                    value="Disabled"
+                                    color="default"
+                                    class="mt-1 font-weight-bold"
+                                >
+                                    {{ enableVersioning ? 'Enabled' : 'Disabled' }}
+                                </v-chip>
+                            </template>
+                        </v-col>
+                    </v-row>
+                </v-window-item>
+
+                <v-window-item :value="CreateStep.Success">
+                    <div class="pa-7">
+                        <v-row>
+                            <v-col>
+                                <p><strong><v-icon :icon="Check" size="small" /> Bucket successfully created.</strong></p>
+                                <v-chip
+                                    variant="tonal"
+                                    value="Disabled"
+                                    color="primary"
                                     class="my-4 font-weight-bold"
                                 >
                                     {{ bucketName }}
                                 </v-chip>
-                                <p>You can choose to open the bucket and start uploading files, or close this dialog and get back to the buckets page.</p>
+                                <p>You open the bucket and start uploading objects, or close this dialog and get back to view all buckets.</p>
                             </v-col>
                         </v-row>
                     </div>
@@ -131,21 +222,21 @@
             <v-card-actions class="pa-6">
                 <v-row>
                     <v-col>
-                        <v-btn :disabled="isLoading" variant="outlined" color="default" block @click="closeOrBack">
-                            {{ secondaryBtnText }}
+                        <v-btn :disabled="isLoading" variant="outlined" color="default" block @click="toPrevStep">
+                            {{ stepInfos[step].prevText }}
                         </v-btn>
                     </v-col>
                     <v-col>
                         <v-btn
                             :disabled="!formValid"
                             :loading="isLoading"
-                            :append-icon="step === CreateStep.Success ? ArrowRight : undefined"
+                            :append-icon="ArrowRight"
                             color="primary"
                             variant="flat"
                             block
-                            @click="createOrNext"
+                            @click="toNextStep"
                         >
-                            {{ primaryBtnText }}
+                            {{ stepInfos[step].nextText }}
                         </v-btn>
                     </v-col>
                 </v-row>
@@ -155,7 +246,7 @@
 </template>
 
 <script setup lang="ts">
-import { Component, computed, ref, watch } from 'vue';
+import { Component, computed, ref, watch, watchEffect } from 'vue';
 import {
     VAlert,
     VBtn,
@@ -174,8 +265,9 @@ import {
     VTextField,
     VWindow,
     VWindowItem,
+    VIcon,
 } from 'vuetify/components';
-import { ArrowRight } from 'lucide-vue-next';
+import { ArrowRight, Check } from 'lucide-vue-next';
 import { useRouter } from 'vue-router';
 
 import { useLoading } from '@/composables/useLoading';
@@ -188,14 +280,16 @@ import { useBucketsStore } from '@/store/modules/bucketsStore';
 import { LocalData } from '@/utils/localData';
 import { useAnalyticsStore } from '@/store/modules/analyticsStore';
 import { AccessGrant, EdgeCredentials } from '@/types/accessGrants';
-import { ValidationRule } from '@/types/common';
+import { StepInfo, ValidationRule } from '@/types/common';
 import { Versioning } from '@/types/versioning';
 import { ROUTES } from '@/router';
 
 enum CreateStep {
     Name = 1,
-    Versioning = 2,
-    Success = 3,
+    ObjectLock,
+    Versioning,
+    Confirmation,
+    Success,
 }
 
 const { isLoading, withLoading } = useLoading();
@@ -206,6 +300,54 @@ const projectsStore = useProjectsStore();
 const bucketsStore = useBucketsStore();
 const analyticsStore = useAnalyticsStore();
 const configStore = useConfigStore();
+
+const stepInfos = {
+    [CreateStep.Name]: new StepInfo<CreateStep>({
+        prev: undefined,
+        next: () => {
+            if (objectLockUIEnabled.value) return CreateStep.ObjectLock;
+            if (allowVersioningStep.value) return CreateStep.Versioning;
+            return CreateStep.Confirmation;
+        },
+        validate: (): boolean => {
+            return formValid.value;
+        },
+        noRef: true,
+    }),
+    [CreateStep.ObjectLock]: new StepInfo<CreateStep>({
+        prev: () => CreateStep.Name,
+        next: () => {
+            if (allowVersioningStep.value) return CreateStep.Versioning;
+            return CreateStep.Confirmation;
+        },
+        noRef: true,
+    }),
+    [CreateStep.Versioning]: new StepInfo<CreateStep>({
+        prev: () => {
+            if (objectLockUIEnabled.value) return CreateStep.ObjectLock;
+            return CreateStep.Name;
+        },
+
+        next: () => CreateStep.Confirmation,
+        noRef: true,
+    }),
+    [CreateStep.Confirmation]: new StepInfo<CreateStep>({
+        prev: () => {
+            if (allowVersioningStep.value) return CreateStep.Versioning;
+            if (objectLockUIEnabled.value) return CreateStep.ObjectLock;
+            return CreateStep.Name;
+        },
+        beforeNext: onCreate,
+        next: () => CreateStep.Success,
+        nextText: 'Create Bucket',
+        noRef: true,
+    }),
+    [CreateStep.Success]: new StepInfo<CreateStep>({
+        prevText: 'Close',
+        nextText: 'Open Bucket',
+        noRef: true,
+    }),
+};
 
 // Copied from here https://github.com/storj/storj/blob/f6646b0e88700b5e7113a76a8d07bf346b59185a/satellite/metainfo/validation.go#L38
 const ipRegexp = /^(([0-9]|[1-9][0-9]|1[0-9]{2}|2[0-4][0-9]|25[0-5])\.){3}([0-9]|[1-9][0-9]|1[0-9]{2}|2[0-4][0-9]|25[0-5])$/;
@@ -219,8 +361,8 @@ const emit = defineEmits<{
 const step = ref(CreateStep.Name);
 const innerContent = ref<Component | null>(null);
 const formValid = ref<boolean>(false);
-const versioningValid = ref<boolean>(false);
 const enableVersioning = ref<boolean>(false);
+const enableObjectLock = ref<boolean>(false);
 const bucketName = ref<string>('');
 const worker = ref<Worker | null>(null);
 
@@ -241,25 +383,11 @@ const allowVersioningStep = computed<boolean>(() => {
     return versioningUIEnabled.value  && project.value.versioning !== Versioning.Enabled;
 });
 
-const primaryBtnText = computed(() => {
-    switch (true) {
-    case step.value === CreateStep.Name && !allowVersioningStep.value:
-    case step.value === CreateStep.Versioning:
-        return 'Create Bucket';
-    case step.value === CreateStep.Success:
-        return 'Open Bucket';
-    }
-    return 'Next';
-});
-
-const secondaryBtnText = computed(() => {
-    switch (true) {
-    case step.value === CreateStep.Name:
-        return 'Cancel';
-    case step.value === CreateStep.Success:
-        return 'Close';
-    }
-    return 'Back';
+/**
+ * Whether object lock is enabled for current project.
+ */
+const objectLockUIEnabled = computed<boolean>(() => {
+    return projectsStore.objectLockUIEnabledForProject && configStore.objectLockUIEnabled;
 });
 
 const bucketNameRules = computed((): ValidationRule<string>[] => {
@@ -344,13 +472,15 @@ function setWorker(): void {
 /**
  * Conditionally close dialog or go to previous step.
  */
-function closeOrBack() {
-    switch (true) {
-    case step.value === CreateStep.Versioning:
-        step.value = CreateStep.Name;
-        break;
-    case step.value === CreateStep.Name:
-    case step.value === CreateStep.Success:
+function toPrevStep() {
+    if (step.value === CreateStep.Success) {
+        model.value = false;
+        return;
+    }
+    const info = stepInfos[step.value];
+    if (info.prev?.value) {
+        step.value = info.prev.value;
+    } else {
         model.value = false;
     }
 }
@@ -358,20 +488,26 @@ function closeOrBack() {
 /**
  * Conditionally create bucket or go to next step.
  */
-function createOrNext() {
-    switch (true) {
-    case step.value === CreateStep.Name && allowVersioningStep.value:
-        step.value = CreateStep.Versioning;
-        break;
-    case step.value === CreateStep.Name && !allowVersioningStep.value:
-    case step.value === CreateStep.Versioning:
-        onCreate();
-        break;
-    case step.value === CreateStep.Success:
-        model.value = false;
+function toNextStep() {
+    if (step.value === CreateStep.Success) {
         openBucket();
-        break;
+        return;
     }
+    const info = stepInfos[step.value];
+    if (info.ref.value?.validate?.() === false) {
+        return;
+    }
+    withLoading(async () => {
+        try {
+            await info.beforeNext?.();
+        } catch (error) {
+            notify.notifyError(error, AnalyticsErrorEventSource.CREATE_BUCKET_MODAL);
+            return;
+        }
+        if (info.next?.value) {
+            step.value = info.next.value;
+        }
+    });
 }
 
 /**
@@ -392,120 +528,118 @@ async function openBucket() {
 /**
  * Validates provided bucket's name and creates a bucket.
  */
-function onCreate(): void {
-    if (!formValid.value) return;
+async function onCreate(): Promise<void> {
+    if (!worker.value) {
+        notify.error('Worker is not defined', AnalyticsErrorEventSource.CREATE_BUCKET_MODAL);
+        return;
+    }
 
-    withLoading(async () => {
-        if (!worker.value) {
-            notify.error('Worker is not defined', AnalyticsErrorEventSource.CREATE_BUCKET_MODAL);
-            return;
+    const projectID = project.value.id;
+
+    if (!promptForPassphrase.value) {
+        if (!edgeCredentials.value.accessKeyId) {
+            await bucketsStore.setS3Client(projectID);
+        }
+        await bucketsStore.createBucket(bucketName.value, enableObjectLock.value, enableVersioning.value);
+        await bucketsStore.getBuckets(1, projectID);
+        analyticsStore.eventTriggered(AnalyticsEvent.BUCKET_CREATED);
+
+        if (!bucketWasCreated.value) {
+            LocalData.setBucketWasCreatedStatus();
         }
 
-        try {
-            const projectID = project.value.id;
+        step.value = CreateStep.Success;
+        emit('created', bucketName.value);
+        return;
+    }
 
-            if (!promptForPassphrase.value) {
-                if (!edgeCredentials.value.accessKeyId) {
-                    await bucketsStore.setS3Client(projectID);
-                }
-                await bucketsStore.createBucket(bucketName.value, enableVersioning.value);
-                await bucketsStore.getBuckets(1, projectID);
-                analyticsStore.eventTriggered(AnalyticsEvent.BUCKET_CREATED);
+    if (edgeCredentialsForCreate.value.accessKeyId) {
+        await bucketsStore.createBucketWithNoPassphrase(bucketName.value, enableObjectLock.value, enableVersioning.value);
+        await bucketsStore.getBuckets(1, projectID);
+        analyticsStore.eventTriggered(AnalyticsEvent.BUCKET_CREATED);
+        if (!bucketWasCreated.value) {
+            LocalData.setBucketWasCreatedStatus();
+        }
 
-                if (!bucketWasCreated.value) {
-                    LocalData.setBucketWasCreatedStatus();
-                }
+        step.value = CreateStep.Success;
+        emit('created', bucketName.value);
 
-                step.value = CreateStep.Success;
-                emit('created', bucketName.value);
-                return;
-            }
+        return;
+    }
 
-            if (edgeCredentialsForCreate.value.accessKeyId) {
-                await bucketsStore.createBucketWithNoPassphrase(bucketName.value, enableVersioning.value);
-                await bucketsStore.getBuckets(1, projectID);
-                analyticsStore.eventTriggered(AnalyticsEvent.BUCKET_CREATED);
-                if (!bucketWasCreated.value) {
-                    LocalData.setBucketWasCreatedStatus();
-                }
+    const now = new Date();
 
-                step.value = CreateStep.Success;
-                emit('created', bucketName.value);
+    if (!apiKey.value) {
+        const name = `${configStore.state.config.objectBrowserKeyNamePrefix}${now.getTime()}`;
+        const cleanAPIKey: AccessGrant = await agStore.createAccessGrant(name, projectID);
+        bucketsStore.setApiKey(cleanAPIKey.secret);
+    }
 
-                return;
-            }
+    const inOneHour = new Date(now.setHours(now.getHours() + 1));
 
-            const now = new Date();
+    worker.value.postMessage({
+        'type': 'SetPermission',
+        'isDownload': false,
+        'isUpload': true,
+        'isList': false,
+        'isDelete': false,
+        'notAfter': inOneHour.toISOString(),
+        'buckets': JSON.stringify([]),
+        'apiKey': apiKey.value,
+    });
 
-            if (!apiKey.value) {
-                const name = `${configStore.state.config.objectBrowserKeyNamePrefix}${now.getTime()}`;
-                const cleanAPIKey: AccessGrant = await agStore.createAccessGrant(name, projectID);
-                bucketsStore.setApiKey(cleanAPIKey.secret);
-            }
-
-            const inOneHour = new Date(now.setHours(now.getHours() + 1));
-
-            worker.value.postMessage({
-                'type': 'SetPermission',
-                'isDownload': false,
-                'isUpload': true,
-                'isList': false,
-                'isDelete': false,
-                'notAfter': inOneHour.toISOString(),
-                'buckets': JSON.stringify([]),
-                'apiKey': apiKey.value,
-            });
-
-            const grantEvent: MessageEvent = await new Promise(resolve => {
-                if (worker.value) {
-                    worker.value.onmessage = resolve;
-                }
-            });
-            if (grantEvent.data.error) {
-                notify.error(grantEvent.data.error, AnalyticsErrorEventSource.CREATE_BUCKET_MODAL);
-                return;
-            }
-
-            const salt = await projectsStore.getProjectSalt(projectID);
-            const satelliteNodeURL: string = configStore.state.config.satelliteNodeURL;
-
-            worker.value.postMessage({
-                'type': 'GenerateAccess',
-                'apiKey': grantEvent.data.value,
-                'passphrase': '',
-                'salt': salt,
-                'satelliteNodeURL': satelliteNodeURL,
-            });
-
-            const accessGrantEvent: MessageEvent = await new Promise(resolve => {
-                if (worker.value) {
-                    worker.value.onmessage = resolve;
-                }
-            });
-            if (accessGrantEvent.data.error) {
-                notify.error(accessGrantEvent.data.error, AnalyticsErrorEventSource.CREATE_BUCKET_MODAL);
-                return;
-            }
-
-            const accessGrant = accessGrantEvent.data.value;
-
-            const creds: EdgeCredentials = await agStore.getEdgeCredentials(accessGrant);
-            bucketsStore.setEdgeCredentialsForCreate(creds);
-            await bucketsStore.createBucketWithNoPassphrase(bucketName.value, enableVersioning.value);
-            await bucketsStore.getBuckets(1, projectID);
-            analyticsStore.eventTriggered(AnalyticsEvent.BUCKET_CREATED);
-
-            if (!bucketWasCreated.value) {
-                LocalData.setBucketWasCreatedStatus();
-            }
-
-            step.value = CreateStep.Success;
-            emit('created', bucketName.value);
-        } catch (error) {
-            notify.notifyError(error, AnalyticsErrorEventSource.CREATE_BUCKET_MODAL);
+    const grantEvent: MessageEvent = await new Promise(resolve => {
+        if (worker.value) {
+            worker.value.onmessage = resolve;
         }
     });
+    if (grantEvent.data.error) {
+        notify.error(grantEvent.data.error, AnalyticsErrorEventSource.CREATE_BUCKET_MODAL);
+        return;
+    }
+
+    const salt = await projectsStore.getProjectSalt(projectID);
+    const satelliteNodeURL: string = configStore.state.config.satelliteNodeURL;
+
+    worker.value.postMessage({
+        'type': 'GenerateAccess',
+        'apiKey': grantEvent.data.value,
+        'passphrase': '',
+        'salt': salt,
+        'satelliteNodeURL': satelliteNodeURL,
+    });
+
+    const accessGrantEvent: MessageEvent = await new Promise(resolve => {
+        if (worker.value) {
+            worker.value.onmessage = resolve;
+        }
+    });
+    if (accessGrantEvent.data.error) {
+        notify.error(accessGrantEvent.data.error, AnalyticsErrorEventSource.CREATE_BUCKET_MODAL);
+        return;
+    }
+
+    const accessGrant = accessGrantEvent.data.value;
+
+    const creds: EdgeCredentials = await agStore.getEdgeCredentials(accessGrant);
+    bucketsStore.setEdgeCredentialsForCreate(creds);
+    await bucketsStore.createBucketWithNoPassphrase(bucketName.value, enableObjectLock.value, enableVersioning.value);
+    await bucketsStore.getBuckets(1, projectID);
+    analyticsStore.eventTriggered(AnalyticsEvent.BUCKET_CREATED);
+
+    if (!bucketWasCreated.value) {
+        LocalData.setBucketWasCreatedStatus();
+    }
+
+    step.value = CreateStep.Success;
+    emit('created', bucketName.value);
 }
+
+watchEffect(() => {
+    if (enableObjectLock.value) {
+        enableVersioning.value = true;
+    }
+});
 
 watch(innerContent, newContent => {
     if (newContent) {
@@ -524,5 +658,6 @@ watch(innerContent, newContent => {
     bucketName.value = '';
     step.value = CreateStep.Name;
     enableVersioning.value = false;
+    enableObjectLock.value = false;
 });
 </script>

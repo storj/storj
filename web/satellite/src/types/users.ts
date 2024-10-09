@@ -81,7 +81,7 @@ export interface UsersApi {
      * @param data
      * @throws Error
      */
-    deleteAccount(step: DeleteAccountStep, data: string): Promise<void>;
+    deleteAccount(step: DeleteAccountStep, data: string): Promise<AccountDeletionData | null>;
 
     /**
      * Enable user's MFA.
@@ -234,6 +234,22 @@ export interface AccountSetupData {
 }
 
 /**
+ * AccountDeletionData represents data returned by account deletion endpoint.
+ */
+export class AccountDeletionData {
+    public constructor(
+        public ownedProjects: number,
+        public buckets: number,
+        public apiKeys: number,
+        public unpaidInvoices: number,
+        public amountOwed: number,
+        public currentUsage: boolean,
+        public invoicingIncomplete: boolean,
+        public success: boolean,
+    ) { }
+}
+
+/**
  * DisableMFARequest represents a request to disable multi-factor authentication.
  */
 export class DisableMFARequest {
@@ -283,7 +299,7 @@ export class Session {
         public userAgent: string = '',
         public expiresAt: Date = new Date(),
         public isCurrent: boolean = false,
-    ) {}
+    ) { }
 }
 
 /**
@@ -303,7 +319,7 @@ export class SessionsCursor {
         public page: number = 1,
         public order: SessionsOrderBy = SessionsOrderBy.userAgent,
         public orderDirection: SortDirection = SortDirection.asc,
-    ) {}
+    ) { }
 }
 
 /**
@@ -318,7 +334,7 @@ export class SessionsPage {
         public pageCount: number = 0,
         public currentPage: number = 1,
         public totalCount: number = 0,
-    ) {}
+    ) { }
 }
 
 export interface NoticeDismissal {
@@ -347,6 +363,7 @@ export class FreezeStatus {
         public frozen = false,
         public warned = false,
         public trialExpiredFrozen = false,
+        public trialExpirationGracePeriod = 0,
     ) { }
 }
 
@@ -357,9 +374,11 @@ export enum OnboardingStep {
     AccountTypeSelection = 'AccountTypeSelection',
     PersonalAccountForm = 'PersonalAccountForm',
     PlanTypeSelection = 'PlanTypeSelection',
+    PaymentMethodSelection = 'PaymentMethodSelection',
     PricingPlanSelection = 'PricingPlanSelection',
     ManagedPassphraseOptIn = 'ManagedPassphraseOptIn',
     PricingPlan = 'PricingPlan',
+    AddTokens = 'AddTokens',
     BusinessAccountForm = 'BusinessAccountForm',
     SetupComplete = 'SetupComplete',
     EncryptionPassphrase = 'EncryptionPassphrase',
@@ -380,8 +399,10 @@ export const ACCOUNT_SETUP_STEPS = [
     OnboardingStep.PersonalAccountForm,
     OnboardingStep.ManagedPassphraseOptIn,
     OnboardingStep.PlanTypeSelection,
+    OnboardingStep.PaymentMethodSelection,
     OnboardingStep.PricingPlanSelection,
     OnboardingStep.PricingPlan,
+    OnboardingStep.AddTokens,
     OnboardingStep.BusinessAccountForm,
     OnboardingStep.SetupComplete,
 ];

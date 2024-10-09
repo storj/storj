@@ -9,7 +9,7 @@
                 <template #activator="{ props: activatorProps }">
                     <navigation-item title="Project" :subtitle="selectedProject.name" class="pa-4" v-bind="activatorProps">
                         <template #prepend>
-                            <IconProject />
+                            <component :is="Box" :size="18" />
                         </template>
                         <template #append>
                             <img src="@/assets/icon-right.svg" class="ml-4" alt="Project" width="10">
@@ -23,7 +23,7 @@
                     <template v-if="ownProjects.length">
                         <v-list-item router-link :to="ROUTES.Projects.path" @click="closeDrawer">
                             <template #prepend>
-                                <IconProject />
+                                <component :is="Box" :size="18" />
                             </template>
                             <v-list-item-title class="ml-4">
                                 <v-chip color="secondary" variant="tonal" size="small" class="font-weight-bold" link @click="closeDrawer">
@@ -54,7 +54,7 @@
                     <template v-if="sharedProjects.length">
                         <v-list-item router-link :to="ROUTES.Projects.path" @click="closeDrawer">
                             <template #prepend>
-                                <IconProject />
+                                <component :is="Box" :size="18" />
                             </template>
                             <v-list-item-title class="ml-4">
                                 <v-chip color="success" variant="tonal" size="small" class="font-weight-bold" link @click="closeDrawer">
@@ -84,7 +84,7 @@
                     <!-- Project Settings -->
                     <v-list-item router-link :to="settingsURL" @click="closeDrawer">
                         <template #prepend>
-                            <IconSettings />
+                            <component :is="Settings" :size="18" />
                         </template>
                         <v-list-item-title class="ml-4">
                             Project Settings
@@ -96,7 +96,7 @@
                     <!-- View All Projects -->
                     <v-list-item router-link :to="ROUTES.Projects.path" @click="closeDrawer">
                         <template #prepend>
-                            <IconAllProjects />
+                            <component :is="Layers" :size="18" />
                         </template>
                         <v-list-item-title class="ml-4">
                             View All Projects
@@ -108,7 +108,7 @@
                     <!-- Create New Project -->
                     <v-list-item link @click="onCreateProject">
                         <template #prepend>
-                            <IconNew size="18" />
+                            <component :is="CirclePlus" :size="18" />
                         </template>
                         <v-list-item-title class="ml-4">
                             Create New Project
@@ -121,7 +121,7 @@
                         <!-- Manage Passphrase -->
                         <v-list-item link class="mt-1" @click="isManagePassphraseDialogShown = true">
                             <template #prepend>
-                                <IconPassphrase />
+                                <component :is="LockKeyhole" :size="18" />
                             </template>
                             <v-list-item-title class="ml-4">
                                 Manage Passphrase
@@ -135,48 +135,57 @@
 
             <navigation-item :title="ROUTES.Dashboard.name" :to="dashboardURL" @click="closeDrawer">
                 <template #prepend>
-                    <IconDashboard />
+                    <component :is="LayoutDashboard" :size="18" />
                 </template>
             </navigation-item>
 
             <navigation-item title="Browse" :to="bucketsURL">
                 <template #prepend>
-                    <IconFolder size="18" />
+                    <component :is="FolderOpen" :size="18" />
                 </template>
             </navigation-item>
 
             <navigation-item :title="ROUTES.Access.name" :to="accessURL" @click="closeDrawer">
                 <template #prepend>
-                    <IconAccess size="18" />
+                    <component :is="KeyRound" :size="18" />
                 </template>
             </navigation-item>
 
             <navigation-item :title="ROUTES.Applications.name" :to="appsURL" @click="closeDrawer">
                 <template #prepend>
-                    <IconApplications />
+                    <component :is="AppWindow" :size="18" />
                 </template>
             </navigation-item>
 
             <navigation-item v-if="domainsPageEnabled" :title="ROUTES.Domains.name" :to="domainsURL" @click="closeDrawer">
                 <template #prepend>
-                    <IconDomains />
+                    <component :is="Globe" :size="18" />
                 </template>
             </navigation-item>
 
             <navigation-item :title="ROUTES.Team.name" :to="teamURL" @click="closeDrawer">
                 <template #prepend>
-                    <IconTeam size="18" />
+                    <component :is="Users" :size="18" />
                 </template>
             </navigation-item>
 
             <v-divider class="my-2" />
+
+            <navigation-item v-if="valdiSignUpURL" title="Cloud GPUs" @click="onCloudGPUClicked">
+                <template #prepend>
+                    <component :is="Microchip" :size="18" />
+                </template>
+                <template #chip>
+                    <v-chip color="success" class="ml-1" size="small">New</v-chip>
+                </template>
+            </navigation-item>
 
             <!-- Resources Menu -->
             <v-menu location="end" transition="scale-transition">
                 <template #activator="{ props: activatorProps }">
                     <navigation-item title="Resources" v-bind="activatorProps">
                         <template #prepend>
-                            <IconResources />
+                            <component :is="BookMarked" :size="18" />
                         </template>
                         <template #append>
                             <img src="@/assets/icon-right.svg" alt="Resources" width="10">
@@ -193,7 +202,7 @@
                         @click="() => trackViewDocsEvent('https://docs.storj.io/')"
                     >
                         <template #prepend>
-                            <IconDocs />
+                            <component :is="BookOpenText" :size="18" />
                         </template>
                         <v-list-item-title class="mx-4">
                             Documentation
@@ -211,7 +220,7 @@
                         @click="() => trackViewForumEvent('https://forum.storj.io/')"
                     >
                         <template #prepend>
-                            <IconForum />
+                            <component :is="MessagesSquare" :size="18" />
                         </template>
                         <v-list-item-title class="mx-4">
                             Community Forum
@@ -229,7 +238,7 @@
                         @click="() => trackViewSupportEvent('https://supportdcs.storj.io/hc/en-us')"
                     >
                         <template #prepend>
-                            <IconSupport />
+                            <component :is="MessageCircleQuestion" :size="18" />
                         </template>
                         <v-list-item-title class="mx-4">
                             Storj Support
@@ -247,6 +256,7 @@
 
     <create-project-dialog v-model="isCreateProjectDialogShown" />
     <manage-passphrase-dialog v-model="isManagePassphraseDialogShown" />
+    <cloud-gpu-dialog v-if="valdiSignUpURL" v-model="isCloudGpuDialogShown" />
     <enter-project-passphrase-dialog />
 </template>
 
@@ -265,6 +275,24 @@ import {
     VDivider,
 } from 'vuetify/components';
 import { useDisplay } from 'vuetify';
+import {
+    Users,
+    AppWindow,
+    KeyRound,
+    FolderOpen,
+    LayoutDashboard,
+    BookMarked,
+    Box,
+    Globe,
+    Layers,
+    Settings,
+    CirclePlus,
+    LockKeyhole,
+    MessagesSquare,
+    MessageCircleQuestion,
+    BookOpenText,
+    Microchip,
+} from 'lucide-vue-next';
 
 import { Project } from '@/types/projects';
 import { useProjectsStore } from '@/store/modules/projectsStore';
@@ -273,29 +301,14 @@ import { useAppStore } from '@/store/modules/appStore';
 import { useUsersStore } from '@/store/modules/usersStore';
 import { AnalyticsEvent, PageVisitSource } from '@/utils/constants/analyticsEventNames';
 import { ROUTES } from '@/router';
-import { useTrialCheck } from '@/composables/useTrialCheck';
+import { usePreCheck } from '@/composables/usePreCheck';
 import { useConfigStore } from '@/store/modules/configStore';
 
-import IconProject from '@/components/icons/IconProject.vue';
-import IconSettings from '@/components/icons/IconSettings.vue';
-import IconAllProjects from '@/components/icons/IconAllProjects.vue';
-import IconNew from '@/components/icons/IconNew.vue';
-import IconPassphrase from '@/components/icons/IconPassphrase.vue';
-import IconDashboard from '@/components/icons/IconDashboard.vue';
-import IconAccess from '@/components/icons/IconAccess.vue';
-import IconTeam from '@/components/icons/IconTeam.vue';
-import IconDocs from '@/components/icons/IconDocs.vue';
-import IconForum from '@/components/icons/IconForum.vue';
-import IconSupport from '@/components/icons/IconSupport.vue';
-import IconResources from '@/components/icons/IconResources.vue';
 import CreateProjectDialog from '@/components/dialogs/CreateProjectDialog.vue';
 import ManagePassphraseDialog from '@/components/dialogs/ManagePassphraseDialog.vue';
 import NavigationItem from '@/layouts/default/NavigationItem.vue';
-import IconFolder from '@/components/icons/IconFolder.vue';
-import IconApplications from '@/components/icons/IconApplications.vue';
-import EnterProjectPassphraseDialog
-    from '@/components/dialogs/EnterProjectPassphraseDialog.vue';
-import IconDomains from '@/components/icons/IconDomains.vue';
+import EnterProjectPassphraseDialog from '@/components/dialogs/EnterProjectPassphraseDialog.vue';
+import CloudGpuDialog from '@/components/dialogs/CloudGpuDialog.vue';
 
 const analyticsStore = useAnalyticsStore();
 const projectsStore = useProjectsStore();
@@ -306,7 +319,7 @@ const configStore = useConfigStore();
 const route = useRoute();
 const router = useRouter();
 
-const { withTrialCheck } = useTrialCheck();
+const { withTrialCheck } = usePreCheck();
 const { mdAndDown } = useDisplay();
 
 const model = computed<boolean>({
@@ -316,6 +329,7 @@ const model = computed<boolean>({
 
 const isCreateProjectDialogShown = ref<boolean>(false);
 const isManagePassphraseDialogShown = ref<boolean>(false);
+const isCloudGpuDialogShown = ref<boolean>(false);
 
 const domainsPageEnabled = computed<boolean>(() => configStore.state.config.domainsPageEnabled);
 
@@ -362,8 +376,10 @@ const sharedProjects = computed((): Project[] => {
  * Returns whether this project has passphrase managed by the satellite.
  */
 const hasManagedPassphrase = computed((): boolean => {
-    return !!projectsStore.state.selectedProjectConfig.passphrase;
+    return projectsStore.state.selectedProjectConfig.hasManagedPassphrase;
 });
+
+const valdiSignUpURL = computed<string>(() => configStore.state.config.valdiSignUpURL);
 
 /**
  * Conditionally closes the navigation drawer.
@@ -372,6 +388,12 @@ function closeDrawer(): void {
     if (mdAndDown.value) {
         model.value = false;
     }
+}
+
+function onCloudGPUClicked() {
+    closeDrawer();
+    analyticsStore.eventTriggered(AnalyticsEvent.CLOUD_GPU_NAVIGATION_ITEM_CLICKED);
+    isCloudGpuDialogShown.value = true;
 }
 
 /**

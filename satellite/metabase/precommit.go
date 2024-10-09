@@ -7,6 +7,7 @@ import (
 	"context"
 	"database/sql"
 	"errors"
+	"time"
 
 	"cloud.google.com/go/spanner"
 	"github.com/zeebo/errs"
@@ -327,7 +328,10 @@ func (ptx *postgresTransactionAdapter) precommitDeleteUnversioned(ctx context.Co
 			&totalEncryptedSize,
 			&fixedSegmentSize,
 			&encryptionParams,
-			retentionModeWrapper{&deleted.Retention.Mode},
+			lockModeWrapper{
+				retentionMode: &deleted.Retention.Mode,
+				legalHold:     &deleted.LegalHold,
+			},
 			timeWrapper{&deleted.Retention.RetainUntil},
 			&result.DeletedObjectCount,
 			&result.DeletedSegmentCount,
@@ -360,11 +364,14 @@ func (ptx *postgresTransactionAdapter) precommitDeleteUnversioned(ctx context.Co
 	deleted.TotalEncryptedSize = totalEncryptedSize.Int64
 	deleted.FixedSegmentSize = fixedSegmentSize.Int32
 
-	// check of retention is active and avoid deletion if it is
-	// this shouldn't happen in real life unless we will have a bug
-	// where unversioned object will have retention set.
-	if deleted.Retention.Active() {
-		return PrecommitConstraintResult{}, ErrObjectLock.New(objectLockedErrMsg)
+	// Avoid deleting if Object Lock restrictions are imposed.
+	// This should never occur unless we have a bug allowing
+	// such settings to exist on unversioned objects.
+	switch {
+	case deleted.LegalHold:
+		return PrecommitConstraintResult{}, ErrObjectLock.New(legalHoldErrMsg)
+	case deleted.Retention.ActiveNow():
+		return PrecommitConstraintResult{}, ErrObjectLock.New(retentionErrMsg)
 	}
 
 	if result.DeletedObjectCount > 1 {
@@ -465,7 +472,10 @@ func (ptx *postgresTransactionAdapter) precommitDeleteUnversionedWithSQLCheck(ct
 			&totalEncryptedSize,
 			&fixedSegmentSize,
 			&encryptionParams,
-			retentionModeWrapper{&deleted.Retention.Mode},
+			lockModeWrapper{
+				retentionMode: &deleted.Retention.Mode,
+				legalHold:     &deleted.LegalHold,
+			},
 			timeWrapper{&deleted.Retention.RetainUntil},
 			&result.DeletedObjectCount,
 			&result.DeletedSegmentCount,
@@ -587,7 +597,10 @@ func (ptx *postgresTransactionAdapter) precommitDeleteUnversionedWithVersionChec
 			&totalEncryptedSize,
 			&fixedSegmentSize,
 			&encryptionParams,
-			retentionModeWrapper{&deleted.Retention.Mode},
+			lockModeWrapper{
+				retentionMode: &deleted.Retention.Mode,
+				legalHold:     &deleted.LegalHold,
+			},
 			timeWrapper{&deleted.Retention.RetainUntil},
 			&result.DeletedObjectCount,
 			&result.DeletedSegmentCount,
@@ -694,11 +707,14 @@ func (stx *spannerTransactionAdapter) precommitDeleteUnversioned(ctx context.Con
 	}
 
 	if len(result.Deleted) == 1 {
-		// check of retention is active and avoid deletion if it is
-		// this shouldn't happen in real life unless we will have a bug
-		// where unversioned object will have retention set.
-		if result.Deleted[0].Retention.Active() {
-			return PrecommitConstraintResult{}, ErrObjectLock.New(objectLockedErrMsg)
+		// Avoid deleting if Object Lock restrictions are imposed.
+		// This should never occur unless we have a bug allowing
+		// such settings to exist on unversioned objects.
+		switch {
+		case result.Deleted[0].LegalHold:
+			return PrecommitConstraintResult{}, ErrObjectLock.New(legalHoldErrMsg)
+		case result.Deleted[0].Retention.ActiveNow():
+			return PrecommitConstraintResult{}, ErrObjectLock.New(retentionErrMsg)
 		}
 
 		rowCount, err := stx.tx.Update(ctx, spanner.Statement{
@@ -748,8 +764,8 @@ func (ptx *postgresTransactionAdapter) PrecommitDeleteUnversionedWithNonPending(
 		return PrecommitConstraintWithNonPendingResult{}, Error.Wrap(err)
 	}
 
-	if opts.ObjectLockEnabledForProject {
-		return ptx.precommitDeleteUnversionedWithNonPendingUsingObjectLock(ctx, opts.ObjectLocation)
+	if opts.ObjectLock.Enabled {
+		return ptx.precommitDeleteUnversionedWithNonPendingUsingObjectLock(ctx, opts)
 	}
 	return ptx.precommitDeleteUnversionedWithNonPending(ctx, opts.ObjectLocation)
 }
@@ -878,17 +894,18 @@ func (ptx *postgresTransactionAdapter) precommitDeleteUnversionedWithNonPending(
 // precommitDeleteUnversionedWithNonPendingUsingObjectLock deletes the unversioned object at loc
 // and also returns the highest version and highest committed version. It returns an error if the
 // object's Object Lock configuration prohibits its deletion.
-func (ptx *postgresTransactionAdapter) precommitDeleteUnversionedWithNonPendingUsingObjectLock(ctx context.Context, loc ObjectLocation) (result PrecommitConstraintWithNonPendingResult, err error) {
+func (ptx *postgresTransactionAdapter) precommitDeleteUnversionedWithNonPendingUsingObjectLock(ctx context.Context, opts PrecommitDeleteUnversionedWithNonPending) (result PrecommitConstraintWithNonPendingResult, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	type versionAndRetention struct {
+	type versionAndLockInfo struct {
 		version   Version
 		retention Retention
+		legalHold bool
 	}
 
 	var (
 		highestVersionScanned, highestNonPendingVersionScanned bool
-		objectToDelete                                         *versionAndRetention
+		objectToDelete                                         *versionAndLockInfo
 	)
 
 	err = withRows(ptx.tx.QueryContext(ctx, `
@@ -896,15 +913,23 @@ func (ptx *postgresTransactionAdapter) precommitDeleteUnversionedWithNonPendingU
 		FROM objects
 		WHERE (project_id, bucket_name, object_key) = ($1, $2, $3)
 		ORDER BY version DESC
-		`, loc.ProjectID, loc.BucketName, loc.ObjectKey,
+		FOR UPDATE
+		`, opts.ProjectID, opts.BucketName, opts.ObjectKey,
 	))(func(rows tagsql.Rows) error {
 		for rows.Next() {
 			var (
 				version   Version
 				status    ObjectStatus
 				retention Retention
+				legalHold bool
 			)
-			err := rows.Scan(&version, &status, retentionModeWrapper{&retention.Mode}, timeWrapper{&retention.RetainUntil})
+
+			lockMode := lockModeWrapper{
+				retentionMode: &retention.Mode,
+				legalHold:     &legalHold,
+			}
+
+			err := rows.Scan(&version, &status, lockMode, timeWrapper{&retention.RetainUntil})
 			if err != nil {
 				return errs.Wrap(err)
 			}
@@ -921,12 +946,13 @@ func (ptx *postgresTransactionAdapter) precommitDeleteUnversionedWithNonPendingU
 
 			if status.IsUnversioned() {
 				if objectToDelete != nil {
-					logMultipleCommittedVersionsError(ptx.postgresAdapter.log, loc)
+					logMultipleCommittedVersionsError(ptx.postgresAdapter.log, opts.ObjectLocation)
 					return errs.New(multipleCommittedVersionsErrMsg)
 				}
-				objectToDelete = &versionAndRetention{
+				objectToDelete = &versionAndLockInfo{
 					version:   version,
 					retention: retention,
+					legalHold: legalHold,
 				}
 			}
 		}
@@ -945,15 +971,18 @@ func (ptx *postgresTransactionAdapter) precommitDeleteUnversionedWithNonPendingU
 	if err = objectToDelete.retention.Verify(); err != nil {
 		return PrecommitConstraintWithNonPendingResult{}, Error.Wrap(err)
 	}
-	if objectToDelete.retention.Active() {
-		return PrecommitConstraintWithNonPendingResult{}, ErrObjectLock.New(objectLockedErrMsg)
+	switch {
+	case objectToDelete.legalHold:
+		return PrecommitConstraintWithNonPendingResult{}, ErrObjectLock.New(legalHoldErrMsg)
+	case isRetentionProtected(objectToDelete.retention, opts.ObjectLock.BypassGovernance, time.Now()):
+		return PrecommitConstraintWithNonPendingResult{}, ErrObjectLock.New(retentionErrMsg)
 	}
 
 	deleted := Object{
 		ObjectStream: ObjectStream{
-			ProjectID:  loc.ProjectID,
-			BucketName: loc.BucketName,
-			ObjectKey:  loc.ObjectKey,
+			ProjectID:  opts.ProjectID,
+			BucketName: opts.BucketName,
+			ObjectKey:  opts.ObjectKey,
 			Version:    objectToDelete.version,
 		},
 	}
@@ -978,7 +1007,7 @@ func (ptx *postgresTransactionAdapter) precommitDeleteUnversionedWithNonPendingU
 		)
 		SELECT *, (SELECT count(*) FROM deleted_segments)
 		FROM deleted_objects
-		`, loc.ProjectID, loc.BucketName, loc.ObjectKey, objectToDelete.version,
+		`, opts.ProjectID, opts.BucketName, opts.ObjectKey, objectToDelete.version,
 	).Scan(
 		&deleted.StreamID,
 		&deleted.CreatedAt,
@@ -992,7 +1021,10 @@ func (ptx *postgresTransactionAdapter) precommitDeleteUnversionedWithNonPendingU
 		&deleted.TotalEncryptedSize,
 		&deleted.FixedSegmentSize,
 		encryptionParameters{&deleted.Encryption},
-		retentionModeWrapper{&deleted.Retention.Mode},
+		lockModeWrapper{
+			retentionMode: &deleted.Retention.Mode,
+			legalHold:     &deleted.LegalHold,
+		},
 		timeWrapper{&deleted.Retention.RetainUntil},
 		&result.DeletedSegmentCount,
 	)
@@ -1024,8 +1056,8 @@ func (stx *spannerTransactionAdapter) PrecommitDeleteUnversionedWithNonPending(c
 		return PrecommitConstraintWithNonPendingResult{}, Error.Wrap(err)
 	}
 
-	if opts.ObjectLockEnabledForProject {
-		return stx.precommitDeleteUnversionedWithNonPendingUsingObjectLock(ctx, opts.ObjectLocation)
+	if opts.ObjectLock.Enabled {
+		return stx.precommitDeleteUnversionedWithNonPendingUsingObjectLock(ctx, opts)
 	}
 	return stx.precommitDeleteUnversionedWithNonPending(ctx, opts.ObjectLocation)
 }
@@ -1084,28 +1116,27 @@ func (stx *spannerTransactionAdapter) precommitDeleteUnversionedWithNonPending(c
 		return PrecommitConstraintWithNonPendingResult{}, Error.Wrap(err)
 	}
 
-	streamIDs := make([][]byte, 0, len(result.Deleted))
-	for _, object := range result.Deleted {
-		streamIDs = append(streamIDs, object.StreamID.Bytes())
+	stmts := make([]spanner.Statement, len(result.Deleted))
+	for ix, object := range result.Deleted {
+		stmts[ix] = spanner.Statement{
+			SQL: `DELETE FROM segments WHERE @stream_id = stream_id`,
+			Params: map[string]interface{}{
+				"stream_id": object.StreamID.Bytes(),
+			},
+		}
 	}
 
-	// TODO(spanner): make sure this is an efficient query
-	segmentDeletion := spanner.Statement{
-		SQL: `
-			DELETE FROM segments
-			WHERE ARRAY_INCLUDES(@stream_ids, stream_id)
-		`,
-		Params: map[string]interface{}{
-			"stream_ids": streamIDs,
-		},
-	}
-	segmentsDeleted, err := stx.tx.Update(ctx, segmentDeletion)
-	if err != nil {
-		return PrecommitConstraintWithNonPendingResult{}, Error.New("unable to delete segments: %w", err)
-	}
+	if len(stmts) > 0 {
+		segmentsDeleted, err := stx.tx.BatchUpdate(ctx, stmts)
+		if err != nil {
+			return PrecommitConstraintWithNonPendingResult{}, Error.New("unable to delete segments: %w", err)
+		}
 
+		for _, v := range segmentsDeleted {
+			result.DeletedSegmentCount += int(v)
+		}
+	}
 	result.DeletedObjectCount = len(result.Deleted)
-	result.DeletedSegmentCount = int(segmentsDeleted)
 
 	if len(result.Deleted) > 1 {
 		stx.spannerAdapter.log.Error("object with multiple committed versions were found!",
@@ -1124,17 +1155,18 @@ func (stx *spannerTransactionAdapter) precommitDeleteUnversionedWithNonPending(c
 	return result, nil
 }
 
-func (stx *spannerTransactionAdapter) precommitDeleteUnversionedWithNonPendingUsingObjectLock(ctx context.Context, loc ObjectLocation) (result PrecommitConstraintWithNonPendingResult, err error) {
+func (stx *spannerTransactionAdapter) precommitDeleteUnversionedWithNonPendingUsingObjectLock(ctx context.Context, opts PrecommitDeleteUnversionedWithNonPending) (result PrecommitConstraintWithNonPendingResult, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	type versionAndRetention struct {
+	type versionAndLockInfo struct {
 		version   Version
 		retention Retention
+		legalHold bool
 	}
 
 	var (
 		highestVersionScanned, highestNonPendingVersionScanned bool
-		objectToDelete                                         *versionAndRetention
+		objectToDelete                                         *versionAndLockInfo
 	)
 
 	err = stx.tx.Query(ctx, spanner.Statement{
@@ -1145,17 +1177,24 @@ func (stx *spannerTransactionAdapter) precommitDeleteUnversionedWithNonPendingUs
 			ORDER BY version DESC
 		`,
 		Params: map[string]interface{}{
-			"project_id":  loc.ProjectID,
-			"bucket_name": loc.BucketName,
-			"object_key":  loc.ObjectKey,
+			"project_id":  opts.ProjectID,
+			"bucket_name": opts.BucketName,
+			"object_key":  opts.ObjectKey,
 		},
 	}).Do(func(row *spanner.Row) error {
 		var (
 			version   Version
 			status    ObjectStatus
 			retention Retention
+			legalHold bool
 		)
-		err := row.Columns(&version, &status, retentionModeWrapper{&retention.Mode}, timeWrapper{&retention.RetainUntil})
+
+		lockMode := lockModeWrapper{
+			retentionMode: &retention.Mode,
+			legalHold:     &legalHold,
+		}
+
+		err := row.Columns(&version, &status, lockMode, timeWrapper{&retention.RetainUntil})
 		if err != nil {
 			return errs.Wrap(err)
 		}
@@ -1172,12 +1211,13 @@ func (stx *spannerTransactionAdapter) precommitDeleteUnversionedWithNonPendingUs
 
 		if status.IsUnversioned() {
 			if objectToDelete != nil {
-				logMultipleCommittedVersionsError(stx.spannerAdapter.log, loc)
+				logMultipleCommittedVersionsError(stx.spannerAdapter.log, opts.ObjectLocation)
 				return errs.New(multipleCommittedVersionsErrMsg)
 			}
-			objectToDelete = &versionAndRetention{
+			objectToDelete = &versionAndLockInfo{
 				version:   version,
 				retention: retention,
+				legalHold: legalHold,
 			}
 		}
 
@@ -1193,12 +1233,15 @@ func (stx *spannerTransactionAdapter) precommitDeleteUnversionedWithNonPendingUs
 	if err = objectToDelete.retention.Verify(); err != nil {
 		return PrecommitConstraintWithNonPendingResult{}, Error.Wrap(err)
 	}
-	if objectToDelete.retention.Active() {
-		return PrecommitConstraintWithNonPendingResult{}, ErrObjectLock.New(objectLockedErrMsg)
+	switch {
+	case objectToDelete.legalHold:
+		return PrecommitConstraintWithNonPendingResult{}, ErrObjectLock.New(legalHoldErrMsg)
+	case isRetentionProtected(objectToDelete.retention, opts.ObjectLock.BypassGovernance, time.Now()):
+		return PrecommitConstraintWithNonPendingResult{}, ErrObjectLock.New(retentionErrMsg)
 	}
 
 	// TODO(spanner): is there a better way to combine these deletes from different tables?
-	result.Deleted, err = collectDeletedObjectsSpanner(ctx, loc,
+	result.Deleted, err = collectDeletedObjectsSpanner(ctx, opts.ObjectLocation,
 		stx.tx.Query(ctx, spanner.Statement{
 			SQL: `
 				DELETE FROM objects
@@ -1206,9 +1249,9 @@ func (stx *spannerTransactionAdapter) precommitDeleteUnversionedWithNonPendingUs
 					(project_id, bucket_name, object_key, version) = (@project_id, @bucket_name, @object_key, @version)
 				THEN RETURN ` + collectDeletedObjectsSpannerFields,
 			Params: map[string]interface{}{
-				"project_id":  loc.ProjectID,
-				"bucket_name": loc.BucketName,
-				"object_key":  loc.ObjectKey,
+				"project_id":  opts.ProjectID,
+				"bucket_name": opts.BucketName,
+				"object_key":  opts.ObjectKey,
 				"version":     objectToDelete.version,
 			},
 		}),

@@ -48,7 +48,7 @@ func (bfu *Upload) CheckConfig() error {
 }
 
 // UploadBloomFilters stores a zipfile with multiple bloom filters in a bucket.
-func (bfu *Upload) UploadBloomFilters(ctx context.Context, latestCreationDate time.Time, retainInfos nodeidmap.Map[*RetainInfo]) (err error) {
+func (bfu *Upload) UploadBloomFilters(ctx context.Context, creationDate time.Time, retainInfos nodeidmap.Map[*RetainInfo]) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	if retainInfos.IsEmpty() {
@@ -103,7 +103,7 @@ func (bfu *Upload) UploadBloomFilters(ctx context.Context, latestCreationDate ti
 			Filter: info.Filter.Bytes(),
 			// because bloom filters should be created from immutable database
 			// snapshot we are using latest segment creation date
-			CreationDate:  latestCreationDate,
+			CreationDate:  creationDate,
 			PieceCount:    int64(info.Count),
 			StorageNodeId: nodeID,
 		})

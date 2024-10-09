@@ -10,16 +10,16 @@ import (
 
 	"storj.io/common/identity/testidentity"
 	"storj.io/common/storj"
-	"storj.io/common/storj/location"
 	"storj.io/common/testrand"
 	"storj.io/storj/satellite/metabase"
+	"storj.io/storj/shared/location"
 )
 
 func TestParsedConfig(t *testing.T) {
 
 	config, err := LoadConfig("config_test.yaml", NewPlacementConfigEnvironment(mockTracker{}))
 	require.NoError(t, err)
-	require.Len(t, config, 6)
+	require.Len(t, config, 10)
 
 	{
 		// checking filters
@@ -112,7 +112,7 @@ func TestParsedConfigWithoutTracker(t *testing.T) {
 	// tracker is not available for certain microservices (like repair). Still the placement should work.
 	config, err := LoadConfig("config_test.yaml", NewPlacementConfigEnvironment(nil))
 	require.NoError(t, err)
-	require.Len(t, config, 6)
+	require.Len(t, config, 10)
 
 	// smoketest for creating choice of two selector
 	selected, err := config[2].Selector(
@@ -174,6 +174,6 @@ func TestSelectorFromString(t *testing.T) {
 type mockTracker struct {
 }
 
-func (m mockTracker) Get(uplink storj.NodeID) func(node storj.NodeID) float64 {
-	return func(node storj.NodeID) float64 { return 0 }
+func (m mockTracker) Get(uplink storj.NodeID) func(node *SelectedNode) float64 {
+	return func(node *SelectedNode) float64 { return 0 }
 }

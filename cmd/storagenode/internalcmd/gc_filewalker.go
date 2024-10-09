@@ -11,9 +11,9 @@ import (
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 
-	"storj.io/common/bloomfilter"
 	"storj.io/common/process"
 	"storj.io/common/storj"
+	"storj.io/storj/shared/bloomfilter"
 	"storj.io/storj/storagenode/iopriority"
 	"storj.io/storj/storagenode/pieces"
 	"storj.io/storj/storagenode/pieces/lazyfilewalker"
@@ -101,7 +101,7 @@ func gcCmdRun(g *RunOptions) (err error) {
 
 	log.Info("gc-filewalker started", zap.Time("createdBefore", req.CreatedBefore), zap.Int("bloomFilterSize", len(req.BloomFilter)))
 
-	filewalker := pieces.NewFileWalker(log, db.Pieces(), db.V0PieceInfo(), db.GCFilewalkerProgress())
+	filewalker := pieces.NewFileWalker(log, db.Pieces(), db.V0PieceInfo(), db.GCFilewalkerProgress(), nil)
 
 	encoder := json.NewEncoder(g.stdout)
 	numTrashed := 0

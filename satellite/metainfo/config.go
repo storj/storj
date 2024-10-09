@@ -76,7 +76,7 @@ func (rs *RSConfig) Override(o nodeselection.ECParameters) *RSConfig {
 	return ro
 }
 
-// Set sets the value from a string in the format k/m/o/n-size (min/repair/optimal/total-erasuresharesize).
+// Set sets the value from a string in the format satellite/satellitedb/overlaycache.gok/m/o/n-size (min/repair/optimal/total-erasuresharesize).
 func (rs *RSConfig) Set(s string) error {
 	// Split on dash. Expect two items. First item is RS numbers. Second item is memory.Size.
 	info := strings.Split(s, "-")
@@ -193,16 +193,15 @@ type Config struct {
 	// flag to simplify testing by enabling bucket level versioning feature only for specific projects
 	UseBucketLevelObjectVersioningProjects []string `help:"list of projects which will have UseBucketLevelObjectVersioning feature flag enabled" default:"" hidden:"true"`
 
-	UseBucketLevelObjectLock         bool     `help:"enable the use of bucket-level Object Lock" default:"false"`
-	UseBucketLevelObjectLockProjects []string `help:"list of project IDs for which bucket-level Object Lock functionality is enabled" default:"" hidden:"true"`
+	ObjectLockEnabled bool `help:"enable the use of bucket-level Object Lock" default:"false"`
 
 	UserInfoValidation UserInfoValidationConfig `help:"Config for user info validation"`
 
 	// TODO remove when we benchmarking are done and decision is made.
-	TestListingQuery                bool   `default:"false" help:"test the new query for non-recursive listing"`
-	TestCommitSegmentMode           string `default:"" help:"which code path use for commit segment step, empty means default. Other options: transaction, no-pending-object-check"`
-	TestOptimizedInlineObjectUpload bool   `default:"false" devDefault:"true" help:"enables optimization for uploading objects with single inline segment"`
-	TestingPrecommitDeleteMode      int    `default:"0" help:"which code path to use for precommit delete step for unversioned objects, 0 is the default (old) code path."`
+	TestListingQuery                bool      `default:"false" help:"test the new query for non-recursive listing"`
+	TestOptimizedInlineObjectUpload bool      `default:"false" devDefault:"true" help:"enables optimization for uploading objects with single inline segment"`
+	TestingPrecommitDeleteMode      int       `default:"0" help:"which code path to use for precommit delete step for unversioned objects, 0 is the default (old) code path."`
+	TestingSpannerProjects          UUIDsFlag `default:""  help:"list of project IDs for which Spanner metabase DB is enabled" hidden:"true"`
 }
 
 // Metabase constructs Metabase configuration based on Metainfo configuration with specific application name.
@@ -213,8 +212,8 @@ func (c Config) Metabase(applicationName string) metabase.Config {
 		MaxNumberOfParts:           c.MaxNumberOfParts,
 		ServerSideCopy:             c.ServerSideCopy,
 		NodeAliasCacheFullRefresh:  c.NodeAliasCacheFullRefresh,
-		TestingCommitSegmentMode:   c.TestCommitSegmentMode,
 		TestingPrecommitDeleteMode: metabase.TestingPrecommitDeleteMode(c.TestingPrecommitDeleteMode),
+		TestingSpannerProjects:     c.TestingSpannerProjects,
 	}
 }
 
@@ -223,7 +222,6 @@ type ExtendedConfig struct {
 	Config
 
 	useBucketLevelObjectVersioningProjects map[uuid.UUID]struct{}
-	useBucketLevelObjectLockProjects       map[uuid.UUID]struct{}
 }
 
 // NewExtendedConfig creates new instance of extended config.
@@ -231,7 +229,6 @@ func NewExtendedConfig(config Config) (_ ExtendedConfig, err error) {
 	extendedConfig := ExtendedConfig{
 		Config:                                 config,
 		useBucketLevelObjectVersioningProjects: make(map[uuid.UUID]struct{}),
-		useBucketLevelObjectLockProjects:       make(map[uuid.UUID]struct{}),
 	}
 	for _, projectIDString := range config.UseBucketLevelObjectVersioningProjects {
 		projectID, err := uuid.FromString(projectIDString)
@@ -239,13 +236,6 @@ func NewExtendedConfig(config Config) (_ ExtendedConfig, err error) {
 			return ExtendedConfig{}, err
 		}
 		extendedConfig.useBucketLevelObjectVersioningProjects[projectID] = struct{}{}
-	}
-	for _, projectIDString := range config.UseBucketLevelObjectLockProjects {
-		projectID, err := uuid.FromString(projectIDString)
-		if err != nil {
-			return ExtendedConfig{}, err
-		}
-		extendedConfig.useBucketLevelObjectLockProjects[projectID] = struct{}{}
 	}
 
 	return extendedConfig, nil
@@ -271,13 +261,56 @@ func (ec ExtendedConfig) UseBucketLevelObjectVersioningByProject(project *consol
 	return true
 }
 
-// ObjectLockEnabled checks if bucket-level Object Lock functionality
+// ObjectLockEnabledByProject checks if bucket-level Object Lock functionality
 // should be enabled for a specific project.
-func (ec ExtendedConfig) ObjectLockEnabled(projectID uuid.UUID) bool {
+func (ec ExtendedConfig) ObjectLockEnabledByProject(project *console.Project) bool {
 	// if its globally enabled don't look at projects
-	if ec.UseBucketLevelObjectLock {
-		return true
+	if !ec.ObjectLockEnabled {
+		return false
 	}
-	_, ok := ec.useBucketLevelObjectLockProjects[projectID]
-	return ok
+	return ec.UseBucketLevelObjectVersioningByProject(project)
+}
+
+// UUIDsFlag is a configuration struct that keeps info about project IDs
+//
+// Can be used as a flag.
+type UUIDsFlag map[uuid.UUID]struct{}
+
+// Type is required for pflag.Value.
+func (m UUIDsFlag) Type() string {
+	return "metainfo.UUIDsFlag"
+}
+
+// Set is required for pflag.Value.
+func (m *UUIDsFlag) Set(s string) error {
+	if s == "" {
+		*m = map[uuid.UUID]struct{}{}
+		return nil
+	}
+
+	uuids := strings.Split(s, ",")
+	*m = make(map[uuid.UUID]struct{}, len(uuids))
+	for _, uuidStr := range uuids {
+		id, err := uuid.FromString(uuidStr)
+		if err != nil {
+			return err
+		}
+
+		(*m)[id] = struct{}{}
+	}
+	return nil
+}
+
+// String is required for pflag.Value.
+func (m UUIDsFlag) String() string {
+	var b strings.Builder
+	i := 0
+	for id := range m {
+		if i > 0 {
+			b.WriteString(",")
+		}
+		b.WriteString(id.String())
+		i++
+	}
+	return b.String()
 }

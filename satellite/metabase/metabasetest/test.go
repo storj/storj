@@ -335,23 +335,6 @@ func (step ListSegments) Check(ctx *testcontext.Context, t testing.TB, db *metab
 	require.Zero(t, diff)
 }
 
-// ListVerifySegments is for testing metabase.ListVerifySegments.
-type ListVerifySegments struct {
-	Opts     metabase.ListVerifySegments
-	Result   metabase.ListVerifySegmentsResult
-	ErrClass *errs.Class
-	ErrText  string
-}
-
-// Check runs the test.
-func (step ListVerifySegments) Check(ctx *testcontext.Context, t testing.TB, db *metabase.DB) {
-	result, err := db.ListVerifySegments(ctx, step.Opts)
-	checkError(t, err, step.ErrClass, step.ErrText)
-
-	diff := cmp.Diff(step.Result, result, DefaultTimeDiff(), cmpopts.EquateEmpty())
-	require.Zero(t, diff)
-}
-
 // ListObjects is for testing metabase.ListObjects.
 type ListObjects struct {
 	Opts     metabase.ListObjects
@@ -530,19 +513,6 @@ func (coll *IterateCollector) Add(ctx context.Context, it metabase.ObjectsIterat
 	return nil
 }
 
-// LoopIterateCollector is for testing metabase.LoopIterateCollector.
-type LoopIterateCollector []metabase.LoopObjectEntry
-
-// Add adds object entries from iterator to the collection.
-func (coll *LoopIterateCollector) Add(ctx context.Context, it metabase.LoopObjectsIterator) error {
-	var item metabase.LoopObjectEntry
-
-	for it.Next(ctx, &item) {
-		*coll = append(*coll, item)
-	}
-	return nil
-}
-
 // PendingObjectsCollector is for testing metabase.PendingObjectsCollector.
 type PendingObjectsCollector []metabase.PendingObjectEntry
 
@@ -615,26 +585,6 @@ func (step IterateObjectsWithStatusAscending) Check(ctx *testcontext.Context, t 
 	checkError(t, err, step.ErrClass, step.ErrText)
 
 	diff := cmp.Diff(step.Result, []metabase.ObjectEntry(result), DefaultTimeDiff())
-	require.Zero(t, diff)
-}
-
-// IterateLoopObjects is for testing metabase.IterateLoopObjects.
-type IterateLoopObjects struct {
-	Opts metabase.IterateLoopObjects
-
-	Result   []metabase.LoopObjectEntry
-	ErrClass *errs.Class
-	ErrText  string
-}
-
-// Check runs the test.
-func (step IterateLoopObjects) Check(ctx *testcontext.Context, t testing.TB, db *metabase.DB) {
-	var result LoopIterateCollector
-
-	err := db.IterateLoopObjects(ctx, step.Opts, result.Add)
-	checkError(t, err, step.ErrClass, step.ErrText)
-
-	diff := cmp.Diff(step.Result, []metabase.LoopObjectEntry(result), DefaultTimeDiff())
 	require.Zero(t, diff)
 }
 
@@ -807,6 +757,40 @@ func (step CollectBucketTallies) Check(ctx *testcontext.Context, t testing.TB, d
 	require.Zero(t, diff)
 }
 
+// GetObjectExactVersionLegalHold is for testing metabase.GetObjectExactVersionLegalHold.
+type GetObjectExactVersionLegalHold struct {
+	Opts     metabase.GetObjectExactVersionLegalHold
+	Result   bool
+	ErrClass *errs.Class
+	ErrText  string
+}
+
+// Check runs the test.
+func (step GetObjectExactVersionLegalHold) Check(ctx *testcontext.Context, t testing.TB, db *metabase.DB) {
+	result, err := db.GetObjectExactVersionLegalHold(ctx, step.Opts)
+	checkError(t, err, step.ErrClass, step.ErrText)
+
+	diff := cmp.Diff(step.Result, result, DefaultTimeDiff())
+	require.Zero(t, diff)
+}
+
+// GetObjectLastCommittedLegalHold is for testing metabase.GetObjectLastCommittedLegalHold.
+type GetObjectLastCommittedLegalHold struct {
+	Opts     metabase.GetObjectLastCommittedLegalHold
+	Result   bool
+	ErrClass *errs.Class
+	ErrText  string
+}
+
+// Check runs the test.
+func (step GetObjectLastCommittedLegalHold) Check(ctx *testcontext.Context, t testing.TB, db *metabase.DB) {
+	result, err := db.GetObjectLastCommittedLegalHold(ctx, step.Opts)
+	checkError(t, err, step.ErrClass, step.ErrText)
+
+	diff := cmp.Diff(step.Result, result, DefaultTimeDiff())
+	require.Zero(t, diff)
+}
+
 // GetObjectExactVersionRetention is for testing metabase.GetObjectExactVersionRetention.
 type GetObjectExactVersionRetention struct {
 	Opts     metabase.GetObjectExactVersionRetention
@@ -864,5 +848,31 @@ type SetObjectLastCommittedRetention struct {
 // Check runs the test.
 func (step SetObjectLastCommittedRetention) Check(ctx *testcontext.Context, t testing.TB, db *metabase.DB) {
 	err := db.SetObjectLastCommittedRetention(ctx, step.Opts)
+	checkError(t, err, step.ErrClass, step.ErrText)
+}
+
+// SetObjectExactVersionLegalHold is for testing metabase.SetObjectExactVersionLegalHold.
+type SetObjectExactVersionLegalHold struct {
+	Opts     metabase.SetObjectExactVersionLegalHold
+	ErrClass *errs.Class
+	ErrText  string
+}
+
+// Check runs the test.
+func (step SetObjectExactVersionLegalHold) Check(ctx *testcontext.Context, t testing.TB, db *metabase.DB) {
+	err := db.SetObjectExactVersionLegalHold(ctx, step.Opts)
+	checkError(t, err, step.ErrClass, step.ErrText)
+}
+
+// SetObjectLastCommittedLegalHold is for testing metabase.SetObjectLastCommittedLegalHold.
+type SetObjectLastCommittedLegalHold struct {
+	Opts     metabase.SetObjectLastCommittedLegalHold
+	ErrClass *errs.Class
+	ErrText  string
+}
+
+// Check runs the test.
+func (step SetObjectLastCommittedLegalHold) Check(ctx *testcontext.Context, t testing.TB, db *metabase.DB) {
+	err := db.SetObjectLastCommittedLegalHold(ctx, step.Opts)
 	checkError(t, err, step.ErrClass, step.ErrText)
 }

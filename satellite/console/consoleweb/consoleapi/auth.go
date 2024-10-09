@@ -619,10 +619,11 @@ func loadSession(req *http.Request) string {
 // GetFreezeStatus checks to see if an account is frozen or warned.
 func (a *Auth) GetFreezeStatus(w http.ResponseWriter, r *http.Request) {
 	type FrozenResult struct {
-		Frozen             bool `json:"frozen"`
-		Warned             bool `json:"warned"`
-		ViolationFrozen    bool `json:"violationFrozen"`
-		TrialExpiredFrozen bool `json:"trialExpiredFrozen"`
+		Frozen                     bool `json:"frozen"`
+		Warned                     bool `json:"warned"`
+		ViolationFrozen            bool `json:"violationFrozen"`
+		TrialExpiredFrozen         bool `json:"trialExpiredFrozen"`
+		TrialExpirationGracePeriod int  `json:"trialExpirationGracePeriod"`
 	}
 
 	ctx := r.Context()
@@ -641,13 +642,21 @@ func (a *Auth) GetFreezeStatus(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	w.Header().Set("Content-Type", "application/json")
-	err = json.NewEncoder(w).Encode(FrozenResult{
+	result := FrozenResult{
 		Frozen:             freezes.BillingFreeze != nil,
 		Warned:             freezes.BillingWarning != nil,
 		ViolationFrozen:    freezes.ViolationFreeze != nil,
 		TrialExpiredFrozen: freezes.TrialExpirationFreeze != nil,
-	})
+	}
+	if result.TrialExpiredFrozen {
+		days := a.accountFreezeService.GetDaysTillEscalation(*freezes.TrialExpirationFreeze, time.Now())
+		if days != nil && *days > 0 {
+			result.TrialExpirationGracePeriod = *days
+		}
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	err = json.NewEncoder(w).Encode(result)
 	if err != nil {
 		a.log.Error("could not encode account status", zap.Error(ErrAuthAPI.Wrap(err)))
 		return
@@ -701,18 +710,26 @@ func (a *Auth) DeleteAccount(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if data.Step < console.VerifyAccountPasswordStep || data.Step > console.DeleteAccountStep {
+	if data.Step < console.DeleteAccountInit || data.Step > console.DeleteAccountStep {
 		a.serveJSONError(ctx, w, console.ErrValidation.New("step value is out of range"))
 		return
 	}
 
-	if data.Step != console.DeleteAccountStep && data.Data == "" {
+	if data.Step > console.DeleteAccountInit && data.Step != console.DeleteAccountStep && data.Data == "" {
 		a.serveJSONError(ctx, w, console.ErrValidation.New("data value can't be empty"))
 		return
 	}
 
-	if err = a.service.DeleteAccount(ctx, data.Step, data.Data); err != nil {
+	resp, err := a.service.DeleteAccount(ctx, data.Step, data.Data)
+	if err != nil {
 		a.serveJSONError(ctx, w, err)
+	}
+
+	if resp != nil {
+		w.WriteHeader(http.StatusConflict)
+		if err := json.NewEncoder(w).Encode(resp); err != nil {
+			a.log.Error("could not encode account deletion response", zap.Error(ErrAuthAPI.Wrap(err)))
+		}
 	}
 }
 
@@ -964,13 +981,34 @@ func (a *Auth) ResendEmail(w http.ResponseWriter, r *http.Request) {
 	var err error
 	defer mon.Task()(&ctx)(&err)
 
-	params := mux.Vars(r)
-	email, ok := params["email"]
-	if !ok {
+	var resendEmail struct {
+		Email           string `json:"email"`
+		CaptchaResponse string `json:"captchaResponse"`
+	}
+
+	err = json.NewDecoder(r.Body).Decode(&resendEmail)
+	if err != nil {
+		a.serveJSONError(ctx, w, err)
 		return
 	}
 
-	verified, unverified, err := a.service.GetUserByEmailWithUnverified(ctx, email)
+	ip, err := web.GetRequestIP(r)
+	if err != nil {
+		a.serveJSONError(ctx, w, err)
+		return
+	}
+
+	valid, _, err := a.service.VerifyRegistrationCaptcha(ctx, resendEmail.CaptchaResponse, ip)
+	if err != nil {
+		a.serveJSONError(ctx, w, err)
+		return
+	}
+	if !valid {
+		a.serveJSONError(ctx, w, console.ErrCaptcha.New("captcha validation unsuccessful"))
+		return
+	}
+
+	verified, unverified, err := a.service.GetUserByEmailWithUnverified(ctx, resendEmail.Email)
 	if err != nil {
 		return
 	}

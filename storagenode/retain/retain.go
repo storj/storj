@@ -15,9 +15,9 @@ import (
 	"go.uber.org/zap"
 	"golang.org/x/sync/errgroup"
 
-	"storj.io/common/bloomfilter"
 	"storj.io/common/pb"
 	"storj.io/common/storj"
+	"storj.io/storj/shared/bloomfilter"
 	"storj.io/storj/storagenode/blobstore/filestore"
 	"storj.io/storj/storagenode/pieces"
 )
@@ -83,6 +83,8 @@ const (
 	Enabled
 	// Debug means we partially enable retain requests, and print out pieces we should delete, without actually deleting them.
 	Debug
+	// Store means the retain messages will be saved, but not processed.
+	Store
 )
 
 // Set implements pflag.Value.
@@ -94,6 +96,8 @@ func (v *Status) Set(s string) error {
 		*v = Enabled
 	case "debug":
 		*v = Debug
+	case "store":
+		*v = Store
 	default:
 		return Error.New("invalid status %q", s)
 	}
@@ -227,8 +231,25 @@ func (s *Service) Run(ctx context.Context) (err error) {
 			return ctx.Err()
 		}
 	})
+	concurrency := s.config.Concurrency
+	if s.config.Status == Store {
+		// we don't run the real loop, as it immediately deletes the BFs, what we need to store
+		s.group.Go(func() error {
+			for {
+				select {
+				case <-ctx.Done():
+					return ctx.Err()
+				case <-s.closed:
+					return nil
+				}
+			}
+		})
 
-	for i := 0; i < s.config.Concurrency; i++ {
+		// disable the real loop
+		concurrency = 0
+
+	}
+	for i := 0; i < concurrency; i++ {
 		s.group.Go(func() error {
 			// Grab lock to check things.
 			s.cond.L.Lock()
@@ -352,7 +373,7 @@ func (s *Service) Status() Status {
 
 func (s *Service) retainPieces(ctx context.Context, req Request) (err error) {
 	// if retain status is disabled, return immediately
-	if s.config.Status == Disabled {
+	if s.config.Status == Disabled || s.config.Status == Store {
 		return nil
 	}
 

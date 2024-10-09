@@ -33,6 +33,7 @@ import (
 // UplinkConfig testplanet configuration for uplink.
 type UplinkConfig struct {
 	DefaultPathCipher storj.CipherSuite
+	APIKeyVersion     macaroon.APIKeyVersion
 }
 
 // Uplink is a registered user on all satellites,
@@ -138,6 +139,11 @@ func (planet *Planet) newUplink(ctx context.Context, index int, log *zap.Logger,
 	for j, satellite := range planet.Satellites {
 		consoleAPI := satellite.API.Console
 
+		var config UplinkConfig
+		if planet.config.Reconfigure.Uplink != nil {
+			planet.config.Reconfigure.Uplink(log, index, &config)
+		}
+
 		projectName := fmt.Sprintf("%s_%d", name, j)
 		user, err := satellite.AddUser(ctx, console.CreateUser{
 			FullName: fmt.Sprintf("User %s", projectName),
@@ -161,7 +167,7 @@ func (planet *Planet) newUplink(ctx context.Context, index int, log *zap.Logger,
 		if err != nil {
 			return nil, errs.Wrap(err)
 		}
-		_, apiKey, err := consoleAPI.Service.CreateAPIKey(userCtx, project.ID, "root", macaroon.APIKeyVersionMin)
+		_, apiKey, err := consoleAPI.Service.CreateAPIKey(userCtx, project.ID, "root", config.APIKeyVersion)
 		if err != nil {
 			return nil, errs.Wrap(err)
 		}
@@ -183,11 +189,6 @@ func (planet *Planet) newUplink(ctx context.Context, index int, log *zap.Logger,
 
 			RawAPIKey: apiKey,
 		})
-
-		var config UplinkConfig
-		if planet.config.Reconfigure.Uplink != nil {
-			planet.config.Reconfigure.Uplink(log, index, &config)
-		}
 
 		// create access grant manually to avoid dialing satellite for
 		// project id and deriving key with argon2.IDKey method

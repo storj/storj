@@ -215,6 +215,61 @@ func (p *Projects) UpdateProject(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
+// DeleteProject handles deleting projects.
+func (p *Projects) DeleteProject(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	var err error
+	defer mon.Task()(&ctx)(&err)
+
+	var ok bool
+	var idParam string
+
+	if idParam, ok = mux.Vars(r)["id"]; !ok {
+		p.serveJSONError(ctx, w, http.StatusBadRequest, errs.New("missing project id route param"))
+		return
+	}
+
+	id, err := uuid.FromString(idParam)
+	if err != nil {
+		p.serveJSONError(ctx, w, http.StatusBadRequest, err)
+		return
+	}
+
+	var data AccountActionData
+	err = json.NewDecoder(r.Body).Decode(&data)
+	if err != nil {
+		p.serveJSONError(ctx, w, http.StatusBadRequest, err)
+		return
+	}
+
+	if data.Step < console.DeleteProjectInit || data.Step > console.DeleteProjectStep {
+		p.serveJSONError(ctx, w, http.StatusBadRequest, console.ErrValidation.New("step value is out of range"))
+		return
+	}
+
+	if data.Step > console.DeleteProjectInit && data.Step != console.DeleteProjectStep && data.Data == "" {
+		p.serveJSONError(ctx, w, http.StatusBadRequest, console.ErrValidation.New("data value can't be empty"))
+		return
+	}
+
+	resp, err := p.service.DeleteProject(ctx, id, data.Step, data.Data)
+	if err != nil {
+		if resp != nil {
+			w.WriteHeader(http.StatusConflict)
+			if err := json.NewEncoder(w).Encode(resp); err != nil {
+				p.log.Error("could not encode project deletion response", zap.Error(ErrAuthAPI.Wrap(err)))
+			}
+			return
+		}
+		if console.ErrUnauthorized.Has(err) {
+			p.serveJSONError(ctx, w, http.StatusUnauthorized, err)
+			return
+		}
+
+		p.serveJSONError(ctx, w, http.StatusInternalServerError, err)
+	}
+}
+
 // UpdateUserSpecifiedLimits is a method for updating project user specified limits.
 func (p *Projects) UpdateUserSpecifiedLimits(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()

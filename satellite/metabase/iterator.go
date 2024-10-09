@@ -12,6 +12,7 @@ import (
 	"github.com/zeebo/errs"
 
 	"storj.io/common/uuid"
+	"storj.io/storj/shared/dbutil/spannerutil"
 	"storj.io/storj/shared/tagsql"
 )
 
@@ -336,6 +337,10 @@ func (s *SpannerAdapter) doNextQueryAllVersionsWithStatus(ctx context.Context, i
 
 	if it.prefixLimit == "" {
 		querySelectFields := querySelectorFields("object_key", it)
+		tuple, err := spannerutil.TupleGreaterThanSQL([]string{"bucket_name", "object_key", "@cursor_version"}, []string{"@bucket_name", "@cursor_key", "version"}, it.cursor.Inclusive)
+		if err != nil {
+			return nil, Error.Wrap(err)
+		}
 		rowIterator := s.client.Single().Query(ctx, spanner.Statement{
 			SQL: `
 				SELECT
@@ -343,7 +348,7 @@ func (s *SpannerAdapter) doNextQueryAllVersionsWithStatus(ctx context.Context, i
 				FROM objects
 				WHERE
 					project_id = @project_id
-					AND ` + TupleGreaterThanSQL([]string{"bucket_name", "object_key", "@cursor_version"}, []string{"@bucket_name", "@cursor_key", "version"}, it.cursor.Inclusive) + `
+					AND ` + tuple + `
 					AND bucket_name < @next_bucket
 					` + statusFilter + `
 					AND (expires_at IS NULL OR expires_at > CURRENT_TIMESTAMP)
@@ -472,6 +477,10 @@ func (s *SpannerAdapter) doNextQueryAllVersionsWithStatusAscending(ctx context.C
 
 	if it.prefixLimit == "" {
 		querySelectFields := querySelectorFields("object_key", it)
+		tuple, err := spannerutil.TupleGreaterThanSQL([]string{"bucket_name", "object_key", "version"}, []string{"@bucket_name", "@cursor_key", "@cursor_version"}, it.cursor.Inclusive)
+		if err != nil {
+			return nil, Error.Wrap(err)
+		}
 		rowIterator := s.client.Single().Query(ctx, spanner.Statement{
 			SQL: `
 				SELECT
@@ -479,7 +488,7 @@ func (s *SpannerAdapter) doNextQueryAllVersionsWithStatusAscending(ctx context.C
 				FROM objects
 				WHERE
 					project_id = @project_id
-					AND ` + TupleGreaterThanSQL([]string{"bucket_name", "object_key", "version"}, []string{"@bucket_name", "@cursor_key", "@cursor_version"}, it.cursor.Inclusive) + `
+					AND ` + tuple + `
 					AND bucket_name < @next_bucket
 					` + statusFilter + `
 					AND (expires_at IS NULL OR expires_at > CURRENT_TIMESTAMP)
@@ -533,67 +542,6 @@ func (s *SpannerAdapter) doNextQueryAllVersionsWithStatusAscending(ctx context.C
 		},
 	})
 	return newSpannerRows(rowIterator), nil
-}
-
-// TupleGreaterThanSQL returns a constructed SQL expression equivalent to a
-// tuple comparison (e.g. (tup1[0], tup1[1], ...) > (tup2[0], tup2[1], ...)).
-//
-// If orEqual is true, the returned expression will compare the tuples as
-// "greater than or equal" (>=) instead of "greater than" (>).
-//
-// This is necessary because Spanner does not support comparison of tuples,
-// except with equality (=).
-//
-// Example:
-//
-//	(a, b, c) >= (d, e, f)
-//
-// becomes
-//
-//	TupleGreaterThanSQL([]string{"a", "b", "c"}, []string{"d", "e", "f"}, true)
-//
-// which returns
-//
-//	"((a > d) OR (a = d AND b > e) OR (a = d AND b = e AND c >= f))"
-func TupleGreaterThanSQL(tup1, tup2 []string, orEqual bool) string {
-	if len(tup1) != len(tup2) {
-		panic("programming error: comparing tuples of different lengths")
-	}
-	if len(tup1) == 0 {
-		panic("programming error: comparing tuples of zero length")
-	}
-	comparator := " > "
-	if orEqual {
-		comparator = " >= "
-	}
-	var sb strings.Builder
-	if len(tup1) > 1 {
-		sb.WriteString("(")
-	}
-	for i := range tup1 {
-		sb.WriteString("(")
-		for j := 0; j < i; j++ {
-			sb.WriteString(tup1[j])
-			sb.WriteString(" = ")
-			sb.WriteString(tup2[j])
-			sb.WriteString(" AND ")
-		}
-		sb.WriteString(tup1[i])
-		if i == len(tup1)-1 {
-			sb.WriteString(comparator)
-		} else {
-			sb.WriteString(" > ")
-		}
-		sb.WriteString(tup2[i])
-		sb.WriteString(")")
-		if i < len(tup1)-1 {
-			sb.WriteString(" OR ")
-		}
-	}
-	if len(tup1) > 1 {
-		sb.WriteString(")")
-	}
-	return sb.String()
 }
 
 func querySelectorFields(objectKeyColumn string, it *objectsIterator) string {

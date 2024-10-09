@@ -6,6 +6,7 @@ package stripe
 import (
 	"context"
 	"errors"
+	"strings"
 	"time"
 
 	"github.com/stripe/stripe-go/v75"
@@ -16,8 +17,7 @@ import (
 	"storj.io/storj/satellite/payments"
 )
 
-// ErrInvalidTaxID is returned when a tax ID value is invalid.
-var ErrInvalidTaxID = errs.Class("Invalid tax ID value")
+const invoiceReferenceCustomFieldName = "Reference"
 
 // ensures that accounts implements payments.Accounts.
 var _ payments.Accounts = (*accounts)(nil)
@@ -217,7 +217,7 @@ func (accounts *accounts) AddTaxID(ctx context.Context, userID uuid.UUID, taxID 
 		stripeErr := &stripe.Error{}
 		if errors.As(err, &stripeErr) {
 			if stripeErr.Code == stripe.ErrorCodeTaxIDInvalid {
-				err = Error.Wrap(ErrInvalidTaxID.New("Tax validation error: %s", stripeErr.Msg))
+				err = Error.Wrap(payments.ErrInvalidTaxID.New("Tax validation error: %s", stripeErr.Msg))
 			} else {
 				err = errs.Wrap(errors.New(stripeErr.Msg))
 			}
@@ -233,6 +233,77 @@ func (accounts *accounts) AddTaxID(ctx context.Context, userID uuid.UUID, taxID 
 	if err != nil {
 		return nil, Error.Wrap(err)
 	}
+	return accounts.unpackBillingInformation(*customer)
+}
+
+// AddDefaultInvoiceReference adds a new default invoice reference to be displayed on each invoice and returns the updated billing information.
+func (accounts *accounts) AddDefaultInvoiceReference(ctx context.Context, userID uuid.UUID, reference string) (_ *payments.BillingInformation, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	reference = strings.TrimSpace(reference)
+
+	if len(reference) > 140 {
+		return nil, Error.New("invoice reference is too long")
+	}
+
+	customerID, err := accounts.service.db.Customers().GetCustomerID(ctx, userID)
+	if err != nil {
+		return nil, Error.Wrap(err)
+	}
+
+	customerParams := &stripe.CustomerParams{Params: stripe.Params{Context: ctx}}
+	customer, err := accounts.service.stripeClient.Customers().Get(customerID, customerParams)
+	if err != nil {
+		return nil, Error.Wrap(err)
+	}
+
+	customFieldMap := make(map[string]string)
+	if customer.InvoiceSettings != nil && customer.InvoiceSettings.CustomFields != nil {
+		for _, field := range customer.InvoiceSettings.CustomFields {
+			customFieldMap[field.Name] = field.Value
+		}
+	}
+
+	if reference != "" {
+		customFieldMap[invoiceReferenceCustomFieldName] = reference
+	} else {
+		delete(customFieldMap, invoiceReferenceCustomFieldName)
+	}
+
+	// Ensure we don't exceed the custom field limit.
+	if len(customFieldMap) > 4 {
+		return nil, Error.New("cannot have more than 4 invoice custom fields")
+	}
+
+	var customFields []*stripe.CustomerInvoiceSettingsCustomFieldParams
+	for name, value := range customFieldMap {
+		f := &stripe.CustomerInvoiceSettingsCustomFieldParams{
+			Name:  stripe.String(name),
+			Value: stripe.String(value),
+		}
+		customFields = append(customFields, f)
+	}
+
+	customerParams.InvoiceSettings = &stripe.CustomerInvoiceSettingsParams{}
+
+	if len(customFields) > 0 {
+		customerParams.InvoiceSettings.CustomFields = customFields
+	} else {
+		// Use AddExtra to clear 'invoice_settings[custom_fields]'.
+		customerParams.AddExtra("invoice_settings[custom_fields]", "")
+	}
+
+	customerParams.AddExpand("tax_ids")
+
+	customer, err = accounts.service.stripeClient.Customers().Update(customerID, customerParams)
+	if err != nil {
+		stripeErr := &stripe.Error{}
+		if errors.As(err, &stripeErr) {
+			err = errs.Wrap(errors.New(stripeErr.Msg))
+		}
+		return nil, Error.Wrap(err)
+	}
+
 	return accounts.unpackBillingInformation(*customer)
 }
 
@@ -296,16 +367,21 @@ func (accounts *accounts) GetBillingInformation(ctx context.Context, userID uuid
 }
 
 func (accounts *accounts) unpackBillingInformation(customer stripe.Customer) (info *payments.BillingInformation, err error) {
-
 	// use customer.address to determine if the customer has custom billing information.
 	hasNoAddress := customer.Address == nil || customer.Address == (&stripe.Address{})
 	hasNoTaxInfo := customer.TaxIDs == nil || len(customer.TaxIDs.Data) == 0
-	if hasNoAddress && hasNoTaxInfo {
+	hasNoCustomFields := customer.InvoiceSettings == nil || customer.InvoiceSettings.CustomFields == nil
+
+	if hasNoAddress && hasNoTaxInfo && hasNoCustomFields {
 		return &payments.BillingInformation{}, nil
 	}
 
-	var address *payments.BillingAddress
+	var (
+		address   *payments.BillingAddress
+		reference string
+	)
 	taxIDs := make([]payments.TaxID, 0)
+
 	if !hasNoAddress {
 		stripeAddr := customer.Address
 		countryCode := payments.CountryCode(stripeAddr.Country)
@@ -347,10 +423,19 @@ func (accounts *accounts) unpackBillingInformation(customer stripe.Customer) (in
 			})
 		}
 	}
+	if !hasNoCustomFields {
+		for _, field := range customer.InvoiceSettings.CustomFields {
+			if field.Name == invoiceReferenceCustomFieldName {
+				reference = field.Value
+				break
+			}
+		}
+	}
 
 	return &payments.BillingInformation{
-		Address: address,
-		TaxIDs:  taxIDs,
+		Address:          address,
+		TaxIDs:           taxIDs,
+		InvoiceReference: reference,
 	}, nil
 }
 
@@ -462,8 +547,7 @@ func (accounts *accounts) CheckProjectInvoicingStatus(ctx context.Context, proje
 }
 
 // CheckProjectUsageStatus returns error if for the given project there is some usage for current or previous month.
-func (accounts *accounts) CheckProjectUsageStatus(ctx context.Context, projectID uuid.UUID) error {
-	var err error
+func (accounts *accounts) CheckProjectUsageStatus(ctx context.Context, projectID uuid.UUID) (currentUsageExists, invoicingIncomplete bool, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	year, month, _ := accounts.service.nowFn().UTC().Date()
@@ -472,25 +556,25 @@ func (accounts *accounts) CheckProjectUsageStatus(ctx context.Context, projectID
 	// check current month usage and do not allow deletion if usage exists
 	currentUsage, err := accounts.service.usageDB.GetProjectTotal(ctx, projectID, firstOfMonth, accounts.service.nowFn())
 	if err != nil {
-		return err
+		return false, false, err
 	}
 	if currentUsage.Storage > 0 || currentUsage.Egress > 0 || currentUsage.SegmentCount > 0 {
-		return errs.New("usage for current month exists")
+		return true, false, payments.ErrUnbilledUsageCurrentMonth
 	}
 
 	// check usage for last month, if exists, ensure we have an invoice item created.
 	lastMonthUsage, err := accounts.service.usageDB.GetProjectTotal(ctx, projectID, firstOfMonth.AddDate(0, -1, 0), firstOfMonth.AddDate(0, 0, -1))
 	if err != nil {
-		return err
+		return false, false, err
 	}
 	if lastMonthUsage.Storage > 0 || lastMonthUsage.Egress > 0 || lastMonthUsage.SegmentCount > 0 {
 		err = accounts.service.db.ProjectRecords().Check(ctx, projectID, firstOfMonth.AddDate(0, -1, 0), firstOfMonth)
 		if !errs.Is(err, ErrProjectRecordExists) {
-			return errs.New("usage for last month exist, but is not billed yet")
+			return false, true, payments.ErrUnbilledUsageLastMonth
 		}
 	}
 
-	return nil
+	return false, false, nil
 }
 
 // Charges returns list of all credit card charges related to account.

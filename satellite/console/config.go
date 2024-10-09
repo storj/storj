@@ -38,6 +38,7 @@ type Config struct {
 	BillingInformationTabEnabled      bool                      `help:"indicates if billing information tab should be enabled" default:"false"`
 	SatelliteManagedEncryptionEnabled bool                      `help:"indicates whether satellite managed encryption projects can be created." default:"false"`
 	EmailChangeFlowEnabled            bool                      `help:"whether change user email flow is enabled" default:"false"`
+	DeleteProjectEnabled              bool                      `help:"whether project deletion from satellite UI is enabled" default:"false"`
 	SelfServeAccountDeleteEnabled     bool                      `help:"whether self-serve account delete flow is enabled" default:"false"`
 	UsageLimits                       UsageLimitsConfig
 	Captcha                           CaptchaConfig
@@ -76,18 +77,12 @@ type SessionConfig struct {
 	Duration                     time.Duration `help:"duration a session is valid for (superseded by inactivity timer delay if inactivity timer is enabled)" default:"168h"`
 }
 
-// VersioningConfig contains configurations for object versioning.
-type VersioningConfig struct {
+// ObjectLockAndVersioningConfig contains configurations for object versioning.
+type ObjectLockAndVersioningConfig struct {
+	ObjectLockEnabled                      bool
 	UseBucketLevelObjectVersioning         bool
 	UseBucketLevelObjectVersioningProjects []string
 	projectMap                             map[uuid.UUID]struct{}
-}
-
-// ObjectLockConfig contains configurations for object loc.
-type ObjectLockConfig struct {
-	UseBucketLevelObjectLock         bool
-	UseBucketLevelObjectLockProjects []string
-	projectMap                       map[uuid.UUID]struct{}
 }
 
 // EdgeURLOverrides contains edge service URL overrides.

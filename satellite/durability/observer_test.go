@@ -14,13 +14,13 @@ import (
 
 	"storj.io/common/identity/testidentity"
 	"storj.io/common/storj"
-	"storj.io/common/storj/location"
 	"storj.io/common/testcontext"
 	"storj.io/common/testrand"
 	"storj.io/common/uuid"
 	"storj.io/storj/satellite/metabase"
 	"storj.io/storj/satellite/metabase/rangedloop"
 	"storj.io/storj/satellite/nodeselection"
+	"storj.io/storj/shared/location"
 )
 
 type nodeList struct {
@@ -85,6 +85,7 @@ func TestDurability(t *testing.T) {
 
 		res.AliasPieces = aliasPieces
 		res.Pieces = pieces
+		res.RootPieceID = testrand.PieceID()
 
 		return res
 	}

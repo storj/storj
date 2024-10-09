@@ -220,7 +220,7 @@ func (planet *Planet) createPeers(ctx context.Context, satelliteDatabases satell
 }
 
 // Start starts all the nodes.
-func (planet *Planet) Start(ctx context.Context) {
+func (planet *Planet) Start(ctx context.Context) error {
 	defer mon.Task()(&ctx)(nil)
 
 	ctx, cancel := context.WithCancel(ctx)
@@ -257,9 +257,12 @@ func (planet *Planet) Start(ctx context.Context) {
 		})
 	}
 
-	_ = group.Wait()
+	if err := group.Wait(); err != nil {
+		return err
+	}
 
 	planet.started = true
+	return nil
 }
 
 // StopPeer stops a single peer in the planet.
@@ -368,12 +371,23 @@ func (planet *Planet) Shutdown() error {
 
 	errlist.Add(os.RemoveAll(planet.directory))
 
-	// workaround for not being able to catch context.Canceled error from net package
-	err := errlist.Err()
-	if err != nil && strings.Contains(err.Error(), "operation was canceled") {
-		return nil
+	var filtered errs.Group
+	for _, err := range errlist {
+		errmsg := err.Error()
+		// workaround for not being able to catch context.Canceled error from net package
+		if strings.Contains(errmsg, "operation was canceled") {
+			continue
+		}
+		// workaround for not being able to catch context.Canceled from Spanner
+		//
+		// TODO(spanner): figure out why it's not possible to catch this earlier
+		if strings.Contains(errmsg, "context canceled") {
+			continue
+		}
+		filtered.Add(err)
 	}
-	return err
+
+	return filtered.Err()
 }
 
 // Identities returns the identity provider for this planet.

@@ -12,8 +12,7 @@
             <v-sheet>
                 <v-card-item class="py-4 pl-6">
                     <template #prepend>
-                        <img v-if="expired" src="@/assets/icon-trial-expired.svg" alt="Trial Icon" width="40" class="mt-1">
-                        <img v-else src="@/assets/icon-trial-expiring.svg" alt="Trial Icon" width="40" class="mt-1">
+                        <img v-if="!expired" src="@/assets/icon-trial-expiring.svg" alt="Trial Icon" width="40" class="mt-1">
                     </template>
                     <v-card-title class="font-weight-bold">{{ title }}</v-card-title>
                     <template #append>
@@ -31,10 +30,21 @@
             <v-divider />
 
             <v-row>
-                <v-col class="pa-6 mx-3">
+                <v-col v-if="!expired || !trialExpirationGracePeriod" class="pa-6 mx-3">
                     <p class="text-body-2 font-weight-bold mb-2" />
                     <v-chip variant="tonal" :color="expired ? 'error' : 'warning'" class="font-weight-bold">{{ info }}</v-chip>
                     <p class="text-body-2 my-2">Upgrade your account to {{ expired ? 'continue' : 'keep' }} using Storj.</p>
+                </v-col>
+                <v-col v-else class="pa-6 mx-3">
+                    <p class="text-body-2 my-2">
+                        We hope you enjoyed your trial! Your account is currently inactive,
+                        but there's still time to continue using Storj. Upgrade now to keep
+                        your data and access all features.
+                    </p>
+                    <p class="text-body-2 my-2 font-weight-bold">
+                        Your account will be scheduled for deletion in
+                        {{ trialExpirationGracePeriod }} if no action is taken.
+                    </p>
                 </v-col>
             </v-row>
 
@@ -43,8 +53,14 @@
             <v-card-actions class="pa-6">
                 <v-row>
                     <v-col>
-                        <v-btn :color="expired ? 'error' : 'warning'" variant="flat" block @click="onUpgrade">
-                            Go To Upgrade<v-icon :icon="ArrowRight" class="ml-1" />
+                        <v-btn
+                            :color="expired ? 'success' : 'warning'"
+                            :append-icon="ArrowRight"
+                            variant="flat"
+                            block
+                            @click="onUpgrade"
+                        >
+                            Upgrade Now
                         </v-btn>
                     </v-col>
                 </v-row>
@@ -67,7 +83,6 @@ import {
     VDivider,
     VChip,
     VBtn,
-    VIcon,
 } from 'vuetify/components';
 import { ArrowRight } from 'lucide-vue-next';
 
@@ -89,6 +104,17 @@ const appStore = useAppStore();
 const model = defineModel<boolean>({ required: true });
 
 /**
+ * Returns how many days until user is marked for deletion.
+ */
+const trialExpirationGracePeriod = computed<string>(() => {
+    const days = usersStore.state.user.freezeStatus?.trialExpirationGracePeriod ?? 0;
+    if (days <= 0) {
+        return '';
+    }
+    return `${days} day${days > 1 ? 's' : ''}`;
+});
+
+/**
  * Returns user free trial expiration info.
  */
 const expirationInfo = computed<ExpirationInfo>(() => usersStore.state.user.getExpirationInfo(configStore.state.config.daysBeforeTrialEndNotification));
@@ -97,7 +123,7 @@ const expirationInfo = computed<ExpirationInfo>(() => usersStore.state.user.getE
  * Returns dialog title based on expired status.
  */
 const title = computed<string>(() => {
-    return props.expired ? 'Trial Expired' : 'Trial Expiring Soon';
+    return props.expired ? 'Your Trial Has Expired' : 'Trial Expiring Soon';
 });
 
 /**

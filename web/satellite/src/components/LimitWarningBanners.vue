@@ -43,7 +43,6 @@ import { useRouter } from 'vue-router';
 import { LimitThreshold, LimitThresholdsReached, LimitToChange, LimitType } from '@/types/projects';
 import { useUsersStore } from '@/store/modules/usersStore';
 import { useConfigStore } from '@/store/modules/configStore';
-import { useAnalyticsStore } from '@/store/modules/analyticsStore';
 import { humanizeArray } from '@/utils/strings';
 import { Memory } from '@/utils/bytesSize';
 import { DEFAULT_PROJECT_LIMITS, useProjectsStore } from '@/store/modules/projectsStore';
@@ -62,7 +61,6 @@ const appStore = useAppStore();
 const projectsStore = useProjectsStore();
 const usersStore = useUsersStore();
 const configStore = useConfigStore();
-const analyticsStore = useAnalyticsStore();
 
 const router = useRouter();
 

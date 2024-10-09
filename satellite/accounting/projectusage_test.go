@@ -33,6 +33,7 @@ import (
 	"storj.io/storj/satellite"
 	"storj.io/storj/satellite/accounting"
 	satbuckets "storj.io/storj/satellite/buckets"
+	"storj.io/storj/satellite/console"
 	"storj.io/storj/satellite/metabase"
 	"storj.io/storj/satellite/orders"
 	"storj.io/storj/satellite/satellitedb/satellitedbtest"
@@ -518,10 +519,11 @@ func TestProjectUsageCustomLimit(t *testing.T) {
 
 func TestUsageRollups(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
-		SatelliteCount: 1, StorageNodeCount: 0, UplinkCount: 3,
+		SatelliteCount: 1, StorageNodeCount: 0, UplinkCount: 3, EnableSpanner: true,
 		Reconfigure: testplanet.Reconfigure{
 			Satellite: func(log *zap.Logger, index int, config *satellite.Config) {
 				config.Metainfo.UseBucketLevelObjectVersioning = true
+				config.Metainfo.ObjectLockEnabled = true
 			},
 		},
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
@@ -802,9 +804,12 @@ func TestUsageRollups(t *testing.T) {
 			assert.Equal(t, 0, len(bucketsPage.BucketUsages))
 		})
 
-		t.Run("enable/suspend versioning", func(t *testing.T) {
+		t.Run("versioning & object lock status", func(t *testing.T) {
 			client, err := planet.Uplinks[0].Projects[0].DialMetainfo(ctx)
 			require.NoError(t, err)
+			defer func() {
+				require.NoError(t, client.Close())
+			}()
 
 			for _, bucket := range buckets {
 				err = client.SetBucketVersioning(ctx, metaclient.SetBucketVersioningParams{
@@ -823,6 +828,7 @@ func TestUsageRollups(t *testing.T) {
 
 			for _, usage := range totals.BucketUsages {
 				require.Equal(t, satbuckets.VersioningEnabled, usage.Versioning)
+				require.False(t, usage.ObjectLockEnabled)
 			}
 
 			for _, bucket := range buckets {
@@ -840,6 +846,39 @@ func TestUsageRollups(t *testing.T) {
 			for _, usage := range totals.BucketUsages {
 				require.Equal(t, satbuckets.VersioningSuspended, usage.Versioning)
 			}
+
+			upl := planet.Uplinks[0]
+			sat := planet.Satellites[0]
+			projectID := upl.Projects[0].ID
+			userCtx, err := sat.UserContext(ctx, upl.Projects[0].Owner.ID)
+			require.NoError(t, err)
+
+			_, key, err := sat.API.Console.Service.CreateAPIKey(userCtx, projectID, "test key", macaroon.APIKeyVersionObjectLock)
+			require.NoError(t, err)
+
+			client.SetRawAPIKey(key.SerializeRaw())
+
+			err = sat.API.DB.Console().Projects().UpdateDefaultVersioning(ctx, projectID, console.VersioningEnabled)
+			require.NoError(t, err)
+
+			lockedBucket := "lockedbucket"
+			_, err = client.CreateBucket(ctx, metaclient.CreateBucketParams{
+				Name:              []byte(lockedBucket),
+				ObjectLockEnabled: true,
+			})
+			require.NoError(t, err)
+
+			cursor.Search = lockedBucket
+			totals, err = usageRollups.GetBucketTotals(ctx, project1, cursor, now)
+			require.NoError(t, err)
+			require.NotNil(t, totals)
+			require.Len(t, totals.BucketUsages, 1)
+			require.True(t, totals.BucketUsages[0].ObjectLockEnabled)
+
+			_, err = client.DeleteBucket(ctx, metaclient.DeleteBucketParams{
+				Name: []byte(lockedBucket),
+			})
+			require.NoError(t, err)
 		})
 
 		t.Run("placement", func(t *testing.T) {

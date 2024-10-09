@@ -56,7 +56,7 @@ func Open(ctx context.Context, log *zap.Logger, databaseURL string) (*DB, error)
 	case dbutil.SQLite3:
 		source = sqlite3SetDefaultOptions(source)
 	case dbutil.Postgres:
-		source, err = pgutil.CheckApplicationName(source, "multinode")
+		source, err = pgutil.EnsureApplicationName(source, "multinode")
 		if err != nil {
 			return nil, err
 		}

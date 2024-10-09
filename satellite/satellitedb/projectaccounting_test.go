@@ -8,9 +8,11 @@ import (
 	"time"
 
 	"github.com/stretchr/testify/require"
+	"go.uber.org/zap"
 
 	"storj.io/common/memory"
 	"storj.io/common/pb"
+	"storj.io/common/storj"
 	"storj.io/common/testcontext"
 	"storj.io/common/testrand"
 	"storj.io/common/uuid"
@@ -23,10 +25,11 @@ import (
 	"storj.io/storj/satellite/metabase"
 	"storj.io/storj/satellite/orders"
 	"storj.io/storj/satellite/satellitedb/satellitedbtest"
+	"storj.io/uplink/private/metaclient"
 )
 
 func TestDailyUsage(t *testing.T) {
-	testplanet.Run(t, testplanet.Config{SatelliteCount: 1, StorageNodeCount: 1, UplinkCount: 1},
+	testplanet.Run(t, testplanet.Config{SatelliteCount: 1, StorageNodeCount: 1, UplinkCount: 1, EnableSpanner: true},
 		func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 			const (
 				firstBucketName  = "testbucket0"
@@ -122,7 +125,7 @@ func TestDailyUsage(t *testing.T) {
 }
 
 func TestGetSingleBucketRollup(t *testing.T) {
-	testplanet.Run(t, testplanet.Config{SatelliteCount: 1, StorageNodeCount: 1, UplinkCount: 1},
+	testplanet.Run(t, testplanet.Config{SatelliteCount: 1, StorageNodeCount: 1, UplinkCount: 1, EnableSpanner: true},
 		func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 			const (
 				bucketName = "testbucket"
@@ -205,7 +208,10 @@ func TestGetSingleBucketRollup(t *testing.T) {
 }
 
 func TestGetProjectTotal(t *testing.T) {
-	testplanet.Run(t, testplanet.Config{SatelliteCount: 1, StorageNodeCount: 1},
+	// Spanner only allows dates in the year range of [1, 9999], so a default value will fail.
+	since := time.Time{}.Add(24 * 365 * time.Hour)
+
+	testplanet.Run(t, testplanet.Config{SatelliteCount: 1, StorageNodeCount: 1, EnableSpanner: true},
 		func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 			bucketName := testrand.BucketName()
 			projectID := testrand.UUID()
@@ -215,7 +221,7 @@ func TestGetProjectTotal(t *testing.T) {
 			// The 3rd tally is only present to prevent CreateStorageTally from skipping the 2nd.
 			var tallies []accounting.BucketStorageTally
 			for i := 0; i < 3; i++ {
-				tally := randTally(bucketName, projectID, time.Time{}.Add(time.Duration(i)*time.Hour))
+				tally := randTally(bucketName, projectID, since.Add(time.Duration(i)*time.Hour))
 				tallies = append(tallies, tally)
 				require.NoError(t, db.ProjectAccounting().CreateStorageTally(ctx, tally))
 			}
@@ -262,16 +268,101 @@ func TestGetProjectTotal(t *testing.T) {
 	)
 }
 
+func TestSingleBucketTotal(t *testing.T) {
+	testplanet.Run(t, testplanet.Config{SatelliteCount: 1, StorageNodeCount: 0, UplinkCount: 1, EnableSpanner: true,
+		Reconfigure: testplanet.Reconfigure{
+			Satellite: func(log *zap.Logger, index int, config *satellite.Config) {
+				config.Metainfo.UseBucketLevelObjectVersioning = true
+			},
+		}},
+		func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+			project := planet.Uplinks[0].Projects[0]
+			sat := planet.Satellites[0]
+			db := sat.DB
+
+			bucketName := testrand.BucketName()
+			now := time.Now()
+			before := now.Add(time.Hour * 10)
+
+			err := planet.Uplinks[0].CreateBucket(ctx, sat, bucketName)
+			require.NoError(t, err)
+
+			client, err := planet.Uplinks[0].Projects[0].DialMetainfo(ctx)
+			require.NoError(t, err)
+			defer func() {
+				require.NoError(t, client.Close())
+			}()
+
+			err = client.SetBucketVersioning(ctx, metaclient.SetBucketVersioningParams{
+				Name:       []byte(bucketName),
+				Versioning: true,
+			})
+			require.NoError(t, err)
+
+			storedBucket, err := db.Buckets().GetBucket(ctx, []byte(bucketName), project.ID)
+			require.NoError(t, err)
+
+			storedBucket.Placement = storj.EU
+			_, err = db.Buckets().UpdateBucket(ctx, storedBucket)
+			require.NoError(t, err)
+
+			// The 3rd tally is only present to prevent CreateStorageTally from skipping the 2nd.
+			var tallies []accounting.BucketStorageTally
+			for i := 0; i < 3; i++ {
+				interval := now.Add(time.Hour * time.Duration(i+1))
+				tally := randTally(bucketName, project.ID, interval)
+				tallies = append(tallies, tally)
+				require.NoError(t, db.ProjectAccounting().CreateStorageTally(ctx, tally))
+			}
+
+			var rollups []orders.BucketBandwidthRollup
+			var expectedEgress int64
+			for i := 0; i < 2; i++ {
+				rollup := randRollup(bucketName, project.ID, tallies[i].IntervalStart)
+				rollups = append(rollups, rollup)
+				expectedEgress += rollup.Inline + rollup.Settled
+			}
+			require.NoError(t, db.Orders().UpdateBandwidthBatch(ctx, rollups))
+
+			usage, err := db.ProjectAccounting().GetSingleBucketTotals(ctx, project.ID, bucketName, before)
+			require.NoError(t, err)
+
+			require.Equal(t, memory.Size(tallies[2].Bytes()).GB(), usage.Storage)
+			require.Equal(t, tallies[2].TotalSegmentCount, usage.SegmentCount)
+			require.Equal(t, tallies[2].ObjectCount, usage.ObjectCount)
+			require.Equal(t, memory.Size(expectedEgress).GB(), usage.Egress)
+			require.Equal(t, buckets.VersioningEnabled, usage.Versioning)
+			require.Equal(t, storj.EU, usage.DefaultPlacement)
+
+			err = client.SetBucketVersioning(ctx, metaclient.SetBucketVersioningParams{
+				Name:       []byte(bucketName),
+				Versioning: false,
+			})
+			require.NoError(t, err)
+
+			storedBucket.Placement = storj.EveryCountry
+			_, err = db.Buckets().UpdateBucket(ctx, storedBucket)
+			require.NoError(t, err)
+
+			usage, err = db.ProjectAccounting().GetSingleBucketTotals(ctx, project.ID, bucketName, before)
+			require.NoError(t, err)
+			require.Equal(t, buckets.VersioningSuspended, usage.Versioning)
+			require.Equal(t, storj.EveryCountry, usage.DefaultPlacement)
+		},
+	)
+}
+
 func TestGetProjectTotalByPartner(t *testing.T) {
 	const (
 		epsilon          = 1e-8
 		usagePeriod      = time.Hour
 		tallyRollupCount = 2
 	)
-	since := time.Time{}
+	// Spanner only allows dates in the year range of [1, 9999], so a default value will fail.
+	since := time.Time{}.Add(24 * 365 * time.Hour)
 	before := since.Add(2 * usagePeriod)
 
-	testplanet.Run(t, testplanet.Config{SatelliteCount: 1, StorageNodeCount: 1},
+	testplanet.Run(t, testplanet.Config{SatelliteCount: 1, StorageNodeCount: 1, EnableSpanner: true},
 		func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 			sat := planet.Satellites[0]
 
@@ -449,7 +540,7 @@ func randRollup(bucketName string, projectID uuid.UUID, intervalStart time.Time)
 }
 
 func TestGetProjectObjectsSegments(t *testing.T) {
-	testplanet.Run(t, testplanet.Config{SatelliteCount: 1, UplinkCount: 1},
+	testplanet.Run(t, testplanet.Config{SatelliteCount: 1, UplinkCount: 1, EnableSpanner: true},
 		func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 			planet.Satellites[0].Accounting.Tally.Loop.Pause()
 
@@ -491,7 +582,7 @@ func TestGetProjectObjectsSegments(t *testing.T) {
 }
 
 func TestGetProjectSettledBandwidth(t *testing.T) {
-	testplanet.Run(t, testplanet.Config{SatelliteCount: 1, UplinkCount: 1},
+	testplanet.Run(t, testplanet.Config{SatelliteCount: 1, UplinkCount: 1, EnableSpanner: true},
 		func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 			projectID := planet.Uplinks[0].Projects[0].ID
 			sat := planet.Satellites[0]
@@ -536,7 +627,7 @@ func TestGetProjectSettledBandwidth(t *testing.T) {
 
 func TestProjectUsageGap(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
-		SatelliteCount: 1, UplinkCount: 1,
+		SatelliteCount: 1, UplinkCount: 1, EnableSpanner: true,
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 		sat := planet.Satellites[0]
 		uplink := planet.Uplinks[0]
@@ -591,5 +682,5 @@ func TestProjectaccounting_GetNonEmptyTallyBucketsInRange(t *testing.T) {
 			BucketName: "b\\",
 		}, 0)
 		require.NoError(t, err)
-	})
+	}, satellitedbtest.WithSpanner())
 }

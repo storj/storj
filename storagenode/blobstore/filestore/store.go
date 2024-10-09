@@ -53,6 +53,27 @@ var DefaultConfig = Config{
 	ForceSync:       false,
 }
 
+type lazyFile struct {
+	ref blobstore.BlobRef
+	dir *Dir
+
+	fh *os.File
+}
+
+func (f *lazyFile) Write(p []byte) (_ int, err error) {
+	if f.fh == nil {
+		if err := f.createFile(); err != nil {
+			return 0, err
+		}
+	}
+	return f.fh.Write(p)
+}
+
+func (f *lazyFile) createFile() (err error) {
+	f.fh, err = f.dir.CreateNamedFile(f.ref, MaxFormatVersionSupported)
+	return err
+}
+
 // blobStore implements a blob store.
 type blobStore struct {
 	log    *zap.Logger
@@ -145,7 +166,7 @@ func (store *blobStore) Delete(ctx context.Context, ref blobstore.BlobRef) (err 
 }
 
 // DeleteWithStorageFormat deletes blobs with the specified ref and storage format version.
-func (store *blobStore) DeleteWithStorageFormat(ctx context.Context, ref blobstore.BlobRef, formatVer blobstore.FormatVersion) (err error) {
+func (store *blobStore) DeleteWithStorageFormat(ctx context.Context, ref blobstore.BlobRef, formatVer blobstore.FormatVersion, sizeHint int64) (err error) {
 	// not monkit monitoring because of performance reasons
 
 	err = store.dir.DeleteWithStorageFormat(ctx, ref, formatVer)
@@ -208,15 +229,17 @@ func (store *blobStore) EmptyTrash(ctx context.Context, namespace []byte, trashe
 // Create creates a new blob that can be written.
 func (store *blobStore) Create(ctx context.Context, ref blobstore.BlobRef) (_ blobstore.BlobWriter, err error) {
 	defer mon.Task()(&ctx)(&err)
-	var file *os.File
+	file := &lazyFile{
+		ref: ref,
+		dir: store.dir,
+	}
 	if store.config.ForceSync {
-		file, err = store.dir.CreateTemporaryFile(ctx)
-	} else {
-		file, err = store.dir.CreateNamedFile(ctx, ref, MaxFormatVersionSupported)
+		file.fh, err = store.dir.CreateTemporaryFile(ctx)
+		if err != nil {
+			return nil, Error.Wrap(err)
+		}
 	}
-	if err != nil {
-		return nil, Error.Wrap(err)
-	}
+
 	return newBlobWriter(store.track.Child("blobWriter", 1), ref, store, MaxFormatVersionSupported, file, store.config.WriteBufferSize.Int(), store.config.ForceSync), nil
 }
 
@@ -242,7 +265,7 @@ func (store *blobStore) SpaceUsedForBlobs(ctx context.Context) (space int64, err
 // SpaceUsedForBlobsInNamespace adds up how much is used in the given namespace for blob storage.
 func (store *blobStore) SpaceUsedForBlobsInNamespace(ctx context.Context, namespace []byte) (int64, error) {
 	var totalUsed int64
-	err := store.WalkNamespace(ctx, namespace, "", func(info blobstore.BlobInfo) error {
+	err := store.WalkNamespace(ctx, namespace, nil, func(info blobstore.BlobInfo) error {
 		statInfo, statErr := info.Stat(ctx)
 		if statErr != nil {
 			store.log.Error("failed to stat blob", zap.Binary("namespace", namespace), zap.Binary("key", info.BlobRef().Key), zap.Error(statErr))
@@ -325,8 +348,8 @@ func (store *blobStore) ListNamespaces(ctx context.Context) (ids [][]byte, err e
 // WalkNamespace executes walkFunc for each locally stored blob in the given namespace. If walkFunc
 // returns a non-nil error, WalkNamespace will stop iterating and return the error immediately. The
 // ctx parameter is intended specifically to allow canceling iteration early.
-func (store *blobStore) WalkNamespace(ctx context.Context, namespace []byte, startFromPrefix string, walkFunc func(blobstore.BlobInfo) error) (err error) {
-	return store.dir.WalkNamespace(ctx, namespace, startFromPrefix, walkFunc)
+func (store *blobStore) WalkNamespace(ctx context.Context, namespace []byte, skipPrefixFn blobstore.SkipPrefixFn, walkFunc func(blobstore.BlobInfo) error) (err error) {
+	return store.dir.WalkNamespace(ctx, namespace, skipPrefixFn, walkFunc)
 }
 
 // walkNamespaceInTrash executes walkFunc for each blob stored in the trash under the given
@@ -341,7 +364,11 @@ func (store *blobStore) walkNamespaceInTrash(ctx context.Context, namespace []by
 func (store *blobStore) TestCreateV0(ctx context.Context, ref blobstore.BlobRef) (_ blobstore.BlobWriter, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	file, err := store.dir.CreateTemporaryFile(ctx)
+	file := &lazyFile{
+		ref: ref,
+		dir: store.dir,
+	}
+	file.fh, err = store.dir.CreateTemporaryFile(ctx)
 	if err != nil {
 		return nil, Error.Wrap(err)
 	}

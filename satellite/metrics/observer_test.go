@@ -12,6 +12,7 @@ import (
 
 	"storj.io/common/storj"
 	"storj.io/common/testcontext"
+	"storj.io/common/testrand"
 	"storj.io/common/uuid"
 	"storj.io/storj/satellite/metabase"
 	"storj.io/storj/satellite/metabase/rangedloop"
@@ -24,14 +25,14 @@ var (
 		{StreamID: uuid.UUID{1}, EncryptedSize: 10, Placement: storj.EU},
 	}
 	remote2 = []rangedloop.Segment{
-		{StreamID: uuid.UUID{2}, EncryptedSize: 16, Pieces: metabase.Pieces{{}}, Placement: storj.EU},
-		{StreamID: uuid.UUID{2}, EncryptedSize: 10, Placement: storj.EU},
+		{StreamID: uuid.UUID{2}, EncryptedSize: 16, RootPieceID: testrand.PieceID(), Pieces: metabase.Pieces{{}}, Placement: storj.EU},
+		{StreamID: uuid.UUID{2}, EncryptedSize: 10, RootPieceID: testrand.PieceID(), Placement: storj.EU},
 	}
 	remote3 = []rangedloop.Segment{
-		{StreamID: uuid.UUID{3}, EncryptedSize: 16, Pieces: metabase.Pieces{{}}, Placement: storj.EU},
-		{StreamID: uuid.UUID{3}, EncryptedSize: 16, Pieces: metabase.Pieces{{}}, Placement: storj.EU},
-		{StreamID: uuid.UUID{3}, EncryptedSize: 16, Pieces: metabase.Pieces{{}}, Placement: storj.EU},
-		{StreamID: uuid.UUID{3}, EncryptedSize: 10, ExpiresAt: &time.Time{}, Placement: storj.EU},
+		{StreamID: uuid.UUID{3}, EncryptedSize: 16, RootPieceID: testrand.PieceID(), Pieces: metabase.Pieces{{}}, Placement: storj.EU},
+		{StreamID: uuid.UUID{3}, EncryptedSize: 16, RootPieceID: testrand.PieceID(), Pieces: metabase.Pieces{{}}, Placement: storj.EU},
+		{StreamID: uuid.UUID{3}, EncryptedSize: 16, RootPieceID: testrand.PieceID(), Pieces: metabase.Pieces{{}}, Placement: storj.EU},
+		{StreamID: uuid.UUID{3}, EncryptedSize: 10, RootPieceID: testrand.PieceID(), ExpiresAt: &time.Time{}, Placement: storj.EU},
 	}
 
 	// Segments in the US placement.
@@ -39,9 +40,9 @@ var (
 		{StreamID: uuid.UUID{4}, EncryptedSize: 9, Placement: storj.US},
 	}
 	remote5 = []rangedloop.Segment{
-		{StreamID: uuid.UUID{5}, EncryptedSize: 20, Pieces: metabase.Pieces{{}}, Placement: storj.US},
-		{StreamID: uuid.UUID{5}, EncryptedSize: 40, Pieces: metabase.Pieces{{}}, Placement: storj.US},
-		{StreamID: uuid.UUID{5}, EncryptedSize: 5, Placement: storj.US},
+		{StreamID: uuid.UUID{5}, EncryptedSize: 20, RootPieceID: testrand.PieceID(), Pieces: metabase.Pieces{{}}, Placement: storj.US},
+		{StreamID: uuid.UUID{5}, EncryptedSize: 40, RootPieceID: testrand.PieceID(), Pieces: metabase.Pieces{{}}, Placement: storj.US},
+		{StreamID: uuid.UUID{5}, EncryptedSize: 5, RootPieceID: testrand.PieceID(), Placement: storj.US},
 	}
 )
 

@@ -220,6 +220,9 @@ compensation.withheld-percents: 75,75,75,50,50,50,25,25,25,0,0,0,0,0,0
 # How long to wait between a billing warning event and billing freezing an account.
 # console.account-freeze.billing-warn-grace-period: 360h0m0s
 
+# How long to wait between a trail expiration freeze event and setting pending deletion account status. 0 disables escalation.
+# console.account-freeze.trial-expiration-freeze-grace-period: 0s
+
 # whether active sessions table view should be shown
 # console.active-sessions-view-enabled: false
 
@@ -340,6 +343,9 @@ compensation.withheld-percents: 75,75,75,50,50,50,25,25,25,0,0,0,0,0,0
 # default project limits for users
 # console.default-project-limit: 1
 
+# whether project deletion from satellite UI is enabled
+# console.delete-project-enabled: false
+
 # url link to documentation
 # console.documentation-url: https://docs.storj.io/
 
@@ -438,6 +444,9 @@ compensation.withheld-percents: 75,75,75,50,50,50,25,25,25,0,0,0,0,0,0
 
 # prefix for object browser API key names
 # console.object-browser-key-name-prefix: .storj-web-file-browser-api-key-
+
+# whether object lock UI should be shown, regardless of whether the feature is enabled
+# console.object-lock-ui-enabled: false
 
 # enable open registration
 # console.open-registration-enabled: false
@@ -550,6 +559,9 @@ compensation.withheld-percents: 75,75,75,50,50,50,25,25,25,0,0,0,0,0,0
 # amount of base units of US micro dollars needed to upgrade user's tier status
 # console.user-balance-for-upgrade: 10000000
 
+# url link to Valdi sign up page
+# console.valdi-sign-up-url: ""
+
 # list of partners whose users will not see billing UI.
 # console.var-partners: []
 
@@ -612,6 +624,9 @@ contact.external-address: ""
 
 # If set, a path to write a process trace SVG to
 # debug.trace-out: ""
+
+# indicates whether the console API should not be served along with satellite API
+# disable-console-from-satellite-api: false
 
 # whether to enable durability report (rangedloop observer)
 # durability-report.enabled: true
@@ -709,6 +724,9 @@ contact.external-address: ""
 # energy needed to write 1GB of data, in W-hours/GB
 # emission.write-energy: 0.005
 
+# how many delete queries are sent in parallel
+# expired-deletion.delete-concurrency: 1
+
 # set if expired segment cleanup is enabled or not
 # expired-deletion.enabled: true
 
@@ -723,6 +741,9 @@ contact.external-address: ""
 
 # Bucket which will be used to upload bloom filters
 # garbage-collection-bf.bucket: ""
+
+# do not include expired pieces into bloom filter
+# garbage-collection-bf.exclude-expired-pieces: false
 
 # how long bloom filters will remain in the bucket for gc/sender to consume before being automatically deleted
 # garbage-collection-bf.expire-in: 336h0m0s
@@ -796,8 +817,11 @@ identity.key-path: /root/.local/share/storj/identity/satellite/identity.key
 # the key ID to use for passphrase encryption.
 # key-management.default-master-key: 1
 
-# semicolon-separated key-id:version,checksum.
+# semicolon-separated key-id:version,checksum. With 'gsm' provider, version is the resource name. With 'local', it is the file path. Checksum is the integer crc32c checksum of the key data
 # key-management.key-infos: ""
+
+# the provider of the passphrase encryption keys: 'gsm' for google, 'local' for a local file
+# key-management.provider: gsm
 
 # as of system interval
 # live-accounting.as-of-system-interval: -10s
@@ -892,6 +916,9 @@ identity.key-path: /root/.local/share/storj/identity/satellite/identity.key
 # node alias cache does a full refresh when a value is missing
 # metainfo.node-alias-cache-full-refresh: false
 
+# enable the use of bucket-level Object Lock
+# metainfo.object-lock-enabled: false
+
 # toggle flag if overlay is enabled
 # metainfo.overlay: true
 
@@ -928,9 +955,6 @@ identity.key-path: /root/.local/share/storj/identity/satellite/identity.key
 # list of trusted uplinks for success tracker
 # metainfo.success-tracker-trusted-uplinks: []
 
-# which code path use for commit segment step, empty means default. Other options: transaction, no-pending-object-check
-# metainfo.test-commit-segment-mode: ""
-
 # test the new query for non-recursive listing
 # metainfo.test-listing-query: false
 
@@ -948,9 +972,6 @@ identity.key-path: /root/.local/share/storj/identity/satellite/identity.key
 
 # how often we can upload to the single object (the same location) per API instance
 # metainfo.upload-limiter.single-object-limit: 1s
-
-# enable the use of bucket-level Object Lock
-# metainfo.use-bucket-level-object-lock: false
 
 # enable the use of bucket level object versioning
 # metainfo.use-bucket-level-object-versioning: false
@@ -1210,6 +1231,9 @@ identity.key-path: /root/.local/share/storj/identity/satellite/identity.key
 # how many chunks of segments to process in parallel
 # ranged-loop.parallelism: 2
 
+# sets spanner stale read timestamp as now()-interval
+# ranged-loop.spanner-stale-interval: 0s
+
 # ratio where to consider processed count as supicious
 # ranged-loop.suspicious-processed-ratio: 0.03
 
@@ -1351,9 +1375,6 @@ identity.key-path: /root/.local/share/storj/identity/satellite/identity.key
 # how frequently rollup should run
 # rollup.interval: 24h0m0s
 
-# indicates whether the console API should be split out from satellite API
-# separate-console-api: false
-
 # public address to listen on
 server.address: :7777
 
@@ -1386,6 +1407,9 @@ server.private-address: 127.0.0.1:7778
 
 # if true, uses peer ca whitelist checking
 # server.use-peer-ca-whitelist: true
+
+# indicates whether the console API should be served as a standalone service
+# standalone-console-api-enabled: false
 
 # whether nodes will be disqualified if they have not been contacted in some time
 # stray-nodes.enable-dq: true

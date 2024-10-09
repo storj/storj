@@ -333,7 +333,7 @@ func (endpoint *Endpoint) checkUserStatus(ctx context.Context, keyInfo *console.
 	return nil
 }
 
-func (endpoint *Endpoint) validateBucketNameLength(bucket []byte) (err error) {
+func validateBucketNameLength(bucket []byte) (err error) {
 	if len(bucket) == 0 {
 		return Error.Wrap(buckets.ErrNoBucket.New(""))
 	}
@@ -345,8 +345,8 @@ func (endpoint *Endpoint) validateBucketNameLength(bucket []byte) (err error) {
 	return nil
 }
 
-func (endpoint *Endpoint) validateBucketName(bucket []byte) error {
-	if err := endpoint.validateBucketNameLength(bucket); err != nil {
+func validateBucketName(bucket []byte) error {
+	if err := validateBucketNameLength(bucket); err != nil {
 		return err
 	}
 
@@ -396,36 +396,71 @@ func validateObjectVersion(version []byte) error {
 	return nil
 }
 
-// protobufRetentionToMetabase converts *pb.Retention to metabase.Retention.
-// If the *pb.Retention is malformed or represents an expired retention period,
-// an RPC error describing the issue is returned.
-func protobufRetentionToMetabase(pbRetention *pb.Retention) (metabase.Retention, error) {
+func validateRetention(pbRetention *pb.Retention) error {
 	if pbRetention == nil {
-		return metabase.Retention{}, nil
+		return nil
 	}
 	switch pbRetention.Mode {
-	case pb.Retention_COMPLIANCE:
+	case pb.Retention_COMPLIANCE, pb.Retention_GOVERNANCE:
 		switch {
 		case pbRetention.RetainUntil.IsZero():
-			return metabase.Retention{}, rpcstatus.Error(
-				rpcstatus.InvalidArgument,
-				"retention period expiration time must be set if retention is set",
-			)
+			return errs.New("retention period expiration time must be set if retention is set")
 		case pbRetention.RetainUntil.Before(time.Now()):
-			return metabase.Retention{}, rpcstatus.Error(rpcstatus.InvalidArgument, "retention period expiration time must not be in the past")
+			return errs.New("retention period expiration time must not be in the past")
 		}
 	default:
-		return metabase.Retention{}, rpcstatus.Errorf(
-			rpcstatus.InvalidArgument,
-			"invalid retention mode %d, expected %d (compliance)",
-			pbRetention.Mode,
-			pb.Retention_COMPLIANCE,
-		)
+		return errs.New("invalid retention mode %d", pbRetention.Mode)
+	}
+	return nil
+}
+
+type bucketRequest interface{ GetBucket() []byte }
+type newBucketRequest interface{ GetNewBucket() []byte }
+type objectVersionRequest interface{ GetObjectVersion() []byte }
+type retentionRequest interface{ GetRetention() *pb.Retention }
+
+// validateRequestSimple performs trivial validation of request fields.
+//
+// It returns an RPC error if any of the following are true:
+//
+// - The value returned by Bucket() or NewBucket() has an incorrect length.
+//
+// - The value returned by ObjectVersion() has an incorrect length.
+//
+// - The value returned by Retention() does not represent a valid retention configuration.
+func validateRequestSimple(req any) (err error) {
+	if req, ok := req.(bucketRequest); ok {
+		if err := validateBucketNameLength(req.GetBucket()); err != nil {
+			return rpcstatus.Error(rpcstatus.InvalidArgument, err.Error())
+		}
+	}
+	if req, ok := req.(newBucketRequest); ok {
+		if err := validateBucketNameLength(req.GetNewBucket()); err != nil {
+			return rpcstatus.Error(rpcstatus.InvalidArgument, err.Error())
+		}
+	}
+	if req, ok := req.(objectVersionRequest); ok {
+		if err := validateObjectVersion(req.GetObjectVersion()); err != nil {
+			return rpcstatus.Error(rpcstatus.InvalidArgument, err.Error())
+		}
+	}
+	if req, ok := req.(retentionRequest); ok {
+		if err := validateRetention(req.GetRetention()); err != nil {
+			return rpcstatus.Error(rpcstatus.InvalidArgument, err.Error())
+		}
+	}
+	return nil
+}
+
+// protobufRetentionToMetabase converts *pb.Retention to metabase.Retention.
+func protobufRetentionToMetabase(pbRetention *pb.Retention) metabase.Retention {
+	if pbRetention == nil {
+		return metabase.Retention{}
 	}
 	return metabase.Retention{
 		Mode:        storj.RetentionMode(pbRetention.Mode),
 		RetainUntil: pbRetention.RetainUntil,
-	}, nil
+	}
 }
 
 func isLowerLetter(r byte) bool {

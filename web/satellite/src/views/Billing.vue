@@ -74,7 +74,7 @@
                                     {{ centsToDollars(priceSummary) }}
                                 </v-chip>
                                 <v-divider class="my-4" />
-                                <v-btn variant="outlined" color="default" size="small" rounded="md" class="mr-2" @click="tab = TABS['billing-history']">View Billing History</v-btn>
+                                <v-btn variant="outlined" color="default" size="small" rounded="md" class="mr-2" :append-icon="ArrowRight" @click="tab = TABS['billing-history']">View Billing History</v-btn>
                             </v-card-text>
                         </v-card>
                     </v-col>
@@ -261,7 +261,7 @@ import {
     VIcon,
 } from 'vuetify/components';
 import { useRoute, useRouter } from 'vue-router';
-import { Calendar, Info, Plus } from 'lucide-vue-next';
+import { Calendar, Info, Plus, ArrowRight } from 'lucide-vue-next';
 
 import { useLoading } from '@/composables/useLoading';
 import { useNotify } from '@/utils/hooks';

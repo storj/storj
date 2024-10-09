@@ -13,11 +13,13 @@ import (
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 
-	"storj.io/common/bloomfilter"
 	"storj.io/common/storj"
+	"storj.io/storj/shared/bloomfilter"
 	"storj.io/storj/storagenode/blobstore"
 	"storj.io/storj/storagenode/blobstore/filestore"
 )
+
+const maxPrefixUsedSpaceBatch = 5
 
 var errFileWalker = errs.Class("filewalker")
 
@@ -28,15 +30,17 @@ type FileWalker struct {
 	blobs        blobstore.Blobs
 	v0PieceInfo  V0PieceInfoDB
 	gcProgressDB GCFilewalkerProgressDB
+	usedSpaceDB  UsedSpacePerPrefixDB
 }
 
 // NewFileWalker creates a new FileWalker.
-func NewFileWalker(log *zap.Logger, blobs blobstore.Blobs, v0PieceInfoDB V0PieceInfoDB, gcProgressDB GCFilewalkerProgressDB) *FileWalker {
+func NewFileWalker(log *zap.Logger, blobs blobstore.Blobs, v0PieceInfoDB V0PieceInfoDB, gcProgressDB GCFilewalkerProgressDB, usedSpaceDB UsedSpacePerPrefixDB) *FileWalker {
 	return &FileWalker{
 		log:          log,
 		blobs:        blobs,
 		v0PieceInfo:  v0PieceInfoDB,
 		gcProgressDB: gcProgressDB,
+		usedSpaceDB:  usedSpaceDB,
 	}
 }
 
@@ -48,10 +52,10 @@ func NewFileWalker(log *zap.Logger, blobs blobstore.Blobs, v0PieceInfoDB V0Piece
 // Note that this method includes all locally stored pieces, both V0 and higher.
 // The startPrefix parameter can be used to start the iteration at a specific prefix. If startPrefix
 // is empty, the iteration starts at the beginning of the namespace.
-func (fw *FileWalker) WalkSatellitePieces(ctx context.Context, satellite storj.NodeID, startPrefix string, fn func(StoredPieceAccess) error) (err error) {
+func (fw *FileWalker) WalkSatellitePieces(ctx context.Context, satellite storj.NodeID, skipPrefixFn blobstore.SkipPrefixFn, fn func(StoredPieceAccess) error) (err error) {
 	defer mon.Task()(&ctx)(&err)
 	// iterate over all in V1 storage, skipping v0 pieces
-	err = fw.blobs.WalkNamespace(ctx, satellite.Bytes(), startPrefix, func(blobInfo blobstore.BlobInfo) error {
+	err = fw.blobs.WalkNamespace(ctx, satellite.Bytes(), skipPrefixFn, func(blobInfo blobstore.BlobInfo) error {
 		if blobInfo.StorageFormatVersion() < filestore.FormatV1 {
 			// skip v0 pieces, which are handled separately
 			return nil
@@ -75,8 +79,70 @@ func (fw *FileWalker) WalkSatellitePieces(ctx context.Context, satellite storj.N
 }
 
 // WalkAndComputeSpaceUsedBySatellite walks over all pieces for a given satellite, adds up and returns the total space used.
-func (fw *FileWalker) WalkAndComputeSpaceUsedBySatellite(ctx context.Context, satelliteID storj.NodeID) (satPiecesTotal int64, satPiecesContentSize int64, err error) {
-	err = fw.WalkSatellitePieces(ctx, satelliteID, "", func(access StoredPieceAccess) error {
+func (fw *FileWalker) WalkAndComputeSpaceUsedBySatellite(ctx context.Context, satelliteID storj.NodeID) (satPiecesTotal int64, satPiecesContentSize int64, satPieceCount int64, err error) {
+	return fw.WalkAndComputeSpaceUsedBySatelliteWithWalkFunc(ctx, satelliteID, nil)
+}
+
+// WalkAndComputeSpaceUsedBySatelliteWithWalkFunc walks over all pieces for a given satellite, adds up and returns the total space used.
+// It also calls the walkFunc for each piece.
+// This is useful for testing purposes. Call this method with a walkFunc that collects information about each piece.
+func (fw *FileWalker) WalkAndComputeSpaceUsedBySatelliteWithWalkFunc(ctx context.Context, satelliteID storj.NodeID, walkFunc func(StoredPieceAccess) error) (satPiecesTotal int64, satPiecesContentSize int64, satPieceCount int64, err error) {
+	satelliteUsedSpacePerPrefix := make(map[string]PrefixUsedSpace)
+	var skipPrefixFunc blobstore.SkipPrefixFn
+	if fw.usedSpaceDB != nil {
+		// hardcoded 7 days, if the used space is not updated in the last 7 days, we will recalculate it.
+		// TODO: make this configurable
+		lastUpdated := time.Now().Add(-time.Hour * 168)
+		usedSpace, err := fw.usedSpaceDB.Get(ctx, satelliteID, &lastUpdated)
+		if err != nil && !errs.Is(err, sql.ErrNoRows) {
+			return 0, 0, 0, errFileWalker.Wrap(err)
+		}
+
+		for _, prefix := range usedSpace {
+			satelliteUsedSpacePerPrefix[prefix.Prefix] = prefix
+		}
+
+		if len(satelliteUsedSpacePerPrefix) > 0 {
+			skipPrefixFunc = func(prefix string) bool {
+				if usedSpace, ok := satelliteUsedSpacePerPrefix[prefix]; ok {
+					return usedSpace.TotalBytes > 0 && usedSpace.TotalContentSize > 0
+				}
+				return false
+			}
+		}
+	}
+
+	scannedPrefixesBatch := make([]PrefixUsedSpace, 0, maxPrefixUsedSpaceBatch)
+	storeBatch := func() error {
+		if fw.usedSpaceDB != nil && len(scannedPrefixesBatch) > 0 {
+			err := fw.usedSpaceDB.StoreBatch(ctx, scannedPrefixesBatch)
+			if err != nil {
+				return err
+			}
+			scannedPrefixesBatch = scannedPrefixesBatch[:0]
+		}
+		return nil
+	}
+
+	currentPrefix := PrefixUsedSpace{}
+
+	err = fw.WalkSatellitePieces(ctx, satelliteID, skipPrefixFunc, func(access StoredPieceAccess) error {
+		if len(scannedPrefixesBatch) >= maxPrefixUsedSpaceBatch {
+			if err := storeBatch(); err != nil {
+				fw.log.Error("failed to store the batch of prefixes", zap.Error(err))
+				return err
+			}
+		}
+
+		if walkFunc != nil {
+			err := walkFunc(access)
+			if err != nil {
+				return err
+			}
+		}
+
+		prefix := getKeyPrefix(access.BlobRef())
+
 		pieceTotal, pieceContentSize, err := access.Size(ctx)
 		if err != nil {
 			if os.IsNotExist(err) {
@@ -86,10 +152,49 @@ func (fw *FileWalker) WalkAndComputeSpaceUsedBySatellite(ctx context.Context, sa
 		}
 		satPiecesTotal += pieceTotal
 		satPiecesContentSize += pieceContentSize
+		satPieceCount++
+
+		if prefix != currentPrefix.Prefix {
+			// add the current prefix to the batch and start a new one
+			if currentPrefix.Prefix != "" {
+				scannedPrefixesBatch = append(scannedPrefixesBatch, currentPrefix)
+			}
+			currentPrefix = PrefixUsedSpace{Prefix: prefix, SatelliteID: satelliteID}
+		}
+		currentPrefix.TotalBytes += pieceTotal
+		currentPrefix.TotalContentSize += pieceContentSize
+		currentPrefix.PieceCounts++
+		currentPrefix.LastUpdated = time.Now().UTC()
+
 		return nil
 	})
 
-	return satPiecesTotal, satPiecesContentSize, errFileWalker.Wrap(err)
+	if err == nil && currentPrefix.Prefix != "" {
+		// if no error occurred, then the last prefix was completely scanned, so we need to store it.
+		scannedPrefixesBatch = append(scannedPrefixesBatch, currentPrefix)
+	}
+
+	// filewalker is done, store the last batch, if any;
+	// at least try even if there was an error, to avoid losing progress.
+	if storeErr := storeBatch(); storeErr != nil {
+		fw.log.Error("failed to store the last batch of prefixes", zap.Error(err))
+		return satPiecesTotal, satPiecesContentSize, satPieceCount, errFileWalker.Wrap(errs.Combine(err, storeErr))
+	}
+
+	if err == nil && fw.usedSpaceDB != nil {
+		if len(satelliteUsedSpacePerPrefix) > 0 {
+			var getErr error
+			// if we started from a specific prefix, then the calculated data is incomplete, so let's get
+			// the actual total used space for the satellite from the database.
+			satPiecesTotal, satPiecesContentSize, satPieceCount, getErr = fw.usedSpaceDB.GetSatelliteUsedSpace(ctx, satelliteID)
+			if getErr != nil {
+				fw.log.Error("failed to get total used space from the database", zap.Error(err))
+				err = errs.Combine(err, getErr)
+			}
+		}
+	}
+
+	return satPiecesTotal, satPiecesContentSize, satPieceCount, errFileWalker.Wrap(err)
 }
 
 // WalkSatellitePiecesToTrash walks the satellite pieces and moves the pieces that are trash to the
@@ -178,7 +283,22 @@ func (fw *FileWalker) WalkSatellitePiecesToTrash(ctx context.Context, satelliteI
 		}()
 	}
 
-	err = fw.WalkSatellitePieces(ctx, satelliteID, curPrefix, func(access StoredPieceAccess) error {
+	var skipPrefixFunc blobstore.SkipPrefixFn
+
+	if curPrefix != "" {
+		foundLastPrefix := false
+		skipPrefixFunc = func(prefix string) bool {
+			if foundLastPrefix {
+				return false
+			}
+			if prefix == curPrefix {
+				foundLastPrefix = true
+			}
+			return true
+		}
+	}
+
+	err = fw.WalkSatellitePieces(ctx, satelliteID, skipPrefixFunc, func(access StoredPieceAccess) error {
 		piecesCount++
 
 		// We call Gosched() when done because the GC process is expected to be long and we want to keep it at low priority,
@@ -186,7 +306,7 @@ func (fw *FileWalker) WalkSatellitePiecesToTrash(ctx context.Context, satelliteI
 		defer runtime.Gosched()
 
 		if fw.gcProgressDB != nil {
-			keyPrefix := filestore.PathEncoding.EncodeToString(access.BlobRef().Key)[:2]
+			keyPrefix := getKeyPrefix(access.BlobRef())
 			if keyPrefix != "" && keyPrefix != curPrefix {
 				err := fw.gcProgressDB.Store(ctx, GCFilewalkerProgress{
 					Prefix:                   keyPrefix,
@@ -265,4 +385,8 @@ func (fw *FileWalker) WalkCleanupTrash(ctx context.Context, satelliteID storj.No
 		keysDeleted = append(keysDeleted, pieceID)
 	}
 	return bytesDeleted, keysDeleted, err
+}
+
+func getKeyPrefix(blobRef blobstore.BlobRef) string {
+	return filestore.PathEncoding.EncodeToString(blobRef.Key)[:2]
 }

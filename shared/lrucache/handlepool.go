@@ -185,7 +185,11 @@ func (pool *HandlePool[K, V]) Peek(key K) (value V, release func(), ok bool) {
 // Delete removes a handle from the pool, closing it if not in use. If the
 // handle is in use, it will be closed when released. If the handle is not in
 // the pool, Delete has no effect.
-func (pool *HandlePool[K, V]) Delete(key K) {
+//
+// The value associated with the key is returned if it was in the pool, along
+// with ok=true. If ok=false, the key was not in the pool and value is the
+// zero value.
+func (pool *HandlePool[K, V]) Delete(key K) (value V, ok bool) {
 	pool.lock.Lock()
 
 	var toBeClosed *handleElement[K, V]
@@ -197,7 +201,11 @@ func (pool *HandlePool[K, V]) Delete(key K) {
 
 	pool.lock.Unlock()
 
-	pool.decref(toBeClosed)
+	if toBeClosed != nil {
+		pool.decref(toBeClosed)
+		return toBeClosed.value, true
+	}
+	return value, false
 }
 
 // CloseAll removes all handles from the pool, closing those that are no longer
@@ -217,6 +225,36 @@ func (pool *HandlePool[K, V]) CloseAll() {
 	pool.lock.Unlock()
 
 	for _, handle := range toBeClosed {
+		pool.decref(handle)
+	}
+}
+
+// ForEach calls the given function for each key-value pair in a snapshot
+// of the cache. If a handle is still being initialized, it will not be
+// included. Each handle's lock is held in turn while fn is called.
+func (pool *HandlePool[K, V]) ForEach(fn func(key K, value V)) {
+	var handles []*handleElement[K, V]
+	func() {
+		pool.lock.Lock()
+		defer pool.lock.Unlock()
+		handles = make([]*handleElement[K, V], 0, len(pool.cache))
+		for _, elem := range pool.cache {
+			handle := elem.Value.(*handleElement[K, V])
+			handle.mu.Lock()
+			handle.refCount++
+			handle.mu.Unlock()
+			handles = append(handles, handle)
+		}
+	}()
+
+	for _, handle := range handles {
+		func() {
+			handle.mu.Lock()
+			defer handle.mu.Unlock()
+			if handle.initialized {
+				fn(handle.key, handle.value)
+			}
+		}()
 		pool.decref(handle)
 	}
 }

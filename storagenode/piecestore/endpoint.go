@@ -13,6 +13,7 @@ import (
 	"net"
 	"os"
 	"reflect"
+	"runtime/trace"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -22,7 +23,6 @@ import (
 	"go.uber.org/zap"
 	"golang.org/x/sync/errgroup"
 
-	"storj.io/common/bloomfilter"
 	"storj.io/common/context2"
 	"storj.io/common/errs2"
 	"storj.io/common/identity"
@@ -34,6 +34,7 @@ import (
 	"storj.io/common/sync2"
 	"storj.io/drpc"
 	"storj.io/drpc/drpcctx"
+	"storj.io/storj/shared/bloomfilter"
 	"storj.io/storj/storagenode/bandwidth"
 	"storj.io/storj/storagenode/blobstore/filestore"
 	"storj.io/storj/storagenode/monitor"
@@ -85,7 +86,8 @@ type Config struct {
 	Orders  orders.Config
 }
 
-type pingStatsSource interface {
+// PingStatsSource stores the last time when the target was pinged.
+type PingStatsSource interface {
 	WasPinged(when time.Time)
 }
 
@@ -102,7 +104,7 @@ type Endpoint struct {
 	trust     *trust.Pool
 	monitor   *monitor.Service
 	retain    *retain.Service
-	pingStats pingStatsSource
+	pingStats PingStatsSource
 
 	store        *pieces.Store
 	trashChore   *pieces.TrashChore
@@ -115,7 +117,7 @@ type Endpoint struct {
 }
 
 // NewEndpoint creates a new piecestore endpoint.
-func NewEndpoint(log *zap.Logger, ident *identity.FullIdentity, trust *trust.Pool, monitor *monitor.Service, retain *retain.Service, pingStats pingStatsSource, store *pieces.Store, trashChore *pieces.TrashChore, pieceDeleter *pieces.Deleter, ordersStore *orders.FileStore, usage bandwidth.DB, usedSerials *usedserials.Table, config Config) (*Endpoint, error) {
+func NewEndpoint(log *zap.Logger, ident *identity.FullIdentity, trust *trust.Pool, monitor *monitor.Service, retain *retain.Service, pingStats PingStatsSource, store *pieces.Store, trashChore *pieces.TrashChore, pieceDeleter *pieces.Deleter, ordersStore *orders.FileStore, usage bandwidth.DB, usedSerials *usedserials.Table, config Config) (*Endpoint, error) {
 	return &Endpoint{
 		log:    log,
 		config: config,
@@ -281,6 +283,14 @@ func (endpoint *Endpoint) Upload(stream pb.DRPCPiecestore_UploadStream) (err err
 	defer monLiveRequests(&ctx)(&err)
 	defer mon.Task()(&ctx)(&err)
 
+	if trace.IsEnabled() {
+		if tr, ok := drpcctx.Transport(ctx); ok {
+			if conn, ok := tr.(net.Conn); ok {
+				trace.Logf(ctx, "connection-info", "local:%v remote:%v", conn.LocalAddr(), conn.RemoteAddr())
+			}
+		}
+	}
+
 	cancelStream, ok := getCanceler(stream)
 	if !ok {
 		return rpcstatus.Error(rpcstatus.Unavailable, "stream does not support canceling")
@@ -310,7 +320,7 @@ func (endpoint *Endpoint) Upload(stream pb.DRPCPiecestore_UploadStream) (err err
 		})
 	switch {
 	case err != nil:
-		if errs2.IsCanceled(err) {
+		if errs2.IsCanceled(err) || errors.Is(err, io.ErrUnexpectedEOF) {
 			return rpcstatus.Wrap(rpcstatus.Canceled, err)
 		}
 		endpoint.log.Error("upload internal error", zap.Error(err))
@@ -384,9 +394,8 @@ func (endpoint *Endpoint) Upload(stream pb.DRPCPiecestore_UploadStream) (err err
 			mon.IntVal("upload_failure_size_bytes").Observe(uploadSize)
 			mon.IntVal("upload_failure_duration_ns").Observe(uploadDuration)
 			mon.FloatVal("upload_failure_rate_bytes_per_sec").Observe(uploadRate)
-			if errors.Is(err, context.Canceled) {
-				// Context cancellation is common in normal operation, and shouldn't throw a full error.
-				log.Info("upload canceled (race lost or node shutdown)")
+			if errors.Is(err, context.Canceled) || errors.Is(err, io.ErrUnexpectedEOF) || rpcstatus.Code(err) == rpcstatus.Canceled {
+				// This is common in normal operation, and shouldn't throw a full error.
 				log.Debug("upload failed", zap.Int64("Size", uploadSize), zap.Error(err))
 
 			} else {
@@ -512,7 +521,7 @@ func (endpoint *Endpoint) Upload(stream pb.DRPCPiecestore_UploadStream) (err err
 			}
 			committed = true
 			if !limit.PieceExpiration.IsZero() {
-				if err := endpoint.store.SetExpiration(ctx, limit.SatelliteId, limit.PieceId, limit.PieceExpiration); err != nil {
+				if err := endpoint.store.SetExpiration(ctx, limit.SatelliteId, limit.PieceId, limit.PieceExpiration, pieceWriter.Size()); err != nil {
 					endpoint.log.Error("upload internal error", zap.Error(err))
 					return true, rpcstatus.Wrap(rpcstatus.Internal, err)
 				}
@@ -571,8 +580,8 @@ func (endpoint *Endpoint) Upload(stream pb.DRPCPiecestore_UploadStream) (err err
 
 				return stream.Recv()
 			})
-		if errs.Is(err, io.EOF) {
-			return rpcstatus.Error(rpcstatus.InvalidArgument, "unexpected EOF")
+		if errs.Is(err, io.EOF) || errors.Is(err, io.ErrUnexpectedEOF) {
+			return rpcstatus.Error(rpcstatus.Aborted, "unexpected EOF")
 		} else if err != nil {
 			if errs2.IsCanceled(err) {
 				return rpcstatus.Wrap(rpcstatus.Canceled, err)
@@ -606,6 +615,14 @@ func (endpoint *Endpoint) Download(stream pb.DRPCPiecestore_DownloadStream) (err
 	ctx := stream.Context()
 	defer monLiveRequests(&ctx)(&err)
 	defer mon.Task()(&ctx)(&err)
+
+	if trace.IsEnabled() {
+		if tr, ok := drpcctx.Transport(ctx); ok {
+			if conn, ok := tr.(net.Conn); ok {
+				trace.Logf(ctx, "connection-info", "local:%v remote:%v", conn.LocalAddr(), conn.RemoteAddr())
+			}
+		}
+	}
 
 	cancelStream, ok := getCanceler(stream)
 	if !ok {
@@ -682,13 +699,39 @@ func (endpoint *Endpoint) Download(stream pb.DRPCPiecestore_DownloadStream) (err
 			downloadRate = float64(downloadSize) / dt.Seconds()
 		}
 		downloadDuration := dt.Nanoseconds()
+		// NOTE: Check if the `switch` statement inside of this conditional block must be updated if you
+		// change this condition.
 		if errs2.IsCanceled(err) || drpc.ClosedError.Has(err) || (err == nil && chunk.ChunkSize != downloadSize) {
 			mon.Counter("download_cancel_count", actionSeriesTag).Inc(1)
 			mon.Meter("download_cancel_byte_meter", actionSeriesTag).Mark64(downloadSize)
 			mon.IntVal("download_cancel_size_bytes", actionSeriesTag).Observe(downloadSize)
 			mon.IntVal("download_cancel_duration_ns", actionSeriesTag).Observe(downloadDuration)
 			mon.FloatVal("download_cancel_rate_bytes_per_sec", actionSeriesTag).Observe(downloadRate)
-			log.Info("download canceled")
+
+			var reason string
+
+			// NOTE: This switch must capture all the possible reasons for a download to be canceled and
+			// set the `reason` variable to an appropriate message in order of never reaching the
+			// `default` case.
+			switch {
+			case errs2.IsCanceled(err):
+				reason = "context canceled"
+			case drpc.ClosedError.Has(err):
+				reason = "stream closed by peer"
+			case (err == nil && chunk.ChunkSize != downloadSize):
+				reason = fmt.Sprintf(
+					"downloaded size (%d bytes) does not match received message size (%d bytes)", downloadSize, chunk.ChunkSize,
+				)
+			default:
+				// This counter should always be 0, if it's not, it means that there is a bug in the code.
+				// If we found that's greater than 0 and we change the code to potentially fix the bug, then
+				// we should increment the counter's name post fix vX as a way to reset back to 0 to see if
+				// the new changes fixed the bug.
+				mon.Counter("download_cancel_unknown_reason_v1", actionSeriesTag).Inc(1)
+				reason = "unknown reason bug in code, please report"
+			}
+
+			log.Info("download canceled", zap.String("reason", reason))
 		} else if err != nil {
 			mon.Counter("download_failure_count", actionSeriesTag).Inc(1)
 			mon.Meter("download_failure_byte_meter", actionSeriesTag).Mark64(downloadSize)

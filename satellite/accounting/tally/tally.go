@@ -276,6 +276,10 @@ func NewBucketTallyCollector(log *zap.Logger, now time.Time, db *metabase.DB, bu
 func (observer *BucketTallyCollector) Run(ctx context.Context) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
+	// NOTE: this is the current time according to the first database adapter,
+	// not necessarily the current time according to the others. This is only
+	// used to specify an AS OF SYSTEM TIME when the underlying adapter is
+	// CockroachDB, so the mismatch is probably acceptable for this usage.
 	startingTime, err := observer.metabase.Now(ctx)
 	if err != nil {
 		return err

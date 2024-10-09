@@ -11,7 +11,6 @@ import (
 	"github.com/mattn/go-sqlite3"
 	"github.com/zeebo/errs"
 
-	"storj.io/storj/shared/dbutil/txutil"
 	"storj.io/storj/shared/tagsql"
 )
 
@@ -174,7 +173,7 @@ func KeepTables(ctx context.Context, db tagsql.DB, tablesToKeep ...string) (err 
 
 // dropTables performs the table drops in a single transaction.
 func dropTables(ctx context.Context, db tagsql.DB, tablesToKeep ...string) (err error) {
-	err = txutil.WithTx(ctx, db, nil, func(ctx context.Context, tx tagsql.Tx) error {
+	return ErrKeepTables.Wrap(WithTx(ctx, db, func(ctx context.Context, tx tagsql.Tx) error {
 		// Get a list of tables excluding sqlite3 system tables.
 		rows, err := tx.QueryContext(ctx, "SELECT name FROM sqlite_master WHERE type ='table' AND name NOT LIKE 'sqlite_%';")
 		if err != nil {
@@ -210,8 +209,7 @@ func dropTables(ctx context.Context, db tagsql.DB, tablesToKeep ...string) (err 
 		}
 
 		return nil
-	})
-	return ErrKeepTables.Wrap(err)
+	}))
 }
 
 func tableToKeep(table string, tables []string) bool {

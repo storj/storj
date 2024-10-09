@@ -18,8 +18,18 @@ import (
 	"storj.io/storj/shared/tagsql"
 )
 
+const noLockOnUnversionedErrMsg = "Object Lock settings must not be placed on unversioned objects"
+
+// lockInfo contains Object Lock-related information about the object
+// that's being moved.
+type lockInfo struct {
+	objectExpiresAt *time.Time
+	retention       Retention
+	legalHold       bool
+}
+
 type moveObjectTransactionAdapter interface {
-	objectMove(ctx context.Context, opts FinishMoveObject, newStatus ObjectStatus, nextVersion Version) (oldStatus ObjectStatus, segmentsCount int, hasMetadata bool, streamID uuid.UUID, err error)
+	objectMove(ctx context.Context, opts FinishMoveObject, newStatus ObjectStatus, nextVersion Version) (oldStatus ObjectStatus, segmentsCount int, hasMetadata bool, streamID uuid.UUID, info lockInfo, err error)
 	objectMoveEncryption(ctx context.Context, opts FinishMoveObject, positions []int64, encryptedKeys [][]byte, encryptedKeyNonces [][]byte) (numAffected int64, err error)
 }
 
@@ -182,6 +192,13 @@ type FinishMoveObject struct {
 
 	// NewVersioned indicates that the object allows multiple versions.
 	NewVersioned bool
+
+	// Retention indicates retention settings of the moved object
+	// version.
+	Retention Retention
+	// LegalHold indicates legal hold settings of the moved object
+	// version.
+	LegalHold bool
 }
 
 // NewLocation returns the new object location.
@@ -206,7 +223,11 @@ func (finishMove FinishMoveObject) Verify() error {
 		return ErrInvalidRequest.New("NewEncryptedObjectKey is missing")
 	}
 
-	return nil
+	if !finishMove.NewVersioned && (finishMove.Retention.Enabled() || finishMove.LegalHold) {
+		return ErrObjectStatus.New(noLockOnUnversionedErrMsg)
+	}
+
+	return ErrInvalidRequest.Wrap(finishMove.Retention.Verify())
 }
 
 // FinishMoveObject accepts new encryption keys for moved object and updates the corresponding object ObjectKey and segments EncryptedKey.
@@ -231,7 +252,7 @@ func (db *DB) FinishMoveObject(ctx context.Context, opts FinishMoveObject) (err 
 		newStatus := committedWhereVersioned(opts.NewVersioned)
 		nextVersion := precommit.HighestVersion + 1
 
-		oldStatus, segmentsCount, hasMetadata, streamID, err := adapter.objectMove(ctx, opts, newStatus, nextVersion)
+		oldStatus, segmentsCount, hasMetadata, streamID, lockInfo, err := adapter.objectMove(ctx, opts, newStatus, nextVersion)
 		if err != nil {
 			// purposefully not wrapping the error here, so as not to break expected error text in tests
 			return err
@@ -252,6 +273,15 @@ func (db *DB) FinishMoveObject(ctx context.Context, opts FinishMoveObject) (err 
 			case len(opts.NewEncryptedMetadataKey) == 0 && !opts.NewEncryptedMetadataKeyNonce.IsZero():
 				return ErrInvalidRequest.New("EncryptedMetadataKey is missing")
 			}
+		}
+		if lockInfo.retention.ActiveNow() {
+			return ErrObjectLock.New(retentionErrMsg)
+		}
+		if lockInfo.legalHold {
+			return ErrObjectLock.New(legalHoldErrMsg)
+		}
+		if lockInfo.objectExpiresAt != nil && (opts.Retention.Enabled() || opts.LegalHold) {
+			return ErrObjectExpiration.New(noLockWithExpirationErrMsg)
 		}
 
 		var (
@@ -286,49 +316,77 @@ func (db *DB) FinishMoveObject(ctx context.Context, opts FinishMoveObject) (err 
 	return nil
 }
 
-func (ptx *postgresTransactionAdapter) objectMove(ctx context.Context, opts FinishMoveObject, newStatus ObjectStatus, nextVersion Version) (oldStatus ObjectStatus, segmentsCount int, hasMetadata bool, streamID uuid.UUID, err error) {
+func (ptx *postgresTransactionAdapter) objectMove(ctx context.Context, opts FinishMoveObject, newStatus ObjectStatus, nextVersion Version) (oldStatus ObjectStatus, segmentsCount int, hasMetadata bool, streamID uuid.UUID, info lockInfo, err error) {
 	err = ptx.tx.QueryRowContext(ctx, `
-			UPDATE objects SET
-				bucket_name = $1,
-				object_key = $2,
-				version = $10,
-				status = $9,
-				encrypted_metadata_encrypted_key =
-					CASE WHEN objects.encrypted_metadata IS NOT NULL
-						THEN $3
-						ELSE objects.encrypted_metadata_encrypted_key
-					END,
-				encrypted_metadata_nonce =
-					CASE WHEN objects.encrypted_metadata IS NOT NULL
-						THEN $4
-						ELSE objects.encrypted_metadata_nonce
-					END
-			WHERE
-				(project_id, bucket_name, object_key, version) = ($5, $6, $7, $8)
-			RETURNING
-				(
-					SELECT status
-					FROM objects
-					WHERE (project_id, bucket_name, object_key, version) = ($5, $6, $7, $8)
-				),
-				segment_count,
-				objects.encrypted_metadata IS NOT NULL AND LENGTH(objects.encrypted_metadata) > 0 AS has_metadata,
-				stream_id
-		`, opts.NewBucket, opts.NewEncryptedObjectKey, opts.NewEncryptedMetadataKey,
-		opts.NewEncryptedMetadataKeyNonce, opts.ProjectID, opts.BucketName,
-		opts.ObjectKey, opts.Version, newStatus, nextVersion).
-		Scan(&oldStatus, &segmentsCount, &hasMetadata, &streamID)
-
+			WITH
+			new AS (
+				UPDATE objects SET
+					bucket_name = $1,
+					object_key = $2,
+					version = $10,
+					status = $9,
+					encrypted_metadata_encrypted_key =
+						CASE WHEN encrypted_metadata IS NOT NULL
+							THEN $3
+							ELSE encrypted_metadata_encrypted_key
+						END,
+					encrypted_metadata_nonce =
+						CASE WHEN encrypted_metadata IS NOT NULL
+							THEN $4
+							ELSE encrypted_metadata_nonce
+						END,
+					retention_mode = $11,
+					retain_until = $12
+				WHERE
+					(project_id, bucket_name, object_key, version) = ($5, $6, $7, $8)
+				RETURNING
+					segment_count,
+					encrypted_metadata IS NOT NULL AND LENGTH(encrypted_metadata) > 0 AS has_metadata,
+					stream_id
+			),
+			old AS (
+    			SELECT status, expires_at, retention_mode, retain_until
+    			FROM objects
+    			WHERE (project_id, bucket_name, object_key, version) = ($5, $6, $7, $8)
+			)
+				SELECT
+					old.status,
+					new.segment_count,
+					new.has_metadata,
+					new.stream_id,
+					old.expires_at,
+					old.retention_mode,
+					old.retain_until
+				FROM old, new;
+		`,
+		opts.NewBucket,
+		opts.NewEncryptedObjectKey,
+		opts.NewEncryptedMetadataKey,
+		opts.NewEncryptedMetadataKeyNonce,
+		opts.ProjectID, opts.BucketName, opts.ObjectKey, opts.Version,
+		newStatus,
+		nextVersion,
+		lockModeWrapper{retentionMode: &opts.Retention.Mode, legalHold: &opts.LegalHold},
+		timeWrapper{&opts.Retention.RetainUntil},
+	).Scan(
+		&oldStatus,
+		&segmentsCount,
+		&hasMetadata,
+		&streamID,
+		&info.objectExpiresAt,
+		lockModeWrapper{retentionMode: &info.retention.Mode, legalHold: &info.legalHold},
+		timeWrapper{&info.retention.RetainUntil},
+	)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
-			return 0, 0, false, uuid.UUID{}, ErrObjectNotFound.New("object not found")
+			return 0, 0, false, uuid.UUID{}, lockInfo{}, ErrObjectNotFound.New("object not found")
 		}
-		return 0, 0, false, uuid.UUID{}, Error.New("unable to update object: %w", err)
+		return 0, 0, false, uuid.UUID{}, lockInfo{}, Error.New("unable to update object: %w", err)
 	}
-	return oldStatus, segmentsCount, hasMetadata, streamID, nil
+	return oldStatus, segmentsCount, hasMetadata, streamID, info, nil
 }
 
-func (stx *spannerTransactionAdapter) objectMove(ctx context.Context, opts FinishMoveObject, newStatus ObjectStatus, nextVersion Version) (oldStatus ObjectStatus, segmentsCount int, hasMetadata bool, streamID uuid.UUID, err error) {
+func (stx *spannerTransactionAdapter) objectMove(ctx context.Context, opts FinishMoveObject, newStatus ObjectStatus, nextVersion Version) (oldStatus ObjectStatus, segmentsCount int, hasMetadata bool, streamID uuid.UUID, info lockInfo, err error) {
 	// We cannot UPDATE the object record in place, because some of the columns we need to update are
 	// part of the primary key. We must DELETE and INSERT instead.
 
@@ -360,7 +418,8 @@ func (stx *spannerTransactionAdapter) objectMove(ctx context.Context, opts Finis
 				encrypted_metadata_nonce, encrypted_metadata, encrypted_metadata_encrypted_key,
 				total_plain_size, total_encrypted_size, fixed_segment_size,
 				encryption,
-				zombie_deletion_deadline
+				zombie_deletion_deadline,
+				retention_mode, retain_until
 		`,
 		Params: map[string]interface{}{
 			"project_id":  opts.ProjectID,
@@ -376,6 +435,8 @@ func (stx *spannerTransactionAdapter) objectMove(ctx context.Context, opts Finis
 			&totalPlainSize, &totalEncryptedSize, &fixedSegmentSize,
 			encryptionParameters{&encryption},
 			&zombieDeletionDeadline,
+			lockModeWrapper{retentionMode: &info.retention.Mode, legalHold: &info.legalHold},
+			timeWrapper{&info.retention.RetainUntil},
 		)
 		if err != nil {
 			return Error.New("unable to read old object record: %w", err)
@@ -383,11 +444,13 @@ func (stx *spannerTransactionAdapter) objectMove(ctx context.Context, opts Finis
 		return nil
 	})
 	if err != nil {
-		return 0, 0, false, uuid.UUID{}, Error.New("unable to remove old object record: %w", err)
+		return 0, 0, false, uuid.UUID{}, lockInfo{}, Error.New("unable to remove old object record: %w", err)
 	}
 	if !found {
-		return 0, 0, false, uuid.UUID{}, ErrObjectNotFound.New("object not found")
+		return 0, 0, false, uuid.UUID{}, lockInfo{}, ErrObjectNotFound.New("object not found")
 	}
+
+	info.objectExpiresAt = expiresAt
 
 	segmentsCount = int(segmentCount)
 
@@ -404,14 +467,16 @@ func (stx *spannerTransactionAdapter) objectMove(ctx context.Context, opts Finis
 			    encrypted_metadata_nonce, encrypted_metadata, encrypted_metadata_encrypted_key,
 				total_plain_size, total_encrypted_size, fixed_segment_size,
 				encryption,
-				zombie_deletion_deadline
+				zombie_deletion_deadline,
+				retention_mode, retain_until
 			) VALUES (
 			    @project_id, @bucket_name, @object_key, @version,
 				@stream_id, @created_at, @expires_at, @status, @segment_count,
 			    @encrypted_metadata_nonce, @encrypted_metadata, @encrypted_metadata_encrypted_key,
 				@total_plain_size, @total_encrypted_size, @fixed_segment_size,
 				@encryption,
-				@zombie_deletion_deadline
+				@zombie_deletion_deadline,
+				@retention_mode, @retain_until
 			)
 		`,
 		Params: map[string]interface{}{
@@ -432,13 +497,15 @@ func (stx *spannerTransactionAdapter) objectMove(ctx context.Context, opts Finis
 			"fixed_segment_size":               fixedSegmentSize,
 			"encryption":                       encryptionParameters{&encryption},
 			"zombie_deletion_deadline":         zombieDeletionDeadline,
+			"retention_mode":                   lockModeWrapper{retentionMode: &opts.Retention.Mode, legalHold: &opts.LegalHold},
+			"retain_until":                     timeWrapper{&opts.Retention.RetainUntil},
 		},
 	})
 	if err != nil {
-		return 0, 0, false, uuid.UUID{}, Error.New("unable to create new object record: %w", err)
+		return 0, 0, false, uuid.UUID{}, lockInfo{}, Error.New("unable to create new object record: %w", err)
 	}
 
-	return oldStatus, segmentsCount, len(encryptedMetadata) > 0, streamID, nil
+	return oldStatus, segmentsCount, len(encryptedMetadata) > 0, streamID, info, nil
 }
 
 func (ptx *postgresTransactionAdapter) objectMoveEncryption(ctx context.Context, opts FinishMoveObject, positions []int64, encryptedKeys [][]byte, encryptedKeyNonces [][]byte) (numAffected int64, err error) {

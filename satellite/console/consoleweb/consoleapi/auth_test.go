@@ -6,6 +6,7 @@ package consoleapi_test
 import (
 	"bytes"
 	"context"
+	"database/sql"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -17,17 +18,20 @@ import (
 	"time"
 
 	"github.com/stretchr/testify/require"
-	"github.com/zeebo/errs/v2"
+	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 
+	"storj.io/common/pb"
 	"storj.io/common/testcontext"
 	"storj.io/common/testrand"
 	"storj.io/common/uuid"
 	"storj.io/storj/private/post"
 	"storj.io/storj/private/testplanet"
 	"storj.io/storj/satellite"
+	"storj.io/storj/satellite/buckets"
 	"storj.io/storj/satellite/console"
 	"storj.io/storj/satellite/console/consoleweb/consoleapi"
+	"storj.io/storj/satellite/payments/stripe"
 )
 
 func doRequestWithAuth(
@@ -730,7 +734,6 @@ func TestRegistrationEmail(t *testing.T) {
 		require.NoError(t, err)
 		require.Contains(t, body, "/login")
 		require.Contains(t, body, "/forgot-password")
-		require.Contains(t, body, "/signup")
 	})
 }
 
@@ -849,8 +852,8 @@ func TestResendActivationEmail(t *testing.T) {
 		require.NoError(t, err)
 
 		resendEmail := func() {
-			url := planet.Satellites[0].ConsoleURL() + "/api/v0/auth/resend-email/" + user.Email
-			req, err := http.NewRequestWithContext(ctx, http.MethodPost, url, bytes.NewBufferString(user.Email))
+			url := planet.Satellites[0].ConsoleURL() + "/api/v0/auth/resend-email"
+			req, err := http.NewRequestWithContext(ctx, http.MethodPost, url, bytes.NewBufferString(fmt.Sprintf(`{"email":"%s"}`, user.Email)))
 			require.NoError(t, err)
 
 			result, err := http.DefaultClient.Do(req)
@@ -915,8 +918,8 @@ func TestResendActivationEmail_CodeEnabled(t *testing.T) {
 		sender := &EmailVerifier{Context: ctx}
 		sat.API.Mail.Service.Sender = sender
 
-		resendURL := planet.Satellites[0].ConsoleURL() + "/api/v0/auth/resend-email/" + user.Email
-		req, err := http.NewRequestWithContext(ctx, http.MethodPost, resendURL, bytes.NewBufferString(user.Email))
+		resendURL := planet.Satellites[0].ConsoleURL() + "/api/v0/auth/resend-email"
+		req, err := http.NewRequestWithContext(ctx, http.MethodPost, resendURL, bytes.NewBufferString(fmt.Sprintf(`{"email":"%s"}`, user.Email)))
 		require.NoError(t, err)
 
 		result, err := http.DefaultClient.Do(req)
@@ -928,8 +931,8 @@ func TestResendActivationEmail_CodeEnabled(t *testing.T) {
 		require.NoError(t, err)
 		require.Contains(t, body, "code")
 
-		regex := regexp.MustCompile(`(\d{6})\n\s*<\/h1>`)
-		code := strings.Replace(regex.FindString(body.(string)), "</h1>", "", 1)
+		regex := regexp.MustCompile(`(\d{6})\s*<\/h2>`)
+		code := strings.Replace(regex.FindString(body.(string)), "</h2>", "", 1)
 		code = strings.TrimSpace(code)
 		require.Contains(t, body, code)
 
@@ -943,7 +946,7 @@ func TestResendActivationEmail_CodeEnabled(t *testing.T) {
 		require.NoError(t, err)
 		require.Contains(t, body, "code")
 
-		newCode := strings.Replace(regex.FindString(body.(string)), "</h1>", "", 1)
+		newCode := strings.Replace(regex.FindString(body.(string)), "</h2>", "", 1)
 		newCode = strings.TrimSpace(newCode)
 		require.NotEqual(t, code, newCode)
 	})
@@ -1110,8 +1113,8 @@ func TestAccountActivationWithCode(t *testing.T) {
 		require.NoError(t, err)
 		require.Contains(t, body, "code")
 
-		regex := regexp.MustCompile(`(\d{6})\n\s*<\/h1>`)
-		code := strings.Replace(regex.FindString(body.(string)), "</h1>", "", 1)
+		regex := regexp.MustCompile(`(\d{6})\s*<\/h2>`)
+		code := strings.Replace(regex.FindString(body.(string)), "</h2>", "", 1)
 		code = strings.TrimSpace(code)
 		require.Contains(t, body, code)
 
@@ -1171,7 +1174,6 @@ func TestAccountActivationWithCode(t *testing.T) {
 		require.NoError(t, err)
 		require.Contains(t, body, "/login")
 		require.Contains(t, body, "/forgot-password")
-		require.Contains(t, body, "/signup")
 
 		// trying to activate an account that is not "inactive" or "active" should result in an error
 		user, err := sat.DB.Console().Users().GetByEmail(ctx, email)
@@ -1262,6 +1264,323 @@ func TestAuth_SetupAccount(t *testing.T) {
 			} else {
 				require.Equal(t, "", userAfterSetup.EmployeeCount)
 			}
+		}
+	})
+}
+
+func TestAuth_DeleteAccount(t *testing.T) {
+	testplanet.Run(t, testplanet.Config{
+		SatelliteCount: 1, StorageNodeCount: 0, UplinkCount: 0,
+		Reconfigure: testplanet.Reconfigure{
+			Satellite: func(log *zap.Logger, index int, config *satellite.Config) {
+				config.Console.SelfServeAccountDeleteEnabled = true
+			},
+		},
+	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+		sat := planet.Satellites[0]
+
+		year, month, day := time.Now().UTC().Date()
+		timestamp := time.Date(year, month, day, 12, 0, 0, 0, time.UTC)
+		lastMonth := time.Date(year, month-1, 1, 0, 0, 0, 0, time.UTC)
+		thisMonth := time.Date(year, month, 1, 0, 0, 0, 0, time.UTC)
+
+		sat.API.Console.Service.TestSetNow(func() time.Time {
+			return timestamp
+		})
+		sat.API.Payments.StripeService.SetNow(func() time.Time {
+			return timestamp
+		})
+
+		proUser, err := sat.AddUser(ctx, console.CreateUser{
+			FullName: "test user",
+			Email:    "testpro@mail.test",
+		}, 1)
+		require.NoError(t, err)
+
+		proUser.PaidTier = true
+		proUser.MFAEnabled = true
+		mfaSecret, err := console.NewMFASecretKey()
+		require.NoError(t, err)
+		proUser.MFASecretKey = mfaSecret
+		mfaSecretKeyPtr := &proUser.MFASecretKey
+
+		goodCode, err := console.NewMFAPasscode(mfaSecret, timestamp)
+		require.NoError(t, err)
+
+		require.NoError(t, sat.DB.Console().Users().Update(ctx, proUser.ID, console.UpdateUserRequest{
+			PaidTier:     &proUser.PaidTier,
+			MFAEnabled:   &proUser.MFAEnabled,
+			MFASecretKey: &mfaSecretKeyPtr,
+		}))
+
+		proUserProject, err := sat.DB.Console().Projects().Insert(ctx, &console.Project{
+			ID:       testrand.UUID(),
+			PublicID: testrand.UUID(),
+			OwnerID:  proUser.ID,
+		})
+		require.NoError(t, err)
+		require.NotNil(t, proUserProject)
+
+		freeUser, err := sat.AddUser(ctx, console.CreateUser{
+			FullName: "test user",
+			Email:    "testfree@mail.test",
+		}, 1)
+		require.NoError(t, err)
+
+		freeUser.MFAEnabled = true
+		require.NoError(t, sat.DB.Console().Users().Update(ctx, freeUser.ID, console.UpdateUserRequest{
+			MFAEnabled:   &freeUser.MFAEnabled,
+			MFASecretKey: &mfaSecretKeyPtr,
+		}))
+
+		freeUserProject, err := sat.DB.Console().Projects().Insert(ctx, &console.Project{
+			ID:       testrand.UUID(),
+			PublicID: testrand.UUID(),
+			OwnerID:  freeUser.ID,
+		})
+		require.NoError(t, err)
+		require.NotNil(t, freeUserProject)
+
+		endpoint := "auth/account"
+
+		tests := []struct {
+			name               string
+			prepare            func(user, project uuid.UUID) error
+			cleanup            func(user, project uuid.UUID) error
+			req                consoleapi.AccountActionData
+			expectedResp       *console.DeleteAccountResponse
+			proUserHttpStatus  int
+			freeUserHttpStatus int
+		}{
+			{
+				name:               "account delete step out of range: lesser",
+				req:                consoleapi.AccountActionData{Step: -1, Data: ""},
+				proUserHttpStatus:  http.StatusBadRequest,
+				freeUserHttpStatus: http.StatusBadRequest,
+			},
+			{
+				name:               "account delete step out of range: greater",
+				req:                consoleapi.AccountActionData{Step: 100, Data: ""},
+				proUserHttpStatus:  http.StatusBadRequest,
+				freeUserHttpStatus: http.StatusBadRequest,
+			},
+			{
+				name:               "data can't be empty if step is verifying input",
+				req:                consoleapi.AccountActionData{Step: console.VerifyAccountPasswordStep, Data: ""},
+				proUserHttpStatus:  http.StatusBadRequest,
+				freeUserHttpStatus: http.StatusBadRequest,
+			},
+			{ // N.B. the DeleteAccount handler returns 403 if user is legal hold, but actually it is wrapped in the withAuth handler which returns 401.
+				name: "legal hold can't be deleted",
+				prepare: func(user, project uuid.UUID) error {
+					status := console.LegalHold
+					return sat.DB.Console().Users().Update(ctx, user, console.UpdateUserRequest{Status: &status})
+				},
+				cleanup: func(user, project uuid.UUID) error {
+					status := console.Active
+					return sat.DB.Console().Users().Update(ctx, user, console.UpdateUserRequest{Status: &status})
+				},
+				req:                consoleapi.AccountActionData{Step: console.DeleteAccountInit, Data: ""},
+				proUserHttpStatus:  http.StatusUnauthorized,
+				freeUserHttpStatus: http.StatusUnauthorized,
+			},
+			{
+				name: "locked out user can't be deleted",
+				req:  consoleapi.AccountActionData{Step: console.DeleteAccountInit, Data: ""},
+				prepare: func(user, project uuid.UUID) error {
+					expires := timestamp.Add(24 * time.Hour)
+					ptr := &expires
+					return sat.DB.Console().Users().Update(ctx, user, console.UpdateUserRequest{LoginLockoutExpiration: &ptr})
+				},
+				cleanup: func(user, project uuid.UUID) error {
+					var ptr *time.Time
+					return sat.DB.Console().Users().Update(ctx, user, console.UpdateUserRequest{LoginLockoutExpiration: &ptr})
+				},
+				proUserHttpStatus:  http.StatusUnauthorized,
+				freeUserHttpStatus: http.StatusUnauthorized,
+			},
+			{
+				name: "has buckets",
+				prepare: func(user, project uuid.UUID) error {
+					_, err := sat.API.Buckets.Service.CreateBucket(ctx, buckets.Bucket{
+						ID:        testrand.UUID(),
+						Name:      "testbucket",
+						ProjectID: project,
+					})
+					return err
+				},
+				cleanup: func(user, project uuid.UUID) error {
+					return sat.API.Buckets.Service.DeleteBucket(ctx, []byte("testbucket"), project)
+				},
+				req:                consoleapi.AccountActionData{Step: console.DeleteAccountInit, Data: ""},
+				expectedResp:       &console.DeleteAccountResponse{OwnedProjects: 1, Buckets: 1},
+				proUserHttpStatus:  http.StatusConflict,
+				freeUserHttpStatus: http.StatusConflict,
+			},
+			{
+				name: "has api keys",
+				prepare: func(user, project uuid.UUID) error {
+					_, err := sat.API.DB.Console().APIKeys().Create(ctx, []byte("testapikey"), console.APIKeyInfo{
+						ID:              testrand.UUID(),
+						ProjectID:       project,
+						ProjectPublicID: project,
+						Secret:          []byte("super-secret-secret"),
+					})
+					return err
+				},
+				cleanup: func(user, project uuid.UUID) error {
+					return sat.API.DB.Console().APIKeys().DeleteAllByProjectID(ctx, project)
+				},
+				req:                consoleapi.AccountActionData{Step: console.DeleteAccountInit, Data: ""},
+				expectedResp:       &console.DeleteAccountResponse{OwnedProjects: 1, ApiKeys: 1},
+				proUserHttpStatus:  http.StatusConflict,
+				freeUserHttpStatus: http.StatusConflict,
+			},
+			{
+				name: "has unpaid invoices",
+				prepare: func(user, project uuid.UUID) error {
+					invoice, err := sat.API.Payments.Accounts.Invoices().Create(ctx, user, 1000, "test description")
+					if err != nil {
+						return err
+					}
+					_, err = sat.API.Payments.StripeClient.Invoices().FinalizeInvoice(invoice.ID, nil)
+					return err
+				},
+				cleanup: func(user, project uuid.UUID) error {
+					invoices, err := sat.API.Payments.Accounts.Invoices().List(ctx, user)
+					if err != nil {
+						return err
+					}
+					_, err = sat.API.Payments.Accounts.Invoices().Delete(ctx, invoices[0].ID)
+					return err
+				},
+				req:                consoleapi.AccountActionData{Step: console.DeleteAccountInit, Data: ""},
+				expectedResp:       &console.DeleteAccountResponse{OwnedProjects: 1, UnpaidInvoices: 1, AmountOwed: int64(1000)},
+				proUserHttpStatus:  http.StatusConflict,
+				freeUserHttpStatus: http.StatusConflict,
+			},
+			{
+				name: "has current usage",
+				prepare: func(user, project uuid.UUID) error {
+					return sat.DB.Orders().UpdateBucketBandwidthSettle(ctx, project, []byte("testbucket"), pb.PieceAction_GET, 1000000, 0, timestamp.Add(-time.Minute))
+				},
+				cleanup: func(user, project uuid.UUID) error {
+					_, err = sat.DB.ProjectAccounting().ArchiveRollupsBefore(ctx, timestamp, 100)
+					return err
+				},
+				req:                consoleapi.AccountActionData{Step: console.DeleteAccountInit, Data: ""},
+				expectedResp:       &console.DeleteAccountResponse{OwnedProjects: 1, CurrentUsage: true},
+				proUserHttpStatus:  http.StatusConflict,
+				freeUserHttpStatus: http.StatusOK,
+			},
+			{
+				name: "last month's usage not invoiced yet",
+				prepare: func(user, project uuid.UUID) error {
+					return sat.DB.Orders().UpdateBucketBandwidthSettle(ctx, project, []byte("testbucket"), pb.PieceAction_GET, 1000000, 0, lastMonth)
+				},
+				cleanup: func(user, project uuid.UUID) error {
+					return sat.DB.StripeCoinPayments().ProjectRecords().Create(ctx, []stripe.CreateProjectRecord{{
+						ProjectID: project,
+						Egress:    1000000,
+					}}, lastMonth, thisMonth)
+				},
+				req:                consoleapi.AccountActionData{Step: console.DeleteAccountInit, Data: ""},
+				expectedResp:       &console.DeleteAccountResponse{OwnedProjects: 1, InvoicingIncomplete: true},
+				proUserHttpStatus:  http.StatusConflict,
+				freeUserHttpStatus: http.StatusOK,
+			},
+			{ // N.B. the testplanet.Satellite.AddUser method sets password to the user's full name. At the beginning of this test we set the free user's name to the same as pro user.
+				name:               "verify password",
+				req:                consoleapi.AccountActionData{Step: console.VerifyAccountPasswordStep, Data: proUser.FullName},
+				proUserHttpStatus:  http.StatusOK,
+				freeUserHttpStatus: http.StatusOK,
+			},
+			{
+				name:               "verify mfa",
+				req:                consoleapi.AccountActionData{Step: console.VerifyAccountMfaStep, Data: goodCode},
+				proUserHttpStatus:  http.StatusOK,
+				freeUserHttpStatus: http.StatusOK,
+			},
+			{
+				name: "verify email",
+				prepare: func(user, project uuid.UUID) error {
+					code := "123456"
+					return sat.API.DB.Console().Users().Update(ctx, user, console.UpdateUserRequest{
+						ActivationCode: &code,
+					})
+				},
+				req:                consoleapi.AccountActionData{Step: console.VerifyAccountEmailStep, Data: "123456"},
+				proUserHttpStatus:  http.StatusOK,
+				freeUserHttpStatus: http.StatusOK,
+			},
+			{
+				name:               "successfully deleted",
+				req:                consoleapi.AccountActionData{Step: console.DeleteAccountStep, Data: ""},
+				proUserHttpStatus:  http.StatusOK,
+				freeUserHttpStatus: http.StatusOK,
+			},
+		}
+
+		for _, u := range []*console.User{proUser, freeUser} {
+			projects, err := sat.API.DB.Console().Projects().GetOwn(ctx, u.ID)
+			require.NoError(t, err)
+
+			userType := "pro_user_"
+			if !u.PaidTier {
+				userType = "free_user_"
+			}
+
+			for _, tt := range tests {
+				t.Run(userType+tt.name, func(t *testing.T) {
+					if tt.prepare != nil {
+						require.NoError(t, tt.prepare(u.ID, projects[0].ID))
+					}
+					payload, err := json.Marshal(tt.req)
+					require.NoError(t, err)
+
+					resp, status, err := doRequestWithAuth(ctx, t, sat, u, http.MethodDelete, endpoint, bytes.NewBuffer(payload))
+					require.NoError(t, err)
+
+					switch u.ID {
+					case freeUser.ID:
+						require.Equal(t, tt.freeUserHttpStatus, status)
+					case proUser.ID:
+						require.Equal(t, tt.proUserHttpStatus, status)
+					default:
+						t.FailNow()
+					}
+
+					if u.ID == freeUser.ID {
+						require.Equal(t, tt.freeUserHttpStatus, status)
+					} else {
+						require.Equal(t, tt.proUserHttpStatus, status)
+					}
+
+					if status != http.StatusOK {
+						require.NotNil(t, resp)
+
+						if status == http.StatusConflict {
+							var data console.DeleteAccountResponse
+							require.NoError(t, json.Unmarshal(resp, &data))
+
+							require.Equal(t, *tt.expectedResp, data)
+						} else {
+							var data struct {
+								Error string `json:"error"`
+							}
+							require.NoError(t, json.Unmarshal(resp, &data))
+						}
+					}
+
+					if tt.cleanup != nil {
+						require.NoError(t, tt.cleanup(u.ID, projects[0].ID))
+					}
+				})
+			}
+
+			_, err = sat.API.DB.Console().Users().GetByEmail(ctx, u.Email)
+			require.Error(t, err)
+			require.ErrorIs(t, err, sql.ErrNoRows)
 		}
 	})
 }

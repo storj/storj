@@ -8,7 +8,6 @@ import (
 	"crypto/rand"
 	"encoding/hex"
 	"fmt"
-	"regexp"
 	"strings"
 	"time"
 
@@ -25,11 +24,6 @@ import (
 
 var mon = monkit.Package()
 
-var (
-	rxDatabaseForm = regexp.MustCompile("^projects/(.*)/instances/(.*)/databases/(.*)$")
-	rxInstanceForm = regexp.MustCompile("^projects/(.*)/instances/(.*)$")
-)
-
 // CreateRandomTestingDatabaseName creates a random schema name string.
 func CreateRandomTestingDatabaseName(n int) string {
 	// hex will increase the encoded length by 2 as documented by hex.EncodedLen()
@@ -43,11 +37,7 @@ func CreateRandomTestingDatabaseName(n int) string {
 // when closed. It is expected that this should normally be used by way of
 // "storj.io/storj/shared/dbutil/tempdb".OpenUnique() instead of calling it directly.
 func OpenUnique(ctx context.Context, connstr string, databasePrefix string) (*dbutil.TempDatabase, error) {
-	if !strings.HasPrefix(connstr, "spanner://") {
-		return nil, errs.New("expected a spanner URI, but got %q", connstr)
-	}
-
-	projectID, instance, _, err := ParseConnStr(connstr)
+	params, err := ParseConnStr(connstr)
 	if err != nil {
 		return nil, errs.New("failed to parse spanner connection string %s: %w", connstr, err)
 	}
@@ -59,14 +49,15 @@ func OpenUnique(ctx context.Context, connstr string, databasePrefix string) (*db
 		numRandomCharacters = possibleRandomCharacters
 	}
 	schemaName := databasePrefix + "_" + CreateRandomTestingDatabaseName(numRandomCharacters)
-	err = CreateDatabase(ctx, projectID, instance, schemaName)
+
+	// TODO(spanner): should we allow hardcoding a database name for testing with production spanner?
+	params.Database = EscapeCharacters(schemaName)
+	err = CreateDatabase(ctx, params)
 	if err != nil {
 		return nil, errs.New("failed to create database in spanner: %w", err)
 	}
 
-	uniqueURL := BuildURL(projectID, instance, &schemaName)
-	uniqueDSN := DSNFromURL(uniqueURL)
-	db, err := tagsql.Open(ctx, "spanner", uniqueDSN)
+	db, err := tagsql.Open(ctx, "spanner", params.GoSqlSpannerConnStr())
 	if err == nil {
 		// check that connection actually worked before trying createSchema, to make
 		// troubleshooting (lots) easier
@@ -79,13 +70,13 @@ func OpenUnique(ctx context.Context, connstr string, databasePrefix string) (*db
 	cleanup := func(cleanupDB tagsql.DB) error {
 		childCtx, cancel := context2.WithRetimeout(ctx, 15*time.Second)
 		defer cancel()
-		return dropDatabase(childCtx, uniqueDSN)
+		return dropDatabase(childCtx, params)
 	}
 
 	dbutil.Configure(ctx, db, "tmp_spanner", mon)
 	return &dbutil.TempDatabase{
 		DB:             db,
-		ConnStr:        uniqueURL,
+		ConnStr:        params.ConnStr(),
 		Schema:         schemaName,
 		Driver:         "spanner",
 		Implementation: dbutil.Spanner,
@@ -94,16 +85,16 @@ func OpenUnique(ctx context.Context, connstr string, databasePrefix string) (*db
 }
 
 // CreateDatabase creates a schema in spanner with the given name.
-func CreateDatabase(ctx context.Context, projectID, instanceID, databaseName string) error {
-	admin, err := database.NewDatabaseAdminClient(ctx)
+func CreateDatabase(ctx context.Context, params ConnParams) error {
+	admin, err := database.NewDatabaseAdminClient(ctx, params.ClientOptions()...)
 	if err != nil {
 		return fmt.Errorf("failed to create database admin: %w", err)
 	}
 
 	ddl, err := admin.CreateDatabase(ctx, &databasepb.CreateDatabaseRequest{
-		Parent:          "projects/" + projectID + "/instances/" + instanceID,
+		Parent:          params.InstancePath(),
 		DatabaseDialect: databasepb.DatabaseDialect_GOOGLE_STANDARD_SQL,
-		CreateStatement: "CREATE DATABASE " + EscapeIdentifier(databaseName),
+		CreateStatement: "CREATE DATABASE `" + params.Database + "`",
 		ExtraStatements: []string{},
 	})
 	if err != nil {
@@ -119,13 +110,13 @@ func CreateDatabase(ctx context.Context, projectID, instanceID, databaseName str
 	return nil
 }
 
-func dropDatabase(ctx context.Context, dsn string) error {
-	admin, err := database.NewDatabaseAdminClient(ctx)
+func dropDatabase(ctx context.Context, params ConnParams) error {
+	admin, err := database.NewDatabaseAdminClient(ctx, params.ClientOptions()...)
 	if err != nil {
 		return fmt.Errorf("failed to create database admin: %w", err)
 	}
 
-	if err := admin.DropDatabase(ctx, &databasepb.DropDatabaseRequest{Database: dsn}); err != nil {
+	if err := admin.DropDatabase(ctx, &databasepb.DropDatabaseRequest{Database: params.DatabasePath()}); err != nil {
 		return fmt.Errorf("failed to drop database: %w", err)
 	}
 
@@ -135,48 +126,7 @@ func dropDatabase(ctx context.Context, dsn string) error {
 	return nil
 }
 
-// EscapeIdentifier uses spanner escape characters to escape the given string.
-func EscapeIdentifier(s string) string {
-	return "`" + strings.ReplaceAll(strings.ReplaceAll(s, "\\", "\\\\"), "`", "\\`") + "`"
-}
-
-// BuildURL takes necessary and optional connection string parameters to build a spanner URL.
-func BuildURL(project string, instance string, database *string) string {
-	var connStr strings.Builder
-	connStr.WriteString("spanner://projects/")
-	connStr.WriteString(project)
-	connStr.WriteString("/instances/")
-	connStr.WriteString(instance)
-	if database != nil {
-		connStr.WriteString("/databases/")
-		connStr.WriteString(*database)
-	}
-	return connStr.String()
-}
-
-// DSNFromURL takes in a Spanner URL and returns back the DSN that is used to connect with Spanner packages.
-func DSNFromURL(url string) string {
-	return strings.TrimPrefix(url, "spanner://")
-}
-
-// ParseConnStr parses a spanner connection string to return the relevant pieces of the connection.
-func ParseConnStr(full string) (project, instance string, database *string, err error) {
-	trim := strings.TrimPrefix(full, "spanner://")
-
-	matches := rxDatabaseForm.FindStringSubmatch(trim)
-	// database is an optional part of a connection string
-	if matches == nil || len(matches) != 4 {
-		matches = rxInstanceForm.FindStringSubmatch(trim)
-		if matches == nil || len(matches) != 3 {
-			return "", "", nil, Error.New("database connection should be defined in the form of  'spanner://projects/<PROJECT>/instances/<INSTANCE>/databases/<DATABASE>' or 'spanner://projects/<PROJECT>/instances/<INSTANCE>', but it was %q", full)
-		}
-	}
-
-	project = matches[1]
-	instance = matches[2]
-	if len(matches) == 4 {
-		database = &matches[3]
-	}
-
-	return project, instance, database, nil
+// EscapeCharacters escapes non-spanner name compatible characters.
+func EscapeCharacters(s string) string {
+	return strings.ReplaceAll(strings.ReplaceAll(s, `\`, `\\`), "`", "\\`")
 }

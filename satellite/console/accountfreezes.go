@@ -13,6 +13,7 @@ import (
 
 	"storj.io/common/uuid"
 	"storj.io/storj/satellite/analytics"
+	"storj.io/storj/satellite/satellitedb/dbx"
 )
 
 // ErrAccountFreeze is the class for errors that occur during operation of the account freeze service.
@@ -20,6 +21,9 @@ var ErrAccountFreeze = errs.Class("account freeze service")
 
 // ErrNoFreezeStatus is the error for when a user doesn't have a particular freeze status.
 var ErrNoFreezeStatus = errs.New("this freeze event does not exist for this user")
+
+// FreezeEventsByEventAndUserStatusCursor is a cursor for getting freeze events by event and user status.
+type FreezeEventsByEventAndUserStatusCursor = dbx.Paged_AccountFreezeEvent_By_User_Status_Not_And_AccountFreezeEvent_Event_Continuation
 
 // AccountFreezeEvents exposes methods to manage the account freeze events table in database.
 //
@@ -31,6 +35,9 @@ type AccountFreezeEvents interface {
 	Get(ctx context.Context, userID uuid.UUID, eventType AccountFreezeEventType) (*AccountFreezeEvent, error)
 	// GetAllEvents is a method for querying all account freeze events from the database.
 	GetAllEvents(ctx context.Context, cursor FreezeEventsCursor, optionalEventTypes []AccountFreezeEventType) (events *FreezeEventsPage, err error)
+	// GetTrialExpirationFreezesToEscalate is a method that gets free trial expiration freezes that correspond to users
+	// that are not pending deletion (have not been escalated).
+	GetTrialExpirationFreezesToEscalate(ctx context.Context, limit int, cursor *FreezeEventsByEventAndUserStatusCursor) ([]AccountFreezeEvent, *FreezeEventsByEventAndUserStatusCursor, error)
 	// GetAll is a method for querying all account freeze events from the database by user ID.
 	GetAll(ctx context.Context, userID uuid.UUID) (freezes *UserFreezeEvents, err error)
 	// DeleteAllByUserID is a method for deleting all account freeze events from the database by user ID.
@@ -124,8 +131,9 @@ func (et AccountFreezeEventType) String() string {
 
 // AccountFreezeConfig contains configurable values for account freeze service.
 type AccountFreezeConfig struct {
-	BillingWarnGracePeriod   time.Duration `help:"How long to wait between a billing warning event and billing freezing an account." default:"360h"`
-	BillingFreezeGracePeriod time.Duration `help:"How long to wait between a billing freeze event and setting pending deletion account status." default:"1440h"`
+	BillingWarnGracePeriod           time.Duration `help:"How long to wait between a billing warning event and billing freezing an account." default:"360h"`
+	BillingFreezeGracePeriod         time.Duration `help:"How long to wait between a billing freeze event and setting pending deletion account status." default:"1440h"`
+	TrialExpirationFreezeGracePeriod time.Duration `help:"How long to wait between a trail expiration freeze event and setting pending deletion account status. 0 disables escalation." default:"0" testDefault:"720h" devDefault:"720h"`
 }
 
 // AccountFreezeService encapsulates operations concerning account freezes.
@@ -739,12 +747,17 @@ func (s *AccountFreezeService) TrialExpirationFreezeUser(ctx context.Context, us
 			return errs.New("User is already frozen for bot review")
 		}
 
-		err = s.upsertFreezeEvent(ctx, tx, &upsertData{
+		data := upsertData{
 			user:                 user,
 			newFreezeEvent:       freezes.TrialExpirationFreeze,
 			eventType:            TrialExpirationFreeze,
 			zeroProjectRateLimit: true,
-		})
+		}
+		if s.config.TrialExpirationFreezeGracePeriod != 0 {
+			days := int(s.config.TrialExpirationFreezeGracePeriod.Hours() / 24)
+			data.daysTillEscalation = &days
+		}
+		err = s.upsertFreezeEvent(ctx, tx, &data)
 		if err != nil {
 			return err
 		}
@@ -847,13 +860,56 @@ func (s *AccountFreezeService) GetAllEventsByType(ctx context.Context, cursor Fr
 	return events, nil
 }
 
-// EscalateBillingFreeze deactivates escalation for this freeze event and sets the user status to pending deletion.
-func (s *AccountFreezeService) EscalateBillingFreeze(ctx context.Context, userID uuid.UUID, event AccountFreezeEvent) (err error) {
+// GetTrialExpirationFreezesToEscalate returns trial expiration freezes that need to be escalated.
+func (s *AccountFreezeService) GetTrialExpirationFreezesToEscalate(ctx context.Context, limit int, cursor *FreezeEventsByEventAndUserStatusCursor) (events []AccountFreezeEvent, next *FreezeEventsByEventAndUserStatusCursor, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	events, next, err = s.freezeEventsDB.GetTrialExpirationFreezesToEscalate(ctx, limit, cursor)
+	if err != nil {
+		return nil, nil, ErrAccountFreeze.Wrap(err)
+	}
+
+	return events, next, nil
+}
+
+// GetDaysTillEscalation returns the number of days until escalation for a freeze event.
+func (s *AccountFreezeService) GetDaysTillEscalation(event AccountFreezeEvent, now time.Time) *int {
+	daysTillEscalation := event.DaysTillEscalation
+
+	if event.Type == TrialExpirationFreeze {
+		if s.config.TrialExpirationFreezeGracePeriod == 0 {
+			return nil
+		}
+		if daysTillEscalation == nil {
+			days := int(s.config.TrialExpirationFreezeGracePeriod.Hours() / 24)
+			daysTillEscalation = &days
+		}
+	}
+
+	if daysTillEscalation == nil {
+		return nil
+	}
+	daysElapsed := int(now.Sub(event.CreatedAt).Hours() / 24)
+	diff := *daysTillEscalation - daysElapsed
+	return &diff
+}
+
+// EscalateFreezeEvent deactivates escalation for this freeze event and sets the user status to pending deletion.
+func (s *AccountFreezeService) EscalateFreezeEvent(ctx context.Context, userID uuid.UUID, event AccountFreezeEvent) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	event.DaysTillEscalation = nil
 
 	err = s.store.WithTx(ctx, func(ctx context.Context, tx DBTx) error {
+		// check if event still exists
+		_, err = tx.AccountFreezeEvents().Get(ctx, userID, event.Type)
+		switch {
+		case errors.Is(err, sql.ErrNoRows):
+			return ErrAccountFreeze.New("freeze event does not exist")
+		case err != nil:
+			return ErrAccountFreeze.Wrap(err)
+		}
+
 		_, err := tx.AccountFreezeEvents().Upsert(ctx, &event)
 		if err != nil {
 			return ErrAccountFreeze.Wrap(err)
@@ -873,9 +929,57 @@ func (s *AccountFreezeService) EscalateBillingFreeze(ctx context.Context, userID
 	return err
 }
 
+// ShouldEscalateFreezeEvent checks whether an event's escalation period has elapsed.
+func (s *AccountFreezeService) ShouldEscalateFreezeEvent(ctx context.Context, event AccountFreezeEvent, now time.Time) (shouldEscalate bool, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	daysTillEscalation := event.DaysTillEscalation
+
+	if event.Type == TrialExpirationFreeze {
+		if s.config.TrialExpirationFreezeGracePeriod == 0 {
+			return false, nil
+		}
+		if daysTillEscalation == nil {
+			days := int(s.config.TrialExpirationFreezeGracePeriod.Hours() / 24)
+			daysTillEscalation = &days
+		}
+	}
+
+	if daysTillEscalation == nil {
+		return false, nil
+	}
+	daysElapsed := int(now.Sub(event.CreatedAt).Hours() / 24)
+	shouldEscalate = daysElapsed > *daysTillEscalation
+
+	if !shouldEscalate || event.Type != TrialExpirationFreeze {
+		return shouldEscalate, nil
+	}
+
+	projects, err := s.store.Projects().GetByUserID(ctx, event.UserID)
+	if err != nil {
+		return false, ErrAccountFreeze.Wrap(err)
+	}
+	memberProjectCount := 0
+	for _, project := range projects {
+		if project.OwnerID != event.UserID {
+			memberProjectCount++
+		}
+	}
+	if memberProjectCount > 0 {
+		return false, nil
+	}
+
+	return shouldEscalate, nil
+}
+
 // TestChangeFreezeTracker changes the freeze tracker service for tests.
 func (s *AccountFreezeService) TestChangeFreezeTracker(t analytics.FreezeTracker) {
 	s.tracker = t
+}
+
+// TestSetTrialExpirationFreezeGracePeriod changes the trial expiration freeze grace period for tests.
+func (s *AccountFreezeService) TestSetTrialExpirationFreezeGracePeriod(period time.Duration) {
+	s.config.TrialExpirationFreezeGracePeriod = period
 }
 
 func limitUpdatesFromLimits(limits UsageLimits) []Limit {

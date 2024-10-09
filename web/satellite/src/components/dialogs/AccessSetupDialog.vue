@@ -14,7 +14,7 @@
             <v-sheet>
                 <v-card-item class="pa-6">
                     <v-card-title class="font-weight-bold">
-                        New {{ app ? app.name : '' }} Access
+                        New {{ selectedApp ? selectedApp.name : '' }} Access
                     </v-card-title>
                     <template #append>
                         <v-btn
@@ -26,8 +26,8 @@
                             @click="model = false"
                         />
                     </template>
-                    <template v-if="app" #prepend>
-                        <img :src="app.src" :alt="app.name" width="40" height="40" class="rounded">
+                    <template v-if="selectedApp" #prepend>
+                        <img :src="selectedApp.src" :alt="selectedApp.name" width="40" height="40" class="rounded">
                     </template>
                     <template v-else #prepend>
                         <v-sheet
@@ -36,7 +36,7 @@
                             height="40"
                             rounded="lg"
                         >
-                            <IconAccess />
+                            <component :is="KeyRound" :size="18" />
                         </v-sheet>
                     </template>
                     <v-progress-linear height="2px" indeterminate absolute location="bottom" :active="isFetching || isCreating" />
@@ -56,6 +56,7 @@
                         @name-changed="newName => name = newName"
                         @typeChanged="newType => accessType = newType"
                         @submit="nextStep"
+                        @appChanged="application => selectedApp = application"
                     />
                 </v-window-item>
 
@@ -66,7 +67,7 @@
                 <v-window-item :value="SetupStep.ChooseFlowStep">
                     <choose-flow-step
                         :ref="stepInfos[SetupStep.ChooseFlowStep].ref"
-                        :app="app"
+                        :app="selectedApp"
                         @setFlowType="val => flowType = val"
                     />
                 </v-window-item>
@@ -132,7 +133,7 @@
                     <access-created-step
                         :ref="stepInfos[SetupStep.AccessCreatedStep].ref"
                         :name="name"
-                        :app="app"
+                        :app="selectedApp"
                         :cli-access="cliAccess"
                         :access-grant="accessGrant"
                         :credentials="credentials"
@@ -173,13 +174,13 @@
                             color="primary"
                             variant="flat"
                             block
-                            :href="docsLink"
+                            :href="selectedApp ? selectedApp.docs : docsLink"
                             target="_blank"
                             rel="noopener noreferrer"
                             @click="() => sendApplicationsAnalytics(AnalyticsEvent.APPLICATIONS_DOCS_CLICKED)"
                         >
                             <template #prepend>
-                                <IconDocs />
+                                <component :is="BookOpenText" :size="18" />
                             </template>
                             Read Docs
                         </v-btn>
@@ -191,7 +192,7 @@
 </template>
 
 <script setup lang="ts">
-import { Component, computed, Ref, ref, watch, WatchStopHandle } from 'vue';
+import { computed, Ref, ref, watch, WatchStopHandle } from 'vue';
 import {
     VBtn,
     VCard,
@@ -208,6 +209,7 @@ import {
     VWindowItem,
 } from 'vuetify/components';
 import { useRoute } from 'vue-router';
+import { BookOpenText, KeyRound } from 'lucide-vue-next';
 
 import { AccessType, FlowType, PassphraseOption, Permission, SetupStep } from '@/types/setupAccess';
 import { useBucketsStore } from '@/store/modules/bucketsStore';
@@ -234,8 +236,6 @@ import PassphraseGeneratedStep from '@/components/dialogs/commonPassphraseSteps/
 import OptionalExpirationStep from '@/components/dialogs/accessSetupSteps/OptionalExpirationStep.vue';
 import EncryptionInfoStep from '@/components/dialogs/accessSetupSteps/EncryptionInfoStep.vue';
 import ConfirmDetailsStep from '@/components/dialogs/accessSetupSteps/ConfirmDetailsStep.vue';
-import IconAccess from '@/components/icons/IconAccess.vue';
-import IconDocs from '@/components/icons/IconDocs.vue';
 
 type SetupLocation = SetupStep | undefined | (() => (SetupStep | undefined));
 
@@ -288,7 +288,7 @@ const route = useRoute();
 
 const model = defineModel<boolean>({ required: true });
 
-const innerContent = ref<Component>();
+const innerContent = ref<VCard>();
 const isCreating = ref<boolean>(false);
 const isFetching = ref<boolean>(true);
 const worker = ref<Worker | null>(null);
@@ -300,6 +300,7 @@ function resettableRef<T>(value: T): Ref<T> {
     return thisRef;
 }
 
+const selectedApp = resettableRef<Application | undefined>(props.app);
 const step = resettableRef<SetupStep>(props.defaultStep);
 const accessType = resettableRef<AccessType>(props.defaultAccessType ?? AccessType.S3);
 const flowType = resettableRef<FlowType>(FlowType.FullAccess);
@@ -315,7 +316,7 @@ const credentials = resettableRef<EdgeCredentials>(new EdgeCredentials());
 
 const promptForPassphrase = computed<boolean>(() => bucketsStore.state.promptForPassphrase);
 
-const hasManagedPassphrase = computed<boolean>(() => !!projectsStore.state.selectedProjectConfig.passphrase);
+const hasManagedPassphrase = computed<boolean>(() => projectsStore.state.selectedProjectConfig.hasManagedPassphrase);
 
 const stepInfos: Record<SetupStep, StepInfo> = {
     [SetupStep.ChooseAccessStep]: new StepInfo(
@@ -458,15 +459,15 @@ async function generate(): Promise<void> {
     await createAPIKey();
     if (accessType.value === AccessType.AccessGrant || accessType.value === AccessType.S3) {
         await createAccessGrant();
+        if (accessType.value === AccessType.S3) await createEdgeCredentials();
         if (passphraseOption.value === PassphraseOption.SetMyProjectPassphrase) {
             bucketsStore.setEdgeCredentials(new EdgeCredentials());
             bucketsStore.setPassphrase(passphrase.value);
             bucketsStore.setPromptForPassphrase(false);
         }
     }
-    if (accessType.value === AccessType.S3) await createEdgeCredentials();
 
-    sendApplicationsAnalytics(AnalyticsEvent.APPLICATIONS_SETUP_COMPLETED);
+    if (selectedApp.value) sendApplicationsAnalytics(AnalyticsEvent.APPLICATIONS_SETUP_COMPLETED);
 
     isCreating.value = false;
 }
@@ -593,7 +594,7 @@ function prevStep(): void {
 }
 
 function sendApplicationsAnalytics(e: AnalyticsEvent): void {
-    if (props.app) analyticsStore.eventTriggered(e, { application: props.app.name });
+    if (selectedApp.value) analyticsStore.eventTriggered(e, { application: selectedApp.value.name });
 }
 
 /**
@@ -631,7 +632,7 @@ watch(step, newStep => {
  * This is used instead of onMounted because the dialog remains mounted
  * even when hidden.
  */
-watch(innerContent, async (comp: Component): Promise<void> => {
+watch(innerContent, async (comp?: VCard): Promise<void> => {
     if (!comp) {
         resets.forEach(reset => reset());
         return;

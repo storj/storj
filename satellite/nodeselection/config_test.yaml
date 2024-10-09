@@ -24,4 +24,15 @@ placements:
   - id: 5
     name: dual
     selector: dual(0.2,random(), filter(tag("12EayRS2V1kEsWESU9QMRseFhdxYxKicsiFmxrsLZHeLUtdps3S","test","true"),random()))
-
+  - id: 6
+    name: sa
+    filter: continent("SA") && $NORMAL
+  - id: 7
+    name: choiceofpieces
+    selector: choiceoftwo(piececount(10), random())
+  - id: 8
+    name: choiceofnselection1
+    selector: choiceofnselection(3, random(), maxgroup("last_ip"),median(piececount(1000000)),lastbut(tracker,2))
+  - id: 9
+    name: balancedf
+    selector: balancedf("last_ip", exclude(tag("12EayRS2V1kEsWESU9QMRseFhdxYxKicsiFmxrsLZHeLUtdps3S","test","true")))

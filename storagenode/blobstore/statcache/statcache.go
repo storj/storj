@@ -82,8 +82,8 @@ func (s *CachedStatBlobstore) StatWithStorageFormat(ctx context.Context, ref blo
 }
 
 // WalkNamespace implements blobstore.Blobs.
-func (s *CachedStatBlobstore) WalkNamespace(ctx context.Context, namespace []byte, startFromPrefix string, walkFunc func(blobstore.BlobInfo) error) error {
-	return s.Blobs.WalkNamespace(ctx, namespace, startFromPrefix, func(info blobstore.BlobInfo) error {
+func (s *CachedStatBlobstore) WalkNamespace(ctx context.Context, namespace []byte, skipPrefixFn blobstore.SkipPrefixFn, walkFunc func(blobstore.BlobInfo) error) error {
+	return s.Blobs.WalkNamespace(ctx, namespace, skipPrefixFn, func(info blobstore.BlobInfo) error {
 		return walkFunc(BlobInfo{
 			BlobInfo: info,
 			cache:    s.cache,
@@ -101,12 +101,12 @@ func (s *CachedStatBlobstore) Delete(ctx context.Context, ref blobstore.BlobRef)
 }
 
 // DeleteWithStorageFormat implements blobstore.Blobs.
-func (s *CachedStatBlobstore) DeleteWithStorageFormat(ctx context.Context, ref blobstore.BlobRef, formatVer blobstore.FormatVersion) error {
+func (s *CachedStatBlobstore) DeleteWithStorageFormat(ctx context.Context, ref blobstore.BlobRef, formatVer blobstore.FormatVersion, sizeHint int64) error {
 	err := s.cache.Delete(ctx, ref.Namespace, ref.Key)
 	if err != nil {
 		s.log.Warn("Couldn't delete blobstore cache entry", zap.Binary("namespace", ref.Namespace), zap.Binary("key", ref.Key), zap.Error(err))
 	}
-	return s.Blobs.DeleteWithStorageFormat(ctx, ref, formatVer)
+	return s.Blobs.DeleteWithStorageFormat(ctx, ref, formatVer, sizeHint)
 }
 
 // EmptyTrash implements blobstore.Blobs.

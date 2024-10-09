@@ -19,6 +19,21 @@ func (*TrialExpirationReminderEmail) Template() string { return "TrialExpiration
 // Subject gets email subject.
 func (*TrialExpirationReminderEmail) Subject() string { return "Your Storj trial is ending soon" }
 
+// TrialExpirationEscalationReminderEmail is mailservice template with trial expiration escalation reminder data.
+type TrialExpirationEscalationReminderEmail struct {
+	SupportLink string
+}
+
+// Template returns email template name.
+func (*TrialExpirationEscalationReminderEmail) Template() string {
+	return "TrialExpirationEscalationReminder"
+}
+
+// Subject gets email subject.
+func (*TrialExpirationEscalationReminderEmail) Subject() string {
+	return "Your Storj trial is ending soon"
+}
+
 // TrialExpiredEmail is mailservice template with trial expiration data.
 type TrialExpiredEmail struct {
 	Origin              string

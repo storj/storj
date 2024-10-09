@@ -16,6 +16,7 @@ import (
 // it uses Google Secret Manager as the master key provider.
 type gsmService struct {
 	client client
+	config Config
 }
 
 // newGsmService creates new gsmService for encrypting/decrypting project passphrases.
@@ -24,7 +25,7 @@ func newGsmService(ctx context.Context, config Config) (*gsmService, error) {
 	var client client
 	if config.MockClient {
 		client = &mockGsmClient{
-			keyInfos: config.KeyInfos,
+			config: config,
 		}
 	} else {
 		internalClient, err := secretmanager.NewClient(ctx)
@@ -36,28 +37,40 @@ func newGsmService(ctx context.Context, config Config) (*gsmService, error) {
 
 	return &gsmService{
 		client: client,
+		config: config,
 	}, nil
 }
 
-// GetKey gets and validates a key.
-func (s *gsmService) GetKey(ctx context.Context, k KeyInfo) (*storj.Key, error) {
-	keyRequest := &secretmanagerpb.AccessSecretVersionRequest{
-		Name: k.SecretVersion,
-	}
-	keyResp, err := s.client.AccessSecretVersion(ctx, keyRequest)
-	if err != nil {
-		return nil, Error.Wrap(err)
+// GetKeys gets keys from source.
+func (s *gsmService) GetKeys(ctx context.Context) (keys map[int]*storj.Key, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	keys = make(map[int]*storj.Key)
+
+	for id, k := range s.config.KeyInfos.Values {
+		keyRequest := &secretmanagerpb.AccessSecretVersionRequest{
+			Name: k.SecretVersion,
+		}
+		keyResp, err := s.client.AccessSecretVersion(ctx, keyRequest)
+		if err != nil {
+			return nil, Error.Wrap(err)
+		}
+
+		if len(keyResp.Payload.Data) == 0 {
+			return nil, Error.New("no key found in secret manager")
+		}
+
+		if k.SecretChecksum != keyResp.Payload.GetDataCrc32C() {
+			return nil, Error.New("checksum mismatch")
+		}
+
+		keys[id], err = storj.NewKey(keyResp.Payload.Data)
+		if err != nil {
+			return nil, Error.Wrap(err)
+		}
 	}
 
-	if len(keyResp.Payload.Data) == 0 {
-		return nil, Error.New("no key found in secret manager")
-	}
-
-	if k.SecretChecksum != keyResp.Payload.GetDataCrc32C() {
-		return nil, Error.New("checksum mismatch")
-	}
-
-	return storj.NewKey(keyResp.Payload.Data)
+	return keys, nil
 }
 
 // Close closes the service.

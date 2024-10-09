@@ -27,8 +27,10 @@ func SplitConnStr(s string) (driver string, source string, implementation Implem
 		source = s // cockroach wants full URLS for its DSN
 		driver = "pgxcockroach"
 	case Spanner:
-		// spanner only needs the source part, not the full URL
+		source = s // spanner wants full URLS for its DSN
 		driver = "spanner"
+	default:
+		// the DSN matches to driver://source
 	}
 	return driver, source, implementation, nil
 }

@@ -13,7 +13,14 @@
             <v-sheet>
                 <v-card-item class="pa-6">
                     <template #prepend>
-                        <icon-versioning-clock size="40" />
+                        <v-sheet
+                            class="border-sm d-flex justify-center align-center"
+                            width="40"
+                            height="40"
+                            rounded="lg"
+                        >
+                            <component :is="History" :size="18" />
+                        </v-sheet>
                     </template>
                     <v-card-title class="font-weight-bold">
                         Object Versioning (Beta)
@@ -38,7 +45,8 @@
                         <v-row>
                             <v-col>
                                 <p>
-                                    Versioning allows you to preserve, retrieve, and restore previous versions of a file, offering protection against unintentional modifications or deletions.
+                                    Versioning allows you to preserve, retrieve, and restore previous versions of a object.
+                                    <template v-if="objectLockEnabled">Versioning enables additional features like Object Lock, allowing you to protect objects from deletion or modification.</template>
                                 </p>
                                 <v-alert color="default" variant="tonal" class="my-4">
                                     <v-alert-title class="text-body-2">Beta Information</v-alert-title>
@@ -71,6 +79,7 @@
                                             <p class="my-2">A new column displaying the versioning status will appear on your buckets page.</p>
                                             <p class="my-2">When versioning is enabled, each object in the bucket will have a unique version ID.</p>
                                             <p class="my-2">You can easily retrieve, list, and restore previous versions of your objects.</p>
+                                            <p v-if="objectLockEnabled" class="my-2">Object Lock can be applied to versioned objects for additional protection.</p>
                                         </v-expansion-panel-text>
                                     </v-expansion-panel>
                                 </v-expansion-panels>
@@ -86,16 +95,18 @@
                                             <p class="my-2">1. Create a new bucket with versioning enabled from the start, or enable versioning on existing buckets that support it.</p>
                                             <p class="my-2">2. Upload objects to your versioned bucket and make changes as needed. Each change will create a new version of the object.</p>
                                             <p class="my-2">3. Use the version ID to retrieve, list, or restore specific versions of your objects.</p>
+                                            <p v-if="objectLockEnabled" class="my-2">4. Protect your objects from deletion or modification by applying Object Lock to versioned objects.</p>
                                         </v-expansion-panel-text>
                                     </v-expansion-panel>
                                 </v-expansion-panels>
 
                                 <p class="text-body-2">
                                     For more information, <a
-                                        href="https://docs.storj.io/dcs/buckets/object-versioning"
+                                        :href="docsLink"
                                         class="link"
                                         target="_blank"
-                                        @click="() => trackViewDocsEvent('https://docs.storj.io/')"
+                                        rel="noopener noreferrer"
+                                        @click="trackGoToDocs"
                                     >visit the documentation</a>.
                                 </p>
                             </v-col>
@@ -163,23 +174,26 @@ import {
     VWindow,
     VWindowItem,
 } from 'vuetify/components';
-import { ref, watchEffect } from 'vue';
+import { History } from 'lucide-vue-next';
+import { computed, ref, watchEffect } from 'vue';
 
 import { useLoading } from '@/composables/useLoading';
 import { useProjectsStore } from '@/store/modules/projectsStore';
 import { useNotify } from '@/utils/hooks';
-import { AnalyticsErrorEventSource, PageVisitSource } from '@/utils/constants/analyticsEventNames';
+import { AnalyticsErrorEventSource, AnalyticsEvent, PageVisitSource } from '@/utils/constants/analyticsEventNames';
 import { useAnalyticsStore } from '@/store/modules/analyticsStore';
-
-import IconVersioningClock from '@/components/icons/IconVersioningClock.vue';
+import { useConfigStore } from '@/store/modules/configStore';
 
 const analyticsStore = useAnalyticsStore();
+const configStore = useConfigStore();
 const projectStore = useProjectsStore();
 
 const notify = useNotify();
 const { withLoading, isLoading } = useLoading();
 
 const isDialogOpen = defineModel<boolean>();
+
+const docsLink = 'https://storj.dev/dcs/api/s3/object-versioning';
 
 const props = defineProps<{
     info?: boolean;
@@ -188,8 +202,14 @@ const props = defineProps<{
 const optedIn = ref(false);
 const step = ref(0);
 
-function trackViewDocsEvent(link: string): void {
-    analyticsStore.pageVisit(link, PageVisitSource.DOCS);
+/**
+ * whether object lock UI is globally enabled.
+ */
+const objectLockEnabled = computed(() => configStore.objectLockUIEnabled);
+
+function trackGoToDocs() {
+    analyticsStore.pageVisit(docsLink, PageVisitSource.DOCS);
+    analyticsStore.eventTriggered(AnalyticsEvent.VIEW_DOCS_CLICKED);
 }
 
 function optInOrOut() {

@@ -14,6 +14,9 @@ import (
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 
+	"storj.io/common/sync2"
+	"storj.io/common/uuid"
+	"storj.io/storj/shared/dbutil/pgutil"
 	"storj.io/storj/shared/dbutil/pgxutil"
 	"storj.io/storj/shared/dbutil/spannerutil"
 	"storj.io/storj/shared/tagsql"
@@ -28,11 +31,18 @@ type DeleteExpiredObjects struct {
 	ExpiredBefore      time.Time
 	AsOfSystemInterval time.Duration
 	BatchSize          int
+	DeleteConcurrency  int
 }
 
 // DeleteExpiredObjects deletes all objects that expired before expiredBefore.
 func (db *DB) DeleteExpiredObjects(ctx context.Context, opts DeleteExpiredObjects) (err error) {
 	defer mon.Task()(&ctx)(&err)
+
+	if opts.DeleteConcurrency == 0 {
+		opts.DeleteConcurrency = 1
+	}
+
+	limiter := sync2.NewLimiter(opts.DeleteConcurrency)
 
 	for _, a := range db.adapters {
 		err = db.deleteObjectsAndSegmentsBatch(ctx, opts.BatchSize, func(startAfter ObjectStream, batchsize int) (last ObjectStream, err error) {
@@ -45,22 +55,33 @@ func (db *DB) DeleteExpiredObjects(ctx context.Context, opts DeleteExpiredObject
 				return ObjectStream{}, nil
 			}
 
-			objectsDeleted, segmentsDeleted, err := a.DeleteObjectsAndSegments(ctx, expiredObjects)
+			ok := limiter.Go(ctx, func() {
+				objectsDeleted, segmentsDeleted, err := a.DeleteObjectsAndSegments(ctx, expiredObjects)
+				if err != nil {
+					db.log.Error("failed to delete expired objects from DB", zap.Error(err), zap.String("adapter", fmt.Sprintf("%T", a)))
+				}
 
-			mon.Meter("object_delete").Mark64(objectsDeleted)
-			mon.Meter("segment_delete").Mark64(segmentsDeleted)
+				mon.Meter("expired_object_delete").Mark64(objectsDeleted)
+				mon.Meter("expired_segment_delete").Mark64(segmentsDeleted)
+			})
+			if !ok {
+				return ObjectStream{}, Error.New("unable to start delete operation")
+			}
 
 			return expiredObjects[len(expiredObjects)-1], err
 		})
 		if err != nil {
-			db.log.Error("failed to delete expired objects from DB", zap.Error(err), zap.String("adapter", fmt.Sprintf("%T", a)))
+			db.log.Error("failed to find expired objects in DB", zap.Error(err), zap.String("adapter", fmt.Sprintf("%T", a)))
 		}
 	}
+	limiter.Wait()
 	return nil
 }
 
 // FindExpiredObjects finds up to batchSize objects that expired before opts.ExpiredBefore.
 func (p *PostgresAdapter) FindExpiredObjects(ctx context.Context, opts DeleteExpiredObjects, startAfter ObjectStream, batchSize int) (expiredObjects []ObjectStream, err error) {
+	defer mon.Task()(&ctx)(&err)
+
 	query := `
 		SELECT
 			project_id, bucket_name, object_key, version, stream_id,
@@ -91,12 +112,12 @@ func (p *PostgresAdapter) FindExpiredObjects(ctx context.Context, opts DeleteExp
 				return Error.Wrap(err)
 			}
 
-			p.log.Info("Deleting expired object",
+			p.log.Debug("Deleting expired object",
 				zap.Stringer("Project", last.ProjectID),
 				zap.Stringer("Bucket", last.BucketName),
 				zap.String("Object Key", string(last.ObjectKey)),
 				zap.Int64("Version", int64(last.Version)),
-				zap.String("StreamID", hex.EncodeToString(last.StreamID[:])),
+				zap.Stringer("StreamID", last.StreamID),
 				zap.Time("Expired At", expiresAt),
 			)
 			expiredObjects = append(expiredObjects, last)
@@ -112,6 +133,8 @@ func (p *PostgresAdapter) FindExpiredObjects(ctx context.Context, opts DeleteExp
 
 // FindExpiredObjects finds up to batchSize objects that expired before opts.ExpiredBefore.
 func (s *SpannerAdapter) FindExpiredObjects(ctx context.Context, opts DeleteExpiredObjects, startAfter ObjectStream, batchSize int) (expiredObjects []ObjectStream, err error) {
+	defer mon.Task()(&ctx)(&err)
+
 	// TODO(spanner): check whether this query is executed efficiently
 	expiredObjects, err = spannerutil.CollectRows(s.client.Single().Query(ctx, spanner.Statement{
 		SQL: `
@@ -146,12 +169,12 @@ func (s *SpannerAdapter) FindExpiredObjects(ctx context.Context, opts DeleteExpi
 			return Error.Wrap(err)
 		}
 
-		s.log.Info("Deleting expired object",
+		s.log.Debug("Deleting expired object",
 			zap.Stringer("Project", object.ProjectID),
 			zap.Stringer("Bucket", object.BucketName),
 			zap.String("Object Key", string(object.ObjectKey)),
 			zap.Int64("Version", int64(object.Version)),
-			zap.String("StreamID", hex.EncodeToString(object.StreamID[:])),
+			zap.Stringer("StreamID", object.StreamID),
 			zap.Time("Expired At", expiresAt),
 		)
 
@@ -205,6 +228,8 @@ func (db *DB) DeleteZombieObjects(ctx context.Context, opts DeleteZombieObjects)
 
 // FindZombieObjects locates up to batchSize zombie objects that need deletion.
 func (p *PostgresAdapter) FindZombieObjects(ctx context.Context, opts DeleteZombieObjects, startAfter ObjectStream, batchSize int) (objects []ObjectStream, err error) {
+	defer mon.Task()(&ctx)(&err)
+
 	// pending objects migrated to metabase didn't have zombie_deletion_deadline column set, because
 	// of that we need to get into account also object with zombie_deletion_deadline set to NULL
 	query := `
@@ -253,8 +278,19 @@ func (p *PostgresAdapter) FindZombieObjects(ctx context.Context, opts DeleteZomb
 
 // FindZombieObjects locates up to batchSize zombie objects that need deletion.
 func (s *SpannerAdapter) FindZombieObjects(ctx context.Context, opts DeleteZombieObjects, startAfter ObjectStream, batchSize int) (objects []ObjectStream, err error) {
+	defer mon.Task()(&ctx)(&err)
+
 	// pending objects migrated to metabase didn't have zombie_deletion_deadline column set, because
 	// of that we need to get into account also object with zombie_deletion_deadline set to NULL
+	tuple, err := spannerutil.TupleGreaterThanSQL(
+		[]string{"project_id", "bucket_name", "object_key", "version"},
+		[]string{"@project_id", "@bucket_name", "@object_key", "@version"},
+		false,
+	)
+	if err != nil {
+		return nil, Error.Wrap(err)
+	}
+
 	objects, err = spannerutil.CollectRows(s.client.Single().Query(ctx, spanner.Statement{
 		SQL: `
 			SELECT
@@ -263,10 +299,7 @@ func (s *SpannerAdapter) FindZombieObjects(ctx context.Context, opts DeleteZombi
 			WHERE
 				status = ` + statusPending + `
 				AND (zombie_deletion_deadline IS NULL OR zombie_deletion_deadline < @deadline)
-				AND ` +
-			TupleGreaterThanSQL(
-				[]string{"project_id", "bucket_name", "object_key", "version"},
-				[]string{"@project_id", "@bucket_name", "@object_key", "@version"}, false) + `
+				AND ` + tuple + `
 			ORDER BY project_id, bucket_name, object_key, version
 			LIMIT @batch_size
 		`,
@@ -327,45 +360,49 @@ func (p *PostgresAdapter) DeleteObjectsAndSegments(ctx context.Context, objects 
 		return 0, 0, nil
 	}
 
-	err = pgxutil.Conn(ctx, p.db, func(conn *pgx.Conn) error {
-		var batch pgx.Batch
-		for _, obj := range objects {
-			obj := obj
+	projectIDs := make([]uuid.UUID, len(objects))
+	bucketNames := make([][]byte, len(objects))
+	objectKeys := make([][]byte, len(objects))
+	versions := make([]int64, len(objects))
+	streamIDs := make([]uuid.UUID, len(objects))
 
-			batch.Queue(`
-				WITH deleted_objects AS (
-					DELETE FROM objects
-					WHERE (project_id, bucket_name, object_key, version, stream_id) = ($1::BYTEA, $2, $3, $4, $5::BYTEA)
-					RETURNING stream_id
-				)
-				DELETE FROM segments
-				WHERE segments.stream_id = $5::BYTEA
-			`, obj.ProjectID, obj.BucketName, []byte(obj.ObjectKey), obj.Version, obj.StreamID)
-		}
+	for i, obj := range objects {
+		projectIDs[i] = obj.ProjectID
+		bucketNames[i] = []byte(obj.BucketName)
+		objectKeys[i] = []byte(obj.ObjectKey)
+		versions[i] = int64(obj.Version)
+		streamIDs[i] = obj.StreamID
+	}
 
-		results := conn.SendBatch(ctx, &batch)
-		defer func() { err = errs.Combine(err, results.Close()) }()
-
-		var errlist errs.Group
-		for i := 0; i < batch.Len(); i++ {
-			result, err := results.Exec()
-			errlist.Add(err)
-
-			if affectedSegmentCount := result.RowsAffected(); affectedSegmentCount > 0 {
-				// Note, this slightly miscounts objects without any segments
-				// there doesn't seem to be a simple work around for this.
-				// Luckily, this is used only for metrics, where it's not a
-				// significant problem to slightly miscount.
-				objectsDeleted++
-				segmentsDeleted += affectedSegmentCount
-			}
-		}
-
-		return errlist.Err()
-	})
+	result, err := p.db.ExecContext(ctx, `
+		WITH deleted_objects AS (
+			DELETE FROM objects
+			WHERE (project_id, bucket_name, object_key, version, stream_id) IN
+			(SELECT UNNEST($1::BYTEA[]), UNNEST($2::BYTEA[]), UNNEST($3::BYTEA[]), UNNEST($4::INT8[]), UNNEST($5::BYTEA[]))
+			RETURNING stream_id
+		)
+		DELETE FROM segments
+		WHERE segments.stream_id IN (SELECT stream_id FROM deleted_objects)
+	`, pgutil.UUIDArray(projectIDs), pgutil.ByteaArray(bucketNames), pgutil.ByteaArray(objectKeys),
+		pgutil.Int8Array(versions), pgutil.UUIDArray(streamIDs))
 	if err != nil {
 		return 0, 0, Error.New("unable to delete expired objects: %w", err)
 	}
+
+	affectedSegmentCount, err := result.RowsAffected()
+	if err != nil {
+		return 0, 0, Error.New("unable to delete expired objects: %w", err)
+	}
+
+	if affectedSegmentCount > 0 {
+		// Note, this slightly miscounts objects without any segments
+		// there doesn't seem to be a simple work around for this.
+		// Luckily, this is used only for metrics, where it's not a
+		// significant problem to slightly miscount.
+		objectsDeleted = int64(len(objects))
+		segmentsDeleted += affectedSegmentCount
+	}
+
 	return objectsDeleted, segmentsDeleted, nil
 }
 
@@ -404,23 +441,25 @@ func (s *SpannerAdapter) DeleteObjectsAndSegments(ctx context.Context, objects [
 		for _, numDeleted := range numDeleteds {
 			objectsDeleted += numDeleted
 		}
-		streamIDs := make([][]byte, 0, len(objects))
-		for _, obj := range objects {
-			streamIDs = append(streamIDs, obj.StreamID.Bytes())
+
+		stmts := make([]spanner.Statement, len(objects))
+		for ix, object := range objects {
+			stmts[ix] = spanner.Statement{
+				SQL: `DELETE FROM segments WHERE @stream_id = stream_id`,
+				Params: map[string]interface{}{
+					"stream_id": object.StreamID.Bytes(),
+				},
+			}
 		}
-		numSegments, err := tx.Update(ctx, spanner.Statement{
-			SQL: `
-				DELETE FROM segments
-				WHERE ARRAY_INCLUDES(@stream_ids, stream_id)
-			`,
-			Params: map[string]interface{}{
-				"stream_ids": streamIDs,
-			},
-		})
-		if err != nil {
-			return Error.Wrap(err)
+		if len(stmts) > 0 {
+			numSegments, err := tx.BatchUpdate(ctx, stmts)
+			if err != nil {
+				return Error.Wrap(err)
+			}
+			for _, v := range numSegments {
+				segmentsDeleted += v
+			}
 		}
-		segmentsDeleted += numSegments
 		return nil
 	})
 	if err != nil {
@@ -515,12 +554,14 @@ func (s *SpannerAdapter) DeleteInactiveObjectsAndSegments(ctx context.Context, o
 				},
 			})
 		}
-		numDeleteds, err := tx.BatchUpdate(ctx, statements)
-		if err != nil {
-			return Error.Wrap(err)
-		}
-		for _, numDeleted := range numDeleteds {
-			objectsDeleted += numDeleted
+		if len(statements) > 0 {
+			numDeleteds, err := tx.BatchUpdate(ctx, statements)
+			if err != nil {
+				return Error.Wrap(err)
+			}
+			for _, numDeleted := range numDeleteds {
+				objectsDeleted += numDeleted
+			}
 		}
 		streamIDs := make([][]byte, 0, len(objects))
 		for _, obj := range objects {

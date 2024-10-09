@@ -61,6 +61,10 @@ func (db *satelliteDB) MigrateToLatest(ctx context.Context) error {
 		if err != nil {
 			return errs.Wrap(err)
 		}
+	case dbutil.Spanner:
+		// nothing to do here at the moment
+	default:
+		return Error.New("unsupported database: %v", db.impl)
 	}
 
 	switch db.impl {
@@ -82,7 +86,7 @@ func (db *satelliteDB) MigrateToLatest(ctx context.Context) error {
 		return migration.Run(ctx, db.log.Named("migrate"))
 	case dbutil.Spanner:
 		// TODO(spanner): add incremental migration support
-		return migrate.CreateSpanner(ctx, "database", db.DB)
+		return migrate.CreateSpanner(ctx, "database", db.DB, false)
 	default:
 		return migrate.Create(ctx, "database", db.DB)
 	}
@@ -114,17 +118,20 @@ func (db *satelliteDBTesting) TestMigrateToLatest(ctx context.Context) error {
 		if err != nil {
 			return ErrMigrateMinVersion.Wrap(err)
 		}
+
 	case dbutil.Spanner:
-		projectID, instance, database, err := spannerutil.ParseConnStr(db.source)
+		params, err := spannerutil.ParseConnStr(db.source)
 		if err != nil {
-			return ErrMigrateMinVersion.New("error parsing connection string: %w", err)
+			return ErrMigrateMinVersion.New("failed parsing connection string: %w", err)
 		}
-		if database == nil {
-			return ErrMigrateMinVersion.New("error spanner database is required in connection string for migration")
+		if !params.AllDefined() {
+			return ErrMigrateMinVersion.New("spanner database needs to be fully defined for migration")
 		}
-		if err := spannerutil.CreateDatabase(ctx, projectID, instance, *database); err != nil && spanner.ErrCode(err) != codes.AlreadyExists {
-			return ErrMigrateMinVersion.New("error creating database: %w", err)
+		if err := spannerutil.CreateDatabase(ctx, params); err != nil && spanner.ErrCode(err) != codes.AlreadyExists {
+			return ErrMigrateMinVersion.New("failed creating database: %w", err)
 		}
+	default:
+		return Error.New("unsupported database: %v", db.impl)
 	}
 
 	switch db.impl {
@@ -143,7 +150,7 @@ func (db *satelliteDBTesting) TestMigrateToLatest(ctx context.Context) error {
 		return testMigration.Run(ctx, db.log.Named("migrate"))
 	case dbutil.Spanner:
 		// TODO(spanner): add incremental migration support
-		return migrate.CreateSpanner(ctx, "database", db.DB)
+		return migrate.CreateSpanner(ctx, "database", db.DB, true)
 	default:
 		return migrate.Create(ctx, "database", db.DB)
 	}

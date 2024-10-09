@@ -103,13 +103,12 @@ func (service *Service) Collect(ctx context.Context, now time.Time) (err error) 
 
 		count := len(batch)
 		if count == 0 {
-			service.log.Info("no expired pieces to collect")
 			return nil
 		}
 
 		for _, ei := range batch {
 			// delete the piece from the storage
-			err := service.pieces.DeleteSkipV0(ctx, ei.SatelliteID, ei.PieceID)
+			err := service.pieces.DeleteSkipV0(ctx, ei.SatelliteID, ei.PieceID, ei.PieceSize)
 			if err != nil {
 				service.log.Warn("unable to delete piece", zap.Stringer("Satellite ID", ei.SatelliteID), zap.Stringer("Piece ID", ei.PieceID), zap.Error(err))
 			} else {

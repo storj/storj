@@ -514,7 +514,12 @@ async function signup(): Promise<void> {
             const braveSuccessPath = `${internalRegisterSuccessPath}?email=${encodeURIComponent(email.value)}`;
 
             const altRoute = `${window.location.origin}/${nonBraveSuccessPath}`;
-            await detectBraveBrowser() ? await router.push(braveSuccessPath) : window.location.href = altRoute;
+
+            if (await detectBraveBrowser()) {
+                await router.push(braveSuccessPath);
+            } else {
+                window.location.href = altRoute;
+            }
         } else {
             confirmCode.value = true;
         }
@@ -548,8 +553,8 @@ onBeforeMount(async () => {
         try {
             const config = (await import('@/configs/registrationViewConfig.json')).default;
             partnerConfig.value = config[partner.value];
-        } catch (e) {
-        // Handle errors, such as a missing configuration file
+        } catch {
+            // Handle errors, such as a missing configuration file
             notify.error('No configuration file for registration page.');
         }
     }

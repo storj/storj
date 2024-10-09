@@ -21,7 +21,7 @@ import (
 	"storj.io/storj/private/testplanet"
 	"storj.io/storj/satellite"
 	"storj.io/storj/satellite/satellitedb/satellitedbtest"
-	"storj.io/storj/shared/dbutil/pgtest"
+	"storj.io/storj/shared/dbutil/dbtest"
 	"storj.io/storjscan"
 	"storj.io/storjscan/private/testeth"
 	"storj.io/storjscan/storjscandb/storjscandbtest"
@@ -46,8 +46,8 @@ func Run(t *testing.T, test Test) {
 	databases := satellitedbtest.Databases()
 	if len(databases) == 0 {
 		t.Fatal("Databases flag missing, set at least one:\n" +
-			"-postgres-test-db=" + pgtest.DefaultPostgres + "\n" +
-			"-cockroach-test-db=" + pgtest.DefaultCockroach)
+			"-postgres-test-db=" + dbtest.DefaultPostgres + "\n" +
+			"-cockroach-test-db=" + dbtest.DefaultCockroach)
 	}
 
 	config := testplanet.Config{

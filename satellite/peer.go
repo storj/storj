@@ -236,7 +236,9 @@ type Config struct {
 
 	TagAuthorities string `help:"comma-separated paths of additional cert files, used to validate signed node tags"`
 
-	SeparateConsoleAPI bool `help:"indicates whether the console API should be split out from satellite API" default:"false"`
+	DisableConsoleFromSatelliteAPI bool `help:"indicates whether the console API should not be served along with satellite API" default:"false"`
+
+	StandaloneConsoleAPIEnabled bool `help:"indicates whether the console API should be served as a standalone service" default:"false"`
 }
 
 func setupMailService(log *zap.Logger, config Config) (*mailservice.Service, error) {
