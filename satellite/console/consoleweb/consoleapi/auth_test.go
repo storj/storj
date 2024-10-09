@@ -734,7 +734,6 @@ func TestRegistrationEmail(t *testing.T) {
 		require.NoError(t, err)
 		require.Contains(t, body, "/login")
 		require.Contains(t, body, "/forgot-password")
-		require.Contains(t, body, "/signup")
 	})
 }
 
@@ -932,8 +931,8 @@ func TestResendActivationEmail_CodeEnabled(t *testing.T) {
 		require.NoError(t, err)
 		require.Contains(t, body, "code")
 
-		regex := regexp.MustCompile(`(\d{6})\n\s*<\/h1>`)
-		code := strings.Replace(regex.FindString(body.(string)), "</h1>", "", 1)
+		regex := regexp.MustCompile(`(\d{6})\s*<\/h2>`)
+		code := strings.Replace(regex.FindString(body.(string)), "</h2>", "", 1)
 		code = strings.TrimSpace(code)
 		require.Contains(t, body, code)
 
@@ -947,7 +946,7 @@ func TestResendActivationEmail_CodeEnabled(t *testing.T) {
 		require.NoError(t, err)
 		require.Contains(t, body, "code")
 
-		newCode := strings.Replace(regex.FindString(body.(string)), "</h1>", "", 1)
+		newCode := strings.Replace(regex.FindString(body.(string)), "</h2>", "", 1)
 		newCode = strings.TrimSpace(newCode)
 		require.NotEqual(t, code, newCode)
 	})
@@ -1114,8 +1113,8 @@ func TestAccountActivationWithCode(t *testing.T) {
 		require.NoError(t, err)
 		require.Contains(t, body, "code")
 
-		regex := regexp.MustCompile(`(\d{6})\n\s*<\/h1>`)
-		code := strings.Replace(regex.FindString(body.(string)), "</h1>", "", 1)
+		regex := regexp.MustCompile(`(\d{6})\s*<\/h2>`)
+		code := strings.Replace(regex.FindString(body.(string)), "</h2>", "", 1)
 		code = strings.TrimSpace(code)
 		require.Contains(t, body, code)
 
@@ -1175,7 +1174,6 @@ func TestAccountActivationWithCode(t *testing.T) {
 		require.NoError(t, err)
 		require.Contains(t, body, "/login")
 		require.Contains(t, body, "/forgot-password")
-		require.Contains(t, body, "/signup")
 
 		// trying to activate an account that is not "inactive" or "active" should result in an error
 		user, err := sat.DB.Console().Users().GetByEmail(ctx, email)

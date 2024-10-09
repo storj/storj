@@ -24,13 +24,18 @@ export class Retention {
     }
 
     // returns whether the retention configuration is enabled.
-    public enabled(): boolean {
+    public get enabled(): boolean {
         return this.mode === ObjectLockMode.COMPLIANCE || this.mode === ObjectLockMode.GOVERNANCE;
     }
 
     // returns whether the retention configuration is enabled
     // and active as of the current time.
-    public active(): boolean {
-        return this.enabled() && new Date() < this.retainUntil;
+    public get active(): boolean {
+        return this.enabled && new Date() < this.retainUntil;
     }
+}
+
+export interface ObjectLockStatus {
+    retention: Retention;
+    legalHold: boolean;
 }

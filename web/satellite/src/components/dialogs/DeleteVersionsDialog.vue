@@ -53,7 +53,7 @@
                     <template #item="{ props }">
                         <v-list-item :title="props.title" :class="{ 'text-medium-emphasis': lockedVersions.has(props.title) }">
                             <v-list-item-subtitle v-if="lockedVersions.has(props.title)" class="text-caption">
-                                Locked until: {{ lockedVersions.get(props.title) }}
+                                {{ lockedVersions.get(props.title) }}
                             </v-list-item-subtitle>
                         </v-list-item>
                     </template>
@@ -170,18 +170,29 @@ function formatDate(date?: Date): string {
 
 async function checkLockedVersions() {
     const results = await Promise.allSettled(props.files.map(async file => {
-        const retention = await obStore.getObjectRetention(file);
-        return { id: file.VersionId ?? '', retention };
+        const lockStatus = await obStore.getObjectLockStatus(file);
+        return { id: file.VersionId ?? '', lockStatus };
     }));
     for (const result of results) {
         if (result.status !== 'fulfilled') {
             continue;
         }
-        const idRetention = result.value;
-        if (!idRetention.retention.active()) {
+        const id = result.value.id;
+        const lockStatus = result.value.lockStatus;
+        if (!lockStatus.retention.active && !lockStatus.legalHold) {
             continue;
         }
-        lockedVersions.value.set(`Version ID: ${idRetention.id ?? ''}`, formatDate(idRetention.retention.retainUntil));
+        let untilText = '';
+        if (lockStatus.retention.active) {
+            untilText = formatDate(lockStatus.retention.retainUntil);
+        }
+        if (lockStatus.legalHold) {
+            if (untilText) {
+                untilText += ' and ';
+            }
+            untilText += 'Legal Hold removed';
+        }
+        lockedVersions.value.set(`Version ID: ${id}`, `Locked until: ${untilText}`);
     }
 }
 

@@ -56,7 +56,7 @@ func NewSpannerAdapter(ctx context.Context, cfg SpannerConfig, log *zap.Logger) 
 	if err != nil {
 		return nil, errs.Wrap(err)
 	}
-	sqlClient, err := sql.Open("spanner", params.DatabasePath())
+	sqlClient, err := sql.Open("spanner", params.GoSqlSpannerConnStr())
 	if err != nil {
 		return nil, errs.Wrap(err)
 	}

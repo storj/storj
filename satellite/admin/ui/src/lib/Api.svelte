@@ -50,10 +50,6 @@ wants to perform.
 	<button on:click={confirmAuthToken}>confirm</button>
 </p>
 <p>
-	The below options prefixed with <b>"DEPRECATED:"</b> must be performed in our new internal satellite
-	admin
-</p>
-<p>
 	Operation:
 	<select
 		bind:value={selectedGroupOp}
@@ -73,11 +69,7 @@ wants to perform.
 		<select bind:value={selectedOp}>
 			<option selected />
 			{#each selectedGroupOp as op (op)}
-				{#if op.deprecated}
-					<option value={op}>DEPRECATED: {op.name}</option>
-				{:else}
-					<option value={op}>{op.name}</option>
-				{/if}
+				<option value={op}>{op.name}</option>
 			{/each}
 		</select>
 	{/if}

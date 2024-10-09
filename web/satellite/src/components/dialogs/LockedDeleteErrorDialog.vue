@@ -64,7 +64,33 @@
                         </v-chip>
                     </template>
 
-                    <template v-if="file?.retention?.retainUntil">
+                    <template v-if="file?.legalHold">
+                        <p class="mt-3 mb-1 font-weight-bold text-body-2">
+                            Legal Hold:
+                        </p>
+
+                        <v-chip
+                            variant="tonal"
+                            filter
+                            color="error"
+                        >
+                            Yes
+                        </v-chip>
+                    </template>
+
+                    <template v-if="file?.retention?.active">
+                        <p class="mt-3 mb-1 font-weight-bold text-body-2">
+                            Lock Mode:
+                        </p>
+
+                        <v-chip
+                            variant="tonal"
+                            filter
+                            color="error"
+                        >
+                            {{ file.retention.mode.substring(0, 1) + file.retention.mode.substring(1).toLowerCase() }}
+                        </v-chip>
+
                         <p class="mt-3 mb-1 font-weight-bold text-body-2">
                             Locked until:
                         </p>
