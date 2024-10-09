@@ -32,7 +32,6 @@ import (
 	"storj.io/storj/storagenode/bandwidth"
 	"storj.io/storj/storagenode/blobstore"
 	"storj.io/storj/storagenode/blobstore/filestore"
-	"storj.io/storj/storagenode/collector"
 	"storj.io/storj/storagenode/contact"
 	"storj.io/storj/storagenode/healthcheck"
 	"storj.io/storj/storagenode/monitor"
@@ -40,19 +39,15 @@ import (
 	"storj.io/storj/storagenode/notifications"
 	"storj.io/storj/storagenode/operator"
 	"storj.io/storj/storagenode/orders"
-	"storj.io/storj/storagenode/payouts"
-	"storj.io/storj/storagenode/payouts/estimatedpayouts"
 	"storj.io/storj/storagenode/pieces"
 	"storj.io/storj/storagenode/pieces/lazyfilewalker"
 	"storj.io/storj/storagenode/piecestore"
 	"storj.io/storj/storagenode/piecestore/usedserials"
 	"storj.io/storj/storagenode/preflight"
-	"storj.io/storj/storagenode/pricing"
 	"storj.io/storj/storagenode/reputation"
 	"storj.io/storj/storagenode/retain"
 	"storj.io/storj/storagenode/satellites"
 	"storj.io/storj/storagenode/storagenodedb"
-	"storj.io/storj/storagenode/storageusage"
 	"storj.io/storj/storagenode/trust"
 	snversion "storj.io/storj/storagenode/version"
 )
@@ -320,6 +315,7 @@ func Module(ball *mud.Ball) {
 				trashExpiryInterval,
 				trust, store)
 		}, logWrapper("pieces:trash"))
+
 		mud.Provide[*pieces.TrashRunOnce](ball, func(log *zap.Logger, trust *trust.Pool, store *pieces.Store, stop *modular.StopTrigger) *pieces.TrashRunOnce {
 			return pieces.NewTrashRunOnce(log, trust, store, trashExpiryInterval, stop)
 		})
@@ -328,63 +324,67 @@ func Module(ball *mud.Ball) {
 		mud.RegisterInterfaceImplementation[piecestore.EnqueueDeletes, *pieces.Deleter](ball)
 		mud.RegisterInterfaceImplementation[piecestore.QueueRetain, *retain.Service](ball)
 
-		mud.Provide[*piecestore.Endpoint](ball, piecestore.NewEndpoint, logWrapper("piecestore"))
-
-		mud.Provide[*orders.Service](ball, func(log *zap.Logger, ordersStore *orders.FileStore, ordersDB orders.DB, trust *trust.Pool, config orders.Config, tlsOptions *tlsopts.Options) *orders.Service {
-			// TODO workaround for custom timeout for order sending request (read/write)
-			dialer := rpc.NewDefaultDialer(tlsOptions)
-			dialer.DialTimeout = config.SenderDialTimeout
-			return orders.NewService(log, dialer, ordersStore, ordersDB, trust, config)
-		}, logWrapper("orders"))
-		mud.Tag[*orders.Service, modular.Service](ball, modular.Service{})
-
+		mud.Tag[*pieces.TrashChore, modular.Service](ball, modular.Service{})
+		mud.Provide[piecestore.PieceBackend](ball,
+			func(store *pieces.Store, trashChore *pieces.TrashChore, monitor *monitor.Service) piecestore.PieceBackend {
+				return piecestore.NewOldPieceBackend(store, trashChore, monitor)
+			})
 	}
+	mud.Provide[*piecestore.Endpoint](ball, piecestore.NewEndpoint, logWrapper("piecestore"))
 
-	{ // setup payouts.
-		mud.Provide[*payouts.Service](ball, payouts.NewService, logWrapper("payouts:service"))
-		mud.Provide[*payouts.Endpoint](ball, payouts.NewEndpoint, logWrapper("payouts:endpoint"))
-	}
+	mud.Provide[*orders.Service](ball, func(log *zap.Logger, ordersStore *orders.FileStore, ordersDB orders.DB, trust *trust.Pool, config orders.Config, tlsOptions *tlsopts.Options) *orders.Service {
+		// TODO workaround for custom timeout for order sending request (read/write)
+		dialer := rpc.NewDefaultDialer(tlsOptions)
+		dialer.DialTimeout = config.SenderDialTimeout
+		return orders.NewService(log, dialer, ordersStore, ordersDB, trust, config)
+	}, logWrapper("orders"))
+	mud.Tag[*orders.Service, modular.Service](ball, modular.Service{})
 
-	{ // setup reputation service.
-		mud.Provide[*reputation.Service](ball, reputation.NewService, logWrapper("reputation:service"))
-	}
+} { // setup payouts.
+mud.Provide[*payouts.Service](ball, payouts.NewService, logWrapper("payouts:service"))
+mud.Provide[*payouts.Endpoint](ball, payouts.NewEndpoint, logWrapper("payouts:endpoint"))
+}
 
-	{ // setup node stats service
-		mud.Provide[*nodestats.Service](ball, nodestats.NewService, logWrapper("nodestats:service"))
-		mud.Provide[nodestats.CacheStorage](ball, func(rdb reputation.DB, sdb storageusage.DB, pdb payouts.DB, prdb pricing.DB) nodestats.CacheStorage {
-			return nodestats.CacheStorage{
-				Reputation:   rdb,
-				StorageUsage: sdb,
-				Payout:       pdb,
-				Pricing:      prdb,
-			}
-		})
-		mud.Provide[*nodestats.Cache](ball, nodestats.NewCache, logWrapper("nodestats:cache"))
-		mud.Tag[*nodestats.Cache, modular.Service](ball, modular.Service{})
-	}
+{ // setup reputation service.
+mud.Provide[*reputation.Service](ball, reputation.NewService, logWrapper("reputation:service"))
+}
 
-	{ // setup estimation service
-		mud.Provide[estimatedpayouts.Service](ball, estimatedpayouts.NewService)
-	}
+{ // setup node stats service
+mud.Provide[*nodestats.Service](ball, nodestats.NewService, logWrapper("nodestats:service"))
+mud.Provide[nodestats.CacheStorage](ball, func (rdb reputation.DB, sdb storageusage.DB, pdb payouts.DB, prdb pricing.DB) nodestats.CacheStorage {
+return nodestats.CacheStorage{
+Reputation:   rdb,
+StorageUsage: sdb,
+Payout:       pdb,
+Pricing:      prdb,
+}
+})
+mud.Provide[*nodestats.Cache](ball, nodestats.NewCache, logWrapper("nodestats:cache"))
+mud.Tag[*nodestats.Cache, modular.Service](ball, modular.Service{})
+}
 
-	{
-		mud.Provide[*collector.Service](ball, collector.NewService)
-		mud.Provide[collector.RunOnce](ball, collector.NewRunnerOnce)
-		config.RegisterConfig[collector.Config](ball, "collector")
-		mud.Tag[*collector.Service, modular.Service](ball, modular.Service{})
+{ // setup estimation service
+mud.Provide[estimatedpayouts.Service](ball, estimatedpayouts.NewService)
+}
+
+{
+mud.Provide[*collector.Service](ball, collector.NewService)
+mud.Provide[collector.RunOnce](ball, collector.NewRunnerOnce)
+config.RegisterConfig[collector.Config](ball, "collector")
+mud.Tag[*collector.Service, modular.Service](ball, modular.Service{})
+}
+// TODO: there is much more elegant way to do this. But we have circular dependency between piecestore endpoint and Server
+// (mainly, because everybody is interested about the actual server port)
+mud.Provide[*EndpointRegistration](ball, func (srv *server.Server, piecestoreEndpoint *piecestore.Endpoint) (*EndpointRegistration, error) {
+	if err := pb.DRPCRegisterPiecestore(srv.DRPC(), piecestoreEndpoint); err != nil {
+		return nil, err
 	}
-	// TODO: there is much more elegant way to do this. But we have circular dependency between piecestore endpoint and Server
-	// (mainly, because everybody is interested about the actual server port)
-	mud.Provide[*EndpointRegistration](ball, func(srv *server.Server, piecestoreEndpoint *piecestore.Endpoint) (*EndpointRegistration, error) {
-		if err := pb.DRPCRegisterPiecestore(srv.DRPC(), piecestoreEndpoint); err != nil {
-			return nil, err
-		}
-		if err := pb.DRPCRegisterReplaySafePiecestore(srv.ReplaySafeDRPC(), piecestoreEndpoint); err != nil {
-			return nil, err
-		}
-		return &EndpointRegistration{}, nil
-	})
-	mud.Tag[*EndpointRegistration, modular.Service](ball, modular.Service{})
+	if err := pb.DRPCRegisterReplaySafePiecestore(srv.ReplaySafeDRPC(), piecestoreEndpoint); err != nil {
+		return nil, err
+	}
+	return &EndpointRegistration{}, nil
+})
+mud.Tag[*EndpointRegistration, modular.Service](ball, modular.Service{})
 
 }
 
