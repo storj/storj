@@ -12,6 +12,7 @@ import (
 	"net"
 	"reflect"
 	"runtime/trace"
+	"storj.io/storj/storagenode/pieces"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -38,7 +39,6 @@ import (
 	"storj.io/storj/storagenode/monitor"
 	"storj.io/storj/storagenode/orders"
 	"storj.io/storj/storagenode/orders/ordersfile"
-	"storj.io/storj/storagenode/pieces"
 	"storj.io/storj/storagenode/piecestore/usedserials"
 	"storj.io/storj/storagenode/retain"
 	"storj.io/storj/storagenode/trust"
@@ -134,7 +134,7 @@ type EnqueueDeletes interface {
 }
 
 // NewEndpoint creates a new piecestore endpoint.
-func NewEndpoint(log *zap.Logger, ident *identity.FullIdentity, trust *trust.Pool, monitor *monitor.Service, retain QueueRetain, pingStats PingStatsSource, pieceBackend PieceBackend, pieceDeleter EnqueueDeletes, ordersStore *orders.FileStore, usage bandwidth.Writer, usedSerials *usedserials.Table, config Config) (*Endpoint, error) {
+func NewEndpoint(log *zap.Logger, ident *identity.FullIdentity, trust *trust.Pool, monitor *monitor.Service, retain QueueRetain, pingStats PingStatsSource, pieceBackend PieceBackend, ordersStore *orders.FileStore, usage bandwidth.Writer, usedSerials *usedserials.Table, config Config) (*Endpoint, error) {
 	return &Endpoint{
 		log:    log,
 		config: config,

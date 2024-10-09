@@ -64,6 +64,8 @@ var (
 	flatFileTTLStore   = flag.Bool("flat-ttl-store", true, "use flat-files ttl store")
 	flatFileTTLHandles = flag.Int("flat-ttl-max-handles", 1000, "max file handles to flat-file ttl store")
 
+	useHashStore = flag.Bool("use-hash-store", false, "if true, use new hashstore backend")
+
 	cpuprofile = flag.String("cpuprofile", "", "write a cpu profile")
 	memprofile = flag.String("memprofile", "", "write a memory profile")
 	notrace    = flag.Bool("notrace", false, "disable tracing")
@@ -154,14 +156,19 @@ func createEndpoint(ctx context.Context, satIdent, snIdent *identity.FullIdentit
 
 	trashChore := pieces.NewTrashChore(log, 24*time.Hour, 7*24*time.Hour, trustPool, piecesStore)
 
-	pieceDeleter := pieces.NewDeleter(log, piecesStore, cfg.Storage2.DeleteWorkers, cfg.Storage2.DeleteQueueSize)
-
 	ordersStore := try.E1(orders.NewFileStore(log, cfg.Storage2.Orders.Path, cfg.Storage2.OrderLimitGracePeriod))
 
 	usedSerials := usedserials.NewTable(cfg.Storage2.MaxUsedSerialsSize)
 
 	bandwidthdbCache := bandwidth.NewCache(snDB.Bandwidth())
-	endpoint := try.E1(piecestore.NewEndpoint(log, snIdent, trustPool, monitorService, retainService, new(contact.PingStats), piecestore.NewOldPieceBackend(piecesStore, trashChore, monitorService), pieceDeleter, ordersStore, bandwidthdbCache, usedSerials, cfg.Storage2))
+
+	var pieceBackend piecestore.PieceBackend
+	if *useHashStore {
+		pieceBackend = piecestore.NewHashStoreBackend("hashstore", log)
+	} else {
+		pieceBackend = piecestore.NewOldPieceBackend(piecesStore, trashChore, monitorService)
+	}
+	endpoint := try.E1(piecestore.NewEndpoint(log, snIdent, trustPool, monitorService, retainService, new(contact.PingStats), pieceBackend, ordersStore, bandwidthdbCache, usedSerials, cfg.Storage2))
 	collectorService := collector.NewService(log, piecesStore, usedSerials, collector.Config{Interval: 1000 * time.Hour})
 
 	return endpoint, collectorService

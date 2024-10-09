@@ -575,13 +575,6 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, revocationDB exten
 			config.Pieces,
 		)
 
-		peer.Storage2.PieceDeleter = pieces.NewDeleter(process.NamedLog(log, "piecedeleter"), peer.Storage2.Store, config.Storage2.DeleteWorkers, config.Storage2.DeleteQueueSize)
-		peer.Services.Add(lifecycle.Item{
-			Name:  "PieceDeleter",
-			Run:   peer.Storage2.PieceDeleter.Run,
-			Close: peer.Storage2.PieceDeleter.Close,
-		})
-
 		peer.Storage2.TrashChore = pieces.NewTrashChore(
 			process.NamedLog(log, "pieces:trash"),
 			config.Pieces.TrashChoreInterval, // choreInterval: how often to run the chore
@@ -673,7 +666,6 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, revocationDB exten
 			peer.Storage2.RetainService,
 			peer.Contact.PingStats,
 			pieceBackend,
-			peer.Storage2.PieceDeleter,
 			peer.OrdersStore,
 			peer.Bandwidth.Cache,
 			peer.UsedSerials,

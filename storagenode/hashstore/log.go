@@ -5,6 +5,7 @@ package hashstore
 
 import (
 	"io"
+	"math"
 	"os"
 	"sync"
 
@@ -117,6 +118,12 @@ func newLogReader(lf *logFile, rec record) *Reader {
 	}
 }
 
+// Key returns the key of thereader.
+func (l *Reader) Key() Key { return l.rec.key }
+
+// Size returns the size of the reader.
+func (l *Reader) Size() int64 { return int64(l.rec.length) }
+
 // Trash returns true if the reader was for a trashed piece.
 func (l *Reader) Trash() bool { return l.rec.expires.trash() }
 
@@ -152,6 +159,13 @@ type Writer struct {
 	canceled flag
 	closed   flag
 	rec      record
+}
+
+func (h *Writer) Size() int64 {
+	h.mu.Lock()
+	defer h.mu.Unlock()
+
+	return int64(h.rec.length)
 }
 
 // Close commits the writes that have happened. Close or Cancel must be called at least once.
@@ -195,6 +209,8 @@ func (h *Writer) Write(p []byte) (n int, err error) {
 
 	if h.canceled || h.closed {
 		return 0, errs.New("invalid handle")
+	} else if uint64(h.rec.length)+uint64(len(p)) > math.MaxUint32 {
+		return 0, errs.New("piece too large")
 	}
 
 	n, err = h.lf.fh.Write(p)
