@@ -82,14 +82,14 @@ func TestRollupsWriteCacheBatchLimitReached(t *testing.T) {
 		total, err := getSettledBandwidth(ctx, accountingDB, projectID, startTime)
 		require.NoError(t, err)
 		require.Equal(t, expectedTotal, total)
-	})
+	}, satellitedbtest.WithSpanner())
 }
 
 // TestRollupsWriteCacheBatchChore makes sure bandwidth rollup values are not written to the
 // db until the chore flushes the DB (assuming the batch size is not reached).
 func TestRollupsWriteCacheBatchChore(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
-		SatelliteCount: 1,
+		SatelliteCount: 1, EnableSpanner: true,
 	},
 		func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 			useBatchSize := 10
@@ -221,7 +221,7 @@ func TestUpdateBucketBandwidth(t *testing.T) {
 
 func TestEndpointAndCacheContextCanceled(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
-		SatelliteCount: 1, StorageNodeCount: 1,
+		SatelliteCount: 1, StorageNodeCount: 1, EnableSpanner: true,
 		Reconfigure: testplanet.Reconfigure{
 			Satellite: func(log *zap.Logger, index int, config *satellite.Config) {
 				config.Orders.FlushBatchSize = 3
@@ -243,7 +243,7 @@ func TestEndpointAndCacheContextCanceled(t *testing.T) {
 				piecePublicKey, piecePrivateKey, err := storj.NewPieceKey()
 				require.NoError(t, err)
 
-				bucketname := "testbucket" + strconv.Itoa(i)
+				bucketname := metabase.BucketName("testbucket" + strconv.Itoa(i))
 
 				bucketLocation := metabase.BucketLocation{
 					ProjectID:  projectID,

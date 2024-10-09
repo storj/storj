@@ -10,6 +10,7 @@ import (
 	"io"
 	"net/url"
 	"os"
+	"sync"
 
 	"github.com/spf13/cobra"
 	"go.uber.org/zap"
@@ -34,6 +35,7 @@ func (config *FilewalkerCfg) DatabaseConfig() storagenodedb.Config {
 		Pieces:    config.Pieces,
 		Filestore: config.Filestore,
 		Driver:    config.Driver,
+		Cache:     config.Cache,
 	}
 }
 
@@ -52,9 +54,19 @@ type RunOptions struct {
 type LazyFilewalkerCmd struct {
 	Command *cobra.Command
 	*RunOptions
+	originalPreRunE func(cmd *cobra.Command, args []string) error
 }
 
 var _ execwrapper.Command = (*LazyFilewalkerCmd)(nil)
+
+// NewLazyFilewalkerCmd creates a new instance of LazyFilewalkerCmd.
+func NewLazyFilewalkerCmd(command *cobra.Command, opts *RunOptions) *LazyFilewalkerCmd {
+	return &LazyFilewalkerCmd{
+		Command:         command,
+		RunOptions:      opts,
+		originalPreRunE: command.PreRunE,
+	}
+}
 
 // SetArgs sets arguments for the command.
 // The command or executable path should be passed as the first argument.
@@ -67,8 +79,38 @@ func (cmd *LazyFilewalkerCmd) SetArgs(args []string) {
 	cmd.Command.SetArgs(args)
 }
 
+var (
+	// cobraMutex should be held while manually invoking *cobra.Command
+	// instances. It may be released after the invocation is complete, or once
+	// control is returned to caller code (i.e., in the Run methods).
+	//
+	// All of this silliness is simply to avoid running the first part of
+	// (*cobra.Command).ExecuteC() at the same time in multiple goroutines. It
+	// is not technically thread-safe. The data that is affected by the race
+	// condition does not matter for our purposes, so we aren't worried about
+	// that, but we also don't want to upset the race detector when we are
+	// running multiple tests that might invoke our commands in parallel.
+	cobraMutex sync.Mutex
+)
+
 // Run runs the LazyFileWalker.
 func (cmd *LazyFilewalkerCmd) Run() error {
+	cobraMutex.Lock()
+	wasUnlockedByPreRun := false
+	defer func() {
+		if !wasUnlockedByPreRun {
+			cobraMutex.Unlock()
+		}
+	}()
+	wrappedPreRun := cmd.originalPreRunE
+	if wrappedPreRun == nil {
+		wrappedPreRun = func(cmd *cobra.Command, args []string) error { return nil }
+	}
+	cmd.Command.PreRunE = func(cmd *cobra.Command, args []string) error {
+		cobraMutex.Unlock()
+		wasUnlockedByPreRun = true
+		return wrappedPreRun(cmd, args)
+	}
 	return cmd.Command.ExecuteContext(cmd.Ctx)
 }
 
@@ -136,9 +178,12 @@ func (r *RunOptions) tryCreateNewLogger() {
 	})
 
 	// this error is expected if the sink is already registered.
-	duplicateSinkErr := fmt.Errorf("sink factory already registered for scheme %q", writerkey)
-	if err != nil && err.Error() != duplicateSinkErr.Error() {
-		r.Logger.Error("failed to register logger sink", zap.Error(err))
+	if err != nil {
+		if err.Error() == fmt.Sprintf("sink factory already registered for scheme %q", writerkey) {
+			r.Logger.Info("logger sink already registered")
+		} else {
+			r.Logger.Error("failed to register logger sink", zap.Error(err))
+		}
 		return
 	}
 

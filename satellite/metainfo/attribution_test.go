@@ -15,6 +15,7 @@ import (
 	"github.com/stretchr/testify/require"
 	"golang.org/x/sync/errgroup"
 
+	"storj.io/common/macaroon"
 	"storj.io/common/memory"
 	"storj.io/common/testcontext"
 	"storj.io/common/testrand"
@@ -99,14 +100,14 @@ func TestBucketAttribution(t *testing.T) {
 				UserAgent: tt.signupPartner,
 			}, 1)
 			require.NoError(t, err, errTag)
-			_, err = satellite.DB.Console().ProjectMembers().Insert(ctx, user2.ID, satProject.ID)
+			_, err = satellite.DB.Console().ProjectMembers().Insert(ctx, user2.ID, satProject.ID, console.RoleAdmin)
 			require.NoError(t, err)
 
 			createBucketAndCheckAttribution := func(userID uuid.UUID, apiKeyName, bucketName string) {
 				userCtx, err := satellite.UserContext(ctx, userID)
 				require.NoError(t, err, errTag)
 
-				_, apiKeyInfo, err := satellite.API.Console.Service.CreateAPIKey(userCtx, satProject.ID, apiKeyName)
+				_, apiKeyInfo, err := satellite.API.Console.Service.CreateAPIKey(userCtx, satProject.ID, apiKeyName, macaroon.APIKeyVersionMin)
 				require.NoError(t, err, errTag)
 
 				config := uplink.Config{
@@ -170,7 +171,7 @@ func TestQueryAttribution(t *testing.T) {
 		userCtx, err := satellite.UserContext(ctx, user.ID)
 		require.NoError(t, err)
 
-		_, apiKeyInfo, err := satellite.API.Console.Service.CreateAPIKey(userCtx, satProject.ID, "root")
+		_, apiKeyInfo, err := satellite.API.Console.Service.CreateAPIKey(userCtx, satProject.ID, "root", macaroon.APIKeyVersionMin)
 		require.NoError(t, err)
 
 		access, err := uplink.RequestAccessWithPassphrase(ctx, satellite.NodeURL().String(), apiKeyInfo.Serialize(), "mypassphrase")

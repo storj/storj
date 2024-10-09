@@ -2,11 +2,11 @@
 // See LICENSE for copying information.
 
 <template>
-    <signup-confirmation v-if="codeActivationEnabled && confirmCode" :email="email" :signup-req-id="signupID" />
+    <signup-confirmation v-if="codeActivationEnabled && confirmCode" :email="isInvited ? queryEmail : email" :signup-req-id="signupID" />
     <v-container v-else class="fill-height">
         <v-row justify="center">
             <v-col cols="12" sm="10" md="6" lg="5" xl="4" xxl="3">
-                <v-card title="Create your Storj account." subtitle="No credit card needed to create an account." class="pa-2 pa-sm-6 overflow-visible">
+                <v-card title="Create your Storj account." subtitle="No credit card needed to create an account." class="pa-2 pa-sm-6 overflow-visible mt-1 mb-7 my-sm-8 my-md-0">
                     <v-card-item v-if="isInvited">
                         <v-alert
                             variant="tonal"
@@ -25,7 +25,7 @@
                         <v-form ref="form" v-model="formValid" class="pt-3" @submit.prevent="onSignupClick">
                             <v-select
                                 v-model="satellite"
-                                label="Satellite"
+                                label="Satellite (Metadata Region)"
                                 :items="satellites"
                                 item-title="satellite"
                                 :hint="satellite.hint"
@@ -80,6 +80,7 @@
                                     hide-details="auto"
                                     :type="showPassword ? 'text' : 'password'"
                                     :rules="passwordRules"
+                                    required
                                     @update:focused="showPasswordStrength = !showPasswordStrength"
                                 >
                                     <template #append-inner>
@@ -106,6 +107,7 @@
                                 hide-details="auto"
                                 :type="showPassword ? 'text' : 'password'"
                                 :rules="repeatPasswordRules"
+                                required
                             >
                                 <template #append-inner>
                                     <password-input-eye-icons
@@ -141,7 +143,7 @@
                                 </template>
                                 <template #text>
                                     This means any data you upload to this satellite can be
-                                    deleted at any time and your storage/egress limits
+                                    deleted at any time and your storage/download limits
                                     can fluctuate. To use our production service please
                                     create an account on one of our production Satellites.
                                     <a href="https://storj.io/v2/signup/" target="_blank" rel="noopener noreferrer">https://storj.io/v2/signup/</a>
@@ -174,7 +176,7 @@
                                 size="large"
                                 block
                             >
-                                Create your account
+                                Start your free trial
                             </v-btn>
                         </v-form>
                     </v-card-text>
@@ -191,25 +193,27 @@
                     @error="onCaptchaError"
                 />
             </v-col>
-            <template v-if="partner">
-                <v-col v-if="viewConfig" cols="12" sm="10" md="6" lg="5" xl="4" xxl="3">
+            <template v-if="partnerConfig && partnerConfig.title && partnerConfig.description">
+                <v-col cols="12" sm="10" md="6" lg="5" xl="4" xxl="3">
                     <v-card class="pa-2 pa-sm-6 h-100 no-position">
                         <v-card-item>
                             <v-card-title class="text-wrap">
-                                {{ viewConfig.title }}
+                                {{ partnerConfig.title }}
                             </v-card-title>
                             <v-card-subtitle class="text-wrap">
-                                {{ viewConfig.description }}
+                                {{ partnerConfig.description }}
                             </v-card-subtitle>
                         </v-card-item>
                         <v-card-text>
                             <!-- eslint-disable-next-line vue/no-v-html -->
-                            <div v-if="viewConfig.customHtmlDescription" v-html="viewConfig.customHtmlDescription" />
-                            <a v-if="viewConfig.partnerLogoTopUrl" :href="viewConfig.partnerUrl">
-                                <img :src="viewConfig.partnerLogoTopUrl" :srcset="viewConfig.partnerLogoTopUrl" alt="partner logo" height="44" class="mt-6 mr-5">
-                            </a>
-                            <a v-if="viewConfig.partnerLogoBottomUrl" :href="viewConfig.partnerUrl">
-                                <img :src="viewConfig.partnerLogoBottomUrl" :srcset="viewConfig.partnerLogoBottomUrl" alt="partner logo" height="44" class="mt-6">
+                            <div v-if="partnerConfig.customHtmlDescription" v-html="partnerConfig.customHtmlDescription" />
+                            <a v-if="partnerConfig.partnerLogoBottomUrl" :href="partnerConfig.partnerUrl">
+                                <img
+                                    :src="partnerConfig.partnerLogoBottomUrl" :srcset="partnerConfig.partnerLogoBottomUrl"
+                                    :alt="partnerConfig.name + ' logo'"
+                                    height="44"
+                                    class="mt-6 rounded white-background"
+                                >
                             </a>
                         </v-card-text>
                     </v-card>
@@ -219,38 +223,46 @@
                 <v-col cols="12" sm="10" md="6" lg="5" xl="4" xxl="3">
                     <v-card class="pa-2 pa-sm-6 h-100 no-position d-flex align-center">
                         <v-card-text>
-                            <h1 class="font-weight-black">Start using Storj today.</h1>
+                            <h1 class="font-weight-black signup-heading">
+                                <template v-if="partnerConfig && partnerConfig.name">Start using Storj on {{ partnerConfig.name }} today.</template>
+                                <template v-else>Start using Storj today.</template>
+                            </h1>
                             <p class="text-subtitle-1 mt-4">
                                 Whether migrating your data or just testing out Storj, your journey starts here.
                             </p>
 
                             <p class="mt-6">
-                                <v-icon :icon="mdiCheckBold" color="primary" />
-                                You can upload and download up to 25GB for free.
+                                <v-icon color="primary"><Check :stroke-width="4" /></v-icon>
+                                Upload and download 25GB free for 30 days.
                             </p>
 
                             <p class="mt-4">
-                                <v-icon :icon="mdiCheckBold" color="primary" />
+                                <v-icon color="primary"><Check :stroke-width="4" /></v-icon>
                                 Integrate with any S3 compatible application.
                             </p>
 
                             <p class="mt-4">
-                                <v-icon :icon="mdiCheckBold" color="primary" />
+                                <v-icon color="primary"><Check :stroke-width="4" /></v-icon>
                                 Total set up takes less than 5 min.
                             </p>
 
+                            <p class="mt-4">
+                                <v-icon color="primary"><Check :stroke-width="4" /></v-icon>
+                                No credit card required.
+                            </p>
+
                             <p class="mt-6">
-                                Need help figuring out if Storj is a fit for your business? <a href="https://meetings.hubspot.com/tom144/meeting-with-tom-troy" target="_blank" class="link font-weight-bold">Schedule a meeting.</a>
+                                Need help figuring out if Storj is a fit for your business? <a href="https://meetings.hubspot.com/tom144/meeting-with-tom-troy" target="_blank" class="link font-weight-bold">Schedule a meeting</a>.
                             </p>
                         </v-card-text>
                     </v-card>
                 </v-col>
             </template>
-        </v-row>
-        <v-row justify="center" class="v-col-12">
-            <v-col>
-                <p class="pt-9 text-center text-body-2">Already have an account? <router-link class="link font-weight-bold" :to="ROUTES.Login.path">Login</router-link></p>
-            </v-col>
+            <v-row justify="center" class="v-col-12">
+                <v-col>
+                    <p class="pt-9 text-center text-body-2">Already have an account? <router-link class="link font-weight-bold" :to="ROUTES.Login.path">Login</router-link></p>
+                </v-col>
+            </v-row>
         </v-row>
     </v-container>
 </template>
@@ -276,13 +288,12 @@ import {
 import { computed, ComputedRef, onBeforeMount, ref, watch } from 'vue';
 import VueHcaptcha from '@hcaptcha/vue3-hcaptcha';
 import { useRoute, useRouter } from 'vue-router';
-import { mdiCheckBold } from '@mdi/js';
+import { Check } from 'lucide-vue-next';
 
 import { useConfigStore } from '@/store/modules/configStore';
-import { useAppStore } from '@/store/modules/appStore';
-import { useUsersStore } from '@/store/modules/usersStore';
 import { EmailRule, RequiredRule, ValidationRule } from '@/types/common';
 import { MultiCaptchaConfig } from '@/types/config.gen';
+import { PartnerConfig } from '@/types/partners';
 import { AuthHttpApi } from '@/api/auth';
 import { useNotify } from '@/utils/hooks';
 import { useAnalyticsStore } from '@/store/modules/analyticsStore';
@@ -293,23 +304,11 @@ import SignupConfirmation from '@/views/SignupConfirmation.vue';
 import PasswordInputEyeIcons from '@/components/PasswordInputEyeIcons.vue';
 import PasswordStrength from '@/components/PasswordStrength.vue';
 
-type ViewConfig = {
-    title: string;
-    partnerUrl: string;
-    partnerLogoTopUrl: string;
-    partnerLogoBottomUrl: string;
-    description: string;
-    customHtmlDescription: string;
-    signupButtonLabel: string;
-    tooltip: string;
-}
-
 const auth = new AuthHttpApi();
 
 const analyticsStore = useAnalyticsStore();
 const configStore = useConfigStore();
-const appStore = useAppStore();
-const usersStore = useUsersStore();
+
 const router = useRouter();
 const notify = useNotify();
 const route = useRoute();
@@ -339,7 +338,7 @@ const inviterEmail = queryRef('inviter_email');
 const hcaptcha = ref<VueHcaptcha | null>(null);
 const form = ref<VForm | null>(null);
 const repPasswordField = ref<VTextField | null>(null);
-const viewConfig = ref<ViewConfig | null>(null);
+const partnerConfig = ref<PartnerConfig | null>(null);
 
 const satellitesHints = [
     { satellite: 'Storj', hint: 'Recommended satellite.' },
@@ -398,7 +397,7 @@ const satellite = computed({
         const sats = configStore.state.config.partneredSatellites ?? [];
         const satellite = sats.find(sat => sat.name === value.satellite);
         if (satellite) {
-            window.location.href = satellite.address + ROUTES.Signup.path;
+            window.location.href = satellite.address + ROUTES.Signup.path + window.location.search;
         }
     },
 });
@@ -418,7 +417,7 @@ const satellites = computed(() => {
  * Returns true if signup activation code is enabled.
  */
 const codeActivationEnabled = computed((): boolean => {
-    return  configStore.state.config.signupActivationCodeEnabled;
+    return configStore.state.config.signupActivationCodeEnabled;
 });
 
 /**
@@ -515,7 +514,12 @@ async function signup(): Promise<void> {
             const braveSuccessPath = `${internalRegisterSuccessPath}?email=${encodeURIComponent(email.value)}`;
 
             const altRoute = `${window.location.origin}/${nonBraveSuccessPath}`;
-            await detectBraveBrowser() ? await router.push(braveSuccessPath) : window.location.href = altRoute;
+
+            if (await detectBraveBrowser()) {
+                await router.push(braveSuccessPath);
+            } else {
+                window.location.href = altRoute;
+            }
         } else {
             confirmCode.value = true;
         }
@@ -548,9 +552,9 @@ onBeforeMount(async () => {
     if (partner.value) {
         try {
             const config = (await import('@/configs/registrationViewConfig.json')).default;
-            viewConfig.value = config[partner.value];
-        } catch (e) {
-        // Handle errors, such as a missing configuration file
+            partnerConfig.value = config[partner.value];
+        } catch {
+            // Handle errors, such as a missing configuration file
             notify.error('No configuration file for registration page.');
         }
     }

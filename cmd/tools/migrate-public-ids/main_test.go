@@ -13,8 +13,6 @@ import (
 	"go.uber.org/zap"
 	"go.uber.org/zap/zaptest"
 
-	"storj.io/common/dbutil"
-	"storj.io/common/dbutil/tempdb"
 	"storj.io/common/testcontext"
 	"storj.io/common/testrand"
 	"storj.io/common/uuid"
@@ -22,6 +20,8 @@ import (
 	"storj.io/storj/satellite"
 	"storj.io/storj/satellite/console"
 	"storj.io/storj/satellite/satellitedb/satellitedbtest"
+	"storj.io/storj/shared/dbutil"
+	"storj.io/storj/shared/dbutil/tempdb"
 )
 
 // Test no entries in table doesn't error.
@@ -132,6 +132,9 @@ func test(t *testing.T, prepare func(t *testing.T, ctx *testcontext.Context, raw
 
 	for _, satelliteDB := range satellitedbtest.Databases() {
 		satelliteDB := satelliteDB
+		if satelliteDB.Name == "Spanner" {
+			t.Skip("not implemented for spanner")
+		}
 		t.Run(satelliteDB.Name, func(t *testing.T) {
 			schemaSuffix := satellitedbtest.SchemaSuffix()
 			schema := satellitedbtest.SchemaName(t.Name(), "category", 0, schemaSuffix)
@@ -168,8 +171,8 @@ func test(t *testing.T, prepare func(t *testing.T, ctx *testcontext.Context, raw
 // * * * THIS IS ONLY FOR TESTING!!! * * *.
 func testNullifyPublicIDs(ctx context.Context, log *zap.Logger, conn *pgx.Conn, exclude uuid.UUID) error {
 	_, err := conn.Exec(ctx, `
-		UPDATE projects 
-		SET public_id = NULL 
+		UPDATE projects
+		SET public_id = NULL
 		WHERE id != $1;
 	`, exclude.Bytes())
 	return err

@@ -44,7 +44,6 @@ func TestStoreLoad(t *testing.T) {
 	defer ctx.Check(store.Close)
 
 	data := testrand.Bytes(blobSize)
-	temp := make([]byte, len(data))
 
 	refs := []blobstore.BlobRef{}
 
@@ -58,56 +57,25 @@ func TestStoreLoad(t *testing.T) {
 		}
 		refs = append(refs, ref)
 
-		writer, err := store.Create(ctx, ref, -1)
+		writer, err := store.Create(ctx, ref)
+		require.NoError(t, err)
+
+		err = writer.ReserveHeader(int64(i))
 		require.NoError(t, err)
 
 		n, err := writer.Write(data)
 		require.NoError(t, err)
 		require.Equal(t, n, len(data))
+
+		// we cannot reserve header after writing data
+		err = writer.ReserveHeader(int64(i))
+		require.Error(t, err)
 
 		require.NoError(t, writer.Commit(ctx))
 		// after committing we should be able to call cancel without an error
 		require.NoError(t, writer.Cancel(ctx))
 		// two commits should fail
 		require.Error(t, writer.Commit(ctx))
-	}
-
-	namespace = testrand.Bytes(32)
-	// store with size
-	for i := 0; i < repeatCount; i++ {
-		ref := blobstore.BlobRef{
-			Namespace: namespace,
-			Key:       testrand.Bytes(32),
-		}
-		refs = append(refs, ref)
-
-		writer, err := store.Create(ctx, ref, int64(len(data)))
-		require.NoError(t, err)
-
-		n, err := writer.Write(data)
-		require.NoError(t, err)
-		require.Equal(t, n, len(data))
-
-		require.NoError(t, writer.Commit(ctx))
-	}
-
-	namespace = testrand.Bytes(32)
-	// store with larger size
-	{
-		ref := blobstore.BlobRef{
-			Namespace: namespace,
-			Key:       testrand.Bytes(32),
-		}
-		refs = append(refs, ref)
-
-		writer, err := store.Create(ctx, ref, int64(len(data)*2))
-		require.NoError(t, err)
-
-		n, err := writer.Write(data)
-		require.NoError(t, err)
-		require.Equal(t, n, len(data))
-
-		require.NoError(t, writer.Commit(ctx))
 	}
 
 	namespace = testrand.Bytes(32)
@@ -118,7 +86,7 @@ func TestStoreLoad(t *testing.T) {
 			Key:       testrand.Bytes(32),
 		}
 
-		writer, err := store.Create(ctx, ref, -1)
+		writer, err := store.Create(ctx, ref)
 		require.NoError(t, err)
 
 		n, err := writer.Write(data)
@@ -134,19 +102,21 @@ func TestStoreLoad(t *testing.T) {
 	}
 
 	// try reading all the blobs
-	for _, ref := range refs {
+	for i, ref := range refs {
 		reader, err := store.Open(ctx, ref)
 		require.NoError(t, err)
 
 		size, err := reader.Size()
 		require.NoError(t, err)
-		require.Equal(t, size, int64(len(data)))
+		// compare to data size and header size
+		require.Equal(t, size, int64(len(data)+i))
 
+		temp := make([]byte, len(data)+i)
 		_, err = io.ReadFull(reader, temp)
 		require.NoError(t, err)
 
 		require.NoError(t, reader.Close())
-		require.Equal(t, data, temp)
+		require.Equal(t, append(make([]byte, i), data...), temp)
 	}
 
 	// delete the blobs
@@ -179,15 +149,11 @@ func TestDeleteWhileReading(t *testing.T) {
 		Key:       []byte{1},
 	}
 
-	writer, err := store.Create(ctx, ref, -1)
+	writer, err := store.Create(ctx, ref)
 	require.NoError(t, err)
 
 	_, err = writer.Write(data)
 	require.NoError(t, err)
-
-	// loading uncommitted file should fail
-	_, err = store.Open(ctx, ref)
-	require.Error(t, err, "loading uncommitted file should fail")
 
 	// commit the file
 	err = writer.Commit(ctx)
@@ -224,6 +190,9 @@ func TestDeleteWhileReading(t *testing.T) {
 		if info.IsDir() {
 			return nil
 		}
+		if info.Name() == filestore.TrashUsesDayDirsIndicator {
+			return nil
+		}
 		return errs.New("found file %q", path)
 	})
 	if err != nil {
@@ -244,7 +213,7 @@ func writeABlob(ctx context.Context, t testing.TB, store blobstore.Blobs, blobRe
 		require.Truef(t, ok, "can't make a WriterForFormatVersion with this blob store (%T)", store)
 		blobWriter, err = fStore.TestCreateV0(ctx, blobRef)
 	case filestore.FormatV1:
-		blobWriter, err = store.Create(ctx, blobRef, int64(len(data)))
+		blobWriter, err = store.Create(ctx, blobRef)
 	default:
 		t.Fatalf("please teach me how to make a V%d blob", formatVersion)
 	}
@@ -382,7 +351,7 @@ func TestStoreSpaceUsed(t *testing.T) {
 		contents := testrand.Bytes(size)
 		blobRef := blobstore.BlobRef{Namespace: namespace, Key: testrand.Bytes(keySize)}
 
-		blobWriter, err := store.Create(ctx, blobRef, int64(len(contents)))
+		blobWriter, err := store.Create(ctx, blobRef)
 		require.NoError(t, err)
 		_, err = blobWriter.Write(contents)
 		require.NoError(t, err)
@@ -433,7 +402,7 @@ func TestStoreTraversals(t *testing.T) {
 				Namespace: recordsToInsert[i].namespace,
 				Key:       testrand.Bytes(keySize),
 			}
-			blobWriter, err := store.Create(ctx, recordsToInsert[i].blobs[j], 0)
+			blobWriter, err := store.Create(ctx, recordsToInsert[i].blobs[j])
 			require.NoError(t, err)
 			// also vary the sizes of the blobs so we can check Stat results
 			_, err = blobWriter.Write(testrand.Bytes(memory.Size(j)))
@@ -465,7 +434,7 @@ func TestStoreTraversals(t *testing.T) {
 		// keep track of which blobs we visit with WalkNamespace
 		found := make([]bool, len(expected.blobs))
 
-		err = store.WalkNamespace(ctx, expected.namespace, func(info blobstore.BlobInfo) error {
+		err = store.WalkNamespace(ctx, expected.namespace, nil, func(info blobstore.BlobInfo) error {
 			gotBlobRef := info.BlobRef()
 			assert.Equal(t, expected.namespace, gotBlobRef.Namespace)
 			// find which blob this is in expected.blobs
@@ -484,13 +453,7 @@ func TestStoreTraversals(t *testing.T) {
 			// check BlobInfo sanity
 			stat, err := info.Stat(ctx)
 			require.NoError(t, err)
-			nameFromStat := stat.Name()
-			fullPath, err := info.FullPath(ctx)
-			require.NoError(t, err)
-			basePath := filepath.Base(fullPath)
-			assert.Equal(t, nameFromStat, basePath)
 			assert.Equal(t, int64(blobIdentified), stat.Size())
-			assert.False(t, stat.IsDir())
 			return nil
 		})
 		require.NoError(t, err)
@@ -505,7 +468,7 @@ func TestStoreTraversals(t *testing.T) {
 
 	// test WalkNamespace on a nonexistent namespace also
 	namespaceBase[len(namespaceBase)-1] = byte(numNamespaces)
-	err = store.WalkNamespace(ctx, namespaceBase, func(_ blobstore.BlobInfo) error {
+	err = store.WalkNamespace(ctx, namespaceBase, nil, func(_ blobstore.BlobInfo) error {
 		t.Fatal("this should not have been called")
 		return nil
 	})
@@ -514,7 +477,7 @@ func TestStoreTraversals(t *testing.T) {
 	// check that WalkNamespace stops iterating after an error return
 	iterations := 0
 	expectedErr := errs.New("an expected error")
-	err = store.WalkNamespace(ctx, recordsToInsert[numNamespaces-1].namespace, func(_ blobstore.BlobInfo) error {
+	err = store.WalkNamespace(ctx, recordsToInsert[numNamespaces-1].namespace, nil, func(_ blobstore.BlobInfo) error {
 		iterations++
 		if iterations == 2 {
 			return expectedErr
@@ -622,7 +585,7 @@ func TestEmptyTrash(t *testing.T) {
 					require.Truef(t, ok, "can't make TestCreateV0 with this blob store (%T)", store)
 					w, err = fStore.TestCreateV0(ctx, blobref)
 				} else if file.formatVer == filestore.FormatV1 {
-					w, err = store.Create(ctx, blobref, int64(size))
+					w, err = store.Create(ctx, blobref)
 				}
 				require.NoError(t, err)
 				require.NotNil(t, w)
@@ -645,7 +608,7 @@ func TestEmptyTrash(t *testing.T) {
 			expectedFilesEmptied++
 		}
 	}
-	emptiedBytes, keys, err := store.EmptyTrash(ctx, namespaces[0].namespace, time.Now().Add(time.Hour))
+	emptiedBytes, keys, err := store.EmptyTrash(ctx, namespaces[0].namespace, time.Now().Add(24*time.Hour))
 	require.NoError(t, err)
 	assert.Equal(t, expectedFilesEmptied*int64(size), emptiedBytes)
 	assert.Equal(t, int(expectedFilesEmptied), len(keys))
@@ -747,7 +710,7 @@ func TestTrashAndRestore(t *testing.T) {
 					require.Truef(t, ok, "can't make TestCreateV0 with this blob store (%T)", store)
 					w, err = fStore.TestCreateV0(ctx, blobref)
 				} else if file.formatVer == filestore.FormatV1 {
-					w, err = store.Create(ctx, blobref, int64(size))
+					w, err = store.Create(ctx, blobref)
 				}
 				require.NoError(t, err)
 				require.NotNil(t, w)
@@ -762,10 +725,11 @@ func TestTrashAndRestore(t *testing.T) {
 			require.NoError(t, store.Trash(ctx, blobref, time.Now()))
 
 			// Verify files are gone
-			for _, file := range ref.files {
+			for n, file := range ref.files {
 				_, err = store.OpenWithStorageFormat(ctx, blobref, file.formatVer)
 				require.Error(t, err)
-				require.True(t, os.IsNotExist(err))
+				require.True(t, os.IsNotExist(err),
+					"on file %d: expected IsNotExist error but got %v", n, err)
 			}
 		}
 	}
@@ -842,7 +806,7 @@ func TestBlobMemoryBuffer(t *testing.T) {
 		Key:       testrand.Bytes(32),
 	}
 
-	writer, err := store.Create(ctx, ref, size)
+	writer, err := store.Create(ctx, ref)
 	require.NoError(t, err)
 
 	for _, v := range rand.Perm(size) {

@@ -11,7 +11,6 @@ import (
 	"sync"
 	"time"
 
-	"github.com/gogo/protobuf/proto"
 	"github.com/spacemonkeygo/monkit/v3"
 	"github.com/spf13/pflag"
 	"github.com/zeebo/errs"
@@ -43,7 +42,8 @@ type Config struct {
 	// Chore config values
 	Interval time.Duration `help:"how frequently the node contact chore should run" releaseDefault:"1h" devDefault:"30s"`
 
-	Tags SignedTags `help:"protobuf serialized signed node tags in hex (base64) format"`
+	Tags           SignedTags `help:"protobuf serialized signed node tags in hex (base64) format"`
+	SelfSignedTags []string   `help:"coma separated key=value pairs, which will be self signed and used as tags"`
 }
 
 // SignedTags represents base64 encoded signed tags.
@@ -60,7 +60,7 @@ func (u *SignedTags) String() string {
 		return ""
 	}
 	p := pb.SignedNodeTagSets(*u)
-	raw, err := proto.Marshal(&p)
+	raw, err := pb.Marshal(&p)
 	if err != nil {
 		return err.Error()
 	}
@@ -81,7 +81,7 @@ func (u *SignedTags) Set(s string) error {
 		if err != nil {
 			return errs.New("signed tag configuration #%d is not base64 encoded: %s", i+1, s)
 		}
-		err = proto.Unmarshal(raw, &p)
+		err = pb.Unmarshal(raw, &p)
 		if err != nil {
 			return errs.New("signed tag configuration #%d is not a pb.SignedNodeTagSets{}: %s", i+1, s)
 		}

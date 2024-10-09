@@ -42,7 +42,7 @@ func TestParseBucketPrefixValid(t *testing.T) {
 		name               string
 		project            string
 		bucketName         string
-		expectedBucketName string
+		expectedBucketName metabase.BucketName
 	}{
 		{"valid, no bucket, no objects", "bb6218e3-4b4a-4819-abbb-fa68538e33c0", "", ""},
 		{"valid, with bucket", "bb6218e3-4b4a-4819-abbb-fa68538e33c0", "testbucket", "testbucket"},

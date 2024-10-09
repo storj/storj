@@ -6,7 +6,7 @@
         <template #activator="{ props }">
             <v-icon
                 v-bind="props"
-                :icon="mdiEyeOutline"
+                :icon="Eye"
                 @click="() => emit('toggleVisibility')"
             />
         </template>
@@ -15,7 +15,7 @@
         <template #activator="{ props }">
             <v-icon
                 v-bind="props"
-                :icon="mdiEyeOffOutline"
+                :icon="EyeOff"
                 @click="() => emit('toggleVisibility')"
             />
         </template>
@@ -23,7 +23,7 @@
 </template>
 <script setup lang="ts">
 import { VIcon, VTooltip } from 'vuetify/components';
-import { mdiEyeOffOutline, mdiEyeOutline } from '@mdi/js';
+import { Eye, EyeOff } from 'lucide-vue-next';
 
 defineProps<{
     isVisible: boolean

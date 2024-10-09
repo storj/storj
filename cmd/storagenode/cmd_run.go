@@ -9,6 +9,7 @@ import (
 	"go.uber.org/zap"
 
 	"storj.io/common/cfgstruct"
+	"storj.io/common/errs2"
 	"storj.io/common/process"
 	"storj.io/common/version"
 	"storj.io/storj/private/revocation"
@@ -44,22 +45,28 @@ func cmdRun(cmd *cobra.Command, cfg *runCfg) (err error) {
 	ctx, _ := process.Ctx(cmd)
 	log := zap.L()
 
+	defer func() {
+		if err != nil && !errs2.IsCanceled(err) {
+			log.Error("failure during run", zap.Error(err))
+		}
+	}()
+
 	mapDeprecatedConfigs(log, &cfg.StorageNodeFlags)
 
 	identity, err := cfg.Identity.Load()
 	if err != nil {
-		log.Error("Failed to load identity.", zap.Error(err))
 		return errs.New("Failed to load identity: %+v", err)
 	}
 
 	if err := cfg.Verify(log); err != nil {
-		log.Error("Invalid configuration.", zap.Error(err))
-		return err
+		return errs.New("Invalid configuration: %+v", err)
 	}
-
+	if cfg.StorageNodeFlags.Config.Pieces.FileStatCache != "" && cfg.StorageNodeFlags.Config.Pieces.EnableLazyFilewalker {
+		return errs.New("filestat cache is incompatible with lazy file walker. Please use --pieces.enable-lazy-filewalker=false")
+	}
 	db, err := storagenodedb.OpenExisting(ctx, log.Named("db"), cfg.DatabaseConfig())
 	if err != nil {
-		return errs.New("Error starting master database on storagenode: %+v", err)
+		return errs.New("Error opening database on storagenode: %+v", err)
 	}
 
 	defer func() {
@@ -68,7 +75,7 @@ func cmdRun(cmd *cobra.Command, cfg *runCfg) (err error) {
 
 	revocationDB, err := revocation.OpenDBFromCfg(ctx, cfg.Server.Config)
 	if err != nil {
-		return errs.New("Error creating revocation database: %+v", err)
+		return errs.New("Error opening revocation database: %+v", err)
 	}
 	defer func() {
 		err = errs.Combine(err, revocationDB.Close())
@@ -76,14 +83,14 @@ func cmdRun(cmd *cobra.Command, cfg *runCfg) (err error) {
 
 	peer, err := storagenode.New(log, identity, db, revocationDB, cfg.Config, version.Build, process.AtomicLevel(cmd))
 	if err != nil {
-		return err
+		return errs.New("Failed to create storage node peer: %+v", err)
 	}
 
 	// okay, start doing stuff ====
 
 	_, err = peer.Version.Service.CheckVersion(ctx)
 	if err != nil {
-		return err
+		return errs.New("Failed to check version: %+v", err)
 	}
 
 	if err := process.InitMetricsWithCertPath(ctx, log, nil, cfg.Identity.CertPath); err != nil {
@@ -92,7 +99,7 @@ func cmdRun(cmd *cobra.Command, cfg *runCfg) (err error) {
 
 	err = db.MigrateToLatest(ctx)
 	if err != nil {
-		return errs.New("Error creating tables for master database on storagenode: %+v", err)
+		return errs.New("Error migrating tables for database on storagenode: %+v", err)
 	}
 
 	err = db.CheckVersion(ctx)

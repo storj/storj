@@ -1,4 +1,4 @@
-// Copyright (C) 2019 Storj Labs, Inc.
+// Copyright (C) 2023 Storj Labs, Inc.
 // See LICENSE for copying information.
 
 <template>
@@ -10,17 +10,14 @@
 <script setup lang="ts">
 import { onMounted, ref, watch } from 'vue';
 import { loadStripe } from '@stripe/stripe-js/pure';
-import { Stripe, StripeElements, StripePaymentElement } from '@stripe/stripe-js';
-import { StripeElementsOptionsMode } from '@stripe/stripe-js/types/stripe-js/elements-group';
+import { Stripe, StripeElements, StripePaymentElement, StripeElementsOptionsMode } from '@stripe/stripe-js';
 import { useTheme } from 'vuetify';
 
 import { AnalyticsErrorEventSource } from '@/utils/constants/analyticsEventNames';
 import { useNotify } from '@/utils/hooks';
 import { useConfigStore } from '@/store/modules/configStore';
-import { useBillingStore } from '@/store/modules/billingStore';
 
 const configStore = useConfigStore();
-const billingStore = useBillingStore();
 
 const notify = useNotify();
 const theme = useTheme();

@@ -26,10 +26,14 @@ import (
 	"storj.io/common/storj"
 	"storj.io/common/testcontext"
 	"storj.io/common/testrand"
+	"storj.io/storj/cmd/storagenode/internalcmd"
+	"storj.io/storj/private/testplanet"
 	"storj.io/storj/storagenode"
 	"storj.io/storj/storagenode/blobstore"
 	"storj.io/storj/storagenode/blobstore/filestore"
 	"storj.io/storj/storagenode/pieces"
+	"storj.io/storj/storagenode/pieces/lazyfilewalker"
+	"storj.io/storj/storagenode/pieces/lazyfilewalker/execwrapper"
 	"storj.io/storj/storagenode/storagenodedb/storagenodedbtest"
 	"storj.io/storj/storagenode/trust"
 )
@@ -46,7 +50,7 @@ func TestPieces(t *testing.T) {
 	blobs := filestore.New(log, dir, filestore.DefaultConfig)
 	defer ctx.Check(blobs.Close)
 
-	fw := pieces.NewFileWalker(log, blobs, nil)
+	fw := pieces.NewFileWalker(log, blobs, nil, nil, nil)
 	store := pieces.NewStore(log, fw, nil, blobs, nil, nil, nil, pieces.DefaultConfig)
 
 	satelliteID := testidentity.MustPregeneratedSignedIdentity(0, storj.LatestIDVersion()).ID
@@ -275,10 +279,6 @@ func TestTrashAndRestore(t *testing.T) {
 							data:      testrand.Bytes(size),
 							formatVer: filestore.FormatV0,
 						},
-						{
-							data:      testrand.Bytes(size),
-							formatVer: filestore.FormatV1,
-						},
 					},
 				},
 			},
@@ -325,7 +325,7 @@ func TestTrashAndRestore(t *testing.T) {
 		v0PieceInfo, ok := db.V0PieceInfo().(pieces.V0PieceInfoDBForTest)
 		require.True(t, ok, "V0PieceInfoDB can not satisfy V0PieceInfoDBForTest")
 
-		fw := pieces.NewFileWalker(log, blobs, v0PieceInfo)
+		fw := pieces.NewFileWalker(log, blobs, v0PieceInfo, db.GCFilewalkerProgress(), db.UsedSpacePerPrefix())
 		store := pieces.NewStore(log, fw, nil, blobs, v0PieceInfo, db.PieceExpirationDB(), nil, pieces.DefaultConfig)
 		tStore := &pieces.StoreForTest{store}
 
@@ -342,7 +342,7 @@ func TestTrashAndRestore(t *testing.T) {
 			for _, piece := range satellite.pieces {
 				// If test has expiration, add to expiration db
 				if !piece.expiration.IsZero() {
-					require.NoError(t, store.SetExpiration(ctx, satellite.satelliteID, piece.pieceID, piece.expiration))
+					require.NoError(t, store.SetExpiration(ctx, satellite.satelliteID, piece.pieceID, piece.expiration, 0))
 				}
 
 				for _, file := range piece.files {
@@ -391,19 +391,6 @@ func TestTrashAndRestore(t *testing.T) {
 				r, err := store.Reader(ctx, satellite.satelliteID, piece.pieceID)
 				require.Error(t, err)
 				require.Nil(t, r)
-
-				// Verify no expiry information is returned for this piece
-				if !piece.expiration.IsZero() {
-					infos, err := store.GetExpired(ctx, time.Now().Add(720*time.Hour), 1000)
-					require.NoError(t, err)
-					var found bool
-					for _, info := range infos {
-						if info.SatelliteID == satellite.satelliteID && info.PieceID == piece.pieceID {
-							found = true
-						}
-					}
-					require.False(t, found)
-				}
 			}
 		}
 
@@ -502,12 +489,13 @@ func verifyPieceData(ctx context.Context, t testing.TB, store *pieces.StoreForTe
 	assert.True(t, bytes.Equal(buf, expected))
 
 	// Require expiration to match expected
-	infos, err := store.GetExpired(ctx, time.Now().Add(720*time.Hour), 1000)
+	found := false
+	expired, err := store.GetExpired(ctx, time.Now().Add(720*time.Hour))
 	require.NoError(t, err)
-	var found bool
-	for _, info := range infos {
-		if info.SatelliteID == satelliteID && info.PieceID == pieceID {
+	for _, ei := range expired {
+		if ei.SatelliteID == satelliteID && ei.PieceID == pieceID {
 			found = true
+			break
 		}
 	}
 	if expiration.IsZero() {
@@ -561,7 +549,7 @@ func TestPieceVersionMigrate(t *testing.T) {
 		require.NoError(t, err)
 		defer ctx.Check(blobs.Close)
 
-		fw := pieces.NewFileWalker(log, blobs, v0PieceInfo)
+		fw := pieces.NewFileWalker(log, blobs, v0PieceInfo, db.GCFilewalkerProgress(), db.UsedSpacePerPrefix())
 		store := pieces.NewStore(log, fw, nil, blobs, v0PieceInfo, nil, nil, pieces.DefaultConfig)
 
 		// write as a v0 piece
@@ -648,7 +636,7 @@ func TestMultipleStorageFormatVersions(t *testing.T) {
 	require.NoError(t, err)
 	defer ctx.Check(blobs.Close)
 
-	fw := pieces.NewFileWalker(log, blobs, nil)
+	fw := pieces.NewFileWalker(log, blobs, nil, nil, nil)
 	store := pieces.NewStore(log, fw, nil, blobs, nil, nil, nil, pieces.DefaultConfig)
 	tStore := &pieces.StoreForTest{store}
 
@@ -705,7 +693,7 @@ func TestGetExpired(t *testing.T) {
 		log := zaptest.NewLogger(t)
 
 		blobs := db.Pieces()
-		fw := pieces.NewFileWalker(log, blobs, v0PieceInfo)
+		fw := pieces.NewFileWalker(log, blobs, v0PieceInfo, db.GCFilewalkerProgress(), db.UsedSpacePerPrefix())
 		store := pieces.NewStore(log, fw, nil, blobs, v0PieceInfo, expirationInfo, db.PieceSpaceUsedDB(), pieces.DefaultConfig)
 
 		now := time.Now()
@@ -735,27 +723,13 @@ func TestGetExpired(t *testing.T) {
 		require.NoError(t, err)
 
 		// put testPieces 2 and 3 in the piece_expirations db
-		err = expirationInfo.SetExpiration(ctx, testPieces[2].SatelliteID, testPieces[2].PieceID, testPieces[2].PieceExpiration)
+		err = expirationInfo.SetExpiration(ctx, testPieces[2].SatelliteID, testPieces[2].PieceID, testPieces[2].PieceExpiration, 0)
 		require.NoError(t, err)
-		err = expirationInfo.SetExpiration(ctx, testPieces[3].SatelliteID, testPieces[3].PieceID, testPieces[3].PieceExpiration)
+		err = expirationInfo.SetExpiration(ctx, testPieces[3].SatelliteID, testPieces[3].PieceID, testPieces[3].PieceExpiration, 0)
 		require.NoError(t, err)
 
-		// GetExpired with limit 0 gives empty result
-		expired, err := store.GetExpired(ctx, now, 0)
-		require.NoError(t, err)
-		assert.Empty(t, expired)
-
-		// GetExpired with limit 1 gives only 1 result, although there are 2 possible
-		expired, err = store.GetExpired(ctx, now, 1)
-		require.NoError(t, err)
-		require.Len(t, expired, 1)
-		assert.Equal(t, testPieces[2].PieceID, expired[0].PieceID)
-		assert.Equal(t, testPieces[2].SatelliteID, expired[0].SatelliteID)
-		assert.False(t, expired[0].InPieceInfo)
-
-		// GetExpired with 2 or more gives all expired results correctly; one from
-		// piece_expirations, and one from pieceinfo
-		expired, err = store.GetExpired(ctx, now, 1000)
+		// GetExpired with gives all results
+		expired, err := store.GetExpired(ctx, now)
 		require.NoError(t, err)
 		require.Len(t, expired, 2)
 		assert.Equal(t, testPieces[2].PieceID, expired[0].PieceID)
@@ -764,6 +738,14 @@ func TestGetExpired(t *testing.T) {
 		assert.Equal(t, testPieces[0].PieceID, expired[1].PieceID)
 		assert.Equal(t, testPieces[0].SatelliteID, expired[1].SatelliteID)
 		assert.True(t, expired[1].InPieceInfo)
+
+		// GetExpiredBatchSkipV0
+		expired, err = store.GetExpiredBatchSkipV0(ctx, now, 1)
+		require.NoError(t, err)
+		require.Len(t, expired, 1)
+		assert.Equal(t, testPieces[2].PieceID, expired[0].PieceID)
+		assert.Equal(t, testPieces[2].SatelliteID, expired[0].SatelliteID)
+		assert.False(t, expired[0].InPieceInfo)
 	})
 }
 
@@ -776,7 +758,7 @@ func TestOverwriteV0WithV1(t *testing.T) {
 		log := zaptest.NewLogger(t)
 
 		blobs := db.Pieces()
-		fw := pieces.NewFileWalker(log, blobs, v0PieceInfo)
+		fw := pieces.NewFileWalker(log, blobs, v0PieceInfo, db.GCFilewalkerProgress(), db.UsedSpacePerPrefix())
 		store := pieces.NewStore(log, fw, nil, blobs, v0PieceInfo, expirationInfo, db.PieceSpaceUsedDB(), pieces.DefaultConfig)
 
 		satelliteID := testrand.NodeID()
@@ -895,4 +877,134 @@ func TestOverwriteV0WithV1(t *testing.T) {
 		})
 		require.NoError(t, err)
 	})
+}
+
+func TestEmptyTrash_lazyFilewalker(t *testing.T) {
+	storagenodedbtest.Run(t, func(ctx *testcontext.Context, t *testing.T, db storagenode.DB) {
+		log := zaptest.NewLogger(t)
+		blobs := db.Pieces()
+		fw := pieces.NewFileWalker(log, blobs, nil, nil, nil)
+		cfg := pieces.DefaultConfig
+		cfg.EnableLazyFilewalker = true
+
+		lazyFwCfg := db.Config().LazyFilewalkerConfig()
+		lazyFw := lazyfilewalker.NewSupervisor(log, lazyFwCfg, "")
+		cmd := internalcmd.NewTrashFilewalkerCmd()
+		cmd.Logger = log.Named("trash-filewalker")
+		cmd.Ctx = ctx
+		runCount := 0
+		lazyFw.TestingSetTrashCleanupCmd(&execCommandWrapper{Command: cmd, count: &runCount})
+
+		startTime := time.Now()
+		store := pieces.NewStore(log, fw, lazyFw, blobs, nil, db.PieceExpirationDB(), db.PieceSpaceUsedDB(), cfg)
+
+		// build some data belonging to multiple satellites and store it in the piecestore
+		const (
+			numSatellites         = 2
+			numPiecesPerSatellite = 10
+			deleteDays            = 4
+		)
+		satellites := make([]storj.NodeID, numSatellites)
+		pieceIDs := make([][]storj.PieceID, numSatellites)
+		contents := make([][][]byte, numSatellites)
+		for sat := 0; sat < numSatellites; sat++ {
+			satellites[sat] = testrand.NodeID()
+			pieceIDs[sat] = make([]storj.PieceID, numPiecesPerSatellite)
+			contents[sat] = make([][]byte, numPiecesPerSatellite)
+
+			for p := 0; p < numPiecesPerSatellite; p++ {
+				pieceIDs[sat][p] = testrand.PieceID()
+				contents[sat][p] = testrand.Bytes(10 * memory.KiB)
+				storeSinglePiece(ctx, t, store, satellites[sat], pieceIDs[sat][p], contents[sat][p])
+			}
+		}
+
+		// trash the pieces on different "days"
+		for sat, satID := range satellites {
+			for p, pieceID := range pieceIDs[sat] {
+				trashNow := startTime.Add(time.Duration(p-numPiecesPerSatellite) * 24 * time.Hour)
+				err := store.Trash(ctx, satID, pieceID, trashNow)
+				require.NoError(t, err)
+			}
+		}
+
+		// empty the trash
+		deleteBefore := startTime.Add(-deleteDays * 24 * time.Hour)
+		for _, satID := range satellites {
+			err := store.EmptyTrash(ctx, satID, deleteBefore)
+			require.NoError(t, err)
+		}
+		// we should have run the lazy filewalker version of EmptyTrash twice now
+		assert.Equal(t, 2, runCount)
+
+		// and check that everything is the way we expect
+		for sat, satID := range satellites {
+			for p, pieceID := range pieceIDs[sat] {
+				err := store.TryRestoreTrashPiece(ctx, satID, pieceID)
+				if shouldBeDeleted(startTime.Add(time.Duration(p-numPiecesPerSatellite)*24*time.Hour), deleteBefore) {
+					require.Error(t, err)
+					require.True(t, os.IsNotExist(err), "Expected IsNotExist but got %+v", err)
+				} else {
+					require.NoError(t, err)
+				}
+			}
+		}
+	})
+}
+
+func TestSpaceUsedTotalAndBySatellite(t *testing.T) {
+	for _, enabled := range []bool{false, true} {
+		testplanet.Run(t, testplanet.Config{
+			SatelliteCount: 1, StorageNodeCount: 1, UplinkCount: 1,
+			Reconfigure: testplanet.Reconfigure{
+				StorageNode: func(index int, config *storagenode.Config) {
+					config.Pieces.EnableLazyFilewalker = enabled
+				},
+			},
+		}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+			err := planet.Uplinks[0].Upload(ctx, planet.Satellites[0], "bucket", "object", testrand.Bytes(5*memory.KiB))
+			require.NoError(t, err)
+
+			satelliteID := planet.Satellites[0].ID()
+			totalPiecesSize, totalContentSize, bySatellite, err := planet.StorageNodes[0].Storage2.Store.SpaceUsedTotalAndBySatellite(ctx)
+			require.NoError(t, err)
+			require.EqualValues(t, 8192, totalPiecesSize)
+			require.EqualValues(t, 7680, totalContentSize)
+			require.EqualValues(t, 8192, bySatellite[satelliteID].Total)
+			require.EqualValues(t, 7680, bySatellite[satelliteID].ContentSize)
+		})
+	}
+}
+
+func storeSinglePiece(ctx *testcontext.Context, t testing.TB, store *pieces.Store, satelliteID storj.NodeID, pieceID storj.PieceID, data []byte) {
+	writer, err := store.Writer(ctx, satelliteID, pieceID, pb.PieceHashAlgorithm_SHA256)
+	require.NoError(t, err)
+
+	_, err = io.Copy(writer, bytes.NewReader(data))
+	require.NoError(t, err)
+
+	// commit
+	require.NoError(t, writer.Commit(ctx, &pb.PieceHeader{
+		Hash:          writer.Hash(),
+		HashAlgorithm: pb.PieceHashAlgorithm_SHA256,
+	}))
+}
+
+func shouldBeDeleted(trashTime, deleteBefore time.Time) bool {
+	return !trashTime.After(deleteBefore.Add(-24 * time.Hour))
+}
+
+type execCommandWrapper struct {
+	execwrapper.Command
+	count *int
+}
+
+func (w *execCommandWrapper) Start() error {
+	*w.count++
+	return w.Command.Start()
+}
+
+func (w *execCommandWrapper) Run() error {
+	*w.count++
+	return w.Command.Run()
 }

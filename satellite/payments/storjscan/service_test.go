@@ -17,6 +17,7 @@ import (
 	"storj.io/storj/private/blockchain"
 	"storj.io/storj/satellite"
 	"storj.io/storj/satellite/payments"
+	"storj.io/storj/satellite/payments/billing"
 	"storj.io/storj/satellite/payments/storjscan"
 	"storj.io/storj/satellite/payments/storjscan/blockchaintest"
 	"storj.io/storj/satellite/satellitedb/satellitedbtest"
@@ -37,6 +38,7 @@ func TestServicePayments(t *testing.T) {
 				TokenValue:  currency.AmountFromBaseUnits(100, currency.StorjToken),
 				USDValue:    currency.AmountFromBaseUnits(100, currency.USDollarsMicro),
 				Status:      payments.PaymentStatusConfirmed,
+				ChainID:     1337,
 				BlockHash:   blockchaintest.NewHash(),
 				BlockNumber: 0,
 				Transaction: blockchaintest.NewHash(),
@@ -49,6 +51,7 @@ func TestServicePayments(t *testing.T) {
 				TokenValue:  currency.AmountFromBaseUnits(100, currency.StorjToken),
 				USDValue:    currency.AmountFromBaseUnits(100, currency.USDollarsMicro),
 				Status:      payments.PaymentStatusConfirmed,
+				ChainID:     1337,
 				BlockHash:   blockchaintest.NewHash(),
 				BlockNumber: 0,
 				Transaction: blockchaintest.NewHash(),
@@ -61,6 +64,7 @@ func TestServicePayments(t *testing.T) {
 				TokenValue:  currency.AmountFromBaseUnits(100, currency.StorjToken),
 				USDValue:    currency.AmountFromBaseUnits(100, currency.USDollarsMicro),
 				Status:      payments.PaymentStatusConfirmed,
+				ChainID:     1337,
 				BlockHash:   blockchaintest.NewHash(),
 				BlockNumber: 0,
 				Transaction: blockchaintest.NewHash(),
@@ -73,6 +77,7 @@ func TestServicePayments(t *testing.T) {
 				TokenValue:  currency.AmountFromBaseUnits(200, currency.StorjToken),
 				USDValue:    currency.AmountFromBaseUnits(100, currency.USDollarsMicro),
 				Status:      payments.PaymentStatusPending,
+				ChainID:     1337,
 				BlockHash:   blockchaintest.NewHash(),
 				BlockNumber: 1,
 				Transaction: blockchaintest.NewHash(),
@@ -84,6 +89,7 @@ func TestServicePayments(t *testing.T) {
 		var cachedPayments []storjscan.CachedPayment
 		for _, pmnt := range walletPayments {
 			cachedPayments = append(cachedPayments, storjscan.CachedPayment{
+				ChainID:     pmnt.ChainID,
 				From:        pmnt.From,
 				To:          pmnt.To,
 				TokenValue:  pmnt.TokenValue,
@@ -129,7 +135,7 @@ func TestServicePayments(t *testing.T) {
 			require.NoError(t, err)
 			require.Equal(t, expected, actual)
 		})
-	})
+	}, satellitedbtest.WithSpanner())
 }
 
 func TestServiceWallets(t *testing.T) {
@@ -175,7 +181,7 @@ func TestServiceWallets(t *testing.T) {
 			require.NoError(t, err)
 			require.Equal(t, walletAddress1, actual)
 		})
-	})
+	}, satellitedbtest.WithSpanner())
 
 }
 
@@ -192,6 +198,7 @@ func TestListPayments(t *testing.T) {
 				TokenValue:  currency.AmountFromBaseUnits(100, currency.StorjToken),
 				USDValue:    currency.AmountFromBaseUnits(100, currency.USDollarsMicro),
 				Status:      payments.PaymentStatusConfirmed,
+				ChainID:     1,
 				BlockHash:   blockchaintest.NewHash(),
 				BlockNumber: 0,
 				Transaction: blockchaintest.NewHash(),
@@ -204,6 +211,7 @@ func TestListPayments(t *testing.T) {
 				TokenValue:  currency.AmountFromBaseUnits(100, currency.StorjToken),
 				USDValue:    currency.AmountFromBaseUnits(100, currency.USDollarsMicro),
 				Status:      payments.PaymentStatusConfirmed,
+				ChainID:     1,
 				BlockHash:   blockchaintest.NewHash(),
 				BlockNumber: 0,
 				Transaction: blockchaintest.NewHash(),
@@ -216,6 +224,7 @@ func TestListPayments(t *testing.T) {
 				TokenValue:  currency.AmountFromBaseUnits(100, currency.StorjToken),
 				USDValue:    currency.AmountFromBaseUnits(100, currency.USDollarsMicro),
 				Status:      payments.PaymentStatusConfirmed,
+				ChainID:     1,
 				BlockHash:   blockchaintest.NewHash(),
 				BlockNumber: 0,
 				Transaction: blockchaintest.NewHash(),
@@ -228,6 +237,7 @@ func TestListPayments(t *testing.T) {
 				TokenValue:  currency.AmountFromBaseUnits(200, currency.StorjToken),
 				USDValue:    currency.AmountFromBaseUnits(100, currency.USDollarsMicro),
 				Status:      payments.PaymentStatusConfirmed,
+				ChainID:     1,
 				BlockHash:   blockchaintest.NewHash(),
 				BlockNumber: 1,
 				Transaction: blockchaintest.NewHash(),
@@ -244,6 +254,7 @@ func TestListPayments(t *testing.T) {
 				TokenValue:  pmnt.TokenValue,
 				USDValue:    pmnt.USDValue,
 				Status:      pmnt.Status,
+				ChainID:     pmnt.ChainID,
 				BlockHash:   pmnt.BlockHash,
 				BlockNumber: pmnt.BlockNumber,
 				Transaction: pmnt.Transaction,
@@ -255,7 +266,7 @@ func TestListPayments(t *testing.T) {
 		err := paymentsDB.InsertBatch(ctx, cachedPayments1)
 		require.NoError(t, err)
 
-		confirmedPayments, err := paymentsDB.ListConfirmed(ctx, 0, 0)
+		confirmedPayments, err := paymentsDB.ListConfirmed(ctx, billing.StorjScanEthereumSource, 1, 0, 0)
 		require.NoError(t, err)
 		require.Equal(t, len(cachedPayments1), len(confirmedPayments))
 		for _, act := range confirmedPayments {
@@ -275,6 +286,7 @@ func TestListPayments(t *testing.T) {
 				TokenValue:  currency.AmountFromBaseUnits(100, currency.StorjToken),
 				USDValue:    currency.AmountFromBaseUnits(100, currency.USDollarsMicro),
 				Status:      payments.PaymentStatusConfirmed,
+				ChainID:     1,
 				BlockHash:   blockchaintest.NewHash(),
 				BlockNumber: 1,
 				Transaction: blockchaintest.NewHash(),
@@ -287,6 +299,7 @@ func TestListPayments(t *testing.T) {
 				TokenValue:  currency.AmountFromBaseUnits(200, currency.StorjToken),
 				USDValue:    currency.AmountFromBaseUnits(100, currency.USDollarsMicro),
 				Status:      payments.PaymentStatusConfirmed,
+				ChainID:     1,
 				BlockHash:   blockchaintest.NewHash(),
 				BlockNumber: 1,
 				Transaction: blockchaintest.NewHash(),
@@ -299,6 +312,7 @@ func TestListPayments(t *testing.T) {
 				TokenValue:  currency.AmountFromBaseUnits(200, currency.StorjToken),
 				USDValue:    currency.AmountFromBaseUnits(100, currency.USDollarsMicro),
 				Status:      payments.PaymentStatusConfirmed,
+				ChainID:     1,
 				BlockHash:   blockchaintest.NewHash(),
 				BlockNumber: 2,
 				Transaction: blockchaintest.NewHash(),
@@ -314,6 +328,7 @@ func TestListPayments(t *testing.T) {
 				To:          pmnt.To,
 				TokenValue:  pmnt.TokenValue,
 				USDValue:    pmnt.USDValue,
+				ChainID:     pmnt.ChainID,
 				Status:      pmnt.Status,
 				BlockHash:   pmnt.BlockHash,
 				BlockNumber: pmnt.BlockNumber,
@@ -326,7 +341,7 @@ func TestListPayments(t *testing.T) {
 		err = paymentsDB.InsertBatch(ctx, cachedPayments2)
 		require.NoError(t, err)
 
-		confirmedPayments, err = paymentsDB.ListConfirmed(ctx, 1, 1)
+		confirmedPayments, err = paymentsDB.ListConfirmed(ctx, billing.StorjScanEthereumSource, 1, 1, 1)
 		require.NoError(t, err)
 		require.Equal(t, len(cachedPayments2), len(confirmedPayments))
 		for _, act := range confirmedPayments {
@@ -337,7 +352,114 @@ func TestListPayments(t *testing.T) {
 				}
 			}
 		}
-	})
+	}, satellitedbtest.WithSpanner())
+}
+
+func TestListPaymentsMultipleChainIds(t *testing.T) {
+	satellitedbtest.Run(t, func(ctx *testcontext.Context, t *testing.T, db satellite.DB) {
+		paymentsDB := db.StorjscanPayments()
+		now := time.Now().Truncate(time.Second).UTC()
+
+		wallet1 := blockchaintest.NewAddress()
+		walletPaymentsBatch1 := []payments.WalletPayment{
+			{
+				From:        blockchaintest.NewAddress(),
+				To:          wallet1,
+				TokenValue:  currency.AmountFromBaseUnits(100, currency.StorjToken),
+				USDValue:    currency.AmountFromBaseUnits(100, currency.USDollarsMicro),
+				Status:      payments.PaymentStatusConfirmed,
+				ChainID:     5,
+				BlockHash:   blockchaintest.NewHash(),
+				BlockNumber: 0,
+				Transaction: blockchaintest.NewHash(),
+				LogIndex:    1,
+				Timestamp:   now,
+			},
+			{
+				From:        blockchaintest.NewAddress(),
+				To:          wallet1,
+				TokenValue:  currency.AmountFromBaseUnits(100, currency.StorjToken),
+				USDValue:    currency.AmountFromBaseUnits(100, currency.USDollarsMicro),
+				Status:      payments.PaymentStatusConfirmed,
+				ChainID:     1337,
+				BlockHash:   blockchaintest.NewHash(),
+				BlockNumber: 0,
+				Transaction: blockchaintest.NewHash(),
+				LogIndex:    2,
+				Timestamp:   now,
+			},
+			{
+				From:        blockchaintest.NewAddress(),
+				To:          wallet1,
+				TokenValue:  currency.AmountFromBaseUnits(100, currency.StorjToken),
+				USDValue:    currency.AmountFromBaseUnits(100, currency.USDollarsMicro),
+				Status:      payments.PaymentStatusConfirmed,
+				ChainID:     5,
+				BlockHash:   blockchaintest.NewHash(),
+				BlockNumber: 0,
+				Transaction: blockchaintest.NewHash(),
+				LogIndex:    3,
+				Timestamp:   now,
+			},
+			{
+				From:        blockchaintest.NewAddress(),
+				To:          wallet1,
+				TokenValue:  currency.AmountFromBaseUnits(200, currency.StorjToken),
+				USDValue:    currency.AmountFromBaseUnits(100, currency.USDollarsMicro),
+				Status:      payments.PaymentStatusConfirmed,
+				ChainID:     1337,
+				BlockHash:   blockchaintest.NewHash(),
+				BlockNumber: 1,
+				Transaction: blockchaintest.NewHash(),
+				LogIndex:    0,
+				Timestamp:   now.Add(15 * time.Second),
+			},
+		}
+
+		var cachedPayments1 []storjscan.CachedPayment
+		for _, pmnt := range walletPaymentsBatch1 {
+			cachedPayments1 = append(cachedPayments1, storjscan.CachedPayment{
+				From:        pmnt.From,
+				To:          pmnt.To,
+				TokenValue:  pmnt.TokenValue,
+				USDValue:    pmnt.USDValue,
+				Status:      pmnt.Status,
+				ChainID:     pmnt.ChainID,
+				BlockHash:   pmnt.BlockHash,
+				BlockNumber: pmnt.BlockNumber,
+				Transaction: pmnt.Transaction,
+				LogIndex:    pmnt.LogIndex,
+				Timestamp:   pmnt.Timestamp,
+			})
+		}
+
+		err := paymentsDB.InsertBatch(ctx, cachedPayments1)
+		require.NoError(t, err)
+
+		confirmedPayments, err := paymentsDB.ListConfirmed(ctx, billing.StorjScanEthereumSource, 1337, 0, 0)
+		require.NoError(t, err)
+		require.Equal(t, 2, len(confirmedPayments))
+		for _, act := range confirmedPayments {
+			for _, exp := range cachedPayments1 {
+				if act.BlockHash == exp.BlockHash && act.LogIndex == exp.LogIndex {
+					compareTransactions(t, exp, act)
+					break
+				}
+			}
+		}
+
+		confirmedPayments, err = paymentsDB.ListConfirmed(ctx, billing.StorjScanEthereumSource, 5, 0, 0)
+		require.NoError(t, err)
+		require.Equal(t, 2, len(confirmedPayments))
+		for _, act := range confirmedPayments {
+			for _, exp := range cachedPayments1 {
+				if act.BlockHash == exp.BlockHash && act.LogIndex == exp.LogIndex {
+					compareTransactions(t, exp, act)
+					break
+				}
+			}
+		}
+	}, satellitedbtest.WithSpanner())
 }
 
 // compareTransactions is a helper method to compare tx used to create db entry,

@@ -3,8 +3,8 @@
 
 import type { Page } from '@playwright/test';
 import { expect } from '@playwright/test';
+import { CommonObjects } from '@objects/CommonObjects';
 import { ObjectBrowserPageObjects } from '@objects/ObjectBrowserPageObjects';
-import { CommonObjectsV2 } from '@objects/CommonObjects';
 
 export class ObjectBrowserPage {
     constructor(readonly page: Page) {}
@@ -38,7 +38,7 @@ export class ObjectBrowserPage {
     }
 
     async closePreview(name: string): Promise<void> {
-        await this.page.locator('header').filter({ hasText: name }).locator('#Close').click();
+        await this.page.locator(ObjectBrowserPageObjects.CLOSE_PREVIEW_MODAL_BUTTON_XPATH).click();
     }
 
     async downloadFromPreview(): Promise<void> {
@@ -47,12 +47,14 @@ export class ObjectBrowserPage {
             this.page.locator(ObjectBrowserPageObjects.DOWNLOAD_BUTTON_XPATH).click(),
         ]);
         await expect(this.page.getByText('Keep this download link private.')).toBeVisible();
+        // close alert because it obscures preview close button, which can result in test timeout
+        await this.page.locator(CommonObjects.CLOSE_ALERT_BUTTON_XPATH).click();
     }
 
     async verifyObjectMapIsVisible(): Promise<void> {
         await this.page.locator(ObjectBrowserPageObjects.DISTRIBUTION_BUTTON_XPATH).click();
         await this.page.locator(ObjectBrowserPageObjects.OBJECT_MAP_IMAGE_XPATH).isVisible();
-        await this.page.locator(CommonObjectsV2.CLOSE_MODAL_BUTTON_XPATH).nth(1).click();
+        await this.page.locator(ObjectBrowserPageObjects.CLOSE_GEO_DIST_MODAL_BUTTON_XPATH).click();
     }
 
     async verifyShareLink(): Promise<void> {
@@ -61,7 +63,7 @@ export class ObjectBrowserPage {
         await expect(loader).toBeHidden();
         await this.page.locator(ObjectBrowserPageObjects.COPY_LINK_BUTTON_XPATH).click();
         await this.page.locator('span').filter({ hasText: ObjectBrowserPageObjects.COPIED_TEXT }).isVisible();
-        await this.page.locator(CommonObjectsV2.CLOSE_MODAL_BUTTON_XPATH).nth(1).click();
+        await this.page.locator(ObjectBrowserPageObjects.CLOSE_SHARE_MODAL_BUTTON_XPATH).click();
     }
 
     async deleteSingleObject(): Promise<void> {

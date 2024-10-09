@@ -36,7 +36,7 @@ import { useConfigStore } from '@/store/modules/configStore';
 const notificationsStore = useNotificationsStore();
 const configStore = useConfigStore();
 
-const props = defineProps<{
+defineProps<{
     item: DelayedNotification
 }>();
 

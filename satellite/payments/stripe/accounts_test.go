@@ -7,6 +7,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/google/go-cmp/cmp"
+	"github.com/google/go-cmp/cmp/cmpopts"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap/zaptest"
 
@@ -40,7 +42,7 @@ func TestSignupCouponCodes(t *testing.T) {
 		cache, err := live.OpenCache(ctx, log.Named("cache"), live.Config{StorageBackend: "redis://" + redis.Addr() + "?db=0"})
 		require.NoError(t, err)
 
-		projectUsage := accounting.NewService(db.ProjectAccounting(), cache, *sat.API.Metainfo.Metabase, 5*time.Minute, 0, 0, 0, -10*time.Second)
+		projectUsage := accounting.NewService(log, db.ProjectAccounting(), cache, *sat.API.Metainfo.Metabase, 5*time.Minute, 0, 0, 0, -10*time.Second)
 
 		pc := paymentsconfig.Config{
 			UsagePrice: paymentsconfig.ProjectUsagePrice{
@@ -75,6 +77,7 @@ func TestSignupCouponCodes(t *testing.T) {
 			pc.BonusRate,
 			nil,
 			nil,
+			false,
 		)
 		require.NoError(t, err)
 
@@ -96,10 +99,12 @@ func TestSignupCouponCodes(t *testing.T) {
 			nil,
 			nil,
 			nil,
+			nil,
 			"",
 			"",
 			sat.Config.Metainfo.ProjectLimits.MaxBuckets,
 			nodeselection.NewPlacementDefinitions(),
+			console.ObjectLockAndVersioningConfig{},
 			console.Config{PasswordCost: console.TestPasswordCost, DefaultProjectLimit: 5},
 		)
 
@@ -123,7 +128,7 @@ func TestSignupCouponCodes(t *testing.T) {
 					FullName:        "Fullname",
 					ShortName:       "Shortname",
 					Email:           tt.email,
-					Password:        "123a123",
+					Password:        "password",
 					SignupPromoCode: tt.signupPromoCode,
 				}
 
@@ -160,12 +165,95 @@ func TestUpdateGetPackage(t *testing.T) {
 		require.NotNil(t, dbPackagePlan)
 		require.NotNil(t, dbPurchaseTime)
 		require.Equal(t, packagePlan, *dbPackagePlan)
-		require.Equal(t, purchaseTime.Truncate(time.Millisecond), dbPurchaseTime.Truncate(time.Millisecond))
+		require.Zero(t, cmp.Diff(dbPurchaseTime.Truncate(time.Millisecond), purchaseTime.Truncate(time.Millisecond), cmpopts.EquateApproxTime(0)))
 
 		require.NoError(t, accounts.UpdatePackage(ctx, userID, nil, nil))
 		dbPackagePlan, dbPurchaseTime, err = accounts.GetPackageInfo(ctx, userID)
 		require.NoError(t, err)
 		require.Nil(t, dbPackagePlan)
 		require.Nil(t, dbPurchaseTime)
+	})
+}
+
+func TestBillingInformation(t *testing.T) {
+	testplanet.Run(t, testplanet.Config{
+		SatelliteCount: 1, StorageNodeCount: 0, UplinkCount: 1,
+	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+		accounts := planet.Satellites[0].API.Payments.Accounts
+		userID := planet.Uplinks[0].Projects[0].Owner.ID
+
+		info, err := accounts.GetBillingInformation(ctx, userID)
+		require.NoError(t, err)
+		require.NotNil(t, info)
+		require.Zero(t, *info)
+
+		var us payments.TaxCountry
+		for _, country := range payments.TaxCountries {
+			if country.Code == "US" {
+				us = country
+				break
+			}
+		}
+		var usTax payments.Tax
+		for _, tax := range payments.Taxes {
+			if tax.CountryCode == "US" {
+				usTax = tax
+				break
+			}
+		}
+		taxID := payments.TaxID{
+			Tax:   usTax,
+			Value: "123456789",
+		}
+		address := payments.BillingAddress{
+			Name:       "Some Company",
+			Line1:      "Some street",
+			Line2:      "Some Apartment",
+			City:       "Some city",
+			PostalCode: "12345",
+			State:      "Some state",
+			Country:    us,
+		}
+		newInfo, err := accounts.SaveBillingAddress(ctx, userID, address)
+		require.NoError(t, err)
+		require.Equal(t, address, *newInfo.Address)
+		require.Empty(t, newInfo.TaxIDs)
+		require.Empty(t, newInfo.InvoiceReference)
+
+		newInfo, err = accounts.GetBillingInformation(ctx, userID)
+		require.NoError(t, err)
+		require.Equal(t, address, *newInfo.Address)
+		require.Empty(t, newInfo.TaxIDs)
+		require.Empty(t, newInfo.InvoiceReference)
+
+		address.Name = "New Company"
+		address.City = "New City"
+		newInfo, err = accounts.SaveBillingAddress(ctx, userID, address)
+		require.NoError(t, err)
+		require.Equal(t, address, *newInfo.Address)
+		require.Empty(t, newInfo.TaxIDs)
+		require.Empty(t, newInfo.InvoiceReference)
+
+		newInfo, err = accounts.AddTaxID(ctx, userID, taxID)
+		require.NoError(t, err)
+		require.Equal(t, address, *newInfo.Address)
+		require.NotEmpty(t, newInfo.TaxIDs)
+		require.NotEmpty(t, newInfo.TaxIDs[0].ID)
+		require.Equal(t, taxID.Tax.Code, newInfo.TaxIDs[0].Tax.Code)
+		require.Equal(t, taxID.Value, newInfo.TaxIDs[0].Value)
+		require.Empty(t, newInfo.InvoiceReference)
+
+		newInfo, err = accounts.RemoveTaxID(ctx, userID, newInfo.TaxIDs[0].ID)
+		require.NoError(t, err)
+		require.Equal(t, address, *newInfo.Address)
+		require.Empty(t, newInfo.TaxIDs)
+		require.Empty(t, newInfo.InvoiceReference)
+
+		reference := "Some reference"
+		newInfo, err = accounts.AddDefaultInvoiceReference(ctx, userID, reference)
+		require.NoError(t, err)
+		require.Equal(t, address, *newInfo.Address)
+		require.Empty(t, newInfo.TaxIDs)
+		require.Equal(t, reference, newInfo.InvoiceReference)
 	})
 }

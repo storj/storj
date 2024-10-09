@@ -55,7 +55,9 @@ func NewTrashChore(log *zap.Logger, choreInterval, trashExpiryInterval time.Dura
 // Run starts the cycle.
 func (chore *TrashChore) Run(ctx context.Context) (err error) {
 	defer mon.Task()(&ctx)(&err)
-
+	if chore == nil {
+		return nil
+	}
 	chore.root = ctx
 	chore.started.Release()
 
@@ -78,11 +80,14 @@ func (chore *TrashChore) Run(ctx context.Context) (err error) {
 				}
 				defer func() { <-limiter }()
 
+				timeStart := time.Now()
 				chore.log.Info("emptying trash started", zap.Stringer("Satellite ID", satellite))
 				trashedBefore := time.Now().Add(-chore.trashExpiryInterval)
 				err := chore.store.EmptyTrash(ctx, satellite, trashedBefore)
 				if err != nil {
 					chore.log.Error("emptying trash failed", zap.Error(err))
+				} else {
+					chore.log.Info("emptying trash finished", zap.Stringer("Satellite ID", satellite), zap.Duration("elapsed", time.Since(timeStart)))
 				}
 			})
 			if !ok {
@@ -109,7 +114,9 @@ func (chore *TrashChore) Run(ctx context.Context) (err error) {
 
 // Close closes the chore.
 func (chore *TrashChore) Close() error {
-	chore.Cycle.Close()
+	if chore != nil {
+		chore.Cycle.Close()
+	}
 	return nil
 }
 

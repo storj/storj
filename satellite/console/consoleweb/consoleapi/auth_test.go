@@ -6,6 +6,7 @@ package consoleapi_test
 import (
 	"bytes"
 	"context"
+	"database/sql"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -17,17 +18,20 @@ import (
 	"time"
 
 	"github.com/stretchr/testify/require"
-	"github.com/zeebo/errs/v2"
+	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 
+	"storj.io/common/pb"
 	"storj.io/common/testcontext"
 	"storj.io/common/testrand"
 	"storj.io/common/uuid"
 	"storj.io/storj/private/post"
 	"storj.io/storj/private/testplanet"
 	"storj.io/storj/satellite"
+	"storj.io/storj/satellite/buckets"
 	"storj.io/storj/satellite/console"
 	"storj.io/storj/satellite/console/consoleweb/consoleapi"
+	"storj.io/storj/satellite/payments/stripe"
 )
 
 func doRequestWithAuth(
@@ -115,7 +119,7 @@ func TestAuth_Register(t *testing.T) {
 					ShortName:       "test",
 					Email:           "user@test" + strconv.Itoa(i) + ".test",
 					Partner:         test.Partner,
-					Password:        "abc123",
+					Password:        "password",
 					IsProfessional:  true,
 					Position:        "testposition",
 					CompanyName:     "companytestname",
@@ -145,6 +149,79 @@ func TestAuth_Register(t *testing.T) {
 				require.Equal(t, []byte(test.Partner), users[0].UserAgent)
 			}()
 		}
+	})
+}
+
+func TestAuth_ChangeEmail(t *testing.T) {
+	testplanet.Run(t, testplanet.Config{
+		SatelliteCount: 1, StorageNodeCount: 0, UplinkCount: 1,
+	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+		sat := planet.Satellites[0]
+		service := sat.API.Console.Service
+		usrLogin := planet.Uplinks[0].User[sat.ID()]
+
+		user, _, err := service.GetUserByEmailWithUnverified(ctx, usrLogin.Email)
+		require.NoError(t, err)
+		require.NotNil(t, user)
+
+		doRequest := func(step console.AccountActionStep, data string) (responseBody []byte, status int) {
+			body := &consoleapi.AccountActionData{
+				Step: step,
+				Data: data,
+			}
+
+			bodyBytes, err := json.Marshal(body)
+			require.NoError(t, err)
+			buf := bytes.NewBuffer(bodyBytes)
+
+			responseBody, status, err = doRequestWithAuth(ctx, t, sat, user, http.MethodPost, "auth/change-email", buf)
+			require.NoError(t, err)
+
+			return responseBody, status
+		}
+
+		_, status := doRequest(0, usrLogin.Password)
+		require.Equal(t, http.StatusBadRequest, status)
+
+		_, status = doRequest(console.VerifyAccountPasswordStep, "")
+		require.Equal(t, http.StatusBadRequest, status)
+	})
+}
+
+func TestAuth_InvalidateSession(t *testing.T) {
+	testplanet.Run(t, testplanet.Config{
+		SatelliteCount: 1, StorageNodeCount: 0, UplinkCount: 1,
+	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+		sat := planet.Satellites[0]
+		service := sat.API.Console.Service
+		sessionsDB := sat.DB.Console().WebappSessions()
+
+		user, _, err := service.GetUserByEmailWithUnverified(ctx, planet.Uplinks[0].User[sat.ID()].Email)
+		require.NoError(t, err)
+		require.NotNil(t, user)
+
+		id, err := uuid.New()
+		require.NoError(t, err)
+
+		session, err := sessionsDB.Create(ctx, id, user.ID, "", "test", time.Now().Add(time.Hour))
+		require.NoError(t, err)
+
+		traitor, err := sat.AddUser(ctx, console.CreateUser{
+			FullName: "Invalidate Session",
+			Email:    "invalidate_session@mail.test",
+		}, 1)
+		require.NoError(t, err)
+
+		_, status, err := doRequestWithAuth(ctx, t, sat, traitor, http.MethodPost, "auth/invalidate-session/"+session.ID.String(), nil)
+		require.NoError(t, err)
+		require.Equal(t, http.StatusUnauthorized, status)
+
+		_, status, err = doRequestWithAuth(ctx, t, sat, user, http.MethodPost, "auth/invalidate-session/"+session.ID.String(), nil)
+		require.NoError(t, err)
+		require.Equal(t, http.StatusOK, status)
+
+		_, err = sessionsDB.GetBySessionID(ctx, session.ID)
+		require.Error(t, err)
 	})
 }
 
@@ -232,7 +309,7 @@ func TestAuth_RegisterWithInvitation(t *testing.T) {
 				FullName:        "testuser",
 				ShortName:       "test",
 				Email:           email,
-				Password:        "abc123",
+				Password:        "password",
 				IsProfessional:  true,
 				Position:        "testposition",
 				CompanyName:     "companytestname",
@@ -299,6 +376,11 @@ func TestTokenByAPIKeyEndpoint(t *testing.T) {
 func TestMFAEndpoints(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
 		SatelliteCount: 1, StorageNodeCount: 0, UplinkCount: 0,
+		Reconfigure: testplanet.Reconfigure{
+			Satellite: func(log *zap.Logger, index int, config *satellite.Config) {
+				config.Console.RateLimit.Burst = 10
+			},
+		},
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 		sat := planet.Satellites[0]
 
@@ -593,7 +675,7 @@ func TestRegistrationEmail(t *testing.T) {
 			"fullName":  "Test User",
 			"shortName": "Test",
 			"email":     email,
-			"password":  "123a123",
+			"password":  "password",
 		})
 		require.NoError(t, err)
 
@@ -616,13 +698,27 @@ func TestRegistrationEmail(t *testing.T) {
 		register()
 		body, err := sender.Data.Get(ctx)
 		require.NoError(t, err)
-		require.Contains(t, body, "/activation")
+		if sat.Config.Console.SignupActivationCodeEnabled {
+			_, users, err := sat.DB.Console().Users().GetByEmailWithUnverified(ctx, email)
+			require.NoError(t, err)
+			require.Len(t, users, 1)
+			require.Contains(t, body, users[0].ActivationCode)
+		} else {
+			require.Contains(t, body, "/activation")
+		}
 
 		// Registration attempts using existing but unverified e-mail address should send activation e-mail.
 		register()
 		body, err = sender.Data.Get(ctx)
 		require.NoError(t, err)
-		require.Contains(t, body, "/activation")
+		if sat.Config.Console.SignupActivationCodeEnabled {
+			_, users, err := sat.DB.Console().Users().GetByEmailWithUnverified(ctx, email)
+			require.NoError(t, err)
+			require.Len(t, users, 1)
+			require.Contains(t, body, users[0].ActivationCode)
+		} else {
+			require.Contains(t, body, "/activation")
+		}
 
 		// Registration attempts using existing and verified e-mail address should send account already exists e-mail.
 		_, users, err := sat.DB.Console().Users().GetByEmailWithUnverified(ctx, email)
@@ -638,7 +734,6 @@ func TestRegistrationEmail(t *testing.T) {
 		require.NoError(t, err)
 		require.Contains(t, body, "/login")
 		require.Contains(t, body, "/forgot-password")
-		require.Contains(t, body, "/signup")
 	})
 }
 
@@ -661,7 +756,7 @@ func TestRegistrationEmail_CodeEnabled(t *testing.T) {
 			"fullName":  "Test User",
 			"shortName": "Test",
 			"email":     email,
-			"password":  "123a123",
+			"password":  "password",
 		})
 		require.NoError(t, err)
 
@@ -757,8 +852,8 @@ func TestResendActivationEmail(t *testing.T) {
 		require.NoError(t, err)
 
 		resendEmail := func() {
-			url := planet.Satellites[0].ConsoleURL() + "/api/v0/auth/resend-email/" + user.Email
-			req, err := http.NewRequestWithContext(ctx, http.MethodPost, url, bytes.NewBufferString(user.Email))
+			url := planet.Satellites[0].ConsoleURL() + "/api/v0/auth/resend-email"
+			req, err := http.NewRequestWithContext(ctx, http.MethodPost, url, bytes.NewBufferString(fmt.Sprintf(`{"email":"%s"}`, user.Email)))
 			require.NoError(t, err)
 
 			result, err := http.DefaultClient.Do(req)
@@ -785,7 +880,14 @@ func TestResendActivationEmail(t *testing.T) {
 		resendEmail()
 		body, err = sender.Data.Get(ctx)
 		require.NoError(t, err)
-		require.Contains(t, body, "/activation")
+		if sat.Config.Console.SignupActivationCodeEnabled {
+			_, users, err := sat.DB.Console().Users().GetByEmailWithUnverified(ctx, user.Email)
+			require.NoError(t, err)
+			require.Len(t, users, 1)
+			require.Contains(t, body, users[0].ActivationCode)
+		} else {
+			require.Contains(t, body, "/activation")
+		}
 	})
 }
 
@@ -816,8 +918,8 @@ func TestResendActivationEmail_CodeEnabled(t *testing.T) {
 		sender := &EmailVerifier{Context: ctx}
 		sat.API.Mail.Service.Sender = sender
 
-		resendURL := planet.Satellites[0].ConsoleURL() + "/api/v0/auth/resend-email/" + user.Email
-		req, err := http.NewRequestWithContext(ctx, http.MethodPost, resendURL, bytes.NewBufferString(user.Email))
+		resendURL := planet.Satellites[0].ConsoleURL() + "/api/v0/auth/resend-email"
+		req, err := http.NewRequestWithContext(ctx, http.MethodPost, resendURL, bytes.NewBufferString(fmt.Sprintf(`{"email":"%s"}`, user.Email)))
 		require.NoError(t, err)
 
 		result, err := http.DefaultClient.Do(req)
@@ -829,8 +931,8 @@ func TestResendActivationEmail_CodeEnabled(t *testing.T) {
 		require.NoError(t, err)
 		require.Contains(t, body, "code")
 
-		regex := regexp.MustCompile(`(\d{6})\n\s*<\/h1>`)
-		code := strings.Replace(regex.FindString(body.(string)), "</h1>", "", 1)
+		regex := regexp.MustCompile(`(\d{6})\s*<\/h2>`)
+		code := strings.Replace(regex.FindString(body.(string)), "</h2>", "", 1)
 		code = strings.TrimSpace(code)
 		require.Contains(t, body, code)
 
@@ -844,7 +946,7 @@ func TestResendActivationEmail_CodeEnabled(t *testing.T) {
 		require.NoError(t, err)
 		require.Contains(t, body, "code")
 
-		newCode := strings.Replace(regex.FindString(body.(string)), "</h1>", "", 1)
+		newCode := strings.Replace(regex.FindString(body.(string)), "</h2>", "", 1)
 		newCode = strings.TrimSpace(newCode)
 		require.NotEqual(t, code, newCode)
 	})
@@ -867,7 +969,7 @@ func TestAuth_Register_ShortPartnerOrPromo(t *testing.T) {
 		jsonBodyCorrect, err := json.Marshal(&registerData{
 			FullName:        "test",
 			Email:           "user@mail.test",
-			Password:        "abc123",
+			Password:        "password",
 			Partner:         string(testrand.RandAlphaNumeric(100)),
 			SignupPromoCode: string(testrand.RandAlphaNumeric(100)),
 		})
@@ -888,7 +990,7 @@ func TestAuth_Register_ShortPartnerOrPromo(t *testing.T) {
 		jsonBodyPartnerInvalid, err := json.Marshal(&registerData{
 			FullName: "test",
 			Email:    "user1@mail.test",
-			Password: "abc123",
+			Password: "password",
 			Partner:  string(testrand.RandAlphaNumeric(101)),
 		})
 		require.NoError(t, err)
@@ -906,7 +1008,7 @@ func TestAuth_Register_ShortPartnerOrPromo(t *testing.T) {
 		jsonBodyPromoInvalid, err := json.Marshal(&registerData{
 			FullName:        "test",
 			Email:           "user1@mail.test",
-			Password:        "abc123",
+			Password:        "password",
 			SignupPromoCode: string(testrand.RandAlphaNumeric(101)),
 		})
 		require.NoError(t, err)
@@ -939,10 +1041,10 @@ func TestAuth_Register_PasswordLength(t *testing.T) {
 			Length int
 			Ok     bool
 		}{
-			{"Length below minimum must be rejected", 5, false},
-			{"Length as minimum must be accepted", 6, true},
-			{"Length as maximum must be accepted", 72, true},
-			{"Length above maximum must be rejected", 73, false},
+			{"Length below minimum must be rejected", 6, false},
+			{"Length as minimum must be accepted", 8, true},
+			{"Length as maximum must be accepted", 64, true},
+			{"Length above maximum must be rejected", 65, false},
 		} {
 			tt := tt
 			t.Run(tt.Name, func(t *testing.T) {
@@ -993,7 +1095,7 @@ func TestAccountActivationWithCode(t *testing.T) {
 			"fullName":  "Test User",
 			"shortName": "Test",
 			"email":     email,
-			"password":  "123a123",
+			"password":  "password",
 		})
 		require.NoError(t, err)
 
@@ -1011,8 +1113,8 @@ func TestAccountActivationWithCode(t *testing.T) {
 		require.NoError(t, err)
 		require.Contains(t, body, "code")
 
-		regex := regexp.MustCompile(`(\d{6})\n\s*<\/h1>`)
-		code := strings.Replace(regex.FindString(body.(string)), "</h1>", "", 1)
+		regex := regexp.MustCompile(`(\d{6})\s*<\/h2>`)
+		code := strings.Replace(regex.FindString(body.(string)), "</h2>", "", 1)
 		code = strings.TrimSpace(code)
 		require.Contains(t, body, code)
 
@@ -1072,6 +1174,413 @@ func TestAccountActivationWithCode(t *testing.T) {
 		require.NoError(t, err)
 		require.Contains(t, body, "/login")
 		require.Contains(t, body, "/forgot-password")
-		require.Contains(t, body, "/signup")
+
+		// trying to activate an account that is not "inactive" or "active" should result in an error
+		user, err := sat.DB.Console().Users().GetByEmail(ctx, email)
+		require.NoError(t, err)
+		newStatus := console.PendingDeletion
+		err = sat.DB.Console().Users().Update(ctx, user.ID, console.UpdateUserRequest{
+			Status: &newStatus,
+		})
+		require.NoError(t, err)
+		req, err = http.NewRequestWithContext(ctx, http.MethodPatch, activateURL, bytes.NewBuffer(jsonBody))
+		require.NoError(t, err)
+		req.Header.Set("Content-Type", "application/json")
+
+		result, err = http.DefaultClient.Do(req)
+		require.NoError(t, err)
+		require.NotEmpty(t, result)
+		require.Equal(t, http.StatusNotFound, result.StatusCode)
+		require.NoError(t, result.Body.Close())
+	})
+}
+
+func TestAuth_SetupAccount(t *testing.T) {
+	testplanet.Run(t, testplanet.Config{
+		SatelliteCount: 1, StorageNodeCount: 0, UplinkCount: 0,
+	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+		sat := planet.Satellites[0]
+
+		ptr := func(s string) *string {
+			return &s
+		}
+
+		tests := []console.SetUpAccountRequest{
+			{
+				FirstName:      ptr("Frodo"),
+				LastName:       ptr("Baggins"),
+				IsProfessional: true,
+				Position:       ptr("Ringbearer"),
+				CompanyName:    ptr("The Fellowship"),
+				EmployeeCount:  ptr("9"), // subject to change
+			},
+			{
+				FullName:       ptr("Bilbo Baggins"),
+				IsProfessional: false,
+			},
+		}
+
+		for i, tt := range tests {
+			regToken, err := sat.API.Console.Service.CreateRegToken(ctx, 1)
+			require.NoError(t, err)
+			user, err := sat.API.Console.Service.CreateUser(ctx, console.CreateUser{
+				FullName: "should be overwritten by setup",
+				Email:    fmt.Sprintf("test%d@storj.test", i),
+				Password: "password",
+			}, regToken.Secret)
+			require.NoError(t, err)
+			activationToken, err := sat.API.Console.Service.GenerateActivationToken(ctx, user.ID, user.Email)
+			require.NoError(t, err)
+			_, err = sat.API.Console.Service.ActivateAccount(ctx, activationToken)
+			require.NoError(t, err)
+
+			payload, err := json.Marshal(tt)
+			require.NoError(t, err)
+			_, status, err := doRequestWithAuth(ctx, t, sat, user, http.MethodPatch, "auth/account/setup", bytes.NewBuffer(payload))
+			require.NoError(t, err)
+			require.Equal(t, http.StatusOK, status)
+
+			userAfterSetup, err := sat.DB.Console().Users().Get(ctx, user.ID)
+			require.NoError(t, err)
+
+			if tt.IsProfessional {
+				require.Equal(t, *tt.FirstName+" "+*tt.LastName, userAfterSetup.FullName)
+			} else {
+				require.Equal(t, *tt.FullName, userAfterSetup.FullName)
+			}
+			require.Equal(t, tt.IsProfessional, userAfterSetup.IsProfessional)
+			if tt.Position != nil {
+				require.Equal(t, *tt.Position, userAfterSetup.Position)
+			} else {
+				require.Equal(t, "", userAfterSetup.Position)
+			}
+			if tt.CompanyName != nil {
+				require.Equal(t, *tt.CompanyName, userAfterSetup.CompanyName)
+			} else {
+				require.Equal(t, "", userAfterSetup.CompanyName)
+			}
+			if tt.EmployeeCount != nil {
+				require.Equal(t, *tt.EmployeeCount, userAfterSetup.EmployeeCount)
+			} else {
+				require.Equal(t, "", userAfterSetup.EmployeeCount)
+			}
+		}
+	})
+}
+
+func TestAuth_DeleteAccount(t *testing.T) {
+	testplanet.Run(t, testplanet.Config{
+		SatelliteCount: 1, StorageNodeCount: 0, UplinkCount: 0,
+		Reconfigure: testplanet.Reconfigure{
+			Satellite: func(log *zap.Logger, index int, config *satellite.Config) {
+				config.Console.SelfServeAccountDeleteEnabled = true
+			},
+		},
+	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+		sat := planet.Satellites[0]
+
+		year, month, day := time.Now().UTC().Date()
+		timestamp := time.Date(year, month, day, 12, 0, 0, 0, time.UTC)
+		lastMonth := time.Date(year, month-1, 1, 0, 0, 0, 0, time.UTC)
+		thisMonth := time.Date(year, month, 1, 0, 0, 0, 0, time.UTC)
+
+		sat.API.Console.Service.TestSetNow(func() time.Time {
+			return timestamp
+		})
+		sat.API.Payments.StripeService.SetNow(func() time.Time {
+			return timestamp
+		})
+
+		proUser, err := sat.AddUser(ctx, console.CreateUser{
+			FullName: "test user",
+			Email:    "testpro@mail.test",
+		}, 1)
+		require.NoError(t, err)
+
+		proUser.PaidTier = true
+		proUser.MFAEnabled = true
+		mfaSecret, err := console.NewMFASecretKey()
+		require.NoError(t, err)
+		proUser.MFASecretKey = mfaSecret
+		mfaSecretKeyPtr := &proUser.MFASecretKey
+
+		goodCode, err := console.NewMFAPasscode(mfaSecret, timestamp)
+		require.NoError(t, err)
+
+		require.NoError(t, sat.DB.Console().Users().Update(ctx, proUser.ID, console.UpdateUserRequest{
+			PaidTier:     &proUser.PaidTier,
+			MFAEnabled:   &proUser.MFAEnabled,
+			MFASecretKey: &mfaSecretKeyPtr,
+		}))
+
+		proUserProject, err := sat.DB.Console().Projects().Insert(ctx, &console.Project{
+			ID:       testrand.UUID(),
+			PublicID: testrand.UUID(),
+			OwnerID:  proUser.ID,
+		})
+		require.NoError(t, err)
+		require.NotNil(t, proUserProject)
+
+		freeUser, err := sat.AddUser(ctx, console.CreateUser{
+			FullName: "test user",
+			Email:    "testfree@mail.test",
+		}, 1)
+		require.NoError(t, err)
+
+		freeUser.MFAEnabled = true
+		require.NoError(t, sat.DB.Console().Users().Update(ctx, freeUser.ID, console.UpdateUserRequest{
+			MFAEnabled:   &freeUser.MFAEnabled,
+			MFASecretKey: &mfaSecretKeyPtr,
+		}))
+
+		freeUserProject, err := sat.DB.Console().Projects().Insert(ctx, &console.Project{
+			ID:       testrand.UUID(),
+			PublicID: testrand.UUID(),
+			OwnerID:  freeUser.ID,
+		})
+		require.NoError(t, err)
+		require.NotNil(t, freeUserProject)
+
+		endpoint := "auth/account"
+
+		tests := []struct {
+			name               string
+			prepare            func(user, project uuid.UUID) error
+			cleanup            func(user, project uuid.UUID) error
+			req                consoleapi.AccountActionData
+			expectedResp       *console.DeleteAccountResponse
+			proUserHttpStatus  int
+			freeUserHttpStatus int
+		}{
+			{
+				name:               "account delete step out of range: lesser",
+				req:                consoleapi.AccountActionData{Step: -1, Data: ""},
+				proUserHttpStatus:  http.StatusBadRequest,
+				freeUserHttpStatus: http.StatusBadRequest,
+			},
+			{
+				name:               "account delete step out of range: greater",
+				req:                consoleapi.AccountActionData{Step: 100, Data: ""},
+				proUserHttpStatus:  http.StatusBadRequest,
+				freeUserHttpStatus: http.StatusBadRequest,
+			},
+			{
+				name:               "data can't be empty if step is verifying input",
+				req:                consoleapi.AccountActionData{Step: console.VerifyAccountPasswordStep, Data: ""},
+				proUserHttpStatus:  http.StatusBadRequest,
+				freeUserHttpStatus: http.StatusBadRequest,
+			},
+			{ // N.B. the DeleteAccount handler returns 403 if user is legal hold, but actually it is wrapped in the withAuth handler which returns 401.
+				name: "legal hold can't be deleted",
+				prepare: func(user, project uuid.UUID) error {
+					status := console.LegalHold
+					return sat.DB.Console().Users().Update(ctx, user, console.UpdateUserRequest{Status: &status})
+				},
+				cleanup: func(user, project uuid.UUID) error {
+					status := console.Active
+					return sat.DB.Console().Users().Update(ctx, user, console.UpdateUserRequest{Status: &status})
+				},
+				req:                consoleapi.AccountActionData{Step: console.DeleteAccountInit, Data: ""},
+				proUserHttpStatus:  http.StatusUnauthorized,
+				freeUserHttpStatus: http.StatusUnauthorized,
+			},
+			{
+				name: "locked out user can't be deleted",
+				req:  consoleapi.AccountActionData{Step: console.DeleteAccountInit, Data: ""},
+				prepare: func(user, project uuid.UUID) error {
+					expires := timestamp.Add(24 * time.Hour)
+					ptr := &expires
+					return sat.DB.Console().Users().Update(ctx, user, console.UpdateUserRequest{LoginLockoutExpiration: &ptr})
+				},
+				cleanup: func(user, project uuid.UUID) error {
+					var ptr *time.Time
+					return sat.DB.Console().Users().Update(ctx, user, console.UpdateUserRequest{LoginLockoutExpiration: &ptr})
+				},
+				proUserHttpStatus:  http.StatusUnauthorized,
+				freeUserHttpStatus: http.StatusUnauthorized,
+			},
+			{
+				name: "has buckets",
+				prepare: func(user, project uuid.UUID) error {
+					_, err := sat.API.Buckets.Service.CreateBucket(ctx, buckets.Bucket{
+						ID:        testrand.UUID(),
+						Name:      "testbucket",
+						ProjectID: project,
+					})
+					return err
+				},
+				cleanup: func(user, project uuid.UUID) error {
+					return sat.API.Buckets.Service.DeleteBucket(ctx, []byte("testbucket"), project)
+				},
+				req:                consoleapi.AccountActionData{Step: console.DeleteAccountInit, Data: ""},
+				expectedResp:       &console.DeleteAccountResponse{OwnedProjects: 1, Buckets: 1},
+				proUserHttpStatus:  http.StatusConflict,
+				freeUserHttpStatus: http.StatusConflict,
+			},
+			{
+				name: "has api keys",
+				prepare: func(user, project uuid.UUID) error {
+					_, err := sat.API.DB.Console().APIKeys().Create(ctx, []byte("testapikey"), console.APIKeyInfo{
+						ID:              testrand.UUID(),
+						ProjectID:       project,
+						ProjectPublicID: project,
+						Secret:          []byte("super-secret-secret"),
+					})
+					return err
+				},
+				cleanup: func(user, project uuid.UUID) error {
+					return sat.API.DB.Console().APIKeys().DeleteAllByProjectID(ctx, project)
+				},
+				req:                consoleapi.AccountActionData{Step: console.DeleteAccountInit, Data: ""},
+				expectedResp:       &console.DeleteAccountResponse{OwnedProjects: 1, ApiKeys: 1},
+				proUserHttpStatus:  http.StatusConflict,
+				freeUserHttpStatus: http.StatusConflict,
+			},
+			{
+				name: "has unpaid invoices",
+				prepare: func(user, project uuid.UUID) error {
+					invoice, err := sat.API.Payments.Accounts.Invoices().Create(ctx, user, 1000, "test description")
+					if err != nil {
+						return err
+					}
+					_, err = sat.API.Payments.StripeClient.Invoices().FinalizeInvoice(invoice.ID, nil)
+					return err
+				},
+				cleanup: func(user, project uuid.UUID) error {
+					invoices, err := sat.API.Payments.Accounts.Invoices().List(ctx, user)
+					if err != nil {
+						return err
+					}
+					_, err = sat.API.Payments.Accounts.Invoices().Delete(ctx, invoices[0].ID)
+					return err
+				},
+				req:                consoleapi.AccountActionData{Step: console.DeleteAccountInit, Data: ""},
+				expectedResp:       &console.DeleteAccountResponse{OwnedProjects: 1, UnpaidInvoices: 1, AmountOwed: int64(1000)},
+				proUserHttpStatus:  http.StatusConflict,
+				freeUserHttpStatus: http.StatusConflict,
+			},
+			{
+				name: "has current usage",
+				prepare: func(user, project uuid.UUID) error {
+					return sat.DB.Orders().UpdateBucketBandwidthSettle(ctx, project, []byte("testbucket"), pb.PieceAction_GET, 1000000, 0, timestamp.Add(-time.Minute))
+				},
+				cleanup: func(user, project uuid.UUID) error {
+					_, err = sat.DB.ProjectAccounting().ArchiveRollupsBefore(ctx, timestamp, 100)
+					return err
+				},
+				req:                consoleapi.AccountActionData{Step: console.DeleteAccountInit, Data: ""},
+				expectedResp:       &console.DeleteAccountResponse{OwnedProjects: 1, CurrentUsage: true},
+				proUserHttpStatus:  http.StatusConflict,
+				freeUserHttpStatus: http.StatusOK,
+			},
+			{
+				name: "last month's usage not invoiced yet",
+				prepare: func(user, project uuid.UUID) error {
+					return sat.DB.Orders().UpdateBucketBandwidthSettle(ctx, project, []byte("testbucket"), pb.PieceAction_GET, 1000000, 0, lastMonth)
+				},
+				cleanup: func(user, project uuid.UUID) error {
+					return sat.DB.StripeCoinPayments().ProjectRecords().Create(ctx, []stripe.CreateProjectRecord{{
+						ProjectID: project,
+						Egress:    1000000,
+					}}, lastMonth, thisMonth)
+				},
+				req:                consoleapi.AccountActionData{Step: console.DeleteAccountInit, Data: ""},
+				expectedResp:       &console.DeleteAccountResponse{OwnedProjects: 1, InvoicingIncomplete: true},
+				proUserHttpStatus:  http.StatusConflict,
+				freeUserHttpStatus: http.StatusOK,
+			},
+			{ // N.B. the testplanet.Satellite.AddUser method sets password to the user's full name. At the beginning of this test we set the free user's name to the same as pro user.
+				name:               "verify password",
+				req:                consoleapi.AccountActionData{Step: console.VerifyAccountPasswordStep, Data: proUser.FullName},
+				proUserHttpStatus:  http.StatusOK,
+				freeUserHttpStatus: http.StatusOK,
+			},
+			{
+				name:               "verify mfa",
+				req:                consoleapi.AccountActionData{Step: console.VerifyAccountMfaStep, Data: goodCode},
+				proUserHttpStatus:  http.StatusOK,
+				freeUserHttpStatus: http.StatusOK,
+			},
+			{
+				name: "verify email",
+				prepare: func(user, project uuid.UUID) error {
+					code := "123456"
+					return sat.API.DB.Console().Users().Update(ctx, user, console.UpdateUserRequest{
+						ActivationCode: &code,
+					})
+				},
+				req:                consoleapi.AccountActionData{Step: console.VerifyAccountEmailStep, Data: "123456"},
+				proUserHttpStatus:  http.StatusOK,
+				freeUserHttpStatus: http.StatusOK,
+			},
+			{
+				name:               "successfully deleted",
+				req:                consoleapi.AccountActionData{Step: console.DeleteAccountStep, Data: ""},
+				proUserHttpStatus:  http.StatusOK,
+				freeUserHttpStatus: http.StatusOK,
+			},
+		}
+
+		for _, u := range []*console.User{proUser, freeUser} {
+			projects, err := sat.API.DB.Console().Projects().GetOwn(ctx, u.ID)
+			require.NoError(t, err)
+
+			userType := "pro_user_"
+			if !u.PaidTier {
+				userType = "free_user_"
+			}
+
+			for _, tt := range tests {
+				t.Run(userType+tt.name, func(t *testing.T) {
+					if tt.prepare != nil {
+						require.NoError(t, tt.prepare(u.ID, projects[0].ID))
+					}
+					payload, err := json.Marshal(tt.req)
+					require.NoError(t, err)
+
+					resp, status, err := doRequestWithAuth(ctx, t, sat, u, http.MethodDelete, endpoint, bytes.NewBuffer(payload))
+					require.NoError(t, err)
+
+					switch u.ID {
+					case freeUser.ID:
+						require.Equal(t, tt.freeUserHttpStatus, status)
+					case proUser.ID:
+						require.Equal(t, tt.proUserHttpStatus, status)
+					default:
+						t.FailNow()
+					}
+
+					if u.ID == freeUser.ID {
+						require.Equal(t, tt.freeUserHttpStatus, status)
+					} else {
+						require.Equal(t, tt.proUserHttpStatus, status)
+					}
+
+					if status != http.StatusOK {
+						require.NotNil(t, resp)
+
+						if status == http.StatusConflict {
+							var data console.DeleteAccountResponse
+							require.NoError(t, json.Unmarshal(resp, &data))
+
+							require.Equal(t, *tt.expectedResp, data)
+						} else {
+							var data struct {
+								Error string `json:"error"`
+							}
+							require.NoError(t, json.Unmarshal(resp, &data))
+						}
+					}
+
+					if tt.cleanup != nil {
+						require.NoError(t, tt.cleanup(u.ID, projects[0].ID))
+					}
+				})
+			}
+
+			_, err = sat.API.DB.Console().Users().GetByEmail(ctx, u.Email)
+			require.Error(t, err)
+			require.ErrorIs(t, err, sql.ErrNoRows)
+		}
 	})
 }

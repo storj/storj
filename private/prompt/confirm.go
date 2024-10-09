@@ -17,7 +17,7 @@ var Error = errs.Class("prompt")
 // Confirm asks to confirm a question.
 func Confirm(prompt string) (bool, error) {
 	for {
-		fmt.Printf(prompt + " :")
+		fmt.Print(prompt + " :")
 
 		var response string
 		_, err := fmt.Scanln(&response)

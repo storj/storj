@@ -13,8 +13,8 @@ import (
 	"github.com/zeebo/errs"
 
 	"storj.io/common/currency"
-	"storj.io/common/dbutil/pgutil/pgerrcode"
 	"storj.io/common/uuid"
+	"storj.io/storj/private/slices2"
 	"storj.io/storj/satellite/payments/billing"
 	"storj.io/storj/satellite/satellitedb/dbx"
 )
@@ -69,20 +69,24 @@ func (db billingDB) Insert(ctx context.Context, primaryTx billing.Transaction, s
 	// related transactions to be committed together.
 	const supplementalTxLimit = 5
 	if len(supplementalTxs) > supplementalTxLimit {
-		return nil, Error.New("Cannot insert more than %d supplemental txs (tried %d)", supplementalTxLimit, len(supplementalTxs))
+		return nil, Error.New("cannot insert more than %d supplemental txs (tried %d)", supplementalTxLimit, len(supplementalTxs))
 	}
 
-	for retryCount := 0; retryCount < 5; retryCount++ {
-		txIDs, err := db.tryInsert(ctx, primaryTx, supplementalTxs)
+	backoff := 10 * time.Millisecond
+	for retryCount := 0; retryCount < 8; retryCount++ {
+		var txIDs []int64
+		txIDs, err = db.tryInsert(ctx, primaryTx, supplementalTxs)
 		switch {
 		case err == nil:
 			return txIDs, nil
-		case pgerrcode.IsConstraintViolation(err):
+		case dbx.IsConstraintError(err):
+			time.Sleep(backoff)
+			backoff *= 2
 		default:
 			return nil, err
 		}
 	}
-	return nil, Error.New("Unable to insert new billing transaction after several retries: %v", err)
+	return nil, Error.New("unable to insert new billing transaction after several retries: %v", err)
 }
 
 func (db billingDB) tryInsert(ctx context.Context, primaryTx billing.Transaction, supplementalTxs []billing.Transaction) (_ []int64, err error) {
@@ -108,7 +112,7 @@ func (db billingDB) tryInsert(ctx context.Context, primaryTx billing.Transaction
 			dbx.BillingTransaction_Status(string(billingTX.Status)),
 			dbx.BillingTransaction_Type(string(billingTX.Type)),
 			dbx.BillingTransaction_Metadata(handleMetaDataZeroValue(billingTX.Metadata)),
-			dbx.BillingTransaction_Timestamp(billingTX.Timestamp))
+			dbx.BillingTransaction_TxTimestamp(billingTX.Timestamp))
 		if err != nil {
 			return 0, Error.Wrap(err)
 		}
@@ -184,14 +188,14 @@ func (db billingDB) FailPendingInvoiceTokenPayments(ctx context.Context, txIDs .
 
 		userID, err := uuid.FromBytes(dbxTX.UserId)
 		if err != nil {
-			return Error.New("Unable to get user ID for transaction: %v %v", txID, err)
+			return Error.New("unable to get user ID for transaction: %v %v", txID, err)
 		}
 		oldBalance, err := db.GetBalance(ctx, userID)
 		if err != nil {
-			return Error.New("Unable to get user balance for ID: %v %v", userID, err)
+			return Error.New("unable to get user balance for ID: %v %v", userID, err)
 		}
 		err = db.db.WithTx(ctx, func(ctx context.Context, tx *dbx.Tx) error {
-			err = db.db.UpdateNoReturn_BillingTransaction_By_Id_And_Status(ctx, dbx.BillingTransaction_Id(txID),
+			err = tx.UpdateNoReturn_BillingTransaction_By_Id_And_Status(ctx, dbx.BillingTransaction_Id(txID),
 				dbx.BillingTransaction_Status(billing.TransactionStatusPending),
 				dbx.BillingTransaction_Update_Fields{
 					Status: dbx.BillingTransaction_Status(billing.TransactionStatusFailed),
@@ -203,7 +207,7 @@ func (db billingDB) FailPendingInvoiceTokenPayments(ctx context.Context, txIDs .
 			return updateBalance(ctx, tx, userID, oldBalance, currency.AmountFromBaseUnits(oldBalance.BaseUnits()-dbxTX.Amount, currency.USDollarsMicro))
 		})
 		if err != nil {
-			return Error.New("Unable to transition token invoice payment to failed state for transaction: %v %v", txID, err)
+			return Error.New("unable to transition token invoice payment to failed state for transaction: %v %v", txID, err)
 		}
 	}
 	return nil
@@ -260,31 +264,31 @@ func (db billingDB) LastTransaction(ctx context.Context, txSource string, txType
 		return time.Time{}, nil, billing.ErrNoTransactions
 	}
 
-	return lastTransaction.Timestamp, lastTransaction.Metadata, nil
+	return lastTransaction.TxTimestamp, lastTransaction.Metadata, nil
 }
 
 func (db billingDB) List(ctx context.Context, userID uuid.UUID) (txs []billing.Transaction, err error) {
 	defer mon.Task()(&ctx)(&err)
-	dbxTXs, err := db.db.All_BillingTransaction_By_UserId_OrderBy_Desc_Timestamp(ctx,
+	dbxTXs, err := db.db.All_BillingTransaction_By_UserId_OrderBy_Desc_TxTimestamp(ctx,
 		dbx.BillingTransaction_UserId(userID[:]))
 	if err != nil {
 		return nil, Error.Wrap(err)
 	}
 
-	txs, err = convertSlice(dbxTXs, fromDBXBillingTransaction)
+	txs, err = slices2.Convert(dbxTXs, fromDBXBillingTransaction)
 	return txs, Error.Wrap(err)
 }
 
 func (db billingDB) ListSource(ctx context.Context, userID uuid.UUID, txSource string) (txs []billing.Transaction, err error) {
 	defer mon.Task()(&ctx)(&err)
-	dbxTXs, err := db.db.All_BillingTransaction_By_UserId_And_Source_OrderBy_Desc_Timestamp(ctx,
+	dbxTXs, err := db.db.All_BillingTransaction_By_UserId_And_Source_OrderBy_Desc_TxTimestamp(ctx,
 		dbx.BillingTransaction_UserId(userID[:]),
 		dbx.BillingTransaction_Source(txSource))
 	if err != nil {
 		return nil, Error.Wrap(err)
 	}
 
-	txs, err = convertSlice(dbxTXs, fromDBXBillingTransaction)
+	txs, err = slices2.Convert(dbxTXs, fromDBXBillingTransaction)
 	return txs, Error.Wrap(err)
 }
 
@@ -317,7 +321,7 @@ func fromDBXBillingTransaction(dbxTX *dbx.BillingTransaction) (billing.Transacti
 		Status:      billing.TransactionStatus(dbxTX.Status),
 		Type:        billing.TransactionType(dbxTX.Type),
 		Metadata:    dbxTX.Metadata,
-		Timestamp:   dbxTX.Timestamp,
+		Timestamp:   dbxTX.TxTimestamp,
 		CreatedAt:   dbxTX.CreatedAt,
 	}, nil
 }

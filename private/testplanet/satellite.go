@@ -66,6 +66,7 @@ type Satellite struct {
 
 	Core       *satellite.Core
 	API        *satellite.API
+	ConsoleAPI *satellite.ConsoleAPI
 	UI         *satellite.UI
 	Repairer   *satellite.Repairer
 	Auditor    *satellite.Auditor
@@ -203,7 +204,11 @@ func (system *Satellite) URL() string { return system.NodeURL().String() }
 
 // ConsoleURL returns the console URL.
 func (system *Satellite) ConsoleURL() string {
-	return "http://" + system.API.Console.Listener.Addr().String()
+	if system.Config.DisableConsoleFromSatelliteAPI {
+		return "http://" + system.ConsoleAPI.Console.Listener.Addr().String()
+	} else {
+		return "http://" + system.API.Console.Listener.Addr().String()
+	}
 }
 
 // NodeURL returns the storj.NodeURL from the Satellite system API.
@@ -216,23 +221,30 @@ func (system *Satellite) NodeURL() storj.NodeURL {
 func (system *Satellite) AddUser(ctx context.Context, newUser console.CreateUser, maxNumberOfProjects int) (_ *console.User, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	regToken, err := system.API.Console.Service.CreateRegToken(ctx, maxNumberOfProjects)
+	var service *console.Service
+	if system.Config.DisableConsoleFromSatelliteAPI && system.ConsoleAPI != nil {
+		service = system.ConsoleAPI.Console.Service
+	} else {
+		service = system.API.Console.Service
+	}
+
+	regToken, err := service.CreateRegToken(ctx, maxNumberOfProjects)
 	if err != nil {
 		return nil, errs.Wrap(err)
 	}
 
 	newUser.Password = newUser.FullName
-	user, err := system.API.Console.Service.CreateUser(ctx, newUser, regToken.Secret)
+	user, err := service.CreateUser(ctx, newUser, regToken.Secret)
 	if err != nil {
 		return nil, errs.Wrap(err)
 	}
 
-	activationToken, err := system.API.Console.Service.GenerateActivationToken(ctx, user.ID, user.Email)
+	activationToken, err := service.GenerateActivationToken(ctx, user.ID, user.Email)
 	if err != nil {
 		return nil, errs.Wrap(err)
 	}
 
-	_, err = system.API.Console.Service.ActivateAccount(ctx, activationToken)
+	_, err = service.ActivateAccount(ctx, activationToken)
 	if err != nil {
 		return nil, errs.Wrap(err)
 	}
@@ -241,7 +253,7 @@ func (system *Satellite) AddUser(ctx context.Context, newUser console.CreateUser
 	if err != nil {
 		return nil, errs.Wrap(err)
 	}
-	_, err = system.API.Console.Service.Payments().SetupAccount(userCtx)
+	_, err = service.Payments().SetupAccount(userCtx)
 	if err != nil {
 		return nil, errs.Wrap(err)
 	}
@@ -250,19 +262,27 @@ func (system *Satellite) AddUser(ctx context.Context, newUser console.CreateUser
 }
 
 // AddProject adds project to a satellite and makes specified user an owner.
-func (system *Satellite) AddProject(ctx context.Context, ownerID uuid.UUID, name string) (_ *console.Project, err error) {
+func (system *Satellite) AddProject(ctx context.Context, ownerID uuid.UUID, name string) (project *console.Project, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	ctx, err = system.UserContext(ctx, ownerID)
 	if err != nil {
 		return nil, errs.Wrap(err)
 	}
-	project, err := system.API.Console.Service.CreateProject(ctx, console.UpsertProjectInfo{
-		Name: name,
-	})
+
+	if system.Config.DisableConsoleFromSatelliteAPI && system.ConsoleAPI != nil {
+		project, err = system.ConsoleAPI.Console.Service.CreateProject(ctx, console.UpsertProjectInfo{
+			Name: name,
+		})
+	} else {
+		project, err = system.API.Console.Service.CreateProject(ctx, console.UpsertProjectInfo{
+			Name: name,
+		})
+	}
 	if err != nil {
 		return nil, errs.Wrap(err)
 	}
+
 	return project, nil
 }
 
@@ -270,7 +290,12 @@ func (system *Satellite) AddProject(ctx context.Context, ownerID uuid.UUID, name
 func (system *Satellite) UserContext(ctx context.Context, userID uuid.UUID) (_ context.Context, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	user, err := system.API.Console.Service.GetUser(ctx, userID)
+	var user *console.User
+	if system.Config.DisableConsoleFromSatelliteAPI && system.ConsoleAPI != nil {
+		user, err = system.ConsoleAPI.Console.Service.GetUser(ctx, userID)
+	} else {
+		user, err = system.API.Console.Service.GetUser(ctx, userID)
+	}
 	if err != nil {
 		return nil, errs.Wrap(err)
 	}
@@ -279,8 +304,8 @@ func (system *Satellite) UserContext(ctx context.Context, userID uuid.UUID) (_ c
 }
 
 // Close closes all the subsystems in the Satellite system.
-func (system *Satellite) Close() error {
-	return errs.Combine(
+func (system *Satellite) Close() (err error) {
+	err = errs.Combine(
 		system.API.Close(),
 		system.Core.Close(),
 		system.Repairer.Close(),
@@ -288,6 +313,11 @@ func (system *Satellite) Close() error {
 		system.Admin.Close(),
 		system.GCBF.Close(),
 	)
+	if system.ConsoleAPI != nil {
+		err = errs.Combine(err, system.ConsoleAPI.Close())
+	}
+
+	return err
 }
 
 // Run runs all the subsystems in the Satellite system.
@@ -300,6 +330,11 @@ func (system *Satellite) Run(ctx context.Context) (err error) {
 	group.Go(func() error {
 		return errs2.IgnoreCanceled(system.API.Run(ctx))
 	})
+	if system.ConsoleAPI != nil {
+		group.Go(func() error {
+			return errs2.IgnoreCanceled(system.ConsoleAPI.Run(ctx))
+		})
+	}
 	if system.UI != nil {
 		group.Go(func() error {
 			return errs2.IgnoreCanceled(system.UI.Run(ctx))
@@ -432,7 +467,6 @@ func (planet *Planet) newSatellite(ctx context.Context, prefix string, index int
 	config.Console.ProjectLimitsIncreaseRequestURL = ""
 	config.Console.GatewayCredentialsRequestURL = ""
 	config.Console.DocumentationURL = ""
-	config.Console.LinksharingURL = ""
 	config.Console.PathwayOverviewEnabled = false
 	config.Compensation.Rates.AtRestGBHours = compensation.Rate{}
 	config.Compensation.Rates.GetTB = compensation.Rate{}
@@ -529,10 +563,25 @@ func (planet *Planet) newSatellite(ctx context.Context, prefix string, index int
 		return nil, errs.Wrap(err)
 	}
 
+	var (
+		consoleAPI     *satellite.ConsoleAPI
+		consoleAPIAddr string
+	)
+	if config.DisableConsoleFromSatelliteAPI {
+		consoleAPI, err = planet.newConsoleAPI(ctx, index, identity, db, metabaseDB, config, versionInfo)
+		if err != nil {
+			return nil, errs.Wrap(err)
+		}
+
+		consoleAPIAddr = consoleAPI.Console.Listener.Addr().String()
+	} else {
+		consoleAPIAddr = api.Console.Listener.Addr().String()
+	}
+
 	// only run if front-end endpoints on console back-end server are disabled.
 	var ui *satellite.UI
 	if !config.Console.FrontendEnable {
-		ui, err = planet.newUI(ctx, index, identity, config, api.ExternalAddress, api.Console.Listener.Addr().String())
+		ui, err = planet.newUI(ctx, index, identity, config, api.ExternalAddress, consoleAPIAddr)
 		if err != nil {
 			return nil, errs.Wrap(err)
 		}
@@ -564,22 +613,23 @@ func (planet *Planet) newSatellite(ctx context.Context, prefix string, index int
 	}
 
 	if config.EmailReminders.Enable {
-		peer.Mail.EmailReminders.TestSetLinkAddress("http://" + api.Console.Listener.Addr().String() + "/")
+		peer.Mail.EmailReminders.TestSetLinkAddress("http://" + consoleAPIAddr + "/")
 	}
 
-	return createNewSystem(prefix, log, config, peer, api, ui, repairerPeer, auditorPeer, adminPeer, gcBFPeer, rangedLoopPeer), nil
+	return createNewSystem(prefix, log, config, peer, api, consoleAPI, ui, repairerPeer, auditorPeer, adminPeer, gcBFPeer, rangedLoopPeer), nil
 }
 
 // createNewSystem makes a new Satellite System and exposes the same interface from
 // before we split out the API. In the short term this will help keep all the tests passing
 // without much modification needed. However long term, we probably want to rework this
 // so it represents how the satellite will run when it is made up of many processes.
-func createNewSystem(name string, log *zap.Logger, config satellite.Config, peer *satellite.Core, api *satellite.API, ui *satellite.UI, repairerPeer *satellite.Repairer, auditorPeer *satellite.Auditor, adminPeer *satellite.Admin, gcBFPeer *satellite.GarbageCollectionBF, rangedLoopPeer *satellite.RangedLoop) *Satellite {
+func createNewSystem(name string, log *zap.Logger, config satellite.Config, peer *satellite.Core, api *satellite.API, consoleAPI *satellite.ConsoleAPI, ui *satellite.UI, repairerPeer *satellite.Repairer, auditorPeer *satellite.Auditor, adminPeer *satellite.Admin, gcBFPeer *satellite.GarbageCollectionBF, rangedLoopPeer *satellite.RangedLoop) *Satellite {
 	system := &Satellite{
 		Name:       name,
 		Config:     config,
 		Core:       peer,
 		API:        api,
+		ConsoleAPI: consoleAPI,
 		UI:         ui,
 		Repairer:   repairerPeer,
 		Auditor:    auditorPeer,
@@ -646,6 +696,20 @@ func createNewSystem(name string, log *zap.Logger, config satellite.Config, peer
 
 	system.GracefulExit.Endpoint = api.GracefulExit.Endpoint
 
+	if system.Config.DisableConsoleFromSatelliteAPI {
+		system.API.Console = consoleAPI.Console
+		system.API.Mail = consoleAPI.Mail
+		system.API.OIDC = consoleAPI.OIDC
+		system.API.Analytics = consoleAPI.Analytics
+		system.API.ABTesting = consoleAPI.ABTesting
+		system.API.KeyManagement = consoleAPI.KeyManagement
+		system.API.Payments = consoleAPI.Payments
+		system.API.REST = consoleAPI.REST
+		system.API.HealthCheck = consoleAPI.HealthCheck
+		system.API.Userinfo = consoleAPI.Userinfo
+		system.API.Accounting = consoleAPI.Accounting
+	}
+
 	return system
 }
 
@@ -671,6 +735,30 @@ func (planet *Planet) newAPI(ctx context.Context, index int, identity *identity.
 	planet.databases = append(planet.databases, rollupsWriteCacheCloser{rollupsWriteCache})
 
 	return satellite.NewAPI(log, identity, db, metabaseDB, revocationDB, liveAccounting, rollupsWriteCache, &config, versionInfo, nil)
+}
+
+func (planet *Planet) newConsoleAPI(ctx context.Context, index int, identity *identity.FullIdentity, db satellite.DB, metabaseDB *metabase.DB, config satellite.Config, versionInfo version.Info) (_ *satellite.ConsoleAPI, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	prefix := "satellite-console-api" + strconv.Itoa(index)
+	log := planet.log.Named(prefix)
+
+	revocationDB, err := revocation.OpenDBFromCfg(ctx, config.Server.Config)
+	if err != nil {
+		return nil, errs.Wrap(err)
+	}
+	planet.databases = append(planet.databases, revocationDB)
+
+	liveAccounting, err := live.OpenCache(ctx, log.Named("live-accounting"), config.LiveAccounting)
+	if err != nil {
+		return nil, errs.Wrap(err)
+	}
+	planet.databases = append(planet.databases, liveAccounting)
+
+	rollupsWriteCache := orders.NewRollupsWriteCache(log.Named("orders-write-cache"), db.Orders(), config.Orders.FlushBatchSize)
+	planet.databases = append(planet.databases, rollupsWriteCacheCloser{rollupsWriteCache})
+
+	return satellite.NewConsoleAPI(log, identity, db, metabaseDB, revocationDB, liveAccounting, rollupsWriteCache, &config, versionInfo, nil)
 }
 
 func (planet *Planet) newUI(ctx context.Context, index int, identity *identity.FullIdentity, config satellite.Config, satelliteAddr, consoleAPIAddr string) (_ *satellite.UI, err error) {

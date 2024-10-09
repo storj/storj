@@ -62,7 +62,7 @@
             <div class="title-area-divider" />
             <VInfo
                 v-if="info.isLastVersion"
-                text="Running the minimal allowed version:"
+                text="Your node is up to date. Current minimum version:"
                 :bold-text="info.allowedVersion"
             >
                 <div class="title-area__info-container__info-item">

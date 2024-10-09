@@ -211,6 +211,7 @@ func NewAdmin(log *zap.Logger, full *identity.FullIdentity, db DB, metabaseDB *m
 			pc.BonusRate,
 			peer.Analytics.Service,
 			emission.NewService(config.Emission),
+			config.Console.SelfServeAccountDeleteEnabled,
 		)
 
 		if err != nil {
@@ -227,6 +228,7 @@ func NewAdmin(log *zap.Logger, full *identity.FullIdentity, db DB, metabaseDB *m
 
 	{ // setup accounting project usage
 		peer.Accounting.Service = accounting.NewService(
+			log.Named("accounting:projectusage-service"),
 			peer.DB.ProjectAccounting(),
 			peer.LiveAccounting.Cache,
 			*metabaseDB,
@@ -245,7 +247,7 @@ func NewAdmin(log *zap.Logger, full *identity.FullIdentity, db DB, metabaseDB *m
 			return nil, err
 		}
 
-		placement, err := config.Placement.Parse(config.Overlay.Node.CreateDefaultPlacement)
+		placement, err := config.Placement.Parse(config.Overlay.Node.CreateDefaultPlacement, nil)
 		if err != nil {
 			return nil, err
 		}
@@ -267,6 +269,7 @@ func NewAdmin(log *zap.Logger, full *identity.FullIdentity, db DB, metabaseDB *m
 			log.Named("admin"),
 			peer.Admin.Listener,
 			peer.DB,
+			metabaseDB,
 			peer.Buckets.Service,
 			peer.REST.Keys,
 			peer.FreezeAccounts.Service,

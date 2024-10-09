@@ -2,9 +2,9 @@
 // See LICENSE for copying information.
 
 <template>
-    <v-dialog v-model="model" max-width="420" transition="fade-transition">
-        <v-card ref="innerContent" rounded="xlg">
-            <v-card-item class="pa-5 pl-7">
+    <v-dialog v-model="model" max-width="420" transition="fade-transition" persistent>
+        <v-card ref="innerContent">
+            <v-card-item class="pa-6">
                 <template #prepend>
                     <img class="d-block" :src="stepInfo[step].ref.value?.iconSrc || LockIcon" alt="step icon">
                 </template>
@@ -44,6 +44,7 @@
                         :ref="stepInfo[ManageProjectPassphraseStep.EnterPassphrase].ref"
                         ack-required
                         @passphrase-changed="newPass => passphrase = newPass"
+                        @submit="onNextClick"
                     >
                         Please note that Storj does not know or store your encryption passphrase.
                         If you lose it, you will not be able to recover your files.
@@ -74,6 +75,7 @@
                         :ref="stepInfo[ManageProjectPassphraseStep.Switch].ref"
                         title="Switch Passphrase"
                         set-on-next
+                        @submit="onNextClick"
                     >
                         Switch passphrase to view existing data that is uploaded with a different passphrase, or upload new data.
                         Please note that you won't see the previous data once you switch passphrases.
@@ -90,13 +92,13 @@
 
             <v-divider />
 
-            <v-card-actions class="pa-7">
+            <v-card-actions class="pa-6">
                 <v-row>
                     <v-col v-if="stepInfo[step].prev.value">
                         <v-btn
                             variant="outlined"
                             color="default"
-                            :prepend-icon="mdiChevronLeft"
+                            :prepend-icon="ChevronLeft"
                             block
                             @click="onBackClick"
                         >
@@ -113,7 +115,7 @@
                             color="primary"
                             variant="flat"
                             block
-                            :append-icon="mdiChevronRight"
+                            :append-icon="ChevronRight"
                             @click="onNextClick"
                         >
                             Continue
@@ -140,7 +142,7 @@ import {
     VCol,
     VBtn,
 } from 'vuetify/components';
-import { mdiChevronLeft, mdiChevronRight } from '@mdi/js';
+import { ChevronLeft, ChevronRight } from 'lucide-vue-next';
 
 import { ManageProjectPassphraseStep, PassphraseOption } from '@/types/managePassphrase';
 import { useProjectsStore } from '@/store/modules/projectsStore';
@@ -154,7 +156,7 @@ import PassphraseGeneratedStep from '@/components/dialogs/commonPassphraseSteps/
 import SuccessStep from '@/components/dialogs/managePassphraseSteps/SuccessStep.vue';
 import ClearStep from '@/components/dialogs/managePassphraseSteps/ClearStep.vue';
 
-import LockIcon from '@/assets/createAccessGrantFlow/accessEncryption.svg';
+import LockIcon from '@/assets/icon-access.svg';
 
 type ManagePassphraseLocation = ManageProjectPassphraseStep | null | (() => (ManageProjectPassphraseStep | null));
 

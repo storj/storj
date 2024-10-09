@@ -128,24 +128,15 @@ func TestV0PieceInfo(t *testing.T) {
 		require.Empty(t, cmp.Diff(info1, info1loaded, cmp.Comparer(pb.Equal)))
 
 		// getting no expired pieces
-		expired, err := pieceinfos.GetExpired(ctx, now.Add(-10*time.Hour), 10)
+		expired, err := pieceinfos.GetExpired(ctx, now.Add(-10*time.Hour))
 		assert.NoError(t, err)
-		assert.Len(t, expired, 0)
+		require.Len(t, expired, 0)
 
 		// getting expired pieces
 		exp := now.Add(8 * 24 * time.Hour)
-		expired, err = pieceinfos.GetExpired(ctx, exp, 10)
+		expired, err = pieceinfos.GetExpired(ctx, exp)
 		assert.NoError(t, err)
 		assert.Len(t, expired, 3)
-
-		// mark info0 deletion as a failure
-		err = pieceinfos.DeleteFailed(ctx, info0.SatelliteID, info0.PieceID, exp)
-		assert.NoError(t, err)
-
-		// this shouldn't return info0
-		expired, err = pieceinfos.GetExpired(ctx, exp, 10)
-		assert.NoError(t, err)
-		assert.Len(t, expired, 2)
 
 		// deleting
 		err = pieceinfos.Delete(ctx, info0.SatelliteID, info0.PieceID)
@@ -190,18 +181,13 @@ func TestPieceinfo_Trivial(t *testing.T) {
 			require.NoError(t, err)
 		}
 
-		{ // Ensure DeleteFailed works at all
-			err := pieceinfos.DeleteFailed(ctx, satelliteID, pieceID, time.Now())
-			require.NoError(t, err)
-		}
-
 		{ // Ensure Delete works at all
 			err := pieceinfos.Delete(ctx, satelliteID, pieceID)
 			require.NoError(t, err)
 		}
 
 		{ // Ensure GetExpired works at all
-			_, err := pieceinfos.GetExpired(ctx, time.Now(), 1)
+			_, err := pieceinfos.GetExpired(ctx, time.Now())
 			require.NoError(t, err)
 		}
 	})

@@ -4,13 +4,13 @@
 package migrate
 
 import (
-	"storj.io/common/tagsql"
+	"storj.io/storj/shared/tagsql"
 )
 
 // DBX contains additional methods for migrations.
 type DBX interface {
 	tagsql.DB
-	Schema() string
+	Schema() []string
 	Rebind(string) string
 }
 

@@ -46,6 +46,8 @@ export STORJ_REDIS_HOST=${STORJ_NETWORK_HOST4}
 
 # TODO remove when metainfo.server-side-copy-duplicate-metadata will be dropped
 export STORJ_METAINFO_SERVER_SIDE_COPY_DUPLICATE_METADATA=true
+# TODO remove when we get rid of this feature flag
+export STORJ_CONSOLE_SIGNUP_ACTIVATION_CODE_ENABLED=false
 
 # setup the network
 "${SCRIPTDIR}/redis-server.sh" start

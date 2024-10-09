@@ -38,7 +38,9 @@ func (c *cmdAccessInspect) Setup(params clingy.Parameters) {
 }
 
 // Execute runs the command.
-func (c *cmdAccessInspect) Execute(ctx context.Context) error {
+func (c *cmdAccessInspect) Execute(ctx context.Context) (err error) {
+	defer mon.Task()(&ctx)(&err)
+
 	toOpen := ""
 	if c.access != nil {
 		toOpen = *c.access
@@ -97,7 +99,7 @@ func (c *cmdAccessInspect) Execute(ctx context.Context) error {
 		return err
 	}
 
-	fmt.Fprintln(clingy.Stdout(ctx), string(bs))
+	_, _ = fmt.Fprintln(clingy.Stdout(ctx), string(bs))
 
 	return nil
 }

@@ -40,7 +40,7 @@ func TestApiKeyAdd(t *testing.T) {
 
 		keys, err := planet.Satellites[0].DB.Console().
 			APIKeys().
-			GetPagedByProjectID(ctx, projectID, console.APIKeyCursor{Page: 1, Limit: 10})
+			GetPagedByProjectID(ctx, projectID, console.APIKeyCursor{Page: 1, Limit: 10}, "")
 		require.NoError(t, err)
 		require.Len(t, keys.APIKeys, 1)
 
@@ -75,7 +75,7 @@ func TestApiKeyAdd(t *testing.T) {
 
 		keys, err = planet.Satellites[0].DB.Console().
 			APIKeys().
-			GetPagedByProjectID(ctx, projectID, console.APIKeyCursor{Page: 1, Limit: 10})
+			GetPagedByProjectID(ctx, projectID, console.APIKeyCursor{Page: 1, Limit: 10}, "")
 		require.NoError(t, err)
 		require.Len(t, keys.APIKeys, 2)
 
@@ -101,7 +101,7 @@ func TestApiKeyDelete(t *testing.T) {
 
 		keys, err := planet.Satellites[0].DB.Console().
 			APIKeys().
-			GetPagedByProjectID(ctx, projectID, console.APIKeyCursor{Page: 1, Limit: 10})
+			GetPagedByProjectID(ctx, projectID, console.APIKeyCursor{Page: 1, Limit: 10}, "")
 		require.NoError(t, err)
 		require.Len(t, keys.APIKeys, 1)
 
@@ -113,7 +113,7 @@ func TestApiKeyDelete(t *testing.T) {
 
 		keys, err = planet.Satellites[0].DB.Console().
 			APIKeys().
-			GetPagedByProjectID(ctx, projectID, console.APIKeyCursor{Page: 1, Limit: 10})
+			GetPagedByProjectID(ctx, projectID, console.APIKeyCursor{Page: 1, Limit: 10}, "")
 		require.NoError(t, err)
 		require.Len(t, keys.APIKeys, 0)
 
@@ -148,7 +148,7 @@ func TestApiKeyDelete_ByName(t *testing.T) {
 
 		keys, err := planet.Satellites[0].DB.Console().
 			APIKeys().
-			GetPagedByProjectID(ctx, projectID, console.APIKeyCursor{Page: 1, Limit: 10})
+			GetPagedByProjectID(ctx, projectID, console.APIKeyCursor{Page: 1, Limit: 10}, "")
 		require.NoError(t, err)
 		require.Len(t, keys.APIKeys, 1)
 
@@ -187,7 +187,7 @@ func TestApiKeyDelete_ByName(t *testing.T) {
 
 		keys, err = planet.Satellites[0].DB.Console().
 			APIKeys().
-			GetPagedByProjectID(ctx, projectID, console.APIKeyCursor{Page: 1, Limit: 10})
+			GetPagedByProjectID(ctx, projectID, console.APIKeyCursor{Page: 1, Limit: 10}, "")
 		require.NoError(t, err)
 		require.Len(t, keys.APIKeys, 0)
 
@@ -234,7 +234,7 @@ func TestApiKeysList(t *testing.T) {
 			page, err := sat.DB.Console().APIKeys().GetPagedByProjectID(
 				ctx, project.ID, console.APIKeyCursor{
 					Limit: 50, Page: 1, Order: console.KeyName, OrderDirection: console.Ascending,
-				},
+				}, "",
 			)
 			require.NoError(t, err)
 

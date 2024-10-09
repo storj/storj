@@ -5,8 +5,11 @@ package analytics
 
 import (
 	"context"
+	"math"
 	"strings"
+	"time"
 
+	"github.com/spacemonkeygo/monkit/v3"
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 	segment "gopkg.in/segmentio/analytics-go.v3"
@@ -14,13 +17,21 @@ import (
 	"storj.io/common/uuid"
 )
 
+var mon = monkit.Package()
+
 const (
+	// SourceTrialExpiringNotice is the trial expiring notice source.
+	SourceTrialExpiringNotice = "trial_expiring_notice"
+	// SourceTrialExpiredNotice is the trial expired notice source.
+	SourceTrialExpiredNotice = "trial_expired_notice"
+
 	eventInviteLinkClicked            = "Invite Link Clicked"
 	eventInviteLinkSignup             = "Invite Link Signup"
 	eventAccountCreated               = "Account Created"
 	eventAccountSetUp                 = "Account Set Up"
 	eventSignedIn                     = "Signed In"
 	eventProjectCreated               = "Project Created"
+	eventManagedEncryptionError       = "Managed Encryption Error"
 	eventAccessGrantCreated           = "Access Grant Created"
 	eventAccountVerified              = "Account Verified"
 	eventGatewayCredentialsCreated    = "Credentials Created"
@@ -107,6 +118,12 @@ const (
 	eventOnboardingAbandoned          = "Onboarding Abandoned"
 	eventPersonalSelected             = "Personal Selected"
 	eventBusinessSelected             = "Business Selected"
+	eventUserUpgraded                 = "User Upgraded"
+	eventUpgradeClicked               = "Upgrade Clicked"
+	eventArrivedFromSource            = "Arrived From Source"
+	eventApplicationsSetupClicked     = "Applications Setup Clicked"
+	eventApplicationsSetupCompleted   = "Applications Setup Completed"
+	eventApplicationsDocsClicked      = "Applications Docs Clicked"
 )
 
 var (
@@ -119,6 +136,7 @@ type Config struct {
 	SegmentWriteKey string `help:"segment write key" default:""`
 	Enabled         bool   `help:"enable analytics reporting" default:"false"`
 	HubSpot         HubSpotConfig
+	Plausible       plausibleConfig
 }
 
 // FreezeTracker is an interface for account freeze event tracking methods.
@@ -162,9 +180,11 @@ type Service struct {
 	config        Config
 	satelliteName string
 	clientEvents  map[string]bool
+	sources       map[string]interface{}
 
-	segment segment.Client
-	hubspot *HubSpotEvents
+	segment   segment.Client
+	hubspot   *HubSpotEvents
+	plausible *plausibleService
 }
 
 // NewService creates new service for creating sending analytics.
@@ -174,7 +194,9 @@ func NewService(log *zap.Logger, config Config, satelliteName string) *Service {
 		config:        config,
 		satelliteName: satelliteName,
 		clientEvents:  make(map[string]bool),
+		sources:       make(map[string]interface{}),
 		hubspot:       NewHubSpotEvents(log.Named("hubspotclient"), config.HubSpot, satelliteName),
+		plausible:     newPlausibleService(log.Named("plausibleservice"), config.Plausible),
 	}
 	if config.Enabled {
 		service.segment = segment.New(config.SegmentWriteKey)
@@ -193,9 +215,13 @@ func NewService(log *zap.Logger, config Config, satelliteName string) *Service {
 		eventProjectStorageLimitUpdated, eventProjectBandwidthLimitUpdated, eventProjectInvitationAccepted, eventProjectInvitationDeclined,
 		eventGalleryViewClicked, eventResendInviteClicked, eventRemoveProjectMemberCLicked, eventCopyInviteLinkClicked, eventUserSignUp,
 		eventPersonalInfoSubmitted, eventBusinessInfoSubmitted, eventUseCaseSelected, eventOnboardingCompleted, eventOnboardingAbandoned,
-		eventPersonalSelected, eventBusinessSelected} {
+		eventPersonalSelected, eventBusinessSelected, eventUserUpgraded, eventUpgradeClicked, eventArrivedFromSource, eventApplicationsDocsClicked,
+		eventApplicationsSetupClicked, eventApplicationsSetupCompleted} {
 		service.clientEvents[name] = true
 	}
+
+	service.sources[SourceTrialExpiredNotice] = struct{}{}
+	service.sources[SourceTrialExpiringNotice] = struct{}{}
 
 	return service
 }
@@ -247,17 +273,19 @@ type TrackCreateUserFields struct {
 
 // TrackOnboardingInfoFields contains input data entered after first login.
 type TrackOnboardingInfoFields struct {
-	ID               uuid.UUID
-	FullName         string
-	Email            string
-	Type             UserType
-	EmployeeCount    string
-	CompanyName      string
-	StorageNeeds     string
-	JobTitle         string
-	StorageUseCase   string
-	FunctionalArea   string
-	HaveSalesContact bool
+	ID                     uuid.UUID
+	FullName               string
+	Email                  string
+	Type                   UserType
+	EmployeeCount          string
+	CompanyName            string
+	StorageNeeds           string
+	JobTitle               string
+	StorageUseCase         string
+	OtherUseCase           string
+	FunctionalArea         string
+	HaveSalesContact       bool
+	InterestedInPartnering bool
 }
 
 func (service *Service) enqueueMessage(message segment.Message) {
@@ -331,13 +359,31 @@ func (service *Service) TrackCreateUser(fields TrackCreateUserFields) {
 		Event:       service.satelliteName + " " + eventAccountCreated,
 		Properties:  props,
 	})
+}
 
-	if fields.FullName == "" {
-		// the new minimal signup flow does not require a name.
-		service.hubspot.EnqueueCreateUserMinimal(fields)
+// CreateContact creates a contact in hubspot for a user.
+func (service *Service) CreateContact(fields TrackCreateUserFields) {
+	if !service.config.Enabled {
 		return
 	}
-	service.hubspot.EnqueueCreateUser(fields)
+	service.hubspot.EnqueueCreateUserMinimal(fields)
+}
+
+// ChangeContactEmail changes contact's email address.
+func (service *Service) ChangeContactEmail(userID uuid.UUID, oldEmail, newEmail string) {
+	if !service.config.Enabled {
+		return
+	}
+
+	traits := segment.NewTraits()
+	traits.SetEmail(newEmail)
+
+	service.enqueueMessage(segment.Identify{
+		UserId: userID.String(),
+		Traits: traits,
+	})
+
+	service.hubspot.EnqueueUserChangeEmail(oldEmail, newEmail)
 }
 
 // TrackUserOnboardingInfo sends onboarding info to Hubspot.
@@ -365,6 +411,7 @@ func (service *Service) TrackUserOnboardingInfo(fields TrackOnboardingInfoFields
 	traits.SetEmail(fields.Email)
 	if fields.Type == Professional {
 		traits.Set("have_sales_contact", fields.HaveSalesContact)
+		traits.Set("interested_in_partnering", fields.InterestedInPartnering)
 	}
 
 	service.enqueueMessage(segment.Identify{
@@ -377,6 +424,7 @@ func (service *Service) TrackUserOnboardingInfo(fields TrackOnboardingInfoFields
 	props.Set("name", fields.FullName)
 	props.Set("account_type", fields.Type)
 	props.Set("storage_use", fields.StorageUseCase)
+	props.Set("other_use_case", fields.OtherUseCase)
 
 	if fields.Type == Professional {
 		props.Set("company_size", fields.EmployeeCount)
@@ -433,6 +481,24 @@ func (service *Service) TrackProjectCreated(userID uuid.UUID, email string, proj
 	service.enqueueMessage(segment.Track{
 		UserId:     userID.String(),
 		Event:      service.satelliteName + " " + eventProjectCreated,
+		Properties: props,
+	})
+}
+
+// TrackManagedEncryptionError sends an "Managed Encryption Error" event to Segment.
+func (service *Service) TrackManagedEncryptionError(userID uuid.UUID, email string, projectID uuid.UUID, reason string) {
+	if !service.config.Enabled {
+		return
+	}
+
+	props := segment.NewProperties()
+	props.Set("project_id", projectID.String())
+	props.Set("email", email)
+	props.Set("reason", reason)
+
+	service.enqueueMessage(segment.Track{
+		UserId:     userID.String(),
+		Event:      service.satelliteName + " " + eventManagedEncryptionError,
 		Properties: props,
 	})
 }
@@ -646,6 +712,13 @@ func (service *Service) TrackEvent(eventName string, userID uuid.UUID, email str
 		return
 	}
 
+	if v, ok := customProps["source"]; ok {
+		if _, ok = service.sources[v]; !ok {
+			service.log.Error("Event source is not in allowed list", zap.String("eventName", eventName), zap.String("source", v))
+			return
+		}
+	}
+
 	props := segment.NewProperties()
 	props.Set("email", email)
 
@@ -736,6 +809,15 @@ func (service *Service) PageVisitEvent(pageName string, userID uuid.UUID, email 
 		Name:       "Page Requested",
 		Properties: props,
 	})
+}
+
+// PageViewEvent sends a page view event to plausible.
+func (service *Service) PageViewEvent(ctx context.Context, pv PageViewBody) error {
+	if !service.config.Enabled {
+		return nil
+	}
+
+	return service.plausible.pageViewEvent(ctx, pv)
 }
 
 // TrackProjectLimitError sends an "Project Limit Error" event to Segment.
@@ -864,6 +946,39 @@ func (service *Service) TrackInviteLinkClicked(inviter, invitee string) {
 
 	service.enqueueMessage(segment.Track{
 		Event:      service.satelliteName + " " + eventInviteLinkClicked,
+		Properties: props,
+	})
+}
+
+// TrackUserUpgraded sends a "User Upgraded" event to Segment.
+func (service *Service) TrackUserUpgraded(userID uuid.UUID, email string, expiration *time.Time) {
+	if !service.config.Enabled {
+		return
+	}
+
+	props := segment.NewProperties()
+
+	now := time.Now()
+
+	props.Set("email", email)
+
+	// NOTE: if this runs before legacy free tier migration, old free tier will
+	// be considered unlimited.
+	if expiration == nil {
+		props.Set("trial status", "unlimited")
+	} else {
+		if now.After(*expiration) {
+			props.Set("trial status", "expired")
+			props.Set("days since expiration", math.Floor(now.Sub(*expiration).Hours()/24))
+		} else {
+			props.Set("trial status", "active")
+			props.Set("days until expiration", math.Floor(expiration.Sub(now).Hours()/24))
+		}
+	}
+
+	service.enqueueMessage(segment.Track{
+		UserId:     userID.String(),
+		Event:      service.satelliteName + " " + eventUserUpgraded,
 		Properties: props,
 	})
 }

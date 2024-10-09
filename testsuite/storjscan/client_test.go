@@ -68,9 +68,9 @@ func TestClientPayments(t *testing.T) {
 		err = stack.App.TokenPrice.Service.SavePrice(ctx, blockTime.Add(-30*time.Second), price)
 		require.NoError(t, err)
 
-		pmnts, err := planet.Satellites[0].API.Payments.StorjscanClient.AllPayments(ctx, 0)
+		pmnts, err := planet.Satellites[0].API.Payments.StorjscanClient.AllPayments(ctx, nil)
 		require.NoError(t, err)
-		require.Equal(t, block.Number().Int64(), pmnts.LatestBlock.Number)
+		require.Equal(t, block.Number().Int64(), pmnts.LatestBlocks[0].Number)
 		require.Len(t, pmnts.Payments, 1)
 
 		expected := storjscan.Payment{

@@ -18,8 +18,8 @@ import (
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 
-	"storj.io/common/dbutil/dbschema"
-	"storj.io/common/dbutil/sqliteutil"
+	"storj.io/storj/shared/dbutil/dbschema"
+	"storj.io/storj/shared/dbutil/sqliteutil"
 	"storj.io/storj/storagenode/storagenodedb"
 )
 
@@ -33,7 +33,7 @@ func main() {
 	out, err := runSchemaGen(ctx, log)
 	if err != nil {
 		printWithLines(os.Stderr, out)
-		fmt.Fprintf(os.Stderr, "%v", err)
+		_, _ = fmt.Fprintf(os.Stderr, "%v", err)
 		os.Exit(1)
 	}
 
@@ -42,7 +42,7 @@ func main() {
 	} else {
 		err := os.WriteFile(*outfile, out, 0644)
 		if err != nil {
-			fmt.Fprintf(os.Stderr, "%v", err)
+			_, _ = fmt.Fprintf(os.Stderr, "%v", err)
 			os.Exit(1)
 		}
 	}
@@ -50,7 +50,7 @@ func main() {
 
 func printWithLines(w io.Writer, data []byte) {
 	for i, line := range strings.Split(string(data), "\n") {
-		fmt.Fprintf(w, "%3d: %s\n", i, line)
+		_, _ = fmt.Fprintf(w, "%3d: %s\n", i, line)
 	}
 }
 
@@ -128,7 +128,7 @@ func runSchemaGen(ctx context.Context, log *zap.Logger) (_ []byte, err error) {
 
 		package storagenodedb
 
-		import "storj.io/common/dbutil/dbschema"
+		import "storj.io/storj/shared/dbutil/dbschema"
 
 		func Schema() map[string]*dbschema.Schema {
 		return map[string]*dbschema.Schema{

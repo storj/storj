@@ -5,6 +5,7 @@ package console
 
 import (
 	"context"
+	"time"
 
 	"storj.io/storj/satellite/payments"
 	"storj.io/storj/satellite/payments/billing"
@@ -17,6 +18,7 @@ type InvoiceTokenPaymentObserver struct {
 	consoleDB     DB
 	invoices      payments.Invoices
 	freezeService *AccountFreezeService
+	nowFn         func() time.Time
 }
 
 // NewInvoiceTokenPaymentObserver creates new observer instance.
@@ -25,6 +27,7 @@ func NewInvoiceTokenPaymentObserver(consoleDB DB, invoices payments.Invoices, fr
 		consoleDB:     consoleDB,
 		invoices:      invoices,
 		freezeService: freezeService,
+		nowFn:         time.Now,
 	}
 }
 
@@ -79,4 +82,9 @@ func (o *InvoiceTokenPaymentObserver) Process(ctx context.Context, transaction b
 	}
 
 	return nil
+}
+
+// TestSetNow allows tests to have the observer act as if the current time is whatever they want.
+func (o *InvoiceTokenPaymentObserver) TestSetNow(nowFn func() time.Time) {
+	o.nowFn = nowFn
 }

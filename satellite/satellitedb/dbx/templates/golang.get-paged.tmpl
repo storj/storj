@@ -8,17 +8,27 @@ Paged_{{ .Suffix }}({{ ctxparam .Args }},
 Paged_{{ .Suffix }}({{ ctxarg .Args }}, limit, start)
 {{- end -}}
 
-{{- define "body" }}
+{{- define "body" }}{{/* gotype: storj.io/dbx/code/golang.Get */}}
 	{{ embedplaceholders .Info }}
 	{{ embedsql .Info "__embed_stmt" }}
 	{{ embedsql .FirstInfo "__embed_first_stmt" }}
 
-	var __values []interface{}
+	var __values []any
 	{{ embedvalues .Args "__values" }}
 
 	var __stmt string
 	if start != nil && start._set {
-		__values = append(__values, {{ .Continuation | rename "start" | flatten | slice 0 -1 | value | comma }}limit)
+		{{- $cursor := .Continuation | rename "start" |  flatten | slice 0 -1 -}}
+		{{- if .SupportsTupleComparison }}
+		__values = append(__values, {{ $cursor | value | comma }}limit)
+		{{- else }}
+		__values = append(__values,
+			{{ range $index, $element := $cursor -}}
+			{{ value $element }}, {{ if ne (add $index 1) (len $cursor) }}{{ value $element }},{{ end }}
+			{{- end }}
+			limit,
+		)
+		{{- end }}
 		__stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
 	} else {
 		__values = append(__values, limit)
@@ -27,38 +37,38 @@ Paged_{{ .Suffix }}({{ ctxarg .Args }}, limit, start)
 	obj.logStmt(__stmt, __values...)
 
 	for {
-	  rows, next, err = func() (rows {{ sliceof .Row }}, next *{{ .Continuation.Type }}, err error) {
-    	__rows, err := obj.driver.QueryContext(ctx, __stmt, __values...)
-    	if err != nil {
-    		return nil, nil, err
-    	}
-    	defer __rows.Close()
+		rows, next, err = func() (rows {{ sliceof .Row }}, next *{{ .Continuation.Type }}, err error) {
+			__rows, err := obj.driver.QueryContext(ctx, __stmt, __values...)
+			if err != nil {
+				return nil, nil, err
+			}
+			defer __rows.Close()
 
-    	{{ declare .Continuation }}
-    	{{ .Continuation.Name }}._set = true
+			{{ declare .Continuation }}
+			{{ .Continuation.Name }}._set = true
 
-    	for __rows.Next() {
-    		{{ initnew .Row }}
-    		err = __rows.Scan({{ .Row | flatten | addrof | comma }}{{ .Continuation | flatten | slice 0 -1 | addrof }})
-    		if err != nil {
-    			return nil, nil, err
-    		}
-    		rows = append(rows, {{ arg .Row }})
-    		next = {{ addrof .Continuation }}
-    	}
+			for __rows.Next() {
+				{{ initnew .Row }}
+				err = __rows.Scan({{ .Row | flatten | addrof | comma }}{{ .Continuation | flatten | slice 0 -1 | addrof }})
+				if err != nil {
+				return nil, nil, obj.makeErr(err)
+				}
+				rows = append(rows, {{ arg .Row }})
+				next = {{ addrof .Continuation }}
+			}
 
-      if err := __rows.Err(); err != nil {
-        return nil, nil, err
-      }
+			if err := __rows.Err(); err != nil {
+				return nil, nil, obj.makeErr(err)
+			}
 
-    	return rows, next, nil
-	  }()
-	  if err != nil {
-  	  if obj.shouldRetry(err) {
-  	    continue
-      }
-      return nil, nil, obj.makeErr(err)
-    }
-    return rows, next, nil
-  }
+			return rows, next, nil
+		}()
+		if err != nil {
+			if obj.shouldRetry(err) {
+				continue
+			}
+			return nil, nil, obj.makeErr(err)
+		}
+		return rows, next, nil
+	}
 {{ end -}}

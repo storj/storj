@@ -63,7 +63,9 @@ func (c *cmdRm) Setup(params clingy.Parameters) {
 	).(ulloc.Location)
 }
 
-func (c *cmdRm) Execute(ctx context.Context) error {
+func (c *cmdRm) Execute(ctx context.Context) (err error) {
+	defer mon.Task()(&ctx)(&err)
+
 	if c.location.Local() {
 		return errs.New("remove %v skipped: local delete", c.location)
 	}
@@ -82,7 +84,7 @@ func (c *cmdRm) Execute(ctx context.Context) error {
 			return err
 		}
 
-		fmt.Fprintln(clingy.Stdout(ctx), "removed", c.location)
+		_, _ = fmt.Fprintln(clingy.Stdout(ctx), "removed", c.location)
 		return nil
 	}
 
@@ -104,7 +106,7 @@ func (c *cmdRm) Execute(ctx context.Context) error {
 		mu.Lock()
 		defer mu.Unlock()
 
-		fmt.Fprintln(w, args...)
+		_, _ = fmt.Fprintln(w, args...)
 	}
 
 	addError := func(err error) {

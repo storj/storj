@@ -100,7 +100,7 @@ type Val struct {
 // Add sums two Val instances with the same dimensions.
 func (a Val) Add(b Val) (Val, error) {
 	if a.Unit != b.Unit {
-		return Val{}, errs.New(fmt.Sprintf("cannot add units %s, %s", a.Unit.String(), b.Unit.String()))
+		return Val{}, errs.New("cannot add units %v, %v", a.Unit, b.Unit)
 	}
 	r := a
 	r.Value += b.Value
@@ -110,7 +110,7 @@ func (a Val) Add(b Val) (Val, error) {
 // Sub subtracts one Val from another if they have the same dimensions.
 func (a Val) Sub(b Val) (Val, error) {
 	if a.Unit != b.Unit {
-		return Val{}, errs.New(fmt.Sprintf("cannot subtract units %s, %s", a.Unit.String(), b.Unit.String()))
+		return Val{}, errs.New("cannot subtract units %v, %v", a.Unit, b.Unit)
 	}
 	r := a
 	r.Value -= b.Value

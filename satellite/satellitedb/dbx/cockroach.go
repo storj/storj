@@ -5,5 +5,5 @@ package dbx
 
 import (
 	// make sure we load our cockroach driver so dbx.Open can find it.
-	_ "storj.io/common/dbutil/cockroachutil"
+	_ "storj.io/storj/shared/dbutil/cockroachutil"
 )

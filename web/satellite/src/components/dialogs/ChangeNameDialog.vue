@@ -10,10 +10,17 @@
         max-width="410px"
         transition="fade-transition"
     >
-        <v-card rounded="xlg">
-            <v-card-item class="py-4">
+        <v-card>
+            <v-card-item class="pa-6">
                 <template #prepend>
-                    <img class="d-block" src="@/assets/icon-change-name.svg" alt="Change name">
+                    <v-sheet
+                        class="border-sm d-flex justify-center align-center"
+                        width="40"
+                        height="40"
+                        rounded="lg"
+                    >
+                        <component :is="UserPen" :size="18" />
+                    </v-sheet>
                 </template>
                 <v-card-title class="font-weight-bold">Edit Name</v-card-title>
                 <template #append>
@@ -79,7 +86,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed, ref } from 'vue';
+import { ref } from 'vue';
 import {
     VDialog,
     VCard,
@@ -92,7 +99,9 @@ import {
     VBtn,
     VForm,
     VTextField,
+    VSheet,
 } from 'vuetify/components';
+import { UserPen } from 'lucide-vue-next';
 
 import { useLoading } from '@/composables/useLoading';
 import { useUsersStore } from '@/store/modules/usersStore';

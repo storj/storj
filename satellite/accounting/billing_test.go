@@ -265,7 +265,7 @@ func TestBilling_AuditRepairTraffic(t *testing.T) {
 			StreamID: objectsBefore[0].StreamID,
 			Position: metabase.SegmentPosition{Index: 0},
 		}
-		_, err = satelliteSys.Repairer.SegmentRepairer.Repair(ctx, &queueSegment)
+		_, err = satelliteSys.Repairer.SegmentRepairer.Repair(ctx, queueSegment)
 		require.NoError(t, err)
 
 		// get the only metainfo record (our upload)

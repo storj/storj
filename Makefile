@@ -1,4 +1,5 @@
-GO_VERSION ?= 1.21.3
+GO_VERSION ?= 1.22.7
+GO_VERSION_STORAGENODE_WINDOWS ?= 1.20.14
 GOOS ?= linux
 GOARCH ?= amd64
 GOPATH ?= $(shell go env GOPATH)
@@ -7,11 +8,11 @@ COMPOSE_PROJECT_NAME := ${TAG}-$(shell git rev-parse --abbrev-ref HEAD)
 BRANCH_NAME ?= $(shell git rev-parse --abbrev-ref HEAD | sed "s!/!-!g")
 GIT_TAG := $(shell git rev-parse --short HEAD)
 ifeq (${BRANCH_NAME},main)
-TAG    := ${GIT_TAG}-go${GO_VERSION}
+TAG    := ${GIT_TAG}
 TRACKED_BRANCH := true
 LATEST_TAG := latest
 else
-TAG    := ${GIT_TAG}-${BRANCH_NAME}-go${GO_VERSION}
+TAG    := ${GIT_TAG}-${BRANCH_NAME}
 ifneq (,$(findstring release-,$(BRANCH_NAME)))
 TRACKED_BRANCH := true
 LATEST_TAG := ${BRANCH_NAME}-latest
@@ -217,6 +218,20 @@ test-sim-backwards-compatible: ## Test uploading a file with lastest release (je
 	@echo "Running ${@}"
 	@./testsuite/backward-compatibility/start-sim.sh
 
+.PHONY: test-satellite-ui
+test-satellite-ui: ## Run playwright ui tests
+	@echo "Running ${@}"
+	cd web/satellite;\
+		npm install;\
+		npm run wasm-dev;\
+		npm run build;
+
+	cd testsuite/playwright-ui;\
+		npm ci;\
+		npx playwright install --with-deps;\
+		STORJ_TEST_SATELLITE_WEB='../../web/satellite' \
+		go test -race -run TestRun -count 1 ./...
+
 .PHONY: check-monitoring
 check-monitoring: ## Check for locked monkit calls that have changed
 	@echo "Running ${@}"
@@ -399,9 +414,21 @@ multinode_%: multinode-console
 .PHONY: satellite_%
 satellite_%: satellite-admin-ui
 	$(MAKE) binary-check COMPONENT=satellite GOARCH=$(word 3, $(subst _, ,$@)) GOOS=$(word 2, $(subst _, ,$@))
+.PHONY: storagenode_windows_amd64
+storagenode_windows_amd64: storagenode-console
+	docker run --rm -i -v "${PWD}":/go/src/storj.io/storj \
+		-v /tmp/go-cache:/tmp/.cache/go-build -v /tmp/go-pkg:/go/pkg \
+		-w /go/src/storj.io/storj \
+		-u $(shell id -u):$(shell id -g) \
+		storjlabs/golang:${GO_VERSION} \
+		/bin/bash scripts/generate-gomod-for-storagenode-go1.20.sh go.mod go.storagenode.mod
+	$(MAKE) binary-check COMPONENT=storagenode GOARCH=amd64 GOOS=windows GO_VERSION=${GO_VERSION_STORAGENODE_WINDOWS} EXTRA_ARGS="-modfile go.storagenode.mod"
 .PHONY: storagenode_%
 storagenode_%: storagenode-console
 	$(MAKE) binary-check COMPONENT=storagenode GOARCH=$(word 3, $(subst _, ,$@)) GOOS=$(word 2, $(subst _, ,$@))
+.PHONY: storagenode-updater_windows_amd64
+storagenode-updater_windows_amd64:
+	EXTRA_ARGS="-tags=service" $(MAKE) binary-check COMPONENT=storagenode-updater GOARCH=amd64 GOOS=windows GO_VERSION=${GO_VERSION}
 .PHONY: storagenode-updater_%
 storagenode-updater_%:
 	EXTRA_ARGS="-tags=service" $(MAKE) binary-check COMPONENT=storagenode-updater GOARCH=$(word 3, $(subst _, ,$@)) GOOS=$(word 2, $(subst _, ,$@))
@@ -431,12 +458,12 @@ sign-windows-installer:
 .PHONY: push-images
 push-images: ## Push Docker images to Docker Hub (jenkins)
 	# images have to be pushed before a manifest can be created
-	for c in multinode satellite uplink versioncontrol ; do \
+	set -x; for c in multinode satellite uplink versioncontrol ; do \
 		docker push storjlabs/$$c:${TAG}${CUSTOMTAG}-amd64 \
 		&& docker push storjlabs/$$c:${TAG}${CUSTOMTAG}-arm32v5 \
 		&& docker push storjlabs/$$c:${TAG}${CUSTOMTAG}-arm64v8 \
 		&& for t in ${TAG}${CUSTOMTAG} ${LATEST_TAG}; do \
-			docker manifest create storjlabs/$$c:$$t \
+			docker manifest create --amend storjlabs/$$c:$$t \
 			storjlabs/$$c:${TAG}${CUSTOMTAG}-amd64 \
 			storjlabs/$$c:${TAG}${CUSTOMTAG}-arm32v5 \
 			storjlabs/$$c:${TAG}${CUSTOMTAG}-arm64v8 \
@@ -507,6 +534,9 @@ diagrams-graphml:
 bump-dependencies:
 	go get storj.io/common@main storj.io/uplink@main
 	go mod tidy
+	cd testsuite/playwright-ui;\
+		go get storj.io/common@main storj.io/uplink@main;\
+		go mod tidy;
 	cd testsuite/storjscan;\
 		go get storj.io/common@main storj.io/uplink@main;\
 		go mod tidy;

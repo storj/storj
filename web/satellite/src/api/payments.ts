@@ -15,7 +15,13 @@ import {
     TokenAmount,
     NativePaymentHistoryItem,
     Wallet,
-    PaymentWithConfirmations, PaymentHistoryParam, PaymentHistoryPage,
+    PaymentWithConfirmations,
+    PaymentHistoryParam,
+    PaymentHistoryPage,
+    BillingInformation,
+    BillingAddress,
+    TaxCountry,
+    TaxID,
 } from '@/types/payments';
 import { HttpClient } from '@/utils/httpClient';
 import { Time } from '@/utils/time';
@@ -136,6 +142,25 @@ export class PaymentsHttpApi implements PaymentsApi {
         throw new APIError({
             status: response.status,
             message: result.error || 'Can not add payment method',
+            requestID: response.headers.get('x-request-id'),
+        });
+    }
+
+    /**
+     * Attempt to pay overdue invoices.
+     */
+    public async attemptPayments(): Promise<void> {
+        const path = `${this.ROOT_PATH}/attempt-payments`;
+        const response = await this.client.post(path, null);
+
+        if (response.ok) {
+            return;
+        }
+
+        const result = await response.json();
+        throw new APIError({
+            status: response.status,
+            message: result.error || 'Can not attempt payments.',
             requestID: response.headers.get('x-request-id'),
         });
     }
@@ -464,6 +489,71 @@ export class PaymentsHttpApi implements PaymentsApi {
     }
 
     /**
+     * get user's billing information.
+     *
+     * @throws Error
+     */
+    public async getBillingInformation(): Promise<BillingInformation> {
+        const path = `${this.ROOT_PATH}/account/billing-information`;
+        const response = await this.client.get(path);
+
+        const result = await response.json();
+        if (!response.ok) {
+            throw new APIError({
+                status: response.status,
+                message: result.error || 'Could not get billing information',
+                requestID: response.headers.get('x-request-id'),
+            });
+        }
+
+        return result;
+    }
+
+    /**
+     * add user's default invoice reference.
+     *
+     * @param reference - invoice reference to be shown on invoices
+     * @throws Error
+     */
+    public async addInvoiceReference(reference: string): Promise<BillingInformation> {
+        const path = `${this.ROOT_PATH}/account/invoice-reference`;
+        const response = await this.client.post(path, JSON.stringify({ reference }));
+
+        const result = await response.json();
+        if (!response.ok) {
+            throw new APIError({
+                status: response.status,
+                message: result.error || 'Could not save billing information',
+                requestID: response.headers.get('x-request-id'),
+            });
+        }
+
+        return result;
+    }
+
+    /**
+     * save user's billing information.
+     *
+     * @param address - billing information to save
+     * @throws Error
+     */
+    public async saveBillingAddress(address: BillingAddress): Promise<BillingInformation> {
+        const path = `${this.ROOT_PATH}/account/billing-address`;
+        const response = await this.client.patch(path, JSON.stringify(address));
+
+        const result = await response.json();
+        if (!response.ok) {
+            throw new APIError({
+                status: response.status,
+                message: result.error || 'Could not save billing information',
+                requestID: response.headers.get('x-request-id'),
+            });
+        }
+
+        return result;
+    }
+
+    /**
      * Claim new native storj token wallet.
      *
      * @returns wallet
@@ -487,6 +577,91 @@ export class PaymentsHttpApi implements PaymentsApi {
         }
 
         return new Wallet();
+    }
+
+    /**
+     * get a list of countries whose taxes are supported.
+     *
+     * @throws Error
+     */
+    public async getTaxCountries(): Promise<TaxCountry[]> {
+        const path = `${this.ROOT_PATH}/countries`;
+        const response = await this.client.get(path);
+
+        const result = await response.json();
+        if (!response.ok) {
+            throw new APIError({
+                status: response.status,
+                message: result.error || 'Could not countries',
+                requestID: response.headers.get('x-request-id'),
+            });
+        }
+
+        return result;
+    }
+
+    /**
+     * get a list of supported taxes for a country.
+     *
+     * @throws Error
+     */
+    public async getCountryTaxes(countryCode: string): Promise<TaxCountry[]> {
+        const path = `${this.ROOT_PATH}/countries/${countryCode}/taxes`;
+        const response = await this.client.get(path);
+
+        const result = await response.json();
+        if (!response.ok) {
+            throw new APIError({
+                status: response.status,
+                message: result.error || `Could not get ${countryCode} taxes`,
+                requestID: response.headers.get('x-request-id'),
+            });
+        }
+
+        return result;
+    }
+
+    /**
+     * add a tax ID to a user's account.
+     *
+     * @param taxID - the tax ID to save
+     * @throws Error
+     */
+    public async addTaxID(taxID: TaxID): Promise<BillingInformation> {
+        const path = `${this.ROOT_PATH}/account/tax-ids`;
+        const response = await this.client.post(path, JSON.stringify(taxID));
+
+        const result = await response.json();
+        if (!response.ok) {
+            throw new APIError({
+                status: response.status,
+                message: result.error || 'Could not add tax ID information',
+                requestID: response.headers.get('x-request-id'),
+            });
+        }
+
+        return result;
+    }
+
+    /**
+     * remove a tax ID from a user's account.
+     *
+     * @throws Error
+     */
+    public async removeTaxID(taxID: string): Promise<BillingInformation> {
+        const path = `${this.ROOT_PATH}/account/tax-ids/${taxID}`;
+        const response = await this.client.delete(path);
+
+        const result = await response.json();
+        if (!response.ok) {
+            throw new APIError({
+                status: response.status,
+                message: result.error || 'Could not add tax ID information',
+                requestID: response.headers.get('x-request-id'),
+            });
+        }
+
+        return result;
     }
 
     /**

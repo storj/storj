@@ -3,6 +3,7 @@
 
 import { DEFAULT_PAGE_LIMIT } from '@/types/pagination';
 import { Placement } from '@/types/placements';
+import { Versioning } from '@/types/versioning';
 
 /**
  * Exposes all bucket-related functionality.
@@ -17,6 +18,14 @@ export interface BucketsApi {
     get(projectId: string, before: Date, cursor: BucketCursor): Promise<BucketPage>;
 
     /**
+     * Fetch single bucket data.
+     *
+     * @returns Bucket
+     * @throws Error
+     */
+    getSingle(projectId: string, bucketName: string, before: Date): Promise<Bucket>;
+
+    /**
      * Fetch all bucket names
      *
      * @returns string[]
@@ -26,19 +35,12 @@ export interface BucketsApi {
 
     /**
      *
-     * Fetch all bucket placements
+     * Fetch all bucket metadata
      *
-     * @returns BucketPlacement[]
+     * @returns BucketMetadata[]
      * @throws Error
      */
-    getAllBucketPlacements(projectId: string): Promise<BucketPlacement[]>
-}
-
-export enum Versioning {
-    NotSupported = 'Not Supported',
-    Unversioned = 'Unversioned',
-    Enabled = 'Enabled',
-    Suspended = 'Suspended',
+    getAllBucketMetadata(projectId: string): Promise<BucketMetadata[]>
 }
 
 /**
@@ -48,6 +50,7 @@ export class Bucket {
     public constructor(
         public name: string = '',
         public versioning: Versioning = Versioning.NotSupported,
+        public objectLockEnabled: boolean = false,
         public defaultPlacement: number = 0,
         public location: string = '',
         public storage: number = 0,
@@ -86,11 +89,13 @@ export class BucketCursor {
 }
 
 /**
- * BucketPlacement class holds bucket name, placement ID, and location.
+ * BucketMeta class holds misc bucket metadata.
  */
-export class BucketPlacement {
+export class BucketMetadata {
     public constructor(
         public name: string = '',
+        public versioning: Versioning = Versioning.NotSupported,
         public placement: Placement = new Placement(),
+        public objectLockEnabled: boolean = false,
     ) { }
 }

@@ -156,7 +156,7 @@ func TestTransactionsDBBalance(t *testing.T) {
 			balance, err := db.Billing().GetBalance(ctx, userID)
 			require.NoError(t, err)
 			require.Equal(t, tenMicroUSD.BaseUnits(), balance.BaseUnits())
-		})
+		}, satellitedbtest.WithSpanner())
 	})
 
 	t.Run("add 10 and 30 USD to account", func(t *testing.T) {
@@ -173,7 +173,7 @@ func TestTransactionsDBBalance(t *testing.T) {
 			balance, err := db.Billing().GetBalance(ctx, userID)
 			require.NoError(t, err)
 			require.Equal(t, fortyMicroUSD.BaseUnits(), balance.BaseUnits())
-		})
+		}, satellitedbtest.WithSpanner())
 	})
 
 	t.Run("add 10 USD, add 30 USD, subtract 20 USD", func(t *testing.T) {
@@ -193,7 +193,7 @@ func TestTransactionsDBBalance(t *testing.T) {
 			balance, err := db.Billing().GetBalance(ctx, userID)
 			require.NoError(t, err)
 			require.Equal(t, twentyMicroUSD.BaseUnits(), balance.BaseUnits())
-		})
+		}, satellitedbtest.WithSpanner())
 	})
 }
 
@@ -217,7 +217,7 @@ func TestUpdateTransactions(t *testing.T) {
 		UserID:      userID,
 		Amount:      tenUSD,
 		Description: "credit from storjscan payment",
-		Source:      billing.StorjScanSource,
+		Source:      billing.StorjScanEthereumSource,
 		Status:      payments.PaymentStatusConfirmed,
 		Type:        billing.TransactionTypeCredit,
 		Metadata:    creditMetadata,
@@ -257,7 +257,7 @@ func TestUpdateTransactions(t *testing.T) {
 			assert.Equal(t, 2, compareMultipleTransactions(t,
 				[]billing.Transaction{credit10TX, debit10TX},
 				tx))
-		})
+		}, satellitedbtest.WithSpanner())
 	})
 
 	t.Run("confirm new token deposit", func(t *testing.T) {
@@ -268,7 +268,7 @@ func TestUpdateTransactions(t *testing.T) {
 			tx, err := db.Billing().List(ctx, userID)
 			require.NoError(t, err)
 			compareTransactions(t, credit10TX, tx[0])
-		})
+		}, satellitedbtest.WithSpanner())
 	})
 }
 
@@ -292,7 +292,7 @@ func TestCompletePendingPayment(t *testing.T) {
 		UserID:      userID,
 		Amount:      tenUSD,
 		Description: "credit from storjscan payment",
-		Source:      billing.StorjScanSource,
+		Source:      billing.StorjScanEthereumSource,
 		Status:      payments.PaymentStatusConfirmed,
 		Type:        billing.TransactionTypeCredit,
 		Metadata:    creditMetadata,
@@ -326,7 +326,7 @@ func TestCompletePendingPayment(t *testing.T) {
 		require.NoError(t, err)
 		assert.Equal(t, 2, compareMultipleTransactions(t,
 			[]billing.Transaction{credit10TX, debit10TX}, tx))
-	})
+	}, satellitedbtest.WithSpanner())
 }
 
 func TestFailPendingPayment(t *testing.T) {
@@ -349,7 +349,7 @@ func TestFailPendingPayment(t *testing.T) {
 		UserID:      userID,
 		Amount:      tenUSD,
 		Description: "credit from storjscan payment",
-		Source:      billing.StorjScanSource,
+		Source:      billing.StorjScanEthereumSource,
 		Status:      payments.PaymentStatusConfirmed,
 		Type:        billing.TransactionTypeCredit,
 		Metadata:    creditMetadata,
@@ -383,7 +383,7 @@ func TestFailPendingPayment(t *testing.T) {
 		require.NoError(t, err)
 		assert.Equal(t, 2, compareMultipleTransactions(t,
 			[]billing.Transaction{credit10TX, debit10TX}, tx))
-	})
+	}, satellitedbtest.WithSpanner())
 }
 
 func compareMultipleTransactions(t *testing.T, exp, act []billing.Transaction) int {

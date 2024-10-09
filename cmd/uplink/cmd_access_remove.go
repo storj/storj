@@ -27,7 +27,9 @@ func (c *cmdAccessRemove) Setup(params clingy.Parameters) {
 	c.access = params.Arg("name", "Access name to delete").(string)
 }
 
-func (c *cmdAccessRemove) Execute(ctx context.Context) error {
+func (c *cmdAccessRemove) Execute(ctx context.Context) (err error) {
+	defer mon.Task()(&ctx)(&err)
+
 	defaultName, accesses, err := c.ex.GetAccessInfo(true)
 	if err != nil {
 		return err
@@ -45,7 +47,7 @@ func (c *cmdAccessRemove) Execute(ctx context.Context) error {
 		return err
 	}
 
-	fmt.Fprintf(clingy.Stdout(ctx), "Removed access %q from %q\n", c.access, c.ex.AccessInfoFile())
+	_, _ = fmt.Fprintf(clingy.Stdout(ctx), "Removed access %q from %q\n", c.access, c.ex.AccessInfoFile())
 
 	return nil
 }

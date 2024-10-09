@@ -526,7 +526,7 @@ func convertStatus(stripestatus stripe.InvoiceStatus) string {
 
 // isInvoiceFailed returns whether an invoice has failed.
 func (invoices *invoices) isInvoiceFailed(invoice *stripe.Invoice) bool {
-	if invoice.Status != stripe.InvoiceStatusOpen {
+	if invoice.Status != stripe.InvoiceStatusOpen || !invoice.Attempted {
 		return false
 	}
 

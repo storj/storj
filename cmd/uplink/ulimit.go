@@ -2,7 +2,6 @@
 // See LICENSE for copying information.
 
 //go:build linux || darwin || freebsd
-// +build linux darwin freebsd
 
 package main
 

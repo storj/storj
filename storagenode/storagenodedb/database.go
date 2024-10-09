@@ -18,16 +18,17 @@ import (
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 
-	"storj.io/common/dbutil"
-	"storj.io/common/dbutil/dbschema"
-	"storj.io/common/dbutil/sqliteutil"
 	"storj.io/common/process"
-	"storj.io/common/tagsql"
 	"storj.io/storj/private/migrate"
+	"storj.io/storj/shared/dbutil"
+	"storj.io/storj/shared/dbutil/dbschema"
+	"storj.io/storj/shared/dbutil/sqliteutil"
+	"storj.io/storj/shared/tagsql"
 	"storj.io/storj/storagenode/apikeys"
 	"storj.io/storj/storagenode/bandwidth"
 	"storj.io/storj/storagenode/blobstore"
 	"storj.io/storj/storagenode/blobstore/filestore"
+	"storj.io/storj/storagenode/blobstore/statcache"
 	"storj.io/storj/storagenode/notifications"
 	"storj.io/storj/storagenode/orders"
 	"storj.io/storj/storagenode/payouts"
@@ -59,27 +60,11 @@ type DBContainer interface {
 	GetDB() tagsql.DB
 }
 
-// withTx is a helper method which executes callback in transaction scope.
-func withTx(ctx context.Context, db tagsql.DB, cb func(tx tagsql.Tx) error) error {
-	tx, err := db.BeginTx(ctx, nil)
-	if err != nil {
-		return err
-	}
-	defer func() {
-		if err != nil {
-			err = errs.Combine(err, tx.Rollback())
-			return
-		}
-
-		err = tx.Commit()
-	}()
-	return cb(tx)
-}
-
 // Config configures storage node database.
 type Config struct {
 	// TODO: figure out better names
 	Storage   string
+	Cache     string
 	Info      string
 	Info2     string
 	Driver    string // if unset, uses sqlite3
@@ -100,6 +85,7 @@ func (config Config) LazyFilewalkerConfig() lazyfilewalker.Config {
 		Driver:          config.Driver,
 		Pieces:          config.Pieces,
 		Filestore:       config.Filestore,
+		Cache:           config.Cache,
 		LowerIOPriority: true,
 	}
 }
@@ -113,22 +99,26 @@ type DB struct {
 
 	dbDirectory string
 
-	deprecatedInfoDB  *deprecatedInfoDB
-	v0PieceInfoDB     *v0PieceInfoDB
-	bandwidthDB       *bandwidthDB
-	ordersDB          *ordersDB
-	pieceExpirationDB *pieceExpirationDB
-	pieceSpaceUsedDB  *pieceSpaceUsedDB
-	reputationDB      *reputationDB
-	storageUsageDB    *storageUsageDB
-	usedSerialsDB     *usedSerialsDB
-	satellitesDB      *satellitesDB
-	notificationsDB   *notificationDB
-	payoutDB          *payoutDB
-	pricingDB         *pricingDB
-	apiKeysDB         *apiKeysDB
+	deprecatedInfoDB       *deprecatedInfoDB
+	v0PieceInfoDB          *v0PieceInfoDB
+	bandwidthDB            *bandwidthDB
+	ordersDB               *ordersDB
+	pieceExpirationDB      *pieceExpirationDB
+	pieceSpaceUsedDB       *pieceSpaceUsedDB
+	reputationDB           *reputationDB
+	storageUsageDB         *storageUsageDB
+	usedSerialsDB          *usedSerialsDB
+	satellitesDB           *satellitesDB
+	notificationsDB        *notificationDB
+	payoutDB               *payoutDB
+	pricingDB              *pricingDB
+	apiKeysDB              *apiKeysDB
+	gcFilewalkerProgressDB *gcFilewalkerProgressDB
+	usedSpacePerPrefixDB   *usedSpacePerPrefixDB
 
 	SQLDBs map[string]DBContainer
+
+	cache statcache.Cache
 }
 
 // OpenNew creates a new master database for storage node.
@@ -140,6 +130,12 @@ func OpenNew(ctx context.Context, log *zap.Logger, config Config) (*DB, error) {
 
 	pieces := filestore.New(log, piecesDir, config.Filestore)
 
+	var cache statcache.Cache
+	pieces, cache, err = cachedBlobstore(log, pieces, config)
+	if err != nil {
+		return nil, err
+	}
+
 	deprecatedInfoDB := &deprecatedInfoDB{}
 	v0PieceInfoDB := &v0PieceInfoDB{}
 	bandwidthDB := &bandwidthDB{}
@@ -154,6 +150,8 @@ func OpenNew(ctx context.Context, log *zap.Logger, config Config) (*DB, error) {
 	payoutDB := &payoutDB{}
 	pricingDB := &pricingDB{}
 	apiKeysDB := &apiKeysDB{}
+	gcFilewalkerProgressDB := &gcFilewalkerProgressDB{}
+	usedSpacePerPrefixDB := &usedSpacePerPrefixDB{}
 
 	db := &DB{
 		log:    log,
@@ -161,52 +159,81 @@ func OpenNew(ctx context.Context, log *zap.Logger, config Config) (*DB, error) {
 
 		pieces: pieces,
 
+		cache: cache,
+
 		dbDirectory: filepath.Dir(config.Info2),
 
-		deprecatedInfoDB:  deprecatedInfoDB,
-		v0PieceInfoDB:     v0PieceInfoDB,
-		bandwidthDB:       bandwidthDB,
-		ordersDB:          ordersDB,
-		pieceExpirationDB: pieceExpirationDB,
-		pieceSpaceUsedDB:  pieceSpaceUsedDB,
-		reputationDB:      reputationDB,
-		storageUsageDB:    storageUsageDB,
-		usedSerialsDB:     usedSerialsDB,
-		satellitesDB:      satellitesDB,
-		notificationsDB:   notificationsDB,
-		payoutDB:          payoutDB,
-		pricingDB:         pricingDB,
-		apiKeysDB:         apiKeysDB,
+		deprecatedInfoDB:       deprecatedInfoDB,
+		v0PieceInfoDB:          v0PieceInfoDB,
+		bandwidthDB:            bandwidthDB,
+		ordersDB:               ordersDB,
+		pieceExpirationDB:      pieceExpirationDB,
+		pieceSpaceUsedDB:       pieceSpaceUsedDB,
+		reputationDB:           reputationDB,
+		storageUsageDB:         storageUsageDB,
+		usedSerialsDB:          usedSerialsDB,
+		satellitesDB:           satellitesDB,
+		notificationsDB:        notificationsDB,
+		payoutDB:               payoutDB,
+		pricingDB:              pricingDB,
+		apiKeysDB:              apiKeysDB,
+		gcFilewalkerProgressDB: gcFilewalkerProgressDB,
+		usedSpacePerPrefixDB:   usedSpacePerPrefixDB,
 
 		SQLDBs: map[string]DBContainer{
-			DeprecatedInfoDBName:  deprecatedInfoDB,
-			PieceInfoDBName:       v0PieceInfoDB,
-			BandwidthDBName:       bandwidthDB,
-			OrdersDBName:          ordersDB,
-			PieceExpirationDBName: pieceExpirationDB,
-			PieceSpaceUsedDBName:  pieceSpaceUsedDB,
-			ReputationDBName:      reputationDB,
-			StorageUsageDBName:    storageUsageDB,
-			UsedSerialsDBName:     usedSerialsDB,
-			SatellitesDBName:      satellitesDB,
-			NotificationsDBName:   notificationsDB,
-			HeldAmountDBName:      payoutDB,
-			PricingDBName:         pricingDB,
-			APIKeysDBName:         apiKeysDB,
+			DeprecatedInfoDBName:       deprecatedInfoDB,
+			PieceInfoDBName:            v0PieceInfoDB,
+			BandwidthDBName:            bandwidthDB,
+			OrdersDBName:               ordersDB,
+			PieceExpirationDBName:      pieceExpirationDB,
+			PieceSpaceUsedDBName:       pieceSpaceUsedDB,
+			ReputationDBName:           reputationDB,
+			StorageUsageDBName:         storageUsageDB,
+			UsedSerialsDBName:          usedSerialsDB,
+			SatellitesDBName:           satellitesDB,
+			NotificationsDBName:        notificationsDB,
+			HeldAmountDBName:           payoutDB,
+			PricingDBName:              pricingDB,
+			APIKeysDBName:              apiKeysDB,
+			GCFilewalkerProgressDBName: gcFilewalkerProgressDB,
+			UsedSpacePerPrefixDBName:   usedSpacePerPrefixDB,
 		},
 	}
 
 	return db, nil
 }
 
+func cachedBlobstore(log *zap.Logger, blobs blobstore.Blobs, config Config) (blobstore.Blobs, statcache.Cache, error) {
+	switch config.Cache {
+	case "":
+		return blobs, nil, nil
+	case "badger":
+		flog := process.NamedLog(log, "filestatcache")
+		cache, err := statcache.NewBadgerCache(flog, filepath.Join(config.Storage, "filestatcache"))
+		if err != nil {
+			return nil, nil, errs.Wrap(err)
+		}
+		return statcache.NewCachedStatBlobStore(flog, cache, blobs), cache, nil
+
+	default:
+		return nil, nil, errs.New("Unknown file stat cache: %s", config.Cache)
+	}
+}
+
 // OpenExisting opens an existing master database for storage node.
 func OpenExisting(ctx context.Context, log *zap.Logger, config Config) (*DB, error) {
-	piecesDir, err := filestore.OpenDir(log, config.Pieces)
+	piecesDir, err := filestore.OpenDir(log, config.Pieces, time.Now())
 	if err != nil {
 		return nil, err
 	}
 
 	pieces := filestore.New(log, piecesDir, config.Filestore)
+
+	var cache statcache.Cache
+	pieces, cache, err = cachedBlobstore(log, pieces, config)
+	if err != nil {
+		return nil, err
+	}
 
 	deprecatedInfoDB := &deprecatedInfoDB{}
 	v0PieceInfoDB := &v0PieceInfoDB{}
@@ -222,6 +249,8 @@ func OpenExisting(ctx context.Context, log *zap.Logger, config Config) (*DB, err
 	payoutDB := &payoutDB{}
 	pricingDB := &pricingDB{}
 	apiKeysDB := &apiKeysDB{}
+	gcFilewalkerProgressDB := &gcFilewalkerProgressDB{}
+	usedSpacePerPrefixDB := &usedSpacePerPrefixDB{}
 
 	db := &DB{
 		log:    log,
@@ -229,38 +258,44 @@ func OpenExisting(ctx context.Context, log *zap.Logger, config Config) (*DB, err
 
 		pieces: pieces,
 
+		cache: cache,
+
 		dbDirectory: filepath.Dir(config.Info2),
 
-		deprecatedInfoDB:  deprecatedInfoDB,
-		v0PieceInfoDB:     v0PieceInfoDB,
-		bandwidthDB:       bandwidthDB,
-		ordersDB:          ordersDB,
-		pieceExpirationDB: pieceExpirationDB,
-		pieceSpaceUsedDB:  pieceSpaceUsedDB,
-		reputationDB:      reputationDB,
-		storageUsageDB:    storageUsageDB,
-		usedSerialsDB:     usedSerialsDB,
-		satellitesDB:      satellitesDB,
-		notificationsDB:   notificationsDB,
-		payoutDB:          payoutDB,
-		pricingDB:         pricingDB,
-		apiKeysDB:         apiKeysDB,
+		deprecatedInfoDB:       deprecatedInfoDB,
+		v0PieceInfoDB:          v0PieceInfoDB,
+		bandwidthDB:            bandwidthDB,
+		ordersDB:               ordersDB,
+		pieceExpirationDB:      pieceExpirationDB,
+		pieceSpaceUsedDB:       pieceSpaceUsedDB,
+		reputationDB:           reputationDB,
+		storageUsageDB:         storageUsageDB,
+		usedSerialsDB:          usedSerialsDB,
+		satellitesDB:           satellitesDB,
+		notificationsDB:        notificationsDB,
+		payoutDB:               payoutDB,
+		pricingDB:              pricingDB,
+		apiKeysDB:              apiKeysDB,
+		gcFilewalkerProgressDB: gcFilewalkerProgressDB,
+		usedSpacePerPrefixDB:   usedSpacePerPrefixDB,
 
 		SQLDBs: map[string]DBContainer{
-			DeprecatedInfoDBName:  deprecatedInfoDB,
-			PieceInfoDBName:       v0PieceInfoDB,
-			BandwidthDBName:       bandwidthDB,
-			OrdersDBName:          ordersDB,
-			PieceExpirationDBName: pieceExpirationDB,
-			PieceSpaceUsedDBName:  pieceSpaceUsedDB,
-			ReputationDBName:      reputationDB,
-			StorageUsageDBName:    storageUsageDB,
-			UsedSerialsDBName:     usedSerialsDB,
-			SatellitesDBName:      satellitesDB,
-			NotificationsDBName:   notificationsDB,
-			HeldAmountDBName:      payoutDB,
-			PricingDBName:         pricingDB,
-			APIKeysDBName:         apiKeysDB,
+			DeprecatedInfoDBName:       deprecatedInfoDB,
+			PieceInfoDBName:            v0PieceInfoDB,
+			BandwidthDBName:            bandwidthDB,
+			OrdersDBName:               ordersDB,
+			PieceExpirationDBName:      pieceExpirationDB,
+			PieceSpaceUsedDBName:       pieceSpaceUsedDB,
+			ReputationDBName:           reputationDB,
+			StorageUsageDBName:         storageUsageDB,
+			UsedSerialsDBName:          usedSerialsDB,
+			SatellitesDBName:           satellitesDB,
+			NotificationsDBName:        notificationsDB,
+			HeldAmountDBName:           payoutDB,
+			PricingDBName:              pricingDB,
+			APIKeysDBName:              apiKeysDB,
+			GCFilewalkerProgressDBName: gcFilewalkerProgressDB,
+			UsedSpacePerPrefixDBName:   usedSpacePerPrefixDB,
 		},
 	}
 
@@ -294,6 +329,8 @@ func (db *DB) openDatabases(ctx context.Context) error {
 		HeldAmountDBName,
 		PricingDBName,
 		APIKeysDBName,
+		GCFilewalkerProgressDBName,
+		UsedSpacePerPrefixDBName,
 	}
 
 	for _, dbName := range dbs {
@@ -327,6 +364,11 @@ func (db *DB) openExistingDatabase(ctx context.Context, dbName string) error {
 
 // openDatabase opens or creates a database at the specified path.
 func (db *DB) openDatabase(ctx context.Context, dbName string) error {
+	return db.openDatabaseWithStat(ctx, dbName, true)
+}
+
+// openDatabase opens or creates a database at the specified path.
+func (db *DB) openDatabaseWithStat(ctx context.Context, dbName string, registerStat bool) error {
 	path := db.filepathFromDBName(dbName)
 
 	driver := db.config.Driver
@@ -351,7 +393,9 @@ func (db *DB) openDatabase(ctx context.Context, dbName string) error {
 	mDB := db.SQLDBs[dbName]
 	mDB.Configure(sqlDB)
 
-	dbutil.Configure(ctx, sqlDB, dbName, mon)
+	if registerStat {
+		dbutil.Configure(ctx, sqlDB, dbName, mon)
+	}
 
 	return nil
 }
@@ -481,6 +525,9 @@ func (db *DB) preflight(ctx context.Context, dbName string, dbContainer DBContai
 
 // Close closes any resources.
 func (db *DB) Close() error {
+	if db.cache != nil {
+		_ = db.cache.Close()
+	}
 	return db.closeDatabases()
 }
 
@@ -578,6 +625,16 @@ func (db *DB) APIKeys() apikeys.DB {
 	return db.apiKeysDB
 }
 
+// GCFilewalkerProgress returns the instance of the GCFilewalkerProgress database.
+func (db *DB) GCFilewalkerProgress() pieces.GCFilewalkerProgressDB {
+	return db.gcFilewalkerProgressDB
+}
+
+// UsedSpacePerPrefix returns the instance of the UsedSpacePerPrefix database.
+func (db *DB) UsedSpacePerPrefix() pieces.UsedSpacePerPrefixDB {
+	return db.usedSpacePerPrefixDB
+}
+
 // RawDatabases are required for testing purposes.
 func (db *DB) RawDatabases() map[string]DBContainer {
 	return db.SQLDBs
@@ -612,7 +669,7 @@ func (db *DB) migrateToDB(ctx context.Context, dbName string, tablesToKeep ...st
 		}
 	}
 
-	err = db.openDatabase(ctx, dbName)
+	err = db.openDatabaseWithStat(ctx, dbName, false)
 	if err != nil {
 		return ErrDatabase.Wrap(err)
 	}
@@ -839,12 +896,12 @@ func (db *DB) Migration(ctx context.Context) *migrate.Migration {
 				Version:     11,
 				Action: migrate.SQL{
 					`CREATE TABLE bandwidth_usage_rollups (
-										interval_start	TIMESTAMP NOT NULL,
-										satellite_id  	BLOB    NOT NULL,
-										action        	INTEGER NOT NULL,
-										amount        	BIGINT  NOT NULL,
-										PRIMARY KEY ( interval_start, satellite_id, action )
-									)`,
+						interval_start	TIMESTAMP NOT NULL,
+						satellite_id  	BLOB    NOT NULL,
+						action        	INTEGER NOT NULL,
+						amount        	BIGINT  NOT NULL,
+						PRIMARY KEY ( interval_start, satellite_id, action )
+					)`,
 				},
 			},
 			{
@@ -1529,18 +1586,6 @@ func (db *DB) Migration(ctx context.Context) *migrate.Migration {
 				Description: "Add unknown_audit_reputation_score field to reputation db",
 				Version:     40,
 				Action: migrate.Func(func(ctx context.Context, _ *zap.Logger, rdb tagsql.DB, rtx tagsql.Tx) (err error) {
-					stx, err := db.satellitesDB.Begin(ctx)
-					if err != nil {
-						return errs.Wrap(err)
-					}
-					defer func() {
-						if err != nil {
-							err = errs.Combine(err, stx.Rollback())
-						} else {
-							err = errs.Wrap(stx.Commit())
-						}
-					}()
-
 					_, err = rtx.Exec(ctx, `ALTER TABLE reputation ADD COLUMN audit_unknown_reputation_score REAL`)
 					if err != nil {
 						return errs.Wrap(err)
@@ -1677,18 +1722,6 @@ func (db *DB) Migration(ctx context.Context) *migrate.Migration {
 				Description: "Add online_score and offline_suspended fields to reputation db, rename disqualified and suspended to disqualified_at and suspended_at",
 				Version:     44,
 				Action: migrate.Func(func(ctx context.Context, _ *zap.Logger, rdb tagsql.DB, rtx tagsql.Tx) (err error) {
-					stx, err := db.satellitesDB.Begin(ctx)
-					if err != nil {
-						return errs.Wrap(err)
-					}
-					defer func() {
-						if err != nil {
-							err = errs.Combine(err, stx.Rollback())
-						} else {
-							err = errs.Wrap(stx.Commit())
-						}
-					}()
-
 					_, err = rtx.Exec(ctx, `ALTER TABLE reputation ADD COLUMN online_score REAL`)
 					if err != nil {
 						return errs.Wrap(err)
@@ -1776,18 +1809,6 @@ func (db *DB) Migration(ctx context.Context) *migrate.Migration {
 				Description: "Add offline_under_review_at field to reputation db",
 				Version:     45,
 				Action: migrate.Func(func(ctx context.Context, _ *zap.Logger, rdb tagsql.DB, rtx tagsql.Tx) (err error) {
-					stx, err := db.satellitesDB.Begin(ctx)
-					if err != nil {
-						return errs.Wrap(err)
-					}
-					defer func() {
-						if err != nil {
-							err = errs.Combine(err, stx.Rollback())
-						} else {
-							err = errs.Wrap(stx.Commit())
-						}
-					}()
-
 					_, err = rtx.Exec(ctx, `ALTER TABLE reputation ADD COLUMN offline_under_review_at TIMESTAMP`)
 					if err != nil {
 						return errs.Wrap(err)
@@ -2061,6 +2082,192 @@ func (db *DB) Migration(ctx context.Context) *migrate.Migration {
 
 					return errs.Wrap(err)
 				}),
+			},
+			{
+				DB:          &db.gcFilewalkerProgressDB.DB,
+				Description: "Create gc_filewalker_progress db",
+				Version:     55,
+				CreateDB: func(ctx context.Context, log *zap.Logger) error {
+					if err := db.openDatabase(ctx, GCFilewalkerProgressDBName); err != nil {
+						return ErrDatabase.Wrap(err)
+					}
+
+					return nil
+				},
+				Action: migrate.SQL{
+					`CREATE TABLE progress (
+						satellite_id BLOB NOT NULL,
+						bloomfilter_created_before TIMESTAMP NOT NULL,
+						last_checked_prefix TEXT NOT NULL,
+						PRIMARY KEY (satellite_id)
+					);`,
+				},
+			},
+			{
+				DB:          &db.usedSpacePerPrefixDB.DB,
+				Description: "Create used_space_per_prefix db",
+				Version:     56,
+				CreateDB: func(ctx context.Context, log *zap.Logger) error {
+					if err := db.openDatabase(ctx, UsedSpacePerPrefixDBName); err != nil {
+						return ErrDatabase.Wrap(err)
+					}
+
+					return nil
+				},
+				Action: migrate.SQL{
+					`CREATE TABLE used_space_per_prefix (
+						satellite_id BLOB NOT NULL,
+						piece_prefix TEXT NOT NULL,
+						total_bytes INTEGER NOT NULL,
+						last_updated TIMESTAMP NOT NULL,
+						PRIMARY KEY (satellite_id, piece_prefix)
+					);`,
+				},
+			},
+			{
+				DB:          &db.bandwidthDB.DB,
+				Description: "Create new bandwidth_usage table, backfilling data from bandwidth_usage_rollups and bandwidth_usage tables, and dropping the old tables.",
+				Version:     57,
+				Action: migrate.SQL{`
+						CREATE TABLE bandwidth_usage_new (
+							interval_start   TIMESTAMP NOT NULL,
+							satellite_id     BLOB      NOT NULL,
+							put_total        BIGINT DEFAULT 0,
+							get_total        BIGINT DEFAULT 0,
+							get_audit_total  BIGINT DEFAULT 0,
+							get_repair_total BIGINT DEFAULT 0,
+							put_repair_total BIGINT DEFAULT 0,
+							delete_total     BIGINT DEFAULT 0,
+							PRIMARY KEY (interval_start, satellite_id)
+						);
+
+						INSERT INTO bandwidth_usage_new (
+							interval_start,
+							satellite_id,
+							put_total,
+							get_total,
+							get_audit_total,
+							get_repair_total,
+							put_repair_total,
+							delete_total
+						)
+						SELECT
+							datetime(date(interval_start)) as interval_start,
+							satellite_id,
+							SUM(CASE WHEN action = 1 THEN amount ELSE 0 END) AS put_total,
+							SUM(CASE WHEN action = 2 THEN amount ELSE 0 END) AS get_total,
+							SUM(CASE WHEN action = 3 THEN amount ELSE 0 END) AS get_audit_total,
+							SUM(CASE WHEN action = 4 THEN amount ELSE 0 END) AS get_repair_total,
+							SUM(CASE WHEN action = 5 THEN amount ELSE 0 END) AS put_repair_total,
+							SUM(CASE WHEN action = 6 THEN amount ELSE 0 END) AS delete_total
+						FROM
+						    bandwidth_usage_rollups
+						WHERE -- protection against data corruption
+							datetime(interval_start) IS NOT NULL AND
+							satellite_id IS NOT NULL AND
+							1 <= action AND action <= 6
+						GROUP BY
+							datetime(date(interval_start)), satellite_id, action
+						ON CONFLICT(interval_start, satellite_id) DO UPDATE SET
+							put_total        = put_total + excluded.put_total,
+							get_total        = get_total + excluded.get_total,
+							get_audit_total  = get_audit_total + excluded.get_audit_total,
+							get_repair_total = get_repair_total + excluded.get_repair_total,
+							put_repair_total = put_repair_total + excluded.put_repair_total,
+							delete_total     = delete_total + excluded.delete_total;
+
+						-- Backfill data from bandwidth_usage table
+						INSERT INTO bandwidth_usage_new (
+							interval_start,
+							satellite_id,
+							put_total,
+							get_total,
+							get_audit_total,
+							get_repair_total,
+							put_repair_total,
+							delete_total
+						)
+						SELECT
+							datetime(date(created_at)) as interval_start,
+							satellite_id,
+							SUM(CASE WHEN action = 1 THEN amount ELSE 0 END) AS put_total,
+							SUM(CASE WHEN action = 2 THEN amount ELSE 0 END) AS get_total,
+							SUM(CASE WHEN action = 3 THEN amount ELSE 0 END) AS get_audit_total,
+							SUM(CASE WHEN action = 4 THEN amount ELSE 0 END) AS get_repair_total,
+							SUM(CASE WHEN action = 5 THEN amount ELSE 0 END) AS put_repair_total,
+							SUM(CASE WHEN action = 6 THEN amount ELSE 0 END) AS delete_total
+						FROM
+						    bandwidth_usage
+						WHERE -- protection against data corruption
+							datetime(created_at) IS NOT NULL AND
+							satellite_id IS NOT NULL AND
+							1 <= action AND action <= 6
+						GROUP BY
+							datetime(date(created_at)), satellite_id, action
+						ON CONFLICT(interval_start, satellite_id) DO UPDATE SET
+							put_total        = put_total + excluded.put_total,
+							get_total        = get_total + excluded.get_total,
+							get_audit_total  = get_audit_total + excluded.get_audit_total,
+							get_repair_total = get_repair_total + excluded.get_repair_total,
+							put_repair_total = put_repair_total + excluded.put_repair_total,
+							delete_total     = delete_total + excluded.delete_total;
+
+						DROP TABLE bandwidth_usage_rollups;
+						DROP TABLE bandwidth_usage;
+						ALTER TABLE bandwidth_usage_new RENAME TO bandwidth_usage;
+					`,
+				},
+			},
+			{
+				DB:          &db.pieceExpirationDB.DB,
+				Description: "Remove unused trash column",
+				Version:     58,
+				Action: migrate.SQL{
+					`DROP INDEX idx_piece_expirations_trashed;`,
+					`ALTER TABLE piece_expirations DROP COLUMN trash;`,
+				},
+			},
+			{
+				DB:          &db.pieceExpirationDB.DB,
+				Description: "Remove unused deletion_failed_at column",
+				Version:     59,
+				Action: migrate.SQL{
+					`DROP INDEX idx_piece_expirations_deletion_failed_at;`,
+					`ALTER TABLE piece_expirations DROP COLUMN deletion_failed_at;`,
+				},
+			},
+			{
+				DB:          &db.pieceExpirationDB.DB,
+				Description: "Overhaul piece_expirations",
+				Version:     60,
+				Action: migrate.SQL{
+					`CREATE TABLE piece_expirations_new (
+						satellite_id     BLOB      NOT NULL,
+						piece_id         BLOB      NOT NULL,
+						piece_expiration TIMESTAMP NOT NULL  -- date when it can be deleted
+					);`,
+					`INSERT INTO piece_expirations_new (satellite_id, piece_id, piece_expiration) SELECT satellite_id, piece_id, piece_expiration FROM piece_expirations;`,
+					`DROP TABLE piece_expirations;`,
+					`ALTER TABLE piece_expirations_new RENAME TO piece_expirations;`,
+					`CREATE INDEX idx_piece_expirations_piece_expiration ON piece_expirations(piece_expiration);`,
+				},
+			},
+			{
+				DB:          &db.pieceSpaceUsedDB.DB,
+				Description: "Remove records with null satellite ID values from piece_space_used table",
+				Version:     61,
+				Action: migrate.SQL{
+					`DELETE FROM piece_space_used WHERE satellite_id IS NULL;`,
+				},
+			},
+			{
+				DB:          &db.usedSpacePerPrefixDB.DB,
+				Description: "Add total_content_size, piece_counts, resume_point columns to used_space_per_prefix table",
+				Version:     62,
+				Action: migrate.SQL{
+					`ALTER TABLE used_space_per_prefix ADD COLUMN total_content_size INTEGER NOT NULL DEFAULT 0`,
+					`ALTER TABLE used_space_per_prefix ADD COLUMN piece_counts INTEGER NOT NULL DEFAULT 0`,
+				},
 			},
 		},
 	}

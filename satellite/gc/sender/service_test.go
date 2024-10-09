@@ -25,6 +25,15 @@ import (
 )
 
 func TestSendRetainFilters(t *testing.T) {
+	t.Run("legacy", func(t *testing.T) {
+		retainTest(t, 0)
+	})
+	t.Run("retaing-big", func(t *testing.T) {
+		retainTest(t, 5000000)
+	})
+}
+
+func retainTest(t *testing.T, tableSize int) {
 	testplanet.Run(t, testplanet.Config{
 		SatelliteCount:   2,
 		StorageNodeCount: 1,
@@ -59,7 +68,10 @@ func TestSendRetainFilters(t *testing.T) {
 		rangedloopConfig := planet.Satellites[0].Config.RangedLoop
 
 		observer := bloomfilter.NewObserver(zaptest.NewLogger(t), config, planet.Satellites[0].Overlay.DB)
-		segments := rangedloop.NewMetabaseRangeSplitter(planet.Satellites[0].Metabase.DB, rangedloopConfig.AsOfSystemInterval, rangedloopConfig.BatchSize)
+		if tableSize > 0 {
+			observer.TestingForceTableSize(tableSize)
+		}
+		segments := rangedloop.NewMetabaseRangeSplitter(planet.Satellites[0].Metabase.DB, rangedloopConfig.AsOfSystemInterval, rangedloopConfig.SpannerStaleInterval, rangedloopConfig.BatchSize)
 		rangedLoop := rangedloop.NewService(zap.NewNop(), planet.Satellites[0].Config.RangedLoop, segments,
 			[]rangedloop.Observer{observer})
 
@@ -67,13 +79,15 @@ func TestSendRetainFilters(t *testing.T) {
 		require.NoError(t, err)
 
 		storageNode0 := planet.StorageNodes[0]
-		require.Zero(t, storageNode0.Peer.Storage2.RetainService.HowManyQueued())
+		require.Zero(t, storageNode0.Peer.Storage2.RetainService.TestingHowManyQueued())
 
 		// send to storagenode
 		err = gcsender.RunOnce(ctx)
 		require.NoError(t, err)
 
-		require.Equal(t, 1, storageNode0.Peer.Storage2.RetainService.HowManyQueued())
+		require.Eventually(t, func() bool {
+			return storageNode0.Peer.Storage2.RetainService.TestingHowManyQueued() == 1
+		}, 10*time.Second, 50*time.Millisecond)
 
 		// check that zip was moved to sent
 		project, err := planet.Uplinks[0].OpenProject(ctx, planet.Satellites[1])
@@ -102,7 +116,7 @@ func TestSendRetainFilters(t *testing.T) {
 	})
 }
 
-func TestSendRetainFiltersDisqualifedNode(t *testing.T) {
+func TestSendRetainFiltersDisqualifiedNode(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
 		SatelliteCount:   1,
 		StorageNodeCount: 2,
@@ -138,7 +152,7 @@ func TestSendRetainFiltersDisqualifedNode(t *testing.T) {
 		rangedloopConfig := planet.Satellites[0].Config.RangedLoop
 
 		observer := bloomfilter.NewObserver(zaptest.NewLogger(t), config, planet.Satellites[0].Overlay.DB)
-		segments := rangedloop.NewMetabaseRangeSplitter(planet.Satellites[0].Metabase.DB, rangedloopConfig.AsOfSystemInterval, rangedloopConfig.BatchSize)
+		segments := rangedloop.NewMetabaseRangeSplitter(planet.Satellites[0].Metabase.DB, rangedloopConfig.AsOfSystemInterval, rangedloopConfig.SpannerStaleInterval, rangedloopConfig.BatchSize)
 		rangedLoop := rangedloop.NewService(zap.NewNop(), planet.Satellites[0].Config.RangedLoop, segments,
 			[]rangedloop.Observer{observer})
 
@@ -157,14 +171,14 @@ func TestSendRetainFiltersDisqualifedNode(t *testing.T) {
 		require.NoError(t, err)
 
 		for _, node := range planet.StorageNodes {
-			require.Zero(t, node.Peer.Storage2.RetainService.HowManyQueued())
+			require.Zero(t, node.Peer.Storage2.RetainService.TestingHowManyQueued())
 		}
 
 		// send to storagenodes
 		require.NoError(t, gcsender.RunOnce(ctx))
 
 		for _, node := range planet.StorageNodes {
-			require.Zero(t, node.Peer.Storage2.RetainService.HowManyQueued())
+			require.Zero(t, node.Peer.Storage2.RetainService.TestingHowManyQueued())
 		}
 	})
 }

@@ -4,13 +4,14 @@
 <template>
     <v-dialog
         v-model="model"
-        width="400px"
+        :persistent="isLoading"
+        max-width="420px"
         transition="fade-transition"
     >
-        <v-card ref="innerContent" rounded="xlg">
-            <v-card-item class="pa-5 pl-7">
+        <v-card ref="innerContent">
+            <v-card-item class="pa-6 pr-5">
                 <template #prepend>
-                    <img class="d-block" src="@/assets/createAccessGrantFlow/accessEncryption.svg" alt="icon">
+                    <img class="d-block" src="@/assets/icon-access.svg" alt="icon">
                 </template>
 
                 <v-card-title class="font-weight-bold">
@@ -31,7 +32,7 @@
 
             <v-divider />
 
-            <v-card-item class="pa-7 pb-3">
+            <v-card-item class="pa-6 pb-3">
                 <v-form v-model="formValid" @submit.prevent="onContinue">
                     <v-row>
                         <v-col cols="12">
@@ -51,6 +52,7 @@
                                 :hide-details="false"
                                 :rules="[ RequiredRule ]"
                                 autofocus
+                                required
                             >
                                 <template #append-inner>
                                     <password-input-eye-icons
@@ -69,13 +71,13 @@
                     class="mt-3"
                     density="compact"
                     type="warning"
-                    text="Object count mismatch: files may be uploaded with a different passphrase, or files have been recently deleted and are not reflected yet."
+                    text="Object count mismatch: objects may be uploaded with a different passphrase, or objects have been recently deleted and are not reflected yet."
                 />
             </v-card-item>
 
             <v-divider />
 
-            <v-card-actions class="pa-4">
+            <v-card-actions class="pa-3">
                 <v-col>
                     <v-btn
                         variant="outlined"
@@ -109,29 +111,24 @@ import { Component, computed, ref, watch } from 'vue';
 import { VForm, VRow, VCol, VTextField, VCardItem, VDivider, VCardTitle, VBtn, VCard, VCardActions, VDialog, VAlert } from 'vuetify/components';
 
 import { RequiredRule } from '@/types/common';
-import { useAnalyticsStore } from '@/store/modules/analyticsStore';
 import { useBucketsStore } from '@/store/modules/bucketsStore';
-import { useAppStore } from '@/store/modules/appStore';
 import { Bucket } from '@/types/buckets';
 import { useProjectsStore } from '@/store/modules/projectsStore';
-import { useLoading } from '@/composables/useLoading';
 import { AnalyticsErrorEventSource } from '@/utils/constants/analyticsEventNames';
 import { useNotify } from '@/utils/hooks';
 
 import PasswordInputEyeIcons from '@/components/PasswordInputEyeIcons.vue';
 
-const analyticsStore = useAnalyticsStore();
 const bucketsStore = useBucketsStore();
-const appStore = useAppStore();
 const projectsStore = useProjectsStore();
 const notify = useNotify();
-const { isLoading, withLoading } = useLoading();
 
 const passphrase = ref<string>('');
 const isPassphraseVisible = ref<boolean>(false);
 const isWarningState = ref<boolean>(false);
 const innerContent = ref<Component | null>(null);
 const formValid = ref<boolean>(false);
+const isLoading = ref<boolean>(false);
 
 const model = defineModel<boolean>({ required: true });
 

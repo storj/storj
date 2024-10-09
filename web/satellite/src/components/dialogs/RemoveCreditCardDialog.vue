@@ -4,13 +4,23 @@
 <template>
     <v-dialog
         v-model="model"
-        width="320px"
+        max-width="420px"
         transition="fade-transition"
         :persistent="isLoading"
     >
-        <v-card rounded="xlg">
+        <v-card>
             <v-card-item class="pa-5 pl-6">
-                <v-card-title class="font-weight-bold">Remove Credit Card</v-card-title>
+                <template #prepend>
+                    <v-sheet
+                        class="border-sm d-flex justify-center align-center"
+                        width="40"
+                        height="40"
+                        rounded="lg"
+                    >
+                        <icon-card />
+                    </v-sheet>
+                </template>
+                <v-card-title class="font-weight-bold">Remove Card</v-card-title>
                 <template #append>
                     <v-btn
                         icon="$close"
@@ -43,7 +53,7 @@
                     </v-col>
                     <v-col v-if="(card.isDefault && moreThanOneCard) || !card.isDefault">
                         <v-btn v-if="card.isDefault && moreThanOneCard" color="primary" variant="flat" block :loading="isLoading" @click="onEditDefault">
-                            Edit Default
+                            Edit Default Card
                         </v-btn>
                         <v-btn v-if="!card.isDefault" color="error" variant="flat" block :loading="isLoading" @click="onDelete">
                             Remove
@@ -68,17 +78,18 @@ import {
     VRow,
     VCol,
     VBtn,
+    VSheet,
 } from 'vuetify/components';
 
-import { useConfigStore } from '@/store/modules/configStore';
-import { useAnalyticsStore } from '@/store/modules/analyticsStore';
 import { useBillingStore } from '@/store/modules/billingStore';
 import { useLoading } from '@/composables/useLoading';
 import { useNotify } from '@/utils/hooks';
 import { AnalyticsErrorEventSource } from '@/utils/constants/analyticsEventNames';
 import { CreditCard } from '@/types/payments';
+import { useUsersStore } from '@/store/modules/usersStore';
 
 import CreditCardItem from '@/components/dialogs/ccActionComponents/CreditCardItem.vue';
+import IconCard from '@/components/icons/IconCard.vue';
 
 const props = defineProps<{
     card: CreditCard,
@@ -90,9 +101,8 @@ const emit = defineEmits<{
     'editDefault': [];
 }>();
 
-const analyticsStore = useAnalyticsStore();
 const billingStore = useBillingStore();
-const configStore = useConfigStore();
+const usersStore = useUsersStore();
 
 const { isLoading, withLoading } = useLoading();
 const notify = useNotify();
@@ -105,11 +115,27 @@ async function onDelete(): Promise<void> {
             await billingStore.removeCreditCard(props.card.id);
             notify.success('Credit card was successfully removed');
             model.value = false;
+            attemptPayments();
         } catch (error) {
             error.message = `Error removing credit card. ${error.message}`;
             notify.notifyError(error, AnalyticsErrorEventSource.REMOVE_CC_MODAL);
         }
     });
+}
+
+async function attemptPayments() {
+    const frozenOrWarned = usersStore.state.user.freezeStatus?.frozen ||
+      usersStore.state.user.freezeStatus?.trialExpiredFrozen ||
+      usersStore.state.user.freezeStatus?.warned;
+    if (!frozenOrWarned) {
+        return;
+    }
+    try {
+        await billingStore.attemptPayments();
+        await usersStore.getUser();
+    } catch (error) {
+        notify.notifyError(error, AnalyticsErrorEventSource.BILLING_PAYMENT_METHODS_TAB);
+    }
 }
 
 function onEditDefault(): void {

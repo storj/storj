@@ -49,7 +49,7 @@ type NodeSelectionConfig struct {
 	DistinctIP        bool          `help:"require distinct IPs when choosing nodes for upload" releaseDefault:"true" devDefault:"false"`
 	NetworkPrefixIPv4 int           `help:"the prefix to use in determining 'network' for IPv4 addresses" default:"24" hidden:"true"`
 	NetworkPrefixIPv6 int           `help:"the prefix to use in determining 'network' for IPv6 addresses" default:"64" hidden:"true"`
-	MinimumDiskSpace  memory.Size   `help:"how much disk space a node at minimum must have to be selected for upload" default:"500.00MB" testDefault:"100.00MB"`
+	MinimumDiskSpace  memory.Size   `help:"how much disk space a node at minimum must have to be selected for upload" default:"5.00GB" testDefault:"100.00MB"`
 
 	AsOfSystemTime AsOfSystemTimeConfig
 
@@ -87,9 +87,10 @@ func (aost *AsOfSystemTimeConfig) Interval() time.Duration {
 // This is used only if no placement is configured, but we need a 0 placement rule.
 func (c NodeSelectionConfig) CreateDefaultPlacement() (nodeselection.Placement, error) {
 	placement := nodeselection.Placement{
-		NodeFilter: nodeselection.AnyFilter{},
-		Selector:   nodeselection.UnvettedSelector(c.NewNodeFraction, nodeselection.AttributeGroupSelector(nodeselection.LastNetAttribute)),
-		Invariant:  nodeselection.ClumpingByAttribute(nodeselection.LastNetAttribute, 1),
+		NodeFilter:       nodeselection.AnyFilter{},
+		Selector:         nodeselection.UnvettedSelector(c.NewNodeFraction, nodeselection.AttributeGroupSelector(nodeselection.LastNetAttribute)),
+		Invariant:        nodeselection.ClumpingByAttribute(nodeselection.LastNetAttribute, 1),
+		DownloadSelector: nodeselection.DefaultDownloadSelector,
 	}
 	if len(c.UploadExcludedCountryCodes) > 0 {
 		countryFilter, err := nodeselection.NewCountryFilterFromString(c.UploadExcludedCountryCodes)

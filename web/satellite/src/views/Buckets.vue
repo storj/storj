@@ -3,19 +3,17 @@
 
 <template>
     <v-container>
+        <trial-expiration-banner v-if="isTrialExpirationBanner && isUserProjectOwner" :expired="isExpired" />
+
         <PageTitleComponent title="Browse Buckets" />
         <PageSubtitleComponent
             subtitle="Buckets are where you upload and organize your data."
             link="https://docs.storj.io/learn/concepts/key-architecture-constructs#bucket"
         />
 
-        <v-row class="mt-2 mb-4">
+        <v-row class="mt-1 mb-3">
             <v-col>
-                <v-btn
-                    color="primary"
-                    @click="isCreateBucketDialogOpen = true"
-                >
-                    <IconNew class="mr-2" size="16" bold />
+                <v-btn color="primary" :prepend-icon="CirclePlus" @click="onCreateBucket">
                     New Bucket
                 </v-btn>
             </v-col>
@@ -35,12 +33,26 @@ import {
     VCol,
     VBtn,
 } from 'vuetify/components';
+import { CirclePlus } from 'lucide-vue-next';
+
+import { usePreCheck } from '@/composables/usePreCheck';
 
 import PageTitleComponent from '@/components/PageTitleComponent.vue';
 import PageSubtitleComponent from '@/components/PageSubtitleComponent.vue';
 import BucketsDataTable from '@/components/BucketsDataTable.vue';
 import CreateBucketDialog from '@/components/dialogs/CreateBucketDialog.vue';
-import IconNew from '@/components/icons/IconNew.vue';
+import TrialExpirationBanner from '@/components/TrialExpirationBanner.vue';
+
+const { isTrialExpirationBanner, isUserProjectOwner, isExpired, withTrialCheck, withManagedPassphraseCheck } = usePreCheck();
 
 const isCreateBucketDialogOpen = ref<boolean>(false);
+
+/**
+ * Starts create bucket flow if user's free trial is not expired.
+ */
+function onCreateBucket(): void {
+    withTrialCheck(() => { withManagedPassphraseCheck(() => {
+        isCreateBucketDialogOpen.value = true;
+    });});
+}
 </script>

@@ -158,7 +158,7 @@ func (ce *consoleEndpoints) tryLogin(ctx context.Context) (string, error) {
 	}
 
 	authToken.Email = "alice@mail.test"
-	authToken.Password = "123a123"
+	authToken.Password = "password"
 
 	res, err := json.Marshal(authToken)
 	if err != nil {
@@ -256,7 +256,7 @@ func (ce *consoleEndpoints) createUser(ctx context.Context, regToken string) (st
 
 	registerData.FullName = "Alice"
 	registerData.Email = "alice@mail.test"
-	registerData.Password = "123a123"
+	registerData.Password = "password"
 	registerData.ShortName = "al"
 	registerData.Secret = regToken
 
@@ -495,8 +495,9 @@ func (ce *consoleEndpoints) getProject(ctx context.Context, token string) (strin
 }
 
 func (ce *consoleEndpoints) createProject(ctx context.Context, token string) (string, error) {
-	rng := rand.NewSource(time.Now().UnixNano())
-	body := fmt.Sprintf(`{"name":"TestProject-%d","description":""}`, rng.Int63())
+	// Generate a random number up to 8 digits and append it to project name prefix.
+	rng := rand.New(rand.NewSource(time.Now().UnixNano()))
+	body := fmt.Sprintf(`{"name":"TestProject-%d","description":""}`, rng.Int63n(99999999))
 
 	request, err := http.NewRequestWithContext(
 		ctx,

@@ -6,12 +6,11 @@
         v-model="dialog"
         activator="parent"
         width="auto"
-        min-width="400px"
         transition="fade-transition"
     >
-        <v-card rounded="xlg">
+        <v-card>
             <v-sheet>
-                <v-card-item class="pl-7 py-4">
+                <v-card-item class="pa-6">
                     <template #prepend>
                         <v-card-title class="font-weight-bold">
                             Get Detailed Usage Report
@@ -32,7 +31,7 @@
 
             <v-divider />
 
-            <v-form class="pa-8">
+            <v-form class="pa-6">
                 <p class="text-subtitle-2 mb-2">Select date range to generate your report:</p>
                 <v-chip-group v-model="option" mandatory filter color="primary">
                     <v-chip :value="Options.Month">Past Month</v-chip>
@@ -43,7 +42,7 @@
                     v-if="option === Options.Custom"
                     v-model="customRange"
                     header="Choose Dates"
-                    multiple
+                    multiple="range"
                     show-adjacent-months
                     border
                     elevation="0"
@@ -53,7 +52,7 @@
 
             <v-divider />
 
-            <v-card-actions class="pa-7">
+            <v-card-actions class="pa-6">
                 <v-row>
                     <v-col>
                         <v-btn variant="outlined" color="default" block @click="dialog = false">Cancel</v-btn>
@@ -101,7 +100,7 @@ const projectsStore = useProjectsStore();
 const notify = useNotify();
 
 const props = withDefaults(defineProps<{
-    projectID: string
+    projectID?: string
 }>(), {
     projectID: '',
 });
@@ -141,6 +140,7 @@ function setChooseDates(): void {
     since.value = undefined;
     before.value = undefined;
     option.value = Options.Custom;
+    customRange.value = [];
 }
 
 function downloadReport(): void {
@@ -158,19 +158,15 @@ function downloadReport(): void {
     }
 }
 
-watch(customRange, () => {
-    if (customRange.value.length > 2) {
-        customRange.value = customRange.value.slice(0, 2);
-        return;
-    }
-
-    if (customRange.value.length < 2) {
+watch(customRange, (newRange) => {
+    if (newRange.length < 2) {
         since.value = undefined;
         before.value = undefined;
         return;
     }
 
-    let [start, end] = customRange.value;
+    let start = newRange[0];
+    let end = newRange[newRange.length - 1];
     if (start.getTime() > end.getTime()) {
         [start, end] = [end, start];
     }

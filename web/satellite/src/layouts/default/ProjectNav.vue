@@ -9,10 +9,10 @@
                 <template #activator="{ props: activatorProps }">
                     <navigation-item title="Project" :subtitle="selectedProject.name" class="pa-4" v-bind="activatorProps">
                         <template #prepend>
-                            <IconProject />
+                            <component :is="Box" :size="18" />
                         </template>
                         <template #append>
-                            <img src="@/assets/icon-right.svg" class="ml-3" alt="Project" width="10">
+                            <img src="@/assets/icon-right.svg" class="ml-4" alt="Project" width="10">
                         </template>
                     </navigation-item>
                 </template>
@@ -21,12 +21,12 @@
                 <v-list class="pa-2">
                     <!-- My Projects -->
                     <template v-if="ownProjects.length">
-                        <v-list-item router-link :to="ROUTES.Projects.path" @click="() => registerLinkClick(ROUTES.Projects.path)">
+                        <v-list-item router-link :to="ROUTES.Projects.path" @click="closeDrawer">
                             <template #prepend>
-                                <IconProject />
+                                <component :is="Box" :size="18" />
                             </template>
-                            <v-list-item-title class="ml-3">
-                                <v-chip color="secondary" variant="tonal" size="small" rounded="xl" class="font-weight-bold" link @click="() => registerLinkClick(ROUTES.Projects.path)">
+                            <v-list-item-title class="ml-4">
+                                <v-chip color="secondary" variant="tonal" size="small" class="font-weight-bold" link @click="closeDrawer">
                                     My Projects
                                 </v-chip>
                             </v-list-item-title>
@@ -36,13 +36,13 @@
                         <v-list-item
                             v-for="project in ownProjects"
                             :key="project.id"
-                            :active="project.isSelected"
+                            :active="selectedProject.id === project.id"
                             @click="() => onProjectSelected(project)"
                         >
-                            <template v-if="project.isSelected" #prepend>
-                                <img src="@/assets/icon-check-color.svg" alt="Selected Project">
+                            <template v-if="selectedProject.id === project.id" #prepend>
+                                <img src="@/assets/icon-check-color.svg" alt="Selected Project" width="18" height="18">
                             </template>
-                            <v-list-item-title :class="project.isSelected ? 'ml-3' : 'ml-7'">
+                            <v-list-item-title :class="selectedProject.id === project.id ? 'ml-4' : 'ml-9'">
                                 {{ project.name }}
                             </v-list-item-title>
                         </v-list-item>
@@ -52,12 +52,12 @@
 
                     <!-- Shared With Me -->
                     <template v-if="sharedProjects.length">
-                        <v-list-item router-link :to="ROUTES.Projects.path" @click="() => registerLinkClick(ROUTES.Projects.path)">
+                        <v-list-item router-link :to="ROUTES.Projects.path" @click="closeDrawer">
                             <template #prepend>
-                                <IconProject />
+                                <component :is="Box" :size="18" />
                             </template>
-                            <v-list-item-title class="ml-3">
-                                <v-chip color="green" variant="tonal" size="small" rounded="xl" class="font-weight-bold" link @click="() => registerLinkClick(ROUTES.Projects.path)">
+                            <v-list-item-title class="ml-4">
+                                <v-chip color="success" variant="tonal" size="small" class="font-weight-bold" link @click="closeDrawer">
                                     Shared Projects
                                 </v-chip>
                             </v-list-item-title>
@@ -67,13 +67,13 @@
                         <v-list-item
                             v-for="project in sharedProjects"
                             :key="project.id"
-                            :active="project.isSelected"
+                            :active="selectedProject.id === project.id"
                             @click="() => onProjectSelected(project)"
                         >
-                            <template v-if="project.isSelected" #prepend>
+                            <template v-if="selectedProject.id === project.id" #prepend>
                                 <img src="@/assets/icon-check-color.svg" alt="Selected Project">
                             </template>
-                            <v-list-item-title :class="project.isSelected ? 'ml-3' : 'ml-7'">
+                            <v-list-item-title :class="selectedProject.id === project.id ? 'ml-4' : 'ml-9'">
                                 {{ project.name }}
                             </v-list-item-title>
                         </v-list-item>
@@ -82,11 +82,11 @@
                     </template>
 
                     <!-- Project Settings -->
-                    <v-list-item router-link :to="settingsURL" @click="() => registerLinkClick(ROUTES.ProjectSettingsAnalyticsLink)">
+                    <v-list-item router-link :to="settingsURL" @click="closeDrawer">
                         <template #prepend>
-                            <IconSettings />
+                            <component :is="Settings" :size="18" />
                         </template>
-                        <v-list-item-title class="ml-3">
+                        <v-list-item-title class="ml-4">
                             Project Settings
                         </v-list-item-title>
                     </v-list-item>
@@ -94,11 +94,11 @@
                     <v-divider class="my-2" />
 
                     <!-- View All Projects -->
-                    <v-list-item router-link :to="ROUTES.Projects.path" @click="() => registerLinkClick(ROUTES.Projects.path)">
+                    <v-list-item router-link :to="ROUTES.Projects.path" @click="closeDrawer">
                         <template #prepend>
-                            <IconAllProjects />
+                            <component :is="Layers" :size="18" />
                         </template>
-                        <v-list-item-title class="ml-3">
+                        <v-list-item-title class="ml-4">
                             View All Projects
                         </v-list-item-title>
                     </v-list-item>
@@ -106,69 +106,86 @@
                     <v-divider class="my-2" />
 
                     <!-- Create New Project -->
-                    <v-list-item link @click="isCreateProjectDialogShown = true">
+                    <v-list-item link @click="onCreateProject">
                         <template #prepend>
-                            <IconNew size="18" />
+                            <component :is="CirclePlus" :size="18" />
                         </template>
-                        <v-list-item-title class="ml-3">
+                        <v-list-item-title class="ml-4">
                             Create New Project
                         </v-list-item-title>
                     </v-list-item>
 
-                    <v-divider class="my-2" />
+                    <template v-if="!hasManagedPassphrase">
+                        <v-divider class="my-2" />
 
-                    <!-- Manage Passphrase -->
-                    <v-list-item link class="mt-1" @click="isManagePassphraseDialogShown = true">
-                        <template #prepend>
-                            <IconPassphrase />
-                        </template>
-                        <v-list-item-title class="ml-3">
-                            Manage Passphrase
-                        </v-list-item-title>
-                    </v-list-item>
+                        <!-- Manage Passphrase -->
+                        <v-list-item link class="mt-1" @click="isManagePassphraseDialogShown = true">
+                            <template #prepend>
+                                <component :is="LockKeyhole" :size="18" />
+                            </template>
+                            <v-list-item-title class="ml-4">
+                                Manage Passphrase
+                            </v-list-item-title>
+                        </v-list-item>
+                    </template>
                 </v-list>
             </v-menu>
 
             <v-divider class="my-2" />
 
-            <navigation-item :title="ROUTES.Dashboard.name" :to="dashboardURL" @click="() => registerDashboardLinkClick(ROUTES.DashboardAnalyticsLink)">
+            <navigation-item :title="ROUTES.Dashboard.name" :to="dashboardURL" @click="closeDrawer">
                 <template #prepend>
-                    <IconDashboard />
+                    <component :is="LayoutDashboard" :size="18" />
                 </template>
             </navigation-item>
 
             <navigation-item title="Browse" :to="bucketsURL">
                 <template #prepend>
-                    <IconFolder size="18" />
+                    <component :is="FolderOpen" :size="18" />
                 </template>
             </navigation-item>
 
-            <navigation-item :title="ROUTES.Access.name" :to="accessURL" @click="() => registerLinkClick(ROUTES.AccessAnalyticsLink)">
+            <navigation-item :title="ROUTES.Access.name" :to="accessURL" @click="closeDrawer">
                 <template #prepend>
-                    <IconAccess size="18" />
+                    <component :is="KeyRound" :size="18" />
                 </template>
             </navigation-item>
 
-            <navigation-item v-if="isAppsPage" :title="ROUTES.Applications.name" :to="appsURL" @click="() => registerLinkClick(ROUTES.ApplicationsAnalyticsLink)">
+            <navigation-item :title="ROUTES.Applications.name" :to="appsURL" @click="closeDrawer">
                 <template #prepend>
-                    <IconApplications />
+                    <component :is="AppWindow" :size="18" />
                 </template>
             </navigation-item>
 
-            <navigation-item :title="ROUTES.Team.name" :to="teamURL" @click="() => registerLinkClick(ROUTES.TeamAnalyticsLink)">
+            <navigation-item v-if="domainsPageEnabled" :title="ROUTES.Domains.name" :to="domainsURL" @click="closeDrawer">
                 <template #prepend>
-                    <IconTeam size="18" />
+                    <component :is="Globe" :size="18" />
+                </template>
+            </navigation-item>
+
+            <navigation-item :title="ROUTES.Team.name" :to="teamURL" @click="closeDrawer">
+                <template #prepend>
+                    <component :is="Users" :size="18" />
                 </template>
             </navigation-item>
 
             <v-divider class="my-2" />
+
+            <navigation-item v-if="valdiSignUpURL" title="Cloud GPUs" @click="onCloudGPUClicked">
+                <template #prepend>
+                    <component :is="Microchip" :size="18" />
+                </template>
+                <template #chip>
+                    <v-chip color="success" class="ml-1" size="small">New</v-chip>
+                </template>
+            </navigation-item>
 
             <!-- Resources Menu -->
             <v-menu location="end" transition="scale-transition">
                 <template #activator="{ props: activatorProps }">
                     <navigation-item title="Resources" v-bind="activatorProps">
                         <template #prepend>
-                            <IconResources />
+                            <component :is="BookMarked" :size="18" />
                         </template>
                         <template #append>
                             <img src="@/assets/icon-right.svg" alt="Resources" width="10">
@@ -185,12 +202,12 @@
                         @click="() => trackViewDocsEvent('https://docs.storj.io/')"
                     >
                         <template #prepend>
-                            <IconDocs />
+                            <component :is="BookOpenText" :size="18" />
                         </template>
-                        <v-list-item-title class="mx-3">
+                        <v-list-item-title class="mx-4">
                             Documentation
                         </v-list-item-title>
-                        <v-list-item-subtitle class="mx-3">
+                        <v-list-item-subtitle class="mx-4">
                             <small>Go to the Storj docs.</small>
                         </v-list-item-subtitle>
                     </v-list-item>
@@ -203,12 +220,12 @@
                         @click="() => trackViewForumEvent('https://forum.storj.io/')"
                     >
                         <template #prepend>
-                            <IconForum />
+                            <component :is="MessagesSquare" :size="18" />
                         </template>
-                        <v-list-item-title class="mx-3">
+                        <v-list-item-title class="mx-4">
                             Community Forum
                         </v-list-item-title>
-                        <v-list-item-subtitle class="mx-3">
+                        <v-list-item-subtitle class="mx-4">
                             <small>Join our global community.</small>
                         </v-list-item-subtitle>
                     </v-list-item>
@@ -221,12 +238,12 @@
                         @click="() => trackViewSupportEvent('https://supportdcs.storj.io/hc/en-us')"
                     >
                         <template #prepend>
-                            <IconSupport />
+                            <component :is="MessageCircleQuestion" :size="18" />
                         </template>
-                        <v-list-item-title class="mx-3">
+                        <v-list-item-title class="mx-4">
                             Storj Support
                         </v-list-item-title>
-                        <v-list-item-subtitle class="mx-3">
+                        <v-list-item-subtitle class="mx-4">
                             <small>Need help? Get support.</small>
                         </v-list-item-subtitle>
                     </v-list-item>
@@ -239,6 +256,8 @@
 
     <create-project-dialog v-model="isCreateProjectDialogShown" />
     <manage-passphrase-dialog v-model="isManagePassphraseDialogShown" />
+    <cloud-gpu-dialog v-if="valdiSignUpURL" v-model="isCloudGpuDialogShown" />
+    <enter-project-passphrase-dialog />
 </template>
 
 <script setup lang="ts">
@@ -256,45 +275,51 @@ import {
     VDivider,
 } from 'vuetify/components';
 import { useDisplay } from 'vuetify';
+import {
+    Users,
+    AppWindow,
+    KeyRound,
+    FolderOpen,
+    LayoutDashboard,
+    BookMarked,
+    Box,
+    Globe,
+    Layers,
+    Settings,
+    CirclePlus,
+    LockKeyhole,
+    MessagesSquare,
+    MessageCircleQuestion,
+    BookOpenText,
+    Microchip,
+} from 'lucide-vue-next';
 
 import { Project } from '@/types/projects';
 import { useProjectsStore } from '@/store/modules/projectsStore';
 import { useAnalyticsStore } from '@/store/modules/analyticsStore';
 import { useAppStore } from '@/store/modules/appStore';
 import { useUsersStore } from '@/store/modules/usersStore';
-import { AnalyticsEvent } from '@/utils/constants/analyticsEventNames';
-import { useBucketsStore } from '@/store/modules/bucketsStore';
+import { AnalyticsEvent, PageVisitSource } from '@/utils/constants/analyticsEventNames';
 import { ROUTES } from '@/router';
+import { usePreCheck } from '@/composables/usePreCheck';
 import { useConfigStore } from '@/store/modules/configStore';
 
-import IconProject from '@/components/icons/IconProject.vue';
-import IconSettings from '@/components/icons/IconSettings.vue';
-import IconAllProjects from '@/components/icons/IconAllProjects.vue';
-import IconNew from '@/components/icons/IconNew.vue';
-import IconPassphrase from '@/components/icons/IconPassphrase.vue';
-import IconDashboard from '@/components/icons/IconDashboard.vue';
-import IconAccess from '@/components/icons/IconAccess.vue';
-import IconTeam from '@/components/icons/IconTeam.vue';
-import IconDocs from '@/components/icons/IconDocs.vue';
-import IconForum from '@/components/icons/IconForum.vue';
-import IconSupport from '@/components/icons/IconSupport.vue';
-import IconResources from '@/components/icons/IconResources.vue';
 import CreateProjectDialog from '@/components/dialogs/CreateProjectDialog.vue';
 import ManagePassphraseDialog from '@/components/dialogs/ManagePassphraseDialog.vue';
 import NavigationItem from '@/layouts/default/NavigationItem.vue';
-import IconFolder from '@/components/icons/IconFolder.vue';
-import IconApplications from '@/components/icons/IconApplications.vue';
+import EnterProjectPassphraseDialog from '@/components/dialogs/EnterProjectPassphraseDialog.vue';
+import CloudGpuDialog from '@/components/dialogs/CloudGpuDialog.vue';
 
-const configStore = useConfigStore();
 const analyticsStore = useAnalyticsStore();
 const projectsStore = useProjectsStore();
 const appStore = useAppStore();
 const usersStore = useUsersStore();
-const bucketsStore = useBucketsStore();
+const configStore = useConfigStore();
 
 const route = useRoute();
 const router = useRouter();
 
+const { withTrialCheck } = usePreCheck();
 const { mdAndDown } = useDisplay();
 
 const model = computed<boolean>({
@@ -304,6 +329,9 @@ const model = computed<boolean>({
 
 const isCreateProjectDialogShown = ref<boolean>(false);
 const isManagePassphraseDialogShown = ref<boolean>(false);
+const isCloudGpuDialogShown = ref<boolean>(false);
+
+const domainsPageEnabled = computed<boolean>(() => configStore.state.config.domainsPageEnabled);
 
 /**
  * Returns the selected project from the store.
@@ -322,11 +350,11 @@ const bucketsURL = computed<string>(() => `${projectURLBase.value}/${ROUTES.Buck
 
 const dashboardURL = computed<string>(() => `${projectURLBase.value}/${ROUTES.Dashboard.path}`);
 
+const domainsURL = computed<string>(() => `${projectURLBase.value}/${ROUTES.Domains.path}`);
+
 const teamURL = computed<string>(() => `${projectURLBase.value}/${ROUTES.Team.path}`);
 
 const appsURL = computed<string>(() => `${projectURLBase.value}/${ROUTES.Applications.path}`);
-
-const isAppsPage = computed<boolean>(() => configStore.state.config.applicationsPageEnabled);
 
 /**
  * Returns user's own projects.
@@ -345,32 +373,34 @@ const sharedProjects = computed((): Project[] => {
 });
 
 /**
- * Conditionally closes the navigation drawer and tracks page visit.
+ * Returns whether this project has passphrase managed by the satellite.
  */
-function registerLinkClick(page: string): void {
+const hasManagedPassphrase = computed((): boolean => {
+    return projectsStore.state.selectedProjectConfig.hasManagedPassphrase;
+});
+
+const valdiSignUpURL = computed<string>(() => configStore.state.config.valdiSignUpURL);
+
+/**
+ * Conditionally closes the navigation drawer.
+ */
+function closeDrawer(): void {
     if (mdAndDown.value) {
         model.value = false;
     }
-    trackPageVisitEvent(page);
 }
 
-/**
- * Sends "Page Visit" event to segment and opens link.
- */
-function trackPageVisitEvent(page: string): void {
-    analyticsStore.pageVisit(page);
-}
-
-function registerDashboardLinkClick(page: string): void {
-    registerLinkClick(page);
-    analyticsStore.eventTriggered(AnalyticsEvent.NAVIGATE_PROJECTS);
+function onCloudGPUClicked() {
+    closeDrawer();
+    analyticsStore.eventTriggered(AnalyticsEvent.CLOUD_GPU_NAVIGATION_ITEM_CLICKED);
+    isCloudGpuDialogShown.value = true;
 }
 
 /**
  * Sends "View Docs" event to segment and opens link.
  */
 function trackViewDocsEvent(link: string): void {
-    registerLinkClick(link);
+    analyticsStore.pageVisit(link, PageVisitSource.DOCS);
     analyticsStore.eventTriggered(AnalyticsEvent.VIEW_DOCS_CLICKED);
     window.open(link);
 }
@@ -379,7 +409,7 @@ function trackViewDocsEvent(link: string): void {
  * Sends "View Forum" event to segment and opens link.
  */
 function trackViewForumEvent(link: string): void {
-    registerLinkClick(link);
+    analyticsStore.pageVisit(link, PageVisitSource.FORUM);
     analyticsStore.eventTriggered(AnalyticsEvent.VIEW_FORUM_CLICKED);
     window.open(link);
 }
@@ -388,17 +418,26 @@ function trackViewForumEvent(link: string): void {
  * Sends "View Support" event to segment and opens link.
  */
 function trackViewSupportEvent(link: string): void {
-    registerLinkClick(link);
+    analyticsStore.pageVisit(link, PageVisitSource.SUPPORT);
     analyticsStore.eventTriggered(AnalyticsEvent.VIEW_SUPPORT_CLICKED);
     window.open(link);
+}
+
+/**
+ * Starts create project flow if user's free trial is not expired.
+ */
+function onCreateProject() {
+    withTrialCheck(() => {
+        isCreateProjectDialogShown.value = true;
+    }, true);
 }
 
 /**
  * This comparator is used to sort projects by isSelected.
  */
 function compareProjects(a: Project, b: Project): number {
-    if (a.isSelected) return -1;
-    if (b.isSelected) return 1;
+    if (selectedProject.value.id === a.id) return -1;
+    if (selectedProject.value.id === b.id) return 1;
     return 0;
 }
 
@@ -421,8 +460,6 @@ async function onProjectSelected(project: Project): Promise<void> {
             },
         });
     }
-
-    bucketsStore.clearS3Data();
 }
 
 onBeforeMount(() => {

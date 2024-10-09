@@ -6,8 +6,11 @@ package consoleweb_test
 import (
 	"bytes"
 	"context"
+	"encoding/json"
 	"fmt"
+	"io"
 	"net/http"
+	"path"
 	"testing"
 	"time"
 
@@ -22,7 +25,7 @@ import (
 
 func TestActivationRouting(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
-		SatelliteCount: 1, StorageNodeCount: 0, UplinkCount: 0,
+		SatelliteCount: 1, StorageNodeCount: 0, UplinkCount: 0, EnableSpanner: true,
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 		sat := planet.Satellites[0]
 		service := sat.API.Console.Service
@@ -33,7 +36,7 @@ func TestActivationRouting(t *testing.T) {
 		user, err := service.CreateUser(ctx, console.CreateUser{
 			FullName: "User",
 			Email:    "u@mail.test",
-			Password: "123a123",
+			Password: "password",
 		}, regToken.Secret)
 		require.NoError(t, err)
 
@@ -82,7 +85,7 @@ func TestActivationRouting(t *testing.T) {
 
 func TestInvitedRouting(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
-		SatelliteCount: 1, StorageNodeCount: 0, UplinkCount: 0,
+		SatelliteCount: 1, StorageNodeCount: 0, UplinkCount: 0, EnableSpanner: true,
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 		sat := planet.Satellites[0]
 		service := sat.API.Console.Service
@@ -159,7 +162,7 @@ func TestInvitedRouting(t *testing.T) {
 func TestUserIDRateLimiter(t *testing.T) {
 	numLimits := 2
 	testplanet.Run(t, testplanet.Config{
-		SatelliteCount: 1, StorageNodeCount: 0, UplinkCount: 0,
+		SatelliteCount: 1, StorageNodeCount: 0, UplinkCount: 0, EnableSpanner: true,
 		Reconfigure: testplanet.Reconfigure{
 			Satellite: func(log *zap.Logger, index int, config *satellite.Config) {
 				config.Console.RateLimit.NumLimits = numLimits
@@ -225,9 +228,63 @@ func TestUserIDRateLimiter(t *testing.T) {
 	})
 }
 
+func TestVarPartnerBlocker(t *testing.T) {
+	testplanet.Run(t, testplanet.Config{
+		SatelliteCount: 1, StorageNodeCount: 0, UplinkCount: 0, EnableSpanner: true,
+		Reconfigure: testplanet.Reconfigure{
+			Satellite: func(log *zap.Logger, index int, config *satellite.Config) {
+				config.Console.VarPartners = []string{"partner1"}
+			},
+		},
+	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+		sat := planet.Satellites[0]
+
+		makeRequest := func(route, method, token string, shouldForbid bool) {
+			urlLink := "http://" + sat.API.Console.Listener.Addr().String() + "/api/v0/payments" + route
+
+			req, err := http.NewRequestWithContext(ctx, method, urlLink, http.NoBody)
+			require.NoError(t, err)
+
+			req.AddCookie(&http.Cookie{
+				Name:    "_tokenKey",
+				Path:    "/",
+				Value:   token,
+				Expires: time.Now().AddDate(0, 0, 1),
+			})
+
+			result, err := http.DefaultClient.Do(req)
+			require.NoError(t, err)
+			require.NoError(t, result.Body.Close())
+			if shouldForbid {
+				require.Equal(t, http.StatusForbidden, result.StatusCode)
+			} else {
+				require.Equal(t, http.StatusOK, result.StatusCode)
+			}
+		}
+
+		for _, i := range []int{1, 2} {
+			user, err := sat.AddUser(ctx, console.CreateUser{
+				FullName:  fmt.Sprintf("var user%d", i),
+				Email:     fmt.Sprintf("var%d@mail.test", i),
+				UserAgent: []byte(fmt.Sprintf("partner%d", i)),
+			}, 1)
+			require.NoError(t, err)
+
+			tokenInfo, err := sat.API.Console.Service.Token(ctx, console.AuthUser{Email: user.Email, Password: user.FullName})
+			require.NoError(t, err)
+
+			tokenStr := tokenInfo.Token.String()
+
+			makeRequest("/wallet/payments", http.MethodGet, tokenStr, string(user.UserAgent) == "partner1")
+			// account setup account endpoint should be allowed even for var partners
+			makeRequest("/account", http.MethodPost, tokenStr, false)
+		}
+	})
+}
+
 func TestConsoleBackendWithDisabledFrontEnd(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
-		SatelliteCount: 1, StorageNodeCount: 0, UplinkCount: 0,
+		SatelliteCount: 1, StorageNodeCount: 0, UplinkCount: 0, EnableSpanner: true,
 		Reconfigure: testplanet.Reconfigure{
 			Satellite: func(log *zap.Logger, index int, config *satellite.Config) {
 				config.Console.FrontendEnable = false
@@ -247,12 +304,95 @@ func TestConsoleBackendWithDisabledFrontEnd(t *testing.T) {
 
 func TestConsoleBackendWithEnabledFrontEnd(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
-		SatelliteCount: 1, StorageNodeCount: 0, UplinkCount: 0,
+		SatelliteCount: 1, StorageNodeCount: 0, UplinkCount: 0, EnableSpanner: true,
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 		apiAddr := planet.Satellites[0].API.Console.Listener.Addr().String()
 
 		testEndpoint(ctx, t, apiAddr, "/", http.StatusOK)
 		testEndpoint(ctx, t, apiAddr, "/static/", http.StatusOK)
+	})
+}
+
+// TestGenCreateProjectProxy tests that having changed the prefix for the generated API,
+// calling it with the new prefix works as expected. And calling an endpoint with the old prefix
+// correctly proxies to the new prefix.
+func TestGenCreateProjectProxy(t *testing.T) {
+	testplanet.Run(t, testplanet.Config{
+		SatelliteCount: 1, StorageNodeCount: 0, UplinkCount: 1, EnableSpanner: true,
+		Reconfigure: testplanet.Reconfigure{
+			Satellite: func(log *zap.Logger, index int, config *satellite.Config) {
+				config.Console.GeneratedAPIEnabled = true
+			},
+		},
+	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+		sat := planet.Satellites[0]
+		restService := sat.Admin.REST.Keys
+		consoleService := sat.API.Console.Service
+
+		testU := planet.Uplinks[0].User[sat.ID()]
+
+		user, _, err := consoleService.GetUserByEmailWithUnverified(ctx, testU.Email)
+		require.NoError(t, err)
+		require.NotNil(t, user)
+
+		apiKey, _, err := restService.Create(ctx, user.ID, time.Hour)
+		require.NoError(t, err)
+
+		client := http.Client{}
+		newApiPrefix := "/public/v1"
+		oldApiPrefix := "/api/v0"
+		requestGen := func(method string, prefix string, resourcePath string, body map[string]interface{}) (*http.Response, error) {
+			url := "http://" + path.Join(sat.API.Console.Listener.Addr().String(), prefix, resourcePath)
+
+			jsonBody, err := json.Marshal(body)
+			require.NoError(t, err)
+
+			req, err := http.NewRequestWithContext(ctx, method, url, bytes.NewReader(jsonBody))
+			require.NoError(t, err)
+
+			req.Header = http.Header{
+				"Authorization": []string{"Bearer " + apiKey},
+			}
+
+			return client.Do(req)
+		}
+
+		name := "a name"
+		description := "a description"
+		resp, err := requestGen(http.MethodPost, newApiPrefix, "/projects/create", map[string]interface{}{
+			"name":        name,
+			"description": description,
+		})
+		require.NoError(t, err)
+		require.Equal(t, http.StatusOK, resp.StatusCode)
+
+		bodyBytes, err := io.ReadAll(resp.Body)
+		require.NoError(t, err)
+
+		require.NoError(t, resp.Body.Close())
+
+		var createdProject console.ProjectInfo
+		require.NoError(t, json.Unmarshal(bodyBytes, &createdProject))
+		require.Equal(t, name, createdProject.Name)
+		require.Equal(t, description, createdProject.Description)
+
+		// using the old prefix should still work
+		name += "2"
+		resp, err = requestGen(http.MethodPost, oldApiPrefix, "/projects/create", map[string]interface{}{
+			"name":        name,
+			"description": description,
+		})
+		require.NoError(t, err)
+		require.Equal(t, http.StatusOK, resp.StatusCode)
+
+		bodyBytes, err = io.ReadAll(resp.Body)
+		require.NoError(t, err)
+
+		require.NoError(t, resp.Body.Close())
+
+		require.NoError(t, json.Unmarshal(bodyBytes, &createdProject))
+		require.Equal(t, name, createdProject.Name)
+		require.Equal(t, description, createdProject.Description)
 	})
 }
 

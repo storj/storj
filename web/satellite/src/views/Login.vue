@@ -5,13 +5,13 @@
     <v-container class="fill-height">
         <v-row justify="center">
             <v-col cols="12" sm="9" md="7" lg="5" xl="4" xxl="3">
-                <v-card v-if="!isMFARequired" title="Welcome back" subtitle="Log in to your Storj account" rounded="xlg" class="pa-2 pa-sm-6">
+                <v-card v-if="!isMFARequired" title="Welcome back" subtitle="Log in to your Storj account" class="pa-2 pa-sm-6 pb-sm-7">
                     <v-card-text>
                         <v-alert
                             v-if="captchaError"
                             variant="tonal"
                             color="error"
-                            text="HCaptcha is required"
+                            text="hCaptcha is required. If you are using a VPN, try disabling it."
                             rounded="lg"
                             density="comfortable"
                             class="mt-2 mb-3"
@@ -99,20 +99,32 @@
                                 </template>
                             </v-text-field>
 
-                            <v-checkbox
-                                v-model="rememberForOneWeek"
-                                label="Remember Me"
-                                density="compact"
-                                class="mt-n4 mb-3"
-                                hide-details
-                            >
-                                <v-tooltip
-                                    activator="parent"
-                                    location="top"
-                                >
-                                    Stay logged in for 7 days.
-                                </v-tooltip>
-                            </v-checkbox>
+                            <v-row>
+                                <v-col>
+                                    <v-checkbox
+                                        v-model="rememberForOneWeek"
+                                        label="Remember Me"
+                                        density="compact"
+                                        class="mt-n4 mb-3 text-body-2"
+                                        hide-details
+                                    >
+                                        <v-tooltip
+                                            activator="parent"
+                                            location="top"
+                                        >
+                                            Stay logged in for 7 days.
+                                        </v-tooltip>
+                                    </v-checkbox>
+                                </v-col>
+
+                                <v-col>
+                                    <p class="text-right mt-n2">
+                                        <router-link class="link" :to="ROUTES.ForgotPassword.path">
+                                            Forgot Password
+                                        </router-link>
+                                    </p>
+                                </v-col>
+                            </v-row>
 
                             <v-btn
                                 type="submit"
@@ -145,7 +157,6 @@
                     @expired="onCaptchaError"
                     @error="onCaptchaError"
                 />
-                <p v-if="!isMFARequired" class="mt-7 text-center text-body-2">Forgot your password? <router-link class="link font-weight-bold" :to="ROUTES.ForgotPassword.path">Reset Password</router-link></p>
                 <p class="mt-5 text-center text-body-2">Don't have an account? <router-link class="link font-weight-bold" :to="ROUTES.Signup.path">Sign Up</router-link></p>
             </v-col>
         </v-row>
@@ -160,7 +171,6 @@ import VueHcaptcha from '@hcaptcha/vue3-hcaptcha';
 
 import { EmailRule, RequiredRule, ValidationRule } from '@/types/common';
 import { AuthHttpApi } from '@/api/auth';
-import { useAnalyticsStore } from '@/store/modules/analyticsStore';
 import { useConfigStore } from '@/store/modules/configStore';
 import { useAppStore } from '@/store/modules/appStore';
 import { useUsersStore } from '@/store/modules/usersStore';
@@ -179,7 +189,6 @@ import PasswordInputEyeIcons from '@/components/PasswordInputEyeIcons.vue';
 
 const auth = new AuthHttpApi();
 
-const analyticsStore = useAnalyticsStore();
 const configStore = useConfigStore();
 const appStore = useAppStore();
 const usersStore = useUsersStore();
@@ -187,8 +196,6 @@ const notify = useNotify();
 const router = useRouter();
 const route = useRoute();
 
-const valid = ref(false);
-const checked = ref(false);
 const showPassword = ref(false);
 const isLoading = ref<boolean>(false);
 const isBadLoginMessageShown = ref<boolean>(false);
@@ -293,7 +300,7 @@ async function onLoginClick(): Promise<void> {
     }
 
     isLoading.value = true;
-    if (hcaptcha.value && !captchaResponseToken.value) {
+    if (!isMFARequired.value && hcaptcha.value && !captchaResponseToken.value) {
         hcaptcha.value?.execute();
         return;
     }
@@ -351,7 +358,6 @@ async function login(): Promise<void> {
     usersStore.login();
     isLoading.value = false;
 
-    analyticsStore.pageVisit(returnURL.value);
     await router.push(returnURL.value);
 }
 

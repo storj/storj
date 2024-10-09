@@ -4,11 +4,11 @@
 <template>
     <v-dialog
         v-model="model"
-        width="410px"
+        max-width="420px"
         transition="fade-transition"
     >
-        <v-card rounded="xlg">
-            <v-card-item class="pa-5 pl-7">
+        <v-card>
+            <v-card-item class="pa-6">
                 <template #prepend>
                     <img class="d-block" src="@/assets/icon-session-timeout.svg" alt="Session expiring">
                 </template>
@@ -26,7 +26,7 @@
 
             <v-divider />
 
-            <v-card-item class="pa-8">
+            <v-card-item class="pa-6">
                 Your session is about to expire due to inactivity in:
                 <br>
                 <span class="font-weight-bold">{{ seconds }} second{{ seconds !== 1 ? 's' : '' }}</span>
@@ -36,7 +36,7 @@
 
             <v-divider />
 
-            <v-card-actions class="pa-7">
+            <v-card-actions class="pa-6">
                 <v-row>
                     <v-col>
                         <v-btn

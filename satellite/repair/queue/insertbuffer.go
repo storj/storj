@@ -48,6 +48,8 @@ func (r *InsertBuffer) Insert(
 	segment *InjuredSegment,
 	newInsertCallback func(),
 ) (err error) {
+	defer mon.Task()(&ctx)(&err)
+
 	r.batch = append(r.batch, segment)
 	r.newInsertCallbacks[segment] = newInsertCallback
 

@@ -9,28 +9,37 @@ import {
     CreateBucketCommand,
     DeleteBucketCommand,
     ListObjectsV2Command,
+    PutBucketVersioningCommand,
+    BucketVersioningStatus,
 } from '@aws-sdk/client-s3';
 import { SignatureV4 } from '@smithy/signature-v4';
 
-import { Bucket, BucketCursor, BucketPlacement, BucketPage, BucketsApi } from '@/types/buckets';
+import {
+    Bucket,
+    BucketCursor,
+    BucketPage,
+    BucketsApi,
+    BucketMetadata,
+} from '@/types/buckets';
 import { BucketsHttpApi } from '@/api/buckets';
 import { AccessGrant, EdgeCredentials } from '@/types/accessGrants';
 import { useAccessGrantsStore } from '@/store/modules/accessGrantsStore';
 import { useProjectsStore } from '@/store/modules/projectsStore';
 import { useConfigStore } from '@/store/modules/configStore';
 import { DEFAULT_PAGE_LIMIT } from '@/types/pagination';
+import { Duration } from '@/utils/time';
 
 const FIRST_PAGE = 1;
-export const FILE_BROWSER_AG_NAME = 'Web file browser API key';
 
 export class BucketsState {
     public allBucketNames: string[] = [];
-    public allBucketPlacements: BucketPlacement[] = [];
+    public allBucketMetadata: BucketMetadata[] = [];
     public cursor: BucketCursor = { limit: DEFAULT_PAGE_LIMIT, search: '', page: FIRST_PAGE };
     public page: BucketPage = { buckets: new Array<Bucket>(), currentPage: 1, pageCount: 1, offset: 0, limit: DEFAULT_PAGE_LIMIT, search: '', totalCount: 0 };
     public edgeCredentials: EdgeCredentials = new EdgeCredentials();
     public edgeCredentialsForDelete: EdgeCredentials = new EdgeCredentials();
     public edgeCredentialsForCreate: EdgeCredentials = new EdgeCredentials();
+    public edgeCredentialsForVersioning: EdgeCredentials = new EdgeCredentials();
     public s3Client: S3Client = new S3Client({
         forcePathStyle: true,
         signerConstructor: SignatureV4,
@@ -43,6 +52,10 @@ export class BucketsState {
         forcePathStyle: true,
         signerConstructor: SignatureV4,
     });
+    public s3ClientForVersioning: S3Client = new S3Client({
+        forcePathStyle: true,
+        signerConstructor: SignatureV4,
+    });
     public apiKey = '';
     public passphrase = '';
     public promptForPassphrase = true;
@@ -50,7 +63,7 @@ export class BucketsState {
     public fileComponentPath = '';
     public leaveRoute = '';
     public enterPassphraseCallback: (() => void) | null = null;
-    public bucketToDelete = '';
+    public bucketsBeingDeleted: Set<string> = new Set<string>();
 }
 
 export const useBucketsStore = defineStore('buckets', () => {
@@ -70,12 +83,18 @@ export const useBucketsStore = defineStore('buckets', () => {
         state.page = await api.get(projectID, before, state.cursor);
     }
 
+    async function getSingleBucket(projectID: string, bucketName: string): Promise<Bucket> {
+        const before = new Date();
+
+        return await api.getSingle(projectID, bucketName, before);
+    }
+
     async function getAllBucketsNames(projectID: string): Promise<void> {
         state.allBucketNames = await api.getAllBucketNames(projectID);
     }
 
-    async function getAllBucketsPlacements(projectID: string): Promise<void> {
-        state.allBucketPlacements = await api.getAllBucketPlacements(projectID);
+    async function getAllBucketsMetadata(projectID: string): Promise<void> {
+        state.allBucketMetadata = await api.getAllBucketMetadata(projectID);
     }
 
     function setPromptForPassphrase(value: boolean): void {
@@ -90,7 +109,7 @@ export const useBucketsStore = defineStore('buckets', () => {
         state.edgeCredentials = credentials;
     }
 
-    function setEdgeCredentialsForDelete(credentials: EdgeCredentials): void {
+    function setEdgeCredentialsForDelete(credentials: EdgeCredentials, forceDeleteDisabled = false): void {
         state.edgeCredentialsForDelete = credentials;
 
         const s3Config: S3ClientConfig = {
@@ -106,13 +125,15 @@ export const useBucketsStore = defineStore('buckets', () => {
 
         state.s3ClientForDelete = new S3Client(s3Config);
 
-        state.s3ClientForDelete.middlewareStack.add(
-            (next, _) => (args) => {
-                (args.request as { headers: { key: string } }).headers['x-minio-force-delete'] = 'true';
-                return next(args);
-            },
-            { step: 'build' },
-        );
+        if (!forceDeleteDisabled) {
+            state.s3ClientForDelete.middlewareStack.add(
+                (next, _) => (args) => {
+                    (args.request as { headers: { key: string } }).headers['x-minio-force-delete'] = 'true';
+                    return next(args);
+                },
+                { step: 'build' },
+            );
+        }
     }
 
     function setEdgeCredentialsForCreate(credentials: EdgeCredentials): void {
@@ -132,17 +153,32 @@ export const useBucketsStore = defineStore('buckets', () => {
         state.s3ClientForCreate = new S3Client(s3Config);
     }
 
+    function setEdgeCredentialsForVersioning(credentials: EdgeCredentials): void {
+        state.edgeCredentialsForVersioning = credentials;
+
+        const s3Config: S3ClientConfig = {
+            credentials: {
+                accessKeyId: state.edgeCredentialsForVersioning.accessKeyId || '',
+                secretAccessKey: state.edgeCredentialsForVersioning.secretKey || '',
+            },
+            endpoint: state.edgeCredentialsForVersioning.endpoint,
+            forcePathStyle: true,
+            signerConstructor: SignatureV4,
+            region: 'us-east-1',
+        };
+
+        state.s3ClientForVersioning = new S3Client(s3Config);
+    }
+
     async function setS3Client(projectID: string): Promise<void> {
         const agStore = useAccessGrantsStore();
+        const { objectBrowserKeyNamePrefix, objectBrowserKeyLifetime } = useConfigStore().state.config;
+        const now = new Date();
 
         if (!state.apiKey) {
-            await agStore.deleteAccessGrantByNameAndProjectID(FILE_BROWSER_AG_NAME, projectID);
-            const cleanAPIKey: AccessGrant = await agStore.createAccessGrant(FILE_BROWSER_AG_NAME, projectID);
+            const cleanAPIKey: AccessGrant = await agStore.createAccessGrant(`${objectBrowserKeyNamePrefix}${now.getTime()}`, projectID);
             setApiKey(cleanAPIKey.secret);
         }
-
-        const now = new Date();
-        const inThreeDays = new Date(now.setDate(now.getDate() + 3));
 
         const worker = agStore.state.accessGrantsWebWorker;
         if (!worker) {
@@ -153,13 +189,14 @@ export const useBucketsStore = defineStore('buckets', () => {
             throw new Error(error.message);
         };
 
+        const notAfter = new Date(now.setDate(now.getDate() + new Duration(objectBrowserKeyLifetime).days));
         worker.postMessage({
             'type': 'SetPermission',
             'isDownload': true,
             'isUpload': true,
             'isList': true,
             'isDelete': true,
-            'notAfter': inThreeDays.toISOString(),
+            'notAfter': notAfter.toISOString(),
             'buckets': JSON.stringify([]),
             'apiKey': state.apiKey,
         });
@@ -221,26 +258,66 @@ export const useBucketsStore = defineStore('buckets', () => {
         state.fileComponentPath = path;
     }
 
-    function setEnterPassphraseCallback(fn: (() => void) | null): void {
-        state.enterPassphraseCallback = fn;
-    }
-
-    async function createBucket(name: string): Promise<void> {
+    async function createBucket(name: string, enableObjectLock: boolean, enableBucketVersioning: boolean): Promise<void> {
         await state.s3Client.send(new CreateBucketCommand({
             Bucket: name,
+            ObjectLockEnabledForBucket: enableObjectLock,
+        }));
+        // If object lock is enabled, versioning is enabled implicitly.
+        if (enableBucketVersioning && !enableObjectLock) {
+            await state.s3Client.send(new PutBucketVersioningCommand({
+                Bucket: name,
+                VersioningConfiguration: {
+                    Status: BucketVersioningStatus.Enabled,
+                },
+            }));
+        }
+    }
+
+    async function createBucketWithNoPassphrase(name: string, enableObjectLock: boolean, enableBucketVersioning: boolean): Promise<void> {
+        await state.s3ClientForCreate.send(new CreateBucketCommand({
+            Bucket: name,
+            ObjectLockEnabledForBucket: enableObjectLock,
+        }));
+        // If object lock is enabled, versioning is enabled implicitly.
+        if (enableBucketVersioning && !enableObjectLock) {
+            await state.s3ClientForCreate.send(new PutBucketVersioningCommand({
+                Bucket: name,
+                VersioningConfiguration: {
+                    Status: BucketVersioningStatus.Enabled,
+                },
+            }));
+        }
+    }
+
+    async function setVersioning(bucket: string, enable: boolean): Promise<void> {
+        await state.s3ClientForVersioning.send(new PutBucketVersioningCommand({
+            Bucket: bucket,
+            VersioningConfiguration: {
+                Status: enable ? BucketVersioningStatus.Enabled : BucketVersioningStatus.Suspended,
+            },
         }));
     }
 
-    async function createBucketWithNoPassphrase(name: string): Promise<void> {
-        await state.s3ClientForCreate.send(new CreateBucketCommand({
-            Bucket: name,
-        }));
+    /**
+     * This is an empty action for App.vue to subscribe to know the status of the delete bucket request.
+     *
+     * @param _bucketName - the bucket name.
+     * @param _deleteRequest - the promise of the delete bucket request.
+     */
+    function handleDeleteBucketRequest(_bucketName: string, _deleteRequest: Promise<void>): void {
+        /* empty */
     }
 
     async function deleteBucket(name: string): Promise<void> {
-        await state.s3ClientForDelete.send(new DeleteBucketCommand({
-            Bucket: name,
-        }));
+        state.bucketsBeingDeleted.add(name);
+        try {
+            await state.s3ClientForDelete.send(new DeleteBucketCommand({
+                Bucket: name,
+            }));
+        } finally {
+            state.bucketsBeingDeleted.delete(name);
+        }
     }
 
     async function getObjectsCount(name: string): Promise<number> {
@@ -252,10 +329,6 @@ export const useBucketsStore = defineStore('buckets', () => {
         return (!response || response.KeyCount === undefined) ? 0 : response.KeyCount;
     }
 
-    function setBucketToDelete(bucket: string): void {
-        state.bucketToDelete = bucket;
-    }
-
     function clearS3Data(): void {
         state.apiKey = '';
         state.passphrase = '';
@@ -263,6 +336,7 @@ export const useBucketsStore = defineStore('buckets', () => {
         state.edgeCredentials = new EdgeCredentials();
         state.edgeCredentialsForDelete = new EdgeCredentials();
         state.edgeCredentialsForCreate = new EdgeCredentials();
+        state.edgeCredentialsForVersioning = new EdgeCredentials();
         state.s3Client = new S3Client({
             forcePathStyle: true,
             signerConstructor: SignatureV4,
@@ -275,9 +349,13 @@ export const useBucketsStore = defineStore('buckets', () => {
             forcePathStyle: true,
             signerConstructor: SignatureV4,
         });
+        state.s3ClientForVersioning = new S3Client({
+            forcePathStyle: true,
+            signerConstructor: SignatureV4,
+        });
         state.fileComponentBucketName = '';
         state.leaveRoute = '';
-        state.bucketToDelete = '';
+        state.bucketsBeingDeleted.clear();
     }
 
     function clear(): void {
@@ -292,23 +370,25 @@ export const useBucketsStore = defineStore('buckets', () => {
         state,
         setBucketsSearch,
         getBuckets,
+        getSingleBucket,
         getAllBucketsNames,
-        getAllBucketsPlacements,
+        getAllBucketsMetadata,
         setPromptForPassphrase,
         setEdgeCredentials,
         setEdgeCredentialsForDelete,
         setEdgeCredentialsForCreate,
+        setEdgeCredentialsForVersioning,
         setS3Client,
         setPassphrase,
         setApiKey,
         setFileComponentBucketName,
         setFileComponentPath,
-        setEnterPassphraseCallback,
         createBucket,
         createBucketWithNoPassphrase,
+        setVersioning,
         deleteBucket,
+        handleDeleteBucketRequest,
         getObjectsCount,
-        setBucketToDelete,
         clearS3Data,
         clear,
     };

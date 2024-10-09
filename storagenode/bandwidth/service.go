@@ -18,41 +18,41 @@ var mon = monkit.Package()
 
 // Config defines parameters for storage node Collector.
 type Config struct {
-	Interval time.Duration `help:"how frequently bandwidth usage rollups are calculated" default:"1h0m0s"`
+	Interval time.Duration `help:"how frequently bandwidth usage cache should be synced with the db" default:"1h0m0s" testDefault:"1s"`
 }
 
 // Service implements the bandwidth usage rollup service.
 //
 // architecture: Chore
 type Service struct {
-	log  *zap.Logger
-	db   DB
-	Loop *sync2.Cycle
+	log   *zap.Logger
+	cache *Cache
+	Loop  *sync2.Cycle
 }
 
 // NewService creates a new bandwidth service.
-func NewService(log *zap.Logger, db DB, config Config) *Service {
+func NewService(log *zap.Logger, cache *Cache, config Config) *Service {
 	return &Service{
-		log:  log,
-		db:   db,
-		Loop: sync2.NewCycle(config.Interval),
+		log:   log,
+		cache: cache,
+		Loop:  sync2.NewCycle(config.Interval),
 	}
 }
 
-// Run starts the background process for rollups of bandwidth usage.
+// Run starts the background process for syncing bandwidth usage cache with the db.
 func (service *Service) Run(ctx context.Context) (err error) {
 	defer mon.Task()(&ctx)(&err)
-	return service.Loop.Run(ctx, service.Rollup)
+	return service.Loop.Run(ctx, service.RunOnce)
 }
 
-// Rollup calls bandwidth DB Rollup method and logs any errors.
-func (service *Service) Rollup(ctx context.Context) (err error) {
+// RunOnce syncs bandwidth usage cache with the db.
+func (service *Service) RunOnce(ctx context.Context) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	service.log.Info("Performing bandwidth usage rollups")
-	err = service.db.Rollup(ctx)
+	service.log.Info("Persisting bandwidth usage cache to db")
+	err = service.cache.Persist(ctx)
 	if err != nil {
-		service.log.Error("Could not rollup bandwidth usage", zap.Error(err))
+		service.log.Error("Could not persist bandwidth cache to db", zap.Error(err))
 	}
 	return nil
 }

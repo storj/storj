@@ -24,7 +24,7 @@ import (
 	"storj.io/storj/storagenode/satellites"
 )
 
-func Test_newForgetSatelliteCmd_Error(t *testing.T) {
+func TestNewForgetSatelliteCmd_Error(t *testing.T) {
 	tests := []struct {
 		name    string
 		args    string
@@ -60,12 +60,15 @@ func Test_newForgetSatelliteCmd_Error(t *testing.T) {
 	}
 }
 
-func Test_cmdForgetSatellite(t *testing.T) {
+func TestCmdForgetSatellite(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
 		SatelliteCount: 2, StorageNodeCount: 1, UplinkCount: 0,
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 		// pause the forget satellite chore
 		planet.StorageNodes[0].ForgetSatellite.Chore.Loop.Pause()
+
+		// TODO(clement): remove this once I figure out why it's flaky
+		planet.StorageNodes[0].NodeStats.Cache.Reputation.Pause()
 
 		address := planet.StorageNodes[0].Server.PrivateAddr().String()
 		log := zaptest.NewLogger(t)
@@ -80,7 +83,7 @@ func Test_cmdForgetSatellite(t *testing.T) {
 			Namespace: satellite.ID().Bytes(),
 			Key:       testrand.PieceID().Bytes(),
 		}
-		w, err := store.Create(ctx, blobRef, -1)
+		w, err := store.Create(ctx, blobRef)
 		require.NoError(t, err)
 		_, err = w.Write(testrand.Bytes(blobSize))
 		require.NoError(t, err)

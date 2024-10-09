@@ -6,7 +6,6 @@ package blobstore
 import (
 	"context"
 	"io"
-	"os"
 	"time"
 
 	"github.com/zeebo/errs"
@@ -61,6 +60,8 @@ type BlobWriter interface {
 	Commit(context.Context) error
 	// Size returns the size of the blob
 	Size() (int64, error)
+	// ReserveHeader reserves header area at the beginning of the blob.
+	ReserveHeader(int64) error
 	// StorageFormatVersion returns the storage format version associated with the blob.
 	StorageFormatVersion() FormatVersion
 }
@@ -70,8 +71,7 @@ type BlobWriter interface {
 // architecture: Database
 type Blobs interface {
 	// Create creates a new blob that can be written.
-	// Optionally takes a size argument for performance improvements, -1 is unknown size.
-	Create(ctx context.Context, ref BlobRef, size int64) (BlobWriter, error)
+	Create(ctx context.Context, ref BlobRef) (BlobWriter, error)
 	// Open opens a reader with the specified namespace and key.
 	Open(ctx context.Context, ref BlobRef) (BlobReader, error)
 	// OpenWithStorageFormat opens a reader for the already-located blob, avoiding the potential
@@ -80,13 +80,15 @@ type Blobs interface {
 	// Delete deletes the blob with the namespace and key.
 	Delete(ctx context.Context, ref BlobRef) error
 	// DeleteWithStorageFormat deletes a blob of a specific storage format.
-	DeleteWithStorageFormat(ctx context.Context, ref BlobRef, formatVer FormatVersion) error
+	DeleteWithStorageFormat(ctx context.Context, ref BlobRef, formatVer FormatVersion, sizeHint int64) error
 	// DeleteNamespace deletes blobs folder for a specific namespace.
 	DeleteNamespace(ctx context.Context, ref []byte) (err error)
 	// DeleteTrashNamespace deletes the trash folder for a given namespace.
 	DeleteTrashNamespace(ctx context.Context, namespace []byte) (err error)
 	// Trash marks a file for pending deletion.
 	Trash(ctx context.Context, ref BlobRef, timestamp time.Time) error
+	// TrashWithStorageFormat marks a blob with a specific storage format for pending deletion.
+	TrashWithStorageFormat(ctx context.Context, ref BlobRef, formatVer FormatVersion, timestamp time.Time) error
 	// RestoreTrash restores all files in the trash for a given namespace and returns the keys restored.
 	RestoreTrash(ctx context.Context, namespace []byte) ([][]byte, error)
 	// EmptyTrash removes all files in trash that were moved to trash prior to trashedBefore and returns the total bytes emptied and keys deleted.
@@ -102,8 +104,6 @@ type Blobs interface {
 	// when the format is already known.
 	StatWithStorageFormat(ctx context.Context, ref BlobRef, formatVer FormatVersion) (BlobInfo, error)
 
-	// FreeSpace return how much free space is left on the whole disk, not just the allocated disk space.
-	FreeSpace(ctx context.Context) (int64, error)
 	// DiskInfo returns information about the disk.
 	DiskInfo(ctx context.Context) (DiskInfo, error)
 	// SpaceUsedForTrash returns the total space used by the trash.
@@ -119,7 +119,7 @@ type Blobs interface {
 	// storage format V1 or greater, in the given namespace. If walkFunc returns a non-nil
 	// error, WalkNamespace will stop iterating and return the error immediately. The ctx
 	// parameter is intended to allow canceling iteration early.
-	WalkNamespace(ctx context.Context, namespace []byte, walkFunc func(BlobInfo) error) error
+	WalkNamespace(ctx context.Context, namespace []byte, skipPrefixFn SkipPrefixFn, walkFunc func(BlobInfo) error) error
 
 	// CheckWritability tests writability of the storage directory by creating and deleting a file.
 	CheckWritability(ctx context.Context) error
@@ -133,6 +133,9 @@ type Blobs interface {
 	Close() error
 }
 
+// SkipPrefixFn returns true if a prefix should be skipped.
+type SkipPrefixFn func(prefix string) bool
+
 // BlobInfo allows lazy inspection of a blob and its underlying file during iteration with
 // WalkNamespace-type methods.
 type BlobInfo interface {
@@ -143,12 +146,17 @@ type BlobInfo interface {
 	// FullPath gives the full path to the on-disk blob file.
 	FullPath(ctx context.Context) (string, error)
 	// Stat does a stat on the on-disk blob file.
-	Stat(ctx context.Context) (os.FileInfo, error)
+	Stat(ctx context.Context) (FileInfo, error)
+}
+
+// FileInfo contains information about the pieces files, what we care about.
+type FileInfo interface {
+	ModTime() time.Time
+	Size() int64
 }
 
 // DiskInfo contains information about the disk.
 type DiskInfo struct {
-	ID             string
 	TotalSpace     int64
 	AvailableSpace int64
 }

@@ -6,14 +6,20 @@
         v-model="model"
         :persistent="isLoading"
         width="auto"
-        min-width="320px"
-        max-width="410px"
+        max-width="420px"
         transition="fade-transition"
     >
-        <v-card rounded="xlg">
-            <v-card-item class="pa-5 pl-7">
+        <v-card>
+            <v-card-item class="pa-6">
                 <template #prepend>
-                    <img class="d-block" src="@/assets/icon-change-password.svg" alt="Change password">
+                    <v-sheet
+                        class="border-sm d-flex justify-center align-center"
+                        width="40"
+                        height="40"
+                        rounded="lg"
+                    >
+                        <component :is="SquareAsterisk" :size="18" />
+                    </v-sheet>
                 </template>
                 <v-card-title class="font-weight-bold">Change Password</v-card-title>
                 <template #append>
@@ -28,10 +34,10 @@
                 </template>
             </v-card-item>
             <v-divider />
-            <v-card-item class="px-7 pt-5">
+            <v-card-item class="px-6 pt-5">
                 <p>You will receive a verification link in your email to confirm the password change.</p>
             </v-card-item>
-            <v-card-item class="px-7">
+            <v-card-item class="px-6 py-0">
                 <v-form v-model="formValid" @submit.prevent="onChangePassword">
                     <v-col cols="12" class="px-0">
                         <v-text-field
@@ -41,12 +47,11 @@
                             :rules="oldRules"
                             label="Current password"
                             placeholder="Enter your current password"
+                            class="mb-2"
                             :hide-details="false"
                             required
                             autofocus
                         />
-                    </v-col>
-                    <v-col cols="12" class="px-0">
                         <v-text-field
                             v-model="newPassword"
                             variant="outlined"
@@ -54,17 +59,17 @@
                             :rules="newRules"
                             label="New password"
                             placeholder="Enter a new password"
+                            class="mb-2"
                             :hide-details="false"
                             required
                         />
-                    </v-col>
-                    <v-col cols="12" class="px-0">
                         <v-text-field
                             variant="outlined"
                             type="password"
                             :rules="repeatRules"
                             label="Repeat password"
                             placeholder="Enter the new password again"
+                            class="mb-2"
                             :hide-details="false"
                             required
                         />
@@ -104,7 +109,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed, ref } from 'vue';
+import { ref } from 'vue';
 import {
     VDialog,
     VCard,
@@ -117,23 +122,24 @@ import {
     VBtn,
     VForm,
     VTextField,
+    VSheet,
 } from 'vuetify/components';
-import { useRouter } from 'vue-router';
+import { SquareAsterisk } from 'lucide-vue-next';
 
+import { RequiredRule } from '@/types/common';
 import { useLoading } from '@/composables/useLoading';
 import { useConfigStore } from '@/store/modules/configStore';
 import { AuthHttpApi } from '@/api/auth';
 import { useAnalyticsStore } from '@/store/modules/analyticsStore';
 import { AnalyticsErrorEventSource, AnalyticsEvent } from '@/utils/constants/analyticsEventNames';
 import { useNotify } from '@/utils/hooks';
-import { ROUTES } from '@/router';
 
-const DELAY_BEFORE_REDIRECT = 2000; // 2 sec
 const auth: AuthHttpApi = new AuthHttpApi();
 const oldRules = [
-    (value: string) => (value && value.length >= config.passwordMinimumLength || `Invalid old password. Must be ${config.passwordMinimumLength} or more characters`),
+    RequiredRule,
 ];
 const newRules = [
+    RequiredRule,
     (value: string) => (value && value.length >= config.passwordMinimumLength || `Invalid password. Use ${config.passwordMinimumLength} or more characters`),
     (value: string) => (value && value.length <= config.passwordMaximumLength || `Invalid password. Use ${config.passwordMaximumLength} or fewer characters`),
 ];
@@ -145,7 +151,6 @@ const repeatRules = [
 const analyticsStore = useAnalyticsStore();
 const { config } = useConfigStore().state;
 const { isLoading, withLoading } = useLoading();
-const router = useRouter();
 const notify = useNotify();
 
 const model = defineModel<boolean>({ required: true });
@@ -169,18 +174,6 @@ async function onChangePassword(): Promise<void> {
         } catch (error) {
             notify.notifyError(error, AnalyticsErrorEventSource.CHANGE_PASSWORD_MODAL);
             return;
-        }
-
-        try {
-            await auth.logout();
-
-            setTimeout(() => {
-                router.push(ROUTES.Login.path);
-                // TODO: this reload will be unnecessary once vuetify poc has its own login and/or becomes the primary app
-                location.reload();
-            }, DELAY_BEFORE_REDIRECT);
-        } catch (error) {
-            notify.notifyError(error, AnalyticsErrorEventSource.CHANGE_PASSWORD_MODAL);
         }
 
         model.value = false;

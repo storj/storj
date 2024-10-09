@@ -49,7 +49,6 @@ wants to perform.
 	/>
 	<button on:click={confirmAuthToken}>confirm</button>
 </p>
-
 <p>
 	Operation:
 	<select

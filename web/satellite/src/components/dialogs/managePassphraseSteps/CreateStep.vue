@@ -2,7 +2,7 @@
 // See LICENSE for copying information.
 
 <template>
-    <div class="pa-8">
+    <div class="pa-6">
         Creating a new passphrase allows you to upload data separately from
         the data uploaded with the current encryption passphrase.
     </div>

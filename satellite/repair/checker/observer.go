@@ -19,40 +19,47 @@ import (
 	"golang.org/x/exp/slices"
 
 	"storj.io/common/storj"
-	"storj.io/common/storj/location"
 	"storj.io/common/uuid"
 	"storj.io/storj/satellite/metabase/rangedloop"
 	"storj.io/storj/satellite/nodeselection"
 	"storj.io/storj/satellite/overlay"
 	"storj.io/storj/satellite/repair"
 	"storj.io/storj/satellite/repair/queue"
+	"storj.io/storj/shared/location"
 )
 
-var _ rangedloop.Observer = (*Observer)(nil)
-var _ rangedloop.Partial = (*observerFork)(nil)
+var (
+	_ rangedloop.Observer = (*Observer)(nil)
+	_ rangedloop.Partial  = (*observerFork)(nil)
+)
 
 // Observer implements the ranged loop Observer interface.
 //
 // architecture: Observer
 type Observer struct {
-	logger               *zap.Logger
-	repairQueue          queue.RepairQueue
-	nodesCache           *ReliabilityCache
-	overlayService       *overlay.Service
-	repairOverrides      RepairOverridesMap
-	nodeFailureRate      float64
-	repairQueueBatchSize int
-	excludedCountryCodes map[location.CountryCode]struct{}
-	doDeclumping         bool
-	doPlacementCheck     bool
-	placements           nodeselection.PlacementDefinitions
+	logger                   *zap.Logger
+	repairQueue              queue.RepairQueue
+	nodesCache               *ReliabilityCache
+	overlayService           *overlay.Service
+	repairThresholdOverrides RepairThresholdOverrides
+	nodeFailureRate          float64
+	repairQueueBatchSize     int
+	excludedCountryCodes     map[location.CountryCode]struct{}
+	doDeclumping             bool
+	doPlacementCheck         bool
+	placements               nodeselection.PlacementDefinitions
 
 	// the following are reset on each iteration
 	startTime  time.Time
-	TotalStats aggregateStats
+	TotalStats aggregateStatsPlacements
 
 	mu             sync.Mutex
-	statsCollector map[storj.RedundancyScheme]*observerRSStats
+	statsCollector map[redundancyStyle]*observerRSStats
+}
+
+type redundancyStyle struct {
+	Scheme    storj.RedundancyScheme
+	Placement storj.PlacementConstraint
 }
 
 // NewObserver creates new checker observer instance.
@@ -64,20 +71,25 @@ func NewObserver(logger *zap.Logger, repairQueue queue.RepairQueue, overlay *ove
 		}
 	}
 
+	if config.RepairOverrides.String() != "" {
+		// backwards compatibility
+		config.RepairThresholdOverrides = RepairThresholdOverrides{config.RepairOverrides}
+	}
+
 	return &Observer{
 		logger: logger,
 
-		repairQueue:          repairQueue,
-		nodesCache:           NewReliabilityCache(overlay, config.ReliabilityCacheStaleness),
-		overlayService:       overlay,
-		repairOverrides:      config.RepairOverrides.GetMap(),
-		nodeFailureRate:      config.NodeFailureRate,
-		repairQueueBatchSize: config.RepairQueueInsertBatchSize,
-		excludedCountryCodes: excludedCountryCodes,
-		doDeclumping:         config.DoDeclumping,
-		doPlacementCheck:     config.DoPlacementCheck,
-		placements:           placements,
-		statsCollector:       make(map[storj.RedundancyScheme]*observerRSStats),
+		repairQueue:              repairQueue,
+		nodesCache:               NewReliabilityCache(overlay, config.ReliabilityCacheStaleness),
+		overlayService:           overlay,
+		repairThresholdOverrides: config.RepairThresholdOverrides,
+		nodeFailureRate:          config.NodeFailureRate,
+		repairQueueBatchSize:     config.RepairQueueInsertBatchSize,
+		excludedCountryCodes:     excludedCountryCodes,
+		doDeclumping:             config.DoDeclumping,
+		doPlacementCheck:         config.DoPlacementCheck,
+		placements:               placements,
+		statsCollector:           make(map[redundancyStyle]*observerRSStats),
 	}
 }
 
@@ -141,7 +153,8 @@ func (observer *Observer) Start(ctx context.Context, startTime time.Time) (err e
 	defer mon.Task()(&ctx)(&err)
 
 	observer.startTime = startTime
-	observer.TotalStats = aggregateStats{}
+	// Reuse the allocated slice.
+	observer.TotalStats = observer.TotalStats[:0]
 
 	return nil
 }
@@ -188,24 +201,31 @@ func (observer *Observer) Finish(ctx context.Context) (err error) {
 
 	observer.collectAggregates()
 
-	mon.IntVal("remote_files_checked").Observe(observer.TotalStats.objectsChecked)                               //mon:locked
-	mon.IntVal("remote_segments_checked").Observe(observer.TotalStats.remoteSegmentsChecked)                     //mon:locked
-	mon.IntVal("remote_segments_failed_to_check").Observe(observer.TotalStats.remoteSegmentsFailedToCheck)       //mon:locked
-	mon.IntVal("remote_segments_needing_repair").Observe(observer.TotalStats.remoteSegmentsNeedingRepair)        //mon:locked
-	mon.IntVal("new_remote_segments_needing_repair").Observe(observer.TotalStats.newRemoteSegmentsNeedingRepair) //mon:locked
-	mon.IntVal("remote_segments_lost").Observe(observer.TotalStats.remoteSegmentsLost)                           //mon:locked
-	mon.IntVal("remote_files_lost").Observe(int64(len(observer.TotalStats.objectsLost)))                         //mon:locked
-	mon.IntVal("remote_segments_over_threshold_1").Observe(observer.TotalStats.remoteSegmentsOverThreshold[0])   //mon:locked
-	mon.IntVal("remote_segments_over_threshold_2").Observe(observer.TotalStats.remoteSegmentsOverThreshold[1])   //mon:locked
-	mon.IntVal("remote_segments_over_threshold_3").Observe(observer.TotalStats.remoteSegmentsOverThreshold[2])   //mon:locked
-	mon.IntVal("remote_segments_over_threshold_4").Observe(observer.TotalStats.remoteSegmentsOverThreshold[3])   //mon:locked
-	mon.IntVal("remote_segments_over_threshold_5").Observe(observer.TotalStats.remoteSegmentsOverThreshold[4])   //mon:locked
-	mon.IntVal("healthy_segments_removed_from_queue").Observe(healthyDeleted)                                    //mon:locked
-	allUnhealthy := observer.TotalStats.remoteSegmentsNeedingRepair + observer.TotalStats.remoteSegmentsFailedToCheck
-	allChecked := observer.TotalStats.remoteSegmentsChecked
+	var allUnhealthy, allChecked int64
+	for p, s := range observer.TotalStats {
+		t := monkit.NewSeriesTag("placement", strconv.FormatUint(uint64(p), 10))
+
+		mon.IntVal("remote_files_checked", t).Observe(s.objectsChecked)                         //mon:locked
+		mon.IntVal("remote_segments_checked", t).Observe(s.remoteSegmentsChecked)               //mon:locked
+		mon.IntVal("remote_segments_failed_to_check", t).Observe(s.remoteSegmentsFailedToCheck) //mon:locked
+		mon.IntVal("remote_segments_needing_repair", t).Observe(s.remoteSegmentsNeedingRepair)  //mon:locked
+		mon.IntVal("remote_segments_needing_repair_due_to_forcing", t).Observe(s.remoteSegmentsNeedingRepairDueToForcing)
+		mon.IntVal("new_remote_segments_needing_repair", t).Observe(s.newRemoteSegmentsNeedingRepair) //mon:locked
+		mon.IntVal("remote_segments_lost", t).Observe(s.remoteSegmentsLost)                           //mon:locked
+		mon.IntVal("remote_files_lost", t).Observe(int64(len(s.objectsLost)))                         //mon:locked
+		mon.IntVal("remote_segments_over_threshold_1", t).Observe(s.remoteSegmentsOverThreshold[0])   //mon:locked
+		mon.IntVal("remote_segments_over_threshold_2", t).Observe(s.remoteSegmentsOverThreshold[1])   //mon:locked
+		mon.IntVal("remote_segments_over_threshold_3", t).Observe(s.remoteSegmentsOverThreshold[2])   //mon:locked
+		mon.IntVal("remote_segments_over_threshold_4", t).Observe(s.remoteSegmentsOverThreshold[3])   //mon:locked
+		mon.IntVal("remote_segments_over_threshold_5", t).Observe(s.remoteSegmentsOverThreshold[4])   //mon:locked
+
+		allUnhealthy = s.remoteSegmentsNeedingRepair + s.remoteSegmentsFailedToCheck
+		allChecked = s.remoteSegmentsChecked
+	}
+
+	mon.IntVal("healthy_segments_removed_from_queue").Observe(healthyDeleted) //mon:locked
 	allHealthy := allChecked - allUnhealthy
 	mon.FloatVal("remote_segments_healthy_percentage").Observe(100 * float64(allHealthy) / float64(allChecked)) //mon:locked
-
 	return nil
 }
 
@@ -215,14 +235,14 @@ func (observer *Observer) collectAggregates() {
 	}
 }
 
-func (observer *Observer) getObserverStats(redundancy storj.RedundancyScheme) *observerRSStats {
+func (observer *Observer) getObserverStats(redundancy redundancyStyle) *observerRSStats {
 	observer.mu.Lock()
 	defer observer.mu.Unlock()
 
 	observerStats, exists := observer.statsCollector[redundancy]
 	if !exists {
-		rsString := getRSString(loadRedundancy(redundancy, observer.repairOverrides))
-		observerStats = &observerRSStats{aggregateStats{}, newIterationRSStats(rsString), newSegmentRSStats(rsString)}
+		rsString := getRSString(loadRedundancy(redundancy.Scheme, observer.repairThresholdOverrides))
+		observerStats = &observerRSStats{aggregateStats{}, newIterationRSStats(rsString), newSegmentRSStats(rsString, redundancy.Placement)}
 		mon.Chain(observerStats)
 		observer.statsCollector[redundancy] = observerStats
 	}
@@ -230,11 +250,10 @@ func (observer *Observer) getObserverStats(redundancy storj.RedundancyScheme) *o
 	return observerStats
 }
 
-func loadRedundancy(redundancy storj.RedundancyScheme, repairOverrides RepairOverridesMap) (int, int, int, int) {
+func loadRedundancy(redundancy storj.RedundancyScheme, repairThresholdOverrides RepairThresholdOverrides) (int, int, int, int) {
 	repair := int(redundancy.RepairShares)
 
-	overrideValue := repairOverrides.GetOverrideValue(redundancy)
-	if overrideValue != 0 {
+	if overrideValue := repairThresholdOverrides.GetOverrideValue(redundancy); overrideValue != 0 {
 		repair = int(overrideValue)
 	}
 
@@ -248,16 +267,16 @@ func (observer *Observer) RefreshReliabilityCache(ctx context.Context) error {
 
 // observerFork implements the ranged loop Partial interface.
 type observerFork struct {
-	repairQueue      *queue.InsertBuffer
-	nodesCache       *ReliabilityCache
-	overlayService   *overlay.Service
-	rsStats          map[storj.RedundancyScheme]*partialRSStats
-	repairOverrides  RepairOverridesMap
-	nodeFailureRate  float64
-	getNodesEstimate func(ctx context.Context) (int, error)
-	log              *zap.Logger
-	lastStreamID     uuid.UUID
-	totalStats       aggregateStats
+	repairQueue              *queue.InsertBuffer
+	nodesCache               *ReliabilityCache
+	overlayService           *overlay.Service
+	rsStats                  map[redundancyStyle]*partialRSStats
+	repairThresholdOverrides RepairThresholdOverrides
+	nodeFailureRate          float64
+	getNodesEstimate         func(ctx context.Context) (int, error)
+	log                      *zap.Logger
+	lastStreamID             uuid.UUID
+	totalStats               aggregateStatsPlacements
 
 	// reuse those slices to optimize memory usage
 	nodeIDs []storj.NodeID
@@ -269,30 +288,30 @@ type observerFork struct {
 	doPlacementCheck     bool
 	placements           nodeselection.PlacementDefinitions
 
-	getObserverStats func(storj.RedundancyScheme) *observerRSStats
+	getObserverStats func(redundancyStyle) *observerRSStats
 }
 
 // newObserverFork creates new observer partial instance.
 func newObserverFork(observer *Observer) rangedloop.Partial {
 	// we can only share thread-safe objects.
 	return &observerFork{
-		repairQueue:          observer.createInsertBuffer(),
-		nodesCache:           observer.nodesCache,
-		overlayService:       observer.overlayService,
-		rsStats:              make(map[storj.RedundancyScheme]*partialRSStats),
-		repairOverrides:      observer.repairOverrides,
-		nodeFailureRate:      observer.nodeFailureRate,
-		getNodesEstimate:     observer.getNodesEstimate,
-		log:                  observer.logger,
-		excludedCountryCodes: observer.excludedCountryCodes,
-		doDeclumping:         observer.doDeclumping,
-		doPlacementCheck:     observer.doPlacementCheck,
-		placements:           observer.placements,
-		getObserverStats:     observer.getObserverStats,
+		repairQueue:              observer.createInsertBuffer(),
+		nodesCache:               observer.nodesCache,
+		overlayService:           observer.overlayService,
+		rsStats:                  make(map[redundancyStyle]*partialRSStats),
+		repairThresholdOverrides: observer.repairThresholdOverrides,
+		nodeFailureRate:          observer.nodeFailureRate,
+		getNodesEstimate:         observer.getNodesEstimate,
+		log:                      observer.logger,
+		excludedCountryCodes:     observer.excludedCountryCodes,
+		doDeclumping:             observer.doDeclumping,
+		doPlacementCheck:         observer.doPlacementCheck,
+		placements:               observer.placements,
+		getObserverStats:         observer.getObserverStats,
 	}
 }
 
-func (fork *observerFork) getStatsByRS(redundancy storj.RedundancyScheme) *partialRSStats {
+func (fork *observerFork) getStatsByRS(redundancy redundancyStyle) *partialRSStats {
 	stats, ok := fork.rsStats[redundancy]
 	if !ok {
 		observerStats := fork.getObserverStats(redundancy)
@@ -322,21 +341,33 @@ func (fork *observerFork) Process(ctx context.Context, segments []rangedloop.Seg
 var (
 	// initialize monkit metrics once for better performance.
 	segmentTotalCountIntVal           = mon.IntVal("checker_segment_total_count")   //mon:locked
-	segmentHealthyCountIntVal         = mon.IntVal("checker_segment_healthy_count") //mon:locked
 	segmentClumpedCountIntVal         = mon.IntVal("checker_segment_clumped_count") //mon:locked
 	segmentExitingCountIntVal         = mon.IntVal("checker_segment_exiting_count")
-	segmentAgeIntVal                  = mon.IntVal("checker_segment_age")                    //mon:locked
+	segmentAgeIntVal                  = mon.IntVal("checker_segment_age") //mon:locked
+	segmentFreshnessIntVal            = mon.IntVal("checker_segment_freshness")
 	segmentHealthFloatVal             = mon.FloatVal("checker_segment_health")               //mon:locked
 	segmentsBelowMinReqCounter        = mon.Counter("checker_segments_below_min_req")        //mon:locked
 	injuredSegmentHealthFloatVal      = mon.FloatVal("checker_injured_segment_health")       //mon:locked
 	segmentTimeUntilIrreparableIntVal = mon.IntVal("checker_segment_time_until_irreparable") //mon:locked
+
+	allSegmentPiecesLostPerWeekFloatVal        = mon.FloatVal("checker_all_segment_pieces_lost_per_week")
+	freshSegmentPiecesLostPerWeekFloatVal      = mon.FloatVal("checker_fresh_segment_pieces_lost_per_week")
+	weekOldSegmentPiecesLostPerWeekFloatVal    = mon.FloatVal("checker_week_old_segment_pieces_lost_per_week")
+	monthOldSegmentPiecesLostPerWeekFloatVal   = mon.FloatVal("checker_month_old_segment_pieces_lost_per_week")
+	quarterOldSegmentPiecesLostPerWeekFloatVal = mon.FloatVal("checker_quarter_old_segment_pieces_lost_per_week")
+	yearOldSegmentPiecesLostPerWeekFloatVal    = mon.FloatVal("checker_year_old_segment_pieces_lost_per_week")
 )
 
 func (fork *observerFork) process(ctx context.Context, segment *rangedloop.Segment) (err error) {
+	// Grow the fork.totalStats if this placement doesn't fit.
+	if l := int(segment.Placement+1) - len(fork.totalStats); l > 0 {
+		fork.totalStats = append(fork.totalStats, make([]aggregateStats, l)...)
+	}
+
 	if segment.Inline() {
 		if fork.lastStreamID.Compare(segment.StreamID) != 0 {
 			fork.lastStreamID = segment.StreamID
-			fork.totalStats.objectsChecked++
+			fork.totalStats[segment.Placement].objectsChecked++
 		}
 
 		return nil
@@ -347,21 +378,26 @@ func (fork *observerFork) process(ctx context.Context, segment *rangedloop.Segme
 		return nil
 	}
 
-	stats := fork.getStatsByRS(segment.Redundancy)
+	stats := fork.getStatsByRS(redundancyStyle{
+		Scheme:    segment.Redundancy,
+		Placement: segment.Placement,
+	})
 	if fork.lastStreamID.Compare(segment.StreamID) != 0 {
 		fork.lastStreamID = segment.StreamID
 		stats.iterationAggregates.objectsChecked++
-		fork.totalStats.objectsChecked++
+		fork.totalStats[segment.Placement].objectsChecked++
 	}
 
-	fork.totalStats.remoteSegmentsChecked++
+	fork.totalStats[segment.Placement].remoteSegmentsChecked++
 	stats.iterationAggregates.remoteSegmentsChecked++
+
+	log := fork.log.With(zap.Object("Segment", segment))
 
 	// ensure we get values, even if only zero values, so that redash can have an alert based on this
 	segmentsBelowMinReqCounter.Inc(0)
 	pieces := segment.Pieces
 	if len(pieces) == 0 {
-		fork.log.Debug("no pieces on remote segment")
+		log.Debug("no pieces on remote segment")
 		return nil
 	}
 
@@ -384,18 +420,21 @@ func (fork *observerFork) process(ctx context.Context, segment *rangedloop.Segme
 	}
 	selectedNodes, err := fork.nodesCache.GetNodes(ctx, segment.CreatedAt, fork.nodeIDs, fork.nodes)
 	if err != nil {
-		fork.totalStats.remoteSegmentsFailedToCheck++
+		fork.totalStats[segment.Placement].remoteSegmentsFailedToCheck++
 		stats.iterationAggregates.remoteSegmentsFailedToCheck++
 		return Error.New("error getting node information for pieces: %w", err)
 	}
 	piecesCheck := repair.ClassifySegmentPieces(segment.Pieces, selectedNodes, fork.excludedCountryCodes, fork.doPlacementCheck,
-		fork.doDeclumping, fork.placements[segment.Placement], fork.nodeIDs)
+		fork.doDeclumping, fork.placements[segment.Placement])
 
-	numHealthy := piecesCheck.Healthy.Count()
 	segmentTotalCountIntVal.Observe(int64(len(pieces)))
 	stats.segmentStats.segmentTotalCount.Observe(int64(len(pieces)))
 
-	segmentHealthyCountIntVal.Observe(int64(numHealthy))
+	numHealthy := piecesCheck.Healthy.Count()
+	mon.IntVal("checker_segment_healthy_count", monkit.NewSeriesTag(
+		"placement", strconv.FormatUint(uint64(segment.Placement), 10),
+	)).Observe(int64(numHealthy)) //mon:locked
+
 	stats.segmentStats.segmentHealthyCount.Observe(int64(numHealthy))
 
 	segmentClumpedCountIntVal.Observe(int64(piecesCheck.Clumped.Count()))
@@ -410,7 +449,37 @@ func (fork *observerFork) process(ctx context.Context, segment *rangedloop.Segme
 	segmentAgeIntVal.Observe(int64(segmentAge.Seconds()))
 	stats.segmentStats.segmentAge.Observe(int64(segmentAge.Seconds()))
 
-	required, repairThreshold, successThreshold, _ := loadRedundancy(segment.Redundancy, fork.repairOverrides)
+	segmentFreshness := segmentAge
+	if segment.RepairedAt != nil && segment.RepairedAt.After(segment.CreatedAt) {
+		segmentFreshness = time.Since(*segment.RepairedAt)
+	}
+	segmentFreshnessIntVal.Observe(int64(segmentFreshness.Seconds()))
+	stats.segmentStats.segmentFreshness.Observe(int64(segmentFreshness.Seconds()))
+
+	lostPieces := len(pieces) - numHealthy
+	const weekSeconds = 60 * 60 * 24 * 7
+	piecesLostPerWeek := float64(lostPieces) / (segmentFreshness.Seconds() / weekSeconds)
+
+	allSegmentPiecesLostPerWeekFloatVal.Observe(piecesLostPerWeek)
+	stats.segmentStats.allSegmentPiecesLostPerWeek.Observe(piecesLostPerWeek)
+	if segmentFreshness.Seconds() < weekSeconds {
+		freshSegmentPiecesLostPerWeekFloatVal.Observe(piecesLostPerWeek)
+		stats.segmentStats.freshSegmentPiecesLostPerWeek.Observe(piecesLostPerWeek)
+	} else if segmentFreshness.Seconds() < 4*weekSeconds {
+		weekOldSegmentPiecesLostPerWeekFloatVal.Observe(piecesLostPerWeek)
+		stats.segmentStats.weekOldSegmentPiecesLostPerWeek.Observe(piecesLostPerWeek)
+	} else if segmentFreshness.Seconds() < 3*4*weekSeconds {
+		monthOldSegmentPiecesLostPerWeekFloatVal.Observe(piecesLostPerWeek)
+		stats.segmentStats.monthOldSegmentPiecesLostPerWeek.Observe(piecesLostPerWeek)
+	} else if segmentFreshness.Seconds() < 52*weekSeconds {
+		quarterOldSegmentPiecesLostPerWeekFloatVal.Observe(piecesLostPerWeek)
+		stats.segmentStats.quarterOldSegmentPiecesLostPerWeek.Observe(piecesLostPerWeek)
+	} else {
+		yearOldSegmentPiecesLostPerWeekFloatVal.Observe(piecesLostPerWeek)
+		stats.segmentStats.yearOldSegmentPiecesLostPerWeek.Observe(piecesLostPerWeek)
+	}
+
+	required, repairThreshold, successThreshold, _ := loadRedundancy(segment.Redundancy, fork.repairThresholdOverrides)
 	segmentHealth := repair.SegmentHealth(numHealthy, required, totalNumNodes, fork.nodeFailureRate, piecesCheck.ForcingRepair.Count())
 	segmentHealthFloatVal.Observe(segmentHealth)
 	stats.segmentStats.segmentHealth.Observe(segmentHealth)
@@ -420,11 +489,20 @@ func (fork *observerFork) process(ctx context.Context, segment *rangedloop.Segme
 	// except for the case when the repair and success thresholds are the same (a case usually seen during testing).
 	// separate case is when we find pieces which are outside segment placement. in such case we are putting segment
 	// into queue right away.
-	if (numHealthy <= repairThreshold && numHealthy < successThreshold) || piecesCheck.ForcingRepair.Count() > 0 {
+	repairDueToHealth := (numHealthy <= repairThreshold && numHealthy < successThreshold)
+	repairDueToForcing := piecesCheck.ForcingRepair.Count() > 0
+	if repairDueToHealth || repairDueToForcing {
+
 		injuredSegmentHealthFloatVal.Observe(segmentHealth)
 		stats.segmentStats.injuredSegmentHealth.Observe(segmentHealth)
-		fork.totalStats.remoteSegmentsNeedingRepair++
+		fork.totalStats[segment.Placement].remoteSegmentsNeedingRepair++
 		stats.iterationAggregates.remoteSegmentsNeedingRepair++
+
+		if repairDueToForcing && !repairDueToHealth {
+			fork.totalStats[segment.Placement].remoteSegmentsNeedingRepairDueToForcing++
+			stats.iterationAggregates.remoteSegmentsNeedingRepairDueToForcing++
+		}
+
 		err := fork.repairQueue.Insert(ctx, &queue.InjuredSegment{
 			StreamID:      segment.StreamID,
 			Position:      segment.Position,
@@ -434,40 +512,34 @@ func (fork *observerFork) process(ctx context.Context, segment *rangedloop.Segme
 		}, func() {
 			// Counters are increased after the queue has determined
 			// that the segment wasn't already queued for repair.
-			fork.totalStats.newRemoteSegmentsNeedingRepair++
+			fork.totalStats[segment.Placement].newRemoteSegmentsNeedingRepair++
 			stats.iterationAggregates.newRemoteSegmentsNeedingRepair++
 		})
 		if err != nil {
-			fork.log.Error("error adding injured segment to queue", zap.Error(err))
+			log.Error("error adding injured segment to queue", zap.Error(err))
 			return nil
 		}
 
-		// monitor irreparable segments
-		if piecesCheck.Retrievable.Count() < required {
-			if !slices.Contains(fork.totalStats.objectsLost, segment.StreamID) {
-				fork.totalStats.objectsLost = append(fork.totalStats.objectsLost, segment.StreamID)
+		log := log.With(zap.Int("Repair Threshold", repairThreshold), zap.Int("Success Threshold", successThreshold),
+			zap.Int("Total Pieces", len(pieces)), zap.Int("Min Required", required))
+
+		switch {
+		case piecesCheck.Retrievable.Count() < required:
+			// monitor irreparable segments
+			if !slices.Contains(fork.totalStats[segment.Placement].objectsLost, segment.StreamID) {
+				fork.totalStats[segment.Placement].objectsLost = append(
+					fork.totalStats[segment.Placement].objectsLost, segment.StreamID,
+				)
 			}
 
 			if !slices.Contains(stats.iterationAggregates.objectsLost, segment.StreamID) {
 				stats.iterationAggregates.objectsLost = append(stats.iterationAggregates.objectsLost, segment.StreamID)
 			}
 
-			repairedAt := time.Time{}
-			if segment.RepairedAt != nil {
-				repairedAt = *segment.RepairedAt
-			}
+			segmentTimeUntilIrreparableIntVal.Observe(int64(segmentFreshness.Seconds()))
+			stats.segmentStats.segmentTimeUntilIrreparable.Observe(int64(segmentFreshness.Seconds()))
 
-			var segmentAge time.Duration
-			if segment.CreatedAt.Before(repairedAt) {
-				segmentAge = time.Since(repairedAt)
-			} else {
-				segmentAge = time.Since(segment.CreatedAt)
-			}
-
-			segmentTimeUntilIrreparableIntVal.Observe(int64(segmentAge.Seconds()))
-			stats.segmentStats.segmentTimeUntilIrreparable.Observe(int64(segmentAge.Seconds()))
-
-			fork.totalStats.remoteSegmentsLost++
+			fork.totalStats[segment.Placement].remoteSegmentsLost++
 			stats.iterationAggregates.remoteSegmentsLost++
 
 			segmentsBelowMinReqCounter.Inc(1)
@@ -479,9 +551,12 @@ func (fork *observerFork) process(ctx context.Context, segment *rangedloop.Segme
 					missingNodes = append(missingNodes, piece.StorageNode.String())
 				}
 			}
-			fork.log.Warn("checker found irreparable segment", zap.String("Segment StreamID", segment.StreamID.String()), zap.Int("Segment Position",
-				int(segment.Position.Encode())), zap.Int("total pieces", len(pieces)), zap.Int("min required", required), zap.String("unavailable node IDs", strings.Join(missingNodes, ",")))
-		} else if piecesCheck.Clumped.Count() > 0 && piecesCheck.Healthy.Count()+piecesCheck.Clumped.Count() > repairThreshold && piecesCheck.ForcingRepair.Count() == 0 {
+			log.Warn("checker found irreparable segment",
+				zap.String("Unavailable Node IDs", strings.Join(missingNodes, ",")))
+
+		case piecesCheck.Clumped.Count() > 0 && piecesCheck.Healthy.Count()+piecesCheck.Clumped.Count() > repairThreshold &&
+			piecesCheck.ForcingRepair.Count() == 0:
+
 			// This segment is to be repaired because of clumping (it wouldn't need repair yet
 			// otherwise). Produce a brief report of where the clumping occurred so that we have
 			// a better understanding of the cause.
@@ -490,28 +565,35 @@ func (fork *observerFork) process(ctx context.Context, segment *rangedloop.Segme
 				lastNets[i] = node.LastNet
 			}
 			clumpedNets := clumpingReport{lastNets: lastNets}
-			fork.log.Info("segment needs repair only because of clumping", zap.Stringer("Segment StreamID", segment.StreamID), zap.Uint64("Segment Position", segment.Position.Encode()), zap.Int("total pieces", len(pieces)), zap.Int("min required", required), zap.Stringer("clumping", &clumpedNets))
-		}
-	} else {
-		if numHealthy > repairThreshold && numHealthy <= (repairThreshold+len(fork.totalStats.remoteSegmentsOverThreshold)) {
-			// record metrics for segments right above repair threshold
-			// numHealthy=repairThreshold+1 through numHealthy=repairThreshold+5
-			for i := range fork.totalStats.remoteSegmentsOverThreshold {
-				if numHealthy == (repairThreshold + i + 1) {
-					fork.totalStats.remoteSegmentsOverThreshold[i]++
-					break
-				}
-			}
+			log.Debug("segment needs repair only because of clumping",
+				zap.Stringer("Clumping", &clumpedNets))
+		default:
+			log.Debug("segment requires repair", zap.Object("Classification", piecesCheck))
 		}
 
-		if numHealthy > repairThreshold && numHealthy <= (repairThreshold+len(stats.iterationAggregates.remoteSegmentsOverThreshold)) {
-			// record metrics for segments right above repair threshold
-			// numHealthy=repairThreshold+1 through numHealthy=repairThreshold+5
-			for i := range stats.iterationAggregates.remoteSegmentsOverThreshold {
-				if numHealthy == (repairThreshold + i + 1) {
-					stats.iterationAggregates.remoteSegmentsOverThreshold[i]++
-					break
-				}
+		return nil
+	}
+
+	if numHealthy > repairThreshold && numHealthy <= (repairThreshold+len(
+		fork.totalStats[segment.Placement].remoteSegmentsOverThreshold,
+	)) {
+		// record metrics for segments right above repair threshold
+		// numHealthy=repairThreshold+1 through numHealthy=repairThreshold+5
+		for i := range fork.totalStats[segment.Placement].remoteSegmentsOverThreshold {
+			if numHealthy == (repairThreshold + i + 1) {
+				fork.totalStats[segment.Placement].remoteSegmentsOverThreshold[i]++
+				break
+			}
+		}
+	}
+
+	if numHealthy > repairThreshold && numHealthy <= (repairThreshold+len(stats.iterationAggregates.remoteSegmentsOverThreshold)) {
+		// record metrics for segments right above repair threshold
+		// numHealthy=repairThreshold+1 through numHealthy=repairThreshold+5
+		for i := range stats.iterationAggregates.remoteSegmentsOverThreshold {
+			if numHealthy == (repairThreshold + i + 1) {
+				stats.iterationAggregates.remoteSegmentsOverThreshold[i]++
+				break
 			}
 		}
 	}

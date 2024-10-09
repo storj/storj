@@ -14,6 +14,7 @@ import (
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 
+	"storj.io/common/macaroon"
 	"storj.io/common/uuid"
 	"storj.io/storj/private/web"
 	"storj.io/storj/satellite/console"
@@ -65,7 +66,23 @@ func (keys *APIKeys) CreateAPIKey(w http.ResponseWriter, r *http.Request) {
 	}
 	name := string(bodyBytes)
 
-	info, key, err := keys.service.CreateAPIKey(ctx, projectID, name)
+	project, err := keys.service.GetProject(ctx, projectID)
+	if err != nil {
+		if console.ErrUnauthorized.Has(err) || console.ErrNoMembership.Has(err) {
+			keys.serveJSONError(ctx, w, http.StatusUnauthorized, err)
+			return
+		}
+
+		keys.serveJSONError(ctx, w, http.StatusInternalServerError, err)
+		return
+	}
+
+	apiKeyVersion := macaroon.APIKeyVersionMin
+	if keys.service.GetObjectLockUIEnabledByProject(project) {
+		apiKeyVersion = macaroon.APIKeyVersionObjectLock
+	}
+
+	info, key, err := keys.service.CreateAPIKey(ctx, projectID, name, apiKeyVersion)
 	if err != nil {
 		if console.ErrUnauthorized.Has(err) || console.ErrNoMembership.Has(err) {
 			keys.serveJSONError(ctx, w, http.StatusUnauthorized, err)
@@ -248,6 +265,11 @@ func (keys *APIKeys) DeleteByIDs(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		if console.ErrUnauthorized.Has(err) {
 			keys.serveJSONError(ctx, w, http.StatusUnauthorized, err)
+			return
+		}
+
+		if console.ErrForbidden.Has(err) {
+			keys.serveJSONError(ctx, w, http.StatusForbidden, err)
 			return
 		}
 

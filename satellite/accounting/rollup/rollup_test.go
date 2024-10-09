@@ -101,7 +101,7 @@ func TestRollupNoDeletes(t *testing.T) {
 		storagenodeTallies, err := snAccountingDB.GetTallies(ctx)
 		require.NoError(t, err)
 		assert.Equal(t, (days+1)*len(storageNodes), len(storagenodeTallies))
-	})
+	}, satellitedbtest.WithSpanner())
 }
 
 func createNodes(ctx *testcontext.Context, t *testing.T, db satellite.DB) []storj.NodeID {
@@ -214,12 +214,12 @@ func TestRollupDeletes(t *testing.T) {
 		storagenodeTallies, err := snAccountingDB.GetTallies(ctx)
 		require.NoError(t, err)
 		assert.Equal(t, len(storageNodes), len(storagenodeTallies))
-	})
+	}, satellitedbtest.WithSpanner())
 }
 
 func TestRollupOldOrders(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
-		SatelliteCount: 1, StorageNodeCount: 2, UplinkCount: 0,
+		SatelliteCount: 1, StorageNodeCount: 2, UplinkCount: 0, EnableSpanner: true,
 	},
 		func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 			// The purpose of this test is to ensure that running Rollup properly updates storagenode accounting data

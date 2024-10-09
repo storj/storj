@@ -140,7 +140,7 @@ func TestDisqualifiedNodesGetNoDownload(t *testing.T) {
 		err = satellitePeer.Reputation.Service.TestDisqualifyNode(ctx, disqualifiedNode, overlay.DisqualificationReasonUnknown)
 		require.NoError(t, err)
 
-		limits, _, err := satellitePeer.Orders.Service.CreateGetOrderLimits(ctx, bucket, segment, 0, 0)
+		limits, _, err := satellitePeer.Orders.Service.CreateGetOrderLimits(ctx, uplinkPeer.Identity.PeerIdentity(), bucket, segment, 0, 0)
 		require.NoError(t, err)
 
 		notNilLimits := []*pb.AddressedOrderLimit{}
@@ -174,8 +174,8 @@ func TestDisqualifiedNodesGetNoUpload(t *testing.T) {
 		require.NoError(t, err)
 
 		request := overlay.FindStorageNodesRequest{
-			RequestedCount: 4,
-			ExcludedIDs:    nil,
+			RequestedCount:  4,
+			AlreadySelected: nil,
 		}
 		nodes, err := satellitePeer.Overlay.Service.FindStorageNodesForUpload(ctx, request)
 		assert.True(t, overlay.ErrNotEnoughNodes.Has(err))

@@ -11,7 +11,7 @@ import { DEFAULT_PAGE_LIMIT } from '@/types/pagination';
 export enum ProjectMemberOrderBy {
     NAME = 1,
     EMAIL,
-    CREATED_AT,
+    DATE,
 }
 
 /**
@@ -38,6 +38,27 @@ export interface ProjectMembersApi {
      * @throws Error
      */
     reinvite(projectId: string, emails: string[]): Promise<void>;
+
+    /**
+     * Used for fetching team member related to project.
+     *
+     * @param projectID
+     * @param memberID
+     *
+     * @throws Error
+     */
+    getSingleMember(projectID: string, memberID: string): Promise<ProjectMember>
+
+    /**
+     * Handles updating project member's role.
+     *
+     * @param projectID
+     * @param memberID
+     * @param role
+     *
+     * @throws Error
+     */
+    updateRole(projectID: string, memberID: string, role: ProjectRole): Promise<ProjectMember>
 
     /**
      * Get invite link for the specified project and email.
@@ -107,7 +128,7 @@ export class ProjectMembersPage {
         return items.sort((a, b) => {
             let cmp: (a: ProjectMemberItemModel, b: ProjectMemberItemModel) => number;
 
-            if (this.order === ProjectMemberOrderBy.CREATED_AT) {
+            if (this.order === ProjectMemberOrderBy.DATE) {
                 cmp = (a, b) => a.getJoinDate().getTime() - b.getJoinDate().getTime();
             } else {
                 cmp = (a, b) => a.getName().toLowerCase().localeCompare(b.getName().toLowerCase());
@@ -126,7 +147,7 @@ export interface ProjectMemberItemModel {
     /**
      * Returns the member's user ID if it exists.
      */
-    getUserID(): string | null;
+    getUserID(): string | undefined;
 
     /**
      * Returns the member's name.
@@ -142,6 +163,11 @@ export interface ProjectMemberItemModel {
      * Returns the date that the member joined the project.
      */
     getJoinDate(): Date;
+
+    /**
+     * Returns the member's role.
+     */
+    getRole(): ProjectRole;
 
     /**
      * Sets whether the member item has been selected.
@@ -164,6 +190,7 @@ export interface ProjectMemberItemModel {
  */
 export class ProjectMember implements ProjectMemberItemModel {
     public user: User;
+    public role: ProjectRole;
     public _isSelected = false;
 
     public constructor(
@@ -172,14 +199,16 @@ export class ProjectMember implements ProjectMemberItemModel {
         public email: string = '',
         public joinedAt: Date = new Date(),
         public id: string = '',
+        private _role: number = 0,
     ) {
         this.user = new User(this.id, this.fullName, this.shortName, this.email);
+        this.setRole();
     }
 
     /**
      * Returns the user's ID.
      */
-    public getUserID(): string | null {
+    public getUserID(): string | undefined {
         return this.id;
     }
 
@@ -205,6 +234,13 @@ export class ProjectMember implements ProjectMemberItemModel {
     }
 
     /**
+     * Returns project member role.
+     */
+    public getRole(): ProjectRole {
+        return this.role;
+    }
+
+    /**
      * Sets whether the member item has been selected.
      */
     public setSelected(selected: boolean): void {
@@ -225,6 +261,16 @@ export class ProjectMember implements ProjectMemberItemModel {
     public isPending(): boolean {
         return false;
     }
+
+    private setRole(): void {
+        switch (this._role) {
+        case 1:
+            this.role = ProjectRole.Member;
+            break;
+        default:
+            this.role = ProjectRole.Admin;
+        }
+    }
 }
 
 /**
@@ -242,8 +288,8 @@ export class ProjectInvitationItemModel implements ProjectMemberItemModel {
     /**
      * Returns a null user ID. Required for implementing ProjectMemberItemModel.
      */
-    public getUserID(): string | null {
-        return null;
+    public getUserID(): string | undefined {
+        return undefined;
     }
 
     /**
@@ -265,6 +311,13 @@ export class ProjectInvitationItemModel implements ProjectMemberItemModel {
      */
     public getJoinDate(): Date {
         return this.createdAt;
+    }
+
+    /**
+     * Returns project member role.
+     */
+    public getRole(): ProjectRole {
+        return ProjectRole.Member;
     }
 
     /**
@@ -294,6 +347,7 @@ export class ProjectInvitationItemModel implements ProjectMemberItemModel {
  * ProjectRole represents a project member's role.
  */
 export enum ProjectRole {
+    Admin = 'Admin',
     Member = 'Member',
     Owner = 'Owner',
     Invited = 'Invited',

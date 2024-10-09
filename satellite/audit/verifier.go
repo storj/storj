@@ -617,7 +617,7 @@ func GetRandomStripe(ctx context.Context, segment metabase.Segment) (index int32
 
 func recordStats(report Report, totalPieces int, verifyErr error) {
 	// If an audit was able to complete without auditing any nodes, that means
-	// the segment has been altered.
+	// the segment is expired or has been altered.
 	if verifyErr == nil && len(report.Successes) == 0 {
 		return
 	}

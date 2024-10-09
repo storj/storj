@@ -101,7 +101,7 @@ func cmdFetchPieces(cmd *cobra.Command, args []string) (err error) {
 		return err
 	}
 
-	pieceInfos, err := peer.SegmentRepairer.AdminFetchPieces(ctx, &segmentInfo, saveDir)
+	pieceInfos, err := peer.SegmentRepairer.AdminFetchPieces(ctx, log, &segmentInfo, saveDir)
 	if err != nil {
 		return err
 	}

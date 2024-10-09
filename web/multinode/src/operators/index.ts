@@ -43,7 +43,7 @@ export class Operator {
      */
     public get zkscanLink(): string {
         // TODO: place this to config.
-        return `https://zkscan.io/explorer/accounts/${this.wallet}`;
+        return `https://explorer.zksync.io/address/${this.wallet}`;
     }
 
     private convertToCents(value: number): number {

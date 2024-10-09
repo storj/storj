@@ -1,7 +1,7 @@
 // Copyright (C) 2021 Storj Labs, Inc.
 // See LICENSE for copying information.
 
-package metabase
+package metabase_test
 
 import (
 	"testing"
@@ -9,7 +9,8 @@ import (
 
 	"github.com/stretchr/testify/require"
 
-	"storj.io/common/dbutil"
+	"storj.io/storj/satellite/metabase"
+	"storj.io/storj/shared/dbutil"
 )
 
 func TestLimitedAsOfSystemTime(t *testing.T) {
@@ -26,7 +27,7 @@ func TestLimitedAsOfSystemTime(t *testing.T) {
 		if baselineNano != 0 {
 			baseline = time.Unix(0, baselineNano)
 		}
-		result := limitedAsOfSystemTime(dbutil.Cockroach, start, baseline, maxInterval)
+		result := metabase.LimitedAsOfSystemTime(dbutil.Cockroach, start, baseline, maxInterval)
 		require.Equal(t, expect, result)
 	}
 

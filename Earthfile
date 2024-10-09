@@ -1,5 +1,5 @@
 VERSION 0.6
-FROM golang:1.19
+FROM golang:1.22.5
 WORKDIR /go/storj
 
 multinode-web:
@@ -138,7 +138,7 @@ test:
    RUN mkdir build
    RUN --mount=type=cache,target=/root/.cache/go-build \
        --mount=type=cache,target=/go/pkg/mod \
-       go test -json ./... | tee build/tests.json
+       go test -race -json ./... | tee build/tests.json
    SAVE ARTIFACT build/tests.json AS LOCAL build/tests.json
 
 integration:

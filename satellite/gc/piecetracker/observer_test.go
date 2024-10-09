@@ -22,7 +22,7 @@ func TestObserverPieceTracker(t *testing.T) {
 		SatelliteCount: 1, StorageNodeCount: 4, UplinkCount: 1,
 		Reconfigure: testplanet.Reconfigure{
 			Satellite: func(log *zap.Logger, index int, config *satellite.Config) {
-				config.PieceTracker.UseRangedLoop = true
+				config.PieceTracker.UpdateBatchSize = 3
 				config.RangedLoop.Parallelism = 4
 				config.RangedLoop.BatchSize = 4
 

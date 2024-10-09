@@ -5,6 +5,8 @@ package nodeselection
 
 import (
 	"errors"
+	"fmt"
+	"net"
 	"strings"
 	"time"
 
@@ -13,7 +15,7 @@ import (
 
 	"storj.io/common/pb"
 	"storj.io/common/storj"
-	"storj.io/common/storj/location"
+	"storj.io/storj/shared/location"
 )
 
 // NodeTag is a tag associated with a node (approved by signer).
@@ -52,6 +54,9 @@ type SelectedNode struct {
 	Online      bool
 	Vetted      bool
 	Tags        NodeTags
+	PieceCount  int64
+	// free disk space in bytes
+	FreeDisk int64
 }
 
 // Clone returns a deep clone of the selected node.
@@ -63,10 +68,22 @@ func (node *SelectedNode) Clone() *SelectedNode {
 }
 
 // NodeAttribute returns a string (like last_net or tag value) for each SelectedNode.
-type NodeAttribute func(SelectedNode) string
+type NodeAttribute func(SelectedNode) any
 
 // LastNetAttribute is used for subnet based declumping/selection.
 var LastNetAttribute = mustCreateNodeAttribute("last_net")
+
+// Subnet can return the IP network of the node for any netmask length.
+func Subnet(bits int64) NodeAttribute {
+	return func(node SelectedNode) any {
+		addr, _, _ := strings.Cut(node.LastIPPort, ":")
+		_, network, err := net.ParseCIDR(fmt.Sprintf("%s/%d", addr, bits))
+		if err != nil {
+			return "error:" + err.Error()
+		}
+		return network.String()
+	}
+}
 
 func mustCreateNodeAttribute(attr string) NodeAttribute {
 	nodeAttr, err := CreateNodeAttribute(attr)
@@ -78,7 +95,7 @@ func mustCreateNodeAttribute(attr string) NodeAttribute {
 
 // NodeTagAttribute selects a tag value from node.
 func NodeTagAttribute(signer storj.NodeID, tagName string) NodeAttribute {
-	return func(node SelectedNode) string {
+	return func(node SelectedNode) any {
 		tag, err := node.Tags.FindBySignerAndName(signer, tagName)
 		if err != nil {
 			return ""
@@ -89,7 +106,7 @@ func NodeTagAttribute(signer storj.NodeID, tagName string) NodeAttribute {
 
 // AnyNodeTagAttribute selects a tag value from node, accepts any signer.
 func AnyNodeTagAttribute(tagName string) NodeAttribute {
-	return func(node SelectedNode) string {
+	return func(node SelectedNode) any {
 		for _, tag := range node.Tags {
 			if tag.Name == tagName {
 				return string(tag.Value)
@@ -118,20 +135,41 @@ func CreateNodeAttribute(attr string) (NodeAttribute, error) {
 	}
 	switch attr {
 	case "last_net":
-		return func(node SelectedNode) string {
+		return func(node SelectedNode) any {
 			return node.LastNet
 		}, nil
+	case "last_ip_port":
+		return func(node SelectedNode) any {
+			return node.LastIPPort
+		}, nil
+	case "last_ip":
+		return func(node SelectedNode) any {
+			ip, _, _ := strings.Cut(node.LastIPPort, ":")
+			return ip
+		}, nil
 	case "wallet":
-		return func(node SelectedNode) string {
+		return func(node SelectedNode) any {
 			return node.Wallet
 		}, nil
+	case "free_disk":
+		return func(node SelectedNode) any {
+			return node.FreeDisk
+		}, nil
 	case "email":
-		return func(node SelectedNode) string {
+		return func(node SelectedNode) any {
 			return node.Email
 		}, nil
 	case "country":
-		return func(node SelectedNode) string {
+		return func(node SelectedNode) any {
 			return node.CountryCode.String()
+		}, nil
+	case "vetted":
+		return func(node SelectedNode) any {
+			return fmt.Sprintf("%t", node.Vetted)
+		}, nil
+	case "piece_count":
+		return func(node SelectedNode) any {
+			return node.PieceCount
 		}, nil
 	default:
 		return nil, errors.New("Unsupported node attribute: " + attr)

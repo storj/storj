@@ -12,10 +12,12 @@ import (
 
 	"github.com/zeebo/errs"
 
-	"storj.io/common/dbutil"
 	"storj.io/common/pb"
 	"storj.io/common/storj"
 	"storj.io/storj/private/date"
+	"storj.io/storj/shared/dbutil"
+	"storj.io/storj/shared/dbutil/sqliteutil"
+	"storj.io/storj/shared/tagsql"
 	"storj.io/storj/storagenode/bandwidth"
 )
 
@@ -34,13 +36,30 @@ type bandwidthDB struct {
 	dbContainerImpl
 }
 
+var monAdd = mon.Task()
+
 // Add adds bandwidth usage to the table.
 func (db *bandwidthDB) Add(ctx context.Context, satelliteID storj.NodeID, action pb.PieceAction, amount int64, created time.Time) (err error) {
-	defer mon.Task()(&ctx)(&err)
+	defer monAdd(&ctx)(&err)
+
+	var usage bandwidth.Usage
+	usage.Include(action, amount)
+	created = created.UTC()
+	created = time.Date(created.Year(), created.Month(), created.Day(), 0, 0, 0, 0, created.Location())
+
 	_, err = db.ExecContext(ctx, `
 		INSERT INTO
-			bandwidth_usage(satellite_id, action, amount, created_at)
-		VALUES(?, ?, ?, datetime(?))`, satelliteID, action, amount, created.UTC())
+			bandwidth_usage(interval_start, satellite_id, get_total, get_audit_total, get_repair_total, put_total, put_repair_total, delete_total)
+		VALUES(datetime(?), ?, ?, ?, ?, ?, ?, ?)
+		ON CONFLICT (interval_start, satellite_id) DO UPDATE SET
+			put_total = put_total + excluded.put_total,
+			get_total = get_total + excluded.get_total,
+			get_audit_total = get_audit_total + excluded.get_audit_total,
+			get_repair_total = get_repair_total + excluded.get_repair_total,
+			put_repair_total = put_repair_total + excluded.put_repair_total,
+			delete_total = delete_total + excluded.delete_total;`,
+		created, satelliteID, usage.Get, usage.GetAudit, usage.GetRepair, usage.Put, usage.PutRepair, usage.Delete,
+	)
 	if err == nil {
 		db.usedMu.Lock()
 		defer db.usedMu.Unlock()
@@ -80,160 +99,167 @@ func (db *bandwidthDB) MonthSummary(ctx context.Context, now time.Time) (_ int64
 	return usage.Total(), nil
 }
 
-// actionFilter sums bandwidth depending on piece action type.
-type actionFilter func(action pb.PieceAction, amount int64, usage *bandwidth.Usage)
-
-var (
-	// ingressFilter sums put and put repair.
-	ingressFilter actionFilter = func(action pb.PieceAction, amount int64, usage *bandwidth.Usage) {
-		switch action {
-		case pb.PieceAction_PUT, pb.PieceAction_PUT_REPAIR:
-			usage.Include(action, amount)
-		}
-	}
-
-	// egressFilter sums get, get audit and get repair.
-	egressFilter actionFilter = func(action pb.PieceAction, amount int64, usage *bandwidth.Usage) {
-		switch action {
-		case pb.PieceAction_GET, pb.PieceAction_GET_AUDIT, pb.PieceAction_GET_REPAIR:
-			usage.Include(action, amount)
-		}
-	}
-
-	// bandwidthFilter sums all bandwidth.
-	bandwidthFilter actionFilter = func(action pb.PieceAction, amount int64, usage *bandwidth.Usage) {
-		usage.Include(action, amount)
-	}
-)
-
 // Summary returns summary of bandwidth usages for all satellites.
 func (db *bandwidthDB) Summary(ctx context.Context, from, to time.Time) (_ *bandwidth.Usage, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	return db.getSummary(ctx, from, to, bandwidthFilter)
+	var usage bandwidth.Usage
+
+	from, to = from.UTC(), to.UTC()
+
+	rows := db.QueryRowContext(ctx, `
+		SELECT
+			COALESCE(SUM(get_total), 0),
+			COALESCE(SUM(get_audit_total), 0),
+			COALESCE(SUM(get_repair_total), 0),
+			COALESCE(SUM(put_total), 0),
+			COALESCE(SUM(put_repair_total), 0),
+			COALESCE(SUM(delete_total), 0)
+		FROM bandwidth_usage
+		WHERE datetime(?) <= interval_start AND interval_start <= datetime(?);
+		`, from, to)
+
+	err = rows.Scan(&usage.Get, &usage.GetAudit, &usage.GetRepair, &usage.Put, &usage.PutRepair, &usage.Delete)
+	if err != nil {
+		return nil, ErrBandwidth.Wrap(err)
+	}
+
+	return &usage, ErrBandwidth.Wrap(rows.Err())
 }
 
 // EgressSummary returns summary of egress usages for all satellites.
 func (db *bandwidthDB) EgressSummary(ctx context.Context, from, to time.Time) (_ *bandwidth.Usage, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	return db.getSummary(ctx, from, to, egressFilter)
+	var usage bandwidth.Usage
+
+	from, to = from.UTC(), to.UTC()
+
+	row := db.QueryRowContext(ctx, `
+		SELECT
+			COALESCE(SUM(get_total), 0),
+			COALESCE(SUM(get_audit_total), 0),
+			COALESCE(SUM(get_repair_total), 0)
+		FROM bandwidth_usage
+		WHERE datetime(?) <= interval_start AND interval_start <= datetime(?);
+		`, from, to)
+
+	err = row.Scan(&usage.Get, &usage.GetAudit, &usage.GetRepair)
+	if err != nil {
+		return nil, ErrBandwidth.Wrap(err)
+	}
+
+	return &usage, ErrBandwidth.Wrap(row.Err())
 }
 
 // IngressSummary returns summary of ingress usages for all satellites.
 func (db *bandwidthDB) IngressSummary(ctx context.Context, from, to time.Time) (_ *bandwidth.Usage, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	return db.getSummary(ctx, from, to, ingressFilter)
-}
-
-// getSummary returns bandwidth data for all satellites.
-func (db *bandwidthDB) getSummary(ctx context.Context, from, to time.Time, filter actionFilter) (_ *bandwidth.Usage, err error) {
-	defer mon.Task()(&ctx)(&err)
-
-	usage := &bandwidth.Usage{}
+	var usage bandwidth.Usage
 
 	from, to = from.UTC(), to.UTC()
 
-	rows, err := db.QueryContext(ctx, `
-		SELECT action, sum(a) amount FROM(
-				SELECT action, sum(amount) a
-				FROM bandwidth_usage
-				WHERE datetime(?) <= created_at AND created_at <= datetime(?)
-				GROUP BY action
-				UNION ALL
-				SELECT action, sum(amount) a
-				FROM bandwidth_usage_rollups
-				WHERE datetime(?) <= interval_start AND interval_start <= datetime(?)
-				GROUP BY action
-		) GROUP BY action;
-		`, from, to, from, to)
+	row := db.QueryRowContext(ctx, `
+		SELECT
+			COALESCE(SUM(put_total), 0),
+			COALESCE(SUM(put_repair_total), 0)
+		FROM bandwidth_usage
+		WHERE datetime(?) <= interval_start AND interval_start <= datetime(?);
+		`, from, to)
+
+	err = row.Scan(&usage.Put, &usage.PutRepair)
 	if err != nil {
-		if errors.Is(err, sql.ErrNoRows) {
-			return usage, nil
-		}
 		return nil, ErrBandwidth.Wrap(err)
 	}
-	defer func() { err = errs.Combine(err, rows.Close()) }()
 
-	for rows.Next() {
-		var action pb.PieceAction
-		var amount int64
-
-		err := rows.Scan(&action, &amount)
-		if err != nil {
-			return nil, ErrBandwidth.Wrap(err)
-		}
-
-		filter(action, amount, usage)
-	}
-
-	return usage, ErrBandwidth.Wrap(rows.Err())
+	return &usage, ErrBandwidth.Wrap(row.Err())
 }
 
 // SatelliteSummary returns summary of bandwidth usages for a particular satellite.
 func (db *bandwidthDB) SatelliteSummary(ctx context.Context, satelliteID storj.NodeID, from, to time.Time) (_ *bandwidth.Usage, err error) {
 	defer mon.Task()(&ctx, satelliteID, from, to)(&err)
 
-	return db.getSatelliteSummary(ctx, satelliteID, from, to, bandwidthFilter)
+	var usage bandwidth.Usage
+
+	from, to = from.UTC(), to.UTC()
+
+	row := db.QueryRowContext(ctx, `
+		SELECT
+			COALESCE(SUM(get_total), 0),
+			COALESCE(SUM(get_audit_total), 0),
+			COALESCE(SUM(get_repair_total), 0),
+			COALESCE(SUM(put_total), 0),
+			COALESCE(SUM(put_repair_total), 0),
+			COALESCE(SUM(delete_total), 0)
+		FROM bandwidth_usage
+		WHERE datetime(?) <= interval_start AND interval_start <= datetime(?)
+		AND satellite_id = ?;
+		`, from, to, satelliteID)
+
+	err = row.Scan(&usage.Get, &usage.GetAudit, &usage.GetRepair, &usage.Put, &usage.PutRepair, &usage.Delete)
+	if err != nil {
+		return nil, ErrBandwidth.Wrap(err)
+	}
+
+	return &usage, ErrBandwidth.Wrap(row.Err())
 }
 
 // SatelliteEgressSummary returns summary of egress usage for a particular satellite.
 func (db *bandwidthDB) SatelliteEgressSummary(ctx context.Context, satelliteID storj.NodeID, from, to time.Time) (_ *bandwidth.Usage, err error) {
 	defer mon.Task()(&ctx, satelliteID, from, to)(&err)
 
-	return db.getSatelliteSummary(ctx, satelliteID, from, to, egressFilter)
+	var usage bandwidth.Usage
+
+	from, to = from.UTC(), to.UTC()
+
+	row := db.QueryRowContext(ctx, `
+		SELECT
+			COALESCE(SUM(get_total), 0),
+			COALESCE(SUM(get_audit_total), 0),
+			COALESCE(SUM(get_repair_total), 0)
+		FROM bandwidth_usage
+		WHERE datetime(?) <= interval_start AND interval_start <= datetime(?)
+		AND satellite_id = ?;
+		`, from, to, satelliteID)
+
+	err = row.Scan(&usage.Get, &usage.GetAudit, &usage.GetRepair)
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return &usage, nil
+		}
+		return nil, ErrBandwidth.Wrap(err)
+	}
+
+	return &usage, ErrBandwidth.Wrap(row.Err())
 }
 
 // SatelliteIngressSummary returns summary of ingress usage for a particular satellite.
 func (db *bandwidthDB) SatelliteIngressSummary(ctx context.Context, satelliteID storj.NodeID, from, to time.Time) (_ *bandwidth.Usage, err error) {
 	defer mon.Task()(&ctx, satelliteID, from, to)(&err)
 
-	return db.getSatelliteSummary(ctx, satelliteID, from, to, ingressFilter)
-}
-
-// getSummary returns bandwidth data for a particular satellite.
-func (db *bandwidthDB) getSatelliteSummary(ctx context.Context, satelliteID storj.NodeID, from, to time.Time, filter actionFilter) (_ *bandwidth.Usage, err error) {
-	defer mon.Task()(&ctx, satelliteID, from, to)(&err)
+	var usage bandwidth.Usage
 
 	from, to = from.UTC(), to.UTC()
 
-	query := `SELECT action, sum(a) amount FROM(
-			SELECT action, sum(amount) a
-				FROM bandwidth_usage
-				WHERE datetime(?) <= created_at AND created_at <= datetime(?)
-				AND satellite_id = ?
-				GROUP BY action
-			UNION ALL
-			SELECT action, sum(amount) a
-				FROM bandwidth_usage_rollups
-				WHERE datetime(?) <= interval_start AND interval_start <= datetime(?)
-				AND satellite_id = ?
-				GROUP BY action
-		) GROUP BY action;`
+	row := db.QueryRowContext(ctx, `
+		SELECT
+			COALESCE(SUM(put_total), 0),
+			COALESCE(SUM(put_repair_total), 0)
+		FROM bandwidth_usage
+		WHERE datetime(?) <= interval_start AND interval_start <= datetime(?)
+		AND satellite_id = ?;
+		`, from, to, satelliteID)
 
-	rows, err := db.QueryContext(ctx, query, from, to, satelliteID, from, to, satelliteID)
+	err = row.Scan(&usage.Put, &usage.PutRepair)
 	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return &usage, nil
+		}
 		return nil, ErrBandwidth.Wrap(err)
 	}
-	defer func() {
-		err = ErrBandwidth.Wrap(errs.Combine(err, rows.Close()))
-	}()
 
-	usage := new(bandwidth.Usage)
-	for rows.Next() {
-		var action pb.PieceAction
-		var amount int64
-
-		err := rows.Scan(&action, &amount)
-		if err != nil {
-			return nil, err
-		}
-
-		filter(action, amount, usage)
-	}
-
-	return usage, ErrBandwidth.Wrap(rows.Err())
+	return &usage, ErrBandwidth.Wrap(row.Err())
 }
 
 // SummaryBySatellite returns summary of bandwidth usage grouping by satellite.
@@ -244,92 +270,71 @@ func (db *bandwidthDB) SummaryBySatellite(ctx context.Context, from, to time.Tim
 
 	from, to = from.UTC(), to.UTC()
 
+	// get all satellites with data in the range
 	rows, err := db.QueryContext(ctx, `
-	SELECT satellite_id, action, sum(a) amount FROM(
-		SELECT satellite_id, action, sum(amount) a
-			FROM bandwidth_usage
-			WHERE datetime(?) <= created_at AND created_at <= datetime(?)
-			GROUP BY satellite_id, action
-		UNION ALL
-		SELECT satellite_id, action, sum(amount) a
-			FROM bandwidth_usage_rollups
-			WHERE datetime(?) <= interval_start AND interval_start <= datetime(?)
-			GROUP BY satellite_id, action
-	) GROUP BY satellite_id, action;
-		`, from, to, from, to)
+		SELECT DISTINCT satellite_id
+		FROM bandwidth_usage
+		WHERE datetime(?) <= interval_start AND interval_start <= datetime(?);
+		`, from, to)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			return entries, nil
 		}
 		return nil, ErrBandwidth.Wrap(err)
 	}
+
 	defer func() { err = errs.Combine(err, rows.Close()) }()
 
 	for rows.Next() {
 		var satelliteID storj.NodeID
-		var action pb.PieceAction
-		var amount int64
-
-		err := rows.Scan(&satelliteID, &action, &amount)
+		err := rows.Scan(&satelliteID)
 		if err != nil {
 			return nil, ErrBandwidth.Wrap(err)
 		}
+		entries[satelliteID] = &bandwidth.Usage{}
+	}
 
-		entry, ok := entries[satelliteID]
-		if !ok {
-			entry = &bandwidth.Usage{}
-			entries[satelliteID] = entry
+	// get the usage for each satellite
+	for id, usage := range entries {
+		satelliteUsage, err := db.SatelliteSummary(ctx, id, from, to)
+		if err != nil {
+			return nil, ErrBandwidth.Wrap(err)
 		}
-
-		entry.Include(action, amount)
+		usage.Add(satelliteUsage)
 	}
 
 	return entries, ErrBandwidth.Wrap(rows.Err())
 }
 
-// Rollup bandwidth_usage data earlier than the current hour, then delete the rolled up records.
-func (db *bandwidthDB) Rollup(ctx context.Context) (err error) {
+// AddBatch adds bandwidth usage to the table.
+func (db *bandwidthDB) AddBatch(ctx context.Context, usages map[bandwidth.CacheKey]*bandwidth.Usage) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	now := time.Now().UTC()
-
-	// Go back an hour to give us room for late persists
-	hour := time.Date(now.Year(), now.Month(), now.Day(), now.Hour(), 0, 0, 0, now.Location()).Add(-time.Hour)
-
-	tx, err := db.BeginTx(ctx, nil)
-	if err != nil {
-		return ErrBandwidth.Wrap(err)
+	if len(usages) == 0 {
+		return nil
 	}
 
-	defer func() {
-		if err == nil {
-			err = tx.Commit()
-		} else {
-			err = errs.Combine(err, tx.Rollback())
+	query := `INSERT INTO bandwidth_usage (interval_start, satellite_id, get_total, get_audit_total, get_repair_total, put_total, put_repair_total, delete_total)
+				VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+				ON CONFLICT(interval_start, satellite_id)
+				DO UPDATE SET
+					put_total = put_total + excluded.put_total,
+					get_total = get_total + excluded.get_total,
+					get_audit_total = get_audit_total + excluded.get_audit_total,
+					get_repair_total = get_repair_total + excluded.get_repair_total,
+					put_repair_total = put_repair_total + excluded.put_repair_total,
+					delete_total = delete_total + excluded.delete_total;`
+
+	return sqliteutil.WithTx(ctx, db.GetDB(), func(ctx context.Context, tx tagsql.Tx) error {
+		for key, usage := range usages {
+			_, err := tx.ExecContext(ctx, query, key.CreatedAt, key.SatelliteID, usage.Get, usage.GetAudit, usage.GetRepair, usage.Put, usage.PutRepair, usage.Delete)
+			if err != nil {
+				return ErrBandwidth.Wrap(err)
+			}
 		}
-	}()
 
-	result, err := tx.ExecContext(ctx, `
-		INSERT INTO bandwidth_usage_rollups (interval_start, satellite_id,  action, amount)
-		SELECT datetime(strftime('%Y-%m-%dT%H:00:00', created_at)) created_hr, satellite_id, action, SUM(amount)
-			FROM bandwidth_usage
-		WHERE created_at < datetime(?)
-		GROUP BY created_hr, satellite_id, action
-		ON CONFLICT(interval_start, satellite_id,  action)
-		DO UPDATE SET amount = bandwidth_usage_rollups.amount + excluded.amount;
-
-		DELETE FROM bandwidth_usage WHERE created_at < datetime(?);
-	`, hour, hour)
-	if err != nil {
-		return ErrBandwidth.Wrap(err)
-	}
-
-	_, err = result.RowsAffected()
-	if err != nil {
-		return ErrBandwidth.Wrap(err)
-	}
-
-	return nil
+		return nil
+	})
 }
 
 // GetDailyRollups returns slice of daily bandwidth usage rollups for provided time range,
@@ -363,74 +368,47 @@ func (db *bandwidthDB) GetDailySatelliteRollups(ctx context.Context, satelliteID
 func (db *bandwidthDB) getDailyUsageRollups(ctx context.Context, cond string, args ...interface{}) (_ []bandwidth.UsageRollup, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	query := `SELECT action, sum(a) as amount, DATETIME(DATE(interval_start)) as date FROM (
-			SELECT action, sum(amount) as a, created_at AS interval_start
-				FROM bandwidth_usage
-				` + cond + `
-				GROUP BY interval_start, action
-			UNION ALL
-			SELECT action, sum(amount) as a, interval_start
-				FROM bandwidth_usage_rollups
-				` + cond + `
-				GROUP BY interval_start, action
-		) GROUP BY date, action
-		ORDER BY interval_start`
+	var usageRollups []bandwidth.UsageRollup
 
-	// duplicate args as they are used twice
-	args = append(args, args...)
+	query := `
+		SELECT
+			interval_start,
+			SUM(get_total),
+			SUM(get_audit_total),
+			SUM(get_repair_total),
+			SUM(put_total),
+			SUM(put_repair_total),
+			SUM(delete_total)
+		FROM bandwidth_usage
+		` + cond + ` 
+		GROUP BY interval_start
+		ORDER BY interval_start`
 
 	rows, err := db.QueryContext(ctx, query, args...)
 	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return usageRollups, nil
+		}
 		return nil, ErrBandwidth.Wrap(err)
 	}
 	defer func() {
 		err = ErrBandwidth.Wrap(errs.Combine(err, rows.Close()))
 	}()
 
-	var dates []time.Time
-	usageRollupsByDate := make(map[time.Time]*bandwidth.UsageRollup)
-
 	for rows.Next() {
-		var action int32
-		var amount int64
 		var intervalStartN dbutil.NullTime
+		var usage bandwidth.Usage
 
-		err = rows.Scan(&action, &amount, &intervalStartN)
+		err = rows.Scan(&intervalStartN, &usage.Get, &usage.GetAudit, &usage.GetRepair, &usage.Put, &usage.PutRepair, &usage.Delete)
 		if err != nil {
 			return nil, err
 		}
 
 		intervalStart := intervalStartN.Time
 
-		rollup, ok := usageRollupsByDate[intervalStart]
-		if !ok {
-			rollup = &bandwidth.UsageRollup{
-				IntervalStart: intervalStart,
-			}
+		rollup := usage.Rollup(intervalStart)
 
-			dates = append(dates, intervalStart)
-			usageRollupsByDate[intervalStart] = rollup
-		}
-
-		switch pb.PieceAction(action) {
-		case pb.PieceAction_GET:
-			rollup.Egress.Usage = amount
-		case pb.PieceAction_GET_AUDIT:
-			rollup.Egress.Audit = amount
-		case pb.PieceAction_GET_REPAIR:
-			rollup.Egress.Repair = amount
-		case pb.PieceAction_PUT:
-			rollup.Ingress.Usage = amount
-		case pb.PieceAction_PUT_REPAIR:
-			rollup.Ingress.Repair = amount
-		case pb.PieceAction_DELETE:
-			rollup.Delete = amount
-		}
-	}
-
-	var usageRollups []bandwidth.UsageRollup
-	for _, d := range dates {
-		usageRollups = append(usageRollups, *usageRollupsByDate[d])
+		usageRollups = append(usageRollups, *rollup)
 	}
 
 	return usageRollups, ErrBandwidth.Wrap(rows.Err())

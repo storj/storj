@@ -4,13 +4,23 @@
 <template>
     <v-dialog
         v-model="model"
-        width="320px"
+        max-width="420px"
         transition="fade-transition"
         :persistent="isLoading"
     >
-        <v-card rounded="xlg">
+        <v-card>
             <v-card-item class="pa-5 pl-6">
-                <v-card-title class="font-weight-bold">Edit Default Credit Card</v-card-title>
+                <template #prepend>
+                    <v-sheet
+                        class="border-sm d-flex justify-center align-center"
+                        width="40"
+                        height="40"
+                        rounded="lg"
+                    >
+                        <icon-card />
+                    </v-sheet>
+                </template>
+                <v-card-title class="font-weight-bold">Edit Default Card</v-card-title>
                 <template #append>
                     <v-btn
                         icon="$close"
@@ -65,23 +75,23 @@ import {
     VCol,
     VBtn,
     VRadioGroup,
+    VSheet,
 } from 'vuetify/components';
 
-import { useConfigStore } from '@/store/modules/configStore';
-import { useAnalyticsStore } from '@/store/modules/analyticsStore';
 import { useBillingStore } from '@/store/modules/billingStore';
 import { useLoading } from '@/composables/useLoading';
 import { useNotify } from '@/utils/hooks';
 import { AnalyticsErrorEventSource } from '@/utils/constants/analyticsEventNames';
 import { CreditCard } from '@/types/payments';
+import { useUsersStore } from '@/store/modules/usersStore';
 
 import CreditCardItem from '@/components/dialogs/ccActionComponents/CreditCardItem.vue';
+import IconCard from '@/components/icons/IconCard.vue';
 
 const model = defineModel<boolean>({ required: true });
 
-const analyticsStore = useAnalyticsStore();
 const billingStore = useBillingStore();
-const configStore = useConfigStore();
+const usersStore = useUsersStore();
 
 const { isLoading, withLoading } = useLoading();
 const notify = useNotify();
@@ -113,9 +123,25 @@ async function onMakeDefault(): Promise<void> {
             }
         }
 
+        attemptPayments();
         notify.success('Default credit card was successfully edited');
         model.value = false;
     });
+}
+
+async function attemptPayments() {
+    const frozenOrWarned = usersStore.state.user.freezeStatus?.frozen ||
+      usersStore.state.user.freezeStatus?.trialExpiredFrozen ||
+      usersStore.state.user.freezeStatus?.warned;
+    if (!frozenOrWarned) {
+        return;
+    }
+    try {
+        await billingStore.attemptPayments();
+        await usersStore.getUser();
+    } catch (error) {
+        notify.notifyError(error, AnalyticsErrorEventSource.BILLING_PAYMENT_METHODS_TAB);
+    }
 }
 
 watch(model, () => {

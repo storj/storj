@@ -29,7 +29,7 @@ func TestMonitoredBlobWriter(t *testing.T) {
 	f1, err := blobs.Create(ctx, blobstore.BlobRef{
 		Namespace: []byte("test"),
 		Key:       []byte("key"),
-	}, 10)
+	})
 	require.NoError(t, err)
 
 	statName := "test_monitored_blob_writer"

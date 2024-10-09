@@ -6,8 +6,8 @@
         class="bucket-view"
         @dragover.prevent="isDragging = true"
     >
-        <dropzone-dialog v-model="isDragging" :bucket="bucketName" @file-drop="upload" />
-        <page-title-component title="Browse Files" />
+        <dropzone-dialog v-model="isDragging" :bucket="bucketName" @file-drop="onUpload" />
+        <page-title-component title="Browse Objects" />
 
         <browser-breadcrumbs-component />
         <v-col>
@@ -16,31 +16,31 @@
                     <template #activator="{ props }">
                         <v-btn
                             color="primary"
-                            min-width="120"
                             :disabled="!isInitialized"
                             v-bind="props"
+                            min-width="120"
+                            :prepend-icon="Upload"
                         >
-                            <IconUpload class="mr-2" />
                             Upload
                         </v-btn>
                     </template>
                     <v-list class="pa-1">
-                        <v-list-item rounded="lg" :disabled="!isInitialized" @click.stop="buttonFileUpload">
+                        <v-list-item :disabled="!isInitialized" @click.stop="buttonFileUpload">
                             <template #prepend>
-                                <IconFile size="16" />
+                                <component :is="FileUp" :size="18" />
                             </template>
-                            <v-list-item-title class="text-body-2 ml-2">
-                                Upload Files
+                            <v-list-item-title class="text-body-2 ml-3">
+                                Upload Objects
                             </v-list-item-title>
                         </v-list-item>
 
                         <v-divider class="my-1" />
 
-                        <v-list-item class="mt-1" rounded="lg" :disabled="!isInitialized" @click.stop="buttonFolderUpload">
+                        <v-list-item class="mt-1" :disabled="!isInitialized" @click.stop="buttonFolderUpload">
                             <template #prepend>
-                                <icon-folder size="16" bold />
+                                <component :is="FolderUp" :size="18" />
                             </template>
-                            <v-list-item-title class="text-body-2 ml-2">
+                            <v-list-item-title class="text-body-2 ml-3">
                                 Upload Folders
                             </v-list-item-title>
                         </v-list-item>
@@ -54,7 +54,7 @@
                     aria-roledescription="file-upload"
                     hidden
                     multiple
-                    @change="upload"
+                    @change="onUpload"
                 >
                 <input
                     id="Folder Input"
@@ -65,18 +65,124 @@
                     multiple
                     webkitdirectory
                     mozdirectory
-                    @change="upload"
+                    @change="onUpload"
                 >
                 <v-btn
                     variant="outlined"
                     color="default"
-                    class="mx-2 mx-sm-4"
+                    class="ml-2 ml-sm-4"
                     :disabled="!isInitialized"
                     @click="isNewFolderDialogOpen = true"
                 >
                     <icon-folder class="mr-2" bold />
                     New Folder
                 </v-btn>
+
+                <v-menu v-model="settingsMenu" location="bottom" transition="scale-transition" offset="5">
+                    <template #activator="{ props }">
+                        <v-btn
+                            variant="outlined"
+                            color="default"
+                            class="ml-2 ml-sm-4"
+                            v-bind="props"
+                            :prepend-icon="Settings"
+                            :append-icon="ChevronDown"
+                            aria-label="Bucket Options"
+                        />
+                    </template>
+                    <v-list class="pa-1">
+                        <div>
+                            <v-list-item
+                                v-if="versioningUIEnabled"
+                                density="comfortable"
+                                link
+                                :disabled="bucket?.versioning === Versioning.Enabled && bucket?.objectLockEnabled"
+                                @click="onToggleVersioning"
+                            >
+                                <template #prepend>
+                                    <component :is="History" v-if="bucket?.versioning !== Versioning.Enabled" :size="18" />
+                                    <component :is="CirclePause" v-else :size="18" />
+                                </template>
+                                <v-list-item-title
+                                    class="ml-3 text-body-2 font-weight-medium"
+                                >
+                                    {{
+                                        bucket?.versioning !== Versioning.Enabled ? 'Enable Versioning' : 'Suspend Versioning'
+                                    }}
+                                </v-list-item-title>
+                            </v-list-item>
+                            <v-tooltip
+                                v-if="bucket?.versioning === Versioning.Enabled && bucket?.objectLockEnabled"
+                                activator="parent"
+                                location="left"
+                                max-width="300"
+                            >
+                                Versioning cannot be suspended on a bucket with object lock enabled
+                            </v-tooltip>
+                        </div>
+
+                        <v-list-item
+                            v-if="versioningUIEnabled"
+                            density="comfortable"
+                            link
+                            @click="obStore.toggleShowObjectVersions()"
+                        >
+                            <template #prepend>
+                                <component :is="showObjectVersions ? EyeOff : Eye" :size="18" />
+                            </template>
+                            <v-list-item-title
+                                class="ml-3 text-body-2 font-weight-medium"
+                            >
+                                {{ showObjectVersions ? "Hide" : "Show" }} Versions
+                            </v-list-item-title>
+                        </v-list-item>
+
+                        <v-list-item
+                            density="comfortable"
+                            link
+                            @click="isShareBucketDialogShown = true"
+                        >
+                            <template #prepend>
+                                <component :is="Share" :size="18" />
+                            </template>
+                            <v-list-item-title
+                                class="ml-3 text-body-2 font-weight-medium"
+                            >
+                                Share Bucket
+                            </v-list-item-title>
+                        </v-list-item>
+                        <v-list-item
+                            density="comfortable"
+                            link
+                            @click="isBucketDetailsDialogShown = true"
+                        >
+                            <template #prepend>
+                                <component :is="ReceiptText" :size="18" />
+                            </template>
+                            <v-list-item-title
+                                class="ml-3 text-body-2 font-weight-medium"
+                            >
+                                Bucket Details
+                            </v-list-item-title>
+                        </v-list-item>
+                        <v-divider class="my-1" />
+                        <v-list-item
+                            density="comfortable"
+                            link
+                            base-color="error"
+                            @click="isDeleteBucketDialogShown = true"
+                        >
+                            <template #prepend>
+                                <component :is="Trash2" :size="18" />
+                            </template>
+                            <v-list-item-title
+                                class="ml-3 text-body-2 font-weight-medium"
+                            >
+                                Delete Bucket
+                            </v-list-item-title>
+                        </v-list-item>
+                    </v-list>
+                </v-menu>
 
                 <v-spacer v-if="smAndUp" />
 
@@ -86,11 +192,15 @@
                         border
                         inset
                         density="comfortable"
-                        class="pa-1"
+                        class="pa-1 bg-surface"
                     >
-                        <v-tooltip location="top">
+                        <v-tooltip v-if="showObjectVersions" location="top" activator="parent">
+                            Please hide versions to toggle the view.
+                        </v-tooltip>
+                        <v-tooltip :disabled="showObjectVersions" location="top">
                             <template #activator="{ props }">
                                 <v-btn
+                                    :disabled="showObjectVersions"
                                     size="small"
                                     rounded="xl"
                                     active-class="active"
@@ -99,13 +209,14 @@
                                     v-bind="props"
                                     @click="isCardView = true"
                                 >
-                                    <icon-card-view />
+                                    <component :is="ScanEye" :size="14" class="mr-1" />
                                     Gallery
                                 </v-btn>
                             </template>
                             Gallery view shows image previews using download bandwidth.
                         </v-tooltip>
                         <v-btn
+                            :disabled="showObjectVersions"
                             size="small"
                             rounded="xl"
                             active-class="active"
@@ -113,7 +224,7 @@
                             aria-label="Toggle Table View"
                             @click="isCardView = false"
                         >
-                            <icon-table-view />
+                            <component :is="List" :size="14" class="mr-1" />
                             List
                         </v-btn>
                     </v-btn-toggle>
@@ -121,18 +232,38 @@
             </v-row>
         </v-col>
 
-        <browser-card-view-component v-if="isCardView" :force-empty="!isInitialized" @new-folder-click="isNewFolderDialogOpen = true" @upload-click="menu = true" />
-        <browser-table-component v-else :loading="isFetching" :force-empty="!isInitialized" />
+        <v-card v-if="isFetching">
+            <v-card-item>
+                <v-skeleton-loader type="card" />
+            </v-card-item>
+        </v-card>
+        <template v-else>
+            <browser-versions-table-component v-if="showObjectVersions" :loading="isFetching" :force-empty="!isInitialized" @upload-click="buttonFileUpload" />
+            <browser-card-view-component v-else-if="isCardView" :bucket="bucket" :force-empty="!isInitialized" @upload-click="buttonFileUpload" />
+            <browser-table-component v-else :bucket="bucket" :loading="isFetching" :force-empty="!isInitialized" @upload-click="buttonFileUpload" />
+        </template>
     </v-container>
 
     <browser-new-folder-dialog v-model="isNewFolderDialogOpen" />
     <enter-bucket-passphrase-dialog v-model="isBucketPassphraseDialogOpen" @passphrase-entered="initObjectStore" />
+    <share-dialog v-model="isShareBucketDialogShown" :bucket-name="bucketName" />
+    <bucket-details-dialog v-model="isBucketDetailsDialogShown" :bucket-name="bucketName" />
+    <delete-bucket-dialog v-model="isDeleteBucketDialogShown" :bucket-name="bucketName" @deleted="onBucketDeleted" />
+    <toggle-versioning-dialog v-model="bucketToToggleVersioning" @toggle="() => bucketsStore.getAllBucketsMetadata(projectId)" />
+    <upload-overwrite-warning-dialog
+        v-model="isDuplicateUploadDialogShown"
+        :filenames="duplicateFiles"
+        @proceed="upload(true)"
+        @cancel="clearUpload"
+    />
 </template>
 
 <script setup lang="ts">
 import { computed, onMounted, ref, watch } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import {
+    VCard,
+    VCardItem,
     VContainer,
     VCol,
     VRow,
@@ -141,12 +272,28 @@ import {
     VList,
     VListItem,
     VListItemTitle,
+    VSkeletonLoader,
     VSpacer,
     VDivider,
     VBtnToggle,
     VTooltip,
 } from 'vuetify/components';
 import { useDisplay } from 'vuetify';
+import { FileUp,
+    FolderUp,
+    ChevronDown,
+    Settings,
+    Upload,
+    Share,
+    ReceiptText,
+    Trash2,
+    History,
+    CirclePause,
+    ScanEye,
+    List,
+    Eye,
+    EyeOff,
+} from 'lucide-vue-next';
 
 import { useBucketsStore } from '@/store/modules/bucketsStore';
 import { useObjectBrowserStore } from '@/store/modules/objectBrowserStore';
@@ -156,48 +303,93 @@ import { useNotify } from '@/utils/hooks';
 import { AnalyticsErrorEventSource, AnalyticsEvent } from '@/utils/constants/analyticsEventNames';
 import { useAnalyticsStore } from '@/store/modules/analyticsStore';
 import { useAppStore } from '@/store/modules/appStore';
-import { useConfigStore } from '@/store/modules/configStore';
 import { ROUTES } from '@/router';
+import { Versioning } from '@/types/versioning';
+import { BucketMetadata } from '@/types/buckets';
+import { usePreCheck } from '@/composables/usePreCheck';
+import { DuplicateUploadError } from '@/utils/error';
+import { useUsersStore } from '@/store/modules/usersStore';
 
 import PageTitleComponent from '@/components/PageTitleComponent.vue';
 import BrowserBreadcrumbsComponent from '@/components/BrowserBreadcrumbsComponent.vue';
 import BrowserTableComponent from '@/components/BrowserTableComponent.vue';
 import BrowserNewFolderDialog from '@/components/dialogs/BrowserNewFolderDialog.vue';
-import IconUpload from '@/components/icons/IconUpload.vue';
-import IconFolder from '@/components/icons/IconFolder.vue';
-import IconFile from '@/components/icons/IconFile.vue';
 import EnterBucketPassphraseDialog from '@/components/dialogs/EnterBucketPassphraseDialog.vue';
 import DropzoneDialog from '@/components/dialogs/DropzoneDialog.vue';
 import BrowserCardViewComponent from '@/components/BrowserCardViewComponent.vue';
-import IconTableView from '@/components/icons/IconTableView.vue';
-import IconCardView from '@/components/icons/IconCardView.vue';
+import IconFolder from '@/components/icons/IconFolder.vue';
+import ShareDialog from '@/components/dialogs/ShareDialog.vue';
+import BucketDetailsDialog from '@/components/dialogs/BucketDetailsDialog.vue';
+import DeleteBucketDialog from '@/components/dialogs/DeleteBucketDialog.vue';
+import ToggleVersioningDialog from '@/components/dialogs/ToggleVersioningDialog.vue';
+import UploadOverwriteWarningDialog from '@/components/dialogs/UploadOverwriteWarningDialog.vue';
+import BrowserVersionsTableComponent from '@/components/BrowserVersionsTableComponent.vue';
 
 const bucketsStore = useBucketsStore();
 const obStore = useObjectBrowserStore();
 const projectsStore = useProjectsStore();
 const analyticsStore = useAnalyticsStore();
-const config = useConfigStore();
 const appStore = useAppStore();
+const userStore = useUsersStore();
 
 const router = useRouter();
 const route = useRoute();
 const notify = useNotify();
 const { smAndUp } = useDisplay();
+const { withTrialCheck } = usePreCheck();
 
 const folderInput = ref<HTMLInputElement>();
 const fileInput = ref<HTMLInputElement>();
 const menu = ref<boolean>(false);
+const settingsMenu = ref<boolean>(false);
 const isFetching = ref<boolean>(true);
 const isInitialized = ref<boolean>(false);
 const isDragging = ref<boolean>(false);
-const snackbar = ref<boolean>(false);
 const isBucketPassphraseDialogOpen = ref<boolean>(false);
 const isNewFolderDialogOpen = ref<boolean>(false);
+const isShareBucketDialogShown = ref<boolean>(false);
+const isBucketDetailsDialogShown = ref<boolean>(false);
+const isDeleteBucketDialogShown = ref<boolean>(false);
+const isDuplicateUploadDialogShown = ref<boolean>(false);
+const bucketToToggleVersioning = ref<BucketMetadata | null>(null);
+
+const duplicateFiles = ref<string[]>([]);
+
+/**
+ * Whether versioning has been enabled for current project and allowed for this bucket specifically.
+ */
+const versioningUIEnabled = computed(() => {
+    return projectsStore.versioningUIEnabled
+      && bucket.value
+      && bucket.value.versioning !== Versioning.NotSupported
+      && bucket.value.versioning !== Versioning.Unversioned;
+});
+
+/**
+ * Whether the user should be warned when uploading duplicate files.
+ */
+const ignoreDuplicateUploads = computed<boolean>(() => {
+    const duplicateWarningDismissed = !!userStore.state.settings.noticeDismissal?.uploadOverwriteWarning;
+    const versioningEnabled = projectsStore.versioningUIEnabled && bucket.value && bucket.value.versioning === Versioning.Enabled;
+    return versioningEnabled || duplicateWarningDismissed;
+});
+
+/**
+ * Whether object versions should be shown.
+ */
+const showObjectVersions = computed(() =>  versioningUIEnabled.value && obStore.state.showObjectVersions.value);
 
 /**
  * Returns the name of the selected bucket.
  */
 const bucketName = computed<string>(() => bucketsStore.state.fileComponentBucketName);
+
+/**
+ * Returns metadata of the current bucket.
+ */
+const bucket = computed<BucketMetadata | undefined>(() => {
+    return bucketsStore.state.allBucketMetadata.find(b => b.name === bucketName.value);
+});
 
 /**
  * Returns edge credentials from store.
@@ -253,7 +445,19 @@ async function buttonFolderUpload(): Promise<void> {
 /**
  * Initializes object browser store.
  */
-function initObjectStore(): void {
+async function initObjectStore() {
+    if (!edgeCredentials.value.accessKeyId) {
+        try {
+            await bucketsStore.setS3Client(projectsStore.state.selectedProject.id);
+        } catch (error) {
+            notify.notifyError(error, AnalyticsErrorEventSource.UPLOAD_FILE_VIEW);
+            router.push({
+                name: ROUTES.Buckets.name,
+                params: { id: projectUrlId.value },
+            });
+            return;
+        }
+    }
     obStore.init({
         endpoint: edgeCredentials.value.endpoint,
         accessKey: edgeCredentials.value.accessKeyId,
@@ -264,18 +468,64 @@ function initObjectStore(): void {
     isInitialized.value = true;
 }
 
-/**
- * Upload the current selected or dragged-and-dropped file.
- */
-async function upload(e: Event): Promise<void> {
+const uploadEvent = ref<Event>();
+
+function clearUpload() {
+    if (!uploadEvent.value) {
+        return;
+    }
+    const target = uploadEvent.value.target as HTMLInputElement;
+    target.value = '';
+    uploadEvent.value = undefined;
+    duplicateFiles.value = [];
+}
+
+function onUpload(e: Event | undefined) {
     if (isDragging.value) {
         isDragging.value = false;
     }
 
-    await obStore.upload({ e });
-    analyticsStore.eventTriggered(AnalyticsEvent.OBJECT_UPLOADED);
-    const target = e.target as HTMLInputElement;
-    target.value = '';
+    uploadEvent.value = e;
+    duplicateFiles.value = [];
+
+    upload(ignoreDuplicateUploads.value);
+}
+/**
+ * Upload the current selected or dragged-and-dropped file.
+ */
+async function upload(ignoreDuplicate: boolean): Promise<void> {
+    if (!uploadEvent.value) {
+        return;
+    }
+    try {
+        await obStore.upload({ e: uploadEvent.value }, ignoreDuplicate);
+        clearUpload();
+        analyticsStore.eventTriggered(AnalyticsEvent.OBJECT_UPLOADED);
+    } catch (error) {
+        if (error instanceof DuplicateUploadError) {
+            duplicateFiles.value = error.files;
+            isDuplicateUploadDialogShown.value = true;
+        }
+    }
+}
+
+/**
+ * Toggles versioning for the bucket between Suspended and Enabled.
+ */
+async function onToggleVersioning() {
+    withTrialCheck(() => {
+        if (!bucket.value) {
+            return;
+        }
+        bucketToToggleVersioning.value = bucket.value;
+    });
+}
+
+function onBucketDeleted() {
+    router.push({
+        name: ROUTES.Buckets.name,
+        params: { id: projectUrlId.value },
+    });
 }
 
 watch(isBucketPassphraseDialogOpen, isOpen => {
@@ -284,7 +534,6 @@ watch(isBucketPassphraseDialogOpen, isOpen => {
         name: ROUTES.Buckets.name,
         params: { id: projectUrlId.value },
     });
-    analyticsStore.pageVisit(ROUTES.BucketsAnalyticsLink);
 });
 
 watch(() => route.params.browserPath, browserPath => {
@@ -333,29 +582,41 @@ watch(() => bucketsStore.state.passphrase, async newPass => {
  * Initializes file browser.
  */
 onMounted(async () => {
-    try {
-        await Promise.all([
-            bucketsStore.getAllBucketsNames(projectId.value),
-            bucketsStore.getAllBucketsPlacements(projectId.value),
-        ]);
-    } catch (error) {
-        error.message = `Error fetching bucket names and/or placements. ${error.message}`;
-        notify.notifyError(error, AnalyticsErrorEventSource.UPLOAD_FILE_VIEW);
-        return;
-    }
-
-    if (bucketsStore.state.allBucketNames.indexOf(bucketName.value) === -1) {
+    function goToBuckets() {
         router.push({
             name: ROUTES.Buckets.name,
             params: { id: projectUrlId.value },
         });
+    }
+
+    if (appStore.state.managedPassphraseNotRetrievable) {
+        goToBuckets();
         return;
+    }
+
+    try {
+        await bucketsStore.getAllBucketsMetadata(projectId.value);
+    } catch (error) {
+        error.message = `Error fetching bucket names and/or placements. ${error.message}`;
+        notify.notifyError(error, AnalyticsErrorEventSource.UPLOAD_FILE_VIEW);
+        goToBuckets();
+        return;
+    }
+
+    if (!bucket.value) {
+        goToBuckets();
+        return;
+    }
+
+    if (versioningUIEnabled.value && !obStore.state.showObjectVersions.userModified) {
+        // only toggle this view as default if the user hasn't already changed it
+        obStore.toggleShowObjectVersions(true, false);
     }
 
     if (isPromptForPassphrase.value) {
         isBucketPassphraseDialogOpen.value = true;
     } else {
-        initObjectStore();
+        await initObjectStore();
     }
 
     isFetching.value = false;

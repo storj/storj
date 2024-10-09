@@ -4,6 +4,7 @@
 package expireddeletion_test
 
 import (
+	"strconv"
 	"testing"
 	"time"
 
@@ -15,6 +16,7 @@ import (
 	"storj.io/common/testrand"
 	"storj.io/storj/private/testplanet"
 	"storj.io/storj/satellite"
+	"storj.io/storj/satellite/metabase"
 )
 
 func TestExpiredDeletion(t *testing.T) {
@@ -107,10 +109,12 @@ func TestExpiresAtForSegmentsAfterCopy(t *testing.T) {
 		require.Len(t, objects, 4)
 
 		for _, v := range objects {
-			segments, err := satellite.Metabase.DB.TestingAllObjectSegments(ctx, v.Location())
+			result, err := satellite.Metabase.DB.ListSegments(ctx, metabase.ListSegments{
+				StreamID: v.StreamID,
+			})
 			require.NoError(t, err)
 
-			for _, k := range segments {
+			for _, k := range result.Segments {
 				require.Equal(t, expiresAt.Unix(), k.ExpiresAt.Unix())
 			}
 		}
@@ -184,5 +188,45 @@ func TestExpiredDeletionForCopiedObject(t *testing.T) {
 
 		require.NoError(t, planet.WaitForStorageNodeEndpoints(ctx))
 		require.Equal(t, int64(0), allSpaceUsedForPieces())
+	})
+}
+
+func TestExpiredDeletion_ConcurrentDeletes(t *testing.T) {
+	testplanet.Run(t, testplanet.Config{
+		SatelliteCount: 1, StorageNodeCount: 1, UplinkCount: 1,
+		Reconfigure: testplanet.Reconfigure{
+			Satellite: func(log *zap.Logger, index int, config *satellite.Config) {
+				config.ExpiredDeletion.DeleteConcurrency = 3
+			},
+		},
+	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+		satellite := planet.Satellites[0]
+		upl := planet.Uplinks[0]
+		expiredChore := satellite.Core.ExpiredDeletion.Chore
+		expiredChore.Loop.Pause()
+
+		expiredChore.Loop.Pause()
+
+		for i := 0; i < 31; i++ {
+			err := upl.UploadWithExpiration(ctx, satellite, "testbucket", "inline_no_expire"+strconv.Itoa(i), testrand.Bytes(1*memory.KiB), time.Now().Add(1*time.Hour))
+			require.NoError(t, err)
+		}
+
+		// Verify that all objects are in the metabase
+		objects, err := satellite.Metabase.DB.TestingAllObjects(ctx)
+		require.NoError(t, err)
+		require.Len(t, objects, 31)
+
+		// Trigger the next iteration of expired cleanup and wait to finish
+		expiredChore.SetNow(func() time.Time {
+			// Set the Now function to return time after the objects expiration time
+			return time.Now().Add(2 * time.Hour)
+		})
+		expiredChore.Loop.TriggerWait()
+
+		// Verify that all objects are deleted from the metabase
+		objects, err = satellite.Metabase.DB.TestingAllObjects(ctx)
+		require.NoError(t, err)
+		require.Len(t, objects, 0)
 	})
 }

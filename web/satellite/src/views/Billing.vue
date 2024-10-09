@@ -15,7 +15,7 @@
             </v-col>
         </v-row>
 
-        <v-card variant="outlined" :border="true" color="default" class="mt-2 mb-6 rounded">
+        <v-card color="default" class="mt-2 mb-6" variant="flat">
             <v-tabs
                 v-model="tab"
                 color="default"
@@ -35,6 +35,9 @@
                 <v-tab>
                     Billing History
                 </v-tab>
+                <v-tab v-if="billingInformationUIEnabled">
+                    Billing Information
+                </v-tab>
             </v-tabs>
         </v-card>
 
@@ -43,36 +46,67 @@
                 <v-row>
                     <v-col cols="12" sm="4">
                         <v-card
-                            title="Total Cost"
-                            :subtitle="`Estimated for ${new Date().toLocaleString('en-US', { month: 'long', year: 'numeric' })}`"
+                            :subtitle="`For ${new Date().toLocaleString('en-US', { month: 'long', year: 'numeric' })}`"
                             variant="flat"
-                            :border="true"
-                            rounded="xlg"
                         >
+                            <template #title>
+                                <v-row class="align-center">
+                                    <v-col>
+                                        <span>Estimated Total Cost</span>
+                                        <span class="ml-2">
+                                            <v-icon class="text-cursor-pointer" size="15" :icon="Info" />
+                                            <v-tooltip
+                                                class="text-center"
+                                                activator="parent"
+                                                location="top"
+                                            >
+                                                Expected charges for current billing period.
+                                            </v-tooltip>
+                                        </span>
+                                    </v-col>
+                                </v-row>
+                            </template>
                             <template #loader>
                                 <v-progress-linear v-if="isLoading" indeterminate />
                             </template>
                             <v-card-text>
-                                <v-chip rounded color="green" variant="tonal" class="font-weight-bold mb-2">
+                                <v-chip color="warning" variant="tonal" class="font-weight-bold mb-2">
                                     {{ centsToDollars(priceSummary) }}
                                 </v-chip>
                                 <v-divider class="my-4" />
-                                <v-btn variant="outlined" color="default" size="small" class="mr-2" @click="tab = TABS['billing-history']">View Billing History</v-btn>
+                                <v-btn variant="outlined" color="default" size="small" rounded="md" class="mr-2" :append-icon="ArrowRight" @click="tab = TABS['billing-history']">View Billing History</v-btn>
                             </v-card-text>
                         </v-card>
                     </v-col>
 
                     <v-col cols="12" sm="4">
-                        <v-card title="STORJ Token Balance" subtitle="Your STORJ Token Wallet" variant="flat" :border="true" rounded="xlg">
+                        <v-card subtitle="Your Storj account balance" variant="flat">
+                            <template #title>
+                                <v-row class="align-center">
+                                    <v-col>
+                                        <span>Available Funds</span>
+                                        <span class="ml-2">
+                                            <v-icon class="text-cursor-pointer" size="15" :icon="Info" />
+                                            <v-tooltip
+                                                class="text-center"
+                                                activator="parent"
+                                                location="top"
+                                            >
+                                                Prepaid balance for upcoming account usage.
+                                            </v-tooltip>
+                                        </span>
+                                    </v-col>
+                                </v-row>
+                            </template>
                             <template #loader>
                                 <v-progress-linear v-if="isLoading" indeterminate />
                             </template>
                             <v-card-text>
-                                <v-chip rounded color="green" variant="tonal" class="font-weight-bold mb-2">
-                                    {{ formattedTokenBalance }}
+                                <v-chip color="success" variant="tonal" class="font-weight-bold mb-2">
+                                    {{ formattedAccountBalance }}
                                 </v-chip>
                                 <v-divider class="my-4" />
-                                <v-btn variant="outlined" color="default" size="small" class="mr-2" :prepend-icon="mdiPlus" @click="onAddTokensClicked">
+                                <v-btn variant="outlined" color="default" size="small" rounded="md" class="mr-2" :prepend-icon="Plus" @click="onAddTokensClicked">
                                     Add STORJ Tokens
                                 </v-btn>
                             </v-card-text>
@@ -84,7 +118,6 @@
                             v-if="isLoading"
                             class="d-flex align-center justify-center"
                             height="200"
-                            rounded="xlg"
                             variant="flat"
                         >
                             <template #loader>
@@ -96,15 +129,13 @@
                             :title="`Coupon / ${coupon.name}`"
                             height="100%"
                             :subtitle="`${isCouponActive ? 'Active' : 'Expired'} / ${couponExpiration}`"
-                            rounded="xlg"
                             variant="flat"
                         >
                             <v-card-text>
                                 <v-chip
-                                    :color="isCouponActive ? 'green' : 'error'"
+                                    :color="isCouponActive ? 'success' : 'error'"
                                     variant="tonal"
                                     class="font-weight-bold mb-2"
-                                    rounded
                                 >
                                     {{ couponDiscount }}
                                 </v-chip>
@@ -117,7 +148,8 @@
                                     color="default"
                                     size="small"
                                     class="mr-2"
-                                    :prepend-icon="mdiPlus"
+                                    rounded="md"
+                                    :prepend-icon="Plus"
                                     @click="isAddCouponDialogShown = true"
                                 >
                                     Add Coupon
@@ -130,10 +162,9 @@
                             title="Coupon"
                             subtitle="Apply a new coupon to your account"
                             variant="flat"
-                            rounded="xlg"
                         >
                             <v-card-text>
-                                <v-chip rounded color="default" variant="tonal" class="font-weight-bold mb-2">
+                                <v-chip color="default" variant="tonal" class="font-weight-bold mb-2">
                                     No Coupon
                                 </v-chip>
 
@@ -144,7 +175,8 @@
                                     color="default"
                                     size="small"
                                     class="mr-2"
-                                    :prepend-icon="mdiPlus"
+                                    rounded="md"
+                                    :prepend-icon="Plus"
                                     @click="isAddCouponDialogShown = true"
                                 >
                                     Apply New Coupon
@@ -156,11 +188,11 @@
 
                 <v-row>
                     <v-col>
-                        <v-card title="Detailed Usage Report" subtitle="Get a complete usage report for all your projects." border variant="flat">
+                        <v-card title="Detailed Usage Report" subtitle="Get a complete usage report for all your projects." variant="flat">
                             <v-card-text>
-                                <v-btn variant="outlined" color="default" size="small" :prepend-icon="mdiCalendar">
+                                <v-btn variant="outlined" color="default" size="small" rounded="md" :prepend-icon="Calendar">
                                     <detailed-usage-report-dialog />
-                                    Download Report
+                                    Detailed Account Report
                                 </v-btn>
                             </v-card-text>
                         </v-card>
@@ -198,6 +230,10 @@
             <v-window-item>
                 <billing-history-tab />
             </v-window-item>
+
+            <v-window-item v-if="billingInformationUIEnabled">
+                <billing-information-tab />
+            </v-window-item>
         </v-window>
     </v-container>
 
@@ -221,9 +257,11 @@ import {
     VBtn,
     VProgressCircular,
     VProgressLinear,
+    VTooltip,
+    VIcon,
 } from 'vuetify/components';
 import { useRoute, useRouter } from 'vue-router';
-import { mdiCalendar, mdiPlus } from '@mdi/js';
+import { Calendar, Info, Plus, ArrowRight } from 'lucide-vue-next';
 
 import { useLoading } from '@/composables/useLoading';
 import { useNotify } from '@/utils/hooks';
@@ -236,6 +274,8 @@ import { useProjectsStore } from '@/store/modules/projectsStore';
 import { useConfigStore } from '@/store/modules/configStore';
 import { useLowTokenBalance } from '@/composables/useLowTokenBalance';
 import { ROUTES } from '@/router';
+import { useUsersStore } from '@/store/modules/usersStore';
+import { useAppStore } from '@/store/modules/appStore';
 
 import PageTitleComponent from '@/components/PageTitleComponent.vue';
 import CreditCardComponent from '@/components/CreditCardComponent.vue';
@@ -247,12 +287,14 @@ import TokenTransactionsTableComponent from '@/components/TokenTransactionsTable
 import ApplyCouponCodeDialog from '@/components/dialogs/ApplyCouponCodeDialog.vue';
 import LowTokenBalanceBanner from '@/components/LowTokenBalanceBanner.vue';
 import DetailedUsageReportDialog from '@/components/dialogs/DetailedUsageReportDialog.vue';
+import BillingInformationTab from '@/components/billing/BillingInformationTab.vue';
 
 enum TABS {
     overview,
     'payment-methods',
     transactions,
     'billing-history',
+    'billing-information',
 }
 
 interface IStorjTokenCardComponent {
@@ -262,6 +304,8 @@ interface IStorjTokenCardComponent {
 const billingStore = useBillingStore();
 const projectsStore = useProjectsStore();
 const configStore = useConfigStore();
+const usersStore = useUsersStore();
+const appStore = useAppStore();
 
 const { isLoading, withLoading } = useLoading();
 const notify = useNotify();
@@ -279,6 +323,7 @@ const creditCards = computed((): CreditCard[] => {
 });
 
 const couponCodeBillingUIEnabled = computed<boolean>(() => configStore.state.config.couponCodeBillingUIEnabled);
+const billingInformationUIEnabled = computed<boolean>(() => configStore.state.config.billingInformationTabEnabled);
 
 /**
  * projectIDs is an array of all of the project IDs for which there exist project usage charges.
@@ -298,10 +343,10 @@ const priceSummary = computed((): number => {
 });
 
 /**
- * Returns STORJ token balance from store.
+ * Returns account balance (sum storjscan and stripe credit) from store.
  */
-const formattedTokenBalance = computed((): string => {
-    return billingStore.state.balance.formattedCoins;
+const formattedAccountBalance = computed((): string => {
+    return billingStore.state.balance.formattedSum;
 });
 
 /**
@@ -362,12 +407,17 @@ const isCouponActive = computed((): boolean => {
 });
 
 function onAddTokensClicked(): void {
+    if (!usersStore.state.user.paidTier) {
+        appStore.toggleUpgradeFlow(true);
+        return;
+    }
+
     tab.value = TABS['payment-methods'];
     tokenCardComponent.value?.onAddTokens();
 }
 
 onBeforeMount(() => {
-    if (!configStore.state.config.billingFeaturesEnabled) {
+    if (!configStore.getBillingEnabled(usersStore.state.user.hasVarPartner)) {
         router.replace({ name: ROUTES.AccountSettings.name });
     }
 });

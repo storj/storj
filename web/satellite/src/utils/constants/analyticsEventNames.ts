@@ -20,7 +20,7 @@ export enum AnalyticsEvent {
     BUCKET_CREATED = 'Bucket Created',
     BUCKET_DELETED = 'Bucket Deleted',
     ACCESS_GRANT_CREATED = 'Access Grant Created',
-    API_ACCESS_CREATED  = 'API Access Created',
+    API_ACCESS_CREATED = 'API Access Created',
     UPLOAD_FILE_CLICKED = 'Upload File Clicked',
     UPLOAD_FOLDER_CLICKED = 'Upload Folder Clicked',
     DOWNLOAD_TXT_CLICKED = 'Download txt clicked',
@@ -47,6 +47,13 @@ export enum AnalyticsEvent {
     ONBOARDING_ABANDONED = 'Onboarding Abandoned',
     PERSONAL_SELECTED = 'Personal Selected',
     BUSINESS_SELECTED = 'Business Selected',
+    UPGRADE_CLICKED = 'Upgrade Clicked',
+    ARRIVED_FROM_SOURCE = 'Arrived From Source',
+    APPLICATIONS_SETUP_CLICKED = 'Applications Setup Clicked',
+    APPLICATIONS_SETUP_COMPLETED = 'Applications Setup Completed',
+    APPLICATIONS_DOCS_CLICKED = 'Applications Docs Clicked',
+    CLOUD_GPU_NAVIGATION_ITEM_CLICKED = 'Cloud GPU Navigation Item Clicked',
+    CLOUD_GPU_SIGN_UP_CLICKED = 'Cloud GPU Sign Up Clicked',
 }
 
 export enum AnalyticsErrorEventSource {
@@ -60,7 +67,9 @@ export enum AnalyticsErrorEventSource {
     BILLING_STRIPE_CARD_INPUT = 'Billing stripe card input',
     BILLING_AREA = 'Billing area',
     BILLING_STORJ_TOKEN_CONTAINER = 'Billing STORJ token container',
+    BUCKET_DETAILS_MODAL = 'Bucket details modal',
     CREATE_AG_MODAL = 'Create access grant modal',
+    SETUP_ACCESS_MODAL = 'Setup access modal',
     CONFIRM_DELETE_AG_MODAL = 'Confirm delete access grant modal',
     FILE_BROWSER_LIST_CALL = 'File browser - list API call',
     FILE_BROWSER_ENTRY = 'File browser entry',
@@ -100,10 +109,26 @@ export enum AnalyticsErrorEventSource {
     EDIT_TIMEOUT_MODAL = 'Edit session timeout error',
     SKIP_PASSPHRASE_MODAL = 'Remember skip passphrase error',
     JOIN_PROJECT_MODAL = 'Join project modal',
+    NEW_DOMAIN_MODAL = 'New domain modal',
     PROJECT_INVITATION = 'Project invitation',
     DETAILED_USAGE_REPORT_MODAL = 'Detailed usage report modal',
     REMOVE_CC_MODAL = 'Remove credit card modal',
     EDIT_DEFAULT_CC_MODAL = 'Edit default credit card modal',
     ONBOARDING_FORM = 'Onboarding form',
     ONBOARDING_STEPPER = 'Onboarding stepper',
+    VERSIONING_TOGGLE_DIALOG = 'Versioning toggle dialog',
+    VERSIONING_BETA_DIALOG = 'Versioning beta dialog',
+    VERSIONING_BETA_BANNER = 'Versioning beta banner',
+    UPLOAD_OVERWRITE_WARNING_DIALOG = 'Upload Overwrite Warning Dialog',
+    LOCK_OBJECT_DIALOG = 'Lock Object Dialog',
+    LEGAL_HOLD_DIALOG = 'Legal Hold Dialog',
 }
+
+export enum PageVisitSource {
+    DOCS = 'docs',
+    FORUM = 'forum',
+    SUPPORT = 'support',
+    VALDI = 'valdi'
+}
+
+export const SATELLITE_MANAGED_ENCRYPTION_DOCS_PAGE = 'https://docs.storj.io/learn/concepts/encryption-key/storj-vs-user-managed-encryption';

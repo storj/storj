@@ -24,6 +24,8 @@ import (
 	"storj.io/common/uuid"
 	"storj.io/storj/satellite/buckets"
 	"storj.io/storj/satellite/console"
+	"storj.io/storj/satellite/metabase"
+	"storj.io/storj/satellite/metainfo"
 	"storj.io/storj/satellite/payments/stripe"
 )
 
@@ -126,12 +128,20 @@ func (server *Server) getProjectLimit(w http.ResponseWriter, r *http.Request) {
 			Amount memory.Size `json:"amount"`
 			Bytes  int64       `json:"bytes"`
 		} `json:"bandwidth"`
-		Rate struct {
-			RPS *int `json:"rps"`
-		} `json:"rate"`
-		Burst    *int  `json:"burst"`
-		Buckets  *int  `json:"maxBuckets"`
-		Segments int64 `json:"maxSegments"`
+		Buckets     *int  `json:"maxBuckets"`
+		Segments    int64 `json:"maxSegments"`
+		Rate        *int  `json:"rate"`
+		Burst       *int  `json:"burst"`
+		RateHead    *int  `json:"rateHead"`
+		BurstHead   *int  `json:"burstHead"`
+		RateGet     *int  `json:"rateGet"`
+		BurstGet    *int  `json:"burstGet"`
+		RatePut     *int  `json:"ratePut"`
+		BurstPut    *int  `json:"burstPut"`
+		RateList    *int  `json:"rateList"`
+		BurstList   *int  `json:"burstList"`
+		RateDelete  *int  `json:"rateDelete"`
+		BurstDelete *int  `json:"burstDelete"`
 	}
 	if project.StorageLimit != nil {
 		output.Usage.Amount = *project.StorageLimit
@@ -143,12 +153,23 @@ func (server *Server) getProjectLimit(w http.ResponseWriter, r *http.Request) {
 	}
 
 	output.Buckets = project.MaxBuckets
-	output.Rate.RPS = project.RateLimit
-	output.Burst = project.BurstLimit
 
 	if project.SegmentLimit != nil {
 		output.Segments = *project.SegmentLimit
 	}
+
+	output.Rate = project.RateLimit
+	output.Burst = project.BurstLimit
+	output.RateHead = project.RateLimitHead
+	output.BurstHead = project.BurstLimitHead
+	output.RateGet = project.RateLimitGet
+	output.BurstGet = project.BurstLimitGet
+	output.RatePut = project.RateLimitPut
+	output.BurstPut = project.BurstLimitPut
+	output.RateList = project.RateLimitList
+	output.BurstList = project.BurstLimitList
+	output.RateDelete = project.RateLimitDelete
+	output.BurstDelete = project.BurstLimitDelete
 
 	data, err := json.Marshal(output)
 	if err != nil {
@@ -172,12 +193,22 @@ func (server *Server) putProjectLimit(w http.ResponseWriter, r *http.Request) {
 	}
 
 	var arguments struct {
-		Usage     *memory.Size `schema:"usage"`
-		Bandwidth *memory.Size `schema:"bandwidth"`
-		Rate      *int         `schema:"rate"`
-		Burst     *int         `schema:"burst"`
-		Buckets   *int         `schema:"buckets"`
-		Segments  *int64       `schema:"segments"`
+		Usage       *memory.Size `schema:"usage"`
+		Bandwidth   *memory.Size `schema:"bandwidth"`
+		Buckets     *int         `schema:"buckets"`
+		Segments    *int64       `schema:"segments"`
+		Rate        *int         `schema:"rate"`
+		Burst       *int         `schema:"burst"`
+		RateHead    *int         `schema:"rateHead"`
+		BurstHead   *int         `schema:"burstHead"`
+		RateGet     *int         `schema:"rateGet"`
+		BurstGet    *int         `schema:"burstGet"`
+		RatePut     *int         `schema:"ratePut"`
+		BurstPut    *int         `schema:"burstPut"`
+		RateList    *int         `schema:"rateList"`
+		BurstList   *int         `schema:"burstList"`
+		RateDelete  *int         `schema:"rateDelete"`
+		BurstDelete *int         `schema:"burstDelete"`
 	}
 
 	if err := r.ParseForm(); err != nil {
@@ -207,6 +238,7 @@ func (server *Server) putProjectLimit(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	toUpdate := []console.Limit{}
 	if arguments.Usage != nil {
 		if *arguments.Usage < 0 {
 			sendJSONError(w, "negative usage",
@@ -214,12 +246,11 @@ func (server *Server) putProjectLimit(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
-		err = server.db.ProjectAccounting().UpdateProjectUsageLimit(ctx, project.ID, *arguments.Usage)
-		if err != nil {
-			sendJSONError(w, "failed to update usage",
-				err.Error(), http.StatusInternalServerError)
-			return
-		}
+		val := arguments.Usage.Int64()
+		toUpdate = append(toUpdate, console.Limit{
+			Kind:  console.StorageLimit,
+			Value: &val,
+		})
 	}
 
 	if arguments.Bandwidth != nil {
@@ -229,54 +260,25 @@ func (server *Server) putProjectLimit(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
-		err = server.db.ProjectAccounting().UpdateProjectBandwidthLimit(ctx, project.ID, *arguments.Bandwidth)
-		if err != nil {
-			sendJSONError(w, "failed to update bandwidth",
-				err.Error(), http.StatusInternalServerError)
-			return
-		}
-	}
-
-	if arguments.Rate != nil {
-		// Receiving a negative number means to apply defaults, which is indicated in the DB with null.
-		if *arguments.Rate < 0 {
-			arguments.Rate = nil
-		}
-
-		err = server.db.Console().Projects().UpdateRateLimit(ctx, project.ID, arguments.Rate)
-		if err != nil {
-			sendJSONError(w, "failed to update rate",
-				err.Error(), http.StatusInternalServerError)
-			return
-		}
-	}
-
-	if arguments.Burst != nil {
-		// Receiving a negative number means to apply defaults, which is indicated in the DB with null.
-		if *arguments.Burst < 0 {
-			arguments.Burst = nil
-		}
-
-		err = server.db.Console().Projects().UpdateBurstLimit(ctx, project.ID, arguments.Burst)
-		if err != nil {
-			sendJSONError(w, "failed to update burst",
-				err.Error(), http.StatusInternalServerError)
-			return
-		}
+		val := arguments.Bandwidth.Int64()
+		toUpdate = append(toUpdate, console.Limit{
+			Kind:  console.BandwidthLimit,
+			Value: &val,
+		})
 	}
 
 	if arguments.Buckets != nil {
 		// Receiving a negative number means to apply defaults, which is indicated in the DB with null.
-		if *arguments.Buckets < 0 {
-			arguments.Buckets = nil
+		var val *int64
+		if *arguments.Buckets >= 0 {
+			newVal := int64(*arguments.Buckets)
+			val = &newVal
 		}
 
-		err = server.db.Console().Projects().UpdateBucketLimit(ctx, project.ID, arguments.Buckets)
-		if err != nil {
-			sendJSONError(w, "failed to update bucket limit",
-				err.Error(), http.StatusInternalServerError)
-			return
-		}
+		toUpdate = append(toUpdate, console.Limit{
+			Kind:  console.BucketsLimit,
+			Value: val,
+		})
 	}
 
 	if arguments.Segments != nil {
@@ -286,12 +288,184 @@ func (server *Server) putProjectLimit(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
-		err = server.db.ProjectAccounting().UpdateProjectSegmentLimit(ctx, project.ID, *arguments.Segments)
-		if err != nil {
-			sendJSONError(w, "failed to update segments limit",
-				err.Error(), http.StatusInternalServerError)
-			return
+		toUpdate = append(toUpdate, console.Limit{
+			Kind:  console.SegmentLimit,
+			Value: arguments.Segments,
+		})
+	}
+
+	if arguments.Rate != nil {
+		// Receiving a negative number means to apply defaults, which is indicated in the DB with null.
+		var val *int64
+		if *arguments.Rate >= 0 {
+			newVal := int64(*arguments.Rate)
+			val = &newVal
 		}
+
+		toUpdate = append(toUpdate, console.Limit{
+			Kind:  console.RateLimit,
+			Value: val,
+		})
+	}
+
+	if arguments.Burst != nil {
+		// Receiving a negative number means to apply defaults, which is indicated in the DB with null.
+		var val *int64
+		if *arguments.Burst >= 0 {
+			newVal := int64(*arguments.Burst)
+			val = &newVal
+		}
+
+		toUpdate = append(toUpdate, console.Limit{
+			Kind:  console.BurstLimit,
+			Value: val,
+		})
+	}
+
+	if arguments.RateHead != nil {
+		// Receiving a negative number means to apply defaults, which is indicated in the DB with null.
+		var val *int64
+		if *arguments.RateHead >= 0 {
+			newVal := int64(*arguments.RateHead)
+			val = &newVal
+		}
+
+		toUpdate = append(toUpdate, console.Limit{
+			Kind:  console.RateLimitHead,
+			Value: val,
+		})
+	}
+
+	if arguments.BurstHead != nil {
+		// Receiving a negative number means to apply defaults, which is indicated in the DB with null.
+		var val *int64
+		if *arguments.BurstHead >= 0 {
+			newVal := int64(*arguments.BurstHead)
+			val = &newVal
+		}
+
+		toUpdate = append(toUpdate, console.Limit{
+			Kind:  console.BurstLimitHead,
+			Value: val,
+		})
+	}
+
+	if arguments.RateGet != nil {
+		// Receiving a negative number means to apply defaults, which is indicated in the DB with null.
+		var val *int64
+		if *arguments.RateGet >= 0 {
+			newVal := int64(*arguments.RateGet)
+			val = &newVal
+		}
+
+		toUpdate = append(toUpdate, console.Limit{
+			Kind:  console.RateLimitGet,
+			Value: val,
+		})
+	}
+
+	if arguments.BurstGet != nil {
+		// Receiving a negative number means to apply defaults, which is indicated in the DB with null.
+		var val *int64
+		if *arguments.BurstGet >= 0 {
+			newVal := int64(*arguments.BurstGet)
+			val = &newVal
+		}
+
+		toUpdate = append(toUpdate, console.Limit{
+			Kind:  console.BurstLimitGet,
+			Value: val,
+		})
+	}
+
+	if arguments.RatePut != nil {
+		// Receiving a negative number means to apply defaults, which is indicated in the DB with null.
+		var val *int64
+		if *arguments.RatePut >= 0 {
+			newVal := int64(*arguments.RatePut)
+			val = &newVal
+		}
+
+		toUpdate = append(toUpdate, console.Limit{
+			Kind:  console.RateLimitPut,
+			Value: val,
+		})
+	}
+
+	if arguments.BurstPut != nil {
+		// Receiving a negative number means to apply defaults, which is indicated in the DB with null.
+		var val *int64
+		if *arguments.BurstPut >= 0 {
+			newVal := int64(*arguments.BurstPut)
+			val = &newVal
+		}
+
+		toUpdate = append(toUpdate, console.Limit{
+			Kind:  console.BurstLimitPut,
+			Value: val,
+		})
+	}
+
+	if arguments.RateList != nil {
+		// Receiving a negative number means to apply defaults, which is indicated in the DB with null.
+		var val *int64
+		if *arguments.RateList >= 0 {
+			newVal := int64(*arguments.RateList)
+			val = &newVal
+		}
+
+		toUpdate = append(toUpdate, console.Limit{
+			Kind:  console.RateLimitList,
+			Value: val,
+		})
+	}
+
+	if arguments.BurstList != nil {
+		// Receiving a negative number means to apply defaults, which is indicated in the DB with null.
+		var val *int64
+		if *arguments.BurstList >= 0 {
+			newVal := int64(*arguments.BurstList)
+			val = &newVal
+		}
+
+		toUpdate = append(toUpdate, console.Limit{
+			Kind:  console.BurstLimitList,
+			Value: val,
+		})
+	}
+
+	if arguments.RateDelete != nil {
+		// Receiving a negative number means to apply defaults, which is indicated in the DB with null.
+		var val *int64
+		if *arguments.RateDelete >= 0 {
+			newVal := int64(*arguments.RateDelete)
+			val = &newVal
+		}
+
+		toUpdate = append(toUpdate, console.Limit{
+			Kind:  console.RateLimitDelete,
+			Value: val,
+		})
+	}
+
+	if arguments.BurstDelete != nil {
+		// Receiving a negative number means to apply defaults, which is indicated in the DB with null.
+		var val *int64
+		if *arguments.BurstDelete >= 0 {
+			newVal := int64(*arguments.BurstDelete)
+			val = &newVal
+		}
+
+		toUpdate = append(toUpdate, console.Limit{
+			Kind:  console.BurstLimitDelete,
+			Value: val,
+		})
+	}
+
+	err = server.db.Console().Projects().UpdateLimitsGeneric(ctx, project.ID, toUpdate)
+	if err != nil {
+		sendJSONError(w, "failed to update usage",
+			err.Error(), http.StatusInternalServerError)
 	}
 }
 
@@ -343,7 +517,7 @@ func (server *Server) addProject(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	_, err = server.db.Console().ProjectMembers().Insert(ctx, project.OwnerID, project.ID)
+	_, err = server.db.Console().ProjectMembers().Insert(ctx, project.OwnerID, project.ID, console.RoleAdmin)
 	if err != nil {
 		sendJSONError(w, "failed to insert project member",
 			err.Error(), http.StatusInternalServerError)
@@ -515,28 +689,34 @@ func (server *Server) deleteProject(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	user, err := server.db.Console().Users().Get(ctx, project.OwnerID)
+	if err != nil {
+		sendJSONError(w, "error getting project owner",
+			err.Error(), http.StatusBadRequest)
+		return
+	}
+
+	if server.console.SelfServeAccountDeleteEnabled && user.Status == console.UserRequestedDeletion && (!user.PaidTier || user.FinalInvoiceGenerated) {
+		err = server.forceDeleteProject(ctx, project.ID)
+		if err != nil {
+			sendJSONError(w, "unable to delete project",
+				err.Error(), http.StatusInternalServerError)
+			return
+		}
+
+		return
+	}
+
 	options := buckets.ListOptions{Limit: 1, Direction: buckets.DirectionForward}
-	buckets, err := server.buckets.ListBuckets(ctx, project.ID, options, macaroon.AllowedBuckets{All: true})
+	bucketsList, err := server.buckets.ListBuckets(ctx, project.ID, options, macaroon.AllowedBuckets{All: true})
 	if err != nil {
 		sendJSONError(w, "unable to list buckets",
 			err.Error(), http.StatusInternalServerError)
 		return
 	}
-	if len(buckets.Items) > 0 {
+	if len(bucketsList.Items) > 0 {
 		sendJSONError(w, "buckets still exist",
-			fmt.Sprintf("%v", bucketNames(buckets.Items)), http.StatusConflict)
-		return
-	}
-
-	keys, err := server.db.Console().APIKeys().GetPagedByProjectID(ctx, project.ID, console.APIKeyCursor{Limit: 1, Page: 1})
-	if err != nil {
-		sendJSONError(w, "unable to list api-keys",
-			err.Error(), http.StatusInternalServerError)
-		return
-	}
-	if keys.TotalCount > 0 {
-		sendJSONError(w, "api-keys still exist",
-			fmt.Sprintf("count %d", keys.TotalCount), http.StatusConflict)
+			fmt.Sprintf("%v", bucketNames(bucketsList.Items)), http.StatusConflict)
 		return
 	}
 
@@ -551,6 +731,53 @@ func (server *Server) deleteProject(w http.ResponseWriter, r *http.Request) {
 			err.Error(), http.StatusInternalServerError)
 		return
 	}
+}
+
+func (server *Server) forceDeleteProject(ctx context.Context, projectID uuid.UUID) error {
+	listOptions := buckets.ListOptions{Direction: buckets.DirectionForward}
+	allowedBuckets := macaroon.AllowedBuckets{All: true}
+
+	bucketsList, err := server.buckets.ListBuckets(ctx, projectID, listOptions, allowedBuckets)
+	if err != nil {
+		return err
+	}
+
+	if len(bucketsList.Items) > 0 {
+		var errList errs.Group
+		for _, bucket := range bucketsList.Items {
+			bucketLocation := metabase.BucketLocation{ProjectID: projectID, BucketName: metabase.BucketName(bucket.Name)}
+			_, err = server.metabaseDB.DeleteBucketObjects(ctx, metabase.DeleteBucketObjects{
+				Bucket: bucketLocation,
+			})
+			if err != nil {
+				errList.Add(err)
+				continue
+			}
+
+			empty, err := server.metabaseDB.BucketEmpty(ctx, metabase.BucketEmpty{
+				ProjectID:  projectID,
+				BucketName: metabase.BucketName(bucket.Name),
+			})
+			if err != nil {
+				errList.Add(err)
+				continue
+			}
+			if !empty {
+				errList.Add(metainfo.ErrBucketNotEmpty.New(""))
+				continue
+			}
+
+			err = server.buckets.DeleteBucket(ctx, []byte(bucket.Name), projectID)
+			if err != nil {
+				errList.Add(err)
+			}
+		}
+		if errList.Err() != nil {
+			return errList.Err()
+		}
+	}
+
+	return server.db.Console().Projects().Delete(ctx, projectID)
 }
 
 func (server *Server) _updateProjectsUserAgent(ctx context.Context, projectID uuid.UUID, newUserAgent []byte) (err error) {

@@ -50,7 +50,8 @@ onMounted(() => {
             },
             error: (error: Error) => {
                 if (isError.value) return;
-                notify.error(`Error parsing object. ${error.message}`, AnalyticsErrorEventSource.GALLERY_VIEW);
+                const message = error.message.includes('Forbidden') ? 'Bandwidth limit exceeded' : 'Failed to preview';
+                notify.error(`Error parsing object. ${message}`, AnalyticsErrorEventSource.GALLERY_VIEW);
                 isError.value = true;
             },
         });

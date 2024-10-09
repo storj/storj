@@ -41,7 +41,7 @@ type MacaroonAccessGenerate struct {
 // GenerateService defines the minimal interface needed to generate macaroon based api keys.
 type GenerateService interface {
 	GetAPIKeyInfoByName(context.Context, uuid.UUID, string) (*console.APIKeyInfo, error)
-	CreateAPIKey(context.Context, uuid.UUID, string) (*console.APIKeyInfo, *macaroon.APIKey, error)
+	CreateAPIKey(context.Context, uuid.UUID, string, macaroon.APIKeyVersion) (*console.APIKeyInfo, *macaroon.APIKey, error)
 	GetUser(ctx context.Context, id uuid.UUID) (u *console.User, err error)
 }
 
@@ -75,7 +75,7 @@ func (a *MacaroonAccessGenerate) apiKeyForProject(ctx context.Context, data *oau
 	if err == nil {
 		key, err = macaroon.FromParts(apiKeyInfo.Head, apiKeyInfo.Secret)
 	} else if errors.Is(err, sql.ErrNoRows) {
-		_, key, err = a.Service.CreateAPIKey(ctx, projectID, name)
+		_, key, err = a.Service.CreateAPIKey(ctx, projectID, name, macaroon.APIKeyVersionMin)
 	}
 
 	if err != nil {

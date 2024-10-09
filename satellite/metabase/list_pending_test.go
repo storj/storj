@@ -21,8 +21,6 @@ import (
 )
 
 func TestListPendingObjects(t *testing.T) {
-	t.Skip("see https://github.com/storj/storj/issues/6734")
-
 	metabasetest.Run(t, func(ctx *testcontext.Context, t *testing.T, db *metabase.DB) {
 		obj := metabasetest.RandObjectStream()
 
@@ -212,7 +210,7 @@ func TestListPendingObjects(t *testing.T) {
 
 		t.Run("recursive", func(t *testing.T) {
 			defer metabasetest.DeleteAll{}.Check(ctx, t, db)
-			projectID, bucketName := uuid.UUID{1}, "bucky"
+			projectID, bucketName := uuid.UUID{1}, metabase.BucketName("bucky")
 
 			objects := createPendingObjectsWithKeys(ctx, t, db, projectID, bucketName, []metabase.ObjectKey{
 				"a",
@@ -380,7 +378,7 @@ func TestListPendingObjects(t *testing.T) {
 
 		t.Run("non-recursive", func(t *testing.T) {
 			defer metabasetest.DeleteAll{}.Check(ctx, t, db)
-			projectID, bucketName := uuid.UUID{1}, "bucky"
+			projectID, bucketName := uuid.UUID{1}, metabase.BucketName("bucky")
 
 			objects := createPendingObjectsWithKeys(ctx, t, db, projectID, bucketName, []metabase.ObjectKey{
 				"a",
@@ -568,10 +566,8 @@ func TestListPendingObjects(t *testing.T) {
 }
 
 func TestListPendingObjectsSkipCursor(t *testing.T) {
-	t.Skip("see https://github.com/storj/storj/issues/6734")
-
 	metabasetest.Run(t, func(ctx *testcontext.Context, t *testing.T, db *metabase.DB) {
-		projectID, bucketName := uuid.UUID{1}, "bucky"
+		projectID, bucketName := uuid.UUID{1}, metabase.BucketName("bucky")
 
 		t.Run("no prefix", func(t *testing.T) {
 			defer metabasetest.DeleteAll{}.Check(ctx, t, db)
@@ -822,8 +818,6 @@ func TestListPendingObjectsSkipCursor(t *testing.T) {
 }
 
 func TestListPendingObjectsVersions(t *testing.T) {
-	t.Skip("see https://github.com/storj/storj/issues/6734")
-
 	metabasetest.Run(t, func(ctx *testcontext.Context, t *testing.T, db *metabase.DB) {
 
 		t.Run("2 objects, one with versions one without", func(t *testing.T) {
@@ -1066,7 +1060,7 @@ func TestListPendingObjectsVersions(t *testing.T) {
 
 		t.Run("list recursive objects with versions", func(t *testing.T) {
 			defer metabasetest.DeleteAll{}.Check(ctx, t, db)
-			projectID, bucketName := uuid.UUID{1}, "bucky"
+			projectID, bucketName := uuid.UUID{1}, metabase.BucketName("bucky")
 
 			objects := metabasetest.CreatePendingObjectsWithKeys(ctx, t, db, projectID, bucketName, map[metabase.ObjectKey][]metabase.Version{
 				"a":   {1000, 1001},
@@ -1234,7 +1228,7 @@ func TestListPendingObjectsVersions(t *testing.T) {
 
 		t.Run("list non-recursive objects with versions", func(t *testing.T) {
 			defer metabasetest.DeleteAll{}.Check(ctx, t, db)
-			projectID, bucketName := uuid.UUID{1}, "bucky"
+			projectID, bucketName := uuid.UUID{1}, metabase.BucketName("bucky")
 
 			objects := metabasetest.CreatePendingObjectsWithKeys(ctx, t, db, projectID, bucketName, map[metabase.ObjectKey][]metabase.Version{
 				"a":   {1000, 1001},
@@ -1421,11 +1415,9 @@ func TestListPendingObjectsVersions(t *testing.T) {
 }
 
 func TestListPendingObjects_Limit(t *testing.T) {
-	t.Skip("see https://github.com/storj/storj/issues/6734")
-
 	metabasetest.Run(t, func(ctx *testcontext.Context, t *testing.T, db *metabase.DB) {
 		projectID := testrand.UUID()
-		bucketName := testrand.BucketName()
+		bucketName := metabase.BucketName(testrand.BucketName())
 
 		numberOfObjects := 0
 
@@ -1499,7 +1491,7 @@ func TestListPendingObjects_Limit(t *testing.T) {
 	})
 }
 
-func createPendingObjects(ctx *testcontext.Context, t *testing.T, db *metabase.DB, numberOfObjects int, projectID uuid.UUID, bucketName string) []metabase.RawObject {
+func createPendingObjects(ctx *testcontext.Context, t *testing.T, db *metabase.DB, numberOfObjects int, projectID uuid.UUID, bucketName metabase.BucketName) []metabase.RawObject {
 	objects := make([]metabase.RawObject, numberOfObjects)
 	for i := 0; i < numberOfObjects; i++ {
 		obj := metabasetest.RandObjectStream()
@@ -1523,7 +1515,7 @@ func createPendingObjects(ctx *testcontext.Context, t *testing.T, db *metabase.D
 	return objects
 }
 
-func createPendingObjectsWithKeys(ctx *testcontext.Context, t *testing.T, db *metabase.DB, projectID uuid.UUID, bucketName string, keys []metabase.ObjectKey) map[metabase.ObjectKey]metabase.ObjectEntry {
+func createPendingObjectsWithKeys(ctx *testcontext.Context, t *testing.T, db *metabase.DB, projectID uuid.UUID, bucketName metabase.BucketName, keys []metabase.ObjectKey) map[metabase.ObjectKey]metabase.ObjectEntry {
 	objects := make(map[metabase.ObjectKey]metabase.ObjectEntry, len(keys))
 	for _, key := range keys {
 		obj := metabasetest.RandObjectStream()
@@ -1552,9 +1544,6 @@ func TestIteratePendingObjectsWithObjectKey(t *testing.T) {
 		obj := metabasetest.RandObjectStream()
 
 		location := obj.Location()
-
-		now := time.Now()
-		zombieDeadline := now.Add(24 * time.Hour)
 
 		for _, test := range metabasetest.InvalidObjectLocations(location) {
 			test := test
@@ -1587,6 +1576,10 @@ func TestIteratePendingObjectsWithObjectKey(t *testing.T) {
 		})
 		t.Run("non existing object", func(t *testing.T) {
 			defer metabasetest.DeleteAll{}.Check(ctx, t, db)
+
+			now := time.Now()
+			zombieDeadline := now.Add(24 * time.Hour)
+
 			pending := metabasetest.RandObjectStream()
 			metabasetest.CreatePendingObject(ctx, t, db, pending, 0)
 
@@ -1616,6 +1609,9 @@ func TestIteratePendingObjectsWithObjectKey(t *testing.T) {
 
 		t.Run("less and more objects than limit", func(t *testing.T) {
 			defer metabasetest.DeleteAll{}.Check(ctx, t, db)
+
+			now := time.Now()
+			zombieDeadline := now.Add(24 * time.Hour)
 
 			pending := []metabase.ObjectStream{metabasetest.RandObjectStream(), metabasetest.RandObjectStream(), metabasetest.RandObjectStream()}
 
@@ -1668,6 +1664,9 @@ func TestIteratePendingObjectsWithObjectKey(t *testing.T) {
 		t.Run("prefixed object key", func(t *testing.T) {
 			defer metabasetest.DeleteAll{}.Check(ctx, t, db)
 
+			now := time.Now()
+			zombieDeadline := now.Add(24 * time.Hour)
+
 			pending := metabasetest.RandObjectStream()
 			pending.ObjectKey = metabase.ObjectKey("a/prefixed/" + string(location.ObjectKey))
 			metabasetest.CreatePendingObject(ctx, t, db, pending, 0)
@@ -1693,6 +1692,10 @@ func TestIteratePendingObjectsWithObjectKey(t *testing.T) {
 
 		t.Run("using streamID cursor", func(t *testing.T) {
 			defer metabasetest.DeleteAll{}.Check(ctx, t, db)
+
+			now := time.Now()
+			zombieDeadline := now.Add(24 * time.Hour)
+
 			pending := []metabase.ObjectStream{metabasetest.RandObjectStream(), metabasetest.RandObjectStream(), metabasetest.RandObjectStream()}
 
 			location := pending[0].Location()
@@ -1738,6 +1741,9 @@ func TestIteratePendingObjectsWithObjectKey(t *testing.T) {
 
 		t.Run("same key different versions", func(t *testing.T) {
 			defer metabasetest.DeleteAll{}.Check(ctx, t, db)
+
+			now := time.Now()
+			zombieDeadline := now.Add(24 * time.Hour)
 
 			obj1 := metabasetest.RandObjectStream()
 			obj2 := obj1
@@ -1845,6 +1851,9 @@ func TestIteratePendingObjectsWithObjectKey(t *testing.T) {
 
 		t.Run("batch iterate committed versioned, unversioned, and delete markers with pending object", func(t *testing.T) {
 			defer metabasetest.DeleteAll{}.Check(ctx, t, db)
+
+			now := time.Now()
+			zombieDeadline := now.Add(24 * time.Hour)
 
 			var objects []metabase.RawObject
 			var expected []metabase.ObjectEntry

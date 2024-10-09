@@ -4,12 +4,12 @@
 <template>
     <v-dialog
         v-model="model"
-        width="400px"
+        max-width="420px"
         transition="fade-transition"
         :persistent="isLoading"
     >
-        <v-card rounded="xlg">
-            <v-card-item class="pa-5 pl-7">
+        <v-card>
+            <v-card-item class="pa-6">
                 <template #prepend>
                     <v-sheet
                         class="border-sm d-flex justify-center align-center"
@@ -17,11 +17,11 @@
                         height="40"
                         rounded="lg"
                     >
-                        <icon-trash />
+                        <component :is="Trash2" :size="18" />
                     </v-sheet>
                 </template>
                 <v-card-title class="font-weight-bold">
-                    Delete Access Key{{ accessNames.length > 1 ? 's' : '' }}
+                    Delete Access Key{{ accesses.length > 1 ? 's' : '' }}
                 </v-card-title>
                 <template #append>
                     <v-btn
@@ -37,17 +37,22 @@
 
             <v-divider />
 
-            <div class="pa-7">
-                The following access key{{ accessNames.length > 1 ? 's' : '' }}
-                will be deleted. Any publicly shared links using
-                {{ accessNames.length > 1 ? 'these access keys' : 'this access key' }} will no longer work.
-                <br><br>
-                <p v-for="accessName of accessNames" :key="accessName" class="font-weight-bold">{{ accessName }}</p>
+            <div class="pa-6">
+                <p class="mb-3">
+                    The following access key{{ accesses.length > 1 ? 's' : '' }}
+                    will be deleted. Any publicly shared links using
+                    {{ accesses.length > 1 ? 'these access keys' : 'this access key' }} will no longer work.
+                </p>
+                <p v-for="item of accesses" :key="item.id" class="mt-2">
+                    <v-chip :title="item.name" class="font-weight-bold text-wrap h-100 py-2">
+                        {{ item.name }}
+                    </v-chip>
+                </p>
             </div>
 
             <v-divider />
 
-            <v-card-actions class="pa-7">
+            <v-card-actions class="pa-6">
                 <v-row>
                     <v-col>
                         <v-btn variant="outlined" color="default" block :disabled="isLoading" @click="model = false">
@@ -66,7 +71,6 @@
 </template>
 
 <script setup lang="ts">
-import { computed } from 'vue';
 import {
     VDialog,
     VCard,
@@ -78,23 +82,23 @@ import {
     VRow,
     VCol,
     VBtn,
+    VChip,
 } from 'vuetify/components';
+import { Trash2 } from 'lucide-vue-next';
 
 import { useAccessGrantsStore } from '@/store/modules/accessGrantsStore';
-import { useProjectsStore } from '@/store/modules/projectsStore';
 import { useLoading } from '@/composables/useLoading';
 import { useNotify } from '@/utils/hooks';
 import { AnalyticsErrorEventSource } from '@/utils/constants/analyticsEventNames';
-
-import IconTrash from '@/components/icons/IconTrash.vue';
+import { AccessGrant } from '@/types/accessGrants';
 
 const agStore = useAccessGrantsStore();
-const projectsStore = useProjectsStore();
+
 const notify = useNotify();
 const { isLoading, withLoading } = useLoading();
 
 const props = defineProps<{
-    accessNames: string[];
+    accesses: AccessGrant[];
 }>();
 
 const emit = defineEmits<{
@@ -106,13 +110,12 @@ const model = defineModel<boolean>({ required: true });
 async function onDeleteClick(): Promise<void> {
     await withLoading(async () => {
         try {
-            const projId = projectsStore.state.selectedProject.id;
-            await Promise.all(props.accessNames.map(n => agStore.deleteAccessGrantByNameAndProjectID(n, projId)));
-            notify.success(`Access Grant${props.accessNames.length > 1 ? 's' : ''} deleted successfully`);
+            const ids: string[] = props.accesses.map(ag => ag.id);
+            await agStore.deleteAccessGrants(ids);
+            notify.success(`Access Grant${props.accesses.length > 1 ? 's' : ''} deleted successfully`);
             emit('deleted');
             model.value = false;
         } catch (error) {
-            error.message = `Error deleting access grant${props.accessNames.length > 1 ? 's' : ''}. ${error.message}`;
             notify.notifyError(error, AnalyticsErrorEventSource.CONFIRM_DELETE_AG_MODAL);
         }
     });

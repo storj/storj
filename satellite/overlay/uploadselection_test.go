@@ -21,7 +21,6 @@ import (
 	"storj.io/common/memory"
 	"storj.io/common/pb"
 	"storj.io/common/storj"
-	"storj.io/common/storj/location"
 	"storj.io/common/sync2"
 	"storj.io/common/testcontext"
 	"storj.io/common/testrand"
@@ -31,6 +30,7 @@ import (
 	"storj.io/storj/satellite/nodeselection"
 	"storj.io/storj/satellite/overlay"
 	"storj.io/storj/satellite/satellitedb/satellitedbtest"
+	"storj.io/storj/shared/location"
 )
 
 var nodeSelectionConfig = overlay.NodeSelectionConfig{
@@ -215,8 +215,8 @@ func TestSelectNodes(t *testing.T) {
 			MinimumDiskSpace: 100 * memory.MiB,
 		}
 		placementRules := nodeselection.TestPlacementDefinitionsWithFraction(nodeSelectionConfig.NewNodeFraction)
-		placementRules.AddPlacementRule(storj.PlacementConstraint(5), nodeselection.NodeFilters{}.WithCountryFilter(location.NewSet(location.Germany)))
-		placementRules.AddPlacementRule(storj.PlacementConstraint(6), nodeselection.WithAnnotation(nodeselection.NodeFilters{}.WithCountryFilter(location.NewSet(location.Germany)), nodeselection.AutoExcludeSubnet, nodeselection.AutoExcludeSubnetOFF))
+		placementRules.AddPlacementRule(storj.PlacementConstraint(5), nodeselection.NodeFilters{}.WithCountryFilter(location.NewSet(location.Germany)), nodeselection.DefaultDownloadSelector)
+		placementRules.AddPlacementRule(storj.PlacementConstraint(6), nodeselection.WithAnnotation(nodeselection.NodeFilters{}.WithCountryFilter(location.NewSet(location.Germany)), nodeselection.AutoExcludeSubnet, nodeselection.AutoExcludeSubnetOFF), nodeselection.DefaultDownloadSelector)
 
 		cache, err := overlay.NewUploadSelectionCache(zap.NewNop(),
 			db.OverlayCache(),
@@ -327,14 +327,24 @@ func TestSelectNodes(t *testing.T) {
 					Placement:      0,
 				})
 				require.NoError(t, err)
+				require.Len(t, selectedNodes, 3)
 
-				subnets := map[string]struct{}{}
+				// Becaus in how is setup the overlay cache for this test, there should be 0 or 1 unvetted
+				// node and in that case it may be in the same subnet of a vetted node or in a new one.
+
+				subnets := map[string]*nodeselection.SelectedNode{}
 				for _, node := range selectedNodes {
-					subnets[node.LastNet] = struct{}{}
+					if prev, ok := subnets[node.LastNet]; ok {
+						// xor between the already tracked and the one in this iteration.
+						require.True(t, (prev.Vetted || node.Vetted) && !(prev.Vetted && node.Vetted))
+					} else {
+						subnets[node.LastNet] = node
+					}
 				}
 
-				require.Len(t, selectedNodes, 3)
-				require.Len(t, subnets, 3)
+				// 2 or 3 depending if an unvetted node was selected and it's the same subnet of any of the
+				// other 2 vetted nodes.
+				require.GreaterOrEqual(t, len(subnets), 2)
 			}
 		})
 
@@ -750,11 +760,6 @@ func generatedSelectedNodes(b *testing.B, nodeNo int) []*nodeselection.SelectedN
 
 // GetOnlineNodesForAuditRepair satisfies nodeevents.DB interface.
 func (m *mockdb) GetOnlineNodesForAuditRepair(ctx context.Context, nodeIDs []storj.NodeID, onlineWindow time.Duration) (map[storj.NodeID]*overlay.NodeReputation, error) {
-	panic("implement me")
-}
-
-// SelectStorageNodes satisfies nodeevents.DB interface.
-func (m *mockdb) SelectStorageNodes(ctx context.Context, totalNeededNodes, newNodeCount int, criteria *overlay.NodeCriteria) ([]*nodeselection.SelectedNode, error) {
 	panic("implement me")
 }
 

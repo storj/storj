@@ -20,7 +20,6 @@ import (
 	"storj.io/common/identity/testidentity"
 	"storj.io/common/pb"
 	"storj.io/common/storj"
-	"storj.io/common/storj/location"
 	"storj.io/common/testcontext"
 	"storj.io/common/testrand"
 	"storj.io/common/version"
@@ -29,6 +28,7 @@ import (
 	"storj.io/storj/satellite/nodeselection"
 	"storj.io/storj/satellite/overlay"
 	"storj.io/storj/satellite/satellitedb/satellitedbtest"
+	"storj.io/storj/shared/location"
 )
 
 func TestGetOfflineNodesForEmail(t *testing.T) {
@@ -103,7 +103,7 @@ func TestGetOfflineNodesForEmail(t *testing.T) {
 		nodes, err = cache.GetOfflineNodesForEmail(ctx, selectionCfg.OnlineWindow, time.Second, 24*time.Hour, 10)
 		require.NoError(t, err)
 		require.Empty(t, nodes)
-	})
+	}, satellitedbtest.WithSpanner())
 }
 
 func TestUpdateLastOfflineEmail(t *testing.T) {
@@ -142,12 +142,12 @@ func TestUpdateLastOfflineEmail(t *testing.T) {
 
 		node0, err := cache.Get(ctx, nodeID0)
 		require.NoError(t, err)
-		require.Equal(t, now.Truncate(time.Second), node0.LastOfflineEmail.Truncate(time.Second))
+		require.WithinDuration(t, now.Truncate(time.Second), node0.LastOfflineEmail.Truncate(time.Second), time.Nanosecond)
 
 		node1, err := cache.Get(ctx, nodeID1)
 		require.NoError(t, err)
-		require.Equal(t, now.Truncate(time.Second), node1.LastOfflineEmail.Truncate(time.Second))
-	})
+		require.WithinDuration(t, now.Truncate(time.Second), node1.LastOfflineEmail.Truncate(time.Second), time.Nanosecond)
+	}, satellitedbtest.WithSpanner())
 }
 
 func TestSetNodeContained(t *testing.T) {
@@ -194,7 +194,7 @@ func TestSetNodeContained(t *testing.T) {
 		cacheInfo, err = cache.Get(ctx, nodeID)
 		require.NoError(t, err)
 		require.False(t, cacheInfo.Contained)
-	})
+	}, satellitedbtest.WithSpanner())
 }
 
 func TestUpdateCheckInDirectUpdate(t *testing.T) {
@@ -232,7 +232,7 @@ func TestUpdateCheckInDirectUpdate(t *testing.T) {
 		updated, err = cache.TestUpdateCheckInDirectUpdate(ctx, checkInInfo, now.Add(6*time.Hour), semVer, "encodedwalletfeature")
 		require.NoError(t, err)
 		require.True(t, updated)
-	})
+	}, satellitedbtest.WithSpanner())
 }
 
 func TestSetAllContainedNodes(t *testing.T) {
@@ -276,7 +276,7 @@ func TestSetAllContainedNodes(t *testing.T) {
 		err = cache.SetAllContainedNodes(ctx, []storj.NodeID{})
 		require.NoError(t, err)
 		assertContained(ctx, t, cache, node1, false, node2, false, node3, false)
-	})
+	}, satellitedbtest.WithSpanner())
 }
 
 func assertContained(ctx context.Context, t testing.TB, cache overlay.DB, args ...interface{}) {
@@ -363,7 +363,7 @@ func TestGetNodesNetwork(t *testing.T) {
 
 			require.Equal(t, lastNetsPlusOne, gotLastNets)
 		})
-	})
+	}, satellitedbtest.WithSpanner())
 }
 
 func TestOverlayCache_SelectAllStorageNodesDownloadUpload(t *testing.T) {
@@ -451,7 +451,7 @@ func TestOverlayCache_SelectAllStorageNodesDownloadUpload(t *testing.T) {
 		require.NoError(t, err)
 
 		checkNodes(append(reputableNodes, newNodes...))
-	})
+	}, satellitedbtest.WithSpanner())
 
 }
 
@@ -583,7 +583,7 @@ func TestOverlayCache_GetNodes(t *testing.T) {
 		require.Equal(t, "0x9b7488BF8b6A4FF21D610e3dd202723f705cD1C0", selection[0].Wallet)
 		require.Equal(t, "test@storj.io", selection[0].Email)
 		require.True(t, selection[0].Vetted)
-	})
+	}, satellitedbtest.WithSpanner())
 }
 
 func TestOverlayCache_GetParticipatingNodes(t *testing.T) {
@@ -644,7 +644,7 @@ func TestOverlayCache_GetParticipatingNodes(t *testing.T) {
 		require.Equal(t, "0x9b7488BF8b6A4FF21D610e3dd202723f705cD1C0", selection[0].Wallet)
 		require.Equal(t, "test@storj.io", selection[0].Email)
 		require.True(t, selection[0].Vetted)
-	})
+	}, satellitedbtest.WithSpanner())
 }
 
 func nodeDispositionToSelectedNode(disp nodeDisposition, onlineWindow time.Duration) nodeselection.SelectedNode {
@@ -836,7 +836,7 @@ func TestOverlayCache_KnownReliableTagHandling(t *testing.T) {
 				require.Len(t, node.Tags, 0)
 			}
 		}
-	})
+	}, satellitedbtest.WithSpanner())
 }
 
 func TestOverlayCache_GetLastIPPortByNodeTagName(t *testing.T) {
@@ -926,5 +926,5 @@ func TestOverlayCache_GetLastIPPortByNodeTagName(t *testing.T) {
 
 		_, ok = queriedLastIPPorts[ids[5]]
 		require.False(t, ok)
-	})
+	}, satellitedbtest.WithSpanner())
 }

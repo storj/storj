@@ -12,8 +12,6 @@ import (
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap/zaptest"
 
-	"storj.io/common/dbutil/pgtest"
-	"storj.io/common/dbutil/tempdb"
 	"storj.io/common/testcontext"
 	"storj.io/common/testrand"
 	"storj.io/common/uuid"
@@ -22,6 +20,8 @@ import (
 	"storj.io/storj/satellite/repair/queue"
 	"storj.io/storj/satellite/satellitedb"
 	"storj.io/storj/satellite/satellitedb/satellitedbtest"
+	"storj.io/storj/shared/dbutil/dbtest"
+	"storj.io/storj/shared/dbutil/tempdb"
 )
 
 func TestUntilEmpty(t *testing.T) {
@@ -42,18 +42,18 @@ func TestUntilEmpty(t *testing.T) {
 
 		// select segments until no more are returned, and we should get each one exactly once
 		for {
-			injuredSeg, err := repairQueue.Select(ctx, nil, nil)
+			injuredSegs, err := repairQueue.Select(ctx, 1, nil, nil)
 			if err != nil {
 				require.True(t, queue.ErrEmpty.Has(err))
 				break
 			}
-			idsMap[injuredSeg.StreamID]++
+			idsMap[injuredSegs[0].StreamID]++
 		}
 
 		for _, selectCount := range idsMap {
 			assert.Equal(t, selectCount, 1)
 		}
-	})
+	}, satellitedbtest.WithSpanner())
 }
 
 func TestOrder(t *testing.T) {
@@ -91,30 +91,30 @@ func TestOrder(t *testing.T) {
 		}
 
 		// segment with attempted = null should be selected first
-		injuredSeg, err := repairQueue.Select(ctx, nil, nil)
+		injuredSegs, err := repairQueue.Select(ctx, 1, nil, nil)
 		require.NoError(t, err)
-		assert.Equal(t, nullID, injuredSeg.StreamID)
+		assert.Equal(t, nullID, injuredSegs[0].StreamID)
 
 		// segment with attempted = 8 hours ago should be selected next
-		injuredSeg, err = repairQueue.Select(ctx, nil, nil)
+		injuredSegs, err = repairQueue.Select(ctx, 1, nil, nil)
 		require.NoError(t, err)
-		assert.Equal(t, olderID, injuredSeg.StreamID)
+		assert.Equal(t, olderID, injuredSegs[0].StreamID)
 
 		// segment with attempted = 7 hours ago should be selected next
-		injuredSeg, err = repairQueue.Select(ctx, nil, nil)
+		injuredSegs, err = repairQueue.Select(ctx, 1, nil, nil)
 		require.NoError(t, err)
-		assert.Equal(t, oldID, injuredSeg.StreamID)
+		assert.Equal(t, oldID, injuredSegs[0].StreamID)
 
 		// segment should be considered "empty" now
-		injuredSeg, err = repairQueue.Select(ctx, nil, nil)
+		injuredSegs, err = repairQueue.Select(ctx, 1, nil, nil)
 		assert.True(t, queue.ErrEmpty.Has(err))
-		assert.Nil(t, injuredSeg)
+		assert.Nil(t, injuredSegs)
 	})
 }
 
 // TestOrderHealthyPieces ensures that we select in the correct order, accounting for segment health as well as last attempted repair time. We only test on Postgres since Cockraoch doesn't order by segment health due to performance.
 func TestOrderHealthyPieces(t *testing.T) {
-	testorderHealthyPieces(t, pgtest.PickPostgres(t))
+	testorderHealthyPieces(t, dbtest.PickPostgres(t))
 }
 
 func testorderHealthyPieces(t *testing.T, connStr string) {
@@ -197,13 +197,13 @@ func testorderHealthyPieces(t *testing.T, connStr string) {
 		{'g'},
 		{'h'},
 	} {
-		injuredSeg, err := repairQueue.Select(ctx, nil, nil)
+		injuredSegs, err := repairQueue.Select(ctx, 1, nil, nil)
 		require.NoError(t, err)
-		assert.Equal(t, nextID, injuredSeg.StreamID)
+		assert.Equal(t, nextID, injuredSegs[0].StreamID)
 	}
 
 	// queue should be considered "empty" now
-	injuredSeg, err := repairQueue.Select(ctx, nil, nil)
+	injuredSeg, err := repairQueue.Select(ctx, 1, nil, nil)
 	assert.True(t, queue.ErrEmpty.Has(err))
 	assert.Nil(t, injuredSeg)
 }
@@ -247,15 +247,15 @@ func TestOrderOverwrite(t *testing.T) {
 			segmentA,
 			segmentB,
 		} {
-			injuredSeg, err := repairQueue.Select(ctx, nil, nil)
+			injuredSegs, err := repairQueue.Select(ctx, 1, nil, nil)
 			require.NoError(t, err)
-			assert.Equal(t, nextStreamID, injuredSeg.StreamID)
+			assert.Equal(t, nextStreamID, injuredSegs[0].StreamID)
 		}
 
 		// queue should be considered "empty" now
-		injuredSeg, err := repairQueue.Select(ctx, nil, nil)
+		injuredSegs, err := repairQueue.Select(ctx, 1, nil, nil)
 		assert.True(t, queue.ErrEmpty.Has(err))
-		assert.Nil(t, injuredSeg)
+		assert.Empty(t, injuredSegs)
 	})
 }
 
@@ -277,6 +277,6 @@ func TestCount(t *testing.T) {
 		count, err := repairQueue.Count(ctx)
 		require.NoError(t, err)
 		require.Equal(t, count, numSegments)
-	})
+	}, satellitedbtest.WithSpanner())
 
 }

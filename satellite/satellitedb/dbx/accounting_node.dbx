@@ -58,14 +58,14 @@ read all (
 )
 
 read paged (
-    select storagenode_bandwidth_rollup
-    where storagenode_bandwidth_rollup.interval_start >= ?
+	select storagenode_bandwidth_rollup
+	where storagenode_bandwidth_rollup.interval_start >= ?
 )
 
 read paged (
-  select storagenode_bandwidth_rollup
-  where storagenode_bandwidth_rollup.storagenode_id = ?
-  where storagenode_bandwidth_rollup.interval_start >= ?
+	select storagenode_bandwidth_rollup
+	where storagenode_bandwidth_rollup.storagenode_id = ?
+	where storagenode_bandwidth_rollup.interval_start >= ?
 )
 
 // storagenode_bandwidth_rollup_archive contains rolled up values for storagenode_bandwidth_rollup table.
@@ -94,8 +94,8 @@ model storagenode_bandwidth_rollup_archive (
 )
 
 read paged (
-    select storagenode_bandwidth_rollup_archive
-    where storagenode_bandwidth_rollup_archive.interval_start >= ?
+	select storagenode_bandwidth_rollup_archive
+	where storagenode_bandwidth_rollup_archive.interval_start >= ?
 )
 
 // storagenode_bandwidth_rollup_phase2 contains rolled up bandwidth information for a storage node.
@@ -121,9 +121,9 @@ model storagenode_bandwidth_rollup_phase2 (
 )
 
 read paged (
-  select storagenode_bandwidth_rollup_phase2
-  where storagenode_bandwidth_rollup_phase2.storagenode_id = ?
-  where storagenode_bandwidth_rollup_phase2.interval_start >= ?
+	select storagenode_bandwidth_rollup_phase2
+	where storagenode_bandwidth_rollup_phase2.storagenode_id = ?
+	where storagenode_bandwidth_rollup_phase2.interval_start >= ?
 )
 
 // storagenode_storage_tally contains the calculated at rest data for storagenode.
@@ -147,10 +147,10 @@ model storagenode_storage_tally (
 )
 
 read all (
-    select storagenode_storage_tally
+	select storagenode_storage_tally
 )
 
 read all (
-    select storagenode_storage_tally
-    where storagenode_storage_tally.interval_end_time >= ?
+	select storagenode_storage_tally
+	where storagenode_storage_tally.interval_end_time >= ?
 )

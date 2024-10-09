@@ -13,13 +13,13 @@ RUN apt-get update && apt-get install -y --no-install-recommends ca-certificates
 RUN update-ca-certificates
 
 # Install storj-up helper (for local/dev runs)
-FROM --platform=$TARGETPLATFORM golang:1.19 AS storjup
+FROM --platform=$TARGETPLATFORM golang:1.22 AS storjup
 RUN --mount=type=cache,target=/root/.cache/go-build \
     --mount=type=cache,target=/go/pkg/mod  \
     go install storj.io/storj-up@latest
 
 # Install dlv (for local/dev runs)
-FROM --platform=$TARGETPLATFORM golang:1.19 AS dlv
+FROM --platform=$TARGETPLATFORM golang:1.22 AS dlv
 RUN --mount=type=cache,target=/root/.cache/go-build \
     --mount=type=cache,target=/go/pkg/mod  \
     go install github.com/go-delve/delve/cmd/dlv@latest

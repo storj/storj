@@ -90,12 +90,25 @@ type ProjectObjectsSegments struct {
 
 // ProjectLimits contains the project limits.
 type ProjectLimits struct {
-	Usage     *int64
-	Bandwidth *int64
-	Segments  *int64
+	ProjectID        uuid.UUID
+	Usage            *int64
+	UserSetUsage     *int64
+	Bandwidth        *int64
+	UserSetBandwidth *int64
+	Segments         *int64
 
-	RateLimit  *int
-	BurstLimit *int
+	RateLimit        *int
+	BurstLimit       *int
+	RateLimitHead    *int
+	BurstLimitHead   *int
+	RateLimitGet     *int
+	BurstLimitGet    *int
+	RateLimitPut     *int
+	BurstLimitPut    *int
+	RateLimitList    *int
+	BurstLimitList   *int
+	RateLimitDelete  *int
+	BurstLimitDelete *int
 }
 
 // ProjectDailyUsage holds project daily usage.
@@ -119,7 +132,8 @@ type BucketUsage struct {
 	DefaultPlacement storj.PlacementConstraint `json:"defaultPlacement"`
 	Location         string                    `json:"location"`
 
-	Versioning buckets.Versioning `json:"versioning"`
+	Versioning        buckets.Versioning `json:"versioning"`
+	ObjectLockEnabled bool               `json:"objectLockEnabled"`
 
 	Storage      float64 `json:"storage"`
 	Egress       float64 `json:"egress"`
@@ -277,7 +291,7 @@ type ProjectAccounting interface {
 	GetProjectBandwidthLimit(ctx context.Context, projectID uuid.UUID) (*int64, error)
 	// GetProjectSegmentLimit returns the segment limit for a project ID.
 	GetProjectSegmentLimit(ctx context.Context, projectID uuid.UUID) (_ *int64, err error)
-	// GetProjectLimits returns current project limit for both storage and bandwidth.
+	// GetProjectLimits returns all project limits including user specified usage and bandwidth limits.
 	GetProjectLimits(ctx context.Context, projectID uuid.UUID) (ProjectLimits, error)
 	// GetProjectTotal returns project usage summary for specified period of time.
 	GetProjectTotal(ctx context.Context, projectID uuid.UUID, since, before time.Time) (*ProjectUsage, error)
@@ -290,6 +304,8 @@ type ProjectAccounting interface {
 	GetBucketUsageRollups(ctx context.Context, projectID uuid.UUID, since, before time.Time) ([]BucketUsageRollup, error)
 	// GetSingleBucketUsageRollup returns usage rollup per single bucket for specified period of time.
 	GetSingleBucketUsageRollup(ctx context.Context, projectID uuid.UUID, bucket string, since, before time.Time) (*BucketUsageRollup, error)
+	// GetSingleBucketTotals returns single bucket total usage summary since bucket creation.
+	GetSingleBucketTotals(ctx context.Context, projectID uuid.UUID, bucketName string, before time.Time) (usage *BucketUsage, err error)
 	// GetBucketTotals returns per bucket total usage summary since bucket creation.
 	GetBucketTotals(ctx context.Context, projectID uuid.UUID, cursor BucketUsageCursor, before time.Time) (*BucketUsagePage, error)
 	// ArchiveRollupsBefore archives rollups older than a given time and returns number of bucket bandwidth rollups archived.
@@ -325,8 +341,8 @@ type Cache interface {
 	GetProjectStorageUsage(ctx context.Context, projectID uuid.UUID) (totalUsed int64, err error)
 	// GetProjectBandwidthUsage returns the project's bandwidth usage.
 	GetProjectBandwidthUsage(ctx context.Context, projectID uuid.UUID, now time.Time) (currentUsed int64, err error)
-	// GetProjectSegmentUsage returns the project's segment usage.
-	GetProjectSegmentUsage(ctx context.Context, projectID uuid.UUID) (currentUsed int64, err error)
+	// GetProjectStorageAndSegmentUsage returns the project's storage and segment usage.
+	GetProjectStorageAndSegmentUsage(ctx context.Context, projectID uuid.UUID) (storage, segment int64, err error)
 	// AddProjectSegmentUsageUpToLimit increases segment usage up to the limit.
 	// If the limit is exceeded, the usage is not increased and accounting.ErrProjectLimitExceeded is returned.
 	AddProjectSegmentUsageUpToLimit(ctx context.Context, projectID uuid.UUID, increment int64, segmentLimit int64) error
@@ -337,17 +353,11 @@ type Cache interface {
 	// it. The projectID is inserted to the increment when it doesn't exists,
 	// hence this method will never return ErrKeyNotFound error's class.
 	UpdateProjectBandwidthUsage(ctx context.Context, projectID uuid.UUID, increment int64, ttl time.Duration, now time.Time) error
-	// UpdateProjectSegmentUsage updates the project's segment usage increasing
-	// it. The projectID is inserted to the increment when it doesn't exists,
-	// hence this method will never return ErrKeyNotFound error's class.
-	UpdateProjectSegmentUsage(ctx context.Context, projectID uuid.UUID, increment int64) error
-	// AddProjectStorageUsage adds to the projects storage usage the spacedUsed.
-	// The projectID is inserted to the spaceUsed when it doesn't exists, hence
-	// this method will never return ErrKeyNotFound.
-	AddProjectStorageUsage(ctx context.Context, projectID uuid.UUID, spaceUsed int64) error
 	// AddProjectStorageUsageUpToLimit increases storage usage up to the limit.
 	// If the limit is exceeded, the usage is not increased and accounting.ErrProjectLimitExceeded is returned.
 	AddProjectStorageUsageUpToLimit(ctx context.Context, projectID uuid.UUID, increment int64, spaceLimit int64) error
+	// UpdateProjectStorageAndSegmentUsage updates the project's storage and segment usage by increasing it.
+	UpdateProjectStorageAndSegmentUsage(ctx context.Context, projectID uuid.UUID, storageIncrement, segmentIncrement int64) (err error)
 	// GetAllProjectTotals return the total projects' storage and segments used space.
 	GetAllProjectTotals(ctx context.Context) (map[uuid.UUID]Usage, error)
 	// Close the client, releasing any open resources. Once it's called any other

@@ -2,11 +2,11 @@
 // See LICENSE for copying information.
 
 <template>
-    <v-card :border="true" rounded="xlg" variant="flat">
+    <v-card variant="flat">
         <v-text-field
             v-model="search"
             label="Search"
-            :prepend-inner-icon="mdiMagnify"
+            :prepend-inner-icon="Search"
             single-line
             variant="solo-filled"
             flat
@@ -29,10 +29,10 @@
         >
             <template #item.timestamp="{ item }">
                 <p class="font-weight-bold">
-                    {{ item.timestamp.toLocaleDateString('en-US', {day:'2-digit', month:'2-digit', year:'numeric'}) }}
+                    {{ Time.formattedDate(item.timestamp) }}
                 </p>
                 <p>
-                    {{ item.timestamp.toLocaleTimeString('en-US', {hour:'numeric', minute:'numeric'}) }}
+                    {{ item.timestamp.toLocaleTimeString('en-US', { hour: 'numeric', minute: 'numeric' }) }}
                 </p>
             </template>
             <template #item.type="{ item }">
@@ -41,17 +41,17 @@
                 </p>
             </template>
             <template #item.amount="{ item }">
-                <p class="font-weight-bold text-green">
+                <p class="font-weight-bold text-success">
                     {{ item.amount }}
                 </p>
             </template>
             <template #item.status="{ item }">
-                <v-chip :color="getColor(item.status)" variant="tonal" size="small" rounded="xl" class="font-weight-bold">
+                <v-chip :color="getColor(item.status)" variant="tonal" size="small" class="font-weight-bold">
                     {{ item.status }}
                 </v-chip>
             </template>
             <template #item.link="{ item }">
-                <a :href="item.link" target="_blank" rel="noopener noreferrer" class="link">View</a>
+                <a v-if="!item.type.includes('bonus')" :href="item.link" target="_blank" rel="noopener noreferrer" class="link">View</a>
             </template>
         </v-data-table>
     </v-card>
@@ -65,13 +65,14 @@ import {
     VTextField,
     VDataTable,
 } from 'vuetify/components';
-import { mdiMagnify } from '@mdi/js';
+import { Search } from 'lucide-vue-next';
 
+import { Time } from '@/utils/time';
 import { AnalyticsErrorEventSource } from '@/utils/constants/analyticsEventNames';
 import { useLoading } from '@/composables/useLoading';
 import { useNotify } from '@/utils/hooks';
 import { useBillingStore } from '@/store/modules/billingStore';
-import { tableSizeOptions } from '@/types/common';
+import { DataTableHeader, SortItem, tableSizeOptions } from '@/types/common';
 
 type DisplayedItem = {
     id: string;
@@ -86,7 +87,7 @@ const { isLoading, withLoading } = useLoading();
 const notify = useNotify();
 const billingStore = useBillingStore();
 
-const sortBy = ref([{ key: 'date', order: 'asc' }]);
+const sortBy = ref<SortItem[]>([{ key: 'timestamp', order: 'asc' }]);
 const search = ref<string>('');
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -96,7 +97,7 @@ const customSortFns: Record<string, DataTableCompareFunction> = {
     amount: customAmountSort,
 };
 
-const headers = [
+const headers: DataTableHeader[] = [
     {
         title: 'Date',
         align: 'start',

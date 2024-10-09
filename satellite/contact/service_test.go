@@ -9,11 +9,11 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"storj.io/common/identity/testidentity"
-	"storj.io/common/nodetag"
 	"storj.io/common/pb"
 	"storj.io/common/signing"
 	"storj.io/common/storj"
 	"storj.io/common/testcontext"
+	"storj.io/storj/shared/nodetag"
 )
 
 func TestVerifyTags(t *testing.T) {

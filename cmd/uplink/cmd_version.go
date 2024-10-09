@@ -33,11 +33,13 @@ func (c *cmdVersion) Setup(params clingy.Parameters) {
 	).(bool)
 }
 
-func (c *cmdVersion) Execute(ctx context.Context) error {
+func (c *cmdVersion) Execute(ctx context.Context) (err error) {
+	defer mon.Task()(&ctx)(&err)
+
 	if version.Build.Release {
-		fmt.Fprintln(clingy.Stdout(ctx), "Release build")
+		_, _ = fmt.Fprintln(clingy.Stdout(ctx), "Release build")
 	} else {
-		fmt.Fprintln(clingy.Stdout(ctx), "Development build")
+		_, _ = fmt.Fprintln(clingy.Stdout(ctx), "Development build")
 	}
 
 	{
@@ -54,7 +56,7 @@ func (c *cmdVersion) Execute(ctx context.Context) error {
 		tw.Done()
 	}
 
-	fmt.Fprintln(clingy.Stdout(ctx))
+	_, _ = fmt.Fprintln(clingy.Stdout(ctx))
 
 	bi, ok := debug.ReadBuildInfo()
 	if !ok {

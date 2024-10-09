@@ -29,13 +29,13 @@ func main() {
 
 	// final commands look like `dbx schema -d pgx -d pgxcockroach -i accounting.dbx ... -i user.dbx satellitedb.dbx .`
 	// and `dbx golang -d pgx -d pgxcockroach -t templates -i accounting.dbx ... -i user.dbx satellitedb.dbx .`
-	schemaArgs := append([]string{"schema", "-d=pgx", "-d=pgxcockroach"}, files...)
+	schemaArgs := append([]string{"schema", "-d=pgx", "-d=pgxcockroach", "-d=spanner"}, files...)
 	schemaOut, err := exec.Command("dbx", schemaArgs...).CombinedOutput()
 	if err != nil {
 		fmt.Println("schema out", string(schemaOut))
 		log.Fatal(err)
 	}
-	gogenArgs := append([]string{"golang", "-d=pgx", "-d=pgxcockroach", "-p=dbx", "-t=templates"}, files...)
+	gogenArgs := append([]string{"golang", "-d=pgx", "-d=pgxcockroach", "-d=spanner", "-p=dbx", "-t=templates"}, files...)
 	gogenOut, err := exec.Command("dbx", gogenArgs...).CombinedOutput()
 	if err != nil {
 		fmt.Println("gogen out", string(gogenOut))
@@ -49,7 +49,7 @@ func main() {
 	replacer := strings.NewReplacer(
 		"*sql.Tx", "tagsql.Tx",
 		"*sql.Rows", "tagsql.Rows",
-		`_ "github.com/jackc/pgx/v5/stdlib"`, `"storj.io/common/tagsql"`,
+		`_ "github.com/jackc/pgx/v5/stdlib"`, `"storj.io/storj/shared/tagsql"`,
 		"type DB struct {\n\t*sql.DB", "type DB struct {\n\ttagsql.DB",
 		"db = &DB{\n\t\tDB: sql_db", "db = &DB{\n\t\tDB: tagsql.Wrap(sql_db)",
 	)

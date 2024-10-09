@@ -49,8 +49,8 @@ type Signer struct {
 	AddressedLimits []*pb.AddressedOrderLimit
 }
 
-// createSerial creates a timestamped serial number.
-func createSerial(orderExpiration time.Time) (_ storj.SerialNumber, err error) {
+// CreateSerial creates a timestamped serial number.
+func CreateSerial(orderExpiration time.Time) (_ storj.SerialNumber, err error) {
 	var serial storj.SerialNumber
 
 	binary.BigEndian.PutUint64(serial[0:8], uint64(orderExpiration.Unix()))
@@ -82,7 +82,7 @@ func NewSigner(service *Service, rootPieceID storj.PieceID, pieceExpiration time
 		return nil, ErrSigner.Wrap(err)
 	}
 
-	signer.Serial, err = createSerial(signer.OrderExpiration)
+	signer.Serial, err = CreateSerial(signer.OrderExpiration)
 	if err != nil {
 		return nil, ErrSigner.Wrap(err)
 	}

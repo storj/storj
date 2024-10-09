@@ -17,7 +17,9 @@ import (
 
 const uplinkCLIUserAgent = "uplink-cli"
 
-func (ex *external) OpenFilesystem(ctx context.Context, accessName string, options ...ulext.Option) (ulfs.Filesystem, error) {
+func (ex *external) OpenFilesystem(ctx context.Context, accessName string, options ...ulext.Option) (_ ulfs.Filesystem, err error) {
+	defer mon.Task()(&ctx)(&err)
+
 	project, err := ex.OpenProject(ctx, accessName, options...)
 	if err != nil {
 		return nil, err
@@ -25,7 +27,9 @@ func (ex *external) OpenFilesystem(ctx context.Context, accessName string, optio
 	return ulfs.NewMixed(ulfs.NewLocal(ulfs.NewLocalBackendOS()), ulfs.NewRemote(project)), nil
 }
 
-func (ex *external) OpenProject(ctx context.Context, accessName string, options ...ulext.Option) (*uplink.Project, error) {
+func (ex *external) OpenProject(ctx context.Context, accessName string, options ...ulext.Option) (_ *uplink.Project, err error) {
+	defer mon.Task()(&ctx)(&err)
+
 	opts := ulext.LoadOptions(options...)
 
 	access, err := ex.OpenAccess(accessName)

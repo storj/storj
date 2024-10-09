@@ -17,8 +17,8 @@ import (
 
 	"storj.io/common/process"
 	"storj.io/common/storj"
-	"storj.io/common/storj/location"
 	"storj.io/storj/satellite/nodeselection"
+	"storj.io/storj/shared/location"
 )
 
 var (
@@ -89,7 +89,7 @@ func testPlacement(ctx context.Context, fakeNode string) error {
 
 	}
 
-	placement, err := config.Placement.Parse(nil)
+	placement, err := config.Placement.Parse(nil, nil)
 	if err != nil {
 		return errs.Wrap(err)
 	}
@@ -104,7 +104,7 @@ func testPlacement(ctx context.Context, fakeNode string) error {
 
 	for _, placementNum := range placement.SupportedPlacements() {
 		fmt.Printf("\n--------- Evaluating placement rule %d ---------\n", placementNum)
-		filter := placement.CreateFilters(placementNum)
+		filter, _ := placement.CreateFilters(placementNum)
 
 		fmt.Printf("Placement: %s\n", filter)
 		result := filter.Match(node)
@@ -130,6 +130,9 @@ func init() {
 }
 
 func main() {
+	logger, _, _ := process.NewLogger("placement-test")
+	zap.ReplaceGlobals(logger)
+
 	process.ExecWithCustomOptions(rootCmd, process.ExecOptions{
 		LoadConfig: func(cmd *cobra.Command, vip *viper.Viper) error {
 			return nil

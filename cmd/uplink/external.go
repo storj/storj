@@ -74,6 +74,7 @@ type external struct {
 		pprofFile       string
 		traceFile       string
 		monkitTraceFile string
+		monkitStatsFile string
 	}
 
 	events struct {
@@ -157,6 +158,11 @@ func (ex *external) Setup(f clingy.Flags) {
 
 	ex.debug.monkitTraceFile = f.Flag(
 		"debug-monkit-trace", "File to collect Monkit trace data. Understands file extensions .json and .svg", "",
+		clingy.Advanced,
+	).(string)
+
+	ex.debug.monkitStatsFile = f.Flag(
+		"debug-monkit-stats", "File to collect Monkit stats", "",
 		clingy.Advanced,
 	).(string)
 
@@ -249,6 +255,8 @@ func (ex *external) analyticsEnabled() bool {
 
 // Wrap is called by clingy with the command to be executed.
 func (ex *external) Wrap(ctx context.Context, cmd clingy.Command) (err error) {
+	defer mon.Task()(&ctx)(&err)
+
 	if err = ex.migrate(); err != nil {
 		return err
 	}
@@ -298,6 +306,17 @@ func (ex *external) Wrap(ctx context.Context, cmd clingy.Command) (err error) {
 			return errs.Wrap(err)
 		}
 		defer trace.Stop()
+	}
+
+	if ex.debug.monkitStatsFile != "" {
+		fh, err := os.Create(ex.debug.monkitStatsFile)
+		if err != nil {
+			return errs.Wrap(err)
+		}
+		defer func() { _ = fh.Close() }()
+		defer monkit.Default.Stats(func(key monkit.SeriesKey, field string, val float64) {
+			_, _ = fmt.Fprintf(fh, "%v\t%v\t%v\n", key, field, val)
+		})
 	}
 
 	// N.B.: Tracing is currently disabled by default (sample == 0, traceID == 0) and is
@@ -458,7 +477,7 @@ func (ex *external) PromptInput(ctx context.Context, prompt string) (input strin
 	if !ex.interactive {
 		return "", errs.New("required user input in non-interactive setting")
 	}
-	fmt.Fprint(clingy.Stdout(ctx), prompt, " ")
+	_, _ = fmt.Fprint(clingy.Stdout(ctx), prompt, " ")
 	var buf []byte
 	var tmp [1]byte
 	for {
@@ -475,7 +494,7 @@ func (ex *external) PromptInput(ctx context.Context, prompt string) (input strin
 	return string(bytes.TrimSpace(buf)), nil
 }
 
-// PromptInput gets a line of secret input from the user twice to ensure that
+// PromptSecret gets a line of secret input from the user twice to ensure that
 // it is the same value, and returns an error if interactive mode is disabled
 // or if the prompt cannot be put into a mode where the typing is not echoed.
 func (ex *external) PromptSecret(ctx context.Context, prompt string) (secret string, err error) {
@@ -490,25 +509,25 @@ func (ex *external) PromptSecret(ctx context.Context, prompt string) (secret str
 	fd := int(fh.Fd())
 
 	for {
-		fmt.Fprint(clingy.Stdout(ctx), prompt, " ")
+		_, _ = fmt.Fprint(clingy.Stdout(ctx), prompt, " ")
 
 		first, err := term.ReadPassword(fd)
 		if err != nil {
 			return "", errs.New("unable to request secret from stdin: %w", err)
 		}
-		fmt.Fprintln(clingy.Stdout(ctx))
+		_, _ = fmt.Fprintln(clingy.Stdout(ctx))
 
-		fmt.Fprint(clingy.Stdout(ctx), "Again: ")
+		_, _ = fmt.Fprint(clingy.Stdout(ctx), "Again: ")
 
 		second, err := term.ReadPassword(fd)
 		if err != nil {
 			return "", errs.New("unable to request secret from stdin: %w", err)
 		}
-		fmt.Fprintln(clingy.Stdout(ctx))
+		_, _ = fmt.Fprintln(clingy.Stdout(ctx))
 
 		if string(first) != string(second) {
-			fmt.Fprintln(clingy.Stdout(ctx), "Values did not match. Try again.")
-			fmt.Fprintln(clingy.Stdout(ctx))
+			_, _ = fmt.Fprintln(clingy.Stdout(ctx), "Values did not match. Try again.")
+			_, _ = fmt.Fprintln(clingy.Stdout(ctx))
 			continue
 		}
 

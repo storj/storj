@@ -25,10 +25,12 @@ var (
 	ErrVerifyDuplicateRequest = errs.Class("duplicate request")
 )
 
+var monVerifyOrderLimit = mon.Task()
+
 // VerifyOrderLimit verifies that the order limit is properly signed and has sane values.
 // It also verifies that the serial number has not been used.
 func (endpoint *Endpoint) verifyOrderLimit(ctx context.Context, limit *pb.OrderLimit) (err error) {
-	defer mon.Task()(&ctx)(&err)
+	defer monVerifyOrderLimit(&ctx)(&err)
 
 	// sanity checks
 	now := time.Now()
@@ -80,9 +82,11 @@ func (endpoint *Endpoint) verifyOrderLimit(ctx context.Context, limit *pb.OrderL
 	return nil
 }
 
+var monVerifyOrder = mon.Task()
+
 // VerifyOrder verifies that the order corresponds to the order limit and has all the necessary fields.
 func (endpoint *Endpoint) VerifyOrder(ctx context.Context, limit *pb.OrderLimit, order *pb.Order, largestOrderAmount int64) (err error) {
-	defer mon.Task()(&ctx)(&err)
+	defer monVerifyOrder(&ctx)(&err)
 
 	if order.SerialNumber != limit.SerialNumber {
 		return rpcstatus.Error(rpcstatus.InvalidArgument, "order serial number changed during upload")
@@ -127,9 +131,11 @@ func (endpoint *Endpoint) VerifyPieceHash(ctx context.Context, limit *pb.OrderLi
 	return nil
 }
 
+var monVerifyOrderLimitSignature = mon.Task()
+
 // VerifyOrderLimitSignature verifies that the order limit signature is valid.
 func (endpoint *Endpoint) VerifyOrderLimitSignature(ctx context.Context, limit *pb.OrderLimit) (err error) {
-	defer mon.Task()(&ctx)(&err)
+	defer monVerifyOrderLimitSignature(&ctx)(&err)
 
 	signee, err := endpoint.trust.GetSignee(ctx, limit.SatelliteId)
 	if err != nil {

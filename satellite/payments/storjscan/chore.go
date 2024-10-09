@@ -47,22 +47,23 @@ func (chore *Chore) Run(ctx context.Context) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	return chore.TransactionCycle.Run(ctx, func(ctx context.Context) error {
-		var from int64
-
 		if chore.disableLoop {
 			chore.log.Debug("Skipping chore iteration as loop is disabled", zap.Bool("disableLoop", chore.disableLoop))
 			return nil
 		}
 
-		blockNumber, err := chore.paymentsDB.LastBlock(ctx, payments.PaymentStatusConfirmed)
-		switch {
-		case err == nil:
-			from = blockNumber + 1
-		case errs.Is(err, ErrNoPayments):
-			from = 0
-		default:
-			chore.log.Error("error retrieving last payment", zap.Error(ChoreErr.Wrap(err)))
-			return nil
+		from := make(map[int64]int64)
+		blockNumbers, err := chore.paymentsDB.LastBlocks(ctx, payments.PaymentStatusConfirmed)
+		for chainID, blockNumber := range blockNumbers {
+			switch {
+			case err == nil:
+				from[chainID] = blockNumber + 1
+			case errs.Is(err, ErrNoPayments):
+				from[chainID] = 0
+			default:
+				chore.log.Error("error retrieving last payment", zap.Error(ChoreErr.Wrap(err)))
+				return nil
+			}
 		}
 
 		latestPayments, err := chore.client.AllPayments(ctx, from)
@@ -75,26 +76,37 @@ func (chore *Chore) Run(ctx context.Context) (err error) {
 		}
 
 		var cachedPayments []CachedPayment
-		for _, payment := range latestPayments.Payments {
-			var status payments.PaymentStatus
-			if latestPayments.LatestBlock.Number-payment.BlockNumber >= int64(chore.confirmations) {
-				status = payments.PaymentStatusConfirmed
-			} else {
-				status = payments.PaymentStatusPending
+		for _, header := range latestPayments.LatestBlocks {
+			for _, payment := range latestPayments.Payments {
+				if payment.ChainID == header.ChainID {
+					var status payments.PaymentStatus
+					if header.Number-payment.BlockNumber >= int64(chore.confirmations) {
+						status = payments.PaymentStatusConfirmed
+					} else {
+						status = payments.PaymentStatusPending
+					}
+					chore.log.Debug("received new payments from storjscan",
+						zap.Int64("Chain ID", payment.ChainID),
+						zap.String("Block Hash", payment.BlockHash.Hex()),
+						zap.String("Transaction Hash", payment.Transaction.Hex()),
+						zap.Int64("Block Number", payment.BlockNumber),
+						zap.Int("Log Index", payment.LogIndex),
+						zap.String("USD Value", payment.USDValue.AsDecimal().String()))
+					cachedPayments = append(cachedPayments, CachedPayment{
+						ChainID:     payment.ChainID,
+						From:        payment.From,
+						To:          payment.To,
+						TokenValue:  payment.TokenValue,
+						USDValue:    payment.USDValue,
+						Status:      status,
+						BlockHash:   payment.BlockHash,
+						BlockNumber: payment.BlockNumber,
+						Transaction: payment.Transaction,
+						LogIndex:    payment.LogIndex,
+						Timestamp:   payment.Timestamp,
+					})
+				}
 			}
-
-			cachedPayments = append(cachedPayments, CachedPayment{
-				From:        payment.From,
-				To:          payment.To,
-				TokenValue:  payment.TokenValue,
-				USDValue:    payment.USDValue,
-				Status:      status,
-				BlockHash:   payment.BlockHash,
-				BlockNumber: payment.BlockNumber,
-				Transaction: payment.Transaction,
-				LogIndex:    payment.LogIndex,
-				Timestamp:   payment.Timestamp,
-			})
 		}
 
 		err = chore.paymentsDB.DeletePending(ctx)

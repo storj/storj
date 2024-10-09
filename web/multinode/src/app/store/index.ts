@@ -11,6 +11,7 @@ import { PayoutsClient } from '@/api/payouts';
 import { StorageClient } from '@/api/storage';
 import { BandwidthModule } from '@/app/store/bandwidth';
 import { NodesModule } from '@/app/store/nodes';
+import { NotificationsModule } from '@/app/store/notifications';
 import { OperatorsModule } from '@/app/store/operators';
 import { PayoutsModule } from '@/app/store/payouts';
 import { StorageModule } from '@/app/store/storage';
@@ -40,6 +41,7 @@ const payoutsModule = new PayoutsModule(payoutsService);
 const bandwidthModule = new BandwidthModule(bandwidthService);
 const operatorsModule = new OperatorsModule(operatorsService);
 const storageModule = new StorageModule(storageService);
+const notificationModule = new NotificationsModule();
 
 export abstract class RootState {
     nodes: typeof nodesModule.state;
@@ -47,6 +49,7 @@ export abstract class RootState {
     bandwidth: typeof bandwidthModule.state;
     operators: typeof operatorsModule.state;
     storage: typeof storageModule.state;
+    notification: typeof notificationModule.state;
 }
 
 // Store
@@ -58,5 +61,6 @@ export const store = new Vuex.Store<RootState>({
         bandwidth: bandwidthModule,
         operators: operatorsModule,
         storage: storageModule,
+        notification: notificationModule,
     },
 });

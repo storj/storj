@@ -2,7 +2,6 @@
 // See LICENSE for copying information.
 
 //go:build !windows && !linux && !darwin
-// +build !windows,!linux,!darwin
 
 package iopriority
 

@@ -26,7 +26,9 @@ func (c *cmdAccessUse) Setup(params clingy.Parameters) {
 	c.access = params.Arg("access", "Access name to use").(string)
 }
 
-func (c *cmdAccessUse) Execute(ctx context.Context) error {
+func (c *cmdAccessUse) Execute(ctx context.Context) (err error) {
+	defer mon.Task()(&ctx)(&err)
+
 	_, accesses, err := c.ex.GetAccessInfo(true)
 	if err != nil {
 		return err
@@ -38,7 +40,7 @@ func (c *cmdAccessUse) Execute(ctx context.Context) error {
 		return err
 	}
 
-	fmt.Fprintf(clingy.Stdout(ctx), "Switched default access to %q\n", c.access)
+	_, _ = fmt.Fprintf(clingy.Stdout(ctx), "Switched default access to %q\n", c.access)
 
 	return nil
 }

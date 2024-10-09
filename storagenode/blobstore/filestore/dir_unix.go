@@ -2,12 +2,10 @@
 // See LICENSE for copying information.
 
 //go:build !windows
-// +build !windows
 
 package filestore
 
 import (
-	"fmt"
 	"os"
 
 	"golang.org/x/sys/unix"
@@ -26,10 +24,8 @@ func diskInfoFromPath(path string) (info blobstore.DiskInfo, err error) {
 	reservedBlocks := int64(stat.Bfree) - int64(stat.Bavail)
 	totalSpace := (int64(stat.Blocks) - reservedBlocks) * int64(stat.Bsize) //nolint: unconvert
 	availableSpace := int64(stat.Bavail) * int64(stat.Bsize)                //nolint: unconvert
-	filesystemID := fmt.Sprintf("%08x%08x", stat.Fsid.Val[0], stat.Fsid.Val[1])
 
 	return blobstore.DiskInfo{
-		ID:             filesystemID,
 		TotalSpace:     totalSpace,
 		AvailableSpace: availableSpace,
 	}, nil

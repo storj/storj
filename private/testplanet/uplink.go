@@ -33,6 +33,7 @@ import (
 // UplinkConfig testplanet configuration for uplink.
 type UplinkConfig struct {
 	DefaultPathCipher storj.CipherSuite
+	APIKeyVersion     macaroon.APIKeyVersion
 }
 
 // Uplink is a registered user on all satellites,
@@ -138,6 +139,11 @@ func (planet *Planet) newUplink(ctx context.Context, index int, log *zap.Logger,
 	for j, satellite := range planet.Satellites {
 		consoleAPI := satellite.API.Console
 
+		var config UplinkConfig
+		if planet.config.Reconfigure.Uplink != nil {
+			planet.config.Reconfigure.Uplink(log, index, &config)
+		}
+
 		projectName := fmt.Sprintf("%s_%d", name, j)
 		user, err := satellite.AddUser(ctx, console.CreateUser{
 			FullName: fmt.Sprintf("User %s", projectName),
@@ -161,7 +167,7 @@ func (planet *Planet) newUplink(ctx context.Context, index int, log *zap.Logger,
 		if err != nil {
 			return nil, errs.Wrap(err)
 		}
-		_, apiKey, err := consoleAPI.Service.CreateAPIKey(userCtx, project.ID, "root")
+		_, apiKey, err := consoleAPI.Service.CreateAPIKey(userCtx, project.ID, "root", config.APIKeyVersion)
 		if err != nil {
 			return nil, errs.Wrap(err)
 		}
@@ -183,11 +189,6 @@ func (planet *Planet) newUplink(ctx context.Context, index int, log *zap.Logger,
 
 			RawAPIKey: apiKey,
 		})
-
-		var config UplinkConfig
-		if planet.config.Reconfigure.Uplink != nil {
-			planet.config.Reconfigure.Uplink(log, index, &config)
-		}
 
 		// create access grant manually to avoid dialing satellite for
 		// project id and deriving key with argon2.IDKey method
@@ -263,14 +264,14 @@ func (client *Uplink) Upload(ctx context.Context, satellite *Satellite, bucket s
 func (client *Uplink) UploadWithExpiration(ctx context.Context, satellite *Satellite, bucketName string, key string, data []byte, expiration time.Time) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	_, err = client.UploadWithOptions(ctx, satellite, bucketName, key, data, &uplink.UploadOptions{
+	_, err = client.UploadWithOptions(ctx, satellite, bucketName, key, data, &metaclient.UploadOptions{
 		Expires: expiration,
 	})
 	return errs.Wrap(err)
 }
 
 // UploadWithOptions uploads data to specific satellite, with defined options.
-func (client *Uplink) UploadWithOptions(ctx context.Context, satellite *Satellite, bucketName, key string, data []byte, options *uplink.UploadOptions) (obj *object.VersionedObject, err error) {
+func (client *Uplink) UploadWithOptions(ctx context.Context, satellite *Satellite, bucketName, key string, data []byte, options *metaclient.UploadOptions) (obj *object.VersionedObject, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	_, found := testuplink.GetMaxSegmentSize(ctx)

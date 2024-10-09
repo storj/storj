@@ -48,5 +48,5 @@ func (sanitizer *Log) Error(msg string, err error) error {
 	if sanitizer.wrapper == nil {
 		return rpcstatus.Error(rpcstatus.Internal, msg)
 	}
-	return rpcstatus.Error(rpcstatus.Internal, sanitizer.wrapper.New(msg).Error())
+	return rpcstatus.Error(rpcstatus.Internal, sanitizer.wrapper.New("%v", msg).Error())
 }

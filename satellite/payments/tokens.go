@@ -112,6 +112,7 @@ const (
 
 // WalletPayment holds storj token payment data.
 type WalletPayment struct {
+	ChainID     int64              `json:"chainID"`
 	From        blockchain.Address `json:"from"`
 	To          blockchain.Address `json:"to"`
 	TokenValue  currency.Amount    `json:"tokenValue"`
@@ -126,6 +127,7 @@ type WalletPayment struct {
 
 // WalletPaymentWithConfirmations holds storj token payment data with confirmations count.
 type WalletPaymentWithConfirmations struct {
+	ChainID       int64           `json:"chainID"`
 	From          string          `json:"from"`
 	To            string          `json:"to"`
 	TokenValue    decimal.Decimal `json:"tokenValue"`

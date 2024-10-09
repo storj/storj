@@ -38,14 +38,14 @@ func TestCustomersUpdateGetPackage(t *testing.T) {
 		require.NotNil(t, c.PackagePlan)
 		require.Equal(t, packagePlan, *c.PackagePlan)
 		require.NotNil(t, c.PackagePurchasedAt)
-		require.Equal(t, purchaseTime.Truncate(time.Millisecond), c.PackagePurchasedAt.Truncate(time.Millisecond))
+		require.WithinDuration(t, purchaseTime.Truncate(time.Millisecond), c.PackagePurchasedAt.Truncate(time.Millisecond), time.Nanosecond)
 
 		dbPackagePlan, dbPurchaseTime, err = db.StripeCoinPayments().Customers().GetPackageInfo(ctx, userID)
 		require.NoError(t, err)
 		require.NotNil(t, dbPackagePlan)
 		require.NotNil(t, dbPurchaseTime)
 		require.Equal(t, packagePlan, *dbPackagePlan)
-		require.Equal(t, purchaseTime.Truncate(time.Millisecond), dbPurchaseTime.Truncate(time.Millisecond))
+		require.WithinDuration(t, purchaseTime.Truncate(time.Millisecond), dbPurchaseTime.Truncate(time.Millisecond), time.Nanosecond)
 
 		c, err = db.StripeCoinPayments().Customers().UpdatePackage(ctx, userID, nil, nil)
 		require.NoError(t, err)
@@ -58,5 +58,5 @@ func TestCustomersUpdateGetPackage(t *testing.T) {
 		require.NoError(t, err)
 		require.Nil(t, dbPackagePlan)
 		require.Nil(t, dbPurchaseTime)
-	})
+	}, satellitedbtest.WithSpanner())
 }

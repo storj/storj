@@ -7,9 +7,11 @@ import (
 	"context"
 	"errors"
 	"strings"
+	"time"
 
 	"github.com/stripe/stripe-go/v75"
 	"github.com/zeebo/errs"
+	"go.uber.org/zap"
 
 	"storj.io/common/uuid"
 	"storj.io/storj/satellite/payments"
@@ -99,6 +101,10 @@ func (creditCards *creditCards) Add(ctx context.Context, userID uuid.UUID, cardT
 
 	card, err := creditCards.service.stripeClient.PaymentMethods().New(cardParams)
 	if err != nil {
+		stripeErr := &stripe.Error{}
+		if errors.As(err, &stripeErr) {
+			err = errs.Wrap(errors.New(stripeErr.Msg))
+		}
 		return payments.CreditCard{}, Error.Wrap(err)
 	}
 
@@ -108,6 +114,12 @@ func (creditCards *creditCards) Add(ctx context.Context, userID uuid.UUID, cardT
 		Type:       stripe.String(string(stripe.PaymentMethodTypeCard)),
 	}
 
+	now := time.Now()
+	currentYear := int64(now.Year())
+	currentMonth := int64(now.Month())
+
+	var expiredCards []*stripe.PaymentMethod
+
 	paymentMethodsIterator := creditCards.service.stripeClient.PaymentMethods().List(listParams)
 	for paymentMethodsIterator.Next() {
 		stripeCard := paymentMethodsIterator.PaymentMethod()
@@ -116,6 +128,10 @@ func (creditCards *creditCards) Add(ctx context.Context, userID uuid.UUID, cardT
 			stripeCard.Card.ExpMonth == card.Card.ExpMonth &&
 			stripeCard.Card.ExpYear == card.Card.ExpYear {
 			return payments.CreditCard{}, ErrDuplicateCard.New("this card is already on file for your account.")
+		}
+
+		if stripeCard.Card.ExpYear < currentYear || (stripeCard.Card.ExpYear == currentYear && stripeCard.Card.ExpMonth < currentMonth) {
+			expiredCards = append(expiredCards, stripeCard)
 		}
 	}
 
@@ -132,7 +148,7 @@ func (creditCards *creditCards) Add(ctx context.Context, userID uuid.UUID, cardT
 	if err != nil {
 		stripeErr := &stripe.Error{}
 		if errors.As(err, &stripeErr) {
-			err = errs.New(stripeErr.Msg)
+			err = errs.Wrap(errors.New(stripeErr.Msg))
 		}
 		return payments.CreditCard{}, Error.Wrap(err)
 	}
@@ -145,16 +161,30 @@ func (creditCards *creditCards) Add(ctx context.Context, userID uuid.UUID, cardT
 	}
 
 	_, err = creditCards.service.stripeClient.Customers().Update(customerID, params)
+	if err != nil {
+		creditCards.service.log.Warn("failed to make new card default", zap.String("user_id", userID.String()), zap.Error(err))
+	}
 
-	// TODO: handle created but not attached card manually?
+	// We remove all expired cards from the customer only if the new card is successfully attached and marked as default.
+	if err == nil && len(expiredCards) > 0 {
+		detachParams := &stripe.PaymentMethodDetachParams{Params: stripe.Params{Context: ctx}}
+
+		for _, expiredCard := range expiredCards {
+			_, err = creditCards.service.stripeClient.PaymentMethods().Detach(expiredCard.ID, detachParams)
+			if err != nil {
+				creditCards.service.log.Warn("failed to detach expired credit card", zap.String("user_id", userID.String()), zap.Error(err))
+			}
+		}
+	}
+
 	return payments.CreditCard{
 		ID:        card.ID,
 		ExpMonth:  int(card.Card.ExpMonth),
 		ExpYear:   int(card.Card.ExpYear),
 		Brand:     string(card.Card.Brand),
 		Last4:     card.Card.Last4,
-		IsDefault: true,
-	}, Error.Wrap(err)
+		IsDefault: err == nil,
+	}, nil
 }
 
 // AddByPaymentMethodID is used to save new credit card, attach it to payment account and make it default
@@ -181,6 +211,12 @@ func (creditCards *creditCards) AddByPaymentMethodID(ctx context.Context, userID
 		Type:       stripe.String(string(stripe.PaymentMethodTypeCard)),
 	}
 
+	now := time.Now()
+	currentYear := int64(now.Year())
+	currentMonth := int64(now.Month())
+
+	var expiredCards []*stripe.PaymentMethod
+
 	paymentMethodsIterator := creditCards.service.stripeClient.PaymentMethods().List(listParams)
 	for paymentMethodsIterator.Next() {
 		stripeCard := paymentMethodsIterator.PaymentMethod()
@@ -189,6 +225,10 @@ func (creditCards *creditCards) AddByPaymentMethodID(ctx context.Context, userID
 			stripeCard.Card.ExpMonth == card.Card.ExpMonth &&
 			stripeCard.Card.ExpYear == card.Card.ExpYear {
 			return payments.CreditCard{}, ErrDuplicateCard.New("this card is already on file for your account.")
+		}
+
+		if stripeCard.Card.ExpYear < currentYear || (stripeCard.Card.ExpYear == currentYear && stripeCard.Card.ExpMonth < currentMonth) {
+			expiredCards = append(expiredCards, stripeCard)
 		}
 	}
 
@@ -205,7 +245,7 @@ func (creditCards *creditCards) AddByPaymentMethodID(ctx context.Context, userID
 	if err != nil {
 		stripeErr := &stripe.Error{}
 		if errors.As(err, &stripeErr) {
-			err = errs.New(stripeErr.Msg)
+			err = errs.Wrap(errors.New(stripeErr.Msg))
 		}
 		return payments.CreditCard{}, Error.Wrap(err)
 	}
@@ -218,16 +258,30 @@ func (creditCards *creditCards) AddByPaymentMethodID(ctx context.Context, userID
 	}
 
 	_, err = creditCards.service.stripeClient.Customers().Update(customerID, params)
+	if err != nil {
+		creditCards.service.log.Warn("failed to make new card default", zap.String("user_id", userID.String()), zap.Error(err))
+	}
 
-	// TODO: handle created but not attached card manually?
+	// We remove all expired cards from the customer only if the new card is successfully attached and marked as default.
+	if err == nil && len(expiredCards) > 0 {
+		detachParams := &stripe.PaymentMethodDetachParams{Params: stripe.Params{Context: ctx}}
+
+		for _, expiredCard := range expiredCards {
+			_, err = creditCards.service.stripeClient.PaymentMethods().Detach(expiredCard.ID, detachParams)
+			if err != nil {
+				creditCards.service.log.Warn("failed to detach expired credit card", zap.String("user_id", userID.String()), zap.Error(err))
+			}
+		}
+	}
+
 	return payments.CreditCard{
 		ID:        card.ID,
 		ExpMonth:  int(card.Card.ExpMonth),
 		ExpYear:   int(card.Card.ExpYear),
 		Brand:     string(card.Card.Brand),
 		Last4:     card.Card.Last4,
-		IsDefault: true,
-	}, Error.Wrap(err)
+		IsDefault: err == nil,
+	}, nil
 }
 
 // MakeDefault makes a credit card default payment method.

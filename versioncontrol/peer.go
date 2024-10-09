@@ -183,32 +183,6 @@ func (peer *Peer) updateResponse() (err error) {
 func (config *Config) generateResponse(initTime time.Time) (rv *response, err error) {
 	rv = &response{}
 
-	// Convert each Service's VersionConfig String to SemVer
-	rv.versions.Satellite, err = version.NewOldSemVer(config.Versions.Satellite)
-	if err != nil {
-		return nil, err
-	}
-
-	rv.versions.Storagenode, err = version.NewOldSemVer(config.Versions.Storagenode)
-	if err != nil {
-		return nil, err
-	}
-
-	rv.versions.Uplink, err = version.NewOldSemVer(config.Versions.Uplink)
-	if err != nil {
-		return nil, err
-	}
-
-	rv.versions.Gateway, err = version.NewOldSemVer(config.Versions.Gateway)
-	if err != nil {
-		return nil, err
-	}
-
-	rv.versions.Identity, err = version.NewOldSemVer(config.Versions.Identity)
-	if err != nil {
-		return nil, err
-	}
-
 	rv.versions.Processes.Satellite, err = config.configToProcess(initTime, config.Binary.Satellite)
 	if err != nil {
 		return nil, RolloutErr.Wrap(err)

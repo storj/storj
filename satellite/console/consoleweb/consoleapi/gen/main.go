@@ -26,8 +26,8 @@ import (
 func main() {
 	// definition for REST API
 	a := &apigen.API{
-		Version:     "v0",
-		BasePath:    "/api",
+		Version:     "v1",
+		BasePath:    "/public",
 		Description: "Interacts with projects",
 		PackagePath: "storj.io/storj/satellite/console/consoleweb/consoleapi",
 	}

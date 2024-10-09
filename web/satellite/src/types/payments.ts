@@ -3,6 +3,7 @@
 
 import { formatPrice, decimalShift } from '@/utils/strings';
 import { JSONRepresentable } from '@/types/json';
+import { Time } from '@/utils/time';
 
 /**
  * Page parameters for listing payments history.
@@ -55,6 +56,11 @@ export interface PaymentsApi {
      * @throws Error
      */
     addCardByPaymentMethodID(pmID: string): Promise<void>;
+
+    /**
+     * Attempt to pay overdue invoices.
+     */
+    attemptPayments(): Promise<void>;
 
     /**
      * Detach credit card from payment account.
@@ -124,6 +130,7 @@ export interface PaymentsApi {
      * @throws Error
      */
     getWallet(): Promise<Wallet>;
+
     /**
      * claim new native storj token wallet.
      *
@@ -131,6 +138,59 @@ export interface PaymentsApi {
      * @throws Error
      */
     claimWallet(): Promise<Wallet>;
+
+    /**
+     * get user's billing information.
+     *
+     * @throws Error
+     */
+    getBillingInformation(): Promise<BillingInformation>;
+
+    /**
+     * add user's default invoice reference.
+     *
+     * @param reference - invoice reference to be shown on invoices
+     * @throws Error
+     */
+    addInvoiceReference(reference: string): Promise<BillingInformation>;
+
+    /**
+     * save user's billing information.
+     *
+     * @param address - billing information to save
+     * @throws Error
+     */
+    saveBillingAddress(address: BillingAddress): Promise<BillingInformation>;
+
+    /**
+     * get a list of countries whose taxes are supported.
+     *
+     * @throws Error
+     */
+    getTaxCountries(): Promise<TaxCountry[]>;
+
+    /**
+     * get a list of supported taxes for a country.
+     *
+     * @throws Error
+     */
+    getCountryTaxes(countryCode: string): Promise<Tax[]>;
+
+    /**
+     * add a tax ID to a user's account.
+     *
+     * @param taxID - the tax ID to save
+     * @throws Error
+     */
+    addTaxID(taxID: TaxID): Promise<BillingInformation>;
+
+    /**
+     * remove a tax ID from a user's account.
+     *
+     * @param taxID - the tax ID to remove
+     * @throws Error
+     */
+    removeTaxID(taxID: string): Promise<BillingInformation>;
 
     /**
      * Purchases the pricing package associated with the user's partner.
@@ -183,6 +243,9 @@ export class AccountBalance {
         return this.credits + (this.coins * 100);
     }
 
+    public get formattedSum(): string {
+        return formatPrice((this.sum / 100).toString());
+    }
     public hasCredits(): boolean {
         return parseFloat(this._credits) !== 0;
     }
@@ -199,6 +262,20 @@ export class CreditCard {
         public last4: string = '0000',
         public isDefault: boolean = false,
     ) { }
+
+    public get isExpiring(): boolean {
+        const now = new Date();
+
+        return now.getFullYear() === this.expYear && now.getMonth() + 1 === this.expMonth;
+    }
+
+    public get isExpired(): boolean {
+        const now = new Date();
+        const month = now.getMonth();
+        const year = now.getFullYear();
+
+        return year > this.expYear || (year === this.expYear && month + 1 > this.expMonth);
+    }
 }
 
 /**
@@ -242,7 +319,7 @@ export class PaymentsHistoryItem {
     }
 
     public get formattedStart(): string {
-        return this.start.toLocaleDateString('en-US', { month: 'short', year: 'numeric' });
+        return Time.formattedDate(this.start);
     }
 
     public get hasExpiration(): boolean {
@@ -704,4 +781,38 @@ export class ProjectUsagePriceModel {
         public readonly egressMBCents: string = '',
         public readonly segmentMonthCents: string = '',
     ) { }
+}
+
+export interface TaxCountry {
+    code: string,
+    name?: string,
+}
+
+export interface Tax {
+    code: string,
+    name?: string,
+    example?: string,
+    countryCode?: string,
+}
+
+export interface BillingAddress {
+    name: string,
+    line1: string,
+    line2?: string | null,
+    city: string,
+    state?: string,
+    postalCode?: string,
+    country: TaxCountry,
+}
+
+export interface TaxID {
+    id?: string,
+    value: string,
+    tax: Tax,
+}
+
+export interface BillingInformation {
+    address?: BillingAddress,
+    taxIDs?: TaxID[],
+    invoiceReference: string,
 }

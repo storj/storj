@@ -42,7 +42,7 @@ func TestOrderDBSettle(t *testing.T) {
 
 		_, orderLimits, piecePrivateKey, err := satellite.Orders.Service.CreatePutOrderLimits(
 			ctx,
-			metabase.BucketLocation{ProjectID: planet.Uplinks[0].Projects[0].ID, BucketName: bucketname},
+			metabase.BucketLocation{ProjectID: planet.Uplinks[0].Projects[0].ID, BucketName: metabase.BucketName(bucketname)},
 			[]*nodeselection.SelectedNode{
 				{ID: node.ID(), LastIPPort: "fake", Address: new(pb.NodeAddress)},
 			},
@@ -205,7 +205,7 @@ func TestOrderFileStoreAndDBSettle(t *testing.T) {
 		// add orders to orders DB
 		_, orderLimits, piecePrivateKey, err := satellite.Orders.Service.CreatePutOrderLimits(
 			ctx,
-			metabase.BucketLocation{ProjectID: uplinkPeer.Projects[0].ID, BucketName: bucketname},
+			metabase.BucketLocation{ProjectID: uplinkPeer.Projects[0].ID, BucketName: metabase.BucketName(bucketname)},
 			[]*nodeselection.SelectedNode{
 				{ID: node.ID(), LastIPPort: "fake", Address: new(pb.NodeAddress)},
 			},

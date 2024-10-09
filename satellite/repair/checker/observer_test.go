@@ -88,14 +88,14 @@ func TestIdentifyInjuredSegmentsObserver(t *testing.T) {
 
 		// check that the unhealthy, non-expired segment was added to the queue
 		// and that the expired segment was ignored
-		injuredSegment, err := repairQueue.Select(ctx, nil, nil)
+		injuredSegments, err := repairQueue.Select(ctx, 1, nil, nil)
 		require.NoError(t, err)
-		err = repairQueue.Delete(ctx, injuredSegment)
+		err = repairQueue.Delete(ctx, injuredSegments[0])
 		require.NoError(t, err)
 
-		require.Equal(t, b0StreamID, injuredSegment.StreamID)
+		require.Equal(t, b0StreamID, injuredSegments[0].StreamID)
 
-		_, err = repairQueue.Select(ctx, nil, nil)
+		_, err = repairQueue.Select(ctx, 1, nil, nil)
 		require.Error(t, err)
 	})
 }
@@ -165,7 +165,7 @@ func TestIdentifyIrreparableSegmentsObserver(t *testing.T) {
 
 		// check that single irreparable segment was added repair queue
 		repairQueue := planet.Satellites[0].DB.RepairQueue()
-		_, err = repairQueue.Select(ctx, nil, nil)
+		_, err = repairQueue.Select(ctx, 1, nil, nil)
 		require.NoError(t, err)
 		count, err := repairQueue.Count(ctx)
 		require.NoError(t, err)
@@ -244,9 +244,9 @@ func TestObserver_CheckSegmentCopy(t *testing.T) {
 
 		// check that repair queue has original segment and copied one as it has exactly the same metadata
 		for _, segment := range segmentsAfterCopy {
-			injuredSegment, err := repairQueue.Select(ctx, nil, nil)
+			injuredSegments, err := repairQueue.Select(ctx, 1, nil, nil)
 			require.NoError(t, err)
-			require.Equal(t, segment.StreamID, injuredSegment.StreamID)
+			require.Equal(t, segment.StreamID, injuredSegments[0].StreamID)
 		}
 
 		injuredSegments, err := repairQueue.Count(ctx)
@@ -453,7 +453,7 @@ func TestRepairObserver(t *testing.T) {
 			service := rangedloop.NewService(planet.Log(), rangedloop.Config{
 				Parallelism: tc.Parallelism,
 				BatchSize:   tc.BatchSize,
-			}, rangedloop.NewMetabaseRangeSplitter(planet.Satellites[0].Metabase.DB, config.RangedLoop.AsOfSystemInterval, config.RangedLoop.BatchSize), []rangedloop.Observer{observer})
+			}, rangedloop.NewMetabaseRangeSplitter(planet.Satellites[0].Metabase.DB, config.RangedLoop.AsOfSystemInterval, config.RangedLoop.SpannerStaleInterval, config.RangedLoop.BatchSize), []rangedloop.Observer{observer})
 
 			_, err = service.RunOnce(ctx)
 			require.NoError(t, err)
@@ -658,7 +658,8 @@ func TestObserver_PlacementCheck(t *testing.T) {
 				}
 
 				// confirm that some pieces are out of placement
-				ok, err := allPiecesInPlacement(ctx, planet.Satellites[0].Overlay.Service, segments[0].Pieces, nodeselection.TestPlacementDefinitionsWithFraction(planet.Satellites[0].Config.Overlay.Node.NewNodeFraction).CreateFilters(segments[0].Placement))
+				filter, _ := nodeselection.TestPlacementDefinitionsWithFraction(planet.Satellites[0].Config.Overlay.Node.NewNodeFraction).CreateFilters(segments[0].Placement)
+				ok, err := allPiecesInPlacement(ctx, planet.Satellites[0].Overlay.Service, segments[0].Pieces, filter)
 				require.NoError(t, err)
 				require.False(t, ok)
 
@@ -666,14 +667,14 @@ func TestObserver_PlacementCheck(t *testing.T) {
 
 				planet.Satellites[0].RangedLoop.RangedLoop.Service.Loop.TriggerWait()
 
-				injuredSegment, err := repairQueue.Select(ctx, nil, nil)
+				injuredSegments, err := repairQueue.Select(ctx, 1, nil, nil)
 				require.NoError(t, err)
-				err = repairQueue.Delete(ctx, injuredSegment)
+				err = repairQueue.Delete(ctx, injuredSegments[0])
 				require.NoError(t, err)
 
-				require.Equal(t, segments[0].StreamID, injuredSegment.StreamID)
-				require.Equal(t, segments[0].Placement, injuredSegment.Placement)
-				require.Equal(t, storj.PlacementConstraint(1), injuredSegment.Placement)
+				require.Equal(t, segments[0].StreamID, injuredSegments[0].StreamID)
+				require.Equal(t, segments[0].Placement, injuredSegments[0].Placement)
+				require.Equal(t, storj.PlacementConstraint(1), injuredSegments[0].Placement)
 
 				count, err := repairQueue.Count(ctx)
 				require.Zero(t, err)

@@ -131,26 +131,6 @@ func (service *Service) checkVersion(ctx context.Context) (_ version.SemVer, all
 		return suggestedVersion, true
 	}
 
-	if minimum.IsZero() {
-		// if the minimum version is not set, we check if the old minimum version is set
-		// TODO: I'm not sure if we should remove this check and stop supporting the old format,
-		//  but it seems like it's no longer needed, assuming there are no known community
-		//  satellites (or SNOs personally) running an old version control server, which (I think)
-		//  is very obviously 100% true currently.
-		minimumOld, err := service.client.OldMinimum(ctx, service.service)
-		if err != nil {
-			return suggestedVersion, true
-		}
-
-		minOld, err := version.NewSemVer(minimumOld.String())
-		if err != nil {
-			service.log.Error("failed to convert old sem version to new sem version", zap.Error(err))
-			return suggestedVersion, true
-		}
-
-		minimum = minOld
-	}
-
 	service.log.Debug("Allowed minimum version from control server.", zap.Stringer("Minimum Version", minimum.Version))
 
 	if service.Info.Version.Compare(minimum) >= 0 {

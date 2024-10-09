@@ -16,10 +16,14 @@ import (
 type ProjectMembers interface {
 	// GetByMemberID is a method for querying project members from the database by memberID.
 	GetByMemberID(ctx context.Context, memberID uuid.UUID) ([]ProjectMember, error)
+	// GetByMemberIDAndProjectID is a method for querying project member from the database by memberID and projectID.
+	GetByMemberIDAndProjectID(ctx context.Context, memberID, projectID uuid.UUID) (*ProjectMember, error)
 	// GetPagedWithInvitationsByProjectID is a method for querying project members and invitations from the database by projectID and cursor.
 	GetPagedWithInvitationsByProjectID(ctx context.Context, projectID uuid.UUID, cursor ProjectMembersCursor) (*ProjectMembersPage, error)
+	// UpdateRole is a method for updating project member role in the database.
+	UpdateRole(ctx context.Context, memberID, projectID uuid.UUID, newRole ProjectMemberRole) (*ProjectMember, error)
 	// Insert is a method for inserting project member into the database.
-	Insert(ctx context.Context, memberID, projectID uuid.UUID) (*ProjectMember, error)
+	Insert(ctx context.Context, memberID, projectID uuid.UUID, role ProjectMemberRole) (*ProjectMember, error)
 	// Delete is a method for deleting project member by memberID and projectID from the database.
 	Delete(ctx context.Context, memberID, projectID uuid.UUID) error
 }
@@ -30,6 +34,8 @@ type ProjectMember struct {
 	MemberID uuid.UUID
 	// FK on Projects table.
 	ProjectID uuid.UUID
+
+	Role ProjectMemberRole
 
 	CreatedAt time.Time
 }
@@ -68,4 +74,14 @@ const (
 	Email ProjectMemberOrder = 2
 	// Created indicates that we should order by created date.
 	Created ProjectMemberOrder = 3
+)
+
+// ProjectMemberRole is used to indicate project member's role in the project.
+type ProjectMemberRole int
+
+const (
+	// RoleAdmin indicates that the member has admin rights.
+	RoleAdmin ProjectMemberRole = 0
+	// RoleMember indicates that the member has regular member rights.
+	RoleMember ProjectMemberRole = 1
 )

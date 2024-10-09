@@ -72,6 +72,7 @@ type Config struct {
 	AuthCookieDomain string `help:"optional domain for cookies to use" default:""`
 
 	ContactInfoURL                  string        `help:"url link to contacts page" default:"https://forum.storj.io"`
+	ScheduleMeetingURL              string        `help:"url link to schedule a meeting with a storj representative" default:"https://meetings.hubspot.com/tom144/free-trial"`
 	LetUsKnowURL                    string        `help:"url link to let us know page" default:"https://storjlabs.atlassian.net/servicedesk/customer/portals"`
 	SEO                             string        `help:"used to communicate with web crawlers and other web robots" default:"User-agent: *\nDisallow: \nDisallow: /cgi-bin/"`
 	SatelliteName                   string        `help:"used to display at web satellite console" default:"Storj"`
@@ -86,26 +87,32 @@ type Config struct {
 	BetaSatelliteFeedbackURL        string        `help:"url link for for beta satellite feedback" default:""`
 	BetaSatelliteSupportURL         string        `help:"url link for for beta satellite support" default:""`
 	DocumentationURL                string        `help:"url link to documentation" default:"https://docs.storj.io/"`
-	CouponCodeBillingUIEnabled      bool          `help:"indicates if user is allowed to add coupon codes to account from billing" default:"false"`
+	CouponCodeBillingUIEnabled      bool          `help:"indicates if user is allowed to add coupon codes to account from billing" default:"true"`
 	CouponCodeSignupUIEnabled       bool          `help:"indicates if user is allowed to add coupon codes to account from signup" default:"false"`
 	FileBrowserFlowDisabled         bool          `help:"indicates if file browser flow is disabled" default:"false"`
 	LinksharingURL                  string        `help:"url link for linksharing requests within the application" default:"https://link.storjsatelliteshare.io" devDefault:"http://localhost:8001"`
 	PublicLinksharingURL            string        `help:"url link for linksharing requests for external sharing" default:"https://link.storjshare.io" devDefault:"http://localhost:8001"`
 	PathwayOverviewEnabled          bool          `help:"indicates if the overview onboarding step should render with pathways" default:"true"`
 	LimitsAreaEnabled               bool          `help:"indicates whether limit card section of the UI is enabled" default:"true"`
-	GeneratedAPIEnabled             bool          `help:"indicates if generated console api should be used" default:"false"`
+	GeneratedAPIEnabled             bool          `help:"indicates if generated console api should be used" default:"true"`
 	OptionalSignupSuccessURL        string        `help:"optional url to external registration success page" default:""`
 	HomepageURL                     string        `help:"url link to storj.io homepage" default:"https://www.storj.io"`
+	ValdiSignUpURL                  string        `help:"url link to Valdi sign up page" default:""`
 	NativeTokenPaymentsEnabled      bool          `help:"indicates if storj native token payments system is enabled" default:"false"`
-	PricingPackagesEnabled          bool          `help:"whether to allow purchasing pricing packages" default:"false" devDefault:"true"`
+	PricingPackagesEnabled          bool          `help:"whether to allow purchasing pricing packages" default:"true"`
 	GalleryViewEnabled              bool          `help:"whether to show new gallery view" default:"true"`
-	ObjectBrowserPaginationEnabled  bool          `help:"whether to use object browser pagination" default:"false"`
 	LimitIncreaseRequestEnabled     bool          `help:"whether to allow request limit increases directly from the UI" default:"false"`
 	AllowedUsageReportDateRange     time.Duration `help:"allowed usage report request date range" default:"9360h"`
-	OnboardingStepperEnabled        bool          `help:"whether the onboarding stepper should be enabled" default:"false"`
 	EnableRegionTag                 bool          `help:"whether to show region tag in UI" default:"false"`
-	EmissionImpactViewEnabled       bool          `help:"whether emission impact view should be shown" default:"false"`
-	ApplicationsPageEnabled         bool          `help:"whether applications page should be shown" default:"false"`
+	EmissionImpactViewEnabled       bool          `help:"whether emission impact view should be shown" default:"true"`
+	DaysBeforeTrialEndNotification  int           `help:"days left before trial end notification" default:"3"`
+	BadPasswordsFile                string        `help:"path to a local file with bad passwords list, empty path == skip check" default:""`
+	NoLimitsUiEnabled               bool          `help:"whether to show unlimited-limits UI for pro users" default:"false"`
+	AltObjBrowserPagingEnabled      bool          `help:"whether simplified native s3 pagination should be enabled for the huge buckets in the object browser" default:"false"`
+	AltObjBrowserPagingThreshold    int           `help:"number of objects triggering simplified native S3 pagination" default:"10000"`
+	DomainsPageEnabled              bool          `help:"whether domains page should be shown" default:"false"`
+	ActiveSessionsViewEnabled       bool          `help:"whether active sessions table view should be shown" default:"false"`
+	ObjectLockUIEnabled             bool          `help:"whether object lock UI should be shown, regardless of whether the feature is enabled" default:"false"`
 
 	OauthCodeExpiry         time.Duration `help:"how long oauth authorization codes are issued for" default:"10m"`
 	OauthAccessTokenExpiry  time.Duration `help:"how long oauth access tokens are issued for" default:"24h"`
@@ -149,6 +156,10 @@ type Server struct {
 
 	stripePublicKey                 string
 	neededTokenPaymentConfirmations int
+
+	objectLockAndVersioningConfig console.ObjectLockAndVersioningConfig
+
+	AnalyticsConfig analytics.Config
 
 	packagePlans paymentsconfig.PackagePlans
 
@@ -212,7 +223,10 @@ func (a *apiAuth) RemoveAuthCookie(w http.ResponseWriter) {
 }
 
 // NewServer creates new instance of console server.
-func NewServer(logger *zap.Logger, config Config, service *console.Service, oidcService *oidc.Service, mailService *mailservice.Service, analytics *analytics.Service, abTesting *abtesting.Service, accountFreezeService *console.AccountFreezeService, listener net.Listener, stripePublicKey string, neededTokenPaymentConfirmations int, nodeURL storj.NodeURL, packagePlans paymentsconfig.PackagePlans) *Server {
+func NewServer(logger *zap.Logger, config Config, service *console.Service, oidcService *oidc.Service, mailService *mailservice.Service,
+	analytics *analytics.Service, abTesting *abtesting.Service, accountFreezeService *console.AccountFreezeService, listener net.Listener,
+	stripePublicKey string, neededTokenPaymentConfirmations int, nodeURL storj.NodeURL, objectLockAndVersioningConfig console.ObjectLockAndVersioningConfig,
+	analyticsConfig analytics.Config, packagePlans paymentsconfig.PackagePlans) *Server {
 	initAdditionalMimeTypes()
 
 	server := Server{
@@ -228,7 +242,9 @@ func NewServer(logger *zap.Logger, config Config, service *console.Service, oidc
 		ipRateLimiter:                   web.NewIPRateLimiter(config.RateLimit, logger),
 		userIDRateLimiter:               NewUserIDRateLimiter(config.RateLimit, logger),
 		nodeURL:                         nodeURL,
+		AnalyticsConfig:                 analyticsConfig,
 		packagePlans:                    packagePlans,
+		objectLockAndVersioningConfig:   objectLockAndVersioningConfig,
 	}
 
 	logger.Debug("Starting Satellite Console server.", zap.Stringer("Address", server.listener.Addr()))
@@ -257,6 +273,9 @@ func NewServer(logger *zap.Logger, config Config, service *console.Service, oidc
 	router.Use(newTraceRequestMiddleware(logger, router))
 
 	router.Use(requestid.AddToContext)
+	// by default, set Cache-Control=no-store for all requests
+	// if requests should be cached (e.g. static assets), the cache control header can be overridden
+	router.Use(cacheNoStoreMiddleware)
 
 	// limit body size
 	router.Use(newBodyLimiterMiddleware(logger.Named("body-limiter-middleware"), config.BodySizeLimit))
@@ -279,28 +298,40 @@ func NewServer(logger *zap.Logger, config Config, service *console.Service, oidc
 	projectsRouter.Handle("", http.HandlerFunc(projectsController.CreateProject)).Methods(http.MethodPost, http.MethodOptions)
 	projectsRouter.Handle("/paged", http.HandlerFunc(projectsController.GetPagedProjects)).Methods(http.MethodGet, http.MethodOptions)
 	projectsRouter.Handle("/{id}", http.HandlerFunc(projectsController.UpdateProject)).Methods(http.MethodPatch, http.MethodOptions)
+	projectsRouter.Handle("/{id}", http.HandlerFunc(projectsController.DeleteProject)).Methods(http.MethodDelete, http.MethodOptions)
+	projectsRouter.Handle("/{id}/limits", http.HandlerFunc(projectsController.UpdateUserSpecifiedLimits)).Methods(http.MethodPatch, http.MethodOptions)
 	projectsRouter.Handle("/{id}/limit-increase", http.HandlerFunc(projectsController.RequestLimitIncrease)).Methods(http.MethodPost, http.MethodOptions)
 	projectsRouter.Handle("/{id}/members", http.HandlerFunc(projectsController.DeleteMembersAndInvitations)).Methods(http.MethodDelete, http.MethodOptions)
 	projectsRouter.Handle("/{id}/salt", http.HandlerFunc(projectsController.GetSalt)).Methods(http.MethodGet, http.MethodOptions)
 	projectsRouter.Handle("/{id}/members", http.HandlerFunc(projectsController.GetMembersAndInvitations)).Methods(http.MethodGet, http.MethodOptions)
+	projectsRouter.Handle("/{id}/members/{memberID}", http.HandlerFunc(projectsController.UpdateMemberRole)).Methods(http.MethodPatch, http.MethodOptions)
+	projectsRouter.Handle("/{id}/members/{memberID}", http.HandlerFunc(projectsController.GetMember)).Methods(http.MethodGet, http.MethodOptions)
 	projectsRouter.Handle("/{id}/invite/{email}", server.userIDRateLimiter.Limit(http.HandlerFunc(projectsController.InviteUser))).Methods(http.MethodPost, http.MethodOptions)
 	projectsRouter.Handle("/{id}/reinvite", server.userIDRateLimiter.Limit(http.HandlerFunc(projectsController.ReinviteUsers))).Methods(http.MethodPost, http.MethodOptions)
 	projectsRouter.Handle("/{id}/invite-link", http.HandlerFunc(projectsController.GetInviteLink)).Methods(http.MethodGet, http.MethodOptions)
 	projectsRouter.Handle("/{id}/emission", http.HandlerFunc(projectsController.GetEmissionImpact)).Methods(http.MethodGet, http.MethodOptions)
+	projectsRouter.Handle("/{id}/config", http.HandlerFunc(projectsController.GetConfig)).Methods(http.MethodGet, http.MethodOptions)
+	projectsRouter.Handle("/{id}/versioning-opt-{status}", http.HandlerFunc(projectsController.OptInToVersioning)).Methods(http.MethodPatch, http.MethodOptions)
 	projectsRouter.Handle("/invitations", http.HandlerFunc(projectsController.GetUserInvitations)).Methods(http.MethodGet, http.MethodOptions)
 	projectsRouter.Handle("/invitations/{id}/respond", http.HandlerFunc(projectsController.RespondToInvitation)).Methods(http.MethodPost, http.MethodOptions)
 
 	usageLimitsController := consoleapi.NewUsageLimits(logger, service, server.config.AllowedUsageReportDateRange)
 	projectsRouter.Handle("/{id}/usage-limits", http.HandlerFunc(usageLimitsController.ProjectUsageLimits)).Methods(http.MethodGet, http.MethodOptions)
 	projectsRouter.Handle("/usage-limits", http.HandlerFunc(usageLimitsController.TotalUsageLimits)).Methods(http.MethodGet, http.MethodOptions)
-	projectsRouter.Handle("/{id}/daily-usage", server.userIDRateLimiter.Limit(http.HandlerFunc(usageLimitsController.DailyUsage))).Methods(http.MethodGet, http.MethodOptions)
+	projectsRouter.Handle("/{id}/daily-usage", http.HandlerFunc(usageLimitsController.DailyUsage)).Methods(http.MethodGet, http.MethodOptions)
 	projectsRouter.Handle("/usage-report", server.userIDRateLimiter.Limit(http.HandlerFunc(usageLimitsController.UsageReport))).Methods(http.MethodGet, http.MethodOptions)
 
-	authController := consoleapi.NewAuth(logger, service, accountFreezeService, mailService, server.cookieAuth, server.analytics, config.SatelliteName, server.config.ExternalAddress, config.LetUsKnowURL, config.TermsAndConditionsURL, config.ContactInfoURL, config.GeneralRequestURL, config.SignupActivationCodeEnabled)
+	badPasswords, err := server.loadBadPasswords()
+	if err != nil {
+		server.log.Error("unable to load bad passwords list", zap.Error(err))
+	}
+
+	authController := consoleapi.NewAuth(logger, service, accountFreezeService, mailService, server.cookieAuth, server.analytics, config.SatelliteName, server.config.ExternalAddress, config.LetUsKnowURL, config.TermsAndConditionsURL, config.ContactInfoURL, config.GeneralRequestURL, config.SignupActivationCodeEnabled, badPasswords)
 	authRouter := router.PathPrefix("/api/v0/auth").Subrouter()
 	authRouter.Use(server.withCORS)
 	authRouter.Handle("/account", server.withAuth(http.HandlerFunc(authController.GetAccount))).Methods(http.MethodGet, http.MethodOptions)
 	authRouter.Handle("/account", server.withAuth(http.HandlerFunc(authController.UpdateAccount))).Methods(http.MethodPatch, http.MethodOptions)
+	authRouter.Handle("/account", server.withAuth(http.HandlerFunc(authController.DeleteAccount))).Methods(http.MethodDelete, http.MethodOptions)
 	authRouter.Handle("/account/setup", server.withAuth(http.HandlerFunc(authController.SetupAccount))).Methods(http.MethodPatch, http.MethodOptions)
 	authRouter.Handle("/account/change-password", server.withAuth(server.userIDRateLimiter.Limit(http.HandlerFunc(authController.ChangePassword)))).Methods(http.MethodPost, http.MethodOptions)
 	authRouter.Handle("/account/freezestatus", server.withAuth(http.HandlerFunc(authController.GetFreezeStatus))).Methods(http.MethodGet, http.MethodOptions)
@@ -308,20 +339,29 @@ func NewServer(logger *zap.Logger, config Config, service *console.Service, oidc
 	authRouter.Handle("/account/settings", server.withAuth(http.HandlerFunc(authController.SetUserSettings))).Methods(http.MethodPatch, http.MethodOptions)
 	authRouter.Handle("/account/onboarding", server.withAuth(http.HandlerFunc(authController.SetOnboardingStatus))).Methods(http.MethodPatch, http.MethodOptions)
 	authRouter.Handle("/mfa/enable", server.withAuth(http.HandlerFunc(authController.EnableUserMFA))).Methods(http.MethodPost, http.MethodOptions)
-	authRouter.Handle("/mfa/disable", server.withAuth(http.HandlerFunc(authController.DisableUserMFA))).Methods(http.MethodPost, http.MethodOptions)
+	authRouter.Handle("/mfa/disable", server.withAuth(server.userIDRateLimiter.Limit(http.HandlerFunc(authController.DisableUserMFA)))).Methods(http.MethodPost, http.MethodOptions)
 	authRouter.Handle("/mfa/generate-secret-key", server.withAuth(http.HandlerFunc(authController.GenerateMFASecretKey))).Methods(http.MethodPost, http.MethodOptions)
 	authRouter.Handle("/mfa/generate-recovery-codes", server.withAuth(http.HandlerFunc(authController.GenerateMFARecoveryCodes))).Methods(http.MethodPost, http.MethodOptions)
-	authRouter.Handle("/mfa/regenerate-recovery-codes", server.withAuth(http.HandlerFunc(authController.RegenerateMFARecoveryCodes))).Methods(http.MethodPost, http.MethodOptions)
+	authRouter.Handle("/mfa/regenerate-recovery-codes", server.withAuth(server.userIDRateLimiter.Limit(http.HandlerFunc(authController.RegenerateMFARecoveryCodes)))).Methods(http.MethodPost, http.MethodOptions)
 	authRouter.Handle("/logout", server.withAuth(http.HandlerFunc(authController.Logout))).Methods(http.MethodPost, http.MethodOptions)
 	authRouter.Handle("/token", server.ipRateLimiter.Limit(http.HandlerFunc(authController.Token))).Methods(http.MethodPost, http.MethodOptions)
 	authRouter.Handle("/token-by-api-key", server.ipRateLimiter.Limit(http.HandlerFunc(authController.TokenByAPIKey))).Methods(http.MethodPost, http.MethodOptions)
 	authRouter.Handle("/register", server.ipRateLimiter.Limit(http.HandlerFunc(authController.Register))).Methods(http.MethodPost, http.MethodOptions)
 	authRouter.Handle("/code-activation", server.ipRateLimiter.Limit(http.HandlerFunc(authController.ActivateAccount))).Methods(http.MethodPatch, http.MethodOptions)
 	authRouter.Handle("/forgot-password", server.ipRateLimiter.Limit(http.HandlerFunc(authController.ForgotPassword))).Methods(http.MethodPost, http.MethodOptions)
-	authRouter.Handle("/resend-email/{email}", server.ipRateLimiter.Limit(http.HandlerFunc(authController.ResendEmail))).Methods(http.MethodPost, http.MethodOptions)
+	authRouter.Handle("/resend-email", server.ipRateLimiter.Limit(http.HandlerFunc(authController.ResendEmail))).Methods(http.MethodPost, http.MethodOptions)
 	authRouter.Handle("/reset-password", server.ipRateLimiter.Limit(http.HandlerFunc(authController.ResetPassword))).Methods(http.MethodPost, http.MethodOptions)
 	authRouter.Handle("/refresh-session", server.withAuth(http.HandlerFunc(authController.RefreshSession))).Methods(http.MethodPost, http.MethodOptions)
+	authRouter.Handle("/sessions", server.withAuth(http.HandlerFunc(authController.GetActiveSessions))).Methods(http.MethodGet, http.MethodOptions)
+	authRouter.Handle("/invalidate-session/{id}", server.withAuth(http.HandlerFunc(authController.InvalidateSessionByID))).Methods(http.MethodPost, http.MethodOptions)
 	authRouter.Handle("/limit-increase", server.withAuth(http.HandlerFunc(authController.RequestLimitIncrease))).Methods(http.MethodPatch, http.MethodOptions)
+	authRouter.Handle("/change-email", server.withAuth(http.HandlerFunc(authController.ChangeEmail))).Methods(http.MethodPost, http.MethodOptions)
+
+	domainsController := consoleapi.NewDomains(logger, service)
+	domainsRouter := router.PathPrefix("/api/v0/domains").Subrouter()
+	domainsRouter.Use(server.withCORS)
+	domainsRouter.Use(server.withAuth)
+	domainsRouter.Handle("/check-dns", http.HandlerFunc(domainsController.CheckDNSRecords)).Methods(http.MethodPost, http.MethodOptions)
 
 	if config.ABTesting.Enabled {
 		abController := consoleapi.NewABTesting(logger, abTesting)
@@ -337,6 +377,12 @@ func NewServer(logger *zap.Logger, config Config, service *console.Service, oidc
 		paymentsRouter := router.PathPrefix("/api/v0/payments").Subrouter()
 		paymentsRouter.Use(server.withCORS)
 		paymentsRouter.Use(server.withAuth)
+
+		allowedRoutes := []string{"/api/v0/payments/account"} // var partners can still setup stripe account
+		varBlocker := newVarBlockerMiddleWare(&server, config.VarPartners, allowedRoutes)
+		paymentsRouter.Use(varBlocker.withVarBlocker)
+
+		paymentsRouter.Handle("/attempt-payments", server.userIDRateLimiter.Limit(http.HandlerFunc(paymentController.TriggerAttemptPayment))).Methods(http.MethodPost, http.MethodOptions)
 		paymentsRouter.Handle("/payment-methods", server.userIDRateLimiter.Limit(http.HandlerFunc(paymentController.AddCardByPaymentMethodID))).Methods(http.MethodPost, http.MethodOptions)
 		paymentsRouter.Handle("/cards", server.userIDRateLimiter.Limit(http.HandlerFunc(paymentController.AddCreditCard))).Methods(http.MethodPost, http.MethodOptions)
 		paymentsRouter.HandleFunc("/cards", paymentController.MakeCreditCardDefault).Methods(http.MethodPatch, http.MethodOptions)
@@ -344,6 +390,11 @@ func NewServer(logger *zap.Logger, config Config, service *console.Service, oidc
 		paymentsRouter.HandleFunc("/cards/{cardId}", paymentController.RemoveCreditCard).Methods(http.MethodDelete, http.MethodOptions)
 		paymentsRouter.HandleFunc("/account/charges", paymentController.ProjectsCharges).Methods(http.MethodGet, http.MethodOptions)
 		paymentsRouter.HandleFunc("/account/balance", paymentController.AccountBalance).Methods(http.MethodGet, http.MethodOptions)
+		paymentsRouter.HandleFunc("/account/billing-information", paymentController.GetBillingInformation).Methods(http.MethodGet, http.MethodOptions)
+		paymentsRouter.HandleFunc("/account/billing-address", paymentController.SaveBillingAddress).Methods(http.MethodPatch, http.MethodOptions)
+		paymentsRouter.HandleFunc("/account/tax-ids", paymentController.AddTaxID).Methods(http.MethodPost, http.MethodOptions)
+		paymentsRouter.HandleFunc("/account/invoice-reference", paymentController.AddInvoiceReference).Methods(http.MethodPost, http.MethodOptions)
+		paymentsRouter.HandleFunc("/account/tax-ids/{taxID}", paymentController.RemoveTaxID).Methods(http.MethodDelete, http.MethodOptions)
 		paymentsRouter.HandleFunc("/account", paymentController.SetupAccount).Methods(http.MethodPost, http.MethodOptions)
 		paymentsRouter.HandleFunc("/wallet", paymentController.GetWallet).Methods(http.MethodGet, http.MethodOptions)
 		paymentsRouter.HandleFunc("/wallet", paymentController.ClaimWallet).Methods(http.MethodPost, http.MethodOptions)
@@ -354,6 +405,8 @@ func NewServer(logger *zap.Logger, config Config, service *console.Service, oidc
 		paymentsRouter.Handle("/coupon/apply", server.userIDRateLimiter.Limit(http.HandlerFunc(paymentController.ApplyCouponCode))).Methods(http.MethodPatch, http.MethodOptions)
 		paymentsRouter.HandleFunc("/coupon", paymentController.GetCoupon).Methods(http.MethodGet, http.MethodOptions)
 		paymentsRouter.HandleFunc("/pricing", paymentController.GetProjectUsagePriceModel).Methods(http.MethodGet, http.MethodOptions)
+		paymentsRouter.HandleFunc("/countries", paymentController.GetTaxCountries).Methods(http.MethodGet, http.MethodOptions)
+		paymentsRouter.HandleFunc("/countries/{countryCode}/taxes", paymentController.GetCountryTaxes).Methods(http.MethodGet, http.MethodOptions)
 		if config.PricingPackagesEnabled {
 			paymentsRouter.HandleFunc("/purchase-package", paymentController.PurchasePackage).Methods(http.MethodPost, http.MethodOptions)
 			paymentsRouter.HandleFunc("/package-available", paymentController.PackageAvailable).Methods(http.MethodGet, http.MethodOptions)
@@ -365,21 +418,26 @@ func NewServer(logger *zap.Logger, config Config, service *console.Service, oidc
 	bucketsRouter.Use(server.withCORS)
 	bucketsRouter.Use(server.withAuth)
 	bucketsRouter.HandleFunc("/bucket-names", bucketsController.AllBucketNames).Methods(http.MethodGet, http.MethodOptions)
-	bucketsRouter.HandleFunc("/bucket-placements", bucketsController.GetBucketPlacements).Methods(http.MethodGet, http.MethodOptions)
+	bucketsRouter.HandleFunc("/bucket-placements", bucketsController.GetBucketMetadata).Methods(http.MethodGet, http.MethodOptions)
+	bucketsRouter.HandleFunc("/bucket-metadata", bucketsController.GetBucketMetadata).Methods(http.MethodGet, http.MethodOptions)
 	bucketsRouter.HandleFunc("/usage-totals", bucketsController.GetBucketTotals).Methods(http.MethodGet, http.MethodOptions)
+	bucketsRouter.HandleFunc("/bucket-totals", bucketsController.GetSingleBucketTotals).Methods(http.MethodGet, http.MethodOptions)
 
 	apiKeysController := consoleapi.NewAPIKeys(logger, service)
 	apiKeysRouter := router.PathPrefix("/api/v0/api-keys").Subrouter()
 	apiKeysRouter.Use(server.withCORS)
 	apiKeysRouter.Use(server.withAuth)
-	apiKeysRouter.HandleFunc("/create/{projectID}", apiKeysController.CreateAPIKey).Methods(http.MethodPost, http.MethodOptions)
+	apiKeysRouter.Handle("/create/{projectID}", http.HandlerFunc(apiKeysController.CreateAPIKey)).Methods(http.MethodPost, http.MethodOptions)
+	apiKeysRouter.Handle("/delete-by-name", http.HandlerFunc(apiKeysController.DeleteByNameAndProjectID)).Methods(http.MethodDelete, http.MethodOptions)
+	apiKeysRouter.Handle("/delete-by-ids", http.HandlerFunc(apiKeysController.DeleteByIDs)).Methods(http.MethodDelete, http.MethodOptions)
 	apiKeysRouter.HandleFunc("/list-paged", apiKeysController.GetProjectAPIKeys).Methods(http.MethodGet, http.MethodOptions)
-	apiKeysRouter.HandleFunc("/delete-by-name", apiKeysController.DeleteByNameAndProjectID).Methods(http.MethodDelete, http.MethodOptions)
-	apiKeysRouter.HandleFunc("/delete-by-ids", apiKeysController.DeleteByIDs).Methods(http.MethodDelete, http.MethodOptions)
 	apiKeysRouter.HandleFunc("/api-key-names", apiKeysController.GetAllAPIKeyNames).Methods(http.MethodGet, http.MethodOptions)
 
 	analyticsController := consoleapi.NewAnalytics(logger, service, server.analytics)
-	analyticsRouter := router.PathPrefix("/api/v0/analytics").Subrouter()
+
+	analyticsPath := "/api/v0/analytics"
+	router.HandleFunc(analyticsPath+"/pageview", analyticsController.PageViewTriggered).Methods(http.MethodPost, http.MethodOptions)
+	analyticsRouter := router.PathPrefix(analyticsPath).Subrouter()
 	analyticsRouter.Use(server.withCORS)
 	analyticsRouter.Use(server.withAuth)
 	analyticsRouter.HandleFunc("/event", analyticsController.EventTriggered).Methods(http.MethodPost, http.MethodOptions)
@@ -396,6 +454,26 @@ func NewServer(logger *zap.Logger, config Config, service *console.Service, oidc
 	router.Handle("/api/v0/oauth/v2/tokens", server.ipRateLimiter.Limit(http.HandlerFunc(oidc.Tokens))).Methods(http.MethodPost)
 	router.Handle("/api/v0/oauth/v2/userinfo", server.ipRateLimiter.Limit(http.HandlerFunc(oidc.UserInfo))).Methods(http.MethodGet)
 	router.Handle("/api/v0/oauth/v2/clients/{id}", server.withAuth(http.HandlerFunc(oidc.GetClient))).Methods(http.MethodGet)
+
+	if server.config.GeneratedAPIEnabled {
+		rawUrl := server.config.ExternalAddress + "public/v1"
+		target, err := url.Parse(rawUrl)
+		if err != nil {
+			server.log.Error("unable to parse satellite address", zap.String("url", rawUrl), zap.Error(err))
+		} else {
+			// this proxy is for backward compatibility with old code that uses the old /api/v0
+			// prefix for the generated API. It proxies these requests to the new /public/v1 prefix.
+			proxy := &httputil.ReverseProxy{
+				Rewrite: func(r *httputil.ProxyRequest) {
+					r.Out.URL.Path = strings.TrimPrefix(r.In.URL.Path, "/api/v0")
+					r.SetURL(target)
+				},
+			}
+			router.PathPrefix(`/api/v0/{*}`).Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				proxy.ServeHTTP(w, r)
+			}))
+		}
+	}
 
 	router.HandleFunc("/invited", server.handleInvited)
 	router.HandleFunc("/activation", server.accountActivationHandler)
@@ -467,6 +545,9 @@ func NewFrontendServer(logger *zap.Logger, config Config, listener net.Listener,
 	// N.B. This middleware has to be the first one because it has to be called
 	// the earliest in the HTTP chain.
 	router.Use(newTraceRequestMiddleware(logger, router))
+	// by default, set Cache-Control=no-store for all requests
+	// if requests should be cached (e.g. static assets), the cache control header can be overridden
+	router.Use(cacheNoStoreMiddleware)
 
 	// in local development, proxy certain requests to the console back-end server
 	if config.BackendReverseProxy != "" {
@@ -543,16 +624,24 @@ func (server *Server) Close() error {
 	return server.server.Close()
 }
 
+func cacheNoStoreMiddleware(handler http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Cache-Control", "no-store")
+		handler.ServeHTTP(w, r)
+	})
+}
+
 // setAppHeaders sets the necessary headers for requests to the app.
 func (server *Server) setAppHeaders(w http.ResponseWriter, r *http.Request) {
 	header := w.Header()
 
 	if server.config.CSPEnabled {
 		connectSrc := fmt.Sprintf("connect-src 'self' %s %s", server.config.ConnectSrcSuffix, server.config.GatewayCredentialsRequestURL)
-		scriptSrc := "script-src 'sha256-wAqYV6m2PHGd1WDyFBnZmSoyfCK0jxFAns0vGbdiWUA=' 'self' *.stripe.com"
+		scriptSrc := "script-src 'sha256-wAqYV6m2PHGd1WDyFBnZmSoyfCK0jxFAns0vGbdiWUA=' 'nonce-dQw4w9WgXcQ' 'self' *.stripe.com"
 		// Those are hashes of charts custom tooltip inline styles. They have to be updated if styles are updated.
-		styleSrc := "style-src 'unsafe-hashes' 'sha256-7mY2NKmZ4PuyjGUa4FYC5u36SxXdoUM/zxrlr3BEToo=' 'sha256-PRTMwLUW5ce9tdiUrVCGKqj6wPeuOwGogb1pmyuXhgI=' 'sha256-kwpt3lQZ21rs4cld7/uEm9qI5yAbjYzx+9FGm/XmwNU=' 'sha256-Qf4xqtNKtDLwxce6HLtD5Y6BWpOeR7TnDpNSo+Bhb3s=' 'self'"
-		frameSrc := "frame-src 'self' *.stripe.com"
+		styleSrc := "style-src 'unsafe-hashes' 'sha256-7mY2NKmZ4PuyjGUa4FYC5u36SxXdoUM/zxrlr3BEToo=' 'sha256-PRTMwLUW5ce9tdiUrVCGKqj6wPeuOwGogb1pmyuXhgI=' 'sha256-kwpt3lQZ21rs4cld7/uEm9qI5yAbjYzx+9FGm/XmwNU=' 'sha256-Qf4xqtNKtDLwxce6HLtD5Y6BWpOeR7TnDpNSo+Bhb3s=' 'nonce-dQw4w9WgXcQ' 'self'"
+		frameSrc := "frame-src 'self' *.stripe.com " + server.config.PublicLinksharingURL
+		objectSrc := "object-src 'self' " + server.config.PublicLinksharingURL + " " + server.config.LinksharingURL
 
 		appendValues := func(str string, vals ...string) string {
 			for _, v := range vals {
@@ -581,6 +670,7 @@ func (server *Server) setAppHeaders(w http.ResponseWriter, r *http.Request) {
 			scriptSrc,
 			styleSrc,
 			frameSrc,
+			objectSrc,
 			"frame-ancestors " + server.config.FrameAncestors,
 			"img-src 'self' data: blob: " + server.config.ImgSrcSuffix,
 			"media-src 'self' blob: " + server.config.MediaSrcSuffix,
@@ -592,6 +682,26 @@ func (server *Server) setAppHeaders(w http.ResponseWriter, r *http.Request) {
 	header.Set(contentType, "text/html; charset=UTF-8")
 	header.Set("X-Content-Type-Options", "nosniff")
 	header.Set("Referrer-Policy", "same-origin") // Only expose the referring url when navigating around the satellite itself.
+}
+
+// loadBadPasswords loads the bad passwords from a file into a map.
+func (server *Server) loadBadPasswords() (map[string]struct{}, error) {
+	if server.config.BadPasswordsFile == "" {
+		return nil, nil
+	}
+
+	bytes, err := os.ReadFile(server.config.BadPasswordsFile)
+	if err != nil {
+		return nil, err
+	}
+
+	badPasswords := make(map[string]struct{})
+	parsedPasswords := strings.Split(string(bytes), "\n")
+	for _, p := range parsedPasswords {
+		badPasswords[p] = struct{}{}
+	}
+
+	return badPasswords, nil
 }
 
 // appHandler is web app http handler function.
@@ -622,6 +732,56 @@ func (server *Server) appHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	http.ServeContent(w, r, path, info.ModTime(), file)
+}
+
+// varBlockerMiddleWare is a middleware that blocks requests from VAR partners.
+type varBlockerMiddleWare struct {
+	partners map[string]struct{}
+	server   *Server
+	// routes that should be allowed by the varBlocker regardless
+	// of whether the request is from a VAR partner user or not
+	allowedRoutes map[string]struct{}
+}
+
+// newVarBlockerMiddleWare creates a new instance of varBlocker.
+func newVarBlockerMiddleWare(server *Server, varPartners []string, allowedRoutes []string) *varBlockerMiddleWare {
+	partners := make(map[string]struct{}, len(varPartners))
+	for _, partner := range varPartners {
+		partners[partner] = struct{}{}
+	}
+	allowed := make(map[string]struct{}, len(allowedRoutes))
+	for _, route := range allowedRoutes {
+		allowed[route] = struct{}{}
+	}
+	return &varBlockerMiddleWare{
+		partners:      partners,
+		server:        server,
+		allowedRoutes: allowed,
+	}
+}
+
+// withVarBlocker blocks requests from VAR partners.
+func (v *varBlockerMiddleWare) withVarBlocker(handler http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		var err error
+		ctx := r.Context()
+
+		defer mon.Task()(&ctx)(&err)
+
+		if _, ok := v.allowedRoutes[r.URL.Path]; !ok {
+			user, err := console.GetUser(ctx)
+			if err != nil {
+				web.ServeJSONError(ctx, v.server.log, w, http.StatusForbidden, Error.Wrap(err))
+				return
+			}
+			if _, ok := v.partners[string(user.UserAgent)]; ok {
+				web.ServeJSONError(ctx, v.server.log, w, http.StatusForbidden, errs.New("VAR Partner not supported"))
+				return
+			}
+		}
+
+		handler.ServeHTTP(w, r.Clone(ctx))
+	})
 }
 
 // withCORS handles setting CORS-related headers on an http request.
@@ -691,54 +851,67 @@ func (server *Server) frontendConfigHandler(w http.ResponseWriter, r *http.Reque
 	w.Header().Set(contentType, applicationJSON)
 
 	cfg := FrontendConfig{
-		ExternalAddress:                 server.config.ExternalAddress,
-		SatelliteName:                   server.config.SatelliteName,
-		SatelliteNodeURL:                server.nodeURL.String(),
-		StripePublicKey:                 server.stripePublicKey,
-		PartneredSatellites:             server.config.PartneredSatellites,
-		DefaultProjectLimit:             server.config.DefaultProjectLimit,
-		GeneralRequestURL:               server.config.GeneralRequestURL,
-		ProjectLimitsIncreaseRequestURL: server.config.ProjectLimitsIncreaseRequestURL,
-		GatewayCredentialsRequestURL:    server.config.GatewayCredentialsRequestURL,
-		IsBetaSatellite:                 server.config.IsBetaSatellite,
-		BetaSatelliteFeedbackURL:        server.config.BetaSatelliteFeedbackURL,
-		BetaSatelliteSupportURL:         server.config.BetaSatelliteSupportURL,
-		DocumentationURL:                server.config.DocumentationURL,
-		CouponCodeBillingUIEnabled:      server.config.CouponCodeBillingUIEnabled,
-		CouponCodeSignupUIEnabled:       server.config.CouponCodeSignupUIEnabled,
-		FileBrowserFlowDisabled:         server.config.FileBrowserFlowDisabled,
-		LinksharingURL:                  server.config.LinksharingURL,
-		PublicLinksharingURL:            server.config.PublicLinksharingURL,
-		PathwayOverviewEnabled:          server.config.PathwayOverviewEnabled,
-		DefaultPaidStorageLimit:         server.config.UsageLimits.Storage.Paid,
-		DefaultPaidBandwidthLimit:       server.config.UsageLimits.Bandwidth.Paid,
-		Captcha:                         server.config.Captcha,
-		LimitsAreaEnabled:               server.config.LimitsAreaEnabled,
-		InactivityTimerEnabled:          server.config.Session.InactivityTimerEnabled,
-		InactivityTimerDuration:         server.config.Session.InactivityTimerDuration,
-		InactivityTimerViewerEnabled:    server.config.Session.InactivityTimerViewerEnabled,
-		OptionalSignupSuccessURL:        server.config.OptionalSignupSuccessURL,
-		HomepageURL:                     server.config.HomepageURL,
-		NativeTokenPaymentsEnabled:      server.config.NativeTokenPaymentsEnabled,
-		PasswordMinimumLength:           console.PasswordMinimumLength,
-		PasswordMaximumLength:           console.PasswordMaximumLength,
-		ABTestingEnabled:                server.config.ABTesting.Enabled,
-		PricingPackagesEnabled:          server.config.PricingPackagesEnabled,
-		GalleryViewEnabled:              server.config.GalleryViewEnabled,
-		NeededTransactionConfirmations:  server.neededTokenPaymentConfirmations,
-		ObjectBrowserPaginationEnabled:  server.config.ObjectBrowserPaginationEnabled,
-		BillingFeaturesEnabled:          server.config.BillingFeaturesEnabled,
-		StripePaymentElementEnabled:     server.config.StripePaymentElementEnabled,
-		UnregisteredInviteEmailsEnabled: server.config.UnregisteredInviteEmailsEnabled,
-		FreeTierInvitesEnabled:          server.config.FreeTierInvitesEnabled,
-		UserBalanceForUpgrade:           server.config.UserBalanceForUpgrade,
-		LimitIncreaseRequestEnabled:     server.config.LimitIncreaseRequestEnabled,
-		SignupActivationCodeEnabled:     server.config.SignupActivationCodeEnabled,
-		AllowedUsageReportDateRange:     server.config.AllowedUsageReportDateRange,
-		OnboardingStepperEnabled:        server.config.OnboardingStepperEnabled,
-		EnableRegionTag:                 server.config.EnableRegionTag,
-		EmissionImpactViewEnabled:       server.config.EmissionImpactViewEnabled,
-		ApplicationsPageEnabled:         server.config.ApplicationsPageEnabled,
+		ExternalAddress:                   server.config.ExternalAddress,
+		SatelliteName:                     server.config.SatelliteName,
+		SatelliteNodeURL:                  server.nodeURL.String(),
+		StripePublicKey:                   server.stripePublicKey,
+		PartneredSatellites:               server.config.PartneredSatellites,
+		DefaultProjectLimit:               server.config.DefaultProjectLimit,
+		GeneralRequestURL:                 server.config.GeneralRequestURL,
+		ProjectLimitsIncreaseRequestURL:   server.config.ProjectLimitsIncreaseRequestURL,
+		GatewayCredentialsRequestURL:      server.config.GatewayCredentialsRequestURL,
+		IsBetaSatellite:                   server.config.IsBetaSatellite,
+		BetaSatelliteFeedbackURL:          server.config.BetaSatelliteFeedbackURL,
+		BetaSatelliteSupportURL:           server.config.BetaSatelliteSupportURL,
+		DocumentationURL:                  server.config.DocumentationURL,
+		CouponCodeBillingUIEnabled:        server.config.CouponCodeBillingUIEnabled,
+		CouponCodeSignupUIEnabled:         server.config.CouponCodeSignupUIEnabled,
+		FileBrowserFlowDisabled:           server.config.FileBrowserFlowDisabled,
+		LinksharingURL:                    server.config.LinksharingURL,
+		PublicLinksharingURL:              server.config.PublicLinksharingURL,
+		PathwayOverviewEnabled:            server.config.PathwayOverviewEnabled,
+		DefaultPaidStorageLimit:           server.config.UsageLimits.Storage.Paid,
+		DefaultPaidBandwidthLimit:         server.config.UsageLimits.Bandwidth.Paid,
+		Captcha:                           server.config.Captcha,
+		LimitsAreaEnabled:                 server.config.LimitsAreaEnabled,
+		InactivityTimerEnabled:            server.config.Session.InactivityTimerEnabled,
+		InactivityTimerDuration:           server.config.Session.InactivityTimerDuration,
+		InactivityTimerViewerEnabled:      server.config.Session.InactivityTimerViewerEnabled,
+		OptionalSignupSuccessURL:          server.config.OptionalSignupSuccessURL,
+		HomepageURL:                       server.config.HomepageURL,
+		NativeTokenPaymentsEnabled:        server.config.NativeTokenPaymentsEnabled,
+		PasswordMinimumLength:             console.PasswordMinimumLength,
+		PasswordMaximumLength:             console.PasswordMaximumLength,
+		ABTestingEnabled:                  server.config.ABTesting.Enabled,
+		PricingPackagesEnabled:            server.config.PricingPackagesEnabled,
+		GalleryViewEnabled:                server.config.GalleryViewEnabled,
+		NeededTransactionConfirmations:    server.neededTokenPaymentConfirmations,
+		BillingFeaturesEnabled:            server.config.BillingFeaturesEnabled,
+		StripePaymentElementEnabled:       server.config.StripePaymentElementEnabled,
+		UnregisteredInviteEmailsEnabled:   server.config.UnregisteredInviteEmailsEnabled,
+		UserBalanceForUpgrade:             server.config.UserBalanceForUpgrade,
+		LimitIncreaseRequestEnabled:       server.config.LimitIncreaseRequestEnabled,
+		SignupActivationCodeEnabled:       server.config.SignupActivationCodeEnabled,
+		AllowedUsageReportDateRange:       server.config.AllowedUsageReportDateRange,
+		EnableRegionTag:                   server.config.EnableRegionTag,
+		EmissionImpactViewEnabled:         server.config.EmissionImpactViewEnabled,
+		AnalyticsEnabled:                  server.AnalyticsConfig.Enabled,
+		DaysBeforeTrialEndNotification:    server.config.DaysBeforeTrialEndNotification,
+		ObjectBrowserKeyNamePrefix:        server.config.ObjectBrowserKeyNamePrefix,
+		ObjectBrowserKeyLifetime:          server.config.ObjectBrowserKeyLifetime,
+		MaxNameCharacters:                 server.config.MaxNameCharacters,
+		BillingInformationTabEnabled:      server.config.BillingInformationTabEnabled,
+		SatelliteManagedEncryptionEnabled: server.config.SatelliteManagedEncryptionEnabled,
+		EmailChangeFlowEnabled:            server.config.EmailChangeFlowEnabled,
+		SelfServeAccountDeleteEnabled:     server.config.SelfServeAccountDeleteEnabled,
+		DeleteProjectEnabled:              server.config.DeleteProjectEnabled,
+		NoLimitsUiEnabled:                 server.config.NoLimitsUiEnabled,
+		AltObjBrowserPagingEnabled:        server.config.AltObjBrowserPagingEnabled,
+		AltObjBrowserPagingThreshold:      server.config.AltObjBrowserPagingThreshold,
+		DomainsPageEnabled:                server.config.DomainsPageEnabled,
+		ActiveSessionsViewEnabled:         server.config.ActiveSessionsViewEnabled,
+		ObjectLockUIEnabled:               server.objectLockAndVersioningConfig.ObjectLockEnabled && server.config.ObjectLockUIEnabled,
+		ValdiSignUpURL:                    server.config.ValdiSignUpURL,
 	}
 
 	err := json.NewEncoder(w).Encode(&cfg)
@@ -841,6 +1014,28 @@ func (server *Server) accountActivationHandler(w http.ResponseWriter, r *http.Re
 		server.serveError(w, http.StatusInternalServerError)
 		return
 	}
+
+	// see if referrer was provided in URL query, otherwise use the Referer header in the request.
+	referrer := r.URL.Query().Get("referrer")
+	if referrer == "" {
+		referrer = r.Referer()
+	}
+	hubspotUTK := ""
+	hubspotCookie, err := r.Cookie("hubspotutk")
+	if err == nil {
+		hubspotUTK = hubspotCookie.Value
+	}
+
+	trackCreateUserFields := analytics.TrackCreateUserFields{
+		ID:            user.ID,
+		Email:         user.Email,
+		OriginHeader:  r.Header.Get("Origin"),
+		Referrer:      referrer,
+		HubspotUTK:    hubspotUTK,
+		UserAgent:     string(user.UserAgent),
+		SignupCaptcha: user.SignupCaptcha,
+	}
+	server.analytics.CreateContact(trackCreateUserFields)
 
 	ip, err := web.GetRequestIP(r)
 	if err != nil {

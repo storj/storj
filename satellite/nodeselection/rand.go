@@ -40,3 +40,13 @@ func (r *RandomOrder) Next() bool {
 
 // At returns the current number in the permutations.
 func (r *RandomOrder) At() uint64 { return r.at }
+
+// Reset makes it possible to reuse the RandomOrder: the full pseudo-random permutations can be read again.
+func (r *RandomOrder) Reset() {
+	r.count = r.len
+}
+
+// Finished returns true, if there is no more permutation.
+func (r *RandomOrder) Finished() bool {
+	return r.count == 0
+}

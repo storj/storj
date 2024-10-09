@@ -5,37 +5,43 @@
     <v-container v-if="isLoading" class="fill-height flex-column justify-center align-center">
         <v-progress-circular indeterminate />
     </v-container>
-    <text-file-preview v-else-if="previewType === PreviewType.Text" :src="objectPreviewUrl">
+    <text-file-preview v-else-if="!loadError && previewType === PreviewType.Text" :src="objectPreviewUrl">
         <file-preview-placeholder :file="file" @download="emit('download')" />
     </text-file-preview>
-    <c-s-v-file-preview v-else-if="previewType === PreviewType.CSV" :src="objectPreviewUrl">
+    <c-s-v-file-preview v-else-if="!loadError && previewType === PreviewType.CSV" :src="objectPreviewUrl">
         <file-preview-placeholder :file="file" @download="emit('download')" />
     </c-s-v-file-preview>
-    <v-container v-else-if="previewType === PreviewType.Video" class="fill-height flex-column justify-center align-center">
+    <v-container v-else-if="!loadError && previewType === PreviewType.Video" class="fill-height flex-column justify-center align-center">
         <video
             controls
             :src="objectPreviewUrl"
-            style="max-width: 100%; max-height: 90%;"
+            class="video"
             aria-roledescription="video-preview"
+            :autoplay="videoAutoplay"
+            :muted="videoAutoplay"
+            @error="loadError = true"
         />
     </v-container>
-    <v-container v-else-if="previewType === PreviewType.Audio" class="fill-height flex-column justify-center align-center">
+    <v-container v-else-if="!loadError && previewType === PreviewType.Audio" class="fill-height flex-column justify-center align-center">
         <audio
             controls
             :src="objectPreviewUrl"
             aria-roledescription="audio-preview"
+            @error="loadError = true"
         />
     </v-container>
-    <v-container v-else-if="previewType === PreviewType.Image" class="fill-height flex-column justify-center align-center">
+    <v-container v-else-if="!loadError && previewType === PreviewType.Image" class="fill-height flex-column justify-center align-center">
         <img
-            v-if="objectPreviewUrl"
+            v-if="objectPreviewUrl && !loadError"
             :src="objectPreviewUrl"
             class="v-img__img v-img__img--contain"
             aria-roledescription="image-preview"
             alt="preview"
+            @error="loadError = true"
         >
+        <file-preview-placeholder v-else :file="file" @download="emit('download')" />
     </v-container>
-    <v-container v-else-if="previewType === PreviewType.PDF" class="fill-height flex-column justify-center align-center">
+    <v-container v-else-if="!loadError && previewType === PreviewType.PDF" class="fill-height flex-column justify-center align-center">
         <object
             :data="objectPreviewUrl"
             type="application/pdf"
@@ -56,7 +62,6 @@ import { BrowserObject, PreviewCache, useObjectBrowserStore } from '@/store/modu
 import { useBucketsStore } from '@/store/modules/bucketsStore';
 import { useNotify } from '@/utils/hooks';
 import { AnalyticsErrorEventSource } from '@/utils/constants/analyticsEventNames';
-import { useLinksharing } from '@/composables/useLinksharing';
 import { EXTENSION_PREVIEW_TYPES, PreviewType } from '@/types/browser';
 
 import FilePreviewPlaceholder from '@/components/dialogs/filePreviewComponents/FilePreviewPlaceholder.vue';
@@ -66,15 +71,20 @@ import CSVFilePreview from '@/components/dialogs/filePreviewComponents/CSVFilePr
 const obStore = useObjectBrowserStore();
 const bucketsStore = useBucketsStore();
 const notify = useNotify();
-const { generateObjectPreviewAndMapURL } = useLinksharing();
 
 const isLoading = ref<boolean>(false);
+const loadError = ref<boolean>(false);
 const previewAndMapFailed = ref<boolean>(false);
 
-const props = defineProps<{
+const props = withDefaults(defineProps<{
     file: BrowserObject,
     active: boolean, // whether this item is visible
-}>();
+    videoAutoplay?: boolean
+    showingVersion?: boolean
+}>(), {
+    videoAutoplay: false,
+    showingVersion: false,
+});
 
 const emit = defineEmits<{
     download: [];
@@ -87,13 +97,14 @@ const cachedObjectPreviewURLs = computed((): Map<string, PreviewCache> => {
     return obStore.state.cachedObjectPreviewURLs;
 });
 
+const cacheKey = computed(() => props.showingVersion ? props.file.VersionId ?? '' : encodedFilePath.value);
+
 /**
  * Returns object preview URL from cache.
  */
 const objectPreviewUrl = computed((): string => {
-    const cache = cachedObjectPreviewURLs.value.get(encodedFilePath.value);
-    const url = cache?.url || '';
-    return `${url}?view=1`;
+    const cache = cachedObjectPreviewURLs.value.get(cacheKey.value);
+    return cache?.url ?? '';
 });
 
 /**
@@ -136,7 +147,7 @@ async function fetchPreviewAndMapUrl(): Promise<void> {
 
     let url = '';
     try {
-        url = await generateObjectPreviewAndMapURL(bucketsStore.state.fileComponentBucketName, props.file.path + props.file.Key);
+        url = await obStore.getDownloadLink(props.file);
     } catch (error) {
         error.message = `Unable to get file preview and map URL. ${error.message}`;
         notify.notifyError(error, AnalyticsErrorEventSource.GALLERY_VIEW);
@@ -147,7 +158,7 @@ async function fetchPreviewAndMapUrl(): Promise<void> {
         isLoading.value = false;
         return;
     }
-    obStore.cacheObjectPreviewURL(encodedFilePath.value, { url, lastModified: props.file.LastModified.getTime() });
+    obStore.cacheObjectPreviewURL(cacheKey.value, { url, lastModified: props.file.LastModified.getTime() });
 
     isLoading.value = false;
 }
@@ -157,22 +168,19 @@ async function fetchPreviewAndMapUrl(): Promise<void> {
  */
 function processFilePath(): void {
     const url = findCachedURL();
-    if (!url) {
-        fetchPreviewAndMapUrl();
-        return;
-    }
+    if (!url) fetchPreviewAndMapUrl();
 }
 
 /**
  * Try to find current object path in cache.
  */
 function findCachedURL(): string | undefined {
-    const cache = cachedObjectPreviewURLs.value.get(encodedFilePath.value);
+    const cache = cachedObjectPreviewURLs.value.get(cacheKey.value);
 
     if (!cache) return undefined;
 
     if (cache.lastModified !== props.file.LastModified.getTime()) {
-        obStore.removeFromObjectPreviewCache(encodedFilePath.value);
+        obStore.removeFromObjectPreviewCache(cacheKey.value);
         return undefined;
     }
 
@@ -185,3 +193,10 @@ watch(() => props.active, active => {
     }
 }, { immediate: true });
 </script>
+
+<style scoped lang="scss">
+.video {
+    max-width: 100%;
+    max-height: 90%;
+}
+</style>

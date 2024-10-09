@@ -23,8 +23,29 @@ type Accounts interface {
 	// If account is already set up it will return nil.
 	Setup(ctx context.Context, userID uuid.UUID, email string, signupPromoCode string) (CouponType, error)
 
+	// EnsureUserHasCustomer creates a stripe customer for userID if non exists.
+	EnsureUserHasCustomer(ctx context.Context, userID uuid.UUID, email string, signupPromoCode string) error
+
+	// SaveBillingAddress saves billing address for a user and returns the updated billing information.
+	SaveBillingAddress(ctx context.Context, userID uuid.UUID, address BillingAddress) (*BillingInformation, error)
+
+	// AddTaxID adds a new tax ID for a user and returns the updated billing information.
+	AddTaxID(ctx context.Context, userID uuid.UUID, taxID TaxID) (*BillingInformation, error)
+
+	// AddDefaultInvoiceReference adds a new default invoice reference to be displayed on each invoice and returns the updated billing information.
+	AddDefaultInvoiceReference(ctx context.Context, userID uuid.UUID, reference string) (*BillingInformation, error)
+
+	// RemoveTaxID removes a tax ID from a user and returns the updated billing information.
+	RemoveTaxID(ctx context.Context, userID uuid.UUID, id string) (*BillingInformation, error)
+
+	// GetBillingInformation gets the billing information for a user.
+	GetBillingInformation(ctx context.Context, userID uuid.UUID) (*BillingInformation, error)
+
 	// UpdatePackage updates a customer's package plan information.
 	UpdatePackage(ctx context.Context, userID uuid.UUID, packagePlan *string, timestamp *time.Time) error
+
+	// ChangeEmail changes a customer's email address.
+	ChangeEmail(ctx context.Context, userID uuid.UUID, email string) error
 
 	// GetPackageInfo returns the package plan and time of purchase for a user.
 	GetPackageInfo(ctx context.Context, userID uuid.UUID) (packagePlan *string, purchaseTime *time.Time, err error)
@@ -43,7 +64,7 @@ type Accounts interface {
 	CheckProjectInvoicingStatus(ctx context.Context, projectID uuid.UUID) error
 
 	// CheckProjectUsageStatus returns error if for the given project there is some usage for current or previous month.
-	CheckProjectUsageStatus(ctx context.Context, projectID uuid.UUID) error
+	CheckProjectUsageStatus(ctx context.Context, projectID uuid.UUID) (currentUsageExists, invoicingIncomplete bool, err error)
 
 	// Charges returns list of all credit card charges related to account.
 	Charges(ctx context.Context, userID uuid.UUID) ([]Charge, error)

@@ -5,17 +5,20 @@ package metabase
 
 import (
 	"database/sql/driver"
+	"encoding/base64"
 	"encoding/binary"
 	"fmt"
 	"math"
 	"sort"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/zeebo/errs"
 
 	"storj.io/common/storj"
 	"storj.io/common/uuid"
+	"storj.io/storj/shared/dbutil/spannerutil"
 )
 
 var (
@@ -64,7 +67,7 @@ type BucketPrefix string
 // BucketLocation defines a bucket that belongs to a project.
 type BucketLocation struct {
 	ProjectID  uuid.UUID
-	BucketName string
+	BucketName BucketName
 }
 
 // ParseBucketPrefix parses BucketPrefix.
@@ -81,7 +84,7 @@ func ParseBucketPrefix(prefix BucketPrefix) (BucketLocation, error) {
 
 	return BucketLocation{
 		ProjectID:  projectID,
-		BucketName: elements[1],
+		BucketName: BucketName(elements[1]),
 	}, nil
 }
 
@@ -104,13 +107,13 @@ func ParseCompactBucketPrefix(compactPrefix []byte) (BucketLocation, error) {
 
 	var loc BucketLocation
 	copy(loc.ProjectID[:], compactPrefix)
-	loc.BucketName = string(compactPrefix[len(loc.ProjectID):])
+	loc.BucketName = BucketName(compactPrefix[len(loc.ProjectID):])
 	return loc, nil
 }
 
 // Prefix converts bucket location into bucket prefix.
 func (loc BucketLocation) Prefix() BucketPrefix {
-	return BucketPrefix(loc.ProjectID.String() + "/" + loc.BucketName)
+	return BucketPrefix(loc.ProjectID.String() + "/" + loc.BucketName.String())
 }
 
 // CompactPrefix converts bucket location into bucket prefix with compact project ID.
@@ -119,6 +122,57 @@ func (loc BucketLocation) CompactPrefix() []byte {
 	xs = append(xs, loc.ProjectID[:]...)
 	xs = append(xs, []byte(loc.BucketName)...)
 	return xs
+}
+
+// Compare compares this BucketLocation with another.
+func (loc BucketLocation) Compare(other BucketLocation) int {
+	cmp := loc.ProjectID.Compare(other.ProjectID)
+	if cmp != 0 {
+		return cmp
+	}
+	return loc.BucketName.Compare(other.BucketName)
+}
+
+// BucketName is a plain-text string, however we should treat it as unsafe bytes to
+// avoid issues with any encoding.
+type BucketName string
+
+// String implements stringer func.
+func (b BucketName) String() string { return string(b) }
+
+// Compare implements comparison for bucket names.
+func (b BucketName) Compare(x BucketName) int {
+	return strings.Compare(b.String(), x.String())
+}
+
+// Value converts a BucketName to a database field.
+func (b BucketName) Value() (driver.Value, error) {
+	return []byte(b), nil
+}
+
+// Scan extracts a BucketName from a database field.
+func (b *BucketName) Scan(value interface{}) error {
+	switch value := value.(type) {
+	case []byte:
+		*b = BucketName(value)
+		return nil
+	default:
+		return Error.New("unable to scan %T into BucketName", value)
+	}
+}
+
+// EncodeSpanner implements spanner.Encoder.
+func (b BucketName) EncodeSpanner() (any, error) {
+	return string(b), nil
+}
+
+// DecodeSpanner implements spanner.Decoder.
+func (b *BucketName) DecodeSpanner(value any) error {
+	if x, ok := value.(string); ok {
+		*b = BucketName(x)
+		return nil
+	}
+	return Error.New("unable to scan %T into BucketName", value)
 }
 
 // ObjectKey is an encrypted object key encoded using Path Component Encoding.
@@ -141,10 +195,28 @@ func (o *ObjectKey) Scan(value interface{}) error {
 	}
 }
 
+// EncodeSpanner implements spanner.Encoder.
+func (o ObjectKey) EncodeSpanner() (any, error) {
+	return o.Value()
+}
+
+// DecodeSpanner implements spanner.Decoder.
+func (o *ObjectKey) DecodeSpanner(value any) error {
+	if base64Val, ok := value.(string); ok {
+		bytesVal, err := base64.StdEncoding.DecodeString(base64Val)
+		if err != nil {
+			return Error.Wrap(err)
+		}
+		*o = ObjectKey(bytesVal)
+		return nil
+	}
+	return Error.New("unable to scan %T into ObjectKey", value)
+}
+
 // ObjectLocation is decoded object key information.
 type ObjectLocation struct {
 	ProjectID  uuid.UUID
-	BucketName string
+	BucketName BucketName
 	ObjectKey  ObjectKey
 }
 
@@ -175,7 +247,7 @@ type SegmentKey []byte
 // SegmentLocation is decoded segment key information.
 type SegmentLocation struct {
 	ProjectID  uuid.UUID
-	BucketName string
+	BucketName BucketName
 	ObjectKey  ObjectKey
 	Position   SegmentPosition
 }
@@ -226,7 +298,7 @@ func ParseSegmentKey(encoded SegmentKey) (SegmentLocation, error) {
 
 	return SegmentLocation{
 		ProjectID:  projectID,
-		BucketName: elements[2],
+		BucketName: BucketName(elements[2]),
 		Position:   position,
 		ObjectKey:  ObjectKey(elements[3]),
 	}, nil
@@ -241,7 +313,7 @@ func (seg SegmentLocation) Encode() SegmentKey {
 	return SegmentKey(storj.JoinPaths(
 		seg.ProjectID.String(),
 		segment,
-		seg.BucketName,
+		seg.BucketName.String(),
 		string(seg.ObjectKey),
 	))
 }
@@ -262,13 +334,14 @@ func (seg SegmentLocation) Verify() error {
 // ObjectStream uniquely defines an object and stream.
 type ObjectStream struct {
 	ProjectID  uuid.UUID
-	BucketName string
+	BucketName BucketName
 	ObjectKey  ObjectKey
 	Version    Version
 	StreamID   uuid.UUID
 }
 
 // Less implements sorting on object streams.
+// Where ProjectID asc, BucketName asc, ObjectKey asc, Version desc.
 func (obj ObjectStream) Less(b ObjectStream) bool {
 	if obj.ProjectID != b.ProjectID {
 		return obj.ProjectID.Less(b.ProjectID)
@@ -281,6 +354,24 @@ func (obj ObjectStream) Less(b ObjectStream) bool {
 	}
 	if obj.Version != b.Version {
 		return obj.Version > b.Version
+	}
+	return obj.StreamID.Less(b.StreamID)
+}
+
+// LessVersionAsc implements sorting on object streams.
+// Where ProjectID asc, BucketName asc, ObjectKey asc, Version asc.
+func (obj ObjectStream) LessVersionAsc(b ObjectStream) bool {
+	if obj.ProjectID != b.ProjectID {
+		return obj.ProjectID.Less(b.ProjectID)
+	}
+	if obj.BucketName != b.BucketName {
+		return obj.BucketName < b.BucketName
+	}
+	if obj.ObjectKey != b.ObjectKey {
+		return obj.ObjectKey < b.ObjectKey
+	}
+	if obj.Version != b.Version {
+		return obj.Version < b.Version
 	}
 	return obj.StreamID.Less(b.StreamID)
 }
@@ -314,7 +405,7 @@ func (obj *ObjectStream) Location() ObjectLocation {
 // PendingObjectStream uniquely defines an pending object and stream.
 type PendingObjectStream struct {
 	ProjectID  uuid.UUID
-	BucketName string
+	BucketName BucketName
 	ObjectKey  ObjectKey
 	StreamID   uuid.UUID
 }
@@ -354,6 +445,28 @@ func (pos SegmentPosition) Encode() uint64 { return uint64(pos.Part)<<32 | uint6
 // Less returns whether pos should before b.
 func (pos SegmentPosition) Less(b SegmentPosition) bool { return pos.Encode() < b.Encode() }
 
+// DecodeSpanner implements spanner.Decoder.
+func (pos *SegmentPosition) DecodeSpanner(val any) (err error) {
+	switch value := val.(type) {
+	case int64:
+		*pos = SegmentPositionFromEncoded(uint64(value))
+	case string:
+		parsedValue, err := strconv.ParseInt(value, 10, 64)
+		if err != nil {
+			return Error.New("unable to scan %T into SegmentPosition: %v", val, err)
+		}
+		*pos = SegmentPositionFromEncoded(uint64(parsedValue))
+	default:
+		return Error.New("unable to scan %T into SegmentPosition", val)
+	}
+	return nil
+}
+
+// EncodeSpanner implements spanner.Encoder.
+func (pos SegmentPosition) EncodeSpanner() (any, error) {
+	return int64(pos.Encode()), nil
+}
+
 // Version is used to uniquely identify objects with the same key.
 type Version int64
 
@@ -371,6 +484,56 @@ const PendingVersion = Version(0)
 //
 // It uses `MaxInt64 - 64` to avoid issues with `-MaxVersion`.
 const MaxVersion = Version(math.MaxInt64 - 64)
+
+// Retention represents an object version's Object Lock retention configuration.
+type Retention struct {
+	Mode        storj.RetentionMode
+	RetainUntil time.Time
+}
+
+// Enabled returns whether the retention configuration is enabled.
+func (r *Retention) Enabled() bool {
+	return r.Mode != storj.NoRetention
+}
+
+// Active returns whether the retention configuration is enabled and active as of the given time.
+func (r *Retention) Active(now time.Time) bool {
+	return r.Enabled() && now.Before(r.RetainUntil)
+}
+
+// ActiveNow returns whether the retention configuration is enabled and active as of the current time.
+func (r *Retention) ActiveNow() bool {
+	return r.Active(time.Now())
+}
+
+// Verify verifies the retention configuration.
+func (r *Retention) Verify() error {
+	if r.Mode == storj.GovernanceMode {
+		if r.RetainUntil.IsZero() {
+			return errs.New("retention period expiration must be set if retention mode is set")
+		}
+		return nil
+	}
+	return r.verifyWithoutGovernance()
+}
+
+// verifyWithoutGovernance verifies the retention configuration. It's used by metabase DB methods that haven't
+// yet been adjusted to support governance mode, so it treats governance mode as invalid.
+func (r *Retention) verifyWithoutGovernance() error {
+	switch r.Mode {
+	case storj.ComplianceMode:
+		if r.RetainUntil.IsZero() {
+			return errs.New("retention period expiration must be set if retention mode is set")
+		}
+	case storj.NoRetention:
+		if !r.RetainUntil.IsZero() {
+			return errs.New("retention period expiration must not be set if retention mode is not set")
+		}
+	default:
+		return errs.New("invalid retention mode %d", r.Mode)
+	}
+	return nil
+}
 
 // StreamVersionID represents combined Version and StreamID suffix for purposes of public API.
 // First 8 bytes represents Version and rest are object StreamID suffix.
@@ -394,7 +557,8 @@ func (s StreamVersionID) Bytes() []byte {
 	return s[:]
 }
 
-func newStreamVersionID(version Version, streamID uuid.UUID) StreamVersionID {
+// NewStreamVersionID returns a new stream version id.
+func NewStreamVersionID(version Version, streamID uuid.UUID) StreamVersionID {
 	var sv StreamVersionID
 	binary.BigEndian.PutUint64(sv[:8], uint64(version))
 	copy(sv[8:], streamID[8:])
@@ -456,6 +620,13 @@ const (
 	statusDeleteMarkerUnversioned = "6"
 	statusesDeleteMarker          = "(" + statusDeleteMarkerUnversioned + "," + statusDeleteMarkerVersioned + ")"
 	statusesUnversioned           = "(" + statusCommittedUnversioned + "," + statusDeleteMarkerUnversioned + ")"
+
+	retentionModeNone                        = "0"
+	retentionModeCompliance                  = "1"
+	retentionModeGovernance                  = "2"
+	retentionModeComplianceAndGovernanceMask = "3"
+	retentionModeLegalHold                   = "4"
+	retentionModesComplianceAndGovernance    = "(" + retentionModeCompliance + "," + retentionModeGovernance + ")"
 )
 
 func committedWhereVersioned(versioned bool) ObjectStatus {
@@ -468,6 +639,16 @@ func committedWhereVersioned(versioned bool) ObjectStatus {
 // IsDeleteMarker return whether the status is a delete marker.
 func (status ObjectStatus) IsDeleteMarker() bool {
 	return status == DeleteMarkerUnversioned || status == DeleteMarkerVersioned
+}
+
+// IsUnversioned returns whether the status indicates that an object is unversioned.
+func (status ObjectStatus) IsUnversioned() bool {
+	return status == DeleteMarkerUnversioned || status == CommittedUnversioned
+}
+
+// IsCommitted returns whether the status indicates that an object is committed.
+func (status ObjectStatus) IsCommitted() bool {
+	return status == CommittedUnversioned || status == CommittedVersioned
 }
 
 // String returns textual representation of status.
@@ -490,6 +671,16 @@ func (status ObjectStatus) String() string {
 	default:
 		return fmt.Sprintf("ObjectStatus(%d)", int(status))
 	}
+}
+
+// EncodeSpanner implements spanner.Encoder.
+func (status ObjectStatus) EncodeSpanner() (any, error) {
+	return int64(status), nil
+}
+
+// DecodeSpanner implements spanner.Decoder.
+func (status *ObjectStatus) DecodeSpanner(val any) (err error) {
+	return spannerutil.Int(status).DecodeSpanner(val)
 }
 
 // Pieces defines information for pieces.

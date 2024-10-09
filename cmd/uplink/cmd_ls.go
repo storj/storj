@@ -64,14 +64,18 @@ func (c *cmdLs) Setup(params clingy.Parameters) {
 	).(*ulloc.Location)
 }
 
-func (c *cmdLs) Execute(ctx context.Context) error {
+func (c *cmdLs) Execute(ctx context.Context) (err error) {
+	defer mon.Task()(&ctx)(&err)
+
 	if c.prefix == nil {
 		return c.listBuckets(ctx)
 	}
 	return c.listLocation(ctx, *c.prefix)
 }
 
-func (c *cmdLs) listBuckets(ctx context.Context) error {
+func (c *cmdLs) listBuckets(ctx context.Context) (err error) {
+	defer mon.Task()(&ctx)(&err)
+
 	project, err := c.ex.OpenProject(ctx, c.access)
 	if err != nil {
 		return err
@@ -90,7 +94,9 @@ func (c *cmdLs) listBuckets(ctx context.Context) error {
 	}
 }
 
-func (c *cmdLs) listLocation(ctx context.Context, prefix ulloc.Location) error {
+func (c *cmdLs) listLocation(ctx context.Context, prefix ulloc.Location) (err error) {
+	defer mon.Task()(&ctx)(&err)
+
 	fs, err := c.ex.OpenFilesystem(ctx, c.access, ulext.BypassEncryption(c.encrypted))
 	if err != nil {
 		return err

@@ -8,7 +8,6 @@
 // sc.exe create storagenode-updater binpath= "C:\Users\MyUser\storagenode-updater.exe run ..."
 
 //go:build windows
-// +build windows
 
 package main
 
@@ -28,6 +27,9 @@ func isRunCmd() bool {
 }
 
 func main() {
+	logger, _, _ := process.NewLogger("storagenode-updater")
+	zap.ReplaceGlobals(logger)
+
 	isService, err := svc.IsWindowsService()
 	if err != nil {
 		zap.L().Fatal("Failed to determine if session is interactive.", zap.Error(err))

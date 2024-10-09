@@ -4,7 +4,6 @@
 package nodeselection
 
 import (
-	"encoding/hex"
 	"fmt"
 	"strings"
 	"testing"
@@ -14,9 +13,9 @@ import (
 
 	"storj.io/common/identity/testidentity"
 	"storj.io/common/storj"
-	"storj.io/common/storj/location"
 	"storj.io/common/testcontext"
 	"storj.io/common/testrand"
+	"storj.io/storj/shared/location"
 )
 
 func TestCriteria_ExcludeNodeID(t *testing.T) {
@@ -145,13 +144,13 @@ func TestCountryFilter_FromString(t *testing.T) {
 			definition:      []string{"EU"},
 			canonical:       "country(\"AT\",\"BE\",\"BG\",\"CY\",\"CZ\",\"DE\",\"DK\",\"EE\",\"ES\",\"FI\",\"FR\",\"GR\",\"HR\",\"HU\",\"IE\",\"IT\",\"LT\",\"LU\",\"LV\",\"MT\",\"NL\",\"PL\",\"PT\",\"RO\",\"SE\",\"SI\",\"SK\")",
 			mustIncluded:    []location.CountryCode{location.Hungary, location.Germany, location.Austria},
-			mustNotIncluded: []location.CountryCode{location.Iceland, location.UnitedStates},
+			mustNotIncluded: []location.CountryCode{location.Iceland, location.UnitedStates, location.UnitedKingdom},
 		},
 		{
 			definition:      []string{"EEA"},
 			canonical:       "country(\"AT\",\"BE\",\"BG\",\"CY\",\"CZ\",\"DE\",\"DK\",\"EE\",\"ES\",\"FI\",\"FR\",\"GR\",\"HR\",\"HU\",\"IE\",\"IS\",\"IT\",\"LI\",\"LT\",\"LU\",\"LV\",\"MT\",\"NL\",\"NO\",\"PL\",\"PT\",\"RO\",\"SE\",\"SI\",\"SK\")",
 			mustIncluded:    []location.CountryCode{location.Hungary, location.Germany, location.Austria, location.Iceland},
-			mustNotIncluded: []location.CountryCode{location.UnitedStates},
+			mustNotIncluded: []location.CountryCode{location.UnitedStates, location.UnitedKingdom},
 		},
 		{
 			definition:      []string{"EU", "US"},
@@ -170,6 +169,12 @@ func TestCountryFilter_FromString(t *testing.T) {
 			canonical:       "country(\"*\",\"!BY\",\"!RU\")",
 			mustIncluded:    []location.CountryCode{location.Hungary},
 			mustNotIncluded: []location.CountryCode{location.Russia, location.Belarus},
+		},
+		{
+			definition:      []string{"EU", "!DE"},
+			canonical:       "country(\"AT\",\"BE\",\"BG\",\"CY\",\"CZ\",\"DK\",\"EE\",\"ES\",\"FI\",\"FR\",\"GR\",\"HR\",\"HU\",\"IE\",\"IT\",\"LT\",\"LU\",\"LV\",\"MT\",\"NL\",\"PL\",\"PT\",\"RO\",\"SE\",\"SI\",\"SK\")",
+			mustIncluded:    []location.CountryCode{location.Hungary, location.TheNetherlands},
+			mustNotIncluded: []location.CountryCode{location.Germany, location.UnitedStates, location.Russia},
 		},
 	}
 	for _, tc := range cases {
@@ -191,6 +196,46 @@ func TestCountryFilter_FromString(t *testing.T) {
 	}
 }
 
+func TestContinentFilter_FromString(t *testing.T) {
+	cases := []struct {
+		code            string
+		mustIncluded    []location.CountryCode
+		mustNotIncluded []location.CountryCode
+	}{
+		{
+			code:            "EU",
+			mustIncluded:    []location.CountryCode{location.Hungary},
+			mustNotIncluded: []location.CountryCode{location.India, location.UnitedStates},
+		},
+		{
+			code:            "SA",
+			mustIncluded:    []location.CountryCode{location.Brazil},
+			mustNotIncluded: []location.CountryCode{location.Hungary},
+		},
+		{
+			code:            "!NA",
+			mustIncluded:    []location.CountryCode{location.Hungary},
+			mustNotIncluded: []location.CountryCode{location.UnitedStates},
+		},
+	}
+	for _, tc := range cases {
+		t.Run(tc.code, func(t *testing.T) {
+			filter, err := NewContinentFilterFromString(tc.code)
+			require.NoError(t, err)
+			for _, c := range tc.mustIncluded {
+				assert.True(t, filter.Match(&SelectedNode{
+					CountryCode: c,
+				}), "Country %s should be included", c.String())
+			}
+			for _, c := range tc.mustNotIncluded {
+				assert.False(t, filter.Match(&SelectedNode{
+					CountryCode: c,
+				}), "Country %s shouldn't be included", c.String())
+			}
+		})
+	}
+}
+
 func TestNodeListFilter(t *testing.T) {
 	filter, err := AllowedNodesFromFile("filter_testdata.txt")
 	require.NoError(t, err)
@@ -199,11 +244,27 @@ func TestNodeListFilter(t *testing.T) {
 			ID: testidentity.MustPregeneratedIdentity(pregeneratedIdentity, storj.LatestIDVersion()).ID,
 		}
 	}
-	fmt.Println(testidentity.MustPregeneratedIdentity(1, storj.LatestIDVersion()).ID.String())
-	fmt.Println(hex.EncodeToString(testidentity.MustPregeneratedIdentity(2, storj.LatestIDVersion()).ID.Bytes()))
 	require.True(t, filter.Match(selectedNode(1)))
 	require.True(t, filter.Match(selectedNode(2)))
 	require.False(t, filter.Match(selectedNode(3)))
+}
+
+func TestAttributeFilter(t *testing.T) {
+	filter, err := NewAttributeFilter("email", "email@test")
+	require.NoError(t, err)
+	require.True(t, filter.Match(&SelectedNode{
+		Email: "email@test",
+	}))
+	require.False(t, filter.Match(&SelectedNode{
+		Email: "notemail@test",
+	}))
+
+	filter, err = NewAttributeFilter("email", stringNotMatch(""))
+	require.NoError(t, err)
+	require.False(t, filter.Match(&SelectedNode{
+		Email: "",
+	}))
+
 }
 
 // BenchmarkNodeFilterFullTable checks performances of rule evaluation on ALL storage nodes.

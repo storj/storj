@@ -39,6 +39,8 @@ func (c *cmdAccessSetup) Setup(params clingy.Parameters) {
 }
 
 func (c *cmdAccessSetup) Execute(ctx context.Context) (err error) {
+	defer mon.Task()(&ctx)(&err)
+
 	name, err := c.ex.PromptInput(ctx, "Enter name to import as [default: main]:")
 	if err != nil {
 		return errs.Wrap(err)
@@ -100,7 +102,7 @@ func (c *cmdAccessSetup) Execute(ctx context.Context) (err error) {
 		}
 	}
 
-	fmt.Fprintf(clingy.Stdout(ctx), "Switched default access to %q\n", name)
+	_, _ = fmt.Fprintf(clingy.Stdout(ctx), "Switched default access to %q\n", name)
 
 	answer, err := c.ex.PromptInput(ctx, "Would you like S3 backwards-compatible Gateway credentials? (y/N):")
 	if err != nil {

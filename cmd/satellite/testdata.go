@@ -45,7 +45,7 @@ var (
 		0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
 		0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 4,
 	}
-	password = "123a123"
+	password = "password"
 )
 
 // createTestData creates predefined test account to make the integration tests easier.
@@ -97,7 +97,7 @@ func createTestData(ctx context.Context, db satellite.DB) error {
 		if err != nil {
 			return err
 		}
-		_, err = db.Console().ProjectMembers().Insert(ctx, userID, projectID)
+		_, err = db.Console().ProjectMembers().Insert(ctx, userID, projectID, console.RoleAdmin)
 		if err != nil {
 			return err
 		}

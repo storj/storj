@@ -8,6 +8,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"io"
 
 	"go.uber.org/zap"
 	"golang.org/x/sys/execabs"
@@ -21,6 +22,8 @@ type process struct {
 	executable string
 	args       []string
 
+	stderr io.Writer
+
 	cmd execwrapper.Command
 }
 
@@ -32,13 +35,13 @@ func newProcess(cmd execwrapper.Command, log *zap.Logger, executable string, arg
 		log:        log,
 		executable: executable,
 		args:       args,
+		stderr:     &zapWrapper{log.Named("subprocess")},
 	}
 }
 
-// run runs the process and decodes the response into the value pointed by `resp`.
+// run runs the process.
 // It returns an error if the Process fails to start, or if the Process exits with a non-zero status.
-// NOTE: the `resp` value must be a pointer to a struct.
-func (p *process) run(ctx context.Context, req, resp interface{}) (err error) {
+func (p *process) run(ctx context.Context, stdout io.Writer, req interface{}) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	ctx, cancel := context.WithCancel(ctx)
@@ -46,8 +49,7 @@ func (p *process) run(ctx context.Context, req, resp interface{}) (err error) {
 
 	p.log.Info("starting subprocess")
 
-	var buf, outbuf bytes.Buffer
-	writer := &zapWrapper{p.log.Named("subprocess")}
+	var buf bytes.Buffer
 
 	// encode the struct and write it to the buffer
 	enc := json.NewEncoder(&buf)
@@ -63,8 +65,8 @@ func (p *process) run(ctx context.Context, req, resp interface{}) (err error) {
 	}
 
 	p.cmd.SetIn(&buf)
-	p.cmd.SetOut(&outbuf)
-	p.cmd.SetErr(writer)
+	p.cmd.SetOut(stdout)
+	p.cmd.SetErr(p.stderr)
 
 	if err := p.cmd.Start(); err != nil {
 		p.log.Error("failed to start subprocess", zap.Error(err))
@@ -84,13 +86,6 @@ func (p *process) run(ctx context.Context, req, resp interface{}) (err error) {
 	}
 
 	p.log.Info("subprocess finished successfully")
-
-	// Decode and receive the response data struct from the subprocess
-	decoder := json.NewDecoder(&outbuf)
-	if err := decoder.Decode(&resp); err != nil {
-		p.log.Error("failed to decode response from subprocess", zap.Error(err))
-		return errLazyFilewalker.Wrap(err)
-	}
 
 	return nil
 }

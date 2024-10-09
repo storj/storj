@@ -53,6 +53,8 @@ func (c *cmdAccessCreate) Setup(params clingy.Parameters) {
 }
 
 func (c *cmdAccessCreate) Execute(ctx context.Context) (err error) {
+	defer mon.Task()(&ctx)(&err)
+
 	if c.satelliteAddr == "" {
 		if c.passphraseStdin {
 			return errs.New("Must specify the satellite address as a flag when passphrase-stdin is set.")
@@ -128,7 +130,7 @@ func (c *cmdAccessCreate) Execute(ctx context.Context) (err error) {
 		return errs.Wrap(err)
 	}
 
-	fmt.Fprintln(clingy.Stdout(ctx), serialized)
+	_, _ = fmt.Fprintln(clingy.Stdout(ctx), serialized)
 
 	return nil
 }

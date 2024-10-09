@@ -17,13 +17,13 @@ import (
 	"github.com/zeebo/errs"
 	"go.uber.org/zap/zaptest"
 
-	"storj.io/common/dbutil/dbschema"
-	"storj.io/common/dbutil/pgtest"
-	"storj.io/common/dbutil/pgutil"
-	"storj.io/common/dbutil/sqliteutil"
-	"storj.io/common/dbutil/tempdb"
 	"storj.io/common/testcontext"
 	"storj.io/storj/multinode/multinodedb"
+	"storj.io/storj/shared/dbutil/dbschema"
+	"storj.io/storj/shared/dbutil/dbtest"
+	"storj.io/storj/shared/dbutil/pgutil"
+	"storj.io/storj/shared/dbutil/sqliteutil"
+	"storj.io/storj/shared/dbutil/tempdb"
 )
 
 func TestMigrateSQLite3(t *testing.T) {
@@ -105,7 +105,7 @@ func TestMigratePostgres(t *testing.T) {
 	defer ctx.Cleanup()
 	log := zaptest.NewLogger(t)
 
-	connStr := pgtest.PickPostgres(t)
+	connStr := dbtest.PickPostgres(t)
 
 	// create tempDB
 	tempDB, err := tempdb.OpenUnique(ctx, connStr, "migrate")
@@ -225,15 +225,15 @@ func loadSnapshotFromSQLPostgres(ctx context.Context, connstr, script string) (_
 	return snapshot, nil
 }
 
-// loadSnapshotFromSQLPostgres inserts script into connstr and loads schema for postgres db.
-func loadSchemaFromSQLPostgres(ctx context.Context, connstr, script string) (_ *dbschema.Schema, err error) {
+// loadSchemaFromSQLPostgres inserts script into connstr and loads schema for postgres db.
+func loadSchemaFromSQLPostgres(ctx context.Context, connstr string, script []string) (_ *dbschema.Schema, err error) {
 	db, err := tempdb.OpenUnique(ctx, connstr, "load-schema")
 	if err != nil {
 		return nil, err
 	}
 	defer func() { err = errs.Combine(err, db.Close()) }()
 
-	_, err = db.ExecContext(ctx, script)
+	_, err = db.ExecContext(ctx, strings.Join(script, ";\n"))
 	if err != nil {
 		return nil, err
 	}

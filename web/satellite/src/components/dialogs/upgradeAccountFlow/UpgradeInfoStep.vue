@@ -4,35 +4,35 @@
 <template>
     <v-row>
         <v-col v-if="!smAndDown" cols="6">
-            <h4 class="font-weight-bold my-2">Free Account</h4>
+            <h4 class="font-weight-bold mt-2 mb-4">Free Trial</h4>
             <v-btn
                 block
                 disabled
                 color="default"
             >
-                Current
+                {{ freeTrialButtonLabel }}
             </v-btn>
-            <v-card class="my-4">
+            <v-sheet class="my-2">
                 <InfoBullet title="Projects" :info="freeProjects" />
                 <InfoBullet title="Storage" :info="`${freeUsageValue(user.projectStorageLimit)} limit`" />
                 <InfoBullet title="Download" :info="`${freeUsageValue(user.projectBandwidthLimit)} limit`" />
                 <InfoBullet title="Segments" :info="`${user.projectSegmentLimit.toLocaleString()} segments limit`" />
                 <InfoBullet title="Link Sharing" info="Link sharing with Storj domain" />
                 <InfoBullet title="Single User" info="Project can't be shared" />
-            </v-card>
+            </v-sheet>
         </v-col>
         <v-col :cols="smAndDown ? 12 : '6'">
-            <h4 class="font-weight-bold my-2">Pro Account</h4>
+            <h4 class="font-weight-bold mt-2 mb-4">Pro Account</h4>
             <v-btn
                 class="mb-1"
                 block
                 :loading="loading"
-                :append-icon="mdiArrowRight"
+                :append-icon="ArrowRight"
                 @click="emit('upgrade')"
             >
                 Upgrade
             </v-btn>
-            <v-card class="my-4">
+            <v-sheet class="my-2">
                 <InfoBullet is-pro title="Projects" :info="projectsInfo" />
                 <InfoBullet is-pro :title="storagePrice" :info="storagePriceInfo" />
                 <InfoBullet is-pro :title="downloadPrice" :info="downloadInfo">
@@ -55,19 +55,20 @@
                 </InfoBullet>
                 <InfoBullet is-pro title="Secure Custom Domains (HTTPS)" info="Link sharing with your domain" />
                 <InfoBullet is-pro title="Team" info="Share projects and collaborate" />
-            </v-card>
+            </v-sheet>
         </v-col>
     </v-row>
 </template>
 
 <script setup lang="ts">
 import { computed, onBeforeMount, ref } from 'vue';
-import { VBtn, VCol, VRow, VCard } from 'vuetify/components';
+import { VBtn, VCol, VRow, VSheet } from 'vuetify/components';
 import { useDisplay } from 'vuetify';
-import { mdiArrowRight } from '@mdi/js';
+import { ArrowRight } from 'lucide-vue-next';
 
 import { useUsersStore } from '@/store/modules/usersStore';
 import { useNotify } from '@/utils/hooks';
+import { usePreCheck } from '@/composables/usePreCheck';
 import { User } from '@/types/users';
 import { Size } from '@/utils/bytesSize';
 
@@ -76,8 +77,9 @@ import InfoBullet from '@/components/dialogs/upgradeAccountFlow/InfoBullet.vue';
 const usersStore = useUsersStore();
 const notify = useNotify();
 const { smAndDown } = useDisplay();
+const { isExpired, expirationInfo } = usePreCheck();
 
-const props = defineProps<{
+defineProps<{
     loading: boolean;
 }>();
 
@@ -85,13 +87,22 @@ const emit = defineEmits<{
     upgrade: [];
 }>();
 
-const storagePrice = ref<string>('Storage $0.004 GB / month');
-const storagePriceInfo = ref<string>('25 GB free included');
+const storagePrice = ref<string>('Storage');
+const storagePriceInfo = ref<string>('$0.004 GB / month');
 const segmentInfo = ref<string>('$0.0000088 segment per month');
 const projectsInfo = ref<string>('3 projects + more on request');
-const downloadPrice = ref<string>('Download $0.007 GB');
-const downloadInfo = ref<string>('25 GB free every month');
+const downloadPrice = ref<string>('Download');
+const downloadInfo = ref<string>('$0.007 GB');
 const downloadMoreInfo = ref<string>('');
+
+/**
+ * Returns free trial button label based on expiration status.
+ */
+const freeTrialButtonLabel = computed<string>(() => {
+    if (isExpired.value) return 'Trial Expired';
+
+    return `${expirationInfo.value.days} day${expirationInfo.value.days !== 1 ? 's' : ''} remaining`;
+});
 
 /**
  * Returns user entity from store.
@@ -124,8 +135,8 @@ onBeforeMount(async () => {
         const partner = usersStore.state.user.partner;
         const config = (await import('@/configs/upgradeConfig.json')).default;
         if (partner && config[partner]) {
-            if (config[partner].storagePrice) {
-                storagePrice.value = config[partner].storagePrice;
+            if (config[partner].storagePriceInfo) {
+                storagePriceInfo.value = config[partner].storagePriceInfo;
             }
 
             if (config[partner].downloadInfo) {
@@ -136,7 +147,7 @@ onBeforeMount(async () => {
                 downloadMoreInfo.value = config[partner].downloadMoreInfo;
             }
         }
-    } catch (e) {
+    } catch {
         notify.error('No configuration file for page.', null);
     }
 });

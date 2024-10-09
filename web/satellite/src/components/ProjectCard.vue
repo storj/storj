@@ -2,17 +2,17 @@
 // See LICENSE for copying information.
 
 <template>
-    <v-card variant="outlined" :border="true" rounded="xlg">
+    <v-card>
         <div class="h-100 d-flex flex-column justify-space-between">
             <v-card-item>
                 <div class="d-flex justify-space-between">
-                    <v-chip rounded :color="item ? PROJECT_ROLE_COLORS[item.role] : 'primary'" variant="tonal" class="font-weight-bold my-2" size="small">
-                        <icon-project width="12px" class="mr-1" />
+                    <v-chip :color="item ? PROJECT_ROLE_COLORS[item.role] : 'primary'" variant="tonal" class="font-weight-bold my-2" size="small">
+                        <component :is="Box" :size="12" class="mr-1" />
                         {{ item?.role || 'Project' }}
                     </v-chip>
                 </div>
                 <v-card-title :class="{ 'text-primary': item && item.role !== ProjectRole.Invited }">
-                    <a v-if="item && item.role !== ProjectRole.Invited" class="link" @click="openProject">
+                    <a v-if="item && item.role !== ProjectRole.Invited" class="link text-decoration-none" @click="openProject">
                         {{ item.name }}
                     </a>
                     <template v-else>
@@ -43,15 +43,15 @@
                         Decline
                     </v-btn>
                 </template>
-                <v-btn v-else color="primary" size="small" class="mr-2" @click="openProject">Open Project</v-btn>
-                <v-btn v-if="item?.role === ProjectRole.Owner" color="default" variant="outlined" size="small" density="comfortable" icon>
-                    <v-icon :icon="mdiDotsHorizontal" />
+                <v-btn v-else color="primary" size="small" rounded="md" class="mr-2" @click="openProject">Open Project</v-btn>
+                <v-btn v-if="item?.role === ProjectRole.Owner" color="default" variant="outlined" size="small" rounded="md" density="comfortable" icon>
+                    <v-icon :icon="Ellipsis" />
 
                     <v-menu activator="parent" location="bottom" transition="fade-transition">
                         <v-list class="pa-1">
                             <v-list-item link @click="() => onSettingsClick()">
                                 <template #prepend>
-                                    <icon-settings />
+                                    <component :is="Settings" :size="18" />
                                 </template>
                                 <v-list-item-title class="text-body-2 ml-3">
                                     Project Settings
@@ -62,7 +62,7 @@
 
                             <v-list-item link class="mt-1" @click="emit('inviteClick')">
                                 <template #prepend>
-                                    <IconNew size="18" />
+                                    <component :is="UserPlus" :size="18" />
                                 </template>
                                 <v-list-item-title class="text-body-2 ml-3">
                                     Add Members
@@ -94,7 +94,7 @@ import {
     VCardSubtitle,
     VCardText,
 } from 'vuetify/components';
-import { mdiDotsHorizontal } from '@mdi/js';
+import { Ellipsis, Settings, UserPlus, Box } from 'lucide-vue-next';
 
 import { ProjectItemModel, PROJECT_ROLE_COLORS, ProjectInvitationResponse } from '@/types/projects';
 import { ProjectRole } from '@/types/projectMembers';
@@ -103,10 +103,7 @@ import { useAnalyticsStore } from '@/store/modules/analyticsStore';
 import { AnalyticsErrorEventSource, AnalyticsEvent } from '@/utils/constants/analyticsEventNames';
 import { useNotify } from '@/utils/hooks';
 import { ROUTES } from '@/router';
-
-import IconProject from '@/components/icons/IconProject.vue';
-import IconSettings from '@/components/icons/IconSettings.vue';
-import IconNew from '@/components/icons/IconNew.vue';
+import { useBucketsStore } from '@/store/modules/bucketsStore';
 
 const props = defineProps<{
     item?: ProjectItemModel,
@@ -119,6 +116,7 @@ const emit = defineEmits<{
 }>();
 
 const analyticsStore = useAnalyticsStore();
+const bucketsStore = useBucketsStore();
 const projectsStore = useProjectsStore();
 const router = useRouter();
 const notify = useNotify();
@@ -130,12 +128,16 @@ const isDeclining = ref<boolean>(false);
  */
 function openProject(): void {
     if (!props.item) return;
+
+    // There is no reason to clear s3 data if the user is navigating to the previously selected project.
+    if (projectsStore.state.selectedProject.id !== props.item.id) bucketsStore.clearS3Data();
+
     projectsStore.selectProject(props.item.id);
+
     router.push({
         name: ROUTES.Dashboard.name,
         params: { id: projectsStore.state.selectedProject.urlId },
     });
-    analyticsStore.pageVisit(ROUTES.DashboardAnalyticsLink);
     analyticsStore.eventTriggered(AnalyticsEvent.NAVIGATE_PROJECTS);
 }
 
@@ -149,7 +151,6 @@ function onSettingsClick(): void {
         name: ROUTES.ProjectSettings.name,
         params: { id: projectsStore.state.selectedProject.urlId },
     });
-    analyticsStore.pageVisit(ROUTES.ProjectSettingsAnalyticsLink);
 }
 
 /**

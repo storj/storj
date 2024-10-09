@@ -65,7 +65,7 @@ func TestGetUnsentInfo(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			tArgs := tt.args(t)
 
-			got1, err := GetUnsentInfo(tArgs.info)
+			got1, err := GetUnsentInfo(tArgs.info.Name())
 
 			assert.Equal(t, tt.want1, got1)
 
@@ -96,7 +96,7 @@ func TestGetArchivedInfo(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			tArgs := tt.args(t)
 
-			got1, err := GetArchivedInfo(tArgs.info)
+			got1, err := GetArchivedInfo(tArgs.info.Name())
 
 			assert.Equal(t, tt.want1, got1)
 
@@ -176,7 +176,7 @@ func TestMoveUnsent(t *testing.T) {
 	}
 }
 
-func Test_getUnsentFileInfo(t *testing.T) {
+func TestGetUnsentFileInfo(t *testing.T) {
 	type args struct {
 		filename string
 	}
@@ -213,7 +213,7 @@ func Test_getUnsentFileInfo(t *testing.T) {
 	}
 }
 
-func Test_getArchivedFileInfo(t *testing.T) {
+func TestGetArchivedFileInfo(t *testing.T) {
 	type args struct {
 		name string
 	}
@@ -306,7 +306,7 @@ func TestArchiveFileName(t *testing.T) {
 	}
 }
 
-func Test_getCreationHourString(t *testing.T) {
+func TestGetCreationHourString(t *testing.T) {
 	type args struct {
 		t time.Time
 	}
@@ -324,31 +324,6 @@ func Test_getCreationHourString(t *testing.T) {
 			got1 := getCreationHourString(tArgs.t)
 
 			assert.Equal(t, tt.want1, got1)
-		})
-	}
-}
-
-func Test_getVersion(t *testing.T) {
-	type args struct {
-		filename string
-	}
-	var tests []struct {
-		name string
-		args func(t *testing.T) args
-
-		want1 string
-		want2 Version
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			tArgs := tt.args(t)
-
-			got1, got2 := getVersion(tArgs.filename)
-
-			assert.Equal(t, tt.want1, got1)
-
-			assert.Equal(t, tt.want2, got2)
 		})
 	}
 }

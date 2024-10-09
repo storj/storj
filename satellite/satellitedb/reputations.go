@@ -18,6 +18,7 @@ import (
 	"storj.io/storj/satellite/overlay"
 	"storj.io/storj/satellite/reputation"
 	"storj.io/storj/satellite/satellitedb/dbx"
+	"storj.io/storj/shared/dbutil"
 )
 
 var _ reputation.DB = (*reputations)(nil)
@@ -189,9 +190,11 @@ func (reputations *reputations) DisqualifyNode(ctx context.Context, nodeID storj
 	defer mon.Task()(&ctx)(&err)
 
 	err = reputations.db.WithTx(ctx, func(ctx context.Context, tx *dbx.Tx) (err error) {
-		_, err = tx.Tx.ExecContext(ctx, "SET TRANSACTION ISOLATION LEVEL SERIALIZABLE")
-		if err != nil {
-			return err
+		if reputations.db.impl == dbutil.Cockroach || reputations.db.impl == dbutil.Postgres {
+			_, err = tx.Tx.ExecContext(ctx, "SET TRANSACTION ISOLATION LEVEL SERIALIZABLE")
+			if err != nil {
+				return err
+			}
 		}
 
 		_, err = tx.Get_Reputation_By_Id(ctx, dbx.Reputation_Id(nodeID.Bytes()))
@@ -201,11 +204,19 @@ func (reputations *reputations) DisqualifyNode(ctx context.Context, nodeID storj
 				return err
 			}
 
-			_, err = tx.Tx.ExecContext(ctx, `
-				INSERT INTO reputations (id, audit_history)
-				VALUES ($1, $2)
-				ON CONFLICT (id) DO NOTHING
-			`, nodeID.Bytes(), historyBytes)
+			switch reputations.db.impl {
+			case dbutil.Cockroach, dbutil.Postgres:
+				_, err = tx.Tx.ExecContext(ctx, `
+					INSERT INTO reputations (id, audit_history)
+					VALUES ($1, $2)
+					ON CONFLICT (id) DO NOTHING`,
+					nodeID, historyBytes)
+			case dbutil.Spanner:
+				_, err = tx.Tx.ExecContext(ctx, `
+					INSERT OR IGNORE INTO reputations (id, audit_history)
+					VALUES (?, ?)`,
+					nodeID, historyBytes)
+			}
 			if err != nil {
 				return err
 			}
@@ -229,9 +240,11 @@ func (reputations *reputations) SuspendNodeUnknownAudit(ctx context.Context, nod
 	defer mon.Task()(&ctx)(&err)
 
 	err = reputations.db.WithTx(ctx, func(ctx context.Context, tx *dbx.Tx) (err error) {
-		_, err = tx.Tx.ExecContext(ctx, "SET TRANSACTION ISOLATION LEVEL SERIALIZABLE")
-		if err != nil {
-			return err
+		if reputations.db.impl == dbutil.Cockroach || reputations.db.impl == dbutil.Postgres {
+			_, err = tx.Tx.ExecContext(ctx, "SET TRANSACTION ISOLATION LEVEL SERIALIZABLE")
+			if err != nil {
+				return err
+			}
 		}
 
 		_, err = tx.Get_Reputation_By_Id(ctx, dbx.Reputation_Id(nodeID.Bytes()))
@@ -241,11 +254,19 @@ func (reputations *reputations) SuspendNodeUnknownAudit(ctx context.Context, nod
 				return err
 			}
 
-			_, err = tx.Tx.ExecContext(ctx, `
-				INSERT INTO reputations (id, audit_history)
-				VALUES ($1, $2)
-				ON CONFLICT (id) DO NOTHING
-			`, nodeID.Bytes(), historyBytes)
+			switch reputations.db.impl {
+			case dbutil.Cockroach, dbutil.Postgres:
+				_, err = tx.Tx.ExecContext(ctx, `
+					INSERT INTO reputations (id, audit_history)
+					VALUES ($1, $2)
+					ON CONFLICT (id) DO NOTHING
+				`, nodeID, historyBytes)
+			case dbutil.Spanner:
+				_, err = tx.Tx.ExecContext(ctx, `
+					INSERT OR IGNORE INTO reputations (id, audit_history)
+					VALUES (?, ?);
+				`, nodeID, historyBytes)
+			}
 			if err != nil {
 				return err
 			}
@@ -268,9 +289,11 @@ func (reputations *reputations) UnsuspendNodeUnknownAudit(ctx context.Context, n
 	defer mon.Task()(&ctx)(&err)
 
 	err = reputations.db.WithTx(ctx, func(ctx context.Context, tx *dbx.Tx) (err error) {
-		_, err = tx.Tx.ExecContext(ctx, "SET TRANSACTION ISOLATION LEVEL SERIALIZABLE")
-		if err != nil {
-			return err
+		if reputations.db.impl == dbutil.Cockroach || reputations.db.impl == dbutil.Postgres {
+			_, err = tx.Tx.ExecContext(ctx, "SET TRANSACTION ISOLATION LEVEL SERIALIZABLE")
+			if err != nil {
+				return err
+			}
 		}
 
 		_, err = tx.Get_Reputation_By_Id(ctx, dbx.Reputation_Id(nodeID.Bytes()))
@@ -280,11 +303,20 @@ func (reputations *reputations) UnsuspendNodeUnknownAudit(ctx context.Context, n
 				return err
 			}
 
-			_, err = tx.Tx.ExecContext(ctx, `
-				INSERT INTO reputations (id, audit_history)
-				VALUES ($1, $2)
-				ON CONFLICT (id) DO NOTHING
-			`, nodeID.Bytes(), historyBytes)
+			switch reputations.db.impl {
+			case dbutil.Cockroach, dbutil.Postgres:
+				_, err = tx.Tx.ExecContext(ctx, `
+					INSERT INTO reputations (id, audit_history)
+					VALUES ($1, $2)
+					ON CONFLICT (id) DO NOTHING
+				`, nodeID, historyBytes)
+			case dbutil.Spanner:
+				_, err = tx.Tx.ExecContext(ctx, `
+					INSERT OR IGNORE INTO reputations (id, audit_history)
+					VALUES (?, ?);
+				`, nodeID, historyBytes)
+			}
+
 			if err != nil {
 				return err
 			}

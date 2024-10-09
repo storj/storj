@@ -8,6 +8,7 @@ import { useProjectsStore } from '@/store/modules/projectsStore';
 import { useConfigStore } from '@/store/modules/configStore';
 import { useAppStore } from '@/store/modules/appStore';
 import { NavigationLink } from '@/types/navigation';
+import { useAnalyticsStore } from '@/store/modules/analyticsStore';
 
 enum RouteName {
     Account = 'Account',
@@ -18,8 +19,9 @@ enum RouteName {
     Dashboard = 'Dashboard',
     Buckets = 'Buckets',
     Bucket = 'Bucket',
-    Access = 'Access',
+    Access = 'Access Keys',
     Team = 'Team',
+    Domains = 'Domains',
     Applications = 'Applications',
     ProjectSettings = 'Project Settings',
     Login = 'Login',
@@ -43,6 +45,7 @@ export abstract class ROUTES {
     public static Bucket = new NavigationLink(':browserPath+', RouteName.Bucket);
     public static Access = new NavigationLink('access', RouteName.Access);
     public static Team = new NavigationLink('team', RouteName.Team);
+    public static Domains = new NavigationLink('domains', RouteName.Domains);
     public static Applications = new NavigationLink('applications', RouteName.Applications);
     public static ProjectSettings = new NavigationLink('settings', RouteName.ProjectSettings);
 
@@ -124,7 +127,7 @@ const routes: RouteRecordRaw[] = [
             },
             {
                 path: ROUTES.AccountSettings.path,
-                name: ROUTES.AccountSettings.path,
+                name: ROUTES.AccountSettings.name,
                 component: () => import(/* webpackChunkName: "MyAccount" */ '@/views/AccountSettings.vue'),
             },
         ],
@@ -147,6 +150,7 @@ const routes: RouteRecordRaw[] = [
         children: [
             {
                 path: '',
+                name: RouteName.Project,
                 redirect: (to: RouteLocation) => {
                     const projRoute = new NavigationLink(to.params.id as string, RouteName.Project);
                     return { path: ROUTES.Projects.with(projRoute).with(ROUTES.Dashboard).path };
@@ -171,6 +175,11 @@ const routes: RouteRecordRaw[] = [
                 path: ROUTES.Access.path,
                 name: ROUTES.Access.name,
                 component: () => import(/* webpackChunkName: "Access" */ '@/views/Access.vue'),
+            },
+            {
+                path: ROUTES.Domains.path,
+                name: ROUTES.Domains.name,
+                component: () => import(/* webpackChunkName: "Domains" */ '@/views/Domains.vue'),
             },
             {
                 path: ROUTES.Team.path,
@@ -212,7 +221,19 @@ export function setupRouter(): Router {
         next();
     });
 
-    router.afterEach(() => useAppStore().setIsNavigating(false));
+    router.afterEach((to, from) => {
+        useAppStore().setIsNavigating(false);
+
+        if (!configStore.state.config.analyticsEnabled) {
+            return;
+        }
+
+        if (to.name === ROUTES.Bucket.name && from.name === ROUTES.Bucket.name) {
+            // we are navigating within the same bucket, do not track the page visit
+            return;
+        }
+        useAnalyticsStore().pageVisit(to.matched[to.matched.length - 1].path, configStore.state.config.satelliteName);
+    });
 
     const projectsStore = useProjectsStore();
     const configStore = useConfigStore();

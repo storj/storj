@@ -133,9 +133,18 @@ func (cache *ReliabilityCache) refreshLocked(ctx context.Context) (_ *reliabilit
 		created:  time.Now(),
 		nodeByID: make(map[storj.NodeID]nodeselection.SelectedNode, len(selectedNodes)),
 	}
+
+	var online int64
 	for _, node := range selectedNodes {
 		state.nodeByID[node.ID] = node
+
+		if node.Online {
+			online++
+		}
 	}
+
+	mon.IntVal("checker_online_nodes").Observe(online)
+	mon.IntVal("checker_offline_nodes").Observe(int64(len(selectedNodes)) - online)
 
 	cache.state.Store(state)
 	return state, nil

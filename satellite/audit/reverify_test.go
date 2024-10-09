@@ -751,7 +751,7 @@ func TestReverifyUnknownError(t *testing.T) {
 func TestMaxReverifyCount(t *testing.T) {
 	const auditTimeout = time.Second
 	testWithRangedLoop(t, testplanet.Config{
-		SatelliteCount: 1, StorageNodeCount: 4, UplinkCount: 1,
+		SatelliteCount: 1, StorageNodeCount: 4, UplinkCount: 1, EnableSpanner: true,
 		Reconfigure: testplanet.Reconfigure{
 			StorageNodeDB: func(index int, db storagenode.DB, log *zap.Logger) (storagenode.DB, error) {
 				return testblobs.NewSlowDB(log.Named("slowdb"), db), nil
@@ -827,10 +827,15 @@ func TestMaxReverifyCount(t *testing.T) {
 			audits.ReverifyWorker.Loop.TriggerWait()
 
 			// make sure the node is still contained
-			info, err := containment.Get(ctx, slowNode)
+			job, err := containment.Get(ctx, slowNode)
 			require.NoError(t, err)
 
-			err = rq.TestingFudgeUpdateTime(ctx, pending, info.LastAttempt.Add(-satellite.Config.Audit.ReverificationRetryInterval))
+			// Fudge the update time of the reverification audit so that the reverification happens again
+			updateTime := job.InsertedAt
+			if job.LastAttempt != nil {
+				updateTime = *job.LastAttempt
+			}
+			err = rq.TestingFudgeUpdateTime(ctx, pending, updateTime.Add(-satellite.Config.Audit.ReverificationRetryInterval-time.Microsecond))
 			require.NoError(t, err)
 		}
 

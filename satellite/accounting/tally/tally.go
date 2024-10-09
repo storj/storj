@@ -153,40 +153,23 @@ func (service *Service) Tally(ctx context.Context) (err error) {
 					delta = 0
 				}
 
-				// read the method documentation why the increase passed to this method
-				// is calculated in this way
-				err = service.liveAccounting.AddProjectStorageUsage(ctx, projectID, -latestLiveTotals[projectID].Storage+tallyTotal.Storage+(delta/2))
+				// read the method documentation why the increase is calculated in this way.
+				storageIncr := -latestLiveTotals[projectID].Storage + tallyTotal.Storage + (delta / 2)
+				// difference between cached project totals and latest tally collector.
+				segmentIncr := tallyTotal.Segments - latestLiveTotals[projectID].Segments
+
+				err = service.liveAccounting.UpdateProjectStorageAndSegmentUsage(ctx, projectID, storageIncr, segmentIncr)
 				if err != nil {
 					if accounting.ErrSystemOrNetError.Has(err) {
 						service.log.Error(
-							"tally isn't updating the live accounting storage usages of the projects in this cycle",
+							"tally isn't updating the live accounting storage or segment usages of the projects in this cycle",
 							zap.Error(err),
 						)
 						return
 					}
 
 					service.log.Error(
-						"tally isn't updating the live accounting storage usage of the project in this cycle",
-						zap.String("projectID", projectID.String()),
-						zap.Error(err),
-					)
-				}
-
-				// difference between cached project totals and latest tally collector
-				increment := tallyTotal.Segments - latestLiveTotals[projectID].Segments
-
-				err = service.liveAccounting.UpdateProjectSegmentUsage(ctx, projectID, increment)
-				if err != nil {
-					if accounting.ErrSystemOrNetError.Has(err) {
-						service.log.Error(
-							"tally isn't updating the live accounting segment usages of the projects in this cycle",
-							zap.Error(err),
-						)
-						return
-					}
-
-					service.log.Error(
-						"tally isn't updating the live accounting segment usage of the project in this cycle",
+						"tally isn't updating the live accounting storage or segment usage of the project in this cycle",
 						zap.String("projectID", projectID.String()),
 						zap.Error(err),
 					)
@@ -293,6 +276,10 @@ func NewBucketTallyCollector(log *zap.Logger, now time.Time, db *metabase.DB, bu
 func (observer *BucketTallyCollector) Run(ctx context.Context) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
+	// NOTE: this is the current time according to the first database adapter,
+	// not necessarily the current time according to the others. This is only
+	// used to specify an AS OF SYSTEM TIME when the underlying adapter is
+	// CockroachDB, so the mismatch is probably acceptable for this usage.
 	startingTime, err := observer.metabase.Now(ctx)
 	if err != nil {
 		return err

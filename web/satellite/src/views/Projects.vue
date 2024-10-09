@@ -3,24 +3,26 @@
 
 <template>
     <v-container>
+        <trial-expiration-banner v-if="isTrialExpirationBanner" :expired="isExpired" />
+
+        <card-expire-banner />
+
         <low-token-balance-banner
-            v-if="isLowBalance && billingEnabled"
+            v-if="!isLoading && isLowBalance && billingEnabled"
             cta-label="Go to billing"
             @click="redirectToBilling"
         />
         <PageTitleComponent title="All Projects" />
-        <!-- <PageSubtitleComponent subtitle="Projects are where you and your team can upload and manage data, view usage statistics and billing."/> -->
 
-        <v-row>
+        <v-row class="mt-0">
             <v-col>
                 <v-btn
                     class="mr-3"
                     color="default"
                     variant="outlined"
-                    density="comfortable"
+                    :prepend-icon="CirclePlus"
                     @click="newProjectClicked"
                 >
-                    <IconNew class="mr-2" size="14" bold />
                     New Project
                 </v-btn>
             </v-col>
@@ -29,13 +31,12 @@
                 <v-spacer />
 
                 <v-col class="text-right">
-                    <!-- Projects Card/Table View -->
                     <v-btn-toggle
                         mandatory
                         border
                         inset
                         density="comfortable"
-                        class="pa-1"
+                        class="pa-1 bg-surface"
                     >
                         <v-btn
                             size="small"
@@ -45,7 +46,9 @@
                             aria-label="Toggle Cards View"
                             @click="isTableView = false"
                         >
-                            <icon-card-view />
+                            <template #prepend>
+                                <component :is="Grid2X2" :size="14" />
+                            </template>
                             Cards
                         </v-btn>
                         <v-btn
@@ -56,7 +59,9 @@
                             aria-label="Toggle Table View"
                             @click="isTableView = true"
                         >
-                            <icon-table-view />
+                            <template #prepend>
+                                <component :is="List" :size="15" />
+                            </template>
                             List
                         </v-btn>
                     </v-btn-toggle>
@@ -65,16 +70,14 @@
         </v-row>
 
         <v-row v-if="isTableView">
-            <!-- Table view -->
             <v-col>
                 <ProjectsTableComponent :items="items" @join-click="onJoinClicked" @invite-click="(item) => onInviteClicked(item)" />
             </v-col>
         </v-row>
 
         <v-row v-else>
-            <!-- Card view -->
             <v-col v-if="!items.length" cols="12" sm="6" md="4" lg="3">
-                <ProjectCard class="h-100" @create-click="isCreateProjectDialogShown = true" />
+                <ProjectCard class="h-100" @create-click="newProjectClicked" />
             </v-col>
             <v-col v-for="item in items" v-else :key="item.id" cols="12" sm="6" md="4" lg="3">
                 <ProjectCard :item="item" class="h-100" @join-click="onJoinClicked(item)" @invite-click="onInviteClicked(item)" />
@@ -103,6 +106,7 @@ import {
     VBtnToggle,
 } from 'vuetify/components';
 import { useRouter } from 'vue-router';
+import { CirclePlus, Grid2X2, List } from 'lucide-vue-next';
 
 import { ProjectItemModel } from '@/types/projects';
 import { useProjectsStore } from '@/store/modules/projectsStore';
@@ -116,6 +120,8 @@ import { ROUTES } from '@/router';
 import { AnalyticsEvent } from '@/utils/constants/analyticsEventNames';
 import { useAnalyticsStore } from '@/store/modules/analyticsStore';
 import { Dimensions, Size } from '@/utils/bytesSize';
+import { usePreCheck } from '@/composables/usePreCheck';
+import { AccountBalance, CreditCard } from '@/types/payments';
 
 import ProjectCard from '@/components/ProjectCard.vue';
 import PageTitleComponent from '@/components/PageTitleComponent.vue';
@@ -123,10 +129,9 @@ import ProjectsTableComponent from '@/components/ProjectsTableComponent.vue';
 import JoinProjectDialog from '@/components/dialogs/JoinProjectDialog.vue';
 import CreateProjectDialog from '@/components/dialogs/CreateProjectDialog.vue';
 import AddTeamMemberDialog from '@/components/dialogs/AddTeamMemberDialog.vue';
-import IconCardView from '@/components/icons/IconCardView.vue';
-import IconTableView from '@/components/icons/IconTableView.vue';
-import IconNew from '@/components/icons/IconNew.vue';
 import LowTokenBalanceBanner from '@/components/LowTokenBalanceBanner.vue';
+import TrialExpirationBanner from '@/components/TrialExpirationBanner.vue';
+import CardExpireBanner from '@/components/CardExpireBanner.vue';
 
 const analyticsStore = useAnalyticsStore();
 const appStore = useAppStore();
@@ -137,17 +142,19 @@ const billingStore = useBillingStore();
 
 const router = useRouter();
 const isLowBalance = useLowTokenBalance();
+const { isTrialExpirationBanner, isExpired, withTrialCheck } = usePreCheck();
 
 const joiningItem = ref<ProjectItemModel | null>(null);
 const isJoinProjectDialogShown = ref<boolean>(false);
 const isCreateProjectDialogShown = ref<boolean>(false);
 const addMemberProjectId = ref<string>('');
 const isAddMemberDialogShown = ref<boolean>(false);
+const isLoading = ref<boolean>(true);
 
 /**
  * Indicates if billing features are enabled.
  */
-const billingEnabled = computed<boolean>(() => configStore.state.config.billingFeaturesEnabled);
+const billingEnabled = computed<boolean>(() => configStore.getBillingEnabled(usersStore.state.user.hasVarPartner));
 
 /**
  * Returns whether to use the table view.
@@ -195,8 +202,10 @@ const items = computed((): ProjectItemModel[] => {
 });
 
 function newProjectClicked() {
-    analyticsStore.eventTriggered(AnalyticsEvent.NEW_PROJECT_CLICKED);
-    isCreateProjectDialogShown.value = true;
+    withTrialCheck(() => {
+        analyticsStore.eventTriggered(AnalyticsEvent.NEW_PROJECT_CLICKED);
+        isCreateProjectDialogShown.value = true;
+    }, true);
 }
 
 /**
@@ -218,8 +227,10 @@ function onJoinClicked(item: ProjectItemModel): void {
  * Displays the Add Members dialog.
  */
 function onInviteClicked(item: ProjectItemModel): void {
-    addMemberProjectId.value = item.id;
-    isAddMemberDialogShown.value = true;
+    withTrialCheck(() => {
+        addMemberProjectId.value = item.id;
+        isAddMemberDialogShown.value = true;
+    }, true);
 }
 
 /**
@@ -234,13 +245,16 @@ function formattedValue(value: Size): string {
     }
 }
 
-onMounted(() => {
-    if (configStore.state.config.nativeTokenPaymentsEnabled && configStore.state.config.billingFeaturesEnabled) {
-        Promise.all([
-            billingStore.getBalance(),
-            billingStore.getCreditCards(),
-            billingStore.getNativePaymentsHistory(),
-        ]).catch(_ => {});
+onMounted(async () => {
+    if (billingEnabled.value) {
+        const promises: Promise<CreditCard[] | AccountBalance | void>[] = [billingStore.getCreditCards()];
+
+        if (configStore.state.config.nativeTokenPaymentsEnabled) {
+            promises.push(billingStore.getBalance(), billingStore.getNativePaymentsHistory());
+        }
+        await Promise.all(promises).catch(_ => {});
     }
+
+    isLoading.value = false;
 });
 </script>

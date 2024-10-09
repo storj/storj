@@ -190,7 +190,7 @@ async function onActivateClick(): Promise<void> {
 
     await withLoading(async () => {
         try {
-            await auth.resendEmail(email.value);
+            await auth.resendEmail(email.value, captchaResponseToken.value);
             notify.success('Activation link sent');
             router.push({
                 name: ROUTES.SignupConfirmation.name,

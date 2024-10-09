@@ -838,7 +838,7 @@ func TestCommitSegment_RejectRetryDuplicate(t *testing.T) {
 
 func TestSegmentPlacementConstraints(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
-		SatelliteCount: 1, StorageNodeCount: 4, UplinkCount: 1,
+		SatelliteCount: 1, StorageNodeCount: 4, UplinkCount: 1, EnableSpanner: true,
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 		satellite := planet.Satellites[0]
 		apiKey := planet.Uplinks[0].APIKey[planet.Satellites[0].ID()]
@@ -866,8 +866,7 @@ func TestSegmentPlacementConstraints(t *testing.T) {
 			require.NoError(t, err)
 		}
 
-		err = satellite.Metabase.DB.UnderlyingTagSQL().QueryRowContext(ctx,
-			`UPDATE segments SET placement = 1`).Err()
+		err = satellite.Metabase.DB.TestingSetPlacementAllSegments(ctx, 1)
 		require.NoError(t, err)
 
 		{ // download should fail because non-zero placement and nodes have no country codes

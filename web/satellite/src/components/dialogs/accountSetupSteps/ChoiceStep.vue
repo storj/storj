@@ -4,8 +4,8 @@
 <template>
     <v-container>
         <v-row justify="center">
-            <v-col class="text-center pt-5 pt-md-10 pb-md-7">
-                <icon-storj-logo />
+            <v-col class="text-center py-4">
+                <icon-storj-logo height="50" width="50" class="rounded-xlg bg-background pa-2 border" />
                 <p class="text-overline mt-2 mb-1">
                     Welcome to Storj
                 </p>
@@ -16,7 +16,7 @@
 
         <v-row justify="center">
             <v-col cols="12" sm="6" lg="4">
-                <v-card id="personal" border class="px-3 py-5" @click="typeSelected(OnboardingStep.PersonalAccountForm)">
+                <v-card id="personal" class="px-3 py-5" @click="typeSelected(OnboardingStep.PersonalAccountForm)">
                     <v-card-item>
                         <div>
                             <icon-personal />
@@ -31,13 +31,13 @@
                         </div>
                     </v-card-item>
                     <v-card-item>
-                        <v-btn :append-icon="mdiChevronRight">Continue</v-btn>
+                        <v-btn :append-icon="ChevronRight">Continue</v-btn>
                     </v-card-item>
                 </v-card>
             </v-col>
 
             <v-col cols="12" sm="6" lg="4">
-                <v-card id="business" border class="px-3 py-5" @click="typeSelected(OnboardingStep.BusinessAccountForm)">
+                <v-card id="business" class="px-3 py-5" @click="typeSelected(OnboardingStep.BusinessAccountForm)">
                     <v-card-item>
                         <div>
                             <icon-business />
@@ -52,7 +52,7 @@
                         </div>
                     </v-card-item>
                     <v-card-item>
-                        <v-btn :append-icon="mdiChevronRight">Continue</v-btn>
+                        <v-btn :append-icon="ChevronRight">Continue</v-btn>
                     </v-card-item>
                 </v-card>
             </v-col>
@@ -62,7 +62,7 @@
 
 <script setup lang="ts">
 import { VBtn, VCard, VCardItem, VCol, VContainer, VRow } from 'vuetify/components';
-import { mdiChevronRight } from '@mdi/js';
+import { ChevronRight } from 'lucide-vue-next';
 
 import { OnboardingStep } from '@/types/users';
 import { AnalyticsEvent } from '@/utils/constants/analyticsEventNames';
@@ -75,11 +75,11 @@ import IconStorjLogo from '@/components/icons/IconStorjLogo.vue';
 const analyticsStore = useAnalyticsStore();
 
 const emit = defineEmits<{
-    next: [OnboardingStep];
+    select: [OnboardingStep];
 }>();
 
 function typeSelected(type: OnboardingStep) {
-    emit('next', type);
+    emit('select', type);
 
     let event: AnalyticsEvent;
     switch (type) {

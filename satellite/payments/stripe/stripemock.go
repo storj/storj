@@ -110,6 +110,7 @@ type mockStripeState struct {
 	charges                     *mockCharges
 	promoCodes                  *mockPromoCodes
 	creditNotes                 *mockCreditNotes
+	taxIDs                      *mockTaxIDs
 }
 
 type mockStripeClient struct {
@@ -142,6 +143,7 @@ func NewStripeMock(customersDB CustomersDB, usersDB console.Users) Client {
 	state.charges = &mockCharges{}
 	state.promoCodes = newMockPromoCodes(state)
 	state.creditNotes = newMockCreditNotes(state)
+	state.taxIDs = newMockTaxIDs(state)
 
 	return &mockStripeClient{
 		customersDB:     customersDB,
@@ -189,6 +191,10 @@ func (m *mockStripeClient) PromoCodes() PromoCodes {
 
 func (m *mockStripeClient) CreditNotes() CreditNotes {
 	return m.creditNotes
+}
+
+func (m *mockStripeClient) TaxIDs() TaxIDs {
+	return m.taxIDs
 }
 
 type mockCustomers struct {
@@ -357,12 +363,40 @@ func (m *mockCustomers) Update(id string, params *stripe.CustomerParams) (*strip
 		customer.Balance = *params.Balance
 	}
 	if params.InvoiceSettings != nil {
+		customInvoiceSettings := &stripe.CustomerInvoiceSettings{}
+
 		if params.InvoiceSettings.DefaultPaymentMethod != nil {
-			customer.InvoiceSettings = &stripe.CustomerInvoiceSettings{
-				DefaultPaymentMethod: &stripe.PaymentMethod{
-					ID: *params.InvoiceSettings.DefaultPaymentMethod,
-				},
+			customInvoiceSettings.DefaultPaymentMethod = &stripe.PaymentMethod{
+				ID: *params.InvoiceSettings.DefaultPaymentMethod,
 			}
+		}
+		if params.InvoiceSettings.CustomFields != nil {
+			var customFields []*stripe.CustomerInvoiceSettingsCustomField
+			for _, field := range params.InvoiceSettings.CustomFields {
+				f := &stripe.CustomerInvoiceSettingsCustomField{
+					Name:  *field.Name,
+					Value: *field.Value,
+				}
+				customFields = append(customFields, f)
+			}
+
+			customInvoiceSettings.CustomFields = customFields
+		}
+
+		customer.InvoiceSettings = customInvoiceSettings
+	}
+
+	if params.Name != nil {
+		customer.Name = *params.Name
+	}
+	if params.Address != nil {
+		customer.Address = &stripe.Address{
+			Line1:      *params.Address.Line1,
+			Line2:      *params.Address.Line2,
+			City:       *params.Address.City,
+			State:      *params.Address.State,
+			PostalCode: *params.Address.PostalCode,
+			Country:    *params.Address.Country,
 		}
 	}
 	// TODO update customer with more params as necessary
@@ -459,16 +493,23 @@ func (m *mockPaymentMethods) New(params *stripe.PaymentMethodParams) (*stripe.Pa
 		}
 	}
 
+	card := &stripe.PaymentMethodCard{
+		ExpMonth:    12,
+		ExpYear:     2050,
+		Brand:       "Mastercard",
+		Last4:       "4444",
+		Description: randID,
+		Fingerprint: "fingerprint" + *params.Card.Token,
+	}
+
+	if params.Card.ExpYear != nil && params.Card.ExpMonth != nil {
+		card.ExpYear = *params.Card.ExpYear
+		card.ExpMonth = *params.Card.ExpMonth
+	}
+
 	newMethod := &stripe.PaymentMethod{
-		ID: id,
-		Card: &stripe.PaymentMethodCard{
-			ExpMonth:    12,
-			ExpYear:     2050,
-			Brand:       "Mastercard",
-			Last4:       "4444",
-			Description: randID,
-			Fingerprint: "fingerprint" + *params.Card.Token,
-		},
+		ID:   id,
+		Card: card,
 		Type: stripe.PaymentMethodTypeCard,
 	}
 
@@ -706,6 +747,8 @@ func (m *mockInvoices) Pay(id string, params *stripe.InvoicePayParams) (*stripe.
 	for _, invoices := range m.invoices {
 		for _, invoice := range invoices {
 			if invoice.ID == id {
+				invoice.Attempted = true
+				invoice.AttemptCount++
 				if params.PaymentMethod != nil {
 					if *params.PaymentMethod == MockInvoicesPayFailure {
 						invoice.Status = stripe.InvoiceStatusOpen
@@ -1080,4 +1123,63 @@ func (m mockCreditNotes) New(params *stripe.CreditNoteParams) (*stripe.CreditNot
 	}
 
 	return item, nil
+}
+
+type mockTaxIDs struct {
+	root *mockStripeState
+}
+
+func newMockTaxIDs(root *mockStripeState) *mockTaxIDs {
+	return &mockTaxIDs{
+		root: root,
+	}
+}
+
+func (m *mockTaxIDs) New(params *stripe.TaxIDParams) (*stripe.TaxID, error) {
+	m.root.mu.Lock()
+	defer m.root.mu.Unlock()
+
+	if params.Customer == nil || params.Type == nil || params.Value == nil {
+		return nil, &stripe.Error{Code: stripe.ErrorCodeParameterMissing}
+	}
+
+	taxID := &stripe.TaxID{
+		ID:    "txi_" + string(testrand.RandAlphaNumeric(25)),
+		Type:  stripe.TaxIDType(*params.Type),
+		Value: *params.Value,
+	}
+
+	for _, c := range m.root.customers.customers {
+		if c.ID == *params.Customer {
+			if c.TaxIDs == nil {
+				c.TaxIDs = &stripe.TaxIDList{}
+			}
+			c.TaxIDs.Data = append(c.TaxIDs.Data, taxID)
+		}
+	}
+
+	return taxID, nil
+}
+
+func (m *mockTaxIDs) Del(id string, params *stripe.TaxIDParams) (*stripe.TaxID, error) {
+	for _, c := range m.root.customers.customers {
+		if c.TaxIDs == nil {
+			continue
+		}
+		for _, taxID := range c.TaxIDs.Data {
+			if taxID.ID != id {
+				continue
+			}
+			// remove this taxID from the customer
+			var newTaxIDs []*stripe.TaxID
+			for _, t := range c.TaxIDs.Data {
+				if t.ID != taxID.ID {
+					newTaxIDs = append(newTaxIDs, t)
+				}
+			}
+			c.TaxIDs.Data = newTaxIDs
+			return taxID, nil
+		}
+	}
+	return nil, nil
 }

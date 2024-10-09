@@ -1,9 +1,17 @@
 // Copyright (C) 2019 Storj Labs, Inc.
 // See LICENSE for copying information.
 
-import { Bucket, BucketCursor, BucketPage, BucketPlacement, BucketsApi, Versioning } from '@/types/buckets';
+import {
+    Bucket,
+    BucketCursor,
+    BucketMetadata,
+    BucketPage,
+    BucketsApi,
+} from '@/types/buckets';
 import { HttpClient } from '@/utils/httpClient';
 import { APIError } from '@/utils/error';
+import { getVersioning } from '@/types/versioning';
+import { Placement } from '@/types/placements.js';
 
 /**
  * BucketsHttpApi is an HTTP implementation of the Buckets API.
@@ -45,7 +53,8 @@ export class BucketsHttpApi implements BucketsApi {
             result.bucketUsages?.map(usage =>
                 new Bucket(
                     usage.bucketName,
-                    this.getVersioning(usage.versioning),
+                    getVersioning(usage.versioning),
+                    usage.objectLockEnabled,
                     usage.defaultPlacement,
                     usage.location,
                     usage.storage,
@@ -62,6 +71,47 @@ export class BucketsHttpApi implements BucketsApi {
             result.pageCount,
             result.currentPage,
             result.totalCount,
+        );
+    }
+
+    /**
+     * Fetch single bucket data.
+     *
+     * @returns Bucket
+     * @throws Error
+     */
+    public async getSingle(projectID: string, bucketName: string, before: Date): Promise<Bucket> {
+        const paramsString = new URLSearchParams({
+            projectID,
+            bucket: bucketName,
+            before: before.toISOString(),
+        }).toString();
+
+        const path = `${this.ROOT_PATH}/bucket-totals?${paramsString}`;
+        const response = await this.client.get(path);
+
+        if (!response.ok) {
+            throw new APIError({
+                status: response.status,
+                message: 'Cannot get single bucket data',
+                requestID: response.headers.get('x-request-id'),
+            });
+        }
+
+        const result = await response.json();
+
+        return new Bucket(
+            result.bucketName,
+            getVersioning(result.versioning),
+            result.objectLockEnabled,
+            result.defaultPlacement,
+            result.location,
+            result.storage,
+            result.egress,
+            result.objectCount,
+            result.segmentCount,
+            new Date(result.since),
+            new Date(result.before),
         );
     }
 
@@ -89,40 +139,33 @@ export class BucketsHttpApi implements BucketsApi {
     }
 
     /**
-     * Fetch all bucket placements.
+     * Fetch all bucket metadata.
      *
-     * @returns BucketPlacement[]
+     * @returns BucketMetadata[]
      * @throws Error
      */
-    public async getAllBucketPlacements(projectId: string): Promise<BucketPlacement[]> {
-        const path = `${this.ROOT_PATH}/bucket-placements?publicID=${projectId}`;
+    public async getAllBucketMetadata(projectId: string): Promise<BucketMetadata[]> {
+        const path = `${this.ROOT_PATH}/bucket-metadata?publicID=${projectId}`;
         const response = await this.client.get(path);
 
         if (!response.ok) {
             throw new APIError({
                 status: response.status,
-                message: 'Can not get bucket placements',
+                message: 'Can not get bucket metadata',
                 requestID: response.headers.get('x-request-id'),
             });
         }
 
         const result = await response.json();
 
-        return result ? result : [];
-    }
-
-    private getVersioning(value: number): Versioning {
-        switch (value) {
-        case 0:
-            return Versioning.NotSupported;
-        case 1:
-            return Versioning.Unversioned;
-        case 2:
-            return Versioning.Enabled;
-        case 3:
-            return Versioning.Suspended;
-        default:
-            return Versioning.NotSupported;
-        }
+        return result?.map(bVersioning => new BucketMetadata(
+            bVersioning.name,
+            getVersioning(bVersioning.versioning),
+            new Placement(
+                bVersioning.placement.defaultPlacement,
+                bVersioning.placement.location,
+            ),
+            bVersioning.objectLockEnabled,
+        )) || [];
     }
 }

@@ -31,6 +31,9 @@ func TestCleaner(t *testing.T) {
 		// pause the chore
 		storagenode.ForgetSatellite.Chore.Loop.Pause()
 
+		// TODO(clement): remove this once I figure out why it's flaky
+		planet.StorageNodes[0].NodeStats.Cache.Reputation.Pause()
+
 		store := planet.StorageNodes[0].Storage2.BlobsCache
 		defer ctx.Check(store.Close)
 
@@ -39,7 +42,7 @@ func TestCleaner(t *testing.T) {
 			Namespace: cleanupSatellite.ID().Bytes(),
 			Key:       testrand.PieceID().Bytes(),
 		}
-		w, err := store.Create(ctx, blobRef, -1)
+		w, err := store.Create(ctx, blobRef)
 		require.NoError(t, err)
 		_, err = w.Write(testrand.Bytes(blobSize))
 		require.NoError(t, err)

@@ -11,11 +11,13 @@ import (
 	"net/http"
 	"os"
 	"runtime"
+	"sort"
 	"sync"
 	"syscall"
 	"time"
 
 	"github.com/jtolio/noiseconn"
+	"github.com/spacemonkeygo/monkit/v3"
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 	"golang.org/x/sync/errgroup"
@@ -33,6 +35,7 @@ import (
 	"storj.io/drpc/drpcmigrate"
 	"storj.io/drpc/drpcmux"
 	"storj.io/drpc/drpcserver"
+	"storj.io/drpc/drpcstats"
 	jaeger "storj.io/monkit-jaeger"
 	"storj.io/storj/private/server/debounce"
 )
@@ -187,6 +190,36 @@ func New(log *zap.Logger, tlsOptions *tlsopts.Options, config Config) (_ *Server
 	server.privateTCPListener = wrapListener(privateTCPListener)
 
 	return server, nil
+}
+
+// Stats implements monkit.StatSource and outputs statistics about drpc bytes read
+// and written per rpc.
+func (p *Server) Stats(cb func(key monkit.SeriesKey, field string, val float64)) {
+	merge := func(out, in map[string]drpcstats.Stats) {
+		for k, vi := range in {
+			vo := out[k]
+			vo.Read += vi.Read
+			vo.Written += vi.Written
+			out[k] = vo
+		}
+	}
+
+	stats := make(map[string]drpcstats.Stats)
+	merge(stats, p.publicEndpointsReplaySafe.drpc.Stats())
+	merge(stats, p.publicEndpointsAll.drpc.Stats())
+	merge(stats, p.privateEndpoints.drpc.Stats())
+
+	rpcs := make([]string, 0, len(stats))
+	for k := range stats {
+		rpcs = append(rpcs, k)
+	}
+	sort.Strings(rpcs)
+
+	for _, rpc := range rpcs {
+		v := stats[rpc]
+		cb(monkit.NewSeriesKey("drpc_bytes_transmitted").WithTag("rpc", rpc), "read", float64(v.Read))
+		cb(monkit.NewSeriesKey("drpc_bytes_transmitted").WithTag("rpc", rpc), "written", float64(v.Written))
+	}
 }
 
 // Identity returns the server's identity.
@@ -470,7 +503,8 @@ func newEndpointCollection() *endpointCollection {
 					jaeger.RemoteTraceHandler),
 			),
 			drpcserver.Options{
-				Manager: rpc.NewDefaultManagerOptions(),
+				Manager:      rpc.NewDefaultManagerOptions(),
+				CollectStats: true,
 			},
 		),
 	}

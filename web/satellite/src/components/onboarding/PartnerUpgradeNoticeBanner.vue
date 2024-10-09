@@ -3,24 +3,22 @@
 
 <template>
     <v-alert
-        v-if="planInfo"
         :model-value="model"
         :title="planInfo.bannerTitle"
         closable
         variant="tonal"
-        type="success"
-        rounded="lg"
+        color="success"
         class="mt-4 mb-4"
         @click:close="dismiss"
     >
-        <template #prepend />
         <template #text>
-            <p>
+            <p class="mt-2">
                 {{ planInfo.bannerText }}
             </p>
             <v-btn
-                class="mt-2"
+                class="mt-3"
                 color="success"
+                :append-icon="ArrowRight"
                 @click="toggleUpgradeDialog"
             >
                 Learn More
@@ -37,19 +35,15 @@
 <script setup lang="ts">
 import { VAlert, VBtn } from 'vuetify/components';
 import { ref, watch } from 'vue';
+import { ArrowRight } from 'lucide-vue-next';
 
 import { PricingPlanInfo } from '@/types/common';
 import { useUsersStore } from '@/store/modules/usersStore';
 import { AnalyticsErrorEventSource } from '@/utils/constants/analyticsEventNames';
 import { useNotify } from '@/utils/hooks';
-import { useConfigStore } from '@/store/modules/configStore';
-import { PaymentsHttpApi } from '@/api/payments';
 
 import UpgradeAccountDialog from '@/components/dialogs/upgradeAccountFlow/UpgradeAccountDialog.vue';
 
-const payments: PaymentsHttpApi = new PaymentsHttpApi();
-
-const configStore = useConfigStore();
 const usersStore = useUsersStore();
 
 const notify = useNotify();
@@ -58,7 +52,7 @@ const isUpgradeDialogShown = ref<boolean>(false);
 
 const upgradeDialog = ref<{ setSecondStep: ()=>void }>();
 
-const props = defineProps<{
+defineProps<{
     planInfo: PricingPlanInfo,
 }>();
 

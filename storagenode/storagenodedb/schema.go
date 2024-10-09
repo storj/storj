@@ -4,55 +4,50 @@
 
 package storagenodedb
 
-import "storj.io/common/dbutil/dbschema"
+import "storj.io/storj/shared/dbutil/dbschema"
 
 func Schema() map[string]*dbschema.Schema {
 	return map[string]*dbschema.Schema{
 		"bandwidth": {
 			Tables: []*dbschema.Table{
 				{
-					Name: "bandwidth_usage",
+					Name:       "bandwidth_usage",
+					PrimaryKey: []string{"interval_start", "satellite_id"},
 					Columns: []*dbschema.Column{
 						{
-							Name:       "action",
-							Type:       "INTEGER",
-							IsNullable: false,
-						},
-						{
-							Name:       "amount",
+							Name:       "delete_total",
 							Type:       "BIGINT",
-							IsNullable: false,
+							IsNullable: true,
 						},
 						{
-							Name:       "created_at",
-							Type:       "TIMESTAMP",
-							IsNullable: false,
-						},
-						{
-							Name:       "satellite_id",
-							Type:       "BLOB",
-							IsNullable: false,
-						},
-					},
-				},
-				{
-					Name:       "bandwidth_usage_rollups",
-					PrimaryKey: []string{"action", "interval_start", "satellite_id"},
-					Columns: []*dbschema.Column{
-						{
-							Name:       "action",
-							Type:       "INTEGER",
-							IsNullable: false,
-						},
-						{
-							Name:       "amount",
+							Name:       "get_audit_total",
 							Type:       "BIGINT",
-							IsNullable: false,
+							IsNullable: true,
+						},
+						{
+							Name:       "get_repair_total",
+							Type:       "BIGINT",
+							IsNullable: true,
+						},
+						{
+							Name:       "get_total",
+							Type:       "BIGINT",
+							IsNullable: true,
 						},
 						{
 							Name:       "interval_start",
 							Type:       "TIMESTAMP",
 							IsNullable: false,
+						},
+						{
+							Name:       "put_repair_total",
+							Type:       "BIGINT",
+							IsNullable: true,
+						},
+						{
+							Name:       "put_total",
+							Type:       "BIGINT",
+							IsNullable: true,
 						},
 						{
 							Name:       "satellite_id",
@@ -62,9 +57,30 @@ func Schema() map[string]*dbschema.Schema {
 					},
 				},
 			},
-			Indexes: []*dbschema.Index{
-				{Name: "idx_bandwidth_usage_created", Table: "bandwidth_usage", Columns: []string{"created_at"}, Unique: false, Partial: ""},
-				{Name: "idx_bandwidth_usage_satellite", Table: "bandwidth_usage", Columns: []string{"satellite_id"}, Unique: false, Partial: ""},
+		},
+		"garbage_collection_filewalker_progress": {
+			Tables: []*dbschema.Table{
+				{
+					Name:       "progress",
+					PrimaryKey: []string{"satellite_id"},
+					Columns: []*dbschema.Column{
+						{
+							Name:       "bloomfilter_created_before",
+							Type:       "TIMESTAMP",
+							IsNullable: false,
+						},
+						{
+							Name:       "last_checked_prefix",
+							Type:       "TEXT",
+							IsNullable: false,
+						},
+						{
+							Name:       "satellite_id",
+							Type:       "BLOB",
+							IsNullable: false,
+						},
+					},
+				},
 			},
 		},
 		"heldamount": {
@@ -362,14 +378,8 @@ func Schema() map[string]*dbschema.Schema {
 		"piece_expiration": {
 			Tables: []*dbschema.Table{
 				{
-					Name:       "piece_expirations",
-					PrimaryKey: []string{"piece_id", "satellite_id"},
+					Name: "piece_expirations",
 					Columns: []*dbschema.Column{
-						{
-							Name:       "deletion_failed_at",
-							Type:       "TIMESTAMP",
-							IsNullable: true,
-						},
 						{
 							Name:       "piece_expiration",
 							Type:       "TIMESTAMP",
@@ -385,18 +395,11 @@ func Schema() map[string]*dbschema.Schema {
 							Type:       "BLOB",
 							IsNullable: false,
 						},
-						{
-							Name:       "trash",
-							Type:       "INTEGER",
-							IsNullable: false,
-						},
 					},
 				},
 			},
 			Indexes: []*dbschema.Index{
-				{Name: "idx_piece_expirations_deletion_failed_at", Table: "piece_expirations", Columns: []string{"deletion_failed_at"}, Unique: false, Partial: ""},
 				{Name: "idx_piece_expirations_piece_expiration", Table: "piece_expirations", Columns: []string{"piece_expiration"}, Unique: false, Partial: ""},
-				{Name: "idx_piece_expirations_trashed", Table: "piece_expirations", Columns: []string{"satellite_id", "trash"}, Unique: false, Partial: "trash = 1"},
 			},
 		},
 		"piece_spaced_used": {
@@ -737,5 +740,45 @@ func Schema() map[string]*dbschema.Schema {
 			},
 		},
 		"used_serial": {},
+		"used_space_per_prefix": {
+			Tables: []*dbschema.Table{
+				{
+					Name:       "used_space_per_prefix",
+					PrimaryKey: []string{"piece_prefix", "satellite_id"},
+					Columns: []*dbschema.Column{
+						{
+							Name:       "last_updated",
+							Type:       "TIMESTAMP",
+							IsNullable: false,
+						},
+						{
+							Name:       "piece_counts",
+							Type:       "INTEGER",
+							IsNullable: false,
+						},
+						{
+							Name:       "piece_prefix",
+							Type:       "TEXT",
+							IsNullable: false,
+						},
+						{
+							Name:       "satellite_id",
+							Type:       "BLOB",
+							IsNullable: false,
+						},
+						{
+							Name:       "total_bytes",
+							Type:       "INTEGER",
+							IsNullable: false,
+						},
+						{
+							Name:       "total_content_size",
+							Type:       "INTEGER",
+							IsNullable: false,
+						},
+					},
+				},
+			},
+		},
 	}
 }

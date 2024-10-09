@@ -38,6 +38,8 @@ func (c *cmdAccessRegister) Setup(params clingy.Parameters) {
 }
 
 func (c *cmdAccessRegister) Execute(ctx context.Context) (err error) {
+	defer mon.Task()(&ctx)(&err)
+
 	accessNameOrValue := ""
 	if c.accessNameOrValue != nil && len(*c.accessNameOrValue) > 0 {
 		accessNameOrValue = *c.accessNameOrValue

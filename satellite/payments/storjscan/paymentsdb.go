@@ -27,16 +27,17 @@ type PaymentsDB interface {
 	List(ctx context.Context) ([]CachedPayment, error)
 	// ListWallet returns list of storjscan payments order by block number and log index desc.
 	ListWallet(ctx context.Context, wallet blockchain.Address, limit int, offset int64) ([]CachedPayment, error)
-	// LastBlock returns the highest block known to DB for specified payment status.
-	LastBlock(ctx context.Context, status payments.PaymentStatus) (int64, error)
+	// LastBlocks returns the highest blocks known to the DB for each chain with the given payment status.
+	LastBlocks(ctx context.Context, status payments.PaymentStatus) (map[int64]int64, error)
 	// DeletePending removes all pending transactions from the DB.
 	DeletePending(ctx context.Context) error
-	// ListConfirmed returns list of confirmed storjscan payments greater than the given timestamp.
-	ListConfirmed(ctx context.Context, blockNumber int64, logIndex int) ([]CachedPayment, error)
+	// ListConfirmed returns list of confirmed storjscan payments greater than the given timestamp from the specified source and chain.
+	ListConfirmed(ctx context.Context, source string, chainID, blockNumber int64, logIndex int) ([]CachedPayment, error)
 }
 
 // CachedPayment holds cached data of storjscan payment.
 type CachedPayment struct {
+	ChainID     int64                  `json:"chainID"`
 	From        blockchain.Address     `json:"from"`
 	To          blockchain.Address     `json:"to"`
 	TokenValue  currency.Amount        `json:"tokenValue"`

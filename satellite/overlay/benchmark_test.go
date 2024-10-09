@@ -17,6 +17,7 @@ import (
 	"storj.io/common/errs2"
 	"storj.io/common/pb"
 	"storj.io/common/storj"
+	"storj.io/common/testcontext"
 	"storj.io/common/testrand"
 	"storj.io/storj/satellite"
 	"storj.io/storj/satellite/nodeselection"
@@ -25,7 +26,7 @@ import (
 )
 
 func BenchmarkOverlay(b *testing.B) {
-	satellitedbtest.Bench(b, func(b *testing.B, db satellite.DB) {
+	satellitedbtest.Bench(b, func(ctx *testcontext.Context, b *testing.B, db satellite.DB) {
 		const (
 			TotalNodeCount = 211
 			OnlineCount    = 90
@@ -33,7 +34,6 @@ func BenchmarkOverlay(b *testing.B) {
 		)
 
 		overlaydb := db.OverlayCache()
-		ctx := context.Background()
 
 		var all []storj.NodeID
 		var check []storj.NodeID
@@ -45,6 +45,7 @@ func BenchmarkOverlay(b *testing.B) {
 			}
 		}
 
+		nodetags := nodeselection.NodeTags{}
 		for i, id := range all {
 			addr := fmt.Sprintf("127.0.%d.0:8080", i)
 			lastNet := fmt.Sprintf("127.0.%d", i)
@@ -58,7 +59,28 @@ func BenchmarkOverlay(b *testing.B) {
 			}
 			err := overlaydb.UpdateCheckIn(ctx, d, time.Now().UTC(), overlay.NodeSelectionConfig{})
 			require.NoError(b, err)
+
+			nodetags = append(nodetags,
+				nodeselection.NodeTag{
+					NodeID:   id,
+					SignedAt: time.Now().Add(-time.Hour),
+					Signer:   id,
+					Name:     "alpha",
+					Value:    []byte("alpha"),
+				},
+				nodeselection.NodeTag{
+					NodeID:   id,
+					SignedAt: time.Now().Add(-time.Hour),
+					Signer:   id,
+					Name:     "beta",
+					Value:    []byte("beta"),
+				},
+			)
+			require.NoError(b, err)
 		}
+
+		err := overlaydb.UpdateNodeTags(ctx, nodetags)
+		require.NoError(b, err)
 
 		// create random offline node ids to check
 		for i := 0; i < OfflineCount; i++ {
@@ -179,7 +201,7 @@ func BenchmarkOverlay(b *testing.B) {
 }
 
 func BenchmarkNodeSelection(b *testing.B) {
-	satellitedbtest.Bench(b, func(b *testing.B, db satellite.DB) {
+	satellitedbtest.Bench(b, func(ctx *testcontext.Context, b *testing.B, db satellite.DB) {
 		var (
 			Total       = 10000
 			Offline     = 1000
@@ -198,14 +220,10 @@ func BenchmarkNodeSelection(b *testing.B) {
 			ExcludedCount /= 10
 		}
 
-		SelectNewCount := int(100 * newNodeFraction)
-
 		now := time.Now()
 		twoHoursAgo := now.Add(-2 * time.Hour)
 
 		overlaydb := db.OverlayCache()
-		ctx, cancel := context.WithCancel(context.Background())
-		defer cancel()
 
 		nodeSelectionConfig := overlay.NodeSelectionConfig{
 			NewNodeFraction:  newNodeFraction,
@@ -220,7 +238,6 @@ func BenchmarkNodeSelection(b *testing.B) {
 		}
 
 		var excludedIDs []storj.NodeID
-		var excludedNets []string
 
 		for i := 0; i < Total/NodesPerNet; i++ {
 			for k := 0; k < NodesPerNet; k++ {
@@ -230,7 +247,6 @@ func BenchmarkNodeSelection(b *testing.B) {
 
 				if i < ExcludedCount && k == 0 {
 					excludedIDs = append(excludedIDs, nodeID)
-					excludedNets = append(excludedNets, lastNet)
 				}
 
 				addr := address + ":12121"
@@ -287,72 +303,6 @@ func BenchmarkNodeSelection(b *testing.B) {
 				}
 			}
 		}
-
-		criteria := &overlay.NodeCriteria{
-			FreeDisk:           0,
-			ExcludedIDs:        nil,
-			ExcludedNetworks:   nil,
-			MinimumVersion:     "v1.0.0",
-			OnlineWindow:       time.Hour,
-			AsOfSystemInterval: -time.Microsecond,
-		}
-		excludedCriteria := &overlay.NodeCriteria{
-			FreeDisk:           0,
-			ExcludedIDs:        excludedIDs,
-			ExcludedNetworks:   excludedNets,
-			MinimumVersion:     "v1.0.0",
-			OnlineWindow:       time.Hour,
-			AsOfSystemInterval: -time.Microsecond,
-		}
-
-		b.Run("SelectStorageNodes", func(b *testing.B) {
-			for i := 0; i < b.N; i++ {
-				selected, err := overlaydb.SelectStorageNodes(ctx, SelectCount, 0, criteria)
-				require.NoError(b, err)
-				require.NotEmpty(b, selected)
-			}
-		})
-
-		b.Run("SelectNewStorageNodes", func(b *testing.B) {
-			for i := 0; i < b.N; i++ {
-				selected, err := overlaydb.SelectStorageNodes(ctx, SelectCount, SelectCount, criteria)
-				require.NoError(b, err)
-				require.NotEmpty(b, selected)
-			}
-		})
-
-		b.Run("SelectStorageNodesExclusion", func(b *testing.B) {
-			for i := 0; i < b.N; i++ {
-				selected, err := overlaydb.SelectStorageNodes(ctx, SelectCount, 0, excludedCriteria)
-				require.NoError(b, err)
-				require.NotEmpty(b, selected)
-			}
-		})
-
-		b.Run("SelectNewStorageNodesExclusion", func(b *testing.B) {
-			for i := 0; i < b.N; i++ {
-				selected, err := overlaydb.SelectStorageNodes(ctx, SelectCount, SelectCount, excludedCriteria)
-				require.NoError(b, err)
-				require.NotEmpty(b, selected)
-			}
-		})
-
-		b.Run("SelectStorageNodesBoth", func(b *testing.B) {
-			for i := 0; i < b.N; i++ {
-				selected, err := overlaydb.SelectStorageNodes(ctx, SelectCount, SelectNewCount, criteria)
-				require.NoError(b, err)
-				require.NotEmpty(b, selected)
-			}
-		})
-
-		b.Run("SelectStorageNodesBothExclusion", func(b *testing.B) {
-			for i := 0; i < b.N; i++ {
-				selected, err := overlaydb.SelectStorageNodes(ctx, SelectCount, SelectNewCount, excludedCriteria)
-				require.NoError(b, err)
-				require.NotEmpty(b, selected)
-			}
-		})
-
 		b.Run("GetNodesNetwork", func(b *testing.B) {
 			for i := 0; i < b.N; i++ {
 				excludedNetworks, err := overlaydb.GetNodesNetwork(ctx, excludedIDs)
@@ -378,8 +328,8 @@ func BenchmarkNodeSelection(b *testing.B) {
 		b.Run("FindStorageNodes", func(b *testing.B) {
 			for i := 0; i < b.N; i++ {
 				selected, err := service.FindStorageNodesForUpload(ctx, overlay.FindStorageNodesRequest{
-					RequestedCount: SelectCount,
-					ExcludedIDs:    nil,
+					RequestedCount:  SelectCount,
+					AlreadySelected: nil,
 				})
 				require.NoError(b, err)
 				require.NotEmpty(b, selected)
@@ -400,8 +350,8 @@ func BenchmarkNodeSelection(b *testing.B) {
 		b.Run("UploadSelectionCacheGetNodes", func(b *testing.B) {
 			for i := 0; i < b.N; i++ {
 				selected, err := service.UploadSelectionCache.GetNodes(ctx, overlay.FindStorageNodesRequest{
-					RequestedCount: SelectCount,
-					ExcludedIDs:    nil,
+					RequestedCount:  SelectCount,
+					AlreadySelected: nil,
 				})
 				require.NoError(b, err)
 				require.NotEmpty(b, selected)

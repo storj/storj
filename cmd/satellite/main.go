@@ -23,7 +23,6 @@ import (
 
 	"storj.io/common/cfgstruct"
 	"storj.io/common/fpath"
-	"storj.io/common/lrucache"
 	"storj.io/common/pb"
 	"storj.io/common/peertls/tlsopts"
 	"storj.io/common/process"
@@ -43,6 +42,7 @@ import (
 	"storj.io/storj/satellite/nodeselection"
 	"storj.io/storj/satellite/payments/stripe"
 	"storj.io/storj/satellite/satellitedb"
+	"storj.io/storj/shared/lrucache"
 )
 
 // Satellite defines satellite configuration.
@@ -99,6 +99,11 @@ var (
 		Use:   "api",
 		Short: "Run the satellite API",
 		RunE:  cmdAPIRun,
+	}
+	runConsoleAPICmd = &cobra.Command{
+		Use:   "console-api",
+		Short: "Run the satellite API",
+		RunE:  cmdConsoleAPIRun,
 	}
 	runUICmd = &cobra.Command{
 		Use:   "ui",
@@ -228,6 +233,7 @@ var (
 	}
 
 	aggregate           = false
+	groupInvoiceItems   = false
 	includeEmissionInfo = false
 
 	prepareCustomerInvoiceRecordsCmd = &cobra.Command{
@@ -243,6 +249,13 @@ var (
 		Long:  "Creates stripe invoice line items for not consumed project records.",
 		Args:  cobra.ExactArgs(1),
 		RunE:  cmdCreateCustomerProjectInvoiceItems,
+	}
+	createCustomerProjectInvoiceItemsGroupedCmd = &cobra.Command{
+		Use:   "create-project-invoice-items-grouped [period]",
+		Short: "Creates stripe invoice line items for project charges grouped by project",
+		Long:  "Creates stripe invoice line items for not consumed project records grouped by project",
+		Args:  cobra.ExactArgs(1),
+		RunE:  cmdCreateCustomerProjectInvoiceItemsGrouped,
 	}
 	createCustomerAggregatedProjectInvoiceItemsCmd = &cobra.Command{
 		Use:   "create-aggregated-project-invoice-items [period]",
@@ -404,6 +417,7 @@ func init() {
 	rootCmd.AddCommand(runCmd)
 	runCmd.AddCommand(runMigrationCmd)
 	runCmd.AddCommand(runAPICmd)
+	runCmd.AddCommand(runConsoleAPICmd)
 	runCmd.AddCommand(runUICmd)
 	runCmd.AddCommand(runAdminCmd)
 	runCmd.AddCommand(runRepairerCmd)
@@ -435,11 +449,13 @@ func init() {
 	billingCmd.AddCommand(prepareCustomerInvoiceRecordsCmd)
 	prepareCustomerInvoiceRecordsCmd.Flags().BoolVar(&aggregate, "aggregate", false, "Used to enable creation of to be aggregated project records in case users have many projects (more than 83).")
 	billingCmd.AddCommand(createCustomerProjectInvoiceItemsCmd)
+	billingCmd.AddCommand(createCustomerProjectInvoiceItemsGroupedCmd)
 	billingCmd.AddCommand(createCustomerAggregatedProjectInvoiceItemsCmd)
 	billingCmd.AddCommand(createCustomerInvoicesCmd)
 	createCustomerInvoicesCmd.Flags().BoolVar(&includeEmissionInfo, "emission", false, "Used to enable CO2 emission impact calculation to be added to invoice footer.")
 	billingCmd.AddCommand(generateCustomerInvoicesCmd)
 	generateCustomerInvoicesCmd.Flags().BoolVar(&aggregate, "aggregate", false, "Used to enable invoice items aggregation in case users have many projects (more than 83).")
+	generateCustomerInvoicesCmd.Flags().BoolVar(&groupInvoiceItems, "group-invoice-items", false, "Used to ensure invoice items are grouped by project.")
 	generateCustomerInvoicesCmd.Flags().BoolVar(&includeEmissionInfo, "emission", false, "Used to enable CO2 emission impact calculation to be added to invoice footer.")
 	billingCmd.AddCommand(finalizeCustomerInvoicesCmd)
 	billingCmd.AddCommand(payInvoicesWithTokenCmd)
@@ -451,6 +467,7 @@ func init() {
 	process.Bind(runCmd, &runCfg, defaults, cfgstruct.ConfDir(confDir), cfgstruct.IdentityDir(identityDir))
 	process.Bind(runMigrationCmd, &runCfg, defaults, cfgstruct.ConfDir(confDir), cfgstruct.IdentityDir(identityDir))
 	process.Bind(runAPICmd, &runCfg, defaults, cfgstruct.ConfDir(confDir), cfgstruct.IdentityDir(identityDir))
+	process.Bind(runConsoleAPICmd, &runCfg, defaults, cfgstruct.ConfDir(confDir), cfgstruct.IdentityDir(identityDir))
 	process.Bind(runUICmd, &runCfg, defaults, cfgstruct.ConfDir(confDir), cfgstruct.IdentityDir(identityDir))
 	process.Bind(runAdminCmd, &runCfg, defaults, cfgstruct.ConfDir(confDir), cfgstruct.IdentityDir(identityDir))
 	process.Bind(runRepairerCmd, &runCfg, defaults, cfgstruct.ConfDir(confDir), cfgstruct.IdentityDir(identityDir))
@@ -477,6 +494,7 @@ func init() {
 	process.Bind(createCustomerBalanceInvoiceItemsCmd, &runCfg, defaults, cfgstruct.ConfDir(confDir), cfgstruct.IdentityDir(identityDir))
 	process.Bind(prepareCustomerInvoiceRecordsCmd, &runCfg, defaults, cfgstruct.ConfDir(confDir), cfgstruct.IdentityDir(identityDir))
 	process.Bind(createCustomerProjectInvoiceItemsCmd, &runCfg, defaults, cfgstruct.ConfDir(confDir), cfgstruct.IdentityDir(identityDir))
+	process.Bind(createCustomerProjectInvoiceItemsGroupedCmd, &runCfg, defaults, cfgstruct.ConfDir(confDir), cfgstruct.IdentityDir(identityDir))
 	process.Bind(createCustomerAggregatedProjectInvoiceItemsCmd, &runCfg, defaults, cfgstruct.ConfDir(confDir), cfgstruct.IdentityDir(identityDir))
 	process.Bind(createCustomerInvoicesCmd, &runCfg, defaults, cfgstruct.ConfDir(confDir), cfgstruct.IdentityDir(identityDir))
 	process.Bind(generateCustomerInvoicesCmd, &runCfg, defaults, cfgstruct.ConfDir(confDir), cfgstruct.IdentityDir(identityDir))
@@ -656,11 +674,11 @@ func cmdQDiag(cmd *cobra.Command, args []string) (err error) {
 	// initialize the table header (fields)
 	const padding = 3
 	w := tabwriter.NewWriter(os.Stdout, 0, 0, padding, ' ', tabwriter.AlignRight|tabwriter.Debug)
-	fmt.Fprintln(w, "Segment StreamID\tSegment Position\tSegment Health\t")
+	_, _ = fmt.Fprintln(w, "Segment StreamID\tSegment Position\tSegment Health\t")
 
 	// populate the row fields
 	for _, v := range list {
-		fmt.Fprint(w, v.StreamID.String(), "\t", v.Position.Encode(), "\t", v.SegmentHealth, "\t")
+		_, _ = fmt.Fprint(w, v.StreamID.String(), "\t", v.Position.Encode(), "\t", v.SegmentHealth, "\t")
 	}
 
 	// display the data
@@ -875,6 +893,19 @@ func cmdCreateCustomerProjectInvoiceItems(cmd *cobra.Command, args []string) (er
 	})
 }
 
+func cmdCreateCustomerProjectInvoiceItemsGrouped(cmd *cobra.Command, args []string) (err error) {
+	ctx, _ := process.Ctx(cmd)
+
+	periodStart, err := parseYearMonth(args[0])
+	if err != nil {
+		return err
+	}
+
+	return runBillingCmd(ctx, func(ctx context.Context, payments *stripe.Service, _ satellite.DB) error {
+		return payments.InvoiceApplyProjectRecordsGrouped(ctx, periodStart)
+	})
+}
+
 func cmdCreateAggregatedCustomerProjectInvoiceItems(cmd *cobra.Command, args []string) (err error) {
 	ctx, _ := process.Ctx(cmd)
 
@@ -910,7 +941,7 @@ func cmdGenerateCustomerInvoices(cmd *cobra.Command, args []string) (err error) 
 	}
 
 	return runBillingCmd(ctx, func(ctx context.Context, payments *stripe.Service, _ satellite.DB) error {
-		return payments.GenerateInvoices(ctx, periodStart, aggregate, includeEmissionInfo)
+		return payments.GenerateInvoices(ctx, periodStart, aggregate, groupInvoiceItems, includeEmissionInfo)
 	})
 }
 
@@ -1136,5 +1167,8 @@ func cmdFixLastNets(cmd *cobra.Command, _ []string) (err error) {
 }
 
 func main() {
+	logger, _, _ := process.NewLogger("satellite")
+	zap.ReplaceGlobals(logger)
+
 	process.ExecCustomDebug(rootCmd)
 }

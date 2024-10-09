@@ -2,26 +2,27 @@
 // See LICENSE for copying information.
 
 <template>
-    <v-overlay v-model="model" persistent />
-
     <v-dialog
-        :model-value="model && !isUpgradeDialogShown"
+        v-model="model"
         width="auto"
         max-width="420px"
         transition="fade-transition"
         :persistent="isLoading"
-        :scrim="false"
-        @update:model-value="v => model = v"
     >
-        <v-card rounded="xlg">
-            <v-card-item class="pa-5 pl-7">
+        <v-card>
+            <v-card-item class="pa-6">
                 <template #prepend>
-                    <img class="d-block" src="@/assets/icon-team-members.svg" alt="Team members">
+                    <v-sheet
+                        class="border-sm d-flex justify-center align-center"
+                        width="40"
+                        height="40"
+                        rounded="lg"
+                    >
+                        <component :is="UserPlus" :size="18" />
+                    </v-sheet>
                 </template>
 
-                <v-card-title class="font-weight-bold">
-                    {{ needsUpgrade ? 'Upgrade to Pro' : 'Add Member' }}
-                </v-card-title>
+                <v-card-title class="font-weight-bold">Add Member</v-card-title>
 
                 <template #append>
                     <v-btn
@@ -37,43 +38,37 @@
 
             <v-divider />
 
-            <v-form v-model="valid" class="pa-7 pb-4" @submit.prevent="onPrimaryClick">
+            <v-form v-model="valid" class="pa-6 pb-4" @submit.prevent="onPrimaryClick">
                 <v-row>
-                    <v-col v-if="needsUpgrade">
-                        <p class="mb-4">Upgrade now to unlock collaboration and bring your team together in this project.</p>
+                    <v-col cols="12">
+                        <p class="mb-5">Invite a team member to join you in this project.</p>
+                        <v-alert
+                            variant="tonal"
+                            color="info"
+                            text="All team members should use the same passphrase to access the same data."
+                            rounded="lg"
+                            density="comfortable"
+                        />
                     </v-col>
-                    <template v-else>
-                        <v-col cols="12">
-                            <p class="mb-5">Invite a team member to join you in this project.</p>
-                            <v-alert
-                                variant="tonal"
-                                color="info"
-                                text="All team members should use the same passphrase to access the same data."
-                                rounded="lg"
-                                density="comfortable"
-                                border
-                            />
-                        </v-col>
-                        <v-col cols="12">
-                            <v-text-field
-                                v-model="email"
-                                variant="outlined"
-                                :rules="emailRules"
-                                maxlength="72"
-                                label="Enter e-mail"
-                                hint="Members will have read & write permissions."
-                                required
-                                autofocus
-                                class="my-2"
-                            />
-                        </v-col>
-                    </template>
+                    <v-col cols="12">
+                        <v-text-field
+                            v-model="email"
+                            variant="outlined"
+                            :rules="emailRules"
+                            maxlength="72"
+                            label="Enter e-mail"
+                            hint="Members will have read, write, and delete permissions."
+                            required
+                            autofocus
+                            class="my-2"
+                        />
+                    </v-col>
                 </v-row>
             </v-form>
 
             <v-divider />
 
-            <v-card-actions class="pa-7">
+            <v-card-actions class="pa-6">
                 <v-row>
                     <v-col>
                         <v-btn variant="outlined" color="default" block :disabled="isLoading" @click="model = false">Cancel</v-btn>
@@ -84,26 +79,19 @@
                             variant="flat"
                             block
                             :loading="isLoading"
-                            :append-icon="needsUpgrade ? mdiArrowRight : undefined"
                             @click="onPrimaryClick"
                         >
-                            {{ needsUpgrade ? 'Continue' : 'Send Invite' }}
+                            Send Invite
                         </v-btn>
                     </v-col>
                 </v-row>
             </v-card-actions>
         </v-card>
     </v-dialog>
-
-    <upgrade-account-dialog
-        :scrim="false"
-        :model-value="model && isUpgradeDialogShown"
-        @update:model-value="v => model = isUpgradeDialogShown = v"
-    />
 </template>
 
 <script setup lang="ts">
-import { computed, ref } from 'vue';
+import { ref } from 'vue';
 import {
     VDialog,
     VCard,
@@ -117,9 +105,9 @@ import {
     VAlert,
     VTextField,
     VCardActions,
-    VOverlay,
+    VSheet,
 } from 'vuetify/components';
-import { mdiArrowRight } from '@mdi/js';
+import { UserPlus } from 'lucide-vue-next';
 
 import { EmailRule, RequiredRule, ValidationRule } from '@/types/common';
 import { AnalyticsErrorEventSource, AnalyticsEvent } from '@/utils/constants/analyticsEventNames';
@@ -127,10 +115,7 @@ import { useAnalyticsStore } from '@/store/modules/analyticsStore';
 import { useProjectMembersStore } from '@/store/modules/projectMembersStore';
 import { useNotify } from '@/utils/hooks';
 import { useLoading } from '@/composables/useLoading';
-import { useUsersStore } from '@/store/modules/usersStore';
 import { useConfigStore } from '@/store/modules/configStore';
-
-import UpgradeAccountDialog from '@/components/dialogs/upgradeAccountFlow/UpgradeAccountDialog.vue';
 
 const props = defineProps<{
     projectId: string;
@@ -138,7 +123,6 @@ const props = defineProps<{
 
 const model = defineModel<boolean>({ required: true });
 
-const usersStore = useUsersStore();
 const analyticsStore = useAnalyticsStore();
 const pmStore = useProjectMembersStore();
 const configStore = useConfigStore();
@@ -148,7 +132,6 @@ const { isLoading, withLoading } = useLoading();
 
 const valid = ref<boolean>(false);
 const email = ref<string>('');
-const isUpgradeDialogShown = ref<boolean>(false);
 
 const emailRules: ValidationRule<string>[] = [
     RequiredRule,
@@ -156,22 +139,9 @@ const emailRules: ValidationRule<string>[] = [
 ];
 
 /**
- * Returns whether the user should upgrade to pro tier before inviting.
- */
-const needsUpgrade = computed<boolean>(() => {
-    const config = configStore.state.config;
-    return config.billingFeaturesEnabled && !(usersStore.state.user.paidTier || config.freeTierInvitesEnabled);
-});
-
-/**
  * Handles primary button click.
  */
 async function onPrimaryClick(): Promise<void> {
-    if (needsUpgrade.value) {
-        isUpgradeDialogShown.value = true;
-        return;
-    }
-
     if (!valid.value) return;
 
     await withLoading(async () => {

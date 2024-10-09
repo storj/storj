@@ -10,7 +10,7 @@ import (
 
 	"storj.io/common/memory"
 	"storj.io/common/testrand"
-	"storj.io/common/uuid"
+	"storj.io/storj/satellite/console"
 	"storj.io/storj/satellite/metainfo"
 )
 
@@ -100,27 +100,124 @@ func TestRSConfigValidation(t *testing.T) {
 }
 
 func TestExtendedConfig_UseBucketLevelObjectVersioning(t *testing.T) {
-	projectA := testrand.UUID()
-	projectB := testrand.UUID()
-	projectC := testrand.UUID()
+	projectA := &console.Project{
+		ID: testrand.UUID(),
+	}
+	projectB := &console.Project{
+		ID: testrand.UUID(),
+	}
+
+	// 1. Versioning globally enabled
 	config, err := metainfo.NewExtendedConfig(metainfo.Config{
-		UseBucketLevelObjectVersioningProjects: []string{
-			projectA.String(),
-			projectB.String(),
-		},
+		UseBucketLevelObjectVersioning: true,
 	})
 	require.NoError(t, err)
-
 	require.True(t, config.UseBucketLevelObjectVersioningByProject(projectA))
 	require.True(t, config.UseBucketLevelObjectVersioningByProject(projectB))
-	require.False(t, config.UseBucketLevelObjectVersioningByProject(projectC))
 
+	// 2.1. Versioning disabled globally, but enabled for project A (closed beta)
 	config, err = metainfo.NewExtendedConfig(metainfo.Config{
 		UseBucketLevelObjectVersioning: false,
 		UseBucketLevelObjectVersioningProjects: []string{
-			"01000000-0000-0000-0000-000000000000",
+			projectA.ID.String(),
 		},
 	})
 	require.NoError(t, err)
-	require.True(t, config.UseBucketLevelObjectVersioningByProject(uuid.UUID{1}))
+	require.True(t, config.UseBucketLevelObjectVersioningByProject(projectA))
+	require.False(t, config.UseBucketLevelObjectVersioningByProject(projectB))
+
+	// 2.2. Versioning disabled globally, but enabled for project B (closed beta)
+	config, err = metainfo.NewExtendedConfig(metainfo.Config{
+		UseBucketLevelObjectVersioning: false,
+		UseBucketLevelObjectVersioningProjects: []string{
+			projectB.ID.String(),
+		},
+	})
+	require.NoError(t, err)
+	require.False(t, config.UseBucketLevelObjectVersioningByProject(projectA))
+	require.True(t, config.UseBucketLevelObjectVersioningByProject(projectB))
+
+	// 3. Versioning disabled globally
+	config, err = metainfo.NewExtendedConfig(metainfo.Config{
+		UseBucketLevelObjectVersioning: false,
+	})
+	require.NoError(t, err)
+
+	// 3.1. Project A is prompted for versioning beta, but has not opted in
+	projectA.PromptedForVersioningBeta = true
+	projectA.DefaultVersioning = console.VersioningUnsupported
+	// 3.2. Project B is prompted for versioning beta, and has opted in
+	projectB.PromptedForVersioningBeta = true
+	projectB.DefaultVersioning = console.Unversioned
+	require.False(t, config.UseBucketLevelObjectVersioningByProject(projectA))
+	require.True(t, config.UseBucketLevelObjectVersioningByProject(projectB))
+
+	// 3.3. Project A is not prompted for versioning beta
+	projectA.PromptedForVersioningBeta = false
+	projectA.DefaultVersioning = console.Unversioned
+	require.False(t, config.UseBucketLevelObjectVersioningByProject(projectA))
+}
+
+func TestExtendedConfig_ObjectLockSupported(t *testing.T) {
+	projectA := &console.Project{
+		ID: testrand.UUID(),
+	}
+	projectB := &console.Project{
+		ID: testrand.UUID(),
+	}
+
+	// 1. Versioning enabled && object lock disabled
+	config, err := metainfo.NewExtendedConfig(metainfo.Config{
+		UseBucketLevelObjectVersioning: true,
+	})
+	require.NoError(t, err)
+	require.False(t, config.ObjectLockEnabledByProject(projectA))
+
+	// 2. project A in versioning closed beta
+	config, err = metainfo.NewExtendedConfig(metainfo.Config{
+		ObjectLockEnabled: true,
+		UseBucketLevelObjectVersioningProjects: []string{
+			projectA.ID.String(),
+		},
+	})
+	require.NoError(t, err)
+	require.True(t, config.ObjectLockEnabledByProject(projectA))
+	require.False(t, config.ObjectLockEnabledByProject(projectB))
+
+	// 2.1 Versioning disabled globally
+	config, err = metainfo.NewExtendedConfig(metainfo.Config{
+		ObjectLockEnabled: true,
+	})
+	require.NoError(t, err)
+
+	// 2.2. Project A not in versioning beta
+	projectA.PromptedForVersioningBeta = true
+	projectA.DefaultVersioning = console.VersioningUnsupported
+	// 2.3. Project B is in versioning public beta
+	projectB.PromptedForVersioningBeta = true
+	projectB.DefaultVersioning = console.Unversioned
+	require.False(t, config.ObjectLockEnabledByProject(projectA))
+	require.True(t, config.ObjectLockEnabledByProject(projectB))
+}
+
+func TestUUIDsFlag(t *testing.T) {
+	var UUIDs metainfo.UUIDsFlag
+	err := UUIDs.Set("")
+	require.NoError(t, err)
+	require.Len(t, UUIDs, 0)
+
+	testIDA := testrand.UUID()
+	err = UUIDs.Set(testIDA.String())
+	require.NoError(t, err)
+	require.Equal(t, metainfo.UUIDsFlag{
+		testIDA: {},
+	}, UUIDs)
+
+	testIDB := testrand.UUID()
+	err = UUIDs.Set(testIDA.String() + "," + testIDB.String())
+	require.NoError(t, err)
+	require.Equal(t, metainfo.UUIDsFlag{
+		testIDA: {},
+		testIDB: {},
+	}, UUIDs)
 }

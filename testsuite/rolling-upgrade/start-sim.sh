@@ -44,6 +44,8 @@ populate_sno_versions(){
     seq $number_of_nodes | xargs -n1 -I{} echo $version
 }
 
+SCRIPTDIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" >/dev/null 2>&1 && pwd )"
+
 # set peers' versions
 # in stage 1: satellite, uplink, and storagenode use latest release version
 # in stage 2: satellite core uses latest release version and satellite api uses main. Storage nodes are split into half on latest release version and half on main. Uplink uses the latest release version plus main
@@ -54,9 +56,7 @@ git fetch --tags
 current_commit=$(git rev-parse HEAD)
 stage1_release_version=$(git tag -l --sort -version:refname | grep -v rc | head -1)
 if [[ $BRANCH_NAME = v* ]]; then
-    current_major_release_version=$(git describe --tags $current_commit | cut -d '.' -f 1-2)
-    previous_release_version=$(git describe --tags `git rev-list --exclude='*rc*' --exclude=$current_major_release_version* --tags --max-count=1`)
-    stage1_release_version=$previous_release_version
+    stage1_release_version=$($SCRIPTDIR/../find-previous-release.sh --major)
 fi
 stage1_sat_version=$stage1_release_version
 stage1_uplink_version=$stage1_release_version
@@ -207,8 +207,6 @@ fi
 
 echo "Setting up environments for versions" ${unique_versions}
 
-scriptdir="$( cd "$( dirname "${BASH_SOURCE[0]}" )" >/dev/null 2>&1 && pwd )"
-
 # Get latest release tags and clean up git worktree
 git worktree prune
 for version in ${unique_versions}; do
@@ -257,13 +255,16 @@ for version in ${unique_versions}; do
     fi
 done
 
+# TODO remove this when all tested satellite versions will support compressed baches
+export STORJ_COMPRESSED_BATCH=false
+
 # Use stage 1 satellite version as the starting state. Create a cp of that
 # version folder so we don't worry about dirty states. Then copy/link/mv
 # appropriate resources into that folder to ensure we have correct versions.
 test_dir=$(version_dir "test_dir")
 cp -r $(version_dir ${stage1_sat_version}) ${test_dir}
 echo -e "\nSetting up stage 1 in ${test_dir}"
-test_versions_path="$( dirname "${scriptdir}" )/uplink-versions/steps.sh"
+test_versions_path="$( dirname "${SCRIPTDIR}" )/uplink-versions/steps.sh"
 setup_stage "${test_dir}" "${stage1_sat_version}" "${stage1_storagenode_versions}" "1"
 update_access_script_path="$(version_dir $current_commit)/testsuite/update-access.go"
 
@@ -307,7 +308,7 @@ storj-sim tool wait-for --retry 50 --interval 100ms  "127.0.0.1:30000"
 
 # Prime the old satellite api. We do this to help catch any issues with DB migrations in regards to statement caches.
 echo "Priming old satellite API by uploading, downloading, and deleting objects"
-${scriptdir}/test-previous-satellite.sh "${test_dir}" "$update_access_script_path"
+${SCRIPTDIR}/test-previous-satellite.sh "${test_dir}" "$update_access_script_path"
 
 # Downloading every file uploaded in stage 1 from the network using the latest commit from main branch for each uplink version
 for ul_version in ${stage2_uplink_versions}; do
@@ -321,17 +322,17 @@ for ul_version in ${stage2_uplink_versions}; do
     echo "Stage 2 uplink version: ${ul_version}"
     src_ul_version_dir=$(version_dir ${ul_version})
     ln -f ${src_ul_version_dir}/bin/uplink $test_dir/bin/uplink
-    PATH=$test_dir/bin:$PATH storj-sim -x --host "${STORJ_NETWORK_HOST4}" --config-dir "${test_dir}/local-network" network test bash "${scriptdir}/step-1.sh" "${test_dir}/local-network"  "${stage1_uplink_version}" "$update_access_script_path"
+    PATH=$test_dir/bin:$PATH storj-sim -x --host "${STORJ_NETWORK_HOST4}" --config-dir "${test_dir}/local-network" network test bash "${SCRIPTDIR}/step-1.sh" "${test_dir}/local-network"  "${stage1_uplink_version}" "$update_access_script_path"
 
     if [[ $ul_version == $current_commit ]];then
         echo "Running final upload/download test on $current_commit"
-        PATH=$test_dir/bin:$PATH storj-sim -x --host "${STORJ_NETWORK_HOST4}" --config-dir "${test_dir}/local-network" network test bash "${scriptdir}/step-2.sh" "${test_dir}/local-network"
+        PATH=$test_dir/bin:$PATH storj-sim -x --host "${STORJ_NETWORK_HOST4}" --config-dir "${test_dir}/local-network" network test bash "${SCRIPTDIR}/step-2.sh" "${test_dir}/local-network"
     fi
 done
 
 # Check that the old satellite api doesn't fail.
 echo "Checking old satellite API by uploading, downloading, and deleting objects"
-${scriptdir}/test-previous-satellite.sh "${test_dir}" "$update_access_script_path"
+${SCRIPTDIR}/test-previous-satellite.sh "${test_dir}" "$update_access_script_path"
 
 echo -e "\nCleaning up."
 PATH=$test_dir/bin:$PATH storj-sim -x --host "${STORJ_NETWORK_HOST4}" --config-dir "${test_dir}/local-network" network test bash "${test_versions_path}" "${test_dir}/local-network" "cleanup" "${stage1_uplink_version}" ""

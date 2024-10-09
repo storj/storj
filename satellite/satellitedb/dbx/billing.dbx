@@ -7,6 +7,8 @@ model stripe_customer (
 	field user_id     blob
 	// customer_id is the Stripe customer identifier.
 	field customer_id text
+	// billing_customer_id is the Stripe customer identifier of the account to send invoices to.
+	field billing_customer_id text ( nullable, updatable )
 	// package_plan is the package plan currently applicable to the customer.
 	field package_plan text ( nullable, updatable )
 	// purchased_package_at is the time the package plan was purchased.
@@ -29,6 +31,10 @@ read one (
 read one (
 	select stripe_customer.user_id
 	where stripe_customer.customer_id = ?
+)
+read one (
+	select stripe_customer.customer_id stripe_customer.billing_customer_id
+	where stripe_customer.user_id = ?
 )
 
 update stripe_customer (
@@ -84,12 +90,12 @@ model billing_transaction (
 	// metadata contains extra information about the transaction.
 	field metadata         json      ( updatable )
 	// timestamp is the time this transaction happened.
-	field timestamp        timestamp
+	field tx_timestamp        timestamp
 
 	// created_at is the time the transaction was inserted into the table.
 	field created_at timestamp ( autoinsert )
 
-	index ( fields timestamp)
+	index ( fields tx_timestamp)
 )
 
 create billing_transaction ( )
@@ -113,14 +119,14 @@ read one (
 read all (
 	select billing_transaction
 	where billing_transaction.user_id = ?
-	orderby desc billing_transaction.timestamp
+	orderby desc billing_transaction.tx_timestamp
 )
 
 read all (
 	select billing_transaction
 	where billing_transaction.user_id = ?
 	where billing_transaction.source = ?
-	orderby desc billing_transaction.timestamp
+	orderby desc billing_transaction.tx_timestamp
 )
 
 read first (
@@ -212,6 +218,12 @@ model stripecoinpayments_invoice_project_record (
 
 	unique project_id period_start period_end
 
+	index (
+		name stripecoinpayments_invoice_project_records_unbilled_project_id_index
+		fields project_id
+		where stripecoinpayments_invoice_project_record.state = 0
+	)
+
 	// id is UUID for this record.
 	field id           blob
 	// project_id refers to projects.id.
@@ -270,8 +282,10 @@ read one (
 model storjscan_payment (
 	key block_hash log_index
 
-	index (fields block_number log_index)
+	index (fields chain_id block_number log_index)
 
+	// chain_id is the id of the chain the transaction was on.
+	field chain_id         int64 ( default 0)
 	// block_hash is the ethereum block hash where this transfer appeared in.
 	field block_hash       blob
 	// block_number is the ethereum block number where this transfer appeared in.
@@ -291,7 +305,7 @@ model storjscan_payment (
 	// status refers to payments.Status, which is one of "pending" or "confirmed".
 	field status           text
 	// timestamp refers to when the payment happened.
-	field timestamp        timestamp
+	field block_timestamp        timestamp
 	// created_at refers to when the payment was added to the table.
 	field created_at       timestamp ( autoinsert )
 )
@@ -302,16 +316,17 @@ create storjscan_payment (
 
 read all (
 	select storjscan_payment
-	orderby ( asc storjscan_payment.block_number, asc storjscan_payment.log_index )
+	orderby ( asc storjscan_payment.chain_id, asc storjscan_payment.block_number, asc storjscan_payment.log_index )
 )
 read limitoffset (
 	select storjscan_payment
 	where storjscan_payment.to_address = ?
-	orderby ( desc storjscan_payment.block_number, desc storjscan_payment.log_index )
+	orderby ( desc storjscan_payment.chain_id, desc storjscan_payment.block_number, desc storjscan_payment.log_index )
 )
 read first (
 	select storjscan_payment.block_number
 	where storjscan_payment.status = ?
+	where storjscan_payment.chain_id = ?
 	orderby ( desc storjscan_payment.block_number, desc storjscan_payment.log_index )
 )
 

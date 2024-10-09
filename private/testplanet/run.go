@@ -8,17 +8,13 @@ import (
 	"runtime/pprof"
 	"testing"
 
-	"github.com/google/go-cmp/cmp"
 	"go.uber.org/zap"
 
-	"storj.io/common/context2"
-	"storj.io/common/dbutil"
-	"storj.io/common/dbutil/pgtest"
-	"storj.io/common/dbutil/pgutil"
-	"storj.io/common/tagsql"
 	"storj.io/common/testcontext"
 	"storj.io/storj/private/testmonkit"
 	"storj.io/storj/satellite/satellitedb/satellitedbtest"
+	"storj.io/storj/shared/dbutil/dbtest"
+	"storj.io/storj/shared/dbutil/pgutil"
 )
 
 // Run runs testplanet in multiple configurations.
@@ -26,12 +22,17 @@ func Run(t *testing.T, config Config, test func(t *testing.T, ctx *testcontext.C
 	databases := satellitedbtest.Databases()
 	if len(databases) == 0 {
 		t.Fatal("Databases flag missing, set at least one:\n" +
-			"-postgres-test-db=" + pgtest.DefaultPostgres + "\n" +
-			"-cockroach-test-db=" + pgtest.DefaultCockroach)
+			"-postgres-test-db=" + dbtest.DefaultPostgres + "\n" +
+			"-cockroach-test-db=" + dbtest.DefaultCockroach + "\n" +
+			"-spanner-test-db=" + dbtest.DefaultSpanner)
 	}
 
 	for _, satelliteDB := range databases {
 		satelliteDB := satelliteDB
+		// TODO(spanner): remove this check once full Spanner support is complete
+		if !config.EnableSpanner && satelliteDB.Name == "Spanner" {
+			t.Skipf("Test is not enabled to run on Spanner.")
+		}
 		t.Run(satelliteDB.Name, func(t *testing.T) {
 			parallel := !config.NonParallel
 			if parallel {
@@ -66,33 +67,11 @@ func Run(t *testing.T, config Config, test func(t *testing.T, ctx *testcontext.C
 				}
 				defer ctx.Check(planet.Shutdown)
 
-				planet.Start(ctx)
-
-				var rawDB tagsql.DB
-				var queriesBefore []string
-				if len(planet.Satellites) > 0 && satelliteDB.Name == "Cockroach" {
-					rawDB = planet.Satellites[0].DB.Testing().RawDB()
-
-					var err error
-					queriesBefore, err = satellitedbtest.FullTableScanQueries(ctx, rawDB, dbutil.Cockroach, planetConfig.applicationName)
-					if err != nil {
-						t.Fatalf("%+v", err)
-					}
+				if err := planet.Start(ctx); err != nil {
+					t.Fatalf("planet failed to start: %+v", err)
 				}
 
 				test(t, ctx, planet)
-
-				if rawDB != nil {
-					queriesAfter, err := satellitedbtest.FullTableScanQueries(context2.WithoutCancellation(ctx), rawDB, dbutil.Cockroach, planetConfig.applicationName)
-					if err != nil {
-						t.Fatalf("%+v", err)
-					}
-
-					diff := cmp.Diff(queriesBefore, queriesAfter)
-					if diff != "" {
-						log.Sugar().Warnf("FULL TABLE SCAN DETECTED\n%s", diff)
-					}
-				}
 			})
 		})
 	}
@@ -103,8 +82,8 @@ func Bench(b *testing.B, config Config, bench func(b *testing.B, ctx *testcontex
 	databases := satellitedbtest.Databases()
 	if len(databases) == 0 {
 		b.Fatal("Databases flag missing, set at least one:\n" +
-			"-postgres-test-db=" + pgtest.DefaultPostgres + "\n" +
-			"-cockroach-test-db=" + pgtest.DefaultCockroach)
+			"-postgres-test-db=" + dbtest.DefaultPostgres + "\n" +
+			"-cockroach-test-db=" + dbtest.DefaultCockroach)
 	}
 
 	for _, satelliteDB := range databases {
@@ -139,7 +118,9 @@ func Bench(b *testing.B, config Config, bench func(b *testing.B, ctx *testcontex
 				}
 				defer ctx.Check(planet.Shutdown)
 
-				planet.Start(ctx)
+				if err := planet.Start(ctx); err != nil {
+					b.Fatalf("planet failed to start: %+v", err)
+				}
 
 				bench(b, ctx, planet)
 			})

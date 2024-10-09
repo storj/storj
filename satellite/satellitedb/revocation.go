@@ -9,8 +9,9 @@ import (
 
 	"github.com/zeebo/errs"
 
-	"storj.io/common/lrucache"
 	"storj.io/storj/satellite/satellitedb/dbx"
+	"storj.io/storj/shared/dbutil"
+	"storj.io/storj/shared/lrucache"
 )
 
 type revocationDB struct {
@@ -38,29 +39,37 @@ func (db *revocationDB) Check(ctx context.Context, tails [][]byte) (bool, error)
 	finalTail := tails[numTails-1]
 
 	revoked, err := db.lru.Get(ctx, string(finalTail), func() (bool, error) {
-		const query = "SELECT EXISTS(SELECT 1 FROM revocations WHERE revoked IN (%s))"
+		const query = "SELECT COUNT(1) FROM revocations WHERE revoked IN (%s)"
 
 		var (
 			tailQuery, comma string
 			tailsForQuery    = make([]interface{}, numTails)
-			revoked          bool
+			count            int
 		)
 
 		for i, tail := range tails {
 			if i == 1 {
 				comma = ","
 			}
-			tailQuery += fmt.Sprintf("%s$%d", comma, i+1)
+			switch db.db.impl {
+			case dbutil.Postgres, dbutil.Cockroach:
+				tailQuery += fmt.Sprintf("%s$%d", comma, i+1)
+			case dbutil.Spanner:
+				tailQuery += fmt.Sprintf("%s?", comma)
+			default:
+				return false, errs.New("unsupported database dialect: %s", db.db.impl)
+			}
+
 			tailsForQuery[i] = tail
 		}
 
 		row := db.db.QueryRowContext(ctx, fmt.Sprintf(query, tailQuery), tailsForQuery...)
-		err := row.Scan(&revoked)
+		err := row.Scan(&count)
 		if err != nil {
 			return false, err
 		}
 
-		return revoked, nil
+		return count > 0, nil
 	})
 	if err != nil {
 		return false, errs.Wrap(err)

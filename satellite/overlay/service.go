@@ -14,12 +14,12 @@ import (
 
 	"storj.io/common/pb"
 	"storj.io/common/storj"
-	"storj.io/common/storj/location"
 	"storj.io/common/sync2"
 	"storj.io/common/version"
 	"storj.io/storj/satellite/geoip"
 	"storj.io/storj/satellite/nodeevents"
 	"storj.io/storj/satellite/nodeselection"
+	"storj.io/storj/shared/location"
 )
 
 // ErrEmptyNode is returned when the nodeID is empty.
@@ -51,8 +51,6 @@ type DB interface {
 	// The return value contains necessary information to create orders as well as nodes'
 	// current reputation status.
 	GetOnlineNodesForAuditRepair(ctx context.Context, nodeIDs []storj.NodeID, onlineWindow time.Duration) (map[storj.NodeID]*NodeReputation, error)
-	// SelectStorageNodes looks up nodes based on criteria
-	SelectStorageNodes(ctx context.Context, totalNeededNodes, newNodeCount int, criteria *NodeCriteria) ([]*nodeselection.SelectedNode, error)
 	// SelectAllStorageNodesUpload returns all nodes that qualify to store data, organized as reputable nodes and new nodes
 	SelectAllStorageNodesUpload(ctx context.Context, selectionCfg NodeSelectionConfig) (reputable, new []*nodeselection.SelectedNode, err error)
 	// SelectAllStorageNodesDownload returns a nodes that are ready for downloading
@@ -188,9 +186,11 @@ type InfoResponse struct {
 
 // FindStorageNodesRequest defines easy request parameters.
 type FindStorageNodesRequest struct {
-	RequestedCount int
-	ExcludedIDs    []storj.NodeID
-	Placement      storj.PlacementConstraint
+	RequestedCount  int
+	ExcludedIDs     []storj.NodeID
+	AlreadySelected []*nodeselection.SelectedNode
+	Placement       storj.PlacementConstraint
+	Requester       storj.NodeID
 }
 
 // NodeCriteria are the requirements for selecting nodes.
@@ -439,13 +439,14 @@ func (service *Service) FindStorageNodesForUpload(ctx context.Context, req FindS
 	}
 	if len(selectedNodes) < req.RequestedCount {
 
-		excludedIDs := make([]string, 0)
-		for _, e := range req.ExcludedIDs {
-			excludedIDs = append(excludedIDs, e.String())
+		var alreadySelectedIDs []storj.NodeID
+		for _, e := range req.AlreadySelected {
+			alreadySelectedIDs = append(alreadySelectedIDs, e.ID)
 		}
 
 		service.log.Warn("Not enough nodes are available from Node Cache",
-			zap.Strings("excludedIDs", excludedIDs),
+			zap.Stringers("excludedIDs", req.ExcludedIDs),
+			zap.Stringers("alreadySelected", alreadySelectedIDs),
 			zap.Int("requested", req.RequestedCount),
 			zap.Int("available", len(selectedNodes)),
 			zap.Uint16("placement", uint16(req.Placement)))

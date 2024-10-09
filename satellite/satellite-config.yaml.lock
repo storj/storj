@@ -1,3 +1,12 @@
+# how long to wait between the billing freeze emails
+# account-freeze.billing-freeze-email-intervals: 720h0m0s,480h0m0s,216h0m0s
+
+# how long to wait between the billing freeze warning emails
+# account-freeze.billing-warning-email-intervals: 240h0m0s,96h0m0s
+
+# whether to freeze event emails from this chore
+# account-freeze.emails-enabled: false
+
 # whether to run this chore.
 # account-freeze.enabled: false
 
@@ -55,17 +64,32 @@
 # the default timeout for the hubspot http client
 # analytics.hub-spot.default-timeout: 10s
 
+# the prefix for the event name
+# analytics.hub-spot.event-prefix: ""
+
+# the hubspot lifecycle stage for new accounts
+# analytics.hub-spot.life-cycle-stage: ""
+
 # hubspot refresh token
 # analytics.hub-spot.refresh-token: ""
+
+# the hubspot form ID for signup
+# analytics.hub-spot.signup-form-id: ""
 
 # hubspot token refresh API
 # analytics.hub-spot.token-api: https://api.hubapi.com/oauth/v1/token
 
+# the url of the plausible API
+# analytics.plausible.api-url: https://plausible.io/api/event
+
+# the default timeout for the plausible http client
+# analytics.plausible.default-timeout: 10s
+
+# the domain set up on plausible for the satellite
+# analytics.plausible.domain: ""
+
 # segment write key
 # analytics.segment-write-key: ""
-
-# how often to run the reservoir chore
-# audit.chore-interval: 24h0m0s
 
 # how often to run the containment-sync chore
 # audit.containment-sync-chore-interval: 2h0m0s
@@ -118,11 +142,17 @@
 # how stale reliable node cache can be
 # checker.reliability-cache-staleness: 5m0s
 
-# comma-separated override values for repair threshold in the format k/o/n-override (min/optimal/total-override)
-# checker.repair-overrides: 29/80/110-52,29/80/95-52,29/80/130-52
+# [DEPRECATED] comma-separated override values for repair threshold in the format k-threshold
+# checker.repair-overrides: ""
 
 # Number of damaged segments to buffer in-memory before flushing to the repair queue
 # checker.repair-queue-insert-batch-size: 100
+
+# comma-separated override values for repair success target in the format k-target
+# checker.repair-target-overrides: 29-65
+
+# comma-separated override values for repair threshold in the format k-threshold
+# checker.repair-threshold-overrides: 29-52
 
 # percent of held amount disposed to node after leaving withheld
 compensation.dispose-percent: 50
@@ -190,14 +220,23 @@ compensation.withheld-percents: 75,75,75,50,50,50,25,25,25,0,0,0,0,0,0
 # How long to wait between a billing warning event and billing freezing an account.
 # console.account-freeze.billing-warn-grace-period: 360h0m0s
 
+# How long to wait between a trail expiration freeze event and setting pending deletion account status. 0 disables escalation.
+# console.account-freeze.trial-expiration-freeze-grace-period: 0s
+
+# whether active sessions table view should be shown
+# console.active-sessions-view-enabled: false
+
 # server address of the http api gateway and frontend app
 # console.address: :10100
 
 # allowed usage report request date range
 # console.allowed-usage-report-date-range: 9360h0m0s
 
-# whether applications page should be shown
-# console.applications-page-enabled: false
+# whether simplified native s3 pagination should be enabled for the huge buckets in the object browser
+# console.alt-obj-browser-paging-enabled: false
+
+# number of objects triggering simplified native S3 pagination
+# console.alt-obj-browser-paging-threshold: 10000
 
 # default duration for AS OF SYSTEM TIME
 # console.as-of-system-time-duration: -5m0s
@@ -214,6 +253,9 @@ compensation.withheld-percents: 75,75,75,50,50,50,25,25,25,0,0,0,0,0,0
 # the target URL of console back-end reverse proxy for local development when running a UI server
 # console.backend-reverse-proxy: ""
 
+# path to a local file with bad passwords list, empty path == skip check
+# console.bad-passwords-file: ""
+
 # url link for for beta satellite feedback
 # console.beta-satellite-feedback-url: ""
 
@@ -222,6 +264,9 @@ compensation.withheld-percents: 75,75,75,50,50,50,25,25,25,0,0,0,0,0,0
 
 # indicates if billing features should be enabled
 # console.billing-features-enabled: true
+
+# indicates if billing information tab should be enabled
+# console.billing-information-tab-enabled: false
 
 # url of the transaction block explorer
 # console.block-explorer-url: https://etherscan.io/
@@ -284,7 +329,7 @@ compensation.withheld-percents: 75,75,75,50,50,50,25,25,25,0,0,0,0,0,0
 # console.contact-info-url: https://forum.storj.io
 
 # indicates if user is allowed to add coupon codes to account from billing
-# console.coupon-code-billing-ui-enabled: false
+# console.coupon-code-billing-ui-enabled: true
 
 # indicates if user is allowed to add coupon codes to account from signup
 # console.coupon-code-signup-ui-enabled: false
@@ -292,14 +337,26 @@ compensation.withheld-percents: 75,75,75,50,50,50,25,25,25,0,0,0,0,0,0
 # indicates if Content Security Policy is enabled
 # console.csp-enabled: true
 
+# days left before trial end notification
+# console.days-before-trial-end-notification: 3
+
 # default project limits for users
 # console.default-project-limit: 1
+
+# whether project deletion from satellite UI is enabled
+# console.delete-project-enabled: false
 
 # url link to documentation
 # console.documentation-url: https://docs.storj.io/
 
+# whether domains page should be shown
+# console.domains-page-enabled: false
+
+# whether change user email flow is enabled
+# console.email-change-flow-enabled: false
+
 # whether emission impact view should be shown
-# console.emission-impact-view-enabled: false
+# console.emission-impact-view-enabled: true
 
 # whether to show region tag in UI
 # console.enable-region-tag: false
@@ -316,8 +373,8 @@ compensation.withheld-percents: 75,75,75,50,50,50,25,25,25,0,0,0,0,0,0
 # allow domains to embed the satellite in a frame, space separated
 # console.frame-ancestors: tardigrade.io storj.io
 
-# indicates whether free tier users can send project invitations
-# console.free-tier-invites-enabled: false
+# duration for which users can access the system free of charge, 0 = unlimited time trial
+# console.free-trial-duration: 0s
 
 # server address of the front-end app
 # console.frontend-address: :10200
@@ -335,7 +392,7 @@ compensation.withheld-percents: 75,75,75,50,50,50,25,25,25,0,0,0,0,0,0
 # console.general-request-url: https://supportdcs.storj.io/hc/en-us/requests/new?ticket_form_id=360000379291
 
 # indicates if generated console api should be used
-# console.generated-api-enabled: false
+# console.generated-api-enabled: true
 
 # url link to storj.io homepage
 # console.homepage-url: https://www.storj.io
@@ -361,11 +418,17 @@ compensation.withheld-percents: 75,75,75,50,50,50,25,25,25,0,0,0,0,0,0
 # number of times user can try to login without penalty
 # console.login-attempts-without-penalty: 3
 
+# defines the maximum number of characters allowed for names, e.g. user first/last names and company names
+# console.max-name-characters: 100
+
 # additional values for Content Security Policy media-src, space separated
 # console.media-src-suffix: '*.tardigradeshare.io *.storjshare.io *.storjsatelliteshare.io'
 
 # indicates if storj native token payments system is enabled
 # console.native-token-payments-enabled: false
+
+# whether to show unlimited-limits UI for pro users
+# console.no-limits-ui-enabled: false
 
 # how long oauth access tokens are issued for
 # console.oauth-access-token-expiry: 24h0m0s
@@ -376,11 +439,14 @@ compensation.withheld-percents: 75,75,75,50,50,50,25,25,25,0,0,0,0,0,0
 # how long oauth refresh tokens are issued for
 # console.oauth-refresh-token-expiry: 720h0m0s
 
-# whether to use object browser pagination
-# console.object-browser-pagination-enabled: false
+# duration for which the object browser API key remains valid
+# console.object-browser-key-lifetime: 72h0m0s
 
-# whether the onboarding stepper should be enabled
-# console.onboarding-stepper-enabled: false
+# prefix for object browser API key names
+# console.object-browser-key-name-prefix: .storj-web-file-browser-api-key-
+
+# whether object lock UI should be shown, regardless of whether the feature is enabled
+# console.object-lock-ui-enabled: false
 
 # enable open registration
 # console.open-registration-enabled: false
@@ -401,7 +467,7 @@ compensation.withheld-percents: 75,75,75,50,50,50,25,25,25,0,0,0,0,0,0
 # console.placement-edge-url-overrides: ""
 
 # whether to allow purchasing pricing packages
-# console.pricing-packages-enabled: false
+# console.pricing-packages-enabled: true
 
 # duration that project member invitations are valid for
 # console.project-invitation-expiration: 168h0m0s
@@ -421,11 +487,20 @@ compensation.withheld-percents: 75,75,75,50,50,50,25,25,25,0,0,0,0,0,0
 # number of clients whose rate limits we store
 # console.rate-limit.num-limits: 1000
 
+# indicates whether satellite managed encryption projects can be created.
+# console.satellite-managed-encryption-enabled: false
+
 # used to display at web satellite console
 # console.satellite-name: Storj
 
 # name of organization which set up satellite
 # console.satellite-operator: Storj Labs
+
+# url link to schedule a meeting with a storj representative
+# console.schedule-meeting-url: https://meetings.hubspot.com/tom144/free-trial
+
+# whether self-serve account delete flow is enabled
+# console.self-serve-account-delete-enabled: false
 
 # used to communicate with web crawlers and other web robots
 # console.seo: "User-agent: *\nDisallow: \nDisallow: /cgi-bin/"
@@ -443,7 +518,7 @@ compensation.withheld-percents: 75,75,75,50,50,50,25,25,25,0,0,0,0,0,0
 # console.session.inactivity-timer-viewer-enabled: false
 
 # indicates whether the whether account activation is done using activation code
-# console.signup-activation-code-enabled: false
+# console.signup-activation-code-enabled: true
 
 # path to static resources
 # console.static-dir: ""
@@ -461,7 +536,7 @@ compensation.withheld-percents: 75,75,75,50,50,50,25,25,25,0,0,0,0,0,0
 # console.usage-limits.bandwidth.free: 25.00 GB
 
 # the default paid-tier bandwidth usage limit
-# console.usage-limits.bandwidth.paid: 100.00 TB
+# console.usage-limits.bandwidth.paid: 150.00 TB
 
 # the default free-tier project limit
 # console.usage-limits.project.free: 1
@@ -479,13 +554,22 @@ compensation.withheld-percents: 75,75,75,50,50,50,25,25,25,0,0,0,0,0,0
 # console.usage-limits.storage.free: 25.00 GB
 
 # the default paid-tier storage usage limit
-# console.usage-limits.storage.paid: 25.00 TB
+# console.usage-limits.storage.paid: 100.00 TB
 
 # amount of base units of US micro dollars needed to upgrade user's tier status
 # console.user-balance-for-upgrade: 10000000
 
+# url link to Valdi sign up page
+# console.valdi-sign-up-url: ""
+
+# list of partners whose users will not see billing UI.
+# console.var-partners: []
+
 # whether to load templates on each request
 # console.watch: false
+
+# url of the zkSync transaction block explorer
+# console.zk-sync-block-explorer-url: https://explorer.zksync.io/
 
 # allow private IPs in CheckIn and PingMe
 # contact.allow-private-ip: false
@@ -535,8 +619,14 @@ contact.external-address: ""
 # provide the name of the peer to enable continuous cpu/mem profiling for
 # debug.profilername: ""
 
+# provide the google project id for continuous profiling (required only for non-k8s environments
+# debug.profilerproject: ""
+
 # If set, a path to write a process trace SVG to
 # debug.trace-out: ""
+
+# indicates whether the console API should not be served along with satellite API
+# disable-console-from-satellite-api: false
 
 # whether to enable durability report (rangedloop observer)
 # durability-report.enabled: true
@@ -547,11 +637,17 @@ contact.external-address: ""
 # enable sending emails reminding users to verify their email
 # email-reminders.enable: true
 
+# enable sending emails about trial expirations
+# email-reminders.enable-trial-expiration-reminders: false
+
 # amount of time before sending first reminder to users who need to verify their email
 # email-reminders.first-verification-reminder: 24h0m0s
 
 # amount of time before sending second reminder to users who need to verify their email
 # email-reminders.second-verification-reminder: 120h0m0s
+
+# amount of time before trial expiration to send trial expiration reminder
+# email-reminders.trial-expiration-reminder: 72h0m0s
 
 # weighted average CO2 sequestered by a medium growth coniferous or deciduous tree, in kgCO2e/tree
 # emission.average-co2sequestered-by-tree: 60
@@ -628,6 +724,9 @@ contact.external-address: ""
 # energy needed to write 1GB of data, in W-hours/GB
 # emission.write-energy: 0.005
 
+# how many delete queries are sent in parallel
+# expired-deletion.delete-concurrency: 1
+
 # set if expired segment cleanup is enabled or not
 # expired-deletion.enabled: true
 
@@ -642,6 +741,9 @@ contact.external-address: ""
 
 # Bucket which will be used to upload bloom filters
 # garbage-collection-bf.bucket: ""
+
+# do not include expired pieces into bloom filter
+# garbage-collection-bf.exclude-expired-pieces: false
 
 # how long bloom filters will remain in the bucket for gc/sender to consume before being automatically deleted
 # garbage-collection-bf.expire-in: 336h0m0s
@@ -700,11 +802,26 @@ contact.external-address: ""
 # how frequently to check uptime ratio of gracefully-exiting nodes
 # graceful-exit.offline-check-interval: 30m0s
 
+# The address to listen on for health check server
+# health-check.address: :10500
+
+# Whether the health check server is enabled
+# health-check.enabled: false
+
 # path to the certificate chain for this identity
 identity.cert-path: /root/.local/share/storj/identity/satellite/identity.cert
 
 # path to the private key for this identity
 identity.key-path: /root/.local/share/storj/identity/satellite/identity.key
+
+# the key ID to use for passphrase encryption.
+# key-management.default-master-key: 1
+
+# semicolon-separated key-id:version,checksum. With 'gsm' provider, version is the resource name. With 'local', it is the file path. Checksum is the integer crc32c checksum of the key data
+# key-management.key-infos: ""
+
+# the provider of the passphrase encryption keys: 'gsm' for google, 'local' for a local file
+# key-management.provider: gsm
 
 # as of system interval
 # live-accounting.as-of-system-interval: -10s
@@ -796,6 +913,12 @@ identity.key-path: /root/.local/share/storj/identity/satellite/identity.key
 # minimum remote segment size
 # metainfo.min-remote-segment-size: 1.2 KiB
 
+# node alias cache does a full refresh when a value is missing
+# metainfo.node-alias-cache-full-refresh: false
+
+# enable the use of bucket-level Object Lock
+# metainfo.object-lock-enabled: false
+
 # toggle flag if overlay is enabled
 # metainfo.overlay: true
 
@@ -823,8 +946,23 @@ identity.key-path: /root/.local/share/storj/identity/satellite/identity.key
 # disable already enabled server-side copy. this is because once server side copy is enabled, delete code should stay changed, even if you want to disable server side copy
 # metainfo.server-side-copy-disabled: false
 
+# success tracker kind, bitshift or percent
+# metainfo.success-tracker-kind: percent
+
+# how often to bump the generation in the node success tracker
+# metainfo.success-tracker-tick-duration: 10m0s
+
+# list of trusted uplinks for success tracker
+# metainfo.success-tracker-trusted-uplinks: []
+
 # test the new query for non-recursive listing
 # metainfo.test-listing-query: false
+
+# enables optimization for uploading objects with single inline segment
+# metainfo.test-optimized-inline-object-upload: false
+
+# which code path to use for precommit delete step for unversioned objects, 0 is the default (old) code path.
+# metainfo.testing-precommit-delete-mode: 0
 
 # number of object locations to cache.
 # metainfo.upload-limiter.cache-capacity: 10000
@@ -838,6 +976,18 @@ identity.key-path: /root/.local/share/storj/identity/satellite/identity.key
 # enable the use of bucket level object versioning
 # metainfo.use-bucket-level-object-versioning: false
 
+# switch to iterator based implementation.
+# metainfo.use-list-objects-iterator: false
+
+# user info cache capacity
+# metainfo.user-info-validation.cache-capacity: 10000
+
+# user info cache expiration
+# metainfo.user-info-validation.cache-expiration: 5m0s
+
+# whether validation is enabled for user account info
+# metainfo.user-info-validation.enabled: false
+
 # address(es) to send telemetry to (comma-separated)
 # metrics.addr: collectora.storj.io:9000
 
@@ -847,7 +997,7 @@ identity.key-path: /root/.local/share/storj/identity/satellite/identity.key
 # application suffix. Ignored for certain applications.
 # metrics.app-suffix: -release
 
-# address(es) to send telemetry to (comma-separated)
+# address(es) to send telemetry to (comma-separated IP:port or complex BQ definition, like bigquery:app=...,project=...,dataset=..., depends on the config/usage)
 # metrics.event-addr: eventkitd.datasci.storj.io:9002
 
 # size of the internal eventkit queue for UDP sending
@@ -950,7 +1100,7 @@ identity.key-path: /root/.local/share/storj/identity/satellite/identity.key
 # overlay.node.distinct-ip: true
 
 # how much disk space a node at minimum must have to be selected for upload
-# overlay.node.minimum-disk-space: 500.00 MB
+# overlay.node.minimum-disk-space: 5.00 GB
 
 # the minimum node software version for node selection queries
 # overlay.node.minimum-version: ""
@@ -1054,6 +1204,9 @@ identity.key-path: /root/.local/share/storj/identity/satellite/identity.key
 # price user should pay for storage per month in dollars/TB
 # payments.usage-price.storage-tb: "4"
 
+# batch size for updating nodes with number of pieces
+# piece-tracker.update-batch-size: 1000
+
 # whether to enable piece tracker observer with ranged loop
 # piece-tracker.use-ranged-loop: true
 
@@ -1077,6 +1230,9 @@ identity.key-path: /root/.local/share/storj/identity/satellite/identity.key
 
 # how many chunks of segments to process in parallel
 # ranged-loop.parallelism: 2
+
+# sets spanner stale read timestamp as now()-interval
+# ranged-loop.spanner-stale-interval: 0s
 
 # ratio where to consider processed count as supicious
 # ranged-loop.suspicious-processed-ratio: 0.03
@@ -1122,6 +1278,9 @@ identity.key-path: /root/.local/share/storj/identity/satellite/identity.key
 
 # whether the audit score of nodes should be updated as a part of repair
 # repairer.reputation-update-enabled: false
+
+# how many injured segments will be read from repair queue in single request
+# repairer.segments-select-batch-size: 1
 
 # time limit for uploading repaired pieces to new storage nodes
 # repairer.timeout: 5m0s
@@ -1248,6 +1407,9 @@ server.private-address: 127.0.0.1:7778
 
 # if true, uses peer ca whitelist checking
 # server.use-peer-ca-whitelist: true
+
+# indicates whether the console API should be served as a standalone service
+# standalone-console-api-enabled: false
 
 # whether nodes will be disqualified if they have not been contacted in some time
 # stray-nodes.enable-dq: true

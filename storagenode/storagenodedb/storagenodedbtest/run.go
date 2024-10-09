@@ -13,8 +13,8 @@ import (
 	"github.com/mattn/go-sqlite3"
 	"go.uber.org/zap/zaptest"
 
-	"storj.io/common/dbutil/utccheck"
 	"storj.io/common/testcontext"
+	"storj.io/storj/shared/dbutil/utccheck"
 	"storj.io/storj/storagenode"
 	"storj.io/storj/storagenode/storagenodedb"
 )

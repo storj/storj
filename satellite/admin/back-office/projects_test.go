@@ -154,7 +154,7 @@ func TestGetProject(t *testing.T) {
 
 			obj := metabasetest.CreateObject(ctx, t, sat.Metabase.DB, metabase.ObjectStream{
 				ProjectID:  projID,
-				BucketName: bucket.Name,
+				BucketName: metabase.BucketName(bucket.Name),
 				ObjectKey:  metabasetest.RandObjectKey(),
 				Version:    12345,
 				StreamID:   testrand.UUID(),

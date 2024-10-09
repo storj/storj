@@ -4,11 +4,12 @@
 package repair
 
 import (
-	"storj.io/common/storj"
-	"storj.io/common/storj/location"
+	"go.uber.org/zap/zapcore"
+
 	"storj.io/storj/private/intset"
 	"storj.io/storj/satellite/metabase"
 	"storj.io/storj/satellite/nodeselection"
+	"storj.io/storj/shared/location"
 )
 
 // PiecesCheckResult contains all necessary aggregate information about the state of pieces in a
@@ -16,9 +17,6 @@ import (
 // whether it is in a clumped IP network, in an excluded country, or out of placement for the
 // segment.
 type PiecesCheckResult struct {
-	// ExcludeNodeIDs is a list of all node IDs holding pieces of this segment.
-	ExcludeNodeIDs []storj.NodeID
-
 	// Missing is a set of Piece Numbers which are to be considered as lost and irretrievable.
 	// (They reside on offline/disqualified/unknown nodes.)
 	Missing intset.Set
@@ -60,8 +58,7 @@ type PiecesCheckResult struct {
 // represented by a PiecesCheckResult. Pieces may be put into multiple
 // categories.
 func ClassifySegmentPieces(pieces metabase.Pieces, nodes []nodeselection.SelectedNode, excludedCountryCodes map[location.CountryCode]struct{},
-	doPlacementCheck, doDeclumping bool, placement nodeselection.Placement, excludeNodeIDs []storj.NodeID) (result PiecesCheckResult) {
-	result.ExcludeNodeIDs = excludeNodeIDs
+	doPlacementCheck, doDeclumping bool, placement nodeselection.Placement) (result PiecesCheckResult) {
 
 	maxPieceNum := 0
 	for _, piece := range pieces {
@@ -153,4 +150,21 @@ func ClassifySegmentPieces(pieces metabase.Pieces, nodes []nodeselection.Selecte
 	}
 
 	return result
+}
+
+// MarshalLogObject implements zapcore.ObjectMarshaler.
+func (result PiecesCheckResult) MarshalLogObject(enc zapcore.ObjectEncoder) error {
+	enc.AddInt("Missing", result.Missing.Count())
+	enc.AddInt("Retrievable", result.Retrievable.Count())
+	enc.AddInt("Suspended", result.Suspended.Count())
+	enc.AddInt("Clumped", result.Clumped.Count())
+	enc.AddInt("Exiting", result.Exiting.Count())
+	enc.AddInt("ForcingRepair", result.ForcingRepair.Count())
+	enc.AddInt("Healthy", result.Healthy.Count())
+	enc.AddInt("OutOfPlacement", result.OutOfPlacement.Count())
+	enc.AddInt("Retrievable", result.Retrievable.Count())
+	enc.AddInt("Suspended", result.Suspended.Count())
+	enc.AddInt("Unhealthy", result.Unhealthy.Count())
+	enc.AddInt("UnhealthyRetrievable", result.UnhealthyRetrievable.Count())
+	return nil
 }

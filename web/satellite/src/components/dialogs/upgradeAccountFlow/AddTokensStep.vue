@@ -3,7 +3,7 @@
 
 <template>
     <p v-if="isPaidTier" class="text-body-2 mb-4">
-        Send STORJ Tokens to the following deposit address to credit your Storj account:
+        Send STORJ Tokens to the following deposit address to credit your Storj account. In addition, you will receive a 10% bonus on your deposit.
     </p>
     <p v-else class="text-body-2 mb-4">
         Send more than $10 in STORJ Tokens to the following deposit address to upgrade to a Pro account.
@@ -27,7 +27,7 @@
         Deposit Address
         <v-tooltip max-width="200px" location="top">
             <template #activator="{ props }">
-                <v-icon v-bind="props" :icon="mdiInformationOutline" size="16" />
+                <v-icon v-bind="props" :icon="Info" size="16" />
             </template>
             <p>
                 This is a Storj token deposit address generated just for you.
@@ -51,11 +51,9 @@
         <v-col cols="auto">
             <v-btn
                 density="compact"
+                :prepend-icon="Copy"
                 @click="onCopyAddressClick"
             >
-                <template #prepend>
-                    <v-icon :icon="mdiContentCopy" />
-                </template>
                 Copy
             </v-btn>
         </v-col>
@@ -84,7 +82,8 @@
 import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue';
 import QRCode from 'qrcode';
 import { VTooltip, VBtn, VIcon, VCol, VRow } from 'vuetify/components';
-import { mdiContentCopy, mdiInformationOutline } from '@mdi/js';
+import { Copy, Info } from 'lucide-vue-next';
+import { useRoute } from 'vue-router';
 
 import { useBillingStore } from '@/store/modules/billingStore';
 import { useConfigStore } from '@/store/modules/configStore';
@@ -92,6 +91,8 @@ import { useNotify } from '@/utils/hooks';
 import { PaymentStatus, PaymentWithConfirmations, Wallet } from '@/types/payments';
 import { AnalyticsErrorEventSource } from '@/utils/constants/analyticsEventNames';
 import { useUsersStore } from '@/store/modules/usersStore';
+import { ROUTES } from '@/router';
+import { useProjectsStore } from '@/store/modules/projectsStore';
 
 import AddTokensStepBanner from '@/components/dialogs/upgradeAccountFlow/AddTokensStepBanner.vue';
 
@@ -103,11 +104,13 @@ enum ViewState {
 
 const configStore = useConfigStore();
 const billingStore = useBillingStore();
+const projectsStore = useProjectsStore();
 const usersStore = useUsersStore();
 const notify = useNotify();
+const route = useRoute();
 
 const canvas = ref<HTMLCanvasElement>();
-const intervalID = ref<NodeJS.Timer>();
+const intervalID = ref<number>();
 const viewState = ref<ViewState>(ViewState.Default);
 
 defineProps<{
@@ -191,6 +194,10 @@ watch(() => pendingPayments.value, async () => {
 
     // we redirect to success step only if user status was updated to Paid Tier.
     if (isPaidTier.value) {
+        if (route.name === ROUTES.Dashboard.name) {
+            projectsStore.getProjectConfig().catch((_) => {});
+            projectsStore.getProjectLimits(projectsStore.state.selectedProject.id).catch((_) => {});
+        }
         // arbitrary delay to allow for user to read success banner.
         await new Promise(resolve => setTimeout(resolve, 2000));
         emit('success');
@@ -204,7 +211,7 @@ watch(() => pendingPayments.value, async () => {
 onMounted(async (): Promise<void> => {
     setViewState();
 
-    intervalID.value = setInterval(async () => {
+    intervalID.value = window.setInterval(async () => {
         try {
             await billingStore.getPaymentsWithConfirmations();
         } catch { /* empty */ }

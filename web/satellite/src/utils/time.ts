@@ -12,6 +12,15 @@ export class Time {
     public static toUnixTimestamp(time: Date): number {
         return Math.floor(time.getTime() / 1000);
     }
+
+    /**
+     * formattedDate formats given date into US string.
+     * @param date
+     * @param options - date formatting options
+     */
+    public static formattedDate(date: Date, options: Intl.DateTimeFormatOptions = { day: 'numeric', month: 'short', year: 'numeric' }): string {
+        return date.toLocaleDateString('en-US', options);
+    }
 }
 
 /**

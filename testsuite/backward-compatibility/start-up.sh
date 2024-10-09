@@ -37,8 +37,10 @@ RELEASE_BIN="$STORJ_NETWORK_DIR/bin/release"
 # replace this with a standard go install once go allows install cross-compiled binaries when GOBIN is set
 # https://github.com/golang/go/issues/57485
 git worktree add -f "$STORJ_NETWORK_DIR"/branch HEAD
-latestReleaseCommit="$(git rev-list --exclude='*rc*' --tags --max-count=1)"
-latestReleaseTag=$(git describe --tags "$latestReleaseCommit")
+
+latestReleaseTag=$($SCRIPTDIR/../find-previous-release.sh)
+latestReleaseCommit=$(git rev-list -n1 $latestReleaseTag)
+
 echo "Checking out latest release tag: $latestReleaseTag"
 git worktree add -f "$STORJ_NETWORK_DIR"/release "$latestReleaseCommit"
 pushd "$STORJ_NETWORK_DIR"/release

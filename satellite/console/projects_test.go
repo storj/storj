@@ -114,10 +114,11 @@ func TestProjectsRepository(t *testing.T) {
 
 				// creating new project with updated values.
 				newProject := &console.Project{
-					ID:          oldProject.ID,
-					Name:        newName,
-					Description: newDescription,
-					RateLimit:   &newRateLimit,
+					ID:                        oldProject.ID,
+					Name:                      newName,
+					Description:               newDescription,
+					RateLimit:                 &newRateLimit,
+					PromptedForVersioningBeta: true,
 				}
 
 				err = projects.Update(ctx, newProject)
@@ -130,6 +131,7 @@ func TestProjectsRepository(t *testing.T) {
 				require.Equal(t, newName, newProject.Name)
 				require.Equal(t, newDescription, newProject.Description)
 				require.Equal(t, newRateLimit, *newProject.RateLimit)
+				require.True(t, newProject.PromptedForVersioningBeta)
 			})
 
 			t.Run("Delete project success", func(t *testing.T) {
@@ -174,7 +176,7 @@ func TestProjectsRepository(t *testing.T) {
 				require.Equal(t, 2, len(allProjects))
 			})
 		})
-	})
+	}, satellitedbtest.WithSpanner())
 }
 
 func TestProjectsList(t *testing.T) {
@@ -191,7 +193,7 @@ func TestProjectsList(t *testing.T) {
 			&console.User{
 				ID:           testrand.UUID(),
 				FullName:     "Billy H",
-				Email:        "billyh@example.com",
+				Email:        "billyh@example.test",
 				PasswordHash: []byte("example_password"),
 				Status:       1,
 			},
@@ -241,7 +243,7 @@ func TestProjectsList(t *testing.T) {
 				})
 				return rs
 			})))
-	})
+	}, satellitedbtest.WithSpanner())
 }
 
 func TestProjectsListByOwner(t *testing.T) {
@@ -258,7 +260,7 @@ func TestProjectsListByOwner(t *testing.T) {
 			&console.User{
 				ID:           testrand.UUID(),
 				FullName:     "Billy H",
-				Email:        "billyh@example.com",
+				Email:        "billyh@example.test",
 				PasswordHash: []byte("example_password"),
 				Status:       1,
 			},
@@ -269,7 +271,7 @@ func TestProjectsListByOwner(t *testing.T) {
 			&console.User{
 				ID:           testrand.UUID(),
 				FullName:     "James H",
-				Email:        "james@example.com",
+				Email:        "james@example.test",
 				PasswordHash: []byte("example_password_2"),
 				Status:       1,
 			},
@@ -307,18 +309,18 @@ func TestProjectsListByOwner(t *testing.T) {
 			numMembers := i % 3
 			switch numMembers {
 			case 1:
-				_, err = projectMembersDB.Insert(ctx, owner1.ID, proj1.ID)
+				_, err = projectMembersDB.Insert(ctx, owner1.ID, proj1.ID, console.RoleAdmin)
 				require.NoError(t, err)
-				_, err = projectMembersDB.Insert(ctx, owner2.ID, proj2.ID)
+				_, err = projectMembersDB.Insert(ctx, owner2.ID, proj2.ID, console.RoleAdmin)
 				require.NoError(t, err)
 			case 2:
-				_, err = projectMembersDB.Insert(ctx, owner1.ID, proj1.ID)
+				_, err = projectMembersDB.Insert(ctx, owner1.ID, proj1.ID, console.RoleAdmin)
 				require.NoError(t, err)
-				_, err = projectMembersDB.Insert(ctx, owner2.ID, proj1.ID)
+				_, err = projectMembersDB.Insert(ctx, owner2.ID, proj1.ID, console.RoleAdmin)
 				require.NoError(t, err)
-				_, err = projectMembersDB.Insert(ctx, owner1.ID, proj2.ID)
+				_, err = projectMembersDB.Insert(ctx, owner1.ID, proj2.ID, console.RoleAdmin)
 				require.NoError(t, err)
-				_, err = projectMembersDB.Insert(ctx, owner2.ID, proj2.ID)
+				_, err = projectMembersDB.Insert(ctx, owner2.ID, proj2.ID, console.RoleAdmin)
 				require.NoError(t, err)
 			}
 			proj1.MemberCount = numMembers
@@ -377,7 +379,7 @@ func TestProjectsListByOwner(t *testing.T) {
 				require.Equal(t, originalProjects[i].MemberCount, p.MemberCount)
 			}
 		}
-	})
+	}, satellitedbtest.WithSpanner())
 }
 
 func TestGetMaxBuckets(t *testing.T) {
@@ -390,7 +392,7 @@ func TestGetMaxBuckets(t *testing.T) {
 		max, err := projectsDB.GetMaxBuckets(ctx, project.ID)
 		require.NoError(t, err)
 		require.Equal(t, maxCount, *max)
-	})
+	}, satellitedbtest.WithSpanner())
 }
 
 func TestValidateNameAndDescription(t *testing.T) {
@@ -423,7 +425,7 @@ func TestValidateNameAndDescription(t *testing.T) {
 func TestRateLimit_ProjectRateLimitZero(t *testing.T) {
 	rateLimit := 2
 	testplanet.Run(t, testplanet.Config{
-		SatelliteCount: 1, StorageNodeCount: 0, UplinkCount: 1,
+		SatelliteCount: 1, StorageNodeCount: 0, UplinkCount: 1, EnableSpanner: true,
 		Reconfigure: testplanet.Reconfigure{
 			Satellite: func(_ *zap.Logger, _ int, config *satellite.Config) {
 				config.Metainfo.RateLimiter.Rate = float64(rateLimit)
@@ -459,7 +461,7 @@ func TestRateLimit_ProjectRateLimitZero(t *testing.T) {
 func TestBurstLimit_ProjectBurstLimitZero(t *testing.T) {
 	rateLimit := 2
 	testplanet.Run(t, testplanet.Config{
-		SatelliteCount: 1, StorageNodeCount: 0, UplinkCount: 1,
+		SatelliteCount: 1, StorageNodeCount: 0, UplinkCount: 1, EnableSpanner: true,
 		Reconfigure: testplanet.Reconfigure{
 			Satellite: func(_ *zap.Logger, _ int, config *satellite.Config) {
 				config.Metainfo.RateLimiter.Rate = float64(rateLimit)

@@ -5,8 +5,12 @@ import { ErrorBadRequest } from '@/api/errors/ErrorBadRequest';
 import { ErrorMFARequired } from '@/api/errors/ErrorMFARequired';
 import { ErrorTooManyRequests } from '@/api/errors/ErrorTooManyRequests';
 import {
+    AccountDeletionData,
     AccountSetupData,
     FreezeStatus,
+    Session,
+    SessionsCursor,
+    SessionsPage,
     SetUserSettingsData,
     TokenInfo,
     UpdatedUser,
@@ -17,6 +21,8 @@ import {
 import { HttpClient } from '@/utils/httpClient';
 import { ErrorTokenExpired } from '@/api/errors/ErrorTokenExpired';
 import { APIError } from '@/utils/error';
+import { ErrorTooManyAttempts } from '@/api/errors/ErrorTooManyAttempts';
+import { ChangeEmailStep, DeleteAccountStep } from '@/types/accountActions';
 
 /**
  * AuthHttpApi is a console Auth API.
@@ -30,12 +36,19 @@ export class AuthHttpApi implements UsersApi {
      * Used to resend an registration confirmation email.
      *
      * @param email - email of newly created user
-     * @returns requestID to be used for code activation.
+     * @param captchaResponse - captcha response token
+     * @returns requestID to be used for code activation
      * @throws Error
      */
-    public async resendEmail(email: string): Promise<string> {
-        const path = `${this.ROOT_PATH}/resend-email/${email}`;
-        const response = await this.http.post(path, email);
+    public async resendEmail(email: string, captchaResponse: string): Promise<string> {
+        const path = `${this.ROOT_PATH}/resend-email`;
+
+        const body = {
+            email,
+            captchaResponse,
+        };
+
+        const response = await this.http.post(path, JSON.stringify(body));
         if (response.ok) {
             return response.headers.get('x-request-id') ?? '';
         }
@@ -158,6 +171,76 @@ export class AuthHttpApi implements UsersApi {
     }
 
     /**
+     * Used to change user email requests.
+     *
+     * @throws Error
+     */
+    public async changeEmail(step: ChangeEmailStep, data: string): Promise<void> {
+        const path = `${this.ROOT_PATH}/change-email`;
+
+        const body = JSON.stringify({
+            step,
+            data,
+        });
+
+        const response = await this.http.post(path, body);
+        if (response.ok) {
+            return;
+        }
+
+        const result = await response.json();
+
+        throw new APIError({
+            status: response.status,
+            message: result.error || 'Can not change email. Please try again later',
+            requestID: response.headers.get('x-request-id'),
+        });
+    }
+
+    /**
+     * Used to mark user's account for deletion.
+     *
+     * @throws Error
+     */
+    public async deleteAccount(step: DeleteAccountStep, data: string): Promise<AccountDeletionData | null> {
+        const path = `${this.ROOT_PATH}/account`;
+
+        const body = JSON.stringify({
+            step,
+            data,
+        });
+
+        const response = await this.http.delete(path, body);
+
+        if (response.ok) {
+            return null;
+        }
+
+        const result = await response.json();
+
+        if (response.status === 409) {
+            return new AccountDeletionData(
+                result.ownedProjects,
+                result.buckets,
+                result.apiKeys,
+                result.unpaidInvoices,
+                result.amountOwed,
+                result.currentUsage,
+                result.invoicingIncomplete,
+                result.success,
+            );
+        }
+
+        throw new APIError({
+            status: response.status,
+            message: result.error || 'Can not delete account. Please try again later',
+            requestID: response.headers.get('x-request-id'),
+        });
+
+        return null;
+    }
+
+    /**
      * Used to restore password.
      *
      * @param email - email of the user
@@ -265,6 +348,8 @@ export class AuthHttpApi implements UsersApi {
                 userResponse.mfaRecoveryCodeCount,
                 userResponse.createdAt,
                 userResponse.pendingVerification,
+                userResponse.trialExpiration ? new Date(userResponse.trialExpiration) : null,
+                userResponse.hasVarPartner,
             );
         }
 
@@ -338,6 +423,8 @@ export class AuthHttpApi implements UsersApi {
             return new FreezeStatus(
                 responseData.frozen,
                 responseData.warned,
+                responseData.trialExpiredFrozen,
+                responseData.trialExpirationGracePeriod,
             );
         }
 
@@ -602,6 +689,9 @@ export class AuthHttpApi implements UsersApi {
 
         if (text) {
             const result = JSON.parse(text);
+            if (result.code === 'too_many_attempts') {
+                throw new ErrorTooManyAttempts();
+            }
             if (result.code === 'mfa_required') {
                 throw new ErrorMFARequired();
             }
@@ -648,6 +738,67 @@ export class AuthHttpApi implements UsersApi {
             message: 'Unable to refresh session.',
             requestID: response.headers.get('x-request-id'),
         });
+    }
+
+    /**
+     * Used to fetch active user sessions.
+     *
+     * @throws Error
+     */
+    public async getSessions(cursor: SessionsCursor): Promise<SessionsPage> {
+        const path = `${this.ROOT_PATH}/sessions?limit=${cursor.limit}&page=${cursor.page}&order=${cursor.order}&orderDirection=${cursor.orderDirection}`;
+        const response = await this.http.get(path);
+        const result = await response.json();
+
+        if (!response.ok) {
+            throw new APIError({
+                status: response.status,
+                message: result.error || 'Can not get user sessions',
+                requestID: response.headers.get('x-request-id'),
+            });
+        }
+
+        if (!(result && result.sessions)) {
+            return new SessionsPage();
+        }
+
+        const sessionsPage: SessionsPage = new SessionsPage();
+
+        sessionsPage.sessions = result.sessions.map(session => new Session(
+            session.id,
+            session.userAgent,
+            new Date(session.expiresAt),
+            session.isRequesterCurrentSession,
+        ));
+
+        sessionsPage.limit = result.limit;
+        sessionsPage.order = result.order;
+        sessionsPage.orderDirection = result.orderDirection;
+        sessionsPage.pageCount = result.pageCount;
+        sessionsPage.currentPage = result.currentPage;
+        sessionsPage.totalCount = result.totalCount;
+
+        return sessionsPage;
+    }
+
+    /**
+     * Used to invalidate active user session by ID.
+     *
+     * @throws Error
+     */
+    public async invalidateSession(sessionID: string): Promise<void> {
+        const path = `${this.ROOT_PATH}/invalidate-session/${sessionID}`;
+        const response = await this.http.post(path, null);
+
+        if (!response.ok) {
+            const result = await response.json();
+
+            throw new APIError({
+                status: response.status,
+                message: result.error || 'Can not invalidate session',
+                requestID: response.headers.get('x-request-id'),
+            });
+        }
     }
 
     /**

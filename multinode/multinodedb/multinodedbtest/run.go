@@ -14,14 +14,14 @@ import (
 	"go.uber.org/zap"
 	"go.uber.org/zap/zaptest"
 
-	"storj.io/common/dbutil"
-	"storj.io/common/dbutil/pgtest"
-	"storj.io/common/dbutil/pgutil"
-	"storj.io/common/dbutil/tempdb"
 	"storj.io/common/testcontext"
 	"storj.io/storj/multinode"
 	"storj.io/storj/multinode/multinodedb"
 	"storj.io/storj/multinode/multinodedb/dbx"
+	"storj.io/storj/shared/dbutil"
+	"storj.io/storj/shared/dbutil/dbtest"
+	"storj.io/storj/shared/dbutil/pgutil"
+	"storj.io/storj/shared/dbutil/tempdb"
 )
 
 // Database describes a test database.
@@ -46,10 +46,6 @@ func (db *tempMasterDB) Close() error {
 func (db *tempMasterDB) TestDBAccess() *dbx.DB {
 	return db.DB.(interface{ TestDBAccess() *dbx.DB }).TestDBAccess()
 }
-
-type ignoreSkip struct{}
-
-func (ignoreSkip) Skip(...interface{}) {}
 
 // SchemaSuffix returns a suffix for schemas.
 func SchemaSuffix() string {
@@ -107,8 +103,8 @@ func Run(t *testing.T, test func(ctx *testcontext.Context, t *testing.T, db mult
 	databases := []Database{
 		{
 			Name:    "Postgres",
-			URL:     pgtest.PickPostgres(ignoreSkip{}),
-			Message: "Postgres flag missing, example: -postgres-test-db=" + pgtest.DefaultPostgres + " or use STORJ_TEST_POSTGRES environment variable.",
+			URL:     dbtest.PickPostgresNoSkip(),
+			Message: "Postgres flag missing, example: -postgres-test-db=" + dbtest.DefaultPostgres + " or use STORJ_TEST_POSTGRES environment variable.",
 		},
 		{
 			Name: "Sqlite3",

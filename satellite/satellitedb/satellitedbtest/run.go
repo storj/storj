@@ -14,22 +14,37 @@ import (
 	"strconv"
 	"strings"
 	"testing"
+	"time"
 
-	"github.com/google/go-cmp/cmp"
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zaptest"
 
-	"storj.io/common/dbutil"
-	"storj.io/common/dbutil/pgtest"
-	"storj.io/common/dbutil/pgutil"
-	"storj.io/common/dbutil/tempdb"
-	"storj.io/common/tagsql"
 	"storj.io/common/testcontext"
 	"storj.io/storj/satellite"
 	"storj.io/storj/satellite/metabase"
 	"storj.io/storj/satellite/satellitedb"
+	"storj.io/storj/shared/dbutil"
+	"storj.io/storj/shared/dbutil/dbtest"
+	"storj.io/storj/shared/dbutil/pgutil"
+	"storj.io/storj/shared/dbutil/tempdb"
+	"storj.io/storj/shared/tagsql"
 )
+
+// WithSpanner configures config to enable tests to run on spanner.
+func WithSpanner() ConfigOption {
+	return func(c *config) {
+		c.EnableSpanner = true
+	}
+}
+
+// ConfigOption modifies a satellitedbtest configuration to provide test specific options.
+type ConfigOption func(c *config)
+
+// config describes the configuration for a satellitedb test.
+type config struct {
+	EnableSpanner bool
+}
 
 // Cockroach DROP DATABASE takes a significant amount, however, it has no importance in our tests.
 var cockroachNoDrop = flag.Bool("cockroach-no-drop", stringToBool(os.Getenv("STORJ_TEST_COCKROACH_NODROP")), "Skip dropping cockroach databases to speed up tests")
@@ -56,29 +71,34 @@ type Database struct {
 	Message string
 }
 
-type ignoreSkip struct{}
-
-func (ignoreSkip) Skip(...interface{}) {}
-
 // Databases returns default databases.
 func Databases() []SatelliteDatabases {
 	var dbs []SatelliteDatabases
 
-	postgresConnStr := pgtest.PickPostgres(ignoreSkip{})
+	postgresConnStr := dbtest.PickPostgresNoSkip()
 	if !strings.EqualFold(postgresConnStr, "omit") {
 		dbs = append(dbs, SatelliteDatabases{
 			Name:       "Postgres",
-			MasterDB:   Database{"Postgres", postgresConnStr, "Postgres flag missing, example: -postgres-test-db=" + pgtest.DefaultPostgres + " or use STORJ_TEST_POSTGRES environment variable."},
+			MasterDB:   Database{"Postgres", postgresConnStr, "Postgres flag missing, example: -postgres-test-db=" + dbtest.DefaultPostgres + " or use STORJ_TEST_POSTGRES environment variable."},
 			MetabaseDB: Database{"Postgres", postgresConnStr, ""},
 		})
 	}
 
-	cockroachConnStr := pgtest.PickCockroach(ignoreSkip{})
+	cockroachConnStr := dbtest.PickCockroachNoSkip()
 	if !strings.EqualFold(cockroachConnStr, "omit") {
 		dbs = append(dbs, SatelliteDatabases{
 			Name:       "Cockroach",
-			MasterDB:   Database{"Cockroach", cockroachConnStr, "Cockroach flag missing, example: -cockroach-test-db=" + pgtest.DefaultCockroach + " or use STORJ_TEST_COCKROACH environment variable."},
+			MasterDB:   Database{"Cockroach", cockroachConnStr, "Cockroach flag missing, example: -cockroach-test-db=" + dbtest.DefaultCockroach + " or use STORJ_TEST_COCKROACH environment variable."},
 			MetabaseDB: Database{"Cockroach", cockroachConnStr, ""},
+		})
+	}
+
+	spanner := dbtest.PickSpannerNoSkip()
+	if !strings.EqualFold(spanner, "omit") {
+		dbs = append(dbs, SatelliteDatabases{
+			Name:       "Spanner",
+			MasterDB:   Database{"Spanner", spanner, "Spanner flag missing, example: -spanner-test-db=" + dbtest.DefaultSpanner + " or use STORJ_TEST_SPANNER environment variable."},
+			MetabaseDB: Database{"Spanner", spanner, ""},
 		})
 	}
 
@@ -100,13 +120,14 @@ func SchemaName(testname, category string, index int, schemaSuffix string) strin
 	category = nameCleaner.ReplaceAllString(category, "_")
 	schemaSuffix = nameCleaner.ReplaceAllString(schemaSuffix, "_")
 
-	// postgres has a maximum schema length of 64
-	// we need additional 6 bytes for the random suffix
-	//    and 4 bytes for the satellite index "/S0/""
+	// spanner has a maximum database length of 30 while postgres has a maximum schema length of 64
+	// we need additional 6 bytes for the random suffix and 4 bytes for the satellite index "/S0/""
+	// additionally, we will leave 5 bytes for a delimiter and any randomness that need to be added for testing or
+	// other purposes
 
 	indexStr := strconv.Itoa(index)
 
-	var maxTestNameLen = 64 - len(category) - len(indexStr) - len(schemaSuffix) - 2
+	var maxTestNameLen = 30 - len(category) - len(indexStr) - len(schemaSuffix) - 2 - 5
 	if len(testname) > maxTestNameLen {
 		testname = testname[:maxTestNameLen]
 	}
@@ -157,8 +178,15 @@ func CreateMasterDBOnTopOf(ctx context.Context, log *zap.Logger, tempDB *dbutil.
 	return &tempMasterDB{DB: masterDB, tempDB: tempDB}, err
 }
 
-// CreateMetabaseDB creates a new satellite metabase for testing.
-func CreateMetabaseDB(ctx context.Context, log *zap.Logger, name string, category string, index int, dbInfo Database, config metabase.Config) (db *metabase.DB, err error) {
+// TempDBSchemaConfig defines parameters required for the temp database.
+type TempDBSchemaConfig struct {
+	Name     string
+	Category string
+	Index    int
+}
+
+// CreateTempDB creates a new temporary database (Cockroach or Postgresql).
+func CreateTempDB(ctx context.Context, log *zap.Logger, tcfg TempDBSchemaConfig, dbInfo Database) (db *dbutil.TempDatabase, err error) {
 	if dbInfo.URL == "" {
 		return nil, fmt.Errorf("Database %s connection string not provided. %s", dbInfo.Name, dbInfo.Message)
 	}
@@ -166,7 +194,7 @@ func CreateMetabaseDB(ctx context.Context, log *zap.Logger, name string, categor
 	schemaSuffix := SchemaSuffix()
 	log.Debug("creating", zap.String("suffix", schemaSuffix))
 
-	schema := SchemaName(name, category, index, schemaSuffix)
+	schema := SchemaName(tcfg.Name, tcfg.Category, tcfg.Index, schemaSuffix)
 
 	tempDB, err := tempdb.OpenUnique(ctx, dbInfo.URL, schema)
 	if err != nil {
@@ -176,6 +204,19 @@ func CreateMetabaseDB(ctx context.Context, log *zap.Logger, name string, categor
 		tempDB.Cleanup = func(d tagsql.DB) error { return nil }
 	}
 
+	return tempDB, nil
+}
+
+// CreateMetabaseDB creates a new satellite metabase for testing.
+func CreateMetabaseDB(ctx context.Context, log *zap.Logger, name string, category string, index int, dbInfo Database, config metabase.Config) (db *metabase.DB, err error) {
+	tempDB, err := CreateTempDB(ctx, log, TempDBSchemaConfig{
+		Name:     name,
+		Category: category,
+		Index:    index,
+	}, dbInfo)
+	if err != nil {
+		return nil, err
+	}
 	return CreateMetabaseDBOnTopOf(ctx, log, tempDB, config)
 }
 
@@ -192,9 +233,16 @@ func CreateMetabaseDBOnTopOf(ctx context.Context, log *zap.Logger, tempDB *dbuti
 
 // Run method will iterate over all supported databases. Will establish
 // connection and will create tables for each DB.
-func Run(t *testing.T, test func(ctx *testcontext.Context, t *testing.T, db satellite.DB)) {
+func Run(t *testing.T, test func(ctx *testcontext.Context, t *testing.T, db satellite.DB), configOptions ...ConfigOption) {
+	var cfg config
+	for _, configOption := range configOptions {
+		configOption(&cfg)
+	}
 	for _, dbInfo := range Databases() {
 		dbInfo := dbInfo
+		if dbInfo.Name == "Spanner" && !cfg.EnableSpanner {
+			t.Skipf("Test is not enabled to run on Spanner.")
+		}
 		t.Run(dbInfo.Name, func(t *testing.T) {
 			t.Parallel()
 
@@ -223,35 +271,14 @@ func Run(t *testing.T, test func(ctx *testcontext.Context, t *testing.T, db sate
 				t.Fatal(err)
 			}
 
-			var fullScansBefore []string
-			tempMasterDB, ok := db.(*tempMasterDB)
-			if ok {
-				fullScansBefore, err = FullTableScanQueries(ctx, tempMasterDB.tempDB.DB, tempMasterDB.tempDB.Implementation, applicationName)
-				if err != nil {
-					t.Fatal(err)
-				}
-			}
-
 			test(ctx, t, db)
-
-			if ok {
-				fullScansAfter, err := FullTableScanQueries(ctx, tempMasterDB.tempDB.DB, tempMasterDB.tempDB.Implementation, applicationName)
-				if err != nil {
-					t.Fatal(err)
-				}
-
-				diff := cmp.Diff(fullScansBefore, fullScansAfter)
-				if diff != "" {
-					logger.Sugar().Warnf("FULL TABLE SCAN DETECTED\n%s", diff)
-				}
-			}
 		})
 	}
 }
 
 // Bench method will iterate over all supported databases. Will establish
 // connection and will create tables for each DB.
-func Bench(b *testing.B, bench func(b *testing.B, db satellite.DB)) {
+func Bench(b *testing.B, bench func(ctx *testcontext.Context, b *testing.B, db satellite.DB)) {
 	for _, dbInfo := range Databases() {
 		dbInfo := dbInfo
 		b.Run(dbInfo.Name, func(b *testing.B) {
@@ -259,7 +286,7 @@ func Bench(b *testing.B, bench func(b *testing.B, db satellite.DB)) {
 				b.Skipf("Database %s connection string not provided. %s", dbInfo.MasterDB.Name, dbInfo.MasterDB.Message)
 			}
 
-			ctx := testcontext.New(b)
+			ctx := testcontext.NewWithTimeout(b, 30*time.Minute)
 			defer ctx.Cleanup()
 
 			db, err := CreateMasterDB(ctx, zap.NewNop(), b.Name(), "X", 0, dbInfo.MasterDB, "satellite-satellitedb-bench")
@@ -273,57 +300,12 @@ func Bench(b *testing.B, bench func(b *testing.B, db satellite.DB)) {
 				}
 			}()
 
-			err = db.MigrateToLatest(ctx)
+			err = db.Testing().TestMigrateToLatest(ctx)
 			if err != nil {
 				b.Fatal(err)
 			}
 
-			// TODO: pass the ctx down
-			bench(b, db)
+			bench(ctx, b, db)
 		})
 	}
-}
-
-// FullTableScanQueries is a helper method to list all queries which performed full table scan recently. It works only for cockroach db.
-func FullTableScanQueries(ctx context.Context, db tagsql.DB, implementation dbutil.Implementation, applicationName string) (queries []string, err error) {
-	if implementation != dbutil.Cockroach {
-		return nil, nil
-	}
-
-	rows, err := db.QueryContext(ctx,
-		"SELECT key FROM crdb_internal.node_statement_statistics WHERE full_scan = TRUE AND application_name = $1 ORDER BY count DESC",
-		applicationName,
-	)
-	if err != nil {
-		return nil, err
-	}
-	defer func() {
-		err = errs.Combine(err, rows.Close())
-	}()
-
-	result := map[string]struct{}{}
-	for rows.Next() {
-		var query string
-		err := rows.Scan(&query)
-		if err != nil {
-			return nil, err
-		}
-
-		// find smarter way to ignore known full table scan queries
-		if !strings.Contains(strings.ToUpper(query), "WHERE") {
-			continue
-		}
-
-		result[query] = struct{}{}
-	}
-
-	if rows.Err() != nil {
-		return nil, rows.Err()
-	}
-
-	for query := range result {
-		queries = append(queries, query)
-	}
-
-	return queries, nil
 }

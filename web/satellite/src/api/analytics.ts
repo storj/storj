@@ -19,7 +19,7 @@ export class AnalyticsHttpApi {
      * @param eventName - name of the event
      * @param props - additional properties to send with the event
      */
-    public async eventTriggered(eventName: string, props?: {[p: string]: string}): Promise<void> {
+    public async eventTriggered(eventName: string, props?: { [p: string]: string }): Promise<void> {
         try {
             const path = `${this.ROOT_PATH}/event`;
             const body = {
@@ -33,7 +33,7 @@ export class AnalyticsHttpApi {
                 return;
             }
             console.error('Attempted to notify Satellite that ' + eventName + ' occurred. Got bad response status code: ' + response.status);
-        } catch (error) {
+        } catch {
             console.error('Could not notify satellite about ' + eventName + ' event occurrence (most likely blocked by browser).');
         }
     }
@@ -57,7 +57,7 @@ export class AnalyticsHttpApi {
                 return;
             }
             console.error('Attempted to notify Satellite that ' + eventName + ' occurred. Got bad response status code: ' + response.status);
-        } catch (error) {
+        } catch {
             console.error('Could not notify satellite about ' + eventName + ' event occurrence (most likely blocked by browser).');
         }
     }
@@ -79,8 +79,21 @@ export class AnalyticsHttpApi {
                 return;
             }
             console.error('Attempted to notify Satellite that ' + pageName + ' occurred. Got bad response status code: ' + response.status);
-        } catch (error) {
+        } catch {
             console.error('Could not notify satellite about ' + pageName + ' event occurrence (most likely blocked by browser).');
+        }
+    }
+
+    public async pageView(body: { url: string; props: { source: string } }): Promise<void> {
+        try {
+            const path = `${this.ROOT_PATH}/pageview`;
+            const response = await this.http.post(path, JSON.stringify(body));
+            if (response.ok) {
+                return;
+            }
+            console.error('Attempted to notify Satellite that pageview occurred. Got bad response status code: ' + response.status);
+        } catch {
+            console.error('Could not notify satellite about pageview event occurrence (most likely blocked by browser).');
         }
     }
 
@@ -106,7 +119,7 @@ export class AnalyticsHttpApi {
                 return;
             }
             console.error(`Attempted to notify Satellite that UI error occurred here: ${source}. Got bad response status code: ${response.status}`);
-        } catch (error) {
+        } catch {
             console.error(`Could not notify satellite about UI error here: ${source} (most likely blocked by browser).`);
         }
     }

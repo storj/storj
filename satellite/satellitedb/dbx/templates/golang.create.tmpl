@@ -11,7 +11,7 @@
 {{- template "name" . }}({{ ctxarg .Args }})
 {{ end -}}
 
-{{- define "body" -}}
+{{- define "body" -}}{{/* gotype: storj.io/dbx/code/golang.Create */}}
 	{{- if .NeedsNow }}
 	__now := obj.db.Hooks.Now().UTC()
 	{{ end -}}
@@ -20,8 +20,8 @@
 	{{ embedplaceholders .Info }}
 	{{ embedsql .Info "__embed_stmt" }}
 
-	var __values []interface{}
-	__values = append(__values, {{ arg .StaticFields }})
+	var __values []any
+	{{ if .StaticFields }}__values = append(__values, {{ arg .StaticFields }}){{ end }}
 
 	{{ if .Struct.InsertableDynamicFields -}}
 	__optional_columns := __sqlbundle_Literals{Join: ", "}
@@ -53,23 +53,11 @@
 	}
 	return nil
 	{{ else -}}
-	{{ if .SupportsReturning }}
 	{{ init .Return }}
 	err = obj.queryRowContext(ctx, __stmt, __values...).Scan({{ addrof (flatten .Return) }})
 	if err != nil {
 		return nil, obj.makeErr(err)
 	}
 	return {{ arg .Return }}, nil
-	{{ else -}}
-	__res, err := obj.driver.ExecContext(ctx, __stmt, __values...)
-	if err != nil {
-		return nil, obj.makeErr(err)
-	}
-	__pk, err := __res.LastInsertId()
-	if err != nil {
-		return nil, obj.makeErr(err)
-	}
-	return obj.getLast{{ .Return.Type }}(ctx, __pk)
-	{{ end -}}
 	{{ end -}}
 {{ end -}}
