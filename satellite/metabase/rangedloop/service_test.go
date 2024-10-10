@@ -581,6 +581,9 @@ func TestRangedLoop_SpannerStaleReads(t *testing.T) {
 		require.NoError(t, err)
 		require.Equal(t, 0, countObserver.NumSegments)
 
+		// Wait for the object to be definitely visible for the stale read.
+		time.Sleep(2 * time.Second)
+
 		// using stale read but object should be already visible
 		provider = rangedloop.NewMetabaseRangeSplitter(db, 0, time.Microsecond, 10)
 		service = rangedloop.NewService(zaptest.NewLogger(t), config, provider, []rangedloop.Observer{countObserver})
