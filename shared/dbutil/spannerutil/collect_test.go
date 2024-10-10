@@ -17,13 +17,15 @@ import (
 
 var Error = errs.Class("spannerutil")
 
+const testSchema = `
+	CREATE TABLE users (
+		username STRING(64) NOT NULL
+	) PRIMARY KEY (username)
+`
+
 func TestCollectRows(t *testing.T) {
 	ctx := testcontext.New(t)
-	spannertest.RunClient(ctx, t, `
-		CREATE TABLE users (
-			username STRING(64) NOT NULL
-		) PRIMARY KEY (username)
-	`, func(t *testing.T, client *spanner.Client) {
+	spannertest.RunClient(ctx, t, testSchema, func(t *testing.T, client *spanner.Client) {
 		{
 			items, err := spannerutil.CollectRows(
 				client.ReadOnlyTransaction().Query(ctx, spanner.Statement{
@@ -66,11 +68,7 @@ func TestCollectRows(t *testing.T) {
 
 func TestCollectRow(t *testing.T) {
 	ctx := testcontext.New(t)
-	spannertest.RunClient(ctx, t, `
-		CREATE TABLE users (
-			username STRING(64) NOT NULL
-		) PRIMARY KEY (username)
-	`, func(t *testing.T, client *spanner.Client) {
+	spannertest.RunClient(ctx, t, testSchema, func(t *testing.T, client *spanner.Client) {
 		{
 			item, err := spannerutil.CollectRow(
 				client.ReadOnlyTransaction().Query(ctx, spanner.Statement{

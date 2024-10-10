@@ -609,6 +609,7 @@ const (
 	Prefix = ObjectStatus(7)
 
 	// Constants that can be used while constructing SQL queries.
+
 	statusPending                 = "1"
 	statusCommittedUnversioned    = "3"
 	statusCommittedVersioned      = "4"

@@ -6,6 +6,7 @@ package metabase
 import (
 	"context"
 	"encoding/hex"
+	"errors"
 	"fmt"
 	"time"
 
@@ -13,6 +14,7 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
+	"google.golang.org/api/iterator"
 
 	"storj.io/common/sync2"
 	"storj.io/common/uuid"
@@ -23,7 +25,8 @@ import (
 )
 
 const (
-	deleteBatchsizeLimit = intLimitRange(1000)
+	deleteBatchsizeLimit  = intLimitRange(1000)
+	deleteObjectsMaxItems = 1000
 )
 
 // DeleteExpiredObjects contains all the information necessary to delete expired objects and segments.
@@ -576,4 +579,472 @@ func (s *SpannerAdapter) DeleteInactiveObjectsAndSegments(ctx context.Context, o
 		return objectsDeleted, segmentsDeleted, Error.New("unable to delete zombie objects: %w", err)
 	}
 	return objectsDeleted, segmentsDeleted, nil
+}
+
+// DeleteObjectsLastCommittedVersion indicates that (*DB).DeleteObjects should delete an object's
+// last committed version.
+//   - For unversioned buckets, this deletes the committed, unversioned object at the specified location.
+//   - For buckets with versioning enabled, this adds a delete marker as the latest version at the
+//     specified location without deleting any object versions.
+//   - For buckets with versioning suspended, this deletes all unversioned objects and markers
+//     at the specified location, replacing them with a delete marker as the latest version.
+//
+// It is intended for use in DeleteObjectsItem.
+const DeleteObjectsLastCommittedVersion = Version(0)
+
+// DeleteObjects contains options for deleting multiple committed objects from a bucket.
+type DeleteObjects struct {
+	ProjectID  uuid.UUID
+	BucketName BucketName
+	Items      []DeleteObjectsItem
+
+	Versioned bool
+	Suspended bool
+}
+
+// DeleteObjectsItem describes the location of an object in a bucket to be deleted.
+type DeleteObjectsItem struct {
+	ObjectKey ObjectKey
+	Version   Version
+}
+
+// Verify verifies bucket object deletion request fields.
+func (opts DeleteObjects) Verify() error {
+	if opts.Versioned || opts.Suspended {
+		return ErrInvalidRequest.New("deletion from buckets with versioning enabled or suspended is not yet supported")
+	}
+	itemCount := len(opts.Items)
+	switch {
+	case opts.ProjectID.IsZero():
+		return ErrInvalidRequest.New("ProjectID missing")
+	case opts.BucketName == "":
+		return ErrInvalidRequest.New("BucketName missing")
+	case itemCount == 0:
+		return ErrInvalidRequest.New("Items missing")
+	case itemCount > deleteObjectsMaxItems:
+		return ErrInvalidRequest.New("Items is too long; expected <= %d, but got %d", deleteObjectsMaxItems, itemCount)
+	}
+	for i, item := range opts.Items {
+		switch {
+		case item.ObjectKey == "":
+			return ErrInvalidRequest.New("Items[%d].ObjectKey missing", i)
+		case item.Version <= 0 && item.Version != DeleteObjectsLastCommittedVersion:
+			return ErrInvalidRequest.New("Items[%d].Version invalid: %v", i, item.Version)
+		}
+	}
+	return nil
+}
+
+// DeleteObjectsResult contains the results of an attempt to delete specific objects from a bucket.
+type DeleteObjectsResult struct {
+	Items               []DeleteObjectsResultItem
+	DeletedSegmentCount int64
+}
+
+// DeleteObjectsStatus represents the success or failure status of an individual DeleteObjects deletion.
+type DeleteObjectsStatus int
+
+const (
+	// DeleteStatusNotFound indicates that the object could not be deleted because it didn't exist.
+	DeleteStatusNotFound DeleteObjectsStatus = iota
+	// DeleteStatusOK indicates that the object was successfully deleted.
+	DeleteStatusOK
+	// DeleteStatusInternalError indicates that an internal error occurred when attempting to delete the object.
+	DeleteStatusInternalError
+)
+
+// DeleteObjectsResultItem contains the result of an attempt to delete a specific object from a bucket.
+type DeleteObjectsResultItem struct {
+	ObjectKey ObjectKey
+	Version   Version
+	Status    DeleteObjectsStatus
+}
+
+// DeleteObjects deletes specific objects from a bucket.
+//
+// TODO: Support Object Lock and properly handle buckets with versioning enabled or suspended.
+func (db *DB) DeleteObjects(ctx context.Context, opts DeleteObjects) (result DeleteObjectsResult, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	if err := opts.Verify(); err != nil {
+		return DeleteObjectsResult{}, errs.Wrap(err)
+	}
+
+	result, err = db.ChooseAdapter(opts.ProjectID).DeleteObjectsPlain(ctx, opts)
+	if err != nil {
+		return DeleteObjectsResult{}, errs.Wrap(err)
+	}
+
+	var deletedObjects int
+	for _, item := range result.Items {
+		if item.Status == DeleteStatusOK {
+			deletedObjects++
+		}
+	}
+	if deletedObjects > 0 {
+		mon.Meter("object_delete").Mark(deletedObjects)
+	}
+	if result.DeletedSegmentCount > 0 {
+		mon.Meter("segment_delete").Mark64(result.DeletedSegmentCount)
+	}
+
+	return result, nil
+}
+
+type deleteObjectsSetupInfo struct {
+	results        []DeleteObjectsResultItem
+	resultsIndices map[DeleteObjectsItem]int
+}
+
+// processResults returns data that (*Adapter).DeleteObjects implementations require for executing database queries.
+func (opts DeleteObjects) processResults() (info deleteObjectsSetupInfo) {
+	info.resultsIndices = make(map[DeleteObjectsItem]int, len(opts.Items))
+	i := 0
+	for _, item := range opts.Items {
+		if _, exists := info.resultsIndices[item]; !exists {
+			info.resultsIndices[item] = i
+			i++
+		}
+	}
+
+	info.results = make([]DeleteObjectsResultItem, len(info.resultsIndices))
+	for item, resultsIdx := range info.resultsIndices {
+		info.results[resultsIdx] = DeleteObjectsResultItem{
+			ObjectKey: item.ObjectKey,
+			Version:   item.Version,
+		}
+	}
+
+	return info
+}
+
+// DeleteObjectsPlain deletes specific objects from an unversioned bucket.
+func (p *PostgresAdapter) DeleteObjectsPlain(ctx context.Context, opts DeleteObjects) (result DeleteObjectsResult, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	processedOpts := opts.processResults()
+	result.Items = processedOpts.results
+
+	now := time.Now().Truncate(time.Microsecond)
+
+	for i := 0; i < len(processedOpts.results); i++ {
+		resultItem := &processedOpts.results[i]
+
+		if resultItem.Version == DeleteObjectsLastCommittedVersion {
+			err = Error.Wrap(withRows(
+				p.db.QueryContext(ctx, `
+					WITH deleted_objects AS (
+						DELETE FROM objects
+						WHERE
+							(project_id, bucket_name, object_key) = ($1, $2, $3)
+							AND status = `+statusCommittedUnversioned+`
+							AND (expires_at IS NULL OR expires_at > $4)
+						RETURNING version, stream_id
+					), deleted_segments AS (
+						DELETE FROM segments
+						WHERE segments.stream_id IN (SELECT deleted_objects.stream_id FROM deleted_objects)
+						RETURNING 1
+					)
+					SELECT version, (SELECT COUNT(*) FROM deleted_segments) FROM deleted_objects`,
+					opts.ProjectID,
+					opts.BucketName,
+					resultItem.ObjectKey,
+					now,
+				),
+			)(func(rows tagsql.Rows) error {
+				if !rows.Next() {
+					return nil
+				}
+
+				var (
+					version      Version
+					segmentCount int64
+				)
+				if err := rows.Scan(&version, &segmentCount); err != nil {
+					return errs.Wrap(err)
+				}
+
+				result.DeletedSegmentCount += segmentCount
+				resultItem.Status = DeleteStatusOK
+
+				// Handle the case where an object was specified twice in the deletion request:
+				// once with a version omitted and once with a version set. We must ensure that
+				// when the object is deleted, both result items that reference it are updated.
+				if i, ok := processedOpts.resultsIndices[DeleteObjectsItem{
+					ObjectKey: resultItem.ObjectKey,
+					Version:   version,
+				}]; ok {
+					processedOpts.results[i].Status = DeleteStatusOK
+				}
+
+				if rows.Next() {
+					logMultipleCommittedVersionsError(p.log, ObjectLocation{
+						ProjectID:  opts.ProjectID,
+						BucketName: opts.BucketName,
+						ObjectKey:  resultItem.ObjectKey,
+					})
+				}
+
+				return nil
+			}))
+		} else {
+			if resultItem.Status == DeleteStatusOK {
+				continue
+			}
+
+			err = Error.Wrap(withRows(
+				p.db.QueryContext(ctx, `
+					WITH deleted_objects AS (
+						DELETE FROM objects
+						WHERE
+							(project_id, bucket_name, object_key, version) = ($1, $2, $3, $4)
+							AND (expires_at IS NULL OR expires_at > $5)
+						RETURNING status, stream_id
+					), deleted_segments AS (
+						DELETE FROM segments
+						WHERE segments.stream_id IN (SELECT deleted_objects.stream_id FROM deleted_objects)
+						RETURNING 1
+					)
+					SELECT status, (SELECT COUNT(*) FROM deleted_segments) FROM deleted_objects`,
+					opts.ProjectID,
+					opts.BucketName,
+					resultItem.ObjectKey,
+					resultItem.Version,
+					now,
+				),
+			)(func(rows tagsql.Rows) error {
+				if !rows.Next() {
+					return nil
+				}
+
+				var (
+					status       ObjectStatus
+					segmentCount int64
+				)
+				if err := rows.Scan(&status, &segmentCount); err != nil {
+					return errs.Wrap(err)
+				}
+				result.DeletedSegmentCount += segmentCount
+				resultItem.Status = DeleteStatusOK
+
+				if status == CommittedUnversioned {
+					if i, ok := processedOpts.resultsIndices[DeleteObjectsItem{
+						ObjectKey: resultItem.ObjectKey,
+						Version:   DeleteObjectsLastCommittedVersion,
+					}]; ok {
+						processedOpts.results[i].Status = DeleteStatusOK
+					}
+				}
+
+				if rows.Next() {
+					logMultipleCommittedVersionsError(p.log, ObjectLocation{
+						ProjectID:  opts.ProjectID,
+						BucketName: opts.BucketName,
+						ObjectKey:  resultItem.ObjectKey,
+					})
+				}
+
+				return nil
+			}))
+		}
+
+		if err != nil {
+			for j := i; j < len(processedOpts.results); j++ {
+				processedOpts.results[j].Status = DeleteStatusInternalError
+			}
+			break
+		}
+	}
+
+	return result, err
+}
+
+func spannerDeleteSegmentsByStreamID(ctx context.Context, tx *spanner.ReadWriteTransaction, streamIDs [][]byte) (count int64, err error) {
+	if len(streamIDs) == 0 {
+		return 0, nil
+	}
+	count, err = tx.Update(ctx, spanner.Statement{
+		SQL: `
+			DELETE FROM segments
+			WHERE stream_id IN UNNEST(@stream_ids)
+		`,
+		Params: map[string]interface{}{
+			"stream_ids": streamIDs,
+		},
+	})
+	return count, errs.Wrap(err)
+}
+
+// DeleteObjectsPlain deletes the specified objects from an unversioned bucket.
+func (s *SpannerAdapter) DeleteObjectsPlain(ctx context.Context, opts DeleteObjects) (result DeleteObjectsResult, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	processedOpts := opts.processResults()
+	result.Items = processedOpts.results
+
+	now := time.Now().Truncate(time.Microsecond)
+
+	for i := 0; i < len(processedOpts.results); i++ {
+		resultItem := &processedOpts.results[i]
+
+		var (
+			deletedSegmentCount       int64
+			multipleCommittedVersions bool
+		)
+
+		if resultItem.Version == DeleteObjectsLastCommittedVersion {
+			_, err = s.client.ReadWriteTransaction(ctx, func(ctx context.Context, tx *spanner.ReadWriteTransaction) (err error) {
+				deletedSegmentCount = 0
+				multipleCommittedVersions = false
+				var streamIDs [][]byte
+
+				rows := tx.Query(ctx, spanner.Statement{
+					SQL: `
+						DELETE FROM objects
+						WHERE
+							(project_id, bucket_name, object_key) = (@project_id, @bucket_name, @object_key)
+							AND status = ` + statusCommittedUnversioned + `
+							AND (expires_at IS NULL OR expires_at > @now)
+						THEN RETURN version, stream_id
+					`,
+					Params: map[string]interface{}{
+						"project_id":  opts.ProjectID,
+						"bucket_name": opts.BucketName,
+						"object_key":  resultItem.ObjectKey,
+						"now":         now,
+					},
+				})
+				defer rows.Stop()
+
+				row, err := rows.Next()
+				if err != nil {
+					if errors.Is(err, iterator.Done) {
+						return nil
+					}
+					return errs.Wrap(err)
+				}
+
+				var (
+					version  Version
+					streamID []byte
+				)
+				if err := row.Columns(&version, &streamID); err != nil {
+					return errs.Wrap(err)
+				}
+
+				_, err = rows.Next()
+				switch {
+				case errors.Is(err, iterator.Done):
+				case err == nil:
+					multipleCommittedVersions = true
+				default:
+					return errs.Wrap(err)
+				}
+				rows.Stop()
+
+				streamIDs = append(streamIDs, streamID)
+				resultItem.Status = DeleteStatusOK
+
+				// Handle the case where an object was specified twice in the deletion request:
+				// once with a version omitted and once with a version set. We must ensure that
+				// when the object is deleted, both deletion results that reference it are updated.
+				if i, ok := processedOpts.resultsIndices[DeleteObjectsItem{
+					ObjectKey: resultItem.ObjectKey,
+					Version:   version,
+				}]; ok {
+					processedOpts.results[i].Status = DeleteStatusOK
+				}
+
+				deletedSegmentCount, err = spannerDeleteSegmentsByStreamID(ctx, tx, streamIDs)
+				return err
+			})
+		} else {
+			if resultItem.Status == DeleteStatusOK {
+				continue
+			}
+
+			_, err = s.client.ReadWriteTransaction(ctx, func(ctx context.Context, tx *spanner.ReadWriteTransaction) (err error) {
+				deletedSegmentCount = 0
+				multipleCommittedVersions = false
+				var streamIDs [][]byte
+
+				rows := tx.Query(ctx, spanner.Statement{
+					SQL: `
+						DELETE FROM objects
+						WHERE
+							(project_id, bucket_name, object_key, version) = (@project_id, @bucket_name, @object_key, @version)
+							AND (expires_at IS NULL OR expires_at > @now)
+						THEN RETURN status, stream_id
+					`,
+					Params: map[string]interface{}{
+						"project_id":  opts.ProjectID,
+						"bucket_name": opts.BucketName,
+						"object_key":  resultItem.ObjectKey,
+						"version":     resultItem.Version,
+						"now":         now,
+					},
+				})
+				defer rows.Stop()
+
+				row, err := rows.Next()
+				if err != nil {
+					if errors.Is(err, iterator.Done) {
+						return nil
+					}
+					return errs.Wrap(err)
+				}
+
+				var (
+					status   ObjectStatus
+					streamID []byte
+				)
+				if err := row.Columns(&status, &streamID); err != nil {
+					return errs.Wrap(err)
+				}
+
+				_, err = rows.Next()
+				switch {
+				case errors.Is(err, iterator.Done):
+				case err == nil:
+					multipleCommittedVersions = true
+				default:
+					return errs.Wrap(err)
+				}
+				rows.Stop()
+
+				resultItem.Status = DeleteStatusOK
+				streamIDs = append(streamIDs, streamID)
+
+				if status == CommittedUnversioned {
+					if i, ok := processedOpts.resultsIndices[DeleteObjectsItem{
+						ObjectKey: resultItem.ObjectKey,
+						Version:   DeleteObjectsLastCommittedVersion,
+					}]; ok {
+						processedOpts.results[i].Status = DeleteStatusOK
+					}
+				}
+
+				deletedSegmentCount, err = spannerDeleteSegmentsByStreamID(ctx, tx, streamIDs)
+				return err
+			})
+		}
+
+		if err == nil {
+			result.DeletedSegmentCount += deletedSegmentCount
+			if multipleCommittedVersions {
+				logMultipleCommittedVersionsError(s.log, ObjectLocation{
+					ProjectID:  opts.ProjectID,
+					BucketName: opts.BucketName,
+					ObjectKey:  resultItem.ObjectKey,
+				})
+			}
+		} else {
+			for j := i; j < len(processedOpts.results); j++ {
+				processedOpts.results[j].Status = DeleteStatusInternalError
+			}
+			break
+		}
+	}
+
+	return result, Error.Wrap(err)
 }

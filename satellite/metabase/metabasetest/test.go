@@ -737,6 +737,24 @@ func (step DeleteObjectLastCommitted) Check(ctx *testcontext.Context, t testing.
 	return result
 }
 
+// DeleteObjects contains options for testing the (*metabase.DB).DeleteObjects method.
+type DeleteObjects struct {
+	Opts   metabase.DeleteObjects
+	Result metabase.DeleteObjectsResult
+
+	ErrClass *errs.Class
+	ErrText  string
+}
+
+// Check runs the test.
+func (step DeleteObjects) Check(ctx *testcontext.Context, t testing.TB, db *metabase.DB) {
+	result, err := db.DeleteObjects(ctx, step.Opts)
+	checkError(t, err, step.ErrClass, step.ErrText)
+
+	diff := cmp.Diff(step.Result, result)
+	require.Zero(t, diff)
+}
+
 // CollectBucketTallies is for testing metabase.CollectBucketTallies.
 type CollectBucketTallies struct {
 	Opts     metabase.CollectBucketTallies
