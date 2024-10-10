@@ -445,7 +445,7 @@ func (endpoint *Endpoint) isBucketEmpty(ctx context.Context, projectID uuid.UUID
 // deleteBucketNotEmpty deletes all objects from bucket and deletes this bucket.
 // On success, it returns only the number of deleted objects.
 func (endpoint *Endpoint) deleteBucketNotEmpty(ctx context.Context, projectID uuid.UUID, bucketName []byte) ([]byte, int64, error) {
-	deletedCount, err := endpoint.deleteBucketObjects(ctx, projectID, bucketName)
+	deletedCount, err := endpoint.deleteAllBucketObjects(ctx, projectID, bucketName)
 	if err != nil {
 		endpoint.log.Error("internal", zap.Error(err))
 		return nil, 0, rpcstatus.Error(rpcstatus.Internal, "internal error")
@@ -466,12 +466,12 @@ func (endpoint *Endpoint) deleteBucketNotEmpty(ctx context.Context, projectID uu
 	return bucketName, deletedCount, nil
 }
 
-// deleteBucketObjects deletes all objects in a bucket.
-func (endpoint *Endpoint) deleteBucketObjects(ctx context.Context, projectID uuid.UUID, bucketName []byte) (_ int64, err error) {
+// deleteAllBucketObjects deletes all objects in a bucket.
+func (endpoint *Endpoint) deleteAllBucketObjects(ctx context.Context, projectID uuid.UUID, bucketName []byte) (_ int64, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	bucketLocation := metabase.BucketLocation{ProjectID: projectID, BucketName: metabase.BucketName(bucketName)}
-	deletedObjects, err := endpoint.metabase.DeleteBucketObjects(ctx, metabase.DeleteBucketObjects{
+	deletedObjects, err := endpoint.metabase.DeleteAllBucketObjects(ctx, metabase.DeleteAllBucketObjects{
 		Bucket: bucketLocation,
 	})
 
