@@ -86,20 +86,9 @@ func Open(ctx context.Context, log *zap.Logger, connstr string, config Config) (
 	db.projectsAdapters = make(map[uuid.UUID]Adapter)
 
 	for i, connstr := range connStrs {
-		var driverName string
 		_, source, impl, err := dbutil.SplitConnStr(connstr)
 		if err != nil {
 			return nil, Error.Wrap(err)
-		}
-		switch impl {
-		case dbutil.Postgres:
-			driverName = "pgx"
-		case dbutil.Cockroach:
-			driverName = "cockroach"
-		case dbutil.Spanner:
-			driverName = ""
-		default:
-			return nil, Error.New("unsupported implementation: %s", connstr)
 		}
 
 		connstr, err = pgutil.EnsureApplicationName(connstr, config.ApplicationName)
@@ -107,17 +96,14 @@ func Open(ctx context.Context, log *zap.Logger, connstr string, config Config) (
 			return nil, Error.Wrap(err)
 		}
 
-		var rawdb tagsql.DB
-		if driverName != "" {
-			rawdb, err = tagsql.Open(ctx, driverName, connstr)
+		switch impl {
+		case dbutil.Postgres:
+			rawdb, err := tagsql.Open(ctx, "pgx", connstr)
 			if err != nil {
 				return nil, Error.Wrap(err)
 			}
 			dbutil.Configure(ctx, rawdb, "metabase", mon)
-		}
 
-		switch impl {
-		case dbutil.Postgres:
 			db.db = postgresRebind{rawdb}
 			db.adapters[i] = &PostgresAdapter{
 				log:                      log,
@@ -127,6 +113,12 @@ func Open(ctx context.Context, log *zap.Logger, connstr string, config Config) (
 				testingUniqueUnversioned: config.TestingUniqueUnversioned,
 			}
 		case dbutil.Cockroach:
+			rawdb, err := tagsql.Open(ctx, "cockroach", connstr)
+			if err != nil {
+				return nil, Error.Wrap(err)
+			}
+			dbutil.Configure(ctx, rawdb, "metabase", mon)
+
 			db.db = postgresRebind{rawdb}
 			db.adapters[i] = &CockroachAdapter{
 				PostgresAdapter{
