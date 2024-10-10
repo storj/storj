@@ -13,6 +13,7 @@
 import { Component, Vue } from 'vue-property-decorator';
 
 import { UnauthorizedError } from '@/api';
+import { Notify } from '@/app/plugins';
 
 import SatelliteSelectionDropdown from '@/app/components/common/SatelliteSelectionDropdown.vue';
 import NodesTable from '@/app/components/myNodes/tables/NodesTable.vue';
@@ -25,15 +26,19 @@ import NodesTable from '@/app/components/myNodes/tables/NodesTable.vue';
     },
 })
 export default class MyNodes extends Vue {
+
+    public notify = new Notify();
+
     public async mounted(): Promise<void> {
         try {
             await this.$store.dispatch('nodes/fetch');
-        } catch (error) {
+        } catch (error: any) {
             if (error instanceof UnauthorizedError) {
                 // TODO: redirect to login screen.
             }
 
-            // TODO: notify error
+            this.notify.error({ message: error.message, title: error.name });
+
         }
     }
 }

@@ -89,6 +89,7 @@ import { Component, Vue } from 'vue-property-decorator';
 import { UnauthorizedError } from '@/api';
 import { Config as RouterConfig } from '@/app/router';
 import { NodePayouts } from '@/payouts';
+import { Notify } from '@/app/plugins';
 
 import InfoBlock from '@/app/components/common/InfoBlock.vue';
 import SatelliteSelectionDropdown from '@/app/components/common/SatelliteSelectionDropdown.vue';
@@ -107,6 +108,9 @@ import PayoutsByNodeTable from '@/app/components/payouts/tables/payoutsByNode/Pa
     },
 })
 export default class PayoutsPage extends Vue {
+
+    public notify = new Notify();
+
     /**
      * Checks id path parameters and redirects if no provided.
      */
@@ -151,12 +155,13 @@ export default class PayoutsPage extends Vue {
     public async mounted(): Promise<void> {
         try {
             await this.$store.dispatch('payouts/nodeTotals', this.$route.params.id);
-        } catch (error) {
+        } catch (error: any) {
             if (error instanceof UnauthorizedError) {
                 // TODO: redirect to login screen.
             }
 
-            // TODO: notify error
+            this.notify.error({ message: error.message, title: error.name });
+
         }
 
         await this.fetchNodePayouts();
@@ -181,32 +186,35 @@ export default class PayoutsPage extends Vue {
     private async fetchNodePayouts(): Promise<void> {
         try {
             await this.$store.dispatch('payouts/heldHistory', this.nodeId);
-        } catch (error) {
+        } catch (error: any) {
             if (error instanceof UnauthorizedError) {
                 // TODO: redirect to login screen.
             }
 
-            // TODO: notify error
+            this.notify.error({ message: error.message, title: error.name });
+
         }
 
         try {
             await this.$store.dispatch('payouts/paystub', this.nodeId);
-        } catch (error) {
+        } catch (error: any) {
             if (error instanceof UnauthorizedError) {
                 // TODO: redirect to login screen.
             }
 
-            // TODO: notify error
+            this.notify.error({ message: error.message, title: error.name });
+
         }
 
         try {
             await this.$store.dispatch('payouts/expectations', this.nodeId);
-        } catch (error) {
+        } catch (error: any) {
             if (error instanceof UnauthorizedError) {
                 // TODO: redirect to login screen.
             }
 
-            // TODO: notify error
+            this.notify.error({ message: error.message, title: error.name });
+
         }
     }
 }

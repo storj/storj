@@ -36,6 +36,7 @@
 <script lang="ts">
 import { Component, Vue } from 'vue-property-decorator';
 
+import { Notify } from '@/app/plugins';
 import { UnauthorizedError } from '@/api';
 import { monthNames } from '@/app/types/date';
 import { MonthButton, StoredMonthsByYear } from '@/app/types/payouts';
@@ -62,6 +63,7 @@ export default class PayoutHistoryPeriodCalendar extends Vue {
 
     private displayedMonths: StoredMonthsByYear = {};
     private selectedMonth: MonthButton | null;
+    public notify = new Notify();
 
     /**
      * Lifecycle hook after initial render.
@@ -85,15 +87,16 @@ export default class PayoutHistoryPeriodCalendar extends Vue {
         }
 
         this.$store.commit('payouts/setPayoutPeriod', period);
+        this.notify.info({ message: 'Payout period updated' });
 
         try {
             await this.$store.dispatch('payouts/summary');
-        } catch (error) {
+        } catch (error: any) {
             if (error instanceof UnauthorizedError) {
                 // TODO: redirect to login screen.
             }
 
-            // TODO: notify error
+            this.notify.error({ message: error.message, title: error.name });
         }
 
         this.close();

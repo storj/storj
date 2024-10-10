@@ -21,6 +21,7 @@
 import { Component, Vue } from 'vue-property-decorator';
 
 import { UnauthorizedError } from '@/api';
+import { Notify } from '@/app/plugins';
 
 import AddNewNode from '@/app/components/modals/AddNewNode.vue';
 import NavigationArea from '@/app/components/navigation/NavigationArea.vue';
@@ -33,14 +34,18 @@ import NavigationArea from '@/app/components/navigation/NavigationArea.vue';
     },
 })
 export default class Dashboard extends Vue {
+
+    public notify = new Notify();
+
     public async mounted(): Promise<void> {
         try {
             await this.$store.dispatch('nodes/trustedSatellites');
-        } catch (error) {
+        } catch (error:any) {
             if (error instanceof UnauthorizedError) {
                 // TODO: redirect to login screen.
             }
-            // TODO: notify error
+            this.notify.error({ message: error.message, title: error.name });
+
         }
     }
 }

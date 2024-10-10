@@ -30,6 +30,7 @@
 import { Component, Prop, Vue } from 'vue-property-decorator';
 
 import { UpdateNodeModel } from '@/nodes';
+import { Notify } from '@/app/plugins';
 
 import HeaderedInput from '@/app/components/common/HeaderedInput.vue';
 import VButton from '@/app/components/common/VButton.vue';
@@ -50,6 +51,7 @@ export default class AddNewNode extends Vue {
     public nodeName = '';
     private nameError = '';
     public isModalShown = false;
+    public notify = new Notify();
 
     private isLoading = false;
 
@@ -84,9 +86,11 @@ export default class AddNewNode extends Vue {
 
         try {
             await this.$store.dispatch('nodes/updateName', new UpdateNodeModel(this.nodeId, this.nodeName));
+            this.notify.info({ message: 'Node name updated successfully.' });
             this.closeModal();
-        } catch (error) {
+        } catch (error: any) {
             console.error(error);
+            this.notify.error({ message: error.message, title: error?.name });
             this.isLoading = false;
         }
     }
