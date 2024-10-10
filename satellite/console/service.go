@@ -2195,7 +2195,7 @@ func (s *Service) handleDeleteAccountStep(ctx context.Context, user *User) (err 
 	s.mailService.SendRenderedAsync(
 		ctx,
 		[]post.Address{{Address: user.Email, Name: user.FullName}},
-		&RequestAccountDeletionSuccessEmail{},
+		&AccountDeletionSuccessEmail{},
 	)
 
 	return nil
