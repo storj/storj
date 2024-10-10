@@ -242,6 +242,12 @@ const (
 
 	// ChangeEmailLock stands for "change email" and represents an account lock activity type triggered by multiple failed change email actions.
 	ChangeEmailLock LockAccountActivityType = "change email"
+
+	// DeleteProjectLock stands for "delete project" and represents an account lock activity type triggered by multiple failed delete project actions.
+	DeleteProjectLock LockAccountActivityType = "delete project"
+
+	// DeleteAccountLock stands for "delete project" and represents an account lock activity type triggered by multiple failed delete account actions.
+	DeleteAccountLock LockAccountActivityType = "delete account"
 )
 
 // LoginLockAccountEmail is mailservice template with login lock account data.

@@ -2314,13 +2314,25 @@ func (s *Service) handleLockAccount(ctx context.Context, user *User, step Accoun
 		return err
 	}
 
+	var activityType string
+	switch action {
+	case changeEmailAction:
+		activityType = ChangeEmailLock
+	case deleteProjectAction:
+		activityType = DeleteProjectLock
+	case deleteAccountAction:
+		activityType = DeleteAccountLock
+	default:
+		return Error.New("invalid action: %s", action)
+	}
+
 	if lockoutDuration > 0 {
 		s.mailService.SendRenderedAsync(
 			ctx,
 			[]post.Address{{Address: user.Email, Name: user.FullName}},
 			&LoginLockAccountEmail{
 				LockoutDuration: lockoutDuration,
-				ActivityType:    ChangeEmailLock,
+				ActivityType:    activityType,
 			},
 		)
 	}
