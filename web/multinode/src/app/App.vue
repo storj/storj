@@ -24,6 +24,15 @@ import Notifications from './components/notification/Notifications.vue';
     },
 })
 export default class App extends Vue {
+
+    public mounted(): void {
+        const savedTheme = localStorage.getItem('theme') || 'light';
+        if (savedTheme === 'dark' && !this.$vuetify.theme.dark) {
+            this.$vuetify.theme.dark = true;
+        } else if (savedTheme === 'light' && this.$vuetify.theme.dark) {
+            this.$vuetify.theme.dark = false;
+        }
+    }
 }
 </script>
 

@@ -142,7 +142,7 @@ export default class AddFirstNode extends Vue {
         display: flex;
         box-sizing: border-box;
         height: 100%;
-        background: white;
+        background: var(--v-background-base);
 
         &__left-area,
         &__right-area {
@@ -162,7 +162,7 @@ export default class AddFirstNode extends Vue {
                 font-family: 'font_bold', sans-serif;
                 font-size: 48px;
                 line-height: 60px;
-                color: var(--c-title);
+                color: var(--v-header-base);
                 width: 420px;
             }
 
@@ -171,7 +171,7 @@ export default class AddFirstNode extends Vue {
                 margin-top: 16px;
                 font-size: 16px;
                 line-height: 29px;
-                color: var(--c-label);
+                color: var(--v-text-base);
                 width: 420px;
             }
 
@@ -185,7 +185,7 @@ export default class AddFirstNode extends Vue {
         }
 
         &__right-area {
-            background: #f0f6ff;
+            background: var(--v-background2-base);
             align-items: center;
         }
     }

@@ -82,10 +82,10 @@ export default class AddNewNode extends Vue {
             text-align: left;
             font-family: 'font_medium', sans-serif;
             font-size: 14px;
-            color: var(--c-title);
+            color: var(--v-header-base);
 
             &:hover {
-                background: var(--c-background);
+                background: var(--v-active-base);
             }
         }
 
@@ -98,8 +98,8 @@ export default class AddNewNode extends Vue {
                 padding: 10px 12px;
                 font-family: 'font_regular', sans-serif;
                 font-size: 14px;
-                color: var(--c-title);
-                background: var(--c-background);
+                color: var(--v-header-base);
+                background: var(--v-active-base);
                 border-radius: 32px;
             }
         }

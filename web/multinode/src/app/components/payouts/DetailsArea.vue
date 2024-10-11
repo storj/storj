@@ -62,13 +62,13 @@ export default class DetailsArea extends Vue {
                 font-family: 'font_bold', sans-serif;
                 font-size: 24px;
                 line-height: 24px;
-                color: var(--c-title);
+                color: var(--v-header-base);
             }
 
             &__period {
                 font-family: 'font_regular', sans-serif;
                 font-size: 16px;
-                color: var(--c-gray);
+                color: var(--v-text-base);
             }
         }
 
@@ -89,13 +89,13 @@ export default class DetailsArea extends Vue {
 
                 &__label {
                     font-size: 12px;
-                    color: var(--c-gray);
+                    color: var(--v-text-base);
                     margin-bottom: 10px;
                 }
 
                 &__value {
                     font-size: 18px;
-                    color: var(--c-title);
+                    color: var(--v-header-base);
                 }
             }
         }

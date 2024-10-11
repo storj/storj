@@ -70,7 +70,7 @@ export default class NodeOptions extends Vue {
         position: relative;
 
         &:hover {
-            background: var(--c-background);
+            background: var(--v-active-base);
         }
     }
 
@@ -80,12 +80,12 @@ export default class NodeOptions extends Vue {
         right: 45px;
         width: 140px;
         height: auto;
-        background: white;
+        background: var(--v-background-base);
         border-radius: var(--br-table);
         font-family: 'font_medium', sans-serif;
-        border: 1px solid var(--c-gray--light);
+        border: 1px solid var(--v-border-base);
         font-size: 14px;
-        color: var(--c-title);
+        color: var(--v-header-base);
         z-index: 999;
 
         &__item {
@@ -93,9 +93,10 @@ export default class NodeOptions extends Vue {
             padding: 16px;
             cursor: pointer;
             text-align: left;
+            color: var(--v-header-base);
 
             &:hover {
-                background: var(--c-background);
+                background: var(--v-active-base);
             }
         }
     }

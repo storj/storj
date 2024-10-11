@@ -218,7 +218,7 @@ export default class HeaderlessInput extends Vue {
         &__label {
             font-size: 16px;
             line-height: 21px;
-            color: var(--c-label);
+            color: var(--v-header-base);
             margin-bottom: 0;
         }
 

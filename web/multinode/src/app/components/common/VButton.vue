@@ -61,7 +61,7 @@ export default class VButton extends Vue {
             className = 'disabled';
             break;
         case this.isWhite:
-            className = 'white';
+            className = 'white_btn';
             break;
         case this.isTransparent:
             className = 'transparent';
@@ -80,7 +80,7 @@ export default class VButton extends Vue {
         display: flex;
         align-items: center;
         justify-content: center;
-        background-color: var(--c-primary);
+        background-color: var(--v-primary-base);
         border-radius: var(--br-button);
         cursor: pointer;
 
@@ -92,11 +92,11 @@ export default class VButton extends Vue {
         }
 
         &:hover {
-            background-color: #004199;
+            background-color: var(--v-blue2-base);
 
-            &.white {
+            &.white_btn {
                 box-shadow: none !important;
-                background-color: var(--c-button-white-hover) !important;
+                background-color: var(--v-active-base) !important;
                 border-color: transparent;
             }
 
@@ -107,20 +107,20 @@ export default class VButton extends Vue {
         }
     }
 
-    .red {
-        background-color: var(--c-button-red);
-    }
-
     .plus {
         margin-right: 10px;
     }
 
-    .white {
-        background-color: var(--c-button-white);
-        border: var(--b-button-white);
+    .red {
+        background-color: var(--c-button-red);
+    }
+
+    .white_btn {
+        background-color: transparent;
+        border: 1px solid var(--v-border-base);
 
         .label {
-            color: var(--c-button-white--label);
+            color: var(--v-text-base);
         }
 
         .plus {

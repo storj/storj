@@ -105,7 +105,7 @@ export default class DiskSpaceChart extends BaseChart {
 
         &__data-dimension {
             font-size: 13px;
-            color: var(--c-title);
+            color: var(--v-header-base);
             margin: 0 0 5px 31px !important;
             font-family: 'font_medium', sans-serif;
         }
