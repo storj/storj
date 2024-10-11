@@ -14684,6 +14684,165 @@ func (obj *pgxImpl) CreateNoReturn_Revocation(ctx context.Context,
 
 }
 
+func (obj *pgxImpl) CreateNoReturn_Node(ctx context.Context,
+	node_id Node_Id_Field,
+	node_last_net Node_LastNet_Field,
+	node_email Node_Email_Field,
+	node_wallet Node_Wallet_Field,
+	optional Node_Create_Fields) (
+	err error) {
+	defer mon.Task()(&ctx)(&err)
+	if !obj.txn && txutil.IsInsideTx(ctx) {
+		panic("using DB when inside of a transaction")
+	}
+	__id_val := node_id.value()
+	__last_net_val := node_last_net.value()
+	__last_ip_port_val := optional.LastIpPort.value()
+	__country_code_val := optional.CountryCode.value()
+	__email_val := node_email.value()
+	__wallet_val := node_wallet.value()
+	__vetted_at_val := optional.VettedAt.value()
+	__disqualified_val := optional.Disqualified.value()
+	__disqualification_reason_val := optional.DisqualificationReason.value()
+	__unknown_audit_suspended_val := optional.UnknownAuditSuspended.value()
+	__offline_suspended_val := optional.OfflineSuspended.value()
+	__under_review_val := optional.UnderReview.value()
+	__exit_initiated_at_val := optional.ExitInitiatedAt.value()
+	__exit_loop_completed_at_val := optional.ExitLoopCompletedAt.value()
+	__exit_finished_at_val := optional.ExitFinishedAt.value()
+	__contained_val := optional.Contained.value()
+	__last_offline_email_val := optional.LastOfflineEmail.value()
+	__last_software_update_email_val := optional.LastSoftwareUpdateEmail.value()
+	__noise_proto_val := optional.NoiseProto.value()
+	__noise_public_key_val := optional.NoisePublicKey.value()
+
+	var __columns = &__sqlbundle_Hole{SQL: __sqlbundle_Literal("id, last_net, last_ip_port, country_code, email, wallet, vetted_at, disqualified, disqualification_reason, unknown_audit_suspended, offline_suspended, under_review, exit_initiated_at, exit_loop_completed_at, exit_finished_at, contained, last_offline_email, last_software_update_email, noise_proto, noise_public_key")}
+	var __placeholders = &__sqlbundle_Hole{SQL: __sqlbundle_Literal("?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?")}
+	var __clause = &__sqlbundle_Hole{SQL: __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("("), __columns, __sqlbundle_Literal(") VALUES ("), __placeholders, __sqlbundle_Literal(")")}}}
+
+	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("INSERT INTO nodes "), __clause}}
+
+	var __values []any
+	__values = append(__values, __id_val, __last_net_val, __last_ip_port_val, __country_code_val, __email_val, __wallet_val, __vetted_at_val, __disqualified_val, __disqualification_reason_val, __unknown_audit_suspended_val, __offline_suspended_val, __under_review_val, __exit_initiated_at_val, __exit_loop_completed_at_val, __exit_finished_at_val, __contained_val, __last_offline_email_val, __last_software_update_email_val, __noise_proto_val, __noise_public_key_val)
+
+	__optional_columns := __sqlbundle_Literals{Join: ", "}
+	__optional_placeholders := __sqlbundle_Literals{Join: ", "}
+
+	if optional.Address._set {
+		__values = append(__values, optional.Address.value())
+		__optional_columns.SQLs = append(__optional_columns.SQLs, __sqlbundle_Literal("address"))
+		__optional_placeholders.SQLs = append(__optional_placeholders.SQLs, __sqlbundle_Literal("?"))
+	}
+
+	if optional.Protocol._set {
+		__values = append(__values, optional.Protocol.value())
+		__optional_columns.SQLs = append(__optional_columns.SQLs, __sqlbundle_Literal("protocol"))
+		__optional_placeholders.SQLs = append(__optional_placeholders.SQLs, __sqlbundle_Literal("?"))
+	}
+
+	if optional.WalletFeatures._set {
+		__values = append(__values, optional.WalletFeatures.value())
+		__optional_columns.SQLs = append(__optional_columns.SQLs, __sqlbundle_Literal("wallet_features"))
+		__optional_placeholders.SQLs = append(__optional_placeholders.SQLs, __sqlbundle_Literal("?"))
+	}
+
+	if optional.FreeDisk._set {
+		__values = append(__values, optional.FreeDisk.value())
+		__optional_columns.SQLs = append(__optional_columns.SQLs, __sqlbundle_Literal("free_disk"))
+		__optional_placeholders.SQLs = append(__optional_placeholders.SQLs, __sqlbundle_Literal("?"))
+	}
+
+	if optional.Major._set {
+		__values = append(__values, optional.Major.value())
+		__optional_columns.SQLs = append(__optional_columns.SQLs, __sqlbundle_Literal("major"))
+		__optional_placeholders.SQLs = append(__optional_placeholders.SQLs, __sqlbundle_Literal("?"))
+	}
+
+	if optional.Minor._set {
+		__values = append(__values, optional.Minor.value())
+		__optional_columns.SQLs = append(__optional_columns.SQLs, __sqlbundle_Literal("minor"))
+		__optional_placeholders.SQLs = append(__optional_placeholders.SQLs, __sqlbundle_Literal("?"))
+	}
+
+	if optional.Patch._set {
+		__values = append(__values, optional.Patch.value())
+		__optional_columns.SQLs = append(__optional_columns.SQLs, __sqlbundle_Literal("patch"))
+		__optional_placeholders.SQLs = append(__optional_placeholders.SQLs, __sqlbundle_Literal("?"))
+	}
+
+	if optional.CommitHash._set {
+		__values = append(__values, optional.CommitHash.value())
+		__optional_columns.SQLs = append(__optional_columns.SQLs, __sqlbundle_Literal("commit_hash"))
+		__optional_placeholders.SQLs = append(__optional_placeholders.SQLs, __sqlbundle_Literal("?"))
+	}
+
+	if optional.ReleaseTimestamp._set {
+		__values = append(__values, optional.ReleaseTimestamp.value())
+		__optional_columns.SQLs = append(__optional_columns.SQLs, __sqlbundle_Literal("release_timestamp"))
+		__optional_placeholders.SQLs = append(__optional_placeholders.SQLs, __sqlbundle_Literal("?"))
+	}
+
+	if optional.Release._set {
+		__values = append(__values, optional.Release.value())
+		__optional_columns.SQLs = append(__optional_columns.SQLs, __sqlbundle_Literal("release"))
+		__optional_placeholders.SQLs = append(__optional_placeholders.SQLs, __sqlbundle_Literal("?"))
+	}
+
+	if optional.Latency90._set {
+		__values = append(__values, optional.Latency90.value())
+		__optional_columns.SQLs = append(__optional_columns.SQLs, __sqlbundle_Literal("latency_90"))
+		__optional_placeholders.SQLs = append(__optional_placeholders.SQLs, __sqlbundle_Literal("?"))
+	}
+
+	if optional.LastContactSuccess._set {
+		__values = append(__values, optional.LastContactSuccess.value())
+		__optional_columns.SQLs = append(__optional_columns.SQLs, __sqlbundle_Literal("last_contact_success"))
+		__optional_placeholders.SQLs = append(__optional_placeholders.SQLs, __sqlbundle_Literal("?"))
+	}
+
+	if optional.LastContactFailure._set {
+		__values = append(__values, optional.LastContactFailure.value())
+		__optional_columns.SQLs = append(__optional_columns.SQLs, __sqlbundle_Literal("last_contact_failure"))
+		__optional_placeholders.SQLs = append(__optional_placeholders.SQLs, __sqlbundle_Literal("?"))
+	}
+
+	if optional.ExitSuccess._set {
+		__values = append(__values, optional.ExitSuccess.value())
+		__optional_columns.SQLs = append(__optional_columns.SQLs, __sqlbundle_Literal("exit_success"))
+		__optional_placeholders.SQLs = append(__optional_placeholders.SQLs, __sqlbundle_Literal("?"))
+	}
+
+	if optional.DebounceLimit._set {
+		__values = append(__values, optional.DebounceLimit.value())
+		__optional_columns.SQLs = append(__optional_columns.SQLs, __sqlbundle_Literal("debounce_limit"))
+		__optional_placeholders.SQLs = append(__optional_placeholders.SQLs, __sqlbundle_Literal("?"))
+	}
+
+	if optional.Features._set {
+		__values = append(__values, optional.Features.value())
+		__optional_columns.SQLs = append(__optional_columns.SQLs, __sqlbundle_Literal("features"))
+		__optional_placeholders.SQLs = append(__optional_placeholders.SQLs, __sqlbundle_Literal("?"))
+	}
+
+	if len(__optional_columns.SQLs) == 0 {
+		if __columns.SQL == nil {
+			__clause.SQL = __sqlbundle_Literal("DEFAULT VALUES")
+		}
+	} else {
+		__columns.SQL = __sqlbundle_Literals{Join: ", ", SQLs: []__sqlbundle_SQL{__columns.SQL, __optional_columns}}
+		__placeholders.SQL = __sqlbundle_Literals{Join: ", ", SQLs: []__sqlbundle_SQL{__placeholders.SQL, __optional_placeholders}}
+	}
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	_, err = obj.driver.ExecContext(ctx, __stmt, __values...)
+	if err != nil {
+		return obj.makeErr(err)
+	}
+	return nil
+
+}
+
 func (obj *pgxImpl) ReplaceNoReturn_NodeApiVersion(ctx context.Context,
 	node_api_version_id NodeApiVersion_Id_Field,
 	node_api_version_api_version NodeApiVersion_ApiVersion_Field) (
@@ -24409,6 +24568,165 @@ func (obj *pgxcockroachImpl) CreateNoReturn_Revocation(ctx context.Context,
 	var __values []any
 	__values = append(__values, __revoked_val, __api_key_id_val)
 
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	_, err = obj.driver.ExecContext(ctx, __stmt, __values...)
+	if err != nil {
+		return obj.makeErr(err)
+	}
+	return nil
+
+}
+
+func (obj *pgxcockroachImpl) CreateNoReturn_Node(ctx context.Context,
+	node_id Node_Id_Field,
+	node_last_net Node_LastNet_Field,
+	node_email Node_Email_Field,
+	node_wallet Node_Wallet_Field,
+	optional Node_Create_Fields) (
+	err error) {
+	defer mon.Task()(&ctx)(&err)
+	if !obj.txn && txutil.IsInsideTx(ctx) {
+		panic("using DB when inside of a transaction")
+	}
+	__id_val := node_id.value()
+	__last_net_val := node_last_net.value()
+	__last_ip_port_val := optional.LastIpPort.value()
+	__country_code_val := optional.CountryCode.value()
+	__email_val := node_email.value()
+	__wallet_val := node_wallet.value()
+	__vetted_at_val := optional.VettedAt.value()
+	__disqualified_val := optional.Disqualified.value()
+	__disqualification_reason_val := optional.DisqualificationReason.value()
+	__unknown_audit_suspended_val := optional.UnknownAuditSuspended.value()
+	__offline_suspended_val := optional.OfflineSuspended.value()
+	__under_review_val := optional.UnderReview.value()
+	__exit_initiated_at_val := optional.ExitInitiatedAt.value()
+	__exit_loop_completed_at_val := optional.ExitLoopCompletedAt.value()
+	__exit_finished_at_val := optional.ExitFinishedAt.value()
+	__contained_val := optional.Contained.value()
+	__last_offline_email_val := optional.LastOfflineEmail.value()
+	__last_software_update_email_val := optional.LastSoftwareUpdateEmail.value()
+	__noise_proto_val := optional.NoiseProto.value()
+	__noise_public_key_val := optional.NoisePublicKey.value()
+
+	var __columns = &__sqlbundle_Hole{SQL: __sqlbundle_Literal("id, last_net, last_ip_port, country_code, email, wallet, vetted_at, disqualified, disqualification_reason, unknown_audit_suspended, offline_suspended, under_review, exit_initiated_at, exit_loop_completed_at, exit_finished_at, contained, last_offline_email, last_software_update_email, noise_proto, noise_public_key")}
+	var __placeholders = &__sqlbundle_Hole{SQL: __sqlbundle_Literal("?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?")}
+	var __clause = &__sqlbundle_Hole{SQL: __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("("), __columns, __sqlbundle_Literal(") VALUES ("), __placeholders, __sqlbundle_Literal(")")}}}
+
+	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("INSERT INTO nodes "), __clause}}
+
+	var __values []any
+	__values = append(__values, __id_val, __last_net_val, __last_ip_port_val, __country_code_val, __email_val, __wallet_val, __vetted_at_val, __disqualified_val, __disqualification_reason_val, __unknown_audit_suspended_val, __offline_suspended_val, __under_review_val, __exit_initiated_at_val, __exit_loop_completed_at_val, __exit_finished_at_val, __contained_val, __last_offline_email_val, __last_software_update_email_val, __noise_proto_val, __noise_public_key_val)
+
+	__optional_columns := __sqlbundle_Literals{Join: ", "}
+	__optional_placeholders := __sqlbundle_Literals{Join: ", "}
+
+	if optional.Address._set {
+		__values = append(__values, optional.Address.value())
+		__optional_columns.SQLs = append(__optional_columns.SQLs, __sqlbundle_Literal("address"))
+		__optional_placeholders.SQLs = append(__optional_placeholders.SQLs, __sqlbundle_Literal("?"))
+	}
+
+	if optional.Protocol._set {
+		__values = append(__values, optional.Protocol.value())
+		__optional_columns.SQLs = append(__optional_columns.SQLs, __sqlbundle_Literal("protocol"))
+		__optional_placeholders.SQLs = append(__optional_placeholders.SQLs, __sqlbundle_Literal("?"))
+	}
+
+	if optional.WalletFeatures._set {
+		__values = append(__values, optional.WalletFeatures.value())
+		__optional_columns.SQLs = append(__optional_columns.SQLs, __sqlbundle_Literal("wallet_features"))
+		__optional_placeholders.SQLs = append(__optional_placeholders.SQLs, __sqlbundle_Literal("?"))
+	}
+
+	if optional.FreeDisk._set {
+		__values = append(__values, optional.FreeDisk.value())
+		__optional_columns.SQLs = append(__optional_columns.SQLs, __sqlbundle_Literal("free_disk"))
+		__optional_placeholders.SQLs = append(__optional_placeholders.SQLs, __sqlbundle_Literal("?"))
+	}
+
+	if optional.Major._set {
+		__values = append(__values, optional.Major.value())
+		__optional_columns.SQLs = append(__optional_columns.SQLs, __sqlbundle_Literal("major"))
+		__optional_placeholders.SQLs = append(__optional_placeholders.SQLs, __sqlbundle_Literal("?"))
+	}
+
+	if optional.Minor._set {
+		__values = append(__values, optional.Minor.value())
+		__optional_columns.SQLs = append(__optional_columns.SQLs, __sqlbundle_Literal("minor"))
+		__optional_placeholders.SQLs = append(__optional_placeholders.SQLs, __sqlbundle_Literal("?"))
+	}
+
+	if optional.Patch._set {
+		__values = append(__values, optional.Patch.value())
+		__optional_columns.SQLs = append(__optional_columns.SQLs, __sqlbundle_Literal("patch"))
+		__optional_placeholders.SQLs = append(__optional_placeholders.SQLs, __sqlbundle_Literal("?"))
+	}
+
+	if optional.CommitHash._set {
+		__values = append(__values, optional.CommitHash.value())
+		__optional_columns.SQLs = append(__optional_columns.SQLs, __sqlbundle_Literal("commit_hash"))
+		__optional_placeholders.SQLs = append(__optional_placeholders.SQLs, __sqlbundle_Literal("?"))
+	}
+
+	if optional.ReleaseTimestamp._set {
+		__values = append(__values, optional.ReleaseTimestamp.value())
+		__optional_columns.SQLs = append(__optional_columns.SQLs, __sqlbundle_Literal("release_timestamp"))
+		__optional_placeholders.SQLs = append(__optional_placeholders.SQLs, __sqlbundle_Literal("?"))
+	}
+
+	if optional.Release._set {
+		__values = append(__values, optional.Release.value())
+		__optional_columns.SQLs = append(__optional_columns.SQLs, __sqlbundle_Literal("release"))
+		__optional_placeholders.SQLs = append(__optional_placeholders.SQLs, __sqlbundle_Literal("?"))
+	}
+
+	if optional.Latency90._set {
+		__values = append(__values, optional.Latency90.value())
+		__optional_columns.SQLs = append(__optional_columns.SQLs, __sqlbundle_Literal("latency_90"))
+		__optional_placeholders.SQLs = append(__optional_placeholders.SQLs, __sqlbundle_Literal("?"))
+	}
+
+	if optional.LastContactSuccess._set {
+		__values = append(__values, optional.LastContactSuccess.value())
+		__optional_columns.SQLs = append(__optional_columns.SQLs, __sqlbundle_Literal("last_contact_success"))
+		__optional_placeholders.SQLs = append(__optional_placeholders.SQLs, __sqlbundle_Literal("?"))
+	}
+
+	if optional.LastContactFailure._set {
+		__values = append(__values, optional.LastContactFailure.value())
+		__optional_columns.SQLs = append(__optional_columns.SQLs, __sqlbundle_Literal("last_contact_failure"))
+		__optional_placeholders.SQLs = append(__optional_placeholders.SQLs, __sqlbundle_Literal("?"))
+	}
+
+	if optional.ExitSuccess._set {
+		__values = append(__values, optional.ExitSuccess.value())
+		__optional_columns.SQLs = append(__optional_columns.SQLs, __sqlbundle_Literal("exit_success"))
+		__optional_placeholders.SQLs = append(__optional_placeholders.SQLs, __sqlbundle_Literal("?"))
+	}
+
+	if optional.DebounceLimit._set {
+		__values = append(__values, optional.DebounceLimit.value())
+		__optional_columns.SQLs = append(__optional_columns.SQLs, __sqlbundle_Literal("debounce_limit"))
+		__optional_placeholders.SQLs = append(__optional_placeholders.SQLs, __sqlbundle_Literal("?"))
+	}
+
+	if optional.Features._set {
+		__values = append(__values, optional.Features.value())
+		__optional_columns.SQLs = append(__optional_columns.SQLs, __sqlbundle_Literal("features"))
+		__optional_placeholders.SQLs = append(__optional_placeholders.SQLs, __sqlbundle_Literal("?"))
+	}
+
+	if len(__optional_columns.SQLs) == 0 {
+		if __columns.SQL == nil {
+			__clause.SQL = __sqlbundle_Literal("DEFAULT VALUES")
+		}
+	} else {
+		__columns.SQL = __sqlbundle_Literals{Join: ", ", SQLs: []__sqlbundle_SQL{__columns.SQL, __optional_columns}}
+		__placeholders.SQL = __sqlbundle_Literals{Join: ", ", SQLs: []__sqlbundle_SQL{__placeholders.SQL, __optional_placeholders}}
+	}
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
 	obj.logStmt(__stmt, __values...)
 
@@ -34304,6 +34622,214 @@ func (obj *spannerImpl) CreateNoReturn_Revocation(ctx context.Context,
 
 }
 
+func (obj *spannerImpl) CreateNoReturn_Node(ctx context.Context,
+	node_id Node_Id_Field,
+	node_last_net Node_LastNet_Field,
+	node_email Node_Email_Field,
+	node_wallet Node_Wallet_Field,
+	optional Node_Create_Fields) (
+	err error) {
+	defer mon.Task()(&ctx)(&err)
+	if !obj.txn && txutil.IsInsideTx(ctx) {
+		panic("using DB when inside of a transaction")
+	}
+	__id_val := node_id.value()
+	__last_net_val := node_last_net.value()
+	__last_ip_port_val := optional.LastIpPort.value()
+	__country_code_val := optional.CountryCode.value()
+	__email_val := node_email.value()
+	__wallet_val := node_wallet.value()
+	__vetted_at_val := optional.VettedAt.value()
+	__disqualified_val := optional.Disqualified.value()
+	__disqualification_reason_val := optional.DisqualificationReason.value()
+	__unknown_audit_suspended_val := optional.UnknownAuditSuspended.value()
+	__offline_suspended_val := optional.OfflineSuspended.value()
+	__under_review_val := optional.UnderReview.value()
+	__exit_initiated_at_val := optional.ExitInitiatedAt.value()
+	__exit_loop_completed_at_val := optional.ExitLoopCompletedAt.value()
+	__exit_finished_at_val := optional.ExitFinishedAt.value()
+	__contained_val := optional.Contained.value()
+	__last_offline_email_val := optional.LastOfflineEmail.value()
+	__last_software_update_email_val := optional.LastSoftwareUpdateEmail.value()
+	__noise_proto_val := optional.NoiseProto.value()
+	__noise_public_key_val := optional.NoisePublicKey.value()
+
+	var __columns = &__sqlbundle_Hole{SQL: __sqlbundle_Literal("id, last_net, last_ip_port, country_code, email, wallet, vetted_at, disqualified, disqualification_reason, unknown_audit_suspended, offline_suspended, under_review, exit_initiated_at, exit_loop_completed_at, exit_finished_at, contained, last_offline_email, last_software_update_email, noise_proto, noise_public_key")}
+	var __placeholders = &__sqlbundle_Hole{SQL: __sqlbundle_Literal("?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?")}
+	var __clause = &__sqlbundle_Hole{SQL: __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("("), __columns, __sqlbundle_Literal(") VALUES ("), __placeholders, __sqlbundle_Literal(")")}}}
+
+	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("INSERT INTO nodes "), __clause}}
+
+	var __values []any
+	__values = append(__values, __id_val, __last_net_val, __last_ip_port_val, __country_code_val, __email_val, __wallet_val, __vetted_at_val, __disqualified_val, __disqualification_reason_val, __unknown_audit_suspended_val, __offline_suspended_val, __under_review_val, __exit_initiated_at_val, __exit_loop_completed_at_val, __exit_finished_at_val, __contained_val, __last_offline_email_val, __last_software_update_email_val, __noise_proto_val, __noise_public_key_val)
+
+	__optional_columns := __sqlbundle_Literals{Join: ", "}
+	__optional_placeholders := __sqlbundle_Literals{Join: ", "}
+
+	if optional.Address._set {
+		__values = append(__values, optional.Address.value())
+		__optional_columns.SQLs = append(__optional_columns.SQLs, __sqlbundle_Literal("address"))
+		__optional_placeholders.SQLs = append(__optional_placeholders.SQLs, __sqlbundle_Literal("?"))
+	}
+
+	if optional.Protocol._set {
+		__values = append(__values, optional.Protocol.value())
+		__optional_columns.SQLs = append(__optional_columns.SQLs, __sqlbundle_Literal("protocol"))
+		__optional_placeholders.SQLs = append(__optional_placeholders.SQLs, __sqlbundle_Literal("?"))
+	}
+
+	if optional.WalletFeatures._set {
+		__values = append(__values, optional.WalletFeatures.value())
+		__optional_columns.SQLs = append(__optional_columns.SQLs, __sqlbundle_Literal("wallet_features"))
+		__optional_placeholders.SQLs = append(__optional_placeholders.SQLs, __sqlbundle_Literal("?"))
+	}
+
+	if optional.FreeDisk._set {
+		__values = append(__values, optional.FreeDisk.value())
+		__optional_columns.SQLs = append(__optional_columns.SQLs, __sqlbundle_Literal("free_disk"))
+		__optional_placeholders.SQLs = append(__optional_placeholders.SQLs, __sqlbundle_Literal("?"))
+	}
+
+	if optional.Major._set {
+		__values = append(__values, optional.Major.value())
+		__optional_columns.SQLs = append(__optional_columns.SQLs, __sqlbundle_Literal("major"))
+		__optional_placeholders.SQLs = append(__optional_placeholders.SQLs, __sqlbundle_Literal("?"))
+	}
+
+	if optional.Minor._set {
+		__values = append(__values, optional.Minor.value())
+		__optional_columns.SQLs = append(__optional_columns.SQLs, __sqlbundle_Literal("minor"))
+		__optional_placeholders.SQLs = append(__optional_placeholders.SQLs, __sqlbundle_Literal("?"))
+	}
+
+	if optional.Patch._set {
+		__values = append(__values, optional.Patch.value())
+		__optional_columns.SQLs = append(__optional_columns.SQLs, __sqlbundle_Literal("patch"))
+		__optional_placeholders.SQLs = append(__optional_placeholders.SQLs, __sqlbundle_Literal("?"))
+	}
+
+	if optional.CommitHash._set {
+		__values = append(__values, optional.CommitHash.value())
+		__optional_columns.SQLs = append(__optional_columns.SQLs, __sqlbundle_Literal("commit_hash"))
+		__optional_placeholders.SQLs = append(__optional_placeholders.SQLs, __sqlbundle_Literal("?"))
+	}
+
+	if optional.ReleaseTimestamp._set {
+		__values = append(__values, optional.ReleaseTimestamp.value())
+		__optional_columns.SQLs = append(__optional_columns.SQLs, __sqlbundle_Literal("release_timestamp"))
+		__optional_placeholders.SQLs = append(__optional_placeholders.SQLs, __sqlbundle_Literal("?"))
+	}
+
+	if optional.Release._set {
+		__values = append(__values, optional.Release.value())
+		__optional_columns.SQLs = append(__optional_columns.SQLs, __sqlbundle_Literal("release"))
+		__optional_placeholders.SQLs = append(__optional_placeholders.SQLs, __sqlbundle_Literal("?"))
+	}
+
+	if optional.Latency90._set {
+		__values = append(__values, optional.Latency90.value())
+		__optional_columns.SQLs = append(__optional_columns.SQLs, __sqlbundle_Literal("latency_90"))
+		__optional_placeholders.SQLs = append(__optional_placeholders.SQLs, __sqlbundle_Literal("?"))
+	}
+
+	if optional.LastContactSuccess._set {
+		__values = append(__values, optional.LastContactSuccess.value())
+		__optional_columns.SQLs = append(__optional_columns.SQLs, __sqlbundle_Literal("last_contact_success"))
+		__optional_placeholders.SQLs = append(__optional_placeholders.SQLs, __sqlbundle_Literal("?"))
+	}
+
+	if optional.LastContactFailure._set {
+		__values = append(__values, optional.LastContactFailure.value())
+		__optional_columns.SQLs = append(__optional_columns.SQLs, __sqlbundle_Literal("last_contact_failure"))
+		__optional_placeholders.SQLs = append(__optional_placeholders.SQLs, __sqlbundle_Literal("?"))
+	}
+
+	if optional.ExitSuccess._set {
+		__values = append(__values, optional.ExitSuccess.value())
+		__optional_columns.SQLs = append(__optional_columns.SQLs, __sqlbundle_Literal("exit_success"))
+		__optional_placeholders.SQLs = append(__optional_placeholders.SQLs, __sqlbundle_Literal("?"))
+	}
+
+	if optional.DebounceLimit._set {
+		__values = append(__values, optional.DebounceLimit.value())
+		__optional_columns.SQLs = append(__optional_columns.SQLs, __sqlbundle_Literal("debounce_limit"))
+		__optional_placeholders.SQLs = append(__optional_placeholders.SQLs, __sqlbundle_Literal("?"))
+	}
+
+	if optional.Features._set {
+		__values = append(__values, optional.Features.value())
+		__optional_columns.SQLs = append(__optional_columns.SQLs, __sqlbundle_Literal("features"))
+		__optional_placeholders.SQLs = append(__optional_placeholders.SQLs, __sqlbundle_Literal("?"))
+	}
+
+	if len(__optional_columns.SQLs) == 0 && __columns.SQL == nil {
+
+		__optional_columns.SQLs = append(__optional_columns.SQLs, __sqlbundle_Literal("address"))
+		__optional_placeholders.SQLs = append(__optional_placeholders.SQLs, __sqlbundle_Literal("DEFAULT"))
+
+		__optional_columns.SQLs = append(__optional_columns.SQLs, __sqlbundle_Literal("protocol"))
+		__optional_placeholders.SQLs = append(__optional_placeholders.SQLs, __sqlbundle_Literal("DEFAULT"))
+
+		__optional_columns.SQLs = append(__optional_columns.SQLs, __sqlbundle_Literal("wallet_features"))
+		__optional_placeholders.SQLs = append(__optional_placeholders.SQLs, __sqlbundle_Literal("DEFAULT"))
+
+		__optional_columns.SQLs = append(__optional_columns.SQLs, __sqlbundle_Literal("free_disk"))
+		__optional_placeholders.SQLs = append(__optional_placeholders.SQLs, __sqlbundle_Literal("DEFAULT"))
+
+		__optional_columns.SQLs = append(__optional_columns.SQLs, __sqlbundle_Literal("major"))
+		__optional_placeholders.SQLs = append(__optional_placeholders.SQLs, __sqlbundle_Literal("DEFAULT"))
+
+		__optional_columns.SQLs = append(__optional_columns.SQLs, __sqlbundle_Literal("minor"))
+		__optional_placeholders.SQLs = append(__optional_placeholders.SQLs, __sqlbundle_Literal("DEFAULT"))
+
+		__optional_columns.SQLs = append(__optional_columns.SQLs, __sqlbundle_Literal("patch"))
+		__optional_placeholders.SQLs = append(__optional_placeholders.SQLs, __sqlbundle_Literal("DEFAULT"))
+
+		__optional_columns.SQLs = append(__optional_columns.SQLs, __sqlbundle_Literal("commit_hash"))
+		__optional_placeholders.SQLs = append(__optional_placeholders.SQLs, __sqlbundle_Literal("DEFAULT"))
+
+		__optional_columns.SQLs = append(__optional_columns.SQLs, __sqlbundle_Literal("release_timestamp"))
+		__optional_placeholders.SQLs = append(__optional_placeholders.SQLs, __sqlbundle_Literal("DEFAULT"))
+
+		__optional_columns.SQLs = append(__optional_columns.SQLs, __sqlbundle_Literal("release"))
+		__optional_placeholders.SQLs = append(__optional_placeholders.SQLs, __sqlbundle_Literal("DEFAULT"))
+
+		__optional_columns.SQLs = append(__optional_columns.SQLs, __sqlbundle_Literal("latency_90"))
+		__optional_placeholders.SQLs = append(__optional_placeholders.SQLs, __sqlbundle_Literal("DEFAULT"))
+
+		__optional_columns.SQLs = append(__optional_columns.SQLs, __sqlbundle_Literal("last_contact_success"))
+		__optional_placeholders.SQLs = append(__optional_placeholders.SQLs, __sqlbundle_Literal("DEFAULT"))
+
+		__optional_columns.SQLs = append(__optional_columns.SQLs, __sqlbundle_Literal("last_contact_failure"))
+		__optional_placeholders.SQLs = append(__optional_placeholders.SQLs, __sqlbundle_Literal("DEFAULT"))
+
+		__optional_columns.SQLs = append(__optional_columns.SQLs, __sqlbundle_Literal("exit_success"))
+		__optional_placeholders.SQLs = append(__optional_placeholders.SQLs, __sqlbundle_Literal("DEFAULT"))
+
+		__optional_columns.SQLs = append(__optional_columns.SQLs, __sqlbundle_Literal("debounce_limit"))
+		__optional_placeholders.SQLs = append(__optional_placeholders.SQLs, __sqlbundle_Literal("DEFAULT"))
+
+		__optional_columns.SQLs = append(__optional_columns.SQLs, __sqlbundle_Literal("features"))
+		__optional_placeholders.SQLs = append(__optional_placeholders.SQLs, __sqlbundle_Literal("DEFAULT"))
+
+	}
+
+	if len(__optional_columns.SQLs) > 0 {
+		__columns.SQL = __sqlbundle_Literals{Join: ", ", SQLs: []__sqlbundle_SQL{__columns.SQL, __optional_columns}}
+		__placeholders.SQL = __sqlbundle_Literals{Join: ", ", SQLs: []__sqlbundle_SQL{__placeholders.SQL, __optional_placeholders}}
+	}
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	_, err = obj.driver.ExecContext(ctx, __stmt, __values...)
+	if err != nil {
+		return obj.makeErr(err)
+	}
+	return nil
+
+}
+
 func (obj *spannerImpl) ReplaceNoReturn_NodeApiVersion(ctx context.Context,
 	node_api_version_id NodeApiVersion_Id_Field,
 	node_api_version_api_version NodeApiVersion_ApiVersion_Field) (
@@ -44104,6 +44630,14 @@ type Methods interface {
 	CreateNoReturn_BillingBalance(ctx context.Context,
 		billing_balance_user_id BillingBalance_UserId_Field,
 		billing_balance_balance BillingBalance_Balance_Field) (
+		err error)
+
+	CreateNoReturn_Node(ctx context.Context,
+		node_id Node_Id_Field,
+		node_last_net Node_LastNet_Field,
+		node_email Node_Email_Field,
+		node_wallet Node_Wallet_Field,
+		optional Node_Create_Fields) (
 		err error)
 
 	CreateNoReturn_OauthClient(ctx context.Context,

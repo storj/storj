@@ -893,6 +893,11 @@ func (m *mockdb) TestUnsuspendNodeUnknownAudit(ctx context.Context, nodeID storj
 	panic("implement me")
 }
 
+// TestAddNodes satisfies nodeevents.DB interface.
+func (m *mockdb) TestAddNodes(ctx context.Context, nodes []*overlay.NodeDossier) (err error) {
+	panic("implement me")
+}
+
 // TestVetNode satisfies nodeevents.DB interface.
 func (m *mockdb) TestVetNode(ctx context.Context, nodeID storj.NodeID) (vettedTime *time.Time, err error) {
 	panic("implement me")
