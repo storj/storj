@@ -2,7 +2,6 @@
 // See LICENSE for copying information.
 
 //go:build !linux && !windows && !freebsd
-// +build !linux,!windows,!freebsd
 
 package server
 

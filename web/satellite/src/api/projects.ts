@@ -11,14 +11,19 @@ import {
     ProjectsApi,
     ProjectsCursor,
     ProjectsPage,
+    ProjectDeletionData,
     ProjectsStorageBandwidthDaily,
     ProjectInvitationResponse,
     Emission,
+    ProjectConfig,
+    UpdateProjectFields,
+    UpdateProjectLimitsFields,
 } from '@/types/projects';
 import { HttpClient } from '@/utils/httpClient';
 import { Time } from '@/utils/time';
 import { APIError } from '@/utils/error';
 import { getVersioning } from '@/types/versioning';
+import { DeleteProjectStep } from '@/types/accountActions';
 
 export class ProjectsHttpApi implements ProjectsApi {
     private readonly http: HttpClient = new HttpClient();
@@ -34,6 +39,7 @@ export class ProjectsHttpApi implements ProjectsApi {
         const data = {
             name: projectFields.name,
             description: projectFields.description,
+            managePassphrase: projectFields.managePassphrase,
         };
 
         const response = await this.http.post(this.ROOT_PATH, JSON.stringify(data));
@@ -45,7 +51,6 @@ export class ProjectsHttpApi implements ProjectsApi {
                 result.description,
                 result.createdAt,
                 result.ownerId,
-                false,
                 result.memberCount,
                 result.edgeURLOverrides,
                 getVersioning(result.versioning),
@@ -83,7 +88,6 @@ export class ProjectsHttpApi implements ProjectsApi {
             p.description,
             p.createdAt,
             p.ownerId,
-            false,
             p.memberCount,
             p.edgeURLOverrides,
             getVersioning(p.versioning),
@@ -93,24 +97,103 @@ export class ProjectsHttpApi implements ProjectsApi {
     }
 
     /**
+     * Delete project.
+     *
+     * @throws Error
+     */
+    public async delete(projectId: string, step: DeleteProjectStep, data: string): Promise<ProjectDeletionData | null> {
+        const path = `${this.ROOT_PATH}/${projectId}`;
+
+        const body = JSON.stringify({
+            step,
+            data,
+        });
+
+        const response = await this.http.delete(path, body);
+
+        if (response.ok) {
+            return null;
+        }
+
+        const result = await response.json();
+
+        if (response.status === 409) {
+            return new ProjectDeletionData(
+                result.buckets,
+                result.apiKeys,
+                result.currentUsage,
+                result.invoicingIncomplete,
+            );
+        }
+
+        throw new APIError({
+            status: response.status,
+            message: result.error || 'Can not delete project. Please try again later',
+            requestID: response.headers.get('x-request-id'),
+        });
+    }
+
+    /**
+     * Fetch config for project.
+     *
+     * @param projectId - the project's ID
+     * @returns ProjectConfig
+     * @throws Error
+     */
+    public async getConfig(projectId: string): Promise<ProjectConfig> {
+        const response = await this.http.get(`${this.ROOT_PATH}/${projectId}/config`);
+        const result = await response.json();
+        if (response.ok) {
+            return new ProjectConfig(
+                result.versioningUIEnabled,
+                result.promptForVersioningBeta,
+                result.hasManagedPassphrase,
+                result.passphrase ?? '',
+                result.isOwnerPaidTier,
+                result.role,
+                result.objectLockUIEnabled,
+            );
+        }
+
+        throw new APIError({
+            status: response.status,
+            message: result.error || 'Could not get project config',
+            requestID: response.headers.get('x-request-id'),
+        });
+    }
+
+    /**
+     * Opt in or out of versioning beta.
+     *
+     * @param projectId - the project's ID
+     * @param status - the new opt-in status
+     * @throws Error
+     */
+    public async setVersioningOptInStatus(projectId: string, status: 'in' | 'out'): Promise<void> {
+        const path = `${this.ROOT_PATH}/${projectId}/versioning-opt-${status}`;
+        const response = await this.http.patch(path, null);
+        if (response.ok) {
+            return;
+        }
+
+        const result = await response.json();
+        throw new APIError({
+            status: response.status,
+            message: result.error || `Can not change opt in status`,
+            requestID: response.headers.get('x-request-id'),
+        });
+    }
+
+    /**
      * Update project name and description.
      *
      * @param projectId - project ID
      * @param projectFields - project fields
-     * @param projectLimits - project limits
-     * @returns Project[]
      * @throws Error
      */
-    public async update(projectId: string, projectFields: ProjectFields, projectLimits: ProjectLimits): Promise<void> {
-        const data = {
-            name: projectFields.name,
-            description: projectFields.description,
-            storageLimit: projectLimits.storageLimit.toString(),
-            bandwidthLimit: projectLimits.bandwidthLimit.toString(),
-        };
-
+    public async update(projectId: string, projectFields: UpdateProjectFields): Promise<void> {
         const path = `${this.ROOT_PATH}/${projectId}`;
-        const response = await this.http.patch(path, JSON.stringify(data));
+        const response = await this.http.patch(path, JSON.stringify(projectFields));
         if (response.ok) {
             return;
         }
@@ -119,6 +202,28 @@ export class ProjectsHttpApi implements ProjectsApi {
         throw new APIError({
             status: response.status,
             message: result.error || 'Can not update project',
+            requestID: response.headers.get('x-request-id'),
+        });
+    }
+
+    /**
+     * Update project user specified limits.
+     *
+     * @param projectId - project ID
+     * @param fields - project limits to update
+     * @throws Error
+     */
+    public async updateLimits(projectId: string, fields: UpdateProjectLimitsFields): Promise<void> {
+        const path = `${this.ROOT_PATH}/${projectId}/limits`;
+        const response = await this.http.patch(path, JSON.stringify(fields));
+        if (response.ok) {
+            return;
+        }
+
+        const result = await response.json();
+        throw new APIError({
+            status: response.status,
+            message: result.error || 'Can not update limits',
             requestID: response.headers.get('x-request-id'),
         });
     }
@@ -144,6 +249,8 @@ export class ProjectsHttpApi implements ProjectsApi {
         const limits = await response.json();
 
         return new ProjectLimits(
+            limits.userSetBandwidthLimit,
+            limits.userSetStorageLimit,
             limits.bandwidthLimit,
             limits.bandwidthUsed,
             limits.storageLimit,
@@ -200,6 +307,8 @@ export class ProjectsHttpApi implements ProjectsApi {
         const limits = await response.json();
 
         return new ProjectLimits(
+            null,
+            null,
             limits.bandwidthLimit,
             limits.bandwidthUsed,
             limits.storageLimit,
@@ -309,7 +418,6 @@ export class ProjectsHttpApi implements ProjectsApi {
                 p.description,
                 p.createdAt,
                 p.ownerId,
-                false,
                 p.memberCount,
                 p.edgeURLOverrides,
                 getVersioning(p.versioning),

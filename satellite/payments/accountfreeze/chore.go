@@ -13,8 +13,10 @@ import (
 
 	"storj.io/common/sync2"
 	"storj.io/common/uuid"
+	"storj.io/storj/private/post"
 	"storj.io/storj/satellite/analytics"
 	"storj.io/storj/satellite/console"
+	"storj.io/storj/satellite/mailservice"
 	"storj.io/storj/satellite/payments"
 	"storj.io/storj/satellite/payments/billing"
 	"storj.io/storj/satellite/payments/storjscan"
@@ -33,6 +35,10 @@ type Config struct {
 	Interval         time.Duration `help:"How often to run this chore, which is how often unpaid invoices are checked." default:"24h"`
 	PriceThreshold   int64         `help:"The failed invoice amount (in cents) beyond which an account will not be frozen" default:"100000"`
 	ExcludeStorjscan bool          `help:"whether to exclude storjscan-paying users from automatic warn/freeze" default:"false"`
+
+	EmailsEnabled                bool           `help:"whether to freeze event emails from this chore" default:"false"`
+	BillingWarningEmailIntervals EmailIntervals `help:"how long to wait between the billing freeze warning emails" default:"240h,96h"`
+	BillingFreezeEmailIntervals  EmailIntervals `help:"how long to wait between the billing freeze emails" default:"720h,480h,216h"`
 }
 
 // Chore is a chore that checks for unpaid invoices and potentially freezes corresponding accounts.
@@ -44,28 +50,38 @@ type Chore struct {
 	walletsDB     storjscan.WalletsDB
 	paymentsDB    storjscan.PaymentsDB
 	payments      payments.Accounts
+	mailService   *mailservice.Service
 	accounts      stripe.DB
 	config        Config
-	flagBots      bool
-	nowFn         func() time.Time
-	Loop          *sync2.Cycle
+	freezeConfig  console.AccountFreezeConfig
+
+	flagBots          bool
+	externalAddress   string
+	generalRequestURL string
+
+	nowFn func() time.Time
+	Loop  *sync2.Cycle
 }
 
 // NewChore is a constructor for Chore.
-func NewChore(log *zap.Logger, accounts stripe.DB, payments payments.Accounts, usersDB console.Users, walletsDB storjscan.WalletsDB, paymentsDB storjscan.PaymentsDB, freezeService *console.AccountFreezeService, analytics *analytics.Service, config Config, flagBots bool) *Chore {
+func NewChore(log *zap.Logger, accounts stripe.DB, payments payments.Accounts, usersDB console.Users, walletsDB storjscan.WalletsDB, paymentsDB storjscan.PaymentsDB, freezeService *console.AccountFreezeService, analytics *analytics.Service, mailService *mailservice.Service, freezeConfig console.AccountFreezeConfig, config Config, flagBots bool, externalAddress, generalRequestURL string) *Chore {
 	return &Chore{
-		log:           log,
-		freezeService: freezeService,
-		analytics:     analytics,
-		usersDB:       usersDB,
-		walletsDB:     walletsDB,
-		paymentsDB:    paymentsDB,
-		accounts:      accounts,
-		config:        config,
-		flagBots:      flagBots,
-		payments:      payments,
-		nowFn:         time.Now,
-		Loop:          sync2.NewCycle(config.Interval),
+		log:               log,
+		freezeService:     freezeService,
+		analytics:         analytics,
+		usersDB:           usersDB,
+		walletsDB:         walletsDB,
+		paymentsDB:        paymentsDB,
+		accounts:          accounts,
+		config:            config,
+		freezeConfig:      freezeConfig,
+		flagBots:          flagBots,
+		payments:          payments,
+		mailService:       mailService,
+		externalAddress:   externalAddress,
+		generalRequestURL: generalRequestURL,
+		nowFn:             time.Now,
+		Loop:              sync2.NewCycle(config.Interval),
 	}
 }
 
@@ -79,6 +95,8 @@ func (chore *Chore) Run(ctx context.Context) (err error) {
 		chore.attemptBillingUnfreezeUnwarn(ctx)
 
 		chore.attemptTrialExpirationFreeze(ctx)
+
+		chore.attemptEscalateTrialExpirationFreeze(ctx)
 
 		if chore.flagBots {
 			chore.attemptBotFreeze(ctx)
@@ -213,7 +231,12 @@ func (chore *Chore) attemptBillingFreezeWarn(ctx context.Context) {
 			if freezes.BillingFreeze.DaysTillEscalation == nil {
 				continue
 			}
-			if chore.shouldEscalate(freezes.BillingFreeze) {
+			shouldEscalate, err := chore.freezeService.ShouldEscalateFreezeEvent(ctx, *freezes.BillingFreeze, chore.nowFn())
+			if err != nil {
+				errorLog("Could not check if billing freeze should escalate", err)
+				continue
+			}
+			if shouldEscalate {
 				if user.Status == console.PendingDeletion {
 					infoLog("Ignoring invoice; account already marked for deletion")
 					continue
@@ -230,7 +253,7 @@ func (chore *Chore) attemptBillingFreezeWarn(ctx context.Context) {
 					continue
 				}
 
-				err = chore.freezeService.EscalateBillingFreeze(ctx, userID, *freezes.BillingFreeze)
+				err = chore.freezeService.EscalateFreezeEvent(ctx, userID, *freezes.BillingFreeze)
 				if err != nil {
 					errorLog("Could not mark account for deletion", err)
 					continue
@@ -238,6 +261,13 @@ func (chore *Chore) attemptBillingFreezeWarn(ctx context.Context) {
 
 				infoLog("account marked for deletion")
 				continue
+			}
+
+			if chore.shouldSendReminderEmail(freezes.BillingFreeze) {
+				err = chore.sendEmail(ctx, user, freezes.BillingFreeze)
+				if err != nil {
+					errorLog("unable to notify user of event", err)
+				}
 			}
 
 			infoLog("Ignoring invoice; account already billing frozen")
@@ -255,6 +285,16 @@ func (chore *Chore) attemptBillingFreezeWarn(ctx context.Context) {
 				infoLog("Ignoring invoice; payment already made")
 				continue
 			}
+
+			// try to pay the invoice before warning.
+			err = chore.payments.Invoices().AttemptPayOverdueInvoices(ctx, userID)
+			if err == nil {
+				infoLog("Ignoring invoice; Payment attempt successful")
+				continue
+			} else {
+				errorLog("Could not attempt payment", err)
+			}
+
 			err = chore.freezeService.BillingWarnUser(ctx, userID)
 			if err != nil {
 				errorLog("Could not add billing warning event", err)
@@ -262,13 +302,24 @@ func (chore *Chore) attemptBillingFreezeWarn(ctx context.Context) {
 			}
 			infoLog("user billing warned")
 			billingWarnedMap[userID] = struct{}{}
+
+			if chore.config.EmailsEnabled {
+				err = chore.sendEmail(ctx, user, &console.AccountFreezeEvent{
+					Type: console.BillingWarning,
+				})
+				if err != nil {
+					errorLog("unable to notify user of event", err)
+				}
+			}
 			continue
 		}
 
-		if freezes.BillingWarning.DaysTillEscalation == nil {
+		shouldEscalate, err := chore.freezeService.ShouldEscalateFreezeEvent(ctx, *freezes.BillingWarning, chore.nowFn())
+		if err != nil {
+			errorLog("Could not check if billing warning should escalate", err)
 			continue
 		}
-		if chore.shouldEscalate(freezes.BillingWarning) {
+		if shouldEscalate {
 			// check if the invoice has been paid by the time the chore gets here.
 			isPaid, err := checkInvPaid(invoice.ID)
 			if err != nil {
@@ -302,6 +353,24 @@ func (chore *Chore) attemptBillingFreezeWarn(ctx context.Context) {
 			}
 			infoLog("user billing frozen")
 			billingFrozenMap[userID] = struct{}{}
+
+			if chore.config.EmailsEnabled {
+				err = chore.sendEmail(ctx, user, &console.AccountFreezeEvent{
+					Type: console.BillingFreeze,
+				})
+				if err != nil {
+					errorLog("unable to notify user of event", err)
+				}
+			}
+
+			continue
+		}
+
+		if chore.shouldSendReminderEmail(freezes.BillingWarning) {
+			err = chore.sendEmail(ctx, user, freezes.BillingWarning)
+			if err != nil {
+				errorLog("unable to notify user of event", err)
+			}
 		}
 	}
 
@@ -468,7 +537,12 @@ func (chore *Chore) attemptBotFreeze(ctx context.Context) {
 
 			usersCount++
 
-			if !chore.shouldEscalate(&event) {
+			shouldEscalate, err := chore.freezeService.ShouldEscalateFreezeEvent(ctx, event, chore.nowFn())
+			if err != nil {
+				errorLog("Could not check if delayed bot freeze should escalate", err)
+				continue
+			}
+			if !shouldEscalate {
 				infoLog("Skipping event; as it shouldn't be escalated yet")
 				continue
 			}
@@ -498,22 +572,11 @@ func (chore *Chore) attemptTrialExpirationFreeze(ctx context.Context) {
 	var err error
 	defer mon.Task()(&ctx)(&err)
 
-	cursor := console.UserCursor{
-		Limit: 100,
-		Page:  1,
-	}
-
-	getUsers := func(c console.UserCursor) (users *console.UsersPage, err error) {
-		users, err = chore.usersDB.GetExpiredFreeTrialsAfter(ctx, chore.nowFn(), c)
-		if err != nil {
-			return nil, err
-		}
-		return users, err
-	}
-
+	limit := 100
 	totalFrozen := 0
+
 	for {
-		userPage, err := getUsers(cursor)
+		users, err := chore.usersDB.GetExpiredFreeTrialsAfter(ctx, chore.nowFn(), limit)
 		if err != nil {
 			chore.log.Error("Unable to list expired free trials",
 				zap.String("process", "trial expiration freeze"),
@@ -522,60 +585,175 @@ func (chore *Chore) attemptTrialExpirationFreeze(ctx context.Context) {
 			break
 		}
 
-		if len(userPage.Users) == 0 {
+		if len(users) == 0 {
 			chore.log.Info("No expired free trials found",
 				zap.String("process", "trial expiration freeze"),
 			)
 			break
 		}
 
-		for _, user := range userPage.Users {
-			errorLog := func(message string, err error) {
-				chore.log.Error(message,
-					zap.String("process", "trial expiration freeze"),
-					zap.Any("userID", user.ID),
-					zap.Error(Error.Wrap(err)),
-				)
-			}
-			infoLog := func(message string) {
-				chore.log.Info(message,
-					zap.String("process", "trial expiration freeze"),
-					zap.Any("userID", user.ID),
-					zap.Error(Error.Wrap(err)),
-				)
-			}
-
-			frozen, err := chore.freezeService.IsUserFrozen(ctx, user.ID, console.TrialExpirationFreeze)
-			if err != nil {
-				errorLog("Could not check if user is frozen", err)
-				continue
-			}
-			if frozen {
-				infoLog("Skipping user; account already frozen")
-				continue
-			}
-
+		for _, user := range users {
 			err = chore.freezeService.TrialExpirationFreezeUser(ctx, user.ID)
-			if err != nil {
-				errorLog("Could not trial expiration freeze user", err)
+			if err == nil {
+				totalFrozen++
+				continue
 			}
-
-			totalFrozen++
+			chore.log.Error("Could not trial expiration freeze user",
+				zap.String("process", "trial expiration freeze"),
+				zap.Any("userID", user.ID),
+				zap.Error(Error.Wrap(err)),
+			)
 		}
-
-		cursor.Page++
 	}
 
 	chore.log.Info("trial expiration freeze executed",
 		zap.Int("totalFrozen", totalFrozen))
 }
 
-func (chore *Chore) shouldEscalate(event *console.AccountFreezeEvent) bool {
-	if event == nil || event.DaysTillEscalation == nil {
-		return false
+func (chore *Chore) attemptEscalateTrialExpirationFreeze(ctx context.Context) {
+	var err error
+	defer mon.Task()(&ctx)(&err)
+
+	totalMarkedForDeletion := 0
+	totalSkipped := 0
+
+	var cursor *console.FreezeEventsByEventAndUserStatusCursor
+	hasNext := true
+
+	getEvents := func(c *console.FreezeEventsByEventAndUserStatusCursor) (events []console.AccountFreezeEvent, err error) {
+		events, cursor, err = chore.freezeService.GetTrialExpirationFreezesToEscalate(ctx, 100, c)
+		if err != nil {
+			return nil, err
+		}
+		return events, err
 	}
-	daysElapsed := int(chore.nowFn().Sub(event.CreatedAt).Hours() / 24)
-	return daysElapsed > *event.DaysTillEscalation
+
+	for hasNext {
+		events, err := getEvents(cursor)
+		if err != nil {
+			return
+		}
+
+		for _, event := range events {
+			shouldEscalate, err := chore.freezeService.ShouldEscalateFreezeEvent(ctx, event, chore.nowFn())
+			if err != nil {
+				chore.log.Error("Could not check if trial expiration freeze should escalate",
+					zap.String("process", "trial expiration freeze escalation"),
+					zap.Any("userID", event.UserID),
+					zap.Error(Error.Wrap(err)),
+				)
+				totalSkipped++
+				continue
+			}
+			if !shouldEscalate {
+				chore.log.Info("Skipping user; freeze event should not escalate",
+					zap.String("process", "trial expiration freeze escalation"),
+					zap.Any("userID", event.UserID),
+				)
+				totalSkipped++
+				continue
+			}
+
+			err = chore.freezeService.EscalateFreezeEvent(ctx, event.UserID, event)
+			if err != nil {
+				chore.log.Error("Could not escalate trial expiration freeze",
+					zap.String("process", "trial expiration freeze escalation"),
+					zap.Any("userID", event.UserID),
+					zap.Error(Error.Wrap(err)),
+				)
+				totalSkipped++
+				continue
+			}
+			user, err := chore.usersDB.Get(ctx, event.UserID)
+			if err == nil {
+				eErr := chore.sendEmail(ctx, user, &event)
+				if eErr != nil {
+					chore.log.Error("Could not send user email",
+						zap.String("process", "trial expiration freeze escalation"),
+						zap.Any("userID", event.UserID),
+						zap.Error(Error.Wrap(eErr)),
+					)
+				}
+				totalMarkedForDeletion++
+				continue
+			}
+			chore.log.Error("Could not get user for email",
+				zap.String("process", "trial expiration freeze escalation"),
+				zap.Any("userID", event.UserID),
+				zap.Error(Error.Wrap(err)),
+			)
+		}
+
+		hasNext = cursor != nil
+	}
+
+	chore.log.Info("trial expiration freezes escalated",
+		zap.Int("totalMarkedForDeletion", totalMarkedForDeletion),
+		zap.Int("totalSkipped", totalSkipped),
+	)
+}
+
+func (chore *Chore) shouldSendReminderEmail(event *console.AccountFreezeEvent) bool {
+	intervals := chore.config.BillingWarningEmailIntervals
+	if event.Type == console.BillingFreeze {
+		intervals = chore.config.BillingFreezeEmailIntervals
+	}
+	if chore.config.EmailsEnabled && event.NotificationsCount > 0 && event.NotificationsCount <= len(intervals) {
+		return chore.nowFn().Sub(event.CreatedAt) > intervals[event.NotificationsCount-1]
+	}
+
+	return false
+}
+
+func (chore *Chore) sendEmail(ctx context.Context, user *console.User, event *console.AccountFreezeEvent) error {
+	signInLink := chore.externalAddress + "/login"
+	supportLink := chore.generalRequestURL
+	elapsedTime := int(chore.nowFn().Sub(event.CreatedAt).Hours() / 24)
+
+	incrementNotificationCount := true
+	var message mailservice.Message
+	switch event.Type {
+	case console.BillingWarning:
+		days := int(chore.freezeConfig.BillingWarnGracePeriod.Hours() / 24)
+		if event.NotificationsCount != 0 {
+			days = *event.DaysTillEscalation - elapsedTime
+		}
+		message = &console.BillingWarningEmail{
+			EmailNumber: event.NotificationsCount + 1,
+			Days:        days,
+			SignInLink:  signInLink,
+			SupportLink: supportLink,
+		}
+	case console.BillingFreeze:
+		days := int(chore.freezeConfig.BillingFreezeGracePeriod.Hours() / 24)
+		if event.NotificationsCount != 0 {
+			days = *event.DaysTillEscalation - elapsedTime
+		}
+		message = &console.BillingFreezeNotificationEmail{
+			EmailNumber: event.NotificationsCount + 1,
+			Days:        days,
+			SignInLink:  signInLink,
+			SupportLink: supportLink,
+		}
+	case console.TrialExpirationFreeze:
+		incrementNotificationCount = false
+		message = &console.TrialExpirationEscalationReminderEmail{
+			SupportLink: supportLink,
+		}
+	default:
+		return Error.New("unknown event type")
+	}
+
+	chore.mailService.SendRenderedAsync(ctx, []post.Address{{Address: user.Email}}, message)
+
+	if incrementNotificationCount {
+		err := chore.freezeService.IncrementNotificationsCount(ctx, user.ID, event.Type)
+		if err != nil {
+			return err
+		}
+	}
+
+	return nil
 }
 
 // TestSetNow sets nowFn on chore for testing.

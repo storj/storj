@@ -4,6 +4,7 @@
 package consoleweb_test
 
 import (
+	"context"
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
@@ -25,6 +26,7 @@ import (
 	"storj.io/storj/satellite"
 	"storj.io/storj/satellite/accounting"
 	"storj.io/storj/satellite/console"
+	"storj.io/storj/satellite/payments"
 	"storj.io/storj/satellite/payments/storjscan/blockchaintest"
 )
 
@@ -164,6 +166,8 @@ func TestAuth(t *testing.T) {
 				ServerSideEncryption:     false,
 				PartnerUpgradeBanner:     false,
 				ProjectMembersPassphrase: false,
+				UploadOverwriteWarning:   false,
+				VersioningBetaBanner:     false,
 			}
 
 			testGetSettings(expectedSettings{
@@ -181,6 +185,8 @@ func TestAuth(t *testing.T) {
 			noticeDismissal.ServerSideEncryption = true
 			noticeDismissal.PartnerUpgradeBanner = true
 			noticeDismissal.ProjectMembersPassphrase = true
+			noticeDismissal.UploadOverwriteWarning = true
+			noticeDismissal.VersioningBetaBanner = true
 			resp, _ := test.request(http.MethodPatch, "/auth/account/settings",
 				test.toJSON(map[string]interface{}{
 					"sessionDuration":  duration,
@@ -193,6 +199,8 @@ func TestAuth(t *testing.T) {
 						"serverSideEncryption":     noticeDismissal.ServerSideEncryption,
 						"partnerUpgradeBanner":     noticeDismissal.PartnerUpgradeBanner,
 						"projectMembersPassphrase": noticeDismissal.ProjectMembersPassphrase,
+						"uploadOverwriteWarning":   noticeDismissal.UploadOverwriteWarning,
+						"versioningBetaBanner":     noticeDismissal.VersioningBetaBanner,
 					},
 				}))
 
@@ -286,6 +294,43 @@ func TestAuth(t *testing.T) {
 	})
 }
 
+func TestAnalytics(t *testing.T) {
+	testplanet.Run(t, testplanet.Config{
+		SatelliteCount: 1, StorageNodeCount: 0, UplinkCount: 1,
+		Reconfigure: testplanet.Reconfigure{
+			Satellite: func(log *zap.Logger, index int, config *satellite.Config) {
+				config.Console.RateLimit.Burst = 10
+			},
+		},
+	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+		// test that sending /pageview event doesn't require authentication
+		test := newTest(t, ctx, planet)
+		user := test.defaultUser()
+
+		{ // Register User
+			_ = test.registerUser("user@mail.test", "#$Rnkl12i3nkljfds")
+		}
+
+		{ // Analytics_Pageview
+			resp, _ := test.request(
+				http.MethodPost, "/analytics/pageview",
+				strings.NewReader(`{"url":"https://url.com/page","name":"pageview", "props": {"test": "test"}, "referrer": "storj.io"}`))
+			require.Equal(t, http.StatusAccepted, resp.StatusCode)
+		}
+
+		{ // Login_GetToken_Pass
+			test.login(user.email, user.password)
+		}
+
+		{ // Analytics_Pageview
+			resp, _ := test.request(
+				http.MethodPost, "/analytics/pageview",
+				strings.NewReader(`{"url":"https://url.com/page","name":"pageview", "props": {"test": "test"}, "referrer": "storj.io"}`))
+			require.Equal(t, http.StatusAccepted, resp.StatusCode)
+		}
+	})
+}
+
 func TestPayments(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
 		SatelliteCount: 1, StorageNodeCount: 0, UplinkCount: 1,
@@ -338,12 +383,32 @@ func TestPayments(t *testing.T) {
 			require.Contains(t, body, "egress")
 			require.Equal(t, http.StatusOK, resp.StatusCode)
 		}
+
+		{ // Get_TaxCountries
+			resp, body := test.request(http.MethodGet, "/payments/countries", nil)
+			var countries []payments.TaxCountry
+			require.Equal(t, http.StatusOK, resp.StatusCode)
+			require.NoError(t, json.Unmarshal([]byte(body), &countries))
+			require.Equal(t, payments.TaxCountries, countries)
+
+			taxes := make([]payments.Tax, 0)
+			for _, tax := range payments.Taxes {
+				if tax.CountryCode == countries[0].Code {
+					taxes = append(taxes, tax)
+				}
+			}
+			resp, body = test.request(http.MethodGet, "/payments/countries/"+string(countries[0].Code)+"/taxes", nil)
+			var txs []payments.Tax
+			require.Equal(t, http.StatusOK, resp.StatusCode)
+			require.NoError(t, json.Unmarshal([]byte(body), &txs))
+			require.Equal(t, taxes, txs)
+		}
 	})
 }
 
 func TestWalletPayments(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
-		SatelliteCount: 1, StorageNodeCount: 0, UplinkCount: 1,
+		SatelliteCount: 1, StorageNodeCount: 0, UplinkCount: 1, EnableSpanner: true,
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 		test := newTest(t, ctx, planet)
 		sat := planet.Satellites[0]
@@ -538,7 +603,7 @@ func TestProjects(t *testing.T) {
 					"name": "My Second Project with a long name",
 				}))
 			require.Contains(t, body, "error")
-			require.Equal(t, http.StatusInternalServerError, resp.StatusCode)
+			require.Equal(t, http.StatusBadRequest, resp.StatusCode)
 		}
 
 		{ // Post_ProjectRename
@@ -547,6 +612,31 @@ func TestProjects(t *testing.T) {
 					"name": "new name",
 				}))
 			require.Equal(t, http.StatusOK, resp.StatusCode)
+		}
+
+		{ // Versioning_Opt_In
+			projectID, err := uuid.FromString(test.defaultProjectID())
+			require.NoError(t, err)
+
+			checkVersioning := func(prompted bool, versioning console.DefaultVersioning) {
+				project, err := planet.Satellites[0].DB.Console().Projects().Get(ctx, projectID)
+				require.NoError(t, err)
+
+				require.Equal(t, prompted, project.PromptedForVersioningBeta)
+				require.Equal(t, versioning, project.DefaultVersioning)
+			}
+
+			checkVersioning(false, console.Unversioned)
+
+			resp, _ := test.request(http.MethodPatch, fmt.Sprintf("/projects/%s/versioning-opt-out", projectID), nil)
+			require.Equal(t, http.StatusOK, resp.StatusCode)
+
+			checkVersioning(true, console.VersioningUnsupported)
+
+			resp, _ = test.request(http.MethodPatch, fmt.Sprintf("/projects/%s/versioning-opt-in", projectID), nil)
+			require.Equal(t, http.StatusOK, resp.StatusCode)
+
+			checkVersioning(true, console.Unversioned)
 		}
 	})
 }
@@ -563,6 +653,9 @@ func TestWrongUser(t *testing.T) {
 		test := newTest(t, ctx, planet)
 		authorizedUser := test.defaultUser()
 		unauthorizedUser := test.registerUser("user@mail.test", "#$Rnkl12i3nkljfds")
+		if planet.Satellites[0].Config.Console.SignupActivationCodeEnabled {
+			test.activateUser(ctx, unauthorizedUser.email)
+		}
 
 		type endpointTest struct {
 			endpoint string
@@ -804,6 +897,18 @@ func (test *test) registerUser(email, password string) registeredUser {
 		email:    email,
 		password: password,
 	}
+}
+
+func (test *test) activateUser(ctx context.Context, email string) {
+	usersDB := test.planet.Satellites[0].DB.Console().Users()
+
+	_, users, err := usersDB.GetByEmailWithUnverified(ctx, email)
+	require.NoError(test.t, err)
+	require.Len(test.t, users, 1)
+
+	activeStatus := console.Active
+	err = usersDB.Update(ctx, users[0].ID, console.UpdateUserRequest{Status: &activeStatus})
+	require.NoError(test.t, err)
 }
 
 func findCookie(response Response, name string) *http.Cookie {

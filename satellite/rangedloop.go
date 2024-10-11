@@ -131,25 +131,8 @@ func NewRangedLoop(log *zap.Logger, db DB, metabaseDB *metabase.DB, config *Conf
 		)
 	}
 
-	{ // setup
-		classes := map[string]func(node *nodeselection.SelectedNode) string{
-			"email": func(node *nodeselection.SelectedNode) string {
-				return node.Email
-			},
-			"wallet": func(node *nodeselection.SelectedNode) string {
-				return node.Wallet
-			},
-			"net": func(node *nodeselection.SelectedNode) string {
-				return node.LastNet
-			},
-		}
-		for class, f := range classes {
-			peer.DurabilityReport.Observer = append(peer.DurabilityReport.Observer, durability.NewDurability(db.OverlayCache(), metabaseDB, class, f, config.Metainfo.RS.Total, config.Metainfo.RS.Repair, config.Metainfo.RS.Repair-config.Metainfo.RS.Min, config.RangedLoop.AsOfSystemInterval))
-		}
-	}
-
 	{ // setup overlay
-		placement, err := config.Placement.Parse(config.Overlay.Node.CreateDefaultPlacement)
+		placement, err := config.Placement.Parse(config.Overlay.Node.CreateDefaultPlacement, nil)
 		if err != nil {
 			return nil, err
 		}
@@ -165,8 +148,26 @@ func NewRangedLoop(log *zap.Logger, db DB, metabaseDB *metabase.DB, config *Conf
 		})
 	}
 
+	{ // setup
+		classes := map[string]func(node *nodeselection.SelectedNode) string{
+			"email": func(node *nodeselection.SelectedNode) string {
+				return node.Email
+			},
+			"wallet": func(node *nodeselection.SelectedNode) string {
+				return node.Wallet
+			},
+			"net": func(node *nodeselection.SelectedNode) string {
+				return node.LastNet
+			},
+		}
+		for class, f := range classes {
+			cache := checker.NewReliabilityCache(peer.Overlay.Service, config.Checker.ReliabilityCacheStaleness)
+			peer.DurabilityReport.Observer = append(peer.DurabilityReport.Observer, durability.NewDurability(db.OverlayCache(), metabaseDB, cache, class, f, config.Metainfo.RS.Repair-config.Metainfo.RS.Min, config.RangedLoop.AsOfSystemInterval))
+		}
+	}
+
 	{ // setup repair
-		placement, err := config.Placement.Parse(config.Overlay.Node.CreateDefaultPlacement)
+		placement, err := config.Placement.Parse(config.Overlay.Node.CreateDefaultPlacement, nil)
 		if err != nil {
 			return nil, err
 		}
@@ -214,14 +215,14 @@ func NewRangedLoop(log *zap.Logger, db DB, metabaseDB *metabase.DB, config *Conf
 				sequenceObservers = append(sequenceObservers, observer)
 			}
 
-			// suffle observers list to be sure that each observer will be executed first from time to time
+			// shuffle observers list to be sure that each observer will be executed first from time to time
 			rand.Shuffle(len(sequenceObservers), func(i, j int) {
 				sequenceObservers[i], sequenceObservers[j] = sequenceObservers[j], sequenceObservers[i]
 			})
 			observers = append(observers, rangedloop.NewSequenceObserver(sequenceObservers...))
 		}
 
-		segments := rangedloop.NewMetabaseRangeSplitter(metabaseDB, config.RangedLoop.AsOfSystemInterval, config.RangedLoop.BatchSize)
+		segments := rangedloop.NewMetabaseRangeSplitter(metabaseDB, config.RangedLoop.AsOfSystemInterval, config.RangedLoop.SpannerStaleInterval, config.RangedLoop.BatchSize)
 		peer.RangedLoop.Service = rangedloop.NewService(log.Named("rangedloop"), config.RangedLoop, segments, observers)
 
 		peer.Services.Add(lifecycle.Item{

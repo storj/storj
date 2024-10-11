@@ -5,6 +5,7 @@ package console
 
 import (
 	"context"
+	"database/sql/driver"
 	"net/mail"
 	"time"
 
@@ -22,18 +23,25 @@ import (
 type Users interface {
 	// Get is a method for querying user from the database by id.
 	Get(ctx context.Context, id uuid.UUID) (*User, error)
-	// GetExpiredFreeTrialsAfter is a method for querying users in free trial from the database with trial expiry (after).
-	GetExpiredFreeTrialsAfter(ctx context.Context, after time.Time, cursor UserCursor) (*UsersPage, error)
+	// GetExpiredFreeTrialsAfter is a method for querying users that are in free trial from the database with trial expiry (after)
+	// AND have not been frozen.
+	GetExpiredFreeTrialsAfter(ctx context.Context, after time.Time, limit int) ([]User, error)
+	// GetExpiresBeforeWithStatus returns users with a particular trial notification status and whose trial expires before 'expiresBefore'.
+	GetExpiresBeforeWithStatus(ctx context.Context, notificationStatus TrialNotificationStatus, expiresBefore time.Time) ([]*User, error)
 	// GetUnverifiedNeedingReminder gets unverified users needing a reminder to verify their email.
 	GetUnverifiedNeedingReminder(ctx context.Context, firstReminder, secondReminder, cutoff time.Time) ([]*User, error)
+	// GetEmailsForDeletion is a method for querying user account emails which were requested for deletion by the user and can be deleted.
+	GetEmailsForDeletion(ctx context.Context, statusUpdatedBefore time.Time) ([]string, error)
 	// UpdateVerificationReminders increments verification_reminders.
 	UpdateVerificationReminders(ctx context.Context, id uuid.UUID) error
 	// UpdateFailedLoginCountAndExpiration increments failed_login_count and sets login_lockout_expiration appropriately.
-	UpdateFailedLoginCountAndExpiration(ctx context.Context, failedLoginPenalty *float64, id uuid.UUID) error
+	UpdateFailedLoginCountAndExpiration(ctx context.Context, failedLoginPenalty *float64, id uuid.UUID, now time.Time) error
 	// GetByEmailWithUnverified is a method for querying users by email from the database.
 	GetByEmailWithUnverified(ctx context.Context, email string) (verified *User, unverified []User, err error)
 	// GetByStatus is a method for querying user by status from the database.
 	GetByStatus(ctx context.Context, status UserStatus, cursor UserCursor) (*UsersPage, error)
+	// GetUserInfoByProjectID gets the user info of the project (id) owner.
+	GetUserInfoByProjectID(ctx context.Context, id uuid.UUID) (*UserInfo, error)
 	// GetByEmail is a method for querying user by verified email from the database.
 	GetByEmail(ctx context.Context, email string) (*User, error)
 	// Insert is a method for inserting user into the database.
@@ -66,12 +74,6 @@ type Users interface {
 	UpsertSettings(ctx context.Context, userID uuid.UUID, settings UpsertUserSettingsRequest) error
 }
 
-// UserInfo holds User updatable data.
-type UserInfo struct {
-	FullName  string `json:"fullName"`
-	ShortName string `json:"shortName"`
-}
-
 // UserCursor holds info for user info cursor pagination.
 type UserCursor struct {
 	Limit uint `json:"limit"`
@@ -90,15 +92,9 @@ type UsersPage struct {
 	TotalCount  uint64 `json:"totalCount"`
 }
 
-// IsValid checks UserInfo validity and returns error describing whats wrong.
-// The returned error has the class ErrValidation.
-func (user *UserInfo) IsValid() error {
-	// validate fullName
-	if err := ValidateFullName(user.FullName); err != nil {
-		return ErrValidation.Wrap(err)
-	}
-
-	return nil
+// UserInfo holds minimal user info.
+type UserInfo struct {
+	Status UserStatus
 }
 
 // CreateUser struct holds info for User creation.
@@ -120,6 +116,7 @@ type CreateUser struct {
 	ActivationCode   string `json:"-"`
 	SignupId         string `json:"-"`
 	AllowNoName      bool   `json:"-"`
+	PaidTier         bool   `json:"-"`
 }
 
 // IsValid checks CreateUser validity and returns error describing whats wrong.
@@ -185,6 +182,8 @@ const (
 	LegalHold UserStatus = 4
 	// PendingBotVerification is a status that user receives after account activation but with high captcha score.
 	PendingBotVerification UserStatus = 5
+	// UserRequestedDeletion is a status that user receives after account owner completed delete account flow.
+	UserRequestedDeletion UserStatus = 6
 )
 
 // String returns a string representation of the user status.
@@ -207,6 +206,11 @@ func (s UserStatus) String() string {
 	}
 }
 
+// Value implements database/sql/driver.Valuer for UserStatus.
+func (s UserStatus) Value() (driver.Value, error) {
+	return int64(s), nil
+}
+
 // User is a database object that describes User entity.
 type User struct {
 	ID uuid.UUID `json:"id"`
@@ -217,8 +221,9 @@ type User struct {
 	Email        string `json:"email"`
 	PasswordHash []byte `json:"-"`
 
-	Status    UserStatus `json:"status"`
-	UserAgent []byte     `json:"userAgent"`
+	Status          UserStatus `json:"status"`
+	StatusUpdatedAt *time.Time `json:"-"`
+	UserAgent       []byte     `json:"userAgent"`
 
 	CreatedAt time.Time `json:"createdAt"`
 
@@ -236,6 +241,8 @@ type User struct {
 	EmployeeCount  string `json:"employeeCount"`
 
 	HaveSalesContact bool `json:"haveSalesContact"`
+
+	FinalInvoiceGenerated bool `json:"-"`
 
 	MFAEnabled       bool     `json:"mfaEnabled"`
 	MFASecretKey     string   `json:"-"`
@@ -257,6 +264,9 @@ type User struct {
 
 	TrialExpiration *time.Time `json:"trialExpiration"`
 	UpgradeTime     *time.Time `json:"upgradeTime"`
+
+	NewUnverifiedEmail          *string `json:"-"`
+	EmailChangeVerificationStep int     `json:"-"`
 }
 
 // ResponseUser is an entity which describes db User and can be sent in response.
@@ -312,7 +322,8 @@ type UpdateUserRequest struct {
 	Email        *string
 	PasswordHash []byte
 
-	Status *UserStatus
+	Status          *UserStatus
+	StatusUpdatedAt *time.Time
 
 	ProjectLimit          *int
 	ProjectStorageLimit   *int64
@@ -328,6 +339,8 @@ type UpdateUserRequest struct {
 	// to set it to NULL, so it doesn't need to be a double pointer here.
 	FailedLoginCount *int
 
+	FinalInvoiceGenerated *bool
+
 	LoginLockoutExpiration **time.Time
 
 	DefaultPlacement storj.PlacementConstraint
@@ -335,8 +348,12 @@ type UpdateUserRequest struct {
 	ActivationCode *string
 	SignupId       *string
 
-	TrialExpiration **time.Time
-	UpgradeTime     *time.Time
+	TrialExpiration    **time.Time
+	TrialNotifications *TrialNotificationStatus
+	UpgradeTime        *time.Time
+
+	NewUnverifiedEmail          **string
+	EmailChangeVerificationStep *int
 }
 
 // UserSettings contains configurations for a user.
@@ -366,17 +383,52 @@ type NoticeDismissal struct {
 	ServerSideEncryption     bool `json:"serverSideEncryption"`
 	PartnerUpgradeBanner     bool `json:"partnerUpgradeBanner"`
 	ProjectMembersPassphrase bool `json:"projectMembersPassphrase"`
+	UploadOverwriteWarning   bool `json:"uploadOverwriteWarning"`
+	VersioningBetaBanner     bool `json:"versioningBetaBanner"`
 }
 
 // SetUpAccountRequest holds data for completing account setup.
 type SetUpAccountRequest struct {
-	FullName         string  `json:"fullName"`
-	IsProfessional   bool    `json:"isProfessional"`
-	Position         *string `json:"position"`
-	CompanyName      *string `json:"companyName"`
-	EmployeeCount    *string `json:"employeeCount"`
-	StorageNeeds     *string `json:"storageNeeds"`
-	StorageUseCase   *string `json:"storageUseCase"`
-	FunctionalArea   *string `json:"functionalArea"`
-	HaveSalesContact bool    `json:"haveSalesContact"`
+	IsProfessional         bool    `json:"isProfessional"`
+	FirstName              *string `json:"firstName"`
+	LastName               *string `json:"lastName"`
+	FullName               *string `json:"fullName"`
+	Position               *string `json:"position"`
+	CompanyName            *string `json:"companyName"`
+	EmployeeCount          *string `json:"employeeCount"`
+	StorageNeeds           *string `json:"storageNeeds"`
+	StorageUseCase         *string `json:"storageUseCase"`
+	OtherUseCase           *string `json:"otherUseCase"`
+	FunctionalArea         *string `json:"functionalArea"`
+	HaveSalesContact       bool    `json:"haveSalesContact"`
+	InterestedInPartnering bool    `json:"interestedInPartnering"`
+}
+
+// DeleteAccountResponse holds data for account deletion UI flow.
+type DeleteAccountResponse struct {
+	OwnedProjects       int   `json:"ownedProjects"`
+	Buckets             int   `json:"buckets"`
+	ApiKeys             int   `json:"apiKeys"`
+	UnpaidInvoices      int   `json:"unpaidInvoices"`
+	AmountOwed          int64 `json:"amountOwed"`
+	CurrentUsage        bool  `json:"currentUsage"`
+	InvoicingIncomplete bool  `json:"invoicingIncomplete"`
+	Success             bool  `json:"success"`
+}
+
+// TrialNotificationStatus is an enum representing a type of trial notification.
+type TrialNotificationStatus int
+
+const (
+	// NoTrialNotification represents the default state of no email notification sent.
+	NoTrialNotification TrialNotificationStatus = iota
+	// TrialExpirationReminder represents trial expiration reminder has been sent.
+	TrialExpirationReminder
+	// TrialExpired represents trial expired notification has been sent.
+	TrialExpired
+)
+
+// Value implements database/sql/driver.Valuer for TrialNotificationStatus.
+func (t TrialNotificationStatus) Value() (driver.Value, error) {
+	return int64(t), nil
 }

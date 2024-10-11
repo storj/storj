@@ -7,13 +7,17 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"time"
 
+	"cloud.google.com/go/spanner"
 	"github.com/spacemonkeygo/monkit/v3"
 	"github.com/zeebo/errs"
+	"google.golang.org/grpc/codes"
 
-	"storj.io/common/dbutil/cockroachutil"
-	"storj.io/common/dbutil/txutil"
-	"storj.io/common/tagsql"
+	"storj.io/storj/shared/dbutil"
+	"storj.io/storj/shared/dbutil/cockroachutil"
+	"storj.io/storj/shared/dbutil/txutil"
+	"storj.io/storj/shared/tagsql"
 )
 
 //go:generate go run ./gen
@@ -30,6 +34,12 @@ func init() {
 		case ErrorCode_ConstraintViolation:
 			return class.Wrap(&constraintError{e.Constraint, e.Err})
 		}
+		if spanner.ErrCode(e) == codes.Canceled {
+			// Spanner returns its own error codes for things like a canceled database operation via the context
+			// being canceled. Wrap the error here with the general context.Canceled error so upstream logic can
+			// handle the consistent error.
+			return class.Wrap(errors.Join(context.Canceled, e))
+		}
 		return class.Wrap(e)
 	}
 	ShouldRetry = func(driver string, err error) bool {
@@ -39,9 +49,6 @@ func init() {
 		return false
 	}
 }
-
-// Unwrap returns the underlying error.
-func (e *Error) Unwrap() error { return e.Err }
 
 // Cause returns the underlying error.
 func (e *Error) Cause() error { return e.Err }
@@ -76,4 +83,37 @@ func (db *DB) WithTx(ctx context.Context, fn func(context.Context, *Tx) error) (
 			txMethods: db.wrapTx(tx),
 		})
 	})
+}
+
+// DriverMethods contains both the driver and generated driver methods.
+type DriverMethods interface {
+	driver
+	DialectMethods
+	Methods
+}
+
+/* Expose internal driver, so we don't have to keep passing them separately to services. */
+
+func (*pgxImpl) AsOfSystemTime(t time.Time) string {
+	return dbutil.Postgres.AsOfSystemTime(t)
+}
+
+func (*pgxcockroachImpl) AsOfSystemTime(t time.Time) string {
+	return dbutil.Cockroach.AsOfSystemTime(t)
+}
+
+func (*spannerImpl) AsOfSystemTime(t time.Time) string {
+	return dbutil.Spanner.AsOfSystemTime(t)
+}
+
+func (*pgxImpl) AsOfSystemInterval(t time.Duration) string {
+	return dbutil.Postgres.AsOfSystemInterval(t)
+}
+
+func (*pgxcockroachImpl) AsOfSystemInterval(t time.Duration) string {
+	return dbutil.Cockroach.AsOfSystemInterval(t)
+}
+
+func (*spannerImpl) AsOfSystemInterval(t time.Duration) string {
+	return dbutil.Spanner.AsOfSystemInterval(t)
 }

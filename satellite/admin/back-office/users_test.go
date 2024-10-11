@@ -111,7 +111,7 @@ func TestGetUser(t *testing.T) {
 			require.NoError(t, err)
 			projects = append(projects, proj)
 
-			_, err = consoleDB.ProjectMembers().Insert(ctx, user.User.ID, proj.ID)
+			_, err = consoleDB.ProjectMembers().Insert(ctx, user.User.ID, proj.ID, console.RoleAdmin)
 			require.NoError(t, err)
 
 			bucket, err := sat.DB.Buckets().CreateBucket(ctx, buckets.Bucket{
@@ -126,7 +126,7 @@ func TestGetUser(t *testing.T) {
 			for objNum := 0; objNum < projNum*10; objNum++ {
 				obj := metabasetest.CreateObject(ctx, t, sat.Metabase.DB, metabase.ObjectStream{
 					ProjectID:  proj.ID,
-					BucketName: bucket.Name,
+					BucketName: metabase.BucketName(bucket.Name),
 					ObjectKey:  metabasetest.RandObjectKey(),
 					Version:    12345,
 					StreamID:   testrand.UUID(),

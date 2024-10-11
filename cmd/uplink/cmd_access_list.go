@@ -32,7 +32,9 @@ func (c *cmdAccessList) Setup(params clingy.Parameters) {
 	).(bool)
 }
 
-func (c *cmdAccessList) Execute(ctx context.Context) error {
+func (c *cmdAccessList) Execute(ctx context.Context) (err error) {
+	defer mon.Task()(&ctx)(&err)
+
 	defaultName, accesses, err := c.ex.GetAccessInfo(true)
 	if err != nil {
 		return err

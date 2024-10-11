@@ -75,30 +75,11 @@ func (client *Client) All(ctx context.Context) (ver version.AllowedVersions, err
 	defer func() { _ = resp.Body.Close() }()
 
 	if resp.StatusCode != http.StatusOK {
-		return version.AllowedVersions{}, Error.New("non-success http status code: %d; body: %s\n", resp.StatusCode, body)
+		return version.AllowedVersions{}, Error.New("non-success http status '%s' code: %d; body: %s\n", client.config.ServerAddress, resp.StatusCode, body)
 	}
 
 	err = json.NewDecoder(bytes.NewReader(body)).Decode(&ver)
 	return ver, Error.Wrap(err)
-}
-
-// OldMinimum returns the version with the given name at the root-level of the version control response.
-// NB: This will be deprecated eventually in favor of what is currently the `processes` root-level object.
-func (client *Client) OldMinimum(ctx context.Context, serviceName string) (ver version.OldSemVer, err error) {
-	defer mon.Task()(&ctx, serviceName)(&err)
-
-	versions, err := client.All(ctx)
-	if err != nil {
-		return version.OldSemVer{}, Error.Wrap(err)
-	}
-
-	r := reflect.ValueOf(&versions)
-	f := reflect.Indirect(r).FieldByName(serviceName).Interface()
-	result, ok := f.(version.OldSemVer)
-	if !ok {
-		return version.OldSemVer{}, Error.New("invalid process name: %s", serviceName)
-	}
-	return result, nil
 }
 
 // Process returns the version info for the named process from the version control server response.

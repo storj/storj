@@ -13,12 +13,13 @@ import (
 
 	"storj.io/common/identity/testidentity"
 	"storj.io/common/storj"
-	"storj.io/common/storj/location"
 	"storj.io/common/testcontext"
+	"storj.io/common/testrand"
 	"storj.io/storj/satellite/metabase"
 	"storj.io/storj/satellite/metabase/rangedloop"
 	"storj.io/storj/satellite/nodeselection"
 	"storj.io/storj/satellite/repair/queue"
+	"storj.io/storj/shared/location"
 )
 
 func TestObserverForkProcess(t *testing.T) {
@@ -48,7 +49,7 @@ func TestObserverForkProcess(t *testing.T) {
 	ctx := testcontext.New(t)
 	createDefaultObserver := func() *Observer {
 		o := &Observer{
-			statsCollector: make(map[storj.RedundancyScheme]*observerRSStats),
+			statsCollector: make(map[redundancyStyle]*observerRSStats),
 			nodesCache: &ReliabilityCache{
 				staleness: time.Hour,
 			},
@@ -68,7 +69,7 @@ func TestObserverForkProcess(t *testing.T) {
 		return &observerFork{
 			log:              zaptest.NewLogger(t),
 			getObserverStats: o.getObserverStats,
-			rsStats:          make(map[storj.RedundancyScheme]*partialRSStats),
+			rsStats:          make(map[redundancyStyle]*partialRSStats),
 			doDeclumping:     o.doDeclumping,
 			doPlacementCheck: o.doPlacementCheck,
 			placements:       o.placements,
@@ -128,6 +129,7 @@ func TestObserverForkProcess(t *testing.T) {
 				OptimalShares:  8,
 				TotalShares:    10,
 			},
+			RootPieceID: testrand.PieceID(),
 		})
 		require.NoError(t, err)
 
@@ -144,7 +146,7 @@ func TestObserverForkProcess(t *testing.T) {
 
 		placements := nodeselection.ConfigurablePlacementRule{}
 		require.NoError(t, placements.Set(fmt.Sprintf(`10:annotated(country("DE"),annotation("%s","%s"))`, nodeselection.AutoExcludeSubnet, nodeselection.AutoExcludeSubnetOFF)))
-		parsed, err := placements.Parse(nil)
+		parsed, err := placements.Parse(nil, nil)
 		require.NoError(t, err)
 		o.placements = parsed
 

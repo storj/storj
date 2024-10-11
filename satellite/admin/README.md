@@ -28,7 +28,8 @@ Requires setting `Authorization` header for requests.
             * [PUT /api/users/{user-email}/trial-expiration-freeze](#put-apiusersuser-emailtrial-expiration-freeze)
             * [DELETE /api/users/{user-email}/trial-expiration-freeze](#delete-apiusersuser-emailtrial-expiration-freeze)
             * [DELETE /api/users/{user-email}/billing-warning](#delete-apiusersuser-emailbilling-warning)
-            * [GET /api/users/pending-deletion](#get-apiuserspending-deletion)
+            * [GET /api/users/deletion/pending](#get-apiusersdeletionpending)
+            * [GET /api/users/deletion/requested-by-user](#get-apiusersdeletionrequested-by-user)
             * [PATCH /api/users/{user-email}/geofence](#patch-apiusersuser-emailgeofence)
             * [DELETE /api/users/{user-email}/geofence](#delete-apiusersuser-emailgeofence)
             * [PATCH /api/users/{user-email}/activate-account/disable-bot-restriction](#patch-apiusersuser-emailactivate-accountdisable-bot-restriction)
@@ -54,6 +55,8 @@ Requires setting `Authorization` header for requests.
                 * [PUT /api/projects/{project-id}/limit?buckets={value}](#put-apiprojectsproject-idlimitbucketsvalue)
                 * [PUT /api/projects/{project-id}/limit?burst={value}](#put-apiprojectsproject-idlimitburstvalue)
                 * [PUT /api/projects/{project-id}/limit?segments={value}](#put-apiprojectsproject-idlimitsegmentsvalue)
+            * [PUT /api/projects/{project-id}/geofence?region={value}](#put-apiprojectsproject-idgeofenceregionvalue)
+            * [DELETE /api/projects/{project-id}/geofence](#delete-apiprojectsproject-idgeofence)
         * [Bucket Management](#bucket-management)
             * [GET /api/projects/{project-id}/buckets/{bucket-name}](#get-apiprojectsproject-idbucketsbucket-name)
             * [Geofencing](#geofencing)
@@ -67,6 +70,12 @@ Requires setting `Authorization` header for requests.
             * [PUT /api/restkeys/{api-key}/revoke](#put-apirestkeysapi-keyrevoke)
 
 <!-- tocstop -->
+
+**NOTE** The API has endpoints which are deprecated in favor of using
+[storj-admin](https://github.com/storj/storj-admin/), but they are keep it because we have tooling
+that may use them. The deprecated endpoints are marked with a `DEPRECATED` in this document.
+
+The deprecated endpoints are not accessible through the Web UI.
 
 ## API design
 
@@ -120,7 +129,7 @@ A successful response body:
 }
 ```
 
-#### PUT /api/users/{user-email}
+#### PUT /api/users/{user-email} - DEPRECATED
 
 Updates the details of existing user found by its email.
 
@@ -145,7 +154,7 @@ Some example request bodies:
 }
 ```
 
-#### GET /api/users/{user-email}
+#### GET /api/users/{user-email} - DEPRECATED
 
 This endpoint returns information about user and their projects.
 
@@ -171,7 +180,7 @@ A successful response body:
 }
 ```
 
-#### GET /api/users/{user-email}/limits
+#### GET /api/users/{user-email}/limits - DEPRECATED
 
 This endpoint returns information about users limits.
 
@@ -230,13 +239,21 @@ Removes the trial expiration freeze on a user account, reinstating account limit
 
 Removes the billing warning status from a user's account.
 
-#### GET /api/users/pending-deletion
+#### GET /api/users/deletion/pending
 
 Returns a limited list of users pending deletion and have no unpaid invoices.
 Required parameters: `limit` and `page`.
-Example: `/api/users/pending-deletion?limit=10&page=1`
 
-#### PATCH /api/users/{user-email}/geofence
+Example: `/api/users/deletion/pending?limit=10&page=1`
+
+#### GET /api/users/deletion/requested-by-user
+
+Returns a CSV of user account emails which were requested for deletion by users themselves.
+Required parameters: `before`.
+
+Example: `/api/users/deletion/requested-by-user?before=2021-01-01T00:00:00.000Z`
+
+#### PATCH /api/users/{user-email}/geofence - DEPRECATED
 
 Sets the account level geofence for the user.
 
@@ -248,7 +265,7 @@ Example request:
 }
 ```
 
-#### DELETE /api/users/{user-email}/geofence
+#### DELETE /api/users/{user-email}/geofence - DEPRECATED
 
 Removes the account level geofence for the user.
 
@@ -338,11 +355,11 @@ A successful response body:
 }
 ```
 
-#### GET /api/projects/{project-id}
+#### GET /api/projects/{project-id} - DEPRECATED
 
 Gets the common information about a project.
 
-#### PUT /api/projects/{project-id}
+#### PUT /api/projects/{project-id} - DEPRECATED
 
 Updates project name or description.
 
@@ -415,7 +432,7 @@ This endpoint returns whether the project has outstanding usage or not.
 A project with not usage returns status code 200 and `{"result":"no project usage exist"}`.
 Otherwise, it returns status code 409 with a JSON error.`{"error":"usage for current month exists""}`.
 
-#### GET /api/projects/{project-id}/limit
+#### GET /api/projects/{project-id}/limit - DEPRECATED
 
 This endpoint returns information about project limits.
 
@@ -452,41 +469,56 @@ Using the 0 number means to set them exactly to 0, which is not the same than us
 value. Default values are applied when they are `nil`. Only the indicated fields support to set the
 default value to `nil` using the -1 number.
 
-##### PUT /api/projects/{project-id}/limit?usage={value}
+##### PUT /api/projects/{project-id}/limit?usage={value} - DEPRECATED
 
 Updates usage limit for a project. The value must be in bytes.
 
-##### PUT /api/projects/{project-id}/limit?bandwidth={value}
+##### PUT /api/projects/{project-id}/limit?bandwidth={value} - DEPRECATED
 
 Updates bandwidth limit for a project. The value must be in bytes.
 
-##### PUT /api/projects/{project-id}/limit?rate={value}
+##### PUT /api/projects/{project-id}/limit?rate={value} - DEPRECATED
 
 Updates rate limit for a project.
 
 Accepts -1 to set to `nil`.
 
-##### PUT /api/projects/{project-id}/limit?buckets={value}
+##### PUT /api/projects/{project-id}/limit?buckets={value} - DEPRECATED
 
 Updates number of buckets limit for a project.
 
 Accepts -1 to set to `nil`.
 
-##### PUT /api/projects/{project-id}/limit?burst={value}
+##### PUT /api/projects/{project-id}/limit?burst={value} - DEPRECATED
 
 Updates burst limit for a project.
 
 Accepts -1 to set to `nil`.
 
-##### PUT /api/projects/{project-id}/limit?segments={value}
+##### PUT /api/projects/{project-id}/limit?segments={value} - DEPRECATED
 
 Updates number of segments limit for a project.
+
+#### PUT /api/projects/{project-id}/geofence?region={value}
+
+Updates the geofence configuration for the specified project.
+
+If the project's geofence isn't set yet, this method will set it. If the project's geofence is
+already set and you want to unset it, you must use the DELETE method.
+
+`value` must be one of the following `EU`, `EEA`, `US`, `DE`, or `NR`.
+
+#### DELETE /api/projects/{project-id}/geofence
+
+Unset the geofence configuration for the specified project.
+
+If the project's geofence isn't set yet, this method won't return an error and will do nothing.
 
 ### Bucket Management
 
 This set of APIs provide administrative functionality over bucket functionality.
 
-#### GET /api/projects/{project-id}/buckets/{bucket-name}
+#### GET /api/projects/{project-id}/buckets/{bucket-name} - DEPRECATED
 
 Returns all the information of the specified bucket.
 
@@ -494,7 +526,7 @@ Returns all the information of the specified bucket.
 
 Manage geofencing capabilities for a given bucket.
 
-##### POST /api/projects/{project-id}/buckets/{bucket-name}/geofence?region={value}
+##### POST /api/projects/{project-id}/buckets/{bucket-name}/geofence?region={value} - DEPRECATED
 
 Enables the geofencing configuration for the specified bucket. The bucket MUST be empty in order for this to work. Valid
 values for the `region` parameter are:
@@ -508,7 +540,7 @@ values for the `region` parameter are:
 
 [European Economic Area]: https://github.com/storj/common/blob/main/storj/location/region.go#L7
 
-##### DELETE /api/projects/{project-id}/buckets/{bucket-name}/geofence
+##### DELETE /api/projects/{project-id}/buckets/{bucket-name}/geofence - DEPRECATED
 
 Removes the geofencing configuration for the specified bucket. The bucket MUST be empty in order for this to work.
 

@@ -5,23 +5,24 @@
     <v-container>
         <trial-expiration-banner v-if="isTrialExpirationBanner" :expired="isExpired" />
 
+        <card-expire-banner />
+
         <low-token-balance-banner
-            v-if="isLowBalance && billingEnabled"
+            v-if="!isLoading && isLowBalance && billingEnabled"
             cta-label="Go to billing"
             @click="redirectToBilling"
         />
         <PageTitleComponent title="All Projects" />
 
-        <v-row>
+        <v-row class="mt-0">
             <v-col>
                 <v-btn
                     class="mr-3"
                     color="default"
                     variant="outlined"
-                    density="comfortable"
+                    :prepend-icon="CirclePlus"
                     @click="newProjectClicked"
                 >
-                    <IconNew class="mr-2" size="14" bold />
                     New Project
                 </v-btn>
             </v-col>
@@ -35,7 +36,7 @@
                         border
                         inset
                         density="comfortable"
-                        class="pa-1"
+                        class="pa-1 bg-surface"
                     >
                         <v-btn
                             size="small"
@@ -45,7 +46,9 @@
                             aria-label="Toggle Cards View"
                             @click="isTableView = false"
                         >
-                            <icon-card-view />
+                            <template #prepend>
+                                <component :is="Grid2X2" :size="14" />
+                            </template>
                             Cards
                         </v-btn>
                         <v-btn
@@ -56,7 +59,9 @@
                             aria-label="Toggle Table View"
                             @click="isTableView = true"
                         >
-                            <icon-table-view />
+                            <template #prepend>
+                                <component :is="List" :size="15" />
+                            </template>
                             List
                         </v-btn>
                     </v-btn-toggle>
@@ -101,6 +106,7 @@ import {
     VBtnToggle,
 } from 'vuetify/components';
 import { useRouter } from 'vue-router';
+import { CirclePlus, Grid2X2, List } from 'lucide-vue-next';
 
 import { ProjectItemModel } from '@/types/projects';
 import { useProjectsStore } from '@/store/modules/projectsStore';
@@ -114,7 +120,8 @@ import { ROUTES } from '@/router';
 import { AnalyticsEvent } from '@/utils/constants/analyticsEventNames';
 import { useAnalyticsStore } from '@/store/modules/analyticsStore';
 import { Dimensions, Size } from '@/utils/bytesSize';
-import { useTrialCheck } from '@/composables/useTrialCheck';
+import { usePreCheck } from '@/composables/usePreCheck';
+import { AccountBalance, CreditCard } from '@/types/payments';
 
 import ProjectCard from '@/components/ProjectCard.vue';
 import PageTitleComponent from '@/components/PageTitleComponent.vue';
@@ -122,11 +129,9 @@ import ProjectsTableComponent from '@/components/ProjectsTableComponent.vue';
 import JoinProjectDialog from '@/components/dialogs/JoinProjectDialog.vue';
 import CreateProjectDialog from '@/components/dialogs/CreateProjectDialog.vue';
 import AddTeamMemberDialog from '@/components/dialogs/AddTeamMemberDialog.vue';
-import IconCardView from '@/components/icons/IconCardView.vue';
-import IconTableView from '@/components/icons/IconTableView.vue';
-import IconNew from '@/components/icons/IconNew.vue';
 import LowTokenBalanceBanner from '@/components/LowTokenBalanceBanner.vue';
 import TrialExpirationBanner from '@/components/TrialExpirationBanner.vue';
+import CardExpireBanner from '@/components/CardExpireBanner.vue';
 
 const analyticsStore = useAnalyticsStore();
 const appStore = useAppStore();
@@ -137,13 +142,14 @@ const billingStore = useBillingStore();
 
 const router = useRouter();
 const isLowBalance = useLowTokenBalance();
-const { isTrialExpirationBanner, isExpired, withTrialCheck } = useTrialCheck();
+const { isTrialExpirationBanner, isExpired, withTrialCheck } = usePreCheck();
 
 const joiningItem = ref<ProjectItemModel | null>(null);
 const isJoinProjectDialogShown = ref<boolean>(false);
 const isCreateProjectDialogShown = ref<boolean>(false);
 const addMemberProjectId = ref<string>('');
 const isAddMemberDialogShown = ref<boolean>(false);
+const isLoading = ref<boolean>(true);
 
 /**
  * Indicates if billing features are enabled.
@@ -199,7 +205,7 @@ function newProjectClicked() {
     withTrialCheck(() => {
         analyticsStore.eventTriggered(AnalyticsEvent.NEW_PROJECT_CLICKED);
         isCreateProjectDialogShown.value = true;
-    });
+    }, true);
 }
 
 /**
@@ -213,10 +219,8 @@ function redirectToBilling(): void {
  * Displays the Join Project modal.
  */
 function onJoinClicked(item: ProjectItemModel): void {
-    withTrialCheck(() => {
-        joiningItem.value = item;
-        isJoinProjectDialogShown.value = true;
-    });
+    joiningItem.value = item;
+    isJoinProjectDialogShown.value = true;
 }
 
 /**
@@ -226,7 +230,7 @@ function onInviteClicked(item: ProjectItemModel): void {
     withTrialCheck(() => {
         addMemberProjectId.value = item.id;
         isAddMemberDialogShown.value = true;
-    });
+    }, true);
 }
 
 /**
@@ -241,13 +245,16 @@ function formattedValue(value: Size): string {
     }
 }
 
-onMounted(() => {
-    if (configStore.state.config.nativeTokenPaymentsEnabled && billingEnabled.value) {
-        Promise.all([
-            billingStore.getBalance(),
-            billingStore.getCreditCards(),
-            billingStore.getNativePaymentsHistory(),
-        ]).catch(_ => {});
+onMounted(async () => {
+    if (billingEnabled.value) {
+        const promises: Promise<CreditCard[] | AccountBalance | void>[] = [billingStore.getCreditCards()];
+
+        if (configStore.state.config.nativeTokenPaymentsEnabled) {
+            promises.push(billingStore.getBalance(), billingStore.getNativePaymentsHistory());
+        }
+        await Promise.all(promises).catch(_ => {});
     }
+
+    isLoading.value = false;
 });
 </script>

@@ -36,4 +36,20 @@ export class Validator {
 
         return rgx.test(value);
     }
+
+    /**
+     * Checks string to satisfy domain name rules.
+     */
+    public static domainName(value: string): boolean {
+        const rgx = /^(?:[a-zA-Z0-9-]+\.)+[a-zA-Z]{2,63}$/;
+
+        return rgx.test(value);
+    }
+
+    /**
+     * Checks if value string is less than or equal to max possible length.
+     */
+    public static nameLength(value: string, maxLength: number): boolean {
+        return value.length <= maxLength;
+    }
 }

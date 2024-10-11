@@ -6,8 +6,8 @@
         <template #prepend>
             <slot name="prepend" />
         </template>
-        <v-list-item-title class="ml-3">{{ title }}</v-list-item-title>
-        <v-list-item-subtitle v-if="subtitle" class="ml-3">{{ subtitle }}</v-list-item-subtitle>
+        <v-list-item-title class="ml-4">{{ title }} <slot name="chip" /> </v-list-item-title>
+        <v-list-item-subtitle v-if="subtitle" class="ml-4">{{ subtitle }}</v-list-item-subtitle>
         <template #append>
             <slot name="append" />
         </template>
@@ -20,15 +20,11 @@ import { useDisplay } from 'vuetify';
 import { useRouter } from 'vue-router';
 
 import { useAppStore } from '@/store/modules/appStore';
-import { useAnalyticsStore } from '@/store/modules/analyticsStore';
-import { useProjectsStore } from '@/store/modules/projectsStore';
 
 const { mdAndDown } = useDisplay();
 const router = useRouter();
 
 const appStore = useAppStore();
-const projectsStore = useProjectsStore();
-const analyticsStore = useAnalyticsStore();
 
 const props = defineProps<{
     title: string;
@@ -46,8 +42,6 @@ function onClick(e: MouseEvent | KeyboardEvent): void {
     if (next === router.currentRoute.value.path) return;
 
     if (mdAndDown.value) appStore.toggleNavigationDrawer(false);
-
-    analyticsStore.pageVisit(next);
 
     // Vuetify handles navigation via click or pressing the Enter key.
     // We must handle the space key ourselves.

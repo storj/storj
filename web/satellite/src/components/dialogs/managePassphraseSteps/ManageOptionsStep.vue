@@ -3,8 +3,8 @@
 
 <template>
     <div class="pa-4">
-        <v-sheet v-for="item in items" :key="item.next" class="ma-2" border rounded="xlg">
-            <v-list-item class="pa-2" link @click="emit('optionClick', item.next)">
+        <v-sheet v-for="item in items" :key="item.next" class="ma-2">
+            <v-list-item class="pa-2 mb-3" border link @click="emit('optionClick', item.next)">
                 <template #prepend>
                     <component :is="item.icon" width="20" height="20" class="ml-3 mr-4" />
                 </template>
@@ -12,10 +12,10 @@
                     <p class="font-weight-bold">{{ item.title }}</p>
                 </v-list-item-title>
                 <v-list-item-subtitle>
-                    <p class="text-caption text-wrap">{{ item.subtitle }}</p>
+                    <p class="text-caption text-wrap text-break">{{ item.subtitle }}</p>
                 </v-list-item-subtitle>
                 <template #append>
-                    <v-icon size="24" :icon="mdiChevronRight" color="default" />
+                    <v-icon size="24" :icon="ChevronRight" color="default" />
                 </template>
             </v-list-item>
         </v-sheet>
@@ -23,19 +23,15 @@
 </template>
 
 <script setup lang="ts">
-import { Component } from 'vue';
+import { FunctionalComponent } from 'vue';
 import { VSheet, VListItem, VIcon, VListItemTitle, VListItemSubtitle } from 'vuetify/components';
-import { mdiChevronRight } from '@mdi/js';
+import { ChevronRight, CirclePlus, ArrowLeftRight, Lock } from 'lucide-vue-next';
 
 import { ManageProjectPassphraseStep } from '@/types/managePassphrase';
 import { DialogStepComponent } from '@/types/common';
 
-import IconCirclePlus from '@/components/icons/IconCirclePlus.vue';
-import IconSwitch from '@/components/icons/IconSwitch.vue';
-import IconLock from '@/components/icons/IconLock.vue';
-
 type Item = {
-    icon: Component;
+    icon: FunctionalComponent;
     title: string;
     subtitle: string;
     next: ManageProjectPassphraseStep;
@@ -43,17 +39,17 @@ type Item = {
 
 const items: Item[] = [
     {
-        icon: IconCirclePlus,
+        icon: CirclePlus,
         title: 'Create a new passphrase',
         subtitle: 'Allows you to upload data with a different passphrase.',
         next: ManageProjectPassphraseStep.Create,
     }, {
-        icon: IconSwitch,
+        icon: ArrowLeftRight,
         title: 'Switch active passphrase',
         subtitle: 'View and upload data using another passphrase.',
         next: ManageProjectPassphraseStep.Switch,
     }, {
-        icon: IconLock,
+        icon: Lock,
         title: 'Clear saved passphrase',
         subtitle: 'Lock your data and clear passphrase from this session.',
         next: ManageProjectPassphraseStep.Clear,

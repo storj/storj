@@ -15,6 +15,7 @@ import (
 	"storj.io/common/pb"
 	"storj.io/common/storj"
 	"storj.io/storj/satellite/internalpb"
+	"storj.io/storj/shared/nodeidmap"
 	"storj.io/uplink"
 )
 
@@ -47,10 +48,10 @@ func (bfu *Upload) CheckConfig() error {
 }
 
 // UploadBloomFilters stores a zipfile with multiple bloom filters in a bucket.
-func (bfu *Upload) UploadBloomFilters(ctx context.Context, latestCreationDate time.Time, retainInfos map[storj.NodeID]*RetainInfo) (err error) {
+func (bfu *Upload) UploadBloomFilters(ctx context.Context, creationDate time.Time, retainInfos nodeidmap.Map[*RetainInfo]) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	if len(retainInfos) == 0 {
+	if retainInfos.IsEmpty() {
 		return nil
 	}
 
@@ -97,12 +98,12 @@ func (bfu *Upload) UploadBloomFilters(ctx context.Context, latestCreationDate ti
 
 	infos := make([]internalpb.RetainInfo, 0, bfu.config.ZipBatchSize)
 	batchNumber := 0
-	for nodeID, info := range retainInfos {
+	retainInfos.Range(func(nodeID storj.NodeID, info *RetainInfo) bool {
 		infos = append(infos, internalpb.RetainInfo{
 			Filter: info.Filter.Bytes(),
 			// because bloom filters should be created from immutable database
 			// snapshot we are using latest segment creation date
-			CreationDate:  latestCreationDate,
+			CreationDate:  creationDate,
 			PieceCount:    int64(info.Count),
 			StorageNodeId: nodeID,
 		})
@@ -110,12 +111,17 @@ func (bfu *Upload) UploadBloomFilters(ctx context.Context, latestCreationDate ti
 		if len(infos) == bfu.config.ZipBatchSize {
 			err = bfu.uploadPack(ctx, project, prefix, batchNumber, expirationTime, infos)
 			if err != nil {
-				return err
+				return false
 			}
 
 			infos = infos[:0]
 			batchNumber++
 		}
+
+		return true
+	})
+	if err != nil {
+		return err
 	}
 
 	// upload rest of infos if any

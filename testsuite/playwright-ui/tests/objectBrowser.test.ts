@@ -25,6 +25,7 @@ test.describe('object browser + edge services', () => {
         await loginPage.verifySetupAccountFirstStep();
         await loginPage.choosePersonalAccSetup();
         await loginPage.fillPersonalSetupForm(name);
+        await loginPage.selectFreeTrial();
         await loginPage.ensureSetupSuccess();
         await loginPage.finishSetup();
 
@@ -89,8 +90,6 @@ test.describe('object browser + edge services', () => {
         navigationMenu,
         bucketsPage,
         objectBrowserPage,
-        common,
-        page,
     }) => {
         const bucketName = uuidv4();
         const fileName = 'test1.jpeg';
@@ -110,7 +109,6 @@ test.describe('object browser + edge services', () => {
         await navigationMenu.clickOnBuckets();
         await bucketsPage.openBucketSettings();
         await bucketsPage.verifyBucketDetails(bucketName);
-        await common.closeModal();
 
         // Check Bucket Share, see if copy button changed to copied
         await bucketsPage.openBucketSettings();

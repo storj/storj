@@ -3,31 +3,13 @@
 
 <template>
     <template v-if="!isSuccess">
-        <v-row class="ma-0" justify="space-between" align="center">
-            <v-col class="px-0" cols="auto">
-                <span class="font-weight-bold">Activate your plan</span>
-            </v-col>
-            <v-col class="px-0" cols="auto">
-                <v-btn density="compact" color="success" variant="tonal" icon>
-                    <v-icon :icon="mdiCheckOutline" />
-                </v-btn>
-            </v-col>
-        </v-row>
-
         <v-row class="ma-0" align="center">
-            <v-col class="px-0" cols="9">
-                <div class="pt-4">
-                    <p class="font-weight-bold">{{ plan.title }} <span v-if="plan.activationSubtitle"> / {{ plan.activationSubtitle }}</span></p>
-                </div>
-
-                <div>
-                    <!-- eslint-disable-next-line vue/no-v-html -->
-                    <p v-html="plan.activationDescriptionHTML" />
-                </div>
-            </v-col>
-            <v-col v-if="plan.activationPriceHTML" class="px-0" cols="3">
+            <v-col class="px-0">
+                <p class="font-weight-bold">{{ plan.title }} <span v-if="plan.activationSubtitle"> / {{ plan.activationSubtitle }}</span></p>
                 <!-- eslint-disable-next-line vue/no-v-html -->
-                <p class="font-weight-bold" v-html="plan.activationPriceHTML" />
+                <p v-html="plan.activationDescriptionHTML" />
+                <!-- eslint-disable-next-line vue/no-v-html -->
+                <v-chip v-if="plan.activationPriceHTML" color="success" :prepend-icon="Check" class="mt-2"><p class="font-weight-bold" v-html="plan.activationPriceHTML" /></v-chip>
             </v-col>
         </v-row>
 
@@ -45,13 +27,14 @@
 
         <div class="py-4">
             <v-btn
+                id="activate"
                 block
                 :color="plan.type === 'partner' ? 'success' : 'primary'"
                 :loading="loading"
                 @click="onActivateClick"
             >
                 <template v-if="plan.type !== 'free'" #prepend>
-                    <v-icon :icon="mdiLock" />
+                    <v-icon :icon="LockKeyhole" />
                 </template>
 
                 {{ plan.activationButtonText || ('Activate ' + plan.title) }}
@@ -61,8 +44,9 @@
         <div class="pb-4">
             <v-btn
                 block
-                variant="outlined"
-                color="grey-lighten-1"
+                variant="text"
+                color="default"
+                :prepend-icon="ChevronLeft"
                 :disabled="loading"
                 @click="emit('back')"
             >
@@ -75,7 +59,7 @@
         <v-row class="ma-0" justify="center" align="center">
             <v-col cols="auto">
                 <v-btn density="comfortable" color="success" variant="tonal" icon>
-                    <v-icon :icon="mdiCheckOutline" />
+                    <v-icon :icon="Check" />
                 </v-btn>
             </v-col>
         </v-row>
@@ -90,7 +74,7 @@
             variant="tonal"
         >
             <template #prepend>
-                <v-icon :icon="mdiCheckOutline" />
+                <v-icon :icon="Check" />
             </template>
             <template #text>
                 <p class="font-weight-bold">
@@ -115,10 +99,8 @@
 
 <script setup lang="ts">
 import { computed, ref } from 'vue';
-import { useRouter } from 'vue-router';
-import { VAlert, VBtn, VCol, VIcon, VRow } from 'vuetify/components';
-import { useTheme } from 'vuetify';
-import { mdiCheckOutline, mdiLock } from '@mdi/js';
+import { VAlert, VBtn, VCol, VIcon, VRow, VChip } from 'vuetify/components';
+import { Check, LockKeyhole, ChevronLeft } from 'lucide-vue-next';
 
 import { PricingPlanInfo, PricingPlanType } from '@/types/common';
 import { useNotify } from '@/utils/hooks';
@@ -137,9 +119,7 @@ const configStore = useConfigStore();
 const billingStore = useBillingStore();
 const usersStore = useUsersStore();
 
-const router = useRouter();
 const notify = useNotify();
-const theme = useTheme();
 
 const isSuccess = ref<boolean>(false);
 
@@ -147,8 +127,10 @@ const stripeCardInput = ref<StripeForm | null>(null);
 
 const props = withDefaults(defineProps<{
     plan?: PricingPlanInfo;
+    isAccountSetup?: boolean;
 }>(), {
     plan: () => new PricingPlanInfo(),
+    isAccountSetup: false,
 });
 
 const emit = defineEmits<{
@@ -180,8 +162,7 @@ async function onActivateClick() {
     if (loading.value || !props.plan) return;
 
     if (isFree.value) {
-        emit('success');
-        isSuccess.value = true;
+        onSuccess();
         return;
     }
 
@@ -208,10 +189,13 @@ async function onCardAdded(res: string): Promise<void> {
         if (props.plan.type === PricingPlanType.PARTNER) {
             await billingStore.purchasePricingPackage(res, paymentElementEnabled.value);
         } else {
-            paymentElementEnabled.value ? await billingStore.addCardByPaymentMethodID(res) : await billingStore.addCreditCard(res);
+            if (paymentElementEnabled.value) {
+                await billingStore.addCardByPaymentMethodID(res);
+            } else {
+                await billingStore.addCreditCard(res);
+            }
         }
-        emit('success');
-        isSuccess.value = true;
+        onSuccess();
 
         // Fetch user to update paid tier status
         usersStore.getUser().catch((_) => {});
@@ -219,6 +203,14 @@ async function onCardAdded(res: string): Promise<void> {
         billingStore.getCreditCards().catch((_) => {});
     } catch (error) {
         notify.notifyError(error);
+    }
+}
+
+function onSuccess() {
+    if (props.isAccountSetup) {
+        emit('success');
+    } else {
+        isSuccess.value = true;
     }
 }
 </script>

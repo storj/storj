@@ -5,11 +5,13 @@ import { reactive } from 'vue';
 import { defineStore } from 'pinia';
 
 import {
+    ProjectMember,
     ProjectMemberCursor,
     ProjectMemberItemModel,
     ProjectMemberOrderBy,
     ProjectMembersApi,
     ProjectMembersPage,
+    ProjectRole,
 } from '@/types/projectMembers';
 import { ProjectMembersHttpApi } from '@/api/projectMembers';
 import { SortDirection } from '@/types/common';
@@ -37,6 +39,18 @@ export const useProjectMembersStore = defineStore('projectMembers', () => {
 
     async function getInviteLink(email: string, projectID: string): Promise<string> {
         return await api.getInviteLink(projectID, email);
+    }
+
+    async function getSingleMember(projectID: string, memberID: string): Promise<ProjectMember> {
+        return await api.getSingleMember(projectID, memberID);
+    }
+
+    async function updateRole(projectID: string, memberID: string, role: ProjectRole): Promise<void> {
+        const updatedMember = await api.updateRole(projectID, memberID, role);
+
+        state.page.projectMembers?.forEach(pr => {
+            if (pr.id === updatedMember.id) pr.role = updatedMember.role;
+        });
     }
 
     async function deleteProjectMembers(projectID: string, customSelected?: string[]): Promise<void> {
@@ -120,6 +134,8 @@ export const useProjectMembersStore = defineStore('projectMembers', () => {
     return {
         state,
         inviteMember,
+        getSingleMember,
+        updateRole,
         reinviteMembers,
         getInviteLink,
         deleteProjectMembers,

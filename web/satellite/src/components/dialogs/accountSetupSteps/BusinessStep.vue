@@ -4,22 +4,21 @@
 <template>
     <v-container>
         <v-row justify="center">
-            <v-col class="text-center pt-10 pb-7">
+            <v-col class="text-center py-4">
                 <icon-business />
-                <div class="text-overline mt-2 mb-1">
+                <p class="text-overline mt-2 mb-1">
                     Business Account
-                </div>
+                </p>
                 <h2 class="pb-3">Experience Storj for your business</h2>
                 <p>Tell us a bit about yourself and the company.</p>
             </v-col>
         </v-row>
 
-        <v-form v-model="formValid">
+        <v-form v-model="formValid" @submit.prevent="emit('next')">
             <v-row justify="center">
-                <v-col cols="12" sm="6" md="5" lg="4" class="py-0">
-                    <p>Fields marked with an * are required</p>
+                <v-col class="text-center pt-0">
+                    <p class="text-caption">Fields marked with * are required.</p>
                 </v-col>
-                <v-col cols="12" sm="4" md="3" lg="2" />
             </v-row>
 
             <v-row justify="center">
@@ -27,7 +26,7 @@
                     <v-text-field
                         id="First Name"
                         v-model="firstName"
-                        :rules="[RequiredRule]"
+                        :rules="[RequiredRule, MaxNameLengthRule]"
                         label="First Name"
                         hide-details="auto"
                         required
@@ -37,6 +36,7 @@
                     <v-text-field
                         id="Last Name"
                         v-model="lastName"
+                        :rules="[MaxNameLengthRule]"
                         label="Last Name"
                         hide-details="auto"
                     />
@@ -47,7 +47,7 @@
                     <v-text-field
                         id="Company Name"
                         v-model="companyName"
-                        :rules="[RequiredRule]"
+                        :rules="[RequiredRule, MaxNameLengthRule]"
                         label="Company Name"
                         hide-details="auto"
                         required
@@ -90,7 +90,7 @@
                 <v-col cols="12" sm="5" md="4" lg="3">
                     <v-select
                         v-model="storageNeeds"
-                        :items="['Under 25 TB', '25 TB - 50 TB', '51 TB - 150 TB', '151 TB - 250 TB', '251 TB -500 TB', '501 TB and above']"
+                        :items="['Under 25 TB', '25 TB - 50 TB', '51 TB - 150 TB', '151 TB - 250 TB', '251 TB - 500 TB', '501 TB and above']"
                         label="Storage Needs"
                         variant="outlined"
                         hide-details="auto"
@@ -99,7 +99,7 @@
                 <v-col cols="12" sm="5" md="4" lg="3">
                     <v-select
                         v-model="useCase"
-                        :items="[ 'Active Archive', 'Backup & Recovery', 'CDN Origin', 'Generative AI', 'Media Workflows', 'Other']"
+                        :items="[ 'Active archive', 'Backup & recovery', 'CDN origin', 'Generative AI', 'Media workflows', 'Other']"
                         label="Use Case"
                         variant="outlined"
                         hide-details="auto"
@@ -107,61 +107,73 @@
                     />
                 </v-col>
             </v-row>
+            <v-row v-if="useCase === 'Other'" justify="center">
+                <v-col cols="12" sm="10" md="8" lg="6">
+                    <v-text-field
+                        v-model="otherUseCase"
+                        label="Specify Other Use Case"
+                        variant="outlined"
+                        autofocus
+                    />
+                </v-col>
+            </v-row>
 
             <v-row justify="center">
                 <v-col cols="12" sm="6" md="5" lg="4">
-                    <v-checkbox id="sales" v-model="haveSalesContact" density="compact">
+                    <v-checkbox id="sales" v-model="haveSalesContact" hide-details density="compact">
                         <template #label>
                             <p class="text-body-2">Please have the Sales Team contact me</p>
+                        </template>
+                    </v-checkbox>
+                    <v-checkbox id="partnering" v-model="interestedInPartnering" hide-details density="compact">
+                        <template #label>
+                            <p class="text-body-2">I am interested in partnering with Storj</p>
                         </template>
                     </v-checkbox>
                 </v-col>
                 <v-col v-if="smAndUp" cols="12" sm="4" md="3" lg="2" />
             </v-row>
-        </v-form>
 
-        <v-row justify="center" class="mt-4">
-            <v-col cols="12" sm="5" md="4" lg="3">
-                <v-btn
-                    size="large"
-                    variant="tonal"
-                    :prepend-icon="mdiChevronLeft"
-                    color="default"
-                    :disabled="isLoading"
-                    block
-                    @click="emit('next', OnboardingStep.AccountTypeSelection)"
-                >
-                    Back
-                </v-btn>
-            </v-col>
-            <v-col cols="12" sm="5" md="4" lg="3">
-                <v-btn
-                    size="large"
-                    :append-icon="mdiChevronRight"
-                    :loading="isLoading"
-                    :disabled="!formValid"
-                    block
-                    @click="setupAccount()"
-                >
-                    Continue
-                </v-btn>
-            </v-col>
-        </v-row>
+            <v-row justify="center" class="mt-4">
+                <v-col cols="12" sm="5" md="4" lg="3">
+                    <v-btn
+                        size="large"
+                        variant="outlined"
+                        :prepend-icon="ChevronLeft"
+                        color="default"
+                        :disabled="loading"
+                        block
+                        @click="emit('back')"
+                    >
+                        Back
+                    </v-btn>
+                </v-col>
+                <v-col cols="12" sm="5" md="4" lg="3">
+                    <v-btn
+                        size="large"
+                        :append-icon="ChevronRight"
+                        :loading="loading"
+                        :disabled="!formValid"
+                        block
+                        type="submit"
+                    >
+                        Continue
+                    </v-btn>
+                </v-col>
+            </v-row>
+        </v-form>
     </v-container>
 </template>
 
 <script setup lang="ts">
 import { VBtn, VCheckbox, VCol, VContainer, VForm, VRow, VSelect, VTextField } from 'vuetify/components';
 import { ref } from 'vue';
-import { mdiChevronLeft, mdiChevronRight } from '@mdi/js';
 import { useDisplay } from 'vuetify';
+import { ChevronLeft, ChevronRight } from 'lucide-vue-next';
 
-import { OnboardingStep } from '@/types/users';
 import { AuthHttpApi } from '@/api/auth';
-import { useNotify } from '@/utils/hooks';
-import { useLoading } from '@/composables/useLoading';
-import { AnalyticsErrorEventSource, AnalyticsEvent } from '@/utils/constants/analyticsEventNames';
-import { RequiredRule } from '@/types/common';
+import { AnalyticsEvent } from '@/utils/constants/analyticsEventNames';
+import { MaxNameLengthRule, RequiredRule } from '@/types/common';
 import { useAnalyticsStore } from '@/store/modules/analyticsStore';
 
 import IconBusiness from '@/components/icons/IconBusiness.vue';
@@ -169,50 +181,56 @@ import IconBusiness from '@/components/icons/IconBusiness.vue';
 const auth = new AuthHttpApi();
 
 const analyticsStore = useAnalyticsStore();
-const notify = useNotify();
-const { isLoading, withLoading } = useLoading();
 const { smAndUp } = useDisplay();
+
+defineProps<{
+    loading: boolean,
+}>();
+
+const firstName = defineModel<string>('firstName', { required: true });
+const lastName = defineModel<string>('lastName', { required: true });
+const companyName = defineModel<string>('companyName', { required: true });
+const position = defineModel<string | undefined>('position', { required: true });
+const employeeCount = defineModel<string | undefined>('employeeCount', { required: true });
+const storageNeeds = defineModel<string | undefined>('storageNeeds', { required: true });
+const useCase = defineModel<string | undefined>('useCase', { required: true });
+const otherUseCase = defineModel<string | undefined>('otherUseCase', { required: true });
+const functionalArea = defineModel<string | undefined>('functionalArea', { required: true });
+const haveSalesContact = defineModel<boolean>('haveSalesContact', { required: true, default: false });
+const interestedInPartnering = defineModel<boolean>('interestedInPartnering', { required: true, default: false });
+
+const emit = defineEmits<{
+    (event: 'next'): void,
+    (event: 'back'): void,
+}>();
 
 const formValid = ref(false);
 
-const firstName = ref('');
-const lastName = ref('');
-const companyName = ref('');
-const position = ref<string>();
-const employeeCount = ref<string>();
-const storageNeeds = ref<string>();
-const useCase = ref<string>();
-const functionalArea = ref<string>();
-const haveSalesContact = ref(false);
-
-const emit = defineEmits<{
-    (event: 'next', value: OnboardingStep): void,
-}>();
-
-function setupAccount() {
-    withLoading(async () => {
-        if (!formValid.value) {
-            return;
-        }
-
-        try {
-            await auth.setupAccount({
-                fullName: `${firstName.value} ${lastName.value}`,
-                position: position.value,
-                companyName: companyName.value,
-                employeeCount: employeeCount.value,
-                storageNeeds: storageNeeds.value,
-                storageUseCase: useCase.value,
-                functionalArea: functionalArea.value,
-                isProfessional: true,
-                haveSalesContact: haveSalesContact.value,
-            });
-
-            analyticsStore.eventTriggered(AnalyticsEvent.BUSINESS_INFO_SUBMITTED);
-            emit('next', OnboardingStep.SetupComplete);
-        } catch (error) {
-            notify.notifyError(error, AnalyticsErrorEventSource.ONBOARDING_FORM);
-        }
+async function setupAccount() {
+    await auth.setupAccount({
+        firstName: firstName.value,
+        lastName: lastName.value,
+        position: position.value,
+        companyName: companyName.value,
+        employeeCount: employeeCount.value,
+        storageNeeds: storageNeeds.value,
+        storageUseCase: useCase.value,
+        otherUseCase: otherUseCase.value,
+        functionalArea: functionalArea.value,
+        isProfessional: true,
+        haveSalesContact: haveSalesContact.value,
+        interestedInPartnering: interestedInPartnering.value,
     });
+
+    analyticsStore.eventTriggered(AnalyticsEvent.BUSINESS_INFO_SUBMITTED);
 }
+
+function validate() {
+    return formValid.value;
+}
+
+defineExpose({
+    validate,
+    setup: setupAccount,
+});
 </script>

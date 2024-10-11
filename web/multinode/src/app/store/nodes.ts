@@ -4,7 +4,7 @@
 import { ActionContext, ActionTree, GetterTree, Module, MutationTree } from 'vuex';
 
 import { RootState } from '@/app/store/index';
-import { CreateNodeFields, Node, NodeURL, UpdateNodeModel } from '@/nodes';
+import { CreateNodeFields, Node, NodeStatus, NodeURL, UpdateNodeModel } from '@/nodes';
 import { Nodes } from '@/nodes/service';
 
 /**
@@ -44,6 +44,7 @@ export class NodesModule implements Module<NodesState, RootState> {
 
         this.actions = {
             fetch: this.fetch.bind(this),
+            fetchOnline: this.fetchOnline.bind(this),
             add: this.add.bind(this),
             delete: this.delete.bind(this),
             trustedSatellites: this.trustedSatellites.bind(this),
@@ -100,6 +101,22 @@ export class NodesModule implements Module<NodesState, RootState> {
     }
 
     /**
+     * fetch action loads only online nodes information.
+     * @param ctx - context of the Vuex action.
+     */
+    public async fetchOnline(ctx: ActionContext<NodesState, RootState>): Promise<void> {
+        const nodes = ctx.state.selectedSatellite ? await this.nodes.listBySatellite(ctx.state.selectedSatellite.id) : await this.nodes.list();
+        let onlineNodes;
+        if (Array.isArray(nodes)) {
+            onlineNodes = nodes.filter((node: Node) => node.status === NodeStatus['online']);
+        } else {
+            onlineNodes = nodes;
+        }
+
+        ctx.commit('populate', onlineNodes);
+    }
+
+    /**
      * Adds node to multinode list.
      * @param ctx - context of the Vuex action.
      * @param node - to add.
@@ -149,7 +166,7 @@ export class NodesModule implements Module<NodesState, RootState> {
 
         ctx.commit('setSelectedSatellite', satelliteId);
 
-        await this.fetch(ctx);
+        await this.fetchOnline(ctx);
     }
 
     /**
@@ -160,6 +177,6 @@ export class NodesModule implements Module<NodesState, RootState> {
     public async selectNode(ctx: ActionContext<NodesState, RootState>, nodeId: string | null): Promise<void> {
         ctx.commit('setSelectedNode', nodeId);
 
-        await this.fetch(ctx);
+        await this.fetchOnline(ctx);
     }
 }

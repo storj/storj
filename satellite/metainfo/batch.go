@@ -5,26 +5,93 @@ package metainfo
 
 import (
 	"context"
+	"fmt"
 
+	"github.com/spacemonkeygo/monkit/v3"
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
+	"golang.org/x/exp/slices"
 
 	"storj.io/common/pb"
 	"storj.io/common/storj"
 )
 
+// CompressedBatch handles requests sent in batch that are compressed.
+func (endpoint *Endpoint) CompressedBatch(ctx context.Context, req *pb.CompressedBatchRequest) (resp *pb.CompressedBatchResponse, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	var reqData []byte
+	switch req.Selected {
+	case pb.CompressedBatchRequest_NONE:
+		reqData = req.Data
+	case pb.CompressedBatchRequest_ZSTD:
+		reqData, err = endpoint.zstdDecoder.DecodeAll(req.Data, nil)
+	default:
+		err = errs.New("unsupported compression")
+	}
+	if err != nil {
+		return nil, errs.Wrap(err)
+	}
+
+	var unReq pb.BatchRequest
+	err = pb.Unmarshal(reqData, &unReq)
+	if err != nil {
+		return nil, errs.Wrap(err)
+	}
+
+	unResp, err := endpoint.Batch(ctx, &unReq)
+	if err != nil {
+		return nil, errs.Wrap(err)
+	}
+
+	unrespData, err := pb.Marshal(unResp)
+	if err != nil {
+		return nil, errs.Wrap(err)
+	}
+
+	resp = new(pb.CompressedBatchResponse)
+	if slices.Contains(req.Supported, pb.CompressedBatchRequest_ZSTD) {
+		resp.Data = endpoint.zstdEncoder.EncodeAll(unrespData, nil)
+		resp.Selected = pb.CompressedBatchRequest_ZSTD
+	} else {
+		resp.Data = unrespData
+		resp.Selected = pb.CompressedBatchRequest_NONE
+	}
+
+	return resp, nil
+}
+
 // Batch handle requests sent in batch.
 func (endpoint *Endpoint) Batch(ctx context.Context, req *pb.BatchRequest) (resp *pb.BatchResponse, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	resp = &pb.BatchResponse{}
+	resp = &pb.BatchResponse{
+		Responses: make([]*pb.BatchResponseItem, 0, len(req.Requests)),
+	}
+	mon.IntVal("batch_request_length").Observe(int64(len(req.Requests)))
 
-	resp.Responses = make([]*pb.BatchResponseItem, 0, len(req.Requests))
+	defer func() {
+		if resp == nil {
+			return
+		}
+		for _, response := range resp.Responses {
+			mon.IntVal("batch_response_sizes",
+				monkit.NewSeriesTag("rpc", fmt.Sprintf("%T", response.Response)),
+			).Observe(int64(pb.Size(response)))
+		}
+	}()
 
 	var lastStreamID storj.StreamID
 	var lastSegmentID storj.SegmentID
 	var prevSegmentReq *pb.BatchRequestItem
-	for i, request := range req.Requests {
+
+	for i := 0; i < len(req.Requests); i++ {
+		request := req.Requests[i]
+
+		mon.IntVal("batch_request_sizes",
+			monkit.NewSeriesTag("rpc", fmt.Sprintf("%T", request.Request)),
+		).Observe(int64(pb.Size(request)))
+
 		switch singleRequest := request.Request.(type) {
 		// BUCKET
 		case *pb.BatchRequestItem_BucketCreate:
@@ -82,6 +149,17 @@ func (endpoint *Endpoint) Batch(ctx context.Context, req *pb.BatchRequest) (resp
 					BucketSetVersioning: response,
 				},
 			})
+		case *pb.BatchRequestItem_BucketGetObjectLockConfiguration:
+			singleRequest.BucketGetObjectLockConfiguration.Header = req.Header
+			response, err := endpoint.GetBucketObjectLockConfiguration(ctx, singleRequest.BucketGetObjectLockConfiguration)
+			if err != nil {
+				return resp, err
+			}
+			resp.Responses = append(resp.Responses, &pb.BatchResponseItem{
+				Response: &pb.BatchResponseItem_BucketGetObjectLockConfiguration{
+					BucketGetObjectLockConfiguration: response,
+				},
+			})
 		case *pb.BatchRequestItem_BucketDelete:
 			singleRequest.BucketDelete.Header = req.Header
 			response, err := endpoint.DeleteBucket(ctx, singleRequest.BucketDelete)
@@ -108,6 +186,37 @@ func (endpoint *Endpoint) Batch(ctx context.Context, req *pb.BatchRequest) (resp
 		// OBJECT
 		case *pb.BatchRequestItem_ObjectBegin:
 			singleRequest.ObjectBegin.Header = req.Header
+
+			if makeInlineSeg, commitObj, should := shouldDoInlineObject(i, req.Requests); should && endpoint.config.TestOptimizedInlineObjectUpload {
+				makeInlineSeg.Header = req.Header
+				commitObj.Header = req.Header
+				beginObjResp, makeInlineSegResp, commitObjResp, err := endpoint.CommitInlineObject(ctx, singleRequest.ObjectBegin, makeInlineSeg, commitObj)
+				if err != nil {
+					return resp, err
+				}
+
+				resp.Responses = append(resp.Responses,
+					&pb.BatchResponseItem{
+						Response: &pb.BatchResponseItem_ObjectBegin{
+							ObjectBegin: beginObjResp,
+						},
+					},
+					&pb.BatchResponseItem{
+						Response: &pb.BatchResponseItem_SegmentMakeInline{
+							SegmentMakeInline: makeInlineSegResp,
+						},
+					},
+					&pb.BatchResponseItem{
+						Response: &pb.BatchResponseItem_ObjectCommit{
+							ObjectCommit: commitObjResp,
+						},
+					},
+				)
+
+				i += 2
+				continue
+			}
+
 			response, err := endpoint.BeginObject(ctx, singleRequest.ObjectBegin)
 			if err != nil {
 				return resp, err
@@ -181,6 +290,20 @@ func (endpoint *Endpoint) Batch(ctx context.Context, req *pb.BatchRequest) (resp
 			if response != nil && response.Object != nil {
 				lastStreamID = response.Object.StreamId
 			}
+		case *pb.BatchRequestItem_ObjectDownload:
+			singleRequest.ObjectDownload.Header = req.Header
+			response, err := endpoint.DownloadObject(ctx, singleRequest.ObjectDownload)
+			if err != nil {
+				return resp, err
+			}
+			resp.Responses = append(resp.Responses, &pb.BatchResponseItem{
+				Response: &pb.BatchResponseItem_ObjectDownload{
+					ObjectDownload: response,
+				},
+			})
+			if response != nil && response.Object != nil {
+				lastStreamID = response.Object.StreamId
+			}
 		case *pb.BatchRequestItem_ObjectList:
 			singleRequest.ObjectList.Header = req.Header
 			response, err := endpoint.ListObjects(ctx, singleRequest.ObjectList)
@@ -220,6 +343,39 @@ func (endpoint *Endpoint) Batch(ctx context.Context, req *pb.BatchRequest) (resp
 			resp.Responses = append(resp.Responses, &pb.BatchResponseItem{
 				Response: &pb.BatchResponseItem_ObjectFinishDelete{
 					ObjectFinishDelete: response,
+				},
+			})
+		case *pb.BatchRequestItem_ObjectGetRetention:
+			singleRequest.ObjectGetRetention.Header = req.Header
+			response, err := endpoint.GetObjectRetention(ctx, singleRequest.ObjectGetRetention)
+			if err != nil {
+				return resp, err
+			}
+			resp.Responses = append(resp.Responses, &pb.BatchResponseItem{
+				Response: &pb.BatchResponseItem_ObjectGetRetention{
+					ObjectGetRetention: response,
+				},
+			})
+		case *pb.BatchRequestItem_ObjectSetRetention:
+			singleRequest.ObjectSetRetention.Header = req.Header
+			response, err := endpoint.SetObjectRetention(ctx, singleRequest.ObjectSetRetention)
+			if err != nil {
+				return resp, err
+			}
+			resp.Responses = append(resp.Responses, &pb.BatchResponseItem{
+				Response: &pb.BatchResponseItem_ObjectSetRetention{
+					ObjectSetRetention: response,
+				},
+			})
+		case *pb.BatchRequestItem_ObjectSetLegalHold:
+			singleRequest.ObjectSetLegalHold.Header = req.Header
+			response, err := endpoint.SetObjectLegalHold(ctx, singleRequest.ObjectSetLegalHold)
+			if err != nil {
+				return resp, err
+			}
+			resp.Responses = append(resp.Responses, &pb.BatchResponseItem{
+				Response: &pb.BatchResponseItem_ObjectSetLegalHold{
+					ObjectSetLegalHold: response,
 				},
 			})
 		// SEGMENT
@@ -400,4 +556,24 @@ func (endpoint *Endpoint) shouldCombine(segmentIndex int32, reqIndex int, reques
 		return int64(segmentIndex) != streamMeta.NumberOfSegments-2
 	}
 	return false
+}
+
+func shouldDoInlineObject(index int, requests []*pb.BatchRequestItem) (_ *pb.SegmentMakeInlineRequest, _ *pb.ObjectCommitRequest, should bool) {
+	if index+2 >= len(requests) {
+		return nil, nil, false
+	}
+
+	request := requests[index+1]
+	makeInlineSegReq, ok := request.Request.(*pb.BatchRequestItem_SegmentMakeInline)
+	if !ok {
+		return nil, nil, false
+	}
+
+	request = requests[index+2]
+	commitObjReq, ok := request.Request.(*pb.BatchRequestItem_ObjectCommit)
+	if !ok {
+		return nil, nil, false
+	}
+
+	return makeInlineSegReq.SegmentMakeInline, commitObjReq.ObjectCommit, true
 }

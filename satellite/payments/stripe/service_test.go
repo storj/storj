@@ -27,6 +27,7 @@ import (
 	"storj.io/storj/private/testplanet"
 	"storj.io/storj/satellite"
 	"storj.io/storj/satellite/accounting"
+	"storj.io/storj/satellite/attribution"
 	"storj.io/storj/satellite/buckets"
 	"storj.io/storj/satellite/console"
 	"storj.io/storj/satellite/metabase"
@@ -236,7 +237,7 @@ func TestService_SetInvoiceStatusPaid(t *testing.T) {
 
 func TestService_SetInvoiceStatusInvalid(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
-		SatelliteCount: 1, StorageNodeCount: 0, UplinkCount: 0,
+		SatelliteCount: 1, StorageNodeCount: 0, UplinkCount: 0, EnableSpanner: true,
 		Reconfigure: testplanet.Reconfigure{
 			Satellite: func(log *zap.Logger, index int, config *satellite.Config) {
 				config.Payments.StripeCoinPayments.ListingLimit = 4
@@ -296,7 +297,7 @@ func TestService_SetInvoiceStatusInvalid(t *testing.T) {
 
 func TestService_BalanceInvoiceItems(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
-		SatelliteCount: 1, StorageNodeCount: 0, UplinkCount: 0,
+		SatelliteCount: 1, StorageNodeCount: 0, UplinkCount: 0, EnableSpanner: true,
 		Reconfigure: testplanet.Reconfigure{
 			Satellite: func(log *zap.Logger, index int, config *satellite.Config) {
 				config.Payments.StripeCoinPayments.ListingLimit = 4
@@ -316,6 +317,7 @@ func TestService_BalanceInvoiceItems(t *testing.T) {
 			users[i], err = satellite.AddUser(ctx, console.CreateUser{
 				FullName: "testuser" + strconv.Itoa(i),
 				Email:    "user@test" + strconv.Itoa(i),
+				PaidTier: true,
 			}, 1)
 			require.NoError(t, err)
 
@@ -397,7 +399,7 @@ func TestService_BalanceInvoiceItems(t *testing.T) {
 
 func TestService_InvoiceElementsProcessing(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
-		SatelliteCount: 1, StorageNodeCount: 0, UplinkCount: 0,
+		SatelliteCount: 1, StorageNodeCount: 0, UplinkCount: 0, EnableSpanner: true,
 		Reconfigure: testplanet.Reconfigure{
 			Satellite: func(log *zap.Logger, index int, config *satellite.Config) {
 				config.Payments.StripeCoinPayments.ListingLimit = 4
@@ -420,6 +422,7 @@ func TestService_InvoiceElementsProcessing(t *testing.T) {
 			user, err := satellite.AddUser(ctx, console.CreateUser{
 				FullName: "testuser" + strconv.Itoa(i),
 				Email:    "user@test" + strconv.Itoa(i),
+				PaidTier: true,
 			}, 1)
 			require.NoError(t, err)
 
@@ -473,6 +476,92 @@ func TestService_InvoiceElementsProcessing(t *testing.T) {
 		// verify that we applied all unapplied project records
 		recordsPage, err = satellite.DB.StripeCoinPayments().ProjectRecords().ListUnapplied(ctx, uuid.UUID{}, 40, start, end)
 		require.NoError(t, err)
+
+		// the 1 remaining record is for the now inactive user
+		require.Equal(t, 1, len(recordsPage.Records))
+	})
+}
+
+func TestService_InvoiceElementsProcessingGrouped(t *testing.T) {
+	testplanet.Run(t, testplanet.Config{
+		SatelliteCount: 1, StorageNodeCount: 0, UplinkCount: 0,
+		Reconfigure: testplanet.Reconfigure{
+			Satellite: func(log *zap.Logger, index int, config *satellite.Config) {
+				config.Payments.StripeCoinPayments.ListingLimit = 4
+			},
+		},
+	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+		satellite := planet.Satellites[0]
+
+		// pick a specific date so that it doesn't fail if it's the last day of the month
+		// keep month + 1 because user needs to be created before calculation
+		period := time.Date(time.Now().Year(), time.Now().Month()+1, 20, 0, 0, 0, 0, time.UTC)
+
+		numberOfProjects := 19
+		numberOfInactiveUsers := 5
+		status := console.PendingDeletion
+		// user to be deactivated later
+		var activeUser console.User
+		// generate test data, each user has one project and some credits
+		for i := 0; i < numberOfProjects; i++ {
+			user, err := satellite.AddUser(ctx, console.CreateUser{
+				FullName: "testuser" + strconv.Itoa(i),
+				Email:    "user@test" + strconv.Itoa(i),
+				PaidTier: true,
+			}, 1)
+			require.NoError(t, err)
+
+			project, err := satellite.AddProject(ctx, user.ID, "testproject-"+strconv.Itoa(i))
+			require.NoError(t, err)
+
+			err = satellite.DB.Orders().UpdateBucketBandwidthSettle(ctx, project.ID, []byte("testbucket"),
+				pb.PieceAction_GET, int64(i+10)*memory.GiB.Int64(), 0, period)
+			require.NoError(t, err)
+
+			if i < numberOfProjects-numberOfInactiveUsers {
+				activeUser = *user
+				continue
+			}
+			if i%2 == 0 {
+				status = console.Deleted
+			} else if i%3 == 0 {
+				status = console.PendingDeletion
+			} else {
+				status = console.LegalHold
+			}
+			err = satellite.DB.Console().Users().Update(ctx, user.ID, console.UpdateUserRequest{
+				Status: &status,
+			})
+			require.NoError(t, err)
+		}
+
+		satellite.API.Payments.StripeService.SetNow(func() time.Time {
+			return time.Date(period.Year(), period.Month()+1, 1, 0, 0, 0, 0, time.UTC)
+		})
+		err := satellite.API.Payments.StripeService.PrepareInvoiceProjectRecords(ctx, period, false)
+		require.NoError(t, err)
+
+		start := time.Date(period.Year(), period.Month(), 1, 0, 0, 0, 0, time.UTC)
+		end := time.Date(period.Year(), period.Month()+1, 1, 0, 0, 0, 0, time.UTC)
+
+		// check if we have project record for each project, except for inactive users
+		recordsPage, err := satellite.DB.StripeCoinPayments().ProjectRecords().ListUnapplied(ctx, uuid.UUID{}, 40, start, end)
+		require.NoError(t, err)
+		require.Equal(t, numberOfProjects-numberOfInactiveUsers, len(recordsPage.Records))
+
+		// deactivate user
+		err = satellite.DB.Console().Users().Update(ctx, activeUser.ID, console.UpdateUserRequest{
+			Status: &status,
+		})
+		require.NoError(t, err)
+
+		err = satellite.API.Payments.StripeService.InvoiceApplyProjectRecordsGrouped(ctx, period)
+		require.NoError(t, err)
+
+		// verify that we applied all unapplied project records
+		recordsPage, err = satellite.DB.StripeCoinPayments().ProjectRecords().ListUnapplied(ctx, uuid.UUID{}, 40, start, end)
+		require.NoError(t, err)
+
 		// the 1 remaining record is for the now inactive user
 		require.Equal(t, 1, len(recordsPage.Records))
 	})
@@ -480,7 +569,7 @@ func TestService_InvoiceElementsProcessing(t *testing.T) {
 
 func TestService_InvoiceUserWithManyProjects(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
-		SatelliteCount: 1, StorageNodeCount: 0, UplinkCount: 0,
+		SatelliteCount: 1, StorageNodeCount: 0, UplinkCount: 0, EnableSpanner: true,
 		Reconfigure: testplanet.Reconfigure{
 			Satellite: func(log *zap.Logger, index int, config *satellite.Config) {
 				config.Payments.StripeCoinPayments.ListingLimit = 4
@@ -506,6 +595,7 @@ func TestService_InvoiceUserWithManyProjects(t *testing.T) {
 		user, err := satellite.AddUser(ctx, console.CreateUser{
 			FullName: "testuser",
 			Email:    "user@test",
+			PaidTier: true,
 		}, numberOfProjects)
 		require.NoError(t, err)
 
@@ -586,7 +676,7 @@ func TestService_InvoiceUserWithManyProjects(t *testing.T) {
 
 func TestService_FinalizeInvoices(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
-		SatelliteCount: 1, StorageNodeCount: 0, UplinkCount: 0,
+		SatelliteCount: 1, StorageNodeCount: 0, UplinkCount: 0, EnableSpanner: true,
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 		satellite := planet.Satellites[0]
 		stripeClient := satellite.API.Payments.StripeClient
@@ -594,6 +684,7 @@ func TestService_FinalizeInvoices(t *testing.T) {
 		user, err := satellite.AddUser(ctx, console.CreateUser{
 			FullName: "testuser",
 			Email:    "user@test",
+			PaidTier: true,
 		}, 1)
 		require.NoError(t, err)
 		customer, err := satellite.DB.StripeCoinPayments().Customers().GetCustomerID(ctx, user.ID)
@@ -683,6 +774,7 @@ func TestService_ProjectsWithMembers(t *testing.T) {
 			users[i], err = satellite.AddUser(ctx, console.CreateUser{
 				FullName: "testuser" + strconv.Itoa(i),
 				Email:    "user@test" + strconv.Itoa(i),
+				PaidTier: true,
 			}, 1)
 			require.NoError(t, err)
 
@@ -694,7 +786,7 @@ func TestService_ProjectsWithMembers(t *testing.T) {
 		for _, project := range projects {
 			for _, user := range users {
 				if project.OwnerID != user.ID {
-					_, err := satellite.DB.Console().ProjectMembers().Insert(ctx, user.ID, project.ID)
+					_, err := satellite.DB.Console().ProjectMembers().Insert(ctx, user.ID, project.ID, console.RoleAdmin)
 					require.NoError(t, err)
 				}
 			}
@@ -806,7 +898,7 @@ func TestService_InvoiceItemsFromProjectUsage(t *testing.T) {
 					require.NotNil(t, item)
 				}
 
-				require.Equal(t, prefix+" - Segment Storage (MB-Month)", *items[0].Description)
+				require.Equal(t, prefix+" - Storage (MB-Month)", *items[0].Description)
 				require.Equal(t, expectedStorageQuantity, *items[0].Quantity)
 				storage, _ := tt.priceModel.StorageMBMonthCents.Float64()
 				require.Equal(t, storage, *items[0].UnitAmountDecimal)
@@ -827,7 +919,7 @@ func TestService_InvoiceItemsFromProjectUsage(t *testing.T) {
 
 func TestService_PayInvoiceFromTokenBalance(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
-		SatelliteCount: 1, StorageNodeCount: 0, UplinkCount: 0,
+		SatelliteCount: 1, StorageNodeCount: 0, UplinkCount: 0, EnableSpanner: true,
 		Reconfigure: testplanet.Reconfigure{
 			Satellite: func(log *zap.Logger, index int, config *satellite.Config) {
 				config.Payments.StripeCoinPayments.ListingLimit = 4
@@ -916,7 +1008,7 @@ func TestService_PayInvoiceFromTokenBalance(t *testing.T) {
 
 func TestService_PayMultipleInvoiceFromTokenBalance(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
-		SatelliteCount: 1, StorageNodeCount: 0, UplinkCount: 0,
+		SatelliteCount: 1, StorageNodeCount: 0, UplinkCount: 0, EnableSpanner: true,
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 		satellite := planet.Satellites[0]
 
@@ -1021,7 +1113,7 @@ func TestService_PayMultipleInvoiceFromTokenBalance(t *testing.T) {
 
 func TestService_PayMultipleInvoiceForCustomer(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
-		SatelliteCount: 1, StorageNodeCount: 0, UplinkCount: 0,
+		SatelliteCount: 1, StorageNodeCount: 0, UplinkCount: 0, EnableSpanner: true,
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 		satellite := planet.Satellites[0]
 
@@ -1029,6 +1121,7 @@ func TestService_PayMultipleInvoiceForCustomer(t *testing.T) {
 		user, err := satellite.AddUser(ctx, console.CreateUser{
 			FullName: "testuser",
 			Email:    "user@test",
+			PaidTier: true,
 		}, 1)
 		require.NoError(t, err)
 		customer, err := satellite.DB.StripeCoinPayments().Customers().GetCustomerID(ctx, user.ID)
@@ -1159,7 +1252,7 @@ func TestService_PayMultipleInvoiceForCustomer(t *testing.T) {
 
 func TestFailPendingInvoicePayment(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
-		SatelliteCount: 1, StorageNodeCount: 0, UplinkCount: 0,
+		SatelliteCount: 1, StorageNodeCount: 0, UplinkCount: 0, EnableSpanner: true,
 		Reconfigure: testplanet.Reconfigure{
 			Satellite: func(log *zap.Logger, index int, config *satellite.Config) {
 				config.Payments.StripeCoinPayments.ListingLimit = 4
@@ -1176,6 +1269,7 @@ func TestFailPendingInvoicePayment(t *testing.T) {
 		user, err := satellite.AddUser(ctx, console.CreateUser{
 			FullName: "testuser",
 			Email:    "user@test",
+			PaidTier: true,
 		}, 1)
 		require.NoError(t, err)
 		customer, err := satellite.DB.StripeCoinPayments().Customers().GetCustomerID(ctx, user.ID)
@@ -1301,6 +1395,7 @@ func TestService_GenerateInvoice(t *testing.T) {
 				user, err := satellite.AddUser(ctx, console.CreateUser{
 					FullName: "Test User",
 					Email:    "test@mail.test",
+					PaidTier: true,
 				}, 1)
 				require.NoError(t, err)
 
@@ -1318,7 +1413,7 @@ func TestService_GenerateInvoice(t *testing.T) {
 						99)
 				}
 
-				require.NoError(t, payments.StripeService.GenerateInvoices(ctx, start, false, false))
+				require.NoError(t, payments.StripeService.GenerateInvoices(ctx, start, false, false, false))
 
 				// ensure project record was generated
 				err = satellite.DB.StripeCoinPayments().ProjectRecords().Check(ctx, proj.ID, start, end)
@@ -1425,7 +1520,7 @@ func TestProjectUsagePrice(t *testing.T) {
 	require.NoError(t, err)
 
 	testplanet.Run(t, testplanet.Config{
-		SatelliteCount: 1, StorageNodeCount: 0, UplinkCount: 0,
+		SatelliteCount: 1, StorageNodeCount: 0, UplinkCount: 0, EnableSpanner: true,
 		Reconfigure: testplanet.Reconfigure{
 			Satellite: func(log *zap.Logger, index int, config *satellite.Config) {
 				config.Payments.UsagePrice = defaultPrice
@@ -1459,6 +1554,7 @@ func TestProjectUsagePrice(t *testing.T) {
 					FullName:  "Test User",
 					Email:     fmt.Sprintf("user%d@mail.test", i),
 					UserAgent: tt.userAgent,
+					PaidTier:  true,
 				}, 1)
 				require.NoError(t, err)
 
@@ -1470,6 +1566,13 @@ func TestProjectUsagePrice(t *testing.T) {
 					Name:      testrand.BucketName(),
 					ProjectID: project.ID,
 					UserAgent: tt.userAgent,
+				})
+				require.NoError(t, err)
+
+				_, err = sat.DB.Attribution().Insert(ctx, &attribution.Info{
+					ProjectID:  project.ID,
+					BucketName: []byte(bucket.Name),
+					UserAgent:  tt.userAgent,
 				})
 				require.NoError(t, err)
 
@@ -1694,5 +1797,92 @@ func TestRemoveExpiredPackageCredit(t *testing.T) {
 			removeExpiredCredit(u2, true, &expiredPurchase)
 			checkCreditAndPackage(u2, credit+additional, false)
 		})
+	})
+}
+
+func TestService_PayInvoiceBillingID(t *testing.T) {
+	testplanet.Run(t, testplanet.Config{
+		SatelliteCount: 1, StorageNodeCount: 0, UplinkCount: 0, EnableSpanner: true,
+	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+		satellite := planet.Satellites[0]
+		payments := satellite.API.Payments
+
+		// pick a specific date so that it doesn't fail if it's the last day of the month
+		// keep month + 1 because user needs to be created before calculation
+		period := time.Date(time.Now().Year(), time.Now().Month()+1, 20, 0, 0, 0, 0, time.UTC)
+
+		payments.StripeService.SetNow(func() time.Time {
+			return time.Date(period.Year(), period.Month()+1, 1, 0, 0, 0, 0, time.UTC)
+		})
+		start := time.Date(period.Year(), period.Month(), 1, 0, 0, 0, 0, time.UTC)
+		end := time.Date(period.Year(), period.Month()+1, 1, 0, 0, 0, 0, time.UTC)
+
+		storageHours := 24
+
+		user, err := satellite.AddUser(ctx, console.CreateUser{
+			FullName: "testuser",
+			Email:    "user@test",
+			PaidTier: true,
+		}, 1)
+		require.NoError(t, err)
+
+		// create billing customer ID
+		billingUser, err := satellite.AddUser(ctx, console.CreateUser{
+			FullName: "billinguser",
+			Email:    "billing@test",
+		}, 1)
+		require.NoError(t, err)
+		billingCustomer, err := satellite.DB.StripeCoinPayments().Customers().GetCustomerID(ctx, billingUser.ID)
+		require.NoError(t, err)
+
+		// set billing customer ID
+		_, err = satellite.DB.StripeCoinPayments().Customers().UpdateBillingCustomerID(ctx, user.ID, &billingCustomer)
+		require.NoError(t, err)
+
+		project, err := satellite.AddProject(ctx, user.ID, "testproject")
+		require.NoError(t, err)
+
+		projectsEgress := int64(10) * memory.GiB.Int64()
+		projectsStorage := int64(1) * memory.TiB.Int64()
+		totalSegments := int64(1)
+		generateProjectStorage(ctx, t, satellite.DB,
+			project.ID,
+			period,
+			period.Add(time.Duration(storageHours)*time.Hour),
+			projectsEgress,
+			projectsStorage,
+			totalSegments)
+		// verify that the project doesn't have records yet
+		projectRecord, err := satellite.DB.StripeCoinPayments().ProjectRecords().Get(ctx, project.ID, start, end)
+		require.NoError(t, err)
+		require.Nil(t, projectRecord)
+
+		err = payments.StripeService.PrepareInvoiceProjectRecords(ctx, period, false)
+		require.NoError(t, err)
+
+		projectRecord, err = satellite.DB.StripeCoinPayments().ProjectRecords().Get(ctx, project.ID, start, end)
+		require.NoError(t, err)
+		require.NotNil(t, projectRecord)
+		require.Equal(t, project.ID, projectRecord.ProjectID)
+		require.Equal(t, projectsEgress, projectRecord.Egress)
+
+		expectedStorage := float64(projectsStorage * int64(storageHours))
+		require.Equal(t, expectedStorage, projectRecord.Storage)
+
+		expectedSegmentsCount := float64((1) * storageHours)
+		require.Equal(t, expectedSegmentsCount, projectRecord.Segments)
+
+		// run all parts of invoice generation to see if there are no unexpected errors
+		err = payments.StripeService.InvoiceApplyProjectRecords(ctx, period)
+		require.NoError(t, err)
+
+		err = payments.StripeService.CreateInvoices(ctx, period, false)
+		require.NoError(t, err)
+
+		itr := payments.StripeClient.Invoices().List(&stripe.InvoiceListParams{})
+		require.True(t, itr.Next())
+		// invoice should go to the billing customer not the customer with the usage
+		require.Equal(t, billingCustomer, itr.Invoice().Customer.ID)
+		require.NoError(t, itr.Err())
 	})
 }

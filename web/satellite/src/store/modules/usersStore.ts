@@ -6,8 +6,12 @@ import { computed, DeepReadonly, reactive, readonly } from 'vue';
 
 import {
     ACCOUNT_SETUP_STEPS,
+    AccountDeletionData,
     DisableMFARequest,
     OnboardingStep,
+    SessionsCursor,
+    SessionsOrderBy,
+    SessionsPage,
     SetUserSettingsData,
     UpdatedUser,
     User,
@@ -16,6 +20,9 @@ import {
 } from '@/types/users';
 import { AuthHttpApi } from '@/api/auth';
 import { useConfigStore } from '@/store/modules/configStore';
+import { ChangeEmailStep, DeleteAccountStep } from '@/types/accountActions';
+import { SortDirection } from '@/types/common';
+import { DEFAULT_PAGE_LIMIT } from '@/types/pagination';
 
 export const DEFAULT_USER_SETTINGS = readonly(new UserSettings());
 
@@ -24,6 +31,8 @@ export class UsersState {
     public settings: DeepReadonly<UserSettings> = DEFAULT_USER_SETTINGS;
     public userMFASecret = '';
     public userMFARecoveryCodes: string[] = [];
+    public sessionsCursor: SessionsCursor = new SessionsCursor();
+    public sessionsPage: SessionsPage = new SessionsPage();
 }
 
 export const useUsersStore = defineStore('users', () => {
@@ -48,6 +57,37 @@ export const useUsersStore = defineStore('users', () => {
         state.user.shortName = userInfo.shortName;
     }
 
+    async function changeEmail(step: ChangeEmailStep, data: string): Promise<void> {
+        await api.changeEmail(step, data);
+    }
+
+    async function deleteAccount(step: DeleteAccountStep, data: string): Promise<AccountDeletionData | null> {
+        return await api.deleteAccount(step, data);
+    }
+
+    async function getSessions(pageNumber: number, limit = DEFAULT_PAGE_LIMIT): Promise<SessionsPage> {
+        state.sessionsCursor.page = pageNumber;
+        state.sessionsCursor.limit = limit;
+
+        const sessionsPage: SessionsPage = await api.getSessions(state.sessionsCursor);
+
+        state.sessionsPage = sessionsPage;
+
+        return sessionsPage;
+    }
+
+    async function invalidateSession(sessionID: string): Promise<void> {
+        await api.invalidateSession(sessionID);
+    }
+
+    function setSessionsSortingBy(order: SessionsOrderBy): void {
+        state.sessionsCursor.order = order;
+    }
+
+    function setSessionsSortingDirection(direction: SortDirection): void {
+        state.sessionsCursor.orderDirection = direction;
+    }
+
     async function getUser(): Promise<void> {
         const configStore = useConfigStore();
 
@@ -58,16 +98,19 @@ export const useUsersStore = defineStore('users', () => {
         setUser(user);
     }
 
-    function getShouldPromptPassphrase(isOwner: boolean): boolean {
+    function getShouldPromptPassphrase(isProjectOwner: boolean): boolean {
         const settings = state.settings;
         const step = settings.onboardingStep as OnboardingStep || OnboardingStep.AccountTypeSelection;
-        if (settings.onboardingEnd || !settings.passphrasePrompt) {
-            return settings.passphrasePrompt;
+        if (!settings.passphrasePrompt) {
+            return false;
         }
-        if (!isOwner) {
-            return !ACCOUNT_SETUP_STEPS.includes(step);
+        if (!settings.onboardingEnd && ACCOUNT_SETUP_STEPS.includes(step)) {
+            return false;
         }
-        return step !== OnboardingStep.EncryptionPassphrase && !ACCOUNT_SETUP_STEPS.includes(step);
+        if (isProjectOwner) {
+            return settings.onboardingEnd || step !== OnboardingStep.EncryptionPassphrase;
+        }
+        return true;
     }
 
     async function disableUserMFA(request: DisableMFARequest): Promise<void> {
@@ -131,7 +174,13 @@ export const useUsersStore = defineStore('users', () => {
         userName,
         shouldOnboard,
         noticeDismissal,
+        invalidateSession,
+        getSessions,
+        setSessionsSortingBy,
+        setSessionsSortingDirection,
         updateUser,
+        changeEmail,
+        deleteAccount,
         getUser,
         disableUserMFA,
         enableUserMFA,

@@ -15,7 +15,7 @@ import (
 	"storj.io/storj/private/teststorj"
 )
 
-// Simple test for ensuring the service runs Rollups in the Loop.
+// Simple test for ensuring the service Persists the cache to the DB.
 func TestBandwidthService(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
 		SatelliteCount: 1, StorageNodeCount: 3, UplinkCount: 1,
@@ -24,19 +24,37 @@ func TestBandwidthService(t *testing.T) {
 
 		for _, storageNode := range planet.StorageNodes {
 			// stop bandwidth service, so we can run it manually
-			storageNode.Bandwidth.Loop.Pause()
+			storageNode.Bandwidth.Service.Loop.Pause()
+			bandwidthCache := storageNode.Bandwidth.Cache
 
-			// Create data for an hour ago so we can rollup
-			err := storageNode.DB.Bandwidth().Add(ctx, testID1, pb.PieceAction_PUT, 2, time.Now().Add(time.Hour*-2))
+			err := bandwidthCache.Add(ctx, testID1, pb.PieceAction_PUT, 2, time.Now().Add(time.Hour*-2))
 			require.NoError(t, err)
-			err = storageNode.DB.Bandwidth().Add(ctx, testID1, pb.PieceAction_GET, 3, time.Now().Add(time.Hour*-2))
+			err = bandwidthCache.Add(ctx, testID1, pb.PieceAction_GET, 3, time.Now().Add(time.Hour*-2))
 			require.NoError(t, err)
-			err = storageNode.DB.Bandwidth().Add(ctx, testID1, pb.PieceAction_GET_AUDIT, 4, time.Now().Add(time.Hour*-2))
+			err = bandwidthCache.Add(ctx, testID1, pb.PieceAction_GET_AUDIT, 4, time.Now().Add(time.Hour*-2))
 			require.NoError(t, err)
 
-			storageNode.Bandwidth.Loop.TriggerWait()
+			// check that the bandwidth cache has the expected values
+			usage, err := bandwidthCache.Summary(ctx, time.Time{}, time.Now())
+			require.NoError(t, err)
+			require.Equal(t, int64(9), usage.Total())
 
-			usage, err := storageNode.DB.Bandwidth().Summary(ctx, time.Now().Add(time.Hour*-48), time.Now())
+			// bandwidthdb should be empty
+			usage, err = storageNode.DB.Bandwidth().Summary(ctx, time.Time{}, time.Now())
+			require.NoError(t, err)
+			require.Equal(t, int64(0), usage.Total())
+
+			// run the bandwidth service
+			storageNode.Bandwidth.Service.Loop.TriggerWait()
+
+			// check that the bandwidth cache has been persisted to the db
+			usage, err = storageNode.DB.Bandwidth().Summary(ctx, time.Time{}, time.Now())
+			require.NoError(t, err)
+			require.Equal(t, int64(9), usage.Total())
+
+			// although the cache is cleared, the we should be able to get data through the cache
+			// because it queries the db if the data is not in the cache
+			usage, err = bandwidthCache.Summary(ctx, time.Time{}, time.Now())
 			require.NoError(t, err)
 			require.Equal(t, int64(9), usage.Total())
 		}

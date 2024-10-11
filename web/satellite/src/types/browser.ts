@@ -99,7 +99,7 @@ export const EXTENSION_PREVIEW_TYPES = new Map<string[], PreviewType>([
     [['csv'], PreviewType.CSV],
     [['bmp', 'svg', 'jpg', 'jpeg', 'png', 'ico', 'gif', 'webp'], PreviewType.Image],
     [['m4v', 'mp4', 'webm', 'mov', 'mkv', 'ogv'], PreviewType.Video],
-    [['m4a', 'mp3', 'wav', 'ogg', 'aac', 'flac'], PreviewType.Audio],
+    [['m4a', 'mp3', 'wav', 'ogg', 'aac', 'flac', 'aif', 'aiff'], PreviewType.Audio],
     [['pdf'], PreviewType.PDF],
 ]);
 
@@ -121,7 +121,7 @@ export type BrowserObjectWrapper = {
 export const EXTENSION_INFOS: Map<string[], BrowserObjectTypeInfo> = new Map([
     [['bmp', 'svg', 'jpg', 'jpeg', 'png', 'ico', 'gif', 'webp'], { title: 'Image', icon: imageIcon }],
     [['m4v', 'mp4', 'webm', 'mov', 'mkv', 'ogv', 'avi'], { title: 'Video', icon: videoIcon }],
-    [['m4a', 'mp3', 'wav', 'ogg', 'aac', 'flac', 'aiff'], { title: 'Audio', icon: audioIcon }],
+    [['m4a', 'mp3', 'wav', 'ogg', 'aac', 'flac', 'aif', 'aiff'], { title: 'Audio', icon: audioIcon }],
     [['txt', 'docx', 'doc', 'pages'], { title: 'Text', icon: textIcon }],
     [['pdf'], { title: 'PDF', icon: pdfIcon }],
     [['zip'], { title: 'ZIP', icon: zipIcon }],

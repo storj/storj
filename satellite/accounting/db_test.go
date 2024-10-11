@@ -44,7 +44,7 @@ func TestSaveBucketTallies(t *testing.T) {
 		for _, tally := range tallies {
 			require.Contains(t, expectedTallies, tally)
 		}
-	})
+	}, satellitedbtest.WithSpanner())
 }
 
 func TestStorageNodeUsage(t *testing.T) {
@@ -131,7 +131,7 @@ func TestStorageNodeUsage(t *testing.T) {
 				}
 			}
 		})
-	})
+	}, satellitedbtest.WithSpanner())
 }
 
 // There can be more than one rollup in a day. Test that the sums are grouped by day.
@@ -220,7 +220,7 @@ func createBucketStorageTallies(projectID uuid.UUID) (map[metabase.BucketLocatio
 	var expectedTallies []accounting.BucketTally
 
 	for i := 0; i < 4; i++ {
-		bucketName := fmt.Sprintf("%s%d", "testbucket", i)
+		bucketName := metabase.BucketName(fmt.Sprintf("%s%d", "testbucket", i))
 		bucketLocation := metabase.BucketLocation{
 			ProjectID:  projectID,
 			BucketName: bucketName,

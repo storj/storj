@@ -4,6 +4,7 @@
 package metainfo_test
 
 import (
+	"bytes"
 	"context"
 	"strconv"
 	"testing"
@@ -22,9 +23,11 @@ import (
 	"storj.io/common/testcontext"
 	"storj.io/common/testrand"
 	"storj.io/storj/private/testplanet"
+	"storj.io/storj/satellite/accounting"
 	"storj.io/storj/satellite/buckets"
 	"storj.io/storj/satellite/metabase"
 	"storj.io/uplink/private/metaclient"
+	"storj.io/uplink/private/piecestore"
 )
 
 func TestExpirationTimeSegment(t *testing.T) {
@@ -838,7 +841,7 @@ func TestCommitSegment_RejectRetryDuplicate(t *testing.T) {
 
 func TestSegmentPlacementConstraints(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
-		SatelliteCount: 1, StorageNodeCount: 4, UplinkCount: 1,
+		SatelliteCount: 1, StorageNodeCount: 4, UplinkCount: 1, EnableSpanner: true,
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 		satellite := planet.Satellites[0]
 		apiKey := planet.Uplinks[0].APIKey[planet.Satellites[0].ID()]
@@ -866,8 +869,7 @@ func TestSegmentPlacementConstraints(t *testing.T) {
 			require.NoError(t, err)
 		}
 
-		err = satellite.Metabase.DB.UnderlyingTagSQL().QueryRowContext(ctx,
-			`UPDATE segments SET placement = 1`).Err()
+		err = satellite.Metabase.DB.TestingSetPlacementAllSegments(ctx, 1)
 		require.NoError(t, err)
 
 		{ // download should fail because non-zero placement and nodes have no country codes
@@ -877,6 +879,80 @@ func TestSegmentPlacementConstraints(t *testing.T) {
 			})
 			require.Error(t, err)
 		}
+	})
+}
+
+func TestRetryBeginSegmentPieces_EndToEnd(t *testing.T) {
+	testplanet.Run(t, testplanet.Config{
+		SatelliteCount: 1, StorageNodeCount: 6, UplinkCount: 1,
+		Reconfigure: testplanet.Reconfigure{
+			Satellite: testplanet.ReconfigureRS(2, 2, 4, 4),
+		},
+	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+		metainfoClient := createMetainfoClient(ctx, t, planet)
+
+		data := testrand.Bytes(512)
+
+		err := planet.Uplinks[0].CreateBucket(ctx, planet.Satellites[0], "test")
+		require.NoError(t, err)
+
+		beginObjectResp, err := metainfoClient.BeginObject(ctx, metaclient.BeginObjectParams{
+			Bucket:             []byte("test"),
+			EncryptedObjectKey: []byte("test"),
+			EncryptionParameters: storj.EncryptionParameters{
+				CipherSuite: storj.EncAESGCM,
+			},
+		})
+		require.NoError(t, err)
+
+		beginSegmentResp, err := metainfoClient.BeginSegment(ctx, metaclient.BeginSegmentParams{
+			StreamID:      beginObjectResp.StreamID,
+			Position:      metaclient.SegmentPosition{},
+			MaxOrderLimit: 1024,
+		})
+		require.NoError(t, err)
+
+		retryResponse, err := metainfoClient.RetryBeginSegmentPieces(ctx, metaclient.RetryBeginSegmentPiecesParams{
+			SegmentID:         beginSegmentResp.SegmentID,
+			RetryPieceNumbers: []int{1, 3},
+		})
+		require.NoError(t, err)
+
+		// try to use limits from RetryBeginSegmentPieces and upload data
+		limits := retryResponse.Limits
+		for i, orderLimit := range limits {
+			require.NotNil(t, orderLimit.Limit)
+			require.NotNil(t, orderLimit.StorageNodeAddress)
+
+			func() {
+				nodeURL := (&pb.Node{
+					Id:      orderLimit.GetLimit().StorageNodeId,
+					Address: orderLimit.GetStorageNodeAddress(),
+				}).NodeURL()
+				client, err := piecestore.DialReplaySafe(ctx, planet.Uplinks[0].Dialer, nodeURL, piecestore.DefaultConfig)
+				require.NoError(t, err)
+				defer ctx.Check(client.Close)
+
+				_, err = client.UploadReader(ctx, orderLimit.Limit, beginSegmentResp.PiecePrivateKey, bytes.NewReader(data))
+				require.NoError(t, err, "%v", i)
+			}()
+		}
+
+		// send all oder limits to verify satellite can decode them
+		for _, node := range planet.StorageNodes {
+			node.Storage2.Orders.SendOrders(ctx, time.Now().Add(24*time.Hour))
+
+			unsent, err := node.DB.Orders().ListUnsent(ctx, 100)
+			require.NoError(t, err)
+			require.Empty(t, unsent)
+		}
+
+		now := time.Now()
+		err = planet.Satellites[0].DB.StoragenodeAccounting().GetBandwidthSince(ctx, now.Add(-time.Hour), func(ctx context.Context, sbr *accounting.StoragenodeBandwidthRollup) error {
+			require.NotZero(t, sbr.Settled)
+			return nil
+		})
+		require.NoError(t, err)
 	})
 }
 

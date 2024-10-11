@@ -134,7 +134,7 @@ func validate(fileName string, retainInfo internalpb.RetainInfo) error {
 		return errs.New("Retain filter count is zero for storage node %s", retainInfo.StorageNodeId.String())
 	}
 
-	if retainInfo.Filter == nil || len(retainInfo.Filter) == 0 {
+	if len(retainInfo.Filter) == 0 {
 		return errs.New("Retain filter is missing for storage node %s", retainInfo.StorageNodeId.String())
 	}
 

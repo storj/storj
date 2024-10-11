@@ -10,17 +10,17 @@ exports[`WalletArea renders correctly with no wallet features 1`] = `
 </div>
 `;
 
-exports[`WalletArea renders correctly with no wallet features 2`] = `
+exports[`WalletArea renders correctly with zksync-era wallet features 1`] = `
 <div class="wallet-area with-wallet-features">
   <walleticon-stub alt="wallet image" class="wallet-area__image"></walleticon-stub>
   <div class="wallet-area__wallet-address-section">
     <p class="wallet-area__wallet-address-section__label">Wallet address</p>
     <p class="wallet-area__wallet-address-section__bold-text">0x0123456789012345678901234567890123456789</p>
   </div>
-  <div class="wallet-area__buttons-area"><a href="https://zkscan.io/explorer/accounts/0x0123456789012345678901234567890123456789" target="_blank" rel="noopener noreferrer" class="wallet-area__button"><b class="wallet-area-button-label">View on zkScan</b></a> <a href="https://etherscan.io/address/0x0123456789012345678901234567890123456789#tokentxns" target="_blank" rel="noopener noreferrer" class="wallet-area__button"><b class="wallet-area-button-label">View on Etherscan</b></a>
+  <div class="wallet-area__buttons-area"><a href="https://explorer.zksync.io/address/0x0123456789012345678901234567890123456789" target="_blank" rel="noopener noreferrer" class="wallet-area__button"><b class="wallet-area-button-label">View on zkSync Era Explorer</b></a> <a href="https://etherscan.io/address/0x0123456789012345678901234567890123456789#tokentxns" target="_blank" rel="noopener noreferrer" class="wallet-area__button"><b class="wallet-area-button-label">View on Etherscan</b></a>
     <div class="wallet-area__buttons-area__active-wallet-area">
       <checkicon-stub class="wallet-area__buttons-area__active-wallet-area__icon"></checkicon-stub>
-      <p class="wallet-area__buttons-area__active-wallet-area__label">zkSync is opted-in</p>
+      <p class="wallet-area__buttons-area__active-wallet-area__label">zkSync Era is opted-in</p>
     </div>
   </div>
 </div>

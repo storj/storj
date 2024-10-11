@@ -38,7 +38,9 @@ func (c *cmdMb) Setup(params clingy.Parameters) {
 	).(string)
 }
 
-func (c *cmdMb) Execute(ctx context.Context) error {
+func (c *cmdMb) Execute(ctx context.Context) (err error) {
+	defer mon.Task()(&ctx)(&err)
+
 	project, err := c.ex.OpenProject(ctx, c.access)
 	if err != nil {
 		return errs.Wrap(err)

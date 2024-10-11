@@ -7,8 +7,8 @@ import (
 	"context"
 	"fmt"
 
-	"storj.io/common/dbutil/dbschema"
-	"storj.io/common/dbutil/sqliteutil"
+	"storj.io/storj/shared/dbutil/dbschema"
+	"storj.io/storj/shared/dbutil/sqliteutil"
 )
 
 // States is the global variable that stores all the states for testing.
@@ -71,6 +71,12 @@ var States = MultiDBStates{
 		&v54,
 		&v55,
 		&v56,
+		&v57,
+		&v58,
+		&v59,
+		&v60,
+		&v61,
+		&v62,
 	},
 }
 

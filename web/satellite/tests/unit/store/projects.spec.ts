@@ -9,7 +9,7 @@ import { Project, ProjectFields, ProjectLimits } from '@/types/projects';
 import { useProjectsStore } from '@/store/modules/projectsStore';
 import { randomUUID } from '@/utils/idGenerator';
 
-const limits = new ProjectLimits(15, 12, 14, 13);
+const limits = new ProjectLimits(null, null, 15, 12, 14, 13);
 const project = new Project(randomUUID(), 'name', 'descr', '23', 'testOwnerId');
 const projects = [
     new Project(
@@ -18,7 +18,6 @@ const projects = [
         'descr',
         '23',
         'testOwnerId',
-        false,
     ),
     new Project(
         randomUUID(),
@@ -26,7 +25,6 @@ const projects = [
         'descr2',
         '24',
         'testOwnerId1',
-        false,
     ),
 ];
 
@@ -65,7 +63,7 @@ describe('actions', () => {
 
         try {
             await store.getProjects();
-        } catch (error) {
+        } catch {
             expect(store.state.projects.length).toBe(0);
             expect(store.state.currentLimits.bandwidthLimit).toBe(0);
         }
@@ -92,7 +90,7 @@ describe('actions', () => {
         try {
             await store.createProject(new ProjectFields());
             expect(true).toBe(false);
-        } catch (error) {
+        } catch {
             expect(store.state.projects.length).toBe(0);
             expect(store.state.currentLimits.bandwidthLimit).toBe(0);
         }

@@ -11,7 +11,8 @@ import (
 	"github.com/zeebo/errs"
 
 	"storj.io/common/storj"
-	"storj.io/common/tagsql"
+	"storj.io/storj/shared/dbutil/sqliteutil"
+	"storj.io/storj/shared/tagsql"
 	"storj.io/storj/storagenode/storageusage"
 )
 
@@ -34,7 +35,7 @@ func (db *storageUsageDB) Store(ctx context.Context, stamps []storageusage.Stamp
 	query := `INSERT OR REPLACE INTO storage_usage(satellite_id, at_rest_total, interval_end_time, timestamp)
 			VALUES(?,?,?,?)`
 
-	return withTx(ctx, db.GetDB(), func(tx tagsql.Tx) error {
+	return sqliteutil.WithTx(ctx, db.GetDB(), func(ctx context.Context, tx tagsql.Tx) error {
 		for _, stamp := range stamps {
 			_, err = tx.ExecContext(ctx, query, stamp.SatelliteID, stamp.AtRestTotal, stamp.IntervalEndTime.UTC(), stamp.IntervalStart.UTC())
 

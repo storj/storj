@@ -44,11 +44,34 @@ func MonFileInTrash(namespace []byte) *monkit.Meter {
 // Config is configuration for the blob store.
 type Config struct {
 	WriteBufferSize memory.Size `help:"in-memory buffer for uploads" default:"128KiB"`
+	ForceSync       bool        `help:"if true, force disk synchronization and atomic writes" default:"false"`
 }
 
 // DefaultConfig is the default value for Config.
 var DefaultConfig = Config{
 	WriteBufferSize: 128 * memory.KiB,
+	ForceSync:       false,
+}
+
+type lazyFile struct {
+	ref blobstore.BlobRef
+	dir *Dir
+
+	fh *os.File
+}
+
+func (f *lazyFile) Write(p []byte) (_ int, err error) {
+	if f.fh == nil {
+		if err := f.createFile(); err != nil {
+			return 0, err
+		}
+	}
+	return f.fh.Write(p)
+}
+
+func (f *lazyFile) createFile() (err error) {
+	f.fh, err = f.dir.CreateNamedFile(f.ref, MaxFormatVersionSupported)
+	return err
 }
 
 // blobStore implements a blob store.
@@ -86,9 +109,12 @@ func OpenAt(log *zap.Logger, path string, config Config) (blobstore.Blobs, error
 // Close closes the store.
 func (store *blobStore) Close() error { return store.track.Close() }
 
+var monBlobStoreOpen = mon.Task()
+
 // Open loads blob with the specified hash.
 func (store *blobStore) Open(ctx context.Context, ref blobstore.BlobRef) (_ blobstore.BlobReader, err error) {
-	defer mon.Task()(&ctx)(&err)
+	defer monBlobStoreOpen(&ctx)(&err)
+
 	file, formatVer, err := store.dir.Open(ctx, ref)
 	if err != nil {
 		if os.IsNotExist(err) {
@@ -115,14 +141,17 @@ func (store *blobStore) OpenWithStorageFormat(ctx context.Context, blobRef blobs
 
 // Stat looks up disk metadata on the blob file.
 func (store *blobStore) Stat(ctx context.Context, ref blobstore.BlobRef) (_ blobstore.BlobInfo, err error) {
-	defer mon.Task()(&ctx)(&err)
+	// not monkit monitoring because of performance reasons
+
 	info, err := store.dir.Stat(ctx, ref)
 	return info, Error.Wrap(err)
 }
 
+var monBlobStoreStatWithStorageFormat = mon.Task()
+
 // StatWithStorageFormat looks up disk metadata on the blob file with the given storage format version.
 func (store *blobStore) StatWithStorageFormat(ctx context.Context, ref blobstore.BlobRef, formatVer blobstore.FormatVersion) (_ blobstore.BlobInfo, err error) {
-	defer mon.Task()(&ctx)(&err)
+	defer monBlobStoreStatWithStorageFormat(&ctx)(&err)
 	info, err := store.dir.StatWithStorageFormat(ctx, ref, formatVer)
 	return info, Error.Wrap(err)
 }
@@ -137,8 +166,9 @@ func (store *blobStore) Delete(ctx context.Context, ref blobstore.BlobRef) (err 
 }
 
 // DeleteWithStorageFormat deletes blobs with the specified ref and storage format version.
-func (store *blobStore) DeleteWithStorageFormat(ctx context.Context, ref blobstore.BlobRef, formatVer blobstore.FormatVersion) (err error) {
-	defer mon.Task()(&ctx)(&err)
+func (store *blobStore) DeleteWithStorageFormat(ctx context.Context, ref blobstore.BlobRef, formatVer blobstore.FormatVersion, sizeHint int64) (err error) {
+	// not monkit monitoring because of performance reasons
+
 	err = store.dir.DeleteWithStorageFormat(ctx, ref, formatVer)
 	return Error.Wrap(err)
 }
@@ -157,10 +187,17 @@ func (store *blobStore) DeleteTrashNamespace(ctx context.Context, namespace []by
 	return Error.Wrap(err)
 }
 
+var monBlobStoreTrash = mon.Task()
+
 // Trash moves the ref to a trash directory.
 func (store *blobStore) Trash(ctx context.Context, ref blobstore.BlobRef, timestamp time.Time) (err error) {
-	defer mon.Task()(&ctx)(&err)
+	defer monBlobStoreTrash(&ctx)(&err)
 	return Error.Wrap(store.dir.Trash(ctx, ref, timestamp))
+}
+
+// TrashWithStorageFormat marks a blob with a specific storage format for pending deletion.
+func (store *blobStore) TrashWithStorageFormat(ctx context.Context, ref blobstore.BlobRef, formatVer blobstore.FormatVersion, timestamp time.Time) error {
+	return Error.Wrap(store.dir.TrashWithStorageFormat(ctx, ref, formatVer, timestamp))
 }
 
 // RestoreTrash moves every blob in the trash back into the regular location.
@@ -190,14 +227,20 @@ func (store *blobStore) EmptyTrash(ctx context.Context, namespace []byte, trashe
 }
 
 // Create creates a new blob that can be written.
-// Optionally takes a size argument for performance improvements, -1 is unknown size.
-func (store *blobStore) Create(ctx context.Context, ref blobstore.BlobRef, size int64) (_ blobstore.BlobWriter, err error) {
+func (store *blobStore) Create(ctx context.Context, ref blobstore.BlobRef) (_ blobstore.BlobWriter, err error) {
 	defer mon.Task()(&ctx)(&err)
-	file, err := store.dir.CreateTemporaryFile(ctx, size)
-	if err != nil {
-		return nil, Error.Wrap(err)
+	file := &lazyFile{
+		ref: ref,
+		dir: store.dir,
 	}
-	return newBlobWriter(store.track.Child("blobWriter", 1), ref, store, MaxFormatVersionSupported, file, store.config.WriteBufferSize.Int()), nil
+	if store.config.ForceSync {
+		file.fh, err = store.dir.CreateTemporaryFile(ctx)
+		if err != nil {
+			return nil, Error.Wrap(err)
+		}
+	}
+
+	return newBlobWriter(store.track.Child("blobWriter", 1), ref, store, MaxFormatVersionSupported, file, store.config.WriteBufferSize.Int(), store.config.ForceSync), nil
 }
 
 // SpaceUsedForBlobs adds up the space used in all namespaces for blob storage.
@@ -222,7 +265,7 @@ func (store *blobStore) SpaceUsedForBlobs(ctx context.Context) (space int64, err
 // SpaceUsedForBlobsInNamespace adds up how much is used in the given namespace for blob storage.
 func (store *blobStore) SpaceUsedForBlobsInNamespace(ctx context.Context, namespace []byte) (int64, error) {
 	var totalUsed int64
-	err := store.WalkNamespace(ctx, namespace, func(info blobstore.BlobInfo) error {
+	err := store.WalkNamespace(ctx, namespace, nil, func(info blobstore.BlobInfo) error {
 		statInfo, statErr := info.Stat(ctx)
 		if statErr != nil {
 			store.log.Error("failed to stat blob", zap.Binary("namespace", namespace), zap.Binary("key", info.BlobRef().Key), zap.Error(statErr))
@@ -279,15 +322,6 @@ func (store *blobStore) SpaceUsedForBlobsInNamespaceInTrash(ctx context.Context,
 	return totalUsed, nil
 }
 
-// FreeSpace returns how much space left in underlying directory.
-func (store *blobStore) FreeSpace(ctx context.Context) (int64, error) {
-	info, err := store.dir.Info(ctx)
-	if err != nil {
-		return 0, err
-	}
-	return info.AvailableSpace, nil
-}
-
 // DiskInfo returns information about the disk.
 func (store *blobStore) DiskInfo(ctx context.Context) (blobstore.DiskInfo, error) {
 	return store.dir.Info(ctx)
@@ -314,8 +348,8 @@ func (store *blobStore) ListNamespaces(ctx context.Context) (ids [][]byte, err e
 // WalkNamespace executes walkFunc for each locally stored blob in the given namespace. If walkFunc
 // returns a non-nil error, WalkNamespace will stop iterating and return the error immediately. The
 // ctx parameter is intended specifically to allow canceling iteration early.
-func (store *blobStore) WalkNamespace(ctx context.Context, namespace []byte, walkFunc func(blobstore.BlobInfo) error) (err error) {
-	return store.dir.WalkNamespace(ctx, namespace, walkFunc)
+func (store *blobStore) WalkNamespace(ctx context.Context, namespace []byte, skipPrefixFn blobstore.SkipPrefixFn, walkFunc func(blobstore.BlobInfo) error) (err error) {
+	return store.dir.WalkNamespace(ctx, namespace, skipPrefixFn, walkFunc)
 }
 
 // walkNamespaceInTrash executes walkFunc for each blob stored in the trash under the given
@@ -330,11 +364,15 @@ func (store *blobStore) walkNamespaceInTrash(ctx context.Context, namespace []by
 func (store *blobStore) TestCreateV0(ctx context.Context, ref blobstore.BlobRef) (_ blobstore.BlobWriter, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	file, err := store.dir.CreateTemporaryFile(ctx, -1)
+	file := &lazyFile{
+		ref: ref,
+		dir: store.dir,
+	}
+	file.fh, err = store.dir.CreateTemporaryFile(ctx)
 	if err != nil {
 		return nil, Error.Wrap(err)
 	}
-	return newBlobWriter(store.track.Child("blobWriter", 1), ref, store, FormatV0, file, store.config.WriteBufferSize.Int()), nil
+	return newBlobWriter(store.track.Child("blobWriter", 1), ref, store, FormatV0, file, store.config.WriteBufferSize.Int(), store.config.ForceSync), nil
 }
 
 // CreateVerificationFile creates a file to be used for storage directory verification.

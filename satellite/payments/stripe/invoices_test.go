@@ -62,6 +62,9 @@ func TestInvoices(t *testing.T) {
 			confirmedPI, err := satellite.API.Payments.Accounts.Invoices().Pay(ctx, pi.ID, stripe1.MockInvoicesPayFailure)
 			require.Error(t, err)
 			require.Nil(t, confirmedPI)
+
+			_, err = satellite.API.Payments.Accounts.Invoices().Pay(ctx, pi.ID, stripe1.MockInvoicesPaySuccess)
+			require.NoError(t, err)
 		})
 		t.Run("Create and Get success", func(t *testing.T) {
 			pi, err := satellite.API.Payments.Accounts.Invoices().Create(ctx, userID, price, desc)
@@ -74,12 +77,45 @@ func TestInvoices(t *testing.T) {
 			require.Equal(t, pi.Status, pi2.Status)
 			require.Equal(t, pi.Amount, pi2.Amount)
 		})
+		t.Run("List failed", func(t *testing.T) {
+			stripeInvoices := satellite.API.Payments.StripeClient.Invoices()
+			invoices := satellite.API.Payments.Accounts.Invoices()
+
+			pi, err := invoices.Create(ctx, userID, price, desc)
+			require.NoError(t, err)
+			require.NotNil(t, pi)
+
+			_, err = stripeInvoices.FinalizeInvoice(pi.ID, &stripe.InvoiceFinalizeInvoiceParams{Params: stripe.Params{Context: ctx}})
+			require.NoError(t, err)
+
+			inv, err := stripeInvoices.Get(pi.ID, &stripe.InvoiceParams{Params: stripe.Params{Context: ctx}})
+			require.NoError(t, err)
+			require.Equal(t, stripe.InvoiceStatusOpen, inv.Status)
+			require.False(t, inv.Attempted)
+
+			failed, err := invoices.ListFailed(ctx, &userID)
+			require.NoError(t, err)
+			require.Empty(t, failed)
+
+			inv, err = stripeInvoices.Pay(pi.ID, &stripe.InvoicePayParams{
+				Params:        stripe.Params{Context: ctx},
+				PaymentMethod: stripe.String(stripe1.MockInvoicesPayFailure),
+			})
+			require.Error(t, err)
+			require.Equal(t, stripe.InvoiceStatusOpen, inv.Status)
+			require.True(t, inv.Attempted)
+
+			failed, err = invoices.ListFailed(ctx, &userID)
+			require.NoError(t, err)
+			require.Len(t, failed, 1)
+			require.Equal(t, pi.ID, failed[0].ID)
+		})
 	})
 }
 
 func TestPayOverdueInvoices(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
-		SatelliteCount: 1, StorageNodeCount: 0, UplinkCount: 0,
+		SatelliteCount: 1, StorageNodeCount: 0, UplinkCount: 0, EnableSpanner: true,
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 		satellite := planet.Satellites[0]
 

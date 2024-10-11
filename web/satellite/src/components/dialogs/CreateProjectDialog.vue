@@ -8,15 +8,22 @@
         :model-value="model && !isUpgradeDialogShown"
         width="410px"
         transition="fade-transition"
-        :persistent="isLoading"
+        :persistent="isLoading || satelliteManagedEncryptionEnabled"
         :scrim="false"
         @update:model-value="v => model = v"
     >
-        <v-card ref="innerContent" rounded="xlg">
-            <v-card-item class="pa-5 pl-7">
+        <v-card ref="innerContent">
+            <v-card-item class="pa-6">
                 <template #prepend>
-                    <img v-if="isProjectLimitReached && usersStore.state.user.paidTier && showLimitIncreaseDialog" class="d-block" src="@/assets/icon-limit.svg" alt="Speedometer">
-                    <img v-else class="d-block" src="@/assets/icon-blue-box.svg" alt="Box">
+                    <v-sheet
+                        class="border-sm d-flex justify-center align-center"
+                        width="40"
+                        height="40"
+                        rounded="lg"
+                    >
+                        <component :is="Gauge" v-if="isProjectLimitReached && usersStore.state.user.paidTier && showLimitIncreaseDialog" :size="18" />
+                        <component :is="Box" v-else :size="18" />
+                    </v-sheet>
                 </template>
 
                 <v-card-title class="font-weight-bold">
@@ -37,55 +44,119 @@
 
             <v-divider />
 
-            <v-form v-model="formValid" class="pa-7" @submit.prevent>
+            <v-window v-if="!billingEnabled || !isProjectLimitReached" v-model="createStep">
+                <v-window-item :value="CreateSteps.Info">
+                    <v-form v-model="formValid" class="pa-6" @submit.prevent>
+                        <v-row>
+                            <v-col cols="12">
+                                Projects are where you and your team can upload and manage data, and view usage statistics and billing.
+                            </v-col>
+                            <v-col cols="12">
+                                <v-text-field
+                                    id="Project Name"
+                                    v-model="name"
+                                    variant="outlined"
+                                    :rules="nameRules"
+                                    label="Project Name"
+                                    :counter="MAX_NAME_LENGTH"
+                                    :maxlength="MAX_NAME_LENGTH"
+                                    persistent-counter
+                                    :hide-details="false"
+                                    autofocus
+                                    required
+                                />
+                                <v-btn
+                                    v-if="!isDescriptionShown"
+                                    variant="text"
+                                    color="default"
+                                    :prepend-icon="Plus"
+                                    @click="isDescriptionShown = true"
+                                >
+                                    Add Description (Optional)
+                                </v-btn>
+                            </v-col>
+                            <v-col v-if="isDescriptionShown" cols="12">
+                                <v-text-field
+                                    v-model="description"
+                                    variant="outlined"
+                                    :rules="descriptionRules"
+                                    :hide-details="false"
+                                    label="Project Description (Optional)"
+                                    :counter="MAX_DESCRIPTION_LENGTH"
+                                    :maxlength="MAX_DESCRIPTION_LENGTH"
+                                    persistent-counter
+                                />
+                            </v-col>
+                        </v-row>
+                    </v-form>
+                </v-window-item>
+                <v-window-item :value="CreateSteps.ManageMode">
+                    <v-form v-model="formValid" class="pa-6">
+                        <v-row>
+                            <v-col>
+                                <p><b>Project Encryption</b></p>
+                                <p class="my-2">Choose the encryption method for your data.</p>
+                                <v-chip-group v-model="passphraseManageMode" column filter variant="outlined" selected-class="font-weight-bold" mandatory>
+                                    <v-chip color="primary" value="auto">
+                                        Automatic
+                                    </v-chip>
+                                    <v-chip color="primary" value="manual">Self-managed</v-chip>
+
+                                    <v-divider thickness="0" class="my-1" />
+
+                                    <v-alert v-if="passphraseManageMode === 'auto'" variant="tonal" color="default">
+                                        <p>
+                                            <v-chip rounded="md" class="text-caption font-weight-medium" color="secondary" variant="tonal" size="small">
+                                                Recommended for ease of use and teams
+                                            </v-chip>
+                                        </p>
+                                        <p class="text-body-2 my-2 font-weight-bold">
+                                            Storj securely manages the encryption and decryption of your project automatically.
+                                        </p>
+                                        <p class="text-body-2 my-2">
+                                            Fewer steps to upload, download, manage, and browse your data. No need to remember an additional encryption passphrase.
+                                        </p>
+                                        <p class="text-body-2 my-2">
+                                            Team members you invite will automatically have access to your project's data.
+                                        </p>
+                                        <p class="text-body-2 m-2">
+                                            <a class="link" @click="goToDocs">Learn more in the documentation.</a>
+                                        </p>
+                                    </v-alert>
+
+                                    <v-alert v-if="passphraseManageMode === 'manual'" variant="tonal" color="default">
+                                        <p>
+                                            <v-chip rounded="md" class="text-caption font-weight-medium" color="secondary" variant="tonal" size="small">
+                                                Best for control over your data encryption
+                                            </v-chip>
+                                        </p>
+                                        <p class="text-body-2 my-2 font-weight-bold">
+                                            You are responsible for securely managing your own data encryption passphrase.
+                                        </p>
+                                        <p class="text-body-2 my-2">
+                                            You need to enter your passphrase each time you access your data. If you forget the passphrase, you can't recover your data.
+                                        </p>
+                                        <p class="text-body-2 my-2">
+                                            Team members must share and enter the same encryption passphrase to access the data.
+                                        </p>
+                                        <p class="text-body-2 mt-2">
+                                            <a class="link" @click="goToDocs">Learn more in the documentation.</a>
+                                        </p>
+                                    </v-alert>
+                                </v-chip-group>
+                            </v-col>
+                        </v-row>
+                    </v-form>
+                </v-window-item>
+            </v-window>
+            <v-form v-else-if="isProjectLimitReached && usersStore.state.user.paidTier" v-model="formValid" class="pa-6" @submit.prevent>
                 <v-row>
-                    <template v-if="!billingEnabled || !isProjectLimitReached">
-                        <v-col cols="12">
-                            Projects are where you and your team can upload and manage data, and view usage statistics and billing.
-                        </v-col>
-                        <v-col cols="12">
-                            <v-text-field
-                                id="Project Name"
-                                v-model="name"
-                                variant="outlined"
-                                :rules="nameRules"
-                                label="Project Name"
-                                :counter="MAX_NAME_LENGTH"
-                                :maxlength="MAX_NAME_LENGTH"
-                                persistent-counter
-                                :hide-details="false"
-                                autofocus
-                                required
-                            />
-                            <v-btn
-                                v-if="!isDescriptionShown"
-                                variant="text"
-                                color="default"
-                                :prepend-icon="mdiPlus"
-                                @click="isDescriptionShown = true"
-                            >
-                                Add Description (Optional)
-                            </v-btn>
-                        </v-col>
-                        <v-col v-if="isDescriptionShown" cols="12">
-                            <v-text-field
-                                v-model="description"
-                                variant="outlined"
-                                :rules="descriptionRules"
-                                :hide-details="false"
-                                label="Project Description (Optional)"
-                                :counter="MAX_DESCRIPTION_LENGTH"
-                                :maxlength="MAX_DESCRIPTION_LENGTH"
-                                persistent-counter
-                            />
-                        </v-col>
-                    </template>
-                    <template v-else-if="isProjectLimitReached && usersStore.state.user.paidTier && !showLimitIncreaseDialog">
+                    <template v-if="!showLimitIncreaseDialog">
                         <v-col cols="12">
                             Request project limit increase.
                         </v-col>
                     </template>
-                    <template v-else-if="isProjectLimitReached && usersStore.state.user.paidTier && showLimitIncreaseDialog">
+                    <template v-else>
                         <v-col cols="12">
                             Request a projects limit increase for your account.
                         </v-col>
@@ -114,28 +185,50 @@
                             />
                         </v-col>
                     </template>
-                    <v-col v-else>
-                        Upgrade to Pro Account to create more projects and gain access to higher limits.
-                    </v-col>
                 </v-row>
             </v-form>
 
+            <v-row v-else class="pa-6">
+                <v-col>
+                    Upgrade to Pro Account to create more projects and gain access to higher limits.
+                </v-col>
+            </v-row>
+
             <v-divider />
 
-            <v-card-actions class="pa-7">
+            <v-card-actions class="pa-6">
                 <v-row>
                     <v-col>
-                        <v-btn variant="outlined" color="default" block :disabled="isLoading" @click="model = false">
-                            Cancel
+                        <v-btn
+                            variant="outlined"
+                            color="default"
+                            block
+                            :disabled="isLoading"
+                            @click="onBackOrCancel"
+                        >
+                            {{ createStep === CreateSteps.ManageMode ? 'Back' : 'Cancel' }}
                         </v-btn>
                     </v-col>
-                    <v-col>
+                    <v-col v-if="(!billingEnabled || !isProjectLimitReached) && satelliteManagedEncryptionEnabled && createStep === CreateSteps.Info">
                         <v-btn
                             color="primary"
                             variant="flat"
                             :loading="isLoading"
                             block
-                            :append-icon="isProjectLimitReached && billingEnabled ? mdiArrowRight : undefined"
+                            :append-icon="ArrowRight"
+                            :disabled="!formValid"
+                            @click="createStep = CreateSteps.ManageMode"
+                        >
+                            Next
+                        </v-btn>
+                    </v-col>
+                    <v-col v-else>
+                        <v-btn
+                            color="primary"
+                            variant="flat"
+                            :loading="isLoading"
+                            block
+                            :append-icon="ArrowRight"
                             @click="onPrimaryClick"
                         >
                             {{ buttonTitle }}
@@ -154,37 +247,51 @@
 </template>
 
 <script setup lang="ts">
-import { Component, ref, computed, watch } from 'vue';
+import { ref, computed, watch } from 'vue';
 import { useRouter } from 'vue-router';
 import {
-    VDialog,
+    VAlert,
+    VBtn,
     VCard,
     VCardItem,
     VCardTitle,
     VCardActions,
-    VBtn,
+    VChip,
+    VChipGroup,
+    VDialog,
     VDivider,
     VForm,
     VRow,
     VCol,
     VTextField,
     VOverlay,
+    VWindow,
+    VWindowItem,
+    VSheet,
 } from 'vuetify/components';
-import { mdiArrowRight, mdiPlus } from '@mdi/js';
+import { ArrowRight, Plus, Box, Gauge } from 'lucide-vue-next';
 
 import { RequiredRule, ValidationRule } from '@/types/common';
-import { MAX_DESCRIPTION_LENGTH, MAX_NAME_LENGTH, Project, ProjectFields } from '@/types/projects';
+import { ManagePassphraseMode, MAX_DESCRIPTION_LENGTH, MAX_NAME_LENGTH, Project, ProjectFields } from '@/types/projects';
 import { useLoading } from '@/composables/useLoading';
 import { useProjectsStore } from '@/store/modules/projectsStore';
 import { useUsersStore } from '@/store/modules/usersStore';
 import { useNotify } from '@/utils/hooks';
-import { AnalyticsErrorEventSource } from '@/utils/constants/analyticsEventNames';
+import {
+    AnalyticsErrorEventSource, AnalyticsEvent,
+    PageVisitSource,
+    SATELLITE_MANAGED_ENCRYPTION_DOCS_PAGE,
+} from '@/utils/constants/analyticsEventNames';
 import { useConfigStore } from '@/store/modules/configStore';
-import { useAppStore } from '@/store/modules/appStore';
-import { useAnalyticsStore } from '@/store/modules/analyticsStore';
 import { ROUTES } from '@/router';
+import { useAnalyticsStore } from '@/store/modules/analyticsStore';
 
 import UpgradeAccountDialog from '@/components/dialogs/upgradeAccountFlow/UpgradeAccountDialog.vue';
+
+enum CreateSteps {
+    Info,
+    ManageMode,
+}
 
 const model = defineModel<boolean>({ required: true });
 
@@ -192,13 +299,12 @@ const analyticsStore = useAnalyticsStore();
 const projectsStore = useProjectsStore();
 const usersStore = useUsersStore();
 const configStore = useConfigStore();
-const appStore = useAppStore();
 
 const { isLoading, withLoading } = useLoading();
 const notify = useNotify();
 const router = useRouter();
 
-const innerContent = ref<Component | null>(null);
+const innerContent = ref<VCard | null>(null);
 const formValid = ref<boolean>(false);
 const inputText = ref<string>('');
 const name = ref<string>('');
@@ -207,6 +313,9 @@ const isDescriptionShown = ref<boolean>(false);
 const isProjectLimitReached = ref<boolean>(false);
 const isUpgradeDialogShown = ref<boolean>(false);
 const showLimitIncreaseDialog = ref<boolean>(false);
+
+const passphraseManageMode = ref<ManagePassphraseMode>('auto');
+const createStep = ref<CreateSteps>(CreateSteps.Info);
 
 const nameRules: ValidationRule<string>[] = [
     RequiredRule,
@@ -223,6 +332,11 @@ const descriptionRules: ValidationRule<string>[] = [
 const billingEnabled = computed<boolean>(() => configStore.getBillingEnabled(usersStore.state.user.hasVarPartner));
 
 /**
+ * Indicates if satellite managed encryption passphrase is enabled.
+ */
+const satelliteManagedEncryptionEnabled = computed<boolean>(() => configStore.state.config.satelliteManagedEncryptionEnabled);
+
+/**
  * Indicates if limit increase requests can be sent directly from the UI.
  */
 const isLimitIncreaseRequestEnabled = computed<boolean>(() => configStore.state.config.limitIncreaseRequestEnabled);
@@ -236,7 +350,7 @@ async function onPrimaryClick(): Promise<void> {
         await withLoading(async () => {
             let project: Project;
             try {
-                const fields = new ProjectFields(name.value, description.value, usersStore.state.user.id);
+                const fields = new ProjectFields(name.value, description.value, usersStore.state.user.id, passphraseManageMode.value === 'auto');
                 project = await projectsStore.createProject(fields);
             } catch (error) {
                 error.message = `Failed to create project. ${error.message}`;
@@ -249,8 +363,6 @@ async function onPrimaryClick(): Promise<void> {
                 params: { id: project.urlId },
             });
             notify.success('Project created.');
-
-            analyticsStore.pageVisit(ROUTES.DashboardAnalyticsLink);
         });
     } else if (usersStore.state.user.paidTier) {
         if (!isLimitIncreaseRequestEnabled.value) {
@@ -277,6 +389,23 @@ async function onPrimaryClick(): Promise<void> {
     } else {
         isUpgradeDialogShown.value = true;
     }
+}
+
+/**
+ * Handles back or cancel button click.
+ */
+function onBackOrCancel(): void {
+    if (createStep.value === CreateSteps.ManageMode) {
+        createStep.value = CreateSteps.Info;
+    } else {
+        model.value = false;
+    }
+}
+
+function goToDocs() {
+    analyticsStore.pageVisit(SATELLITE_MANAGED_ENCRYPTION_DOCS_PAGE, PageVisitSource.DOCS);
+    analyticsStore.eventTriggered(AnalyticsEvent.VIEW_DOCS_CLICKED);
+    window.open(SATELLITE_MANAGED_ENCRYPTION_DOCS_PAGE, '_blank', 'noreferrer');
 }
 
 /*
@@ -322,12 +451,19 @@ const cardTitle = computed((): string => {
 
 watch(innerContent, comp => {
     if (comp) {
-        isProjectLimitReached.value = projectsStore.state.projects.length >= usersStore.state.user.projectLimit;
+        const ownedProjects = projectsStore.projects.filter((p) => p.ownerId === usersStore.state.user.id);
+        isProjectLimitReached.value = ownedProjects.length >= usersStore.state.user.projectLimit;
         isDescriptionShown.value = false;
         name.value = '';
         description.value = '';
         inputText.value = String(usersStore.state.user.projectLimit + 1);
+
+        if (!satelliteManagedEncryptionEnabled.value) {
+            passphraseManageMode.value = 'manual';
+        }
     } else {
+        createStep.value = CreateSteps.Info;
+        passphraseManageMode.value = 'auto';
         showLimitIncreaseDialog.value = false;
     }
 });

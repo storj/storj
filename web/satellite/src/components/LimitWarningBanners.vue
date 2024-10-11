@@ -17,7 +17,7 @@
             You can increase your limits
             <a class="text-decoration-underline text-cursor-pointer" @click="openLimitDialog(bannerText[threshold].limitType)">here</a>
             or in the
-            <a class="text-decoration-underline text-cursor-pointer" @click="goToProjectSettings">Project Settings page</a>.
+            <a class="text-decoration-underline text-cursor-pointer" @click="goToProjectSettings">project settings page</a>.
         </template>
         <template v-else-if="!isPaidTier && bannerText[threshold].hundred" #text>
             <a class="text-decoration-underline text-cursor-pointer" @click="appStore.toggleUpgradeFlow(true)">Upgrade</a> to avoid any service interruptions.
@@ -43,7 +43,6 @@ import { useRouter } from 'vue-router';
 import { LimitThreshold, LimitThresholdsReached, LimitToChange, LimitType } from '@/types/projects';
 import { useUsersStore } from '@/store/modules/usersStore';
 import { useConfigStore } from '@/store/modules/configStore';
-import { useAnalyticsStore } from '@/store/modules/analyticsStore';
 import { humanizeArray } from '@/utils/strings';
 import { Memory } from '@/utils/bytesSize';
 import { DEFAULT_PROJECT_LIMITS, useProjectsStore } from '@/store/modules/projectsStore';
@@ -62,7 +61,6 @@ const appStore = useAppStore();
 const projectsStore = useProjectsStore();
 const usersStore = useUsersStore();
 const configStore = useConfigStore();
-const analyticsStore = useAnalyticsStore();
 
 const router = useRouter();
 
@@ -207,6 +205,5 @@ function goToProjectSettings(): void {
         name: ROUTES.ProjectSettings.name,
         params: { id: projectsStore.state.selectedProject.urlId },
     });
-    analyticsStore.pageVisit(ROUTES.ProjectSettingsAnalyticsLink);
 }
 </script>

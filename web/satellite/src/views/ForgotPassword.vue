@@ -3,9 +3,9 @@
 
 <template>
     <v-container class="fill-height">
-        <v-row align="top" justify="center">
+        <v-row align="start" justify="center">
             <v-col cols="12" sm="9" md="7" lg="5" xl="4" xxl="3">
-                <v-card title="Did you forgot your password?" class="pa-2 pa-sm-6">
+                <v-card title="Did you forget your password?" class="pa-2 pa-sm-6">
                     <v-card-item v-if="isPasswordResetExpired">
                         <v-alert
                             variant="tonal"
@@ -29,10 +29,9 @@
                                 :items="satellites"
                                 item-title="satellite"
                                 :hint="satellite.hint"
-                                persistent-hint
                                 return-object
                                 chips
-                                class="mt-3 mb-2"
+                                class="my-3"
                             />
                             <v-text-field
                                 v-model="email"

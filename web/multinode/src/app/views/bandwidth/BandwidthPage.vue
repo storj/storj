@@ -131,7 +131,7 @@ export default class BandwidthPage extends Vue {
         window.addEventListener('resize', this.recalculateChartDimensions);
 
         try {
-            await this.$store.dispatch('nodes/fetch');
+            await this.$store.dispatch('nodes/fetchOnline');
         } catch (error) {
             if (error instanceof UnauthorizedError) {
                 // TODO: redirect to login screen.

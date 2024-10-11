@@ -28,7 +28,7 @@ func TestProjectMembersRepository(t *testing.T) {
 		t.Run("Can't insert projectMember without memberID", func(t *testing.T) {
 			missingUserID := testrand.UUID()
 
-			projMember, err := projectMembers.Insert(ctx, missingUserID, createdProjects[0].ID)
+			projMember, err := projectMembers.Insert(ctx, missingUserID, createdProjects[0].ID, console.RoleAdmin)
 			assert.Nil(t, projMember)
 			assert.Error(t, err)
 		})
@@ -36,37 +36,37 @@ func TestProjectMembersRepository(t *testing.T) {
 		t.Run("Can't insert projectMember without projectID", func(t *testing.T) {
 			missingProjectID := testrand.UUID()
 
-			projMember, err := projectMembers.Insert(ctx, createdUsers[0].ID, missingProjectID)
+			projMember, err := projectMembers.Insert(ctx, createdUsers[0].ID, missingProjectID, console.RoleAdmin)
 			assert.Nil(t, projMember)
 			assert.Error(t, err)
 		})
 
 		t.Run("Insert  success", func(t *testing.T) {
-			projMember1, err := projectMembers.Insert(ctx, createdUsers[0].ID, createdProjects[0].ID)
+			projMember1, err := projectMembers.Insert(ctx, createdUsers[0].ID, createdProjects[0].ID, console.RoleAdmin)
 			assert.NotNil(t, projMember1)
 			assert.NoError(t, err)
 
-			projMember2, err := projectMembers.Insert(ctx, createdUsers[1].ID, createdProjects[0].ID)
+			projMember2, err := projectMembers.Insert(ctx, createdUsers[1].ID, createdProjects[0].ID, console.RoleAdmin)
 			assert.NotNil(t, projMember2)
 			assert.NoError(t, err)
 
-			projMember3, err := projectMembers.Insert(ctx, createdUsers[3].ID, createdProjects[0].ID)
+			projMember3, err := projectMembers.Insert(ctx, createdUsers[3].ID, createdProjects[0].ID, console.RoleAdmin)
 			assert.NotNil(t, projMember3)
 			assert.NoError(t, err)
 
-			projMember4, err := projectMembers.Insert(ctx, createdUsers[4].ID, createdProjects[0].ID)
+			projMember4, err := projectMembers.Insert(ctx, createdUsers[4].ID, createdProjects[0].ID, console.RoleAdmin)
 			assert.NotNil(t, projMember4)
 			assert.NoError(t, err)
 
-			projMember5, err := projectMembers.Insert(ctx, createdUsers[5].ID, createdProjects[0].ID)
+			projMember5, err := projectMembers.Insert(ctx, createdUsers[5].ID, createdProjects[0].ID, console.RoleAdmin)
 			assert.NotNil(t, projMember5)
 			assert.NoError(t, err)
 
-			projMember6, err := projectMembers.Insert(ctx, createdUsers[2].ID, createdProjects[1].ID)
+			projMember6, err := projectMembers.Insert(ctx, createdUsers[2].ID, createdProjects[1].ID, console.RoleAdmin)
 			assert.NotNil(t, projMember6)
 			assert.NoError(t, err)
 
-			projMember7, err := projectMembers.Insert(ctx, createdUsers[0].ID, createdProjects[1].ID)
+			projMember7, err := projectMembers.Insert(ctx, createdUsers[0].ID, createdProjects[1].ID, console.RoleAdmin)
 			assert.NotNil(t, projMember7)
 			assert.NoError(t, err)
 		})
@@ -137,6 +137,29 @@ func TestProjectMembersRepository(t *testing.T) {
 			assert.Equal(t, originalMember2.ID, selectedMembers2[0].MemberID)
 		})
 
+		t.Run("Get member by memberID and projectID success", func(t *testing.T) {
+			project, err := projects.Insert(ctx, &console.Project{Name: "testProjName"})
+			require.NoError(t, err)
+			require.NotNil(t, project)
+
+			user, err := users.Insert(ctx, &console.User{
+				ID:           testrand.UUID(),
+				Email:        "getmember@example.test",
+				PasswordHash: []byte("some_readable_hash"),
+			})
+			require.NoError(t, err)
+			require.NotNil(t, user)
+
+			projMember, err := projectMembers.Insert(ctx, user.ID, project.ID, console.RoleMember)
+			require.NoError(t, err)
+			require.NotNil(t, projMember)
+
+			projMember, err = projectMembers.GetByMemberIDAndProjectID(ctx, projMember.MemberID, project.ID)
+			require.NoError(t, err)
+			require.NotNil(t, projMember)
+			require.Equal(t, console.RoleMember, projMember.Role)
+		})
+
 		t.Run("Delete member by memberID and projectID success", func(t *testing.T) {
 			err := projectMembers.Delete(ctx, createdUsers[0].ID, createdProjects[0].ID)
 			assert.NoError(t, err)
@@ -151,7 +174,7 @@ func TestProjectMembersRepository(t *testing.T) {
 			assert.NotNil(t, projectMembers)
 			assert.Equal(t, len(projMembers.ProjectMembers), 4)
 		})
-	})
+	}, satellitedbtest.WithSpanner())
 }
 
 func prepareUsersAndProjects(ctx context.Context, t *testing.T, users console.Users, projects console.Projects) ([]*console.User, []*console.Project) {

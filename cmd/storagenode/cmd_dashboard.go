@@ -116,17 +116,17 @@ func printDashboard(cfg *dashboardCfg, data *internalpb.DashboardResponse) error
 	_, _ = heading.Printf("\n======================\n\n")
 
 	w := tabwriter.NewWriter(color.Output, 0, 0, 1, ' ', 0)
-	fmt.Fprintf(w, "ID\t%s\n", color.YellowString(data.NodeId.String()))
+	_, _ = fmt.Fprintf(w, "ID\t%s\n", color.YellowString(data.NodeId.String()))
 
 	if data.LastPinged.IsZero() || time.Since(data.LastPinged) >= contactWindow {
-		fmt.Fprintf(w, "Status\t%s\n", color.RedString("OFFLINE"))
+		_, _ = fmt.Fprintf(w, "Status\t%s\n", color.RedString("OFFLINE"))
 	} else {
-		fmt.Fprintf(w, "Status\t%s\n", color.GreenString("ONLINE"))
+		_, _ = fmt.Fprintf(w, "Status\t%s\n", color.GreenString("ONLINE"))
 	}
 
 	uptime, err := time.ParseDuration(data.GetUptime())
 	if err == nil {
-		fmt.Fprintf(w, "Uptime\t%s\n", color.YellowString(uptime.Truncate(time.Second).String()))
+		_, _ = fmt.Fprintf(w, "Uptime\t%s\n", color.YellowString(uptime.Truncate(time.Second).String()))
 	}
 
 	if err = w.Flush(); err != nil {
@@ -142,9 +142,9 @@ func printDashboard(cfg *dashboardCfg, data *internalpb.DashboardResponse) error
 		usedIngress := color.WhiteString(memory.Size(stats.GetUsedIngress()).Base10String())
 
 		w = tabwriter.NewWriter(color.Output, 0, 0, 5, ' ', tabwriter.AlignRight)
-		fmt.Fprintf(w, "\n\t%s\t%s\t%s\t%s\t\n", color.GreenString("Available"), color.GreenString("Used"), color.GreenString("Egress"), color.GreenString("Ingress"))
-		fmt.Fprintf(w, "Bandwidth\t%s\t%s\t%s\t%s\t (since %s 1)\n", color.WhiteString("N/A"), usedBandwidth, usedEgress, usedIngress, time.Now().Format("Jan"))
-		fmt.Fprintf(w, "Disk\t%s\t%s\t\n", availableSpace, usedSpace)
+		_, _ = fmt.Fprintf(w, "\n\t%s\t%s\t%s\t%s\t\n", color.GreenString("Available"), color.GreenString("Used"), color.GreenString("Egress"), color.GreenString("Ingress"))
+		_, _ = fmt.Fprintf(w, "Bandwidth\t%s\t%s\t%s\t%s\t (since %s 1)\n", color.WhiteString("N/A"), usedBandwidth, usedEgress, usedIngress, time.Now().Format("Jan"))
+		_, _ = fmt.Fprintf(w, "Disk\t%s\t%s\t\n", availableSpace, usedSpace)
 		if err = w.Flush(); err != nil {
 			return err
 		}
@@ -155,16 +155,16 @@ func printDashboard(cfg *dashboardCfg, data *internalpb.DashboardResponse) error
 
 	w = tabwriter.NewWriter(color.Output, 0, 0, 1, ' ', 0)
 	// TODO: Get addresses from server data
-	fmt.Fprintf(w, "Internal\t%s\n", color.WhiteString(cfg.Address))
-	fmt.Fprintf(w, "External\t%s\n", color.WhiteString(data.GetExternalAddress()))
+	_, _ = fmt.Fprintf(w, "Internal\t%s\n", color.WhiteString(cfg.Address))
+	_, _ = fmt.Fprintf(w, "External\t%s\n", color.WhiteString(data.GetExternalAddress()))
 	// Disabling the Link to the Dashboard as its not working yet
-	// fmt.Fprintf(w, "Dashboard\t%s\n", color.WhiteString(data.GetDashboardAddress()))
+	// _, _ = fmt.Fprintf(w, "Dashboard\t%s\n", color.WhiteString(data.GetDashboardAddress()))
 	if err = w.Flush(); err != nil {
 		return err
 	}
 
 	if warnFlag {
-		fmt.Fprintf(w, "\nWARNING!!!!! %s\n", color.WhiteString("Increase your bandwidth"))
+		_, _ = fmt.Fprintf(w, "\nWARNING!!!!! %s\n", color.WhiteString("Increase your bandwidth"))
 	}
 
 	return nil

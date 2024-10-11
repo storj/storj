@@ -1,8 +1,8 @@
 // Copyright (C) 2023 Storj Labs, Inc.
 // See LICENSE for copying information.
 
-let playwrightPort = "10000";
-let portEnv = process.env.PLAYWRIGHT_PORT;
+let playwrightPort = '10000';
+const portEnv = process.env.PLAYWRIGHT_PORT;
 if (portEnv) {
     playwrightPort = portEnv;
 }

@@ -2,14 +2,14 @@
 // See LICENSE for copying information.
 
 <template>
-    <v-card title="STORJ Token" variant="flat" border rounded="xlg">
+    <v-card title="STORJ Token" variant="flat">
         <v-card-text>
             <v-row class="ma-0 align-center">
-                <v-chip rounded color="default" variant="tonal" class="font-weight-bold mr-2">STORJ</v-chip>
-                <v-chip rounded color="info" variant="tonal" class="font-weight-bold">
+                <v-chip color="default" size="small" variant="tonal" class="font-weight-bold mr-2">STORJ</v-chip>
+                <v-chip color="info" size="small" variant="tonal" class="font-weight-bold">
                     Default
                     <span class="d-inline-flex ml-1">
-                        <v-icon class="text-cursor-pointer" :icon="mdiInformationOutline" />
+                        <v-icon class="text-cursor-pointer" :icon="Info" />
                         <v-tooltip
                             class="text-center"
                             activator="parent"
@@ -18,7 +18,7 @@
                             open-delay="150"
                             close-delay="150"
                         >
-                            If the STORJ token balance runs out, the default credit card will be charged.
+                            If the STORJ token balance runs out, the default card will be charged.
                             <a class="link" href="https://docs.storj.io/support/account-management-billing/payment-methods" target="_blank" rel="noopener noreferrer">
                                 Learn more
                             </a>
@@ -29,7 +29,7 @@
             <v-divider class="my-4" />
             <p>Deposit Address</p>
             <v-row class="ma-0 mt-2 align-center">
-                <v-chip rounded color="default" variant="text" class="font-weight-bold px-0 mr-4" @click="copyAddress">
+                <v-chip color="default" variant="text" class="font-weight-bold px-0 mr-4" @click="copyAddress">
                     {{ shortAddress || '-------' }}
                     <v-tooltip
                         v-if="wallet.address"
@@ -43,11 +43,11 @@
             </v-row>
             <v-divider class="my-4" />
             <p>Total Balance</p>
-            <v-chip rounded color="green" variant="outlined" class="font-weight-bold mt-2">{{ balance || '------' }}</v-chip>
+            <v-chip color="success" variant="tonal" class="font-weight-bold mt-2">{{ balance || '------' }}</v-chip>
             <v-divider class="mt-4 mb-2" />
-            <v-btn v-if="wallet.address" variant="flat" color="success" size="small" :loading="isLoading" class="mt-2 mr-2" @click="onAddTokens">+ Add STORJ Tokens</v-btn>
-            <v-btn v-else variant="flat" color="success" size="small" :loading="isLoading" class="mt-2" @click="claimWalletClick">Create New Wallet</v-btn>
-            <v-btn v-if="wallet.address" variant="outlined" color="default" size="small" :loading="isLoading" class="mt-2" @click="emit('historyClicked')">View Transactions</v-btn>
+            <v-btn v-if="wallet.address" variant="flat" color="success" size="small" rounded="md" :loading="isLoading" class="mt-2 mr-2" @click="onAddTokens">+ Add STORJ Tokens</v-btn>
+            <v-btn v-else variant="flat" color="success" size="small" rounded="md" :loading="isLoading" class="mt-2" @click="claimWalletClick">Create New Wallet</v-btn>
+            <v-btn v-if="wallet.address" variant="outlined" color="default" size="small" rounded="md" :loading="isLoading" class="mt-2" @click="emit('historyClicked')">View Transactions</v-btn>
         </v-card-text>
     </v-card>
 
@@ -57,7 +57,7 @@
 <script setup lang="ts">
 import { VBtn, VCard, VCardText, VChip, VDivider, VTooltip, VRow, VIcon } from 'vuetify/components';
 import { computed, onMounted, ref } from 'vue';
-import { mdiInformationOutline } from '@mdi/js';
+import { Info } from 'lucide-vue-next';
 
 import { Wallet } from '@/types/payments';
 import { useLoading } from '@/composables/useLoading';
@@ -66,13 +66,16 @@ import { AnalyticsErrorEventSource, AnalyticsEvent } from '@/utils/constants/ana
 import { useNotify } from '@/utils/hooks';
 import { useAppStore } from '@/store/modules/appStore';
 import { useAnalyticsStore } from '@/store/modules/analyticsStore';
+import { useUsersStore } from '@/store/modules/usersStore';
 
 import AddTokensDialog from '@/components/dialogs/AddTokensDialog.vue';
 import InputCopyButton from '@/components/InputCopyButton.vue';
 
 const analyticsStore = useAnalyticsStore();
 const appStore = useAppStore();
+const usersStore = useUsersStore();
 const billingStore = useBillingStore();
+
 const notify = useNotify();
 const { isLoading, withLoading } = useLoading();
 
@@ -145,6 +148,11 @@ async function claimWallet(): Promise<void> {
  * Called when "Create New Wallet" button is clicked.
  */
 function claimWalletClick(): void {
+    if (!usersStore.state.user.paidTier) {
+        appStore.toggleUpgradeFlow(true);
+        return;
+    }
+
     withLoading(async () => {
         try {
             await claimWallet();
@@ -161,6 +169,11 @@ function claimWalletClick(): void {
  */
 function onAddTokens(): void {
     analyticsStore.eventTriggered(AnalyticsEvent.ADD_FUNDS_CLICKED);
+
+    if (!usersStore.state.user.paidTier) {
+        appStore.toggleUpgradeFlow(true);
+        return;
+    }
 
     withLoading(async () => {
         if (!wallet.value.address) {

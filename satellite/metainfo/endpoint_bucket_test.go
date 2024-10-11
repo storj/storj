@@ -15,9 +15,11 @@ import (
 	"go.uber.org/zap"
 
 	"storj.io/common/errs2"
+	"storj.io/common/macaroon"
 	"storj.io/common/memory"
 	"storj.io/common/pb"
 	"storj.io/common/rpc/rpcstatus"
+	"storj.io/common/rpc/rpctest"
 	"storj.io/common/storj"
 	"storj.io/common/testcontext"
 	"storj.io/common/testrand"
@@ -25,6 +27,7 @@ import (
 	"storj.io/storj/satellite"
 	"storj.io/storj/satellite/buckets"
 	"storj.io/storj/satellite/console"
+	"storj.io/storj/satellite/metabase"
 	"storj.io/storj/satellite/nodeselection"
 	"storj.io/uplink"
 	"storj.io/uplink/private/metaclient"
@@ -32,7 +35,7 @@ import (
 
 func TestBucketExistenceCheck(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
-		SatelliteCount: 1, UplinkCount: 1,
+		SatelliteCount: 1, UplinkCount: 1, EnableSpanner: true,
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 		apiKey := planet.Uplinks[0].APIKey[planet.Satellites[0].ID()]
 
@@ -60,7 +63,7 @@ func TestBucketExistenceCheck(t *testing.T) {
 
 func TestMaxOutBuckets(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
-		SatelliteCount: 1, UplinkCount: 1,
+		SatelliteCount: 1, UplinkCount: 1, EnableSpanner: true,
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 		limit := planet.Satellites[0].Config.Metainfo.ProjectLimits.MaxBuckets
 		for i := 1; i <= limit; i++ {
@@ -101,7 +104,6 @@ func TestBucketNameValidation(t *testing.T) {
 			_, err = metainfoClient.BeginObject(ctx, metaclient.BeginObjectParams{
 				Bucket:             []byte(name),
 				EncryptedObjectKey: []byte("123"),
-				Version:            0,
 				ExpiresAt:          time.Now().Add(16 * 24 * time.Hour),
 				EncryptionParameters: storj.EncryptionParameters{
 					CipherSuite: storj.EncAESGCM,
@@ -148,7 +150,7 @@ func TestBucketNameValidation(t *testing.T) {
 
 func TestBucketEmptinessBeforeDelete(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
-		SatelliteCount: 1, UplinkCount: 1,
+		SatelliteCount: 1, UplinkCount: 1, EnableSpanner: true,
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 		for i := 0; i < 5; i++ {
 			err := planet.Uplinks[0].Upload(ctx, planet.Satellites[0], "test-bucket", "object-key"+strconv.Itoa(i), testrand.Bytes(memory.KiB))
@@ -175,46 +177,197 @@ func TestDeleteBucket(t *testing.T) {
 			Satellite: testplanet.Combine(
 				testplanet.ReconfigureRS(2, 2, 4, 4),
 				testplanet.MaxSegmentSize(13*memory.KiB),
+				func(log *zap.Logger, index int, config *satellite.Config) {
+					config.Metainfo.ObjectLockEnabled = true
+					config.Metainfo.UseBucketLevelObjectVersioning = true
+				},
 			),
 		},
-		SatelliteCount: 1, StorageNodeCount: 4, UplinkCount: 1,
+		SatelliteCount: 1, StorageNodeCount: 4, UplinkCount: 1, EnableSpanner: true,
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
-		apiKey := planet.Uplinks[0].APIKey[planet.Satellites[0].ID()]
-		satelliteSys := planet.Satellites[0]
+		ownerAPIKey := planet.Uplinks[0].APIKey[planet.Satellites[0].ID()]
+		sat := planet.Satellites[0]
 		uplnk := planet.Uplinks[0]
+		project := uplnk.Projects[0]
+		endpoint := sat.API.Metainfo.Endpoint
 
-		expectedBucketName := "remote-segments-bucket"
+		expectedObjects := map[string][]byte{
+			"single-segment-object":        testrand.Bytes(10 * memory.KiB),
+			"multi-segment-object":         testrand.Bytes(50 * memory.KiB),
+			"remote-segment-inline-object": testrand.Bytes(33 * memory.KiB),
+		}
 
-		err := uplnk.Upload(ctx, planet.Satellites[0], expectedBucketName, "single-segment-object", testrand.Bytes(10*memory.KiB))
-		require.NoError(t, err)
-		err = uplnk.Upload(ctx, planet.Satellites[0], expectedBucketName, "multi-segment-object", testrand.Bytes(50*memory.KiB))
-		require.NoError(t, err)
-		err = uplnk.Upload(ctx, planet.Satellites[0], expectedBucketName, "remote-segment-inline-object", testrand.Bytes(33*memory.KiB))
-		require.NoError(t, err)
+		uploadObjects := func(t *testing.T, bucketName metabase.BucketName) {
+			for name, bytes := range expectedObjects {
+				require.NoError(t, uplnk.Upload(ctx, sat, bucketName.String(), name, bytes))
+			}
+		}
 
-		objects, err := satelliteSys.API.Metainfo.Metabase.TestingAllObjects(ctx)
-		require.NoError(t, err)
-		require.Len(t, objects, 3)
+		requireBucketDeleted := func(t *testing.T, bucketName metabase.BucketName) {
+			_, err := sat.DB.Buckets().GetBucket(ctx, []byte(bucketName), project.ID)
+			require.True(t, buckets.ErrBucketNotFound.Has(err))
 
-		delResp, err := satelliteSys.API.Metainfo.Endpoint.DeleteBucket(ctx, &pb.BucketDeleteRequest{
-			Header: &pb.RequestHeader{
-				ApiKey: apiKey.SerializeRaw(),
-			},
-			Name:      []byte(expectedBucketName),
-			DeleteAll: true,
+			objects, err := sat.API.Metainfo.Metabase.ListObjects(ctx, metabase.ListObjects{
+				ProjectID:  project.ID,
+				BucketName: bucketName,
+				Limit:      1,
+			})
+			require.NoError(t, err)
+			require.Empty(t, objects.Objects)
+		}
+
+		requireBucketNotDeleted := func(t *testing.T, bucketName metabase.BucketName) {
+			_, err := sat.DB.Buckets().GetBucket(ctx, []byte(bucketName), project.ID)
+			require.NoError(t, err)
+
+			objects, err := sat.API.Metainfo.Metabase.ListObjects(ctx, metabase.ListObjects{
+				ProjectID:  project.ID,
+				BucketName: bucketName,
+				Limit:      len(expectedObjects),
+			})
+			require.NoError(t, err)
+			require.Len(t, objects.Objects, len(expectedObjects))
+		}
+
+		t.Run("Delete bucket as owner", func(t *testing.T) {
+			bucketName := metabase.BucketName(testrand.BucketName())
+			uploadObjects(t, bucketName)
+
+			delResp, err := endpoint.DeleteBucket(ctx, &pb.BucketDeleteRequest{
+				Header: &pb.RequestHeader{
+					ApiKey: ownerAPIKey.SerializeRaw(),
+				},
+				Name:      []byte(bucketName),
+				DeleteAll: true,
+			})
+			require.NoError(t, err)
+			require.NotNil(t, delResp)
+			require.EqualValues(t, len(expectedObjects), delResp.DeletedObjectsCount)
+
+			requireBucketDeleted(t, bucketName)
 		})
-		require.NoError(t, err)
-		require.Equal(t, int64(3), delResp.DeletedObjectsCount)
 
-		// confirm the bucket is deleted
-		buckets, err := satelliteSys.Metainfo.Endpoint.ListBuckets(ctx, &pb.BucketListRequest{
-			Header: &pb.RequestHeader{
-				ApiKey: apiKey.SerializeRaw(),
-			},
-			Direction: buckets.DirectionForward,
+		t.Run("Delete bucket with Object Lock enabled as owner", func(t *testing.T) {
+			bucketName := metabase.BucketName(testrand.BucketName())
+			_, err := sat.DB.Buckets().CreateBucket(ctx, buckets.Bucket{
+				ProjectID:         project.ID,
+				Name:              bucketName.String(),
+				ObjectLockEnabled: true,
+			})
+			require.NoError(t, err)
+
+			uploadObjects(t, bucketName)
+
+			delResp, err := endpoint.DeleteBucket(ctx, &pb.BucketDeleteRequest{
+				Header: &pb.RequestHeader{
+					ApiKey: ownerAPIKey.SerializeRaw(),
+				},
+				Name:      []byte(bucketName),
+				DeleteAll: true,
+			})
+			rpctest.AssertCode(t, err, rpcstatus.PermissionDenied)
+			require.Nil(t, delResp)
+
+			requireBucketNotDeleted(t, bucketName)
+
+			objs, err := sat.Admin.MetabaseDB.ListObjects(ctx, metabase.ListObjects{
+				ProjectID:  project.ID,
+				BucketName: bucketName,
+				Limit:      len(expectedObjects),
+			})
+			require.NoError(t, err)
+			for _, obj := range objs.Objects {
+				_, err := sat.Admin.MetabaseDB.DeleteObjectLastCommitted(ctx, metabase.DeleteObjectLastCommitted{
+					ObjectLocation: metabase.ObjectLocation{
+						ProjectID:  project.ID,
+						BucketName: bucketName,
+						ObjectKey:  obj.ObjectKey,
+					},
+				})
+				require.NoError(t, err)
+			}
+
+			_, err = endpoint.DeleteBucket(ctx, &pb.BucketDeleteRequest{
+				Header: &pb.RequestHeader{
+					ApiKey: ownerAPIKey.SerializeRaw(),
+				},
+				Name: []byte(bucketName),
+			})
+			require.NoError(t, err)
+
+			requireBucketDeleted(t, bucketName)
 		})
-		require.NoError(t, err)
-		require.Len(t, buckets.GetItems(), 0)
+
+		t.Run("Delete bucket as member", func(t *testing.T) {
+			bucketName := metabase.BucketName(testrand.BucketName())
+			uploadObjects(t, bucketName)
+
+			member, err := sat.AddUser(ctx, console.CreateUser{
+				FullName: "Member User",
+				Email:    "member@example.com",
+			}, 1)
+			require.NoError(t, err)
+			require.NotNil(t, member)
+
+			memberCtx, err := sat.UserContext(ctx, member.ID)
+			require.NoError(t, err)
+
+			_, err = sat.DB.Console().ProjectMembers().Insert(ctx, member.ID, project.ID, console.RoleMember)
+			require.NoError(t, err)
+
+			memberKeyInfo, memberKey, err := sat.API.Console.Service.CreateAPIKey(memberCtx, project.ID, "member key", macaroon.APIKeyVersionMin)
+			require.NoError(t, err)
+			require.NotNil(t, memberKey)
+			require.NotNil(t, memberKeyInfo)
+
+			delResp, err := endpoint.DeleteBucket(ctx, &pb.BucketDeleteRequest{
+				Header: &pb.RequestHeader{
+					ApiKey: memberKey.SerializeRaw(),
+				},
+				Name:      []byte(bucketName),
+				DeleteAll: true,
+			})
+			rpctest.AssertCode(t, err, rpcstatus.PermissionDenied)
+			require.Nil(t, delResp)
+
+			requireBucketNotDeleted(t, bucketName)
+		})
+
+		t.Run("Delete bucket as admin", func(t *testing.T) {
+			bucketName := metabase.BucketName(testrand.BucketName())
+			uploadObjects(t, bucketName)
+
+			admin, err := sat.AddUser(ctx, console.CreateUser{
+				FullName: "Admin User",
+				Email:    "admin@example.com",
+			}, 1)
+			require.NoError(t, err)
+			require.NotNil(t, admin)
+
+			adminCtx, err := sat.UserContext(ctx, admin.ID)
+			require.NoError(t, err)
+
+			_, err = sat.DB.Console().ProjectMembers().Insert(ctx, admin.ID, project.ID, console.RoleAdmin)
+			require.NoError(t, err)
+
+			adminKeyInfo, adminKey, err := sat.API.Console.Service.CreateAPIKey(adminCtx, project.ID, "admin key", macaroon.APIKeyVersionMin)
+			require.NoError(t, err)
+			require.NotNil(t, adminKey)
+			require.NotNil(t, adminKeyInfo)
+
+			delResp, err := endpoint.DeleteBucket(ctx, &pb.BucketDeleteRequest{
+				Header: &pb.RequestHeader{
+					ApiKey: adminKey.SerializeRaw(),
+				},
+				Name:      []byte(bucketName),
+				DeleteAll: true,
+			})
+			require.NoError(t, err)
+			require.NotNil(t, delResp)
+			require.EqualValues(t, len(expectedObjects), delResp.DeletedObjectsCount)
+
+			requireBucketDeleted(t, bucketName)
+		})
 	})
 }
 
@@ -276,7 +429,7 @@ func TestListBucketsWithAttribution(t *testing.T) {
 
 func TestBucketCreationWithDefaultPlacement(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
-		SatelliteCount: 1, UplinkCount: 1,
+		SatelliteCount: 1, UplinkCount: 1, EnableSpanner: true,
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 		projectID := planet.Uplinks[0].Projects[0].ID
 
@@ -302,9 +455,41 @@ func TestBucketCreationWithDefaultPlacement(t *testing.T) {
 	})
 }
 
+func TestCraeteBucketWithCreatedBy(t *testing.T) {
+	testplanet.Run(t, testplanet.Config{
+		SatelliteCount: 1, UplinkCount: 1, EnableSpanner: true,
+	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+		sat := planet.Satellites[0]
+		service := sat.API.Console.Service
+		project := planet.Uplinks[0].Projects[0]
+
+		userCtx, err := sat.UserContext(ctx, project.Owner.ID)
+		require.NoError(t, err)
+
+		apiKeyInfo, apiKey, err := service.CreateAPIKey(userCtx, project.ID, "test key", macaroon.APIKeyVersionMin)
+		require.NoError(t, err)
+		require.NotNil(t, apiKey)
+		require.False(t, apiKeyInfo.CreatedBy.IsZero())
+
+		bucketName := []byte("bucket")
+		_, err = sat.Metainfo.Endpoint.CreateBucket(ctx, &pb.BucketCreateRequest{
+			Header: &pb.RequestHeader{
+				ApiKey: apiKey.SerializeRaw(),
+			},
+			Name: bucketName,
+		})
+		require.NoError(t, err)
+
+		bucket, err := sat.API.DB.Buckets().GetBucket(ctx, bucketName, project.ID)
+		require.NoError(t, err)
+		require.False(t, bucket.CreatedBy.IsZero())
+		require.Equal(t, apiKeyInfo.CreatedBy, bucket.CreatedBy)
+	})
+}
+
 func TestGetBucketLocation(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
-		SatelliteCount: 1, StorageNodeCount: 0, UplinkCount: 1,
+		SatelliteCount: 1, StorageNodeCount: 0, UplinkCount: 1, EnableSpanner: true,
 		Reconfigure: testplanet.Reconfigure{
 			Satellite: func(log *zap.Logger, index int, config *satellite.Config) {
 				config.Placement = nodeselection.ConfigurablePlacementRule{
@@ -360,7 +545,7 @@ func TestGetBucketLocation(t *testing.T) {
 
 func TestEnableSuspendBucketVersioning(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
-		SatelliteCount: 1, UplinkCount: 1,
+		SatelliteCount: 1, UplinkCount: 1, EnableSpanner: true,
 		Reconfigure: testplanet.Reconfigure{
 			Satellite: func(log *zap.Logger, index int, config *satellite.Config) {
 				config.Metainfo.UseBucketLevelObjectVersioning = true
@@ -370,8 +555,6 @@ func TestEnableSuspendBucketVersioning(t *testing.T) {
 		bucketName := "testbucket"
 		projectID := planet.Uplinks[0].Projects[0].ID
 		satellite := planet.Satellites[0]
-		enable := true
-		suspend := false
 
 		deleteBucket := func() error {
 			err := satellite.API.DB.Buckets().DeleteBucket(ctx, []byte(bucketName), projectID)
@@ -406,25 +589,66 @@ func TestEnableSuspendBucketVersioning(t *testing.T) {
 
 		for _, tt := range []struct {
 			name                     string
+			objectLockEnabled        bool
 			initialVersioningState   buckets.Versioning
 			versioning               bool
 			resultantVersioningState buckets.Versioning
+			expectedErrCode          rpcstatus.StatusCode
 		}{
-			{"Enable unsupported bucket fails", buckets.VersioningUnsupported, enable, buckets.VersioningUnsupported},
-			{"Suspend unsupported bucket fails", buckets.VersioningUnsupported, suspend, buckets.VersioningUnsupported},
-			{"Enable unversioned bucket succeeds", buckets.Unversioned, enable, buckets.VersioningEnabled},
-			{"Suspend unversioned bucket fails", buckets.Unversioned, suspend, buckets.Unversioned},
-			{"Enable enabled bucket succeeds", buckets.VersioningEnabled, enable, buckets.VersioningEnabled},
-			{"Suspend enabled bucket succeeds", buckets.VersioningEnabled, suspend, buckets.VersioningSuspended},
-			{"Enable suspended bucket succeeds", buckets.VersioningSuspended, enable, buckets.VersioningEnabled},
-			{"Suspend suspended bucket succeeds", buckets.VersioningSuspended, suspend, buckets.VersioningSuspended},
+			{
+				name:                     "Enable unsupported bucket fails",
+				initialVersioningState:   buckets.VersioningUnsupported,
+				versioning:               true,
+				resultantVersioningState: buckets.VersioningUnsupported,
+				expectedErrCode:          rpcstatus.FailedPrecondition,
+			}, {
+				name:                     "Suspend unsupported bucket fails",
+				initialVersioningState:   buckets.VersioningUnsupported,
+				resultantVersioningState: buckets.VersioningUnsupported,
+				expectedErrCode:          rpcstatus.FailedPrecondition,
+			}, {
+				name:                     "Enable unversioned bucket succeeds",
+				initialVersioningState:   buckets.Unversioned,
+				versioning:               true,
+				resultantVersioningState: buckets.VersioningEnabled,
+			}, {
+				name:                     "Suspend unversioned bucket fails",
+				initialVersioningState:   buckets.Unversioned,
+				resultantVersioningState: buckets.Unversioned,
+				expectedErrCode:          rpcstatus.FailedPrecondition,
+			}, {
+				name:                     "Enable enabled bucket succeeds",
+				initialVersioningState:   buckets.VersioningEnabled,
+				versioning:               true,
+				resultantVersioningState: buckets.VersioningEnabled,
+			}, {
+				name:                     "Suspend enabled bucket succeeds",
+				initialVersioningState:   buckets.VersioningEnabled,
+				resultantVersioningState: buckets.VersioningSuspended,
+			}, {
+				name:                     "Enable suspended bucket succeeds",
+				initialVersioningState:   buckets.VersioningSuspended,
+				versioning:               true,
+				resultantVersioningState: buckets.VersioningEnabled,
+			}, {
+				name:                     "Suspend suspended bucket succeeds",
+				initialVersioningState:   buckets.VersioningSuspended,
+				resultantVersioningState: buckets.VersioningSuspended,
+			}, {
+				name:                     "Suspend bucket with Object Lock enabled fails",
+				objectLockEnabled:        true,
+				initialVersioningState:   buckets.VersioningEnabled,
+				resultantVersioningState: buckets.VersioningEnabled,
+				expectedErrCode:          rpcstatus.ObjectLockInvalidBucketState,
+			},
 		} {
 			t.Run(tt.name, func(t *testing.T) {
 				defer ctx.Check(deleteBucket)
 				bucket, err := satellite.API.DB.Buckets().CreateBucket(ctx, buckets.Bucket{
-					ProjectID:  projectID,
-					Name:       bucketName,
-					Versioning: tt.initialVersioningState,
+					ProjectID:         projectID,
+					Name:              bucketName,
+					Versioning:        tt.initialVersioningState,
+					ObjectLockEnabled: tt.objectLockEnabled,
 				})
 				require.NoError(t, err)
 				require.NotNil(t, bucket)
@@ -435,10 +659,9 @@ func TestEnableSuspendBucketVersioning(t *testing.T) {
 					Name:       []byte(bucketName),
 					Versioning: tt.versioning,
 				})
-				// only 3 error state transitions
-				if tt.initialVersioningState == buckets.VersioningUnsupported ||
-					(tt.initialVersioningState == buckets.Unversioned && tt.versioning == suspend) {
+				if tt.expectedErrCode != 0 {
 					require.Error(t, err)
+					rpctest.RequireCode(t, err, tt.expectedErrCode)
 				} else {
 					require.NoError(t, err)
 				}
@@ -456,48 +679,9 @@ func TestEnableSuspendBucketVersioning(t *testing.T) {
 	})
 }
 
-func TestEnableSuspendBucketVersioningFeature(t *testing.T) {
-	testplanet.Run(t, testplanet.Config{
-		SatelliteCount: 1, UplinkCount: 1,
-		Reconfigure: testplanet.Reconfigure{
-			Satellite: func(log *zap.Logger, index int, config *satellite.Config) {
-				config.Metainfo.UseBucketLevelObjectVersioning = true
-			},
-		},
-	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
-		satelliteSys := planet.Satellites[0]
-		apiKey := planet.Uplinks[0].APIKey[satelliteSys.ID()]
-		projectID := planet.Uplinks[0].Projects[0].ID
-
-		_, err := satelliteSys.Metainfo.Endpoint.CreateBucket(ctx, &pb.BucketCreateRequest{
-			Header: &pb.RequestHeader{
-				ApiKey: apiKey.SerializeRaw(),
-			},
-			Name: []byte("bucket1"),
-		})
-		require.NoError(t, err)
-
-		// verify suspend unversioned bucket fails
-		err = planet.Satellites[0].API.DB.Buckets().SuspendBucketVersioning(ctx, []byte("bucket1"), projectID)
-		require.Error(t, err)
-
-		// verify enable unversioned bucket succeeds
-		err = planet.Satellites[0].API.DB.Buckets().EnableBucketVersioning(ctx, []byte("bucket1"), projectID)
-		require.NoError(t, err)
-
-		// verify suspend enabled bucket succeeds
-		err = planet.Satellites[0].API.DB.Buckets().SuspendBucketVersioning(ctx, []byte("bucket1"), projectID)
-		require.NoError(t, err)
-
-		// verify re-enable suspended bucket succeeds
-		err = planet.Satellites[0].API.DB.Buckets().EnableBucketVersioning(ctx, []byte("bucket1"), projectID)
-		require.NoError(t, err)
-	})
-}
-
 func TestDefaultBucketVersioning(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
-		SatelliteCount: 1, UplinkCount: 1,
+		SatelliteCount: 1, UplinkCount: 1, EnableSpanner: true,
 		Reconfigure: testplanet.Reconfigure{
 			Satellite: func(log *zap.Logger, index int, config *satellite.Config) {
 				config.Metainfo.UseBucketLevelObjectVersioning = true
@@ -579,6 +763,258 @@ func TestDefaultBucketVersioning(t *testing.T) {
 			})
 			require.NoError(t, err)
 			require.Equal(t, buckets.VersioningEnabled, buckets.Versioning(getResponse.Versioning))
+		})
+	})
+}
+
+func TestCreateBucketWithObjectLockEnabled(t *testing.T) {
+	testplanet.Run(t, testplanet.Config{
+		SatelliteCount: 1, UplinkCount: 1, EnableSpanner: true,
+		Reconfigure: testplanet.Reconfigure{
+			Satellite: func(log *zap.Logger, index int, config *satellite.Config) {
+				config.Metainfo.ObjectLockEnabled = true
+				config.Metainfo.UseBucketLevelObjectVersioning = true
+			},
+		},
+	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+		sat := planet.Satellites[0]
+		project := planet.Uplinks[0].Projects[0]
+		endpoint := sat.API.Metainfo.Endpoint
+
+		userCtx, err := sat.UserContext(ctx, project.Owner.ID)
+		require.NoError(t, err)
+
+		_, apiKey, err := sat.API.Console.Service.CreateAPIKey(userCtx, project.ID, "test key", macaroon.APIKeyVersionObjectLock)
+		require.NoError(t, err)
+
+		require.NoError(t, sat.DB.Console().Projects().UpdateDefaultVersioning(ctx, project.ID, console.VersioningEnabled))
+
+		t.Run("Success - Object Lock enabled", func(t *testing.T) {
+			bucketName := []byte(testrand.BucketName())
+			_, err = endpoint.CreateBucket(ctx, &pb.CreateBucketRequest{
+				Header: &pb.RequestHeader{
+					ApiKey: apiKey.SerializeRaw(),
+				},
+				Name:              bucketName,
+				ObjectLockEnabled: true,
+			})
+			require.NoError(t, err)
+
+			enabled, err := sat.DB.Buckets().GetBucketObjectLockEnabled(ctx, bucketName, project.ID)
+			require.NoError(t, err)
+			require.True(t, enabled)
+		})
+
+		t.Run("Success - Object Lock disabled", func(t *testing.T) {
+			bucketName := []byte(testrand.BucketName())
+			_, err = endpoint.CreateBucket(ctx, &pb.CreateBucketRequest{
+				Header: &pb.RequestHeader{
+					ApiKey: apiKey.SerializeRaw(),
+				},
+				Name: bucketName,
+			})
+			require.NoError(t, err)
+
+			enabled, err := sat.DB.Buckets().GetBucketObjectLockEnabled(ctx, bucketName, project.ID)
+			require.NoError(t, err)
+			require.False(t, enabled)
+		})
+
+		t.Run("Object Lock not globally supported", func(t *testing.T) {
+			endpoint.TestSetObjectLockEnabled(false)
+			defer endpoint.TestSetObjectLockEnabled(true)
+
+			bucketName := []byte(testrand.BucketName())
+			req := &pb.CreateBucketRequest{
+				Header: &pb.RequestHeader{
+					ApiKey: apiKey.SerializeRaw(),
+				},
+				Name:              bucketName,
+				ObjectLockEnabled: true,
+			}
+			_, err = endpoint.CreateBucket(ctx, req)
+			rpctest.RequireCode(t, err, rpcstatus.ObjectLockDisabledForProject)
+		})
+
+		t.Run("Unauthorized API key", func(t *testing.T) {
+			_, oldApiKey, err := sat.API.Console.Service.CreateAPIKey(userCtx, project.ID, "old key", macaroon.APIKeyVersionMin)
+			require.NoError(t, err)
+
+			bucketName := []byte(testrand.BucketName())
+			_, err = endpoint.CreateBucket(ctx, &pb.CreateBucketRequest{
+				Header: &pb.RequestHeader{
+					ApiKey: oldApiKey.SerializeRaw(),
+				},
+				Name:              bucketName,
+				ObjectLockEnabled: true,
+			})
+			rpctest.RequireCode(t, err, rpcstatus.PermissionDenied)
+
+			restrictedApiKey, err := apiKey.Restrict(macaroon.Caveat{DisallowPutBucketObjectLockConfiguration: true})
+			require.NoError(t, err)
+
+			_, err = endpoint.CreateBucket(ctx, &pb.CreateBucketRequest{
+				Header: &pb.RequestHeader{
+					ApiKey: restrictedApiKey.SerializeRaw(),
+				},
+				Name:              bucketName,
+				ObjectLockEnabled: true,
+			})
+			rpctest.RequireCode(t, err, rpcstatus.PermissionDenied)
+		})
+
+		t.Run("Object versioning disabled", func(t *testing.T) {
+			endpoint.TestSetUseBucketLevelVersioning(false)
+			defer endpoint.TestSetUseBucketLevelVersioning(true)
+
+			bucketName := []byte(testrand.BucketName())
+			req := &pb.CreateBucketRequest{
+				Header: &pb.RequestHeader{
+					ApiKey: apiKey.SerializeRaw(),
+				},
+				Name:              bucketName,
+				ObjectLockEnabled: true,
+			}
+
+			_, err = endpoint.CreateBucket(ctx, req)
+			rpctest.RequireCode(t, err, rpcstatus.ObjectLockDisabledForProject)
+
+			endpoint.TestSetUseBucketLevelVersioningByProjectID(project.ID, true)
+
+			_, err = endpoint.CreateBucket(ctx, req)
+			require.NoError(t, err)
+
+			endpoint.TestSetUseBucketLevelVersioningByProjectID(project.ID, false)
+
+			req.Name = []byte(testrand.BucketName())
+			_, err = endpoint.CreateBucket(ctx, req)
+			rpctest.RequireCode(t, err, rpcstatus.ObjectLockDisabledForProject)
+
+			require.NoError(t, sat.API.Console.Service.UpdateVersioningOptInStatus(userCtx, project.ID, console.VersioningOptIn))
+			_, err = endpoint.CreateBucket(ctx, req)
+			require.NoError(t, err)
+		})
+	})
+}
+
+func TestGetBucketObjectLockConfiguration(t *testing.T) {
+	testplanet.Run(t, testplanet.Config{
+		SatelliteCount: 1, UplinkCount: 1, EnableSpanner: true,
+		Reconfigure: testplanet.Reconfigure{
+			Satellite: func(log *zap.Logger, index int, config *satellite.Config) {
+				config.Metainfo.ObjectLockEnabled = true
+				config.Metainfo.UseBucketLevelObjectVersioning = true
+			},
+		},
+	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+		sat := planet.Satellites[0]
+		project := planet.Uplinks[0].Projects[0]
+		endpoint := sat.API.Metainfo.Endpoint
+
+		require.NoError(t, sat.DB.Console().Projects().UpdateDefaultVersioning(ctx, project.ID, console.VersioningEnabled))
+
+		userCtx, err := sat.UserContext(ctx, project.Owner.ID)
+		require.NoError(t, err)
+
+		_, apiKey, err := sat.API.Console.Service.CreateAPIKey(userCtx, project.ID, "test key", macaroon.APIKeyVersionObjectLock)
+		require.NoError(t, err)
+
+		createBucket := func(t *testing.T, name []byte, lockEnabled bool) {
+			_, err := endpoint.CreateBucket(ctx, &pb.BucketCreateRequest{
+				Header: &pb.RequestHeader{
+					ApiKey: apiKey.SerializeRaw(),
+				},
+				Name:              name,
+				ObjectLockEnabled: lockEnabled,
+			})
+			require.NoError(t, err)
+		}
+
+		t.Run("Success", func(t *testing.T) {
+			bucketName := []byte(testrand.BucketName())
+			createBucket(t, bucketName, true)
+
+			resp, err := endpoint.GetBucketObjectLockConfiguration(ctx, &pb.GetBucketObjectLockConfigurationRequest{
+				Header: &pb.RequestHeader{
+					ApiKey: apiKey.SerializeRaw(),
+				},
+				Name: bucketName,
+			})
+			require.NoError(t, err)
+			require.True(t, resp.Configuration.Enabled)
+		})
+
+		t.Run("Object Lock disabled", func(t *testing.T) {
+			bucketName := []byte(testrand.BucketName())
+			createBucket(t, bucketName, false)
+
+			_, err := endpoint.GetBucketObjectLockConfiguration(ctx, &pb.GetBucketObjectLockConfigurationRequest{
+				Header: &pb.RequestHeader{
+					ApiKey: apiKey.SerializeRaw(),
+				},
+				Name: bucketName,
+			})
+			rpctest.RequireCode(t, err, rpcstatus.ObjectLockBucketRetentionConfigurationMissing)
+		})
+
+		t.Run("Object Lock not globally supported", func(t *testing.T) {
+			bucketName := []byte(testrand.BucketName())
+			createBucket(t, bucketName, true)
+
+			endpoint.TestSetObjectLockEnabled(false)
+			defer endpoint.TestSetObjectLockEnabled(true)
+
+			req := &pb.GetBucketObjectLockConfigurationRequest{
+				Header: &pb.RequestHeader{
+					ApiKey: apiKey.SerializeRaw(),
+				},
+				Name: bucketName,
+			}
+			_, err := endpoint.GetBucketObjectLockConfiguration(ctx, req)
+			rpctest.RequireCode(t, err, rpcstatus.ObjectLockEndpointsDisabled)
+		})
+
+		t.Run("Nonexistent bucket", func(t *testing.T) {
+			_, err = endpoint.GetBucketObjectLockConfiguration(ctx, &pb.GetBucketObjectLockConfigurationRequest{
+				Header: &pb.RequestHeader{
+					ApiKey: apiKey.SerializeRaw(),
+				},
+				Name: []byte(testrand.BucketName()),
+			})
+			rpctest.RequireCode(t, err, rpcstatus.NotFound)
+		})
+
+		t.Run("Unauthorized API key", func(t *testing.T) {
+			bucketName := []byte(testrand.BucketName())
+			createBucket(t, bucketName, true)
+
+			_, oldApiKey, err := sat.API.Console.Service.CreateAPIKey(userCtx, project.ID, "old key", macaroon.APIKeyVersionMin)
+			require.NoError(t, err)
+
+			_, err = endpoint.GetBucketObjectLockConfiguration(ctx, &pb.GetBucketObjectLockConfigurationRequest{
+				Header: &pb.RequestHeader{
+					ApiKey: oldApiKey.SerializeRaw(),
+				},
+				Name: bucketName,
+			})
+			rpctest.RequireCode(t, err, rpcstatus.PermissionDenied)
+
+			bucketName = []byte(testrand.BucketName())
+			createBucket(t, bucketName, true)
+
+			restrictedApiKey, err := apiKey.Restrict(macaroon.Caveat{
+				DisallowGetRetention: true,
+				DisallowPutRetention: true, // GetRetention is implicitly allowed if PutRetention is allowed
+			})
+			require.NoError(t, err)
+
+			_, err = endpoint.GetBucketObjectLockConfiguration(ctx, &pb.GetBucketObjectLockConfigurationRequest{
+				Header: &pb.RequestHeader{
+					ApiKey: restrictedApiKey.SerializeRaw(),
+				},
+				Name: bucketName,
+			})
+			rpctest.RequireCode(t, err, rpcstatus.PermissionDenied)
 		})
 	})
 }

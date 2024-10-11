@@ -4,6 +4,7 @@
 import { DEFAULT_PAGE_LIMIT } from '@/types/pagination';
 import { ProjectRole } from '@/types/projectMembers';
 import { Versioning } from '@/types/versioning';
+import { DeleteProjectStep } from '@/types/accountActions';
 
 /**
  * Exposes all project-related functionality.
@@ -23,16 +24,52 @@ export interface ProjectsApi {
      * @throws Error
      */
     get(): Promise<Project[]>;
+
+    /**
+     * Delete project.
+     *
+     * @param projectId
+     * @param step
+     * @param data
+     * @throws Error
+     */
+    delete(projectId: string, step: DeleteProjectStep, data: string): Promise<ProjectDeletionData | null>;
+
+    /**
+     * Fetch config for project.
+     *
+     * @param projectId - the project's ID
+     * @returns ProjectConfig
+     * @throws Error
+     */
+    getConfig(projectId: string): Promise<ProjectConfig>;
+
+    /**
+     * Opt in or out of versioning beta.
+     *
+     * @param projectId - the project's ID
+     * @param status - the new opt-in status
+     * @throws Error
+     */
+    setVersioningOptInStatus(projectId: string, status: 'in' | 'out'): Promise<void>;
+
     /**
      * Update project name and description.
      *
      * @param projectId - project ID
      * @param updateProjectFields - project fields to update
-     * @param updateProjectLimits - project limits to update
-     * @returns Project[]
      * @throws Error
      */
-    update(projectId: string, updateProjectFields: ProjectFields, updateProjectLimits: ProjectLimits): Promise<void>;
+    update(projectId: string, updateProjectFields: UpdateProjectFields): Promise<void>;
+
+    /**
+     * Update project user specified limits.
+     *
+     * @param projectId - project ID
+     * @param fields - project limits to update
+     * @throws Error
+     */
+    updateLimits(projectId: string, fields: UpdateProjectLimitsFields): Promise<void>;
 
     /**
      * Get project limits.
@@ -133,20 +170,39 @@ export class Project {
         public description: string = '',
         public createdAt: string = '',
         public ownerId: string = '',
-        public isSelected: boolean = false,
         public memberCount: number = 0,
         public edgeURLOverrides?: EdgeURLOverrides,
         public versioning: Versioning = Versioning.NotSupported,
         public storageUsed: number = 0,
         public bandwidthUsed: number = 0,
     ) {}
+}
 
-    /**
-     * Returns created date as a local string.
-     */
-    public createdDate(): string {
-        const createdAt = new Date(this.createdAt);
-        return createdAt.toLocaleString('en-US', { year: 'numeric', month: '2-digit', day: 'numeric' });
+/**
+ * ProjectConfig is a type, used for project configuration.
+ */
+export class ProjectConfig {
+    public constructor(
+        public versioningUIEnabled: boolean = false,
+        public promptForVersioningBeta: boolean = false,
+        public hasManagedPassphrase: boolean = false,
+        public passphrase: string = '',
+        public isOwnerPaidTier: boolean = false,
+        public _role: number = 1,
+        // This indicates whether a project has object lock enabled for it.
+        // In the background (satellite), it is dependent on whether the object
+        // lock feature is enabled for the satellite (metainfo) and whether
+        // the project has opted in for versioning (versioningUIEnabled).
+        public objectLockUIEnabled: boolean = false,
+    ) {}
+
+    public get role(): ProjectItemRole {
+        switch (this._role) {
+        case 1:
+            return ProjectRole.Member;
+        default:
+            return ProjectRole.Admin;
+        }
     }
 }
 
@@ -167,6 +223,7 @@ export class ProjectFields {
         public name: string = '',
         public description: string = '',
         public ownerId: string = '',
+        public managePassphrase: boolean = false,
     ) {}
 
     /**
@@ -197,6 +254,8 @@ export class ProjectFields {
  */
 export class ProjectLimits {
     public constructor(
+        public userSetBandwidthLimit: number | null = null,
+        public userSetStorageLimit: number | null = null,
         public bandwidthLimit: number = 0,
         public bandwidthUsed: number = 0,
         public storageLimit: number = 0,
@@ -208,6 +267,16 @@ export class ProjectLimits {
         public bucketsLimit: number = 0,
         public bucketsUsed: number = 0,
     ) {}
+}
+
+export interface UpdateProjectFields {
+    name: string;
+    description: string;
+}
+
+export interface UpdateProjectLimitsFields {
+    storageLimit?: string;
+    bandwidthLimit?: string;
 }
 
 /**
@@ -231,6 +300,18 @@ export class ProjectsCursor {
     public constructor(
         public limit: number = DEFAULT_PAGE_LIMIT,
         public page: number = 1,
+    ) {}
+}
+
+/**
+ * ProjectDeletionData represents data returned by project deletion endpoint.
+ */
+export class ProjectDeletionData {
+    public constructor(
+        public buckets: number,
+        public apiKeys: number,
+        public currentUsage: boolean,
+        public invoicingIncomplete: boolean,
     ) {}
 }
 
@@ -345,6 +426,8 @@ export enum LimitType {
 
 export type LimitThresholdsReached = Record<LimitThreshold, LimitType[]>;
 
+export type ManagePassphraseMode = 'auto' | 'manual';
+
 /**
  * ProjectItemModel represents the view model for project items in the all projects dashboard.
  */
@@ -370,7 +453,8 @@ export type ProjectItemRole = Exclude<ProjectRole, ProjectRole.InviteExpired>;
  * PROJECT_ROLE_COLORS defines what colors project role tags should use.
  */
 export const PROJECT_ROLE_COLORS: Record<ProjectRole, string> = {
-    [ProjectRole.Member]: 'green',
+    [ProjectRole.Admin]: 'primary',
+    [ProjectRole.Member]: 'success',
     [ProjectRole.Owner]: 'secondary',
     [ProjectRole.Invited]: 'warning',
     [ProjectRole.InviteExpired]: 'error',

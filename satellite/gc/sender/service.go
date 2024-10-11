@@ -139,7 +139,7 @@ func (service *Service) RunOnce(ctx context.Context) (err error) {
 			limiter.Go(ctx, func() {
 				err := service.sendRetainRequest(ctx, retainInfo)
 				if err != nil {
-					service.log.Warn("Error sending retain filter", zap.Error(err))
+					service.log.Warn("Error sending retain filter", zap.Stringer("NodeID", retainInfo.StorageNodeId), zap.Error(err))
 				}
 			})
 			return nil

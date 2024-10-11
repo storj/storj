@@ -35,24 +35,6 @@ type pieceSpaceUsedDB struct {
 
 // Init creates the total pieces and total trash records if they don't already exist.
 func (db *pieceSpaceUsedDB) Init(ctx context.Context) (err error) {
-	totalPiecesRow := db.QueryRowContext(ctx, `
-		SELECT total
-		FROM piece_space_used
-		WHERE satellite_id IS NULL
-			AND satellite_id IS NOT ?;
-	`, trashTotalRowName)
-
-	var piecesTotal int64
-	err = totalPiecesRow.Scan(&piecesTotal)
-	if err != nil {
-		if errors.Is(err, sql.ErrNoRows) {
-			err = db.createInitTotalPieces(ctx)
-			if err != nil {
-				return ErrPieceSpaceUsed.Wrap(err)
-			}
-		}
-	}
-
 	totalTrashRow := db.QueryRowContext(ctx, `
 		SELECT total
 		FROM piece_space_used
@@ -73,13 +55,6 @@ func (db *pieceSpaceUsedDB) Init(ctx context.Context) (err error) {
 	return ErrPieceSpaceUsed.Wrap(err)
 }
 
-func (db *pieceSpaceUsedDB) createInitTotalPieces(ctx context.Context) (err error) {
-	_, err = db.ExecContext(ctx, `
-		INSERT INTO piece_space_used (total, content_size) VALUES (0, 0)
-	`)
-	return ErrPieceSpaceUsed.Wrap(err)
-}
-
 func (db *pieceSpaceUsedDB) createInitTotalTrash(ctx context.Context) (err error) {
 	_, err = db.ExecContext(ctx, `
 		INSERT INTO piece_space_used (total, content_size, satellite_id) VALUES (0, 0, ?)
@@ -87,15 +62,15 @@ func (db *pieceSpaceUsedDB) createInitTotalTrash(ctx context.Context) (err error
 	return ErrPieceSpaceUsed.Wrap(err)
 }
 
-// GetPieceTotal returns the total space used (total and contentSize) for all pieces stored.
+// GetPieceTotals returns the total space used (total and contentSize) for all pieces stored.
 func (db *pieceSpaceUsedDB) GetPieceTotals(ctx context.Context) (total int64, contentSize int64, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	row := db.QueryRowContext(ctx, `
-		SELECT total, content_size
+		SELECT COALESCE(SUM(total), 0), COALESCE(SUM(content_size), 0)
 		FROM piece_space_used
-		WHERE satellite_id IS NULL;
-	`)
+		WHERE satellite_id IS NOT NULL AND satellite_id IS NOT ?;
+	`, trashTotalRowName)
 
 	err = row.Scan(&total, &contentSize)
 	if err != nil {
@@ -162,19 +137,6 @@ func (db *pieceSpaceUsedDB) GetPieceTotalsForAllSatellites(ctx context.Context) 
 	return totalBySatellite, rows.Err()
 }
 
-// UpdatePieceTotals updates the record for total spaced used with new total and contentSize values.
-func (db *pieceSpaceUsedDB) UpdatePieceTotals(ctx context.Context, newTotal, newContentSize int64) (err error) {
-	defer mon.Task()(&ctx)(&err)
-
-	_, err = db.ExecContext(ctx, `
-		UPDATE piece_space_used
-		SET total = ?, content_size = ?
-		WHERE satellite_id IS NULL
-	`, newTotal, newContentSize)
-
-	return ErrPieceSpaceUsed.Wrap(err)
-}
-
 // UpdateTrashTotal updates the record for total spaced used with a new value.
 func (db *pieceSpaceUsedDB) UpdateTrashTotal(ctx context.Context, newTotal int64) (err error) {
 	defer mon.Task()(&ctx)(&err)
@@ -189,32 +151,43 @@ func (db *pieceSpaceUsedDB) UpdateTrashTotal(ctx context.Context, newTotal int64
 }
 
 // UpdatePieceTotalsForAllSatellites updates each record with new values for each satelliteID.
+// If the usage values are set to zero for a satellite, the record is deleted.
 func (db *pieceSpaceUsedDB) UpdatePieceTotalsForAllSatellites(ctx context.Context, newTotalsBySatellites map[storj.NodeID]pieces.SatelliteUsage) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	for satelliteID, vals := range newTotalsBySatellites {
-		if vals.ContentSize == 0 && vals.Total == 0 {
-			if err := db.deleteTotalBySatellite(ctx, satelliteID); err != nil {
-				return ErrPieceSpaceUsed.Wrap(err)
-			}
-			continue
-		}
-
-		_, err = db.ExecContext(ctx, `
-			INSERT INTO piece_space_used (total, content_size, satellite_id)
-			VALUES (?, ?, ?)
-			ON CONFLICT (satellite_id)
-			DO UPDATE SET total = ?, content_size = ?
-			WHERE satellite_id = ?
-		`, vals.Total, vals.ContentSize, satelliteID, vals.Total, vals.ContentSize, satelliteID)
-
+		err := db.UpdatePieceTotalsForSatellite(ctx, satelliteID, vals)
 		if err != nil {
-			if errors.Is(err, sql.ErrNoRows) {
-				continue
-			}
-			return ErrPieceSpaceUsed.Wrap(err)
+			return err
 		}
 	}
+	return nil
+}
+
+// UpdatePieceTotalsForSatellite updates record with new values for a specific satelliteID.
+// If the usage values are set to zero, the record is deleted.
+func (db *pieceSpaceUsedDB) UpdatePieceTotalsForSatellite(ctx context.Context, satelliteID storj.NodeID, usage pieces.SatelliteUsage) (err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	if usage.ContentSize == 0 && usage.Total == 0 {
+		if err := db.deleteTotalBySatellite(ctx, satelliteID); err != nil {
+			return ErrPieceSpaceUsed.Wrap(err)
+		}
+		return nil
+	}
+
+	_, err = db.ExecContext(ctx, `
+		INSERT INTO piece_space_used (total, content_size, satellite_id)
+		VALUES (?, ?, ?)
+		ON CONFLICT (satellite_id)
+		DO UPDATE SET total = ?, content_size = ?
+		WHERE satellite_id = ?
+	`, usage.Total, usage.ContentSize, satelliteID, usage.Total, usage.ContentSize, satelliteID)
+
+	if err != nil {
+		return ErrPieceSpaceUsed.Wrap(err)
+	}
+
 	return nil
 }
 

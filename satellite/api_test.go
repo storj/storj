@@ -1,7 +1,7 @@
 // Copyright (C) 2023 Storj Labs, Inc.
 // See LICENSE for copying information.
 
-package satellite
+package satellite_test
 
 import (
 	"encoding/base64"
@@ -9,13 +9,13 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/gogo/protobuf/proto"
 	"github.com/stretchr/testify/require"
 
 	"storj.io/common/identity/testidentity"
 	"storj.io/common/pb"
 	"storj.io/common/storj"
 	"storj.io/common/testcontext"
+	"storj.io/storj/satellite"
 )
 
 const certExample = `
@@ -51,14 +51,14 @@ func TestLoadAuthorities(t *testing.T) {
 		err := os.WriteFile(certPath, []byte(certExample), 0644)
 		require.NoError(t, err)
 
-		a, err := loadAuthorities(selfIdentity.PeerIdentity(), certPath+","+certPath)
+		a, err := satellite.LoadAuthorities(selfIdentity.PeerIdentity(), certPath+","+certPath)
 		require.NoError(t, err)
 
 		decoded, err := base64.StdEncoding.DecodeString(signedTag)
 		require.NoError(t, err)
 
 		tags := &pb.SignedNodeTagSets{}
-		err = proto.Unmarshal(decoded, tags)
+		err = pb.Unmarshal(decoded, tags)
 		require.NoError(t, err)
 
 		require.Len(t, tags.Tags, 1)
@@ -67,7 +67,7 @@ func TestLoadAuthorities(t *testing.T) {
 
 	})
 	t.Run("invalid file", func(t *testing.T) {
-		_, err := loadAuthorities(selfIdentity.PeerIdentity(), "none")
+		_, err := satellite.LoadAuthorities(selfIdentity.PeerIdentity(), "none")
 		require.Error(t, err)
 	})
 

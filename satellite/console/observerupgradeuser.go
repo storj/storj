@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"storj.io/common/memory"
+	"storj.io/storj/satellite/analytics"
 	"storj.io/storj/satellite/payments/billing"
 )
 
@@ -20,17 +21,19 @@ type UpgradeUserObserver struct {
 	usageLimitsConfig     UsageLimitsConfig
 	userBalanceForUpgrade int64
 	freezeService         *AccountFreezeService
+	analyticsService      *analytics.Service
 	nowFn                 func() time.Time
 }
 
 // NewUpgradeUserObserver creates new observer instance.
-func NewUpgradeUserObserver(consoleDB DB, transactionsDB billing.TransactionsDB, usageLimitsConfig UsageLimitsConfig, userBalanceForUpgrade int64, freezeService *AccountFreezeService) *UpgradeUserObserver {
+func NewUpgradeUserObserver(consoleDB DB, transactionsDB billing.TransactionsDB, usageLimitsConfig UsageLimitsConfig, userBalanceForUpgrade int64, freezeService *AccountFreezeService, analyticsService *analytics.Service) *UpgradeUserObserver {
 	return &UpgradeUserObserver{
 		consoleDB:             consoleDB,
 		transactionsDB:        transactionsDB,
 		usageLimitsConfig:     usageLimitsConfig,
 		userBalanceForUpgrade: userBalanceForUpgrade,
 		freezeService:         freezeService,
+		analyticsService:      analyticsService,
 		nowFn:                 time.Now,
 	}
 }
@@ -68,6 +71,13 @@ func (o *UpgradeUserObserver) Process(ctx context.Context, transaction billing.T
 		return nil
 	}
 
+	if freezes.TrialExpirationFreeze != nil {
+		err = o.freezeService.TrialExpirationUnfreezeUser(ctx, user.ID)
+		if err != nil {
+			return err
+		}
+	}
+
 	now := o.nowFn()
 	err = o.consoleDB.Users().UpdatePaidTier(ctx, user.ID, true,
 		o.usageLimitsConfig.Bandwidth.Paid,
@@ -79,6 +89,8 @@ func (o *UpgradeUserObserver) Process(ctx context.Context, transaction billing.T
 	if err != nil {
 		return err
 	}
+
+	o.analyticsService.TrackUserUpgraded(user.ID, user.Email, user.TrialExpiration)
 
 	projects, err := o.consoleDB.Projects().GetOwn(ctx, user.ID)
 	if err != nil {

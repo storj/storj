@@ -2,7 +2,7 @@
 // See LICENSE for copying information.
 
 <template>
-    <v-card border rounded="xlg">
+    <v-card variant="flat">
         <v-data-table-server
             :loading="isLoading"
             :headers="headers"
@@ -23,7 +23,7 @@
                 </span>
             </template>
             <template #item.formattedStatus="{ item }">
-                <v-chip :color="getColor(item.formattedStatus)" variant="tonal" size="small" rounded="xl" class="font-weight-bold">
+                <v-chip :color="getColor(item.formattedStatus)" variant="tonal" size="small" class="font-weight-bold">
                     {{ item.formattedStatus }}
                 </v-chip>
             </template>
@@ -51,8 +51,8 @@
                         </v-col>
                         <v-col cols="auto">
                             <v-btn-group density="compact">
-                                <v-btn :disabled="!historyPage.hasPrevious" :icon="mdiChevronLeft" @click="previousClicked" />
-                                <v-btn :disabled="!historyPage.hasNext" :icon="mdiChevronRight" @click="nextClicked" />
+                                <v-btn :disabled="!historyPage.hasPrevious" :icon="ChevronLeft" @click="previousClicked" />
+                                <v-btn :disabled="!historyPage.hasNext" :icon="ChevronRight" @click="nextClicked" />
                             </v-btn-group>
                         </v-col>
                     </v-row>
@@ -74,7 +74,7 @@ import {
     VSelect,
     VDataTableServer,
 } from 'vuetify/components';
-import { mdiChevronLeft, mdiChevronRight } from '@mdi/js';
+import { ChevronLeft, ChevronRight } from 'lucide-vue-next';
 
 import { centsToDollars } from '@/utils/strings';
 import { useBillingStore } from '@/store/modules/billingStore';

@@ -8,6 +8,7 @@ import (
 
 	"github.com/spacemonkeygo/monkit/v3"
 
+	"storj.io/common/storj"
 	"storj.io/common/uuid"
 )
 
@@ -30,6 +31,7 @@ func (stats *observerRSStats) Stats(cb func(key monkit.SeriesKey, field string, 
 	stats.iterationStats.objectsChecked.Stats(cb)
 	stats.iterationStats.remoteSegmentsChecked.Stats(cb)
 	stats.iterationStats.remoteSegmentsNeedingRepair.Stats(cb)
+	stats.iterationStats.remoteSegmentsNeedingRepairDueToForcing.Stats(cb)
 	stats.iterationStats.newRemoteSegmentsNeedingRepair.Stats(cb)
 	stats.iterationStats.remoteSegmentsLost.Stats(cb)
 	stats.iterationStats.objectsLost.Stats(cb)
@@ -46,20 +48,29 @@ func (stats *observerRSStats) Stats(cb func(key monkit.SeriesKey, field string, 
 	stats.segmentStats.segmentTotalCount.Stats(cb)
 	stats.segmentStats.segmentHealthyCount.Stats(cb)
 	stats.segmentStats.segmentAge.Stats(cb)
+	stats.segmentStats.segmentFreshness.Stats(cb)
 	stats.segmentStats.segmentHealth.Stats(cb)
 	stats.segmentStats.injuredSegmentHealth.Stats(cb)
 	stats.segmentStats.segmentTimeUntilIrreparable.Stats(cb)
+
+	stats.segmentStats.allSegmentPiecesLostPerWeek.Stats(cb)
+	stats.segmentStats.freshSegmentPiecesLostPerWeek.Stats(cb)
+	stats.segmentStats.weekOldSegmentPiecesLostPerWeek.Stats(cb)
+	stats.segmentStats.monthOldSegmentPiecesLostPerWeek.Stats(cb)
+	stats.segmentStats.quarterOldSegmentPiecesLostPerWeek.Stats(cb)
+	stats.segmentStats.yearOldSegmentPiecesLostPerWeek.Stats(cb)
 }
 
 type iterationRSStats struct {
-	objectsChecked                  *monkit.IntVal
-	remoteSegmentsChecked           *monkit.IntVal
-	remoteSegmentsNeedingRepair     *monkit.IntVal
-	newRemoteSegmentsNeedingRepair  *monkit.IntVal
-	remoteSegmentsLost              *monkit.IntVal
-	objectsLost                     *monkit.IntVal
-	remoteSegmentsFailedToCheck     *monkit.IntVal
-	remoteSegmentsHealthyPercentage *monkit.FloatVal
+	objectsChecked                          *monkit.IntVal
+	remoteSegmentsChecked                   *monkit.IntVal
+	remoteSegmentsNeedingRepair             *monkit.IntVal
+	remoteSegmentsNeedingRepairDueToForcing *monkit.IntVal
+	newRemoteSegmentsNeedingRepair          *monkit.IntVal
+	remoteSegmentsLost                      *monkit.IntVal
+	objectsLost                             *monkit.IntVal
+	remoteSegmentsFailedToCheck             *monkit.IntVal
+	remoteSegmentsHealthyPercentage         *monkit.FloatVal
 
 	// remoteSegmentsOverThreshold[0]=# of healthy=rt+1, remoteSegmentsOverThreshold[1]=# of healthy=rt+2, etc...
 	remoteSegmentsOverThreshold1 *monkit.IntVal
@@ -71,19 +82,20 @@ type iterationRSStats struct {
 
 func newIterationRSStats(rs string) iterationRSStats {
 	return iterationRSStats{
-		objectsChecked:                  monkit.NewIntVal(monkit.NewSeriesKey("tagged_repair_stats").WithTag("name", "remote_objects_checked").WithTag("rs_scheme", rs)),
-		remoteSegmentsChecked:           monkit.NewIntVal(monkit.NewSeriesKey("tagged_repair_stats").WithTag("name", "remote_segments_checked").WithTag("rs_scheme", rs)),
-		remoteSegmentsNeedingRepair:     monkit.NewIntVal(monkit.NewSeriesKey("tagged_repair_stats").WithTag("name", "remote_segments_needing_repair").WithTag("rs_scheme", rs)),
-		newRemoteSegmentsNeedingRepair:  monkit.NewIntVal(monkit.NewSeriesKey("tagged_repair_stats").WithTag("name", "new_remote_segments_needing_repair").WithTag("rs_scheme", rs)),
-		remoteSegmentsLost:              monkit.NewIntVal(monkit.NewSeriesKey("tagged_repair_stats").WithTag("name", "remote_segments_lost").WithTag("rs_scheme", rs)),
-		objectsLost:                     monkit.NewIntVal(monkit.NewSeriesKey("tagged_repair_stats").WithTag("name", "objects_lost").WithTag("rs_scheme", rs)),
-		remoteSegmentsFailedToCheck:     monkit.NewIntVal(monkit.NewSeriesKey("tagged_repair_stats").WithTag("name", "remote_segments_failed_to_check").WithTag("rs_scheme", rs)),
-		remoteSegmentsHealthyPercentage: monkit.NewFloatVal(monkit.NewSeriesKey("tagged_repair_stats").WithTag("name", "remote_segments_healthy_percentage").WithTag("rs_scheme", rs)),
-		remoteSegmentsOverThreshold1:    monkit.NewIntVal(monkit.NewSeriesKey("tagged_repair_stats").WithTag("name", "remote_segments_over_threshold_1").WithTag("rs_scheme", rs)),
-		remoteSegmentsOverThreshold2:    monkit.NewIntVal(monkit.NewSeriesKey("tagged_repair_stats").WithTag("name", "remote_segments_over_threshold_2").WithTag("rs_scheme", rs)),
-		remoteSegmentsOverThreshold3:    monkit.NewIntVal(monkit.NewSeriesKey("tagged_repair_stats").WithTag("name", "remote_segments_over_threshold_3").WithTag("rs_scheme", rs)),
-		remoteSegmentsOverThreshold4:    monkit.NewIntVal(monkit.NewSeriesKey("tagged_repair_stats").WithTag("name", "remote_segments_over_threshold_4").WithTag("rs_scheme", rs)),
-		remoteSegmentsOverThreshold5:    monkit.NewIntVal(monkit.NewSeriesKey("tagged_repair_stats").WithTag("name", "remote_segments_over_threshold_5").WithTag("rs_scheme", rs)),
+		objectsChecked:                          monkit.NewIntVal(monkit.NewSeriesKey("tagged_repair_stats").WithTag("name", "remote_objects_checked").WithTag("rs_scheme", rs)),
+		remoteSegmentsChecked:                   monkit.NewIntVal(monkit.NewSeriesKey("tagged_repair_stats").WithTag("name", "remote_segments_checked").WithTag("rs_scheme", rs)),
+		remoteSegmentsNeedingRepair:             monkit.NewIntVal(monkit.NewSeriesKey("tagged_repair_stats").WithTag("name", "remote_segments_needing_repair").WithTag("rs_scheme", rs)),
+		remoteSegmentsNeedingRepairDueToForcing: monkit.NewIntVal(monkit.NewSeriesKey("tagged_repair_stats").WithTag("name", "remote_segments_needing_repair_due_to_forcing").WithTag("rs_scheme", rs)),
+		newRemoteSegmentsNeedingRepair:          monkit.NewIntVal(monkit.NewSeriesKey("tagged_repair_stats").WithTag("name", "new_remote_segments_needing_repair").WithTag("rs_scheme", rs)),
+		remoteSegmentsLost:                      monkit.NewIntVal(monkit.NewSeriesKey("tagged_repair_stats").WithTag("name", "remote_segments_lost").WithTag("rs_scheme", rs)),
+		objectsLost:                             monkit.NewIntVal(monkit.NewSeriesKey("tagged_repair_stats").WithTag("name", "objects_lost").WithTag("rs_scheme", rs)),
+		remoteSegmentsFailedToCheck:             monkit.NewIntVal(monkit.NewSeriesKey("tagged_repair_stats").WithTag("name", "remote_segments_failed_to_check").WithTag("rs_scheme", rs)),
+		remoteSegmentsHealthyPercentage:         monkit.NewFloatVal(monkit.NewSeriesKey("tagged_repair_stats").WithTag("name", "remote_segments_healthy_percentage").WithTag("rs_scheme", rs)),
+		remoteSegmentsOverThreshold1:            monkit.NewIntVal(monkit.NewSeriesKey("tagged_repair_stats").WithTag("name", "remote_segments_over_threshold_1").WithTag("rs_scheme", rs)),
+		remoteSegmentsOverThreshold2:            monkit.NewIntVal(monkit.NewSeriesKey("tagged_repair_stats").WithTag("name", "remote_segments_over_threshold_2").WithTag("rs_scheme", rs)),
+		remoteSegmentsOverThreshold3:            monkit.NewIntVal(monkit.NewSeriesKey("tagged_repair_stats").WithTag("name", "remote_segments_over_threshold_3").WithTag("rs_scheme", rs)),
+		remoteSegmentsOverThreshold4:            monkit.NewIntVal(monkit.NewSeriesKey("tagged_repair_stats").WithTag("name", "remote_segments_over_threshold_4").WithTag("rs_scheme", rs)),
+		remoteSegmentsOverThreshold5:            monkit.NewIntVal(monkit.NewSeriesKey("tagged_repair_stats").WithTag("name", "remote_segments_over_threshold_5").WithTag("rs_scheme", rs)),
 	}
 }
 
@@ -106,23 +118,40 @@ type segmentRSStats struct {
 	segmentExitingCount         *monkit.IntVal
 	segmentOffPlacementCount    *monkit.IntVal
 	segmentAge                  *monkit.IntVal
+	segmentFreshness            *monkit.IntVal
 	segmentHealth               *monkit.FloatVal
 	injuredSegmentHealth        *monkit.FloatVal
 	segmentTimeUntilIrreparable *monkit.IntVal
+
+	allSegmentPiecesLostPerWeek        *monkit.FloatVal
+	freshSegmentPiecesLostPerWeek      *monkit.FloatVal
+	weekOldSegmentPiecesLostPerWeek    *monkit.FloatVal
+	monthOldSegmentPiecesLostPerWeek   *monkit.FloatVal
+	quarterOldSegmentPiecesLostPerWeek *monkit.FloatVal
+	yearOldSegmentPiecesLostPerWeek    *monkit.FloatVal
 }
 
-func newSegmentRSStats(rs string) *segmentRSStats {
+func newSegmentRSStats(rs string, placement storj.PlacementConstraint) *segmentRSStats {
+	placementTag := fmt.Sprint(int(placement))
 	return &segmentRSStats{
-		segmentsBelowMinReq:         monkit.NewCounter(monkit.NewSeriesKey("tagged_repair_stats").WithTag("name", "checker_segments_below_min_req").WithTag("rs_scheme", rs)),
-		segmentTotalCount:           monkit.NewIntVal(monkit.NewSeriesKey("tagged_repair_stats").WithTag("name", "checker_segment_total_count").WithTag("rs_scheme", rs)),
-		segmentHealthyCount:         monkit.NewIntVal(monkit.NewSeriesKey("tagged_repair_stats").WithTag("name", "checker_segment_healthy_count").WithTag("rs_scheme", rs)),
-		segmentClumpedCount:         monkit.NewIntVal(monkit.NewSeriesKey("tagged_repair_stats").WithTag("name", "checker_segment_clumped_count").WithTag("rs_scheme", rs)),
-		segmentExitingCount:         monkit.NewIntVal(monkit.NewSeriesKey("tagged_repair_stats").WithTag("name", "checker_segment_exiting_count").WithTag("rs_scheme", rs)),
-		segmentOffPlacementCount:    monkit.NewIntVal(monkit.NewSeriesKey("tagged_repair_stats").WithTag("name", "checker_segment_off_placement_count").WithTag("rs_scheme", rs)),
-		segmentAge:                  monkit.NewIntVal(monkit.NewSeriesKey("tagged_repair_stats").WithTag("name", "checker_segment_age").WithTag("rs_scheme", rs)),
-		segmentHealth:               monkit.NewFloatVal(monkit.NewSeriesKey("tagged_repair_stats").WithTag("name", "checker_segment_health").WithTag("rs_scheme", rs)),
-		injuredSegmentHealth:        monkit.NewFloatVal(monkit.NewSeriesKey("tagged_repair_stats").WithTag("name", "checker_injured_segment_health").WithTag("rs_scheme", rs)),
-		segmentTimeUntilIrreparable: monkit.NewIntVal(monkit.NewSeriesKey("tagged_repair_stats").WithTag("name", "checker_segment_time_until_irreparable").WithTag("rs_scheme", rs)),
+		segmentsBelowMinReq:         monkit.NewCounter(monkit.NewSeriesKey("tagged_repair_stats").WithTag("name", "checker_segments_below_min_req").WithTag("rs_scheme", rs).WithTag("placement", placementTag)),
+		segmentTotalCount:           monkit.NewIntVal(monkit.NewSeriesKey("tagged_repair_stats").WithTag("name", "checker_segment_total_count").WithTag("rs_scheme", rs).WithTag("placement", placementTag)),
+		segmentHealthyCount:         monkit.NewIntVal(monkit.NewSeriesKey("tagged_repair_stats").WithTag("name", "checker_segment_healthy_count").WithTag("rs_scheme", rs).WithTag("placement", placementTag)),
+		segmentClumpedCount:         monkit.NewIntVal(monkit.NewSeriesKey("tagged_repair_stats").WithTag("name", "checker_segment_clumped_count").WithTag("rs_scheme", rs).WithTag("placement", placementTag)),
+		segmentExitingCount:         monkit.NewIntVal(monkit.NewSeriesKey("tagged_repair_stats").WithTag("name", "checker_segment_exiting_count").WithTag("rs_scheme", rs).WithTag("placement", placementTag)),
+		segmentOffPlacementCount:    monkit.NewIntVal(monkit.NewSeriesKey("tagged_repair_stats").WithTag("name", "checker_segment_off_placement_count").WithTag("rs_scheme", rs).WithTag("placement", placementTag)),
+		segmentAge:                  monkit.NewIntVal(monkit.NewSeriesKey("tagged_repair_stats").WithTag("name", "checker_segment_age").WithTag("rs_scheme", rs).WithTag("placement", placementTag)),
+		segmentFreshness:            monkit.NewIntVal(monkit.NewSeriesKey("tagged_repair_stats").WithTag("name", "checker_segment_freshness").WithTag("rs_scheme", rs).WithTag("placement", placementTag)),
+		segmentHealth:               monkit.NewFloatVal(monkit.NewSeriesKey("tagged_repair_stats").WithTag("name", "checker_segment_health").WithTag("rs_scheme", rs).WithTag("placement", placementTag)),
+		injuredSegmentHealth:        monkit.NewFloatVal(monkit.NewSeriesKey("tagged_repair_stats").WithTag("name", "checker_injured_segment_health").WithTag("rs_scheme", rs).WithTag("placement", placementTag)),
+		segmentTimeUntilIrreparable: monkit.NewIntVal(monkit.NewSeriesKey("tagged_repair_stats").WithTag("name", "checker_segment_time_until_irreparable").WithTag("rs_scheme", rs).WithTag("placement", placementTag)),
+
+		allSegmentPiecesLostPerWeek:        monkit.NewFloatVal(monkit.NewSeriesKey("tagged_repair_stats").WithTag("name", "checker_all_segment_pieces_lost_per_week").WithTag("rs_scheme", rs).WithTag("placement", placementTag)),
+		freshSegmentPiecesLostPerWeek:      monkit.NewFloatVal(monkit.NewSeriesKey("tagged_repair_stats").WithTag("name", "checker_fresh_segment_pieces_lost_per_week").WithTag("rs_scheme", rs).WithTag("placement", placementTag)),
+		weekOldSegmentPiecesLostPerWeek:    monkit.NewFloatVal(monkit.NewSeriesKey("tagged_repair_stats").WithTag("name", "checker_week_old_segment_pieces_lost_per_week").WithTag("rs_scheme", rs).WithTag("placement", placementTag)),
+		monthOldSegmentPiecesLostPerWeek:   monkit.NewFloatVal(monkit.NewSeriesKey("tagged_repair_stats").WithTag("name", "checker_month_old_segment_pieces_lost_per_week").WithTag("rs_scheme", rs).WithTag("placement", placementTag)),
+		quarterOldSegmentPiecesLostPerWeek: monkit.NewFloatVal(monkit.NewSeriesKey("tagged_repair_stats").WithTag("name", "checker_quarter_old_segment_pieces_lost_per_week").WithTag("rs_scheme", rs).WithTag("placement", placementTag)),
+		yearOldSegmentPiecesLostPerWeek:    monkit.NewFloatVal(monkit.NewSeriesKey("tagged_repair_stats").WithTag("name", "checker_year_old_segment_pieces_lost_per_week").WithTag("rs_scheme", rs).WithTag("placement", placementTag)),
 	}
 }
 
@@ -130,6 +159,7 @@ func (stats *observerRSStats) collectAggregates() {
 	stats.iterationStats.objectsChecked.Observe(stats.iterationAggregates.objectsChecked)
 	stats.iterationStats.remoteSegmentsChecked.Observe(stats.iterationAggregates.remoteSegmentsChecked)
 	stats.iterationStats.remoteSegmentsNeedingRepair.Observe(stats.iterationAggregates.remoteSegmentsNeedingRepair)
+	stats.iterationStats.remoteSegmentsNeedingRepairDueToForcing.Observe(stats.iterationAggregates.remoteSegmentsNeedingRepairDueToForcing)
 	stats.iterationStats.newRemoteSegmentsNeedingRepair.Observe(stats.iterationAggregates.newRemoteSegmentsNeedingRepair)
 	stats.iterationStats.remoteSegmentsLost.Observe(stats.iterationAggregates.remoteSegmentsLost)
 	stats.iterationStats.objectsLost.Observe(int64(len(stats.iterationAggregates.objectsLost)))
@@ -150,15 +180,33 @@ func (stats *observerRSStats) collectAggregates() {
 	stats.iterationAggregates = aggregateStats{}
 }
 
+// aggregateStatsPlacements aggregate stats per placement.
+// storj.PlacementConstraint values are the indexes of the slice.
+type aggregateStatsPlacements []aggregateStats
+
+func (ap *aggregateStatsPlacements) combine(stats aggregateStatsPlacements) {
+	lenStats := len(stats)
+	if lenStats > len(*ap) {
+		// We don't append directly the stats which ap doesn't have because aggregateStats.objectsLost
+		// is a slice and ap must not refer to the same slice to avoid unnoticed changes.
+		*ap = append(*ap, make([]aggregateStats, lenStats-len(*ap))...)
+	}
+
+	for i := 0; i < lenStats; i++ {
+		(*ap)[i].combine(stats[i])
+	}
+}
+
 // aggregateStats tallies data over the full checker iteration.
 type aggregateStats struct {
-	objectsChecked                 int64
-	remoteSegmentsChecked          int64
-	remoteSegmentsNeedingRepair    int64
-	newRemoteSegmentsNeedingRepair int64
-	remoteSegmentsLost             int64
-	remoteSegmentsFailedToCheck    int64
-	objectsLost                    []uuid.UUID
+	objectsChecked                          int64
+	remoteSegmentsChecked                   int64
+	remoteSegmentsNeedingRepair             int64
+	remoteSegmentsNeedingRepairDueToForcing int64
+	newRemoteSegmentsNeedingRepair          int64
+	remoteSegmentsLost                      int64
+	remoteSegmentsFailedToCheck             int64
+	objectsLost                             []uuid.UUID
 
 	// remoteSegmentsOverThreshold[0]=# of healthy=rt+1, remoteSegmentsOverThreshold[1]=# of healthy=rt+2, etc...
 	remoteSegmentsOverThreshold [5]int64
@@ -168,6 +216,7 @@ func (a *aggregateStats) combine(stats aggregateStats) {
 	a.objectsChecked += stats.objectsChecked
 	a.remoteSegmentsChecked += stats.remoteSegmentsChecked
 	a.remoteSegmentsNeedingRepair += stats.remoteSegmentsNeedingRepair
+	a.remoteSegmentsNeedingRepairDueToForcing += stats.remoteSegmentsNeedingRepairDueToForcing
 	a.newRemoteSegmentsNeedingRepair += stats.newRemoteSegmentsNeedingRepair
 	a.remoteSegmentsLost += stats.remoteSegmentsLost
 	a.remoteSegmentsFailedToCheck += stats.remoteSegmentsFailedToCheck

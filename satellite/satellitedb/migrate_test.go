@@ -23,23 +23,24 @@ import (
 	"go.uber.org/zap/zaptest"
 	"golang.org/x/sync/errgroup"
 
-	"storj.io/common/dbutil/dbschema"
-	"storj.io/common/dbutil/pgtest"
-	"storj.io/common/dbutil/pgutil"
-	"storj.io/common/dbutil/tempdb"
 	"storj.io/common/sync2"
 	"storj.io/common/testcontext"
 	"storj.io/storj/private/migrate"
 	"storj.io/storj/satellite"
 	"storj.io/storj/satellite/satellitedb"
+	"storj.io/storj/shared/dbutil/dbschema"
+	"storj.io/storj/shared/dbutil/dbtest"
+	"storj.io/storj/shared/dbutil/pgutil"
+	"storj.io/storj/shared/dbutil/tempdb"
 )
 
 const maxMigrationsToTest = 10
 
 // loadSnapshots loads all the dbschemas from `testdata/postgres.*`.
-func loadSnapshots(ctx context.Context, connstr, dbxscript string, maxSnapshots int) (*dbschema.Snapshots, *dbschema.Schema, error) {
+func loadSnapshots(ctx context.Context, connstr string, schema []string, maxSnapshots int) (*dbschema.Snapshots, *dbschema.Schema, error) {
 	snapshots := &dbschema.Snapshots{}
 
+	dbxscript := strings.Join(schema, ";\n")
 	// find all postgres sql files
 	matches, err := filepath.Glob("testdata/postgres.*")
 	if err != nil {
@@ -173,14 +174,14 @@ func loadSchemaFromSQL(ctx context.Context, connstr, script string) (_ *dbschema
 
 func TestMigratePostgres(t *testing.T) {
 	t.Parallel()
-	connstr := pgtest.PickPostgres(t)
+	connstr := dbtest.PickPostgres(t)
 	t.Run("Versions", func(t *testing.T) { migrateTest(t, connstr) })
 	t.Run("Generated", func(t *testing.T) { migrateGeneratedTest(t, connstr, connstr) })
 }
 
 func TestMigrateCockroach(t *testing.T) {
 	t.Parallel()
-	connstr := pgtest.PickCockroachAlt(t)
+	connstr := dbtest.PickCockroachAlt(t)
 	t.Run("Versions", func(t *testing.T) { migrateTest(t, connstr) })
 	t.Run("Generated", func(t *testing.T) { migrateGeneratedTest(t, connstr, connstr) })
 }
@@ -326,7 +327,7 @@ func schemaFromMigration(t *testing.T, ctx *testcontext.Context, connStr string,
 }
 
 func BenchmarkSetup_Postgres(b *testing.B) {
-	connstr := pgtest.PickPostgres(b)
+	connstr := dbtest.PickPostgres(b)
 	b.Run("merged", func(b *testing.B) {
 		benchmarkSetup(b, connstr, true)
 	})
@@ -336,7 +337,7 @@ func BenchmarkSetup_Postgres(b *testing.B) {
 }
 
 func BenchmarkSetup_Cockroach(b *testing.B) {
-	connstr := pgtest.PickCockroach(b)
+	connstr := dbtest.PickCockroach(b)
 	b.Run("merged", func(b *testing.B) {
 		benchmarkSetup(b, connstr, true)
 	})

@@ -15,6 +15,7 @@ import (
 	"storj.io/common/pb"
 	"storj.io/common/rpc/noise"
 	"storj.io/common/rpc/rpcstatus"
+	"storj.io/common/signing"
 	"storj.io/common/storj"
 	"storj.io/drpc/drpcctx"
 	"storj.io/eventkit"
@@ -114,7 +115,7 @@ func (endpoint *Endpoint) CheckIn(ctx context.Context, req *pb.CheckInRequest) (
 			req.Operator.WalletFeatures = nil
 		}
 	}
-	err = endpoint.service.processNodeTags(ctx, nodeID, req.SignedTags)
+	err = endpoint.service.processNodeTags(ctx, nodeID, signing.SigneeFromPeerIdentity(peerID), req.SignedTags)
 	if err != nil {
 		endpoint.log.Info("failed to update node tags", zap.String("node address", req.Address), zap.Stringer("Node ID", nodeID), zap.Error(err))
 	}
@@ -174,12 +175,12 @@ func emitEventkitEvent(ctx context.Context, req *pb.CheckInRequest, pingNodeTCPS
 	}
 
 	if nodeInfo.Capacity != nil {
-		eventkit.Int64("free-disk", nodeInfo.Capacity.FreeDisk)
+		tags = append(tags, eventkit.Int64("free-disk", nodeInfo.Capacity.FreeDisk))
 	}
 
 	if nodeInfo.Version != nil {
-		eventkit.Timestamp("build-time", nodeInfo.Version.Timestamp)
-		eventkit.String("version", nodeInfo.Version.Version)
+		tags = append(tags, eventkit.Timestamp("build-time", nodeInfo.Version.Timestamp))
+		tags = append(tags, eventkit.String("version", nodeInfo.Version.Version))
 	}
 
 	ek.Event("checkin", tags...)

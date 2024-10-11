@@ -6,7 +6,7 @@
         <template #activator="{ props: activatorProps }">
             <v-btn
                 v-bind="activatorProps"
-                :icon="justCopied ? mdiCheck : mdiContentCopy"
+                :icon="justCopied ? Check : Copy"
                 variant="text"
                 density="compact"
                 :color="justCopied ? 'success' : 'default'"
@@ -20,7 +20,7 @@
 <script setup lang="ts">
 import { ref, computed } from 'vue';
 import { VTooltip, VBtn } from 'vuetify/components';
-import { mdiCheck, mdiContentCopy } from '@mdi/js';
+import { Check, Copy } from 'lucide-vue-next';
 
 import { useAnalyticsStore } from '@/store/modules/analyticsStore';
 import { AnalyticsEvent } from '@/utils/constants/analyticsEventNames';

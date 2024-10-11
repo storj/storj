@@ -60,13 +60,12 @@ func newSlowBlobs(log *zap.Logger, blobs blobstore.Blobs) *SlowBlobs {
 	}
 }
 
-// Create creates a new blob that can be written optionally takes a size
-// argument for performance improvements, -1 is unknown size.
-func (slow *SlowBlobs) Create(ctx context.Context, ref blobstore.BlobRef, size int64) (blobstore.BlobWriter, error) {
+// Create creates a new blob that can be written.
+func (slow *SlowBlobs) Create(ctx context.Context, ref blobstore.BlobRef) (blobstore.BlobWriter, error) {
 	if err := slow.sleep(ctx); err != nil {
 		return nil, errs.Wrap(err)
 	}
-	return slow.blobs.Create(ctx, ref, size)
+	return slow.blobs.Create(ctx, ref)
 }
 
 // Close closes the blob store and any resources associated with it.
@@ -99,6 +98,14 @@ func (slow *SlowBlobs) Trash(ctx context.Context, ref blobstore.BlobRef, timesta
 	return slow.blobs.Trash(ctx, ref, timestamp)
 }
 
+// TrashWithStorageFormat moves into trash the blob with the namespace, key and specific storage format.
+func (slow *SlowBlobs) TrashWithStorageFormat(ctx context.Context, ref blobstore.BlobRef, formatVer blobstore.FormatVersion, timestamp time.Time) error {
+	if err := slow.sleep(ctx); err != nil {
+		return errs.Wrap(err)
+	}
+	return slow.blobs.TrashWithStorageFormat(ctx, ref, formatVer, timestamp)
+}
+
 // RestoreTrash restores all files in the trash.
 func (slow *SlowBlobs) RestoreTrash(ctx context.Context, namespace []byte) ([][]byte, error) {
 	if err := slow.sleep(ctx); err != nil {
@@ -124,11 +131,11 @@ func (slow *SlowBlobs) Delete(ctx context.Context, ref blobstore.BlobRef) error 
 }
 
 // DeleteWithStorageFormat deletes the blob with the namespace, key, and format version.
-func (slow *SlowBlobs) DeleteWithStorageFormat(ctx context.Context, ref blobstore.BlobRef, formatVer blobstore.FormatVersion) error {
+func (slow *SlowBlobs) DeleteWithStorageFormat(ctx context.Context, ref blobstore.BlobRef, formatVer blobstore.FormatVersion, sizeHint int64) error {
 	if err := slow.sleep(ctx); err != nil {
 		return errs.Wrap(err)
 	}
-	return slow.blobs.DeleteWithStorageFormat(ctx, ref, formatVer)
+	return slow.blobs.DeleteWithStorageFormat(ctx, ref, formatVer, sizeHint)
 }
 
 // DeleteNamespace deletes blobs of specific satellite, used after successful GE only.
@@ -176,24 +183,16 @@ func (slow *SlowBlobs) TryRestoreTrashBlob(ctx context.Context, ref blobstore.Bl
 // WalkNamespace executes walkFunc for each locally stored blob in the given namespace.
 // If walkFunc returns a non-nil error, WalkNamespace will stop iterating and return the
 // error immediately.
-func (slow *SlowBlobs) WalkNamespace(ctx context.Context, namespace []byte, walkFunc func(blobstore.BlobInfo) error) error {
+func (slow *SlowBlobs) WalkNamespace(ctx context.Context, namespace []byte, skipPrefixFn blobstore.SkipPrefixFn, walkFunc func(blobstore.BlobInfo) error) error {
 	if err := slow.sleep(ctx); err != nil {
 		return errs.Wrap(err)
 	}
-	return slow.blobs.WalkNamespace(ctx, namespace, walkFunc)
+	return slow.blobs.WalkNamespace(ctx, namespace, skipPrefixFn, walkFunc)
 }
 
 // ListNamespaces returns all namespaces that might be storing data.
 func (slow *SlowBlobs) ListNamespaces(ctx context.Context) ([][]byte, error) {
 	return slow.blobs.ListNamespaces(ctx)
-}
-
-// FreeSpace return how much free space left for writing.
-func (slow *SlowBlobs) FreeSpace(ctx context.Context) (int64, error) {
-	if err := slow.sleep(ctx); err != nil {
-		return 0, errs.Wrap(err)
-	}
-	return slow.blobs.FreeSpace(ctx)
 }
 
 // DiskInfo returns the disk space information.

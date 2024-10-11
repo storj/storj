@@ -6,7 +6,13 @@
         <div class="header__content-holder">
             <div class="header__content-holder__logo-area">
                 <button name="Logo Button" type="button" @click.prevent="onHeaderLogoClick">
-                    <StorjIcon
+                    <StorjIconDark
+                        v-if="isDarkMode"
+                        class="header__content-holder__logo"
+                        alt="storj logo"
+                    />
+                    <StorjIconLight
+                        v-else
                         class="header__content-holder__logo"
                         alt="storj logo"
                     />
@@ -67,7 +73,8 @@ import StorjIconWithoutText from '@/../static/images/LogoWithoutText.svg';
 import BellIcon from '@/../static/images/notifications/bell.svg';
 import RefreshIcon from '@/../static/images/refresh.svg';
 import SettingsIcon from '@/../static/images/SettingsDots.svg';
-import StorjIcon from '@/../static/images/storjIcon.svg';
+import StorjIconLight from '@/../static/images/storjIcon.svg';
+import StorjIconDark from '@/../static/images/storjIconDark.svg';
 
 const {
     GET_NODE_INFO,
@@ -80,7 +87,8 @@ const {
         OptionsDropdown,
         NotificationsPopup,
         SettingsIcon,
-        StorjIcon,
+        StorjIconLight,
+        StorjIconDark,
         RefreshIcon,
         BellIcon,
         StorjIconWithoutText,
@@ -213,6 +221,10 @@ export default class SNOHeader extends Vue {
         } catch (error) {
             console.error(error);
         }
+    }
+
+    public get isDarkMode(): boolean {
+        return this.$store.state.appStateModule.isDarkMode;
     }
 }
 </script>

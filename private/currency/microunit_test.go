@@ -8,7 +8,7 @@ import (
 
 	"github.com/stretchr/testify/require"
 
-	"storj.io/common/strictcsv"
+	"storj.io/storj/shared/strictcsv"
 )
 
 func TestMicroUnitToFloatString(t *testing.T) {

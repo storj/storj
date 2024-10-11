@@ -11,6 +11,7 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/require"
+
 	"storj.io/common/testcontext"
 	uitest "storj.io/storj/testsuite/playwright-ui/server"
 )

@@ -125,7 +125,7 @@ func TestDailyUsage(t *testing.T) {
 		user, err := satelliteSys.AddUser(ctx, newUser, 3)
 		require.NoError(t, err)
 
-		_, err = satelliteSys.DB.Console().ProjectMembers().Insert(ctx, user.ID, projectID)
+		_, err = satelliteSys.DB.Console().ProjectMembers().Insert(ctx, user.ID, projectID, console.RoleAdmin)
 		require.NoError(t, err)
 
 		planet.Satellites[0].Orders.Chore.Loop.Pause()
@@ -219,7 +219,7 @@ func TestTotalUsageReport(t *testing.T) {
 
 		bucketLoc1 := metabase.BucketLocation{
 			ProjectID:  project1.ID,
-			BucketName: bucketName,
+			BucketName: metabase.BucketName(bucketName),
 		}
 		tally1 := &accounting.BucketTally{
 			BucketLocation: bucketLoc1,
@@ -227,7 +227,7 @@ func TestTotalUsageReport(t *testing.T) {
 
 		bucketLoc2 := metabase.BucketLocation{
 			ProjectID:  project2.ID,
-			BucketName: bucketName,
+			BucketName: metabase.BucketName(bucketName),
 		}
 		tally2 := &accounting.BucketTally{
 			BucketLocation: bucketLoc2,

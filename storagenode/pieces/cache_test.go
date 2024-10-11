@@ -48,7 +48,11 @@ func TestDBInit(t *testing.T) {
 		require.NoError(t, err)
 
 		// Now that a total record exists, we can update it
-		err = spaceUsedDB.UpdatePieceTotals(ctx, int64(100), int64(101))
+		usage := pieces.SatelliteUsage{
+			Total:       100,
+			ContentSize: 101,
+		}
+		err = spaceUsedDB.UpdatePieceTotalsForSatellite(ctx, testrand.NodeID(), usage)
 		require.NoError(t, err)
 
 		err = spaceUsedDB.UpdateTrashTotal(ctx, int64(150))
@@ -78,7 +82,8 @@ func TestUpdate(t *testing.T) {
 			ContentSize: -21,
 		},
 	}
-	cache := pieces.NewBlobsUsageCacheTest(zaptest.NewLogger(t), nil, -10, -11, -12, startSats)
+	cache, err := pieces.NewBlobsUsageCacheTest(ctx, zaptest.NewLogger(t), nil, -10, -11, -12, startSats)
+	require.NoError(t, err)
 
 	// Sanity check that the values are negative to start
 	piecesTotal, piecesContentSize, err := cache.SpaceUsedForPieces(ctx)
@@ -112,10 +117,12 @@ func TestCacheInit(t *testing.T) {
 
 		log := zaptest.NewLogger(t)
 		// setup the cache with zero values
-		cache := pieces.NewBlobsUsageCacheTest(log, nil, 0, 0, 0, nil)
+		cache, err := pieces.NewBlobsUsageCacheTest(ctx, log, nil, 0, 0, 0, nil)
+		require.NoError(t, err)
 		cacheService := pieces.NewService(log,
 			cache,
-			pieces.NewStore(log, pieces.NewFileWalker(log, cache, nil), nil, cache, nil, nil, spaceUsedDB, pieces.DefaultConfig),
+			pieces.NewStore(log, pieces.NewFileWalker(log, cache, nil, db.GCFilewalkerProgress(), db.UsedSpacePerPrefix()), nil, cache, nil, nil, pieces.DefaultConfig),
+			spaceUsedDB,
 			1*time.Hour,
 			true,
 		)
@@ -138,8 +145,6 @@ func TestCacheInit(t *testing.T) {
 
 		// setup: update the cache then sync those cache values
 		// to the database
-		expectedPiecesTotal := int64(150)
-		expectedPiecesContentSize := int64(151)
 		expectedTotalBySA := map[storj.NodeID]pieces.SatelliteUsage{
 			{1}: {
 				Total:       100,
@@ -150,11 +155,20 @@ func TestCacheInit(t *testing.T) {
 				ContentSize: 51,
 			},
 		}
+
+		expectedPiecesTotal := int64(0)
+		expectedPiecesContentSize := int64(0)
+		for _, usage := range expectedTotalBySA {
+			expectedPiecesTotal += usage.Total
+			expectedPiecesContentSize += usage.ContentSize
+		}
 		expectedTrash := int64(127)
-		cache = pieces.NewBlobsUsageCacheTest(log, nil, expectedPiecesTotal, expectedPiecesContentSize, expectedTrash, expectedTotalBySA)
+		cache, err = pieces.NewBlobsUsageCacheTest(ctx, log, db.Pieces(), expectedPiecesTotal, expectedPiecesContentSize, expectedTrash, expectedTotalBySA)
+		require.NoError(t, err)
 		cacheService = pieces.NewService(log,
 			cache,
-			pieces.NewStore(log, pieces.NewFileWalker(log, cache, nil), nil, cache, nil, nil, spaceUsedDB, pieces.DefaultConfig),
+			pieces.NewStore(log, pieces.NewFileWalker(log, cache, nil, db.GCFilewalkerProgress(), db.UsedSpacePerPrefix()), nil, cache, nil, nil, pieces.DefaultConfig),
+			spaceUsedDB,
 			1*time.Hour,
 			true,
 		)
@@ -162,10 +176,12 @@ func TestCacheInit(t *testing.T) {
 		require.NoError(t, err)
 
 		// Now create an empty cache. Values will be read later by the db.
-		cache = pieces.NewBlobsUsageCacheTest(log, nil, 0, 0, 0, nil)
+		cache, err = pieces.NewBlobsUsageCacheTest(ctx, log, db.Pieces(), 0, 0, 0, nil)
+		require.NoError(t, err)
 		cacheService = pieces.NewService(log,
 			cache,
-			pieces.NewStore(log, pieces.NewFileWalker(log, cache, nil), nil, cache, nil, nil, spaceUsedDB, pieces.DefaultConfig),
+			pieces.NewStore(log, pieces.NewFileWalker(log, cache, nil, db.GCFilewalkerProgress(), db.UsedSpacePerPrefix()), nil, cache, nil, nil, pieces.DefaultConfig),
+			spaceUsedDB,
 			1*time.Hour,
 			true,
 		)
@@ -188,6 +204,29 @@ func TestCacheInit(t *testing.T) {
 		actualTrash, err := cache.SpaceUsedForTrash(ctx)
 		require.NoError(t, err)
 		require.Equal(t, int64(127), actualTrash)
+
+		// let's remove the blobs directory for one satellite and check if the cache is updated
+		// when we call init again.
+		// Calling DeleteNamespace directly on filestore, to sure we delete the namespace without updating the cache
+		err = db.Pieces().DeleteNamespace(ctx, storj.NodeID{1}.Bytes())
+		require.NoError(t, err)
+		// check that the cache is not updated
+		sat1PiecesTotal, sat1PiecesContentSize, err = cache.SpaceUsedBySatellite(ctx, storj.NodeID{1})
+		require.NoError(t, err)
+		require.Equal(t, int64(100), sat1PiecesTotal)
+		require.Equal(t, int64(101), sat1PiecesContentSize)
+		// now call init again
+		err = cacheService.Init(ctx)
+		require.NoError(t, err)
+		// check that the cache is updated
+		sat1PiecesTotal, sat1PiecesContentSize, err = cache.SpaceUsedBySatellite(ctx, storj.NodeID{1})
+		require.NoError(t, err)
+		require.Equal(t, int64(0), sat1PiecesTotal)
+		require.Equal(t, int64(0), sat1PiecesContentSize)
+		piecesTotal, piecesContentSize, err = cache.SpaceUsedForPieces(ctx)
+		require.NoError(t, err)
+		require.Equal(t, expectedPiecesTotal-100, piecesTotal)
+		require.Equal(t, expectedPiecesContentSize-101, piecesContentSize)
 	})
 
 }
@@ -207,7 +246,7 @@ func TestCacheServiceRun(t *testing.T) {
 		w, err := store.Create(ctx, blobstore.BlobRef{
 			Namespace: testrand.NodeID().Bytes(),
 			Key:       testrand.PieceID().Bytes(),
-		}, -1)
+		})
 		require.NoError(t, err)
 		_, err = w.Write(testrand.Bytes(expBlobSize))
 		require.NoError(t, err)
@@ -219,7 +258,7 @@ func TestCacheServiceRun(t *testing.T) {
 			Namespace: testrand.NodeID().Bytes(),
 			Key:       testrand.PieceID().Bytes(),
 		}
-		w, err = store.Create(ctx, trashRef, -1)
+		w, err = store.Create(ctx, trashRef)
 		require.NoError(t, err)
 		_, err = w.Write(testrand.Bytes(expTrashSize))
 		require.NoError(t, err)
@@ -230,7 +269,8 @@ func TestCacheServiceRun(t *testing.T) {
 		cache := pieces.NewBlobsUsageCache(log, store)
 		cacheService := pieces.NewService(log,
 			cache,
-			pieces.NewStore(log, pieces.NewFileWalker(log, cache, nil), nil, cache, nil, nil, spaceUsedDB, pieces.DefaultConfig),
+			pieces.NewStore(log, pieces.NewFileWalker(log, cache, nil, db.GCFilewalkerProgress(), db.UsedSpacePerPrefix()), nil, cache, nil, nil, pieces.DefaultConfig),
+			spaceUsedDB,
 			1*time.Hour,
 			true,
 		)
@@ -262,9 +302,9 @@ func TestCacheServiceRun(t *testing.T) {
 		trashTotal, err = cache.SpaceUsedForTrash(ctx)
 		require.NoError(t, err)
 
-		assert.Equal(t, int64(expBlobSize), piecesTotal)
-		assert.Equal(t, int64(expBlobSize-pieces.V1PieceHeaderReservedArea), piecesContentSize)
-		assert.True(t, trashTotal >= int64(expTrashSize))
+		assert.Equal(t, expBlobSize.Int64(), piecesTotal)
+		assert.Equal(t, expBlobSize.Int64()-int64(pieces.V1PieceHeaderReservedArea), piecesContentSize)
+		assert.True(t, trashTotal >= expTrashSize.Int64())
 
 		require.NoError(t, cacheService.Close())
 		require.NoError(t, eg.Wait())
@@ -288,7 +328,7 @@ func TestCacheServiceRun_LazyFilewalker(t *testing.T) {
 		w, err := store.Create(ctx, blobstore.BlobRef{
 			Namespace: testrand.NodeID().Bytes(),
 			Key:       testrand.PieceID().Bytes(),
-		}, -1)
+		})
 		require.NoError(t, err)
 		_, err = w.Write(testrand.Bytes(expBlobSize))
 		require.NoError(t, err)
@@ -300,7 +340,7 @@ func TestCacheServiceRun_LazyFilewalker(t *testing.T) {
 			Namespace: testrand.NodeID().Bytes(),
 			Key:       testrand.PieceID().Bytes(),
 		}
-		w, err = store.Create(ctx, trashRef, -1)
+		w, err = store.Create(ctx, trashRef)
 		require.NoError(t, err)
 		_, err = w.Write(testrand.Bytes(expTrashSize))
 		require.NoError(t, err)
@@ -322,7 +362,8 @@ func TestCacheServiceRun_LazyFilewalker(t *testing.T) {
 		cache := pieces.NewBlobsUsageCache(log, store)
 		cacheService := pieces.NewService(log,
 			cache,
-			pieces.NewStore(log, nil, lazyFw, cache, nil, nil, spaceUsedDB, cfg),
+			pieces.NewStore(log, nil, lazyFw, cache, nil, nil, cfg),
+			spaceUsedDB,
 			1*time.Hour,
 			true,
 		)
@@ -354,9 +395,9 @@ func TestCacheServiceRun_LazyFilewalker(t *testing.T) {
 		trashTotal, err = cache.SpaceUsedForTrash(ctx)
 		require.NoError(t, err)
 
-		assert.Equal(t, int64(expBlobSize), piecesTotal)
-		assert.Equal(t, int64(expBlobSize-pieces.V1PieceHeaderReservedArea), piecesContentSize)
-		assert.True(t, trashTotal >= int64(expTrashSize))
+		assert.Equal(t, expBlobSize.Int64(), piecesTotal)
+		assert.Equal(t, expBlobSize.Int64()-int64(pieces.V1PieceHeaderReservedArea), piecesContentSize)
+		assert.True(t, trashTotal >= expTrashSize.Int64())
 
 		require.NoError(t, cacheService.Close())
 		require.NoError(t, eg.Wait())
@@ -393,8 +434,6 @@ func TestPersistCacheTotals(t *testing.T) {
 		// setup: update the cache then sync those cache values
 		// to the database
 		// setup the cache with zero values
-		expectedPiecesTotal = 150
-		expectedPiecesContentSize = 151
 		expectedTotalsBySA = map[storj.NodeID]pieces.SatelliteUsage{
 			{1}: {
 				Total:       100,
@@ -405,11 +444,19 @@ func TestPersistCacheTotals(t *testing.T) {
 				ContentSize: 51,
 			},
 		}
+		expectedPiecesTotal = 0
+		expectedPiecesContentSize = 0
+		for _, usage := range expectedTotalsBySA {
+			expectedPiecesTotal += usage.Total
+			expectedPiecesContentSize += usage.ContentSize
+		}
 		expectedTrash = 127
-		cache := pieces.NewBlobsUsageCacheTest(log, nil, expectedPiecesTotal, expectedPiecesContentSize, expectedTrash, expectedTotalsBySA)
+		cache, err := pieces.NewBlobsUsageCacheTest(ctx, log, nil, expectedPiecesTotal, expectedPiecesContentSize, expectedTrash, expectedTotalsBySA)
+		require.NoError(t, err)
 		cacheService := pieces.NewService(log,
 			cache,
-			pieces.NewStore(log, pieces.NewFileWalker(log, cache, nil), nil, cache, nil, nil, spaceUsedDB, pieces.DefaultConfig),
+			pieces.NewStore(log, pieces.NewFileWalker(log, cache, nil, db.GCFilewalkerProgress(), db.UsedSpacePerPrefix()), nil, cache, nil, nil, pieces.DefaultConfig),
+			spaceUsedDB,
 			1*time.Hour,
 			true,
 		)
@@ -600,12 +647,14 @@ func TestRecalculateCache(t *testing.T) {
 			log := zaptest.NewLogger(t)
 
 			ID1 := storj.NodeID{1, 1}
-			cache := pieces.NewBlobsUsageCacheTest(log, nil,
+			cache, err := pieces.NewBlobsUsageCacheTest(ctx, log, nil,
 				tt.piecesTotal.end,
 				tt.piecesContentSize.end,
 				tt.trash.end,
 				map[storj.NodeID]pieces.SatelliteUsage{ID1: {Total: tt.piecesTotal.end, ContentSize: tt.piecesContentSize.end}},
 			)
+
+			require.NoError(t, err)
 
 			cache.Recalculate(
 				tt.piecesTotal.new,
@@ -647,12 +696,13 @@ func TestRecalculateCacheMissed(t *testing.T) {
 	// setup: once we are done recalculating the pieces on disk,
 	// there are items in the cache that are not in the
 	// new recalculated values
-	cache := pieces.NewBlobsUsageCacheTest(log, nil,
+	cache, err := pieces.NewBlobsUsageCacheTest(ctx, log, nil,
 		150,
 		200,
 		100,
 		map[storj.NodeID]pieces.SatelliteUsage{ID1: {Total: 100, ContentSize: 50}, ID2: {Total: 100, ContentSize: 50}},
 	)
+	require.NoError(t, err)
 
 	cache.Recalculate(
 		100,
@@ -697,7 +747,7 @@ func TestCacheCreateDeleteAndTrash(t *testing.T) {
 			},
 		}
 		for _, ref := range refs {
-			blob, err := cache.Create(ctx, ref, int64(4096))
+			blob, err := cache.Create(ctx, ref)
 			require.NoError(t, err)
 			blobWriter, err := pieces.NewWriter(zaptest.NewLogger(t), blob, cache, satelliteID, pb.PieceHashAlgorithm_SHA256)
 			require.NoError(t, err)

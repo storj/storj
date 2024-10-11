@@ -4,17 +4,15 @@
 package lazyfilewalker
 
 import (
-	"bytes"
 	"context"
-	"encoding/json"
 	"time"
 
 	"github.com/spacemonkeygo/monkit/v3"
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 
-	"storj.io/common/bloomfilter"
 	"storj.io/common/storj"
+	"storj.io/storj/shared/bloomfilter"
 	"storj.io/storj/storagenode/pieces/lazyfilewalker/execwrapper"
 )
 
@@ -88,6 +86,7 @@ type UsedSpaceRequest struct {
 type UsedSpaceResponse struct {
 	PiecesTotal       int64 `json:"piecesTotal"`
 	PiecesContentSize int64 `json:"piecesContentSize"`
+	PieceCount        int64 `json:"pieceCount"`
 }
 
 // GCFilewalkerRequest is the request struct for the gc-filewalker process.
@@ -99,10 +98,13 @@ type GCFilewalkerRequest struct {
 
 // GCFilewalkerResponse is the response struct for the gc-filewalker process.
 type GCFilewalkerResponse struct {
+	// PieceIDs is the list of trash pieces that were found.
+	// Final message will not return any pieceIDs.
 	PieceIDs           []storj.PieceID `json:"pieceIDs"`
 	PiecesSkippedCount int64           `json:"piecesSkippedCount"`
 	PiecesCount        int64           `json:"piecesCount"`
-	Completed          bool            `json:"completed"`
+	// Completed indicates if this is the final message.
+	Completed bool `json:"completed"`
 }
 
 // TrashCleanupRequest is the request struct for the trash-cleanup-filewalker process.
@@ -118,7 +120,7 @@ type TrashCleanupResponse struct {
 }
 
 // WalkAndComputeSpaceUsedBySatellite returns the total used space by satellite.
-func (fw *Supervisor) WalkAndComputeSpaceUsedBySatellite(ctx context.Context, satelliteID storj.NodeID) (piecesTotal int64, piecesContentSize int64, err error) {
+func (fw *Supervisor) WalkAndComputeSpaceUsedBySatellite(ctx context.Context, satelliteID storj.NodeID) (piecesTotal int64, piecesContentSize int64, pieceCount int64, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	req := UsedSpaceRequest{
@@ -126,22 +128,27 @@ func (fw *Supervisor) WalkAndComputeSpaceUsedBySatellite(ctx context.Context, sa
 	}
 	var resp UsedSpaceResponse
 
-	log := fw.log.Named(UsedSpaceFilewalkerCmdName).With(zap.String("satelliteID", satelliteID.String()))
+	log := fw.log.Named(UsedSpaceFilewalkerCmdName).With(zap.Stringer("satelliteID", satelliteID))
 
-	err = newProcess(fw.testingUsedSpaceCmd, log, fw.executable, fw.usedSpaceArgs).run(ctx, req, &resp)
+	stdout := newGenericWriter(log)
+	err = newProcess(fw.testingUsedSpaceCmd, log, fw.executable, fw.usedSpaceArgs).run(ctx, stdout, req)
 	if err != nil {
-		return 0, 0, err
+		return 0, 0, 0, err
 	}
 
-	return resp.PiecesTotal, resp.PiecesContentSize, nil
+	if err := stdout.Decode(&resp); err != nil {
+		return 0, 0, 0, err
+	}
+
+	return resp.PiecesTotal, resp.PiecesContentSize, resp.PieceCount, nil
 }
 
 // WalkSatellitePiecesToTrash walks the satellite pieces and moves the pieces that are trash to the trash using the trashFunc provided.
-func (fw *Supervisor) WalkSatellitePiecesToTrash(ctx context.Context, satelliteID storj.NodeID, createdBefore time.Time, filter *bloomfilter.Filter, trashFunc func(pieceID storj.PieceID) error) (pieceIDs []storj.PieceID, piecesCount, piecesSkipped int64, err error) {
+func (fw *Supervisor) WalkSatellitePiecesToTrash(ctx context.Context, satelliteID storj.NodeID, createdBefore time.Time, filter *bloomfilter.Filter, trashFunc func(pieceID storj.PieceID) error) (piecesCount, piecesSkipped int64, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	if filter == nil {
-		return
+		return 0, 0, nil
 	}
 
 	req := GCFilewalkerRequest{
@@ -151,17 +158,29 @@ func (fw *Supervisor) WalkSatellitePiecesToTrash(ctx context.Context, satelliteI
 	}
 	var resp GCFilewalkerResponse
 
-	log := fw.log.Named(GCFilewalkerCmdName).With(zap.String("satelliteID", satelliteID.String()))
+	log := fw.log.Named(GCFilewalkerCmdName).With(zap.Stringer("satelliteID", satelliteID))
 
-	err = newProcess(fw.testingGCCmd, log, fw.executable, fw.gcArgs).setStdout(newTrashHandler(trashFunc)).run(ctx, req, &resp)
+	stdout := NewTrashHandler(log, trashFunc)
+	err = newProcess(fw.testingGCCmd, log, fw.executable, fw.gcArgs).run(ctx, stdout, req)
 	if err != nil {
-		return nil, 0, 0, err
+		return 0, 0, err
 	}
 
-	return resp.PieceIDs, resp.PiecesCount, resp.PiecesSkippedCount, nil
+	if err := stdout.Decode(&resp); err != nil {
+		return 0, 0, err
+	}
+
+	if !resp.Completed {
+		// Something went wrong. The filewalker did not complete
+		log.Warn("gc-filewalker did not complete")
+	}
+
+	return resp.PiecesCount, resp.PiecesSkippedCount, nil
 }
 
 // WalkCleanupTrash deletes per-day trash directories which are older than the given time.
+// The lazyfilewalker does not update the space used by the trash so the caller should update the space used
+// after the filewalker completes.
 func (fw *Supervisor) WalkCleanupTrash(ctx context.Context, satelliteID storj.NodeID, dateBefore time.Time) (bytesDeleted int64, keysDeleted []storj.PieceID, err error) {
 	defer mon.Task()(&ctx)(&err)
 
@@ -171,70 +190,16 @@ func (fw *Supervisor) WalkCleanupTrash(ctx context.Context, satelliteID storj.No
 	}
 	var resp TrashCleanupResponse
 
-	log := fw.log.Named(TrashCleanupFilewalkerCmdName).With(zap.String("satelliteID", satelliteID.String()))
+	log := fw.log.Named(TrashCleanupFilewalkerCmdName).With(zap.Stringer("satelliteID", satelliteID))
 
-	err = newProcess(fw.testingTrashCleanupCmd, log, fw.executable, fw.trashCleanupArgs).run(ctx, req, &resp)
+	stdout := newGenericWriter(log)
+	err = newProcess(fw.testingTrashCleanupCmd, log, fw.executable, fw.trashCleanupArgs).run(ctx, stdout, req)
 	if err != nil {
+		return 0, nil, err
+	}
+	if err := stdout.Decode(&resp); err != nil {
 		return 0, nil, err
 	}
 
 	return resp.BytesDeleted, resp.KeysDeleted, nil
-}
-
-type trashHandler struct {
-	bytes.Buffer
-
-	lineBuffer []byte
-
-	trashFunc func(pieceID storj.PieceID) error
-}
-
-func newTrashHandler(trashFunc func(pieceID storj.PieceID) error) *trashHandler {
-	return &trashHandler{
-		trashFunc: trashFunc,
-	}
-}
-
-func (t *trashHandler) Write(b []byte) (n int, err error) {
-	n = len(b)
-	t.lineBuffer = append(t.lineBuffer, b...)
-	for {
-		if b, err = t.writeLine(t.lineBuffer); err != nil {
-			return n, err
-		}
-		if len(b) == len(t.lineBuffer) {
-			break
-		}
-
-		t.lineBuffer = b
-	}
-
-	return n, nil
-}
-
-func (t *trashHandler) writeLine(b []byte) (remaining []byte, err error) {
-	idx := bytes.IndexByte(b, '\n')
-	if idx < 0 {
-		return b, nil
-	}
-
-	b, remaining = b[:idx], b[idx+1:]
-
-	return remaining, t.processTrashPiece(b)
-}
-
-func (t *trashHandler) processTrashPiece(b []byte) error {
-	var resp GCFilewalkerResponse
-	if err := json.Unmarshal(b, &resp); err != nil {
-		return err
-	}
-
-	if !resp.Completed {
-		for _, pieceID := range resp.PieceIDs {
-			return t.trashFunc(pieceID)
-		}
-	}
-
-	_, err := t.Buffer.Write(b)
-	return err
 }

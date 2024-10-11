@@ -11,6 +11,7 @@ import (
 	"io"
 	"math/big"
 	"net/http"
+	"strconv"
 	"strings"
 	"time"
 
@@ -24,6 +25,7 @@ import (
 	"storj.io/storj/private/web"
 	"storj.io/storj/satellite/analytics"
 	"storj.io/storj/satellite/console"
+	"storj.io/storj/satellite/console/consoleauth"
 	"storj.io/storj/satellite/console/consoleweb/consoleapi/utils"
 	"storj.io/storj/satellite/console/consoleweb/consolewebauth"
 	"storj.io/storj/satellite/mailservice"
@@ -170,7 +172,6 @@ func (a *Auth) TokenByAPIKey(w http.ResponseWriter, r *http.Request) {
 
 // getSessionID gets the session ID from the request.
 func (a *Auth) getSessionID(r *http.Request) (id uuid.UUID, err error) {
-
 	tokenInfo, err := a.cookieAuth.GetToken(r)
 	if err != nil {
 		return uuid.UUID{}, err
@@ -460,6 +461,11 @@ func (a *Auth) ActivateAccount(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	if len(activateData.Code) != 6 {
+		a.serveJSONError(ctx, w, console.ErrValidation.New("the activation code must be 6 characters long"))
+		return
+	}
+
 	verified, unverified, err := a.service.GetUserByEmailWithUnverified(ctx, activateData.Email)
 	if err != nil && !console.ErrEmailNotFound.Has(err) {
 		a.serveJSONError(ctx, w, err)
@@ -488,15 +494,63 @@ func (a *Auth) ActivateAccount(w http.ResponseWriter, r *http.Request) {
 	}
 
 	var user *console.User
-	if len(unverified) == 0 {
+	for _, u := range unverified {
+		if u.Status == console.Inactive {
+			u2 := u
+			user = &u2
+			break
+		}
+	}
+	if user == nil {
 		a.serveJSONError(ctx, w, console.ErrEmailNotFound.New("no unverified user found"))
 		return
 	}
-	user = &unverified[0]
+
+	now := time.Now()
+
+	if user.LoginLockoutExpiration.After(now) {
+		a.serveJSONError(ctx, w, console.ErrActivationCode.New("invalid activation code or account locked"))
+		return
+	}
 
 	if user.ActivationCode != activateData.Code || user.SignupId != activateData.SignupId {
-		a.serveJSONError(ctx, w, console.ErrActivationCode.New("invalid activation code"))
+		lockoutDuration, err := a.service.UpdateUsersFailedLoginState(ctx, user)
+		if err != nil {
+			a.serveJSONError(ctx, w, err)
+			return
+		}
+		if lockoutDuration > 0 {
+			a.mailService.SendRenderedAsync(
+				ctx,
+				[]post.Address{{Address: user.Email, Name: user.FullName}},
+				&console.ActivationLockAccountEmail{
+					LockoutDuration: lockoutDuration,
+					SupportURL:      a.GeneralRequestURL,
+				},
+			)
+		}
+
+		mon.Counter("account_activation_failed").Inc(1)                                          //mon:locked
+		mon.IntVal("account_activation_user_failed_count").Observe(int64(user.FailedLoginCount)) //mon:locked
+		penaltyThreshold := a.service.GetLoginAttemptsWithoutPenalty()
+
+		if user.FailedLoginCount == penaltyThreshold {
+			mon.Counter("account_activation_lockout_initiated").Inc(1) //mon:locked
+		}
+
+		if user.FailedLoginCount > penaltyThreshold {
+			mon.Counter("account_activation_lockout_reinitiated").Inc(1) //mon:locked
+		}
+
+		a.serveJSONError(ctx, w, console.ErrActivationCode.New("invalid activation code or account locked"))
 		return
+	}
+
+	if user.FailedLoginCount != 0 {
+		if err := a.service.ResetAccountLock(ctx, user); err != nil {
+			a.serveJSONError(ctx, w, err)
+			return
+		}
 	}
 
 	err = a.service.SetAccountActive(ctx, user)
@@ -504,6 +558,28 @@ func (a *Auth) ActivateAccount(w http.ResponseWriter, r *http.Request) {
 		a.serveJSONError(ctx, w, err)
 		return
 	}
+
+	// see if referrer was provided in URL query, otherwise use the Referer header in the request.
+	referrer := r.URL.Query().Get("referrer")
+	if referrer == "" {
+		referrer = r.Referer()
+	}
+	hubspotUTK := ""
+	hubspotCookie, err := r.Cookie("hubspotutk")
+	if err == nil {
+		hubspotUTK = hubspotCookie.Value
+	}
+
+	trackCreateUserFields := analytics.TrackCreateUserFields{
+		ID:            user.ID,
+		Email:         user.Email,
+		OriginHeader:  r.Header.Get("Origin"),
+		Referrer:      referrer,
+		HubspotUTK:    hubspotUTK,
+		UserAgent:     string(user.UserAgent),
+		SignupCaptcha: user.SignupCaptcha,
+	}
+	a.analytics.CreateContact(trackCreateUserFields)
 
 	ip, err := web.GetRequestIP(r)
 	if err != nil {
@@ -543,10 +619,11 @@ func loadSession(req *http.Request) string {
 // GetFreezeStatus checks to see if an account is frozen or warned.
 func (a *Auth) GetFreezeStatus(w http.ResponseWriter, r *http.Request) {
 	type FrozenResult struct {
-		Frozen             bool `json:"frozen"`
-		Warned             bool `json:"warned"`
-		ViolationFrozen    bool `json:"violationFrozen"`
-		TrialExpiredFrozen bool `json:"trialExpiredFrozen"`
+		Frozen                     bool `json:"frozen"`
+		Warned                     bool `json:"warned"`
+		ViolationFrozen            bool `json:"violationFrozen"`
+		TrialExpiredFrozen         bool `json:"trialExpiredFrozen"`
+		TrialExpirationGracePeriod int  `json:"trialExpirationGracePeriod"`
 	}
 
 	ctx := r.Context()
@@ -565,16 +642,94 @@ func (a *Auth) GetFreezeStatus(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	w.Header().Set("Content-Type", "application/json")
-	err = json.NewEncoder(w).Encode(FrozenResult{
+	result := FrozenResult{
 		Frozen:             freezes.BillingFreeze != nil,
 		Warned:             freezes.BillingWarning != nil,
 		ViolationFrozen:    freezes.ViolationFreeze != nil,
 		TrialExpiredFrozen: freezes.TrialExpirationFreeze != nil,
-	})
+	}
+	if result.TrialExpiredFrozen {
+		days := a.accountFreezeService.GetDaysTillEscalation(*freezes.TrialExpirationFreeze, time.Now())
+		if days != nil && *days > 0 {
+			result.TrialExpirationGracePeriod = *days
+		}
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	err = json.NewEncoder(w).Encode(result)
 	if err != nil {
 		a.log.Error("could not encode account status", zap.Error(ErrAuthAPI.Wrap(err)))
 		return
+	}
+}
+
+// AccountActionData holds data needed to perform change email or account delete actions.
+type AccountActionData struct {
+	Step console.AccountActionStep `json:"step"`
+	Data string                    `json:"data"`
+}
+
+// ChangeEmail handles change email flow requests.
+func (a *Auth) ChangeEmail(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	var err error
+	defer mon.Task()(&ctx)(&err)
+
+	var data AccountActionData
+	err = json.NewDecoder(r.Body).Decode(&data)
+	if err != nil {
+		a.serveJSONError(ctx, w, err)
+		return
+	}
+
+	if data.Step < console.VerifyAccountPasswordStep || data.Step > console.VerifyNewAccountEmailStep {
+		a.serveJSONError(ctx, w, console.ErrValidation.New("step value is out of range"))
+		return
+	}
+
+	if data.Data == "" {
+		a.serveJSONError(ctx, w, console.ErrValidation.New("data value can't be empty"))
+		return
+	}
+
+	if err = a.service.ChangeEmail(ctx, data.Step, data.Data); err != nil {
+		a.serveJSONError(ctx, w, err)
+	}
+}
+
+// DeleteAccount handles self-serve delete account flow requests.
+func (a *Auth) DeleteAccount(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	var err error
+	defer mon.Task()(&ctx)(&err)
+
+	var data AccountActionData
+	err = json.NewDecoder(r.Body).Decode(&data)
+	if err != nil {
+		a.serveJSONError(ctx, w, err)
+		return
+	}
+
+	if data.Step < console.DeleteAccountInit || data.Step > console.DeleteAccountStep {
+		a.serveJSONError(ctx, w, console.ErrValidation.New("step value is out of range"))
+		return
+	}
+
+	if data.Step > console.DeleteAccountInit && data.Step != console.DeleteAccountStep && data.Data == "" {
+		a.serveJSONError(ctx, w, console.ErrValidation.New("data value can't be empty"))
+		return
+	}
+
+	resp, err := a.service.DeleteAccount(ctx, data.Step, data.Data)
+	if err != nil {
+		a.serveJSONError(ctx, w, err)
+	}
+
+	if resp != nil {
+		w.WriteHeader(http.StatusConflict)
+		if err := json.NewEncoder(w).Encode(resp); err != nil {
+			a.log.Error("could not encode account deletion response", zap.Error(ErrAuthAPI.Wrap(err)))
+		}
 	}
 }
 
@@ -716,7 +871,13 @@ func (a *Auth) ChangePassword(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	err = a.service.ChangePassword(ctx, passwordChange.CurrentPassword, passwordChange.NewPassword)
+	sessionID, err := a.getSessionID(r)
+	if err != nil {
+		a.serveJSONError(ctx, w, err)
+		return
+	}
+
+	err = a.service.ChangePassword(ctx, passwordChange.CurrentPassword, passwordChange.NewPassword, &sessionID)
 	if err != nil {
 		a.serveJSONError(ctx, w, err)
 		return
@@ -820,13 +981,34 @@ func (a *Auth) ResendEmail(w http.ResponseWriter, r *http.Request) {
 	var err error
 	defer mon.Task()(&ctx)(&err)
 
-	params := mux.Vars(r)
-	email, ok := params["email"]
-	if !ok {
+	var resendEmail struct {
+		Email           string `json:"email"`
+		CaptchaResponse string `json:"captchaResponse"`
+	}
+
+	err = json.NewDecoder(r.Body).Decode(&resendEmail)
+	if err != nil {
+		a.serveJSONError(ctx, w, err)
 		return
 	}
 
-	verified, unverified, err := a.service.GetUserByEmailWithUnverified(ctx, email)
+	ip, err := web.GetRequestIP(r)
+	if err != nil {
+		a.serveJSONError(ctx, w, err)
+		return
+	}
+
+	valid, _, err := a.service.VerifyRegistrationCaptcha(ctx, resendEmail.CaptchaResponse, ip)
+	if err != nil {
+		a.serveJSONError(ctx, w, err)
+		return
+	}
+	if !valid {
+		a.serveJSONError(ctx, w, console.ErrCaptcha.New("captcha validation unsuccessful"))
+		return
+	}
+
+	verified, unverified, err := a.service.GetUserByEmailWithUnverified(ctx, resendEmail.Email)
 	if err != nil {
 		return
 	}
@@ -1079,6 +1261,22 @@ func (a *Auth) ResetPassword(w http.ResponseWriter, r *http.Request) {
 
 	err = a.service.ResetPassword(ctx, resetPassword.RecoveryToken, resetPassword.NewPassword, resetPassword.MFAPasscode, resetPassword.MFARecoveryCode, time.Now())
 
+	if console.ErrTooManyAttempts.Has(err) {
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(a.getStatusCode(err))
+
+		err = json.NewEncoder(w).Encode(map[string]string{
+			"error": a.getUserErrorMessage(err),
+			"code":  "too_many_attempts",
+		})
+
+		if err != nil {
+			a.log.Error("failed to write json response", zap.Error(ErrUtils.Wrap(err)))
+		}
+
+		return
+	}
+
 	if console.ErrMFAMissing.Has(err) || console.ErrMFAPasscode.Has(err) || console.ErrMFARecoveryCode.Has(err) {
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(a.getStatusCode(err))
@@ -1148,6 +1346,118 @@ func (a *Auth) RefreshSession(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		a.log.Error("could not encode refreshed session expiration date", zap.Error(ErrAuthAPI.Wrap(err)))
 		return
+	}
+}
+
+// GetActiveSessions gets user's active sessions.
+func (a *Auth) GetActiveSessions(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	var err error
+	defer mon.Task()(&ctx)(&err)
+
+	query := r.URL.Query()
+
+	limitParam := query.Get("limit")
+	if limitParam == "" {
+		a.serveJSONError(ctx, w, console.ErrValidation.New("parameter 'limit' can't be empty"))
+		return
+	}
+
+	limit, err := strconv.ParseUint(limitParam, 10, 32)
+	if err != nil {
+		a.serveJSONError(ctx, w, console.ErrValidation.Wrap(err))
+		return
+	}
+
+	pageParam := query.Get("page")
+	if pageParam == "" {
+		a.serveJSONError(ctx, w, console.ErrValidation.New("parameter 'page' can't be empty"))
+		return
+	}
+
+	page, err := strconv.ParseUint(pageParam, 10, 32)
+	if err != nil {
+		a.serveJSONError(ctx, w, console.ErrValidation.Wrap(err))
+		return
+	}
+
+	orderParam := query.Get("order")
+	if orderParam == "" {
+		a.serveJSONError(ctx, w, console.ErrValidation.New("parameter 'order' can't be empty"))
+		return
+	}
+
+	order, err := strconv.ParseUint(orderParam, 10, 32)
+	if err != nil {
+		a.serveJSONError(ctx, w, console.ErrValidation.Wrap(err))
+		return
+	}
+
+	orderDirectionParam := query.Get("orderDirection")
+	if orderDirectionParam == "" {
+		a.serveJSONError(ctx, w, console.ErrValidation.New("parameter 'orderDirection' can't be empty"))
+		return
+	}
+
+	orderDirection, err := strconv.ParseUint(orderDirectionParam, 10, 32)
+	if err != nil {
+		a.serveJSONError(ctx, w, console.ErrValidation.Wrap(err))
+		return
+	}
+
+	cursor := consoleauth.WebappSessionsCursor{
+		Limit:          uint(limit),
+		Page:           uint(page),
+		Order:          consoleauth.WebappSessionsOrder(order),
+		OrderDirection: consoleauth.OrderDirection(orderDirection),
+	}
+
+	sessionsPage, err := a.service.GetPagedActiveSessions(ctx, cursor)
+	if err != nil {
+		a.serveJSONError(ctx, w, err)
+		return
+	}
+
+	currentSessionID, err := a.getSessionID(r)
+	if err != nil {
+		a.serveJSONError(ctx, w, err)
+		return
+	}
+
+	for i, session := range sessionsPage.Sessions {
+		if session.ID == currentSessionID {
+			sessionsPage.Sessions[i].IsRequesterCurrentSession = true
+			break
+		}
+	}
+
+	err = json.NewEncoder(w).Encode(sessionsPage)
+	if err != nil {
+		a.log.Error("failed to write json paged active webapp sessions response", zap.Error(ErrAuthAPI.Wrap(err)))
+	}
+}
+
+// InvalidateSessionByID invalidates user session by ID.
+func (a *Auth) InvalidateSessionByID(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	var err error
+	defer mon.Task()(&ctx)(&err)
+
+	sessionIDStr, ok := mux.Vars(r)["id"]
+	if !ok {
+		a.serveJSONError(ctx, w, console.ErrValidation.New("id parameter is missing"))
+		return
+	}
+
+	sessionID, err := uuid.FromString(sessionIDStr)
+	if err != nil {
+		a.serveJSONError(ctx, w, console.ErrValidation.Wrap(err))
+		return
+	}
+
+	err = a.service.InvalidateSession(ctx, sessionID)
+	if err != nil {
+		a.serveJSONError(ctx, w, err)
 	}
 }
 
@@ -1281,9 +1591,9 @@ func (a *Auth) getStatusCode(err error) int {
 		return http.StatusBadRequest
 	case console.ErrUnauthorized.Has(err), console.ErrTokenExpiration.Has(err), console.ErrRecoveryToken.Has(err), console.ErrLoginCredentials.Has(err), console.ErrActivationCode.Has(err):
 		return http.StatusUnauthorized
-	case console.ErrEmailUsed.Has(err), console.ErrMFAConflict.Has(err):
+	case console.ErrEmailUsed.Has(err), console.ErrMFAConflict.Has(err), console.ErrMFAEnabled.Has(err):
 		return http.StatusConflict
-	case console.ErrLoginRestricted.Has(err):
+	case console.ErrLoginRestricted.Has(err), console.ErrTooManyAttempts.Has(err), console.ErrForbidden.Has(err):
 		return http.StatusForbidden
 	case errors.Is(err, errNotImplemented):
 		return http.StatusNotImplemented
@@ -1291,6 +1601,8 @@ func (a *Auth) getStatusCode(err error) int {
 		return http.StatusPaymentRequired
 	case errors.As(err, &maxBytesError):
 		return http.StatusRequestEntityTooLarge
+	case console.ErrEmailNotFound.Has(err):
+		return http.StatusNotFound
 	default:
 		return http.StatusInternalServerError
 	}
@@ -1324,7 +1636,7 @@ func (a *Auth) getUserErrorMessage(err error) string {
 		return "Your login credentials are incorrect, please try again"
 	case console.ErrLoginRestricted.Has(err):
 		return "You can't be authenticated. Please contact support"
-	case console.ErrValidation.Has(err), console.ErrChangePassword.Has(err), console.ErrInvalidProjectLimit.Has(err), console.ErrNotPaidTier.Has(err):
+	case console.ErrValidation.Has(err), console.ErrChangePassword.Has(err), console.ErrInvalidProjectLimit.Has(err), console.ErrNotPaidTier.Has(err), console.ErrTooManyAttempts.Has(err), console.ErrMFAEnabled.Has(err), console.ErrForbidden.Has(err):
 		return err.Error()
 	case errors.Is(err, errNotImplemented):
 		return "The server is incapable of fulfilling the request"

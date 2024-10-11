@@ -21,7 +21,7 @@ import (
 
 func TestContainInsertAndGet(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
-		SatelliteCount: 1, StorageNodeCount: 2,
+		SatelliteCount: 1, StorageNodeCount: 2, EnableSpanner: true,
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 		containment := planet.Satellites[0].DB.Containment()
 
@@ -50,7 +50,7 @@ func TestContainInsertAndGet(t *testing.T) {
 
 func TestContainIncrementPendingEntryExists(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
-		SatelliteCount: 1, StorageNodeCount: 1,
+		SatelliteCount: 1, StorageNodeCount: 1, EnableSpanner: true,
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 		containment := planet.Satellites[0].DB.Containment()
 
@@ -87,7 +87,7 @@ func TestContainIncrementPendingEntryExists(t *testing.T) {
 
 func TestContainDelete(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
-		SatelliteCount: 1, StorageNodeCount: 1,
+		SatelliteCount: 1, StorageNodeCount: 1, EnableSpanner: true,
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 		containment := planet.Satellites[0].DB.Containment()
 
@@ -148,7 +148,7 @@ func TestContainDelete(t *testing.T) {
 // This is a sanity check.
 func TestContainUpdateStats(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
-		SatelliteCount: 1, StorageNodeCount: 1,
+		SatelliteCount: 1, StorageNodeCount: 1, EnableSpanner: true,
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 		containment := planet.Satellites[0].DB.Containment()
 		cache := planet.Satellites[0].DB.OverlayCache()

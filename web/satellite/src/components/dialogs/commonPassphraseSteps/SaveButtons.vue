@@ -6,22 +6,22 @@
         <v-btn
             variant="outlined"
             block
-            :color="justCopied ? 'success' : 'default'"
-            :prepend-icon="justCopied ? mdiCheck : mdiContentCopy"
-            @click="onCopy"
+            :color="justDownloaded ? 'success' : 'default'"
+            :prepend-icon="justDownloaded ? Check : DownloadIcon"
+            @click="onDownload"
         >
-            {{ justCopied ? 'Copied' : (items.length > 1 ? 'Copy All' : 'Copy') }}
+            {{ justDownloaded ? 'Downloaded' : (items.length > 1 ? 'Download All' : 'Download') }}
         </v-btn>
     </v-col>
     <v-col cols="6">
         <v-btn
             variant="outlined"
             block
-            :color="justDownloaded ? 'success' : 'default'"
-            :prepend-icon="justDownloaded ? mdiCheck : mdiTrayArrowDown"
-            @click="onDownload"
+            :color="justCopied ? 'success' : 'default'"
+            :prepend-icon="justCopied ? Check : Copy"
+            @click="onCopy"
         >
-            {{ justDownloaded ? 'Downloaded' : (items.length > 1 ? 'Download All' : 'Download') }}
+            {{ justCopied ? 'Copied' : (items.length > 1 ? 'Copy All' : 'Copy') }}
         </v-btn>
     </v-col>
 </template>
@@ -29,7 +29,7 @@
 <script setup lang="ts">
 import { ref, computed } from 'vue';
 import { VCol, VBtn } from 'vuetify/components';
-import { mdiCheck, mdiContentCopy, mdiTrayArrowDown } from '@mdi/js';
+import { Check, Copy, DownloadIcon } from 'lucide-vue-next';
 
 import { SaveButtonsItem } from '@/types/common';
 import { Download } from '@/utils/download';

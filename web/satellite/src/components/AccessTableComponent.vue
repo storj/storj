@@ -2,11 +2,11 @@
 // See LICENSE for copying information.
 
 <template>
-    <v-card variant="outlined" :border="true" rounded="xlg">
+    <v-card>
         <v-text-field
             v-model="search"
             label="Search"
-            :prepend-inner-icon="mdiMagnify"
+            :prepend-inner-icon="Search"
             single-line
             variant="solo-filled"
             flat
@@ -25,7 +25,7 @@
             :loading="areGrantsFetching"
             :items-length="page.totalCount"
             :items-per-page-options="tableSizeOptions(page.totalCount)"
-            item-value="name"
+            :item-value="(item: AccessGrant) => item"
             no-data-text="No results found"
             select-strategy="page"
             show-select
@@ -40,7 +40,7 @@
             </template>
             <template #item.createdAt="{ item }">
                 <span class="text-no-wrap">
-                    {{ item.createdAt.toLocaleString() }}
+                    {{ Time.formattedDate(item.createdAt) }}
                 </span>
             </template>
             <template #item.actions="{ item }">
@@ -48,18 +48,19 @@
                     variant="outlined"
                     color="default"
                     size="small"
+                    rounded="md"
                     class="mr-1 text-caption"
                     density="comfortable"
                     icon
                 >
-                    <v-icon :icon="mdiDotsHorizontal" />
+                    <v-icon :icon="Ellipsis" />
                     <v-menu activator="parent">
                         <v-list class="pa-1">
-                            <v-list-item class="text-error" density="comfortable" link rounded="lg" @click="() => onDeleteClick(item.name)">
+                            <v-list-item class="text-error" density="comfortable" link @click="() => onDeleteClick(item)">
                                 <template #prepend>
-                                    <icon-trash bold />
+                                    <component :is="Trash2" :size="18" />
                                 </template>
-                                <v-list-item-title class="pl-2 text-body-2 font-weight-medium">
+                                <v-list-item-title class="ml-3 text-body-2 font-weight-medium">
                                     Delete Access
                                 </v-list-item-title>
                             </v-list-item>
@@ -72,7 +73,7 @@
 
     <delete-access-dialog
         v-model="isDeleteAccessDialogShown"
-        :access-names="accessesToDelete"
+        :accesses="accessesToDelete"
         @deleted="() => onUpdatePage(FIRST_PAGE)"
     />
 
@@ -86,18 +87,18 @@
     >
         <v-row align="center" justify="space-between">
             <v-col>
-                {{ selected.length }} access{{ selected.length > 1 ? 'es' : '' }} selected
+                {{ selected.length }} key{{ selected.length > 1 ? 's' : '' }} selected
             </v-col>
             <v-col>
                 <div class="d-flex justify-end">
                     <v-btn
-                        color="default"
+                        color="error"
                         density="comfortable"
                         variant="outlined"
                         @click="isDeleteAccessDialogShown = true"
                     >
                         <template #prepend>
-                            <icon-trash bold />
+                            <component :is="Trash2" :size="18" />
                         </template>
                         Delete
                     </v-btn>
@@ -123,18 +124,18 @@ import {
     VTextField,
     VDataTableServer,
 } from 'vuetify/components';
-import { mdiDotsHorizontal, mdiMagnify } from '@mdi/js';
+import { Ellipsis, Search, Trash2 } from 'lucide-vue-next';
 
+import { Time } from '@/utils/time';
 import { AnalyticsErrorEventSource } from '@/utils/constants/analyticsEventNames';
-import { AccessGrantCursor, AccessGrantsOrderBy, AccessGrantsPage } from '@/types/accessGrants';
+import { AccessGrant, AccessGrantCursor, AccessGrantsOrderBy, AccessGrantsPage } from '@/types/accessGrants';
 import { useAccessGrantsStore } from '@/store/modules/accessGrantsStore';
 import { useNotify } from '@/utils/hooks';
 import { useProjectsStore } from '@/store/modules/projectsStore';
 import { DEFAULT_PAGE_LIMIT } from '@/types/pagination';
-import { SortDirection, tableSizeOptions, MAX_SEARCH_VALUE_LENGTH } from '@/types/common';
+import { SortDirection, tableSizeOptions, MAX_SEARCH_VALUE_LENGTH, DataTableHeader } from '@/types/common';
 
 import DeleteAccessDialog from '@/components/dialogs/DeleteAccessDialog.vue';
-import IconTrash from '@/components/icons/IconTrash.vue';
 
 const agStore = useAccessGrantsStore();
 const projectsStore = useProjectsStore();
@@ -144,11 +145,11 @@ const FIRST_PAGE = 1;
 const areGrantsFetching = ref<boolean>(true);
 const search = ref<string>('');
 const searchTimer = ref<NodeJS.Timeout>();
-const selected = ref([]);
 const isDeleteAccessDialogShown = ref<boolean>(false);
-const accessNameToDelete = ref<string>('');
+const accessToDelete = ref<AccessGrant | undefined>();
+const selected = ref<AccessGrant[]>([]);
 
-const headers = [
+const headers: DataTableHeader[] = [
     {
         title: 'Access Name',
         align: 'start',
@@ -175,8 +176,8 @@ const page = computed((): AccessGrantsPage => {
 /**
  * Returns the selected accesses to the delete dialog.
  */
-const accessesToDelete = computed<string[]>(() => {
-    if (accessNameToDelete.value) return [accessNameToDelete.value];
+const accessesToDelete = computed<AccessGrant[]>(() => {
+    if (accessToDelete.value) return [accessToDelete.value];
     return selected.value;
 });
 
@@ -196,7 +197,7 @@ async function fetch(page = FIRST_PAGE, limit = DEFAULT_PAGE_LIMIT): Promise<voi
  * Handles update table rows limit event.
  */
 function onUpdateLimit(limit: number): void {
-    fetch(page.value.currentPage, limit);
+    fetch(FIRST_PAGE, limit);
 }
 
 /**
@@ -204,7 +205,7 @@ function onUpdateLimit(limit: number): void {
  */
 function onUpdatePage(page: number): void {
     selected.value = [];
-    accessNameToDelete.value = '';
+    accessToDelete.value = undefined;
     fetch(page, cursor.value.limit);
 }
 
@@ -225,8 +226,8 @@ function onUpdateSortBy(sortBy: {key: keyof AccessGrantsOrderBy, order: keyof So
 /**
  * Displays the Delete Access dialog.
  */
-function onDeleteClick(accessName: string): void {
-    accessNameToDelete.value = accessName;
+function onDeleteClick(access: AccessGrant): void {
+    accessToDelete.value = access;
     isDeleteAccessDialogShown.value = true;
 }
 

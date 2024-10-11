@@ -41,7 +41,8 @@ func newTestBucket(name string, projectID uuid.UUID) buckets.Bucket {
 			CipherSuite: storj.EncAESGCM,
 			BlockSize:   9 * 10,
 		},
-		Placement: storj.EU,
+		Placement:         storj.EU,
+		ObjectLockEnabled: true,
 	}
 }
 
@@ -76,6 +77,7 @@ func TestBasicBucketOperations(t *testing.T) {
 		require.Equal(t, expectedBucket.DefaultRedundancyScheme, bucket.DefaultRedundancyScheme)
 		require.Equal(t, expectedBucket.DefaultEncryptionParameters, bucket.DefaultEncryptionParameters)
 		require.Equal(t, expectedBucket.Placement, bucket.Placement)
+		require.Equal(t, expectedBucket.ObjectLockEnabled, bucket.ObjectLockEnabled)
 
 		// GetMinimalBucket
 		minimalBucket, err := bucketsDB.GetMinimalBucket(ctx, []byte("testbucket"), project.ID)
@@ -103,11 +105,24 @@ func TestBasicBucketOperations(t *testing.T) {
 		count, err = bucketsDB.CountBuckets(ctx, project.ID)
 		require.NoError(t, err)
 		require.Equal(t, 1, count)
-		_, err = bucketsDB.CreateBucket(ctx, newTestBucket("testbucket2", project.ID))
+
+		expectedBucket2 := newTestBucket("testbucket2", project.ID)
+		expectedBucket2.ObjectLockEnabled = false
+		_, err = bucketsDB.CreateBucket(ctx, expectedBucket2)
 		require.NoError(t, err)
+
 		count, err = bucketsDB.CountBuckets(ctx, project.ID)
 		require.NoError(t, err)
 		require.Equal(t, 2, count)
+
+		// GetBucketObjectLockEnabled
+		enabled, err := bucketsDB.GetBucketObjectLockEnabled(ctx, []byte("testbucket"), project.ID)
+		require.NoError(t, err)
+		require.True(t, enabled)
+
+		enabled, err = bucketsDB.GetBucketObjectLockEnabled(ctx, []byte("testbucket2"), project.ID)
+		require.NoError(t, err)
+		require.False(t, enabled)
 
 		// DeleteBucket
 		err = bucketsDB.DeleteBucket(ctx, []byte("testbucket"), project.ID)
@@ -264,7 +279,7 @@ func TestIterateBucketLocations_ProjectsWithMutipleBuckets(t *testing.T) {
 			for _, bucketName := range testBucketNames {
 				expectedBucketLocations = append(expectedBucketLocations, metabase.BucketLocation{
 					ProjectID:  project.ID,
-					BucketName: bucketName,
+					BucketName: metabase.BucketName(bucketName),
 				})
 
 				_, err = db.Buckets().CreateBucket(ctx, buckets.Bucket{
@@ -297,7 +312,7 @@ func TestIterateBucketLocations_MultipleProjectsWithSingleBucket(t *testing.T) {
 		for i := 1; i < 16; i++ {
 			location := metabase.BucketLocation{
 				ProjectID:  testrand.UUID(),
-				BucketName: "bucket" + strconv.Itoa(i),
+				BucketName: metabase.BucketName("bucket" + strconv.Itoa(i)),
 			}
 			expectedBucketLocations = append(expectedBucketLocations, location)
 
@@ -310,7 +325,7 @@ func TestIterateBucketLocations_MultipleProjectsWithSingleBucket(t *testing.T) {
 			_, err = db.Buckets().CreateBucket(ctx, buckets.Bucket{
 				ID:        testrand.UUID(),
 				ProjectID: project.ID,
-				Name:      location.BucketName,
+				Name:      string(location.BucketName),
 			})
 			require.NoError(t, err)
 		}
@@ -326,5 +341,62 @@ func TestIterateBucketLocations_MultipleProjectsWithSingleBucket(t *testing.T) {
 
 			require.ElementsMatch(t, expectedBucketLocations, bucketLocations)
 		}
+	})
+}
+
+func TestEnableSuspendBucketVersioning(t *testing.T) {
+	testplanet.Run(t, testplanet.Config{
+		SatelliteCount: 1, UplinkCount: 1,
+	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+		db := planet.Satellites[0].API.DB.Buckets()
+		projectID := planet.Uplinks[0].Projects[0].ID
+
+		requireBucketVersioning := func(name string, versioning buckets.Versioning) {
+			bucket, err := db.GetBucket(ctx, []byte(name), projectID)
+			require.NoError(t, err)
+			require.Equal(t, versioning, bucket.Versioning)
+		}
+
+		bucketName := testrand.BucketName()
+		_, err := db.CreateBucket(ctx, buckets.Bucket{
+			Name:       bucketName,
+			ProjectID:  projectID,
+			Versioning: buckets.Unversioned,
+		})
+		require.NoError(t, err)
+
+		// verify suspend unversioned bucket fails
+		err = db.SuspendBucketVersioning(ctx, []byte(bucketName), projectID)
+		require.True(t, buckets.ErrConflict.Has(err))
+		requireBucketVersioning(bucketName, buckets.Unversioned)
+
+		// verify enable unversioned bucket succeeds
+		err = db.EnableBucketVersioning(ctx, []byte(bucketName), projectID)
+		require.NoError(t, err)
+		requireBucketVersioning(bucketName, buckets.VersioningEnabled)
+
+		// verify suspend enabled bucket succeeds
+		err = db.SuspendBucketVersioning(ctx, []byte(bucketName), projectID)
+		require.NoError(t, err)
+		requireBucketVersioning(bucketName, buckets.VersioningSuspended)
+
+		// verify re-enable suspended bucket succeeds
+		err = db.EnableBucketVersioning(ctx, []byte(bucketName), projectID)
+		require.NoError(t, err)
+		requireBucketVersioning(bucketName, buckets.VersioningEnabled)
+
+		// verify suspend bucket with Object Lock enabled fails
+		lockBucketName := testrand.BucketName()
+		_, err = db.CreateBucket(ctx, buckets.Bucket{
+			Name:              lockBucketName,
+			ProjectID:         projectID,
+			Versioning:        buckets.Unversioned,
+			ObjectLockEnabled: true,
+		})
+		require.NoError(t, err)
+
+		err = db.SuspendBucketVersioning(ctx, []byte(lockBucketName), projectID)
+		require.True(t, buckets.ErrConflict.Has(err))
+		requireBucketVersioning(lockBucketName, buckets.Unversioned)
 	})
 }

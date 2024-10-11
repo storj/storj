@@ -80,13 +80,17 @@ export class AccessGrantsHttpApi implements AccessGrantsApi {
         const path = `${this.ROOT_PATH}/delete-by-ids`;
         const response = await this.client.delete(path, JSON.stringify({ ids }));
 
-        if (!response.ok) {
-            throw new APIError({
-                status: response.status,
-                message: 'Can not delete access grants',
-                requestID: response.headers.get('x-request-id'),
-            });
+        if (response.ok) {
+            return;
         }
+
+        const result = await response.json();
+
+        throw new APIError({
+            status: response.status,
+            message: result.error || 'Can not delete access grants',
+            requestID: response.headers.get('x-request-id'),
+        });
     }
 
     /**
@@ -142,11 +146,11 @@ export class AccessGrantsHttpApi implements AccessGrantsApi {
      * @param isPublic - optional status
      * @throws Error
      */
-    public async getGatewayCredentials(accessGrant: string, requestURL: string, isPublic?: boolean): Promise<EdgeCredentials> {
+    public async getGatewayCredentials(accessGrant: string, requestURL: string, isPublic = false): Promise<EdgeCredentials> {
         const path = `${requestURL}/v1/access`;
         const body = {
             access_grant: accessGrant,
-            public: isPublic || false,
+            public: isPublic,
         };
         const response = await this.client.post(path, JSON.stringify(body));
         if (!response.ok) {

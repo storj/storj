@@ -3,7 +3,7 @@
 
 package nodeselection
 
-//go:generate go run ./gen
+// Run "go run ./genprimes" to regenerate these values.
 var primes = []uint64{
 	4644169889937985027,
 	6165318155211055777,

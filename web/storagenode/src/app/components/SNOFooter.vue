@@ -4,7 +4,14 @@
 <template>
     <div v-if="isShown" class="footer">
         <div class="footer__content-holder">
-            <StorjIcon
+            <StorjIconDark
+                v-if="isDarkMode"
+                class="footer__content-holder__icon"
+                alt="storj icon"
+                @click="scrollUp"
+            />
+            <StorjIconLight
+                v-else
                 class="footer__content-holder__icon"
                 alt="storj icon"
                 @click="scrollUp"
@@ -36,12 +43,14 @@ import { Component, Vue } from 'vue-property-decorator';
 
 import { RouteConfig } from '@/app/router';
 
-import StorjIcon from '@/../static/images/storjIcon.svg';
+import StorjIconLight from '@/../static/images/storjIcon.svg';
+import StorjIconDark from '@/../static/images/storjIconDark.svg';
 
 // @vue/component
 @Component({
     components: {
-        StorjIcon,
+        StorjIconLight,
+        StorjIconDark,
     },
 })
 export default class SNOFooter extends Vue {
@@ -54,6 +63,10 @@ export default class SNOFooter extends Vue {
      */
     public get isShown(): boolean {
         return this.$route.name !== RouteConfig.Notifications.name;
+    }
+
+    public get isDarkMode(): boolean {
+        return this.$store.state.appStateModule.isDarkMode;
     }
 }
 </script>

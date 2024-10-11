@@ -7,43 +7,43 @@ All_{{ .Suffix }}({{ ctxparam .Args }}) (
 All_{{ .Suffix }}({{ ctxarg .Args }})
 {{- end -}}
 
-{{- define "body" }}
+{{- define "body" }}{{/* gotype: storj.io/dbx/code/golang.Get */}}
 	{{ embedplaceholders .Info }}
 	{{ embedsql .Info "__embed_stmt" }}
 
-	var __values []interface{}
+	var __values []any
 	{{ embedvalues .Args "__values" }}
 
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
 	obj.logStmt(__stmt, __values...)
 
-  for {
-    rows, err = func() (rows {{ sliceof .Row }}, err error) {
-    	__rows, err := obj.driver.QueryContext(ctx, __stmt, __values...)
-    	if err != nil {
-    		return nil, err
-    	}
-    	defer __rows.Close()
+	for {
+		rows, err = func() (rows {{ sliceof .Row }}, err error) {
+			__rows, err := obj.driver.QueryContext(ctx, __stmt, __values...)
+			if err != nil {
+				return nil, err
+			}
+			defer __rows.Close()
 
-    	for __rows.Next() {
-    		{{ initnew .Row }}
-    		err = __rows.Scan({{ addrof (flatten .Row) }})
-    		if err != nil {
-    			return nil, err
-    		}
-    		rows = append(rows, {{ arg .Row }})
-    	}
-    	if err := __rows.Err(); err != nil {
-    		return nil, err
-    	}
-    	return rows, nil
-    }()
-    if err != nil {
-      if obj.shouldRetry(err) {
-        continue
-      }
-      return nil, obj.makeErr(err)
-    }
-    return rows, nil
-  }
+			for __rows.Next() {
+				{{ initnew .Row }}
+				err = __rows.Scan({{ addrof (flatten .Row) }})
+				if err != nil {
+					return nil, err
+				}
+				rows = append(rows, {{ arg .Row }})
+			}
+			if err := __rows.Err(); err != nil {
+				return nil, err
+			}
+			return rows, nil
+		}()
+		if err != nil {
+			if obj.shouldRetry(err) {
+				continue
+			}
+			return nil, obj.makeErr(err)
+		}
+		return rows, nil
+	}
 {{ end -}}

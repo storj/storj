@@ -2,6 +2,9 @@
 // See LICENSE for copying information.
 
 import { Duration } from '@/utils/time';
+import { ChangeEmailStep, DeleteAccountStep } from '@/types/accountActions';
+import { SortDirection } from '@/types/common';
+import { DEFAULT_PAGE_LIMIT } from '@/types/pagination';
 
 /**
  * Exposes all user-related functionality.
@@ -14,6 +17,7 @@ export interface UsersApi {
      * @throws Error
      */
     update(user: UpdatedUser): Promise<void>;
+
     /**
      * Fetch user.
      *
@@ -21,6 +25,7 @@ export interface UsersApi {
      * @throws Error
      */
     get(): Promise<User>;
+
     /**
      * Fetches user frozen status.
      *
@@ -38,6 +43,20 @@ export interface UsersApi {
     getUserSettings(): Promise<UserSettings>;
 
     /**
+     * Used to fetch active user sessions.
+     *
+     * @throws Error
+     */
+    getSessions(cursor: SessionsCursor): Promise<SessionsPage>
+
+    /**
+     * Used to invalidate active user session by ID.
+     *
+     * @throws Error
+     */
+    invalidateSession(sessionID: string): Promise<void>
+
+    /**
      * Changes user's settings.
      *
      * @param data
@@ -47,35 +66,58 @@ export interface UsersApi {
     updateSettings(data: SetUserSettingsData): Promise<UserSettings>;
 
     /**
+     * Changes user's email.
+     *
+     * @param step
+     * @param data
+     * @throws Error
+     */
+    changeEmail(step: ChangeEmailStep, data: string): Promise<void>;
+
+    /**
+     * Marks user's account for deletion.
+     *
+     * @param step
+     * @param data
+     * @throws Error
+     */
+    deleteAccount(step: DeleteAccountStep, data: string): Promise<AccountDeletionData | null>;
+
+    /**
      * Enable user's MFA.
      *
      * @throws Error
      */
     enableUserMFA(passcode: string): Promise<void>;
+
     /**
      * Disable user's MFA.
      *
      * @throws Error
      */
     disableUserMFA(passcode: string, recoveryCode: string): Promise<void>;
+
     /**
      * Generate user's MFA secret.
      *
      * @throws Error
      */
     generateUserMFASecret(): Promise<string>;
+
     /**
      * Generate user's MFA recovery codes.
      *
      * @throws Error
      */
     generateUserMFARecoveryCodes(): Promise<string[]>;
+
     /**
      * Generate user's MFA recovery codes requiring a code.
      *
      * @throws Error
      */
     regenerateUserMFARecoveryCodes(passcode?: string, recoveryCode?: string): Promise<string[]>;
+
     /**
      * Request increase for user's project limit.
      *
@@ -139,7 +181,7 @@ export class User {
         const daysBeforeNotifyInMilliseconds = daysBeforeNotify * millisecondsInDay;
 
         return {
-            isCloseToExpiredTrial: diff > 0 && diff < daysBeforeNotifyInMilliseconds,
+            isCloseToExpiredTrial: diff < daysBeforeNotifyInMilliseconds,
             days: Math.round(Math.abs(diff) / millisecondsInDay),
         };
     }
@@ -176,15 +218,35 @@ export class UpdatedUser {
  * Describes data used to set up user account.
  */
 export interface AccountSetupData {
-    fullName: string
     isProfessional: boolean
     haveSalesContact: boolean
+    interestedInPartnering: boolean
+    firstName?: string
+    lastName?: string
+    fullName?: string
     position?: string
     companyName?: string
     employeeCount?: string
     storageNeeds?: string
     storageUseCase?: string
+    otherUseCase?: string
     functionalArea?: string
+}
+
+/**
+ * AccountDeletionData represents data returned by account deletion endpoint.
+ */
+export class AccountDeletionData {
+    public constructor(
+        public ownedProjects: number,
+        public buckets: number,
+        public apiKeys: number,
+        public unpaidInvoices: number,
+        public amountOwed: number,
+        public currentUsage: boolean,
+        public invoicingIncomplete: boolean,
+        public success: boolean,
+    ) { }
 }
 
 /**
@@ -228,11 +290,60 @@ export class UserSettings {
     }
 }
 
+/**
+ * User holds info for user session entity.
+ */
+export class Session {
+    public constructor(
+        public id: string = '',
+        public userAgent: string = '',
+        public expiresAt: Date = new Date(),
+        public isCurrent: boolean = false,
+    ) { }
+}
+
+/**
+ * Holds user sessions sorting parameters.
+ */
+export enum SessionsOrderBy {
+    userAgent = 1,
+    expiresAt = 2,
+}
+
+/**
+ * SessionsCursor is a type, used to describe paged user sessions pagination cursor.
+ */
+export class SessionsCursor {
+    public constructor(
+        public limit: number = DEFAULT_PAGE_LIMIT,
+        public page: number = 1,
+        public order: SessionsOrderBy = SessionsOrderBy.userAgent,
+        public orderDirection: SortDirection = SortDirection.asc,
+    ) { }
+}
+
+/**
+ * ActiveSessionsPage is a type, used to describe paged user sessions list.
+ */
+export class SessionsPage {
+    public constructor(
+        public sessions: Session[] = [],
+        public order: SessionsOrderBy = SessionsOrderBy.userAgent,
+        public orderDirection: SortDirection = SortDirection.asc,
+        public limit: number = 6,
+        public pageCount: number = 0,
+        public currentPage: number = 1,
+        public totalCount: number = 0,
+    ) { }
+}
+
 export interface NoticeDismissal {
     fileGuide: boolean
     serverSideEncryption: boolean
     partnerUpgradeBanner: boolean
     projectMembersPassphrase: boolean
+    uploadOverwriteWarning?: boolean;
+    versioningBetaBanner?: boolean;
 }
 
 export interface SetUserSettingsData {
@@ -252,6 +363,7 @@ export class FreezeStatus {
         public frozen = false,
         public warned = false,
         public trialExpiredFrozen = false,
+        public trialExpirationGracePeriod = 0,
     ) { }
 }
 
@@ -261,8 +373,12 @@ export class FreezeStatus {
 export enum OnboardingStep {
     AccountTypeSelection = 'AccountTypeSelection',
     PersonalAccountForm = 'PersonalAccountForm',
+    PlanTypeSelection = 'PlanTypeSelection',
+    PaymentMethodSelection = 'PaymentMethodSelection',
     PricingPlanSelection = 'PricingPlanSelection',
+    ManagedPassphraseOptIn = 'ManagedPassphraseOptIn',
     PricingPlan = 'PricingPlan',
+    AddTokens = 'AddTokens',
     BusinessAccountForm = 'BusinessAccountForm',
     SetupComplete = 'SetupComplete',
     EncryptionPassphrase = 'EncryptionPassphrase',
@@ -281,8 +397,12 @@ export const ONBOARDING_STEPPER_STEPS = [
 export const ACCOUNT_SETUP_STEPS = [
     OnboardingStep.AccountTypeSelection,
     OnboardingStep.PersonalAccountForm,
+    OnboardingStep.ManagedPassphraseOptIn,
+    OnboardingStep.PlanTypeSelection,
+    OnboardingStep.PaymentMethodSelection,
     OnboardingStep.PricingPlanSelection,
     OnboardingStep.PricingPlan,
+    OnboardingStep.AddTokens,
     OnboardingStep.BusinessAccountForm,
     OnboardingStep.SetupComplete,
 ];

@@ -4,6 +4,7 @@
 package consolewasm
 
 import (
+	"errors"
 	"time"
 
 	"github.com/zeebo/errs"
@@ -30,6 +31,21 @@ type Permission struct {
 	// either AllowDownload or AllowList is granted too, no object metadata and
 	// no error info will be returned for deleted objects.
 	AllowDelete bool
+	// AllowPutObjectRetention gives permission for retention periods to be
+	// placed on and retrieved from objects.
+	AllowPutObjectRetention bool
+	// AllowGetObjectRetention gives permission for retention periods to be
+	// retrieved from objects.
+	AllowGetObjectRetention bool
+	// AllowPutObjectLegalHold gives permission for legal hold status to be
+	// placed on objects.
+	AllowPutObjectLegalHold bool
+	// AllowGetObjectLegalHold gives permission for legal hold status to be
+	// retrieved from objects.
+	AllowGetObjectLegalHold bool
+	// AllowBypassGovernanceRetention gives permission for governance retention
+	// to be bypassed on objects.
+	AllowBypassGovernanceRetention bool
 	// NotBefore restricts when the resulting access grant is valid for.
 	// If set, the resulting access grant will not work if the Satellite
 	// believes the time is before NotBefore.
@@ -40,6 +56,12 @@ type Permission struct {
 	// believes the time is after NotAfter.
 	// If set, this value should always be after NotBefore.
 	NotAfter time.Time
+	// MaxObjectTTL restricts the maximum time-to-live of objects.
+	// If set, new objects are uploaded with an expiration time that reflects
+	// the MaxObjectTTL period.
+	// If objects are uploaded with an explicit expiration time, the upload
+	// will be successful only if it is shorter than the MaxObjectTTL period.
+	MaxObjectTTL *time.Duration
 }
 
 // SetPermission restricts the api key with the permissions and returns an api key with restricted permissions.
@@ -60,13 +82,23 @@ func SetPermission(key string, buckets []string, permission Permission) (*macaro
 		return nil, errs.New("invalid time range")
 	}
 
+	if permission.MaxObjectTTL != nil && *(permission.MaxObjectTTL) <= 0 {
+		return nil, errors.New("non-positive ttl period")
+	}
+
 	caveat := macaroon.WithNonce(macaroon.Caveat{
-		DisallowReads:   !permission.AllowDownload,
-		DisallowWrites:  !permission.AllowUpload,
-		DisallowLists:   !permission.AllowList,
-		DisallowDeletes: !permission.AllowDelete,
-		NotBefore:       notBefore,
-		NotAfter:        notAfter,
+		DisallowReads:                     !permission.AllowDownload,
+		DisallowWrites:                    !permission.AllowUpload,
+		DisallowLists:                     !permission.AllowList,
+		DisallowDeletes:                   !permission.AllowDelete,
+		DisallowPutRetention:              !permission.AllowPutObjectRetention,
+		DisallowGetRetention:              !permission.AllowGetObjectRetention,
+		DisallowBypassGovernanceRetention: !permission.AllowBypassGovernanceRetention,
+		DisallowPutLegalHold:              !permission.AllowPutObjectLegalHold,
+		DisallowGetLegalHold:              !permission.AllowGetObjectLegalHold,
+		NotBefore:                         notBefore,
+		NotAfter:                          notAfter,
+		MaxObjectTtl:                      permission.MaxObjectTTL,
 	})
 
 	for _, b := range buckets {

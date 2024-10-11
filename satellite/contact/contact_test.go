@@ -13,7 +13,6 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"storj.io/common/identity/testidentity"
-	"storj.io/common/nodetag"
 	"storj.io/common/pb"
 	"storj.io/common/rpc/rpcpeer"
 	"storj.io/common/rpc/rpcstatus"
@@ -21,6 +20,7 @@ import (
 	"storj.io/common/storj"
 	"storj.io/common/testcontext"
 	"storj.io/storj/private/testplanet"
+	"storj.io/storj/shared/nodetag"
 	"storj.io/storj/storagenode"
 	"storj.io/storj/storagenode/contact"
 )
@@ -208,7 +208,7 @@ func TestSatelliteContactEndpoint_WithNodeTags(t *testing.T) {
 			},
 		}
 
-		unsignedTags := &pb.NodeTagSet{
+		signedTags, err := nodetag.Sign(ctx, &pb.NodeTagSet{
 			NodeId: ident.ID.Bytes(),
 			Tags: []*pb.Tag{
 				{
@@ -220,9 +220,18 @@ func TestSatelliteContactEndpoint_WithNodeTags(t *testing.T) {
 					Value: []byte("bar"),
 				},
 			},
-		}
+		}, signing.SignerFromFullIdentity(planet.Satellites[0].Identity))
+		require.NoError(t, err)
 
-		signedTags, err := nodetag.Sign(ctx, unsignedTags, signing.SignerFromFullIdentity(planet.Satellites[0].Identity))
+		selfSignedTag, err := nodetag.Sign(ctx, &pb.NodeTagSet{
+			NodeId: ident.ID.Bytes(),
+			Tags: []*pb.Tag{
+				{
+					Name:  "self",
+					Value: []byte{1},
+				},
+			},
+		}, signing.SignerFromFullIdentity(planet.StorageNodes[0].Identity))
 		require.NoError(t, err)
 
 		peerCtx := rpcpeer.NewContext(ctx, &peer)
@@ -236,6 +245,7 @@ func TestSatelliteContactEndpoint_WithNodeTags(t *testing.T) {
 			SignedTags: &pb.SignedNodeTagSets{
 				Tags: []*pb.SignedNodeTagSet{
 					signedTags,
+					selfSignedTag,
 				},
 			},
 		})
@@ -244,15 +254,21 @@ func TestSatelliteContactEndpoint_WithNodeTags(t *testing.T) {
 
 		tags, err := planet.Satellites[0].DB.OverlayCache().GetNodeTags(ctx, ident.ID)
 		require.NoError(t, err)
-		require.Len(t, tags, 2)
+		require.Len(t, tags, 3)
 		sort.Slice(tags, func(i, j int) bool {
 			return tags[i].Name < tags[j].Name
 		})
 		require.Equal(t, "foo", tags[0].Name)
 		require.Equal(t, "bar", string(tags[0].Value))
+		require.Equal(t, planet.Satellites[0].Identity.ID, tags[0].Signer)
 
-		require.Equal(t, "soc", tags[1].Name)
+		require.Equal(t, "self", tags[1].Name)
 		require.Equal(t, []byte{1}, tags[1].Value)
+		require.Equal(t, planet.StorageNodes[0].Identity.ID, tags[1].Signer)
+
+		require.Equal(t, "soc", tags[2].Name)
+		require.Equal(t, []byte{1}, tags[2].Value)
+		require.Equal(t, planet.Satellites[0].Identity.ID, tags[2].Signer)
 
 	})
 }

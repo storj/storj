@@ -10,10 +10,11 @@ import (
 	"sort"
 	"strings"
 
+	"github.com/jtolio/mito"
 	"github.com/zeebo/errs"
 
 	"storj.io/common/storj"
-	"storj.io/common/storj/location"
+	"storj.io/storj/shared/location"
 )
 
 // NodeFilter can decide if a Node should be part of the selection or not.
@@ -239,6 +240,29 @@ func NewCountryFilterFromString(countries []string) (*CountryFilter, error) {
 	return NewCountryFilter(set), nil
 }
 
+// NewContinentFilterFromString parses country definitions like 'SA','!NA'.
+func NewContinentFilterFromString(continent string) (*CountryFilter, error) {
+	var set location.Set
+	apply := func(modified location.Set, code ...location.CountryCode) location.Set {
+		return modified.With(code...)
+	}
+	if continent[0] == '!' {
+		set = location.NewFullSet()
+		apply = func(modified location.Set, code ...location.CountryCode) location.Set {
+			return modified.Without(code...)
+		}
+		continent = continent[1:]
+	}
+
+	countries, ok := location.Continents[continent]
+	if !ok {
+		panic(fmt.Sprintf("unknown continent %q", continent))
+	}
+	set = apply(set, countries...)
+
+	return NewCountryFilter(set), nil
+}
+
 // Match implements NodeFilter interface.
 func (p *CountryFilter) Match(node *SelectedNode) bool {
 	return p.permit.Contains(node.CountryCode)
@@ -420,8 +444,8 @@ func parseHexOrBase58ID(line string) (storj.NodeID, error) {
 
 // Match implements NodeFilter.
 func (n AllowedNodesFilter) Match(node *SelectedNode) bool {
-	for _, white := range n {
-		if node.ID == white {
+	for _, allowed := range n {
+		if node.ID == allowed {
 			return true
 		}
 	}
@@ -433,31 +457,77 @@ var _ NodeFilter = AllowedNodesFilter{}
 // AttributeFilter selects nodes based on dynamic node attributes (eg. vetted=true or tag:owner=...).
 type AttributeFilter struct {
 	attribute NodeAttribute
+	test      mito.OpType
 	value     interface{}
 }
 
-// NewAttributeFilter creates new attribute filter. Value should be string or stringNotMatch.
-func NewAttributeFilter(attr string, value interface{}) (*AttributeFilter, error) {
+// NewAttributeFilter creates new attribute filter. NewAttributeFilter can be
+// called in two ways, either like `NewAttributeFilter("attr", "value")`, or
+// `NewAttributeFilter("attr", "<", 3). The first style, 2 arguments, is
+// a string equality test. The second style, 3 arguments, is a more generic
+// form of the first. String equality can be specified, but also inequalities
+// as well.
+// If value is stringNotMatch, then the test is inverted.
+func NewAttributeFilter(attr string, args ...any) (*AttributeFilter, error) {
+	var value any
+	test := mito.OpEqual
+	switch len(args) {
+	case 1:
+		value = args[0]
+	case 2:
+		value = args[1]
+		switch args[0] {
+		case "=", "==":
+		case "!=", "<>":
+			test = mito.OpNotEqual
+		case "<":
+			test = mito.OpLess
+		case "<=":
+			test = mito.OpLessEqual
+		case ">":
+			test = mito.OpGreater
+		case ">=":
+			test = mito.OpGreaterEqual
+		default:
+			return nil, errs.New("invalid call to create new attribute filter. Received 3 arguments, second argument was not an expected test")
+		}
+	default:
+		return nil, errs.New("invalid call to create new attribute filter. Expected 2 or 3 arguments")
+	}
+
 	attribute, err := CreateNodeAttribute(attr)
 	if err != nil {
 		return nil, err
 	}
 	return &AttributeFilter{
-		value:     value,
 		attribute: attribute,
+		test:      test,
+		value:     value,
 	}, nil
+}
+
+func compare(a any, test mito.OpType, b any) bool {
+	res, err := (&mito.Operation{
+		Type:  test,
+		Left:  &mito.Value[any]{Val: a},
+		Right: &mito.Value[any]{Val: b},
+	}).Run(map[any]any{})
+	if err != nil {
+		return false
+	}
+	resbool, ok := res.(bool)
+	return ok && resbool
 }
 
 // Match implements NodeFilter.
 func (a *AttributeFilter) Match(node *SelectedNode) bool {
 	attribute := a.attribute(*node)
+
 	switch v := a.value.(type) {
 	case stringNotMatch:
-		return attribute != string(v)
-	case string:
-		return attribute == a.value
+		return !compare(attribute, a.test, string(v))
 	default:
-		return false
+		return compare(attribute, a.test, v)
 	}
 }
 

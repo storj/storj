@@ -3,23 +3,24 @@
 
 <template>
     <v-alert
-        class="mt-3"
+        class="mt-3 mb-2"
         density="compact"
         variant="tonal"
         :type="isSuccess ? 'success' : 'warning'"
     >
         <template #prepend>
-            <v-icon v-if="isDefault" :icon="mdiInformationOutline" />
-            <v-icon v-if="isPending" :icon="mdiClockOutline" />
-            <v-icon v-if="isSuccess" :icon="mdiCheckCircleOutline" />
+            <v-icon>
+                <Info v-if="isDefault" />
+                <Clock v-if="isPending" />
+                <CircleCheck v-if="isSuccess" />
+            </v-icon>
         </template>
 
         <template #text>
             <p v-if="isDefault">
-                <span class="font-weight-bold d-block">Send only STORJ tokens via Layer 1 transaction to this address.</span>
+                <span class="font-weight-bold d-block">Send STORJ tokens via the Ethereum network or zkSync Era.</span>
                 <span>
-                    Sending anything else than STORJ token will result in the loss of your deposit.
-                    Please note that zkSync transactions are not yet supported.
+                    If you send any other kind of token, or use any other network, you may lose your deposit.
                 </span>
             </p>
 
@@ -43,7 +44,7 @@
 <script setup lang="ts">
 import { computed } from 'vue';
 import { VAlert, VIcon } from 'vuetify/components';
-import { mdiCheckCircleOutline, mdiClockOutline, mdiInformationOutline } from '@mdi/js';
+import { CircleCheck, Clock, Info } from 'lucide-vue-next';
 
 import { PaymentStatus, PaymentWithConfirmations } from '@/types/payments';
 import { useConfigStore } from '@/store/modules/configStore';

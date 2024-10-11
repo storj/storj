@@ -76,6 +76,11 @@ self.onmessage = async function (event) {
             const isUpload = data.isUpload;
             const isList = data.isList;
             const isDelete = data.isDelete;
+            const isPutObjectRetention = data.isPutObjectRetention ?? false;
+            const isGetObjectRetention = data.isGetObjectRetention ?? false;
+            const isBypassGovernanceRetention = data.isBypassGovernanceRetention ?? false;
+            const isPutObjectLegalHold = data.isPutObjectLegalHold ?? false;
+            const isGetObjectLegalHold = data.isGetObjectLegalHold ?? false;
             const notBefore = data.notBefore;
             const notAfter = data.notAfter;
 
@@ -85,6 +90,11 @@ self.onmessage = async function (event) {
             permission.AllowUpload = isUpload;
             permission.AllowDelete = isDelete;
             permission.AllowList = isList;
+            permission.AllowPutObjectRetention = isPutObjectRetention;
+            permission.AllowGetObjectRetention = isGetObjectRetention;
+            permission.AllowBypassGovernanceRetention = isBypassGovernanceRetention;
+            permission.AllowPutObjectLegalHold = isPutObjectLegalHold;
+            permission.AllowGetObjectLegalHold = isGetObjectLegalHold;
 
             if (notBefore) permission.NotBefore = notBefore;
             if (notAfter) permission.NotAfter = notAfter;

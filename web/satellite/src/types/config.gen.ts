@@ -44,23 +44,32 @@ export class FrontendConfig {
     pricingPackagesEnabled: boolean;
     galleryViewEnabled: boolean;
     neededTransactionConfirmations: number;
-    objectBrowserPaginationEnabled: boolean;
     billingFeaturesEnabled: boolean;
     stripePaymentElementEnabled: boolean;
     unregisteredInviteEmailsEnabled: boolean;
-    freeTierInvitesEnabled: boolean;
     userBalanceForUpgrade: number;
     limitIncreaseRequestEnabled: boolean;
     signupActivationCodeEnabled: boolean;
     allowedUsageReportDateRange: number;
-    onboardingStepperEnabled: boolean;
     enableRegionTag: boolean;
     emissionImpactViewEnabled: boolean;
-    applicationsPageEnabled: boolean;
     daysBeforeTrialEndNotification: number;
     analyticsEnabled: boolean;
-    plausibleScriptUrl: string;
-    plausibleDomain: string;
+    objectBrowserKeyNamePrefix: string;
+    objectBrowserKeyLifetime: number;
+    maxNameCharacters: number;
+    billingInformationTabEnabled: boolean;
+    satelliteManagedEncryptionEnabled: boolean;
+    emailChangeFlowEnabled: boolean;
+    selfServeAccountDeleteEnabled: boolean;
+    deleteProjectEnabled: boolean;
+    noLimitsUiEnabled: boolean;
+    altObjBrowserPagingEnabled: boolean;
+    altObjBrowserPagingThreshold: number;
+    domainsPageEnabled: boolean;
+    activeSessionsViewEnabled: boolean;
+    objectLockUIEnabled: boolean;
+    valdiSignUpURL: string;
 }
 
 export class MultiCaptchaConfig {

@@ -100,10 +100,12 @@ func (m *DiskSpaceRequest) GetHeader() *RequestHeader {
 }
 
 type DiskSpaceResponse struct {
-	Allocated            int64    `protobuf:"varint,1,opt,name=allocated,proto3" json:"allocated,omitempty"`
-	UsedPieces           int64    `protobuf:"varint,2,opt,name=used_pieces,json=usedPieces,proto3" json:"used_pieces,omitempty"`
-	UsedTrash            int64    `protobuf:"varint,3,opt,name=used_trash,json=usedTrash,proto3" json:"used_trash,omitempty"`
-	Free                 int64    `protobuf:"varint,4,opt,name=free,proto3" json:"free,omitempty"`
+	Allocated  int64 `protobuf:"varint,1,opt,name=allocated,proto3" json:"allocated,omitempty"`
+	UsedPieces int64 `protobuf:"varint,2,opt,name=used_pieces,json=usedPieces,proto3" json:"used_pieces,omitempty"`
+	UsedTrash  int64 `protobuf:"varint,3,opt,name=used_trash,json=usedTrash,proto3" json:"used_trash,omitempty"`
+	// Free is the actual amount of free space on the whole disk, not just allocated disk space, in bytes.
+	Free int64 `protobuf:"varint,4,opt,name=free,proto3" json:"free,omitempty"`
+	// Available is the amount of free space on the allocated disk space, in bytes.
 	Available            int64    `protobuf:"varint,5,opt,name=available,proto3" json:"available,omitempty"`
 	Overused             int64    `protobuf:"varint,6,opt,name=overused,proto3" json:"overused,omitempty"`
 	XXX_NoUnkeyedLiteral struct{} `json:"-"`

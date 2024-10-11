@@ -6,6 +6,7 @@
         :key="chartKey"
         chart-id="storage-chart"
         :chart-data="chartData"
+        :data-label="dataLabel"
         :width="width"
         :height="height"
         :tooltip-constructor="tooltip"
@@ -19,6 +20,7 @@ import { ChartType, TooltipModel, ChartData } from 'chart.js';
 import { Tooltip, TooltipParams, TooltipId, ChartTooltipData } from '@/types/chart';
 import { DataStamp } from '@/types/projects';
 import { ChartUtils } from '@/utils/chart';
+import { Size } from '@/utils/bytesSize';
 
 import VChart from '@/components/VChart.vue';
 
@@ -62,6 +64,12 @@ const chartData = computed((): ChartData => {
             pointBackgroundColor: '#FFFFFF',
         }],
     };
+});
+
+const dataLabel = computed(() => {
+    const filteredData = props.data.filter(s => !!s);
+    const maxValue = Math.max(...filteredData.map(s => s.value));
+    return new Size(maxValue).label;
 });
 
 /**

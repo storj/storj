@@ -4,12 +4,12 @@
 <template>
     <v-dialog
         v-model="model"
-        width="410px"
+        max-width="420px"
         transition="fade-transition"
         :persistent="isLoading"
     >
-        <v-card ref="innerContent" rounded="xlg">
-            <v-card-item class="pa-5 pl-7">
+        <v-card ref="innerContent">
+            <v-card-item class="pa-6">
                 <template #prepend>
                     <v-sheet
                         class="border-sm d-flex justify-center align-center"
@@ -17,7 +17,7 @@
                         height="40"
                         rounded="lg"
                     >
-                        <icon-share size="18" />
+                        <component :is="Share" :size="18" />
                     </v-sheet>
                 </template>
                 <v-card-title class="font-weight-bold">
@@ -25,7 +25,7 @@
                 </v-card-title>
                 <template #append>
                     <v-btn
-                        id="Close"
+                        id="close-share"
                         icon="$close"
                         variant="text"
                         size="small"
@@ -38,7 +38,7 @@
 
             <v-divider />
 
-            <div class="pa-7 share-dialog__content" :class="{ 'share-dialog__content--loading': isLoading }">
+            <div class="pa-6 share-dialog__content" :class="{ 'share-dialog__content--loading': isLoading }">
                 <v-row>
                     <v-col cols="12">
                         <v-alert type="info" variant="tonal">
@@ -81,7 +81,7 @@
 
             <v-divider />
 
-            <v-card-actions class="pa-7">
+            <v-card-actions class="pa-6">
                 <v-row>
                     <v-col>
                         <v-btn variant="outlined" color="default" block :disabled="isLoading" @click="model = false">
@@ -92,7 +92,7 @@
                         <v-btn
                             :color="justCopied ? 'success' : 'primary'"
                             variant="flat"
-                            :prepend-icon="justCopied ? mdiCheck : mdiContentCopy"
+                            :prepend-icon="justCopied ? Check : Copy"
                             :disabled="isLoading"
                             block
                             @click="onCopy"
@@ -107,34 +107,33 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, watch, Component } from 'vue';
+import { computed, ref, watch } from 'vue';
 import {
-    VDialog,
-    VCard,
-    VCardItem,
-    VSheet,
-    VCardTitle,
-    VDivider,
-    VCardActions,
-    VRow,
-    VCol,
-    VBtn,
-    VChip,
-    VTextarea,
     VAlert,
+    VBtn,
+    VCard,
+    VCardActions,
+    VCardItem,
+    VCardTitle,
+    VChip,
     VChipGroup,
+    VCol,
+    VDialog,
+    VDivider,
+    VRow,
+    VSheet,
+    VTextarea,
 } from 'vuetify/components';
-import { mdiCheck, mdiContentCopy } from '@mdi/js';
+import { Check, Copy, Share } from 'lucide-vue-next';
 
 import { AnalyticsErrorEventSource, AnalyticsEvent } from '@/utils/constants/analyticsEventNames';
 import { useAnalyticsStore } from '@/store/modules/analyticsStore';
 import { useNotify } from '@/utils/hooks';
-import { useLinksharing } from '@/composables/useLinksharing';
+import { ShareType, useLinksharing } from '@/composables/useLinksharing';
 import { SHARE_BUTTON_CONFIGS, ShareOptions } from '@/types/browser';
 import { BrowserObject } from '@/store/modules/objectBrowserStore';
 import { useBucketsStore } from '@/store/modules/bucketsStore';
 
-import IconShare from '@/components/icons/IconShare.vue';
 import InputCopyButton from '@/components/InputCopyButton.vue';
 
 const props = defineProps<{
@@ -154,7 +153,7 @@ const bucketsStore = useBucketsStore();
 const notify = useNotify();
 const { generateBucketShareURL, generateFileOrFolderShareURL } = useLinksharing();
 
-const innerContent = ref<Component | null>(null);
+const innerContent = ref<VCard | null>(null);
 const isLoading = ref<boolean>(true);
 const link = ref<string>('');
 
@@ -181,7 +180,7 @@ function onCopy(): void {
 /**
  * Generates linksharing URL when the dialog is opened.
  */
-watch(() => innerContent.value, async (comp: Component | null): Promise<void> => {
+watch(() => innerContent.value, async (comp: VCard | null): Promise<void> => {
     if (!comp) {
         emit('contentRemoved');
         return;
@@ -197,8 +196,10 @@ watch(() => innerContent.value, async (comp: Component | null): Promise<void> =>
         } else {
             link.value = await generateFileOrFolderShareURL(
                 props.bucketName,
-                `${filePath.value ? filePath.value + '/' : ''}${props.file.Key}`,
-                props.file.type === 'folder',
+                filePath.value,
+                props.file.Key,
+                // TODO: replace magic string type of BrowserObject.type with some constant/enum.
+                props.file.type === 'folder' ? ShareType.Folder : ShareType.Object,
             );
         }
     } catch (error) {

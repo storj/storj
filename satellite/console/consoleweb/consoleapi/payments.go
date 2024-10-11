@@ -6,6 +6,7 @@ package consoleapi
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -156,45 +157,51 @@ func (p *Payments) ProjectsCharges(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-// triggerAttemptPayment attempts payment and unfreezes/unwarn user if needed.
-func (p *Payments) triggerAttemptPayment(ctx context.Context) (err error) {
+// TriggerAttemptPayment attempts payment of overdue invoices and unfreezes/unwarn user if needed.
+func (p *Payments) TriggerAttemptPayment(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	var err error
 	defer mon.Task()(&ctx)(&err)
 
 	userID, err := p.service.GetUserID(ctx)
 	if err != nil {
-		return err
+		p.serveJSONError(ctx, w, http.StatusUnauthorized, err)
+		return
 	}
 
 	freezes, err := p.accountFreezeService.GetAll(ctx, userID)
 	if err != nil {
-		return err
+		web.ServeCustomJSONError(ctx, p.log, w, http.StatusInternalServerError, err, errs.Unwrap(err).Error())
+		return
 	}
 
 	if freezes.ViolationFreeze != nil {
-		return nil
+		return
 	}
 
-	if freezes.BillingFreeze == nil && freezes.BillingWarning == nil {
-		return nil
+	if freezes.BillingFreeze == nil && freezes.BillingWarning == nil && freezes.TrialExpirationFreeze == nil {
+		return
 	}
 
 	err = p.service.Payments().AttemptPayOverdueInvoices(ctx)
 	if err != nil {
-		return err
+		web.ServeCustomJSONError(ctx, p.log, w, http.StatusInternalServerError, err, errs.Unwrap(err).Error())
+		return
 	}
 
 	if freezes.BillingFreeze != nil {
 		err = p.accountFreezeService.BillingUnfreezeUser(ctx, userID)
 		if err != nil {
-			return err
+			p.serveJSONError(ctx, w, http.StatusUnauthorized, errors.New("failed to unfreeze account"))
+			return
 		}
 	} else if freezes.BillingWarning != nil {
 		err = p.accountFreezeService.BillingUnWarnUser(ctx, userID)
 		if err != nil {
-			return err
+			p.serveJSONError(ctx, w, http.StatusUnauthorized, errors.New("failed to unfreeze account"))
+			return
 		}
 	}
-	return nil
 }
 
 // AddCreditCard is used to save new credit card and attach it to payment account.
@@ -224,12 +231,6 @@ func (p *Payments) AddCreditCard(w http.ResponseWriter, r *http.Request) {
 		}
 
 		web.ServeCustomJSONError(ctx, p.log, w, http.StatusInternalServerError, err, errs.Unwrap(err).Error())
-		return
-	}
-
-	err = p.triggerAttemptPayment(ctx)
-	if err != nil {
-		p.serveJSONError(ctx, w, http.StatusInternalServerError, err)
 		return
 	}
 }
@@ -262,12 +263,6 @@ func (p *Payments) AddCardByPaymentMethodID(w http.ResponseWriter, r *http.Reque
 		}
 
 		web.ServeCustomJSONError(ctx, p.log, w, http.StatusInternalServerError, err, errs.Unwrap(err).Error())
-		return
-	}
-
-	err = p.triggerAttemptPayment(ctx)
-	if err != nil {
-		p.serveJSONError(ctx, w, http.StatusInternalServerError, err)
 		return
 	}
 }
@@ -329,12 +324,6 @@ func (p *Payments) MakeCreditCardDefault(w http.ResponseWriter, r *http.Request)
 		p.serveJSONError(ctx, w, http.StatusInternalServerError, err)
 		return
 	}
-
-	err = p.triggerAttemptPayment(ctx)
-	if err != nil {
-		p.serveJSONError(ctx, w, http.StatusInternalServerError, err)
-		return
-	}
 }
 
 // RemoveCreditCard is used to detach a credit card from payment account.
@@ -362,12 +351,6 @@ func (p *Payments) RemoveCreditCard(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
-		p.serveJSONError(ctx, w, http.StatusInternalServerError, err)
-		return
-	}
-
-	err = p.triggerAttemptPayment(ctx)
-	if err != nil {
 		p.serveJSONError(ctx, w, http.StatusInternalServerError, err)
 		return
 	}
@@ -722,6 +705,207 @@ func (p *Payments) PackageAvailable(w http.ResponseWriter, r *http.Request) {
 
 	if err = json.NewEncoder(w).Encode(hasPkg); err != nil {
 		p.log.Error("failed to encode package plan checking response", zap.Error(ErrPaymentsAPI.Wrap(err)))
+	}
+}
+
+// GetTaxCountries returns a list of countries whose taxes are supported.
+func (p *Payments) GetTaxCountries(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	var err error
+	defer mon.Task()(&ctx)(&err)
+
+	w.Header().Set("Content-Type", "application/json")
+
+	if err = json.NewEncoder(w).Encode(payments.TaxCountries); err != nil {
+		p.log.Error("failed to encode project usage price model", zap.Error(ErrPaymentsAPI.Wrap(err)))
+	}
+}
+
+// GetCountryTaxes returns a list of taxes supported for a country.
+func (p *Payments) GetCountryTaxes(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	var err error
+	defer mon.Task()(&ctx)(&err)
+
+	w.Header().Set("Content-Type", "application/json")
+
+	var countryCodeStr string
+	var ok bool
+	if countryCodeStr, ok = mux.Vars(r)["countryCode"]; !ok {
+		p.serveJSONError(ctx, w, http.StatusBadRequest, errs.New("country code is required"))
+		return
+
+	}
+
+	ts := make([]payments.Tax, 0)
+	for _, tax := range payments.Taxes {
+		if tax.CountryCode == payments.CountryCode(countryCodeStr) {
+			ts = append(ts, tax)
+		}
+	}
+
+	if err = json.NewEncoder(w).Encode(ts); err != nil {
+		p.log.Error("failed to encode project usage price model", zap.Error(ErrPaymentsAPI.Wrap(err)))
+	}
+}
+
+// GetBillingInformation gets the billing information for a user.
+func (p *Payments) GetBillingInformation(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	var err error
+	defer mon.Task()(&ctx)(&err)
+
+	w.Header().Set("Content-Type", "application/json")
+
+	information, err := p.service.Payments().GetBillingInformation(ctx)
+	if err != nil {
+		if console.ErrUnauthorized.Has(err) {
+			p.serveJSONError(ctx, w, http.StatusUnauthorized, err)
+			return
+		}
+
+		web.ServeCustomJSONError(ctx, p.log, w, http.StatusInternalServerError, err, errs.Unwrap(err).Error())
+		return
+	}
+
+	if err = json.NewEncoder(w).Encode(information); err != nil {
+		p.log.Error("failed encode billing information", zap.Error(ErrPaymentsAPI.Wrap(err)))
+	}
+}
+
+// SaveBillingAddress saves billing address for a user.
+func (p *Payments) SaveBillingAddress(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	var err error
+	defer mon.Task()(&ctx)(&err)
+
+	var address payments.BillingAddress
+	if err = json.NewDecoder(r.Body).Decode(&address); err != nil {
+		p.serveJSONError(ctx, w, http.StatusBadRequest, err)
+		return
+	}
+
+	if address.Name == "" || address.Line1 == "" ||
+		address.City == "" || address.Country.Code == "" {
+		p.serveJSONError(ctx, w, http.StatusBadRequest, errs.New("missing required address fields"))
+		return
+	}
+
+	newInfo, err := p.service.Payments().SaveBillingAddress(ctx, address)
+	if err != nil {
+		if console.ErrUnauthorized.Has(err) {
+			p.serveJSONError(ctx, w, http.StatusUnauthorized, err)
+			return
+		}
+
+		web.ServeCustomJSONError(ctx, p.log, w, http.StatusInternalServerError, err, errs.Unwrap(err).Error())
+		return
+	}
+
+	if err = json.NewEncoder(w).Encode(newInfo); err != nil {
+		p.log.Error("failed encode billing information", zap.Error(ErrPaymentsAPI.Wrap(err)))
+	}
+}
+
+// AddInvoiceReference adds a default invoice reference to be displayed on every invoice.
+func (p *Payments) AddInvoiceReference(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	var err error
+	defer mon.Task()(&ctx)(&err)
+
+	var body struct {
+		Reference string `json:"reference"`
+	}
+	if err = json.NewDecoder(r.Body).Decode(&body); err != nil {
+		p.serveJSONError(ctx, w, http.StatusBadRequest, err)
+		return
+	}
+
+	if len(body.Reference) > 140 {
+		p.serveJSONError(ctx, w, http.StatusBadRequest, errs.New("reference is too long"))
+		return
+	}
+
+	newInfo, err := p.service.Payments().AddInvoiceReference(ctx, body.Reference)
+	if err != nil {
+		if console.ErrUnauthorized.Has(err) {
+			p.serveJSONError(ctx, w, http.StatusUnauthorized, err)
+			return
+		}
+
+		web.ServeCustomJSONError(ctx, p.log, w, http.StatusInternalServerError, err, errs.Unwrap(err).Error())
+		return
+	}
+
+	if err = json.NewEncoder(w).Encode(newInfo); err != nil {
+		p.log.Error("failed encode billing information", zap.Error(ErrPaymentsAPI.Wrap(err)))
+	}
+}
+
+// AddTaxID adds a tax ID to a user.
+func (p *Payments) AddTaxID(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	var err error
+	defer mon.Task()(&ctx)(&err)
+
+	var taxID payments.TaxID
+	if err = json.NewDecoder(r.Body).Decode(&taxID); err != nil {
+		p.serveJSONError(ctx, w, http.StatusBadRequest, err)
+		return
+	}
+
+	if taxID.Tax.Code == "" || taxID.Value == "" {
+		p.serveJSONError(ctx, w, http.StatusBadRequest, errs.New("missing required tax ID fields"))
+		return
+	}
+
+	newInfo, err := p.service.Payments().AddTaxID(ctx, taxID)
+	if err != nil {
+		if console.ErrUnauthorized.Has(err) {
+			p.serveJSONError(ctx, w, http.StatusUnauthorized, err)
+			return
+		}
+
+		status := http.StatusInternalServerError
+		if payments.ErrInvalidTaxID.Has(err) {
+			status = http.StatusBadRequest
+		}
+		web.ServeCustomJSONError(ctx, p.log, w, status, err, errs.Unwrap(err).Error())
+		return
+	}
+
+	if err = json.NewEncoder(w).Encode(newInfo); err != nil {
+		p.log.Error("failed encode billing information", zap.Error(ErrPaymentsAPI.Wrap(err)))
+	}
+}
+
+// RemoveTaxID adds a tax ID to a user.
+func (p *Payments) RemoveTaxID(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	var err error
+	defer mon.Task()(&ctx)(&err)
+
+	var id string
+	var ok bool
+	if id, ok = mux.Vars(r)["taxID"]; !ok {
+		p.serveJSONError(ctx, w, http.StatusBadRequest, errs.New("tax ID is required"))
+		return
+
+	}
+
+	newInfo, err := p.service.Payments().RemoveTaxID(ctx, id)
+	if err != nil {
+		if console.ErrUnauthorized.Has(err) {
+			p.serveJSONError(ctx, w, http.StatusUnauthorized, err)
+			return
+		}
+
+		web.ServeCustomJSONError(ctx, p.log, w, http.StatusInternalServerError, err, errs.Unwrap(err).Error())
+		return
+	}
+
+	if err = json.NewEncoder(w).Encode(newInfo); err != nil {
+		p.log.Error("failed encode billing information", zap.Error(ErrPaymentsAPI.Wrap(err)))
 	}
 }
 

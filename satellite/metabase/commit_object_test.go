@@ -600,9 +600,6 @@ func TestCommitObjectWithSegments(t *testing.T) {
 						pos01,
 					},
 				},
-				Deleted: []metabase.DeletedSegmentInfo{
-					{RootPieceID: rootPieceID00, Pieces: pieces00},
-				},
 			}.Check(ctx, t, db)
 
 			metabasetest.Verify{
@@ -700,7 +697,6 @@ func TestCommitObjectWithSegments(t *testing.T) {
 						pos01,
 					},
 				},
-				Deleted: nil,
 			}.Check(ctx, t, db)
 
 			metabasetest.Verify{

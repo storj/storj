@@ -2,11 +2,11 @@
 // See LICENSE for copying information.
 
 <template>
-    <v-card variant="outlined" :border="true" class="rounded-xlg">
+    <v-card>
         <v-text-field
             v-model="search"
             label="Search"
-            :prepend-inner-icon="mdiMagnify"
+            :prepend-inner-icon="Search"
             single-line
             variant="solo-filled"
             flat
@@ -47,14 +47,14 @@
             </template>
 
             <template #item.role="{ item }">
-                <v-chip :color="PROJECT_ROLE_COLORS[item.role]" rounded="xl" size="small" class="font-weight-bold">
+                <v-chip :color="PROJECT_ROLE_COLORS[item.role]" size="small" class="font-weight-bold">
                     {{ item.role }}
                 </v-chip>
             </template>
 
             <template #item.createdAt="{ item }">
                 <span class="text-no-wrap">
-                    {{ getFormattedDate(item.createdAt) }}
+                    {{ Time.formattedDate(item.createdAt) }}
                 </span>
             </template>
 
@@ -69,7 +69,7 @@
                     >
                         Join Project
                     </v-btn>
-                    <v-btn v-else color="primary" size="small" @click="openProject(item)">Open Project</v-btn>
+                    <v-btn v-else color="primary" size="small" rounded="md" @click="openProject(item)">Open Project</v-btn>
 
                     <v-btn
                         v-if="item.role === ProjectRole.Owner || item.role === ProjectRole.Invited"
@@ -78,16 +78,17 @@
                         color="default"
                         variant="outlined"
                         size="small"
+                        rounded="md"
                         density="comfortable"
                         :loading="decliningIds.has(item.id)"
                     >
-                        <v-icon :icon="mdiDotsHorizontal" size="18" />
+                        <v-icon :icon="Ellipsis" size="18" />
                         <v-menu activator="parent" location="bottom" transition="scale-transition">
                             <v-list class="pa-1">
                                 <template v-if="item.role === ProjectRole.Owner">
                                     <v-list-item link @click="() => onSettingsClick(item)">
                                         <template #prepend>
-                                            <icon-settings />
+                                            <component :is="Settings" :size="18" />
                                         </template>
                                         <v-list-item-title class="text-body-2 ml-3">
                                             Project Settings
@@ -96,7 +97,7 @@
                                     <v-divider class="my-1" />
                                     <v-list-item link @click="emit('inviteClick', item)">
                                         <template #prepend>
-                                            <IconNew size="18" />
+                                            <component :is="UserPlus" :size="18" />
                                         </template>
                                         <v-list-item-title class="text-body-2 ml-3">
                                             Add Members
@@ -105,7 +106,7 @@
                                 </template>
                                 <v-list-item v-else link @click="declineInvitation(item)">
                                     <template #prepend>
-                                        <icon-trash />
+                                        <component :is="Trash2" :size="18" />
                                     </template>
                                     <v-list-item-title class="text-body-2 ml-3">
                                         Decline
@@ -136,22 +137,20 @@ import {
     VDivider,
     VDataTable,
 } from 'vuetify/components';
-import { mdiDotsHorizontal, mdiMagnify } from '@mdi/js';
+import { Ellipsis, Search, UserPlus, Settings, Trash2 } from 'lucide-vue-next';
 
+import { Time } from '@/utils/time';
 import { ProjectItemModel, PROJECT_ROLE_COLORS, ProjectInvitationResponse } from '@/types/projects';
 import { ProjectRole } from '@/types/projectMembers';
-import { SHORT_MONTHS_NAMES } from '@/utils/constants/date';
 import { useProjectsStore } from '@/store/modules/projectsStore';
 import { useAnalyticsStore } from '@/store/modules/analyticsStore';
 import { AnalyticsErrorEventSource, AnalyticsEvent } from '@/utils/constants/analyticsEventNames';
 import { useNotify } from '@/utils/hooks';
 import { ROUTES } from '@/router';
+import { useBucketsStore } from '@/store/modules/bucketsStore';
+import { DataTableHeader, SortItem } from '@/types/common';
 
-import IconSettings from '@/components/icons/IconSettings.vue';
-import IconTrash from '@/components/icons/IconTrash.vue';
-import IconNew from '@/components/icons/IconNew.vue';
-
-const props = defineProps<{
+defineProps<{
     items: ProjectItemModel[],
 }>();
 
@@ -164,13 +163,14 @@ const search = ref<string>('');
 const decliningIds = ref(new Set<string>());
 
 const analyticsStore = useAnalyticsStore();
+const bucketsStore = useBucketsStore();
 const projectsStore = useProjectsStore();
 
 const router = useRouter();
 const notify = useNotify();
 
-const sortBy = [{ key: 'name', order: 'asc' }];
-const headers = [
+const sortBy: SortItem[] = [{ key: 'name', order: 'asc' }];
+const headers: DataTableHeader[] = [
     { title: 'Project', key: 'name', align: 'start' },
     { title: 'Role', key: 'role' },
     { title: 'Members', key: 'memberCount' },
@@ -181,22 +181,18 @@ const headers = [
 ];
 
 /**
- * Formats the given project creation date.
- */
-function getFormattedDate(date: Date): string {
-    return `${date.getDate()} ${SHORT_MONTHS_NAMES[date.getMonth()]} ${date.getFullYear()}`;
-}
-
-/**
  * Selects the project and navigates to the project dashboard.
  */
 function openProject(item: ProjectItemModel): void {
+    // There is no reason to clear s3 data if the user is navigating to the previously selected project.
+    if (projectsStore.state.selectedProject.id !== item.id) bucketsStore.clearS3Data();
+
     projectsStore.selectProject(item.id);
+
     router.push({
         name: ROUTES.Dashboard.name,
         params: { id: projectsStore.state.selectedProject.urlId },
     });
-    analyticsStore.pageVisit(ROUTES.DashboardAnalyticsLink);
     analyticsStore.eventTriggered(AnalyticsEvent.NAVIGATE_PROJECTS);
 }
 
@@ -209,7 +205,6 @@ function onSettingsClick(item: ProjectItemModel): void {
         name: ROUTES.ProjectSettings.name,
         params: { id: projectsStore.state.selectedProject.urlId },
     });
-    analyticsStore.pageVisit(ROUTES.ProjectSettingsAnalyticsLink);
 }
 
 /**

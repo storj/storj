@@ -44,7 +44,7 @@ func TestDeleteTalliesBefore(t *testing.T) {
 	for _, tt := range tests {
 		test := tt
 		testplanet.Run(t, testplanet.Config{
-			SatelliteCount: 1, StorageNodeCount: 0, UplinkCount: 0,
+			SatelliteCount: 1, StorageNodeCount: 0, UplinkCount: 0, EnableSpanner: true,
 		}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 			nodeIDs := []storj.NodeID{{1}, {2}, {3}}
 			nodeBWAmounts := []float64{1000, 1000, 1000}
@@ -84,7 +84,7 @@ func TestOnlyInline(t *testing.T) {
 		expectedTally := &accounting.BucketTally{
 			BucketLocation: metabase.BucketLocation{
 				ProjectID:  up.Projects[0].ID,
-				BucketName: expectedBucketName,
+				BucketName: metabase.BucketName(expectedBucketName),
 			},
 			ObjectCount:   1,
 			TotalSegments: 1,
@@ -348,7 +348,7 @@ func TestTallyOnCopiedObject(t *testing.T) {
 
 		findTally := func(t *testing.T, bucket string, tallies []accounting.BucketTally) accounting.BucketTally {
 			for _, v := range tallies {
-				if v.BucketName == bucket {
+				if v.BucketName == metabase.BucketName(bucket) {
 					return v
 				}
 			}
@@ -379,7 +379,7 @@ func TestTallyOnCopiedObject(t *testing.T) {
 				tallies, err := planet.Satellites[0].DB.ProjectAccounting().GetTallies(ctx)
 				require.NoError(t, err)
 				lastTally := findTally(t, tc.name, tallies)
-				require.Equal(t, tc.name, lastTally.BucketName)
+				require.Equal(t, metabase.BucketName(tc.name), lastTally.BucketName)
 				require.Equal(t, tc.expectedTallyAfterCopy.ObjectCount, lastTally.ObjectCount)
 				require.Equal(t, tc.expectedTallyAfterCopy.TotalBytes, lastTally.TotalBytes)
 				require.Equal(t, tc.expectedTallyAfterCopy.TotalSegments, lastTally.TotalSegments)
@@ -393,7 +393,7 @@ func TestTallyOnCopiedObject(t *testing.T) {
 				tallies, err = planet.Satellites[0].DB.ProjectAccounting().GetTallies(ctx)
 				require.NoError(t, err)
 				lastTally = findTally(t, tc.name, tallies)
-				require.Equal(t, tc.name, lastTally.BucketName)
+				require.Equal(t, metabase.BucketName(tc.name), lastTally.BucketName)
 				require.Equal(t, tc.expectedTallyAfterDelete.ObjectCount, lastTally.ObjectCount)
 				require.Equal(t, tc.expectedTallyAfterDelete.TotalBytes, lastTally.TotalBytes)
 				require.Equal(t, tc.expectedTallyAfterDelete.TotalSegments, lastTally.TotalSegments)
@@ -458,6 +458,7 @@ func TestBucketTallyCollectorListLimit(t *testing.T) {
 func TestTallySaveTalliesBatchSize(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
 		SatelliteCount: 1, StorageNodeCount: 0, UplinkCount: 1,
+		EnableSpanner: true,
 		Reconfigure: testplanet.Reconfigure{
 			Satellite: func(log *zap.Logger, index int, config *satellite.Config) {
 				config.Metainfo.ProjectLimits.MaxBuckets = 23
@@ -477,7 +478,7 @@ func TestTallySaveTalliesBatchSize(t *testing.T) {
 
 			expectedBucketLocations = append(expectedBucketLocations, metabase.BucketLocation{
 				ProjectID:  projectID,
-				BucketName: "bucket" + strconv.Itoa(i),
+				BucketName: metabase.BucketName("bucket" + strconv.Itoa(i)),
 			})
 		}
 
@@ -497,7 +498,7 @@ func TestTallySaveTalliesBatchSize(t *testing.T) {
 			tallies, err := satellite.DB.ProjectAccounting().GetTallies(ctx)
 			require.NoError(t, err)
 
-			_, err = satellite.DB.Testing().RawDB().ExecContext(ctx, "DELETE FROM bucket_storage_tallies")
+			_, err = satellite.DB.Testing().RawDB().ExecContext(ctx, "DELETE FROM bucket_storage_tallies WHERE TRUE")
 			require.NoError(t, err)
 
 			bucketLocations := []metabase.BucketLocation{}

@@ -27,11 +27,11 @@ import DefaultView from './View.vue';
 import { Project } from '@/types/projects';
 import { MINIMUM_URL_ID_LENGTH, useProjectsStore } from '@/store/modules/projectsStore';
 import { useAppStore } from '@/store/modules/appStore';
-import { useAnalyticsStore } from '@/store/modules/analyticsStore';
 import { useAccessGrantsStore } from '@/store/modules/accessGrantsStore';
 import { AnalyticsErrorEventSource } from '@/utils/constants/analyticsEventNames';
 import { useNotify } from '@/utils/hooks';
 import { ROUTES } from '@/router';
+import { useBucketsStore } from '@/store/modules/bucketsStore';
 
 import SessionWrapper from '@/components/utils/SessionWrapper.vue';
 import UpgradeAccountDialog from '@/components/dialogs/upgradeAccountFlow/UpgradeAccountDialog.vue';
@@ -42,7 +42,7 @@ const router = useRouter();
 const route = useRoute();
 const notify = useNotify();
 
-const analyticsStore = useAnalyticsStore();
+const bucketsStore = useBucketsStore();
 const projectsStore = useProjectsStore();
 const appStore = useAppStore();
 const agStore = useAccessGrantsStore();
@@ -57,7 +57,6 @@ async function selectProject(urlId: string): Promise<void> {
     const goToDashboard = () => {
         const path = ROUTES.Projects.path;
         router.push(path);
-        analyticsStore.pageVisit(path);
     };
 
     if (urlId.length < MINIMUM_URL_ID_LENGTH) {
@@ -68,7 +67,7 @@ async function selectProject(urlId: string): Promise<void> {
     let projects: Project[];
     try {
         projects = await projectsStore.getProjects();
-    } catch (_) {
+    } catch {
         goToDashboard();
         return;
     }
@@ -91,6 +90,7 @@ async function selectProject(urlId: string): Promise<void> {
 
 watch(() => route.params.id, async newId => {
     if (newId === undefined) return;
+    bucketsStore.clearS3Data();
     isLoading.value = true;
     await selectProject(newId as string);
     isLoading.value = false;

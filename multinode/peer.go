@@ -163,7 +163,7 @@ func New(log *zap.Logger, full *identity.FullIdentity, config Config, db DB) (_ 
 		peer.Storage.Service = storage.NewService(
 			peer.Log.Named("storage:service"),
 			peer.Dialer,
-			peer.DB.Nodes(),
+			peer.Nodes.Service,
 		)
 	}
 

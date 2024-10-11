@@ -8,7 +8,6 @@
 // sc.exe create storagenode-updater binpath= "C:\Users\MyUser\storagenode-updater.exe run ..."
 
 //go:build windows
-// +build windows
 
 package main
 

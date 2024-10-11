@@ -2,7 +2,7 @@
 // See LICENSE for copying information.
 
 <template>
-    <v-card border class="mb-6 py-2">
+    <v-card border class="mb-6 py-2" variant="flat">
         <v-card-item>
             <v-row class="align-center justify-space-between ma-0">
                 <v-col class="pa-0">
@@ -13,7 +13,7 @@
                     <v-card-text class="font-weight-bold px-0">**** **** **** {{ card.last4 }}</v-card-text>
                     <v-card-text class="font-weight-bold pa-0">{{ card.expMonth }}/{{ card.expYear }}</v-card-text>
                 </v-col>
-                <v-radio v-if="selectable" class="flex-0-0" :value="card.id" />
+                <v-radio v-if="selectable" class="flex-0-0" :value="card.id" color="primary" />
             </v-row>
         </v-card-item>
     </v-card>
@@ -32,7 +32,7 @@ import {
 
 import { CreditCard } from '@/types/payments';
 
-const props = withDefaults(defineProps<{
+withDefaults(defineProps<{
     card: CreditCard
     selectable?: boolean
 }>(), {

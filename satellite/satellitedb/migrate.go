@@ -11,11 +11,10 @@ import (
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 
-	"storj.io/common/dbutil"
-	"storj.io/common/dbutil/cockroachutil"
-	"storj.io/common/dbutil/pgutil"
-	"storj.io/common/tagsql"
 	"storj.io/storj/private/migrate"
+	"storj.io/storj/shared/dbutil"
+	"storj.io/storj/shared/dbutil/pgutil"
+	"storj.io/storj/shared/tagsql"
 )
 
 //go:generate go run migrate_gen.go
@@ -59,6 +58,10 @@ func (db *satelliteDB) MigrateToLatest(ctx context.Context) error {
 		if err != nil {
 			return errs.Wrap(err)
 		}
+	case dbutil.Spanner:
+		// nothing to do here at the moment
+	default:
+		return Error.New("unsupported database: %v", db.impl)
 	}
 
 	switch db.impl {
@@ -78,6 +81,9 @@ func (db *satelliteDB) MigrateToLatest(ctx context.Context) error {
 		}
 
 		return migration.Run(ctx, db.log.Named("migrate"))
+	case dbutil.Spanner:
+		// TODO(spanner): add incremental migration support
+		return migrate.CreateSpanner(ctx, "database", db.DB, false)
 	default:
 		return migrate.Create(ctx, "database", db.DB)
 	}
@@ -109,6 +115,11 @@ func (db *satelliteDBTesting) TestMigrateToLatest(ctx context.Context) error {
 		if err != nil {
 			return ErrMigrateMinVersion.Wrap(err)
 		}
+
+	case dbutil.Spanner:
+		// nothing to do here
+	default:
+		return Error.New("unsupported database: %v", db.impl)
 	}
 
 	switch db.impl {
@@ -125,6 +136,9 @@ func (db *satelliteDBTesting) TestMigrateToLatest(ctx context.Context) error {
 			return ErrMigrateMinVersion.New("the database must be empty, or be on the latest version (%d)", dbVersion)
 		}
 		return testMigration.Run(ctx, db.log.Named("migrate"))
+	case dbutil.Spanner:
+		// TODO(spanner): add incremental migration support
+		return migrate.CreateSpanner(ctx, "database", db.DB, true)
 	default:
 		return migrate.Create(ctx, "database", db.DB)
 	}
@@ -986,7 +1000,7 @@ func (db *satelliteDB) ProductionMigration() *migrate.Migration {
 				Version:     133,
 				SeparateTx:  true,
 				Action: migrate.Func(func(ctx context.Context, log *zap.Logger, db tagsql.DB, tx tagsql.Tx) error {
-					if _, ok := db.Driver().(*cockroachutil.Driver); ok {
+					if db.Name() == tagsql.CockroachName {
 						_, err := db.Exec(ctx,
 							`ALTER TABLE accounting_rollups RENAME TO accounting_rollups_original;`,
 						)
@@ -1176,7 +1190,7 @@ func (db *satelliteDB) ProductionMigration() *migrate.Migration {
 				Description: "drop the obsolete (name, project_id) index from bucket_metainfos table.",
 				Version:     142,
 				Action: migrate.Func(func(ctx context.Context, log *zap.Logger, db tagsql.DB, tx tagsql.Tx) error {
-					if _, ok := db.Driver().(*cockroachutil.Driver); ok {
+					if db.Name() == tagsql.CockroachName {
 						_, err := db.Exec(ctx,
 							`DROP INDEX bucket_metainfos_name_project_id_key CASCADE;`,
 						)
@@ -2259,7 +2273,7 @@ func (db *satelliteDB) ProductionMigration() *migrate.Migration {
 				Action: migrate.Func(func(ctx context.Context, log *zap.Logger, _ tagsql.DB, tx tagsql.Tx) error {
 					alterPrimaryKey := true
 					// for crdb lets check if key was already altered, for pg we will do migration always
-					if _, ok := db.Driver().(*cockroachutil.Driver); ok {
+					if db.Name() == tagsql.CockroachName {
 						var primaryKey string
 						err := db.QueryRow(ctx,
 							`WITH constraints AS (SHOW CONSTRAINTS FROM bucket_bandwidth_rollups) SELECT details FROM constraints WHERE constraint_type = 'PRIMARY KEY';`,
@@ -2436,7 +2450,7 @@ func (db *satelliteDB) ProductionMigration() *migrate.Migration {
 				Description: "drop index from bucket_metainfos",
 				Version:     243,
 				Action: migrate.Func(func(ctx context.Context, log *zap.Logger, _ tagsql.DB, tx tagsql.Tx) (err error) {
-					if _, ok := db.Driver().(*cockroachutil.Driver); ok {
+					if db.Name() == tagsql.CockroachName {
 						_, err = tx.ExecContext(ctx, `DROP INDEX IF EXISTS bucket_metainfos_project_id_name_key CASCADE`)
 					} else {
 						_, err = tx.ExecContext(ctx, `ALTER TABLE bucket_metainfos DROP CONSTRAINT IF EXISTS bucket_metainfos_project_id_name_key;`)
@@ -2451,7 +2465,7 @@ func (db *satelliteDB) ProductionMigration() *migrate.Migration {
 				Action: migrate.Func(func(ctx context.Context, log *zap.Logger, _ tagsql.DB, tx tagsql.Tx) error {
 					alterPrimaryKey := true
 					// for crdb lets check if key was already altered, for pg we will do migration always
-					if _, ok := db.Driver().(*cockroachutil.Driver); ok {
+					if db.Name() == tagsql.CockroachName {
 						var primaryKey string
 						err := db.QueryRow(ctx,
 							`WITH constraints AS (SHOW CONSTRAINTS FROM bucket_metainfos) SELECT details FROM constraints WHERE constraint_type = 'PRIMARY KEY';`,
@@ -2649,11 +2663,182 @@ func (db *satelliteDB) ProductionMigration() *migrate.Migration {
 			},
 			{
 				DB:          &db.migrationDB,
-				Description: "update storjscan payments table to use chain_id in primary key",
+				Description: "(reverted migration) update storjscan payments table to use chain_id in primary key",
 				Version:     261,
+				Action:      migrate.SQL{},
+			},
+			{
+				DB:          &db.migrationDB,
+				Description: "update transaction source to specify chain type ",
+				Version:     262,
 				Action: migrate.SQL{
-					`ALTER TABLE storjscan_payments DROP CONSTRAINT storjscan_payments_pkey;`,
-					`ALTER TABLE storjscan_payments ADD CONSTRAINT storjscan_payments_pkey PRIMARY KEY ( chain_id, block_hash, log_index );`,
+					`UPDATE billing_transactions SET source = 'ethereum' WHERE source = 'storjscan';`,
+				},
+			},
+			{
+				DB:          &db.migrationDB,
+				Description: "add billing_customer_id column to stripe_customers",
+				Version:     263,
+				Action: migrate.SQL{
+					`ALTER TABLE stripe_customers ADD COLUMN billing_customer_id TEXT;`,
+				},
+			},
+			{
+				DB:          &db.migrationDB,
+				Description: "add created_by column to api_keys and bucket_metainfos to be populated with a user id value",
+				Version:     264,
+				Action: migrate.SQL{
+					`ALTER TABLE api_keys ADD COLUMN created_by bytea REFERENCES users( id ) DEFAULT NULL;`,
+					`ALTER TABLE bucket_metainfos ADD COLUMN created_by bytea REFERENCES users( id ) DEFAULT NULL;`,
+				},
+			},
+			{
+				DB:          &db.migrationDB,
+				Description: "add version column to api_keys table",
+				Version:     265,
+				Action: migrate.SQL{
+					`ALTER TABLE api_keys ADD COLUMN version integer NOT NULL DEFAULT 0;`,
+				},
+			},
+			{
+				DB:          &db.migrationDB,
+				Description: "add prompted_for_versioning_beta column to projects to track if prompted for versioning beta opt-in",
+				Version:     266,
+				Action: migrate.SQL{
+					`ALTER TABLE projects ADD COLUMN prompted_for_versioning_beta boolean NOT NULL DEFAULT false;`,
+				},
+			},
+			{
+				DB:          &db.migrationDB,
+				Description: "add index on trial_expiration column in users table",
+				Version:     267,
+				Action: migrate.SQL{
+					`CREATE INDEX IF NOT EXISTS trial_expiration_index ON users (trial_expiration);`,
+				},
+			},
+			{
+				DB:          &db.migrationDB,
+				Description: "add passphrase_enc and path_encryption columns to projects to control satellite-managed-passphrase projects",
+				Version:     268,
+				Action: migrate.SQL{
+					`ALTER TABLE projects ADD COLUMN passphrase_enc bytea DEFAULT NULL;`,
+					`ALTER TABLE projects ADD COLUMN path_encryption boolean NOT NULL DEFAULT true;`,
+				},
+			},
+			{
+				DB:          &db.migrationDB,
+				Description: "add role column to project_members to indicate the rights each member has",
+				Version:     269,
+				Action: migrate.SQL{
+					`ALTER TABLE project_members ADD COLUMN role integer NOT NULL DEFAULT 0;`,
+				},
+			},
+			{
+				DB:          &db.migrationDB,
+				Description: "index project_id where state = 0 in stripecoinpayments_invoice_project_records",
+				Version:     270,
+				Action: migrate.SQL{
+					`CREATE INDEX stripecoinpayments_invoice_project_records_unbilled_project_id_index ON stripecoinpayments_invoice_project_records ( project_id ) WHERE state = 0;`,
+				},
+			},
+			{
+				DB:          &db.migrationDB,
+				Description: "add column to account freeze event for number of event notifications sent",
+				Version:     271,
+				Action: migrate.SQL{
+					`ALTER TABLE account_freeze_events ADD COLUMN notifications_count integer NOT NULL DEFAULT 0;`,
+				},
+			},
+			{
+				DB:          &db.migrationDB,
+				Description: "add object_lock_enabled column to bucket_metainfos table",
+				Version:     272,
+				Action: migrate.SQL{
+					`ALTER TABLE bucket_metainfos ADD COLUMN object_lock_enabled boolean NOT NULL DEFAULT false;`,
+				},
+			},
+			{
+				DB:          &db.migrationDB,
+				Description: "add per-operation rate limits to projects table",
+				Version:     273,
+				Action: migrate.SQL{
+					`ALTER TABLE projects ADD COLUMN rate_limit_head integer DEFAULT NULL;`,
+					`ALTER TABLE projects ADD COLUMN burst_limit_head integer DEFAULT NULL;`,
+					`ALTER TABLE projects ADD COLUMN rate_limit_get integer DEFAULT NULL;`,
+					`ALTER TABLE projects ADD COLUMN burst_limit_get integer DEFAULT NULL;`,
+					`ALTER TABLE projects ADD COLUMN rate_limit_put integer DEFAULT NULL;`,
+					`ALTER TABLE projects ADD COLUMN burst_limit_put integer DEFAULT NULL;`,
+					`ALTER TABLE projects ADD COLUMN rate_limit_list integer DEFAULT NULL;`,
+					`ALTER TABLE projects ADD COLUMN burst_limit_list integer DEFAULT NULL;`,
+					`ALTER TABLE projects ADD COLUMN rate_limit_del integer DEFAULT NULL;`,
+					`ALTER TABLE projects ADD COLUMN burst_limit_del integer DEFAULT NULL;`,
+				},
+			},
+			{
+				DB:          &db.migrationDB,
+				Description: "populate per-operation rate limits from existing values",
+				Version:     274,
+				Action: migrate.SQL{
+					`UPDATE projects SET rate_limit_head=rate_limit, burst_limit_head=burst_limit,
+						rate_limit_get=rate_limit, burst_limit_get=burst_limit,
+						rate_limit_put=rate_limit, burst_limit_put=burst_limit,
+						rate_limit_list=rate_limit, burst_limit_list=burst_limit,
+						rate_limit_del=rate_limit, burst_limit_del=burst_limit
+						WHERE rate_limit IS NOT NULL OR burst_limit IS NOT NULL;`,
+				},
+			},
+			{
+				DB:          &db.migrationDB,
+				Description: "avoid using on delete set null",
+				Version:     275,
+				Action: migrate.SQL{
+					`ALTER TABLE project_invitations DROP CONSTRAINT project_invitations_inviter_id_fkey;`,
+				},
+			},
+			{
+				DB:          &db.migrationDB,
+				Description: "avoid using on delete set null",
+				Version:     276,
+				Action: migrate.SQL{
+					`ALTER TABLE project_invitations ADD CONSTRAINT project_invitations_inviter_id_fkey FOREIGN KEY (inviter_id) REFERENCES users(id) ON DELETE CASCADE`,
+				},
+			},
+			{
+				DB:          &db.migrationDB,
+				Description: "add column, passphrase_enc_key_id, to projects",
+				Version:     277,
+				Action: migrate.SQL{
+					`ALTER TABLE projects ADD COLUMN passphrase_enc_key_id INTEGER;`,
+				},
+			},
+			{
+				DB:          &db.migrationDB,
+				Description: "add columns, status_updated_at and final_invoice_generated, to users",
+				Version:     278,
+				Action: migrate.SQL{
+					`ALTER TABLE users ADD COLUMN status_updated_at TIMESTAMP WITH TIME ZONE;`,
+					`ALTER TABLE users ADD COLUMN final_invoice_generated BOOLEAN NOT NULL DEFAULT FALSE;`,
+				},
+			},
+			{
+				DB:          &db.migrationDB,
+				Description: "add columns to users table for handling change email address process",
+				Version:     279,
+				Action: migrate.SQL{
+					`ALTER TABLE users ADD COLUMN new_unverified_email TEXT DEFAULT NULL;`,
+					`ALTER TABLE users ADD COLUMN email_change_verification_step INTEGER NOT NULL DEFAULT 0;`,
+				},
+			},
+			{
+				DB:          &db.migrationDB,
+				Description: "rename columns which are forbidden for spanner",
+				Version:     280,
+				Action: migrate.SQL{
+					`ALTER TABLE nodes RENAME COLUMN hash TO commit_hash;`,
+					`ALTER TABLE nodes RENAME COLUMN timestamp TO release_timestamp;`,
+					`ALTER TABLE storjscan_payments RENAME COLUMN timestamp TO block_timestamp;`,
+					`ALTER TABLE billing_transactions RENAME COLUMN timestamp TO tx_timestamp;`,
+					`ALTER INDEX billing_transactions_timestamp_index RENAME TO billing_transactions_tx_timestamp_index;`,
 				},
 			},
 			// NB: after updating testdata in `testdata`, run

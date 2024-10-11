@@ -20,18 +20,31 @@ import (
 	"storj.io/storj/satellite"
 	"storj.io/storj/satellite/console"
 	"storj.io/storj/satellite/payments"
+	"storj.io/storj/satellite/payments/accountfreeze"
 	"storj.io/storj/satellite/payments/storjscan"
 	"storj.io/storj/satellite/payments/storjscan/blockchaintest"
 	stripe1 "storj.io/storj/satellite/payments/stripe"
 )
 
 func TestAutoFreezeChore(t *testing.T) {
+	warnEmailsIntervals := accountfreeze.EmailIntervals{
+		240 * time.Hour,
+		96 * time.Hour,
+	}
+	freezeEmailsIntervals := accountfreeze.EmailIntervals{
+		720 * time.Hour,
+		480 * time.Hour,
+		216 * time.Hour,
+	}
 	testplanet.Run(t, testplanet.Config{
-		SatelliteCount: 1, StorageNodeCount: 0, UplinkCount: 0,
+		SatelliteCount: 1, StorageNodeCount: 0, UplinkCount: 1,
 		Reconfigure: testplanet.Reconfigure{
 			Satellite: func(log *zap.Logger, index int, config *satellite.Config) {
 				config.AccountFreeze.Enabled = true
 				config.Console.Captcha.FlagBotsEnabled = true
+				config.AccountFreeze.EmailsEnabled = true
+				config.AccountFreeze.BillingWarningEmailIntervals = warnEmailsIntervals
+				config.AccountFreeze.BillingFreezeEmailIntervals = freezeEmailsIntervals
 			},
 		},
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
@@ -40,6 +53,7 @@ func TestAutoFreezeChore(t *testing.T) {
 		invoicesDB := sat.Core.Payments.Accounts.Invoices()
 		customerDB := sat.Core.DB.StripeCoinPayments().Customers()
 		usersDB := sat.DB.Console().Users()
+		projectMembersDB := sat.DB.Console().ProjectMembers()
 		accFreezeDB := sat.DB.Console().AccountFreezeEvents()
 		service := console.NewAccountFreezeService(sat.DB.Console(), newFreezeTrackerMock(t), sat.Config.Console.AccountFreeze)
 		chore := sat.Core.Payments.AccountFreeze
@@ -87,13 +101,13 @@ func TestAutoFreezeChore(t *testing.T) {
 			})
 			require.NoError(t, err)
 
-			paymentMethod := stripe1.MockInvoicesPayFailure
 			inv, err = stripeClient.Invoices().Pay(inv.ID, &stripe.InvoicePayParams{
 				Params:        stripe.Params{Context: ctx},
-				PaymentMethod: &paymentMethod,
+				PaymentMethod: stripe.String(stripe1.MockInvoicesPayFailure),
 			})
 			require.Error(t, err)
 			require.Equal(t, stripe.InvoiceStatusOpen, inv.Status)
+			require.True(t, inv.Attempted)
 
 			failed, err := invoicesDB.ListFailed(ctx, nil)
 			require.NoError(t, err)
@@ -125,10 +139,9 @@ func TestAutoFreezeChore(t *testing.T) {
 			require.Nil(t, freezes.BillingWarning)
 			require.NotNil(t, freezes.LegalFreeze)
 
-			paymentMethod = stripe1.MockInvoicesPaySuccess
 			_, err = stripeClient.Invoices().Pay(inv.ID, &stripe.InvoicePayParams{
 				Params:        stripe.Params{Context: ctx},
-				PaymentMethod: &paymentMethod,
+				PaymentMethod: stripe.String(stripe1.MockInvoicesPaySuccess),
 			})
 			require.NoError(t, err)
 			require.Equal(t, stripe.InvoiceStatusPaid, inv.Status)
@@ -322,6 +335,8 @@ func TestAutoFreezeChore(t *testing.T) {
 			freezes, err := service.GetAll(ctx, user.ID)
 			require.NoError(t, err)
 			require.NotNil(t, freezes.BillingWarning)
+			// user should be notified once when this event happens for the first time.
+			require.Equal(t, 1, freezes.BillingWarning.NotificationsCount)
 			require.Nil(t, freezes.BillingFreeze)
 			require.Nil(t, freezes.ViolationFreeze)
 
@@ -335,6 +350,8 @@ func TestAutoFreezeChore(t *testing.T) {
 			freezes, err = service.GetAll(ctx, user.ID)
 			require.NoError(t, err)
 			require.NotNil(t, freezes.BillingFreeze)
+			// user should be notified once when this event happens for the first time.
+			require.Equal(t, 1, freezes.BillingFreeze.NotificationsCount)
 
 			chore.TestSetNow(func() time.Time {
 				// current date is now after billing freeze grace period
@@ -415,18 +432,21 @@ func TestAutoFreezeChore(t *testing.T) {
 			require.NoError(t, err)
 			require.Equal(t, stripe.InvoiceStatusOpen, inv.Status)
 
+			inv, err = stripeClient.Invoices().Pay(inv.ID, &stripe.InvoicePayParams{
+				Params:        stripe.Params{Context: ctx},
+				PaymentMethod: stripe.String(stripe1.MockInvoicesPayFailure),
+			})
+			require.Error(t, err)
+			require.Equal(t, stripe.InvoiceStatusOpen, inv.Status)
+			require.True(t, inv.Attempted)
+
 			failed, err := invoicesDB.ListFailed(ctx, nil)
 			require.NoError(t, err)
 			require.Equal(t, 1, len(failed))
 			require.Equal(t, inv.ID, failed[0].ID)
 
-			chore.Loop.TriggerWait()
-
-			freezes, err := service.GetAll(ctx, user.ID)
+			err = service.BillingWarnUser(ctx, user.ID)
 			require.NoError(t, err)
-			require.NotNil(t, freezes.BillingWarning)
-			require.Nil(t, freezes.BillingFreeze)
-			require.Nil(t, freezes.ViolationFreeze)
 
 			chore.TestSetNow(func() time.Time {
 				// current date is now after billing warn grace period
@@ -439,7 +459,60 @@ func TestAutoFreezeChore(t *testing.T) {
 			require.NoError(t, err)
 			require.Equal(t, 0, len(failed))
 
-			freezes, err = service.GetAll(ctx, user.ID)
+			freezes, err := service.GetAll(ctx, user.ID)
+			require.NoError(t, err)
+			require.Nil(t, freezes.BillingWarning)
+			require.Nil(t, freezes.BillingFreeze)
+			require.Nil(t, freezes.ViolationFreeze)
+		})
+
+		t.Run("No warn event for failed invoice (successful later payment attempt)", func(t *testing.T) {
+			// AnalyticsMock tests that events are sent once.
+			service.TestChangeFreezeTracker(newFreezeTrackerMock(t))
+			// reset chore clock
+			chore.TestSetNow(time.Now)
+
+			inv, err := stripeClient.Invoices().New(&stripe.InvoiceParams{
+				Params:               stripe.Params{Context: ctx},
+				Customer:             &cus1,
+				DefaultPaymentMethod: stripe.String(stripe1.MockInvoicesPaySuccess),
+			})
+			require.NoError(t, err)
+
+			_, err = stripeClient.InvoiceItems().New(&stripe.InvoiceItemParams{
+				Params:   stripe.Params{Context: ctx},
+				Amount:   &amount,
+				Currency: &curr,
+				Customer: &cus1,
+				Invoice:  &inv.ID,
+			})
+			require.NoError(t, err)
+
+			inv, err = stripeClient.Invoices().FinalizeInvoice(inv.ID, nil)
+			require.NoError(t, err)
+			require.Equal(t, stripe.InvoiceStatusOpen, inv.Status)
+
+			inv, err = stripeClient.Invoices().Pay(inv.ID, &stripe.InvoicePayParams{
+				Params:        stripe.Params{Context: ctx},
+				PaymentMethod: stripe.String(stripe1.MockInvoicesPayFailure),
+			})
+			require.Error(t, err)
+			require.Equal(t, stripe.InvoiceStatusOpen, inv.Status)
+			require.True(t, inv.Attempted)
+
+			failed, err := invoicesDB.ListFailed(ctx, nil)
+			require.NoError(t, err)
+			require.Equal(t, 1, len(failed))
+			require.Equal(t, inv.ID, failed[0].ID)
+
+			chore.Loop.TriggerWait()
+
+			// Payment should have succeeded in the chore.
+			failed, err = invoicesDB.ListFailed(ctx, nil)
+			require.NoError(t, err)
+			require.Equal(t, 0, len(failed))
+
+			freezes, err := service.GetAll(ctx, user.ID)
 			require.NoError(t, err)
 			require.Nil(t, freezes.BillingWarning)
 			require.Nil(t, freezes.BillingFreeze)
@@ -483,6 +556,7 @@ func TestAutoFreezeChore(t *testing.T) {
 			})
 			require.Error(t, err)
 			require.Equal(t, stripe.InvoiceStatusOpen, inv.Status)
+			require.True(t, inv.Attempted)
 
 			failed, err := invoicesDB.ListFailed(ctx, nil)
 			require.NoError(t, err)
@@ -667,13 +741,181 @@ func TestAutoFreezeChore(t *testing.T) {
 			frozen, err = service.IsUserFrozen(ctx, freeUser.ID, console.TrialExpirationFreeze)
 			require.NoError(t, err)
 			require.False(t, frozen)
+
+			paidTier = false
+			err = usersDB.Update(ctx, freeUser.ID, console.UpdateUserRequest{
+				PaidTier: &paidTier,
+			})
+			require.NoError(t, err)
+
+			chore.Loop.TriggerWait()
+
+			frozen, err = service.IsUserFrozen(ctx, freeUser.ID, console.TrialExpirationFreeze)
+			require.NoError(t, err)
+			require.True(t, frozen)
+
+			chore.TestSetNow(func() time.Time {
+				return time.Now().Add(50 * 24 * time.Hour)
+			})
+
+			chore.Loop.TriggerWait()
+
+			// user should be marked for deletion after the grace period
+			// (trial freeze event escalated).
+			userPD, err := usersDB.Get(ctx, freeUser.ID)
+			require.NoError(t, err)
+			require.Equal(t, console.PendingDeletion, userPD.Status)
+
+			// test disabled trial expiration freeze escalation.
+			service.TestSetTrialExpirationFreezeGracePeriod(0)
+
+			status := console.Active
+			err = usersDB.Update(ctx, freeUser.ID, console.UpdateUserRequest{
+				Status: &status,
+			})
+			require.NoError(t, err)
+
+			chore.Loop.TriggerWait()
+
+			// event not escalated because grace period is 0
+			// (escalation disabled).
+			userPD, err = usersDB.Get(ctx, freeUser.ID)
+			require.NoError(t, err)
+			require.Equal(t, status, userPD.Status)
+
+			// enable trial freeze escalation.
+			service.TestSetTrialExpirationFreezeGracePeriod(24 * time.Hour)
+
+			// test that trial frozen users that are part of
+			// projects will not be marked for deletion.
+			uplinkProject := planet.Uplinks[0].Projects[0]
+			_, err = projectMembersDB.Insert(ctx, freeUser.ID, uplinkProject.ID, console.RoleMember)
+			require.NoError(t, err)
+
+			chore.Loop.TriggerWait()
+
+			userPD, err = usersDB.Get(ctx, freeUser.ID)
+			require.NoError(t, err)
+			require.Equal(t, status, userPD.Status)
+		})
+
+		t.Run("Email notifications for events", func(t *testing.T) {
+			// reset chore clock
+			chore.TestSetNow(time.Now)
+
+			inv, err := stripeClient.Invoices().New(&stripe.InvoiceParams{
+				Params:   stripe.Params{Context: ctx},
+				Customer: &cus1,
+			})
+			require.NoError(t, err)
+
+			_, err = stripeClient.InvoiceItems().New(&stripe.InvoiceItemParams{
+				Params:   stripe.Params{Context: ctx},
+				Amount:   &amount,
+				Currency: &curr,
+				Customer: &cus1,
+				Invoice:  &inv.ID,
+			})
+			require.NoError(t, err)
+
+			paymentMethod := stripe1.MockInvoicesPayFailure
+			_, err = stripeClient.Invoices().Pay(inv.ID, &stripe.InvoicePayParams{
+				Params:        stripe.Params{Context: ctx},
+				PaymentMethod: &paymentMethod,
+			})
+			require.Error(t, err)
+
+			chore.Loop.TriggerWait()
+
+			warning, err := service.Get(ctx, user.ID, console.BillingWarning)
+			require.NoError(t, err)
+			require.NotNil(t, warning)
+			// user should be notified once when this event happens for the first time.
+			require.Equal(t, 1, warning.NotificationsCount)
+
+			chore.TestSetNow(func() time.Time {
+				return time.Now().Add(warnEmailsIntervals[0]).Add(1 * time.Minute)
+			})
+			chore.Loop.TriggerWait()
+
+			warning, err = service.Get(ctx, user.ID, console.BillingWarning)
+			require.NoError(t, err)
+			// second email should be sent.
+			require.Equal(t, 2, warning.NotificationsCount)
+
+			chore.TestSetNow(func() time.Time {
+				return time.Now().Add(warnEmailsIntervals[1]).Add(1 * time.Minute)
+			})
+			chore.Loop.TriggerWait()
+
+			warning, err = service.Get(ctx, user.ID, console.BillingWarning)
+			require.NoError(t, err)
+			// 3rd email should be sent.
+			require.Equal(t, 3, warning.NotificationsCount)
+
+			chore.TestSetNow(func() time.Time {
+				// current date is now after billing freeze grace period
+				return time.Now().Add(sat.Config.Console.AccountFreeze.BillingFreezeGracePeriod).Add(24 * time.Hour)
+			})
+			chore.Loop.TriggerWait()
+
+			// no warning should be sent after the grace period
+			_, err = service.Get(ctx, user.ID, console.BillingWarning)
+			require.Error(t, err)
+
+			freeze, err := service.Get(ctx, user.ID, console.BillingFreeze)
+			require.NoError(t, err)
+			require.NotNil(t, freeze)
+			// user should be notified once when this event happens for the first time.
+			require.Equal(t, 1, freeze.NotificationsCount)
+
+			chore.TestSetNow(func() time.Time {
+				return time.Now().Add(freezeEmailsIntervals[0]).Add(1 * time.Minute)
+			})
+			chore.Loop.TriggerWait()
+
+			freeze, err = service.Get(ctx, user.ID, console.BillingFreeze)
+			require.NoError(t, err)
+			// second email should be sent
+			require.Equal(t, 2, freeze.NotificationsCount)
+
+			chore.TestSetNow(func() time.Time {
+				return time.Now().Add(freezeEmailsIntervals[1]).Add(1 * time.Minute)
+			})
+			chore.Loop.TriggerWait()
+
+			freeze, err = service.Get(ctx, user.ID, console.BillingFreeze)
+			require.NoError(t, err)
+			// third email should be sent
+			require.Equal(t, 3, freeze.NotificationsCount)
+
+			chore.TestSetNow(func() time.Time {
+				return time.Now().Add(freezeEmailsIntervals[2]).Add(1 * time.Minute)
+			})
+			chore.Loop.TriggerWait()
+
+			freeze, err = service.Get(ctx, user.ID, console.BillingFreeze)
+			require.NoError(t, err)
+			// fourth email should be sent
+			require.Equal(t, 4, freeze.NotificationsCount)
+
+			chore.TestSetNow(func() time.Time {
+				// current date is now after billing freeze grace period
+				return time.Now().Add(sat.Config.Console.AccountFreeze.BillingFreezeGracePeriod).Add(24 * time.Hour)
+			})
+			chore.Loop.TriggerWait()
+
+			freeze, err = service.Get(ctx, user.ID, console.BillingFreeze)
+			require.NoError(t, err)
+			// no email after the fourth email
+			require.Equal(t, 4, freeze.NotificationsCount)
 		})
 	})
 }
 
 func TestAutoFreezeChore_StorjscanExclusion(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
-		SatelliteCount: 1, StorageNodeCount: 0, UplinkCount: 0,
+		SatelliteCount: 1, StorageNodeCount: 0, UplinkCount: 0, EnableSpanner: true,
 		Reconfigure: testplanet.Reconfigure{
 			Satellite: func(log *zap.Logger, index int, config *satellite.Config) {
 				config.AccountFreeze.Enabled = true

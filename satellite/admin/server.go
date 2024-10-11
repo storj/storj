@@ -29,6 +29,7 @@ import (
 	"storj.io/storj/satellite/console"
 	"storj.io/storj/satellite/console/consoleweb"
 	"storj.io/storj/satellite/console/restkeys"
+	"storj.io/storj/satellite/metabase"
 	"storj.io/storj/satellite/oidc"
 	"storj.io/storj/satellite/payments"
 	"storj.io/storj/satellite/payments/stripe"
@@ -87,6 +88,7 @@ type Server struct {
 	server   http.Server
 
 	db             DB
+	metabaseDB     *metabase.DB
 	payments       payments.Accounts
 	buckets        *buckets.Service
 	restKeys       *restkeys.Service
@@ -104,6 +106,7 @@ func NewServer(
 	log *zap.Logger,
 	listener net.Listener,
 	db DB,
+	metabaseDB *metabase.DB,
 	buckets *buckets.Service,
 	restKeys *restkeys.Service,
 	freezeAccounts *console.AccountFreezeService,
@@ -119,6 +122,7 @@ func NewServer(
 		listener: listener,
 
 		db:             db,
+		metabaseDB:     metabaseDB,
 		payments:       accounts,
 		buckets:        buckets,
 		restKeys:       restKeys,
@@ -165,7 +169,7 @@ func NewServer(
 	fullAccessAPI.HandleFunc("/projects/{project}/buckets/{bucket}/geofence", server.deleteGeofenceForBucket).Methods("DELETE")
 	fullAccessAPI.HandleFunc("/projects/{project}/usage", server.checkProjectUsage).Methods("GET")
 	fullAccessAPI.HandleFunc("/projects/{project}/useragent", server.updateProjectsUserAgent).Methods("PATCH")
-	fullAccessAPI.HandleFunc("/projects/{project}/geofence", server.createGeofenceForProject).Methods("POST")
+	fullAccessAPI.HandleFunc("/projects/{project}/geofence", server.createGeofenceForProject).Methods("PUT")
 	fullAccessAPI.HandleFunc("/projects/{project}/geofence", server.deleteGeofenceForProject).Methods("DELETE")
 	fullAccessAPI.HandleFunc("/apikeys/{apikey}", server.getAPIKey).Methods("GET")
 	fullAccessAPI.HandleFunc("/apikeys/{apikey}", server.deleteAPIKey).Methods("DELETE")
@@ -187,7 +191,8 @@ func NewServer(
 	limitUpdateAPI.HandleFunc("/users/{useremail}/legal-freeze", server.legalUnfreezeUser).Methods("DELETE")
 	limitUpdateAPI.HandleFunc("/users/{useremail}/trial-expiration-freeze", server.trialExpirationFreezeUser).Methods("PUT")
 	limitUpdateAPI.HandleFunc("/users/{useremail}/trial-expiration-freeze", server.trialExpirationUnfreezeUser).Methods("DELETE")
-	limitUpdateAPI.HandleFunc("/users/pending-deletion", server.usersPendingDeletion).Methods("GET")
+	limitUpdateAPI.HandleFunc("/users/deletion/pending", server.usersPendingDeletion).Methods("GET")
+	limitUpdateAPI.HandleFunc("/users/deletion/requested-by-user", server.usersRequestedForDeletion).Methods("GET")
 	limitUpdateAPI.HandleFunc("/projects/{project}/limit", server.getProjectLimit).Methods("GET")
 	limitUpdateAPI.HandleFunc("/projects/{project}/limit", server.putProjectLimit).Methods("PUT")
 

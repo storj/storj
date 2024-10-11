@@ -12,6 +12,7 @@ import (
 
 	"storj.io/common/currency"
 	"storj.io/common/uuid"
+	"storj.io/storj/private/slices2"
 	"storj.io/storj/satellite/payments/coinpayments"
 	"storj.io/storj/satellite/payments/stripe"
 	"storj.io/storj/satellite/satellitedb/dbx"
@@ -24,7 +25,7 @@ var _ stripe.TransactionsDB = (*coinPaymentsTransactions)(nil)
 //
 // architecture: Database
 type coinPaymentsTransactions struct {
-	db *satelliteDB
+	db dbx.Methods
 }
 
 // GetLockedRate returns locked conversion rate for transaction or error if non exists.
@@ -53,7 +54,7 @@ func (db *coinPaymentsTransactions) ListAccount(ctx context.Context, userID uuid
 		return nil, err
 	}
 
-	txs, err := convertSlice(dbxTXs, fromDBXCoinpaymentsTransaction)
+	txs, err := slices2.Convert(dbxTXs, fromDBXCoinpaymentsTransaction)
 	return txs, Error.Wrap(err)
 }
 

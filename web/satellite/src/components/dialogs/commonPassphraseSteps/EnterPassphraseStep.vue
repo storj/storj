@@ -2,7 +2,7 @@
 // See LICENSE for copying information.
 
 <template>
-    <v-form ref="form" class="pa-8" @submit.prevent>
+    <v-form ref="form" class="pa-6" @submit.prevent="emit('submit')">
         <v-row>
             <v-col v-if="$slots.default" cols="12">
                 <slot />
@@ -63,9 +63,9 @@ const passphrase = ref<string>('');
 const isPassphraseVisible = ref<boolean>(false);
 
 const props = withDefaults(defineProps<{
-    title: string;
-    setOnNext: boolean;
-    ackRequired: boolean;
+    title?: string;
+    setOnNext?: boolean;
+    ackRequired?: boolean;
 }>(), {
     title: 'Enter New Passphrase',
     setOnNext: false,
@@ -74,6 +74,7 @@ const props = withDefaults(defineProps<{
 
 const emit = defineEmits<{
     'passphraseChanged': [passphrase: string];
+    'submit': [];
 }>();
 
 watch(passphrase, value => emit('passphraseChanged', value));

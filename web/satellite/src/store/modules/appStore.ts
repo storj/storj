@@ -5,6 +5,9 @@ import { reactive } from 'vue';
 import { defineStore } from 'pinia';
 
 import { LocalData } from '@/utils/localData';
+import { useAnalyticsStore } from '@/store/modules/analyticsStore';
+import { useUsersStore } from '@/store/modules/usersStore';
+import { AnalyticsEvent } from '@/utils/constants/analyticsEventNames';
 
 class AppState {
     public hasJustLoggedIn = false;
@@ -17,6 +20,8 @@ class AppState {
     public isExpirationDialogShown = false;
     public isAccountSetupDialogShown = false;
     public isProjectPassphraseDialogShown = false;
+    public managedPassphraseNotRetrievable = false;
+    public managedPassphraseErrorDialogShown = false;
     public pathBeforeAccountPage: string | null = null;
     public isNavigating = false;
 }
@@ -31,6 +36,9 @@ class ErrorPageState {
 
 export const useAppStore = defineStore('app', () => {
     const state = reactive<AppState>(new AppState());
+
+    const analyticsStore = useAnalyticsStore();
+    const userStore = useUsersStore();
 
     function toggleHasJustLoggedIn(hasJustLoggedIn: boolean | null = null): void {
         if (hasJustLoggedIn === null) {
@@ -53,7 +61,7 @@ export const useAppStore = defineStore('app', () => {
         LocalData.setProjectTableViewEnabled(state.isProjectTableViewEnabled);
     }
 
-    function toggleBrowserTableViewEnabled(isBrowserCardViewEnabled: boolean | null = null): void {
+    function toggleBrowserCardViewEnabled(isBrowserCardViewEnabled: boolean | null = null): void {
         if (isBrowserCardViewEnabled === null) {
             state.isBrowserCardViewEnabled = !state.isBrowserCardViewEnabled;
         } else {
@@ -72,6 +80,9 @@ export const useAppStore = defineStore('app', () => {
 
     function toggleUpgradeFlow(isShown?: boolean): void {
         state.isUpgradeFlowDialogShown = isShown ?? !state.isUpgradeFlowDialogShown;
+        if (state.isUpgradeFlowDialogShown) {
+            analyticsStore.eventTriggered(AnalyticsEvent.UPGRADE_CLICKED, { expired: String(userStore.state.user.freezeStatus.trialExpiredFrozen) });
+        }
     }
 
     function toggleExpirationDialog(isShown?: boolean): void {
@@ -84,6 +95,14 @@ export const useAppStore = defineStore('app', () => {
 
     function toggleProjectPassphraseDialog(isShown?: boolean): void {
         state.isProjectPassphraseDialogShown = isShown ?? !state.isProjectPassphraseDialogShown;
+    }
+
+    function toggleManagedPassphraseErrorDialog(isShown?: boolean): void {
+        state.managedPassphraseErrorDialogShown = isShown ?? !state.managedPassphraseErrorDialogShown;
+    }
+
+    function setManagedPassphraseNotRetrievable(notRetrievable: boolean) {
+        state.managedPassphraseNotRetrievable = notRetrievable;
     }
 
     function setPathBeforeAccountPage(path: string) {
@@ -112,15 +131,19 @@ export const useAppStore = defineStore('app', () => {
         state.isUpgradeFlowDialogShown = false;
         state.pathBeforeAccountPage = null;
         state.isAccountSetupDialogShown = false;
+        state.managedPassphraseNotRetrievable = false;
+        state.managedPassphraseErrorDialogShown = false;
     }
 
     return {
         state,
         toggleProjectTableViewEnabled,
-        toggleBrowserCardViewEnabled: toggleBrowserTableViewEnabled,
+        toggleBrowserCardViewEnabled,
         hasProjectTableViewConfigured,
         toggleHasJustLoggedIn,
         toggleProjectPassphraseDialog,
+        setManagedPassphraseNotRetrievable,
+        toggleManagedPassphraseErrorDialog,
         toggleExpirationDialog,
         setUploadingModal,
         setErrorPage,

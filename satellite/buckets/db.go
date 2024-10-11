@@ -28,6 +28,16 @@ var (
 
 	// ErrBucketAlreadyExists is used to indicate that bucket already exists.
 	ErrBucketAlreadyExists = errs.Class("bucket already exists")
+
+	// ErrConflict is used when a request conflicts with the state of a bucket.
+	ErrConflict = errs.Class("bucket operation conflict")
+
+	// ErrUnavailable is used when an operation is temporarily unavailable
+	// due to a transient issue with the database's state.
+	ErrUnavailable = errs.Class("bucket operation temporarily unavailable")
+
+	// ErrLocked is used when an operation fails because a bucket has Object Lock enabled.
+	ErrLocked = errs.Class("bucket has Object Lock enabled")
 )
 
 // Bucket contains information about a specific bucket.
@@ -35,6 +45,7 @@ type Bucket struct {
 	ID                          uuid.UUID
 	Name                        string
 	ProjectID                   uuid.UUID
+	CreatedBy                   uuid.UUID
 	UserAgent                   []byte
 	Created                     time.Time
 	PathCipher                  storj.CipherSuite
@@ -43,6 +54,7 @@ type Bucket struct {
 	DefaultEncryptionParameters storj.EncryptionParameters
 	Placement                   storj.PlacementConstraint
 	Versioning                  Versioning
+	ObjectLockEnabled           bool
 }
 
 // ListDirection specifies listing direction.
@@ -77,7 +89,9 @@ func (v Versioning) IsUnversioned() bool {
 // MinimalBucket contains minimal bucket fields for metainfo protocol.
 type MinimalBucket struct {
 	Name      []byte
+	CreatedBy uuid.UUID
 	CreatedAt time.Time
+	Placement storj.PlacementConstraint
 }
 
 // ListOptions lists objects.
@@ -138,4 +152,6 @@ type DB interface {
 	CountBuckets(ctx context.Context, projectID uuid.UUID) (int, error)
 	// IterateBucketLocations iterates through all buckets with specific page size.
 	IterateBucketLocations(ctx context.Context, pageSize int, fn func([]metabase.BucketLocation) error) (err error)
+	// GetBucketObjectLockEnabled returns whether a bucket has Object Lock enabled.
+	GetBucketObjectLockEnabled(ctx context.Context, bucketName []byte, projectID uuid.UUID) (enabled bool, err error)
 }

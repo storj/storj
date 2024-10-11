@@ -4,7 +4,9 @@
 package consoleapi_test
 
 import (
+	"bytes"
 	"context"
+	"database/sql"
 	"encoding/json"
 	"fmt"
 	"net/http"
@@ -17,14 +19,17 @@ import (
 	"go.uber.org/zap"
 
 	"storj.io/common/memory"
+	"storj.io/common/pb"
 	"storj.io/common/storj"
 	"storj.io/common/testcontext"
 	"storj.io/common/testrand"
 	"storj.io/common/uuid"
 	"storj.io/storj/private/testplanet"
 	"storj.io/storj/satellite"
+	"storj.io/storj/satellite/buckets"
 	"storj.io/storj/satellite/console"
 	"storj.io/storj/satellite/console/consoleweb/consoleapi"
+	"storj.io/storj/satellite/payments/stripe"
 )
 
 func createTestMembers(ctx context.Context, t *testing.T, db console.DB, p uuid.UUID, owner *uuid.UUID) (_ map[uuid.UUID]console.User, _ map[string]console.User) {
@@ -52,7 +57,7 @@ func createTestMembers(ctx context.Context, t *testing.T, db console.DB, p uuid.
 		})
 		require.NoError(t, err)
 
-		_, err = db.ProjectMembers().Insert(ctx, member.ID, p)
+		_, err = db.ProjectMembers().Insert(ctx, member.ID, p, console.RoleAdmin)
 		require.NoError(t, err)
 
 		inviteeID := testrand.UUID()
@@ -377,6 +382,229 @@ func TestDeleteProjectMembers(t *testing.T) {
 	})
 }
 
+func TestDeleteProject(t *testing.T) {
+	testplanet.Run(t, testplanet.Config{
+		SatelliteCount: 1, StorageNodeCount: 0, UplinkCount: 2,
+		Reconfigure: testplanet.Reconfigure{
+			Satellite: func(log *zap.Logger, index int, config *satellite.Config) {
+				config.Console.DeleteProjectEnabled = true
+			},
+		},
+	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+		sat := planet.Satellites[0]
+		p := planet.Uplinks[0].Projects[0].ID
+		p2 := planet.Uplinks[1].Projects[0].ID
+
+		user, err := sat.DB.Console().Users().GetByEmail(ctx, planet.Uplinks[0].User[sat.ID()].Email)
+		require.NoError(t, err)
+
+		user.PaidTier = true
+		user.MFAEnabled = true
+		mfaSecret, err := console.NewMFASecretKey()
+		require.NoError(t, err)
+		user.MFASecretKey = mfaSecret
+		mfaSecretKeyPtr := &user.MFASecretKey
+
+		year, month, day := time.Now().UTC().Date()
+		timestamp := time.Date(year, month, day, 12, 0, 0, 0, time.UTC)
+
+		sat.API.Console.Service.TestSetNow(func() time.Time {
+			return timestamp
+		})
+		sat.API.Payments.StripeService.SetNow(func() time.Time {
+			return timestamp
+		})
+
+		goodCode, err := console.NewMFAPasscode(mfaSecret, timestamp)
+		require.NoError(t, err)
+
+		require.NoError(t, sat.DB.Console().Users().Update(ctx, user.ID, console.UpdateUserRequest{
+			PaidTier:     &user.PaidTier,
+			MFAEnabled:   &user.MFAEnabled,
+			MFASecretKey: &mfaSecretKeyPtr,
+		}))
+
+		// test deleting project as non-owner fails
+		endpoint := fmt.Sprintf("projects/%s", p2.String())
+
+		payload, err := json.Marshal(consoleapi.AccountActionData{Step: console.DeleteProjectInit, Data: ""})
+		require.NoError(t, err)
+
+		body, status, err := doRequestWithAuth(ctx, t, sat, user, http.MethodDelete, endpoint, bytes.NewBuffer(payload))
+		require.NoError(t, err)
+		require.Equal(t, http.StatusUnauthorized, status)
+		require.Contains(t, string(body), "error")
+
+		endpoint = fmt.Sprintf("projects/%s", p.String())
+
+		// account delete step out of range: lesser
+		payload, err = json.Marshal(consoleapi.AccountActionData{Step: -1, Data: ""})
+		require.NoError(t, err)
+
+		body, status, err = doRequestWithAuth(ctx, t, sat, user, http.MethodDelete, endpoint, bytes.NewBuffer(payload))
+		require.NoError(t, err)
+		require.Equal(t, http.StatusBadRequest, status)
+		require.Contains(t, string(body), "error")
+
+		// account delete step out of range: greater
+		payload, err = json.Marshal(consoleapi.AccountActionData{Step: 100, Data: ""})
+		require.NoError(t, err)
+
+		body, status, err = doRequestWithAuth(ctx, t, sat, user, http.MethodDelete, endpoint, bytes.NewBuffer(payload))
+		require.NoError(t, err)
+		require.Equal(t, http.StatusBadRequest, status)
+		require.Contains(t, string(body), "error")
+
+		// data can't be empty if step is verifying input
+		payload, err = json.Marshal(consoleapi.AccountActionData{Step: console.VerifyAccountEmailStep, Data: ""})
+		require.NoError(t, err)
+
+		body, status, err = doRequestWithAuth(ctx, t, sat, user, http.MethodDelete, endpoint, bytes.NewBuffer(payload))
+		require.NoError(t, err)
+		require.Equal(t, http.StatusBadRequest, status)
+		require.Contains(t, string(body), "error")
+
+		// locked out user can't delete project
+		payload, err = json.Marshal(consoleapi.AccountActionData{Step: console.DeleteProjectInit, Data: ""})
+		require.NoError(t, err)
+
+		expires := timestamp.Add(24 * time.Hour)
+		ptr := &expires
+		require.NoError(t, sat.DB.Console().Users().Update(ctx, user.ID, console.UpdateUserRequest{LoginLockoutExpiration: &ptr}))
+
+		body, status, err = doRequestWithAuth(ctx, t, sat, user, http.MethodDelete, endpoint, bytes.NewBuffer(payload))
+		require.NoError(t, err)
+		require.Equal(t, http.StatusUnauthorized, status)
+		require.Contains(t, string(body), "error")
+
+		ptr = nil
+		require.NoError(t, sat.DB.Console().Users().Update(ctx, user.ID, console.UpdateUserRequest{LoginLockoutExpiration: &ptr}))
+
+		// test deleting project with bucket fails
+		bucket := buckets.Bucket{
+			Name:      "testbucket",
+			ProjectID: p,
+		}
+		_, err = sat.API.Buckets.Service.CreateBucket(ctx, bucket)
+		require.NoError(t, err)
+
+		payload, err = json.Marshal(consoleapi.AccountActionData{Step: console.DeleteProjectInit})
+		require.NoError(t, err)
+
+		body, status, err = doRequestWithAuth(ctx, t, sat, user, http.MethodDelete, endpoint, bytes.NewBuffer(payload))
+		require.NoError(t, err)
+		require.Equal(t, http.StatusConflict, status)
+
+		var resp console.DeleteProjectInfo
+		require.NoError(t, json.Unmarshal(body, &resp))
+		require.Equal(t, 1, resp.Buckets)
+
+		require.NoError(t, sat.API.Buckets.Service.DeleteBucket(ctx, []byte(bucket.Name), p))
+
+		// test deleting project with api key fails
+		body, status, err = doRequestWithAuth(ctx, t, sat, user, http.MethodDelete, endpoint, bytes.NewBuffer(payload))
+		require.NoError(t, err)
+		require.Equal(t, http.StatusConflict, status)
+
+		require.NoError(t, json.Unmarshal(body, &resp))
+		require.Equal(t, 1, resp.APIKeys)
+
+		require.NoError(t, sat.API.DB.Console().APIKeys().DeleteAllByProjectID(ctx, p))
+
+		// test pro user deleting project with current usage fails
+		require.NoError(t, sat.DB.Orders().UpdateBucketBandwidthSettle(ctx, p, []byte("testbucket"), pb.PieceAction_GET, 1000000, 0, timestamp.Add(-time.Hour)))
+
+		body, status, err = doRequestWithAuth(ctx, t, sat, user, http.MethodDelete, endpoint, bytes.NewBuffer(payload))
+		require.NoError(t, err)
+		require.Equal(t, http.StatusConflict, status)
+
+		require.NoError(t, json.Unmarshal(body, &resp))
+		require.True(t, resp.CurrentUsage)
+
+		_, err = sat.DB.ProjectAccounting().ArchiveRollupsBefore(ctx, timestamp, 100)
+		require.NoError(t, err)
+
+		// test pro user deleting project with incomplete invoicing fails
+		lastMonth := time.Date(year, month-1, 1, 0, 0, 0, 0, time.UTC)
+		thisMonth := time.Date(year, month, 1, 0, 0, 0, 0, time.UTC)
+
+		require.NoError(t, sat.DB.Orders().UpdateBucketBandwidthSettle(ctx, p, []byte("testbucket"), pb.PieceAction_GET, 1000000, 0, lastMonth))
+
+		body, status, err = doRequestWithAuth(ctx, t, sat, user, http.MethodDelete, endpoint, bytes.NewBuffer(payload))
+		require.NoError(t, err)
+		require.Equal(t, http.StatusConflict, status)
+
+		require.NoError(t, json.Unmarshal(body, &resp))
+		require.True(t, resp.InvoicingIncomplete)
+
+		require.NoError(t, sat.DB.StripeCoinPayments().ProjectRecords().Create(ctx, []stripe.CreateProjectRecord{{
+			ProjectID: p,
+			Egress:    1000000,
+		}}, lastMonth, thisMonth))
+
+		// verify password
+		payload, err = json.Marshal(consoleapi.AccountActionData{Step: console.VerifyAccountPasswordStep, Data: user.FullName})
+		require.NoError(t, err)
+
+		body, status, err = doRequestWithAuth(ctx, t, sat, user, http.MethodDelete, endpoint, bytes.NewBuffer(payload))
+		require.NoError(t, err)
+		require.Equal(t, http.StatusOK, status)
+		require.Empty(t, body)
+
+		// verify mfa
+		payload, err = json.Marshal(consoleapi.AccountActionData{Step: console.VerifyAccountMfaStep, Data: goodCode})
+		require.NoError(t, err)
+
+		body, status, err = doRequestWithAuth(ctx, t, sat, user, http.MethodDelete, endpoint, bytes.NewBuffer(payload))
+		require.NoError(t, err)
+		require.Equal(t, http.StatusOK, status)
+		require.Empty(t, body)
+
+		// verify email
+		code := "123456"
+		require.NoError(t, sat.API.DB.Console().Users().Update(ctx, user.ID, console.UpdateUserRequest{ActivationCode: &code}))
+
+		payload, err = json.Marshal(consoleapi.AccountActionData{Step: console.VerifyAccountEmailStep, Data: code})
+		require.NoError(t, err)
+
+		body, status, err = doRequestWithAuth(ctx, t, sat, user, http.MethodDelete, endpoint, bytes.NewBuffer(payload))
+		require.NoError(t, err)
+		require.Equal(t, http.StatusOK, status)
+		require.Empty(t, body)
+
+		// test project deletion succeeds
+		payload, err = json.Marshal(consoleapi.AccountActionData{Step: console.DeleteProjectStep})
+		require.NoError(t, err)
+
+		body, status, err = doRequestWithAuth(ctx, t, sat, user, http.MethodDelete, endpoint, bytes.NewBuffer(payload))
+		require.NoError(t, err)
+		require.Equal(t, http.StatusOK, status)
+		require.Empty(t, body)
+
+		project, err := sat.DB.Console().Projects().Get(ctx, p)
+		require.Error(t, err)
+		require.ErrorIs(t, err, sql.ErrNoRows)
+		require.Nil(t, project)
+
+		// free user can't delete project
+		user2, err := sat.DB.Console().Users().GetByEmail(ctx, planet.Uplinks[1].User[sat.ID()].Email)
+		require.NoError(t, err)
+
+		payload, err = json.Marshal(consoleapi.AccountActionData{Step: console.DeleteProjectInit})
+		require.NoError(t, err)
+
+		endpoint = fmt.Sprintf("projects/%s", p2.String())
+		body, status, err = doRequestWithAuth(ctx, t, sat, user2, http.MethodDelete, endpoint, bytes.NewBuffer(payload))
+		require.NoError(t, err)
+		require.Equal(t, http.StatusInternalServerError, status)
+		require.Contains(t, string(body), "You must upgrade")
+
+		project, err = sat.DB.Console().Projects().Get(ctx, p2)
+		require.NoError(t, err)
+		require.NotNil(t, project)
+	})
+}
+
 func TestEdgeURLOverrides(t *testing.T) {
 	var (
 		noOverridePlacementID      storj.PlacementConstraint
@@ -441,7 +669,7 @@ func TestEdgeURLOverrides(t *testing.T) {
 		} {
 			t.Run(tt.name, func(t *testing.T) {
 				result, err := sat.DB.Testing().RawDB().ExecContext(ctx,
-					"UPDATE projects SET default_placement = $1 WHERE id = $2",
+					sat.DB.Testing().Rebind("UPDATE projects SET default_placement = ? WHERE id = ?"),
 					tt.placement, project.ID,
 				)
 				require.NoError(t, err)

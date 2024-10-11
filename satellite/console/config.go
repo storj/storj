@@ -15,27 +15,35 @@ import (
 
 // Config keeps track of core console service configuration parameters.
 type Config struct {
-	PasswordCost                    int                       `help:"password hashing cost (0=automatic)" testDefault:"4" default:"0"`
-	OpenRegistrationEnabled         bool                      `help:"enable open registration" default:"false" testDefault:"true"`
-	DefaultProjectLimit             int                       `help:"default project limits for users" default:"1" testDefault:"5"`
-	AsOfSystemTimeDuration          time.Duration             `help:"default duration for AS OF SYSTEM TIME" devDefault:"-5m" releaseDefault:"-5m" testDefault:"0"`
-	LoginAttemptsWithoutPenalty     int                       `help:"number of times user can try to login without penalty" default:"3"`
-	FailedLoginPenalty              float64                   `help:"incremental duration of penalty for failed login attempts in minutes" default:"2.0"`
-	ProjectInvitationExpiration     time.Duration             `help:"duration that project member invitations are valid for" default:"168h"`
-	UnregisteredInviteEmailsEnabled bool                      `help:"indicates whether invitation emails can be sent to unregistered email addresses" default:"true"`
-	FreeTierInvitesEnabled          bool                      `help:"indicates whether free tier users can send project invitations" default:"false"`
-	UserBalanceForUpgrade           int64                     `help:"amount of base units of US micro dollars needed to upgrade user's tier status" default:"10000000"`
-	PlacementEdgeURLOverrides       PlacementEdgeURLOverrides `help:"placement-specific edge service URL overrides in the format {\"placementID\": {\"authService\": \"...\", \"publicLinksharing\": \"...\", \"internalLinksharing\": \"...\"}, \"placementID2\": ...}"`
-	BlockExplorerURL                string                    `help:"url of the transaction block explorer" default:"https://etherscan.io/"`
-	BillingFeaturesEnabled          bool                      `help:"indicates if billing features should be enabled" default:"true"`
-	StripePaymentElementEnabled     bool                      `help:"indicates whether the stripe payment element should be used to collect card info" default:"true"`
-	SignupActivationCodeEnabled     bool                      `help:"indicates whether the whether account activation is done using activation code" default:"false"`
-	FreeTrialDuration               time.Duration             `help:"duration for which users can access the system free of charge, 0 = unlimited time trial" default:"0"`
-	VarPartners                     []string                  `help:"list of partners whose users will not see billing UI." default:""`
-	UsageLimits                     UsageLimitsConfig
-	Captcha                         CaptchaConfig
-	Session                         SessionConfig
-	AccountFreeze                   AccountFreezeConfig
+	PasswordCost                      int                       `help:"password hashing cost (0=automatic)" testDefault:"4" default:"0"`
+	OpenRegistrationEnabled           bool                      `help:"enable open registration" default:"false" testDefault:"true"`
+	DefaultProjectLimit               int                       `help:"default project limits for users" default:"1" testDefault:"5"`
+	AsOfSystemTimeDuration            time.Duration             `help:"default duration for AS OF SYSTEM TIME" devDefault:"-5m" releaseDefault:"-5m" testDefault:"0"`
+	LoginAttemptsWithoutPenalty       int                       `help:"number of times user can try to login without penalty" default:"3"`
+	FailedLoginPenalty                float64                   `help:"incremental duration of penalty for failed login attempts in minutes" default:"2.0"`
+	ProjectInvitationExpiration       time.Duration             `help:"duration that project member invitations are valid for" default:"168h"`
+	UnregisteredInviteEmailsEnabled   bool                      `help:"indicates whether invitation emails can be sent to unregistered email addresses" default:"true"`
+	UserBalanceForUpgrade             int64                     `help:"amount of base units of US micro dollars needed to upgrade user's tier status" default:"10000000"`
+	PlacementEdgeURLOverrides         PlacementEdgeURLOverrides `help:"placement-specific edge service URL overrides in the format {\"placementID\": {\"authService\": \"...\", \"publicLinksharing\": \"...\", \"internalLinksharing\": \"...\"}, \"placementID2\": ...}"`
+	BlockExplorerURL                  string                    `help:"url of the transaction block explorer" default:"https://etherscan.io/"`
+	ZkSyncBlockExplorerURL            string                    `help:"url of the zkSync transaction block explorer" default:"https://explorer.zksync.io/"`
+	BillingFeaturesEnabled            bool                      `help:"indicates if billing features should be enabled" default:"true"`
+	StripePaymentElementEnabled       bool                      `help:"indicates whether the stripe payment element should be used to collect card info" default:"true"`
+	SignupActivationCodeEnabled       bool                      `help:"indicates whether the whether account activation is done using activation code" default:"true" testDefault:"false" devDefault:"false"`
+	FreeTrialDuration                 time.Duration             `help:"duration for which users can access the system free of charge, 0 = unlimited time trial" default:"0"`
+	VarPartners                       []string                  `help:"list of partners whose users will not see billing UI." default:""`
+	ObjectBrowserKeyNamePrefix        string                    `help:"prefix for object browser API key names" default:".storj-web-file-browser-api-key-"`
+	ObjectBrowserKeyLifetime          time.Duration             `help:"duration for which the object browser API key remains valid" default:"72h"`
+	MaxNameCharacters                 int                       `help:"defines the maximum number of characters allowed for names, e.g. user first/last names and company names" default:"100"`
+	BillingInformationTabEnabled      bool                      `help:"indicates if billing information tab should be enabled" default:"false"`
+	SatelliteManagedEncryptionEnabled bool                      `help:"indicates whether satellite managed encryption projects can be created." default:"false"`
+	EmailChangeFlowEnabled            bool                      `help:"whether change user email flow is enabled" default:"false"`
+	DeleteProjectEnabled              bool                      `help:"whether project deletion from satellite UI is enabled" default:"false"`
+	SelfServeAccountDeleteEnabled     bool                      `help:"whether self-serve account delete flow is enabled" default:"false"`
+	UsageLimits                       UsageLimitsConfig
+	Captcha                           CaptchaConfig
+	Session                           SessionConfig
+	AccountFreeze                     AccountFreezeConfig
 }
 
 // CaptchaConfig contains configurations for login/registration captcha system.
@@ -69,8 +77,9 @@ type SessionConfig struct {
 	Duration                     time.Duration `help:"duration a session is valid for (superseded by inactivity timer delay if inactivity timer is enabled)" default:"168h"`
 }
 
-// VersioningConfig contains configurations for object versioning.
-type VersioningConfig struct {
+// ObjectLockAndVersioningConfig contains configurations for object versioning.
+type ObjectLockAndVersioningConfig struct {
+	ObjectLockEnabled                      bool
 	UseBucketLevelObjectVersioning         bool
 	UseBucketLevelObjectVersioningProjects []string
 	projectMap                             map[uuid.UUID]struct{}

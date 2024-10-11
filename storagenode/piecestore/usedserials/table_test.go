@@ -5,6 +5,7 @@ package usedserials_test
 
 import (
 	"encoding/binary"
+	"math/rand"
 	"testing"
 	"time"
 
@@ -166,4 +167,31 @@ func createExpirationSerial(originalSerial storj.SerialNumber, expiration time.T
 	binary.BigEndian.PutUint64(serialWithExp[0:8], uint64(expiration.Unix()))
 
 	return serialWithExp
+}
+
+func Benchmark(b *testing.B) {
+	size := memory.MiB
+	used := usedserials.NewTable(size)
+
+	r := rand.NewSource(0)
+	now := time.Now().Add(10 * 24 * time.Hour)
+	insertRandom := func() {
+		var serial storj.SerialNumber
+		v := r.Int63()
+		binary.LittleEndian.PutUint64(serial[:8], uint64(v))
+		binary.LittleEndian.PutUint64(serial[8:], uint64(v))
+		_ = used.Add(storj.NodeID{}, serial, now)
+	}
+
+	// fill the used table
+	for i := 0; i < int(size/usedserials.FullSize); i++ {
+		insertRandom()
+	}
+
+	b.Run("AddDelete", func(b *testing.B) {
+		for i := 0; i < b.N; i++ {
+			insertRandom()
+		}
+	})
+
 }

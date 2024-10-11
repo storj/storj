@@ -121,7 +121,7 @@ describe('actions', () => {
         store.toggleProjectMemberSelection(projectMember1);
         store.clearProjectMemberSelection();
 
-        store.state.page.projectMembers.forEach((pm: ProjectMember) => {
+        store.state.page.projectMembers.forEach(pm => {
             expect(pm.isSelected()).toBe(false);
         });
 

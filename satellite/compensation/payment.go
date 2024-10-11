@@ -7,8 +7,8 @@ import (
 	"io"
 	"os"
 
-	"storj.io/common/strictcsv"
 	"storj.io/storj/private/currency"
+	"storj.io/storj/shared/strictcsv"
 )
 
 // Payment represents an actual payment that happened.

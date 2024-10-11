@@ -4,16 +4,23 @@
 <template>
     <v-dialog
         v-model="model"
-        width="410px"
+        max-width="420px"
         transition="fade-transition"
         :persistent="isLoading"
     >
-        <v-card rounded="xlg">
-            <v-card-item class="pa-5 pl-7">
+        <v-card>
+            <v-card-item class="pa-6">
                 <template #prepend>
-                    <img class="d-block" src="@/assets/icon-boxes.svg" alt="Boxes">
+                    <v-sheet
+                        class="border-sm d-flex justify-center align-center"
+                        width="40"
+                        height="40"
+                        rounded="lg"
+                    >
+                        <component :is="Box" :size="18" />
+                    </v-sheet>
                 </template>
-                <v-card-title class="font-weight-bold">Edit Project {{ field }}</v-card-title>
+                <v-card-title class="font-weight-bold">Project {{ field }}</v-card-title>
                 <template #append>
                     <v-btn
                         icon="$close"
@@ -28,7 +35,7 @@
 
             <v-divider />
 
-            <v-form v-model="formValid" class="pa-7" @submit.prevent>
+            <v-form v-model="formValid" class="pa-6" @submit.prevent>
                 <v-text-field
                     v-model="input"
                     class="pt-4"
@@ -45,7 +52,7 @@
 
             <v-divider />
 
-            <v-card-actions class="pa-7">
+            <v-card-actions class="pa-6">
                 <v-row>
                     <v-col>
                         <v-btn variant="outlined" color="default" block :disabled="isLoading" @click="model = false">
@@ -77,7 +84,9 @@ import {
     VBtn,
     VForm,
     VTextField,
+    VSheet,
 } from 'vuetify/components';
+import { Box } from 'lucide-vue-next';
 
 import { useLoading } from '@/composables/useLoading';
 import { AnalyticsErrorEventSource, AnalyticsEvent } from '@/utils/constants/analyticsEventNames';

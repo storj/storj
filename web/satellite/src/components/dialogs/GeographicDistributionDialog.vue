@@ -4,11 +4,11 @@
 <template>
     <v-dialog
         v-model="model"
-        width="410px"
+        max-width="420px"
         transition="fade-transition"
     >
-        <v-card rounded="xlg">
-            <v-card-item class="pa-5 pl-7">
+        <v-card :loading="isLoading">
+            <v-card-item class="pa-6">
                 <template #prepend>
                     <v-sheet
                         class="border-sm d-flex justify-center align-center"
@@ -25,7 +25,7 @@
                 </v-card-title>
                 <template #append>
                     <v-btn
-                        id="Close"
+                        id="close-geo-distribution"
                         icon="$close"
                         variant="text"
                         size="small"
@@ -37,20 +37,22 @@
 
             <v-divider />
 
-            <div class="pa-7">
-                <img id="Map" class="w-100" :src="mapURL" alt="map">
-                <p class="font-weight-bold my-4">
-                    This map shows the real-time locations of this file’s pieces.
-                </p>
+            <div class="pa-6">
+                <template v-if="mapURL">
+                    <img class="w-100" :src="mapURL" alt="map">
+                    <p class="font-weight-bold my-4">
+                        This map shows the real-time locations of this object’s pieces.
+                    </p>
+                </template>
                 <p>
-                    Storj splits files into smaller pieces, then distributes those pieces
+                    Storj splits objects into smaller pieces, then distributes those pieces
                     over a global network of nodes and recompiles them securely on download.
                 </p>
             </div>
 
             <v-divider />
 
-            <v-card-actions class="pa-7">
+            <v-card-actions class="pa-6">
                 <v-row>
                     <v-col>
                         <v-btn
@@ -71,7 +73,7 @@
                             href="https://docs.storj.io/learn#what-happens-when-you-upload"
                             target="_blank"
                             rel="noopener noreferrer"
-                            :append-icon="mdiOpenInNew"
+                            :append-icon="SquareArrowOutUpRight"
                         >
                             Learn more
                         </v-btn>
@@ -83,7 +85,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed } from 'vue';
+import { computed, ref, watch } from 'vue';
 import {
     VDialog,
     VCard,
@@ -96,22 +98,27 @@ import {
     VCol,
     VBtn,
 } from 'vuetify/components';
-import { mdiOpenInNew } from '@mdi/js';
+import { SquareArrowOutUpRight } from 'lucide-vue-next';
 
-import { useAnalyticsStore } from '@/store/modules/analyticsStore';
-import { useNotify } from '@/utils/hooks';
 import { useBucketsStore } from '@/store/modules/bucketsStore';
-import { PreviewCache, useObjectBrowserStore } from '@/store/modules/objectBrowserStore';
+import { useObjectBrowserStore } from '@/store/modules/objectBrowserStore';
+import { useLoading } from '@/composables/useLoading';
+import { useNotify } from '@/utils/hooks';
+import { useLinksharing } from '@/composables/useLinksharing';
+import { AnalyticsErrorEventSource } from '@/utils/constants/analyticsEventNames';
 
 import IconDistribution from '@/components/icons/IconDistribution.vue';
 
 const model = defineModel<boolean>({ required: true });
 
-const analyticsStore = useAnalyticsStore();
 const obStore = useObjectBrowserStore();
 const bucketsStore = useBucketsStore();
 
 const notify = useNotify();
+const { isLoading, withLoading } = useLoading();
+const { getObjectDistributionMap } = useLinksharing();
+
+const mapURL = ref<string>('');
 
 /**
  * Returns bucket name from store.
@@ -121,25 +128,28 @@ const bucket = computed<string>(() => {
 });
 
 /**
- * Retrieve the encoded filepath.
+ * Retrieve the encoded objectpath.
  */
 const encodedFilePath = computed<string>(() => {
     return encodeURIComponent(`${bucket.value}/${obStore.state.objectPathForModal.trim()}`);
 });
 
 /**
- * Returns object preview URLs cache from store.
+ * Downloads object geographic distribution map.
  */
-const cachedObjectPreviewURLs = computed<Map<string, PreviewCache>>(() => {
-    return obStore.state.cachedObjectPreviewURLs;
-});
+async function getMap(): Promise<void> {
+    await withLoading(async () => {
+        try {
+            const blob = await getObjectDistributionMap(encodedFilePath.value);
+            mapURL.value = URL.createObjectURL(blob);
+        } catch (error) {
+            notify.error(`Failed to fetch a map. ${error.message}`, AnalyticsErrorEventSource.GALLERY_VIEW);
+        }
+    });
+}
 
-/**
- * Returns object map URL.
- */
-const mapURL = computed<string>(() => {
-    const cache = cachedObjectPreviewURLs.value.get(encodedFilePath.value);
-    const url = cache?.url || '';
-    return `${url}?map=1`;
+watch(model, value => {
+    if (value) getMap();
+    else mapURL.value = '';
 });
 </script>

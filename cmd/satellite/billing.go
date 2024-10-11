@@ -12,7 +12,6 @@ import (
 	"go.uber.org/zap"
 
 	"storj.io/common/process"
-	"storj.io/common/uuid"
 	"storj.io/storj/satellite"
 	"storj.io/storj/satellite/analytics"
 	"storj.io/storj/satellite/emission"
@@ -81,6 +80,7 @@ func setupPayments(log *zap.Logger, db satellite.DB) (*stripe.Service, error) {
 		pc.BonusRate,
 		analytics.NewService(log.Named("analytics:service"), runCfg.Analytics, runCfg.Console.SatelliteName),
 		emission.NewService(runCfg.Emission),
+		runCfg.Console.SelfServeAccountDeleteEnabled,
 	)
 }
 
@@ -95,45 +95,24 @@ func parseYearMonth(yearMonth string) (time.Time, error) {
 	return time.Date(t.Year(), t.Month(), 1, 0, 0, 0, 0, time.UTC), nil
 }
 
-// userData contains the uuid and email of a satellite user.
-type userData struct {
-	ID              uuid.UUID
-	Email           string
-	SignupPromoCode string
-}
-
 // generateStripeCustomers creates missing stripe-customers for users in our database.
 func generateStripeCustomers(ctx context.Context) (err error) {
 	return runBillingCmd(ctx, func(ctx context.Context, payments *stripe.Service, db satellite.DB) error {
 		accounts := payments.Accounts()
 
-		cusDB := db.StripeCoinPayments().Customers().Raw()
-
-		rows, err := cusDB.Query(ctx, "SELECT id, email, signup_promo_code FROM users WHERE id NOT IN (SELECT user_id FROM stripe_customers) AND users.status=1")
+		users, err := db.StripeCoinPayments().Customers().ListMissingCustomers(ctx)
 		if err != nil {
 			return err
 		}
-		defer func() {
-			err = errs.Combine(err, rows.Close())
-		}()
 
-		var n int64
-		for rows.Next() {
-			n++
-			var user userData
-			err := rows.Scan(&user.ID, &user.Email)
-			if err != nil {
-				return err
-			}
-
+		for _, user := range users {
 			_, err = accounts.Setup(ctx, user.ID, user.Email, user.SignupPromoCode)
 			if err != nil {
 				return err
 			}
-
 		}
 
-		zap.L().Info("Ensured Stripe-Customer", zap.Int64("created", n))
+		zap.L().Info("Ensured Stripe-Customer", zap.Int("created", len(users)))
 
 		return err
 	})

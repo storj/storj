@@ -93,7 +93,7 @@ func cmdRepairSegment(cmd *cobra.Command, args []string) (err error) {
 
 	dialer := rpc.NewDefaultDialer(tlsOptions)
 
-	placement, err := config.Placement.Parse(config.Overlay.Node.CreateDefaultPlacement)
+	placement, err := config.Placement.Parse(config.Overlay.Node.CreateDefaultPlacement, nil)
 	if err != nil {
 		return err
 	}
@@ -116,7 +116,6 @@ func cmdRepairSegment(cmd *cobra.Command, args []string) (err error) {
 	}
 
 	ecRepairer := repairer.NewECRepairer(
-		log.Named("ec-repair"),
 		dialer,
 		signing.SigneeFromPeerIdentity(identity.PeerIdentity()),
 		config.Repairer.DialTimeout,
@@ -131,7 +130,8 @@ func cmdRepairSegment(cmd *cobra.Command, args []string) (err error) {
 		nil, // TODO add noop version
 		ecRepairer,
 		placement,
-		config.Checker.RepairOverrides,
+		config.Checker.RepairThresholdOverrides,
+		config.Checker.RepairTargetOverrides,
 		config.Repairer,
 	)
 
@@ -288,7 +288,7 @@ func reuploadSegment(ctx context.Context, log *zap.Logger, peer *satellite.Repai
 
 	timeout := 5 * time.Minute
 	successfulNeeded := redundancy.OptimalThreshold()
-	successful, _, err := peer.EcRepairer.Repair(ctx, putLimits, putPrivateKey, redundancy, bytes.NewReader(segmentData),
+	successful, _, err := peer.EcRepairer.Repair(ctx, log, putLimits, putPrivateKey, redundancy, bytes.NewReader(segmentData),
 		timeout, successfulNeeded)
 	if err != nil {
 		return err
@@ -324,7 +324,7 @@ func reuploadSegment(ctx context.Context, log *zap.Logger, peer *satellite.Repai
 
 func downloadSegment(ctx context.Context, log *zap.Logger, peer *satellite.Repairer, metabaseDB *metabase.DB, segment metabase.Segment) ([]byte, int, error) {
 	// AdminFetchPieces downloads all pieces for specified segment and returns readers, readers data is kept on disk or inmemory
-	pieceInfos, err := peer.SegmentRepairer.AdminFetchPieces(ctx, &segment, "")
+	pieceInfos, err := peer.SegmentRepairer.AdminFetchPieces(ctx, log, &segment, "")
 	if err != nil {
 		return nil, 0, err
 	}

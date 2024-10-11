@@ -39,7 +39,9 @@ func (c *cmdRb) Setup(params clingy.Parameters) {
 	).(ulloc.Location)
 }
 
-func (c *cmdRb) Execute(ctx context.Context) error {
+func (c *cmdRb) Execute(ctx context.Context) (err error) {
+	defer mon.Task()(&ctx)(&err)
+
 	project, err := c.ex.OpenProject(ctx, c.access)
 	if err != nil {
 		return err
@@ -63,6 +65,6 @@ func (c *cmdRb) Execute(ctx context.Context) error {
 		return err
 	}
 
-	fmt.Fprintf(clingy.Stdout(ctx), "Bucket %q has been deleted.\n", bucket)
+	_, _ = fmt.Fprintf(clingy.Stdout(ctx), "Bucket %q has been deleted.\n", bucket)
 	return nil
 }

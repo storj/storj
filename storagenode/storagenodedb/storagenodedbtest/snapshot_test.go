@@ -14,8 +14,8 @@ import (
 	"github.com/zeebo/errs"
 	"go.uber.org/zap/zaptest"
 
-	"storj.io/common/tagsql"
 	"storj.io/common/testcontext"
+	"storj.io/storj/shared/tagsql"
 	"storj.io/storj/storagenode/blobstore/filestore"
 	"storj.io/storj/storagenode/storagenodedb"
 )

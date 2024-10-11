@@ -11,13 +11,13 @@ import (
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 
-	"storj.io/common/dbutil"
-	"storj.io/common/dbutil/pgutil"
-	"storj.io/common/tagsql"
 	"storj.io/storj/multinode"
 	"storj.io/storj/multinode/multinodedb/dbx"
 	"storj.io/storj/multinode/nodes"
 	"storj.io/storj/private/migrate"
+	"storj.io/storj/shared/dbutil"
+	"storj.io/storj/shared/dbutil/pgutil"
+	"storj.io/storj/shared/tagsql"
 )
 
 var (
@@ -56,7 +56,7 @@ func Open(ctx context.Context, log *zap.Logger, databaseURL string) (*DB, error)
 	case dbutil.SQLite3:
 		source = sqlite3SetDefaultOptions(source)
 	case dbutil.Postgres:
-		source, err = pgutil.CheckApplicationName(source, "multinode")
+		source, err = pgutil.EnsureApplicationName(source, "multinode")
 		if err != nil {
 			return nil, err
 		}

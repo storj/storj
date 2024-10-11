@@ -4,6 +4,7 @@
 package piecestore
 
 import (
+	"bytes"
 	"context"
 	"errors"
 	"fmt"
@@ -11,6 +12,8 @@ import (
 	"io/fs"
 	"net"
 	"os"
+	"reflect"
+	"runtime/trace"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -20,19 +23,18 @@ import (
 	"go.uber.org/zap"
 	"golang.org/x/sync/errgroup"
 
-	"storj.io/common/bloomfilter"
 	"storj.io/common/context2"
 	"storj.io/common/errs2"
 	"storj.io/common/identity"
 	"storj.io/common/memory"
 	"storj.io/common/pb"
 	"storj.io/common/rpc/rpcstatus"
-	"storj.io/common/rpc/rpctimeout"
 	"storj.io/common/signing"
 	"storj.io/common/storj"
 	"storj.io/common/sync2"
 	"storj.io/drpc"
 	"storj.io/drpc/drpcctx"
+	"storj.io/storj/shared/bloomfilter"
 	"storj.io/storj/storagenode/bandwidth"
 	"storj.io/storj/storagenode/blobstore/filestore"
 	"storj.io/storj/storagenode/monitor"
@@ -70,8 +72,8 @@ type Config struct {
 	CacheSyncInterval       time.Duration `help:"how often the space used cache is synced to persistent storage" releaseDefault:"1h0m0s" devDefault:"0h1m0s"`
 	PieceScanOnStartup      bool          `help:"if set to true, all pieces disk usage is recalculated on startup" default:"true"`
 	StreamOperationTimeout  time.Duration `help:"how long to spend waiting for a stream operation before canceling" default:"30m"`
-	RetainTimeBuffer        time.Duration `help:"allows for small differences in the satellite and storagenode clocks" default:"48h0m0s"`
-	ReportCapacityThreshold memory.Size   `help:"threshold below which to immediately notify satellite of capacity" default:"500MB" hidden:"true"`
+	RetainTimeBuffer        time.Duration `help:"allows for small differences in the satellite and storagenode clocks" default:"48h0m0s" deprecated:"true"`
+	ReportCapacityThreshold memory.Size   `help:"threshold below which to immediately notify satellite of capacity" default:"5GB" hidden:"true"`
 	MaxUsedSerialsSize      memory.Size   `help:"amount of memory allowed for used serials store - once surpassed, serials will be dropped at random" default:"1MB"`
 
 	MinUploadSpeed                    memory.Size   `help:"a client upload speed should not be lower than MinUploadSpeed in bytes-per-second (E.g: 1Mb), otherwise, it will be flagged as slow-connection and potentially be closed" default:"0Mb"`
@@ -84,7 +86,8 @@ type Config struct {
 	Orders  orders.Config
 }
 
-type pingStatsSource interface {
+// PingStatsSource stores the last time when the target was pinged.
+type PingStatsSource interface {
 	WasPinged(when time.Time)
 }
 
@@ -101,12 +104,12 @@ type Endpoint struct {
 	trust     *trust.Pool
 	monitor   *monitor.Service
 	retain    *retain.Service
-	pingStats pingStatsSource
+	pingStats PingStatsSource
 
 	store        *pieces.Store
 	trashChore   *pieces.TrashChore
-	ordersStore  *orders.FileStore
 	usage        bandwidth.DB
+	ordersStore  *orders.FileStore
 	usedSerials  *usedserials.Table
 	pieceDeleter *pieces.Deleter
 
@@ -114,7 +117,7 @@ type Endpoint struct {
 }
 
 // NewEndpoint creates a new piecestore endpoint.
-func NewEndpoint(log *zap.Logger, ident *identity.FullIdentity, trust *trust.Pool, monitor *monitor.Service, retain *retain.Service, pingStats pingStatsSource, store *pieces.Store, trashChore *pieces.TrashChore, pieceDeleter *pieces.Deleter, ordersStore *orders.FileStore, usage bandwidth.DB, usedSerials *usedserials.Table, config Config) (*Endpoint, error) {
+func NewEndpoint(log *zap.Logger, ident *identity.FullIdentity, trust *trust.Pool, monitor *monitor.Service, retain *retain.Service, pingStats PingStatsSource, store *pieces.Store, trashChore *pieces.TrashChore, pieceDeleter *pieces.Deleter, ordersStore *orders.FileStore, usage bandwidth.DB, usedSerials *usedserials.Table, config Config) (*Endpoint, error) {
 	return &Endpoint{
 		log:    log,
 		config: config,
@@ -267,11 +270,31 @@ func (endpoint *Endpoint) Exists(
 	}, nil
 }
 
+var (
+	monUploadHandleMessage      = mon.TaskNamed("upload-handle-message")
+	monPieceWriterWrite         = mon.TaskNamed("piece-writer-write")
+	monUploadStreamRecv         = mon.TaskNamed("upload-stream-recv")
+	monUploadStreamSendAndClose = mon.TaskNamed("upload-stream-send-and-close")
+)
+
 // Upload handles uploading a piece on piece store.
 func (endpoint *Endpoint) Upload(stream pb.DRPCPiecestore_UploadStream) (err error) {
 	ctx := stream.Context()
 	defer monLiveRequests(&ctx)(&err)
 	defer mon.Task()(&ctx)(&err)
+
+	if trace.IsEnabled() {
+		if tr, ok := drpcctx.Transport(ctx); ok {
+			if conn, ok := tr.(net.Conn); ok {
+				trace.Logf(ctx, "connection-info", "local:%v remote:%v", conn.LocalAddr(), conn.RemoteAddr())
+			}
+		}
+	}
+
+	cancelStream, ok := getCanceler(stream)
+	if !ok {
+		return rpcstatus.Error(rpcstatus.Unavailable, "stream does not support canceling")
+	}
 
 	liveRequests := atomic.AddInt32(&endpoint.liveRequests, 1)
 	defer atomic.AddInt32(&endpoint.liveRequests, -1)
@@ -291,15 +314,16 @@ func (endpoint *Endpoint) Upload(stream pb.DRPCPiecestore_UploadStream) (err err
 
 	// TODO: set maximum message size
 
-	// N.B.: we are only allowed to use message if the returned error is nil. it would be
-	// a race condition otherwise as Run does not wait for the closure to exit.
-	var message *pb.PieceUploadRequest
-	err = rpctimeout.Run(ctx, endpoint.config.StreamOperationTimeout, func(_ context.Context) (err error) {
-		message, err = stream.Recv()
-		return err
-	})
+	message, err := withTimeout(ctx, endpoint.config.StreamOperationTimeout, cancelStream,
+		func(ctx context.Context) (_ *pb.PieceUploadRequest, err error) {
+			return stream.Recv()
+		})
 	switch {
 	case err != nil:
+		if errs2.IsCanceled(err) || errors.Is(err, io.ErrUnexpectedEOF) {
+			return rpcstatus.Wrap(rpcstatus.Canceled, err)
+		}
+		endpoint.log.Error("upload internal error", zap.Error(err))
 		return rpcstatus.Wrap(rpcstatus.Internal, err)
 	case message == nil:
 		return rpcstatus.Error(rpcstatus.InvalidArgument, "expected a message")
@@ -319,6 +343,7 @@ func (endpoint *Endpoint) Upload(stream pb.DRPCPiecestore_UploadStream) (err err
 
 	availableSpace, err := endpoint.monitor.AvailableSpace(ctx)
 	if err != nil {
+		endpoint.log.Error("upload internal error", zap.Error(err))
 		return rpcstatus.Wrap(rpcstatus.Internal, err)
 	}
 	// if availableSpace has fallen below ReportCapacityThreshold, report capacity to satellites
@@ -369,9 +394,8 @@ func (endpoint *Endpoint) Upload(stream pb.DRPCPiecestore_UploadStream) (err err
 			mon.IntVal("upload_failure_size_bytes").Observe(uploadSize)
 			mon.IntVal("upload_failure_duration_ns").Observe(uploadDuration)
 			mon.FloatVal("upload_failure_rate_bytes_per_sec").Observe(uploadRate)
-			if errors.Is(err, context.Canceled) {
-				// Context cancellation is common in normal operation, and shouldn't throw a full error.
-				log.Info("upload canceled (race lost or node shutdown)")
+			if errors.Is(err, context.Canceled) || errors.Is(err, io.ErrUnexpectedEOF) || rpcstatus.Code(err) == rpcstatus.Canceled {
+				// This is common in normal operation, and shouldn't throw a full error.
 				log.Debug("upload failed", zap.Int64("Size", uploadSize), zap.Error(err))
 
 			} else {
@@ -393,6 +417,7 @@ func (endpoint *Endpoint) Upload(stream pb.DRPCPiecestore_UploadStream) (err err
 
 	pieceWriter, err = endpoint.store.Writer(ctx, limit.SatelliteId, limit.PieceId, hashAlgorithm)
 	if err != nil {
+		endpoint.log.Error("upload internal error", zap.Error(err))
 		return rpcstatus.Wrap(rpcstatus.Internal, err)
 	}
 	defer func() {
@@ -408,7 +433,7 @@ func (endpoint *Endpoint) Upload(stream pb.DRPCPiecestore_UploadStream) (err err
 	// Ensure that the order is saved even in the face of an error. In the
 	// success path, the order will be saved just before sending the response
 	// and closing the stream (in which case, orderSaved will be true).
-	commitOrderToStore, err := endpoint.beginSaveOrder(limit)
+	commitOrderToStore, err := endpoint.beginSaveOrder(ctx, limit)
 	if err != nil {
 		return rpcstatus.Wrap(rpcstatus.InvalidArgument, err)
 	}
@@ -424,6 +449,8 @@ func (endpoint *Endpoint) Upload(stream pb.DRPCPiecestore_UploadStream) (err err
 	}
 
 	handleMessage := func(ctx context.Context, message *pb.PieceUploadRequest) (done bool, err error) {
+		defer monUploadHandleMessage(&ctx)(&err)
+
 		if message.Order != nil {
 			if err := endpoint.VerifyOrder(ctx, limit, message.Order, largestOrder.Amount); err != nil {
 				return true, err
@@ -448,7 +475,15 @@ func (endpoint *Endpoint) Upload(stream pb.DRPCPiecestore_UploadStream) (err err
 			if availableSpace < 0 {
 				return true, rpcstatus.Error(rpcstatus.Internal, "out of space")
 			}
-			if _, err := pieceWriter.Write(message.Chunk.Data); err != nil {
+
+			err := func() (err error) {
+				defer monPieceWriterWrite(&ctx)(&err)
+
+				_, err = pieceWriter.Write(message.Chunk.Data)
+				return err
+			}()
+			if err != nil {
+				endpoint.log.Error("upload internal error", zap.Error(err))
 				return true, rpcstatus.Wrap(rpcstatus.Internal, err)
 			}
 		}
@@ -463,6 +498,7 @@ func (endpoint *Endpoint) Upload(stream pb.DRPCPiecestore_UploadStream) (err err
 
 		calculatedHash := pieceWriter.Hash()
 		if err := endpoint.VerifyPieceHash(ctx, limit, message.Done, calculatedHash); err != nil {
+			endpoint.log.Error("upload internal error", zap.Error(err))
 			return true, rpcstatus.Wrap(rpcstatus.Internal, err)
 		}
 		if message.Done.PieceSize != pieceWriter.Size() {
@@ -480,12 +516,13 @@ func (endpoint *Endpoint) Upload(stream pb.DRPCPiecestore_UploadStream) (err err
 				OrderLimit:    *limit,
 			}
 			if err := pieceWriter.Commit(ctx, info); err != nil {
+				endpoint.log.Error("upload internal error", zap.Error(err))
 				return true, rpcstatus.Wrap(rpcstatus.Internal, err)
 			}
 			committed = true
 			if !limit.PieceExpiration.IsZero() {
-				err := endpoint.store.SetExpiration(ctx, limit.SatelliteId, limit.PieceId, limit.PieceExpiration)
-				if err != nil {
+				if err := endpoint.store.SetExpiration(ctx, limit.SatelliteId, limit.PieceId, limit.PieceExpiration, pieceWriter.Size()); err != nil {
+					endpoint.log.Error("upload internal error", zap.Error(err))
 					return true, rpcstatus.Wrap(rpcstatus.Internal, err)
 				}
 			}
@@ -499,18 +536,27 @@ func (endpoint *Endpoint) Upload(stream pb.DRPCPiecestore_UploadStream) (err err
 			Timestamp:     time.Now(),
 		})
 		if err != nil {
+			endpoint.log.Error("upload internal error", zap.Error(err))
 			return true, rpcstatus.Wrap(rpcstatus.Internal, err)
 		}
 
-		closeErr := rpctimeout.Run(ctx, endpoint.config.StreamOperationTimeout, func(_ context.Context) (err error) {
-			return stream.SendAndClose(&pb.PieceUploadResponse{
-				Done:          storageNodeHash,
-				NodeCertchain: identity.EncodePeerIdentity(endpoint.ident.PeerIdentity())})
-		})
+		_, closeErr := withTimeout(ctx, endpoint.config.StreamOperationTimeout, cancelStream,
+			func(ctx context.Context) (_ any, err error) {
+				defer monUploadStreamSendAndClose(&ctx)(&err)
+
+				return nil, stream.SendAndClose(&pb.PieceUploadResponse{
+					Done:          storageNodeHash,
+					NodeCertchain: identity.EncodePeerIdentity(endpoint.ident.PeerIdentity()),
+				})
+			})
 		if errs.Is(closeErr, io.EOF) {
 			closeErr = nil
 		}
 		if closeErr != nil {
+			if errs2.IsCanceled(closeErr) {
+				return true, rpcstatus.Wrap(rpcstatus.Canceled, closeErr)
+			}
+			endpoint.log.Error("upload internal error", zap.Error(closeErr))
 			return true, rpcstatus.Wrap(rpcstatus.Internal, closeErr)
 		}
 		return true, nil
@@ -527,15 +573,20 @@ func (endpoint *Endpoint) Upload(stream pb.DRPCPiecestore_UploadStream) (err err
 		}
 
 		// TODO: reuse messages to avoid allocations
-		// N.B.: we are only allowed to use message if the returned error is nil. it would be
-		// a race condition otherwise as Run does not wait for the closure to exit.
-		err = rpctimeout.Run(ctx, endpoint.config.StreamOperationTimeout, func(_ context.Context) (err error) {
-			message, err = stream.Recv()
-			return err
-		})
-		if errs.Is(err, io.EOF) {
-			return rpcstatus.Error(rpcstatus.InvalidArgument, "unexpected EOF")
+
+		message, err := withTimeout(ctx, endpoint.config.StreamOperationTimeout, cancelStream,
+			func(ctx context.Context) (_ *pb.PieceUploadRequest, err error) {
+				defer monUploadStreamRecv(&ctx)(&err)
+
+				return stream.Recv()
+			})
+		if errs.Is(err, io.EOF) || errors.Is(err, io.ErrUnexpectedEOF) {
+			return rpcstatus.Error(rpcstatus.Aborted, "unexpected EOF")
 		} else if err != nil {
+			if errs2.IsCanceled(err) {
+				return rpcstatus.Wrap(rpcstatus.Canceled, err)
+			}
+			endpoint.log.Error("upload internal error", zap.Error(err))
 			return rpcstatus.Wrap(rpcstatus.Internal, err)
 		}
 		if message == nil {
@@ -565,6 +616,19 @@ func (endpoint *Endpoint) Download(stream pb.DRPCPiecestore_DownloadStream) (err
 	defer monLiveRequests(&ctx)(&err)
 	defer mon.Task()(&ctx)(&err)
 
+	if trace.IsEnabled() {
+		if tr, ok := drpcctx.Transport(ctx); ok {
+			if conn, ok := tr.(net.Conn); ok {
+				trace.Logf(ctx, "connection-info", "local:%v remote:%v", conn.LocalAddr(), conn.RemoteAddr())
+			}
+		}
+	}
+
+	cancelStream, ok := getCanceler(stream)
+	if !ok {
+		return rpcstatus.Error(rpcstatus.Unavailable, "stream does not support canceling")
+	}
+
 	atomic.AddInt32(&endpoint.liveRequests, 1)
 	defer atomic.AddInt32(&endpoint.liveRequests, -1)
 
@@ -574,13 +638,10 @@ func (endpoint *Endpoint) Download(stream pb.DRPCPiecestore_DownloadStream) (err
 
 	// TODO: set maximum message size
 
-	var message *pb.PieceDownloadRequest
-	// N.B.: we are only allowed to use message if the returned error is nil. it would be
-	// a race condition otherwise as Run does not wait for the closure to exit.
-	err = rpctimeout.Run(ctx, endpoint.config.StreamOperationTimeout, func(_ context.Context) (err error) {
-		message, err = stream.Recv()
-		return err
-	})
+	message, err := withTimeout(ctx, endpoint.config.StreamOperationTimeout, cancelStream,
+		func(ctx context.Context) (_ *pb.PieceDownloadRequest, err error) {
+			return stream.Recv()
+		})
 	if err != nil {
 		return rpcstatus.Wrap(rpcstatus.Internal, err)
 	}
@@ -638,13 +699,39 @@ func (endpoint *Endpoint) Download(stream pb.DRPCPiecestore_DownloadStream) (err
 			downloadRate = float64(downloadSize) / dt.Seconds()
 		}
 		downloadDuration := dt.Nanoseconds()
+		// NOTE: Check if the `switch` statement inside of this conditional block must be updated if you
+		// change this condition.
 		if errs2.IsCanceled(err) || drpc.ClosedError.Has(err) || (err == nil && chunk.ChunkSize != downloadSize) {
 			mon.Counter("download_cancel_count", actionSeriesTag).Inc(1)
 			mon.Meter("download_cancel_byte_meter", actionSeriesTag).Mark64(downloadSize)
 			mon.IntVal("download_cancel_size_bytes", actionSeriesTag).Observe(downloadSize)
 			mon.IntVal("download_cancel_duration_ns", actionSeriesTag).Observe(downloadDuration)
 			mon.FloatVal("download_cancel_rate_bytes_per_sec", actionSeriesTag).Observe(downloadRate)
-			log.Info("download canceled")
+
+			var reason string
+
+			// NOTE: This switch must capture all the possible reasons for a download to be canceled and
+			// set the `reason` variable to an appropriate message in order of never reaching the
+			// `default` case.
+			switch {
+			case errs2.IsCanceled(err):
+				reason = "context canceled"
+			case drpc.ClosedError.Has(err):
+				reason = "stream closed by peer"
+			case (err == nil && chunk.ChunkSize != downloadSize):
+				reason = fmt.Sprintf(
+					"downloaded size (%d bytes) does not match received message size (%d bytes)", downloadSize, chunk.ChunkSize,
+				)
+			default:
+				// This counter should always be 0, if it's not, it means that there is a bug in the code.
+				// If we found that's greater than 0 and we change the code to potentially fix the bug, then
+				// we should increment the counter's name post fix vX as a way to reset back to 0 to see if
+				// the new changes fixed the bug.
+				mon.Counter("download_cancel_unknown_reason_v1", actionSeriesTag).Inc(1)
+				reason = "unknown reason bug in code, please report"
+			}
+
+			log.Info("download canceled", zap.String("reason", reason))
 		} else if err != nil {
 			mon.Counter("download_failure_count", actionSeriesTag).Inc(1)
 			mon.Meter("download_failure_byte_meter", actionSeriesTag).Mark64(downloadSize)
@@ -687,7 +774,7 @@ func (endpoint *Endpoint) Download(stream pb.DRPCPiecestore_DownloadStream) (err
 			return rpcstatus.Wrap(rpcstatus.NotFound, err)
 		}
 		restoredFromTrash = true
-		mon.Meter("download_file_in_trash", monkit.NewSeriesTag("namespace", limit.SatelliteId.String()), monkit.NewSeriesTag("piece_id", limit.PieceId.String())).Mark(1)
+		mon.Meter("download_file_in_trash", monkit.NewSeriesTag("namespace", limit.SatelliteId.String())).Mark(1)
 		filestore.MonFileInTrash(limit.SatelliteId[:]).Mark(1)
 		log.Warn("file found in trash")
 
@@ -717,18 +804,26 @@ func (endpoint *Endpoint) Download(stream pb.DRPCPiecestore_DownloadStream) (err
 			return rpcstatus.Wrap(rpcstatus.Internal, err)
 		}
 
-		err = rpctimeout.Run(ctx, endpoint.config.StreamOperationTimeout, func(_ context.Context) (err error) {
-			return stream.Send(&pb.PieceDownloadResponse{Hash: &pieceHash, Limit: &orderLimit, RestoredFromTrash: restoredFromTrash})
-		})
+		_, err = withTimeout(ctx, endpoint.config.StreamOperationTimeout, cancelStream,
+			func(ctx context.Context) (_ any, err error) {
+				return nil, stream.Send(&pb.PieceDownloadResponse{
+					Hash:              &pieceHash,
+					Limit:             &orderLimit,
+					RestoredFromTrash: restoredFromTrash,
+				})
+			})
 		if err != nil {
 			log.Error("error sending hash and order limit", zap.Error(err))
 			return rpcstatus.Wrap(rpcstatus.Internal, err)
 		}
 	} else if restoredFromTrash {
 		// notify that the piece was restored from trash
-		err = rpctimeout.Run(ctx, endpoint.config.StreamOperationTimeout, func(_ context.Context) (err error) {
-			return stream.Send(&pb.PieceDownloadResponse{RestoredFromTrash: restoredFromTrash})
-		})
+		_, err = withTimeout(ctx, endpoint.config.StreamOperationTimeout, cancelStream,
+			func(ctx context.Context) (_ any, err error) {
+				return nil, stream.Send(&pb.PieceDownloadResponse{
+					RestoredFromTrash: restoredFromTrash,
+				})
+			})
 		if err != nil {
 			log.Error("error sending response", zap.Error(err))
 			return rpcstatus.Wrap(rpcstatus.Internal, err)
@@ -776,7 +871,7 @@ func (endpoint *Endpoint) Download(stream pb.DRPCPiecestore_DownloadStream) (err
 	})
 
 	recvErr := func() (err error) {
-		commitOrderToStore, err := endpoint.beginSaveOrder(limit)
+		commitOrderToStore, err := endpoint.beginSaveOrder(ctx, limit)
 		if err != nil {
 			return err
 		}
@@ -812,12 +907,10 @@ func (endpoint *Endpoint) Download(stream pb.DRPCPiecestore_DownloadStream) (err
 		}
 
 		for {
-			// N.B.: we are only allowed to use message if the returned error is nil. it would be
-			// a race condition otherwise as Run does not wait for the closure to exit.
-			err = rpctimeout.Run(ctx, endpoint.config.StreamOperationTimeout, func(_ context.Context) (err error) {
-				message, err = stream.Recv()
-				return err
-			})
+			message, err := withTimeout(ctx, endpoint.config.StreamOperationTimeout, cancelStream,
+				func(ctx context.Context) (_ *pb.PieceDownloadRequest, err error) {
+					return stream.Recv()
+				})
 			if errs.Is(err, io.EOF) {
 				// err is io.EOF or canceled when uplink closed the connection, no need to return error
 				return nil
@@ -846,6 +939,12 @@ func (endpoint *Endpoint) Download(stream pb.DRPCPiecestore_DownloadStream) (err
 
 func (endpoint *Endpoint) sendData(ctx context.Context, log *zap.Logger, stream pb.DRPCPiecestore_DownloadStream, pieceReader *pieces.Reader, currentOffset int64, chunkSize int64) (result bool, err error) {
 	defer mon.Task()(&ctx)(&err)
+
+	cancelStream, ok := getCanceler(stream)
+	if !ok {
+		return true, rpcstatus.Error(rpcstatus.Unavailable, "stream does not support canceling")
+	}
+
 	chunkData := make([]byte, chunkSize)
 	_, err = pieceReader.Seek(currentOffset, io.SeekStart)
 	if err != nil {
@@ -860,14 +959,15 @@ func (endpoint *Endpoint) sendData(ctx context.Context, log *zap.Logger, stream 
 		return true, rpcstatus.Wrap(rpcstatus.Internal, err)
 	}
 
-	err = rpctimeout.Run(ctx, endpoint.config.StreamOperationTimeout, func(_ context.Context) (err error) {
-		return stream.Send(&pb.PieceDownloadResponse{
-			Chunk: &pb.PieceDownloadResponse_Chunk{
-				Offset: currentOffset,
-				Data:   chunkData,
-			},
+	_, err = withTimeout(ctx, endpoint.config.StreamOperationTimeout, cancelStream,
+		func(ctx context.Context) (_ any, err error) {
+			return nil, stream.Send(&pb.PieceDownloadResponse{
+				Chunk: &pb.PieceDownloadResponse_Chunk{
+					Offset: currentOffset,
+					Data:   chunkData,
+				},
+			})
 		})
-	})
 	if errs.Is(err, io.EOF) {
 		// err is io.EOF when uplink asked for a piece, but decided not to retrieve it,
 		// no need to propagate it
@@ -879,9 +979,11 @@ func (endpoint *Endpoint) sendData(ctx context.Context, log *zap.Logger, stream 
 	return false, nil
 }
 
+var monBeginSaveOrder = mon.Task()
+
 // beginSaveOrder saves the order with all necessary information. It assumes it has been already verified.
-func (endpoint *Endpoint) beginSaveOrder(limit *pb.OrderLimit) (_commit func(ctx context.Context, order *pb.Order, amountFunc func() int64), err error) {
-	defer mon.Task()(nil)(&err)
+func (endpoint *Endpoint) beginSaveOrder(ctx context.Context, limit *pb.OrderLimit) (_commit func(ctx context.Context, order *pb.Order, amountFunc func() int64), err error) {
+	defer monBeginSaveOrder(&ctx)(&err)
 
 	commit, err := endpoint.ordersStore.BeginEnqueue(limit.SatelliteId, limit.OrderCreation)
 	if err != nil {
@@ -961,6 +1063,18 @@ func (endpoint *Endpoint) Retain(ctx context.Context, retainReq *pb.RetainReques
 	if err != nil {
 		return nil, rpcstatus.Errorf(rpcstatus.PermissionDenied, "retain called with untrusted ID")
 	}
+
+	if len(retainReq.Hash) > 0 {
+		hasher := pb.NewHashFromAlgorithm(retainReq.HashAlgorithm)
+		_, err := hasher.Write(retainReq.GetFilter())
+		if err != nil {
+			return nil, rpcstatus.Wrap(rpcstatus.Internal, err)
+		}
+		if !bytes.Equal(retainReq.Hash, hasher.Sum(nil)) {
+			return nil, rpcstatus.Wrap(rpcstatus.Internal, errs.New("hash mismatch"))
+		}
+	}
+
 	return endpoint.processRetainReq(peer.ID, retainReq)
 }
 
@@ -975,11 +1089,7 @@ func (endpoint *Endpoint) processRetainReq(peerID storj.NodeID, retainReq *pb.Re
 	mon.IntVal("retain_creation_date").Observe(retainReq.CreationDate.Unix())
 
 	// the queue function will update the created before time based on the configurable retain buffer
-	queued := endpoint.retain.Queue(retain.Request{
-		SatelliteID:   peerID,
-		CreatedBefore: retainReq.GetCreationDate(),
-		Filter:        filter,
-	})
+	queued := endpoint.retain.Queue(peerID, retainReq)
 	if queued {
 		endpoint.log.Info("Retain job queued", zap.Stringer("Satellite ID", peerID))
 	} else {
@@ -1082,4 +1192,52 @@ func getRemoteAddr(ctx context.Context) string {
 		}
 	}
 	return ""
+}
+
+// getCanceler takes in a drpc.Stream and returns the first `Cancel(err) bool` method found during
+// unwrapping the stream with the `Stream() drpc.Stream` method.
+func getCanceler(stream drpc.Stream) (func(error) bool, bool) {
+	for {
+		canceler, ok := stream.(interface{ Cancel(err error) bool })
+		if ok {
+			return canceler.Cancel, true
+		}
+
+		// try to unwrap with GetStream if possible
+		streamer, ok := stream.(interface{ GetStream() drpc.Stream })
+		if ok {
+			stream = streamer.GetStream()
+			continue
+		}
+
+		// try to unwrap by looking for a Stream field
+		next, ok := func() (s drpc.Stream, ok bool) {
+			defer func() { _ = recover() }()
+			s, ok = reflect.ValueOf(stream).Elem().FieldByName("Stream").Interface().(drpc.Stream)
+			return s, ok
+		}()
+		if ok {
+			stream = next
+			continue
+		}
+
+		return nil, false
+	}
+}
+
+// withTimeout runs fn and calls cancel in its own goroutine after the timeout has passed or the
+// parent context is canceled. It only ever returns the error from fn.
+func withTimeout[T any](ctx context.Context, timeout time.Duration, cancel func(error) bool, fn func(context.Context) (T, error)) (T, error) {
+	ctx, cleanup := context.WithTimeout(ctx, timeout)
+	defer cleanup()
+
+	var once sync.Once
+	defer once.Do(func() {})
+
+	go func() {
+		<-ctx.Done()
+		once.Do(func() { cancel(ctx.Err()) })
+	}()
+
+	return fn(ctx)
 }

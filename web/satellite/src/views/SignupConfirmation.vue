@@ -4,44 +4,43 @@
 <template>
     <v-container v-if="!codeActivationEnabled" class="fill-height" fluid>
         <v-row justify="center" align="center">
-            <v-col class="text-center py-5" cols="12">
-                <icon-blue-checkmark />
-                <h2 class="my-3">You are almost ready to use Storj</h2>
-                <p>
-                    A verification email has been sent to your email
-                    <span class="font-weight-bold">{{ userEmail }}</span>
-                </p>
-                <p>
-                    Check your inbox to activate your account and get started.
-                </p>
-                <v-btn
-                    class="mt-7"
-                    size="large"
-                    :disabled="secondsToWait !== 0"
-                    :loading="isLoading"
-                    @click="resendMail"
-                >
-                    <template v-if="secondsToWait !== 0">
-                        Resend in {{ timeToEnableResendEmailButton }}
-                    </template>
-                    <template v-else>
-                        Resend Verification Email
-                    </template>
-                </v-btn>
-            </v-col>
+            <v-col cols="12" sm="9" md="7" lg="5" xl="4" xxl="3">
+                <v-card class="pa-2 pa-sm-7">
+                    <h2 class="mb-3">You are almost ready to use Storj</h2>
+                    <p>
+                        A verification email has been sent to your email
+                        <span class="font-weight-bold">{{ userEmail }}</span>
+                    </p>
+                    <p>
+                        Check your inbox to activate your account and get started.
+                    </p>
+                    <v-btn
+                        class="my-5"
+                        size="large"
+                        :disabled="secondsToWait !== 0"
+                        :loading="isLoading"
+                        @click="onResendClick"
+                    >
+                        <template v-if="secondsToWait !== 0">
+                            Resend in {{ timeToEnableResendEmailButton }}
+                        </template>
+                        <template v-else>
+                            Resend Verification Email
+                        </template>
+                    </v-btn>
 
-            <v-col cols="12">
-                <p class="text-center text-body-2">
-                    Or <a
-                        class="link"
-                        href="https://supportdcs.storj.io/hc/en-us/requests/new"
-                        target="_blank"
-                        rel="noopener noreferrer"
-                    >contact our support team</a>
-                </p>
+                    <p class="text-body-2">
+                        Or <a
+                            class="link"
+                            href="https://supportdcs.storj.io/hc/en-us/requests/new"
+                            target="_blank"
+                            rel="noopener noreferrer"
+                        >contact the Storj support team</a>
+                    </p>
+                </v-card>
             </v-col>
             <v-col cols="12">
-                <p class="text-center text-body-2"><router-link class="link" :to="ROUTES.Login.path">Go to login page</router-link></p>
+                <p class="text-center text-body-2"><router-link class="link font-weight-bold" :to="ROUTES.Login.path">Go to Login</router-link></p>
             </v-col>
         </v-row>
     </v-container>
@@ -50,6 +49,17 @@
             <v-col cols="12" sm="9" md="7" lg="5" xl="4" xxl="3">
                 <v-card title="Check your inbox" class="pa-2 pa-sm-7">
                     <v-card-text>
+                        <v-alert
+                            v-if="isUnauthorizedMessageShown"
+                            variant="tonal"
+                            color="error"
+                            title="Invalid Code"
+                            text="Account activation failed. If you are sure your code is correct, please check your email inbox for a notification with further instructions."
+                            rounded="lg"
+                            density="comfortable"
+                            class="mt-1 mb-3"
+                            border
+                        />
                         <p>Enter the 6 digit confirmation code you received in your email to verify your account:</p>
                         <v-form @submit.prevent="verifyCode">
                             <v-card class="my-4" rounded="lg" color="secondary" variant="outlined">
@@ -78,7 +88,7 @@
                 </v-card>
                 <p class="pt-9 text-center text-body-2">
                     Didn't receive a verification email?
-                    <a class="link" @click="resendMail">
+                    <a class="link" @click="onResendClick">
                         <template v-if="secondsToWait !== 0">
                             Resend in {{ timeToEnableResendEmailButton }}
                         </template>
@@ -90,10 +100,21 @@
             </v-col>
         </v-row>
     </v-container>
+    <VueHcaptcha
+        v-if="captchaConfig?.hcaptcha.enabled"
+        ref="hcaptcha"
+        :sitekey="captchaConfig.hcaptcha.siteKey"
+        :re-captcha-compat="false"
+        size="invisible"
+        @verify="onCaptchaVerified"
+        @expired="onCaptchaError"
+        @error="onCaptchaError"
+    />
 </template>
 
 <script setup lang="ts">
 import { computed, onBeforeUnmount, onMounted, ref } from 'vue';
+import VueHcaptcha from '@hcaptcha/vue3-hcaptcha';
 import { useRoute, useRouter } from 'vue-router';
 import {
     VBtn,
@@ -104,6 +125,7 @@ import {
     VForm,
     VRow,
     VOtpInput,
+    VAlert,
 } from 'vuetify/components';
 
 import { useNotify } from '@/utils/hooks';
@@ -117,8 +139,7 @@ import { useAnalyticsStore } from '@/store/modules/analyticsStore';
 import { useAppStore } from '@/store/modules/appStore';
 import { AnalyticsEvent } from '@/utils/constants/analyticsEventNames';
 import { ROUTES } from '@/router';
-
-import IconBlueCheckmark from '@/components/icons/IconBlueCheckmark.vue';
+import { MultiCaptchaConfig } from '@/types/config.gen';
 
 const props = withDefaults(defineProps<{
     email?: string;
@@ -141,14 +162,55 @@ const notify = useNotify();
 
 const { isLoading, withLoading } = useLoading();
 
+const captchaResponseToken = ref('');
+const captchaError = ref(false);
+const hcaptcha = ref<VueHcaptcha | null>(null);
+
 const code = ref('');
 const signupId = ref<string>(props.signupReqId || '');
+const isUnauthorizedMessageShown = ref<boolean>(false);
 const isError = ref(false);
 const secondsToWait = ref<number>(30);
 const intervalId = ref<ReturnType<typeof setInterval>>();
 
 const userEmail = computed((): string => {
     return props.email || decodeURIComponent(route.query.email?.toString() || '') || '';
+});
+
+/**
+ * Holds on resend email button click logic.
+ */
+async function onResendClick(): Promise<void> {
+    if (hcaptcha.value && !captchaResponseToken.value) {
+        hcaptcha.value?.execute();
+        return;
+    }
+
+    resendMail();
+}
+
+/**
+ * Handles captcha verification response.
+ */
+function onCaptchaVerified(response: string): void {
+    captchaResponseToken.value = response;
+    captchaError.value = false;
+    resendMail();
+}
+
+/**
+ * Handles captcha error and expiry.
+ */
+function onCaptchaError(): void {
+    captchaResponseToken.value = '';
+    captchaError.value = true;
+}
+
+/**
+ * This component's captcha configuration.
+ */
+const captchaConfig = computed((): MultiCaptchaConfig | undefined => {
+    return configStore.state.config.captcha?.registration;
 });
 
 /**
@@ -190,11 +252,14 @@ function resendMail(): void {
         }
 
         try {
-            signupId.value = await auth.resendEmail(email);
+            signupId.value = await auth.resendEmail(email, captchaResponseToken.value);
             code.value = '';
         } catch (error) {
             notify.notifyError(error);
         }
+
+        hcaptcha.value?.reset();
+        captchaResponseToken.value = '';
 
         startResendEmailCountdown();
     });
@@ -223,7 +288,7 @@ function verifyCode(): void {
             LocalData.setSessionExpirationDate(tokenInfo.expiresAt);
         } catch (error) {
             if (error instanceof ErrorUnauthorized) {
-                notify.notifyError(new Error('Invalid code'));
+                isUnauthorizedMessageShown.value = true;
                 return;
             }
             notify.notifyError(error);
@@ -234,7 +299,6 @@ function verifyCode(): void {
         analyticsStore.eventTriggered(AnalyticsEvent.USER_SIGN_UP);
         appStore.toggleHasJustLoggedIn(true);
         usersStore.login();
-        analyticsStore.pageVisit(ROUTES.Projects.path);
         await router.push(ROUTES.Projects.path);
     });
 }

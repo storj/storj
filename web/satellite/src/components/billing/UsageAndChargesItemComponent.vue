@@ -2,7 +2,7 @@
 // See LICENSE for copying information.
 
 <template>
-    <v-card rounded="lg" variant="flat" border class="mb-4">
+    <v-card rounded="lg" variant="flat" class="mb-4">
         <v-expansion-panels>
             <v-expansion-panel rounded="lg">
                 <v-expansion-panel-title>
@@ -86,9 +86,9 @@
                             </tr>
                         </tbody>
                     </v-table>
-                    <v-btn class="mt-4" variant="outlined" color="default" size="small" :prepend-icon="mdiCalendar">
+                    <v-btn class="mt-4" variant="outlined" color="default" size="small" rounded="md" :prepend-icon="Calendar">
                         <detailed-usage-report-dialog :project-i-d="projectId" />
-                        Download Report
+                        Detailed Project Report
                     </v-btn>
                 </v-expansion-panel-text>
             </v-expansion-panel>
@@ -109,7 +109,7 @@ import {
     VRow,
     VTable,
 } from 'vuetify/components';
-import { mdiCalendar } from '@mdi/js';
+import { Calendar } from 'lucide-vue-next';
 
 import { CENTS_MB_TO_DOLLARS_GB_SHIFT, centsToDollars, decimalShift, formatPrice } from '@/utils/strings';
 import { ProjectCharge, ProjectCharges, ProjectUsagePriceModel } from '@/types/payments';
@@ -118,7 +118,6 @@ import { Size } from '@/utils/bytesSize';
 import { SHORT_MONTHS_NAMES } from '@/utils/constants/date';
 import { useBillingStore } from '@/store/modules/billingStore';
 import { useProjectsStore } from '@/store/modules/projectsStore';
-import { useNotify } from '@/utils/hooks';
 
 import DetailedUsageReportDialog from '@/components/dialogs/DetailedUsageReportDialog.vue';
 
@@ -138,8 +137,6 @@ const props = withDefaults(defineProps<{
 
 const billingStore = useBillingStore();
 const projectsStore = useProjectsStore();
-
-const notify = useNotify();
 
 /**
  * An array of tuples containing the partner name and usage charge for the specified project ID.

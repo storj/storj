@@ -35,6 +35,7 @@ func (config *FilewalkerCfg) DatabaseConfig() storagenodedb.Config {
 		Pieces:    config.Pieces,
 		Filestore: config.Filestore,
 		Driver:    config.Driver,
+		Cache:     config.Cache,
 	}
 }
 

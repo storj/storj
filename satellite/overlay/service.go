@@ -14,12 +14,12 @@ import (
 
 	"storj.io/common/pb"
 	"storj.io/common/storj"
-	"storj.io/common/storj/location"
 	"storj.io/common/sync2"
 	"storj.io/common/version"
 	"storj.io/storj/satellite/geoip"
 	"storj.io/storj/satellite/nodeevents"
 	"storj.io/storj/satellite/nodeselection"
+	"storj.io/storj/shared/location"
 )
 
 // ErrEmptyNode is returned when the nodeID is empty.
@@ -51,8 +51,6 @@ type DB interface {
 	// The return value contains necessary information to create orders as well as nodes'
 	// current reputation status.
 	GetOnlineNodesForAuditRepair(ctx context.Context, nodeIDs []storj.NodeID, onlineWindow time.Duration) (map[storj.NodeID]*NodeReputation, error)
-	// SelectStorageNodes looks up nodes based on criteria
-	SelectStorageNodes(ctx context.Context, totalNeededNodes, newNodeCount int, criteria *NodeCriteria) ([]*nodeselection.SelectedNode, error)
 	// SelectAllStorageNodesUpload returns all nodes that qualify to store data, organized as reputable nodes and new nodes
 	SelectAllStorageNodesUpload(ctx context.Context, selectionCfg NodeSelectionConfig) (reputable, new []*nodeselection.SelectedNode, err error)
 	// SelectAllStorageNodesDownload returns a nodes that are ready for downloading
@@ -192,6 +190,7 @@ type FindStorageNodesRequest struct {
 	ExcludedIDs     []storj.NodeID
 	AlreadySelected []*nodeselection.SelectedNode
 	Placement       storj.PlacementConstraint
+	Requester       storj.NodeID
 }
 
 // NodeCriteria are the requirements for selecting nodes.

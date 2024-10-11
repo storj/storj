@@ -13,13 +13,13 @@ import (
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap/zaptest"
 
-	"storj.io/common/dbutil/tempdb"
 	"storj.io/common/testcontext"
 	"storj.io/common/testrand"
 	migrator "storj.io/storj/cmd/tools/migrate-free-trial"
 	"storj.io/storj/satellite"
 	"storj.io/storj/satellite/console"
 	"storj.io/storj/satellite/satellitedb/satellitedbtest"
+	"storj.io/storj/shared/dbutil/tempdb"
 )
 
 // Test no entries in table doesn't error.
@@ -211,6 +211,9 @@ func test(t *testing.T, prepare func(t *testing.T, ctx *testcontext.Context, db 
 
 	for _, satelliteDB := range satellitedbtest.Databases() {
 		satelliteDB := satelliteDB
+		if satelliteDB.Name == "Spanner" {
+			t.Skip("not implemented for spanner")
+		}
 		t.Run(satelliteDB.Name, func(t *testing.T) {
 			schemaSuffix := satellitedbtest.SchemaSuffix()
 			schema := satellitedbtest.SchemaName(t.Name(), "category", 0, schemaSuffix)

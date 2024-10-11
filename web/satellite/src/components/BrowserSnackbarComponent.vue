@@ -3,9 +3,9 @@
 
 <template>
     <v-snackbar
-        v-model="isObjectsUploadModal"
+        :model-value="isObjectsUploadModal"
         vertical
-        :timeout="4000"
+        :timeout="-1"
         color="default"
         elevation="24"
         rounded="lg"
@@ -20,13 +20,13 @@
                         color="default"
                         rounded="lg"
                     >
-                        <v-expansion-panel-title color="">
+                        <v-expansion-panel-title color="" class="pr-5">
                             <span>{{ statusLabel }}</span>
                             <template v-if="isClosable" #actions>
                                 <v-row class="ma-0 align-center">
-                                    <v-icon v-if="!isExpanded" :icon="mdiChevronUp" class="mr-2" />
-                                    <v-icon v-else :icon="mdiChevronDown" class="mr-2" />
-                                    <v-btn variant="outlined" color="default" size="x-small" :icon="mdiClose" title="Close" @click="closeDialog" />
+                                    <v-icon v-if="!isExpanded" :icon="ChevronUp" class="mr-3" />
+                                    <v-icon v-else :icon="ChevronDown" class="mr-3" />
+                                    <v-btn variant="outlined" color="default" size="x-small" :icon="X" title="Close" @click="closeDialog" />
                                 </v-row>
                             </template>
                         </v-expansion-panel-title>
@@ -48,7 +48,7 @@
                                         <template #activator="{ props: activatorProps }">
                                             <v-icon
                                                 v-bind="activatorProps"
-                                                :icon="mdiCloseCircle"
+                                                :icon="CircleX"
                                                 @click="cancelAll"
                                             />
                                         </template>
@@ -73,7 +73,10 @@
         </v-row>
     </v-snackbar>
 
-    <file-preview-dialog v-model="previewDialog" />
+    <file-preview-dialog
+        v-model="previewDialog"
+        v-model:current-file="fileToPreview"
+    />
 </template>
 
 <script setup lang="ts">
@@ -94,7 +97,7 @@ import {
     VBtn,
 } from 'vuetify/components';
 import { useRouter } from 'vue-router';
-import { mdiChevronDown, mdiChevronUp, mdiClose, mdiCloseCircle } from '@mdi/js';
+import { ChevronDown, ChevronUp, CircleX, X } from 'lucide-vue-next';
 
 import { BrowserObject, UploadingBrowserObject, UploadingStatus, useObjectBrowserStore } from '@/store/modules/objectBrowserStore';
 import { AnalyticsErrorEventSource } from '@/utils/constants/analyticsEventNames';
@@ -121,6 +124,7 @@ const notify = useNotify();
 const startDate = ref<number>(Date.now());
 const isExpanded = ref<boolean>(false);
 const previewDialog = ref<boolean>(false);
+const fileToPreview = ref<BrowserObject | undefined>();
 
 /**
  * Indicates whether objects upload modal should be shown.
@@ -132,7 +136,7 @@ const isObjectsUploadModal = computed<boolean>(() => appStore.state.isUploadingM
  */
 const statusLabel = computed((): string => {
     if (!uploading.value.length) return 'No items to upload';
-    let inProgress = 0, finished = 0, failed = 0, cancelled = 0;
+    let inProgress = 0, failed = 0, cancelled = 0;
     uploading.value.forEach(u => {
         switch (u.status) {
         case UploadingStatus.InProgress:
@@ -143,9 +147,6 @@ const statusLabel = computed((): string => {
             break;
         case UploadingStatus.Cancelled:
             cancelled++;
-            break;
-        default:
-            finished++;
         }
     });
 
@@ -207,7 +208,7 @@ function calculateRemainingTime(): void {
         return;
     }
 
-    remainingTimeString.value = new Duration(remainingNanoseconds).remainingFormatted;
+    remainingTimeString.value = `Estimated time remaining: ${new Duration(remainingNanoseconds).remainingFormatted}`;
 }
 
 /**
@@ -226,7 +227,16 @@ function onFileClick(file: BrowserObject): void {
         return;
     }
 
-    obStore.setObjectPathForModal((file.path ?? '') + file.Key);
+    const objectToPreview = { ...file };
+    const pathParts = objectToPreview.Key.split('/');
+    const key = pathParts.pop();
+    const path = pathParts.length ? `${pathParts.join('/')}/` : '';
+
+    objectToPreview.Key = key ?? file.Key;
+    objectToPreview.path = path;
+
+    obStore.setObjectPathForModal((objectToPreview.path ?? '') + objectToPreview.Key);
+    fileToPreview.value = objectToPreview;
     previewDialog.value = true;
 }
 

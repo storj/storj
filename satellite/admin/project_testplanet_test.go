@@ -64,7 +64,7 @@ func TestAdminProjectGeofenceAPI(t *testing.T) {
 			t.Log(baseGeofenceURL)
 
 			t.Run(testCase.name, func(t *testing.T) {
-				assertReq(ctx, t, baseGeofenceURL+"?region=EU", "POST", "", testCase.status, testCase.body, sat.Config.Console.AuthToken)
+				assertReq(ctx, t, baseGeofenceURL+"?region=EU", "PUT", "", testCase.status, testCase.body, sat.Config.Console.AuthToken)
 
 				if testCase.status == http.StatusOK {
 

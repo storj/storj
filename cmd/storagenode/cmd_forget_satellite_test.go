@@ -67,6 +67,9 @@ func TestCmdForgetSatellite(t *testing.T) {
 		// pause the forget satellite chore
 		planet.StorageNodes[0].ForgetSatellite.Chore.Loop.Pause()
 
+		// TODO(clement): remove this once I figure out why it's flaky
+		planet.StorageNodes[0].NodeStats.Cache.Reputation.Pause()
+
 		address := planet.StorageNodes[0].Server.PrivateAddr().String()
 		log := zaptest.NewLogger(t)
 
@@ -80,7 +83,7 @@ func TestCmdForgetSatellite(t *testing.T) {
 			Namespace: satellite.ID().Bytes(),
 			Key:       testrand.PieceID().Bytes(),
 		}
-		w, err := store.Create(ctx, blobRef, -1)
+		w, err := store.Create(ctx, blobRef)
 		require.NoError(t, err)
 		_, err = w.Write(testrand.Bytes(blobSize))
 		require.NoError(t, err)

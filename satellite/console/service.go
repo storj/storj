@@ -39,7 +39,9 @@ import (
 	"storj.io/storj/satellite/analytics"
 	"storj.io/storj/satellite/buckets"
 	"storj.io/storj/satellite/console/consoleauth"
+	"storj.io/storj/satellite/console/consoleweb/consoleapi/utils"
 	"storj.io/storj/satellite/emission"
+	"storj.io/storj/satellite/kms"
 	"storj.io/storj/satellite/mailservice"
 	"storj.io/storj/satellite/nodeselection"
 	"storj.io/storj/satellite/payments"
@@ -64,6 +66,7 @@ const (
 	emailNotFoundErrMsg                  = "There are no users with the specified email"
 	passwordRecoveryTokenIsExpiredErrMsg = "Your password recovery link has expired, please request another one"
 	credentialsErrMsg                    = "Your login credentials are incorrect, please try again"
+	tooManyAttemptsErrMsg                = "Too many attempts, please try again later"
 	generateSessionTokenErrMsg           = "Failed to generate session token"
 	failedToRetrieveUserErrMsg           = "Failed to retrieve user from database"
 	apiKeyCredentialsErrMsg              = "Your API Key is incorrect"
@@ -84,9 +87,18 @@ const (
 	activeProjInviteExistsErrMsg         = "An active invitation for '%s' already exists"
 	projInviteExistsErrMsg               = "An invitation for '%s' already exists"
 	projInviteDoesntExistErrMsg          = "An invitation for '%s' does not exist"
-	varPartnerInviteErr                  = "Your partner does not support inviting users"
-	paidTierInviteErrMsg                 = "Only paid tier users can invite project members"
 	contactSupportErrMsg                 = "Please contact support"
+	accountActionWrongStepOrderErrMsg    = "Wrong step order. Please restart the flow"
+)
+
+// VersioningOptInStatus is a type for versioning beta opt in status.
+type VersioningOptInStatus string
+
+const (
+	// VersioningOptIn is a status for opting in.
+	VersioningOptIn VersioningOptInStatus = "in"
+	// VersioningOptOut is a status for opting out.
+	VersioningOptOut VersioningOptInStatus = "out"
 )
 
 var (
@@ -113,6 +125,9 @@ var (
 
 	// ErrLoginCredentials occurs when provided invalid login credentials.
 	ErrLoginCredentials = errs.Class("login credentials")
+
+	// ErrTooManyAttempts occurs when user tries to produce auth-related action too many times.
+	ErrTooManyAttempts = errs.Class("too many attempts")
 
 	// ErrActivationCode is error class for failed signup code activation.
 	ErrActivationCode = errs.Class("activation code")
@@ -157,6 +172,16 @@ var (
 	// or has expired.
 	ErrProjectInviteInvalid = errs.Class("invalid project invitation")
 
+	// ErrConflict occurs when a user attempts an operation that conflicts with the current state.
+	ErrConflict = errs.Class("conflict detected")
+
+	// ErrSatelliteManagedEncryption occurs when a user attempts to create a satellite managed
+	// encryption project when it is disabled.
+	ErrSatelliteManagedEncryption = ErrConflict.New("satellite managed encryption is not enabled")
+
+	// ErrForbidden occurs when a user attempts an operation without sufficient access rights.
+	ErrForbidden = errs.Class("insufficient access rights")
+
 	// ErrAlreadyInvited occurs when trying to invite a user who has already been invited.
 	ErrAlreadyInvited = errs.Class("user is already invited")
 
@@ -166,14 +191,14 @@ var (
 	// ErrNotPaidTier occurs when a user must be paid tier in order to complete an operation.
 	ErrNotPaidTier = errs.Class("user is not paid tier")
 
-	// ErrHasVarPartner occurs when a user's user agent is a var partner for which an operation is not allowed.
-	ErrHasVarPartner = errs.Class("VAR Partner")
-
 	// ErrBotUser occurs when a user must be verified by admin first in order to complete operation.
 	ErrBotUser = errs.Class("user has to be verified by admin first")
 
 	// ErrLoginRestricted occurs when a user with PendingBotVerification or LegalHold status tries to log in.
 	ErrLoginRestricted = errs.Class("user can't be authenticated")
+
+	// ErrFailedToUpgrade occurs when a user can't be upgraded to paid tier.
+	ErrFailedToUpgrade = errs.Class("failed to upgrade user to paid tier")
 )
 
 // Service is handling accounts related logic.
@@ -197,6 +222,7 @@ type Service struct {
 	mailService                *mailservice.Service
 	accountFreezeService       *AccountFreezeService
 	emission                   *emission.Service
+	kmsService                 *kms.Service
 
 	satelliteAddress string
 	satelliteName    string
@@ -206,7 +232,9 @@ type Service struct {
 
 	varPartners map[string]struct{}
 
-	versioningConfig VersioningConfig
+	paymentSourceChainIDs map[int64]string
+
+	objectLockAndVersioningConfig ObjectLockAndVersioningConfig
 
 	nowFn func() time.Time
 }
@@ -229,7 +257,12 @@ type Payments struct {
 }
 
 // NewService returns new instance of Service.
-func NewService(log *zap.Logger, store DB, restKeys RESTKeys, projectAccounting accounting.ProjectAccounting, projectUsage *accounting.Service, buckets buckets.DB, accounts payments.Accounts, depositWallets payments.DepositWallets, billing billing.TransactionsDB, analytics *analytics.Service, tokens *consoleauth.Service, mailService *mailservice.Service, accountFreezeService *AccountFreezeService, emission *emission.Service, satelliteAddress string, satelliteName string, maxProjectBuckets int, placements nodeselection.PlacementDefinitions, versioning VersioningConfig, config Config) (*Service, error) {
+func NewService(log *zap.Logger, store DB, restKeys RESTKeys, projectAccounting accounting.ProjectAccounting,
+	projectUsage *accounting.Service, buckets buckets.DB, accounts payments.Accounts, depositWallets payments.DepositWallets,
+	billingDb billing.TransactionsDB, analytics *analytics.Service, tokens *consoleauth.Service, mailService *mailservice.Service,
+	accountFreezeService *AccountFreezeService, emission *emission.Service, kmsService *kms.Service, satelliteAddress string,
+	satelliteName string, maxProjectBuckets int, placements nodeselection.PlacementDefinitions,
+	objectLockAndVersioningConfig ObjectLockAndVersioningConfig, config Config) (*Service, error) {
 	if store == nil {
 		return nil, errs.New("store can't be nil")
 	}
@@ -262,41 +295,50 @@ func NewService(log *zap.Logger, store DB, restKeys RESTKeys, projectAccounting 
 		partners[partner] = struct{}{}
 	}
 
-	versioning.projectMap = make(map[uuid.UUID]struct{}, len(versioning.UseBucketLevelObjectVersioningProjects))
-	for _, id := range versioning.UseBucketLevelObjectVersioningProjects {
+	objectLockAndVersioningConfig.projectMap = make(map[uuid.UUID]struct{}, len(objectLockAndVersioningConfig.UseBucketLevelObjectVersioningProjects))
+	for _, id := range objectLockAndVersioningConfig.UseBucketLevelObjectVersioningProjects {
 		projectID, err := uuid.FromString(id)
 		if err != nil {
 			return nil, Error.Wrap(err)
 		}
-		versioning.projectMap[projectID] = struct{}{}
+		objectLockAndVersioningConfig.projectMap[projectID] = struct{}{}
+	}
+
+	paymentSourceChainIDs := make(map[int64]string)
+	for source, IDs := range billing.SourceChainIDs {
+		for _, ID := range IDs {
+			paymentSourceChainIDs[ID] = source
+		}
 	}
 
 	return &Service{
-		log:                        log,
-		auditLogger:                log.Named("auditlog"),
-		store:                      store,
-		restKeys:                   restKeys,
-		projectAccounting:          projectAccounting,
-		projectUsage:               projectUsage,
-		buckets:                    buckets,
-		placements:                 placements,
-		accounts:                   accounts,
-		depositWallets:             depositWallets,
-		billing:                    billing,
-		registrationCaptchaHandler: registrationCaptchaHandler,
-		loginCaptchaHandler:        loginCaptchaHandler,
-		analytics:                  analytics,
-		tokens:                     tokens,
-		mailService:                mailService,
-		accountFreezeService:       accountFreezeService,
-		emission:                   emission,
-		satelliteAddress:           satelliteAddress,
-		satelliteName:              satelliteName,
-		maxProjectBuckets:          maxProjectBuckets,
-		config:                     config,
-		varPartners:                partners,
-		versioningConfig:           versioning,
-		nowFn:                      time.Now,
+		log:                           log,
+		auditLogger:                   log.Named("auditlog"),
+		store:                         store,
+		restKeys:                      restKeys,
+		projectAccounting:             projectAccounting,
+		projectUsage:                  projectUsage,
+		buckets:                       buckets,
+		placements:                    placements,
+		accounts:                      accounts,
+		depositWallets:                depositWallets,
+		billing:                       billingDb,
+		registrationCaptchaHandler:    registrationCaptchaHandler,
+		loginCaptchaHandler:           loginCaptchaHandler,
+		analytics:                     analytics,
+		tokens:                        tokens,
+		mailService:                   mailService,
+		accountFreezeService:          accountFreezeService,
+		emission:                      emission,
+		kmsService:                    kmsService,
+		satelliteAddress:              satelliteAddress,
+		satelliteName:                 satelliteName,
+		maxProjectBuckets:             maxProjectBuckets,
+		config:                        config,
+		varPartners:                   partners,
+		objectLockAndVersioningConfig: objectLockAndVersioningConfig,
+		paymentSourceChainIDs:         paymentSourceChainIDs,
+		nowFn:                         time.Now,
 	}, nil
 }
 
@@ -364,11 +406,93 @@ func (payment Payments) SetupAccount(ctx context.Context) (_ payments.CouponType
 	return payment.service.accounts.Setup(ctx, user.ID, user.Email, user.SignupPromoCode)
 }
 
+// ChangeEmail changes payment account's email address.
+func (payment Payments) ChangeEmail(ctx context.Context, userID uuid.UUID, email string) (err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	return payment.service.accounts.ChangeEmail(ctx, userID, email)
+}
+
+// SaveBillingAddress saves billing address for a user and returns the updated billing information.
+func (payment Payments) SaveBillingAddress(ctx context.Context, address payments.BillingAddress) (_ *payments.BillingInformation, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	user, err := payment.service.getUserAndAuditLog(ctx, "save billing information")
+	if err != nil {
+		return nil, Error.Wrap(err)
+	}
+
+	newInfo, err := payment.service.accounts.SaveBillingAddress(ctx, user.ID, address)
+
+	return newInfo, Error.Wrap(err)
+}
+
+// AddInvoiceReference adds a new default invoice reference to be displayed on each invoice and returns the updated billing information.
+func (payment Payments) AddInvoiceReference(ctx context.Context, reference string) (_ *payments.BillingInformation, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	user, err := payment.service.getUserAndAuditLog(ctx, "add invoice reference")
+	if err != nil {
+		return nil, Error.Wrap(err)
+	}
+
+	newInfo, err := payment.service.accounts.AddDefaultInvoiceReference(ctx, user.ID, reference)
+
+	return newInfo, Error.Wrap(err)
+}
+
+// AddTaxID adds a new tax ID for a user and returns the updated billing information.
+func (payment Payments) AddTaxID(ctx context.Context, taxID payments.TaxID) (_ *payments.BillingInformation, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	user, err := payment.service.getUserAndAuditLog(ctx, "add tax ID")
+	if err != nil {
+		return nil, Error.Wrap(err)
+	}
+
+	newInfo, err := payment.service.accounts.AddTaxID(ctx, user.ID, taxID)
+
+	return newInfo, Error.Wrap(err)
+}
+
+// RemoveTaxID removes a tax ID from a user and returns the updated billing information.
+func (payment Payments) RemoveTaxID(ctx context.Context, id string) (_ *payments.BillingInformation, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	user, err := payment.service.getUserAndAuditLog(ctx, "remove tax ID")
+	if err != nil {
+		return nil, Error.Wrap(err)
+	}
+
+	newInfo, err := payment.service.accounts.RemoveTaxID(ctx, user.ID, id)
+
+	return newInfo, Error.Wrap(err)
+}
+
+// GetBillingInformation updates a user's billing information.
+func (payment Payments) GetBillingInformation(ctx context.Context) (information *payments.BillingInformation, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	user, err := payment.service.getUserAndAuditLog(ctx, "save billing information")
+	if err != nil {
+		return nil, Error.Wrap(err)
+	}
+
+	information, err = payment.service.accounts.GetBillingInformation(ctx, user.ID)
+
+	return information, Error.Wrap(err)
+}
+
 // AccountBalance return account balance.
 func (payment Payments) AccountBalance(ctx context.Context) (balance payments.Balance, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	user, err := payment.service.getUserAndAuditLog(ctx, "get account balance")
+	if err != nil {
+		return payments.Balance{}, Error.Wrap(err)
+	}
+
+	err = payment.service.accounts.EnsureUserHasCustomer(ctx, user.ID, user.Email, user.SignupPromoCode)
 	if err != nil {
 		return payments.Balance{}, Error.Wrap(err)
 	}
@@ -385,6 +509,11 @@ func (payment Payments) AddCreditCard(ctx context.Context, creditCardToken strin
 		return payments.CreditCard{}, Error.Wrap(err)
 	}
 
+	err = payment.service.accounts.EnsureUserHasCustomer(ctx, user.ID, user.Email, user.SignupPromoCode)
+	if err != nil {
+		return payments.CreditCard{}, Error.Wrap(err)
+	}
+
 	card, err = payment.service.accounts.CreditCards().Add(ctx, user.ID, creditCardToken)
 	if err != nil {
 		return payments.CreditCard{}, Error.Wrap(err)
@@ -395,7 +524,7 @@ func (payment Payments) AddCreditCard(ctx context.Context, creditCardToken strin
 	if !user.PaidTier {
 		err = payment.upgradeToPaidTier(ctx, user)
 		if err != nil {
-			return payments.CreditCard{}, Error.Wrap(err)
+			return payments.CreditCard{}, ErrFailedToUpgrade.Wrap(err)
 		}
 	}
 
@@ -407,6 +536,11 @@ func (payment Payments) AddCardByPaymentMethodID(ctx context.Context, pmID strin
 	defer mon.Task()(&ctx, pmID)(&err)
 
 	user, err := payment.service.getUserAndAuditLog(ctx, "add credit card")
+	if err != nil {
+		return payments.CreditCard{}, Error.Wrap(err)
+	}
+
+	err = payment.service.accounts.EnsureUserHasCustomer(ctx, user.ID, user.Email, user.SignupPromoCode)
 	if err != nil {
 		return payments.CreditCard{}, Error.Wrap(err)
 	}
@@ -455,6 +589,7 @@ func (payment Payments) upgradeToPaidTier(ctx context.Context, user *User) (err 
 	if err != nil {
 		return Error.Wrap(err)
 	}
+	payment.service.analytics.TrackUserUpgraded(user.ID, user.Email, user.TrialExpiration)
 
 	projects, err := payment.service.store.Projects().GetOwn(ctx, user.ID)
 	if err != nil {
@@ -510,6 +645,11 @@ func (payment Payments) ListCreditCards(ctx context.Context) (_ []payments.Credi
 	defer mon.Task()(&ctx)(&err)
 
 	user, err := payment.service.getUserAndAuditLog(ctx, "list credit cards")
+	if err != nil {
+		return nil, Error.Wrap(err)
+	}
+
+	err = payment.service.accounts.EnsureUserHasCustomer(ctx, user.ID, user.Email, user.SignupPromoCode)
 	if err != nil {
 		return nil, Error.Wrap(err)
 	}
@@ -671,26 +811,13 @@ func (payment Payments) InvoiceHistory(ctx context.Context, cursor payments.Invo
 	}, nil
 }
 
-// checkProjectInvoicingStatus returns error if for the given project there are outstanding project records and/or usage
-// which have not been applied/invoiced yet (meaning sent over to stripe).
-func (payment Payments) checkProjectInvoicingStatus(ctx context.Context, projectID uuid.UUID) (err error) {
-	defer mon.Task()(&ctx)(&err)
-
-	_, err = payment.service.getUserAndAuditLog(ctx, "project invoicing status")
-	if err != nil {
-		return Error.Wrap(err)
-	}
-
-	return payment.service.accounts.CheckProjectInvoicingStatus(ctx, projectID)
-}
-
 // checkProjectUsageStatus returns error if for the given project there is some usage for current or previous month.
-func (payment Payments) checkProjectUsageStatus(ctx context.Context, projectID uuid.UUID) (err error) {
+func (payment Payments) checkProjectUsageStatus(ctx context.Context, projectID uuid.UUID) (currentUsage, invoicingIncomplete bool, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	_, err = payment.service.getUserAndAuditLog(ctx, "project usage status")
 	if err != nil {
-		return Error.Wrap(err)
+		return false, false, Error.Wrap(err)
 	}
 
 	return payment.service.accounts.CheckProjectUsageStatus(ctx, projectID)
@@ -804,26 +931,30 @@ func (s *Service) checkRegistrationSecret(ctx context.Context, tokenSecret Regis
 	return registrationToken, nil
 }
 
+// VerifyRegistrationCaptcha verifies the registration captcha response.
+func (s *Service) VerifyRegistrationCaptcha(ctx context.Context, captchaResp, userIP string) (valid bool, score *float64, err error) {
+	defer mon.Task()(&ctx)(&err)
+	if s.registrationCaptchaHandler != nil {
+		return s.registrationCaptchaHandler.Verify(ctx, captchaResp, userIP)
+	}
+	return true, nil, nil
+}
+
 // CreateUser gets password hash value and creates new inactive User.
 func (s *Service) CreateUser(ctx context.Context, user CreateUser, tokenSecret RegistrationSecret) (u *User, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	var captchaScore *float64
-
 	mon.Counter("create_user_attempt").Inc(1) //mon:locked
 
-	if s.config.Captcha.Registration.Recaptcha.Enabled || s.config.Captcha.Registration.Hcaptcha.Enabled {
-		valid, score, err := s.registrationCaptchaHandler.Verify(ctx, user.CaptchaResponse, user.IP)
-		if err != nil {
-			mon.Counter("create_user_captcha_error").Inc(1) //mon:locked
-			s.log.Error("captcha authorization failed", zap.Error(err))
-			return nil, ErrCaptcha.Wrap(err)
-		}
-		if !valid {
-			mon.Counter("create_user_captcha_unsuccessful").Inc(1) //mon:locked
-			return nil, ErrCaptcha.New("captcha validation unsuccessful")
-		}
-		captchaScore = score
+	valid, captchaScore, err := s.VerifyRegistrationCaptcha(ctx, user.CaptchaResponse, user.IP)
+	if err != nil {
+		mon.Counter("create_user_captcha_error").Inc(1) //mon:locked
+		s.log.Error("captcha authorization failed", zap.Error(err))
+		return nil, ErrCaptcha.Wrap(err)
+	}
+	if !valid {
+		mon.Counter("create_user_captcha_unsuccessful").Inc(1) //mon:locked
+		return nil, ErrCaptcha.New("captcha validation unsuccessful")
 	}
 
 	if err := user.IsValid(user.AllowNoName); err != nil {
@@ -864,6 +995,7 @@ func (s *Service) CreateUser(ctx context.Context, user CreateUser, tokenSecret R
 			SignupCaptcha:    captchaScore,
 			ActivationCode:   user.ActivationCode,
 			SignupId:         user.SignupId,
+			PaidTier:         user.PaidTier,
 		}
 
 		if user.UserAgent != nil {
@@ -1104,12 +1236,15 @@ func (s *Service) SetAccountActive(ctx context.Context, user *User) (err error) 
 func (s *Service) SetActivationCodeAndSignupID(ctx context.Context, user User) (_ User, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	randNum, err := rand.Int(rand.Reader, big.NewInt(900000))
+	if user.Status != Inactive {
+		s.auditLog(ctx, "set activation code attempted on active user", &user.ID, user.Email)
+		return User{}, ErrActivationCode.New("user already active")
+	}
+
+	code, err := generateVerificationCode()
 	if err != nil {
 		return User{}, Error.Wrap(err)
 	}
-	randNum = randNum.Add(randNum, big.NewInt(100000))
-	code := randNum.String()
 
 	requestID := requestid.FromContext(ctx)
 	err = s.store.Users().Update(ctx, user.ID, UpdateUserRequest{
@@ -1145,6 +1280,46 @@ func (s *Service) ResetPassword(ctx context.Context, resetPasswordToken, passwor
 	}
 
 	if user.MFAEnabled {
+		now := time.Now()
+		if user.LoginLockoutExpiration.After(now) {
+			mon.Counter("reset_password_2fa_locked_out").Inc(1) //mon:locked
+			s.auditLog(ctx, "reset password: 2fa failed account locked out", &user.ID, user.Email)
+			return ErrTooManyAttempts.New(tooManyAttemptsErrMsg)
+		}
+
+		handleLockAccount := func() error {
+			lockoutDuration, err := s.UpdateUsersFailedLoginState(ctx, user)
+			if err != nil {
+				return err
+			}
+
+			if lockoutDuration > 0 {
+				s.mailService.SendRenderedAsync(
+					ctx,
+					[]post.Address{{Address: user.Email, Name: user.FullName}},
+					&LoginLockAccountEmail{
+						LockoutDuration: lockoutDuration,
+						ActivityType:    MfaAccountLock,
+					},
+				)
+			}
+
+			mon.Counter("reset_password_2fa_failed").Inc(1)                                     //mon:locked
+			mon.IntVal("reset_password_2fa_failed_count").Observe(int64(user.FailedLoginCount)) //mon:locked
+
+			if user.FailedLoginCount == s.config.LoginAttemptsWithoutPenalty {
+				mon.Counter("reset_password_2fa_lockout_initiated").Inc(1) //mon:locked
+				s.auditLog(ctx, "reset password: failed reset password 2fa count reached maximum attempts", &user.ID, user.Email)
+			}
+
+			if user.FailedLoginCount > s.config.LoginAttemptsWithoutPenalty {
+				mon.Counter("reset_password_2fa_lockout_reinitiated").Inc(1) //mon:locked
+				s.auditLog(ctx, "reset password: 2fa failed locked account", &user.ID, user.Email)
+			}
+
+			return nil
+		}
+
 		if recoveryCode != "" {
 			found := false
 			for _, code := range user.MFARecoveryCodes {
@@ -1154,7 +1329,11 @@ func (s *Service) ResetPassword(ctx context.Context, resetPasswordToken, passwor
 				}
 			}
 			if !found {
-				return ErrUnauthorized.Wrap(ErrMFARecoveryCode.New(mfaRecoveryInvalidErrMsg))
+				err = handleLockAccount()
+				if err != nil {
+					return Error.Wrap(err)
+				}
+				return ErrValidation.Wrap(ErrMFARecoveryCode.New(mfaRecoveryInvalidErrMsg))
 			}
 		} else if passcode != "" {
 			valid, err := ValidateMFAPasscode(passcode, user.MFASecretKey, t)
@@ -1162,6 +1341,10 @@ func (s *Service) ResetPassword(ctx context.Context, resetPasswordToken, passwor
 				return ErrValidation.Wrap(ErrMFAPasscode.Wrap(err))
 			}
 			if !valid {
+				err = handleLockAccount()
+				if err != nil {
+					return Error.Wrap(err)
+				}
 				return ErrValidation.Wrap(ErrMFAPasscode.New(mfaPasscodeInvalidErrMsg))
 			}
 		} else {
@@ -1230,16 +1413,30 @@ func (s *Service) Token(ctx context.Context, request AuthUser) (response *TokenI
 
 	mon.Counter("login_attempt").Inc(1) //mon:locked
 
-	if s.config.Captcha.Login.Recaptcha.Enabled || s.config.Captcha.Login.Hcaptcha.Enabled {
-		valid, _, err := s.loginCaptchaHandler.Verify(ctx, request.CaptchaResponse, request.IP)
+	verifyCaptcha := func() error {
+		if s.config.Captcha.Login.Recaptcha.Enabled || s.config.Captcha.Login.Hcaptcha.Enabled {
+			valid, _, err := s.loginCaptchaHandler.Verify(ctx, request.CaptchaResponse, request.IP)
+			if err != nil {
+				mon.Counter("login_user_captcha_error").Inc(1) //mon:locked
+				return ErrCaptcha.Wrap(err)
+			}
+			if !valid {
+				mon.Counter("login_user_captcha_unsuccessful").Inc(1) //mon:locked
+				return ErrCaptcha.New("captcha validation unsuccessful")
+			}
+		}
+		return nil
+	}
+
+	captchaSkipped := true
+	if request.MFARecoveryCode == "" && request.MFAPasscode == "" {
+		// verify captcha on first login attempt.
+		// we only want to verify captcha if the user is not verifying MFA.
+		err = verifyCaptcha()
 		if err != nil {
-			mon.Counter("login_user_captcha_error").Inc(1) //mon:locked
-			return nil, ErrCaptcha.Wrap(err)
+			return nil, err
 		}
-		if !valid {
-			mon.Counter("login_user_captcha_unsuccessful").Inc(1) //mon:locked
-			return nil, ErrCaptcha.New("captcha validation unsuccessful")
-		}
+		captchaSkipped = false
 	}
 
 	user, nonActiveUsers, err := s.store.Users().GetByEmailWithUnverified(ctx, request.Email)
@@ -1266,39 +1463,15 @@ func (s *Service) Token(ctx context.Context, request AuthUser) (response *TokenI
 		}
 	}
 
-	now := time.Now()
-
-	if user.LoginLockoutExpiration.After(now) {
+	if user.LoginLockoutExpiration.After(time.Now()) {
 		mon.Counter("login_locked_out").Inc(1) //mon:locked
 		s.auditLog(ctx, "login: failed account locked out", &user.ID, request.Email)
 		return nil, ErrLoginCredentials.New(credentialsErrMsg)
 	}
 
-	handleLockAccount := func() error {
-		err = s.UpdateUsersFailedLoginState(ctx, user)
-		if err != nil {
-			return err
-		}
-
-		mon.Counter("login_failed").Inc(1)                                          //mon:locked
-		mon.IntVal("login_user_failed_count").Observe(int64(user.FailedLoginCount)) //mon:locked
-
-		if user.FailedLoginCount == s.config.LoginAttemptsWithoutPenalty {
-			mon.Counter("login_lockout_initiated").Inc(1) //mon:locked
-			s.auditLog(ctx, "login: failed login count reached maximum attempts", &user.ID, request.Email)
-		}
-
-		if user.FailedLoginCount > s.config.LoginAttemptsWithoutPenalty {
-			mon.Counter("login_lockout_reinitiated").Inc(1) //mon:locked
-			s.auditLog(ctx, "login: failed locked account", &user.ID, request.Email)
-		}
-
-		return nil
-	}
-
 	err = bcrypt.CompareHashAndPassword(user.PasswordHash, []byte(request.Password))
 	if err != nil {
-		err = handleLockAccount()
+		err = s.handleLogInLockAccount(ctx, user)
 		if err != nil {
 			return nil, err
 		}
@@ -1307,84 +1480,29 @@ func (s *Service) Token(ctx context.Context, request AuthUser) (response *TokenI
 		return nil, ErrLoginCredentials.New(credentialsErrMsg)
 	}
 
-	if user.MFAEnabled {
-		if request.MFARecoveryCode != "" && request.MFAPasscode != "" {
-			mon.Counter("login_mfa_conflict").Inc(1) //mon:locked
-			s.auditLog(ctx, "login: failed mfa conflict", &user.ID, user.Email)
-			return nil, ErrMFAConflict.New(mfaConflictErrMsg)
-		}
-
-		if request.MFARecoveryCode != "" {
-			found := false
-			codeIndex := -1
-			for i, code := range user.MFARecoveryCodes {
-				if code == request.MFARecoveryCode {
-					found = true
-					codeIndex = i
-					break
-				}
-			}
-			if !found {
-				err = handleLockAccount()
-				if err != nil {
-					return nil, err
-				}
-				mon.Counter("login_mfa_recovery_failure").Inc(1) //mon:locked
-				s.auditLog(ctx, "login: failed mfa recovery", &user.ID, user.Email)
-				return nil, ErrMFARecoveryCode.New(mfaRecoveryInvalidErrMsg)
-			}
-
-			mon.Counter("login_mfa_recovery_success").Inc(1) //mon:locked
-
-			user.MFARecoveryCodes = append(user.MFARecoveryCodes[:codeIndex], user.MFARecoveryCodes[codeIndex+1:]...)
-
-			err = s.store.Users().Update(ctx, user.ID, UpdateUserRequest{
-				MFARecoveryCodes: &user.MFARecoveryCodes,
-			})
-			if err != nil {
-				return nil, err
-			}
-		} else if request.MFAPasscode != "" {
-			valid, err := ValidateMFAPasscode(request.MFAPasscode, user.MFASecretKey, now)
-			if err != nil {
-				err = handleLockAccount()
-				if err != nil {
-					return nil, err
-				}
-
-				return nil, ErrMFAPasscode.Wrap(err)
-			}
-			if !valid {
-				err = handleLockAccount()
-				if err != nil {
-					return nil, err
-				}
-				mon.Counter("login_mfa_passcode_failure").Inc(1) //mon:locked
-				s.auditLog(ctx, "login: failed mfa passcode invalid", &user.ID, user.Email)
-				return nil, ErrMFAPasscode.New(mfaPasscodeInvalidErrMsg)
-			}
-			mon.Counter("login_mfa_passcode_success").Inc(1) //mon:locked
-		} else {
-			mon.Counter("login_mfa_missing").Inc(1) //mon:locked
-			s.auditLog(ctx, "login: failed mfa missing", &user.ID, user.Email)
-			return nil, ErrMFAMissing.New(mfaRequiredErrMsg)
-		}
+	if user.Status == PendingBotVerification || user.Status == LegalHold {
+		return nil, ErrLoginRestricted.New("")
 	}
 
-	if user.FailedLoginCount != 0 {
-		user.FailedLoginCount = 0
-		loginLockoutExpirationPtr := &time.Time{}
-		err = s.store.Users().Update(ctx, user.ID, UpdateUserRequest{
-			FailedLoginCount:       &user.FailedLoginCount,
-			LoginLockoutExpiration: &loginLockoutExpirationPtr,
-		})
+	if user.MFAEnabled {
+		err = s.logInVerifyMFA(ctx, user, request)
+		if err != nil {
+			return nil, err
+		}
+	} else if captchaSkipped {
+		// captcha was skipped because mfa fields were provided in the request,
+		// but user does not have mfa enabled, so we still need to verify captcha.
+		err = verifyCaptcha()
 		if err != nil {
 			return nil, err
 		}
 	}
 
-	if user.Status == PendingBotVerification || user.Status == LegalHold {
-		return nil, ErrLoginRestricted.New("")
+	if user.FailedLoginCount != 0 {
+		err = s.ResetAccountLock(ctx, user)
+		if err != nil {
+			return nil, err
+		}
 	}
 
 	var customDurationPtr *time.Duration
@@ -1400,6 +1518,119 @@ func (s *Service) Token(ctx context.Context, request AuthUser) (response *TokenI
 	mon.Counter("login_success").Inc(1) //mon:locked
 
 	return response, nil
+}
+
+func (s *Service) handleLogInLockAccount(ctx context.Context, user *User) error {
+	lockoutDuration, err := s.UpdateUsersFailedLoginState(ctx, user)
+	if err != nil {
+		return err
+	}
+	if lockoutDuration > 0 {
+		address := s.satelliteAddress
+		if !strings.HasSuffix(address, "/") {
+			address += "/"
+		}
+
+		s.mailService.SendRenderedAsync(
+			ctx,
+			[]post.Address{{Address: user.Email, Name: user.FullName}},
+			&LoginLockAccountEmail{
+				LockoutDuration:   lockoutDuration,
+				ResetPasswordLink: address + "forgot-password",
+				ActivityType:      LoginAccountLock,
+			},
+		)
+	}
+
+	mon.Counter("login_failed").Inc(1)                                          //mon:locked
+	mon.IntVal("login_user_failed_count").Observe(int64(user.FailedLoginCount)) //mon:locked
+
+	if user.FailedLoginCount == s.config.LoginAttemptsWithoutPenalty {
+		mon.Counter("login_lockout_initiated").Inc(1) //mon:locked
+		s.auditLog(ctx, "login: failed login count reached maximum attempts", &user.ID, user.Email)
+	}
+
+	if user.FailedLoginCount > s.config.LoginAttemptsWithoutPenalty {
+		mon.Counter("login_lockout_reinitiated").Inc(1) //mon:locked
+		s.auditLog(ctx, "login: failed locked account", &user.ID, user.Email)
+	}
+
+	return nil
+}
+
+func (s *Service) logInVerifyMFA(ctx context.Context, user *User, request AuthUser) (err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	if request.MFARecoveryCode != "" && request.MFAPasscode != "" {
+		mon.Counter("login_mfa_conflict").Inc(1) //mon:locked
+		s.auditLog(ctx, "login: failed mfa conflict", &user.ID, user.Email)
+		return ErrMFAConflict.New(mfaConflictErrMsg)
+	}
+
+	if request.MFARecoveryCode != "" {
+		found := false
+		codeIndex := -1
+		for i, code := range user.MFARecoveryCodes {
+			if code == request.MFARecoveryCode {
+				found = true
+				codeIndex = i
+				break
+			}
+		}
+		if !found {
+			err = s.handleLogInLockAccount(ctx, user)
+			if err != nil {
+				return err
+			}
+			mon.Counter("login_mfa_recovery_failure").Inc(1) //mon:locked
+			s.auditLog(ctx, "login: failed mfa recovery", &user.ID, user.Email)
+			return ErrMFARecoveryCode.New(mfaRecoveryInvalidErrMsg)
+		}
+
+		mon.Counter("login_mfa_recovery_success").Inc(1) //mon:locked
+
+		user.MFARecoveryCodes = append(user.MFARecoveryCodes[:codeIndex], user.MFARecoveryCodes[codeIndex+1:]...)
+
+		err = s.store.Users().Update(ctx, user.ID, UpdateUserRequest{
+			MFARecoveryCodes: &user.MFARecoveryCodes,
+		})
+		if err != nil {
+			return err
+		}
+	} else if request.MFAPasscode != "" {
+		valid, err := ValidateMFAPasscode(request.MFAPasscode, user.MFASecretKey, time.Now())
+		if err != nil {
+			newErr := s.handleLogInLockAccount(ctx, user)
+			if newErr != nil {
+				return newErr
+			}
+
+			return ErrMFAPasscode.Wrap(err)
+		}
+		if !valid {
+			err = s.handleLogInLockAccount(ctx, user)
+			if err != nil {
+				return err
+			}
+			mon.Counter("login_mfa_passcode_failure").Inc(1) //mon:locked
+			s.auditLog(ctx, "login: failed mfa passcode invalid", &user.ID, user.Email)
+			return ErrMFAPasscode.New(mfaPasscodeInvalidErrMsg)
+		}
+		mon.Counter("login_mfa_passcode_success").Inc(1) //mon:locked
+	} else {
+		mon.Counter("login_mfa_missing").Inc(1) //mon:locked
+		s.auditLog(ctx, "login: failed mfa missing", &user.ID, user.Email)
+		return ErrMFAMissing.New(mfaRequiredErrMsg)
+	}
+
+	if user.FailedLoginCount != 0 {
+		err = s.ResetAccountLock(ctx, user)
+		if err != nil {
+			return err
+		}
+	}
+
+	return nil
 }
 
 // TokenByAPIKey authenticates User by API Key and returns session token.
@@ -1425,30 +1656,33 @@ func (s *Service) TokenByAPIKey(ctx context.Context, userAgent string, ip string
 }
 
 // UpdateUsersFailedLoginState updates User's failed login state.
-func (s *Service) UpdateUsersFailedLoginState(ctx context.Context, user *User) (err error) {
+func (s *Service) UpdateUsersFailedLoginState(ctx context.Context, user *User) (lockoutDuration time.Duration, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	var failedLoginPenalty *float64
 	if user.FailedLoginCount >= s.config.LoginAttemptsWithoutPenalty-1 {
-		lockoutDuration := time.Duration(math.Pow(s.config.FailedLoginPenalty, float64(user.FailedLoginCount-1))) * time.Minute
+		lockoutDuration = time.Duration(math.Pow(s.config.FailedLoginPenalty, float64(user.FailedLoginCount-1))) * time.Minute
 		failedLoginPenalty = &s.config.FailedLoginPenalty
-
-		address := s.satelliteAddress
-		if !strings.HasSuffix(address, "/") {
-			address += "/"
-		}
-
-		s.mailService.SendRenderedAsync(
-			ctx,
-			[]post.Address{{Address: user.Email, Name: user.FullName}},
-			&LockAccountEmail{
-				LockoutDuration:   lockoutDuration,
-				ResetPasswordLink: address + "forgot-password",
-			},
-		)
 	}
 
-	return s.store.Users().UpdateFailedLoginCountAndExpiration(ctx, failedLoginPenalty, user.ID)
+	return lockoutDuration, s.store.Users().UpdateFailedLoginCountAndExpiration(ctx, failedLoginPenalty, user.ID, s.nowFn())
+}
+
+// GetLoginAttemptsWithoutPenalty returns LoginAttemptsWithoutPenalty config value.
+func (s *Service) GetLoginAttemptsWithoutPenalty() int {
+	return s.config.LoginAttemptsWithoutPenalty
+}
+
+// ResetAccountLock resets a user's failed login count and lockout duration.
+func (s *Service) ResetAccountLock(ctx context.Context, user *User) (err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	user.FailedLoginCount = 0
+	loginLockoutExpirationPtr := &time.Time{}
+	return s.store.Users().Update(ctx, user.ID, UpdateUserRequest{
+		FailedLoginCount:       &user.FailedLoginCount,
+		LoginLockoutExpiration: &loginLockoutExpirationPtr,
+	})
 }
 
 // GetUser returns User by id.
@@ -1537,6 +1771,610 @@ func (s *Service) GetUserHasVarPartner(ctx context.Context) (has bool, err error
 	return false, nil
 }
 
+// accountAction stands for account action to be tracked.
+type accountAction = string
+
+// AccountActionStep stands for each explicit change email flow step.
+type AccountActionStep = int
+
+const (
+	// DeleteAccountInit is the initial step of account deletion where we check the user
+	// has met all account deletion requirements before then verifying password etc.
+	DeleteAccountInit AccountActionStep = 0
+	// DeleteProjectInit is the initial step of project deletion where we check the user
+	// has met all project deletion requirements before then verifying password etc.
+	DeleteProjectInit AccountActionStep = 0
+	// VerifyAccountPasswordStep stands for the first step of the change email/account delete flow
+	// where user has to provide an account password.
+	VerifyAccountPasswordStep AccountActionStep = 1
+	// VerifyAccountMfaStep stands for the second step of the change email/account delete flow
+	// where user has to provide a 2fa passcode.
+	VerifyAccountMfaStep AccountActionStep = 2
+	// VerifyAccountEmailStep stands for the third step of the change email/account delete flow
+	// where user has to provide an OTP code sent to their current email address.
+	VerifyAccountEmailStep AccountActionStep = 3
+	// DeleteAccountStep stands for the last step of the delete account flow
+	// where user has to approve the intention to delete account.
+	DeleteAccountStep AccountActionStep = 4
+	// DeleteProjectStep stands for the last step of the delete project flow
+	// where user has to approve the intention to delete project.
+	DeleteProjectStep AccountActionStep = 4
+	// ChangeAccountEmailStep stands for the fourth step of the change email flow
+	// where user has to provide a new email address.
+	ChangeAccountEmailStep AccountActionStep = 4
+	// VerifyNewAccountEmailStep stands for the fifth step of the change email flow
+	// where user has to provide an OTP code sent to their new email address.
+	VerifyNewAccountEmailStep AccountActionStep = 5
+
+	changeEmailAction   accountAction = "change_email"
+	deleteAccountAction accountAction = "delete_account"
+	deleteProjectAction accountAction = "delete_project"
+)
+
+// DeleteAccount handles self-serve account delete actions.
+func (s *Service) DeleteAccount(ctx context.Context, step AccountActionStep, data string) (resp *DeleteAccountResponse, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	if !s.config.SelfServeAccountDeleteEnabled {
+		return nil, ErrForbidden.New("this feature is disabled")
+	}
+
+	user, err := s.getUserAndAuditLog(ctx, "delete account")
+	if err != nil {
+		return nil, Error.Wrap(err)
+	}
+
+	if user.Status == LegalHold {
+		return nil, ErrForbidden.New("account can't be deleted")
+	}
+
+	if user.LoginLockoutExpiration.After(s.nowFn()) {
+		mon.Counter("delete_account_locked_out").Inc(1) //mon:locked
+		s.auditLog(ctx, "delete account: failed account locked out", &user.ID, user.Email)
+		return nil, ErrUnauthorized.New("please try again later")
+	}
+
+	resp = &DeleteAccountResponse{}
+	deletionRestricted := false
+	projects, err := s.store.Projects().GetOwn(ctx, user.ID)
+	if err != nil {
+		return nil, Error.Wrap(err)
+	}
+
+	resp.OwnedProjects = len(projects)
+
+	// check project deletion restrictions
+	for _, p := range projects {
+		buckets, err := s.buckets.CountBuckets(ctx, p.ID)
+		if err != nil {
+			return nil, err
+		}
+		if buckets > 0 {
+			deletionRestricted = true
+			resp.Buckets += buckets
+		}
+
+		// ignore object browser api key because we hide it from the user, so they can't delete it.
+		// project row deletion cascades to api keys, so it's okay.
+		keys, err := s.store.APIKeys().GetPagedByProjectID(ctx, p.ID, APIKeyCursor{Limit: 1, Page: 1}, s.config.ObjectBrowserKeyNamePrefix)
+		if err != nil {
+			return nil, err
+		}
+		if keys.TotalCount > 0 {
+			deletionRestricted = true
+			resp.ApiKeys += int(keys.TotalCount)
+		}
+	}
+
+	if user.PaidTier {
+		for _, p := range projects {
+			currentUsage, invoicingIncomplete, err := s.Payments().checkProjectUsageStatus(ctx, p.ID)
+			if err != nil && !payments.ErrUnbilledUsage.Has(err) {
+				return nil, err
+			}
+
+			if currentUsage {
+				deletionRestricted = true
+				resp.CurrentUsage = true
+			}
+			if invoicingIncomplete {
+				deletionRestricted = true
+				resp.InvoicingIncomplete = true
+			}
+		}
+	}
+
+	// check for unpaid invoices
+	invoices, err := s.accounts.Invoices().List(ctx, user.ID)
+	if err != nil {
+		return nil, Error.Wrap(err)
+	}
+
+	for _, invoice := range invoices {
+		if invoice.Status == payments.InvoiceStatusOpen {
+			deletionRestricted = true
+			resp.UnpaidInvoices++
+			resp.AmountOwed += invoice.Amount
+		}
+	}
+
+	if deletionRestricted {
+		return resp, nil
+	}
+
+	switch step {
+	case DeleteAccountInit:
+		return nil, nil
+	case VerifyAccountPasswordStep:
+		return nil, s.handlePasswordStep(ctx, user, data, deleteAccountAction)
+	case VerifyAccountMfaStep:
+		return nil, s.handleMfaStep(ctx, user, data, deleteAccountAction)
+	case VerifyAccountEmailStep:
+		return nil, s.handleVerifyCurrentEmailStep(ctx, user, data, deleteAccountAction)
+	case DeleteAccountStep:
+		return nil, s.handleDeleteAccountStep(ctx, user)
+	default:
+		return nil, ErrValidation.New("step value is out of range")
+	}
+}
+
+// ChangeEmail handles change user's email actions.
+func (s *Service) ChangeEmail(ctx context.Context, step AccountActionStep, data string) (err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	if !s.config.EmailChangeFlowEnabled {
+		return ErrForbidden.New("this feature is disabled")
+	}
+
+	user, err := s.getUserAndAuditLog(ctx, "change email")
+	if err != nil {
+		return Error.Wrap(err)
+	}
+
+	if user.LoginLockoutExpiration.After(s.nowFn()) {
+		mon.Counter("change_email_locked_out").Inc(1) //mon:locked
+		s.auditLog(ctx, "change email: failed account locked out", &user.ID, user.Email)
+		return ErrUnauthorized.New("please try again later")
+	}
+
+	switch step {
+	case VerifyAccountPasswordStep:
+		err = s.handlePasswordStep(ctx, user, data, changeEmailAction)
+		if err != nil {
+			return err
+		}
+
+		return nil
+	case VerifyAccountMfaStep:
+		err = s.handleMfaStep(ctx, user, data, changeEmailAction)
+		if err != nil {
+			return err
+		}
+
+		return nil
+	case VerifyAccountEmailStep:
+		err = s.handleVerifyCurrentEmailStep(ctx, user, data, changeEmailAction)
+		if err != nil {
+			return err
+		}
+
+		return nil
+	case ChangeAccountEmailStep:
+		err = s.handleNewEmailStep(ctx, user, data)
+		if err != nil {
+			return err
+		}
+
+		return nil
+	case VerifyNewAccountEmailStep:
+		err = s.handleVerifyNewStep(ctx, user, data)
+		if err != nil {
+			return err
+		}
+
+		return nil
+	default:
+		return ErrValidation.New("step value is out of range")
+	}
+}
+
+func (s *Service) handlePasswordStep(ctx context.Context, user *User, data string, action accountAction) (err error) {
+	err = bcrypt.CompareHashAndPassword(user.PasswordHash, []byte(data))
+	if err != nil {
+		err = s.handleLockAccount(ctx, user, VerifyAccountPasswordStep, action)
+		if err != nil {
+			return err
+		}
+
+		return ErrValidation.New("password is incorrect")
+	}
+
+	var verificationCode string
+	if !user.MFAEnabled {
+		verificationCode, err = generateVerificationCode()
+		if err != nil {
+			return Error.Wrap(err)
+		}
+	}
+
+	err = s.updateStep(ctx, user.ID, VerifyAccountPasswordStep, verificationCode, nil)
+	if err != nil {
+		return Error.Wrap(err)
+	}
+
+	if !user.MFAEnabled {
+		var emailAction string
+		switch action {
+		case changeEmailAction:
+			emailAction = "an account email address change"
+		case deleteAccountAction:
+			emailAction = "an account deletion"
+		case deleteProjectAction:
+			emailAction = "a project deletion"
+		default:
+			return errs.New("invalid account action: %s", action)
+		}
+
+		s.mailService.SendRenderedAsync(
+			ctx,
+			[]post.Address{{Address: user.Email, Name: user.FullName}},
+			&EmailAddressVerificationEmail{
+				VerificationCode: verificationCode,
+				Action:           emailAction,
+			},
+		)
+	}
+
+	return nil
+}
+
+func (s *Service) handleMfaStep(ctx context.Context, user *User, data string, action accountAction) (err error) {
+	if !user.MFAEnabled {
+		return nil
+	}
+
+	if user.EmailChangeVerificationStep < VerifyAccountPasswordStep {
+		err = s.handleLockAccount(ctx, user, VerifyAccountMfaStep, action)
+		if err != nil {
+			return err
+		}
+
+		return ErrValidation.New(accountActionWrongStepOrderErrMsg)
+	}
+
+	valid, err := ValidateMFAPasscode(data, user.MFASecretKey, s.nowFn())
+	if err != nil {
+		err = s.handleLockAccount(ctx, user, VerifyAccountMfaStep, action)
+		if err != nil {
+			return err
+		}
+
+		return ErrMFAPasscode.Wrap(err)
+	}
+	if !valid {
+		err = s.handleLockAccount(ctx, user, VerifyAccountMfaStep, action)
+		if err != nil {
+			return err
+		}
+		mon.Counter("change_email_2fa_passcode_failure").Inc(1) //mon:locked
+		s.auditLog(ctx, "change email: failed 2fa passcode invalid", &user.ID, user.Email)
+		return ErrMFAPasscode.New(mfaPasscodeInvalidErrMsg)
+	}
+
+	verificationCode, err := generateVerificationCode()
+	if err != nil {
+		return Error.Wrap(err)
+	}
+
+	err = s.updateStep(ctx, user.ID, VerifyAccountMfaStep, verificationCode, nil)
+	if err != nil {
+		return Error.Wrap(err)
+	}
+
+	var emailAction string
+	switch action {
+	case changeEmailAction:
+		emailAction = "an account email address change"
+	case deleteAccountAction:
+		emailAction = "an account deletion"
+	case deleteProjectAction:
+		emailAction = "a project deletion"
+	default:
+		return errs.New("invalid account action: %s", action)
+	}
+
+	s.mailService.SendRenderedAsync(
+		ctx,
+		[]post.Address{{Address: user.Email, Name: user.FullName}},
+		&EmailAddressVerificationEmail{
+			VerificationCode: verificationCode,
+			Action:           emailAction,
+		},
+	)
+
+	return nil
+}
+
+func (s *Service) handleVerifyCurrentEmailStep(ctx context.Context, user *User, data string, action accountAction) (err error) {
+	previousStep := VerifyAccountPasswordStep
+	if user.MFAEnabled {
+		previousStep = VerifyAccountMfaStep
+	}
+
+	if user.EmailChangeVerificationStep < previousStep {
+		err = s.handleLockAccount(ctx, user, VerifyAccountEmailStep, action)
+		if err != nil {
+			return err
+		}
+
+		return ErrValidation.New(accountActionWrongStepOrderErrMsg)
+	}
+
+	if user.ActivationCode != data {
+		err = s.handleLockAccount(ctx, user, VerifyAccountEmailStep, action)
+		if err != nil {
+			return err
+		}
+
+		return ErrValidation.New("verification code is incorrect")
+	}
+
+	err = s.updateStep(ctx, user.ID, VerifyAccountEmailStep, "", nil)
+	if err != nil {
+		return Error.Wrap(err)
+	}
+
+	return nil
+}
+
+func (s *Service) handleDeleteProjectStep(ctx context.Context, user *User, projectID uuid.UUID) (err error) {
+	if user.EmailChangeVerificationStep < VerifyAccountEmailStep {
+		err = s.handleLockAccount(ctx, user, DeleteProjectStep, deleteProjectAction)
+		if err != nil {
+			return err
+		}
+		return ErrValidation.New(accountActionWrongStepOrderErrMsg)
+	}
+	return s.store.Projects().Delete(ctx, projectID)
+}
+
+func (s *Service) handleDeleteAccountStep(ctx context.Context, user *User) (err error) {
+	if user.EmailChangeVerificationStep < VerifyAccountEmailStep {
+		err = s.handleLockAccount(ctx, user, DeleteAccountStep, deleteAccountAction)
+		if err != nil {
+			return err
+		}
+
+		return ErrValidation.New(accountActionWrongStepOrderErrMsg)
+	}
+
+	projects, err := s.store.Projects().GetOwn(ctx, user.ID)
+	if err != nil {
+		return Error.Wrap(err)
+	}
+
+	var errsList errs.Group
+	for _, p := range projects {
+		// delete project cascades to members, invitations, and API keys.
+		// project id is a foreign key on buckets, so if a bucket got created
+		// at the last second, it will return an error.
+		err = s.store.Projects().Delete(ctx, p.ID)
+		if err != nil {
+			errsList.Add(err)
+		}
+	}
+	if errsList.Err() != nil {
+		return Error.Wrap(errsList.Err())
+	}
+
+	err = s.accounts.CreditCards().RemoveAll(ctx, user.ID)
+	if err != nil {
+		return Error.Wrap(err)
+	}
+
+	_, err = s.store.WebappSessions().DeleteAllByUserID(ctx, user.ID)
+	if err != nil {
+		return Error.Wrap(err)
+	}
+
+	deactivatedEmail := fmt.Sprintf("deactivated+%s@storj.io", user.ID.String())
+	status := Deleted
+	now := s.nowFn()
+
+	err = s.store.Users().Update(ctx, user.ID, UpdateUserRequest{
+		FullName:        new(string),
+		ShortName:       new(*string),
+		Email:           &deactivatedEmail,
+		Status:          &status,
+		StatusUpdatedAt: &now,
+	})
+	if err != nil {
+		return Error.Wrap(err)
+	}
+
+	s.mailService.SendRenderedAsync(
+		ctx,
+		[]post.Address{{Address: user.Email, Name: user.FullName}},
+		&RequestAccountDeletionSuccessEmail{},
+	)
+
+	return nil
+}
+
+func (s *Service) handleNewEmailStep(ctx context.Context, user *User, data string) (err error) {
+	if user.EmailChangeVerificationStep < VerifyAccountEmailStep {
+		err = s.handleLockAccount(ctx, user, ChangeAccountEmailStep, changeEmailAction)
+		if err != nil {
+			return err
+		}
+
+		return ErrValidation.New(accountActionWrongStepOrderErrMsg)
+	}
+
+	isValidEmail := utils.ValidateEmail(data)
+	if !isValidEmail {
+		return ErrValidation.New("invalid email")
+	}
+
+	verified, unverified, err := s.store.Users().GetByEmailWithUnverified(ctx, data)
+	if err != nil {
+		return Error.Wrap(err)
+	}
+
+	if verified != nil || len(unverified) > 0 {
+		// we throw validation error just not to compromise existing user emails.
+		return ErrValidation.New("invalid email")
+	}
+
+	verificationCode, err := generateVerificationCode()
+	if err != nil {
+		return Error.Wrap(err)
+	}
+
+	err = s.updateStep(ctx, user.ID, ChangeAccountEmailStep, verificationCode, &data)
+	if err != nil {
+		return Error.Wrap(err)
+	}
+
+	emailAction := "account email address change"
+
+	s.mailService.SendRenderedAsync(
+		ctx,
+		[]post.Address{{Address: data, Name: user.FullName}},
+		&EmailAddressVerificationEmail{
+			VerificationCode: verificationCode,
+			Action:           emailAction,
+		},
+	)
+
+	return nil
+}
+
+func (s *Service) handleVerifyNewStep(ctx context.Context, user *User, data string) (err error) {
+	if user.EmailChangeVerificationStep < ChangeAccountEmailStep {
+		err = s.handleLockAccount(ctx, user, VerifyNewAccountEmailStep, changeEmailAction)
+		if err != nil {
+			return err
+		}
+
+		return ErrValidation.New(accountActionWrongStepOrderErrMsg)
+	}
+
+	if user.ActivationCode != data {
+		err = s.handleLockAccount(ctx, user, VerifyNewAccountEmailStep, changeEmailAction)
+		if err != nil {
+			return err
+		}
+
+		return ErrValidation.New("verification code is incorrect")
+	}
+
+	// unlikely to happen but still.
+	if user.NewUnverifiedEmail == nil {
+		return Error.New("new email is not set")
+	}
+
+	unsetInt := 0
+	unsetStr := ""
+	unsetStrPtr := &unsetStr
+	loginLockoutExpirationPtr := &time.Time{}
+	err = s.store.Users().Update(ctx, user.ID, UpdateUserRequest{
+		Email:                       user.NewUnverifiedEmail,
+		EmailChangeVerificationStep: &unsetInt,
+		FailedLoginCount:            &unsetInt,
+		LoginLockoutExpiration:      &loginLockoutExpirationPtr,
+		ActivationCode:              &unsetStr,
+		NewUnverifiedEmail:          &unsetStrPtr,
+	})
+	if err != nil {
+		return Error.Wrap(err)
+	}
+
+	s.mailService.SendRenderedAsync(
+		ctx,
+		[]post.Address{{Address: *user.NewUnverifiedEmail, Name: user.FullName}},
+		&ChangeEmailSuccessEmail{},
+	)
+
+	if s.config.BillingFeaturesEnabled {
+		err = s.Payments().ChangeEmail(ctx, user.ID, *user.NewUnverifiedEmail)
+		if err != nil {
+			return Error.Wrap(err)
+		}
+	}
+
+	s.analytics.ChangeContactEmail(user.ID, user.Email, *user.NewUnverifiedEmail)
+
+	return nil
+}
+
+func (s *Service) handleLockAccount(ctx context.Context, user *User, step AccountActionStep, action accountAction) error {
+	lockoutDuration, err := s.UpdateUsersFailedLoginState(ctx, user)
+	if err != nil {
+		return err
+	}
+
+	if lockoutDuration > 0 {
+		s.mailService.SendRenderedAsync(
+			ctx,
+			[]post.Address{{Address: user.Email, Name: user.FullName}},
+			&LoginLockAccountEmail{
+				LockoutDuration: lockoutDuration,
+				ActivityType:    ChangeEmailLock,
+			},
+		)
+	}
+
+	switch step {
+	case VerifyAccountPasswordStep:
+		action += "_password"
+	case VerifyAccountMfaStep:
+		action += "_2fa"
+	case VerifyAccountEmailStep:
+		action += "_verify_current_email"
+	case VerifyNewAccountEmailStep:
+		action += "_verify_new_email"
+	}
+
+	mon.Counter(fmt.Sprintf("%s_failed", action)).Inc(1)                                     //mon:locked
+	mon.IntVal(fmt.Sprintf("%s_failed_count", action)).Observe(int64(user.FailedLoginCount)) //mon:locked
+
+	if user.FailedLoginCount == s.config.LoginAttemptsWithoutPenalty {
+		mon.Counter(fmt.Sprintf("%s_lockout_initiated", action)).Inc(1) //mon:locked
+		s.auditLog(ctx, fmt.Sprintf("account action: failed %s count reached maximum attempts", action), &user.ID, user.Email)
+	}
+
+	if user.FailedLoginCount > s.config.LoginAttemptsWithoutPenalty {
+		mon.Counter(fmt.Sprintf("%s_lockout_reinitiated", action)).Inc(1) //mon:locked
+		s.auditLog(ctx, fmt.Sprintf("account action: %s failed locked account", action), &user.ID, user.Email)
+	}
+
+	return nil
+}
+
+func (s *Service) updateStep(ctx context.Context, userID uuid.UUID, step AccountActionStep, verificationCode string, newUnverifiedEmail *string) error {
+	failedLoginCount := 0
+	loginLockoutExpirationPtr := &time.Time{}
+
+	return s.store.Users().Update(ctx, userID, UpdateUserRequest{
+		EmailChangeVerificationStep: &step,
+		FailedLoginCount:            &failedLoginCount,
+		LoginLockoutExpiration:      &loginLockoutExpirationPtr,
+		ActivationCode:              &verificationCode,
+		NewUnverifiedEmail:          &newUnverifiedEmail,
+	})
+}
+
+func generateVerificationCode() (string, error) {
+	randNum, err := rand.Int(rand.Reader, big.NewInt(900000))
+	if err != nil {
+		return "", err
+	}
+	randNum = randNum.Add(randNum, big.NewInt(100000))
+
+	return randNum.String(), nil
+}
+
 // UpdateAccount updates User.
 func (s *Service) UpdateAccount(ctx context.Context, fullName string, shortName string) (err error) {
 	defer mon.Task()(&ctx)(&err)
@@ -1568,23 +2406,27 @@ func (s *Service) UpdateAccount(ctx context.Context, fullName string, shortName 
 // SetupAccount completes User's information.
 func (s *Service) SetupAccount(ctx context.Context, requestData SetUpAccountRequest) (err error) {
 	defer mon.Task()(&ctx)(&err)
-	user, err := s.getUserAndAuditLog(ctx, "update account")
+	user, err := s.getUserAndAuditLog(ctx, "setup account")
 	if err != nil {
 		return Error.Wrap(err)
 	}
 
-	// validate fullName
-	err = ValidateFullName(requestData.FullName)
+	fullName, err := s.getValidatedFullName(&requestData)
+	if err != nil {
+		return ErrValidation.Wrap(err)
+	}
+
+	companyName, err := s.getValidatedCompanyName(&requestData)
 	if err != nil {
 		return ErrValidation.Wrap(err)
 	}
 
 	err = s.store.Users().Update(ctx, user.ID, UpdateUserRequest{
-		FullName:         &requestData.FullName,
+		FullName:         &fullName,
 		IsProfessional:   &requestData.IsProfessional,
 		HaveSalesContact: &requestData.HaveSalesContact,
 		Position:         requestData.Position,
-		CompanyName:      requestData.CompanyName,
+		CompanyName:      companyName,
 		EmployeeCount:    requestData.EmployeeCount,
 	})
 	if err != nil {
@@ -1593,19 +2435,23 @@ func (s *Service) SetupAccount(ctx context.Context, requestData SetUpAccountRequ
 
 	onboardingFields := analytics.TrackOnboardingInfoFields{
 		ID:       user.ID,
-		FullName: requestData.FullName,
+		FullName: fullName,
 		Email:    user.Email,
 	}
 
 	if requestData.StorageUseCase != nil {
 		onboardingFields.StorageUseCase = *requestData.StorageUseCase
+		if requestData.OtherUseCase != nil {
+			onboardingFields.OtherUseCase = *requestData.OtherUseCase
+		}
 	}
 
 	if requestData.IsProfessional {
 		onboardingFields.Type = analytics.Professional
 		onboardingFields.HaveSalesContact = requestData.HaveSalesContact
-		if requestData.CompanyName != nil {
-			onboardingFields.CompanyName = *requestData.CompanyName
+		onboardingFields.InterestedInPartnering = requestData.InterestedInPartnering
+		if companyName != nil {
+			onboardingFields.CompanyName = *companyName
 		}
 		if requestData.EmployeeCount != nil {
 			onboardingFields.EmployeeCount = *requestData.EmployeeCount
@@ -1627,8 +2473,58 @@ func (s *Service) SetupAccount(ctx context.Context, requestData SetUpAccountRequ
 	return nil
 }
 
+func (s *Service) getValidatedFullName(requestData *SetUpAccountRequest) (name string, err error) {
+	if requestData.IsProfessional {
+		if requestData.FirstName == nil {
+			return "", errs.New("First name wasn't provided")
+		}
+
+		if len(*requestData.FirstName) == 0 || len(*requestData.FirstName) > s.config.MaxNameCharacters {
+			return "", errs.New("First name length must be more then 0 and less then or equal to %d", s.config.MaxNameCharacters)
+		}
+
+		name = *requestData.FirstName
+
+		if requestData.LastName != nil {
+			if len(*requestData.LastName) > s.config.MaxNameCharacters {
+				return "", errs.New("Last name length must be less then or equal to %d", s.config.MaxNameCharacters)
+			}
+
+			name += " " + *requestData.LastName
+		}
+	} else {
+		if requestData.FullName == nil {
+			return "", errs.New("Full name wasn't provided")
+		}
+
+		if len(*requestData.FullName) == 0 || len(*requestData.FullName) > s.config.MaxNameCharacters {
+			return "", errs.New("Full name length must be more then 0 and less then or equal to %d", s.config.MaxNameCharacters)
+		}
+
+		name = *requestData.FullName
+	}
+
+	return name, nil
+}
+
+func (s *Service) getValidatedCompanyName(requestData *SetUpAccountRequest) (name *string, err error) {
+	if requestData.IsProfessional {
+		if requestData.CompanyName == nil {
+			return nil, errs.New("Company name wasn't provided")
+		}
+
+		if len(*requestData.CompanyName) == 0 || len(*requestData.CompanyName) > s.config.MaxNameCharacters {
+			return nil, errs.New("Company name length must be more then 0 and less then or equal to %d", s.config.MaxNameCharacters)
+		}
+
+		name = requestData.CompanyName
+	}
+
+	return name, nil
+}
+
 // ChangePassword updates password for a given user.
-func (s *Service) ChangePassword(ctx context.Context, pass, newPass string) (err error) {
+func (s *Service) ChangePassword(ctx context.Context, pass, newPass string, sessionID *uuid.UUID) (err error) {
 	defer mon.Task()(&ctx)(&err)
 	user, err := s.getUserAndAuditLog(ctx, "change password")
 	if err != nil {
@@ -1657,6 +2553,24 @@ func (s *Service) ChangePassword(ctx context.Context, pass, newPass string) (err
 		return Error.Wrap(err)
 	}
 
+	userName := user.ShortName
+	if user.ShortName == "" {
+		userName = user.FullName
+	}
+
+	address := s.satelliteAddress
+	if !strings.HasSuffix(address, "/") {
+		address += "/"
+	}
+
+	s.mailService.SendRenderedAsync(
+		ctx,
+		[]post.Address{{Address: user.Email, Name: userName}},
+		&PasswordChangedEmail{
+			ResetPasswordLink: address + "forgot-password",
+		},
+	)
+
 	resetPasswordToken, err := s.store.ResetPasswordTokens().GetByOwnerID(ctx, user.ID)
 	if err == nil {
 		err := s.store.ResetPasswordTokens().Delete(ctx, resetPasswordToken.Secret)
@@ -1665,9 +2579,11 @@ func (s *Service) ChangePassword(ctx context.Context, pass, newPass string) (err
 		}
 	}
 
-	_, err = s.store.WebappSessions().DeleteAllByUserID(ctx, user.ID)
-	if err != nil {
-		return Error.Wrap(err)
+	if sessionID != nil {
+		err = s.DeleteAllSessionsByUserIDExcept(ctx, user.ID, *sessionID)
+		if err != nil {
+			return Error.Wrap(err)
+		}
 	}
 
 	return nil
@@ -1796,14 +2712,75 @@ func (s *Service) GetProjectConfig(ctx context.Context, projectID uuid.UUID) (*P
 		return nil, ErrNoMembership.Wrap(err)
 	}
 
-	versioningUIEnabled := true
-	if !s.versioningConfig.UseBucketLevelObjectVersioning {
-		_, versioningUIEnabled = s.versioningConfig.projectMap[isMember.project.ID]
+	project := isMember.project
+
+	isOwnerPaidTier, err := s.store.Users().GetUserPaidTier(ctx, project.OwnerID)
+	if err != nil {
+		return nil, Error.Wrap(err)
 	}
 
+	var passphrase []byte
+	var hasManagedPassphrase bool
+	if project.PassphraseEnc != nil {
+		hasManagedPassphrase = true
+	}
+	if project.PassphraseEnc != nil && s.kmsService != nil {
+		if project.PassphraseEncKeyID == nil {
+			s.analytics.TrackManagedEncryptionError(user.ID, user.Email, project.ID, "nil key ID for project in DB")
+			return nil, Error.New("Failed to retrieve passphrase")
+		}
+		passphrase, err = s.kmsService.DecryptPassphrase(ctx, *project.PassphraseEncKeyID, project.PassphraseEnc)
+		if err != nil {
+			s.log.Error("failed to decrypt passphrase", zap.Error(err))
+			s.analytics.TrackManagedEncryptionError(user.ID, user.Email, project.ID, err.Error())
+			return nil, Error.New("Failed to retrieve passphrase")
+		}
+	}
+
+	if len(passphrase) == 0 && hasManagedPassphrase {
+		// the UI handles this condition on its own, so we track an analytics event, but continue to send a valid response to the client.
+		s.analytics.TrackManagedEncryptionError(user.ID, user.Email, project.ID, "kms service not enabled on satellite")
+	}
+
+	versioningUIEnabled, promptForVersioningBeta := s.GetObjectVersioningUIEnabledByProject(project)
 	return &ProjectConfig{
-		VersioningUIEnabled: versioningUIEnabled,
+		VersioningUIEnabled:     versioningUIEnabled,
+		ObjectLockUIEnabled:     s.objectLockAndVersioningConfig.ObjectLockEnabled && versioningUIEnabled,
+		PromptForVersioningBeta: promptForVersioningBeta && project.OwnerID == user.ID,
+		HasManagedPassphrase:    hasManagedPassphrase,
+		Passphrase:              string(passphrase),
+		IsOwnerPaidTier:         isOwnerPaidTier,
+		Role:                    isMember.membership.Role,
 	}, nil
+}
+
+// GetObjectLockUIEnabledByProject returns whether object lock is enabled for the project.
+func (s *Service) GetObjectLockUIEnabledByProject(project *Project) bool {
+	if !s.objectLockAndVersioningConfig.ObjectLockEnabled {
+		return false
+	}
+	versioningEnabled, _ := s.GetObjectVersioningUIEnabledByProject(project)
+	return versioningEnabled
+}
+
+// GetObjectVersioningUIEnabledByProject returns whether object versioning is enabled for the project.
+func (s *Service) GetObjectVersioningUIEnabledByProject(project *Project) (versioningUIEnabled bool, promptForVersioningBeta bool) {
+	versioningUIEnabled = true
+	promptForVersioningBeta = false
+	if !s.objectLockAndVersioningConfig.UseBucketLevelObjectVersioning {
+		if _, ok := s.objectLockAndVersioningConfig.projectMap[project.ID]; !ok {
+			if !project.PromptedForVersioningBeta {
+				promptForVersioningBeta = true
+				versioningUIEnabled = false
+			} else if project.PromptedForVersioningBeta && project.DefaultVersioning != VersioningUnsupported {
+				versioningUIEnabled = true
+			} else {
+				versioningUIEnabled = false
+			}
+		}
+	}
+
+	return versioningUIEnabled, promptForVersioningBeta
 }
 
 // GetUsersProjects is a method for querying all projects.
@@ -1903,6 +2880,11 @@ func (s *Service) CreateProject(ctx context.Context, projectInfo UpsertProjectIn
 		return nil, ErrBotUser.New(contactSupportErrMsg)
 	}
 
+	err = ValidateNameAndDescription(projectInfo.Name, projectInfo.Description)
+	if err != nil {
+		return nil, ErrValidation.Wrap(err)
+	}
+
 	currentProjectCount, err := s.checkProjectLimit(ctx, user.ID)
 	if err != nil {
 		s.analytics.TrackProjectLimitError(user.ID, user.Email)
@@ -1923,18 +2905,30 @@ func (s *Service) CreateProject(ctx context.Context, projectInfo UpsertProjectIn
 	err = s.store.WithTx(ctx, func(ctx context.Context, tx DBTx) error {
 		storageLimit := memory.Size(newProjectLimits.Storage)
 		bandwidthLimit := memory.Size(newProjectLimits.Bandwidth)
-		p, err = tx.Projects().Insert(ctx,
-			&Project{
-				Description:      projectInfo.Description,
-				Name:             projectInfo.Name,
-				OwnerID:          user.ID,
-				UserAgent:        user.UserAgent,
-				StorageLimit:     &storageLimit,
-				BandwidthLimit:   &bandwidthLimit,
-				SegmentLimit:     &newProjectLimits.Segment,
-				DefaultPlacement: user.DefaultPlacement,
-			},
-		)
+
+		newProject := &Project{
+			Description:      projectInfo.Description,
+			Name:             projectInfo.Name,
+			OwnerID:          user.ID,
+			UserAgent:        user.UserAgent,
+			StorageLimit:     &storageLimit,
+			BandwidthLimit:   &bandwidthLimit,
+			SegmentLimit:     &newProjectLimits.Segment,
+			DefaultPlacement: user.DefaultPlacement,
+		}
+		if s.config.SatelliteManagedEncryptionEnabled && projectInfo.ManagePassphrase && s.kmsService != nil {
+			encPassphrase, keyID, err := s.kmsService.GenerateEncryptedPassphrase(ctx)
+			if err != nil {
+				return Error.Wrap(err)
+			}
+			newProject.PassphraseEnc = encPassphrase
+			newProject.PassphraseEncKeyID = &keyID
+			newProject.PathEncryption = new(bool)
+		} else if projectInfo.ManagePassphrase {
+			return ErrSatelliteManagedEncryption
+		}
+
+		p, err = tx.Projects().Insert(ctx, newProject)
 		if err != nil {
 			return Error.Wrap(err)
 		}
@@ -1966,7 +2960,7 @@ func (s *Service) CreateProject(ctx context.Context, projectInfo UpsertProjectIn
 			return errs.Combine(ErrProjLimit.New(projLimitErrMsg), tx.Projects().Delete(ctx, p.ID))
 		}
 
-		_, err = tx.ProjectMembers().Insert(ctx, user.ID, p.ID)
+		_, err = tx.ProjectMembers().Insert(ctx, user.ID, p.ID, RoleAdmin)
 		if err != nil {
 			return Error.Wrap(err)
 		}
@@ -2006,30 +3000,50 @@ func (s *Service) GenCreateProject(ctx context.Context, projectInfo UpsertProjec
 }
 
 // DeleteProject is a method for deleting project by id.
-func (s *Service) DeleteProject(ctx context.Context, projectID uuid.UUID) (err error) {
+func (s *Service) DeleteProject(ctx context.Context, projectID uuid.UUID, step AccountActionStep, data string) (info *DeleteProjectInfo, err error) {
 	defer mon.Task()(&ctx)(&err)
+
+	if !s.config.DeleteProjectEnabled {
+		return nil, ErrForbidden.New("this feature is disabled")
+	}
 
 	user, err := s.getUserAndAuditLog(ctx, "delete project", zap.String("projectID", projectID.String()))
 	if err != nil {
-		return Error.Wrap(err)
+		return nil, Error.Wrap(err)
 	}
 
-	_, _, err = s.isProjectOwner(ctx, user.ID, projectID)
+	_, p, err := s.isProjectOwner(ctx, user.ID, projectID)
 	if err != nil {
-		return Error.Wrap(err)
+		return nil, Error.Wrap(err)
 	}
 
-	err = s.checkProjectCanBeDeleted(ctx, user, projectID)
+	projectID = p.ID
+
+	if user.LoginLockoutExpiration.After(s.nowFn()) {
+		mon.Counter("delete_project_locked_out").Inc(1) //mon:locked
+		s.auditLog(ctx, "delete project: failed account locked out", &user.ID, user.Email)
+		return nil, ErrUnauthorized.New("please try again later")
+	}
+
+	info, err = s.checkProjectCanBeDeleted(ctx, user, projectID)
 	if err != nil {
-		return Error.Wrap(err)
+		return info, Error.Wrap(err)
 	}
 
-	err = s.store.Projects().Delete(ctx, projectID)
-	if err != nil {
-		return Error.Wrap(err)
+	switch step {
+	case DeleteProjectInit:
+		return nil, nil
+	case VerifyAccountPasswordStep:
+		return nil, s.handlePasswordStep(ctx, user, data, deleteProjectAction)
+	case VerifyAccountMfaStep:
+		return nil, s.handleMfaStep(ctx, user, data, deleteProjectAction)
+	case VerifyAccountEmailStep:
+		return nil, s.handleVerifyCurrentEmailStep(ctx, user, data, deleteProjectAction)
+	case DeleteProjectStep:
+		return nil, s.handleDeleteProjectStep(ctx, user, projectID)
+	default:
+		return nil, ErrValidation.New("step value is out of range")
 	}
-
-	return nil
 }
 
 // GenDeleteProject is a method for deleting project by id for generated API.
@@ -2059,7 +3073,7 @@ func (s *Service) GenDeleteProject(ctx context.Context, projectID uuid.UUID) (ht
 
 	projectID = p.ID
 
-	err = s.checkProjectCanBeDeleted(ctx, user, projectID)
+	_, err = s.checkProjectCanBeDeleted(ctx, user, projectID)
 	if err != nil {
 		return api.HTTPError{
 			Status: http.StatusConflict,
@@ -2088,14 +3102,14 @@ func (s *Service) UpdateProject(ctx context.Context, projectID uuid.UUID, update
 		return nil, Error.Wrap(err)
 	}
 
-	err = ValidateNameAndDescription(updatedProject.Name, updatedProject.Description)
+	_, project, err := s.isProjectOwner(ctx, user.ID, projectID)
 	if err != nil {
 		return nil, Error.Wrap(err)
 	}
 
-	_, project, err := s.isProjectOwner(ctx, user.ID, projectID)
+	err = ValidateNameAndDescription(updatedProject.Name, updatedProject.Description)
 	if err != nil {
-		return nil, Error.Wrap(err)
+		return nil, ErrValidation.Wrap(err)
 	}
 
 	if updatedProject.Name != project.Name {
@@ -2108,57 +3122,19 @@ func (s *Service) UpdateProject(ctx context.Context, projectID uuid.UUID, update
 	project.Description = updatedProject.Description
 
 	if user.PaidTier {
-		if project.BandwidthLimit != nil && *project.BandwidthLimit == 0 {
-			return nil, Error.New("current bandwidth limit for project is set to 0 (updating disabled)")
-		}
-		if project.StorageLimit != nil && *project.StorageLimit == 0 {
-			return nil, Error.New("current storage limit for project is set to 0 (updating disabled)")
-		}
-		if updatedProject.StorageLimit <= 0 || updatedProject.BandwidthLimit <= 0 {
-			return nil, ErrInvalidProjectLimit.New("Project limits must be greater than 0")
-		}
-
-		if updatedProject.StorageLimit > s.config.UsageLimits.Storage.Paid && updatedProject.StorageLimit > *project.StorageLimit {
-			return nil, ErrInvalidProjectLimit.New("Specified storage limit exceeds allowed maximum for current tier")
-		}
-
-		if updatedProject.BandwidthLimit > s.config.UsageLimits.Bandwidth.Paid && updatedProject.BandwidthLimit > *project.BandwidthLimit {
-			return nil, ErrInvalidProjectLimit.New("Specified bandwidth limit exceeds allowed maximum for current tier")
-		}
-
-		storageUsed, err := s.projectUsage.GetProjectStorageTotals(ctx, project.ID)
+		err = s.validateLimits(ctx, project, UpdateLimitsInfo{
+			StorageLimit:   updatedProject.StorageLimit,
+			BandwidthLimit: updatedProject.BandwidthLimit,
+		}, false)
 		if err != nil {
-			return nil, Error.Wrap(err)
+			return nil, err
 		}
-		if updatedProject.StorageLimit.Int64() < storageUsed {
-			return nil, ErrInvalidProjectLimit.New("Cannot set storage limit below current usage")
+		if updatedProject.StorageLimit != nil {
+			project.UserSpecifiedStorageLimit = updatedProject.StorageLimit
 		}
-
-		bandwidthUsed, err := s.projectUsage.GetProjectBandwidthTotals(ctx, project.ID)
-		if err != nil {
-			return nil, Error.Wrap(err)
+		if updatedProject.BandwidthLimit != nil {
+			project.UserSpecifiedBandwidthLimit = updatedProject.BandwidthLimit
 		}
-		if updatedProject.BandwidthLimit.Int64() < bandwidthUsed {
-			return nil, ErrInvalidProjectLimit.New("Cannot set bandwidth limit below current usage")
-		}
-		/*
-			The purpose of userSpecifiedBandwidthLimit and userSpecifiedStorageLimit is to know if a user has set a bandwidth
-			or storage limit in the UI (to ensure their limits are not unintentionally modified by the satellite admin),
-			the BandwidthLimit and StorageLimit is still used for verifying limits during uploads and downloads.
-		*/
-		if project.StorageLimit != nil && updatedProject.StorageLimit != *project.StorageLimit {
-			project.UserSpecifiedStorageLimit = new(memory.Size)
-			*project.UserSpecifiedStorageLimit = updatedProject.StorageLimit
-		}
-		if project.BandwidthLimit != nil && updatedProject.BandwidthLimit != *project.BandwidthLimit {
-			project.UserSpecifiedBandwidthLimit = new(memory.Size)
-			*project.UserSpecifiedBandwidthLimit = updatedProject.BandwidthLimit
-		}
-
-		project.StorageLimit = new(memory.Size)
-		*project.StorageLimit = updatedProject.StorageLimit
-		project.BandwidthLimit = new(memory.Size)
-		*project.BandwidthLimit = updatedProject.BandwidthLimit
 	}
 
 	err = s.store.Projects().Update(ctx, project)
@@ -2167,6 +3143,156 @@ func (s *Service) UpdateProject(ctx context.Context, projectID uuid.UUID, update
 	}
 
 	return project, nil
+}
+
+// UpdateUserSpecifiedLimits is a method for updating project user specified limits.
+func (s *Service) UpdateUserSpecifiedLimits(ctx context.Context, projectID uuid.UUID, updatedLimits UpdateLimitsInfo) (err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	user, err := s.getUserAndAuditLog(ctx, "update project limits", zap.String("projectID", projectID.String()))
+	if err != nil {
+		return Error.Wrap(err)
+	}
+
+	isMember, err := s.isProjectMember(ctx, user.ID, projectID)
+	if err != nil {
+		return ErrNoMembership.Wrap(err)
+	}
+	project := isMember.project
+
+	if isMember.membership.Role != RoleAdmin && project.OwnerID != user.ID {
+		return ErrUnauthorized.New("Only project owner or admin may update project limits")
+	}
+
+	isPaidTier := user.PaidTier
+	if project.OwnerID != user.ID {
+		isPaidTier, err = s.store.Users().GetUserPaidTier(ctx, project.OwnerID)
+		if err != nil {
+			return Error.Wrap(err)
+		}
+	}
+
+	if !isPaidTier {
+		return ErrNotPaidTier.New("Only Pro users may update project limits")
+	}
+
+	updates := make([]Limit, 0)
+	err = s.validateLimits(ctx, project, updatedLimits, true)
+	if err != nil {
+		return err
+	}
+
+	if updatedLimits.StorageLimit != nil {
+		limit := new(int64)
+		*limit = updatedLimits.StorageLimit.Int64()
+		if *limit == 0 {
+			limit = nil
+		}
+		updates = append(updates, Limit{
+			Kind:  UserSetStorageLimit,
+			Value: limit,
+		})
+	}
+
+	if updatedLimits.BandwidthLimit != nil {
+		limit := new(int64)
+		*limit = updatedLimits.BandwidthLimit.Int64()
+		if *limit == 0 {
+			limit = nil
+		}
+		updates = append(updates, Limit{
+			Kind:  UserSetBandwidthLimit,
+			Value: limit,
+		})
+	}
+
+	err = s.store.Projects().UpdateLimitsGeneric(ctx, project.ID, updates)
+	if err != nil {
+		return Error.Wrap(err)
+	}
+
+	return nil
+}
+
+func (s *Service) validateLimits(ctx context.Context, project *Project, updatedLimits UpdateLimitsInfo, allowZero bool) (err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	if updatedLimits.StorageLimit != nil {
+		if !allowZero && *updatedLimits.StorageLimit <= 0 {
+			return ErrInvalidProjectLimit.New("Project limits must be greater than 0")
+		}
+		if project.StorageLimit != nil && *project.StorageLimit == 0 {
+			return Error.New("current storage limit for project is set to 0 (updating disabled)")
+		}
+		if *updatedLimits.StorageLimit > s.config.UsageLimits.Storage.Paid && *updatedLimits.StorageLimit > *project.StorageLimit {
+			return ErrInvalidProjectLimit.New("Specified storage limit exceeds allowed maximum for current tier")
+		}
+
+		if !allowZero || *updatedLimits.StorageLimit != 0 {
+			storageUsed, err := s.projectUsage.GetProjectStorageTotals(ctx, project.ID)
+			if err != nil {
+				return Error.Wrap(err)
+			}
+			if updatedLimits.StorageLimit.Int64() < storageUsed {
+				return ErrInvalidProjectLimit.New("Cannot set storage limit below current usage")
+			}
+		}
+	}
+
+	if updatedLimits.BandwidthLimit != nil {
+		if !allowZero && *updatedLimits.BandwidthLimit <= 0 {
+			return ErrInvalidProjectLimit.New("Project limits must be greater than 0")
+		}
+		if project.BandwidthLimit != nil && *project.BandwidthLimit == 0 {
+			return Error.New("current bandwidth limit for project is set to 0 (updating disabled)")
+		}
+		if *updatedLimits.BandwidthLimit > s.config.UsageLimits.Bandwidth.Paid && *updatedLimits.BandwidthLimit > *project.BandwidthLimit {
+			return ErrInvalidProjectLimit.New("Specified bandwidth limit exceeds allowed maximum for current tier")
+		}
+		if !allowZero || *updatedLimits.BandwidthLimit != 0 {
+			bandwidthUsed, err := s.projectUsage.GetProjectBandwidthTotals(ctx, project.ID)
+			if err != nil {
+				return Error.Wrap(err)
+			}
+			if updatedLimits.BandwidthLimit.Int64() < bandwidthUsed {
+				return ErrInvalidProjectLimit.New("Cannot set bandwidth limit below current usage")
+			}
+		}
+	}
+
+	return nil
+}
+
+// UpdateVersioningOptInStatus updates the default versioning of a project.
+// It is intended to be used to opt projects into versioning beta i.e.:
+// console.VersioningUnsupported = opt out
+// console.Unversioned or console.VersioningEnabled = opt in.
+func (s *Service) UpdateVersioningOptInStatus(ctx context.Context, projectID uuid.UUID, optInStatus VersioningOptInStatus) error {
+	var err error
+	defer mon.Task()(&ctx)(&err)
+
+	user, err := s.getUserAndAuditLog(ctx, "update versioning opt-in status", zap.String("projectID", projectID.String()))
+	if err != nil {
+		return Error.Wrap(err)
+	}
+
+	_, project, err := s.isProjectOwner(ctx, user.ID, projectID)
+	if err != nil {
+		return Error.Wrap(err)
+	}
+
+	project.PromptedForVersioningBeta = true
+	err = s.store.Projects().Update(ctx, project)
+	if err != nil {
+		return Error.Wrap(err)
+	}
+
+	versioning := VersioningUnsupported
+	if optInStatus == VersioningOptIn {
+		versioning = Unversioned
+	}
+
+	return Error.Wrap(s.store.Projects().UpdateDefaultVersioning(ctx, project.ID, versioning))
 }
 
 // RequestLimitIncrease is a method for requesting limit increase for a project.
@@ -2255,7 +3381,7 @@ func (s *Service) GenUpdateProject(ctx context.Context, projectID uuid.UUID, pro
 	project.Name = projectInfo.Name
 	project.Description = projectInfo.Description
 
-	if user.PaidTier {
+	if user.PaidTier && projectInfo.StorageLimit != nil && projectInfo.BandwidthLimit != nil {
 		if project.BandwidthLimit != nil && *project.BandwidthLimit == 0 {
 			return nil, api.HTTPError{
 				Status: http.StatusInternalServerError,
@@ -2268,21 +3394,21 @@ func (s *Service) GenUpdateProject(ctx context.Context, projectID uuid.UUID, pro
 				Err:    Error.New("current storage limit for project is set to 0 (updating disabled)"),
 			}
 		}
-		if projectInfo.StorageLimit <= 0 || projectInfo.BandwidthLimit <= 0 {
+		if *projectInfo.StorageLimit <= 0 || *projectInfo.BandwidthLimit <= 0 {
 			return nil, api.HTTPError{
 				Status: http.StatusBadRequest,
 				Err:    Error.New("project limits must be greater than 0"),
 			}
 		}
 
-		if projectInfo.StorageLimit > s.config.UsageLimits.Storage.Paid && projectInfo.StorageLimit > *project.StorageLimit {
+		if *projectInfo.StorageLimit > s.config.UsageLimits.Storage.Paid && *projectInfo.StorageLimit > *project.StorageLimit {
 			return nil, api.HTTPError{
 				Status: http.StatusBadRequest,
 				Err:    Error.New("specified storage limit exceeds allowed maximum for current tier"),
 			}
 		}
 
-		if projectInfo.BandwidthLimit > s.config.UsageLimits.Bandwidth.Paid && projectInfo.BandwidthLimit > *project.BandwidthLimit {
+		if *projectInfo.BandwidthLimit > s.config.UsageLimits.Bandwidth.Paid && *projectInfo.BandwidthLimit > *project.BandwidthLimit {
 			return nil, api.HTTPError{
 				Status: http.StatusBadRequest,
 				Err:    Error.New("specified bandwidth limit exceeds allowed maximum for current tier"),
@@ -2317,10 +3443,8 @@ func (s *Service) GenUpdateProject(ctx context.Context, projectID uuid.UUID, pro
 			}
 		}
 
-		project.StorageLimit = new(memory.Size)
-		*project.StorageLimit = projectInfo.StorageLimit
-		project.BandwidthLimit = new(memory.Size)
-		*project.BandwidthLimit = projectInfo.BandwidthLimit
+		project.UserSpecifiedStorageLimit = projectInfo.StorageLimit
+		project.UserSpecifiedBandwidthLimit = projectInfo.BandwidthLimit
 	}
 
 	err = s.store.Projects().Update(ctx, project)
@@ -2363,7 +3487,7 @@ func (s *Service) AddProjectMembers(ctx context.Context, projectID uuid.UUID, em
 	// add project members in transaction scope
 	err = s.store.WithTx(ctx, func(ctx context.Context, tx DBTx) error {
 		for _, user := range users {
-			if _, err := tx.ProjectMembers().Insert(ctx, user.ID, isMember.project.ID); err != nil {
+			if _, err := tx.ProjectMembers().Insert(ctx, user.ID, isMember.project.ID, RoleMember); err != nil {
 				if dbx.IsConstraintError(err) {
 					return errs.New("%s is already on the project", user.Email)
 				}
@@ -2385,6 +3509,7 @@ func (s *Service) AddProjectMembers(ctx context.Context, projectID uuid.UUID, em
 // projectID here may be project.PublicID or project.ID.
 func (s *Service) DeleteProjectMembersAndInvitations(ctx context.Context, projectID uuid.UUID, emails []string) (err error) {
 	defer mon.Task()(&ctx)(&err)
+
 	user, err := s.getUserAndAuditLog(ctx, "delete project members", zap.String("projectID", projectID.String()), zap.Strings("emails", emails))
 	if err != nil {
 		return Error.Wrap(err)
@@ -2393,6 +3518,13 @@ func (s *Service) DeleteProjectMembersAndInvitations(ctx context.Context, projec
 	var isMember isProjectMember
 	if isMember, err = s.isProjectMember(ctx, user.ID, projectID); err != nil {
 		return Error.Wrap(err)
+	}
+
+	if isMember.membership.Role != RoleAdmin {
+		// We still allow user to remove themselves even with Member role.
+		if len(emails) != 1 || user.Email != emails[0] {
+			return ErrForbidden.New("only project Owner or Admin can remove other members")
+		}
 	}
 
 	projectID = isMember.project.ID
@@ -2452,6 +3584,63 @@ func (s *Service) DeleteProjectMembersAndInvitations(ctx context.Context, projec
 	return Error.Wrap(err)
 }
 
+// UpdateProjectMemberRole updates project member's role and returns an updated one.
+func (s *Service) UpdateProjectMemberRole(ctx context.Context, memberID, projectID uuid.UUID, newRole ProjectMemberRole) (pm *ProjectMember, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	user, err := s.getUserAndAuditLog(ctx, "update project member role", zap.String("projectID", projectID.String()))
+	if err != nil {
+		return nil, ErrUnauthorized.Wrap(err)
+	}
+
+	_, pr, err := s.isProjectOwner(ctx, user.ID, projectID)
+	if err != nil {
+		if ErrUnauthorized.Has(err) {
+			return nil, ErrForbidden.Wrap(errs.New("only project owners can change the role"))
+		}
+
+		return nil, Error.Wrap(err)
+	}
+
+	if pr.OwnerID == memberID {
+		return nil, ErrConflict.Wrap(errs.New("project owner's status can't be changed"))
+	}
+
+	_, err = s.isProjectMember(ctx, memberID, projectID)
+	if err != nil {
+		return nil, ErrNoMembership.Wrap(err)
+	}
+
+	pm, err = s.store.ProjectMembers().UpdateRole(ctx, memberID, pr.ID, newRole)
+	if err != nil {
+		return nil, Error.Wrap(err)
+	}
+
+	return pm, err
+}
+
+// GetProjectMember queries and returns project member by given project and member IDs.
+func (s *Service) GetProjectMember(ctx context.Context, memberID, projectID uuid.UUID) (pm *ProjectMember, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	user, err := s.getUserAndAuditLog(ctx, "get project member", zap.String("projectID", projectID.String()))
+	if err != nil {
+		return nil, ErrUnauthorized.Wrap(err)
+	}
+
+	member, err := s.isProjectMember(ctx, user.ID, projectID)
+	if err != nil {
+		return nil, ErrNoMembership.Wrap(err)
+	}
+
+	pm, err = s.store.ProjectMembers().GetByMemberIDAndProjectID(ctx, memberID, member.project.ID)
+	if err != nil {
+		return nil, Error.Wrap(err)
+	}
+
+	return pm, err
+}
+
 // GetProjectMembersAndInvitations returns the project members and invitations for a given project.
 func (s *Service) GetProjectMembersAndInvitations(ctx context.Context, projectID uuid.UUID, cursor ProjectMembersCursor) (pmp *ProjectMembersPage, err error) {
 	defer mon.Task()(&ctx)(&err)
@@ -2480,7 +3669,7 @@ func (s *Service) GetProjectMembersAndInvitations(ctx context.Context, projectID
 
 // CreateAPIKey creates new api key.
 // projectID here may be project.PublicID or project.ID.
-func (s *Service) CreateAPIKey(ctx context.Context, projectID uuid.UUID, name string) (_ *APIKeyInfo, _ *macaroon.APIKey, err error) {
+func (s *Service) CreateAPIKey(ctx context.Context, projectID uuid.UUID, name string, version macaroon.APIKeyVersion) (_ *APIKeyInfo, _ *macaroon.APIKey, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	user, err := s.getUserAndAuditLog(ctx, "create api key", zap.String("projectID", projectID.String()))
@@ -2511,8 +3700,10 @@ func (s *Service) CreateAPIKey(ctx context.Context, projectID uuid.UUID, name st
 	apikey := APIKeyInfo{
 		Name:      name,
 		ProjectID: isMember.project.ID,
+		CreatedBy: user.ID,
 		Secret:    secret,
 		UserAgent: user.UserAgent,
+		Version:   version,
 	}
 
 	info, err := s.store.APIKeys().Create(ctx, key.Head(), apikey)
@@ -2721,9 +3912,14 @@ func (s *Service) DeleteAPIKeys(ctx context.Context, ids []uuid.UUID) (err error
 			continue
 		}
 
-		_, err = s.isProjectMember(ctx, user.ID, key.ProjectID)
+		pm, err := s.isProjectMember(ctx, user.ID, key.ProjectID)
 		if err != nil {
 			keysErr.Add(ErrUnauthorized.Wrap(err))
+			continue
+		}
+
+		if pm.membership.Role != RoleAdmin && key.CreatedBy != pm.membership.MemberID {
+			keysErr.Add(ErrForbidden.Wrap(errs.New("you do not have permission to delete this API key: %s", key.Name)))
 			continue
 		}
 	}
@@ -2732,17 +3928,11 @@ func (s *Service) DeleteAPIKeys(ctx context.Context, ids []uuid.UUID) (err error
 		return Error.Wrap(err)
 	}
 
-	err = s.store.WithTx(ctx, func(ctx context.Context, tx DBTx) error {
-		for _, keyToDeleteID := range ids {
-			err = tx.APIKeys().Delete(ctx, keyToDeleteID)
-			if err != nil {
-				return err
-			}
-		}
-
-		return nil
-	})
-	return Error.Wrap(err)
+	err = s.store.APIKeys().DeleteMultiple(ctx, ids)
+	if err != nil {
+		return Error.Wrap(err)
+	}
+	return nil
 }
 
 // GetAllAPIKeyNamesByProjectID returns all api key names by project ID.
@@ -2777,14 +3967,18 @@ func (s *Service) DeleteAPIKeyByNameAndProjectID(ctx context.Context, name strin
 		return Error.Wrap(err)
 	}
 
-	isMember, err := s.isProjectMember(ctx, user.ID, projectID)
+	pm, err := s.isProjectMember(ctx, user.ID, projectID)
 	if err != nil {
 		return ErrUnauthorized.Wrap(err)
 	}
 
-	key, err := s.store.APIKeys().GetByNameAndProjectID(ctx, name, isMember.project.ID)
+	key, err := s.store.APIKeys().GetByNameAndProjectID(ctx, name, pm.project.ID)
 	if err != nil {
 		return ErrNoAPIKey.New(apiKeyWithNameDoesntExistErrMsg)
+	}
+
+	if pm.membership.Role != RoleAdmin && key.CreatedBy != pm.membership.MemberID {
+		return ErrForbidden.Wrap(errs.New("you do not have permission to delete this API key"))
 	}
 
 	err = s.store.APIKeys().Delete(ctx, key.ID)
@@ -2815,7 +4009,7 @@ func (s *Service) GetAPIKeys(ctx context.Context, reqProjectID uuid.UUID, cursor
 		cursor.Limit = maxLimit
 	}
 
-	page, err = s.store.APIKeys().GetPagedByProjectID(ctx, projectID, cursor)
+	page, err = s.store.APIKeys().GetPagedByProjectID(ctx, projectID, cursor, s.config.ObjectBrowserKeyNamePrefix)
 	if err != nil {
 		return nil, Error.Wrap(err)
 	}
@@ -2915,6 +4109,28 @@ func (s *Service) GetBucketTotals(ctx context.Context, projectID uuid.UUID, curs
 	return usage, nil
 }
 
+// GetSingleBucketTotals retrieves a single bucket total usages since project creation.
+func (s *Service) GetSingleBucketTotals(ctx context.Context, projectID uuid.UUID, bucketName string, before time.Time) (_ *accounting.BucketUsage, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	user, err := s.getUserAndAuditLog(ctx, "get single bucket totals", zap.String("projectID", projectID.String()))
+	if err != nil {
+		return nil, ErrUnauthorized.Wrap(err)
+	}
+
+	isMember, err := s.isProjectMember(ctx, user.ID, projectID)
+	if err != nil {
+		return nil, ErrUnauthorized.Wrap(err)
+	}
+
+	usage, err := s.projectAccounting.GetSingleBucketTotals(ctx, isMember.project.ID, bucketName, before)
+	if err != nil {
+		return nil, Error.Wrap(err)
+	}
+
+	return usage, nil
+}
+
 // GetAllBucketNames retrieves all bucket names of a specific project.
 // projectID here may be Project.ID or Project.PublicID.
 func (s *Service) GetAllBucketNames(ctx context.Context, projectID uuid.UUID) (_ []string, err error) {
@@ -2951,12 +4167,12 @@ func (s *Service) GetAllBucketNames(ctx context.Context, projectID uuid.UUID) (_
 	return list, nil
 }
 
-// GetBucketPlacements retrieves all bucket names and placements of a specific project.
+// GetBucketMetadata retrieves all bucket names of a specific project and related metadata, e.g. placement and versioning.
 // projectID here may be Project.ID or Project.PublicID.
-func (s *Service) GetBucketPlacements(ctx context.Context, projectID uuid.UUID) (_ []BucketPlacement, err error) {
+func (s *Service) GetBucketMetadata(ctx context.Context, projectID uuid.UUID) (list []BucketMetadata, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	user, err := s.getUserAndAuditLog(ctx, "get all bucket names and placements", zap.String("projectID", projectID.String()))
+	user, err := s.getUserAndAuditLog(ctx, "get all bucket names and metadata", zap.String("projectID", projectID.String()))
 	if err != nil {
 		return nil, Error.Wrap(err)
 	}
@@ -2979,14 +4195,15 @@ func (s *Service) GetBucketPlacements(ctx context.Context, projectID uuid.UUID) 
 		return nil, Error.Wrap(err)
 	}
 
-	var list []BucketPlacement
 	for _, bucket := range bucketsList.Items {
-		list = append(list, BucketPlacement{
-			bucket.Name,
-			Placement{
+		list = append(list, BucketMetadata{
+			Name:       bucket.Name,
+			Versioning: bucket.Versioning,
+			Placement: Placement{
 				DefaultPlacement: bucket.Placement,
 				Location:         s.placements[bucket.Placement].Name,
 			},
+			ObjectLockEnabled: bucket.ObjectLockEnabled,
 		})
 	}
 
@@ -3175,18 +4392,10 @@ func (s *Service) GetProjectUsageLimits(ctx context.Context, projectID uuid.UUID
 		return nil, Error.Wrap(err)
 	}
 
-	return &ProjectUsageLimits{
-		StorageLimit:   prUsageLimits.StorageLimit,
-		BandwidthLimit: prUsageLimits.BandwidthLimit,
-		StorageUsed:    prUsageLimits.StorageUsed,
-		BandwidthUsed:  prUsageLimits.BandwidthUsed,
-		ObjectCount:    prObjectsSegments.ObjectCount,
-		SegmentCount:   prObjectsSegments.SegmentCount,
-		SegmentLimit:   prUsageLimits.SegmentLimit,
-		SegmentUsed:    prUsageLimits.SegmentUsed,
-		BucketsUsed:    prUsageLimits.BucketsUsed,
-		BucketsLimit:   prUsageLimits.BucketsLimit,
-	}, nil
+	prUsageLimits.ObjectCount = prObjectsSegments.ObjectCount
+	prUsageLimits.SegmentCount = prObjectsSegments.SegmentCount
+
+	return prUsageLimits, nil
 }
 
 // GetTotalUsageLimits returns total limits and current usage for all the projects.
@@ -3248,20 +4457,12 @@ func (s *Service) getStorageAndBandwidthUse(ctx context.Context, projectID uuid.
 func (s *Service) getProjectUsageLimits(ctx context.Context, projectID uuid.UUID, getBandwidthTotals bool) (_ *ProjectUsageLimits, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	storageLimit, err := s.projectUsage.GetProjectStorageLimit(ctx, projectID)
-	if err != nil {
-		return nil, err
-	}
-	bandwidthLimit, err := s.projectUsage.GetProjectBandwidthLimit(ctx, projectID)
-	if err != nil {
-		return nil, err
-	}
-	segmentLimit, err := s.projectUsage.GetProjectSegmentLimit(ctx, projectID)
+	limits, err := s.projectUsage.GetProjectLimits(ctx, projectID)
 	if err != nil {
 		return nil, err
 	}
 
-	storageUsed, err := s.projectUsage.GetProjectStorageTotals(ctx, projectID)
+	storageUsed, segmentUsed, err := s.projectUsage.GetProjectStorageAndSegmentUsage(ctx, projectID)
 	if err != nil {
 		return nil, err
 	}
@@ -3273,11 +4474,6 @@ func (s *Service) getProjectUsageLimits(ctx context.Context, projectID uuid.UUID
 		now := s.nowFn()
 		bandwidthUsed, err = s.projectUsage.GetProjectBandwidth(ctx, projectID, now.Year(), now.Month(), now.Day())
 	}
-	if err != nil {
-		return nil, err
-	}
-
-	segmentUsed, err := s.projectUsage.GetProjectSegmentTotals(ctx, projectID)
 	if err != nil {
 		return nil, err
 	}
@@ -3297,14 +4493,16 @@ func (s *Service) getProjectUsageLimits(ctx context.Context, projectID uuid.UUID
 	}
 
 	return &ProjectUsageLimits{
-		StorageLimit:   storageLimit.Int64(),
-		BandwidthLimit: bandwidthLimit.Int64(),
-		StorageUsed:    storageUsed,
-		BandwidthUsed:  bandwidthUsed,
-		SegmentLimit:   segmentLimit.Int64(),
-		SegmentUsed:    segmentUsed,
-		BucketsUsed:    int64(bucketsUsed),
-		BucketsLimit:   int64(*bucketsLimit),
+		StorageLimit:          *limits.Usage,
+		UserSetStorageLimit:   limits.UserSetUsage,
+		BandwidthLimit:        *limits.Bandwidth,
+		UserSetBandwidthLimit: limits.UserSetBandwidth,
+		StorageUsed:           storageUsed,
+		BandwidthUsed:         bandwidthUsed,
+		SegmentLimit:          *limits.Segments,
+		SegmentUsed:           segmentUsed,
+		BucketsUsed:           int64(bucketsUsed),
+		BucketsLimit:          int64(*bucketsLimit),
 	}, nil
 }
 
@@ -3363,38 +4561,51 @@ func (s *Service) KeyAuth(ctx context.Context, apikey string, authTime time.Time
 
 // checkProjectCanBeDeleted ensures that all data, api-keys and buckets are deleted and usage has been accounted.
 // no error means the project status is clean.
-func (s *Service) checkProjectCanBeDeleted(ctx context.Context, user *User, projectID uuid.UUID) (err error) {
+func (s *Service) checkProjectCanBeDeleted(ctx context.Context, user *User, projectID uuid.UUID) (resp *DeleteProjectInfo, err error) {
 	defer mon.Task()(&ctx)(&err)
+
+	if !user.PaidTier {
+		return nil, ErrNotPaidTier.New("You must upgrade your account in order to delete a project")
+	}
 
 	buckets, err := s.buckets.CountBuckets(ctx, projectID)
 	if err != nil {
-		return err
+		return nil, err
 	}
 	if buckets > 0 {
-		return ErrUsage.New("some buckets still exist")
+		return &DeleteProjectInfo{Buckets: buckets}, ErrUsage.New("some buckets still exist")
 	}
 
-	keys, err := s.store.APIKeys().GetPagedByProjectID(ctx, projectID, APIKeyCursor{Limit: 1, Page: 1})
+	// ignore object browser api key because we hide it from the user, so they can't delete it.
+	// project row deletion cascades to api keys, so it's okay.
+	keys, err := s.store.APIKeys().GetAllNamesByProjectID(ctx, projectID)
 	if err != nil {
-		return err
-	}
-	if keys.TotalCount > 0 {
-		return ErrUsage.New("some api keys still exist")
+		return nil, err
 	}
 
-	if user.PaidTier {
-		err = s.Payments().checkProjectUsageStatus(ctx, projectID)
-		if err != nil {
-			return ErrUsage.Wrap(err)
+	var keyCount int
+	for _, k := range keys {
+		if !strings.HasPrefix(k, s.config.ObjectBrowserKeyNamePrefix) {
+			keyCount++
 		}
 	}
-
-	err = s.Payments().checkProjectInvoicingStatus(ctx, projectID)
-	if err != nil {
-		return ErrUsage.Wrap(err)
+	if keyCount > 0 {
+		return &DeleteProjectInfo{APIKeys: keyCount}, ErrUsage.New("some api keys still exist")
 	}
 
-	return nil
+	currentUsage, invoicingIncomplete, err := s.Payments().checkProjectUsageStatus(ctx, projectID)
+	if err != nil && !payments.ErrUnbilledUsage.Has(err) {
+		return nil, ErrUsage.Wrap(err)
+	}
+
+	if currentUsage || invoicingIncomplete {
+		return &DeleteProjectInfo{
+			CurrentUsage:        currentUsage,
+			InvoicingIncomplete: invoicingIncomplete,
+		}, ErrUsage.Wrap(err)
+	}
+
+	return nil, nil
 }
 
 // checkProjectLimit is used to check if user is able to create a new project.
@@ -3553,9 +4764,12 @@ type WalletPayments struct {
 	Payments []PaymentInfo `json:"payments"`
 }
 
-// EtherscanURL creates etherscan transaction URI.
-func (payment Payments) EtherscanURL(tx string) string {
+// BlockExplorerURL creates zkSync/etherscan transaction URI based on source.
+func (payment Payments) BlockExplorerURL(tx string, source string) string {
 	url := payment.service.config.BlockExplorerURL
+	if source == billing.StorjScanZkSyncSource {
+		url = payment.service.config.ZkSyncBlockExplorerURL
+	}
 	if !strings.HasSuffix(url, "/") {
 		url += "/"
 	}
@@ -3645,13 +4859,14 @@ func (payment Payments) WalletPayments(ctx context.Context) (_ WalletPayments, e
 
 	var paymentInfos []PaymentInfo
 	for _, walletPayment := range walletPayments {
+		source := payment.service.paymentSourceChainIDs[walletPayment.ChainID]
 		paymentInfos = append(paymentInfos, PaymentInfo{
 			ID:        fmt.Sprintf("%s#%d", walletPayment.Transaction.Hex(), walletPayment.LogIndex),
 			Type:      "storjscan",
 			Wallet:    walletPayment.To.Hex(),
 			Amount:    walletPayment.USDValue,
 			Status:    string(walletPayment.Status),
-			Link:      payment.EtherscanURL(walletPayment.Transaction.Hex()),
+			Link:      payment.BlockExplorerURL(walletPayment.Transaction.Hex(), source),
 			Timestamp: walletPayment.Timestamp,
 		})
 	}
@@ -3682,7 +4897,7 @@ func (payment Payments) WalletPayments(ctx context.Context) (_ WalletPayments, e
 			Wallet:    address.Hex(),
 			Amount:    txn.Amount,
 			Status:    string(txn.Status),
-			Link:      payment.EtherscanURL(meta.ReferenceID),
+			Link:      payment.BlockExplorerURL(meta.ReferenceID, txn.Source),
 			Timestamp: txn.Timestamp,
 		})
 	}
@@ -3837,6 +5052,44 @@ func findMembershipByProjectID(memberships []ProjectMember, projectID uuid.UUID)
 	return ProjectMember{}, false
 }
 
+// GetPagedActiveSessions returns paged active webapp sessions list for given User.
+func (s *Service) GetPagedActiveSessions(ctx context.Context, cursor consoleauth.WebappSessionsCursor) (page *consoleauth.WebappSessionsPage, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	user, err := s.getUserAndAuditLog(ctx, "get active sessions")
+	if err != nil {
+		return nil, ErrUnauthorized.Wrap(err)
+	}
+
+	page, err = s.store.WebappSessions().GetPagedActiveByUserID(ctx, user.ID, s.nowFn(), cursor)
+	if err != nil {
+		return nil, Error.Wrap(err)
+	}
+
+	return page, err
+}
+
+// InvalidateSession invalidates the session by ID.
+func (s *Service) InvalidateSession(ctx context.Context, sessionID uuid.UUID) (err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	user, err := s.getUserAndAuditLog(ctx, "invalidate session")
+	if err != nil {
+		return ErrUnauthorized.Wrap(err)
+	}
+
+	session, err := s.store.WebappSessions().GetBySessionID(ctx, sessionID)
+	if err != nil {
+		return Error.Wrap(err)
+	}
+
+	if session.UserID != user.ID {
+		return ErrUnauthorized.New("session does not belong to the user")
+	}
+
+	return Error.Wrap(s.store.WebappSessions().DeleteBySessionID(ctx, session.ID))
+}
+
 // DeleteSession removes the session from the database.
 func (s *Service) DeleteSession(ctx context.Context, sessionID uuid.UUID) (err error) {
 	defer mon.Task()(&ctx)(&err)
@@ -3848,21 +5101,8 @@ func (s *Service) DeleteSession(ctx context.Context, sessionID uuid.UUID) (err e
 func (s *Service) DeleteAllSessionsByUserIDExcept(ctx context.Context, userID uuid.UUID, sessionID uuid.UUID) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	sessions, err := s.store.WebappSessions().GetAllByUserID(ctx, userID)
-	if err != nil {
-		return Error.Wrap(err)
-	}
-
-	for _, session := range sessions {
-		if session.ID != sessionID {
-			err = s.DeleteSession(ctx, session.ID)
-			if err != nil {
-				return err
-			}
-		}
-	}
-
-	return nil
+	_, err = s.store.WebappSessions().DeleteAllByUserIDExcept(ctx, userID, sessionID)
+	return Error.Wrap(err)
 }
 
 // RefreshSession resets the expiration time of the session.
@@ -4070,7 +5310,8 @@ func (s *Service) RespondToProjectInvitation(ctx context.Context, projectID uuid
 		return Error.Wrap(s.store.ProjectInvitations().Delete(ctx, projectID, user.Email))
 	}
 
-	_, err = s.store.ProjectMembers().Insert(ctx, user.ID, projectID)
+	// All the new team members have regular Member role, which can be updated by the project owner later.
+	_, err = s.store.ProjectMembers().Insert(ctx, user.ID, projectID, RoleMember)
 	if err != nil {
 		return Error.Wrap(err)
 	}
@@ -4139,14 +5380,12 @@ func (s *Service) inviteProjectMembers(ctx context.Context, sender *User, projec
 	if err != nil {
 		return nil, Error.Wrap(err)
 	}
-	projectID = isMember.project.ID
 
-	if s.config.BillingFeaturesEnabled && !(s.config.FreeTierInvitesEnabled || sender.PaidTier) {
-		if _, ok := s.varPartners[string(sender.UserAgent)]; ok {
-			return nil, ErrHasVarPartner.New(varPartnerInviteErr)
-		}
-		return nil, ErrNotPaidTier.New(paidTierInviteErrMsg)
+	if isMember.membership.Role != RoleAdmin {
+		return nil, ErrForbidden.New("only project Owner or Admin can invite other members")
 	}
+
+	projectID = isMember.project.ID
 
 	var users []*User
 	var newUserEmails []string
@@ -4408,18 +5647,18 @@ func (s *Service) ParseInviteToken(ctx context.Context, token string) (publicID 
 	return claims.ID, claims.Email, nil
 }
 
-// TestSetVersioningConfig allows tests to switch the versioning config.
-func (s *Service) TestSetVersioningConfig(versioning VersioningConfig) error {
-	versioning.projectMap = make(map[uuid.UUID]struct{}, len(versioning.UseBucketLevelObjectVersioningProjects))
-	for _, id := range versioning.UseBucketLevelObjectVersioningProjects {
+// TestSetObjectLockAndVersioningConfig allows tests to switch the versioning config.
+func (s *Service) TestSetObjectLockAndVersioningConfig(config ObjectLockAndVersioningConfig) error {
+	config.projectMap = make(map[uuid.UUID]struct{}, len(config.UseBucketLevelObjectVersioningProjects))
+	for _, id := range config.UseBucketLevelObjectVersioningProjects {
 		projectID, err := uuid.FromString(id)
 		if err != nil {
 			return Error.Wrap(err)
 		}
-		versioning.projectMap[projectID] = struct{}{}
+		config.projectMap[projectID] = struct{}{}
 	}
 
-	s.versioningConfig = versioning
+	s.objectLockAndVersioningConfig = config
 
 	return nil
 }
@@ -4427,4 +5666,9 @@ func (s *Service) TestSetVersioningConfig(versioning VersioningConfig) error {
 // TestSetNow allows tests to have the Service act as if the current time is whatever they want.
 func (s *Service) TestSetNow(now func() time.Time) {
 	s.nowFn = now
+}
+
+// TestToggleSatelliteManagedEncryption toggles the satellite managed encryption config for tests.
+func (s *Service) TestToggleSatelliteManagedEncryption(b bool) {
+	s.config.SatelliteManagedEncryptionEnabled = b
 }

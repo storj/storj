@@ -4,12 +4,12 @@
 <template>
     <v-dialog
         v-model="model"
-        width="410px"
+        max-width="420px"
         transition="fade-transition"
         :persistent="isLoading"
     >
-        <v-card rounded="xlg">
-            <v-card-item class="pa-5 pl-7">
+        <v-card>
+            <v-card-item class="pa-6">
                 <template #prepend>
                     <v-sheet
                         class="border-sm d-flex justify-center align-center"
@@ -17,7 +17,7 @@
                         height="40"
                         rounded="lg"
                     >
-                        <img src="@/assets/icon-remove-member.svg" alt="member icon">
+                        <component :is="UserMinus" :size="18" />
                     </v-sheet>
                 </template>
                 <v-card-title class="font-weight-bold">Remove member</v-card-title>
@@ -33,20 +33,15 @@
                 </template>
             </v-card-item>
 
-            <v-card-item class="px-7 py-0">
-                <v-divider />
+            <v-divider />
 
-                <p class="py-4">The following team members will be removed.</p>
+            <v-card-item class="pa-6">
+                <p class="mb-3">The following team members will be removed.</p>
 
-                <v-divider />
-            </v-card-item>
-
-            <v-card-item class="px-7 pt-4 pb-1">
                 <v-chip
                     v-for="email in firstThreeSelected"
                     :key="email"
-                    rounded
-                    class="mb-3 mr-1"
+                    class="mb-4 mr-1"
                 >
                     <template #default>
                         <div class="max-width">
@@ -57,19 +52,17 @@
                 <v-chip v-if="props.emails.length > 3" rounded class="mb-3 mr-1">
                     + {{ props.emails.length - 3 }} more
                 </v-chip>
-            </v-card-item>
 
-            <v-card-item class="px-7 py-0">
-                <v-alert variant="tonal" class="mb-4 pa-4" color="warning" border="start">
+                <v-alert variant="tonal" class="pa-4" color="warning">
                     <template #text>
                         <strong>Important:</strong> Any access keys created could still provide data access to removed members. If necessary, please revoke these access keys to ensure the security of your data.
                     </template>
                 </v-alert>
-
-                <v-divider />
             </v-card-item>
 
-            <v-card-actions class="pa-7">
+            <v-divider />
+
+            <v-card-actions class="pa-6">
                 <v-row>
                     <v-col>
                         <v-btn variant="outlined" color="default" block :disabled="isLoading" @click="model = false">
@@ -103,10 +96,9 @@ import {
     VBtn,
     VChip,
 } from 'vuetify/components';
+import { UserMinus } from 'lucide-vue-next';
 
 import { useProjectsStore } from '@/store/modules/projectsStore';
-import { useConfigStore } from '@/store/modules/configStore';
-import { useAnalyticsStore } from '@/store/modules/analyticsStore';
 import { useLoading } from '@/composables/useLoading';
 import { useNotify } from '@/utils/hooks';
 import { useProjectMembersStore } from '@/store/modules/projectMembersStore';
@@ -122,8 +114,6 @@ const emit = defineEmits<{
     (event: 'deleted'): void;
 }>();
 
-const analyticsStore = useAnalyticsStore();
-const configStore = useConfigStore();
 const projectsStore = useProjectsStore();
 const pmStore = useProjectMembersStore();
 

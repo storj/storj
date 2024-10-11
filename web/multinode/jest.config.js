@@ -8,4 +8,5 @@ module.exports = {
     transform: {
         '^.+\\.svg$': '<rootDir>/tests/unit/mock/svgTransform.js',
     },
+    transformIgnorePatterns: ['/node_modules/(?!(vuetify|@mdi/font)/)'],
 };

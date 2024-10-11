@@ -6,6 +6,7 @@ package admin
 import (
 	"bytes"
 	"database/sql"
+	"encoding/csv"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -60,7 +61,7 @@ func (server *Server) addUser(w http.ResponseWriter, r *http.Request) {
 	}
 
 	existingUser, err := server.db.Console().Users().GetByEmail(ctx, input.Email)
-	if err != nil && !errors.Is(sql.ErrNoRows, err) {
+	if err != nil && !errors.Is(err, sql.ErrNoRows) {
 		sendJSONError(w, "failed to check for user email",
 			err.Error(), http.StatusInternalServerError)
 		return
@@ -300,6 +301,53 @@ func (server *Server) usersPendingDeletion(w http.ResponseWriter, r *http.Reques
 	sendJSONData(w, http.StatusOK, data)
 }
 
+func (server *Server) usersRequestedForDeletion(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+
+	beforeParam := r.URL.Query().Get("before")
+	if beforeParam == "" {
+		sendJSONError(w, "Bad request", "parameter 'before' can't be empty", http.StatusBadRequest)
+		return
+	}
+
+	beforeStamp, err := time.Parse(time.RFC3339, beforeParam)
+	if err != nil {
+		sendJSONError(w, "Bad request", err.Error(), http.StatusBadRequest)
+		return
+	}
+
+	w.Header().Set("Content-Type", "text/csv")
+	w.Header().Set("Content-Disposition", "attachment;filename=users-requested-for-deletion.csv")
+
+	wr := csv.NewWriter(w)
+
+	csvHeaders := []string{"email", "ticket"}
+
+	err = wr.Write(csvHeaders)
+	if err != nil {
+		sendJSONError(w, "error writing CSV header", err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	emails, err := server.db.Console().Users().GetEmailsForDeletion(ctx, beforeStamp)
+	if err != nil {
+		sendJSONError(w, "failed to query emails", err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	for _, e := range emails {
+		row := []string{e, ""}
+
+		err = wr.Write(row)
+		if err != nil {
+			sendJSONError(w, "error writing CSV data", err.Error(), http.StatusInternalServerError)
+			return
+		}
+	}
+
+	wr.Flush()
+}
+
 func (server *Server) userLimits(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 
@@ -399,7 +447,7 @@ func (server *Server) updateUser(w http.ResponseWriter, r *http.Request) {
 	}
 	if input.Email != "" {
 		existingUser, err := server.db.Console().Users().GetByEmail(ctx, input.Email)
-		if err != nil && !errors.Is(sql.ErrNoRows, err) {
+		if err != nil && !errors.Is(err, sql.ErrNoRows) {
 			sendJSONError(w, "failed to check for user email",
 				err.Error(), http.StatusInternalServerError)
 			return

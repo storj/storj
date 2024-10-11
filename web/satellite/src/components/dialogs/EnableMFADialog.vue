@@ -4,16 +4,22 @@
 <template>
     <v-dialog
         v-model="model"
-        :persistent="isLoading"
+        persistent
         width="auto"
-        min-width="320px"
         max-width="460px"
         transition="fade-transition"
     >
-        <v-card ref="innerContent" rounded="xlg">
-            <v-card-item class="pa-5 pl-7">
+        <v-card ref="innerContent">
+            <v-card-item class="pa-6">
                 <template #prepend>
-                    <img class="d-block" src="@/assets/icon-mfa.svg" alt="MFA">
+                    <v-sheet
+                        class="border-sm d-flex justify-center align-center"
+                        width="40"
+                        height="40"
+                        rounded="lg"
+                    >
+                        <component :is="RectangleEllipsis" :size="18" />
+                    </v-sheet>
                 </template>
                 <v-card-title class="font-weight-bold">Setup Two-Factor</v-card-title>
                 <template #append>
@@ -31,18 +37,18 @@
             <v-window v-model="step" :class="{ 'overflow-y-auto': step === 0 }">
                 <!-- QR code step -->
                 <v-window-item :value="0">
-                    <v-card-item class="pa-7">
+                    <v-card-item class="pa-6">
                         <p>Scan this QR code in your two-factor application.</p>
                     </v-card-item>
-                    <v-card-item align="center" justify="center" class="rounded-lg border mx-7">
+                    <v-card-item align="center" justify="center" class="rounded-lg border mx-6">
                         <v-col cols="auto">
                             <canvas ref="canvas" />
                         </v-col>
                     </v-card-item>
-                    <v-card-item class="pa-7">
+                    <v-card-item class="pa-6">
                         <p>Unable to scan? Enter the following code instead.</p>
                     </v-card-item>
-                    <v-card-item class="rounded-lg border mx-7 mb-7 py-2">
+                    <v-card-item class="rounded-lg border mx-6 mb-6 py-2">
                         <v-col>
                             <p class="font-weight-medium text-body-2 text-center"> {{ userMFASecret }}</p>
                         </v-col>
@@ -51,32 +57,29 @@
 
                 <!-- Enter code step -->
                 <v-window-item :value="1">
-                    <v-card-item class="pa-7">
+                    <v-card-item class="px-6 pt-4 pb-0">
                         <p>Enter the authentication code generated in your two-factor application to confirm your setup.</p>
-                        <v-form v-model="formValid" class="pt-7" @submit.prevent>
-                            <v-text-field
-                                v-model="confirmPasscode"
-                                variant="outlined"
-                                hint="Example: 123456"
-                                :rules="rules"
-                                :error-messages="isError ? 'Invalid code. Please re-enter.' : ''"
-                                label="2FA Code"
-                                :hide-details="false"
-                                maxlength="6"
-                                required
-                                autofocus
-                            />
-                        </v-form>
+                        <v-otp-input
+                            ref="otpInput"
+                            class="pt-2"
+                            :model-value="confirmPasscode"
+                            :error="isError"
+                            :disabled="isLoading"
+                            type="number"
+                            autofocus
+                            maxlength="6"
+                            @update:modelValue="value => onValueChange(value)"
+                        />
                     </v-card-item>
                 </v-window-item>
 
                 <!-- Save codes step -->
                 <v-window-item :value="2">
-                    <v-card-item class="px-7 py-4">
+                    <v-card-item class="px-6 py-4">
                         <p>Please save these codes somewhere to be able to recover access to your account.</p>
                     </v-card-item>
                     <v-divider />
-                    <v-card-item class="px-7 py-4">
+                    <v-card-item class="px-6 py-4">
                         <p
                             v-for="(code, index) in userMFARecoveryCodes"
                             :key="index"
@@ -87,7 +90,7 @@
                 </v-window-item>
             </v-window>
             <v-divider />
-            <v-card-actions class="pa-7">
+            <v-card-actions class="pa-6">
                 <v-row>
                     <v-col v-if="step !== 2">
                         <v-btn
@@ -95,9 +98,9 @@
                             color="default"
                             block
                             :disabled="isLoading"
-                            @click="model = false"
+                            @click="backOrCancel"
                         >
-                            Cancel
+                            {{ step === 0 ? "Cancel" : "Back" }}
                         </v-btn>
                     </v-col>
                     <v-col>
@@ -117,7 +120,7 @@
                             variant="flat"
                             block
                             :loading="isLoading"
-                            :disabled="!formValid"
+                            :disabled="confirmPasscode.length !== 6"
                             @click="enable"
                         >
                             Confirm
@@ -140,7 +143,7 @@
 </template>
 
 <script setup lang="ts">
-import { Component, computed, ref, watch } from 'vue';
+import { computed, onBeforeUnmount, ref, watch, watchEffect } from 'vue';
 import {
     VBtn,
     VCard,
@@ -150,13 +153,14 @@ import {
     VCol,
     VDialog,
     VDivider,
-    VForm,
+    VOtpInput,
     VRow,
-    VTextField,
     VWindow,
     VWindowItem,
+    VSheet,
 } from 'vuetify/components';
 import QRCode from 'qrcode';
+import { RectangleEllipsis } from 'lucide-vue-next';
 
 import { useLoading } from '@/composables/useLoading';
 import { useConfigStore } from '@/store/modules/configStore';
@@ -164,13 +168,6 @@ import { useUsersStore } from '@/store/modules/usersStore';
 import { AnalyticsErrorEventSource, AnalyticsEvent } from '@/utils/constants/analyticsEventNames';
 import { useAnalyticsStore } from '@/store/modules/analyticsStore';
 import { useNotify } from '@/utils/hooks';
-
-const rules = [
-    (value: string) => (!!value || 'Can\'t be empty'),
-    (value: string) => (!value.includes(' ') || 'Can\'t contain spaces'),
-    (value: string) => (!!parseInt(value) || 'Can only be numbers'),
-    (value: string) => (value.length === 6 || 'Can only be 6 numbers long'),
-];
 
 const analyticsStore = useAnalyticsStore();
 const { config } = useConfigStore().state;
@@ -181,12 +178,12 @@ const notify = useNotify();
 const model = defineModel<boolean>({ required: true });
 
 const canvas = ref<HTMLCanvasElement>();
-const innerContent = ref<Component | null>(null);
+const innerContent = ref<VCard | null>(null);
+const otpInput = ref<VOtpInput>();
 
 const step = ref<number>(0);
 const confirmPasscode = ref<string>('');
 const isError = ref<boolean>(false);
-const formValid = ref<boolean>(false);
 
 /**
  * Returns pre-generated MFA secret from store.
@@ -216,11 +213,28 @@ const qrLink = computed((): string => {
     return `otpauth://totp/${encodeURIComponent(usersStore.state.user.email)}?secret=${userMFASecret.value}&issuer=${encodeURIComponent(`STORJ ${satellite.value}`)}&algorithm=SHA1&digits=6&period=30`;
 });
 
+function onValueChange(value: string) {
+    const val = value.slice(0, 6);
+    if (isNaN(+val)) {
+        return;
+    }
+    confirmPasscode.value = val;
+    isError.value = false;
+}
+
+function backOrCancel() {
+    if (step.value === 0) {
+        model.value = false;
+    } else {
+        step.value--;
+    }
+}
+
 /**
  * Enables user MFA and sets view to Recovery Codes state.
  */
 function enable(): void {
-    if (!formValid.value) return;
+    if (confirmPasscode.value.length !== 6) return;
 
     withLoading(async () => {
         try {
@@ -248,6 +262,32 @@ async function showCodes() {
     }
 }
 
+function initialiseOTPInput() {
+    setTimeout(() => {
+        otpInput.value?.focus();
+    }, 0);
+
+    document.addEventListener('keyup', onKeyUp);
+}
+
+function cleanUpOTPInput() {
+    document.removeEventListener('keyup', onKeyUp);
+}
+
+function onKeyUp(event: KeyboardEvent) {
+    if (event.key === 'Enter' && otpInput.value?.isFocused) {
+        enable();
+    }
+}
+
+watchEffect(() => {
+    if (step.value === 1) {
+        initialiseOTPInput();
+    } else {
+        cleanUpOTPInput();
+    }
+});
+
 watch(canvas, async val => {
     if (!val) return;
     try {
@@ -271,5 +311,10 @@ watch(innerContent, newContent => {
     step.value = 0;
     confirmPasscode.value = '';
     isError.value = false;
+    cleanUpOTPInput();
+});
+
+onBeforeUnmount(() => {
+    cleanUpOTPInput();
 });
 </script>

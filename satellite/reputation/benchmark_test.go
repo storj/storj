@@ -4,13 +4,13 @@
 package reputation_test
 
 import (
-	"context"
 	"testing"
 	"time"
 
 	"github.com/stretchr/testify/require"
 
 	"storj.io/common/storj"
+	"storj.io/common/testcontext"
 	"storj.io/common/testrand"
 	"storj.io/storj/satellite"
 	"storj.io/storj/satellite/reputation"
@@ -18,14 +18,13 @@ import (
 )
 
 func BenchmarkReputation(b *testing.B) {
-	satellitedbtest.Bench(b, func(b *testing.B, db satellite.DB) {
+	satellitedbtest.Bench(b, func(ctx *testcontext.Context, b *testing.B, db satellite.DB) {
 		const (
 			TotalNodeCount = 211
 			OfflineCount   = 10
 		)
 
 		reputationdb := db.Reputation()
-		ctx := context.Background()
 
 		var all []storj.NodeID
 		for i := 0; i < TotalNodeCount; i++ {

@@ -2,16 +2,27 @@
 // See LICENSE for copying information.
 
 <template>
-    <div id="app">
-        <router-view />
-    </div>
+    <v-app>
+        <div id="app">
+            <router-view />
+            <Notifications />
+        </div>
+    </v-app>
 </template>
 
 <script lang="ts">
 import { Component, Vue } from 'vue-property-decorator';
+import { VApp } from 'vuetify/lib';
+
+import Notifications from './components/notification/Notifications.vue';
 
 // @vue/component
-@Component
+@Component({
+    components:{
+        VApp,
+        Notifications,
+    },
+})
 export default class App extends Vue {
 }
 </script>

@@ -27,6 +27,8 @@ STORJ_SIM_POSTGRES=${STORJ_SIM_POSTGRES:-""}
 
 # TODO remove when metainfo.server-side-copy-duplicate-metadata will be dropped
 export STORJ_METAINFO_SERVER_SIDE_COPY_DUPLICATE_METADATA=true
+# TODO remove when we get rid of this feature flag
+export STORJ_CONSOLE_SIGNUP_ACTIVATION_CODE_ENABLED=false
 
 # setup the network
 # if postgres connection string is set as STORJ_SIM_POSTGRES then use that for testing
@@ -39,10 +41,9 @@ fi
 # run tests
 storj-sim -x --satellites 1 --host $STORJ_NETWORK_HOST4 network test bash "$SCRIPTDIR"/step-uplink.sh
 storj-sim -x --satellites 1 --host $STORJ_NETWORK_HOST4 network test bash "$SCRIPTDIR"/step-uplink-share.sh
-storj-sim -x --satellites 1 --host $STORJ_NETWORK_HOST4 network test bash "$SCRIPTDIR"/step-billing.sh
 
 storj-sim -x --satellites 1 --host $STORJ_NETWORK_HOST4 network test bash "$SCRIPTDIR"/step-uplink-rs-upload.sh
-# change RS values and try download 
+# change RS values and try download
 sed -i 's@# metainfo.rs: 4/6/8/10-256 B@metainfo.rs: 2/3/6/8-256 B@g' $(storj-sim network env SATELLITE_0_DIR)/config.yaml
 storj-sim -x --satellites 1 --host $STORJ_NETWORK_HOST4 network test bash "$SCRIPTDIR"/step-uplink-rs-download.sh
 

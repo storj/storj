@@ -12,7 +12,7 @@ import (
 
 // Config is the trust configuration.
 type Config struct {
-	Sources         Sources       `help:"list of trust sources" devDefault:"" releaseDefault:"https://www.storj.io/dcs-satellites"`
+	Sources         Sources       `help:"list of trust sources" devDefault:"" releaseDefault:"https://static.storj.io/dcs-satellites"`
 	Exclusions      Exclusions    `help:"list of trust exclusions" devDefault:"" releaseDefault:""`
 	RefreshInterval time.Duration `help:"how often the trust pool should be refreshed" default:"6h"`
 	CachePath       string        `help:"file path where trust lists should be cached" default:"${CONFDIR}/trust-cache.json"`

@@ -29,19 +29,21 @@ type Config struct {
 
 // Chore periodically removes unwanted records from the satellite console database.
 type Chore struct {
-	log    *zap.Logger
-	db     console.DB
-	Loop   *sync2.Cycle
-	config Config
+	log           *zap.Logger
+	db            console.DB
+	Loop          *sync2.Cycle
+	config        Config
+	consoleConfig console.Config
 }
 
 // NewChore creates a new console DB cleanup chore.
-func NewChore(log *zap.Logger, db console.DB, config Config) *Chore {
+func NewChore(log *zap.Logger, db console.DB, config Config, consoleConfig console.Config) *Chore {
 	return &Chore{
-		log:    log,
-		db:     db,
-		config: config,
-		Loop:   sync2.NewCycle(config.Interval),
+		log:           log,
+		db:            db,
+		config:        config,
+		consoleConfig: consoleConfig,
+		Loop:          sync2.NewCycle(config.Interval),
 	}
 }
 
@@ -58,6 +60,11 @@ func (chore *Chore) Run(ctx context.Context) (err error) {
 		err = chore.db.WebappSessions().DeleteExpired(ctx, time.Now(), chore.config.AsOfSystemTimeInterval, chore.config.PageSize)
 		if err != nil {
 			chore.log.Error("Error deleting expired webapp sessions", zap.Error(err))
+		}
+
+		err = chore.db.APIKeys().DeleteExpiredByNamePrefix(ctx, chore.consoleConfig.ObjectBrowserKeyLifetime, chore.consoleConfig.ObjectBrowserKeyNamePrefix, chore.config.AsOfSystemTimeInterval, chore.config.PageSize)
+		if err != nil {
+			chore.log.Error("Error deleting expired API keys", zap.Error(err))
 		}
 
 		return nil

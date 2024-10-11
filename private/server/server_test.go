@@ -11,6 +11,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/spacemonkeygo/monkit/v3"
 	"github.com/stretchr/testify/require"
 	"github.com/zeebo/errs"
 	"go.uber.org/zap/zaptest"
@@ -209,5 +210,25 @@ func TestHybridConnector_TCPOnly(t *testing.T) {
 		require.NoError(t, err)
 		require.Equal(t, "tcp", conn.LocalAddr().Network())
 		require.NoError(t, conn.Close())
+	})
+}
+
+func TestServer_Stats(t *testing.T) {
+	testplanet.Run(t, testplanet.Config{
+		SatelliteCount:   1,
+		StorageNodeCount: 0,
+		UplinkCount:      1,
+	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+		sat := planet.Satellites[0]
+
+		require.NoError(t, planet.Uplinks[0].CreateBucket(ctx, sat, "test"))
+
+		count := 0
+		sat.API.Server.Stats(func(key monkit.SeriesKey, field string, val float64) {
+			t.Log(key, field, val)
+			count++
+		})
+
+		require.Equal(t, count, 2)
 	})
 }

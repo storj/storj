@@ -8,7 +8,10 @@ import (
 	"testing"
 	"time"
 
+	"github.com/google/go-cmp/cmp"
+	"github.com/google/go-cmp/cmp/cmpopts"
 	"github.com/stretchr/testify/require"
+	"github.com/zeebo/errs"
 
 	"storj.io/common/errs2"
 	"storj.io/common/testcontext"
@@ -29,16 +32,16 @@ func TestInsertSelect(t *testing.T) {
 		alreadyInserted, err := q.Insert(ctx, seg)
 		require.NoError(t, err)
 		require.False(t, alreadyInserted)
-		s, err := q.Select(ctx, nil, nil)
+		segments, err := q.Select(ctx, 1, nil, nil)
 		require.NoError(t, err)
-		err = q.Delete(ctx, s)
+		err = q.Delete(ctx, segments[0])
 		require.NoError(t, err)
-		require.Equal(t, seg.StreamID, s.StreamID)
-		require.Equal(t, seg.Position, s.Position)
-		require.Equal(t, seg.SegmentHealth, s.SegmentHealth)
-		require.WithinDuration(t, time.Now(), s.InsertedAt, 5*time.Second)
-		require.NotZero(t, s.UpdatedAt)
-	})
+		require.Equal(t, seg.StreamID, segments[0].StreamID)
+		require.Equal(t, seg.Position, segments[0].Position)
+		require.Equal(t, seg.SegmentHealth, segments[0].SegmentHealth)
+		require.WithinDuration(t, time.Now(), segments[0].InsertedAt, 5*time.Second)
+		require.NotZero(t, segments[0].UpdatedAt)
+	}, satellitedbtest.WithSpanner())
 }
 
 func TestInsertDuplicate(t *testing.T) {
@@ -52,7 +55,7 @@ func TestInsertDuplicate(t *testing.T) {
 		alreadyInserted, err = q.Insert(ctx, seg)
 		require.NoError(t, err)
 		require.True(t, alreadyInserted)
-	})
+	}, satellitedbtest.WithSpanner())
 }
 
 func TestInsertBatchOfOne(t *testing.T) {
@@ -78,7 +81,7 @@ func TestInsertBatchOfOne(t *testing.T) {
 		require.Equal(t, writeSegments[0].Position, readSegments[0].Position)
 		require.Equal(t, writeSegments[0].SegmentHealth, readSegments[0].SegmentHealth)
 		require.Equal(t, writeSegments[0].Placement, readSegments[0].Placement)
-	})
+	}, satellitedbtest.WithSpanner())
 }
 
 func TestInsertOverlappingBatches(t *testing.T) {
@@ -126,17 +129,17 @@ func TestInsertOverlappingBatches(t *testing.T) {
 		require.NoError(t, err)
 		require.Len(t, newlyInserted, 0)
 		requireDbState([]queue.InjuredSegment{*writeSegment1, *writeSegment2, *writeSegment3})
-	})
+	}, satellitedbtest.WithSpanner())
 }
 
 func TestDequeueEmptyQueue(t *testing.T) {
 	satellitedbtest.Run(t, func(ctx *testcontext.Context, t *testing.T, db satellite.DB) {
 		q := db.RepairQueue()
 
-		_, err := q.Select(ctx, nil, nil)
+		_, err := q.Select(ctx, 1, nil, nil)
 		require.Error(t, err)
 		require.True(t, queue.ErrEmpty.Has(err), "error should of class EmptyQueue")
-	})
+	}, satellitedbtest.WithSpanner())
 }
 
 func TestSequential(t *testing.T) {
@@ -161,14 +164,14 @@ func TestSequential(t *testing.T) {
 		require.Len(t, list, N)
 
 		for i := 0; i < N; i++ {
-			s, err := q.Select(ctx, nil, nil)
+			s, err := q.Select(ctx, 1, nil, nil)
 			require.NoError(t, err)
-			err = q.Delete(ctx, s)
+			err = q.Delete(ctx, s[0])
 			require.NoError(t, err)
 
-			require.Equal(t, addSegs[i].StreamID, s.StreamID)
-			require.Equal(t, addSegs[i].Position, s.Position)
-			require.Equal(t, addSegs[i].SegmentHealth, s.SegmentHealth)
+			require.Equal(t, addSegs[i].StreamID, s[0].StreamID)
+			require.Equal(t, addSegs[i].Position, s[0].Position)
+			require.Equal(t, addSegs[i].SegmentHealth, s[0].SegmentHealth)
 		}
 	})
 }
@@ -177,11 +180,10 @@ func TestParallel(t *testing.T) {
 	satellitedbtest.Run(t, func(ctx *testcontext.Context, t *testing.T, db satellite.DB) {
 		q := db.RepairQueue()
 		const N = 20
-		entries := make(chan *queue.InjuredSegment, N)
 
-		expectedSegments := make([]*queue.InjuredSegment, N)
+		expectedSegments := make([]queue.InjuredSegment, N)
 		for i := 0; i < N; i++ {
-			expectedSegments[i] = &queue.InjuredSegment{
+			expectedSegments[i] = queue.InjuredSegment{
 				StreamID:      testrand.UUID(),
 				SegmentHealth: float64(i),
 			}
@@ -192,55 +194,61 @@ func TestParallel(t *testing.T) {
 		for i := 0; i < N; i++ {
 			i := i
 			inserts.Go(func() error {
-				alreadyInserted, err := q.Insert(ctx, expectedSegments[i])
+				alreadyInserted, err := q.Insert(ctx, &expectedSegments[i])
 				require.False(t, alreadyInserted)
+
+				// just to make expectedSegments match the values to be retrieved
+				now := time.Now()
+				expectedSegments[i].AttemptedAt = &now
+				expectedSegments[i].InsertedAt = now
+				expectedSegments[i].UpdatedAt = now
 				return err
 			})
 		}
 		require.Empty(t, inserts.Wait(), "unexpected queue.Insert errors")
 
+		count, err := q.Count(ctx)
+		require.NoError(t, err)
+		require.Equal(t, N, count)
+
 		// Remove from queue concurrently
+		items := make([]queue.InjuredSegment, N)
 		var remove errs2.Group
 		for i := 0; i < N; i++ {
+			i := i
 			remove.Go(func() error {
-				s, err := q.Select(ctx, nil, nil)
+				s, err := q.Select(ctx, 1, nil, nil)
+				if err != nil {
+					return err
+				}
+				if len(s) != 1 {
+					return errs.New("got %d segments, expected 1: %+v", len(s), s)
+				}
+
+				err = q.Delete(ctx, s[0])
 				if err != nil {
 					return err
 				}
 
-				err = q.Delete(ctx, s)
-				if err != nil {
-					return err
-				}
-
-				entries <- s
+				items[i] = s[0]
 				return nil
 			})
 		}
 
 		require.Empty(t, remove.Wait(), "unexpected queue.Select/Delete errors")
-		close(entries)
-
-		var items []*queue.InjuredSegment
-		for segment := range entries {
-			items = append(items, segment)
-		}
 
 		sort.Slice(items, func(i, k int) bool {
 			return items[i].SegmentHealth < items[k].SegmentHealth
 		})
 
 		// check if the enqueued and dequeued elements match
-		for i := 0; i < N; i++ {
-			require.Equal(t, expectedSegments[i].StreamID, items[i].StreamID)
-			require.Equal(t, expectedSegments[i].Position, items[i].Position)
-			require.Equal(t, expectedSegments[i].SegmentHealth, items[i].SegmentHealth)
-		}
+		diff := cmp.Diff(expectedSegments, items, cmpopts.EquateApproxTime(time.Hour))
+		require.Zero(t, diff)
 
-		count, err := q.Count(ctx)
+		count, err = q.Count(ctx)
 		require.NoError(t, err)
 		require.Zero(t, count)
-	})
+	}, satellitedbtest.WithSpanner())
 }
 
 func TestClean(t *testing.T) {
@@ -312,5 +320,5 @@ func TestClean(t *testing.T) {
 		count, err = q.Count(ctx)
 		require.NoError(t, err)
 		require.Equal(t, 0, count)
-	})
+	}, satellitedbtest.WithSpanner())
 }

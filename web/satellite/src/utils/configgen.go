@@ -22,7 +22,7 @@ func main() {
 	flag.Parse()
 
 	if *outPath == "" {
-		fmt.Fprintln(os.Stderr, "missing required argument -o")
+		_, _ = fmt.Fprintln(os.Stderr, "missing required argument -o")
 		os.Exit(1)
 	}
 

@@ -4,10 +4,12 @@
 package console_test
 
 import (
+	"context"
 	"database/sql"
 	"fmt"
 	"math/rand"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/require"
 	"github.com/zeebo/errs"
@@ -16,10 +18,32 @@ import (
 	"storj.io/common/memory"
 	"storj.io/common/testcontext"
 	"storj.io/common/testrand"
+	"storj.io/common/uuid"
 	"storj.io/storj/private/testplanet"
 	"storj.io/storj/satellite"
 	"storj.io/storj/satellite/console"
 	"storj.io/uplink"
+)
+
+var (
+	zero            = 0
+	zeroUsageLimits = console.UsageLimits{
+		Storage:          int64(zero),
+		Bandwidth:        int64(zero),
+		Segment:          int64(zero),
+		RateLimit:        &zero,
+		RateLimitHead:    &zero,
+		RateLimitGet:     &zero,
+		RateLimitPut:     &zero,
+		RateLimitList:    &zero,
+		RateLimitDelete:  &zero,
+		BurstLimit:       &zero,
+		BurstLimitHead:   &zero,
+		BurstLimitGet:    &zero,
+		BurstLimitPut:    &zero,
+		BurstLimitList:   &zero,
+		BurstLimitDelete: &zero,
+	}
 )
 
 func getUserLimits(u *console.User) console.UsageLimits {
@@ -31,22 +55,102 @@ func getUserLimits(u *console.User) console.UsageLimits {
 }
 
 func getProjectLimits(p *console.Project) console.UsageLimits {
-	return console.UsageLimits{
-		Storage:    p.StorageLimit.Int64(),
-		Bandwidth:  p.BandwidthLimit.Int64(),
-		Segment:    *p.SegmentLimit,
-		RateLimit:  p.RateLimit,
-		BurstLimit: p.BurstLimit,
+	limits := console.UsageLimits{
+		Storage:          p.StorageLimit.Int64(),
+		Bandwidth:        p.BandwidthLimit.Int64(),
+		Segment:          *p.SegmentLimit,
+		RateLimit:        p.RateLimit,
+		RateLimitHead:    p.RateLimitHead,
+		RateLimitGet:     p.RateLimitGet,
+		RateLimitList:    p.RateLimitList,
+		RateLimitPut:     p.RateLimitPut,
+		RateLimitDelete:  p.RateLimitDelete,
+		BurstLimit:       p.BurstLimit,
+		BurstLimitHead:   p.BurstLimitHead,
+		BurstLimitGet:    p.BurstLimitGet,
+		BurstLimitList:   p.BurstLimitList,
+		BurstLimitPut:    p.BurstLimitPut,
+		BurstLimitDelete: p.BurstLimitDelete,
 	}
+	if p.UserSpecifiedBandwidthLimit != nil {
+		value := p.UserSpecifiedBandwidthLimit.Int64()
+		limits.UserSetBandwidthLimit = &value
+	}
+	if p.UserSpecifiedStorageLimit != nil {
+		value := p.UserSpecifiedStorageLimit.Int64()
+		limits.UserSetStorageLimit = &value
+	}
+	return limits
 }
 
-func randUsageLimits() console.UsageLimits {
-	return console.UsageLimits{Storage: rand.Int63(), Bandwidth: rand.Int63(), Segment: rand.Int63()}
+func randUsageLimits(forProject bool) console.UsageLimits {
+	usageLimits := console.UsageLimits{
+		Storage:   rand.Int63() + 1,
+		Bandwidth: rand.Int63() + 1,
+		Segment:   rand.Int63() + 1,
+	}
+	if forProject {
+		usageLimits.UserSetBandwidthLimit = &usageLimits.Bandwidth
+		usageLimits.UserSetStorageLimit = &usageLimits.Storage
+
+		rate, burst := rand.Intn(100)+1, rand.Intn(100)+1
+		usageLimits.RateLimit = &rate
+		usageLimits.RateLimitHead = &rate
+		usageLimits.RateLimitGet = &rate
+		usageLimits.RateLimitList = &rate
+		usageLimits.RateLimitPut = &rate
+		usageLimits.RateLimitDelete = &rate
+		usageLimits.BurstLimit = &burst
+		usageLimits.BurstLimitHead = &burst
+		usageLimits.BurstLimitGet = &burst
+		usageLimits.BurstLimitList = &burst
+		usageLimits.BurstLimitPut = &burst
+		usageLimits.BurstLimitDelete = &burst
+	}
+	return usageLimits
+}
+
+func updateProjectLimits(ctx context.Context, db console.Projects, p *console.Project, limits console.UsageLimits) error {
+	limitUpdates := []console.Limit{
+		{Kind: console.BandwidthLimit, Value: &limits.Bandwidth},
+		{Kind: console.UserSetBandwidthLimit, Value: limits.UserSetBandwidthLimit},
+		{Kind: console.StorageLimit, Value: &limits.Storage},
+		{Kind: console.UserSetStorageLimit, Value: limits.UserSetStorageLimit},
+		{Kind: console.SegmentLimit, Value: &limits.Segment},
+	}
+	if limits.RateLimit != nil && limits.BurstLimit != nil {
+		toInt64Ptr := func(i *int) *int64 {
+			if i == nil {
+				return nil
+			}
+			v := int64(*i)
+			return &v
+		}
+		limitUpdates = append(limitUpdates, console.Limit{Kind: console.RateLimit, Value: toInt64Ptr(limits.RateLimit)})
+		limitUpdates = append(limitUpdates, console.Limit{Kind: console.RateLimitGet, Value: toInt64Ptr(limits.RateLimitGet)})
+		limitUpdates = append(limitUpdates, console.Limit{Kind: console.RateLimitDelete, Value: toInt64Ptr(limits.RateLimitDelete)})
+		limitUpdates = append(limitUpdates, console.Limit{Kind: console.RateLimitHead, Value: toInt64Ptr(limits.RateLimitHead)})
+		limitUpdates = append(limitUpdates, console.Limit{Kind: console.RateLimitList, Value: toInt64Ptr(limits.RateLimitList)})
+		limitUpdates = append(limitUpdates, console.Limit{Kind: console.RateLimitPut, Value: toInt64Ptr(limits.RateLimitPut)})
+
+		limitUpdates = append(limitUpdates, console.Limit{Kind: console.BurstLimit, Value: toInt64Ptr(limits.BurstLimit)})
+		limitUpdates = append(limitUpdates, console.Limit{Kind: console.BurstLimitGet, Value: toInt64Ptr(limits.BurstLimitGet)})
+		limitUpdates = append(limitUpdates, console.Limit{Kind: console.BurstLimitHead, Value: toInt64Ptr(limits.BurstLimitHead)})
+		limitUpdates = append(limitUpdates, console.Limit{Kind: console.BurstLimitDelete, Value: toInt64Ptr(limits.BurstLimitDelete)})
+		limitUpdates = append(limitUpdates, console.Limit{Kind: console.BurstLimitPut, Value: toInt64Ptr(limits.BurstLimitPut)})
+		limitUpdates = append(limitUpdates, console.Limit{Kind: console.BurstLimitList, Value: toInt64Ptr(limits.BurstLimitList)})
+	}
+	err := db.UpdateLimitsGeneric(ctx, p.ID, limitUpdates)
+	if err != nil {
+		return err
+	}
+
+	return nil
 }
 
 func TestAccountBillingFreeze(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
-		SatelliteCount: 1,
+		SatelliteCount: 1, EnableSpanner: true,
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 		sat := planet.Satellites[0]
 		usersDB := sat.DB.Console().Users()
@@ -55,18 +159,19 @@ func TestAccountBillingFreeze(t *testing.T) {
 
 		billingFreezeGracePeriod := int(sat.Config.Console.AccountFreeze.BillingFreezeGracePeriod.Hours() / 24)
 
-		userLimits := randUsageLimits()
+		userLimits := randUsageLimits(false)
 		user, err := sat.AddUser(ctx, console.CreateUser{
 			FullName: "Test User",
 			Email:    "user@mail.test",
+			PaidTier: true,
 		}, 2)
 		require.NoError(t, err)
 		require.NoError(t, usersDB.UpdateUserProjectLimits(ctx, user.ID, userLimits))
 
-		projLimits := randUsageLimits()
-		proj, err := sat.AddProject(ctx, user.ID, "")
+		projLimits := randUsageLimits(true)
+		proj, err := sat.AddProject(ctx, user.ID, "test project")
 		require.NoError(t, err)
-		require.NoError(t, projectsDB.UpdateUsageLimits(ctx, proj.ID, projLimits))
+		require.NoError(t, updateProjectLimits(ctx, projectsDB, proj, projLimits))
 
 		frozen, err := service.IsUserBillingFrozen(ctx, user.ID)
 		require.NoError(t, err)
@@ -90,7 +195,20 @@ func TestAccountBillingFreeze(t *testing.T) {
 
 		proj, err = projectsDB.Get(ctx, proj.ID)
 		require.NoError(t, err)
-		require.Zero(t, getProjectLimits(proj))
+		// segment, bandwidth and storage limits should be zeroed out.
+		require.NotNil(t, proj.BandwidthLimit)
+		require.Zero(t, proj.BandwidthLimit.Int64())
+		require.Nil(t, proj.UserSpecifiedBandwidthLimit)
+		require.NotNil(t, proj.StorageLimit)
+		require.Zero(t, proj.StorageLimit.Int64())
+		require.Nil(t, proj.UserSpecifiedStorageLimit)
+		require.NotNil(t, proj.SegmentLimit)
+		require.Zero(t, *proj.SegmentLimit)
+		// rate and burst limits should not be zeroed out.
+		require.NotNil(t, proj.RateLimit)
+		require.NotZero(t, *proj.RateLimit)
+		require.NotNil(t, proj.BurstLimit)
+		require.NotZero(t, *proj.BurstLimit)
 
 		frozen, err = service.IsUserBillingFrozen(ctx, user.ID)
 		require.NoError(t, err)
@@ -101,7 +219,7 @@ func TestAccountBillingFreeze(t *testing.T) {
 		require.NotNil(t, freezes.BillingFreeze)
 		require.Equal(t, &billingFreezeGracePeriod, freezes.BillingFreeze.DaysTillEscalation)
 
-		err = service.EscalateBillingFreeze(ctx, user.ID, *freezes.BillingFreeze)
+		err = service.EscalateFreezeEvent(ctx, user.ID, *freezes.BillingFreeze)
 		require.NoError(t, err)
 
 		freezes, err = service.GetAll(ctx, user.ID)
@@ -117,14 +235,14 @@ func TestAccountBillingFreeze(t *testing.T) {
 
 func TestAccountBillingUnFreeze(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
-		SatelliteCount: 1,
+		SatelliteCount: 1, EnableSpanner: true,
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 		sat := planet.Satellites[0]
 		usersDB := sat.DB.Console().Users()
 		projectsDB := sat.DB.Console().Projects()
 		service := console.NewAccountFreezeService(sat.DB.Console(), sat.API.Analytics.Service, sat.Config.Console.AccountFreeze)
 
-		userLimits := randUsageLimits()
+		userLimits := randUsageLimits(false)
 		user, err := sat.AddUser(ctx, console.CreateUser{
 			FullName: "Test User",
 			Email:    "user@mail.test",
@@ -132,10 +250,10 @@ func TestAccountBillingUnFreeze(t *testing.T) {
 		require.NoError(t, err)
 		require.NoError(t, usersDB.UpdateUserProjectLimits(ctx, user.ID, userLimits))
 
-		projLimits := randUsageLimits()
-		proj, err := sat.AddProject(ctx, user.ID, "")
+		projLimits := randUsageLimits(true)
+		proj, err := sat.AddProject(ctx, user.ID, "test project")
 		require.NoError(t, err)
-		require.NoError(t, projectsDB.UpdateUsageLimits(ctx, proj.ID, projLimits))
+		require.NoError(t, updateProjectLimits(ctx, projectsDB, proj, projLimits))
 
 		require.NoError(t, service.BillingFreezeUser(ctx, user.ID))
 
@@ -169,14 +287,14 @@ func TestAccountBillingUnFreeze(t *testing.T) {
 
 func TestAccountViolationFreeze(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
-		SatelliteCount: 1,
+		SatelliteCount: 1, EnableSpanner: true,
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 		sat := planet.Satellites[0]
 		usersDB := sat.DB.Console().Users()
 		projectsDB := sat.DB.Console().Projects()
 		service := console.NewAccountFreezeService(sat.DB.Console(), sat.API.Analytics.Service, sat.Config.Console.AccountFreeze)
 
-		userLimits := randUsageLimits()
+		userLimits := randUsageLimits(false)
 		user, err := sat.AddUser(ctx, console.CreateUser{
 			FullName: "Test User",
 			Email:    "user@mail.test",
@@ -184,10 +302,10 @@ func TestAccountViolationFreeze(t *testing.T) {
 		require.NoError(t, err)
 		require.NoError(t, usersDB.UpdateUserProjectLimits(ctx, user.ID, userLimits))
 
-		projLimits := randUsageLimits()
-		proj, err := sat.AddProject(ctx, user.ID, "")
+		projLimits := randUsageLimits(true)
+		proj, err := sat.AddProject(ctx, user.ID, "test project")
 		require.NoError(t, err)
-		require.NoError(t, projectsDB.UpdateUsageLimits(ctx, proj.ID, projLimits))
+		require.NoError(t, updateProjectLimits(ctx, projectsDB, proj, projLimits))
 
 		checkLimits := func(testT *testing.T) {
 			user, err = usersDB.Get(ctx, user.ID)
@@ -196,7 +314,22 @@ func TestAccountViolationFreeze(t *testing.T) {
 
 			proj, err = projectsDB.Get(ctx, proj.ID)
 			require.NoError(t, err)
-			require.Zero(t, getProjectLimits(proj))
+			proj, err = projectsDB.Get(ctx, proj.ID)
+			require.NoError(t, err)
+			// segment, bandwidth and storage limits should be zeroed out.
+			require.NotNil(t, proj.BandwidthLimit)
+			require.Zero(t, proj.BandwidthLimit.Int64())
+			require.Nil(t, proj.UserSpecifiedBandwidthLimit)
+			require.NotNil(t, proj.StorageLimit)
+			require.Zero(t, proj.StorageLimit.Int64())
+			require.Nil(t, proj.UserSpecifiedStorageLimit)
+			require.NotNil(t, proj.SegmentLimit)
+			require.Zero(t, *proj.SegmentLimit)
+			// rate and burst limits should not be zeroed out.
+			require.NotNil(t, proj.RateLimit)
+			require.NotZero(t, *proj.RateLimit)
+			require.NotNil(t, proj.BurstLimit)
+			require.NotZero(t, *proj.BurstLimit)
 		}
 
 		frozen, err := service.IsUserViolationFrozen(ctx, user.ID)
@@ -219,6 +352,14 @@ func TestAccountViolationFreeze(t *testing.T) {
 		require.NoError(t, err)
 		require.False(t, frozen)
 
+		user, err = usersDB.Get(ctx, user.ID)
+		require.NoError(t, err)
+		require.Equal(t, userLimits, getUserLimits(user))
+
+		proj, err = projectsDB.Get(ctx, proj.ID)
+		require.NoError(t, err)
+		require.Equal(t, projLimits, getProjectLimits(proj))
+
 		require.NoError(t, service.BillingWarnUser(ctx, user.ID))
 		frozen, err = service.IsUserViolationFrozen(ctx, user.ID)
 		require.NoError(t, err)
@@ -239,6 +380,7 @@ func TestAccountViolationFreeze(t *testing.T) {
 		frozen, err = service.IsUserViolationFrozen(ctx, user.ID)
 		require.NoError(t, err)
 		require.True(t, frozen)
+		checkLimits(t)
 
 		freezes, err := service.GetAll(ctx, user.ID)
 		require.NoError(t, err)
@@ -251,14 +393,14 @@ func TestAccountViolationFreeze(t *testing.T) {
 
 func TestAccountLegalFreeze(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
-		SatelliteCount: 1,
+		SatelliteCount: 1, EnableSpanner: true,
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 		sat := planet.Satellites[0]
 		usersDB := sat.DB.Console().Users()
 		projectsDB := sat.DB.Console().Projects()
 		service := console.NewAccountFreezeService(sat.DB.Console(), sat.API.Analytics.Service, sat.Config.Console.AccountFreeze)
 
-		userLimits := randUsageLimits()
+		userLimits := randUsageLimits(false)
 		user, err := sat.AddUser(ctx, console.CreateUser{
 			FullName: "Test User",
 			Email:    "user@mail.test",
@@ -266,15 +408,13 @@ func TestAccountLegalFreeze(t *testing.T) {
 		require.NoError(t, err)
 		require.NoError(t, usersDB.UpdateUserProjectLimits(ctx, user.ID, userLimits))
 
-		projLimits := randUsageLimits()
+		projLimits := randUsageLimits(true)
 		rateLimit := 20000
 		projLimits.RateLimit = &rateLimit
 		projLimits.BurstLimit = &rateLimit
-		proj, err := sat.AddProject(ctx, user.ID, "")
+		proj, err := sat.AddProject(ctx, user.ID, "test project")
 		require.NoError(t, err)
-		require.NoError(t, projectsDB.UpdateUsageLimits(ctx, proj.ID, projLimits))
-		require.NoError(t, projectsDB.UpdateRateLimit(ctx, proj.ID, projLimits.RateLimit))
-		require.NoError(t, projectsDB.UpdateBurstLimit(ctx, proj.ID, projLimits.BurstLimit))
+		require.NoError(t, updateProjectLimits(ctx, projectsDB, proj, projLimits))
 
 		checkLimits := func(t *testing.T) {
 			user, err = usersDB.Get(ctx, user.ID)
@@ -283,13 +423,7 @@ func TestAccountLegalFreeze(t *testing.T) {
 
 			proj, err = projectsDB.Get(ctx, proj.ID)
 			require.NoError(t, err)
-			usageLimits := getProjectLimits(proj)
-			require.Zero(t, usageLimits.Segment)
-			require.Zero(t, usageLimits.Storage)
-			require.Zero(t, usageLimits.Bandwidth)
-			zeroLimit := 0
-			require.Equal(t, &zeroLimit, usageLimits.RateLimit)
-			require.Equal(t, &zeroLimit, usageLimits.BurstLimit)
+			require.EqualValues(t, zeroUsageLimits, getProjectLimits(proj))
 		}
 
 		frozen, err := service.IsUserFrozen(ctx, user.ID, console.LegalFreeze)
@@ -311,6 +445,14 @@ func TestAccountLegalFreeze(t *testing.T) {
 		frozen, err = service.IsUserFrozen(ctx, user.ID, console.LegalFreeze)
 		require.NoError(t, err)
 		require.False(t, frozen)
+
+		user, err = usersDB.Get(ctx, user.ID)
+		require.NoError(t, err)
+		require.Equal(t, userLimits, getUserLimits(user))
+
+		proj, err = projectsDB.Get(ctx, proj.ID)
+		require.NoError(t, err)
+		require.Equal(t, projLimits, getProjectLimits(proj))
 
 		require.NoError(t, service.BillingWarnUser(ctx, user.ID))
 		frozen, err = service.IsUserFrozen(ctx, user.ID, console.LegalFreeze)
@@ -353,13 +495,27 @@ func TestAccountLegalFreeze(t *testing.T) {
 
 		proj, err = projectsDB.Get(ctx, proj.ID)
 		require.NoError(t, err)
-		require.Equal(t, projLimits, getProjectLimits(proj))
+
+		currentProjLimits := getProjectLimits(proj)
+		expectedHeadListDeleteRateLimits := int(sat.Config.Console.AccountFreeze.TrialExpirationRateLimits)
+		require.Equal(t, projLimits.RateLimit, currentProjLimits.RateLimit)
+		require.Equal(t, projLimits.RateLimitPut, currentProjLimits.RateLimitPut)
+		require.Equal(t, projLimits.RateLimitGet, currentProjLimits.RateLimitGet)
+		require.Equal(t, expectedHeadListDeleteRateLimits, *currentProjLimits.RateLimitHead)
+		require.Equal(t, expectedHeadListDeleteRateLimits, *currentProjLimits.RateLimitList)
+		require.Equal(t, expectedHeadListDeleteRateLimits, *currentProjLimits.RateLimitDelete)
+		require.Equal(t, projLimits.BurstLimit, currentProjLimits.BurstLimit)
+		require.Equal(t, projLimits.BurstLimitPut, currentProjLimits.BurstLimitPut)
+		require.Equal(t, projLimits.BurstLimitGet, currentProjLimits.BurstLimitGet)
+		require.Equal(t, expectedHeadListDeleteRateLimits, *currentProjLimits.BurstLimitHead)
+		require.Equal(t, expectedHeadListDeleteRateLimits, *currentProjLimits.BurstLimitList)
+		require.Equal(t, expectedHeadListDeleteRateLimits, *currentProjLimits.BurstLimitDelete)
 	})
 }
 
 func TestRemoveAccountBillingWarning(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
-		SatelliteCount: 1,
+		SatelliteCount: 1, EnableSpanner: true,
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 		sat := planet.Satellites[0]
 		service := console.NewAccountFreezeService(sat.DB.Console(), sat.API.Analytics.Service, sat.Config.Console.AccountFreeze)
@@ -424,14 +580,14 @@ func TestRemoveAccountBillingWarning(t *testing.T) {
 
 func TestAccountFreezeAlreadyFrozen(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
-		SatelliteCount: 1,
+		SatelliteCount: 1, EnableSpanner: true,
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 		sat := planet.Satellites[0]
 		usersDB := sat.DB.Console().Users()
 		projectsDB := sat.DB.Console().Projects()
 		service := console.NewAccountFreezeService(sat.DB.Console(), sat.API.Analytics.Service, sat.Config.Console.AccountFreeze)
 
-		userLimits := randUsageLimits()
+		userLimits := randUsageLimits(false)
 		user, err := sat.AddUser(ctx, console.CreateUser{
 			FullName: "Test User",
 			Email:    "user@mail.test",
@@ -439,20 +595,20 @@ func TestAccountFreezeAlreadyFrozen(t *testing.T) {
 		require.NoError(t, err)
 		require.NoError(t, usersDB.UpdateUserProjectLimits(ctx, user.ID, userLimits))
 
-		proj1Limits := randUsageLimits()
+		proj1Limits := randUsageLimits(true)
 		proj1, err := sat.AddProject(ctx, user.ID, "project1")
 		require.NoError(t, err)
-		require.NoError(t, projectsDB.UpdateUsageLimits(ctx, proj1.ID, proj1Limits))
+		require.NoError(t, updateProjectLimits(ctx, projectsDB, proj1, proj1Limits))
 
 		// Freezing a frozen user should freeze any projects that were unable to be frozen prior.
 		// The limits stored for projects frozen by the prior freeze should not be modified.
 		t.Run("Project limits", func(t *testing.T) {
 			require.NoError(t, service.BillingFreezeUser(ctx, user.ID))
 
-			proj2Limits := randUsageLimits()
+			proj2Limits := randUsageLimits(true)
 			proj2, err := sat.AddProject(ctx, user.ID, "project2")
 			require.NoError(t, err)
-			require.NoError(t, projectsDB.UpdateUsageLimits(ctx, proj2.ID, proj2Limits))
+			require.NoError(t, updateProjectLimits(ctx, projectsDB, proj2, proj2Limits))
 
 			require.NoError(t, service.BillingFreezeUser(ctx, user.ID))
 
@@ -462,7 +618,20 @@ func TestAccountFreezeAlreadyFrozen(t *testing.T) {
 
 			proj2, err = projectsDB.Get(ctx, proj2.ID)
 			require.NoError(t, err)
-			require.Zero(t, getProjectLimits(proj2))
+			// segment, bandwidth and storage limits should be zeroed out.
+			require.NotNil(t, proj2.BandwidthLimit)
+			require.Zero(t, proj2.BandwidthLimit.Int64())
+			require.Nil(t, proj2.UserSpecifiedBandwidthLimit)
+			require.NotNil(t, proj2.StorageLimit)
+			require.Zero(t, proj2.StorageLimit.Int64())
+			require.Nil(t, proj2.UserSpecifiedStorageLimit)
+			require.NotNil(t, proj2.SegmentLimit)
+			require.Zero(t, *proj2.SegmentLimit)
+			// rate and burst limits should not be zeroed out.
+			require.NotNil(t, proj2.RateLimit)
+			require.NotZero(t, *proj2.RateLimit)
+			require.NotNil(t, proj2.BurstLimit)
+			require.NotZero(t, *proj2.BurstLimit)
 
 			require.NoError(t, service.BillingUnfreezeUser(ctx, user.ID))
 
@@ -525,7 +694,7 @@ func TestFreezeEffects(t *testing.T) {
 				// disable limit caching
 				config.Metainfo.RateLimiter.CacheCapacity = 0
 			},
-		},
+		}, EnableSpanner: true,
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 		sat := planet.Satellites[0]
 		consoleService := sat.API.Console.Service
@@ -533,6 +702,9 @@ func TestFreezeEffects(t *testing.T) {
 
 		uplink1 := planet.Uplinks[0]
 		user1, _, err := consoleService.GetUserByEmailWithUnverified(ctx, uplink1.User[sat.ID()].Email)
+		require.NoError(t, err)
+
+		userCtx, err := sat.UserContext(ctx, user1.ID)
 		require.NoError(t, err)
 
 		bucketName := "testbucket"
@@ -579,12 +751,12 @@ func TestFreezeEffects(t *testing.T) {
 			// Should not be able to list.
 			_, err := uplink1.ListObjects(ctx, sat, bucketName)
 			require.Error(testT, err)
-			require.ErrorIs(testT, err, uplink.ErrTooManyRequests)
+			require.ErrorIs(testT, err, uplink.ErrPermissionDenied)
 
 			// Should not be able to delete.
 			err = uplink1.DeleteObject(ctx, sat, bucketName, path)
 			require.Error(testT, err)
-			require.ErrorIs(testT, err, uplink.ErrTooManyRequests)
+			require.ErrorIs(testT, err, uplink.ErrPermissionDenied)
 		}
 
 		t.Run("BillingFreeze effect on project owner", func(t *testing.T) {
@@ -598,6 +770,14 @@ func TestFreezeEffects(t *testing.T) {
 			shouldListAndDelete(t)
 
 			require.NoError(t, freezeService.BillingFreezeUser(ctx, user1.ID))
+
+			// can not update limits when frozen.
+			someSize := 1 * memory.KB
+			err = consoleService.UpdateUserSpecifiedLimits(userCtx, uplink1.Projects[0].ID, console.UpdateLimitsInfo{
+				StorageLimit:   &someSize,
+				BandwidthLimit: &someSize,
+			})
+			require.Error(t, err)
 
 			shouldNotUploadAndDownload(t)
 			shouldListAndDelete(t)
@@ -613,6 +793,14 @@ func TestFreezeEffects(t *testing.T) {
 
 			require.NoError(t, freezeService.ViolationFreezeUser(ctx, user1.ID))
 
+			// can not update limits when frozen.
+			someSize := 1 * memory.KB
+			err = consoleService.UpdateUserSpecifiedLimits(userCtx, uplink1.Projects[0].ID, console.UpdateLimitsInfo{
+				StorageLimit:   &someSize,
+				BandwidthLimit: &someSize,
+			})
+			require.Error(t, err)
+
 			shouldNotUploadAndDownload(t)
 			shouldListAndDelete(t)
 
@@ -627,6 +815,14 @@ func TestFreezeEffects(t *testing.T) {
 
 			require.NoError(t, freezeService.LegalFreezeUser(ctx, user1.ID))
 
+			// can not update limits when frozen.
+			someSize := 1 * memory.KB
+			err = consoleService.UpdateUserSpecifiedLimits(userCtx, uplink1.Projects[0].ID, console.UpdateLimitsInfo{
+				StorageLimit:   &someSize,
+				BandwidthLimit: &someSize,
+			})
+			require.Error(t, err)
+
 			shouldNotUploadAndDownload(t)
 			shouldNotListAndDelete(t)
 
@@ -638,9 +834,97 @@ func TestFreezeEffects(t *testing.T) {
 	})
 }
 
+func TestGetDaysTillEscalation(t *testing.T) {
+	testplanet.Run(t, testplanet.Config{
+		SatelliteCount: 1, StorageNodeCount: 2, UplinkCount: 2,
+		Reconfigure: testplanet.Reconfigure{
+			Satellite: func(log *zap.Logger, index int, config *satellite.Config) {
+				config.AccountFreeze.Enabled = true
+				config.Console.AccountFreeze.BillingWarnGracePeriod = 384 * time.Hour
+				config.Console.AccountFreeze.TrialExpirationFreezeGracePeriod = 384 * time.Hour
+			},
+		},
+	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+		sat := planet.Satellites[0]
+		consoleService := sat.API.Console.Service
+		freezeService := console.NewAccountFreezeService(sat.DB.Console(), sat.API.Analytics.Service, sat.Config.Console.AccountFreeze)
+
+		uplink1 := planet.Uplinks[0]
+		user1, _, err := consoleService.GetUserByEmailWithUnverified(ctx, uplink1.User[sat.ID()].Email)
+		require.NoError(t, err)
+
+		gracePeriod := sat.Config.Console.AccountFreeze.BillingWarnGracePeriod
+		gracePeriodDays := int(gracePeriod.Hours() / 24)
+
+		require.NoError(t, freezeService.BillingWarnUser(ctx, user1.ID))
+
+		now := time.Now()
+
+		freezes, err := freezeService.GetAll(ctx, user1.ID)
+		require.NoError(t, err)
+		require.NotNil(t, freezes.BillingWarning)
+		require.Equal(t, gracePeriodDays, *freezes.BillingWarning.DaysTillEscalation)
+
+		days := freezeService.GetDaysTillEscalation(*freezes.BillingWarning, now)
+		require.NotNil(t, days)
+		require.Equal(t, gracePeriodDays, *days)
+
+		freezes.BillingWarning.DaysTillEscalation = nil
+		freezes.BillingWarning, err = sat.DB.Console().AccountFreezeEvents().Upsert(ctx, freezes.BillingWarning)
+		require.NoError(t, err)
+
+		days = freezeService.GetDaysTillEscalation(*freezes.BillingWarning, now)
+		require.Nil(t, days)
+
+		gracePeriod = sat.Config.Console.AccountFreeze.TrialExpirationFreezeGracePeriod
+		gracePeriodDays = int(gracePeriod.Hours() / 24)
+
+		require.NoError(t, freezeService.TrialExpirationFreezeUser(ctx, user1.ID))
+
+		now = time.Now()
+		midFuture := now.Add(gracePeriod / 2)
+		future := now.Add(gracePeriod).Add(time.Hour)
+
+		freezes, err = freezeService.GetAll(ctx, user1.ID)
+		require.NoError(t, err)
+		require.NotNil(t, freezes.TrialExpirationFreeze)
+		require.Equal(t, gracePeriodDays, *freezes.TrialExpirationFreeze.DaysTillEscalation)
+
+		days = freezeService.GetDaysTillEscalation(*freezes.TrialExpirationFreeze, now)
+		require.NotNil(t, days)
+		require.Equal(t, gracePeriodDays, *days)
+
+		days = freezeService.GetDaysTillEscalation(*freezes.TrialExpirationFreeze, midFuture)
+		require.NotNil(t, days)
+		require.InDelta(t, gracePeriodDays/2, *days, 1)
+
+		days = freezeService.GetDaysTillEscalation(*freezes.TrialExpirationFreeze, future)
+		require.NotNil(t, days)
+		require.Equal(t, 0, *days)
+
+		// Test for trial expiration frozen users with no days till escalation set.
+		// This is for users frozen before this change.
+		freezes.TrialExpirationFreeze.DaysTillEscalation = nil
+		freezes.TrialExpirationFreeze, err = sat.DB.Console().AccountFreezeEvents().Upsert(ctx, freezes.TrialExpirationFreeze)
+		require.NoError(t, err)
+
+		days = freezeService.GetDaysTillEscalation(*freezes.TrialExpirationFreeze, now)
+		require.NotNil(t, days)
+		require.Equal(t, gracePeriodDays, *days)
+
+		days = freezeService.GetDaysTillEscalation(*freezes.TrialExpirationFreeze, midFuture)
+		require.NotNil(t, days)
+		require.InDelta(t, gracePeriodDays/2, *days, 1)
+
+		days = freezeService.GetDaysTillEscalation(*freezes.TrialExpirationFreeze, future)
+		require.NotNil(t, days)
+		require.Equal(t, 0, *days)
+	})
+}
+
 func TestAccountBotFreezeUnfreeze(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
-		SatelliteCount: 1,
+		SatelliteCount: 1, EnableSpanner: true,
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 		sat := planet.Satellites[0]
 		usersDB := sat.DB.Console().Users()
@@ -654,11 +938,14 @@ func TestAccountBotFreezeUnfreeze(t *testing.T) {
 		}, 2)
 		require.NoError(t, err)
 
-		_, err = sat.AddProject(ctx, user.ID, "test")
+		pLimits := randUsageLimits(true)
+		proj, err := sat.AddProject(ctx, user.ID, "test")
 		require.NoError(t, err)
+		require.NoError(t, updateProjectLimits(ctx, projectsDB, proj, pLimits))
 
-		_, err = sat.AddProject(ctx, user.ID, "test1")
+		proj, err = sat.AddProject(ctx, user.ID, "test1")
 		require.NoError(t, err)
+		require.NoError(t, updateProjectLimits(ctx, projectsDB, proj, pLimits))
 
 		_, err = accFreezeDB.Upsert(ctx, &console.AccountFreezeEvent{
 			UserID: user.ID,
@@ -678,20 +965,14 @@ func TestAccountBotFreezeUnfreeze(t *testing.T) {
 		user, err = usersDB.Get(ctx, user.ID)
 		require.NoError(t, err)
 		require.Equal(t, console.PendingBotVerification, user.Status)
-		require.Zero(t, user.ProjectBandwidthLimit)
-		require.Zero(t, user.ProjectStorageLimit)
-		require.Zero(t, user.ProjectSegmentLimit)
+		require.Zero(t, getUserLimits(user))
 
 		projects, err := projectsDB.GetOwn(ctx, user.ID)
 		require.NoError(t, err)
 		require.Len(t, projects, 2)
 
 		for _, p := range projects {
-			require.Zero(t, *p.BandwidthLimit)
-			require.Zero(t, *p.StorageLimit)
-			require.Zero(t, *p.SegmentLimit)
-			require.Zero(t, *p.RateLimit)
-			require.Zero(t, *p.BurstLimit)
+			require.Equal(t, zeroUsageLimits, getProjectLimits(&p))
 		}
 
 		event, err := accFreezeDB.Get(ctx, user.ID, console.DelayedBotFreeze)
@@ -717,9 +998,7 @@ func TestAccountBotFreezeUnfreeze(t *testing.T) {
 		require.Len(t, projects, 2)
 
 		for _, p := range projects {
-			require.NotZero(t, *p.BandwidthLimit)
-			require.NotZero(t, *p.StorageLimit)
-			require.NotZero(t, *p.SegmentLimit)
+			require.Equal(t, pLimits, getProjectLimits(&p))
 		}
 
 		event, err = accFreezeDB.Get(ctx, user.ID, console.BotFreeze)
@@ -733,16 +1012,16 @@ func TestAccountBotFreezeUnfreeze(t *testing.T) {
 	})
 }
 
-func TestTrailExpirationFreeze(t *testing.T) {
+func TestTrialExpirationFreeze(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
-		SatelliteCount: 1,
+		SatelliteCount: 1, EnableSpanner: true,
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 		sat := planet.Satellites[0]
 		usersDB := sat.DB.Console().Users()
 		projectsDB := sat.DB.Console().Projects()
 		service := console.NewAccountFreezeService(sat.DB.Console(), sat.API.Analytics.Service, sat.Config.Console.AccountFreeze)
 
-		userLimits := randUsageLimits()
+		userLimits := randUsageLimits(false)
 		user, err := sat.AddUser(ctx, console.CreateUser{
 			FullName: "Test User",
 			Email:    "user@mail.test",
@@ -750,10 +1029,10 @@ func TestTrailExpirationFreeze(t *testing.T) {
 		require.NoError(t, err)
 		require.NoError(t, usersDB.UpdateUserProjectLimits(ctx, user.ID, userLimits))
 
-		projLimits := randUsageLimits()
-		proj, err := sat.AddProject(ctx, user.ID, "")
+		projLimits := randUsageLimits(true)
+		proj, err := sat.AddProject(ctx, user.ID, "test project")
 		require.NoError(t, err)
-		require.NoError(t, projectsDB.UpdateUsageLimits(ctx, proj.ID, projLimits))
+		require.NoError(t, updateProjectLimits(ctx, projectsDB, proj, projLimits))
 
 		frozen, err := service.IsUserFrozen(ctx, user.ID, console.TrialExpirationFreeze)
 		require.NoError(t, err)
@@ -782,13 +1061,21 @@ func TestTrailExpirationFreeze(t *testing.T) {
 
 		proj, err = projectsDB.Get(ctx, proj.ID)
 		require.NoError(t, err)
-		usageLimits := getProjectLimits(proj)
-		require.Zero(t, usageLimits.Segment)
-		require.Zero(t, usageLimits.Storage)
-		require.Zero(t, usageLimits.Bandwidth)
-		zeroLimit := 0
-		require.Equal(t, &zeroLimit, usageLimits.RateLimit)
-		require.Equal(t, &zeroLimit, usageLimits.BurstLimit)
+
+		zeroedProjLimits := getProjectLimits(proj)
+		expectedHeadListDeleteRateLimits := int(sat.Config.Console.AccountFreeze.TrialExpirationRateLimits)
+		require.Equal(t, zeroUsageLimits.RateLimit, zeroedProjLimits.RateLimit)
+		require.Equal(t, zeroUsageLimits.RateLimitPut, zeroedProjLimits.RateLimitPut)
+		require.Equal(t, zeroUsageLimits.RateLimitGet, zeroedProjLimits.RateLimitGet)
+		require.Equal(t, expectedHeadListDeleteRateLimits, *zeroedProjLimits.RateLimitHead)
+		require.Equal(t, expectedHeadListDeleteRateLimits, *zeroedProjLimits.RateLimitList)
+		require.Equal(t, expectedHeadListDeleteRateLimits, *zeroedProjLimits.RateLimitDelete)
+		require.Equal(t, zeroUsageLimits.BurstLimit, zeroedProjLimits.BurstLimit)
+		require.Equal(t, zeroUsageLimits.BurstLimitPut, zeroedProjLimits.BurstLimitPut)
+		require.Equal(t, zeroUsageLimits.BurstLimitGet, zeroedProjLimits.BurstLimitGet)
+		require.Equal(t, expectedHeadListDeleteRateLimits, *zeroedProjLimits.BurstLimitHead)
+		require.Equal(t, expectedHeadListDeleteRateLimits, *zeroedProjLimits.BurstLimitList)
+		require.Equal(t, expectedHeadListDeleteRateLimits, *zeroedProjLimits.BurstLimitDelete)
 
 		frozen, err = service.IsUserFrozen(ctx, user.ID, console.TrialExpirationFreeze)
 		require.NoError(t, err)
@@ -810,9 +1097,114 @@ func TestTrailExpirationFreeze(t *testing.T) {
 	})
 }
 
+func TestGetTrialExpirationFreezesToEscalate(t *testing.T) {
+	testplanet.Run(t, testplanet.Config{
+		SatelliteCount: 1, EnableSpanner: true,
+	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+		sat := planet.Satellites[0]
+		usersRepo := sat.DB.Console().Users()
+		accountFreezeRepo := sat.DB.Console().AccountFreezeEvents()
+
+		now := time.Now()
+		expired := now.Add(-time.Hour)
+		notExpired := now.Add(time.Hour)
+
+		uuids := []string{
+			"00000000-0000-0000-0000-000000000001",
+			"00000000-0000-0000-0000-000000000002",
+		}
+
+		for _, id := range uuids {
+			uid, err := uuid.FromString(id)
+			require.NoError(t, err)
+
+			u, err := usersRepo.Insert(ctx, &console.User{
+				ID:              uid,
+				FullName:        "expired",
+				Email:           email + "1",
+				PasswordHash:    []byte("123a123"),
+				TrialExpiration: &expired,
+			})
+			require.NoError(t, err)
+			_, err = accountFreezeRepo.Upsert(ctx, &console.AccountFreezeEvent{
+				UserID: u.ID,
+				Type:   console.TrialExpirationFreeze,
+			})
+			require.NoError(t, err)
+		}
+
+		expiredUser3, err := usersRepo.Insert(ctx, &console.User{
+			ID:              testrand.UUID(),
+			FullName:        "escalated",
+			Email:           email + "2",
+			PasswordHash:    []byte("123a123"),
+			Status:          console.PendingDeletion,
+			TrialExpiration: &expired,
+		})
+		require.NoError(t, err)
+
+		pendingDeletion := console.PendingDeletion
+		err = usersRepo.Update(ctx, expiredUser3.ID, console.UpdateUserRequest{
+			Status: &pendingDeletion,
+		})
+		require.NoError(t, err)
+
+		_, err = accountFreezeRepo.Upsert(ctx, &console.AccountFreezeEvent{
+			UserID: expiredUser3.ID,
+			Type:   console.TrialExpirationFreeze,
+		})
+		require.NoError(t, err)
+
+		_, err = usersRepo.Insert(ctx, &console.User{
+			ID:              testrand.UUID(),
+			FullName:        "not expired",
+			Email:           email + "2",
+			PasswordHash:    []byte("123a123"),
+			TrialExpiration: &notExpired,
+		})
+		require.NoError(t, err)
+
+		limit := 1
+		var next *console.FreezeEventsByEventAndUserStatusCursor
+		events, next, err := accountFreezeRepo.GetTrialExpirationFreezesToEscalate(ctx, limit, next)
+		require.NoError(t, err)
+		require.Len(t, events, 1, "expected 1 expired user")
+		require.Equal(t, uuids[0], events[0].UserID.String())
+		require.NotNil(t, next, "expected next to not be nil")
+
+		events, next, err = accountFreezeRepo.GetTrialExpirationFreezesToEscalate(ctx, limit, next)
+		require.NoError(t, err)
+		require.Len(t, events, 1, "expected 1 expired user")
+		require.Equal(t, uuids[1], events[0].UserID.String())
+		require.NotNil(t, next, "expected next to not be nil")
+
+		events, next, err = accountFreezeRepo.GetTrialExpirationFreezesToEscalate(ctx, limit, next)
+		require.NoError(t, err)
+		require.Len(t, events, 0, "expected 0 expired user")
+		require.Nil(t, next, "expected next to be nil")
+
+		limit = 50
+		events, _, err = accountFreezeRepo.GetTrialExpirationFreezesToEscalate(ctx, limit, next)
+		require.NoError(t, err)
+		require.Len(t, events, len(uuids), fmt.Sprintf("expected %d expired users", len(uuids)))
+		require.Equal(t, uuids[0], events[0].UserID.String())
+		require.Equal(t, uuids[1], events[1].UserID.String())
+
+		err = usersRepo.Update(ctx, events[0].UserID, console.UpdateUserRequest{
+			Status: &pendingDeletion,
+		})
+		require.NoError(t, err)
+
+		events, _, err = accountFreezeRepo.GetTrialExpirationFreezesToEscalate(ctx, limit, nil)
+		require.NoError(t, err)
+		require.Len(t, events, 1, "expected 1 expired user")
+		require.Equal(t, uuids[1], events[0].UserID.String())
+	})
+}
+
 func TestGetAllEvents(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
-		SatelliteCount: 1,
+		SatelliteCount: 1, EnableSpanner: true,
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 		sat := planet.Satellites[0]
 		freezeDB := sat.DB.Console().AccountFreezeEvents()

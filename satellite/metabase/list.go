@@ -5,7 +5,10 @@ package metabase
 
 import (
 	"context"
+	"strings"
 	"time"
+
+	"github.com/zeebo/errs"
 
 	"storj.io/common/storj"
 	"storj.io/common/uuid"
@@ -38,7 +41,7 @@ type ObjectEntry struct {
 
 // StreamVersionID returns byte representation of object stream version id.
 func (entry ObjectEntry) StreamVersionID() StreamVersionID {
-	return newStreamVersionID(entry.Version, entry.StreamID)
+	return NewStreamVersionID(entry.Version, entry.StreamID)
 }
 
 // Less implements sorting on object entries.
@@ -88,7 +91,7 @@ type StreamIDCursor struct {
 // IterateObjectsWithStatus contains arguments necessary for listing objects in a bucket.
 type IterateObjectsWithStatus struct {
 	ProjectID             uuid.UUID
-	BucketName            string
+	BucketName            BucketName
 	Recursive             bool
 	BatchSize             int
 	Prefix                ObjectKey
@@ -104,7 +107,7 @@ func (db *DB) IterateObjectsAllVersionsWithStatus(ctx context.Context, opts Iter
 	if err = opts.Verify(); err != nil {
 		return err
 	}
-	return iterateAllVersionsWithStatusDescending(ctx, db, opts, fn)
+	return iterateAllVersionsWithStatusDescending(ctx, db.ChooseAdapter(opts.ProjectID), opts, fn)
 }
 
 // IterateObjectsAllVersionsWithStatusAscending iterates through all versions of all objects with specified status. Ordered from oldest to latest.
@@ -115,7 +118,7 @@ func (db *DB) IterateObjectsAllVersionsWithStatusAscending(ctx context.Context, 
 	if err = opts.Verify(); err != nil {
 		return err
 	}
-	return iterateAllVersionsWithStatusAscending(ctx, db, opts, fn)
+	return iterateAllVersionsWithStatusAscending(ctx, db.ChooseAdapter(opts.ProjectID), opts, fn)
 }
 
 // Verify verifies get object request fields.
@@ -129,4 +132,73 @@ func (opts *IterateObjectsWithStatus) Verify() error {
 		return ErrInvalidRequest.New("BatchSize is negative")
 	}
 	return nil
+}
+
+// ListObjectsWithIterator lists objects.
+func (db *DB) ListObjectsWithIterator(ctx context.Context, opts ListObjects) (result ListObjectsResult, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	if err := opts.Verify(); err != nil {
+		return ListObjectsResult{}, err
+	}
+	if opts.Pending || opts.AllVersions {
+		return ListObjectsResult{}, errs.New("not implemented")
+	}
+
+	ListLimit.Ensure(&opts.Limit)
+
+	err = db.IterateObjectsAllVersionsWithStatus(ctx,
+		IterateObjectsWithStatus{
+			ProjectID:  opts.ProjectID,
+			BucketName: opts.BucketName,
+			Prefix:     opts.Prefix,
+			Cursor: IterateCursor{
+				Key:     opts.Cursor.Key,
+				Version: MaxVersion,
+			},
+			Recursive: opts.Recursive,
+			// TODO we may need to increase batch size to optimize number
+			// of DB calls for objects with multiple versions
+			BatchSize:             opts.Limit + 1,
+			Pending:               false,
+			IncludeCustomMetadata: opts.IncludeCustomMetadata,
+			IncludeSystemMetadata: opts.IncludeSystemMetadata,
+		}, func(ctx context.Context, it ObjectsIterator) error {
+			var previousLatestSet bool
+			var entry, previousLatest ObjectEntry
+			prefix := opts.Prefix
+			if prefix != "" && !strings.HasSuffix(string(prefix), "/") {
+				prefix += "/"
+			}
+
+			for len(result.Objects) < opts.Limit && it.Next(ctx, &entry) {
+				objectKey := prefix + entry.ObjectKey
+				if opts.Cursor.Key == objectKey && opts.Cursor.Version >= entry.Version {
+					previousLatestSet = true
+					previousLatest = entry
+					continue
+				}
+
+				if entry.Status.IsDeleteMarker() && (!previousLatestSet || prefix+previousLatest.ObjectKey != objectKey) {
+					previousLatestSet = true
+					previousLatest = entry
+					continue
+				}
+
+				if !previousLatestSet || prefix+previousLatest.ObjectKey != objectKey {
+					previousLatestSet = true
+					previousLatest = entry
+
+					result.Objects = append(result.Objects, entry)
+				}
+			}
+
+			result.More = it.Next(ctx, &entry)
+			return nil
+		},
+	)
+	if err != nil {
+		return ListObjectsResult{}, err
+	}
+	return result, nil
 }

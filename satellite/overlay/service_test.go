@@ -9,6 +9,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/google/go-cmp/cmp"
+	"github.com/google/go-cmp/cmp/cmpopts"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap"
@@ -163,92 +165,6 @@ func testCache(ctx *testcontext.Context, t *testing.T, store overlay.DB, nodeEve
 	}
 }
 
-func TestRandomizedSelection(t *testing.T) {
-	t.Parallel()
-
-	totalNodes := 1000
-	selectIterations := 100
-	numNodesToSelect := 100
-	minSelectCount := 3 // TODO: compute this limit better
-
-	satellitedbtest.Run(t, func(ctx *testcontext.Context, t *testing.T, db satellite.DB) {
-		cache := db.OverlayCache()
-		allIDs := make(storj.NodeIDList, totalNodes)
-		nodeCounts := make(map[storj.NodeID]int)
-
-		// put nodes in cache
-		for i := 0; i < totalNodes; i++ {
-			newID := testrand.NodeID()
-			addr := fmt.Sprintf("127.0.%d.0:8080", i)
-			lastNet := fmt.Sprintf("127.0.%d", i)
-			d := overlay.NodeCheckInInfo{
-				NodeID:     newID,
-				Address:    &pb.NodeAddress{Address: addr},
-				LastIPPort: addr,
-				LastNet:    lastNet,
-				Version:    &pb.NodeVersion{Version: "v1.0.0"},
-				Capacity:   &pb.NodeCapacity{},
-				IsUp:       true,
-			}
-			err := cache.UpdateCheckIn(ctx, d, time.Now().UTC(), overlay.NodeSelectionConfig{})
-			require.NoError(t, err)
-
-			if i%2 == 0 { // make half of nodes "new" and half "vetted"
-				_, err = cache.TestVetNode(ctx, newID)
-				require.NoError(t, err)
-			}
-
-			allIDs[i] = newID
-			nodeCounts[newID] = 0
-		}
-
-		// select numNodesToSelect nodes selectIterations times
-		for i := 0; i < selectIterations; i++ {
-			var nodes []*nodeselection.SelectedNode
-			var err error
-
-			if i%2 == 0 {
-				nodes, err = cache.SelectStorageNodes(ctx, numNodesToSelect, 0, &overlay.NodeCriteria{
-					OnlineWindow: time.Hour,
-				})
-				require.NoError(t, err)
-			} else {
-				nodes, err = cache.SelectStorageNodes(ctx, numNodesToSelect, numNodesToSelect, &overlay.NodeCriteria{
-					OnlineWindow: time.Hour,
-				})
-				require.NoError(t, err)
-			}
-			require.Len(t, nodes, numNodesToSelect)
-
-			for _, node := range nodes {
-				nodeCounts[node.ID]++
-			}
-		}
-
-		belowThreshold := 0
-
-		table := []int{}
-
-		// expect that each node has been selected at least minSelectCount times
-		for _, id := range allIDs {
-			count := nodeCounts[id]
-			if count < minSelectCount {
-				belowThreshold++
-			}
-			if count >= len(table) {
-				table = append(table, make([]int, count-len(table)+1)...)
-			}
-			table[count]++
-		}
-
-		if belowThreshold > totalNodes*1/100 {
-			t.Errorf("%d out of %d were below threshold %d", belowThreshold, totalNodes, minSelectCount)
-			for count, amount := range table {
-				t.Logf("%3d = %4d", count, amount)
-			}
-		}
-	})
-}
 func TestRandomizedSelectionCache(t *testing.T) {
 	t.Parallel()
 
@@ -362,7 +278,7 @@ func TestRandomizedSelectionCache(t *testing.T) {
 
 func TestNodeInfo(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
-		SatelliteCount: 1, StorageNodeCount: 1, UplinkCount: 0,
+		SatelliteCount: 1, StorageNodeCount: 1, UplinkCount: 0, EnableSpanner: true,
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 		planet.StorageNodes[0].Storage2.Monitor.Loop.Pause()
 
@@ -383,7 +299,7 @@ func TestNodeInfo(t *testing.T) {
 
 func TestGetNodes(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
-		SatelliteCount: 1, StorageNodeCount: 6, UplinkCount: 1,
+		SatelliteCount: 1, StorageNodeCount: 6, UplinkCount: 1, EnableSpanner: true,
 		Reconfigure: testplanet.Reconfigure{
 			Satellite: func(log *zap.Logger, index int, config *satellite.Config) {
 				config.Reputation.AuditHistory = reputation.AuditHistoryConfig{
@@ -620,84 +536,12 @@ func TestUpdateCheckIn(t *testing.T) {
 		nodeInfo, err = db.OverlayCache().Get(ctx, updated2Node.Id)
 		require.NoError(t, err)
 		require.Nil(t, nodeInfo.LastOfflineEmail)
-	})
-}
-
-// TestSuspendedSelection ensures that suspended nodes are not selected by SelectStorageNodes.
-func TestSuspendedSelection(t *testing.T) {
-	totalNodes := 10
-
-	satellitedbtest.Run(t, func(ctx *testcontext.Context, t *testing.T, db satellite.DB) {
-		cache := db.OverlayCache()
-		suspendedIDs := make(map[storj.NodeID]bool)
-		config := overlay.NodeSelectionConfig{}
-
-		// put nodes in cache
-		for i := 0; i < totalNodes; i++ {
-			newID := testrand.NodeID()
-			addr := fmt.Sprintf("127.0.%d.0:8080", i)
-			lastNet := fmt.Sprintf("127.0.%d", i)
-			d := overlay.NodeCheckInInfo{
-				NodeID:     newID,
-				Address:    &pb.NodeAddress{Address: addr},
-				LastIPPort: addr,
-				LastNet:    lastNet,
-				Version:    &pb.NodeVersion{Version: "v1.0.0"},
-				Capacity:   &pb.NodeCapacity{},
-				IsUp:       true,
-			}
-			err := cache.UpdateCheckIn(ctx, d, time.Now().UTC(), config)
-			require.NoError(t, err)
-
-			if i%2 == 0 { // make half of nodes "new" and half "vetted"
-				_, err = cache.TestVetNode(ctx, newID)
-				require.NoError(t, err)
-			}
-
-			// suspend the first four nodes (2 new, 2 vetted)
-			// 2 offline suspended and 2 unknown audit suspended
-			if i < 4 {
-				if i < 2 {
-					err = cache.TestSuspendNodeOffline(ctx, newID, time.Now())
-					require.NoError(t, err)
-					continue
-				}
-				err = cache.TestSuspendNodeUnknownAudit(ctx, newID, time.Now())
-				require.NoError(t, err)
-				suspendedIDs[newID] = true
-			}
-		}
-
-		var nodes []*nodeselection.SelectedNode
-		var err error
-
-		numNodesToSelect := 10
-
-		// select 10 vetted nodes - 5 vetted, 2 suspended, so expect 3
-		nodes, err = cache.SelectStorageNodes(ctx, numNodesToSelect, 0, &overlay.NodeCriteria{
-			OnlineWindow: time.Hour,
-		})
-		require.NoError(t, err)
-		require.Len(t, nodes, 3)
-		for _, node := range nodes {
-			require.False(t, suspendedIDs[node.ID])
-		}
-
-		// select 10 new nodes - 5 new, 2 suspended, so expect 3
-		nodes, err = cache.SelectStorageNodes(ctx, numNodesToSelect, numNodesToSelect, &overlay.NodeCriteria{
-			OnlineWindow: time.Hour,
-		})
-		require.NoError(t, err)
-		require.Len(t, nodes, 3)
-		for _, node := range nodes {
-			require.False(t, suspendedIDs[node.ID])
-		}
-	})
+	}, satellitedbtest.WithSpanner())
 }
 
 func TestUpdateReputation(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
-		SatelliteCount: 1, StorageNodeCount: 1, UplinkCount: 0,
+		SatelliteCount: 1, StorageNodeCount: 1, UplinkCount: 0, EnableSpanner: true,
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 		service := planet.Satellites[0].Overlay.Service
 		overlaydb := planet.Satellites[0].Overlay.DB
@@ -728,9 +572,9 @@ func TestUpdateReputation(t *testing.T) {
 		info, err = service.Get(ctx, node.ID())
 		require.NoError(t, err)
 		require.Equal(t, reputationUpdate.Disqualified, info.Disqualified)
-		require.Equal(t, reputationUpdate.UnknownAuditSuspended, info.UnknownAuditSuspended)
-		require.Equal(t, reputationUpdate.OfflineSuspended, info.OfflineSuspended)
-		require.Equal(t, reputationUpdate.VettedAt, info.Reputation.Status.VettedAt)
+		require.Zero(t, cmp.Diff(info.UnknownAuditSuspended, reputationUpdate.UnknownAuditSuspended, cmpopts.EquateApproxTime(0)))
+		require.Zero(t, cmp.Diff(info.OfflineSuspended, reputationUpdate.OfflineSuspended, cmpopts.EquateApproxTime(0)))
+		require.Zero(t, cmp.Diff(info.Reputation.Status.VettedAt, reputationUpdate.VettedAt, cmpopts.EquateApproxTime(0)))
 
 		reputationUpdate.Disqualified = &t0
 		repChange = []nodeevents.Type{nodeevents.Disqualified}
@@ -739,7 +583,7 @@ func TestUpdateReputation(t *testing.T) {
 
 		info, err = service.Get(ctx, node.ID())
 		require.NoError(t, err)
-		require.Equal(t, reputationUpdate.Disqualified, info.Disqualified)
+		require.Zero(t, cmp.Diff(info.Disqualified, reputationUpdate.Disqualified, cmpopts.EquateApproxTime(0)))
 
 		nodeInfo, err := overlaydb.UpdateExitStatus(ctx, &overlay.ExitStatusRequest{
 			NodeID:              node.ID(),

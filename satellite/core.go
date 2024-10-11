@@ -232,9 +232,6 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB,
 	{ // setup email reminders
 		if config.EmailReminders.Enable {
 			authTokens := consoleauth.NewService(config.ConsoleAuth, &consoleauth.Hmac{Secret: []byte(config.Console.AuthTokenSecret)})
-			if err != nil {
-				return nil, errs.Combine(err, peer.Close())
-			}
 
 			peer.Mail.EmailReminders = emailreminders.NewChore(
 				peer.Log.Named("console:chore"),
@@ -243,6 +240,8 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB,
 				peer.Mail.Service,
 				config.EmailReminders,
 				config.Console.ExternalAddress,
+				config.Console.GeneralRequestURL,
+				config.Console.ScheduleMeetingURL,
 			)
 
 			peer.Services.Add(lifecycle.Item{
@@ -253,7 +252,7 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB,
 		}
 	}
 
-	placement, err := config.Placement.Parse(config.Overlay.Node.CreateDefaultPlacement)
+	placement, err := config.Placement.Parse(config.Overlay.Node.CreateDefaultPlacement, nil)
 	if err != nil {
 		return nil, err
 	}
@@ -494,6 +493,7 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB,
 			pc.BonusRate,
 			peer.Analytics.Service,
 			emission.NewService(config.Emission),
+			config.Console.SelfServeAccountDeleteEnabled,
 		)
 		if err != nil {
 			return nil, errs.Combine(err, peer.Close())
@@ -534,7 +534,7 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB,
 
 		freezeService := console.NewAccountFreezeService(peer.DB.Console(), peer.Analytics.Service, config.Console.AccountFreeze)
 		choreObservers := billing.ChoreObservers{
-			UpgradeUser: console.NewUpgradeUserObserver(peer.DB.Console(), peer.DB.Billing(), config.Console.UsageLimits, config.Console.UserBalanceForUpgrade, freezeService),
+			UpgradeUser: console.NewUpgradeUserObserver(peer.DB.Console(), peer.DB.Billing(), config.Console.UsageLimits, config.Console.UserBalanceForUpgrade, freezeService, peer.Analytics.Service),
 			PayInvoices: console.NewInvoiceTokenPaymentObserver(
 				peer.DB.Console(), peer.Payments.Accounts.Invoices(),
 				freezeService,
@@ -568,8 +568,12 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB,
 				peer.DB.StorjscanPayments(),
 				console.NewAccountFreezeService(db.Console(), peer.Analytics.Service, config.Console.AccountFreeze),
 				peer.Analytics.Service,
+				peer.Mail.Service,
+				config.Console.AccountFreeze,
 				config.AccountFreeze,
 				config.Console.Captcha.FlagBotsEnabled,
+				config.Console.ExternalAddress,
+				config.Console.GeneralRequestURL,
 			)
 
 			peer.Services.Add(lifecycle.Item{
@@ -586,6 +590,7 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB,
 			peer.Log.Named("console.dbcleanup:chore"),
 			peer.DB.Console(),
 			config.ConsoleDBCleanup,
+			config.Console.Config,
 		)
 
 		peer.Services.Add(lifecycle.Item{

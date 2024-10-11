@@ -83,11 +83,11 @@ func cmdDiag(cmd *cobra.Command, cfg *diagCfg) (err error) {
 	w := tabwriter.NewWriter(os.Stdout, 0, 0, 3, ' ', tabwriter.AlignRight|tabwriter.Debug)
 	defer func() { err = errs.Combine(err, w.Flush()) }()
 
-	fmt.Fprint(w, "Satellite\tTotal\tPut\tGet\tDelete\tAudit Get\tRepair Get\tRepair Put\n")
+	_, _ = fmt.Fprint(w, "Satellite\tTotal\tPut\tGet\tDelete\tAudit Get\tRepair Get\tRepair Put\n")
 
 	for _, id := range satellites {
 		summary := summaries[id]
-		fmt.Fprintf(w, "%v\t%v\t%v\t%v\t%v\t%v\t%v\t%v\n",
+		_, _ = fmt.Fprintf(w, "%v\t%v\t%v\t%v\t%v\t%v\t%v\t%v\n",
 			id,
 			memory.Size(summary.Total()),
 			memory.Size(summary.Put),

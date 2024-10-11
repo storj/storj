@@ -32,8 +32,10 @@ func configureSatellite(log *zap.Logger, index int, config *satellite.Config) {
 	if dir := os.Getenv("STORJ_TEST_SATELLITE_WEB"); dir != "" {
 		config.Console.StaticDir = dir
 	}
+	config.Console.SignupActivationCodeEnabled = false
 	config.Console.CouponCodeBillingUIEnabled = true
 	config.Console.RateLimit.Burst = 10000
+	config.DisableConsoleFromSatelliteAPI = false
 }
 
 // Run starts a new UI test.

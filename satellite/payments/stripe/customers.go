@@ -8,7 +8,6 @@ import (
 	"time"
 
 	"storj.io/common/uuid"
-	"storj.io/storj/satellite/satellitedb/dbx"
 )
 
 // ErrNoCustomer is error class defining that there is no customer for user.
@@ -30,17 +29,29 @@ type CustomersDB interface {
 	UpdatePackage(ctx context.Context, userID uuid.UUID, packagePlan *string, timestamp *time.Time) (*Customer, error)
 	// GetPackageInfo returns the package plan and time of purchase for a user.
 	GetPackageInfo(ctx context.Context, userID uuid.UUID) (packagePlan *string, purchaseTime *time.Time, err error)
+	// GetStripeIDs returns stripe customer and billing ids.
+	GetStripeIDs(ctx context.Context, userID uuid.UUID) (billingID *string, customerID string, err error)
+	// UpdateBillingCustomerID updates the customer's billing id.
+	UpdateBillingCustomerID(ctx context.Context, userID uuid.UUID, billingID *string) (*Customer, error)
 
-	// TODO: get rid of this.
-	Raw() *dbx.DB
+	// ListMissingCustomers lists users that have a missing stripe entry.
+	ListMissingCustomers(ctx context.Context) (_ []MissingCustomer, err error)
 }
 
 // Customer holds customer id, user id, and package information.
 type Customer struct {
 	ID                 string
+	BillingID          *string
 	UserID             uuid.UUID
 	PackagePlan        *string
 	PackagePurchasedAt *time.Time
+}
+
+// MissingCustomer holds customer id, user id, and package information.
+type MissingCustomer struct {
+	ID              uuid.UUID
+	Email           string
+	SignupPromoCode string
 }
 
 // CustomersPage holds customers and

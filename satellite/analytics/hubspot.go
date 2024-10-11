@@ -10,33 +10,20 @@ import (
 	"fmt"
 	"net/http"
 	"net/url"
-	"strconv"
 	"strings"
 	"sync"
 	"time"
 
-	"github.com/spacemonkeygo/monkit/v3"
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 
 	"storj.io/common/sync2"
 )
 
-var mon = monkit.Package()
-
 const (
-	eventPrefix      = "pe20293085"
 	expiryBufferTime = 5 * time.Minute
 	// string template for hubspot submission form. %s is a placeholder for the form(ID) being submitted.
-	hubspotFormTemplate = "https://api.hsforms.com/submissions/v3/integration/submit/20293085/%s"
-	// This form(ID) is the business account form.
-	professionalFormID = "cc693502-9d55-4204-ae61-406a19148cfe"
-	// This form(ID) is the personal account form.
-	basicFormID = "77cfa709-f533-44b8-bf3a-ed1278ca3202"
-	// this form  ID  is the minimal  account form.
-	minimalFormID = "926d1b53-f21f-486b-9f15-3b3d341cc4e1"
-	// The hubspot lifecycle stage of all new accounts (Product Qualified Lead).
-	lifecycleStage = "66198674"
+	hubspotFormTemplate = "https://api.hsforms.com/submissions/v3/integration/submit/44965639/%s"
 )
 
 // HubSpotConfig is a configuration struct for Concurrent Sending of Events.
@@ -48,6 +35,9 @@ type HubSpotConfig struct {
 	ChannelSize     int           `help:"the number of events that can be in the queue before dropping" default:"1000"`
 	ConcurrentSends int           `help:"the number of concurrent api requests that can be made" default:"4"`
 	DefaultTimeout  time.Duration `help:"the default timeout for the hubspot http client" default:"10s"`
+	EventPrefix     string        `help:"the prefix for the event name" default:""`
+	SignupFormId    string        `help:"the hubspot form ID for signup" default:""`
+	LifeCycleStage  string        `help:"the hubspot lifecycle stage for new accounts" default:""`
 }
 
 // HubSpotEvent is a configuration struct for sending API request to HubSpot.
@@ -118,97 +108,6 @@ func (q *HubSpotEvents) Run(ctx context.Context) error {
 	}
 }
 
-// EnqueueCreateUser for creating user in HubSpot.
-func (q *HubSpotEvents) EnqueueCreateUser(fields TrackCreateUserFields) {
-	fullName := fields.FullName
-	names := strings.SplitN(fullName, " ", 2)
-
-	var firstName string
-	var lastName string
-
-	if len(names) > 1 {
-		firstName = names[0]
-		lastName = names[1]
-	} else {
-		firstName = fullName
-	}
-
-	newField := func(name string, value interface{}) map[string]interface{} {
-		return map[string]interface{}{
-			"name":  name,
-			"value": value,
-		}
-	}
-
-	formFields := []map[string]interface{}{
-		newField("email", fields.Email),
-		newField("firstname", firstName),
-		newField("lastname", lastName),
-		newField("origin_header", fields.OriginHeader),
-		newField("signup_referrer", fields.Referrer),
-		newField("account_created", "true"),
-		newField("have_sales_contact", strconv.FormatBool(fields.HaveSalesContact)),
-		newField("signup_partner", fields.UserAgent),
-		newField("lifecyclestage", lifecycleStage),
-	}
-	if fields.SignupCaptcha != nil {
-		formFields = append(formFields, newField("signup_captcha_score", *fields.SignupCaptcha))
-	}
-
-	properties := map[string]interface{}{
-		"userid":             fields.ID.String(),
-		"email":              fields.Email,
-		"name":               fields.FullName,
-		"satellite_selected": q.satelliteName,
-		"account_type":       string(fields.Type),
-		"company_size":       fields.EmployeeCount,
-		"company_name":       fields.CompanyName,
-		"job_title":          fields.JobTitle,
-	}
-
-	var formURL string
-
-	if fields.Type == Professional {
-		formFields = append(formFields, newField("company", fields.CompanyName))
-		formFields = append(formFields, newField("storage_needs", fields.StorageNeeds))
-
-		properties["storage_needs"] = fields.StorageNeeds
-
-		formURL = fmt.Sprintf(hubspotFormTemplate, professionalFormID)
-	} else {
-		formURL = fmt.Sprintf(hubspotFormTemplate, basicFormID)
-	}
-
-	data := map[string]interface{}{
-		"fields": formFields,
-	}
-
-	if fields.HubspotUTK != "" {
-		data["context"] = map[string]interface{}{
-			"hutk": fields.HubspotUTK,
-		}
-	}
-
-	createUser := HubSpotEvent{
-		Endpoint: formURL,
-		Data:     data,
-	}
-
-	sendUserEvent := HubSpotEvent{
-		Endpoint: "https://api.hubapi.com/events/v3/send",
-		Data: map[string]interface{}{
-			"email":      fields.Email,
-			"eventName":  eventPrefix + "_" + strings.ToLower(q.satelliteName) + "_" + "account_created",
-			"properties": properties,
-		},
-	}
-	select {
-	case q.events <- []HubSpotEvent{createUser, sendUserEvent}:
-	default:
-		q.log.Error("create user hubspot event failed, event channel is full")
-	}
-}
-
 // EnqueueCreateUserMinimal is for creating user in HubSpot using the minimal form.
 func (q *HubSpotEvents) EnqueueCreateUserMinimal(fields TrackCreateUserFields) {
 	newField := func(name string, value interface{}) map[string]interface{} {
@@ -224,7 +123,7 @@ func (q *HubSpotEvents) EnqueueCreateUserMinimal(fields TrackCreateUserFields) {
 		newField("signup_referrer", fields.Referrer),
 		newField("account_created", "true"),
 		newField("signup_partner", fields.UserAgent),
-		newField("lifecyclestage", lifecycleStage),
+		newField("lifecyclestage", q.config.LifeCycleStage),
 	}
 	if fields.SignupCaptcha != nil {
 		formFields = append(formFields, newField("signup_captcha_score", *fields.SignupCaptcha))
@@ -236,7 +135,7 @@ func (q *HubSpotEvents) EnqueueCreateUserMinimal(fields TrackCreateUserFields) {
 		"satellite_selected": q.satelliteName,
 	}
 
-	formURL := fmt.Sprintf(hubspotFormTemplate, minimalFormID)
+	formURL := fmt.Sprintf(hubspotFormTemplate, q.config.SignupFormId)
 
 	data := map[string]interface{}{
 		"fields": formFields,
@@ -257,7 +156,7 @@ func (q *HubSpotEvents) EnqueueCreateUserMinimal(fields TrackCreateUserFields) {
 		Endpoint: "https://api.hubapi.com/events/v3/send",
 		Data: map[string]interface{}{
 			"email":      fields.Email,
-			"eventName":  eventPrefix + "_" + strings.ToLower(q.satelliteName) + "_" + "account_created",
+			"eventName":  q.config.EventPrefix + "_" + strings.ToLower(q.satelliteName) + "_" + "account_created",
 			"properties": properties,
 		},
 	}
@@ -285,16 +184,17 @@ func (q *HubSpotEvents) EnqueueUserOnboardingInfo(fields TrackOnboardingInfoFiel
 	}
 
 	properties := map[string]interface{}{
-		"email":       fields.Email,
-		"firstname":   firstName,
-		"lastname":    lastName,
-		"storage_use": fields.StorageUseCase,
+		"email":     fields.Email,
+		"firstname": firstName,
+		"lastname":  lastName,
+		"use_case":  fields.StorageUseCase,
 	}
 	if fields.Type == Professional {
 		properties["have_sales_contact"] = fields.HaveSalesContact
+		properties["interested_in_partnering_"] = fields.InterestedInPartnering // trailing underscore in property name is not a mistake
 		properties["company_size"] = fields.EmployeeCount
 		properties["company"] = fields.CompanyName
-		properties["title"] = fields.JobTitle
+		properties["jobtitle"] = fields.JobTitle
 		properties["storage_needs"] = fields.StorageNeeds
 		properties["functional_area"] = fields.FunctionalArea
 	}
@@ -314,6 +214,30 @@ func (q *HubSpotEvents) EnqueueUserOnboardingInfo(fields TrackOnboardingInfoFiel
 	case q.events <- []HubSpotEvent{onboardingInfoEvent}:
 	default:
 		q.log.Error("update user properties hubspot event failed, event channel is full")
+	}
+}
+
+// EnqueueUserChangeEmail is for sending post-creation information to Hubspot, that the user changed their email.
+func (q *HubSpotEvents) EnqueueUserChangeEmail(oldEmail, newEmail string) {
+	properties := map[string]interface{}{
+		"email": newEmail,
+	}
+
+	updateContactEndpoint := fmt.Sprintf("https://api.hubapi.com/crm/v3/objects/contacts/%s?idProperty=email", url.QueryEscape(oldEmail))
+	method := http.MethodPatch
+
+	changeEmailEvent := HubSpotEvent{
+		Endpoint: updateContactEndpoint,
+		Method:   &method,
+		Data: map[string]interface{}{
+			"properties": properties,
+		},
+	}
+
+	select {
+	case q.events <- []HubSpotEvent{changeEmailEvent}:
+	default:
+		q.log.Error("update user email hubspot event failed, event channel is full")
 	}
 }
 

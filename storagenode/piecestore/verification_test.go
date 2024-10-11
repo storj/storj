@@ -5,8 +5,9 @@ package piecestore_test
 
 import (
 	"bytes"
-	"context"
 	"io"
+	"os"
+	"path/filepath"
 	"testing"
 	"time"
 
@@ -22,6 +23,8 @@ import (
 	"storj.io/common/testcontext"
 	"storj.io/common/testrand"
 	"storj.io/storj/private/testplanet"
+	"storj.io/storj/storagenode/blobstore/filestore"
+	"storj.io/storj/storagenode/pieces"
 )
 
 const oneWeek = 7 * 24 * time.Hour
@@ -271,7 +274,8 @@ func TestOrderLimitGetValidation(t *testing.T) {
 	})
 }
 
-func setSpace(ctx context.Context, t *testing.T, planet *testplanet.Planet, space int64) {
+func setSpace(ctx *testcontext.Context, t *testing.T, planet *testplanet.Planet, space int64) {
+	require.Greater(t, len(planet.Satellites), 0)
 	if space == 0 {
 		return
 	}
@@ -280,8 +284,19 @@ func setSpace(ctx context.Context, t *testing.T, planet *testplanet.Planet, spac
 		require.NoError(t, err)
 		// add these bytes to the space used cache so that we can test what happens
 		// when we exceeded available space on the storagenode
-		err = storageNode.DB.PieceSpaceUsedDB().UpdatePieceTotals(ctx, availableSpace-space, availableSpace-space)
+		usage := pieces.SatelliteUsage{
+			Total:       availableSpace - space,
+			ContentSize: availableSpace - space,
+		}
+		err = storageNode.DB.PieceSpaceUsedDB().UpdatePieceTotalsForSatellite(ctx, planet.Satellites[0].ID(), usage)
 		require.NoError(t, err)
+
+		// create an empty blob directory for the satellite so that the cache service
+		// maintains the space used for the satellite
+		blobsDir := storageNode.DB.Config().Storage
+		err = os.MkdirAll(filepath.Join(blobsDir, "blobs", filestore.PathEncoding.EncodeToString(planet.Satellites[0].ID().Bytes())), 0755)
+		require.NoError(t, err)
+
 		err = storageNode.Storage2.CacheService.Init(ctx)
 		require.NoError(t, err)
 	}

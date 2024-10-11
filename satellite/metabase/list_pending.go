@@ -47,7 +47,7 @@ func (db *DB) IteratePendingObjectsByKey(ctx context.Context, opts IteratePendin
 	if err := opts.Verify(); err != nil {
 		return err
 	}
-	return iteratePendingObjectsByKey(ctx, db, opts, fn)
+	return iteratePendingObjectsByKey(ctx, db.ChooseAdapter(opts.ProjectID), opts, fn)
 }
 
 // Verify verifies get object request fields.

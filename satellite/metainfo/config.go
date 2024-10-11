@@ -11,7 +11,9 @@ import (
 
 	"storj.io/common/memory"
 	"storj.io/common/uuid"
+	"storj.io/storj/satellite/console"
 	"storj.io/storj/satellite/metabase"
+	"storj.io/storj/satellite/nodeselection"
 	"storj.io/uplink/private/eestream"
 )
 
@@ -45,7 +47,36 @@ func (rs *RSConfig) String() string {
 		rs.ErasureShareSize.String())
 }
 
-// Set sets the value from a string in the format k/m/o/n-size (min/repair/optimal/total-erasuresharesize).
+// Override creates a new RSConfig instance, all non-zero parameters of o will be used to override current values.
+func (rs *RSConfig) Override(o nodeselection.ECParameters) *RSConfig {
+	ro := &RSConfig{
+		ErasureShareSize: rs.ErasureShareSize,
+		Min:              rs.Min,
+		Repair:           rs.Repair,
+		Success:          rs.Success,
+		Total:            rs.Total,
+	}
+	if o.Minimum > 0 {
+		ro.Min = o.Minimum
+	}
+	if o.Success > 0 {
+		ro.Success = o.Success
+	}
+	if o.Total > 0 {
+		ro.Total = o.Total
+		// for legacy configuration that does not define repair.
+		// we need to adjust to avoid validation error
+		if ro.Repair > ro.Total {
+			ro.Repair = ro.Total
+		}
+	}
+	if o.Repair > 0 {
+		ro.Repair = o.Repair
+	}
+	return ro
+}
+
+// Set sets the value from a string in the format satellite/satellitedb/overlaycache.gok/m/o/n-size (min/repair/optimal/total-erasuresharesize).
 func (rs *RSConfig) Set(s string) error {
 	// Split on dash. Expect two items. First item is RS numbers. Second item is memory.Size.
 	info := strings.Split(s, "-")
@@ -122,6 +153,13 @@ type ProjectLimitConfig struct {
 	MaxBuckets int `help:"max bucket count for a project." default:"100" testDefault:"10"`
 }
 
+// UserInfoValidationConfig is a configuration struct for user info validation.
+type UserInfoValidationConfig struct {
+	Enabled         bool          `help:"whether validation is enabled for user account info" default:"false"`
+	CacheExpiration time.Duration `help:"user info cache expiration" default:"5m"`
+	CacheCapacity   int           `help:"user info cache capacity" default:"10000"`
+}
+
 // Config is a configuration struct that is everything you need to start a metainfo.
 type Config struct {
 	DatabaseURL          string      `help:"the database connection string to use" default:"postgres://"`
@@ -129,37 +167,53 @@ type Config struct {
 	MaxInlineSegmentSize memory.Size `default:"4KiB" help:"maximum inline segment size"`
 	// we have such default value because max value for ObjectKey is 1024(1 Kib) but EncryptedObjectKey
 	// has encryption overhead 16 bytes. So overall size is 1024 + 16 * 16.
-	MaxEncryptedObjectKeyLength int                 `default:"4000" help:"maximum encrypted object key length"`
-	MaxSegmentSize              memory.Size         `default:"64MiB" help:"maximum segment size"`
-	MaxMetadataSize             memory.Size         `default:"2KiB" help:"maximum segment metadata size"`
-	MaxCommitInterval           time.Duration       `default:"48h" testDefault:"1h" help:"maximum time allowed to pass between creating and committing a segment"`
-	MinPartSize                 memory.Size         `default:"5MiB" testDefault:"0" help:"minimum allowed part size (last part has no minimum size limit)"`
-	MaxNumberOfParts            int                 `default:"10000" help:"maximum number of parts object can contain"`
-	Overlay                     bool                `default:"true" help:"toggle flag if overlay is enabled"`
-	RS                          RSConfig            `releaseDefault:"29/35/80/110-256B" devDefault:"4/6/8/10-256B" help:"redundancy scheme configuration in the format k/m/o/n-sharesize"`
-	RateLimiter                 RateLimiterConfig   `help:"rate limiter configuration"`
-	UploadLimiter               UploadLimiterConfig `help:"object upload limiter configuration"`
-	ProjectLimits               ProjectLimitConfig  `help:"project limit configuration"`
+	MaxEncryptedObjectKeyLength  int                 `default:"4000" help:"maximum encrypted object key length"`
+	MaxSegmentSize               memory.Size         `default:"64MiB" help:"maximum segment size"`
+	MaxMetadataSize              memory.Size         `default:"2KiB" help:"maximum segment metadata size"`
+	MaxCommitInterval            time.Duration       `default:"48h" testDefault:"1h" help:"maximum time allowed to pass between creating and committing a segment"`
+	MinPartSize                  memory.Size         `default:"5MiB" testDefault:"0" help:"minimum allowed part size (last part has no minimum size limit)"`
+	MaxNumberOfParts             int                 `default:"10000" help:"maximum number of parts object can contain"`
+	Overlay                      bool                `default:"true" help:"toggle flag if overlay is enabled"`
+	RS                           RSConfig            `releaseDefault:"29/35/80/110-256B" devDefault:"4/6/8/10-256B" help:"redundancy scheme configuration in the format k/m/o/n-sharesize"`
+	RateLimiter                  RateLimiterConfig   `help:"rate limiter configuration"`
+	UploadLimiter                UploadLimiterConfig `help:"object upload limiter configuration"`
+	ProjectLimits                ProjectLimitConfig  `help:"project limit configuration"`
+	SuccessTrackerKind           string              `default:"percent" help:"success tracker kind, bitshift or percent"`
+	SuccessTrackerTickDuration   time.Duration       `default:"10m" help:"how often to bump the generation in the node success tracker"`
+	SuccessTrackerTrustedUplinks []string            `help:"list of trusted uplinks for success tracker"`
 
 	// TODO remove this flag when server-side copy implementation will be finished
 	ServerSideCopy         bool `help:"enable code for server-side copy, deprecated. please leave this to true." default:"true"`
 	ServerSideCopyDisabled bool `help:"disable already enabled server-side copy. this is because once server side copy is enabled, delete code should stay changed, even if you want to disable server side copy" default:"false"`
+	UseListObjectsIterator bool `help:"switch to iterator based implementation." default:"false"`
+
+	NodeAliasCacheFullRefresh bool `help:"node alias cache does a full refresh when a value is missing" default:"false"`
 
 	UseBucketLevelObjectVersioning bool `help:"enable the use of bucket level object versioning" default:"false"`
 	// flag to simplify testing by enabling bucket level versioning feature only for specific projects
 	UseBucketLevelObjectVersioningProjects []string `help:"list of projects which will have UseBucketLevelObjectVersioning feature flag enabled" default:"" hidden:"true"`
 
+	ObjectLockEnabled bool `help:"enable the use of bucket-level Object Lock" default:"false"`
+
+	UserInfoValidation UserInfoValidationConfig `help:"Config for user info validation"`
+
 	// TODO remove when we benchmarking are done and decision is made.
-	TestListingQuery bool `default:"false" help:"test the new query for non-recursive listing"`
+	TestListingQuery                bool      `default:"false" help:"test the new query for non-recursive listing"`
+	TestOptimizedInlineObjectUpload bool      `default:"false" devDefault:"true" help:"enables optimization for uploading objects with single inline segment"`
+	TestingPrecommitDeleteMode      int       `default:"0" help:"which code path to use for precommit delete step for unversioned objects, 0 is the default (old) code path."`
+	TestingSpannerProjects          UUIDsFlag `default:""  help:"list of project IDs for which Spanner metabase DB is enabled" hidden:"true"`
 }
 
 // Metabase constructs Metabase configuration based on Metainfo configuration with specific application name.
 func (c Config) Metabase(applicationName string) metabase.Config {
 	return metabase.Config{
-		ApplicationName:  applicationName,
-		MinPartSize:      c.MinPartSize,
-		MaxNumberOfParts: c.MaxNumberOfParts,
-		ServerSideCopy:   c.ServerSideCopy,
+		ApplicationName:            applicationName,
+		MinPartSize:                c.MinPartSize,
+		MaxNumberOfParts:           c.MaxNumberOfParts,
+		ServerSideCopy:             c.ServerSideCopy,
+		NodeAliasCacheFullRefresh:  c.NodeAliasCacheFullRefresh,
+		TestingPrecommitDeleteMode: metabase.TestingPrecommitDeleteMode(c.TestingPrecommitDeleteMode),
+		TestingSpannerProjects:     c.TestingSpannerProjects,
 	}
 }
 
@@ -167,34 +221,96 @@ func (c Config) Metabase(applicationName string) metabase.Config {
 type ExtendedConfig struct {
 	Config
 
-	useBucketLevelObjectVersioningProjects []uuid.UUID
+	useBucketLevelObjectVersioningProjects map[uuid.UUID]struct{}
 }
 
 // NewExtendedConfig creates new instance of extended config.
 func NewExtendedConfig(config Config) (_ ExtendedConfig, err error) {
-	extendedConfig := ExtendedConfig{Config: config}
+	extendedConfig := ExtendedConfig{
+		Config:                                 config,
+		useBucketLevelObjectVersioningProjects: make(map[uuid.UUID]struct{}),
+	}
 	for _, projectIDString := range config.UseBucketLevelObjectVersioningProjects {
 		projectID, err := uuid.FromString(projectIDString)
 		if err != nil {
 			return ExtendedConfig{}, err
 		}
-		extendedConfig.useBucketLevelObjectVersioningProjects = append(extendedConfig.useBucketLevelObjectVersioningProjects, projectID)
+		extendedConfig.useBucketLevelObjectVersioningProjects[projectID] = struct{}{}
 	}
 
 	return extendedConfig, nil
 }
 
 // UseBucketLevelObjectVersioningByProject checks if UseBucketLevelObjectVersioning should be enabled for specific project.
-func (ec ExtendedConfig) UseBucketLevelObjectVersioningByProject(projectID uuid.UUID) bool {
+func (ec ExtendedConfig) UseBucketLevelObjectVersioningByProject(project *console.Project) bool {
 	// if its globally enabled don't look at projects
-	if ec.UseBucketLevelObjectVersioning {
-		return true
-	}
-	for _, p := range ec.useBucketLevelObjectVersioningProjects {
-		if p == projectID {
+	if !ec.UseBucketLevelObjectVersioning {
+		if _, ok := ec.useBucketLevelObjectVersioningProjects[project.ID]; ok {
 			return true
+		}
+		// account for whether the project has opted in to versioning beta
+		if !project.PromptedForVersioningBeta {
+			return false
+		} else if project.PromptedForVersioningBeta && project.DefaultVersioning != console.VersioningUnsupported {
+			return true
+		} else {
+			return false
 		}
 	}
 
-	return false
+	return true
+}
+
+// ObjectLockEnabledByProject checks if bucket-level Object Lock functionality
+// should be enabled for a specific project.
+func (ec ExtendedConfig) ObjectLockEnabledByProject(project *console.Project) bool {
+	// if its globally enabled don't look at projects
+	if !ec.ObjectLockEnabled {
+		return false
+	}
+	return ec.UseBucketLevelObjectVersioningByProject(project)
+}
+
+// UUIDsFlag is a configuration struct that keeps info about project IDs
+//
+// Can be used as a flag.
+type UUIDsFlag map[uuid.UUID]struct{}
+
+// Type is required for pflag.Value.
+func (m UUIDsFlag) Type() string {
+	return "metainfo.UUIDsFlag"
+}
+
+// Set is required for pflag.Value.
+func (m *UUIDsFlag) Set(s string) error {
+	if s == "" {
+		*m = map[uuid.UUID]struct{}{}
+		return nil
+	}
+
+	uuids := strings.Split(s, ",")
+	*m = make(map[uuid.UUID]struct{}, len(uuids))
+	for _, uuidStr := range uuids {
+		id, err := uuid.FromString(uuidStr)
+		if err != nil {
+			return err
+		}
+
+		(*m)[id] = struct{}{}
+	}
+	return nil
+}
+
+// String is required for pflag.Value.
+func (m UUIDsFlag) String() string {
+	var b strings.Builder
+	i := 0
+	for id := range m {
+		if i > 0 {
+			b.WriteString(",")
+		}
+		b.WriteString(id.String())
+		i++
+	}
+	return b.String()
 }

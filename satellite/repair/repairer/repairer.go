@@ -31,6 +31,7 @@ var (
 // Config contains configurable values for repairer.
 type Config struct {
 	MaxRepair                     int           `help:"maximum segments that can be repaired concurrently" releaseDefault:"5" devDefault:"1" testDefault:"10"`
+	SegmentsSelectBatchSize       int           `help:"how many injured segments will be read from repair queue in single request" releaseDefault:"1" devDefault:"10"`
 	Interval                      time.Duration `help:"how frequently repairer should try and repair more data" releaseDefault:"5m0s" devDefault:"1m0s" testDefault:"$TESTINTERVAL"`
 	DialTimeout                   time.Duration `help:"time limit for dialing storage node" default:"5s"`
 	Timeout                       time.Duration `help:"time limit for uploading repaired pieces to new storage nodes" default:"5m0s" testDefault:"1m"`
@@ -168,57 +169,66 @@ func (service *Service) processWhileQueueHasItems(ctx context.Context) error {
 func (service *Service) process(ctx context.Context) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	// wait until we are allowed to spawn a new job
-	if err := service.JobLimiter.Acquire(ctx, 1); err != nil {
-		return err
-	}
-
-	// IMPORTANT: this timeout must be started before service.queue.Select(), in case
-	// service.queue.Select() takes some non-negligible amount of time, so that we can depend on
-	// repair jobs being given up within some set interval after the time in the 'attempted'
-	// column in the queue table.
-	//
-	// This is the reason why we are using a semaphore in this somewhat awkward way instead of
-	// using a simpler sync2.Limiter pattern. We don't want this timeout to include the waiting
-	// time from the semaphore acquisition, but it _must_ include the queue fetch time. At the
-	// same time, we don't want to do the queue pop in a separate goroutine, because we want to
-	// return from service.Run when queue fetch fails.
-	ctx, cancel := context.WithTimeout(ctx, service.config.TotalTimeout)
-
-	seg, err := service.queue.Select(ctx, service.config.IncludedPlacements.Placements, service.config.ExcludedPlacements.Placements)
+	selectCtx, selectCancel := context.WithTimeout(ctx, service.config.TotalTimeout)
+	defer selectCancel()
+	segments, err := service.queue.Select(selectCtx, service.config.SegmentsSelectBatchSize,
+		service.config.IncludedPlacements.Placements, service.config.ExcludedPlacements.Placements)
 	if err != nil {
-		service.JobLimiter.Release(1)
-		cancel()
 		return err
 	}
-	service.log.Debug("Retrieved segment from repair queue")
 
-	// this goroutine inherits the JobLimiter semaphore acquisition and is now responsible
-	// for releasing it.
-	go func() {
-		defer service.JobLimiter.Release(1)
-		defer cancel()
-		if err := service.worker(ctx, seg); err != nil {
-			service.log.Error("repair worker failed:", zap.Error(err))
+	for _, seg := range segments {
+		seg := seg
+		// wait until we are allowed to spawn a new job
+		if err := service.JobLimiter.Acquire(ctx, 1); err != nil {
+			return err
 		}
-	}()
 
+		// IMPORTANT: this timeout must be started before service.queue.Select(), in case
+		// service.queue.Select() takes some non-negligible amount of time, so that we can depend on
+		// repair jobs being given up within some set interval after the time in the 'attempted'
+		// column in the queue table.
+		//
+		// This is the reason why we are using a semaphore in this somewhat awkward way instead of
+		// using a simpler sync2.Limiter pattern. We don't want this timeout to include the waiting
+		// time from the semaphore acquisition, but it _must_ include the queue fetch time. At the
+		// same time, we don't want to do the queue pop in a separate goroutine, because we want to
+		// return from service.Run when queue fetch fails.
+		ctx, cancel := context.WithTimeout(ctx, service.config.TotalTimeout)
+
+		log := service.log.With(zap.Stringer("Stream ID", seg.StreamID), zap.Uint64("Position", seg.Position.Encode()))
+		log.Debug("Retrieved segment from repair queue")
+
+		// this goroutine inherits the JobLimiter semaphore acquisition and is now responsible
+		// for releasing it.
+		go func() {
+			defer service.JobLimiter.Release(1)
+			defer cancel()
+			if err := service.worker(ctx, seg); err != nil {
+				log.Error("repair worker failed", zap.Error(err))
+			}
+		}()
+	}
 	return nil
 }
 
-func (service *Service) worker(ctx context.Context, seg *queue.InjuredSegment) (err error) {
+func (service *Service) worker(ctx context.Context, seg queue.InjuredSegment) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	workerStartTime := service.nowFn().UTC()
 
-	service.log.Debug("Limiter running repair on segment")
+	log := service.log.With(
+		zap.Stringer("Stream ID", seg.StreamID),
+		zap.Uint64("Position", seg.Position.Encode()))
+	log.Debug("Limiter running repair on segment")
+
 	// note that shouldDelete is used even in the case where err is not null
 	shouldDelete, err := service.repairer.Repair(ctx, seg)
 	if shouldDelete {
 		if err != nil {
-			service.log.Error("unexpected error repairing segment!", zap.Error(err))
+			log.Error("unexpected error repairing segment!", zap.Error(err))
 		} else {
-			service.log.Debug("removing repaired segment from repair queue")
+			log.Debug("removing repaired segment from repair queue")
 		}
 
 		delErr := service.queue.Delete(ctx, seg)

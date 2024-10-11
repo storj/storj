@@ -2,13 +2,11 @@
 // See LICENSE for copying information.
 
 //go:build windows
-// +build windows
 
 package filestore
 
 import (
 	"errors"
-	"fmt"
 	"os"
 	"path/filepath"
 	"unsafe"
@@ -23,71 +21,30 @@ func diskInfoFromPath(path string) (info blobstore.DiskInfo, err error) {
 	if err != nil {
 		absPath = path
 	}
-	var filesystemID string
-	var availableSpace int64
-	var totalSpace int64
 
-	totalSpace, availableSpace, err = getDiskFreeSpace(absPath)
+	info, err = getDiskFreeSpace(absPath)
 	if err != nil {
-		return blobstore.DiskInfo{ID: "", TotalSpace: -1, AvailableSpace: -1}, err
+		return blobstore.DiskInfo{TotalSpace: -1, AvailableSpace: -1}, err
 	}
 
-	filesystemID, err = getVolumeSerialNumber(absPath)
-	if err != nil {
-		return blobstore.DiskInfo{ID: "", TotalSpace: totalSpace, AvailableSpace: availableSpace}, err
-	}
-
-	return blobstore.DiskInfo{ID: filesystemID, TotalSpace: totalSpace, AvailableSpace: availableSpace}, nil
+	return info, nil
 }
 
-var (
-	kernel32             = windows.MustLoadDLL("kernel32.dll")
-	procGetDiskFreeSpace = kernel32.MustFindProc("GetDiskFreeSpaceExW")
-)
-
-func getDiskFreeSpace(path string) (total, free int64, err error) {
+func getDiskFreeSpace(path string) (info blobstore.DiskInfo, err error) {
 	path16, err := windows.UTF16PtrFromString(path)
 	if err != nil {
-		return -1, -1, err
+		return blobstore.DiskInfo{}, err
 	}
+
+	var freeBytesAvailableToCaller, totalNumberOfBytes uint64
+
 	// See https://learn.microsoft.com/en-us/windows/win32/api/fileapi/nf-fileapi-getdiskfreespaceexw
-	_, _, err = procGetDiskFreeSpace.Call(uintptr(unsafe.Pointer(path16)),
-		uintptr(unsafe.Pointer(&free)),
-		uintptr(unsafe.Pointer(&total)),
-		0)
+	err = windows.GetDiskFreeSpaceEx(path16, &freeBytesAvailableToCaller, &totalNumberOfBytes, nil)
 
-	err = ignoreSuccess(err)
-	return total, free, err
-}
+	info.AvailableSpace = int64(freeBytesAvailableToCaller)
+	info.TotalSpace = int64(totalNumberOfBytes)
 
-func getVolumeSerialNumber(path string) (string, error) {
-	path16, err := windows.UTF16PtrFromString(path)
-	if err != nil {
-		return "", err
-	}
-
-	var volumePath [1024]uint16
-	err = windows.GetVolumePathName(path16, &volumePath[0], uint32(len(volumePath)))
-	if err != nil {
-		return "", err
-	}
-
-	var volumeSerial uint32
-
-	err = windows.GetVolumeInformation(
-		&volumePath[0],
-		nil, 0, // volume name buffer
-		&volumeSerial,
-		nil,    // maximum component length
-		nil,    // filesystem flags
-		nil, 0, // filesystem name buffer
-	)
-	err = ignoreSuccess(err)
-	if err != nil {
-		return "", err
-	}
-
-	return fmt.Sprintf("%08x", volumeSerial), nil
+	return info, err
 }
 
 // windows api occasionally returns.

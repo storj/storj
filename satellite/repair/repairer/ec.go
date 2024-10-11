@@ -43,7 +43,6 @@ var (
 
 // ECRepairer allows the repairer to download, verify, and upload pieces from storagenodes.
 type ECRepairer struct {
-	log              *zap.Logger
 	dialer           rpc.Dialer
 	satelliteSignee  signing.Signee
 	dialTimeout      time.Duration
@@ -56,10 +55,9 @@ type ECRepairer struct {
 }
 
 // NewECRepairer creates a new repairer for interfacing with storagenodes.
-func NewECRepairer(log *zap.Logger, dialer rpc.Dialer, satelliteSignee signing.Signee, dialTimeout time.Duration, downloadTimeout time.Duration,
+func NewECRepairer(dialer rpc.Dialer, satelliteSignee signing.Signee, dialTimeout time.Duration, downloadTimeout time.Duration,
 	inmemoryDownload, inmemoryUpload bool) *ECRepairer {
 	return &ECRepairer{
-		log:              log,
 		dialer:           dialer,
 		satelliteSignee:  satelliteSignee,
 		dialTimeout:      dialTimeout,
@@ -88,7 +86,7 @@ func (ec *ECRepairer) TestingSetMinFailures(minFailures int) {
 // After downloading a piece, the ECRepairer will verify the hash and original order limit for that piece.
 // If verification fails, another piece will be downloaded until we reach the minimum required or run out of order limits.
 // If piece hash verification fails, it will return all failed node IDs.
-func (ec *ECRepairer) Get(ctx context.Context, limits []*pb.AddressedOrderLimit, cachedNodesInfo map[storj.NodeID]overlay.NodeReputation, privateKey storj.PiecePrivateKey, es eestream.ErasureScheme, dataSize int64) (_ io.ReadCloser, _ FetchResultReport, err error) {
+func (ec *ECRepairer) Get(ctx context.Context, log *zap.Logger, limits []*pb.AddressedOrderLimit, cachedNodesInfo map[storj.NodeID]overlay.NodeReputation, privateKey storj.PiecePrivateKey, es eestream.ErasureScheme, dataSize int64) (_ io.ReadCloser, _ FetchResultReport, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	if len(limits) != es.TotalCount() {
@@ -161,12 +159,21 @@ func (ec *ECRepairer) Get(ctx context.Context, limits []*pb.AddressedOrderLimit,
 					triedLastIPPort = true
 				}
 
+				log.Debug("attempting to fetch piece for repair",
+					zap.Stringer("Node ID", limit.GetLimit().StorageNodeId),
+					zap.Stringer("Piece ID", limit.Limit.PieceId),
+					zap.Int("piece index", currentLimitIndex),
+					zap.String("address", limit.GetStorageNodeAddress().Address),
+					zap.String("last_ip_port", info.LastIPPort),
+					zap.Binary("serial", limit.Limit.SerialNumber[:]))
+
 				pieceReadCloser, _, _, err := ec.downloadAndVerifyPiece(ctx, limit, address, privateKey, "", pieceSize)
 				// if piecestore dial with last ip:port failed try again with node address
 				if triedLastIPPort && ErrDialFailed.Has(err) {
 					if pieceReadCloser != nil {
 						_ = pieceReadCloser.Close()
 					}
+					log.Info("repair get failed; retrying with specified hostname", zap.Error(err), zap.String("last_ip_port", info.LastIPPort), zap.String("hostname", limit.GetStorageNodeAddress().GetAddress()))
 					pieceReadCloser, _, _, err = ec.downloadAndVerifyPiece(ctx, limit, limit.GetStorageNodeAddress().GetAddress(), privateKey, "", pieceSize)
 				}
 
@@ -184,7 +191,7 @@ func (ec *ECRepairer) Get(ctx context.Context, limits []*pb.AddressedOrderLimit,
 
 					// gather nodes where the calculated piece hash doesn't match the uplink signed piece hash
 					if ErrPieceHashVerifyFailed.Has(err) {
-						ec.log.Info("audit failed",
+						log.Info("audit failed",
 							zap.Stringer("node ID", limit.GetLimit().StorageNodeId),
 							zap.Stringer("Piece ID", limit.Limit.PieceId),
 							zap.String("reason", err.Error()))
@@ -196,7 +203,7 @@ func (ec *ECRepairer) Get(ctx context.Context, limits []*pb.AddressedOrderLimit,
 					pieceAudit := audit.PieceAuditFromErr(err)
 					switch pieceAudit {
 					case audit.PieceAuditFailure:
-						ec.log.Debug("Failed to download piece for repair: piece not found (audit failed)",
+						log.Debug("Failed to download piece for repair: piece not found (audit failed)",
 							zap.Stringer("Node ID", limit.GetLimit().StorageNodeId),
 							zap.Stringer("Piece ID", limit.Limit.PieceId),
 							zap.Error(err))
@@ -204,7 +211,7 @@ func (ec *ECRepairer) Get(ctx context.Context, limits []*pb.AddressedOrderLimit,
 						errorCount++
 
 					case audit.PieceAuditOffline:
-						ec.log.Debug("Failed to download piece for repair: dial timeout (offline)",
+						log.Debug("Failed to download piece for repair: dial timeout (offline)",
 							zap.Stringer("Node ID", limit.GetLimit().StorageNodeId),
 							zap.Stringer("Piece ID", limit.Limit.PieceId),
 							zap.Error(err))
@@ -212,7 +219,7 @@ func (ec *ECRepairer) Get(ctx context.Context, limits []*pb.AddressedOrderLimit,
 						errorCount++
 
 					case audit.PieceAuditContained:
-						ec.log.Info("Failed to download piece for repair: download timeout (contained)",
+						log.Info("Failed to download piece for repair: download timeout (contained)",
 							zap.Stringer("Node ID", limit.GetLimit().StorageNodeId),
 							zap.Stringer("Piece ID", limit.Limit.PieceId),
 							zap.Error(err))
@@ -220,7 +227,7 @@ func (ec *ECRepairer) Get(ctx context.Context, limits []*pb.AddressedOrderLimit,
 						errorCount++
 
 					case audit.PieceAuditUnknown:
-						ec.log.Info("Failed to download piece for repair: unknown transport error (skipped)",
+						log.Info("Failed to download piece for repair: unknown transport error (skipped)",
 							zap.Stringer("Node ID", limit.GetLimit().StorageNodeId),
 							zap.Stringer("Piece ID", limit.Limit.PieceId),
 							zap.Error(err))
@@ -414,7 +421,7 @@ func verifyOrderLimitSignature(ctx context.Context, satellite signing.Signee, li
 
 // Repair takes a provided segment, encodes it with the provided redundancy strategy,
 // and uploads the pieces in need of repair to new nodes provided by order limits.
-func (ec *ECRepairer) Repair(ctx context.Context, limits []*pb.AddressedOrderLimit, privateKey storj.PiecePrivateKey, rs eestream.RedundancyStrategy, data io.Reader, timeout time.Duration, successfulNeeded int) (successfulNodes []*pb.Node, successfulHashes []*pb.PieceHash, err error) {
+func (ec *ECRepairer) Repair(ctx context.Context, log *zap.Logger, limits []*pb.AddressedOrderLimit, privateKey storj.PiecePrivateKey, rs eestream.RedundancyStrategy, data io.Reader, timeout time.Duration, successfulNeeded int) (successfulNodes []*pb.Node, successfulHashes []*pb.PieceHash, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	pieceCount := len(limits)
@@ -449,11 +456,11 @@ func (ec *ECRepairer) Repair(ctx context.Context, limits []*pb.AddressedOrderLim
 
 	for i, addressedLimit := range limits {
 		go func(i int, addressedLimit *pb.AddressedOrderLimit) {
-			hash, err := ec.putPiece(psCtx, ctx, addressedLimit, privateKey, readers[i])
+			hash, err := ec.putPiece(psCtx, ctx, log, addressedLimit, privateKey, readers[i])
 			infos <- info{i: i, err: err, hash: hash}
 		}(i, addressedLimit)
 	}
-	ec.log.Debug("Starting a timer for repair so that the number of pieces will be closer to the success threshold",
+	log.Debug("Starting a timer for repair so that the number of pieces will be closer to the success threshold",
 		zap.Duration("Timer", timeout),
 		zap.Int("Node Count", nonNilCount(limits)),
 		zap.Int("Optimal Threshold", rs.OptimalThreshold()),
@@ -462,7 +469,7 @@ func (ec *ECRepairer) Repair(ctx context.Context, limits []*pb.AddressedOrderLim
 	var successfulCount, failureCount, cancellationCount int32
 	timer := time.AfterFunc(timeout, func() {
 		if !errors.Is(ctx.Err(), context.Canceled) {
-			ec.log.Debug("Timer expired. Canceling the long tail...",
+			log.Debug("Timer expired. Canceling the long tail...",
 				zap.Int32("Successfully repaired", atomic.LoadInt32(&successfulCount)),
 			)
 			cancel()
@@ -482,13 +489,13 @@ func (ec *ECRepairer) Repair(ctx context.Context, limits []*pb.AddressedOrderLim
 		if info.err != nil {
 			if !errs2.IsCanceled(info.err) {
 				failureCount++
-				ec.log.Warn("Repair to a storage node failed",
+				log.Warn("Repair to a storage node failed",
 					zap.Stringer("Node ID", limits[info.i].GetLimit().StorageNodeId),
 					zap.Error(info.err),
 				)
 			} else {
 				cancellationCount++
-				ec.log.Debug("Repair to storage node cancelled",
+				log.Debug("Repair to storage node cancelled",
 					zap.Stringer("Node ID", limits[info.i].GetLimit().StorageNodeId),
 					zap.Error(info.err),
 				)
@@ -508,7 +515,7 @@ func (ec *ECRepairer) Repair(ctx context.Context, limits []*pb.AddressedOrderLim
 			// an upload succeeded right after we called cancel(), before that upload could
 			// actually be canceled. So, successfulCount should increase by one with each
 			// repeated logging.
-			ec.log.Debug("Number of successful uploads met. Canceling the long tail...",
+			log.Debug("Number of successful uploads met. Canceling the long tail...",
 				zap.Int32("Successfully repaired", atomic.LoadInt32(&successfulCount)),
 			)
 			cancel()
@@ -531,7 +538,7 @@ func (ec *ECRepairer) Repair(ctx context.Context, limits []*pb.AddressedOrderLim
 		return nil, nil, Error.New("repair to all nodes failed")
 	}
 
-	ec.log.Debug("Successfully repaired",
+	log.Debug("Successfully repaired",
 		zap.Int32("Success Count", atomic.LoadInt32(&successfulCount)),
 	)
 
@@ -543,7 +550,7 @@ func (ec *ECRepairer) Repair(ctx context.Context, limits []*pb.AddressedOrderLim
 	return successfulNodes, successfulHashes, nil
 }
 
-func (ec *ECRepairer) putPiece(ctx, parent context.Context, limit *pb.AddressedOrderLimit, privateKey storj.PiecePrivateKey, data io.ReadCloser) (hash *pb.PieceHash, err error) {
+func (ec *ECRepairer) putPiece(ctx, parent context.Context, log *zap.Logger, limit *pb.AddressedOrderLimit, privateKey storj.PiecePrivateKey, data io.ReadCloser) (hash *pb.PieceHash, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	nodeName := "nil"
@@ -569,7 +576,7 @@ func (ec *ECRepairer) putPiece(ctx, parent context.Context, limit *pb.AddressedO
 		Address: limit.GetStorageNodeAddress().Address,
 	})
 	if err != nil {
-		ec.log.Debug("Failed dialing for putting piece to node",
+		log.Debug("Failed dialing for putting piece to node",
 			zap.Stringer("Piece ID", pieceID),
 			zap.Stringer("Node ID", storageNodeID),
 			zap.Error(err),
@@ -584,11 +591,11 @@ func (ec *ECRepairer) putPiece(ctx, parent context.Context, limit *pb.AddressedO
 			// Canceled context means the piece upload was interrupted by user or due
 			// to slow connection. No error logging for this case.
 			if errors.Is(parent.Err(), context.Canceled) {
-				ec.log.Debug("Upload to node canceled by user",
+				log.Debug("Upload to node canceled by user",
 					zap.Stringer("Node ID", storageNodeID),
 					zap.Stringer("Piece ID", pieceID))
 			} else {
-				ec.log.Debug("Node cut from upload due to slow connection",
+				log.Debug("Node cut from upload due to slow connection",
 					zap.Stringer("Node ID", storageNodeID),
 					zap.Stringer("Piece ID", pieceID))
 			}
@@ -602,7 +609,7 @@ func (ec *ECRepairer) putPiece(ctx, parent context.Context, limit *pb.AddressedO
 				nodeAddress = limit.GetStorageNodeAddress().GetAddress()
 			}
 
-			ec.log.Debug("Failed uploading piece to node",
+			log.Debug("Failed uploading piece to node",
 				zap.Stringer("Piece ID", pieceID),
 				zap.Stringer("Node ID", storageNodeID),
 				zap.String("Node Address", nodeAddress),

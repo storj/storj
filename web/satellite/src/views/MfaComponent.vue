@@ -88,7 +88,7 @@ import {
 
 import { RequiredRule } from '@/types/common';
 
-const props = defineProps<{
+defineProps<{
     loading: boolean;
 }>();
 

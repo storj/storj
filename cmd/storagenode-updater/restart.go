@@ -2,7 +2,6 @@
 // See LICENSE for copying information.
 
 //go:build !service || (!windows && !linux && !freebsd && !dragonfly && !netbsd && !openbsd && !solaris && !darwin && service)
-// +build !service !windows,!linux,!freebsd,!dragonfly,!netbsd,!openbsd,!solaris,!darwin,service
 
 package main
 
@@ -18,14 +17,14 @@ func cmdRestart(cmd *cobra.Command, args []string) error {
 	return nil
 }
 
-func restartService(ctx context.Context, service, binaryLocation, newVersionPath, backupPath string) error {
+func restartService(ctx context.Context, restartMethod, service, binaryLocation, newVersionPath, backupPath string) (exit bool, err error) {
 	if err := os.Rename(binaryLocation, backupPath); err != nil {
-		return errs.Wrap(err)
+		return false, errs.Wrap(err)
 	}
 
 	if err := os.Rename(newVersionPath, binaryLocation); err != nil {
-		return errs.Combine(err, os.Rename(backupPath, binaryLocation), os.Remove(newVersionPath))
+		return false, errs.Combine(err, os.Rename(backupPath, binaryLocation), os.Remove(newVersionPath))
 	}
 
-	return nil
+	return false, nil
 }

@@ -202,6 +202,7 @@ func (planet *Planet) newStorageNode(ctx context.Context, prefix string, index, 
 			MaxTimeSkew: 10 * time.Second,
 			Status:      retain.Enabled,
 			Concurrency: 5,
+			CachePath:   filepath.Join(planet.directory, "retain"),
 		},
 		Version: version.Config{
 			Config: planet.NewVersionConfig(),
@@ -292,26 +293,28 @@ func (planet *Planet) newStorageNode(ctx context.Context, prefix string, index, 
 		return nil, errs.New("error while trying to issue new api key: %v", err)
 	}
 
-	{
-		// set up the used space lazyfilewalker filewalker
-		cmd := internalcmd.NewUsedSpaceFilewalkerCmd()
-		cmd.Logger = log.Named("used-space-filewalker")
-		cmd.Ctx = ctx
-		peer.Storage2.LazyFileWalker.TestingSetUsedSpaceCmd(cmd)
-	}
-	{
-		// set up the GC lazyfilewalker filewalker
-		cmd := internalcmd.NewGCFilewalkerCmd()
-		cmd.Logger = log.Named("gc-filewalker")
-		cmd.Ctx = ctx
-		peer.Storage2.LazyFileWalker.TestingSetGCCmd(cmd)
-	}
-	{
-		// set up the trash cleanup lazyfilewalker filewalker
-		cmd := internalcmd.NewTrashFilewalkerCmd()
-		cmd.Logger = log.Named("trash-filewalker")
-		cmd.Ctx = ctx
-		peer.Storage2.LazyFileWalker.TestingSetTrashCleanupCmd(cmd)
+	if config.Pieces.EnableLazyFilewalker {
+		{
+			// set up the used space lazyfilewalker filewalker
+			cmd := internalcmd.NewUsedSpaceFilewalkerCmd()
+			cmd.Logger = log.Named("used-space-filewalker")
+			cmd.Ctx = ctx
+			peer.Storage2.LazyFileWalker.TestingSetUsedSpaceCmd(cmd)
+		}
+		{
+			// set up the GC lazyfilewalker filewalker
+			cmd := internalcmd.NewGCFilewalkerCmd()
+			cmd.Logger = log.Named("gc-filewalker")
+			cmd.Ctx = ctx
+			peer.Storage2.LazyFileWalker.TestingSetGCCmd(cmd)
+		}
+		{
+			// set up the trash cleanup lazyfilewalker filewalker
+			cmd := internalcmd.NewTrashFilewalkerCmd()
+			cmd.Logger = log.Named("trash-filewalker")
+			cmd.Ctx = ctx
+			peer.Storage2.LazyFileWalker.TestingSetTrashCleanupCmd(cmd)
+		}
 	}
 
 	return &StorageNode{

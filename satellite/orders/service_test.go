@@ -49,6 +49,9 @@ func TestGetOrderLimits(t *testing.T) {
 	require.NoError(t, err)
 	k := signing.SignerFromFullIdentity(testIdentity)
 
+	uplinkIdentity, err := testidentity.PregeneratedIdentity(0, storj.LatestIDVersion())
+	require.NoError(t, err)
+
 	overlayService := NewMockOverlayForOrders(ctrl)
 	overlayService.
 		EXPECT().
@@ -56,8 +59,8 @@ func TestGetOrderLimits(t *testing.T) {
 		Return(nodes, nil).AnyTimes()
 
 	service, err := NewService(zaptest.NewLogger(t), k, overlayService, NewNoopDB(),
-		func(constraint storj.PlacementConstraint) (filter nodeselection.NodeFilter) {
-			return nodeselection.AnyFilter{}
+		func(constraint storj.PlacementConstraint) (nodeselection.NodeFilter, nodeselection.DownloadSelector) {
+			return nodeselection.AnyFilter{}, nodeselection.DefaultDownloadSelector
 		},
 		Config{
 			EncryptionKeys: EncryptionKeys{
@@ -86,7 +89,7 @@ func TestGetOrderLimits(t *testing.T) {
 	}
 
 	checkExpectedLimits := func(requested int32, received int) {
-		limits, _, err := service.CreateGetOrderLimits(ctx, bucket, segment, requested, 0)
+		limits, _, err := service.CreateGetOrderLimits(ctx, uplinkIdentity.PeerIdentity(), bucket, segment, requested, 0)
 		require.NoError(t, err)
 		realLimits := 0
 		for _, limit := range limits {

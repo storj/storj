@@ -11,6 +11,8 @@ import (
 	"testing"
 	"time"
 
+	"cloud.google.com/go/spanner"
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
 	"storj.io/common/testcontext"
@@ -18,6 +20,7 @@ import (
 	"storj.io/common/uuid"
 	"storj.io/storj/satellite/metabase"
 	"storj.io/storj/satellite/metabase/metabasetest"
+	"storj.io/storj/shared/dbutil/spannerutil"
 )
 
 func TestIterateObjectsWithStatus(t *testing.T) {
@@ -269,7 +272,7 @@ func TestIterateObjectsWithStatus(t *testing.T) {
 
 		t.Run("recursive", func(t *testing.T) {
 			defer metabasetest.DeleteAll{}.Check(ctx, t, db)
-			projectID, bucketName := uuid.UUID{1}, "bucky"
+			projectID, bucketName := uuid.UUID{1}, metabase.BucketName("bucky")
 
 			objects := createObjectsWithKeys(ctx, t, db, projectID, bucketName, []metabase.ObjectKey{
 				"a",
@@ -424,7 +427,7 @@ func TestIterateObjectsWithStatus(t *testing.T) {
 
 		t.Run("non-recursive", func(t *testing.T) {
 			defer metabasetest.DeleteAll{}.Check(ctx, t, db)
-			projectID, bucketName := uuid.UUID{1}, "bucky"
+			projectID, bucketName := uuid.UUID{1}, metabase.BucketName("bucky")
 
 			objects := createObjectsWithKeys(ctx, t, db, projectID, bucketName, []metabase.ObjectKey{
 				"a",
@@ -592,8 +595,12 @@ func TestIterateObjectsWithStatus(t *testing.T) {
 		})
 
 		t.Run("boundaries", func(t *testing.T) {
+			if _, ok := db.ChooseAdapter(uuid.UUID{}).(*metabase.SpannerAdapter); ok {
+				// TODO(spanner): find a fix for this
+				t.Skip("test runs too slow for spanner")
+			}
 			defer metabasetest.DeleteAll{}.Check(ctx, t, db)
-			projectID, bucketName := uuid.UUID{1}, "bucky"
+			projectID, bucketName := uuid.UUID{1}, metabase.BucketName("bucky")
 
 			objects := []metabase.RawObject{}
 			baseObject := metabase.RawObject{
@@ -659,7 +666,7 @@ func TestIterateObjectsWithStatus(t *testing.T) {
 
 		t.Run("verify-iterator-boundary", func(t *testing.T) {
 			defer metabasetest.DeleteAll{}.Check(ctx, t, db)
-			projectID, bucketName := uuid.UUID{1}, "bucky"
+			projectID, bucketName := uuid.UUID{1}, metabase.BucketName("bucky")
 			queries := []metabase.ObjectKey{"\x00\xFF"}
 			createObjectsWithKeys(ctx, t, db, projectID, bucketName, queries)
 			var collector metabasetest.IterateCollector
@@ -680,7 +687,7 @@ func TestIterateObjectsWithStatus(t *testing.T) {
 
 		t.Run("verify-cursor-continuation", func(t *testing.T) {
 			defer metabasetest.DeleteAll{}.Check(ctx, t, db)
-			projectID, bucketName := uuid.UUID{1}, "bucky"
+			projectID, bucketName := uuid.UUID{1}, metabase.BucketName("bucky")
 
 			createObjectsWithKeys(ctx, t, db, projectID, bucketName, []metabase.ObjectKey{
 				"1",
@@ -818,7 +825,7 @@ func TestIterateObjectsWithStatus(t *testing.T) {
 
 		t.Run("verify-cursor-continuation", func(t *testing.T) {
 			defer metabasetest.DeleteAll{}.Check(ctx, t, db)
-			projectID, bucketName := uuid.UUID{1}, "bucky"
+			projectID, bucketName := uuid.UUID{1}, metabase.BucketName("bucky")
 			createObjectsWithKeys(ctx, t, db, projectID, bucketName, []metabase.ObjectKey{
 				"1",
 				"a/a",
@@ -913,7 +920,7 @@ func TestIterateObjectsWithStatus(t *testing.T) {
 		t.Run("prefix longer than key", func(t *testing.T) {
 			defer metabasetest.DeleteAll{}.Check(ctx, t, db)
 
-			projectID, bucketName := uuid.UUID{1}, "bucky"
+			projectID, bucketName := uuid.UUID{1}, metabase.BucketName("bucky")
 			objects := createObjectsWithKeys(ctx, t, db, projectID, bucketName, []metabase.ObjectKey{
 				"aaaa/a",
 				"aaaa/b",
@@ -941,7 +948,7 @@ func TestIterateObjectsWithStatus(t *testing.T) {
 		t.Run("version greater than one", func(t *testing.T) {
 			defer metabasetest.DeleteAll{}.Check(ctx, t, db)
 
-			projectID, bucketName := uuid.UUID{2}, "bucky"
+			projectID, bucketName := uuid.UUID{2}, metabase.BucketName("bucky")
 
 			id1 := metabasetest.RandObjectStream()
 			id1.ProjectID = projectID
@@ -1529,7 +1536,7 @@ func TestIterateObjectsWithStatus(t *testing.T) {
 
 		t.Run("list recursive objects with versions", func(t *testing.T) {
 			defer metabasetest.DeleteAll{}.Check(ctx, t, db)
-			projectID, bucketName := uuid.UUID{1}, "bucky"
+			projectID, bucketName := uuid.UUID{1}, metabase.BucketName("bucky")
 
 			objects := metabasetest.CreateVersionedObjectsWithKeysAll(ctx, t, db, projectID, bucketName, map[metabase.ObjectKey][]metabase.Version{
 				"a":   {1000, 1001},
@@ -1690,7 +1697,7 @@ func TestIterateObjectsWithStatus(t *testing.T) {
 
 		t.Run("list non-recursive objects with versions", func(t *testing.T) {
 			defer metabasetest.DeleteAll{}.Check(ctx, t, db)
-			projectID, bucketName := uuid.UUID{1}, "bucky"
+			projectID, bucketName := uuid.UUID{1}, metabase.BucketName("bucky")
 
 			objects := metabasetest.CreateVersionedObjectsWithKeysAll(ctx, t, db, projectID, bucketName, map[metabase.ObjectKey][]metabase.Version{
 				"a":   {1000, 1001},
@@ -2191,7 +2198,7 @@ func TestIterateObjectsWithStatusAscending(t *testing.T) {
 
 		t.Run("recursive", func(t *testing.T) {
 			defer metabasetest.DeleteAll{}.Check(ctx, t, db)
-			projectID, bucketName := uuid.UUID{1}, "bucky"
+			projectID, bucketName := uuid.UUID{1}, metabase.BucketName("bucky")
 
 			objects := createObjectsWithKeys(ctx, t, db, projectID, bucketName, []metabase.ObjectKey{
 				"a",
@@ -2346,7 +2353,7 @@ func TestIterateObjectsWithStatusAscending(t *testing.T) {
 
 		t.Run("non-recursive", func(t *testing.T) {
 			defer metabasetest.DeleteAll{}.Check(ctx, t, db)
-			projectID, bucketName := uuid.UUID{1}, "bucky"
+			projectID, bucketName := uuid.UUID{1}, metabase.BucketName("bucky")
 
 			objects := createObjectsWithKeys(ctx, t, db, projectID, bucketName, []metabase.ObjectKey{
 				"a",
@@ -2514,8 +2521,12 @@ func TestIterateObjectsWithStatusAscending(t *testing.T) {
 		})
 
 		t.Run("boundaries", func(t *testing.T) {
+			if _, ok := db.ChooseAdapter(uuid.UUID{}).(*metabase.SpannerAdapter); ok {
+				// TODO(spanner): find a fix for this
+				t.Skip("test runs too slow for spanner")
+			}
 			defer metabasetest.DeleteAll{}.Check(ctx, t, db)
-			projectID, bucketName := uuid.UUID{1}, "bucky"
+			projectID, bucketName := uuid.UUID{1}, metabase.BucketName("bucky")
 
 			objects := []metabase.RawObject{}
 			baseObject := metabase.RawObject{
@@ -2581,7 +2592,7 @@ func TestIterateObjectsWithStatusAscending(t *testing.T) {
 
 		t.Run("verify-iterator-boundary", func(t *testing.T) {
 			defer metabasetest.DeleteAll{}.Check(ctx, t, db)
-			projectID, bucketName := uuid.UUID{1}, "bucky"
+			projectID, bucketName := uuid.UUID{1}, metabase.BucketName("bucky")
 			queries := []metabase.ObjectKey{"\x00\xFF"}
 			createObjectsWithKeys(ctx, t, db, projectID, bucketName, queries)
 			var collector metabasetest.IterateCollector
@@ -2602,7 +2613,7 @@ func TestIterateObjectsWithStatusAscending(t *testing.T) {
 
 		t.Run("verify-cursor-continuation", func(t *testing.T) {
 			defer metabasetest.DeleteAll{}.Check(ctx, t, db)
-			projectID, bucketName := uuid.UUID{1}, "bucky"
+			projectID, bucketName := uuid.UUID{1}, metabase.BucketName("bucky")
 
 			createObjectsWithKeys(ctx, t, db, projectID, bucketName, []metabase.ObjectKey{
 				"1",
@@ -2740,7 +2751,7 @@ func TestIterateObjectsWithStatusAscending(t *testing.T) {
 
 		t.Run("verify-cursor-continuation", func(t *testing.T) {
 			defer metabasetest.DeleteAll{}.Check(ctx, t, db)
-			projectID, bucketName := uuid.UUID{1}, "bucky"
+			projectID, bucketName := uuid.UUID{1}, metabase.BucketName("bucky")
 			createObjectsWithKeys(ctx, t, db, projectID, bucketName, []metabase.ObjectKey{
 				"1",
 				"a/a",
@@ -2835,7 +2846,7 @@ func TestIterateObjectsWithStatusAscending(t *testing.T) {
 		t.Run("prefix longer than key", func(t *testing.T) {
 			defer metabasetest.DeleteAll{}.Check(ctx, t, db)
 
-			projectID, bucketName := uuid.UUID{1}, "bucky"
+			projectID, bucketName := uuid.UUID{1}, metabase.BucketName("bucky")
 			objects := createObjectsWithKeys(ctx, t, db, projectID, bucketName, []metabase.ObjectKey{
 				"aaaa/a",
 				"aaaa/b",
@@ -2863,7 +2874,7 @@ func TestIterateObjectsWithStatusAscending(t *testing.T) {
 		t.Run("version greater than one", func(t *testing.T) {
 			defer metabasetest.DeleteAll{}.Check(ctx, t, db)
 
-			projectID, bucketName := uuid.UUID{2}, "bucky"
+			projectID, bucketName := uuid.UUID{2}, metabase.BucketName("bucky")
 
 			id1 := metabasetest.RandObjectStream()
 			id1.ProjectID = projectID
@@ -3451,7 +3462,7 @@ func TestIterateObjectsWithStatusAscending(t *testing.T) {
 
 		t.Run("list recursive objects with versions", func(t *testing.T) {
 			defer metabasetest.DeleteAll{}.Check(ctx, t, db)
-			projectID, bucketName := uuid.UUID{1}, "bucky"
+			projectID, bucketName := uuid.UUID{1}, metabase.BucketName("bucky")
 
 			objects := metabasetest.CreateVersionedObjectsWithKeysAll(ctx, t, db, projectID, bucketName, map[metabase.ObjectKey][]metabase.Version{
 				"a":   {1000, 1001},
@@ -3612,7 +3623,7 @@ func TestIterateObjectsWithStatusAscending(t *testing.T) {
 
 		t.Run("list non-recursive objects with versions", func(t *testing.T) {
 			defer metabasetest.DeleteAll{}.Check(ctx, t, db)
-			projectID, bucketName := uuid.UUID{1}, "bucky"
+			projectID, bucketName := uuid.UUID{1}, metabase.BucketName("bucky")
 
 			objects := metabasetest.CreateVersionedObjectsWithKeysAll(ctx, t, db, projectID, bucketName, map[metabase.ObjectKey][]metabase.Version{
 				"a":   {1000, 1001},
@@ -3860,7 +3871,7 @@ func TestIterateObjectsWithStatusAscending(t *testing.T) {
 
 func TestIterateObjectsSkipCursor(t *testing.T) {
 	metabasetest.Run(t, func(ctx *testcontext.Context, t *testing.T, db *metabase.DB) {
-		projectID, bucketName := uuid.UUID{1}, "bucky"
+		projectID, bucketName := uuid.UUID{1}, metabase.BucketName("bucky")
 
 		t.Run("no prefix", func(t *testing.T) {
 			defer metabasetest.DeleteAll{}.Check(ctx, t, db)
@@ -4093,7 +4104,7 @@ func TestIterateObjectsSkipCursor(t *testing.T) {
 	})
 }
 
-func createObjects(ctx *testcontext.Context, t *testing.T, db *metabase.DB, numberOfObjects int, projectID uuid.UUID, bucketName string) []metabase.RawObject {
+func createObjects(ctx *testcontext.Context, t *testing.T, db *metabase.DB, numberOfObjects int, projectID uuid.UUID, bucketName metabase.BucketName) []metabase.RawObject {
 	objects := make([]metabase.RawObject, numberOfObjects)
 	for i := 0; i < numberOfObjects; i++ {
 		obj := metabasetest.RandObjectStream()
@@ -4116,7 +4127,7 @@ func createObjects(ctx *testcontext.Context, t *testing.T, db *metabase.DB, numb
 	return objects
 }
 
-func createObjectsWithKeys(ctx *testcontext.Context, t *testing.T, db *metabase.DB, projectID uuid.UUID, bucketName string, keys []metabase.ObjectKey) map[metabase.ObjectKey]metabase.ObjectEntry {
+func createObjectsWithKeys(ctx *testcontext.Context, t *testing.T, db *metabase.DB, projectID uuid.UUID, bucketName metabase.BucketName, keys []metabase.ObjectKey) map[metabase.ObjectKey]metabase.ObjectEntry {
 	objects := make(map[metabase.ObjectKey]metabase.ObjectEntry, len(keys))
 	for _, key := range keys {
 		obj := metabasetest.RandObjectStream()
@@ -4254,6 +4265,75 @@ func BenchmarkNonRecursiveListing(b *testing.B) {
 				require.NoError(b, err)
 			}
 		})
+	})
+}
+
+func TestTupleGreaterThanSQLEvaluate(t *testing.T) {
+	metabasetest.Run(t, func(ctx *testcontext.Context, t *testing.T, db *metabase.DB) {
+		adapter := db.ChooseAdapter(uuid.UUID{})
+		evaluateSQL := func(expr string) (response bool) {
+			switch ad := adapter.(type) {
+			case *metabase.PostgresAdapter:
+				rawDB := ad.UnderlyingDB()
+				row := rawDB.QueryRowContext(ctx, "SELECT "+expr)
+				require.NoError(t, row.Err())
+				require.NoError(t, row.Scan(&response))
+			case *metabase.CockroachAdapter:
+				rawDB := ad.UnderlyingDB()
+				row := rawDB.QueryRowContext(ctx, "SELECT "+expr)
+				require.NoError(t, row.Err())
+				require.NoError(t, row.Scan(&response))
+			case *metabase.SpannerAdapter:
+				rawDB := ad.UnderlyingDB()
+				result := rawDB.Single().Query(ctx, spanner.Statement{SQL: "SELECT " + expr})
+				row, err := result.Next()
+				require.NoError(t, err)
+				require.NoError(t, row.Columns(&response))
+			default:
+				t.Skipf("unknown adapter type %T", adapter)
+			}
+			return response
+		}
+
+		expectGreater := func(a, b []string) {
+			expr1, err := spannerutil.TupleGreaterThanSQL(a, b, false)
+			require.NoError(t, err)
+			assert.True(t, evaluateSQL(expr1), expr1)
+			expr2, err := spannerutil.TupleGreaterThanSQL(b, a, false)
+			require.NoError(t, err)
+			assert.False(t, evaluateSQL(expr2), expr2)
+			expr3, err := spannerutil.TupleGreaterThanSQL(a, b, true)
+			require.NoError(t, err)
+			assert.True(t, evaluateSQL(expr3), expr3)
+			expr4, err := spannerutil.TupleGreaterThanSQL(b, a, true)
+			require.NoError(t, err)
+			assert.False(t, evaluateSQL(expr4), expr4)
+		}
+		expectEqual := func(a, b []string) {
+			expr1, err := spannerutil.TupleGreaterThanSQL(a, b, true)
+			require.NoError(t, err)
+			assert.True(t, evaluateSQL(expr1), expr1)
+			expr2, err := spannerutil.TupleGreaterThanSQL(b, a, true)
+			require.NoError(t, err)
+			assert.True(t, evaluateSQL(expr2), expr2)
+			expr3, err := spannerutil.TupleGreaterThanSQL(a, b, false)
+			require.NoError(t, err)
+			assert.False(t, evaluateSQL(expr3), expr3)
+			expr4, err := spannerutil.TupleGreaterThanSQL(b, a, false)
+			require.NoError(t, err)
+			assert.False(t, evaluateSQL(expr4), expr4)
+		}
+
+		expectGreater([]string{"0", "0", "1"}, []string{"0", "0", "0"})
+		expectGreater([]string{"0", "1", "0"}, []string{"0", "0", "0"})
+		expectGreater([]string{"1", "0", "0"}, []string{"0", "0", "0"})
+		expectGreater([]string{"1", "0", "0"}, []string{"0", "1", "1"})
+		expectGreater([]string{"1", "0", "1"}, []string{"1", "0", "0"})
+		expectGreater([]string{"1", "1", "1"}, []string{"1", "1", "0"})
+		expectGreater([]string{"1"}, []string{"0"})
+		expectEqual([]string{"0", "1", "0"}, []string{"0", "1", "0"})
+		expectEqual([]string{"0"}, []string{"0"})
+
 	})
 }
 

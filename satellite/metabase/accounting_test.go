@@ -5,7 +5,6 @@ package metabase_test
 
 import (
 	"sort"
-	"strings"
 	"testing"
 	"time"
 
@@ -211,7 +210,7 @@ func TestCollectBucketTallies(t *testing.T) {
 				p[0] = byte(i)
 				projects = append(projects, p)
 			}
-			bucketNames := strings.Split("abcde", "")
+			bucketNames := []metabase.BucketName{"a", "b", "c", "d", "e"}
 			bucketLocations := make([]metabase.BucketLocation, 0, len(projects)*len(bucketNames))
 
 			expected := make([]metabase.BucketTally, 0, len(projects)*len(bucketNames))

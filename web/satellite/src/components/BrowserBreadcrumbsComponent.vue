@@ -20,9 +20,7 @@ import { useBucketsStore } from '@/store/modules/bucketsStore';
 import { useProjectsStore } from '@/store/modules/projectsStore';
 import { ROUTES } from '@/router';
 import { useConfigStore } from '@/store/modules/configStore';
-import { useNotify } from '@/utils/hooks';
 
-const notify = useNotify();
 const projectsStore = useProjectsStore();
 const bucketsStore = useBucketsStore();
 const configStore = useConfigStore();
@@ -40,7 +38,7 @@ const bucketName = computed<string>(() => bucketsStore.state.fileComponentBucket
  * Returns the location of the selected bucket.
  */
 const bucketLocation = computed((): string => {
-    const bucket = bucketsStore.state.allBucketPlacements.find((el) => el.name === bucketName.value);
+    const bucket = bucketsStore.state.allBucketMetadata.find((el) => el.name === bucketName.value);
     if (!bucket) {
         return '';
     }
@@ -58,7 +56,7 @@ type BreadcrumbItem = {
 }
 
 /**
- * Returns breadcrumb items corresponding to parts in the file browser path.
+ * Returns breadcrumb items corresponding to parts in the object browser path.
  */
 const items = computed<BreadcrumbItem[]>(() => {
     const bucketsURL = `${ROUTES.Projects.path}/${projectsStore.state.selectedProject.urlId}/${ROUTES.Buckets.path}`;

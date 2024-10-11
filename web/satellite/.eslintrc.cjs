@@ -19,7 +19,7 @@ module.exports = {
         sourceType: 'module',
         ecmaVersion: 2020,
     },
-    plugins: ['eslint-plugin-import'],
+    plugins: ['eslint-plugin-import', '@stylistic'],
     rules: {
         'linebreak-style': ['error', 'unix'],
 
@@ -29,9 +29,9 @@ module.exports = {
         'no-tabs': 'warn',
         'indent': ['warn', 4],
         'vue/html-indent': ['warn', 4],
-        '@typescript-eslint/indent': ['warn', 4, {"SwitchCase": 0}],
+        '@stylistic/indent': ['warn', 4, { 'SwitchCase': 0 }],
 
-        '@typescript-eslint/no-unused-vars': 'off',
+        '@typescript-eslint/no-unused-vars': ['warn', { 'argsIgnorePattern': '^_' }],
         '@typescript-eslint/no-empty-function': 'off',
         '@typescript-eslint/no-var-requires': 'off',
 

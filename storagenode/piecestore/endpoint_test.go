@@ -77,7 +77,7 @@ func TestUploadAndPartialDownload(t *testing.T) {
 
 		var totalBandwidthUsage bandwidth.Usage
 		for _, storagenode := range planet.StorageNodes {
-			usage, err := storagenode.DB.Bandwidth().Summary(ctx, time.Now().Add(-10*time.Hour), time.Now().Add(10*time.Hour))
+			usage, err := storagenode.Bandwidth.Cache.Summary(ctx, time.Now().Add(-24*time.Hour), time.Now().Add(24*time.Hour))
 			require.NoError(t, err)
 			totalBandwidthUsage.Add(usage)
 		}
@@ -197,7 +197,7 @@ func TestUpload(t *testing.T) {
 		require.NoError(t, planet.WaitForStorageNodeEndpoints(ctx))
 
 		from, to := date.MonthBoundary(time.Now().UTC())
-		summary, err := planet.StorageNodes[0].DB.Bandwidth().SatelliteIngressSummary(ctx, planet.Satellites[0].ID(), from, to)
+		summary, err := planet.StorageNodes[0].Bandwidth.Cache.SatelliteIngressSummary(ctx, planet.Satellites[0].ID(), from, to)
 		require.NoError(t, err)
 		require.Equal(t, expectedIngressAmount, summary.Put)
 	})

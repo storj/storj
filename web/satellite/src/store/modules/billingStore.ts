@@ -1,11 +1,13 @@
 // Copyright (C) 2023 Storj Labs, Inc.
 // See LICENSE for copying information.
 
-import { reactive } from 'vue';
+import { computed, reactive } from 'vue';
 import { defineStore } from 'pinia';
 
 import {
     AccountBalance,
+    BillingInformation,
+    BillingAddress,
     Coupon,
     CreditCard,
     DateRange,
@@ -18,8 +20,12 @@ import {
     ProjectCharges,
     ProjectUsagePriceModel,
     Wallet,
+    TaxCountry,
+    Tax,
+    TaxID,
 } from '@/types/payments';
 import { PaymentsHttpApi } from '@/api/payments';
+import { PricingPlanInfo } from '@/types/common';
 
 export class PaymentsState {
     public balance: AccountBalance = new AccountBalance();
@@ -33,6 +39,11 @@ export class PaymentsState {
     public endDate: Date = new Date();
     public coupon: Coupon | null = null;
     public wallet: Wallet = new Wallet();
+    public billingInformation: BillingInformation | null = null;
+    public taxCountries: TaxCountry[] = [];
+    public taxes: Tax[] = [];
+    public pricingPlansAvailable: boolean = false;
+    public pricingPlanInfo: PricingPlanInfo | null = null;
 }
 
 export const useBillingStore = defineStore('billing', () => {
@@ -40,12 +51,44 @@ export const useBillingStore = defineStore('billing', () => {
 
     const api: PaymentsApi = new PaymentsHttpApi();
 
+    const defaultCard = computed<CreditCard>(() => state.creditCards.find(card => card.isDefault) ?? new CreditCard());
+
     async function getBalance(): Promise<AccountBalance> {
         const balance: AccountBalance = await api.getBalance();
 
         state.balance = balance;
 
         return balance;
+    }
+
+    async function getTaxCountries(): Promise<void> {
+        if (!state.taxCountries.length) {
+            state.taxCountries = await api.getTaxCountries();
+        }
+    }
+
+    async function getCountryTaxes(countryCode: string): Promise<void> {
+        state.taxes = [];
+        state.taxes = await api.getCountryTaxes(countryCode);
+    }
+
+    async function addTaxID(taxID: TaxID): Promise<void> {
+        state.billingInformation = await api.addTaxID(taxID);
+    }
+    async function removeTaxID(ID: string): Promise<void> {
+        state.billingInformation = await api.removeTaxID(ID);
+    }
+
+    async function addInvoiceReference(reference: string): Promise<void> {
+        state.billingInformation = await api.addInvoiceReference(reference);
+    }
+
+    async function getBillingInformation(): Promise<void> {
+        state.billingInformation = await api.getBillingInformation();
+    }
+
+    async function saveBillingAddress(address: BillingAddress): Promise<void> {
+        state.billingInformation = await api.saveBillingAddress(address);
     }
 
     async function getWallet(): Promise<void> {
@@ -76,26 +119,8 @@ export const useBillingStore = defineStore('billing', () => {
         await api.addCardByPaymentMethodID(pmID);
     }
 
-    function toggleCardSelection(id: string): void {
-        state.creditCards = state.creditCards.map(card => {
-            if (card.id === id) {
-                card.isSelected = !card.isSelected;
-
-                return card;
-            }
-
-            card.isSelected = false;
-
-            return card;
-        });
-    }
-
-    function clearCardsSelection(): void {
-        state.creditCards = state.creditCards.map(card => {
-            card.isSelected = false;
-
-            return card;
-        });
+    async function attemptPayments(): Promise<void> {
+        await api.attemptPayments();
     }
 
     function clearPendingPayments(): void {
@@ -155,18 +180,6 @@ export const useBillingStore = defineStore('billing', () => {
         state.endDate = dateRange.endDate;
     }
 
-    async function getProjectUsageAndChargesPreviousRollup(): Promise<void> {
-        const now = new Date();
-        const startUTC = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() - 1, 1, 0, 0));
-        const endUTC = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 0, 23, 59, 59));
-
-        state.projectCharges = await api.projectsUsageAndCharges(startUTC, endUTC);
-
-        const dateRange = new DateRange(startUTC, endUTC);
-        state.startDate = dateRange.startDate;
-        state.endDate = dateRange.endDate;
-    }
-
     async function getProjectUsagePriceModel(): Promise<void> {
         state.usagePriceModel = await api.projectUsagePriceModel();
     }
@@ -179,8 +192,17 @@ export const useBillingStore = defineStore('billing', () => {
         state.coupon = await api.getCoupon();
     }
 
+    async function getPricingPackageAvailable(): Promise<boolean> {
+        return await api.pricingPackageAvailable();
+    }
+
     async function purchasePricingPackage(dataStr: string, isPMID: boolean): Promise<void> {
         await api.purchasePricingPackage(dataStr, isPMID);
+    }
+
+    function setPricingPlansAvailable(available: boolean, info: PricingPlanInfo | null = null): void {
+        state.pricingPlansAvailable = available;
+        state.pricingPlanInfo = info;
     }
 
     function clear(): void {
@@ -195,31 +217,42 @@ export const useBillingStore = defineStore('billing', () => {
         state.endDate = new Date();
         state.coupon = null;
         state.wallet = new Wallet();
+        state.billingInformation = null;
+        state.pricingPlansAvailable = false;
+        state.pricingPlanInfo = null;
     }
 
     return {
         state,
+        defaultCard,
         getBalance,
         getWallet,
+        getTaxCountries,
+        getCountryTaxes,
+        addTaxID,
+        removeTaxID,
+        getBillingInformation,
+        addInvoiceReference,
+        saveBillingAddress,
         claimWallet,
         setupAccount,
         getCreditCards,
         addCreditCard,
         addCardByPaymentMethodID,
-        toggleCardSelection,
-        clearCardsSelection,
+        attemptPayments,
         makeCardDefault,
         removeCreditCard,
         getPaymentsHistory,
         getNativePaymentsHistory,
         getProjectUsageAndChargesCurrentRollup,
-        getProjectUsageAndChargesPreviousRollup,
         getPaymentsWithConfirmations,
         clearPendingPayments,
         getProjectUsagePriceModel,
         applyCouponCode,
         getCoupon,
+        getPricingPackageAvailable,
         purchasePricingPackage,
+        setPricingPlansAvailable,
         clear,
     };
 });

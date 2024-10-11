@@ -5,13 +5,20 @@
     <v-dialog
         v-model="model"
         :persistent="isLoading"
-        width="400px"
+        max-width="420px"
         transition="fade-transition"
     >
-        <v-card ref="innerContent" rounded="xlg">
-            <v-card-item class="pa-5 pl-7">
+        <v-card ref="innerContent">
+            <v-card-item class="pa-6 pr-5">
                 <template #prepend>
-                    <img class="d-block" src="@/assets/createAccessGrantFlow/accessEncryption.svg" alt="icon">
+                    <v-sheet
+                        class="border-sm d-flex justify-center align-center"
+                        width="40"
+                        height="40"
+                        rounded="lg"
+                    >
+                        <component :is="LockKeyhole" :size="18" />
+                    </v-sheet>
                 </template>
 
                 <v-card-title class="font-weight-bold">
@@ -32,16 +39,15 @@
 
             <v-divider />
 
-            <v-card-item class="pa-7 pb-3">
+            <v-card-item class="pa-6 pb-3">
                 <v-form v-model="formValid" @submit.prevent="onContinue">
                     <v-row>
                         <v-col cols="12">
                             <p v-if="isSkipping" class="pb-3">
-                                Do you want to remember this choice and always skip the passphrase when opening a project?
+                                Do you want to remember this choice and skip the passphrase when opening a project?
                             </p>
                             <p v-else>
-                                Enter your encryption passphrase to view and manage your data in the browser.
-                                This passphrase will be used to unlock all buckets in this project.
+                                Enter your encryption passphrase to view and manage the data in this project.
                             </p>
                         </v-col>
 
@@ -72,7 +78,7 @@
 
             <v-divider />
 
-            <v-card-actions class="pa-4">
+            <v-card-actions class="pa-3">
                 <v-col>
                     <v-btn
                         variant="outlined"
@@ -81,7 +87,7 @@
                         :disabled="isLoading"
                         @click="() => isSkipping ? model = false : onSkip()"
                     >
-                        {{ isSkipping ? 'No' : 'Skip' }}
+                        {{ isSkipping ? 'No, skip just now' : 'Skip' }}
                     </v-btn>
                 </v-col>
                 <v-col>
@@ -93,7 +99,7 @@
                         :disabled="!formValid"
                         @click="() => isSkipping ? onSkip(true) : onContinue()"
                     >
-                        {{ isSkipping ? 'Yes' : 'Continue ->' }}
+                        {{ isSkipping ? 'Yes, always skip' : 'Continue ->' }}
                     </v-btn>
                 </v-col>
             </v-card-actions>
@@ -102,7 +108,7 @@
 </template>
 
 <script setup lang="ts">
-import { Component, computed, ref, watch } from 'vue';
+import { computed, ref, watch } from 'vue';
 import {
     VBtn,
     VCard,
@@ -115,13 +121,14 @@ import {
     VForm,
     VRow,
     VTextField,
+    VSheet,
 } from 'vuetify/components';
+import { LockKeyhole } from 'lucide-vue-next';
 
 import { RequiredRule } from '@/types/common';
 import { useAnalyticsStore } from '@/store/modules/analyticsStore';
 import { useBucketsStore } from '@/store/modules/bucketsStore';
 import { useAppStore } from '@/store/modules/appStore';
-import { useProjectsStore } from '@/store/modules/projectsStore';
 import { useLoading } from '@/composables/useLoading';
 import {
     AnalyticsErrorEventSource,
@@ -135,7 +142,6 @@ import PasswordInputEyeIcons from '@/components/PasswordInputEyeIcons.vue';
 const analyticsStore = useAnalyticsStore();
 const bucketsStore = useBucketsStore();
 const appStore = useAppStore();
-const projectsStore = useProjectsStore();
 const usersStore = useUsersStore();
 
 const notify = useNotify();
@@ -144,17 +150,13 @@ const { isLoading, withLoading } = useLoading();
 const passphrase = ref<string>('');
 const isPassphraseVisible = ref<boolean>(false);
 const isSkipping = ref<boolean>(false);
-const innerContent = ref<Component | null>(null);
+const innerContent = ref<VCard | null>(null);
 const formValid = ref<boolean>(false);
 
 const model = computed({
     get: () => appStore.state.isProjectPassphraseDialogShown,
     set: appStore.toggleProjectPassphraseDialog,
 });
-
-const emit = defineEmits<{
-    (event: 'passphraseEntered'): void,
-}>();
 
 function onSkip(confirmed = false): void {
     if (!confirmed) {
@@ -184,8 +186,6 @@ async function onContinue(): Promise<void> {
 }
 
 watch(innerContent, comp => {
-    if (!comp) {
-        passphrase.value = '';
-    }
+    if (!comp) passphrase.value = '';
 });
 </script>

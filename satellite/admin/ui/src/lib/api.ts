@@ -38,63 +38,6 @@ export class Admin {
 				}
 			}
 		],
-		bucket: [
-			{
-				name: 'get',
-				desc: 'Get the information of the specified bucket',
-				params: [
-					['Project ID', new InputText('text', true)],
-					['Bucket name', new InputText('text', true)]
-				],
-				func: async (projectId: string, bucketName: string): Promise<Record<string, unknown>> => {
-					return this.fetch('GET', `projects/${projectId}/buckets/${bucketName}`);
-				}
-			},
-			{
-				name: 'delete geofencing',
-				desc: 'Delete the geofencing configuration of the specified bucket. The bucket MUST be empty',
-				params: [
-					['Project ID', new InputText('text', true)],
-					['Bucket name', new InputText('text', true)]
-				],
-				func: async (projectId: string, bucketName: string): Promise<null> => {
-					return this.fetch(
-						'DELETE',
-						`projects/${projectId}/buckets/${bucketName}/geofence`
-					) as Promise<null>;
-				}
-			},
-			{
-				name: 'set geofencing',
-				desc: 'Set the geofencing configuration of the specified bucket. The bucket MUST be empty',
-				params: [
-					['Project ID', new InputText('text', true)],
-					['Bucket name', new InputText('text', true)],
-					[
-						'Region',
-						new Select(false, true, [
-							{ text: 'European Union', value: 'EU' },
-							{ text: 'European Economic Area', value: 'EEA' },
-							{ text: 'United States', value: 'US' },
-							{ text: 'Germany', value: 'DE' },
-							{ text: 'No Russia and/or other sanctioned country', value: 'NR' }
-						])
-					]
-				],
-				func: async (projectId: string, bucketName: string, region: string): Promise<null> => {
-					const query = this.urlQueryFromObject({ region });
-					if (query === '') {
-						throw new APIError('region cannot be empty');
-					}
-
-					return this.fetch(
-						'POST',
-						`projects/${projectId}/buckets/${bucketName}/geofence`,
-						query
-					) as Promise<null>;
-				}
-			}
-		],
 		oauth_clients: [
 			{
 				name: 'create',
@@ -178,46 +121,6 @@ export class Admin {
 				}
 			},
 			{
-				name: 'get',
-				desc: 'Get the information of a specific project',
-				params: [['Project ID', new InputText('text', true)]],
-				func: async (projectId: string): Promise<Record<string, unknown>> => {
-					return this.fetch('GET', `projects/${projectId}`);
-				}
-			},
-			{
-				name: 'update',
-				desc: 'Update the information of a specific project',
-				params: [
-					['Project ID', new InputText('text', true)],
-					['Project Name', new InputText('text', true)],
-					['Description', new InputText('text', false)]
-				],
-				func: async (
-					projectId: string,
-					projectName: string,
-					description: string
-				): Promise<null> => {
-					return this.fetch('PUT', `projects/${projectId}`, null, {
-						projectName,
-						description
-					}) as Promise<null>;
-				}
-			},
-			{
-				name: 'update user agent',
-				desc: 'Update projects user agent',
-				params: [
-					['Project ID', new InputText('text', true)],
-					['User Agent', new InputText('text', true)]
-				],
-				func: async (projectId: string, userAgent: string): Promise<null> => {
-					return this.fetch('PATCH', `projects/${projectId}/useragent`, null, {
-						userAgent
-					}) as Promise<null>;
-				}
-			},
-			{
 				name: 'create API key',
 				desc: 'Create a new API key for a specific project',
 				params: [
@@ -261,55 +164,34 @@ export class Admin {
 				}
 			},
 			{
-				name: 'get project limits',
-				desc: 'Get the current limits of a specific project. NULL values means that the satellite applies the configured defaults',
-				params: [['Project ID', new InputText('text', true)]],
-				func: async (projectId: string): Promise<Record<string, unknown>> => {
-					return this.fetch('GET', `projects/${projectId}/limit`);
+				name: 'Set geofence',
+				desc: 'Set geofence (NOTE: It will set it for empty and NON-empty projects)',
+				params: [
+					['Project ID', new InputText('text', true)],
+					[
+						'Region',
+						new Select(false, true, [
+							{ text: 'European Union', value: 'EU' },
+							{ text: 'European Economic Area', value: 'EEA' },
+							{ text: 'United States', value: 'US' },
+							{ text: 'Germany', value: 'DE' },
+							{ text: 'No Russia and/or other sanctioned country', value: 'NR' }
+						])
+					]
+				],
+				func: async (projectId: string, region: string): Promise<null> => {
+					const query = this.urlQueryFromObject({
+						region
+					});
+					return this.fetch('PUT', `projects/${projectId}/geofence`, query) as Promise<null>;
 				}
 			},
 			{
-				name: 'update project limits',
-				desc: 'Update the limits of a specific project. Only the no blank fields are updated. Fields with the 0 value are set to 0, which is not the default value. The fields that accept -1 set the value to null, which is the value that indicate the satellite to apply the configured defaults',
-				params: [
-					['Project ID', new InputText('text', true)],
-					['Storage (in bytes or notations like 1GB, 2tb)', new InputText('text', false)],
-					['Bandwidth (in bytes or notations like 1GB, 2tb)', new InputText('text', false)],
-					['Rate: requests per second (accepts -1)', new InputText('number', false)],
-					['Buckets: maximum number (accepts -1)', new InputText('number', false)],
-					['Burst: max concurrent requests (accepts -1)', new InputText('number', false)],
-					['Segments (maximum number)', new InputText('number', false)]
-				],
-				func: async (
-					projectId: string,
-					usage: string,
-					bandwidth: string,
-					rate: number,
-					buckets: number,
-					burst: number,
-					segments: number
-				): Promise<null> => {
-					usage = this.emptyToUndefined(usage);
-					bandwidth = this.emptyToUndefined(bandwidth);
-					rate = this.nullToUndefined(rate);
-					buckets = this.nullToUndefined(buckets);
-					burst = this.nullToUndefined(burst);
-					segments = this.nullToUndefined(segments);
-
-					const query = this.urlQueryFromObject({
-						usage,
-						bandwidth,
-						rate,
-						buckets,
-						burst,
-						segments
-					});
-
-					if (query === '') {
-						throw new APIError('nothing to update, at least one limit must be set');
-					}
-
-					return this.fetch('PUT', `projects/${projectId}/limit`, query) as Promise<null>;
+				name: 'Unset geofence',
+				desc: 'Unset the geofence of a specific project',
+				params: [['Project ID', new InputText('text', true)]],
+				func: async (projectId: string): Promise<null> => {
+					return this.fetch('DELETE', `projects/${projectId}/geofence`) as Promise<null>;
 				}
 			}
 		],
@@ -343,14 +225,6 @@ export class Admin {
 				}
 			},
 			{
-				name: 'get',
-				desc: "Get the information of a user's account",
-				params: [['email', new InputText('email', true)]],
-				func: async (email: string): Promise<Record<string, unknown>> => {
-					return this.fetch('GET', `users/${email}`);
-				}
-			},
-			{
 				name: 'get users pending deletion',
 				desc: 'Get the information of a users pending deletion and have no unpaid invoices',
 				params: [
@@ -358,63 +232,20 @@ export class Admin {
 					['Page', new InputText('number', true)]
 				],
 				func: async (limit: number, page: number): Promise<Record<string, unknown>> => {
-					return this.fetch('GET', `users-pending-deletion?limit=${limit}&page=${page}`);
+					return this.fetch('GET', `users/deletion/pending?limit=${limit}&page=${page}`);
 				}
 			},
 			{
-				name: 'get user limits',
-				desc: 'Get the current limits for a user',
-				params: [['email', new InputText('email', true)]],
-				func: async (email: string): Promise<Record<string, unknown>> => {
-					return this.fetch('GET', `users/${email}/limits`);
-				}
-			},
-			{
-				name: 'update',
-				desc: `Update the information of a user's account.
-Blank fields will not be updated.`,
+				name: 'get users requested for deletion',
+				desc: 'Get a CSV of user account emails which were requested for deletion by users themselves',
 				params: [
-					["current user's email", new InputText('email', true)],
-					['new email', new InputText('email', false)],
-					['full name', new InputText('text', false)],
-					['short name', new InputText('text', false)],
-					['password hash', new InputText('text', false)],
-					['project limit (max number)', new InputText('number', false)],
-					['project storage limit (in bytes)', new InputText('number', false)],
-					['project bandwidth limit (in bytes)', new InputText('number', false)],
-					['project segment limit (max number)', new InputText('number', false)],
-					[
-						'paid tier',
-						new Select(false, false, [
-							{ text: '', value: '' },
-							{ text: 'true', value: 'true' },
-							{ text: 'false', value: 'false' }
-						])
-					]
+					['status updated before (date string i.e. YYYY/MM/DD)', new InputText('text', true)]
 				],
-				func: async (
-					currentEmail: string,
-					email?: string,
-					fullName?: string,
-					shortName?: string,
-					passwordHash?: string,
-					projectLimit?: number,
-					projectStorageLimit?: number,
-					projectBandwidthLimit?: number,
-					projectSegmentLimit?: number,
-					paidTierStr?: boolean
-				): Promise<null> => {
-					return this.fetch('PUT', `users/${currentEmail}`, null, {
-						email,
-						fullName,
-						shortName,
-						passwordHash,
-						projectLimit,
-						projectStorageLimit,
-						projectBandwidthLimit,
-						projectSegmentLimit,
-						paidTierStr
-					}) as Promise<null>;
+				func: async (date: string): Promise<void> => {
+					return this.download(
+						`users/deletion/requested-by-user?before=${this.toISOStringWithLocalTimezone(date)}`,
+						'users-requested-for-deletion.csv'
+					);
 				}
 			},
 			{
@@ -443,19 +274,6 @@ Blank fields will not be updated.`,
 						storage,
 						bandwidth,
 						segment
-					}) as Promise<null>;
-				}
-			},
-			{
-				name: 'update user agent',
-				desc: `Update user's user agent.`,
-				params: [
-					["current user's email", new InputText('email', true)],
-					['user agent', new InputText('text', true)]
-				],
-				func: async (currentEmail: string, userAgent: string): Promise<null> => {
-					return this.fetch('PATCH', `users/${currentEmail}/useragent`, null, {
-						userAgent
 					}) as Promise<null>;
 				}
 			},
@@ -551,36 +369,6 @@ Blank fields will not be updated.`,
 				}
 			},
 			{
-				name: 'set geofencing',
-				desc: 'Set account level geofence for a user',
-				params: [
-					['email', new InputText('email', true)],
-					[
-						'Region',
-						new Select(false, true, [
-							{ text: 'European Union', value: 'EU' },
-							{ text: 'European Economic Area', value: 'EEA' },
-							{ text: 'United States', value: 'US' },
-							{ text: 'Germany', value: 'DE' },
-							{ text: 'No Russia and/or other sanctioned country', value: 'NR' }
-						])
-					]
-				],
-				func: async (email: string, region: string): Promise<null> => {
-					return this.fetch('PATCH', `users/${email}/geofence`, null, {
-						region
-					}) as Promise<null>;
-				}
-			},
-			{
-				name: 'delete geofencing',
-				desc: 'Delete account level geofence for a user',
-				params: [['email', new InputText('email', true)]],
-				func: async (email: string): Promise<null> => {
-					return this.fetch('DELETE', `users/${email}/geofence`) as Promise<null>;
-				}
-			},
-			{
 				name: 'update free trial expiration',
 				desc: `Update a date when user's free trial will end.`,
 				params: [
@@ -662,6 +450,39 @@ Blank fields will not be updated.`,
 		}
 
 		return null;
+	}
+
+	protected async download(path: string, fileName: string): Promise<void> {
+		const url = this.apiURL(path, '');
+		const headers = new window.Headers();
+
+		if (this.authToken) {
+			headers.set('Authorization', this.authToken);
+		}
+
+		const response = await window.fetch(url, { method: 'GET', headers });
+		if (!response.ok) {
+			let body: Record<string, unknown>;
+			if (response.headers.get('Content-Type') === 'application/json') {
+				body = await response.json();
+			}
+
+			throw new APIError('server response error', response.status, body);
+		}
+
+		const blob = await response.blob();
+
+		this.downloadBlob(blob, fileName);
+	}
+
+	protected downloadBlob(blob: Blob, fileName: string): void {
+		const elem = window.document.createElement('a');
+		const link = window.URL.createObjectURL(blob);
+
+		elem.href = link;
+		elem.download = fileName;
+		elem.click();
+		window.URL.revokeObjectURL(link);
 	}
 
 	protected toISOStringWithLocalTimezone(dateInput: string): string {

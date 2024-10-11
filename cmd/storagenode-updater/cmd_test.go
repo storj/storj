@@ -8,6 +8,7 @@ import (
 	"compress/flate"
 	"fmt"
 	"io"
+	"io/fs"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -85,11 +86,14 @@ func TestAutoUpdater(t *testing.T) {
 	// write identity files to disk for use in rollout calculation
 	identConfig := testIdentityFiles(ctx, t)
 
+	fakeStoreDir := ctx.Dir("fake-store")
+
 	// run updater (update)
 	args := []string{"run",
 		"--config-dir", ctx.Dir(),
 		"--version.server-address", "http://" + versionControlPeer.Addr(),
 		"--binary-location", storagenodePath,
+		"--binary-store-dir", fakeStoreDir,
 		"--version.check-interval", "0s",
 		"--identity.cert-path", identConfig.CertPath,
 		"--identity.key-path", identConfig.KeyPath,
@@ -109,6 +113,13 @@ func TestAutoUpdater(t *testing.T) {
 		if !assert.Contains(t, logStr, `Service restarted successfully.	{"Process": "storagenode-updater", "Service": "storagenode-updater"}`) {
 			t.Log(logStr)
 		}
+		// check that backup binary was deleted
+		if !assert.Contains(t, logStr, `Cleaning up old binary.	{"Process": "storagenode-updater", "Service": "storagenode-updater", "Path": "`+ctx.File("fake", "storagenode-updater.old.exe")+`"}`) {
+			t.Log(logStr)
+		}
+		if !assert.Contains(t, logStr, `Cleaning up old binary.	{"Process": "storagenode-updater", "Service": "storagenode", "Path": "`+ctx.File("fake", "storagenode"+".old."+oldVersion+".exe")+`"}`) {
+			t.Log(logStr)
+		}
 	} else {
 		t.Log(string(out))
 	}
@@ -118,15 +129,21 @@ func TestAutoUpdater(t *testing.T) {
 
 	oldStoragenode := ctx.File("fake", "storagenode"+".old."+oldVersion+".exe")
 	oldStoragenodeInfo, err := os.Stat(oldStoragenode)
-	require.NoError(t, err)
-	require.NotNil(t, oldStoragenodeInfo)
-	require.NotZero(t, oldStoragenodeInfo.Size())
+	require.Error(t, err)
+	require.ErrorIs(t, err, fs.ErrNotExist)
+	require.Nil(t, oldStoragenodeInfo)
 
 	backupUpdater := ctx.File("fake", "storagenode-updater.old.exe")
 	backupUpdaterInfo, err := os.Stat(backupUpdater)
+	require.Error(t, err)
+	require.ErrorIs(t, err, fs.ErrNotExist)
+	require.Nil(t, backupUpdaterInfo)
+
+	// check that the new binary is in the store
+	newStoragenode := filepath.Join(fakeStoreDir, "storagenode.exe")
+	newStoragenodeInfo, err := os.Stat(newStoragenode)
 	require.NoError(t, err)
-	require.NotNil(t, backupUpdaterInfo)
-	require.NotZero(t, backupUpdaterInfo.Size())
+	require.NotNil(t, newStoragenodeInfo)
 }
 
 // CompileWithVersion compiles the specified package with the version variables set

@@ -16,7 +16,7 @@ import (
 
 	"storj.io/common/debug"
 	"storj.io/common/identity"
-	"storj.io/common/tagsql"
+	"storj.io/storj/private/healthcheck"
 	"storj.io/storj/private/migrate"
 	"storj.io/storj/private/post"
 	"storj.io/storj/private/post/oauth2"
@@ -48,6 +48,7 @@ import (
 	"storj.io/storj/satellite/gc/piecetracker"
 	"storj.io/storj/satellite/gc/sender"
 	"storj.io/storj/satellite/gracefulexit"
+	"storj.io/storj/satellite/kms"
 	"storj.io/storj/satellite/mailservice"
 	"storj.io/storj/satellite/mailservice/simulate"
 	"storj.io/storj/satellite/metabase/rangedloop"
@@ -73,6 +74,7 @@ import (
 	"storj.io/storj/satellite/reputation"
 	"storj.io/storj/satellite/revocation"
 	"storj.io/storj/satellite/snopayouts"
+	"storj.io/storj/shared/tagsql"
 )
 
 var mon = monkit.Package()
@@ -145,10 +147,12 @@ type DB interface {
 
 // TestingDB defines access to database testing facilities.
 type TestingDB interface {
+	// Rebind adapts a query's syntax for a database dialect.
+	Rebind(query string) string
 	// RawDB returns the underlying database connection to the primary database.
 	RawDB() tagsql.DB
 	// Schema returns the full schema for the database.
-	Schema() string
+	Schema() []string
 	// TestMigrateToLatest initializes the database for testplanet.
 	TestMigrateToLatest(ctx context.Context) error
 	// ProductionMigration returns the primary migration.
@@ -226,7 +230,15 @@ type Config struct {
 
 	DurabilityReport durability.ReportConfig
 
+	KeyManagement kms.Config
+
+	HealthCheck healthcheck.Config
+
 	TagAuthorities string `help:"comma-separated paths of additional cert files, used to validate signed node tags"`
+
+	DisableConsoleFromSatelliteAPI bool `help:"indicates whether the console API should not be served along with satellite API" default:"false"`
+
+	StandaloneConsoleAPIEnabled bool `help:"indicates whether the console API should be served as a standalone service" default:"false"`
 }
 
 func setupMailService(log *zap.Logger, config Config) (*mailservice.Service, error) {

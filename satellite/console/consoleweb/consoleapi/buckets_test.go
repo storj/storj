@@ -23,7 +23,7 @@ import (
 
 func TestAllBucketNames(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
-		SatelliteCount: 1, StorageNodeCount: 0, UplinkCount: 1,
+		SatelliteCount: 1, StorageNodeCount: 0, UplinkCount: 1, EnableSpanner: true,
 		Reconfigure: testplanet.Reconfigure{
 			Satellite: func(log *zap.Logger, index int, config *satellite.Config) {
 				config.Console.OpenRegistrationEnabled = true
@@ -85,13 +85,13 @@ func TestAllBucketNames(t *testing.T) {
 	})
 }
 
-func TestBucketPlacements(t *testing.T) {
+func TestBucketMetadata(t *testing.T) {
 	placements := make(map[int]string)
 	for i := 0; i < 2; i++ {
 		placements[i] = fmt.Sprintf("loc-%d", i)
 	}
 	testplanet.Run(t, testplanet.Config{
-		SatelliteCount: 1, StorageNodeCount: 0, UplinkCount: 1,
+		SatelliteCount: 1, StorageNodeCount: 0, UplinkCount: 1, EnableSpanner: true,
 		Reconfigure: testplanet.Reconfigure{
 			Satellite: func(log *zap.Logger, index int, config *satellite.Config) {
 				config.Console.OpenRegistrationEnabled = true
@@ -138,31 +138,52 @@ func TestBucketPlacements(t *testing.T) {
 		_, err = sat.API.Buckets.Service.CreateBucket(ctx, bucket2)
 		require.NoError(t, err)
 
-		testRequest := func(endpointSuffix string) {
-			body, status, err := doRequestWithAuth(ctx, t, sat, user, http.MethodGet, "buckets/bucket-placements"+endpointSuffix, nil)
+		testRequest := func(path string, requireVersioning bool) {
+			body, status, err := doRequestWithAuth(ctx, t, sat, user, http.MethodGet, path, nil)
 			require.NoError(t, err)
 			require.Equal(t, http.StatusOK, status)
 
-			var output []console.BucketPlacement
+			var output []console.BucketMetadata
 
 			err = json.Unmarshal(body, &output)
 			require.NoError(t, err)
+
+			require.Len(t, output, 2)
 
 			require.Equal(t, bucket1.Name, output[0].Name)
 			require.Equal(t, bucket1.Placement, output[0].Placement.DefaultPlacement)
 			require.NotEqual(t, "", output[0].Placement.Location)
 			require.Equal(t, placements[0], output[0].Placement.Location)
+			if requireVersioning {
+				require.Equal(t, bucket1.Versioning, output[0].Versioning)
+			} else {
+				require.Equal(t, buckets.VersioningUnsupported, output[0].Versioning)
+			}
 
 			require.Equal(t, bucket2.Name, output[1].Name)
 			require.Equal(t, bucket2.Placement, output[1].Placement.DefaultPlacement)
 			require.NotEqual(t, "", output[1].Placement.Location)
 			require.Equal(t, placements[1], output[1].Placement.Location)
+			if requireVersioning {
+				require.Equal(t, bucket2.Versioning, output[1].Versioning)
+			} else {
+				require.Equal(t, buckets.VersioningUnsupported, output[1].Versioning)
+			}
 		}
 
+		base := "buckets/bucket-placements"
 		// test using Project.ID
-		testRequest("?projectID=" + project.ID.String())
+		testRequest(base+"?projectID="+project.ID.String(), false)
 
 		// test using Project.PublicID
-		testRequest("?publicID=" + project.PublicID.String())
+		testRequest(base+"?publicID="+project.PublicID.String(), false)
+
+		base = "buckets/bucket-metadata"
+
+		// test using Project.ID
+		testRequest(base+"?projectID="+project.ID.String(), true)
+
+		// test using Project.PublicID
+		testRequest(base+"?publicID="+project.PublicID.String(), true)
 	})
 }

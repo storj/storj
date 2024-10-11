@@ -46,22 +46,22 @@ func (msg *Message) Bytes() (data []byte, err error) {
 	var body bytes.Buffer
 
 	// write headers
-	fmt.Fprintf(&body, "Subject: %v\r\n", mime.QEncoding.Encode("utf-8", msg.Subject))
-	fmt.Fprintf(&body, "From: %s\r\n", &msg.From)
+	_, _ = fmt.Fprintf(&body, "Subject: %v\r\n", mime.QEncoding.Encode("utf-8", msg.Subject))
+	_, _ = fmt.Fprintf(&body, "From: %s\r\n", &msg.From)
 	for _, to := range msg.To {
-		fmt.Fprintf(&body, "To: %s\r\n", &to) //nolint:scopelint
+		_, _ = fmt.Fprintf(&body, "To: %s\r\n", &to) //nolint:scopelint
 	}
 	for _, recipient := range msg.ReceiptTo {
-		fmt.Fprintf(&body, "Disposition-Notification-To: <%v>\r\n", mime.QEncoding.Encode("utf-8", recipient))
+		_, _ = fmt.Fprintf(&body, "Disposition-Notification-To: <%v>\r\n", mime.QEncoding.Encode("utf-8", recipient))
 	}
 	// date and id are optional as they can be set by server itself
 	if !msg.Date.IsZero() {
-		fmt.Fprintf(&body, "Date: %v\r\n", msg.Date)
+		_, _ = fmt.Fprintf(&body, "Date: %v\r\n", msg.Date)
 	}
 	if msg.ID != "" {
-		fmt.Fprintf(&body, "Message-ID: <%v>\r\n", mime.QEncoding.Encode("utf-8", msg.ID))
+		_, _ = fmt.Fprintf(&body, "Message-ID: <%v>\r\n", mime.QEncoding.Encode("utf-8", msg.ID))
 	}
-	fmt.Fprintf(&body, "MIME-Version: 1.0\r\n")
+	_, _ = fmt.Fprintf(&body, "MIME-Version: 1.0\r\n")
 
 	switch {
 	// multipart upload
@@ -73,8 +73,8 @@ func (msg *Message) Bytes() (data []byte, err error) {
 
 	// fallback if there are no parts, write PlainText with appropriate Content-Type
 	default:
-		fmt.Fprintf(&body, "Content-Type: text/plain; charset=UTF-8; format=flowed\r\n")
-		fmt.Fprintf(&body, "Content-Transfer-Encoding: quoted-printable\r\n\r\n")
+		_, _ = fmt.Fprintf(&body, "Content-Type: text/plain; charset=UTF-8; format=flowed\r\n")
+		_, _ = fmt.Fprintf(&body, "Content-Transfer-Encoding: quoted-printable\r\n\r\n")
 
 		enc := quotedprintable.NewWriter(&body)
 		defer func() { err = errs.Combine(err, enc.Close()) }()
@@ -91,9 +91,9 @@ func (msg *Message) writeMultipart(body *bytes.Buffer) (err error) {
 	wr := multipart.NewWriter(body)
 	defer func() { err = errs.Combine(err, wr.Close()) }()
 
-	fmt.Fprintf(body, "Content-Type: multipart/alternative;")
-	fmt.Fprintf(body, "\tboundary=\"%v\"\r\n", wr.Boundary())
-	fmt.Fprintf(body, "\r\n")
+	_, _ = fmt.Fprintf(body, "Content-Type: multipart/alternative;")
+	_, _ = fmt.Fprintf(body, "\tboundary=\"%v\"\r\n", wr.Boundary())
+	_, _ = fmt.Fprintf(body, "\r\n")
 
 	var sub io.Writer
 
@@ -125,7 +125,7 @@ func (msg *Message) writeMultipart(body *bytes.Buffer) (err error) {
 		}
 
 		sub, _ = wr.CreatePart(header)
-		fmt.Fprint(sub, part.Content)
+		_, _ = fmt.Fprint(sub, part.Content)
 	}
 	return nil
 }

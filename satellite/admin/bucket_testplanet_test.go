@@ -25,6 +25,7 @@ func TestAdminBucketGeofenceAPI(t *testing.T) {
 		SatelliteCount:   1,
 		StorageNodeCount: 0,
 		UplinkCount:      1,
+		EnableSpanner:    true,
 		Reconfigure: testplanet.Reconfigure{
 			Satellite: func(_ *zap.Logger, _ int, config *satellite.Config) {
 				config.Admin.Address = "127.0.0.1:0"
@@ -102,6 +103,7 @@ func TestAdminBucketGeofenceAPI(t *testing.T) {
 						Name:      b.Name,
 						ProjectID: testCase.project,
 						Created:   b.Created,
+						CreatedBy: b.CreatedBy,
 						Placement: storj.EU,
 					})
 					require.NoError(t, err, "failed to json encode expected bucket")

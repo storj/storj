@@ -8,6 +8,8 @@ import (
 	"sync"
 
 	"github.com/spacemonkeygo/monkit/v3"
+
+	"storj.io/common/storj"
 )
 
 // statsCollector holds a *stats for each redundancy scheme
@@ -92,6 +94,6 @@ func (stats *stats) Stats(cb func(key monkit.SeriesKey, field string, val float6
 	stats.segmentRepairCount.Stats(cb)
 }
 
-func getRSString(min, repair, success, total int) string {
-	return fmt.Sprintf("%d/%d/%d/%d", min, repair, success, total)
+func getRSString(rs storj.RedundancyScheme) string {
+	return fmt.Sprintf("%d/%d/%d/%d", rs.RequiredShares, rs.RepairShares, rs.OptimalShares, rs.TotalShares)
 }

@@ -7,9 +7,9 @@ import vue from '@vitejs/plugin-vue';
 import vuetify, { transformAssetUrls } from 'vite-plugin-vuetify';
 import { defineConfig } from 'vite';
 import { visualizer } from 'rollup-plugin-visualizer';
-import viteCompression from 'vite-plugin-compression';
+import viteCompression from 'vite-plugin-compression2';
+import checker from 'vite-plugin-checker';
 
-import vuetifyThemeCSS from './vitePlugins/vuetifyThemeCSS';
 import papaParseWorker from './vitePlugins/papaParseWorker';
 
 const productionBrotliExtensions = ['js', 'css', 'ttf', 'woff', 'woff2'];
@@ -24,7 +24,7 @@ const plugins = [
             configFile: 'src/styles/settings.scss',
         },
     }),
-    vuetifyThemeCSS(),
+    checker({ typescript: true, vueTsc: true }),
     papaParseWorker(),
 ];
 
