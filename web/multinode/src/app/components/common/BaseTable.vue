@@ -83,15 +83,15 @@ export default class BaseTable extends Vue {}
         color: var(--v-error-base);
     }
 
-    [class="Not Reachable"] {
+    [class='Not Reachable'] {
         color: var(--v-warning-base);
     }
 
-    .Unauthorized{
+    .Unauthorized {
         color: var(--v-warning-base);
     }
 
-    [class="Internal Error"] {
+    [class='Internal Error'] {
         color: var(--v-error-base);
     }
 
