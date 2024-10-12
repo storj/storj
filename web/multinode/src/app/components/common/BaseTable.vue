@@ -76,11 +76,23 @@ export default class BaseTable extends Vue {}
     }
 
     .Online {
-        color: var(--c-success);
+        color: var(--v-success-base);
     }
 
     .Offline {
-        color: var(--c-error);
+        color: var(--v-error-base);
+    }
+
+    [class="Not Reachable"] {
+        color: var(--v-warning-base);
+    }
+
+    .Unauthorized{
+        color: var(--v-warning-base);
+    }
+
+    [class="Internal Error"] {
+        color: var(--v-error-base);
     }
 
     .overflow-visible {
