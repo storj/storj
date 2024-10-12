@@ -58,7 +58,7 @@ export default class VChart extends Vue {
 
     public get chartOptions(): Record<string, unknown> {
         const filterCallback = this.filterDaysDisplayed;
-        const ticksColor = getComputedStyle(document.documentElement).getPropertyValue('--v-text-base').trim();
+        const ticksColor = this.$vuetify.theme.dark? '#242d40' : '#e1e3e6';
 
         return {
             responsive: false,

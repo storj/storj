@@ -59,13 +59,15 @@ export default class DiskStatChart extends Vue {
         return new DiskStatChartData([
             new DiskStatDataSet(
                 '',
-                ['#D6D6D6', '#0059D0', '#8FA7C6', '#EB5757'],
+                this.$vuetify.theme.dark ? ['#d4effa', '#0052FF', '#9dc6fc', '#ff4747'] : ['#D6D6D6', '#0059D0', '#8FA7C6', '#EB5757'],
                 [
                     this.freeSpace,
                     this.diskSpace.usedPieces,
                     this.diskSpace.usedTrash,
                     this.diskSpace.overused,
                 ],
+                this.$vuetify.theme.dark ? '#242d40' : '#ffffff',
+                2
             ),
         ]);
     }
@@ -169,19 +171,19 @@ export default class DiskStatChart extends Vue {
     }
 
     .used {
-        background: #0059d0;
+        background: var(--v-primary-base);
     }
 
     .free {
-        background: #d6d6d6;
+        background: var(--v-free-base);
     }
 
     .trash {
-        background: #8fa7c6;
+        background: var(--v-trash-base);
     }
 
     .overused {
-        background: #eb5757;
+        background: var(--v-overused-base);
     }
 
     @media screen and (max-width: 1000px) {

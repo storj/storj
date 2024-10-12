@@ -61,8 +61,8 @@ export default class DiskSpaceChart extends BaseChart {
     public get chartData(): ChartData {
         let data: number[] = [0];
         const daysCount = ChartUtils.daysDisplayedOnChart();
-        const chartBackgroundColor = '#4F97F7';
-        const chartBorderColor = '#1F49A3';
+        const chartBackgroundColor = this.$vuetify.theme.dark ? '#d4effa' : '#F2F6FC';
+        const chartBorderColor = this.$vuetify.theme.dark ? '#0052FF' : '#1F49A3';
         const chartBorderWidth = 1;
 
         if (this.allStamps.length) {
@@ -112,13 +112,13 @@ export default class DiskSpaceChart extends BaseChart {
     }
 
     #disk-space-tooltip {
-        background: white;
-        border: 1px solid var(--c-gray--light);
+        background: var(--v-background2-base);
+        border: 1px solid var(--v-border-base);
         width: 180px;
         height: 90px;
         font-size: 12px;
         border-radius: 14px;
-        color: var(--c-title);
+        color: var(--v-header-base);
         pointer-events: none;
         z-index: 9999;
         font-family: 'font_bold', sans-serif;

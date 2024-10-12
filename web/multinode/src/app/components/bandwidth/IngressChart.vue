@@ -61,8 +61,8 @@ export default class IngressChart extends BaseChart {
     public get chartData(): ChartData {
         let data: number[] = [0];
         const daysCount = ChartUtils.daysDisplayedOnChart();
-        const chartBackgroundColor = '#fff4df';
-        const chartBorderColor = '#e1a128';
+        const chartBackgroundColor = this.$vuetify.theme.dark ? '#f7e8cb' : '#fff4df';
+        const chartBorderColor = this.$vuetify.theme.dark ? '#ffad12' : '#e1a128';
         const chartBorderWidth = 1;
 
         if (this.allBandwidth.length) {
@@ -150,7 +150,7 @@ export default class IngressChart extends BaseChart {
     }
 
     .ingress-tooltip-bold-text {
-        color: #6e4f15;
+        color: var(--v-warning-base);
         font-size: 14px;
     }
 

@@ -63,8 +63,8 @@ export default class EgressChart extends BaseChart {
     public get chartData(): ChartData {
         let data: number[] = [0];
         const daysCount = ChartUtils.daysDisplayedOnChart();
-        const chartBackgroundColor = '#edf9f4';
-        const chartBorderColor = '#48a77f';
+        const chartBackgroundColor = this.$vuetify.theme.dark ? '#d2f7e8' : '#edf9f4';
+        const chartBorderColor = this.$vuetify.theme.dark ? '#10e089' : '#48a77f';
         const chartBorderWidth = 1;
 
         if (this.allBandwidth.length) {
@@ -152,7 +152,7 @@ export default class EgressChart extends BaseChart {
     }
 
     .egress-tooltip-bold-text {
-        color: #2e5f46;
+        color: var(--v-success-base);
         font-size: 14px;
     }
 

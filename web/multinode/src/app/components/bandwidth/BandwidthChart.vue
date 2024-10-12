@@ -68,8 +68,8 @@ export default class BandwidthChart extends BaseChart {
     public get chartData(): ChartData {
         let data: number[] = [0];
         const daysCount = ChartUtils.daysDisplayedOnChart();
-        const chartBackgroundColor = '#F2F6FC';
-        const chartBorderColor = '#1F49A3';
+        const chartBackgroundColor = this.$vuetify.theme.dark ? '#d4effa' : '#F2F6FC';
+        const chartBorderColor = this.$vuetify.theme.dark ? '#0052FF' : '#1F49A3';
         const chartBorderWidth = 1;
 
         if (this.allBandwidth.length) {
