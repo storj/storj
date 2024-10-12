@@ -13,7 +13,7 @@
             </div>
             <div slot="footer" class="delete-node__footer">
                 <v-button label="Cancel" :is-white="true" width="205px" :on-press="closeModal" />
-                <v-button label="Delete" width="205px" :on-press="onDelete" />
+                <v-button label="Delete" :is-deletion="true" width="205px" :on-press="onDelete" />
             </div>
         </v-modal>
     </div>

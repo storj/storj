@@ -68,6 +68,7 @@ export default class NodeOptions extends Vue {
         justify-content: center;
         cursor: pointer;
         position: relative;
+        border-radius: 3px;
 
         &:hover {
             background: var(--v-active-base);

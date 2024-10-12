@@ -67,7 +67,7 @@ export default class VButton extends Vue {
             className = 'transparent';
             break;
         case this.isDeletion:
-            className = 'red';
+            className = 'red_btn';
         }
 
         return className;
@@ -100,7 +100,7 @@ export default class VButton extends Vue {
                 border-color: transparent;
             }
 
-            &.red {
+            &.red_btn {
                 box-shadow: none !important;
                 background-color: var(--c-button-red-hover);
             }
@@ -111,8 +111,8 @@ export default class VButton extends Vue {
         margin-right: 10px;
     }
 
-    .red {
-        background-color: var(--c-button-red);
+    .red_btn {
+        background-color: var(--v-error-base);
     }
 
     .white_btn {
