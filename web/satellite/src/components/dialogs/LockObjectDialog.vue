@@ -219,7 +219,7 @@
                         <v-btn
                             color="primary"
                             variant="flat"
-                            :disabled="!selectedRange?.date && !customUntilDate"
+                            :disabled="!locktype || (!selectedRange?.date && !customUntilDate)" 
                             :loading="isLoading"
                             block
                             @click="onLockOrExit"
