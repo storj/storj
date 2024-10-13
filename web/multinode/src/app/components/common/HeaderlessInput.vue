@@ -251,6 +251,15 @@ export default class HeaderlessInput extends Vue {
         text-indent: 20px;
         border: 1px solid rgb(56 75 101 / 40%);
         border-radius: 6px;
+
+        &:hover {
+           border: 2px solid var(--v-header-base);
+        }
+
+        &:focus,
+        &:active {
+            border: 2px solid var(--v-primary-base);
+        }
     }
 
     .headerless-input::placeholder {

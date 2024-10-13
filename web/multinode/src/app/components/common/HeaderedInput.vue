@@ -169,6 +169,15 @@ export default class HeaderedInput extends HeaderlessInput {
         &::placeholder {
             color: var(--c-placeholder);
         }
+
+        &:hover {
+           border: 2px solid var(--v-header-base);
+        }
+
+        &:focus,
+        &:active {
+            border: 2px solid var(--v-primary-base);
+        }
     }
 
     .headered-textarea {
