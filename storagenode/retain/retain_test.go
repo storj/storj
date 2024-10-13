@@ -38,7 +38,7 @@ func TestRetainPieces(t *testing.T) {
 		blobs := pieces.NewBlobsUsageCache(log, db.Pieces())
 		v0PieceInfo := db.V0PieceInfo()
 		fw := pieces.NewFileWalker(log, blobs, v0PieceInfo, db.GCFilewalkerProgress(), db.UsedSpacePerPrefix())
-		store := pieces.NewStore(log, fw, nil, blobs, v0PieceInfo, db.PieceExpirationDB(), db.PieceSpaceUsedDB(), pieces.DefaultConfig)
+		store := pieces.NewStore(log, fw, nil, blobs, v0PieceInfo, db.PieceExpirationDB(), pieces.DefaultConfig)
 		testStore := pieces.StoreForTest{Store: store}
 
 		const numPieces = 100
@@ -261,7 +261,7 @@ func TestRetainPieces_lazyFilewalker(t *testing.T) {
 		cmd.Logger = log.Named("gc-filewalker")
 		cmd.Ctx = ctx
 		lazyFw.TestingSetGCCmd(cmd)
-		store := pieces.NewStore(log, fw, lazyFw, blobs, v0PieceInfo, db.PieceExpirationDB(), db.PieceSpaceUsedDB(), cfg)
+		store := pieces.NewStore(log, fw, lazyFw, blobs, v0PieceInfo, db.PieceExpirationDB(), cfg)
 		testStore := pieces.StoreForTest{Store: store}
 
 		const numPieces = 100
@@ -414,7 +414,7 @@ func TestRetainPieces_fromStore(t *testing.T) {
 		cmd.Logger = log.Named("gc-filewalker")
 		cmd.Ctx = ctx
 		lazyFw.TestingSetGCCmd(cmd)
-		store := pieces.NewStore(log, fw, lazyFw, blobs, v0PieceInfo, db.PieceExpirationDB(), db.PieceSpaceUsedDB(), cfg)
+		store := pieces.NewStore(log, fw, lazyFw, blobs, v0PieceInfo, db.PieceExpirationDB(), cfg)
 		testStore := pieces.StoreForTest{Store: store}
 
 		const numPieces = 100

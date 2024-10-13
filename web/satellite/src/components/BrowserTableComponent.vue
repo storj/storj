@@ -241,6 +241,7 @@ import { Time } from '@/utils/time';
 import { BucketMetadata } from '@/types/buckets';
 import { DEFAULT_PAGE_LIMIT } from '@/types/pagination';
 import { Versioning } from '@/types/versioning';
+import { usePreCheck } from '@/composables/usePreCheck';
 
 import BrowserRowActions from '@/components/BrowserRowActions.vue';
 import FilePreviewDialog from '@/components/dialogs/FilePreviewDialog.vue';
@@ -280,6 +281,7 @@ const userStore = useUsersStore();
 
 const notify = useNotify();
 const router = useRouter();
+const { withTrialCheck } = usePreCheck();
 
 const isFetching = ref<boolean>(false);
 const search = ref<string>('');
@@ -472,11 +474,6 @@ function onNextPageClick(): void {
     fetchFiles(cursor.value.page + 1, true);
 }
 
-function refreshPage(): void {
-    fetchFiles(cursor.value.page, false);
-    obStore.updateSelectedFiles([]);
-}
-
 /**
  * Handles page change event.
  */
@@ -557,22 +554,24 @@ function getFileInfo(file: BrowserObject): { name: string; ext: string; typeInfo
  * Handles file click.
  */
 function onFileClick(file: BrowserObject): void {
-    if (!file.type) return;
+    withTrialCheck(() => {
+        if (!file.type) return;
 
-    if (file.type === 'folder') {
-        const uriParts = [file.Key];
-        if (filePath.value) {
-            uriParts.unshift(...filePath.value.split('/'));
+        if (file.type === 'folder') {
+            const uriParts = [file.Key];
+            if (filePath.value) {
+                uriParts.unshift(...filePath.value.split('/'));
+            }
+            const pathAndKey = uriParts.map(part => encodeURIComponent(part)).join('/');
+            router.push(`${ROUTES.Projects.path}/${projectsStore.state.selectedProject.urlId}/${ROUTES.Buckets.path}/${bucketName.value}/${pathAndKey}`);
+            return;
         }
-        const pathAndKey = uriParts.map(part => encodeURIComponent(part)).join('/');
-        router.push(`${ROUTES.Projects.path}/${projectsStore.state.selectedProject.urlId}/${ROUTES.Buckets.path}/${bucketName.value}/${pathAndKey}`);
-        return;
-    }
 
-    obStore.setObjectPathForModal((file.path ?? '') + file.Key);
-    fileToPreview.value = file;
-    previewDialog.value = true;
-    dismissFileGuide();
+        obStore.setObjectPathForModal((file.path ?? '') + file.Key);
+        fileToPreview.value = file;
+        previewDialog.value = true;
+        dismissFileGuide();
+    });
 }
 
 /**
@@ -623,24 +622,30 @@ function onDeleteFileClick(file: BrowserObject): void {
  * Handles Share button click event.
  */
 function onShareClick(file: BrowserObject): void {
-    fileToShare.value = file;
-    isShareDialogShown.value = true;
+    withTrialCheck(() => {
+        fileToShare.value = file;
+        isShareDialogShown.value = true;
+    });
 }
 
 /**
  * Handles lock object button click event.
  */
 function onLockObjectClick(file: BrowserObject): void {
-    lockActionFile.value = file;
-    isLockDialogShown.value = true;
+    withTrialCheck(() => {
+        lockActionFile.value = file;
+        isLockDialogShown.value = true;
+    });
 }
 
 /**
  * Handles legal hold button click event.
  */
 function onLegalHoldClick(file: BrowserObject): void {
-    lockActionFile.value = file;
-    isLegalHoldDialogShown.value = true;
+    withTrialCheck(() => {
+        lockActionFile.value = file;
+        isLegalHoldDialogShown.value = true;
+    });
 }
 
 /**

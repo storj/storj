@@ -107,6 +107,25 @@ const (
 	TrialExpirationFreeze AccountFreezeEventType = 6
 )
 
+var (
+	zeroLimit  = int64(0)
+	zeroLimits = map[LimitKind]*int64{
+		RateLimit:       &zeroLimit,
+		RateLimitGet:    &zeroLimit,
+		RateLimitHead:   &zeroLimit,
+		RateLimitPut:    &zeroLimit,
+		RateLimitList:   &zeroLimit,
+		RateLimitDelete: &zeroLimit,
+
+		BurstLimit:       &zeroLimit,
+		BurstLimitGet:    &zeroLimit,
+		BurstLimitHead:   &zeroLimit,
+		BurstLimitPut:    &zeroLimit,
+		BurstLimitList:   &zeroLimit,
+		BurstLimitDelete: &zeroLimit,
+	}
+)
+
 // String returns a string representation of this event.
 func (et AccountFreezeEventType) String() string {
 	switch et {
@@ -134,6 +153,7 @@ type AccountFreezeConfig struct {
 	BillingWarnGracePeriod           time.Duration `help:"How long to wait between a billing warning event and billing freezing an account." default:"360h"`
 	BillingFreezeGracePeriod         time.Duration `help:"How long to wait between a billing freeze event and setting pending deletion account status." default:"1440h"`
 	TrialExpirationFreezeGracePeriod time.Duration `help:"How long to wait between a trail expiration freeze event and setting pending deletion account status. 0 disables escalation." default:"0" testDefault:"720h" devDefault:"720h"`
+	TrialExpirationRateLimits        int64         `help:"Specifies the rate and burst limit for 'head', list' and 'delete' operations when a trial account has expired." default:"20"`
 }
 
 // AccountFreezeService encapsulates operations concerning account freezes.
@@ -501,12 +521,12 @@ func (s *AccountFreezeService) LegalFreezeUser(ctx context.Context, userID uuid.
 		}
 
 		err = s.upsertFreezeEvent(ctx, tx, &upsertData{
-			user:                 user,
-			newFreezeEvent:       freezes.LegalFreeze,
-			existingFreezeEvent:  event,
-			limits:               limits,
-			eventType:            LegalFreeze,
-			zeroProjectRateLimit: true,
+			user:                user,
+			newFreezeEvent:      freezes.LegalFreeze,
+			existingFreezeEvent: event,
+			limits:              limits,
+			eventType:           LegalFreeze,
+			projectRateLimits:   zeroLimits,
 		})
 		if err != nil {
 			return err
@@ -641,11 +661,11 @@ func (s *AccountFreezeService) BotFreezeUser(ctx context.Context, userID uuid.UU
 		}
 
 		err = s.upsertFreezeEvent(ctx, tx, &upsertData{
-			user:                 user,
-			existingFreezeEvent:  event,
-			limits:               limits,
-			eventType:            BotFreeze,
-			zeroProjectRateLimit: true,
+			user:                user,
+			existingFreezeEvent: event,
+			limits:              limits,
+			eventType:           BotFreeze,
+			projectRateLimits:   zeroLimits,
 		})
 		if err != nil {
 			return err
@@ -748,11 +768,25 @@ func (s *AccountFreezeService) TrialExpirationFreezeUser(ctx context.Context, us
 		}
 
 		data := upsertData{
-			user:                 user,
-			newFreezeEvent:       freezes.TrialExpirationFreeze,
-			eventType:            TrialExpirationFreeze,
-			zeroProjectRateLimit: true,
+			user:              user,
+			newFreezeEvent:    freezes.TrialExpirationFreeze,
+			eventType:         TrialExpirationFreeze,
+			projectRateLimits: make(map[LimitKind]*int64, len(zeroLimits)),
 		}
+
+		data.projectRateLimits[RateLimit] = &zeroLimit
+		data.projectRateLimits[RateLimitGet] = &zeroLimit
+		data.projectRateLimits[RateLimitPut] = &zeroLimit
+		data.projectRateLimits[RateLimitHead] = &s.config.TrialExpirationRateLimits
+		data.projectRateLimits[RateLimitList] = &s.config.TrialExpirationRateLimits
+		data.projectRateLimits[RateLimitDelete] = &s.config.TrialExpirationRateLimits
+		data.projectRateLimits[BurstLimit] = &zeroLimit
+		data.projectRateLimits[BurstLimitGet] = &zeroLimit
+		data.projectRateLimits[BurstLimitPut] = &zeroLimit
+		data.projectRateLimits[BurstLimitHead] = &s.config.TrialExpirationRateLimits
+		data.projectRateLimits[BurstLimitList] = &s.config.TrialExpirationRateLimits
+		data.projectRateLimits[BurstLimitDelete] = &s.config.TrialExpirationRateLimits
+
 		if s.config.TrialExpirationFreezeGracePeriod != 0 {
 			days := int(s.config.TrialExpirationFreezeGracePeriod.Hours() / 24)
 			data.daysTillEscalation = &days
@@ -1013,13 +1047,13 @@ func limitUpdatesFromLimits(limits UsageLimits) []Limit {
 }
 
 type upsertData struct {
-	user                 *User
-	newFreezeEvent       *AccountFreezeEvent
-	existingFreezeEvent  *AccountFreezeEvent
-	limits               *AccountFreezeEventLimits
-	daysTillEscalation   *int
-	eventType            AccountFreezeEventType
-	zeroProjectRateLimit bool
+	user                *User
+	newFreezeEvent      *AccountFreezeEvent
+	existingFreezeEvent *AccountFreezeEvent
+	limits              *AccountFreezeEventLimits
+	daysTillEscalation  *int
+	eventType           AccountFreezeEventType
+	projectRateLimits   map[LimitKind]*int64
 }
 
 func (s *AccountFreezeService) upsertFreezeEvent(ctx context.Context, tx DBTx, data *upsertData) error {
@@ -1133,7 +1167,6 @@ func (s *AccountFreezeService) upsertFreezeEvent(ctx context.Context, tx DBTx, d
 	}
 
 	for _, proj := range projects {
-		zeroLimit := int64(0)
 		limits := []Limit{
 			{Kind: StorageLimit, Value: &zeroLimit},
 			{Kind: UserSetStorageLimit, Value: nil},
@@ -1142,22 +1175,12 @@ func (s *AccountFreezeService) upsertFreezeEvent(ctx context.Context, tx DBTx, d
 			{Kind: SegmentLimit, Value: &zeroLimit},
 		}
 
-		if data.zeroProjectRateLimit {
-			// zero project's rate limit to prevent lists/deletes
-			limits = append(limits, Limit{Kind: RateLimit, Value: &zeroLimit})
-			limits = append(limits, Limit{Kind: RateLimitGet, Value: &zeroLimit})
-			limits = append(limits, Limit{Kind: RateLimitDelete, Value: &zeroLimit})
-			limits = append(limits, Limit{Kind: RateLimitHead, Value: &zeroLimit})
-			limits = append(limits, Limit{Kind: RateLimitList, Value: &zeroLimit})
-			limits = append(limits, Limit{Kind: RateLimitPut, Value: &zeroLimit})
-
-			limits = append(limits, Limit{Kind: BurstLimit, Value: &zeroLimit})
-			limits = append(limits, Limit{Kind: BurstLimitGet, Value: &zeroLimit})
-			limits = append(limits, Limit{Kind: BurstLimitHead, Value: &zeroLimit})
-			limits = append(limits, Limit{Kind: BurstLimitDelete, Value: &zeroLimit})
-			limits = append(limits, Limit{Kind: BurstLimitPut, Value: &zeroLimit})
-			limits = append(limits, Limit{Kind: BurstLimitList, Value: &zeroLimit})
+		if len(data.projectRateLimits) > 0 {
+			for kind, value := range data.projectRateLimits {
+				limits = append(limits, Limit{Kind: kind, Value: value})
+			}
 		}
+
 		err = tx.Projects().UpdateLimitsGeneric(ctx, proj.ID, limits)
 		if err != nil {
 			return err
