@@ -132,24 +132,6 @@ func (*PasswordChangedEmail) Template() string { return "PasswordChanged" }
 // Subject gets email subject.
 func (*PasswordChangedEmail) Subject() string { return "Your password changed" }
 
-// ProjectInvitationEmail is mailservice template for project invitation email.
-type ProjectInvitationEmail struct {
-	Origin                string
-	InviterEmail          string
-	SignInLink            string
-	LetUsKnowURL          string
-	ContactInfoURL        string
-	TermsAndConditionsURL string
-}
-
-// Template returns email template name.
-func (*ProjectInvitationEmail) Template() string { return "Invite" }
-
-// Subject gets email subject.
-func (email *ProjectInvitationEmail) Subject() string {
-	return "You were invited to join a project on Storj"
-}
-
 // ExistingUserProjectInvitationEmail is mailservice template for project invitation email for existing users.
 type ExistingUserProjectInvitationEmail struct {
 	InviterEmail string
