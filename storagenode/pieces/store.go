@@ -190,8 +190,8 @@ type Store struct {
 
 	blobs          blobstore.Blobs
 	expirationInfo PieceExpirationDB
-	spaceUsedDB    PieceSpaceUsedDB
-	v0PieceInfo    V0PieceInfoDB
+
+	v0PieceInfo V0PieceInfoDB
 
 	Filewalker     *FileWalker
 	lazyFilewalker *lazyfilewalker.Supervisor
@@ -204,13 +204,12 @@ type StoreForTest struct {
 }
 
 // NewStore creates a new piece store.
-func NewStore(log *zap.Logger, fw *FileWalker, lazyFilewalker *lazyfilewalker.Supervisor, blobs blobstore.Blobs, v0PieceInfo V0PieceInfoDB, expirationInfo PieceExpirationDB, spaceUsedDB PieceSpaceUsedDB, config Config) *Store {
+func NewStore(log *zap.Logger, fw *FileWalker, lazyFilewalker *lazyfilewalker.Supervisor, blobs blobstore.Blobs, v0PieceInfo V0PieceInfoDB, expirationInfo PieceExpirationDB, config Config) *Store {
 	return &Store{
 		log:            log,
 		config:         config,
 		blobs:          blobs,
 		expirationInfo: expirationInfo,
-		spaceUsedDB:    spaceUsedDB,
 		v0PieceInfo:    v0PieceInfo,
 		Filewalker:     fw,
 		lazyFilewalker: lazyFilewalker,

@@ -20,7 +20,7 @@ import (
 	"storj.io/storj/satellite/metabase/metabasetest"
 )
 
-func TestDeleteBucketObjects(t *testing.T) {
+func TestDeleteAllBucketObjects(t *testing.T) {
 	metabasetest.Run(t, func(ctx *testcontext.Context, t *testing.T, db *metabase.DB) {
 		obj1 := metabasetest.RandObjectStream()
 		obj2 := metabasetest.RandObjectStream()
@@ -36,8 +36,8 @@ func TestDeleteBucketObjects(t *testing.T) {
 		t.Run("invalid options", func(t *testing.T) {
 			defer metabasetest.DeleteAll{}.Check(ctx, t, db)
 
-			metabasetest.DeleteBucketObjects{
-				Opts: metabase.DeleteBucketObjects{
+			metabasetest.DeleteAllBucketObjects{
+				Opts: metabase.DeleteAllBucketObjects{
 					Bucket: metabase.BucketLocation{
 						ProjectID:  uuid.UUID{},
 						BucketName: "",
@@ -47,8 +47,8 @@ func TestDeleteBucketObjects(t *testing.T) {
 				ErrText:  "ProjectID missing",
 			}.Check(ctx, t, db)
 
-			metabasetest.DeleteBucketObjects{
-				Opts: metabase.DeleteBucketObjects{
+			metabasetest.DeleteAllBucketObjects{
+				Opts: metabase.DeleteAllBucketObjects{
 					Bucket: metabase.BucketLocation{
 						ProjectID:  uuid.UUID{1},
 						BucketName: "",
@@ -64,8 +64,8 @@ func TestDeleteBucketObjects(t *testing.T) {
 		t.Run("empty bucket", func(t *testing.T) {
 			defer metabasetest.DeleteAll{}.Check(ctx, t, db)
 
-			metabasetest.DeleteBucketObjects{
-				Opts: metabase.DeleteBucketObjects{
+			metabasetest.DeleteAllBucketObjects{
+				Opts: metabase.DeleteAllBucketObjects{
 					Bucket: obj1.Location().Bucket(),
 				},
 				Deleted: 0,
@@ -79,8 +79,8 @@ func TestDeleteBucketObjects(t *testing.T) {
 
 			metabasetest.CreateObject(ctx, t, db, obj1, 2)
 
-			metabasetest.DeleteBucketObjects{
-				Opts: metabase.DeleteBucketObjects{
+			metabasetest.DeleteAllBucketObjects{
+				Opts: metabase.DeleteAllBucketObjects{
 					Bucket: obj1.Location().Bucket(),
 				},
 				Deleted: 1,
@@ -94,8 +94,8 @@ func TestDeleteBucketObjects(t *testing.T) {
 
 			metabasetest.CreateObject(ctx, t, db, obj1, 0)
 
-			metabasetest.DeleteBucketObjects{
-				Opts: metabase.DeleteBucketObjects{
+			metabasetest.DeleteAllBucketObjects{
+				Opts: metabase.DeleteAllBucketObjects{
 					Bucket: obj1.Location().Bucket(),
 				},
 				Deleted: 1,
@@ -111,8 +111,8 @@ func TestDeleteBucketObjects(t *testing.T) {
 			metabasetest.CreateObject(ctx, t, db, obj2, 2)
 			metabasetest.CreateObject(ctx, t, db, obj3, 2)
 
-			metabasetest.DeleteBucketObjects{
-				Opts: metabase.DeleteBucketObjects{
+			metabasetest.DeleteAllBucketObjects{
+				Opts: metabase.DeleteAllBucketObjects{
 					Bucket:    obj1.Location().Bucket(),
 					BatchSize: 2,
 				},
@@ -130,8 +130,8 @@ func TestDeleteBucketObjects(t *testing.T) {
 			metabasetest.CreateObject(ctx, t, db, objY, 1)
 			now := time.Now()
 
-			metabasetest.DeleteBucketObjects{
-				Opts: metabase.DeleteBucketObjects{
+			metabasetest.DeleteAllBucketObjects{
+				Opts: metabase.DeleteAllBucketObjects{
 					Bucket: obj1.Location().Bucket(),
 				},
 				Deleted: 1,
@@ -206,8 +206,8 @@ func TestDeleteBucketObjects(t *testing.T) {
 
 			metabasetest.CreateObject(ctx, t, db, obj1, 37)
 
-			metabasetest.DeleteBucketObjects{
-				Opts: metabase.DeleteBucketObjects{
+			metabasetest.DeleteAllBucketObjects{
+				Opts: metabase.DeleteAllBucketObjects{
 					Bucket:    obj1.Location().Bucket(),
 					BatchSize: 2,
 				},
@@ -228,8 +228,8 @@ func TestDeleteBucketObjects(t *testing.T) {
 				metabasetest.CreateObject(ctx, t, db, obj, 5)
 			}
 
-			metabasetest.DeleteBucketObjects{
-				Opts: metabase.DeleteBucketObjects{
+			metabasetest.DeleteAllBucketObjects{
+				Opts: metabase.DeleteAllBucketObjects{
 					Bucket:    root.Location().Bucket(),
 					BatchSize: 1,
 				},
@@ -241,7 +241,7 @@ func TestDeleteBucketObjects(t *testing.T) {
 	})
 }
 
-func TestDeleteBucketObjectsParallel(t *testing.T) {
+func TestDeleteAllBucketObjectsParallel(t *testing.T) {
 	metabasetest.Run(t, func(ctx *testcontext.Context, t *testing.T, db *metabase.DB) {
 		defer metabasetest.DeleteAll{}.Check(ctx, t, db)
 
@@ -260,7 +260,7 @@ func TestDeleteBucketObjectsParallel(t *testing.T) {
 		var errgroup errgroup.Group
 		for i := 0; i < 3; i++ {
 			errgroup.Go(func() error {
-				_, err := db.DeleteBucketObjects(ctx, metabase.DeleteBucketObjects{
+				_, err := db.DeleteAllBucketObjects(ctx, metabase.DeleteAllBucketObjects{
 					Bucket:    root.Location().Bucket(),
 					BatchSize: 2,
 				})
@@ -273,7 +273,7 @@ func TestDeleteBucketObjectsParallel(t *testing.T) {
 	})
 }
 
-func TestDeleteBucketObjectsCancel(t *testing.T) {
+func TestDeleteAllBucketObjectsCancel(t *testing.T) {
 	metabasetest.Run(t, func(ctx *testcontext.Context, t *testing.T, db *metabase.DB) {
 		defer metabasetest.DeleteAll{}.Check(ctx, t, db)
 
@@ -281,7 +281,7 @@ func TestDeleteBucketObjectsCancel(t *testing.T) {
 
 		testCtx, cancel := context.WithCancel(ctx)
 		cancel()
-		_, err := db.DeleteBucketObjects(testCtx, metabase.DeleteBucketObjects{
+		_, err := db.DeleteAllBucketObjects(testCtx, metabase.DeleteAllBucketObjects{
 			Bucket:    object.Location().Bucket(),
 			BatchSize: 2,
 		})
@@ -323,7 +323,7 @@ func TestDeleteBucketWithCopies(t *testing.T) {
 						CopyObjectStream: &copyObjectStream,
 					}.Run(ctx, t, db)
 
-					_, err := db.DeleteBucketObjects(ctx, metabase.DeleteBucketObjects{
+					_, err := db.DeleteAllBucketObjects(ctx, metabase.DeleteAllBucketObjects{
 						Bucket: metabase.BucketLocation{
 							ProjectID:  originalObjStream.ProjectID,
 							BucketName: "copy-bucket",
@@ -364,7 +364,7 @@ func TestDeleteBucketWithCopies(t *testing.T) {
 						CopyObjectStream: &copyObjectStream,
 					}.Run(ctx, t, db)
 
-					_, err := db.DeleteBucketObjects(ctx, metabase.DeleteBucketObjects{
+					_, err := db.DeleteAllBucketObjects(ctx, metabase.DeleteAllBucketObjects{
 						Bucket: metabase.BucketLocation{
 							ProjectID:  originalObjStream.ProjectID,
 							BucketName: "original-bucket",
@@ -428,7 +428,7 @@ func TestDeleteBucketWithCopies(t *testing.T) {
 					}.Run(ctx, t, db)
 
 					// done preparing, delete bucket 1
-					_, err := db.DeleteBucketObjects(ctx, metabase.DeleteBucketObjects{
+					_, err := db.DeleteAllBucketObjects(ctx, metabase.DeleteAllBucketObjects{
 						Bucket: metabase.BucketLocation{
 							ProjectID:  projectID,
 							BucketName: "bucket2",
@@ -494,7 +494,7 @@ func TestDeleteBucketWithCopies(t *testing.T) {
 					}.Run(ctx, t, db)
 
 					// done preparing, delete bucket 1
-					_, err := db.DeleteBucketObjects(ctx, metabase.DeleteBucketObjects{
+					_, err := db.DeleteAllBucketObjects(ctx, metabase.DeleteAllBucketObjects{
 						Bucket: metabase.BucketLocation{
 							ProjectID:  projectID,
 							BucketName: "bucket2",

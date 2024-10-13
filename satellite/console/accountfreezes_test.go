@@ -423,7 +423,7 @@ func TestAccountLegalFreeze(t *testing.T) {
 
 			proj, err = projectsDB.Get(ctx, proj.ID)
 			require.NoError(t, err)
-			require.Equal(t, zeroUsageLimits, getProjectLimits(proj))
+			require.EqualValues(t, zeroUsageLimits, getProjectLimits(proj))
 		}
 
 		frozen, err := service.IsUserFrozen(ctx, user.ID, console.LegalFreeze)
@@ -495,7 +495,21 @@ func TestAccountLegalFreeze(t *testing.T) {
 
 		proj, err = projectsDB.Get(ctx, proj.ID)
 		require.NoError(t, err)
-		require.Equal(t, projLimits, getProjectLimits(proj))
+
+		currentProjLimits := getProjectLimits(proj)
+		expectedHeadListDeleteRateLimits := int(sat.Config.Console.AccountFreeze.TrialExpirationRateLimits)
+		require.Equal(t, projLimits.RateLimit, currentProjLimits.RateLimit)
+		require.Equal(t, projLimits.RateLimitPut, currentProjLimits.RateLimitPut)
+		require.Equal(t, projLimits.RateLimitGet, currentProjLimits.RateLimitGet)
+		require.Equal(t, expectedHeadListDeleteRateLimits, *currentProjLimits.RateLimitHead)
+		require.Equal(t, expectedHeadListDeleteRateLimits, *currentProjLimits.RateLimitList)
+		require.Equal(t, expectedHeadListDeleteRateLimits, *currentProjLimits.RateLimitDelete)
+		require.Equal(t, projLimits.BurstLimit, currentProjLimits.BurstLimit)
+		require.Equal(t, projLimits.BurstLimitPut, currentProjLimits.BurstLimitPut)
+		require.Equal(t, projLimits.BurstLimitGet, currentProjLimits.BurstLimitGet)
+		require.Equal(t, expectedHeadListDeleteRateLimits, *currentProjLimits.BurstLimitHead)
+		require.Equal(t, expectedHeadListDeleteRateLimits, *currentProjLimits.BurstLimitList)
+		require.Equal(t, expectedHeadListDeleteRateLimits, *currentProjLimits.BurstLimitDelete)
 	})
 }
 
@@ -998,7 +1012,7 @@ func TestAccountBotFreezeUnfreeze(t *testing.T) {
 	})
 }
 
-func TestTrailExpirationFreeze(t *testing.T) {
+func TestTrialExpirationFreeze(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
 		SatelliteCount: 1, EnableSpanner: true,
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
@@ -1047,7 +1061,21 @@ func TestTrailExpirationFreeze(t *testing.T) {
 
 		proj, err = projectsDB.Get(ctx, proj.ID)
 		require.NoError(t, err)
-		require.Equal(t, zeroUsageLimits, getProjectLimits(proj))
+
+		zeroedProjLimits := getProjectLimits(proj)
+		expectedHeadListDeleteRateLimits := int(sat.Config.Console.AccountFreeze.TrialExpirationRateLimits)
+		require.Equal(t, zeroUsageLimits.RateLimit, zeroedProjLimits.RateLimit)
+		require.Equal(t, zeroUsageLimits.RateLimitPut, zeroedProjLimits.RateLimitPut)
+		require.Equal(t, zeroUsageLimits.RateLimitGet, zeroedProjLimits.RateLimitGet)
+		require.Equal(t, expectedHeadListDeleteRateLimits, *zeroedProjLimits.RateLimitHead)
+		require.Equal(t, expectedHeadListDeleteRateLimits, *zeroedProjLimits.RateLimitList)
+		require.Equal(t, expectedHeadListDeleteRateLimits, *zeroedProjLimits.RateLimitDelete)
+		require.Equal(t, zeroUsageLimits.BurstLimit, zeroedProjLimits.BurstLimit)
+		require.Equal(t, zeroUsageLimits.BurstLimitPut, zeroedProjLimits.BurstLimitPut)
+		require.Equal(t, zeroUsageLimits.BurstLimitGet, zeroedProjLimits.BurstLimitGet)
+		require.Equal(t, expectedHeadListDeleteRateLimits, *zeroedProjLimits.BurstLimitHead)
+		require.Equal(t, expectedHeadListDeleteRateLimits, *zeroedProjLimits.BurstLimitList)
+		require.Equal(t, expectedHeadListDeleteRateLimits, *zeroedProjLimits.BurstLimitDelete)
 
 		frozen, err = service.IsUserFrozen(ctx, user.ID, console.TrialExpirationFreeze)
 		require.NoError(t, err)

@@ -394,7 +394,7 @@ func (config *Config) configToProcess(initTime time.Time, binary ProcessConfig) 
 			URL:     binary.Suggested.URL,
 		},
 		Rollout: version.Rollout{
-			Cursor: version.PercentageToCursor(int(currentPercent)),
+			Cursor: version.PercentageToCursorF(currentPercent),
 		},
 	}
 

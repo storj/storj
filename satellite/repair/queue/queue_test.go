@@ -10,6 +10,7 @@ import (
 
 	"github.com/google/go-cmp/cmp"
 	"github.com/google/go-cmp/cmp/cmpopts"
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"github.com/zeebo/errs"
 
@@ -147,7 +148,7 @@ func TestSequential(t *testing.T) {
 		q := db.RepairQueue()
 
 		const N = 20
-		var addSegs []*queue.InjuredSegment
+		var added []*queue.InjuredSegment
 		for i := 0; i < N; i++ {
 			seg := &queue.InjuredSegment{
 				StreamID:      uuid.UUID{byte(i)},
@@ -156,24 +157,38 @@ func TestSequential(t *testing.T) {
 			alreadyInserted, err := q.Insert(ctx, seg)
 			require.NoError(t, err)
 			require.False(t, alreadyInserted)
-			addSegs = append(addSegs, seg)
+			added = append(added, seg)
 		}
 
 		list, err := q.SelectN(ctx, N)
 		require.NoError(t, err)
 		require.Len(t, list, N)
 
-		for i := 0; i < N; i++ {
+		got := []*queue.InjuredSegment{}
+		for {
 			s, err := q.Select(ctx, 1, nil, nil)
+			if queue.ErrEmpty.Has(err) {
+				break
+			}
 			require.NoError(t, err)
+			require.Len(t, s, 1)
 			err = q.Delete(ctx, s[0])
 			require.NoError(t, err)
 
-			require.Equal(t, addSegs[i].StreamID, s[0].StreamID)
-			require.Equal(t, addSegs[i].Position, s[0].Position)
-			require.Equal(t, addSegs[i].SegmentHealth, s[0].SegmentHealth)
+			got = append(got, &s[0])
 		}
-	})
+
+		sort.Slice(got, func(i, j int) bool {
+			return got[i].StreamID.Less(got[j].StreamID)
+		})
+
+		require.Equal(t, len(added), len(got))
+		for i, add := range added {
+			assert.Equal(t, add.StreamID, got[i].StreamID, i)
+			assert.Equal(t, add.Position, got[i].Position, i)
+			assert.Equal(t, add.SegmentHealth, got[i].SegmentHealth, i)
+		}
+	}, satellitedbtest.WithSpanner())
 }
 
 func TestParallel(t *testing.T) {

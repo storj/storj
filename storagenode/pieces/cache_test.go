@@ -121,7 +121,8 @@ func TestCacheInit(t *testing.T) {
 		require.NoError(t, err)
 		cacheService := pieces.NewService(log,
 			cache,
-			pieces.NewStore(log, pieces.NewFileWalker(log, cache, nil, db.GCFilewalkerProgress(), db.UsedSpacePerPrefix()), nil, cache, nil, nil, spaceUsedDB, pieces.DefaultConfig),
+			pieces.NewStore(log, pieces.NewFileWalker(log, cache, nil, db.GCFilewalkerProgress(), db.UsedSpacePerPrefix()), nil, cache, nil, nil, pieces.DefaultConfig),
+			spaceUsedDB,
 			1*time.Hour,
 			true,
 		)
@@ -166,7 +167,8 @@ func TestCacheInit(t *testing.T) {
 		require.NoError(t, err)
 		cacheService = pieces.NewService(log,
 			cache,
-			pieces.NewStore(log, pieces.NewFileWalker(log, cache, nil, db.GCFilewalkerProgress(), db.UsedSpacePerPrefix()), nil, cache, nil, nil, spaceUsedDB, pieces.DefaultConfig),
+			pieces.NewStore(log, pieces.NewFileWalker(log, cache, nil, db.GCFilewalkerProgress(), db.UsedSpacePerPrefix()), nil, cache, nil, nil, pieces.DefaultConfig),
+			spaceUsedDB,
 			1*time.Hour,
 			true,
 		)
@@ -178,7 +180,8 @@ func TestCacheInit(t *testing.T) {
 		require.NoError(t, err)
 		cacheService = pieces.NewService(log,
 			cache,
-			pieces.NewStore(log, pieces.NewFileWalker(log, cache, nil, db.GCFilewalkerProgress(), db.UsedSpacePerPrefix()), nil, cache, nil, nil, spaceUsedDB, pieces.DefaultConfig),
+			pieces.NewStore(log, pieces.NewFileWalker(log, cache, nil, db.GCFilewalkerProgress(), db.UsedSpacePerPrefix()), nil, cache, nil, nil, pieces.DefaultConfig),
+			spaceUsedDB,
 			1*time.Hour,
 			true,
 		)
@@ -266,7 +269,8 @@ func TestCacheServiceRun(t *testing.T) {
 		cache := pieces.NewBlobsUsageCache(log, store)
 		cacheService := pieces.NewService(log,
 			cache,
-			pieces.NewStore(log, pieces.NewFileWalker(log, cache, nil, db.GCFilewalkerProgress(), db.UsedSpacePerPrefix()), nil, cache, nil, nil, spaceUsedDB, pieces.DefaultConfig),
+			pieces.NewStore(log, pieces.NewFileWalker(log, cache, nil, db.GCFilewalkerProgress(), db.UsedSpacePerPrefix()), nil, cache, nil, nil, pieces.DefaultConfig),
+			spaceUsedDB,
 			1*time.Hour,
 			true,
 		)
@@ -358,7 +362,8 @@ func TestCacheServiceRun_LazyFilewalker(t *testing.T) {
 		cache := pieces.NewBlobsUsageCache(log, store)
 		cacheService := pieces.NewService(log,
 			cache,
-			pieces.NewStore(log, nil, lazyFw, cache, nil, nil, spaceUsedDB, cfg),
+			pieces.NewStore(log, nil, lazyFw, cache, nil, nil, cfg),
+			spaceUsedDB,
 			1*time.Hour,
 			true,
 		)
@@ -450,7 +455,8 @@ func TestPersistCacheTotals(t *testing.T) {
 		require.NoError(t, err)
 		cacheService := pieces.NewService(log,
 			cache,
-			pieces.NewStore(log, pieces.NewFileWalker(log, cache, nil, db.GCFilewalkerProgress(), db.UsedSpacePerPrefix()), nil, cache, nil, nil, spaceUsedDB, pieces.DefaultConfig),
+			pieces.NewStore(log, pieces.NewFileWalker(log, cache, nil, db.GCFilewalkerProgress(), db.UsedSpacePerPrefix()), nil, cache, nil, nil, pieces.DefaultConfig),
+			spaceUsedDB,
 			1*time.Hour,
 			true,
 		)

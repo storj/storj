@@ -72,7 +72,7 @@
                     color="default"
                     class="ml-2 ml-sm-4"
                     :disabled="!isInitialized"
-                    @click="isNewFolderDialogOpen = true"
+                    @click="onNewFolderClick"
                 >
                     <icon-folder class="mr-2" bold />
                     New Folder
@@ -426,20 +426,30 @@ const isCardView = computed<boolean>({
  * Open the operating system's file system for file upload.
  */
 async function buttonFileUpload(): Promise<void> {
-    menu.value = false;
-    const fileInputElement = fileInput.value as HTMLInputElement;
-    fileInputElement.showPicker();
-    analyticsStore.eventTriggered(AnalyticsEvent.UPLOAD_FILE_CLICKED);
+    withTrialCheck(() => {
+        menu.value = false;
+        const fileInputElement = fileInput.value as HTMLInputElement;
+        fileInputElement.showPicker();
+        analyticsStore.eventTriggered(AnalyticsEvent.UPLOAD_FILE_CLICKED);
+    });
+}
+
+function onNewFolderClick(): void {
+    withTrialCheck(() => {
+        isNewFolderDialogOpen.value = true;
+    });
 }
 
 /**
  * Open the operating system's file system for folder upload.
  */
 async function buttonFolderUpload(): Promise<void> {
-    menu.value = false;
-    const folderInputElement = folderInput.value as HTMLInputElement;
-    folderInputElement.showPicker();
-    analyticsStore.eventTriggered(AnalyticsEvent.UPLOAD_FOLDER_CLICKED);
+    withTrialCheck(() => {
+        menu.value = false;
+        const folderInputElement = folderInput.value as HTMLInputElement;
+        folderInputElement.showPicker();
+        analyticsStore.eventTriggered(AnalyticsEvent.UPLOAD_FOLDER_CLICKED);
+    });
 }
 
 /**

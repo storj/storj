@@ -511,11 +511,6 @@ func (endpoint *Endpoint) validateRemoteSegment(ctx context.Context, commitReque
 			return Error.New("empty order limit for piece")
 		}
 
-		err := endpoint.orders.VerifyOrderLimitSignature(ctx, limit)
-		if err != nil {
-			return err
-		}
-
 		// expect that too much time has not passed between order limit creation and now
 		if time.Since(limit.OrderCreation) > endpoint.config.MaxCommitInterval {
 			return Error.New("Segment not committed before max commit interval of %f minutes.", endpoint.config.MaxCommitInterval.Minutes())
