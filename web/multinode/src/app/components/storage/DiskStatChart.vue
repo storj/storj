@@ -67,7 +67,7 @@ export default class DiskStatChart extends Vue {
                     this.diskSpace.overused,
                 ],
                 this.$vuetify.theme.dark ? '#242d40' : '#ffffff',
-                2
+                2,
             ),
         ]);
     }

@@ -148,6 +148,12 @@ export default class HeaderedInput extends HeaderlessInput {
         }
     }
 
+    .headered-textarea {
+        padding: 15px 22px;
+        text-indent: 0;
+        line-height: 26px;
+    }
+
     .headered-input,
     .headered-textarea {
         font-size: 16px;
@@ -171,19 +177,13 @@ export default class HeaderedInput extends HeaderlessInput {
         }
 
         &:hover {
-           border: 2px solid var(--v-header-base);
+            border: 2px solid var(--v-header-base);
         }
 
         &:focus,
         &:active {
             border: 2px solid var(--v-primary-base);
         }
-    }
-
-    .headered-textarea {
-        padding: 15px 22px;
-        text-indent: 0;
-        line-height: 26px;
     }
 
     .add-label {

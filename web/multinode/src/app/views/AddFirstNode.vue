@@ -39,7 +39,7 @@
             <v-button class="add-first-node__left-area__button" label="Add Node" width="120px" :on-press="onCreate" />
         </div>
         <div class="add-first-node__right-area">
-            <theme-selector class="add-first-node__right-area__theme-selector"/>
+            <theme-selector class="add-first-node__right-area__theme-selector" />
             <img src="@/../static/images/Illustration.png" alt="Storj Logo Illustration">
         </div>
     </div>
@@ -191,10 +191,10 @@ export default class AddFirstNode extends Vue {
             background: var(--v-background2-base);
             align-items: center;
 
-            &__theme-selector{
+            &__theme-selector {
                 position: absolute;
-        top: 20px; 
-        right: 20px;
+                top: 20px;
+                right: 20px;
             }
         }
     }

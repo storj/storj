@@ -253,7 +253,7 @@ export default class HeaderlessInput extends Vue {
         border-radius: 6px;
 
         &:hover {
-           border: 2px solid var(--v-header-base);
+            border: 2px solid var(--v-header-base);
         }
 
         &:focus,

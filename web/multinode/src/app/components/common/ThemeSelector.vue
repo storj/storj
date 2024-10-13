@@ -124,7 +124,7 @@ export default class ThemeSelector extends Vue {
     }
 }
 
-.v-tooltip__content{
+.v-tooltip__content {
     border: 1px solid var(--v-border-base);
     z-index: 1000;
 }
