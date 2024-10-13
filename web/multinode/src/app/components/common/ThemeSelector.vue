@@ -123,4 +123,9 @@ export default class ThemeSelector extends Vue {
         padding: 5px;
     }
 }
+
+.v-tooltip__content{
+    border: 1px solid var(--v-border-base);
+    z-index: 1000;
+}
 </style>

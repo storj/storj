@@ -91,7 +91,7 @@ export default class DiskStatChart extends Vue {
 <style lang="scss">
     .disk-stat-area {
         width: 400px;
-        height: 336px;
+        height: 401px;
         background-color: var(--v-background-base);
         border: 1px solid var(--v-border-base);
         border-radius: 11px;
