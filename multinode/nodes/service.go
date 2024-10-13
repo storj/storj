@@ -285,7 +285,7 @@ func (service *Service) TrustedSatellites(ctx context.Context) (_ storj.NodeURLs
 		}
 		nodeURLs, err := service.trustedSatellites(ctx, node)
 		if err != nil {
-			service.log.Error("Failed to fetch satellite",zap.Error(err))
+			service.log.Error("Failed to fetch satellite", zap.Error(err))
 			continue
 		}
 
