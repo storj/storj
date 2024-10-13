@@ -285,11 +285,8 @@ func (service *Service) TrustedSatellites(ctx context.Context) (_ storj.NodeURLs
 		}
 		nodeURLs, err := service.trustedSatellites(ctx, node)
 		if err != nil {
-			if ErrNodeNotReachable.Has(err) {
-				continue
-			}
-
-			return nil, Error.Wrap(err)
+			service.log.Error("Failed to fetch satellite",zap.Error(err))
+			continue
 		}
 
 		trustedSatellites = appendUniqueNodeURLs(trustedSatellites, nodeURLs)
