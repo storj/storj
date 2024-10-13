@@ -207,12 +207,13 @@ func (s *SpannerAdapter) TestMigrateToLatest(ctx context.Context) error {
 		}
 	}
 
-	_, err := s.adminClient.UpdateDatabaseDdl(ctx, &databasepb.UpdateDatabaseDdlRequest{
+	operation, err := s.adminClient.UpdateDatabaseDdl(ctx, &databasepb.UpdateDatabaseDdlRequest{
 		Database:   s.connParams.DatabasePath(),
 		Statements: statements,
 	})
 	if err != nil {
 		return errs.Wrap(err)
 	}
-	return nil
+
+	return operation.Wait(ctx)
 }

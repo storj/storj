@@ -185,6 +185,7 @@ import { BucketMetadata } from '@/types/buckets';
 import { useBucketsStore } from '@/store/modules/bucketsStore';
 import { useConfigStore } from '@/store/modules/configStore';
 import { ObjectLockStatus } from '@/types/objectLock';
+import { usePreCheck } from '@/composables/usePreCheck';
 
 const bucketsStore = useBucketsStore();
 const configStore = useConfigStore();
@@ -192,6 +193,7 @@ const obStore = useObjectBrowserStore();
 const projectsStore = useProjectsStore();
 
 const notify = useNotify();
+const { withTrialCheck } = usePreCheck();
 
 const props = defineProps<{
     isVersion?: boolean;
@@ -249,27 +251,29 @@ const disableDownload = computed<boolean>(() => {
 });
 
 async function onDownloadClick(): Promise<void> {
-    if (disableDownload.value) {
-        notify.error('Bandwidth limit exceeded, can not download this object.');
-        return;
-    }
+    withTrialCheck(async () => {
+        if (disableDownload.value) {
+            notify.error('Bandwidth limit exceeded, can not download this object.');
+            return;
+        }
 
-    if (isDownloading.value) {
-        return;
-    }
+        if (isDownloading.value) {
+            return;
+        }
 
-    isDownloading.value = true;
-    try {
-        await obStore.download(props.file);
-        notify.success(
-            () => ['Keep this download link private.', h('br'), 'If you want to share, use the Share option.'],
-            'Download started',
-        );
-    } catch (error) {
-        error.message = `Error downloading object. ${error.message}`;
-        notify.notifyError(error, AnalyticsErrorEventSource.FILE_BROWSER_ENTRY);
-    }
-    isDownloading.value = false;
+        isDownloading.value = true;
+        try {
+            await obStore.download(props.file);
+            notify.success(
+                () => ['Keep this download link private.', h('br'), 'If you want to share, use the Share option.'],
+                'Download started',
+            );
+        } catch (error) {
+            error.message = `Error downloading object. ${error.message}`;
+            notify.notifyError(error, AnalyticsErrorEventSource.FILE_BROWSER_ENTRY);
+        }
+        isDownloading.value = false;
+    });
 }
 
 async function onDeleteClick(): Promise<void> {

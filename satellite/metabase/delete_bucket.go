@@ -15,17 +15,17 @@ const (
 	deleteBatchSizeLimit = intLimitRange(50)
 )
 
-// DeleteBucketObjects contains arguments for deleting a whole bucket.
-type DeleteBucketObjects struct {
+// DeleteAllBucketObjects contains arguments for deleting a whole bucket.
+type DeleteAllBucketObjects struct {
 	Bucket    BucketLocation
 	BatchSize int
 }
 
-// DeleteBucketObjects deletes all objects in the specified bucket.
+// DeleteAllBucketObjects deletes all objects in the specified bucket.
 // Deletion performs in batches, so in case of error while processing,
 // this method will return the number of objects deleted to the moment
 // when an error occurs.
-func (db *DB) DeleteBucketObjects(ctx context.Context, opts DeleteBucketObjects) (deletedObjectCount int64, err error) {
+func (db *DB) DeleteAllBucketObjects(ctx context.Context, opts DeleteAllBucketObjects) (deletedObjectCount int64, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	if err := opts.Bucket.Verify(); err != nil {
@@ -41,7 +41,7 @@ func (db *DB) DeleteBucketObjects(ctx context.Context, opts DeleteBucketObjects)
 		}
 
 		var deletedBatchSegmentCount int64
-		deletedBatchObjectCount, deletedBatchSegmentCount, err = db.ChooseAdapter(opts.Bucket.ProjectID).DeleteBucketObjects(ctx, opts)
+		deletedBatchObjectCount, deletedBatchSegmentCount, err = db.ChooseAdapter(opts.Bucket.ProjectID).DeleteAllBucketObjects(ctx, opts)
 
 		mon.Meter("object_delete").Mark64(deletedBatchObjectCount)
 		mon.Meter("segment_delete").Mark64(deletedBatchSegmentCount)
@@ -55,11 +55,11 @@ func (db *DB) DeleteBucketObjects(ctx context.Context, opts DeleteBucketObjects)
 	return deletedObjectCount, nil
 }
 
-// DeleteBucketObjects deletes all objects in the specified bucket.
+// DeleteAllBucketObjects deletes all objects in the specified bucket.
 // Deletion performs in batches, so in case of error while processing,
 // this method will return the number of objects deleted to the moment
 // when an error occurs.
-func (p *PostgresAdapter) DeleteBucketObjects(ctx context.Context, opts DeleteBucketObjects) (deletedObjectCount, deletedSegmentCount int64, err error) {
+func (p *PostgresAdapter) DeleteAllBucketObjects(ctx context.Context, opts DeleteAllBucketObjects) (deletedObjectCount, deletedSegmentCount int64, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	query := `
@@ -86,11 +86,11 @@ func (p *PostgresAdapter) DeleteBucketObjects(ctx context.Context, opts DeleteBu
 	return deletedObjectCount, deletedSegmentCount, nil
 }
 
-// DeleteBucketObjects deletes all objects in the specified bucket.
+// DeleteAllBucketObjects deletes all objects in the specified bucket.
 // Deletion performs in batches, so in case of error while processing,
 // this method will return the number of objects deleted to the moment
 // when an error occurs.
-func (c *CockroachAdapter) DeleteBucketObjects(ctx context.Context, opts DeleteBucketObjects) (deletedObjectCount, deletedSegmentCount int64, err error) {
+func (c *CockroachAdapter) DeleteAllBucketObjects(ctx context.Context, opts DeleteAllBucketObjects) (deletedObjectCount, deletedSegmentCount int64, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	query := `
@@ -114,11 +114,11 @@ func (c *CockroachAdapter) DeleteBucketObjects(ctx context.Context, opts DeleteB
 	return deletedObjectCount, deletedSegmentCount, nil
 }
 
-// DeleteBucketObjects deletes all objects in the specified bucket.
+// DeleteAllBucketObjects deletes all objects in the specified bucket.
 // Deletion performs in batches, so in case of error while processing,
 // this method will return the number of objects deleted to the moment
 // when an error occurs.
-func (s *SpannerAdapter) DeleteBucketObjects(ctx context.Context, opts DeleteBucketObjects) (deletedObjectCount, deletedSegmentCount int64, err error) {
+func (s *SpannerAdapter) DeleteAllBucketObjects(ctx context.Context, opts DeleteAllBucketObjects) (deletedObjectCount, deletedSegmentCount int64, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	// TODO(spanner): see if it would be better to avoid batching altogether here.

@@ -305,6 +305,32 @@ func (endpoint *Endpoint) packSegmentID(ctx context.Context, satSegmentID *inter
 		return nil, rpcstatus.Error(rpcstatus.Internal, "unable to create segment id")
 	}
 
+	// remove satellite signature from limits to reduce response size
+	// signature is not needed here, because segment id is signed by satellite
+	originalOrderLimits := make([]*pb.AddressedOrderLimit, len(satSegmentID.OriginalOrderLimits))
+	for i, alimit := range satSegmentID.OriginalOrderLimits {
+		originalOrderLimits[i] = &pb.AddressedOrderLimit{
+			StorageNodeAddress: alimit.StorageNodeAddress,
+			Limit: &pb.OrderLimit{
+				SerialNumber:           alimit.Limit.SerialNumber,
+				SatelliteId:            alimit.Limit.SatelliteId,
+				UplinkPublicKey:        alimit.Limit.UplinkPublicKey,
+				StorageNodeId:          alimit.Limit.StorageNodeId,
+				PieceId:                alimit.Limit.PieceId,
+				Limit:                  alimit.Limit.Limit,
+				PieceExpiration:        alimit.Limit.PieceExpiration,
+				Action:                 alimit.Limit.Action,
+				OrderExpiration:        alimit.Limit.OrderExpiration,
+				OrderCreation:          alimit.Limit.OrderCreation,
+				EncryptedMetadataKeyId: alimit.Limit.EncryptedMetadataKeyId,
+				EncryptedMetadata:      alimit.Limit.EncryptedMetadata,
+				// don't copy satellite signature
+			},
+		}
+	}
+
+	satSegmentID.OriginalOrderLimits = originalOrderLimits
+
 	signedSegmentID, err := SignSegmentID(ctx, endpoint.satellite, satSegmentID)
 	if err != nil {
 		return nil, err
