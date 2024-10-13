@@ -124,7 +124,7 @@ export default class ThemeSelector extends Vue {
     }
 }
 
-.v-tooltip{
+.v-tooltip {
     z-index: 1000;
 }
 
