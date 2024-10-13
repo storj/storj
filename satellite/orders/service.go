@@ -327,6 +327,15 @@ func (service *Service) ReplacePutOrderLimits(ctx context.Context, rootPieceID s
 		newAddressedLimits[pieceNumber].StorageNodeAddress = resolveStorageNode_Selected(nodes[i], true).Address
 	}
 
+	for _, limit := range newAddressedLimits {
+		if limit != nil && limit.Limit != nil && limit.Limit.SatelliteSignature == nil {
+			limit.Limit, err = signing.SignOrderLimit(ctx, service.satellite, limit.Limit)
+			if err != nil {
+				return nil, ErrSigner.Wrap(err)
+			}
+		}
+	}
+
 	return newAddressedLimits, nil
 }
 

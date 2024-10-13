@@ -51,7 +51,7 @@ func TestPieces(t *testing.T) {
 	defer ctx.Check(blobs.Close)
 
 	fw := pieces.NewFileWalker(log, blobs, nil, nil, nil)
-	store := pieces.NewStore(log, fw, nil, blobs, nil, nil, nil, pieces.DefaultConfig)
+	store := pieces.NewStore(log, fw, nil, blobs, nil, nil, pieces.DefaultConfig)
 
 	satelliteID := testidentity.MustPregeneratedSignedIdentity(0, storj.LatestIDVersion()).ID
 	pieceID := storj.NewPieceID()
@@ -326,7 +326,7 @@ func TestTrashAndRestore(t *testing.T) {
 		require.True(t, ok, "V0PieceInfoDB can not satisfy V0PieceInfoDBForTest")
 
 		fw := pieces.NewFileWalker(log, blobs, v0PieceInfo, db.GCFilewalkerProgress(), db.UsedSpacePerPrefix())
-		store := pieces.NewStore(log, fw, nil, blobs, v0PieceInfo, db.PieceExpirationDB(), nil, pieces.DefaultConfig)
+		store := pieces.NewStore(log, fw, nil, blobs, v0PieceInfo, db.PieceExpirationDB(), pieces.DefaultConfig)
 		tStore := &pieces.StoreForTest{store}
 
 		var satelliteURLs []trust.SatelliteURL
@@ -550,7 +550,7 @@ func TestPieceVersionMigrate(t *testing.T) {
 		defer ctx.Check(blobs.Close)
 
 		fw := pieces.NewFileWalker(log, blobs, v0PieceInfo, db.GCFilewalkerProgress(), db.UsedSpacePerPrefix())
-		store := pieces.NewStore(log, fw, nil, blobs, v0PieceInfo, nil, nil, pieces.DefaultConfig)
+		store := pieces.NewStore(log, fw, nil, blobs, v0PieceInfo, nil, pieces.DefaultConfig)
 
 		// write as a v0 piece
 		tStore := &pieces.StoreForTest{store}
@@ -637,7 +637,7 @@ func TestMultipleStorageFormatVersions(t *testing.T) {
 	defer ctx.Check(blobs.Close)
 
 	fw := pieces.NewFileWalker(log, blobs, nil, nil, nil)
-	store := pieces.NewStore(log, fw, nil, blobs, nil, nil, nil, pieces.DefaultConfig)
+	store := pieces.NewStore(log, fw, nil, blobs, nil, nil, pieces.DefaultConfig)
 	tStore := &pieces.StoreForTest{store}
 
 	const pieceSize = 1024
@@ -694,7 +694,7 @@ func TestGetExpired(t *testing.T) {
 
 		blobs := db.Pieces()
 		fw := pieces.NewFileWalker(log, blobs, v0PieceInfo, db.GCFilewalkerProgress(), db.UsedSpacePerPrefix())
-		store := pieces.NewStore(log, fw, nil, blobs, v0PieceInfo, expirationInfo, db.PieceSpaceUsedDB(), pieces.DefaultConfig)
+		store := pieces.NewStore(log, fw, nil, blobs, v0PieceInfo, expirationInfo, pieces.DefaultConfig)
 
 		now := time.Now()
 		testDates := []struct {
@@ -759,7 +759,7 @@ func TestOverwriteV0WithV1(t *testing.T) {
 
 		blobs := db.Pieces()
 		fw := pieces.NewFileWalker(log, blobs, v0PieceInfo, db.GCFilewalkerProgress(), db.UsedSpacePerPrefix())
-		store := pieces.NewStore(log, fw, nil, blobs, v0PieceInfo, expirationInfo, db.PieceSpaceUsedDB(), pieces.DefaultConfig)
+		store := pieces.NewStore(log, fw, nil, blobs, v0PieceInfo, expirationInfo, pieces.DefaultConfig)
 
 		satelliteID := testrand.NodeID()
 		pieceID := testrand.PieceID()
@@ -896,7 +896,7 @@ func TestEmptyTrash_lazyFilewalker(t *testing.T) {
 		lazyFw.TestingSetTrashCleanupCmd(&execCommandWrapper{Command: cmd, count: &runCount})
 
 		startTime := time.Now()
-		store := pieces.NewStore(log, fw, lazyFw, blobs, nil, db.PieceExpirationDB(), db.PieceSpaceUsedDB(), cfg)
+		store := pieces.NewStore(log, fw, lazyFw, blobs, nil, db.PieceExpirationDB(), cfg)
 
 		// build some data belonging to multiple satellites and store it in the piecestore
 		const (

@@ -746,7 +746,7 @@ func (server *Server) forceDeleteProject(ctx context.Context, projectID uuid.UUI
 		var errList errs.Group
 		for _, bucket := range bucketsList.Items {
 			bucketLocation := metabase.BucketLocation{ProjectID: projectID, BucketName: metabase.BucketName(bucket.Name)}
-			_, err = server.metabaseDB.DeleteBucketObjects(ctx, metabase.DeleteBucketObjects{
+			_, err = server.metabaseDB.DeleteAllBucketObjects(ctx, metabase.DeleteAllBucketObjects{
 				Bucket: bucketLocation,
 			})
 			if err != nil {

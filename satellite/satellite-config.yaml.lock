@@ -223,6 +223,9 @@ compensation.withheld-percents: 75,75,75,50,50,50,25,25,25,0,0,0,0,0,0
 # How long to wait between a trail expiration freeze event and setting pending deletion account status. 0 disables escalation.
 # console.account-freeze.trial-expiration-freeze-grace-period: 0s
 
+# Specifies the rate and burst limit for 'head', list' and 'delete' operations when a trial account has expired.
+# console.account-freeze.trial-expiration-rate-limits: 20
+
 # whether active sessions table view should be shown
 # console.active-sessions-view-enabled: false
 
