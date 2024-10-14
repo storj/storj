@@ -241,9 +241,6 @@ func TestEndpoint_validateAuthN(t *testing.T) {
 }
 
 func TestEndpoint_checkRate(t *testing.T) {
-	ctx := testcontext.New(t)
-	defer ctx.Cleanup()
-
 	testplanet.Run(t, testplanet.Config{
 		SatelliteCount: 1, StorageNodeCount: 1, UplinkCount: 2,
 		Reconfigure: testplanet.Reconfigure{
@@ -445,9 +442,6 @@ func TestEndpoint_checkRate(t *testing.T) {
 }
 
 func TestEndpoint_checkUserStatus(t *testing.T) {
-	ctx := testcontext.New(t)
-	defer ctx.Cleanup()
-
 	testplanet.Run(t, testplanet.Config{
 		SatelliteCount: 1, StorageNodeCount: 1, UplinkCount: 2,
 		Reconfigure: testplanet.Reconfigure{
