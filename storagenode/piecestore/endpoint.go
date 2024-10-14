@@ -103,21 +103,38 @@ type Endpoint struct {
 	ident     *identity.FullIdentity
 	trust     *trust.Pool
 	monitor   *monitor.Service
-	retain    *retain.Service
+	retain    QueueRetain
 	pingStats PingStatsSource
 
 	store        *pieces.Store
-	trashChore   *pieces.TrashChore
-	usage        bandwidth.DB
+	trashChore   RestoreTrash
+	usage        bandwidth.Writer
 	ordersStore  *orders.FileStore
 	usedSerials  *usedserials.Table
-	pieceDeleter *pieces.Deleter
+	pieceDeleter EnqueueDeletes
 
 	liveRequests int32
 }
 
+// QueueRetain is an interface for retaining pieces in the queue and checking status.
+// A restricted view of retain.Service.
+type QueueRetain interface {
+	Queue(satelliteID storj.NodeID, req *pb.RetainRequest) bool
+	Status() retain.Status
+}
+
+// RestoreTrash is an interface for restoring trash.
+type RestoreTrash interface {
+	StartRestore(ctx context.Context, satellite storj.NodeID) error
+}
+
+// EnqueueDeletes is an interface for enqueuing deletes.
+type EnqueueDeletes interface {
+	Enqueue(ctx context.Context, satelliteID storj.NodeID, pieceIDs []storj.PieceID) (unhandled int)
+}
+
 // NewEndpoint creates a new piecestore endpoint.
-func NewEndpoint(log *zap.Logger, ident *identity.FullIdentity, trust *trust.Pool, monitor *monitor.Service, retain *retain.Service, pingStats PingStatsSource, store *pieces.Store, trashChore *pieces.TrashChore, pieceDeleter *pieces.Deleter, ordersStore *orders.FileStore, usage bandwidth.DB, usedSerials *usedserials.Table, config Config) (*Endpoint, error) {
+func NewEndpoint(log *zap.Logger, ident *identity.FullIdentity, trust *trust.Pool, monitor *monitor.Service, retain QueueRetain, pingStats PingStatsSource, store *pieces.Store, trashChore RestoreTrash, pieceDeleter EnqueueDeletes, ordersStore *orders.FileStore, usage bandwidth.Writer, usedSerials *usedserials.Table, config Config) (*Endpoint, error) {
 	return &Endpoint{
 		log:    log,
 		config: config,
@@ -718,7 +735,7 @@ func (endpoint *Endpoint) Download(stream pb.DRPCPiecestore_DownloadStream) (err
 				reason = "context canceled"
 			case drpc.ClosedError.Has(err):
 				reason = "stream closed by peer"
-			case (err == nil && chunk.ChunkSize != downloadSize):
+			case err == nil && chunk.ChunkSize != downloadSize:
 				reason = fmt.Sprintf(
 					"downloaded size (%d bytes) does not match received message size (%d bytes)", downloadSize, chunk.ChunkSize,
 				)
