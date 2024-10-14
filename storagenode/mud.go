@@ -280,6 +280,7 @@ func Module(ball *mud.Ball) {
 		}, logWrapper("piecestore:monitor"))
 
 		mud.Provide[*retain.Service](ball, retain.NewService, logWrapper("retain"))
+		mud.Provide[*retain.RunOnce](ball, retain.NewRunOnce)
 
 		mud.Provide[*usedserials.Table](ball, func(storage2Config piecestore.Config) *usedserials.Table {
 			return usedserials.NewTable(storage2Config.MaxUsedSerialsSize)
