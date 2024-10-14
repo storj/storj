@@ -1869,10 +1869,11 @@ func (endpoint *Endpoint) GetObjectIPs(ctx context.Context, req *pb.ObjectGetIPs
 	mon.Meter("req_get_object_ips").Mark(1)
 
 	return &pb.ObjectGetIPsResponse{
-		Ips:                nodeIPs,
-		SegmentCount:       int64(object.SegmentCount),
-		ReliablePieceCount: reliablePieceCount,
-		PieceCount:         pieceCount,
+		Ips:                 nodeIPs,
+		SegmentCount:        int64(object.SegmentCount),
+		ReliablePieceCount:  reliablePieceCount,
+		PieceCount:          pieceCount,
+		PlacementConstraint: uint32(placement),
 	}, nil
 }
 
