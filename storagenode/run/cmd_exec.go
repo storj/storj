@@ -5,6 +5,7 @@ package root
 
 import (
 	"context"
+
 	"github.com/spf13/cobra"
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
@@ -28,7 +29,7 @@ func newExecCmd(f *Factory) *cobra.Command {
 	})
 	modular.IdentityModule(ball)
 	storagenode.Module(ball)
-	selector := modular.CreateSelector(ball)
+	selector := modular.CreateSelector()
 	stop := &modular.StopTrigger{}
 	mud.Supply[*modular.StopTrigger](ball, stop)
 	cmd := &cobra.Command{

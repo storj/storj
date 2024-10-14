@@ -8,6 +8,7 @@ import (
 	_ "storj.io/storj/web/storagenode" // This embeds storagenode assets.
 )
 
+// Main is the entry point for the storagenode.
 func Main() {
 	rootCmd, _ := newRootCmd()
 
