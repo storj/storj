@@ -290,13 +290,8 @@ func Module(ball *mud.Ball) {
 		mud.View[DB, RawBlobs](ball, func(db DB) RawBlobs {
 			return db.Pieces()
 		})
-		// TODO: use this later for cached blobs. Without this, the normal implementation will be used.
-		// mud.View[*pieces.BlobsUsageCache, blobstore.Blobs](ball, func(cache *pieces.BlobsUsageCache) blobstore.Blobs {
-		//	return cache
-		// })
-		mud.View[RawBlobs, blobstore.Blobs](ball, func(blobs RawBlobs) blobstore.Blobs {
-			return blobs
-		})
+
+		mud.RegisterInterfaceImplementation[blobstore.Blobs, RawBlobs](ball)
 
 		mud.Provide[monitor.SpaceReport](ball, func(log *zap.Logger, store *pieces.Store, config monitor.Config) monitor.SpaceReport {
 			return monitor.NewDedicatedDisk(log, store, config.MinimumDiskSpace.Int64(), config.ReservedBytes.Int64())
