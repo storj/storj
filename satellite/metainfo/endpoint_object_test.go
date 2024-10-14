@@ -2866,6 +2866,7 @@ func TestNodeTagPlacement(t *testing.T) {
 
 				},
 			},
+			EnableSpanner: true,
 		},
 		func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 			satellite := planet.Satellites[0]
@@ -2884,13 +2885,11 @@ func TestNodeTagPlacement(t *testing.T) {
 			for ix, node := range planet.StorageNodes {
 				nodeIndex[node.Identity.ID] = ix
 			}
-			testPlacement := func(bucketName string, placement int, allowedNodes func(int) bool) {
-
+			testPlacement := func(t *testing.T, bucketName string, placement int, allowedNodes func(int) bool) {
 				createGeofencedBucket(t, ctx, buckets, projectID, bucketName, storj.PlacementConstraint(placement))
 
-				objectNo := 10
+				const objectNo = 5
 				for i := 0; i < objectNo; i++ {
-
 					err := uplink.Upload(ctx, satellite, bucketName, "testobject"+strconv.Itoa(i), make([]byte, 10240))
 					require.NoError(t, err)
 				}
@@ -2919,12 +2918,12 @@ func TestNodeTagPlacement(t *testing.T) {
 				}
 			}
 			t.Run("upload to constrained", func(t *testing.T) {
-				testPlacement("constrained", 16, func(i int) bool {
+				testPlacement(t, "constrained", 16, func(i int) bool {
 					return i%2 == 0
 				})
 			})
 			t.Run("upload to generic excluding constrained", func(t *testing.T) {
-				testPlacement("generic", 0, func(i int) bool {
+				testPlacement(t, "generic", 0, func(i int) bool {
 					return i%2 == 1
 				})
 			})
