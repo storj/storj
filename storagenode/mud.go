@@ -339,6 +339,7 @@ func Module(ball *mud.Ball) {
 
 	{
 		mud.Provide[*collector.Service](ball, collector.NewService)
+		mud.Provide[collector.RunOnce](ball, collector.NewRunnerOnce)
 		config.RegisterConfig[collector.Config](ball, "collector")
 		mud.Tag[*collector.Service, modular.Service](ball, modular.Service{})
 	}

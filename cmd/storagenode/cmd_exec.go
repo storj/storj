@@ -25,11 +25,14 @@ func newExecCmd(f *Factory) *cobra.Command {
 	modular.IdentityModule(ball)
 	storagenode.Module(ball)
 	selector := modular.CreateSelector()
+	stop := &modular.StopTrigger{}
+	mud.Supply[*modular.StopTrigger](ball, stop)
 	cmd := &cobra.Command{
 		Use:   "exec",
 		Short: "execute selected components (VERY, VERY, EXPERIMENTAL)",
 		RunE: func(cmd *cobra.Command, args []string) error {
-			ctx, _ := process.Ctx(cmd)
+			ctx, cancel := process.Ctx(cmd)
+			stop.Cancel = cancel
 			return cmdExec(ctx, ball, selector)
 		},
 	}
