@@ -8,7 +8,7 @@ replace storj.io/storj => ../../
 
 require (
 	github.com/stretchr/testify v1.9.0
-	github.com/zeebo/errs v1.3.0
+	github.com/zeebo/errs v1.4.0
 	go.uber.org/zap v1.27.0
 	golang.org/x/sync v0.8.0
 	storj.io/common v0.0.0-20241009135541-b559b2ac673b
