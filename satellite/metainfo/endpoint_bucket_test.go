@@ -11,7 +11,6 @@ import (
 	"time"
 
 	"github.com/stretchr/testify/require"
-	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 
 	"storj.io/common/errs2"
@@ -50,14 +49,14 @@ func TestBucketExistenceCheck(t *testing.T) {
 		})
 		require.Error(t, err)
 		require.True(t, errs2.IsRPC(err, rpcstatus.NotFound))
-		require.Equal(t, buckets.ErrBucketNotFound.New("%s", "non-existing-bucket").Error(), errs.Unwrap(err).Error())
+		require.Equal(t, buckets.ErrBucketNotFound.New("%s", "non-existing-bucket").Error(), errors.Unwrap(err).Error())
 
 		_, _, err = metainfoClient.ListObjects(ctx, metaclient.ListObjectsParams{
 			Bucket: []byte("non-existing-bucket"),
 		})
 		require.Error(t, err)
 		require.True(t, errs2.IsRPC(err, rpcstatus.NotFound))
-		require.Equal(t, buckets.ErrBucketNotFound.New("%s", "non-existing-bucket").Error(), errs.Unwrap(err).Error())
+		require.Equal(t, buckets.ErrBucketNotFound.New("%s", "non-existing-bucket").Error(), errors.Unwrap(err).Error())
 	})
 }
 
