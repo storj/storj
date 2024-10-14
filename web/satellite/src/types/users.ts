@@ -88,7 +88,7 @@ export interface UsersApi {
      *
      * @throws Error
      */
-    enableUserMFA(passcode: string): Promise<void>;
+    enableUserMFA(passcode: string): Promise<string[]>;
 
     /**
      * Disable user's MFA.
@@ -103,13 +103,6 @@ export interface UsersApi {
      * @throws Error
      */
     generateUserMFASecret(): Promise<string>;
-
-    /**
-     * Generate user's MFA recovery codes.
-     *
-     * @throws Error
-     */
-    generateUserMFARecoveryCodes(): Promise<string[]>;
 
     /**
      * Generate user's MFA recovery codes requiring a code.

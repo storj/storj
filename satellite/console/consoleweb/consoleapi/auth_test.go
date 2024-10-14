@@ -379,7 +379,7 @@ func TestMFAEndpoints(t *testing.T) {
 		SatelliteCount: 1, StorageNodeCount: 0, UplinkCount: 0,
 		Reconfigure: testplanet.Reconfigure{
 			Satellite: func(log *zap.Logger, index int, config *satellite.Config) {
-				config.Console.RateLimit.Burst = 10
+				config.Console.RateLimit.Burst = 20
 			},
 		},
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
@@ -416,12 +416,8 @@ func TestMFAEndpoints(t *testing.T) {
 			return responseBody, status
 		}
 
-		// Expect failure because MFA is not enabled.
-		_, status := doRequest("/generate-recovery-codes", "", "")
-		require.Equal(t, http.StatusUnauthorized, status)
-
 		// Expect failure due to not having generated a secret key.
-		_, status = doRequest("/enable", "123456", "")
+		_, status := doRequest("/enable", "123456", "")
 		require.Equal(t, http.StatusBadRequest, status)
 
 		// Expect success when generating a secret key.
@@ -445,11 +441,7 @@ func TestMFAEndpoints(t *testing.T) {
 		// Expect success when providing valid passcode.
 		goodCode, err := console.NewMFAPasscode(key, time.Now())
 		require.NoError(t, err)
-		_, status = doRequest("/enable", goodCode, "")
-		require.Equal(t, http.StatusOK, status)
-
-		// Expect 10 recovery codes to be generated.
-		body, status = doRequest("/generate-recovery-codes", "", "")
+		body, status = doRequest("/enable", goodCode, "")
 		require.Equal(t, http.StatusOK, status)
 
 		var codes []string
@@ -533,9 +525,7 @@ func TestMFAEndpoints(t *testing.T) {
 
 		goodCode, err = console.NewMFAPasscode(key, time.Now())
 		require.NoError(t, err)
-		doRequest("/enable", goodCode, "")
-
-		body, _ = doRequest("/generate-recovery-codes", "", "")
+		body, _ = doRequest("/enable", goodCode, "")
 		err = json.Unmarshal(body, &codes)
 		require.NoError(t, err)
 

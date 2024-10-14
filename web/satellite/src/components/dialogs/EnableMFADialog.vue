@@ -240,7 +240,7 @@ function enable(): void {
         try {
             await usersStore.enableUserMFA(confirmPasscode.value);
             await usersStore.getUser();
-            await showCodes();
+            step.value = 2;
 
             analyticsStore.eventTriggered(AnalyticsEvent.MFA_ENABLED);
         } catch (error) {
@@ -248,18 +248,6 @@ function enable(): void {
             isError.value = true;
         }
     });
-}
-
-/**
- * Toggles view to MFA Recovery Codes state.
- */
-async function showCodes() {
-    try {
-        await usersStore.generateUserMFARecoveryCodes();
-        step.value = 2;
-    } catch (error) {
-        notify.notifyError(error, AnalyticsErrorEventSource.ENABLE_MFA_MODAL);
-    }
 }
 
 function initialiseOTPInput() {

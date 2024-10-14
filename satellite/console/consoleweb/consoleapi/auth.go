@@ -1195,7 +1195,19 @@ func (a *Auth) EnableUserMFA(w http.ResponseWriter, r *http.Request) {
 
 	err = a.service.DeleteAllSessionsByUserIDExcept(ctx, consoleUser.ID, sessionID)
 	if err != nil {
+		a.log.Error("could not delete all other sessions", zap.Error(ErrAuthAPI.Wrap(err)))
+	}
+
+	codes, err := a.service.ResetMFARecoveryCodes(ctx, false, "", "")
+	if err != nil {
 		a.serveJSONError(ctx, w, err)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	err = json.NewEncoder(w).Encode(codes)
+	if err != nil {
+		a.log.Error("could not encode MFA recovery codes", zap.Error(ErrAuthAPI.Wrap(err)))
 		return
 	}
 }
@@ -1257,26 +1269,6 @@ func (a *Auth) GenerateMFASecretKey(w http.ResponseWriter, r *http.Request) {
 	err = json.NewEncoder(w).Encode(key)
 	if err != nil {
 		a.log.Error("could not encode MFA secret key", zap.Error(ErrAuthAPI.Wrap(err)))
-		return
-	}
-}
-
-// GenerateMFARecoveryCodes creates a new set of MFA recovery codes for the user.
-func (a *Auth) GenerateMFARecoveryCodes(w http.ResponseWriter, r *http.Request) {
-	ctx := r.Context()
-	var err error
-	defer mon.Task()(&ctx)(&err)
-
-	codes, err := a.service.ResetMFARecoveryCodes(ctx, false, "", "")
-	if err != nil {
-		a.serveJSONError(ctx, w, err)
-		return
-	}
-
-	w.Header().Set("Content-Type", "application/json")
-	err = json.NewEncoder(w).Encode(codes)
-	if err != nil {
-		a.log.Error("could not encode MFA recovery codes", zap.Error(ErrAuthAPI.Wrap(err)))
 		return
 	}
 }
