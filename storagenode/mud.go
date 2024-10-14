@@ -9,6 +9,8 @@ import (
 	"os"
 	"time"
 
+	"github.com/spacemonkeygo/monkit/v3"
+	"github.com/spacemonkeygo/monkit/v3/environment"
 	"go.uber.org/zap"
 
 	"storj.io/common/debug"
@@ -90,7 +92,12 @@ func Module(ball *mud.Ball) {
 	mud.View[server.Config, tlsopts.Config](ball, func(s server.Config) tlsopts.Config {
 		return s.Config
 	})
-	mud.Supply[version.Info](ball, version.Build)
+	mud.Provide[version.Info](ball, func() version.Info {
+		info := version.Build
+		environment.Register(monkit.Default)
+		monkit.Default.ScopeNamed("env").Chain(monkit.StatSourceFunc(info.Stats))
+		return info
+	})
 	mud.Provide[extensions.RevocationDB](ball, revocation.OpenDBFromCfg)
 	DBModule(ball)
 	mud.View[storagenodedb.Config, lazyfilewalker.Config](ball, func(s storagenodedb.Config) lazyfilewalker.Config {
