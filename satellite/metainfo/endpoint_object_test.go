@@ -5102,6 +5102,7 @@ func TestEndpoint_SetObjectRetention(t *testing.T) {
 func TestEndpoint_GetObjectWithLockConfiguration(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
 		SatelliteCount: 1, UplinkCount: 1,
+		EnableSpanner: true,
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 		sat := planet.Satellites[0]
 		project := planet.Uplinks[0].Projects[0]
