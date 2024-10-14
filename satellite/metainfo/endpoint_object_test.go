@@ -2790,6 +2790,7 @@ func TestListUploads(t *testing.T) {
 		SatelliteCount:   1,
 		StorageNodeCount: 0,
 		UplinkCount:      1,
+		EnableSpanner:    true,
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 		// basic ListUploads tests, more tests are on storj/uplink side
 		u := planet.Uplinks[0]
@@ -2801,18 +2802,19 @@ func TestListUploads(t *testing.T) {
 
 		require.NoError(t, u.CreateBucket(ctx, s, "testbucket"))
 
-		for i := 0; i < 1001; i++ {
+		for i := 0; i < 10; i++ {
 			_, err := project.BeginUpload(ctx, "testbucket", "object"+strconv.Itoa(i), nil)
 			require.NoError(t, err)
 		}
 
-		list := project.ListUploads(ctx, "testbucket", nil)
+		limitCtx := testuplink.WithListLimit(ctx, 3)
+		list := project.ListUploads(limitCtx, "testbucket", nil)
 		items := 0
 		for list.Next() {
 			items++
 		}
 		require.NoError(t, list.Err())
-		require.Equal(t, 1001, items)
+		require.Equal(t, 10, items)
 	})
 }
 
