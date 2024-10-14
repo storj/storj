@@ -7,6 +7,7 @@ import (
 	"context"
 	"net/http"
 	"os"
+	"path/filepath"
 	"time"
 
 	"github.com/spacemonkeygo/monkit/v3"
@@ -107,6 +108,26 @@ func Module(ball *mud.Ball) {
 	{ // setup notification service.
 		mud.Provide[*notifications.Service](ball, notifications.NewService)
 
+	}
+
+	{
+		mud.Provide[*pieces.PieceExpirationStore](ball, func(log *zap.Logger, oldCfg piecestore.OldConfig, storeCfg piecestore.Config, cfg pieces.Config) (*pieces.PieceExpirationStore, error) {
+			flatFileStorePath := cfg.FlatExpirationStorePath
+			if abs := filepath.IsAbs(flatFileStorePath); !abs {
+				if storeCfg.DatabaseDir != "" {
+					flatFileStorePath = filepath.Join(storeCfg.DatabaseDir, flatFileStorePath)
+				} else {
+					flatFileStorePath = filepath.Join(oldCfg.Path, flatFileStorePath)
+				}
+			}
+
+			return pieces.NewPieceExpirationStore(log, nil, pieces.PieceExpirationConfig{
+				DataDir:               flatFileStorePath,
+				ConcurrentFileHandles: cfg.FlatExpirationStoreFileHandles,
+				MaxBufferTime:         cfg.FlatExpirationStoreMaxBufferTime,
+			})
+		}, logWrapper("pieceexpiration"))
+		mud.RegisterInterfaceImplementation[pieces.PieceExpirationDB, *pieces.PieceExpirationStore](ball)
 	}
 
 	{ // setup debug
