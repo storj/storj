@@ -251,7 +251,6 @@ func Module(ball *mud.Ball) {
 		mud.Provide[*pieces.Deleter](ball, func(log *zap.Logger, store *pieces.Store, storage2Config piecestore.Config) *pieces.Deleter {
 			return pieces.NewDeleter(log, store, storage2Config.DeleteWorkers, storage2Config.DeleteQueueSize)
 		}, logWrapper("piecedeleter"))
-		mud.Tag[*pieces.Deleter, modular.Service](ball, modular.Service{})
 
 		mud.Provide[*pieces.BlobsUsageCache](ball, func(log *zap.Logger, blobs RawBlobs) *pieces.BlobsUsageCache {
 			return pieces.NewBlobsUsageCache(log, blobs)
@@ -300,7 +299,11 @@ func Module(ball *mud.Ball) {
 		mud.Provide[*pieces.TrashRunOnce](ball, func(log *zap.Logger, trust *trust.Pool, store *pieces.Store, stop *modular.StopTrigger) *pieces.TrashRunOnce {
 			return pieces.NewTrashRunOnce(log, trust, store, trashExpiryInterval, stop)
 		})
-		mud.Tag[*pieces.TrashChore, modular.Service](ball, modular.Service{})
+
+		mud.RegisterInterfaceImplementation[piecestore.RestoreTrash, *pieces.TrashChore](ball)
+		mud.RegisterInterfaceImplementation[piecestore.EnqueueDeletes, *pieces.Deleter](ball)
+		mud.RegisterInterfaceImplementation[piecestore.QueueRetain, *retain.Service](ball)
+
 		mud.Provide[*piecestore.Endpoint](ball, piecestore.NewEndpoint, logWrapper("piecestore"))
 
 		mud.Provide[*orders.Service](ball, func(log *zap.Logger, ordersStore *orders.FileStore, ordersDB orders.DB, trust *trust.Pool, config orders.Config, tlsOptions *tlsopts.Options) *orders.Service {
