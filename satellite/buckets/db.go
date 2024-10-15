@@ -55,6 +55,19 @@ type Bucket struct {
 	Placement                   storj.PlacementConstraint
 	Versioning                  Versioning
 	ObjectLockEnabled           bool
+	DefaultRetentionMode        storj.RetentionMode
+	DefaultRetentionDays        *int
+	DefaultRetentionYears       *int
+}
+
+// UpdateBucketObjectLockParams contains the parameters for updating bucket object lock settings.
+type UpdateBucketObjectLockParams struct {
+	ProjectID             uuid.UUID
+	Name                  string
+	ObjectLockEnabled     bool
+	DefaultRetentionMode  **storj.RetentionMode
+	DefaultRetentionDays  **int
+	DefaultRetentionYears **int
 }
 
 // ListDirection specifies listing direction.
@@ -144,6 +157,8 @@ type DB interface {
 	UpdateBucket(ctx context.Context, bucket Bucket) (_ Bucket, err error)
 	// UpdateUserAgent updates buckets user agent.
 	UpdateUserAgent(ctx context.Context, projectID uuid.UUID, bucketName string, userAgent []byte) error
+	// UpdateBucketObjectLockSettings updates object lock settings for a bucket without an extra database query.
+	UpdateBucketObjectLockSettings(ctx context.Context, params UpdateBucketObjectLockParams) (_ Bucket, err error)
 	// DeleteBucket deletes a bucket
 	DeleteBucket(ctx context.Context, bucketName []byte, projectID uuid.UUID) (err error)
 	// ListBuckets returns all buckets for a project

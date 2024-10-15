@@ -149,9 +149,9 @@ pipeline {
         stage('Tests') {
             environment {
                 STORJ_TEST_HOST = '127.0.0.20;127.0.0.21;127.0.0.22;127.0.0.23;127.0.0.24;127.0.0.25'
-                STORJ_TEST_COCKROACH = 'cockroach://root@localhost:26256/testcockroach?sslmode=disable;' +
+                STORJ_TEST_COCKROACH = 'cockroach://root@localhost:26256/testcockroach?sslmode=disable|' +
                     'cockroach://root@localhost:26257/testcockroach?sslmode=disable'
-                STORJ_TEST_SPANNER = 'spanner://127.0.0.1:9010?emulator;spanner://127.0.0.1:9011?emulator;spanner://127.0.0.1:9012?emulator'
+                STORJ_TEST_SPANNER = 'spanner://127.0.0.1:9010?emulator|spanner://127.0.0.1:9011?emulator|spanner://127.0.0.1:9012?emulator'
 
                 STORJ_TEST_COCKROACH_NODROP = 'true'
                 STORJ_TEST_POSTGRES = 'omit'

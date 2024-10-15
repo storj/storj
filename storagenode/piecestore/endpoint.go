@@ -412,7 +412,7 @@ func (endpoint *Endpoint) Upload(stream pb.DRPCPiecestore_UploadStream) (err err
 		}
 	}()
 
-	log.Info("upload started", zap.Int64("Available Space", availableSpace))
+	log.Debug("upload started", zap.Int64("Available Space", availableSpace))
 	mon.Counter("upload_started_count").Inc(1)
 
 	pieceWriter, err = endpoint.store.Writer(ctx, limit.SatelliteId, limit.PieceId, hashAlgorithm)
@@ -676,7 +676,7 @@ func (endpoint *Endpoint) Download(stream pb.DRPCPiecestore_DownloadStream) (err
 		zap.Int64("Size", chunk.ChunkSize),
 		zap.String("Remote Address", remoteAddr))
 
-	log.Info("download started")
+	log.Debug("download started")
 
 	mon.Counter("download_started_count", actionSeriesTag).Inc(1)
 

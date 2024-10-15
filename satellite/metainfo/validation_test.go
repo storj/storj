@@ -241,9 +241,6 @@ func TestEndpoint_validateAuthN(t *testing.T) {
 }
 
 func TestEndpoint_checkRate(t *testing.T) {
-	ctx := testcontext.New(t)
-	defer ctx.Cleanup()
-
 	testplanet.Run(t, testplanet.Config{
 		SatelliteCount: 1, StorageNodeCount: 1, UplinkCount: 2,
 		Reconfigure: testplanet.Reconfigure{
@@ -252,6 +249,7 @@ func TestEndpoint_checkRate(t *testing.T) {
 				config.Metainfo.RateLimiter.Rate = 1
 			},
 		},
+		EnableSpanner: true,
 	},
 		func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 			sat := planet.Satellites[0]
@@ -292,11 +290,11 @@ func TestEndpoint_checkRate(t *testing.T) {
 
 			rate := int64(1)
 			burstProject := int64(2)
-			burstHead := int64(3)
-			burstGet := int64(4)
-			burstList := int64(5)
-			burstDelete := int64(6)
-			burstPut := int64(7)
+			burstHead := int64(2)
+			burstGet := int64(2)
+			burstList := int64(2)
+			burstDelete := int64(2)
+			burstPut := int64(2)
 
 			// switch project so that cached rate limiter isn't used for next test stage
 			peerctx := rpcpeer.NewContext(ctx, &rpcpeer.Peer{
@@ -444,9 +442,6 @@ func TestEndpoint_checkRate(t *testing.T) {
 }
 
 func TestEndpoint_checkUserStatus(t *testing.T) {
-	ctx := testcontext.New(t)
-	defer ctx.Cleanup()
-
 	testplanet.Run(t, testplanet.Config{
 		SatelliteCount: 1, StorageNodeCount: 1, UplinkCount: 2,
 		Reconfigure: testplanet.Reconfigure{

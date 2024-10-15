@@ -576,6 +576,59 @@ func (endpoint *Endpoint) GetBucketObjectLockConfiguration(ctx context.Context, 
 	}, nil
 }
 
+// SetBucketObjectLockConfiguration updates a bucket's Object Lock configuration.
+func (endpoint *Endpoint) SetBucketObjectLockConfiguration(ctx context.Context, req *pb.SetBucketObjectLockConfigurationRequest) (resp *pb.SetBucketObjectLockConfigurationResponse, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	endpoint.versionCollector.collect(req.Header.UserAgent, mon.Func().ShortName())
+
+	keyInfo, err := endpoint.validateAuth(ctx, req.Header, macaroon.Action{
+		Op:     macaroon.ActionPutBucketObjectLockConfiguration,
+		Bucket: req.Name,
+		Time:   time.Now(),
+	}, console.RateLimitPut)
+	if err != nil {
+		return nil, err
+	}
+	endpoint.usageTracking(keyInfo, req.Header, fmt.Sprintf("%T", req))
+
+	if !endpoint.config.ObjectLockEnabled {
+		return nil, rpcstatus.Error(rpcstatus.ObjectLockEndpointsDisabled, objectLockDisabledErrMsg)
+	}
+
+	bucket, err := endpoint.buckets.GetBucket(ctx, req.Name, keyInfo.ProjectID)
+	if err != nil {
+		if buckets.ErrBucketNotFound.Has(err) {
+			return nil, rpcstatus.Errorf(rpcstatus.NotFound, "bucket not found: %s", req.Name)
+		}
+		endpoint.log.Error("unable to check bucket", zap.Error(err))
+		return nil, rpcstatus.Error(rpcstatus.Internal, "unable to set bucket's Object Lock configuration")
+	}
+
+	if bucket.Versioning != buckets.VersioningEnabled {
+		return nil, rpcstatus.Errorf(rpcstatus.ObjectLockInvalidBucketState, "cannot specify Object Lock configuration for a bucket without Versioning enabled")
+	}
+
+	updateParams, err := convertProtobufObjectLockConfig(req.Configuration)
+	if err != nil {
+		return nil, err
+	}
+
+	updateParams.ProjectID = keyInfo.ProjectID
+	updateParams.Name = string(req.Name)
+
+	_, err = endpoint.buckets.UpdateBucketObjectLockSettings(ctx, updateParams)
+	if err != nil {
+		if buckets.ErrBucketNotFound.Has(err) {
+			return nil, rpcstatus.Errorf(rpcstatus.NotFound, "bucket not found: %s", req.Name)
+		}
+		endpoint.log.Error("internal", zap.Error(err))
+		return nil, rpcstatus.Error(rpcstatus.Internal, "unable to set bucket's Object Lock configuration")
+	}
+
+	return &pb.SetBucketObjectLockConfigurationResponse{}, nil
+}
+
 func getAllowedBuckets(ctx context.Context, header *pb.RequestHeader, action macaroon.Action) (_ macaroon.AllowedBuckets, err error) {
 	key, err := getAPIKey(ctx, header)
 	if err != nil {

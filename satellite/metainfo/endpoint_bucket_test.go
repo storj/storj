@@ -1018,3 +1018,281 @@ func TestGetBucketObjectLockConfiguration(t *testing.T) {
 		})
 	})
 }
+
+func TestSetBucketObjectLockConfiguration(t *testing.T) {
+	testplanet.Run(t, testplanet.Config{
+		SatelliteCount: 1, UplinkCount: 1, EnableSpanner: true,
+		Reconfigure: testplanet.Reconfigure{
+			Satellite: func(log *zap.Logger, index int, config *satellite.Config) {
+				config.Metainfo.ObjectLockEnabled = true
+				config.Metainfo.UseBucketLevelObjectVersioning = true
+			},
+		},
+	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+		sat := planet.Satellites[0]
+		project := planet.Uplinks[0].Projects[0]
+		endpoint := sat.API.Metainfo.Endpoint
+		bucketsDB := sat.DB.Buckets()
+
+		require.NoError(t, sat.DB.Console().Projects().UpdateDefaultVersioning(ctx, project.ID, console.VersioningEnabled))
+
+		userCtx, err := sat.UserContext(ctx, project.Owner.ID)
+		require.NoError(t, err)
+
+		_, apiKey, err := sat.API.Console.Service.CreateAPIKey(userCtx, project.ID, "test key", macaroon.APIKeyVersionObjectLock)
+		require.NoError(t, err)
+
+		createBucket := func(t *testing.T, name []byte, lockEnabled bool) {
+			_, err := endpoint.CreateBucket(ctx, &pb.BucketCreateRequest{
+				Header: &pb.RequestHeader{
+					ApiKey: apiKey.SerializeRaw(),
+				},
+				Name:              name,
+				ObjectLockEnabled: lockEnabled,
+			})
+			require.NoError(t, err)
+		}
+
+		t.Run("Success", func(t *testing.T) {
+			bucketName := []byte(testrand.BucketName())
+			createBucket(t, bucketName, false)
+
+			resp, err := endpoint.SetBucketObjectLockConfiguration(ctx, &pb.SetBucketObjectLockConfigurationRequest{
+				Header: &pb.RequestHeader{
+					ApiKey: apiKey.SerializeRaw(),
+				},
+				Name: bucketName,
+				Configuration: &pb.ObjectLockConfiguration{
+					Enabled: true,
+				},
+			})
+			require.NoError(t, err)
+			require.NotNil(t, resp)
+
+			enabled, err := bucketsDB.GetBucketObjectLockEnabled(ctx, bucketName, project.ID)
+			require.NoError(t, err)
+			require.True(t, enabled)
+		})
+
+		t.Run("set Object Lock config on unversioned bucket", func(t *testing.T) {
+			bucketName := []byte(testrand.BucketName())
+			createBucket(t, bucketName, false)
+
+			_, err = endpoint.SetBucketVersioning(ctx, &pb.SetBucketVersioningRequest{
+				Header: &pb.RequestHeader{
+					ApiKey: apiKey.SerializeRaw(),
+				},
+				Name:       bucketName,
+				Versioning: false,
+			})
+			require.NoError(t, err)
+
+			_, err = endpoint.SetBucketObjectLockConfiguration(ctx, &pb.SetBucketObjectLockConfigurationRequest{
+				Header: &pb.RequestHeader{
+					ApiKey: apiKey.SerializeRaw(),
+				},
+				Name: bucketName,
+				Configuration: &pb.ObjectLockConfiguration{
+					Enabled: true,
+				},
+			})
+			rpctest.RequireCode(t, err, rpcstatus.ObjectLockInvalidBucketState)
+		})
+
+		t.Run("try disable Object Lock", func(t *testing.T) {
+			bucketName := []byte(testrand.BucketName())
+			createBucket(t, bucketName, true)
+
+			_, err := endpoint.SetBucketObjectLockConfiguration(ctx, &pb.SetBucketObjectLockConfigurationRequest{
+				Header: &pb.RequestHeader{
+					ApiKey: apiKey.SerializeRaw(),
+				},
+				Name: bucketName,
+				Configuration: &pb.ObjectLockConfiguration{
+					Enabled: false,
+				},
+			})
+			rpctest.RequireCode(t, err, rpcstatus.ObjectLockInvalidBucketRetentionConfiguration)
+		})
+
+		t.Run("Object Lock not globally supported", func(t *testing.T) {
+			bucketName := []byte(testrand.BucketName())
+			createBucket(t, bucketName, false)
+
+			endpoint.TestSetObjectLockEnabled(false)
+			defer endpoint.TestSetObjectLockEnabled(true)
+
+			req := &pb.SetBucketObjectLockConfigurationRequest{
+				Header: &pb.RequestHeader{
+					ApiKey: apiKey.SerializeRaw(),
+				},
+				Name: bucketName,
+				Configuration: &pb.ObjectLockConfiguration{
+					Enabled: true,
+				},
+			}
+			_, err := endpoint.SetBucketObjectLockConfiguration(ctx, req)
+			rpctest.RequireCode(t, err, rpcstatus.ObjectLockEndpointsDisabled)
+		})
+
+		t.Run("Nonexistent bucket", func(t *testing.T) {
+			_, err = endpoint.SetBucketObjectLockConfiguration(ctx, &pb.SetBucketObjectLockConfigurationRequest{
+				Header: &pb.RequestHeader{
+					ApiKey: apiKey.SerializeRaw(),
+				},
+				Name: []byte(testrand.BucketName()),
+				Configuration: &pb.ObjectLockConfiguration{
+					Enabled: true,
+				},
+			})
+			rpctest.RequireCode(t, err, rpcstatus.NotFound)
+		})
+
+		t.Run("Unauthorized API key", func(t *testing.T) {
+			bucketName := []byte(testrand.BucketName())
+			createBucket(t, bucketName, true)
+
+			_, oldApiKey, err := sat.API.Console.Service.CreateAPIKey(userCtx, project.ID, "old key", macaroon.APIKeyVersionMin)
+			require.NoError(t, err)
+
+			_, err = endpoint.SetBucketObjectLockConfiguration(ctx, &pb.SetBucketObjectLockConfigurationRequest{
+				Header: &pb.RequestHeader{
+					ApiKey: oldApiKey.SerializeRaw(),
+				},
+				Name: bucketName,
+			})
+			rpctest.RequireCode(t, err, rpcstatus.PermissionDenied)
+
+			bucketName = []byte(testrand.BucketName())
+			createBucket(t, bucketName, true)
+
+			restrictedApiKey, err := apiKey.Restrict(macaroon.Caveat{
+				DisallowPutBucketObjectLockConfiguration: true,
+			})
+			require.NoError(t, err)
+
+			_, err = endpoint.SetBucketObjectLockConfiguration(ctx, &pb.SetBucketObjectLockConfigurationRequest{
+				Header: &pb.RequestHeader{
+					ApiKey: restrictedApiKey.SerializeRaw(),
+				},
+				Name: bucketName,
+			})
+			rpctest.RequireCode(t, err, rpcstatus.PermissionDenied)
+		})
+
+		t.Run("invalid config", func(t *testing.T) {
+			bucketName := []byte(testrand.BucketName())
+			createBucket(t, bucketName, false)
+
+			config := &pb.ObjectLockConfiguration{
+				Enabled: true,
+				DefaultRetention: &pb.DefaultRetention{
+					Mode: pb.Retention_COMPLIANCE,
+				},
+			}
+			request := &pb.SetBucketObjectLockConfigurationRequest{
+				Header: &pb.RequestHeader{
+					ApiKey: apiKey.SerializeRaw(),
+				},
+				Name:          bucketName,
+				Configuration: config,
+			}
+
+			// Mode is set but Duration is missing.
+			_, err = endpoint.SetBucketObjectLockConfiguration(ctx, request)
+			rpctest.RequireCode(t, err, rpcstatus.ObjectLockInvalidBucketRetentionConfiguration)
+
+			// Object Lock cannot be disabled once enabled.
+			config.Enabled = false
+			_, err = endpoint.SetBucketObjectLockConfiguration(ctx, request)
+			rpctest.RequireCode(t, err, rpcstatus.ObjectLockInvalidBucketRetentionConfiguration)
+
+			config.Enabled = true
+
+			// Mode is invalid.
+			config.DefaultRetention.Mode = pb.Retention_INVALID
+			config.DefaultRetention.Duration = &pb.DefaultRetention_Days{
+				Days: 1,
+			}
+			_, err = endpoint.SetBucketObjectLockConfiguration(ctx, request)
+			rpctest.RequireCode(t, err, rpcstatus.ObjectLockInvalidBucketRetentionConfiguration)
+
+			// Duration value is zero (invalid).
+			config.DefaultRetention.Mode = pb.Retention_COMPLIANCE
+			config.DefaultRetention.Duration = &pb.DefaultRetention_Days{
+				Days: 0,
+			}
+			_, err = endpoint.SetBucketObjectLockConfiguration(ctx, request)
+			rpctest.RequireCode(t, err, rpcstatus.ObjectLockInvalidBucketRetentionConfiguration)
+
+			// Duration value is negative (invalid).
+			config.DefaultRetention.Duration = &pb.DefaultRetention_Days{
+				Days: -1,
+			}
+			_, err = endpoint.SetBucketObjectLockConfiguration(ctx, request)
+			rpctest.RequireCode(t, err, rpcstatus.ObjectLockInvalidBucketRetentionConfiguration)
+
+			// Duration with Years set to zero (invalid).
+			config.DefaultRetention.Duration = &pb.DefaultRetention_Years{
+				Years: 0,
+			}
+			_, err = endpoint.SetBucketObjectLockConfiguration(ctx, request)
+			rpctest.RequireCode(t, err, rpcstatus.ObjectLockInvalidBucketRetentionConfiguration)
+
+			// Duration with Years set to negative value (invalid).
+			config.DefaultRetention.Duration = &pb.DefaultRetention_Years{
+				Years: -1,
+			}
+			_, err = endpoint.SetBucketObjectLockConfiguration(ctx, request)
+			rpctest.RequireCode(t, err, rpcstatus.ObjectLockInvalidBucketRetentionConfiguration)
+
+			// Both Days and Years are not set in Duration (invalid).
+			config.DefaultRetention.Duration = nil
+			_, err = endpoint.SetBucketObjectLockConfiguration(ctx, request)
+			rpctest.RequireCode(t, err, rpcstatus.ObjectLockInvalidBucketRetentionConfiguration)
+		})
+
+		t.Run("disable default retention", func(t *testing.T) {
+			bucketName := []byte(testrand.BucketName())
+			createBucket(t, bucketName, false)
+
+			config := &pb.ObjectLockConfiguration{
+				Enabled: true,
+				DefaultRetention: &pb.DefaultRetention{
+					Mode: pb.Retention_COMPLIANCE,
+					Duration: &pb.DefaultRetention_Years{
+						Years: 1,
+					},
+				},
+			}
+			request := &pb.SetBucketObjectLockConfigurationRequest{
+				Header: &pb.RequestHeader{
+					ApiKey: apiKey.SerializeRaw(),
+				},
+				Name:          bucketName,
+				Configuration: config,
+			}
+
+			_, err = endpoint.SetBucketObjectLockConfiguration(ctx, request)
+			require.NoError(t, err)
+
+			bucket, err := bucketsDB.GetBucket(ctx, bucketName, project.ID)
+			require.NoError(t, err)
+			require.True(t, bucket.ObjectLockEnabled)
+			require.Equal(t, storj.ComplianceMode, bucket.DefaultRetentionMode)
+			require.Equal(t, 1, *bucket.DefaultRetentionYears)
+			require.Nil(t, bucket.DefaultRetentionDays)
+
+			config.DefaultRetention = nil
+			_, err = endpoint.SetBucketObjectLockConfiguration(ctx, request)
+			require.NoError(t, err)
+
+			bucket, err = bucketsDB.GetBucket(ctx, bucketName, project.ID)
+			require.NoError(t, err)
+			require.True(t, bucket.ObjectLockEnabled)
+			require.Equal(t, storj.NoRetention, bucket.DefaultRetentionMode)
+			require.Nil(t, bucket.DefaultRetentionYears)
+			require.Nil(t, bucket.DefaultRetentionDays)
+		})
+	})
+}

@@ -240,7 +240,7 @@ obStore.$onAction(({ name, after, args }) => {
     if (name === 'handleDeleteObjectRequest') {
         after(async (_) => {
             const request = args[0];
-            let label = args[1] ?? 'file';
+            let label = args[1] ?? 'object';
             let deletedCount = 0;
             try {
                 deletedCount = await request;

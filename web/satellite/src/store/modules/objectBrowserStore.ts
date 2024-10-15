@@ -320,13 +320,13 @@ export const useObjectBrowserStore = defineStore('objectBrowser', () => {
         });
     }
 
-    async function countVersions(objectKey: string): Promise<string> {
+    async function countVersions(objectKey: string, maxKeys = 500): Promise<string> {
         assertIsInitialized(state);
         const response = await state.s3.send(new ListObjectVersionsCommand({
             Bucket: state.bucket,
             Delimiter: '/',
             Prefix: objectKey,
-            MaxKeys: 500,
+            MaxKeys: maxKeys,
         }));
         const { Versions, DeleteMarkers, CommonPrefixes } = response;
         const allVersions = [...Versions ?? [], ...DeleteMarkers ?? []].filter(isFileVisible);
@@ -1049,52 +1049,77 @@ export const useObjectBrowserStore = defineStore('objectBrowser', () => {
     async function deleteSelected(withVersions = false): Promise<number> {
         addFileToBeDeleted(...state.selectedFiles);
 
+        const promises: Promise<number>[] = [];
+        if (!withVersions) {
+            const files = state.selectedFiles.filter(file => file.type === 'file');
+            const folders = state.selectedFiles.filter(file => file.type === 'folder');
+
+            if (files.length) {
+                promises.push(bulkDeleteObjects(files));
+            }
+            if (folders.length) {
+                promises.push(...folders.map(selectedFile => deleteFolder(state.path, selectedFile)));
+            }
+        } else {
+            promises.push(...state.selectedFiles.map(selectedFile => {
+                if (selectedFile.type === 'file') {
+                    return deleteObjectWithVersions(state.path, selectedFile);
+                } else {
+                    return deleteFolderWithVersions(state.path, selectedFile);
+                }
+            }));
+        }
+
         try {
-            const promises: Promise<number>[] = [];
-            if (!withVersions) {
-                const files = state.selectedFiles.filter(file => file.type === 'file');
-                const folders = state.selectedFiles.filter(file => file.type === 'folder');
-
-                if (files.length) {
-                    promises.push(bulkDeleteObjects(files));
-                }
-                if (folders.length) {
-                    promises.push(...folders.map(selectedFile => deleteFolder(state.path, selectedFile)));
-                }
-            } else {
-                promises.push(...state.selectedFiles.map(selectedFile => {
-                    if (selectedFile.type === 'file') {
-                        return deleteObjectWithVersions(state.path, selectedFile);
-                    } else {
-                        return deleteFolderWithVersions(state.path, selectedFile);
-                    }
-                }));
-            }
-
-            const results = await Promise.allSettled(promises);
-
-            removeFileToBeDeleted(...state.selectedFiles);
-
-            const deletedCount = results.reduce((count, result) => {
-                if (result.status === 'fulfilled') {
-                    return count + result.value;
-                }
-                if (result.status === 'rejected') {
-                    const deleteError = (result as PromiseRejectedResult).reason as ObjectDeleteError;
-                    return count + deleteError.deletedCount || 0;
-                }
-                return count;
-            }, 0);
-            const rejection = results.find(result => result.status === 'rejected');
-            if (rejection) {
-                return Promise.reject(new ObjectDeleteError(deletedCount, (rejection as PromiseRejectedResult).reason.message));
-            }
-            return deletedCount;
+            return await finishDeleteSelected(promises);
         } catch (e) {
             return Promise.reject(e);
         } finally {
             removeFileToBeDeleted(...state.selectedFiles);
         }
+    }
+
+    async function deleteSelectedVersions(): Promise<number> {
+        addFileToBeDeleted(...state.selectedFiles);
+        const promises: Promise<number>[] = [];
+        const files = state.selectedFiles.filter(file => file.type === 'file');
+        const folders = state.selectedFiles.filter(file => file.type === 'folder');
+
+        if (files.length) {
+            promises.push(bulkDeleteObjects(files));
+        }
+        if (folders.length) {
+            promises.push(...folders.map(selectedFile => deleteFolderWithVersions(state.path, selectedFile)));
+        }
+        try {
+            return await finishDeleteSelected(promises);
+        } catch (e) {
+            return Promise.reject(e);
+        } finally {
+            removeFileToBeDeleted(...state.selectedFiles);
+        }
+    }
+
+    async function finishDeleteSelected(promises: Promise<number>[]) {
+        const results = await Promise.allSettled(promises);
+
+        removeFileToBeDeleted(...state.selectedFiles);
+
+        const deletedCount = results.reduce((count, result) => {
+            if (result.status === 'fulfilled') {
+                return count + result.value;
+            }
+            if (result.status === 'rejected') {
+                const deleteError = (result as PromiseRejectedResult).reason as ObjectDeleteError;
+                return count + deleteError.deletedCount || 0;
+            }
+            return count;
+        }, 0);
+        const rejection = results.find(result => result.status === 'rejected');
+        if (rejection) {
+            return Promise.reject(new ObjectDeleteError(deletedCount, (rejection as PromiseRejectedResult).reason.message));
+        }
+        return deletedCount;
     }
 
     /**
@@ -1103,7 +1128,7 @@ export const useObjectBrowserStore = defineStore('objectBrowser', () => {
      * @param _deleteRequest - the promise of the delete request.
      * @param _filesLabel - descriptive label of files deleted (versions/files).
      */
-    function handleDeleteObjectRequest(_deleteRequest: Promise<number>, _filesLabel = 'file'): void {
+    function handleDeleteObjectRequest(_deleteRequest: Promise<number>, _filesLabel = 'object'): void {
         /* empty */
     }
 
@@ -1261,6 +1286,7 @@ export const useObjectBrowserStore = defineStore('objectBrowser', () => {
         deleteFolder,
         deleteFolderWithVersions,
         deleteSelected,
+        deleteSelectedVersions,
         handleDeleteObjectRequest,
         filesDeleted,
         getDownloadLink,

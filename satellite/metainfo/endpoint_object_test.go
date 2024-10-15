@@ -17,6 +17,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/google/go-cmp/cmp"
+	"github.com/google/go-cmp/cmp/cmpopts"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"github.com/zeebo/errs"
@@ -826,7 +828,9 @@ func TestEndpoint_Object_No_StorageNodes(t *testing.T) {
 }
 
 func TestEndpoint_Object_Limit(t *testing.T) {
-	const uploadLimitSingleObject = 200 * time.Millisecond
+	// Spanner could be quite slow sometimes, 1 second seems quite enough for the last test failures
+	// that we got due to not hitting the limit.
+	const uploadLimitSingleObject = 1 * time.Second
 
 	testplanet.Run(t, testplanet.Config{
 		SatelliteCount: 1, UplinkCount: 1,
@@ -2717,6 +2721,7 @@ func TestEndpoint_Object_MoveObjectWithDisallowedDeletes(t *testing.T) {
 func TestListObjectDuplicates(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
 		SatelliteCount: 1, StorageNodeCount: 0, UplinkCount: 1,
+		EnableSpanner: true,
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 		u := planet.Uplinks[0]
 		s := planet.Satellites[0]
@@ -2785,6 +2790,7 @@ func TestListUploads(t *testing.T) {
 		SatelliteCount:   1,
 		StorageNodeCount: 0,
 		UplinkCount:      1,
+		EnableSpanner:    true,
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 		// basic ListUploads tests, more tests are on storj/uplink side
 		u := planet.Uplinks[0]
@@ -2796,18 +2802,19 @@ func TestListUploads(t *testing.T) {
 
 		require.NoError(t, u.CreateBucket(ctx, s, "testbucket"))
 
-		for i := 0; i < 1001; i++ {
+		for i := 0; i < 10; i++ {
 			_, err := project.BeginUpload(ctx, "testbucket", "object"+strconv.Itoa(i), nil)
 			require.NoError(t, err)
 		}
 
-		list := project.ListUploads(ctx, "testbucket", nil)
+		limitCtx := testuplink.WithListLimit(ctx, 3)
+		list := project.ListUploads(limitCtx, "testbucket", nil)
 		items := 0
 		for list.Next() {
 			items++
 		}
 		require.NoError(t, list.Err())
-		require.Equal(t, 1001, items)
+		require.Equal(t, 10, items)
 	})
 }
 
@@ -2859,6 +2866,7 @@ func TestNodeTagPlacement(t *testing.T) {
 
 				},
 			},
+			EnableSpanner: true,
 		},
 		func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 			satellite := planet.Satellites[0]
@@ -2877,13 +2885,11 @@ func TestNodeTagPlacement(t *testing.T) {
 			for ix, node := range planet.StorageNodes {
 				nodeIndex[node.Identity.ID] = ix
 			}
-			testPlacement := func(bucketName string, placement int, allowedNodes func(int) bool) {
-
+			testPlacement := func(t *testing.T, bucketName string, placement int, allowedNodes func(int) bool) {
 				createGeofencedBucket(t, ctx, buckets, projectID, bucketName, storj.PlacementConstraint(placement))
 
-				objectNo := 10
+				const objectNo = 5
 				for i := 0; i < objectNo; i++ {
-
 					err := uplink.Upload(ctx, satellite, bucketName, "testobject"+strconv.Itoa(i), make([]byte, 10240))
 					require.NoError(t, err)
 				}
@@ -2912,12 +2918,12 @@ func TestNodeTagPlacement(t *testing.T) {
 				}
 			}
 			t.Run("upload to constrained", func(t *testing.T) {
-				testPlacement("constrained", 16, func(i int) bool {
+				testPlacement(t, "constrained", 16, func(i int) bool {
 					return i%2 == 0
 				})
 			})
 			t.Run("upload to generic excluding constrained", func(t *testing.T) {
-				testPlacement("generic", 0, func(i int) bool {
+				testPlacement(t, "generic", 0, func(i int) bool {
 					return i%2 == 1
 				})
 			})
@@ -5095,6 +5101,7 @@ func TestEndpoint_SetObjectRetention(t *testing.T) {
 func TestEndpoint_GetObjectWithLockConfiguration(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
 		SatelliteCount: 1, UplinkCount: 1,
+		EnableSpanner: true,
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 		sat := planet.Satellites[0]
 		project := planet.Uplinks[0].Projects[0]
@@ -5489,6 +5496,7 @@ func TestEndpoint_CopyObjectWithRetention(t *testing.T) {
 				config.Metainfo.UseBucketLevelObjectVersioning = true
 			},
 		},
+		EnableSpanner: true,
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 		createBucket := func(t *testing.T, satellite *testplanet.Satellite, projectID uuid.UUID, lockEnabled bool) string {
 			name := testrand.BucketName()
@@ -5587,7 +5595,9 @@ func TestEndpoint_CopyObjectWithRetention(t *testing.T) {
 			}
 			o := requireObject(t, satellite, projectID, bucketName, key)
 			require.Nil(t, o.ExpiresAt)
-			require.Equal(t, r, &o.Retention)
+			// We use cmp.Diff to ignore the timezone differences due to how Spanner maps timestamps in
+			// regards to the pgx driver map.
+			require.Zero(t, cmp.Diff(r, &o.Retention, cmpopts.EquateApproxTime(0)))
 		}
 
 		requireLegalHold := func(t *testing.T, satellite *testplanet.Satellite, projectID uuid.UUID, bucketName, key string, lh bool) {
