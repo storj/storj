@@ -51,7 +51,7 @@ require (
 	github.com/zeebo/assert v1.3.1
 	github.com/zeebo/blake3 v0.2.3
 	github.com/zeebo/clingy v0.0.0-20230602044025-906be850f10d
-	github.com/zeebo/errs v1.3.0
+	github.com/zeebo/errs v1.4.0
 	github.com/zeebo/errs/v2 v2.0.5
 	github.com/zeebo/ini v0.0.0-20210514163846-cc8fbd8d9599
 	github.com/zeebo/structs v1.0.3-0.20230601144555-f2db46069602

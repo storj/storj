@@ -1381,8 +1381,9 @@ github.com/zeebo/blake3 v0.2.3/go.mod h1:mjJjZpnsyIVtVgTOSpJ9vmRE4wgDeyt2HU3qXvv
 github.com/zeebo/clingy v0.0.0-20230602044025-906be850f10d h1:INuKdI3R6zDA8UEgbBxDFkb7qwO/nSvnJRdrBCMW+To=
 github.com/zeebo/clingy v0.0.0-20230602044025-906be850f10d/go.mod h1:MHEhXvEfewflU7SSVKHI7nkdU+fpyxZ5XPPzj+5gYNw=
 github.com/zeebo/errs v1.2.2/go.mod h1:sgbWHsvVuTPHcqJJGQ1WhI5KbWlHYz+2+2C/LSEtCw4=
-github.com/zeebo/errs v1.3.0 h1:hmiaKqgYZzcVgRL1Vkc1Mn2914BbzB0IBxs+ebeutGs=
 github.com/zeebo/errs v1.3.0/go.mod h1:sgbWHsvVuTPHcqJJGQ1WhI5KbWlHYz+2+2C/LSEtCw4=
+github.com/zeebo/errs v1.4.0 h1:XNdoD/RRMKP7HD0UhJnIzUy74ISdGGxURlYG8HSWSfM=
+github.com/zeebo/errs v1.4.0/go.mod h1:sgbWHsvVuTPHcqJJGQ1WhI5KbWlHYz+2+2C/LSEtCw4=
 github.com/zeebo/errs/v2 v2.0.0-20190904185908-02a9c27c76d3/go.mod h1:fvmDaQMjuDf2XzU4BUN/jtYPLThCp0ogVyj/Hsmoaj0=
 github.com/zeebo/errs/v2 v2.0.3/go.mod h1:OKmvVZt4UqpyJrYFykDKm168ZquJ55pbbIVUICNmLN0=
 github.com/zeebo/errs/v2 v2.0.5 h1:edtyFoQq9OBBsNPcu0b0wHtRvA8haukAHrGyOfWQGNI=

@@ -4215,7 +4215,7 @@ func (s *Service) GetBucketMetadata(ctx context.Context, projectID uuid.UUID) (l
 				DefaultPlacement: bucket.Placement,
 				Location:         s.placements[bucket.Placement].Name,
 			},
-			ObjectLockEnabled: bucket.ObjectLockEnabled,
+			ObjectLockEnabled: bucket.ObjectLock.Enabled,
 		})
 	}
 

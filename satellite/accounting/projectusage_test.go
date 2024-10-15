@@ -868,12 +868,35 @@ func TestUsageRollups(t *testing.T) {
 			})
 			require.NoError(t, err)
 
+			setObjectLockConfigReq := &pb.SetBucketObjectLockConfigurationRequest{
+				Header: &pb.RequestHeader{
+					ApiKey: key.SerializeRaw(),
+				},
+				Name: []byte(lockedBucket),
+				Configuration: &pb.ObjectLockConfiguration{
+					Enabled: true,
+					DefaultRetention: &pb.DefaultRetention{
+						Mode: pb.Retention_Mode(storj.ComplianceMode),
+						Duration: &pb.DefaultRetention_Days{
+							Days: 1,
+						},
+					},
+				},
+			}
+
+			_, err = sat.API.Metainfo.Endpoint.SetBucketObjectLockConfiguration(ctx, setObjectLockConfigReq)
+			require.NoError(t, err)
+
 			cursor.Search = lockedBucket
 			totals, err = usageRollups.GetBucketTotals(ctx, project1, cursor, now)
 			require.NoError(t, err)
 			require.NotNil(t, totals)
 			require.Len(t, totals.BucketUsages, 1)
 			require.True(t, totals.BucketUsages[0].ObjectLockEnabled)
+			require.Equal(t, storj.ComplianceMode, totals.BucketUsages[0].DefaultRetentionMode)
+			require.Nil(t, totals.BucketUsages[0].DefaultRetentionYears)
+			require.NotNil(t, totals.BucketUsages[0].DefaultRetentionDays)
+			require.Equal(t, 1, *totals.BucketUsages[0].DefaultRetentionDays)
 
 			_, err = client.DeleteBucket(ctx, metaclient.DeleteBucketParams{
 				Name: []byte(lockedBucket),

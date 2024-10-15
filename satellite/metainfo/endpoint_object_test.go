@@ -3328,10 +3328,12 @@ func TestEndpoint_UploadObjectWithRetentionLegalHold(t *testing.T) {
 
 		createBucket := func(t *testing.T, name string, lockEnabled bool) {
 			_, err := sat.DB.Buckets().CreateBucket(ctx, buckets.Bucket{
-				Name:              name,
-				ProjectID:         project.ID,
-				Versioning:        buckets.VersioningEnabled,
-				ObjectLockEnabled: lockEnabled,
+				Name:       name,
+				ProjectID:  project.ID,
+				Versioning: buckets.VersioningEnabled,
+				ObjectLock: buckets.ObjectLockSettings{
+					Enabled: lockEnabled,
+				},
 			})
 			require.NoError(t, err)
 		}
@@ -3724,6 +3726,174 @@ func TestEndpoint_UploadObjectWithRetentionLegalHold(t *testing.T) {
 	})
 }
 
+func TestEndpoint_UploadObjectWithDefaultRetention(t *testing.T) {
+	testplanet.Run(t, testplanet.Config{
+		SatelliteCount: 1, UplinkCount: 1,
+		Reconfigure: testplanet.Reconfigure{
+			Satellite: func(log *zap.Logger, index int, config *satellite.Config) {
+				config.Metainfo.ObjectLockEnabled = true
+				config.Metainfo.UseBucketLevelObjectVersioning = true
+			},
+		},
+	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+		sat := planet.Satellites[0]
+		project := planet.Uplinks[0].Projects[0]
+		endpoint := sat.Metainfo.Endpoint
+		db := sat.Metabase.DB
+		bucketsDB := sat.API.Buckets.Service
+
+		userCtx, err := sat.UserContext(ctx, project.Owner.ID)
+		require.NoError(t, err)
+
+		_, apiKey, err := sat.API.Console.Service.CreateAPIKey(userCtx, project.ID, "test key", macaroon.APIKeyVersionObjectLock)
+		require.NoError(t, err)
+
+		t.Run("Use default retention", func(t *testing.T) {
+			test := func(t *testing.T, mode storj.RetentionMode, days, years int) {
+				bucketName := testrand.BucketName()
+				_, err = bucketsDB.CreateBucket(ctx, buckets.Bucket{
+					Name:       bucketName,
+					ProjectID:  project.ID,
+					Versioning: buckets.VersioningEnabled,
+					ObjectLock: buckets.ObjectLockSettings{
+						Enabled:               true,
+						DefaultRetentionMode:  mode,
+						DefaultRetentionDays:  days,
+						DefaultRetentionYears: years,
+					},
+				})
+				require.NoError(t, err)
+
+				objectKey := testrand.Path()
+				now := time.Now()
+				beginResp, err := endpoint.BeginObject(ctx, &pb.BeginObjectRequest{
+					Header:             &pb.RequestHeader{ApiKey: apiKey.SerializeRaw()},
+					Bucket:             []byte(bucketName),
+					EncryptedObjectKey: []byte(objectKey),
+					EncryptionParameters: &pb.EncryptionParameters{
+						CipherSuite: pb.CipherSuite_ENC_AESGCM,
+						BlockSize:   256,
+					},
+				})
+				require.NoError(t, err)
+
+				_, err = endpoint.CommitObject(ctx, &pb.CommitObjectRequest{
+					Header:   &pb.RequestHeader{ApiKey: apiKey.SerializeRaw()},
+					StreamId: beginResp.StreamId,
+				})
+				require.NoError(t, err)
+
+				retention, err := db.GetObjectLastCommittedRetention(ctx, metabase.GetObjectLastCommittedRetention{
+					ObjectLocation: metabase.ObjectLocation{
+						ProjectID:  project.ID,
+						BucketName: metabase.BucketName(bucketName),
+						ObjectKey:  metabase.ObjectKey(objectKey),
+					},
+				})
+				require.NoError(t, err)
+				require.Equal(t, mode, retention.Mode)
+				require.WithinDuration(t, now.AddDate(years, 0, days), retention.RetainUntil, time.Second)
+			}
+
+			t.Run("Days, Compliance mode", func(t *testing.T) {
+				test(t, storj.ComplianceMode, 3, 0)
+			})
+
+			t.Run("Years, Governance mode", func(t *testing.T) {
+				test(t, storj.GovernanceMode, 0, 5)
+			})
+		})
+
+		t.Run("Override default retention", func(t *testing.T) {
+			bucketName := testrand.BucketName()
+			_, err = bucketsDB.CreateBucket(ctx, buckets.Bucket{
+				Name:       bucketName,
+				ProjectID:  project.ID,
+				Versioning: buckets.VersioningEnabled,
+				ObjectLock: buckets.ObjectLockSettings{
+					Enabled:              true,
+					DefaultRetentionMode: storj.ComplianceMode,
+					DefaultRetentionDays: 7,
+				},
+			})
+			require.NoError(t, err)
+
+			objectKey := testrand.Path()
+			expectedRetainUntil := time.Now().Add(time.Minute)
+			beginResp, err := endpoint.BeginObject(ctx, &pb.BeginObjectRequest{
+				Header:             &pb.RequestHeader{ApiKey: apiKey.SerializeRaw()},
+				Bucket:             []byte(bucketName),
+				EncryptedObjectKey: []byte(objectKey),
+				EncryptionParameters: &pb.EncryptionParameters{
+					CipherSuite: pb.CipherSuite_ENC_AESGCM,
+					BlockSize:   256,
+				},
+				Retention: &pb.Retention{
+					Mode:        pb.Retention_Mode(storj.GovernanceMode),
+					RetainUntil: expectedRetainUntil,
+				},
+			})
+			require.NoError(t, err)
+
+			_, err = endpoint.CommitObject(ctx, &pb.CommitObjectRequest{
+				Header:   &pb.RequestHeader{ApiKey: apiKey.SerializeRaw()},
+				StreamId: beginResp.StreamId,
+			})
+			require.NoError(t, err)
+
+			retention, err := db.GetObjectLastCommittedRetention(ctx, metabase.GetObjectLastCommittedRetention{
+				ObjectLocation: metabase.ObjectLocation{
+					ProjectID:  project.ID,
+					BucketName: metabase.BucketName(bucketName),
+					ObjectKey:  metabase.ObjectKey(objectKey),
+				},
+			})
+			require.NoError(t, err)
+			require.Equal(t, storj.GovernanceMode, retention.Mode)
+			require.WithinDuration(t, expectedRetainUntil, retention.RetainUntil, time.Microsecond)
+		})
+
+		t.Run("TTL is disallowed", func(t *testing.T) {
+			bucketName := testrand.BucketName()
+			_, err = bucketsDB.CreateBucket(ctx, buckets.Bucket{
+				Name:       bucketName,
+				ProjectID:  project.ID,
+				Versioning: buckets.VersioningEnabled,
+				ObjectLock: buckets.ObjectLockSettings{
+					Enabled:              true,
+					DefaultRetentionMode: storj.ComplianceMode,
+					DefaultRetentionDays: 7,
+				},
+			})
+			require.NoError(t, err)
+
+			objectKey := testrand.Path()
+			ttl := time.Hour
+			req := &pb.BeginObjectRequest{
+				Header:             &pb.RequestHeader{ApiKey: apiKey.SerializeRaw()},
+				Bucket:             []byte(bucketName),
+				EncryptedObjectKey: []byte(objectKey),
+				EncryptionParameters: &pb.EncryptionParameters{
+					CipherSuite: pb.CipherSuite_ENC_AESGCM,
+					BlockSize:   256,
+				},
+				ExpiresAt: time.Now().Add(ttl),
+			}
+
+			_, err = endpoint.BeginObject(ctx, req)
+			rpctest.RequireCode(t, err, rpcstatus.ObjectLockUploadWithTTLAndDefaultRetention)
+
+			ttlApiKey, err := apiKey.Restrict(macaroon.Caveat{MaxObjectTtl: &ttl})
+			require.NoError(t, err)
+			req.Header.ApiKey = ttlApiKey.SerializeRaw()
+			req.ExpiresAt = time.Time{}
+
+			_, err = endpoint.BeginObject(ctx, req)
+			rpctest.RequireCode(t, err, rpcstatus.ObjectLockUploadWithTTLAPIKeyAndDefaultRetention)
+		})
+	})
+}
+
 func TestEndpoint_GetObjectLegalHold(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
 		SatelliteCount: 1, UplinkCount: 1,
@@ -3763,10 +3933,12 @@ func TestEndpoint_GetObjectLegalHold(t *testing.T) {
 		createBucket := func(t *testing.T, lockEnabled bool) string {
 			name := testrand.BucketName()
 			_, err := sat.DB.Buckets().CreateBucket(ctx, buckets.Bucket{
-				Name:              name,
-				ProjectID:         project.ID,
-				Versioning:        buckets.VersioningEnabled,
-				ObjectLockEnabled: lockEnabled,
+				Name:       name,
+				ProjectID:  project.ID,
+				Versioning: buckets.VersioningEnabled,
+				ObjectLock: buckets.ObjectLockSettings{
+					Enabled: lockEnabled,
+				},
 			})
 			require.NoError(t, err)
 			return name
@@ -4040,10 +4212,12 @@ func TestEndpoint_SetObjectLegalHold(t *testing.T) {
 		createBucket := func(t *testing.T, lockEnabled bool) string {
 			name := testrand.BucketName()
 			_, err := sat.DB.Buckets().CreateBucket(ctx, buckets.Bucket{
-				Name:              name,
-				ProjectID:         project.ID,
-				Versioning:        buckets.VersioningEnabled,
-				ObjectLockEnabled: lockEnabled,
+				Name:       name,
+				ProjectID:  project.ID,
+				Versioning: buckets.VersioningEnabled,
+				ObjectLock: buckets.ObjectLockSettings{
+					Enabled: lockEnabled,
+				},
 			})
 			require.NoError(t, err)
 			return name
@@ -4318,10 +4492,12 @@ func TestEndpoint_GetObjectRetention(t *testing.T) {
 		createBucket := func(t *testing.T, lockEnabled bool) string {
 			name := testrand.BucketName()
 			_, err := sat.DB.Buckets().CreateBucket(ctx, buckets.Bucket{
-				Name:              name,
-				ProjectID:         project.ID,
-				Versioning:        buckets.VersioningEnabled,
-				ObjectLockEnabled: lockEnabled,
+				Name:       name,
+				ProjectID:  project.ID,
+				Versioning: buckets.VersioningEnabled,
+				ObjectLock: buckets.ObjectLockSettings{
+					Enabled: lockEnabled,
+				},
 			})
 			require.NoError(t, err)
 			return name
@@ -4643,10 +4819,12 @@ func TestEndpoint_SetObjectRetention(t *testing.T) {
 		createBucket := func(t *testing.T, lockEnabled bool) string {
 			name := testrand.BucketName()
 			_, err := sat.DB.Buckets().CreateBucket(ctx, buckets.Bucket{
-				Name:              name,
-				ProjectID:         project.ID,
-				Versioning:        buckets.VersioningEnabled,
-				ObjectLockEnabled: lockEnabled,
+				Name:       name,
+				ProjectID:  project.ID,
+				Versioning: buckets.VersioningEnabled,
+				ObjectLock: buckets.ObjectLockSettings{
+					Enabled: lockEnabled,
+				},
 			})
 			require.NoError(t, err)
 			return name
@@ -5286,10 +5464,12 @@ func TestEndpoint_DeleteLockedObject(t *testing.T) {
 
 		createBucket := func(t *testing.T, name string, lockEnabled bool) {
 			_, err := sat.DB.Buckets().CreateBucket(ctx, buckets.Bucket{
-				Name:              name,
-				ProjectID:         project.ID,
-				Versioning:        buckets.VersioningEnabled,
-				ObjectLockEnabled: lockEnabled,
+				Name:       name,
+				ProjectID:  project.ID,
+				Versioning: buckets.VersioningEnabled,
+				ObjectLock: buckets.ObjectLockSettings{
+					Enabled: lockEnabled,
+				},
 			})
 			require.NoError(t, err)
 		}
@@ -5502,10 +5682,12 @@ func TestEndpoint_CopyObjectWithRetention(t *testing.T) {
 			name := testrand.BucketName()
 
 			_, err := satellite.DB.Buckets().CreateBucket(ctx, buckets.Bucket{
-				Name:              name,
-				ProjectID:         projectID,
-				Versioning:        buckets.VersioningEnabled,
-				ObjectLockEnabled: lockEnabled,
+				Name:       name,
+				ProjectID:  projectID,
+				Versioning: buckets.VersioningEnabled,
+				ObjectLock: buckets.ObjectLockSettings{
+					Enabled: lockEnabled,
+				},
 			})
 			require.NoError(t, err)
 
@@ -5849,10 +6031,12 @@ func TestEndpoint_MoveObjectWithRetention(t *testing.T) {
 			name := testrand.BucketName()
 
 			_, err := satellite.DB.Buckets().CreateBucket(ctx, buckets.Bucket{
-				Name:              name,
-				ProjectID:         projectID,
-				Versioning:        buckets.VersioningEnabled,
-				ObjectLockEnabled: lockEnabled,
+				Name:       name,
+				ProjectID:  projectID,
+				Versioning: buckets.VersioningEnabled,
+				ObjectLock: buckets.ObjectLockSettings{
+					Enabled: lockEnabled,
+				},
 			})
 			require.NoError(t, err)
 

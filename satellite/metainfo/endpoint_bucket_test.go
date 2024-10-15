@@ -11,7 +11,6 @@ import (
 	"time"
 
 	"github.com/stretchr/testify/require"
-	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 
 	"storj.io/common/errs2"
@@ -50,14 +49,14 @@ func TestBucketExistenceCheck(t *testing.T) {
 		})
 		require.Error(t, err)
 		require.True(t, errs2.IsRPC(err, rpcstatus.NotFound))
-		require.Equal(t, buckets.ErrBucketNotFound.New("%s", "non-existing-bucket").Error(), errs.Unwrap(err).Error())
+		require.Equal(t, buckets.ErrBucketNotFound.New("%s", "non-existing-bucket").Error(), errors.Unwrap(err).Error())
 
 		_, _, err = metainfoClient.ListObjects(ctx, metaclient.ListObjectsParams{
 			Bucket: []byte("non-existing-bucket"),
 		})
 		require.Error(t, err)
 		require.True(t, errs2.IsRPC(err, rpcstatus.NotFound))
-		require.Equal(t, buckets.ErrBucketNotFound.New("%s", "non-existing-bucket").Error(), errs.Unwrap(err).Error())
+		require.Equal(t, buckets.ErrBucketNotFound.New("%s", "non-existing-bucket").Error(), errors.Unwrap(err).Error())
 	})
 }
 
@@ -250,9 +249,11 @@ func TestDeleteBucket(t *testing.T) {
 		t.Run("Delete bucket with Object Lock enabled as owner", func(t *testing.T) {
 			bucketName := metabase.BucketName(testrand.BucketName())
 			_, err := sat.DB.Buckets().CreateBucket(ctx, buckets.Bucket{
-				ProjectID:         project.ID,
-				Name:              bucketName.String(),
-				ObjectLockEnabled: true,
+				ProjectID: project.ID,
+				Name:      bucketName.String(),
+				ObjectLock: buckets.ObjectLockSettings{
+					Enabled: true,
+				},
 			})
 			require.NoError(t, err)
 
@@ -645,10 +646,12 @@ func TestEnableSuspendBucketVersioning(t *testing.T) {
 			t.Run(tt.name, func(t *testing.T) {
 				defer ctx.Check(deleteBucket)
 				bucket, err := satellite.API.DB.Buckets().CreateBucket(ctx, buckets.Bucket{
-					ProjectID:         projectID,
-					Name:              bucketName,
-					Versioning:        tt.initialVersioningState,
-					ObjectLockEnabled: tt.objectLockEnabled,
+					ProjectID:  projectID,
+					Name:       bucketName,
+					Versioning: tt.initialVersioningState,
+					ObjectLock: buckets.ObjectLockSettings{
+						Enabled: tt.objectLockEnabled,
+					},
 				})
 				require.NoError(t, err)
 				require.NotNil(t, bucket)
@@ -934,6 +937,22 @@ func TestGetBucketObjectLockConfiguration(t *testing.T) {
 			bucketName := []byte(testrand.BucketName())
 			createBucket(t, bucketName, true)
 
+			duration := pb.DefaultRetention_Years{Years: 5}
+			_, err = endpoint.SetBucketObjectLockConfiguration(ctx, &pb.SetBucketObjectLockConfigurationRequest{
+				Header: &pb.RequestHeader{
+					ApiKey: apiKey.SerializeRaw(),
+				},
+				Name: bucketName,
+				Configuration: &pb.ObjectLockConfiguration{
+					Enabled: true,
+					DefaultRetention: &pb.DefaultRetention{
+						Mode:     pb.Retention_GOVERNANCE,
+						Duration: &duration,
+					},
+				},
+			})
+			require.NoError(t, err)
+
 			resp, err := endpoint.GetBucketObjectLockConfiguration(ctx, &pb.GetBucketObjectLockConfigurationRequest{
 				Header: &pb.RequestHeader{
 					ApiKey: apiKey.SerializeRaw(),
@@ -942,6 +961,8 @@ func TestGetBucketObjectLockConfiguration(t *testing.T) {
 			})
 			require.NoError(t, err)
 			require.True(t, resp.Configuration.Enabled)
+			require.Equal(t, pb.Retention_GOVERNANCE, resp.Configuration.DefaultRetention.Mode)
+			require.Equal(t, &duration, resp.Configuration.DefaultRetention.Duration)
 		})
 
 		t.Run("Object Lock disabled", func(t *testing.T) {
@@ -1003,8 +1024,8 @@ func TestGetBucketObjectLockConfiguration(t *testing.T) {
 			createBucket(t, bucketName, true)
 
 			restrictedApiKey, err := apiKey.Restrict(macaroon.Caveat{
-				DisallowGetRetention: true,
-				DisallowPutRetention: true, // GetRetention is implicitly allowed if PutRetention is allowed
+				DisallowGetBucketObjectLockConfiguration: true,
+				DisallowPutBucketObjectLockConfiguration: true,
 			})
 			require.NoError(t, err)
 
@@ -1278,10 +1299,12 @@ func TestSetBucketObjectLockConfiguration(t *testing.T) {
 
 			bucket, err := bucketsDB.GetBucket(ctx, bucketName, project.ID)
 			require.NoError(t, err)
-			require.True(t, bucket.ObjectLockEnabled)
-			require.Equal(t, storj.ComplianceMode, bucket.DefaultRetentionMode)
-			require.Equal(t, 1, *bucket.DefaultRetentionYears)
-			require.Nil(t, bucket.DefaultRetentionDays)
+			require.Equal(t, buckets.ObjectLockSettings{
+				Enabled:               true,
+				DefaultRetentionMode:  storj.ComplianceMode,
+				DefaultRetentionDays:  0,
+				DefaultRetentionYears: 1,
+			}, bucket.ObjectLock)
 
 			config.DefaultRetention = nil
 			_, err = endpoint.SetBucketObjectLockConfiguration(ctx, request)
@@ -1289,10 +1312,9 @@ func TestSetBucketObjectLockConfiguration(t *testing.T) {
 
 			bucket, err = bucketsDB.GetBucket(ctx, bucketName, project.ID)
 			require.NoError(t, err)
-			require.True(t, bucket.ObjectLockEnabled)
-			require.Equal(t, storj.NoRetention, bucket.DefaultRetentionMode)
-			require.Nil(t, bucket.DefaultRetentionYears)
-			require.Nil(t, bucket.DefaultRetentionDays)
+			require.Equal(t, buckets.ObjectLockSettings{
+				Enabled: true,
+			}, bucket.ObjectLock)
 		})
 	})
 }

@@ -8,7 +8,7 @@ require (
 	github.com/spacemonkeygo/monkit/v3 v3.0.23
 	github.com/spf13/pflag v1.0.5
 	github.com/stretchr/testify v1.9.0
-	github.com/zeebo/errs v1.3.0
+	github.com/zeebo/errs v1.4.0
 	go.uber.org/zap v1.27.0
 	storj.io/common v0.0.0-20241009135541-b559b2ac673b
 	storj.io/edge v1.79.1-0.20240529152256-bcccced4faab

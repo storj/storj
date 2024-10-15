@@ -26,7 +26,7 @@ func (db *bucketsDB) CreateBucket(ctx context.Context, bucket buckets.Bucket) (_
 
 	optionalFields := dbx.BucketMetainfo_Create_Fields{
 		Placement:         dbx.BucketMetainfo_Placement(int(bucket.Placement)),
-		ObjectLockEnabled: dbx.BucketMetainfo_ObjectLockEnabled(bucket.ObjectLockEnabled),
+		ObjectLockEnabled: dbx.BucketMetainfo_ObjectLockEnabled(bucket.ObjectLock.Enabled),
 	}
 	if bucket.UserAgent != nil {
 		optionalFields.UserAgent = dbx.BucketMetainfo_UserAgent(bucket.UserAgent)
@@ -36,6 +36,36 @@ func (db *bucketsDB) CreateBucket(ctx context.Context, bucket buckets.Bucket) (_
 	}
 	if !bucket.CreatedBy.IsZero() {
 		optionalFields.CreatedBy = dbx.BucketMetainfo_CreatedBy(bucket.CreatedBy[:])
+	}
+
+	if bucket.ObjectLock.DefaultRetentionMode != storj.NoRetention {
+		if !bucket.ObjectLock.Enabled {
+			return buckets.Bucket{}, buckets.ErrBucket.New("default retention mode must not be set if Object Lock is not enabled")
+		}
+		if bucket.ObjectLock.DefaultRetentionDays == 0 && bucket.ObjectLock.DefaultRetentionYears == 0 {
+			return buckets.Bucket{}, buckets.ErrBucket.New("default retention mode must not be set without a default retention duration")
+		}
+		if bucket.ObjectLock.DefaultRetentionDays != 0 && bucket.ObjectLock.DefaultRetentionYears != 0 {
+			return buckets.Bucket{}, buckets.ErrBucket.New("default retention days and years must not be set simultaneously")
+		}
+
+		optionalFields.DefaultRetentionMode = dbx.BucketMetainfo_DefaultRetentionMode(int(bucket.ObjectLock.DefaultRetentionMode))
+
+		if bucket.ObjectLock.DefaultRetentionDays != 0 {
+			if bucket.ObjectLock.DefaultRetentionDays < 0 {
+				return buckets.Bucket{}, buckets.ErrBucket.New("default retention days must be positive")
+			}
+			optionalFields.DefaultRetentionDays = dbx.BucketMetainfo_DefaultRetentionDays(bucket.ObjectLock.DefaultRetentionDays)
+		}
+
+		if bucket.ObjectLock.DefaultRetentionYears != 0 {
+			if bucket.ObjectLock.DefaultRetentionYears < 0 {
+				return buckets.Bucket{}, buckets.ErrBucket.New("default retention years must be positive")
+			}
+			optionalFields.DefaultRetentionYears = dbx.BucketMetainfo_DefaultRetentionYears(bucket.ObjectLock.DefaultRetentionYears)
+		}
+	} else if bucket.ObjectLock.DefaultRetentionDays != 0 || bucket.ObjectLock.DefaultRetentionYears != 0 {
+		return buckets.Bucket{}, buckets.ErrBucket.New("default retention duration must not be set without a default retention mode")
 	}
 
 	row, err := db.db.Create_BucketMetainfo(ctx,
@@ -340,6 +370,37 @@ func (db *bucketsDB) UpdateBucketObjectLockSettings(ctx context.Context, params 
 	return convertDBXtoBucket(dbxBucket)
 }
 
+// GetBucketObjectLockSettings returns a bucket's object lock settings.
+func (db *bucketsDB) GetBucketObjectLockSettings(ctx context.Context, bucketName []byte, projectID uuid.UUID) (settings *buckets.ObjectLockSettings, err error) {
+	defer mon.Task()(&ctx)(&err)
+	dbxSettings, err := db.db.Get_BucketMetainfo_ObjectLockEnabled_BucketMetainfo_DefaultRetentionMode_BucketMetainfo_DefaultRetentionDays_BucketMetainfo_DefaultRetentionYears_By_ProjectId_And_Name(ctx,
+		dbx.BucketMetainfo_ProjectId(projectID[:]),
+		dbx.BucketMetainfo_Name(bucketName),
+	)
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return nil, buckets.ErrBucketNotFound.New("%s", bucketName)
+		}
+		return nil, buckets.ErrBucket.Wrap(err)
+	}
+
+	settings = &buckets.ObjectLockSettings{
+		Enabled: dbxSettings.ObjectLockEnabled,
+	}
+
+	if dbxSettings.DefaultRetentionMode != nil {
+		settings.DefaultRetentionMode = storj.RetentionMode(*dbxSettings.DefaultRetentionMode)
+	}
+	if dbxSettings.DefaultRetentionDays != nil {
+		settings.DefaultRetentionDays = *dbxSettings.DefaultRetentionDays
+	}
+	if dbxSettings.DefaultRetentionYears != nil {
+		settings.DefaultRetentionYears = *dbxSettings.DefaultRetentionYears
+	}
+
+	return settings, nil
+}
+
 // UpdateUserAgent updates buckets user agent.
 func (db *bucketsDB) UpdateUserAgent(ctx context.Context, projectID uuid.UUID, bucketName string, userAgent []byte) (err error) {
 	defer mon.Task()(&ctx)(&err)
@@ -494,10 +555,10 @@ func convertDBXtoBucket(dbxBucket *dbx.BucketMetainfo) (bucket buckets.Bucket, e
 			CipherSuite: storj.CipherSuite(dbxBucket.DefaultEncryptionCipherSuite),
 			BlockSize:   int32(dbxBucket.DefaultEncryptionBlockSize),
 		},
-		Versioning:            buckets.Versioning(dbxBucket.Versioning),
-		ObjectLockEnabled:     dbxBucket.ObjectLockEnabled,
-		DefaultRetentionDays:  dbxBucket.DefaultRetentionDays,
-		DefaultRetentionYears: dbxBucket.DefaultRetentionYears,
+		Versioning: buckets.Versioning(dbxBucket.Versioning),
+		ObjectLock: buckets.ObjectLockSettings{
+			Enabled: dbxBucket.ObjectLockEnabled,
+		},
 	}
 
 	if dbxBucket.Placement != nil {
@@ -509,7 +570,13 @@ func convertDBXtoBucket(dbxBucket *dbx.BucketMetainfo) (bucket buckets.Bucket, e
 	}
 
 	if dbxBucket.DefaultRetentionMode != nil {
-		bucket.DefaultRetentionMode = storj.RetentionMode(*dbxBucket.DefaultRetentionMode)
+		bucket.ObjectLock.DefaultRetentionMode = storj.RetentionMode(*dbxBucket.DefaultRetentionMode)
+	}
+	if dbxBucket.DefaultRetentionDays != nil {
+		bucket.ObjectLock.DefaultRetentionDays = *dbxBucket.DefaultRetentionDays
+	}
+	if dbxBucket.DefaultRetentionYears != nil {
+		bucket.ObjectLock.DefaultRetentionYears = *dbxBucket.DefaultRetentionYears
 	}
 
 	return bucket, nil

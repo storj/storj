@@ -37,7 +37,7 @@ import (
 func TestSegmentRepairPlacement(t *testing.T) {
 	piecesCount := 4
 	testplanet.Run(t, testplanet.Config{
-		SatelliteCount: 1, StorageNodeCount: 12, UplinkCount: 1,
+		SatelliteCount: 1, StorageNodeCount: 12, UplinkCount: 1, EnableSpanner: true,
 		Reconfigure: testplanet.Reconfigure{
 			Satellite: testplanet.Combine(
 				testplanet.ReconfigureRS(1, 1, piecesCount, piecesCount),
@@ -47,8 +47,12 @@ func TestSegmentRepairPlacement(t *testing.T) {
 			),
 		},
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
-		require.NoError(t, planet.Uplinks[0].CreateBucket(ctx, planet.Satellites[0], "testbucket"))
+		// disable pinging the Satellite so we can control storagenode status.
+		for _, node := range planet.StorageNodes {
+			node.Contact.Chore.Pause(ctx)
+		}
 
+		require.NoError(t, planet.Uplinks[0].CreateBucket(ctx, planet.Satellites[0], "testbucket"))
 		defaultLocation := location.Poland
 
 		_, err := planet.Satellites[0].API.Buckets.Service.UpdateBucket(ctx, buckets.Bucket{
@@ -159,7 +163,7 @@ func TestSegmentRepairPlacement(t *testing.T) {
 
 func TestSegmentRepairInMemoryUpload(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
-		SatelliteCount: 1, StorageNodeCount: 4, UplinkCount: 1,
+		SatelliteCount: 1, StorageNodeCount: 4, UplinkCount: 1, EnableSpanner: true,
 		Reconfigure: testplanet.Reconfigure{
 			Satellite: testplanet.Combine(
 				testplanet.ReconfigureRS(1, 1, 2, 2),
@@ -253,6 +257,10 @@ func TestSegmentRepairWithNodeTags(t *testing.T) {
 			},
 		},
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+		// disable pinging the Satellite so we can control storagenode status.
+		for _, node := range planet.StorageNodes {
+			node.Contact.Chore.Pause(ctx)
+		}
 
 		allTaggedNodes := []int{10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23}
 
@@ -353,6 +361,11 @@ func TestSegmentRepairPlacementAndClumped(t *testing.T) {
 			Satellite: testplanet.ReconfigureRS(1, 2, 4, 4),
 		},
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+		// disable pinging the Satellite so we can control storagenode status.
+		for _, node := range planet.StorageNodes {
+			node.Contact.Chore.Pause(ctx)
+		}
+
 		require.NoError(t, planet.Uplinks[0].CreateBucket(ctx, planet.Satellites[0], "testbucket"))
 
 		_, err := planet.Satellites[0].API.Buckets.Service.UpdateBucket(ctx, buckets.Bucket{
@@ -506,15 +519,14 @@ func piecesOnNodeByIndex(planet *testplanet.Planet, pieces metabase.Pieces, allo
 
 }
 
-func allPiecesInPlacement(ctx context.Context, overaly *overlay.Service, pieces metabase.Pieces, placement storj.PlacementConstraint, rules nodeselection.PlacementRules) (bool, error) {
+func allPiecesInPlacement(ctx context.Context, overlay *overlay.Service, pieces metabase.Pieces, placement storj.PlacementConstraint, rules nodeselection.PlacementRules) (bool, error) {
 	filter, _ := rules(placement)
 	for _, piece := range pieces {
-
-		nodeDossier, err := overaly.Get(ctx, piece.StorageNode)
+		nodeDossier, err := overlay.Get(ctx, piece.StorageNode)
 		if err != nil {
 			return false, err
 		}
-		tags, err := overaly.GetNodeTags(ctx, piece.StorageNode)
+		tags, err := overlay.GetNodeTags(ctx, piece.StorageNode)
 		if err != nil {
 			return false, err
 		}
