@@ -63,7 +63,7 @@ func sortedComponents(ball *Ball) (sorted []*Component) {
 		findNext()
 	}
 	if len(dependencyGraph) > 0 {
-		problems := "    "
+		problems := "   "
 		for c, deps := range dependencyGraph {
 			problems += c.String()
 			problems += " > "
@@ -73,7 +73,7 @@ func sortedComponents(ball *Ball) (sorted []*Component) {
 			problems += ";\n    "
 		}
 
-		panic("Unresolved dependencies: " + problems)
+		panic("Unresolved dependencies:\n " + problems)
 	}
 	return sorted
 }
