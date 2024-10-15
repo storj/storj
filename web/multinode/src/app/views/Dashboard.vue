@@ -50,10 +50,6 @@ export default class Dashboard extends Vue {
     .dashboard-area {
         display: flex;
 
-        &__navigation-area {
-            width: 280px;
-        }
-
         &__right-area {
             position: relative;
             flex: 1;
