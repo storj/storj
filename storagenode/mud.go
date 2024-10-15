@@ -127,7 +127,7 @@ func Module(ball *mud.Ball) {
 				MaxBufferTime:         cfg.FlatExpirationStoreMaxBufferTime,
 			})
 		}, logWrapper("pieceexpiration"))
-		mud.RegisterInterfaceImplementation[pieces.PieceExpirationDB, *pieces.PieceExpirationStore](ball)
+		//mud.RegisterInterfaceImplementation[pieces.PieceExpirationDB, *pieces.PieceExpirationStore](ball)
 	}
 
 	{ // setup debug
@@ -330,12 +330,13 @@ func Module(ball *mud.Ball) {
 		mud.RegisterInterfaceImplementation[piecestore.QueueRetain, *retain.Service](ball)
 
 		mud.Tag[*pieces.TrashChore, modular.Service](ball, modular.Service{})
-		mud.Provide[*piecestore.HashStoreBackend](ball, func(store *pieces.Store, trashChore *pieces.TrashChore, monitor *monitor.Service) *piecestore.OldPieceBackend {
+		mud.Provide[*piecestore.OldPieceBackend](ball, func(store *pieces.Store, trashChore *pieces.TrashChore, monitor *monitor.Service) *piecestore.OldPieceBackend {
 			return piecestore.NewOldPieceBackend(store, trashChore, monitor)
 		})
-		mud.Provide[*piecestore.HashStoreBackend](ball, func(log *zap.Logger) *piecestore.HashStoreBackend {
-			return piecestore.NewHashStoreBackend("hashstore", log)
+		mud.Provide[*piecestore.HashStoreBackend](ball, func(log *zap.Logger, oldConfig piecestore.OldConfig) *piecestore.HashStoreBackend {
+			return piecestore.NewHashStoreBackend(filepath.Join(oldConfig.Path, "hashstore"), log)
 		})
+		mud.RegisterInterfaceImplementation[piecestore.PieceBackend, *piecestore.OldPieceBackend](ball)
 	}
 	mud.Provide[*piecestore.Endpoint](ball, piecestore.NewEndpoint, logWrapper("piecestore"))
 
