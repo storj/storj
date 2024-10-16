@@ -48,7 +48,7 @@
 
             <v-window v-model="step">
                 <v-window-item :value="CreateStep.Name">
-                    <v-form v-model="formValid" class="pa-6 pb-3" @submit.prevent="toNextStep">
+                    <v-form v-model="formValid" class="pa-6 pb-3">
                         <v-row>
                             <v-col>
                                 <p>Buckets are used to store and organize your objects. Enter a bucket name using lowercase characters.</p>
@@ -311,7 +311,11 @@ const stepInfos = {
         next: () => {
             if (objectLockUIEnabled.value) return CreateStep.ObjectLock;
             if (allowVersioningStep.value) return CreateStep.Versioning;
-            return CreateStep.Confirmation;
+            return CreateStep.Success;
+        },
+        beforeNext: async () => {
+            if (objectLockUIEnabled.value || allowVersioningStep.value) return;
+            await onCreate();
         },
         validate: (): boolean => {
             return formValid.value;
@@ -494,7 +498,7 @@ function setWorker(): void {
 /**
  * Conditionally close dialog or go to previous step.
  */
-function toPrevStep() {
+function toPrevStep(): void {
     if (step.value === CreateStep.Success) {
         model.value = false;
         return;
@@ -511,7 +515,9 @@ function toPrevStep() {
 /**
  * Conditionally create bucket or go to next step.
  */
-function toNextStep() {
+function toNextStep(): void {
+    if (!formValid.value) return;
+
     if (step.value === CreateStep.Success) {
         openBucket();
         return;
@@ -537,7 +543,7 @@ function toNextStep() {
 /**
  * Navigates to bucket page.
  */
-async function openBucket() {
+async function openBucket(): Promise<void> {
     bucketsStore.setFileComponentBucketName(bucketName.value);
     await router.push({
         name: ROUTES.Bucket.name,
