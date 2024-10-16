@@ -30,6 +30,7 @@ import (
 	"storj.io/storj/satellite"
 	"storj.io/storj/satellite/buckets"
 	"storj.io/storj/satellite/console"
+	"storj.io/storj/satellite/console/consoleauth/sso"
 	"storj.io/storj/satellite/console/consoleweb/consoleapi"
 	"storj.io/storj/satellite/payments/stripe"
 )
@@ -1265,6 +1266,135 @@ func TestAuth_SetupAccount(t *testing.T) {
 				require.Equal(t, "", userAfterSetup.EmployeeCount)
 			}
 		}
+	})
+}
+
+func TestSsoMethods(t *testing.T) {
+	testplanet.Run(t, testplanet.Config{
+		SatelliteCount: 1, StorageNodeCount: 0, UplinkCount: 0,
+	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+		sat := planet.Satellites[0]
+		service := sat.API.Console.Service
+
+		createUserFn := func(email string) *console.User {
+			regToken, err := sat.API.Console.Service.CreateRegToken(ctx, 1)
+			require.NoError(t, err)
+			user, err := sat.API.Console.Service.CreateUser(ctx, console.CreateUser{
+				FullName: "Test User",
+				Email:    email,
+				Password: "password",
+			}, regToken.Secret)
+			require.NoError(t, err)
+			return user
+		}
+
+		provider := "provider"
+		getExternalID := func(sub string) string {
+			return fmt.Sprintf("%s:%s", provider, sub)
+		}
+
+		createUser1 := console.CreateSsoUser{
+			ExternalId: getExternalID("test"),
+			Email:      "test@mail.com",
+			FullName:   "Test User",
+		}
+		user, err := service.CreateSsoUser(ctx, createUser1)
+		require.NoError(t, err)
+		require.Equal(t, &createUser1.ExternalId, user.ExternalID)
+		require.Equal(t, createUser1.Email, user.Email)
+		require.Equal(t, createUser1.FullName, user.FullName)
+		require.Equal(t, console.Active, user.Status)
+		require.Empty(t, user.PasswordHash)
+
+		user = createUserFn("test2@mail.com")
+		require.Equal(t, console.Inactive, user.Status)
+		require.Nil(t, user.ExternalID)
+
+		// creating a sso user with the same email should return the existing user
+		// associating it with the external ID
+		createUser2 := console.CreateSsoUser{
+			ExternalId: getExternalID("testy"),
+			Email:      user.Email,
+			FullName:   user.FullName,
+		}
+		user, err = service.CreateSsoUser(ctx, createUser2)
+		require.NoError(t, err)
+		require.Equal(t, &createUser2.ExternalId, user.ExternalID)
+		require.Equal(t, createUser2.Email, user.Email)
+		require.Equal(t, createUser2.FullName, user.FullName)
+		require.Equal(t, console.Active, user.Status)
+		require.NotEmpty(t, user.PasswordHash)
+
+		user = createUserFn("test3@mail.com")
+		require.NoError(t, err)
+		require.Equal(t, console.Inactive, user.Status)
+		require.Nil(t, user.ExternalID)
+
+		err = service.UpdateExternalID(ctx, user, getExternalID("testy2"))
+		require.NoError(t, err)
+
+		user, err = service.GetUser(ctx, user.ID)
+		require.NoError(t, err)
+		require.Equal(t, getExternalID("testy2"), *user.ExternalID)
+		require.Equal(t, console.Active, user.Status)
+
+		// GetUserForSsoAuth should return the user if the external ID matches
+		ssoUser, err := service.GetUserForSsoAuth(ctx, sso.OidcSsoClaims{
+			Sub:   strings.TrimPrefix(*user.ExternalID, provider+":"),
+			Email: "some@mail.com",
+			Name:  "some name",
+		}, "provider", "", "")
+		require.NoError(t, err)
+		require.Equal(t, user.ID, ssoUser.ID)
+		require.Equal(t, user.ExternalID, ssoUser.ExternalID)
+		require.Equal(t, user.Email, ssoUser.Email)
+
+		user = createUserFn("test4@mail.com")
+		require.NoError(t, err)
+		require.Equal(t, console.Inactive, user.Status)
+
+		// GetUserForSsoAuth should return the user if the email matches unverified user
+		// activate it and associate the external ID with the user.
+		ssoUser, err = service.GetUserForSsoAuth(ctx, sso.OidcSsoClaims{
+			Sub:   "anotherID",
+			Email: user.Email,
+			Name:  "some name",
+		}, provider, "", "")
+		require.NoError(t, err)
+		require.Equal(t, user.ID, ssoUser.ID)
+		require.Equal(t, getExternalID("anotherID"), *ssoUser.ExternalID)
+		require.Equal(t, user.Email, ssoUser.Email)
+		require.Equal(t, console.Active, ssoUser.Status)
+
+		user = createUserFn("test5@mail.com")
+		require.NoError(t, err)
+
+		err = service.SetAccountActive(ctx, user)
+		require.NoError(t, err)
+
+		// GetUserForSsoAuth should return the user if the email matches verified user
+		// and associate the external ID with the user.
+		ssoUser, err = service.GetUserForSsoAuth(ctx, sso.OidcSsoClaims{
+			Sub:   "ID",
+			Email: user.Email,
+			Name:  "some name",
+		}, provider, "", "")
+		require.NoError(t, err)
+		require.Equal(t, user.ID, ssoUser.ID)
+		require.Equal(t, getExternalID("ID"), *ssoUser.ExternalID)
+		require.Equal(t, user.Email, ssoUser.Email)
+
+		// GetUserForSsoAuth should create a new user.
+		ssoUser, err = service.GetUserForSsoAuth(ctx, sso.OidcSsoClaims{
+			Sub:   "externalID",
+			Email: "external@mail.com",
+			Name:  "some name",
+		}, provider, "", "")
+		require.NoError(t, err)
+		require.Equal(t, getExternalID("externalID"), *ssoUser.ExternalID)
+		require.Equal(t, "external@mail.com", ssoUser.Email)
+		require.Equal(t, console.Active, ssoUser.Status)
+		require.Empty(t, ssoUser.PasswordHash)
 	})
 }
 

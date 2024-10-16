@@ -576,7 +576,12 @@ func NewAPI(log *zap.Logger, full *identity.FullIdentity, db DB,
 
 		{ // setup sso
 			if config.SSO.Enabled {
-				peer.SSO.Service = sso.NewService(config.SSO)
+				peer.SSO.Service = sso.NewService(config.Console.ExternalAddress, config.SSO)
+
+				peer.Services.Add(lifecycle.Item{
+					Name: "sso:service",
+					Run:  peer.SSO.Service.Initialize,
+				})
 			}
 		}
 
@@ -719,6 +724,7 @@ func NewAPI(log *zap.Logger, full *identity.FullIdentity, db DB,
 				peer.Analytics.Service,
 				peer.ABTesting.Service,
 				accountFreezeService,
+				peer.SSO.Service,
 				peer.Console.Listener,
 				config.Payments.StripeCoinPayments.StripePublicKey,
 				config.Payments.Storjscan.Confirmations,

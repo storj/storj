@@ -141,6 +141,23 @@ func (users *users) GetByEmailWithUnverified(ctx context.Context, email string) 
 	return verified, unverified, errors.Err()
 }
 
+// GetByExternalID is a method for querying user by external ID from the database.
+func (users *users) GetByExternalID(ctx context.Context, externalID string) (user *console.User, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	userDbx, err := users.db.Get_User_By_ExternalId(ctx, dbx.User_ExternalId(externalID))
+	if err != nil {
+		return nil, err
+	}
+
+	u, err := UserFromDBX(ctx, userDbx)
+	if err != nil {
+		return nil, err
+	}
+
+	return u, nil
+}
+
 func (users *users) GetByStatus(ctx context.Context, status console.UserStatus, cursor console.UserCursor) (page *console.UsersPage, err error) {
 	defer mon.Task()(&ctx)(&err)
 
@@ -345,6 +362,9 @@ func (users *users) Insert(ctx context.Context, user *console.User) (_ *console.
 		IsProfessional:  dbx.User_IsProfessional(user.IsProfessional),
 		SignupPromoCode: dbx.User_SignupPromoCode(user.SignupPromoCode),
 		PaidTier:        dbx.User_PaidTier(user.PaidTier),
+	}
+	if user.ExternalID != nil {
+		optional.ExternalId = dbx.User_ExternalId(*user.ExternalID)
 	}
 	if user.UserAgent != nil {
 		optional.UserAgent = dbx.User_UserAgent(user.UserAgent)
@@ -857,6 +877,9 @@ func toUpdateUser(request console.UpdateUserRequest) (*dbx.User_Update_Fields, e
 	if request.EmailChangeVerificationStep != nil {
 		update.EmailChangeVerificationStep = dbx.User_EmailChangeVerificationStep(*request.EmailChangeVerificationStep)
 	}
+	if request.ExternalID != nil {
+		update.ExternalId = dbx.User_ExternalId(*request.ExternalID)
+	}
 
 	return &update, nil
 }
@@ -883,6 +906,7 @@ func UserFromDBX(ctx context.Context, user *dbx.User) (_ *console.User, err erro
 
 	result := console.User{
 		ID:                          id,
+		ExternalID:                  user.ExternalId,
 		FullName:                    user.FullName,
 		Email:                       user.Email,
 		PasswordHash:                user.PasswordHash,

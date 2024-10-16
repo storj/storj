@@ -26,6 +26,7 @@ import (
 	"storj.io/storj/satellite/analytics"
 	"storj.io/storj/satellite/console"
 	"storj.io/storj/satellite/console/consoleauth"
+	"storj.io/storj/satellite/console/consoleauth/sso"
 	"storj.io/storj/satellite/console/consoleweb/consoleapi/utils"
 	"storj.io/storj/satellite/console/consoleweb/consolewebauth"
 	"storj.io/storj/satellite/mailservice"
@@ -58,11 +59,12 @@ type Auth struct {
 	accountFreezeService      *console.AccountFreezeService
 	analytics                 *analytics.Service
 	mailService               *mailservice.Service
+	ssoService                *sso.Service
 	cookieAuth                *consolewebauth.CookieAuth
 }
 
 // NewAuth is a constructor for api auth controller.
-func NewAuth(log *zap.Logger, service *console.Service, accountFreezeService *console.AccountFreezeService, mailService *mailservice.Service, cookieAuth *consolewebauth.CookieAuth, analytics *analytics.Service, satelliteName, externalAddress, letUsKnowURL, termsAndConditionsURL, contactInfoURL, generalRequestURL string, activationCodeEnabled bool, badPasswords map[string]struct{}) *Auth {
+func NewAuth(log *zap.Logger, service *console.Service, accountFreezeService *console.AccountFreezeService, mailService *mailservice.Service, cookieAuth *consolewebauth.CookieAuth, analytics *analytics.Service, ssoService *sso.Service, satelliteName, externalAddress, letUsKnowURL, termsAndConditionsURL, contactInfoURL, generalRequestURL string, activationCodeEnabled bool, badPasswords map[string]struct{}) *Auth {
 	return &Auth{
 		log:                       log,
 		ExternalAddress:           externalAddress,
@@ -81,6 +83,7 @@ func NewAuth(log *zap.Logger, service *console.Service, accountFreezeService *co
 		cookieAuth:                cookieAuth,
 		analytics:                 analytics,
 		badPasswords:              badPasswords,
+		ssoService:                ssoService,
 	}
 }
 
@@ -126,6 +129,81 @@ func (a *Auth) Token(w http.ResponseWriter, r *http.Request) {
 		a.log.Error("token handler could not encode token response", zap.Error(ErrAuthAPI.Wrap(err)))
 		return
 	}
+}
+
+// AuthenticateSso logs in/signs up a user using already authenticated
+// SSO provider.
+func (a *Auth) AuthenticateSso(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	var err error
+	defer mon.Task()(&ctx)(&err)
+
+	ssoFailedAddr := strings.TrimSuffix(a.ExternalAddress, "/") + "/login?sso_failed=true"
+
+	provider, claims, err := a.verifySsoAuth(r)
+	if err != nil {
+		a.log.Error("Error verifying SSO auth", zap.Error(err))
+		http.Redirect(w, r, ssoFailedAddr, http.StatusPermanentRedirect)
+		return
+	}
+
+	ip, err := web.GetRequestIP(r)
+	if err != nil {
+		a.log.Error("Error getting request IP", zap.Error(err))
+		http.Redirect(w, r, ssoFailedAddr, http.StatusPermanentRedirect)
+		return
+	}
+	userAgent := r.UserAgent()
+
+	user, err := a.service.GetUserForSsoAuth(ctx, *claims, provider, ip, userAgent)
+	if err != nil {
+		a.log.Error("Error getting user for sso auth", zap.Error(err))
+		http.Redirect(w, r, ssoFailedAddr, http.StatusPermanentRedirect)
+	}
+
+	tokenInfo, err := a.service.GenerateSessionToken(ctx, user.ID, user.Email, ip, userAgent, nil)
+	if err != nil {
+		a.log.Error("Failed to generate session token", zap.Error(err))
+		http.Redirect(w, r, ssoFailedAddr, http.StatusPermanentRedirect)
+		return
+	}
+
+	a.cookieAuth.SetTokenCookie(w, *tokenInfo)
+
+	http.Redirect(w, r, a.ExternalAddress, http.StatusFound)
+}
+
+// verifySsoAuth verifies the SSO authentication.
+func (a *Auth) verifySsoAuth(r *http.Request) (provider string, _ *sso.OidcSsoClaims, err error) {
+	ctx := r.Context()
+
+	provider = r.URL.Query().Get("state")
+	oidcSetup := a.ssoService.GetOidcSetupByProvider(provider)
+	if oidcSetup == nil {
+		return "", nil, console.ErrValidation.New("invalid provider state")
+	}
+
+	oauth2Token, err := oidcSetup.Config.Exchange(ctx, r.URL.Query().Get("code"))
+	if err != nil {
+		return "", nil, console.ErrValidation.New("invalid code")
+	}
+
+	rawIDToken, ok := oauth2Token.Extra("id_token").(string)
+	if !ok {
+		return "", nil, console.ErrValidation.New("missing id token")
+	}
+
+	idToken, err := oidcSetup.Verifier.Verify(ctx, rawIDToken)
+	if err != nil {
+		return "", nil, console.ErrUnauthorized.New("Failed to verify ID token")
+	}
+
+	var claims sso.OidcSsoClaims
+	if err = idToken.Claims(&claims); err != nil {
+		return "", nil, console.Error.New("failed to parse claims")
+	}
+
+	return provider, &claims, nil
 }
 
 // TokenByAPIKey authenticates user by API key and returns auth token.
