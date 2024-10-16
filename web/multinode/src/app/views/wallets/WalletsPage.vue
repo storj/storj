@@ -145,7 +145,7 @@ export default class WalletsPage extends Vue {
                 color: #74777e;
 
                 strong {
-                    color: var(--c-title);
+                    color: var(--v-header-base);
                 }
             }
         }
