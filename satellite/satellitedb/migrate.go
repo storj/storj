@@ -2841,6 +2841,16 @@ func (db *satelliteDB) ProductionMigration() *migrate.Migration {
 					`ALTER INDEX billing_transactions_timestamp_index RENAME TO billing_transactions_tx_timestamp_index;`,
 				},
 			},
+			{
+				DB:          &db.migrationDB,
+				Description: "add default retention columns to bucket_metainfos",
+				Version:     281,
+				Action: migrate.SQL{
+					`ALTER TABLE bucket_metainfos ADD COLUMN default_retention_mode INTEGER;`,
+					`ALTER TABLE bucket_metainfos ADD COLUMN default_retention_days INTEGER;`,
+					`ALTER TABLE bucket_metainfos ADD COLUMN default_retention_years INTEGER;`,
+				},
+			},
 			// NB: after updating testdata in `testdata`, run
 			//     `go generate` to update `migratez.go`.
 		},

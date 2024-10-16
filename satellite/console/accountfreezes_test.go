@@ -1090,6 +1090,7 @@ func TestTrialExpirationFreeze(t *testing.T) {
 		user, err = usersDB.Get(ctx, user.ID)
 		require.NoError(t, err)
 		require.Equal(t, userLimits, getUserLimits(user))
+		require.Equal(t, console.Active, user.Status)
 
 		proj, err = projectsDB.Get(ctx, proj.ID)
 		require.NoError(t, err)

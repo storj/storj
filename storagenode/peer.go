@@ -73,6 +73,8 @@ var mon = monkit.Package()
 // Assets contains either the built admin/back-office/ui or it is nil.
 var Assets fs.FS = emptyfs.FS{}
 
+const trashExpiryInterval = 7 * 24 * time.Hour
+
 // DB is the master database for Storage Node.
 //
 // architecture: Master Database
@@ -319,14 +321,6 @@ type Peer struct {
 		Payout    *multinode.PayoutEndpoint
 	}
 }
-
-// PeerRunner is the interface for running a Storage Node.
-type PeerRunner interface {
-	Run(ctx context.Context) error
-	Close() error
-}
-
-var _ PeerRunner = (*Peer)(nil)
 
 // New creates a new Storage Node.
 func New(log *zap.Logger, full *identity.FullIdentity, db DB, revocationDB extensions.RevocationDB, config Config, versionInfo version.Info, atomicLogLevel *zap.AtomicLevel) (*Peer, error) {
@@ -591,7 +585,7 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, revocationDB exten
 		peer.Storage2.TrashChore = pieces.NewTrashChore(
 			process.NamedLog(log, "pieces:trash"),
 			config.Pieces.TrashChoreInterval, // choreInterval: how often to run the chore
-			7*24*time.Hour,                   // trashExpiryInterval: when items in the trash should be deleted
+			trashExpiryInterval,              // trashExpiryInterval: when items in the trash should be deleted
 			peer.Storage2.Trust,
 			peer.Storage2.Store,
 		)
