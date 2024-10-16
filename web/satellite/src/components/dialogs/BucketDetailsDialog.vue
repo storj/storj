@@ -48,6 +48,12 @@
                     <v-list-item v-if="showRegionTag" title="Location" :subtitle="bucket.location || `unknown(${bucket.defaultPlacement})`" class="px-0" />
                     <v-list-item v-if="versioningUIEnabled" title="Versioning" :subtitle="bucket.versioning" class="px-0" />
                     <v-list-item v-if="objectLockUIEnabled" title="Object lock" :subtitle="bucket.objectLockEnabled ? 'Enabled' : 'Disabled'" class="px-0" />
+                    <v-list-item v-if="objectLockUIEnabled" title="Default Lock Mode" class="px-0">
+                        <template #subtitle>
+                            <p class="text-capitalize">{{ bucket.defaultRetentionMode.toLowerCase() }}</p>
+                        </template>
+                    </v-list-item>
+                    <v-list-item v-if="objectLockUIEnabled" title="Default Retention Period" :subtitle="defaultRetentionPeriod" class="px-0" />
                     <v-list-item title="Date Created" :subtitle="bucket.since.toUTCString()" class="px-0" />
                     <v-list-item title="Last Updated" :subtitle="bucket.before.toUTCString()" class="px-0" />
                 </v-list>
@@ -118,12 +124,28 @@ const objectLockUIEnabled = computed<boolean>(() => {
       && projectsStore.objectLockUIEnabledForProject;
 });
 
+const defaultRetentionPeriod = computed(() => {
+    const { objectLockEnabled, defaultRetentionDays, defaultRetentionYears } = bucket.value;
+
+    if (!objectLockEnabled) return 'Not Set';
+
+    if (defaultRetentionDays) {
+        return `${defaultRetentionDays} Day${defaultRetentionDays > 1 ? 's' : ''}`;
+    }
+
+    if (defaultRetentionYears) {
+        return `${defaultRetentionYears} Year${defaultRetentionYears > 1 ? 's' : ''}`;
+    }
+
+    return 'Not Set';
+});
+
 const showRegionTag = computed<boolean>(() => {
     return configStore.state.config.enableRegionTag;
 });
 
 /**
- * Fetch the bucket data if it's not avaliable
+ * Fetch the bucket data if it's not available.
  */
 async function loadBucketData() {
     if (!projectsStore.state.selectedProject.id) {
@@ -158,5 +180,4 @@ watch(model, (newValue) => {
         loadBucketData();
     }
 });
-
 </script>

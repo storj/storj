@@ -84,14 +84,14 @@ func (*ChangeEmailSuccessEmail) Template() string { return "EmailChangeSuccess" 
 // Subject gets email subject.
 func (*ChangeEmailSuccessEmail) Subject() string { return "Email has been changed" }
 
-// RequestAccountDeletionSuccessEmail is mailservice template to notify user about successful account delete request.
-type RequestAccountDeletionSuccessEmail struct{}
+// AccountDeletionSuccessEmail is mailservice template to notify user about successful account deletion.
+type AccountDeletionSuccessEmail struct{}
 
 // Template returns email template name.
-func (*RequestAccountDeletionSuccessEmail) Template() string { return "RequestAccountDeletionSuccess" }
+func (*AccountDeletionSuccessEmail) Template() string { return "AccountDeletionSuccess" }
 
 // Subject gets email subject.
-func (*RequestAccountDeletionSuccessEmail) Subject() string { return "Account deletion" }
+func (*AccountDeletionSuccessEmail) Subject() string { return "Account deletion" }
 
 // EmailAddressVerificationEmail is mailservice template with a verification code.
 type EmailAddressVerificationEmail struct {
@@ -224,6 +224,12 @@ const (
 
 	// ChangeEmailLock stands for "change email" and represents an account lock activity type triggered by multiple failed change email actions.
 	ChangeEmailLock LockAccountActivityType = "change email"
+
+	// DeleteProjectLock stands for "delete project" and represents an account lock activity type triggered by multiple failed delete project actions.
+	DeleteProjectLock LockAccountActivityType = "delete project"
+
+	// DeleteAccountLock stands for "delete project" and represents an account lock activity type triggered by multiple failed delete account actions.
+	DeleteAccountLock LockAccountActivityType = "delete account"
 )
 
 // LoginLockAccountEmail is mailservice template with login lock account data.

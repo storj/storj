@@ -102,7 +102,6 @@ func (cache *overlaycache) selectAllStorageNodesUpload(ctx context.Context, sele
 		query := `
 			SELECT id, address, email, wallet, last_net, last_ip_port, vetted_at, country_code, noise_proto, noise_public_key, debounce_limit, features, country_code, piece_count, free_disk
 			FROM nodes
-			` + cache.db.impl.AsOfSystemInterval(selectionCfg.AsOfSystemTime.Interval()) + `
 			WHERE disqualified IS NULL
 				AND unknown_audit_suspended IS NULL
 				AND offline_suspended IS NULL
@@ -2028,6 +2027,114 @@ var (
 	// ErrVetting is the error class for the following test methods.
 	ErrVetting = errs.Class("vetting")
 )
+
+// TestAddNodes adds nodes for testing purposes, without any validation.
+func (cache *overlaycache) TestAddNodes(ctx context.Context, nodes []*overlay.NodeDossier) (err error) {
+	for _, node := range nodes {
+		id, lastnet, email, wallet, create, err := convertNodeDossierToCreateFields(node)
+		if err != nil {
+			return Error.Wrap(err)
+		}
+
+		if err := cache.db.CreateNoReturn_Node(ctx, id, lastnet, email, wallet, create); err != nil {
+			return Error.Wrap(err)
+		}
+	}
+	return nil
+}
+
+func convertNodeDossierToCreateFields(node *overlay.NodeDossier) (id dbx.Node_Id_Field, lastnet dbx.Node_LastNet_Field, email dbx.Node_Email_Field, wallet dbx.Node_Wallet_Field, create dbx.Node_Create_Fields, err error) {
+	id = dbx.Node_Id(node.Id.Bytes())
+
+	lastnet = dbx.Node_LastNet(node.LastNet)
+	create.LastIpPort = dbx.Node_LastIpPort(node.LastIPPort)
+
+	email = dbx.Node_Email(node.Operator.Email)
+	wallet = dbx.Node_Wallet(node.Operator.Wallet)
+
+	create.Address = dbx.Node_Address(node.Node.Address.Address)
+
+	if noise := node.Node.Address.NoiseInfo; noise != nil {
+		create.NoiseProto = dbx.Node_NoiseProto(int(noise.Proto))
+		create.NoisePublicKey = dbx.Node_NoisePublicKey(noise.PublicKey)
+	}
+	create.DebounceLimit = dbx.Node_DebounceLimit(int(node.Node.Address.DebounceLimit))
+	create.Features = dbx.Node_Features(int(node.Node.Address.Features))
+
+	create.FreeDisk = dbx.Node_FreeDisk(node.Capacity.FreeDisk)
+
+	create.Latency90 = dbx.Node_Latency90(node.Reputation.Latency90)
+	create.LastContactSuccess = dbx.Node_LastContactSuccess(node.Reputation.LastContactSuccess)
+	create.LastContactFailure = dbx.Node_LastContactFailure(node.Reputation.LastContactFailure)
+	if node.Reputation.OfflineUnderReview != nil {
+		create.UnderReview = dbx.Node_UnderReview(*node.Reputation.OfflineUnderReview)
+	}
+
+	status := node.Reputation.Status
+	// TODO: status.Email
+
+	if status.Disqualified != nil {
+		create.Disqualified = dbx.Node_Disqualified(*status.Disqualified)
+	}
+	if status.DisqualificationReason != nil {
+		create.DisqualificationReason = dbx.Node_DisqualificationReason(int(*status.DisqualificationReason))
+	}
+	if status.UnknownAuditSuspended != nil {
+		create.UnknownAuditSuspended = dbx.Node_UnknownAuditSuspended(*status.UnknownAuditSuspended)
+	}
+	if status.OfflineSuspended != nil {
+		create.OfflineSuspended = dbx.Node_OfflineSuspended(*status.OfflineSuspended)
+	}
+	if status.VettedAt != nil {
+		create.VettedAt = dbx.Node_VettedAt(*status.VettedAt)
+	}
+
+	if node.Version.Version != "" {
+		ver, err := version.NewSemVer(node.Version.Version)
+		if err != nil {
+			return id, lastnet, email, wallet, create, err
+		}
+		create.Major = dbx.Node_Major(int64(ver.Major))
+		create.Minor = dbx.Node_Minor(int64(ver.Minor))
+		create.Patch = dbx.Node_Patch(int64(ver.Patch))
+	}
+	create.CommitHash = dbx.Node_CommitHash(node.Version.CommitHash)
+	create.ReleaseTimestamp = dbx.Node_ReleaseTimestamp(node.Version.Timestamp)
+	create.Release = dbx.Node_Release(node.Version.Release)
+
+	if len(node.Operator.WalletFeatures) > 0 {
+		walletFeatures, err := encodeWalletFeatures(node.Operator.WalletFeatures)
+		if err != nil {
+			return id, lastnet, email, wallet, create, err
+		}
+		create.WalletFeatures = dbx.Node_WalletFeatures(walletFeatures)
+	}
+
+	// DEPRECATED: create.Protocol = dbx.Node_Protocol()
+	// TODO: create.Contained = dbx.Node_Contained(node.Contained)
+
+	exitStatus := node.ExitStatus
+	if exitStatus.ExitInitiatedAt != nil {
+		create.ExitInitiatedAt = dbx.Node_ExitInitiatedAt(*exitStatus.ExitInitiatedAt)
+	}
+	if exitStatus.ExitLoopCompletedAt != nil {
+		create.ExitLoopCompletedAt = dbx.Node_ExitLoopCompletedAt(*exitStatus.ExitLoopCompletedAt)
+	}
+	if exitStatus.ExitFinishedAt != nil {
+		create.ExitFinishedAt = dbx.Node_ExitFinishedAt(*exitStatus.ExitFinishedAt)
+	}
+	create.ExitSuccess = dbx.Node_ExitSuccess(exitStatus.ExitSuccess)
+
+	if node.LastOfflineEmail != nil {
+		create.LastOfflineEmail = dbx.Node_LastOfflineEmail(*node.LastOfflineEmail)
+	}
+	if node.LastSoftwareUpdateEmail != nil {
+		create.LastSoftwareUpdateEmail = dbx.Node_LastSoftwareUpdateEmail(*node.LastSoftwareUpdateEmail)
+	}
+	create.CountryCode = dbx.Node_CountryCode(node.CountryCode.String())
+
+	return id, lastnet, email, wallet, create, nil
+}
 
 // TestVetNode directly sets a node's vetted_at timestamp to make testing easier.
 func (cache *overlaycache) TestVetNode(ctx context.Context, nodeID storj.NodeID) (vettedTime *time.Time, err error) {

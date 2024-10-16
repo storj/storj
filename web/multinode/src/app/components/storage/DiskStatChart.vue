@@ -59,13 +59,15 @@ export default class DiskStatChart extends Vue {
         return new DiskStatChartData([
             new DiskStatDataSet(
                 '',
-                ['#D6D6D6', '#0059D0', '#8FA7C6', '#EB5757'],
+                this.$vuetify.theme.dark ? ['#d4effa', '#0052FF', '#9dc6fc', '#ff4747'] : ['#D6D6D6', '#0059D0', '#8FA7C6', '#EB5757'],
                 [
                     this.freeSpace,
                     this.diskSpace.usedPieces,
                     this.diskSpace.usedTrash,
                     this.diskSpace.overused,
                 ],
+                this.$vuetify.theme.dark ? '#242d40' : '#ffffff',
+                2,
             ),
         ]);
     }
@@ -89,9 +91,9 @@ export default class DiskStatChart extends Vue {
 <style lang="scss">
     .disk-stat-area {
         width: 400px;
-        height: 336px;
-        background-color: white;
-        border: 1px solid var(--c-gray--light);
+        height: 401px;
+        background-color: var(--v-background-base);
+        border: 1px solid var(--v-border-base);
         border-radius: 11px;
         padding: 32px 20px;
         position: relative;
@@ -99,7 +101,7 @@ export default class DiskStatChart extends Vue {
         &__title {
             font-family: 'font_regular', sans-serif;
             font-size: 14px;
-            color: var(--c-gray);
+            color: var(--v-text-base);
             user-select: none;
         }
 
@@ -107,7 +109,7 @@ export default class DiskStatChart extends Vue {
             font-family: 'font_bold', sans-serif;
             font-size: 32px;
             line-height: 57px;
-            color: var(--c-title);
+            color: var(--v-header-base);
             margin-top: 5px;
         }
 
@@ -152,14 +154,14 @@ export default class DiskStatChart extends Vue {
                     &__label {
                         font-family: 'font_regular', sans-serif;
                         font-size: 14px;
-                        color: #586474;
+                        color: var(--v-text-base);
                     }
 
                     &__amount {
                         font-family: 'font_bold', sans-serif;
                         font-weight: bold;
                         font-size: 14px;
-                        color: var(--c-title);
+                        color: var(--v-header-base);
                         margin-left: 22px;
                         margin-top: 6px;
                     }
@@ -169,19 +171,19 @@ export default class DiskStatChart extends Vue {
     }
 
     .used {
-        background: #0059d0;
+        background: var(--v-primary-base);
     }
 
     .free {
-        background: #d6d6d6;
+        background: var(--v-free-base);
     }
 
     .trash {
-        background: #8fa7c6;
+        background: var(--v-trash-base);
     }
 
     .overused {
-        background: #eb5757;
+        background: var(--v-overused-base);
     }
 
     @media screen and (max-width: 1000px) {

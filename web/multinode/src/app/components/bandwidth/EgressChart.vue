@@ -63,8 +63,8 @@ export default class EgressChart extends BaseChart {
     public get chartData(): ChartData {
         let data: number[] = [0];
         const daysCount = ChartUtils.daysDisplayedOnChart();
-        const chartBackgroundColor = '#edf9f4';
-        const chartBorderColor = '#48a77f';
+        const chartBackgroundColor = this.$vuetify.theme.dark ? '#d2f7e8' : '#edf9f4';
+        const chartBorderColor = this.$vuetify.theme.dark ? '#10e089' : '#48a77f';
         const chartBorderWidth = 1;
 
         if (this.allBandwidth.length) {
@@ -117,21 +117,21 @@ export default class EgressChart extends BaseChart {
 
         &__data-dimension {
             font-size: 13px;
-            color: var(--c-title);
+            color: var(--v-header-base);
             margin: 0 0 5px 31px !important;
             font-family: 'font_medium', sans-serif;
         }
     }
 
     #egress-tooltip {
-        background: white;
-        border: 1px solid var(--c-gray--light);
+        background: var(--v-background2-base);
+        border: 1px solid var(--v-border-base);
         min-width: 190px;
         min-height: 170px;
         font-size: 12px;
         border-radius: 14px;
         font-family: 'font_bold', sans-serif;
-        color: var(--c-title);
+        color: var(--v-header-base);
         pointer-events: none;
         z-index: 9999;
     }
@@ -152,7 +152,7 @@ export default class EgressChart extends BaseChart {
     }
 
     .egress-tooltip-bold-text {
-        color: #2e5f46;
+        color: var(--v-success-base);
         font-size: 14px;
     }
 
@@ -164,7 +164,7 @@ export default class EgressChart extends BaseChart {
         align-items: center;
         justify-content: center;
         padding: 10px 0 16px;
-        color: var(--c-title);
+        color: var(--v-header-base);
         font-family: 'font_bold', sans-serif;
     }
 </style>
