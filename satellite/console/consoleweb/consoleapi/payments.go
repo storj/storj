@@ -171,7 +171,7 @@ func (p *Payments) TriggerAttemptPayment(w http.ResponseWriter, r *http.Request)
 
 	freezes, err := p.accountFreezeService.GetAll(ctx, userID)
 	if err != nil {
-		web.ServeCustomJSONError(ctx, p.log, w, http.StatusInternalServerError, err, errs.Unwrap(err).Error())
+		web.ServeCustomJSONError(ctx, p.log, w, http.StatusInternalServerError, err, rootError(err).Error())
 		return
 	}
 
@@ -185,7 +185,7 @@ func (p *Payments) TriggerAttemptPayment(w http.ResponseWriter, r *http.Request)
 
 	err = p.service.Payments().AttemptPayOverdueInvoices(ctx)
 	if err != nil {
-		web.ServeCustomJSONError(ctx, p.log, w, http.StatusInternalServerError, err, errs.Unwrap(err).Error())
+		web.ServeCustomJSONError(ctx, p.log, w, http.StatusInternalServerError, err, rootError(err).Error())
 		return
 	}
 
@@ -221,16 +221,16 @@ func (p *Payments) AddCreditCard(w http.ResponseWriter, r *http.Request) {
 	_, err = p.service.Payments().AddCreditCard(ctx, token)
 	if err != nil {
 		if console.ErrUnauthorized.Has(err) {
-			web.ServeCustomJSONError(ctx, p.log, w, http.StatusUnauthorized, err, errs.Unwrap(err).Error())
+			web.ServeCustomJSONError(ctx, p.log, w, http.StatusUnauthorized, err, rootError(err).Error())
 			return
 		}
 
 		if stripe.ErrDuplicateCard.Has(err) {
-			web.ServeCustomJSONError(ctx, p.log, w, http.StatusBadRequest, err, errs.Unwrap(err).Error())
+			web.ServeCustomJSONError(ctx, p.log, w, http.StatusBadRequest, err, rootError(err).Error())
 			return
 		}
 
-		web.ServeCustomJSONError(ctx, p.log, w, http.StatusInternalServerError, err, errs.Unwrap(err).Error())
+		web.ServeCustomJSONError(ctx, p.log, w, http.StatusInternalServerError, err, rootError(err).Error())
 		return
 	}
 }
@@ -253,16 +253,16 @@ func (p *Payments) AddCardByPaymentMethodID(w http.ResponseWriter, r *http.Reque
 	_, err = p.service.Payments().AddCardByPaymentMethodID(ctx, pmID)
 	if err != nil {
 		if console.ErrUnauthorized.Has(err) {
-			web.ServeCustomJSONError(ctx, p.log, w, http.StatusUnauthorized, err, errs.Unwrap(err).Error())
+			web.ServeCustomJSONError(ctx, p.log, w, http.StatusUnauthorized, err, rootError(err).Error())
 			return
 		}
 
 		if stripe.ErrDuplicateCard.Has(err) {
-			web.ServeCustomJSONError(ctx, p.log, w, http.StatusBadRequest, err, errs.Unwrap(err).Error())
+			web.ServeCustomJSONError(ctx, p.log, w, http.StatusBadRequest, err, rootError(err).Error())
 			return
 		}
 
-		web.ServeCustomJSONError(ctx, p.log, w, http.StatusInternalServerError, err, errs.Unwrap(err).Error())
+		web.ServeCustomJSONError(ctx, p.log, w, http.StatusInternalServerError, err, rootError(err).Error())
 		return
 	}
 }
@@ -764,7 +764,7 @@ func (p *Payments) GetBillingInformation(w http.ResponseWriter, r *http.Request)
 			return
 		}
 
-		web.ServeCustomJSONError(ctx, p.log, w, http.StatusInternalServerError, err, errs.Unwrap(err).Error())
+		web.ServeCustomJSONError(ctx, p.log, w, http.StatusInternalServerError, err, rootError(err).Error())
 		return
 	}
 
@@ -798,7 +798,7 @@ func (p *Payments) SaveBillingAddress(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
-		web.ServeCustomJSONError(ctx, p.log, w, http.StatusInternalServerError, err, errs.Unwrap(err).Error())
+		web.ServeCustomJSONError(ctx, p.log, w, http.StatusInternalServerError, err, rootError(err).Error())
 		return
 	}
 
@@ -833,7 +833,7 @@ func (p *Payments) AddInvoiceReference(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
-		web.ServeCustomJSONError(ctx, p.log, w, http.StatusInternalServerError, err, errs.Unwrap(err).Error())
+		web.ServeCustomJSONError(ctx, p.log, w, http.StatusInternalServerError, err, rootError(err).Error())
 		return
 	}
 
@@ -870,7 +870,7 @@ func (p *Payments) AddTaxID(w http.ResponseWriter, r *http.Request) {
 		if payments.ErrInvalidTaxID.Has(err) {
 			status = http.StatusBadRequest
 		}
-		web.ServeCustomJSONError(ctx, p.log, w, status, err, errs.Unwrap(err).Error())
+		web.ServeCustomJSONError(ctx, p.log, w, status, err, rootError(err).Error())
 		return
 	}
 
@@ -900,7 +900,7 @@ func (p *Payments) RemoveTaxID(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
-		web.ServeCustomJSONError(ctx, p.log, w, http.StatusInternalServerError, err, errs.Unwrap(err).Error())
+		web.ServeCustomJSONError(ctx, p.log, w, http.StatusInternalServerError, err, rootError(err).Error())
 		return
 	}
 
@@ -912,4 +912,29 @@ func (p *Payments) RemoveTaxID(w http.ResponseWriter, r *http.Request) {
 // serveJSONError writes JSON error to response output stream.
 func (p *Payments) serveJSONError(ctx context.Context, w http.ResponseWriter, status int, err error) {
 	web.ServeJSONError(ctx, p.log, w, status, err)
+}
+
+// rootError unwraps all layers of an error to get at the core error; the
+// one not wrapping any other error. If it encounters a grouped error while
+// unwrapping, it will treat the first error in the group as the most
+// important; the one which will be unwrapped further in search of the core
+// error.
+func rootError(err error) error {
+	for {
+		if multiUnwrappingErr, ok := err.(interface {
+			Unwrap() []error
+		}); ok {
+			unwrappedGroup := multiUnwrappingErr.Unwrap()
+			if len(unwrappedGroup) == 0 {
+				return err
+			}
+			err = unwrappedGroup[0]
+			continue
+		}
+		unwrappedErr := errors.Unwrap(err)
+		if unwrappedErr == nil {
+			return err
+		}
+		err = unwrappedErr
+	}
 }

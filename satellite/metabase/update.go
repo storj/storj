@@ -66,7 +66,7 @@ func (db *DB) UpdateSegmentPieces(ctx context.Context, opts UpdateSegmentPieces)
 
 	if err := opts.OldPieces.Verify(); err != nil {
 		if ErrInvalidRequest.Has(err) {
-			return ErrInvalidRequest.New("OldPieces: %v", errs.Unwrap(err))
+			return ErrInvalidRequest.New("OldPieces: %v", errors.Unwrap(err))
 		}
 		return err
 	}
@@ -83,7 +83,7 @@ func (db *DB) UpdateSegmentPieces(ctx context.Context, opts UpdateSegmentPieces)
 
 	if err := opts.NewPieces.Verify(); err != nil {
 		if ErrInvalidRequest.Has(err) {
-			return ErrInvalidRequest.New("NewPieces: %v", errs.Unwrap(err))
+			return ErrInvalidRequest.New("NewPieces: %v", errors.Unwrap(err))
 		}
 		return err
 	}

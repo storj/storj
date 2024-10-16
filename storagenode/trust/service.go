@@ -75,6 +75,9 @@ type Pool struct {
 
 	satellitesMu sync.RWMutex
 	satellites   map[storj.NodeID]*satelliteInfoCache
+
+	// set it to true, to refresh trust pool at the very beginning of the run loop.
+	StartWithRefresh bool
 }
 
 // satelliteInfoCache caches identity information about a satellite.
@@ -111,6 +114,13 @@ func NewPool(log *zap.Logger, resolver IdentityResolver, config Config, satellit
 // Run periodically refreshes the pool. The initial refresh is intended to
 // happen before run is call. Therefore Run does not refresh right away.
 func (pool *Pool) Run(ctx context.Context) error {
+	if pool.StartWithRefresh {
+		if err := pool.Refresh(ctx); err != nil {
+			pool.log.Error("Failed to refresh", zap.Error(err))
+			return err
+		}
+	}
+
 	for {
 		refreshAfter := jitter(pool.refreshInterval)
 		pool.log.Info("Scheduling next refresh", zap.Duration("after", refreshAfter))

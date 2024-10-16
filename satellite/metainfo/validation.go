@@ -463,6 +463,84 @@ func protobufRetentionToMetabase(pbRetention *pb.Retention) metabase.Retention {
 	}
 }
 
+// convertProtobufObjectLockConfig validates and converts *pb.ObjectLockConfiguration.
+func convertProtobufObjectLockConfig(config *pb.ObjectLockConfiguration) (updateParams buckets.UpdateBucketObjectLockParams, err error) {
+	if config == nil {
+		return buckets.UpdateBucketObjectLockParams{}, rpcstatus.Error(
+			rpcstatus.ObjectLockInvalidBucketRetentionConfiguration,
+			"Object Lock configuration is required",
+		)
+	}
+
+	if !config.Enabled {
+		return buckets.UpdateBucketObjectLockParams{}, rpcstatus.Error(
+			rpcstatus.ObjectLockInvalidBucketRetentionConfiguration,
+			"Object Lock can't be disabled",
+		)
+	}
+
+	updateParams.ObjectLockEnabled = true
+
+	if config.DefaultRetention == nil {
+		noRetention := storj.NoRetention
+		updateParams.DefaultRetentionMode = doublePtr(noRetention)
+		updateParams.DefaultRetentionDays = nilDoublePtr[int]()
+		updateParams.DefaultRetentionYears = nilDoublePtr[int]()
+	} else {
+		if config.DefaultRetention.Mode == pb.Retention_INVALID {
+			return buckets.UpdateBucketObjectLockParams{}, rpcstatus.Error(
+				rpcstatus.ObjectLockInvalidBucketRetentionConfiguration,
+				"Invalid retention mode",
+			)
+		}
+
+		mode := storj.RetentionMode(config.DefaultRetention.Mode)
+		updateParams.DefaultRetentionMode = doublePtr(mode)
+
+		switch duration := config.DefaultRetention.Duration.(type) {
+		case *pb.DefaultRetention_Days:
+			days := int(duration.Days)
+			if days <= 0 {
+				return buckets.UpdateBucketObjectLockParams{}, rpcstatus.Error(
+					rpcstatus.ObjectLockInvalidBucketRetentionConfiguration,
+					"Days must be a positive integer",
+				)
+			}
+			updateParams.DefaultRetentionDays = doublePtr(days)
+			updateParams.DefaultRetentionYears = nilDoublePtr[int]()
+		case *pb.DefaultRetention_Years:
+			years := int(duration.Years)
+			if years <= 0 {
+				return buckets.UpdateBucketObjectLockParams{}, rpcstatus.Error(
+					rpcstatus.ObjectLockInvalidBucketRetentionConfiguration,
+					"Years must be a positive integer",
+				)
+			}
+			updateParams.DefaultRetentionYears = doublePtr(years)
+			updateParams.DefaultRetentionDays = nilDoublePtr[int]()
+		default:
+			return buckets.UpdateBucketObjectLockParams{}, rpcstatus.Error(
+				rpcstatus.ObjectLockInvalidBucketRetentionConfiguration,
+				"Either days or years must be specified",
+			)
+		}
+	}
+
+	return updateParams, nil
+}
+
+// doublePtr returns a double pointer to the given value.
+func doublePtr[T any](value T) **T {
+	ptr := &value
+	return &ptr
+}
+
+// nilDoublePtr returns a double pointer to nil.
+func nilDoublePtr[T any]() **T {
+	var ptr *T
+	return &ptr
+}
+
 func isLowerLetter(r byte) bool {
 	return r >= 'a' && r <= 'z'
 }
