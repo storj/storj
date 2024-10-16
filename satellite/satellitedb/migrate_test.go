@@ -163,12 +163,10 @@ func loadSchemaFromSQL(ctx context.Context, connstr, script string) (_ *dbschema
 		return nil, err
 	}
 	defer func() { err = errs.Combine(err, db.Close()) }()
-
 	_, err = db.ExecContext(ctx, script)
 	if err != nil {
 		return nil, err
 	}
-
 	return pgutil.QuerySchema(ctx, db)
 }
 
