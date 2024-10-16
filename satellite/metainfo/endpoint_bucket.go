@@ -14,6 +14,7 @@ import (
 	"storj.io/common/memory"
 	"storj.io/common/pb"
 	"storj.io/common/rpc/rpcstatus"
+	"storj.io/common/storj"
 	"storj.io/common/uuid"
 	"storj.io/storj/satellite/buckets"
 	"storj.io/storj/satellite/console"
@@ -240,7 +241,7 @@ func (endpoint *Endpoint) CreateBucket(ctx context.Context, req *pb.BucketCreate
 	bucketReq.Placement = project.DefaultPlacement
 
 	if endpoint.config.UseBucketLevelObjectVersioningByProject(project) {
-		if bucketReq.ObjectLockEnabled {
+		if bucketReq.ObjectLock.Enabled {
 			bucketReq.Versioning = buckets.VersioningEnabled
 		} else {
 			defaultVersioning, err := endpoint.projects.GetDefaultVersioning(ctx, keyInfo.ProjectID)
@@ -258,7 +259,7 @@ func (endpoint *Endpoint) CreateBucket(ctx context.Context, req *pb.BucketCreate
 		}
 	}
 
-	if bucketReq.ObjectLockEnabled && bucketReq.Versioning != buckets.VersioningEnabled {
+	if bucketReq.ObjectLock.Enabled && bucketReq.Versioning != buckets.VersioningEnabled {
 		return nil, rpcstatus.Error(rpcstatus.FailedPrecondition, "Object Lock may only be enabled for versioned buckets")
 	}
 
@@ -347,7 +348,7 @@ func (endpoint *Endpoint) DeleteBucket(ctx context.Context, req *pb.BucketDelete
 		endpoint.log.Error("internal", zap.Error(err))
 		return nil, rpcstatus.Error(rpcstatus.Internal, "unable to get bucket")
 	}
-	lockEnabled := bucket.ObjectLockEnabled
+	lockEnabled := bucket.ObjectLock.Enabled
 
 	if !keyInfo.CreatedBy.IsZero() {
 		member, err := endpoint.projectMembers.GetByMemberIDAndProjectID(ctx, keyInfo.CreatedBy, keyInfo.ProjectID)
@@ -543,7 +544,7 @@ func (endpoint *Endpoint) GetBucketObjectLockConfiguration(ctx context.Context, 
 	endpoint.versionCollector.collect(req.Header.UserAgent, mon.Func().ShortName())
 
 	keyInfo, err := endpoint.validateAuth(ctx, req.Header, macaroon.Action{
-		Op:     macaroon.ActionGetObjectRetention,
+		Op:     macaroon.ActionGetBucketObjectLockConfiguration,
 		Bucket: req.Name,
 		Time:   time.Now(),
 	}, console.RateLimitHead)
@@ -556,7 +557,7 @@ func (endpoint *Endpoint) GetBucketObjectLockConfiguration(ctx context.Context, 
 		return nil, rpcstatus.Error(rpcstatus.ObjectLockEndpointsDisabled, objectLockDisabledErrMsg)
 	}
 
-	enabled, err := endpoint.buckets.GetBucketObjectLockEnabled(ctx, req.Name, keyInfo.ProjectID)
+	settings, err := endpoint.buckets.GetBucketObjectLockSettings(ctx, req.Name, keyInfo.ProjectID)
 	if err != nil {
 		if buckets.ErrBucketNotFound.Has(err) {
 			return nil, rpcstatus.Error(rpcstatus.NotFound, err.Error())
@@ -565,15 +566,83 @@ func (endpoint *Endpoint) GetBucketObjectLockConfiguration(ctx context.Context, 
 		return nil, rpcstatus.Error(rpcstatus.Internal, "unable to get bucket's Object Lock configuration")
 	}
 
-	if !enabled {
+	if !settings.Enabled {
 		return nil, rpcstatus.Error(rpcstatus.ObjectLockBucketRetentionConfigurationMissing, bucketNoLockErrMsg)
 	}
 
+	configuration := pb.ObjectLockConfiguration{
+		Enabled: true,
+	}
+
+	if settings.DefaultRetentionMode != storj.NoRetention {
+		defaultRetention := pb.DefaultRetention{
+			Mode: pb.Retention_Mode(settings.DefaultRetentionMode),
+		}
+		switch {
+		case settings.DefaultRetentionDays != 0:
+			defaultRetention.Duration = &pb.DefaultRetention_Days{Days: int32(settings.DefaultRetentionDays)}
+		case settings.DefaultRetentionYears != 0:
+			defaultRetention.Duration = &pb.DefaultRetention_Years{Years: int32(settings.DefaultRetentionYears)}
+		}
+		configuration.DefaultRetention = &defaultRetention
+	}
+
 	return &pb.GetBucketObjectLockConfigurationResponse{
-		Configuration: &pb.ObjectLockConfiguration{
-			Enabled: true,
-		},
+		Configuration: &configuration,
 	}, nil
+}
+
+// SetBucketObjectLockConfiguration updates a bucket's Object Lock configuration.
+func (endpoint *Endpoint) SetBucketObjectLockConfiguration(ctx context.Context, req *pb.SetBucketObjectLockConfigurationRequest) (resp *pb.SetBucketObjectLockConfigurationResponse, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	endpoint.versionCollector.collect(req.Header.UserAgent, mon.Func().ShortName())
+
+	keyInfo, err := endpoint.validateAuth(ctx, req.Header, macaroon.Action{
+		Op:     macaroon.ActionPutBucketObjectLockConfiguration,
+		Bucket: req.Name,
+		Time:   time.Now(),
+	}, console.RateLimitPut)
+	if err != nil {
+		return nil, err
+	}
+	endpoint.usageTracking(keyInfo, req.Header, fmt.Sprintf("%T", req))
+
+	if !endpoint.config.ObjectLockEnabled {
+		return nil, rpcstatus.Error(rpcstatus.ObjectLockEndpointsDisabled, objectLockDisabledErrMsg)
+	}
+
+	bucket, err := endpoint.buckets.GetBucket(ctx, req.Name, keyInfo.ProjectID)
+	if err != nil {
+		if buckets.ErrBucketNotFound.Has(err) {
+			return nil, rpcstatus.Errorf(rpcstatus.NotFound, "bucket not found: %s", req.Name)
+		}
+		endpoint.log.Error("unable to check bucket", zap.Error(err))
+		return nil, rpcstatus.Error(rpcstatus.Internal, "unable to set bucket's Object Lock configuration")
+	}
+
+	if bucket.Versioning != buckets.VersioningEnabled {
+		return nil, rpcstatus.Errorf(rpcstatus.ObjectLockInvalidBucketState, "cannot specify Object Lock configuration for a bucket without Versioning enabled")
+	}
+
+	updateParams, err := convertProtobufObjectLockConfig(req.Configuration)
+	if err != nil {
+		return nil, err
+	}
+
+	updateParams.ProjectID = keyInfo.ProjectID
+	updateParams.Name = string(req.Name)
+
+	_, err = endpoint.buckets.UpdateBucketObjectLockSettings(ctx, updateParams)
+	if err != nil {
+		if buckets.ErrBucketNotFound.Has(err) {
+			return nil, rpcstatus.Errorf(rpcstatus.NotFound, "bucket not found: %s", req.Name)
+		}
+		endpoint.log.Error("internal", zap.Error(err))
+		return nil, rpcstatus.Error(rpcstatus.Internal, "unable to set bucket's Object Lock configuration")
+	}
+
+	return &pb.SetBucketObjectLockConfigurationResponse{}, nil
 }
 
 func getAllowedBuckets(ctx context.Context, header *pb.RequestHeader, action macaroon.Action) (_ macaroon.AllowedBuckets, err error) {
@@ -595,11 +664,13 @@ func convertProtoToBucket(req *pb.BucketCreateRequest, keyInfo *console.APIKeyIn
 	}
 
 	return buckets.Bucket{
-		ID:                bucketID,
-		Name:              string(req.GetName()),
-		ProjectID:         keyInfo.ProjectID,
-		CreatedBy:         keyInfo.CreatedBy,
-		ObjectLockEnabled: req.GetObjectLockEnabled(),
+		ID:        bucketID,
+		Name:      string(req.GetName()),
+		ProjectID: keyInfo.ProjectID,
+		CreatedBy: keyInfo.CreatedBy,
+		ObjectLock: buckets.ObjectLockSettings{
+			Enabled: req.GetObjectLockEnabled(),
+		},
 	}, nil
 }
 
