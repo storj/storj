@@ -5,13 +5,14 @@ package trust_test
 
 import (
 	"context"
+	"errors"
+	"io/fs"
 	"os"
 	"path/filepath"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"github.com/zeebo/errs"
 
 	"storj.io/common/testcontext"
 	"storj.io/storj/storagenode/trust"
@@ -155,7 +156,7 @@ func TestCachePersistence(t *testing.T) {
 			cacheAfter, err := trust.LoadCacheData(cachePath)
 			if tt.entriesAfter == nil {
 				require.Error(t, err)
-				if !assert.True(t, os.IsNotExist(errs.Unwrap(err)), "cache file should not exist") {
+				if !assert.True(t, errors.Is(err, fs.ErrNotExist), "cache file should not exist") {
 					require.FailNow(t, "Expected cache file to not exist", "err=%w", err)
 				}
 			} else {

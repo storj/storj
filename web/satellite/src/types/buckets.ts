@@ -4,6 +4,7 @@
 import { DEFAULT_PAGE_LIMIT } from '@/types/pagination';
 import { Placement } from '@/types/placements';
 import { Versioning } from '@/types/versioning';
+import { COMPLIANCE_LOCK, GOVERNANCE_LOCK, ObjLockMode } from '@/types/objectLock';
 
 /**
  * Exposes all bucket-related functionality.
@@ -47,6 +48,8 @@ export interface BucketsApi {
  * Bucket class holds info for Bucket entity.
  */
 export class Bucket {
+    public defaultRetentionMode: ObjLockMode | 'Not set' = 'Not set';
+
     public constructor(
         public name: string = '',
         public versioning: Versioning = Versioning.NotSupported,
@@ -59,7 +62,14 @@ export class Bucket {
         public segmentCount: number = 0,
         public since: Date = new Date(),
         public before: Date = new Date(),
-    ) { }
+        public _defaultRetentionMode: number = 0,
+        public defaultRetentionDays: number | null = null,
+        public defaultRetentionYears: number | null = null,
+    ) {
+        if (this._defaultRetentionMode) {
+            this.defaultRetentionMode = this._defaultRetentionMode === 1 ? COMPLIANCE_LOCK : GOVERNANCE_LOCK;
+        }
+    }
 }
 
 /**

@@ -61,8 +61,8 @@ export default class IngressChart extends BaseChart {
     public get chartData(): ChartData {
         let data: number[] = [0];
         const daysCount = ChartUtils.daysDisplayedOnChart();
-        const chartBackgroundColor = '#fff4df';
-        const chartBorderColor = '#e1a128';
+        const chartBackgroundColor = this.$vuetify.theme.dark ? '#f7e8cb' : '#fff4df';
+        const chartBorderColor = this.$vuetify.theme.dark ? '#ffad12' : '#e1a128';
         const chartBorderWidth = 1;
 
         if (this.allBandwidth.length) {
@@ -111,21 +111,21 @@ export default class IngressChart extends BaseChart {
 
         &__data-dimension {
             font-size: 13px;
-            color: var(--c-title);
+            color: var(--v-header-base);
             margin: 0 0 5px 31px !important;
             font-family: 'font_medium', sans-serif;
         }
     }
 
     #ingress-tooltip {
-        background: white;
-        border: 1px solid var(--c-gray--light);
+        background: var(--v-background2-base);
+        border: 1px solid var(--v-border-base);
         min-width: 190px;
         min-height: 170px;
         font-size: 12px;
         border-radius: 14px;
         font-family: 'font_bold', sans-serif;
-        color: var(--c-title);
+        color: var(--v-header-base);
         pointer-events: none;
         z-index: 9999;
     }
@@ -150,7 +150,7 @@ export default class IngressChart extends BaseChart {
     }
 
     .ingress-tooltip-bold-text {
-        color: #6e4f15;
+        color: var(--v-warning-base);
         font-size: 14px;
     }
 
@@ -162,7 +162,7 @@ export default class IngressChart extends BaseChart {
         align-items: center;
         justify-content: center;
         padding: 10px 0 16px;
-        color: var(--c-title);
+        color: var(--v-header-base);
         font-family: 'font_bold', sans-serif;
     }
 </style>

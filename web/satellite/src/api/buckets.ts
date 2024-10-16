@@ -63,6 +63,9 @@ export class BucketsHttpApi implements BucketsApi {
                     usage.segmentCount,
                     new Date(usage.since),
                     new Date(usage.before),
+                    usage.defaultRetentionMode,
+                    usage.defaultRetentionDays,
+                    usage.defaultRetentionYears,
                 ),
             ) || [],
             result.search,
@@ -112,6 +115,9 @@ export class BucketsHttpApi implements BucketsApi {
             result.segmentCount,
             new Date(result.since),
             new Date(result.before),
+            result.defaultRetentionMode,
+            result.defaultRetentionDays,
+            result.defaultRetentionYears,
         );
     }
 

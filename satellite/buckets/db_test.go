@@ -41,13 +41,15 @@ func newTestBucket(name string, projectID uuid.UUID) buckets.Bucket {
 			CipherSuite: storj.EncAESGCM,
 			BlockSize:   9 * 10,
 		},
-		Placement:         storj.EU,
-		ObjectLockEnabled: true,
+		Placement: storj.EU,
+		ObjectLock: buckets.ObjectLockSettings{
+			Enabled: true,
+		},
 	}
 }
 
 func TestBasicBucketOperations(t *testing.T) {
-	testplanet.Run(t, testplanet.Config{SatelliteCount: 1}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+	testplanet.Run(t, testplanet.Config{SatelliteCount: 1, EnableSpanner: true}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 		sat := planet.Satellites[0]
 		db := sat.DB
 		consoleDB := db.Console()
@@ -77,7 +79,7 @@ func TestBasicBucketOperations(t *testing.T) {
 		require.Equal(t, expectedBucket.DefaultRedundancyScheme, bucket.DefaultRedundancyScheme)
 		require.Equal(t, expectedBucket.DefaultEncryptionParameters, bucket.DefaultEncryptionParameters)
 		require.Equal(t, expectedBucket.Placement, bucket.Placement)
-		require.Equal(t, expectedBucket.ObjectLockEnabled, bucket.ObjectLockEnabled)
+		require.Equal(t, expectedBucket.ObjectLock, bucket.ObjectLock)
 
 		// GetMinimalBucket
 		minimalBucket, err := bucketsDB.GetMinimalBucket(ctx, []byte("testbucket"), project.ID)
@@ -107,7 +109,7 @@ func TestBasicBucketOperations(t *testing.T) {
 		require.Equal(t, 1, count)
 
 		expectedBucket2 := newTestBucket("testbucket2", project.ID)
-		expectedBucket2.ObjectLockEnabled = false
+		expectedBucket2.ObjectLock.Enabled = false
 		_, err = bucketsDB.CreateBucket(ctx, expectedBucket2)
 		require.NoError(t, err)
 
@@ -146,7 +148,7 @@ func TestListBucketsAllAllowed(t *testing.T) {
 		{"non matching cursor, more", "ccc", 3, 3, true},
 		{"first bucket cursor, more", "0test", 5, 5, true},
 	}
-	testplanet.Run(t, testplanet.Config{SatelliteCount: 1}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+	testplanet.Run(t, testplanet.Config{SatelliteCount: 1, EnableSpanner: true}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 		sat := planet.Satellites[0]
 		db := sat.DB
 		consoleDB := db.Console()
@@ -209,7 +211,7 @@ func TestListBucketsNotAllowed(t *testing.T) {
 		{"last bucket cursor, allow all", "zzz", 2, 1, false, true, map[string]struct{}{"zzz": {}}, []string{"zzz"}},
 		{"empty string cursor, allow all, more", "", 5, 5, true, true, map[string]struct{}{"": {}}, []string{"123", "0test", "999", "aaa", "bbb"}},
 	}
-	testplanet.Run(t, testplanet.Config{SatelliteCount: 1}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+	testplanet.Run(t, testplanet.Config{SatelliteCount: 1, EnableSpanner: true}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 		sat := planet.Satellites[0]
 		db := sat.DB
 		consoleDB := db.Console()
@@ -302,7 +304,7 @@ func TestIterateBucketLocations_ProjectsWithMutipleBuckets(t *testing.T) {
 
 			require.ElementsMatch(t, expectedBucketLocations, bucketLocations)
 		}
-	})
+	}, satellitedbtest.WithSpanner())
 }
 
 func TestIterateBucketLocations_MultipleProjectsWithSingleBucket(t *testing.T) {
@@ -341,12 +343,13 @@ func TestIterateBucketLocations_MultipleProjectsWithSingleBucket(t *testing.T) {
 
 			require.ElementsMatch(t, expectedBucketLocations, bucketLocations)
 		}
-	})
+	}, satellitedbtest.WithSpanner())
 }
 
 func TestEnableSuspendBucketVersioning(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
 		SatelliteCount: 1, UplinkCount: 1,
+		EnableSpanner: true,
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 		db := planet.Satellites[0].API.DB.Buckets()
 		projectID := planet.Uplinks[0].Projects[0].ID
@@ -388,10 +391,12 @@ func TestEnableSuspendBucketVersioning(t *testing.T) {
 		// verify suspend bucket with Object Lock enabled fails
 		lockBucketName := testrand.BucketName()
 		_, err = db.CreateBucket(ctx, buckets.Bucket{
-			Name:              lockBucketName,
-			ProjectID:         projectID,
-			Versioning:        buckets.Unversioned,
-			ObjectLockEnabled: true,
+			Name:       lockBucketName,
+			ProjectID:  projectID,
+			Versioning: buckets.Unversioned,
+			ObjectLock: buckets.ObjectLockSettings{
+				Enabled: true,
+			},
 		})
 		require.NoError(t, err)
 

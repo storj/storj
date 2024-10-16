@@ -111,8 +111,8 @@ export default class NavigationArea extends Vue {
     display: flex;
     flex-direction: column;
     align-items: flex-start;
-    border-right: 1px solid var(--c-gray--light);
-    background: var(--c-block-gray);
+    border-right: 1px solid var(--v-border-base);
+    background: var(--v-background-base);
     position: relative;
     transition: width 0.3s ease, padding 0.3s ease;
 
@@ -164,9 +164,9 @@ export default class NavigationArea extends Vue {
             width: calc(100% - 8px);
         }
 
-        ::v-deep path {
-            fill: var(--c-label);
-        }
+            ::v-deep path {
+                fill: var(--v-text-base);
+            }
 
         &__link {
             display: flex;
@@ -179,7 +179,7 @@ export default class NavigationArea extends Vue {
                 line-height: 23px;
                 margin: 0 0 0 15px;
                 white-space: nowrap;
-                color: var(--c-label);
+                color: var(--v-text-base);
                 opacity: 1;
                 visibility: visible;
                 transition: opacity 0.1s ease, visibility 0.1s ease;
@@ -192,24 +192,20 @@ export default class NavigationArea extends Vue {
             }
         }
 
-        &.router-link-active,
-        &:hover {
-            background: #e7e9eb;
-            border-radius: 6px;
+            &.router-link-active,
+            &:hover {
+                background: var(--v-active-base);
+                border-radius: 6px;
 
-            .navigation-area__item-container__link__title {
-                color: var(--c-title);
-            }
+                .navigation-area__item-container__link__title {
+                    color: var(--v-text-base);
+                }
 
-            ::v-deep path {
-                fill: var(--c-title) !important;
-                opacity: 1;
+                ::v-deep path {
+                    fill: var(--v-text-base) !important;
+                    opacity: 1;
+                }
             }
         }
     }
-}
-
-.v-tooltip {
-    z-index: 1000;
-}
 </style>
