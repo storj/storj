@@ -47,7 +47,7 @@ import PagesBlock from '@/app/components/common/PagesBlock.vue';
         PagesBlock,
     },
 })
-export default class VPagination extends Vue {
+export default class Pagination extends Vue {
     @Prop({ default: 0 })
     private readonly totalPageCount: number;
     @Prop({ default: 1 })

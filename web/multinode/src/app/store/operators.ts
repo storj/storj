@@ -13,7 +13,7 @@ import { Cursor, Page } from '@/private/pagination';
 export class OperatorsState {
     public constructor(
         public operators: Operator[] = [],
-        public limit: number = 2,
+        public limit: number = 5,
         public currentPage: number = 1,
         public pageCount: number = 0,
         public totalCount: number = 0,
