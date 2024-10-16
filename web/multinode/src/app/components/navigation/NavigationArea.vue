@@ -141,7 +141,7 @@ export default class NavigationArea extends Vue {
         font-size: 16px;
         transition: background 0.3s ease;
         z-index: 10;
-        border: 3px solid var(--c-gray--light);
+        border: 3px solid var(--v-border-base);
 
         &:hover {
             background-color: var(--c-button-common-hover);

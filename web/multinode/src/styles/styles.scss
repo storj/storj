@@ -1,0 +1,11 @@
+// Copyright (C) 2024 Storj Labs, Inc.
+// See LICENSE for copying information.
+
+.v-tooltip {
+    z-index: 1000;
+}
+
+.v-tooltip__content {
+    margin-left: 15px;
+    border: 1px solid var(--v-border-base);
+}
