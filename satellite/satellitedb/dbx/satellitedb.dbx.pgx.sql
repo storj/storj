@@ -460,6 +460,7 @@ CREATE TABLE stripecoinpayments_tx_conversion_rates (
 ) ;
 CREATE TABLE users (
 	id bytea NOT NULL,
+	external_id text,
 	email text NOT NULL,
 	normalized_email text NOT NULL,
 	full_name text NOT NULL,
@@ -555,6 +556,9 @@ CREATE TABLE bucket_metainfos (
 	user_agent bytea,
 	versioning integer NOT NULL DEFAULT 0,
 	object_lock_enabled boolean NOT NULL DEFAULT false,
+	default_retention_mode integer,
+	default_retention_days integer,
+	default_retention_years integer,
 	path_cipher integer NOT NULL,
 	created_at timestamp with time zone NOT NULL,
 	default_segment_size integer NOT NULL,
@@ -626,6 +630,7 @@ CREATE INDEX storjscan_wallets_wallet_address_index ON storjscan_wallets ( walle
 CREATE INDEX stripecoinpayments_invoice_project_records_unbilled_project_id_index ON stripecoinpayments_invoice_project_records ( project_id ) WHERE stripecoinpayments_invoice_project_records.state = 0 ;
 CREATE INDEX users_email_status_index ON users ( normalized_email, status ) ;
 CREATE INDEX trial_expiration_index ON users ( trial_expiration ) ;
+CREATE INDEX users_external_id_index ON users ( external_id ) WHERE users.external_id is not NULL ;
 CREATE INDEX webapp_sessions_user_id_index ON webapp_sessions ( user_id ) ;
 CREATE INDEX project_invitations_project_id_index ON project_invitations ( project_id ) ;
 CREATE INDEX project_invitations_email_index ON project_invitations ( email ) ;

@@ -117,6 +117,8 @@ type DB interface {
 	// TestUnsuspendNodeUnknownAudit unsuspends a storage node for unknown audits.
 	TestUnsuspendNodeUnknownAudit(ctx context.Context, nodeID storj.NodeID) (err error)
 
+	// TestAddNodes adds or updates nodes in the database.
+	TestAddNodes(ctx context.Context, nodes []*NodeDossier) (err error)
 	// TestVetNode directly sets a node's vetted_at timestamp to make testing easier
 	TestVetNode(ctx context.Context, nodeID storj.NodeID) (vettedTime *time.Time, err error)
 	// TestUnvetNode directly sets a node's vetted_at timestamp to null to make testing easier
@@ -789,6 +791,16 @@ func truncateIPToNet(ipAddr net.IP, ipv4Cidr, ipv6Cidr int) (network string, err
 	return "", fmt.Errorf("unable to get network for address %s", ipAddr.String())
 }
 
+// TestAddNodes adds or updates nodes in the database.
+func (service *Service) TestAddNodes(ctx context.Context, nodes []*NodeDossier) (err error) {
+	err = service.db.TestAddNodes(ctx, nodes)
+	if err != nil {
+		service.log.Warn("error adding nodes", zap.Error(err))
+		return Error.Wrap(err)
+	}
+	return nil
+}
+
 // TestVetNode directly sets a node's vetted_at timestamp to make testing easier.
 func (service *Service) TestVetNode(ctx context.Context, nodeID storj.NodeID) (vettedTime *time.Time, err error) {
 	vettedTime, err = service.db.TestVetNode(ctx, nodeID)
@@ -798,8 +810,11 @@ func (service *Service) TestVetNode(ctx context.Context, nodeID storj.NodeID) (v
 		return nil, err
 	}
 	err = service.UploadSelectionCache.Refresh(ctx)
-	service.log.Warn("nodecache refresh err", zap.Error(err))
-	return vettedTime, err
+	if err != nil {
+		service.log.Warn("nodecache refresh failed", zap.Error(err))
+		return vettedTime, err
+	}
+	return vettedTime, nil
 }
 
 // TestUnvetNode directly sets a node's vetted_at timestamp to null to make testing easier.
@@ -810,8 +825,11 @@ func (service *Service) TestUnvetNode(ctx context.Context, nodeID storj.NodeID) 
 		return err
 	}
 	err = service.UploadSelectionCache.Refresh(ctx)
-	service.log.Warn("nodecache refresh err", zap.Error(err))
-	return err
+	if err != nil {
+		service.log.Warn("nodecache refresh failed", zap.Error(err))
+		return err
+	}
+	return nil
 }
 
 // TestNodeCountryCode directly sets a node's vetted_at timestamp to null to make testing easier.
