@@ -460,6 +460,7 @@ CREATE TABLE stripecoinpayments_tx_conversion_rates (
 ) ;
 CREATE TABLE users (
 	id bytea NOT NULL,
+	external_id text,
 	email text NOT NULL,
 	normalized_email text NOT NULL,
 	full_name text NOT NULL,
@@ -555,7 +556,7 @@ CREATE TABLE bucket_metainfos (
 	user_agent bytea,
 	versioning integer NOT NULL DEFAULT 0,
 	object_lock_enabled boolean NOT NULL DEFAULT false,
-    default_retention_mode integer,
+	default_retention_mode integer,
 	default_retention_days integer,
 	default_retention_years integer,
 	path_cipher integer NOT NULL,
@@ -678,7 +679,7 @@ INSERT INTO "api_keys" ("id", "project_id", "head", "name", "secret", "created_a
 
 INSERT INTO "value_attributions" ("project_id", "bucket_name", "user_agent", "last_updated") VALUES (E'\\363\\311\\033w\\222\\303Ci\\265\\343U\\303\\312\\204",'::bytea, E''::bytea, NULL, '2019-02-14 08:07:31.028103+00');
 
-INSERT INTO "bucket_metainfos" ("id", "project_id", "name", "versioning", "object_lock_enabled", "default_retention_mode", "default_retention_days", "default_retention_years", "created_at", "path_cipher", "default_segment_size", "default_encryption_cipher_suite", "default_encryption_block_size", "default_redundancy_algorithm", "default_redundancy_share_size", "default_redundancy_required_shares", "default_redundancy_repair_shares", "default_redundancy_optimal_shares", "default_redundancy_total_shares") VALUES (E'\\334/\\302;\\225\\355O\\323\\276f\\247\\354/6\\241\\033'::bytea, E'\\022\\217/\\014\\376!K\\023\\276\\031\\311}m\\236\\205\\300'::bytea, E'testbucketuniquename'::bytea, 0, false, NULL, NULL, NULL, '2019-06-14 08:28:24.677953+00', 1, 65536, 1, 8192, 1, 4096, 4, 6, 8, 10);
+INSERT INTO "bucket_metainfos" ("id", "project_id", "name", "versioning", "object_lock_enabled", "created_at", "path_cipher", "default_segment_size", "default_encryption_cipher_suite", "default_encryption_block_size", "default_redundancy_algorithm", "default_redundancy_share_size", "default_redundancy_required_shares", "default_redundancy_repair_shares", "default_redundancy_optimal_shares", "default_redundancy_total_shares") VALUES (E'\\334/\\302;\\225\\355O\\323\\276f\\247\\354/6\\241\\033'::bytea, E'\\022\\217/\\014\\376!K\\023\\276\\031\\311}m\\236\\205\\300'::bytea, E'testbucketuniquename'::bytea, 0, false, '2019-06-14 08:28:24.677953+00', 1, 65536, 1, 8192, 1, 4096, 4, 6, 8, 10);
 
 INSERT INTO "peer_identities" VALUES (E'\\334/\\302;\\225\\355O\\323\\276f\\247\\354/6\\241\\033'::bytea, E'\\363\\342\\363\\371>+F\\256\\263\\300\\273|\\342N\\347\\014'::bytea, E'\\363\\311\\033w\\222\\303Ci\\265\\343U\\303\\312\\204",'::bytea, '2019-02-14 08:07:31.335028+00');
 
@@ -843,3 +844,5 @@ INSERT INTO "projects"("id", "name", "description", "usage_limit", "bandwidth_li
 INSERT INTO "users"("id", "full_name", "short_name", "email", "normalized_email", "password_hash", "status", "created_at", "position", "company_name", "working_on", "company_size", "is_professional", "project_limit", "project_bandwidth_limit", "project_storage_limit", "paid_tier", "mfa_enabled", "mfa_secret_key", "mfa_recovery_codes", "project_segment_limit", "default_placement", "activation_code", "signup_id", "trial_notifications", "trial_expiration", "upgrade_time", "status_updated_at", "final_invoice_generated", "new_unverified_email", "email_change_verification_step") VALUES (E'\\363\\311\\033w\\222\\303Ci\\265\\343U\\303\\314\\225\\212",'::bytea, 'Angela', 'Berg', 'eu@mail.test', 'eu@MAIL.TEST', E'some_readable_hash'::bytea, 2, '2020-05-16 10:28:24.614594+00', 'engineer', 'storj', 'data storage', 55, true, 10, 50000000000, 50000000000, false, false, NULL, NULL, 150000, 1, '223432', 'H2Oqwerty', 0, NULL, NUll, '2024-01-01 00:01:02', true, null, 0);
 
 -- NEW DATA --
+
+INSERT INTO "users"("id", "full_name", "short_name", "email", "normalized_email", "password_hash", "status", "created_at", "position", "company_name", "working_on", "company_size", "is_professional", "project_limit", "project_bandwidth_limit", "project_storage_limit", "paid_tier", "mfa_enabled", "mfa_secret_key", "mfa_recovery_codes", "project_segment_limit", "default_placement", "activation_code", "signup_id", "trial_notifications", "trial_expiration", "upgrade_time", "status_updated_at", "final_invoice_generated", "new_unverified_email", "email_change_verification_step", "external_id") VALUES (E'\\363\\313\\033w\\222\\303Ci\\262\\343U\\303\\314\\225\\212",'::bytea, 'Angela', 'Berg', 'eu@mail.test', 'eu@MAIL.TEST', E'some_readable_hash'::bytea, 2, '2020-05-16 10:28:24.614594+00', 'engineer', 'storj', 'data storage', 55, true, 10, 50000000000, 50000000000, false, false, NULL, NULL, 150000, 1, '223432', 'H2Oqwerty', 0, NULL, NUll, '2024-01-01 00:01:02', true, null, 0, 'test:abc123');

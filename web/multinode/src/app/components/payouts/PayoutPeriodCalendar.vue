@@ -211,10 +211,10 @@ export default class PayoutHistoryPeriodCalendar extends Vue {
         justify-content: space-between;
         width: 333px;
         height: 340px;
-        background: white;
+        background: var(--v-background-base);
         box-shadow: 0 10px 25px rgb(175 183 193 / 10%);
         border-radius: var(--br-block);
-        border: 1px solid #e1e3e6;
+        border: 1px solid var(--v-border-base);
         padding: 30px;
         font-family: 'font_regular', sans-serif;
         cursor: default;
@@ -238,6 +238,7 @@ export default class PayoutHistoryPeriodCalendar extends Vue {
                     display: flex;
                     align-items: center;
                     justify-content: center;
+                    color: var(--v-header-base);
                     cursor: pointer;
                     height: 30px;
                     width: 20px;
@@ -251,7 +252,7 @@ export default class PayoutHistoryPeriodCalendar extends Vue {
                     font-family: 'font_bold', sans-serif;
                     font-size: 24px;
                     line-height: 28px;
-                    color: var(--c-title);
+                    color: var(--v-header-base);
                 }
 
                 &__next {
@@ -263,7 +264,7 @@ export default class PayoutHistoryPeriodCalendar extends Vue {
             &__all-time {
                 font-family: 'font_regular', sans-serif;
                 font-size: 16px;
-                color: var(--c-primary);
+                color: var(--v-primary-base);
                 cursor: pointer;
             }
         }
@@ -272,10 +273,10 @@ export default class PayoutHistoryPeriodCalendar extends Vue {
             display: grid;
             grid-template-columns: 93px 93px 93px;
             grid-gap: 1px;
-            background: var(--c-gray--light);
+            background: var(--v-border-base);
             overflow: hidden;
             border-radius: var(--br-table);
-            border: 1px solid var(--c-gray--light);
+            border: 1px solid var(--v-border-base);
         }
 
         &__footer-area {
@@ -290,7 +291,7 @@ export default class PayoutHistoryPeriodCalendar extends Vue {
             &__period {
                 font-family: 'font_semiBold', sans-serif;
                 font-size: 16px;
-                color: var(--c-payout-period);
+                color: var(--v-header-base);
                 max-width: 50%;
             }
 
@@ -298,7 +299,7 @@ export default class PayoutHistoryPeriodCalendar extends Vue {
                 font-family: 'font_bold', sans-serif;
                 font-size: 16px;
                 line-height: 23px;
-                color: var(--c-button-common);
+                color: var(--v-primary-base);
                 cursor: pointer;
             }
         }
@@ -310,18 +311,19 @@ export default class PayoutHistoryPeriodCalendar extends Vue {
         justify-content: center;
         width: 100%;
         height: 44px;
-        background: white;
+        background: var(--v-background-base);
+        border: var(--v-border-base);
         cursor: pointer;
 
         &__label {
             font-size: 16px;
             line-height: 18px;
-            color: var(--c-title);
+            color: var(--v-text-base);
         }
     }
 
     .disabled {
-        background: var(--c-button-disabled);
+        background: var(--v-disabled-base);
         cursor: default;
 
         .month-item__label {

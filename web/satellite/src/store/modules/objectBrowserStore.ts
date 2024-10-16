@@ -101,6 +101,11 @@ export type ObjectRange = {
     end: number,
 }
 
+export type FileToUpload = {
+    path: string,
+    file: File,
+}
+
 export class FilesState {
     s3: S3Client | null = null;
     accessKey: null | string = null;
@@ -558,7 +563,33 @@ export const useObjectBrowserStore = defineStore('objectBrowser', () => {
         }));
     }
 
-    async function upload({ e }: { e: DragEvent | Event }, ignoreDuplicate = false): Promise<void> {
+    // Low effort check for duplicates in files to upload. If files checked reaches 100, or duplicates found reaches 5, return.
+    function lazyDuplicateCheck(filesToUpload: FileToUpload[]): string[] {
+        assertIsInitialized(state);
+
+        const fileNames = state.files.map((file) => file.Key);
+        const duplicateFiles: string[] = [];
+        let traversedCount = 0;
+        for (const { path, file } of filesToUpload) {
+            const directories = path.split('/');
+            const fileName = path + file.name;
+            const hasDuplicate = fileNames.includes(directories[0]) || fileNames.includes(fileName);
+            if (duplicateFiles.length < 5 && hasDuplicate) {
+                duplicateFiles.push(fileName);
+                if (duplicateFiles.length === 5) {
+                    break;
+                }
+            }
+
+            traversedCount++;
+            if (traversedCount === 100) {
+                break;
+            }
+        }
+        return duplicateFiles;
+    }
+
+    async function getFilesToUpload({ e }: { e: DragEvent | Event }): Promise<FileToUpload[]> {
         assertIsInitialized(state);
 
         type Item = DataTransferItem | FileSystemEntry;
@@ -621,30 +652,14 @@ export const useObjectBrowserStore = defineStore('objectBrowser', () => {
             )
             .filter(isFileSystemEntry) as FileSystemEntry[];
 
-        const fileNames = state.files.map((file) => file.Key);
-        const files: { path: string, file: File }[] = [];
-        const duplicateFiles: string[] = [];
-        let traversedCount = 0;
+        const files: FileToUpload[] = [];
         for await (const { path, file } of traverse(iterator)) {
-            const directories = path.split('/');
-            const fileName = path + file.name;
-            const hasDuplicate = fileNames.includes(directories[0]) || fileNames.includes(fileName);
-            if (!ignoreDuplicate && duplicateFiles.length < 5 && hasDuplicate) {
-                duplicateFiles.push(fileName);
-                // if we have 5 duplicate files, or we have traversed 100 files, we stop the loop.
-                // and later throw DuplicateUploadError to notify the user of possible duplicates overwrites.
-                if (duplicateFiles.length === 5 || traversedCount === 100) {
-                    break;
-                }
-            }
             files.push({ path, file });
-            traversedCount++;
         }
+        return files;
+    }
 
-        if (duplicateFiles.length > 0) {
-            throw new DuplicateUploadError(duplicateFiles);
-        }
-
+    async function upload(files: FileToUpload[]): Promise<void> {
         for await (const { path, file } of files) {
             const directories = path.split('/');
             const fileName = directories.join('/') + file.name;
@@ -851,8 +866,8 @@ export const useObjectBrowserStore = defineStore('objectBrowser', () => {
         })).catch((error) => {
             if (
                 error.message.includes('object retention not found')
-               || error.message.includes('missing retention configuration')
-               || error.message.includes('object does not have a retention configuration')
+                || error.message.includes('missing retention configuration')
+                || error.message.includes('object does not have a retention configuration')
             ) {
                 return {} as GetObjectRetentionCommandOutput;
             }
@@ -1274,6 +1289,8 @@ export const useObjectBrowserStore = defineStore('objectBrowser', () => {
         updateVersionsExpandedKeys,
         sort,
         upload,
+        getFilesToUpload,
+        lazyDuplicateCheck,
         restoreObject,
         createFolder,
         getObjectRetention,
