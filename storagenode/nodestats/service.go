@@ -15,7 +15,6 @@ import (
 	"storj.io/common/rpc"
 	"storj.io/common/storj"
 	"storj.io/storj/storagenode/pricing"
-	"storj.io/storj/storagenode/reputation"
 	"storj.io/storj/storagenode/storageusage"
 	"storj.io/storj/storagenode/trust"
 )
@@ -57,55 +56,6 @@ func NewService(log *zap.Logger, dialer rpc.Dialer, trust *trust.Pool) *Service 
 		dialer: dialer,
 		trust:  trust,
 	}
-}
-
-// GetReputationStats retrieves reputation stats from particular satellite.
-func (s *Service) GetReputationStats(ctx context.Context, satelliteID storj.NodeID) (_ *reputation.Stats, err error) {
-	defer mon.Task()(&ctx)(&err)
-
-	client, err := s.dial(ctx, satelliteID)
-	if err != nil {
-		return nil, NodeStatsServiceErr.Wrap(err)
-	}
-	defer func() { err = errs.Combine(err, client.Close()) }()
-
-	resp, err := client.GetStats(ctx, &pb.GetStatsRequest{})
-	if err != nil {
-		return nil, NodeStatsServiceErr.Wrap(err)
-	}
-
-	audit := resp.GetAuditCheck()
-
-	satelliteIDSeriesTag := monkit.NewSeriesTag("satellite_id", satelliteID.String())
-
-	mon.IntVal("audit_success_count", satelliteIDSeriesTag).Observe(audit.GetSuccessCount())
-	mon.IntVal("audit_total_count", satelliteIDSeriesTag).Observe(audit.GetTotalCount())
-	mon.FloatVal("audit_reputation_score", satelliteIDSeriesTag).Observe(audit.GetReputationScore())
-	mon.FloatVal("suspension_score", satelliteIDSeriesTag).Observe(audit.GetUnknownReputationScore())
-	mon.FloatVal("online_score", satelliteIDSeriesTag).Observe(resp.GetOnlineScore())
-
-	return &reputation.Stats{
-		SatelliteID: satelliteID,
-		Audit: reputation.Metric{
-			TotalCount:   audit.GetTotalCount(),
-			SuccessCount: audit.GetSuccessCount(),
-			Alpha:        audit.GetReputationAlpha(),
-			Beta:         audit.GetReputationBeta(),
-			Score:        audit.GetReputationScore(),
-			UnknownAlpha: audit.GetUnknownReputationAlpha(),
-			UnknownBeta:  audit.GetUnknownReputationBeta(),
-			UnknownScore: audit.GetUnknownReputationScore(),
-		},
-		OnlineScore:          resp.OnlineScore,
-		DisqualifiedAt:       resp.GetDisqualified(),
-		SuspendedAt:          resp.GetSuspended(),
-		OfflineSuspendedAt:   resp.GetOfflineSuspended(),
-		OfflineUnderReviewAt: resp.GetOfflineUnderReview(),
-		VettedAt:             resp.GetVettedAt(),
-		AuditHistory:         resp.GetAuditHistory(),
-		UpdatedAt:            time.Now(),
-		JoinedAt:             resp.JoinedAt,
-	}, nil
 }
 
 // GetDailyStorageUsage returns daily storage usage over a period of time for a particular satellite.

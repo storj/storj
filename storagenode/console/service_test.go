@@ -20,7 +20,7 @@ func TestService_GetDashboardData(t *testing.T) {
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 
 		// to populate SN reputation DB
-		err := planet.StorageNodes[0].NodeStats.Cache.CacheReputationStats(ctx)
+		err := planet.StorageNodes[0].Reputation.Chore.RunOnce(ctx)
 		require.NoError(t, err)
 
 		{

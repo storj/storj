@@ -133,6 +133,8 @@ type Config struct {
 
 	Nodestats nodestats.Config
 
+	Reputation reputation.Config
+
 	Console consoleserver.Config
 
 	Healthcheck healthcheck.Config
@@ -322,7 +324,10 @@ type Peer struct {
 		Cache   *bandwidth.Cache
 	}
 
-	Reputation *reputation.Service
+	Reputation struct {
+		Service *reputation.Service
+		Chore   *reputation.Chore
+	}
 
 	Multinode struct {
 		Storage   *multinode.StorageEndpoint
@@ -780,12 +785,29 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, revocationDB exten
 	}
 
 	{ // setup reputation service.
-		peer.Reputation = reputation.NewService(
+		peer.Reputation.Service = reputation.NewService(
 			process.NamedLog(peer.Log, "reputation:service"),
 			peer.DB.Reputation(),
+			peer.Dialer,
+			peer.Storage2.Trust,
 			peer.Identity.ID,
 			peer.Notifications.Service,
 		)
+
+		peer.Reputation.Chore = reputation.NewChore(
+			process.NamedLog(peer.Log, "reputation:chore"),
+			peer.Reputation.Service,
+			config.Reputation,
+		)
+
+		peer.Services.Add(lifecycle.Item{
+			Name:  "reputation:chore",
+			Run:   peer.Reputation.Chore.Run,
+			Close: peer.Reputation.Chore.Close,
+		})
+
+		peer.Debug.Server.Panel.Add(
+			debug.Cycle("Reputation Chore", peer.Reputation.Chore.Loop))
 	}
 
 	{ // setup node stats service
@@ -799,14 +821,12 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, revocationDB exten
 			process.NamedLog(peer.Log, "nodestats:cache"),
 			config.Nodestats,
 			nodestats.CacheStorage{
-				Reputation:   peer.DB.Reputation(),
 				StorageUsage: peer.DB.StorageUsage(),
 				Payout:       peer.DB.Payout(),
 				Pricing:      peer.DB.Pricing(),
 			},
 			peer.NodeStats.Service,
 			peer.Payout.Endpoint,
-			peer.Reputation,
 			peer.Storage2.Trust,
 		)
 		peer.Services.Add(lifecycle.Item{
@@ -814,8 +834,6 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, revocationDB exten
 			Run:   peer.NodeStats.Cache.Run,
 			Close: peer.NodeStats.Cache.Close,
 		})
-		peer.Debug.Server.Panel.Add(
-			debug.Cycle("Node Stats Cache Reputation", peer.NodeStats.Cache.Reputation))
 		peer.Debug.Server.Panel.Add(
 			debug.Cycle("Node Stats Cache Storage", peer.NodeStats.Cache.Storage))
 	}

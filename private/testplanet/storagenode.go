@@ -40,6 +40,7 @@ import (
 	"storj.io/storj/storagenode/pieces"
 	"storj.io/storj/storagenode/piecestore"
 	"storj.io/storj/storagenode/preflight"
+	"storj.io/storj/storagenode/reputation"
 	"storj.io/storj/storagenode/retain"
 	"storj.io/storj/storagenode/storagenodedb/storagenodedbtest"
 	"storj.io/storj/storagenode/trust"
@@ -154,10 +155,14 @@ func (planet *Planet) newStorageNode(ctx context.Context, prefix string, index, 
 		Collector: collector.Config{
 			Interval: defaultInterval,
 		},
+		Reputation: reputation.Config{
+			MaxSleep: 0,
+			Interval: defaultInterval,
+			Cache:    true,
+		},
 		Nodestats: nodestats.Config{
-			MaxSleep:       0,
-			ReputationSync: defaultInterval,
-			StorageSync:    defaultInterval,
+			MaxSleep:    0,
+			StorageSync: defaultInterval,
 		},
 		Console: consoleserver.Config{
 			Address:   planet.NewListenAddress(),

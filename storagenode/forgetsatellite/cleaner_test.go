@@ -32,7 +32,7 @@ func TestCleaner(t *testing.T) {
 		storagenode.ForgetSatellite.Chore.Loop.Pause()
 
 		// TODO(clement): remove this once I figure out why it's flaky
-		planet.StorageNodes[0].NodeStats.Cache.Reputation.Pause()
+		planet.StorageNodes[0].Reputation.Chore.Loop.Pause()
 
 		pieceID := testrand.PieceID()
 		w, err := planet.StorageNodes[0].Storage2.PieceBackend.Writer(ctx, cleanupSatellite.ID(), pieceID, pb.PieceHashAlgorithm_BLAKE3, time.Time{})

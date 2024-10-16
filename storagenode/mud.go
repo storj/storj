@@ -79,6 +79,7 @@ func Module(ball *mud.Ball) {
 	config.RegisterConfig[retain.Config](ball, "retain")
 	config.RegisterConfig[bandwidth.Config](ball, "bandwidth")
 	config.RegisterConfig[checker.Config](ball, "version")
+	config.RegisterConfig[reputation.Config](ball, "reputation")
 
 	mud.View[piecestore.Config, trust.Config](ball, func(c piecestore.Config) trust.Config {
 		return c.Trust
@@ -362,13 +363,14 @@ func Module(ball *mud.Ball) {
 
 	{ // setup reputation service.
 		mud.Provide[*reputation.Service](ball, reputation.NewService, logWrapper("reputation:service"))
+		mud.Provide[*reputation.Chore](ball, reputation.NewChore, logWrapper("reputation:chore"))
+		mud.Tag[*reputation.Chore, modular.Service](ball, modular.Service{})
 	}
 
 	{ // setup node stats service
 		mud.Provide[*nodestats.Service](ball, nodestats.NewService, logWrapper("nodestats:service"))
-		mud.Provide[nodestats.CacheStorage](ball, func(rdb reputation.DB, sdb storageusage.DB, pdb payouts.DB, prdb pricing.DB) nodestats.CacheStorage {
+		mud.Provide[nodestats.CacheStorage](ball, func(sdb storageusage.DB, pdb payouts.DB, prdb pricing.DB) nodestats.CacheStorage {
 			return nodestats.CacheStorage{
-				Reputation:   rdb,
 				StorageUsage: sdb,
 				Payout:       pdb,
 				Pricing:      prdb,

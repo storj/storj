@@ -68,7 +68,7 @@ func TestCmdForgetSatellite(t *testing.T) {
 		planet.StorageNodes[0].ForgetSatellite.Chore.Loop.Pause()
 
 		// TODO(clement): remove this once I figure out why it's flaky
-		planet.StorageNodes[0].NodeStats.Cache.Reputation.Pause()
+		planet.StorageNodes[0].Reputation.Chore.Loop.Pause()
 
 		address := planet.StorageNodes[0].Server.PrivateAddr().String()
 		log := zaptest.NewLogger(t)
