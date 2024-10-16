@@ -23,7 +23,7 @@
             </div>
         </div>
         <div v-if="operatorsState.pageCount > 1" class="wallets__pagination">
-            <v-pagination
+            <pagination
                 :total-page-count="operatorsState.pageCount"
                 :preselected-current-page-number="operatorsState.currentPage"
                 :on-page-click-callback="listPaginated"
@@ -41,13 +41,13 @@ import { OperatorsState } from '@/app/store/operators';
 
 import InfoBlock from '@/app/components/common/InfoBlock.vue';
 import VLink from '@/app/components/common/VLink.vue';
-import VPagination from '@/app/components/common/VPagination.vue';
+import Pagination from '@/app/components/common/Pagination.vue';
 import WalletsTable from '@/app/components/wallets/tables/walletsSummary/WalletsTable.vue';
 
 // @vue/component
 @Component({
     components: {
-        VPagination,
+        Pagination,
         VLink,
         InfoBlock,
         WalletsTable,
