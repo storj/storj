@@ -1926,6 +1926,36 @@ func TestMoveObject_Geofencing(t *testing.T) {
 	)
 }
 
+func TestEndpoint_GetObjectIPs_With_Placement(t *testing.T) {
+	testplanet.Run(t, testplanet.Config{
+		SatelliteCount: 1, StorageNodeCount: 0, UplinkCount: 1,
+	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+		uplnk := planet.Uplinks[0]
+		apiKey := uplnk.APIKey[planet.Satellites[0].ID()]
+		sat := planet.Satellites[0]
+
+		bucketName := "test-bucket"
+		customPlacement := storj.PlacementConstraint(5)
+		createGeofencedBucket(t, ctx, sat.API.Buckets.Service, uplnk.Projects[0].ID, bucketName, customPlacement)
+
+		require.NoError(t, uplnk.Upload(ctx, sat, bucketName, "test-placement", testrand.Bytes(3*memory.KB)))
+
+		objects, err := sat.API.Metainfo.Metabase.TestingAllObjects(ctx)
+		require.NoError(t, err)
+		require.Len(t, objects, 1)
+
+		getResp, err := sat.Metainfo.Endpoint.GetObjectIPs(ctx, &pb.ObjectGetIPsRequest{
+			Header: &pb.RequestHeader{
+				ApiKey: apiKey.SerializeRaw(),
+			},
+			Bucket:             []byte(bucketName),
+			EncryptedObjectKey: []byte(objects[0].ObjectKey),
+		})
+		require.NoError(t, err)
+		require.Equal(t, customPlacement, storj.PlacementConstraint(getResp.PlacementConstraint))
+	})
+}
+
 func createGeofencedBucket(t *testing.T, ctx *testcontext.Context, service *buckets.Service, projectID uuid.UUID, bucketName string, placement storj.PlacementConstraint) {
 	// generate the bucket id
 	bucketID, err := uuid.New()
