@@ -92,6 +92,10 @@ type Endpoint struct {
 	zstdEncoder            *zstd.Encoder
 	successTrackers        *SuccessTrackers
 	placement              nodeselection.PlacementDefinitions
+
+	// rateLimiterTime is a function that returns the time to check with the rate limiter.
+	// It's handy for testing purposes. It defaults to time.Now.
+	rateLimiterTime func() time.Time
 }
 
 // NewEndpoint creates new metainfo endpoint instance.
@@ -165,6 +169,7 @@ func NewEndpoint(log *zap.Logger, buckets *buckets.Service, metabaseDB *metabase
 		zstdEncoder:          encoder,
 		successTrackers:      successTrackers,
 		placement:            placement,
+		rateLimiterTime:      time.Now,
 	}, nil
 }
 
@@ -459,4 +464,9 @@ func (endpoint *Endpoint) getRSProto(placementID storj.PlacementConstraint) *pb.
 // TestingSetRSConfig set endpoint RS config for testing.
 func (endpoint *Endpoint) TestingSetRSConfig(rs RSConfig) {
 	endpoint.config.RS = rs
+}
+
+// TestingSetRateLimiterTime sets the time function used by the rate limiter.
+func (endpoint *Endpoint) TestingSetRateLimiterTime(time func() time.Time) {
+	endpoint.rateLimiterTime = time
 }
