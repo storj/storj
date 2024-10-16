@@ -34,6 +34,8 @@ export class DiskStatDataSet {
         public label: string = '',
         public backgroundColor: string[] = ['#D6D6D6', '#0059D0', '#8FA7C6'],
         public data: number[] = [],
+        public borderColor: string = '',
+        public borderWidth: number = 1,
     ) {}
 }
 

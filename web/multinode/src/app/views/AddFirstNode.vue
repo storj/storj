@@ -46,6 +46,7 @@
             <v-button class="add-first-node__left-area__button" label="Add Node" width="120px" :on-press="onCreate" />
         </div>
         <div class="add-first-node__right-area">
+            <theme-selector class="add-first-node__right-area__theme-selector" />
             <img src="@/../static/images/Illustration.png" alt="Storj Logo Illustration">
         </div>
     </div>
@@ -59,12 +60,14 @@ import { CreateNodeFields } from '@/nodes';
 
 import HeaderedInput from '@/app/components/common/HeaderedInput.vue';
 import VButton from '@/app/components/common/VButton.vue';
+import ThemeSelector from '@/app/components/common/ThemeSelector.vue';
 
 // @vue/component
 @Component({
     components: {
         HeaderedInput,
         VButton,
+        ThemeSelector,
     },
 })
 export default class AddFirstNode extends Vue {
@@ -163,7 +166,7 @@ export default class AddFirstNode extends Vue {
         display: flex;
         box-sizing: border-box;
         height: 100%;
-        background: white;
+        background: var(--v-background-base);
 
         &__left-area,
         &__right-area {
@@ -183,7 +186,7 @@ export default class AddFirstNode extends Vue {
                 font-family: 'font_bold', sans-serif;
                 font-size: 48px;
                 line-height: 60px;
-                color: var(--c-title);
+                color: var(--v-header-base);
                 width: 420px;
             }
 
@@ -192,7 +195,7 @@ export default class AddFirstNode extends Vue {
                 margin-top: 16px;
                 font-size: 16px;
                 line-height: 29px;
-                color: var(--c-label);
+                color: var(--v-text-base);
                 width: 420px;
             }
 
@@ -206,8 +209,14 @@ export default class AddFirstNode extends Vue {
         }
 
         &__right-area {
-            background: #f0f6ff;
+            background: var(--v-background2-base);
             align-items: center;
+
+            &__theme-selector {
+                position: absolute;
+                top: 20px;
+                right: 20px;
+            }
         }
     }
 
