@@ -293,7 +293,7 @@ func (endpoint *Endpoint) checkRate(ctx context.Context, apiKeyInfo *console.API
 		return rpcstatus.Error(rpcstatus.Unavailable, err.Error())
 	}
 
-	if !limiter.Allow() {
+	if !limiter.AllowN(endpoint.rateLimiterTime(), 1) {
 		if limiter.Burst() == 0 && limiter.Limit() == 0 {
 			return rpcstatus.Error(rpcstatus.PermissionDenied, "All access disabled")
 		}
