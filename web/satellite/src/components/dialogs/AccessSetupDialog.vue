@@ -16,6 +16,9 @@
                     <v-card-title class="font-weight-bold">
                         New {{ selectedApp ? selectedApp.name : '' }} Access
                     </v-card-title>
+                    <v-card-subtitle class="text-caption pb-0">
+                        Step: {{ stepName }}
+                    </v-card-subtitle>
                     <template #append>
                         <v-btn
                             icon="$close"
@@ -206,6 +209,7 @@ import {
     VCard,
     VCardActions,
     VCardItem,
+    VCardSubtitle,
     VCardTitle,
     VCol,
     VDialog,
@@ -335,6 +339,37 @@ const credentials = resettableRef<EdgeCredentials>(new EdgeCredentials());
 const promptForPassphrase = computed<boolean>(() => bucketsStore.state.promptForPassphrase);
 
 const hasManagedPassphrase = computed<boolean>(() => projectsStore.state.selectedProjectConfig.hasManagedPassphrase);
+
+const stepName = computed<string>(() => {
+    switch (step.value) {
+    case SetupStep.ChooseAccessStep:
+        return 'Access Name And Type';
+    case SetupStep.EncryptionInfo:
+        return 'Encryption Info';
+    case SetupStep.ChooseFlowStep:
+        return 'Flow Type';
+    case SetupStep.AccessEncryption:
+        return 'Access Encryption';
+    case SetupStep.EnterNewPassphrase:
+        return 'New Passphrase';
+    case SetupStep.PassphraseGenerated:
+        return 'Passphrase Generated';
+    case SetupStep.ChoosePermissionsStep:
+        return 'Basic Permissions';
+    case SetupStep.ObjectLockPermissionsStep:
+        return 'Object Lock Permissions';
+    case SetupStep.SelectBucketsStep:
+        return 'Bucket Restrictions';
+    case SetupStep.OptionalExpirationStep:
+        return 'Optional Expiration';
+    case SetupStep.ConfirmDetailsStep:
+        return 'Confirm Details';
+    case SetupStep.AccessCreatedStep:
+        return 'Access Created';
+    default:
+        return '';
+    }
+});
 
 /**
  * Whether object lock UI is enabled.
