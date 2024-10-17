@@ -249,6 +249,7 @@ func TestEndpoint_checkRate(t *testing.T) {
 				config.Metainfo.RateLimiter.Rate = 1
 			},
 		},
+		EnableSpanner: true,
 	},
 		func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 			sat := planet.Satellites[0]
@@ -289,11 +290,17 @@ func TestEndpoint_checkRate(t *testing.T) {
 
 			rate := int64(1)
 			burstProject := int64(2)
-			burstHead := int64(2)
-			burstGet := int64(2)
-			burstList := int64(2)
-			burstDelete := int64(2)
-			burstPut := int64(2)
+			burstHead := int64(3)
+			burstGet := int64(4)
+			burstList := int64(5)
+			burstDelete := int64(6)
+			burstPut := int64(7)
+
+			// Mock the rate limiter time to depend on the execution time
+			rateLimiterTime := time.Now()
+			endpoint.TestingSetRateLimiterTime(func() time.Time {
+				return rateLimiterTime
+			})
 
 			// switch project so that cached rate limiter isn't used for next test stage
 			peerctx := rpcpeer.NewContext(ctx, &rpcpeer.Peer{
