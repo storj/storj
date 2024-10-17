@@ -18,8 +18,8 @@ import (
 	"storj.io/storj/satellite/compensation"
 	"storj.io/storj/satellite/satellitedb/dbx"
 	"storj.io/storj/shared/dbutil"
-	"storj.io/storj/shared/dbutil/cockroachutil"
 	"storj.io/storj/shared/dbutil/pgutil"
+	"storj.io/storj/shared/dbutil/retrydb"
 	"storj.io/storj/shared/tagsql"
 )
 
@@ -210,7 +210,7 @@ func (db *StoragenodeAccounting) GetBandwidthSince(ctx context.Context, latestRo
 	for {
 		nodeids, err = db.getNodeIdsSince(ctx, latestRollup)
 		if err != nil {
-			if cockroachutil.NeedsRetry(err) {
+			if retrydb.ShouldRetryIdempotent(err) {
 				continue
 			}
 			return err

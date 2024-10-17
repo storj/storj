@@ -23,8 +23,8 @@ import (
 	"storj.io/storj/satellite/overlay"
 	"storj.io/storj/satellite/satellitedb/dbx"
 	"storj.io/storj/shared/dbutil"
-	"storj.io/storj/shared/dbutil/cockroachutil"
 	"storj.io/storj/shared/dbutil/pgutil"
+	"storj.io/storj/shared/dbutil/retrydb"
 	"storj.io/storj/shared/dbutil/txutil"
 	"storj.io/storj/shared/location"
 	"storj.io/storj/shared/tagsql"
@@ -45,7 +45,7 @@ func (cache *overlaycache) SelectAllStorageNodesUpload(ctx context.Context, sele
 	for {
 		reputable, new, err = cache.selectAllStorageNodesUpload(ctx, selectionCfg)
 		if err != nil {
-			if cockroachutil.NeedsRetry(err) {
+			if retrydb.ShouldRetryIdempotent(err) {
 				continue
 			}
 			return reputable, new, err
@@ -177,7 +177,7 @@ func (cache *overlaycache) SelectAllStorageNodesDownload(ctx context.Context, on
 		nodes, err = cache.selectAllStorageNodesDownload(ctx, onlineWindow, asOf)
 		if err != nil {
 
-			if cockroachutil.NeedsRetry(err) {
+			if retrydb.ShouldRetryIdempotent(err) {
 				continue
 			}
 			return nodes, err
@@ -280,7 +280,7 @@ func (cache *overlaycache) GetNodesNetwork(ctx context.Context, nodeIDs []storj.
 	for {
 		nodeNets, err = cache.getNodesNetwork(ctx, nodeIDs, query)
 		if err != nil {
-			if cockroachutil.NeedsRetry(err) {
+			if retrydb.ShouldRetryIdempotent(err) {
 				continue
 			}
 			return nodeNets, err
@@ -306,7 +306,7 @@ func (cache *overlaycache) GetNodesNetworkInOrder(ctx context.Context, nodeIDs [
 		for {
 			nodeNets, err = cache.getNodesNetwork(ctx, nodeIDs, query)
 			if err != nil {
-				if cockroachutil.NeedsRetry(err) {
+				if retrydb.ShouldRetryIdempotent(err) {
 					continue
 				}
 				return nodeNets, err
@@ -383,7 +383,7 @@ func (cache *overlaycache) GetOnlineNodesForAuditRepair(ctx context.Context, nod
 	for {
 		nodes, err = cache.getOnlineNodesForAuditRepair(ctx, nodeIDs, onlineWindow)
 		if err != nil {
-			if cockroachutil.NeedsRetry(err) {
+			if retrydb.ShouldRetryIdempotent(err) {
 				continue
 			}
 			return nodes, err
@@ -1140,7 +1140,7 @@ func (cache *overlaycache) GetExitingNodes(ctx context.Context) (exitingNodes []
 	for {
 		exitingNodes, err = cache.getExitingNodes(ctx)
 		if err != nil {
-			if cockroachutil.NeedsRetry(err) {
+			if retrydb.ShouldRetryIdempotent(err) {
 				continue
 			}
 			return exitingNodes, err
@@ -1181,7 +1181,7 @@ func (cache *overlaycache) GetExitStatus(ctx context.Context, nodeID storj.NodeI
 	for {
 		exitStatus, err = cache.getExitStatus(ctx, nodeID)
 		if err != nil {
-			if cockroachutil.NeedsRetry(err) {
+			if retrydb.ShouldRetryIdempotent(err) {
 				continue
 			}
 			return exitStatus, err
@@ -1235,7 +1235,7 @@ func (cache *overlaycache) GetGracefulExitCompletedByTimeFrame(ctx context.Conte
 	for {
 		exitedNodes, err = cache.getGracefulExitCompletedByTimeFrame(ctx, begin, end)
 		if err != nil {
-			if cockroachutil.NeedsRetry(err) {
+			if retrydb.ShouldRetryIdempotent(err) {
 				continue
 			}
 			return exitedNodes, err
@@ -1279,7 +1279,7 @@ func (cache *overlaycache) GetGracefulExitIncompleteByTimeFrame(ctx context.Cont
 	for {
 		exitingNodes, err = cache.getGracefulExitIncompleteByTimeFrame(ctx, begin, end)
 		if err != nil {
-			if cockroachutil.NeedsRetry(err) {
+			if retrydb.ShouldRetryIdempotent(err) {
 				continue
 			}
 			return exitingNodes, err
@@ -1485,7 +1485,7 @@ func (cache *overlaycache) DQNodesLastSeenBefore(ctx context.Context, cutoff tim
 	for {
 		nodeIDs, err = cache.getNodesForDQLastSeenBefore(ctx, cutoff, limit)
 		if err != nil {
-			if cockroachutil.NeedsRetry(err) {
+			if retrydb.ShouldRetryIdempotent(err) {
 				continue
 			}
 			return nil, 0, err
