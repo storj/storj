@@ -24,6 +24,9 @@ func TestNodeEvents(t *testing.T) {
 		eventType := nodeevents.Disqualified
 		ipPort := "127.0.0.1:1234"
 
+		_, err := db.NodeEvents().GetLatestByEmailAndEvent(ctx, "missing@storj.test", nodeevents.Disqualified)
+		require.Error(t, err)
+
 		neFromInsert, err := db.NodeEvents().Insert(ctx, testEmail, &ipPort, testID, eventType)
 		require.NoError(t, err)
 		require.NotNil(t, neFromInsert.ID)
