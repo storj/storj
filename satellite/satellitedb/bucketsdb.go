@@ -444,7 +444,7 @@ func (db *bucketsDB) ListBuckets(ctx context.Context, projectID uuid.UUID, listO
 	for {
 		var dbxBuckets []*dbx.BucketMetainfo
 		switch listOpts.Direction {
-		// For simplictiy we are only supporting the forward direction for listing buckets
+		// For simplicity we are only supporting the forward direction for listing buckets
 		case buckets.DirectionForward:
 			dbxBuckets, err = db.db.Limited_BucketMetainfo_By_ProjectId_And_Name_GreaterOrEqual_OrderBy_Asc_Name(ctx,
 				dbx.BucketMetainfo_ProjectId(projectID[:]),
