@@ -549,6 +549,11 @@ func (s StreamVersionID) StreamIDSuffix() []byte {
 	return s[8:]
 }
 
+// SetStreamID encodes the provided stream ID into the stream version ID.
+func (s *StreamVersionID) SetStreamID(streamID uuid.UUID) {
+	copy(s[8:], streamID[8:])
+}
+
 // Bytes returnes stream version id bytes.
 func (s StreamVersionID) Bytes() []byte {
 	return s[:]

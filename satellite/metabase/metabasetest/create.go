@@ -525,6 +525,14 @@ func SegmentsToRaw(segments []metabase.Segment) []metabase.RawSegment {
 	return rawSegments
 }
 
+// ObjectsToRaw converts a sequence of metabase.Object to a slice of metabase.RawObject.
+func ObjectsToRaw(objects ...metabase.Object) (rawObjects []metabase.RawObject) {
+	for _, obj := range objects {
+		rawObjects = append(rawObjects, metabase.RawObject(obj))
+	}
+	return rawObjects
+}
+
 // ObjectStreamToPending converts ObjectStream to PendingObjectStream.
 func ObjectStreamToPending(objectStream metabase.ObjectStream) metabase.PendingObjectStream {
 	return metabase.PendingObjectStream{
