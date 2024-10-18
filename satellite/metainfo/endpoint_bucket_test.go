@@ -1253,6 +1253,13 @@ func TestSetBucketObjectLockConfiguration(t *testing.T) {
 			_, err = endpoint.SetBucketObjectLockConfiguration(ctx, request)
 			rpctest.RequireCode(t, err, rpcstatus.ObjectLockInvalidBucketRetentionConfiguration)
 
+			// Duration with days set above maximum (invalid).
+			config.DefaultRetention.Duration = &pb.DefaultRetention_Days{
+				Days: 36501,
+			}
+			_, err = endpoint.SetBucketObjectLockConfiguration(ctx, request)
+			rpctest.RequireCode(t, err, rpcstatus.ObjectLockInvalidBucketRetentionConfiguration)
+
 			// Duration with Years set to zero (invalid).
 			config.DefaultRetention.Duration = &pb.DefaultRetention_Years{
 				Years: 0,
@@ -1263,6 +1270,13 @@ func TestSetBucketObjectLockConfiguration(t *testing.T) {
 			// Duration with Years set to negative value (invalid).
 			config.DefaultRetention.Duration = &pb.DefaultRetention_Years{
 				Years: -1,
+			}
+			_, err = endpoint.SetBucketObjectLockConfiguration(ctx, request)
+			rpctest.RequireCode(t, err, rpcstatus.ObjectLockInvalidBucketRetentionConfiguration)
+
+			// Duration with Years set above maximum (invalid).
+			config.DefaultRetention.Duration = &pb.DefaultRetention_Years{
+				Years: 11,
 			}
 			_, err = endpoint.SetBucketObjectLockConfiguration(ctx, request)
 			rpctest.RequireCode(t, err, rpcstatus.ObjectLockInvalidBucketRetentionConfiguration)
