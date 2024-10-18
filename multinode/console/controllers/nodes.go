@@ -47,6 +47,7 @@ func (controller *Nodes) Add(w http.ResponseWriter, r *http.Request) {
 		ID            string `json:"id"`
 		APISecret     string `json:"apiSecret"`
 		PublicAddress string `json:"publicAddress"`
+		Name          string `json:"name"`
 	}
 
 	if err = json.NewDecoder(r.Body).Decode(&payload); err != nil {
@@ -66,7 +67,7 @@ func (controller *Nodes) Add(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if err = controller.service.Add(ctx, nodes.Node{ID: id, APISecret: apiSecret, PublicAddress: payload.PublicAddress}); err != nil {
+	if err = controller.service.Add(ctx, nodes.Node{ID: id, APISecret: apiSecret, PublicAddress: payload.PublicAddress, Name: payload.Name}); err != nil {
 		switch {
 		case nodes.ErrNodeNotReachable.Has(err):
 			controller.serveError(w, http.StatusNotFound, ErrNodes.Wrap(err))
