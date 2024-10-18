@@ -4,6 +4,7 @@
 <template>
     <v-alert
         border="left"
+        max-width="450px"
         :type="item.type.toLowerCase()"
         dismissible
         @mouseover="() => onMouseOver(item.id)"
