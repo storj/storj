@@ -910,6 +910,7 @@ func (a *Auth) GetAccount(w http.ResponseWriter, r *http.Request) {
 
 	var user struct {
 		ID                    uuid.UUID  `json:"id"`
+		ExternalID            string     `json:"externalID"`
 		FullName              string     `json:"fullName"`
 		ShortName             string     `json:"shortName"`
 		Email                 string     `json:"email"`
@@ -942,6 +943,9 @@ func (a *Auth) GetAccount(w http.ResponseWriter, r *http.Request) {
 	user.FullName = consoleUser.FullName
 	user.Email = consoleUser.Email
 	user.ID = consoleUser.ID
+	if consoleUser.ExternalID != nil {
+		user.ExternalID = *consoleUser.ExternalID
+	}
 	if consoleUser.UserAgent != nil {
 		user.Partner = string(consoleUser.UserAgent)
 	}

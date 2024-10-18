@@ -125,6 +125,7 @@ export interface UsersApi {
 export class User {
     public constructor(
         public id: string = '',
+        public externalID: string = '',
         public fullName: string = '',
         public shortName: string = '',
         public email: string = '',
