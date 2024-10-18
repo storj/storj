@@ -7,7 +7,9 @@ import (
 	"bytes"
 	"context"
 	"crypto/rand"
+	"crypto/sha256"
 	"database/sql"
+	"encoding/base64"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -1075,6 +1077,16 @@ func (s *Service) CreateUser(ctx context.Context, user CreateUser, tokenSecret R
 	mon.Counter("create_user_success").Inc(1) //mon:locked
 
 	return u, nil
+}
+
+// GetSsoStateFromEmail returns a signed string derived from the email address.
+func (s *Service) GetSsoStateFromEmail(email string) (string, error) {
+	sum := sha256.Sum256([]byte(email))
+	signed, err := s.tokens.Sign(sum[:])
+	if err != nil {
+		return "", Error.Wrap(err)
+	}
+	return base64.RawURLEncoding.EncodeToString(signed), nil
 }
 
 // CreateSsoUser creates a user that has been authenticated by SSO provider.
