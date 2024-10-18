@@ -427,47 +427,34 @@ func (db *StoragenodeAccounting) LastTimestamp(ctx context.Context, timestampTyp
 func (db *StoragenodeAccounting) QueryPaymentInfo(ctx context.Context, start time.Time, end time.Time) (_ []*accounting.CSVRow, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	var query string
-
+	var floatType string
 	switch db.db.impl {
 	case dbutil.Cockroach, dbutil.Postgres:
-		query = db.db.Rebind(`
-			SELECT n.id, n.created_at, r.at_rest_total, r.get_repair_total, r.put_repair_total,
-			r.get_audit_total, r.put_total, r.get_total, n.wallet, n.disqualified
-			FROM (
-				SELECT node_id, SUM(at_rest_total::decimal) AS at_rest_total,
-					SUM(get_repair_total) AS get_repair_total,
-					SUM(put_repair_total) AS put_repair_total,
-					SUM(get_audit_total) AS get_audit_total,
-					SUM(put_total) AS put_total, SUM(get_total) AS get_total
-				FROM accounting_rollups
-				WHERE start_time >= ? AND start_time < ?
-				GROUP BY node_id
-				) r
-			LEFT JOIN nodes n ON n.id = r.node_id ORDER BY n.id
-			`)
+		floatType = "FLOAT"
 	case dbutil.Spanner:
-		query = `
-			SELECT n.id, n.created_at, r.at_rest_total, r.get_repair_total, r.put_repair_total,
-				r.get_audit_total, r.put_total, r.get_total, n.wallet, n.disqualified
-			FROM (
-				SELECT node_id,
-					CAST(SUM(CAST(at_rest_total AS NUMERIC)) AS FLOAT64) AS at_rest_total,
-					SUM(get_repair_total) AS get_repair_total,
-					SUM(put_repair_total) AS put_repair_total,
-					SUM(get_audit_total) AS get_audit_total,
-					SUM(put_total) AS put_total,
-					SUM(get_total) AS get_total
-				FROM accounting_rollups
-				WHERE start_time >= ? AND start_time < ?
-				GROUP BY node_id
-				) r
-			LEFT JOIN nodes n ON n.id = r.node_id
-			ORDER BY n.id
-			`
+		floatType = "FLOAT64"
 	default:
 		return nil, Error.New("unsupported database: %v", db.db.impl)
 	}
+
+	query := db.db.Rebind(`
+		SELECT n.id, n.created_at, r.at_rest_total, r.get_repair_total, r.put_repair_total,
+			r.get_audit_total, r.put_total, r.get_total, n.wallet, n.disqualified
+		FROM (
+			SELECT node_id,
+				CAST(SUM(CAST(at_rest_total AS NUMERIC)) AS ` + floatType + `) AS at_rest_total,
+				SUM(get_repair_total) AS get_repair_total,
+				SUM(put_repair_total) AS put_repair_total,
+				SUM(get_audit_total) AS get_audit_total,
+				SUM(put_total) AS put_total,
+				SUM(get_total) AS get_total
+			FROM accounting_rollups
+			WHERE start_time >= ? AND start_time < ?
+			GROUP BY node_id
+			) r
+		LEFT JOIN nodes n ON n.id = r.node_id
+		ORDER BY n.id
+	`)
 
 	rows, err := db.db.DB.QueryContext(ctx, query, start.UTC(), end.UTC())
 	if err != nil {
@@ -504,49 +491,34 @@ func (db *StoragenodeAccounting) QueryPaymentInfo(ctx context.Context, start tim
 func (db *StoragenodeAccounting) QueryStorageNodePeriodUsage(ctx context.Context, period compensation.Period) (_ []accounting.StorageNodePeriodUsage, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	var query string
-
+	var floatType string
 	switch db.db.impl {
 	case dbutil.Cockroach, dbutil.Postgres:
-		query = db.db.Rebind(`
-			SELECT
-				node_id,
-				SUM(at_rest_total::decimal) AS at_rest_total,
-				SUM(get_total) AS get_total,
-				SUM(put_total) AS put_total,
-				SUM(get_repair_total) AS get_repair_total,
-				SUM(put_repair_total) AS put_repair_total,
-				SUM(get_audit_total) AS get_audit_total
-			FROM
-				accounting_rollups
-			WHERE
-				start_time >= ? AND start_time < ?
-			GROUP BY
-				node_id
-			ORDER BY
-				node_id ASC
-		`)
+		floatType = "FLOAT"
 	case dbutil.Spanner:
-		query = `
-			SELECT
-			   node_id,
-			   CAST(SUM(CAST(at_rest_total AS NUMERIC)) AS FLOAT64) AS at_rest_total,
-			   SUM(get_total) AS get_total,
-			   SUM(put_total) AS put_total,
-			   SUM(get_repair_total) AS get_repair_total,
-			   SUM(put_repair_total) AS put_repair_total,
-			   SUM(get_audit_total) AS get_audit_total
-			FROM
-			   accounting_rollups
-			WHERE
-			   start_time >= ? AND start_time < ?
-			GROUP BY
-			   node_id
-			ORDER BY
-			   node_id ASC`
+		floatType = "FLOAT64"
 	default:
 		return nil, Error.New("unsupported database: %v", db.db.impl)
 	}
+
+	query := db.db.Rebind(`
+		SELECT
+			node_id,
+			CAST(SUM(CAST(at_rest_total AS NUMERIC)) AS ` + floatType + `) AS at_rest_total,
+			SUM(get_total) AS get_total,
+			SUM(put_total) AS put_total,
+			SUM(get_repair_total) AS get_repair_total,
+			SUM(put_repair_total) AS put_repair_total,
+			SUM(get_audit_total) AS get_audit_total
+		FROM
+			accounting_rollups
+		WHERE
+			start_time >= ? AND start_time < ?
+		GROUP BY
+			node_id
+		ORDER BY
+			node_id ASC
+	`)
 
 	rows, err := db.db.DB.QueryContext(ctx, query, period.StartDate(), period.EndDateExclusive())
 	if err != nil {
