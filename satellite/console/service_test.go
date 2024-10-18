@@ -1961,6 +1961,30 @@ func TestDeleteProject(t *testing.T) {
 		projects, err := db.Console().Projects().GetOwn(ctx, user.ID)
 		require.NoError(t, err)
 		require.Zero(t, len(projects))
+
+		// test sso user can't delete project
+		ssoUser, err := sat.AddUser(ctx, console.CreateUser{
+			Email:    "test@sso.test",
+			FullName: "test test",
+			PaidTier: true,
+		}, 1)
+		require.NoError(t, err)
+		require.NoError(t, service.UpdateExternalID(ctx, ssoUser, "test:1234"))
+
+		ssoUserCtx, err := sat.UserContext(ctx, ssoUser.ID)
+		require.NoError(t, err)
+
+		project, err = service.CreateProject(ssoUserCtx, console.UpsertProjectInfo{
+			Name:        "test",
+			Description: "desc",
+		})
+		require.NoError(t, err)
+		require.NotNil(t, project)
+
+		_, err = service.DeleteProject(ssoUserCtx, project.ID, console.DeleteAccountInit, "foobar")
+		require.Error(t, err)
+		require.True(t, console.ErrForbidden.Has(err))
+		require.Contains(t, err.Error(), "sso")
 	})
 }
 
@@ -2323,6 +2347,21 @@ func TestDeleteAccount(t *testing.T) {
 			require.NoError(t, err)
 			require.Len(t, sessions, 0)
 		}
+
+		// test sso user can't delete account
+		ssoUser, err := sat.AddUser(ctx, console.CreateUser{
+			Email:    "test@sso.test",
+			FullName: "test test",
+		}, 1)
+		require.NoError(t, err)
+		require.NoError(t, service.UpdateExternalID(ctx, ssoUser, "test:1234"))
+
+		ssoUserCtx, err := sat.UserContext(ctx, ssoUser.ID)
+		require.NoError(t, err)
+		_, err = service.DeleteAccount(ssoUserCtx, console.DeleteAccountInit, "foobar")
+		require.Error(t, err)
+		require.True(t, console.ErrForbidden.Has(err))
+		require.Contains(t, err.Error(), "sso")
 	})
 }
 

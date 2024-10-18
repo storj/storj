@@ -2027,6 +2027,10 @@ func (s *Service) DeleteAccount(ctx context.Context, step AccountActionStep, dat
 		return nil, ErrForbidden.New("account can't be deleted")
 	}
 
+	if user.ExternalID != nil && *user.ExternalID != "" {
+		return nil, ErrForbidden.New("sso users must contact support to delete their accounts")
+	}
+
 	if user.LoginLockoutExpiration.After(s.nowFn()) {
 		mon.Counter("delete_account_locked_out").Inc(1) //mon:locked
 		s.auditLog(ctx, "delete account: failed account locked out", &user.ID, user.Email)
@@ -3226,6 +3230,10 @@ func (s *Service) DeleteProject(ctx context.Context, projectID uuid.UUID, step A
 	user, err := s.getUserAndAuditLog(ctx, "delete project", zap.String("projectID", projectID.String()))
 	if err != nil {
 		return nil, Error.Wrap(err)
+	}
+
+	if user.ExternalID != nil && *user.ExternalID != "" {
+		return nil, ErrForbidden.New("sso users must ask support to delete projects")
 	}
 
 	_, p, err := s.isProjectOwner(ctx, user.ID, projectID)
