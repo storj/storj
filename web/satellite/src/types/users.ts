@@ -406,3 +406,10 @@ export const ACCOUNT_SETUP_STEPS = [
     OnboardingStep.BusinessAccountForm,
     OnboardingStep.SetupComplete,
 ];
+
+export enum SsoCheckState {
+    NotChecked = 'NotChecked',
+    None = 'None', // email is not associated with an SSO account
+    Failed = 'Failed', // email is not associated with an SSO account
+    // a valid sso url represents a successful check
+}

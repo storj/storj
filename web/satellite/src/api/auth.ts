@@ -170,6 +170,21 @@ export class AuthHttpApi implements UsersApi {
         });
     }
 
+    public async checkSSO(email: string): Promise<string> {
+        const params = new URLSearchParams({ email: email });
+        const path = `/sso-url?${params.toString()}`;
+        const response = await this.http.get(path);
+
+        if (response.ok) {
+            return await response.text();
+        }
+        throw new APIError({
+            status: response.status,
+            message: 'Can not check SSO status. Please try again later',
+            requestID: response.headers.get('x-request-id'),
+        });
+    }
+
     /**
      * Used to change user email requests.
      *
