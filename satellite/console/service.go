@@ -1648,6 +1648,11 @@ func (s *Service) Token(ctx context.Context, request AuthUser) (response *TokenI
 		return nil, ErrLoginCredentials.New(credentialsErrMsg)
 	}
 
+	if user.ExternalID != nil && *user.ExternalID != "" {
+		s.auditLog(ctx, "login: attempted sso bypass", &user.ID, request.Email)
+		return nil, ErrLoginCredentials.New(credentialsErrMsg)
+	}
+
 	err = bcrypt.CompareHashAndPassword(user.PasswordHash, []byte(request.Password))
 	if err != nil {
 		err = s.handleLogInLockAccount(ctx, user)
@@ -2129,6 +2134,11 @@ func (s *Service) ChangeEmail(ctx context.Context, step AccountActionStep, data 
 		mon.Counter("change_email_locked_out").Inc(1) //mon:locked
 		s.auditLog(ctx, "change email: failed account locked out", &user.ID, user.Email)
 		return ErrUnauthorized.New("please try again later")
+	}
+
+	if user.ExternalID != nil && *user.ExternalID != "" {
+		s.auditLog(ctx, "change email: attempted by sso user", &user.ID, user.Email)
+		return ErrForbidden.New("sso users cannot change email")
 	}
 
 	switch step {

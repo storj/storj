@@ -1071,6 +1071,11 @@ func (a *Auth) ForgotPassword(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	if user.ExternalID != nil && *user.ExternalID != "" {
+		a.log.Info("sso user attempted 'forgot password' flow", zap.String("email", user.Email))
+		return
+	}
+
 	recoveryToken, err := a.service.GeneratePasswordRecoveryToken(ctx, user.ID)
 	if err != nil {
 		a.serveJSONError(ctx, w, err)

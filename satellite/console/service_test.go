@@ -1646,6 +1646,22 @@ func TestChangeEmail(t *testing.T) {
 		require.Equal(t, "", *user.NewUnverifiedEmail)
 		require.Equal(t, validEmail, user.Email)
 		require.Empty(t, user.ActivationCode)
+
+		// test sso user can't change email.
+		ssoUser, err := sat.AddUser(ctx, console.CreateUser{
+			Email:    "test@storj.test",
+			FullName: "test test",
+		}, 1)
+		require.NoError(t, err)
+		require.NoError(t, service.UpdateExternalID(ctx, ssoUser, "test:1234"))
+
+		ssoUserCtx, err := sat.UserContext(ctx, ssoUser.ID)
+		require.NoError(t, err)
+
+		err = service.ChangeEmail(ssoUserCtx, console.ChangeAccountEmailStep, "foobar")
+		require.Error(t, err)
+		require.True(t, console.ErrForbidden.Has(err))
+		require.Contains(t, err.Error(), "sso")
 	})
 }
 
