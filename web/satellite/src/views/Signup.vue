@@ -67,9 +67,13 @@
                                 flat
                                 clearable
                                 required
+                                @update:model-value="checkSSO"
                             />
 
-                            <div class="pos-relative">
+                            <div
+                                class="pos-relative"
+                                :class="{ hidden: !ssoUnavailable }"
+                            >
                                 <v-text-field
                                     id="Password"
                                     v-model="password"
@@ -101,6 +105,7 @@
                                 id="Retype Password"
                                 ref="repPasswordField"
                                 v-model="repPassword"
+                                :class="{ hidden: !ssoUnavailable }"
                                 label="Retype password"
                                 placeholder="Enter a password"
                                 color="secondary"
@@ -171,6 +176,7 @@
 
                             <v-btn
                                 type="submit"
+                                :disabled="ssoEnabled && ssoUrl === SsoCheckState.NotChecked"
                                 :loading="isLoading"
                                 color="primary"
                                 size="large"
@@ -299,6 +305,8 @@ import { useNotify } from '@/utils/hooks';
 import { useAnalyticsStore } from '@/store/modules/analyticsStore';
 import { AnalyticsEvent } from '@/utils/constants/analyticsEventNames';
 import { ROUTES } from '@/router';
+import { SsoCheckState } from '@/types/users';
+import { APIError } from '@/utils/error';
 
 import SignupConfirmation from '@/views/SignupConfirmation.vue';
 import PasswordInputEyeIcons from '@/components/PasswordInputEyeIcons.vue';
@@ -314,6 +322,7 @@ const notify = useNotify();
 const route = useRoute();
 
 const isLoading = ref<boolean>(false);
+const isCheckingSso = ref<boolean>(false);
 const formValid = ref<boolean>(false);
 const acceptedBetaTerms = ref(false);
 const acceptedTerms = ref(false);
@@ -325,6 +334,7 @@ const showPasswordStrength = ref(false);
 const signupID = ref('');
 const partner = ref('');
 const signupPromoCode = ref('');
+const ssoUrl = ref<string>(SsoCheckState.NotChecked);
 const captchaResponseToken = ref('');
 const email = ref('');
 const password = ref('');
@@ -339,6 +349,7 @@ const hcaptcha = ref<VueHcaptcha | null>(null);
 const form = ref<VForm | null>(null);
 const repPasswordField = ref<VTextField | null>(null);
 const partnerConfig = ref<PartnerConfig | null>(null);
+const ssoCheckTimeout = ref<NodeJS.Timeout>();
 
 const satellitesHints = [
     { satellite: 'Storj', hint: 'Recommended satellite.' },
@@ -348,27 +359,47 @@ const satellitesHints = [
     { satellite: 'AP1', hint: 'Recommended for Asia and Oceania' },
 ];
 
-const passwordRules: ValidationRule<string>[] = [
-    RequiredRule,
-    (value) => value.length < passMinLength.value || value.length > passMaxLength.value
-        ? `Password must be between ${passMinLength.value} and ${passMaxLength.value} characters`
-        : true,
-];
-
-const emailRules: ValidationRule<string>[] = [
+const emailRules: ((_: string) => boolean | string)[] = [
     RequiredRule,
     (value) => EmailRule(value, true),
 ];
 
-const repeatPasswordRules = computed<ValidationRule<string>[]>(() => [
-    ...passwordRules,
-    (value: string) => {
-        if (password.value !== value) {
-            return 'Passwords do not match';
-        }
-        return true;
-    },
-]);
+const ssoEnabled = computed(() => configStore.state.config.ssoEnabled);
+
+const passwordRules = computed(() => {
+    const rules = [
+        RequiredRule,
+        (value: string) => value.length < passMinLength.value || value.length > passMaxLength.value
+            ? `Password must be between ${passMinLength.value} and ${passMaxLength.value} characters`
+            : true,
+    ];
+    if (!ssoEnabled.value) {
+        return rules;
+    }
+    switch (ssoUrl.value) {
+    case SsoCheckState.None:
+    case SsoCheckState.Failed:
+    case SsoCheckState.NotChecked:
+        return rules;
+    default:
+        return [];
+    }
+});
+
+const repeatPasswordRules = computed(() => {
+    if (passwordRules.value.length === 0) {
+        return [];
+    }
+    return [
+        ...passwordRules.value,
+        (value: string) => {
+            if (password.value !== value) {
+                return 'Passwords do not match';
+            }
+            return true;
+        },
+    ];
+});
 
 /**
  * Returns the maximum password length from the store.
@@ -411,6 +442,12 @@ const satellites = computed(() => {
         const item = satellitesHints.find(item => item.satellite === satellite.name);
         return item ?? { satellite: satellite.name, hint: '' };
     });
+});
+
+const ssoUnavailable = computed(() => {
+    return !ssoEnabled.value || ssoUrl.value === SsoCheckState.None
+      || ssoUrl.value === SsoCheckState.Failed
+      || ssoUrl.value === SsoCheckState.NotChecked;
 });
 
 /**
@@ -470,22 +507,63 @@ function onCaptchaError(): void {
     captchaError.value = true;
 }
 
+function checkSSO(mail: string) {
+    if (!ssoEnabled.value) {
+        return;
+    }
+    clearTimeout(ssoCheckTimeout.value);
+    ssoUrl.value = SsoCheckState.NotChecked;
+    if (!emailRules.every(rule => rule(mail) === true)) {
+        return;
+    }
+    ssoCheckTimeout.value = setTimeout(async () => {
+        isCheckingSso.value = true;
+        try {
+            ssoUrl.value = await auth.checkSSO(mail);
+        } catch (error) {
+            if (error instanceof APIError && error.status === 404) {
+                ssoUrl.value = SsoCheckState.None;
+                return;
+            }
+            ssoUrl.value = SsoCheckState.Failed;
+            notify.notifyError(error);
+        } finally {
+            isCheckingSso.value = false;
+        }
+    }, 1000);
+}
+
 /**
  * Holds on login button click logic.
  */
 async function onSignupClick(): Promise<void> {
     form.value?.validate();
-    if (!formValid.value || isLoading.value) {
+    if (!formValid.value || isLoading.value || (ssoEnabled.value && ssoUrl.value === SsoCheckState.NotChecked)) {
         return;
+    }
+
+    async function triggerSignup() {
+        if (hcaptcha.value && !captchaResponseToken.value) {
+            hcaptcha.value?.execute();
+            return;
+        }
+        await signup();
     }
 
     isLoading.value = true;
-    if (hcaptcha.value && !captchaResponseToken.value) {
-        hcaptcha.value?.execute();
+    if (!ssoEnabled.value) {
+        await triggerSignup();
         return;
     }
 
-    await signup();
+    switch (ssoUrl.value) {
+    case SsoCheckState.None:
+    case SsoCheckState.Failed:
+        await triggerSignup();
+        break;
+    default:
+        window.open(ssoUrl.value, '_self');
+    }
 }
 
 /**

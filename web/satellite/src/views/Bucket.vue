@@ -296,7 +296,7 @@ import { FileUp,
 } from 'lucide-vue-next';
 
 import { useBucketsStore } from '@/store/modules/bucketsStore';
-import { useObjectBrowserStore } from '@/store/modules/objectBrowserStore';
+import { FileToUpload, useObjectBrowserStore } from '@/store/modules/objectBrowserStore';
 import { useProjectsStore } from '@/store/modules/projectsStore';
 import { EdgeCredentials } from '@/types/accessGrants';
 import { useNotify } from '@/utils/hooks';
@@ -479,6 +479,7 @@ async function initObjectStore() {
 }
 
 const uploadEvent = ref<Event>();
+const filesToUpload = ref<FileToUpload[]>();
 
 function clearUpload() {
     if (!uploadEvent.value) {
@@ -487,6 +488,7 @@ function clearUpload() {
     const target = uploadEvent.value.target as HTMLInputElement;
     target.value = '';
     uploadEvent.value = undefined;
+    filesToUpload.value = undefined;
     duplicateFiles.value = [];
 }
 
@@ -500,6 +502,7 @@ function onUpload(e: Event | undefined) {
 
     upload(ignoreDuplicateUploads.value);
 }
+
 /**
  * Upload the current selected or dragged-and-dropped file.
  */
@@ -507,16 +510,25 @@ async function upload(ignoreDuplicate: boolean): Promise<void> {
     if (!uploadEvent.value) {
         return;
     }
-    try {
-        await obStore.upload({ e: uploadEvent.value }, ignoreDuplicate);
-        clearUpload();
-        analyticsStore.eventTriggered(AnalyticsEvent.OBJECT_UPLOADED);
-    } catch (error) {
-        if (error instanceof DuplicateUploadError) {
-            duplicateFiles.value = error.files;
-            isDuplicateUploadDialogShown.value = true;
+
+    if (!filesToUpload.value) {
+        try {
+            filesToUpload.value = await obStore.getFilesToUpload({ e: uploadEvent.value });
+            if (!ignoreDuplicate) {
+                duplicateFiles.value = obStore.lazyDuplicateCheck(filesToUpload.value);
+                if (duplicateFiles.value.length > 0) {
+                    isDuplicateUploadDialogShown.value = true;
+                    return;
+                }
+            }
+        } catch (error) {
+            notify.notifyError(error);
+            return;
         }
     }
+    await obStore.upload(filesToUpload.value);
+    clearUpload();
+    analyticsStore.eventTriggered(AnalyticsEvent.OBJECT_UPLOADED);
 }
 
 /**

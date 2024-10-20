@@ -408,7 +408,7 @@ func TestPayments(t *testing.T) {
 
 func TestWalletPayments(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
-		SatelliteCount: 1, StorageNodeCount: 0, UplinkCount: 1, EnableSpanner: true,
+		SatelliteCount: 1, StorageNodeCount: 0, UplinkCount: 1,
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 		test := newTest(t, ctx, planet)
 		sat := planet.Satellites[0]

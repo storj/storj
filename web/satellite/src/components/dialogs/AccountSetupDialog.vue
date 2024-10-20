@@ -502,6 +502,8 @@ onBeforeMount(() => {
             return;
         }
 
+        firstName.value = userStore.userName || '';
+
         if (userSettings.value.onboardingStep === OnboardingStep.ManagedPassphraseOptIn && !allowManagedPassphraseStep.value) {
             step.value = OnboardingStep.SetupComplete;
         } else if (userSettings.value.onboardingStep === OnboardingStep.PricingPlanSelection && !pkgAvailable.value) {

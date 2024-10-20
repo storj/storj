@@ -7,6 +7,7 @@ import (
 	"bytes"
 	"context"
 	"crypto/subtle"
+	"fmt"
 	"regexp"
 	"strconv"
 	"strings"
@@ -32,7 +33,12 @@ import (
 	"storj.io/storj/satellite/metabase"
 )
 
-const encryptedKeySize = 48
+const (
+	encryptedKeySize = 48
+
+	maxRetentionDays  = 36500
+	maxRetentionYears = 10
+)
 
 var (
 	ipRegexp           = regexp.MustCompile(`^(([0-9]|[1-9][0-9]|1[0-9]{2}|2[0-4][0-9]|25[0-5])\.){3}([0-9]|[1-9][0-9]|1[0-9]{2}|2[0-4][0-9]|25[0-5])$`)
@@ -293,7 +299,7 @@ func (endpoint *Endpoint) checkRate(ctx context.Context, apiKeyInfo *console.API
 		return rpcstatus.Error(rpcstatus.Unavailable, err.Error())
 	}
 
-	if !limiter.Allow() {
+	if !limiter.AllowN(endpoint.rateLimiterTime(), 1) {
 		if limiter.Burst() == 0 && limiter.Limit() == 0 {
 			return rpcstatus.Error(rpcstatus.PermissionDenied, "All access disabled")
 		}
@@ -461,6 +467,96 @@ func protobufRetentionToMetabase(pbRetention *pb.Retention) metabase.Retention {
 		Mode:        storj.RetentionMode(pbRetention.Mode),
 		RetainUntil: pbRetention.RetainUntil,
 	}
+}
+
+// convertProtobufObjectLockConfig validates and converts *pb.ObjectLockConfiguration.
+func convertProtobufObjectLockConfig(config *pb.ObjectLockConfiguration) (updateParams buckets.UpdateBucketObjectLockParams, err error) {
+	if config == nil {
+		return buckets.UpdateBucketObjectLockParams{}, rpcstatus.Error(
+			rpcstatus.ObjectLockInvalidBucketRetentionConfiguration,
+			"Object Lock configuration is required",
+		)
+	}
+
+	if !config.Enabled {
+		return buckets.UpdateBucketObjectLockParams{}, rpcstatus.Error(
+			rpcstatus.ObjectLockInvalidBucketRetentionConfiguration,
+			"Object Lock can't be disabled",
+		)
+	}
+
+	updateParams.ObjectLockEnabled = true
+
+	if config.DefaultRetention == nil {
+		noRetention := storj.NoRetention
+		updateParams.DefaultRetentionMode = doublePtr(noRetention)
+		updateParams.DefaultRetentionDays = nilDoublePtr[int]()
+		updateParams.DefaultRetentionYears = nilDoublePtr[int]()
+	} else {
+		if config.DefaultRetention.Mode == pb.Retention_INVALID {
+			return buckets.UpdateBucketObjectLockParams{}, rpcstatus.Error(
+				rpcstatus.ObjectLockInvalidBucketRetentionConfiguration,
+				"Invalid retention mode",
+			)
+		}
+
+		mode := storj.RetentionMode(config.DefaultRetention.Mode)
+		updateParams.DefaultRetentionMode = doublePtr(mode)
+
+		switch duration := config.DefaultRetention.Duration.(type) {
+		case *pb.DefaultRetention_Days:
+			days := int(duration.Days)
+			switch {
+			case days <= 0:
+				return buckets.UpdateBucketObjectLockParams{}, rpcstatus.Error(
+					rpcstatus.ObjectLockInvalidBucketRetentionConfiguration,
+					"Days must be a positive integer",
+				)
+			case days > maxRetentionDays:
+				return buckets.UpdateBucketObjectLockParams{}, rpcstatus.Error(
+					rpcstatus.ObjectLockInvalidBucketRetentionConfiguration,
+					fmt.Sprintf("Days must not exceed %d", maxRetentionDays),
+				)
+			}
+			updateParams.DefaultRetentionDays = doublePtr(days)
+			updateParams.DefaultRetentionYears = nilDoublePtr[int]()
+		case *pb.DefaultRetention_Years:
+			years := int(duration.Years)
+			switch {
+			case years <= 0:
+				return buckets.UpdateBucketObjectLockParams{}, rpcstatus.Error(
+					rpcstatus.ObjectLockInvalidBucketRetentionConfiguration,
+					"Years must be a positive integer",
+				)
+			case years > maxRetentionYears:
+				return buckets.UpdateBucketObjectLockParams{}, rpcstatus.Error(
+					rpcstatus.ObjectLockInvalidBucketRetentionConfiguration,
+					fmt.Sprintf("Years must not exceed %d", maxRetentionYears),
+				)
+			}
+			updateParams.DefaultRetentionYears = doublePtr(years)
+			updateParams.DefaultRetentionDays = nilDoublePtr[int]()
+		default:
+			return buckets.UpdateBucketObjectLockParams{}, rpcstatus.Error(
+				rpcstatus.ObjectLockInvalidBucketRetentionConfiguration,
+				"Either days or years must be specified",
+			)
+		}
+	}
+
+	return updateParams, nil
+}
+
+// doublePtr returns a double pointer to the given value.
+func doublePtr[T any](value T) **T {
+	ptr := &value
+	return &ptr
+}
+
+// nilDoublePtr returns a double pointer to nil.
+func nilDoublePtr[T any]() **T {
+	var ptr *T
+	return &ptr
 }
 
 func isLowerLetter(r byte) bool {

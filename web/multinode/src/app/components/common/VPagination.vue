@@ -6,7 +6,7 @@
         <div class="pagination-container__pages">
             <div class="pagination-container__button" @click="prevPage">
                 <svg width="30" height="30" viewBox="0 0 30 30" fill="none" xmlns="http://www.w3.org/2000/svg">
-                    <path d="M9.80078 9.2625L15.5258 15L9.80078 20.7375L11.5633 22.5L19.0633 15L11.5633 7.5L9.80078 9.2625Z" fill="#586474" />
+                    <path d="M9.80078 9.2625L15.5258 15L9.80078 20.7375L11.5633 22.5L19.0633 15L11.5633 7.5L9.80078 9.2625Z" fill="currentColor" />
                 </svg>
             </div>
             <div class="pagination-container__items">
@@ -27,7 +27,7 @@
             </div>
             <div class="pagination-container__button" @click="nextPage">
                 <svg width="30" height="30" viewBox="0 0 30 30" fill="none" xmlns="http://www.w3.org/2000/svg">
-                    <path d="M9.80078 9.2625L15.5258 15L9.80078 20.7375L11.5633 22.5L19.0633 15L11.5633 7.5L9.80078 9.2625Z" fill="#586474" />
+                    <path d="M9.80078 9.2625L15.5258 15L9.80078 20.7375L11.5633 22.5L19.0633 15L11.5633 7.5L9.80078 9.2625Z" fill="currentColor" />
                 </svg>
             </div>
         </div>

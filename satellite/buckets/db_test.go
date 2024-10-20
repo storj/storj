@@ -41,8 +41,10 @@ func newTestBucket(name string, projectID uuid.UUID) buckets.Bucket {
 			CipherSuite: storj.EncAESGCM,
 			BlockSize:   9 * 10,
 		},
-		Placement:         storj.EU,
-		ObjectLockEnabled: true,
+		Placement: storj.EU,
+		ObjectLock: buckets.ObjectLockSettings{
+			Enabled: true,
+		},
 	}
 }
 
@@ -77,7 +79,7 @@ func TestBasicBucketOperations(t *testing.T) {
 		require.Equal(t, expectedBucket.DefaultRedundancyScheme, bucket.DefaultRedundancyScheme)
 		require.Equal(t, expectedBucket.DefaultEncryptionParameters, bucket.DefaultEncryptionParameters)
 		require.Equal(t, expectedBucket.Placement, bucket.Placement)
-		require.Equal(t, expectedBucket.ObjectLockEnabled, bucket.ObjectLockEnabled)
+		require.Equal(t, expectedBucket.ObjectLock, bucket.ObjectLock)
 
 		// GetMinimalBucket
 		minimalBucket, err := bucketsDB.GetMinimalBucket(ctx, []byte("testbucket"), project.ID)
@@ -107,7 +109,7 @@ func TestBasicBucketOperations(t *testing.T) {
 		require.Equal(t, 1, count)
 
 		expectedBucket2 := newTestBucket("testbucket2", project.ID)
-		expectedBucket2.ObjectLockEnabled = false
+		expectedBucket2.ObjectLock.Enabled = false
 		_, err = bucketsDB.CreateBucket(ctx, expectedBucket2)
 		require.NoError(t, err)
 
@@ -388,10 +390,12 @@ func TestEnableSuspendBucketVersioning(t *testing.T) {
 		// verify suspend bucket with Object Lock enabled fails
 		lockBucketName := testrand.BucketName()
 		_, err = db.CreateBucket(ctx, buckets.Bucket{
-			Name:              lockBucketName,
-			ProjectID:         projectID,
-			Versioning:        buckets.Unversioned,
-			ObjectLockEnabled: true,
+			Name:       lockBucketName,
+			ProjectID:  projectID,
+			Versioning: buckets.Unversioned,
+			ObjectLock: buckets.ObjectLockSettings{
+				Enabled: true,
+			},
 		})
 		require.NoError(t, err)
 

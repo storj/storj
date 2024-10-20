@@ -117,7 +117,7 @@ func TestGetExpiresBeforeWithStatus(t *testing.T) {
 		require.NoError(t, err)
 		require.Len(t, needExpiredNotification, 1)
 		require.Equal(t, trialUserAlreadyReminded, needExpiredNotification[0].ID)
-	}, satellitedbtest.WithSpanner())
+	})
 }
 
 func TestGetUnverifiedNeedingReminderCutoff(t *testing.T) {
@@ -156,7 +156,7 @@ func TestGetUnverifiedNeedingReminderCutoff(t *testing.T) {
 		needingReminder, err = users.GetUnverifiedNeedingReminder(ctx, now, now, cutoff)
 		require.NoError(t, err)
 		require.Len(t, needingReminder, 1)
-	}, satellitedbtest.WithSpanner())
+	})
 }
 
 // Spanner does not record time zones and instead uses an absolute time system. TIMESTAMP values are always returned via time.Time
@@ -471,7 +471,7 @@ func TestUpdateUser(t *testing.T) {
 		require.NoError(t, err)
 		require.WithinDuration(t, newDate, *updatedUser.TrialExpiration, time.Minute)
 		require.WithinDuration(t, newDate, *updatedUser.UpgradeTime, time.Minute)
-	}, satellitedbtest.WithSpanner())
+	})
 }
 
 func TestUpdateUserProjectLimits(t *testing.T) {
@@ -495,7 +495,7 @@ func TestUpdateUserProjectLimits(t *testing.T) {
 		require.Equal(t, limits.Bandwidth, user.ProjectBandwidthLimit)
 		require.Equal(t, limits.Storage, user.ProjectStorageLimit)
 		require.Equal(t, limits.Segment, user.ProjectSegmentLimit)
-	}, satellitedbtest.WithSpanner())
+	})
 }
 
 func TestUpdateDefaultPlacement(t *testing.T) {
@@ -523,7 +523,7 @@ func TestUpdateDefaultPlacement(t *testing.T) {
 		user, err = usersRepo.Get(ctx, user.ID)
 		require.NoError(t, err)
 		require.Equal(t, storj.EveryCountry, user.DefaultPlacement)
-	}, satellitedbtest.WithSpanner())
+	})
 }
 
 func TestGetUpgradeTime(t *testing.T) {
@@ -551,7 +551,7 @@ func TestGetUpgradeTime(t *testing.T) {
 		require.NoError(t, err)
 		require.NotNil(t, upgradeTime)
 		require.WithinDuration(t, now, *upgradeTime, time.Minute)
-	}, satellitedbtest.WithSpanner())
+	})
 }
 
 func TestUserSettings(t *testing.T) {
@@ -657,7 +657,7 @@ func TestUserSettings(t *testing.T) {
 			require.NoError(t, err)
 			require.Equal(t, noticeDismissal, settings.NoticeDismissal)
 		})
-	}, satellitedbtest.WithSpanner())
+	})
 }
 
 func TestDeleteUnverifiedBefore(t *testing.T) {
@@ -706,5 +706,5 @@ func TestDeleteUnverifiedBefore(t *testing.T) {
 		require.NoError(t, err)
 		_, err = usersDB.Get(ctx, oldActive)
 		require.NoError(t, err)
-	}, satellitedbtest.WithSpanner())
+	})
 }

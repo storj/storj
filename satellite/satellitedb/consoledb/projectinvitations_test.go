@@ -160,5 +160,5 @@ func TestProjectInvitations(t *testing.T) {
 			require.NoError(t, err)
 			require.Equal(t, invites, []console.ProjectInvitation{*inviteSameEmail})
 		})
-	}, satellitedbtest.WithSpanner())
+	})
 }

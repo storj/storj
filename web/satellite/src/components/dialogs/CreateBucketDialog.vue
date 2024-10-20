@@ -24,9 +24,12 @@
                     </template>
 
                     <v-card-title class="font-weight-bold">
-                        <!-- <img src="../assets/icon-bucket-color.svg" alt="Bucket" width="40"> -->
                         New Bucket
                     </v-card-title>
+
+                    <v-card-subtitle class="text-caption pb-0">
+                        Step {{ stepNumber }}: {{ stepName }}
+                    </v-card-subtitle>
 
                     <template #append>
                         <v-btn
@@ -45,7 +48,7 @@
 
             <v-window v-model="step">
                 <v-window-item :value="CreateStep.Name">
-                    <v-form v-model="formValid" class="pa-6 pb-3" @submit.prevent="toNextStep">
+                    <v-form v-model="formValid" class="pa-6 pb-3">
                         <v-row>
                             <v-col>
                                 <p>Buckets are used to store and organize your objects. Enter a bucket name using lowercase characters.</p>
@@ -254,6 +257,7 @@ import {
     VCardActions,
     VCardItem,
     VCardTitle,
+    VCardSubtitle,
     VChip,
     VChipGroup,
     VCol,
@@ -307,7 +311,11 @@ const stepInfos = {
         next: () => {
             if (objectLockUIEnabled.value) return CreateStep.ObjectLock;
             if (allowVersioningStep.value) return CreateStep.Versioning;
-            return CreateStep.Confirmation;
+            return CreateStep.Success;
+        },
+        beforeNext: async () => {
+            if (objectLockUIEnabled.value || allowVersioningStep.value) return;
+            await onCreate();
         },
         validate: (): boolean => {
             return formValid.value;
@@ -358,7 +366,8 @@ const emit = defineEmits<{
     (event: 'created', value: string): void,
 }>();
 
-const step = ref(CreateStep.Name);
+const step = ref<CreateStep>(CreateStep.Name);
+const stepNumber = ref<number>(1);
 const innerContent = ref<Component | null>(null);
 const formValid = ref<boolean>(false);
 const enableVersioning = ref<boolean>(false);
@@ -408,6 +417,23 @@ const bucketNameRules = computed((): ValidationRule<string>[] => {
         (value: string) => (!ipRegexp.test(value) || 'Bucket name cannot be formatted as an IP address.'),
         (value: string) => (!allBucketNames.value.includes(value) || 'A bucket exists with this name.'),
     ];
+});
+
+const stepName = computed<string>(() => {
+    switch (step.value) {
+    case CreateStep.Name:
+        return 'Name';
+    case CreateStep.ObjectLock:
+        return 'Object Lock';
+    case CreateStep.Versioning:
+        return 'Object Versioning';
+    case CreateStep.Confirmation:
+        return 'Confirmation';
+    case CreateStep.Success:
+        return 'Bucket Created';
+    default:
+        return '';
+    }
 });
 
 /**
@@ -472,7 +498,7 @@ function setWorker(): void {
 /**
  * Conditionally close dialog or go to previous step.
  */
-function toPrevStep() {
+function toPrevStep(): void {
     if (step.value === CreateStep.Success) {
         model.value = false;
         return;
@@ -480,6 +506,7 @@ function toPrevStep() {
     const info = stepInfos[step.value];
     if (info.prev?.value) {
         step.value = info.prev.value;
+        stepNumber.value--;
     } else {
         model.value = false;
     }
@@ -488,7 +515,9 @@ function toPrevStep() {
 /**
  * Conditionally create bucket or go to next step.
  */
-function toNextStep() {
+function toNextStep(): void {
+    if (!formValid.value) return;
+
     if (step.value === CreateStep.Success) {
         openBucket();
         return;
@@ -506,6 +535,7 @@ function toNextStep() {
         }
         if (info.next?.value) {
             step.value = info.next.value;
+            stepNumber.value++;
         }
     });
 }
@@ -513,7 +543,7 @@ function toNextStep() {
 /**
  * Navigates to bucket page.
  */
-async function openBucket() {
+async function openBucket(): Promise<void> {
     bucketsStore.setFileComponentBucketName(bucketName.value);
     await router.push({
         name: ROUTES.Bucket.name,
@@ -522,7 +552,6 @@ async function openBucket() {
             id: projectsStore.state.selectedProject.urlId,
         },
     });
-    return;
 }
 
 /**
@@ -657,6 +686,7 @@ watch(innerContent, newContent => {
     // dialog has been closed
     bucketName.value = '';
     step.value = CreateStep.Name;
+    stepNumber.value = 1;
     enableVersioning.value = false;
     enableObjectLock.value = false;
 });

@@ -34,7 +34,9 @@ func TestDisqualificationTooManyFailedAudits(t *testing.T) {
 	)
 
 	testplanet.Run(t, testplanet.Config{
-		SatelliteCount: 1, StorageNodeCount: 1, Reconfigure: testplanet.Reconfigure{
+		SatelliteCount: 1, StorageNodeCount: 1,
+		SkipSpanner: true, // TODO(spanner): Test times out on spanner emulator.
+		Reconfigure: testplanet.Reconfigure{
 			Satellite: func(log *zap.Logger, index int, config *satellite.Config) {
 				config.Reputation.AuditLambda = 1
 				config.Reputation.AuditWeight = 1

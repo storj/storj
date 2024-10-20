@@ -2841,6 +2841,32 @@ func (db *satelliteDB) ProductionMigration() *migrate.Migration {
 					`ALTER INDEX billing_transactions_timestamp_index RENAME TO billing_transactions_tx_timestamp_index;`,
 				},
 			},
+			{
+				DB:          &db.migrationDB,
+				Description: "add default retention columns to bucket_metainfos",
+				Version:     281,
+				Action: migrate.SQL{
+					`ALTER TABLE bucket_metainfos ADD COLUMN default_retention_mode INTEGER;`,
+					`ALTER TABLE bucket_metainfos ADD COLUMN default_retention_days INTEGER;`,
+					`ALTER TABLE bucket_metainfos ADD COLUMN default_retention_years INTEGER;`,
+				},
+			},
+			{
+				DB:          &db.migrationDB,
+				Description: "add external_id column to users",
+				Version:     282,
+				Action: migrate.SQL{
+					`ALTER TABLE users ADD COLUMN external_id TEXT;`,
+				},
+			},
+			{
+				DB:          &db.migrationDB,
+				Description: "add partial index to external_id",
+				Version:     283,
+				Action: migrate.SQL{
+					`CREATE INDEX users_external_id_index ON users ( external_id ) WHERE external_id IS NOT NULL;`,
+				},
+			},
 			// NB: after updating testdata in `testdata`, run
 			//     `go generate` to update `migratez.go`.
 		},

@@ -456,9 +456,9 @@ var _ NodeFilter = AllowedNodesFilter{}
 
 // AttributeFilter selects nodes based on dynamic node attributes (eg. vetted=true or tag:owner=...).
 type AttributeFilter struct {
-	attribute NodeAttribute
-	test      mito.OpType
-	value     interface{}
+	mapper func(SelectedNode) any
+	test   mito.OpType
+	value  interface{}
 }
 
 // NewAttributeFilter creates new attribute filter. NewAttributeFilter can be
@@ -495,15 +495,33 @@ func NewAttributeFilter(attr string, args ...any) (*AttributeFilter, error) {
 		return nil, errs.New("invalid call to create new attribute filter. Expected 2 or 3 arguments")
 	}
 
-	attribute, err := CreateNodeAttribute(attr)
+	m, err := createNodeMapping(attr)
 	if err != nil {
 		return nil, err
 	}
 	return &AttributeFilter{
-		attribute: attribute,
-		test:      test,
-		value:     value,
+		mapper: m,
+		test:   test,
+		value:  value,
 	}, nil
+}
+
+// CreateNodeMapping creates either NodeValue Or NodeAttribute from a string.
+// Try to use the more specific, typed CreateNodeValue and CreateNodeAttribute when possible.
+func createNodeMapping(attr string) (func(node SelectedNode) any, error) {
+	na, err := CreateNodeAttribute(attr)
+	if err == nil {
+		return func(node SelectedNode) any {
+			return na(node)
+		}, nil
+	}
+	nv, err2 := CreateNodeValue(attr)
+	if err2 == nil {
+		return func(node SelectedNode) any {
+			return nv(node)
+		}, nil
+	}
+	return nil, errs.New("String %s is neither a node attribute (%s) nor a node value (%s)", attr, err, err2)
 }
 
 func compare(a any, test mito.OpType, b any) bool {
@@ -521,7 +539,7 @@ func compare(a any, test mito.OpType, b any) bool {
 
 // Match implements NodeFilter.
 func (a *AttributeFilter) Match(node *SelectedNode) bool {
-	attribute := a.attribute(*node)
+	attribute := a.mapper(*node)
 
 	switch v := a.value.(type) {
 	case stringNotMatch:

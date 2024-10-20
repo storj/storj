@@ -193,43 +193,54 @@ func TestRandomizedSelectionCache(t *testing.T) {
 		allIDs := make(storj.NodeIDList, totalNodes)
 		nodeCounts := make(map[storj.NodeID]int)
 
+		var nodes []*overlay.NodeDossier
+		now := time.Now()
+
 		// put nodes in cache
 		for i := 0; i < totalNodes; i++ {
 			newID := testrand.NodeID()
 			address := fmt.Sprintf("127.0.%d.0:8080", i)
 			lastNet := address
 
-			n := overlay.NodeCheckInInfo{
-				NodeID: newID,
-				Address: &pb.NodeAddress{
-					Address: address,
+			var vettedAt *time.Time
+			if i%2 == 0 {
+				vettedAt = &now
+			}
+
+			nodes = append(nodes, &overlay.NodeDossier{
+				Node: pb.Node{
+					Id: newID,
+					Address: &pb.NodeAddress{
+						Address: address,
+					},
 				},
 				LastNet:    lastNet,
 				LastIPPort: address,
-				IsUp:       true,
-				Capacity: &pb.NodeCapacity{
+
+				Operator: pb.NodeOperator{},
+				Capacity: pb.NodeCapacity{
 					FreeDisk: 200 * memory.MiB.Int64(),
 				},
-				Version: &pb.NodeVersion{
+				Version: pb.NodeVersion{
 					Version:    "v1.1.0",
 					CommitHash: "",
 					Timestamp:  time.Time{},
 					Release:    true,
 				},
-			}
-			defaults := overlay.NodeSelectionConfig{}
-			err := overlaydb.UpdateCheckIn(ctx, n, time.Now().UTC(), defaults)
-			require.NoError(t, err)
 
-			if i%2 == 0 {
-				// make half of nodes "new" and half "vetted"
-				_, err = overlaydb.TestVetNode(ctx, newID)
-				require.NoError(t, err)
-			}
+				Reputation: overlay.NodeStats{
+					LastContactSuccess: now,
+					Status: overlay.ReputationStatus{
+						VettedAt: vettedAt,
+					},
+				},
+			})
 
 			allIDs[i] = newID
 			nodeCounts[newID] = 0
 		}
+
+		require.NoError(t, overlaydb.TestAddNodes(ctx, nodes))
 
 		err := uploadSelectionCache.Refresh(ctx)
 		require.NoError(t, err)
@@ -278,7 +289,7 @@ func TestRandomizedSelectionCache(t *testing.T) {
 
 func TestNodeInfo(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
-		SatelliteCount: 1, StorageNodeCount: 1, UplinkCount: 0, EnableSpanner: true,
+		SatelliteCount: 1, StorageNodeCount: 1, UplinkCount: 0,
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 		planet.StorageNodes[0].Storage2.Monitor.Loop.Pause()
 
@@ -299,7 +310,7 @@ func TestNodeInfo(t *testing.T) {
 
 func TestGetNodes(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
-		SatelliteCount: 1, StorageNodeCount: 6, UplinkCount: 1, EnableSpanner: true,
+		SatelliteCount: 1, StorageNodeCount: 6, UplinkCount: 1,
 		Reconfigure: testplanet.Reconfigure{
 			Satellite: func(log *zap.Logger, index int, config *satellite.Config) {
 				config.Reputation.AuditHistory = reputation.AuditHistoryConfig{
@@ -536,12 +547,12 @@ func TestUpdateCheckIn(t *testing.T) {
 		nodeInfo, err = db.OverlayCache().Get(ctx, updated2Node.Id)
 		require.NoError(t, err)
 		require.Nil(t, nodeInfo.LastOfflineEmail)
-	}, satellitedbtest.WithSpanner())
+	})
 }
 
 func TestUpdateReputation(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
-		SatelliteCount: 1, StorageNodeCount: 1, UplinkCount: 0, EnableSpanner: true,
+		SatelliteCount: 1, StorageNodeCount: 1, UplinkCount: 0,
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 		service := planet.Satellites[0].Overlay.Service
 		overlaydb := planet.Satellites[0].Overlay.DB

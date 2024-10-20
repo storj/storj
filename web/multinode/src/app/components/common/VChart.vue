@@ -58,6 +58,7 @@ export default class VChart extends Vue {
 
     public get chartOptions(): Record<string, unknown> {
         const filterCallback = this.filterDaysDisplayed;
+        const ticksColor = this.$vuetify.theme.dark? '#242d40' : '#e1e3e6';
 
         return {
             responsive: false,
@@ -77,11 +78,12 @@ export default class VChart extends Vue {
                     display: true,
                     ticks: {
                         beginAtZero: true,
-                        color: '#586C86',
+                        color: ticksColor,
                     },
                     gridLines: {
                         borderDash: [2, 5],
                         drawBorder: false,
+                        color: ticksColor,
                     },
                 }],
                 xAxes: [{
@@ -92,6 +94,7 @@ export default class VChart extends Vue {
                         maxRotation: 0,
                         minRotation: 0,
                         callback: filterCallback,
+                        color: ticksColor,
                     },
                     gridLines: {
                         display: false,

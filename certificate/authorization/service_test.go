@@ -4,10 +4,10 @@
 package authorization
 
 import (
+	"errors"
 	"testing"
 
 	"github.com/stretchr/testify/require"
-	"github.com/zeebo/errs"
 	"go.uber.org/zap/zaptest"
 
 	"storj.io/common/testcontext"
@@ -66,7 +66,7 @@ func TestService_GetOrCreate_error(t *testing.T) {
 
 	{ // empty user ID
 		token, err := service.GetOrCreate(ctx, "")
-		require.Error(t, errs.Unwrap(err), ErrEmptyUserID.Error())
+		require.Error(t, errors.Unwrap(err), ErrEmptyUserID.Error())
 		require.Nil(t, token)
 	}
 }

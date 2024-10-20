@@ -68,8 +68,8 @@ export default class BandwidthChart extends BaseChart {
     public get chartData(): ChartData {
         let data: number[] = [0];
         const daysCount = ChartUtils.daysDisplayedOnChart();
-        const chartBackgroundColor = '#F2F6FC';
-        const chartBorderColor = '#1F49A3';
+        const chartBackgroundColor = this.$vuetify.theme.dark ? '#d4effa' : '#F2F6FC';
+        const chartBorderColor = this.$vuetify.theme.dark ? '#0052FF' : '#1F49A3';
         const chartBorderWidth = 1;
 
         if (this.allBandwidth.length) {
@@ -133,21 +133,21 @@ export default class BandwidthChart extends BaseChart {
 
         &__data-dimension {
             font-size: 13px;
-            color: var(--c-title);
+            color: var(--v-header-base);
             margin: 0 0 5px 31px !important;
             font-family: 'font_medium', sans-serif;
         }
     }
 
     #bandwidth-tooltip {
-        background: white;
-        border: 1px solid var(--c-gray--light);
+        background: var(--v-background2-base);
+        border: 1px solid var(--v-border-base);
         min-width: 250px;
         min-height: 230px;
         font-size: 12px;
         border-radius: 14px;
         font-family: 'font_bold', sans-serif;
-        color: var(--c-title);
+        color: var(--v-header-base);
         pointer-events: none;
         z-index: 9999;
     }
@@ -179,7 +179,7 @@ export default class BandwidthChart extends BaseChart {
             font-family: 'font_bold', sans-serif;
 
             .tooltip-bold-text {
-                color: #1f49a3;
+                color: var(--v-primary-base);
                 font-size: 14px;
             }
 
@@ -202,6 +202,6 @@ export default class BandwidthChart extends BaseChart {
         align-items: center;
         justify-content: center;
         padding: 10px 0 16px;
-        color: var(--c-title);
+        color: var(--v-header-base);
     }
 </style>

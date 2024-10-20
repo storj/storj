@@ -13,6 +13,7 @@ import (
 
 	"storj.io/common/debug"
 	"storj.io/storj/private/mud"
+	"storj.io/storj/shared/modular"
 )
 
 // Wrapper combines the debug server and the listener.
@@ -66,5 +67,5 @@ func Module(ball *mud.Ball) {
 	})
 	mud.Implementation[[]debug.Extension, *ModuleGraph](ball)
 	mud.RemoveTag[*ModuleGraph, mud.Optional](ball)
-
+	mud.Tag[Wrapper, modular.Service](ball, modular.Service{})
 }
