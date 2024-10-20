@@ -34,6 +34,7 @@ import (
 	"storj.io/storj/satellite/buckets"
 	"storj.io/storj/satellite/console"
 	"storj.io/storj/satellite/console/consoleauth"
+	"storj.io/storj/satellite/console/consoleauth/sso"
 	"storj.io/storj/satellite/console/consoleweb"
 	"storj.io/storj/satellite/console/restkeys"
 	"storj.io/storj/satellite/console/userinfo"
@@ -144,6 +145,10 @@ type ConsoleAPI struct {
 
 	KeyManagement struct {
 		Service *kms.Service
+	}
+
+	SSO struct {
+		Service *sso.Service
 	}
 
 	HealthCheck struct {
@@ -349,6 +354,17 @@ func NewConsoleAPI(log *zap.Logger, full *identity.FullIdentity, db DB,
 		}
 	}
 
+	{ // setup sso
+		if config.SSO.Enabled {
+			peer.SSO.Service = sso.NewService(config.Console.ExternalAddress, config.SSO)
+
+			peer.Services.Add(lifecycle.Item{
+				Name: "sso:service",
+				Run:  peer.SSO.Service.Initialize,
+			})
+		}
+	}
+
 	{ // setup userinfo.
 		if config.Userinfo.Enabled {
 			peer.Userinfo.Endpoint, err = userinfo.NewEndpoint(
@@ -452,6 +468,7 @@ func NewConsoleAPI(log *zap.Logger, full *identity.FullIdentity, db DB,
 
 	{ // setup console
 		consoleConfig := config.Console
+		consoleConfig.SsoEnabled = config.SSO.Enabled
 		peer.Console.Listener, err = net.Listen("tcp", consoleConfig.Address)
 		if err != nil {
 			return nil, errs.Combine(err, peer.Close())
@@ -513,6 +530,7 @@ func NewConsoleAPI(log *zap.Logger, full *identity.FullIdentity, db DB,
 			peer.Analytics.Service,
 			peer.ABTesting.Service,
 			accountFreezeService,
+			peer.SSO.Service,
 			peer.Console.Listener,
 			config.Payments.StripeCoinPayments.StripePublicKey,
 			config.Payments.Storjscan.Confirmations, peer.URL(), console.ObjectLockAndVersioningConfig{

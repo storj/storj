@@ -249,7 +249,6 @@ func TestEndpoint_checkRate(t *testing.T) {
 				config.Metainfo.RateLimiter.Rate = 1
 			},
 		},
-		EnableSpanner: true,
 	},
 		func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 			sat := planet.Satellites[0]

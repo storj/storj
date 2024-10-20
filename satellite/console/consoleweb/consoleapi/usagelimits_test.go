@@ -92,6 +92,10 @@ func TestTotalUsageLimits(t *testing.T) {
 func TestDailyUsage(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
 		SatelliteCount: 1, StorageNodeCount: 1, UplinkCount: 1,
+		// TODO(spanner): There's an emulator bug with regards to MAX(timestamp),
+		// which causes some queries to fail.
+		// https://github.com/GoogleCloudPlatform/cloud-spanner-emulator/issues/73
+		SkipSpanner: true,
 		Reconfigure: testplanet.Reconfigure{
 			Satellite: func(log *zap.Logger, index int, config *satellite.Config) {
 				config.Console.OpenRegistrationEnabled = true

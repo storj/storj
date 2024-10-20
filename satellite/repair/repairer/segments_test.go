@@ -37,7 +37,7 @@ import (
 func TestSegmentRepairPlacement(t *testing.T) {
 	piecesCount := 4
 	testplanet.Run(t, testplanet.Config{
-		SatelliteCount: 1, StorageNodeCount: 12, UplinkCount: 1, EnableSpanner: true,
+		SatelliteCount: 1, StorageNodeCount: 12, UplinkCount: 1,
 		Reconfigure: testplanet.Reconfigure{
 			Satellite: testplanet.Combine(
 				testplanet.ReconfigureRS(1, 1, piecesCount, piecesCount),
@@ -163,7 +163,7 @@ func TestSegmentRepairPlacement(t *testing.T) {
 
 func TestSegmentRepairInMemoryUpload(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
-		SatelliteCount: 1, StorageNodeCount: 4, UplinkCount: 1, EnableSpanner: true,
+		SatelliteCount: 1, StorageNodeCount: 4, UplinkCount: 1,
 		Reconfigure: testplanet.Reconfigure{
 			Satellite: testplanet.Combine(
 				testplanet.ReconfigureRS(1, 1, 2, 2),

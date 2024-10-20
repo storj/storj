@@ -94,10 +94,10 @@ func makeErr(err error) error {
 		return wrapErr(e)
 	}
 	e = &Error{Err: err}
-	switch err {
-	case sql.ErrNoRows:
+	switch {
+	case errors.Is(err, sql.ErrNoRows):
 		e.Code = ErrorCode_NoRows
-	case sql.ErrTxDone:
+	case errors.Is(err, sql.ErrTxDone):
 		e.Code = ErrorCode_TxDone
 	}
 	return wrapErr(e)
@@ -139,6 +139,22 @@ func constraintViolation(err error, constraint string) error {
 		Code:       ErrorCode_ConstraintViolation,
 		Constraint: constraint,
 	})
+}
+
+func closeRows(rows tagsql.Rows, err *error) {
+	rowsErr := rows.Err()
+	closeErr := rows.Close()
+	if *err != nil {
+		// throw away errors from .Err() and .Close(), if any; they are almost certainly less important
+		// than the error we already have
+		return
+	}
+	if rowsErr != nil {
+		// throw away error from .Close(), if any; it is probably less important
+		*err = rowsErr
+		return
+	}
+	*err = closeErr
 }
 
 type driver interface {
@@ -16188,7 +16204,7 @@ func (obj *pgxImpl) Find_AccountingTimestamps_Value_By_Name(ctx context.Context,
 
 	row = &Value_Row{}
 	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&row.Value)
-	if err == sql.ErrNoRows {
+	if errors.Is(err, sql.ErrNoRows) {
 		return (*Value_Row)(nil), nil
 	}
 	if err != nil {
@@ -16221,7 +16237,7 @@ func (obj *pgxImpl) All_StoragenodeBandwidthRollup_By_StoragenodeId_And_Interval
 			if err != nil {
 				return nil, err
 			}
-			defer __rows.Close()
+			defer closeRows(__rows, &err)
 
 			for __rows.Next() {
 				storagenode_bandwidth_rollup := &StoragenodeBandwidthRollup{}
@@ -16230,9 +16246,6 @@ func (obj *pgxImpl) All_StoragenodeBandwidthRollup_By_StoragenodeId_And_Interval
 					return nil, err
 				}
 				rows = append(rows, storagenode_bandwidth_rollup)
-			}
-			if err := __rows.Err(); err != nil {
-				return nil, err
 			}
 			return rows, nil
 		}()
@@ -16279,7 +16292,7 @@ func (obj *pgxImpl) Paged_StoragenodeBandwidthRollup_By_IntervalStart_GreaterOrE
 			if err != nil {
 				return nil, nil, err
 			}
-			defer __rows.Close()
+			defer closeRows(__rows, &err)
 
 			var __continuation Paged_StoragenodeBandwidthRollup_By_IntervalStart_GreaterOrEqual_Continuation
 			__continuation._set = true
@@ -16288,14 +16301,10 @@ func (obj *pgxImpl) Paged_StoragenodeBandwidthRollup_By_IntervalStart_GreaterOrE
 				storagenode_bandwidth_rollup := &StoragenodeBandwidthRollup{}
 				err = __rows.Scan(&storagenode_bandwidth_rollup.StoragenodeId, &storagenode_bandwidth_rollup.IntervalStart, &storagenode_bandwidth_rollup.IntervalSeconds, &storagenode_bandwidth_rollup.Action, &storagenode_bandwidth_rollup.Allocated, &storagenode_bandwidth_rollup.Settled, &__continuation._value_storagenode_id, &__continuation._value_interval_start, &__continuation._value_action)
 				if err != nil {
-					return nil, nil, obj.makeErr(err)
+					return nil, nil, err
 				}
 				rows = append(rows, storagenode_bandwidth_rollup)
 				next = &__continuation
-			}
-
-			if err := __rows.Err(); err != nil {
-				return nil, nil, obj.makeErr(err)
 			}
 
 			return rows, next, nil
@@ -16344,7 +16353,7 @@ func (obj *pgxImpl) Paged_StoragenodeBandwidthRollup_By_StoragenodeId_And_Interv
 			if err != nil {
 				return nil, nil, err
 			}
-			defer __rows.Close()
+			defer closeRows(__rows, &err)
 
 			var __continuation Paged_StoragenodeBandwidthRollup_By_StoragenodeId_And_IntervalStart_GreaterOrEqual_Continuation
 			__continuation._set = true
@@ -16353,14 +16362,10 @@ func (obj *pgxImpl) Paged_StoragenodeBandwidthRollup_By_StoragenodeId_And_Interv
 				storagenode_bandwidth_rollup := &StoragenodeBandwidthRollup{}
 				err = __rows.Scan(&storagenode_bandwidth_rollup.StoragenodeId, &storagenode_bandwidth_rollup.IntervalStart, &storagenode_bandwidth_rollup.IntervalSeconds, &storagenode_bandwidth_rollup.Action, &storagenode_bandwidth_rollup.Allocated, &storagenode_bandwidth_rollup.Settled, &__continuation._value_storagenode_id, &__continuation._value_interval_start, &__continuation._value_action)
 				if err != nil {
-					return nil, nil, obj.makeErr(err)
+					return nil, nil, err
 				}
 				rows = append(rows, storagenode_bandwidth_rollup)
 				next = &__continuation
-			}
-
-			if err := __rows.Err(); err != nil {
-				return nil, nil, obj.makeErr(err)
 			}
 
 			return rows, next, nil
@@ -16408,7 +16413,7 @@ func (obj *pgxImpl) Paged_StoragenodeBandwidthRollupArchive_By_IntervalStart_Gre
 			if err != nil {
 				return nil, nil, err
 			}
-			defer __rows.Close()
+			defer closeRows(__rows, &err)
 
 			var __continuation Paged_StoragenodeBandwidthRollupArchive_By_IntervalStart_GreaterOrEqual_Continuation
 			__continuation._set = true
@@ -16417,14 +16422,10 @@ func (obj *pgxImpl) Paged_StoragenodeBandwidthRollupArchive_By_IntervalStart_Gre
 				storagenode_bandwidth_rollup_archive := &StoragenodeBandwidthRollupArchive{}
 				err = __rows.Scan(&storagenode_bandwidth_rollup_archive.StoragenodeId, &storagenode_bandwidth_rollup_archive.IntervalStart, &storagenode_bandwidth_rollup_archive.IntervalSeconds, &storagenode_bandwidth_rollup_archive.Action, &storagenode_bandwidth_rollup_archive.Allocated, &storagenode_bandwidth_rollup_archive.Settled, &__continuation._value_storagenode_id, &__continuation._value_interval_start, &__continuation._value_action)
 				if err != nil {
-					return nil, nil, obj.makeErr(err)
+					return nil, nil, err
 				}
 				rows = append(rows, storagenode_bandwidth_rollup_archive)
 				next = &__continuation
-			}
-
-			if err := __rows.Err(); err != nil {
-				return nil, nil, obj.makeErr(err)
 			}
 
 			return rows, next, nil
@@ -16473,7 +16474,7 @@ func (obj *pgxImpl) Paged_StoragenodeBandwidthRollupPhase2_By_StoragenodeId_And_
 			if err != nil {
 				return nil, nil, err
 			}
-			defer __rows.Close()
+			defer closeRows(__rows, &err)
 
 			var __continuation Paged_StoragenodeBandwidthRollupPhase2_By_StoragenodeId_And_IntervalStart_GreaterOrEqual_Continuation
 			__continuation._set = true
@@ -16482,14 +16483,10 @@ func (obj *pgxImpl) Paged_StoragenodeBandwidthRollupPhase2_By_StoragenodeId_And_
 				storagenode_bandwidth_rollup_phase2 := &StoragenodeBandwidthRollupPhase2{}
 				err = __rows.Scan(&storagenode_bandwidth_rollup_phase2.StoragenodeId, &storagenode_bandwidth_rollup_phase2.IntervalStart, &storagenode_bandwidth_rollup_phase2.IntervalSeconds, &storagenode_bandwidth_rollup_phase2.Action, &storagenode_bandwidth_rollup_phase2.Allocated, &storagenode_bandwidth_rollup_phase2.Settled, &__continuation._value_storagenode_id, &__continuation._value_interval_start, &__continuation._value_action)
 				if err != nil {
-					return nil, nil, obj.makeErr(err)
+					return nil, nil, err
 				}
 				rows = append(rows, storagenode_bandwidth_rollup_phase2)
 				next = &__continuation
-			}
-
-			if err := __rows.Err(); err != nil {
-				return nil, nil, obj.makeErr(err)
 			}
 
 			return rows, next, nil
@@ -16525,7 +16522,7 @@ func (obj *pgxImpl) All_StoragenodeStorageTally(ctx context.Context) (
 			if err != nil {
 				return nil, err
 			}
-			defer __rows.Close()
+			defer closeRows(__rows, &err)
 
 			for __rows.Next() {
 				storagenode_storage_tally := &StoragenodeStorageTally{}
@@ -16534,9 +16531,6 @@ func (obj *pgxImpl) All_StoragenodeStorageTally(ctx context.Context) (
 					return nil, err
 				}
 				rows = append(rows, storagenode_storage_tally)
-			}
-			if err := __rows.Err(); err != nil {
-				return nil, err
 			}
 			return rows, nil
 		}()
@@ -16573,7 +16567,7 @@ func (obj *pgxImpl) All_StoragenodeStorageTally_By_IntervalEndTime_GreaterOrEqua
 			if err != nil {
 				return nil, err
 			}
-			defer __rows.Close()
+			defer closeRows(__rows, &err)
 
 			for __rows.Next() {
 				storagenode_storage_tally := &StoragenodeStorageTally{}
@@ -16582,9 +16576,6 @@ func (obj *pgxImpl) All_StoragenodeStorageTally_By_IntervalEndTime_GreaterOrEqua
 					return nil, err
 				}
 				rows = append(rows, storagenode_storage_tally)
-			}
-			if err := __rows.Err(); err != nil {
-				return nil, err
 			}
 			return rows, nil
 		}()
@@ -16631,7 +16622,7 @@ func (obj *pgxImpl) Paged_BucketBandwidthRollup_By_IntervalStart_GreaterOrEqual(
 			if err != nil {
 				return nil, nil, err
 			}
-			defer __rows.Close()
+			defer closeRows(__rows, &err)
 
 			var __continuation Paged_BucketBandwidthRollup_By_IntervalStart_GreaterOrEqual_Continuation
 			__continuation._set = true
@@ -16640,14 +16631,10 @@ func (obj *pgxImpl) Paged_BucketBandwidthRollup_By_IntervalStart_GreaterOrEqual(
 				bucket_bandwidth_rollup := &BucketBandwidthRollup{}
 				err = __rows.Scan(&bucket_bandwidth_rollup.BucketName, &bucket_bandwidth_rollup.ProjectId, &bucket_bandwidth_rollup.IntervalStart, &bucket_bandwidth_rollup.IntervalSeconds, &bucket_bandwidth_rollup.Action, &bucket_bandwidth_rollup.Inline, &bucket_bandwidth_rollup.Allocated, &bucket_bandwidth_rollup.Settled, &__continuation._value_project_id, &__continuation._value_bucket_name, &__continuation._value_interval_start, &__continuation._value_action)
 				if err != nil {
-					return nil, nil, obj.makeErr(err)
+					return nil, nil, err
 				}
 				rows = append(rows, bucket_bandwidth_rollup)
 				next = &__continuation
-			}
-
-			if err := __rows.Err(); err != nil {
-				return nil, nil, obj.makeErr(err)
 			}
 
 			return rows, next, nil
@@ -16695,7 +16682,7 @@ func (obj *pgxImpl) Paged_BucketBandwidthRollupArchive_By_IntervalStart_GreaterO
 			if err != nil {
 				return nil, nil, err
 			}
-			defer __rows.Close()
+			defer closeRows(__rows, &err)
 
 			var __continuation Paged_BucketBandwidthRollupArchive_By_IntervalStart_GreaterOrEqual_Continuation
 			__continuation._set = true
@@ -16704,14 +16691,10 @@ func (obj *pgxImpl) Paged_BucketBandwidthRollupArchive_By_IntervalStart_GreaterO
 				bucket_bandwidth_rollup_archive := &BucketBandwidthRollupArchive{}
 				err = __rows.Scan(&bucket_bandwidth_rollup_archive.BucketName, &bucket_bandwidth_rollup_archive.ProjectId, &bucket_bandwidth_rollup_archive.IntervalStart, &bucket_bandwidth_rollup_archive.IntervalSeconds, &bucket_bandwidth_rollup_archive.Action, &bucket_bandwidth_rollup_archive.Inline, &bucket_bandwidth_rollup_archive.Allocated, &bucket_bandwidth_rollup_archive.Settled, &__continuation._value_bucket_name, &__continuation._value_project_id, &__continuation._value_interval_start, &__continuation._value_action)
 				if err != nil {
-					return nil, nil, obj.makeErr(err)
+					return nil, nil, err
 				}
 				rows = append(rows, bucket_bandwidth_rollup_archive)
 				next = &__continuation
-			}
-
-			if err := __rows.Err(); err != nil {
-				return nil, nil, obj.makeErr(err)
 			}
 
 			return rows, next, nil
@@ -16747,7 +16730,7 @@ func (obj *pgxImpl) All_BucketStorageTally_OrderBy_Desc_IntervalStart(ctx contex
 			if err != nil {
 				return nil, err
 			}
-			defer __rows.Close()
+			defer closeRows(__rows, &err)
 
 			for __rows.Next() {
 				bucket_storage_tally := &BucketStorageTally{}
@@ -16756,9 +16739,6 @@ func (obj *pgxImpl) All_BucketStorageTally_OrderBy_Desc_IntervalStart(ctx contex
 					return nil, err
 				}
 				rows = append(rows, bucket_storage_tally)
-			}
-			if err := __rows.Err(); err != nil {
-				return nil, err
 			}
 			return rows, nil
 		}()
@@ -16798,7 +16778,7 @@ func (obj *pgxImpl) All_BucketStorageTally_By_ProjectId_And_BucketName_And_Inter
 			if err != nil {
 				return nil, err
 			}
-			defer __rows.Close()
+			defer closeRows(__rows, &err)
 
 			for __rows.Next() {
 				bucket_storage_tally := &BucketStorageTally{}
@@ -16807,9 +16787,6 @@ func (obj *pgxImpl) All_BucketStorageTally_By_ProjectId_And_BucketName_And_Inter
 					return nil, err
 				}
 				rows = append(rows, bucket_storage_tally)
-			}
-			if err := __rows.Err(); err != nil {
-				return nil, err
 			}
 			return rows, nil
 		}()
@@ -16846,12 +16823,9 @@ func (obj *pgxImpl) First_ReverificationAudits_By_NodeId_OrderBy_Asc_StreamId_As
 			if err != nil {
 				return nil, err
 			}
-			defer __rows.Close()
+			defer closeRows(__rows, &err)
 
 			if !__rows.Next() {
-				if err := __rows.Err(); err != nil {
-					return nil, err
-				}
 				return nil, nil
 			}
 
@@ -17071,7 +17045,7 @@ func (obj *pgxImpl) All_BillingTransaction_By_UserId_OrderBy_Desc_TxTimestamp(ct
 			if err != nil {
 				return nil, err
 			}
-			defer __rows.Close()
+			defer closeRows(__rows, &err)
 
 			for __rows.Next() {
 				billing_transaction := &BillingTransaction{}
@@ -17080,9 +17054,6 @@ func (obj *pgxImpl) All_BillingTransaction_By_UserId_OrderBy_Desc_TxTimestamp(ct
 					return nil, err
 				}
 				rows = append(rows, billing_transaction)
-			}
-			if err := __rows.Err(); err != nil {
-				return nil, err
 			}
 			return rows, nil
 		}()
@@ -17120,7 +17091,7 @@ func (obj *pgxImpl) All_BillingTransaction_By_UserId_And_Source_OrderBy_Desc_TxT
 			if err != nil {
 				return nil, err
 			}
-			defer __rows.Close()
+			defer closeRows(__rows, &err)
 
 			for __rows.Next() {
 				billing_transaction := &BillingTransaction{}
@@ -17129,9 +17100,6 @@ func (obj *pgxImpl) All_BillingTransaction_By_UserId_And_Source_OrderBy_Desc_TxT
 					return nil, err
 				}
 				rows = append(rows, billing_transaction)
-			}
-			if err := __rows.Err(); err != nil {
-				return nil, err
 			}
 			return rows, nil
 		}()
@@ -17169,12 +17137,9 @@ func (obj *pgxImpl) First_BillingTransaction_By_Source_And_Type_OrderBy_Desc_Cre
 			if err != nil {
 				return nil, err
 			}
-			defer __rows.Close()
+			defer closeRows(__rows, &err)
 
 			if !__rows.Next() {
-				if err := __rows.Err(); err != nil {
-					return nil, err
-				}
 				return nil, nil
 			}
 
@@ -17219,12 +17184,9 @@ func (obj *pgxImpl) Get_StorjscanWallet_UserId_By_WalletAddress(ctx context.Cont
 			if err != nil {
 				return nil, err
 			}
-			defer __rows.Close()
+			defer closeRows(__rows, &err)
 
 			if !__rows.Next() {
-				if err := __rows.Err(); err != nil {
-					return nil, err
-				}
 				return nil, sql.ErrNoRows
 			}
 
@@ -17238,17 +17200,13 @@ func (obj *pgxImpl) Get_StorjscanWallet_UserId_By_WalletAddress(ctx context.Cont
 				return nil, errTooManyRows
 			}
 
-			if err := __rows.Err(); err != nil {
-				return nil, err
-			}
-
 			return row, nil
 		}()
 		if err != nil {
 			if obj.shouldRetry(err) {
 				continue
 			}
-			if err == errTooManyRows {
+			if errors.Is(err, errTooManyRows) {
 				return nil, tooManyRows("StorjscanWallet_UserId_By_WalletAddress")
 			}
 			return nil, obj.makeErr(err)
@@ -17280,12 +17238,9 @@ func (obj *pgxImpl) Get_StorjscanWallet_WalletAddress_By_UserId(ctx context.Cont
 			if err != nil {
 				return nil, err
 			}
-			defer __rows.Close()
+			defer closeRows(__rows, &err)
 
 			if !__rows.Next() {
-				if err := __rows.Err(); err != nil {
-					return nil, err
-				}
 				return nil, sql.ErrNoRows
 			}
 
@@ -17299,17 +17254,13 @@ func (obj *pgxImpl) Get_StorjscanWallet_WalletAddress_By_UserId(ctx context.Cont
 				return nil, errTooManyRows
 			}
 
-			if err := __rows.Err(); err != nil {
-				return nil, err
-			}
-
 			return row, nil
 		}()
 		if err != nil {
 			if obj.shouldRetry(err) {
 				continue
 			}
-			if err == errTooManyRows {
+			if errors.Is(err, errTooManyRows) {
 				return nil, tooManyRows("StorjscanWallet_WalletAddress_By_UserId")
 			}
 			return nil, obj.makeErr(err)
@@ -17339,7 +17290,7 @@ func (obj *pgxImpl) All_StorjscanWallet(ctx context.Context) (
 			if err != nil {
 				return nil, err
 			}
-			defer __rows.Close()
+			defer closeRows(__rows, &err)
 
 			for __rows.Next() {
 				storjscan_wallet := &StorjscanWallet{}
@@ -17348,9 +17299,6 @@ func (obj *pgxImpl) All_StorjscanWallet(ctx context.Context) (
 					return nil, err
 				}
 				rows = append(rows, storjscan_wallet)
-			}
-			if err := __rows.Err(); err != nil {
-				return nil, err
 			}
 			return rows, nil
 		}()
@@ -17387,7 +17335,7 @@ func (obj *pgxImpl) All_CoinpaymentsTransaction_By_UserId_OrderBy_Desc_CreatedAt
 			if err != nil {
 				return nil, err
 			}
-			defer __rows.Close()
+			defer closeRows(__rows, &err)
 
 			for __rows.Next() {
 				coinpayments_transaction := &CoinpaymentsTransaction{}
@@ -17396,9 +17344,6 @@ func (obj *pgxImpl) All_CoinpaymentsTransaction_By_UserId_OrderBy_Desc_CreatedAt
 					return nil, err
 				}
 				rows = append(rows, coinpayments_transaction)
-			}
-			if err := __rows.Err(); err != nil {
-				return nil, err
 			}
 			return rows, nil
 		}()
@@ -17485,7 +17430,7 @@ func (obj *pgxImpl) All_StorjscanPayment_OrderBy_Asc_ChainId_Asc_BlockNumber_Asc
 			if err != nil {
 				return nil, err
 			}
-			defer __rows.Close()
+			defer closeRows(__rows, &err)
 
 			for __rows.Next() {
 				storjscan_payment := &StorjscanPayment{}
@@ -17494,9 +17439,6 @@ func (obj *pgxImpl) All_StorjscanPayment_OrderBy_Asc_ChainId_Asc_BlockNumber_Asc
 					return nil, err
 				}
 				rows = append(rows, storjscan_payment)
-			}
-			if err := __rows.Err(); err != nil {
-				return nil, err
 			}
 			return rows, nil
 		}()
@@ -17536,7 +17478,7 @@ func (obj *pgxImpl) Limited_StorjscanPayment_By_ToAddress_OrderBy_Desc_ChainId_D
 			if err != nil {
 				return nil, err
 			}
-			defer __rows.Close()
+			defer closeRows(__rows, &err)
 
 			for __rows.Next() {
 				storjscan_payment := &StorjscanPayment{}
@@ -17545,10 +17487,6 @@ func (obj *pgxImpl) Limited_StorjscanPayment_By_ToAddress_OrderBy_Desc_ChainId_D
 					return nil, err
 				}
 				rows = append(rows, storjscan_payment)
-			}
-			err = __rows.Err()
-			if err != nil {
-				return nil, err
 			}
 			return rows, nil
 		}()
@@ -17586,12 +17524,9 @@ func (obj *pgxImpl) First_StorjscanPayment_BlockNumber_By_Status_And_ChainId_Ord
 			if err != nil {
 				return nil, err
 			}
-			defer __rows.Close()
+			defer closeRows(__rows, &err)
 
 			if !__rows.Next() {
-				if err := __rows.Err(); err != nil {
-					return nil, err
-				}
 				return nil, nil
 			}
 
@@ -17762,7 +17697,7 @@ func (obj *pgxImpl) All_Node_Id(ctx context.Context) (
 			if err != nil {
 				return nil, err
 			}
-			defer __rows.Close()
+			defer closeRows(__rows, &err)
 
 			for __rows.Next() {
 				row := &Id_Row{}
@@ -17771,9 +17706,6 @@ func (obj *pgxImpl) All_Node_Id(ctx context.Context) (
 					return nil, err
 				}
 				rows = append(rows, row)
-			}
-			if err := __rows.Err(); err != nil {
-				return nil, err
 			}
 			return rows, nil
 		}()
@@ -17818,7 +17750,7 @@ func (obj *pgxImpl) Paged_Node(ctx context.Context,
 			if err != nil {
 				return nil, nil, err
 			}
-			defer __rows.Close()
+			defer closeRows(__rows, &err)
 
 			var __continuation Paged_Node_Continuation
 			__continuation._set = true
@@ -17827,14 +17759,10 @@ func (obj *pgxImpl) Paged_Node(ctx context.Context,
 				node := &Node{}
 				err = __rows.Scan(&node.Id, &node.Address, &node.LastNet, &node.LastIpPort, &node.CountryCode, &node.Protocol, &node.Email, &node.Wallet, &node.WalletFeatures, &node.FreeDisk, &node.PieceCount, &node.Major, &node.Minor, &node.Patch, &node.CommitHash, &node.ReleaseTimestamp, &node.Release, &node.Latency90, &node.VettedAt, &node.CreatedAt, &node.UpdatedAt, &node.LastContactSuccess, &node.LastContactFailure, &node.Disqualified, &node.DisqualificationReason, &node.UnknownAuditSuspended, &node.OfflineSuspended, &node.UnderReview, &node.ExitInitiatedAt, &node.ExitLoopCompletedAt, &node.ExitFinishedAt, &node.ExitSuccess, &node.Contained, &node.LastOfflineEmail, &node.LastSoftwareUpdateEmail, &node.NoiseProto, &node.NoisePublicKey, &node.DebounceLimit, &node.Features, &__continuation._value_id)
 				if err != nil {
-					return nil, nil, obj.makeErr(err)
+					return nil, nil, err
 				}
 				rows = append(rows, node)
 				next = &__continuation
-			}
-
-			if err := __rows.Err(); err != nil {
-				return nil, nil, obj.makeErr(err)
 			}
 
 			return rows, next, nil
@@ -17870,7 +17798,7 @@ func (obj *pgxImpl) All_Node_Id_Node_PieceCount_By_Disqualified_Is_Null(ctx cont
 			if err != nil {
 				return nil, err
 			}
-			defer __rows.Close()
+			defer closeRows(__rows, &err)
 
 			for __rows.Next() {
 				row := &Id_PieceCount_Row{}
@@ -17879,9 +17807,6 @@ func (obj *pgxImpl) All_Node_Id_Node_PieceCount_By_Disqualified_Is_Null(ctx cont
 					return nil, err
 				}
 				rows = append(rows, row)
-			}
-			if err := __rows.Err(); err != nil {
-				return nil, err
 			}
 			return rows, nil
 		}()
@@ -17969,12 +17894,9 @@ func (obj *pgxImpl) First_NodeEvent_By_Email_And_Event_OrderBy_Desc_CreatedAt(ct
 			if err != nil {
 				return nil, err
 			}
-			defer __rows.Close()
+			defer closeRows(__rows, &err)
 
 			if !__rows.Next() {
-				if err := __rows.Err(); err != nil {
-					return nil, err
-				}
 				return nil, nil
 			}
 
@@ -18019,7 +17941,7 @@ func (obj *pgxImpl) All_NodeTags_By_NodeId(ctx context.Context,
 			if err != nil {
 				return nil, err
 			}
-			defer __rows.Close()
+			defer closeRows(__rows, &err)
 
 			for __rows.Next() {
 				node_tags := &NodeTags{}
@@ -18028,9 +17950,6 @@ func (obj *pgxImpl) All_NodeTags_By_NodeId(ctx context.Context,
 					return nil, err
 				}
 				rows = append(rows, node_tags)
-			}
-			if err := __rows.Err(); err != nil {
-				return nil, err
 			}
 			return rows, nil
 		}()
@@ -18065,7 +17984,7 @@ func (obj *pgxImpl) All_NodeTags(ctx context.Context) (
 			if err != nil {
 				return nil, err
 			}
-			defer __rows.Close()
+			defer closeRows(__rows, &err)
 
 			for __rows.Next() {
 				node_tags := &NodeTags{}
@@ -18074,9 +17993,6 @@ func (obj *pgxImpl) All_NodeTags(ctx context.Context) (
 					return nil, err
 				}
 				rows = append(rows, node_tags)
-			}
-			if err := __rows.Err(); err != nil {
-				return nil, err
 			}
 			return rows, nil
 		}()
@@ -18139,7 +18055,7 @@ func (obj *pgxImpl) All_StoragenodePaystub_By_NodeId(ctx context.Context,
 			if err != nil {
 				return nil, err
 			}
-			defer __rows.Close()
+			defer closeRows(__rows, &err)
 
 			for __rows.Next() {
 				storagenode_paystub := &StoragenodePaystub{}
@@ -18148,9 +18064,6 @@ func (obj *pgxImpl) All_StoragenodePaystub_By_NodeId(ctx context.Context,
 					return nil, err
 				}
 				rows = append(rows, storagenode_paystub)
-			}
-			if err := __rows.Err(); err != nil {
-				return nil, err
 			}
 			return rows, nil
 		}()
@@ -18191,7 +18104,7 @@ func (obj *pgxImpl) Limited_StoragenodePayment_By_NodeId_And_Period_OrderBy_Desc
 			if err != nil {
 				return nil, err
 			}
-			defer __rows.Close()
+			defer closeRows(__rows, &err)
 
 			for __rows.Next() {
 				storagenode_payment := &StoragenodePayment{}
@@ -18200,10 +18113,6 @@ func (obj *pgxImpl) Limited_StoragenodePayment_By_NodeId_And_Period_OrderBy_Desc
 					return nil, err
 				}
 				rows = append(rows, storagenode_payment)
-			}
-			err = __rows.Err()
-			if err != nil {
-				return nil, err
 			}
 			return rows, nil
 		}()
@@ -18240,7 +18149,7 @@ func (obj *pgxImpl) All_StoragenodePayment_By_NodeId(ctx context.Context,
 			if err != nil {
 				return nil, err
 			}
-			defer __rows.Close()
+			defer closeRows(__rows, &err)
 
 			for __rows.Next() {
 				storagenode_payment := &StoragenodePayment{}
@@ -18249,9 +18158,6 @@ func (obj *pgxImpl) All_StoragenodePayment_By_NodeId(ctx context.Context,
 					return nil, err
 				}
 				rows = append(rows, storagenode_payment)
-			}
-			if err := __rows.Err(); err != nil {
-				return nil, err
 			}
 			return rows, nil
 		}()
@@ -18289,7 +18195,7 @@ func (obj *pgxImpl) All_StoragenodePayment_By_NodeId_And_Period(ctx context.Cont
 			if err != nil {
 				return nil, err
 			}
-			defer __rows.Close()
+			defer closeRows(__rows, &err)
 
 			for __rows.Next() {
 				storagenode_payment := &StoragenodePayment{}
@@ -18298,9 +18204,6 @@ func (obj *pgxImpl) All_StoragenodePayment_By_NodeId_And_Period(ctx context.Cont
 					return nil, err
 				}
 				rows = append(rows, storagenode_payment)
-			}
-			if err := __rows.Err(); err != nil {
-				return nil, err
 			}
 			return rows, nil
 		}()
@@ -18493,12 +18396,9 @@ func (obj *pgxImpl) Get_Project_By_PublicId(ctx context.Context,
 			if err != nil {
 				return nil, err
 			}
-			defer __rows.Close()
+			defer closeRows(__rows, &err)
 
 			if !__rows.Next() {
-				if err := __rows.Err(); err != nil {
-					return nil, err
-				}
 				return nil, sql.ErrNoRows
 			}
 
@@ -18512,17 +18412,13 @@ func (obj *pgxImpl) Get_Project_By_PublicId(ctx context.Context,
 				return nil, errTooManyRows
 			}
 
-			if err := __rows.Err(); err != nil {
-				return nil, err
-			}
-
 			return project, nil
 		}()
 		if err != nil {
 			if obj.shouldRetry(err) {
 				continue
 			}
-			if err == errTooManyRows {
+			if errors.Is(err, errTooManyRows) {
 				return nil, tooManyRows("Project_By_PublicId")
 			}
 			return nil, obj.makeErr(err)
@@ -18802,7 +18698,7 @@ func (obj *pgxImpl) All_Project(ctx context.Context) (
 			if err != nil {
 				return nil, err
 			}
-			defer __rows.Close()
+			defer closeRows(__rows, &err)
 
 			for __rows.Next() {
 				project := &Project{}
@@ -18811,9 +18707,6 @@ func (obj *pgxImpl) All_Project(ctx context.Context) (
 					return nil, err
 				}
 				rows = append(rows, project)
-			}
-			if err := __rows.Err(); err != nil {
-				return nil, err
 			}
 			return rows, nil
 		}()
@@ -18850,7 +18743,7 @@ func (obj *pgxImpl) All_Project_By_CreatedAt_Less_OrderBy_Asc_CreatedAt(ctx cont
 			if err != nil {
 				return nil, err
 			}
-			defer __rows.Close()
+			defer closeRows(__rows, &err)
 
 			for __rows.Next() {
 				project := &Project{}
@@ -18859,9 +18752,6 @@ func (obj *pgxImpl) All_Project_By_CreatedAt_Less_OrderBy_Asc_CreatedAt(ctx cont
 					return nil, err
 				}
 				rows = append(rows, project)
-			}
-			if err := __rows.Err(); err != nil {
-				return nil, err
 			}
 			return rows, nil
 		}()
@@ -18898,7 +18788,7 @@ func (obj *pgxImpl) All_Project_By_OwnerId_OrderBy_Asc_CreatedAt(ctx context.Con
 			if err != nil {
 				return nil, err
 			}
-			defer __rows.Close()
+			defer closeRows(__rows, &err)
 
 			for __rows.Next() {
 				project := &Project{}
@@ -18907,9 +18797,6 @@ func (obj *pgxImpl) All_Project_By_OwnerId_OrderBy_Asc_CreatedAt(ctx context.Con
 					return nil, err
 				}
 				rows = append(rows, project)
-			}
-			if err := __rows.Err(); err != nil {
-				return nil, err
 			}
 			return rows, nil
 		}()
@@ -18946,7 +18833,7 @@ func (obj *pgxImpl) All_Project_By_ProjectMember_MemberId_OrderBy_Asc_Project_Na
 			if err != nil {
 				return nil, err
 			}
-			defer __rows.Close()
+			defer closeRows(__rows, &err)
 
 			for __rows.Next() {
 				project := &Project{}
@@ -18955,9 +18842,6 @@ func (obj *pgxImpl) All_Project_By_ProjectMember_MemberId_OrderBy_Asc_Project_Na
 					return nil, err
 				}
 				rows = append(rows, project)
-			}
-			if err := __rows.Err(); err != nil {
-				return nil, err
 			}
 			return rows, nil
 		}()
@@ -18997,7 +18881,7 @@ func (obj *pgxImpl) Limited_Project_By_CreatedAt_Less_OrderBy_Asc_CreatedAt(ctx 
 			if err != nil {
 				return nil, err
 			}
-			defer __rows.Close()
+			defer closeRows(__rows, &err)
 
 			for __rows.Next() {
 				project := &Project{}
@@ -19006,10 +18890,6 @@ func (obj *pgxImpl) Limited_Project_By_CreatedAt_Less_OrderBy_Asc_CreatedAt(ctx 
 					return nil, err
 				}
 				rows = append(rows, project)
-			}
-			err = __rows.Err()
-			if err != nil {
-				return nil, err
 			}
 			return rows, nil
 		}()
@@ -19072,7 +18952,7 @@ func (obj *pgxImpl) All_ProjectMember_By_MemberId(ctx context.Context,
 			if err != nil {
 				return nil, err
 			}
-			defer __rows.Close()
+			defer closeRows(__rows, &err)
 
 			for __rows.Next() {
 				project_member := &ProjectMember{}
@@ -19081,9 +18961,6 @@ func (obj *pgxImpl) All_ProjectMember_By_MemberId(ctx context.Context,
 					return nil, err
 				}
 				rows = append(rows, project_member)
-			}
-			if err := __rows.Err(); err != nil {
-				return nil, err
 			}
 			return rows, nil
 		}()
@@ -19146,7 +19023,7 @@ func (obj *pgxImpl) All_ProjectInvitation_By_Email(ctx context.Context,
 			if err != nil {
 				return nil, err
 			}
-			defer __rows.Close()
+			defer closeRows(__rows, &err)
 
 			for __rows.Next() {
 				project_invitation := &ProjectInvitation{}
@@ -19155,9 +19032,6 @@ func (obj *pgxImpl) All_ProjectInvitation_By_Email(ctx context.Context,
 					return nil, err
 				}
 				rows = append(rows, project_invitation)
-			}
-			if err := __rows.Err(); err != nil {
-				return nil, err
 			}
 			return rows, nil
 		}()
@@ -19194,7 +19068,7 @@ func (obj *pgxImpl) All_ProjectInvitation_By_ProjectId(ctx context.Context,
 			if err != nil {
 				return nil, err
 			}
-			defer __rows.Close()
+			defer closeRows(__rows, &err)
 
 			for __rows.Next() {
 				project_invitation := &ProjectInvitation{}
@@ -19203,9 +19077,6 @@ func (obj *pgxImpl) All_ProjectInvitation_By_ProjectId(ctx context.Context,
 					return nil, err
 				}
 				rows = append(rows, project_invitation)
-			}
-			if err := __rows.Err(); err != nil {
-				return nil, err
 			}
 			return rows, nil
 		}()
@@ -19529,7 +19400,7 @@ func (obj *pgxImpl) Limited_BucketMetainfo_By_ProjectId_And_Name_GreaterOrEqual_
 			if err != nil {
 				return nil, err
 			}
-			defer __rows.Close()
+			defer closeRows(__rows, &err)
 
 			for __rows.Next() {
 				bucket_metainfo := &BucketMetainfo{}
@@ -19538,10 +19409,6 @@ func (obj *pgxImpl) Limited_BucketMetainfo_By_ProjectId_And_Name_GreaterOrEqual_
 					return nil, err
 				}
 				rows = append(rows, bucket_metainfo)
-			}
-			err = __rows.Err()
-			if err != nil {
-				return nil, err
 			}
 			return rows, nil
 		}()
@@ -19582,7 +19449,7 @@ func (obj *pgxImpl) Limited_BucketMetainfo_By_ProjectId_And_Name_Greater_OrderBy
 			if err != nil {
 				return nil, err
 			}
-			defer __rows.Close()
+			defer closeRows(__rows, &err)
 
 			for __rows.Next() {
 				bucket_metainfo := &BucketMetainfo{}
@@ -19591,10 +19458,6 @@ func (obj *pgxImpl) Limited_BucketMetainfo_By_ProjectId_And_Name_Greater_OrderBy
 					return nil, err
 				}
 				rows = append(rows, bucket_metainfo)
-			}
-			err = __rows.Err()
-			if err != nil {
-				return nil, err
 			}
 			return rows, nil
 		}()
@@ -19664,7 +19527,7 @@ func (obj *pgxImpl) Paged_BucketMetainfo_ProjectId_BucketMetainfo_Name(ctx conte
 			if err != nil {
 				return nil, nil, err
 			}
-			defer __rows.Close()
+			defer closeRows(__rows, &err)
 
 			var __continuation Paged_BucketMetainfo_ProjectId_BucketMetainfo_Name_Continuation
 			__continuation._set = true
@@ -19673,14 +19536,10 @@ func (obj *pgxImpl) Paged_BucketMetainfo_ProjectId_BucketMetainfo_Name(ctx conte
 				row := &ProjectId_Name_Row{}
 				err = __rows.Scan(&row.ProjectId, &row.Name, &__continuation._value_project_id, &__continuation._value_name)
 				if err != nil {
-					return nil, nil, obj.makeErr(err)
+					return nil, nil, err
 				}
 				rows = append(rows, row)
 				next = &__continuation
-			}
-
-			if err := __rows.Err(); err != nil {
-				return nil, nil, obj.makeErr(err)
 			}
 
 			return rows, next, nil
@@ -19744,7 +19603,7 @@ func (obj *pgxImpl) All_User_By_NormalizedEmail(ctx context.Context,
 			if err != nil {
 				return nil, err
 			}
-			defer __rows.Close()
+			defer closeRows(__rows, &err)
 
 			for __rows.Next() {
 				user := &User{}
@@ -19753,9 +19612,6 @@ func (obj *pgxImpl) All_User_By_NormalizedEmail(ctx context.Context,
 					return nil, err
 				}
 				rows = append(rows, user)
-			}
-			if err := __rows.Err(); err != nil {
-				return nil, err
 			}
 			return rows, nil
 		}()
@@ -19792,12 +19648,9 @@ func (obj *pgxImpl) Get_User_By_NormalizedEmail_And_Status_Not_Number(ctx contex
 			if err != nil {
 				return nil, err
 			}
-			defer __rows.Close()
+			defer closeRows(__rows, &err)
 
 			if !__rows.Next() {
-				if err := __rows.Err(); err != nil {
-					return nil, err
-				}
 				return nil, sql.ErrNoRows
 			}
 
@@ -19811,17 +19664,13 @@ func (obj *pgxImpl) Get_User_By_NormalizedEmail_And_Status_Not_Number(ctx contex
 				return nil, errTooManyRows
 			}
 
-			if err := __rows.Err(); err != nil {
-				return nil, err
-			}
-
 			return user, nil
 		}()
 		if err != nil {
 			if obj.shouldRetry(err) {
 				continue
 			}
-			if err == errTooManyRows {
+			if errors.Is(err, errTooManyRows) {
 				return nil, tooManyRows("User_By_NormalizedEmail_And_Status_Not_Number")
 			}
 			return nil, obj.makeErr(err)
@@ -19958,12 +19807,9 @@ func (obj *pgxImpl) Get_User_By_ExternalId(ctx context.Context,
 			if err != nil {
 				return nil, err
 			}
-			defer __rows.Close()
+			defer closeRows(__rows, &err)
 
 			if !__rows.Next() {
-				if err := __rows.Err(); err != nil {
-					return nil, err
-				}
 				return nil, sql.ErrNoRows
 			}
 
@@ -19977,17 +19823,13 @@ func (obj *pgxImpl) Get_User_By_ExternalId(ctx context.Context,
 				return nil, errTooManyRows
 			}
 
-			if err := __rows.Err(); err != nil {
-				return nil, err
-			}
-
 			return user, nil
 		}()
 		if err != nil {
 			if obj.shouldRetry(err) {
 				continue
 			}
-			if err == errTooManyRows {
+			if errors.Is(err, errTooManyRows) {
 				return nil, tooManyRows("User_By_ExternalId")
 			}
 			return nil, obj.makeErr(err)
@@ -20030,7 +19872,7 @@ func (obj *pgxImpl) Paged_AccountFreezeEvent_By_User_Status_Not_And_AccountFreez
 			if err != nil {
 				return nil, nil, err
 			}
-			defer __rows.Close()
+			defer closeRows(__rows, &err)
 
 			var __continuation Paged_AccountFreezeEvent_By_User_Status_Not_And_AccountFreezeEvent_Event_Continuation
 			__continuation._set = true
@@ -20039,14 +19881,10 @@ func (obj *pgxImpl) Paged_AccountFreezeEvent_By_User_Status_Not_And_AccountFreez
 				account_freeze_event := &AccountFreezeEvent{}
 				err = __rows.Scan(&account_freeze_event.UserId, &account_freeze_event.Event, &account_freeze_event.Limits, &account_freeze_event.DaysTillEscalation, &account_freeze_event.NotificationsCount, &account_freeze_event.CreatedAt, &__continuation._value_user_id, &__continuation._value_event)
 				if err != nil {
-					return nil, nil, obj.makeErr(err)
+					return nil, nil, err
 				}
 				rows = append(rows, account_freeze_event)
 				next = &__continuation
-			}
-
-			if err := __rows.Err(); err != nil {
-				return nil, nil, obj.makeErr(err)
 			}
 
 			return rows, next, nil
@@ -20137,7 +19975,7 @@ func (obj *pgxImpl) Limited_User_Id_User_Email_User_FullName_By_Status(ctx conte
 			if err != nil {
 				return nil, err
 			}
-			defer __rows.Close()
+			defer closeRows(__rows, &err)
 
 			for __rows.Next() {
 				row := &Id_Email_FullName_Row{}
@@ -20146,10 +19984,6 @@ func (obj *pgxImpl) Limited_User_Id_User_Email_User_FullName_By_Status(ctx conte
 					return nil, err
 				}
 				rows = append(rows, row)
-			}
-			err = __rows.Err()
-			if err != nil {
-				return nil, err
 			}
 			return rows, nil
 		}()
@@ -20211,7 +20045,7 @@ func (obj *pgxImpl) All_WebappSession_By_UserId(ctx context.Context,
 			if err != nil {
 				return nil, err
 			}
-			defer __rows.Close()
+			defer closeRows(__rows, &err)
 
 			for __rows.Next() {
 				webapp_session := &WebappSession{}
@@ -20220,9 +20054,6 @@ func (obj *pgxImpl) All_WebappSession_By_UserId(ctx context.Context,
 					return nil, err
 				}
 				rows = append(rows, webapp_session)
-			}
-			if err := __rows.Err(); err != nil {
-				return nil, err
 			}
 			return rows, nil
 		}()
@@ -20415,7 +20246,7 @@ func (obj *pgxImpl) All_AccountFreezeEvent_By_UserId(ctx context.Context,
 			if err != nil {
 				return nil, err
 			}
-			defer __rows.Close()
+			defer closeRows(__rows, &err)
 
 			for __rows.Next() {
 				account_freeze_event := &AccountFreezeEvent{}
@@ -20424,9 +20255,6 @@ func (obj *pgxImpl) All_AccountFreezeEvent_By_UserId(ctx context.Context,
 					return nil, err
 				}
 				rows = append(rows, account_freeze_event)
-			}
-			if err := __rows.Err(); err != nil {
-				return nil, err
 			}
 			return rows, nil
 		}()
@@ -26229,7 +26057,7 @@ func (obj *pgxcockroachImpl) Find_AccountingTimestamps_Value_By_Name(ctx context
 
 	row = &Value_Row{}
 	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&row.Value)
-	if err == sql.ErrNoRows {
+	if errors.Is(err, sql.ErrNoRows) {
 		return (*Value_Row)(nil), nil
 	}
 	if err != nil {
@@ -26262,7 +26090,7 @@ func (obj *pgxcockroachImpl) All_StoragenodeBandwidthRollup_By_StoragenodeId_And
 			if err != nil {
 				return nil, err
 			}
-			defer __rows.Close()
+			defer closeRows(__rows, &err)
 
 			for __rows.Next() {
 				storagenode_bandwidth_rollup := &StoragenodeBandwidthRollup{}
@@ -26271,9 +26099,6 @@ func (obj *pgxcockroachImpl) All_StoragenodeBandwidthRollup_By_StoragenodeId_And
 					return nil, err
 				}
 				rows = append(rows, storagenode_bandwidth_rollup)
-			}
-			if err := __rows.Err(); err != nil {
-				return nil, err
 			}
 			return rows, nil
 		}()
@@ -26320,7 +26145,7 @@ func (obj *pgxcockroachImpl) Paged_StoragenodeBandwidthRollup_By_IntervalStart_G
 			if err != nil {
 				return nil, nil, err
 			}
-			defer __rows.Close()
+			defer closeRows(__rows, &err)
 
 			var __continuation Paged_StoragenodeBandwidthRollup_By_IntervalStart_GreaterOrEqual_Continuation
 			__continuation._set = true
@@ -26329,14 +26154,10 @@ func (obj *pgxcockroachImpl) Paged_StoragenodeBandwidthRollup_By_IntervalStart_G
 				storagenode_bandwidth_rollup := &StoragenodeBandwidthRollup{}
 				err = __rows.Scan(&storagenode_bandwidth_rollup.StoragenodeId, &storagenode_bandwidth_rollup.IntervalStart, &storagenode_bandwidth_rollup.IntervalSeconds, &storagenode_bandwidth_rollup.Action, &storagenode_bandwidth_rollup.Allocated, &storagenode_bandwidth_rollup.Settled, &__continuation._value_storagenode_id, &__continuation._value_interval_start, &__continuation._value_action)
 				if err != nil {
-					return nil, nil, obj.makeErr(err)
+					return nil, nil, err
 				}
 				rows = append(rows, storagenode_bandwidth_rollup)
 				next = &__continuation
-			}
-
-			if err := __rows.Err(); err != nil {
-				return nil, nil, obj.makeErr(err)
 			}
 
 			return rows, next, nil
@@ -26385,7 +26206,7 @@ func (obj *pgxcockroachImpl) Paged_StoragenodeBandwidthRollup_By_StoragenodeId_A
 			if err != nil {
 				return nil, nil, err
 			}
-			defer __rows.Close()
+			defer closeRows(__rows, &err)
 
 			var __continuation Paged_StoragenodeBandwidthRollup_By_StoragenodeId_And_IntervalStart_GreaterOrEqual_Continuation
 			__continuation._set = true
@@ -26394,14 +26215,10 @@ func (obj *pgxcockroachImpl) Paged_StoragenodeBandwidthRollup_By_StoragenodeId_A
 				storagenode_bandwidth_rollup := &StoragenodeBandwidthRollup{}
 				err = __rows.Scan(&storagenode_bandwidth_rollup.StoragenodeId, &storagenode_bandwidth_rollup.IntervalStart, &storagenode_bandwidth_rollup.IntervalSeconds, &storagenode_bandwidth_rollup.Action, &storagenode_bandwidth_rollup.Allocated, &storagenode_bandwidth_rollup.Settled, &__continuation._value_storagenode_id, &__continuation._value_interval_start, &__continuation._value_action)
 				if err != nil {
-					return nil, nil, obj.makeErr(err)
+					return nil, nil, err
 				}
 				rows = append(rows, storagenode_bandwidth_rollup)
 				next = &__continuation
-			}
-
-			if err := __rows.Err(); err != nil {
-				return nil, nil, obj.makeErr(err)
 			}
 
 			return rows, next, nil
@@ -26449,7 +26266,7 @@ func (obj *pgxcockroachImpl) Paged_StoragenodeBandwidthRollupArchive_By_Interval
 			if err != nil {
 				return nil, nil, err
 			}
-			defer __rows.Close()
+			defer closeRows(__rows, &err)
 
 			var __continuation Paged_StoragenodeBandwidthRollupArchive_By_IntervalStart_GreaterOrEqual_Continuation
 			__continuation._set = true
@@ -26458,14 +26275,10 @@ func (obj *pgxcockroachImpl) Paged_StoragenodeBandwidthRollupArchive_By_Interval
 				storagenode_bandwidth_rollup_archive := &StoragenodeBandwidthRollupArchive{}
 				err = __rows.Scan(&storagenode_bandwidth_rollup_archive.StoragenodeId, &storagenode_bandwidth_rollup_archive.IntervalStart, &storagenode_bandwidth_rollup_archive.IntervalSeconds, &storagenode_bandwidth_rollup_archive.Action, &storagenode_bandwidth_rollup_archive.Allocated, &storagenode_bandwidth_rollup_archive.Settled, &__continuation._value_storagenode_id, &__continuation._value_interval_start, &__continuation._value_action)
 				if err != nil {
-					return nil, nil, obj.makeErr(err)
+					return nil, nil, err
 				}
 				rows = append(rows, storagenode_bandwidth_rollup_archive)
 				next = &__continuation
-			}
-
-			if err := __rows.Err(); err != nil {
-				return nil, nil, obj.makeErr(err)
 			}
 
 			return rows, next, nil
@@ -26514,7 +26327,7 @@ func (obj *pgxcockroachImpl) Paged_StoragenodeBandwidthRollupPhase2_By_Storageno
 			if err != nil {
 				return nil, nil, err
 			}
-			defer __rows.Close()
+			defer closeRows(__rows, &err)
 
 			var __continuation Paged_StoragenodeBandwidthRollupPhase2_By_StoragenodeId_And_IntervalStart_GreaterOrEqual_Continuation
 			__continuation._set = true
@@ -26523,14 +26336,10 @@ func (obj *pgxcockroachImpl) Paged_StoragenodeBandwidthRollupPhase2_By_Storageno
 				storagenode_bandwidth_rollup_phase2 := &StoragenodeBandwidthRollupPhase2{}
 				err = __rows.Scan(&storagenode_bandwidth_rollup_phase2.StoragenodeId, &storagenode_bandwidth_rollup_phase2.IntervalStart, &storagenode_bandwidth_rollup_phase2.IntervalSeconds, &storagenode_bandwidth_rollup_phase2.Action, &storagenode_bandwidth_rollup_phase2.Allocated, &storagenode_bandwidth_rollup_phase2.Settled, &__continuation._value_storagenode_id, &__continuation._value_interval_start, &__continuation._value_action)
 				if err != nil {
-					return nil, nil, obj.makeErr(err)
+					return nil, nil, err
 				}
 				rows = append(rows, storagenode_bandwidth_rollup_phase2)
 				next = &__continuation
-			}
-
-			if err := __rows.Err(); err != nil {
-				return nil, nil, obj.makeErr(err)
 			}
 
 			return rows, next, nil
@@ -26566,7 +26375,7 @@ func (obj *pgxcockroachImpl) All_StoragenodeStorageTally(ctx context.Context) (
 			if err != nil {
 				return nil, err
 			}
-			defer __rows.Close()
+			defer closeRows(__rows, &err)
 
 			for __rows.Next() {
 				storagenode_storage_tally := &StoragenodeStorageTally{}
@@ -26575,9 +26384,6 @@ func (obj *pgxcockroachImpl) All_StoragenodeStorageTally(ctx context.Context) (
 					return nil, err
 				}
 				rows = append(rows, storagenode_storage_tally)
-			}
-			if err := __rows.Err(); err != nil {
-				return nil, err
 			}
 			return rows, nil
 		}()
@@ -26614,7 +26420,7 @@ func (obj *pgxcockroachImpl) All_StoragenodeStorageTally_By_IntervalEndTime_Grea
 			if err != nil {
 				return nil, err
 			}
-			defer __rows.Close()
+			defer closeRows(__rows, &err)
 
 			for __rows.Next() {
 				storagenode_storage_tally := &StoragenodeStorageTally{}
@@ -26623,9 +26429,6 @@ func (obj *pgxcockroachImpl) All_StoragenodeStorageTally_By_IntervalEndTime_Grea
 					return nil, err
 				}
 				rows = append(rows, storagenode_storage_tally)
-			}
-			if err := __rows.Err(); err != nil {
-				return nil, err
 			}
 			return rows, nil
 		}()
@@ -26672,7 +26475,7 @@ func (obj *pgxcockroachImpl) Paged_BucketBandwidthRollup_By_IntervalStart_Greate
 			if err != nil {
 				return nil, nil, err
 			}
-			defer __rows.Close()
+			defer closeRows(__rows, &err)
 
 			var __continuation Paged_BucketBandwidthRollup_By_IntervalStart_GreaterOrEqual_Continuation
 			__continuation._set = true
@@ -26681,14 +26484,10 @@ func (obj *pgxcockroachImpl) Paged_BucketBandwidthRollup_By_IntervalStart_Greate
 				bucket_bandwidth_rollup := &BucketBandwidthRollup{}
 				err = __rows.Scan(&bucket_bandwidth_rollup.BucketName, &bucket_bandwidth_rollup.ProjectId, &bucket_bandwidth_rollup.IntervalStart, &bucket_bandwidth_rollup.IntervalSeconds, &bucket_bandwidth_rollup.Action, &bucket_bandwidth_rollup.Inline, &bucket_bandwidth_rollup.Allocated, &bucket_bandwidth_rollup.Settled, &__continuation._value_project_id, &__continuation._value_bucket_name, &__continuation._value_interval_start, &__continuation._value_action)
 				if err != nil {
-					return nil, nil, obj.makeErr(err)
+					return nil, nil, err
 				}
 				rows = append(rows, bucket_bandwidth_rollup)
 				next = &__continuation
-			}
-
-			if err := __rows.Err(); err != nil {
-				return nil, nil, obj.makeErr(err)
 			}
 
 			return rows, next, nil
@@ -26736,7 +26535,7 @@ func (obj *pgxcockroachImpl) Paged_BucketBandwidthRollupArchive_By_IntervalStart
 			if err != nil {
 				return nil, nil, err
 			}
-			defer __rows.Close()
+			defer closeRows(__rows, &err)
 
 			var __continuation Paged_BucketBandwidthRollupArchive_By_IntervalStart_GreaterOrEqual_Continuation
 			__continuation._set = true
@@ -26745,14 +26544,10 @@ func (obj *pgxcockroachImpl) Paged_BucketBandwidthRollupArchive_By_IntervalStart
 				bucket_bandwidth_rollup_archive := &BucketBandwidthRollupArchive{}
 				err = __rows.Scan(&bucket_bandwidth_rollup_archive.BucketName, &bucket_bandwidth_rollup_archive.ProjectId, &bucket_bandwidth_rollup_archive.IntervalStart, &bucket_bandwidth_rollup_archive.IntervalSeconds, &bucket_bandwidth_rollup_archive.Action, &bucket_bandwidth_rollup_archive.Inline, &bucket_bandwidth_rollup_archive.Allocated, &bucket_bandwidth_rollup_archive.Settled, &__continuation._value_bucket_name, &__continuation._value_project_id, &__continuation._value_interval_start, &__continuation._value_action)
 				if err != nil {
-					return nil, nil, obj.makeErr(err)
+					return nil, nil, err
 				}
 				rows = append(rows, bucket_bandwidth_rollup_archive)
 				next = &__continuation
-			}
-
-			if err := __rows.Err(); err != nil {
-				return nil, nil, obj.makeErr(err)
 			}
 
 			return rows, next, nil
@@ -26788,7 +26583,7 @@ func (obj *pgxcockroachImpl) All_BucketStorageTally_OrderBy_Desc_IntervalStart(c
 			if err != nil {
 				return nil, err
 			}
-			defer __rows.Close()
+			defer closeRows(__rows, &err)
 
 			for __rows.Next() {
 				bucket_storage_tally := &BucketStorageTally{}
@@ -26797,9 +26592,6 @@ func (obj *pgxcockroachImpl) All_BucketStorageTally_OrderBy_Desc_IntervalStart(c
 					return nil, err
 				}
 				rows = append(rows, bucket_storage_tally)
-			}
-			if err := __rows.Err(); err != nil {
-				return nil, err
 			}
 			return rows, nil
 		}()
@@ -26839,7 +26631,7 @@ func (obj *pgxcockroachImpl) All_BucketStorageTally_By_ProjectId_And_BucketName_
 			if err != nil {
 				return nil, err
 			}
-			defer __rows.Close()
+			defer closeRows(__rows, &err)
 
 			for __rows.Next() {
 				bucket_storage_tally := &BucketStorageTally{}
@@ -26848,9 +26640,6 @@ func (obj *pgxcockroachImpl) All_BucketStorageTally_By_ProjectId_And_BucketName_
 					return nil, err
 				}
 				rows = append(rows, bucket_storage_tally)
-			}
-			if err := __rows.Err(); err != nil {
-				return nil, err
 			}
 			return rows, nil
 		}()
@@ -26887,12 +26676,9 @@ func (obj *pgxcockroachImpl) First_ReverificationAudits_By_NodeId_OrderBy_Asc_St
 			if err != nil {
 				return nil, err
 			}
-			defer __rows.Close()
+			defer closeRows(__rows, &err)
 
 			if !__rows.Next() {
-				if err := __rows.Err(); err != nil {
-					return nil, err
-				}
 				return nil, nil
 			}
 
@@ -27112,7 +26898,7 @@ func (obj *pgxcockroachImpl) All_BillingTransaction_By_UserId_OrderBy_Desc_TxTim
 			if err != nil {
 				return nil, err
 			}
-			defer __rows.Close()
+			defer closeRows(__rows, &err)
 
 			for __rows.Next() {
 				billing_transaction := &BillingTransaction{}
@@ -27121,9 +26907,6 @@ func (obj *pgxcockroachImpl) All_BillingTransaction_By_UserId_OrderBy_Desc_TxTim
 					return nil, err
 				}
 				rows = append(rows, billing_transaction)
-			}
-			if err := __rows.Err(); err != nil {
-				return nil, err
 			}
 			return rows, nil
 		}()
@@ -27161,7 +26944,7 @@ func (obj *pgxcockroachImpl) All_BillingTransaction_By_UserId_And_Source_OrderBy
 			if err != nil {
 				return nil, err
 			}
-			defer __rows.Close()
+			defer closeRows(__rows, &err)
 
 			for __rows.Next() {
 				billing_transaction := &BillingTransaction{}
@@ -27170,9 +26953,6 @@ func (obj *pgxcockroachImpl) All_BillingTransaction_By_UserId_And_Source_OrderBy
 					return nil, err
 				}
 				rows = append(rows, billing_transaction)
-			}
-			if err := __rows.Err(); err != nil {
-				return nil, err
 			}
 			return rows, nil
 		}()
@@ -27210,12 +26990,9 @@ func (obj *pgxcockroachImpl) First_BillingTransaction_By_Source_And_Type_OrderBy
 			if err != nil {
 				return nil, err
 			}
-			defer __rows.Close()
+			defer closeRows(__rows, &err)
 
 			if !__rows.Next() {
-				if err := __rows.Err(); err != nil {
-					return nil, err
-				}
 				return nil, nil
 			}
 
@@ -27260,12 +27037,9 @@ func (obj *pgxcockroachImpl) Get_StorjscanWallet_UserId_By_WalletAddress(ctx con
 			if err != nil {
 				return nil, err
 			}
-			defer __rows.Close()
+			defer closeRows(__rows, &err)
 
 			if !__rows.Next() {
-				if err := __rows.Err(); err != nil {
-					return nil, err
-				}
 				return nil, sql.ErrNoRows
 			}
 
@@ -27279,17 +27053,13 @@ func (obj *pgxcockroachImpl) Get_StorjscanWallet_UserId_By_WalletAddress(ctx con
 				return nil, errTooManyRows
 			}
 
-			if err := __rows.Err(); err != nil {
-				return nil, err
-			}
-
 			return row, nil
 		}()
 		if err != nil {
 			if obj.shouldRetry(err) {
 				continue
 			}
-			if err == errTooManyRows {
+			if errors.Is(err, errTooManyRows) {
 				return nil, tooManyRows("StorjscanWallet_UserId_By_WalletAddress")
 			}
 			return nil, obj.makeErr(err)
@@ -27321,12 +27091,9 @@ func (obj *pgxcockroachImpl) Get_StorjscanWallet_WalletAddress_By_UserId(ctx con
 			if err != nil {
 				return nil, err
 			}
-			defer __rows.Close()
+			defer closeRows(__rows, &err)
 
 			if !__rows.Next() {
-				if err := __rows.Err(); err != nil {
-					return nil, err
-				}
 				return nil, sql.ErrNoRows
 			}
 
@@ -27340,17 +27107,13 @@ func (obj *pgxcockroachImpl) Get_StorjscanWallet_WalletAddress_By_UserId(ctx con
 				return nil, errTooManyRows
 			}
 
-			if err := __rows.Err(); err != nil {
-				return nil, err
-			}
-
 			return row, nil
 		}()
 		if err != nil {
 			if obj.shouldRetry(err) {
 				continue
 			}
-			if err == errTooManyRows {
+			if errors.Is(err, errTooManyRows) {
 				return nil, tooManyRows("StorjscanWallet_WalletAddress_By_UserId")
 			}
 			return nil, obj.makeErr(err)
@@ -27380,7 +27143,7 @@ func (obj *pgxcockroachImpl) All_StorjscanWallet(ctx context.Context) (
 			if err != nil {
 				return nil, err
 			}
-			defer __rows.Close()
+			defer closeRows(__rows, &err)
 
 			for __rows.Next() {
 				storjscan_wallet := &StorjscanWallet{}
@@ -27389,9 +27152,6 @@ func (obj *pgxcockroachImpl) All_StorjscanWallet(ctx context.Context) (
 					return nil, err
 				}
 				rows = append(rows, storjscan_wallet)
-			}
-			if err := __rows.Err(); err != nil {
-				return nil, err
 			}
 			return rows, nil
 		}()
@@ -27428,7 +27188,7 @@ func (obj *pgxcockroachImpl) All_CoinpaymentsTransaction_By_UserId_OrderBy_Desc_
 			if err != nil {
 				return nil, err
 			}
-			defer __rows.Close()
+			defer closeRows(__rows, &err)
 
 			for __rows.Next() {
 				coinpayments_transaction := &CoinpaymentsTransaction{}
@@ -27437,9 +27197,6 @@ func (obj *pgxcockroachImpl) All_CoinpaymentsTransaction_By_UserId_OrderBy_Desc_
 					return nil, err
 				}
 				rows = append(rows, coinpayments_transaction)
-			}
-			if err := __rows.Err(); err != nil {
-				return nil, err
 			}
 			return rows, nil
 		}()
@@ -27526,7 +27283,7 @@ func (obj *pgxcockroachImpl) All_StorjscanPayment_OrderBy_Asc_ChainId_Asc_BlockN
 			if err != nil {
 				return nil, err
 			}
-			defer __rows.Close()
+			defer closeRows(__rows, &err)
 
 			for __rows.Next() {
 				storjscan_payment := &StorjscanPayment{}
@@ -27535,9 +27292,6 @@ func (obj *pgxcockroachImpl) All_StorjscanPayment_OrderBy_Asc_ChainId_Asc_BlockN
 					return nil, err
 				}
 				rows = append(rows, storjscan_payment)
-			}
-			if err := __rows.Err(); err != nil {
-				return nil, err
 			}
 			return rows, nil
 		}()
@@ -27577,7 +27331,7 @@ func (obj *pgxcockroachImpl) Limited_StorjscanPayment_By_ToAddress_OrderBy_Desc_
 			if err != nil {
 				return nil, err
 			}
-			defer __rows.Close()
+			defer closeRows(__rows, &err)
 
 			for __rows.Next() {
 				storjscan_payment := &StorjscanPayment{}
@@ -27586,10 +27340,6 @@ func (obj *pgxcockroachImpl) Limited_StorjscanPayment_By_ToAddress_OrderBy_Desc_
 					return nil, err
 				}
 				rows = append(rows, storjscan_payment)
-			}
-			err = __rows.Err()
-			if err != nil {
-				return nil, err
 			}
 			return rows, nil
 		}()
@@ -27627,12 +27377,9 @@ func (obj *pgxcockroachImpl) First_StorjscanPayment_BlockNumber_By_Status_And_Ch
 			if err != nil {
 				return nil, err
 			}
-			defer __rows.Close()
+			defer closeRows(__rows, &err)
 
 			if !__rows.Next() {
-				if err := __rows.Err(); err != nil {
-					return nil, err
-				}
 				return nil, nil
 			}
 
@@ -27803,7 +27550,7 @@ func (obj *pgxcockroachImpl) All_Node_Id(ctx context.Context) (
 			if err != nil {
 				return nil, err
 			}
-			defer __rows.Close()
+			defer closeRows(__rows, &err)
 
 			for __rows.Next() {
 				row := &Id_Row{}
@@ -27812,9 +27559,6 @@ func (obj *pgxcockroachImpl) All_Node_Id(ctx context.Context) (
 					return nil, err
 				}
 				rows = append(rows, row)
-			}
-			if err := __rows.Err(); err != nil {
-				return nil, err
 			}
 			return rows, nil
 		}()
@@ -27859,7 +27603,7 @@ func (obj *pgxcockroachImpl) Paged_Node(ctx context.Context,
 			if err != nil {
 				return nil, nil, err
 			}
-			defer __rows.Close()
+			defer closeRows(__rows, &err)
 
 			var __continuation Paged_Node_Continuation
 			__continuation._set = true
@@ -27868,14 +27612,10 @@ func (obj *pgxcockroachImpl) Paged_Node(ctx context.Context,
 				node := &Node{}
 				err = __rows.Scan(&node.Id, &node.Address, &node.LastNet, &node.LastIpPort, &node.CountryCode, &node.Protocol, &node.Email, &node.Wallet, &node.WalletFeatures, &node.FreeDisk, &node.PieceCount, &node.Major, &node.Minor, &node.Patch, &node.CommitHash, &node.ReleaseTimestamp, &node.Release, &node.Latency90, &node.VettedAt, &node.CreatedAt, &node.UpdatedAt, &node.LastContactSuccess, &node.LastContactFailure, &node.Disqualified, &node.DisqualificationReason, &node.UnknownAuditSuspended, &node.OfflineSuspended, &node.UnderReview, &node.ExitInitiatedAt, &node.ExitLoopCompletedAt, &node.ExitFinishedAt, &node.ExitSuccess, &node.Contained, &node.LastOfflineEmail, &node.LastSoftwareUpdateEmail, &node.NoiseProto, &node.NoisePublicKey, &node.DebounceLimit, &node.Features, &__continuation._value_id)
 				if err != nil {
-					return nil, nil, obj.makeErr(err)
+					return nil, nil, err
 				}
 				rows = append(rows, node)
 				next = &__continuation
-			}
-
-			if err := __rows.Err(); err != nil {
-				return nil, nil, obj.makeErr(err)
 			}
 
 			return rows, next, nil
@@ -27911,7 +27651,7 @@ func (obj *pgxcockroachImpl) All_Node_Id_Node_PieceCount_By_Disqualified_Is_Null
 			if err != nil {
 				return nil, err
 			}
-			defer __rows.Close()
+			defer closeRows(__rows, &err)
 
 			for __rows.Next() {
 				row := &Id_PieceCount_Row{}
@@ -27920,9 +27660,6 @@ func (obj *pgxcockroachImpl) All_Node_Id_Node_PieceCount_By_Disqualified_Is_Null
 					return nil, err
 				}
 				rows = append(rows, row)
-			}
-			if err := __rows.Err(); err != nil {
-				return nil, err
 			}
 			return rows, nil
 		}()
@@ -28010,12 +27747,9 @@ func (obj *pgxcockroachImpl) First_NodeEvent_By_Email_And_Event_OrderBy_Desc_Cre
 			if err != nil {
 				return nil, err
 			}
-			defer __rows.Close()
+			defer closeRows(__rows, &err)
 
 			if !__rows.Next() {
-				if err := __rows.Err(); err != nil {
-					return nil, err
-				}
 				return nil, nil
 			}
 
@@ -28060,7 +27794,7 @@ func (obj *pgxcockroachImpl) All_NodeTags_By_NodeId(ctx context.Context,
 			if err != nil {
 				return nil, err
 			}
-			defer __rows.Close()
+			defer closeRows(__rows, &err)
 
 			for __rows.Next() {
 				node_tags := &NodeTags{}
@@ -28069,9 +27803,6 @@ func (obj *pgxcockroachImpl) All_NodeTags_By_NodeId(ctx context.Context,
 					return nil, err
 				}
 				rows = append(rows, node_tags)
-			}
-			if err := __rows.Err(); err != nil {
-				return nil, err
 			}
 			return rows, nil
 		}()
@@ -28106,7 +27837,7 @@ func (obj *pgxcockroachImpl) All_NodeTags(ctx context.Context) (
 			if err != nil {
 				return nil, err
 			}
-			defer __rows.Close()
+			defer closeRows(__rows, &err)
 
 			for __rows.Next() {
 				node_tags := &NodeTags{}
@@ -28115,9 +27846,6 @@ func (obj *pgxcockroachImpl) All_NodeTags(ctx context.Context) (
 					return nil, err
 				}
 				rows = append(rows, node_tags)
-			}
-			if err := __rows.Err(); err != nil {
-				return nil, err
 			}
 			return rows, nil
 		}()
@@ -28180,7 +27908,7 @@ func (obj *pgxcockroachImpl) All_StoragenodePaystub_By_NodeId(ctx context.Contex
 			if err != nil {
 				return nil, err
 			}
-			defer __rows.Close()
+			defer closeRows(__rows, &err)
 
 			for __rows.Next() {
 				storagenode_paystub := &StoragenodePaystub{}
@@ -28189,9 +27917,6 @@ func (obj *pgxcockroachImpl) All_StoragenodePaystub_By_NodeId(ctx context.Contex
 					return nil, err
 				}
 				rows = append(rows, storagenode_paystub)
-			}
-			if err := __rows.Err(); err != nil {
-				return nil, err
 			}
 			return rows, nil
 		}()
@@ -28232,7 +27957,7 @@ func (obj *pgxcockroachImpl) Limited_StoragenodePayment_By_NodeId_And_Period_Ord
 			if err != nil {
 				return nil, err
 			}
-			defer __rows.Close()
+			defer closeRows(__rows, &err)
 
 			for __rows.Next() {
 				storagenode_payment := &StoragenodePayment{}
@@ -28241,10 +27966,6 @@ func (obj *pgxcockroachImpl) Limited_StoragenodePayment_By_NodeId_And_Period_Ord
 					return nil, err
 				}
 				rows = append(rows, storagenode_payment)
-			}
-			err = __rows.Err()
-			if err != nil {
-				return nil, err
 			}
 			return rows, nil
 		}()
@@ -28281,7 +28002,7 @@ func (obj *pgxcockroachImpl) All_StoragenodePayment_By_NodeId(ctx context.Contex
 			if err != nil {
 				return nil, err
 			}
-			defer __rows.Close()
+			defer closeRows(__rows, &err)
 
 			for __rows.Next() {
 				storagenode_payment := &StoragenodePayment{}
@@ -28290,9 +28011,6 @@ func (obj *pgxcockroachImpl) All_StoragenodePayment_By_NodeId(ctx context.Contex
 					return nil, err
 				}
 				rows = append(rows, storagenode_payment)
-			}
-			if err := __rows.Err(); err != nil {
-				return nil, err
 			}
 			return rows, nil
 		}()
@@ -28330,7 +28048,7 @@ func (obj *pgxcockroachImpl) All_StoragenodePayment_By_NodeId_And_Period(ctx con
 			if err != nil {
 				return nil, err
 			}
-			defer __rows.Close()
+			defer closeRows(__rows, &err)
 
 			for __rows.Next() {
 				storagenode_payment := &StoragenodePayment{}
@@ -28339,9 +28057,6 @@ func (obj *pgxcockroachImpl) All_StoragenodePayment_By_NodeId_And_Period(ctx con
 					return nil, err
 				}
 				rows = append(rows, storagenode_payment)
-			}
-			if err := __rows.Err(); err != nil {
-				return nil, err
 			}
 			return rows, nil
 		}()
@@ -28534,12 +28249,9 @@ func (obj *pgxcockroachImpl) Get_Project_By_PublicId(ctx context.Context,
 			if err != nil {
 				return nil, err
 			}
-			defer __rows.Close()
+			defer closeRows(__rows, &err)
 
 			if !__rows.Next() {
-				if err := __rows.Err(); err != nil {
-					return nil, err
-				}
 				return nil, sql.ErrNoRows
 			}
 
@@ -28553,17 +28265,13 @@ func (obj *pgxcockroachImpl) Get_Project_By_PublicId(ctx context.Context,
 				return nil, errTooManyRows
 			}
 
-			if err := __rows.Err(); err != nil {
-				return nil, err
-			}
-
 			return project, nil
 		}()
 		if err != nil {
 			if obj.shouldRetry(err) {
 				continue
 			}
-			if err == errTooManyRows {
+			if errors.Is(err, errTooManyRows) {
 				return nil, tooManyRows("Project_By_PublicId")
 			}
 			return nil, obj.makeErr(err)
@@ -28843,7 +28551,7 @@ func (obj *pgxcockroachImpl) All_Project(ctx context.Context) (
 			if err != nil {
 				return nil, err
 			}
-			defer __rows.Close()
+			defer closeRows(__rows, &err)
 
 			for __rows.Next() {
 				project := &Project{}
@@ -28852,9 +28560,6 @@ func (obj *pgxcockroachImpl) All_Project(ctx context.Context) (
 					return nil, err
 				}
 				rows = append(rows, project)
-			}
-			if err := __rows.Err(); err != nil {
-				return nil, err
 			}
 			return rows, nil
 		}()
@@ -28891,7 +28596,7 @@ func (obj *pgxcockroachImpl) All_Project_By_CreatedAt_Less_OrderBy_Asc_CreatedAt
 			if err != nil {
 				return nil, err
 			}
-			defer __rows.Close()
+			defer closeRows(__rows, &err)
 
 			for __rows.Next() {
 				project := &Project{}
@@ -28900,9 +28605,6 @@ func (obj *pgxcockroachImpl) All_Project_By_CreatedAt_Less_OrderBy_Asc_CreatedAt
 					return nil, err
 				}
 				rows = append(rows, project)
-			}
-			if err := __rows.Err(); err != nil {
-				return nil, err
 			}
 			return rows, nil
 		}()
@@ -28939,7 +28641,7 @@ func (obj *pgxcockroachImpl) All_Project_By_OwnerId_OrderBy_Asc_CreatedAt(ctx co
 			if err != nil {
 				return nil, err
 			}
-			defer __rows.Close()
+			defer closeRows(__rows, &err)
 
 			for __rows.Next() {
 				project := &Project{}
@@ -28948,9 +28650,6 @@ func (obj *pgxcockroachImpl) All_Project_By_OwnerId_OrderBy_Asc_CreatedAt(ctx co
 					return nil, err
 				}
 				rows = append(rows, project)
-			}
-			if err := __rows.Err(); err != nil {
-				return nil, err
 			}
 			return rows, nil
 		}()
@@ -28987,7 +28686,7 @@ func (obj *pgxcockroachImpl) All_Project_By_ProjectMember_MemberId_OrderBy_Asc_P
 			if err != nil {
 				return nil, err
 			}
-			defer __rows.Close()
+			defer closeRows(__rows, &err)
 
 			for __rows.Next() {
 				project := &Project{}
@@ -28996,9 +28695,6 @@ func (obj *pgxcockroachImpl) All_Project_By_ProjectMember_MemberId_OrderBy_Asc_P
 					return nil, err
 				}
 				rows = append(rows, project)
-			}
-			if err := __rows.Err(); err != nil {
-				return nil, err
 			}
 			return rows, nil
 		}()
@@ -29038,7 +28734,7 @@ func (obj *pgxcockroachImpl) Limited_Project_By_CreatedAt_Less_OrderBy_Asc_Creat
 			if err != nil {
 				return nil, err
 			}
-			defer __rows.Close()
+			defer closeRows(__rows, &err)
 
 			for __rows.Next() {
 				project := &Project{}
@@ -29047,10 +28743,6 @@ func (obj *pgxcockroachImpl) Limited_Project_By_CreatedAt_Less_OrderBy_Asc_Creat
 					return nil, err
 				}
 				rows = append(rows, project)
-			}
-			err = __rows.Err()
-			if err != nil {
-				return nil, err
 			}
 			return rows, nil
 		}()
@@ -29113,7 +28805,7 @@ func (obj *pgxcockroachImpl) All_ProjectMember_By_MemberId(ctx context.Context,
 			if err != nil {
 				return nil, err
 			}
-			defer __rows.Close()
+			defer closeRows(__rows, &err)
 
 			for __rows.Next() {
 				project_member := &ProjectMember{}
@@ -29122,9 +28814,6 @@ func (obj *pgxcockroachImpl) All_ProjectMember_By_MemberId(ctx context.Context,
 					return nil, err
 				}
 				rows = append(rows, project_member)
-			}
-			if err := __rows.Err(); err != nil {
-				return nil, err
 			}
 			return rows, nil
 		}()
@@ -29187,7 +28876,7 @@ func (obj *pgxcockroachImpl) All_ProjectInvitation_By_Email(ctx context.Context,
 			if err != nil {
 				return nil, err
 			}
-			defer __rows.Close()
+			defer closeRows(__rows, &err)
 
 			for __rows.Next() {
 				project_invitation := &ProjectInvitation{}
@@ -29196,9 +28885,6 @@ func (obj *pgxcockroachImpl) All_ProjectInvitation_By_Email(ctx context.Context,
 					return nil, err
 				}
 				rows = append(rows, project_invitation)
-			}
-			if err := __rows.Err(); err != nil {
-				return nil, err
 			}
 			return rows, nil
 		}()
@@ -29235,7 +28921,7 @@ func (obj *pgxcockroachImpl) All_ProjectInvitation_By_ProjectId(ctx context.Cont
 			if err != nil {
 				return nil, err
 			}
-			defer __rows.Close()
+			defer closeRows(__rows, &err)
 
 			for __rows.Next() {
 				project_invitation := &ProjectInvitation{}
@@ -29244,9 +28930,6 @@ func (obj *pgxcockroachImpl) All_ProjectInvitation_By_ProjectId(ctx context.Cont
 					return nil, err
 				}
 				rows = append(rows, project_invitation)
-			}
-			if err := __rows.Err(); err != nil {
-				return nil, err
 			}
 			return rows, nil
 		}()
@@ -29570,7 +29253,7 @@ func (obj *pgxcockroachImpl) Limited_BucketMetainfo_By_ProjectId_And_Name_Greate
 			if err != nil {
 				return nil, err
 			}
-			defer __rows.Close()
+			defer closeRows(__rows, &err)
 
 			for __rows.Next() {
 				bucket_metainfo := &BucketMetainfo{}
@@ -29579,10 +29262,6 @@ func (obj *pgxcockroachImpl) Limited_BucketMetainfo_By_ProjectId_And_Name_Greate
 					return nil, err
 				}
 				rows = append(rows, bucket_metainfo)
-			}
-			err = __rows.Err()
-			if err != nil {
-				return nil, err
 			}
 			return rows, nil
 		}()
@@ -29623,7 +29302,7 @@ func (obj *pgxcockroachImpl) Limited_BucketMetainfo_By_ProjectId_And_Name_Greate
 			if err != nil {
 				return nil, err
 			}
-			defer __rows.Close()
+			defer closeRows(__rows, &err)
 
 			for __rows.Next() {
 				bucket_metainfo := &BucketMetainfo{}
@@ -29632,10 +29311,6 @@ func (obj *pgxcockroachImpl) Limited_BucketMetainfo_By_ProjectId_And_Name_Greate
 					return nil, err
 				}
 				rows = append(rows, bucket_metainfo)
-			}
-			err = __rows.Err()
-			if err != nil {
-				return nil, err
 			}
 			return rows, nil
 		}()
@@ -29705,7 +29380,7 @@ func (obj *pgxcockroachImpl) Paged_BucketMetainfo_ProjectId_BucketMetainfo_Name(
 			if err != nil {
 				return nil, nil, err
 			}
-			defer __rows.Close()
+			defer closeRows(__rows, &err)
 
 			var __continuation Paged_BucketMetainfo_ProjectId_BucketMetainfo_Name_Continuation
 			__continuation._set = true
@@ -29714,14 +29389,10 @@ func (obj *pgxcockroachImpl) Paged_BucketMetainfo_ProjectId_BucketMetainfo_Name(
 				row := &ProjectId_Name_Row{}
 				err = __rows.Scan(&row.ProjectId, &row.Name, &__continuation._value_project_id, &__continuation._value_name)
 				if err != nil {
-					return nil, nil, obj.makeErr(err)
+					return nil, nil, err
 				}
 				rows = append(rows, row)
 				next = &__continuation
-			}
-
-			if err := __rows.Err(); err != nil {
-				return nil, nil, obj.makeErr(err)
 			}
 
 			return rows, next, nil
@@ -29785,7 +29456,7 @@ func (obj *pgxcockroachImpl) All_User_By_NormalizedEmail(ctx context.Context,
 			if err != nil {
 				return nil, err
 			}
-			defer __rows.Close()
+			defer closeRows(__rows, &err)
 
 			for __rows.Next() {
 				user := &User{}
@@ -29794,9 +29465,6 @@ func (obj *pgxcockroachImpl) All_User_By_NormalizedEmail(ctx context.Context,
 					return nil, err
 				}
 				rows = append(rows, user)
-			}
-			if err := __rows.Err(); err != nil {
-				return nil, err
 			}
 			return rows, nil
 		}()
@@ -29833,12 +29501,9 @@ func (obj *pgxcockroachImpl) Get_User_By_NormalizedEmail_And_Status_Not_Number(c
 			if err != nil {
 				return nil, err
 			}
-			defer __rows.Close()
+			defer closeRows(__rows, &err)
 
 			if !__rows.Next() {
-				if err := __rows.Err(); err != nil {
-					return nil, err
-				}
 				return nil, sql.ErrNoRows
 			}
 
@@ -29852,17 +29517,13 @@ func (obj *pgxcockroachImpl) Get_User_By_NormalizedEmail_And_Status_Not_Number(c
 				return nil, errTooManyRows
 			}
 
-			if err := __rows.Err(); err != nil {
-				return nil, err
-			}
-
 			return user, nil
 		}()
 		if err != nil {
 			if obj.shouldRetry(err) {
 				continue
 			}
-			if err == errTooManyRows {
+			if errors.Is(err, errTooManyRows) {
 				return nil, tooManyRows("User_By_NormalizedEmail_And_Status_Not_Number")
 			}
 			return nil, obj.makeErr(err)
@@ -29999,12 +29660,9 @@ func (obj *pgxcockroachImpl) Get_User_By_ExternalId(ctx context.Context,
 			if err != nil {
 				return nil, err
 			}
-			defer __rows.Close()
+			defer closeRows(__rows, &err)
 
 			if !__rows.Next() {
-				if err := __rows.Err(); err != nil {
-					return nil, err
-				}
 				return nil, sql.ErrNoRows
 			}
 
@@ -30018,17 +29676,13 @@ func (obj *pgxcockroachImpl) Get_User_By_ExternalId(ctx context.Context,
 				return nil, errTooManyRows
 			}
 
-			if err := __rows.Err(); err != nil {
-				return nil, err
-			}
-
 			return user, nil
 		}()
 		if err != nil {
 			if obj.shouldRetry(err) {
 				continue
 			}
-			if err == errTooManyRows {
+			if errors.Is(err, errTooManyRows) {
 				return nil, tooManyRows("User_By_ExternalId")
 			}
 			return nil, obj.makeErr(err)
@@ -30071,7 +29725,7 @@ func (obj *pgxcockroachImpl) Paged_AccountFreezeEvent_By_User_Status_Not_And_Acc
 			if err != nil {
 				return nil, nil, err
 			}
-			defer __rows.Close()
+			defer closeRows(__rows, &err)
 
 			var __continuation Paged_AccountFreezeEvent_By_User_Status_Not_And_AccountFreezeEvent_Event_Continuation
 			__continuation._set = true
@@ -30080,14 +29734,10 @@ func (obj *pgxcockroachImpl) Paged_AccountFreezeEvent_By_User_Status_Not_And_Acc
 				account_freeze_event := &AccountFreezeEvent{}
 				err = __rows.Scan(&account_freeze_event.UserId, &account_freeze_event.Event, &account_freeze_event.Limits, &account_freeze_event.DaysTillEscalation, &account_freeze_event.NotificationsCount, &account_freeze_event.CreatedAt, &__continuation._value_user_id, &__continuation._value_event)
 				if err != nil {
-					return nil, nil, obj.makeErr(err)
+					return nil, nil, err
 				}
 				rows = append(rows, account_freeze_event)
 				next = &__continuation
-			}
-
-			if err := __rows.Err(); err != nil {
-				return nil, nil, obj.makeErr(err)
 			}
 
 			return rows, next, nil
@@ -30178,7 +29828,7 @@ func (obj *pgxcockroachImpl) Limited_User_Id_User_Email_User_FullName_By_Status(
 			if err != nil {
 				return nil, err
 			}
-			defer __rows.Close()
+			defer closeRows(__rows, &err)
 
 			for __rows.Next() {
 				row := &Id_Email_FullName_Row{}
@@ -30187,10 +29837,6 @@ func (obj *pgxcockroachImpl) Limited_User_Id_User_Email_User_FullName_By_Status(
 					return nil, err
 				}
 				rows = append(rows, row)
-			}
-			err = __rows.Err()
-			if err != nil {
-				return nil, err
 			}
 			return rows, nil
 		}()
@@ -30252,7 +29898,7 @@ func (obj *pgxcockroachImpl) All_WebappSession_By_UserId(ctx context.Context,
 			if err != nil {
 				return nil, err
 			}
-			defer __rows.Close()
+			defer closeRows(__rows, &err)
 
 			for __rows.Next() {
 				webapp_session := &WebappSession{}
@@ -30261,9 +29907,6 @@ func (obj *pgxcockroachImpl) All_WebappSession_By_UserId(ctx context.Context,
 					return nil, err
 				}
 				rows = append(rows, webapp_session)
-			}
-			if err := __rows.Err(); err != nil {
-				return nil, err
 			}
 			return rows, nil
 		}()
@@ -30456,7 +30099,7 @@ func (obj *pgxcockroachImpl) All_AccountFreezeEvent_By_UserId(ctx context.Contex
 			if err != nil {
 				return nil, err
 			}
-			defer __rows.Close()
+			defer closeRows(__rows, &err)
 
 			for __rows.Next() {
 				account_freeze_event := &AccountFreezeEvent{}
@@ -30465,9 +30108,6 @@ func (obj *pgxcockroachImpl) All_AccountFreezeEvent_By_UserId(ctx context.Contex
 					return nil, err
 				}
 				rows = append(rows, account_freeze_event)
-			}
-			if err := __rows.Err(); err != nil {
-				return nil, err
 			}
 			return rows, nil
 		}()
@@ -36822,7 +36462,7 @@ func (obj *spannerImpl) Find_AccountingTimestamps_Value_By_Name(ctx context.Cont
 
 	row = &Value_Row{}
 	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&row.Value)
-	if err == sql.ErrNoRows {
+	if errors.Is(err, sql.ErrNoRows) {
 		return (*Value_Row)(nil), nil
 	}
 	if err != nil {
@@ -36855,7 +36495,7 @@ func (obj *spannerImpl) All_StoragenodeBandwidthRollup_By_StoragenodeId_And_Inte
 			if err != nil {
 				return nil, err
 			}
-			defer __rows.Close()
+			defer closeRows(__rows, &err)
 
 			for __rows.Next() {
 				storagenode_bandwidth_rollup := &StoragenodeBandwidthRollup{}
@@ -36864,9 +36504,6 @@ func (obj *spannerImpl) All_StoragenodeBandwidthRollup_By_StoragenodeId_And_Inte
 					return nil, err
 				}
 				rows = append(rows, storagenode_bandwidth_rollup)
-			}
-			if err := __rows.Err(); err != nil {
-				return nil, err
 			}
 			return rows, nil
 		}()
@@ -36916,7 +36553,7 @@ func (obj *spannerImpl) Paged_StoragenodeBandwidthRollup_By_IntervalStart_Greate
 			if err != nil {
 				return nil, nil, err
 			}
-			defer __rows.Close()
+			defer closeRows(__rows, &err)
 
 			var __continuation Paged_StoragenodeBandwidthRollup_By_IntervalStart_GreaterOrEqual_Continuation
 			__continuation._set = true
@@ -36925,14 +36562,10 @@ func (obj *spannerImpl) Paged_StoragenodeBandwidthRollup_By_IntervalStart_Greate
 				storagenode_bandwidth_rollup := &StoragenodeBandwidthRollup{}
 				err = __rows.Scan(&storagenode_bandwidth_rollup.StoragenodeId, &storagenode_bandwidth_rollup.IntervalStart, &storagenode_bandwidth_rollup.IntervalSeconds, &storagenode_bandwidth_rollup.Action, &storagenode_bandwidth_rollup.Allocated, &storagenode_bandwidth_rollup.Settled, &__continuation._value_storagenode_id, &__continuation._value_interval_start, &__continuation._value_action)
 				if err != nil {
-					return nil, nil, obj.makeErr(err)
+					return nil, nil, err
 				}
 				rows = append(rows, storagenode_bandwidth_rollup)
 				next = &__continuation
-			}
-
-			if err := __rows.Err(); err != nil {
-				return nil, nil, obj.makeErr(err)
 			}
 
 			return rows, next, nil
@@ -36984,7 +36617,7 @@ func (obj *spannerImpl) Paged_StoragenodeBandwidthRollup_By_StoragenodeId_And_In
 			if err != nil {
 				return nil, nil, err
 			}
-			defer __rows.Close()
+			defer closeRows(__rows, &err)
 
 			var __continuation Paged_StoragenodeBandwidthRollup_By_StoragenodeId_And_IntervalStart_GreaterOrEqual_Continuation
 			__continuation._set = true
@@ -36993,14 +36626,10 @@ func (obj *spannerImpl) Paged_StoragenodeBandwidthRollup_By_StoragenodeId_And_In
 				storagenode_bandwidth_rollup := &StoragenodeBandwidthRollup{}
 				err = __rows.Scan(&storagenode_bandwidth_rollup.StoragenodeId, &storagenode_bandwidth_rollup.IntervalStart, &storagenode_bandwidth_rollup.IntervalSeconds, &storagenode_bandwidth_rollup.Action, &storagenode_bandwidth_rollup.Allocated, &storagenode_bandwidth_rollup.Settled, &__continuation._value_storagenode_id, &__continuation._value_interval_start, &__continuation._value_action)
 				if err != nil {
-					return nil, nil, obj.makeErr(err)
+					return nil, nil, err
 				}
 				rows = append(rows, storagenode_bandwidth_rollup)
 				next = &__continuation
-			}
-
-			if err := __rows.Err(); err != nil {
-				return nil, nil, obj.makeErr(err)
 			}
 
 			return rows, next, nil
@@ -37051,7 +36680,7 @@ func (obj *spannerImpl) Paged_StoragenodeBandwidthRollupArchive_By_IntervalStart
 			if err != nil {
 				return nil, nil, err
 			}
-			defer __rows.Close()
+			defer closeRows(__rows, &err)
 
 			var __continuation Paged_StoragenodeBandwidthRollupArchive_By_IntervalStart_GreaterOrEqual_Continuation
 			__continuation._set = true
@@ -37060,14 +36689,10 @@ func (obj *spannerImpl) Paged_StoragenodeBandwidthRollupArchive_By_IntervalStart
 				storagenode_bandwidth_rollup_archive := &StoragenodeBandwidthRollupArchive{}
 				err = __rows.Scan(&storagenode_bandwidth_rollup_archive.StoragenodeId, &storagenode_bandwidth_rollup_archive.IntervalStart, &storagenode_bandwidth_rollup_archive.IntervalSeconds, &storagenode_bandwidth_rollup_archive.Action, &storagenode_bandwidth_rollup_archive.Allocated, &storagenode_bandwidth_rollup_archive.Settled, &__continuation._value_storagenode_id, &__continuation._value_interval_start, &__continuation._value_action)
 				if err != nil {
-					return nil, nil, obj.makeErr(err)
+					return nil, nil, err
 				}
 				rows = append(rows, storagenode_bandwidth_rollup_archive)
 				next = &__continuation
-			}
-
-			if err := __rows.Err(); err != nil {
-				return nil, nil, obj.makeErr(err)
 			}
 
 			return rows, next, nil
@@ -37119,7 +36744,7 @@ func (obj *spannerImpl) Paged_StoragenodeBandwidthRollupPhase2_By_StoragenodeId_
 			if err != nil {
 				return nil, nil, err
 			}
-			defer __rows.Close()
+			defer closeRows(__rows, &err)
 
 			var __continuation Paged_StoragenodeBandwidthRollupPhase2_By_StoragenodeId_And_IntervalStart_GreaterOrEqual_Continuation
 			__continuation._set = true
@@ -37128,14 +36753,10 @@ func (obj *spannerImpl) Paged_StoragenodeBandwidthRollupPhase2_By_StoragenodeId_
 				storagenode_bandwidth_rollup_phase2 := &StoragenodeBandwidthRollupPhase2{}
 				err = __rows.Scan(&storagenode_bandwidth_rollup_phase2.StoragenodeId, &storagenode_bandwidth_rollup_phase2.IntervalStart, &storagenode_bandwidth_rollup_phase2.IntervalSeconds, &storagenode_bandwidth_rollup_phase2.Action, &storagenode_bandwidth_rollup_phase2.Allocated, &storagenode_bandwidth_rollup_phase2.Settled, &__continuation._value_storagenode_id, &__continuation._value_interval_start, &__continuation._value_action)
 				if err != nil {
-					return nil, nil, obj.makeErr(err)
+					return nil, nil, err
 				}
 				rows = append(rows, storagenode_bandwidth_rollup_phase2)
 				next = &__continuation
-			}
-
-			if err := __rows.Err(); err != nil {
-				return nil, nil, obj.makeErr(err)
 			}
 
 			return rows, next, nil
@@ -37171,7 +36792,7 @@ func (obj *spannerImpl) All_StoragenodeStorageTally(ctx context.Context) (
 			if err != nil {
 				return nil, err
 			}
-			defer __rows.Close()
+			defer closeRows(__rows, &err)
 
 			for __rows.Next() {
 				storagenode_storage_tally := &StoragenodeStorageTally{}
@@ -37180,9 +36801,6 @@ func (obj *spannerImpl) All_StoragenodeStorageTally(ctx context.Context) (
 					return nil, err
 				}
 				rows = append(rows, storagenode_storage_tally)
-			}
-			if err := __rows.Err(); err != nil {
-				return nil, err
 			}
 			return rows, nil
 		}()
@@ -37219,7 +36837,7 @@ func (obj *spannerImpl) All_StoragenodeStorageTally_By_IntervalEndTime_GreaterOr
 			if err != nil {
 				return nil, err
 			}
-			defer __rows.Close()
+			defer closeRows(__rows, &err)
 
 			for __rows.Next() {
 				storagenode_storage_tally := &StoragenodeStorageTally{}
@@ -37228,9 +36846,6 @@ func (obj *spannerImpl) All_StoragenodeStorageTally_By_IntervalEndTime_GreaterOr
 					return nil, err
 				}
 				rows = append(rows, storagenode_storage_tally)
-			}
-			if err := __rows.Err(); err != nil {
-				return nil, err
 			}
 			return rows, nil
 		}()
@@ -37280,7 +36895,7 @@ func (obj *spannerImpl) Paged_BucketBandwidthRollup_By_IntervalStart_GreaterOrEq
 			if err != nil {
 				return nil, nil, err
 			}
-			defer __rows.Close()
+			defer closeRows(__rows, &err)
 
 			var __continuation Paged_BucketBandwidthRollup_By_IntervalStart_GreaterOrEqual_Continuation
 			__continuation._set = true
@@ -37289,14 +36904,10 @@ func (obj *spannerImpl) Paged_BucketBandwidthRollup_By_IntervalStart_GreaterOrEq
 				bucket_bandwidth_rollup := &BucketBandwidthRollup{}
 				err = __rows.Scan(&bucket_bandwidth_rollup.BucketName, &bucket_bandwidth_rollup.ProjectId, &bucket_bandwidth_rollup.IntervalStart, &bucket_bandwidth_rollup.IntervalSeconds, &bucket_bandwidth_rollup.Action, &bucket_bandwidth_rollup.Inline, &bucket_bandwidth_rollup.Allocated, &bucket_bandwidth_rollup.Settled, &__continuation._value_project_id, &__continuation._value_bucket_name, &__continuation._value_interval_start, &__continuation._value_action)
 				if err != nil {
-					return nil, nil, obj.makeErr(err)
+					return nil, nil, err
 				}
 				rows = append(rows, bucket_bandwidth_rollup)
 				next = &__continuation
-			}
-
-			if err := __rows.Err(); err != nil {
-				return nil, nil, obj.makeErr(err)
 			}
 
 			return rows, next, nil
@@ -37347,7 +36958,7 @@ func (obj *spannerImpl) Paged_BucketBandwidthRollupArchive_By_IntervalStart_Grea
 			if err != nil {
 				return nil, nil, err
 			}
-			defer __rows.Close()
+			defer closeRows(__rows, &err)
 
 			var __continuation Paged_BucketBandwidthRollupArchive_By_IntervalStart_GreaterOrEqual_Continuation
 			__continuation._set = true
@@ -37356,14 +36967,10 @@ func (obj *spannerImpl) Paged_BucketBandwidthRollupArchive_By_IntervalStart_Grea
 				bucket_bandwidth_rollup_archive := &BucketBandwidthRollupArchive{}
 				err = __rows.Scan(&bucket_bandwidth_rollup_archive.BucketName, &bucket_bandwidth_rollup_archive.ProjectId, &bucket_bandwidth_rollup_archive.IntervalStart, &bucket_bandwidth_rollup_archive.IntervalSeconds, &bucket_bandwidth_rollup_archive.Action, &bucket_bandwidth_rollup_archive.Inline, &bucket_bandwidth_rollup_archive.Allocated, &bucket_bandwidth_rollup_archive.Settled, &__continuation._value_bucket_name, &__continuation._value_project_id, &__continuation._value_interval_start, &__continuation._value_action)
 				if err != nil {
-					return nil, nil, obj.makeErr(err)
+					return nil, nil, err
 				}
 				rows = append(rows, bucket_bandwidth_rollup_archive)
 				next = &__continuation
-			}
-
-			if err := __rows.Err(); err != nil {
-				return nil, nil, obj.makeErr(err)
 			}
 
 			return rows, next, nil
@@ -37399,7 +37006,7 @@ func (obj *spannerImpl) All_BucketStorageTally_OrderBy_Desc_IntervalStart(ctx co
 			if err != nil {
 				return nil, err
 			}
-			defer __rows.Close()
+			defer closeRows(__rows, &err)
 
 			for __rows.Next() {
 				bucket_storage_tally := &BucketStorageTally{}
@@ -37408,9 +37015,6 @@ func (obj *spannerImpl) All_BucketStorageTally_OrderBy_Desc_IntervalStart(ctx co
 					return nil, err
 				}
 				rows = append(rows, bucket_storage_tally)
-			}
-			if err := __rows.Err(); err != nil {
-				return nil, err
 			}
 			return rows, nil
 		}()
@@ -37450,7 +37054,7 @@ func (obj *spannerImpl) All_BucketStorageTally_By_ProjectId_And_BucketName_And_I
 			if err != nil {
 				return nil, err
 			}
-			defer __rows.Close()
+			defer closeRows(__rows, &err)
 
 			for __rows.Next() {
 				bucket_storage_tally := &BucketStorageTally{}
@@ -37459,9 +37063,6 @@ func (obj *spannerImpl) All_BucketStorageTally_By_ProjectId_And_BucketName_And_I
 					return nil, err
 				}
 				rows = append(rows, bucket_storage_tally)
-			}
-			if err := __rows.Err(); err != nil {
-				return nil, err
 			}
 			return rows, nil
 		}()
@@ -37498,12 +37099,9 @@ func (obj *spannerImpl) First_ReverificationAudits_By_NodeId_OrderBy_Asc_StreamI
 			if err != nil {
 				return nil, err
 			}
-			defer __rows.Close()
+			defer closeRows(__rows, &err)
 
 			if !__rows.Next() {
-				if err := __rows.Err(); err != nil {
-					return nil, err
-				}
 				return nil, nil
 			}
 
@@ -37723,7 +37321,7 @@ func (obj *spannerImpl) All_BillingTransaction_By_UserId_OrderBy_Desc_TxTimestam
 			if err != nil {
 				return nil, err
 			}
-			defer __rows.Close()
+			defer closeRows(__rows, &err)
 
 			for __rows.Next() {
 				billing_transaction := &BillingTransaction{}
@@ -37732,9 +37330,6 @@ func (obj *spannerImpl) All_BillingTransaction_By_UserId_OrderBy_Desc_TxTimestam
 					return nil, err
 				}
 				rows = append(rows, billing_transaction)
-			}
-			if err := __rows.Err(); err != nil {
-				return nil, err
 			}
 			return rows, nil
 		}()
@@ -37772,7 +37367,7 @@ func (obj *spannerImpl) All_BillingTransaction_By_UserId_And_Source_OrderBy_Desc
 			if err != nil {
 				return nil, err
 			}
-			defer __rows.Close()
+			defer closeRows(__rows, &err)
 
 			for __rows.Next() {
 				billing_transaction := &BillingTransaction{}
@@ -37781,9 +37376,6 @@ func (obj *spannerImpl) All_BillingTransaction_By_UserId_And_Source_OrderBy_Desc
 					return nil, err
 				}
 				rows = append(rows, billing_transaction)
-			}
-			if err := __rows.Err(); err != nil {
-				return nil, err
 			}
 			return rows, nil
 		}()
@@ -37821,12 +37413,9 @@ func (obj *spannerImpl) First_BillingTransaction_By_Source_And_Type_OrderBy_Desc
 			if err != nil {
 				return nil, err
 			}
-			defer __rows.Close()
+			defer closeRows(__rows, &err)
 
 			if !__rows.Next() {
-				if err := __rows.Err(); err != nil {
-					return nil, err
-				}
 				return nil, nil
 			}
 
@@ -37871,12 +37460,9 @@ func (obj *spannerImpl) Get_StorjscanWallet_UserId_By_WalletAddress(ctx context.
 			if err != nil {
 				return nil, err
 			}
-			defer __rows.Close()
+			defer closeRows(__rows, &err)
 
 			if !__rows.Next() {
-				if err := __rows.Err(); err != nil {
-					return nil, err
-				}
 				return nil, sql.ErrNoRows
 			}
 
@@ -37890,17 +37476,13 @@ func (obj *spannerImpl) Get_StorjscanWallet_UserId_By_WalletAddress(ctx context.
 				return nil, errTooManyRows
 			}
 
-			if err := __rows.Err(); err != nil {
-				return nil, err
-			}
-
 			return row, nil
 		}()
 		if err != nil {
 			if obj.shouldRetry(err) {
 				continue
 			}
-			if err == errTooManyRows {
+			if errors.Is(err, errTooManyRows) {
 				return nil, tooManyRows("StorjscanWallet_UserId_By_WalletAddress")
 			}
 			return nil, obj.makeErr(err)
@@ -37932,12 +37514,9 @@ func (obj *spannerImpl) Get_StorjscanWallet_WalletAddress_By_UserId(ctx context.
 			if err != nil {
 				return nil, err
 			}
-			defer __rows.Close()
+			defer closeRows(__rows, &err)
 
 			if !__rows.Next() {
-				if err := __rows.Err(); err != nil {
-					return nil, err
-				}
 				return nil, sql.ErrNoRows
 			}
 
@@ -37951,17 +37530,13 @@ func (obj *spannerImpl) Get_StorjscanWallet_WalletAddress_By_UserId(ctx context.
 				return nil, errTooManyRows
 			}
 
-			if err := __rows.Err(); err != nil {
-				return nil, err
-			}
-
 			return row, nil
 		}()
 		if err != nil {
 			if obj.shouldRetry(err) {
 				continue
 			}
-			if err == errTooManyRows {
+			if errors.Is(err, errTooManyRows) {
 				return nil, tooManyRows("StorjscanWallet_WalletAddress_By_UserId")
 			}
 			return nil, obj.makeErr(err)
@@ -37991,7 +37566,7 @@ func (obj *spannerImpl) All_StorjscanWallet(ctx context.Context) (
 			if err != nil {
 				return nil, err
 			}
-			defer __rows.Close()
+			defer closeRows(__rows, &err)
 
 			for __rows.Next() {
 				storjscan_wallet := &StorjscanWallet{}
@@ -38000,9 +37575,6 @@ func (obj *spannerImpl) All_StorjscanWallet(ctx context.Context) (
 					return nil, err
 				}
 				rows = append(rows, storjscan_wallet)
-			}
-			if err := __rows.Err(); err != nil {
-				return nil, err
 			}
 			return rows, nil
 		}()
@@ -38039,7 +37611,7 @@ func (obj *spannerImpl) All_CoinpaymentsTransaction_By_UserId_OrderBy_Desc_Creat
 			if err != nil {
 				return nil, err
 			}
-			defer __rows.Close()
+			defer closeRows(__rows, &err)
 
 			for __rows.Next() {
 				coinpayments_transaction := &CoinpaymentsTransaction{}
@@ -38048,9 +37620,6 @@ func (obj *spannerImpl) All_CoinpaymentsTransaction_By_UserId_OrderBy_Desc_Creat
 					return nil, err
 				}
 				rows = append(rows, coinpayments_transaction)
-			}
-			if err := __rows.Err(); err != nil {
-				return nil, err
 			}
 			return rows, nil
 		}()
@@ -38137,7 +37706,7 @@ func (obj *spannerImpl) All_StorjscanPayment_OrderBy_Asc_ChainId_Asc_BlockNumber
 			if err != nil {
 				return nil, err
 			}
-			defer __rows.Close()
+			defer closeRows(__rows, &err)
 
 			for __rows.Next() {
 				storjscan_payment := &StorjscanPayment{}
@@ -38146,9 +37715,6 @@ func (obj *spannerImpl) All_StorjscanPayment_OrderBy_Asc_ChainId_Asc_BlockNumber
 					return nil, err
 				}
 				rows = append(rows, storjscan_payment)
-			}
-			if err := __rows.Err(); err != nil {
-				return nil, err
 			}
 			return rows, nil
 		}()
@@ -38188,7 +37754,7 @@ func (obj *spannerImpl) Limited_StorjscanPayment_By_ToAddress_OrderBy_Desc_Chain
 			if err != nil {
 				return nil, err
 			}
-			defer __rows.Close()
+			defer closeRows(__rows, &err)
 
 			for __rows.Next() {
 				storjscan_payment := &StorjscanPayment{}
@@ -38197,10 +37763,6 @@ func (obj *spannerImpl) Limited_StorjscanPayment_By_ToAddress_OrderBy_Desc_Chain
 					return nil, err
 				}
 				rows = append(rows, storjscan_payment)
-			}
-			err = __rows.Err()
-			if err != nil {
-				return nil, err
 			}
 			return rows, nil
 		}()
@@ -38238,12 +37800,9 @@ func (obj *spannerImpl) First_StorjscanPayment_BlockNumber_By_Status_And_ChainId
 			if err != nil {
 				return nil, err
 			}
-			defer __rows.Close()
+			defer closeRows(__rows, &err)
 
 			if !__rows.Next() {
-				if err := __rows.Err(); err != nil {
-					return nil, err
-				}
 				return nil, nil
 			}
 
@@ -38414,7 +37973,7 @@ func (obj *spannerImpl) All_Node_Id(ctx context.Context) (
 			if err != nil {
 				return nil, err
 			}
-			defer __rows.Close()
+			defer closeRows(__rows, &err)
 
 			for __rows.Next() {
 				row := &Id_Row{}
@@ -38423,9 +37982,6 @@ func (obj *spannerImpl) All_Node_Id(ctx context.Context) (
 					return nil, err
 				}
 				rows = append(rows, row)
-			}
-			if err := __rows.Err(); err != nil {
-				return nil, err
 			}
 			return rows, nil
 		}()
@@ -38473,7 +38029,7 @@ func (obj *spannerImpl) Paged_Node(ctx context.Context,
 			if err != nil {
 				return nil, nil, err
 			}
-			defer __rows.Close()
+			defer closeRows(__rows, &err)
 
 			var __continuation Paged_Node_Continuation
 			__continuation._set = true
@@ -38482,14 +38038,10 @@ func (obj *spannerImpl) Paged_Node(ctx context.Context,
 				node := &Node{}
 				err = __rows.Scan(&node.Id, &node.Address, &node.LastNet, &node.LastIpPort, &node.CountryCode, &node.Protocol, &node.Email, &node.Wallet, &node.WalletFeatures, &node.FreeDisk, &node.PieceCount, &node.Major, &node.Minor, &node.Patch, &node.CommitHash, &node.ReleaseTimestamp, &node.Release, &node.Latency90, &node.VettedAt, &node.CreatedAt, &node.UpdatedAt, &node.LastContactSuccess, &node.LastContactFailure, &node.Disqualified, &node.DisqualificationReason, &node.UnknownAuditSuspended, &node.OfflineSuspended, &node.UnderReview, &node.ExitInitiatedAt, &node.ExitLoopCompletedAt, &node.ExitFinishedAt, &node.ExitSuccess, &node.Contained, &node.LastOfflineEmail, &node.LastSoftwareUpdateEmail, &node.NoiseProto, &node.NoisePublicKey, &node.DebounceLimit, &node.Features, &__continuation._value_id)
 				if err != nil {
-					return nil, nil, obj.makeErr(err)
+					return nil, nil, err
 				}
 				rows = append(rows, node)
 				next = &__continuation
-			}
-
-			if err := __rows.Err(); err != nil {
-				return nil, nil, obj.makeErr(err)
 			}
 
 			return rows, next, nil
@@ -38525,7 +38077,7 @@ func (obj *spannerImpl) All_Node_Id_Node_PieceCount_By_Disqualified_Is_Null(ctx 
 			if err != nil {
 				return nil, err
 			}
-			defer __rows.Close()
+			defer closeRows(__rows, &err)
 
 			for __rows.Next() {
 				row := &Id_PieceCount_Row{}
@@ -38534,9 +38086,6 @@ func (obj *spannerImpl) All_Node_Id_Node_PieceCount_By_Disqualified_Is_Null(ctx 
 					return nil, err
 				}
 				rows = append(rows, row)
-			}
-			if err := __rows.Err(); err != nil {
-				return nil, err
 			}
 			return rows, nil
 		}()
@@ -38624,12 +38173,9 @@ func (obj *spannerImpl) First_NodeEvent_By_Email_And_Event_OrderBy_Desc_CreatedA
 			if err != nil {
 				return nil, err
 			}
-			defer __rows.Close()
+			defer closeRows(__rows, &err)
 
 			if !__rows.Next() {
-				if err := __rows.Err(); err != nil {
-					return nil, err
-				}
 				return nil, nil
 			}
 
@@ -38674,7 +38220,7 @@ func (obj *spannerImpl) All_NodeTags_By_NodeId(ctx context.Context,
 			if err != nil {
 				return nil, err
 			}
-			defer __rows.Close()
+			defer closeRows(__rows, &err)
 
 			for __rows.Next() {
 				node_tags := &NodeTags{}
@@ -38683,9 +38229,6 @@ func (obj *spannerImpl) All_NodeTags_By_NodeId(ctx context.Context,
 					return nil, err
 				}
 				rows = append(rows, node_tags)
-			}
-			if err := __rows.Err(); err != nil {
-				return nil, err
 			}
 			return rows, nil
 		}()
@@ -38720,7 +38263,7 @@ func (obj *spannerImpl) All_NodeTags(ctx context.Context) (
 			if err != nil {
 				return nil, err
 			}
-			defer __rows.Close()
+			defer closeRows(__rows, &err)
 
 			for __rows.Next() {
 				node_tags := &NodeTags{}
@@ -38729,9 +38272,6 @@ func (obj *spannerImpl) All_NodeTags(ctx context.Context) (
 					return nil, err
 				}
 				rows = append(rows, node_tags)
-			}
-			if err := __rows.Err(); err != nil {
-				return nil, err
 			}
 			return rows, nil
 		}()
@@ -38794,7 +38334,7 @@ func (obj *spannerImpl) All_StoragenodePaystub_By_NodeId(ctx context.Context,
 			if err != nil {
 				return nil, err
 			}
-			defer __rows.Close()
+			defer closeRows(__rows, &err)
 
 			for __rows.Next() {
 				storagenode_paystub := &StoragenodePaystub{}
@@ -38803,9 +38343,6 @@ func (obj *spannerImpl) All_StoragenodePaystub_By_NodeId(ctx context.Context,
 					return nil, err
 				}
 				rows = append(rows, storagenode_paystub)
-			}
-			if err := __rows.Err(); err != nil {
-				return nil, err
 			}
 			return rows, nil
 		}()
@@ -38846,7 +38383,7 @@ func (obj *spannerImpl) Limited_StoragenodePayment_By_NodeId_And_Period_OrderBy_
 			if err != nil {
 				return nil, err
 			}
-			defer __rows.Close()
+			defer closeRows(__rows, &err)
 
 			for __rows.Next() {
 				storagenode_payment := &StoragenodePayment{}
@@ -38855,10 +38392,6 @@ func (obj *spannerImpl) Limited_StoragenodePayment_By_NodeId_And_Period_OrderBy_
 					return nil, err
 				}
 				rows = append(rows, storagenode_payment)
-			}
-			err = __rows.Err()
-			if err != nil {
-				return nil, err
 			}
 			return rows, nil
 		}()
@@ -38895,7 +38428,7 @@ func (obj *spannerImpl) All_StoragenodePayment_By_NodeId(ctx context.Context,
 			if err != nil {
 				return nil, err
 			}
-			defer __rows.Close()
+			defer closeRows(__rows, &err)
 
 			for __rows.Next() {
 				storagenode_payment := &StoragenodePayment{}
@@ -38904,9 +38437,6 @@ func (obj *spannerImpl) All_StoragenodePayment_By_NodeId(ctx context.Context,
 					return nil, err
 				}
 				rows = append(rows, storagenode_payment)
-			}
-			if err := __rows.Err(); err != nil {
-				return nil, err
 			}
 			return rows, nil
 		}()
@@ -38944,7 +38474,7 @@ func (obj *spannerImpl) All_StoragenodePayment_By_NodeId_And_Period(ctx context.
 			if err != nil {
 				return nil, err
 			}
-			defer __rows.Close()
+			defer closeRows(__rows, &err)
 
 			for __rows.Next() {
 				storagenode_payment := &StoragenodePayment{}
@@ -38953,9 +38483,6 @@ func (obj *spannerImpl) All_StoragenodePayment_By_NodeId_And_Period(ctx context.
 					return nil, err
 				}
 				rows = append(rows, storagenode_payment)
-			}
-			if err := __rows.Err(); err != nil {
-				return nil, err
 			}
 			return rows, nil
 		}()
@@ -39148,12 +38675,9 @@ func (obj *spannerImpl) Get_Project_By_PublicId(ctx context.Context,
 			if err != nil {
 				return nil, err
 			}
-			defer __rows.Close()
+			defer closeRows(__rows, &err)
 
 			if !__rows.Next() {
-				if err := __rows.Err(); err != nil {
-					return nil, err
-				}
 				return nil, sql.ErrNoRows
 			}
 
@@ -39167,17 +38691,13 @@ func (obj *spannerImpl) Get_Project_By_PublicId(ctx context.Context,
 				return nil, errTooManyRows
 			}
 
-			if err := __rows.Err(); err != nil {
-				return nil, err
-			}
-
 			return project, nil
 		}()
 		if err != nil {
 			if obj.shouldRetry(err) {
 				continue
 			}
-			if err == errTooManyRows {
+			if errors.Is(err, errTooManyRows) {
 				return nil, tooManyRows("Project_By_PublicId")
 			}
 			return nil, obj.makeErr(err)
@@ -39457,7 +38977,7 @@ func (obj *spannerImpl) All_Project(ctx context.Context) (
 			if err != nil {
 				return nil, err
 			}
-			defer __rows.Close()
+			defer closeRows(__rows, &err)
 
 			for __rows.Next() {
 				project := &Project{}
@@ -39466,9 +38986,6 @@ func (obj *spannerImpl) All_Project(ctx context.Context) (
 					return nil, err
 				}
 				rows = append(rows, project)
-			}
-			if err := __rows.Err(); err != nil {
-				return nil, err
 			}
 			return rows, nil
 		}()
@@ -39505,7 +39022,7 @@ func (obj *spannerImpl) All_Project_By_CreatedAt_Less_OrderBy_Asc_CreatedAt(ctx 
 			if err != nil {
 				return nil, err
 			}
-			defer __rows.Close()
+			defer closeRows(__rows, &err)
 
 			for __rows.Next() {
 				project := &Project{}
@@ -39514,9 +39031,6 @@ func (obj *spannerImpl) All_Project_By_CreatedAt_Less_OrderBy_Asc_CreatedAt(ctx 
 					return nil, err
 				}
 				rows = append(rows, project)
-			}
-			if err := __rows.Err(); err != nil {
-				return nil, err
 			}
 			return rows, nil
 		}()
@@ -39553,7 +39067,7 @@ func (obj *spannerImpl) All_Project_By_OwnerId_OrderBy_Asc_CreatedAt(ctx context
 			if err != nil {
 				return nil, err
 			}
-			defer __rows.Close()
+			defer closeRows(__rows, &err)
 
 			for __rows.Next() {
 				project := &Project{}
@@ -39562,9 +39076,6 @@ func (obj *spannerImpl) All_Project_By_OwnerId_OrderBy_Asc_CreatedAt(ctx context
 					return nil, err
 				}
 				rows = append(rows, project)
-			}
-			if err := __rows.Err(); err != nil {
-				return nil, err
 			}
 			return rows, nil
 		}()
@@ -39601,7 +39112,7 @@ func (obj *spannerImpl) All_Project_By_ProjectMember_MemberId_OrderBy_Asc_Projec
 			if err != nil {
 				return nil, err
 			}
-			defer __rows.Close()
+			defer closeRows(__rows, &err)
 
 			for __rows.Next() {
 				project := &Project{}
@@ -39610,9 +39121,6 @@ func (obj *spannerImpl) All_Project_By_ProjectMember_MemberId_OrderBy_Asc_Projec
 					return nil, err
 				}
 				rows = append(rows, project)
-			}
-			if err := __rows.Err(); err != nil {
-				return nil, err
 			}
 			return rows, nil
 		}()
@@ -39652,7 +39160,7 @@ func (obj *spannerImpl) Limited_Project_By_CreatedAt_Less_OrderBy_Asc_CreatedAt(
 			if err != nil {
 				return nil, err
 			}
-			defer __rows.Close()
+			defer closeRows(__rows, &err)
 
 			for __rows.Next() {
 				project := &Project{}
@@ -39661,10 +39169,6 @@ func (obj *spannerImpl) Limited_Project_By_CreatedAt_Less_OrderBy_Asc_CreatedAt(
 					return nil, err
 				}
 				rows = append(rows, project)
-			}
-			err = __rows.Err()
-			if err != nil {
-				return nil, err
 			}
 			return rows, nil
 		}()
@@ -39727,7 +39231,7 @@ func (obj *spannerImpl) All_ProjectMember_By_MemberId(ctx context.Context,
 			if err != nil {
 				return nil, err
 			}
-			defer __rows.Close()
+			defer closeRows(__rows, &err)
 
 			for __rows.Next() {
 				project_member := &ProjectMember{}
@@ -39736,9 +39240,6 @@ func (obj *spannerImpl) All_ProjectMember_By_MemberId(ctx context.Context,
 					return nil, err
 				}
 				rows = append(rows, project_member)
-			}
-			if err := __rows.Err(); err != nil {
-				return nil, err
 			}
 			return rows, nil
 		}()
@@ -39801,7 +39302,7 @@ func (obj *spannerImpl) All_ProjectInvitation_By_Email(ctx context.Context,
 			if err != nil {
 				return nil, err
 			}
-			defer __rows.Close()
+			defer closeRows(__rows, &err)
 
 			for __rows.Next() {
 				project_invitation := &ProjectInvitation{}
@@ -39810,9 +39311,6 @@ func (obj *spannerImpl) All_ProjectInvitation_By_Email(ctx context.Context,
 					return nil, err
 				}
 				rows = append(rows, project_invitation)
-			}
-			if err := __rows.Err(); err != nil {
-				return nil, err
 			}
 			return rows, nil
 		}()
@@ -39849,7 +39347,7 @@ func (obj *spannerImpl) All_ProjectInvitation_By_ProjectId(ctx context.Context,
 			if err != nil {
 				return nil, err
 			}
-			defer __rows.Close()
+			defer closeRows(__rows, &err)
 
 			for __rows.Next() {
 				project_invitation := &ProjectInvitation{}
@@ -39858,9 +39356,6 @@ func (obj *spannerImpl) All_ProjectInvitation_By_ProjectId(ctx context.Context,
 					return nil, err
 				}
 				rows = append(rows, project_invitation)
-			}
-			if err := __rows.Err(); err != nil {
-				return nil, err
 			}
 			return rows, nil
 		}()
@@ -40184,7 +39679,7 @@ func (obj *spannerImpl) Limited_BucketMetainfo_By_ProjectId_And_Name_GreaterOrEq
 			if err != nil {
 				return nil, err
 			}
-			defer __rows.Close()
+			defer closeRows(__rows, &err)
 
 			for __rows.Next() {
 				bucket_metainfo := &BucketMetainfo{}
@@ -40193,10 +39688,6 @@ func (obj *spannerImpl) Limited_BucketMetainfo_By_ProjectId_And_Name_GreaterOrEq
 					return nil, err
 				}
 				rows = append(rows, bucket_metainfo)
-			}
-			err = __rows.Err()
-			if err != nil {
-				return nil, err
 			}
 			return rows, nil
 		}()
@@ -40237,7 +39728,7 @@ func (obj *spannerImpl) Limited_BucketMetainfo_By_ProjectId_And_Name_Greater_Ord
 			if err != nil {
 				return nil, err
 			}
-			defer __rows.Close()
+			defer closeRows(__rows, &err)
 
 			for __rows.Next() {
 				bucket_metainfo := &BucketMetainfo{}
@@ -40246,10 +39737,6 @@ func (obj *spannerImpl) Limited_BucketMetainfo_By_ProjectId_And_Name_Greater_Ord
 					return nil, err
 				}
 				rows = append(rows, bucket_metainfo)
-			}
-			err = __rows.Err()
-			if err != nil {
-				return nil, err
 			}
 			return rows, nil
 		}()
@@ -40322,7 +39809,7 @@ func (obj *spannerImpl) Paged_BucketMetainfo_ProjectId_BucketMetainfo_Name(ctx c
 			if err != nil {
 				return nil, nil, err
 			}
-			defer __rows.Close()
+			defer closeRows(__rows, &err)
 
 			var __continuation Paged_BucketMetainfo_ProjectId_BucketMetainfo_Name_Continuation
 			__continuation._set = true
@@ -40331,14 +39818,10 @@ func (obj *spannerImpl) Paged_BucketMetainfo_ProjectId_BucketMetainfo_Name(ctx c
 				row := &ProjectId_Name_Row{}
 				err = __rows.Scan(&row.ProjectId, &row.Name, &__continuation._value_project_id, &__continuation._value_name)
 				if err != nil {
-					return nil, nil, obj.makeErr(err)
+					return nil, nil, err
 				}
 				rows = append(rows, row)
 				next = &__continuation
-			}
-
-			if err := __rows.Err(); err != nil {
-				return nil, nil, obj.makeErr(err)
 			}
 
 			return rows, next, nil
@@ -40402,7 +39885,7 @@ func (obj *spannerImpl) All_User_By_NormalizedEmail(ctx context.Context,
 			if err != nil {
 				return nil, err
 			}
-			defer __rows.Close()
+			defer closeRows(__rows, &err)
 
 			for __rows.Next() {
 				user := &User{}
@@ -40411,9 +39894,6 @@ func (obj *spannerImpl) All_User_By_NormalizedEmail(ctx context.Context,
 					return nil, err
 				}
 				rows = append(rows, user)
-			}
-			if err := __rows.Err(); err != nil {
-				return nil, err
 			}
 			return rows, nil
 		}()
@@ -40450,12 +39930,9 @@ func (obj *spannerImpl) Get_User_By_NormalizedEmail_And_Status_Not_Number(ctx co
 			if err != nil {
 				return nil, err
 			}
-			defer __rows.Close()
+			defer closeRows(__rows, &err)
 
 			if !__rows.Next() {
-				if err := __rows.Err(); err != nil {
-					return nil, err
-				}
 				return nil, sql.ErrNoRows
 			}
 
@@ -40469,17 +39946,13 @@ func (obj *spannerImpl) Get_User_By_NormalizedEmail_And_Status_Not_Number(ctx co
 				return nil, errTooManyRows
 			}
 
-			if err := __rows.Err(); err != nil {
-				return nil, err
-			}
-
 			return user, nil
 		}()
 		if err != nil {
 			if obj.shouldRetry(err) {
 				continue
 			}
-			if err == errTooManyRows {
+			if errors.Is(err, errTooManyRows) {
 				return nil, tooManyRows("User_By_NormalizedEmail_And_Status_Not_Number")
 			}
 			return nil, obj.makeErr(err)
@@ -40616,12 +40089,9 @@ func (obj *spannerImpl) Get_User_By_ExternalId(ctx context.Context,
 			if err != nil {
 				return nil, err
 			}
-			defer __rows.Close()
+			defer closeRows(__rows, &err)
 
 			if !__rows.Next() {
-				if err := __rows.Err(); err != nil {
-					return nil, err
-				}
 				return nil, sql.ErrNoRows
 			}
 
@@ -40635,17 +40105,13 @@ func (obj *spannerImpl) Get_User_By_ExternalId(ctx context.Context,
 				return nil, errTooManyRows
 			}
 
-			if err := __rows.Err(); err != nil {
-				return nil, err
-			}
-
 			return user, nil
 		}()
 		if err != nil {
 			if obj.shouldRetry(err) {
 				continue
 			}
-			if err == errTooManyRows {
+			if errors.Is(err, errTooManyRows) {
 				return nil, tooManyRows("User_By_ExternalId")
 			}
 			return nil, obj.makeErr(err)
@@ -40691,7 +40157,7 @@ func (obj *spannerImpl) Paged_AccountFreezeEvent_By_User_Status_Not_And_AccountF
 			if err != nil {
 				return nil, nil, err
 			}
-			defer __rows.Close()
+			defer closeRows(__rows, &err)
 
 			var __continuation Paged_AccountFreezeEvent_By_User_Status_Not_And_AccountFreezeEvent_Event_Continuation
 			__continuation._set = true
@@ -40700,14 +40166,10 @@ func (obj *spannerImpl) Paged_AccountFreezeEvent_By_User_Status_Not_And_AccountF
 				account_freeze_event := &AccountFreezeEvent{}
 				err = __rows.Scan(&account_freeze_event.UserId, &account_freeze_event.Event, spannerConvertJSON(&account_freeze_event.Limits), &account_freeze_event.DaysTillEscalation, &account_freeze_event.NotificationsCount, &account_freeze_event.CreatedAt, &__continuation._value_user_id, &__continuation._value_event)
 				if err != nil {
-					return nil, nil, obj.makeErr(err)
+					return nil, nil, err
 				}
 				rows = append(rows, account_freeze_event)
 				next = &__continuation
-			}
-
-			if err := __rows.Err(); err != nil {
-				return nil, nil, obj.makeErr(err)
 			}
 
 			return rows, next, nil
@@ -40798,7 +40260,7 @@ func (obj *spannerImpl) Limited_User_Id_User_Email_User_FullName_By_Status(ctx c
 			if err != nil {
 				return nil, err
 			}
-			defer __rows.Close()
+			defer closeRows(__rows, &err)
 
 			for __rows.Next() {
 				row := &Id_Email_FullName_Row{}
@@ -40807,10 +40269,6 @@ func (obj *spannerImpl) Limited_User_Id_User_Email_User_FullName_By_Status(ctx c
 					return nil, err
 				}
 				rows = append(rows, row)
-			}
-			err = __rows.Err()
-			if err != nil {
-				return nil, err
 			}
 			return rows, nil
 		}()
@@ -40872,7 +40330,7 @@ func (obj *spannerImpl) All_WebappSession_By_UserId(ctx context.Context,
 			if err != nil {
 				return nil, err
 			}
-			defer __rows.Close()
+			defer closeRows(__rows, &err)
 
 			for __rows.Next() {
 				webapp_session := &WebappSession{}
@@ -40881,9 +40339,6 @@ func (obj *spannerImpl) All_WebappSession_By_UserId(ctx context.Context,
 					return nil, err
 				}
 				rows = append(rows, webapp_session)
-			}
-			if err := __rows.Err(); err != nil {
-				return nil, err
 			}
 			return rows, nil
 		}()
@@ -41076,7 +40531,7 @@ func (obj *spannerImpl) All_AccountFreezeEvent_By_UserId(ctx context.Context,
 			if err != nil {
 				return nil, err
 			}
-			defer __rows.Close()
+			defer closeRows(__rows, &err)
 
 			for __rows.Next() {
 				account_freeze_event := &AccountFreezeEvent{}
@@ -41085,9 +40540,6 @@ func (obj *spannerImpl) All_AccountFreezeEvent_By_UserId(ctx context.Context,
 					return nil, err
 				}
 				rows = append(rows, account_freeze_event)
-			}
-			if err := __rows.Err(); err != nil {
-				return nil, err
 			}
 			return rows, nil
 		}()
@@ -41211,27 +40663,14 @@ func (obj *spannerImpl) Update_StripeCustomer_By_UserId(ctx context.Context,
 	obj.logStmt(__stmt, __values...)
 
 	stripe_customer = &StripeCustomer{}
-	__d := obj.driver
-	var tx tagsql.Tx
 	if !obj.txn {
-		tx, err = obj.db.DB.BeginTx(ctx, nil)
-		if err != nil {
-			return nil, obj.makeErr(err)
-		}
-		__d = tx
-		defer func() {
-			if txErr := tx.Rollback(); txErr != nil && !errors.Is(txErr, sql.ErrTxDone) {
-				err = obj.makeErr(errors.Join(err, txErr))
-			}
-		}()
+		err = obj.withTx(ctx, func(tx tagsql.Tx) error {
+			return tx.QueryRowContext(ctx, __stmt, __values...).Scan(&stripe_customer.UserId, &stripe_customer.CustomerId, &stripe_customer.BillingCustomerId, &stripe_customer.PackagePlan, &stripe_customer.PurchasedPackageAt, &stripe_customer.CreatedAt)
+		})
+	} else {
+		err = obj.driver.QueryRowContext(ctx, __stmt, __values...).Scan(&stripe_customer.UserId, &stripe_customer.CustomerId, &stripe_customer.BillingCustomerId, &stripe_customer.PackagePlan, &stripe_customer.PurchasedPackageAt, &stripe_customer.CreatedAt)
 	}
-	err = __d.QueryRowContext(ctx, __stmt, __values...).Scan(&stripe_customer.UserId, &stripe_customer.CustomerId, &stripe_customer.BillingCustomerId, &stripe_customer.PackagePlan, &stripe_customer.PurchasedPackageAt, &stripe_customer.CreatedAt)
-	if !obj.txn {
-		if err == nil {
-			err = obj.makeErr(tx.Commit())
-		}
-	}
-	if err == sql.ErrNoRows {
+	if errors.Is(err, sql.ErrNoRows) {
 		return nil, nil
 	}
 	if err != nil {
@@ -41277,27 +40716,14 @@ func (obj *spannerImpl) Update_BillingBalance_By_UserId_And_Balance(ctx context.
 	obj.logStmt(__stmt, __values...)
 
 	billing_balance = &BillingBalance{}
-	__d := obj.driver
-	var tx tagsql.Tx
 	if !obj.txn {
-		tx, err = obj.db.DB.BeginTx(ctx, nil)
-		if err != nil {
-			return nil, obj.makeErr(err)
-		}
-		__d = tx
-		defer func() {
-			if txErr := tx.Rollback(); txErr != nil && !errors.Is(txErr, sql.ErrTxDone) {
-				err = obj.makeErr(errors.Join(err, txErr))
-			}
-		}()
+		err = obj.withTx(ctx, func(tx tagsql.Tx) error {
+			return tx.QueryRowContext(ctx, __stmt, __values...).Scan(&billing_balance.UserId, &billing_balance.Balance, &billing_balance.LastUpdated)
+		})
+	} else {
+		err = obj.driver.QueryRowContext(ctx, __stmt, __values...).Scan(&billing_balance.UserId, &billing_balance.Balance, &billing_balance.LastUpdated)
 	}
-	err = __d.QueryRowContext(ctx, __stmt, __values...).Scan(&billing_balance.UserId, &billing_balance.Balance, &billing_balance.LastUpdated)
-	if !obj.txn {
-		if err == nil {
-			err = obj.makeErr(tx.Commit())
-		}
-	}
-	if err == sql.ErrNoRows {
+	if errors.Is(err, sql.ErrNoRows) {
 		return nil, nil
 	}
 	if err != nil {
@@ -41391,27 +40817,14 @@ func (obj *spannerImpl) Update_CoinpaymentsTransaction_By_Id(ctx context.Context
 	obj.logStmt(__stmt, __values...)
 
 	coinpayments_transaction = &CoinpaymentsTransaction{}
-	__d := obj.driver
-	var tx tagsql.Tx
 	if !obj.txn {
-		tx, err = obj.db.DB.BeginTx(ctx, nil)
-		if err != nil {
-			return nil, obj.makeErr(err)
-		}
-		__d = tx
-		defer func() {
-			if txErr := tx.Rollback(); txErr != nil && !errors.Is(txErr, sql.ErrTxDone) {
-				err = obj.makeErr(errors.Join(err, txErr))
-			}
-		}()
+		err = obj.withTx(ctx, func(tx tagsql.Tx) error {
+			return tx.QueryRowContext(ctx, __stmt, __values...).Scan(&coinpayments_transaction.Id, &coinpayments_transaction.UserId, &coinpayments_transaction.Address, &coinpayments_transaction.AmountNumeric, &coinpayments_transaction.ReceivedNumeric, &coinpayments_transaction.Status, &coinpayments_transaction.Key, &coinpayments_transaction.Timeout, &coinpayments_transaction.CreatedAt)
+		})
+	} else {
+		err = obj.driver.QueryRowContext(ctx, __stmt, __values...).Scan(&coinpayments_transaction.Id, &coinpayments_transaction.UserId, &coinpayments_transaction.Address, &coinpayments_transaction.AmountNumeric, &coinpayments_transaction.ReceivedNumeric, &coinpayments_transaction.Status, &coinpayments_transaction.Key, &coinpayments_transaction.Timeout, &coinpayments_transaction.CreatedAt)
 	}
-	err = __d.QueryRowContext(ctx, __stmt, __values...).Scan(&coinpayments_transaction.Id, &coinpayments_transaction.UserId, &coinpayments_transaction.Address, &coinpayments_transaction.AmountNumeric, &coinpayments_transaction.ReceivedNumeric, &coinpayments_transaction.Status, &coinpayments_transaction.Key, &coinpayments_transaction.Timeout, &coinpayments_transaction.CreatedAt)
-	if !obj.txn {
-		if err == nil {
-			err = obj.makeErr(tx.Commit())
-		}
-	}
-	if err == sql.ErrNoRows {
+	if errors.Is(err, sql.ErrNoRows) {
 		return nil, nil
 	}
 	if err != nil {
@@ -41455,27 +40868,14 @@ func (obj *spannerImpl) Update_StripecoinpaymentsInvoiceProjectRecord_By_Id(ctx 
 	obj.logStmt(__stmt, __values...)
 
 	stripecoinpayments_invoice_project_record = &StripecoinpaymentsInvoiceProjectRecord{}
-	__d := obj.driver
-	var tx tagsql.Tx
 	if !obj.txn {
-		tx, err = obj.db.DB.BeginTx(ctx, nil)
-		if err != nil {
-			return nil, obj.makeErr(err)
-		}
-		__d = tx
-		defer func() {
-			if txErr := tx.Rollback(); txErr != nil && !errors.Is(txErr, sql.ErrTxDone) {
-				err = obj.makeErr(errors.Join(err, txErr))
-			}
-		}()
+		err = obj.withTx(ctx, func(tx tagsql.Tx) error {
+			return tx.QueryRowContext(ctx, __stmt, __values...).Scan(&stripecoinpayments_invoice_project_record.Id, &stripecoinpayments_invoice_project_record.ProjectId, &stripecoinpayments_invoice_project_record.Storage, &stripecoinpayments_invoice_project_record.Egress, &stripecoinpayments_invoice_project_record.Objects, &stripecoinpayments_invoice_project_record.Segments, &stripecoinpayments_invoice_project_record.PeriodStart, &stripecoinpayments_invoice_project_record.PeriodEnd, &stripecoinpayments_invoice_project_record.State, &stripecoinpayments_invoice_project_record.CreatedAt)
+		})
+	} else {
+		err = obj.driver.QueryRowContext(ctx, __stmt, __values...).Scan(&stripecoinpayments_invoice_project_record.Id, &stripecoinpayments_invoice_project_record.ProjectId, &stripecoinpayments_invoice_project_record.Storage, &stripecoinpayments_invoice_project_record.Egress, &stripecoinpayments_invoice_project_record.Objects, &stripecoinpayments_invoice_project_record.Segments, &stripecoinpayments_invoice_project_record.PeriodStart, &stripecoinpayments_invoice_project_record.PeriodEnd, &stripecoinpayments_invoice_project_record.State, &stripecoinpayments_invoice_project_record.CreatedAt)
 	}
-	err = __d.QueryRowContext(ctx, __stmt, __values...).Scan(&stripecoinpayments_invoice_project_record.Id, &stripecoinpayments_invoice_project_record.ProjectId, &stripecoinpayments_invoice_project_record.Storage, &stripecoinpayments_invoice_project_record.Egress, &stripecoinpayments_invoice_project_record.Objects, &stripecoinpayments_invoice_project_record.Segments, &stripecoinpayments_invoice_project_record.PeriodStart, &stripecoinpayments_invoice_project_record.PeriodEnd, &stripecoinpayments_invoice_project_record.State, &stripecoinpayments_invoice_project_record.CreatedAt)
-	if !obj.txn {
-		if err == nil {
-			err = obj.makeErr(tx.Commit())
-		}
-	}
-	if err == sql.ErrNoRows {
+	if errors.Is(err, sql.ErrNoRows) {
 		return nil, nil
 	}
 	if err != nil {
@@ -41774,27 +41174,14 @@ func (obj *spannerImpl) Update_Node_By_Id(ctx context.Context,
 	obj.logStmt(__stmt, __values...)
 
 	node = &Node{}
-	__d := obj.driver
-	var tx tagsql.Tx
 	if !obj.txn {
-		tx, err = obj.db.DB.BeginTx(ctx, nil)
-		if err != nil {
-			return nil, obj.makeErr(err)
-		}
-		__d = tx
-		defer func() {
-			if txErr := tx.Rollback(); txErr != nil && !errors.Is(txErr, sql.ErrTxDone) {
-				err = obj.makeErr(errors.Join(err, txErr))
-			}
-		}()
+		err = obj.withTx(ctx, func(tx tagsql.Tx) error {
+			return tx.QueryRowContext(ctx, __stmt, __values...).Scan(&node.Id, &node.Address, &node.LastNet, &node.LastIpPort, &node.CountryCode, &node.Protocol, &node.Email, &node.Wallet, &node.WalletFeatures, &node.FreeDisk, &node.PieceCount, &node.Major, &node.Minor, &node.Patch, &node.CommitHash, &node.ReleaseTimestamp, &node.Release, &node.Latency90, &node.VettedAt, &node.CreatedAt, &node.UpdatedAt, &node.LastContactSuccess, &node.LastContactFailure, &node.Disqualified, &node.DisqualificationReason, &node.UnknownAuditSuspended, &node.OfflineSuspended, &node.UnderReview, &node.ExitInitiatedAt, &node.ExitLoopCompletedAt, &node.ExitFinishedAt, &node.ExitSuccess, &node.Contained, &node.LastOfflineEmail, &node.LastSoftwareUpdateEmail, &node.NoiseProto, &node.NoisePublicKey, &node.DebounceLimit, &node.Features)
+		})
+	} else {
+		err = obj.driver.QueryRowContext(ctx, __stmt, __values...).Scan(&node.Id, &node.Address, &node.LastNet, &node.LastIpPort, &node.CountryCode, &node.Protocol, &node.Email, &node.Wallet, &node.WalletFeatures, &node.FreeDisk, &node.PieceCount, &node.Major, &node.Minor, &node.Patch, &node.CommitHash, &node.ReleaseTimestamp, &node.Release, &node.Latency90, &node.VettedAt, &node.CreatedAt, &node.UpdatedAt, &node.LastContactSuccess, &node.LastContactFailure, &node.Disqualified, &node.DisqualificationReason, &node.UnknownAuditSuspended, &node.OfflineSuspended, &node.UnderReview, &node.ExitInitiatedAt, &node.ExitLoopCompletedAt, &node.ExitFinishedAt, &node.ExitSuccess, &node.Contained, &node.LastOfflineEmail, &node.LastSoftwareUpdateEmail, &node.NoiseProto, &node.NoisePublicKey, &node.DebounceLimit, &node.Features)
 	}
-	err = __d.QueryRowContext(ctx, __stmt, __values...).Scan(&node.Id, &node.Address, &node.LastNet, &node.LastIpPort, &node.CountryCode, &node.Protocol, &node.Email, &node.Wallet, &node.WalletFeatures, &node.FreeDisk, &node.PieceCount, &node.Major, &node.Minor, &node.Patch, &node.CommitHash, &node.ReleaseTimestamp, &node.Release, &node.Latency90, &node.VettedAt, &node.CreatedAt, &node.UpdatedAt, &node.LastContactSuccess, &node.LastContactFailure, &node.Disqualified, &node.DisqualificationReason, &node.UnknownAuditSuspended, &node.OfflineSuspended, &node.UnderReview, &node.ExitInitiatedAt, &node.ExitLoopCompletedAt, &node.ExitFinishedAt, &node.ExitSuccess, &node.Contained, &node.LastOfflineEmail, &node.LastSoftwareUpdateEmail, &node.NoiseProto, &node.NoisePublicKey, &node.DebounceLimit, &node.Features)
-	if !obj.txn {
-		if err == nil {
-			err = obj.makeErr(tx.Commit())
-		}
-	}
-	if err == sql.ErrNoRows {
+	if errors.Is(err, sql.ErrNoRows) {
 		return nil, nil
 	}
 	if err != nil {
@@ -42298,27 +41685,14 @@ func (obj *spannerImpl) Update_Reputation_By_Id(ctx context.Context,
 	obj.logStmt(__stmt, __values...)
 
 	reputation = &Reputation{}
-	__d := obj.driver
-	var tx tagsql.Tx
 	if !obj.txn {
-		tx, err = obj.db.DB.BeginTx(ctx, nil)
-		if err != nil {
-			return nil, obj.makeErr(err)
-		}
-		__d = tx
-		defer func() {
-			if txErr := tx.Rollback(); txErr != nil && !errors.Is(txErr, sql.ErrTxDone) {
-				err = obj.makeErr(errors.Join(err, txErr))
-			}
-		}()
+		err = obj.withTx(ctx, func(tx tagsql.Tx) error {
+			return tx.QueryRowContext(ctx, __stmt, __values...).Scan(&reputation.Id, &reputation.AuditSuccessCount, &reputation.TotalAuditCount, &reputation.VettedAt, &reputation.CreatedAt, &reputation.UpdatedAt, &reputation.Disqualified, &reputation.DisqualificationReason, &reputation.UnknownAuditSuspended, &reputation.OfflineSuspended, &reputation.UnderReview, &reputation.OnlineScore, &reputation.AuditHistory, &reputation.AuditReputationAlpha, &reputation.AuditReputationBeta, &reputation.UnknownAuditReputationAlpha, &reputation.UnknownAuditReputationBeta)
+		})
+	} else {
+		err = obj.driver.QueryRowContext(ctx, __stmt, __values...).Scan(&reputation.Id, &reputation.AuditSuccessCount, &reputation.TotalAuditCount, &reputation.VettedAt, &reputation.CreatedAt, &reputation.UpdatedAt, &reputation.Disqualified, &reputation.DisqualificationReason, &reputation.UnknownAuditSuspended, &reputation.OfflineSuspended, &reputation.UnderReview, &reputation.OnlineScore, &reputation.AuditHistory, &reputation.AuditReputationAlpha, &reputation.AuditReputationBeta, &reputation.UnknownAuditReputationAlpha, &reputation.UnknownAuditReputationBeta)
 	}
-	err = __d.QueryRowContext(ctx, __stmt, __values...).Scan(&reputation.Id, &reputation.AuditSuccessCount, &reputation.TotalAuditCount, &reputation.VettedAt, &reputation.CreatedAt, &reputation.UpdatedAt, &reputation.Disqualified, &reputation.DisqualificationReason, &reputation.UnknownAuditSuspended, &reputation.OfflineSuspended, &reputation.UnderReview, &reputation.OnlineScore, &reputation.AuditHistory, &reputation.AuditReputationAlpha, &reputation.AuditReputationBeta, &reputation.UnknownAuditReputationAlpha, &reputation.UnknownAuditReputationBeta)
-	if !obj.txn {
-		if err == nil {
-			err = obj.makeErr(tx.Commit())
-		}
-	}
-	if err == sql.ErrNoRows {
+	if errors.Is(err, sql.ErrNoRows) {
 		return nil, nil
 	}
 	if err != nil {
@@ -42416,27 +41790,14 @@ func (obj *spannerImpl) Update_Reputation_By_Id_And_AuditHistory(ctx context.Con
 	obj.logStmt(__stmt, __values...)
 
 	reputation = &Reputation{}
-	__d := obj.driver
-	var tx tagsql.Tx
 	if !obj.txn {
-		tx, err = obj.db.DB.BeginTx(ctx, nil)
-		if err != nil {
-			return nil, obj.makeErr(err)
-		}
-		__d = tx
-		defer func() {
-			if txErr := tx.Rollback(); txErr != nil && !errors.Is(txErr, sql.ErrTxDone) {
-				err = obj.makeErr(errors.Join(err, txErr))
-			}
-		}()
+		err = obj.withTx(ctx, func(tx tagsql.Tx) error {
+			return tx.QueryRowContext(ctx, __stmt, __values...).Scan(&reputation.Id, &reputation.AuditSuccessCount, &reputation.TotalAuditCount, &reputation.VettedAt, &reputation.CreatedAt, &reputation.UpdatedAt, &reputation.Disqualified, &reputation.DisqualificationReason, &reputation.UnknownAuditSuspended, &reputation.OfflineSuspended, &reputation.UnderReview, &reputation.OnlineScore, &reputation.AuditHistory, &reputation.AuditReputationAlpha, &reputation.AuditReputationBeta, &reputation.UnknownAuditReputationAlpha, &reputation.UnknownAuditReputationBeta)
+		})
+	} else {
+		err = obj.driver.QueryRowContext(ctx, __stmt, __values...).Scan(&reputation.Id, &reputation.AuditSuccessCount, &reputation.TotalAuditCount, &reputation.VettedAt, &reputation.CreatedAt, &reputation.UpdatedAt, &reputation.Disqualified, &reputation.DisqualificationReason, &reputation.UnknownAuditSuspended, &reputation.OfflineSuspended, &reputation.UnderReview, &reputation.OnlineScore, &reputation.AuditHistory, &reputation.AuditReputationAlpha, &reputation.AuditReputationBeta, &reputation.UnknownAuditReputationAlpha, &reputation.UnknownAuditReputationBeta)
 	}
-	err = __d.QueryRowContext(ctx, __stmt, __values...).Scan(&reputation.Id, &reputation.AuditSuccessCount, &reputation.TotalAuditCount, &reputation.VettedAt, &reputation.CreatedAt, &reputation.UpdatedAt, &reputation.Disqualified, &reputation.DisqualificationReason, &reputation.UnknownAuditSuspended, &reputation.OfflineSuspended, &reputation.UnderReview, &reputation.OnlineScore, &reputation.AuditHistory, &reputation.AuditReputationAlpha, &reputation.AuditReputationBeta, &reputation.UnknownAuditReputationAlpha, &reputation.UnknownAuditReputationBeta)
-	if !obj.txn {
-		if err == nil {
-			err = obj.makeErr(tx.Commit())
-		}
-	}
-	if err == sql.ErrNoRows {
+	if errors.Is(err, sql.ErrNoRows) {
 		return nil, nil
 	}
 	if err != nil {
@@ -42814,27 +42175,14 @@ func (obj *spannerImpl) Update_Project_By_Id(ctx context.Context,
 	obj.logStmt(__stmt, __values...)
 
 	project = &Project{}
-	__d := obj.driver
-	var tx tagsql.Tx
 	if !obj.txn {
-		tx, err = obj.db.DB.BeginTx(ctx, nil)
-		if err != nil {
-			return nil, obj.makeErr(err)
-		}
-		__d = tx
-		defer func() {
-			if txErr := tx.Rollback(); txErr != nil && !errors.Is(txErr, sql.ErrTxDone) {
-				err = obj.makeErr(errors.Join(err, txErr))
-			}
-		}()
+		err = obj.withTx(ctx, func(tx tagsql.Tx) error {
+			return tx.QueryRowContext(ctx, __stmt, __values...).Scan(&project.Id, &project.PublicId, &project.Name, &project.Description, &project.UsageLimit, &project.BandwidthLimit, &project.UserSpecifiedUsageLimit, &project.UserSpecifiedBandwidthLimit, &project.SegmentLimit, &project.RateLimit, &project.BurstLimit, &project.RateLimitHead, &project.BurstLimitHead, &project.RateLimitGet, &project.BurstLimitGet, &project.RateLimitPut, &project.BurstLimitPut, &project.RateLimitList, &project.BurstLimitList, &project.RateLimitDel, &project.BurstLimitDel, &project.MaxBuckets, &project.UserAgent, &project.OwnerId, &project.Salt, &project.CreatedAt, &project.DefaultPlacement, &project.DefaultVersioning, &project.PromptedForVersioningBeta, &project.PassphraseEnc, &project.PassphraseEncKeyId, &project.PathEncryption)
+		})
+	} else {
+		err = obj.driver.QueryRowContext(ctx, __stmt, __values...).Scan(&project.Id, &project.PublicId, &project.Name, &project.Description, &project.UsageLimit, &project.BandwidthLimit, &project.UserSpecifiedUsageLimit, &project.UserSpecifiedBandwidthLimit, &project.SegmentLimit, &project.RateLimit, &project.BurstLimit, &project.RateLimitHead, &project.BurstLimitHead, &project.RateLimitGet, &project.BurstLimitGet, &project.RateLimitPut, &project.BurstLimitPut, &project.RateLimitList, &project.BurstLimitList, &project.RateLimitDel, &project.BurstLimitDel, &project.MaxBuckets, &project.UserAgent, &project.OwnerId, &project.Salt, &project.CreatedAt, &project.DefaultPlacement, &project.DefaultVersioning, &project.PromptedForVersioningBeta, &project.PassphraseEnc, &project.PassphraseEncKeyId, &project.PathEncryption)
 	}
-	err = __d.QueryRowContext(ctx, __stmt, __values...).Scan(&project.Id, &project.PublicId, &project.Name, &project.Description, &project.UsageLimit, &project.BandwidthLimit, &project.UserSpecifiedUsageLimit, &project.UserSpecifiedBandwidthLimit, &project.SegmentLimit, &project.RateLimit, &project.BurstLimit, &project.RateLimitHead, &project.BurstLimitHead, &project.RateLimitGet, &project.BurstLimitGet, &project.RateLimitPut, &project.BurstLimitPut, &project.RateLimitList, &project.BurstLimitList, &project.RateLimitDel, &project.BurstLimitDel, &project.MaxBuckets, &project.UserAgent, &project.OwnerId, &project.Salt, &project.CreatedAt, &project.DefaultPlacement, &project.DefaultVersioning, &project.PromptedForVersioningBeta, &project.PassphraseEnc, &project.PassphraseEncKeyId, &project.PathEncryption)
-	if !obj.txn {
-		if err == nil {
-			err = obj.makeErr(tx.Commit())
-		}
-	}
-	if err == sql.ErrNoRows {
+	if errors.Is(err, sql.ErrNoRows) {
 		return nil, nil
 	}
 	if err != nil {
@@ -42879,27 +42227,14 @@ func (obj *spannerImpl) Update_ProjectMember_By_MemberId_And_ProjectId(ctx conte
 	obj.logStmt(__stmt, __values...)
 
 	project_member = &ProjectMember{}
-	__d := obj.driver
-	var tx tagsql.Tx
 	if !obj.txn {
-		tx, err = obj.db.DB.BeginTx(ctx, nil)
-		if err != nil {
-			return nil, obj.makeErr(err)
-		}
-		__d = tx
-		defer func() {
-			if txErr := tx.Rollback(); txErr != nil && !errors.Is(txErr, sql.ErrTxDone) {
-				err = obj.makeErr(errors.Join(err, txErr))
-			}
-		}()
+		err = obj.withTx(ctx, func(tx tagsql.Tx) error {
+			return tx.QueryRowContext(ctx, __stmt, __values...).Scan(&project_member.MemberId, &project_member.ProjectId, &project_member.Role, &project_member.CreatedAt)
+		})
+	} else {
+		err = obj.driver.QueryRowContext(ctx, __stmt, __values...).Scan(&project_member.MemberId, &project_member.ProjectId, &project_member.Role, &project_member.CreatedAt)
 	}
-	err = __d.QueryRowContext(ctx, __stmt, __values...).Scan(&project_member.MemberId, &project_member.ProjectId, &project_member.Role, &project_member.CreatedAt)
-	if !obj.txn {
-		if err == nil {
-			err = obj.makeErr(tx.Commit())
-		}
-	}
-	if err == sql.ErrNoRows {
+	if errors.Is(err, sql.ErrNoRows) {
 		return nil, nil
 	}
 	if err != nil {
@@ -42948,27 +42283,14 @@ func (obj *spannerImpl) Update_ProjectInvitation_By_ProjectId_And_Email(ctx cont
 	obj.logStmt(__stmt, __values...)
 
 	project_invitation = &ProjectInvitation{}
-	__d := obj.driver
-	var tx tagsql.Tx
 	if !obj.txn {
-		tx, err = obj.db.DB.BeginTx(ctx, nil)
-		if err != nil {
-			return nil, obj.makeErr(err)
-		}
-		__d = tx
-		defer func() {
-			if txErr := tx.Rollback(); txErr != nil && !errors.Is(txErr, sql.ErrTxDone) {
-				err = obj.makeErr(errors.Join(err, txErr))
-			}
-		}()
+		err = obj.withTx(ctx, func(tx tagsql.Tx) error {
+			return tx.QueryRowContext(ctx, __stmt, __values...).Scan(&project_invitation.ProjectId, &project_invitation.Email, &project_invitation.InviterId, &project_invitation.CreatedAt)
+		})
+	} else {
+		err = obj.driver.QueryRowContext(ctx, __stmt, __values...).Scan(&project_invitation.ProjectId, &project_invitation.Email, &project_invitation.InviterId, &project_invitation.CreatedAt)
 	}
-	err = __d.QueryRowContext(ctx, __stmt, __values...).Scan(&project_invitation.ProjectId, &project_invitation.Email, &project_invitation.InviterId, &project_invitation.CreatedAt)
-	if !obj.txn {
-		if err == nil {
-			err = obj.makeErr(tx.Commit())
-		}
-	}
-	if err == sql.ErrNoRows {
+	if errors.Is(err, sql.ErrNoRows) {
 		return nil, nil
 	}
 	if err != nil {
@@ -43114,27 +42436,14 @@ func (obj *spannerImpl) Update_BucketMetainfo_By_ProjectId_And_Name(ctx context.
 	obj.logStmt(__stmt, __values...)
 
 	bucket_metainfo = &BucketMetainfo{}
-	__d := obj.driver
-	var tx tagsql.Tx
 	if !obj.txn {
-		tx, err = obj.db.DB.BeginTx(ctx, nil)
-		if err != nil {
-			return nil, obj.makeErr(err)
-		}
-		__d = tx
-		defer func() {
-			if txErr := tx.Rollback(); txErr != nil && !errors.Is(txErr, sql.ErrTxDone) {
-				err = obj.makeErr(errors.Join(err, txErr))
-			}
-		}()
+		err = obj.withTx(ctx, func(tx tagsql.Tx) error {
+			return tx.QueryRowContext(ctx, __stmt, __values...).Scan(&bucket_metainfo.Id, &bucket_metainfo.ProjectId, &bucket_metainfo.Name, &bucket_metainfo.UserAgent, &bucket_metainfo.Versioning, &bucket_metainfo.ObjectLockEnabled, &bucket_metainfo.DefaultRetentionMode, &bucket_metainfo.DefaultRetentionDays, &bucket_metainfo.DefaultRetentionYears, &bucket_metainfo.PathCipher, &bucket_metainfo.CreatedAt, &bucket_metainfo.DefaultSegmentSize, &bucket_metainfo.DefaultEncryptionCipherSuite, &bucket_metainfo.DefaultEncryptionBlockSize, &bucket_metainfo.DefaultRedundancyAlgorithm, &bucket_metainfo.DefaultRedundancyShareSize, &bucket_metainfo.DefaultRedundancyRequiredShares, &bucket_metainfo.DefaultRedundancyRepairShares, &bucket_metainfo.DefaultRedundancyOptimalShares, &bucket_metainfo.DefaultRedundancyTotalShares, &bucket_metainfo.Placement, &bucket_metainfo.CreatedBy)
+		})
+	} else {
+		err = obj.driver.QueryRowContext(ctx, __stmt, __values...).Scan(&bucket_metainfo.Id, &bucket_metainfo.ProjectId, &bucket_metainfo.Name, &bucket_metainfo.UserAgent, &bucket_metainfo.Versioning, &bucket_metainfo.ObjectLockEnabled, &bucket_metainfo.DefaultRetentionMode, &bucket_metainfo.DefaultRetentionDays, &bucket_metainfo.DefaultRetentionYears, &bucket_metainfo.PathCipher, &bucket_metainfo.CreatedAt, &bucket_metainfo.DefaultSegmentSize, &bucket_metainfo.DefaultEncryptionCipherSuite, &bucket_metainfo.DefaultEncryptionBlockSize, &bucket_metainfo.DefaultRedundancyAlgorithm, &bucket_metainfo.DefaultRedundancyShareSize, &bucket_metainfo.DefaultRedundancyRequiredShares, &bucket_metainfo.DefaultRedundancyRepairShares, &bucket_metainfo.DefaultRedundancyOptimalShares, &bucket_metainfo.DefaultRedundancyTotalShares, &bucket_metainfo.Placement, &bucket_metainfo.CreatedBy)
 	}
-	err = __d.QueryRowContext(ctx, __stmt, __values...).Scan(&bucket_metainfo.Id, &bucket_metainfo.ProjectId, &bucket_metainfo.Name, &bucket_metainfo.UserAgent, &bucket_metainfo.Versioning, &bucket_metainfo.ObjectLockEnabled, &bucket_metainfo.DefaultRetentionMode, &bucket_metainfo.DefaultRetentionDays, &bucket_metainfo.DefaultRetentionYears, &bucket_metainfo.PathCipher, &bucket_metainfo.CreatedAt, &bucket_metainfo.DefaultSegmentSize, &bucket_metainfo.DefaultEncryptionCipherSuite, &bucket_metainfo.DefaultEncryptionBlockSize, &bucket_metainfo.DefaultRedundancyAlgorithm, &bucket_metainfo.DefaultRedundancyShareSize, &bucket_metainfo.DefaultRedundancyRequiredShares, &bucket_metainfo.DefaultRedundancyRepairShares, &bucket_metainfo.DefaultRedundancyOptimalShares, &bucket_metainfo.DefaultRedundancyTotalShares, &bucket_metainfo.Placement, &bucket_metainfo.CreatedBy)
-	if !obj.txn {
-		if err == nil {
-			err = obj.makeErr(tx.Commit())
-		}
-	}
-	if err == sql.ErrNoRows {
+	if errors.Is(err, sql.ErrNoRows) {
 		return nil, nil
 	}
 	if err != nil {
@@ -43240,27 +42549,14 @@ func (obj *spannerImpl) Update_BucketMetainfo_By_ProjectId_And_Name_And_Versioni
 	obj.logStmt(__stmt, __values...)
 
 	bucket_metainfo = &BucketMetainfo{}
-	__d := obj.driver
-	var tx tagsql.Tx
 	if !obj.txn {
-		tx, err = obj.db.DB.BeginTx(ctx, nil)
-		if err != nil {
-			return nil, obj.makeErr(err)
-		}
-		__d = tx
-		defer func() {
-			if txErr := tx.Rollback(); txErr != nil && !errors.Is(txErr, sql.ErrTxDone) {
-				err = obj.makeErr(errors.Join(err, txErr))
-			}
-		}()
+		err = obj.withTx(ctx, func(tx tagsql.Tx) error {
+			return tx.QueryRowContext(ctx, __stmt, __values...).Scan(&bucket_metainfo.Id, &bucket_metainfo.ProjectId, &bucket_metainfo.Name, &bucket_metainfo.UserAgent, &bucket_metainfo.Versioning, &bucket_metainfo.ObjectLockEnabled, &bucket_metainfo.DefaultRetentionMode, &bucket_metainfo.DefaultRetentionDays, &bucket_metainfo.DefaultRetentionYears, &bucket_metainfo.PathCipher, &bucket_metainfo.CreatedAt, &bucket_metainfo.DefaultSegmentSize, &bucket_metainfo.DefaultEncryptionCipherSuite, &bucket_metainfo.DefaultEncryptionBlockSize, &bucket_metainfo.DefaultRedundancyAlgorithm, &bucket_metainfo.DefaultRedundancyShareSize, &bucket_metainfo.DefaultRedundancyRequiredShares, &bucket_metainfo.DefaultRedundancyRepairShares, &bucket_metainfo.DefaultRedundancyOptimalShares, &bucket_metainfo.DefaultRedundancyTotalShares, &bucket_metainfo.Placement, &bucket_metainfo.CreatedBy)
+		})
+	} else {
+		err = obj.driver.QueryRowContext(ctx, __stmt, __values...).Scan(&bucket_metainfo.Id, &bucket_metainfo.ProjectId, &bucket_metainfo.Name, &bucket_metainfo.UserAgent, &bucket_metainfo.Versioning, &bucket_metainfo.ObjectLockEnabled, &bucket_metainfo.DefaultRetentionMode, &bucket_metainfo.DefaultRetentionDays, &bucket_metainfo.DefaultRetentionYears, &bucket_metainfo.PathCipher, &bucket_metainfo.CreatedAt, &bucket_metainfo.DefaultSegmentSize, &bucket_metainfo.DefaultEncryptionCipherSuite, &bucket_metainfo.DefaultEncryptionBlockSize, &bucket_metainfo.DefaultRedundancyAlgorithm, &bucket_metainfo.DefaultRedundancyShareSize, &bucket_metainfo.DefaultRedundancyRequiredShares, &bucket_metainfo.DefaultRedundancyRepairShares, &bucket_metainfo.DefaultRedundancyOptimalShares, &bucket_metainfo.DefaultRedundancyTotalShares, &bucket_metainfo.Placement, &bucket_metainfo.CreatedBy)
 	}
-	err = __d.QueryRowContext(ctx, __stmt, __values...).Scan(&bucket_metainfo.Id, &bucket_metainfo.ProjectId, &bucket_metainfo.Name, &bucket_metainfo.UserAgent, &bucket_metainfo.Versioning, &bucket_metainfo.ObjectLockEnabled, &bucket_metainfo.DefaultRetentionMode, &bucket_metainfo.DefaultRetentionDays, &bucket_metainfo.DefaultRetentionYears, &bucket_metainfo.PathCipher, &bucket_metainfo.CreatedAt, &bucket_metainfo.DefaultSegmentSize, &bucket_metainfo.DefaultEncryptionCipherSuite, &bucket_metainfo.DefaultEncryptionBlockSize, &bucket_metainfo.DefaultRedundancyAlgorithm, &bucket_metainfo.DefaultRedundancyShareSize, &bucket_metainfo.DefaultRedundancyRequiredShares, &bucket_metainfo.DefaultRedundancyRepairShares, &bucket_metainfo.DefaultRedundancyOptimalShares, &bucket_metainfo.DefaultRedundancyTotalShares, &bucket_metainfo.Placement, &bucket_metainfo.CreatedBy)
-	if !obj.txn {
-		if err == nil {
-			err = obj.makeErr(tx.Commit())
-		}
-	}
-	if err == sql.ErrNoRows {
+	if errors.Is(err, sql.ErrNoRows) {
 		return nil, nil
 	}
 	if err != nil {
@@ -43366,27 +42662,14 @@ func (obj *spannerImpl) Update_BucketMetainfo_By_ProjectId_And_Name_And_Versioni
 	obj.logStmt(__stmt, __values...)
 
 	bucket_metainfo = &BucketMetainfo{}
-	__d := obj.driver
-	var tx tagsql.Tx
 	if !obj.txn {
-		tx, err = obj.db.DB.BeginTx(ctx, nil)
-		if err != nil {
-			return nil, obj.makeErr(err)
-		}
-		__d = tx
-		defer func() {
-			if txErr := tx.Rollback(); txErr != nil && !errors.Is(txErr, sql.ErrTxDone) {
-				err = obj.makeErr(errors.Join(err, txErr))
-			}
-		}()
+		err = obj.withTx(ctx, func(tx tagsql.Tx) error {
+			return tx.QueryRowContext(ctx, __stmt, __values...).Scan(&bucket_metainfo.Id, &bucket_metainfo.ProjectId, &bucket_metainfo.Name, &bucket_metainfo.UserAgent, &bucket_metainfo.Versioning, &bucket_metainfo.ObjectLockEnabled, &bucket_metainfo.DefaultRetentionMode, &bucket_metainfo.DefaultRetentionDays, &bucket_metainfo.DefaultRetentionYears, &bucket_metainfo.PathCipher, &bucket_metainfo.CreatedAt, &bucket_metainfo.DefaultSegmentSize, &bucket_metainfo.DefaultEncryptionCipherSuite, &bucket_metainfo.DefaultEncryptionBlockSize, &bucket_metainfo.DefaultRedundancyAlgorithm, &bucket_metainfo.DefaultRedundancyShareSize, &bucket_metainfo.DefaultRedundancyRequiredShares, &bucket_metainfo.DefaultRedundancyRepairShares, &bucket_metainfo.DefaultRedundancyOptimalShares, &bucket_metainfo.DefaultRedundancyTotalShares, &bucket_metainfo.Placement, &bucket_metainfo.CreatedBy)
+		})
+	} else {
+		err = obj.driver.QueryRowContext(ctx, __stmt, __values...).Scan(&bucket_metainfo.Id, &bucket_metainfo.ProjectId, &bucket_metainfo.Name, &bucket_metainfo.UserAgent, &bucket_metainfo.Versioning, &bucket_metainfo.ObjectLockEnabled, &bucket_metainfo.DefaultRetentionMode, &bucket_metainfo.DefaultRetentionDays, &bucket_metainfo.DefaultRetentionYears, &bucket_metainfo.PathCipher, &bucket_metainfo.CreatedAt, &bucket_metainfo.DefaultSegmentSize, &bucket_metainfo.DefaultEncryptionCipherSuite, &bucket_metainfo.DefaultEncryptionBlockSize, &bucket_metainfo.DefaultRedundancyAlgorithm, &bucket_metainfo.DefaultRedundancyShareSize, &bucket_metainfo.DefaultRedundancyRequiredShares, &bucket_metainfo.DefaultRedundancyRepairShares, &bucket_metainfo.DefaultRedundancyOptimalShares, &bucket_metainfo.DefaultRedundancyTotalShares, &bucket_metainfo.Placement, &bucket_metainfo.CreatedBy)
 	}
-	err = __d.QueryRowContext(ctx, __stmt, __values...).Scan(&bucket_metainfo.Id, &bucket_metainfo.ProjectId, &bucket_metainfo.Name, &bucket_metainfo.UserAgent, &bucket_metainfo.Versioning, &bucket_metainfo.ObjectLockEnabled, &bucket_metainfo.DefaultRetentionMode, &bucket_metainfo.DefaultRetentionDays, &bucket_metainfo.DefaultRetentionYears, &bucket_metainfo.PathCipher, &bucket_metainfo.CreatedAt, &bucket_metainfo.DefaultSegmentSize, &bucket_metainfo.DefaultEncryptionCipherSuite, &bucket_metainfo.DefaultEncryptionBlockSize, &bucket_metainfo.DefaultRedundancyAlgorithm, &bucket_metainfo.DefaultRedundancyShareSize, &bucket_metainfo.DefaultRedundancyRequiredShares, &bucket_metainfo.DefaultRedundancyRepairShares, &bucket_metainfo.DefaultRedundancyOptimalShares, &bucket_metainfo.DefaultRedundancyTotalShares, &bucket_metainfo.Placement, &bucket_metainfo.CreatedBy)
-	if !obj.txn {
-		if err == nil {
-			err = obj.makeErr(tx.Commit())
-		}
-	}
-	if err == sql.ErrNoRows {
+	if errors.Is(err, sql.ErrNoRows) {
 		return nil, nil
 	}
 	if err != nil {
@@ -43432,27 +42715,14 @@ func (obj *spannerImpl) Update_ValueAttribution_By_ProjectId_And_BucketName(ctx 
 	obj.logStmt(__stmt, __values...)
 
 	value_attribution = &ValueAttribution{}
-	__d := obj.driver
-	var tx tagsql.Tx
 	if !obj.txn {
-		tx, err = obj.db.DB.BeginTx(ctx, nil)
-		if err != nil {
-			return nil, obj.makeErr(err)
-		}
-		__d = tx
-		defer func() {
-			if txErr := tx.Rollback(); txErr != nil && !errors.Is(txErr, sql.ErrTxDone) {
-				err = obj.makeErr(errors.Join(err, txErr))
-			}
-		}()
+		err = obj.withTx(ctx, func(tx tagsql.Tx) error {
+			return tx.QueryRowContext(ctx, __stmt, __values...).Scan(&value_attribution.ProjectId, &value_attribution.BucketName, &value_attribution.UserAgent, &value_attribution.LastUpdated)
+		})
+	} else {
+		err = obj.driver.QueryRowContext(ctx, __stmt, __values...).Scan(&value_attribution.ProjectId, &value_attribution.BucketName, &value_attribution.UserAgent, &value_attribution.LastUpdated)
 	}
-	err = __d.QueryRowContext(ctx, __stmt, __values...).Scan(&value_attribution.ProjectId, &value_attribution.BucketName, &value_attribution.UserAgent, &value_attribution.LastUpdated)
-	if !obj.txn {
-		if err == nil {
-			err = obj.makeErr(tx.Commit())
-		}
-	}
-	if err == sql.ErrNoRows {
+	if errors.Is(err, sql.ErrNoRows) {
 		return nil, nil
 	}
 	if err != nil {
@@ -43640,27 +42910,14 @@ func (obj *spannerImpl) Update_User_By_Id(ctx context.Context,
 	obj.logStmt(__stmt, __values...)
 
 	user = &User{}
-	__d := obj.driver
-	var tx tagsql.Tx
 	if !obj.txn {
-		tx, err = obj.db.DB.BeginTx(ctx, nil)
-		if err != nil {
-			return nil, obj.makeErr(err)
-		}
-		__d = tx
-		defer func() {
-			if txErr := tx.Rollback(); txErr != nil && !errors.Is(txErr, sql.ErrTxDone) {
-				err = obj.makeErr(errors.Join(err, txErr))
-			}
-		}()
+		err = obj.withTx(ctx, func(tx tagsql.Tx) error {
+			return tx.QueryRowContext(ctx, __stmt, __values...).Scan(&user.Id, &user.ExternalId, &user.Email, &user.NormalizedEmail, &user.FullName, &user.ShortName, &user.PasswordHash, &user.NewUnverifiedEmail, &user.EmailChangeVerificationStep, &user.Status, &user.StatusUpdatedAt, &user.FinalInvoiceGenerated, &user.UserAgent, &user.CreatedAt, &user.ProjectLimit, &user.ProjectBandwidthLimit, &user.ProjectStorageLimit, &user.ProjectSegmentLimit, &user.PaidTier, &user.Position, &user.CompanyName, &user.CompanySize, &user.WorkingOn, &user.IsProfessional, &user.EmployeeCount, &user.HaveSalesContact, &user.MfaEnabled, &user.MfaSecretKey, &user.MfaRecoveryCodes, &user.SignupPromoCode, &user.VerificationReminders, &user.TrialNotifications, &user.FailedLoginCount, &user.LoginLockoutExpiration, &user.SignupCaptcha, &user.DefaultPlacement, &user.ActivationCode, &user.SignupId, &user.TrialExpiration, &user.UpgradeTime)
+		})
+	} else {
+		err = obj.driver.QueryRowContext(ctx, __stmt, __values...).Scan(&user.Id, &user.ExternalId, &user.Email, &user.NormalizedEmail, &user.FullName, &user.ShortName, &user.PasswordHash, &user.NewUnverifiedEmail, &user.EmailChangeVerificationStep, &user.Status, &user.StatusUpdatedAt, &user.FinalInvoiceGenerated, &user.UserAgent, &user.CreatedAt, &user.ProjectLimit, &user.ProjectBandwidthLimit, &user.ProjectStorageLimit, &user.ProjectSegmentLimit, &user.PaidTier, &user.Position, &user.CompanyName, &user.CompanySize, &user.WorkingOn, &user.IsProfessional, &user.EmployeeCount, &user.HaveSalesContact, &user.MfaEnabled, &user.MfaSecretKey, &user.MfaRecoveryCodes, &user.SignupPromoCode, &user.VerificationReminders, &user.TrialNotifications, &user.FailedLoginCount, &user.LoginLockoutExpiration, &user.SignupCaptcha, &user.DefaultPlacement, &user.ActivationCode, &user.SignupId, &user.TrialExpiration, &user.UpgradeTime)
 	}
-	err = __d.QueryRowContext(ctx, __stmt, __values...).Scan(&user.Id, &user.ExternalId, &user.Email, &user.NormalizedEmail, &user.FullName, &user.ShortName, &user.PasswordHash, &user.NewUnverifiedEmail, &user.EmailChangeVerificationStep, &user.Status, &user.StatusUpdatedAt, &user.FinalInvoiceGenerated, &user.UserAgent, &user.CreatedAt, &user.ProjectLimit, &user.ProjectBandwidthLimit, &user.ProjectStorageLimit, &user.ProjectSegmentLimit, &user.PaidTier, &user.Position, &user.CompanyName, &user.CompanySize, &user.WorkingOn, &user.IsProfessional, &user.EmployeeCount, &user.HaveSalesContact, &user.MfaEnabled, &user.MfaSecretKey, &user.MfaRecoveryCodes, &user.SignupPromoCode, &user.VerificationReminders, &user.TrialNotifications, &user.FailedLoginCount, &user.LoginLockoutExpiration, &user.SignupCaptcha, &user.DefaultPlacement, &user.ActivationCode, &user.SignupId, &user.TrialExpiration, &user.UpgradeTime)
-	if !obj.txn {
-		if err == nil {
-			err = obj.makeErr(tx.Commit())
-		}
-	}
-	if err == sql.ErrNoRows {
+	if errors.Is(err, sql.ErrNoRows) {
 		return nil, nil
 	}
 	if err != nil {
@@ -43708,27 +42965,14 @@ func (obj *spannerImpl) Update_WebappSession_By_Id(ctx context.Context,
 	obj.logStmt(__stmt, __values...)
 
 	webapp_session = &WebappSession{}
-	__d := obj.driver
-	var tx tagsql.Tx
 	if !obj.txn {
-		tx, err = obj.db.DB.BeginTx(ctx, nil)
-		if err != nil {
-			return nil, obj.makeErr(err)
-		}
-		__d = tx
-		defer func() {
-			if txErr := tx.Rollback(); txErr != nil && !errors.Is(txErr, sql.ErrTxDone) {
-				err = obj.makeErr(errors.Join(err, txErr))
-			}
-		}()
+		err = obj.withTx(ctx, func(tx tagsql.Tx) error {
+			return tx.QueryRowContext(ctx, __stmt, __values...).Scan(&webapp_session.Id, &webapp_session.UserId, &webapp_session.IpAddress, &webapp_session.UserAgent, &webapp_session.Status, &webapp_session.ExpiresAt)
+		})
+	} else {
+		err = obj.driver.QueryRowContext(ctx, __stmt, __values...).Scan(&webapp_session.Id, &webapp_session.UserId, &webapp_session.IpAddress, &webapp_session.UserAgent, &webapp_session.Status, &webapp_session.ExpiresAt)
 	}
-	err = __d.QueryRowContext(ctx, __stmt, __values...).Scan(&webapp_session.Id, &webapp_session.UserId, &webapp_session.IpAddress, &webapp_session.UserAgent, &webapp_session.Status, &webapp_session.ExpiresAt)
-	if !obj.txn {
-		if err == nil {
-			err = obj.makeErr(tx.Commit())
-		}
-	}
-	if err == sql.ErrNoRows {
+	if errors.Is(err, sql.ErrNoRows) {
 		return nil, nil
 	}
 	if err != nil {
@@ -43772,27 +43016,14 @@ func (obj *spannerImpl) Update_RegistrationToken_By_Secret(ctx context.Context,
 	obj.logStmt(__stmt, __values...)
 
 	registration_token = &RegistrationToken{}
-	__d := obj.driver
-	var tx tagsql.Tx
 	if !obj.txn {
-		tx, err = obj.db.DB.BeginTx(ctx, nil)
-		if err != nil {
-			return nil, obj.makeErr(err)
-		}
-		__d = tx
-		defer func() {
-			if txErr := tx.Rollback(); txErr != nil && !errors.Is(txErr, sql.ErrTxDone) {
-				err = obj.makeErr(errors.Join(err, txErr))
-			}
-		}()
+		err = obj.withTx(ctx, func(tx tagsql.Tx) error {
+			return tx.QueryRowContext(ctx, __stmt, __values...).Scan(&registration_token.Secret, &registration_token.OwnerId, &registration_token.ProjectLimit, &registration_token.CreatedAt)
+		})
+	} else {
+		err = obj.driver.QueryRowContext(ctx, __stmt, __values...).Scan(&registration_token.Secret, &registration_token.OwnerId, &registration_token.ProjectLimit, &registration_token.CreatedAt)
 	}
-	err = __d.QueryRowContext(ctx, __stmt, __values...).Scan(&registration_token.Secret, &registration_token.OwnerId, &registration_token.ProjectLimit, &registration_token.CreatedAt)
-	if !obj.txn {
-		if err == nil {
-			err = obj.makeErr(tx.Commit())
-		}
-	}
-	if err == sql.ErrNoRows {
+	if errors.Is(err, sql.ErrNoRows) {
 		return nil, nil
 	}
 	if err != nil {
@@ -43845,27 +43076,14 @@ func (obj *spannerImpl) Update_AccountFreezeEvent_By_UserId_And_Event(ctx contex
 	obj.logStmt(__stmt, __values...)
 
 	account_freeze_event = &AccountFreezeEvent{}
-	__d := obj.driver
-	var tx tagsql.Tx
 	if !obj.txn {
-		tx, err = obj.db.DB.BeginTx(ctx, nil)
-		if err != nil {
-			return nil, obj.makeErr(err)
-		}
-		__d = tx
-		defer func() {
-			if txErr := tx.Rollback(); txErr != nil && !errors.Is(txErr, sql.ErrTxDone) {
-				err = obj.makeErr(errors.Join(err, txErr))
-			}
-		}()
+		err = obj.withTx(ctx, func(tx tagsql.Tx) error {
+			return tx.QueryRowContext(ctx, __stmt, __values...).Scan(&account_freeze_event.UserId, &account_freeze_event.Event, spannerConvertJSON(&account_freeze_event.Limits), &account_freeze_event.DaysTillEscalation, &account_freeze_event.NotificationsCount, &account_freeze_event.CreatedAt)
+		})
+	} else {
+		err = obj.driver.QueryRowContext(ctx, __stmt, __values...).Scan(&account_freeze_event.UserId, &account_freeze_event.Event, spannerConvertJSON(&account_freeze_event.Limits), &account_freeze_event.DaysTillEscalation, &account_freeze_event.NotificationsCount, &account_freeze_event.CreatedAt)
 	}
-	err = __d.QueryRowContext(ctx, __stmt, __values...).Scan(&account_freeze_event.UserId, &account_freeze_event.Event, spannerConvertJSON(&account_freeze_event.Limits), &account_freeze_event.DaysTillEscalation, &account_freeze_event.NotificationsCount, &account_freeze_event.CreatedAt)
-	if !obj.txn {
-		if err == nil {
-			err = obj.makeErr(tx.Commit())
-		}
-	}
-	if err == sql.ErrNoRows {
+	if errors.Is(err, sql.ErrNoRows) {
 		return nil, nil
 	}
 	if err != nil {
@@ -43929,27 +43147,14 @@ func (obj *spannerImpl) Update_UserSettings_By_UserId(ctx context.Context,
 	obj.logStmt(__stmt, __values...)
 
 	user_settings = &UserSettings{}
-	__d := obj.driver
-	var tx tagsql.Tx
 	if !obj.txn {
-		tx, err = obj.db.DB.BeginTx(ctx, nil)
-		if err != nil {
-			return nil, obj.makeErr(err)
-		}
-		__d = tx
-		defer func() {
-			if txErr := tx.Rollback(); txErr != nil && !errors.Is(txErr, sql.ErrTxDone) {
-				err = obj.makeErr(errors.Join(err, txErr))
-			}
-		}()
+		err = obj.withTx(ctx, func(tx tagsql.Tx) error {
+			return tx.QueryRowContext(ctx, __stmt, __values...).Scan(&user_settings.UserId, &user_settings.SessionMinutes, &user_settings.PassphrasePrompt, &user_settings.OnboardingStart, &user_settings.OnboardingEnd, &user_settings.OnboardingStep, spannerConvertJSON(&user_settings.NoticeDismissal))
+		})
+	} else {
+		err = obj.driver.QueryRowContext(ctx, __stmt, __values...).Scan(&user_settings.UserId, &user_settings.SessionMinutes, &user_settings.PassphrasePrompt, &user_settings.OnboardingStart, &user_settings.OnboardingEnd, &user_settings.OnboardingStep, spannerConvertJSON(&user_settings.NoticeDismissal))
 	}
-	err = __d.QueryRowContext(ctx, __stmt, __values...).Scan(&user_settings.UserId, &user_settings.SessionMinutes, &user_settings.PassphrasePrompt, &user_settings.OnboardingStart, &user_settings.OnboardingEnd, &user_settings.OnboardingStep, spannerConvertJSON(&user_settings.NoticeDismissal))
-	if !obj.txn {
-		if err == nil {
-			err = obj.makeErr(tx.Commit())
-		}
-	}
-	if err == sql.ErrNoRows {
+	if errors.Is(err, sql.ErrNoRows) {
 		return nil, nil
 	}
 	if err != nil {
@@ -46264,4 +45469,31 @@ func (s *spannerJSON) Scan(input any) error {
 		return nil
 	}
 	return fmt.Errorf("unable to decode %T", input)
+}
+
+func (obj *spannerImpl) withTx(ctx context.Context, fn func(tx tagsql.Tx) error) (err error) {
+	for {
+		err := obj.withTxOnce(ctx, fn)
+		if err != nil {
+			if obj.shouldRetry(err) {
+				continue
+			}
+		}
+		return err
+	}
+}
+
+func (obj *spannerImpl) withTxOnce(ctx context.Context, fn func(tx tagsql.Tx) error) (err error) {
+	tx, err := obj.db.BeginTx(ctx, nil)
+	if err != nil {
+		return obj.makeErr(err)
+	}
+	defer func() {
+		if err != nil {
+			err = obj.makeErr(errors.Join(err, tx.Rollback()))
+		} else {
+			err = obj.makeErr(tx.Commit())
+		}
+	}()
+	return fn(tx)
 }

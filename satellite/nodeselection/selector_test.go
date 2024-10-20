@@ -375,7 +375,7 @@ func TestBalancedSelector(t *testing.T) {
 
 			histogram := map[string]int{}
 			for _, node := range selectedNodes {
-				histogram[attribute(*node).(string)] = histogram[attribute(*node).(string)] + 1
+				histogram[attribute(*node)] = histogram[attribute(*node)] + 1
 			}
 			for _, c := range histogram {
 				if c > 5 {
@@ -434,7 +434,7 @@ func TestBalancedSelectorWithExisting(t *testing.T) {
 		require.Len(t, selectedNodes, 7)
 
 		for _, node := range selectedNodes {
-			histogram[attribute(*node).(string)]++
+			histogram[attribute(*node)]++
 		}
 	}
 	// from the initial {"A": 3, "B": 10, "C": 30, "D": 5, "E": 1}

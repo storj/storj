@@ -31,21 +31,6 @@ import (
 	"storj.io/storj/shared/tagsql"
 )
 
-// WithSpanner configures config to enable tests to run on spanner.
-func WithSpanner() ConfigOption {
-	return func(c *config) {
-		c.EnableSpanner = true
-	}
-}
-
-// ConfigOption modifies a satellitedbtest configuration to provide test specific options.
-type ConfigOption func(c *config)
-
-// config describes the configuration for a satellitedb test.
-type config struct {
-	EnableSpanner bool
-}
-
 // Cockroach DROP DATABASE takes a significant amount, however, it has no importance in our tests.
 var cockroachNoDrop = flag.Bool("cockroach-no-drop", stringToBool(os.Getenv("STORJ_TEST_COCKROACH_NODROP")), "Skip dropping cockroach databases to speed up tests")
 
@@ -233,16 +218,9 @@ func CreateMetabaseDBOnTopOf(ctx context.Context, log *zap.Logger, tempDB *dbuti
 
 // Run method will iterate over all supported databases. Will establish
 // connection and will create tables for each DB.
-func Run(t *testing.T, test func(ctx *testcontext.Context, t *testing.T, db satellite.DB), configOptions ...ConfigOption) {
-	var cfg config
-	for _, configOption := range configOptions {
-		configOption(&cfg)
-	}
+func Run(t *testing.T, test func(ctx *testcontext.Context, t *testing.T, db satellite.DB)) {
 	for _, dbInfo := range Databases() {
 		dbInfo := dbInfo
-		if dbInfo.Name == "Spanner" && !cfg.EnableSpanner {
-			t.Skipf("Test is not enabled to run on Spanner.")
-		}
 		t.Run(dbInfo.Name, func(t *testing.T) {
 			t.Parallel()
 

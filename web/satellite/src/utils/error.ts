@@ -10,6 +10,7 @@ export class APIError extends Error {
 
     constructor(data: {status: number, message: string, requestID: string | null}) {
         super(data.message);
+        this.status = data.status;
         this.message = data.message;
         this.requestID = data.requestID;
     }
