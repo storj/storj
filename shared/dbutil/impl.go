@@ -130,3 +130,19 @@ func (impl Implementation) WrapAsOfSystemInterval(sql string, interval time.Dura
 	}
 	return "SELECT * FROM (" + sql + ")" + aost
 }
+
+// Float64Type returns the type name for the given implementation.
+func (impl Implementation) Float64Type() string {
+	switch impl {
+	case Postgres, Cockroach:
+		return "FLOAT"
+	case Spanner:
+		return "FLOAT64"
+	case SQLite3:
+		return "REAL"
+	case Unknown:
+		fallthrough
+	default:
+		panic("unsupported Float64Type")
+	}
+}
