@@ -34,7 +34,7 @@ import (
 
 func TestBucketExistenceCheck(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
-		SatelliteCount: 1, UplinkCount: 1, EnableSpanner: true,
+		SatelliteCount: 1, UplinkCount: 1,
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 		apiKey := planet.Uplinks[0].APIKey[planet.Satellites[0].ID()]
 
@@ -62,7 +62,7 @@ func TestBucketExistenceCheck(t *testing.T) {
 
 func TestMaxOutBuckets(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
-		SatelliteCount: 1, UplinkCount: 1, EnableSpanner: true,
+		SatelliteCount: 1, UplinkCount: 1,
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 		limit := planet.Satellites[0].Config.Metainfo.ProjectLimits.MaxBuckets
 		for i := 1; i <= limit; i++ {
@@ -149,7 +149,7 @@ func TestBucketNameValidation(t *testing.T) {
 
 func TestBucketEmptinessBeforeDelete(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
-		SatelliteCount: 1, UplinkCount: 1, EnableSpanner: true,
+		SatelliteCount: 1, UplinkCount: 1,
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 		for i := 0; i < 5; i++ {
 			err := planet.Uplinks[0].Upload(ctx, planet.Satellites[0], "test-bucket", "object-key"+strconv.Itoa(i), testrand.Bytes(memory.KiB))
@@ -182,7 +182,7 @@ func TestDeleteBucket(t *testing.T) {
 				},
 			),
 		},
-		SatelliteCount: 1, StorageNodeCount: 4, UplinkCount: 1, EnableSpanner: true,
+		SatelliteCount: 1, StorageNodeCount: 4, UplinkCount: 1,
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 		ownerAPIKey := planet.Uplinks[0].APIKey[planet.Satellites[0].ID()]
 		sat := planet.Satellites[0]
@@ -430,7 +430,7 @@ func TestListBucketsWithAttribution(t *testing.T) {
 
 func TestBucketCreationWithDefaultPlacement(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
-		SatelliteCount: 1, UplinkCount: 1, EnableSpanner: true,
+		SatelliteCount: 1, UplinkCount: 1,
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 		projectID := planet.Uplinks[0].Projects[0].ID
 
@@ -458,7 +458,7 @@ func TestBucketCreationWithDefaultPlacement(t *testing.T) {
 
 func TestCraeteBucketWithCreatedBy(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
-		SatelliteCount: 1, UplinkCount: 1, EnableSpanner: true,
+		SatelliteCount: 1, UplinkCount: 1,
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 		sat := planet.Satellites[0]
 		service := sat.API.Console.Service
@@ -490,7 +490,7 @@ func TestCraeteBucketWithCreatedBy(t *testing.T) {
 
 func TestGetBucketLocation(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
-		SatelliteCount: 1, StorageNodeCount: 0, UplinkCount: 1, EnableSpanner: true,
+		SatelliteCount: 1, StorageNodeCount: 0, UplinkCount: 1,
 		Reconfigure: testplanet.Reconfigure{
 			Satellite: func(log *zap.Logger, index int, config *satellite.Config) {
 				config.Placement = nodeselection.ConfigurablePlacementRule{
@@ -546,7 +546,7 @@ func TestGetBucketLocation(t *testing.T) {
 
 func TestEnableSuspendBucketVersioning(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
-		SatelliteCount: 1, UplinkCount: 1, EnableSpanner: true,
+		SatelliteCount: 1, UplinkCount: 1,
 		Reconfigure: testplanet.Reconfigure{
 			Satellite: func(log *zap.Logger, index int, config *satellite.Config) {
 				config.Metainfo.UseBucketLevelObjectVersioning = true
@@ -684,7 +684,7 @@ func TestEnableSuspendBucketVersioning(t *testing.T) {
 
 func TestDefaultBucketVersioning(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
-		SatelliteCount: 1, UplinkCount: 1, EnableSpanner: true,
+		SatelliteCount: 1, UplinkCount: 1,
 		Reconfigure: testplanet.Reconfigure{
 			Satellite: func(log *zap.Logger, index int, config *satellite.Config) {
 				config.Metainfo.UseBucketLevelObjectVersioning = true
@@ -772,7 +772,7 @@ func TestDefaultBucketVersioning(t *testing.T) {
 
 func TestCreateBucketWithObjectLockEnabled(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
-		SatelliteCount: 1, UplinkCount: 1, EnableSpanner: true,
+		SatelliteCount: 1, UplinkCount: 1,
 		Reconfigure: testplanet.Reconfigure{
 			Satellite: func(log *zap.Logger, index int, config *satellite.Config) {
 				config.Metainfo.ObjectLockEnabled = true
@@ -902,7 +902,7 @@ func TestCreateBucketWithObjectLockEnabled(t *testing.T) {
 
 func TestGetBucketObjectLockConfiguration(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
-		SatelliteCount: 1, UplinkCount: 1, EnableSpanner: true,
+		SatelliteCount: 1, UplinkCount: 1,
 		Reconfigure: testplanet.Reconfigure{
 			Satellite: func(log *zap.Logger, index int, config *satellite.Config) {
 				config.Metainfo.ObjectLockEnabled = true
@@ -1042,7 +1042,7 @@ func TestGetBucketObjectLockConfiguration(t *testing.T) {
 
 func TestSetBucketObjectLockConfiguration(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
-		SatelliteCount: 1, UplinkCount: 1, EnableSpanner: true,
+		SatelliteCount: 1, UplinkCount: 1,
 		Reconfigure: testplanet.Reconfigure{
 			Satellite: func(log *zap.Logger, index int, config *satellite.Config) {
 				config.Metainfo.ObjectLockEnabled = true
@@ -1253,6 +1253,13 @@ func TestSetBucketObjectLockConfiguration(t *testing.T) {
 			_, err = endpoint.SetBucketObjectLockConfiguration(ctx, request)
 			rpctest.RequireCode(t, err, rpcstatus.ObjectLockInvalidBucketRetentionConfiguration)
 
+			// Duration with days set above maximum (invalid).
+			config.DefaultRetention.Duration = &pb.DefaultRetention_Days{
+				Days: 36501,
+			}
+			_, err = endpoint.SetBucketObjectLockConfiguration(ctx, request)
+			rpctest.RequireCode(t, err, rpcstatus.ObjectLockInvalidBucketRetentionConfiguration)
+
 			// Duration with Years set to zero (invalid).
 			config.DefaultRetention.Duration = &pb.DefaultRetention_Years{
 				Years: 0,
@@ -1263,6 +1270,13 @@ func TestSetBucketObjectLockConfiguration(t *testing.T) {
 			// Duration with Years set to negative value (invalid).
 			config.DefaultRetention.Duration = &pb.DefaultRetention_Years{
 				Years: -1,
+			}
+			_, err = endpoint.SetBucketObjectLockConfiguration(ctx, request)
+			rpctest.RequireCode(t, err, rpcstatus.ObjectLockInvalidBucketRetentionConfiguration)
+
+			// Duration with Years set above maximum (invalid).
+			config.DefaultRetention.Duration = &pb.DefaultRetention_Years{
+				Years: 11,
 			}
 			_, err = endpoint.SetBucketObjectLockConfiguration(ctx, request)
 			rpctest.RequireCode(t, err, rpcstatus.ObjectLockInvalidBucketRetentionConfiguration)

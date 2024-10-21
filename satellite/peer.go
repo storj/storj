@@ -36,6 +36,7 @@ import (
 	"storj.io/storj/satellite/compensation"
 	"storj.io/storj/satellite/console"
 	"storj.io/storj/satellite/console/consoleauth"
+	"storj.io/storj/satellite/console/consoleauth/sso"
 	"storj.io/storj/satellite/console/consoleweb"
 	"storj.io/storj/satellite/console/dbcleanup"
 	"storj.io/storj/satellite/console/emailreminders"
@@ -74,6 +75,7 @@ import (
 	"storj.io/storj/satellite/reputation"
 	"storj.io/storj/satellite/revocation"
 	"storj.io/storj/satellite/snopayouts"
+	"storj.io/storj/shared/dbutil"
 	"storj.io/storj/shared/tagsql"
 )
 
@@ -147,6 +149,8 @@ type DB interface {
 
 // TestingDB defines access to database testing facilities.
 type TestingDB interface {
+	// Implementation returns the implementations of the databases.
+	Implementation() []dbutil.Implementation
 	// Rebind adapts a query's syntax for a database dialect.
 	Rebind(query string) string
 	// RawDB returns the underlying database connection to the primary database.
@@ -231,6 +235,8 @@ type Config struct {
 	DurabilityReport durability.ReportConfig
 
 	KeyManagement kms.Config
+
+	SSO sso.Config
 
 	HealthCheck healthcheck.Config
 

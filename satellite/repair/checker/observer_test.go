@@ -195,7 +195,7 @@ func TestIdentifyIrreparableSegmentsObserver(t *testing.T) {
 
 func TestObserver_CheckSegmentCopy(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
-		SatelliteCount: 1, StorageNodeCount: 4, UplinkCount: 1, EnableSpanner: true,
+		SatelliteCount: 1, StorageNodeCount: 4, UplinkCount: 1,
 		Reconfigure: testplanet.Reconfigure{
 			Satellite: func(log *zap.Logger, index int, config *satellite.Config) {
 				config.Repairer.UseRangedLoop = true
