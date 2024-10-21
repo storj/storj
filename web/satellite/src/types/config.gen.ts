@@ -70,6 +70,7 @@ export class FrontendConfig {
     activeSessionsViewEnabled: boolean;
     objectLockUIEnabled: boolean;
     valdiSignUpURL: string;
+    ssoEnabled: boolean;
 }
 
 export class MultiCaptchaConfig {

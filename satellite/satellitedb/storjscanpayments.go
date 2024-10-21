@@ -213,6 +213,9 @@ func (storjscanPayments *storjscanPayments) LastBlocks(ctx context.Context, stat
 		if err != nil {
 			return nil, Error.Wrap(err)
 		}
+		if latestBlock == nil {
+			return nil, Error.Wrap(sql.ErrNoRows)
+		}
 		latestBlocks[chainID] = latestBlock.BlockNumber
 	}
 	err = rows.Err()
