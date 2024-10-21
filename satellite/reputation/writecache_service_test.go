@@ -12,7 +12,6 @@ import (
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zaptest"
-	"golang.org/x/exp/slices"
 	"golang.org/x/sync/errgroup"
 
 	"storj.io/common/errs2"
@@ -23,7 +22,6 @@ import (
 	"storj.io/storj/satellite"
 	"storj.io/storj/satellite/reputation"
 	"storj.io/storj/satellite/satellitedb/satellitedbtest"
-	"storj.io/storj/shared/dbutil"
 )
 
 func TestHeavyLockContention(t *testing.T) {
@@ -59,11 +57,6 @@ func TestHeavyLockContention(t *testing.T) {
 	}
 
 	satellitedbtest.Run(t, func(ctx *testcontext.Context, t *testing.T, db satellite.DB) {
-		if slices.Contains(db.Testing().Implementation(), dbutil.Spanner) {
-			// TODO(spanner): test fails due to retries not working.
-			t.Skip("test takes too long on Spanner")
-		}
-
 		config := reputation.Config{
 			AuditLambda:        1,
 			AuditWeight:        1,
