@@ -466,7 +466,7 @@ func TestGetEmailsForDeletion(t *testing.T) {
 		emails, err = usersRepo.GetEmailsForDeletion(ctx, nowPlusMinute)
 		require.NoError(t, err)
 		require.Len(t, emails, 2)
-	}, satellitedbtest.WithSpanner())
+	})
 }
 
 func TestGetUserInfoByProjectID(t *testing.T) {
@@ -578,19 +578,18 @@ func TestGetExpiredFreeTrialsAfter(t *testing.T) {
 		users, err = usersRepo.GetExpiredFreeTrialsAfter(ctx, now, limit)
 		require.NoError(t, err)
 		require.Empty(t, users, "expected no trial frozen users")
-	}, satellitedbtest.WithSpanner())
+	})
 }
 
 func TestGetUnverifiedNeedingReminder(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
+		SatelliteCount: 1,
 		Reconfigure: testplanet.Reconfigure{
 			Satellite: func(log *zap.Logger, index int, config *satellite.Config) {
 				config.EmailReminders.FirstVerificationReminder = 24 * time.Hour
 				config.EmailReminders.SecondVerificationReminder = 120 * time.Hour
 			},
 		},
-		SatelliteCount: 1,
-		EnableSpanner:  true,
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 		var sentFirstReminder bool
 		var sentSecondReminder bool

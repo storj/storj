@@ -37,6 +37,7 @@ import (
 	"storj.io/storj/satellite/abtesting"
 	"storj.io/storj/satellite/analytics"
 	"storj.io/storj/satellite/console"
+	"storj.io/storj/satellite/console/consoleauth/sso"
 	"storj.io/storj/satellite/console/consoleweb/consoleapi"
 	"storj.io/storj/satellite/console/consoleweb/consolewebauth"
 	"storj.io/storj/satellite/mailservice"
@@ -131,6 +132,8 @@ type Config struct {
 	RateLimit web.RateLimiterConfig
 	ABTesting abtesting.Config
 
+	SsoEnabled bool `help:"whether SSO is enabled" default:"false" hidden:"true"`
+
 	console.Config
 }
 
@@ -224,7 +227,7 @@ func (a *apiAuth) RemoveAuthCookie(w http.ResponseWriter) {
 
 // NewServer creates new instance of console server.
 func NewServer(logger *zap.Logger, config Config, service *console.Service, oidcService *oidc.Service, mailService *mailservice.Service,
-	analytics *analytics.Service, abTesting *abtesting.Service, accountFreezeService *console.AccountFreezeService, listener net.Listener,
+	analytics *analytics.Service, abTesting *abtesting.Service, accountFreezeService *console.AccountFreezeService, ssoService *sso.Service, listener net.Listener,
 	stripePublicKey string, neededTokenPaymentConfirmations int, nodeURL storj.NodeURL, objectLockAndVersioningConfig console.ObjectLockAndVersioningConfig,
 	analyticsConfig analytics.Config, packagePlans paymentsconfig.PackagePlans) *Server {
 	initAdditionalMimeTypes()
@@ -326,7 +329,7 @@ func NewServer(logger *zap.Logger, config Config, service *console.Service, oidc
 		server.log.Error("unable to load bad passwords list", zap.Error(err))
 	}
 
-	authController := consoleapi.NewAuth(logger, service, accountFreezeService, mailService, server.cookieAuth, server.analytics, config.SatelliteName, server.config.ExternalAddress, config.LetUsKnowURL, config.TermsAndConditionsURL, config.ContactInfoURL, config.GeneralRequestURL, config.SignupActivationCodeEnabled, badPasswords)
+	authController := consoleapi.NewAuth(logger, service, accountFreezeService, mailService, server.cookieAuth, server.analytics, ssoService, config.SatelliteName, server.config.ExternalAddress, config.LetUsKnowURL, config.TermsAndConditionsURL, config.ContactInfoURL, config.GeneralRequestURL, config.SignupActivationCodeEnabled, badPasswords)
 	authRouter := router.PathPrefix("/api/v0/auth").Subrouter()
 	authRouter.Use(server.withCORS)
 	authRouter.Handle("/account", server.withAuth(http.HandlerFunc(authController.GetAccount))).Methods(http.MethodGet, http.MethodOptions)
@@ -338,10 +341,9 @@ func NewServer(logger *zap.Logger, config Config, service *console.Service, oidc
 	authRouter.Handle("/account/settings", server.withAuth(http.HandlerFunc(authController.GetUserSettings))).Methods(http.MethodGet, http.MethodOptions)
 	authRouter.Handle("/account/settings", server.withAuth(http.HandlerFunc(authController.SetUserSettings))).Methods(http.MethodPatch, http.MethodOptions)
 	authRouter.Handle("/account/onboarding", server.withAuth(http.HandlerFunc(authController.SetOnboardingStatus))).Methods(http.MethodPatch, http.MethodOptions)
-	authRouter.Handle("/mfa/enable", server.withAuth(http.HandlerFunc(authController.EnableUserMFA))).Methods(http.MethodPost, http.MethodOptions)
+	authRouter.Handle("/mfa/enable", server.withAuth(server.userIDRateLimiter.Limit(http.HandlerFunc(authController.EnableUserMFA)))).Methods(http.MethodPost, http.MethodOptions)
 	authRouter.Handle("/mfa/disable", server.withAuth(server.userIDRateLimiter.Limit(http.HandlerFunc(authController.DisableUserMFA)))).Methods(http.MethodPost, http.MethodOptions)
 	authRouter.Handle("/mfa/generate-secret-key", server.withAuth(http.HandlerFunc(authController.GenerateMFASecretKey))).Methods(http.MethodPost, http.MethodOptions)
-	authRouter.Handle("/mfa/generate-recovery-codes", server.withAuth(http.HandlerFunc(authController.GenerateMFARecoveryCodes))).Methods(http.MethodPost, http.MethodOptions)
 	authRouter.Handle("/mfa/regenerate-recovery-codes", server.withAuth(server.userIDRateLimiter.Limit(http.HandlerFunc(authController.RegenerateMFARecoveryCodes)))).Methods(http.MethodPost, http.MethodOptions)
 	authRouter.Handle("/logout", server.withAuth(http.HandlerFunc(authController.Logout))).Methods(http.MethodPost, http.MethodOptions)
 	authRouter.Handle("/token", server.ipRateLimiter.Limit(http.HandlerFunc(authController.Token))).Methods(http.MethodPost, http.MethodOptions)
@@ -454,6 +456,37 @@ func NewServer(logger *zap.Logger, config Config, service *console.Service, oidc
 	router.Handle("/api/v0/oauth/v2/tokens", server.ipRateLimiter.Limit(http.HandlerFunc(oidc.Tokens))).Methods(http.MethodPost)
 	router.Handle("/api/v0/oauth/v2/userinfo", server.ipRateLimiter.Limit(http.HandlerFunc(oidc.UserInfo))).Methods(http.MethodGet)
 	router.Handle("/api/v0/oauth/v2/clients/{id}", server.withAuth(http.HandlerFunc(oidc.GetClient))).Methods(http.MethodGet)
+
+	if ssoService != nil {
+		router.Handle("/sso-url", server.ipRateLimiter.Limit(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			provider := ssoService.GetProviderByEmail(r.URL.Query().Get("email"))
+			if provider == "" {
+				w.WriteHeader(http.StatusNotFound)
+				return
+			}
+			ssoUrl := config.ExternalAddress
+			if !strings.HasSuffix(ssoUrl, "/") {
+				ssoUrl += "/"
+			}
+			ssoUrl += provider + "/sso"
+			_, err = w.Write([]byte(ssoUrl))
+			if err != nil {
+				logger.Error("failed to write response", zap.Error(err))
+			}
+		})))
+
+		ssoService.InitializeRoutes(func(provider string) {
+			router.Handle("/"+provider+"/sso", server.ipRateLimiter.Limit(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				oidcSetup := ssoService.GetOidcSetupByProvider(provider)
+				if oidcSetup == nil {
+					w.WriteHeader(http.StatusNotFound)
+					return
+				}
+				http.Redirect(w, r, oidcSetup.Config.AuthCodeURL(provider), http.StatusFound)
+			})))
+		})
+		router.HandleFunc("/sso/callback", server.ipRateLimiter.Limit(http.HandlerFunc(authController.AuthenticateSso)).ServeHTTP)
+	}
 
 	if server.config.GeneratedAPIEnabled {
 		rawUrl := server.config.ExternalAddress + "public/v1"
@@ -912,6 +945,7 @@ func (server *Server) frontendConfigHandler(w http.ResponseWriter, r *http.Reque
 		ActiveSessionsViewEnabled:         server.config.ActiveSessionsViewEnabled,
 		ObjectLockUIEnabled:               server.objectLockAndVersioningConfig.ObjectLockEnabled && server.config.ObjectLockUIEnabled,
 		ValdiSignUpURL:                    server.config.ValdiSignUpURL,
+		SsoEnabled:                        server.config.SsoEnabled,
 	}
 
 	err := json.NewEncoder(w).Encode(&cfg)

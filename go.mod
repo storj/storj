@@ -13,6 +13,7 @@ require (
 	github.com/blang/semver v3.5.1+incompatible
 	github.com/bmkessler/fastdiv v0.0.0-20190227075523-41d5178f2044
 	github.com/calebcase/tmpfile v1.0.3
+	github.com/coreos/go-oidc/v3 v3.9.0
 	github.com/davecgh/go-spew v1.1.2-0.20180830191138-d8f796af33cc
 	github.com/dgraph-io/badger/v4 v4.2.0
 	github.com/dsnet/try v0.0.3
@@ -113,6 +114,7 @@ require (
 	github.com/felixge/httpsnoop v1.0.4 // indirect
 	github.com/flynn/noise v1.0.0 // indirect
 	github.com/fsnotify/fsnotify v1.7.0 // indirect
+	github.com/go-jose/go-jose/v3 v3.0.1 // indirect
 	github.com/go-logr/logr v1.4.2 // indirect
 	github.com/go-logr/stdr v1.2.2 // indirect
 	github.com/go-ole/go-ole v1.2.6 // indirect

@@ -616,6 +616,10 @@ table {
   visibility: hidden;
 }
 
+.hidden {
+  display: none !important;
+}
+
 @media (max-width: 599px) {
   .signup-heading {
     font-size: 1.1rem;

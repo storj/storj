@@ -144,7 +144,7 @@ func TestUpdateBucketObjectLockSettings(t *testing.T) {
 
 		_, err = bucketsDB.UpdateBucketObjectLockSettings(ctx, updateParams)
 		require.Error(t, err)
-	}, satellitedbtest.WithSpanner())
+	})
 }
 
 func TestCreateBucketWithObjectLock(t *testing.T) {
@@ -287,5 +287,5 @@ func TestCreateBucketWithObjectLock(t *testing.T) {
 				requireNotExists(t, bucketName)
 			})
 		}
-	}, satellitedbtest.WithSpanner())
+	})
 }

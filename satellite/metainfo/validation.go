@@ -7,6 +7,7 @@ import (
 	"bytes"
 	"context"
 	"crypto/subtle"
+	"fmt"
 	"regexp"
 	"strconv"
 	"strings"
@@ -32,7 +33,12 @@ import (
 	"storj.io/storj/satellite/metabase"
 )
 
-const encryptedKeySize = 48
+const (
+	encryptedKeySize = 48
+
+	maxRetentionDays  = 36500
+	maxRetentionYears = 10
+)
 
 var (
 	ipRegexp           = regexp.MustCompile(`^(([0-9]|[1-9][0-9]|1[0-9]{2}|2[0-4][0-9]|25[0-5])\.){3}([0-9]|[1-9][0-9]|1[0-9]{2}|2[0-4][0-9]|25[0-5])$`)
@@ -293,7 +299,7 @@ func (endpoint *Endpoint) checkRate(ctx context.Context, apiKeyInfo *console.API
 		return rpcstatus.Error(rpcstatus.Unavailable, err.Error())
 	}
 
-	if !limiter.Allow() {
+	if !limiter.AllowN(endpoint.rateLimiterTime(), 1) {
 		if limiter.Burst() == 0 && limiter.Limit() == 0 {
 			return rpcstatus.Error(rpcstatus.PermissionDenied, "All access disabled")
 		}
@@ -500,20 +506,32 @@ func convertProtobufObjectLockConfig(config *pb.ObjectLockConfiguration) (update
 		switch duration := config.DefaultRetention.Duration.(type) {
 		case *pb.DefaultRetention_Days:
 			days := int(duration.Days)
-			if days <= 0 {
+			switch {
+			case days <= 0:
 				return buckets.UpdateBucketObjectLockParams{}, rpcstatus.Error(
 					rpcstatus.ObjectLockInvalidBucketRetentionConfiguration,
 					"Days must be a positive integer",
+				)
+			case days > maxRetentionDays:
+				return buckets.UpdateBucketObjectLockParams{}, rpcstatus.Error(
+					rpcstatus.ObjectLockInvalidBucketRetentionConfiguration,
+					fmt.Sprintf("Days must not exceed %d", maxRetentionDays),
 				)
 			}
 			updateParams.DefaultRetentionDays = doublePtr(days)
 			updateParams.DefaultRetentionYears = nilDoublePtr[int]()
 		case *pb.DefaultRetention_Years:
 			years := int(duration.Years)
-			if years <= 0 {
+			switch {
+			case years <= 0:
 				return buckets.UpdateBucketObjectLockParams{}, rpcstatus.Error(
 					rpcstatus.ObjectLockInvalidBucketRetentionConfiguration,
 					"Years must be a positive integer",
+				)
+			case years > maxRetentionYears:
+				return buckets.UpdateBucketObjectLockParams{}, rpcstatus.Error(
+					rpcstatus.ObjectLockInvalidBucketRetentionConfiguration,
+					fmt.Sprintf("Years must not exceed %d", maxRetentionYears),
 				)
 			}
 			updateParams.DefaultRetentionYears = doublePtr(years)
