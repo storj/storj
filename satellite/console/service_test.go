@@ -55,7 +55,7 @@ func TestService(t *testing.T) {
 		placements[i] = fmt.Sprintf("loc-%d", i)
 	}
 	testplanet.Run(t, testplanet.Config{
-		SatelliteCount: 1, StorageNodeCount: 1, UplinkCount: 4, EnableSpanner: true,
+		SatelliteCount: 1, StorageNodeCount: 1, UplinkCount: 4,
 		Reconfigure: testplanet.Reconfigure{
 			Satellite: func(log *zap.Logger, index int, config *satellite.Config) {
 				config.Payments.StripeCoinPayments.StripeFreeTierCouponID = stripe.MockCouponID1
@@ -2793,7 +2793,7 @@ func TestMFA(t *testing.T) {
 
 func TestResetPassword(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
-		SatelliteCount: 1, StorageNodeCount: 0, UplinkCount: 0, EnableSpanner: true,
+		SatelliteCount: 1, StorageNodeCount: 0, UplinkCount: 0,
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 		sat := planet.Satellites[0]
 		service := sat.API.Console.Service
@@ -2912,7 +2912,7 @@ func TestResetPassword(t *testing.T) {
 
 func TestChangePassword(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
-		SatelliteCount: 1, StorageNodeCount: 0, UplinkCount: 1, EnableSpanner: true,
+		SatelliteCount: 1, StorageNodeCount: 0, UplinkCount: 1,
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 		sat := planet.Satellites[0]
 		upl := planet.Uplinks[0]
@@ -3600,7 +3600,7 @@ func TestDeleteAllSessionsByUserIDExcept(t *testing.T) {
 func TestSatelliteManagedProject(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
 		SatelliteCount: 1, StorageNodeCount: 0, UplinkCount: 1,
-		EnableSpanner: true,
+
 		Reconfigure: testplanet.Reconfigure{
 			Satellite: func(log *zap.Logger, index int, config *satellite.Config) {
 				config.Console.SatelliteManagedEncryptionEnabled = true
@@ -3771,7 +3771,7 @@ func TestSatelliteManagedProjectWithDisabled(t *testing.T) {
 func TestSatelliteManagedProjectWithDisabledAndConfig(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
 		SatelliteCount: 1, StorageNodeCount: 0, UplinkCount: 1,
-		EnableSpanner: true,
+
 		Reconfigure: testplanet.Reconfigure{
 			Satellite: func(log *zap.Logger, index int, config *satellite.Config) {
 				config.Console.SatelliteManagedEncryptionEnabled = false
@@ -3845,7 +3845,7 @@ func TestSatelliteManagedProjectWithDisabledAndConfig(t *testing.T) {
 
 func TestPaymentsWalletPayments(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
-		SatelliteCount: 1, StorageNodeCount: 0, UplinkCount: 0, EnableSpanner: true,
+		SatelliteCount: 1, StorageNodeCount: 0, UplinkCount: 0,
 		Reconfigure: testplanet.Reconfigure{
 			Satellite: func(log *zap.Logger, index int, config *satellite.Config) {
 				config.Payments.BillingConfig.DisableLoop = false

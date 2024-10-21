@@ -58,5 +58,5 @@ func TestCustomersUpdateGetPackage(t *testing.T) {
 		require.NoError(t, err)
 		require.Nil(t, dbPackagePlan)
 		require.Nil(t, dbPurchaseTime)
-	}, satellitedbtest.WithSpanner())
+	})
 }

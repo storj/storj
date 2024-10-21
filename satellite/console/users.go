@@ -38,6 +38,8 @@ type Users interface {
 	UpdateFailedLoginCountAndExpiration(ctx context.Context, failedLoginPenalty *float64, id uuid.UUID, now time.Time) error
 	// GetByEmailWithUnverified is a method for querying users by email from the database.
 	GetByEmailWithUnverified(ctx context.Context, email string) (verified *User, unverified []User, err error)
+	// GetByExternalID is a method for querying user by external ID from the database.
+	GetByExternalID(ctx context.Context, externalID string) (user *User, err error)
 	// GetByStatus is a method for querying user by status from the database.
 	GetByStatus(ctx context.Context, status UserStatus, cursor UserCursor) (*UsersPage, error)
 	// GetUserInfoByProjectID gets the user info of the project (id) owner.
@@ -99,24 +101,34 @@ type UserInfo struct {
 
 // CreateUser struct holds info for User creation.
 type CreateUser struct {
-	FullName         string `json:"fullName"`
-	ShortName        string `json:"shortName"`
-	Email            string `json:"email"`
-	UserAgent        []byte `json:"userAgent"`
-	Password         string `json:"password"`
-	IsProfessional   bool   `json:"isProfessional"`
-	Position         string `json:"position"`
-	CompanyName      string `json:"companyName"`
-	WorkingOn        string `json:"workingOn"`
-	EmployeeCount    string `json:"employeeCount"`
-	HaveSalesContact bool   `json:"haveSalesContact"`
-	CaptchaResponse  string `json:"captchaResponse"`
-	IP               string `json:"ip"`
-	SignupPromoCode  string `json:"signupPromoCode"`
-	ActivationCode   string `json:"-"`
-	SignupId         string `json:"-"`
-	AllowNoName      bool   `json:"-"`
-	PaidTier         bool   `json:"-"`
+	ExternalId       *string `json:"-"`
+	FullName         string  `json:"fullName"`
+	ShortName        string  `json:"shortName"`
+	Email            string  `json:"email"`
+	UserAgent        []byte  `json:"userAgent"`
+	Password         string  `json:"password"`
+	IsProfessional   bool    `json:"isProfessional"`
+	Position         string  `json:"position"`
+	CompanyName      string  `json:"companyName"`
+	WorkingOn        string  `json:"workingOn"`
+	EmployeeCount    string  `json:"employeeCount"`
+	HaveSalesContact bool    `json:"haveSalesContact"`
+	CaptchaResponse  string  `json:"captchaResponse"`
+	IP               string  `json:"ip"`
+	SignupPromoCode  string  `json:"signupPromoCode"`
+	ActivationCode   string  `json:"-"`
+	SignupId         string  `json:"-"`
+	AllowNoName      bool    `json:"-"`
+	PaidTier         bool    `json:"-"`
+}
+
+// CreateSsoUser struct holds info for SSO User creation.
+type CreateSsoUser struct {
+	ExternalId string
+	FullName   string
+	Email      string
+	UserAgent  []byte
+	IP         string
 }
 
 // IsValid checks CreateUser validity and returns error describing whats wrong.
@@ -213,7 +225,8 @@ func (s UserStatus) Value() (driver.Value, error) {
 
 // User is a database object that describes User entity.
 type User struct {
-	ID uuid.UUID `json:"id"`
+	ID         uuid.UUID `json:"id"`
+	ExternalID *string   `json:"-"`
 
 	FullName  string `json:"fullName"`
 	ShortName string `json:"shortName"`
@@ -309,6 +322,8 @@ func GetUser(ctx context.Context) (*User, error) {
 
 // UpdateUserRequest contains all columns which are optionally updatable by users.Update.
 type UpdateUserRequest struct {
+	ExternalID *string
+
 	FullName  *string
 	ShortName **string
 

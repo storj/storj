@@ -356,6 +356,11 @@ func (db *satelliteDB) Testing() satellite.TestingDB {
 
 type satelliteDBTesting struct{ *satelliteDB }
 
+// Implementation returns the implementations of the databases.
+func (db *satelliteDBTesting) Implementation() []dbutil.Implementation {
+	return []dbutil.Implementation{db.satelliteDB.impl}
+}
+
 // Rebind adapts a query's syntax for a database dialect.
 func (db *satelliteDBTesting) Rebind(query string) string {
 	return db.satelliteDB.Rebind(query)
@@ -387,6 +392,15 @@ func (dbc *satelliteDBCollection) Testing() satellite.TestingDB {
 }
 
 type satelliteDBCollectionTesting struct{ *satelliteDBCollection }
+
+// Implementation returns the implementations of the databases.
+func (dbc *satelliteDBCollectionTesting) Implementation() []dbutil.Implementation {
+	var r []dbutil.Implementation
+	for _, db := range dbc.dbs {
+		r = append(r, db.impl)
+	}
+	return r
+}
 
 // Rebind adapts a query's syntax for a database dialect.
 func (dbc *satelliteDBCollectionTesting) Rebind(query string) string {

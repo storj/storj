@@ -53,7 +53,7 @@ func TestUntilEmpty(t *testing.T) {
 		for _, selectCount := range idsMap {
 			assert.Equal(t, selectCount, 1)
 		}
-	}, satellitedbtest.WithSpanner())
+	})
 }
 
 func TestOrder(t *testing.T) {
@@ -277,6 +277,6 @@ func TestCount(t *testing.T) {
 		count, err := repairQueue.Count(ctx)
 		require.NoError(t, err)
 		require.Equal(t, count, numSegments)
-	}, satellitedbtest.WithSpanner())
+	})
 
 }

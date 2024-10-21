@@ -7,6 +7,7 @@ import (
 	"errors"
 	"fmt"
 	"net"
+	"strconv"
 	"strings"
 	"time"
 
@@ -68,14 +69,18 @@ func (node *SelectedNode) Clone() *SelectedNode {
 }
 
 // NodeAttribute returns a string (like last_net or tag value) for each SelectedNode.
-type NodeAttribute func(SelectedNode) any
+// can be used to group / label nodes.
+type NodeAttribute func(SelectedNode) string
+
+// NodeValue returns a numerical value for each node.
+type NodeValue func(node SelectedNode) int64
 
 // LastNetAttribute is used for subnet based declumping/selection.
 var LastNetAttribute = mustCreateNodeAttribute("last_net")
 
 // Subnet can return the IP network of the node for any netmask length.
 func Subnet(bits int64) NodeAttribute {
-	return func(node SelectedNode) any {
+	return func(node SelectedNode) string {
 		addr, _, _ := strings.Cut(node.LastIPPort, ":")
 		_, network, err := net.ParseCIDR(fmt.Sprintf("%s/%d", addr, bits))
 		if err != nil {
@@ -95,7 +100,7 @@ func mustCreateNodeAttribute(attr string) NodeAttribute {
 
 // NodeTagAttribute selects a tag value from node.
 func NodeTagAttribute(signer storj.NodeID, tagName string) NodeAttribute {
-	return func(node SelectedNode) any {
+	return func(node SelectedNode) string {
 		tag, err := node.Tags.FindBySignerAndName(signer, tagName)
 		if err != nil {
 			return ""
@@ -106,13 +111,50 @@ func NodeTagAttribute(signer storj.NodeID, tagName string) NodeAttribute {
 
 // AnyNodeTagAttribute selects a tag value from node, accepts any signer.
 func AnyNodeTagAttribute(tagName string) NodeAttribute {
-	return func(node SelectedNode) any {
+	return func(node SelectedNode) string {
 		for _, tag := range node.Tags {
 			if tag.Name == tagName {
 				return string(tag.Value)
 			}
 		}
 		return ""
+	}
+}
+
+// CreateNodeValue creates a NodeValue from a string definition.
+func CreateNodeValue(attr string) (NodeValue, error) {
+	if strings.HasPrefix(attr, "tag:") {
+		parts := strings.Split(strings.TrimSpace(strings.TrimPrefix(attr, "tag:")), "/")
+		switch len(parts) {
+		case 2:
+			id, err := storj.NodeIDFromString(parts[0])
+			if err != nil {
+				return nil, errs.New("node attribute definition (%s) has invalid NodeID: %s", attr, err.Error())
+			}
+			return func(node SelectedNode) int64 {
+				tag, err := node.Tags.FindBySignerAndName(id, parts[1])
+				if err != nil {
+					return 0
+				}
+				num, _ := strconv.Atoi(string(tag.Value))
+				return int64(num)
+			}, nil
+
+		default:
+			return nil, errs.New("tag attribute should be defined as`tag:signer/key`")
+		}
+	}
+	switch attr {
+	case "free_disk":
+		return func(node SelectedNode) int64 {
+			return node.FreeDisk
+		}, nil
+	case "piece_count":
+		return func(node SelectedNode) int64 {
+			return node.PieceCount
+		}, nil
+	default:
+		return nil, errors.New("Unsupported node value: " + attr)
 	}
 }
 
@@ -135,41 +177,33 @@ func CreateNodeAttribute(attr string) (NodeAttribute, error) {
 	}
 	switch attr {
 	case "last_net":
-		return func(node SelectedNode) any {
+		return func(node SelectedNode) string {
 			return node.LastNet
 		}, nil
 	case "last_ip_port":
-		return func(node SelectedNode) any {
+		return func(node SelectedNode) string {
 			return node.LastIPPort
 		}, nil
 	case "last_ip":
-		return func(node SelectedNode) any {
+		return func(node SelectedNode) string {
 			ip, _, _ := strings.Cut(node.LastIPPort, ":")
 			return ip
 		}, nil
 	case "wallet":
-		return func(node SelectedNode) any {
+		return func(node SelectedNode) string {
 			return node.Wallet
 		}, nil
-	case "free_disk":
-		return func(node SelectedNode) any {
-			return node.FreeDisk
-		}, nil
 	case "email":
-		return func(node SelectedNode) any {
+		return func(node SelectedNode) string {
 			return node.Email
 		}, nil
 	case "country":
-		return func(node SelectedNode) any {
+		return func(node SelectedNode) string {
 			return node.CountryCode.String()
 		}, nil
 	case "vetted":
-		return func(node SelectedNode) any {
+		return func(node SelectedNode) string {
 			return fmt.Sprintf("%t", node.Vetted)
-		}, nil
-	case "piece_count":
-		return func(node SelectedNode) any {
-			return node.PieceCount
 		}, nil
 	default:
 		return nil, errors.New("Unsupported node attribute: " + attr)

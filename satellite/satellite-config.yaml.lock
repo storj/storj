@@ -1411,6 +1411,15 @@ server.private-address: 127.0.0.1:7778
 # if true, uses peer ca whitelist checking
 # server.use-peer-ca-whitelist: true
 
+# semicolon-separated provider:email-regex as provided in oidc-provider-infos.
+# sso.email-provider-mappings: ""
+
+# whether SSO is enabled.
+# sso.enabled: false
+
+# semicolon-separated provider:client-id,client-secret,provider-url.
+# sso.oidc-provider-infos: ""
+
 # indicates whether the console API should be served as a standalone service
 # standalone-console-api-enabled: false
 

@@ -46,7 +46,7 @@ func TestPaymentsDBInsertBatch(t *testing.T) {
 
 		err := paymentsDB.InsertBatch(ctx, cachedPayments)
 		require.NoError(t, err)
-	}, satellitedbtest.WithSpanner())
+	})
 }
 
 func TestPaymentsDBList(t *testing.T) {
@@ -157,7 +157,7 @@ func TestPaymentsDBList(t *testing.T) {
 			require.NoError(t, err)
 			require.Equal(t, expectedW, actual)
 		})
-	}, satellitedbtest.WithSpanner())
+	})
 }
 
 func TestPaymentsDBLastBlock(t *testing.T) {
@@ -209,14 +209,14 @@ func TestPaymentsDBLastBlock(t *testing.T) {
 			require.NoError(t, err)
 			require.EqualValues(t, 10, last[chainId])
 		})
-	}, satellitedbtest.WithSpanner())
+	})
 }
 
 func TestPaymentsDBLastBlockNoPayments(t *testing.T) {
 	satellitedbtest.Run(t, func(ctx *testcontext.Context, t *testing.T, db satellite.DB) {
 		_, err := db.StorjscanPayments().LastBlocks(ctx, payments.PaymentStatusConfirmed)
 		require.True(t, errs.Is(err, storjscan.ErrNoPayments))
-	}, satellitedbtest.WithSpanner())
+	})
 }
 
 func TestPaymentsDBDeletePending(t *testing.T) {
@@ -284,7 +284,7 @@ func TestPaymentsDBDeletePending(t *testing.T) {
 		require.NoError(t, err)
 		require.Equal(t, 4, len(actual))
 		require.Equal(t, payments[:4], actual)
-	}, satellitedbtest.WithSpanner())
+	})
 }
 
 type paymentLog struct {

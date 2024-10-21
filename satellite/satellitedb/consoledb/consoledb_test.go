@@ -72,5 +72,5 @@ func TestConsoleTx(t *testing.T) {
 			require.Error(t, err)
 			require.Nil(t, gotProjInfo)
 		})
-	}, satellitedbtest.WithSpanner())
+	})
 }

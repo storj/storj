@@ -453,7 +453,7 @@ func TestGetProjectSettledBandwidthTotal(t *testing.T) {
 		actualBandwidthTotal, err := pdb.GetProjectSettledBandwidthTotal(ctx, projectID, since)
 		require.NoError(t, err)
 		require.Equal(t, expectedTotal, actualBandwidthTotal)
-	}, satellitedbtest.WithSpanner())
+	})
 }
 
 func setUpBucketBandwidthAllocations(ctx *testcontext.Context, projectID uuid.UUID, orderDB orders.DB, now time.Time) error {
@@ -519,7 +519,7 @@ func TestProjectUsageCustomLimit(t *testing.T) {
 
 func TestUsageRollups(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
-		SatelliteCount: 1, StorageNodeCount: 0, UplinkCount: 3, EnableSpanner: true,
+		SatelliteCount: 1, StorageNodeCount: 0, UplinkCount: 3,
 		Reconfigure: testplanet.Reconfigure{
 			Satellite: func(log *zap.Logger, index int, config *satellite.Config) {
 				config.Metainfo.UseBucketLevelObjectVersioning = true
