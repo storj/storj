@@ -424,7 +424,7 @@ func (db *StoragenodeAccounting) LastTimestamp(ctx context.Context, timestampTyp
 }
 
 // QueryPaymentInfo queries Overlay, Accounting Rollup on nodeID.
-func (db *StoragenodeAccounting) QueryPaymentInfo(ctx context.Context, start time.Time, end time.Time) (_ []*accounting.CSVRow, err error) {
+func (db *StoragenodeAccounting) QueryPaymentInfo(ctx context.Context, start time.Time, end time.Time) (_ []accounting.NodePaymentInfo, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	var floatType string
@@ -438,22 +438,16 @@ func (db *StoragenodeAccounting) QueryPaymentInfo(ctx context.Context, start tim
 	}
 
 	query := db.db.Rebind(`
-		SELECT n.id, n.created_at, r.at_rest_total, r.get_repair_total, r.put_repair_total,
-			r.get_audit_total, r.put_total, r.get_total, n.wallet, n.disqualified
-		FROM (
-			SELECT node_id,
-				CAST(SUM(CAST(at_rest_total AS NUMERIC)) AS ` + floatType + `) AS at_rest_total,
-				SUM(get_repair_total) AS get_repair_total,
-				SUM(put_repair_total) AS put_repair_total,
-				SUM(get_audit_total) AS get_audit_total,
-				SUM(put_total) AS put_total,
-				SUM(get_total) AS get_total
-			FROM accounting_rollups
-			WHERE start_time >= ? AND start_time < ?
-			GROUP BY node_id
-			) r
-		LEFT JOIN nodes n ON n.id = r.node_id
-		ORDER BY n.id
+		SELECT node_id,
+			CAST(SUM(CAST(at_rest_total AS NUMERIC)) AS ` + floatType + `) AS at_rest_total,
+			SUM(get_repair_total) AS get_repair_total,
+			SUM(put_repair_total) AS put_repair_total,
+			SUM(get_audit_total) AS get_audit_total,
+			SUM(put_total) AS put_total,
+			SUM(get_total) AS get_total
+		FROM accounting_rollups
+		WHERE start_time >= ? AND start_time < ?
+		GROUP BY node_id
 	`)
 
 	rows, err := db.db.DB.QueryContext(ctx, query, start.UTC(), end.UTC())
@@ -462,29 +456,17 @@ func (db *StoragenodeAccounting) QueryPaymentInfo(ctx context.Context, start tim
 	}
 	defer func() { err = errs.Combine(err, rows.Close()) }()
 
-	csv := []*accounting.CSVRow{}
+	infos := []accounting.NodePaymentInfo{}
 	for rows.Next() {
-		var nodeID []byte
-		r := &accounting.CSVRow{}
-		var wallet sql.NullString
-		var disqualified *time.Time
-		err := rows.Scan(&nodeID, &r.NodeCreationDate, &r.AtRestTotal, &r.GetRepairTotal,
-			&r.PutRepairTotal, &r.GetAuditTotal, &r.PutTotal, &r.GetTotal, &wallet, &disqualified)
+		var info accounting.NodePaymentInfo
+		err := rows.Scan(&info.NodeID, &info.AtRestTotal, &info.GetRepairTotal, &info.PutRepairTotal, &info.GetAuditTotal, &info.PutTotal, &info.GetTotal)
 		if err != nil {
-			return csv, Error.Wrap(err)
+			return infos, Error.Wrap(err)
 		}
-		if wallet.Valid {
-			r.Wallet = wallet.String
-		}
-		id, err := storj.NodeIDFromBytes(nodeID)
-		if err != nil {
-			return csv, Error.Wrap(err)
-		}
-		r.NodeID = id
-		r.Disqualified = disqualified
-		csv = append(csv, r)
+		infos = append(infos, info)
 	}
-	return csv, rows.Err()
+
+	return infos, rows.Err()
 }
 
 // QueryStorageNodePeriodUsage returns usage invoices for nodes for a compensation period.

@@ -644,6 +644,51 @@ func (cache *overlaycache) GetNodes(ctx context.Context, nodeIDs storj.NodeIDLis
 	return records, Error.Wrap(err)
 }
 
+// AccountingNodeInfo gets records for all specified nodes for accounting.
+func (cache *overlaycache) AccountingNodeInfo(ctx context.Context, nodeIDs storj.NodeIDList) (_ map[storj.NodeID]overlay.NodeAccountingInfo, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	if len(nodeIDs) == 0 {
+		return nil, Error.New("no ids provided")
+	}
+
+	var rows tagsql.Rows
+
+	switch cache.db.impl {
+	case dbutil.Cockroach, dbutil.Postgres:
+		rows, err = cache.db.Query(ctx, `
+			SELECT id, created_at, wallet, disqualified
+			FROM nodes
+			WHERE id = any($1::bytea[])
+		`, pgutil.NodeIDArray(nodeIDs))
+
+	case dbutil.Spanner:
+		rows, err = cache.db.Query(ctx, `
+			SELECT id, created_at, wallet, disqualified
+			FROM nodes
+			WHERE id IN UNNEST(?)
+		`, nodeIDs.Bytes())
+	default:
+		return nil, Error.New("unsupported implementation")
+	}
+
+	xs := map[storj.NodeID]overlay.NodeAccountingInfo{}
+	err = withRows(rows, err)(func(rows tagsql.Rows) error {
+		for rows.Next() {
+			var id storj.NodeID
+			var info overlay.NodeAccountingInfo
+			err := rows.Scan(&id, &info.NodeCreationDate, &info.Wallet, &info.Disqualified)
+			if err != nil {
+				return Error.Wrap(err)
+			}
+			xs[id] = info
+		}
+		return nil
+	})
+
+	return xs, Error.Wrap(err)
+}
+
 // GetParticipatingNodes returns all known participating nodes (this includes all known nodes
 // excluding nodes that have been disqualified or gracefully exited).
 func (cache *overlaycache) GetParticipatingNodes(ctx context.Context, onlineWindow, asOfSystemInterval time.Duration) (records []nodeselection.SelectedNode, err error) {
