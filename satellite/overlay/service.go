@@ -100,6 +100,9 @@ type DB interface {
 	// GetNodesNetworkInOrder returns the last_net subnet for each storage node in order of the requested nodeIDs.
 	GetNodesNetworkInOrder(ctx context.Context, nodeIDs []storj.NodeID) (nodeNets []string, err error)
 
+	// AccountingNodeInfo gets records for all specified nodes for accounting.
+	AccountingNodeInfo(ctx context.Context, nodeIDs storj.NodeIDList) (_ map[storj.NodeID]NodeAccountingInfo, err error)
+
 	// DisqualifyNode disqualifies a storage node.
 	DisqualifyNode(ctx context.Context, nodeID storj.NodeID, disqualifiedAt time.Time, reason DisqualificationReason) (email string, err error)
 
@@ -287,6 +290,13 @@ type NodeReputation struct {
 	LastNet    string
 	LastIPPort string
 	Reputation ReputationStatus
+}
+
+// NodeAccountingInfo contains wallet information necessary for paying nodes.
+type NodeAccountingInfo struct {
+	NodeCreationDate time.Time
+	Wallet           string
+	Disqualified     *time.Time
 }
 
 // Service is used to store and handle node information.

@@ -48,12 +48,6 @@ func TestRollupNoDeletes(t *testing.T) {
 
 		rollupService := rollup.New(testplanet.NewLogger(t), snAccountingDB, rollup.Config{Interval: 120 * time.Second}, time.Hour)
 
-		// disqualifying nodes is unrelated to this test, but it is added here
-		// to confirm the disqualification shows up in the accounting CSVRow
-		dqedNodes, err := dqNodes(ctx, db.OverlayCache(), storageNodes)
-		require.NoError(t, err)
-		require.NotEmpty(t, dqedNodes)
-
 		// Set initialTime back by the number of days we want to save
 		initialTime := time.Now().UTC().AddDate(0, 0, -days)
 		currentTime := initialTime
@@ -89,12 +83,6 @@ func TestRollupNoDeletes(t *testing.T) {
 			assert.Equal(t, int64(days*getAuditAmount), row.GetAuditTotal)
 			assert.Equal(t, int64(days*getRepairAmount), row.GetRepairTotal)
 			assert.Equal(t, float64(days*atRestAmount), row.AtRestTotal)
-			assert.NotEmpty(t, row.Wallet)
-			if dqedNodes[row.NodeID] {
-				assert.NotNil(t, row.Disqualified)
-			} else {
-				assert.Nil(t, row.Disqualified)
-			}
 		}
 		// Confirm there is a storage tally row for each time tally ran for each storage node.
 		// We ran tally for one additional day, so expect 6 days of tallies.
@@ -150,12 +138,6 @@ func TestRollupDeletes(t *testing.T) {
 
 		rollupService := rollup.New(testplanet.NewLogger(t), snAccountingDB, rollup.Config{Interval: 120 * time.Second, DeleteTallies: true}, time.Hour)
 
-		// disqualifying nodes is unrelated to this test, but it is added here
-		// to confirm the disqualification shows up in the accounting CSVRow
-		dqedNodes, err := dqNodes(ctx, db.OverlayCache(), storageNodes)
-		require.NoError(t, err)
-		require.NotEmpty(t, dqedNodes)
-
 		// Set timestamp back by the number of days we want to save
 		now := time.Now().UTC()
 		initialTime := now.AddDate(0, 0, -days)
@@ -203,12 +185,6 @@ func TestRollupDeletes(t *testing.T) {
 			assert.Equal(t, int64(days*getAuditAmount), row.GetAuditTotal)
 			assert.Equal(t, int64(days*getRepairAmount), row.GetRepairTotal)
 			assert.Equal(t, float64(days*atRestAmount), row.AtRestTotal)
-			assert.NotEmpty(t, row.Wallet)
-			if dqedNodes[row.NodeID] {
-				assert.NotNil(t, row.Disqualified)
-			} else {
-				assert.Nil(t, row.Disqualified)
-			}
 		}
 		// Confirm there are only storage tally rows for the last time tally ran for each storage node.
 		storagenodeTallies, err := snAccountingDB.GetTallies(ctx)
@@ -367,23 +343,4 @@ func saveBWPhase3(ctx context.Context, ordersDB orders.DB, bwTotals map[storj.No
 		}
 	}
 	return nil
-}
-
-// dqNodes disqualifies half the nodes in the testplanet and returns a map of dqed nodes.
-func dqNodes(ctx *testcontext.Context, overlayDB overlay.DB, storageNodes []storj.NodeID) (map[storj.NodeID]bool, error) {
-	dqed := make(map[storj.NodeID]bool)
-
-	for i, n := range storageNodes {
-		if i%2 == 0 {
-			continue
-		}
-
-		_, err := overlayDB.DisqualifyNode(ctx, n, time.Now().UTC(), overlay.DisqualificationReasonUnknown)
-		if err != nil {
-			return nil, err
-		}
-		dqed[n] = true
-	}
-
-	return dqed, nil
 }

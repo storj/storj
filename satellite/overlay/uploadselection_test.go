@@ -947,3 +947,8 @@ func (m *mockdb) GetNodeTags(ctx context.Context, id storj.NodeID) (nodeselectio
 func (m *mockdb) GetLastIPPortByNodeTagNames(ctx context.Context, ids storj.NodeIDList, tagName []string) (lastIPPorts map[storj.NodeID]*string, err error) {
 	panic("implement me")
 }
+
+// AccountingNodeInfo gets records for all specified nodes for accounting.
+func (m *mockdb) AccountingNodeInfo(ctx context.Context, nodeIDs storj.NodeIDList) (_ map[storj.NodeID]overlay.NodeAccountingInfo, err error) {
+	panic("implement me")
+}
