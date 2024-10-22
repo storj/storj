@@ -414,7 +414,7 @@ func TestNodeFailingGracefulExitWithLowOnlineScore(t *testing.T) {
 				config.Reputation.AuditHistory.TrackingPeriod = 3 * 24 * time.Hour
 				config.Reputation.FlushInterval = 0
 				config.GracefulExit.MinimumOnlineScore = 0.6
-				config.GracefulExit.GracefulExitDurationInDays = 30
+				config.GracefulExit.GracefulExitDurationInDays = 4
 			},
 		},
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
