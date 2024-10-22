@@ -66,22 +66,45 @@
         :pending-payments="pendingPayments"
     />
 
-    <v-btn
-        v-if="viewState !== ViewState.Success && !isRoot"
-        class="my-4"
-        block
-        variant="outlined"
-        color="default"
-        @click="emit('back')"
-    >
-        Back
-    </v-btn>
+    <template v-if="!isRoot">
+        <v-alert
+            class="mt-3 mb-2"
+            density="compact"
+            variant="tonal"
+            type="info"
+            text="You can continue using the app, and your upgrade will be applied automatically once your STORJ tokens are received."
+        />
+        <v-card-actions class="px-0">
+            <v-row class="ma-0 gap">
+                <v-col v-if="viewState !== ViewState.Success" class="px-0">
+                    <v-btn
+                        block
+                        variant="outlined"
+                        color="default"
+                        @click="() => emit('back')"
+                    >
+                        Back
+                    </v-btn>
+                </v-col>
+                <v-col v-if="isOnboarding" class="px-0">
+                    <v-btn
+                        color="primary"
+                        variant="flat"
+                        block
+                        @click="() => emit('success')"
+                    >
+                        Next
+                    </v-btn>
+                </v-col>
+            </v-row>
+        </v-card-actions>
+    </template>
 </template>
 
 <script setup lang="ts">
 import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue';
 import QRCode from 'qrcode';
-import { VTooltip, VBtn, VIcon, VCol, VRow } from 'vuetify/components';
+import { VTooltip, VBtn, VIcon, VCol, VRow, VCardActions, VAlert } from 'vuetify/components';
 import { Copy, Info } from 'lucide-vue-next';
 import { useRoute } from 'vue-router';
 
@@ -116,6 +139,7 @@ const viewState = ref<ViewState>(ViewState.Default);
 defineProps<{
     // whether this step is the first step in a flow
     isRoot?: boolean;
+    isOnboarding?: boolean;
 }>();
 
 const emit = defineEmits<{
@@ -236,3 +260,9 @@ onBeforeUnmount(() => {
     }
 });
 </script>
+
+<style scoped lang="scss">
+.gap {
+    column-gap: 12px;
+}
+</style>
