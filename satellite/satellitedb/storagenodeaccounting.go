@@ -18,8 +18,8 @@ import (
 	"storj.io/storj/satellite/compensation"
 	"storj.io/storj/satellite/satellitedb/dbx"
 	"storj.io/storj/shared/dbutil"
-	"storj.io/storj/shared/dbutil/cockroachutil"
 	"storj.io/storj/shared/dbutil/pgutil"
+	"storj.io/storj/shared/dbutil/retrydb"
 	"storj.io/storj/shared/tagsql"
 )
 
@@ -210,7 +210,7 @@ func (db *StoragenodeAccounting) GetBandwidthSince(ctx context.Context, latestRo
 	for {
 		nodeids, err = db.getNodeIdsSince(ctx, latestRollup)
 		if err != nil {
-			if cockroachutil.NeedsRetry(err) {
+			if retrydb.ShouldRetryIdempotent(err) {
 				continue
 			}
 			return err
@@ -424,50 +424,31 @@ func (db *StoragenodeAccounting) LastTimestamp(ctx context.Context, timestampTyp
 }
 
 // QueryPaymentInfo queries Overlay, Accounting Rollup on nodeID.
-func (db *StoragenodeAccounting) QueryPaymentInfo(ctx context.Context, start time.Time, end time.Time) (_ []*accounting.CSVRow, err error) {
+func (db *StoragenodeAccounting) QueryPaymentInfo(ctx context.Context, start time.Time, end time.Time) (_ []accounting.NodePaymentInfo, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	var query string
-
+	var floatType string
 	switch db.db.impl {
 	case dbutil.Cockroach, dbutil.Postgres:
-		query = db.db.Rebind(`
-			SELECT n.id, n.created_at, r.at_rest_total, r.get_repair_total, r.put_repair_total,
-			r.get_audit_total, r.put_total, r.get_total, n.wallet, n.disqualified
-			FROM (
-				SELECT node_id, SUM(at_rest_total::decimal) AS at_rest_total,
-					SUM(get_repair_total) AS get_repair_total,
-					SUM(put_repair_total) AS put_repair_total,
-					SUM(get_audit_total) AS get_audit_total,
-					SUM(put_total) AS put_total, SUM(get_total) AS get_total
-				FROM accounting_rollups
-				WHERE start_time >= ? AND start_time < ?
-				GROUP BY node_id
-				) r
-			LEFT JOIN nodes n ON n.id = r.node_id ORDER BY n.id
-			`)
+		floatType = "FLOAT"
 	case dbutil.Spanner:
-		query = `
-			SELECT n.id, n.created_at, r.at_rest_total, r.get_repair_total, r.put_repair_total,
-				r.get_audit_total, r.put_total, r.get_total, n.wallet, n.disqualified
-			FROM (
-				SELECT node_id,
-					SUM(at_rest_total) AS at_rest_total,
-					SUM(get_repair_total) AS get_repair_total,
-					SUM(put_repair_total) AS put_repair_total,
-					SUM(get_audit_total) AS get_audit_total,
-					SUM(put_total) AS put_total,
-					SUM(get_total) AS get_total
-				FROM accounting_rollups
-				WHERE start_time >= ? AND start_time < ?
-				GROUP BY node_id
-				) r
-			LEFT JOIN nodes n ON n.id = r.node_id
-			ORDER BY n.id
-			`
+		floatType = "FLOAT64"
 	default:
 		return nil, Error.New("unsupported database: %v", db.db.impl)
 	}
+
+	query := db.db.Rebind(`
+		SELECT node_id,
+			CAST(SUM(CAST(at_rest_total AS NUMERIC)) AS ` + floatType + `) AS at_rest_total,
+			SUM(get_repair_total) AS get_repair_total,
+			SUM(put_repair_total) AS put_repair_total,
+			SUM(get_audit_total) AS get_audit_total,
+			SUM(put_total) AS put_total,
+			SUM(get_total) AS get_total
+		FROM accounting_rollups
+		WHERE start_time >= ? AND start_time < ?
+		GROUP BY node_id
+	`)
 
 	rows, err := db.db.DB.QueryContext(ctx, query, start.UTC(), end.UTC())
 	if err != nil {
@@ -475,78 +456,51 @@ func (db *StoragenodeAccounting) QueryPaymentInfo(ctx context.Context, start tim
 	}
 	defer func() { err = errs.Combine(err, rows.Close()) }()
 
-	csv := []*accounting.CSVRow{}
+	infos := []accounting.NodePaymentInfo{}
 	for rows.Next() {
-		var nodeID []byte
-		r := &accounting.CSVRow{}
-		var wallet sql.NullString
-		var disqualified *time.Time
-		err := rows.Scan(&nodeID, &r.NodeCreationDate, &r.AtRestTotal, &r.GetRepairTotal,
-			&r.PutRepairTotal, &r.GetAuditTotal, &r.PutTotal, &r.GetTotal, &wallet, &disqualified)
+		var info accounting.NodePaymentInfo
+		err := rows.Scan(&info.NodeID, &info.AtRestTotal, &info.GetRepairTotal, &info.PutRepairTotal, &info.GetAuditTotal, &info.PutTotal, &info.GetTotal)
 		if err != nil {
-			return csv, Error.Wrap(err)
+			return infos, Error.Wrap(err)
 		}
-		if wallet.Valid {
-			r.Wallet = wallet.String
-		}
-		id, err := storj.NodeIDFromBytes(nodeID)
-		if err != nil {
-			return csv, Error.Wrap(err)
-		}
-		r.NodeID = id
-		r.Disqualified = disqualified
-		csv = append(csv, r)
+		infos = append(infos, info)
 	}
-	return csv, rows.Err()
+
+	return infos, rows.Err()
 }
 
 // QueryStorageNodePeriodUsage returns usage invoices for nodes for a compensation period.
 func (db *StoragenodeAccounting) QueryStorageNodePeriodUsage(ctx context.Context, period compensation.Period) (_ []accounting.StorageNodePeriodUsage, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	var query string
-
+	var floatType string
 	switch db.db.impl {
 	case dbutil.Cockroach, dbutil.Postgres:
-		query = db.db.Rebind(`
-			SELECT
-				node_id,
-				SUM(at_rest_total::decimal) AS at_rest_total,
-				SUM(get_total) AS get_total,
-				SUM(put_total) AS put_total,
-				SUM(get_repair_total) AS get_repair_total,
-				SUM(put_repair_total) AS put_repair_total,
-				SUM(get_audit_total) AS get_audit_total
-			FROM
-				accounting_rollups
-			WHERE
-				start_time >= ? AND start_time < ?
-			GROUP BY
-				node_id
-			ORDER BY
-				node_id ASC
-		`)
+		floatType = "FLOAT"
 	case dbutil.Spanner:
-		query = `
-			SELECT
-			   node_id,
-			   SUM(CAST(at_rest_total AS FLOAT64)) AS at_rest_total,
-			   SUM(get_total) AS get_total,
-			   SUM(put_total) AS put_total,
-			   SUM(get_repair_total) AS get_repair_total,
-			   SUM(put_repair_total) AS put_repair_total,
-			   SUM(get_audit_total) AS get_audit_total
-			FROM
-			   accounting_rollups
-			WHERE
-			   start_time >= ? AND start_time < ?
-			GROUP BY
-			   node_id
-			ORDER BY
-			   node_id ASC`
+		floatType = "FLOAT64"
 	default:
 		return nil, Error.New("unsupported database: %v", db.db.impl)
 	}
+
+	query := db.db.Rebind(`
+		SELECT
+			node_id,
+			CAST(SUM(CAST(at_rest_total AS NUMERIC)) AS ` + floatType + `) AS at_rest_total,
+			SUM(get_total) AS get_total,
+			SUM(put_total) AS put_total,
+			SUM(get_repair_total) AS get_repair_total,
+			SUM(put_repair_total) AS put_repair_total,
+			SUM(get_audit_total) AS get_audit_total
+		FROM
+			accounting_rollups
+		WHERE
+			start_time >= ? AND start_time < ?
+		GROUP BY
+			node_id
+		ORDER BY
+			node_id ASC
+	`)
 
 	rows, err := db.db.DB.QueryContext(ctx, query, period.StartDate(), period.EndDateExclusive())
 	if err != nil {
