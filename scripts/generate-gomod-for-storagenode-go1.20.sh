@@ -41,7 +41,8 @@ go get -modfile "$2" \
     google.golang.org/grpc@v1.64.1 \
     github.com/cncf/xds/go@v0.0.0-20240423153145-555b57ec207b \
     github.com/envoyproxy/protoc-gen-validate@v1.0.4 \
-    github.com/googleapis/enterprise-certificate-proxy@v0.3.2
+    github.com/googleapis/enterprise-certificate-proxy@v0.3.2 \
+    github.com/coreos/go-oidc/v3@v3.9.0
 
 # set the go version and remove toolchain line
 go mod edit -go 1.20 "$2"
