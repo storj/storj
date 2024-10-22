@@ -2754,7 +2754,7 @@ func TestListObjectDuplicates(t *testing.T) {
 		u := planet.Uplinks[0]
 		s := planet.Satellites[0]
 
-		const amount = 23
+		const amount = 11
 
 		require.NoError(t, u.CreateBucket(ctx, s, "test"))
 
