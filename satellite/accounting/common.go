@@ -4,11 +4,7 @@
 package accounting
 
 import (
-	"time"
-
 	"github.com/zeebo/errs"
-
-	"storj.io/common/storj"
 )
 
 // Constants for accounting_raw, accounting_rollup, and accounting_timestamps.
@@ -34,17 +30,3 @@ var (
 	// business domain is in the cache.
 	ErrUnexpectedValue = errs.Class("unexpected value")
 )
-
-// CSVRow represents data from QueryPaymentInfo without exposing dbx.
-type CSVRow struct {
-	NodeID           storj.NodeID
-	NodeCreationDate time.Time
-	AtRestTotal      float64
-	GetRepairTotal   int64
-	PutRepairTotal   int64
-	GetAuditTotal    int64
-	PutTotal         int64
-	GetTotal         int64
-	Wallet           string
-	Disqualified     *time.Time
-}
