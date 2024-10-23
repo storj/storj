@@ -118,8 +118,10 @@ func cmdRun(cmd *cobra.Command, cfg *runCfg) (err error) {
 		}
 	}
 
-	if err := peer.Storage2.CacheService.Init(ctx); err != nil {
-		log.Error("Failed to initialize CacheService.", zap.Error(err))
+	if !cfg.Config.Storage2.Monitor.DedicatedDisk {
+		if err := peer.Storage2.CacheService.Init(ctx); err != nil {
+			log.Error("Failed to initialize CacheService.", zap.Error(err))
+		}
 	}
 
 	runError := peer.Run(ctx)
