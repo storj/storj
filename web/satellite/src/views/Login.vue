@@ -377,13 +377,16 @@ async function onLoginClick(): Promise<void> {
         return;
     }
 
+    let url: URL;
     switch (ssoUrl.value) {
     case SsoCheckState.None:
     case SsoCheckState.Failed:
         await triggerLogin();
         break;
     default:
-        window.open(ssoUrl.value, '_self');
+        url = new URL(ssoUrl.value);
+        url.searchParams.set('email', email.value);
+        window.open(url.toString(), '_self');
     }
 }
 

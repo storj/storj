@@ -344,6 +344,7 @@ export class AuthHttpApi implements UsersApi {
 
             return new User(
                 userResponse.id,
+                userResponse.externalID,
                 userResponse.fullName,
                 userResponse.shortName,
                 userResponse.email,

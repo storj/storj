@@ -1240,24 +1240,11 @@ func (cache *overlaycache) GetExitStatus(ctx context.Context, nodeID storj.NodeI
 func (cache *overlaycache) getExitStatus(ctx context.Context, nodeID storj.NodeID) (_ *overlay.ExitStatus, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	var rows tagsql.Rows
-
-	switch cache.db.impl {
-	case dbutil.Cockroach, dbutil.Postgres:
-		rows, err = cache.db.Query(ctx, cache.db.Rebind(`
-			SELECT id, exit_initiated_at, exit_loop_completed_at, exit_finished_at, exit_success
-			FROM nodes
-			WHERE id = ?
-		`), nodeID)
-	case dbutil.Spanner:
-		rows, err = cache.db.Query(ctx, cache.db.Rebind(`
-			SELECT id, exit_initiated_at, exit_loop_completed_at, exit_finished_at, exit_success
-			FROM nodes
-			WHERE id = ?
-		`), nodeID.Bytes())
-	default:
-		return nil, Error.New("unsupported implementation")
-	}
+	rows, err := cache.db.Query(ctx, cache.db.Rebind(`
+		SELECT id, exit_initiated_at, exit_loop_completed_at, exit_finished_at, exit_success
+		FROM nodes
+		WHERE id = ?
+	`), nodeID)
 
 	if err != nil {
 		return nil, Error.Wrap(err)
