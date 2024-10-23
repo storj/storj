@@ -371,8 +371,6 @@ export enum OnboardingStep {
     PaymentMethodSelection = 'PaymentMethodSelection',
     PricingPlanSelection = 'PricingPlanSelection',
     ManagedPassphraseOptIn = 'ManagedPassphraseOptIn',
-    PricingPlan = 'PricingPlan',
-    AddTokens = 'AddTokens',
     BusinessAccountForm = 'BusinessAccountForm',
     SetupComplete = 'SetupComplete',
     EncryptionPassphrase = 'EncryptionPassphrase',
@@ -395,8 +393,6 @@ export const ACCOUNT_SETUP_STEPS = [
     OnboardingStep.PlanTypeSelection,
     OnboardingStep.PaymentMethodSelection,
     OnboardingStep.PricingPlanSelection,
-    OnboardingStep.PricingPlan,
-    OnboardingStep.AddTokens,
     OnboardingStep.BusinessAccountForm,
     OnboardingStep.SetupComplete,
 ];
