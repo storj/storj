@@ -45,7 +45,9 @@ func GetNewSuccessTracker(kind string) (func() SuccessTracker, bool) {
 
 	switch {
 	case kind == "bitshift":
-		return func() SuccessTracker { return new(bitshiftSuccessTracker) }, true
+		return func() SuccessTracker { return newBitshiftSuccessTracker() }, true
+	case kind == "congestion":
+		return func() SuccessTracker { return newCongestionSuccessTracker() }, true
 	case strings.HasPrefix(kind, "bitshift"):
 		lengthDef := strings.TrimPrefix(kind, "bitshift")
 		length, err := strconv.Atoi(lengthDef)
@@ -203,66 +205,101 @@ func (t *percentSuccessTracker) Stats(cb func(monkit.SeriesKey, string, float64)
 }
 
 //
-// bitshift success tracker
+// different success trackers
 //
 
-// increment does a CAS loop incrementing the value in the counter by sliding
-// the bits in it to the left by 1 and adding 1 if there was a success.
-func increment(ctr *atomic.Uint64, success bool) {
-	for {
-		o := ctr.Load()
-		v := o << 1
-		if success {
-			v++
-		}
-		if ctr.CompareAndSwap(o, v) {
-			return
-		}
+func newBitshiftSuccessTracker() *parameterizedSuccessTracker {
+	return &parameterizedSuccessTracker{
+		name: "bitshift",
+		increment: func(ctr *atomic.Uint64, success bool) {
+			// increment does a CAS loop incrementing the value in the counter by sliding
+			// the bits in it to the left by 1 and adding 1 if there was a success.
+			for {
+				o := ctr.Load()
+				v := o << 1
+				if success {
+					v++
+				}
+				if ctr.CompareAndSwap(o, v) {
+					return
+				}
+			}
+		},
+		defaultVal: ^uint64(0),
+		score:      func(v uint64) float64 { return float64(bits.OnesCount64(v)) },
 	}
 }
 
-type bitshiftSuccessTracker struct {
-	mu   sync.Mutex
-	data sync.Map // storj.NodeID -> *atomic.Uint64
+func newCongestionSuccessTracker() *parameterizedSuccessTracker {
+	return &parameterizedSuccessTracker{
+		name: "congestion",
+		increment: func(ctr *atomic.Uint64, success bool) {
+			if success {
+				ctr.Add(1)
+				return
+			}
+			for {
+				o := ctr.Load()
+				if ctr.CompareAndSwap(o, o>>1) {
+					return
+				}
+			}
+		},
+		defaultVal: 0,
+		score:      func(v uint64) float64 { return float64(v) },
+	}
 }
 
-func (t *bitshiftSuccessTracker) Increment(node storj.NodeID, success bool) {
+//
+// parameterized success tracker implementation
+//
+
+type parameterizedSuccessTracker struct {
+	mu         sync.Mutex
+	data       sync.Map // storj.NodeID -> *atomic.Uint64
+	name       string
+	increment  func(ctr *atomic.Uint64, success bool)
+	defaultVal uint64
+	score      func(uint64) float64
+}
+
+func (t *parameterizedSuccessTracker) Increment(node storj.NodeID, success bool) {
 	crtI, ok := t.data.Load(node)
 	if !ok {
 		v := new(atomic.Uint64)
-		v.Store(^uint64(0))
+		v.Store(t.defaultVal)
 		crtI, _ = t.data.LoadOrStore(node, v)
 	}
 	ctr, _ := crtI.(*atomic.Uint64)
-	increment(ctr, success)
+	t.increment(ctr, success)
 }
 
-func (t *bitshiftSuccessTracker) Get(node *nodeselection.SelectedNode) float64 {
+func (t *parameterizedSuccessTracker) Get(node *nodeselection.SelectedNode) float64 {
 	ctrI, ok := t.data.Load(node.ID)
 	if !ok {
 		return math.NaN() // no counter yet means NaN
 	}
 	ctr, _ := ctrI.(*atomic.Uint64)
-	return float64(bits.OnesCount64(ctr.Load()))
+	return t.score(ctr.Load())
 }
 
-func (t *bitshiftSuccessTracker) BumpGeneration() {
+func (t *parameterizedSuccessTracker) BumpGeneration() {
 	t.mu.Lock()
 	defer t.mu.Unlock()
 
 	t.data.Range(func(_, ctrI any) bool {
 		ctr, _ := ctrI.(*atomic.Uint64)
-		increment(ctr, true)
+		t.increment(ctr, true)
 		return true
 	})
 }
 
-func (t *bitshiftSuccessTracker) Stats(cb func(monkit.SeriesKey, string, float64)) {
-	dist := monkit.NewFloatDist(monkit.NewSeriesKey("bitshift_tracker"))
+func (t *parameterizedSuccessTracker) Stats(cb func(monkit.SeriesKey, string, float64)) {
+	dist := monkit.NewFloatDist(monkit.NewSeriesKey(t.name + "_tracker"))
 
 	t.data.Range(func(_, ctrI any) bool {
 		ctr, _ := ctrI.(*atomic.Uint64)
-		dist.Insert(float64(bits.OnesCount64(ctr.Load())))
+		dist.Insert(t.score(ctr.Load()))
 		return true
 	})
 
