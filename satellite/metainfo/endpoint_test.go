@@ -4,6 +4,7 @@
 package metainfo_test
 
 import (
+	"crypto/tls"
 	"testing"
 	"time"
 
@@ -14,6 +15,7 @@ import (
 	"storj.io/common/errs2"
 	"storj.io/common/macaroon"
 	"storj.io/common/pb"
+	"storj.io/common/rpc/rpcpeer"
 	"storj.io/common/rpc/rpcstatus"
 	"storj.io/common/signing"
 	"storj.io/common/storj"
@@ -446,6 +448,63 @@ func TestRateLimit(t *testing.T) {
 		}
 		groupErrs := group.Wait()
 		require.Len(t, groupErrs, 1)
+	})
+}
+
+func TestDisableRateLimit(t *testing.T) {
+	testplanet.Run(t, testplanet.Config{
+		SatelliteCount: 1, StorageNodeCount: 1, UplinkCount: 1,
+		Reconfigure: testplanet.Reconfigure{
+			Satellite: func(log *zap.Logger, index int, config *satellite.Config) {
+				config.Metainfo.RateLimiter.Rate = float64(2)
+			},
+		},
+	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+		// TODO find a way to reset limiter before test is executed, currently
+		// testplanet is doing one additional request to get access
+		time.Sleep(1 * time.Second)
+
+		apiKey := planet.Uplinks[0].APIKey[planet.Satellites[0].ID()]
+		satellite := planet.Satellites[0]
+
+		require.NoError(t, planet.Uplinks[0].CreateBucket(ctx, planet.Satellites[0], "test-bucket"))
+
+		peerctx := rpcpeer.NewContext(ctx, &rpcpeer.Peer{
+			State: tls.ConnectionState{
+				PeerCertificates: planet.Uplinks[0].Identity.Chain(),
+			}})
+
+		start := time.Now()
+		beginObjResponse, err := satellite.Metainfo.Endpoint.BeginObject(peerctx, &pb.BeginObjectRequest{
+			Header: &pb.RequestHeader{
+				ApiKey: apiKey.SerializeRaw(),
+			},
+			Bucket:             []byte("test-bucket"),
+			EncryptedObjectKey: []byte("test-object"),
+			EncryptionParameters: &pb.EncryptionParameters{
+				CipherSuite: pb.CipherSuite_ENC_AESGCM,
+			},
+		})
+		require.NoError(t, err)
+
+		var group errs2.Group
+		for i := 0; i <= 5; i++ {
+			group.Go(func() error {
+				_, err := satellite.Metainfo.Endpoint.BeginSegment(peerctx, &pb.BeginSegmentRequest{
+					Header: &pb.RequestHeader{
+						ApiKey: apiKey.SerializeRaw(),
+					},
+					StreamId: beginObjResponse.StreamId,
+					Position: &pb.SegmentPosition{},
+				})
+				return err
+			})
+
+		}
+		groupErrs := group.Wait()
+		require.Empty(t, groupErrs)
+		// check that test didn't take enough time to pass one way or another
+		require.WithinDuration(t, start, time.Now(), 2*time.Second)
 	})
 }
 
