@@ -277,7 +277,7 @@ func (endpoint *Endpoint) checkRate(ctx context.Context, apiKeyInfo *console.API
 		checkSetRate(apiKeyInfo.ProjectRateLimitHead, apiKeyInfo.ProjectBurstLimitHead, "-head")
 	case console.RateLimitGet:
 		checkSetRate(apiKeyInfo.ProjectRateLimitGet, apiKeyInfo.ProjectBurstLimitGet, "-get")
-	case console.RateLimitPut:
+	case console.RateLimitPut, console.RateLimitPutNoError:
 		checkSetRate(apiKeyInfo.ProjectRateLimitPut, apiKeyInfo.ProjectBurstLimitPut, "-put")
 	case console.RateLimitList:
 		checkSetRate(apiKeyInfo.ProjectRateLimitList, apiKeyInfo.ProjectBurstLimitList, "-list")
@@ -305,7 +305,10 @@ func (endpoint *Endpoint) checkRate(ctx context.Context, apiKeyInfo *console.API
 
 		mon.Event("metainfo_rate_limit_exceeded") //mon:locked
 
-		return rpcstatus.Error(rpcstatus.ResourceExhausted, "Too Many Requests")
+		if rateKind != console.RateLimitPutNoError {
+			return rpcstatus.Error(rpcstatus.ResourceExhausted, "Too Many Requests")
+		}
+		return nil
 	}
 
 	return nil
