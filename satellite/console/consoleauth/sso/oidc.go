@@ -57,7 +57,7 @@ func (s *Service) Initialize(ctx context.Context) (err error) {
 
 	verifierMap := make(map[string]OidcSetup)
 	for providerName, info := range s.config.OidcProviderInfos.Values {
-		callbackAddr, err := url.JoinPath(s.satelliteAddress, providerName, "callback")
+		callbackAddr, err := url.JoinPath(s.satelliteAddress, "sso", providerName, "callback")
 		if err != nil {
 			return Error.Wrap(err)
 		}
