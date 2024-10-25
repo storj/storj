@@ -7,6 +7,7 @@ import (
 	"sync"
 	"testing"
 
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
 	"storj.io/common/storj"
@@ -19,7 +20,7 @@ func TestBitshiftSuccessTracker(t *testing.T) {
 
 		check := func(id storj.NodeID, expect float64) {
 			got := tr.Get(&nodeselection.SelectedNode{ID: id})
-			require.Equal(t, got, expect)
+			require.Equal(t, expect, got)
 		}
 
 		// clear out the initial values
@@ -91,13 +92,107 @@ func TestBitshiftSuccessTracker(t *testing.T) {
 	})
 }
 
+func TestLagSuccessTracker(t *testing.T) {
+	run := func(t *testing.T, do func(func()), wait func()) {
+		tr := newLagSuccessTracker()
+
+		check := func(id storj.NodeID, expect float64) {
+			got := tr.Get(&nodeselection.SelectedNode{ID: id})
+			assert.Equal(t, expect, got)
+		}
+
+		do(func() { tr.Increment(storj.NodeID{0: 1}, true) })
+		do(func() { tr.Increment(storj.NodeID{0: 1}, true) })
+		do(func() { tr.Increment(storj.NodeID{0: 1}, false) })
+
+		do(func() { tr.Increment(storj.NodeID{0: 2}, true) })
+		do(func() { tr.Increment(storj.NodeID{0: 2}, true) })
+		do(func() { tr.Increment(storj.NodeID{0: 2}, true) })
+
+		wait()
+		check(storj.NodeID{0: 1}, 1)
+		check(storj.NodeID{0: 2}, 3)
+
+		tr.BumpGeneration()
+
+		do(func() { tr.Increment(storj.NodeID{0: 1}, true) })
+		do(func() { tr.Increment(storj.NodeID{0: 2}, true) })
+
+		wait()
+		check(storj.NodeID{0: 1}, 3)
+		check(storj.NodeID{0: 2}, 5)
+
+		tr.BumpGeneration()
+
+		do(func() { tr.Increment(storj.NodeID{0: 1}, false) })
+		do(func() { tr.Increment(storj.NodeID{0: 2}, false) })
+
+		wait()
+		check(storj.NodeID{0: 1}, 2)
+		check(storj.NodeID{0: 2}, 3)
+
+		tr.BumpGeneration()
+
+		do(func() { tr.Increment(storj.NodeID{0: 1}, true) })
+		do(func() { tr.Increment(storj.NodeID{0: 2}, false) })
+
+		wait()
+		check(storj.NodeID{0: 1}, 4)
+		check(storj.NodeID{0: 2}, 2)
+	}
+
+	t.Run("Serial", func(t *testing.T) {
+		run(t,
+			func(f func()) {
+				f()
+			},
+			func() {},
+		)
+	})
+
+	t.Run("Concurrent", func(t *testing.T) {
+		var wg sync.WaitGroup
+		run(t,
+			func(f func()) {
+				wg.Add(1)
+				go func() {
+					defer wg.Done()
+					f()
+				}()
+			},
+			wg.Wait,
+		)
+	})
+}
+
+func TestLagSuccessTracker_Recovery(t *testing.T) {
+	id := storj.NodeID{0: 1}
+	tr := newLagSuccessTracker()
+	check := func(expect float64) {
+		got := tr.Get(&nodeselection.SelectedNode{ID: id})
+		assert.Equal(t, expect, got)
+	}
+
+	for i := 0; i < 64; i++ {
+		tr.Increment(id, true)
+	}
+
+	check(64)
+	tr.Increment(id, false)
+	check(32)
+	tr.Increment(id, true)
+	check(48)
+	tr.Increment(id, true)
+	check(56)
+}
+
 func TestPercentSuccessTracker(t *testing.T) {
 	run := func(t *testing.T, do func(func()), wait func()) {
 		var tr percentSuccessTracker
 
 		check := func(id storj.NodeID, expect float64) {
 			got := tr.Get(&nodeselection.SelectedNode{ID: id})
-			require.Equal(t, got, expect)
+			require.Equal(t, expect, got)
 		}
 
 		do(func() { tr.Increment(storj.NodeID{0: 1}, true) })
@@ -169,7 +264,7 @@ func TestBigBitshiftSuccessTracker(t *testing.T) {
 
 		check := func(id storj.NodeID, expect float64) {
 			got := tr.Get(&nodeselection.SelectedNode{ID: id})
-			require.Equal(t, got, expect)
+			require.Equal(t, expect, got)
 		}
 
 		// clear out the initial values
