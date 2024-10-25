@@ -38,6 +38,7 @@ import { Component, Vue } from 'vue-property-decorator';
 
 import { UnauthorizedError } from '@/api';
 import { OperatorsState } from '@/app/store/operators';
+import { Notify } from '@/app/plugins';
 
 import InfoBlock from '@/app/components/common/InfoBlock.vue';
 import VLink from '@/app/components/common/VLink.vue';
@@ -54,6 +55,9 @@ import WalletsTable from '@/app/components/wallets/tables/walletsSummary/Wallets
     },
 })
 export default class WalletsPage extends Vue {
+
+    public notify = new Notify();
+
     public async mounted(): Promise<void> {
         await this.listPaginated(this.operatorsState.currentPage);
     }
@@ -68,12 +72,13 @@ export default class WalletsPage extends Vue {
     public async listPaginated(pageNumber: number): Promise<void> {
         try {
             await this.$store.dispatch('operators/listPaginated', pageNumber);
-        } catch (error) {
+        } catch (error: any) {
             if (error instanceof UnauthorizedError) {
                 // TODO: redirect to login screen.
             }
 
-            // TODO: notify error
+            this.notify.error({ message: error.message, title: error.name });
+
         }
     }
 }
