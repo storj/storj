@@ -56,7 +56,7 @@ func (endpoint *Endpoint) beginSegment(ctx context.Context, req *pb.SegmentBegin
 		Bucket:        streamID.Bucket,
 		EncryptedPath: streamID.EncryptedObjectKey,
 		Time:          time.Now(),
-	}, console.RateLimitPut)
+	}, console.RateLimitPutNoError)
 	if err != nil {
 		return nil, err
 	}
@@ -187,7 +187,7 @@ func (endpoint *Endpoint) RetryBeginSegmentPieces(ctx context.Context, req *pb.R
 		Bucket:        segmentID.StreamId.Bucket,
 		EncryptedPath: segmentID.StreamId.EncryptedObjectKey,
 		Time:          time.Now(),
-	}, console.RateLimitPut)
+	}, console.RateLimitPutNoError)
 	if err != nil {
 		return nil, err
 	}
@@ -287,7 +287,7 @@ func (endpoint *Endpoint) CommitSegment(ctx context.Context, req *pb.SegmentComm
 		Bucket:        streamID.Bucket,
 		EncryptedPath: streamID.EncryptedObjectKey,
 		Time:          time.Now(),
-	}, console.RateLimitPut)
+	}, console.RateLimitPutNoError)
 	if err != nil {
 		return nil, err
 	}
