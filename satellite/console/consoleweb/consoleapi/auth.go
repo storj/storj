@@ -220,6 +220,28 @@ func (a *Auth) verifySsoAuth(r *http.Request) (provider string, _ *sso.OidcSsoCl
 	return provider, &claims, nil
 }
 
+// GetSsoUrl returns the SSO URL for the given provider.
+func (a *Auth) GetSsoUrl(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	var err error
+	defer mon.Task()(&ctx)(&err)
+
+	provider := a.ssoService.GetProviderByEmail(r.URL.Query().Get("email"))
+	if provider == "" {
+		w.WriteHeader(http.StatusNotFound)
+		return
+	}
+	ssoUrl, err := url.JoinPath(a.ExternalAddress, "sso", provider)
+	if provider == "" {
+		a.serveJSONError(ctx, w, err)
+		return
+	}
+	_, err = w.Write([]byte(ssoUrl))
+	if err != nil {
+		a.log.Error("failed to write response", zap.Error(err))
+	}
+}
+
 // BeginSsoFlow starts the SSO flow by redirecting to the OIDC provider.
 func (a *Auth) BeginSsoFlow(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
