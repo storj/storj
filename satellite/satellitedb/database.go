@@ -88,6 +88,7 @@ var safelyPartitionableDBs = map[string]bool{
 	"nodeevents":    true,
 	"verifyqueue":   true,
 	"reverifyqueue": true,
+	"overlaycache":  true, // tables: nodes, node_tags
 }
 
 // Open creates instance of satellite.DB.

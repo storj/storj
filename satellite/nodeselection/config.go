@@ -290,6 +290,13 @@ func SelectorFromString(expr string, environment *PlacementConfigEnvironment) (N
 			}
 			return BalancedGroupBasedSelector(attr, filter), nil
 		},
+		"weighted": func(attribute string, defaultWeight int64, filter NodeFilter) (NodeSelectorInit, error) {
+			attr, err := CreateNodeValue(attribute)
+			if err != nil {
+				return nil, err
+			}
+			return WeightedSelector(attr, defaultWeight, filter), nil
+		},
 		"filterbest": FilterBest,
 		"bestofn":    BestOfN,
 		"eq": func(a, b string) func(SelectedNode) bool {

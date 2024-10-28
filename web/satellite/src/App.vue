@@ -20,7 +20,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed, onBeforeMount, ref, watch } from 'vue';
+import { computed, onBeforeMount, onBeforeUnmount, ref, watch } from 'vue';
 import { useTheme } from 'vuetify';
 import { useRoute, useRouter } from 'vue-router';
 
@@ -43,6 +43,7 @@ import { PricingPlanInfo } from '@/types/common';
 import { EdgeCredentials } from '@/types/accessGrants';
 import { useObjectBrowserStore } from '@/store/modules/objectBrowserStore';
 import { ProjectConfig } from '@/types/projects';
+import { PaymentStatus, PaymentWithConfirmations } from '@/types/payments';
 
 import Notifications from '@/layouts/default/Notifications.vue';
 import ErrorPage from '@/components/ErrorPage.vue';
@@ -66,6 +67,13 @@ const theme = useTheme();
 const route = useRoute();
 
 const isLoading = ref<boolean>(true);
+
+/**
+ * Returns pending payments from store.
+ */
+const pendingPayments = computed<PaymentWithConfirmations[]>(() => {
+    return billingStore.state.pendingPaymentsWithConfirmations;
+});
 
 /**
  * Indicates whether an error page should be shown in place of the router view.
@@ -167,6 +175,12 @@ async function setup() {
     isLoading.value = false;
 }
 
+function totalValueCounter(list: PaymentWithConfirmations[], field: keyof PaymentWithConfirmations): number {
+    return list.reduce((acc: number, curr: PaymentWithConfirmations) => {
+        return acc + (curr[field] as number);
+    }, 0);
+}
+
 /**
  * Lifecycle hook before initial render.
  * Sets up variables from meta tags from config such satellite name, etc.
@@ -264,6 +278,46 @@ obStore.$onAction(({ name, after, args }) => {
     }
 });
 
+const unwatch = watch(pendingPayments, async newPayments => {
+    if (user.value.paidTier) {
+        unwatch();
+        return;
+    }
+
+    if (!newPayments.length) return;
+
+    const newConfirmedPayments = newPayments.some(p => p.status === PaymentStatus.Confirmed);
+    if (!newConfirmedPayments) return;
+
+    const tokensSum = totalValueCounter(newPayments, 'tokenValue');
+    if (tokensSum > 0) {
+        const bonusSum = totalValueCounter(newPayments, 'bonusTokens');
+
+        notify.success(`Successful deposit of ${tokensSum} STORJ tokens. You received an additional bonus of ${bonusSum} STORJ tokens.`);
+
+        Promise.all([
+            billingStore.getBalance(),
+            billingStore.getWallet(),
+        ]).catch((_) => {});
+    }
+
+    await usersStore.getUser();
+
+    if (user.value.paidTier) {
+        await Promise.all([
+            projectsStore.getProjectConfig(),
+            projectsStore.getProjectLimits(projectsStore.state.selectedProject.id),
+        ]).catch((_) => {});
+
+        notify.success('Account was successfully upgraded!');
+
+        billingStore.stopPaymentsPolling();
+        billingStore.clearPendingPayments();
+
+        unwatch();
+    }
+}, { deep: true, immediate: true });
+
 /**
  * reset pricing plans available when user upgrades to paid tier.
  */
@@ -305,5 +359,9 @@ watch(() => projectsStore.state.selectedProject, async (project, oldProject) => 
     } catch (error) {
         notify.notifyError(error, AnalyticsErrorEventSource.OVERALL_APP_WRAPPER_ERROR);
     }
+});
+
+onBeforeUnmount(() => {
+    billingStore.stopPaymentsPolling();
 });
 </script>

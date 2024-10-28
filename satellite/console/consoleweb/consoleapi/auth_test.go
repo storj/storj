@@ -374,6 +374,84 @@ func TestTokenByAPIKeyEndpoint(t *testing.T) {
 	})
 }
 
+func TestSsoUserLoginWithPassword(t *testing.T) {
+	testplanet.Run(t, testplanet.Config{
+		SatelliteCount: 1, StorageNodeCount: 0, UplinkCount: 0,
+	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+		satellite := planet.Satellites[0]
+
+		user, err := satellite.AddUser(ctx, console.CreateUser{
+			FullName: "Test User",
+			Email:    "test@mail.test",
+		}, 1)
+		require.NoError(t, err)
+
+		require.NoError(t, satellite.API.Console.Service.UpdateExternalID(ctx, user, "test:1234"))
+
+		body := console.AuthUser{
+			Email:    user.Email,
+			Password: user.FullName,
+		}
+
+		bodyBytes, err := json.Marshal(body)
+		require.NoError(t, err)
+		buf := bytes.NewBuffer(bodyBytes)
+
+		url := planet.Satellites[0].ConsoleURL() + "/api/v0/auth/token"
+		req, err := http.NewRequestWithContext(ctx, http.MethodPost, url, buf)
+		require.NoError(t, err)
+
+		response, err := http.DefaultClient.Do(req)
+		require.NoError(t, err)
+		require.NotEmpty(t, response)
+		require.Equal(t, http.StatusUnauthorized, response.StatusCode)
+
+		responseBody, err := io.ReadAll(response.Body)
+		require.NoError(t, err)
+		require.NotContains(t, string(responseBody), "token")
+		require.NoError(t, response.Body.Close())
+	})
+}
+
+func TestSsoUserForgotPassword(t *testing.T) {
+	testplanet.Run(t, testplanet.Config{
+		SatelliteCount: 1, StorageNodeCount: 0, UplinkCount: 0,
+	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+		satellite := planet.Satellites[0]
+
+		user, err := satellite.AddUser(ctx, console.CreateUser{
+			FullName: "Test User",
+			Email:    "test@mail.test",
+		}, 1)
+		require.NoError(t, err)
+
+		require.NoError(t, satellite.API.Console.Service.UpdateExternalID(ctx, user, "test:1234"))
+
+		body := console.AuthUser{
+			Email:    user.Email,
+			Password: user.FullName,
+		}
+
+		bodyBytes, err := json.Marshal(body)
+		require.NoError(t, err)
+		buf := bytes.NewBuffer(bodyBytes)
+
+		url := planet.Satellites[0].ConsoleURL() + "/api/v0/auth/forgot-password"
+		req, err := http.NewRequestWithContext(ctx, http.MethodPost, url, buf)
+		require.NoError(t, err)
+
+		response, err := http.DefaultClient.Do(req)
+		require.NoError(t, err)
+		require.Equal(t, http.StatusOK, response.StatusCode)
+		require.NoError(t, response.Body.Close())
+
+		token, err := satellite.DB.Console().ResetPasswordTokens().GetByOwnerID(ctx, user.ID)
+		require.Error(t, err)
+		require.Equal(t, sql.ErrNoRows, err)
+		require.Nil(t, token)
+	})
+}
+
 func TestMFAEndpoints(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
 		SatelliteCount: 1, StorageNodeCount: 0, UplinkCount: 0,

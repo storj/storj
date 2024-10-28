@@ -427,19 +427,9 @@ func (db *StoragenodeAccounting) LastTimestamp(ctx context.Context, timestampTyp
 func (db *StoragenodeAccounting) QueryPaymentInfo(ctx context.Context, start time.Time, end time.Time) (_ []accounting.NodePaymentInfo, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	var floatType string
-	switch db.db.impl {
-	case dbutil.Cockroach, dbutil.Postgres:
-		floatType = "FLOAT"
-	case dbutil.Spanner:
-		floatType = "FLOAT64"
-	default:
-		return nil, Error.New("unsupported database: %v", db.db.impl)
-	}
-
 	query := db.db.Rebind(`
 		SELECT node_id,
-			CAST(SUM(CAST(at_rest_total AS NUMERIC)) AS ` + floatType + `) AS at_rest_total,
+			CAST(SUM(CAST(at_rest_total AS NUMERIC)) AS ` + db.db.impl.Float64Type() + `) AS at_rest_total,
 			SUM(get_repair_total) AS get_repair_total,
 			SUM(put_repair_total) AS put_repair_total,
 			SUM(get_audit_total) AS get_audit_total,
@@ -473,20 +463,10 @@ func (db *StoragenodeAccounting) QueryPaymentInfo(ctx context.Context, start tim
 func (db *StoragenodeAccounting) QueryStorageNodePeriodUsage(ctx context.Context, period compensation.Period) (_ []accounting.StorageNodePeriodUsage, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	var floatType string
-	switch db.db.impl {
-	case dbutil.Cockroach, dbutil.Postgres:
-		floatType = "FLOAT"
-	case dbutil.Spanner:
-		floatType = "FLOAT64"
-	default:
-		return nil, Error.New("unsupported database: %v", db.db.impl)
-	}
-
 	query := db.db.Rebind(`
 		SELECT
 			node_id,
-			CAST(SUM(CAST(at_rest_total AS NUMERIC)) AS ` + floatType + `) AS at_rest_total,
+			CAST(SUM(CAST(at_rest_total AS NUMERIC)) AS ` + db.db.impl.Float64Type() + `) AS at_rest_total,
 			SUM(get_total) AS get_total,
 			SUM(put_total) AS put_total,
 			SUM(get_repair_total) AS get_repair_total,

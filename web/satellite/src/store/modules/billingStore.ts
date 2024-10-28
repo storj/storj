@@ -1,7 +1,7 @@
 // Copyright (C) 2023 Storj Labs, Inc.
 // See LICENSE for copying information.
 
-import { computed, reactive } from 'vue';
+import { computed, reactive, ref } from 'vue';
 import { defineStore } from 'pinia';
 
 import {
@@ -50,6 +50,8 @@ export const useBillingStore = defineStore('billing', () => {
     const state = reactive<PaymentsState>(new PaymentsState());
 
     const api: PaymentsApi = new PaymentsHttpApi();
+
+    const paymentsPollingInterval = ref<number>();
 
     const defaultCard = computed<CreditCard>(() => state.creditCards.find(card => card.isDefault) ?? new CreditCard());
 
@@ -149,6 +151,18 @@ export const useBillingStore = defineStore('billing', () => {
         state.nativePaymentsHistory = await api.nativePaymentsHistory();
     }
 
+    function startPaymentsPolling(): void {
+        if (paymentsPollingInterval.value) return;
+
+        paymentsPollingInterval.value = window.setInterval(() => {
+            getPaymentsWithConfirmations().catch(_ => {});
+        }, 30000);
+    }
+
+    function stopPaymentsPolling(): void {
+        clearInterval(paymentsPollingInterval.value);
+    }
+
     async function getPaymentsWithConfirmations(): Promise<void> {
         const newPayments = await api.paymentsWithConfirmations();
         newPayments.forEach(newPayment => {
@@ -206,6 +220,8 @@ export const useBillingStore = defineStore('billing', () => {
     }
 
     function clear(): void {
+        stopPaymentsPolling();
+        paymentsPollingInterval.value = undefined;
         state.balance = new AccountBalance();
         state.creditCards = [];
         state.paymentsHistory = new PaymentHistoryPage([]);
@@ -245,7 +261,8 @@ export const useBillingStore = defineStore('billing', () => {
         getPaymentsHistory,
         getNativePaymentsHistory,
         getProjectUsageAndChargesCurrentRollup,
-        getPaymentsWithConfirmations,
+        startPaymentsPolling,
+        stopPaymentsPolling,
         clearPendingPayments,
         getProjectUsagePriceModel,
         applyCouponCode,

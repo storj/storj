@@ -150,7 +150,13 @@ func createEndpoint(ctx context.Context, satIdent, snIdent *identity.FullIdentit
 
 	contactService := contact.NewService(log, dialer, self, trustPool, contact.NewQUICStats(false), &pb.SignedNodeTagSets{})
 
-	spaceReport := monitor.NewSharedDisk(log, piecesStore, cfg.Storage2.Monitor.MinimumDiskSpace.Int64(), 1<<40)
+	var spaceReport monitor.SpaceReport
+
+	if *dedicatedDisk {
+		spaceReport = monitor.NewDedicatedDisk(log, piecesStore, cfg.Storage2.Monitor.MinimumDiskSpace.Int64(), 100_000_000)
+	} else {
+		spaceReport = monitor.NewSharedDisk(log, piecesStore, cfg.Storage2.Monitor.MinimumDiskSpace.Int64(), 1<<40)
+	}
 
 	monitorService := monitor.NewService(log, piecesStore, contactService, time.Hour, spaceReport, cfg.Storage2.Monitor)
 
