@@ -27,7 +27,8 @@
             <div v-if="isPending">
                 <p class="banner__message">
                     <b>{{ stillPendingTransactions.length }} transaction{{ stillPendingTransactions.length > 1 ? 's' : '' }} pending...</b>
-                    {{ txWithLeastConfirmations.confirmations }} of {{ neededConfirmations }} confirmations
+                    {{ txWithLeastConfirmations.confirmations }} of {{ neededConfirmations }} confirmations.
+                    <br>Expected value of {{ stillPendingUSDValue }}
                 </p>
             </div>
 
@@ -63,6 +64,14 @@ const props = defineProps<{
  */
 const stillPendingTransactions = computed((): PaymentWithConfirmations[] => {
     return props.pendingPayments.filter(p => p.status === PaymentStatus.Pending);
+});
+
+const stillPendingUSDValue = computed<string>(() => {
+    const totalValue = stillPendingTransactions.value.reduce((acc: number, curr: PaymentWithConfirmations) => {
+        return acc + curr.usdValue;
+    }, 0);
+
+    return `$${totalValue.toLocaleString(undefined, { maximumFractionDigits: 2 })}`;
 });
 
 /**

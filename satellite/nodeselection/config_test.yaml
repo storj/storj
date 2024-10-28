@@ -36,3 +36,6 @@ placements:
   - id: 9
     name: balancedf
     selector: balancedf("last_ip", exclude(tag("12EayRS2V1kEsWESU9QMRseFhdxYxKicsiFmxrsLZHeLUtdps3S","test","true")))
+  - id: 10
+    name: weighted
+    selector: weighted("tag:$SIGNER_ZERO/signed",100,select("tag:surge","true"))

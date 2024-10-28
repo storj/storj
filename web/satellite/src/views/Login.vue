@@ -339,8 +339,9 @@ function checkSSO(mail: string) {
     }
     ssoCheckTimeout.value = setTimeout(async () => {
         isCheckingSso.value = true;
+        let urlStr: string;
         try {
-            ssoUrl.value = await auth.checkSSO(mail);
+            urlStr = await auth.checkSSO(mail);
         } catch (error) {
             if (error instanceof APIError && error.status === 404) {
                 ssoUrl.value = SsoCheckState.None;
@@ -348,8 +349,16 @@ function checkSSO(mail: string) {
             }
             ssoUrl.value = SsoCheckState.Failed;
             notify.notifyError(error);
+            return;
         } finally {
             isCheckingSso.value = false;
+        }
+        try {
+            // check if the URL is valid.
+            new URL(urlStr);
+            ssoUrl.value = urlStr;
+        } catch (_) {
+            ssoUrl.value = SsoCheckState.Failed;
         }
     }, 1000);
 }
@@ -377,13 +386,16 @@ async function onLoginClick(): Promise<void> {
         return;
     }
 
+    let url: URL;
     switch (ssoUrl.value) {
     case SsoCheckState.None:
     case SsoCheckState.Failed:
         await triggerLogin();
         break;
     default:
-        window.open(ssoUrl.value, '_self');
+        url = new URL(ssoUrl.value);
+        url.searchParams.set('email', email.value);
+        window.open(url.toString(), '_self');
     }
 }
 

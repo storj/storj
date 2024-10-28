@@ -172,7 +172,7 @@ export class AuthHttpApi implements UsersApi {
 
     public async checkSSO(email: string): Promise<string> {
         const params = new URLSearchParams({ email: email });
-        const path = `/sso-url?${params.toString()}`;
+        const path = `/sso/url?${params.toString()}`;
         const response = await this.http.get(path);
 
         if (response.ok) {
@@ -344,6 +344,7 @@ export class AuthHttpApi implements UsersApi {
 
             return new User(
                 userResponse.id,
+                userResponse.externalID,
                 userResponse.fullName,
                 userResponse.shortName,
                 userResponse.email,
