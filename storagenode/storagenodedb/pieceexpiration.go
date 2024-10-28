@@ -213,5 +213,5 @@ func (db *pieceExpirationDB) DeleteExpirationsBatch(ctx context.Context, now tim
 			)
 	`, now, limit)
 
-	return nil
+	return ErrPieceExpiration.Wrap(err)
 }

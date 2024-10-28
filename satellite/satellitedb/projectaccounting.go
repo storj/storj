@@ -533,32 +533,39 @@ func (db *ProjectAccounting) GetProjectDailyUsageByDateRange(ctx context.Context
 		})
 	case dbutil.Spanner:
 		err = db.db.WithTx(ctx, func(ctx context.Context, tx *dbx.Tx) error {
+			// TODO(spanner): remove TIMESTAMP_TRUNC, when spanner emulator gets fixed
+			//
+			// We need to do TIMESTAMP_TRUNC(interval_start, MICROSECOND, 'UTC') as interval_start
+			// To ensure that MAX(interval_start) == interval_start
+			//
+			// See https://github.com/GoogleCloudPlatform/cloud-spanner-emulator/issues/73 for details.
+
 			storageQuery := `
 			WITH
-  				project_usage AS (
-  				SELECT
-    				interval_start,
-    				CAST(interval_start AS DATE) AS interval_day,
-    				project_id,
-    				bucket_name,
-    				total_bytes
-				FROM bucket_storage_tallies
-				WHERE
-					project_id = ? AND
-					interval_start >= ? AND
-					interval_start <= ?
+				project_usage AS (
+					SELECT
+						TIMESTAMP_TRUNC(interval_start, MICROSECOND, 'UTC') as interval_start,
+						CAST(interval_start AS DATE) AS interval_day,
+						project_id,
+						bucket_name,
+						total_bytes
+					FROM bucket_storage_tallies
+					WHERE
+						project_id = ? AND
+						interval_start >= ? AND
+						interval_start <= ?
 				),
-			project_usage_distinct AS (
-  			SELECT
-    			project_id,
-				bucket_name,
-				MAX(interval_start) AS interval_start
-			FROM project_usage
-			GROUP BY
-				project_id,
-				bucket_name,
-				interval_day
-			)
+				project_usage_distinct AS (
+					SELECT
+						project_id,
+						bucket_name,
+						MAX(interval_start) AS interval_start
+					FROM project_usage
+					GROUP BY
+						project_id,
+						bucket_name,
+						interval_day
+				)
 			-- Sum all buckets usage in the same project.
 			SELECT
 				interval_day,
@@ -572,11 +579,8 @@ func (db *ProjectAccounting) GetProjectDailyUsageByDateRange(ctx context.Context
 					interval_start
 				FROM project_usage
 				WHERE
-					(bucket_name, project_id, interval_start) IN (
-					SELECT
-						(bucket_name, project_id, interval_start)
-					FROM project_usage_distinct)
-			) pu
+					(bucket_name, project_id, interval_start) IN (SELECT (bucket_name, project_id, interval_start) FROM project_usage_distinct)
+			)
 			GROUP BY
 				project_id,
 				interval_day`

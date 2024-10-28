@@ -17,7 +17,6 @@ import (
 	"net/http/httputil"
 	"net/url"
 	"os"
-	"path"
 	"path/filepath"
 	"strconv"
 	"strings"
@@ -459,21 +458,10 @@ func NewServer(logger *zap.Logger, config Config, service *console.Service, oidc
 	router.Handle("/api/v0/oauth/v2/clients/{id}", server.withAuth(http.HandlerFunc(oidc.GetClient))).Methods(http.MethodGet)
 
 	if config.SsoEnabled {
-		router.Handle("/sso-url", server.ipRateLimiter.Limit(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			provider := ssoService.GetProviderByEmail(r.URL.Query().Get("email"))
-			if provider == "" {
-				w.WriteHeader(http.StatusNotFound)
-				return
-			}
-			ssoUrl := path.Join(config.ExternalAddress, provider, "sso")
-			_, err = w.Write([]byte(ssoUrl))
-			if err != nil {
-				logger.Error("failed to write response", zap.Error(err))
-			}
-		})))
-
-		router.Handle("/{provider}/sso", server.ipRateLimiter.Limit(http.HandlerFunc(authController.BeginSsoFlow)))
-		router.Handle("/{provider}/callback", server.ipRateLimiter.Limit(http.HandlerFunc(authController.AuthenticateSso)))
+		ssoRouter := router.PathPrefix("/sso").Subrouter()
+		ssoRouter.Handle("/url", server.ipRateLimiter.Limit(http.HandlerFunc(authController.GetSsoUrl)))
+		ssoRouter.Handle("/{provider}", server.ipRateLimiter.Limit(http.HandlerFunc(authController.BeginSsoFlow)))
+		ssoRouter.Handle("/{provider}/callback", server.ipRateLimiter.Limit(http.HandlerFunc(authController.AuthenticateSso)))
 	}
 
 	if server.config.GeneratedAPIEnabled {

@@ -15,7 +15,7 @@ import (
 
 func TestBitshiftSuccessTracker(t *testing.T) {
 	run := func(t *testing.T, do func(func()), wait func()) {
-		var tr bitshiftSuccessTracker
+		tr := newBitshiftSuccessTracker()
 
 		check := func(id storj.NodeID, expect float64) {
 			got := tr.Get(&nodeselection.SelectedNode{ID: id})

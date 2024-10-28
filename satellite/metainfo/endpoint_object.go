@@ -295,7 +295,7 @@ func (endpoint *Endpoint) CommitObject(ctx context.Context, req *pb.ObjectCommit
 
 	now := time.Now()
 	var allowDelete, canGetRetention, canGetLegalHold bool
-	keyInfo, err := endpoint.ValidateAuthN(ctx, req.Header, console.RateLimitPut,
+	keyInfo, err := endpoint.ValidateAuthN(ctx, req.Header, console.RateLimitPutNoError,
 		VerifyPermission{
 			Action: macaroon.Action{
 				Op:            macaroon.ActionWrite,

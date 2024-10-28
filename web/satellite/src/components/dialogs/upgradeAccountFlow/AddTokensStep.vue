@@ -66,33 +66,53 @@
         :pending-payments="pendingPayments"
     />
 
-    <v-btn
-        v-if="viewState !== ViewState.Success && !isRoot"
-        class="my-4"
-        block
-        variant="outlined"
-        color="default"
-        @click="emit('back')"
-    >
-        Back
-    </v-btn>
+    <template v-if="!isRoot">
+        <v-alert
+            class="mt-3 mb-2"
+            density="compact"
+            variant="tonal"
+            type="info"
+            text="You can continue using the app, and your upgrade will be applied automatically once your STORJ tokens are received."
+        />
+        <v-card-actions class="px-0">
+            <v-row class="ma-0 gap">
+                <v-col v-if="viewState !== ViewState.Success" class="px-0">
+                    <v-btn
+                        block
+                        variant="outlined"
+                        color="default"
+                        @click="() => emit('back')"
+                    >
+                        Back
+                    </v-btn>
+                </v-col>
+                <v-col v-if="isOnboarding" class="px-0">
+                    <v-btn
+                        color="primary"
+                        variant="flat"
+                        block
+                        @click="() => emit('success')"
+                    >
+                        Next
+                    </v-btn>
+                </v-col>
+            </v-row>
+        </v-card-actions>
+    </template>
 </template>
 
 <script setup lang="ts">
-import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue';
+import { computed, onMounted, ref, watch } from 'vue';
 import QRCode from 'qrcode';
-import { VTooltip, VBtn, VIcon, VCol, VRow } from 'vuetify/components';
+import { VTooltip, VBtn, VIcon, VCol, VRow, VCardActions, VAlert } from 'vuetify/components';
 import { Copy, Info } from 'lucide-vue-next';
-import { useRoute } from 'vue-router';
 
 import { useBillingStore } from '@/store/modules/billingStore';
 import { useConfigStore } from '@/store/modules/configStore';
+import { useUsersStore } from '@/store/modules/usersStore';
 import { useNotify } from '@/utils/hooks';
 import { PaymentStatus, PaymentWithConfirmations, Wallet } from '@/types/payments';
 import { AnalyticsErrorEventSource } from '@/utils/constants/analyticsEventNames';
-import { useUsersStore } from '@/store/modules/usersStore';
-import { ROUTES } from '@/router';
-import { useProjectsStore } from '@/store/modules/projectsStore';
 
 import AddTokensStepBanner from '@/components/dialogs/upgradeAccountFlow/AddTokensStepBanner.vue';
 
@@ -104,18 +124,16 @@ enum ViewState {
 
 const configStore = useConfigStore();
 const billingStore = useBillingStore();
-const projectsStore = useProjectsStore();
 const usersStore = useUsersStore();
 const notify = useNotify();
-const route = useRoute();
 
 const canvas = ref<HTMLCanvasElement>();
-const intervalID = ref<number>();
 const viewState = ref<ViewState>(ViewState.Default);
 
 defineProps<{
     // whether this step is the first step in a flow
     isRoot?: boolean;
+    isOnboarding?: boolean;
 }>();
 
 const emit = defineEmits<{
@@ -173,35 +191,15 @@ function setViewState(): void {
     }
 }
 
+watch(isPaidTier, newVal => {
+    if (newVal) {
+        // arbitrary delay to allow user to read success banner.
+        setTimeout(() => emit('success'), 2000);
+    }
+});
+
 watch(() => pendingPayments.value, async () => {
     setViewState();
-
-    if (viewState.value !== ViewState.Success) {
-        return;
-    }
-    clearInterval(intervalID.value);
-    billingStore.clearPendingPayments();
-
-    if (isPaidTier.value) {
-        // in case this step was entered in to directly from
-        // the billing/payment method tab when the user is
-        // already in paid tier.
-        return;
-    }
-
-    // fetch User to update their Paid Tier status.
-    await usersStore.getUser();
-
-    // we redirect to success step only if user status was updated to Paid Tier.
-    if (isPaidTier.value) {
-        if (route.name === ROUTES.Dashboard.name) {
-            projectsStore.getProjectConfig().catch((_) => {});
-            projectsStore.getProjectLimits(projectsStore.state.selectedProject.id).catch((_) => {});
-        }
-        // arbitrary delay to allow for user to read success banner.
-        await new Promise(resolve => setTimeout(resolve, 2000));
-        emit('success');
-    }
 }, { deep: true });
 
 /**
@@ -211,11 +209,9 @@ watch(() => pendingPayments.value, async () => {
 onMounted(async (): Promise<void> => {
     setViewState();
 
-    intervalID.value = window.setInterval(async () => {
-        try {
-            await billingStore.getPaymentsWithConfirmations();
-        } catch { /* empty */ }
-    }, 20000); // get payments every 20 seconds.
+    if (!isPaidTier.value) {
+        billingStore.startPaymentsPolling();
+    }
 
     if (!canvas.value) {
         return;
@@ -227,12 +223,10 @@ onMounted(async (): Promise<void> => {
         notify.error(error.message, AnalyticsErrorEventSource.UPGRADE_ACCOUNT_MODAL);
     }
 });
-
-onBeforeUnmount(() => {
-    clearInterval(intervalID.value);
-
-    if (viewState.value === ViewState.Success) {
-        billingStore.clearPendingPayments();
-    }
-});
 </script>
+
+<style scoped lang="scss">
+.gap {
+    column-gap: 12px;
+}
+</style>
