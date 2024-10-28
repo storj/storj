@@ -184,7 +184,7 @@
             </v-row>
         </template>
 
-        <template v-if="isProjectOwner && isProjectOwnerPaidTier && deleteProjectEnabled">
+        <template v-if="projectCanBeDeleted">
             <v-row>
                 <v-col>
                     <h3 class="mt-5">Danger Zone</h3>
@@ -290,6 +290,10 @@ const billingEnabled = computed<boolean>(() => configStore.getBillingEnabled(use
  */
 const project = computed<Project>(() => {
     return projectsStore.state.selectedProject;
+});
+
+const projectCanBeDeleted = computed(() => {
+    return deleteProjectEnabled.value && isProjectOwner.value && isProjectOwnerPaidTier.value && !usersStore.state.user.externalID;
 });
 
 /**

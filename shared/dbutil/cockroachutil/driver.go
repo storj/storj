@@ -9,14 +9,12 @@ import (
 	"database/sql/driver"
 	"errors"
 	"io"
-	"net"
 	"strings"
-	"syscall"
 
 	"github.com/jackc/pgx/v5/stdlib"
 	"github.com/zeebo/errs"
 
-	"storj.io/storj/shared/dbutil/pgutil/pgerrcode"
+	"storj.io/storj/shared/dbutil/retrydb"
 )
 
 // Driver is the type for the "cockroach" sql/database driver. It uses
@@ -111,7 +109,7 @@ func (c *cockroachConn) Ping(ctx context.Context) error {
 // retry semantics for single statements.
 func (c *cockroachConn) ExecContext(ctx context.Context, query string, args []driver.NamedValue) (driver.Result, error) {
 	result, err := c.underlying.ExecContext(ctx, query, args)
-	for err != nil && !c.isInTransaction() && NeedsRetry(err) {
+	for err != nil && !c.isInTransaction() && retrydb.ShouldRetry(err) {
 		mon.Event("needed_retry")
 		result, err = c.underlying.ExecContext(ctx, query, args)
 	}
@@ -168,7 +166,7 @@ func (c *cockroachConn) QueryContext(ctx context.Context, query string, args []d
 	for {
 		result, err := c.underlying.QueryContext(ctx, query, args)
 		if err != nil {
-			if NeedsRetry(err) {
+			if retrydb.ShouldRetry(err) {
 				if c.isInTransaction() {
 					return nil, err
 				}
@@ -182,7 +180,7 @@ func (c *cockroachConn) QueryContext(ctx context.Context, query string, args []d
 			// If this returns an error it's probably the same error
 			// we got from calling Next inside wrapRows.
 			_ = result.Close()
-			if NeedsRetry(err) {
+			if retrydb.ShouldRetry(err) {
 				if c.isInTransaction() {
 					return nil, err
 				}
@@ -269,7 +267,7 @@ func (stmt *cockroachStmt) Exec(args []driver.Value) (driver.Result, error) {
 		namedArgs[i] = driver.NamedValue{Ordinal: i + 1, Value: arg}
 	}
 	result, err := stmt.underlyingStmt.ExecContext(context.Background(), namedArgs)
-	for err != nil && !stmt.conn.isInTransaction() && NeedsRetry(err) {
+	for err != nil && !stmt.conn.isInTransaction() && retrydb.ShouldRetry(err) {
 		mon.Event("needed_retry")
 		result, err = stmt.underlyingStmt.ExecContext(context.Background(), namedArgs)
 	}
@@ -290,7 +288,7 @@ func (stmt *cockroachStmt) Query(args []driver.Value) (driver.Rows, error) {
 // ExecContext executes SQL statements in the specified context.
 func (stmt *cockroachStmt) ExecContext(ctx context.Context, args []driver.NamedValue) (driver.Result, error) {
 	result, err := stmt.underlyingStmt.ExecContext(ctx, args)
-	for err != nil && !stmt.conn.isInTransaction() && NeedsRetry(err) {
+	for err != nil && !stmt.conn.isInTransaction() && retrydb.ShouldRetry(err) {
 		mon.Event("needed_retry")
 		result, err = stmt.underlyingStmt.ExecContext(ctx, args)
 	}
@@ -303,7 +301,7 @@ func (stmt *cockroachStmt) QueryContext(ctx context.Context, args []driver.Named
 	for {
 		result, err := stmt.underlyingStmt.QueryContext(ctx, args)
 		if err != nil {
-			if NeedsRetry(err) {
+			if retrydb.ShouldRetry(err) {
 				if stmt.conn.isInTransaction() {
 					return nil, err
 				}
@@ -317,7 +315,7 @@ func (stmt *cockroachStmt) QueryContext(ctx context.Context, args []driver.Named
 			// If this returns an error it's probably the same error
 			// we got from calling Next inside wrapRows.
 			_ = result.Close()
-			if NeedsRetry(err) {
+			if retrydb.ShouldRetry(err) {
 				if stmt.conn.isInTransaction() {
 					return nil, err
 				}
@@ -337,38 +335,6 @@ func translateName(name string) string {
 		name = "postgres://" + name[12:]
 	}
 	return name
-}
-
-// NeedsRetry checks if the error code means a retry is needed,
-// borrowed from code in crdb.
-func NeedsRetry(err error) bool {
-	if errors.Is(err, io.EOF) || errors.Is(err, io.ErrUnexpectedEOF) {
-		mon.Event("crdb_error_eof")
-		// Currently we don't retry with EOF because it's unclear if
-		// a query succeeded or failed.
-		return false
-	}
-	if errors.Is(err, syscall.ECONNRESET) {
-		mon.Event("crdb_error_conn_reset_needed_retry")
-		return true
-	}
-	if errors.Is(err, syscall.ECONNREFUSED) {
-		mon.Event("crdb_error_conn_refused_needed_retry")
-		return true
-	}
-	var netErr net.Error
-	if errors.As(err, &netErr) {
-		mon.Event("crdb_net_error_needed_retry")
-		return true
-	}
-
-	code := pgerrcode.FromError(err)
-
-	// 57P01 occurs when a CRDB node rejoins the cluster but is not ready to accept connections
-	// CRDB support recommended a retry at this point
-	// Support ticket: https://support.cockroachlabs.com/hc/en-us/requests/5510
-	// TODO re-evaluate this if support provides a better solution
-	return code == "40001" || code == "CR000" || code == "57P01"
 }
 
 var defaultDriver = &Driver{}

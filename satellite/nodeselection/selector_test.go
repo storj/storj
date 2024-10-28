@@ -6,6 +6,7 @@ package nodeselection_test
 import (
 	"fmt"
 	"math"
+	"strconv"
 	"sync/atomic"
 	"testing"
 
@@ -1183,4 +1184,47 @@ func TestMin(t *testing.T) {
 	test("min(15.9,tracker)", node1, float64(10))
 	test("min(15,tracker)", node1, float64(10))
 	test("min(15,tracker)", node2, float64(1))
+}
+
+func TestWeightedSelector(t *testing.T) {
+	var nodes []*nodeselection.SelectedNode
+	idIndex := 0
+
+	for i := 0; i < 100; i++ {
+		nodes = append(nodes, &nodeselection.SelectedNode{
+			ID:    testidentity.MustPregeneratedIdentity(idIndex, storj.LatestIDVersion()).ID,
+			Email: fmt.Sprintf("%d@%d", i, i),
+			Tags: nodeselection.NodeTags{
+				{
+					Name:   "weight",
+					Signer: storj.NodeID{},
+					Value:  []byte(strconv.Itoa(100)),
+				},
+			},
+		})
+		idIndex++
+	}
+
+	// 3x more chance to be selected --> selecting 10 nodes --> very high chance, for being selected (at least once)
+	nodes[0].Tags[0].Value = []byte("500")
+	val, err := nodeselection.CreateNodeValue("tag:1111111111111111111111111111111112m1s9K/weight")
+	require.NoError(t, err)
+
+	selector := nodeselection.WeightedSelector(val, 100, nil)(nodes, nil)
+
+	histogram := map[storj.NodeID]int{}
+
+	for i := 0; i < 10000; i++ {
+		selectedNodes, err := selector(storj.NodeID{}, 10, nil, nil)
+		require.NoError(t, err)
+		require.Len(t, selectedNodes, 10)
+
+		for _, node := range selectedNodes {
+			histogram[node.ID]++
+		}
+	}
+
+	// specific node selected at least 3 times more
+	require.Greater(t, float64(histogram[nodes[0].ID])/float64(histogram[nodes[1].ID]), float64(3))
+
 }

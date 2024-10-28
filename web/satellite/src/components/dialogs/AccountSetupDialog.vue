@@ -3,9 +3,7 @@
 
 <template>
     <v-dialog :model-value="shouldShowSetupDialog" height="87%" width="87%" persistent transition="fade-transition" scrollable>
-        <v-card
-            ref="innerContent"
-        >
+        <v-card ref="innerContent">
             <v-card-item class="py-4" :class="{ 'h-100': step === OnboardingStep.SetupComplete }">
                 <v-window v-model="step">
                     <!-- Choice step -->
@@ -51,94 +49,11 @@
                         <v-window-item :value="OnboardingStep.PlanTypeSelection">
                             <account-type-step
                                 @free-click="() => onSelectPricingPlan(FREE_PLAN_INFO)"
-                                @pro-click="toNextStep"
+                                @pro-click="() => onSelectPricingPlan(PRO_PLAN_INFO)"
                                 @back="toPrevStep"
                             />
                         </v-window-item>
 
-                        <v-window-item :value="OnboardingStep.PaymentMethodSelection">
-                            <v-container>
-                                <v-row justify="center">
-                                    <v-col class="text-center py-4">
-                                        <icon-storj-logo />
-                                        <div class="text-overline mt-2 mb-1">
-                                            Account Setup
-                                        </div>
-                                        <h2>Activate your account</h2>
-                                    </v-col>
-                                </v-row>
-                                <v-row justify="center" align="center">
-                                    <v-col cols="12" sm="8" md="6" lg="4">
-                                        <p class="text-body-2 my-2">
-                                            Add a credit card to activate your Pro Account, or deposit
-                                            more than $10 in STORJ tokens to upgrade and get 10% bonus
-                                            on your STORJ tokens deposit.
-                                        </p>
-                                        <v-row justify="center" class="pb-5 pt-3">
-                                            <v-col>
-                                                <v-btn
-                                                    variant="flat"
-                                                    color="primary"
-                                                    :disabled="isLoading"
-                                                    :prepend-icon="CreditCard"
-                                                    block
-                                                    @click="() => onSelectPricingPlan(PRO_PLAN_INFO)"
-                                                >
-                                                    Add Credit Card
-                                                </v-btn>
-                                            </v-col>
-                                            <v-col>
-                                                <v-btn
-                                                    variant="flat"
-                                                    :loading="isLoading"
-                                                    :prepend-icon="CirclePlus"
-                                                    block
-                                                    @click="onAddTokens"
-                                                >
-                                                    Add STORJ Tokens
-                                                </v-btn>
-                                            </v-col>
-                                        </v-row>
-                                        <div class="pb-4">
-                                            <v-btn
-                                                block
-                                                variant="text"
-                                                color="default"
-                                                :prepend-icon="ChevronLeft"
-                                                :disabled="isLoading"
-                                                @click="toPrevStep"
-                                            >
-                                                Back
-                                            </v-btn>
-                                        </div>
-                                    </v-col>
-                                </v-row>
-                            </v-container>
-                        </v-window-item>
-
-                        <v-window-item :value="OnboardingStep.AddTokens">
-                            <v-container>
-                                <v-row justify="center">
-                                    <v-col class="text-center py-4">
-                                        <icon-storj-logo />
-                                        <div class="text-overline mt-2 mb-1">
-                                            Account Setup
-                                        </div>
-                                        <h2>Activate your account</h2>
-                                    </v-col>
-                                </v-row>
-                                <v-row justify="center" align="center">
-                                    <v-col cols="12" sm="8" md="6" lg="4">
-                                        <AddTokensStep
-                                            @back="toPrevStep"
-                                            @success="toNextStep"
-                                        />
-                                    </v-col>
-                                </v-row>
-                            </v-container>
-                        </v-window-item>
-
-                        <!-- Pricing plan steps -->
                         <v-window-item :value="OnboardingStep.PricingPlanSelection">
                             <v-container>
                                 <v-row justify="center">
@@ -159,11 +74,11 @@
                             </v-container>
                         </v-window-item>
 
-                        <v-window-item :value="OnboardingStep.PricingPlan">
+                        <v-window-item :value="OnboardingStep.PaymentMethodSelection">
                             <v-container>
                                 <v-row justify="center">
                                     <v-col class="text-center py-4">
-                                        <icon-storj-logo height="50" width="50" class="rounded-xlg bg-background pa-2 border" />
+                                        <icon-storj-logo />
                                         <div class="text-overline mt-2 mb-1">
                                             Account Setup
                                         </div>
@@ -172,15 +87,52 @@
                                 </v-row>
                                 <v-row justify="center" align="center">
                                     <v-col cols="12" sm="8" md="6" lg="4">
-                                        <PricingPlanStep
-                                            v-model:loading="isLoading"
-                                            :plan="plan"
-                                            is-account-setup
-                                            @back="toPrevStep"
-                                            @success="toNextStep"
-                                        />
+                                        <v-tabs
+                                            v-if="isProPlan"
+                                            v-model="paymentTab"
+                                            color="default"
+                                            center-active
+                                            show-arrows
+                                            grow
+                                        >
+                                            <v-tab>
+                                                Credit Card
+                                            </v-tab>
+                                            <v-tab>
+                                                STORJ tokens
+                                            </v-tab>
+                                        </v-tabs>
                                     </v-col>
                                 </v-row>
+                                <v-window v-model="paymentTab">
+                                    <v-window-item :value="PaymentOption.CreditCard">
+                                        <v-row justify="center" align="center">
+                                            <v-col cols="12" sm="8" md="6" lg="4">
+                                                <PricingPlanStep
+                                                    v-model:loading="isLoading"
+                                                    :plan="plan"
+                                                    is-account-setup
+                                                    @back="toPrevStep"
+                                                    @success="toNextStep"
+                                                />
+                                            </v-col>
+                                        </v-row>
+                                    </v-window-item>
+                                    <v-window-item :value="PaymentOption.StorjTokens">
+                                        <v-row justify="center" align="center" class="mt-2">
+                                            <v-col cols="12" sm="8" md="6" lg="4">
+                                                <v-card :loading="isLoading" class="pa-1" :class="{'no-border pa-0': !isLoading}">
+                                                    <AddTokensStep
+                                                        v-if="!isLoading"
+                                                        is-onboarding
+                                                        @back="onBackFromTokens"
+                                                        @success="toNextStep"
+                                                    />
+                                                </v-card>
+                                            </v-col>
+                                        </v-row>
+                                    </v-window-item>
+                                </v-window>
                             </v-container>
                         </v-window-item>
                     </template>
@@ -208,9 +160,26 @@
 </template>
 
 <script setup lang="ts">
-import { Component, computed, onBeforeMount, Ref, ref, watch } from 'vue';
-import { VBtn, VCard, VCardItem, VCol, VContainer, VDialog, VRow, VWindow, VWindowItem } from 'vuetify/components';
-import { ChevronLeft, CirclePlus, CreditCard } from 'lucide-vue-next';
+import {
+    Component,
+    computed,
+    onBeforeMount,
+    Ref,
+    ref,
+    watch,
+} from 'vue';
+import {
+    VCard,
+    VCardItem,
+    VCol,
+    VContainer,
+    VDialog,
+    VRow,
+    VTab,
+    VTabs,
+    VWindow,
+    VWindowItem,
+} from 'vuetify/components';
 
 import { useUsersStore } from '@/store/modules/usersStore';
 import {
@@ -230,6 +199,7 @@ import { ManagePassphraseMode } from '@/types/projects';
 import { AnalyticsErrorEventSource, AnalyticsEvent } from '@/utils/constants/analyticsEventNames';
 import { useNotify } from '@/utils/hooks';
 import { useAnalyticsStore } from '@/store/modules/analyticsStore';
+import { Wallet } from '@/types/payments';
 
 import ChoiceStep from '@/components/dialogs/accountSetupSteps/ChoiceStep.vue';
 import BusinessStep from '@/components/dialogs/accountSetupSteps/BusinessStep.vue';
@@ -248,6 +218,11 @@ interface SetupStep {
     validate?: () => boolean;
 }
 
+enum PaymentOption {
+    CreditCard,
+    StorjTokens,
+}
+
 class StepInfo {
     public ref = ref<SetupStep>();
     public prev: Ref<OnboardingStep | undefined>;
@@ -256,7 +231,7 @@ class StepInfo {
     constructor(
         prev: SetupLocation = undefined,
         next: SetupLocation = undefined,
-        public beforeNext?: () => Promise<void>,
+        public beforeNext?: () => void | Promise<void>,
     ) {
         this.prev = (typeof prev === 'function') ? computed<OnboardingStep | undefined>(prev) : ref<OnboardingStep | undefined>(prev);
         this.next = (typeof next === 'function') ? computed<OnboardingStep | undefined>(next) : ref<OnboardingStep | undefined>(next);
@@ -327,46 +302,21 @@ const stepInfos = {
     })(),
     [OnboardingStep.PricingPlanSelection]: new StepInfo(
         () => accountType.value || OnboardingStep.AccountTypeSelection,
-        OnboardingStep.PricingPlan,
+        OnboardingStep.PaymentMethodSelection,
     ),
     [OnboardingStep.PlanTypeSelection]: new StepInfo(
         () => accountType.value || OnboardingStep.AccountTypeSelection,
-        () => plan.value ? OnboardingStep.PricingPlan : OnboardingStep.PaymentMethodSelection,
+        OnboardingStep.PaymentMethodSelection,
     ),
     [OnboardingStep.PaymentMethodSelection]: new StepInfo(
-        OnboardingStep.PlanTypeSelection,
-        () => plan.value ? OnboardingStep.PricingPlan : OnboardingStep.AddTokens,
+        () => pkgAvailable.value ? OnboardingStep.PricingPlanSelection : OnboardingStep.PlanTypeSelection,
+        () => allowManagedPassphraseStep.value ? OnboardingStep.ManagedPassphraseOptIn : OnboardingStep.SetupComplete,
+        async () => {
+            await userStore.updateSettings({
+                onboardingStep: allowManagedPassphraseStep.value ? OnboardingStep.ManagedPassphraseOptIn : OnboardingStep.SetupComplete,
+            });
+        },
     ),
-    [OnboardingStep.AddTokens]: (() => {
-        const info = new StepInfo(
-            OnboardingStep.PaymentMethodSelection,
-            () => {
-                if (allowManagedPassphraseStep.value) return OnboardingStep.ManagedPassphraseOptIn;
-                return OnboardingStep.SetupComplete;
-            },
-        );
-        info.beforeNext =  async () => {
-            await userStore.updateSettings({ onboardingStep: info.next.value });
-        };
-        return info;
-    })(),
-    [OnboardingStep.PricingPlan]: (() => {
-        const info = new StepInfo(
-            () => {
-                if (pkgAvailable.value) return OnboardingStep.PricingPlanSelection;
-                if (plan.value?.type === PricingPlanType.FREE) return  OnboardingStep.PlanTypeSelection;
-                return OnboardingStep.PaymentMethodSelection;
-            },
-            () => {
-                if (allowManagedPassphraseStep.value) return OnboardingStep.ManagedPassphraseOptIn;
-                return OnboardingStep.SetupComplete;
-            },
-        );
-        info.beforeNext =  async () => {
-            await userStore.updateSettings({ onboardingStep: info.next.value });
-        };
-        return info;
-    })(),
     [OnboardingStep.ManagedPassphraseOptIn]: (() => {
         const info = new StepInfo(
             undefined,
@@ -392,6 +342,7 @@ const step = ref<OnboardingStep>(OnboardingStep.AccountTypeSelection);
 const plan = ref<PricingPlanInfo>();
 const passphraseManageMode = ref<ManagePassphraseMode>('auto');
 const accountType = ref<OnboardingStep>();
+const paymentTab = ref<PaymentOption>(PaymentOption.CreditCard);
 
 const firstName = ref<string>('');
 const lastName = ref<string>('');
@@ -405,9 +356,13 @@ const functionalArea = ref<string | undefined>(undefined);
 const haveSalesContact = ref<boolean>(false);
 const interestedInPartnering = ref<boolean>(false);
 
-const billingEnabled = computed(() => configStore.state.config.billingFeaturesEnabled);
+const billingEnabled = computed<boolean>(() => configStore.state.config.billingFeaturesEnabled);
 
-const pkgAvailable = computed(() => billingStore.state.pricingPlansAvailable);
+const pkgAvailable = computed<boolean>(() => billingStore.state.pricingPlansAvailable);
+
+const isProPlan = computed<boolean>(() => plan.value?.type === PricingPlanType.PRO);
+
+const wallet = computed<Wallet>(() => billingStore.state.wallet as Wallet);
 
 /**
  * Indicates if satellite managed encryption passphrase is enabled.
@@ -417,9 +372,9 @@ const satelliteManagedEncryptionEnabled = computed<boolean>(() => configStore.st
 /**
  * Indicates whether to allow progression to managed passphrase opt in step.
  */
-const allowManagedPassphraseStep = computed(() => satelliteManagedEncryptionEnabled.value && projectsStore.state.projects.length === 0);
+const allowManagedPassphraseStep = computed<boolean>(() => satelliteManagedEncryptionEnabled.value && projectsStore.state.projects.length === 0);
 
-const shouldShowSetupDialog = computed(() => {
+const shouldShowSetupDialog = computed<boolean>(() => {
     // settings are fetched on the projects page.
     const onboardingEnd = userStore.state.settings.onboardingEnd;
     if (onboardingEnd || !!ONBOARDING_STEPPER_STEPS.find(s => s === userSettings.value.onboardingStep)) {
@@ -429,27 +384,31 @@ const shouldShowSetupDialog = computed(() => {
     return appStore.state.isAccountSetupDialogShown;
 });
 
-const userSettings = computed(() => userStore.state.settings as UserSettings);
+const userSettings = computed<UserSettings>(() => userStore.state.settings as UserSettings);
 
-function onChoiceSelect(s: OnboardingStep) {
+function onChoiceSelect(s: OnboardingStep): void {
     accountType.value = s;
     toNextStep();
 }
 
-function onSelectPricingPlan(p: PricingPlanInfo) {
+function onSelectPricingPlan(p: PricingPlanInfo): void {
     plan.value = p;
     toNextStep();
+}
+
+function onBackFromTokens(): void {
+    toPrevStep();
+    paymentTab.value = PaymentOption.CreditCard;
 }
 
 /**
  * Claims wallet and sets add token step.
  */
-function onAddTokens() {
+function onAddTokens(): void {
     withLoading(async () => {
         try {
             await billingStore.claimWallet();
             analyticsStore.eventTriggered(AnalyticsEvent.ADD_FUNDS_CLICKED);
-            toNextStep();
         } catch (error) {
             notify.notifyError(error, AnalyticsErrorEventSource.ACCOUNT_SETUP_DIALOG);
         }
@@ -459,7 +418,7 @@ function onAddTokens() {
 /**
  * Decides whether to move to the success step or the pricing plan selection.
  */
-async function toNextStep() {
+async function toNextStep(): Promise<void> {
     const info = stepInfos[step.value];
     if (info.ref.value?.validate?.() === false) {
         return;
@@ -479,7 +438,7 @@ async function toNextStep() {
     }
 }
 
-async function toPrevStep() {
+async function toPrevStep(): Promise<void> {
     const info = stepInfos[step.value];
     if (info.prev.value) {
         step.value = info.prev.value;
@@ -520,6 +479,10 @@ onBeforeMount(() => {
     });
 });
 
+watch(paymentTab, newTab => {
+    if (newTab === PaymentOption.StorjTokens && !wallet.value.address) onAddTokens();
+});
+
 watch(innerContent, comp => {
     if (comp) {
         if (!satelliteManagedEncryptionEnabled.value) {
@@ -530,3 +493,9 @@ watch(innerContent, comp => {
     step.value = OnboardingStep.AccountTypeSelection;
 });
 </script>
+
+<style scoped lang="scss">
+.no-border {
+    border: 0 !important;
+}
+</style>
