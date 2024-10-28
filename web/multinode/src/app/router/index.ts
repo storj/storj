@@ -137,6 +137,11 @@ const allowedRoutesNames = [Config.AddFirstNode.name, Config.Welcome.name];
  * Redirect to Add first node screen if so.
  */
 router.beforeEach(async(to, _from, next) => {
+
+    if(to.path === '/') {
+        next(Config.MyNodes);
+    }
+
     if (store.state.nodes.nodes.length) {
         next();
     }
