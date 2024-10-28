@@ -16,8 +16,8 @@ import (
 
 	"storj.io/common/process"
 	"storj.io/common/uuid"
-	"storj.io/storj/shared/dbutil/cockroachutil"
 	"storj.io/storj/shared/dbutil/pgutil"
+	"storj.io/storj/shared/dbutil/retrydb"
 )
 
 var mon = monkit.Package()
@@ -170,7 +170,7 @@ func Migrate(ctx context.Context, log *zap.Logger, conn *pgx.Conn, config Config
 		`, pgutil.ByteaArray(ids))
 		err := row.Scan(&updated)
 		if err != nil {
-			if cockroachutil.NeedsRetry(err) {
+			if retrydb.ShouldRetry(err) {
 				continue
 			} else if errs.Is(err, pgx.ErrNoRows) {
 				break

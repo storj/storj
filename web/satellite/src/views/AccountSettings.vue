@@ -31,28 +31,30 @@
                         <v-chip color="default" variant="tonal" size="small" rounded="md" class="font-weight-bold">
                             {{ user.email }}
                         </v-chip>
-                        <v-divider class="my-4" />
-                        <v-btn
-                            v-if="changeEmailEnabled"
-                            variant="outlined"
-                            color="default"
-                            size="small"
-                            rounded="md"
-                            @click="isChangeEmailDialogShown = true"
-                        >
-                            Change Email
-                        </v-btn>
-                        <div v-else>
-                            <v-tooltip
-                                activator="parent"
-                                location="top"
+                        <template v-if="!user.externalID">
+                            <v-divider class="my-4" />
+                            <v-btn
+                                v-if="changeEmailEnabled"
+                                variant="outlined"
+                                color="default"
+                                size="small"
+                                rounded="md"
+                                @click="isChangeEmailDialogShown = true"
                             >
-                                To change email, please <a href="https://supportdcs.storj.io/hc/en-us/requests/new?ticket_form_id=360000379291#" target="_blank">contact support</a>.
-                            </v-tooltip>
-                            <v-btn variant="outlined" color="default" size="small" rounded="md" disabled>
                                 Change Email
                             </v-btn>
-                        </div>
+                            <div v-else>
+                                <v-tooltip
+                                    activator="parent"
+                                    location="top"
+                                >
+                                    To change email, please <a href="https://supportdcs.storj.io/hc/en-us/requests/new?ticket_form_id=360000379291#" target="_blank">contact support</a>.
+                                </v-tooltip>
+                                <v-btn variant="outlined" color="default" size="small" rounded="md" disabled>
+                                    Change Email
+                                </v-btn>
+                            </div>
+                        </template>
                     </v-card-text>
                 </v-card>
             </v-col>
@@ -86,7 +88,7 @@
         </v-row>
 
         <v-row>
-            <v-col cols="12" sm="6" lg="4">
+            <v-col cols="12" sm="6" lg="4"  v-if="!user.externalID">
                 <v-card title="Password" variant="outlined">
                     <v-card-subtitle>
                         **********
@@ -145,7 +147,7 @@
             </v-col>
         </v-row>
 
-        <template v-if="deleteAccountEnabled">
+        <template v-if="deleteAccountEnabled && !user.externalID">
             <v-row>
                 <v-col>
                     <h3 class="mt-5">Danger Zone</h3>

@@ -136,7 +136,7 @@ func (peStore *PieceExpirationStore) flushOnTicks() {
 }
 
 // GetExpired gets piece IDs that expire or have expired before the given time.
-func (peStore *PieceExpirationStore) GetExpired(ctx context.Context, now time.Time, _ int) (infos []ExpiredInfo, err error) {
+func (peStore *PieceExpirationStore) GetExpired(ctx context.Context, now time.Time, limit int) (infos []ExpiredInfo, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	satellites, err := peStore.getSatellitesWithExpirations(ctx)
@@ -152,7 +152,7 @@ func (peStore *PieceExpirationStore) GetExpired(ctx context.Context, now time.Ti
 		infos = append(infos, satelliteInfos...)
 	}
 	if peStore.chainedStore != nil {
-		chainedInfos, err := peStore.chainedStore.GetExpired(ctx, now, 0)
+		chainedInfos, err := peStore.chainedStore.GetExpired(ctx, now, limit)
 		if err != nil {
 			errList.Add(ErrPieceExpiration.Wrap(err))
 		} else {

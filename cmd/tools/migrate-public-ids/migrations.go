@@ -11,8 +11,8 @@ import (
 	"go.uber.org/zap"
 
 	"storj.io/common/uuid"
-	"storj.io/storj/shared/dbutil/cockroachutil"
 	"storj.io/storj/shared/dbutil/pgutil"
+	"storj.io/storj/shared/dbutil/retrydb"
 )
 
 // MigrateProjects updates all rows in the projects table, giving them a new UUID if they do not already have one.
@@ -87,7 +87,7 @@ func MigrateProjects(ctx context.Context, log *zap.Logger, conn *pgx.Conn, confi
 			)
 			err := row.Scan(&updated)
 			if err != nil {
-				if cockroachutil.NeedsRetry(err) {
+				if retrydb.ShouldRetry(err) {
 					continue
 				} else if errs.Is(err, pgx.ErrNoRows) {
 					break

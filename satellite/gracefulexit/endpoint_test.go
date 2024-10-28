@@ -31,7 +31,7 @@ func TestSuccess(t *testing.T) {
 	const steps = 5
 	testplanet.Run(t, testplanet.Config{
 		SatelliteCount:   1,
-		StorageNodeCount: 4,
+		StorageNodeCount: 2,
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 		satellite := planet.Satellites[0]
 
@@ -147,7 +147,7 @@ func TestExitDisabled(t *testing.T) {
 func TestIneligibleNodeAge(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
 		SatelliteCount:   1,
-		StorageNodeCount: 5,
+		StorageNodeCount: 2,
 		Reconfigure: testplanet.Reconfigure{
 			Satellite: func(log *zap.Logger, index int, config *satellite.Config) {
 				// Set the required node age to 1 month.
@@ -274,7 +274,7 @@ func findNodeToExit(ctx context.Context, planet *testplanet.Planet, objects int)
 func TestNodeAlreadyExited(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
 		SatelliteCount:   1,
-		StorageNodeCount: 4,
+		StorageNodeCount: 2,
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 		satellite := planet.Satellites[0]
 
@@ -318,7 +318,7 @@ func TestNodeAlreadyExited(t *testing.T) {
 func TestNodeSuspended(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
 		SatelliteCount:   1,
-		StorageNodeCount: 4,
+		StorageNodeCount: 2,
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 		satellite := planet.Satellites[0]
 
@@ -407,14 +407,14 @@ func TestManyNodesGracefullyExiting(t *testing.T) {
 func TestNodeFailingGracefulExitWithLowOnlineScore(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
 		SatelliteCount:   1,
-		StorageNodeCount: 4,
+		StorageNodeCount: 2,
 		Reconfigure: testplanet.Reconfigure{
 			Satellite: func(log *zap.Logger, index int, config *satellite.Config) {
 				config.Reputation.AuditHistory.WindowSize = 24 * time.Hour
 				config.Reputation.AuditHistory.TrackingPeriod = 3 * 24 * time.Hour
 				config.Reputation.FlushInterval = 0
 				config.GracefulExit.MinimumOnlineScore = 0.6
-				config.GracefulExit.GracefulExitDurationInDays = 30
+				config.GracefulExit.GracefulExitDurationInDays = 4
 			},
 		},
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
@@ -483,7 +483,7 @@ func TestNodeFailingGracefulExitWithLowOnlineScore(t *testing.T) {
 func TestSuspendedNodesFailGracefulExit(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
 		SatelliteCount:   1,
-		StorageNodeCount: 4,
+		StorageNodeCount: 2,
 		Reconfigure: testplanet.Reconfigure{
 			Satellite: func(log *zap.Logger, index int, config *satellite.Config) {
 				config.Reputation.FlushInterval = 0

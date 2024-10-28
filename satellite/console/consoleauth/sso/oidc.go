@@ -5,7 +5,7 @@ package sso
 
 import (
 	"context"
-	"path"
+	"net/url"
 
 	goOIDC "github.com/coreos/go-oidc/v3/oidc"
 	"github.com/spacemonkeygo/monkit/v3"
@@ -55,9 +55,12 @@ func NewService(satelliteAddress string, config Config) *Service {
 func (s *Service) Initialize(ctx context.Context) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	callbackAddr := path.Join(s.satelliteAddress, "/sso/callback")
 	verifierMap := make(map[string]OidcSetup)
 	for providerName, info := range s.config.OidcProviderInfos.Values {
+		callbackAddr, err := url.JoinPath(s.satelliteAddress, "sso", providerName, "callback")
+		if err != nil {
+			return Error.Wrap(err)
+		}
 		conf := oauth2.Config{
 			ClientID:     info.ClientID,
 			ClientSecret: info.ClientSecret,

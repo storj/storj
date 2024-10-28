@@ -7,7 +7,9 @@ import (
 	"bytes"
 	"context"
 	"crypto/rand"
+	"crypto/sha256"
 	"database/sql"
+	"encoding/base64"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -1077,6 +1079,16 @@ func (s *Service) CreateUser(ctx context.Context, user CreateUser, tokenSecret R
 	return u, nil
 }
 
+// GetSsoStateFromEmail returns a signed string derived from the email address.
+func (s *Service) GetSsoStateFromEmail(email string) (string, error) {
+	sum := sha256.Sum256([]byte(email))
+	signed, err := s.tokens.Sign(sum[:])
+	if err != nil {
+		return "", Error.Wrap(err)
+	}
+	return base64.RawURLEncoding.EncodeToString(signed), nil
+}
+
 // CreateSsoUser creates a user that has been authenticated by SSO provider.
 func (s *Service) CreateSsoUser(ctx context.Context, user CreateSsoUser) (u *User, err error) {
 	defer mon.Task()(&ctx)(&err)
@@ -1636,6 +1648,11 @@ func (s *Service) Token(ctx context.Context, request AuthUser) (response *TokenI
 		return nil, ErrLoginCredentials.New(credentialsErrMsg)
 	}
 
+	if user.ExternalID != nil && *user.ExternalID != "" {
+		s.auditLog(ctx, "login: attempted sso bypass", &user.ID, request.Email)
+		return nil, ErrLoginCredentials.New(credentialsErrMsg)
+	}
+
 	err = bcrypt.CompareHashAndPassword(user.PasswordHash, []byte(request.Password))
 	if err != nil {
 		err = s.handleLogInLockAccount(ctx, user)
@@ -2010,6 +2027,10 @@ func (s *Service) DeleteAccount(ctx context.Context, step AccountActionStep, dat
 		return nil, ErrForbidden.New("account can't be deleted")
 	}
 
+	if user.ExternalID != nil && *user.ExternalID != "" {
+		return nil, ErrForbidden.New("sso users must contact support to delete their accounts")
+	}
+
 	if user.LoginLockoutExpiration.After(s.nowFn()) {
 		mon.Counter("delete_account_locked_out").Inc(1) //mon:locked
 		s.auditLog(ctx, "delete account: failed account locked out", &user.ID, user.Email)
@@ -2117,6 +2138,11 @@ func (s *Service) ChangeEmail(ctx context.Context, step AccountActionStep, data 
 		mon.Counter("change_email_locked_out").Inc(1) //mon:locked
 		s.auditLog(ctx, "change email: failed account locked out", &user.ID, user.Email)
 		return ErrUnauthorized.New("please try again later")
+	}
+
+	if user.ExternalID != nil && *user.ExternalID != "" {
+		s.auditLog(ctx, "change email: attempted by sso user", &user.ID, user.Email)
+		return ErrForbidden.New("sso users cannot change email")
 	}
 
 	switch step {
@@ -3204,6 +3230,10 @@ func (s *Service) DeleteProject(ctx context.Context, projectID uuid.UUID, step A
 	user, err := s.getUserAndAuditLog(ctx, "delete project", zap.String("projectID", projectID.String()))
 	if err != nil {
 		return nil, Error.Wrap(err)
+	}
+
+	if user.ExternalID != nil && *user.ExternalID != "" {
+		return nil, ErrForbidden.New("sso users must ask support to delete projects")
 	}
 
 	_, p, err := s.isProjectOwner(ctx, user.ID, projectID)

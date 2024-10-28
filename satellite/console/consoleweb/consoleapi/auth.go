@@ -11,6 +11,7 @@ import (
 	"io"
 	"math/big"
 	"net/http"
+	"net/url"
 	"strconv"
 	"strings"
 	"time"
@@ -177,10 +178,15 @@ func (a *Auth) AuthenticateSso(w http.ResponseWriter, r *http.Request) {
 func (a *Auth) verifySsoAuth(r *http.Request) (provider string, _ *sso.OidcSsoClaims, err error) {
 	ctx := r.Context()
 
-	provider = r.URL.Query().Get("state")
+	provider = mux.Vars(r)["provider"]
 	oidcSetup := a.ssoService.GetOidcSetupByProvider(provider)
 	if oidcSetup == nil {
-		return "", nil, console.ErrValidation.New("invalid provider state")
+		return "", nil, console.ErrValidation.New("invalid provider %s", provider)
+	}
+
+	ssoState := r.URL.Query().Get("state")
+	if ssoState == "" {
+		return "", nil, console.ErrValidation.New("missing email hash")
 	}
 
 	oauth2Token, err := oidcSetup.Config.Exchange(ctx, r.URL.Query().Get("code"))
@@ -203,7 +209,73 @@ func (a *Auth) verifySsoAuth(r *http.Request) (provider string, _ *sso.OidcSsoCl
 		return "", nil, console.Error.New("failed to parse claims")
 	}
 
+	state, err := a.service.GetSsoStateFromEmail(claims.Email)
+	if err != nil {
+		return "", nil, console.Error.New("failed to get state")
+	}
+	if state != ssoState {
+		return "", nil, console.ErrUnauthorized.New("SSO state mismatch")
+	}
+
 	return provider, &claims, nil
+}
+
+// GetSsoUrl returns the SSO URL for the given provider.
+func (a *Auth) GetSsoUrl(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	var err error
+	defer mon.Task()(&ctx)(&err)
+
+	provider := a.ssoService.GetProviderByEmail(r.URL.Query().Get("email"))
+	if provider == "" {
+		w.WriteHeader(http.StatusNotFound)
+		return
+	}
+	ssoUrl, err := url.JoinPath(a.ExternalAddress, "sso", provider)
+	if provider == "" {
+		a.serveJSONError(ctx, w, err)
+		return
+	}
+	_, err = w.Write([]byte(ssoUrl))
+	if err != nil {
+		a.log.Error("failed to write response", zap.Error(err))
+	}
+}
+
+// BeginSsoFlow starts the SSO flow by redirecting to the OIDC provider.
+func (a *Auth) BeginSsoFlow(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	var err error
+	defer mon.Task()(&ctx)(&err)
+
+	ssoFailedAddr, err := url.JoinPath(a.ExternalAddress, "login?sso_failed=true")
+	if err != nil {
+		a.log.Error("failed to get sso failed url", zap.Error(err))
+		http.Redirect(w, r, ssoFailedAddr, http.StatusPermanentRedirect)
+		return
+	}
+
+	provider := mux.Vars(r)["provider"]
+	oidcSetup := a.ssoService.GetOidcSetupByProvider(provider)
+	if oidcSetup == nil {
+		a.log.Error("invalid provider "+provider, zap.Error(console.ErrValidation.New("invalid provider")))
+		http.Redirect(w, r, ssoFailedAddr, http.StatusPermanentRedirect)
+		return
+	}
+
+	email := r.URL.Query().Get("email")
+	if email == "" {
+		a.log.Error("email is required for SSO flow", zap.Error(console.ErrValidation.New("email is required")))
+		http.Redirect(w, r, ssoFailedAddr, http.StatusPermanentRedirect)
+	}
+
+	state, err := a.service.GetSsoStateFromEmail(email)
+	if err != nil {
+		a.log.Error("failed to get sso state", zap.Error(err))
+		http.Redirect(w, r, ssoFailedAddr, http.StatusPermanentRedirect)
+		return
+	}
+	http.Redirect(w, r, oidcSetup.Config.AuthCodeURL(state), http.StatusFound)
 }
 
 // TokenByAPIKey authenticates user by API key and returns auth token.
@@ -860,6 +932,7 @@ func (a *Auth) GetAccount(w http.ResponseWriter, r *http.Request) {
 
 	var user struct {
 		ID                    uuid.UUID  `json:"id"`
+		ExternalID            string     `json:"externalID"`
 		FullName              string     `json:"fullName"`
 		ShortName             string     `json:"shortName"`
 		Email                 string     `json:"email"`
@@ -892,6 +965,9 @@ func (a *Auth) GetAccount(w http.ResponseWriter, r *http.Request) {
 	user.FullName = consoleUser.FullName
 	user.Email = consoleUser.Email
 	user.ID = consoleUser.ID
+	if consoleUser.ExternalID != nil {
+		user.ExternalID = *consoleUser.ExternalID
+	}
 	if consoleUser.UserAgent != nil {
 		user.Partner = string(consoleUser.UserAgent)
 	}
@@ -1018,6 +1094,11 @@ func (a *Auth) ForgotPassword(w http.ResponseWriter, r *http.Request) {
 				SupportTeamLink:     a.GeneralRequestURL,
 			},
 		)
+		return
+	}
+
+	if user.ExternalID != nil && *user.ExternalID != "" {
+		a.log.Info("sso user attempted 'forgot password' flow", zap.String("email", user.Email))
 		return
 	}
 
