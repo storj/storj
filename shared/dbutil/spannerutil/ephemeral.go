@@ -32,8 +32,8 @@ func CreateEphemeralDB(ctx context.Context, connstr string, databasePrefix strin
 		return nil, errs.New("failed to parse connection string %q: %w", connstr, err)
 	}
 
-	if !params.Emulator && !params.AllDefined() {
-		return nil, errs.New("when not using an emulator specifying full database is required")
+	if !params.Emulator && params.Project == "" {
+		return nil, errs.New("when not using an emulator project is required")
 	}
 
 	if params.Project == "" {
