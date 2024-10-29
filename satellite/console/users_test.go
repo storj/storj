@@ -514,35 +514,42 @@ func TestGetExpiredFreeTrialsAfter(t *testing.T) {
 		now := time.Now()
 		expired := now.Add(-time.Hour)
 		notExpired := now.Add(time.Hour)
+		activeStatus := console.Active
 
 		expiredUser, err := usersRepo.Insert(ctx, &console.User{
 			ID:              testrand.UUID(),
 			FullName:        "expired",
 			Email:           email + "1",
 			PasswordHash:    []byte("123a123"),
-			Status:          console.Active,
 			TrialExpiration: &expired,
 		})
 		require.NoError(t, err)
 
-		_, err = usersRepo.Insert(ctx, &console.User{
+		err = usersRepo.Update(ctx, expiredUser.ID, console.UpdateUserRequest{Status: &activeStatus})
+		require.NoError(t, err)
+
+		notExpiredUser, err := usersRepo.Insert(ctx, &console.User{
 			ID:              testrand.UUID(),
 			FullName:        "not expired",
 			Email:           email + "2",
 			PasswordHash:    []byte("123a123"),
-			Status:          console.Active,
 			TrialExpiration: &notExpired,
 		})
 		require.NoError(t, err)
 
-		_, err = usersRepo.Insert(ctx, &console.User{
+		err = usersRepo.Update(ctx, notExpiredUser.ID, console.UpdateUserRequest{Status: &activeStatus})
+		require.NoError(t, err)
+
+		notExpiredUser1, err := usersRepo.Insert(ctx, &console.User{
 			ID:              testrand.UUID(),
 			FullName:        "nil expiry",
 			Email:           email + "3",
 			PasswordHash:    []byte("123a123"),
-			Status:          console.Active,
 			TrialExpiration: nil,
 		})
+		require.NoError(t, err)
+
+		err = usersRepo.Update(ctx, notExpiredUser1.ID, console.UpdateUserRequest{Status: &activeStatus})
 		require.NoError(t, err)
 
 		// expect pro user with expired trial to not be returned.
@@ -550,7 +557,19 @@ func TestGetExpiredFreeTrialsAfter(t *testing.T) {
 			ID:              testrand.UUID(),
 			FullName:        "Paid User",
 			Email:           email + "4",
-			Status:          console.Active,
+			PasswordHash:    []byte("123a123"),
+			TrialExpiration: &expired,
+		})
+		require.NoError(t, err)
+
+		err = usersRepo.Update(ctx, proUser.ID, console.UpdateUserRequest{Status: &activeStatus})
+		require.NoError(t, err)
+
+		// expect inactive user with expired trial to not be returned.
+		_, err = usersRepo.Insert(ctx, &console.User{
+			ID:              testrand.UUID(),
+			FullName:        "expired user",
+			Email:           email + "5",
 			PasswordHash:    []byte("123a123"),
 			TrialExpiration: &expired,
 		})
