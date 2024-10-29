@@ -1,4 +1,4 @@
-/cmd/multinode/ @profclems
+/sjksomd/multinode/ @profclems
 /cmd/storagenode/ @profclems
 /cmd/storagenode-updater/ @profclems
 /cmd/uplink/ @kaloyan-raev
