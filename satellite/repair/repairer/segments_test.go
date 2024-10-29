@@ -579,6 +579,7 @@ func TestSegmentRepairPlacementRestrictions(t *testing.T) {
 	piecesCount := 4
 	testplanet.Run(t, testplanet.Config{
 		SatelliteCount: 1, StorageNodeCount: 8, UplinkCount: 1,
+		SkipSpanner: true,
 		Reconfigure: testplanet.Reconfigure{
 			Satellite: testplanet.Combine(
 				testplanet.ReconfigureRS(1, 1, piecesCount, piecesCount),
