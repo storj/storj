@@ -37,19 +37,25 @@ func CreateEphemeralDB(ctx context.Context, connstr string, databasePrefix strin
 	}
 
 	if params.Project == "" {
-		params.Project = randomIdentifier("", 8)
+		params.Project = randomIdentifier("temp", 8)
 	}
 
 	var ephemeralInstance bool
 	if params.Instance == "" {
-		params.Instance = randomIdentifier("", 8)
+		params.Instance = randomIdentifier("temp", 8)
 		ephemeralInstance = true
 	}
 
 	var ephemeralDatabase bool
 	if params.Database == "" || params.Emulator {
-		params.Database = randomIdentifier(databasePrefix, 8)
+		params.Database = randomIdentifier("temp-"+databasePrefix, 8)
 		ephemeralDatabase = true
+	}
+
+	if !params.Emulator {
+		if !strings.Contains(params.Database, "test") && !strings.Contains(params.Database, "temp") {
+			return nil, errs.New("the database name must contain test or temp to run on Spanner")
+		}
 	}
 
 	admin := OpenEmulatorAdmin(params)
