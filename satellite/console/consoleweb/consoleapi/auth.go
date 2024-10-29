@@ -442,9 +442,62 @@ func (a *Auth) Register(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	if registerData.Partner != "" {
+		registerData.UserAgent = []byte(registerData.Partner)
+	}
+
+	ip, err := web.GetRequestIP(r)
+	if err != nil {
+		a.serveJSONError(ctx, w, err)
+		return
+	}
+
+	var code string
+	var requestID string
+	if a.ActivationCodeEnabled {
+		randNum, err := rand.Int(rand.Reader, big.NewInt(900000))
+		if err != nil {
+			a.serveJSONError(ctx, w, console.Error.Wrap(err))
+			return
+		}
+		randNum = randNum.Add(randNum, big.NewInt(100000))
+		code = randNum.String()
+
+		requestID = requestid.FromContext(ctx)
+	}
+
+	requestData := console.CreateUser{
+		FullName:         registerData.FullName,
+		ShortName:        registerData.ShortName,
+		Email:            registerData.Email,
+		UserAgent:        registerData.UserAgent,
+		Password:         registerData.Password,
+		IsProfessional:   registerData.IsProfessional,
+		Position:         registerData.Position,
+		CompanyName:      registerData.CompanyName,
+		EmployeeCount:    registerData.EmployeeCount,
+		HaveSalesContact: registerData.HaveSalesContact,
+		CaptchaResponse:  registerData.CaptchaResponse,
+		IP:               ip,
+		SignupPromoCode:  registerData.SignupPromoCode,
+		ActivationCode:   code,
+		SignupId:         requestID,
+		// the minimal signup from the v2 app doesn't require name.
+		AllowNoName: registerData.IsMinimal,
+	}
+
 	var user *console.User
 	if len(unverified) > 0 {
 		user = &unverified[0]
+
+		err = a.service.UpdateUserOnSignup(ctx, user, requestData)
+		if err != nil {
+			a.serveJSONError(ctx, w, err)
+			return
+		}
+
+		user.SignupId = requestData.SignupId
+		user.ActivationCode = requestData.ActivationCode
 	} else {
 		secret, err := console.RegistrationSecretFromBase64(registerData.SecretInput)
 		if err != nil {
@@ -452,77 +505,12 @@ func (a *Auth) Register(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
-		if registerData.Partner != "" {
-			registerData.UserAgent = []byte(registerData.Partner)
-		}
-
-		ip, err := web.GetRequestIP(r)
-		if err != nil {
-			a.serveJSONError(ctx, w, err)
-			return
-		}
-
-		var code string
-		var requestID string
-		if a.ActivationCodeEnabled {
-			randNum, err := rand.Int(rand.Reader, big.NewInt(900000))
-			if err != nil {
-				a.serveJSONError(ctx, w, console.Error.Wrap(err))
-				return
-			}
-			randNum = randNum.Add(randNum, big.NewInt(100000))
-			code = randNum.String()
-
-			requestID = requestid.FromContext(ctx)
-		}
-
-		user, err = a.service.CreateUser(ctx,
-			console.CreateUser{
-				FullName:         registerData.FullName,
-				ShortName:        registerData.ShortName,
-				Email:            registerData.Email,
-				UserAgent:        registerData.UserAgent,
-				Password:         registerData.Password,
-				IsProfessional:   registerData.IsProfessional,
-				Position:         registerData.Position,
-				CompanyName:      registerData.CompanyName,
-				EmployeeCount:    registerData.EmployeeCount,
-				HaveSalesContact: registerData.HaveSalesContact,
-				CaptchaResponse:  registerData.CaptchaResponse,
-				IP:               ip,
-				SignupPromoCode:  registerData.SignupPromoCode,
-				ActivationCode:   code,
-				SignupId:         requestID,
-				// the minimal signup from the v2 app doesn't require name.
-				AllowNoName: registerData.IsMinimal,
-			},
-			secret,
-		)
+		user, err = a.service.CreateUser(ctx, requestData, secret)
 		if err != nil {
 			if !console.ErrEmailUsed.Has(err) {
 				a.serveJSONError(ctx, w, err)
 			}
 			return
-		}
-
-		invites, err := a.service.GetInvitesByEmail(ctx, registerData.Email)
-		if err != nil {
-			a.log.Error("Could not get invitations", zap.String("email", registerData.Email), zap.Error(err))
-		} else if len(invites) > 0 {
-			var firstInvite console.ProjectInvitation
-			for _, inv := range invites {
-				if inv.InviterID != nil && (firstInvite.CreatedAt.IsZero() || inv.CreatedAt.Before(firstInvite.CreatedAt)) {
-					firstInvite = inv
-				}
-			}
-			if firstInvite.InviterID != nil {
-				inviter, err := a.service.GetUser(ctx, *firstInvite.InviterID)
-				if err != nil {
-					a.log.Error("Error getting inviter info", zap.String("ID", firstInvite.InviterID.String()), zap.Error(err))
-				} else {
-					a.analytics.TrackInviteLinkSignup(inviter.Email, registerData.Email)
-				}
-			}
 		}
 
 		// see if referrer was provided in URL query, otherwise use the Referer header in the request.
@@ -559,13 +547,27 @@ func (a *Auth) Register(w http.ResponseWriter, r *http.Request) {
 		a.analytics.TrackCreateUser(trackCreateUserFields)
 	}
 
-	if a.ActivationCodeEnabled {
-		*user, err = a.service.SetActivationCodeAndSignupID(ctx, *user)
-		if err != nil {
-			a.serveJSONError(ctx, w, err)
-			return
+	invites, err := a.service.GetInvitesByEmail(ctx, registerData.Email)
+	if err != nil {
+		a.log.Error("Could not get invitations", zap.String("email", registerData.Email), zap.Error(err))
+	} else if len(invites) > 0 {
+		var firstInvite console.ProjectInvitation
+		for _, inv := range invites {
+			if inv.InviterID != nil && (firstInvite.CreatedAt.IsZero() || inv.CreatedAt.Before(firstInvite.CreatedAt)) {
+				firstInvite = inv
+			}
 		}
+		if firstInvite.InviterID != nil {
+			inviter, err := a.service.GetUser(ctx, *firstInvite.InviterID)
+			if err != nil {
+				a.log.Error("Error getting inviter info", zap.String("ID", firstInvite.InviterID.String()), zap.Error(err))
+			} else {
+				a.analytics.TrackInviteLinkSignup(inviter.Email, registerData.Email)
+			}
+		}
+	}
 
+	if a.ActivationCodeEnabled {
 		a.mailService.SendRenderedAsync(
 			ctx,
 			[]post.Address{{Address: user.Email}},
@@ -573,9 +575,9 @@ func (a *Auth) Register(w http.ResponseWriter, r *http.Request) {
 				ActivationCode: user.ActivationCode,
 			},
 		)
-
 		return
 	}
+
 	token, err := a.service.GenerateActivationToken(ctx, user.ID, user.Email)
 	if err != nil {
 		a.serveJSONError(ctx, w, err)

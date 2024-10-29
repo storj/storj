@@ -776,6 +776,12 @@ func toUpdateUser(request console.UpdateUserRequest) (*dbx.User_Update_Fields, e
 	if request.Status != nil {
 		update.Status = dbx.User_Status(int(*request.Status))
 	}
+	if request.UserAgent != nil {
+		update.UserAgent = dbx.User_UserAgent(request.UserAgent)
+	}
+	if request.SignupPromoCode != nil {
+		update.SignupPromoCode = dbx.User_SignupPromoCode(*request.SignupPromoCode)
+	}
 	if request.StatusUpdatedAt != nil {
 		update.StatusUpdatedAt = dbx.User_StatusUpdatedAt(*request.StatusUpdatedAt)
 	}

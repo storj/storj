@@ -1079,6 +1079,55 @@ func (s *Service) CreateUser(ctx context.Context, user CreateUser, tokenSecret R
 	return u, nil
 }
 
+// UpdateUserOnSignup gets new password hash value and updates old inactive User.
+func (s *Service) UpdateUserOnSignup(ctx context.Context, inactiveUser *User, requestData CreateUser) (err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	// Unlikely, but we should check if the user is still inactive.
+	if inactiveUser.Status != Inactive {
+		// We return some generic error message to avoid leaking information.
+		return Error.New("An error occurred while processing your request. %s", contactSupportErrMsg)
+	}
+
+	hash, err := bcrypt.GenerateFromPassword([]byte(requestData.Password), s.config.PasswordCost)
+	if err != nil {
+		return Error.Wrap(err)
+	}
+
+	updatedUser := UpdateUserRequest{
+		FullName:         &requestData.FullName,
+		PasswordHash:     hash,
+		IsProfessional:   &requestData.IsProfessional,
+		Position:         &requestData.Position,
+		CompanyName:      &requestData.CompanyName,
+		EmployeeCount:    &requestData.EmployeeCount,
+		HaveSalesContact: &requestData.HaveSalesContact,
+		ActivationCode:   &requestData.ActivationCode,
+		SignupId:         &requestData.SignupId,
+		SignupPromoCode:  &requestData.SignupPromoCode,
+	}
+	if requestData.ShortName != "" {
+		shortNamePtr := &requestData.ShortName
+		updatedUser.ShortName = &shortNamePtr
+	}
+	if requestData.UserAgent != nil {
+		updatedUser.UserAgent = requestData.UserAgent
+	}
+
+	if s.config.FreeTrialDuration != 0 {
+		expiration := s.nowFn().Add(s.config.FreeTrialDuration)
+		expirationPtr := &expiration
+		updatedUser.TrialExpiration = &expirationPtr
+	}
+
+	err = s.store.Users().Update(ctx, inactiveUser.ID, updatedUser)
+	if err != nil {
+		return Error.Wrap(err)
+	}
+
+	return nil
+}
+
 // GetSsoStateFromEmail returns a signed string derived from the email address.
 func (s *Service) GetSsoStateFromEmail(email string) (string, error) {
 	sum := sha256.Sum256([]byte(email))
