@@ -48,7 +48,7 @@
 
             <v-window v-model="step">
                 <v-window-item :value="CreateStep.Name">
-                    <v-form v-model="formValid" class="pa-6 pb-3">
+                    <v-form v-model="formValid" class="pa-6 pb-3" @submit.prevent>
                         <v-row>
                             <v-col>
                                 <p>Buckets are used to store and organize your objects. Enter a bucket name using lowercase characters.</p>
@@ -73,7 +73,7 @@
                 </v-window-item>
 
                 <v-window-item :value="CreateStep.ObjectLock">
-                    <v-form v-model="formValid" class="pa-7">
+                    <v-form v-model="formValid" class="pa-7" @submit.prevent>
                         <v-row>
                             <v-col>
                                 <p class="font-weight-bold mb-2">Do you need object lock?</p>
@@ -116,7 +116,7 @@
                 </v-window-item>
 
                 <v-window-item :value="CreateStep.Versioning">
-                    <v-form v-model="formValid" class="pa-6">
+                    <v-form v-model="formValid" class="pa-6" @submit.prevent>
                         <v-row>
                             <v-col>
                                 <p class="font-weight-bold mb-2">Do you want to enable versioning?</p>
