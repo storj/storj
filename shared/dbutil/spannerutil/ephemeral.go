@@ -88,7 +88,7 @@ func CreateEphemeralDB(ctx context.Context, connstr string, databasePrefix strin
 
 // Close deletes the created the instance and database.
 func (db *EphemeralDB) Close(ctx context.Context) error {
-	ctx, cancel := context2.WithRetimeout(ctx, 15*time.Second)
+	ctx, cancel := context2.WithRetimeout(ctx, time.Minute)
 	defer cancel()
 
 	var errdrop error
@@ -96,8 +96,14 @@ func (db *EphemeralDB) Close(ctx context.Context) error {
 	case db.ephemeralInstance:
 		// dropping instance should get rid of any associated databases as well
 		errdrop = db.admin.DeleteInstance(ctx, db.Params)
+		if errdrop != nil {
+			errdrop = Error.New("deleting instance failed: %w", errdrop)
+		}
 	case db.ephemeralDatabase:
 		errdrop = db.admin.DropDatabase(ctx, db.Params)
+		if errdrop != nil {
+			errdrop = Error.New("dropping database failed: %w", errdrop)
+		}
 	}
 
 	return errors.Join(db.admin.Close(), errdrop)
