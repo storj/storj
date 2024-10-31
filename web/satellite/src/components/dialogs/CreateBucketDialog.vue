@@ -612,6 +612,8 @@ async function onCreate(): Promise<void> {
         'isUpload': true,
         'isList': false,
         'isDelete': false,
+        'isPutObjectLockConfiguration': true,
+        'isGetObjectLockConfiguration': true,
         'notAfter': inOneHour.toISOString(),
         'buckets': JSON.stringify([]),
         'apiKey': apiKey.value,

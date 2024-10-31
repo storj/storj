@@ -200,6 +200,8 @@ export const useBucketsStore = defineStore('buckets', () => {
             'isGetObjectRetention': true,
             'isPutObjectLegalHold': true,
             'isGetObjectLegalHold': true,
+            'isPutObjectLockConfiguration': true,
+            'isGetObjectLockConfiguration': true,
             'notAfter': notAfter.toISOString(),
             'buckets': JSON.stringify([]),
             'apiKey': state.apiKey,
