@@ -453,7 +453,7 @@ func TestGetProjectSettledBandwidthTotal(t *testing.T) {
 		actualBandwidthTotal, err := pdb.GetProjectSettledBandwidthTotal(ctx, projectID, since)
 		require.NoError(t, err)
 		require.Equal(t, expectedTotal, actualBandwidthTotal)
-	}, satellitedbtest.WithSpanner())
+	})
 }
 
 func setUpBucketBandwidthAllocations(ctx *testcontext.Context, projectID uuid.UUID, orderDB orders.DB, now time.Time) error {
@@ -519,7 +519,7 @@ func TestProjectUsageCustomLimit(t *testing.T) {
 
 func TestUsageRollups(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
-		SatelliteCount: 1, StorageNodeCount: 0, UplinkCount: 3, EnableSpanner: true,
+		SatelliteCount: 1, StorageNodeCount: 0, UplinkCount: 3,
 		Reconfigure: testplanet.Reconfigure{
 			Satellite: func(log *zap.Logger, index int, config *satellite.Config) {
 				config.Metainfo.UseBucketLevelObjectVersioning = true
@@ -868,12 +868,35 @@ func TestUsageRollups(t *testing.T) {
 			})
 			require.NoError(t, err)
 
+			setObjectLockConfigReq := &pb.SetBucketObjectLockConfigurationRequest{
+				Header: &pb.RequestHeader{
+					ApiKey: key.SerializeRaw(),
+				},
+				Name: []byte(lockedBucket),
+				Configuration: &pb.ObjectLockConfiguration{
+					Enabled: true,
+					DefaultRetention: &pb.DefaultRetention{
+						Mode: pb.Retention_Mode(storj.ComplianceMode),
+						Duration: &pb.DefaultRetention_Days{
+							Days: 1,
+						},
+					},
+				},
+			}
+
+			_, err = sat.API.Metainfo.Endpoint.SetBucketObjectLockConfiguration(ctx, setObjectLockConfigReq)
+			require.NoError(t, err)
+
 			cursor.Search = lockedBucket
 			totals, err = usageRollups.GetBucketTotals(ctx, project1, cursor, now)
 			require.NoError(t, err)
 			require.NotNil(t, totals)
 			require.Len(t, totals.BucketUsages, 1)
 			require.True(t, totals.BucketUsages[0].ObjectLockEnabled)
+			require.Equal(t, storj.ComplianceMode, totals.BucketUsages[0].DefaultRetentionMode)
+			require.Nil(t, totals.BucketUsages[0].DefaultRetentionYears)
+			require.NotNil(t, totals.BucketUsages[0].DefaultRetentionDays)
+			require.Equal(t, 1, *totals.BucketUsages[0].DefaultRetentionDays)
 
 			_, err = client.DeleteBucket(ctx, metaclient.DeleteBucketParams{
 				Name: []byte(lockedBucket),

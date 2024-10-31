@@ -533,32 +533,39 @@ func (db *ProjectAccounting) GetProjectDailyUsageByDateRange(ctx context.Context
 		})
 	case dbutil.Spanner:
 		err = db.db.WithTx(ctx, func(ctx context.Context, tx *dbx.Tx) error {
+			// TODO(spanner): remove TIMESTAMP_TRUNC, when spanner emulator gets fixed
+			//
+			// We need to do TIMESTAMP_TRUNC(interval_start, MICROSECOND, 'UTC') as interval_start
+			// To ensure that MAX(interval_start) == interval_start
+			//
+			// See https://github.com/GoogleCloudPlatform/cloud-spanner-emulator/issues/73 for details.
+
 			storageQuery := `
 			WITH
-  				project_usage AS (
-  				SELECT
-    				interval_start,
-    				CAST(interval_start AS DATE) AS interval_day,
-    				project_id,
-    				bucket_name,
-    				total_bytes
-				FROM bucket_storage_tallies
-				WHERE
-					project_id = ? AND
-					interval_start >= ? AND
-					interval_start <= ?
+				project_usage AS (
+					SELECT
+						TIMESTAMP_TRUNC(interval_start, MICROSECOND, 'UTC') as interval_start,
+						CAST(interval_start AS DATE) AS interval_day,
+						project_id,
+						bucket_name,
+						total_bytes
+					FROM bucket_storage_tallies
+					WHERE
+						project_id = ? AND
+						interval_start >= ? AND
+						interval_start <= ?
 				),
-			project_usage_distinct AS (
-  			SELECT
-    			project_id,
-				bucket_name,
-				MAX(interval_start) AS interval_start
-			FROM project_usage
-			GROUP BY
-				project_id,
-				bucket_name,
-				interval_day
-			)
+				project_usage_distinct AS (
+					SELECT
+						project_id,
+						bucket_name,
+						MAX(interval_start) AS interval_start
+					FROM project_usage
+					GROUP BY
+						project_id,
+						bucket_name,
+						interval_day
+				)
 			-- Sum all buckets usage in the same project.
 			SELECT
 				interval_day,
@@ -572,11 +579,8 @@ func (db *ProjectAccounting) GetProjectDailyUsageByDateRange(ctx context.Context
 					interval_start
 				FROM project_usage
 				WHERE
-					(bucket_name, project_id, interval_start) IN (
-					SELECT
-						(bucket_name, project_id, interval_start)
-					FROM project_usage_distinct)
-			) pu
+					(bucket_name, project_id, interval_start) IN (SELECT (bucket_name, project_id, interval_start) FROM project_usage_distinct)
+			)
 			GROUP BY
 				project_id,
 				interval_day`
@@ -1154,30 +1158,49 @@ func (db *ProjectAccounting) prefixMatch(expr string, prefix []byte) (string, []
 func (db *ProjectAccounting) GetSingleBucketTotals(ctx context.Context, projectID uuid.UUID, bucketName string, before time.Time) (usage *accounting.BucketUsage, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	bucketQuery := db.db.Rebind(`SELECT versioning, placement, object_lock_enabled, created_at FROM bucket_metainfos
-	WHERE project_id = ? AND name = ?`)
+	bucketQuery := db.db.Rebind(`
+		SELECT versioning, placement, object_lock_enabled, created_at, default_retention_mode, default_retention_days, default_retention_years
+		FROM bucket_metainfos
+		WHERE project_id = ? AND name = ?
+	`)
 	bucketRow := db.db.QueryRowContext(ctx, bucketQuery, projectID[:], []byte(bucketName))
 
 	var bucketData struct {
-		versioning        satbuckets.Versioning
-		objectLockEnabled bool
-		placement         storj.PlacementConstraint
-		createdAt         time.Time
+		versioning            satbuckets.Versioning
+		objectLockEnabled     bool
+		placement             storj.PlacementConstraint
+		createdAt             time.Time
+		defaultRetentionMode  *storj.RetentionMode
+		defaultRetentionDays  *int
+		defaultRetentionYears *int
 	}
 
-	err = bucketRow.Scan(&bucketData.versioning, &bucketData.placement, &bucketData.objectLockEnabled, &bucketData.createdAt)
+	err = bucketRow.Scan(
+		&bucketData.versioning,
+		&bucketData.placement,
+		&bucketData.objectLockEnabled,
+		&bucketData.createdAt,
+		&bucketData.defaultRetentionMode,
+		&bucketData.defaultRetentionDays,
+		&bucketData.defaultRetentionYears,
+	)
 	if err != nil {
 		return nil, err
 	}
 
 	usage = &accounting.BucketUsage{
-		ProjectID:         projectID,
-		BucketName:        bucketName,
-		Versioning:        bucketData.versioning,
-		ObjectLockEnabled: bucketData.objectLockEnabled,
-		DefaultPlacement:  bucketData.placement,
-		Since:             bucketData.createdAt,
-		Before:            before,
+		ProjectID:             projectID,
+		BucketName:            bucketName,
+		Versioning:            bucketData.versioning,
+		ObjectLockEnabled:     bucketData.objectLockEnabled,
+		DefaultPlacement:      bucketData.placement,
+		Since:                 bucketData.createdAt,
+		Before:                before,
+		DefaultRetentionDays:  bucketData.defaultRetentionDays,
+		DefaultRetentionYears: bucketData.defaultRetentionYears,
+	}
+	if bucketData.defaultRetentionMode != nil {
+		usage.DefaultRetentionMode = *bucketData.defaultRetentionMode
 	}
 
 	rollupsQuery := db.db.Rebind(`SELECT COALESCE(SUM(settled) + SUM(inline), 0)
@@ -1275,8 +1298,11 @@ func (db *ProjectAccounting) GetBucketTotals(ctx context.Context, projectID uuid
 		return nil, errs.New("page is out of range")
 	}
 
-	bucketsQuery := db.db.Rebind(`SELECT name, versioning, placement, object_lock_enabled, created_at FROM bucket_metainfos
-	WHERE project_id = ? AND ` + bucketNameRange + `ORDER BY name ASC LIMIT ? OFFSET ?`)
+	bucketsQuery := db.db.Rebind(`
+		SELECT name, versioning, placement, object_lock_enabled, created_at, default_retention_mode, default_retention_days, default_retention_years
+		FROM bucket_metainfos
+		WHERE project_id = ? AND ` + bucketNameRange + `ORDER BY name ASC LIMIT ? OFFSET ?`,
+	)
 
 	args = []interface{}{
 		projectID[:],
@@ -1294,33 +1320,51 @@ func (db *ProjectAccounting) GetBucketTotals(ctx context.Context, projectID uuid
 	defer func() { err = errs.Combine(err, bucketRows.Close()) }()
 
 	type bucketWithCreationDate struct {
-		name              string
-		versioning        satbuckets.Versioning
-		objectLockEnabled bool
-		placement         storj.PlacementConstraint
-		createdAt         time.Time
+		name                  string
+		versioning            satbuckets.Versioning
+		objectLockEnabled     bool
+		placement             storj.PlacementConstraint
+		createdAt             time.Time
+		defaultRetentionMode  *storj.RetentionMode
+		defaultRetentionDays  *int
+		defaultRetentionYears *int
 	}
 
 	var buckets []bucketWithCreationDate
 	for bucketRows.Next() {
 		var (
-			bucket            string
-			versioning        satbuckets.Versioning
-			objectLockEnabled bool
-			placement         storj.PlacementConstraint
-			createdAt         time.Time
+			bucket                string
+			versioning            satbuckets.Versioning
+			objectLockEnabled     bool
+			placement             storj.PlacementConstraint
+			createdAt             time.Time
+			defaultRetentionMode  *storj.RetentionMode
+			defaultRetentionDays  *int
+			defaultRetentionYears *int
 		)
-		err = bucketRows.Scan(&bucket, &versioning, &placement, &objectLockEnabled, &createdAt)
+		err = bucketRows.Scan(
+			&bucket,
+			&versioning,
+			&placement,
+			&objectLockEnabled,
+			&createdAt,
+			&defaultRetentionMode,
+			&defaultRetentionDays,
+			&defaultRetentionYears,
+		)
 		if err != nil {
 			return nil, err
 		}
 
 		buckets = append(buckets, bucketWithCreationDate{
-			name:              bucket,
-			versioning:        versioning,
-			objectLockEnabled: objectLockEnabled,
-			placement:         placement,
-			createdAt:         createdAt,
+			name:                  bucket,
+			versioning:            versioning,
+			objectLockEnabled:     objectLockEnabled,
+			placement:             placement,
+			createdAt:             createdAt,
+			defaultRetentionMode:  defaultRetentionMode,
+			defaultRetentionDays:  defaultRetentionDays,
+			defaultRetentionYears: defaultRetentionYears,
 		})
 	}
 	if err := bucketRows.Err(); err != nil {
@@ -1340,13 +1384,19 @@ func (db *ProjectAccounting) GetBucketTotals(ctx context.Context, projectID uuid
 	var bucketUsages []accounting.BucketUsage
 	for _, bucket := range buckets {
 		bucketUsage := accounting.BucketUsage{
-			ProjectID:         projectID,
-			BucketName:        bucket.name,
-			Versioning:        bucket.versioning,
-			ObjectLockEnabled: bucket.objectLockEnabled,
-			DefaultPlacement:  bucket.placement,
-			Since:             bucket.createdAt,
-			Before:            before,
+			ProjectID:             projectID,
+			BucketName:            bucket.name,
+			Versioning:            bucket.versioning,
+			ObjectLockEnabled:     bucket.objectLockEnabled,
+			DefaultRetentionDays:  bucket.defaultRetentionDays,
+			DefaultRetentionYears: bucket.defaultRetentionYears,
+			DefaultPlacement:      bucket.placement,
+			Since:                 bucket.createdAt,
+			Before:                before,
+		}
+
+		if bucket.defaultRetentionMode != nil {
+			bucketUsage.DefaultRetentionMode = *bucket.defaultRetentionMode
 		}
 
 		// get bucket_bandwidth_rollups

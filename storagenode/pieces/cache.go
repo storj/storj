@@ -5,7 +5,9 @@ package pieces
 
 import (
 	"context"
+	"errors"
 	"fmt"
+	"io/fs"
 	"os"
 	"path/filepath"
 	"sync"
@@ -37,16 +39,19 @@ type CacheService struct {
 	// completed the scan and persisted the data to the database.
 	// This is useful for testing.
 	InitFence sync2.Fence
+
+	spaceUsedDB PieceSpaceUsedDB
 }
 
 // NewService creates a new cache service that updates the space usage cache on startup and syncs the cache values to
 // persistent storage on an interval.
-func NewService(log *zap.Logger, usageCache *BlobsUsageCache, pieces *Store, interval time.Duration, pieceScanOnStartup bool) *CacheService {
+func NewService(log *zap.Logger, usageCache *BlobsUsageCache, pieces *Store, spaceUsedDB PieceSpaceUsedDB, interval time.Duration, pieceScanOnStartup bool) *CacheService {
 	return &CacheService{
 		log:                log,
 		usageCache:         usageCache,
 		store:              pieces,
 		pieceScanOnStartup: pieceScanOnStartup,
+		spaceUsedDB:        spaceUsedDB,
 		Loop:               sync2.NewCycle(interval),
 	}
 }
@@ -57,7 +62,7 @@ func (service *CacheService) Run(ctx context.Context) (err error) {
 	defer mon.Task()(&ctx)(&err)
 	defer service.InitFence.Release()
 
-	if err = service.store.spaceUsedDB.Init(ctx); err != nil {
+	if err = service.spaceUsedDB.Init(ctx); err != nil {
 		service.log.Error("error during init space usage db: ", zap.Error(err))
 		return err
 	}
@@ -137,10 +142,10 @@ func (service *CacheService) PersistCacheTotals(ctx context.Context) error {
 	cache := service.usageCache
 	cache.mu.Lock()
 	defer cache.mu.Unlock()
-	if err := service.store.spaceUsedDB.UpdatePieceTotalsForAllSatellites(ctx, cache.spaceUsedBySatellite); err != nil {
+	if err := service.spaceUsedDB.UpdatePieceTotalsForAllSatellites(ctx, cache.spaceUsedBySatellite); err != nil {
 		return err
 	}
-	if err := service.store.spaceUsedDB.UpdateTrashTotal(ctx, cache.trashTotal); err != nil {
+	if err := service.spaceUsedDB.UpdateTrashTotal(ctx, cache.trashTotal); err != nil {
 		return err
 	}
 	return nil
@@ -150,7 +155,7 @@ func (service *CacheService) PersistCacheTotals(ctx context.Context) error {
 func (service *CacheService) Init(ctx context.Context) (err error) {
 	var piecesTotal, piecesContentSize int64
 
-	totalsBySatellite, err := service.store.spaceUsedDB.GetPieceTotalsForAllSatellites(ctx)
+	totalsBySatellite, err := service.spaceUsedDB.GetPieceTotalsForAllSatellites(ctx)
 	if err != nil {
 		service.log.Error("CacheServiceInit error during initializing space usage cache GetTotalsForAllSatellites:", zap.Error(err))
 		return err
@@ -176,18 +181,18 @@ func (service *CacheService) Init(ctx context.Context) (err error) {
 			}
 		}
 		// update the database with the new values
-		if err := service.store.spaceUsedDB.UpdatePieceTotalsForAllSatellites(ctx, totalsBySatellite); err != nil {
+		if err := service.spaceUsedDB.UpdatePieceTotalsForAllSatellites(ctx, totalsBySatellite); err != nil {
 			service.log.Error("CacheServiceInit error during initializing space usage cache UpdatePieceTotalsForAllSatellites:", zap.Error(err))
 			return err
 		}
 	}
-	piecesTotal, piecesContentSize, err = service.store.spaceUsedDB.GetPieceTotals(ctx)
+	piecesTotal, piecesContentSize, err = service.spaceUsedDB.GetPieceTotals(ctx)
 	if err != nil {
 		service.log.Error("CacheServiceInit error during initializing space usage cache GetTotal:", zap.Error(err))
 		return err
 	}
 
-	trashTotal, err := service.store.spaceUsedDB.GetTrashTotal(ctx)
+	trashTotal, err := service.spaceUsedDB.GetTrashTotal(ctx)
 	if err != nil {
 		service.log.Error("CacheServiceInit error during initializing space usage cache GetTrashTotal:", zap.Error(err))
 		return err
@@ -298,7 +303,13 @@ func (blobs *BlobsUsageCache) SpaceUsedForTrash(ctx context.Context) (int64, err
 func (blobs *BlobsUsageCache) Delete(ctx context.Context, blobRef blobstore.BlobRef) error {
 	pieceTotal, pieceContentSize, err := blobs.pieceSizes(ctx, blobRef)
 	if err != nil {
-		return Error.Wrap(err)
+		if errors.Is(err, fs.ErrNotExist) {
+			// Already deleted; there won't be any byte amounts to update.
+			// Let the Delete call handle the error as it will.
+			pieceTotal, pieceContentSize = 0, 0
+		} else {
+			return Error.Wrap(err)
+		}
 	}
 
 	if err := blobs.Blobs.Delete(ctx, blobRef); err != nil {
@@ -328,7 +339,13 @@ func (blobs *BlobsUsageCache) DeleteWithStorageFormat(ctx context.Context, ref b
 		var err error
 		pieceTotal, pieceContentSize, err = blobs.pieceSizes(ctx, ref)
 		if err != nil {
-			return Error.Wrap(err)
+			if errors.Is(err, fs.ErrNotExist) {
+				// Already deleted; there won't be any byte amounts to update.
+				// Let the DeleteWithStorageFormat call handle the error as it will.
+				pieceTotal, pieceContentSize = 0, 0
+			} else {
+				return Error.Wrap(err)
+			}
 		}
 	}
 
@@ -393,7 +410,13 @@ func (blobs *BlobsUsageCache) ensurePositiveCacheValue(value *int64, name string
 func (blobs *BlobsUsageCache) Trash(ctx context.Context, blobRef blobstore.BlobRef, timestamp time.Time) error {
 	pieceTotal, pieceContentSize, err := blobs.pieceSizes(ctx, blobRef)
 	if err != nil {
-		return Error.Wrap(err)
+		if errors.Is(err, fs.ErrNotExist) {
+			// Already deleted; there won't be any byte amounts to update.
+			// Let the Trash call handle the error as it will.
+			pieceTotal, pieceContentSize = 0, 0
+		} else {
+			return Error.Wrap(err)
+		}
 	}
 
 	err = blobs.Blobs.Trash(ctx, blobRef, timestamp)
@@ -414,7 +437,13 @@ func (blobs *BlobsUsageCache) Trash(ctx context.Context, blobRef blobstore.BlobR
 func (blobs *BlobsUsageCache) TrashWithStorageFormat(ctx context.Context, blobRef blobstore.BlobRef, formatVer blobstore.FormatVersion, timestamp time.Time) error {
 	pieceTotal, pieceContentSize, err := blobs.pieceSizes(ctx, blobRef)
 	if err != nil {
-		return Error.Wrap(err)
+		if errors.Is(err, fs.ErrNotExist) {
+			// Already deleted; there won't be any byte amounts to update.
+			// Let the TrashWithStorageFormat call handle the error as it will.
+			pieceTotal, pieceContentSize = 0, 0
+		} else {
+			return Error.Wrap(err)
+		}
 	}
 
 	err = blobs.Blobs.TrashWithStorageFormat(ctx, blobRef, formatVer, timestamp)

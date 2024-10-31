@@ -170,6 +170,21 @@ export class AuthHttpApi implements UsersApi {
         });
     }
 
+    public async checkSSO(email: string): Promise<string> {
+        const params = new URLSearchParams({ email: email });
+        const path = `/sso/url?${params.toString()}`;
+        const response = await this.http.get(path);
+
+        if (response.ok) {
+            return await response.text();
+        }
+        throw new APIError({
+            status: response.status,
+            message: 'Can not check SSO status. Please try again later',
+            requestID: response.headers.get('x-request-id'),
+        });
+    }
+
     /**
      * Used to change user email requests.
      *
@@ -329,6 +344,7 @@ export class AuthHttpApi implements UsersApi {
 
             return new User(
                 userResponse.id,
+                userResponse.externalID,
                 userResponse.fullName,
                 userResponse.shortName,
                 userResponse.email,
@@ -568,7 +584,7 @@ export class AuthHttpApi implements UsersApi {
      *
      * @throws Error
      */
-    public async enableUserMFA(passcode: string): Promise<void> {
+    public async enableUserMFA(passcode: string): Promise<string[]> {
         const path = `${this.ROOT_PATH}/mfa/enable`;
         const body = {
             passcode: passcode,
@@ -577,7 +593,7 @@ export class AuthHttpApi implements UsersApi {
         const response = await this.http.post(path, JSON.stringify(body));
 
         if (response.ok) {
-            return;
+            return await response.json();
         }
 
         throw new APIError({
@@ -610,26 +626,6 @@ export class AuthHttpApi implements UsersApi {
         throw new APIError({
             status: response.status,
             message: errMsg,
-            requestID: response.headers.get('x-request-id'),
-        });
-    }
-
-    /**
-     * Used to generate user's MFA recovery codes.
-     *
-     * @throws Error
-     */
-    public async generateUserMFARecoveryCodes(): Promise<string[]> {
-        const path = `${this.ROOT_PATH}/mfa/generate-recovery-codes`;
-        const response = await this.http.post(path, null);
-
-        if (response.ok) {
-            return await response.json();
-        }
-
-        throw new APIError({
-            status: response.status,
-            message: 'Can not generate MFA recovery codes. Please try again later',
             requestID: response.headers.get('x-request-id'),
         });
     }

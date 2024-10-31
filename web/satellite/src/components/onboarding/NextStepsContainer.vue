@@ -66,7 +66,7 @@ const partnerBannerVisible = computed(() => !usersStore.noticeDismissal.partnerU
 
 const shouldShowOnboardStepper = computed<boolean>(() => {
     const isNotOwner = selectedProject.value.ownerId !== user.value.id;
-    const isNotFirstProject = selectedProject.value.id !== projectsStore.usersFirstProject.id;
+    const isNotFirstProject = selectedProject.value.id !== projectsStore.usersFirstProject?.id;
 
     if (isNotOwner || isNotFirstProject) {
         return false;

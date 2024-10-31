@@ -476,9 +476,6 @@ const NextVersion = Version(0)
 // DefaultVersion represents default version 1.
 const DefaultVersion = Version(1)
 
-// PendingVersion represents version that is used for pending objects (with UsePendingObjects).
-const PendingVersion = Version(0)
-
 // MaxVersion represents maximum version.
 // Version in DB is represented as INT8.
 //

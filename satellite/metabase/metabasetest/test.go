@@ -190,17 +190,17 @@ func (step CommitInlineSegment) Check(ctx *testcontext.Context, t testing.TB, db
 	checkError(t, err, step.ErrClass, step.ErrText)
 }
 
-// DeleteBucketObjects is for testing metabase.DeleteBucketObjects.
-type DeleteBucketObjects struct {
-	Opts     metabase.DeleteBucketObjects
+// DeleteAllBucketObjects is for testing metabase.DeleteAllBucketObjects.
+type DeleteAllBucketObjects struct {
+	Opts     metabase.DeleteAllBucketObjects
 	Deleted  int64
 	ErrClass *errs.Class
 	ErrText  string
 }
 
 // Check runs the test.
-func (step DeleteBucketObjects) Check(ctx *testcontext.Context, t testing.TB, db *metabase.DB) {
-	deleted, err := db.DeleteBucketObjects(ctx, step.Opts)
+func (step DeleteAllBucketObjects) Check(ctx *testcontext.Context, t testing.TB, db *metabase.DB) {
+	deleted, err := db.DeleteAllBucketObjects(ctx, step.Opts)
 	require.Equal(t, step.Deleted, deleted)
 	checkError(t, err, step.ErrClass, step.ErrText)
 }

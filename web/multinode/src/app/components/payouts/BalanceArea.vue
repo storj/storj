@@ -49,7 +49,7 @@ export default class BalanceArea extends Vue {
                 font-family: 'font_bold', sans-serif;
                 font-size: 24px;
                 line-height: 24px;
-                color: var(--c-title);
+                color: var(--c-header-base);
             }
         }
 
@@ -71,13 +71,13 @@ export default class BalanceArea extends Vue {
 
                 &__label {
                     font-size: 14px;
-                    color: var(--c-gray);
+                    color: var(--v-text-base);
                     font-family: 'font_medium', sans-serif;
                 }
 
                 &__value {
                     font-size: 18px;
-                    color: var(--c-title);
+                    color: var(--v-header-base);
                     font-family: 'font_semiBold', sans-serif;
                 }
             }

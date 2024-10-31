@@ -34,7 +34,7 @@ func TestFilewalker_Basic(t *testing.T) {
 		blobs := db.Pieces()
 		v0PieceInfo := db.V0PieceInfo()
 		fw := pieces.NewFileWalker(observedLogger, blobs, v0PieceInfo, db.GCFilewalkerProgress(), db.UsedSpacePerPrefix())
-		store := pieces.NewStore(observedLogger, fw, nil, blobs, v0PieceInfo, db.PieceExpirationDB(), db.PieceSpaceUsedDB(), pieces.DefaultConfig)
+		store := pieces.NewStore(observedLogger, fw, nil, blobs, v0PieceInfo, db.PieceExpirationDB(), pieces.DefaultConfig)
 		testStore := pieces.StoreForTest{Store: store}
 
 		numberOfPieces := 100
@@ -106,7 +106,7 @@ func TestWalkAndComputeSpaceUsedBySatellite_resume(t *testing.T) {
 		blobs := db.Pieces()
 		v0PieceInfo := db.V0PieceInfo()
 		fw := pieces.NewFileWalker(logger, blobs, v0PieceInfo, db.GCFilewalkerProgress(), db.UsedSpacePerPrefix())
-		store := pieces.NewStore(logger, fw, nil, blobs, v0PieceInfo, db.PieceExpirationDB(), db.PieceSpaceUsedDB(), pieces.DefaultConfig)
+		store := pieces.NewStore(logger, fw, nil, blobs, v0PieceInfo, db.PieceExpirationDB(), pieces.DefaultConfig)
 		testStore := pieces.StoreForTest{Store: store}
 
 		numberOfPieces := 100 // this will be one piece per directory

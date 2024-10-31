@@ -54,7 +54,7 @@ export default class BaseChart extends Vue {
 
         &__data-dimension {
             font-size: 13px;
-            color: #586c86;
+            color: var(--v-text-base);
             margin: 0 0 5px 31px !important;
             font-family: 'font_medium', sans-serif;
         }

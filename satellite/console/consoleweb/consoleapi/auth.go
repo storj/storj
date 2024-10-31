@@ -11,6 +11,7 @@ import (
 	"io"
 	"math/big"
 	"net/http"
+	"net/url"
 	"strconv"
 	"strings"
 	"time"
@@ -26,6 +27,7 @@ import (
 	"storj.io/storj/satellite/analytics"
 	"storj.io/storj/satellite/console"
 	"storj.io/storj/satellite/console/consoleauth"
+	"storj.io/storj/satellite/console/consoleauth/sso"
 	"storj.io/storj/satellite/console/consoleweb/consoleapi/utils"
 	"storj.io/storj/satellite/console/consoleweb/consolewebauth"
 	"storj.io/storj/satellite/mailservice"
@@ -58,11 +60,12 @@ type Auth struct {
 	accountFreezeService      *console.AccountFreezeService
 	analytics                 *analytics.Service
 	mailService               *mailservice.Service
+	ssoService                *sso.Service
 	cookieAuth                *consolewebauth.CookieAuth
 }
 
 // NewAuth is a constructor for api auth controller.
-func NewAuth(log *zap.Logger, service *console.Service, accountFreezeService *console.AccountFreezeService, mailService *mailservice.Service, cookieAuth *consolewebauth.CookieAuth, analytics *analytics.Service, satelliteName, externalAddress, letUsKnowURL, termsAndConditionsURL, contactInfoURL, generalRequestURL string, activationCodeEnabled bool, badPasswords map[string]struct{}) *Auth {
+func NewAuth(log *zap.Logger, service *console.Service, accountFreezeService *console.AccountFreezeService, mailService *mailservice.Service, cookieAuth *consolewebauth.CookieAuth, analytics *analytics.Service, ssoService *sso.Service, satelliteName, externalAddress, letUsKnowURL, termsAndConditionsURL, contactInfoURL, generalRequestURL string, activationCodeEnabled bool, badPasswords map[string]struct{}) *Auth {
 	return &Auth{
 		log:                       log,
 		ExternalAddress:           externalAddress,
@@ -81,6 +84,7 @@ func NewAuth(log *zap.Logger, service *console.Service, accountFreezeService *co
 		cookieAuth:                cookieAuth,
 		analytics:                 analytics,
 		badPasswords:              badPasswords,
+		ssoService:                ssoService,
 	}
 }
 
@@ -126,6 +130,152 @@ func (a *Auth) Token(w http.ResponseWriter, r *http.Request) {
 		a.log.Error("token handler could not encode token response", zap.Error(ErrAuthAPI.Wrap(err)))
 		return
 	}
+}
+
+// AuthenticateSso logs in/signs up a user using already authenticated
+// SSO provider.
+func (a *Auth) AuthenticateSso(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	var err error
+	defer mon.Task()(&ctx)(&err)
+
+	ssoFailedAddr := strings.TrimSuffix(a.ExternalAddress, "/") + "/login?sso_failed=true"
+
+	provider, claims, err := a.verifySsoAuth(r)
+	if err != nil {
+		a.log.Error("Error verifying SSO auth", zap.Error(err))
+		http.Redirect(w, r, ssoFailedAddr, http.StatusPermanentRedirect)
+		return
+	}
+
+	ip, err := web.GetRequestIP(r)
+	if err != nil {
+		a.log.Error("Error getting request IP", zap.Error(err))
+		http.Redirect(w, r, ssoFailedAddr, http.StatusPermanentRedirect)
+		return
+	}
+	userAgent := r.UserAgent()
+
+	user, err := a.service.GetUserForSsoAuth(ctx, *claims, provider, ip, userAgent)
+	if err != nil {
+		a.log.Error("Error getting user for sso auth", zap.Error(err))
+		http.Redirect(w, r, ssoFailedAddr, http.StatusPermanentRedirect)
+	}
+
+	tokenInfo, err := a.service.GenerateSessionToken(ctx, user.ID, user.Email, ip, userAgent, nil)
+	if err != nil {
+		a.log.Error("Failed to generate session token", zap.Error(err))
+		http.Redirect(w, r, ssoFailedAddr, http.StatusPermanentRedirect)
+		return
+	}
+
+	a.cookieAuth.SetTokenCookie(w, *tokenInfo)
+
+	http.Redirect(w, r, a.ExternalAddress, http.StatusFound)
+}
+
+// verifySsoAuth verifies the SSO authentication.
+func (a *Auth) verifySsoAuth(r *http.Request) (provider string, _ *sso.OidcSsoClaims, err error) {
+	ctx := r.Context()
+
+	provider = mux.Vars(r)["provider"]
+	oidcSetup := a.ssoService.GetOidcSetupByProvider(provider)
+	if oidcSetup == nil {
+		return "", nil, console.ErrValidation.New("invalid provider %s", provider)
+	}
+
+	ssoState := r.URL.Query().Get("state")
+	if ssoState == "" {
+		return "", nil, console.ErrValidation.New("missing email hash")
+	}
+
+	oauth2Token, err := oidcSetup.Config.Exchange(ctx, r.URL.Query().Get("code"))
+	if err != nil {
+		return "", nil, console.ErrValidation.New("invalid code")
+	}
+
+	rawIDToken, ok := oauth2Token.Extra("id_token").(string)
+	if !ok {
+		return "", nil, console.ErrValidation.New("missing id token")
+	}
+
+	idToken, err := oidcSetup.Verifier.Verify(ctx, rawIDToken)
+	if err != nil {
+		return "", nil, console.ErrUnauthorized.New("Failed to verify ID token")
+	}
+
+	var claims sso.OidcSsoClaims
+	if err = idToken.Claims(&claims); err != nil {
+		return "", nil, console.Error.New("failed to parse claims")
+	}
+
+	state, err := a.service.GetSsoStateFromEmail(claims.Email)
+	if err != nil {
+		return "", nil, console.Error.New("failed to get state")
+	}
+	if state != ssoState {
+		return "", nil, console.ErrUnauthorized.New("SSO state mismatch")
+	}
+
+	return provider, &claims, nil
+}
+
+// GetSsoUrl returns the SSO URL for the given provider.
+func (a *Auth) GetSsoUrl(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	var err error
+	defer mon.Task()(&ctx)(&err)
+
+	provider := a.ssoService.GetProviderByEmail(r.URL.Query().Get("email"))
+	if provider == "" {
+		w.WriteHeader(http.StatusNotFound)
+		return
+	}
+	ssoUrl, err := url.JoinPath(a.ExternalAddress, "sso", provider)
+	if provider == "" {
+		a.serveJSONError(ctx, w, err)
+		return
+	}
+	_, err = w.Write([]byte(ssoUrl))
+	if err != nil {
+		a.log.Error("failed to write response", zap.Error(err))
+	}
+}
+
+// BeginSsoFlow starts the SSO flow by redirecting to the OIDC provider.
+func (a *Auth) BeginSsoFlow(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	var err error
+	defer mon.Task()(&ctx)(&err)
+
+	ssoFailedAddr, err := url.JoinPath(a.ExternalAddress, "login?sso_failed=true")
+	if err != nil {
+		a.log.Error("failed to get sso failed url", zap.Error(err))
+		http.Redirect(w, r, ssoFailedAddr, http.StatusPermanentRedirect)
+		return
+	}
+
+	provider := mux.Vars(r)["provider"]
+	oidcSetup := a.ssoService.GetOidcSetupByProvider(provider)
+	if oidcSetup == nil {
+		a.log.Error("invalid provider "+provider, zap.Error(console.ErrValidation.New("invalid provider")))
+		http.Redirect(w, r, ssoFailedAddr, http.StatusPermanentRedirect)
+		return
+	}
+
+	email := r.URL.Query().Get("email")
+	if email == "" {
+		a.log.Error("email is required for SSO flow", zap.Error(console.ErrValidation.New("email is required")))
+		http.Redirect(w, r, ssoFailedAddr, http.StatusPermanentRedirect)
+	}
+
+	state, err := a.service.GetSsoStateFromEmail(email)
+	if err != nil {
+		a.log.Error("failed to get sso state", zap.Error(err))
+		http.Redirect(w, r, ssoFailedAddr, http.StatusPermanentRedirect)
+		return
+	}
+	http.Redirect(w, r, oidcSetup.Config.AuthCodeURL(state), http.StatusFound)
 }
 
 // TokenByAPIKey authenticates user by API key and returns auth token.
@@ -782,6 +932,7 @@ func (a *Auth) GetAccount(w http.ResponseWriter, r *http.Request) {
 
 	var user struct {
 		ID                    uuid.UUID  `json:"id"`
+		ExternalID            string     `json:"externalID"`
 		FullName              string     `json:"fullName"`
 		ShortName             string     `json:"shortName"`
 		Email                 string     `json:"email"`
@@ -814,6 +965,9 @@ func (a *Auth) GetAccount(w http.ResponseWriter, r *http.Request) {
 	user.FullName = consoleUser.FullName
 	user.Email = consoleUser.Email
 	user.ID = consoleUser.ID
+	if consoleUser.ExternalID != nil {
+		user.ExternalID = *consoleUser.ExternalID
+	}
 	if consoleUser.UserAgent != nil {
 		user.Partner = string(consoleUser.UserAgent)
 	}
@@ -940,6 +1094,11 @@ func (a *Auth) ForgotPassword(w http.ResponseWriter, r *http.Request) {
 				SupportTeamLink:     a.GeneralRequestURL,
 			},
 		)
+		return
+	}
+
+	if user.ExternalID != nil && *user.ExternalID != "" {
+		a.log.Info("sso user attempted 'forgot password' flow", zap.String("email", user.Email))
 		return
 	}
 
@@ -1117,7 +1276,19 @@ func (a *Auth) EnableUserMFA(w http.ResponseWriter, r *http.Request) {
 
 	err = a.service.DeleteAllSessionsByUserIDExcept(ctx, consoleUser.ID, sessionID)
 	if err != nil {
+		a.log.Error("could not delete all other sessions", zap.Error(ErrAuthAPI.Wrap(err)))
+	}
+
+	codes, err := a.service.ResetMFARecoveryCodes(ctx, false, "", "")
+	if err != nil {
 		a.serveJSONError(ctx, w, err)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	err = json.NewEncoder(w).Encode(codes)
+	if err != nil {
+		a.log.Error("could not encode MFA recovery codes", zap.Error(ErrAuthAPI.Wrap(err)))
 		return
 	}
 }
@@ -1179,26 +1350,6 @@ func (a *Auth) GenerateMFASecretKey(w http.ResponseWriter, r *http.Request) {
 	err = json.NewEncoder(w).Encode(key)
 	if err != nil {
 		a.log.Error("could not encode MFA secret key", zap.Error(ErrAuthAPI.Wrap(err)))
-		return
-	}
-}
-
-// GenerateMFARecoveryCodes creates a new set of MFA recovery codes for the user.
-func (a *Auth) GenerateMFARecoveryCodes(w http.ResponseWriter, r *http.Request) {
-	ctx := r.Context()
-	var err error
-	defer mon.Task()(&ctx)(&err)
-
-	codes, err := a.service.ResetMFARecoveryCodes(ctx, false, "", "")
-	if err != nil {
-		a.serveJSONError(ctx, w, err)
-		return
-	}
-
-	w.Header().Set("Content-Type", "application/json")
-	err = json.NewEncoder(w).Encode(codes)
-	if err != nil {
-		a.log.Error("could not encode MFA recovery codes", zap.Error(ErrAuthAPI.Wrap(err)))
 		return
 	}
 }

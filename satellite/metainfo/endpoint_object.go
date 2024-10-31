@@ -163,8 +163,27 @@ func (endpoint *Endpoint) BeginObject(ctx context.Context, req *pb.ObjectBeginRe
 	if retention.Enabled() || req.LegalHold {
 		if bucket.Versioning != buckets.VersioningEnabled {
 			return nil, rpcstatus.Errorf(rpcstatus.ObjectLockInvalidBucketState, "cannot specify Object Lock settings when uploading into a bucket without Versioning enabled")
-		} else if !bucket.ObjectLockEnabled {
+		} else if !bucket.ObjectLock.Enabled {
 			return nil, rpcstatus.Errorf(rpcstatus.ObjectLockBucketRetentionConfigurationMissing, "cannot specify Object Lock settings when uploading into a bucket without Object Lock enabled")
+		}
+	}
+
+	if bucket.ObjectLock.Enabled && bucket.ObjectLock.DefaultRetentionMode != storj.NoRetention && !retention.Enabled() {
+		switch {
+		case maxObjectTTL != nil:
+			return nil, rpcstatus.Error(rpcstatus.ObjectLockUploadWithTTLAPIKeyAndDefaultRetention,
+				"cannot upload into a bucket with default retention settings using an API key that enforces an object expiration time")
+		case !req.ExpiresAt.IsZero():
+			return nil, rpcstatus.Error(rpcstatus.ObjectLockUploadWithTTLAndDefaultRetention,
+				"cannot specify an object expiration time when uploading into a bucket with default retention settings")
+		}
+
+		retention.Mode = bucket.ObjectLock.DefaultRetentionMode
+		switch {
+		case bucket.ObjectLock.DefaultRetentionDays != 0:
+			retention.RetainUntil = now.AddDate(0, 0, bucket.ObjectLock.DefaultRetentionDays)
+		case bucket.ObjectLock.DefaultRetentionYears != 0:
+			retention.RetainUntil = now.AddDate(bucket.ObjectLock.DefaultRetentionYears, 0, 0)
 		}
 	}
 
@@ -276,7 +295,7 @@ func (endpoint *Endpoint) CommitObject(ctx context.Context, req *pb.ObjectCommit
 
 	now := time.Now()
 	var allowDelete, canGetRetention, canGetLegalHold bool
-	keyInfo, err := endpoint.ValidateAuthN(ctx, req.Header, console.RateLimitPut,
+	keyInfo, err := endpoint.ValidateAuthN(ctx, req.Header, console.RateLimitPutNoError,
 		VerifyPermission{
 			Action: macaroon.Action{
 				Op:            macaroon.ActionWrite,
@@ -561,7 +580,7 @@ func (endpoint *Endpoint) CommitInlineObject(ctx context.Context, beginObjectReq
 		return nil, nil, nil, rpcstatus.Error(rpcstatus.Internal, "unable to get bucket placement")
 	}
 
-	if (retention.Enabled() || beginObjectReq.LegalHold) && !bucket.ObjectLockEnabled {
+	if (retention.Enabled() || beginObjectReq.LegalHold) && !bucket.ObjectLock.Enabled {
 		return nil, nil, nil, rpcstatus.Errorf(rpcstatus.ObjectLockBucketRetentionConfigurationMissing, "cannot specify Object Lock settings when uploading into a bucket without Object Lock enabled")
 	}
 
@@ -1850,10 +1869,11 @@ func (endpoint *Endpoint) GetObjectIPs(ctx context.Context, req *pb.ObjectGetIPs
 	mon.Meter("req_get_object_ips").Mark(1)
 
 	return &pb.ObjectGetIPsResponse{
-		Ips:                nodeIPs,
-		SegmentCount:       int64(object.SegmentCount),
-		ReliablePieceCount: reliablePieceCount,
-		PieceCount:         pieceCount,
+		Ips:                 nodeIPs,
+		SegmentCount:        int64(object.SegmentCount),
+		ReliablePieceCount:  reliablePieceCount,
+		PieceCount:          pieceCount,
+		PlacementConstraint: uint32(placement),
 	}, nil
 }
 
@@ -2467,7 +2487,7 @@ func (endpoint *Endpoint) DeleteCommittedObject(ctx context.Context, opts Delete
 			Suspended:      suspended,
 
 			ObjectLock: metabase.ObjectLockDeleteOptions{
-				Enabled:          bucketData.ObjectLockEnabled,
+				Enabled:          bucketData.ObjectLock.Enabled,
 				BypassGovernance: opts.BypassGovernance,
 			},
 		})
@@ -2485,7 +2505,7 @@ func (endpoint *Endpoint) DeleteCommittedObject(ctx context.Context, opts Delete
 			Version:        sv.Version(),
 
 			ObjectLock: metabase.ObjectLockDeleteOptions{
-				Enabled:          bucketData.ObjectLockEnabled,
+				Enabled:          bucketData.ObjectLock.Enabled,
 				BypassGovernance: opts.BypassGovernance,
 			},
 		})

@@ -22,7 +22,15 @@ model bucket_metainfo (
 	field versioning    int (updatable, default 0)
 
 	// object_lock_enabled indicates whether the bucket has Object Lock enabled.
-	field object_lock_enabled bool (updatable, default false)
+	field object_lock_enabled     bool (updatable, default false)
+	// default_retention_mode is the default retention mode of objects uploaded into the bucket.
+	field default_retention_mode  int  (nullable, updatable)
+	// default_retention_days is the default amount of time, in days, for which objects uploaded
+	// into the bucket should be retained.
+	field default_retention_days  int  (nullable, updatable)
+	// default_retention_years is the default amount of time, in years, for which objects uploaded
+	// into the bucket should be retained.
+	field default_retention_years int  (nullable, updatable)
 
 	// path_cipher is denotes how the paths have been encoded.
 	// The corresponding type storj.CipherSuite contains the relevant values.
@@ -128,6 +136,12 @@ read one (
 
 read one (
     select bucket_metainfo.object_lock_enabled
+	where bucket_metainfo.project_id = ?
+	where bucket_metainfo.name = ?
+)
+
+read one (
+    select bucket_metainfo.object_lock_enabled bucket_metainfo.default_retention_mode bucket_metainfo.default_retention_days bucket_metainfo.default_retention_years
 	where bucket_metainfo.project_id = ?
 	where bucket_metainfo.name = ?
 )

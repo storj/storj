@@ -70,6 +70,18 @@ type StorageNodeUsage struct {
 	IntervalEndTime time.Time
 }
 
+// NodePaymentInfo contains data for a node payment information.
+type NodePaymentInfo struct {
+	NodeID storj.NodeID
+
+	AtRestTotal    float64
+	GetRepairTotal int64
+	PutRepairTotal int64
+	GetAuditTotal  int64
+	PutTotal       int64
+	GetTotal       int64
+}
+
 // ProjectUsage consist of period total storage, egress
 // and objects count per hour for certain Project in bytes.
 type ProjectUsage struct {
@@ -132,8 +144,11 @@ type BucketUsage struct {
 	DefaultPlacement storj.PlacementConstraint `json:"defaultPlacement"`
 	Location         string                    `json:"location"`
 
-	Versioning        buckets.Versioning `json:"versioning"`
-	ObjectLockEnabled bool               `json:"objectLockEnabled"`
+	Versioning            buckets.Versioning  `json:"versioning"`
+	ObjectLockEnabled     bool                `json:"objectLockEnabled"`
+	DefaultRetentionMode  storj.RetentionMode `json:"defaultRetentionMode"`
+	DefaultRetentionDays  *int                `json:"defaultRetentionDays"`
+	DefaultRetentionYears *int                `json:"defaultRetentionYears"`
 
 	Storage      float64 `json:"storage"`
 	Egress       float64 `json:"egress"`
@@ -237,8 +252,8 @@ type StoragenodeAccounting interface {
 	SaveRollup(ctx context.Context, latestTally time.Time, stats RollupStats) error
 	// LastTimestamp records and returns the latest last tallied time.
 	LastTimestamp(ctx context.Context, timestampType string) (time.Time, error)
-	// QueryPaymentInfo queries Nodes and Accounting_Rollup on nodeID
-	QueryPaymentInfo(ctx context.Context, start time.Time, end time.Time) ([]*CSVRow, error)
+	// QueryPaymentInfo queries accounting information and different usage.
+	QueryPaymentInfo(ctx context.Context, start time.Time, end time.Time) ([]NodePaymentInfo, error)
 	// QueryStorageNodePeriodUsage returns accounting statements for nodes for a given compensation period
 	QueryStorageNodePeriodUsage(ctx context.Context, period compensation.Period) ([]StorageNodePeriodUsage, error)
 	// QueryStorageNodeUsage returns slice of StorageNodeUsage for given period

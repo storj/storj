@@ -90,9 +90,8 @@ func AttributeGroupSelector(attribute NodeAttribute) NodeSelectorInit {
 			if filter != nil && !filter.Match(node) {
 				continue
 			}
-			if a, ok := attribute(*node).(string); ok {
-				nodeByAttribute[a] = append(nodeByAttribute[a], node)
-			}
+			a := attribute(*node)
+			nodeByAttribute[a] = append(nodeByAttribute[a], node)
 		}
 
 		var attributes []string
@@ -132,7 +131,7 @@ func AttributeGroupSelector(attribute NodeAttribute) NodeSelectorInit {
 
 // IfSelector selects the first node attribute if the condition is true, otherwise the second node attribute.
 func IfSelector(condition func(SelectedNode) bool, conditionTrue, conditionFalse NodeAttribute) NodeAttribute {
-	return func(node SelectedNode) any {
+	return func(node SelectedNode) string {
 		if condition(node) {
 			return conditionTrue(node)
 		}
@@ -231,9 +230,9 @@ func BalancedGroupBasedSelector(attribute NodeAttribute, uploadFilter NodeFilter
 			if uploadFilter != nil && !uploadFilter.Match(node) {
 				continue
 			}
-			if a, ok := attribute(*node).(string); ok {
-				nodeByAttribute[a] = append(nodeByAttribute[a], node)
-			}
+			a := attribute(*node)
+			nodeByAttribute[a] = append(nodeByAttribute[a], node)
+
 		}
 
 		var groupedNodes [][]*SelectedNode
@@ -481,9 +480,8 @@ func MaxGroup(attr NodeAttribute) ScoreSelection {
 	return func(uplink storj.NodeID, selected []*SelectedNode) float64 {
 		var attributes []string
 		for _, node := range selected {
-			if a, ok := attr(*node).(string); ok {
-				attributes = append(attributes, a)
-			}
+			a := attr(*node)
+			attributes = append(attributes, a)
 		}
 		sort.Strings(attributes)
 		maxGroup := 0
@@ -770,5 +768,100 @@ func RoundWithProbability(r float64) int {
 		return int(math.Ceil(r))
 	} else {
 		return int(math.Floor(r))
+	}
+}
+
+// WeightedSelector selects randomly from nodes, but supporting custom probabilities.
+// Some nodes can be selected more often than others.
+// The implementation is based on Walker's alias method: https://www.youtube.com/watch?v=retAwpUv42E
+func WeightedSelector(value NodeValue, defaultValue int64, initFilter NodeFilter) NodeSelectorInit {
+	return func(nodes []*SelectedNode, filter NodeFilter) NodeSelector {
+		var filtered []*SelectedNode
+		for _, node := range nodes {
+			if filter != nil && !filter.Match(node) {
+				continue
+			}
+
+			if initFilter != nil && !initFilter.Match(node) {
+				continue
+			}
+			filtered = append(filtered, node)
+		}
+
+		n := len(filtered)
+
+		normalized := make([]float64, n)
+		total := int64(0)
+		for ix, node := range filtered {
+			nodeValue := value(*node)
+			if nodeValue == 0 {
+				nodeValue = defaultValue
+			} else if nodeValue < 0 {
+				nodeValue = 0
+			}
+			total += nodeValue
+			normalized[ix] = float64(nodeValue)
+		}
+
+		// in case of all value is zero, we need to select nodes with the same chance
+		// it's safe to use 1, instead of all values --> total will be len(filtered)
+		if total == 0 {
+			total = int64(len(filtered))
+		}
+
+		for ix := range filtered {
+			normalized[ix] = normalized[ix] / float64(total) * float64(n)
+		}
+
+		threshold := float64(1)
+		// initialize the buckets
+		var underfull []int
+		var overfull []int
+		for ix := range filtered {
+			if normalized[ix] < threshold {
+				underfull = append(underfull, ix)
+			} else {
+				overfull = append(overfull, ix)
+			}
+		}
+
+		alias := make([]int, n)
+		// pour the overfull buckets into the underfull buckets
+		for len(underfull) > 0 && len(overfull) > 0 {
+			// select one is above and one with under
+			uf := underfull[0]
+			of := overfull[0]
+			underfull = underfull[1:]
+			overfull = overfull[1:]
+
+			alias[uf] = of
+			normalized[of] -= threshold - normalized[uf]
+
+			if normalized[of] < threshold {
+				underfull = append(underfull, of)
+			} else if normalized[of] > threshold {
+				overfull = append(overfull, of)
+			}
+		}
+		return func(requester storj.NodeID, selectN int, excluded []storj.NodeID, alreadySelected []*SelectedNode) ([]*SelectedNode, error) {
+			var selected []*SelectedNode
+			for i := 0; i < selectN*5; i++ {
+				r := rand.Intn(n)
+				var selectedNode *SelectedNode
+				if normalized[r] > rand.Float64() {
+					selectedNode = filtered[r]
+				} else {
+					selectedNode = filtered[alias[r]]
+				}
+				if includedInNodes(alreadySelected, selectedNode) || included(excluded, selectedNode) || includedInNodes(selected, selectedNode) {
+					continue
+				}
+				selected = append(selected, selectedNode)
+				if len(selected) == selectN {
+					break
+				}
+			}
+			return selected, nil
+		}
 	}
 }

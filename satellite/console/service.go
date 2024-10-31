@@ -7,7 +7,9 @@ import (
 	"bytes"
 	"context"
 	"crypto/rand"
+	"crypto/sha256"
 	"database/sql"
+	"encoding/base64"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -15,6 +17,7 @@ import (
 	"math/big"
 	mathrand "math/rand"
 	"net/http"
+	"net/mail"
 	"sort"
 	"strconv"
 	"strings"
@@ -39,6 +42,7 @@ import (
 	"storj.io/storj/satellite/analytics"
 	"storj.io/storj/satellite/buckets"
 	"storj.io/storj/satellite/console/consoleauth"
+	"storj.io/storj/satellite/console/consoleauth/sso"
 	"storj.io/storj/satellite/console/consoleweb/consoleapi/utils"
 	"storj.io/storj/satellite/emission"
 	"storj.io/storj/satellite/kms"
@@ -140,6 +144,9 @@ var (
 
 	// ErrEmailNotFound occurs when no users have the specified email.
 	ErrEmailNotFound = errs.Class("email not found")
+
+	// ErrExternalIdNotFound occurs when no users have the specified external ID.
+	ErrExternalIdNotFound = errs.Class("external ID not found")
 
 	// ErrNoAPIKey is error type that occurs when there is no api key found.
 	ErrNoAPIKey = errs.Class("no api key found")
@@ -1072,6 +1079,178 @@ func (s *Service) CreateUser(ctx context.Context, user CreateUser, tokenSecret R
 	return u, nil
 }
 
+// GetSsoStateFromEmail returns a signed string derived from the email address.
+func (s *Service) GetSsoStateFromEmail(email string) (string, error) {
+	sum := sha256.Sum256([]byte(email))
+	signed, err := s.tokens.Sign(sum[:])
+	if err != nil {
+		return "", Error.Wrap(err)
+	}
+	return base64.RawURLEncoding.EncodeToString(signed), nil
+}
+
+// CreateSsoUser creates a user that has been authenticated by SSO provider.
+func (s *Service) CreateSsoUser(ctx context.Context, user CreateSsoUser) (u *User, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	mon.Counter("create_user_attempt").Inc(1) //mon:locked
+
+	if _, err = mail.ParseAddress(user.Email); err != nil {
+		// NOTE: error is already wrapped with an appropriated class.
+		return nil, ErrUnauthorized.Wrap(err)
+	}
+
+	if user.FullName == "" {
+		return nil, ErrValidation.New("full name is required")
+	}
+	if user.ExternalId == "" {
+		return nil, ErrValidation.New("external ID is required")
+	}
+
+	err = s.store.WithTx(ctx, func(ctx context.Context, tx DBTx) error {
+		userID, err := uuid.New()
+		if err != nil {
+			return err
+		}
+
+		newUser := &User{
+			ID:           userID,
+			ExternalID:   &user.ExternalId,
+			Email:        user.Email,
+			FullName:     user.FullName,
+			PasswordHash: make([]byte, 0),
+		}
+
+		if user.UserAgent != nil {
+			newUser.UserAgent = user.UserAgent
+		}
+
+		newUser.ProjectLimit = s.config.UsageLimits.Project.Free
+
+		if s.config.FreeTrialDuration != 0 {
+			expiration := s.nowFn().Add(s.config.FreeTrialDuration)
+			newUser.TrialExpiration = &expiration
+		}
+
+		newUser.ProjectStorageLimit = s.config.UsageLimits.Storage.Free.Int64()
+		newUser.ProjectBandwidthLimit = s.config.UsageLimits.Bandwidth.Free.Int64()
+		newUser.ProjectSegmentLimit = s.config.UsageLimits.Segment.Free
+
+		u, err = tx.Users().Insert(ctx, newUser)
+		if err != nil {
+			return err
+		}
+
+		_, unverified, err := tx.Users().GetByEmailWithUnverified(ctx, user.Email)
+		if err != nil {
+			return err
+		}
+
+		for _, other := range unverified {
+			// We compare IDs because a parallel user creation transaction for the same
+			// email could have created a record at the same time as ours.
+			// so we take the first one that was created.
+			if other.CreatedAt.Before(u.CreatedAt) || other.ID.Less(u.ID) {
+				err = tx.Users().Delete(ctx, u.ID)
+				if err != nil {
+					return err
+				}
+				otherUser := other
+				u = &otherUser
+				break
+			}
+		}
+
+		active := Active
+		request := UpdateUserRequest{Status: &active}
+		if u.ExternalID == nil {
+			// u is one of the previously created unverified users.
+			request.ExternalID = &user.ExternalId
+		}
+		err = tx.Users().Update(ctx, u.ID, request)
+		if err != nil {
+			return err
+		}
+
+		u.Status = Active
+		u.ExternalID = &user.ExternalId
+
+		return nil
+	})
+
+	if err != nil {
+		return nil, Error.Wrap(err)
+	}
+
+	s.auditLog(ctx, "create sso user", nil, user.Email)
+	mon.Counter("create_user_success").Inc(1) //mon:locked
+
+	return u, nil
+}
+
+// UpdateExternalID updates the external (SSO) ID of a user, activating
+// them if they're not already.
+func (s *Service) UpdateExternalID(ctx context.Context, user *User, externalID string) (err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	request := UpdateUserRequest{ExternalID: &externalID}
+	if user.Status == Inactive {
+		active := Active
+		request.Status = &active
+	}
+	err = s.store.Users().Update(ctx, user.ID, request)
+	if err != nil {
+		return Error.Wrap(err)
+	}
+
+	return nil
+}
+
+// GetUserForSsoAuth returns a user based on the SSO claims, creating one if necessary.
+func (s *Service) GetUserForSsoAuth(ctx context.Context, claims sso.OidcSsoClaims, provider, ip, userAgent string) (user *User, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	externalID := fmt.Sprintf("%s:%s", provider, claims.Sub)
+	user, err = s.GetUserByExternalID(ctx, externalID)
+	if err != nil {
+		if !ErrExternalIdNotFound.Has(err) {
+			return nil, err
+		}
+
+		user, _, err = s.GetUserByEmailWithUnverified(ctx, claims.Email)
+		if err != nil && !ErrEmailNotFound.Has(err) {
+			if !ErrEmailNotFound.Has(err) {
+				return nil, err
+			}
+		}
+		if user == nil {
+			user, err = s.CreateSsoUser(ctx,
+				CreateSsoUser{
+					FullName:   claims.Name,
+					ExternalId: externalID,
+					Email:      claims.Email,
+					IP:         ip,
+					UserAgent:  []byte(userAgent),
+				},
+			)
+			if err != nil {
+				return nil, err
+			}
+		}
+	}
+
+	if user.ExternalID == nil {
+		// associate existing user with this external ID.
+		err = s.UpdateExternalID(ctx, user, externalID)
+		if err != nil {
+			return nil, err
+		}
+		user.ExternalID = &externalID
+	}
+
+	return user, nil
+}
+
 // TestSwapCaptchaHandler replaces the existing handler for captchas with
 // the one specified for use in testing.
 func (s *Service) TestSwapCaptchaHandler(h CaptchaHandler) {
@@ -1469,6 +1648,11 @@ func (s *Service) Token(ctx context.Context, request AuthUser) (response *TokenI
 		return nil, ErrLoginCredentials.New(credentialsErrMsg)
 	}
 
+	if user.ExternalID != nil && *user.ExternalID != "" {
+		s.auditLog(ctx, "login: attempted sso bypass", &user.ID, request.Email)
+		return nil, ErrLoginCredentials.New(credentialsErrMsg)
+	}
+
 	err = bcrypt.CompareHashAndPassword(user.PasswordHash, []byte(request.Password))
 	if err != nil {
 		err = s.handleLogInLockAccount(ctx, user)
@@ -1757,6 +1941,21 @@ func (s *Service) GetUserByEmailWithUnverified(ctx context.Context, email string
 	return verified, unverified, err
 }
 
+// GetUserByExternalID returns a user with specified external ID.
+func (s *Service) GetUserByExternalID(ctx context.Context, externalID string) (user *User, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	user, err = s.store.Users().GetByExternalID(ctx, externalID)
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return nil, ErrExternalIdNotFound.New("user not found")
+		}
+		return nil, Error.Wrap(err)
+	}
+
+	return user, nil
+}
+
 // GetUserHasVarPartner returns whether the user in context is associated with a VAR partner.
 func (s *Service) GetUserHasVarPartner(ctx context.Context) (has bool, err error) {
 	defer mon.Task()(&ctx)(&err)
@@ -1826,6 +2025,10 @@ func (s *Service) DeleteAccount(ctx context.Context, step AccountActionStep, dat
 
 	if user.Status == LegalHold {
 		return nil, ErrForbidden.New("account can't be deleted")
+	}
+
+	if user.ExternalID != nil && *user.ExternalID != "" {
+		return nil, ErrForbidden.New("sso users must contact support to delete their accounts")
 	}
 
 	if user.LoginLockoutExpiration.After(s.nowFn()) {
@@ -1935,6 +2138,11 @@ func (s *Service) ChangeEmail(ctx context.Context, step AccountActionStep, data 
 		mon.Counter("change_email_locked_out").Inc(1) //mon:locked
 		s.auditLog(ctx, "change email: failed account locked out", &user.ID, user.Email)
 		return ErrUnauthorized.New("please try again later")
+	}
+
+	if user.ExternalID != nil && *user.ExternalID != "" {
+		s.auditLog(ctx, "change email: attempted by sso user", &user.ID, user.Email)
+		return ErrForbidden.New("sso users cannot change email")
 	}
 
 	switch step {
@@ -2195,7 +2403,7 @@ func (s *Service) handleDeleteAccountStep(ctx context.Context, user *User) (err 
 	s.mailService.SendRenderedAsync(
 		ctx,
 		[]post.Address{{Address: user.Email, Name: user.FullName}},
-		&RequestAccountDeletionSuccessEmail{},
+		&AccountDeletionSuccessEmail{},
 	)
 
 	return nil
@@ -2314,13 +2522,25 @@ func (s *Service) handleLockAccount(ctx context.Context, user *User, step Accoun
 		return err
 	}
 
+	var activityType string
+	switch action {
+	case changeEmailAction:
+		activityType = ChangeEmailLock
+	case deleteProjectAction:
+		activityType = DeleteProjectLock
+	case deleteAccountAction:
+		activityType = DeleteAccountLock
+	default:
+		return Error.New("invalid action: %s", action)
+	}
+
 	if lockoutDuration > 0 {
 		s.mailService.SendRenderedAsync(
 			ctx,
 			[]post.Address{{Address: user.Email, Name: user.FullName}},
 			&LoginLockAccountEmail{
 				LockoutDuration: lockoutDuration,
-				ActivityType:    ChangeEmailLock,
+				ActivityType:    activityType,
 			},
 		)
 	}
@@ -3010,6 +3230,10 @@ func (s *Service) DeleteProject(ctx context.Context, projectID uuid.UUID, step A
 	user, err := s.getUserAndAuditLog(ctx, "delete project", zap.String("projectID", projectID.String()))
 	if err != nil {
 		return nil, Error.Wrap(err)
+	}
+
+	if user.ExternalID != nil && *user.ExternalID != "" {
+		return nil, ErrForbidden.New("sso users must ask support to delete projects")
 	}
 
 	_, p, err := s.isProjectOwner(ctx, user.ID, projectID)
@@ -4203,7 +4427,7 @@ func (s *Service) GetBucketMetadata(ctx context.Context, projectID uuid.UUID) (l
 				DefaultPlacement: bucket.Placement,
 				Location:         s.placements[bucket.Placement].Name,
 			},
-			ObjectLockEnabled: bucket.ObjectLockEnabled,
+			ObjectLockEnabled: bucket.ObjectLock.Enabled,
 		})
 	}
 

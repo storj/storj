@@ -43,6 +43,8 @@ const (
 	RateLimitDelete LimitKind = 16
 	// BurstLimitDelete overrides BurstLimit for "delete" requests.
 	BurstLimitDelete LimitKind = 18
+	// RateLimitPutNoError overrides RateLimit for "put" requests but no error when limit is reached.
+	RateLimitPutNoError LimitKind = 19
 )
 
 // Limit is a generic representation of a limit and its value.

@@ -88,6 +88,7 @@ var safelyPartitionableDBs = map[string]bool{
 	"nodeevents":    true,
 	"verifyqueue":   true,
 	"reverifyqueue": true,
+	"overlaycache":  true, // tables: nodes, node_tags
 }
 
 // Open creates instance of satellite.DB.
@@ -148,7 +149,7 @@ func open(ctx context.Context, log *zap.Logger, databaseURL string, opts Options
 	}
 
 	if log.Level() == zap.DebugLevel {
-		log.Debug("Connected to:", zap.String("db source", logging.Redacted(dbxSource)))
+		log.Debug("Connected to:", zap.String("db source", logging.Redacted(source)))
 	}
 
 	name := "satellitedb"
@@ -356,6 +357,11 @@ func (db *satelliteDB) Testing() satellite.TestingDB {
 
 type satelliteDBTesting struct{ *satelliteDB }
 
+// Implementation returns the implementations of the databases.
+func (db *satelliteDBTesting) Implementation() []dbutil.Implementation {
+	return []dbutil.Implementation{db.satelliteDB.impl}
+}
+
 // Rebind adapts a query's syntax for a database dialect.
 func (db *satelliteDBTesting) Rebind(query string) string {
 	return db.satelliteDB.Rebind(query)
@@ -387,6 +393,15 @@ func (dbc *satelliteDBCollection) Testing() satellite.TestingDB {
 }
 
 type satelliteDBCollectionTesting struct{ *satelliteDBCollection }
+
+// Implementation returns the implementations of the databases.
+func (dbc *satelliteDBCollectionTesting) Implementation() []dbutil.Implementation {
+	var r []dbutil.Implementation
+	for _, db := range dbc.dbs {
+		r = append(r, db.impl)
+	}
+	return r
+}
 
 // Rebind adapts a query's syntax for a database dialect.
 func (dbc *satelliteDBCollectionTesting) Rebind(query string) string {

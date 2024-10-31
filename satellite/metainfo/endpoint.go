@@ -92,6 +92,10 @@ type Endpoint struct {
 	zstdEncoder            *zstd.Encoder
 	successTrackers        *SuccessTrackers
 	placement              nodeselection.PlacementDefinitions
+
+	// rateLimiterTime is a function that returns the time to check with the rate limiter.
+	// It's handy for testing purposes. It defaults to time.Now.
+	rateLimiterTime func() time.Time
 }
 
 // NewEndpoint creates new metainfo endpoint instance.
@@ -165,6 +169,7 @@ func NewEndpoint(log *zap.Logger, buckets *buckets.Service, metabaseDB *metabase
 		zstdEncoder:          encoder,
 		successTrackers:      successTrackers,
 		placement:            placement,
+		rateLimiterTime:      time.Now,
 	}, nil
 }
 
@@ -305,6 +310,32 @@ func (endpoint *Endpoint) packSegmentID(ctx context.Context, satSegmentID *inter
 		return nil, rpcstatus.Error(rpcstatus.Internal, "unable to create segment id")
 	}
 
+	// remove satellite signature from limits to reduce response size
+	// signature is not needed here, because segment id is signed by satellite
+	originalOrderLimits := make([]*pb.AddressedOrderLimit, len(satSegmentID.OriginalOrderLimits))
+	for i, alimit := range satSegmentID.OriginalOrderLimits {
+		originalOrderLimits[i] = &pb.AddressedOrderLimit{
+			StorageNodeAddress: alimit.StorageNodeAddress,
+			Limit: &pb.OrderLimit{
+				SerialNumber:           alimit.Limit.SerialNumber,
+				SatelliteId:            alimit.Limit.SatelliteId,
+				UplinkPublicKey:        alimit.Limit.UplinkPublicKey,
+				StorageNodeId:          alimit.Limit.StorageNodeId,
+				PieceId:                alimit.Limit.PieceId,
+				Limit:                  alimit.Limit.Limit,
+				PieceExpiration:        alimit.Limit.PieceExpiration,
+				Action:                 alimit.Limit.Action,
+				OrderExpiration:        alimit.Limit.OrderExpiration,
+				OrderCreation:          alimit.Limit.OrderCreation,
+				EncryptedMetadataKeyId: alimit.Limit.EncryptedMetadataKeyId,
+				EncryptedMetadata:      alimit.Limit.EncryptedMetadata,
+				// don't copy satellite signature
+			},
+		}
+	}
+
+	satSegmentID.OriginalOrderLimits = originalOrderLimits
+
 	signedSegmentID, err := SignSegmentID(ctx, endpoint.satellite, satSegmentID)
 	if err != nil {
 		return nil, err
@@ -433,4 +464,9 @@ func (endpoint *Endpoint) getRSProto(placementID storj.PlacementConstraint) *pb.
 // TestingSetRSConfig set endpoint RS config for testing.
 func (endpoint *Endpoint) TestingSetRSConfig(rs RSConfig) {
 	endpoint.config.RS = rs
+}
+
+// TestingSetRateLimiterTime sets the time function used by the rate limiter.
+func (endpoint *Endpoint) TestingSetRateLimiterTime(time func() time.Time) {
+	endpoint.rateLimiterTime = time
 }

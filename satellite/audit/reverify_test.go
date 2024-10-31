@@ -751,7 +751,7 @@ func TestReverifyUnknownError(t *testing.T) {
 func TestMaxReverifyCount(t *testing.T) {
 	const auditTimeout = time.Second
 	testWithRangedLoop(t, testplanet.Config{
-		SatelliteCount: 1, StorageNodeCount: 4, UplinkCount: 1, EnableSpanner: true,
+		SatelliteCount: 1, StorageNodeCount: 4, UplinkCount: 1,
 		Reconfigure: testplanet.Reconfigure{
 			StorageNodeDB: func(index int, db storagenode.DB, log *zap.Logger) (storagenode.DB, error) {
 				return testblobs.NewSlowDB(log.Named("slowdb"), db), nil

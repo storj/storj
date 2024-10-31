@@ -30,6 +30,7 @@ import (
 	"storj.io/storj/satellite"
 	"storj.io/storj/satellite/buckets"
 	"storj.io/storj/satellite/console"
+	"storj.io/storj/satellite/console/consoleauth/sso"
 	"storj.io/storj/satellite/console/consoleweb/consoleapi"
 	"storj.io/storj/satellite/payments/stripe"
 )
@@ -373,12 +374,90 @@ func TestTokenByAPIKeyEndpoint(t *testing.T) {
 	})
 }
 
+func TestSsoUserLoginWithPassword(t *testing.T) {
+	testplanet.Run(t, testplanet.Config{
+		SatelliteCount: 1, StorageNodeCount: 0, UplinkCount: 0,
+	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+		satellite := planet.Satellites[0]
+
+		user, err := satellite.AddUser(ctx, console.CreateUser{
+			FullName: "Test User",
+			Email:    "test@mail.test",
+		}, 1)
+		require.NoError(t, err)
+
+		require.NoError(t, satellite.API.Console.Service.UpdateExternalID(ctx, user, "test:1234"))
+
+		body := console.AuthUser{
+			Email:    user.Email,
+			Password: user.FullName,
+		}
+
+		bodyBytes, err := json.Marshal(body)
+		require.NoError(t, err)
+		buf := bytes.NewBuffer(bodyBytes)
+
+		url := planet.Satellites[0].ConsoleURL() + "/api/v0/auth/token"
+		req, err := http.NewRequestWithContext(ctx, http.MethodPost, url, buf)
+		require.NoError(t, err)
+
+		response, err := http.DefaultClient.Do(req)
+		require.NoError(t, err)
+		require.NotEmpty(t, response)
+		require.Equal(t, http.StatusUnauthorized, response.StatusCode)
+
+		responseBody, err := io.ReadAll(response.Body)
+		require.NoError(t, err)
+		require.NotContains(t, string(responseBody), "token")
+		require.NoError(t, response.Body.Close())
+	})
+}
+
+func TestSsoUserForgotPassword(t *testing.T) {
+	testplanet.Run(t, testplanet.Config{
+		SatelliteCount: 1, StorageNodeCount: 0, UplinkCount: 0,
+	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+		satellite := planet.Satellites[0]
+
+		user, err := satellite.AddUser(ctx, console.CreateUser{
+			FullName: "Test User",
+			Email:    "test@mail.test",
+		}, 1)
+		require.NoError(t, err)
+
+		require.NoError(t, satellite.API.Console.Service.UpdateExternalID(ctx, user, "test:1234"))
+
+		body := console.AuthUser{
+			Email:    user.Email,
+			Password: user.FullName,
+		}
+
+		bodyBytes, err := json.Marshal(body)
+		require.NoError(t, err)
+		buf := bytes.NewBuffer(bodyBytes)
+
+		url := planet.Satellites[0].ConsoleURL() + "/api/v0/auth/forgot-password"
+		req, err := http.NewRequestWithContext(ctx, http.MethodPost, url, buf)
+		require.NoError(t, err)
+
+		response, err := http.DefaultClient.Do(req)
+		require.NoError(t, err)
+		require.Equal(t, http.StatusOK, response.StatusCode)
+		require.NoError(t, response.Body.Close())
+
+		token, err := satellite.DB.Console().ResetPasswordTokens().GetByOwnerID(ctx, user.ID)
+		require.Error(t, err)
+		require.Equal(t, sql.ErrNoRows, err)
+		require.Nil(t, token)
+	})
+}
+
 func TestMFAEndpoints(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
 		SatelliteCount: 1, StorageNodeCount: 0, UplinkCount: 0,
 		Reconfigure: testplanet.Reconfigure{
 			Satellite: func(log *zap.Logger, index int, config *satellite.Config) {
-				config.Console.RateLimit.Burst = 10
+				config.Console.RateLimit.Burst = 20
 			},
 		},
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
@@ -415,12 +494,8 @@ func TestMFAEndpoints(t *testing.T) {
 			return responseBody, status
 		}
 
-		// Expect failure because MFA is not enabled.
-		_, status := doRequest("/generate-recovery-codes", "", "")
-		require.Equal(t, http.StatusUnauthorized, status)
-
 		// Expect failure due to not having generated a secret key.
-		_, status = doRequest("/enable", "123456", "")
+		_, status := doRequest("/enable", "123456", "")
 		require.Equal(t, http.StatusBadRequest, status)
 
 		// Expect success when generating a secret key.
@@ -444,11 +519,7 @@ func TestMFAEndpoints(t *testing.T) {
 		// Expect success when providing valid passcode.
 		goodCode, err := console.NewMFAPasscode(key, time.Now())
 		require.NoError(t, err)
-		_, status = doRequest("/enable", goodCode, "")
-		require.Equal(t, http.StatusOK, status)
-
-		// Expect 10 recovery codes to be generated.
-		body, status = doRequest("/generate-recovery-codes", "", "")
+		body, status = doRequest("/enable", goodCode, "")
 		require.Equal(t, http.StatusOK, status)
 
 		var codes []string
@@ -532,9 +603,7 @@ func TestMFAEndpoints(t *testing.T) {
 
 		goodCode, err = console.NewMFAPasscode(key, time.Now())
 		require.NoError(t, err)
-		doRequest("/enable", goodCode, "")
-
-		body, _ = doRequest("/generate-recovery-codes", "", "")
+		body, _ = doRequest("/enable", goodCode, "")
 		err = json.Unmarshal(body, &codes)
 		require.NoError(t, err)
 
@@ -1265,6 +1334,135 @@ func TestAuth_SetupAccount(t *testing.T) {
 				require.Equal(t, "", userAfterSetup.EmployeeCount)
 			}
 		}
+	})
+}
+
+func TestSsoMethods(t *testing.T) {
+	testplanet.Run(t, testplanet.Config{
+		SatelliteCount: 1, StorageNodeCount: 0, UplinkCount: 0,
+	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+		sat := planet.Satellites[0]
+		service := sat.API.Console.Service
+
+		createUserFn := func(email string) *console.User {
+			regToken, err := sat.API.Console.Service.CreateRegToken(ctx, 1)
+			require.NoError(t, err)
+			user, err := sat.API.Console.Service.CreateUser(ctx, console.CreateUser{
+				FullName: "Test User",
+				Email:    email,
+				Password: "password",
+			}, regToken.Secret)
+			require.NoError(t, err)
+			return user
+		}
+
+		provider := "provider"
+		getExternalID := func(sub string) string {
+			return fmt.Sprintf("%s:%s", provider, sub)
+		}
+
+		createUser1 := console.CreateSsoUser{
+			ExternalId: getExternalID("test"),
+			Email:      "test@mail.com",
+			FullName:   "Test User",
+		}
+		user, err := service.CreateSsoUser(ctx, createUser1)
+		require.NoError(t, err)
+		require.Equal(t, &createUser1.ExternalId, user.ExternalID)
+		require.Equal(t, createUser1.Email, user.Email)
+		require.Equal(t, createUser1.FullName, user.FullName)
+		require.Equal(t, console.Active, user.Status)
+		require.Empty(t, user.PasswordHash)
+
+		user = createUserFn("test2@mail.com")
+		require.Equal(t, console.Inactive, user.Status)
+		require.Nil(t, user.ExternalID)
+
+		// creating a sso user with the same email should return the existing user
+		// associating it with the external ID
+		createUser2 := console.CreateSsoUser{
+			ExternalId: getExternalID("testy"),
+			Email:      user.Email,
+			FullName:   user.FullName,
+		}
+		user, err = service.CreateSsoUser(ctx, createUser2)
+		require.NoError(t, err)
+		require.Equal(t, &createUser2.ExternalId, user.ExternalID)
+		require.Equal(t, createUser2.Email, user.Email)
+		require.Equal(t, createUser2.FullName, user.FullName)
+		require.Equal(t, console.Active, user.Status)
+		require.NotEmpty(t, user.PasswordHash)
+
+		user = createUserFn("test3@mail.com")
+		require.NoError(t, err)
+		require.Equal(t, console.Inactive, user.Status)
+		require.Nil(t, user.ExternalID)
+
+		err = service.UpdateExternalID(ctx, user, getExternalID("testy2"))
+		require.NoError(t, err)
+
+		user, err = service.GetUser(ctx, user.ID)
+		require.NoError(t, err)
+		require.Equal(t, getExternalID("testy2"), *user.ExternalID)
+		require.Equal(t, console.Active, user.Status)
+
+		// GetUserForSsoAuth should return the user if the external ID matches
+		ssoUser, err := service.GetUserForSsoAuth(ctx, sso.OidcSsoClaims{
+			Sub:   strings.TrimPrefix(*user.ExternalID, provider+":"),
+			Email: "some@mail.com",
+			Name:  "some name",
+		}, "provider", "", "")
+		require.NoError(t, err)
+		require.Equal(t, user.ID, ssoUser.ID)
+		require.Equal(t, user.ExternalID, ssoUser.ExternalID)
+		require.Equal(t, user.Email, ssoUser.Email)
+
+		user = createUserFn("test4@mail.com")
+		require.NoError(t, err)
+		require.Equal(t, console.Inactive, user.Status)
+
+		// GetUserForSsoAuth should return the user if the email matches unverified user
+		// activate it and associate the external ID with the user.
+		ssoUser, err = service.GetUserForSsoAuth(ctx, sso.OidcSsoClaims{
+			Sub:   "anotherID",
+			Email: user.Email,
+			Name:  "some name",
+		}, provider, "", "")
+		require.NoError(t, err)
+		require.Equal(t, user.ID, ssoUser.ID)
+		require.Equal(t, getExternalID("anotherID"), *ssoUser.ExternalID)
+		require.Equal(t, user.Email, ssoUser.Email)
+		require.Equal(t, console.Active, ssoUser.Status)
+
+		user = createUserFn("test5@mail.com")
+		require.NoError(t, err)
+
+		err = service.SetAccountActive(ctx, user)
+		require.NoError(t, err)
+
+		// GetUserForSsoAuth should return the user if the email matches verified user
+		// and associate the external ID with the user.
+		ssoUser, err = service.GetUserForSsoAuth(ctx, sso.OidcSsoClaims{
+			Sub:   "ID",
+			Email: user.Email,
+			Name:  "some name",
+		}, provider, "", "")
+		require.NoError(t, err)
+		require.Equal(t, user.ID, ssoUser.ID)
+		require.Equal(t, getExternalID("ID"), *ssoUser.ExternalID)
+		require.Equal(t, user.Email, ssoUser.Email)
+
+		// GetUserForSsoAuth should create a new user.
+		ssoUser, err = service.GetUserForSsoAuth(ctx, sso.OidcSsoClaims{
+			Sub:   "externalID",
+			Email: "external@mail.com",
+			Name:  "some name",
+		}, provider, "", "")
+		require.NoError(t, err)
+		require.Equal(t, getExternalID("externalID"), *ssoUser.ExternalID)
+		require.Equal(t, "external@mail.com", ssoUser.Email)
+		require.Equal(t, console.Active, ssoUser.Status)
+		require.Empty(t, ssoUser.PasswordHash)
 	})
 }
 

@@ -710,7 +710,7 @@ func (s *SpannerAdapter) CommitPendingObjectSegment(ctx context.Context, opts Co
 			Params: map[string]interface{}{
 				"position":            opts.Position,
 				"expires_at":          opts.ExpiresAt,
-				"root_piece_id":       opts.RootPieceID.Bytes(),
+				"root_piece_id":       opts.RootPieceID,
 				"encrypted_key_nonce": opts.EncryptedKeyNonce,
 				"encrypted_key":       opts.EncryptedKey,
 				"encrypted_size":      int64(opts.EncryptedSize),
@@ -719,12 +719,12 @@ func (s *SpannerAdapter) CommitPendingObjectSegment(ctx context.Context, opts Co
 				"encrypted_etag":      opts.EncryptedETag,
 				"redundancy":          redundancyScheme{&opts.Redundancy},
 				"alias_pieces":        aliasPieces,
-				"project_id":          opts.ProjectID.Bytes(),
+				"project_id":          opts.ProjectID,
 				"bucket_name":         opts.BucketName,
 				"object_key":          opts.ObjectKey,
 				"version":             opts.Version,
-				"stream_id":           opts.StreamID.Bytes(),
-				"placement":           int64(opts.Placement),
+				"stream_id":           opts.StreamID,
+				"placement":           opts.Placement,
 			},
 		}
 		numRows, err = txn.Update(ctx, stmt)
@@ -732,7 +732,10 @@ func (s *SpannerAdapter) CommitPendingObjectSegment(ctx context.Context, opts Co
 	})
 	if err != nil {
 		if spanner.ErrCode(err) == codes.FailedPrecondition {
-			if strings.Contains(err.Error(), "column: segments.stream_id") {
+			// TODO(spanner) dirty hack to distinguish FailedPrecondition errors.
+			// Another issue is that emulator returns different message than real spanner instance.
+			if strings.Contains(err.Error(), "column: segments.stream_id") ||
+				strings.Contains(err.Error(), "stream_id must not be NULL in table segments") {
 				return ErrPendingObjectMissing.New("")
 			}
 			return ErrFailedPrecondition.Wrap(err)

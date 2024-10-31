@@ -237,7 +237,7 @@ export default class BandwidthPage extends Vue {
         &__title {
             font-family: 'font_bold', sans-serif;
             font-size: 32px;
-            color: var(--c-title);
+            color: var(--v-header-base);
             margin-bottom: 44px;
         }
 
@@ -260,8 +260,8 @@ export default class BandwidthPage extends Vue {
             box-sizing: border-box;
             width: 65%;
             height: 401px;
-            background-color: white;
-            border: 1px solid var(--c-gray--light);
+            background-color: var(--v-background-base);
+            border: 1px solid var(--v-border-base);
             border-radius: 11px;
             padding: 32px 30px;
             margin: 20px 0 13px;
@@ -281,16 +281,16 @@ export default class BandwidthPage extends Vue {
                 &__title {
                     font-family: 'font_regular', sans-serif;
                     font-size: 14px;
-                    color: var(--c-gray);
+                    color: var(--v-header-base);
                     user-select: none;
                 }
 
                 &__chart-choice-item {
                     padding: 6px 8px;
-                    background-color: #e7e9eb;
+                    background-color: var(--v-active2-base);
                     border-radius: 6px;
                     font-size: 12px;
-                    color: #586474;
+                    color: var(--v-text-base);
                     max-height: 25px;
                     cursor: pointer;
                     user-select: none;
@@ -298,8 +298,8 @@ export default class BandwidthPage extends Vue {
                     border: none;
 
                     &.active {
-                        background-color: #d5d9dc;
-                        color: #131d3a;
+                        background-color: var(--v-active-base);
+                        color: var(--v-header-base);
                     }
                 }
             }
@@ -308,7 +308,7 @@ export default class BandwidthPage extends Vue {
                 font-family: 'font_bold', sans-serif;
                 font-size: 32px;
                 line-height: 57px;
-                color: var(--c-title);
+                color: var(--v-header-base);
             }
 
             &__chart {

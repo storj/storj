@@ -138,6 +138,8 @@ model node (
 	field features int ( updatable, default 0 )
 )
 
+create node ( noreturn )
+
 update node ( where node.id = ? )
 update node (
 	where node.id = ?

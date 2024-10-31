@@ -63,6 +63,7 @@ var (
 	dbsLocation        = flag.String("dbs-location", "", "")
 	flatFileTTLStore   = flag.Bool("flat-ttl-store", true, "use flat-files ttl store")
 	flatFileTTLHandles = flag.Int("flat-ttl-max-handles", 1000, "max file handles to flat-file ttl store")
+	dedicatedDisk      = flag.Bool("dedicated-disk", false, "assume the test setup is a dedicated disk node")
 
 	cpuprofile = flag.String("cpuprofile", "", "write a cpu profile")
 	memprofile = flag.String("memprofile", "", "write a memory profile")
@@ -122,8 +123,11 @@ func createEndpoint(ctx context.Context, satIdent, snIdent *identity.FullIdentit
 	trustPool := try.E1(trust.NewPool(log, resolver, cfg.Storage2.Trust, snDB.Satellites()))
 	try.E(trustPool.Refresh(ctx))
 
-	blobsCache := pieces.NewBlobsUsageCache(log, snDB.Pieces())
-	filewalker := pieces.NewFileWalker(log, blobsCache, snDB.V0PieceInfo(),
+	blobStore := snDB.Pieces()
+	if !*dedicatedDisk {
+		blobStore = pieces.NewBlobsUsageCache(log, snDB.Pieces())
+	}
+	filewalker := pieces.NewFileWalker(log, blobStore, snDB.V0PieceInfo(),
 		snDB.GCFilewalkerProgress(), snDB.UsedSpacePerPrefix())
 
 	var expirationStore pieces.PieceExpirationDB
@@ -136,7 +140,7 @@ func createEndpoint(ctx context.Context, satIdent, snIdent *identity.FullIdentit
 	} else {
 		expirationStore = snDB.PieceExpirationDB()
 	}
-	piecesStore := pieces.NewStore(log, filewalker, nil, blobsCache, snDB.V0PieceInfo(), expirationStore, snDB.PieceSpaceUsedDB(), cfg.Pieces)
+	piecesStore := pieces.NewStore(log, filewalker, nil, blobStore, snDB.V0PieceInfo(), expirationStore, cfg.Pieces)
 
 	tlsOptions := try.E1(tlsopts.NewOptions(snIdent, cfg.Server.Config, nil))
 
@@ -146,7 +150,13 @@ func createEndpoint(ctx context.Context, satIdent, snIdent *identity.FullIdentit
 
 	contactService := contact.NewService(log, dialer, self, trustPool, contact.NewQUICStats(false), &pb.SignedNodeTagSets{})
 
-	spaceReport := monitor.NewSharedDisk(log, piecesStore, cfg.Storage2.Monitor.MinimumDiskSpace.Int64(), 1<<40)
+	var spaceReport monitor.SpaceReport
+
+	if *dedicatedDisk {
+		spaceReport = monitor.NewDedicatedDisk(log, piecesStore, cfg.Storage2.Monitor.MinimumDiskSpace.Int64(), 100_000_000)
+	} else {
+		spaceReport = monitor.NewSharedDisk(log, piecesStore, cfg.Storage2.Monitor.MinimumDiskSpace.Int64(), 1<<40)
+	}
 
 	monitorService := monitor.NewService(log, piecesStore, contactService, time.Hour, spaceReport, cfg.Storage2.Monitor)
 

@@ -55,7 +55,7 @@ func TestService(t *testing.T) {
 		placements[i] = fmt.Sprintf("loc-%d", i)
 	}
 	testplanet.Run(t, testplanet.Config{
-		SatelliteCount: 1, StorageNodeCount: 1, UplinkCount: 4, EnableSpanner: true,
+		SatelliteCount: 1, StorageNodeCount: 1, UplinkCount: 4,
 		Reconfigure: testplanet.Reconfigure{
 			Satellite: func(log *zap.Logger, index int, config *satellite.Config) {
 				config.Payments.StripeCoinPayments.StripeFreeTierCouponID = stripe.MockCouponID1
@@ -1646,6 +1646,22 @@ func TestChangeEmail(t *testing.T) {
 		require.Equal(t, "", *user.NewUnverifiedEmail)
 		require.Equal(t, validEmail, user.Email)
 		require.Empty(t, user.ActivationCode)
+
+		// test sso user can't change email.
+		ssoUser, err := sat.AddUser(ctx, console.CreateUser{
+			Email:    "test@storj.test",
+			FullName: "test test",
+		}, 1)
+		require.NoError(t, err)
+		require.NoError(t, service.UpdateExternalID(ctx, ssoUser, "test:1234"))
+
+		ssoUserCtx, err := sat.UserContext(ctx, ssoUser.ID)
+		require.NoError(t, err)
+
+		err = service.ChangeEmail(ssoUserCtx, console.ChangeAccountEmailStep, "foobar")
+		require.Error(t, err)
+		require.True(t, console.ErrForbidden.Has(err))
+		require.Contains(t, err.Error(), "sso")
 	})
 }
 
@@ -1945,6 +1961,30 @@ func TestDeleteProject(t *testing.T) {
 		projects, err := db.Console().Projects().GetOwn(ctx, user.ID)
 		require.NoError(t, err)
 		require.Zero(t, len(projects))
+
+		// test sso user can't delete project
+		ssoUser, err := sat.AddUser(ctx, console.CreateUser{
+			Email:    "test@sso.test",
+			FullName: "test test",
+			PaidTier: true,
+		}, 1)
+		require.NoError(t, err)
+		require.NoError(t, service.UpdateExternalID(ctx, ssoUser, "test:1234"))
+
+		ssoUserCtx, err := sat.UserContext(ctx, ssoUser.ID)
+		require.NoError(t, err)
+
+		project, err = service.CreateProject(ssoUserCtx, console.UpsertProjectInfo{
+			Name:        "test",
+			Description: "desc",
+		})
+		require.NoError(t, err)
+		require.NotNil(t, project)
+
+		_, err = service.DeleteProject(ssoUserCtx, project.ID, console.DeleteAccountInit, "foobar")
+		require.Error(t, err)
+		require.True(t, console.ErrForbidden.Has(err))
+		require.Contains(t, err.Error(), "sso")
 	})
 }
 
@@ -2307,6 +2347,21 @@ func TestDeleteAccount(t *testing.T) {
 			require.NoError(t, err)
 			require.Len(t, sessions, 0)
 		}
+
+		// test sso user can't delete account
+		ssoUser, err := sat.AddUser(ctx, console.CreateUser{
+			Email:    "test@sso.test",
+			FullName: "test test",
+		}, 1)
+		require.NoError(t, err)
+		require.NoError(t, service.UpdateExternalID(ctx, ssoUser, "test:1234"))
+
+		ssoUserCtx, err := sat.UserContext(ctx, ssoUser.ID)
+		require.NoError(t, err)
+		_, err = service.DeleteAccount(ssoUserCtx, console.DeleteAccountInit, "foobar")
+		require.Error(t, err)
+		require.True(t, console.ErrForbidden.Has(err))
+		require.Contains(t, err.Error(), "sso")
 	})
 }
 
@@ -2793,7 +2848,7 @@ func TestMFA(t *testing.T) {
 
 func TestResetPassword(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
-		SatelliteCount: 1, StorageNodeCount: 0, UplinkCount: 0, EnableSpanner: true,
+		SatelliteCount: 1, StorageNodeCount: 0, UplinkCount: 0,
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 		sat := planet.Satellites[0]
 		service := sat.API.Console.Service
@@ -2912,7 +2967,7 @@ func TestResetPassword(t *testing.T) {
 
 func TestChangePassword(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
-		SatelliteCount: 1, StorageNodeCount: 0, UplinkCount: 1, EnableSpanner: true,
+		SatelliteCount: 1, StorageNodeCount: 0, UplinkCount: 1,
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 		sat := planet.Satellites[0]
 		upl := planet.Uplinks[0]
@@ -3600,7 +3655,7 @@ func TestDeleteAllSessionsByUserIDExcept(t *testing.T) {
 func TestSatelliteManagedProject(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
 		SatelliteCount: 1, StorageNodeCount: 0, UplinkCount: 1,
-		EnableSpanner: true,
+
 		Reconfigure: testplanet.Reconfigure{
 			Satellite: func(log *zap.Logger, index int, config *satellite.Config) {
 				config.Console.SatelliteManagedEncryptionEnabled = true
@@ -3771,7 +3826,7 @@ func TestSatelliteManagedProjectWithDisabled(t *testing.T) {
 func TestSatelliteManagedProjectWithDisabledAndConfig(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
 		SatelliteCount: 1, StorageNodeCount: 0, UplinkCount: 1,
-		EnableSpanner: true,
+
 		Reconfigure: testplanet.Reconfigure{
 			Satellite: func(log *zap.Logger, index int, config *satellite.Config) {
 				config.Console.SatelliteManagedEncryptionEnabled = false
@@ -3845,7 +3900,7 @@ func TestSatelliteManagedProjectWithDisabledAndConfig(t *testing.T) {
 
 func TestPaymentsWalletPayments(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
-		SatelliteCount: 1, StorageNodeCount: 0, UplinkCount: 0, EnableSpanner: true,
+		SatelliteCount: 1, StorageNodeCount: 0, UplinkCount: 0,
 		Reconfigure: testplanet.Reconfigure{
 			Satellite: func(log *zap.Logger, index int, config *satellite.Config) {
 				config.Payments.BillingConfig.DisableLoop = false

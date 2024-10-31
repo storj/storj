@@ -64,7 +64,7 @@ func TestVerifyQueueBasicUsage(t *testing.T) {
 		require.Error(t, err)
 		require.Truef(t, audit.ErrEmptyQueue.Has(err), "unexpected error %v", err)
 		require.Equal(t, audit.Segment{}, popped)
-	}, satellitedbtest.WithSpanner())
+	})
 }
 
 func TestVerifyQueueEmpty(t *testing.T) {
@@ -80,7 +80,7 @@ func TestVerifyQueueEmpty(t *testing.T) {
 		require.Error(t, err)
 		require.Truef(t, audit.ErrEmptyQueue.Has(err), "unexpected error %v", err)
 		require.Equal(t, audit.Segment{}, popped)
-	}, satellitedbtest.WithSpanner())
+	})
 }
 
 func TestMultipleBatches(t *testing.T) {
@@ -112,5 +112,5 @@ func TestMultipleBatches(t *testing.T) {
 			require.NoError(t, err)
 			require.Equal(t, segments[i], gotSegment)
 		}
-	}, satellitedbtest.WithSpanner())
+	})
 }

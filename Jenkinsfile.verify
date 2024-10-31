@@ -135,15 +135,15 @@ pipeline {
         stage('Tests') {
             environment {
                 STORJ_TEST_HOST = '127.0.0.20;127.0.0.21;127.0.0.22;127.0.0.23;127.0.0.24;127.0.0.25'
-                STORJ_TEST_COCKROACH = 'cockroach://root@localhost:26256/testcockroach?sslmode=disable;' +
-                    'cockroach://root@localhost:26257/testcockroach?sslmode=disable;'+
+                STORJ_TEST_COCKROACH = 'cockroach://root@localhost:26256/testcockroach?sslmode=disable|' +
+                    'cockroach://root@localhost:26257/testcockroach?sslmode=disable|'+
                     'cockroach://root@localhost:26258/testcockroach?sslmode=disable'
                 STORJ_TEST_COCKROACH_NODROP = 'true'
                 STORJ_TEST_POSTGRES = 'omit'
                 STORJ_TEST_LOG_LEVEL = 'info'
                 COVERFLAGS = "${ env.BRANCH_NAME == 'main' ? '-coverprofile=.build/coverprofile -coverpkg=storj.io/storj/private/...,storj.io/storj/satellite/...,storj.io/storj/storagenode/...,storj.io/storj/versioncontrol/...' : ''}"
                 GOEXPERIMENT = 'nocoverageredesign'
-                STORJ_TEST_SPANNER = 'spanner://127.0.0.1:9010?emulator;spanner://127.0.0.1:9011?emulator;spanner://127.0.0.1:9012?emulator'
+                STORJ_TEST_SPANNER = 'spanner://127.0.0.1:9010?emulator|spanner://127.0.0.1:9011?emulator|spanner://127.0.0.1:9012?emulator|spanner://127.0.0.1:9013?emulator'
             }
             steps {
                 sh 'cockroach sql --insecure --host=localhost:26256 -e \'create database testcockroach;\''
@@ -153,6 +153,7 @@ pipeline {
                 sh '/usr/local/bin/spanner_emulator --host_port 127.0.0.1:9010 &'
                 sh '/usr/local/bin/spanner_emulator --host_port 127.0.0.1:9011 &'
                 sh '/usr/local/bin/spanner_emulator --host_port 127.0.0.1:9012 &'
+                sh '/usr/local/bin/spanner_emulator --host_port 127.0.0.1:9013 &'
 
                 sh 'use-ports -from 1024 -to 10000 &'
 

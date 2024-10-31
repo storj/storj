@@ -893,6 +893,11 @@ func (m *mockdb) TestUnsuspendNodeUnknownAudit(ctx context.Context, nodeID storj
 	panic("implement me")
 }
 
+// TestAddNodes satisfies nodeevents.DB interface.
+func (m *mockdb) TestAddNodes(ctx context.Context, nodes []*overlay.NodeDossier) (err error) {
+	panic("implement me")
+}
+
 // TestVetNode satisfies nodeevents.DB interface.
 func (m *mockdb) TestVetNode(ctx context.Context, nodeID storj.NodeID) (vettedTime *time.Time, err error) {
 	panic("implement me")
@@ -945,5 +950,10 @@ func (m *mockdb) GetNodeTags(ctx context.Context, id storj.NodeID) (nodeselectio
 
 // GetLastIPPortByNodeTagNames gets last IP and port from nodes where node exists in node tags with a particular name.
 func (m *mockdb) GetLastIPPortByNodeTagNames(ctx context.Context, ids storj.NodeIDList, tagName []string) (lastIPPorts map[storj.NodeID]*string, err error) {
+	panic("implement me")
+}
+
+// AccountingNodeInfo gets records for all specified nodes for accounting.
+func (m *mockdb) AccountingNodeInfo(ctx context.Context, nodeIDs storj.NodeIDList) (_ map[storj.NodeID]overlay.NodeAccountingInfo, err error) {
 	panic("implement me")
 }

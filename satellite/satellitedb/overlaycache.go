@@ -23,8 +23,8 @@ import (
 	"storj.io/storj/satellite/overlay"
 	"storj.io/storj/satellite/satellitedb/dbx"
 	"storj.io/storj/shared/dbutil"
-	"storj.io/storj/shared/dbutil/cockroachutil"
 	"storj.io/storj/shared/dbutil/pgutil"
+	"storj.io/storj/shared/dbutil/retrydb"
 	"storj.io/storj/shared/dbutil/txutil"
 	"storj.io/storj/shared/location"
 	"storj.io/storj/shared/tagsql"
@@ -45,7 +45,7 @@ func (cache *overlaycache) SelectAllStorageNodesUpload(ctx context.Context, sele
 	for {
 		reputable, new, err = cache.selectAllStorageNodesUpload(ctx, selectionCfg)
 		if err != nil {
-			if cockroachutil.NeedsRetry(err) {
+			if retrydb.ShouldRetryIdempotent(err) {
 				continue
 			}
 			return reputable, new, err
@@ -102,7 +102,6 @@ func (cache *overlaycache) selectAllStorageNodesUpload(ctx context.Context, sele
 		query := `
 			SELECT id, address, email, wallet, last_net, last_ip_port, vetted_at, country_code, noise_proto, noise_public_key, debounce_limit, features, country_code, piece_count, free_disk
 			FROM nodes
-			` + cache.db.impl.AsOfSystemInterval(selectionCfg.AsOfSystemTime.Interval()) + `
 			WHERE disqualified IS NULL
 				AND unknown_audit_suspended IS NULL
 				AND offline_suspended IS NULL
@@ -178,7 +177,7 @@ func (cache *overlaycache) SelectAllStorageNodesDownload(ctx context.Context, on
 		nodes, err = cache.selectAllStorageNodesDownload(ctx, onlineWindow, asOf)
 		if err != nil {
 
-			if cockroachutil.NeedsRetry(err) {
+			if retrydb.ShouldRetryIdempotent(err) {
 				continue
 			}
 			return nodes, err
@@ -281,7 +280,7 @@ func (cache *overlaycache) GetNodesNetwork(ctx context.Context, nodeIDs []storj.
 	for {
 		nodeNets, err = cache.getNodesNetwork(ctx, nodeIDs, query)
 		if err != nil {
-			if cockroachutil.NeedsRetry(err) {
+			if retrydb.ShouldRetryIdempotent(err) {
 				continue
 			}
 			return nodeNets, err
@@ -307,7 +306,7 @@ func (cache *overlaycache) GetNodesNetworkInOrder(ctx context.Context, nodeIDs [
 		for {
 			nodeNets, err = cache.getNodesNetwork(ctx, nodeIDs, query)
 			if err != nil {
-				if cockroachutil.NeedsRetry(err) {
+				if retrydb.ShouldRetryIdempotent(err) {
 					continue
 				}
 				return nodeNets, err
@@ -384,7 +383,7 @@ func (cache *overlaycache) GetOnlineNodesForAuditRepair(ctx context.Context, nod
 	for {
 		nodes, err = cache.getOnlineNodesForAuditRepair(ctx, nodeIDs, onlineWindow)
 		if err != nil {
-			if cockroachutil.NeedsRetry(err) {
+			if retrydb.ShouldRetryIdempotent(err) {
 				continue
 			}
 			return nodes, err
@@ -643,6 +642,51 @@ func (cache *overlaycache) GetNodes(ctx context.Context, nodeIDs storj.NodeIDLis
 	}
 
 	return records, Error.Wrap(err)
+}
+
+// AccountingNodeInfo gets records for all specified nodes for accounting.
+func (cache *overlaycache) AccountingNodeInfo(ctx context.Context, nodeIDs storj.NodeIDList) (_ map[storj.NodeID]overlay.NodeAccountingInfo, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	if len(nodeIDs) == 0 {
+		return nil, Error.New("no ids provided")
+	}
+
+	var rows tagsql.Rows
+
+	switch cache.db.impl {
+	case dbutil.Cockroach, dbutil.Postgres:
+		rows, err = cache.db.Query(ctx, `
+			SELECT id, created_at, wallet, disqualified
+			FROM nodes
+			WHERE id = any($1::bytea[])
+		`, pgutil.NodeIDArray(nodeIDs))
+
+	case dbutil.Spanner:
+		rows, err = cache.db.Query(ctx, `
+			SELECT id, created_at, wallet, disqualified
+			FROM nodes
+			WHERE id IN UNNEST(?)
+		`, nodeIDs.Bytes())
+	default:
+		return nil, Error.New("unsupported implementation")
+	}
+
+	xs := map[storj.NodeID]overlay.NodeAccountingInfo{}
+	err = withRows(rows, err)(func(rows tagsql.Rows) error {
+		for rows.Next() {
+			var id storj.NodeID
+			var info overlay.NodeAccountingInfo
+			err := rows.Scan(&id, &info.NodeCreationDate, &info.Wallet, &info.Disqualified)
+			if err != nil {
+				return Error.Wrap(err)
+			}
+			xs[id] = info
+		}
+		return nil
+	})
+
+	return xs, Error.Wrap(err)
 }
 
 // GetParticipatingNodes returns all known participating nodes (this includes all known nodes
@@ -1141,7 +1185,7 @@ func (cache *overlaycache) GetExitingNodes(ctx context.Context) (exitingNodes []
 	for {
 		exitingNodes, err = cache.getExitingNodes(ctx)
 		if err != nil {
-			if cockroachutil.NeedsRetry(err) {
+			if retrydb.ShouldRetryIdempotent(err) {
 				continue
 			}
 			return exitingNodes, err
@@ -1182,7 +1226,7 @@ func (cache *overlaycache) GetExitStatus(ctx context.Context, nodeID storj.NodeI
 	for {
 		exitStatus, err = cache.getExitStatus(ctx, nodeID)
 		if err != nil {
-			if cockroachutil.NeedsRetry(err) {
+			if retrydb.ShouldRetryIdempotent(err) {
 				continue
 			}
 			return exitStatus, err
@@ -1196,24 +1240,11 @@ func (cache *overlaycache) GetExitStatus(ctx context.Context, nodeID storj.NodeI
 func (cache *overlaycache) getExitStatus(ctx context.Context, nodeID storj.NodeID) (_ *overlay.ExitStatus, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	var rows tagsql.Rows
-
-	switch cache.db.impl {
-	case dbutil.Cockroach, dbutil.Postgres:
-		rows, err = cache.db.Query(ctx, cache.db.Rebind(`
-			SELECT id, exit_initiated_at, exit_loop_completed_at, exit_finished_at, exit_success
-			FROM nodes
-			WHERE id = ?
-		`), nodeID)
-	case dbutil.Spanner:
-		rows, err = cache.db.Query(ctx, cache.db.Rebind(`
-			SELECT id, exit_initiated_at, exit_loop_completed_at, exit_finished_at, exit_success
-			FROM nodes
-			WHERE id = ?
-		`), nodeID.Bytes())
-	default:
-		return nil, Error.New("unsupported implementation")
-	}
+	rows, err := cache.db.Query(ctx, cache.db.Rebind(`
+		SELECT id, exit_initiated_at, exit_loop_completed_at, exit_finished_at, exit_success
+		FROM nodes
+		WHERE id = ?
+	`), nodeID)
 
 	if err != nil {
 		return nil, Error.Wrap(err)
@@ -1236,7 +1267,7 @@ func (cache *overlaycache) GetGracefulExitCompletedByTimeFrame(ctx context.Conte
 	for {
 		exitedNodes, err = cache.getGracefulExitCompletedByTimeFrame(ctx, begin, end)
 		if err != nil {
-			if cockroachutil.NeedsRetry(err) {
+			if retrydb.ShouldRetryIdempotent(err) {
 				continue
 			}
 			return exitedNodes, err
@@ -1280,7 +1311,7 @@ func (cache *overlaycache) GetGracefulExitIncompleteByTimeFrame(ctx context.Cont
 	for {
 		exitingNodes, err = cache.getGracefulExitIncompleteByTimeFrame(ctx, begin, end)
 		if err != nil {
-			if cockroachutil.NeedsRetry(err) {
+			if retrydb.ShouldRetryIdempotent(err) {
 				continue
 			}
 			return exitingNodes, err
@@ -1486,7 +1517,7 @@ func (cache *overlaycache) DQNodesLastSeenBefore(ctx context.Context, cutoff tim
 	for {
 		nodeIDs, err = cache.getNodesForDQLastSeenBefore(ctx, cutoff, limit)
 		if err != nil {
-			if cockroachutil.NeedsRetry(err) {
+			if retrydb.ShouldRetryIdempotent(err) {
 				continue
 			}
 			return nil, 0, err
@@ -2028,6 +2059,114 @@ var (
 	// ErrVetting is the error class for the following test methods.
 	ErrVetting = errs.Class("vetting")
 )
+
+// TestAddNodes adds nodes for testing purposes, without any validation.
+func (cache *overlaycache) TestAddNodes(ctx context.Context, nodes []*overlay.NodeDossier) (err error) {
+	for _, node := range nodes {
+		id, lastnet, email, wallet, create, err := convertNodeDossierToCreateFields(node)
+		if err != nil {
+			return Error.Wrap(err)
+		}
+
+		if err := cache.db.CreateNoReturn_Node(ctx, id, lastnet, email, wallet, create); err != nil {
+			return Error.Wrap(err)
+		}
+	}
+	return nil
+}
+
+func convertNodeDossierToCreateFields(node *overlay.NodeDossier) (id dbx.Node_Id_Field, lastnet dbx.Node_LastNet_Field, email dbx.Node_Email_Field, wallet dbx.Node_Wallet_Field, create dbx.Node_Create_Fields, err error) {
+	id = dbx.Node_Id(node.Id.Bytes())
+
+	lastnet = dbx.Node_LastNet(node.LastNet)
+	create.LastIpPort = dbx.Node_LastIpPort(node.LastIPPort)
+
+	email = dbx.Node_Email(node.Operator.Email)
+	wallet = dbx.Node_Wallet(node.Operator.Wallet)
+
+	create.Address = dbx.Node_Address(node.Node.Address.Address)
+
+	if noise := node.Node.Address.NoiseInfo; noise != nil {
+		create.NoiseProto = dbx.Node_NoiseProto(int(noise.Proto))
+		create.NoisePublicKey = dbx.Node_NoisePublicKey(noise.PublicKey)
+	}
+	create.DebounceLimit = dbx.Node_DebounceLimit(int(node.Node.Address.DebounceLimit))
+	create.Features = dbx.Node_Features(int(node.Node.Address.Features))
+
+	create.FreeDisk = dbx.Node_FreeDisk(node.Capacity.FreeDisk)
+
+	create.Latency90 = dbx.Node_Latency90(node.Reputation.Latency90)
+	create.LastContactSuccess = dbx.Node_LastContactSuccess(node.Reputation.LastContactSuccess)
+	create.LastContactFailure = dbx.Node_LastContactFailure(node.Reputation.LastContactFailure)
+	if node.Reputation.OfflineUnderReview != nil {
+		create.UnderReview = dbx.Node_UnderReview(*node.Reputation.OfflineUnderReview)
+	}
+
+	status := node.Reputation.Status
+	// TODO: status.Email
+
+	if status.Disqualified != nil {
+		create.Disqualified = dbx.Node_Disqualified(*status.Disqualified)
+	}
+	if status.DisqualificationReason != nil {
+		create.DisqualificationReason = dbx.Node_DisqualificationReason(int(*status.DisqualificationReason))
+	}
+	if status.UnknownAuditSuspended != nil {
+		create.UnknownAuditSuspended = dbx.Node_UnknownAuditSuspended(*status.UnknownAuditSuspended)
+	}
+	if status.OfflineSuspended != nil {
+		create.OfflineSuspended = dbx.Node_OfflineSuspended(*status.OfflineSuspended)
+	}
+	if status.VettedAt != nil {
+		create.VettedAt = dbx.Node_VettedAt(*status.VettedAt)
+	}
+
+	if node.Version.Version != "" {
+		ver, err := version.NewSemVer(node.Version.Version)
+		if err != nil {
+			return id, lastnet, email, wallet, create, err
+		}
+		create.Major = dbx.Node_Major(int64(ver.Major))
+		create.Minor = dbx.Node_Minor(int64(ver.Minor))
+		create.Patch = dbx.Node_Patch(int64(ver.Patch))
+	}
+	create.CommitHash = dbx.Node_CommitHash(node.Version.CommitHash)
+	create.ReleaseTimestamp = dbx.Node_ReleaseTimestamp(node.Version.Timestamp)
+	create.Release = dbx.Node_Release(node.Version.Release)
+
+	if len(node.Operator.WalletFeatures) > 0 {
+		walletFeatures, err := encodeWalletFeatures(node.Operator.WalletFeatures)
+		if err != nil {
+			return id, lastnet, email, wallet, create, err
+		}
+		create.WalletFeatures = dbx.Node_WalletFeatures(walletFeatures)
+	}
+
+	// DEPRECATED: create.Protocol = dbx.Node_Protocol()
+	// TODO: create.Contained = dbx.Node_Contained(node.Contained)
+
+	exitStatus := node.ExitStatus
+	if exitStatus.ExitInitiatedAt != nil {
+		create.ExitInitiatedAt = dbx.Node_ExitInitiatedAt(*exitStatus.ExitInitiatedAt)
+	}
+	if exitStatus.ExitLoopCompletedAt != nil {
+		create.ExitLoopCompletedAt = dbx.Node_ExitLoopCompletedAt(*exitStatus.ExitLoopCompletedAt)
+	}
+	if exitStatus.ExitFinishedAt != nil {
+		create.ExitFinishedAt = dbx.Node_ExitFinishedAt(*exitStatus.ExitFinishedAt)
+	}
+	create.ExitSuccess = dbx.Node_ExitSuccess(exitStatus.ExitSuccess)
+
+	if node.LastOfflineEmail != nil {
+		create.LastOfflineEmail = dbx.Node_LastOfflineEmail(*node.LastOfflineEmail)
+	}
+	if node.LastSoftwareUpdateEmail != nil {
+		create.LastSoftwareUpdateEmail = dbx.Node_LastSoftwareUpdateEmail(*node.LastSoftwareUpdateEmail)
+	}
+	create.CountryCode = dbx.Node_CountryCode(node.CountryCode.String())
+
+	return id, lastnet, email, wallet, create, nil
+}
 
 // TestVetNode directly sets a node's vetted_at timestamp to make testing easier.
 func (cache *overlaycache) TestVetNode(ctx context.Context, nodeID storj.NodeID) (vettedTime *time.Time, err error) {

@@ -10,6 +10,7 @@ import (
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap"
 
+	"storj.io/common/macaroon"
 	"storj.io/common/memory"
 	"storj.io/common/pb"
 	"storj.io/common/storj"
@@ -29,7 +30,7 @@ import (
 )
 
 func TestDailyUsage(t *testing.T) {
-	testplanet.Run(t, testplanet.Config{SatelliteCount: 1, StorageNodeCount: 1, UplinkCount: 1, EnableSpanner: true},
+	testplanet.Run(t, testplanet.Config{SatelliteCount: 1, StorageNodeCount: 1, UplinkCount: 1},
 		func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 			const (
 				firstBucketName  = "testbucket0"
@@ -125,7 +126,7 @@ func TestDailyUsage(t *testing.T) {
 }
 
 func TestGetSingleBucketRollup(t *testing.T) {
-	testplanet.Run(t, testplanet.Config{SatelliteCount: 1, StorageNodeCount: 1, UplinkCount: 1, EnableSpanner: true},
+	testplanet.Run(t, testplanet.Config{SatelliteCount: 1, StorageNodeCount: 1, UplinkCount: 1},
 		func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 			const (
 				bucketName = "testbucket"
@@ -211,7 +212,7 @@ func TestGetProjectTotal(t *testing.T) {
 	// Spanner only allows dates in the year range of [1, 9999], so a default value will fail.
 	since := time.Time{}.Add(24 * 365 * time.Hour)
 
-	testplanet.Run(t, testplanet.Config{SatelliteCount: 1, StorageNodeCount: 1, EnableSpanner: true},
+	testplanet.Run(t, testplanet.Config{SatelliteCount: 1, StorageNodeCount: 1},
 		func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 			bucketName := testrand.BucketName()
 			projectID := testrand.UUID()
@@ -268,17 +269,19 @@ func TestGetProjectTotal(t *testing.T) {
 	)
 }
 
-func TestSingleBucketTotal(t *testing.T) {
-	testplanet.Run(t, testplanet.Config{SatelliteCount: 1, StorageNodeCount: 0, UplinkCount: 1, EnableSpanner: true,
+func TestGetSingleBucketTotal(t *testing.T) {
+	testplanet.Run(t, testplanet.Config{SatelliteCount: 1, StorageNodeCount: 0, UplinkCount: 1,
 		Reconfigure: testplanet.Reconfigure{
 			Satellite: func(log *zap.Logger, index int, config *satellite.Config) {
 				config.Metainfo.UseBucketLevelObjectVersioning = true
+				config.Metainfo.ObjectLockEnabled = true
 			},
 		}},
 		func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 			project := planet.Uplinks[0].Projects[0]
 			sat := planet.Satellites[0]
 			db := sat.DB
+			endpoint := sat.API.Metainfo.Endpoint
 
 			bucketName := testrand.BucketName()
 			now := time.Now()
@@ -301,6 +304,43 @@ func TestSingleBucketTotal(t *testing.T) {
 
 			storedBucket, err := db.Buckets().GetBucket(ctx, []byte(bucketName), project.ID)
 			require.NoError(t, err)
+			require.Equal(t, buckets.VersioningEnabled, storedBucket.Versioning)
+			require.Equal(t, storj.NoRetention, storedBucket.ObjectLock.DefaultRetentionMode)
+			require.Zero(t, storedBucket.ObjectLock.DefaultRetentionDays)
+			require.Zero(t, storedBucket.ObjectLock.DefaultRetentionYears)
+
+			userCtx, err := sat.UserContext(ctx, project.Owner.ID)
+			require.NoError(t, err)
+
+			_, apiKey, err := sat.API.Console.Service.CreateAPIKey(userCtx, project.ID, "test key", macaroon.APIKeyVersionObjectLock)
+			require.NoError(t, err)
+
+			setObjectLockConfigReq := &pb.SetBucketObjectLockConfigurationRequest{
+				Header: &pb.RequestHeader{
+					ApiKey: apiKey.SerializeRaw(),
+				},
+				Name: []byte(bucketName),
+				Configuration: &pb.ObjectLockConfiguration{
+					Enabled: true,
+					DefaultRetention: &pb.DefaultRetention{
+						Mode: pb.Retention_Mode(storj.GovernanceMode),
+						Duration: &pb.DefaultRetention_Years{
+							Years: 1,
+						},
+					},
+				},
+			}
+
+			resp, err := endpoint.SetBucketObjectLockConfiguration(ctx, setObjectLockConfigReq)
+			require.NoError(t, err)
+			require.NotNil(t, resp)
+
+			storedBucket, err = db.Buckets().GetBucket(ctx, []byte(bucketName), project.ID)
+			require.NoError(t, err)
+			require.True(t, storedBucket.ObjectLock.Enabled)
+			require.Equal(t, storj.GovernanceMode, storedBucket.ObjectLock.DefaultRetentionMode)
+			require.Zero(t, storedBucket.ObjectLock.DefaultRetentionDays)
+			require.Equal(t, 1, storedBucket.ObjectLock.DefaultRetentionYears)
 
 			storedBucket.Placement = storj.EU
 			_, err = db.Buckets().UpdateBucket(ctx, storedBucket)
@@ -326,19 +366,17 @@ func TestSingleBucketTotal(t *testing.T) {
 
 			usage, err := db.ProjectAccounting().GetSingleBucketTotals(ctx, project.ID, bucketName, before)
 			require.NoError(t, err)
-
 			require.Equal(t, memory.Size(tallies[2].Bytes()).GB(), usage.Storage)
 			require.Equal(t, tallies[2].TotalSegmentCount, usage.SegmentCount)
 			require.Equal(t, tallies[2].ObjectCount, usage.ObjectCount)
 			require.Equal(t, memory.Size(expectedEgress).GB(), usage.Egress)
 			require.Equal(t, buckets.VersioningEnabled, usage.Versioning)
 			require.Equal(t, storj.EU, usage.DefaultPlacement)
-
-			err = client.SetBucketVersioning(ctx, metaclient.SetBucketVersioningParams{
-				Name:       []byte(bucketName),
-				Versioning: false,
-			})
-			require.NoError(t, err)
+			require.True(t, usage.ObjectLockEnabled)
+			require.Equal(t, storj.GovernanceMode, usage.DefaultRetentionMode)
+			require.Nil(t, usage.DefaultRetentionDays)
+			require.NotNil(t, usage.DefaultRetentionYears)
+			require.Equal(t, 1, *usage.DefaultRetentionYears)
 
 			storedBucket.Placement = storj.EveryCountry
 			_, err = db.Buckets().UpdateBucket(ctx, storedBucket)
@@ -346,8 +384,27 @@ func TestSingleBucketTotal(t *testing.T) {
 
 			usage, err = db.ProjectAccounting().GetSingleBucketTotals(ctx, project.ID, bucketName, before)
 			require.NoError(t, err)
-			require.Equal(t, buckets.VersioningSuspended, usage.Versioning)
 			require.Equal(t, storj.EveryCountry, usage.DefaultPlacement)
+
+			bucketName1 := testrand.BucketName()
+
+			err = planet.Uplinks[0].CreateBucket(ctx, sat, bucketName1)
+			require.NoError(t, err)
+
+			err = client.SetBucketVersioning(ctx, metaclient.SetBucketVersioningParams{
+				Name:       []byte(bucketName1),
+				Versioning: true,
+			})
+			require.NoError(t, err)
+			err = client.SetBucketVersioning(ctx, metaclient.SetBucketVersioningParams{
+				Name:       []byte(bucketName1),
+				Versioning: false,
+			})
+			require.NoError(t, err)
+
+			usage, err = db.ProjectAccounting().GetSingleBucketTotals(ctx, project.ID, bucketName1, before)
+			require.NoError(t, err)
+			require.Equal(t, buckets.VersioningSuspended, usage.Versioning)
 		},
 	)
 }
@@ -362,7 +419,7 @@ func TestGetProjectTotalByPartner(t *testing.T) {
 	since := time.Time{}.Add(24 * 365 * time.Hour)
 	before := since.Add(2 * usagePeriod)
 
-	testplanet.Run(t, testplanet.Config{SatelliteCount: 1, StorageNodeCount: 1, EnableSpanner: true},
+	testplanet.Run(t, testplanet.Config{SatelliteCount: 1, StorageNodeCount: 1},
 		func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 			sat := planet.Satellites[0]
 
@@ -540,7 +597,7 @@ func randRollup(bucketName string, projectID uuid.UUID, intervalStart time.Time)
 }
 
 func TestGetProjectObjectsSegments(t *testing.T) {
-	testplanet.Run(t, testplanet.Config{SatelliteCount: 1, UplinkCount: 1, EnableSpanner: true},
+	testplanet.Run(t, testplanet.Config{SatelliteCount: 1, UplinkCount: 1},
 		func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 			planet.Satellites[0].Accounting.Tally.Loop.Pause()
 
@@ -582,7 +639,7 @@ func TestGetProjectObjectsSegments(t *testing.T) {
 }
 
 func TestGetProjectSettledBandwidth(t *testing.T) {
-	testplanet.Run(t, testplanet.Config{SatelliteCount: 1, UplinkCount: 1, EnableSpanner: true},
+	testplanet.Run(t, testplanet.Config{SatelliteCount: 1, UplinkCount: 1},
 		func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 			projectID := planet.Uplinks[0].Projects[0].ID
 			sat := planet.Satellites[0]
@@ -627,7 +684,7 @@ func TestGetProjectSettledBandwidth(t *testing.T) {
 
 func TestProjectUsageGap(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
-		SatelliteCount: 1, UplinkCount: 1, EnableSpanner: true,
+		SatelliteCount: 1, UplinkCount: 1,
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 		sat := planet.Satellites[0]
 		uplink := planet.Uplinks[0]
@@ -682,5 +739,5 @@ func TestProjectaccounting_GetNonEmptyTallyBucketsInRange(t *testing.T) {
 			BucketName: "b\\",
 		}, 0)
 		require.NoError(t, err)
-	}, satellitedbtest.WithSpanner())
+	})
 }

@@ -150,7 +150,7 @@ func updateProjectLimits(ctx context.Context, db console.Projects, p *console.Pr
 
 func TestAccountBillingFreeze(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
-		SatelliteCount: 1, EnableSpanner: true,
+		SatelliteCount: 1,
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 		sat := planet.Satellites[0]
 		usersDB := sat.DB.Console().Users()
@@ -235,7 +235,7 @@ func TestAccountBillingFreeze(t *testing.T) {
 
 func TestAccountBillingUnFreeze(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
-		SatelliteCount: 1, EnableSpanner: true,
+		SatelliteCount: 1,
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 		sat := planet.Satellites[0]
 		usersDB := sat.DB.Console().Users()
@@ -287,7 +287,7 @@ func TestAccountBillingUnFreeze(t *testing.T) {
 
 func TestAccountViolationFreeze(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
-		SatelliteCount: 1, EnableSpanner: true,
+		SatelliteCount: 1,
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 		sat := planet.Satellites[0]
 		usersDB := sat.DB.Console().Users()
@@ -393,7 +393,7 @@ func TestAccountViolationFreeze(t *testing.T) {
 
 func TestAccountLegalFreeze(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
-		SatelliteCount: 1, EnableSpanner: true,
+		SatelliteCount: 1,
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 		sat := planet.Satellites[0]
 		usersDB := sat.DB.Console().Users()
@@ -423,7 +423,7 @@ func TestAccountLegalFreeze(t *testing.T) {
 
 			proj, err = projectsDB.Get(ctx, proj.ID)
 			require.NoError(t, err)
-			require.Equal(t, zeroUsageLimits, getProjectLimits(proj))
+			require.EqualValues(t, zeroUsageLimits, getProjectLimits(proj))
 		}
 
 		frozen, err := service.IsUserFrozen(ctx, user.ID, console.LegalFreeze)
@@ -495,13 +495,27 @@ func TestAccountLegalFreeze(t *testing.T) {
 
 		proj, err = projectsDB.Get(ctx, proj.ID)
 		require.NoError(t, err)
-		require.Equal(t, projLimits, getProjectLimits(proj))
+
+		currentProjLimits := getProjectLimits(proj)
+		expectedHeadListDeleteRateLimits := int(sat.Config.Console.AccountFreeze.TrialExpirationRateLimits)
+		require.Equal(t, projLimits.RateLimit, currentProjLimits.RateLimit)
+		require.Equal(t, projLimits.RateLimitPut, currentProjLimits.RateLimitPut)
+		require.Equal(t, projLimits.RateLimitGet, currentProjLimits.RateLimitGet)
+		require.Equal(t, expectedHeadListDeleteRateLimits, *currentProjLimits.RateLimitHead)
+		require.Equal(t, expectedHeadListDeleteRateLimits, *currentProjLimits.RateLimitList)
+		require.Equal(t, expectedHeadListDeleteRateLimits, *currentProjLimits.RateLimitDelete)
+		require.Equal(t, projLimits.BurstLimit, currentProjLimits.BurstLimit)
+		require.Equal(t, projLimits.BurstLimitPut, currentProjLimits.BurstLimitPut)
+		require.Equal(t, projLimits.BurstLimitGet, currentProjLimits.BurstLimitGet)
+		require.Equal(t, expectedHeadListDeleteRateLimits, *currentProjLimits.BurstLimitHead)
+		require.Equal(t, expectedHeadListDeleteRateLimits, *currentProjLimits.BurstLimitList)
+		require.Equal(t, expectedHeadListDeleteRateLimits, *currentProjLimits.BurstLimitDelete)
 	})
 }
 
 func TestRemoveAccountBillingWarning(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
-		SatelliteCount: 1, EnableSpanner: true,
+		SatelliteCount: 1,
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 		sat := planet.Satellites[0]
 		service := console.NewAccountFreezeService(sat.DB.Console(), sat.API.Analytics.Service, sat.Config.Console.AccountFreeze)
@@ -566,7 +580,7 @@ func TestRemoveAccountBillingWarning(t *testing.T) {
 
 func TestAccountFreezeAlreadyFrozen(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
-		SatelliteCount: 1, EnableSpanner: true,
+		SatelliteCount: 1,
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 		sat := planet.Satellites[0]
 		usersDB := sat.DB.Console().Users()
@@ -680,7 +694,7 @@ func TestFreezeEffects(t *testing.T) {
 				// disable limit caching
 				config.Metainfo.RateLimiter.CacheCapacity = 0
 			},
-		}, EnableSpanner: true,
+		},
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 		sat := planet.Satellites[0]
 		consoleService := sat.API.Console.Service
@@ -910,7 +924,7 @@ func TestGetDaysTillEscalation(t *testing.T) {
 
 func TestAccountBotFreezeUnfreeze(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
-		SatelliteCount: 1, EnableSpanner: true,
+		SatelliteCount: 1,
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 		sat := planet.Satellites[0]
 		usersDB := sat.DB.Console().Users()
@@ -998,9 +1012,9 @@ func TestAccountBotFreezeUnfreeze(t *testing.T) {
 	})
 }
 
-func TestTrailExpirationFreeze(t *testing.T) {
+func TestTrialExpirationFreeze(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
-		SatelliteCount: 1, EnableSpanner: true,
+		SatelliteCount: 1,
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 		sat := planet.Satellites[0]
 		usersDB := sat.DB.Console().Users()
@@ -1047,7 +1061,21 @@ func TestTrailExpirationFreeze(t *testing.T) {
 
 		proj, err = projectsDB.Get(ctx, proj.ID)
 		require.NoError(t, err)
-		require.Equal(t, zeroUsageLimits, getProjectLimits(proj))
+
+		zeroedProjLimits := getProjectLimits(proj)
+		expectedHeadListDeleteRateLimits := int(sat.Config.Console.AccountFreeze.TrialExpirationRateLimits)
+		require.Equal(t, zeroUsageLimits.RateLimit, zeroedProjLimits.RateLimit)
+		require.Equal(t, zeroUsageLimits.RateLimitPut, zeroedProjLimits.RateLimitPut)
+		require.Equal(t, zeroUsageLimits.RateLimitGet, zeroedProjLimits.RateLimitGet)
+		require.Equal(t, expectedHeadListDeleteRateLimits, *zeroedProjLimits.RateLimitHead)
+		require.Equal(t, expectedHeadListDeleteRateLimits, *zeroedProjLimits.RateLimitList)
+		require.Equal(t, expectedHeadListDeleteRateLimits, *zeroedProjLimits.RateLimitDelete)
+		require.Equal(t, zeroUsageLimits.BurstLimit, zeroedProjLimits.BurstLimit)
+		require.Equal(t, zeroUsageLimits.BurstLimitPut, zeroedProjLimits.BurstLimitPut)
+		require.Equal(t, zeroUsageLimits.BurstLimitGet, zeroedProjLimits.BurstLimitGet)
+		require.Equal(t, expectedHeadListDeleteRateLimits, *zeroedProjLimits.BurstLimitHead)
+		require.Equal(t, expectedHeadListDeleteRateLimits, *zeroedProjLimits.BurstLimitList)
+		require.Equal(t, expectedHeadListDeleteRateLimits, *zeroedProjLimits.BurstLimitDelete)
 
 		frozen, err = service.IsUserFrozen(ctx, user.ID, console.TrialExpirationFreeze)
 		require.NoError(t, err)
@@ -1062,6 +1090,7 @@ func TestTrailExpirationFreeze(t *testing.T) {
 		user, err = usersDB.Get(ctx, user.ID)
 		require.NoError(t, err)
 		require.Equal(t, userLimits, getUserLimits(user))
+		require.Equal(t, console.Active, user.Status)
 
 		proj, err = projectsDB.Get(ctx, proj.ID)
 		require.NoError(t, err)
@@ -1071,7 +1100,7 @@ func TestTrailExpirationFreeze(t *testing.T) {
 
 func TestGetTrialExpirationFreezesToEscalate(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
-		SatelliteCount: 1, EnableSpanner: true,
+		SatelliteCount: 1,
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 		sat := planet.Satellites[0]
 		usersRepo := sat.DB.Console().Users()
@@ -1176,7 +1205,7 @@ func TestGetTrialExpirationFreezesToEscalate(t *testing.T) {
 
 func TestGetAllEvents(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
-		SatelliteCount: 1, EnableSpanner: true,
+		SatelliteCount: 1,
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 		sat := planet.Satellites[0]
 		freezeDB := sat.DB.Console().AccountFreezeEvents()

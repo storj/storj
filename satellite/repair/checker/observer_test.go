@@ -14,6 +14,7 @@ import (
 
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap"
+	"golang.org/x/exp/slices"
 
 	"storj.io/common/memory"
 	"storj.io/common/pb"
@@ -242,11 +243,21 @@ func TestObserver_CheckSegmentCopy(t *testing.T) {
 		_, err = rangedLoopService.RunOnce(ctx)
 		require.NoError(t, err)
 
+		ensureExistsOnce := func(t *testing.T, got *queue.InjuredSegment) {
+			for i, s := range segmentsAfterCopy {
+				if s.StreamID == got.StreamID && s.Position == got.Position {
+					segmentsAfterCopy = slices.Delete(segmentsAfterCopy, i, i+1)
+					return
+				}
+			}
+			t.Fatal("segment not found")
+		}
+
 		// check that repair queue has original segment and copied one as it has exactly the same metadata
-		for _, segment := range segmentsAfterCopy {
+		for i := 0; i < 2; i++ {
 			injuredSegments, err := repairQueue.Select(ctx, 1, nil, nil)
 			require.NoError(t, err)
-			require.Equal(t, segment.StreamID, injuredSegments[0].StreamID)
+			ensureExistsOnce(t, &injuredSegments[0])
 		}
 
 		injuredSegments, err := repairQueue.Count(ctx)

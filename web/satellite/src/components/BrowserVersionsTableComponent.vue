@@ -16,7 +16,7 @@
             show-expand
             :item-value="(item: BrowserObjectWrapper) => item.browserObject"
             :items-length="allFiles.length"
-            :item-selectable="(item: BrowserObjectWrapper) => item.browserObject.type !== 'folder' && !item.browserObject.Versions?.length"
+            :item-selectable="(item: BrowserObjectWrapper) => !item.browserObject.Versions?.length"
             :must-sort="false"
             hover
         >
@@ -120,7 +120,6 @@
                 <tr v-if="shouldRenderRow(item.raw.browserObject)">
                     <td class="v-data-table__td v-data-table-column--no-padding v-data-table-column--align-start">
                         <v-checkbox-btn
-                            v-if="!isFolder(item.raw.browserObject)"
                             :model-value="areAllVersionsSelected(item.raw.browserObject)"
                             :indeterminate="areSomeVersionsSelected(item.raw.browserObject)"
                             hide-details
@@ -153,13 +152,21 @@
                     <td />
                     <td />
                     <td />
-                    <td>
+                    <td class="text-right">
                         <VBtn
                             v-if="!isFolder(item.raw.browserObject)"
                             :icon="getExpandOrCollapseIcon(item.raw.browserObject)"
                             size="small"
                             variant="text"
                             @click="toggleFileExpanded(item.raw.browserObject)"
+                        />
+                        <browser-row-actions
+                            v-else
+                            :deleting="isBeingDeleted(item.raw.browserObject)"
+                            :file="item.raw.browserObject"
+                            align="right"
+                            @delete-file-click="onDeleteFileClick(item.raw.browserObject)"
+                            @share-click="onShareClick(item.raw.browserObject)"
                         />
                     </td>
                 </tr>
@@ -299,6 +306,7 @@ import { ROUTES } from '@/router';
 import { Time } from '@/utils/time';
 import { DEFAULT_PAGE_LIMIT } from '@/types/pagination';
 import { DataTableHeader } from '@/types/common';
+import { usePreCheck } from '@/composables/usePreCheck';
 
 import BrowserRowActions from '@/components/BrowserRowActions.vue';
 import FilePreviewDialog from '@/components/dialogs/FilePreviewDialog.vue';
@@ -324,10 +332,11 @@ const emit = defineEmits<{
 const obStore = useObjectBrowserStore();
 const projectsStore = useProjectsStore();
 const bucketsStore = useBucketsStore();
-const { mdAndDown } = useDisplay();
 
+const { mdAndDown } = useDisplay();
 const notify = useNotify();
 const router = useRouter();
+const { withTrialCheck } = usePreCheck();
 
 const isFetching = ref<boolean>(false);
 const search = ref<string>('');
@@ -540,6 +549,9 @@ function shouldRenderRow(file: BrowserObject): boolean {
  * Returns whether a files versions are all selected.
  */
 function areAllVersionsSelected(file: BrowserObject): boolean {
+    if (file.type === 'folder') {
+        return selectedFiles.value.includes(file);
+    }
     return !!file.Versions?.every(v => selectedFiles.value.includes(v));
 }
 
@@ -565,6 +577,14 @@ function toggleFileExpanded(file: BrowserObject): void {
  * Handles version selection.
  */
 function updateSelectedVersions(file: BrowserObject, selected: boolean): void {
+    if (file.type === 'folder') {
+        if (selected) {
+            obStore.updateSelectedFiles([...selectedFiles.value, file]);
+        } else {
+            obStore.updateSelectedFiles(selectedFiles.value.filter(f => f !== file));
+        }
+        return;
+    }
     if (selected) {
         obStore.updateSelectedFiles([...selectedFiles.value, ...file.Versions ?? []]);
     } else {
@@ -584,27 +604,29 @@ function isBeingDeleted(file: BrowserObject): boolean {
  * Handles file click.
  */
 function onFileClick(file: BrowserObject): void {
-    if (!file.type) return;
-    if (file.isDeleteMarker) return;
+    withTrialCheck(() => {
+        if (!file.type) return;
+        if (file.isDeleteMarker) return;
 
-    if (file.type === 'folder') {
-        const uriParts = [file.Key];
-        if (filePath.value) {
-            uriParts.unshift(...filePath.value.split('/'));
+        if (file.type === 'folder') {
+            const uriParts = [file.Key];
+            if (filePath.value) {
+                uriParts.unshift(...filePath.value.split('/'));
+            }
+            const pathAndKey = uriParts.map(part => encodeURIComponent(part)).join('/');
+            router.push(`${ROUTES.Projects.path}/${projectsStore.state.selectedProject.urlId}/${ROUTES.Buckets.path}/${bucketName.value}/${pathAndKey}`);
+            return;
         }
-        const pathAndKey = uriParts.map(part => encodeURIComponent(part)).join('/');
-        router.push(`${ROUTES.Projects.path}/${projectsStore.state.selectedProject.urlId}/${ROUTES.Buckets.path}/${bucketName.value}/${pathAndKey}`);
-        return;
-    }
-    if (!file.VersionId) {
-        return;
-    }
+        if (!file.VersionId) {
+            return;
+        }
 
-    obStore.setObjectPathForModal((file.path ?? '') + file.Key);
-    fileToPreview.value = file;
-    const parentFile = allFiles.value.find(f => f.browserObject.Key === file.Key && f.browserObject.path === file.path);
-    fileVersionsToPreview.value = parentFile?.browserObject?.Versions?.filter(v => !v.isDeleteMarker);
-    previewDialog.value = true;
+        obStore.setObjectPathForModal((file.path ?? '') + file.Key);
+        fileToPreview.value = file;
+        const parentFile = allFiles.value.find(f => f.browserObject.Key === file.Key && f.browserObject.path === file.path);
+        fileVersionsToPreview.value = parentFile?.browserObject?.Versions?.filter(v => !v.isDeleteMarker);
+        previewDialog.value = true;
+    });
 }
 
 /**
@@ -646,27 +668,41 @@ function onDeleteFileClick(file: BrowserObject): void {
 }
 
 /**
+ * Handles Share button click event.
+ */
+function onShareClick(file: BrowserObject): void {
+    fileToShare.value = file;
+    isShareDialogShown.value = true;
+}
+
+/**
  * Handles restore button click event.
  */
 function onRestoreObjectClick(file: BrowserObject): void {
-    fileToRestore.value = file;
-    isRestoreDialogShown.value = true;
+    withTrialCheck(() => {
+        fileToRestore.value = file;
+        isRestoreDialogShown.value = true;
+    });
 }
 
 /**
  * Handles lock button click event.
  */
 function onLockObjectClick(file: BrowserObject): void {
-    lockActionFile.value = file;
-    isLockDialogShown.value = true;
+    withTrialCheck(() => {
+        lockActionFile.value = file;
+        isLockDialogShown.value = true;
+    });
 }
 
 /**
  * Handles legal hold button click event.
  */
 function onLegalHoldClick(file: BrowserObject): void {
-    lockActionFile.value = file;
-    isLegalHoldDialogShown.value = true;
+    withTrialCheck(() => {
+        lockActionFile.value = file;
+        isLegalHoldDialogShown.value = true;
+    });
 }
 
 /**

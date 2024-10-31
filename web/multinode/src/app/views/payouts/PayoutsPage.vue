@@ -110,7 +110,7 @@ export default class PayoutsPage extends Vue {
         &__title {
             font-family: 'font_bold', sans-serif;
             font-size: 32px;
-            color: var(--c-title);
+            color: var(--v-header-base);
             margin-bottom: 36px;
         }
 

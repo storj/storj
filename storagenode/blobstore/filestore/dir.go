@@ -458,7 +458,7 @@ func (dir *Dir) TrashWithStorageFormat(ctx context.Context, ref blobstore.BlobRe
 
 	// move to trash
 	err = rename(blobsVerPath, trashVerPath)
-	if os.IsNotExist(err) {
+	if errors.Is(err, fs.ErrNotExist) {
 		// ensure that trash dir is not what's missing
 		err = os.MkdirAll(filepath.Dir(trashVerPath), dirPermission)
 		if err != nil && !os.IsExist(err) {
@@ -467,7 +467,8 @@ func (dir *Dir) TrashWithStorageFormat(ctx context.Context, ref blobstore.BlobRe
 
 		// try rename once again
 		err = rename(blobsVerPath, trashVerPath)
-		if !os.IsNotExist(err) {
+		if !errors.Is(err, fs.ErrNotExist) {
+			dir.log.Debug("blob not found; will not trash", zap.String("blob_path", blobsVerPath), zap.Error(err))
 			return err
 		}
 
@@ -585,7 +586,7 @@ func (dir *Dir) DeleteTrashNamespace(ctx context.Context, namespace []byte) (err
 	errorsEncountered.Add(err)
 	namespaceEncoded := PathEncoding.EncodeToString(namespace)
 	namespaceTrashDir := filepath.Join(dir.trashdir, namespaceEncoded)
-	err = removeButIgnoreIfNotExist(namespaceTrashDir)
+	err = dir.removeButLogIfNotExist(namespaceTrashDir)
 	errorsEncountered.Add(err)
 	return errorsEncountered.Err()
 }
@@ -667,9 +668,13 @@ func (dir *Dir) listTrashDayDirs(ctx context.Context, namespace []byte) (dirTime
 	}
 }
 
-func removeButIgnoreIfNotExist(pathToRemove string) error {
+func (dir *Dir) removeButLogIfNotExist(pathToRemove string) error {
 	err := os.Remove(pathToRemove)
-	if err != nil && !os.IsNotExist(err) {
+	if err != nil {
+		if errors.Is(err, fs.ErrNotExist) {
+			dir.log.Debug("file not found; nothing to remove", zap.String("path", pathToRemove))
+			return nil
+		}
 		return err
 	}
 	return nil
@@ -695,7 +700,7 @@ func (dir *Dir) deleteTrashDayDir(ctx context.Context, namespace []byte, dirTime
 			errorsEncountered.Add(Error.New("%s: %w", thisBlobInfo.path, err))
 			return nil
 		}
-		err = removeButIgnoreIfNotExist(thisBlobInfo.path)
+		err = dir.removeButLogIfNotExist(thisBlobInfo.path)
 		if err != nil {
 			errorsEncountered.Add(err)
 			return nil
@@ -719,11 +724,11 @@ func (dir *Dir) deleteTrashDayDir(ctx context.Context, namespace []byte, dirTime
 	}
 	for _, entry := range dirEntries {
 		if entry.IsDir() && len(entry.Name()) == 2 {
-			err = removeButIgnoreIfNotExist(filepath.Join(trashDayDir, entry.Name()))
+			err = dir.removeButLogIfNotExist(filepath.Join(trashDayDir, entry.Name()))
 			errorsEncountered.Add(err)
 		}
 	}
-	err = removeButIgnoreIfNotExist(trashDayDir)
+	err = dir.removeButLogIfNotExist(trashDayDir)
 	errorsEncountered.Add(err)
 	return bytesEmptied, deletedKeys, errorsEncountered.Err()
 }
@@ -786,7 +791,7 @@ func (dir *Dir) deleteWithStorageFormatInPath(ctx context.Context, path string, 
 	verPath := blobPathForFormatVersion(pathBase, formatVer)
 
 	// try removing the file
-	return removeButIgnoreIfNotExist(verPath)
+	return dir.removeButLogIfNotExist(verPath)
 }
 
 // deleteNamespace deletes folder with everything inside.

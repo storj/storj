@@ -13,7 +13,8 @@ export class BucketsPage {
         await this.page.locator(BucketsPageObjects.NEW_BUCKET_BUTTON_XPATH).click();
         await this.page.locator(BucketsPageObjects.BUCKET_NAME_INPUT_FIELD_XPATH).fill(name);
         await this.page.locator(BucketsPageObjects.NEXT_BUTTON_CREATE_BUCKET_FLOW_XPATH).click();
-        await this.page.locator(BucketsPageObjects.CONFIRM_BUTTON_CREATE_BUCKET_FLOW_XPATH).click();
+        // TODO: uncomment this line after we start testing object lock and versioning.
+        // await this.page.locator(BucketsPageObjects.CONFIRM_BUTTON_CREATE_BUCKET_FLOW_XPATH).click();
         await this.page.locator(BucketsPageObjects.CLOSE_BUTTON_CREATE_BUCKET_FLOW_XPATH).click();
     }
 

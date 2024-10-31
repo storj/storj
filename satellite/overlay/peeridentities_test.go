@@ -88,5 +88,5 @@ func TestPeerIdentities(t *testing.T) {
 				require.False(t, unsavedIDs[gotIdent.ID])
 			}
 		}
-	}, satellitedbtest.WithSpanner())
+	})
 }
