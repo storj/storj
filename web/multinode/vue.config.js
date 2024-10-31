@@ -13,7 +13,27 @@ module.exports = {
     assetsDir: 'static',
 
     configureWebpack: {
-        plugins: [],
+        optimization: {
+            splitChunks: {
+                chunks: 'all',
+                minSize: 20000,
+                maxSize: 250000,
+                cacheGroups: {
+                    vendor: {
+                        test: /[\\/]node_modules[\\/]/,
+                        name: 'vendors',
+                        chunks: 'all',
+                    },
+                    common: {
+                        name: 'chunk-common',
+                        minChunks: 2,
+                        priority: -20,
+                        chunks: 'initial',
+                        reuseExistingChunk: true,
+                    },
+                },
+            },
+        },
     },
 
     chainWebpack: config => {
@@ -41,6 +61,8 @@ module.exports = {
             .end()
             .use('vue-svg-loader')
             .loader('vue-svg-loader');
+
+        config.plugins.delete('prefetch');
     },
 
     transpileDependencies: [

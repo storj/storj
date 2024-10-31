@@ -7,8 +7,10 @@ import (
 	"context"
 	"time"
 
+	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 
+	"storj.io/common/storj"
 	"storj.io/storj/shared/modular"
 	"storj.io/storj/storagenode/trust"
 )
@@ -25,9 +27,10 @@ type TrashRunOnce struct {
 // NewTrashRunOnce creates a new TrashRunOnce.
 func NewTrashRunOnce(log *zap.Logger, trust *trust.Pool, store *Store, trashExpiryInterval time.Duration, stop *modular.StopTrigger) *TrashRunOnce {
 	return &TrashRunOnce{
-		log:                 log,
-		store:               store,
-		trust:               trust,
+		log:   log,
+		store: store,
+		// we intentionally ignore trust here, and use blobs.Listnamespace instead of trust.ListSatellites to avoid blocking the boltdb.
+		trust:               nil,
 		trashExpiryInterval: trashExpiryInterval,
 		stop:                stop,
 	}
@@ -35,8 +38,13 @@ func NewTrashRunOnce(log *zap.Logger, trust *trust.Pool, store *Store, trashExpi
 
 // Run cleans up trashes.
 func (t *TrashRunOnce) Run(ctx context.Context) error {
-	for _, satellite := range t.trust.GetSatellites(ctx) {
-		satellite := satellite
+	namespaces, err := t.store.blobs.ListNamespaces(ctx)
+	if err != nil {
+		return errs.Wrap(err)
+	}
+	for _, namespace := range namespaces {
+		var satellite storj.NodeID
+		copy(satellite[:], namespace)
 		timeStart := time.Now()
 		t.log.Info("emptying trash started", zap.Stringer("Satellite ID", satellite))
 		trashedBefore := time.Now().Add(-t.trashExpiryInterval)

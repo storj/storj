@@ -338,7 +338,7 @@ const nextButtonLabel = computed<string>(() => {
 });
 
 const lockedUntil = computed<string>(() => {
-    const until = selectedRange.value?.label === customRangeLabel.label ? customUntilDate.value : selectedRange.value?.date;
+    const until = selectedRange.value?.label === customRangeLabel.label ? getModifiedCustomDate() : selectedRange.value?.date;
     if (!until) {
         return '';
     }
@@ -348,9 +348,22 @@ const lockedUntil = computed<string>(() => {
 
 function getFormattedExpiration(date: Date): string {
     return `${
-        date.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })} at
+        Time.formattedDateWithGMTOffset(date)} at
         ${date.toLocaleTimeString('en-GB', { hour: 'numeric', minute: 'numeric' })}
     `;
+}
+
+function getModifiedCustomDate(): Date {
+    if (!customUntilDate.value) {
+        return new Date();
+    }
+
+    const date = existingRetention.value ? new Date(existingRetention.value.retainUntil) : new Date();
+    date.setDate(customUntilDate.value.getDate());
+    date.setMonth(customUntilDate.value.getMonth());
+    date.setFullYear(customUntilDate.value.getFullYear());
+
+    return date;
 }
 
 function dateAfterDays(initDate: Date, days: number): Date {
@@ -426,7 +439,7 @@ function extendLock(): void {
 
 function selectLockDate(): Date | undefined {
     if (selectedRange.value?.label === customRangeLabel.label) {
-        return customUntilDate.value;
+        return getModifiedCustomDate();
     } else {
         return selectedRange.value?.date;
     }
