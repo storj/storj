@@ -138,7 +138,7 @@ const allowedRoutesNames = [Config.AddFirstNode.name, Config.Welcome.name];
  */
 router.beforeEach(async(to, _from, next) => {
 
-    if(to.path === '/') {
+    if (to.path === '/') {
         next(Config.MyNodes);
     }
 
