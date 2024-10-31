@@ -554,39 +554,27 @@ func (s *SpannerAdapter) DeleteInactiveObjectsAndSegments(ctx context.Context, o
 				},
 			})
 		}
-		if len(statements) > 0 {
-			numDeleteds, err := tx.BatchUpdate(ctx, statements)
-			if err != nil {
-				return Error.Wrap(err)
-			}
-			for _, numDeleted := range numDeleteds {
-				objectsDeleted += numDeleted
-			}
-		}
-		streamIDs := make([][]byte, 0, len(objects))
-		for _, obj := range objects {
-			streamIDs = append(streamIDs, obj.StreamID.Bytes())
+
+		numDeleteds, err := tx.BatchUpdate(ctx, statements)
+		if err != nil {
+			return Error.Wrap(err)
 		}
 
-		// TODO(spanner): this is not quite correct, instead of assuming how the previous check went,
-		// we should delete the segments based on what we actually deleted.
-		//
-		// Alternatively, we might be able to do a single statement per object to delete both segments
-		// and object itself at the same time.
+		streamIDs := make([][]byte, 0, len(objects))
+		for i, numDeleted := range numDeleteds {
+			if numDeleted > 0 {
+				streamIDs = append(streamIDs, objects[i].StreamID.Bytes())
+			}
+			objectsDeleted += numDeleted
+		}
+
 		numSegments, err := tx.Update(ctx, spanner.Statement{
 			SQL: `
 				DELETE FROM segments
 				WHERE ARRAY_INCLUDES(@stream_ids, stream_id)
-					AND NOT EXISTS (
-					    SELECT 1 FROM segments s2
-						WHERE
-							s2.stream_id = segments.stream_id
-							AND s2.created_at > @inactive_deadline
-					)
 			`,
 			Params: map[string]interface{}{
-				"stream_ids":        streamIDs,
-				"inactive_deadline": opts.InactiveDeadline,
+				"stream_ids": streamIDs,
 			},
 		})
 		if err != nil {

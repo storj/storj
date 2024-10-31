@@ -21,6 +21,32 @@ export class Time {
     public static formattedDate(date: Date, options: Intl.DateTimeFormatOptions = { day: 'numeric', month: 'short', year: 'numeric' }): string {
         return date.toLocaleDateString('en-US', options);
     }
+
+    /**
+     * formattedDate formats given date into US string along with GMT offset.
+     * This is used to avoid usage of timezone abbreviations (e.g. EET).
+     * @param date
+     */
+    public static formattedDateWithGMTOffset(date: Date): string {
+        const formattedDate = date.toLocaleDateString('en-GB', {
+            day: 'numeric',
+            month: 'short',
+            year: 'numeric',
+        });
+
+        const offsetMinutes = date.getTimezoneOffset();
+        const absoluteOffset = Math.abs(offsetMinutes);
+        const offsetHours = Math.floor(absoluteOffset / 60);
+        const offsetRemainingMinutes = absoluteOffset % 60;
+        const sign = offsetMinutes <= 0 ? '+' : '-';
+
+        let formattedOffset = `GMT${sign}${offsetHours}`;
+        if (offsetRemainingMinutes > 0) {
+            formattedOffset += `:${offsetRemainingMinutes.toString().padStart(2, '0')}`;
+        }
+
+        return `${formattedDate} ${formattedOffset}`;
+    }
 }
 
 /**
