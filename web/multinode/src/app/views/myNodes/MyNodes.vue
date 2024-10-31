@@ -32,7 +32,7 @@ export default class MyNodes extends Vue {
     public async mounted(): Promise<void> {
         try {
             await this.$store.dispatch('nodes/fetch');
-        } catch (error: any) {
+        } catch (error) {
             if (error instanceof UnauthorizedError) {
                 // TODO: redirect to login screen.
             }

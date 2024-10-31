@@ -63,7 +63,7 @@ export default class PayoutsPage extends Vue {
     public async mounted(): Promise<void> {
         try {
             await this.$store.dispatch('payouts/summary');
-        } catch (error: any) {
+        } catch (error) {
             if (error instanceof UnauthorizedError) {
                 // TODO: redirect to login screen.
             }
@@ -74,7 +74,7 @@ export default class PayoutsPage extends Vue {
 
         try {
             await this.$store.dispatch('payouts/expectations');
-        } catch (error: any) {
+        } catch (error) {
             if (error instanceof UnauthorizedError) {
                 // TODO: redirect to login screen.
             }

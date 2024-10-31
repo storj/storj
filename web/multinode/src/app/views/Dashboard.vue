@@ -40,7 +40,7 @@ export default class Dashboard extends Vue {
     public async mounted(): Promise<void> {
         try {
             await this.$store.dispatch('nodes/trustedSatellites');
-        } catch (error:any) {
+        } catch (error) {
             if (error instanceof UnauthorizedError) {
                 // TODO: redirect to login screen.
             }

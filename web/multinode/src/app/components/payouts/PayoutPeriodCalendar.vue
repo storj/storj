@@ -91,7 +91,7 @@ export default class PayoutHistoryPeriodCalendar extends Vue {
 
         try {
             await this.$store.dispatch('payouts/summary');
-        } catch (error: any) {
+        } catch (error) {
             if (error instanceof UnauthorizedError) {
                 // TODO: redirect to login screen.
             }

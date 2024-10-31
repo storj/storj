@@ -88,7 +88,7 @@ export default class AddNewNode extends Vue {
             await this.$store.dispatch('nodes/updateName', new UpdateNodeModel(this.nodeId, this.nodeName));
             this.notify.info({ message: 'Node name updated successfully.' });
             this.closeModal();
-        } catch (error: any) {
+        } catch (error) {
             console.error(error);
             this.notify.error({ message: error.message, title: error?.name });
             this.isLoading = false;

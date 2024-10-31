@@ -155,7 +155,7 @@ export default class PayoutsPage extends Vue {
     public async mounted(): Promise<void> {
         try {
             await this.$store.dispatch('payouts/nodeTotals', this.$route.params.id);
-        } catch (error: any) {
+        } catch (error) {
             if (error instanceof UnauthorizedError) {
                 // TODO: redirect to login screen.
             }
@@ -186,7 +186,7 @@ export default class PayoutsPage extends Vue {
     private async fetchNodePayouts(): Promise<void> {
         try {
             await this.$store.dispatch('payouts/heldHistory', this.nodeId);
-        } catch (error: any) {
+        } catch (error) {
             if (error instanceof UnauthorizedError) {
                 // TODO: redirect to login screen.
             }
@@ -197,7 +197,7 @@ export default class PayoutsPage extends Vue {
 
         try {
             await this.$store.dispatch('payouts/paystub', this.nodeId);
-        } catch (error: any) {
+        } catch (error) {
             if (error instanceof UnauthorizedError) {
                 // TODO: redirect to login screen.
             }
@@ -208,7 +208,7 @@ export default class PayoutsPage extends Vue {
 
         try {
             await this.$store.dispatch('payouts/expectations', this.nodeId);
-        } catch (error: any) {
+        } catch (error) {
             if (error instanceof UnauthorizedError) {
                 // TODO: redirect to login screen.
             }

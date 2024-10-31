@@ -134,7 +134,7 @@ export default class BandwidthPage extends Vue {
 
         try {
             await this.$store.dispatch('nodes/fetchOnline');
-        } catch (error:any) {
+        } catch (error) {
             if (error instanceof UnauthorizedError) {
                 // TODO: redirect to login screen.
             }
@@ -194,7 +194,7 @@ export default class BandwidthPage extends Vue {
     private async fetchTraffic(): Promise<void> {
         try {
             await this.$store.dispatch('bandwidth/fetch');
-        } catch (error: any) {
+        } catch (error) {
             if (error instanceof UnauthorizedError) {
                 // TODO: redirect to login screen.
             }
@@ -205,7 +205,7 @@ export default class BandwidthPage extends Vue {
 
         try {
             await this.$store.dispatch('storage/usage');
-        } catch (error: any) {
+        } catch (error) {
             if (error instanceof UnauthorizedError) {
                 // TODO: redirect to login screen.
             }
@@ -216,7 +216,7 @@ export default class BandwidthPage extends Vue {
 
         try {
             await this.$store.dispatch('storage/diskSpace');
-        } catch (error: any) {
+        } catch (error) {
             if (error instanceof UnauthorizedError) {
                 // TODO: redirect to login screen.
             }

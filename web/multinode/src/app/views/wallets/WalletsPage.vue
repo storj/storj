@@ -72,7 +72,7 @@ export default class WalletsPage extends Vue {
     public async listPaginated(pageNumber: number): Promise<void> {
         try {
             await this.$store.dispatch('operators/listPaginated', pageNumber);
-        } catch (error: any) {
+        } catch (error) {
             if (error instanceof UnauthorizedError) {
                 // TODO: redirect to login screen.
             }
