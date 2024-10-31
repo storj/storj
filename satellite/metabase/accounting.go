@@ -125,22 +125,14 @@ func (s *SpannerAdapter) CollectBucketTallies(ctx context.Context, opts CollectB
 	}
 	return spannerutil.CollectRows(s.client.Single().Query(ctx, spanner.Statement{
 		SQL: `
-			WITH counts AS (
-				SELECT project_id, bucket_name, segment_count, total_encrypted_size, length(encrypted_metadata) AS encrypted_bytes, status
-				FROM objects
-				WHERE
-					` + fromTuple + `
-					AND ` + toTuple + `
-					AND (expires_at IS NULL OR expires_at > @when)
-			)
 			SELECT
 				project_id, bucket_name,
-				SUM(total_encrypted_size), SUM(segment_count), COALESCE(SUM(encrypted_bytes), 0),
-				count(*), (
-					SELECT count(*) FROM counts c2 WHERE status = ` + statusPending + `
-						AND c2.project_id = c.project_id AND c2.bucket_name = c.bucket_name
-				)
-			FROM counts c
+				SUM(total_encrypted_size), SUM(segment_count), COALESCE(SUM(length(encrypted_metadata)), 0),
+				count(*) AS total_objects_count, COUNTIF(status = ` + statusPending + `) AS pending_objects_count
+			FROM objects
+			WHERE ` + fromTuple + `
+				AND ` + toTuple + `
+				AND (expires_at IS NULL OR expires_at > @when)
 			GROUP BY project_id, bucket_name
 			ORDER BY project_id ASC, bucket_name ASC
 		`,

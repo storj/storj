@@ -62,10 +62,14 @@ func RegisterManual[T any](
 // Tag attaches a tag to the component registration.
 func Tag[A any, Tag any](ball *Ball, tag Tag) {
 	c := MustLookupComponent[A](ball)
+	AddTagOf[Tag](c, tag)
+}
 
+// AddTagOf attaches a tag to the component registration.
+func AddTagOf[TAG any](c *Component, tag TAG) {
 	// we don't allow duplicated registrations, as we always return with the first value.
 	for ix, existing := range c.tags {
-		_, ok := existing.(Tag)
+		_, ok := existing.(TAG)
 		if ok {
 			c.tags[ix] = tag
 			return
@@ -77,10 +81,15 @@ func Tag[A any, Tag any](ball *Ball, tag Tag) {
 // RemoveTag removes all the Tag type of tags from the component.
 func RemoveTag[A any, Tag any](ball *Ball) {
 	c := MustLookupComponent[A](ball)
+	RemoveTagOf[Tag](c)
+}
+
+// RemoveTagOf removes all the Tag type of tags from the component.
+func RemoveTagOf[TAG any](c *Component) {
 	var filtered []any
 	// we don't allow duplicated registrations, as we always return with the first value.
 	for ix, existing := range c.tags {
-		_, ok := existing.(Tag)
+		_, ok := existing.(TAG)
 		if !ok {
 			filtered = append(filtered, c.tags[ix])
 		}
@@ -218,19 +227,28 @@ func runWithParams(ctx context.Context, ball *Ball, factory interface{}, options
 		dep, ok := lookupByType(ball, ft.In(i))
 		if ok {
 			if dep.instance == nil {
-				return nil, specificError(ft.In(i), i, "instance is nil (not yet initialized)")
+				// we enable injection of nil value, if it's explicitly marked with Nullable tag.
+				_, nullable := GetTagOf[Nullable](dep)
+				if !nullable {
+					return nil, specificError(ft.In(i), i, "instance is nil (not yet initialized)")
+				}
 			}
 			val := dep.instance
 			if wrapper, found := getWrapperByType(ft.In(i), options); found {
 				val = wrapper.wrapper(val)
 			}
-			args = append(args, reflect.ValueOf(val))
+			var rv reflect.Value
+			if dep.instance != nil {
+				rv = reflect.ValueOf(val)
+			} else {
+				rv = reflect.Zero(dep.target)
+			}
+			args = append(args, rv)
 			continue
 		}
 		return nil, specificError(ft.In(i), i, "instance is not registered")
 
 	}
-
 	return reflect.ValueOf(factory).Call(args), nil
 }
 
@@ -447,4 +465,8 @@ func fullyQualifiedTypeName(t reflect.Type) string {
 		return "[]" + fullyQualifiedTypeName(t.Elem())
 	}
 	return t.PkgPath() + "." + t.Name()
+}
+
+// Nullable is a custom tag, which enables injecting null value, even if the component is not initialized.
+type Nullable struct {
 }
