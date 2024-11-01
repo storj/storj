@@ -83,7 +83,7 @@ type VersionConfig struct {
 
 // RolloutConfig represents the state of a version rollout configuration of a process.
 type RolloutConfig struct {
-	Seed           string `user:"true" help:"random 32 byte, hex-encoded string" devDefault:"" testDefault:"000102030405060708090a0b0c0d0e0ff0f1f2f3f4f5f6f7f8f9fafbfcfdfeff"`
+	Seed           string `user:"true" help:"random 32 byte, hex-encoded string" default:"" testDefault:"000102030405060708090a0b0c0d0e0ff0f1f2f3f4f5f6f7f8f9fafbfcfdfeff"`
 	PreviousCursor int    `user:"true" help:"prior configuration's cursor value. if 100%, will be capped at the current cursor." default:"100"`
 	Cursor         int    `user:"true" help:"percentage of nodes which should roll-out to the suggested version" default:"0"`
 }
