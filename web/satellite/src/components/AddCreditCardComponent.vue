@@ -10,11 +10,13 @@
                 <StripeCardElement
                     v-if="paymentElementEnabled"
                     ref="stripeCardInput"
+                    @ready="stripeReady = true"
                 />
                 <StripeCardInput
                     v-else
                     ref="stripeCardInput"
                     :on-stripe-response-callback="addCardToDB"
+                    @ready="stripeReady = true"
                 />
             </template>
 
@@ -22,6 +24,7 @@
                 <v-btn
                     color="primary" size="small" class="mr-2"
                     :loading="isLoading"
+                    :disabled="!stripeReady"
                     @click="onSaveCardClick"
                 >
                     Add Card
@@ -98,6 +101,7 @@ const notify = useNotify();
 const { withLoading, isLoading } = useLoading();
 
 const stripeCardInput = ref<StripeForm | null>(null);
+const stripeReady = ref<boolean>(false);
 
 const isCardInputShown = ref(false);
 const isUpgradeSuccessShown = ref(false);

@@ -36,7 +36,7 @@
                 <v-btn
                     :variant="isFree ? 'outlined' : 'flat'"
                     :color="isPartner ? 'success' : isFree ? 'default' : 'primary'"
-                    @click="onActivateClick"
+                    @click.stop="onActivateClick"
                 >
                     <template #append>
                         <v-icon :icon="ArrowRight" />
