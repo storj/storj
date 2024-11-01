@@ -3180,7 +3180,10 @@ func (s *Service) CreateProject(ctx context.Context, projectInfo UpsertProjectIn
 		return nil, ErrProjLimit.Wrap(err)
 	}
 
-	var projectID uuid.UUID
+	var (
+		projectID            uuid.UUID
+		satManagedPassphrase bool
+	)
 	err = s.store.WithTx(ctx, func(ctx context.Context, tx DBTx) error {
 		storageLimit := memory.Size(newProjectLimits.Storage)
 		bandwidthLimit := memory.Size(newProjectLimits.Bandwidth)
@@ -3203,6 +3206,8 @@ func (s *Service) CreateProject(ctx context.Context, projectInfo UpsertProjectIn
 			newProject.PassphraseEnc = encPassphrase
 			newProject.PassphraseEncKeyID = &keyID
 			newProject.PathEncryption = new(bool)
+
+			satManagedPassphrase = true
 		} else if projectInfo.ManagePassphrase {
 			return ErrSatelliteManagedEncryption
 		}
@@ -3253,7 +3258,7 @@ func (s *Service) CreateProject(ctx context.Context, projectInfo UpsertProjectIn
 		return nil, Error.Wrap(err)
 	}
 
-	s.analytics.TrackProjectCreated(user.ID, user.Email, projectID, currentProjectCount+1)
+	s.analytics.TrackProjectCreated(user.ID, user.Email, projectID, currentProjectCount+1, satManagedPassphrase)
 
 	return p, nil
 }
