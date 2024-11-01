@@ -3,6 +3,7 @@
 
 import test from '@lib/BaseTest';
 import { v4 as uuidv4 } from 'uuid';
+import path from 'path';
 
 test.describe('object browser + edge services', () => {
     test.beforeEach(async ({
@@ -70,8 +71,8 @@ test.describe('object browser + edge services', () => {
         navigationMenu,
     }) => {
         const bucketName = uuidv4();
-        const fileName = 'test.txt';
-        const folderName = 'test_folder';
+        const folderName = 'testdata';
+        const folderPath = path.join(__dirname, 'testdata');
 
         await navigationMenu.clickOnBuckets();
         await bucketsPage.createBucket(bucketName);
@@ -82,7 +83,7 @@ test.describe('object browser + edge services', () => {
         await objectBrowserPage.deleteObjectByName(folderName, 'Folder');
 
         // Folder creation with a file inside it
-        await objectBrowserPage.uploadFolder(folderName, fileName, 'text/csv');
+        await objectBrowserPage.uploadFolder(folderPath, folderName);
         await objectBrowserPage.deleteObjectByName(folderName, 'Folder');
     });
 
