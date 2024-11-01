@@ -1099,12 +1099,12 @@ func (a *Auth) ForgotPassword(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if user.ExternalID != nil && *user.ExternalID != "" {
+	if a.ssoService != nil && user.ExternalID != nil && *user.ExternalID != "" {
 		a.log.Info("sso user attempted 'forgot password' flow", zap.String("email", user.Email))
 		return
 	}
 
-	recoveryToken, err := a.service.GeneratePasswordRecoveryToken(ctx, user.ID)
+	recoveryToken, err := a.service.GeneratePasswordRecoveryToken(ctx, user)
 	if err != nil {
 		a.serveJSONError(ctx, w, err)
 		return
@@ -1175,7 +1175,7 @@ func (a *Auth) ResendEmail(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if verified != nil {
-		recoveryToken, err := a.service.GeneratePasswordRecoveryToken(ctx, verified.ID)
+		recoveryToken, err := a.service.GeneratePasswordRecoveryToken(ctx, verified)
 		if err != nil {
 			a.serveJSONError(ctx, w, err)
 			return
@@ -1746,7 +1746,7 @@ func (a *Auth) getStatusCode(err error) int {
 		return http.StatusUnauthorized
 	case console.ErrEmailUsed.Has(err), console.ErrMFAConflict.Has(err), console.ErrMFAEnabled.Has(err):
 		return http.StatusConflict
-	case console.ErrLoginRestricted.Has(err), console.ErrTooManyAttempts.Has(err), console.ErrForbidden.Has(err):
+	case console.ErrLoginRestricted.Has(err), console.ErrTooManyAttempts.Has(err), console.ErrForbidden.Has(err), console.ErrSsoUserRestricted.Has(err):
 		return http.StatusForbidden
 	case errors.Is(err, errNotImplemented):
 		return http.StatusNotImplemented

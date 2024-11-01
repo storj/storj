@@ -3049,7 +3049,7 @@ func TestChangePassword(t *testing.T) {
 		require.Len(t, sessions, 2)
 
 		// generate a password recovery token to test that changing password invalidates it
-		passwordRecoveryToken, err := sat.API.Console.Service.GeneratePasswordRecoveryToken(userCtx, user.ID)
+		passwordRecoveryToken, err := sat.API.Console.Service.GeneratePasswordRecoveryToken(userCtx, user)
 		require.NoError(t, err)
 
 		sessionID := sessions[0].ID

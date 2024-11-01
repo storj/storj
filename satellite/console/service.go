@@ -130,6 +130,9 @@ var (
 	// ErrLoginCredentials occurs when provided invalid login credentials.
 	ErrLoginCredentials = errs.Class("login credentials")
 
+	// ErrSsoUserRestricted occurs when an SSO user attempts an action they are restricted from.
+	ErrSsoUserRestricted = errs.Class("SSO user restricted")
+
 	// ErrTooManyAttempts occurs when user tries to produce auth-related action too many times.
 	ErrTooManyAttempts = errs.Class("too many attempts")
 
@@ -236,6 +239,7 @@ type Service struct {
 
 	config            Config
 	maxProjectBuckets int
+	ssoEnabled        bool
 
 	varPartners map[string]struct{}
 
@@ -268,7 +272,7 @@ func NewService(log *zap.Logger, store DB, restKeys RESTKeys, projectAccounting 
 	projectUsage *accounting.Service, buckets buckets.DB, accounts payments.Accounts, depositWallets payments.DepositWallets,
 	billingDb billing.TransactionsDB, analytics *analytics.Service, tokens *consoleauth.Service, mailService *mailservice.Service,
 	accountFreezeService *AccountFreezeService, emission *emission.Service, kmsService *kms.Service, satelliteAddress string,
-	satelliteName string, maxProjectBuckets int, placements nodeselection.PlacementDefinitions,
+	satelliteName string, maxProjectBuckets int, ssoEnabled bool, placements nodeselection.PlacementDefinitions,
 	objectLockAndVersioningConfig ObjectLockAndVersioningConfig, config Config) (*Service, error) {
 	if store == nil {
 		return nil, errs.New("store can't be nil")
@@ -341,6 +345,7 @@ func NewService(log *zap.Logger, store DB, restKeys RESTKeys, projectAccounting 
 		satelliteAddress:              satelliteAddress,
 		satelliteName:                 satelliteName,
 		maxProjectBuckets:             maxProjectBuckets,
+		ssoEnabled:                    ssoEnabled,
 		config:                        config,
 		varPartners:                   partners,
 		objectLockAndVersioningConfig: objectLockAndVersioningConfig,
@@ -1315,10 +1320,15 @@ func (s *Service) GenerateActivationToken(ctx context.Context, id uuid.UUID, ema
 }
 
 // GeneratePasswordRecoveryToken - is a method for generating password recovery token.
-func (s *Service) GeneratePasswordRecoveryToken(ctx context.Context, id uuid.UUID) (token string, err error) {
+func (s *Service) GeneratePasswordRecoveryToken(ctx context.Context, user *User) (token string, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	resetPasswordToken, err := s.store.ResetPasswordTokens().GetByOwnerID(ctx, id)
+	if s.ssoEnabled && user.ExternalID != nil && *user.ExternalID != "" {
+		s.auditLog(ctx, "sso user attempted 'forgot password' flow", &user.ID, user.Email)
+		return "", ErrSsoUserRestricted.New("SSO users cannot reset their password")
+	}
+
+	resetPasswordToken, err := s.store.ResetPasswordTokens().GetByOwnerID(ctx, user.ID)
 	if err == nil {
 		err := s.store.ResetPasswordTokens().Delete(ctx, resetPasswordToken.Secret)
 		if err != nil {
@@ -1326,12 +1336,12 @@ func (s *Service) GeneratePasswordRecoveryToken(ctx context.Context, id uuid.UUI
 		}
 	}
 
-	resetPasswordToken, err = s.store.ResetPasswordTokens().Create(ctx, id)
+	resetPasswordToken, err = s.store.ResetPasswordTokens().Create(ctx, user.ID)
 	if err != nil {
 		return "", Error.Wrap(err)
 	}
 
-	s.auditLog(ctx, "generate password recovery token", &id, "")
+	s.auditLog(ctx, "generate password recovery token", &user.ID, "")
 
 	return resetPasswordToken.Secret.String(), nil
 }
@@ -1697,9 +1707,9 @@ func (s *Service) Token(ctx context.Context, request AuthUser) (response *TokenI
 		return nil, ErrLoginCredentials.New(credentialsErrMsg)
 	}
 
-	if user.ExternalID != nil && *user.ExternalID != "" {
+	if s.ssoEnabled && user.ExternalID != nil && *user.ExternalID != "" {
 		s.auditLog(ctx, "login: attempted sso bypass", &user.ID, request.Email)
-		return nil, ErrLoginCredentials.New(credentialsErrMsg)
+		return nil, ErrSsoUserRestricted.New(credentialsErrMsg)
 	}
 
 	err = bcrypt.CompareHashAndPassword(user.PasswordHash, []byte(request.Password))
@@ -5944,4 +5954,9 @@ func (s *Service) TestSetNow(now func() time.Time) {
 // TestToggleSatelliteManagedEncryption toggles the satellite managed encryption config for tests.
 func (s *Service) TestToggleSatelliteManagedEncryption(b bool) {
 	s.config.SatelliteManagedEncryptionEnabled = b
+}
+
+// TestToggleSsoEnabled is used in tests to toggle SSO.
+func (s *Service) TestToggleSsoEnabled(enabled bool) {
+	s.ssoEnabled = enabled
 }
