@@ -317,7 +317,7 @@ func (cache *overlaycache) GetNodesNetworkInOrder(ctx context.Context, nodeIDs [
 	case dbutil.Spanner:
 		query := `
 			SELECT coalesce(n.last_net, '')
-			FROM (SELECT node_id , ord AS ord   FROM unnest(?) AS node_id WITH OFFSET AS ord) input
+			FROM (SELECT node_id , ord AS ord FROM unnest(?) AS node_id WITH OFFSET AS ord) input
 				LEFT OUTER JOIN nodes n ON input.node_id = n.id
 			ORDER BY input.ord
 		`
@@ -415,7 +415,7 @@ func (cache *overlaycache) getOnlineNodesForAuditRepair(ctx context.Context, nod
 			SELECT last_net, id, address, email, last_ip_port, noise_proto, noise_public_key, debounce_limit, features,
 			vetted_at, unknown_audit_suspended, offline_suspended
 			FROM nodes
-			WHERE id IN (SELECT node_id FROM unnest(?) AS  node_id )
+			WHERE id IN unnest(?)
 				AND disqualified IS NULL
 				AND exit_finished_at IS NULL
 				AND last_contact_success > ?
@@ -519,14 +519,14 @@ func (cache *overlaycache) UpdateLastOfflineEmail(ctx context.Context, nodeIDs s
 			UPDATE nodes
 			SET last_offline_email = $1
 			WHERE id = any($2::bytea[])
-			`, timestamp, pgutil.NodeIDArray(nodeIDs))
+		`, timestamp, pgutil.NodeIDArray(nodeIDs))
 
 	case dbutil.Spanner:
 		_, err = cache.db.ExecContext(ctx, `
 			UPDATE nodes
 			SET last_offline_email = ?
-				WHERE id IN (SELECT node_id FROM unnest(?) AS node_id)
-			`, timestamp, nodeIDs.Bytes())
+			WHERE id IN unnest(?)
+		`, timestamp, nodeIDs.Bytes())
 
 	default:
 		return Error.New("unsupported implementation")
@@ -1571,7 +1571,7 @@ func (cache *overlaycache) DQNodesLastSeenBefore(ctx context.Context, cutoff tim
 				UPDATE nodes
 				SET disqualified = current_timestamp,
 					disqualification_reason = ?
-				WHERE id IN (SELECT node_id FROM UNNEST(?) AS node_id)
+				WHERE id IN UNNEST(?)
 					AND disqualified IS NULL
 					AND exit_finished_at IS NULL
 					AND last_contact_success < ?
@@ -2417,8 +2417,8 @@ func (cache *overlaycache) GetLastIPPortByNodeTagNames(ctx context.Context, ids 
 		rows, err = cache.db.Query(ctx, cache.db.Rebind(`
 			SELECT id, last_ip_port FROM nodes n
 			JOIN node_tags nt ON n.id = nt.node_id
-			WHERE nt.node_id IN  (SELECT node_id FROM UNNEST(?) node_id)
-				AND nt.name IN (SELECT name FROM UNNEST(?) name)
+			WHERE nt.node_id IN UNNEST(?)
+				AND nt.name IN UNNEST(?)
 				AND n.last_ip_port != ''
 				AND n.last_ip_port IS NOT NULL;
 		`), ids.Bytes(), tagNames)
