@@ -853,16 +853,6 @@ func (m *mockdb) GetExitStatus(ctx context.Context, nodeID storj.NodeID) (exitSt
 	panic("implement me")
 }
 
-// GetNodesNetwork satisfies nodeevents.DB interface.
-func (m *mockdb) GetNodesNetwork(ctx context.Context, nodeIDs []storj.NodeID) (nodeNets []string, err error) {
-	panic("implement me")
-}
-
-// GetNodesNetworkInOrder satisfies nodeevents.DB interface.
-func (m *mockdb) GetNodesNetworkInOrder(ctx context.Context, nodeIDs []storj.NodeID) (nodeNets []string, err error) {
-	panic("implement me")
-}
-
 // DisqualifyNode satisfies nodeevents.DB interface.
 func (m *mockdb) DisqualifyNode(ctx context.Context, nodeID storj.NodeID, disqualifiedAt time.Time, reason overlay.DisqualificationReason) (email string, err error) {
 	panic("implement me")

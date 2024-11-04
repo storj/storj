@@ -303,13 +303,6 @@ func BenchmarkNodeSelection(b *testing.B) {
 				}
 			}
 		}
-		b.Run("GetNodesNetwork", func(b *testing.B) {
-			for i := 0; i < b.N; i++ {
-				excludedNetworks, err := overlaydb.GetNodesNetwork(ctx, excludedIDs)
-				require.NoError(b, err)
-				require.NotEmpty(b, excludedNetworks)
-			}
-		})
 
 		service, err := overlay.NewService(zap.NewNop(), overlaydb, db.NodeEvents(), nodeselection.TestPlacementDefinitions(), "", "", overlay.Config{
 			Node: nodeSelectionConfig,
