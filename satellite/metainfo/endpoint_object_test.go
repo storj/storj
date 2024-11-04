@@ -5655,38 +5655,46 @@ func TestEndpoint_DeleteLockedObject(t *testing.T) {
 
 var objectLockTestCases = []struct {
 	name              string
-	expectedRetention *metabase.Retention
+	expectedRetention func() *metabase.Retention
 	legalHold         bool
 }{
 	{name: "no retention, no legal hold"},
 	{
 		name: "retention - compliance, no legal hold",
-		expectedRetention: &metabase.Retention{
-			Mode:        storj.ComplianceMode,
-			RetainUntil: time.Now().Add(time.Hour).Truncate(time.Minute),
+		expectedRetention: func() *metabase.Retention {
+			return &metabase.Retention{
+				Mode:        storj.ComplianceMode,
+				RetainUntil: time.Now().Add(time.Hour).Truncate(time.Minute),
+			}
 		},
 	},
 	{
 		name: "retention - governance, no legal hold",
-		expectedRetention: &metabase.Retention{
-			Mode:        storj.GovernanceMode,
-			RetainUntil: time.Now().Add(time.Hour).Truncate(time.Minute),
+		expectedRetention: func() *metabase.Retention {
+			return &metabase.Retention{
+				Mode:        storj.GovernanceMode,
+				RetainUntil: time.Now().Add(time.Hour).Truncate(time.Minute),
+			}
 		},
 	},
 	{name: "no retention, legal hold", legalHold: true},
 	{
 		name: "retention - compliance, legal hold",
-		expectedRetention: &metabase.Retention{
-			Mode:        storj.ComplianceMode,
-			RetainUntil: time.Now().Add(time.Hour).Truncate(time.Minute),
+		expectedRetention: func() *metabase.Retention {
+			return &metabase.Retention{
+				Mode:        storj.ComplianceMode,
+				RetainUntil: time.Now().Add(time.Hour).Truncate(time.Minute),
+			}
 		},
 		legalHold: true,
 	},
 	{
 		name: "retention - governance, legal hold",
-		expectedRetention: &metabase.Retention{
-			Mode:        storj.GovernanceMode,
-			RetainUntil: time.Now().Add(time.Hour).Truncate(time.Minute),
+		expectedRetention: func() *metabase.Retention {
+			return &metabase.Retention{
+				Mode:        storj.GovernanceMode,
+				RetainUntil: time.Now().Add(time.Hour).Truncate(time.Minute),
+			}
 		},
 		legalHold: true,
 	},
@@ -5829,9 +5837,11 @@ func TestEndpoint_CopyObjectWithRetention(t *testing.T) {
 					dstKey := testrand.Path()
 					beginResponse := newCopy(t, satellite, project.ID, apiKey.SerializeRaw(), srcBucket, nil, dstBucket, dstKey)
 
-					var expectedRetention *pb.Retention
+					var expectedRetention *metabase.Retention
+					var expectedRetentionProto *pb.Retention
 					if testCase.expectedRetention != nil {
-						expectedRetention = retentionToProto(*testCase.expectedRetention)
+						expectedRetention = testCase.expectedRetention()
+						expectedRetentionProto = retentionToProto(*expectedRetention)
 					}
 
 					response, err := satellite.API.Metainfo.Endpoint.FinishCopyObject(ctx, &pb.FinishCopyObjectRequest{
@@ -5841,13 +5851,13 @@ func TestEndpoint_CopyObjectWithRetention(t *testing.T) {
 						StreamId:              beginResponse.StreamId,
 						NewBucket:             []byte(dstBucket),
 						NewEncryptedObjectKey: []byte(dstKey),
-						Retention:             expectedRetention,
+						Retention:             expectedRetentionProto,
 						LegalHold:             testCase.legalHold,
 					})
 					require.NoError(t, err)
 
-					requireEqualRetention(t, testCase.expectedRetention, response.Object.Retention)
-					requireRetention(t, satellite, project.ID, dstBucket, dstKey, testCase.expectedRetention)
+					requireEqualRetention(t, expectedRetention, response.Object.Retention)
+					requireRetention(t, satellite, project.ID, dstBucket, dstKey, expectedRetention)
 					requireLegalHold(t, satellite, project.ID, dstBucket, dstKey, testCase.legalHold)
 				})
 			}
@@ -6171,9 +6181,11 @@ func TestEndpoint_MoveObjectWithRetention(t *testing.T) {
 
 					beginResponse := newMove(t, satellite, project.ID, apiKey.SerializeRaw(), srcBucket, nil, metabase.Retention{}, false, dstBucket, dstKey)
 
-					var expectedRetention *pb.Retention
+					var expectedRetention *metabase.Retention
+					var expectedRetentionProto *pb.Retention
 					if testCase.expectedRetention != nil {
-						expectedRetention = retentionToProto(*testCase.expectedRetention)
+						expectedRetention = testCase.expectedRetention()
+						expectedRetentionProto = retentionToProto(*expectedRetention)
 					}
 
 					_, err := satellite.API.Metainfo.Endpoint.FinishMoveObject(ctx, &pb.FinishMoveObjectRequest{
@@ -6183,12 +6195,12 @@ func TestEndpoint_MoveObjectWithRetention(t *testing.T) {
 						StreamId:              beginResponse.StreamId,
 						NewBucket:             []byte(dstBucket),
 						NewEncryptedObjectKey: []byte(dstKey),
-						Retention:             expectedRetention,
+						Retention:             expectedRetentionProto,
 						LegalHold:             testCase.legalHold,
 					})
 					require.NoError(t, err)
 
-					requireRetention(t, satellite, project.ID, dstBucket, dstKey, testCase.expectedRetention)
+					requireRetention(t, satellite, project.ID, dstBucket, dstKey, expectedRetention)
 					requireLegalHold(t, satellite, project.ID, dstBucket, dstKey, testCase.legalHold)
 				})
 			}
