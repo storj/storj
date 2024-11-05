@@ -509,6 +509,7 @@ func NewConsoleAPI(log *zap.Logger, full *identity.FullIdentity, db DB,
 			externalAddress,
 			consoleConfig.SatelliteName,
 			config.Metainfo.ProjectLimits.MaxBuckets,
+			config.SSO.Enabled,
 			placement,
 			console.ObjectLockAndVersioningConfig{
 				ObjectLockEnabled:                      config.Metainfo.ObjectLockEnabled,

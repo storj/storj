@@ -360,8 +360,11 @@ type UpdateUserRequest struct {
 
 	DefaultPlacement storj.PlacementConstraint
 
-	ActivationCode *string
-	SignupId       *string
+	ActivationCode  *string
+	SignupId        *string
+	SignupPromoCode *string
+
+	UserAgent []byte
 
 	TrialExpiration    **time.Time
 	TrialNotifications *TrialNotificationStatus

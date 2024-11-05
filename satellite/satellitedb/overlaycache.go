@@ -262,103 +262,6 @@ func (cache *overlaycache) selectAllStorageNodesDownload(ctx context.Context, on
 	return nodes, Error.Wrap(rows.Err())
 }
 
-// GetNodesNetwork returns the /24 subnet for each storage node. Order is not guaranteed.
-// If a requested node is not in the database, no corresponding last_net will be returned
-// for that node.
-func (cache *overlaycache) GetNodesNetwork(ctx context.Context, nodeIDs []storj.NodeID) (nodeNets []string, err error) {
-	var query string
-
-	switch cache.db.impl {
-	case dbutil.Cockroach, dbutil.Postgres:
-		query = `SELECT last_net FROM nodes WHERE id = any($1::bytea[])`
-	case dbutil.Spanner:
-		query = `SELECT last_net FROM nodes WHERE id IN UNNEST(?)`
-	default:
-		return nil, Error.New("unsupported implementation")
-	}
-
-	for {
-		nodeNets, err = cache.getNodesNetwork(ctx, nodeIDs, query)
-		if err != nil {
-			if retrydb.ShouldRetryIdempotent(err) {
-				continue
-			}
-			return nodeNets, err
-		}
-		break
-	}
-
-	return nodeNets, err
-}
-
-// GetNodesNetworkInOrder returns the /24 subnet for each storage node, in order. If a
-// requested node is not in the database, an empty string will be returned corresponding
-// to that node's last_net.
-func (cache *overlaycache) GetNodesNetworkInOrder(ctx context.Context, nodeIDs []storj.NodeID) (nodeNets []string, err error) {
-	switch cache.db.impl {
-	case dbutil.Cockroach, dbutil.Postgres:
-		query := `
-			SELECT coalesce(n.last_net, '')
-			FROM unnest($1::bytea[]) WITH ORDINALITY AS input(node_id, ord)
-				LEFT OUTER JOIN nodes n ON input.node_id = n.id
-			ORDER BY input.ord
-		`
-		for {
-			nodeNets, err = cache.getNodesNetwork(ctx, nodeIDs, query)
-			if err != nil {
-				if retrydb.ShouldRetryIdempotent(err) {
-					continue
-				}
-				return nodeNets, err
-			}
-			break
-		}
-		return nodeNets, err
-	case dbutil.Spanner:
-		query := `
-			SELECT coalesce(n.last_net, '')
-			FROM (SELECT node_id , ord AS ord   FROM unnest(?) AS node_id WITH OFFSET AS ord) input
-				LEFT OUTER JOIN nodes n ON input.node_id = n.id
-			ORDER BY input.ord
-		`
-		nodeNets, err = cache.getNodesNetwork(ctx, nodeIDs, query)
-		if err != nil {
-			return nodeNets, err
-		}
-		return nodeNets, err
-	default:
-		return nil, Error.New("unsupported database: %v", cache.db.impl)
-	}
-}
-
-func (cache *overlaycache) getNodesNetwork(ctx context.Context, nodeIDs []storj.NodeID, query string) (nodeNets []string, err error) {
-	defer mon.Task()(&ctx)(&err)
-
-	var rows tagsql.Rows
-	switch cache.db.impl {
-	case dbutil.Cockroach, dbutil.Postgres:
-		rows, err = cache.db.Query(ctx, cache.db.Rebind(query), pgutil.NodeIDArray(nodeIDs))
-	case dbutil.Spanner:
-		rows, err = cache.db.Query(ctx, cache.db.Rebind(query), storj.NodeIDList(nodeIDs).Bytes())
-	default:
-		return nil, Error.New("unsupported implementation")
-	}
-	if err != nil {
-		return nil, err
-	}
-	defer func() { err = errs.Combine(err, rows.Close()) }()
-
-	for rows.Next() {
-		var ip string
-		err = rows.Scan(&ip)
-		if err != nil {
-			return nil, err
-		}
-		nodeNets = append(nodeNets, ip)
-	}
-	return nodeNets, Error.Wrap(rows.Err())
-}
-
 // Get looks up the node by nodeID.
 func (cache *overlaycache) Get(ctx context.Context, id storj.NodeID) (dossier *overlay.NodeDossier, err error) {
 	defer mon.Task()(&ctx)(&err)
@@ -415,7 +318,7 @@ func (cache *overlaycache) getOnlineNodesForAuditRepair(ctx context.Context, nod
 			SELECT last_net, id, address, email, last_ip_port, noise_proto, noise_public_key, debounce_limit, features,
 			vetted_at, unknown_audit_suspended, offline_suspended
 			FROM nodes
-			WHERE id IN (SELECT node_id FROM unnest(?) AS  node_id )
+			WHERE id IN unnest(?)
 				AND disqualified IS NULL
 				AND exit_finished_at IS NULL
 				AND last_contact_success > ?
@@ -519,14 +422,14 @@ func (cache *overlaycache) UpdateLastOfflineEmail(ctx context.Context, nodeIDs s
 			UPDATE nodes
 			SET last_offline_email = $1
 			WHERE id = any($2::bytea[])
-			`, timestamp, pgutil.NodeIDArray(nodeIDs))
+		`, timestamp, pgutil.NodeIDArray(nodeIDs))
 
 	case dbutil.Spanner:
 		_, err = cache.db.ExecContext(ctx, `
 			UPDATE nodes
 			SET last_offline_email = ?
-				WHERE id IN (SELECT node_id FROM unnest(?) AS node_id)
-			`, timestamp, nodeIDs.Bytes())
+			WHERE id IN unnest(?)
+		`, timestamp, nodeIDs.Bytes())
 
 	default:
 		return Error.New("unsupported implementation")
@@ -1571,7 +1474,7 @@ func (cache *overlaycache) DQNodesLastSeenBefore(ctx context.Context, cutoff tim
 				UPDATE nodes
 				SET disqualified = current_timestamp,
 					disqualification_reason = ?
-				WHERE id IN (SELECT node_id FROM UNNEST(?) AS node_id)
+				WHERE id IN UNNEST(?)
 					AND disqualified IS NULL
 					AND exit_finished_at IS NULL
 					AND last_contact_success < ?
@@ -2417,8 +2320,8 @@ func (cache *overlaycache) GetLastIPPortByNodeTagNames(ctx context.Context, ids 
 		rows, err = cache.db.Query(ctx, cache.db.Rebind(`
 			SELECT id, last_ip_port FROM nodes n
 			JOIN node_tags nt ON n.id = nt.node_id
-			WHERE nt.node_id IN  (SELECT node_id FROM UNNEST(?) node_id)
-				AND nt.name IN (SELECT name FROM UNNEST(?) name)
+			WHERE nt.node_id IN UNNEST(?)
+				AND nt.name IN UNNEST(?)
 				AND n.last_ip_port != ''
 				AND n.last_ip_port IS NOT NULL;
 		`), ids.Bytes(), tagNames)

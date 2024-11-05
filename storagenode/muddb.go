@@ -30,7 +30,6 @@ func DBModule(ball *mud.Ball) {
 	mud.View(ball, DB.Pricing)
 	mud.View(ball, DB.GCFilewalkerProgress)
 	mud.View(ball, DB.V0PieceInfo)
-	mud.View(ball, DB.PieceExpirationDB)
 	mud.View(ball, DB.PieceSpaceUsedDB)
 	mud.View(ball, DB.StorageUsage)
 	mud.View(ball, DB.UsedSpacePerPrefix)

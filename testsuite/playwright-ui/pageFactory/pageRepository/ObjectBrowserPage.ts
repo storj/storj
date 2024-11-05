@@ -15,20 +15,16 @@ export class ObjectBrowserPage {
     }
 
     async uploadFile(name: string, format: string): Promise<void> {
-        await this.page.setInputFiles(ObjectBrowserPageObjects.FILE_INPUT_XPATH, {
+        await this.page.locator(ObjectBrowserPageObjects.FILE_INPUT_XPATH).setInputFiles({
             name: name,
             mimeType: format,
             buffer: Buffer.from('Test,T'),
-        }, { strict: true });
+        });
     }
 
-    async uploadFolder(folder: string, filename: string, format: string): Promise<void> {
-        await this.page.setInputFiles(ObjectBrowserPageObjects.FOLDER_INPUT_XPATH, {
-            name: folder + '/' + filename,
-            mimeType: format,
-            buffer: Buffer.from('Test,T'),
-        });
-        await expect(this.page.getByRole('button', { name: `Foldericon ${folder}` })).toBeVisible();
+    async uploadFolder(folderPath: string, folderName: string): Promise<void> {
+        await this.page.locator(ObjectBrowserPageObjects.FOLDER_INPUT_XPATH).setInputFiles(folderPath);
+        await expect(this.page.getByRole('button', { name: `Foldericon ${folderName}` })).toBeVisible();
     }
 
     async openObjectPreview(name: string, type: string): Promise<void> {

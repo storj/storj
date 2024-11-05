@@ -159,8 +159,7 @@ func (db *invoiceProjectRecords) GetUnappliedByProjectIDs(ctx context.Context, p
 			FROM
 				stripecoinpayments_invoice_project_records
 			WHERE
-				project_id IN ( SELECT project_id
-			FROM UNNEST(?) AS project_id)
+				project_id IN UNNEST(?)
 				AND period_start = ? AND period_end = ? AND state = ?`
 
 		rows, err = db.db.QueryContext(ctx, query, pids, start, end, int(invoiceProjectRecordStateUnapplied))

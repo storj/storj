@@ -7,8 +7,11 @@ import (
 	"context"
 	"net/http"
 	"os"
+	"path/filepath"
 	"time"
 
+	"github.com/spacemonkeygo/monkit/v3"
+	"github.com/spacemonkeygo/monkit/v3/environment"
 	"go.uber.org/zap"
 
 	"storj.io/common/debug"
@@ -90,7 +93,12 @@ func Module(ball *mud.Ball) {
 	mud.View[server.Config, tlsopts.Config](ball, func(s server.Config) tlsopts.Config {
 		return s.Config
 	})
-	mud.Supply[version.Info](ball, version.Build)
+	mud.Provide[version.Info](ball, func() version.Info {
+		info := version.Build
+		environment.Register(monkit.Default)
+		monkit.Default.ScopeNamed("env").Chain(monkit.StatSourceFunc(info.Stats))
+		return info
+	})
 	mud.Provide[extensions.RevocationDB](ball, revocation.OpenDBFromCfg)
 	DBModule(ball)
 	mud.View[storagenodedb.Config, lazyfilewalker.Config](ball, func(s storagenodedb.Config) lazyfilewalker.Config {
@@ -100,6 +108,26 @@ func Module(ball *mud.Ball) {
 	{ // setup notification service.
 		mud.Provide[*notifications.Service](ball, notifications.NewService)
 
+	}
+
+	{
+		mud.Provide[*pieces.PieceExpirationStore](ball, func(log *zap.Logger, oldCfg piecestore.OldConfig, storeCfg piecestore.Config, cfg pieces.Config) (*pieces.PieceExpirationStore, error) {
+			flatFileStorePath := cfg.FlatExpirationStorePath
+			if abs := filepath.IsAbs(flatFileStorePath); !abs {
+				if storeCfg.DatabaseDir != "" {
+					flatFileStorePath = filepath.Join(storeCfg.DatabaseDir, flatFileStorePath)
+				} else {
+					flatFileStorePath = filepath.Join(oldCfg.Path, flatFileStorePath)
+				}
+			}
+
+			return pieces.NewPieceExpirationStore(log, nil, pieces.PieceExpirationConfig{
+				DataDir:               flatFileStorePath,
+				ConcurrentFileHandles: cfg.FlatExpirationStoreFileHandles,
+				MaxBufferTime:         cfg.FlatExpirationStoreMaxBufferTime,
+			})
+		}, logWrapper("pieceexpiration"))
+		mud.RegisterInterfaceImplementation[pieces.PieceExpirationDB, *pieces.PieceExpirationStore](ball)
 	}
 
 	{ // setup debug
@@ -263,13 +291,8 @@ func Module(ball *mud.Ball) {
 		mud.View[DB, RawBlobs](ball, func(db DB) RawBlobs {
 			return db.Pieces()
 		})
-		// TODO: use this later for cached blobs. Without this, the normal implementation will be used.
-		// mud.View[*pieces.BlobsUsageCache, blobstore.Blobs](ball, func(cache *pieces.BlobsUsageCache) blobstore.Blobs {
-		//	return cache
-		// })
-		mud.View[RawBlobs, blobstore.Blobs](ball, func(blobs RawBlobs) blobstore.Blobs {
-			return blobs
-		})
+
+		mud.RegisterInterfaceImplementation[blobstore.Blobs, RawBlobs](ball)
 
 		mud.Provide[monitor.SpaceReport](ball, func(log *zap.Logger, store *pieces.Store, config monitor.Config) monitor.SpaceReport {
 			return monitor.NewDedicatedDisk(log, store, config.MinimumDiskSpace.Int64(), config.ReservedBytes.Int64())

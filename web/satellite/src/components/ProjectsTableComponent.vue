@@ -174,8 +174,8 @@ const headers: DataTableHeader[] = [
     { title: 'Project', key: 'name', align: 'start' },
     { title: 'Role', key: 'role' },
     { title: 'Members', key: 'memberCount' },
-    { title: 'Storage', key: 'storageUsed', sortable: false },
-    { title: 'Download', key: 'bandwidthUsed', sortable: false },
+    { title: 'Storage', key: 'storageUsed' },
+    { title: 'Download', key: 'bandwidthUsed' },
     { title: 'Date Added', key: 'createdAt' },
     { title: 'Actions', key: 'actions', sortable: false, width: '0' },
 ];
