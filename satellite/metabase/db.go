@@ -647,6 +647,17 @@ func (p *PostgresAdapter) PostgresMigration() *migrate.Migration {
 					`DROP TABLE IF EXISTS segment_copies`,
 				},
 			},
+			{
+				DB:          &db,
+				Description: "add searchable_metadata field to objects table",
+				Version:     21,
+				Action: migrate.SQL{
+					`ALTER TABLE objects ADD COLUMN searchable_metadata JSONB`,
+					`CREATE INDEX ON objects USING GIN (searchable_metadata)`,
+					`
+					COMMENT ON COLUMN objects.searchable_metadata is 'searchable_metadata is a JSONB field that contains metadata that is indexed for search purposes.';
+				`},
+			},
 		},
 	}
 }
