@@ -12,13 +12,22 @@ import (
 	"storj.io/storj/satellite"
 	"storj.io/storj/satellite/accounting"
 	"storj.io/storj/satellite/metabase"
+	"storj.io/storj/satellite/metainfo"
 	"storj.io/storj/satellite/orders"
 )
 
 // API is the satellite API process.
 //
 // architecture: Peer
-type API struct{}
+type API struct {
+	Log      *zap.Logger
+	Identity *identity.FullIdentity
+	DB       satellite.DB
+	Metainfo struct {
+		Metabase *metabase.DB
+		Endpoint *metainfo.Endpoint
+	}
+}
 
 type Config struct{}
 
