@@ -6,12 +6,14 @@ package satellitedb
 import (
 	"context"
 	"database/sql"
+	"encoding/base64"
 	"errors"
 	"fmt"
 	"sort"
 	"strings"
 	"time"
 
+	"cloud.google.com/go/spanner"
 	"github.com/spacemonkeygo/monkit/v3"
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
@@ -450,10 +452,11 @@ func (cache *overlaycache) GetNodes(ctx context.Context, nodeIDs storj.NodeIDLis
 		return nil, Error.New("no ids provided")
 	}
 
-	indexesToZero := []int{}
-
 	switch cache.db.impl {
 	case dbutil.Cockroach, dbutil.Postgres:
+
+		indexesToZero := []int{}
+
 		err = withRows(cache.db.Query(ctx, `
 			SELECT n.id, n.address, n.email, n.wallet, n.last_net, n.last_ip_port, n.country_code, n.piece_count, n.free_disk,
 				n.last_contact_success > $2 AS online,
@@ -493,58 +496,152 @@ func (cache *overlaycache) GetNodes(ctx context.Context, nodeIDs storj.NodeIDLis
 			}
 			return nil
 		})
+
+		if err != nil {
+			return nil, Error.Wrap(err)
+		}
+		for _, i := range indexesToZero {
+			records[i] = nodeselection.SelectedNode{}
+		}
+		return records, nil
+
 	case dbutil.Spanner:
+		records = make([]nodeselection.SelectedNode, len(nodeIDs))
 		err = withRows(cache.db.Query(ctx, `
-			SELECT n.id, n.address, n.email, n.wallet, n.last_net, n.last_ip_port, n.country_code, n.piece_count, n.free_disk,
-				n.last_contact_success > ? AS online,
-				(n.offline_suspended IS NOT NULL OR n.unknown_audit_suspended IS NOT NULL) AS suspended,
-				n.disqualified IS NOT NULL AS disqualified,
-				n.exit_initiated_at IS NOT NULL AS exiting,
-				n.exit_finished_at IS NOT NULL AS exited,
-				node_tags.name, node_tags.value, node_tags.signed_at, node_tags.signer,
-				n.vetted_at IS NOT NULL AS vetted
-			FROM (SELECT * FROM UNNEST (?) AS node_id WITH OFFSET AS ordinal) input
-			LEFT OUTER JOIN nodes n ON input.node_id = n.id
-            LEFT JOIN node_tags on node_tags.node_id = n.id
-			`+cache.db.impl.AsOfSystemInterval(asOfSystemInterval)+`
-			ORDER BY input.ordinal
+			SELECT id, address, email, wallet, last_net,
+				last_ip_port, country_code,
+				piece_count, free_disk,
+				last_contact_success > ? AS online,
+				(offline_suspended IS NOT NULL OR unknown_audit_suspended IS NOT NULL) AS suspended,
+				exit_initiated_at IS NOT NULL AS exiting,
+				vetted_at IS NOT NULL AS vetted,
+				TO_JSON(ARRAY(
+					SELECT AS STRUCT
+						node_tags.name as Name,
+						node_tags.value as Value,
+						node_tags.signed_at as SignedAt,
+						node_tags.signer as Signer
+					FROM node_tags
+					WHERE node_tags.node_id = id
+				)) AS tags
+			FROM nodes
+			WHERE nodes.id IN UNNEST(?)
+				AND disqualified IS NULL
+				AND exit_finished_at IS NULL
 			`, time.Now().Add(-onlineWindow), nodeIDs.Bytes(),
 		))(func(rows tagsql.Rows) error {
 			for rows.Next() {
-				node, tag, disqualifiedOrExited, err := scanSelectedNodeWithTagSpanner(rows)
+				var node nodeselection.SelectedNode
+				node.Address = &pb.NodeAddress{}
+				var lastIPPort, countryCode sql.NullString
+				var tagsJSON spanner.NullJSON
+
+				err = rows.Scan(
+					&node.ID, &node.Address.Address, &node.Email, &node.Wallet, &node.LastNet,
+					&lastIPPort, &countryCode,
+					&node.PieceCount, &node.FreeDisk,
+					&node.Online,
+					&node.Suspended,
+					&node.Exiting,
+					&node.Vetted,
+					&tagsJSON)
 				if err != nil {
-					return err
+					return Error.Wrap(err)
 				}
 
-				// just a joined new tag to the previous entry
-				if len(records) > 0 && !tag.NodeID.IsZero() && records[len(records)-1].ID == tag.NodeID {
-					records[len(records)-1].Tags = append(records[len(records)-1].Tags, tag)
-					continue
+				if lastIPPort.Valid {
+					node.LastIPPort = lastIPPort.String
+				}
+				if countryCode.Valid {
+					node.CountryCode = location.ToCountryCode(countryCode.String)
 				}
 
-				if tag.Name != "" {
-					node.Tags = append(node.Tags, tag)
+				if tagsJSON.Valid {
+					// TODO(spanner): use the struct types directly when https://github.com/googleapis/go-sql-spanner/issues/309 gets fixed.
+					node.Tags, err = spannerJSONToNodeTags(tagsJSON.Value)
+					if err != nil {
+						return Error.Wrap(err)
+					}
+
+					for i := range node.Tags {
+						node.Tags[i].NodeID = node.ID
+					}
 				}
 
-				records = append(records, node)
-				if disqualifiedOrExited {
-					indexesToZero = append(indexesToZero, len(records)-1)
+				for i, id := range nodeIDs {
+					if id == node.ID {
+						records[i] = node
+						break
+					}
 				}
 			}
 			return nil
 		})
+		if err != nil {
+			return nil, Error.Wrap(err)
+		}
+		return records, nil
 	default:
 		return nil, Error.New("unsupported implementation")
 	}
-	if err != nil {
-		return nil, Error.Wrap(err)
+}
+
+func spannerJSONToNodeTags(v any) ([]nodeselection.NodeTag, error) {
+	if v == nil {
+		return nil, nil
 	}
 
-	for _, i := range indexesToZero {
-		records[i] = nodeselection.SelectedNode{}
+	// TODO(spanner): use the struct types directly when https://github.com/googleapis/go-sql-spanner/issues/309
+	// gets fixed.
+	tagValues, ok := v.([]any)
+	if !ok {
+		return nil, Error.New("expected []any")
 	}
 
-	return records, Error.Wrap(err)
+	var tags []nodeselection.NodeTag
+	for _, tagValue := range tagValues {
+		fields, ok := tagValue.(map[string]any)
+		if !ok {
+			return nil, Error.New("expected fields")
+		}
+		var tag nodeselection.NodeTag
+		for field, value := range fields {
+			s, ok := value.(string)
+			if !ok {
+				return nil, Error.New("expected a string value")
+			}
+
+			switch field {
+			case "Name":
+				tag.Name = s
+			case "SignedAt":
+				var err error
+				tag.SignedAt, err = time.Parse(time.RFC3339Nano, s)
+				if err != nil {
+					return nil, Error.Wrap(err)
+				}
+			case "Signer":
+				signerBytes, err := base64.StdEncoding.DecodeString(s)
+				if err != nil {
+					return nil, Error.New("expected base64 from spanner: %w", err)
+				}
+				tag.Signer, err = storj.NodeIDFromBytes(signerBytes)
+				if err != nil {
+					return nil, Error.Wrap(err)
+				}
+			case "Value":
+				var err error
+				tag.Value, err = base64.StdEncoding.DecodeString(s)
+				if err != nil {
+					return nil, Error.New("expected base64 from spanner: %w", err)
+				}
+			default:
+				return nil, Error.New("unexpected field %q", field)
+			}
+		}
+		tags = append(tags, tag)
+	}
+	return tags, nil
 }
 
 // AccountingNodeInfo gets records for all specified nodes for accounting.
@@ -728,65 +825,6 @@ func scanSelectedNode(rows tagsql.Rows) (nodeselection.SelectedNode, error) {
 	node.Exiting = exiting.Bool
 	node.Vetted = vetted.Bool
 	return node, nil
-}
-
-func scanSelectedNodeWithTagSpanner(rows tagsql.Rows) (_ nodeselection.SelectedNode, _ nodeselection.NodeTag, disqualifiedOrExited bool, err error) {
-	var node nodeselection.SelectedNode
-	node.Address = &pb.NodeAddress{}
-	var nodeID []byte
-	var address, wallet, email, lastNet, lastIPPort, countryCode sql.NullString
-	var online, suspended, disqualified, exiting, exited, vetted sql.NullBool
-	var pieceCount sql.NullInt64
-	var freeDisk sql.NullInt64
-
-	var tag nodeselection.NodeTag
-	var name []byte
-	signedAt := &time.Time{}
-	signer := []byte{}
-
-	err = rows.Scan(&nodeID, &address, &email, &wallet, &lastNet, &lastIPPort, &countryCode, &pieceCount, &freeDisk,
-		&online, &suspended, &disqualified, &exiting, &exited, &name, &tag.Value, &signedAt, &signer, &vetted)
-	if err != nil {
-		return nodeselection.SelectedNode{}, nodeselection.NodeTag{}, true, err
-	}
-
-	// If node ID was null, no record was found for the specified ID. For our purposes
-	// here, we will treat that as equivalent to a node being DQ'd or exited.
-	if nodeID == nil {
-		// return an empty record
-		return nodeselection.SelectedNode{}, nodeselection.NodeTag{}, true, nil
-	}
-	// nodeID was valid, so from here on we assume all the other non-null fields are valid, per database constraints
-	node.ID = storj.NodeID(nodeID)
-	node.Address.Address = address.String
-	node.Email = email.String
-	node.Wallet = wallet.String
-	node.LastNet = lastNet.String
-	if lastIPPort.Valid {
-		node.LastIPPort = lastIPPort.String
-	}
-	if countryCode.Valid {
-		node.CountryCode = location.ToCountryCode(countryCode.String)
-	}
-	if pieceCount.Valid {
-		node.PieceCount = pieceCount.Int64
-	}
-	if freeDisk.Valid {
-		node.FreeDisk = freeDisk.Int64
-	}
-	node.Online = online.Bool
-	node.Suspended = suspended.Bool
-	node.Exiting = exiting.Bool
-	node.Vetted = vetted.Bool
-
-	if len(name) > 0 {
-		tag.Name = string(name)
-		tag.SignedAt = *signedAt
-		tag.Signer = storj.NodeID(signer)
-		tag.NodeID = node.ID
-	}
-
-	return node, tag, disqualified.Bool || exited.Bool, nil
 }
 
 func scanSelectedNodeWithTag(rows tagsql.Rows) (_ nodeselection.SelectedNode, _ nodeselection.NodeTag, disqualifiedOrExited bool, err error) {
