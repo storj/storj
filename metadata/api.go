@@ -39,8 +39,8 @@ func (r *RequestBody) Valid() bool {
 
 // metadata search repo represent a collection of operations on metadata
 type MetaSearchRepo interface {
-	View(path string) (meta string, err error)
-	Query(page int, query, path string) (meta string, err error)
+	View(path string) (meta map[string]interface{}, err error)
+	Query(page int, query, path string) (meta map[string]interface{}, err error)
 	CreateUpdate(path, metadata string) (err error)
 	Delete(path string) (err error)
 }
@@ -121,48 +121,79 @@ func (a *API) Run() {
 	http.ListenAndServe(a.Endpoint, mux)
 }
 
-func (h *MetaSearchHandler) ViewMetadata(w http.ResponseWriter, r *http.Request, reqBody *RequestBody) (meta string, err error) {
+func (h *MetaSearchHandler) ViewMetadata(w http.ResponseWriter, r *http.Request, reqBody *RequestBody) (meta map[string]interface{}, err error) {
+
+	/* TODO add a db repo
 	meta, err = h.repo.View(reqBody.Path)
 
 	if err != nil {
 		InternalServerErrorHandler(w, r)
 		return
 	}
+	*/
+
+	meta = map[string]interface{}{
+		"view": "meta",
+	}
+
+	jsonBytes, err := json.Marshal(meta)
+	if err != nil {
+		InternalServerErrorHandler(w, r)
+		return
+	}
 
 	w.WriteHeader(http.StatusOK)
+	w.Write(jsonBytes)
 	return
 }
 
-func (h *MetaSearchHandler) QueryMetadata(w http.ResponseWriter, r *http.Request, reqBody *RequestBody) (meta string, err error) {
+func (h *MetaSearchHandler) QueryMetadata(w http.ResponseWriter, r *http.Request, reqBody *RequestBody) (meta map[string]interface{}, err error) {
+	/* TODO add a db repo
 	meta, err = h.repo.Query(reqBody.Page, reqBody.Query, reqBody.Path)
 
 	if err != nil {
 		InternalServerErrorHandler(w, r)
 		return
 	}
+	*/
+
+	meta = map[string]interface{}{
+		"query": "meta",
+	}
+
+	jsonBytes, err := json.Marshal(meta)
+	if err != nil {
+		InternalServerErrorHandler(w, r)
+		return
+	}
 
 	w.WriteHeader(http.StatusOK)
+	w.Write(jsonBytes)
 	return
 }
 
 func (h *MetaSearchHandler) CreateUpdateMetadata(w http.ResponseWriter, r *http.Request, reqBody *RequestBody) (err error) {
+	/* TODO add a db repo
 	err = h.repo.CreateUpdate(reqBody.Path, reqBody.Meta)
 
 	if err != nil {
 		InternalServerErrorHandler(w, r)
 		return
 	}
+	*/
 
 	w.WriteHeader(http.StatusOK)
 	return
 }
 func (h *MetaSearchHandler) DeleteMetadata(w http.ResponseWriter, r *http.Request, reqBody *RequestBody) (err error) {
+	/* TODO add a db repo
 	err = h.repo.Delete(reqBody.Path)
 
 	if err != nil {
 		InternalServerErrorHandler(w, r)
 		return
 	}
+	*/
 
 	w.WriteHeader(http.StatusOK)
 
