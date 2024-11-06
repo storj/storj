@@ -11,6 +11,7 @@ import (
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
 
+	"storj.io/storj/metadata"
 	"storj.io/storj/satellite/metabase"
 	"storj.io/storj/satellite/satellitedb"
 )
@@ -36,7 +37,7 @@ func main() {
 	}()
 
 	metabaseURL := os.Getenv("STORJ_METAINFO_DATABASE_URL")
-	metabaseDB, err := metabase.Open(ctx, log.Named("metabase"), metabaseURL,
+	metabase, err := metabase.Open(ctx, log.Named("metabase"), metabaseURL,
 		metabase.Config{
 			ApplicationName: "metadata-api",
 		},
@@ -46,6 +47,14 @@ func main() {
 		return
 	}
 	defer func() {
-		err = errs.Combine(err, metabaseDB.Close())
+		err = errs.Combine(err, metabase.Close())
 	}()
+
+	endpoint := os.Getenv("STORJ_METADATA_ENDPOINT")
+	metadataAPI, err := metadata.NewAPI(log, db, metabase, endpoint)
+	if err != nil {
+		log.Error("Error creating metadata api:", zap.Error(err))
+		return
+	}
+	metadataAPI.Run()
 }
