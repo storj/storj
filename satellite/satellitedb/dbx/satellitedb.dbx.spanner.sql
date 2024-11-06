@@ -233,6 +233,7 @@ CREATE TABLE projects (
 	user_agent BYTES(MAX),
 	owner_id BYTES(MAX) NOT NULL,
 	salt BYTES(MAX),
+	status INT64 DEFAULT (1),
 	created_at TIMESTAMP NOT NULL,
 	default_placement INT64,
 	default_versioning INT64 NOT NULL DEFAULT (1),
