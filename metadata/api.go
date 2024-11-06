@@ -47,7 +47,13 @@ type MetaSearchRepo interface {
 
 // metadata search handler implements http.Handler and dispatch request to the repo
 type MetaSearchHandler struct {
-	repo MetaSearchRepo
+	repo   MetaSearchRepo
+	logger *zap.Logger
+}
+
+func BadRequestHandler(w http.ResponseWriter, r *http.Request) {
+	w.WriteHeader(http.StatusBadRequest)
+	w.Write([]byte("400 Bad Request"))
 }
 
 func InternalServerErrorHandler(w http.ResponseWriter, r *http.Request) {
@@ -60,21 +66,24 @@ func NotFoundHandler(w http.ResponseWriter, r *http.Request) {
 	w.Write([]byte("404 Not Found"))
 }
 
-func NewMetaSearchHandler(r MetaSearchRepo) *MetaSearchHandler {
+func NewMetaSearchHandler(r MetaSearchRepo, logger *zap.Logger) *MetaSearchHandler {
 	return &MetaSearchHandler{
-		repo: r,
+		logger: logger,
+		repo:   r,
 	}
 }
 
 func (h *MetaSearchHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	var reqBody RequestBody
 	if err := json.NewDecoder(r.Body).Decode(&reqBody); err != nil {
-		InternalServerErrorHandler(w, r)
+		h.logger.Warn("error decoding request body", zap.Error(err))
+		BadRequestHandler(w, r)
 		return
 	}
 
 	if !reqBody.Valid() {
-		InternalServerErrorHandler(w, r)
+		h.logger.Warn("invalid request body")
+		BadRequestHandler(w, r)
 		return
 	}
 
@@ -110,15 +119,17 @@ func NewAPI(log *zap.Logger, db satellite.DB, metabase *metabase.DB, endpoint st
 	return peer, nil
 }
 
-func (a *API) Run() {
+func (a *API) Run() error {
 	mux := http.NewServeMux()
 
+	handler := NewMetaSearchHandler(nil, a.Log)
+
 	// Register the routes and handlers
-	mux.Handle("/meta_search", &MetaSearchHandler{})
-	mux.Handle("/meta_search/", &MetaSearchHandler{})
+	mux.Handle("/meta_search", handler)
+	mux.Handle("/meta_search/", handler)
 
 	// Run the server
-	http.ListenAndServe(a.Endpoint, mux)
+	return http.ListenAndServe(a.Endpoint, mux)
 }
 
 func (h *MetaSearchHandler) ViewMetadata(w http.ResponseWriter, r *http.Request, reqBody *RequestBody) (meta map[string]interface{}, err error) {
@@ -138,6 +149,7 @@ func (h *MetaSearchHandler) ViewMetadata(w http.ResponseWriter, r *http.Request,
 
 	jsonBytes, err := json.Marshal(meta)
 	if err != nil {
+		h.logger.Error("error marshalling json", zap.Error(err))
 		InternalServerErrorHandler(w, r)
 		return
 	}
@@ -163,6 +175,7 @@ func (h *MetaSearchHandler) QueryMetadata(w http.ResponseWriter, r *http.Request
 
 	jsonBytes, err := json.Marshal(meta)
 	if err != nil {
+		h.logger.Error("error marshalling json", zap.Error(err))
 		InternalServerErrorHandler(w, r)
 		return
 	}

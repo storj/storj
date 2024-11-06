@@ -9,7 +9,6 @@ import (
 
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
-	"go.uber.org/zap/zapcore"
 
 	"storj.io/storj/metadata"
 	"storj.io/storj/satellite/metabase"
@@ -18,11 +17,12 @@ import (
 
 func main() {
 	ctx := context.Background()
-	log, _ := zap.Config{
-		Encoding:    "json",
-		Level:       zap.NewAtomicLevelAt(zapcore.DebugLevel),
-		OutputPaths: []string{"stdout"},
-	}.Build()
+	log, err := zap.NewDevelopment()
+	if err != nil {
+		panic(err)
+	}
+
+	defer log.Sync()
 
 	databaseURL := os.Getenv("STORJ_DATABASE")
 	db, err := satellitedb.Open(ctx, log.Named("db"), databaseURL, satellitedb.Options{
@@ -56,5 +56,9 @@ func main() {
 		log.Error("Error creating metadata api:", zap.Error(err))
 		return
 	}
-	metadataAPI.Run()
+	err = metadataAPI.Run()
+	if err != nil {
+		log.Error("Error running metadata api:", zap.Error(err))
+		return
+	}
 }
