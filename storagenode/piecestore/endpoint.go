@@ -124,11 +124,6 @@ type RestoreTrash interface {
 	StartRestore(ctx context.Context, satellite storj.NodeID) error
 }
 
-// EnqueueDeletes is an interface for enqueuing deletes.
-type EnqueueDeletes interface {
-	Enqueue(ctx context.Context, satelliteID storj.NodeID, pieceIDs []storj.PieceID) (unhandled int)
-}
-
 // NewEndpoint creates a new piecestore endpoint.
 func NewEndpoint(log *zap.Logger, ident *identity.FullIdentity, trust *trust.Pool, monitor *monitor.Service, retain QueueRetain, pingStats PingStatsSource, pieceBackend PieceBackend, ordersStore *orders.FileStore, usage bandwidth.DB, usedSerials *usedserials.Table, config Config) (*Endpoint, error) {
 	return &Endpoint{

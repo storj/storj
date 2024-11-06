@@ -276,10 +276,6 @@ func Module(ball *mud.Ball) {
 
 		mud.Provide[*pieces.Store](ball, pieces.NewStore, logWrapper("pieces"))
 
-		mud.Provide[*pieces.Deleter](ball, func(log *zap.Logger, store *pieces.Store, storage2Config piecestore.Config) *pieces.Deleter {
-			return pieces.NewDeleter(log, store, storage2Config.DeleteWorkers, storage2Config.DeleteQueueSize)
-		}, logWrapper("piecedeleter"))
-
 		mud.Provide[*pieces.BlobsUsageCache](ball, func(log *zap.Logger, blobs RawBlobs) *pieces.BlobsUsageCache {
 			return pieces.NewBlobsUsageCache(log, blobs)
 		}, logWrapper("blobscache"))
@@ -325,7 +321,6 @@ func Module(ball *mud.Ball) {
 		})
 
 		mud.RegisterInterfaceImplementation[piecestore.RestoreTrash, *pieces.TrashChore](ball)
-		mud.RegisterInterfaceImplementation[piecestore.EnqueueDeletes, *pieces.Deleter](ball)
 		mud.RegisterInterfaceImplementation[piecestore.QueueRetain, *retain.Service](ball)
 
 		mud.Provide[piecestore.PieceBackend](ball,
