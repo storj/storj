@@ -107,6 +107,17 @@ func TestService(t *testing.T) {
 				return
 			}
 
+			disableProject := func(ctx context.Context, projectID uuid.UUID) {
+				err = sat.API.DB.Console().Projects().UpdateStatus(ctx, projectID, console.ProjectDisabled)
+				require.NoError(t, err)
+			}
+
+			disabledProject, err := service.CreateProject(userCtx1, console.UpsertProjectInfo{Name: "disabled project"})
+			require.NoError(t, err)
+			require.NotNil(t, disabledProject)
+
+			disableProject(ctx, disabledProject.ID)
+
 			t.Run("GetUserHasVarPartner", func(t *testing.T) {
 				varUser, err := sat.AddUser(ctx, console.CreateUser{
 					FullName:  "Var User",
@@ -148,9 +159,18 @@ func TestService(t *testing.T) {
 				project, err = service.GetProject(userCtx1, up2Proj.ID)
 				require.Error(t, err)
 				require.Nil(t, project)
+
+				_, err = service.GetProject(userCtx1, disabledProject.ID)
+				require.True(t, console.ErrUnauthorized.Has(err))
 			})
 
 			t.Run("GetUsersProjects", func(t *testing.T) {
+				newProject, err := service.CreateProject(userCtx3, console.UpsertProjectInfo{Name: "new project"})
+				require.NoError(t, err)
+				require.NotNil(t, newProject)
+
+				disableProject(ctx, newProject.ID)
+
 				projects, err := service.GetUsersProjects(userCtx3)
 				require.NoError(t, err)
 				require.Len(t, projects, 1)
@@ -204,6 +224,10 @@ func TestService(t *testing.T) {
 				// Getting project salt as a non-member should not work
 				salt, err = service.GetSalt(userCtx1, up2Proj.ID)
 				require.Error(t, err)
+				require.Nil(t, salt)
+
+				salt, err = service.GetSalt(userCtx1, disabledProject.ID)
+				require.True(t, console.ErrUnauthorized.Has(err))
 				require.Nil(t, salt)
 			})
 
@@ -390,6 +414,7 @@ func TestService(t *testing.T) {
 					CreatedAt:   time.Now(),
 				})
 				require.NoError(t, err)
+				require.Equal(t, console.ProjectActive, *p.Status)
 				require.Equal(t, storj.EU, p.DefaultPlacement)
 			})
 
@@ -417,6 +442,7 @@ func TestService(t *testing.T) {
 				require.Equal(t, *up1Proj.BandwidthLimit, *updatedProject.BandwidthLimit)
 				require.Equal(t, updatedStorageLimit, *updatedProject.UserSpecifiedStorageLimit)
 				require.Equal(t, updatedBandwidthLimit, *updatedProject.UserSpecifiedBandwidthLimit)
+				require.Equal(t, console.ProjectActive, *updatedProject.Status)
 
 				// Updating someone else project details should not work
 				updatedProject, err = service.UpdateProject(userCtx1, up2Proj.ID, console.UpsertProjectInfo{
@@ -527,6 +553,9 @@ func TestService(t *testing.T) {
 				// remove user2.
 				err = service.DeleteProjectMembersAndInvitations(userCtx1, up1Proj.ID, []string{user2.Email})
 				require.NoError(t, err)
+
+				_, err = service.UpdateProject(userCtx1, disabledProject.ID, console.UpsertProjectInfo{Name: updatedName})
+				require.Error(t, err)
 			})
 
 			t.Run("UpdateUserSpecifiedProjectLimits", func(t *testing.T) {
@@ -577,6 +606,9 @@ func TestService(t *testing.T) {
 				require.NoError(t, err)
 				require.Nil(t, project.UserSpecifiedStorageLimit)
 				require.Equal(t, updatedBandwidthLimit, *project.UserSpecifiedBandwidthLimit)
+
+				err = service.UpdateUserSpecifiedLimits(userCtx1, disabledProject.ID, console.UpdateLimitsInfo{StorageLimit: &limit0})
+				require.True(t, console.ErrUnauthorized.Has(err))
 			})
 
 			t.Run("AddProjectMembers", func(t *testing.T) {
@@ -592,6 +624,9 @@ func TestService(t *testing.T) {
 				addedUsers, err = service.AddProjectMembers(userCtx1, up2Proj.ID, []string{up2User.Email})
 				require.Error(t, err)
 				require.Nil(t, addedUsers)
+
+				_, err = service.AddProjectMembers(userCtx1, disabledProject.ID, []string{up2User.Email})
+				require.True(t, console.ErrUnauthorized.Has(err))
 			})
 
 			t.Run("GetProjectMembersAndInvitations", func(t *testing.T) {
@@ -621,6 +656,13 @@ func TestService(t *testing.T) {
 				)
 				require.Error(t, err)
 				require.Nil(t, userPage)
+
+				_, err = service.GetProjectMembersAndInvitations(
+					userCtx1,
+					disabledProject.ID,
+					console.ProjectMembersCursor{Page: 1, Limit: 10},
+				)
+				require.True(t, console.ErrUnauthorized.Has(err))
 			})
 
 			t.Run("UpdateProjectMemberRole", func(t *testing.T) {
@@ -649,6 +691,9 @@ func TestService(t *testing.T) {
 				pm, err := service.UpdateProjectMemberRole(userCtx1, newUser.ID, up1Proj.ID, console.RoleAdmin)
 				require.NoError(t, err)
 				require.EqualValues(t, console.RoleAdmin, pm.Role)
+
+				_, err = service.UpdateProjectMemberRole(userCtx1, newUser.ID, disabledProject.ID, console.RoleAdmin)
+				require.Error(t, err)
 			})
 
 			t.Run("DeleteProjectMembersAndInvitations", func(t *testing.T) {
@@ -700,7 +745,7 @@ func TestService(t *testing.T) {
 
 				memberships, err := sat.DB.Console().ProjectMembers().GetByMemberID(ctx, user1.ID)
 				require.NoError(t, err)
-				require.Len(t, memberships, 1)
+				require.Len(t, memberships, 2)
 				require.NotEqual(t, up2Proj.ID, memberships[0].ProjectID)
 
 				err = service.RespondToProjectInvitation(invitedUserCtx, up1Proj.ID, console.ProjectInvitationAccept)
@@ -720,6 +765,13 @@ func TestService(t *testing.T) {
 
 				_, err = sat.DB.Console().ProjectMembers().GetByMemberIDAndProjectID(ctx, invitedMember.MemberID, up1Proj.ID)
 				require.ErrorIs(t, err, sql.ErrNoRows)
+
+				err = service.DeleteProjectMembersAndInvitations(
+					userCtx1,
+					disabledProject.ID,
+					[]string{invitedUser.Email, "nobody@mail.test"},
+				)
+				require.True(t, console.ErrUnauthorized.Has(err))
 			})
 
 			t.Run("CreateAPIKey", func(t *testing.T) {
@@ -727,6 +779,9 @@ func TestService(t *testing.T) {
 				require.NoError(t, err)
 				require.NotNil(t, createdAPIKey)
 				require.Equal(t, up2Proj.OwnerID, createdAPIKey.CreatedBy)
+
+				_, _, err = service.CreateAPIKey(userCtx1, disabledProject.ID, "test key", macaroon.APIKeyVersionMin)
+				require.True(t, console.ErrUnauthorized.Has(err))
 			})
 
 			t.Run("DeleteAPIKeys", func(t *testing.T) {
@@ -817,6 +872,9 @@ func TestService(t *testing.T) {
 				pm, err = service.GetProjectMember(memberCtx, member.ID, pr.ID)
 				require.NoError(t, err)
 				require.Equal(t, console.RoleMember, pm.Role)
+
+				_, err = service.GetProjectMember(userCtx1, member.ID, disabledProject.ID)
+				require.True(t, console.ErrNoMembership.Has(err))
 			})
 
 			t.Run("GetProjectUsageLimits", func(t *testing.T) {
@@ -950,6 +1008,9 @@ func TestService(t *testing.T) {
 				require.NoError(t, err)
 				require.NotNil(t, limits2)
 				require.Equal(t, settledAmount+settledAmount, limits2.BandwidthUsed)
+
+				_, err = service.GetProjectUsageLimits(userCtx1, disabledProject.PublicID)
+				require.True(t, console.ErrUnauthorized.Has(err))
 			})
 
 			t.Run("GetAllBucketNames", func(t *testing.T) {
@@ -985,6 +1046,9 @@ func TestService(t *testing.T) {
 				bucketsForUnauthorizedUser, err := service.GetAllBucketNames(userCtx1, up2Proj.ID)
 				require.Error(t, err)
 				require.Nil(t, bucketsForUnauthorizedUser)
+
+				_, err = service.GetAllBucketNames(userCtx1, disabledProject.ID)
+				require.True(t, console.ErrUnauthorized.Has(err))
 			})
 
 			t.Run("GetBucketTotals", func(t *testing.T) {
@@ -1004,6 +1068,9 @@ func TestService(t *testing.T) {
 				for _, b := range bt.BucketUsages {
 					require.Equal(t, placements[int(b.DefaultPlacement)], b.Location)
 				}
+
+				_, err = service.GetBucketTotals(userCtx1, disabledProject.ID, accounting.BucketUsageCursor{Limit: 100, Page: 1}, time.Now())
+				require.True(t, console.ErrUnauthorized.Has(err))
 			})
 
 			t.Run("GetSingleBucketTotals", func(t *testing.T) {
@@ -1039,6 +1106,9 @@ func TestService(t *testing.T) {
 				require.NoError(t, err)
 				require.Equal(t, storj.EU, bt.DefaultPlacement)
 				require.Equal(t, buckets.VersioningEnabled, bt.Versioning)
+
+				_, err = service.GetSingleBucketTotals(userCtx1, disabledProject.ID, storedBucket.Name, time.Now())
+				require.True(t, console.ErrUnauthorized.Has(err))
 			})
 
 			t.Run("GetBucketMetadata", func(t *testing.T) {
@@ -1062,6 +1132,9 @@ func TestService(t *testing.T) {
 					}
 					require.Fail(t, "bucket name not in list", b.Name)
 				}
+
+				_, err = service.GetBucketMetadata(userCtx1, disabledProject.ID)
+				require.True(t, console.ErrUnauthorized.Has(err))
 			})
 
 			t.Run("DeleteAPIKeyByNameAndProjectID", func(t *testing.T) {
@@ -1110,6 +1183,9 @@ func TestService(t *testing.T) {
 				info, err = sat.DB.Console().APIKeys().Get(ctx, createdKey.ID)
 				require.Error(t, err)
 				require.Nil(t, info)
+
+				err = service.DeleteAPIKeyByNameAndProjectID(userCtx1, apikey.Name, disabledProject.ID)
+				require.True(t, console.ErrUnauthorized.Has(err))
 			})
 			t.Run("ApplyFreeTierCoupon", func(t *testing.T) {
 				// testplanet applies the free tier coupon first, so we need to change it in order
@@ -1244,6 +1320,9 @@ func TestService(t *testing.T) {
 				require.Greater(t, impact.StorjImpact, zeroValue)
 				require.Greater(t, impact.HyperscalerImpact, zeroValue)
 				require.Greater(t, impact.SavedTrees, int64(0))
+
+				_, err = service.GetEmissionImpact(userCtx1, disabledProject.ID)
+				require.True(t, console.ErrUnauthorized.Has(err))
 			})
 			t.Run("GetUsageReport", func(t *testing.T) {
 				usr, err := sat.AddUser(ctx, console.CreateUser{
@@ -1309,9 +1388,16 @@ func TestService(t *testing.T) {
 				items, err = service.GetUsageReport(usrCtx, now, inAnHour, uuid.UUID{})
 				require.NoError(t, err)
 				require.Len(t, items, 2)
+
+				_, err = service.GetUsageReport(userCtx1, now, inAnHour, disabledProject.ID)
+				require.True(t, console.ErrUnauthorized.Has(err))
 			})
 
 			t.Run("GetProjectConfig", func(t *testing.T) {
+				newLimit := 5
+				err = sat.DB.Console().Users().Update(ctx, up1Proj.OwnerID, console.UpdateUserRequest{ProjectLimit: &newLimit})
+				require.NoError(t, err)
+
 				pr, err := sat.AddProject(userCtx1, up1Proj.OwnerID, "config test")
 				require.NoError(t, err)
 				require.NotNil(t, pr)
@@ -1460,6 +1546,9 @@ func TestService(t *testing.T) {
 				config, err = service.GetProjectConfig(userCtx1, pr.ID)
 				require.NoError(t, err)
 				require.False(t, config.ObjectLockUIEnabled)
+
+				_, err = service.GetProjectConfig(userCtx1, disabledProject.ID)
+				require.True(t, console.ErrUnauthorized.Has(err))
 			})
 		})
 }

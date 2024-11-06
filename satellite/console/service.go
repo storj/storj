@@ -2878,7 +2878,7 @@ func (s *Service) GetProject(ctx context.Context, projectID uuid.UUID) (p *Proje
 
 	isMember, err := s.isProjectMember(ctx, user.ID, projectID)
 	if err != nil {
-		return nil, Error.Wrap(err)
+		return nil, ErrUnauthorized.Wrap(err)
 	}
 
 	p = isMember.project
@@ -2918,7 +2918,7 @@ func (s *Service) GetSalt(ctx context.Context, projectID uuid.UUID) (salt []byte
 
 	isMember, err := s.isProjectMember(ctx, user.ID, projectID)
 	if err != nil {
-		return nil, Error.Wrap(err)
+		return nil, ErrUnauthorized.Wrap(err)
 	}
 
 	return s.store.Projects().GetSalt(ctx, isMember.project.ID)
@@ -2942,7 +2942,7 @@ func (s *Service) GetEmissionImpact(ctx context.Context, projectID uuid.UUID) (*
 
 	isMember, err := s.isProjectMember(ctx, user.ID, projectID)
 	if err != nil {
-		return nil, ErrNoMembership.Wrap(err)
+		return nil, ErrUnauthorized.Wrap(err)
 	}
 
 	storageUsed, err := s.projectUsage.GetProjectStorageTotals(ctx, isMember.project.ID)
@@ -2988,7 +2988,7 @@ func (s *Service) GetProjectConfig(ctx context.Context, projectID uuid.UUID) (*P
 
 	isMember, err := s.isProjectMember(ctx, user.ID, projectID)
 	if err != nil {
-		return nil, ErrNoMembership.Wrap(err)
+		return nil, ErrUnauthorized.Wrap(err)
 	}
 
 	project := isMember.project
@@ -3070,7 +3070,7 @@ func (s *Service) GetUsersProjects(ctx context.Context) (ps []Project, err error
 		return nil, Error.Wrap(err)
 	}
 
-	ps, err = s.store.Projects().GetByUserID(ctx, user.ID)
+	ps, err = s.store.Projects().GetActiveByUserID(ctx, user.ID)
 	if err != nil {
 		return nil, Error.Wrap(err)
 	}
@@ -3080,10 +3080,11 @@ func (s *Service) GetUsersProjects(ctx context.Context) (ps []Project, err error
 		if err != nil {
 			return nil, Error.Wrap(err)
 		}
+
 		ps[i] = project
 	}
 
-	return
+	return ps, nil
 }
 
 // GetMinimalProject returns a ProjectInfo copy of a project.
@@ -3139,12 +3140,16 @@ func (s *Service) GetUsersOwnedProjectsPage(ctx context.Context, cursor Projects
 		return ProjectsPage{}, Error.Wrap(err)
 	}
 
-	projects, err := s.store.Projects().ListByOwnerID(ctx, user.ID, cursor)
+	if cursor.Limit > maxLimit {
+		cursor.Limit = maxLimit
+	}
+
+	page, err := s.store.Projects().ListActiveByOwnerID(ctx, user.ID, cursor)
 	if err != nil {
 		return ProjectsPage{}, Error.Wrap(err)
 	}
 
-	return projects, nil
+	return page, nil
 }
 
 // CreateProject is a method for creating new project.
@@ -3444,7 +3449,7 @@ func (s *Service) UpdateUserSpecifiedLimits(ctx context.Context, projectID uuid.
 
 	isMember, err := s.isProjectMember(ctx, user.ID, projectID)
 	if err != nil {
-		return ErrNoMembership.Wrap(err)
+		return ErrUnauthorized.Wrap(err)
 	}
 	project := isMember.project
 
@@ -3758,7 +3763,7 @@ func (s *Service) AddProjectMembers(ctx context.Context, projectID uuid.UUID, em
 
 	isMember, err := s.isProjectMember(ctx, user.ID, projectID)
 	if err != nil {
-		return nil, Error.Wrap(err)
+		return nil, ErrUnauthorized.Wrap(err)
 	}
 
 	// collect user querying errors
@@ -3805,7 +3810,7 @@ func (s *Service) DeleteProjectMembersAndInvitations(ctx context.Context, projec
 
 	var isMember isProjectMember
 	if isMember, err = s.isProjectMember(ctx, user.ID, projectID); err != nil {
-		return Error.Wrap(err)
+		return ErrUnauthorized.Wrap(err)
 	}
 
 	if isMember.membership.Role != RoleAdmin {
@@ -3940,7 +3945,7 @@ func (s *Service) GetProjectMembersAndInvitations(ctx context.Context, projectID
 
 	_, err = s.isProjectMember(ctx, user.ID, projectID)
 	if err != nil {
-		return nil, Error.Wrap(err)
+		return nil, ErrUnauthorized.Wrap(err)
 	}
 
 	if cursor.Limit > maxLimit {
@@ -3967,7 +3972,7 @@ func (s *Service) CreateAPIKey(ctx context.Context, projectID uuid.UUID, name st
 
 	isMember, err := s.isProjectMember(ctx, user.ID, projectID)
 	if err != nil {
-		return nil, nil, Error.Wrap(err)
+		return nil, nil, ErrUnauthorized.Wrap(err)
 	}
 
 	_, err = s.store.APIKeys().GetByNameAndProjectID(ctx, name, isMember.project.ID)
@@ -4149,7 +4154,7 @@ func (s *Service) GetAPIKeyInfoByName(ctx context.Context, projectID uuid.UUID, 
 
 	_, err = s.isProjectMember(ctx, user.ID, key.ProjectID)
 	if err != nil {
-		return nil, Error.Wrap(err)
+		return nil, ErrUnauthorized.Wrap(err)
 	}
 
 	return key, nil
@@ -4171,7 +4176,7 @@ func (s *Service) GetAPIKeyInfo(ctx context.Context, id uuid.UUID) (_ *APIKeyInf
 
 	_, err = s.isProjectMember(ctx, user.ID, key.ProjectID)
 	if err != nil {
-		return nil, Error.Wrap(err)
+		return nil, ErrUnauthorized.Wrap(err)
 	}
 
 	return key, nil
@@ -4355,7 +4360,7 @@ func (s *Service) GetProjectUsage(ctx context.Context, projectID uuid.UUID, sinc
 
 	_, err = s.isProjectMember(ctx, user.ID, projectID)
 	if err != nil {
-		return nil, Error.Wrap(err)
+		return nil, ErrUnauthorized.Wrap(err)
 	}
 
 	projectUsage, err := s.projectAccounting.GetProjectTotal(ctx, projectID, since, before)
@@ -4511,7 +4516,7 @@ func (s *Service) GetUsageReport(ctx context.Context, since, before time.Time, p
 	var projects []Project
 
 	if projectID.IsZero() {
-		pr, err := s.store.Projects().GetOwn(ctx, user.ID)
+		pr, err := s.store.Projects().GetOwnActive(ctx, user.ID)
 		if err != nil {
 			return nil, Error.Wrap(err)
 		}
@@ -4642,7 +4647,7 @@ func (s *Service) GetDailyProjectUsage(ctx context.Context, projectID uuid.UUID,
 
 	isMember, err := s.isProjectMember(ctx, user.ID, projectID)
 	if err != nil {
-		return nil, Error.Wrap(err)
+		return nil, ErrUnauthorized.Wrap(err)
 	}
 
 	usage, err := s.projectAccounting.GetProjectDailyUsageByDateRange(ctx, isMember.project.ID, from, to, s.config.AsOfSystemTimeDuration)
@@ -4667,7 +4672,7 @@ func (s *Service) GetProjectUsageLimits(ctx context.Context, projectID uuid.UUID
 
 	isMember, err := s.isProjectMember(ctx, user.ID, projectID)
 	if err != nil {
-		return nil, Error.Wrap(err)
+		return nil, ErrUnauthorized.Wrap(err)
 	}
 
 	prUsageLimits, err := s.getProjectUsageLimits(ctx, isMember.project.ID, false)
@@ -4695,7 +4700,7 @@ func (s *Service) GetTotalUsageLimits(ctx context.Context) (_ *ProjectUsageLimit
 		return nil, Error.Wrap(err)
 	}
 
-	projects, err := s.store.Projects().GetOwn(ctx, user.ID)
+	projects, err := s.store.Projects().GetOwnActive(ctx, user.ID)
 	if err != nil {
 		return nil, Error.Wrap(err)
 	}
@@ -4996,6 +5001,10 @@ func (s *Service) isProjectOwner(ctx context.Context, userID uuid.UUID, projectI
 		return false, nil, err
 	}
 
+	if project.Status != nil && *project.Status == ProjectDisabled {
+		return false, nil, errs.New(unauthorizedErrMsg)
+	}
+
 	if project.OwnerID != userID {
 		return false, nil, ErrUnauthorized.New(unauthorizedErrMsg)
 	}
@@ -5013,9 +5022,13 @@ func (s *Service) isProjectMember(ctx context.Context, userID uuid.UUID, project
 		return isProjectMember{}, err
 	}
 
+	if project.Status != nil && *project.Status == ProjectDisabled {
+		return isProjectMember{}, errs.New(unauthorizedErrMsg)
+	}
+
 	memberships, err := s.store.ProjectMembers().GetByMemberID(ctx, userID)
 	if err != nil {
-		return isProjectMember{}, Error.Wrap(err)
+		return isProjectMember{}, err
 	}
 
 	membership, ok := findMembershipByProjectID(memberships, project.ID)
@@ -5506,7 +5519,7 @@ func (s *Service) GetUserProjectInvitations(ctx context.Context) (_ []ProjectInv
 		return nil, Error.Wrap(err)
 	}
 
-	invites, err := s.store.ProjectInvitations().GetByEmail(ctx, user.Email)
+	invites, err := s.store.ProjectInvitations().GetForActiveProjectsByEmail(ctx, user.Email)
 	if err != nil {
 		return nil, Error.Wrap(err)
 	}
@@ -5556,6 +5569,11 @@ func (s *Service) RespondToProjectInvitation(ctx context.Context, projectID uuid
 	if err != nil {
 		return Error.Wrap(err)
 	}
+
+	if proj.Status != nil && *proj.Status == ProjectDisabled {
+		return ErrUnauthorized.New(unauthorizedErrMsg)
+	}
+
 	projectID = proj.ID
 
 	// log deletion errors that don't affect the outcome
@@ -5666,7 +5684,7 @@ func (s *Service) inviteProjectMembers(ctx context.Context, sender *User, projec
 
 	isMember, err := s.isProjectMember(ctx, sender.ID, projectID)
 	if err != nil {
-		return nil, Error.Wrap(err)
+		return nil, ErrUnauthorized.Wrap(err)
 	}
 
 	if isMember.membership.Role != RoleAdmin {
@@ -5865,7 +5883,7 @@ func (s *Service) GetInviteLink(ctx context.Context, publicProjectID uuid.UUID, 
 
 	isMember, err := s.isProjectMember(ctx, user.ID, publicProjectID)
 	if err != nil {
-		return "", Error.Wrap(err)
+		return "", ErrUnauthorized.Wrap(err)
 	}
 
 	invite, err := s.store.ProjectInvitations().Get(ctx, isMember.project.ID, email)
