@@ -289,8 +289,8 @@ func Module(ball *mud.Ball) {
 
 		mud.RegisterInterfaceImplementation[blobstore.Blobs, RawBlobs](ball)
 
-		mud.Provide[monitor.SpaceReport](ball, func(log *zap.Logger, store *pieces.Store, config monitor.Config) monitor.SpaceReport {
-			return monitor.NewDedicatedDisk(log, store, config.MinimumDiskSpace.Int64(), config.ReservedBytes.Int64())
+		mud.Provide[monitor.SpaceReport](ball, func(log *zap.Logger, oldConfig piecestore.OldConfig, config monitor.Config) monitor.SpaceReport {
+			return monitor.NewDedicatedDisk(log, oldConfig.Path, config.MinimumDiskSpace.Int64(), config.ReservedBytes.Int64())
 		})
 		config.RegisterConfig[monitor.Config](ball, "monitor")
 
