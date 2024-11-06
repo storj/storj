@@ -141,7 +141,23 @@ func (a *Auth) AuthenticateSso(w http.ResponseWriter, r *http.Request) {
 
 	ssoFailedAddr := strings.TrimSuffix(a.ExternalAddress, "/") + "/login?sso_failed=true"
 
-	provider, claims, err := a.verifySsoAuth(r)
+	provider := mux.Vars(r)["provider"]
+
+	ssoState := r.URL.Query().Get("state")
+	if ssoState == "" {
+		a.log.Error("Error verifying SSO auth", zap.Error(console.ErrValidation.New("missing email hash")))
+		http.Redirect(w, r, ssoFailedAddr, http.StatusPermanentRedirect)
+		return
+	}
+
+	code := r.URL.Query().Get("code")
+	if code == "" {
+		a.log.Error("Error verifying SSO auth", zap.Error(console.ErrValidation.New("missing auth code")))
+		http.Redirect(w, r, ssoFailedAddr, http.StatusPermanentRedirect)
+		return
+	}
+
+	claims, err := a.ssoService.VerifySso(ctx, provider, ssoState, code)
 	if err != nil {
 		a.log.Error("Error verifying SSO auth", zap.Error(err))
 		http.Redirect(w, r, ssoFailedAddr, http.StatusPermanentRedirect)
@@ -160,6 +176,7 @@ func (a *Auth) AuthenticateSso(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		a.log.Error("Error getting user for sso auth", zap.Error(err))
 		http.Redirect(w, r, ssoFailedAddr, http.StatusPermanentRedirect)
+		return
 	}
 
 	tokenInfo, err := a.service.GenerateSessionToken(ctx, user.ID, user.Email, ip, userAgent, nil)
@@ -172,52 +189,6 @@ func (a *Auth) AuthenticateSso(w http.ResponseWriter, r *http.Request) {
 	a.cookieAuth.SetTokenCookie(w, *tokenInfo)
 
 	http.Redirect(w, r, a.ExternalAddress, http.StatusFound)
-}
-
-// verifySsoAuth verifies the SSO authentication.
-func (a *Auth) verifySsoAuth(r *http.Request) (provider string, _ *sso.OidcSsoClaims, err error) {
-	ctx := r.Context()
-
-	provider = mux.Vars(r)["provider"]
-	oidcSetup := a.ssoService.GetOidcSetupByProvider(provider)
-	if oidcSetup == nil {
-		return "", nil, console.ErrValidation.New("invalid provider %s", provider)
-	}
-
-	ssoState := r.URL.Query().Get("state")
-	if ssoState == "" {
-		return "", nil, console.ErrValidation.New("missing email hash")
-	}
-
-	oauth2Token, err := oidcSetup.Config.Exchange(ctx, r.URL.Query().Get("code"))
-	if err != nil {
-		return "", nil, console.ErrValidation.New("invalid code")
-	}
-
-	rawIDToken, ok := oauth2Token.Extra("id_token").(string)
-	if !ok {
-		return "", nil, console.ErrValidation.New("missing id token")
-	}
-
-	idToken, err := oidcSetup.Verifier.Verify(ctx, rawIDToken)
-	if err != nil {
-		return "", nil, console.ErrUnauthorized.New("Failed to verify ID token")
-	}
-
-	var claims sso.OidcSsoClaims
-	if err = idToken.Claims(&claims); err != nil {
-		return "", nil, console.Error.New("failed to parse claims")
-	}
-
-	state, err := a.service.GetSsoStateFromEmail(claims.Email)
-	if err != nil {
-		return "", nil, console.Error.New("failed to get state")
-	}
-	if state != ssoState {
-		return "", nil, console.ErrUnauthorized.New("SSO state mismatch")
-	}
-
-	return provider, &claims, nil
 }
 
 // GetSsoUrl returns the SSO URL for the given provider.
@@ -1740,9 +1711,16 @@ func (a *Auth) getStatusCode(err error) int {
 	var maxBytesError *http.MaxBytesError
 
 	switch {
-	case console.ErrValidation.Has(err), console.ErrCaptcha.Has(err), console.ErrMFAMissing.Has(err), console.ErrMFAPasscode.Has(err), console.ErrMFARecoveryCode.Has(err), console.ErrChangePassword.Has(err), console.ErrInvalidProjectLimit.Has(err):
+	case console.ErrValidation.Has(err), console.ErrCaptcha.Has(err),
+		console.ErrMFAMissing.Has(err), console.ErrMFAPasscode.Has(err),
+		console.ErrMFARecoveryCode.Has(err), console.ErrChangePassword.Has(err),
+		console.ErrInvalidProjectLimit.Has(err), sso.ErrInvalidProvider.Has(err),
+		sso.ErrInvalidCode.Has(err), sso.ErrNoIdToken.Has(err):
 		return http.StatusBadRequest
-	case console.ErrUnauthorized.Has(err), console.ErrTokenExpiration.Has(err), console.ErrRecoveryToken.Has(err), console.ErrLoginCredentials.Has(err), console.ErrActivationCode.Has(err):
+	case console.ErrUnauthorized.Has(err), console.ErrTokenExpiration.Has(err),
+		console.ErrRecoveryToken.Has(err), console.ErrLoginCredentials.Has(err),
+		console.ErrActivationCode.Has(err), sso.ErrTokenVerification.Has(err),
+		sso.ErrInvalidState.Has(err):
 		return http.StatusUnauthorized
 	case console.ErrEmailUsed.Has(err), console.ErrMFAConflict.Has(err), console.ErrMFAEnabled.Has(err):
 		return http.StatusConflict

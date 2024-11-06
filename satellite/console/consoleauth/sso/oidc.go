@@ -5,19 +5,11 @@ package sso
 
 import (
 	"context"
+	"net/http"
 	"net/url"
 
 	goOIDC "github.com/coreos/go-oidc/v3/oidc"
-	"github.com/spacemonkeygo/monkit/v3"
-	"github.com/zeebo/errs"
 	"golang.org/x/oauth2"
-)
-
-var (
-	// Error is the default error class for the package.
-	Error = errs.Class("sso")
-
-	mon = monkit.Package()
 )
 
 // OidcSsoClaims holds info for OIDC token claims.
@@ -27,92 +19,69 @@ type OidcSsoClaims struct {
 	Name  string `json:"name"`
 }
 
-// OidcSetup contains the configuration and verifier
+// OidcSetup contains the configuration and Verifier
 // for an OIDC provider.
 type OidcSetup struct {
-	Config   oauth2.Config
-	Verifier *goOIDC.IDTokenVerifier
+	Config   OidcConfiguration
+	Verifier OidcTokenVerifier
 }
 
-// Service is a Service for managing SSO.
-type Service struct {
-	config Config
-
-	satelliteAddress string
-
-	providerOidcSetup map[string]OidcSetup
+// OidcConfiguration is an interface for OIDC configuration.
+type OidcConfiguration interface {
+	AuthCodeURL(state string, opts ...oauth2.AuthCodeOption) string
+	PasswordCredentialsToken(ctx context.Context, username, password string) (*oauth2.Token, error)
+	Exchange(ctx context.Context, code string, opts ...oauth2.AuthCodeOption) (*oauth2.Token, error)
+	Client(ctx context.Context, t *oauth2.Token) *http.Client
 }
 
-// NewService creates a new Service.
-func NewService(satelliteAddress string, config Config) *Service {
-	return &Service{
-		satelliteAddress: satelliteAddress,
-		config:           config,
+// MockOidcConfiguration is a fake OIDC configuration for testing purposes.
+type MockOidcConfiguration struct {
+	RedirectURL string
+}
+
+// AuthCodeURL returns the redirect URL of the satellite with the code and state,
+// simulating a successful authentication.
+func (c *MockOidcConfiguration) AuthCodeURL(state string, _ ...oauth2.AuthCodeOption) string {
+	codeUrl, err := url.Parse(c.RedirectURL)
+	if err != nil {
+		return ""
 	}
+	q := codeUrl.Query()
+	q.Add("code", "code")
+	q.Add("state", state)
+	codeUrl.RawQuery = q.Encode()
+
+	return codeUrl.String()
 }
 
-// Initialize initializes the OIDC providers.
-func (s *Service) Initialize(ctx context.Context) (err error) {
-	defer mon.Task()(&ctx)(&err)
-
-	verifierMap := make(map[string]OidcSetup)
-	for providerName, info := range s.config.OidcProviderInfos.Values {
-		callbackAddr, err := url.JoinPath(s.satelliteAddress, "sso", providerName, "callback")
-		if err != nil {
-			return Error.Wrap(err)
-		}
-		conf := oauth2.Config{
-			ClientID:     info.ClientID,
-			ClientSecret: info.ClientSecret,
-			RedirectURL:  callbackAddr,
-			Endpoint: oauth2.Endpoint{
-				AuthURL:  info.ProviderURL.String() + "/oauth2/v1/authorize",
-				TokenURL: info.ProviderURL.String() + "/oauth2/v1/token",
-			},
-			Scopes: []string{goOIDC.ScopeOpenID, "email", "profile"},
-		}
-
-		provider, err := goOIDC.NewProvider(ctx, info.ProviderURL.String())
-		if err != nil {
-			return Error.Wrap(err)
-		}
-		verifier := provider.Verifier(&goOIDC.Config{ClientID: conf.ClientID})
-		if verifier == nil {
-			return Error.New("failed to create Verifier")
-		}
-		verifierMap[providerName] = OidcSetup{
-			Config:   conf,
-			Verifier: verifier,
-		}
-	}
-
-	s.providerOidcSetup = verifierMap
-
-	return nil
+// PasswordCredentialsToken simulates the exchange of the username and password for a token.
+func (c *MockOidcConfiguration) PasswordCredentialsToken(_ context.Context, _, _ string) (*oauth2.Token, error) {
+	return (&oauth2.Token{}).WithExtra(map[string]interface{}{
+		"id_token": "extra",
+	}), nil
 }
 
-// InitializeRoutes provides a routingFn with configured providers
-// to configure the routes for sso.
-func (s *Service) InitializeRoutes(routingFn func(provider string)) {
-	for provider := range s.config.EmailProviderMappings.Values {
-		routingFn(provider)
-	}
+// Exchange simulates the exchange of the code for a token.
+func (c *MockOidcConfiguration) Exchange(_ context.Context, _ string, _ ...oauth2.AuthCodeOption) (*oauth2.Token, error) {
+	return (&oauth2.Token{}).WithExtra(map[string]interface{}{
+		"id_token": "extra",
+	}), nil
 }
 
-// GetProviderByEmail returns the provider for the given email.
-func (s *Service) GetProviderByEmail(email string) string {
-	for provider, emailRegex := range s.config.EmailProviderMappings.Values {
-		if emailRegex.MatchString(email) {
-			return provider
-		}
-	}
-	return ""
+// Client returns a new http client.
+func (c *MockOidcConfiguration) Client(_ context.Context, _ *oauth2.Token) *http.Client {
+	return &http.Client{}
 }
 
-// GetOidcSetupByProvider returns the OIDC setup for the given provider.
-func (s *Service) GetOidcSetupByProvider(provider string) *OidcSetup {
-	if setup, ok := s.providerOidcSetup[provider]; ok {
-		return &setup
-	}
-	return nil
+// OidcTokenVerifier is an interface for verifying OIDC tokens.
+type OidcTokenVerifier interface {
+	Verify(ctx context.Context, rawIDToken string) (*goOIDC.IDToken, error)
+}
+
+// MockVerifier is a fake verifier for testing purposes.
+type MockVerifier struct{}
+
+// Verify simulates the verification of an OIDC token.
+func (v *MockVerifier) Verify(_ context.Context, _ string) (*goOIDC.IDToken, error) {
+	return &goOIDC.IDToken{}, nil
 }

@@ -351,17 +351,6 @@ func NewConsoleAPI(log *zap.Logger, full *identity.FullIdentity, db DB,
 		}
 	}
 
-	{ // setup sso
-		if config.SSO.Enabled {
-			peer.SSO.Service = sso.NewService(config.Console.ExternalAddress, config.SSO)
-
-			peer.Services.Add(lifecycle.Item{
-				Name: "sso:service",
-				Run:  peer.SSO.Service.Initialize,
-			})
-		}
-	}
-
 	{ // setup userinfo.
 		if config.Userinfo.Enabled {
 			peer.Userinfo.Endpoint, err = userinfo.NewEndpoint(
@@ -479,6 +468,20 @@ func NewConsoleAPI(log *zap.Logger, full *identity.FullIdentity, db DB,
 		externalAddress := consoleConfig.ExternalAddress
 		if externalAddress == "" {
 			externalAddress = "http://" + peer.Console.Listener.Addr().String()
+		}
+
+		if config.SSO.Enabled {
+			// setup sso
+			peer.SSO.Service = sso.NewService(
+				externalAddress,
+				peer.Console.AuthTokens,
+				config.SSO,
+			)
+
+			peer.Services.Add(lifecycle.Item{
+				Name: "sso:service",
+				Run:  peer.SSO.Service.Initialize,
+			})
 		}
 
 		accountFreezeService := console.NewAccountFreezeService(

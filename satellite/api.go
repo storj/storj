@@ -575,17 +575,6 @@ func NewAPI(log *zap.Logger, full *identity.FullIdentity, db DB,
 			}
 		}
 
-		{ // setup sso
-			if config.SSO.Enabled {
-				peer.SSO.Service = sso.NewService(config.Console.ExternalAddress, config.SSO)
-
-				peer.Services.Add(lifecycle.Item{
-					Name: "sso:service",
-					Run:  peer.SSO.Service.Initialize,
-				})
-			}
-		}
-
 		emissionService := emission.NewService(config.Emission)
 
 		{ // setup payments
@@ -677,6 +666,20 @@ func NewAPI(log *zap.Logger, full *identity.FullIdentity, db DB,
 			externalAddress := consoleConfig.ExternalAddress
 			if externalAddress == "" {
 				externalAddress = "http://" + peer.Console.Listener.Addr().String()
+			}
+
+			if config.SSO.Enabled {
+				// setup sso
+				peer.SSO.Service = sso.NewService(
+					externalAddress,
+					peer.Console.AuthTokens,
+					config.SSO,
+				)
+
+				peer.Services.Add(lifecycle.Item{
+					Name: "sso:service",
+					Run:  peer.SSO.Service.Initialize,
+				})
 			}
 
 			accountFreezeService := console.NewAccountFreezeService(
