@@ -5,6 +5,8 @@ package metasearch
 
 import (
 	"encoding/json"
+	"errors"
+	"fmt"
 	"net/http"
 
 	"go.uber.org/zap"
@@ -41,31 +43,47 @@ func NewServer(log *zap.Logger, db satellite.DB, metabase *metabase.DB, endpoint
 }
 
 func (a *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	var err error
 	var reqBody SearchRequest
-	if err := json.NewDecoder(r.Body).Decode(&reqBody); err != nil {
-		a.Logger.Warn("error decoding request body", zap.Error(err))
-		BadRequestHandler(w, r)
+	var resp interface{}
+
+	// Decode request body
+	if err = json.NewDecoder(r.Body).Decode(&reqBody); err != nil {
+		a.ErrorResponse(w, fmt.Errorf("error decoding request body: %w", err))
 		return
 	}
 
+	// Handle request
 	switch {
 	case r.Method == http.MethodPost:
-		if reqBody.Query != "" {
-			a.QueryMetadata(w, r, &reqBody)
-			return
+		if reqBody.Query == "" {
+			resp, err = a.ViewMetadata(&reqBody)
+		} else {
+			resp, err = a.QueryMetadata(&reqBody)
 		}
-		a.ViewMetadata(w, r, &reqBody)
-		return
 	case r.Method == http.MethodPut:
-		a.CreateUpdateMetadata(w, r, &reqBody)
-		return
+		err = a.UpdateMetadata(&reqBody)
 	case r.Method == http.MethodDelete:
-		a.DeleteMetadata(w, r, &reqBody)
-		return
+		err = a.DeleteMetadata(&reqBody)
 	default:
-		NotFoundHandler(w, r)
+		err = fmt.Errorf("%w: unsupported method %s", ErrBadRequest, r.Method)
+	}
+
+	// Write response
+	if err != nil {
+		a.ErrorResponse(w, err)
 		return
 	}
+
+	jsonBytes, err := json.Marshal(resp)
+	if err != nil {
+		a.ErrorResponse(w, fmt.Errorf("error marshalling response: %w", err))
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusOK)
+	w.Write(jsonBytes)
 }
 
 func (a *Server) Run() error {
@@ -79,85 +97,42 @@ func (a *Server) Run() error {
 	return http.ListenAndServe(a.Endpoint, mux)
 }
 
-func (a *Server) ViewMetadata(w http.ResponseWriter, r *http.Request, reqBody *SearchRequest) (meta map[string]interface{}, err error) {
-
-	/* TODO add a db repo
-	meta, err = h.repo.View(reqBody.Path)
-
-	if err != nil {
-		InternalServerErrorHandler(w, r)
-		return
-	}
-	*/
-
+func (a *Server) ViewMetadata(reqBody *SearchRequest) (meta map[string]interface{}, err error) {
 	meta = map[string]interface{}{
 		"view": "meta",
 	}
-
-	jsonBytes, err := json.Marshal(meta)
-	if err != nil {
-		a.Logger.Error("error marshalling json", zap.Error(err))
-		InternalServerErrorHandler(w, r)
-		return
-	}
-
-	w.WriteHeader(http.StatusOK)
-	w.Write(jsonBytes)
 	return
 }
 
-func (a *Server) QueryMetadata(w http.ResponseWriter, r *http.Request, reqBody *SearchRequest) (meta map[string]interface{}, err error) {
-	/* TODO add a db repo
-	meta, err = h.repo.Query(reqBody.Page, reqBody.Query, reqBody.Path)
-
-	if err != nil {
-		InternalServerErrorHandler(w, r)
-		return
-	}
-	*/
-
+func (a *Server) QueryMetadata(reqBody *SearchRequest) (meta map[string]interface{}, err error) {
 	meta = map[string]interface{}{
 		"query": "meta",
 	}
-
-	jsonBytes, err := json.Marshal(meta)
-	if err != nil {
-		a.Logger.Error("error marshalling json", zap.Error(err))
-		InternalServerErrorHandler(w, r)
-		return
-	}
-
-	w.WriteHeader(http.StatusOK)
-	w.Write(jsonBytes)
 	return
 }
 
-func (a *Server) CreateUpdateMetadata(w http.ResponseWriter, r *http.Request, reqBody *SearchRequest) (err error) {
-	/* TODO add a db repo
-	err = h.repo.CreateUpdate(reqBody.Path, reqBody.Meta)
-
-	if err != nil {
-		InternalServerErrorHandler(w, r)
-		return
-	}
-	*/
-
-	w.WriteHeader(http.StatusOK)
-	return
+func (a *Server) UpdateMetadata(reqBody *SearchRequest) (err error) {
+	return nil
 }
-func (a *Server) DeleteMetadata(w http.ResponseWriter, r *http.Request, reqBody *SearchRequest) (err error) {
-	/* TODO add a db repo
-	err = h.repo.Delete(reqBody.Path)
 
-	if err != nil {
-		InternalServerErrorHandler(w, r)
-		return
+func (a *Server) DeleteMetadata(reqBody *SearchRequest) (err error) {
+	return nil
+}
+
+// ErrorResponse writes an error response to the client.
+func (a *Server) ErrorResponse(w http.ResponseWriter, err error) {
+	a.Logger.Warn("error during API request", zap.Error(err))
+
+	var e *ErrorResponse
+	if !errors.As(err, &e) {
+		e = ErrInternalError
 	}
-	*/
 
-	w.WriteHeader(http.StatusOK)
+	resp, _ := json.Marshal(e)
 
-	return
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(e.StatusCode)
+	w.Write([]byte(resp))
 }
 
 func BadRequestHandler(w http.ResponseWriter, r *http.Request) {
