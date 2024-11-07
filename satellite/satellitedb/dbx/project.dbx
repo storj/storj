@@ -193,6 +193,12 @@ read all (
 )
 read all (
 	select project
+	where project.owner_id = ?
+	where project.status = ?
+	orderby asc project.created_at
+)
+read all (
+	select project
 	join project.id = project_member.project_id
 	where project_member.member_id = ?
 	orderby asc project.name

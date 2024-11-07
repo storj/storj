@@ -57,6 +57,18 @@ func (projects *projects) GetOwn(ctx context.Context, userID uuid.UUID) (_ []con
 	return projectsFromDbxSlice(ctx, projectsDbx)
 }
 
+// GetOwnActive is a method for querying all active projects created by current user from the database.
+func (projects *projects) GetOwnActive(ctx context.Context, userID uuid.UUID) (_ []console.Project, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	projectsDbx, err := projects.db.All_Project_By_OwnerId_And_Status_OrderBy_Asc_CreatedAt(ctx, dbx.Project_OwnerId(userID[:]), dbx.Project_Status(int(console.ProjectActive)))
+	if err != nil {
+		return nil, err
+	}
+
+	return projectsFromDbxSlice(ctx, projectsDbx)
+}
+
 // GetCreatedBefore retrieves all projects created before provided date.
 func (projects *projects) GetCreatedBefore(ctx context.Context, before time.Time) (_ []console.Project, err error) {
 	defer mon.Task()(&ctx)(&err)

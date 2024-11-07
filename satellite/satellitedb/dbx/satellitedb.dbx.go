@@ -18853,6 +18853,58 @@ func (obj *pgxImpl) All_Project_By_OwnerId_OrderBy_Asc_CreatedAt(ctx context.Con
 
 }
 
+func (obj *pgxImpl) All_Project_By_OwnerId_And_Status_OrderBy_Asc_CreatedAt(ctx context.Context,
+	project_owner_id Project_OwnerId_Field,
+	project_status Project_Status_Field) (
+	rows []*Project, err error) {
+	defer mon.Task()(&ctx)(&err)
+	if !obj.txn && txutil.IsInsideTx(ctx) {
+		panic("using DB when inside of a transaction")
+	}
+
+	var __cond_0 = &__sqlbundle_Condition{Left: "projects.status", Equal: true, Right: "?", Null: true}
+
+	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("SELECT projects.id, projects.public_id, projects.name, projects.description, projects.usage_limit, projects.bandwidth_limit, projects.user_specified_usage_limit, projects.user_specified_bandwidth_limit, projects.segment_limit, projects.rate_limit, projects.burst_limit, projects.rate_limit_head, projects.burst_limit_head, projects.rate_limit_get, projects.burst_limit_get, projects.rate_limit_put, projects.burst_limit_put, projects.rate_limit_list, projects.burst_limit_list, projects.rate_limit_del, projects.burst_limit_del, projects.max_buckets, projects.user_agent, projects.owner_id, projects.salt, projects.status, projects.created_at, projects.default_placement, projects.default_versioning, projects.prompted_for_versioning_beta, projects.passphrase_enc, projects.passphrase_enc_key_id, projects.path_encryption FROM projects WHERE projects.owner_id = ? AND "), __cond_0, __sqlbundle_Literal(" ORDER BY projects.created_at")}}
+
+	var __values []any
+	__values = append(__values, project_owner_id.value())
+	if !project_status.isnull() {
+		__cond_0.Null = false
+		__values = append(__values, project_status.value())
+	}
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	for {
+		rows, err = func() (rows []*Project, err error) {
+			__rows, err := obj.driver.QueryContext(ctx, __stmt, __values...)
+			if err != nil {
+				return nil, err
+			}
+			defer closeRows(__rows, &err)
+
+			for __rows.Next() {
+				project := &Project{}
+				err = __rows.Scan(&project.Id, &project.PublicId, &project.Name, &project.Description, &project.UsageLimit, &project.BandwidthLimit, &project.UserSpecifiedUsageLimit, &project.UserSpecifiedBandwidthLimit, &project.SegmentLimit, &project.RateLimit, &project.BurstLimit, &project.RateLimitHead, &project.BurstLimitHead, &project.RateLimitGet, &project.BurstLimitGet, &project.RateLimitPut, &project.BurstLimitPut, &project.RateLimitList, &project.BurstLimitList, &project.RateLimitDel, &project.BurstLimitDel, &project.MaxBuckets, &project.UserAgent, &project.OwnerId, &project.Salt, &project.Status, &project.CreatedAt, &project.DefaultPlacement, &project.DefaultVersioning, &project.PromptedForVersioningBeta, &project.PassphraseEnc, &project.PassphraseEncKeyId, &project.PathEncryption)
+				if err != nil {
+					return nil, err
+				}
+				rows = append(rows, project)
+			}
+			return rows, nil
+		}()
+		if err != nil {
+			if obj.shouldRetry(err) {
+				continue
+			}
+			return nil, obj.makeErr(err)
+		}
+		return rows, nil
+	}
+
+}
+
 func (obj *pgxImpl) All_Project_By_ProjectMember_MemberId_OrderBy_Asc_Project_Name(ctx context.Context,
 	project_member_member_id ProjectMember_MemberId_Field) (
 	rows []*Project, err error) {
@@ -28684,6 +28736,58 @@ func (obj *pgxcockroachImpl) All_Project_By_OwnerId_OrderBy_Asc_CreatedAt(ctx co
 
 	var __values []any
 	__values = append(__values, project_owner_id.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	for {
+		rows, err = func() (rows []*Project, err error) {
+			__rows, err := obj.driver.QueryContext(ctx, __stmt, __values...)
+			if err != nil {
+				return nil, err
+			}
+			defer closeRows(__rows, &err)
+
+			for __rows.Next() {
+				project := &Project{}
+				err = __rows.Scan(&project.Id, &project.PublicId, &project.Name, &project.Description, &project.UsageLimit, &project.BandwidthLimit, &project.UserSpecifiedUsageLimit, &project.UserSpecifiedBandwidthLimit, &project.SegmentLimit, &project.RateLimit, &project.BurstLimit, &project.RateLimitHead, &project.BurstLimitHead, &project.RateLimitGet, &project.BurstLimitGet, &project.RateLimitPut, &project.BurstLimitPut, &project.RateLimitList, &project.BurstLimitList, &project.RateLimitDel, &project.BurstLimitDel, &project.MaxBuckets, &project.UserAgent, &project.OwnerId, &project.Salt, &project.Status, &project.CreatedAt, &project.DefaultPlacement, &project.DefaultVersioning, &project.PromptedForVersioningBeta, &project.PassphraseEnc, &project.PassphraseEncKeyId, &project.PathEncryption)
+				if err != nil {
+					return nil, err
+				}
+				rows = append(rows, project)
+			}
+			return rows, nil
+		}()
+		if err != nil {
+			if obj.shouldRetry(err) {
+				continue
+			}
+			return nil, obj.makeErr(err)
+		}
+		return rows, nil
+	}
+
+}
+
+func (obj *pgxcockroachImpl) All_Project_By_OwnerId_And_Status_OrderBy_Asc_CreatedAt(ctx context.Context,
+	project_owner_id Project_OwnerId_Field,
+	project_status Project_Status_Field) (
+	rows []*Project, err error) {
+	defer mon.Task()(&ctx)(&err)
+	if !obj.txn && txutil.IsInsideTx(ctx) {
+		panic("using DB when inside of a transaction")
+	}
+
+	var __cond_0 = &__sqlbundle_Condition{Left: "projects.status", Equal: true, Right: "?", Null: true}
+
+	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("SELECT projects.id, projects.public_id, projects.name, projects.description, projects.usage_limit, projects.bandwidth_limit, projects.user_specified_usage_limit, projects.user_specified_bandwidth_limit, projects.segment_limit, projects.rate_limit, projects.burst_limit, projects.rate_limit_head, projects.burst_limit_head, projects.rate_limit_get, projects.burst_limit_get, projects.rate_limit_put, projects.burst_limit_put, projects.rate_limit_list, projects.burst_limit_list, projects.rate_limit_del, projects.burst_limit_del, projects.max_buckets, projects.user_agent, projects.owner_id, projects.salt, projects.status, projects.created_at, projects.default_placement, projects.default_versioning, projects.prompted_for_versioning_beta, projects.passphrase_enc, projects.passphrase_enc_key_id, projects.path_encryption FROM projects WHERE projects.owner_id = ? AND "), __cond_0, __sqlbundle_Literal(" ORDER BY projects.created_at")}}
+
+	var __values []any
+	__values = append(__values, project_owner_id.value())
+	if !project_status.isnull() {
+		__cond_0.Null = false
+		__values = append(__values, project_status.value())
+	}
 
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
 	obj.logStmt(__stmt, __values...)
@@ -38897,6 +39001,58 @@ func (obj *spannerImpl) All_Project_By_OwnerId_OrderBy_Asc_CreatedAt(ctx context
 
 }
 
+func (obj *spannerImpl) All_Project_By_OwnerId_And_Status_OrderBy_Asc_CreatedAt(ctx context.Context,
+	project_owner_id Project_OwnerId_Field,
+	project_status Project_Status_Field) (
+	rows []*Project, err error) {
+	defer mon.Task()(&ctx)(&err)
+	if !obj.txn && txutil.IsInsideTx(ctx) {
+		panic("using DB when inside of a transaction")
+	}
+
+	var __cond_0 = &__sqlbundle_Condition{Left: "projects.status", Equal: true, Right: "?", Null: true}
+
+	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("SELECT projects.id, projects.public_id, projects.name, projects.description, projects.usage_limit, projects.bandwidth_limit, projects.user_specified_usage_limit, projects.user_specified_bandwidth_limit, projects.segment_limit, projects.rate_limit, projects.burst_limit, projects.rate_limit_head, projects.burst_limit_head, projects.rate_limit_get, projects.burst_limit_get, projects.rate_limit_put, projects.burst_limit_put, projects.rate_limit_list, projects.burst_limit_list, projects.rate_limit_del, projects.burst_limit_del, projects.max_buckets, projects.user_agent, projects.owner_id, projects.salt, projects.status, projects.created_at, projects.default_placement, projects.default_versioning, projects.prompted_for_versioning_beta, projects.passphrase_enc, projects.passphrase_enc_key_id, projects.path_encryption FROM projects WHERE projects.owner_id = ? AND "), __cond_0, __sqlbundle_Literal(" ORDER BY projects.created_at")}}
+
+	var __values []any
+	__values = append(__values, project_owner_id.value())
+	if !project_status.isnull() {
+		__cond_0.Null = false
+		__values = append(__values, project_status.value())
+	}
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	for {
+		rows, err = func() (rows []*Project, err error) {
+			__rows, err := obj.driver.QueryContext(ctx, __stmt, __values...)
+			if err != nil {
+				return nil, err
+			}
+			defer closeRows(__rows, &err)
+
+			for __rows.Next() {
+				project := &Project{}
+				err = __rows.Scan(&project.Id, &project.PublicId, &project.Name, &project.Description, &project.UsageLimit, &project.BandwidthLimit, &project.UserSpecifiedUsageLimit, &project.UserSpecifiedBandwidthLimit, &project.SegmentLimit, &project.RateLimit, &project.BurstLimit, &project.RateLimitHead, &project.BurstLimitHead, &project.RateLimitGet, &project.BurstLimitGet, &project.RateLimitPut, &project.BurstLimitPut, &project.RateLimitList, &project.BurstLimitList, &project.RateLimitDel, &project.BurstLimitDel, &project.MaxBuckets, &project.UserAgent, &project.OwnerId, &project.Salt, &project.Status, &project.CreatedAt, &project.DefaultPlacement, &project.DefaultVersioning, &project.PromptedForVersioningBeta, &project.PassphraseEnc, &project.PassphraseEncKeyId, &project.PathEncryption)
+				if err != nil {
+					return nil, err
+				}
+				rows = append(rows, project)
+			}
+			return rows, nil
+		}()
+		if err != nil {
+			if obj.shouldRetry(err) {
+				continue
+			}
+			return nil, obj.makeErr(err)
+		}
+		return rows, nil
+	}
+
+}
+
 func (obj *spannerImpl) All_Project_By_ProjectMember_MemberId_OrderBy_Asc_Project_Name(ctx context.Context,
 	project_member_member_id ProjectMember_MemberId_Field) (
 	rows []*Project, err error) {
@@ -44179,6 +44335,11 @@ type Methods interface {
 
 	All_Project_By_CreatedAt_Less_OrderBy_Asc_CreatedAt(ctx context.Context,
 		project_created_at_less Project_CreatedAt_Field) (
+		rows []*Project, err error)
+
+	All_Project_By_OwnerId_And_Status_OrderBy_Asc_CreatedAt(ctx context.Context,
+		project_owner_id Project_OwnerId_Field,
+		project_status Project_Status_Field) (
 		rows []*Project, err error)
 
 	All_Project_By_OwnerId_OrderBy_Asc_CreatedAt(ctx context.Context,
