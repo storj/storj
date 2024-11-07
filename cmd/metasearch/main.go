@@ -10,7 +10,7 @@ import (
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 
-	"storj.io/storj/metadata"
+	"storj.io/storj/metasearch"
 	"storj.io/storj/satellite/metabase"
 	"storj.io/storj/satellite/satellitedb"
 )
@@ -50,8 +50,8 @@ func main() {
 		err = errs.Combine(err, metabase.Close())
 	}()
 
-	endpoint := os.Getenv("STORJ_METADATA_ENDPOINT")
-	metadataAPI, err := metadata.NewAPI(log, db, metabase, endpoint)
+	endpoint := os.Getenv("STORJ_METASEARCH_ENDPOINT")
+	metadataAPI, err := metasearch.NewAPI(log, db, metabase, endpoint)
 	if err != nil {
 		log.Error("Error creating metadata api:", zap.Error(err))
 		return
