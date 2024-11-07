@@ -73,6 +73,9 @@ type Projects interface {
 	// UpdateUserAgent is a method for updating projects user agent.
 	UpdateUserAgent(ctx context.Context, id uuid.UUID, userAgent []byte) error
 
+	// UpdateStatus is a method for updating projects status.
+	UpdateStatus(ctx context.Context, id uuid.UUID, status ProjectStatus) error
+
 	// UpdateDefaultPlacement is a method to update the project's default placement for new segments.
 	UpdateDefaultPlacement(ctx context.Context, id uuid.UUID, placement storj.PlacementConstraint) error
 }

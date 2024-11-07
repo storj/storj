@@ -499,6 +499,19 @@ func (projects *projects) UpdateUserAgent(ctx context.Context, id uuid.UUID, use
 	return err
 }
 
+// UpdateStatus is a method for updating projects status.
+func (projects *projects) UpdateStatus(ctx context.Context, id uuid.UUID, status console.ProjectStatus) (err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	_, err = projects.db.Update_Project_By_Id(ctx,
+		dbx.Project_Id(id[:]),
+		dbx.Project_Update_Fields{
+			Status: dbx.Project_Status(int(status)),
+		})
+
+	return err
+}
+
 // UpdateDefaultPlacement is a method to update the project's default placement for new segments.
 func (projects *projects) UpdateDefaultPlacement(
 	ctx context.Context,
