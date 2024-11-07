@@ -51,7 +51,7 @@ func main() {
 	}()
 
 	endpoint := os.Getenv("STORJ_METASEARCH_ENDPOINT")
-	metadataAPI, err := metasearch.NewAPI(log, db, metabase, endpoint)
+	metadataAPI, err := metasearch.NewServer(log, db, metabase, endpoint)
 	if err != nil {
 		log.Error("Error creating metadata api:", zap.Error(err))
 		return
