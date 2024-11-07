@@ -2047,7 +2047,7 @@ func TestDeleteProject(t *testing.T) {
 		require.NoError(t, err)
 		require.Nil(t, resp)
 
-		projects, err := db.Console().Projects().GetOwn(ctx, user.ID)
+		projects, err := db.Console().Projects().GetOwnActive(ctx, user.ID)
 		require.NoError(t, err)
 		require.Zero(t, len(projects))
 

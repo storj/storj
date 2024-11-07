@@ -2402,7 +2402,10 @@ func (s *Service) handleDeleteProjectStep(ctx context.Context, user *User, proje
 		}
 		return ErrValidation.New(accountActionWrongStepOrderErrMsg)
 	}
-	return s.store.Projects().Delete(ctx, projectID)
+
+	// We update status to disabled instead of deleting the project
+	// to not lose the historical project/user usage data.
+	return s.store.Projects().UpdateStatus(ctx, projectID, ProjectDisabled)
 }
 
 func (s *Service) handleDeleteAccountStep(ctx context.Context, user *User) (err error) {
