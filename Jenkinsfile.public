@@ -152,6 +152,7 @@ pipeline {
                 STORJ_TEST_COCKROACH = 'cockroach://root@localhost:26256/testcockroach?sslmode=disable|' +
                     'cockroach://root@localhost:26257/testcockroach?sslmode=disable'
                 STORJ_TEST_SPANNER = 'spanner://127.0.0.1:9010?emulator|spanner://127.0.0.1:9011?emulator|spanner://127.0.0.1:9012?emulator'
+                SPANNER_DISABLE_BUILTIN_METRICS = 'true'
 
                 STORJ_TEST_COCKROACH_NODROP = 'true'
                 STORJ_TEST_POSTGRES = 'omit'
