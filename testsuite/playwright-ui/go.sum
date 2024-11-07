@@ -2716,8 +2716,8 @@ sourcegraph.com/sourcegraph/appdash v0.0.0-20190731080439-ebfcffb1b5c0/go.mod h1
 sourcegraph.com/sourcegraph/go-diff v0.5.0/go.mod h1:kuch7UrkMzY0X+p9CRK03kfuPQ2zzQcaEFbx8wA8rck=
 sourcegraph.com/sqs/pbtypes v0.0.0-20180604144634-d3ebe8f20ae4/go.mod h1:ketZ/q3QxT9HOBeFhu6RdvsftgpsbFHBF5Cas6cDKZ0=
 storj.io/common v0.0.0-20220719163320-cd2ef8e1b9b0/go.mod h1:mCYV6Ud5+cdbuaxdPD5Zht/HYaIn0sffnnws9ErkrMQ=
-storj.io/common v0.0.0-20241014122736-47dfa836934a h1:1rN/BwbbokET2h43gMkdhpPabD9Krkdwh/7frKbm13Y=
-storj.io/common v0.0.0-20241014122736-47dfa836934a/go.mod h1:CpSUpwG0nOkKMfDI/mqdogMccFP+zFvbTq6LbUCtUPQ=
+storj.io/common v0.0.0-20241107064117-6b3c20bcf19b h1:JjOVzazjF2WZIYbQ8cHwnVsxvOid45Gz0hcifGT0aBs=
+storj.io/common v0.0.0-20241107064117-6b3c20bcf19b/go.mod h1:CpSUpwG0nOkKMfDI/mqdogMccFP+zFvbTq6LbUCtUPQ=
 storj.io/dotworld v0.0.0-20210324183515-0d11aeccd840 h1:oqMwoF6vaOrCe92SKRyr8cc2WSjLYAd8fjpAHA7rNqY=
 storj.io/dotworld v0.0.0-20210324183515-0d11aeccd840/go.mod h1:KU9YvEgRrMMiWLvH8pzn1UkoCoxggKIPvQxmNdx7aXQ=
 storj.io/drpc v0.0.32/go.mod h1:6rcOyR/QQkSTX/9L5ZGtlZaE2PtXTTZl8d+ulSeeYEg=
