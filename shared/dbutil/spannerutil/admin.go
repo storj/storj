@@ -8,7 +8,6 @@ import (
 	"errors"
 	"fmt"
 
-	"cloud.google.com/go/spanner"
 	database "cloud.google.com/go/spanner/admin/database/apiv1"
 	databasepb "cloud.google.com/go/spanner/admin/database/apiv1/databasepb"
 	instance "cloud.google.com/go/spanner/admin/instance/apiv1"
@@ -161,19 +160,4 @@ func (admin *EmulatorAdmin) DropDatabase(ctx context.Context, params ConnParams)
 		return fmt.Errorf("failed DropDatabase: %w", err)
 	}
 	return nil
-}
-
-// DialDatabase creates a new connection to the spanner instance.
-func DialDatabase(ctx context.Context, params ConnParams) (*spanner.Client, error) {
-	if params.Project == "" || params.Instance == "" || params.Database == "" {
-		return nil, errors.New("project, instance and database are required")
-	}
-
-	return spanner.NewClientWithConfig(ctx,
-		params.DatabasePath(),
-		spanner.ClientConfig{
-			DisableRouteToLeader: true,
-		},
-		params.ClientOptions()...,
-	)
 }

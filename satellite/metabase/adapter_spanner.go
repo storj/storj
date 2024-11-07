@@ -6,6 +6,7 @@ package metabase
 import (
 	"context"
 	"database/sql"
+	"time"
 
 	"cloud.google.com/go/spanner"
 	database "cloud.google.com/go/spanner/admin/database/apiv1"
@@ -22,6 +23,9 @@ type SpannerConfig struct {
 	Database        string `help:"Database definition for spanner connection in the form  projects/P/instances/I/databases/DB"`
 	ApplicationName string `help:"Application name to be used in spanner client as a tag for queries and transactions"`
 	Compression     string `help:"Compression type to be used in spanner client for gRPC calls (gzip)"`
+
+	HealthCheckWorkers  int           `hidden:"true" help:"Number of workers used by health checker for the connection pool." default:"10" testDefault:"1"`
+	HealthCheckInterval time.Duration `hidden:"true" help:"How often the health checker pings a session." default:"50ms" testDefault:"200ms"`
 }
 
 // SpannerAdapter implements Adapter for Google Spanner connections..
@@ -47,10 +51,15 @@ func NewSpannerAdapter(ctx context.Context, cfg SpannerConfig, log *zap.Logger) 
 	}
 	log = log.Named("spanner")
 
+	poolConfig := spanner.DefaultSessionPoolConfig
+	poolConfig.HealthCheckWorkers = cfg.HealthCheckWorkers
+	poolConfig.HealthCheckInterval = cfg.HealthCheckInterval
+	poolConfig.TrackSessionHandles = true
+
 	client, err := spanner.NewClientWithConfig(ctx, params.DatabasePath(),
 		spanner.ClientConfig{
 			Logger:            zap.NewStdLog(log.Named("stdlog")),
-			SessionPoolConfig: spanner.DefaultSessionPoolConfig,
+			SessionPoolConfig: poolConfig,
 			SessionLabels:     map[string]string{"application_name": cfg.ApplicationName},
 			QueryOptions: spanner.QueryOptions{
 				RequestTag: "application_name=" + cfg.ApplicationName,

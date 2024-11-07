@@ -16,6 +16,7 @@ import (
 	"testing"
 	"time"
 
+	"cloud.google.com/go/spanner"
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zaptest"
@@ -30,6 +31,13 @@ import (
 	"storj.io/storj/shared/dbutil/tempdb"
 	"storj.io/storj/shared/tagsql"
 )
+
+func init() {
+	// TODO(spanner): go-sql-spanner doesn't allow modifying the config for these.
+	spanner.DefaultSessionPoolConfig.HealthCheckWorkers = 2
+	spanner.DefaultSessionPoolConfig.HealthCheckInterval = 200 * time.Millisecond
+	spanner.DefaultSessionPoolConfig.TrackSessionHandles = true
+}
 
 // Cockroach DROP DATABASE takes a significant amount, however, it has no importance in our tests.
 var cockroachNoDrop = flag.Bool("cockroach-no-drop", stringToBool(os.Getenv("STORJ_TEST_COCKROACH_NODROP")), "Skip dropping cockroach databases to speed up tests")
