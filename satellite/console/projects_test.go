@@ -81,6 +81,7 @@ func TestProjectsRepository(t *testing.T) {
 
 				project, err = projects.Insert(ctx, project)
 				assert.NotNil(t, project)
+				assert.Equal(t, console.ProjectActive, *project.Status)
 				assert.NoError(t, err)
 			})
 
@@ -92,6 +93,7 @@ func TestProjectsRepository(t *testing.T) {
 				assert.Equal(t, projectByID.OwnerID, owner.ID)
 				assert.Equal(t, projectByID.Description, description)
 				require.NotNil(t, project)
+				require.Equal(t, console.ProjectActive, *project.Status)
 				require.NoError(t, err)
 			})
 
@@ -131,7 +133,17 @@ func TestProjectsRepository(t *testing.T) {
 				require.Equal(t, newName, newProject.Name)
 				require.Equal(t, newDescription, newProject.Description)
 				require.Equal(t, newRateLimit, *newProject.RateLimit)
+				require.Equal(t, console.ProjectActive, *newProject.Status)
 				require.True(t, newProject.PromptedForVersioningBeta)
+
+				disabledStatus := console.ProjectDisabled
+				newProject.Status = &disabledStatus
+				err = projects.Update(ctx, newProject)
+				require.NoError(t, err)
+
+				newProject, err = projects.Get(ctx, oldProject.ID)
+				require.NoError(t, err)
+				require.Equal(t, console.ProjectDisabled, *newProject.Status)
 			})
 
 			t.Run("Delete project success", func(t *testing.T) {

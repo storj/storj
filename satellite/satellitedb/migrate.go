@@ -2867,6 +2867,14 @@ func (db *satelliteDB) ProductionMigration() *migrate.Migration {
 					`CREATE INDEX users_external_id_index ON users ( external_id ) WHERE external_id IS NOT NULL;`,
 				},
 			},
+			{
+				DB:          &db.migrationDB,
+				Description: "add column to projects table to track the status of the project",
+				Version:     284,
+				Action: migrate.SQL{
+					`ALTER TABLE projects ADD COLUMN status INTEGER DEFAULT 1;`,
+				},
+			},
 			// NB: after updating testdata in `testdata`, run
 			//     `go generate` to update `migratez.go`.
 		},
