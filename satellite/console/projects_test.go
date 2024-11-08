@@ -258,6 +258,75 @@ func TestProjectsList(t *testing.T) {
 	})
 }
 
+func TestUpdateStatus(t *testing.T) {
+	satellitedbtest.Run(t, func(ctx *testcontext.Context, t *testing.T, db satellite.DB) { // repositories
+		owner, err := db.Console().Users().Insert(ctx,
+			&console.User{
+				ID:           testrand.UUID(),
+				FullName:     "test",
+				Email:        "test@example.test",
+				PasswordHash: []byte("example_password"),
+			},
+		)
+		require.NoError(t, err)
+
+		projectsDB := db.Console().Projects()
+
+		proj, err := projectsDB.Insert(ctx,
+			&console.Project{
+				Name:        "example",
+				Description: "example",
+				OwnerID:     owner.ID,
+			},
+		)
+		require.NoError(t, err)
+		require.Equal(t, console.ProjectActive, *proj.Status)
+
+		err = projectsDB.UpdateStatus(ctx, proj.ID, console.ProjectDisabled)
+		require.NoError(t, err)
+
+		proj, err = projectsDB.Get(ctx, proj.ID)
+		require.NoError(t, err)
+		require.Equal(t, console.ProjectDisabled, *proj.Status)
+	})
+}
+
+func TestGetOwnActive(t *testing.T) {
+	satellitedbtest.Run(t, func(ctx *testcontext.Context, t *testing.T, db satellite.DB) { // repositories
+		owner, err := db.Console().Users().Insert(ctx,
+			&console.User{
+				ID:           testrand.UUID(),
+				FullName:     "test",
+				Email:        "test@example.test",
+				PasswordHash: []byte("example_password"),
+			},
+		)
+		require.NoError(t, err)
+
+		projectsDB := db.Console().Projects()
+
+		proj1, err := projectsDB.Insert(ctx, &console.Project{Name: "example1", OwnerID: owner.ID})
+		require.NoError(t, err)
+		require.Equal(t, console.ProjectActive, *proj1.Status)
+
+		proj2, err := projectsDB.Insert(ctx, &console.Project{Name: "example2", OwnerID: owner.ID})
+		require.NoError(t, err)
+		require.Equal(t, console.ProjectActive, *proj2.Status)
+
+		projects, err := projectsDB.GetOwnActive(ctx, owner.ID)
+		require.NoError(t, err)
+		require.Len(t, projects, 2)
+
+		err = projectsDB.UpdateStatus(ctx, proj1.ID, console.ProjectDisabled)
+		require.NoError(t, err)
+
+		projects, err = projectsDB.GetOwnActive(ctx, owner.ID)
+		require.NoError(t, err)
+		require.Len(t, projects, 1)
+		require.Equal(t, proj2.ID, projects[0].ID)
+	})
+}
+
 func TestProjectsListByOwner(t *testing.T) {
 	const (
 		limit      = 5

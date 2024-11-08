@@ -23,8 +23,10 @@ type Projects interface {
 	GetCreatedBefore(ctx context.Context, before time.Time) ([]Project, error)
 	// GetByUserID returns a list of projects where user is a project member.
 	GetByUserID(ctx context.Context, userID uuid.UUID) ([]Project, error)
-	// GetOwn returns a list of projects where user is an owner.
+	// GetOwn returns a list of projects (including disabled) where user is an owner.
 	GetOwn(ctx context.Context, userID uuid.UUID) ([]Project, error)
+	// GetOwnActive returns a list of active projects where user is an owner.
+	GetOwnActive(ctx context.Context, userID uuid.UUID) ([]Project, error)
 	// Get is a method for querying project from the database by id.
 	Get(ctx context.Context, id uuid.UUID) (*Project, error)
 	// GetSalt returns the project's salt.
@@ -72,6 +74,9 @@ type Projects interface {
 
 	// UpdateUserAgent is a method for updating projects user agent.
 	UpdateUserAgent(ctx context.Context, id uuid.UUID, userAgent []byte) error
+
+	// UpdateStatus is a method for updating projects status.
+	UpdateStatus(ctx context.Context, id uuid.UUID, status ProjectStatus) error
 
 	// UpdateDefaultPlacement is a method to update the project's default placement for new segments.
 	UpdateDefaultPlacement(ctx context.Context, id uuid.UUID, placement storj.PlacementConstraint) error
