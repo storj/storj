@@ -114,7 +114,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed, ref, watch } from 'vue';
+import { Component, computed, ref, watch } from 'vue';
 import { VForm, VRow, VCol, VTextField, VCardItem, VDivider, VCardTitle, VBtn, VCard, VCardActions, VDialog, VAlert, VSheet, VIcon } from 'vuetify/components';
 import { LockKeyhole } from 'lucide-vue-next';
 
