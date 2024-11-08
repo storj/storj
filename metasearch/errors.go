@@ -17,6 +17,9 @@ var (
 	// ErrBadRequest is returned when the request is malformed.
 	ErrBadRequest = &ErrorResponse{StatusCode: 400, Message: "bad request"}
 
+	// ErrAuthorizationFailed is returned when the request is not authorized.
+	ErrAuthorizationFailed = &ErrorResponse{StatusCode: 401, Message: "authorization failed"}
+
 	// ErrInternalError is returned when an internal error occurs.
 	ErrInternalError = &ErrorResponse{StatusCode: 500, Message: "internal error"}
 )

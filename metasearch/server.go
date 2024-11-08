@@ -8,9 +8,11 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
+	"strings"
 
 	"go.uber.org/zap"
 
+	"storj.io/common/macaroon"
 	"storj.io/storj/satellite"
 	"storj.io/storj/satellite/metabase"
 )
@@ -46,6 +48,28 @@ func (a *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	var err error
 	var reqBody SearchRequest
 	var resp interface{}
+
+	// Parse authorization header
+	hdr := r.Header.Get("Authorization")
+	if hdr == "" {
+		a.ErrorResponse(w, fmt.Errorf("%w: missing authorization header", ErrAuthorizationFailed))
+		return
+	}
+
+	// Check for valid authorization
+	if !strings.HasPrefix(hdr, "Bearer ") {
+		a.ErrorResponse(w, fmt.Errorf("%w: invalid authorization header", ErrAuthorizationFailed))
+		return
+	}
+
+	// Parse API token
+	rawToken := strings.TrimPrefix(hdr, "Bearer ")
+	apiKey, err := macaroon.ParseAPIKey(rawToken)
+	if err != nil {
+		a.ErrorResponse(w, fmt.Errorf("%w: %s", ErrAuthorizationFailed, err))
+		return
+	}
+	a.Logger.Info("API key", zap.String("key", fmt.Sprint(apiKey)))
 
 	// Decode request body
 	if err = json.NewDecoder(r.Body).Decode(&reqBody); err != nil {
