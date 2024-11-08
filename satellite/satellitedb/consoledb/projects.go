@@ -85,13 +85,25 @@ func (projects *projects) GetCreatedBefore(ctx context.Context, before time.Time
 func (projects *projects) GetByUserID(ctx context.Context, userID uuid.UUID) (_ []console.Project, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	rows, err := projects.db.QueryContext(ctx, projects.db.Rebind(`
+	return projects.getByUserID(ctx, userID, false)
+}
+
+// GetActiveByUserID is a method for querying active projects from the database by userID.
+func (projects *projects) GetActiveByUserID(ctx context.Context, userID uuid.UUID) (_ []console.Project, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	return projects.getByUserID(ctx, userID, true)
+}
+
+func (projects *projects) getByUserID(ctx context.Context, userID uuid.UUID, noDisabled bool) (_ []console.Project, err error) {
+	query := `
 		SELECT
 			projects.id,
 			projects.public_id,
 			projects.name,
 			projects.description,
 			projects.owner_id,
+			projects.status,
 			projects.rate_limit,
 			projects.max_buckets,
 			projects.created_at,
@@ -101,15 +113,23 @@ func (projects *projects) GetByUserID(ctx context.Context, userID uuid.UUID) (_ 
 		FROM projects
 		JOIN project_members ON projects.id = project_members.project_id
 		WHERE project_members.member_id = ?
-		ORDER BY name ASC
-	`), userID)
+	`
+	args := []interface{}{userID}
+	if noDisabled {
+		query += " AND projects.status != ?"
+		args = append(args, int64(console.ProjectDisabled))
+	}
+
+	query += " ORDER BY name ASC"
+
+	rows, err := projects.db.QueryContext(ctx, projects.db.Rebind(query), args...)
 	if err != nil {
 		return nil, err
 	}
 	defer func() { err = errs.Combine(err, rows.Close()) }()
 
 	nextProject := &console.Project{}
-	var rateLimit, maxBuckets sql.NullInt32
+	var rateLimit, maxBuckets, status sql.NullInt32
 	projectsToSend := make([]console.Project, 0)
 	for rows.Next() {
 		err = rows.Scan(
@@ -118,6 +138,7 @@ func (projects *projects) GetByUserID(ctx context.Context, userID uuid.UUID) (_ 
 			&nextProject.Name,
 			&nextProject.Description,
 			&nextProject.OwnerID,
+			&status,
 			&rateLimit,
 			&maxBuckets,
 			&nextProject.CreatedAt,
@@ -135,6 +156,10 @@ func (projects *projects) GetByUserID(ctx context.Context, userID uuid.UUID) (_ 
 		if maxBuckets.Valid {
 			nextProject.MaxBuckets = new(int)
 			*nextProject.MaxBuckets = int(maxBuckets.Int32)
+		}
+		if status.Valid {
+			nextProject.Status = new(console.ProjectStatus)
+			*nextProject.Status = console.ProjectStatus(status.Int32)
 		}
 		projectsToSend = append(projectsToSend, *nextProject)
 	}
