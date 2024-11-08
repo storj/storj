@@ -44,8 +44,10 @@ type Projects interface {
 	Update(ctx context.Context, project *Project) error
 	// List returns paginated projects, created before provided timestamp.
 	List(ctx context.Context, offset int64, limit int, before time.Time) (ProjectsPage, error)
-	// ListByOwnerID is a method for querying all projects from the database by ownerID. It also includes the number of members for each project.
+	// ListByOwnerID is a method for querying all projects (including disabled) from the database by ownerID. It also includes the number of members for each project.
 	ListByOwnerID(ctx context.Context, userID uuid.UUID, cursor ProjectsCursor) (ProjectsPage, error)
+	// ListActiveByOwnerID is a method for querying only active projects from the database by ownerID. It also includes the number of members for each project.
+	ListActiveByOwnerID(ctx context.Context, userID uuid.UUID, cursor ProjectsCursor) (ProjectsPage, error)
 
 	// UpdateRateLimit is a method for updating projects rate limit.
 	UpdateRateLimit(ctx context.Context, id uuid.UUID, newLimit *int) error

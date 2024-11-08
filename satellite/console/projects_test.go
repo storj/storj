@@ -459,6 +459,17 @@ func TestProjectsListByOwner(t *testing.T) {
 				require.Equal(t, originalProjects[i].Name, p.Name)
 				require.Equal(t, originalProjects[i].MemberCount, p.MemberCount)
 			}
+
+			err = projectsDB.UpdateStatus(ctx, ownerProjectsDB[0].ID, console.ProjectDisabled)
+			require.NoError(t, err)
+
+			projsPage, err = projectsDB.ListByOwnerID(ctx, tt.id, *cursor)
+			require.NoError(t, err)
+			require.EqualValues(t, length, projsPage.TotalCount)
+
+			projsPage, err = projectsDB.ListActiveByOwnerID(ctx, tt.id, *cursor)
+			require.NoError(t, err)
+			require.EqualValues(t, length-1, projsPage.TotalCount)
 		}
 	})
 }
