@@ -1465,6 +1465,9 @@ server.private-address: 127.0.0.1:7778
 # how large of batches GetBandwidthSince should process at a time
 # tally.read-rollup-batch-size: 10000
 
+# how many days to retain tallies or zero to retain indefinitely
+# tally.retention-days: 365
+
 # how large of batches SaveRollup should process at a time
 # tally.save-rollup-batch-size: 1000
 

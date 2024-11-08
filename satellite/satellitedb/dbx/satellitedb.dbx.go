@@ -23137,6 +23137,36 @@ func (obj *pgxImpl) Update_UserSettings_By_UserId(ctx context.Context,
 	return user_settings, nil
 }
 
+func (obj *pgxImpl) Delete_BucketStorageTally_By_IntervalStart_Less(ctx context.Context,
+	bucket_storage_tally_interval_start_less BucketStorageTally_IntervalStart_Field) (
+	count int64, err error) {
+	defer mon.Task()(&ctx)(&err)
+	if !obj.txn && txutil.IsInsideTx(ctx) {
+		panic("using DB when inside of a transaction")
+	}
+
+	var __embed_stmt = __sqlbundle_Literal("DELETE FROM bucket_storage_tallies WHERE bucket_storage_tallies.interval_start < ?")
+
+	var __values []any
+	__values = append(__values, bucket_storage_tally_interval_start_less.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	__res, err := obj.driver.ExecContext(ctx, __stmt, __values...)
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+
+	count, err = __res.RowsAffected()
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+
+	return count, nil
+
+}
+
 func (obj *pgxImpl) Delete_ReverificationAudits_By_NodeId_And_StreamId_And_Position(ctx context.Context,
 	reverification_audits_node_id ReverificationAudits_NodeId_Field,
 	reverification_audits_stream_id ReverificationAudits_StreamId_Field,
@@ -33051,6 +33081,36 @@ func (obj *pgxcockroachImpl) Update_UserSettings_By_UserId(ctx context.Context,
 		return nil, obj.makeErr(err)
 	}
 	return user_settings, nil
+}
+
+func (obj *pgxcockroachImpl) Delete_BucketStorageTally_By_IntervalStart_Less(ctx context.Context,
+	bucket_storage_tally_interval_start_less BucketStorageTally_IntervalStart_Field) (
+	count int64, err error) {
+	defer mon.Task()(&ctx)(&err)
+	if !obj.txn && txutil.IsInsideTx(ctx) {
+		panic("using DB when inside of a transaction")
+	}
+
+	var __embed_stmt = __sqlbundle_Literal("DELETE FROM bucket_storage_tallies WHERE bucket_storage_tallies.interval_start < ?")
+
+	var __values []any
+	__values = append(__values, bucket_storage_tally_interval_start_less.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	__res, err := obj.driver.ExecContext(ctx, __stmt, __values...)
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+
+	count, err = __res.RowsAffected()
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+
+	return count, nil
+
 }
 
 func (obj *pgxcockroachImpl) Delete_ReverificationAudits_By_NodeId_And_StreamId_And_Position(ctx context.Context,
@@ -43130,6 +43190,36 @@ func (obj *spannerImpl) Update_UserSettings_By_UserId(ctx context.Context,
 	return user_settings, nil
 }
 
+func (obj *spannerImpl) Delete_BucketStorageTally_By_IntervalStart_Less(ctx context.Context,
+	bucket_storage_tally_interval_start_less BucketStorageTally_IntervalStart_Field) (
+	count int64, err error) {
+	defer mon.Task()(&ctx)(&err)
+	if !obj.txn && txutil.IsInsideTx(ctx) {
+		panic("using DB when inside of a transaction")
+	}
+
+	var __embed_stmt = __sqlbundle_Literal("DELETE FROM bucket_storage_tallies WHERE bucket_storage_tallies.interval_start < ?")
+
+	var __values []any
+	__values = append(__values, bucket_storage_tally_interval_start_less.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	__res, err := obj.driver.ExecContext(ctx, __stmt, __values...)
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+
+	count, err = __res.RowsAffected()
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+
+	return count, nil
+
+}
+
 func (obj *spannerImpl) Delete_ReverificationAudits_By_NodeId_And_StreamId_And_Position(ctx context.Context,
 	reverification_audits_node_id ReverificationAudits_NodeId_Field,
 	reverification_audits_stream_id ReverificationAudits_StreamId_Field,
@@ -44655,6 +44745,10 @@ type Methods interface {
 		bucket_metainfo_project_id BucketMetainfo_ProjectId_Field,
 		bucket_metainfo_name BucketMetainfo_Name_Field) (
 		deleted bool, err error)
+
+	Delete_BucketStorageTally_By_IntervalStart_Less(ctx context.Context,
+		bucket_storage_tally_interval_start_less BucketStorageTally_IntervalStart_Field) (
+		count int64, err error)
 
 	Delete_GracefulExitSegmentTransfer_By_NodeId(ctx context.Context,
 		graceful_exit_segment_transfer_node_id GracefulExitSegmentTransfer_NodeId_Field) (
