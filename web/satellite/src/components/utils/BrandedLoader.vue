@@ -1,3 +1,6 @@
+// Copyright (C) 2024 Storj Labs, Inc.
+// See LICENSE for copying information.
+
 <template>
     <div class="loader d-flex align-center justify-center">
         <div class="loader__spinner" />
