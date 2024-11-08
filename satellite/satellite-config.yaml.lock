@@ -892,6 +892,15 @@ identity.key-path: /root/.local/share/storj/identity/satellite/identity.key
 # the database connection string to use
 # metainfo.database-url: postgres://
 
+# number of object locations to cache.
+# metainfo.download-limiter.cache-capacity: 10000
+
+# whether rate limiting is enabled.
+# metainfo.download-limiter.enabled: true
+
+# how often we can interact with a single object (the same location) per API instance
+# metainfo.download-limiter.single-object-limit: 10ms
+
 # maximum time allowed to pass between creating and committing a segment
 # metainfo.max-commit-interval: 48h0m0s
 
@@ -973,8 +982,8 @@ identity.key-path: /root/.local/share/storj/identity/satellite/identity.key
 # whether rate limiting is enabled.
 # metainfo.upload-limiter.enabled: true
 
-# how often we can upload to the single object (the same location) per API instance
-# metainfo.upload-limiter.single-object-limit: 1s
+# how often we can interact with a single object (the same location) per API instance
+# metainfo.upload-limiter.single-object-limit: 10ms
 
 # enable the use of bucket level object versioning
 # metainfo.use-bucket-level-object-versioning: false
