@@ -4,7 +4,6 @@
 <template>
     <v-dialog
         v-model="model"
-        width="auto"
         max-width="460px"
         transition="fade-transition"
     >

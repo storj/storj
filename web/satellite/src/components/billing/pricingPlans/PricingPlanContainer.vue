@@ -3,7 +3,7 @@
 
 <template>
     <v-card class="h-100" hover @click="onActivateClick">
-        <div class="h-100 d-flex flex-column justify-space-between pa-8">
+        <div class="h-100 d-flex flex-column justify-space-between pa-6 pa-sm-8">
             <div>
                 <div class="d-flex justify-center align-center ma-0">
                     <div>

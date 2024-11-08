@@ -95,7 +95,7 @@
                                     column
                                     filter
                                 >
-                                    <v-chip v-for="type in [GOVERNANCE_LOCK, COMPLIANCE_LOCK]" :key="type" :value="type">
+                                    <v-chip v-for="type in [GOVERNANCE_LOCK, COMPLIANCE_LOCK]" :key="type" :value="type" variant="outlined">
                                         {{ type.substring(0, 1) + type.substring(1).toLowerCase() }}
                                     </v-chip>
                                 </v-chip-group>
@@ -128,7 +128,7 @@
                                 column
                                 filter
                             >
-                                <v-chip v-for="range in ranges" :key="range.label" :value="range">
+                                <v-chip v-for="range in ranges" :key="range.label" :value="range" variant="outlined">
                                     {{ range.label }}
                                 </v-chip>
                             </v-chip-group>

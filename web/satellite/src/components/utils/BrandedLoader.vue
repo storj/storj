@@ -1,6 +1,3 @@
-// Copyright (C) 2024 Storj Labs, Inc.
-// See LICENSE for copying information.
-
 <template>
     <div class="loader d-flex align-center justify-center">
         <div class="loader__spinner" />
@@ -9,15 +6,19 @@
 </template>
 
 <style scoped lang="scss">
-    @keyframes rotate {
-
+    @keyframes spin {
         from {
             transform: rotate(0deg);
         }
-
         to {
             transform: rotate(360deg);
         }
+    }
+
+    @keyframes colorChange {
+        0% { border-top-color: #0052ff; }
+        50% { border-top-color: #091c45 }
+        100% { border-top-color: #0052ff; }
     }
 
     .loader {
@@ -28,16 +29,13 @@
             width: 90px;
             height: 90px;
             margin: auto 0;
-            border: solid 4px var(--c-blue-3);
+            border: solid 1px transparent;
             border-radius: 50%;
-            border-right-color: transparent;
-            border-bottom-color: transparent;
-            border-left-color: transparent;
-            transition: all 0.5s ease-in;
-            animation-name: rotate;
-            animation-duration: 1s;
-            animation-iteration-count: infinite;
-            animation-timing-function: linear;
+            animation: 
+                spin 0.7s linear infinite,
+                colorChange 0.1s linear infinite;
+            will-change: transform, border-top-color;
+            box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.05);
         }
 
         &__icon {
