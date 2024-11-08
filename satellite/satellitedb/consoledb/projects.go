@@ -313,6 +313,9 @@ func (projects *projects) Update(ctx context.Context, project *console.Project) 
 	if project.DefaultVersioning > 0 {
 		updateFields.DefaultVersioning = dbx.Project_DefaultVersioning(int(project.DefaultVersioning))
 	}
+	if project.Status != nil {
+		updateFields.Status = dbx.Project_Status(int(*project.Status))
+	}
 
 	updateFields.PromptedForVersioningBeta = dbx.Project_PromptedForVersioningBeta(project.PromptedForVersioningBeta)
 
@@ -728,6 +731,7 @@ func ProjectFromDBX(ctx context.Context, project *dbx.Project) (_ *console.Proje
 	return &console.Project{
 		ID:                          id,
 		PublicID:                    publicID,
+		Status:                      (*console.ProjectStatus)(project.Status),
 		Name:                        project.Name,
 		Description:                 project.Description,
 		UserAgent:                   userAgent,

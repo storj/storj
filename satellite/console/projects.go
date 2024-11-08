@@ -114,13 +114,14 @@ type Project struct {
 	ID       uuid.UUID `json:"id"`
 	PublicID uuid.UUID `json:"publicId"`
 
-	Name        string    `json:"name"`
-	Description string    `json:"description"`
-	UserAgent   []byte    `json:"userAgent"`
-	OwnerID     uuid.UUID `json:"ownerId"`
-	MaxBuckets  *int      `json:"maxBuckets"`
-	CreatedAt   time.Time `json:"createdAt"`
-	MemberCount int       `json:"memberCount"`
+	Name        string         `json:"name"`
+	Description string         `json:"description"`
+	UserAgent   []byte         `json:"userAgent"`
+	OwnerID     uuid.UUID      `json:"ownerId"`
+	MaxBuckets  *int           `json:"maxBuckets"`
+	CreatedAt   time.Time      `json:"createdAt"`
+	MemberCount int            `json:"memberCount"`
+	Status      *ProjectStatus `json:"-"`
 
 	StorageLimit                *memory.Size `json:"storageLimit"`
 	StorageUsed                 int64        `json:"-"`
@@ -150,6 +151,16 @@ type Project struct {
 	PassphraseEncKeyID        *int                      `json:"-"`
 	PathEncryption            *bool                     `json:"-"`
 }
+
+// ProjectStatus - is used to indicate status of the user's project.
+type ProjectStatus int
+
+const (
+	// ProjectDisabled is a status that project receives after deleting/disabling by the user.
+	ProjectDisabled ProjectStatus = 0
+	// ProjectActive is a status that project receives after creation.
+	ProjectActive ProjectStatus = 1
+)
 
 // UpsertProjectInfo holds data needed to create/update Project.
 type UpsertProjectInfo struct {
