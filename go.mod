@@ -32,6 +32,7 @@ require (
 	github.com/jtolio/mito v0.0.0-20230523171229-d78ef06bb77b
 	github.com/jtolio/noiseconn v0.0.0-20230301220541-88105e6c8ac6
 	github.com/klauspost/compress v1.17.7
+	github.com/lib/pq v1.10.2
 	github.com/loov/hrtime v1.0.3
 	github.com/mattn/go-sqlite3 v1.14.19
 	github.com/nsf/jsondiff v0.0.0-20200515183724-f29ed568f4ce
