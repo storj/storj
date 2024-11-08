@@ -17,6 +17,9 @@ var (
 	// ErrBadRequest is returned when the request is malformed.
 	ErrBadRequest = &ErrorResponse{StatusCode: 400, Message: "bad request"}
 
+	// ErrNotFound is returned when the requested resource is not found.
+	ErrNotFound = &ErrorResponse{StatusCode: 404, Message: "not found"}
+
 	// ErrAuthorizationFailed is returned when the request is not authorized.
 	ErrAuthorizationFailed = &ErrorResponse{StatusCode: 401, Message: "authorization failed"}
 

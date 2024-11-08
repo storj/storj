@@ -4,6 +4,7 @@
 package metasearch
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -13,19 +14,21 @@ import (
 	"go.uber.org/zap"
 
 	"storj.io/common/macaroon"
+	"storj.io/common/uuid"
 	"storj.io/storj/satellite"
 	"storj.io/storj/satellite/metabase"
 )
 
 // Server implements the REST API for metadata search.
 type Server struct {
-	Logger      *zap.Logger
-	SatelliteDB satellite.DB
-	MetabaseDB  *metabase.DB
-	Endpoint    string
+	Logger   *zap.Logger
+	Repo     MetaSearchRepo
+	Endpoint string
 }
 
 type SearchRequest struct {
+	ProjectID uuid.UUID `json:"-"`
+
 	Page  int    `json:"page"`
 	Path  string `json:"path"`
 	Query string `json:"query"`
@@ -34,11 +37,11 @@ type SearchRequest struct {
 
 // NewServer creates a new metasearch server process.
 func NewServer(log *zap.Logger, db satellite.DB, metabase *metabase.DB, endpoint string) (*Server, error) {
+	repo := NewMetabaseSearchRepository(metabase)
 	peer := &Server{
-		Logger:      log,
-		SatelliteDB: db,
-		MetabaseDB:  metabase,
-		Endpoint:    endpoint,
+		Logger:   log,
+		Repo:     repo,
+		Endpoint: endpoint,
 	}
 
 	return peer, nil
@@ -77,11 +80,15 @@ func (a *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// TODO: parse from token
+	reqBody.ProjectID, _ = uuid.FromString("1a49d67a-d7ff-4e83-ba53-dc9d5e307839")
+
 	// Handle request
+	ctx := r.Context()
 	switch {
 	case r.Method == http.MethodPost:
 		if reqBody.Query == "" {
-			resp, err = a.ViewMetadata(&reqBody)
+			resp, err = a.ViewMetadata(ctx, &reqBody)
 		} else {
 			resp, err = a.QueryMetadata(&reqBody)
 		}
@@ -121,11 +128,19 @@ func (a *Server) Run() error {
 	return http.ListenAndServe(a.Endpoint, mux)
 }
 
-func (a *Server) ViewMetadata(reqBody *SearchRequest) (meta map[string]interface{}, err error) {
-	meta = map[string]interface{}{
-		"view": "meta",
+func (a *Server) ViewMetadata(ctx context.Context, reqBody *SearchRequest) (meta map[string]interface{}, err error) {
+	bucket, key, err := parsePath(reqBody.Path)
+	if err != nil {
+		return nil, err
 	}
-	return
+
+	loc := metabase.ObjectLocation{
+		ProjectID:  reqBody.ProjectID,
+		BucketName: metabase.BucketName(bucket),
+		ObjectKey:  metabase.ObjectKey(key),
+	}
+
+	return a.Repo.GetMetadata(ctx, loc)
 }
 
 func (a *Server) QueryMetadata(reqBody *SearchRequest) (meta map[string]interface{}, err error) {
@@ -172,4 +187,18 @@ func InternalServerErrorHandler(w http.ResponseWriter, r *http.Request) {
 func NotFoundHandler(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusNotFound)
 	w.Write([]byte("404 Not Found"))
+}
+
+func parsePath(path string) (bucket string, key string, err error) {
+	if !strings.HasPrefix(path, "sj://") {
+		return "", "", fmt.Errorf("invalid path: %w", ErrBadRequest)
+	}
+
+	path = strings.TrimPrefix(path, "sj://")
+	parts := strings.SplitN(path, "/", 2)
+	if len(parts) != 2 {
+		return "", "", fmt.Errorf("invalid path: %w", ErrBadRequest)
+	}
+
+	return parts[0], parts[1], nil
 }

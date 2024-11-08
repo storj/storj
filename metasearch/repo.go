@@ -1,9 +1,51 @@
 package metasearch
 
-// metadata search repo represent a collection of operations on metadata
+import (
+	"context"
+	"encoding/json"
+	"fmt"
+
+	"storj.io/storj/satellite/metabase"
+)
+
+// MetaSearchRepo performs operations on object metadata.
 type MetaSearchRepo interface {
-	View(path string) (meta map[string]interface{}, err error)
-	Query(page int, query, path string) (meta map[string]interface{}, err error)
-	CreateUpdate(path, metadata string) (err error)
-	Delete(path string) (err error)
+	GetMetadata(ctx context.Context, loc metabase.ObjectLocation) (meta map[string]interface{}, err error)
+	// QueryMetadata(ctx context.Context, query string, offset int, limit int) (objects []metabase.ObjectLocation, err error)
+	// UpdateMetadata(ctx context.Context, loc metabase.ObjectLocation, meta map[string]interface{}) (err error)
+	// DeleteMetadata(ctx context.Context, loc metabase.ObjectLocation) (err error)
+}
+
+type MetabaseSearchRepository struct {
+	db *metabase.DB
+}
+
+// NewMetabaseSearchRepository creates a new MetabaseSearchRepository.
+func NewMetabaseSearchRepository(db *metabase.DB) *MetabaseSearchRepository {
+	return &MetabaseSearchRepository{
+		db: db,
+	}
+}
+
+func (r *MetabaseSearchRepository) GetMetadata(ctx context.Context, loc metabase.ObjectLocation) (meta map[string]interface{}, err error) {
+	obj, err := r.db.GetObjectLastCommitted(ctx, metabase.GetObjectLastCommitted{loc})
+	if err != nil && metabase.ErrObjectNotFound.Has(err) {
+		return nil, fmt.Errorf("%w: object not found", ErrNotFound)
+	} else if err != nil {
+		return nil, fmt.Errorf("%w: %v", ErrInternalError, err)
+	}
+
+	if obj.ClearMetadata != nil {
+		return parseJSON(*obj.ClearMetadata)
+	}
+	return nil, nil
+}
+
+func parseJSON(data string) (map[string]interface{}, error) {
+	var meta map[string]interface{}
+	err := json.Unmarshal([]byte(data), &meta)
+	if err != nil {
+		return nil, err
+	}
+	return meta, nil
 }
