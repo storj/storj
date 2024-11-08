@@ -17,7 +17,7 @@
                         height="40"
                         rounded="lg"
                     >
-                        <component :is="LockKeyhole" :size="18" />
+                        <v-icon :icon="LockKeyhole" size="18" />
                     </v-sheet>
                 </template>
 
@@ -115,7 +115,7 @@
 
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue';
-import { VForm, VRow, VCol, VTextField, VCardItem, VDivider, VCardTitle, VBtn, VCard, VCardActions, VDialog, VAlert, VSheet } from 'vuetify/components';
+import { VForm, VRow, VCol, VTextField, VCardItem, VDivider, VCardTitle, VBtn, VCard, VCardActions, VDialog, VAlert, VSheet, VIcon } from 'vuetify/components';
 import { LockKeyhole } from 'lucide-vue-next';
 
 import { RequiredRule } from '@/types/common';

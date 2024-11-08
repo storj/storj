@@ -7,17 +7,19 @@
 
 <style scoped lang="scss">
     @keyframes spin {
+
         from {
             transform: rotate(0deg);
         }
+
         to {
             transform: rotate(360deg);
         }
     }
 
-    @keyframes colorChange {
+    @keyframes colors {
         0% { border-top-color: #0052ff; }
-        50% { border-top-color: #091c45 }
+        50% { border-top-color: #091c45; }
         100% { border-top-color: #0052ff; }
     }
 
@@ -31,11 +33,11 @@
             margin: auto 0;
             border: solid 1px transparent;
             border-radius: 50%;
-            animation: 
+            animation:
                 spin 0.7s linear infinite,
-                colorChange 0.1s linear infinite;
+                colors 0.1s linear infinite;
             will-change: transform, border-top-color;
-            box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.05);
+            box-shadow: 0 0 0 1px rgb(0 0 0 / 5%);
         }
 
         &__icon {
