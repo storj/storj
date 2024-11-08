@@ -13,6 +13,25 @@ import (
 
 	_ "github.com/lib/pq"
 )
+ // default values
+const (
+	defaultDbEndpoint    = "postgresql://root@localhost:26257/defaultdb?sslmode=disable"
+	defaultSharedValues  = 0.3
+	defaultBatchSize     = 10
+	defaultWorkersNumber = 1
+	defaultTotlaRecords  = 10
+	defaultDryRun        = true
+)
+
+// main parameters decalaration
+var (
+	dbEndpoint    string
+	sharedValues  float64 = 0.3
+	batchSize     int
+	workersNumber int
+	totalRecords  int
+	dryRun        bool
+)
 
 // Record represents a single database record
 type Record struct {
@@ -305,24 +324,6 @@ func (bg *BatchGenerator) processBatch(ctx context.Context, stmt *sql.Stmt, batc
 
 	return tx.Commit()
 }
-
-const (
-	defaultDbEndpoint    = "postgresql://root@localhost:26257/defaultdb?sslmode=disable"
-	defaultSharedValues  = 0.3
-	defaultBatchSize     = 1000
-	defaultWorkersNumber = 8
-	defaultTotlaRecords  = 10
-	defaultDryRun        = true
-)
-
-var (
-	dbEndpoint    string
-	sharedValues  float64 = 0.3
-	batchSize     int
-	workersNumber int
-	totalRecords  int
-	dryRun        bool
-)
 
 func readArgs() {
 	flag.StringVar(&dbEndpoint, "db", defaultDbEndpoint, fmt.Sprintf("db endpoint, default: %v", defaultDbEndpoint))
