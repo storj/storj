@@ -232,7 +232,7 @@ func prettyPrint(b []byte) {
 func (bg *BatchGenerator) debugBatch(ctx context.Context, batchSize int) (err error) {
 	for i := 0; i < batchSize; i++ {
 		record := bg.generator.GenerateRecord()
-		metadata, err := json.Marshal(record.Metadata)
+		metadata, err := json.Marshal(record)
 		if err != nil {
 			return err
 		}
