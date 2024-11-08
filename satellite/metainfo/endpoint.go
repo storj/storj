@@ -68,30 +68,31 @@ type APIKeys interface {
 type Endpoint struct {
 	pb.DRPCMetainfoUnimplementedServer
 
-	log                    *zap.Logger
-	buckets                *buckets.Service
-	metabase               *metabase.DB
-	orders                 *orders.Service
-	overlay                *overlay.Service
-	attributions           attribution.DB
-	pointerVerification    *pointerverification.Service
-	projectUsage           *accounting.Service
-	projects               console.Projects
-	projectMembers         console.ProjectMembers
-	users                  console.Users
-	apiKeys                APIKeys
-	satellite              signing.Signer
-	limiterCache           *lrucache.ExpiringLRUOf[*rate.Limiter]
-	singleObjectLimitCache *lrucache.ExpiringLRUOf[struct{}]
-	userInfoCache          *lrucache.ExpiringLRUOf[*console.UserInfo]
-	encInlineSegmentSize   int64 // max inline segment size + encryption overhead
-	revocations            revocation.DB
-	config                 ExtendedConfig
-	versionCollector       *versionCollector
-	zstdDecoder            *zstd.Decoder
-	zstdEncoder            *zstd.Encoder
-	successTrackers        *SuccessTrackers
-	placement              nodeselection.PlacementDefinitions
+	log                            *zap.Logger
+	buckets                        *buckets.Service
+	metabase                       *metabase.DB
+	orders                         *orders.Service
+	overlay                        *overlay.Service
+	attributions                   attribution.DB
+	pointerVerification            *pointerverification.Service
+	projectUsage                   *accounting.Service
+	projects                       console.Projects
+	projectMembers                 console.ProjectMembers
+	users                          console.Users
+	apiKeys                        APIKeys
+	satellite                      signing.Signer
+	limiterCache                   *lrucache.ExpiringLRUOf[*rate.Limiter]
+	singleObjectUploadLimitCache   *lrucache.ExpiringLRUOf[struct{}]
+	singleObjectDownloadLimitCache *lrucache.ExpiringLRUOf[struct{}]
+	userInfoCache                  *lrucache.ExpiringLRUOf[*console.UserInfo]
+	encInlineSegmentSize           int64 // max inline segment size + encryption overhead
+	revocations                    revocation.DB
+	config                         ExtendedConfig
+	versionCollector               *versionCollector
+	zstdDecoder                    *zstd.Decoder
+	zstdEncoder                    *zstd.Encoder
+	successTrackers                *SuccessTrackers
+	placement                      nodeselection.PlacementDefinitions
 
 	// rateLimiterTime is a function that returns the time to check with the rate limiter.
 	// It's handy for testing purposes. It defaults to time.Now.
@@ -153,9 +154,13 @@ func NewEndpoint(log *zap.Logger, buckets *buckets.Service, metabaseDB *metabase
 			Expiration: config.RateLimiter.CacheExpiration,
 			Name:       "metainfo-ratelimit",
 		}),
-		singleObjectLimitCache: lrucache.NewOf[struct{}](lrucache.Options{
+		singleObjectUploadLimitCache: lrucache.NewOf[struct{}](lrucache.Options{
 			Expiration: config.UploadLimiter.SingleObjectLimit,
 			Capacity:   config.UploadLimiter.CacheCapacity,
+		}),
+		singleObjectDownloadLimitCache: lrucache.NewOf[struct{}](lrucache.Options{
+			Expiration: config.DownloadLimiter.SingleObjectLimit,
+			Capacity:   config.DownloadLimiter.CacheCapacity,
 		}),
 		userInfoCache: lrucache.NewOf[*console.UserInfo](lrucache.Options{
 			Expiration: config.UserInfoValidation.CacheExpiration,
