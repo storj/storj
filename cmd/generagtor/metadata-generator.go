@@ -13,14 +13,15 @@ import (
 
 	_ "github.com/lib/pq"
 )
- // default values
+
+// default values
 const (
 	defaultDbEndpoint    = "postgresql://root@localhost:26257/defaultdb?sslmode=disable"
 	defaultSharedValues  = 0.3
 	defaultBatchSize     = 10
 	defaultWorkersNumber = 1
 	defaultTotlaRecords  = 10
-	defaultDryRun        = true
+	defaultDryRun        = false
 )
 
 // main parameters decalaration
@@ -341,7 +342,8 @@ func main() {
 	var db *sql.DB
 	if !dryRun {
 		// Connect to CockroachDB
-		db, err := sql.Open("postgres", dbEndpoint)
+		var err error
+		db, err = sql.Open("postgres", dbEndpoint)
 		if err != nil {
 			panic(fmt.Sprintf("failed to connect to database: %v", err))
 		}
