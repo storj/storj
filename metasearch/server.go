@@ -74,14 +74,23 @@ func (a *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 	a.Logger.Info("API key", zap.String("key", fmt.Sprint(apiKey)))
 
+	// Parse project ID from header (TODO: get from API token)
+	projectID := r.Header.Get("X-Project-ID")
+	if projectID == "" {
+		a.ErrorResponse(w, fmt.Errorf("%w: missing project ID", ErrBadRequest))
+		return
+	}
+	reqBody.ProjectID, err = uuid.FromString(projectID)
+	if err != nil {
+		a.ErrorResponse(w, fmt.Errorf("%w: invalid project ID", ErrBadRequest))
+		return
+	}
+
 	// Decode request body
 	if err = json.NewDecoder(r.Body).Decode(&reqBody); err != nil {
 		a.ErrorResponse(w, fmt.Errorf("%w: error decoding request body: %w", ErrBadRequest, err))
 		return
 	}
-
-	// TODO: parse from token
-	reqBody.ProjectID, _ = uuid.FromString("97c2848e-017a-460a-9b53-a9ee28c50dc6")
 
 	// Handle request
 	ctx := r.Context()
