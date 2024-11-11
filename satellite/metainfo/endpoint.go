@@ -56,6 +56,11 @@ var (
 	ErrNodeAlreadyExists = errs.Class("metainfo: node already exists")
 	// ErrBucketNotEmpty is returned when bucket is required to be empty for an operation.
 	ErrBucketNotEmpty = errs.Class("bucket not empty")
+	// ErrUnknownPlacement is returned when a bucket is being created with an unknown placement.
+	ErrUnknownPlacement = errs.Class("unknown placement")
+	// ErrPlacementConflict is returned when a bucket is being created with a custom
+	// placement while there is a project default.
+	ErrPlacementConflict = errs.Class("unknown placement")
 )
 
 // APIKeys is api keys store methods used by endpoint.

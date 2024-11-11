@@ -417,6 +417,7 @@ func NewAPI(log *zap.Logger, full *identity.FullIdentity, db DB,
 
 	{ // setup metainfo
 		peer.Metainfo.Metabase = metabaseDB
+		config.Metainfo.SelfServePlacementSelectEnabled = config.Console.Placement.SelfServeEnabled
 
 		peer.Metainfo.Endpoint, err = metainfo.NewEndpoint(
 			peer.Log.Named("metainfo:endpoint"),
