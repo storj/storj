@@ -896,17 +896,17 @@ func (endpoint *Endpoint) beginSaveOrder(ctx context.Context, limit *pb.OrderLim
 		err = commit(&ordersfile.Info{Limit: limit, Order: order})
 		if err != nil {
 			endpoint.log.Error("failed to add order", zap.Error(err))
-		} else {
+		} else if endpoint.usage != nil {
 			amount := order.Amount
 			if amountFunc != nil {
 				amount = amountFunc()
 			}
-			// We always want to save order to the database to be able to settle.
 			err = endpoint.usage.Add(context2.WithoutCancellation(ctx), limit.SatelliteId, limit.Action, amount, time.Now())
 			if err != nil {
 				endpoint.log.Error("failed to add bandwidth usage", zap.Error(err))
 			}
 		}
+
 	}, nil
 }
 
