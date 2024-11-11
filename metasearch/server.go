@@ -76,12 +76,12 @@ func (a *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 	// Decode request body
 	if err = json.NewDecoder(r.Body).Decode(&reqBody); err != nil {
-		a.ErrorResponse(w, fmt.Errorf("error decoding request body: %w", err))
+		a.ErrorResponse(w, fmt.Errorf("%w: error decoding request body: %w", ErrBadRequest, err))
 		return
 	}
 
 	// TODO: parse from token
-	reqBody.ProjectID, _ = uuid.FromString("1a49d67a-d7ff-4e83-ba53-dc9d5e307839")
+	reqBody.ProjectID, _ = uuid.FromString("97c2848e-017a-460a-9b53-a9ee28c50dc6")
 
 	// Handle request
 	ctx := r.Context()
@@ -93,9 +93,9 @@ func (a *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			resp, err = a.QueryMetadata(&reqBody)
 		}
 	case r.Method == http.MethodPut:
-		err = a.UpdateMetadata(&reqBody)
+		err = a.UpdateMetadata(ctx, &reqBody)
 	case r.Method == http.MethodDelete:
-		err = a.DeleteMetadata(&reqBody)
+		err = a.DeleteMetadata(ctx, &reqBody)
 	default:
 		err = fmt.Errorf("%w: unsupported method %s", ErrBadRequest, r.Method)
 	}
@@ -150,12 +150,40 @@ func (a *Server) QueryMetadata(reqBody *SearchRequest) (meta map[string]interfac
 	return
 }
 
-func (a *Server) UpdateMetadata(reqBody *SearchRequest) (err error) {
-	return nil
+func (a *Server) UpdateMetadata(ctx context.Context, reqBody *SearchRequest) (err error) {
+	bucket, key, err := parsePath(reqBody.Path)
+	if err != nil {
+		return err
+	}
+
+	loc := metabase.ObjectLocation{
+		ProjectID:  reqBody.ProjectID,
+		BucketName: metabase.BucketName(bucket),
+		ObjectKey:  metabase.ObjectKey(key),
+	}
+
+	meta := make(map[string]interface{})
+	err = json.Unmarshal([]byte(reqBody.Meta), &meta)
+	if err != nil {
+		return fmt.Errorf("%w: cannot parse passed metadata: %v", ErrBadRequest, err)
+	}
+
+	return a.Repo.UpdateMetadata(ctx, loc, meta)
 }
 
-func (a *Server) DeleteMetadata(reqBody *SearchRequest) (err error) {
-	return nil
+func (a *Server) DeleteMetadata(ctx context.Context, reqBody *SearchRequest) (err error) {
+	bucket, key, err := parsePath(reqBody.Path)
+	if err != nil {
+		return err
+	}
+
+	loc := metabase.ObjectLocation{
+		ProjectID:  reqBody.ProjectID,
+		BucketName: metabase.BucketName(bucket),
+		ObjectKey:  metabase.ObjectKey(key),
+	}
+
+	return a.Repo.DeleteMetadata(ctx, loc)
 }
 
 // ErrorResponse writes an error response to the client.

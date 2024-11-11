@@ -12,8 +12,8 @@ import (
 type MetaSearchRepo interface {
 	GetMetadata(ctx context.Context, loc metabase.ObjectLocation) (meta map[string]interface{}, err error)
 	// QueryMetadata(ctx context.Context, query string, offset int, limit int) (objects []metabase.ObjectLocation, err error)
-	// UpdateMetadata(ctx context.Context, loc metabase.ObjectLocation, meta map[string]interface{}) (err error)
-	// DeleteMetadata(ctx context.Context, loc metabase.ObjectLocation) (err error)
+	UpdateMetadata(ctx context.Context, loc metabase.ObjectLocation, meta map[string]interface{}) (err error)
+	DeleteMetadata(ctx context.Context, loc metabase.ObjectLocation) (err error)
 }
 
 type MetabaseSearchRepository struct {
@@ -39,6 +39,43 @@ func (r *MetabaseSearchRepository) GetMetadata(ctx context.Context, loc metabase
 		return parseJSON(*obj.ClearMetadata)
 	}
 	return nil, nil
+}
+
+func (r *MetabaseSearchRepository) UpdateMetadata(ctx context.Context, loc metabase.ObjectLocation, meta map[string]interface{}) (err error) {
+	// Parse JSON metadata
+	var newMetadata *string
+	if meta != nil {
+		data, err := json.Marshal(meta)
+		if err != nil {
+			return fmt.Errorf("%w: %v", ErrBadRequest, err)
+		}
+		s := string(data)
+		newMetadata = &s
+	}
+
+	// Get current version
+	current, err := r.db.GetObjectLastCommitted(ctx, metabase.GetObjectLastCommitted{loc})
+	if err != nil && metabase.ErrObjectNotFound.Has(err) {
+		return fmt.Errorf("%w: object not found", ErrNotFound)
+	} else if err != nil {
+		return fmt.Errorf("%w: %v", ErrInternalError, err)
+	}
+
+	// Update metadata
+	obj := metabase.UpdateObjectLastCommittedMetadata{
+		ObjectLocation: loc,
+		ClearMetadata:  newMetadata,
+		StreamID:       current.StreamID,
+	}
+	err = r.db.UpdateObjectLastCommittedMetadata(ctx, obj)
+	if err != nil {
+		return fmt.Errorf("%w: %v", ErrInternalError, err)
+	}
+	return nil
+}
+
+func (r *MetabaseSearchRepository) DeleteMetadata(ctx context.Context, loc metabase.ObjectLocation) (err error) {
+	return r.UpdateMetadata(ctx, loc, nil)
 }
 
 func parseJSON(data string) (map[string]interface{}, error) {
