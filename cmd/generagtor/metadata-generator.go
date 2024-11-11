@@ -51,7 +51,7 @@ type Generator struct {
 }
 
 // NewGenerator creates a new Generator instance with a buffered path prefix channel
-func NewGenerator(valueShare float64) *Generator {
+func NewGenerator(valueShare float64, pathCounter uint64) *Generator {
 	// Create a pool of random number generators
 	randPool := sync.Pool{
 		New: func() interface{} {
@@ -67,7 +67,7 @@ func NewGenerator(valueShare float64) *Generator {
 		},
 		valueShare:  valueShare,
 		pathPrefix:  make(chan string, 1000), // Buffered channel for path prefixes
-		pathCounter: 0,
+		pathCounter: pathCounter,
 		randPool:    randPool,
 	}
 
@@ -167,9 +167,9 @@ type BatchGenerator struct {
 }
 
 // NewBatchGenerator creates a new BatchGenerator
-func NewBatchGenerator(db *sql.DB, valueShare float64, batchSize, workers int) *BatchGenerator {
+func NewBatchGenerator(db *sql.DB, valueShare float64, batchSize, workers int, pathCounter uint64) *BatchGenerator {
 	return &BatchGenerator{
-		generator: NewGenerator(valueShare),
+		generator: NewGenerator(valueShare, pathCounter),
 		db:        db,
 		batchSize: batchSize,
 		workers:   workers,
@@ -326,6 +326,27 @@ func (bg *BatchGenerator) processBatch(ctx context.Context, stmt *sql.Stmt, batc
 	return tx.Commit()
 }
 
+func getPathCount(ctx context.Context, db *sql.DB) (count uint64) {
+	// Get path count
+	rows, err := db.QueryContext(ctx, `SELECT COUNT(*) FROM test_data`)
+	if err != nil {
+		panic(fmt.Sprintf("failed to get path count: %v", err))
+	}
+	defer rows.Close()
+
+	for rows.Next() {
+		if err := rows.Scan(&count); err != nil {
+			panic(err.Error())
+		}
+	}
+	// Check for errors from iterating over rows.
+	if err := rows.Err(); err != nil {
+		panic(err.Error())
+	}
+	fmt.Printf("Found %v records", count)
+	return
+}
+
 func readArgs() {
 	flag.StringVar(&dbEndpoint, "db", defaultDbEndpoint, fmt.Sprintf("db endpoint, default: %v", defaultDbEndpoint))
 	flag.Float64Var(&sharedValues, "sv", defaultSharedValues, fmt.Sprintf("percentage of shared values, default: %v", defaultSharedValues))
@@ -339,25 +360,22 @@ func readArgs() {
 func main() {
 	readArgs()
 
-	var db *sql.DB
-	if !dryRun {
-		// Connect to CockroachDB
-		var err error
-		db, err = sql.Open("postgres", dbEndpoint)
-		if err != nil {
-			panic(fmt.Sprintf("failed to connect to database: %v", err))
-		}
-		defer db.Close()
+	// Connect to CockroachDB
+	db, err := sql.Open("postgres", dbEndpoint)
+	if err != nil {
+		panic(fmt.Sprintf("failed to connect to database: %v", err))
 	}
+	defer db.Close()
 
 	ctx := context.Background()
 
 	// Initialize batch generator
 	batchGen := NewBatchGenerator(
-		db,            // database connection
-		sharedValues,  // 30% shared values
-		batchSize,     // batch size
-		workersNumber, // number of workers
+		db,                    // database connection
+		sharedValues,          // 30% shared values
+		batchSize,             // batch size
+		workersNumber,         // number of workers
+		getPathCount(ctx, db), // get path count
 	)
 
 	// Generate and insert/debug records
