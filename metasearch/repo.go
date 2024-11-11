@@ -11,7 +11,7 @@ import (
 // MetaSearchRepo performs operations on object metadata.
 type MetaSearchRepo interface {
 	GetMetadata(ctx context.Context, loc metabase.ObjectLocation) (meta map[string]interface{}, err error)
-	// QueryMetadata(ctx context.Context, query string, offset int, limit int) (objects []metabase.ObjectLocation, err error)
+	QueryMetadata(ctx context.Context, loc metabase.ObjectLocation, containsQuery map[string]interface{}, batchSize int) ([]metabase.ObjectStream, error)
 	UpdateMetadata(ctx context.Context, loc metabase.ObjectLocation, meta map[string]interface{}) (err error)
 	DeleteMetadata(ctx context.Context, loc metabase.ObjectLocation) (err error)
 }
@@ -76,6 +76,27 @@ func (r *MetabaseSearchRepository) UpdateMetadata(ctx context.Context, loc metab
 
 func (r *MetabaseSearchRepository) DeleteMetadata(ctx context.Context, loc metabase.ObjectLocation) (err error) {
 	return r.UpdateMetadata(ctx, loc, nil)
+}
+
+func (r *MetabaseSearchRepository) QueryMetadata(ctx context.Context, loc metabase.ObjectLocation, containsQuery map[string]interface{}, batchSize int) ([]metabase.ObjectStream, error) {
+	query, err := json.Marshal(containsQuery)
+	if err != nil {
+		return nil, fmt.Errorf("%w: %v", ErrInternalError, err)
+	}
+
+	opts := metabase.FindObjectsByClearMetadata{
+		ProjectID:     loc.ProjectID,
+		BucketName:    loc.BucketName,
+		ContainsQuery: string(query),
+	}
+
+	startAfter := metabase.ObjectStream{
+		ProjectID:  loc.ProjectID,
+		BucketName: loc.BucketName,
+		ObjectKey:  loc.ObjectKey,
+	}
+
+	return r.db.FindObjectsByClearMetadata(ctx, opts, startAfter, batchSize)
 }
 
 func parseJSON(data string) (map[string]interface{}, error) {

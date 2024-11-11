@@ -99,7 +99,7 @@ func (a *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		if reqBody.Query == "" {
 			resp, err = a.ViewMetadata(ctx, &reqBody)
 		} else {
-			resp, err = a.QueryMetadata(&reqBody)
+			resp, err = a.QueryMetadata(ctx, &reqBody)
 		}
 	case r.Method == http.MethodPut:
 		err = a.UpdateMetadata(ctx, &reqBody)
@@ -152,11 +152,38 @@ func (a *Server) ViewMetadata(ctx context.Context, reqBody *SearchRequest) (meta
 	return a.Repo.GetMetadata(ctx, loc)
 }
 
-func (a *Server) QueryMetadata(reqBody *SearchRequest) (meta map[string]interface{}, err error) {
-	meta = map[string]interface{}{
-		"query": "meta",
+func (a *Server) QueryMetadata(ctx context.Context, reqBody *SearchRequest) (keys []string, err error) {
+	// Parse path
+	bucket, key, err := parsePath(reqBody.Path)
+	if err != nil {
+		return nil, err
 	}
-	return
+
+	loc := metabase.ObjectLocation{
+		ProjectID:  reqBody.ProjectID,
+		BucketName: metabase.BucketName(bucket),
+		ObjectKey:  metabase.ObjectKey(key),
+	}
+
+	// Parse query
+	var query map[string]interface{}
+	err = json.Unmarshal([]byte(reqBody.Query), &query)
+	if err != nil {
+		return nil, fmt.Errorf("%w: cannot parse query: %v", ErrBadRequest, err)
+	}
+
+	// TODO: implement pagination
+	objects, err := a.Repo.QueryMetadata(ctx, loc, query, 1000)
+	if err != nil {
+		return nil, err
+	}
+
+	// Extract keys
+	for _, obj := range objects {
+		keys = append(keys, string(obj.ObjectKey))
+	}
+
+	return keys, nil
 }
 
 func (a *Server) UpdateMetadata(ctx context.Context, reqBody *SearchRequest) (err error) {
