@@ -649,13 +649,13 @@ func (p *PostgresAdapter) PostgresMigration() *migrate.Migration {
 			},
 			{
 				DB:          &db,
-				Description: "add searchable_metadata field to objects table",
+				Description: "add clear_metadata field to objects table",
 				Version:     21,
 				Action: migrate.SQL{
-					`ALTER TABLE objects ADD COLUMN searchable_metadata JSONB`,
-					`CREATE INDEX ON objects USING GIN (searchable_metadata)`,
+					`ALTER TABLE objects ADD COLUMN clear_metadata JSONB`,
+					`CREATE INDEX ON objects USING GIN (clear_metadata)`,
 					`
-					COMMENT ON COLUMN objects.searchable_metadata is 'searchable_metadata is a JSONB field that contains metadata that is indexed for search purposes.';
+					COMMENT ON COLUMN objects.clear_metadata is 'clear_metadata contains unencrypted metadata that indexed for efficient metadata search.';
 				`},
 			},
 		},

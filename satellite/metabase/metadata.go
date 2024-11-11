@@ -17,6 +17,7 @@ type UpdateObjectLastCommittedMetadata struct {
 	ObjectLocation
 	StreamID uuid.UUID
 
+	ClearMetadata                 *string
 	EncryptedMetadata             []byte
 	EncryptedMetadataNonce        []byte
 	EncryptedMetadataEncryptedKey []byte
@@ -74,7 +75,8 @@ func (p *PostgresAdapter) UpdateObjectLastCommittedMetadata(ctx context.Context,
 		UPDATE objects SET
 			encrypted_metadata_nonce         = $5,
 			encrypted_metadata               = $6,
-			encrypted_metadata_encrypted_key = $7
+			encrypted_metadata_encrypted_key = $7,
+			clear_metadata                   = $8
 		WHERE
 			(project_id, bucket_name, object_key) = ($1, $2, $3) AND
 			version IN (SELECT version FROM objects WHERE
@@ -87,7 +89,7 @@ func (p *PostgresAdapter) UpdateObjectLastCommittedMetadata(ctx context.Context,
 			stream_id    = $4 AND
 			status       IN `+statusesCommitted,
 		opts.ProjectID, opts.BucketName, opts.ObjectKey, opts.StreamID,
-		opts.EncryptedMetadataNonce, opts.EncryptedMetadata, opts.EncryptedMetadataEncryptedKey)
+		opts.EncryptedMetadataNonce, opts.EncryptedMetadata, opts.EncryptedMetadataEncryptedKey, opts.ClearMetadata)
 	if err != nil {
 		return 0, Error.New("unable to update object metadata: %w", err)
 	}
