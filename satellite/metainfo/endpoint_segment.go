@@ -177,6 +177,12 @@ func (endpoint *Endpoint) RetryBeginSegmentPieces(ctx context.Context, req *pb.R
 
 	endpoint.versionCollector.collect(req.Header.UserAgent, mon.Func().ShortName())
 
+	peer, err := identity.PeerIdentityFromContext(ctx)
+	if err != nil {
+		// N.B. jeff thinks this is a bad idea but jt convinced him
+		return nil, rpcstatus.Errorf(rpcstatus.Unauthenticated, "unable to get peer identity: %w", err)
+	}
+
 	segmentID, err := endpoint.unmarshalSatSegmentID(ctx, req.SegmentId)
 	if err != nil {
 		return nil, rpcstatus.Error(rpcstatus.InvalidArgument, err.Error())
@@ -197,7 +203,7 @@ func (endpoint *Endpoint) RetryBeginSegmentPieces(ctx context.Context, req *pb.R
 		return nil, rpcstatus.Error(rpcstatus.InvalidArgument, "piece numbers to exchange cannot be empty")
 	}
 
-	pieceNumberSet := make(map[int32]struct{}, len(req.RetryPieceNumbers))
+	retryingPieceNumberSet := make(map[int32]struct{}, len(req.RetryPieceNumbers))
 	for _, pieceNumber := range req.RetryPieceNumbers {
 		if pieceNumber < 0 || int(pieceNumber) >= len(segmentID.OriginalOrderLimits) {
 			endpoint.log.Debug("piece number is out of range",
@@ -207,14 +213,14 @@ func (endpoint *Endpoint) RetryBeginSegmentPieces(ctx context.Context, req *pb.R
 			)
 			return nil, rpcstatus.Errorf(rpcstatus.InvalidArgument, "piece number %d must be within range [0,%d]", pieceNumber, len(segmentID.OriginalOrderLimits)-1)
 		}
-		if _, ok := pieceNumberSet[pieceNumber]; ok {
+		if _, ok := retryingPieceNumberSet[pieceNumber]; ok {
 			endpoint.log.Debug("piece number is duplicated",
 				zap.Int32("piece number", pieceNumber),
 				zap.Stringer("Segment ID", req.SegmentId),
 			)
 			return nil, rpcstatus.Errorf(rpcstatus.InvalidArgument, "piece number %d is duplicated", pieceNumber)
 		}
-		pieceNumberSet[pieceNumber] = struct{}{}
+		retryingPieceNumberSet[pieceNumber] = struct{}{}
 	}
 
 	if err := endpoint.checkUploadLimits(ctx, keyInfo); err != nil {
@@ -225,9 +231,16 @@ func (endpoint *Endpoint) RetryBeginSegmentPieces(ctx context.Context, req *pb.R
 	// the current list of order limits.
 	// TODO: It's possible that a node gets reused across multiple calls to RetryBeginSegmentPieces.
 	excludedIDs := make([]storj.NodeID, 0, len(segmentID.OriginalOrderLimits))
-	for _, orderLimit := range segmentID.OriginalOrderLimits {
+	isTrusted := endpoint.successTrackers.IsTrusted(peer.ID)
+	for pieceNumber, orderLimit := range segmentID.OriginalOrderLimits {
 		excludedIDs = append(excludedIDs, orderLimit.Limit.StorageNodeId)
+		if isTrusted {
+			if _, found := retryingPieceNumberSet[int32(pieceNumber)]; found {
+				endpoint.failureTracker.Increment(orderLimit.Limit.StorageNodeId, false)
+			}
+		}
 	}
+
 	nodes, err := endpoint.overlay.FindStorageNodesForUpload(ctx, overlay.FindStorageNodesRequest{
 		RequestedCount: len(req.RetryPieceNumbers),
 		Placement:      storj.PlacementConstraint(segmentID.StreamId.Placement),
@@ -446,14 +459,21 @@ func (endpoint *Endpoint) CommitSegment(ctx context.Context, req *pb.SegmentComm
 	// increment our counters in the success tracker appropriate to the committing uplink
 	{
 		tracker := endpoint.successTrackers.GetTracker(peer.ID)
+		isTrusted := endpoint.successTrackers.IsTrusted(peer.ID)
 		validPieceSet := make(map[storj.NodeID]struct{}, len(validPieces))
 		for _, piece := range validPieces {
 			tracker.Increment(piece.NodeId, true)
+			if isTrusted {
+				endpoint.failureTracker.Increment(piece.NodeId, true)
+			}
 			validPieceSet[piece.NodeId] = struct{}{}
 		}
 		for _, limit := range originalLimits {
 			if _, ok := validPieceSet[limit.StorageNodeId]; !ok {
 				tracker.Increment(limit.StorageNodeId, false)
+				if isTrusted {
+					endpoint.failureTracker.Increment(limit.StorageNodeId, false)
+				}
 			}
 		}
 	}

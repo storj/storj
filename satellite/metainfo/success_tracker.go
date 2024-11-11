@@ -63,7 +63,7 @@ func GetNewSuccessTracker(kind string) (func() SuccessTracker, bool) {
 			}
 		}, true
 	case kind == "percent":
-		return func() SuccessTracker { return new(percentSuccessTracker) }, true
+		return NewPercentSuccessTracker, true
 	default:
 		return nil, false
 	}
@@ -106,6 +106,13 @@ func (t *SuccessTrackers) GetTracker(uplink storj.NodeID) SuccessTracker {
 	return t.global
 }
 
+// IsTrusted returns if the client uplink is a trusted uplink for the purposes
+// of success tracking.
+func (t *SuccessTrackers) IsTrusted(uplink storj.NodeID) bool {
+	_, ok := t.trackers[uplink]
+	return ok
+}
+
 // Get returns a function that can be used to get an estimate of how good a node
 // is for a given uplink.
 func (t *SuccessTrackers) Get(uplink storj.NodeID) func(node *nodeselection.SelectedNode) float64 {
@@ -139,6 +146,11 @@ type percentSuccessTracker struct {
 	mu   sync.Mutex
 	gen  atomic.Uint64
 	data sync.Map // storj.NodeID -> *nodeCounterArray
+}
+
+// NewPercentSuccessTracker creates a new percent-based success tracker.
+func NewPercentSuccessTracker() SuccessTracker {
+	return new(percentSuccessTracker)
 }
 
 func (t *percentSuccessTracker) Increment(node storj.NodeID, success bool) {

@@ -181,6 +181,7 @@ type Config struct {
 	ProjectLimits                ProjectLimitConfig  `help:"project limit configuration"`
 	SuccessTrackerKind           string              `default:"percent" help:"success tracker kind, bitshift or percent"`
 	SuccessTrackerTickDuration   time.Duration       `default:"10m" help:"how often to bump the generation in the node success tracker"`
+	FailureTrackerTickDuration   time.Duration       `default:"30s" help:"how often to bump the generation in the node failure tracker"`
 	SuccessTrackerTrustedUplinks []string            `help:"list of trusted uplinks for success tracker"`
 
 	// TODO remove this flag when server-side copy implementation will be finished

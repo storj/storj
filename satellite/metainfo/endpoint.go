@@ -94,6 +94,7 @@ type Endpoint struct {
 	zstdDecoder                    *zstd.Decoder
 	zstdEncoder                    *zstd.Encoder
 	successTrackers                *SuccessTrackers
+	failureTracker                 SuccessTracker
 	placement                      nodeselection.PlacementDefinitions
 
 	// rateLimiterTime is a function that returns the time to check with the rate limiter.
@@ -105,7 +106,8 @@ type Endpoint struct {
 func NewEndpoint(log *zap.Logger, buckets *buckets.Service, metabaseDB *metabase.DB,
 	orders *orders.Service, cache *overlay.Service, attributions attribution.DB, peerIdentities overlay.PeerIdentities,
 	apiKeys APIKeys, projectUsage *accounting.Service, projects console.Projects, projectMembers console.ProjectMembers, users console.Users,
-	satellite signing.Signer, revocations revocation.DB, successTrackers *SuccessTrackers, config Config, placement nodeselection.PlacementDefinitions) (*Endpoint, error) {
+	satellite signing.Signer, revocations revocation.DB, successTrackers *SuccessTrackers, failureTracker SuccessTracker,
+	config Config, placement nodeselection.PlacementDefinitions) (*Endpoint, error) {
 
 	// TODO do something with too many params
 
@@ -175,6 +177,7 @@ func NewEndpoint(log *zap.Logger, buckets *buckets.Service, metabaseDB *metabase
 		zstdDecoder:          decoder,
 		zstdEncoder:          encoder,
 		successTrackers:      successTrackers,
+		failureTracker:       failureTracker,
 		placement:            placement,
 		rateLimiterTime:      time.Now,
 	}, nil
@@ -191,15 +194,19 @@ func TestingNewAPIKeysEndpoint(log *zap.Logger, apiKeys APIKeys) *Endpoint {
 // Run manages the internal dependencies of the endpoint such as the
 // success tracker.
 func (endpoint *Endpoint) Run(ctx context.Context) error {
-	ticker := time.NewTicker(endpoint.config.SuccessTrackerTickDuration)
-	defer ticker.Stop()
+	successTicker := time.NewTicker(endpoint.config.SuccessTrackerTickDuration)
+	defer successTicker.Stop()
+	failureTicker := time.NewTicker(endpoint.config.FailureTrackerTickDuration)
+	defer failureTicker.Stop()
 
 	for {
 		select {
 		case <-ctx.Done():
 			return nil
-		case <-ticker.C:
+		case <-successTicker.C:
 			endpoint.successTrackers.BumpGeneration()
+		case <-failureTicker.C:
+			endpoint.failureTracker.BumpGeneration()
 		}
 	}
 }
