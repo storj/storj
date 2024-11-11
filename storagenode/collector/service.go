@@ -107,6 +107,9 @@ func (service *Service) Collect(ctx context.Context, now time.Time) (err error) 
 		}
 
 		for _, ei := range batch {
+			if ctx.Err() != nil {
+				return errs.Wrap(ctx.Err())
+			}
 			// delete the piece from the storage
 			err := service.pieces.DeleteSkipV0(ctx, ei.SatelliteID, ei.PieceID, ei.PieceSize)
 			if err != nil {
