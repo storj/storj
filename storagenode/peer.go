@@ -696,7 +696,6 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, revocationDB exten
 			process.NamedLog(log, "orders"),
 			dialer,
 			peer.OrdersStore,
-			peer.DB.Orders(),
 			peer.Storage2.Trust,
 			config.Storage2.Orders,
 		)

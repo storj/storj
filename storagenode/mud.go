@@ -332,11 +332,11 @@ func Module(ball *mud.Ball) {
 
 		mud.Provide[*piecestore.Endpoint](ball, piecestore.NewEndpoint, logWrapper("piecestore"))
 
-		mud.Provide[*orders.Service](ball, func(log *zap.Logger, ordersStore *orders.FileStore, ordersDB orders.DB, trustSource trust.TrustedSatelliteSource, config orders.Config, tlsOptions *tlsopts.Options) *orders.Service {
+		mud.Provide[*orders.Service](ball, func(log *zap.Logger, ordersStore *orders.FileStore, trustSource trust.TrustedSatelliteSource, config orders.Config, tlsOptions *tlsopts.Options) *orders.Service {
 			// TODO workaround for custom timeout for order sending request (read/write)
 			dialer := rpc.NewDefaultDialer(tlsOptions)
 			dialer.DialTimeout = config.SenderDialTimeout
-			return orders.NewService(log, dialer, ordersStore, ordersDB, trustSource, config)
+			return orders.NewService(log, dialer, ordersStore, trustSource, config)
 		}, logWrapper("orders"))
 		mud.Tag[*orders.Service, modular.Service](ball, modular.Service{})
 
