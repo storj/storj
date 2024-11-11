@@ -330,6 +330,9 @@ func getPathCount(ctx context.Context, db *sql.DB) (count uint64) {
 	// Get path count
 	rows, err := db.QueryContext(ctx, `SELECT COUNT(*) FROM test_data`)
 	if err != nil {
+		if err.Error() == `pq: relation "test_data" does not exist` {
+			return 0
+		}
 		panic(fmt.Sprintf("failed to get path count: %v", err))
 	}
 	defer rows.Close()
@@ -343,7 +346,7 @@ func getPathCount(ctx context.Context, db *sql.DB) (count uint64) {
 	if err := rows.Err(); err != nil {
 		panic(err.Error())
 	}
-	fmt.Printf("Found %v records", count)
+	fmt.Printf("Found %v records\n", count)
 	return
 }
 
