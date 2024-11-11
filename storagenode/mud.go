@@ -32,6 +32,7 @@ import (
 	"storj.io/storj/storagenode/bandwidth"
 	"storj.io/storj/storagenode/blobstore"
 	"storj.io/storj/storagenode/blobstore/filestore"
+	"storj.io/storj/storagenode/cleanup"
 	"storj.io/storj/storagenode/collector"
 	"storj.io/storj/storagenode/contact"
 	"storj.io/storj/storagenode/healthcheck"
@@ -135,6 +136,7 @@ func Module(ball *mud.Ball) {
 		sdebug.Module(ball)
 	}
 
+	cleanup.Module(ball)
 	{ // version setup
 		mud.Provide[*checker.Service](ball, func(log *zap.Logger, config checker.Config, versionInfo version.Info) *checker.Service {
 			return checker.NewService(log, config, versionInfo, "Storagenode")

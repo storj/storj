@@ -60,9 +60,9 @@ func (t *TrashRunOnce) Run(ctx context.Context) error {
 			_, _, err = t.blobs.EmptyTrash(ctx, namespace, trashedBefore)
 		}
 		if err != nil {
-			t.log.Error("emptying trash failed", zap.Error(err))
+			t.log.Error("emptying trash failed", zap.Error(err), zap.Stringer("satellite", satellite))
 		} else {
-			t.log.Info("emptying trash finished", zap.Stringer("Satellite ID", satellite), zap.Duration("elapsed", time.Since(timeStart)))
+			t.log.Info("emptying trash finished", zap.Stringer("satellite", satellite), zap.Duration("elapsed", time.Since(timeStart)))
 		}
 
 	}
