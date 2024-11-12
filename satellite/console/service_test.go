@@ -2425,7 +2425,7 @@ func TestDeleteAccount(t *testing.T) {
 			require.Empty(t, user.ActivationCode)
 			require.Contains(t, user.Email, "deactivated")
 
-			projects, err := db.Console().Projects().GetOwn(ctx, user.ID)
+			projects, err := db.Console().Projects().GetOwnActive(ctx, user.ID)
 			require.NoError(t, err)
 			require.Zero(t, len(projects))
 

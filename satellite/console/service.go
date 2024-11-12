@@ -2097,7 +2097,7 @@ func (s *Service) DeleteAccount(ctx context.Context, step AccountActionStep, dat
 
 	resp = &DeleteAccountResponse{}
 	deletionRestricted := false
-	projects, err := s.store.Projects().GetOwn(ctx, user.ID)
+	projects, err := s.store.Projects().GetOwnActive(ctx, user.ID)
 	if err != nil {
 		return nil, Error.Wrap(err)
 	}
@@ -2417,17 +2417,22 @@ func (s *Service) handleDeleteAccountStep(ctx context.Context, user *User) (err 
 		return ErrValidation.New(accountActionWrongStepOrderErrMsg)
 	}
 
-	projects, err := s.store.Projects().GetOwn(ctx, user.ID)
+	projects, err := s.store.Projects().GetOwnActive(ctx, user.ID)
 	if err != nil {
 		return Error.Wrap(err)
 	}
 
 	var errsList errs.Group
 	for _, p := range projects {
-		// delete project cascades to members, invitations, and API keys.
-		// project id is a foreign key on buckets, so if a bucket got created
-		// at the last second, it will return an error.
-		err = s.store.Projects().Delete(ctx, p.ID)
+		// We update status to disabled instead of deleting the project
+		// to not lose the historical project/user usage data.
+		err = s.store.Projects().UpdateStatus(ctx, p.ID, ProjectDisabled)
+		if err != nil {
+			errsList.Add(err)
+		}
+
+		// We delete all API keys associated with the project as a precaution, in case any still exist.
+		err = s.store.APIKeys().DeleteAllByProjectID(ctx, p.ID)
 		if err != nil {
 			errsList.Add(err)
 		}
