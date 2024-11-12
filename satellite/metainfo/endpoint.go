@@ -10,11 +10,13 @@ import (
 	"strings"
 	"time"
 
+	"cloud.google.com/go/spanner"
 	"github.com/klauspost/compress/zstd"
 	"github.com/spacemonkeygo/monkit/v3"
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 	"golang.org/x/time/rate"
+	"google.golang.org/grpc/codes"
 
 	"storj.io/common/encryption"
 	"storj.io/common/macaroon"
@@ -409,9 +411,9 @@ func (endpoint *Endpoint) ConvertMetabaseErr(err error) error {
 	case err == nil:
 		return nil
 	case errors.Is(err, context.Canceled):
-		return rpcstatus.Error(rpcstatus.Canceled, "context canceled")
+		return rpcstatus.Wrap(rpcstatus.Canceled, context.Canceled)
 	case errors.Is(err, context.DeadlineExceeded):
-		return rpcstatus.Error(rpcstatus.DeadlineExceeded, "context deadline exceeded")
+		return rpcstatus.Wrap(rpcstatus.DeadlineExceeded, context.DeadlineExceeded)
 	case rpcstatus.Code(err) != rpcstatus.Unknown:
 		// it's already RPC error
 		return err
@@ -439,6 +441,9 @@ func (endpoint *Endpoint) ConvertMetabaseErr(err error) error {
 		return rpcstatus.Error(rpcstatus.NotFound, err.Error())
 	case metabase.ErrPermissionDenied.Has(err):
 		return rpcstatus.Error(rpcstatus.PermissionDenied, err.Error())
+	case spanner.ErrCode(err) == codes.Canceled:
+		// TODO(spanner): it's far from perfect we should be handling this on lower level
+		return rpcstatus.Wrap(rpcstatus.Canceled, context.Canceled)
 	default:
 		endpoint.log.Error("internal", zap.Error(err))
 		return rpcstatus.Error(rpcstatus.Internal, "internal error")
