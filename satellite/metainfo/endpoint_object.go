@@ -171,22 +171,12 @@ func (endpoint *Endpoint) BeginObject(ctx context.Context, req *pb.ObjectBeginRe
 	}
 
 	if bucket.ObjectLock.Enabled && bucket.ObjectLock.DefaultRetentionMode != storj.NoRetention && !retention.Enabled() {
-		switch {
-		case maxObjectTTL != nil:
-			return nil, rpcstatus.Error(rpcstatus.ObjectLockUploadWithTTLAPIKeyAndDefaultRetention,
-				"cannot upload into a bucket with default retention settings using an API key that enforces an object expiration time")
-		case !req.ExpiresAt.IsZero():
-			return nil, rpcstatus.Error(rpcstatus.ObjectLockUploadWithTTLAndDefaultRetention,
-				"cannot specify an object expiration time when uploading into a bucket with default retention settings")
+		err = validateObjectRetentionWithTTL(maxObjectTTL, req.ExpiresAt)
+		if err != nil {
+			return nil, err
 		}
 
-		retention.Mode = bucket.ObjectLock.DefaultRetentionMode
-		switch {
-		case bucket.ObjectLock.DefaultRetentionDays != 0:
-			retention.RetainUntil = now.AddDate(0, 0, bucket.ObjectLock.DefaultRetentionDays)
-		case bucket.ObjectLock.DefaultRetentionYears != 0:
-			retention.RetainUntil = now.AddDate(bucket.ObjectLock.DefaultRetentionYears, 0, 0)
-		}
+		retention = useDefaultBucketRetention(bucket.ObjectLock, now)
 	}
 
 	if err := endpoint.ensureAttribution(ctx, req.Header, keyInfo, req.Bucket, nil, false); err != nil {
@@ -586,6 +576,15 @@ func (endpoint *Endpoint) CommitInlineObject(ctx context.Context, beginObjectReq
 
 	if (retention.Enabled() || beginObjectReq.LegalHold) && !bucket.ObjectLock.Enabled {
 		return nil, nil, nil, rpcstatus.Errorf(rpcstatus.ObjectLockBucketRetentionConfigurationMissing, "cannot specify Object Lock settings when uploading into a bucket without Object Lock enabled")
+	}
+
+	if bucket.ObjectLock.Enabled && bucket.ObjectLock.DefaultRetentionMode != storj.NoRetention && !retention.Enabled() {
+		err = validateObjectRetentionWithTTL(maxObjectTTL, beginObjectReq.ExpiresAt)
+		if err != nil {
+			return nil, nil, nil, err
+		}
+
+		retention = useDefaultBucketRetention(bucket.ObjectLock, now)
 	}
 
 	if err := endpoint.ensureAttribution(ctx, beginObjectReq.Header, keyInfo, beginObjectReq.Bucket, nil, false); err != nil {
@@ -3003,6 +3002,30 @@ func convertBeginCopyObjectResults(result metabase.BeginCopyObjectResult) (*pb.O
 		SegmentKeys:               beginMoveObjectResult.SegmentKeys,
 		EncryptionParameters:      beginMoveObjectResult.EncryptionParameters,
 	}, nil
+}
+
+func useDefaultBucketRetention(bucketConfig buckets.ObjectLockSettings, timeNow time.Time) (retention metabase.Retention) {
+	retention.Mode = bucketConfig.DefaultRetentionMode
+	switch {
+	case bucketConfig.DefaultRetentionDays != 0:
+		retention.RetainUntil = timeNow.AddDate(0, 0, bucketConfig.DefaultRetentionDays)
+	case bucketConfig.DefaultRetentionYears != 0:
+		retention.RetainUntil = timeNow.AddDate(bucketConfig.DefaultRetentionYears, 0, 0)
+	}
+
+	return retention
+}
+
+func validateObjectRetentionWithTTL(maxObjectTTL *time.Duration, expiresAt time.Time) error {
+	switch {
+	case maxObjectTTL != nil:
+		return rpcstatus.Error(rpcstatus.ObjectLockUploadWithTTLAPIKeyAndDefaultRetention,
+			"cannot upload into a bucket with default retention settings using an API key that enforces an object expiration time")
+	case !expiresAt.IsZero():
+		return rpcstatus.Error(rpcstatus.ObjectLockUploadWithTTLAndDefaultRetention,
+			"cannot specify an object expiration time when uploading into a bucket with default retention settings")
+	}
+	return nil
 }
 
 // FinishCopyObject accepts new encryption keys for object copy and
