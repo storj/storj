@@ -106,8 +106,9 @@ const defaultLockModeInfo = computed<string>(() => {
 const rules = computed<ValidationRule<string>[]>(() => {
     return [
         RequiredRule,
-        v => !(isNaN(+v) || isNaN(parseFloat(v))) || 'Invalid number',
-        v => (parseFloat(v) > 0) || 'Number must be positive',
+        v => !(isNaN(+v) || isNaN(parseInt(v))) || 'Invalid number',
+        v => !/[.,]/.test(v) || 'Value must be a whole number',
+        v => (parseInt(v) > 0) || 'Value must be a positive number',
     ];
 });
 
@@ -118,7 +119,7 @@ function updateInputText(value: string): void {
     }
 
     const num = +value;
-    if (isNaN(num) || isNaN(parseFloat(value))) return;
+    if (isNaN(num) || isNaN(parseInt(value))) return;
     period.value = num;
 }
 

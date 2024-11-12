@@ -74,6 +74,7 @@
                             color="primary"
                             variant="flat"
                             block
+                            :disabled="!formValid"
                             :loading="isLoading"
                             @click="onSetLock"
                         >
@@ -96,7 +97,8 @@ import {
     VCardTitle,
     VCol,
     VDialog,
-    VDivider, VForm,
+    VDivider,
+    VForm,
     VRow,
     VSheet,
 } from 'vuetify/components';
