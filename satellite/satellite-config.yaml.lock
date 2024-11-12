@@ -469,6 +469,12 @@ compensation.withheld-percents: 75,75,75,50,50,50,25,25,25,0,0,0,0,0,0
 # placement-specific edge service URL overrides in the format {"placementID": {"authService": "...", "publicLinksharing": "...", "internalLinksharing": "..."}, "placementID2": ...}
 # console.placement-edge-url-overrides: ""
 
+# whether self-serve placement selection feature is enabled
+# console.placement.self-serve-enabled: false
+
+# list of placements names allowed for self-serve selection
+# console.placement.self-serve-names: []
+
 # whether to allow purchasing pricing packages
 # console.pricing-packages-enabled: true
 
@@ -892,6 +898,15 @@ identity.key-path: /root/.local/share/storj/identity/satellite/identity.key
 # the database connection string to use
 # metainfo.database-url: postgres://
 
+# number of object locations to cache.
+# metainfo.download-limiter.cache-capacity: 10000
+
+# whether rate limiting is enabled.
+# metainfo.download-limiter.enabled: true
+
+# how often we can interact with a single object (the same location) per API instance
+# metainfo.download-limiter.single-object-limit: 10ms
+
 # maximum time allowed to pass between creating and committing a segment
 # metainfo.max-commit-interval: 48h0m0s
 
@@ -973,8 +988,8 @@ identity.key-path: /root/.local/share/storj/identity/satellite/identity.key
 # whether rate limiting is enabled.
 # metainfo.upload-limiter.enabled: true
 
-# how often we can upload to the single object (the same location) per API instance
-# metainfo.upload-limiter.single-object-limit: 1s
+# how often we can interact with a single object (the same location) per API instance
+# metainfo.upload-limiter.single-object-limit: 10ms
 
 # enable the use of bucket level object versioning
 # metainfo.use-bucket-level-object-versioning: false
@@ -1449,6 +1464,9 @@ server.private-address: 127.0.0.1:7778
 
 # how large of batches GetBandwidthSince should process at a time
 # tally.read-rollup-batch-size: 10000
+
+# how many days to retain tallies or zero to retain indefinitely
+# tally.retention-days: 365
 
 # how large of batches SaveRollup should process at a time
 # tally.save-rollup-batch-size: 1000

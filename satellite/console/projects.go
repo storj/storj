@@ -21,8 +21,10 @@ type Projects interface {
 	GetAll(ctx context.Context) ([]Project, error)
 	// GetCreatedBefore retrieves all projects created before provided date.
 	GetCreatedBefore(ctx context.Context, before time.Time) ([]Project, error)
-	// GetByUserID returns a list of projects where user is a project member.
+	// GetByUserID returns a list of projects (including disabled) where user is a project member.
 	GetByUserID(ctx context.Context, userID uuid.UUID) ([]Project, error)
+	// GetActiveByUserID returns a list of active projects where user is a project member.
+	GetActiveByUserID(ctx context.Context, userID uuid.UUID) ([]Project, error)
 	// GetOwn returns a list of projects (including disabled) where user is an owner.
 	GetOwn(ctx context.Context, userID uuid.UUID) ([]Project, error)
 	// GetOwnActive returns a list of active projects where user is an owner.
@@ -44,8 +46,10 @@ type Projects interface {
 	Update(ctx context.Context, project *Project) error
 	// List returns paginated projects, created before provided timestamp.
 	List(ctx context.Context, offset int64, limit int, before time.Time) (ProjectsPage, error)
-	// ListByOwnerID is a method for querying all projects from the database by ownerID. It also includes the number of members for each project.
+	// ListByOwnerID is a method for querying all projects (including disabled) from the database by ownerID. It also includes the number of members for each project.
 	ListByOwnerID(ctx context.Context, userID uuid.UUID, cursor ProjectsCursor) (ProjectsPage, error)
+	// ListActiveByOwnerID is a method for querying only active projects from the database by ownerID. It also includes the number of members for each project.
+	ListActiveByOwnerID(ctx context.Context, userID uuid.UUID, cursor ProjectsCursor) (ProjectsPage, error)
 
 	// UpdateRateLimit is a method for updating projects rate limit.
 	UpdateRateLimit(ctx context.Context, id uuid.UUID, newLimit *int) error

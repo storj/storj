@@ -292,13 +292,16 @@ func TestRepairQueue_Select_Concurrently(t *testing.T) {
 						mu.Unlock()
 						return nil
 					}
-					require.NoError(t, err)
+					if err != nil {
+						return err
+					}
 
 					segments = append(segments, result...)
 				}
 			})
 		}
 		require.NoError(t, group.Wait())
+		require.Len(t, selectedSegments, len(expectedSegments))
 
 		for i := range segments {
 			segments[i].UpdatedAt = time.Time{}

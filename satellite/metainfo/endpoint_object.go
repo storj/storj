@@ -146,8 +146,10 @@ func (endpoint *Endpoint) BeginObject(ctx context.Context, req *pb.ObjectBeginRe
 		return nil, err
 	}
 
-	if err := endpoint.checkObjectUploadRate(ctx, keyInfo.ProjectID, req.Bucket, req.EncryptedObjectKey); err != nil {
-		return nil, err
+	if endpoint.config.UploadLimiter.Enabled {
+		if err := checkObjectRate(ctx, endpoint.singleObjectUploadLimitCache, keyInfo.ProjectID, req.Bucket, req.EncryptedObjectKey); err != nil {
+			return nil, err
+		}
 	}
 
 	// TODO this needs to be optimized to avoid DB call on each request
@@ -566,8 +568,10 @@ func (endpoint *Endpoint) CommitInlineObject(ctx context.Context, beginObjectReq
 		return nil, nil, nil, err
 	}
 
-	if err := endpoint.checkObjectUploadRate(ctx, keyInfo.ProjectID, beginObjectReq.Bucket, beginObjectReq.EncryptedObjectKey); err != nil {
-		return nil, nil, nil, err
+	if endpoint.config.UploadLimiter.Enabled {
+		if err := checkObjectRate(ctx, endpoint.singleObjectUploadLimitCache, keyInfo.ProjectID, beginObjectReq.Bucket, beginObjectReq.EncryptedObjectKey); err != nil {
+			return nil, nil, nil, err
+		}
 	}
 
 	// TODO this needs to be optimized to avoid DB call on each request
@@ -767,6 +771,12 @@ func (endpoint *Endpoint) GetObject(ctx context.Context, req *pb.ObjectGetReques
 		ObjectKey:  metabase.ObjectKey(req.EncryptedObjectKey),
 	}
 
+	if endpoint.config.DownloadLimiter.Enabled {
+		if err := checkObjectRate(ctx, endpoint.singleObjectDownloadLimitCache, keyInfo.ProjectID, req.Bucket, req.EncryptedObjectKey); err != nil {
+			return nil, err
+		}
+	}
+
 	var mbObject metabase.Object
 	if len(req.ObjectVersion) == 0 {
 		mbObject, err = endpoint.metabase.GetObjectLastCommitted(ctx, metabase.GetObjectLastCommitted{
@@ -921,6 +931,11 @@ func (endpoint *Endpoint) DownloadObject(ctx context.Context, req *pb.ObjectDown
 
 	if err := endpoint.checkDownloadLimits(ctx, keyInfo); err != nil {
 		return nil, err
+	}
+	if endpoint.config.DownloadLimiter.Enabled {
+		if err := checkObjectRate(ctx, endpoint.singleObjectDownloadLimitCache, keyInfo.ProjectID, req.Bucket, req.EncryptedObjectKey); err != nil {
+			return nil, err
+		}
 	}
 
 	var object metabase.Object

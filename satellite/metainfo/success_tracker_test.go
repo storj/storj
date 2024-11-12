@@ -15,6 +15,8 @@ import (
 )
 
 func TestBitshiftSuccessTracker(t *testing.T) {
+	t.Parallel()
+
 	run := func(t *testing.T, do func(func()), wait func()) {
 		tr := newBitshiftSuccessTracker()
 
@@ -93,79 +95,121 @@ func TestBitshiftSuccessTracker(t *testing.T) {
 }
 
 func TestLagSuccessTracker(t *testing.T) {
-	run := func(t *testing.T, do func(func()), wait func()) {
-		tr := newLagSuccessTracker()
+	t.Parallel()
 
-		check := func(id storj.NodeID, expect float64) {
-			got := tr.Get(&nodeselection.SelectedNode{ID: id})
-			assert.Equal(t, expect, got)
-		}
+	tr := newLagSuccessTracker()
 
-		do(func() { tr.Increment(storj.NodeID{0: 1}, true) })
-		do(func() { tr.Increment(storj.NodeID{0: 1}, true) })
-		do(func() { tr.Increment(storj.NodeID{0: 1}, false) })
-
-		do(func() { tr.Increment(storj.NodeID{0: 2}, true) })
-		do(func() { tr.Increment(storj.NodeID{0: 2}, true) })
-		do(func() { tr.Increment(storj.NodeID{0: 2}, true) })
-
-		wait()
-		check(storj.NodeID{0: 1}, 1)
-		check(storj.NodeID{0: 2}, 3)
-
-		tr.BumpGeneration()
-
-		do(func() { tr.Increment(storj.NodeID{0: 1}, true) })
-		do(func() { tr.Increment(storj.NodeID{0: 2}, true) })
-
-		wait()
-		check(storj.NodeID{0: 1}, 3)
-		check(storj.NodeID{0: 2}, 5)
-
-		tr.BumpGeneration()
-
-		do(func() { tr.Increment(storj.NodeID{0: 1}, false) })
-		do(func() { tr.Increment(storj.NodeID{0: 2}, false) })
-
-		wait()
-		check(storj.NodeID{0: 1}, 2)
-		check(storj.NodeID{0: 2}, 3)
-
-		tr.BumpGeneration()
-
-		do(func() { tr.Increment(storj.NodeID{0: 1}, true) })
-		do(func() { tr.Increment(storj.NodeID{0: 2}, false) })
-
-		wait()
-		check(storj.NodeID{0: 1}, 4)
-		check(storj.NodeID{0: 2}, 2)
+	check := func(id storj.NodeID, expect float64) {
+		got := tr.Get(&nodeselection.SelectedNode{ID: id})
+		assert.Equal(t, expect, got)
 	}
 
-	t.Run("Serial", func(t *testing.T) {
-		run(t,
-			func(f func()) {
-				f()
-			},
-			func() {},
-		)
-	})
+	tr.Increment(storj.NodeID{0: 1}, true)
+	tr.Increment(storj.NodeID{0: 1}, true)
+	tr.Increment(storj.NodeID{0: 1}, false)
 
-	t.Run("Concurrent", func(t *testing.T) {
-		var wg sync.WaitGroup
-		run(t,
-			func(f func()) {
-				wg.Add(1)
-				go func() {
-					defer wg.Done()
-					f()
-				}()
-			},
-			wg.Wait,
-		)
-	})
+	tr.Increment(storj.NodeID{0: 2}, true)
+	tr.Increment(storj.NodeID{0: 2}, true)
+	tr.Increment(storj.NodeID{0: 2}, true)
+
+	check(storj.NodeID{0: 1}, 1)
+	check(storj.NodeID{0: 2}, 3)
+
+	tr.BumpGeneration()
+
+	tr.Increment(storj.NodeID{0: 1}, true)
+	tr.Increment(storj.NodeID{0: 2}, true)
+
+	check(storj.NodeID{0: 1}, 3)
+	check(storj.NodeID{0: 2}, 5)
+
+	tr.BumpGeneration()
+
+	tr.Increment(storj.NodeID{0: 1}, false)
+	tr.Increment(storj.NodeID{0: 2}, false)
+
+	check(storj.NodeID{0: 1}, 2)
+	check(storj.NodeID{0: 2}, 3)
+
+	tr.BumpGeneration()
+
+	tr.Increment(storj.NodeID{0: 1}, true)
+	tr.Increment(storj.NodeID{0: 2}, false)
+
+	check(storj.NodeID{0: 1}, 4)
+	check(storj.NodeID{0: 2}, 2)
+}
+
+func TestLagSuccessTracker_Concurrent(t *testing.T) {
+	t.Parallel()
+
+	var wg sync.WaitGroup
+	do := func(f func()) {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			f()
+		}()
+	}
+
+	tr := newLagSuccessTracker()
+
+	check := func(id storj.NodeID, expect float64) {
+		got := tr.Get(&nodeselection.SelectedNode{ID: id})
+		assert.Equal(t, expect, got)
+	}
+
+	do(func() { tr.Increment(storj.NodeID{0: 1}, false) })
+	do(func() { tr.Increment(storj.NodeID{0: 1}, false) })
+	do(func() { tr.Increment(storj.NodeID{0: 1}, false) })
+	do(func() { tr.Increment(storj.NodeID{0: 2}, true) })
+	do(func() { tr.Increment(storj.NodeID{0: 2}, true) })
+	do(func() { tr.Increment(storj.NodeID{0: 2}, true) })
+	wg.Wait()
+
+	check(storj.NodeID{0: 1}, 0)
+	check(storj.NodeID{0: 2}, 3)
+
+	tr.BumpGeneration()
+
+	do(func() { tr.Increment(storj.NodeID{0: 1}, true) })
+	do(func() { tr.Increment(storj.NodeID{0: 2}, true) })
+	wg.Wait()
+
+	check(storj.NodeID{0: 1}, 2)
+	check(storj.NodeID{0: 2}, 5)
+
+	tr.BumpGeneration()
+
+	do(func() { tr.Increment(storj.NodeID{0: 1}, false) })
+	do(func() { tr.Increment(storj.NodeID{0: 2}, false) })
+	wg.Wait()
+
+	check(storj.NodeID{0: 1}, 1)
+	check(storj.NodeID{0: 2}, 3)
+
+	tr.BumpGeneration()
+
+	do(func() { tr.Increment(storj.NodeID{0: 1}, true) })
+	do(func() { tr.Increment(storj.NodeID{0: 2}, false) })
+	wg.Wait()
+
+	check(storj.NodeID{0: 1}, 3)
+	check(storj.NodeID{0: 2}, 2)
+
+	tr.BumpGeneration()
+
+	for i := 0; i < 3; i++ {
+		i := i
+		do(func() { tr.Increment(storj.NodeID{0: 1}, i&1 == 0) })
+		do(func() { tr.Increment(storj.NodeID{0: 2}, i&1 == 0) })
+	}
+	wg.Wait()
 }
 
 func TestLagSuccessTracker_Recovery(t *testing.T) {
+	t.Parallel()
+
 	id := storj.NodeID{0: 1}
 	tr := newLagSuccessTracker()
 	check := func(expect float64) {
@@ -259,6 +303,8 @@ func TestPercentSuccessTracker(t *testing.T) {
 }
 
 func TestBigBitshiftSuccessTracker(t *testing.T) {
+	t.Parallel()
+
 	run := func(t *testing.T, do func(func()), wait func()) {
 		tr := NewBigBitshiftSuccessTracker(10)
 
@@ -337,6 +383,8 @@ func TestBigBitshiftSuccessTracker(t *testing.T) {
 }
 
 func TestBigBitList(t *testing.T) {
+	t.Parallel()
+
 	b := bigBitList{
 		data:   make([]uint64, 1),
 		length: 7,
@@ -372,6 +420,8 @@ func TestBigBitList(t *testing.T) {
 }
 
 func TestBigBitList_small(t *testing.T) {
+	t.Parallel()
+
 	b, _ := GetNewSuccessTracker("bitshift3")
 	tracker := b()
 	for i := 0; i < 10; i++ {
