@@ -63,7 +63,7 @@ func (th *testHashTbl) AssertReopen() {
 func (th *testHashTbl) AssertInsertRecord(rec Record) {
 	th.t.Helper()
 
-	ok, err := th.Insert(rec)
+	ok, err := th.Insert(context.Background(), rec)
 	assert.NoError(th.t, err)
 	assert.True(th.t, ok)
 }
@@ -79,7 +79,7 @@ func (th *testHashTbl) AssertInsert() Record {
 func (th *testHashTbl) AssertLookup(k Key) Record {
 	th.t.Helper()
 
-	r, ok, err := th.Lookup(k)
+	r, ok, err := th.Lookup(context.Background(), k)
 	assert.NoError(th.t, err)
 	assert.True(th.t, ok)
 	return r

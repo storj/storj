@@ -7,6 +7,7 @@ import (
 	"context"
 	"errors"
 	"io"
+	"io/fs"
 	"sync/atomic"
 	"testing"
 	"time"
@@ -35,7 +36,7 @@ func TestDB_BasicOperation(t *testing.T) {
 	// ensure the stats look like what we expect.
 	stats := db.Stats()
 	assert.Equal(t, stats.NumSet, 1<<store_minTableSize)
-	assert.Equal(t, stats.LogAlive, uint64(len(Key{})+RSize)*stats.NumSet)
+	assert.Equal(t, stats.LogAlive, uint64(len(Key{})+RecordSize)*stats.NumSet)
 	assert.That(t, stats.LogAlive <= stats.LogTotal) // <= because of optimistic alignment
 
 	// should still have all the keys after reopen.
@@ -44,10 +45,15 @@ func TestDB_BasicOperation(t *testing.T) {
 		db.AssertRead(key)
 	}
 
+	// reading a missing key should error
+	_, err := db.Read(ctx, newKey())
+	assert.Error(t, err)
+	assert.That(t, errors.Is(err, fs.ErrNotExist))
+
 	// create and read should fail after close.
 	db.Close()
 
-	_, err := db.Read(ctx, newKey())
+	_, err = db.Read(ctx, newKey())
 	assert.Error(t, err)
 
 	_, err = db.Create(ctx, newKey(), time.Time{})

@@ -4,23 +4,25 @@
 package hashstore
 
 import (
+	"context"
 	"encoding/binary"
 	"math/bits"
 	"os"
 	"sync"
 
-	"github.com/zeebo/errs"
 	"github.com/zeebo/xxh3"
 
 	"storj.io/drpc/drpcsignal"
 )
 
+const invalidPage = ^uint64(0)
+
 // HashTbl is an on disk hash table of records.
 type HashTbl struct {
 	fh      *os.File
-	lrec    uint64 // log_2 of number of records
-	nrec    uint64 // 1 << lrec
-	mask    uint64 // nrec - 1
+	lrec    uint64 // log_2 of the maximum number of records
+	nrec    uint64 // 1 << lrec, the actual maximum number of records
+	mask    uint64 // nrec - 1, a bit mask for the maximum numnber of records
 	created uint32
 
 	closed drpcsignal.Signal // closed state
@@ -39,21 +41,21 @@ type HashTbl struct {
 // timestamp. The file is truncated and allocated to the correct size.
 func CreateHashtbl(fh *os.File, lrec uint64, created uint32) (*HashTbl, error) {
 	const maxLRec = 56
-	const _ int64 = pSize + 1<<maxLRec*RSize // compiler error if overflows int64
+	const _ int64 = pageSize + 1<<maxLRec*RecordSize // compiler error if overflows int64
 	if lrec > maxLRec {
-		return nil, errs.New("lrec too large: %d", lrec)
+		return nil, Error.New("lrec too large: %d", lrec)
 	}
 
 	// clear the file and truncate it to the correct length and write the header page.
-	size := int64(pSize + 1<<lrec*RSize)
+	size := int64(pageSize + 1<<lrec*RecordSize)
 	if err := fh.Truncate(0); err != nil {
-		return nil, errs.New("unable to truncate hashtbl to 0: %w", err)
+		return nil, Error.New("unable to truncate hashtbl to 0: %w", err)
 	} else if err := fh.Truncate(size); err != nil {
-		return nil, errs.New("unable to truncate hashtbl to %d: %w", size, err)
+		return nil, Error.New("unable to truncate hashtbl to %d: %w", size, err)
 	} else if err := fallocate(fh, size); err != nil {
-		return nil, errs.New("unable to fallocate hashtbl to %d: %w", size, err)
+		return nil, Error.New("unable to fallocate hashtbl to %d: %w", size, err)
 	} else if err := writeHashtblHeader(fh, created); err != nil {
-		return nil, errs.Wrap(err)
+		return nil, Error.Wrap(err)
 	}
 
 	// this is a bit wasteful in the sense that we will do some stat calls, reread the header page,
@@ -66,23 +68,23 @@ func OpenHashtbl(fh *os.File) (_ *HashTbl, err error) {
 	// compute the number of records from the file size of the hash table.
 	size, err := fileSize(fh)
 	if err != nil {
-		return nil, errs.New("unable to determine hashtbl size: %w", err)
-	} else if size < pSize+pSize { // header page + at least 1 page of records
-		return nil, errs.New("hashtbl file too small: size=%d", size)
+		return nil, Error.New("unable to determine hashtbl size: %w", err)
+	} else if size < pageSize+pageSize { // header page + at least 1 page of records
+		return nil, Error.New("hashtbl file too small: size=%d", size)
 	}
 
 	// compute the lrec from the size.
-	lrec := uint64(bits.Len64(uint64(size-pSize)/RSize) - 1)
+	lrec := uint64(bits.Len64(uint64(size-pageSize)/RecordSize) - 1)
 
 	// sanity check that our lrec is correct.
-	if pSize+1<<lrec*RSize != size {
-		return nil, errs.New("lrec calculation mismatch: size=%d lrec=%d", size, lrec)
+	if pageSize+1<<lrec*RecordSize != size {
+		return nil, Error.New("lrec calculation mismatch: size=%d lrec=%d", size, lrec)
 	}
 
 	// read the header information from the first page.
 	created, err := readHashtblHeader(fh)
 	if err != nil {
-		return nil, errs.Wrap(err)
+		return nil, Error.Wrap(err)
 	}
 
 	h := &HashTbl{
@@ -90,14 +92,14 @@ func OpenHashtbl(fh *os.File) (_ *HashTbl, err error) {
 		lrec:    lrec,
 		nrec:    1 << lrec,
 		mask:    1<<lrec - 1,
-		pi:      ^uint64(0),
+		pi:      invalidPage,
 		created: created,
 	}
 
 	// estimate nset and alive.
 	h.nset, h.alive, err = h.computeEstimates()
 	if err != nil {
-		return nil, errs.Wrap(err)
+		return nil, Error.Wrap(err)
 	}
 
 	return h, nil
@@ -108,7 +110,7 @@ func (h *HashTbl) Close() {
 	h.cloMu.Lock()
 	defer h.cloMu.Unlock()
 
-	if !h.closed.Set(errs.New("hashtbl closed")) {
+	if !h.closed.Set(Error.New("hashtbl closed")) {
 		return
 	}
 
@@ -121,31 +123,31 @@ func (h *HashTbl) Close() {
 
 // writeHashtblHeader writes the header page to the file handle.
 func writeHashtblHeader(fh *os.File, created uint32) error {
-	var buf [pSize]byte
+	var buf [pageSize]byte
 
 	copy(buf[0:4], "HTBL")
 	binary.BigEndian.PutUint32(buf[4:8], created)
-	binary.BigEndian.PutUint64(buf[pSize-8:pSize], xxh3.Hash(buf[:pSize-8]))
+	binary.BigEndian.PutUint64(buf[pageSize-8:pageSize], xxh3.Hash(buf[:pageSize-8]))
 
 	// write the header page.
 	_, err := fh.WriteAt(buf[:], 0)
-	return errs.Wrap(err)
+	return Error.Wrap(err)
 }
 
 // readHashtblHeader reads the header page from the file handle.
 func readHashtblHeader(fh *os.File) (created uint32, err error) {
 	// read the magic bytes.
-	var buf [pSize]byte
+	var buf [pageSize]byte
 	if _, err := fh.ReadAt(buf[:], 0); err != nil {
-		return 0, errs.New("unable to read header: %w", err)
+		return 0, Error.New("unable to read header: %w", err)
 	} else if string(buf[0:4]) != "HTBL" {
-		return 0, errs.New("invalid header: %q", buf[0:4])
+		return 0, Error.New("invalid header: %q", buf[0:4])
 	}
 
 	// check the checksum.
-	hash := binary.BigEndian.Uint64(buf[pSize-8 : pSize])
-	if computed := xxh3.Hash(buf[:pSize-8]); hash != computed {
-		return 0, errs.New("invalid header checksum: %x != %x", hash, computed)
+	hash := binary.BigEndian.Uint64(buf[pageSize-8 : pageSize])
+	if computed := xxh3.Hash(buf[:pageSize-8]); hash != computed {
+		return 0, Error.New("invalid header checksum: %x != %x", hash, computed)
 	}
 
 	// read the created field.
@@ -161,23 +163,21 @@ func (h *HashTbl) keyIndex(k *Key) uint64 {
 
 // pageIndex computes the page and record index for the nth record.
 func (h *HashTbl) pageIndex(n uint64) (pi uint64, ri uint64) {
-	return n / rPerP, n % rPerP
+	return n / recordsPerPage, n % recordsPerPage
 }
 
 // invalidatePageCache invalidates which page is currently cached in memory.
-func (h *HashTbl) invalidatePageCache() {
-	h.pi = ^uint64(0)
-}
+func (h *HashTbl) invalidatePageCache() { h.pi = invalidPage }
 
 // readPageLocked ensures that the pi'th page is cached in memory.
 func (h *HashTbl) readPageLocked(pi uint64) error {
 	if pi == h.pi {
 		return nil
 	}
-	h.invalidatePageCache()           // invalidate the current page in case of errors
-	offset := pSize + int64(pi*pSize) // add pSize to skip header page
+	h.invalidatePageCache()                 // invalidate the current page in case of errors
+	offset := pageSize + int64(pi*pageSize) // add pSize to skip header page
 	if _, err := h.fh.ReadAt(h.p[:], offset); err != nil {
-		return errs.New("unable to read page=%d off=%d: %w", pi, pi*pSize, err)
+		return Error.New("unable to read page=%d off=%d: %w", pi, pi*pageSize, err)
 	}
 	h.pi = pi // no errors so the page is fully read correctly
 	return nil
@@ -190,7 +190,7 @@ func (h *HashTbl) readRecord(n uint64, rec *Record) (bool, error) {
 
 	pi, ri := h.pageIndex(n)
 	if err := h.readPageLocked(pi); err != nil {
-		return false, errs.Wrap(err)
+		return false, Error.Wrap(err)
 	}
 	return h.p.readRecord(ri, rec), nil
 }
@@ -202,10 +202,10 @@ func (h *HashTbl) writeRecord(n uint64, rec Record) error {
 
 	pi, ri := h.pageIndex(n)
 
-	var buf [RSize]byte
-	rec.Write(&buf)
+	var buf [RecordSize]byte
+	rec.WriteTo(&buf)
 
-	offset := pSize + int64(n*RSize) // add pSize to skip header page
+	offset := pageSize + int64(n*RecordSize) // add pSize to skip header page
 	_, err := h.fh.WriteAt(buf[:], offset)
 
 	if pi == h.pi {
@@ -219,14 +219,16 @@ func (h *HashTbl) writeRecord(n uint64, rec Record) error {
 		}
 	}
 
-	return errs.Wrap(err)
+	return Error.Wrap(err)
 }
 
 // computeEstimates samples the hash table to compute the number of set keys and the total length of
 // the length fields in all of the set records.
 func (h *HashTbl) computeEstimates() (nset uint64, length uint64, err error) {
+	defer mon.Task()(nil)(&err)
+
 	// sample some pages worth of records but less than the total
-	srec := uint64(rPerP) * 256
+	srec := uint64(recordsPerPage) * 256
 	if srec > h.nrec {
 		srec = h.nrec
 	}
@@ -266,7 +268,9 @@ func (h *HashTbl) Load() float64 {
 }
 
 // Range iterates over the records in hash table order.
-func (h *HashTbl) Range(fn func(Record, error) bool) {
+func (h *HashTbl) Range(ctx context.Context, fn func(Record, error) bool) {
+	defer mon.Task()(&ctx)(nil)
+
 	h.opMu.RLock()
 	defer h.opMu.RUnlock()
 
@@ -302,7 +306,9 @@ func (h *HashTbl) Range(fn func(Record, error) bool) {
 // Insert adds a record to the hash table. It returns (true, nil) if the record was inserted, it
 // returns (false, nil) if the hash table is full, and (false, err) if any errors happened trying
 // to insert the record.
-func (h *HashTbl) Insert(rec Record) (_ bool, err error) {
+func (h *HashTbl) Insert(ctx context.Context, rec Record) (_ bool, err error) {
+	defer mon.Task()(&ctx)(&err)
+
 	h.opMu.Lock()
 	defer h.opMu.Unlock()
 
@@ -328,7 +334,7 @@ func (h *HashTbl) Insert(rec Record) (_ bool, err error) {
 
 		valid, err := h.readRecord(n, &tmp)
 		if err != nil {
-			return false, errs.Wrap(err)
+			return false, Error.Wrap(err)
 		}
 
 		// if we have a valid record, we need to do some checks.
@@ -341,7 +347,7 @@ func (h *HashTbl) Insert(rec Record) (_ bool, err error) {
 			// otherwise, it is our key, and as noted above we need to merge the records, erroring
 			// if fields are mutated, and picking the "larger" expiration time.
 			if !RecordsEqualish(rec, tmp) {
-				return false, errs.New("collision detected: put:%v != exist:%v", rec, tmp)
+				return false, Error.New("collision detected: put:%v != exist:%v", rec, tmp)
 			}
 
 			rec.Expires = MaxExpiration(rec.Expires, tmp.Expires)
@@ -349,7 +355,7 @@ func (h *HashTbl) Insert(rec Record) (_ bool, err error) {
 
 		// thus it is either invalid or the key matches and the record is updated, so we can write.
 		if err := h.writeRecord(n, rec); err != nil {
-			return false, errs.Wrap(err)
+			return false, Error.Wrap(err)
 		}
 
 		// if the slot was invalid, we are adding a new key. we don't need to change the alive field
@@ -371,7 +377,9 @@ func (h *HashTbl) Insert(rec Record) (_ bool, err error) {
 // Lookup returns the record for the given key if it exists in the hash table. It returns (rec,
 // true, nil) if the record existed, (rec{}, false, nil) if it did not exist, and (rec{}, false,
 // err) if any errors happened trying to look up the record.
-func (h *HashTbl) Lookup(key Key) (_ Record, _ bool, err error) {
+func (h *HashTbl) Lookup(ctx context.Context, key Key) (_ Record, _ bool, err error) {
+	defer mon.Task()(&ctx)(&err)
+
 	h.opMu.RLock()
 	defer h.opMu.RUnlock()
 
@@ -383,13 +391,13 @@ func (h *HashTbl) Lookup(key Key) (_ Record, _ bool, err error) {
 
 	for n, i := h.keyIndex(&key), uint64(0); i < h.nrec; n, i = (n+1)&h.mask, i+1 {
 		if ok, err := h.readRecord(n, &tmp); err != nil {
-			return Record{}, false, errs.Wrap(err)
+			return Record{}, false, Error.Wrap(err)
 		} else if !ok {
 			// even if the record is invalid, keep looking for up to 2 pages. this causes us more
 			// reads when looking up a key that does not exist, but helps us find keys that maybe do
 			// exist if a page write was lost. fortunately, we often do not get queried for keys
 			// that do not exist, so this should not be expensive.
-			if i < 2*rPerP {
+			if i < 2*recordsPerPage {
 				continue
 			}
 

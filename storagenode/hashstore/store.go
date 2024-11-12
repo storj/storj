@@ -17,7 +17,6 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 
 	"storj.io/common/context2"
@@ -86,22 +85,22 @@ func NewStore(dir string, log *zap.Logger) (_ *Store, err error) {
 
 	// attempt to make the meta directory which ensures all parent directories exist.
 	if err := os.MkdirAll(s.meta, 0755); err != nil {
-		return nil, errs.New("unable to create directory=%q: %w", dir, err)
+		return nil, Error.New("unable to create directory=%q: %w", dir, err)
 	}
 
 	// acquire the lock file to prevent concurrent use of the hash table.
 	s.lock, err = os.OpenFile(filepath.Join(s.meta, "lock"), os.O_CREATE|os.O_RDONLY, 0444)
 	if err != nil {
-		return nil, errs.New("unable to acquire lock: %w", err)
+		return nil, Error.New("unable to acquire lock: %w", err)
 	}
 	if err := flock(s.lock); err != nil {
-		return nil, errs.New("unable to flock: %w", err)
+		return nil, Error.New("unable to flock: %w", err)
 	}
 
 	// read all of the files in the directories.
 	entries, err := os.ReadDir(s.dir)
 	if err != nil {
-		return nil, errs.New("unable to read log directory=%q: %w", dir, err)
+		return nil, Error.New("unable to read log directory=%q: %w", dir, err)
 	}
 
 	// load all of the log files and keep track of if there is a hashtbl file.
@@ -115,16 +114,16 @@ func NewStore(dir string, log *zap.Logger) (_ *Store, err error) {
 
 		id, err := strconv.ParseUint(name[4:20], 16, 64)
 		if err != nil {
-			return nil, errs.New("unable to parse name=%q: %w", name, err)
+			return nil, Error.New("unable to parse name=%q: %w", name, err)
 		}
 		fh, err := os.OpenFile(filepath.Join(s.dir, name), os.O_RDWR, 0)
 		if err != nil {
-			return nil, errs.New("unable to open log file: %w", err)
+			return nil, Error.New("unable to open log file: %w", err)
 		}
 		size, err := fh.Seek(0, io.SeekEnd)
 		if err != nil {
 			_ = fh.Close()
-			return nil, errs.New("unable to seek name=%q: %w", name, err)
+			return nil, Error.New("unable to seek name=%q: %w", name, err)
 		}
 
 		if maxLog := s.maxLog.Load(); id > maxLog {
@@ -143,18 +142,18 @@ func NewStore(dir string, log *zap.Logger) (_ *Store, err error) {
 		err = func() error {
 			af, err := newAtomicFile(s.meta, "hashtbl")
 			if err != nil {
-				return errs.Wrap(err)
+				return Error.Wrap(err)
 			}
 			defer af.Cancel()
 
 			ntbl, err := CreateHashtbl(af.File, store_minTableSize, s.today())
 			if err != nil {
-				return errs.Wrap(err)
+				return Error.Wrap(err)
 			}
 			defer ntbl.Close()
 
 			if err := af.Commit(); err != nil {
-				return errs.Wrap(err)
+				return Error.Wrap(err)
 			}
 			return nil
 		}()
@@ -166,13 +165,13 @@ func NewStore(dir string, log *zap.Logger) (_ *Store, err error) {
 		fh, err = os.OpenFile(hashtblPath, os.O_RDWR, 0)
 	}
 	if err != nil {
-		return nil, errs.Wrap(err)
+		return nil, Error.Wrap(err)
 	}
 
 	// set up the hash table to use the handle.
 	s.tbl, err = OpenHashtbl(fh)
 	if err != nil {
-		return nil, errs.Wrap(err)
+		return nil, Error.Wrap(err)
 	}
 
 	// best effort try to clean up temp files now that everything is open and flocked.
@@ -223,7 +222,7 @@ func (s *Store) Stats() StoreStats {
 	})
 	s.rmu.RUnlock()
 
-	alive += RSize * nset // account for record footers in log files.
+	alive += RecordSize * nset // account for record footers in log files.
 
 	return StoreStats{
 		Load:     float64(nset) / float64(nrec),
@@ -235,7 +234,7 @@ func (s *Store) Stats() StoreStats {
 		LogAlive:    alive,
 		LogTotal:    logTotal,
 		LogFraction: float64(alive) / float64(logTotal),
-		TableSize:   RSize * nrec,
+		TableSize:   RecordSize * nrec,
 
 		Compacting: false,
 		Created:    created,
@@ -248,7 +247,7 @@ func (s *Store) createLogFile() (*logFile, error) {
 	path := filepath.Join(s.dir, fmt.Sprintf("log-%016x", id))
 	fh, err := os.OpenFile(path, os.O_CREATE|os.O_EXCL|os.O_RDWR, 0600)
 	if err != nil {
-		return nil, errs.Wrap(err)
+		return nil, Error.Wrap(err)
 	}
 	lf := newLogFile(fh, id, 0)
 	s.lfs.Set(id, lf)
@@ -304,18 +303,18 @@ func (s *Store) acquireLogFile() (*logFile, error) {
 	return s.createLogFile()
 }
 
-func (s *Store) addRecord(rec Record) error {
+func (s *Store) addRecord(ctx context.Context, rec Record) error {
 	// sometimes a Writer is created with a nil store so that it can disable automatically writing
 	// records.
 	if s == nil {
 		return nil
 	}
 
-	ok, err := s.tbl.Insert(rec)
+	ok, err := s.tbl.Insert(ctx, rec)
 	if err != nil {
-		return errs.Wrap(err)
+		return Error.Wrap(err)
 	} else if !ok {
-		return errs.New("hash table is full")
+		return Error.New("hash table is full")
 	} else {
 		return nil
 	}
@@ -335,7 +334,7 @@ func (s *Store) Close() {
 	s.cloMu.Lock()
 	defer s.cloMu.Unlock()
 
-	if !s.closed.Set(errs.New("store closed")) {
+	if !s.closed.Set(Error.New("store closed")) {
 		return
 	}
 
@@ -368,6 +367,8 @@ func (s *Store) Close() {
 // Create returns a Handle that writes data to the store. The error on Close must be checked.
 // Expires is when the data expires, or zero if it never expires.
 func (s *Store) Create(ctx context.Context, key Key, expires time.Time) (_ *Writer, err error) {
+	defer mon.Task()(&ctx)(&err)
+
 	if err := s.active.RLock(ctx, &s.closed); err != nil {
 		return nil, err
 	}
@@ -382,7 +383,7 @@ func (s *Store) Create(ctx context.Context, key Key, expires time.Time) (_ *Writ
 	// try to acquire the log file.
 	lf, err := s.acquireLogFile()
 	if err != nil {
-		return nil, errs.Wrap(err)
+		return nil, Error.Wrap(err)
 	}
 
 	// compute an expiration field if one is set.
@@ -393,7 +394,7 @@ func (s *Store) Create(ctx context.Context, key Key, expires time.Time) (_ *Writ
 
 	// return the automatic writer for the piece that unlocks and commits the record into the hash
 	// table on Close.
-	return newAutomaticWriter(s, lf, Record{
+	return newAutomaticWriter(ctx, s, lf, Record{
 		Key:     key,
 		Offset:  lf.size,
 		Log:     lf.id,
@@ -404,7 +405,9 @@ func (s *Store) Create(ctx context.Context, key Key, expires time.Time) (_ *Writ
 
 // Read returns a Reader that reads data from the store. The Reader will be nil if the key does not
 // exist.
-func (s *Store) Read(ctx context.Context, key Key) (*Reader, error) {
+func (s *Store) Read(ctx context.Context, key Key) (_ *Reader, err error) {
+	defer mon.Task()(&ctx)(&err)
+
 	// check if we're already closed so we don't have to worry about select nondeterminism: a
 	// closed store will definitely error.
 	if err := s.closed.Err(); err != nil {
@@ -417,8 +420,8 @@ func (s *Store) Read(ctx context.Context, key Key) (*Reader, error) {
 	s.rmu.RLock()
 	defer s.rmu.RUnlock()
 
-	if rec, ok, err := s.tbl.Lookup(key); err != nil {
-		return nil, errs.Wrap(err)
+	if rec, ok, err := s.tbl.Lookup(ctx, key); err != nil {
+		return nil, Error.Wrap(err)
 	} else if !ok {
 		return nil, nil
 	} else {
@@ -426,13 +429,15 @@ func (s *Store) Read(ctx context.Context, key Key) (*Reader, error) {
 	}
 }
 
-func (s *Store) readerForRecord(ctx context.Context, rec Record, revive bool) (*Reader, error) {
+func (s *Store) readerForRecord(ctx context.Context, rec Record, revive bool) (_ *Reader, err error) {
+	defer mon.Task()(&ctx)(&err)
+
 	lf, ok := s.lfs.Lookup(rec.Log)
 	if !ok {
-		return nil, errs.New("record points to unknown log file rec=%v", rec)
+		return nil, Error.New("record points to unknown log file rec=%v", rec)
 	}
 	if !lf.Acquire() {
-		return nil, errs.New("unable to acquire log file for reading rec=%v", rec)
+		return nil, Error.New("unable to acquire log file for reading rec=%v", rec)
 	}
 
 	if revive && rec.Expires.Trash() {
@@ -470,7 +475,7 @@ func (s *Store) reviveRecord(ctx context.Context, lf *logFile, rec Record) (err 
 		defer s.compactMu.Unlock()
 
 		rec.Expires = 0
-		return s.addRecord(rec)
+		return s.addRecord(ctx, rec)
 	}
 
 	// uh oh, a compaction is potentially ongoing (it may have just finished right after the TryLock
@@ -491,7 +496,7 @@ func (s *Store) reviveRecord(ctx context.Context, lf *logFile, rec Record) (err 
 	// added to.
 	w, err := s.Create(ctx, rec.Key, time.Time{})
 	if err != nil {
-		return errs.Wrap(err)
+		return Error.Wrap(err)
 	}
 	defer w.Cancel()
 
@@ -499,13 +504,13 @@ func (s *Store) reviveRecord(ctx context.Context, lf *logFile, rec Record) (err 
 	// happy. as noted in 1, we're safe to do a lookup into s.tbl here even without the rmu held
 	// because we know no compaction is ongoing due to having a writer acquired, and compaction is
 	// the only thing that does anything other than than add entries to the hash table.
-	if tmp, ok, err := s.tbl.Lookup(rec.Key); err == nil && ok {
+	if tmp, ok, err := s.tbl.Lookup(ctx, rec.Key); err == nil && ok {
 		if tmp.Expires == 0 {
 			return nil
 		}
 
 		tmp.Expires = 0
-		return s.addRecord(tmp)
+		return s.addRecord(ctx, tmp)
 	}
 
 	// 3. otherwise, we either had an error looking up the current record, or the entry got fully
@@ -515,10 +520,10 @@ func (s *Store) reviveRecord(ctx context.Context, lf *logFile, rec Record) (err 
 	// file.
 	_, err = io.Copy(w, newLogReader(lf, rec))
 	if err != nil {
-		return errs.Wrap(err)
+		return Error.Wrap(err)
 	}
 	if err := w.Close(); err != nil {
-		return errs.Wrap(err)
+		return Error.Wrap(err)
 	}
 
 	return nil
@@ -601,10 +606,10 @@ func (s *Store) Compact(
 	nset := uint64(0)
 	used := make(map[uint64]uint64)
 	rerr := error(nil)
-	s.tbl.Range(func(rec Record, err error) bool {
+	s.tbl.Range(ctx, func(rec Record, err error) bool {
 		rerr = func() error {
 			if err != nil {
-				return errs.Wrap(err)
+				return Error.Wrap(err)
 			} else if err := ctx.Err(); err != nil {
 				return err
 			}
@@ -614,7 +619,7 @@ func (s *Store) Compact(
 			}
 
 			nset++
-			used[rec.Log] += uint64(rec.Length) + RSize // rSize for the record footer
+			used[rec.Log] += uint64(rec.Length) + RecordSize // rSize for the record footer
 			return nil
 		}()
 		return rerr == nil
@@ -653,21 +658,21 @@ func (s *Store) Compact(
 	// create a new hash table sized for the number of records.
 	af, err := newAtomicFile(s.meta, "hashtbl")
 	if err != nil {
-		return errs.Wrap(err)
+		return Error.Wrap(err)
 	}
 	defer af.Cancel()
 
 	ntbl, err := CreateHashtbl(af.File, lrec, today)
 	if err != nil {
-		return errs.Wrap(err)
+		return Error.Wrap(err)
 	}
 
 	// copy all of the entries from the hash table to the new table, skipping expired entries, and
 	// rewriting any entries that are in logs marked for compaction.
-	s.tbl.Range(func(rec Record, err error) bool {
+	s.tbl.Range(ctx, func(rec Record, err error) bool {
 		rerr = func() error {
 			if err != nil {
-				return errs.Wrap(err)
+				return Error.Wrap(err)
 			} else if err := ctx.Err(); err != nil {
 				return err
 			}
@@ -707,7 +712,7 @@ func (s *Store) Compact(
 				err := func() error {
 					r, err := s.readerForRecord(ctx, rec, false)
 					if err != nil {
-						return errs.Wrap(err)
+						return Error.Wrap(err)
 					}
 					defer r.Release() // same as r.Close() but no error to worry about.
 
@@ -717,7 +722,7 @@ func (s *Store) Compact(
 				acquire:
 					into, err := s.acquireLogFile()
 					if err != nil {
-						return errs.Wrap(err)
+						return Error.Wrap(err)
 					} else if compact[into.id] {
 						goto acquire
 					}
@@ -725,7 +730,7 @@ func (s *Store) Compact(
 					// create a Writer to handle writing the entry into the log file. manual mode is
 					// set so that it doesn't attempt to add the record to the current hash table or
 					// unlock the active mutex upon Close or Cancel.
-					w := newManualWriter(s, into, Record{
+					w := newManualWriter(ctx, s, into, Record{
 						Key:     rec.Key,
 						Offset:  into.size,
 						Log:     into.id,
@@ -736,12 +741,12 @@ func (s *Store) Compact(
 
 					// copy the record data.
 					if _, err := io.Copy(w, r); err != nil {
-						return errs.New("writing into compacted log: %w", err)
+						return Error.New("writing into compacted log: %w", err)
 					}
 
 					// finalize the data in the log file.
 					if err := w.Close(); err != nil {
-						return errs.New("closing compacted log: %w", err)
+						return Error.New("closing compacted log: %w", err)
 					}
 
 					// get the updated record information from the writer.
@@ -749,15 +754,15 @@ func (s *Store) Compact(
 					return nil
 				}()
 				if err != nil {
-					return errs.Wrap(err)
+					return Error.Wrap(err)
 				}
 			}
 
 			// insert the record into the new hash table.
-			if ok, err := ntbl.Insert(rec); err != nil {
-				return errs.Wrap(err)
+			if ok, err := ntbl.Insert(ctx, rec); err != nil {
+				return Error.Wrap(err)
 			} else if !ok {
-				return errs.New("compaction hash table is full")
+				return Error.New("compaction hash table is full")
 			}
 
 			return nil
@@ -772,7 +777,7 @@ func (s *Store) Compact(
 	// because a process restart may have the store open with this new hash table, so we have to
 	// go forward with it.
 	if err := af.Commit(); err != nil {
-		return errs.New("unable to commit newly compacted hashtbl: %w", err)
+		return Error.New("unable to commit newly compacted hashtbl: %w", err)
 	}
 
 	// swap the new hash table in and collect the set of log files to remove. we don't close and
