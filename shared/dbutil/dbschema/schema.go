@@ -274,8 +274,6 @@ func (table *Table) Sort() {
 		return table.Columns[i].Name < table.Columns[k].Name
 	})
 
-	sort.Strings(table.PrimaryKey)
-
 	sort.Slice(table.Unique, func(i, k int) bool {
 		return lessStrings(table.Unique[i], table.Unique[k])
 	})

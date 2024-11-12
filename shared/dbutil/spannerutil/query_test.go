@@ -53,7 +53,7 @@ var (
 			event STRING(MAX) NOT NULL DEFAULT('"foo\""'),
 			remote_ip BYTES(16),
 			FOREIGN KEY (added_at) REFERENCES languages(added_at)
-		) PRIMARY KEY (added_at, admin, event);
+		) PRIMARY KEY (added_at, event, admin);
 	`
 )
 
@@ -80,7 +80,7 @@ func TestQuerySchema(t *testing.T) {
 		{
 			Name:    "PRIMARY_KEY",
 			Table:   "language_events",
-			Columns: []string{"added_at", "admin", "event"},
+			Columns: []string{"added_at", "event", "admin"},
 			Unique:  true,
 		},
 		{
@@ -142,7 +142,7 @@ func TestQuerySchema(t *testing.T) {
 					IsNullable: true,
 				},
 			},
-			PrimaryKey: []string{"added_at", "admin", "event"},
+			PrimaryKey: []string{"added_at", "event", "admin"},
 		},
 		{
 			Name: "languages",
@@ -192,7 +192,7 @@ func TestQuerySchema(t *testing.T) {
 					IsNullable: true,
 				},
 			},
-			PrimaryKey: []string{"language", "letter"},
+			PrimaryKey: []string{"letter", "language"},
 		},
 		{
 			Name: "speakers",
