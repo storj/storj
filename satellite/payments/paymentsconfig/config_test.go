@@ -351,3 +351,153 @@ func TestPlacementPriceOverrides(t *testing.T) {
 		})
 	}
 }
+
+func TestPartnerPlacementPriceOvrrides(t *testing.T) {
+	tests := []struct {
+		id        string
+		config    string
+		expectErr bool
+	}{
+		{
+			id:     "empty string",
+			config: "",
+		},
+		{
+			id:     "one partner, placment, and product",
+			config: "partner0[0:product0]",
+		},
+		{
+			id:     "one partner, multiple placements, one product",
+			config: "partner0[0,1,2:product0]",
+		},
+		{
+			id:     "one partner, multiple placements, multiple products",
+			config: "partner0[0,1,2:product0;3:product1]",
+		},
+		{
+			id:     "multiple partners with one placment, one product",
+			config: "partner0[0:product0];partner1[0:product0]",
+		},
+		{
+			id:     "multiple partners, multiple placements, one product",
+			config: "partner0[0,1,2:product0];partner1[0,1,2:product0]",
+		},
+		{
+			id:     "multiple partners, multiple placements, multiple products",
+			config: "partner0[0,1,2:product0;3:product1];partner1[0,1,2:product0;3:product1]",
+		},
+		{
+			id:     "trailing semi-colon after product",
+			config: "partner0[0,1:product0;]",
+		},
+		{
+			id:     "trailing double semi-colon after product",
+			config: "partner0[0,1:product0;;]",
+		},
+		{
+			id:     "placement-product values separated by double semi-colon",
+			config: "partner0[0,1:product0;;2,3:product1]",
+		},
+		{
+			id:     "trailing semicolon after last partner",
+			config: "partner0[0:product0];partner1[0:product0];",
+		},
+		{ // seems weird, but the separator is not needed for only one partner
+			id:     "no closing bracket",
+			config: "partner0[0:product0",
+		},
+		{
+			id:        "product duplicated across multiple key-value pairs",
+			config:    "partner0[0,1:product0;2,3:product0]",
+			expectErr: true,
+		},
+		{
+			id:        "invalid config: no placements",
+			config:    "partner0[:product0]",
+			expectErr: true,
+		},
+		{
+			id:        "invalid config: no placements with comma",
+			config:    "partner0[,:product0]",
+			expectErr: true,
+		},
+		{
+			id:        "invalid config: placement assigned to multiple products",
+			config:    "partner[0:product0;0,1:product1]",
+			expectErr: true,
+		},
+		{
+			id:        "invalid config: no colon",
+			config:    "partner0[product0]",
+			expectErr: true,
+		},
+		{
+			id:        "invalid config: double colon",
+			config:    "partner0[0,1::product0]",
+			expectErr: true,
+		},
+		{
+			id:        "invalid config: multiple colons",
+			config:    "partner0[0,1:product0:product1]",
+			expectErr: true,
+		},
+		{
+			id:        "invalid config: double comma",
+			config:    "partner0[0,,1:product0]",
+			expectErr: true,
+		},
+		{
+			id:        "invalid config: single placement not int",
+			config:    "partner0[a:product0]",
+			expectErr: true,
+		},
+		{
+			id:        "invalid config: multiple placements, one not int",
+			config:    "partner0[0,a:product0]",
+			expectErr: true,
+		},
+		{
+			id:        "invalid config: missing open bracket",
+			config:    "partner00:product0]",
+			expectErr: true,
+		},
+		{
+			id:        "invalid config: missing closing bracket between partners",
+			config:    "partner0[0:product0partner1[0:product0]",
+			expectErr: true,
+		},
+		{
+			id:        "invalid config: missing semicolon between partners",
+			config:    "partner0[0:product0]partner1[0:product0]",
+			expectErr: true,
+		},
+		{
+			id:        "invalid config: partner defined more than once",
+			config:    "partner0[0:product0];partner0[0:product1]",
+			expectErr: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.id, func(t *testing.T) {
+			mapFromCfg := &paymentsconfig.PartnersPlacementProductMap{}
+			err := mapFromCfg.Set(tt.config)
+
+			if tt.expectErr {
+				require.Error(t, err)
+				return
+			}
+
+			// *PlacementProductMap.Set ignores ';;' and trims trailing ';'.
+			// *PartnersPlacementProductMap trims trailing ';'.
+			// Match this behavior to verify config string.
+			config := strings.ReplaceAll(tt.config, ";;", ";")
+			config = strings.ReplaceAll(config, ";]", "]")
+			config = strings.TrimSuffix(config, ";")
+			if config != "" && !strings.HasSuffix(config, "]") {
+				config += "]"
+			}
+			require.Equal(t, config, mapFromCfg.String())
+		})
+	}
+}

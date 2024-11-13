@@ -34,8 +34,9 @@ type Config struct {
 	UsagePrice         ProjectUsagePrice
 
 	// TODO: if we decide to put default product in here and change away from overrides, change the type name.
-	Products                PriceOverrides      `help:"semicolon-separated list of products and their price structures in the format: product:storage,egress,segment,egress_discount_ratio. The egress discount ratio is the ratio of free egress per unit-month of storage"`
-	PlacementPriceOverrides PlacementProductMap `help:"semicolon-separated list of placement price overrides in the format: placement:product. Multiple placements may be mapped to a single product like so: p0,p1:product. Products must be defined by the --payments.products config, or the satellite will not start."`
+	Products                        PriceOverrides              `help:"semicolon-separated list of products and their price structures in the format: product:storage,egress,segment,egress_discount_ratio. The egress discount ratio is the ratio of free egress per unit-month of storage"`
+	PlacementPriceOverrides         PlacementProductMap         `help:"semicolon-separated list of placement price overrides in the format: placement:product. Multiple placements may be mapped to a single product like so: p0,p1:product. Products must be defined by the --payments.products config, or the satellite will not start."`
+	PartnersPlacementPriceOverrides PartnersPlacementProductMap `help:"semicolon-separated list of partners to placement price overrides in the format: partner0[placement0:product0;placement1,placement2:product1];partner1[etc...] If a partner uses a placement not defined for them in this config, they will be charged according to --payments.placement-price-overrides."`
 
 	BonusRate           int64          `help:"amount of percents that user will earn as bonus credits by depositing in STORJ tokens" default:"10"`
 	UsagePriceOverrides PriceOverrides `help:"semicolon-separated usage price overrides in the format partner:storage,egress,segment,egress_discount_ratio. The egress discount ratio is the ratio of free egress per unit-month of storage"`
@@ -241,6 +242,67 @@ func (p *PlacementProductMap) Set(s string) error {
 		}
 	}
 	p.placementProductMap = placementProductMap
+	return nil
+}
+
+// Ensure that PartnersPlacementProductMap implements pflag.Value.
+var _ pflag.Value = (*PartnersPlacementProductMap)(nil)
+
+// PartnersPlacementProductMap maps partners to placements to products map.
+type PartnersPlacementProductMap struct {
+	partnerPlacementProductMap map[string]PlacementProductMap
+}
+
+// Type returns the type of the pflag.Value.
+func (PartnersPlacementProductMap) Type() string { return "paymentsconfig.PartnersPlacementProductMap" }
+
+// String returns the string representation of the partners to placements to product map. Partner configs are
+// sorted in ascending order by partner name.
+func (p *PartnersPlacementProductMap) String() string {
+	if p == nil {
+		return ""
+	}
+
+	var kvs []string
+	for partner, placementProductMap := range p.partnerPlacementProductMap {
+		kvs = append(kvs, fmt.Sprintf("%s[%s]", partner, placementProductMap.String()))
+	}
+
+	sort.Strings(kvs)
+
+	return strings.Join(kvs, ";")
+}
+
+// Set sets the partners placements to products mappings to the parsed string.
+func (p *PartnersPlacementProductMap) Set(s string) error {
+	partnerPlacementProductMap := make(map[string]PlacementProductMap)
+
+	if strings.HasSuffix(s, "]") && !strings.HasSuffix(s, ";") {
+		s += ";"
+	}
+	for _, partnerConfig := range strings.Split(s, "];") {
+		if partnerConfig == "" {
+			continue
+		}
+
+		info := strings.Split(partnerConfig, "[")
+		if len(info) != 2 {
+			return Error.New("Invalid partner placements to product string (expected format partner[placement0,placement1:product], got %s)", partnerConfig)
+		}
+
+		partner := strings.TrimSpace(info[0])
+		if _, ok := partnerPlacementProductMap[partner]; ok {
+			return Error.New("Partner's placements to products mapping was defined more than once. Check the config for partner %s", partner)
+		}
+
+		var placementProductMap PlacementProductMap
+		err := placementProductMap.Set(info[1])
+		if err != nil {
+			return err
+		}
+		partnerPlacementProductMap[partner] = placementProductMap
+	}
+	p.partnerPlacementProductMap = partnerPlacementProductMap
 	return nil
 }
 
