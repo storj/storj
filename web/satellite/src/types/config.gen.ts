@@ -71,6 +71,8 @@ export class FrontendConfig {
     objectLockUIEnabled: boolean;
     valdiSignUpURL: string;
     ssoEnabled: boolean;
+    selfServePlacementSelectEnabled: boolean;
+    selfServePlacementNames: string[] | null;
 }
 
 export class MultiCaptchaConfig {

@@ -31,6 +31,7 @@ type Config struct {
 	ReadRollupBatchSize  int           `help:"how large of batches GetBandwidthSince should process at a time" default:"10000"`
 	UseRangedLoop        bool          `help:"whether to enable node tally with ranged loop" default:"true"`
 	SaveTalliesBatchSize int           `help:"how large should be insert into tallies" default:"10000"`
+	RetentionDays        int           `help:"how many days to retain tallies or zero to retain indefinitely" default:"365"`
 
 	ListLimit          int           `help:"how many buckets to query in a batch" default:"2500"`
 	AsOfSystemInterval time.Duration `help:"as of system interval" releaseDefault:"-5m" devDefault:"-1us" testDefault:"-1us"`
@@ -73,11 +74,16 @@ func (service *Service) Run(ctx context.Context) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	return service.Loop.Run(ctx, func(ctx context.Context) error {
-		err := service.Tally(ctx)
-		if err != nil {
+		if err := service.Tally(ctx); err != nil {
 			service.log.Error("tally failed", zap.Error(err))
 
 			mon.Event("bucket_tally_error") //mon:locked
+		}
+
+		if err := service.Purge(ctx); err != nil {
+			service.log.Error("tally purge failed", zap.Error(err))
+
+			mon.Event("bucket_tally_purge_error") //mon:locked
 		}
 		return nil
 	})
@@ -237,9 +243,26 @@ func (service *Service) Tally(ctx context.Context) (err error) {
 	return errAtRest.Err()
 }
 
-func (service *Service) flushTallies(ctx context.Context, intervalStart time.Time, tallies map[metabase.BucketLocation]*accounting.BucketTally) error {
-	err := service.projectAccountingDB.SaveTallies(ctx, intervalStart, tallies)
+// Purge removes tallies older than the retention period.
+func (service *Service) Purge(ctx context.Context) (err error) {
+	if service.config.RetentionDays == 0 {
+		return nil
+	}
+
+	olderThan := service.nowFn().AddDate(0, 0, -service.config.RetentionDays)
+	count, err := service.projectAccountingDB.DeleteTalliesBefore(ctx, olderThan)
 	if err != nil {
+		return Error.New("ProjectAccounting.DeleteTalliesOlderThan failed: %v", err)
+	}
+	monAccounting.IntVal("bucket_tallies_purged").Observe(count)
+	if count > 0 {
+		service.log.Info("Purged old bucket storage tallies", zap.Time("olderThan", olderThan), zap.Int64("count", count))
+	}
+	return nil
+}
+
+func (service *Service) flushTallies(ctx context.Context, intervalStart time.Time, tallies map[metabase.BucketLocation]*accounting.BucketTally) error {
+	if err := service.projectAccountingDB.SaveTallies(ctx, intervalStart, tallies); err != nil {
 		return Error.New("ProjectAccounting.SaveTallies failed: %v", err)
 	}
 	return nil

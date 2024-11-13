@@ -679,6 +679,7 @@ export const useObjectBrowserStore = defineStore('objectBrowser', () => {
             Bucket: state.bucket,
             Key: key,
             Body: body,
+            ContentType: body.type,
         };
 
         if (state.uploading.some(f => f.Key === key && f.status === UploadingStatus.InProgress)) {
@@ -1155,18 +1156,32 @@ export const useObjectBrowserStore = defineStore('objectBrowser', () => {
         /* empty */
     }
 
-    async function getDownloadLink(file: BrowserObject): Promise<string> {
+    async function getDownloadLink(file: BrowserObject, options: {
+        contentDisposition?: string,
+        contentType?: string,
+    } | null = null): Promise<string> {
         assertIsInitialized(state);
+
+        // backwards compatibility for previewing pdfs
+        // with application/octet-stream content type
+        if (!options && file.Key.endsWith('.pdf')) {
+            options = {};
+            options.contentType = 'application/pdf';
+        }
 
         return await getSignedUrl(state.s3, new GetObjectCommand({
             Bucket: state.bucket,
             Key: state.path + file.Key,
             VersionId: file.VersionId,
+            ResponseContentDisposition: options?.contentDisposition,
+            ResponseContentType: options?.contentType,
         }));
     }
 
     async function download(file: BrowserObject): Promise<void> {
-        const url = await getDownloadLink(file);
+        const url = await getDownloadLink(file, {
+            contentDisposition: 'attachment',
+        });
         const downloadURL = function (data: string, fileName: string) {
             const a = document.createElement('a');
             a.href = data;

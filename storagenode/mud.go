@@ -7,6 +7,7 @@ import (
 	"context"
 	"net/http"
 	"os"
+	"path/filepath"
 	"time"
 
 	"github.com/spacemonkeygo/monkit/v3"
@@ -107,6 +108,26 @@ func Module(ball *mud.Ball) {
 	{ // setup notification service.
 		mud.Provide[*notifications.Service](ball, notifications.NewService)
 
+	}
+
+	{
+		mud.Provide[*pieces.PieceExpirationStore](ball, func(log *zap.Logger, oldCfg piecestore.OldConfig, storeCfg piecestore.Config, cfg pieces.Config) (*pieces.PieceExpirationStore, error) {
+			flatFileStorePath := cfg.FlatExpirationStorePath
+			if abs := filepath.IsAbs(flatFileStorePath); !abs {
+				if storeCfg.DatabaseDir != "" {
+					flatFileStorePath = filepath.Join(storeCfg.DatabaseDir, flatFileStorePath)
+				} else {
+					flatFileStorePath = filepath.Join(oldCfg.Path, flatFileStorePath)
+				}
+			}
+
+			return pieces.NewPieceExpirationStore(log, nil, pieces.PieceExpirationConfig{
+				DataDir:               flatFileStorePath,
+				ConcurrentFileHandles: cfg.FlatExpirationStoreFileHandles,
+				MaxBufferTime:         cfg.FlatExpirationStoreMaxBufferTime,
+			})
+		}, logWrapper("pieceexpiration"))
+		mud.RegisterInterfaceImplementation[pieces.PieceExpirationDB, *pieces.PieceExpirationStore](ball)
 	}
 
 	{ // setup debug
@@ -258,7 +279,6 @@ func Module(ball *mud.Ball) {
 		mud.Provide[*pieces.Deleter](ball, func(log *zap.Logger, store *pieces.Store, storage2Config piecestore.Config) *pieces.Deleter {
 			return pieces.NewDeleter(log, store, storage2Config.DeleteWorkers, storage2Config.DeleteQueueSize)
 		}, logWrapper("piecedeleter"))
-		mud.Tag[*pieces.Deleter, modular.Service](ball, modular.Service{})
 
 		mud.Provide[*pieces.BlobsUsageCache](ball, func(log *zap.Logger, blobs RawBlobs) *pieces.BlobsUsageCache {
 			return pieces.NewBlobsUsageCache(log, blobs)
@@ -270,13 +290,8 @@ func Module(ball *mud.Ball) {
 		mud.View[DB, RawBlobs](ball, func(db DB) RawBlobs {
 			return db.Pieces()
 		})
-		// TODO: use this later for cached blobs. Without this, the normal implementation will be used.
-		// mud.View[*pieces.BlobsUsageCache, blobstore.Blobs](ball, func(cache *pieces.BlobsUsageCache) blobstore.Blobs {
-		//	return cache
-		// })
-		mud.View[RawBlobs, blobstore.Blobs](ball, func(blobs RawBlobs) blobstore.Blobs {
-			return blobs
-		})
+
+		mud.RegisterInterfaceImplementation[blobstore.Blobs, RawBlobs](ball)
 
 		mud.Provide[monitor.SpaceReport](ball, func(log *zap.Logger, store *pieces.Store, config monitor.Config) monitor.SpaceReport {
 			return monitor.NewDedicatedDisk(log, store, config.MinimumDiskSpace.Int64(), config.ReservedBytes.Int64())
@@ -288,6 +303,7 @@ func Module(ball *mud.Ball) {
 		}, logWrapper("piecestore:monitor"))
 
 		mud.Provide[*retain.Service](ball, retain.NewService, logWrapper("retain"))
+		mud.Provide[*retain.RunOnce](ball, retain.NewRunOnce)
 
 		mud.Provide[*usedserials.Table](ball, func(storage2Config piecestore.Config) *usedserials.Table {
 			return usedserials.NewTable(storage2Config.MaxUsedSerialsSize)
@@ -307,7 +323,16 @@ func Module(ball *mud.Ball) {
 		mud.Provide[*pieces.TrashRunOnce](ball, func(log *zap.Logger, trust *trust.Pool, store *pieces.Store, stop *modular.StopTrigger) *pieces.TrashRunOnce {
 			return pieces.NewTrashRunOnce(log, trust, store, trashExpiryInterval, stop)
 		})
-		mud.Tag[*pieces.TrashChore, modular.Service](ball, modular.Service{})
+
+		mud.RegisterInterfaceImplementation[piecestore.RestoreTrash, *pieces.TrashChore](ball)
+		mud.RegisterInterfaceImplementation[piecestore.EnqueueDeletes, *pieces.Deleter](ball)
+		mud.RegisterInterfaceImplementation[piecestore.QueueRetain, *retain.Service](ball)
+
+		mud.Provide[piecestore.PieceBackend](ball,
+			func(store *pieces.Store, trashChore piecestore.RestoreTrash, monitor *monitor.Service) piecestore.PieceBackend {
+				return piecestore.NewOldPieceBackend(store, trashChore, monitor)
+			})
+
 		mud.Provide[*piecestore.Endpoint](ball, piecestore.NewEndpoint, logWrapper("piecestore"))
 
 		mud.Provide[*orders.Service](ball, func(log *zap.Logger, ordersStore *orders.FileStore, ordersDB orders.DB, trust *trust.Pool, config orders.Config, tlsOptions *tlsopts.Options) *orders.Service {

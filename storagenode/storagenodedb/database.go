@@ -101,7 +101,7 @@ type DB struct {
 
 	deprecatedInfoDB       *deprecatedInfoDB
 	v0PieceInfoDB          *v0PieceInfoDB
-	bandwidthDB            *bandwidthDB
+	bandwidthDB            *BandwidthDB
 	ordersDB               *ordersDB
 	pieceExpirationDB      *pieceExpirationDB
 	pieceSpaceUsedDB       *pieceSpaceUsedDB
@@ -138,7 +138,7 @@ func OpenNew(ctx context.Context, log *zap.Logger, config Config) (*DB, error) {
 
 	deprecatedInfoDB := &deprecatedInfoDB{}
 	v0PieceInfoDB := &v0PieceInfoDB{}
-	bandwidthDB := &bandwidthDB{}
+	bandwidthDB := &BandwidthDB{}
 	ordersDB := &ordersDB{}
 	pieceExpirationDB := &pieceExpirationDB{}
 	pieceSpaceUsedDB := &pieceSpaceUsedDB{}
@@ -237,7 +237,7 @@ func OpenExisting(ctx context.Context, log *zap.Logger, config Config) (*DB, err
 
 	deprecatedInfoDB := &deprecatedInfoDB{}
 	v0PieceInfoDB := &v0PieceInfoDB{}
-	bandwidthDB := &bandwidthDB{}
+	bandwidthDB := &BandwidthDB{}
 	ordersDB := &ordersDB{}
 	pieceExpirationDB := &pieceExpirationDB{}
 	pieceSpaceUsedDB := &pieceSpaceUsedDB{}

@@ -114,6 +114,8 @@ func (c *CockroachAdapter) IterateLoopSegments(ctx context.Context, aliasCache *
 }
 
 func tagsqlIterateLoopSegments(ctx context.Context, db tagsqlAdapter, aliasCache *NodeAliasCache, opts IterateLoopSegments, fn func(context.Context, LoopSegmentsIterator) error) (err error) {
+	defer mon.Task()(&ctx)(&err)
+
 	it := &tagsqlLoopSegmentIterator{
 		db:         db,
 		aliasCache: aliasCache,
@@ -374,6 +376,8 @@ func (it *spannerLoopSegmentIterator) doNextQuery(ctx context.Context) (_ *spann
 
 // IterateLoopSegments implements Adapter.
 func (s *SpannerAdapter) IterateLoopSegments(ctx context.Context, aliasCache *NodeAliasCache, opts IterateLoopSegments, fn func(context.Context, LoopSegmentsIterator) error) (err error) {
+	defer mon.Task()(&ctx)(&err)
+
 	it := &spannerLoopSegmentIterator{
 		db:         s,
 		aliasCache: aliasCache,

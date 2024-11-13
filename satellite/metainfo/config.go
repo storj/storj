@@ -140,10 +140,10 @@ type RateLimiterConfig struct {
 	CacheExpiration time.Duration `help:"how long to cache the projects limiter." releaseDefault:"10m" devDefault:"10s"`
 }
 
-// UploadLimiterConfig is a configuration struct for endpoint upload limiting.
-type UploadLimiterConfig struct {
+// ObjectLimiterConfig is a configuration struct for endpoint limiting per object.
+type ObjectLimiterConfig struct {
 	Enabled           bool          `help:"whether rate limiting is enabled." releaseDefault:"true" devDefault:"true"`
-	SingleObjectLimit time.Duration `help:"how often we can upload to the single object (the same location) per API instance" default:"1s" devDefault:"1ms"`
+	SingleObjectLimit time.Duration `help:"how often we can interact with a single object (the same location) per API instance" default:"10ms" devDefault:"1ms"`
 
 	CacheCapacity int `help:"number of object locations to cache." releaseDefault:"10000" devDefault:"10" testDefault:"100"`
 }
@@ -176,10 +176,12 @@ type Config struct {
 	Overlay                      bool                `default:"true" help:"toggle flag if overlay is enabled"`
 	RS                           RSConfig            `releaseDefault:"29/35/80/110-256B" devDefault:"4/6/8/10-256B" help:"redundancy scheme configuration in the format k/m/o/n-sharesize"`
 	RateLimiter                  RateLimiterConfig   `help:"rate limiter configuration"`
-	UploadLimiter                UploadLimiterConfig `help:"object upload limiter configuration"`
+	UploadLimiter                ObjectLimiterConfig `help:"object upload limiter configuration"`
+	DownloadLimiter              ObjectLimiterConfig `help:"object download limiter configuration"`
 	ProjectLimits                ProjectLimitConfig  `help:"project limit configuration"`
 	SuccessTrackerKind           string              `default:"percent" help:"success tracker kind, bitshift or percent"`
 	SuccessTrackerTickDuration   time.Duration       `default:"10m" help:"how often to bump the generation in the node success tracker"`
+	FailureTrackerTickDuration   time.Duration       `default:"30s" help:"how often to bump the generation in the node failure tracker"`
 	SuccessTrackerTrustedUplinks []string            `help:"list of trusted uplinks for success tracker"`
 
 	// TODO remove this flag when server-side copy implementation will be finished

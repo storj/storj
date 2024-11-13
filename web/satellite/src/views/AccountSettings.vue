@@ -88,7 +88,7 @@
         </v-row>
 
         <v-row>
-            <v-col cols="12" sm="6" lg="4"  v-if="!user.externalID">
+            <v-col v-if="!user.externalID" cols="12" sm="6" lg="4">
                 <v-card title="Password" variant="outlined">
                     <v-card-subtitle>
                         **********
@@ -102,7 +102,7 @@
                 </v-card>
             </v-col>
 
-            <v-col cols="12" sm="6" lg="4">
+            <v-col v-if="!user.externalID" cols="12" sm="6" lg="4">
                 <v-card title="Two-factor authentication">
                     <v-card-subtitle>
                         Improve security by enabling 2FA.

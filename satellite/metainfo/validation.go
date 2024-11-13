@@ -31,6 +31,7 @@ import (
 	"storj.io/storj/satellite/console"
 	"storj.io/storj/satellite/console/consoleauth"
 	"storj.io/storj/satellite/metabase"
+	"storj.io/storj/shared/lrucache"
 )
 
 const (
@@ -755,16 +756,12 @@ func (endpoint *Endpoint) checkEncryptedMetadataSize(encryptedMetadata, encrypte
 	return nil
 }
 
-func (endpoint *Endpoint) checkObjectUploadRate(ctx context.Context, projectID uuid.UUID, bucketName []byte, objectKey []byte) error {
-	if !endpoint.config.UploadLimiter.Enabled {
-		return nil
-	}
-
+func checkObjectRate(ctx context.Context, limitCache *lrucache.ExpiringLRUOf[struct{}], projectID uuid.UUID, bucketName []byte, objectKey []byte) error {
 	limited := true
-	// if object location is in cache it means that we won't allow to upload yet here,
+	// if object location is in cache it means that we won't allow an operation yet here,
 	// if it's not or internally key expired we are good to go
 	key := strings.Join([]string{string(projectID[:]), string(bucketName), string(objectKey)}, "/")
-	_, _ = endpoint.singleObjectLimitCache.Get(ctx, key, func() (struct{}, error) {
+	_, _ = limitCache.Get(ctx, key, func() (struct{}, error) {
 		limited = false
 		return struct{}{}, nil
 	})

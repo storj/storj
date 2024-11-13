@@ -10,6 +10,11 @@ export type ObjLockMode = typeof GOVERNANCE_LOCK | typeof COMPLIANCE_LOCK
 export const LEGAL_HOLD_ON = ObjectLockLegalHoldStatus.ON;
 export const LEGAL_HOLD_OFF = ObjectLockLegalHoldStatus.OFF;
 
+export enum DefaultObjectLockPeriodUnit {
+    DAYS = 'Days',
+    YEARS = 'Years',
+}
+
 export class Retention {
     mode: ObjectLockMode | '';
     retainUntil: Date;

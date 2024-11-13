@@ -47,12 +47,14 @@
                         class="border my-4 font-weight-bold"
                         static
                     >
-                        <v-expansion-panel-text class="text-body-2">
+                        <v-expansion-panel-text class="text-body-2 overflow-y-auto">
                             <p class="my-2"><span class="font-weight-bold">PutObjectRetention</span>: Allows you to set retention policies, protecting objects from deletion or modification until the retention period expires.</p>
                             <p class="my-2"><span class="font-weight-bold">GetObjectRetention</span>: Allows you to view the retention settings of objects, helping ensure compliance with retention policies.</p>
                             <p class="my-2"><span class="font-weight-bold">BypassGovernanceRetention</span>: Allows you to bypass governance-mode retention, enabling deletion of objects before the retention period ends.</p>
                             <p class="my-2"><span class="font-weight-bold">PutObjectLegalHold</span>: Allows you to place a legal hold on objects, preventing deletion or modification regardless of retention policies.</p>
                             <p class="my-2"><span class="font-weight-bold">GetObjectLegalHold</span>: Allows you to view the legal hold status of objects, which is useful for auditing and compliance purposes.</p>
+                            <p class="my-2"><span class="font-weight-bold">PutObjectLockConfiguration</span>: Allows you to set retention policies on the specified bucket, automatically applying them to every new object added to that bucket.</p>
+                            <p class="my-2"><span class="font-weight-bold">GetObjectLockConfiguration</span>: Allows you to view the default retention policies configured for the specified bucket.</p>
                         </v-expansion-panel-text>
                     </v-expansion-panel>
                 </v-expansion-panels>
@@ -91,6 +93,8 @@ const allPermissions = [
     ObjectLockPermission.BypassGovernanceRetention,
     ObjectLockPermission.PutObjectLegalHold,
     ObjectLockPermission.GetObjectLegalHold,
+    ObjectLockPermission.PutObjectLockConfiguration,
+    ObjectLockPermission.GetObjectLockConfiguration,
 ];
 
 /**
@@ -104,3 +108,9 @@ watch(permissions, value => {
     emit('permissionsChanged', value.slice());
 }, { deep: true });
 </script>
+
+<style scoped lang="scss">
+:deep(.v-expansion-panel-text__wrapper) {
+    height: 25vh;
+}
+</style>

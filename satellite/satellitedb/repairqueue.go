@@ -364,6 +364,7 @@ func (r *repairQueue) Select(ctx context.Context, n int, includedPlacements []st
 			err = scanSegments(rows)
 		}
 	case dbutil.Spanner:
+		// Note: Spanner sorts nulls first by default.
 		err = r.db.WithTx(ctx, func(ctx context.Context, tx *dbx.Tx) error {
 			rows, err = tx.QueryContext(ctx, `UPDATE repair_queue
 				SET attempted_at = CURRENT_TIMESTAMP()
@@ -373,7 +374,7 @@ func (r *repairQueue) Select(ctx context.Context, n int, includedPlacements []st
 						SELECT stream_id, position
 						FROM repair_queue
 						WHERE (attempted_at IS NULL OR attempted_at < TIMESTAMP_SUB(CURRENT_TIMESTAMP(), INTERVAL 6 HOUR)) `+restriction+`
-						ORDER BY segment_health ASC, (attempted_at IS NULL) DESC, attempted_at
+						ORDER BY segment_health ASC, attempted_at ASC
 						LIMIT ?
 					) AS target_row
 				)

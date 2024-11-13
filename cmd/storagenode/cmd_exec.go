@@ -24,7 +24,7 @@ func newExecCmd(f *Factory) *cobra.Command {
 	mud.Provide[*zap.Logger](ball, zap.L)
 	modular.IdentityModule(ball)
 	storagenode.Module(ball)
-	selector := modular.CreateSelector()
+	selector := modular.CreateSelector(ball)
 	stop := &modular.StopTrigger{}
 	mud.Supply[*modular.StopTrigger](ball, stop)
 	cmd := &cobra.Command{
