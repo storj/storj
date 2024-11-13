@@ -16,7 +16,7 @@ import (
 	"storj.io/storj/satellite/payments/paymentsconfig"
 )
 
-func TestProjectUsagePriceOverrides(t *testing.T) {
+func TestPriceOverrides(t *testing.T) {
 	type Prices map[string]payments.ProjectUsagePriceModel
 
 	cases := []struct {
@@ -30,19 +30,19 @@ func TestProjectUsagePriceOverrides(t *testing.T) {
 			expectedModel: Prices{},
 		}, {
 			testID:      "missing values",
-			configValue: "partner",
+			configValue: "key0",
 		}, {
-			testID:      "missing partner",
+			testID:      "missing key",
 			configValue: ":1,2,3,4",
 		}, {
 			testID:      "too few values",
-			configValue: "partner:1",
+			configValue: "key0:1",
 		}, {
 			testID:      "single price override",
-			configValue: "partner:1,2,3,4",
+			configValue: "key0:1,2,3,4",
 			expectedModel: Prices{
 				// Shift is to change the precision from TB dollars to MB cents
-				"partner": payments.ProjectUsagePriceModel{
+				"key0": payments.ProjectUsagePriceModel{
 					StorageMBMonthCents: decimal.NewFromInt(1).Shift(-4),
 					EgressMBCents:       decimal.NewFromInt(2).Shift(-4),
 					SegmentMonthCents:   decimal.NewFromInt(3).Shift(2),
@@ -51,21 +51,21 @@ func TestProjectUsagePriceOverrides(t *testing.T) {
 			},
 		}, {
 			testID:      "too many values",
-			configValue: "partner:1,2,3,4,5",
+			configValue: "key0:1,2,3,4,5",
 		}, {
 			testID:      "invalid price",
-			configValue: "partner:0.0.1,2,3,4",
+			configValue: "key0:0.0.1,2,3,4",
 		}, {
 			testID:      "multiple price overrides",
-			configValue: "partner1:1,2,3,4;partner2:5,6,7,8",
+			configValue: "key1:1,2,3,4;key2:5,6,7,8",
 			expectedModel: Prices{
-				"partner1": payments.ProjectUsagePriceModel{
+				"key1": payments.ProjectUsagePriceModel{
 					StorageMBMonthCents: decimal.NewFromInt(1).Shift(-4),
 					EgressMBCents:       decimal.NewFromInt(2).Shift(-4),
 					SegmentMonthCents:   decimal.NewFromInt(3).Shift(2),
 					EgressDiscountRatio: 4,
 				},
-				"partner2": payments.ProjectUsagePriceModel{
+				"key2": payments.ProjectUsagePriceModel{
 					StorageMBMonthCents: decimal.NewFromInt(5).Shift(-4),
 					EgressMBCents:       decimal.NewFromInt(6).Shift(-4),
 					SegmentMonthCents:   decimal.NewFromInt(7).Shift(2),
@@ -78,7 +78,7 @@ func TestProjectUsagePriceOverrides(t *testing.T) {
 	for _, c := range cases {
 		c := c
 		t.Run(c.testID, func(t *testing.T) {
-			price := &paymentsconfig.ProjectUsagePriceOverrides{}
+			price := &paymentsconfig.PriceOverrides{}
 			err := price.Set(c.configValue)
 			if c.expectedModel == nil {
 				require.Error(t, err)
@@ -93,9 +93,9 @@ func TestProjectUsagePriceOverrides(t *testing.T) {
 			models, err := price.ToModels()
 			require.NoError(t, err)
 			require.Len(t, models, len(c.expectedModel))
-			for partner, price := range c.expectedModel {
-				model := models[partner]
-				require.Contains(t, models, partner)
+			for key, price := range c.expectedModel {
+				model := models[key]
+				require.Contains(t, models, key)
 				require.Equal(t, price.StorageMBMonthCents, model.StorageMBMonthCents)
 				require.Equal(t, price.EgressMBCents, model.EgressMBCents)
 				require.Equal(t, price.SegmentMonthCents, model.SegmentMonthCents)

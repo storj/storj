@@ -1172,6 +1172,9 @@ identity.key-path: /root/.local/share/storj/identity/satellite/identity.key
 # semicolon-separated partner package plans in the format partner:price,credit. Price and credit are in cents USD.
 # payments.package-plans: ""
 
+# semicolon-separated list of products and their price structures in the format: product:storage,egress,segment,egress_discount_ratio. The egress discount ratio is the ratio of free egress per unit-month of storage
+# payments.products: ""
+
 # payments provider to use
 # payments.provider: ""
 

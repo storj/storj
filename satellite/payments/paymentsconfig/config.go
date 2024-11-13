@@ -27,13 +27,16 @@ type Config struct {
 	Provider     string        `help:"payments provider to use" default:""`
 	MockProvider stripe.Client `internal:"true"`
 
-	BillingConfig       billing.Config
-	StripeCoinPayments  stripe.Config
-	Storjscan           storjscan.Config
-	UsagePrice          ProjectUsagePrice
-	BonusRate           int64                      `help:"amount of percents that user will earn as bonus credits by depositing in STORJ tokens" default:"10"`
-	UsagePriceOverrides ProjectUsagePriceOverrides `help:"semicolon-separated usage price overrides in the format partner:storage,egress,segment,egress_discount_ratio. The egress discount ratio is the ratio of free egress per unit-month of storage"`
-	PackagePlans        PackagePlans               `help:"semicolon-separated partner package plans in the format partner:price,credit. Price and credit are in cents USD."`
+	BillingConfig      billing.Config
+	StripeCoinPayments stripe.Config
+	Storjscan          storjscan.Config
+	UsagePrice         ProjectUsagePrice
+
+	// TODO: if we decide to put default product in here and change away from overrides, change the type name.
+	Products            PriceOverrides `help:"semicolon-separated list of products and their price structures in the format: product:storage,egress,segment,egress_discount_ratio. The egress discount ratio is the ratio of free egress per unit-month of storage"`
+	BonusRate           int64          `help:"amount of percents that user will earn as bonus credits by depositing in STORJ tokens" default:"10"`
+	UsagePriceOverrides PriceOverrides `help:"semicolon-separated usage price overrides in the format partner:storage,egress,segment,egress_discount_ratio. The egress discount ratio is the ratio of free egress per unit-month of storage"`
+	PackagePlans        PackagePlans   `help:"semicolon-separated partner package plans in the format partner:price,credit. Price and credit are in cents USD."`
 }
 
 // ProjectUsagePrice holds the configuration for the satellite's project usage price model.
@@ -68,27 +71,27 @@ func (p ProjectUsagePrice) ToModel() (model payments.ProjectUsagePriceModel, err
 	}, nil
 }
 
-// Ensure that ProjectUsagePriceOverrides implements pflag.Value.
-var _ pflag.Value = (*ProjectUsagePriceOverrides)(nil)
+// Ensure that PriceOverrides implements pflag.Value.
+var _ pflag.Value = (*PriceOverrides)(nil)
 
-// ProjectUsagePriceOverrides represents a mapping between partners and project usage price overrides.
-type ProjectUsagePriceOverrides struct {
+// PriceOverrides represents a mapping between a string and price overrides.
+type PriceOverrides struct {
 	overrideMap map[string]ProjectUsagePrice
 }
 
 // Type returns the type of the pflag.Value.
-func (ProjectUsagePriceOverrides) Type() string { return "paymentsconfig.ProjectUsagePriceOverrides" }
+func (PriceOverrides) Type() string { return "paymentsconfig.PriceOverrides" }
 
 // String returns the string representation of the price overrides.
-func (p *ProjectUsagePriceOverrides) String() string {
+func (p *PriceOverrides) String() string {
 	if p == nil {
 		return ""
 	}
 	var s strings.Builder
 	left := len(p.overrideMap)
-	for partner, prices := range p.overrideMap {
+	for key, prices := range p.overrideMap {
 		egressDiscount := strconv.FormatFloat(prices.EgressDiscountRatio, 'f', -1, 64)
-		s.WriteString(fmt.Sprintf("%s:%s,%s,%s,%s", partner, prices.StorageTB, prices.EgressTB, prices.Segment, egressDiscount))
+		s.WriteString(fmt.Sprintf("%s:%s,%s,%s,%s", key, prices.StorageTB, prices.EgressTB, prices.Segment, egressDiscount))
 		left--
 		if left > 0 {
 			s.WriteRune(';')
@@ -98,7 +101,7 @@ func (p *ProjectUsagePriceOverrides) String() string {
 }
 
 // Set sets the list of price overrides to the parsed string.
-func (p *ProjectUsagePriceOverrides) Set(s string) error {
+func (p *PriceOverrides) Set(s string) error {
 	overrideMap := make(map[string]ProjectUsagePrice)
 	for _, overrideStr := range strings.Split(s, ";") {
 		if overrideStr == "" {
@@ -107,12 +110,12 @@ func (p *ProjectUsagePriceOverrides) Set(s string) error {
 
 		info := strings.Split(overrideStr, ":")
 		if len(info) != 2 {
-			return Error.New("Invalid price override (expected format partner:storage,egress,segment, got %s)", overrideStr)
+			return Error.New("Invalid price override (expected format key:storage,egress,segment, got %s)", overrideStr)
 		}
 
-		partner := strings.TrimSpace(info[0])
-		if len(partner) == 0 {
-			return Error.New("Price override partner must not be empty")
+		key := strings.TrimSpace(info[0])
+		if len(key) == 0 {
+			return Error.New("Price override key must not be empty")
 		}
 
 		valuesStr := info[1]
@@ -143,20 +146,20 @@ func (p *ProjectUsagePriceOverrides) Set(s string) error {
 	return nil
 }
 
-// SetMap sets the internal mapping between partners and project usage prices.
-func (p *ProjectUsagePriceOverrides) SetMap(overrides map[string]ProjectUsagePrice) {
+// SetMap sets the internal mapping between a string and usage prices.
+func (p *PriceOverrides) SetMap(overrides map[string]ProjectUsagePrice) {
 	p.overrideMap = overrides
 }
 
-// ToModels returns the price overrides represented as a mapping between partners and project usage price models.
-func (p ProjectUsagePriceOverrides) ToModels() (map[string]payments.ProjectUsagePriceModel, error) {
+// ToModels returns the price overrides represented as a mapping between a string and usage price models.
+func (p PriceOverrides) ToModels() (map[string]payments.ProjectUsagePriceModel, error) {
 	models := make(map[string]payments.ProjectUsagePriceModel)
-	for partner, prices := range p.overrideMap {
+	for key, prices := range p.overrideMap {
 		model, err := prices.ToModel()
 		if err != nil {
 			return nil, err
 		}
-		models[partner] = model
+		models[key] = model
 	}
 	return models, nil
 }
