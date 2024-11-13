@@ -2,9 +2,9 @@
 // See LICENSE for copying information.
 
 <template>
-    <v-dialog :model-value="shouldShowSetupDialog" height="87%" width="87%" persistent transition="fade-transition" scrollable>
+    <v-dialog :model-value="shouldShowSetupDialog" height="100%" width="100%" persistent transition="fade-transition" scrollable>
         <v-card ref="innerContent">
-            <v-card-item class="py-4" :class="{ 'h-100': step === OnboardingStep.SetupComplete }">
+            <v-card-item class="pa-1" :class="{ 'h-100': step === OnboardingStep.SetupComplete }">
                 <v-window v-model="step">
                     <!-- Choice step -->
                     <v-window-item :value="OnboardingStep.AccountTypeSelection">

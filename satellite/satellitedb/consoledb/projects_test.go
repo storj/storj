@@ -120,6 +120,21 @@ func TestGetProjectsByUserID(t *testing.T) {
 		require.NoError(t, err)
 		require.Len(t, projects, 1)
 		require.Equal(t, 2, projects[0].MemberCount)
+
+		projects, err = projectsRepo.GetActiveByUserID(ctx, user1.ID)
+		require.NoError(t, err)
+		require.Len(t, projects, 1)
+
+		err = projectsRepo.UpdateStatus(ctx, proj.ID, console.ProjectDisabled)
+		require.NoError(t, err)
+
+		projects, err = projectsRepo.GetByUserID(ctx, user1.ID)
+		require.NoError(t, err)
+		require.Len(t, projects, 1)
+
+		projects, err = projectsRepo.GetActiveByUserID(ctx, user1.ID)
+		require.NoError(t, err)
+		require.Len(t, projects, 0)
 	})
 }
 

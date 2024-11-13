@@ -192,6 +192,7 @@ type API struct {
 	}
 
 	SuccessTrackers *metainfo.SuccessTrackers
+	FailureTracker  metainfo.SuccessTracker
 }
 
 // NewAPI creates a new satellite API process.
@@ -299,9 +300,12 @@ func NewAPI(log *zap.Logger, full *identity.FullIdentity, db DB,
 		}
 		peer.SuccessTrackers = metainfo.NewSuccessTrackers(trustedUplinks, newTracker)
 		mon.Chain(peer.SuccessTrackers)
+
+		peer.FailureTracker = metainfo.NewPercentSuccessTracker()
+		mon.Chain(peer.FailureTracker)
 	}
 
-	placements, err := config.Placement.Parse(config.Overlay.Node.CreateDefaultPlacement, nodeselection.NewPlacementConfigEnvironment(peer.SuccessTrackers))
+	placements, err := config.Placement.Parse(config.Overlay.Node.CreateDefaultPlacement, nodeselection.NewPlacementConfigEnvironment(peer.SuccessTrackers, peer.FailureTracker))
 	if err != nil {
 		return nil, err
 	}
@@ -373,11 +377,6 @@ func NewAPI(log *zap.Logger, full *identity.FullIdentity, db DB,
 		)
 	}
 
-	placement, err := config.Placement.Parse(config.Overlay.Node.CreateDefaultPlacement, nodeselection.NewPlacementConfigEnvironment(peer.SuccessTrackers))
-	if err != nil {
-		return nil, err
-	}
-
 	{ // setup orders
 		peer.Orders.DB = rollupsWriteCache
 		peer.Orders.Chore = orders.NewChore(log.Named("orders:chore"), rollupsWriteCache, config.Orders)
@@ -394,7 +393,7 @@ func NewAPI(log *zap.Logger, full *identity.FullIdentity, db DB,
 			signing.SignerFromFullIdentity(peer.Identity),
 			peer.Overlay.Service,
 			peer.Orders.DB,
-			placement.CreateFilters,
+			placements.CreateFilters,
 			config.Orders,
 		)
 		if err != nil {
@@ -435,8 +434,9 @@ func NewAPI(log *zap.Logger, full *identity.FullIdentity, db DB,
 			signing.SignerFromFullIdentity(peer.Identity),
 			peer.DB.Revocation(),
 			peer.SuccessTrackers,
+			peer.FailureTracker,
 			config.Metainfo,
-			placement,
+			placements,
 		)
 		if err != nil {
 			return nil, errs.Combine(err, peer.Close())
@@ -575,17 +575,6 @@ func NewAPI(log *zap.Logger, full *identity.FullIdentity, db DB,
 			}
 		}
 
-		{ // setup sso
-			if config.SSO.Enabled {
-				peer.SSO.Service = sso.NewService(config.Console.ExternalAddress, config.SSO)
-
-				peer.Services.Add(lifecycle.Item{
-					Name: "sso:service",
-					Run:  peer.SSO.Service.Initialize,
-				})
-			}
-		}
-
 		emissionService := emission.NewService(config.Emission)
 
 		{ // setup payments
@@ -679,6 +668,20 @@ func NewAPI(log *zap.Logger, full *identity.FullIdentity, db DB,
 				externalAddress = "http://" + peer.Console.Listener.Addr().String()
 			}
 
+			if config.SSO.Enabled {
+				// setup sso
+				peer.SSO.Service = sso.NewService(
+					externalAddress,
+					peer.Console.AuthTokens,
+					config.SSO,
+				)
+
+				peer.Services.Add(lifecycle.Item{
+					Name: "sso:service",
+					Run:  peer.SSO.Service.Initialize,
+				})
+			}
+
 			accountFreezeService := console.NewAccountFreezeService(
 				db.Console(),
 				peer.Analytics.Service,
@@ -704,7 +707,8 @@ func NewAPI(log *zap.Logger, full *identity.FullIdentity, db DB,
 				externalAddress,
 				consoleConfig.SatelliteName,
 				config.Metainfo.ProjectLimits.MaxBuckets,
-				placement,
+				config.SSO.Enabled,
+				placements,
 				console.ObjectLockAndVersioningConfig{
 					ObjectLockEnabled:                      config.Metainfo.ObjectLockEnabled,
 					UseBucketLevelObjectVersioning:         config.Metainfo.UseBucketLevelObjectVersioning,

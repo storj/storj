@@ -1029,7 +1029,7 @@ func (server *Server) trialExpirationUnfreezeUser(w http.ResponseWriter, r *http
 		if errs.Is(err, console.ErrNoFreezeStatus) {
 			status = http.StatusNotFound
 		}
-		sendJSONError(w, "failed to legal unfreeze user",
+		sendJSONError(w, "failed to trial expiration unfreeze user",
 			err.Error(), status)
 		return
 	}

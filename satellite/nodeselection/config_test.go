@@ -17,7 +17,7 @@ import (
 
 func TestParsedConfig(t *testing.T) {
 
-	config, err := LoadConfig("config_test.yaml", NewPlacementConfigEnvironment(mockTracker{}))
+	config, err := LoadConfig("config_test.yaml", NewPlacementConfigEnvironment(mockTracker{}, nil))
 	require.NoError(t, err)
 	require.Len(t, config, 11)
 
@@ -110,7 +110,7 @@ func TestParsedConfig(t *testing.T) {
 
 func TestParsedConfigWithoutTracker(t *testing.T) {
 	// tracker is not available for certain microservices (like repair). Still the placement should work.
-	config, err := LoadConfig("config_test.yaml", NewPlacementConfigEnvironment(nil))
+	config, err := LoadConfig("config_test.yaml", NewPlacementConfigEnvironment(nil, nil))
 	require.NoError(t, err)
 	require.Len(t, config, 11)
 
@@ -135,7 +135,7 @@ func TestParsedConfigWithoutTracker(t *testing.T) {
 }
 
 func TestFilterFromString(t *testing.T) {
-	filter, err := FilterFromString(`exclude(nodelist("filter_testdata.txt"))`)
+	filter, err := FilterFromString(`exclude(nodelist("filter_testdata.txt"))`, NewPlacementConfigEnvironment(nil, nil))
 	require.NoError(t, err)
 
 	require.False(t, filter.Match(&SelectedNode{

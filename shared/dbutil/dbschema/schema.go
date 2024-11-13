@@ -230,20 +230,30 @@ func (table *Table) ColumnNames() []string {
 
 // Sort sorts tables and indexes.
 func (schema *Schema) Sort() {
-	sort.Slice(schema.Tables, func(i, k int) bool {
-		return schema.Tables[i].Name < schema.Tables[k].Name
-	})
+	SortTables(schema.Tables)
 	for _, table := range schema.Tables {
 		table.Sort()
 	}
-	sort.Slice(schema.Indexes, func(i, k int) bool {
+	SortIndexes(schema.Indexes)
+}
+
+// SortTables sorts Table records in a slice by table name.
+func SortTables(tables []*Table) {
+	sort.Slice(tables, func(i, k int) bool {
+		return tables[i].Name < tables[k].Name
+	})
+}
+
+// SortIndexes sorts Index records in a slice by table name then index name.
+func SortIndexes(indexes []*Index) {
+	sort.Slice(indexes, func(i, k int) bool {
 		switch {
-		case schema.Indexes[i].Table < schema.Indexes[k].Table:
+		case indexes[i].Table < indexes[k].Table:
 			return true
-		case schema.Indexes[i].Table > schema.Indexes[k].Table:
+		case indexes[i].Table > indexes[k].Table:
 			return false
 		default:
-			return schema.Indexes[i].Name < schema.Indexes[k].Name
+			return indexes[i].Name < indexes[k].Name
 		}
 	})
 }
@@ -263,8 +273,6 @@ func (table *Table) Sort() {
 	sort.Slice(table.Columns, func(i, k int) bool {
 		return table.Columns[i].Name < table.Columns[k].Name
 	})
-
-	sort.Strings(table.PrimaryKey)
 
 	sort.Slice(table.Unique, func(i, k int) bool {
 		return lessStrings(table.Unique[i], table.Unique[k])

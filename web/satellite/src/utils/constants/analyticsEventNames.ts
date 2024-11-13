@@ -83,6 +83,7 @@ export enum AnalyticsErrorEventSource {
     CREATE_PROJECT_MODAL = 'Create project modal',
     CREATE_PROJECT_PASSPHRASE_MODAL = 'Create project passphrase modal',
     CREATE_BUCKET_MODAL = 'Create bucket modal',
+    SET_BUCKET_OBJECT_LOCK_CONFIG_MODAL = 'Set bucket object lock config modal',
     DELETE_BUCKET_MODAL = 'Delete bucket modal',
     ENABLE_MFA_MODAL = 'Enable MFA modal',
     MFA_CODES_MODAL = 'MFA codes modal',

@@ -144,6 +144,7 @@ pipeline {
                 COVERFLAGS = "${ env.BRANCH_NAME == 'main' ? '-coverprofile=.build/coverprofile -coverpkg=storj.io/storj/private/...,storj.io/storj/satellite/...,storj.io/storj/storagenode/...,storj.io/storj/versioncontrol/...' : ''}"
                 GOEXPERIMENT = 'nocoverageredesign'
                 STORJ_TEST_SPANNER = 'spanner://127.0.0.1:9010?emulator|spanner://127.0.0.1:9011?emulator|spanner://127.0.0.1:9012?emulator|spanner://127.0.0.1:9013?emulator'
+                SPANNER_DISABLE_BUILTIN_METRICS = 'true'
             }
             steps {
                 sh 'cockroach sql --insecure --host=localhost:26256 -e \'create database testcockroach;\''

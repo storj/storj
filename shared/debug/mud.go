@@ -31,13 +31,17 @@ func NewWrapper(logger *zap.Logger, config debug.Config, extensions []debug.Exte
 		return d, nil
 	}
 
+	namedLog := logger.Named("debug")
+
 	d.Listener, err = net.Listen("tcp", config.Addr)
 	if err != nil {
 		withoutStack := errs.New("%s", err.Error())
 		logger.Debug("failed to start debug endpoints", zap.Error(withoutStack))
+	} else {
+		namedLog.Info("debug server is started listening", zap.Stringer("addr", d.Listener.Addr()))
 	}
 
-	d.Server = debug.NewServer(logger.Named("debug"), d.Listener, monkit.Default, config, extensions...)
+	d.Server = debug.NewServer(namedLog, d.Listener, monkit.Default, config, extensions...)
 	return d, nil
 }
 

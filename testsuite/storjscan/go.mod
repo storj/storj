@@ -11,10 +11,10 @@ require (
 	github.com/zeebo/errs v1.4.0
 	go.uber.org/zap v1.27.0
 	golang.org/x/sync v0.8.0
-	storj.io/common v0.0.0-20241014122736-47dfa836934a
+	storj.io/common v0.0.0-20241107064117-6b3c20bcf19b
 	storj.io/storj v1.63.1
 	storj.io/storjscan v0.0.0-20220926140643-1623c3b391b0
-	storj.io/uplink v1.13.2-0.20240913115229-e8ce0e91b41f
+	storj.io/uplink v1.13.2-0.20241106140533-61d511a04894
 )
 
 require (
@@ -182,7 +182,7 @@ require (
 	github.com/zeebo/float16 v0.1.0 // indirect
 	github.com/zeebo/goof v0.0.0-20230907150950-e9457bc94477 // indirect
 	github.com/zeebo/incenc v0.0.0-20180505221441-0d92902eec54 // indirect
-	github.com/zeebo/mwc v0.0.4 // indirect
+	github.com/zeebo/mwc v0.0.6 // indirect
 	github.com/zeebo/structs v1.0.3-0.20230601144555-f2db46069602 // indirect
 	github.com/zeebo/sudo v1.0.2 // indirect
 	github.com/zeebo/xxh3 v1.0.2 // indirect

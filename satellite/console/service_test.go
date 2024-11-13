@@ -2365,6 +2365,68 @@ func TestDeleteAccount(t *testing.T) {
 	})
 }
 
+func TestUpdateUserOnSignup(t *testing.T) {
+	testplanet.Run(t, testplanet.Config{
+		SatelliteCount: 1, StorageNodeCount: 0, UplinkCount: 0,
+		Reconfigure: testplanet.Reconfigure{
+			Satellite: func(log *zap.Logger, index int, config *satellite.Config) {
+				config.Console.FreeTrialDuration = 48 * time.Hour
+			},
+		},
+	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+		sat := planet.Satellites[0]
+		service := sat.API.Console.Service
+
+		regToken, err := service.CreateRegToken(ctx, 1)
+		require.NoError(t, err)
+
+		requestData := console.CreateUser{
+			FullName:        "old inactive",
+			ShortName:       "old inactive",
+			Email:           "inactive@mail.test",
+			Password:        "old password",
+			UserAgent:       []byte("partner1"),
+			SignupPromoCode: "test",
+			ActivationCode:  "111111",
+			SignupId:        "test",
+		}
+
+		user, err := service.CreateUser(ctx, requestData, regToken.Secret)
+		require.NoError(t, err)
+		require.NotNil(t, user)
+
+		requestData.FullName = "new active"
+		requestData.ShortName = "new active"
+		requestData.Password = "new password"
+		requestData.UserAgent = []byte("partnerNew")
+		requestData.SignupPromoCode = "new test"
+		requestData.ActivationCode = "222222"
+		requestData.SignupId = "new test"
+
+		newNow := time.Now().Add(24 * time.Hour)
+		service.TestSetNow(func() time.Time {
+			return newNow
+		})
+
+		err = service.UpdateUserOnSignup(ctx, user, requestData)
+		require.NoError(t, err)
+
+		user, err = service.GetUser(ctx, user.ID)
+		require.NoError(t, err)
+		require.Equal(t, requestData.FullName, user.FullName)
+		require.Equal(t, requestData.ShortName, user.ShortName)
+		require.Equal(t, requestData.UserAgent, user.UserAgent)
+		require.Equal(t, requestData.SignupPromoCode, user.SignupPromoCode)
+		require.Equal(t, requestData.ActivationCode, user.ActivationCode)
+		require.Equal(t, requestData.SignupId, user.SignupId)
+		require.NotNil(t, user.TrialExpiration)
+		require.WithinDuration(t, newNow.Add(sat.Config.Console.FreeTrialDuration), *user.TrialExpiration, time.Minute)
+
+		err = bcrypt.CompareHashAndPassword(user.PasswordHash, []byte(requestData.Password))
+		require.NoError(t, err)
+	})
+}
+
 func TestPaidTier(t *testing.T) {
 	usageConfig := console.UsageLimitsConfig{
 		Storage: console.StorageLimitConfig{
@@ -2987,7 +3049,7 @@ func TestChangePassword(t *testing.T) {
 		require.Len(t, sessions, 2)
 
 		// generate a password recovery token to test that changing password invalidates it
-		passwordRecoveryToken, err := sat.API.Console.Service.GeneratePasswordRecoveryToken(userCtx, user.ID)
+		passwordRecoveryToken, err := sat.API.Console.Service.GeneratePasswordRecoveryToken(userCtx, user)
 		require.NoError(t, err)
 
 		sessionID := sessions[0].ID

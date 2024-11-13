@@ -575,6 +575,8 @@ async function createAPIKey(): Promise<void> {
             'isBypassGovernanceRetention': noCaveats || objectLockPermissions.value.includes(ObjectLockPermission.BypassGovernanceRetention),
             'isPutObjectLegalHold': noCaveats || objectLockPermissions.value.includes(ObjectLockPermission.PutObjectLegalHold),
             'isGetObjectLegalHold': noCaveats || objectLockPermissions.value.includes(ObjectLockPermission.GetObjectLegalHold),
+            'isPutObjectLockConfiguration': noCaveats || objectLockPermissions.value.includes(ObjectLockPermission.PutObjectLockConfiguration),
+            'isGetObjectLockConfiguration': noCaveats || objectLockPermissions.value.includes(ObjectLockPermission.GetObjectLockConfiguration),
         };
     }
 

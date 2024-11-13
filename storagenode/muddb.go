@@ -11,6 +11,7 @@ import (
 	"go.uber.org/zap"
 
 	"storj.io/storj/private/mud"
+	"storj.io/storj/storagenode/bandwidth"
 	"storj.io/storj/storagenode/blobstore/filestore"
 	"storj.io/storj/storagenode/pieces"
 	"storj.io/storj/storagenode/piecestore"
@@ -24,13 +25,16 @@ func DBModule(ball *mud.Ball) {
 	mud.View(ball, DB.Notifications)
 	mud.View(ball, DB.Reputation)
 	mud.View(ball, DB.Satellites)
-	mud.View(ball, DB.Bandwidth)
+	mud.View[DB, *storagenodedb.BandwidthDB](ball, func(db DB) *storagenodedb.BandwidthDB {
+		return db.Bandwidth().(*storagenodedb.BandwidthDB)
+	})
+	mud.RegisterInterfaceImplementation[bandwidth.Writer, *storagenodedb.BandwidthDB](ball)
+	mud.RegisterInterfaceImplementation[bandwidth.DB, *storagenodedb.BandwidthDB](ball)
 	mud.View(ball, DB.Orders)
 	mud.View(ball, DB.Payout)
 	mud.View(ball, DB.Pricing)
 	mud.View(ball, DB.GCFilewalkerProgress)
 	mud.View(ball, DB.V0PieceInfo)
-	mud.View(ball, DB.PieceExpirationDB)
 	mud.View(ball, DB.PieceSpaceUsedDB)
 	mud.View(ball, DB.StorageUsage)
 	mud.View(ball, DB.UsedSpacePerPrefix)

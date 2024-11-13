@@ -81,6 +81,7 @@ func TestProjectsRepository(t *testing.T) {
 
 				project, err = projects.Insert(ctx, project)
 				assert.NotNil(t, project)
+				assert.Equal(t, console.ProjectActive, *project.Status)
 				assert.NoError(t, err)
 			})
 
@@ -92,6 +93,7 @@ func TestProjectsRepository(t *testing.T) {
 				assert.Equal(t, projectByID.OwnerID, owner.ID)
 				assert.Equal(t, projectByID.Description, description)
 				require.NotNil(t, project)
+				require.Equal(t, console.ProjectActive, *project.Status)
 				require.NoError(t, err)
 			})
 
@@ -131,7 +133,17 @@ func TestProjectsRepository(t *testing.T) {
 				require.Equal(t, newName, newProject.Name)
 				require.Equal(t, newDescription, newProject.Description)
 				require.Equal(t, newRateLimit, *newProject.RateLimit)
+				require.Equal(t, console.ProjectActive, *newProject.Status)
 				require.True(t, newProject.PromptedForVersioningBeta)
+
+				disabledStatus := console.ProjectDisabled
+				newProject.Status = &disabledStatus
+				err = projects.Update(ctx, newProject)
+				require.NoError(t, err)
+
+				newProject, err = projects.Get(ctx, oldProject.ID)
+				require.NoError(t, err)
+				require.Equal(t, console.ProjectDisabled, *newProject.Status)
 			})
 
 			t.Run("Delete project success", func(t *testing.T) {
@@ -243,6 +255,75 @@ func TestProjectsList(t *testing.T) {
 				})
 				return rs
 			})))
+	})
+}
+
+func TestUpdateStatus(t *testing.T) {
+	satellitedbtest.Run(t, func(ctx *testcontext.Context, t *testing.T, db satellite.DB) { // repositories
+		owner, err := db.Console().Users().Insert(ctx,
+			&console.User{
+				ID:           testrand.UUID(),
+				FullName:     "test",
+				Email:        "test@example.test",
+				PasswordHash: []byte("example_password"),
+			},
+		)
+		require.NoError(t, err)
+
+		projectsDB := db.Console().Projects()
+
+		proj, err := projectsDB.Insert(ctx,
+			&console.Project{
+				Name:        "example",
+				Description: "example",
+				OwnerID:     owner.ID,
+			},
+		)
+		require.NoError(t, err)
+		require.Equal(t, console.ProjectActive, *proj.Status)
+
+		err = projectsDB.UpdateStatus(ctx, proj.ID, console.ProjectDisabled)
+		require.NoError(t, err)
+
+		proj, err = projectsDB.Get(ctx, proj.ID)
+		require.NoError(t, err)
+		require.Equal(t, console.ProjectDisabled, *proj.Status)
+	})
+}
+
+func TestGetOwnActive(t *testing.T) {
+	satellitedbtest.Run(t, func(ctx *testcontext.Context, t *testing.T, db satellite.DB) { // repositories
+		owner, err := db.Console().Users().Insert(ctx,
+			&console.User{
+				ID:           testrand.UUID(),
+				FullName:     "test",
+				Email:        "test@example.test",
+				PasswordHash: []byte("example_password"),
+			},
+		)
+		require.NoError(t, err)
+
+		projectsDB := db.Console().Projects()
+
+		proj1, err := projectsDB.Insert(ctx, &console.Project{Name: "example1", OwnerID: owner.ID})
+		require.NoError(t, err)
+		require.Equal(t, console.ProjectActive, *proj1.Status)
+
+		proj2, err := projectsDB.Insert(ctx, &console.Project{Name: "example2", OwnerID: owner.ID})
+		require.NoError(t, err)
+		require.Equal(t, console.ProjectActive, *proj2.Status)
+
+		projects, err := projectsDB.GetOwnActive(ctx, owner.ID)
+		require.NoError(t, err)
+		require.Len(t, projects, 2)
+
+		err = projectsDB.UpdateStatus(ctx, proj1.ID, console.ProjectDisabled)
+		require.NoError(t, err)
+
+		projects, err = projectsDB.GetOwnActive(ctx, owner.ID)
+		require.NoError(t, err)
+		require.Len(t, projects, 1)
+		require.Equal(t, proj2.ID, projects[0].ID)
 	})
 }
 
@@ -378,6 +459,17 @@ func TestProjectsListByOwner(t *testing.T) {
 				require.Equal(t, originalProjects[i].Name, p.Name)
 				require.Equal(t, originalProjects[i].MemberCount, p.MemberCount)
 			}
+
+			err = projectsDB.UpdateStatus(ctx, ownerProjectsDB[0].ID, console.ProjectDisabled)
+			require.NoError(t, err)
+
+			projsPage, err = projectsDB.ListByOwnerID(ctx, tt.id, *cursor)
+			require.NoError(t, err)
+			require.EqualValues(t, length, projsPage.TotalCount)
+
+			projsPage, err = projectsDB.ListActiveByOwnerID(ctx, tt.id, *cursor)
+			require.NoError(t, err)
+			require.EqualValues(t, length-1, projsPage.TotalCount)
 		}
 	})
 }

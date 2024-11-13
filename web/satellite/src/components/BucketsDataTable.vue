@@ -156,6 +156,14 @@
                                 Versioning cannot be suspended on a bucket with object lock enabled
                             </v-tooltip>
                         </div>
+                        <v-list-item v-if="showLockActionItem(item)" link @click="() => showSetBucketObjectLockDialog(item.name)">
+                            <template #prepend>
+                                <component :is="Lock" :size="18" />
+                            </template>
+                            <v-list-item-title class="ml-3">
+                                Object Lock
+                            </v-list-item-title>
+                        </v-list-item>
                         <v-list-item link @click="() => showShareBucketDialog(item.name)">
                             <template #prepend>
                                 <component :is="Share" :size="18" />
@@ -190,6 +198,7 @@
     <enter-bucket-passphrase-dialog v-model="isBucketPassphraseDialogOpen" @passphraseEntered="passphraseDialogCallback" />
     <share-dialog v-model="isShareBucketDialogShown" :bucket-name="shareBucketName" />
     <bucket-details-dialog v-model="isBucketDetailsDialogShown" :bucket-name="bucketDetailsName" />
+    <set-bucket-object-lock-config-dialog v-if="objectLockUIEnabled" v-model="isSetBucketObjectLockDialogShown" :bucket-name="bucketObjectLockName" />
     <toggle-versioning-dialog v-model="bucketToToggleVersioning" @toggle="fetchBuckets" />
 </template>
 
@@ -226,6 +235,7 @@ import {
     Earth,
     History,
     LandPlot,
+    Lock,
 } from 'lucide-vue-next';
 
 import { Memory, Size } from '@/utils/bytesSize';
@@ -249,6 +259,7 @@ import EnterBucketPassphraseDialog from '@/components/dialogs/EnterBucketPassphr
 import ShareDialog from '@/components/dialogs/ShareDialog.vue';
 import BucketDetailsDialog from '@/components/dialogs/BucketDetailsDialog.vue';
 import ToggleVersioningDialog from '@/components/dialogs/ToggleVersioningDialog.vue';
+import SetBucketObjectLockConfigDialog from '@/components/dialogs/SetBucketObjectLockConfigDialog.vue';
 
 const bucketsStore = useBucketsStore();
 const obStore = useObjectBrowserStore();
@@ -264,11 +275,13 @@ const areBucketsFetching = ref<boolean>(true);
 const search = ref<string>('');
 const searchTimer = ref<NodeJS.Timeout>();
 const bucketDetailsName = ref<string>('');
+const bucketObjectLockName = ref<string>('');
 const shareBucketName = ref<string>('');
 const isDeleteBucketDialogShown = ref<boolean>(false);
 const bucketToDelete = ref<string>('');
 const isBucketPassphraseDialogOpen = ref(false);
 const isShareBucketDialogShown = ref<boolean>(false);
+const isSetBucketObjectLockDialogShown = ref<boolean>(false);
 const isBucketDetailsDialogShown = ref<boolean>(false);
 const pageWidth = ref<number>(document.body.clientWidth);
 const sortBy = ref<SortItem[] | undefined>([{ key: 'name', order: 'asc' }]);
@@ -297,6 +310,13 @@ const showRegionTag = computed<boolean>(() => {
  * Whether versioning has been enabled for current project.
  */
 const versioningUIEnabled = computed(() => projectsStore.versioningUIEnabled);
+
+/**
+ * Whether object lock is enabled for current project.
+ */
+const objectLockUIEnabled = computed<boolean>(() => {
+    return projectsStore.objectLockUIEnabledForProject && configStore.objectLockUIEnabled;
+});
 
 const isTableSortable = computed<boolean>(() => {
     return page.value.totalCount <= cursor.value.limit;
@@ -371,6 +391,10 @@ const edgeCredentials = computed((): EdgeCredentials => {
  * Returns buckets being deleted from store.
  */
 const bucketsBeingDeleted = computed((): Set<string> => bucketsStore.state.bucketsBeingDeleted);
+
+function showLockActionItem(bucket: Bucket): boolean {
+    return objectLockUIEnabled.value && bucket.versioning === Versioning.Enabled;
+}
 
 /**
  * Fetches bucket using api.
@@ -541,6 +565,13 @@ function showBucketDetailsModal(bucketName: string): void {
 function showDeleteBucketDialog(bucketName: string): void {
     bucketToDelete.value = bucketName;
     isDeleteBucketDialogShown.value = true;
+}
+
+function showSetBucketObjectLockDialog(bucketName: string): void {
+    withTrialCheck(() => { withManagedPassphraseCheck(() => {
+        bucketObjectLockName.value = bucketName;
+        isSetBucketObjectLockDialogShown.value = true;
+    });});
 }
 
 /**
