@@ -27,7 +27,7 @@ func PieceExpirationFunctionalityTest(ctx context.Context, t *testing.T, expireD
 	pieceID := testrand.PieceID()
 
 	// GetExpired with no matches
-	expiredLists, err := expireDB.GetExpired(ctx, time.Now(), -1)
+	expiredLists, err := expireDB.GetExpired(ctx, time.Now(), DefaultExpirationLimits())
 	require.NoError(t, err)
 	expired := FlattenExpirationInfoLists(expiredLists)
 	require.Len(t, expired, 0)
@@ -47,7 +47,7 @@ func PieceExpirationFunctionalityTest(ctx context.Context, t *testing.T, expireD
 	require.NoError(t, err)
 
 	// GetExpired normal usage
-	expiredLists, err = expireDB.GetExpired(ctx, expireAt, -1)
+	expiredLists, err = expireDB.GetExpired(ctx, expireAt, DefaultExpirationLimits())
 	require.NoError(t, err)
 	expired = FlattenExpirationInfoLists(expiredLists)
 	require.Len(t, expired, 1)
@@ -57,7 +57,7 @@ func PieceExpirationFunctionalityTest(ctx context.Context, t *testing.T, expireD
 	require.NoError(t, err)
 
 	// Should not be there anymore
-	expiredLists, err = expireDB.GetExpired(ctx, expireAt.Add(365*24*time.Hour), -1)
+	expiredLists, err = expireDB.GetExpired(ctx, expireAt.Add(365*24*time.Hour), DefaultExpirationLimits())
 	expired = FlattenExpirationInfoLists(expiredLists)
 	require.NoError(t, err)
 	require.Len(t, expired, 0)
@@ -112,7 +112,7 @@ func TestPieceExpirationStoreInDepth(t *testing.T) {
 	}
 
 	afterExpirations := now.Add(time.Duration(numSatellites*numPieces+1) * time.Hour)
-	expirationLists, err := store.GetExpired(ctx, afterExpirations, -1)
+	expirationLists, err := store.GetExpired(ctx, afterExpirations, DefaultExpirationLimits())
 	require.NoError(t, err)
 
 	require.Len(t, expirationLists, numSatellites)
@@ -136,10 +136,10 @@ func TestPieceExpirationStoreInDepth(t *testing.T) {
 		}
 	}
 
-	err = store.DeleteExpirationsForSatellite(ctx, satellites[0], afterExpirations)
+	err = store.DeleteExpirationsForSatellite(ctx, satellites[0], afterExpirations, -1)
 	require.NoError(t, err)
 
-	expirationLists, err = store.GetExpired(ctx, afterExpirations, -1)
+	expirationLists, err = store.GetExpired(ctx, afterExpirations, DefaultExpirationLimits())
 	require.NoError(t, err)
 	expirationInfos := FlattenExpirationInfoLists(expirationLists)
 	require.Len(t, expirationInfos, (numSatellites-1)*numPieces)
@@ -157,7 +157,7 @@ func TestPieceExpirationStoreInDepth(t *testing.T) {
 	err = store.DeleteExpirations(ctx, afterExpirations)
 	require.NoError(t, err)
 
-	expirationLists, err = store.GetExpired(ctx, afterExpirations, -1)
+	expirationLists, err = store.GetExpired(ctx, afterExpirations, DefaultExpirationLimits())
 	require.NoError(t, err)
 	expirationInfos = FlattenExpirationInfoLists(expirationLists)
 
@@ -208,7 +208,7 @@ func TestPieceExpirationStoreFileTruncation(t *testing.T) {
 	require.NoError(t, f.Close())
 
 	// check all piece expirations in store
-	expirationLists, err := store.GetExpired(ctx, now.Add(time.Hour), -1)
+	expirationLists, err := store.GetExpired(ctx, now.Add(time.Hour), DefaultExpirationLimits())
 	require.NoError(t, err)
 	require.Len(t, expirationLists, 1)
 	require.Equal(t, satelliteID, expirationLists[0].SatelliteID)
@@ -222,7 +222,7 @@ func TestPieceExpirationStoreFileTruncation(t *testing.T) {
 	err = store.SetExpiration(ctx, satelliteID, pieceID2, now, 200)
 	require.NoError(t, err)
 
-	expirationLists, err = store.GetExpired(ctx, now.Add(time.Hour), -1)
+	expirationLists, err = store.GetExpired(ctx, now.Add(time.Hour), DefaultExpirationLimits())
 	require.NoError(t, err)
 	expirationInfos := FlattenExpirationInfoLists(expirationLists)
 	require.Len(t, expirationInfos, 2)

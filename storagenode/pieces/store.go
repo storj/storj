@@ -58,6 +58,24 @@ type ExpiredInfo struct {
 	InPieceInfo bool
 }
 
+// ExpirationLimits contains limits used when getting and/or deleting expired pieces.
+type ExpirationLimits struct {
+	// FlatFileLimit is the maximum number of flat files to read in a single call.
+	// This is only used for the flat file expiration store.
+	FlatFileLimit int
+	// BatchSize is the maximum number of pieces to return or delete in a single call.
+	// This is ignored by the flat file store, as it does not make sense for the current implementation.
+	BatchSize int
+}
+
+// DefaultExpirationLimits returns the default values for ExpirationLimits.
+func DefaultExpirationLimits() ExpirationLimits {
+	return ExpirationLimits{
+		FlatFileLimit: -1,
+		BatchSize:     -1,
+	}
+}
+
 // PieceExpirationDB stores information about pieces with expiration dates.
 //
 // architecture: Database
@@ -67,11 +85,11 @@ type PieceExpirationDB interface {
 	// os.Stat on the piece.
 	SetExpiration(ctx context.Context, satellite storj.NodeID, pieceID storj.PieceID, expiresAt time.Time, pieceSize int64) error
 	// GetExpired gets piece IDs that expire or have expired before the given time
-	GetExpired(ctx context.Context, expiresBefore time.Time, batchSize int) ([]*ExpiredInfoRecords, error)
+	GetExpired(ctx context.Context, expiresBefore time.Time, limits ExpirationLimits) ([]*ExpiredInfoRecords, error)
 	// DeleteExpirations deletes approximately all the expirations that happen before the given time
 	DeleteExpirations(ctx context.Context, expiresAt time.Time) error
 	// DeleteExpirationsBatch deletes the pieces in the batch
-	DeleteExpirationsBatch(ctx context.Context, now time.Time, limit int) error
+	DeleteExpirationsBatch(ctx context.Context, now time.Time, limits ExpirationLimits) error
 }
 
 // V0PieceInfoDB stores meta information about pieces stored with storage format V0 (where
@@ -394,9 +412,9 @@ func (store *Store) DeleteExpiredV0(ctx context.Context, expiresAt time.Time) (e
 }
 
 // DeleteExpiredBatchSkipV0 deletes the pieces in the batch skipping V0 format and pieceinfo database.
-func (store *Store) DeleteExpiredBatchSkipV0(ctx context.Context, expireAt time.Time, limit int) (err error) {
+func (store *Store) DeleteExpiredBatchSkipV0(ctx context.Context, expireAt time.Time, limits ExpirationLimits) (err error) {
 	defer mon.Task()(&ctx)(&err)
-	return Error.Wrap(store.expirationInfo.DeleteExpirationsBatch(ctx, expireAt, limit))
+	return Error.Wrap(store.expirationInfo.DeleteExpirationsBatch(ctx, expireAt, limits))
 }
 
 // DeleteSatelliteBlobs deletes blobs folder of specific satellite after successful GE.
@@ -604,7 +622,7 @@ func (store *Store) WalkSatellitePiecesToTrash(ctx context.Context, satelliteID 
 func (store *Store) GetExpired(ctx context.Context, expiredAt time.Time) (info []*ExpiredInfoRecords, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	info, err = store.GetExpiredBatchSkipV0(ctx, expiredAt, 0)
+	info, err = store.GetExpiredBatchSkipV0(ctx, expiredAt, ExpirationLimits{})
 	if err != nil {
 		return nil, Error.Wrap(err)
 	}
@@ -624,10 +642,10 @@ func (store *Store) GetExpired(ctx context.Context, expiredAt time.Time) (info [
 // GetExpiredBatchSkipV0 gets piece IDs that are expired and were created before the given time
 // limiting the number of pieces returned to the batch size.
 // This method skips V0 pieces.
-func (store *Store) GetExpiredBatchSkipV0(ctx context.Context, expiredAt time.Time, batchSize int) (batch []*ExpiredInfoRecords, err error) {
+func (store *Store) GetExpiredBatchSkipV0(ctx context.Context, expiredAt time.Time, limits ExpirationLimits) (batch []*ExpiredInfoRecords, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	batch, err = store.expirationInfo.GetExpired(ctx, expiredAt, batchSize)
+	batch, err = store.expirationInfo.GetExpired(ctx, expiredAt, limits)
 	if err != nil {
 		return nil, Error.Wrap(err)
 	}

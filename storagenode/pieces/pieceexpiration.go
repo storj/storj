@@ -138,7 +138,9 @@ func (peStore *PieceExpirationStore) flushOnTicks() {
 var monGetExpired = mon.Task()
 
 // GetExpired gets piece IDs that expire or have expired before the given time.
-func (peStore *PieceExpirationStore) GetExpired(ctx context.Context, now time.Time, limit int) (infos []*ExpiredInfoRecords, err error) {
+// It returns the lastExpiration time, which can be used to delete all expirations
+// up to that time.
+func (peStore *PieceExpirationStore) GetExpired(ctx context.Context, now time.Time, limits ExpirationLimits) (infos []*ExpiredInfoRecords, err error) {
 	defer monGetExpired(&ctx)(&err)
 
 	satellites, err := peStore.getSatellitesWithExpirations(ctx)
@@ -147,14 +149,14 @@ func (peStore *PieceExpirationStore) GetExpired(ctx context.Context, now time.Ti
 	}
 	var errList errs.Group
 	for _, satelliteID := range satellites {
-		satelliteInfos, err := peStore.GetExpiredForSatellite(ctx, satelliteID, now)
+		satelliteInfos, err := peStore.GetExpiredForSatellite(ctx, satelliteID, now, limits)
 		if err != nil {
 			errList.Add(ErrPieceExpiration.Wrap(err))
 		}
 		infos = append(infos, satelliteInfos)
 	}
 	if peStore.chainedStore != nil {
-		chainedInfos, err := peStore.chainedStore.GetExpired(ctx, now, limit)
+		chainedInfos, err := peStore.chainedStore.GetExpired(ctx, now, limits)
 		if err != nil {
 			errList.Add(ErrPieceExpiration.Wrap(err))
 		} else {
@@ -171,7 +173,7 @@ var monDeleteExpirations = mon.Task()
 func (peStore *PieceExpirationStore) DeleteExpirations(ctx context.Context, expiresAt time.Time) (err error) {
 	defer monDeleteExpirations(&ctx)(&err)
 
-	errList := peStore.deleteExpirationsFromAllSatellites(ctx, expiresAt)
+	errList := peStore.deleteExpirationsFromAllSatellites(ctx, expiresAt, -1)
 	if peStore.chainedStore != nil {
 		err := peStore.chainedStore.DeleteExpirations(ctx, expiresAt)
 		errList.Add(ErrPieceExpiration.Wrap(err))
@@ -181,7 +183,7 @@ func (peStore *PieceExpirationStore) DeleteExpirations(ctx context.Context, expi
 
 var monDeleteExpirationsFromAllSatellites = mon.Task()
 
-func (peStore *PieceExpirationStore) deleteExpirationsFromAllSatellites(ctx context.Context, expiresAt time.Time) (errList errs.Group) {
+func (peStore *PieceExpirationStore) deleteExpirationsFromAllSatellites(ctx context.Context, expiresAt time.Time, numFiles int) (errList errs.Group) {
 	defer monDeleteExpirationsFromAllSatellites(&ctx)(nil)
 
 	satellites, err := peStore.getSatellitesWithExpirations(ctx)
@@ -190,7 +192,7 @@ func (peStore *PieceExpirationStore) deleteExpirationsFromAllSatellites(ctx cont
 		return errList
 	}
 	for _, satelliteID := range satellites {
-		err := peStore.DeleteExpirationsForSatellite(ctx, satelliteID, expiresAt)
+		err := peStore.DeleteExpirationsForSatellite(ctx, satelliteID, expiresAt, numFiles)
 		errList.Add(ErrPieceExpiration.Wrap(err))
 	}
 	return errList
@@ -232,10 +234,10 @@ var monGetExpiredForSatellite = mon.Task()
 
 // GetExpiredForSatellite gets piece IDs that expire or have expired before the
 // given time for a specific satellite.
-func (peStore *PieceExpirationStore) GetExpiredForSatellite(ctx context.Context, satellite storj.NodeID, now time.Time) (infos *ExpiredInfoRecords, err error) {
+func (peStore *PieceExpirationStore) GetExpiredForSatellite(ctx context.Context, satellite storj.NodeID, now time.Time, limits ExpirationLimits) (infos *ExpiredInfoRecords, err error) {
 	defer monGetExpiredForSatellite(&ctx)(&err)
 
-	elapsed, err := peStore.getElapsedHoursWithExpirations(ctx, satellite, now)
+	elapsed, err := peStore.getElapsedHoursWithExpirations(ctx, satellite, now, limits.FlatFileLimit)
 	if err != nil {
 		return nil, ErrPieceExpiration.Wrap(err)
 	}
@@ -341,10 +343,10 @@ var monDeleteExpirationsForSatellite = mon.Task()
 
 // DeleteExpirationsForSatellite deletes information about piece expirations
 // before the given time for a specific satellite.
-func (peStore *PieceExpirationStore) DeleteExpirationsForSatellite(ctx context.Context, satellite storj.NodeID, now time.Time) (err error) {
+func (peStore *PieceExpirationStore) DeleteExpirationsForSatellite(ctx context.Context, satellite storj.NodeID, now time.Time, numFiles int) (err error) {
 	defer monDeleteExpirationsForSatellite(&ctx)(&err)
 
-	elapsed, err := peStore.getElapsedHoursWithExpirations(ctx, satellite, now)
+	elapsed, err := peStore.getElapsedHoursWithExpirations(ctx, satellite, now, numFiles)
 	if err != nil {
 		return ErrPieceExpiration.Wrap(err)
 	}
@@ -372,11 +374,10 @@ func (peStore *PieceExpirationStore) DeleteExpirationsForSatellite(ctx context.C
 }
 
 // DeleteExpirationsBatch removes expiration records for pieces that have expired before the given time.
-// The limit is not applied, as it does not make sense for this implementation.
-func (peStore *PieceExpirationStore) DeleteExpirationsBatch(ctx context.Context, now time.Time, limit int) error {
-	errList := peStore.deleteExpirationsFromAllSatellites(ctx, now)
+func (peStore *PieceExpirationStore) DeleteExpirationsBatch(ctx context.Context, now time.Time, limits ExpirationLimits) error {
+	errList := peStore.deleteExpirationsFromAllSatellites(ctx, now, limits.FlatFileLimit)
 	if peStore.chainedStore != nil {
-		err := peStore.chainedStore.DeleteExpirationsBatch(ctx, now, limit)
+		err := peStore.chainedStore.DeleteExpirationsBatch(ctx, now, limits)
 		errList.Add(ErrPieceExpiration.Wrap(err))
 	}
 	return errList.Err()
@@ -384,7 +385,7 @@ func (peStore *PieceExpirationStore) DeleteExpirationsBatch(ctx context.Context,
 
 var monGetElapsedHoursWithExpirations = mon.Task()
 
-func (peStore *PieceExpirationStore) getElapsedHoursWithExpirations(ctx context.Context, satellite storj.NodeID, now time.Time) (elapsed []time.Time, err error) {
+func (peStore *PieceExpirationStore) getElapsedHoursWithExpirations(ctx context.Context, satellite storj.NodeID, now time.Time, numOfFiles int) (elapsed []time.Time, err error) {
 	defer monGetElapsedHoursWithExpirations(&ctx)(&err)
 
 	satelliteDir := PathEncoding.EncodeToString(satellite[:])
@@ -408,8 +409,13 @@ func (peStore *PieceExpirationStore) getElapsedHoursWithExpirations(ctx context.
 			continue
 		}
 		// the file covers the period of one hour, so it has elapsed only if the whole hour has passed
-		if hour.Add(time.Hour).Before(now) {
+		if hour.Add(time.Hour).Compare(now) <= 0 {
 			elapsed = append(elapsed, hour)
+		}
+
+		// if we have a limit, we can stop once we have enough elapsed hours
+		if numOfFiles > 0 && len(elapsed) >= numOfFiles {
+			break
 		}
 	}
 	return elapsed, nil
