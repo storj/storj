@@ -22,6 +22,13 @@ var mon = monkit.Package()
 // Key is the key space operated on by the store.
 type Key = storj.PieceID
 
+func safeDivide(x, y float64) float64 {
+	if y == 0 {
+		return 0
+	}
+	return x / y
+}
+
 //
 // date/time helpers
 //

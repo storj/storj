@@ -40,9 +40,10 @@ func TestStore_BasicOperation(t *testing.T) {
 
 	// ensure the stats look like what we expect.
 	stats := s.Stats()
-	assert.Equal(t, stats.NumSet, 4*1024)
-	assert.Equal(t, stats.LogAlive, uint64(len(Key{})+RecordSize)*stats.NumSet)
-	assert.That(t, stats.LogAlive <= stats.LogTotal) // <= because of optimistic alignment
+	t.Logf("%+v", stats)
+	assert.Equal(t, stats.Table.NumSet, 4*1024)
+	assert.Equal(t, stats.Table.LenSet, uint64(len(Key{})+RecordSize)*stats.Table.NumSet)
+	assert.That(t, stats.Table.LenSet <= stats.LenLogs) // <= because of optimistic alignment
 
 	// reopen the store and ensure we can still read all of the keys.
 	s.AssertReopen()
@@ -60,6 +61,20 @@ func TestStore_BasicOperation(t *testing.T) {
 	assert.Error(t, err)
 
 	assert.Error(t, s.Compact(ctx, nil, time.Time{}))
+}
+
+func TestStore_TrashStats(t *testing.T) {
+	s := newTestStore(t)
+	defer s.Close()
+
+	s.AssertCreate(time.Time{})
+	s.AssertCompact(alwaysTrash, time.Time{})
+
+	stats := s.Stats()
+	assert.Equal(t, stats.Table.NumTrash, 1)
+	assert.Equal(t, stats.Table.LenTrash, 96)
+	assert.Equal(t, stats.Table.AvgTrash, 96.)
+	assert.Equal(t, stats.TrashPercent, 1.)
 }
 
 func TestStore_FileLocking(t *testing.T) {
@@ -696,8 +711,8 @@ func TestStore_OptimisticAlignment(t *testing.T) {
 	assert.NoError(t, w.Close())
 
 	stats := s.Stats()
-	assert.Equal(t, stats.LogAlive, 4096-10) // alive data is 4096-rSize-10 + rSize.
-	assert.Equal(t, stats.LogTotal, 4096)    // total data should be aligned up to 4k.
+	assert.Equal(t, stats.Table.LenSet, 4096-10) // alive data is 4096-rSize-10 + rSize.
+	assert.Equal(t, stats.LenLogs, 4096)         // total data should be aligned up to 4k.
 }
 
 func TestStore_CleanupTempFiles(t *testing.T) {

@@ -187,20 +187,15 @@ func NewStore(dir string, log *zap.Logger) (_ *Store, err error) {
 
 // StoreStats is a collection of statistics about a store.
 type StoreStats struct {
-	Load     float64 // number of set entries divided by number of slots in the hash table.
-	NumSlots uint64  // total number of slots in the hash table.
-	NumSet   uint64  // number of set entries in the hash table.
-	AvgSize  float64 // average size of pieces in the store.
+	NumLogs uint64 // total number of log files.
+	LenLogs uint64 // total number of bytes in the log files.
 
-	NumLogs     uint64  // total number of log files.
-	LogAlive    uint64  // number of bytes in the log files that are alive (records point to them).
-	LogTotal    uint64  // total number of bytes in the log files.
-	LogFraction float64 // percent of bytes that are alive in the log files.
-	TableSize   uint64  // total number of bytes in the hash table.
+	SetPercent   float64 // percent of bytes that are set in the log files.
+	TrashPercent float64 // percent of bytes that are trash in the log files.
 
-	Compacting bool   // if true, a compaction is in progress.
-	Created    uint32 // the date that the active hash table was created.
-	Today      uint32 // the current date.
+	Compacting bool         // if true, a compaction is in progress.
+	Today      uint32       // the current date.
+	Table      HashTblStats // stats about the hash table.
 }
 
 // Stats returns a StoreStats about the store.
@@ -210,35 +205,33 @@ func (s *Store) Stats() StoreStats {
 	}
 
 	s.rmu.RLock()
-	nset, alive := s.tbl.Estimates()
-	nrec := s.tbl.nrec
-	created := s.tbl.created
+	stats := s.tbl.Stats()
 
-	var numLogs, logTotal uint64
+	var numLogs, lenLogs uint64
 	s.lfs.Range(func(_ uint64, lf *logFile) bool {
 		numLogs++
-		logTotal += lf.size
+		lenLogs += lf.size
 		return true
 	})
 	s.rmu.RUnlock()
 
-	alive += RecordSize * nset // account for record footers in log files.
+	// account for record footers in log files not included in the length field
+	// in the record.
+	stats.LenSet += RecordSize * stats.NumSet
+	stats.AvgSet += RecordSize
+	stats.LenTrash += RecordSize * stats.NumTrash
+	stats.AvgTrash += RecordSize
 
 	return StoreStats{
-		Load:     float64(nset) / float64(nrec),
-		NumSlots: nrec,
-		NumSet:   nset,
-		AvgSize:  float64(alive) / float64(nset),
+		NumLogs: numLogs,
+		LenLogs: lenLogs,
 
-		NumLogs:     numLogs,
-		LogAlive:    alive,
-		LogTotal:    logTotal,
-		LogFraction: float64(alive) / float64(logTotal),
-		TableSize:   RecordSize * nrec,
+		SetPercent:   safeDivide(float64(stats.LenSet), float64(lenLogs)),
+		TrashPercent: safeDivide(float64(stats.LenTrash), float64(lenLogs)),
 
 		Compacting: false,
-		Created:    created,
 		Today:      s.today(),
+		Table:      stats,
 	}
 }
 

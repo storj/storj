@@ -30,11 +30,13 @@ type HashTbl struct {
 
 	opMu sync.RWMutex // protects operations
 
-	mu    sync.Mutex // protects the following fields
-	nset  uint64     // estimated number of set records
-	alive uint64     // sum of lengths in set records
-	pi    uint64     // index of cached page
-	p     page       // cached page data
+	mu       sync.Mutex // protects the following fields
+	numSet   uint64     // estimated number of set records
+	lenSet   uint64     // sum of lengths in set records
+	numTrash uint64     // estimated number of set trash records
+	lenTrash uint64     // sum of lengths in set trash records
+	pi       uint64     // index of cached page
+	p        page       // cached page data
 }
 
 // CreateHashtbl allocates a new hash table with the given log base 2 number of records and created
@@ -97,12 +99,50 @@ func OpenHashtbl(fh *os.File) (_ *HashTbl, err error) {
 	}
 
 	// estimate nset and alive.
-	h.nset, h.alive, err = h.computeEstimates()
-	if err != nil {
+	if err := h.computeEstimates(); err != nil {
 		return nil, Error.Wrap(err)
 	}
 
 	return h, nil
+}
+
+// HashTblStats contains statistics about the hash table.
+type HashTblStats struct {
+	NumSet uint64  // number of set records.
+	LenSet uint64  // sum of lengths in set records.
+	AvgSet float64 // average size of length of records.
+
+	NumTrash uint64  // number of set trash records.
+	LenTrash uint64  // sum of lengths in set trash records.
+	AvgTrash float64 // average size of length of trash records.
+
+	NumSlots  uint64  // total number of records available.
+	TableSize uint64  // total number of bytes in the hash table.
+	Load      float64 // percent of slots that are set.
+
+	Created uint32 // date that the hashtbl was created.
+}
+
+// Stats returns a HashTblStats about the hash table.
+func (h *HashTbl) Stats() HashTblStats {
+	h.mu.Lock()
+	defer h.mu.Unlock()
+
+	return HashTblStats{
+		NumSet: h.numSet,
+		LenSet: h.lenSet,
+		AvgSet: safeDivide(float64(h.lenSet), float64(h.numSet)),
+
+		NumTrash: h.numTrash,
+		LenTrash: h.lenTrash,
+		AvgTrash: safeDivide(float64(h.lenTrash), float64(h.numTrash)),
+
+		NumSlots:  h.nrec,
+		TableSize: pageSize + h.nrec*RecordSize,
+		Load:      safeDivide(float64(h.numSet), float64(h.nrec)),
+
+		Created: h.created,
+	}
 }
 
 // Close closes the hash table and returns when no more operations are running.
@@ -224,7 +264,7 @@ func (h *HashTbl) writeRecord(n uint64, rec Record) error {
 
 // computeEstimates samples the hash table to compute the number of set keys and the total length of
 // the length fields in all of the set records.
-func (h *HashTbl) computeEstimates() (nset uint64, length uint64, err error) {
+func (h *HashTbl) computeEstimates() (err error) {
 	defer mon.Task()(nil)(&err)
 
 	// sample some pages worth of records but less than the total
@@ -233,13 +273,21 @@ func (h *HashTbl) computeEstimates() (nset uint64, length uint64, err error) {
 		srec = h.nrec
 	}
 
+	var numSet, lenSet uint64
+	var numTrash, lenTrash uint64
+
 	var tmp Record
 	for ri := uint64(0); ri < srec; ri++ {
 		if ok, err := h.readRecord(ri, &tmp); err != nil {
-			return 0, 0, err
+			return err
 		} else if ok {
-			nset++
-			length += uint64(tmp.Length)
+			numSet++
+			lenSet += uint64(tmp.Length)
+
+			if tmp.Expires.Trash() {
+				numTrash++
+				lenTrash += uint64(tmp.Length)
+			}
 		}
 	}
 
@@ -247,16 +295,13 @@ func (h *HashTbl) computeEstimates() (nset uint64, length uint64, err error) {
 	// records. because the hashtbl is always a power of 2 number of records, we know that
 	// this evenly divides.
 	factor := h.nrec / srec
-	return nset * factor, length * factor, nil
-}
 
-// Estimates returns the estimated values for the number of set keys and the total length of the
-// length fields in all of the set records.
-func (h *HashTbl) Estimates() (nset, alive uint64) {
 	h.mu.Lock()
-	defer h.mu.Unlock()
+	h.numSet, h.lenSet = numSet*factor, lenSet*factor
+	h.numTrash, h.lenTrash = numTrash*factor, lenTrash*factor
+	h.mu.Unlock()
 
-	return h.nset, h.alive
+	return nil
 }
 
 // Load returns an estimate of what fraction of the hash table is occupied.
@@ -264,7 +309,7 @@ func (h *HashTbl) Load() float64 {
 	h.mu.Lock()
 	defer h.mu.Unlock()
 
-	return float64(h.nset) / float64(h.nrec)
+	return float64(h.numSet) / float64(h.nrec)
 }
 
 // Range iterates over the records in hash table order.
@@ -279,8 +324,10 @@ func (h *HashTbl) Range(ctx context.Context, fn func(Record, error) bool) {
 		return
 	}
 
+	var numSet, lenSet uint64
+	var numTrash, lenTrash uint64
+
 	var tmp Record
-	var nset, length uint64
 	for n := uint64(0); n < h.nrec; n++ {
 		if ok, err := h.readRecord(n, &tmp); err != nil {
 			fn(Record{}, err)
@@ -289,8 +336,13 @@ func (h *HashTbl) Range(ctx context.Context, fn func(Record, error) bool) {
 			continue
 		}
 
-		nset++
-		length += uint64(tmp.Length)
+		numSet++
+		lenSet += uint64(tmp.Length)
+
+		if tmp.Expires.Trash() {
+			numTrash++
+			lenTrash += uint64(tmp.Length)
+		}
 
 		if !fn(tmp, nil) {
 			return
@@ -299,7 +351,8 @@ func (h *HashTbl) Range(ctx context.Context, fn func(Record, error) bool) {
 
 	// if we read the whole thing, then we have accurate estimates, so update.
 	h.mu.Lock()
-	h.nset, h.alive = nset, length
+	h.numSet, h.lenSet = numSet, lenSet
+	h.numTrash, h.lenTrash = numTrash, lenTrash
 	h.mu.Unlock()
 }
 
@@ -360,11 +413,20 @@ func (h *HashTbl) Insert(ctx context.Context, rec Record) (_ bool, err error) {
 
 		// if the slot was invalid, we are adding a new key. we don't need to change the alive field
 		// on update because we ensure that the records are equalish above so the length field could
-		// not have changed.
+		// not have changed. we're ignoring the update case for trash because it should be very rare
+		// and doing it properly would require subtracting which may underflow in situations where
+		// the estimate was too small. this technically means that in very rare scenarios, the
+		// amount considered trash could be off, but it will be fixed on the next Range call, Store
+		// compaction, or node restart.
 		h.mu.Lock()
 		if !valid {
-			h.nset++
-			h.alive += uint64(rec.Length)
+			h.numSet++
+			h.lenSet += uint64(rec.Length)
+
+			if rec.Expires.Trash() {
+				h.numTrash++
+				h.lenTrash += uint64(rec.Length)
+			}
 		}
 		h.mu.Unlock()
 

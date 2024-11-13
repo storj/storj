@@ -45,9 +45,9 @@ func TestHashtbl_BasicOperation(t *testing.T) {
 	}
 
 	assert.Equal(t, h.Load(), 0.5)
-	nset, length := h.Estimates()
-	assert.Equal(t, nset, 1<<lrec/2)
-	assert.Equal(t, length, expLength)
+	stats := h.Stats()
+	assert.Equal(t, stats.NumSet, 1<<lrec/2)
+	assert.Equal(t, stats.LenSet, expLength)
 
 	// reopen the hash table and search again
 	h.AssertReopen()
@@ -75,6 +75,27 @@ func TestHashtbl_BasicOperation(t *testing.T) {
 		assert.Error(t, err)
 		return false
 	})
+}
+
+func TestHashtbl_TrashStats(t *testing.T) {
+	h := newTestHashtbl(t, 6)
+	defer h.Close()
+
+	rec := newRecord(newKey())
+	rec.Expires = NewExpiration(1, true)
+	h.AssertInsertRecord(rec)
+
+	stats := h.Stats()
+	assert.Equal(t, stats.NumTrash, 1)
+	assert.Equal(t, stats.LenTrash, rec.Length)
+	assert.Equal(t, stats.AvgTrash, float64(rec.Length))
+
+	h.AssertReopen()
+
+	stats = h.Stats()
+	assert.Equal(t, stats.NumTrash, 1)
+	assert.Equal(t, stats.LenTrash, rec.Length)
+	assert.Equal(t, stats.AvgTrash, float64(rec.Length))
 }
 
 func TestHashtbl_Full(t *testing.T) {

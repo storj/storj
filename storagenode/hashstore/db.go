@@ -114,16 +114,23 @@ func New(
 
 // DBStats is a collection of statistics about a database.
 type DBStats struct {
-	Load     float64 // number of set entries divided by number of slots in the hash table.
-	NumSlots uint64  // total number of slots in the hash table.
-	NumSet   uint64  // number of set entries in the hash table.
-	AvgSize  float64 // average size of pieces in the database.
+	NumSet uint64  // number of set records.
+	LenSet uint64  // sum of lengths in set records.
+	AvgSet float64 // average size of length of records.
 
-	NumLogs     uint64  // total number of log files.
-	LogAlive    uint64  // number of bytes in the log files that are alive (records point to them).
-	LogTotal    uint64  // total number of bytes in the log files.
-	LogFraction float64 // percent of bytes that are alive in the log files.
-	TableSize   uint64  // total number of bytes in the hash table.
+	NumTrash uint64  // number of set trash records.
+	LenTrash uint64  // sum of lengths in set trash records.
+	AvgTrash float64 // average size of length of trash records.
+
+	NumSlots  uint64  // total number of records available.
+	TableSize uint64  // total number of bytes in the hash table.
+	Load      float64 // percent of slots that are set.
+
+	NumLogs uint64 // total number of log files.
+	LenLogs uint64 // total number of bytes in the log files.
+
+	SetPercent   float64 // percent of bytes that are set in the log files.
+	TrashPercent float64 // percent of bytes that are trash in the log files.
 
 	Compacting bool // if true, a background compaction is in progress.
 	Active     int  // which store is currently active
@@ -144,35 +151,33 @@ func (d *DB) Stats() DBStats {
 		s0, s1, active = s1, s0, 1
 	}
 
-	s0stats := s0.Stats()
-	s1stats := s1.Stats()
-
-	nslots := s0stats.NumSlots + s1stats.NumSlots
-	nset := s0stats.NumSet + s1stats.NumSet
-
-	numLogs := s0stats.NumLogs + s1stats.NumLogs
-	logAlive := s0stats.LogAlive + s1stats.LogAlive
-	logTotal := s0stats.LogTotal + s1stats.LogTotal
-	logFraction := float64(logAlive) / float64(logTotal)
-	tableSize := s0stats.TableSize + s1stats.TableSize
+	s0st := s0.Stats()
+	s1st := s1.Stats()
 
 	return DBStats{
-		Load:     float64(nset) / float64(nslots),
-		NumSlots: nslots,
-		NumSet:   nset,
-		AvgSize:  float64(logAlive) / float64(nset),
+		NumSet: s0st.Table.NumSet + s1st.Table.NumSet,
+		LenSet: s0st.Table.LenSet + s1st.Table.LenSet,
+		AvgSet: safeDivide(float64(s0st.Table.LenSet+s1st.Table.LenSet), float64(s0st.Table.NumSet+s1st.Table.NumSet)),
 
-		NumLogs:     numLogs,
-		LogAlive:    logAlive,
-		LogTotal:    logTotal,
-		LogFraction: logFraction,
-		TableSize:   tableSize,
+		NumTrash: s0st.Table.NumTrash + s1st.Table.NumTrash,
+		LenTrash: s0st.Table.LenTrash + s1st.Table.LenTrash,
+		AvgTrash: safeDivide(float64(s0st.Table.LenTrash+s1st.Table.LenTrash), float64(s0st.Table.NumTrash+s1st.Table.NumTrash)),
+
+		NumSlots:  s0st.Table.NumSlots + s1st.Table.NumSlots,
+		TableSize: s0st.Table.TableSize + s1st.Table.TableSize,
+		Load:      safeDivide(float64(s0st.Table.NumSet+s1st.Table.NumSet), float64(s0st.Table.NumSlots+s1st.Table.NumSlots)),
+
+		NumLogs: s0st.NumLogs + s1st.NumLogs,
+		LenLogs: s0st.LenLogs + s1st.LenLogs,
+
+		SetPercent:   safeDivide(float64(s0st.Table.LenSet+s1st.Table.LenSet), float64(s0st.LenLogs+s1st.LenLogs)),
+		TrashPercent: safeDivide(float64(s0st.Table.LenTrash+s1st.Table.LenTrash), float64(s0st.LenLogs+s1st.LenLogs)),
 
 		Compacting: compacting,
 		Active:     active,
 
-		S0: s0stats,
-		S1: s1stats,
+		S0: s0st,
+		S1: s1st,
 	}
 }
 
@@ -356,7 +361,7 @@ func (d *DB) checkBackgroundCompactions() {
 		// if the store isn't already compacting, and it has been at least two days since it was
 		// created, then we should compact it. note: it is 2 days it would be 1 day right after
 		// midnight. this ensures it's at least 1 day old.
-		return !stats.Compacting && stats.Today-stats.Created >= 2
+		return !stats.Compacting && stats.Today-stats.Table.Created >= 2
 	}
 
 	d.mu.Lock()
