@@ -2471,6 +2471,10 @@ func (s *Service) handleDeleteAccountStep(ctx context.Context, user *User) (err 
 }
 
 func (s *Service) handleNewEmailStep(ctx context.Context, user *User, data string) (err error) {
+	if user.EmailChangeVerificationStep == ChangeAccountEmailStep && user.NewUnverifiedEmail != nil {
+		return ErrConflict.New("a new unverified email is already set. Please verify it or restart the flow")
+	}
+
 	if user.EmailChangeVerificationStep < VerifyAccountEmailStep {
 		err = s.handleLockAccount(ctx, user, ChangeAccountEmailStep, changeEmailAction)
 		if err != nil {
