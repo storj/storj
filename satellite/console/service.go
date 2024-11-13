@@ -4872,10 +4872,6 @@ func (s *Service) KeyAuth(ctx context.Context, apikey string, authTime time.Time
 func (s *Service) checkProjectCanBeDeleted(ctx context.Context, user *User, projectID uuid.UUID) (resp *DeleteProjectInfo, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	if !user.PaidTier {
-		return nil, ErrNotPaidTier.New("You must upgrade your account in order to delete a project")
-	}
-
 	buckets, err := s.buckets.CountBuckets(ctx, projectID)
 	if err != nil {
 		return nil, err
@@ -4901,16 +4897,18 @@ func (s *Service) checkProjectCanBeDeleted(ctx context.Context, user *User, proj
 		return &DeleteProjectInfo{APIKeys: keyCount}, ErrUsage.New("some api keys still exist")
 	}
 
-	currentUsage, invoicingIncomplete, err := s.Payments().checkProjectUsageStatus(ctx, projectID)
-	if err != nil && !payments.ErrUnbilledUsage.Has(err) {
-		return nil, ErrUsage.Wrap(err)
-	}
+	if user.PaidTier {
+		currentUsage, invoicingIncomplete, err := s.Payments().checkProjectUsageStatus(ctx, projectID)
+		if err != nil && !payments.ErrUnbilledUsage.Has(err) {
+			return nil, ErrUsage.Wrap(err)
+		}
 
-	if currentUsage || invoicingIncomplete {
-		return &DeleteProjectInfo{
-			CurrentUsage:        currentUsage,
-			InvoicingIncomplete: invoicingIncomplete,
-		}, ErrUsage.Wrap(err)
+		if currentUsage || invoicingIncomplete {
+			return &DeleteProjectInfo{
+				CurrentUsage:        currentUsage,
+				InvoicingIncomplete: invoicingIncomplete,
+			}, ErrUsage.Wrap(err)
+		}
 	}
 
 	return nil, nil

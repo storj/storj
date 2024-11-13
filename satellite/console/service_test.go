@@ -1784,15 +1784,6 @@ func TestDeleteProject(t *testing.T) {
 			require.NoError(t, err)
 			return userCtx, user
 		}
-		userCtx, user := updateContext()
-
-		require.Len(t, uplinks[0].Projects, 1)
-		p := uplinks[0].Projects[0]
-
-		// free user can't delete project
-		resp, err := service.DeleteProject(userCtx, p.ID, console.VerifyAccountMfaStep, "test")
-		require.True(t, console.ErrNotPaidTier.Has(err))
-		require.Nil(t, resp)
 
 		uplink := uplinks[1]
 
@@ -1805,9 +1796,9 @@ func TestDeleteProject(t *testing.T) {
 		require.NoError(t, db.Console().Users().Update(ctx, user.ID, console.UpdateUserRequest{PaidTier: &user.PaidTier}))
 
 		require.Len(t, uplink.Projects, 1)
-		p = uplink.Projects[0]
+		p := uplink.Projects[0]
 
-		userCtx, user = updateContext()
+		userCtx, user := updateContext()
 
 		// check resp contains buckets
 		bucket := buckets.Bucket{
@@ -1818,7 +1809,7 @@ func TestDeleteProject(t *testing.T) {
 		_, err = sat.API.Buckets.Service.CreateBucket(userCtx, bucket)
 		require.NoError(t, err)
 
-		resp, err = service.DeleteProject(userCtx, p.ID, console.VerifyAccountMfaStep, "test")
+		resp, err := service.DeleteProject(userCtx, p.ID, console.VerifyAccountMfaStep, "test")
 		require.Error(t, err)
 		require.NotNil(t, resp)
 		require.Equal(t, 1, resp.Buckets)
