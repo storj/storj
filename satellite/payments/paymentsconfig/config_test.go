@@ -245,3 +245,109 @@ func TestPackagePlansGet(t *testing.T) {
 		})
 	}
 }
+
+func TestPlacementPriceOverrides(t *testing.T) {
+	tests := []struct {
+		id        string
+		config    string
+		expectErr bool
+	}{
+		// N.B. to match PlacementProductMap.String(), the placements and placements:products defined in tt.config must be sorted in increasing order.
+		// PlacementProductMap.String() sorts the elements for a consistent result.
+		{
+			id:     "empty string",
+			config: "",
+		},
+		{
+			id:     "one placement, one product",
+			config: "0:product0",
+		},
+		{
+			id:     "multiple placements, one product",
+			config: "0,1,2:product0",
+		},
+		{
+			id:     "multiple placements, multiple products",
+			config: "0,1,2:product0;3:product1",
+		},
+		{
+			id:     "trailing semi-colon",
+			config: "0,1:product0;",
+		},
+		{
+			id:     "trailing double semi-colon",
+			config: "0,1:product0;;",
+		},
+		{
+			id:     "values separated by double semi-colon",
+			config: "0,1:product0;;2,3:product1",
+		},
+		{
+			id:        "product duplicated across multiple key-value pairs",
+			config:    "0,1:product0;2,3:product0",
+			expectErr: true,
+		},
+		{
+			id:        "invalid config: no placements",
+			config:    ":product0",
+			expectErr: true,
+		},
+		{
+			id:        "invalid config: no placements with comma",
+			config:    ",:product0",
+			expectErr: true,
+		},
+		{
+			id:        "invalid config: placement assigned to multiple products",
+			config:    "0:product0;0,1:product1",
+			expectErr: true,
+		},
+		{
+			id:        "invalid config: no colon",
+			config:    "product0",
+			expectErr: true,
+		},
+		{
+			id:        "invalid config: double colon",
+			config:    "0,1::product0",
+			expectErr: true,
+		},
+		{
+			id:        "invalid config: multiple colons",
+			config:    "0,1:product0:product1",
+			expectErr: true,
+		},
+		{
+			id:        "invalid config: double comma",
+			config:    "0,,1:product0",
+			expectErr: true,
+		},
+		{
+			id:        "invalid config: single placement not int",
+			config:    "a:product0",
+			expectErr: true,
+		},
+		{
+			id:        "invalid config: multiple placements, one not int",
+			config:    "0,a:product0",
+			expectErr: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.id, func(t *testing.T) {
+			mapFromCfg := &paymentsconfig.PlacementProductMap{}
+			err := mapFromCfg.Set(tt.config)
+			if tt.expectErr {
+				require.Error(t, err)
+				return
+			}
+
+			// *PlacementProductMap.Set ignores ';;' and trims trailing ';'.
+			// Match this behavior to verify config string.
+			config := strings.ReplaceAll(tt.config, ";;", ";")
+			config = strings.TrimSuffix(config, ";")
+			require.Equal(t, config, mapFromCfg.String())
+		})
+	}
+}

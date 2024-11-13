@@ -5,6 +5,7 @@ package paymentsconfig
 
 import (
 	"fmt"
+	"sort"
 	"strconv"
 	"strings"
 
@@ -33,7 +34,9 @@ type Config struct {
 	UsagePrice         ProjectUsagePrice
 
 	// TODO: if we decide to put default product in here and change away from overrides, change the type name.
-	Products            PriceOverrides `help:"semicolon-separated list of products and their price structures in the format: product:storage,egress,segment,egress_discount_ratio. The egress discount ratio is the ratio of free egress per unit-month of storage"`
+	Products                PriceOverrides      `help:"semicolon-separated list of products and their price structures in the format: product:storage,egress,segment,egress_discount_ratio. The egress discount ratio is the ratio of free egress per unit-month of storage"`
+	PlacementPriceOverrides PlacementProductMap `help:"semicolon-separated list of placement price overrides in the format: placement:product. Multiple placements may be mapped to a single product like so: p0,p1:product. Products must be defined by the --payments.products config, or the satellite will not start."`
+
 	BonusRate           int64          `help:"amount of percents that user will earn as bonus credits by depositing in STORJ tokens" default:"10"`
 	UsagePriceOverrides PriceOverrides `help:"semicolon-separated usage price overrides in the format partner:storage,egress,segment,egress_discount_ratio. The egress discount ratio is the ratio of free egress per unit-month of storage"`
 	PackagePlans        PackagePlans   `help:"semicolon-separated partner package plans in the format partner:price,credit. Price and credit are in cents USD."`
@@ -162,6 +165,83 @@ func (p PriceOverrides) ToModels() (map[string]payments.ProjectUsagePriceModel, 
 		models[key] = model
 	}
 	return models, nil
+}
+
+// Ensure that PlacementProductMap implements pflag.Value.
+var _ pflag.Value = (*PlacementProductMap)(nil)
+
+// PlacementProductMap maps placements to products.
+type PlacementProductMap struct {
+	placementProductMap map[int]string
+}
+
+// Type returns the type of the pflag.Value.
+func (PlacementProductMap) Type() string { return "paymentsconfig.PlacementProductMap" }
+
+// String returns the string representation of the placements to product map. Placements of a single key-value pair
+// are sorted and the greater key-value strings themselves are sorted in ascending order.
+func (p *PlacementProductMap) String() string {
+	if p == nil {
+		return ""
+	}
+
+	productToPlacements := make(map[string][]string)
+	for placement, product := range p.placementProductMap {
+		placements := productToPlacements[product]
+		productToPlacements[product] = append(placements, fmt.Sprint(placement))
+	}
+
+	var kvs []string
+	for product, placements := range productToPlacements {
+		sort.Strings(placements)
+		kvs = append(kvs, fmt.Sprintf("%s:%s", strings.Join(placements, ","), product))
+	}
+
+	sort.Strings(kvs)
+
+	return strings.Join(kvs, ";")
+}
+
+// Set sets the placement to product mappings to the parsed string.
+func (p *PlacementProductMap) Set(s string) error {
+	placementProductMap := make(map[int]string)
+	productsSeen := make(map[string]struct{})
+	for _, placementsToProductStr := range strings.Split(s, ";") {
+		if placementsToProductStr == "" {
+			continue
+		}
+
+		info := strings.Split(placementsToProductStr, ":")
+		if len(info) != 2 {
+			return Error.New("Invalid placements to product string (expected format p0,p1:product, got %s)", placementsToProductStr)
+		}
+
+		placementsStr := strings.TrimSpace(info[0])
+		placements := strings.Split(placementsStr, ",")
+		if len(placements) == 0 {
+			return Error.New("Placements must not be empty")
+		}
+
+		product := info[1]
+
+		if _, ok := productsSeen[product]; ok {
+			return Error.New("Product mapped multiple times. Check the config for (%s) and ensure only a single key-value pair exists per product.", product)
+		}
+		productsSeen[product] = struct{}{}
+
+		for _, p := range placements {
+			pInt, err := strconv.Atoi(p)
+			if err != nil {
+				return Error.New("Placement must be an int: %w", err)
+			}
+			if _, ok := placementProductMap[pInt]; ok {
+				return Error.New("Placements cannot be mapped to multiple products. Check the config for placement %d", pInt)
+			}
+			placementProductMap[pInt] = product
+		}
+	}
+	p.placementProductMap = placementProductMap
+	return nil
 }
 
 // PackagePlans contains one time prices for partners.
