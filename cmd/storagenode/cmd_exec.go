@@ -21,7 +21,11 @@ import (
 // newExecCmd creates a new exec command.
 func newExecCmd(f *Factory) *cobra.Command {
 	ball := &mud.Ball{}
-	mud.Provide[*zap.Logger](ball, zap.L)
+
+	mud.Provide[*zap.Logger](ball, func() (*zap.Logger, error) {
+		logger, _, err := process.NewLogger("storagenode")
+		return logger, err
+	})
 	modular.IdentityModule(ball)
 	storagenode.Module(ball)
 	selector := modular.CreateSelector(ball)

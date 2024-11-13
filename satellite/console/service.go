@@ -3124,7 +3124,7 @@ func (s *Service) GenGetUsersProjects(ctx context.Context) (ps []Project, httpEr
 		}
 	}
 
-	ps, err = s.store.Projects().GetByUserID(ctx, user.ID)
+	ps, err = s.store.Projects().GetActiveByUserID(ctx, user.ID)
 	if err != nil {
 		return nil, api.HTTPError{
 			Status: http.StatusInternalServerError,
@@ -3230,7 +3230,7 @@ func (s *Service) CreateProject(ctx context.Context, projectInfo UpsertProjectIn
 			return err
 		}
 
-		projects, err := tx.Projects().GetOwn(ctx, user.ID)
+		projects, err := tx.Projects().GetOwnActive(ctx, user.ID)
 		if err != nil {
 			return err
 		}
@@ -3377,7 +3377,9 @@ func (s *Service) GenDeleteProject(ctx context.Context, projectID uuid.UUID) (ht
 		}
 	}
 
-	err = s.store.Projects().Delete(ctx, projectID)
+	// We update status to disabled instead of deleting the project
+	// to not lose the historical project/user usage data.
+	err = s.store.Projects().UpdateStatus(ctx, projectID, ProjectDisabled)
 	if err != nil {
 		return api.HTTPError{
 			Status: http.StatusInternalServerError,
@@ -3658,13 +3660,6 @@ func (s *Service) GenUpdateProject(ctx context.Context, projectID uuid.UUID, pro
 			Err:    Error.Wrap(err),
 		}
 	}
-	err = ValidateNameAndDescription(projectInfo.Name, projectInfo.Description)
-	if err != nil {
-		return nil, api.HTTPError{
-			Status: http.StatusBadRequest,
-			Err:    Error.Wrap(err),
-		}
-	}
 
 	isMember, err := s.isProjectMember(ctx, user.ID, projectID)
 	if err != nil {
@@ -3673,6 +3668,15 @@ func (s *Service) GenUpdateProject(ctx context.Context, projectID uuid.UUID, pro
 			Err:    Error.Wrap(err),
 		}
 	}
+
+	err = ValidateNameAndDescription(projectInfo.Name, projectInfo.Description)
+	if err != nil {
+		return nil, api.HTTPError{
+			Status: http.StatusBadRequest,
+			Err:    Error.Wrap(err),
+		}
+	}
+
 	project := isMember.project
 	project.Name = projectInfo.Name
 	project.Description = projectInfo.Description
@@ -4913,7 +4917,7 @@ func (s *Service) checkProjectLimit(ctx context.Context, userID uuid.UUID) (curr
 		return 0, Error.Wrap(err)
 	}
 
-	projects, err := s.store.Projects().GetOwn(ctx, userID)
+	projects, err := s.store.Projects().GetOwnActive(ctx, userID)
 	if err != nil {
 		return 0, Error.Wrap(err)
 	}
@@ -4930,7 +4934,7 @@ func (s *Service) checkProjectName(ctx context.Context, projectInfo UpsertProjec
 	defer mon.Task()(&ctx)(&err)
 	passesCheck := true
 
-	projects, err := s.store.Projects().GetOwn(ctx, userID)
+	projects, err := s.store.Projects().GetOwnActive(ctx, userID)
 	if err != nil {
 		return false, Error.Wrap(err)
 	}
