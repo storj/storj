@@ -244,7 +244,7 @@ export class AccountBalance {
     }
 
     public get formattedSum(): string {
-        return formatPrice((this.sum / 100).toString());
+        return formatPrice((this.sum / 100).toLocaleString(undefined, { maximumFractionDigits: 2 }));
     }
     public hasCredits(): boolean {
         return parseFloat(this._credits) !== 0;
@@ -768,7 +768,7 @@ export class TokenAmount {
     }
 
     public get formattedValue(): string {
-        return formatPrice(this._value);
+        return formatPrice(this.value.toLocaleString(undefined, { maximumFractionDigits: 2 }));
     }
 }
 
