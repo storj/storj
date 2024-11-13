@@ -469,7 +469,7 @@ func (accounts *accounts) ProjectCharges(ctx context.Context, userID uuid.UUID, 
 
 	charges = make(payments.ProjectChargesResponse)
 
-	projects, err := accounts.service.projectsDB.GetOwn(ctx, userID)
+	projects, err := accounts.service.projectsDB.GetOwnActive(ctx, userID)
 	if err != nil {
 		return nil, Error.Wrap(err)
 	}

@@ -61,6 +61,7 @@ export class Project {
     maxBuckets: number | null;
     createdAt: Time;
     memberCount: number;
+    status: number | null;
     storageLimit: MemorySize | null;
     bandwidthLimit: MemorySize | null;
     userSpecifiedStorageLimit: MemorySize | null;

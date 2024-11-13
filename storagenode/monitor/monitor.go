@@ -59,7 +59,7 @@ type Config struct {
 	MinimumBandwidth          memory.Size   `help:"how much bandwidth a node at minimum has to advertise (deprecated)" default:"0TB"`
 	NotifyLowDiskCooldown     time.Duration `help:"minimum length of time between capacity reports" default:"10m" hidden:"true"`
 	DedicatedDisk             bool          `help:"(EXPERIMENTAL) option to dedicate full disk to the storagenode. Allocated space won't be used, some UI / monitoring features will break." default:"false" experimental:"true" hidden:"true"`
-	ReservedBytes             memory.Size   `help:"(EXPERIMENTAL) Number bytes to reserve on the disk in case of dedicated disk" default:"300GB" experimental:"true" hidden:"true"`
+	ReservedBytes             memory.Size   `help:"(EXPERIMENTAL) Number bytes to reserve on the disk in case of dedicated disk" default:"300GB" devDefault:"1MB" experimental:"true" hidden:"true"`
 }
 
 // DiskVerification is an interface for verifying disk storage healthiness during startup.

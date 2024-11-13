@@ -204,6 +204,10 @@ func (endpoint *Endpoint) CreateBucket(ctx context.Context, req *pb.BucketCreate
 		return nil, err
 	}
 
+	if project.Status != nil && *project.Status == console.ProjectDisabled {
+		return nil, rpcstatus.Error(rpcstatus.NotFound, "no such project")
+	}
+
 	if req.ObjectLockEnabled && !endpoint.config.ObjectLockEnabledByProject(project) {
 		return nil, rpcstatus.Error(rpcstatus.ObjectLockDisabledForProject, projectNoLockErrMsg)
 	}
