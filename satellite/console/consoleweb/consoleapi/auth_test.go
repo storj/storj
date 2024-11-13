@@ -11,6 +11,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"net/url"
 	"regexp"
 	"strconv"
 	"strings"
@@ -1490,6 +1491,101 @@ func TestSsoMethods(t *testing.T) {
 		require.Equal(t, "external@mail.com", ssoUser.Email)
 		require.Equal(t, console.Active, ssoUser.Status)
 		require.Empty(t, ssoUser.PasswordHash)
+	})
+}
+
+func TestSsoFlow(t *testing.T) {
+	testplanet.Run(t, testplanet.Config{
+		SatelliteCount: 1, StorageNodeCount: 0, UplinkCount: 0,
+		Reconfigure: testplanet.Reconfigure{
+			Satellite: func(log *zap.Logger, index int, config *satellite.Config) {
+				config.SSO.Enabled = true
+				config.SSO.MockSso = true
+				config.SSO.MockEmail = "some@fake.test"
+				config.Console.RateLimit.Burst = 50
+				config.SSO.OidcProviderInfos = sso.OidcProviderInfos{
+					Values: map[string]sso.OidcProviderInfo{
+						"fakeProvider": {},
+					},
+				}
+				reg := regexp.MustCompile(`@fake.test`)
+				require.NotNil(t, reg)
+				config.SSO.EmailProviderMappings = sso.EmailProviderMappings{
+					Values: map[string]regexp.Regexp{
+						"fakeProvider": *reg,
+					},
+				}
+			},
+		},
+	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+		sat := planet.Satellites[0]
+
+		getSsoURL := func(email string, expectedCode int) string {
+			ssoRootURL, err := url.JoinPath(sat.ConsoleURL(), "/sso")
+			require.NoError(t, err)
+
+			providerUrl, err := url.Parse(ssoRootURL)
+			require.NoError(t, err)
+
+			providerUrl = providerUrl.JoinPath("url")
+			q := providerUrl.Query()
+			q.Add("email", email)
+			providerUrl.RawQuery = q.Encode()
+
+			req, err := http.NewRequestWithContext(ctx, http.MethodGet, providerUrl.String(), nil)
+			require.NoError(t, err)
+
+			result, err := http.DefaultClient.Do(req)
+			require.NoError(t, err)
+			require.Equal(t, expectedCode, result.StatusCode)
+
+			if expectedCode != http.StatusOK {
+				return ""
+			}
+
+			body, err := io.ReadAll(result.Body)
+			require.NoError(t, err)
+			require.NoError(t, result.Body.Close())
+
+			providerUrl, err = url.Parse(string(body))
+			require.NoError(t, err)
+
+			q = providerUrl.Query()
+			q.Add("email", email)
+			providerUrl.RawQuery = q.Encode()
+
+			return providerUrl.String()
+		}
+
+		req, err := http.NewRequestWithContext(ctx, http.MethodGet, getSsoURL("some@fake.test", http.StatusOK), nil)
+		require.NoError(t, err)
+
+		result, err := http.DefaultClient.Do(req)
+		require.NoError(t, err)
+		// success should redirect to the satellite UI
+		require.Equal(t, sat.ConsoleURL()+"/", result.Request.URL.String())
+		require.NoError(t, result.Body.Close())
+
+		// user should be created
+		user, err := sat.API.DB.Console().Users().GetByEmail(ctx, "some@fake.test")
+		require.NoError(t, err)
+		// session should be created
+		sessions, err := sat.API.DB.Console().WebappSessions().GetAllByUserID(ctx, user.ID)
+		require.NoError(t, err)
+		require.Len(t, sessions, 1)
+
+		// try sso with an unknown email. this should fail
+		req, err = http.NewRequestWithContext(ctx, http.MethodGet, getSsoURL("another@fake.test", http.StatusOK), nil)
+		require.NoError(t, err)
+
+		result, err = http.DefaultClient.Do(req)
+		require.NoError(t, err)
+		// failure should redirect to the login page with an error
+		require.Contains(t, result.Request.URL.String(), "login?sso_failed=true")
+		require.NoError(t, result.Body.Close())
+
+		// getting the sso url for an email that doesn't match the provider should fail
+		getSsoURL("another@who.test", http.StatusNotFound)
 	})
 }
 

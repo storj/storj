@@ -999,7 +999,7 @@ func (s *AccountFreezeService) ShouldEscalateFreezeEvent(ctx context.Context, ev
 		return shouldEscalate, nil
 	}
 
-	projects, err := s.store.Projects().GetByUserID(ctx, event.UserID)
+	projects, err := s.store.Projects().GetActiveByUserID(ctx, event.UserID)
 	if err != nil {
 		return false, ErrAccountFreeze.Wrap(err)
 	}
@@ -1094,7 +1094,7 @@ func (s *AccountFreezeService) upsertFreezeEvent(ctx context.Context, tx DBTx, d
 		data.newFreezeEvent.Limits.User = userLimits
 	}
 
-	projects, err := tx.Projects().GetOwn(ctx, data.user.ID)
+	projects, err := tx.Projects().GetOwnActive(ctx, data.user.ID)
 	if err != nil {
 		return err
 	}
