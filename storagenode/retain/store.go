@@ -255,7 +255,7 @@ func verifyHash(req *pb.RetainRequest) error {
 	hasher := pb.NewHashFromAlgorithm(req.HashAlgorithm)
 	_, err := hasher.Write(req.GetFilter())
 	if err != nil {
-		return err
+		return errs.Wrap(err)
 	}
 	if !bytes.Equal(req.Hash, hasher.Sum(nil)) {
 		return errs.New("hash mismatch")

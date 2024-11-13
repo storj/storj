@@ -362,6 +362,11 @@ func registerFunc[A any](f reflect.Method, run *Stage, name string) {
 		run.run = func(a any, ctx context.Context) error {
 			return runner(a.(A))
 		}
+	case func(a A):
+		run.run = func(a any, ctx context.Context) error {
+			runner(a.(A))
+			return nil
+		}
 	default:
 		panic(fmt.Sprintf("Unsupported %s method signature: %v", typeOf[A](), name))
 	}

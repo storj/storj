@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"io"
 	"math"
+	"strconv"
 	"time"
 
 	"github.com/zeebo/errs"
@@ -418,6 +419,13 @@ func (repairer *SegmentRepairer) Repair(ctx context.Context, queueSegment queue.
 		zap.Int("numOrderLimits", len(getOrderLimits)),
 		zapRS("RS", segment.Redundancy))
 
+	// this will pass additional info to restored from trash event sent by underlying libuplink
+	//nolint: revive
+	//lint:ignore SA1029 this is a temporary solution
+	ctx = context.WithValue(ctx, "restored_from_trash", map[string]string{
+		"StreamID":       queueSegment.StreamID.String(),
+		"StreamPosition": strconv.Itoa(int(queueSegment.Position.Encode())),
+	})
 	// Download the segment using just the retrievable pieces
 	segmentReader, piecesReport, err := repairer.ec.Get(ctx, log, getOrderLimits, cachedNodesInfo, getPrivateKey, oldRedundancyStrategy, int64(segment.EncryptedSize))
 

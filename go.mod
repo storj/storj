@@ -55,7 +55,9 @@ require (
 	github.com/zeebo/errs v1.4.0
 	github.com/zeebo/errs/v2 v2.0.5
 	github.com/zeebo/ini v0.0.0-20210514163846-cc8fbd8d9599
+	github.com/zeebo/mwc v0.0.6
 	github.com/zeebo/structs v1.0.3-0.20230601144555-f2db46069602
+	github.com/zeebo/xxh3 v1.0.2
 	github.com/zyedidia/generic v1.2.1
 	go.etcd.io/bbolt v1.3.5
 	go.uber.org/zap v1.27.0
@@ -73,11 +75,11 @@ require (
 	google.golang.org/protobuf v1.35.1
 	gopkg.in/segmentio/analytics-go.v3 v3.1.0
 	gopkg.in/yaml.v3 v3.0.1
-	storj.io/common v0.0.0-20241014122736-47dfa836934a
+	storj.io/common v0.0.0-20241107064117-6b3c20bcf19b
 	storj.io/drpc v0.0.35-0.20240709171858-0075ac871661
 	storj.io/eventkit v0.0.0-20240415002644-1d9596fee086
 	storj.io/monkit-jaeger v0.0.0-20240221095020-52b0792fa6cd
-	storj.io/uplink v1.13.2-0.20240913115229-e8ce0e91b41f
+	storj.io/uplink v1.13.2-0.20241106140533-61d511a04894
 )
 
 require (
@@ -177,9 +179,7 @@ require (
 	github.com/zeebo/float16 v0.1.0 // indirect
 	github.com/zeebo/goof v0.0.0-20230907150950-e9457bc94477 // indirect
 	github.com/zeebo/incenc v0.0.0-20180505221441-0d92902eec54 // indirect
-	github.com/zeebo/mwc v0.0.4 // indirect
 	github.com/zeebo/sudo v1.0.2 // indirect
-	github.com/zeebo/xxh3 v1.0.2 // indirect
 	go.opencensus.io v0.24.0 // indirect
 	go.opentelemetry.io/contrib/detectors/gcp v1.29.0 // indirect
 	go.opentelemetry.io/contrib/instrumentation/google.golang.org/grpc/otelgrpc v0.54.0 // indirect

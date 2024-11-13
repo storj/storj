@@ -56,10 +56,10 @@
                     <template #prepend="{ item }">
                         <img :src="icons.get(item.title)" alt="icon" class="mr-3">
                     </template>
-                    <template #item="{ props }">
-                        <v-list-item :title="props.title" :class="{ 'text-medium-emphasis': subtitles.has(props.title) }">
-                            <v-list-item-subtitle v-if="subtitles.has(props.title)" class="text-caption">
-                                {{ subtitles.get(props.title) }}
+                    <template #item="{ props: itemProps }">
+                        <v-list-item :title="itemProps.title" :class="{ 'text-medium-emphasis': subtitles.has(itemProps.title) }">
+                            <v-list-item-subtitle v-if="subtitles.has(itemProps.title)" class="text-caption">
+                                {{ subtitles.get(itemProps.title) }}
                             </v-list-item-subtitle>
                         </v-list-item>
                     </template>

@@ -194,6 +194,13 @@ func (db *ProjectAccounting) GetTallies(ctx context.Context) (tallies []accounti
 	return tallies, nil
 }
 
+// DeleteTalliesBefore deletes tallies with an interval start before the given time.
+func (db *ProjectAccounting) DeleteTalliesBefore(ctx context.Context, before time.Time) (_ int64, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	return db.db.Delete_BucketStorageTally_By_IntervalStart_Less(ctx, dbx.BucketStorageTally_IntervalStart(before))
+}
+
 // CreateStorageTally creates a record in the bucket_storage_tallies accounting table.
 func (db *ProjectAccounting) CreateStorageTally(ctx context.Context, tally accounting.BucketStorageTally) (err error) {
 	defer mon.Task()(&ctx)(&err)

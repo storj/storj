@@ -276,8 +276,12 @@ type ProjectAccounting interface {
 	SaveTallies(ctx context.Context, intervalStart time.Time, bucketTallies map[metabase.BucketLocation]*BucketTally) error
 	// GetTallies retrieves all tallies ordered by interval start desc
 	GetTallies(ctx context.Context) ([]BucketTally, error)
+	// DeleteTalliesBefore deletes tallies with an interval start before the given time
+	DeleteTalliesBefore(ctx context.Context, before time.Time) (int64, error)
+
 	// CreateStorageTally creates a record for BucketStorageTally in the accounting DB table
 	CreateStorageTally(ctx context.Context, tally BucketStorageTally) error
+
 	// GetNonEmptyTallyBucketsInRange returns a list of bucket locations within the given range
 	// whose most recent tally does not represent empty usage.
 	GetNonEmptyTallyBucketsInRange(ctx context.Context, from, to metabase.BucketLocation, asOfSystemInterval time.Duration) ([]metabase.BucketLocation, error)

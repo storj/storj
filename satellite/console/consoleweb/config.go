@@ -75,6 +75,8 @@ type FrontendConfig struct {
 	ObjectLockUIEnabled               bool                  `json:"objectLockUIEnabled"`
 	ValdiSignUpURL                    string                `json:"valdiSignUpURL"`
 	SsoEnabled                        bool                  `json:"ssoEnabled"`
+	SelfServePlacementSelectEnabled   bool                  `json:"selfServePlacementSelectEnabled"`
+	SelfServePlacementNames           []string              `json:"selfServePlacementNames"`
 }
 
 // Satellites is a configuration value that contains a list of satellite names and addresses.

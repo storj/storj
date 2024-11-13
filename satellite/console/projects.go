@@ -21,10 +21,14 @@ type Projects interface {
 	GetAll(ctx context.Context) ([]Project, error)
 	// GetCreatedBefore retrieves all projects created before provided date.
 	GetCreatedBefore(ctx context.Context, before time.Time) ([]Project, error)
-	// GetByUserID returns a list of projects where user is a project member.
+	// GetByUserID returns a list of projects (including disabled) where user is a project member.
 	GetByUserID(ctx context.Context, userID uuid.UUID) ([]Project, error)
-	// GetOwn returns a list of projects where user is an owner.
+	// GetActiveByUserID returns a list of active projects where user is a project member.
+	GetActiveByUserID(ctx context.Context, userID uuid.UUID) ([]Project, error)
+	// GetOwn returns a list of projects (including disabled) where user is an owner.
 	GetOwn(ctx context.Context, userID uuid.UUID) ([]Project, error)
+	// GetOwnActive returns a list of active projects where user is an owner.
+	GetOwnActive(ctx context.Context, userID uuid.UUID) ([]Project, error)
 	// Get is a method for querying project from the database by id.
 	Get(ctx context.Context, id uuid.UUID) (*Project, error)
 	// GetSalt returns the project's salt.
@@ -42,8 +46,10 @@ type Projects interface {
 	Update(ctx context.Context, project *Project) error
 	// List returns paginated projects, created before provided timestamp.
 	List(ctx context.Context, offset int64, limit int, before time.Time) (ProjectsPage, error)
-	// ListByOwnerID is a method for querying all projects from the database by ownerID. It also includes the number of members for each project.
+	// ListByOwnerID is a method for querying all projects (including disabled) from the database by ownerID. It also includes the number of members for each project.
 	ListByOwnerID(ctx context.Context, userID uuid.UUID, cursor ProjectsCursor) (ProjectsPage, error)
+	// ListActiveByOwnerID is a method for querying only active projects from the database by ownerID. It also includes the number of members for each project.
+	ListActiveByOwnerID(ctx context.Context, userID uuid.UUID, cursor ProjectsCursor) (ProjectsPage, error)
 
 	// UpdateRateLimit is a method for updating projects rate limit.
 	UpdateRateLimit(ctx context.Context, id uuid.UUID, newLimit *int) error
@@ -72,6 +78,9 @@ type Projects interface {
 
 	// UpdateUserAgent is a method for updating projects user agent.
 	UpdateUserAgent(ctx context.Context, id uuid.UUID, userAgent []byte) error
+
+	// UpdateStatus is a method for updating projects status.
+	UpdateStatus(ctx context.Context, id uuid.UUID, status ProjectStatus) error
 
 	// UpdateDefaultPlacement is a method to update the project's default placement for new segments.
 	UpdateDefaultPlacement(ctx context.Context, id uuid.UUID, placement storj.PlacementConstraint) error
@@ -114,13 +123,14 @@ type Project struct {
 	ID       uuid.UUID `json:"id"`
 	PublicID uuid.UUID `json:"publicId"`
 
-	Name        string    `json:"name"`
-	Description string    `json:"description"`
-	UserAgent   []byte    `json:"userAgent"`
-	OwnerID     uuid.UUID `json:"ownerId"`
-	MaxBuckets  *int      `json:"maxBuckets"`
-	CreatedAt   time.Time `json:"createdAt"`
-	MemberCount int       `json:"memberCount"`
+	Name        string         `json:"name"`
+	Description string         `json:"description"`
+	UserAgent   []byte         `json:"userAgent"`
+	OwnerID     uuid.UUID      `json:"ownerId"`
+	MaxBuckets  *int           `json:"maxBuckets"`
+	CreatedAt   time.Time      `json:"createdAt"`
+	MemberCount int            `json:"memberCount"`
+	Status      *ProjectStatus `json:"-"`
 
 	StorageLimit                *memory.Size `json:"storageLimit"`
 	StorageUsed                 int64        `json:"-"`
@@ -150,6 +160,16 @@ type Project struct {
 	PassphraseEncKeyID        *int                      `json:"-"`
 	PathEncryption            *bool                     `json:"-"`
 }
+
+// ProjectStatus - is used to indicate status of the user's project.
+type ProjectStatus int
+
+const (
+	// ProjectDisabled is a status that project receives after deleting/disabling by the user.
+	ProjectDisabled ProjectStatus = 0
+	// ProjectActive is a status that project receives after creation.
+	ProjectActive ProjectStatus = 1
+)
 
 // UpsertProjectInfo holds data needed to create/update Project.
 type UpsertProjectInfo struct {

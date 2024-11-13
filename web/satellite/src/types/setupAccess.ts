@@ -49,6 +49,8 @@ export enum ObjectLockPermission {
     BypassGovernanceRetention = 'BypassGovernanceRetention',
     PutObjectLegalHold = 'PutObjectLegalHold',
     GetObjectLegalHold = 'GetObjectLegalHold',
+    PutObjectLockConfiguration = 'PutObjectLockConfiguration',
+    GetObjectLockConfiguration = 'GetObjectLockConfiguration',
 }
 
 export enum BucketsOption {
@@ -70,4 +72,6 @@ export interface PermissionsMessage {
     isBypassGovernanceRetention?: boolean;
     isPutObjectLegalHold?: boolean;
     isGetObjectLegalHold?: boolean;
+    isPutObjectLockConfiguration?: boolean;
+    isGetObjectLockConfiguration?: boolean;
 }

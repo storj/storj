@@ -14,6 +14,7 @@ import (
 	"storj.io/storj/private/migrate"
 	"storj.io/storj/shared/dbutil"
 	"storj.io/storj/shared/dbutil/pgutil"
+	"storj.io/storj/shared/dbutil/spannerutil"
 	"storj.io/storj/shared/tagsql"
 )
 
@@ -137,8 +138,13 @@ func (db *satelliteDBTesting) TestMigrateToLatest(ctx context.Context) error {
 		}
 		return testMigration.Run(ctx, db.log.Named("migrate"))
 	case dbutil.Spanner:
+		params, err := spannerutil.ParseConnStr(db.source)
+		if err != nil {
+			return Error.New("invalid connection string for Spanner: %w", err)
+		}
+
 		// TODO(spanner): add incremental migration support
-		return migrate.CreateSpanner(ctx, "database", db.DB, true)
+		return migrate.CreateSpanner(ctx, "database", db.DB, params.Emulator)
 	default:
 		return migrate.Create(ctx, "database", db.DB)
 	}
@@ -2865,6 +2871,14 @@ func (db *satelliteDB) ProductionMigration() *migrate.Migration {
 				Version:     283,
 				Action: migrate.SQL{
 					`CREATE INDEX users_external_id_index ON users ( external_id ) WHERE external_id IS NOT NULL;`,
+				},
+			},
+			{
+				DB:          &db.migrationDB,
+				Description: "add column to projects table to track the status of the project",
+				Version:     284,
+				Action: migrate.SQL{
+					`ALTER TABLE projects ADD COLUMN status INTEGER DEFAULT 1;`,
 				},
 			},
 			// NB: after updating testdata in `testdata`, run
