@@ -240,7 +240,7 @@ func (a *Auth) BeginSsoFlow(w http.ResponseWriter, r *http.Request) {
 		http.Redirect(w, r, ssoFailedAddr, http.StatusPermanentRedirect)
 	}
 
-	state, err := a.service.GetSsoStateFromEmail(email)
+	state, err := a.ssoService.GetSsoStateFromEmail(email)
 	if err != nil {
 		a.log.Error("failed to get sso state", zap.Error(err))
 		http.Redirect(w, r, ssoFailedAddr, http.StatusPermanentRedirect)
@@ -1067,11 +1067,6 @@ func (a *Auth) ForgotPassword(w http.ResponseWriter, r *http.Request) {
 				SupportTeamLink:     a.GeneralRequestURL,
 			},
 		)
-		return
-	}
-
-	if a.ssoService != nil && user.ExternalID != nil && *user.ExternalID != "" {
-		a.log.Info("sso user attempted 'forgot password' flow", zap.String("email", user.Email))
 		return
 	}
 
