@@ -73,6 +73,11 @@ model project (
 	// salt is used for salting the user passphrase for the content.
 	field salt                              blob      ( nullable )
 
+	// status is used to indicate status of the user's project.
+	// 0 - disabled or deleted by the user
+	// 1 - active
+	field status                            int       ( nullable, updatable, default 1 )
+
 	// created_at indicates when the project was created.
 	field created_at                        timestamp ( autoinsert )
 
@@ -184,6 +189,12 @@ read all (
 read all (
 	select project
 	where project.owner_id = ?
+	orderby asc project.created_at
+)
+read all (
+	select project
+	where project.owner_id = ?
+	where project.status = ?
 	orderby asc project.created_at
 )
 read all (

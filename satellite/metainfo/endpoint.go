@@ -10,11 +10,13 @@ import (
 	"strings"
 	"time"
 
+	"cloud.google.com/go/spanner"
 	"github.com/klauspost/compress/zstd"
 	"github.com/spacemonkeygo/monkit/v3"
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 	"golang.org/x/time/rate"
+	"google.golang.org/grpc/codes"
 
 	"storj.io/common/encryption"
 	"storj.io/common/macaroon"
@@ -68,30 +70,32 @@ type APIKeys interface {
 type Endpoint struct {
 	pb.DRPCMetainfoUnimplementedServer
 
-	log                    *zap.Logger
-	buckets                *buckets.Service
-	metabase               *metabase.DB
-	orders                 *orders.Service
-	overlay                *overlay.Service
-	attributions           attribution.DB
-	pointerVerification    *pointerverification.Service
-	projectUsage           *accounting.Service
-	projects               console.Projects
-	projectMembers         console.ProjectMembers
-	users                  console.Users
-	apiKeys                APIKeys
-	satellite              signing.Signer
-	limiterCache           *lrucache.ExpiringLRUOf[*rate.Limiter]
-	singleObjectLimitCache *lrucache.ExpiringLRUOf[struct{}]
-	userInfoCache          *lrucache.ExpiringLRUOf[*console.UserInfo]
-	encInlineSegmentSize   int64 // max inline segment size + encryption overhead
-	revocations            revocation.DB
-	config                 ExtendedConfig
-	versionCollector       *versionCollector
-	zstdDecoder            *zstd.Decoder
-	zstdEncoder            *zstd.Encoder
-	successTrackers        *SuccessTrackers
-	placement              nodeselection.PlacementDefinitions
+	log                            *zap.Logger
+	buckets                        *buckets.Service
+	metabase                       *metabase.DB
+	orders                         *orders.Service
+	overlay                        *overlay.Service
+	attributions                   attribution.DB
+	pointerVerification            *pointerverification.Service
+	projectUsage                   *accounting.Service
+	projects                       console.Projects
+	projectMembers                 console.ProjectMembers
+	users                          console.Users
+	apiKeys                        APIKeys
+	satellite                      signing.Signer
+	limiterCache                   *lrucache.ExpiringLRUOf[*rate.Limiter]
+	singleObjectUploadLimitCache   *lrucache.ExpiringLRUOf[struct{}]
+	singleObjectDownloadLimitCache *lrucache.ExpiringLRUOf[struct{}]
+	userInfoCache                  *lrucache.ExpiringLRUOf[*console.UserInfo]
+	encInlineSegmentSize           int64 // max inline segment size + encryption overhead
+	revocations                    revocation.DB
+	config                         ExtendedConfig
+	versionCollector               *versionCollector
+	zstdDecoder                    *zstd.Decoder
+	zstdEncoder                    *zstd.Encoder
+	successTrackers                *SuccessTrackers
+	failureTracker                 SuccessTracker
+	placement                      nodeselection.PlacementDefinitions
 
 	// rateLimiterTime is a function that returns the time to check with the rate limiter.
 	// It's handy for testing purposes. It defaults to time.Now.
@@ -102,7 +106,8 @@ type Endpoint struct {
 func NewEndpoint(log *zap.Logger, buckets *buckets.Service, metabaseDB *metabase.DB,
 	orders *orders.Service, cache *overlay.Service, attributions attribution.DB, peerIdentities overlay.PeerIdentities,
 	apiKeys APIKeys, projectUsage *accounting.Service, projects console.Projects, projectMembers console.ProjectMembers, users console.Users,
-	satellite signing.Signer, revocations revocation.DB, successTrackers *SuccessTrackers, config Config, placement nodeselection.PlacementDefinitions) (*Endpoint, error) {
+	satellite signing.Signer, revocations revocation.DB, successTrackers *SuccessTrackers, failureTracker SuccessTracker,
+	config Config, placement nodeselection.PlacementDefinitions) (*Endpoint, error) {
 
 	// TODO do something with too many params
 
@@ -153,9 +158,13 @@ func NewEndpoint(log *zap.Logger, buckets *buckets.Service, metabaseDB *metabase
 			Expiration: config.RateLimiter.CacheExpiration,
 			Name:       "metainfo-ratelimit",
 		}),
-		singleObjectLimitCache: lrucache.NewOf[struct{}](lrucache.Options{
+		singleObjectUploadLimitCache: lrucache.NewOf[struct{}](lrucache.Options{
 			Expiration: config.UploadLimiter.SingleObjectLimit,
 			Capacity:   config.UploadLimiter.CacheCapacity,
+		}),
+		singleObjectDownloadLimitCache: lrucache.NewOf[struct{}](lrucache.Options{
+			Expiration: config.DownloadLimiter.SingleObjectLimit,
+			Capacity:   config.DownloadLimiter.CacheCapacity,
 		}),
 		userInfoCache: lrucache.NewOf[*console.UserInfo](lrucache.Options{
 			Expiration: config.UserInfoValidation.CacheExpiration,
@@ -168,6 +177,7 @@ func NewEndpoint(log *zap.Logger, buckets *buckets.Service, metabaseDB *metabase
 		zstdDecoder:          decoder,
 		zstdEncoder:          encoder,
 		successTrackers:      successTrackers,
+		failureTracker:       failureTracker,
 		placement:            placement,
 		rateLimiterTime:      time.Now,
 	}, nil
@@ -184,15 +194,19 @@ func TestingNewAPIKeysEndpoint(log *zap.Logger, apiKeys APIKeys) *Endpoint {
 // Run manages the internal dependencies of the endpoint such as the
 // success tracker.
 func (endpoint *Endpoint) Run(ctx context.Context) error {
-	ticker := time.NewTicker(endpoint.config.SuccessTrackerTickDuration)
-	defer ticker.Stop()
+	successTicker := time.NewTicker(endpoint.config.SuccessTrackerTickDuration)
+	defer successTicker.Stop()
+	failureTicker := time.NewTicker(endpoint.config.FailureTrackerTickDuration)
+	defer failureTicker.Stop()
 
 	for {
 		select {
 		case <-ctx.Done():
 			return nil
-		case <-ticker.C:
+		case <-successTicker.C:
 			endpoint.successTrackers.BumpGeneration()
+		case <-failureTicker.C:
+			endpoint.failureTracker.BumpGeneration()
 		}
 	}
 }
@@ -404,9 +418,9 @@ func (endpoint *Endpoint) ConvertMetabaseErr(err error) error {
 	case err == nil:
 		return nil
 	case errors.Is(err, context.Canceled):
-		return rpcstatus.Error(rpcstatus.Canceled, "context canceled")
+		return rpcstatus.Wrap(rpcstatus.Canceled, context.Canceled)
 	case errors.Is(err, context.DeadlineExceeded):
-		return rpcstatus.Error(rpcstatus.DeadlineExceeded, "context deadline exceeded")
+		return rpcstatus.Wrap(rpcstatus.DeadlineExceeded, context.DeadlineExceeded)
 	case rpcstatus.Code(err) != rpcstatus.Unknown:
 		// it's already RPC error
 		return err
@@ -434,6 +448,9 @@ func (endpoint *Endpoint) ConvertMetabaseErr(err error) error {
 		return rpcstatus.Error(rpcstatus.NotFound, err.Error())
 	case metabase.ErrPermissionDenied.Has(err):
 		return rpcstatus.Error(rpcstatus.PermissionDenied, err.Error())
+	case spanner.ErrCode(err) == codes.Canceled:
+		// TODO(spanner): it's far from perfect we should be handling this on lower level
+		return rpcstatus.Wrap(rpcstatus.Canceled, context.Canceled)
 	default:
 		endpoint.log.Error("internal", zap.Error(err))
 		return rpcstatus.Error(rpcstatus.Internal, "internal error")

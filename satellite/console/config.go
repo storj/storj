@@ -40,10 +40,17 @@ type Config struct {
 	EmailChangeFlowEnabled            bool                      `help:"whether change user email flow is enabled" default:"false"`
 	DeleteProjectEnabled              bool                      `help:"whether project deletion from satellite UI is enabled" default:"false"`
 	SelfServeAccountDeleteEnabled     bool                      `help:"whether self-serve account delete flow is enabled" default:"false"`
+	Placement                         PlacementsConfig
 	UsageLimits                       UsageLimitsConfig
 	Captcha                           CaptchaConfig
 	Session                           SessionConfig
 	AccountFreeze                     AccountFreezeConfig
+}
+
+// PlacementsConfig contains configurations for self-serve placement logic.
+type PlacementsConfig struct {
+	SelfServeEnabled bool     `help:"whether self-serve placement selection feature is enabled" default:"false"`
+	SelfServeNames   []string `help:"list of placements names allowed for self-serve selection" default:""`
 }
 
 // CaptchaConfig contains configurations for login/registration captcha system.

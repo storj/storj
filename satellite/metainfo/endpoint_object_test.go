@@ -3774,79 +3774,36 @@ func TestEndpoint_UploadObjectWithDefaultRetention(t *testing.T) {
 		_, apiKey, err := sat.API.Console.Service.CreateAPIKey(userCtx, project.ID, "test key", macaroon.APIKeyVersionObjectLock)
 		require.NoError(t, err)
 
-		t.Run("Use default retention", func(t *testing.T) {
-			test := func(t *testing.T, mode storj.RetentionMode, days, years int) {
-				bucketName := testrand.BucketName()
-				_, err = bucketsDB.CreateBucket(ctx, buckets.Bucket{
-					Name:       bucketName,
-					ProjectID:  project.ID,
-					Versioning: buckets.VersioningEnabled,
-					ObjectLock: buckets.ObjectLockSettings{
-						Enabled:               true,
-						DefaultRetentionMode:  mode,
-						DefaultRetentionDays:  days,
-						DefaultRetentionYears: years,
-					},
-				})
-				require.NoError(t, err)
-
-				objectKey := testrand.Path()
-				now := time.Now()
-				beginResp, err := endpoint.BeginObject(ctx, &pb.BeginObjectRequest{
-					Header:             &pb.RequestHeader{ApiKey: apiKey.SerializeRaw()},
-					Bucket:             []byte(bucketName),
-					EncryptedObjectKey: []byte(objectKey),
-					EncryptionParameters: &pb.EncryptionParameters{
-						CipherSuite: pb.CipherSuite_ENC_AESGCM,
-						BlockSize:   256,
-					},
-				})
-				require.NoError(t, err)
-
-				_, err = endpoint.CommitObject(ctx, &pb.CommitObjectRequest{
-					Header:   &pb.RequestHeader{ApiKey: apiKey.SerializeRaw()},
-					StreamId: beginResp.StreamId,
-				})
-				require.NoError(t, err)
-
-				retention, err := db.GetObjectLastCommittedRetention(ctx, metabase.GetObjectLastCommittedRetention{
-					ObjectLocation: metabase.ObjectLocation{
-						ProjectID:  project.ID,
-						BucketName: metabase.BucketName(bucketName),
-						ObjectKey:  metabase.ObjectKey(objectKey),
-					},
-				})
-				require.NoError(t, err)
-				require.Equal(t, mode, retention.Mode)
-				require.WithinDuration(t, now.AddDate(years, 0, days), retention.RetainUntil, time.Second)
+		inlineSegmentReq := func(req *pb.BeginObjectRequest) *pb.MakeInlineSegmentRequest {
+			return &pb.MakeInlineSegmentRequest{
+				Header:              req.Header,
+				Position:            &pb.SegmentPosition{},
+				EncryptedKey:        req.EncryptedObjectKey,
+				EncryptedKeyNonce:   testrand.Nonce(),
+				PlainSize:           512,
+				EncryptedInlineData: testrand.Bytes(32),
 			}
+		}
 
-			t.Run("Days, Compliance mode", func(t *testing.T) {
-				test(t, storj.ComplianceMode, 3, 0)
-			})
-
-			t.Run("Years, Governance mode", func(t *testing.T) {
-				test(t, storj.GovernanceMode, 0, 5)
-			})
-		})
-
-		t.Run("Override default retention", func(t *testing.T) {
+		test := func(t *testing.T, mode storj.RetentionMode, days, years int, overrideRetention *pb.Retention, commitInline bool) {
 			bucketName := testrand.BucketName()
 			_, err = bucketsDB.CreateBucket(ctx, buckets.Bucket{
 				Name:       bucketName,
 				ProjectID:  project.ID,
 				Versioning: buckets.VersioningEnabled,
 				ObjectLock: buckets.ObjectLockSettings{
-					Enabled:              true,
-					DefaultRetentionMode: storj.ComplianceMode,
-					DefaultRetentionDays: 7,
+					Enabled:               true,
+					DefaultRetentionMode:  mode,
+					DefaultRetentionDays:  days,
+					DefaultRetentionYears: years,
 				},
 			})
 			require.NoError(t, err)
 
 			objectKey := testrand.Path()
-			expectedRetainUntil := time.Now().Add(time.Minute)
-			beginResp, err := endpoint.BeginObject(ctx, &pb.BeginObjectRequest{
+			now := time.Now()
+
+			req := &pb.BeginObjectRequest{
 				Header:             &pb.RequestHeader{ApiKey: apiKey.SerializeRaw()},
 				Bucket:             []byte(bucketName),
 				EncryptedObjectKey: []byte(objectKey),
@@ -3854,18 +3811,24 @@ func TestEndpoint_UploadObjectWithDefaultRetention(t *testing.T) {
 					CipherSuite: pb.CipherSuite_ENC_AESGCM,
 					BlockSize:   256,
 				},
-				Retention: &pb.Retention{
-					Mode:        pb.Retention_Mode(storj.GovernanceMode),
-					RetainUntil: expectedRetainUntil,
-				},
-			})
-			require.NoError(t, err)
+				Retention: overrideRetention,
+			}
 
-			_, err = endpoint.CommitObject(ctx, &pb.CommitObjectRequest{
-				Header:   &pb.RequestHeader{ApiKey: apiKey.SerializeRaw()},
-				StreamId: beginResp.StreamId,
-			})
-			require.NoError(t, err)
+			if commitInline {
+				_, _, _, err := endpoint.CommitInlineObject(ctx, req, inlineSegmentReq(req), &pb.CommitObjectRequest{
+					Header: req.Header,
+				})
+				require.NoError(t, err)
+			} else {
+				beginResp, err := endpoint.BeginObject(ctx, req)
+				require.NoError(t, err)
+
+				_, err = endpoint.CommitObject(ctx, &pb.CommitObjectRequest{
+					Header:   &pb.RequestHeader{ApiKey: apiKey.SerializeRaw()},
+					StreamId: beginResp.StreamId,
+				})
+				require.NoError(t, err)
+			}
 
 			retention, err := db.GetObjectLastCommittedRetention(ctx, metabase.GetObjectLastCommittedRetention{
 				ObjectLocation: metabase.ObjectLocation{
@@ -3875,47 +3838,110 @@ func TestEndpoint_UploadObjectWithDefaultRetention(t *testing.T) {
 				},
 			})
 			require.NoError(t, err)
-			require.Equal(t, storj.GovernanceMode, retention.Mode)
-			require.WithinDuration(t, expectedRetainUntil, retention.RetainUntil, time.Microsecond)
+
+			expectedMode := mode
+			expectedRetainUntil := now.AddDate(years, 0, days)
+			if overrideRetention != nil {
+				expectedMode = storj.RetentionMode(overrideRetention.Mode)
+				expectedRetainUntil = overrideRetention.RetainUntil
+			}
+
+			require.Equal(t, expectedMode, retention.Mode)
+			require.WithinDuration(t, expectedRetainUntil, retention.RetainUntil, time.Second)
+		}
+
+		t.Run("Use default retention", func(t *testing.T) {
+			t.Run("Days, Compliance mode, CommitObject", func(t *testing.T) {
+				test(t, storj.ComplianceMode, 3, 0, nil, false)
+			})
+
+			t.Run("Days, Compliance mode, CommitInlineObject", func(t *testing.T) {
+				test(t, storj.ComplianceMode, 3, 0, nil, true)
+			})
+
+			t.Run("Years, Governance mode, CommitObject", func(t *testing.T) {
+				test(t, storj.GovernanceMode, 0, 5, nil, false)
+			})
+
+			t.Run("Years, Governance mode, CommitInlineObject", func(t *testing.T) {
+				test(t, storj.GovernanceMode, 0, 5, nil, true)
+			})
+		})
+
+		t.Run("Override default retention", func(t *testing.T) {
+			t.Run("CommitObject", func(t *testing.T) {
+				test(t, storj.ComplianceMode, 3, 0, &pb.Retention{
+					Mode:        pb.Retention_Mode(storj.GovernanceMode),
+					RetainUntil: time.Now().AddDate(0, 0, 7),
+				}, false)
+			})
+			t.Run("CommitInlineObject", func(t *testing.T) {
+				test(t, storj.ComplianceMode, 3, 0, &pb.Retention{
+					Mode:        pb.Retention_Mode(storj.GovernanceMode),
+					RetainUntil: time.Now().AddDate(0, 0, 7),
+				}, true)
+			})
 		})
 
 		t.Run("TTL is disallowed", func(t *testing.T) {
-			bucketName := testrand.BucketName()
-			_, err = bucketsDB.CreateBucket(ctx, buckets.Bucket{
-				Name:       bucketName,
-				ProjectID:  project.ID,
-				Versioning: buckets.VersioningEnabled,
-				ObjectLock: buckets.ObjectLockSettings{
-					Enabled:              true,
-					DefaultRetentionMode: storj.ComplianceMode,
-					DefaultRetentionDays: 7,
-				},
-			})
-			require.NoError(t, err)
+			test := func(t *testing.T, commitInline bool) {
+				bucketName := testrand.BucketName()
+				_, err = bucketsDB.CreateBucket(ctx, buckets.Bucket{
+					Name:       bucketName,
+					ProjectID:  project.ID,
+					Versioning: buckets.VersioningEnabled,
+					ObjectLock: buckets.ObjectLockSettings{
+						Enabled:              true,
+						DefaultRetentionMode: storj.ComplianceMode,
+						DefaultRetentionDays: 7,
+					},
+				})
+				require.NoError(t, err)
 
-			objectKey := testrand.Path()
-			ttl := time.Hour
-			req := &pb.BeginObjectRequest{
-				Header:             &pb.RequestHeader{ApiKey: apiKey.SerializeRaw()},
-				Bucket:             []byte(bucketName),
-				EncryptedObjectKey: []byte(objectKey),
-				EncryptionParameters: &pb.EncryptionParameters{
-					CipherSuite: pb.CipherSuite_ENC_AESGCM,
-					BlockSize:   256,
-				},
-				ExpiresAt: time.Now().Add(ttl),
+				objectKey := testrand.Path()
+				ttl := time.Hour
+				req := &pb.BeginObjectRequest{
+					Header:             &pb.RequestHeader{ApiKey: apiKey.SerializeRaw()},
+					Bucket:             []byte(bucketName),
+					EncryptedObjectKey: []byte(objectKey),
+					EncryptionParameters: &pb.EncryptionParameters{
+						CipherSuite: pb.CipherSuite_ENC_AESGCM,
+						BlockSize:   256,
+					},
+					ExpiresAt: time.Now().Add(ttl),
+				}
+
+				if commitInline {
+					_, _, _, err = endpoint.CommitInlineObject(ctx, req, inlineSegmentReq(req), &pb.CommitObjectRequest{
+						Header: req.Header,
+					})
+				} else {
+					_, err = endpoint.BeginObject(ctx, req)
+				}
+				rpctest.RequireCode(t, err, rpcstatus.ObjectLockUploadWithTTLAndDefaultRetention)
+
+				ttlApiKey, err := apiKey.Restrict(macaroon.Caveat{MaxObjectTtl: &ttl})
+				require.NoError(t, err)
+				req.Header.ApiKey = ttlApiKey.SerializeRaw()
+				req.ExpiresAt = time.Time{}
+
+				if commitInline {
+					_, _, _, err = endpoint.CommitInlineObject(ctx, req, inlineSegmentReq(req), &pb.CommitObjectRequest{
+						Header: req.Header,
+					})
+				} else {
+					_, err = endpoint.BeginObject(ctx, req)
+				}
+				rpctest.RequireCode(t, err, rpcstatus.ObjectLockUploadWithTTLAPIKeyAndDefaultRetention)
 			}
 
-			_, err = endpoint.BeginObject(ctx, req)
-			rpctest.RequireCode(t, err, rpcstatus.ObjectLockUploadWithTTLAndDefaultRetention)
+			t.Run("BeginObject", func(t *testing.T) {
+				test(t, false)
+			})
 
-			ttlApiKey, err := apiKey.Restrict(macaroon.Caveat{MaxObjectTtl: &ttl})
-			require.NoError(t, err)
-			req.Header.ApiKey = ttlApiKey.SerializeRaw()
-			req.ExpiresAt = time.Time{}
-
-			_, err = endpoint.BeginObject(ctx, req)
-			rpctest.RequireCode(t, err, rpcstatus.ObjectLockUploadWithTTLAPIKeyAndDefaultRetention)
+			t.Run("CommitInlineObject", func(t *testing.T) {
+				test(t, true)
+			})
 		})
 	})
 }
@@ -5655,38 +5681,46 @@ func TestEndpoint_DeleteLockedObject(t *testing.T) {
 
 var objectLockTestCases = []struct {
 	name              string
-	expectedRetention *metabase.Retention
+	expectedRetention func() *metabase.Retention
 	legalHold         bool
 }{
 	{name: "no retention, no legal hold"},
 	{
 		name: "retention - compliance, no legal hold",
-		expectedRetention: &metabase.Retention{
-			Mode:        storj.ComplianceMode,
-			RetainUntil: time.Now().Add(time.Hour).Truncate(time.Minute),
+		expectedRetention: func() *metabase.Retention {
+			return &metabase.Retention{
+				Mode:        storj.ComplianceMode,
+				RetainUntil: time.Now().Add(time.Hour).Truncate(time.Minute),
+			}
 		},
 	},
 	{
 		name: "retention - governance, no legal hold",
-		expectedRetention: &metabase.Retention{
-			Mode:        storj.GovernanceMode,
-			RetainUntil: time.Now().Add(time.Hour).Truncate(time.Minute),
+		expectedRetention: func() *metabase.Retention {
+			return &metabase.Retention{
+				Mode:        storj.GovernanceMode,
+				RetainUntil: time.Now().Add(time.Hour).Truncate(time.Minute),
+			}
 		},
 	},
 	{name: "no retention, legal hold", legalHold: true},
 	{
 		name: "retention - compliance, legal hold",
-		expectedRetention: &metabase.Retention{
-			Mode:        storj.ComplianceMode,
-			RetainUntil: time.Now().Add(time.Hour).Truncate(time.Minute),
+		expectedRetention: func() *metabase.Retention {
+			return &metabase.Retention{
+				Mode:        storj.ComplianceMode,
+				RetainUntil: time.Now().Add(time.Hour).Truncate(time.Minute),
+			}
 		},
 		legalHold: true,
 	},
 	{
 		name: "retention - governance, legal hold",
-		expectedRetention: &metabase.Retention{
-			Mode:        storj.GovernanceMode,
-			RetainUntil: time.Now().Add(time.Hour).Truncate(time.Minute),
+		expectedRetention: func() *metabase.Retention {
+			return &metabase.Retention{
+				Mode:        storj.GovernanceMode,
+				RetainUntil: time.Now().Add(time.Hour).Truncate(time.Minute),
+			}
 		},
 		legalHold: true,
 	},
@@ -5829,9 +5863,11 @@ func TestEndpoint_CopyObjectWithRetention(t *testing.T) {
 					dstKey := testrand.Path()
 					beginResponse := newCopy(t, satellite, project.ID, apiKey.SerializeRaw(), srcBucket, nil, dstBucket, dstKey)
 
-					var expectedRetention *pb.Retention
+					var expectedRetention *metabase.Retention
+					var expectedRetentionProto *pb.Retention
 					if testCase.expectedRetention != nil {
-						expectedRetention = retentionToProto(*testCase.expectedRetention)
+						expectedRetention = testCase.expectedRetention()
+						expectedRetentionProto = retentionToProto(*expectedRetention)
 					}
 
 					response, err := satellite.API.Metainfo.Endpoint.FinishCopyObject(ctx, &pb.FinishCopyObjectRequest{
@@ -5841,13 +5877,13 @@ func TestEndpoint_CopyObjectWithRetention(t *testing.T) {
 						StreamId:              beginResponse.StreamId,
 						NewBucket:             []byte(dstBucket),
 						NewEncryptedObjectKey: []byte(dstKey),
-						Retention:             expectedRetention,
+						Retention:             expectedRetentionProto,
 						LegalHold:             testCase.legalHold,
 					})
 					require.NoError(t, err)
 
-					requireEqualRetention(t, testCase.expectedRetention, response.Object.Retention)
-					requireRetention(t, satellite, project.ID, dstBucket, dstKey, testCase.expectedRetention)
+					requireEqualRetention(t, expectedRetention, response.Object.Retention)
+					requireRetention(t, satellite, project.ID, dstBucket, dstKey, expectedRetention)
 					requireLegalHold(t, satellite, project.ID, dstBucket, dstKey, testCase.legalHold)
 				})
 			}
@@ -6171,9 +6207,11 @@ func TestEndpoint_MoveObjectWithRetention(t *testing.T) {
 
 					beginResponse := newMove(t, satellite, project.ID, apiKey.SerializeRaw(), srcBucket, nil, metabase.Retention{}, false, dstBucket, dstKey)
 
-					var expectedRetention *pb.Retention
+					var expectedRetention *metabase.Retention
+					var expectedRetentionProto *pb.Retention
 					if testCase.expectedRetention != nil {
-						expectedRetention = retentionToProto(*testCase.expectedRetention)
+						expectedRetention = testCase.expectedRetention()
+						expectedRetentionProto = retentionToProto(*expectedRetention)
 					}
 
 					_, err := satellite.API.Metainfo.Endpoint.FinishMoveObject(ctx, &pb.FinishMoveObjectRequest{
@@ -6183,12 +6221,12 @@ func TestEndpoint_MoveObjectWithRetention(t *testing.T) {
 						StreamId:              beginResponse.StreamId,
 						NewBucket:             []byte(dstBucket),
 						NewEncryptedObjectKey: []byte(dstKey),
-						Retention:             expectedRetention,
+						Retention:             expectedRetentionProto,
 						LegalHold:             testCase.legalHold,
 					})
 					require.NoError(t, err)
 
-					requireRetention(t, satellite, project.ID, dstBucket, dstKey, testCase.expectedRetention)
+					requireRetention(t, satellite, project.ID, dstBucket, dstKey, expectedRetention)
 					requireLegalHold(t, satellite, project.ID, dstBucket, dstKey, testCase.legalHold)
 				})
 			}

@@ -11,6 +11,8 @@ import {
     ListObjectsV2Command,
     PutBucketVersioningCommand,
     BucketVersioningStatus,
+    PutObjectLockConfigurationCommand,
+    ObjectLockRule,
 } from '@aws-sdk/client-s3';
 import { SignatureV4 } from '@smithy/signature-v4';
 
@@ -31,6 +33,12 @@ import { Duration } from '@/utils/time';
 
 const FIRST_PAGE = 1;
 
+export enum ClientType {
+    REGULAR,
+    FOR_CREATE,
+    FOR_OBJECT_LOCK,
+}
+
 export class BucketsState {
     public allBucketNames: string[] = [];
     public allBucketMetadata: BucketMetadata[] = [];
@@ -40,6 +48,7 @@ export class BucketsState {
     public edgeCredentialsForDelete: EdgeCredentials = new EdgeCredentials();
     public edgeCredentialsForCreate: EdgeCredentials = new EdgeCredentials();
     public edgeCredentialsForVersioning: EdgeCredentials = new EdgeCredentials();
+    public edgeCredentialsForObjectLock: EdgeCredentials = new EdgeCredentials();
     public s3Client: S3Client = new S3Client({
         forcePathStyle: true,
         signerConstructor: SignatureV4,
@@ -53,6 +62,10 @@ export class BucketsState {
         signerConstructor: SignatureV4,
     });
     public s3ClientForVersioning: S3Client = new S3Client({
+        forcePathStyle: true,
+        signerConstructor: SignatureV4,
+    });
+    public s3ClientForObjectLock: S3Client = new S3Client({
         forcePathStyle: true,
         signerConstructor: SignatureV4,
     });
@@ -170,6 +183,23 @@ export const useBucketsStore = defineStore('buckets', () => {
         state.s3ClientForVersioning = new S3Client(s3Config);
     }
 
+    function setEdgeCredentialsForObjectLock(credentials: EdgeCredentials): void {
+        state.edgeCredentialsForObjectLock = credentials;
+
+        const s3Config: S3ClientConfig = {
+            credentials: {
+                accessKeyId: state.edgeCredentialsForObjectLock.accessKeyId || '',
+                secretAccessKey: state.edgeCredentialsForObjectLock.secretKey || '',
+            },
+            endpoint: state.edgeCredentialsForObjectLock.endpoint,
+            forcePathStyle: true,
+            signerConstructor: SignatureV4,
+            region: 'us-east-1',
+        };
+
+        state.s3ClientForObjectLock = new S3Client(s3Config);
+    }
+
     async function setS3Client(projectID: string): Promise<void> {
         const agStore = useAccessGrantsStore();
         const { objectBrowserKeyNamePrefix, objectBrowserKeyLifetime } = useConfigStore().state.config;
@@ -200,6 +230,8 @@ export const useBucketsStore = defineStore('buckets', () => {
             'isGetObjectRetention': true,
             'isPutObjectLegalHold': true,
             'isGetObjectLegalHold': true,
+            'isPutObjectLockConfiguration': true,
+            'isGetObjectLockConfiguration': true,
             'notAfter': notAfter.toISOString(),
             'buckets': JSON.stringify([]),
             'apiKey': state.apiKey,
@@ -278,6 +310,23 @@ export const useBucketsStore = defineStore('buckets', () => {
         }
     }
 
+    async function setObjectLockConfig(name: string, clientType: ClientType, rule?: ObjectLockRule): Promise<void> {
+        let client: S3Client = state.s3Client;
+        if (clientType === ClientType.FOR_CREATE) {
+            client = state.s3ClientForCreate;
+        } else if (clientType === ClientType.FOR_OBJECT_LOCK) {
+            client = state.s3ClientForObjectLock;
+        }
+
+        await client.send(new PutObjectLockConfigurationCommand({
+            Bucket: name,
+            ObjectLockConfiguration: {
+                ObjectLockEnabled: 'Enabled',
+                Rule: rule,
+            },
+        }));
+    }
+
     async function createBucketWithNoPassphrase(name: string, enableObjectLock: boolean, enableBucketVersioning: boolean): Promise<void> {
         await state.s3ClientForCreate.send(new CreateBucketCommand({
             Bucket: name,
@@ -341,6 +390,7 @@ export const useBucketsStore = defineStore('buckets', () => {
         state.edgeCredentialsForDelete = new EdgeCredentials();
         state.edgeCredentialsForCreate = new EdgeCredentials();
         state.edgeCredentialsForVersioning = new EdgeCredentials();
+        state.edgeCredentialsForObjectLock = new EdgeCredentials();
         state.s3Client = new S3Client({
             forcePathStyle: true,
             signerConstructor: SignatureV4,
@@ -354,6 +404,10 @@ export const useBucketsStore = defineStore('buckets', () => {
             signerConstructor: SignatureV4,
         });
         state.s3ClientForVersioning = new S3Client({
+            forcePathStyle: true,
+            signerConstructor: SignatureV4,
+        });
+        state.s3ClientForObjectLock = new S3Client({
             forcePathStyle: true,
             signerConstructor: SignatureV4,
         });
@@ -382,6 +436,8 @@ export const useBucketsStore = defineStore('buckets', () => {
         setEdgeCredentialsForDelete,
         setEdgeCredentialsForCreate,
         setEdgeCredentialsForVersioning,
+        setEdgeCredentialsForObjectLock,
+        setObjectLockConfig,
         setS3Client,
         setPassphrase,
         setApiKey,

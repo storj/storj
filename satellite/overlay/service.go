@@ -95,11 +95,6 @@ type DB interface {
 	// GetExitStatus returns a node's graceful exit status.
 	GetExitStatus(ctx context.Context, nodeID storj.NodeID) (exitStatus *ExitStatus, err error)
 
-	// GetNodesNetwork returns the last_net subnet for each storage node, order is not guaranteed.
-	GetNodesNetwork(ctx context.Context, nodeIDs []storj.NodeID) (nodeNets []string, err error)
-	// GetNodesNetworkInOrder returns the last_net subnet for each storage node in order of the requested nodeIDs.
-	GetNodesNetworkInOrder(ctx context.Context, nodeIDs []storj.NodeID) (nodeNets []string, err error)
-
 	// AccountingNodeInfo gets records for all specified nodes for accounting.
 	AccountingNodeInfo(ctx context.Context, nodeIDs storj.NodeIDList) (_ map[storj.NodeID]NodeAccountingInfo, err error)
 

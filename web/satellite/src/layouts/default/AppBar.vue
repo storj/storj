@@ -2,7 +2,7 @@
 // See LICENSE for copying information.
 
 <template>
-    <v-app-bar :elevation="0" class="app-bar-border">
+    <v-app-bar class="app-bar-border">
         <v-progress-linear indeterminate absolute location="bottom" color="primary" :active="appStore.state.isNavigating" height="3" />
 
         <v-app-bar-nav-icon

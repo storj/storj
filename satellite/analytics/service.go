@@ -470,7 +470,7 @@ func (service *Service) TrackSignedIn(userID uuid.UUID, email string) {
 }
 
 // TrackProjectCreated sends an "Project Created" event to Segment.
-func (service *Service) TrackProjectCreated(userID uuid.UUID, email string, projectID uuid.UUID, currentProjectCount int) {
+func (service *Service) TrackProjectCreated(userID uuid.UUID, email string, projectID uuid.UUID, currentProjectCount int, managedPassphrase bool) {
 	if !service.config.Enabled {
 		return
 	}
@@ -479,6 +479,12 @@ func (service *Service) TrackProjectCreated(userID uuid.UUID, email string, proj
 	props.Set("project_count", currentProjectCount)
 	props.Set("project_id", projectID.String())
 	props.Set("email", email)
+
+	encManagedBy := "user"
+	if managedPassphrase {
+		encManagedBy = "satellite"
+	}
+	props.Set("encryption_managed_by", encManagedBy)
 
 	service.enqueueMessage(segment.Track{
 		UserId:     userID.String(),

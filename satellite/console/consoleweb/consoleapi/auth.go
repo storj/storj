@@ -141,7 +141,23 @@ func (a *Auth) AuthenticateSso(w http.ResponseWriter, r *http.Request) {
 
 	ssoFailedAddr := strings.TrimSuffix(a.ExternalAddress, "/") + "/login?sso_failed=true"
 
-	provider, claims, err := a.verifySsoAuth(r)
+	provider := mux.Vars(r)["provider"]
+
+	ssoState := r.URL.Query().Get("state")
+	if ssoState == "" {
+		a.log.Error("Error verifying SSO auth", zap.Error(console.ErrValidation.New("missing email hash")))
+		http.Redirect(w, r, ssoFailedAddr, http.StatusPermanentRedirect)
+		return
+	}
+
+	code := r.URL.Query().Get("code")
+	if code == "" {
+		a.log.Error("Error verifying SSO auth", zap.Error(console.ErrValidation.New("missing auth code")))
+		http.Redirect(w, r, ssoFailedAddr, http.StatusPermanentRedirect)
+		return
+	}
+
+	claims, err := a.ssoService.VerifySso(ctx, provider, ssoState, code)
 	if err != nil {
 		a.log.Error("Error verifying SSO auth", zap.Error(err))
 		http.Redirect(w, r, ssoFailedAddr, http.StatusPermanentRedirect)
@@ -160,6 +176,7 @@ func (a *Auth) AuthenticateSso(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		a.log.Error("Error getting user for sso auth", zap.Error(err))
 		http.Redirect(w, r, ssoFailedAddr, http.StatusPermanentRedirect)
+		return
 	}
 
 	tokenInfo, err := a.service.GenerateSessionToken(ctx, user.ID, user.Email, ip, userAgent, nil)
@@ -172,52 +189,6 @@ func (a *Auth) AuthenticateSso(w http.ResponseWriter, r *http.Request) {
 	a.cookieAuth.SetTokenCookie(w, *tokenInfo)
 
 	http.Redirect(w, r, a.ExternalAddress, http.StatusFound)
-}
-
-// verifySsoAuth verifies the SSO authentication.
-func (a *Auth) verifySsoAuth(r *http.Request) (provider string, _ *sso.OidcSsoClaims, err error) {
-	ctx := r.Context()
-
-	provider = mux.Vars(r)["provider"]
-	oidcSetup := a.ssoService.GetOidcSetupByProvider(provider)
-	if oidcSetup == nil {
-		return "", nil, console.ErrValidation.New("invalid provider %s", provider)
-	}
-
-	ssoState := r.URL.Query().Get("state")
-	if ssoState == "" {
-		return "", nil, console.ErrValidation.New("missing email hash")
-	}
-
-	oauth2Token, err := oidcSetup.Config.Exchange(ctx, r.URL.Query().Get("code"))
-	if err != nil {
-		return "", nil, console.ErrValidation.New("invalid code")
-	}
-
-	rawIDToken, ok := oauth2Token.Extra("id_token").(string)
-	if !ok {
-		return "", nil, console.ErrValidation.New("missing id token")
-	}
-
-	idToken, err := oidcSetup.Verifier.Verify(ctx, rawIDToken)
-	if err != nil {
-		return "", nil, console.ErrUnauthorized.New("Failed to verify ID token")
-	}
-
-	var claims sso.OidcSsoClaims
-	if err = idToken.Claims(&claims); err != nil {
-		return "", nil, console.Error.New("failed to parse claims")
-	}
-
-	state, err := a.service.GetSsoStateFromEmail(claims.Email)
-	if err != nil {
-		return "", nil, console.Error.New("failed to get state")
-	}
-	if state != ssoState {
-		return "", nil, console.ErrUnauthorized.New("SSO state mismatch")
-	}
-
-	return provider, &claims, nil
 }
 
 // GetSsoUrl returns the SSO URL for the given provider.
@@ -442,9 +413,62 @@ func (a *Auth) Register(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	if registerData.Partner != "" {
+		registerData.UserAgent = []byte(registerData.Partner)
+	}
+
+	ip, err := web.GetRequestIP(r)
+	if err != nil {
+		a.serveJSONError(ctx, w, err)
+		return
+	}
+
+	var code string
+	var requestID string
+	if a.ActivationCodeEnabled {
+		randNum, err := rand.Int(rand.Reader, big.NewInt(900000))
+		if err != nil {
+			a.serveJSONError(ctx, w, console.Error.Wrap(err))
+			return
+		}
+		randNum = randNum.Add(randNum, big.NewInt(100000))
+		code = randNum.String()
+
+		requestID = requestid.FromContext(ctx)
+	}
+
+	requestData := console.CreateUser{
+		FullName:         registerData.FullName,
+		ShortName:        registerData.ShortName,
+		Email:            registerData.Email,
+		UserAgent:        registerData.UserAgent,
+		Password:         registerData.Password,
+		IsProfessional:   registerData.IsProfessional,
+		Position:         registerData.Position,
+		CompanyName:      registerData.CompanyName,
+		EmployeeCount:    registerData.EmployeeCount,
+		HaveSalesContact: registerData.HaveSalesContact,
+		CaptchaResponse:  registerData.CaptchaResponse,
+		IP:               ip,
+		SignupPromoCode:  registerData.SignupPromoCode,
+		ActivationCode:   code,
+		SignupId:         requestID,
+		// the minimal signup from the v2 app doesn't require name.
+		AllowNoName: registerData.IsMinimal,
+	}
+
 	var user *console.User
 	if len(unverified) > 0 {
 		user = &unverified[0]
+
+		err = a.service.UpdateUserOnSignup(ctx, user, requestData)
+		if err != nil {
+			a.serveJSONError(ctx, w, err)
+			return
+		}
+
+		user.SignupId = requestData.SignupId
+		user.ActivationCode = requestData.ActivationCode
 	} else {
 		secret, err := console.RegistrationSecretFromBase64(registerData.SecretInput)
 		if err != nil {
@@ -452,77 +476,12 @@ func (a *Auth) Register(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
-		if registerData.Partner != "" {
-			registerData.UserAgent = []byte(registerData.Partner)
-		}
-
-		ip, err := web.GetRequestIP(r)
-		if err != nil {
-			a.serveJSONError(ctx, w, err)
-			return
-		}
-
-		var code string
-		var requestID string
-		if a.ActivationCodeEnabled {
-			randNum, err := rand.Int(rand.Reader, big.NewInt(900000))
-			if err != nil {
-				a.serveJSONError(ctx, w, console.Error.Wrap(err))
-				return
-			}
-			randNum = randNum.Add(randNum, big.NewInt(100000))
-			code = randNum.String()
-
-			requestID = requestid.FromContext(ctx)
-		}
-
-		user, err = a.service.CreateUser(ctx,
-			console.CreateUser{
-				FullName:         registerData.FullName,
-				ShortName:        registerData.ShortName,
-				Email:            registerData.Email,
-				UserAgent:        registerData.UserAgent,
-				Password:         registerData.Password,
-				IsProfessional:   registerData.IsProfessional,
-				Position:         registerData.Position,
-				CompanyName:      registerData.CompanyName,
-				EmployeeCount:    registerData.EmployeeCount,
-				HaveSalesContact: registerData.HaveSalesContact,
-				CaptchaResponse:  registerData.CaptchaResponse,
-				IP:               ip,
-				SignupPromoCode:  registerData.SignupPromoCode,
-				ActivationCode:   code,
-				SignupId:         requestID,
-				// the minimal signup from the v2 app doesn't require name.
-				AllowNoName: registerData.IsMinimal,
-			},
-			secret,
-		)
+		user, err = a.service.CreateUser(ctx, requestData, secret)
 		if err != nil {
 			if !console.ErrEmailUsed.Has(err) {
 				a.serveJSONError(ctx, w, err)
 			}
 			return
-		}
-
-		invites, err := a.service.GetInvitesByEmail(ctx, registerData.Email)
-		if err != nil {
-			a.log.Error("Could not get invitations", zap.String("email", registerData.Email), zap.Error(err))
-		} else if len(invites) > 0 {
-			var firstInvite console.ProjectInvitation
-			for _, inv := range invites {
-				if inv.InviterID != nil && (firstInvite.CreatedAt.IsZero() || inv.CreatedAt.Before(firstInvite.CreatedAt)) {
-					firstInvite = inv
-				}
-			}
-			if firstInvite.InviterID != nil {
-				inviter, err := a.service.GetUser(ctx, *firstInvite.InviterID)
-				if err != nil {
-					a.log.Error("Error getting inviter info", zap.String("ID", firstInvite.InviterID.String()), zap.Error(err))
-				} else {
-					a.analytics.TrackInviteLinkSignup(inviter.Email, registerData.Email)
-				}
-			}
 		}
 
 		// see if referrer was provided in URL query, otherwise use the Referer header in the request.
@@ -559,13 +518,27 @@ func (a *Auth) Register(w http.ResponseWriter, r *http.Request) {
 		a.analytics.TrackCreateUser(trackCreateUserFields)
 	}
 
-	if a.ActivationCodeEnabled {
-		*user, err = a.service.SetActivationCodeAndSignupID(ctx, *user)
-		if err != nil {
-			a.serveJSONError(ctx, w, err)
-			return
+	invites, err := a.service.GetInvitesByEmail(ctx, registerData.Email)
+	if err != nil {
+		a.log.Error("Could not get invitations", zap.String("email", registerData.Email), zap.Error(err))
+	} else if len(invites) > 0 {
+		var firstInvite console.ProjectInvitation
+		for _, inv := range invites {
+			if inv.InviterID != nil && (firstInvite.CreatedAt.IsZero() || inv.CreatedAt.Before(firstInvite.CreatedAt)) {
+				firstInvite = inv
+			}
 		}
+		if firstInvite.InviterID != nil {
+			inviter, err := a.service.GetUser(ctx, *firstInvite.InviterID)
+			if err != nil {
+				a.log.Error("Error getting inviter info", zap.String("ID", firstInvite.InviterID.String()), zap.Error(err))
+			} else {
+				a.analytics.TrackInviteLinkSignup(inviter.Email, registerData.Email)
+			}
+		}
+	}
 
+	if a.ActivationCodeEnabled {
 		a.mailService.SendRenderedAsync(
 			ctx,
 			[]post.Address{{Address: user.Email}},
@@ -573,9 +546,9 @@ func (a *Auth) Register(w http.ResponseWriter, r *http.Request) {
 				ActivationCode: user.ActivationCode,
 			},
 		)
-
 		return
 	}
+
 	token, err := a.service.GenerateActivationToken(ctx, user.ID, user.Email)
 	if err != nil {
 		a.serveJSONError(ctx, w, err)
@@ -1097,12 +1070,12 @@ func (a *Auth) ForgotPassword(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if user.ExternalID != nil && *user.ExternalID != "" {
+	if a.ssoService != nil && user.ExternalID != nil && *user.ExternalID != "" {
 		a.log.Info("sso user attempted 'forgot password' flow", zap.String("email", user.Email))
 		return
 	}
 
-	recoveryToken, err := a.service.GeneratePasswordRecoveryToken(ctx, user.ID)
+	recoveryToken, err := a.service.GeneratePasswordRecoveryToken(ctx, user)
 	if err != nil {
 		a.serveJSONError(ctx, w, err)
 		return
@@ -1173,7 +1146,7 @@ func (a *Auth) ResendEmail(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if verified != nil {
-		recoveryToken, err := a.service.GeneratePasswordRecoveryToken(ctx, verified.ID)
+		recoveryToken, err := a.service.GeneratePasswordRecoveryToken(ctx, verified)
 		if err != nil {
 			a.serveJSONError(ctx, w, err)
 			return
@@ -1738,13 +1711,20 @@ func (a *Auth) getStatusCode(err error) int {
 	var maxBytesError *http.MaxBytesError
 
 	switch {
-	case console.ErrValidation.Has(err), console.ErrCaptcha.Has(err), console.ErrMFAMissing.Has(err), console.ErrMFAPasscode.Has(err), console.ErrMFARecoveryCode.Has(err), console.ErrChangePassword.Has(err), console.ErrInvalidProjectLimit.Has(err):
+	case console.ErrValidation.Has(err), console.ErrCaptcha.Has(err),
+		console.ErrMFAMissing.Has(err), console.ErrMFAPasscode.Has(err),
+		console.ErrMFARecoveryCode.Has(err), console.ErrChangePassword.Has(err),
+		console.ErrInvalidProjectLimit.Has(err), sso.ErrInvalidProvider.Has(err),
+		sso.ErrInvalidCode.Has(err), sso.ErrNoIdToken.Has(err):
 		return http.StatusBadRequest
-	case console.ErrUnauthorized.Has(err), console.ErrTokenExpiration.Has(err), console.ErrRecoveryToken.Has(err), console.ErrLoginCredentials.Has(err), console.ErrActivationCode.Has(err):
+	case console.ErrUnauthorized.Has(err), console.ErrTokenExpiration.Has(err),
+		console.ErrRecoveryToken.Has(err), console.ErrLoginCredentials.Has(err),
+		console.ErrActivationCode.Has(err), sso.ErrTokenVerification.Has(err),
+		sso.ErrInvalidState.Has(err):
 		return http.StatusUnauthorized
 	case console.ErrEmailUsed.Has(err), console.ErrMFAConflict.Has(err), console.ErrMFAEnabled.Has(err):
 		return http.StatusConflict
-	case console.ErrLoginRestricted.Has(err), console.ErrTooManyAttempts.Has(err), console.ErrForbidden.Has(err):
+	case console.ErrLoginRestricted.Has(err), console.ErrTooManyAttempts.Has(err), console.ErrForbidden.Has(err), console.ErrSsoUserRestricted.Has(err):
 		return http.StatusForbidden
 	case errors.Is(err, errNotImplemented):
 		return http.StatusNotImplemented

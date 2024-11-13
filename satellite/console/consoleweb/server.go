@@ -922,6 +922,8 @@ func (server *Server) frontendConfigHandler(w http.ResponseWriter, r *http.Reque
 		ObjectLockUIEnabled:               server.objectLockAndVersioningConfig.ObjectLockEnabled && server.config.ObjectLockUIEnabled,
 		ValdiSignUpURL:                    server.config.ValdiSignUpURL,
 		SsoEnabled:                        server.config.SsoEnabled,
+		SelfServePlacementSelectEnabled:   server.config.Placement.SelfServeEnabled,
+		SelfServePlacementNames:           server.config.Placement.SelfServeNames,
 	}
 
 	err := json.NewEncoder(w).Encode(&cfg)

@@ -42,7 +42,6 @@ import (
 	"storj.io/storj/satellite/kms"
 	"storj.io/storj/satellite/mailservice"
 	"storj.io/storj/satellite/metabase"
-	"storj.io/storj/satellite/metainfo"
 	"storj.io/storj/satellite/nodeselection"
 	"storj.io/storj/satellite/oidc"
 	"storj.io/storj/satellite/orders"
@@ -154,8 +153,6 @@ type ConsoleAPI struct {
 	HealthCheck struct {
 		Server *healthcheck.Server
 	}
-
-	SuccessTrackers *metainfo.SuccessTrackers
 }
 
 // NewConsoleAPI creates a new satellite console API process.
@@ -282,7 +279,7 @@ func NewConsoleAPI(log *zap.Logger, full *identity.FullIdentity, db DB,
 		peer.OIDC.Service = oidc.NewService(db.OIDC())
 	}
 
-	placement, err := config.Placement.Parse(config.Overlay.Node.CreateDefaultPlacement, nodeselection.NewPlacementConfigEnvironment(peer.SuccessTrackers))
+	placement, err := config.Placement.Parse(config.Overlay.Node.CreateDefaultPlacement, nodeselection.NewPlacementConfigEnvironment(nil, nil))
 	if err != nil {
 		return nil, err
 	}
@@ -350,17 +347,6 @@ func NewConsoleAPI(log *zap.Logger, full *identity.FullIdentity, db DB,
 			peer.Services.Add(lifecycle.Item{
 				Name: "kms:service",
 				Run:  peer.KeyManagement.Service.Initialize,
-			})
-		}
-	}
-
-	{ // setup sso
-		if config.SSO.Enabled {
-			peer.SSO.Service = sso.NewService(config.Console.ExternalAddress, config.SSO)
-
-			peer.Services.Add(lifecycle.Item{
-				Name: "sso:service",
-				Run:  peer.SSO.Service.Initialize,
 			})
 		}
 	}
@@ -484,6 +470,20 @@ func NewConsoleAPI(log *zap.Logger, full *identity.FullIdentity, db DB,
 			externalAddress = "http://" + peer.Console.Listener.Addr().String()
 		}
 
+		if config.SSO.Enabled {
+			// setup sso
+			peer.SSO.Service = sso.NewService(
+				externalAddress,
+				peer.Console.AuthTokens,
+				config.SSO,
+			)
+
+			peer.Services.Add(lifecycle.Item{
+				Name: "sso:service",
+				Run:  peer.SSO.Service.Initialize,
+			})
+		}
+
 		accountFreezeService := console.NewAccountFreezeService(
 			db.Console(),
 			peer.Analytics.Service,
@@ -509,6 +509,7 @@ func NewConsoleAPI(log *zap.Logger, full *identity.FullIdentity, db DB,
 			externalAddress,
 			consoleConfig.SatelliteName,
 			config.Metainfo.ProjectLimits.MaxBuckets,
+			config.SSO.Enabled,
 			placement,
 			console.ObjectLockAndVersioningConfig{
 				ObjectLockEnabled:                      config.Metainfo.ObjectLockEnabled,

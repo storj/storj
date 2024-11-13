@@ -404,9 +404,22 @@ func TestSsoUserLoginWithPassword(t *testing.T) {
 		response, err := http.DefaultClient.Do(req)
 		require.NoError(t, err)
 		require.NotEmpty(t, response)
-		require.Equal(t, http.StatusUnauthorized, response.StatusCode)
+		require.Equal(t, http.StatusOK, response.StatusCode)
 
 		responseBody, err := io.ReadAll(response.Body)
+		require.NoError(t, err)
+		require.Contains(t, string(responseBody), "token")
+		require.NoError(t, response.Body.Close())
+
+		// enable SSO
+		satellite.API.Console.Service.TestToggleSsoEnabled(true)
+
+		response, err = http.DefaultClient.Do(req)
+		require.NoError(t, err)
+		require.NotEmpty(t, response)
+		require.Equal(t, http.StatusForbidden, response.StatusCode)
+
+		responseBody, err = io.ReadAll(response.Body)
 		require.NoError(t, err)
 		require.NotContains(t, string(responseBody), "token")
 		require.NoError(t, response.Body.Close())
@@ -446,7 +459,21 @@ func TestSsoUserForgotPassword(t *testing.T) {
 		require.NoError(t, response.Body.Close())
 
 		token, err := satellite.DB.Console().ResetPasswordTokens().GetByOwnerID(ctx, user.ID)
-		require.Error(t, err)
+		require.NoError(t, err)
+		require.NotNil(t, token)
+
+		err = satellite.DB.Console().ResetPasswordTokens().Delete(ctx, token.Secret)
+		require.NoError(t, err)
+
+		// enable SSO
+		satellite.API.Console.Service.TestToggleSsoEnabled(true)
+
+		response, err = http.DefaultClient.Do(req)
+		require.NoError(t, err)
+		require.Equal(t, http.StatusForbidden, response.StatusCode)
+		require.NoError(t, response.Body.Close())
+
+		token, err = satellite.DB.Console().ResetPasswordTokens().GetByOwnerID(ctx, user.ID)
 		require.Equal(t, sql.ErrNoRows, err)
 		require.Nil(t, token)
 	})
