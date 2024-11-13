@@ -98,6 +98,44 @@ func TestProjectInvitations(t *testing.T) {
 			require.ElementsMatch(t, invites, []console.ProjectInvitation{*invite, *inviteSameEmail})
 		})
 
+		t.Run("get invitations by email for active projects", func(t *testing.T) {
+			ctx := testcontext.New(t)
+
+			activeProjID := testrand.UUID()
+			disabledProjID := testrand.UUID()
+			email3 := "user3@mail.test"
+
+			_, err = projectsDB.Insert(ctx, &console.Project{ID: activeProjID})
+			require.NoError(t, err)
+			_, err = projectsDB.Insert(ctx, &console.Project{ID: disabledProjID})
+			require.NoError(t, err)
+
+			inviteToActiveProj := &console.ProjectInvitation{
+				ProjectID: activeProjID,
+				Email:     email3,
+			}
+			inviteToDisabledProj := &console.ProjectInvitation{
+				ProjectID: disabledProjID,
+				Email:     email3,
+			}
+
+			inviteToActiveProj, err = invitesDB.Upsert(ctx, inviteToActiveProj)
+			require.NoError(t, err)
+			inviteToDisabledProj, err = invitesDB.Upsert(ctx, inviteToDisabledProj)
+			require.NoError(t, err)
+
+			invites, err := invitesDB.GetForActiveProjectsByEmail(ctx, email3)
+			require.NoError(t, err)
+			require.ElementsMatch(t, []console.ProjectInvitation{*inviteToActiveProj, *inviteToDisabledProj}, invites)
+
+			err = projectsDB.UpdateStatus(ctx, disabledProjID, console.ProjectDisabled)
+			require.NoError(t, err)
+
+			invites, err = invitesDB.GetForActiveProjectsByEmail(ctx, email3)
+			require.NoError(t, err)
+			require.ElementsMatch(t, []console.ProjectInvitation{*inviteToActiveProj}, invites)
+		})
+
 		t.Run("get invitations by project ID", func(t *testing.T) {
 			ctx := testcontext.New(t)
 

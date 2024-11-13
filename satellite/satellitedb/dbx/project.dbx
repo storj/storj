@@ -284,6 +284,13 @@ read all (
 
 read all (
 	select project_invitation
+	join project_invitation.project_id = project.id
+	where project.status = ?
+	where project_invitation.email = ?
+)
+
+read all (
+	select project_invitation
 	where project_invitation.project_id = ?
 )
 

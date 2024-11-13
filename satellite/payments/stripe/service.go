@@ -198,7 +198,8 @@ func (service *Service) processCustomers(ctx context.Context, customers []Custom
 			continue
 		}
 
-		projects, err := service.projectsDB.GetOwn(ctx, customer.UserID)
+		// We include only active projects in the invoice.
+		projects, err := service.projectsDB.GetOwnActive(ctx, customer.UserID)
 		if err != nil {
 			return 0, Error.New("unable to get own projects: %w", err)
 		}
@@ -244,6 +245,12 @@ func (service *Service) createProjectRecords(ctx context.Context, customer *Cust
 	for _, project := range projects {
 		if err = ctx.Err(); err != nil {
 			return nil, err
+		}
+
+		// This is unlikely to happen but still.
+		if project.Status != nil && *project.Status == console.ProjectDisabled {
+			service.log.Warn("Skipping disabled project.", zap.String("Customer ID", customer.ID), zap.String("Project ID", project.ID.String()))
+			continue
 		}
 
 		if err = service.db.ProjectRecords().Check(ctx, project.ID, start, end); err != nil {
@@ -378,7 +385,7 @@ func (service *Service) InvoiceApplyProjectRecordsGrouped(ctx context.Context, p
 					totalSkipped.Add(1)
 					return
 				}
-				projects, err := service.projectsDB.GetOwn(ctx, c.UserID)
+				projects, err := service.projectsDB.GetOwnActive(ctx, c.UserID)
 				if err != nil {
 					addErr(&mu, err)
 					return
