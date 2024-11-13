@@ -1036,6 +1036,8 @@ func (p *Projects) RespondToInvitation(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		status := http.StatusInternalServerError
 		switch {
+		case console.ErrUnauthorized.Has(err):
+			status = http.StatusUnauthorized
 		case console.ErrAlreadyMember.Has(err):
 			status = http.StatusConflict
 		case console.ErrProjectInviteInvalid.Has(err):

@@ -130,7 +130,7 @@ type Project struct {
 	MaxBuckets  *int           `json:"maxBuckets"`
 	CreatedAt   time.Time      `json:"createdAt"`
 	MemberCount int            `json:"memberCount"`
-	Status      *ProjectStatus `json:"-"`
+	Status      *ProjectStatus `json:"status"`
 
 	StorageLimit                *memory.Size `json:"storageLimit"`
 	StorageUsed                 int64        `json:"-"`

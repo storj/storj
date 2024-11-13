@@ -456,7 +456,37 @@ func TestBucketCreationWithDefaultPlacement(t *testing.T) {
 	})
 }
 
-func TestCraeteBucketWithCreatedBy(t *testing.T) {
+func TestCreateBucketOnDisabledProject(t *testing.T) {
+	testplanet.Run(t, testplanet.Config{
+		SatelliteCount: 1, UplinkCount: 1,
+	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+		sat := planet.Satellites[0]
+		service := sat.API.Console.Service
+		project := planet.Uplinks[0].Projects[0]
+
+		userCtx, err := sat.UserContext(ctx, project.Owner.ID)
+		require.NoError(t, err)
+
+		apiKeyInfo, apiKey, err := service.CreateAPIKey(userCtx, project.ID, "test key", macaroon.APIKeyVersionMin)
+		require.NoError(t, err)
+		require.NotNil(t, apiKey)
+		require.False(t, apiKeyInfo.CreatedBy.IsZero())
+
+		err = sat.API.DB.Console().Projects().UpdateStatus(ctx, project.ID, console.ProjectDisabled)
+		require.NoError(t, err)
+
+		bucketName := []byte("bucket")
+		_, err = sat.Metainfo.Endpoint.CreateBucket(ctx, &pb.BucketCreateRequest{
+			Header: &pb.RequestHeader{
+				ApiKey: apiKey.SerializeRaw(),
+			},
+			Name: bucketName,
+		})
+		require.True(t, errs2.IsRPC(err, rpcstatus.NotFound))
+	})
+}
+
+func TestCreateBucketWithCreatedBy(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
 		SatelliteCount: 1, UplinkCount: 1,
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {

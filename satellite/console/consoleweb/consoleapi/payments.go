@@ -105,11 +105,6 @@ func (p *Payments) ProjectsCharges(w http.ResponseWriter, r *http.Request) {
 	var err error
 	defer mon.Task()(&ctx)(&err)
 
-	var response struct {
-		PriceModels map[string]payments.ProjectUsagePriceModel `json:"priceModels"`
-		Charges     payments.ProjectChargesResponse            `json:"charges"`
-	}
-
 	w.Header().Set("Content-Type", "application/json")
 
 	sinceStamp, err := strconv.ParseInt(r.URL.Query().Get("from"), 10, 64)
@@ -135,6 +130,11 @@ func (p *Payments) ProjectsCharges(w http.ResponseWriter, r *http.Request) {
 
 		p.serveJSONError(ctx, w, http.StatusInternalServerError, err)
 		return
+	}
+
+	var response struct {
+		PriceModels map[string]payments.ProjectUsagePriceModel `json:"priceModels"`
+		Charges     payments.ProjectChargesResponse            `json:"charges"`
 	}
 
 	response.Charges = charges

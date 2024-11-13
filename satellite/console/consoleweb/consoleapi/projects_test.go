@@ -6,7 +6,6 @@ package consoleapi_test
 import (
 	"bytes"
 	"context"
-	"database/sql"
 	"encoding/json"
 	"fmt"
 	"net/http"
@@ -582,9 +581,8 @@ func TestDeleteProject(t *testing.T) {
 		require.Empty(t, body)
 
 		project, err := sat.DB.Console().Projects().Get(ctx, p)
-		require.Error(t, err)
-		require.ErrorIs(t, err, sql.ErrNoRows)
-		require.Nil(t, project)
+		require.NoError(t, err)
+		require.Equal(t, console.ProjectDisabled, *project.Status)
 
 		// free user can't delete project
 		user2, err := sat.DB.Console().Users().GetByEmail(ctx, planet.Uplinks[1].User[sat.ID()].Email)
