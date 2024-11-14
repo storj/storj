@@ -125,10 +125,6 @@ export const useBillingStore = defineStore('billing', () => {
         await api.attemptPayments();
     }
 
-    function clearPendingPayments(): void {
-        state.pendingPaymentsWithConfirmations = [];
-    }
-
     async function makeCardDefault(id: string): Promise<void> {
         await api.makeCreditCardDefault(id);
 
@@ -263,7 +259,6 @@ export const useBillingStore = defineStore('billing', () => {
         getProjectUsageAndChargesCurrentRollup,
         startPaymentsPolling,
         stopPaymentsPolling,
-        clearPendingPayments,
         getProjectUsagePriceModel,
         applyCouponCode,
         getCoupon,

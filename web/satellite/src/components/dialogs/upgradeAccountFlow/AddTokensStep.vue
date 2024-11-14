@@ -208,9 +208,7 @@ watch(() => pendingPayments.value, async () => {
 onMounted(async (): Promise<void> => {
     setViewState();
 
-    if (!isPaidTier.value) {
-        billingStore.startPaymentsPolling();
-    }
+    billingStore.startPaymentsPolling();
 
     if (!canvas.value) {
         return;
