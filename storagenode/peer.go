@@ -262,7 +262,6 @@ type Peer struct {
 		BlobsCache     *pieces.BlobsUsageCache
 		CacheService   *pieces.CacheService
 		RetainService  *retain.Service
-		PieceDeleter   *pieces.Deleter
 		Endpoint       *piecestore.Endpoint
 		Inspector      *inspector.Endpoint
 		Monitor        *monitor.Service
@@ -575,13 +574,6 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, revocationDB exten
 			config.Pieces,
 		)
 
-		peer.Storage2.PieceDeleter = pieces.NewDeleter(process.NamedLog(log, "piecedeleter"), peer.Storage2.Store, config.Storage2.DeleteWorkers, config.Storage2.DeleteQueueSize)
-		peer.Services.Add(lifecycle.Item{
-			Name:  "PieceDeleter",
-			Run:   peer.Storage2.PieceDeleter.Run,
-			Close: peer.Storage2.PieceDeleter.Close,
-		})
-
 		peer.Storage2.TrashChore = pieces.NewTrashChore(
 			process.NamedLog(log, "pieces:trash"),
 			config.Pieces.TrashChoreInterval, // choreInterval: how often to run the chore
@@ -597,7 +589,7 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, revocationDB exten
 
 		var spaceReport monitor.SpaceReport
 		if config.Storage2.Monitor.DedicatedDisk {
-			spaceReport = monitor.NewDedicatedDisk(log, peer.Storage2.Store, config.Storage2.Monitor.MinimumDiskSpace.Int64(), config.Storage2.Monitor.ReservedBytes.Int64())
+			spaceReport = monitor.NewDedicatedDisk(log, config.Storage.Path, config.Storage2.Monitor.MinimumDiskSpace.Int64(), config.Storage2.Monitor.ReservedBytes.Int64())
 		} else {
 			spaceReport = monitor.NewSharedDisk(log, peer.Storage2.Store, config.Storage2.Monitor.MinimumDiskSpace.Int64(), config.Storage.AllocatedDiskSpace.Int64())
 

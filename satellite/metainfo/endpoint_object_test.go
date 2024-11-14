@@ -2046,8 +2046,6 @@ func testDeleteObject(t *testing.T,
 						deleteObject(ctx, t, planet, bucketName, string(object.ObjectKey), object.StreamID)
 					}
 
-					planet.WaitForStorageNodeDeleters(ctx)
-
 					// calculate the SNs used space after delete the pieces
 					var totalUsedSpaceAfterDelete int64
 					for _, sn := range planet.StorageNodes {
@@ -2113,8 +2111,6 @@ func testDeleteObject(t *testing.T,
 			for _, object := range objects {
 				deleteObject(ctx, t, planet, bucketName, string(object.ObjectKey), object.StreamID)
 			}
-
-			planet.WaitForStorageNodeDeleters(ctx)
 
 			// we are not deleting data from SN right away so used space should be the same
 			// for online and shutdown/offline node
