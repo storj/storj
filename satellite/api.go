@@ -299,10 +299,10 @@ func NewAPI(log *zap.Logger, full *identity.FullIdentity, db DB,
 			return nil, errs.New("Unknown success tracker kind %q", config.Metainfo.SuccessTrackerKind)
 		}
 		peer.SuccessTrackers = metainfo.NewSuccessTrackers(trustedUplinks, newTracker)
-		mon.Chain(peer.SuccessTrackers)
+		monkit.ScopeNamed(mon.Name() + ".success_trackers").Chain(peer.SuccessTrackers)
 
 		peer.FailureTracker = metainfo.NewPercentSuccessTracker()
-		mon.Chain(peer.FailureTracker)
+		monkit.ScopeNamed(mon.Name() + ".failure_tracker").Chain(peer.FailureTracker)
 	}
 
 	placements, err := config.Placement.Parse(config.Overlay.Node.CreateDefaultPlacement, nodeselection.NewPlacementConfigEnvironment(peer.SuccessTrackers, peer.FailureTracker))
