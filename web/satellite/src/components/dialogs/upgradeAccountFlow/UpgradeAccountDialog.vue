@@ -75,10 +75,13 @@
                                 <v-window-item :value="PaymentOption.StorjTokens">
                                     <v-row justify="center" align="center" class="mt-2">
                                         <v-col cols="12" sm="12" md="10" lg="8">
-                                            <AddTokensStep
-                                                @back="() => setStep(UpgradeAccountStep.Info)"
-                                                @success="() => setStep(UpgradeAccountStep.Success)"
-                                            />
+                                            <v-card :loading="loading" class="pa-1" :class="{'no-border pa-0': !loading}">
+                                                <AddTokensStep
+                                                    v-if="!loading"
+                                                    @back="() => setStep(UpgradeAccountStep.Info)"
+                                                    @success="onAddTokensSuccess"
+                                                />
+                                            </v-card>
                                         </v-col>
                                     </v-row>
                                 </v-window-item>
@@ -110,7 +113,21 @@
 
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue';
-import { VBtn, VCard, VCardItem, VCardTitle, VDialog, VDivider, VWindow, VWindowItem } from 'vuetify/components';
+import {
+    VBtn,
+    VCard,
+    VCardItem,
+    VCardTitle,
+    VDialog,
+    VDivider,
+    VWindow,
+    VWindowItem,
+    VRow,
+    VCol,
+    VTabs,
+    VTab,
+    VContainer,
+} from 'vuetify/components';
 
 import { useBillingStore } from '@/store/modules/billingStore';
 import { useNotify } from '@/utils/hooks';
@@ -118,9 +135,9 @@ import { AnalyticsErrorEventSource, AnalyticsEvent } from '@/utils/constants/ana
 import { useAnalyticsStore } from '@/store/modules/analyticsStore';
 import { PricingPlanInfo } from '@/types/common';
 import { Wallet } from '@/types/payments';
+import { useUsersStore } from '@/store/modules/usersStore';
 
 import UpgradeInfoStep from '@/components/dialogs/upgradeAccountFlow/UpgradeInfoStep.vue';
-import UpgradeOptionsStep from '@/components/dialogs/upgradeAccountFlow/UpgradeOptionsStep.vue';
 import AddCreditCardStep from '@/components/dialogs/upgradeAccountFlow/AddCreditCardStep.vue';
 import AddTokensStep from '@/components/dialogs/upgradeAccountFlow/AddTokensStep.vue';
 import SuccessStep from '@/components/dialogs/upgradeAccountFlow/SuccessStep.vue';
@@ -139,6 +156,8 @@ enum UpgradeAccountStep {
 
 const analyticsStore = useAnalyticsStore();
 const billingStore = useBillingStore();
+const usersStore = useUsersStore();
+
 const notify = useNotify();
 
 const step = ref<UpgradeAccountStep>(UpgradeAccountStep.Info);
@@ -187,6 +206,11 @@ const maxWidth = computed(() => {
 });
 
 /**
+ * Returns whether the user is in paid tier.
+ */
+const isPaidTier = computed((): boolean => usersStore.state.user.paidTier);
+
+/**
  * Claims wallet and sets add token step.
  */
 async function onAddTokens(): Promise<void> {
@@ -203,6 +227,15 @@ async function onAddTokens(): Promise<void> {
     }
 
     loading.value = false;
+}
+
+function onAddTokensSuccess(): void {
+    if (isPaidTier.value) {
+        setStep(UpgradeAccountStep.Success);
+        return;
+    }
+
+    model.value = false;
 }
 
 /**
@@ -240,3 +273,9 @@ watch(content, (value) => {
 
 defineExpose({ setSecondStep });
 </script>
+
+<style scoped lang="scss">
+.no-border {
+    border: 0 !important;
+}
+</style>
