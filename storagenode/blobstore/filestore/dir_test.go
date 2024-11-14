@@ -280,8 +280,30 @@ func BenchmarkDirInfo(b *testing.B) {
 	}
 }
 
-// check that trash emptying works as expected with per-day trash directories.
 func TestEmptyTrash(t *testing.T) {
+	t.Run("empty trash", func(t *testing.T) {
+		emptyTrashWithFunc(t, func(ctx context.Context, dir *Dir, ns []byte, cutoff time.Time, expectDeletedKeys [][]byte, expectDeletedBytes int64) {
+			// empty the trash (partially)
+			bytesEmptied, keysDeleted, err := dir.EmptyTrash(ctx, ns, cutoff)
+			require.NoError(t, err)
+
+			// check that the keys we expect to be deleted were reported as deleted
+			slices.SortFunc(expectDeletedKeys, bytes.Compare)
+			slices.SortFunc(keysDeleted, bytes.Compare)
+			require.Equal(t, expectDeletedKeys, keysDeleted)
+			require.Equal(t, expectDeletedBytes, bytesEmptied)
+		})
+	})
+	t.Run("empty trash without stat", func(t *testing.T) {
+		emptyTrashWithFunc(t, func(ctx context.Context, dir *Dir, ns []byte, cutoff time.Time, expectDeletedKeys [][]byte, expectDeletedBytes int64) {
+			err := dir.EmptyTrashWithoutStat(ctx, ns, cutoff)
+			require.NoError(t, err)
+		})
+	})
+}
+
+// check that trash emptying works as expected with per-day trash directories.
+func emptyTrashWithFunc(t *testing.T, emptyTrash func(ctx context.Context, dir *Dir, ns []byte, cutoff time.Time, expectDeletedKeys [][]byte, expectDeletedBytes int64)) {
 	ctx := testcontext.New(t)
 	storeDir := ctx.Dir("store")
 	log := zaptest.NewLogger(t)
@@ -328,21 +350,19 @@ func TestEmptyTrash(t *testing.T) {
 	}
 	require.True(t, trashNow.Equal(originalTime))
 
-	// empty the trash (partially)
-	bytesEmptied, keysDeleted, err := dir.EmptyTrash(ctx, ns, originalTime.Add(-emptyTrashDays*24*time.Hour))
-	require.NoError(t, err)
-
-	// check that the keys we expect to be deleted were reported as deleted
-	slices.SortFunc(expectDeletedKeys, bytes.Compare)
-	slices.SortFunc(keysDeleted, bytes.Compare)
-	require.Equal(t, expectDeletedKeys, keysDeleted)
-	require.Equal(t, expectDeletedBytes, bytesEmptied)
+	emptyTrash(ctx, dir, ns, originalTime.Add(-emptyTrashDays*24*time.Hour), expectDeletedKeys, expectDeletedBytes)
 
 	// check that the keys we expect to be deleted were actually deleted (can't open them anymore)
 	for n := range expectDeletedKeys {
-		_, _, err := dir.Open(ctx, blobstore.BlobRef{Namespace: ns, Key: expectDeletedKeys[n]})
+		// not in the live ns directory (deleted)
+		deletedRef := blobstore.BlobRef{Namespace: ns, Key: expectDeletedKeys[n]}
+		_, _, err := dir.Open(ctx, deletedRef)
 		require.Error(t, err)
 		require.True(t, os.IsNotExist(err))
+
+		// not in the trash (cleaned up)
+		err = dir.TryRestoreTrashBlob(ctx, deletedRef)
+		require.Error(t, err)
 	}
 
 	// and check that the keys which we _don't_ expect to be deleted are still present

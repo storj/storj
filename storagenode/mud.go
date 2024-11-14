@@ -317,8 +317,8 @@ func Module(ball *mud.Ball) {
 				trashExpiryInterval,
 				trust, store)
 		}, logWrapper("pieces:trash"))
-		mud.Provide[*pieces.TrashRunOnce](ball, func(log *zap.Logger, trust *trust.Pool, store *pieces.Store, stop *modular.StopTrigger) *pieces.TrashRunOnce {
-			return pieces.NewTrashRunOnce(log, trust, store, trashExpiryInterval, stop)
+		mud.Provide[*pieces.TrashRunOnce](ball, func(log *zap.Logger, blobs blobstore.Blobs, stop *modular.StopTrigger) *pieces.TrashRunOnce {
+			return pieces.NewTrashRunOnce(log, blobs, trashExpiryInterval, stop)
 		})
 
 		mud.RegisterInterfaceImplementation[piecestore.RestoreTrash, *pieces.TrashChore](ball)
