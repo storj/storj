@@ -7,9 +7,7 @@ import (
 	"bytes"
 	"context"
 	"crypto/rand"
-	"crypto/sha256"
 	"database/sql"
-	"encoding/base64"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -233,6 +231,7 @@ type Service struct {
 	accountFreezeService       *AccountFreezeService
 	emission                   *emission.Service
 	kmsService                 *kms.Service
+	ssoService                 *sso.Service
 
 	satelliteAddress string
 	satelliteName    string
@@ -271,7 +270,7 @@ type Payments struct {
 func NewService(log *zap.Logger, store DB, restKeys RESTKeys, projectAccounting accounting.ProjectAccounting,
 	projectUsage *accounting.Service, buckets buckets.DB, accounts payments.Accounts, depositWallets payments.DepositWallets,
 	billingDb billing.TransactionsDB, analytics *analytics.Service, tokens *consoleauth.Service, mailService *mailservice.Service,
-	accountFreezeService *AccountFreezeService, emission *emission.Service, kmsService *kms.Service, satelliteAddress string,
+	accountFreezeService *AccountFreezeService, emission *emission.Service, kmsService *kms.Service, ssoService *sso.Service, satelliteAddress string,
 	satelliteName string, maxProjectBuckets int, ssoEnabled bool, placements nodeselection.PlacementDefinitions,
 	objectLockAndVersioningConfig ObjectLockAndVersioningConfig, config Config) (*Service, error) {
 	if store == nil {
@@ -342,6 +341,7 @@ func NewService(log *zap.Logger, store DB, restKeys RESTKeys, projectAccounting 
 		accountFreezeService:          accountFreezeService,
 		emission:                      emission,
 		kmsService:                    kmsService,
+		ssoService:                    ssoService,
 		satelliteAddress:              satelliteAddress,
 		satelliteName:                 satelliteName,
 		maxProjectBuckets:             maxProjectBuckets,
@@ -1133,14 +1133,13 @@ func (s *Service) UpdateUserOnSignup(ctx context.Context, inactiveUser *User, re
 	return nil
 }
 
-// GetSsoStateFromEmail returns a signed string derived from the email address.
-func (s *Service) GetSsoStateFromEmail(email string) (string, error) {
-	sum := sha256.Sum256([]byte(email))
-	signed, err := s.tokens.Sign(sum[:])
-	if err != nil {
-		return "", Error.Wrap(err)
+// ShouldRequireSsoByUser returns whether SSO should be required of a user.
+func (s *Service) ShouldRequireSsoByUser(user *User) bool {
+	if !s.ssoEnabled {
+		return false
 	}
-	return base64.RawURLEncoding.EncodeToString(signed), nil
+	prov := s.ssoService.GetProviderByEmail(user.Email)
+	return user.ExternalID != nil && *user.ExternalID != "" && prov != ""
 }
 
 // CreateSsoUser creates a user that has been authenticated by SSO provider.
@@ -1323,7 +1322,7 @@ func (s *Service) GenerateActivationToken(ctx context.Context, id uuid.UUID, ema
 func (s *Service) GeneratePasswordRecoveryToken(ctx context.Context, user *User) (token string, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	if s.ssoEnabled && user.ExternalID != nil && *user.ExternalID != "" {
+	if s.ShouldRequireSsoByUser(user) {
 		s.auditLog(ctx, "sso user attempted 'forgot password' flow", &user.ID, user.Email)
 		return "", ErrSsoUserRestricted.New("SSO users cannot reset their password")
 	}
@@ -1707,7 +1706,7 @@ func (s *Service) Token(ctx context.Context, request AuthUser) (response *TokenI
 		return nil, ErrLoginCredentials.New(credentialsErrMsg)
 	}
 
-	if s.ssoEnabled && user.ExternalID != nil && *user.ExternalID != "" {
+	if s.ShouldRequireSsoByUser(user) {
 		s.auditLog(ctx, "login: attempted sso bypass", &user.ID, request.Email)
 		return nil, ErrSsoUserRestricted.New(credentialsErrMsg)
 	}
@@ -5987,6 +5986,7 @@ func (s *Service) TestToggleSatelliteManagedEncryption(b bool) {
 }
 
 // TestToggleSsoEnabled is used in tests to toggle SSO.
-func (s *Service) TestToggleSsoEnabled(enabled bool) {
+func (s *Service) TestToggleSsoEnabled(enabled bool, ssoService *sso.Service) {
 	s.ssoEnabled = enabled
+	s.ssoService = ssoService
 }
