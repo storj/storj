@@ -65,7 +65,7 @@ func TestQuerySchema(t *testing.T) {
 	require.NoError(t, err)
 	defer func() { require.NoError(t, db.Close()) }()
 
-	ddls := SplitDDL(dbSetup)
+	ddls := MustSplitSQLStatements(dbSetup)
 	for i, ddl := range ddls {
 		_, err := db.ExecContext(ctx, ddl)
 		require.NoError(t, err, "failed to execute ddl %d", i)

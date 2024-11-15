@@ -15,7 +15,7 @@ import (
 func QueryData(ctx context.Context, db dbschema.Queryer, schema *dbschema.Schema) (*dbschema.Data, error) {
 	return dbschema.QueryData(ctx, db, schema, func(columnName string) string {
 		quotedColumnName := QuoteIdentifier(columnName)
-		return fmt.Sprintf("TO_JSON(%s)", quotedColumnName)
+		return fmt.Sprintf("TO_JSON_STRING(TO_JSON(%s))", quotedColumnName)
 	})
 }
 

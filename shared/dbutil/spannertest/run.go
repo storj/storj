@@ -22,7 +22,7 @@ var Error = errs.Class("spannertest")
 func RunClient(ctx context.Context, t *testing.T, ddls string, run func(t *testing.T, client *spanner.Client)) {
 	connstr := dbtest.PickSpanner(t)
 
-	ephemeral, err := spannerutil.CreateEphemeralDB(ctx, connstr, t.Name(), spannerutil.SplitDDL(ddls)...)
+	ephemeral, err := spannerutil.CreateEphemeralDB(ctx, connstr, t.Name(), spannerutil.MustSplitSQLStatements(ddls)...)
 	require.NoError(t, err)
 	defer func() { require.NoError(t, ephemeral.Close(ctx)) }()
 
