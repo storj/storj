@@ -340,6 +340,9 @@ compensation.withheld-percents: 75,75,75,50,50,50,25,25,25,0,0,0,0,0,0
 # indicates if Content Security Policy is enabled
 # console.csp-enabled: true
 
+# whether prompt to join cunoFS beta is visible
+# console.cuno-fs-beta-enabled: false
+
 # days left before trial end notification
 # console.days-before-trial-end-notification: 3
 

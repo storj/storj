@@ -114,6 +114,7 @@ type Config struct {
 	DomainsPageEnabled              bool          `help:"whether domains page should be shown" default:"false"`
 	ActiveSessionsViewEnabled       bool          `help:"whether active sessions table view should be shown" default:"false"`
 	ObjectLockUIEnabled             bool          `help:"whether object lock UI should be shown, regardless of whether the feature is enabled" default:"false"`
+	CunoFSBetaEnabled               bool          `help:"whether prompt to join cunoFS beta is visible" default:"false"`
 
 	OauthCodeExpiry         time.Duration `help:"how long oauth authorization codes are issued for" default:"10m"`
 	OauthAccessTokenExpiry  time.Duration `help:"how long oauth access tokens are issued for" default:"24h"`
@@ -924,6 +925,7 @@ func (server *Server) frontendConfigHandler(w http.ResponseWriter, r *http.Reque
 		SsoEnabled:                        server.config.SsoEnabled,
 		SelfServePlacementSelectEnabled:   server.config.Placement.SelfServeEnabled,
 		SelfServePlacementNames:           server.config.Placement.SelfServeNames,
+		CunoFSBetaEnabled:                 server.config.CunoFSBetaEnabled,
 	}
 
 	err := json.NewEncoder(w).Encode(&cfg)
