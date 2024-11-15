@@ -74,6 +74,7 @@ export enum AnalyticsErrorEventSource {
     FILE_BROWSER_LIST_CALL = 'File browser - list API call',
     FILE_BROWSER_ENTRY = 'File browser entry',
     FILE_BROWSER = 'File browser',
+    CUNO_FS_BETA_FORM = 'CunoFS beta form',
     UPGRADE_ACCOUNT_MODAL = 'Upgrade account modal',
     ADD_PROJECT_MEMBER_MODAL = 'Add project member modal',
     ADD_TOKEN_FUNDS_MODAL = 'Add token funds modal',
