@@ -9,13 +9,13 @@ import (
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 
-	"storj.io/storj/storagenode/pieces"
+	"storj.io/storj/storagenode/blobstore/filestore"
 )
 
 // DedicatedDisk is a simplified disk checker for the case when disk is dedicated to the storagenode.
 type DedicatedDisk struct {
 	log              *zap.Logger
-	store            *pieces.Store
+	info             *filestore.DirSpaceInfo
 	minimumDiskSpace int64
 	reservedBytes    int64
 }
@@ -23,10 +23,10 @@ type DedicatedDisk struct {
 var _ SpaceReport = (*DedicatedDisk)(nil)
 
 // NewDedicatedDisk creates a new DedicatedDisk.
-func NewDedicatedDisk(log *zap.Logger, store *pieces.Store, minimumDiskSpace, reservedBytes int64) *DedicatedDisk {
+func NewDedicatedDisk(log *zap.Logger, dir string, minimumDiskSpace, reservedBytes int64) *DedicatedDisk {
 	return &DedicatedDisk{
 		log:              log,
-		store:            store,
+		info:             filestore.NewDirSpaceInfo(dir),
 		minimumDiskSpace: minimumDiskSpace,
 		reservedBytes:    reservedBytes,
 	}
@@ -38,13 +38,13 @@ func (d *DedicatedDisk) PreFlightCheck(ctx context.Context) error {
 		return Error.New("reserved disk space is too low. Minimum is 100 MB")
 	}
 
-	status, err := d.store.StorageStatus(ctx)
+	status, err := d.info.AvailableSpace(ctx)
 	if err != nil {
 		return errs.Wrap(err)
 	}
 
 	// Ensure the disk is at least 500GB in size, which is our current minimum required to be an operator
-	if status.DiskTotal-d.reservedBytes < d.minimumDiskSpace {
+	if status.AvailableSpace-d.reservedBytes < d.minimumDiskSpace {
 		d.log.Error("Total disk space (minus reserved bytes) is less than required minimum", zap.Int64("bytes", d.minimumDiskSpace))
 		return Error.New("disk space requirement not met")
 	}
@@ -53,18 +53,18 @@ func (d *DedicatedDisk) PreFlightCheck(ctx context.Context) error {
 
 // AvailableSpace implements SpaceReport interface.
 func (d *DedicatedDisk) AvailableSpace(ctx context.Context) (_ int64, err error) {
-	status, err := d.store.StorageStatus(ctx)
+	status, err := d.info.AvailableSpace(ctx)
 	if err != nil {
 		return 0, errs.Wrap(err)
 	}
 
-	availableBytes := status.DiskFree - d.reservedBytes
+	availableBytes := status.AvailableSpace - d.reservedBytes
 	if availableBytes < 0 {
 		availableBytes = 0
 	}
 
-	mon.IntVal("allocated_space").Observe(status.DiskTotal - d.reservedBytes)
-	mon.IntVal("used_space").Observe(status.DiskTotal - status.DiskFree)
+	mon.IntVal("allocated_space").Observe(status.TotalSpace - d.reservedBytes)
+	mon.IntVal("used_space").Observe(status.TotalSpace - status.AvailableSpace)
 	mon.IntVal("available_space").Observe(availableBytes)
 
 	return availableBytes, nil
@@ -74,22 +74,22 @@ func (d *DedicatedDisk) AvailableSpace(ctx context.Context) (_ int64, err error)
 func (d *DedicatedDisk) DiskSpace(ctx context.Context) (_ DiskSpace, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	storageStatus, err := d.store.StorageStatus(ctx)
+	storageStatus, err := d.info.AvailableSpace(ctx)
 	if err != nil {
 		return DiskSpace{}, Error.Wrap(err)
 	}
 
 	overused := int64(0)
 
-	availableBytes := storageStatus.DiskFree - d.reservedBytes
+	availableBytes := storageStatus.AvailableSpace - d.reservedBytes
 	if availableBytes < 0 {
 		availableBytes = 0
 	}
 
 	return DiskSpace{
-		Total:     storageStatus.DiskTotal,
-		Allocated: storageStatus.DiskTotal - d.reservedBytes,
-		Free:      storageStatus.DiskFree,
+		Total:     storageStatus.TotalSpace,
+		Allocated: storageStatus.TotalSpace - d.reservedBytes,
+		Free:      storageStatus.AvailableSpace,
 		Available: availableBytes,
 		Overused:  overused,
 	}, nil

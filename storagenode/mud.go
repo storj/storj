@@ -276,10 +276,6 @@ func Module(ball *mud.Ball) {
 
 		mud.Provide[*pieces.Store](ball, pieces.NewStore, logWrapper("pieces"))
 
-		mud.Provide[*pieces.Deleter](ball, func(log *zap.Logger, store *pieces.Store, storage2Config piecestore.Config) *pieces.Deleter {
-			return pieces.NewDeleter(log, store, storage2Config.DeleteWorkers, storage2Config.DeleteQueueSize)
-		}, logWrapper("piecedeleter"))
-
 		mud.Provide[*pieces.BlobsUsageCache](ball, func(log *zap.Logger, blobs RawBlobs) *pieces.BlobsUsageCache {
 			return pieces.NewBlobsUsageCache(log, blobs)
 		}, logWrapper("blobscache"))
@@ -293,13 +289,14 @@ func Module(ball *mud.Ball) {
 
 		mud.RegisterInterfaceImplementation[blobstore.Blobs, RawBlobs](ball)
 
-		mud.Provide[monitor.SpaceReport](ball, func(log *zap.Logger, store *pieces.Store, config monitor.Config) monitor.SpaceReport {
-			return monitor.NewDedicatedDisk(log, store, config.MinimumDiskSpace.Int64(), config.ReservedBytes.Int64())
+		mud.Provide[monitor.SpaceReport](ball, func(log *zap.Logger, oldConfig piecestore.OldConfig, config monitor.Config) monitor.SpaceReport {
+			return monitor.NewDedicatedDisk(log, oldConfig.Path, config.MinimumDiskSpace.Int64(), config.ReservedBytes.Int64())
 		})
 		config.RegisterConfig[monitor.Config](ball, "monitor")
 
-		mud.Provide[*monitor.Service](ball, func(log *zap.Logger, store *pieces.Store, oldConfig piecestore.OldConfig, contact *contact.Service, spaceReport monitor.SpaceReport, config monitor.Config) *monitor.Service {
-			return monitor.NewService(log, store, contact, oldConfig.KBucketRefreshInterval, spaceReport, config)
+		mud.RegisterInterfaceImplementation[monitor.DiskVerification, *pieces.Store](ball)
+		mud.Provide[*monitor.Service](ball, func(log *zap.Logger, verifier monitor.DiskVerification, oldConfig piecestore.OldConfig, contact *contact.Service, spaceReport monitor.SpaceReport, config monitor.Config) *monitor.Service {
+			return monitor.NewService(log, verifier, contact, oldConfig.KBucketRefreshInterval, spaceReport, config)
 		}, logWrapper("piecestore:monitor"))
 
 		mud.Provide[*retain.Service](ball, retain.NewService, logWrapper("retain"))
@@ -325,7 +322,6 @@ func Module(ball *mud.Ball) {
 		})
 
 		mud.RegisterInterfaceImplementation[piecestore.RestoreTrash, *pieces.TrashChore](ball)
-		mud.RegisterInterfaceImplementation[piecestore.EnqueueDeletes, *pieces.Deleter](ball)
 		mud.RegisterInterfaceImplementation[piecestore.QueueRetain, *retain.Service](ball)
 
 		mud.Provide[piecestore.PieceBackend](ball,

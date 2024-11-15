@@ -27,7 +27,7 @@ import (
 )
 
 func TestDiskInfoFromPath(t *testing.T) {
-	info, err := diskInfoFromPath(".")
+	info, err := DiskInfoFromPath(".")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -44,7 +44,7 @@ func BenchmarkDiskInfoFromPath(b *testing.B) {
 	}
 	b.Run(fmt.Sprintf("dir=%q", homedir), func(b *testing.B) {
 		for i := 0; i < b.N; i++ {
-			_, err = diskInfoFromPath(homedir)
+			_, err = DiskInfoFromPath(homedir)
 			if err != nil {
 				b.Fatal(err)
 			}

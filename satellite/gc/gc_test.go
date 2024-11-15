@@ -255,8 +255,6 @@ func TestGarbageCollectionWithCopies(t *testing.T) {
 					require.NoError(t, err)
 				}
 
-				planet.WaitForStorageNodeDeleters(ctx)
-
 				// run GC
 				_, err = rangedLoop.RunOnce(ctx)
 				require.NoError(t, err)
@@ -280,8 +278,6 @@ func TestGarbageCollectionWithCopies(t *testing.T) {
 					_, err = project.DeleteObject(ctx, "testbucket", toDelete)
 					require.NoError(t, err)
 				}
-
-				planet.WaitForStorageNodeDeleters(ctx)
 
 				// run GC
 				_, err = rangedLoop.RunOnce(ctx)
@@ -409,8 +405,6 @@ func TestGarbageCollectionWithCopiesWithDuplicateMetadata(t *testing.T) {
 					require.NoError(t, err)
 				}
 
-				planet.WaitForStorageNodeDeleters(ctx)
-
 				// run GC
 				_, err = rangedLoop.RunOnce(ctx)
 				require.NoError(t, err)
@@ -434,8 +428,6 @@ func TestGarbageCollectionWithCopiesWithDuplicateMetadata(t *testing.T) {
 					_, err = project.DeleteObject(ctx, "testbucket", toDelete)
 					require.NoError(t, err)
 				}
-
-				planet.WaitForStorageNodeDeleters(ctx)
 
 				// run GC
 				_, err = rangedLoop.RunOnce(ctx)
