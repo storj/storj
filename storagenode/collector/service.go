@@ -96,30 +96,27 @@ func (service *Service) Collect(ctx context.Context, now time.Time) (err error) 
 	}()
 
 	for {
-		batch, err := service.pieces.GetExpiredBatchSkipV0(ctx, now, service.batchSize)
+		infoLists, err := service.pieces.GetExpiredBatchSkipV0(ctx, now, service.batchSize)
 		if err != nil {
 			return errs.Wrap(err)
 		}
 
-		count := len(batch)
-		if count == 0 {
-			return nil
-		}
-
-		for _, ei := range batch {
+		for _, eiList := range infoLists {
 			if ctx.Err() != nil {
 				return errs.Wrap(ctx.Err())
 			}
-			// delete the piece from the storage
-			err := service.pieces.DeleteSkipV0(ctx, ei.SatelliteID, ei.PieceID, ei.PieceSize)
-			if err != nil {
-				service.log.Warn("unable to delete piece", zap.Stringer("Satellite ID", ei.SatelliteID), zap.Stringer("Piece ID", ei.PieceID), zap.Error(err))
-			} else {
-				service.log.Debug("deleted expired piece", zap.Stringer("Satellite ID", ei.SatelliteID), zap.Stringer("Piece ID", ei.PieceID))
+			numCollected += eiList.Len()
+			for i := 0; i < eiList.Len(); i++ {
+				pieceID, pieceSize := eiList.PieceIDAtIndex(i)
+				// delete the piece from the storage
+				err := service.pieces.DeleteSkipV0(ctx, eiList.SatelliteID, pieceID, pieceSize)
+				if err != nil {
+					service.log.Warn("unable to delete piece", zap.Stringer("Satellite ID", eiList.SatelliteID), zap.Stringer("Piece ID", pieceID), zap.Error(err))
+				} else {
+					service.log.Debug("deleted expired piece", zap.Stringer("Satellite ID", eiList.SatelliteID), zap.Stringer("Piece ID", pieceID))
+				}
 			}
 		}
-
-		numCollected += count
 
 		// delete the batch from the database
 		if deleteErr := service.pieces.DeleteExpiredBatchSkipV0(ctx, now, service.batchSize); deleteErr != nil {

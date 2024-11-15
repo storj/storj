@@ -37,8 +37,9 @@ func TestPieceExpirationDB_noBuffering(t *testing.T) {
 		pieceID := testrand.PieceID()
 
 		// GetExpired with no matches
-		expired, err := expireDB.GetExpired(ctx, time.Now(), -1)
+		expiredLists, err := expireDB.GetExpired(ctx, time.Now(), -1)
 		require.NoError(t, err)
+		expired := pieces.FlattenExpirationInfoLists(expiredLists)
 		require.Len(t, expired, 0)
 
 		// DeleteExpiration with no matches
@@ -52,8 +53,9 @@ func TestPieceExpirationDB_noBuffering(t *testing.T) {
 		require.NoError(t, err)
 
 		// GetExpired normal usage
-		expired, err = expireDB.GetExpired(ctx, expireAt, -1)
+		expiredLists, err = expireDB.GetExpired(ctx, expireAt, -1)
 		require.NoError(t, err)
+		expired = pieces.FlattenExpirationInfoLists(expiredLists)
 		require.Len(t, expired, 1)
 
 		// DeleteExpiration normal usage
@@ -61,8 +63,9 @@ func TestPieceExpirationDB_noBuffering(t *testing.T) {
 		require.NoError(t, err)
 
 		// Should not be there anymore
-		expired, err = expireDB.GetExpired(ctx, expireAt.Add(365*24*time.Hour), -1)
+		expiredLists, err = expireDB.GetExpired(ctx, expireAt.Add(365*24*time.Hour), -1)
 		require.NoError(t, err)
+		expired = pieces.FlattenExpirationInfoLists(expiredLists)
 		require.Len(t, expired, 0)
 
 		// let's add a few more
@@ -84,18 +87,21 @@ func TestPieceExpirationDB_noBuffering(t *testing.T) {
 		}
 
 		// GetExpired batch
-		expired, err = expireDB.GetExpired(ctx, expireAt, 1)
+		expiredLists, err = expireDB.GetExpired(ctx, expireAt, 1)
 		require.NoError(t, err)
+		expired = pieces.FlattenExpirationInfoLists(expiredLists)
 		require.Len(t, expired, 1)
 		require.Equal(t, expectedExpired[:1], expired)
 
-		expired, err = expireDB.GetExpired(ctx, expireAt, 3)
+		expiredLists, err = expireDB.GetExpired(ctx, expireAt, 3)
 		require.NoError(t, err)
+		expired = pieces.FlattenExpirationInfoLists(expiredLists)
 		require.Len(t, expired, 3)
 		require.Equal(t, expectedExpired[:3], expired)
 
-		expired, err = expireDB.GetExpired(ctx, expireAt, 10)
+		expiredLists, err = expireDB.GetExpired(ctx, expireAt, 10)
 		require.NoError(t, err)
+		expired = pieces.FlattenExpirationInfoLists(expiredLists)
 		require.Len(t, expired, 10)
 		require.Equal(t, expectedExpired, expired)
 
@@ -103,8 +109,9 @@ func TestPieceExpirationDB_noBuffering(t *testing.T) {
 		err = expireDB.DeleteExpirationsBatch(ctx, expireAt, 5)
 		require.NoError(t, err)
 		// 5 old records should be gone
-		expired, err = expireDB.GetExpired(ctx, expireAt, 10)
+		expiredLists, err = expireDB.GetExpired(ctx, expireAt, 10)
 		require.NoError(t, err)
+		expired = pieces.FlattenExpirationInfoLists(expiredLists)
 		require.Len(t, expired, 5)
 		require.Equal(t, expectedExpired[5:], expired)
 	})
@@ -142,8 +149,9 @@ func TestPieceExpirationBothDBs(t *testing.T) {
 		require.NoError(t, err)
 
 		// check to see that values are in both backends
-		expirationInfos, err := store.GetExpired(ctx, now.Add(72*time.Hour), -1)
+		expirationLists, err := store.GetExpired(ctx, now.Add(72*time.Hour), -1)
 		require.NoError(t, err)
+		expirationInfos := pieces.FlattenExpirationInfoLists(expirationLists)
 		require.Contains(t, expirationInfos, pieces.ExpiredInfo{
 			SatelliteID: satelliteID,
 			PieceID:     pieceID1,
@@ -165,8 +173,9 @@ func TestPieceExpirationBothDBs(t *testing.T) {
 		require.NoError(t, err)
 
 		// piece1 should be deleted from both databases, and not the others
-		expirationInfos, err = store.GetExpired(ctx, now.Add(72*time.Hour), -1)
+		expirationLists, err = store.GetExpired(ctx, now.Add(72*time.Hour), -1)
 		require.NoError(t, err)
+		expirationInfos = pieces.FlattenExpirationInfoLists(expirationLists)
 		require.Len(t, expirationInfos, 2)
 		require.Contains(t, expirationInfos, pieces.ExpiredInfo{
 			SatelliteID: satelliteID,
@@ -179,8 +188,9 @@ func TestPieceExpirationBothDBs(t *testing.T) {
 		})
 
 		// querying sqlite3 db only
-		expirationInfos, err = sqliteDB.GetExpired(ctx, now.Add(72*time.Hour), -1)
+		expirationLists, err = sqliteDB.GetExpired(ctx, now.Add(72*time.Hour), -1)
 		require.NoError(t, err)
+		expirationInfos = pieces.FlattenExpirationInfoLists(expirationLists)
 		require.Len(t, expirationInfos, 1)
 		require.Equal(t, pieces.ExpiredInfo{
 			SatelliteID: satelliteID,
@@ -221,8 +231,9 @@ func TestPieceExpirationBatchBothDBs(t *testing.T) {
 		require.NoError(t, err)
 
 		// check to see that values are in both backends
-		expirationInfos, err := store.GetExpired(ctx, now.Add(72*time.Hour), -1)
+		expirationLists, err := store.GetExpired(ctx, now.Add(72*time.Hour), -1)
 		require.NoError(t, err)
+		expirationInfos := pieces.FlattenExpirationInfoLists(expirationLists)
 		require.Contains(t, expirationInfos, pieces.ExpiredInfo{
 			SatelliteID: satelliteID,
 			PieceID:     pieceID1,
@@ -244,8 +255,9 @@ func TestPieceExpirationBatchBothDBs(t *testing.T) {
 		require.NoError(t, err)
 
 		// piece1 should be deleted from both databases, and not the others
-		expirationInfos, err = store.GetExpired(ctx, now.Add(72*time.Hour), -1)
+		expirationLists, err = store.GetExpired(ctx, now.Add(72*time.Hour), -1)
 		require.NoError(t, err)
+		expirationInfos = pieces.FlattenExpirationInfoLists(expirationLists)
 		require.Len(t, expirationInfos, 2)
 		require.Contains(t, expirationInfos, pieces.ExpiredInfo{
 			SatelliteID: satelliteID,
@@ -258,8 +270,9 @@ func TestPieceExpirationBatchBothDBs(t *testing.T) {
 		})
 
 		// querying sqlite3 db only
-		expirationInfos, err = sqliteDB.GetExpired(ctx, now.Add(72*time.Hour), -1)
+		expirationLists, err = sqliteDB.GetExpired(ctx, now.Add(72*time.Hour), -1)
 		require.NoError(t, err)
+		expirationInfos = pieces.FlattenExpirationInfoLists(expirationLists)
 		require.Len(t, expirationInfos, 1)
 		require.Equal(t, pieces.ExpiredInfo{
 			SatelliteID: satelliteID,

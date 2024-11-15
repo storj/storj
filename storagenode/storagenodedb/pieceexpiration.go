@@ -39,16 +39,24 @@ var monGetExpired = mon.Task()
 
 // GetExpired gets piece IDs that expire or have expired before the given time.
 // If batchSize is less than or equal to 0, it will return all expired pieces in one batch.
-func (db *pieceExpirationDB) GetExpired(ctx context.Context, now time.Time, batchSize int) (info []pieces.ExpiredInfo, err error) {
+func (db *pieceExpirationDB) GetExpired(ctx context.Context, now time.Time, batchSize int) (info []*pieces.ExpiredInfoRecords, err error) {
 	defer monGetExpired(&ctx)(&err)
 
 	now = now.UTC()
 
 	db.mu.Lock()
 	count := 0
+	infoRecordsBySatellite := make(map[storj.NodeID]*pieces.ExpiredInfoRecords)
+
 	for ei, exp := range db.buf {
 		if exp.Before(now) {
-			info = append(info, ei)
+			satList, ok := infoRecordsBySatellite[ei.SatelliteID]
+			if !ok {
+				satList = pieces.NewExpiredInfoRecords(ei.SatelliteID, true, 1)
+				infoRecordsBySatellite[ei.SatelliteID] = satList
+				info = append(info, satList)
+			}
+			satList.Append(ei.PieceID, ei.PieceSize)
 			count++
 			if batchSize > 0 && count >= batchSize {
 				break
@@ -79,7 +87,7 @@ var monGetExpiredPaginated = mon.Task()
 
 // getExpiredPaginated returns a paginated list of expired pieces.
 // If limit is less than or equal to 0, it will return all expired pieces.
-func (db *pieceExpirationDB) getExpiredPaginated(ctx context.Context, now time.Time, limit int) (info []pieces.ExpiredInfo, err error) {
+func (db *pieceExpirationDB) getExpiredPaginated(ctx context.Context, now time.Time, limit int) (info []*pieces.ExpiredInfoRecords, err error) {
 	defer monGetExpiredPaginated(&ctx)(&err)
 
 	query := `
@@ -107,13 +115,20 @@ func (db *pieceExpirationDB) getExpiredPaginated(ctx context.Context, now time.T
 		err = errs.Combine(err, rows.Err(), rows.Close())
 	}()
 
+	infoRecordsBySatellite := make(map[storj.NodeID]*pieces.ExpiredInfoRecords)
 	for rows.Next() {
 		var ei pieces.ExpiredInfo
 		err = rows.Scan(&ei.SatelliteID, &ei.PieceID)
 		if err != nil {
 			return nil, ErrPieceExpiration.Wrap(err)
 		}
-		info = append(info, ei)
+		satList, ok := infoRecordsBySatellite[ei.SatelliteID]
+		if !ok {
+			satList = pieces.NewExpiredInfoRecords(ei.SatelliteID, false, 1)
+			info = append(info, satList)
+			infoRecordsBySatellite[ei.SatelliteID] = satList
+		}
+		satList.Append(ei.PieceID, ei.PieceSize)
 	}
 
 	return info, nil

@@ -67,7 +67,7 @@ type PieceExpirationDB interface {
 	// os.Stat on the piece.
 	SetExpiration(ctx context.Context, satellite storj.NodeID, pieceID storj.PieceID, expiresAt time.Time, pieceSize int64) error
 	// GetExpired gets piece IDs that expire or have expired before the given time
-	GetExpired(ctx context.Context, expiresBefore time.Time, batchSize int) ([]ExpiredInfo, error)
+	GetExpired(ctx context.Context, expiresBefore time.Time, batchSize int) ([]*ExpiredInfoRecords, error)
 	// DeleteExpirations deletes approximately all the expirations that happen before the given time
 	DeleteExpirations(ctx context.Context, expiresAt time.Time) error
 	// DeleteExpirationsBatch deletes the pieces in the batch
@@ -86,7 +86,7 @@ type V0PieceInfoDB interface {
 	Delete(ctx context.Context, satelliteID storj.NodeID, pieceID storj.PieceID) error
 	// GetExpired gets piece IDs stored with storage format V0 that expire or have expired
 	// before the given time
-	GetExpired(ctx context.Context, expiredAt time.Time) ([]ExpiredInfo, error)
+	GetExpired(ctx context.Context, expiredAt time.Time) ([]*ExpiredInfoRecords, error)
 	// DeleteExpirations deletes approximately all the expirations that happen before the given time
 	DeleteExpirations(ctx context.Context, expiresAt time.Time) error
 	// WalkSatelliteV0Pieces executes walkFunc for each locally stored piece, stored
@@ -601,7 +601,7 @@ func (store *Store) WalkSatellitePiecesToTrash(ctx context.Context, satelliteID 
 }
 
 // GetExpired gets piece IDs that are expired and were created before the given time.
-func (store *Store) GetExpired(ctx context.Context, expiredAt time.Time) (info []ExpiredInfo, err error) {
+func (store *Store) GetExpired(ctx context.Context, expiredAt time.Time) (info []*ExpiredInfoRecords, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	info, err = store.GetExpiredBatchSkipV0(ctx, expiredAt, 0)
@@ -624,7 +624,7 @@ func (store *Store) GetExpired(ctx context.Context, expiredAt time.Time) (info [
 // GetExpiredBatchSkipV0 gets piece IDs that are expired and were created before the given time
 // limiting the number of pieces returned to the batch size.
 // This method skips V0 pieces.
-func (store *Store) GetExpiredBatchSkipV0(ctx context.Context, expiredAt time.Time, batchSize int) (batch []ExpiredInfo, err error) {
+func (store *Store) GetExpiredBatchSkipV0(ctx context.Context, expiredAt time.Time, batchSize int) (batch []*ExpiredInfoRecords, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	batch, err = store.expirationInfo.GetExpired(ctx, expiredAt, batchSize)

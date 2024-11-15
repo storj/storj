@@ -138,7 +138,7 @@ func (peStore *PieceExpirationStore) flushOnTicks() {
 var monGetExpired = mon.Task()
 
 // GetExpired gets piece IDs that expire or have expired before the given time.
-func (peStore *PieceExpirationStore) GetExpired(ctx context.Context, now time.Time, limit int) (infos []ExpiredInfo, err error) {
+func (peStore *PieceExpirationStore) GetExpired(ctx context.Context, now time.Time, limit int) (infos []*ExpiredInfoRecords, err error) {
 	defer monGetExpired(&ctx)(&err)
 
 	satellites, err := peStore.getSatellitesWithExpirations(ctx)
@@ -151,7 +151,7 @@ func (peStore *PieceExpirationStore) GetExpired(ctx context.Context, now time.Ti
 		if err != nil {
 			errList.Add(ErrPieceExpiration.Wrap(err))
 		}
-		infos = append(infos, satelliteInfos...)
+		infos = append(infos, satelliteInfos)
 	}
 	if peStore.chainedStore != nil {
 		chainedInfos, err := peStore.chainedStore.GetExpired(ctx, now, limit)
@@ -232,7 +232,7 @@ var monGetExpiredForSatellite = mon.Task()
 
 // GetExpiredForSatellite gets piece IDs that expire or have expired before the
 // given time for a specific satellite.
-func (peStore *PieceExpirationStore) GetExpiredForSatellite(ctx context.Context, satellite storj.NodeID, now time.Time) (infos []ExpiredInfo, err error) {
+func (peStore *PieceExpirationStore) GetExpiredForSatellite(ctx context.Context, satellite storj.NodeID, now time.Time) (infos *ExpiredInfoRecords, err error) {
 	defer monGetExpiredForSatellite(&ctx)(&err)
 
 	elapsed, err := peStore.getElapsedHoursWithExpirations(ctx, satellite, now)
@@ -267,6 +267,27 @@ func (peStore *PieceExpirationStore) GetExpiredForSatellite(ctx context.Context,
 			}
 		}()
 	}
+
+	// stat all files we're about to read, to get a reasonable estimate of the
+	// total size we'll need
+	var totalRecords int
+	for _, elapsedHour := range elapsed {
+		hourKey := makeHourKey(satellite, elapsedHour)
+		filename := peStore.fileForKey(hourKey)
+		stat, err := os.Stat(filename)
+		if err != nil {
+			// If this error is important, it will arise again when we try to
+			// open or read the file below. For now, at worst, it is going to
+			// leave us with a short count and possibly make us do another
+			// allocation.
+			continue
+		}
+		totalRecords += int(stat.Size() / int64(expirationRecordSize))
+	}
+
+	// and just in case the count is off by a little bit, add a fudge factor
+	// because we really don't want to reallocate a large slice.
+	infos = NewExpiredInfoRecords(satellite, false, totalRecords+1000)
 
 	// open and read all applicable files (whether they are open in the pool or not)
 	for _, elapsedHour := range elapsed {
@@ -305,11 +326,7 @@ func (peStore *PieceExpirationStore) GetExpiredForSatellite(ctx context.Context,
 					errList.Add(ErrPieceExpiration.New("reading piece expiration file %s: %w", filename, err))
 					return
 				}
-				infos = append(infos, ExpiredInfo{
-					SatelliteID: satellite,
-					PieceID:     pieceID,
-					PieceSize:   int64(binary.BigEndian.Uint64(timeBuf[:])),
-				})
+				infos.Append(pieceID, int64(binary.BigEndian.Uint64(timeBuf[:])))
 			}
 		}()
 		if err := ctx.Err(); err != nil {
