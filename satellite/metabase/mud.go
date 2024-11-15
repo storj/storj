@@ -17,7 +17,7 @@ import (
 
 //go:embed adapter_spanner_scheme.sql
 var spannerDDL string
-var spannerDDLs = spannerutil.SplitDDL(spannerDDL)
+var spannerDDLs = spannerutil.MustSplitSQLStatements(spannerDDL)
 
 // SpannerTestModule adds all the required dependencies for Spanner migration and adapter.
 func SpannerTestModule(ball *mud.Ball, spannerConnection string) {
