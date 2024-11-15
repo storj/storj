@@ -18,6 +18,8 @@ import (
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 
+	"storj.io/common/storj"
+	"storj.io/common/uuid"
 	"storj.io/storj/private/web"
 	"storj.io/storj/satellite/console"
 	"storj.io/storj/satellite/payments"
@@ -638,6 +640,59 @@ func (p *Payments) GetProjectUsagePriceModel(w http.ResponseWriter, r *http.Requ
 	}
 
 	pricing := p.service.Payments().GetProjectUsagePriceModel(string(user.UserAgent))
+
+	if err = json.NewEncoder(w).Encode(pricing); err != nil {
+		p.log.Error("failed to encode project usage price model", zap.Error(ErrPaymentsAPI.Wrap(err)))
+	}
+}
+
+// GetPartnerPlacementPriceModel returns the bucket usage price model for the user and placement.
+func (p *Payments) GetPartnerPlacementPriceModel(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	var err error
+	defer mon.Task()(&ctx)(&err)
+
+	w.Header().Set("Content-Type", "application/json")
+
+	var placement storj.PlacementConstraint
+	placementStr := mux.Vars(r)["placement"]
+	if placementStr == "" {
+		placementStr = mux.Vars(r)["placementName"]
+		placement, err = p.service.GetPlacementByName(placementStr)
+		if err != nil {
+			p.serveJSONError(ctx, w, http.StatusNotFound, err)
+			return
+		}
+	} else {
+		pl, err := strconv.ParseInt(placementStr, 10, 64)
+		if err != nil {
+			p.serveJSONError(ctx, w, http.StatusBadRequest, errs.New("invalid placement"))
+			return
+		}
+		placement = storj.PlacementConstraint(pl)
+	}
+
+	projectIDStr := mux.Vars(r)["projectID"]
+	if projectIDStr == "" {
+		p.serveJSONError(ctx, w, http.StatusBadRequest, errs.New("projectID is required"))
+		return
+	}
+
+	projectID, err := uuid.FromString(projectIDStr)
+	if err != nil {
+		p.serveJSONError(ctx, w, http.StatusBadRequest, errs.New("invalid project id: %v", err))
+		return
+	}
+
+	pricing, err := p.service.Payments().GetPartnerPlacementPriceModel(ctx, projectID, placement)
+	if err != nil {
+		if stripe.ErrPricingNotfound.Has(err) {
+			p.serveJSONError(ctx, w, http.StatusNotFound, err)
+			return
+		}
+		p.serveJSONError(ctx, w, http.StatusInternalServerError, err)
+		return
+	}
 
 	if err = json.NewEncoder(w).Encode(pricing); err != nil {
 		p.log.Error("failed to encode project usage price model", zap.Error(ErrPaymentsAPI.Wrap(err)))

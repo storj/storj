@@ -408,6 +408,7 @@ func NewServer(logger *zap.Logger, config Config, service *console.Service, oidc
 		paymentsRouter.Handle("/coupon/apply", server.userIDRateLimiter.Limit(http.HandlerFunc(paymentController.ApplyCouponCode))).Methods(http.MethodPatch, http.MethodOptions)
 		paymentsRouter.HandleFunc("/coupon", paymentController.GetCoupon).Methods(http.MethodGet, http.MethodOptions)
 		paymentsRouter.HandleFunc("/pricing", paymentController.GetProjectUsagePriceModel).Methods(http.MethodGet, http.MethodOptions)
+		paymentsRouter.HandleFunc("/placement-pricing", paymentController.GetPartnerPlacementPriceModel).Methods(http.MethodGet, http.MethodOptions)
 		paymentsRouter.HandleFunc("/countries", paymentController.GetTaxCountries).Methods(http.MethodGet, http.MethodOptions)
 		paymentsRouter.HandleFunc("/countries/{countryCode}/taxes", paymentController.GetCountryTaxes).Methods(http.MethodGet, http.MethodOptions)
 		if config.PricingPackagesEnabled {

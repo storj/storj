@@ -176,6 +176,16 @@ type PlacementProductMap struct {
 	placementProductMap map[int]string
 }
 
+// SetMap sets the internal mapping between placements and products.
+func (p *PlacementProductMap) SetMap(placementProductMap map[int]string) {
+	p.placementProductMap = placementProductMap
+}
+
+// ToMap flattens the placement to product map typed as payments.PlacementProductMap.
+func (p *PlacementProductMap) ToMap() payments.PlacementProductMap {
+	return p.placementProductMap
+}
+
 // Type returns the type of the pflag.Value.
 func (PlacementProductMap) Type() string { return "paymentsconfig.PlacementProductMap" }
 
@@ -251,6 +261,21 @@ var _ pflag.Value = (*PartnersPlacementProductMap)(nil)
 // PartnersPlacementProductMap maps partners to placements to products map.
 type PartnersPlacementProductMap struct {
 	partnerPlacementProductMap map[string]PlacementProductMap
+}
+
+// SetMap sets the internal mapping between partners, placements and products.
+func (p *PartnersPlacementProductMap) SetMap(partnerPlacementProductMap map[string]PlacementProductMap) {
+	p.partnerPlacementProductMap = partnerPlacementProductMap
+}
+
+// ToMap flattens the partners to placements to product map
+// typed as payments.PartnersPlacementProductMap.
+func (p *PartnersPlacementProductMap) ToMap() payments.PartnersPlacementProductMap {
+	productMap := make(payments.PartnersPlacementProductMap)
+	for partner, placementProductMap := range p.partnerPlacementProductMap {
+		productMap[partner] = placementProductMap.ToMap()
+	}
+	return productMap
 }
 
 // Type returns the type of the pflag.Value.

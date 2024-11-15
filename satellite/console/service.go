@@ -32,6 +32,7 @@ import (
 	"storj.io/common/http/requestid"
 	"storj.io/common/macaroon"
 	"storj.io/common/memory"
+	"storj.io/common/storj"
 	"storj.io/common/uuid"
 	"storj.io/storj/private/api"
 	"storj.io/storj/private/blockchain"
@@ -197,6 +198,9 @@ var (
 
 	// ErrFailedToUpgrade occurs when a user can't be upgraded to paid tier.
 	ErrFailedToUpgrade = errs.Class("failed to upgrade user to paid tier")
+
+	// ErrPlacementNotFound occurs when a placement is not found.
+	ErrPlacementNotFound = errs.Class("placement not found")
 )
 
 // Service is handling accounts related logic.
@@ -210,6 +214,7 @@ type Service struct {
 	projectUsage               *accounting.Service
 	buckets                    buckets.DB
 	placements                 nodeselection.PlacementDefinitions
+	placementNameLookup        map[string]storj.PlacementConstraint
 	accounts                   payments.Accounts
 	depositWallets             payments.DepositWallets
 	billing                    billing.TransactionsDB
@@ -302,6 +307,11 @@ func NewService(log *zap.Logger, store DB, restKeys RESTKeys, projectAccounting 
 		}
 	}
 
+	placementNameLookup := make(map[string]storj.PlacementConstraint, len(placements))
+	for _, placement := range placements {
+		placementNameLookup[placement.Name] = placement.ID
+	}
+
 	return &Service{
 		log:                           log,
 		auditLogger:                   log.Named("auditlog"),
@@ -311,6 +321,7 @@ func NewService(log *zap.Logger, store DB, restKeys RESTKeys, projectAccounting 
 		projectUsage:                  projectUsage,
 		buckets:                       buckets,
 		placements:                    placements,
+		placementNameLookup:           placementNameLookup,
 		accounts:                      accounts,
 		depositWallets:                depositWallets,
 		billing:                       billingDb,
@@ -5028,6 +5039,14 @@ func (s *Service) isProjectMember(ctx context.Context, userID uuid.UUID, project
 	return isProjectMember{}, ErrNoMembership.New(unauthorizedErrMsg)
 }
 
+// GetPlacementByName returns the placement constraint by name.
+func (s *Service) GetPlacementByName(name string) (storj.PlacementConstraint, error) {
+	if placement, ok := s.placementNameLookup[name]; ok {
+		return placement, nil
+	}
+	return storj.DefaultPlacement, ErrPlacementNotFound.New("")
+}
+
 // WalletInfo contains all the information about a destination wallet assigned to a user.
 type WalletInfo struct {
 	Address blockchain.Address `json:"address"`
@@ -5328,6 +5347,19 @@ func (payment Payments) ApplyCredit(ctx context.Context, amount int64, desc stri
 func (payment Payments) GetProjectUsagePriceModel(partner string) (_ *payments.ProjectUsagePriceModel) {
 	model := payment.service.accounts.GetProjectUsagePriceModel(partner)
 	return &model
+}
+
+// GetPartnerPlacementPriceModel returns the project usage price model for the project's user agent and placement.
+func (payment Payments) GetPartnerPlacementPriceModel(ctx context.Context, projectID uuid.UUID, placement storj.PlacementConstraint) (payments.ProjectUsagePriceModel, error) {
+	user, err := GetUser(ctx)
+	if err != nil {
+		return payments.ProjectUsagePriceModel{}, ErrUnauthorized.Wrap(err)
+	}
+	isMember, err := payment.service.isProjectMember(ctx, user.ID, projectID)
+	if err != nil {
+		return payments.ProjectUsagePriceModel{}, ErrUnauthorized.Wrap(err)
+	}
+	return payment.service.accounts.GetPartnerPlacementPriceModel(string(isMember.project.UserAgent), placement)
 }
 
 func findMembershipByProjectID(memberships []ProjectMember, projectID uuid.UUID) (ProjectMember, bool) {

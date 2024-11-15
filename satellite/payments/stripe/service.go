@@ -40,6 +40,10 @@ var (
 	// Error defines stripecoinpayments service error.
 	Error = errs.Class("stripecoinpayments service")
 
+	// ErrPricingNotfound is returned when pricing model for a
+	// partner and/or placement is not found.
+	ErrPricingNotfound = errs.Class("pricing not found")
+
 	mon = monkit.Package()
 
 	_ healthcheck.HealthCheck = (*Service)(nil)
@@ -105,10 +109,13 @@ type Service struct {
 	useIdempotency       bool
 	deleteAccountEnabled bool
 	nowFn                func() time.Time
+	partnerPlacementMap  payments.PartnersPlacementProductMap
+	placementProductMap  payments.PlacementProductMap
+	productPriceMap      map[string]payments.ProjectUsagePriceModel
 }
 
 // NewService creates a Service instance.
-func NewService(log *zap.Logger, stripeClient Client, config Config, db DB, walletsDB storjscan.WalletsDB, billingDB billing.TransactionsDB, projectsDB console.Projects, usersDB console.Users, usageDB accounting.ProjectAccounting, usagePrices payments.ProjectUsagePriceModel, usagePriceOverrides map[string]payments.ProjectUsagePriceModel, packagePlans map[string]payments.PackagePlan, bonusRate int64, analyticsService *analytics.Service, emissionService *emission.Service, deleteAccountEnabled bool) (*Service, error) {
+func NewService(log *zap.Logger, stripeClient Client, config Config, db DB, walletsDB storjscan.WalletsDB, billingDB billing.TransactionsDB, projectsDB console.Projects, usersDB console.Users, usageDB accounting.ProjectAccounting, usagePrices payments.ProjectUsagePriceModel, usagePriceOverrides map[string]payments.ProjectUsagePriceModel, productPriceMap map[string]payments.ProjectUsagePriceModel, partnerPlacementMap payments.PartnersPlacementProductMap, placementProductMap payments.PlacementProductMap, packagePlans map[string]payments.PackagePlan, bonusRate int64, analyticsService *analytics.Service, emissionService *emission.Service, deleteAccountEnabled bool) (*Service, error) {
 	var partners []string
 	for partner := range usagePriceOverrides {
 		partners = append(partners, partner)
@@ -137,6 +144,9 @@ func NewService(log *zap.Logger, stripeClient Client, config Config, db DB, wall
 		maxParallelCalls:       config.MaxParallelCalls,
 		removeExpiredCredit:    config.RemoveExpiredCredit,
 		useIdempotency:         config.UseIdempotency,
+		partnerPlacementMap:    partnerPlacementMap,
+		placementProductMap:    placementProductMap,
+		productPriceMap:        productPriceMap,
 		deleteAccountEnabled:   deleteAccountEnabled,
 		nowFn:                  time.Now,
 	}, nil

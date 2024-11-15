@@ -20,6 +20,7 @@ import (
 	"storj.io/common/currency"
 	"storj.io/common/memory"
 	"storj.io/common/pb"
+	"storj.io/common/storj"
 	"storj.io/common/testcontext"
 	"storj.io/common/testrand"
 	"storj.io/common/uuid"
@@ -31,6 +32,7 @@ import (
 	"storj.io/storj/satellite/buckets"
 	"storj.io/storj/satellite/console"
 	"storj.io/storj/satellite/metabase"
+	"storj.io/storj/satellite/nodeselection"
 	"storj.io/storj/satellite/payments"
 	"storj.io/storj/satellite/payments/billing"
 	"storj.io/storj/satellite/payments/paymentsconfig"
@@ -1602,6 +1604,64 @@ func TestProjectUsagePrice(t *testing.T) {
 				require.Equal(t, storage, items[2].UnitAmountDecimal)
 			})
 		}
+	})
+}
+
+func TestPartnerPlacementPrice(t *testing.T) {
+	var (
+		product      = "product"
+		partner      = "partner"
+		placement    = storj.PlacementConstraint(10)
+		productPrice = paymentsconfig.ProjectUsagePrice{
+			StorageTB: "4",
+			EgressTB:  "5",
+			Segment:   "6",
+		}
+	)
+	productModel, err := productPrice.ToModel()
+	require.NoError(t, err)
+
+	testplanet.Run(t, testplanet.Config{
+		SatelliteCount: 1, StorageNodeCount: 0, UplinkCount: 0,
+		Reconfigure: testplanet.Reconfigure{
+			Satellite: func(log *zap.Logger, index int, config *satellite.Config) {
+				config.Placement = nodeselection.ConfigurablePlacementRule{PlacementRules: `10:annotation("location", "placement10")`}
+				config.Payments.Products.SetMap(map[string]paymentsconfig.ProjectUsagePrice{
+					product: productPrice,
+				})
+				config.Payments.PlacementPriceOverrides.SetMap(map[int]string{int(placement): product})
+				config.Payments.PartnersPlacementPriceOverrides.SetMap(map[string]paymentsconfig.PlacementProductMap{
+					partner: config.Payments.PlacementPriceOverrides,
+				})
+			},
+		},
+	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+		sat := planet.Satellites[0]
+
+		model, err := sat.API.Payments.Accounts.GetPartnerPlacementPriceModel(partner, placement)
+		require.NoError(t, err)
+		require.Equal(t, productModel, model)
+
+		user, err := sat.AddUser(ctx, console.CreateUser{
+			FullName:  "Test User",
+			Password:  "password",
+			Email:     "email@test.test",
+			UserAgent: []byte(partner),
+		}, 1)
+		require.NoError(t, err)
+
+		userCtx, err := sat.UserContext(ctx, user.ID)
+		require.NoError(t, err)
+
+		proj, err := sat.API.Console.Service.CreateProject(userCtx, console.UpsertProjectInfo{
+			Name: "testproject",
+		})
+		require.NoError(t, err)
+		require.Equal(t, partner, string(proj.UserAgent))
+
+		model, err = sat.API.Console.Service.Payments().GetPartnerPlacementPriceModel(userCtx, proj.ID, placement)
+		require.NoError(t, err)
+		require.Equal(t, productModel, model)
 	})
 }
 

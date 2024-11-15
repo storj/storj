@@ -9,11 +9,32 @@ import (
 
 	"github.com/zeebo/errs"
 
+	"storj.io/common/storj"
 	"storj.io/common/uuid"
 )
 
 // ErrAccountNotSetup is an error type which indicates that payment account is not created.
 var ErrAccountNotSetup = errs.Class("payment account is not set up")
+
+// PartnersPlacementProductMap maps partners to placements to products map.
+type PartnersPlacementProductMap map[string]PlacementProductMap
+
+// GetProductByPartnerAndPlacement returns the product mapped to the given partner and placement.
+func (p PartnersPlacementProductMap) GetProductByPartnerAndPlacement(partner string, placement int) string {
+	placementProductMap, ok := p[partner]
+	if !ok {
+		return ""
+	}
+	return placementProductMap.GetProductByPlacement(placement)
+}
+
+// PlacementProductMap maps placements to products.
+type PlacementProductMap map[int]string
+
+// GetProductByPlacement returns the product mapped to the given placement.
+func (p PlacementProductMap) GetProductByPlacement(placement int) string {
+	return p[placement]
+}
 
 // Accounts exposes all needed functionality to manage payment accounts.
 //
@@ -58,6 +79,9 @@ type Accounts interface {
 
 	// GetProjectUsagePriceModel returns the project usage price model for a partner name.
 	GetProjectUsagePriceModel(partner string) ProjectUsagePriceModel
+
+	// GetPartnerPlacementPriceModel returns the usage price model for a partner and placement.
+	GetPartnerPlacementPriceModel(partner string, placement storj.PlacementConstraint) (ProjectUsagePriceModel, error)
 
 	// CheckProjectInvoicingStatus returns error if for the given project there are outstanding project records and/or usage
 	// which have not been applied/invoiced yet (meaning sent over to stripe).

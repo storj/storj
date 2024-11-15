@@ -12,6 +12,7 @@ import (
 	"github.com/stripe/stripe-go/v75"
 	"github.com/zeebo/errs"
 
+	"storj.io/common/storj"
 	"storj.io/common/uuid"
 	"storj.io/storj/satellite/accounting"
 	"storj.io/storj/satellite/payments"
@@ -515,6 +516,18 @@ func (accounts *accounts) GetProjectUsagePriceModel(partner string) payments.Pro
 		return override
 	}
 	return accounts.service.usagePrices
+}
+
+// GetPartnerPlacementPriceModel returns the usage price model for a partner and placement.
+func (accounts *accounts) GetPartnerPlacementPriceModel(partner string, placement storj.PlacementConstraint) (payments.ProjectUsagePriceModel, error) {
+	product := accounts.service.partnerPlacementMap.GetProductByPartnerAndPlacement(partner, int(placement))
+	if product == "" {
+		product = accounts.service.placementProductMap.GetProductByPlacement(int(placement))
+	}
+	if price, ok := accounts.service.productPriceMap[product]; ok {
+		return price, nil
+	}
+	return payments.ProjectUsagePriceModel{}, ErrPricingNotfound.New("pricing not found for partner %q and placement %q", partner, placement)
 }
 
 // CheckProjectInvoicingStatus returns error if for the given project there are outstanding project records and/or usage
