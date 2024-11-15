@@ -29,6 +29,11 @@ type BloomFilterManager struct {
 	m  map[storj.NodeID]*atomic.Pointer[bloomFilterState]
 }
 
+// Status implements the piecestore.QueueRetain interface.
+func (bfm *BloomFilterManager) Status() Status {
+	return Store
+}
+
 type bloomFilterState struct {
 	filter  *bloomfilter.Filter
 	created time.Time
@@ -73,27 +78,27 @@ func (bfm *BloomFilterManager) getStatePtrLocked(satellite storj.NodeID) *atomic
 	return statePtr
 }
 
-// SetBloomFilter stores the RetainRequest for the satellite and sets the current bloom filter to be based on it.
+// Queue stores the RetainRequest for the satellite and sets the current bloom filter to be based on it.
 // It will not update the bloom filter unless the created time increases.
-func (bfm *BloomFilterManager) SetBloomFilter(ctx context.Context, satellite storj.NodeID, req *pb.RetainRequest) (updated bool, err error) {
+func (bfm *BloomFilterManager) Queue(ctx context.Context, satellite storj.NodeID, req *pb.RetainRequest) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	bfm.mu.Lock()
 	defer bfm.mu.Unlock()
 
 	if err := verifyHash(req); err != nil {
-		return false, errs.Wrap(err)
+		return errs.Wrap(err)
 	}
 
 	statePtr := bfm.getStatePtrLocked(satellite)
 
 	if existing := statePtr.Load(); existing != nil && existing.created.After(req.CreationDate) {
-		return false, nil
+		return nil
 	}
 
 	filter, err := bloomfilter.NewFromBytes(req.Filter)
 	if err != nil {
-		return false, errs.Wrap(err)
+		return errs.Wrap(err)
 	}
 
 	// always use the new filter even if we have problems persisting it to disk.
@@ -104,10 +109,10 @@ func (bfm *BloomFilterManager) SetBloomFilter(ctx context.Context, satellite sto
 
 	data, err := pb.Marshal(req)
 	if err != nil {
-		return true, errs.Wrap(err)
+		return errs.Wrap(err)
 	}
 
-	return true, bfm.ss.Set(ctx, satellite, data)
+	return bfm.ss.Set(ctx, satellite, data)
 }
 
 // GetBloomFilter returns a ShouldTrashFunc for the given satellite that always queries whatever the latest
