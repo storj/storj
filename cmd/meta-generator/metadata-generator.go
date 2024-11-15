@@ -8,6 +8,12 @@ import (
 	"flag"
 	"fmt"
 	"math/rand"
+	"net/http"
+	"net/http/httputil"
+	"os"
+	"os/exec"
+	"path/filepath"
+	"strings"
 	"sync"
 	"time"
 
@@ -16,12 +22,15 @@ import (
 
 // default values
 const (
-	defaultDbEndpoint    = "postgresql://root@localhost:26257/defaultdb?sslmode=disable"
+	defaultDbEndpoint    = "postgresql://root@localhost:26257/metainfo?sslmode=disable"
 	defaultSharedValues  = 0.3
 	defaultBatchSize     = 10
 	defaultWorkersNumber = 1
 	defaultTotlaRecords  = 10
 	defaultDryRun        = false
+	defaultMetasearchAPI = "http://localhost:9998/meta_search"
+	defaultProjectId     = "6e037a67-4612-4292-aefe-aa18e35ee67f"
+	defaultApiKey        = "15XZjcVqxQeggDyDpPhqJvMUB6NtQ1CiuW6mAwzRAVNE5gtr7Yh12MdtqvVbYQ9rvCadeve1f2LGiB53QnFyVV9CTY5HAv3jtFvtnKiVvehh4Dz9jwYx6yhV5bD1wGBrADuKCkQxa"
 )
 
 // main parameters decalaration
@@ -36,8 +45,8 @@ var (
 
 // Record represents a single database record
 type Record struct {
-	Path     string         `json:"path"`
-	Metadata map[string]any `json:"metadata"`
+	Path     string `json:"path"`
+	Metadata string `json:"metadata"`
 }
 
 // Generator handles the creation of test data
@@ -152,35 +161,39 @@ func (g *Generator) GenerateRecord() Record {
 		metadata[key] = g.generateValue()
 	}
 
+	metadataString, err := json.Marshal(metadata)
+	if err != nil {
+		panic(err)
+	}
+
 	return Record{
 		Path:     g.generatePath(),
-		Metadata: metadata,
+		Metadata: string(metadataString),
 	}
 }
 
 // BatchGenerator handles batch generation of records
 type BatchGenerator struct {
 	generator *Generator
-	db        *sql.DB
 	batchSize int
 	workers   int
+	dryRun    bool
 }
 
 // NewBatchGenerator creates a new BatchGenerator
-func NewBatchGenerator(db *sql.DB, valueShare float64, batchSize, workers int, pathCounter uint64) *BatchGenerator {
+func NewBatchGenerator(valueShare float64, batchSize, workers int, pathCounter uint64, dryRun bool) *BatchGenerator {
 	return &BatchGenerator{
 		generator: NewGenerator(valueShare, pathCounter),
-		db:        db,
 		batchSize: batchSize,
 		workers:   workers,
+		dryRun:    dryRun,
 	}
 }
 
-// GenerateAndDebug generates and prints records in batches using multiple workers
-func (bg *BatchGenerator) GenerateAndDebug(ctx context.Context, totalRecords int) error {
+// GenerateAndInsert generates and put object with metadata in batches using multiple workers
+func (bg *BatchGenerator) GenerateAndInsert(totalRecords int) error {
 	var wg sync.WaitGroup
 	errChan := make(chan error, bg.workers)
-
 	recordsPerWorker := totalRecords / bg.workers
 
 	// Start workers
@@ -188,102 +201,14 @@ func (bg *BatchGenerator) GenerateAndDebug(ctx context.Context, totalRecords int
 		wg.Add(1)
 		go func(workerID int) {
 			defer wg.Done()
-			bS := bg.batchSize
-			// Begin transaction for each batch
-			for j := 0; j < recordsPerWorker; j += bS {
-				if (recordsPerWorker - j) < bS {
-					bS = recordsPerWorker - j
-				}
-				if err := bg.debugBatch(ctx, bS); err != nil {
-					errChan <- fmt.Errorf("worker %d failed: %v", workerID, err)
-					return
-				}
-
-				if j%bS == 0 {
-					fmt.Printf("Worker %d processed %d records\n", workerID, j+bS)
-				}
-			}
-		}(i)
-	}
-
-	// Wait for all workers to complete
-	wg.Wait()
-	close(errChan)
-
-	// Check for any errors
-	for err := range errChan {
-		if err != nil {
-			return err
-		}
-	}
-
-	return nil
-}
-
-func prettyPrint(b []byte) {
-	var out bytes.Buffer
-	err := json.Indent(&out, b, "", "  ")
-	if err != nil {
-		panic(fmt.Sprintf("failed to print record: %v", err))
-	}
-	fmt.Printf("%s\n", out.Bytes())
-}
-
-// debugBatch generates and prints a batch of records
-func (bg *BatchGenerator) debugBatch(ctx context.Context, batchSize int) (err error) {
-	for i := 0; i < batchSize; i++ {
-		record := bg.generator.GenerateRecord()
-		metadata, err := json.Marshal(record)
-		if err != nil {
-			return err
-		}
-		prettyPrint(metadata)
-	}
-	return err
-}
-
-// GenerateAndInsert generates and inserts records in batches using multiple workers
-func (bg *BatchGenerator) GenerateAndInsert(ctx context.Context, totalRecords int) error {
-	var wg sync.WaitGroup
-	errChan := make(chan error, bg.workers)
-	recordsPerWorker := totalRecords / bg.workers
-
-	// Create table if it doesn't exist
-	_, err := bg.db.ExecContext(ctx, `
-		CREATE TABLE IF NOT EXISTS test_data (
-			path STRING PRIMARY KEY,
-			metadata JSONB
-		)
-	`)
-	if err != nil {
-		return fmt.Errorf("failed to create table: %v", err)
-	}
-
-	// Prepare the insert statement
-	stmt, err := bg.db.PrepareContext(ctx, `
-		INSERT INTO test_data (path, metadata) 
-		VALUES ($1, $2)
-	`)
-	if err != nil {
-		return fmt.Errorf("failed to prepare statement: %v", err)
-	}
-	defer stmt.Close()
-
-	// Start workers
-	for i := 0; i < bg.workers; i++ {
-		wg.Add(1)
-		go func(workerID int) {
-			defer wg.Done()
-
-			// Begin transaction for each batch
 			for j := 0; j < recordsPerWorker; j += bg.batchSize {
-				if err := bg.processBatch(ctx, stmt, bg.batchSize); err != nil {
+				if err := bg.processBatch(bg.batchSize); err != nil {
 					errChan <- fmt.Errorf("worker %d failed: %v", workerID, err)
 					return
 				}
 
-				if j%(totalRecords/10) == 0 {
-					fmt.Printf("Worker %d processed %d records\n", workerID, j)
+				if j%(bg.batchSize) == 0 {
+					fmt.Printf("Worker %d processed %d records\n", workerID, j+bg.batchSize)
 				}
 			}
 		}(i)
@@ -304,33 +229,95 @@ func (bg *BatchGenerator) GenerateAndInsert(ctx context.Context, totalRecords in
 }
 
 // processBatch generates and inserts a batch of records
-func (bg *BatchGenerator) processBatch(ctx context.Context, stmt *sql.Stmt, batchSize int) error {
-	tx, err := bg.db.BeginTx(ctx, nil)
-	if err != nil {
-		return err
-	}
-	defer tx.Rollback()
-
+func (bg *BatchGenerator) processBatch(batchSize int) (err error) {
 	for i := 0; i < batchSize; i++ {
 		record := bg.generator.GenerateRecord()
-		metadata, err := json.Marshal(record.Metadata)
+
+		if err := bg.putFile(&record); err != nil {
+			return err
+		}
+
+		if err := bg.putMeta(&record); err != nil {
+			return err
+		}
+	}
+
+	return
+}
+
+func (bg *BatchGenerator) putFile(record *Record) error {
+	localPath := filepath.Join("/tmp", strings.ReplaceAll(record.Path, "/", "_"))
+	record.Path = "sj://benchmarks" + record.Path
+
+	if !dryRun {
+		file, err := os.Create(localPath)
 		if err != nil {
 			return err
 		}
+		file.Close()
 
-		if _, err := tx.StmtContext(ctx, stmt).ExecContext(ctx, record.Path, metadata); err != nil {
+		// Copy file
+		// TODO: rerfactor with uplink library
+		cmd := exec.Command("uplink", "cp", localPath, record.Path)
+		cmd.Dir = "/Users/bohdanbashynskyi/storj-cluster"
+		_, err = cmd.Output()
+		if err != nil {
+			return err
+		}
+		//fmt.Println(string(out))
+
+		err = os.Remove(localPath)
+		if err != nil {
 			return err
 		}
 	}
 
-	return tx.Commit()
+	return nil
+}
+
+func (bg *BatchGenerator) putMeta(record *Record) error {
+	url := defaultMetasearchAPI
+	req, err := json.Marshal(record)
+	if err != nil {
+		return err
+	}
+
+	r, err := http.NewRequest("PUT", url, bytes.NewBuffer(req))
+	if err != nil {
+		return err
+	}
+	r.Header.Add("Content-Type", "application/json")
+	r.Header.Add("Authorization", fmt.Sprintf("Bearer %s", defaultApiKey))
+	r.Header.Add("X-Project-ID", defaultProjectId)
+
+	if dryRun {
+		res, err := httputil.DumpRequest(r, true)
+		if err != nil {
+			return err
+		}
+		fmt.Println(string(res))
+		return nil
+	}
+
+	client := &http.Client{}
+	res, err := client.Do(r)
+	if err != nil {
+		return err
+	}
+	defer res.Body.Close()
+
+	if res.StatusCode != http.StatusOK {
+		return err
+	}
+
+	return nil
 }
 
 func getPathCount(ctx context.Context, db *sql.DB) (count uint64) {
 	// Get path count
-	rows, err := db.QueryContext(ctx, `SELECT COUNT(*) FROM test_data`)
+	rows, err := db.QueryContext(ctx, `SELECT COUNT(*) FROM objects`)
 	if err != nil {
-		if err.Error() == `pq: relation "test_data" does not exist` {
+		if err.Error() == `pq: relation "objects" does not exist` {
 			return 0
 		}
 		panic(fmt.Sprintf("failed to get path count: %v", err))
@@ -374,23 +361,18 @@ func main() {
 
 	// Initialize batch generator
 	batchGen := NewBatchGenerator(
-		db,                    // database connection
 		sharedValues,          // 30% shared values
 		batchSize,             // batch size
 		workersNumber,         // number of workers
 		getPathCount(ctx, db), // get path count
+		dryRun,                // dry run mode
 	)
 
 	// Generate and insert/debug records
 	startTime := time.Now()
-	if dryRun {
-		if err := batchGen.GenerateAndDebug(ctx, totalRecords); err != nil {
-			panic(fmt.Sprintf("failed to generate records: %v", err))
-		}
-	} else {
-		if err := batchGen.GenerateAndInsert(ctx, totalRecords); err != nil {
-			panic(fmt.Sprintf("failed to generate records: %v", err))
-		}
+
+	if err := batchGen.GenerateAndInsert(totalRecords); err != nil {
+		panic(fmt.Sprintf("failed to generate records: %v", err))
 	}
 
 	fmt.Printf("Generated %v records in %v\n", totalRecords, time.Since(startTime))

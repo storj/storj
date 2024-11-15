@@ -1,8 +1,8 @@
 module storj.io/storj
 
-go 1.21
+go 1.23.1
 
-toolchain go1.21.0
+toolchain go1.23.2
 
 require (
 	cloud.google.com/go v0.116.0
@@ -40,6 +40,7 @@ require (
 	github.com/oschwald/maxminddb-golang v1.12.0
 	github.com/pquerna/otp v1.3.0
 	github.com/redis/go-redis/v9 v9.5.1
+	github.com/rs/zerolog v1.15.0
 	github.com/shirou/gopsutil/v3 v3.21.3
 	github.com/shopspring/decimal v1.2.0
 	github.com/spacemonkeygo/monkit/v3 v3.0.23
