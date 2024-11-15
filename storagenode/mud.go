@@ -325,10 +325,23 @@ func Module(ball *mud.Ball) {
 		mud.RegisterInterfaceImplementation[piecestore.RestoreTrash, *pieces.TrashChore](ball)
 		mud.RegisterInterfaceImplementation[piecestore.QueueRetain, *retain.Service](ball)
 
-		mud.Provide[piecestore.PieceBackend](ball,
-			func(store *pieces.Store, trashChore piecestore.RestoreTrash, monitor *monitor.Service) piecestore.PieceBackend {
-				return piecestore.NewOldPieceBackend(store, trashChore, monitor)
-			})
+		mud.Provide[*piecestore.OldPieceBackend](ball, piecestore.NewOldPieceBackend)
+		mud.Provide[*piecestore.HashStoreBackend](ball, func(cfg piecestore.OldConfig, bfm *retain.BloomFilterManager, rtm *retain.RestoreTimeManager, log *zap.Logger) *piecestore.HashStoreBackend {
+			dir := filepath.Join(cfg.Path, "hashstore")
+			backend := piecestore.NewHashStoreBackend(dir, bfm, rtm, log)
+			mon.Chain(backend)
+			return backend
+		})
+
+		// default is the old one
+		mud.RegisterInterfaceImplementation[piecestore.PieceBackend, *piecestore.OldPieceBackend](ball)
+
+		mud.Provide[*retain.BloomFilterManager](ball, func(cfg piecestore.OldConfig) (*retain.BloomFilterManager, error) {
+			return retain.NewBloomFilterManager(cfg.Path)
+		})
+		mud.Provide[*retain.RestoreTimeManager](ball, func(cfg piecestore.OldConfig) *retain.RestoreTimeManager {
+			return retain.NewRestoreTimeManager(cfg.Path)
+		})
 
 		mud.Provide[*piecestore.Endpoint](ball, piecestore.NewEndpoint, logWrapper("piecestore"))
 

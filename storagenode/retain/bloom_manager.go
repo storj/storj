@@ -115,6 +115,18 @@ func (bfm *BloomFilterManager) Queue(ctx context.Context, satellite storj.NodeID
 	return bfm.ss.Set(ctx, satellite, data)
 }
 
+// GetCreatedTime returns the created timestamp for the most recent bloom filter sent by the
+// satellite.
+func (bfm *BloomFilterManager) GetCreatedTime(satellite storj.NodeID) time.Time {
+	bfm.mu.Lock()
+	defer bfm.mu.Unlock()
+
+	if state := bfm.getStatePtrLocked(satellite).Load(); state != nil {
+		return state.created
+	}
+	return time.Time{}
+}
+
 // GetBloomFilter returns a ShouldTrashFunc for the given satellite that always queries whatever the latest
 // bloom filter is for the given satellite.
 func (bfm *BloomFilterManager) GetBloomFilter(satellite storj.NodeID) ShouldTrashFunc {

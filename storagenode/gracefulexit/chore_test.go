@@ -46,10 +46,6 @@ func exitSatellite(ctx context.Context, t *testing.T, planet *testplanet.Planet,
 	satellite1 := planet.Satellites[0]
 	exitingNode.GracefulExit.Chore.Loop.Pause()
 
-	_, piecesContentSize, err := exitingNode.Storage2.BlobsCache.SpaceUsedBySatellite(ctx, satellite1.ID())
-	require.NoError(t, err)
-	require.NotZero(t, piecesContentSize)
-
 	exitStatus := overlay.ExitStatusRequest{
 		NodeID:          exitingNode.ID(),
 		ExitInitiatedAt: time.Now(),
@@ -62,10 +58,10 @@ func exitSatellite(ctx context.Context, t *testing.T, planet *testplanet.Planet,
 		return time.Now().Add(timeForward)
 	})
 
-	_, err = satellite1.Overlay.DB.UpdateExitStatus(ctx, &exitStatus)
+	_, err := satellite1.Overlay.DB.UpdateExitStatus(ctx, &exitStatus)
 	require.NoError(t, err)
 
-	err = exitingNode.DB.Satellites().InitiateGracefulExit(ctx, satellite1.ID(), time.Now(), piecesContentSize)
+	err = exitingNode.DB.Satellites().InitiateGracefulExit(ctx, satellite1.ID(), time.Now(), 0)
 	require.NoError(t, err)
 
 	// check that the storage node is exiting

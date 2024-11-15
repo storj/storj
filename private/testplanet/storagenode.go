@@ -277,6 +277,23 @@ func (planet *Planet) newStorageNode(ctx context.Context, prefix string, index, 
 		return nil, errs.Wrap(err)
 	}
 
+	// enable the Testing methdos to delete/corrupt pieces.
+	peer.Storage2.PieceBackend.TestingEnableMethods()
+
+	// flag some of the storage nodes to be in different migration states.
+	for _, trustSource := range sources {
+		entries, err := trustSource.FetchEntries(ctx)
+		if err != nil {
+			return nil, errs.Wrap(err)
+		}
+		for _, entry := range entries {
+			peer.Storage2.MigratingBackend.UpdateState(ctx, entry.SatelliteURL.ID, func(state *piecestore.MigrationState) {
+				state.WriteToNew = index%2 == 0
+				state.ReadNewFirst = index%4 == 0
+			})
+		}
+	}
+
 	err = db.MigrateToLatest(ctx)
 	if err != nil {
 		return nil, errs.Wrap(err)
@@ -296,21 +313,21 @@ func (planet *Planet) newStorageNode(ctx context.Context, prefix string, index, 
 			cmd := internalcmd.NewUsedSpaceFilewalkerCmd()
 			cmd.Logger = log.Named("used-space-filewalker")
 			cmd.Ctx = ctx
-			peer.Storage2.LazyFileWalker.TestingSetUsedSpaceCmd(cmd)
+			peer.StorageOld.LazyFileWalker.TestingSetUsedSpaceCmd(cmd)
 		}
 		{
 			// set up the GC lazyfilewalker filewalker
 			cmd := internalcmd.NewGCFilewalkerCmd()
 			cmd.Logger = log.Named("gc-filewalker")
 			cmd.Ctx = ctx
-			peer.Storage2.LazyFileWalker.TestingSetGCCmd(cmd)
+			peer.StorageOld.LazyFileWalker.TestingSetGCCmd(cmd)
 		}
 		{
 			// set up the trash cleanup lazyfilewalker filewalker
 			cmd := internalcmd.NewTrashFilewalkerCmd()
 			cmd.Logger = log.Named("trash-filewalker")
 			cmd.Ctx = ctx
-			peer.Storage2.LazyFileWalker.TestingSetTrashCleanupCmd(cmd)
+			peer.StorageOld.LazyFileWalker.TestingSetTrashCleanupCmd(cmd)
 		}
 	}
 

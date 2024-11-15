@@ -62,6 +62,7 @@ import (
 	"storj.io/storj/storagenode/reputation"
 	"storj.io/storj/storagenode/retain"
 	"storj.io/storj/storagenode/satellites"
+	"storj.io/storj/storagenode/satstore"
 	"storj.io/storj/storagenode/storagenodedb"
 	"storj.io/storj/storagenode/storageusage"
 	"storj.io/storj/storagenode/trust"
@@ -256,21 +257,31 @@ type Peer struct {
 
 	Storage2 struct {
 		// TODO: lift things outside of it to organize better
-		Trust          *trust.Pool
+		Trust              *trust.Pool
+		SpaceReport        monitor.SpaceReport
+		OldPieceBackend    *piecestore.OldPieceBackend
+		HashStoreBackend   *piecestore.HashStoreBackend
+		MigrationState     *satstore.SatelliteStore
+		MigratingBackend   *piecestore.MigratingBackend
+		PieceBackend       *piecestore.TestingBackend
+		Endpoint           *piecestore.Endpoint
+		Inspector          *inspector.Endpoint
+		Monitor            *monitor.Service
+		Orders             *orders.Service
+		RestoreTimeManager *retain.RestoreTimeManager
+		BloomFilterManager *retain.BloomFilterManager
+	}
+
+	StorageOld struct {
 		Store          *pieces.Store
 		TrashChore     *pieces.TrashChore
 		BlobsCache     *pieces.BlobsUsageCache
 		CacheService   *pieces.CacheService
 		RetainService  *retain.Service
-		Endpoint       *piecestore.Endpoint
-		Inspector      *inspector.Endpoint
-		Monitor        *monitor.Service
-		Orders         *orders.Service
 		FileWalker     *pieces.FileWalker
 		LazyFileWalker *lazyfilewalker.Supervisor
+		Collector      *collector.Service
 	}
-
-	Collector *collector.Service
 
 	NodeStats struct {
 		Service *nodestats.Service
@@ -515,14 +526,14 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, revocationDB exten
 	}
 
 	{ // setup storage
-		peer.Storage2.BlobsCache = pieces.NewBlobsUsageCache(process.NamedLog(log, "blobscache"), peer.DB.Pieces())
+		peer.StorageOld.BlobsCache = pieces.NewBlobsUsageCache(process.NamedLog(log, "blobscache"), peer.DB.Pieces())
 
-		blobStore := peer.DB.Pieces()
+		oldBlobStore := peer.DB.Pieces()
 		if !config.Storage2.Monitor.DedicatedDisk {
-			blobStore = peer.Storage2.BlobsCache
+			oldBlobStore = peer.StorageOld.BlobsCache
 		}
 
-		peer.Storage2.FileWalker = pieces.NewFileWalker(process.NamedLog(log, "filewalker"), blobStore, peer.DB.V0PieceInfo(), peer.DB.GCFilewalkerProgress(), peer.DB.UsedSpacePerPrefix())
+		peer.StorageOld.FileWalker = pieces.NewFileWalker(process.NamedLog(log, "filewalker"), oldBlobStore, peer.DB.V0PieceInfo(), peer.DB.GCFilewalkerProgress(), peer.DB.UsedSpacePerPrefix())
 
 		if config.Pieces.EnableLazyFilewalker {
 			executable, err := os.Executable()
@@ -530,10 +541,10 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, revocationDB exten
 				return nil, errs.Combine(err, peer.Close())
 			}
 
-			peer.Storage2.LazyFileWalker = lazyfilewalker.NewSupervisor(process.NamedLog(peer.Log, "lazyfilewalker"), db.Config().LazyFilewalkerConfig(), executable)
+			peer.StorageOld.LazyFileWalker = lazyfilewalker.NewSupervisor(process.NamedLog(peer.Log, "lazyfilewalker"), db.Config().LazyFilewalkerConfig(), executable)
 		}
 
-		var pieceExpiration pieces.PieceExpirationDB
+		var oldPieceExpiration pieces.PieceExpirationDB
 		if config.Pieces.EnableFlatExpirationStore {
 			flatFileStorePath := config.Pieces.FlatExpirationStorePath
 			if abs := filepath.IsAbs(flatFileStorePath); !abs {
@@ -560,64 +571,86 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, revocationDB exten
 				Name:  "pieceexpirationstore",
 				Close: pieceExpirationStore.Close,
 			})
-			pieceExpiration = pieceExpirationStore
+			oldPieceExpiration = pieceExpirationStore
 		} else {
-			pieceExpiration = peer.DB.PieceExpirationDB()
+			oldPieceExpiration = peer.DB.PieceExpirationDB()
 		}
 
-		peer.Storage2.Store = pieces.NewStore(process.NamedLog(peer.Log, "pieces"),
-			peer.Storage2.FileWalker,
-			peer.Storage2.LazyFileWalker,
-			blobStore,
+		peer.StorageOld.Store = pieces.NewStore(process.NamedLog(peer.Log, "pieces"),
+			peer.StorageOld.FileWalker,
+			peer.StorageOld.LazyFileWalker,
+			oldBlobStore,
 			peer.DB.V0PieceInfo(),
-			pieceExpiration,
+			oldPieceExpiration,
 			config.Pieces,
 		)
 
-		peer.Storage2.TrashChore = pieces.NewTrashChore(
+		peer.StorageOld.TrashChore = pieces.NewTrashChore(
 			process.NamedLog(log, "pieces:trash"),
 			config.Pieces.TrashChoreInterval, // choreInterval: how often to run the chore
 			trashExpiryInterval,              // trashExpiryInterval: when items in the trash should be deleted
 			peer.Storage2.Trust,
-			peer.Storage2.Store,
+			peer.StorageOld.Store,
 		)
 		peer.Services.Add(lifecycle.Item{
 			Name:  "pieces:trash",
-			Run:   peer.Storage2.TrashChore.Run,
-			Close: peer.Storage2.TrashChore.Close,
+			Run:   peer.StorageOld.TrashChore.Run,
+			Close: peer.StorageOld.TrashChore.Close,
 		})
 
-		var spaceReport monitor.SpaceReport
 		if config.Storage2.Monitor.DedicatedDisk {
-			spaceReport = monitor.NewDedicatedDisk(log, config.Storage.Path, config.Storage2.Monitor.MinimumDiskSpace.Int64(), config.Storage2.Monitor.ReservedBytes.Int64())
+			peer.Storage2.SpaceReport = monitor.NewDedicatedDisk(log, config.Storage.Path, config.Storage2.Monitor.MinimumDiskSpace.Int64(), config.Storage2.Monitor.ReservedBytes.Int64())
 		} else {
-			spaceReport = monitor.NewSharedDisk(log, peer.Storage2.Store, config.Storage2.Monitor.MinimumDiskSpace.Int64(), config.Storage.AllocatedDiskSpace.Int64())
+			peer.Storage2.SpaceReport = monitor.NewSharedDisk(log, peer.StorageOld.Store, config.Storage2.Monitor.MinimumDiskSpace.Int64(), config.Storage.AllocatedDiskSpace.Int64())
 
 			// enable cache service only when using shared disk
-			peer.Storage2.CacheService = pieces.NewService(
+			peer.StorageOld.CacheService = pieces.NewService(
 				process.NamedLog(log, "piecestore:cache"),
-				peer.Storage2.BlobsCache,
-				peer.Storage2.Store,
+				peer.StorageOld.BlobsCache,
+				peer.StorageOld.Store,
 				peer.DB.PieceSpaceUsedDB(),
 				config.Storage2.CacheSyncInterval,
 				config.Storage2.PieceScanOnStartup,
 			)
 			peer.Services.Add(lifecycle.Item{
 				Name:  "piecestore:cache",
-				Run:   peer.Storage2.CacheService.Run,
-				Close: peer.Storage2.CacheService.Close,
+				Run:   peer.StorageOld.CacheService.Run,
+				Close: peer.StorageOld.CacheService.Close,
 			})
 			peer.Debug.Server.Panel.Add(
-				debug.Cycle("Piecestore Cache", peer.Storage2.CacheService.Loop))
+				debug.Cycle("Piecestore Cache", peer.StorageOld.CacheService.Loop))
 		}
+
+		hashStoreDir := filepath.Join(config.Storage.Path, "hashstore")
+		metaDir := filepath.Join(hashStoreDir, "meta")
+
+		peer.Storage2.MigrationState = satstore.NewSatelliteStore(metaDir, "migrate")
+		peer.Storage2.RestoreTimeManager = retain.NewRestoreTimeManager(metaDir)
+		peer.Storage2.BloomFilterManager, err = retain.NewBloomFilterManager(metaDir)
+		if err != nil {
+			peer.Log.Info("error encountered loading bloom filters", zap.Error(err))
+		}
+
+		peer.Storage2.HashStoreBackend = piecestore.NewHashStoreBackend(
+			hashStoreDir,
+			peer.Storage2.BloomFilterManager,
+			peer.Storage2.RestoreTimeManager,
+			process.NamedLog(peer.Log, "hashstore"),
+		)
+		mon.Chain(peer.Storage2.HashStoreBackend)
+
+		peer.Storage2.SpaceReport = newSpaceReportWithHashStore(
+			peer.Storage2.SpaceReport,
+			peer.Storage2.HashStoreBackend,
+		)
 
 		peer.Storage2.Monitor = monitor.NewService(
 			process.NamedLog(log, "piecestore:monitor"),
-			peer.Storage2.Store,
+			peer.StorageOld.Store,
 			peer.Contact.Service,
 			// TODO: use config.Storage.Monitor.Interval, but for some reason is not set
 			config.Storage.KBucketRefreshInterval,
-			spaceReport,
+			peer.Storage2.SpaceReport,
 			config.Storage2.Monitor,
 		)
 		peer.Services.Add(lifecycle.Item{
@@ -628,16 +661,16 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, revocationDB exten
 		peer.Debug.Server.Panel.Add(
 			debug.Cycle("Piecestore Monitor", peer.Storage2.Monitor.Loop))
 
-		peer.Storage2.RetainService = retain.NewService(
+		peer.StorageOld.RetainService = retain.NewService(
 			process.NamedLog(peer.Log, "retain"),
-			peer.Storage2.Store,
+			peer.StorageOld.Store,
 			config.Retain,
 		)
 
 		peer.Services.Add(lifecycle.Item{
 			Name:  "retain",
-			Run:   peer.Storage2.RetainService.Run,
-			Close: peer.Storage2.RetainService.Close,
+			Run:   peer.StorageOld.RetainService.Run,
+			Close: peer.StorageOld.RetainService.Close,
 		})
 
 		peer.UsedSerials = usedserials.NewTable(config.Storage2.MaxUsedSerialsSize)
@@ -655,16 +688,33 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, revocationDB exten
 			Close: peer.OrdersStore.Close,
 		})
 
-		pieceBackend := piecestore.NewOldPieceBackend(peer.Storage2.Store, peer.Storage2.TrashChore, peer.Storage2.Monitor)
+		peer.Storage2.OldPieceBackend = piecestore.NewOldPieceBackend(
+			peer.StorageOld.Store,
+			peer.StorageOld.TrashChore,
+			peer.Storage2.Monitor,
+		)
+
+		peer.Storage2.MigratingBackend = piecestore.NewMigratingBackend(
+			peer.Storage2.OldPieceBackend,
+			peer.Storage2.HashStoreBackend,
+			peer.Storage2.MigrationState,
+			nil,
+		)
+		mon.Chain(peer.Storage2.MigratingBackend)
+
+		peer.Storage2.PieceBackend = piecestore.NewTestingBackend(
+			peer.Storage2.MigratingBackend,
+		)
 
 		peer.Storage2.Endpoint, err = piecestore.NewEndpoint(
 			process.NamedLog(peer.Log, "piecestore"),
 			peer.Identity,
 			peer.Storage2.Trust,
 			peer.Storage2.Monitor,
-			peer.Storage2.RetainService,
+			peer.StorageOld.RetainService,
+			peer.Storage2.BloomFilterManager,
 			peer.Contact.PingStats,
-			pieceBackend,
+			peer.Storage2.PieceBackend,
 			peer.OrdersStore,
 			peer.Bandwidth.Cache,
 			peer.UsedSerials,
@@ -786,7 +836,7 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, revocationDB exten
 		peer.Console.Service, err = console.NewService(
 			process.NamedLog(peer.Log, "console:service"),
 			peer.Bandwidth.Cache,
-			peer.Storage2.Store,
+			peer.StorageOld.Store, // TODO: update console to know about hashstore
 			peer.Version.Service,
 			config.Storage.AllocatedDiskSpace,
 			config.Operator.Wallet,
@@ -799,7 +849,7 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, revocationDB exten
 			peer.Contact.PingStats,
 			peer.Contact.Service,
 			peer.Estimation.Service,
-			peer.Storage2.BlobsCache,
+			peer.StorageOld.BlobsCache, // TODO: update console to know about hashstore
 			config.Operator.WalletFeatures,
 			port,
 			peer.Contact.QUICStats,
@@ -841,7 +891,7 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, revocationDB exten
 	{ // setup storage inspector
 		peer.Storage2.Inspector = inspector.NewEndpoint(
 			process.NamedLog(peer.Log, "pieces:inspector"),
-			peer.Storage2.Store,
+			peer.Storage2.SpaceReport,
 			peer.Contact.Service,
 			peer.Contact.PingStats,
 			peer.Bandwidth.Cache,
@@ -857,7 +907,7 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, revocationDB exten
 	{ // setup graceful exit service
 		peer.GracefulExit.Service = gracefulexit.NewService(
 			process.NamedLog(peer.Log, "gracefulexit:service"),
-			peer.Storage2.Store,
+			peer.StorageOld.Store, // TODO: update graceful exit to know about hashstore
 			peer.Storage2.Trust,
 			peer.DB.Satellites(),
 			peer.Dialer,
@@ -869,7 +919,7 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, revocationDB exten
 			peer.Storage2.Trust,
 			peer.DB.Satellites(),
 			peer.Dialer,
-			peer.Storage2.BlobsCache,
+			peer.StorageOld.BlobsCache, // TODO: update graceful exit to know about hashstore
 		)
 		if err := internalpb.DRPCRegisterNodeGracefulExit(peer.Server.PrivateDRPC(), peer.GracefulExit.Endpoint); err != nil {
 			return nil, errs.Combine(err, peer.Close())
@@ -883,7 +933,7 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, revocationDB exten
 		)
 		peer.GracefulExit.BlobsCleaner = gracefulexit.NewBlobsCleaner(
 			process.NamedLog(peer.Log, "gracefulexit:blobscleaner"),
-			peer.Storage2.Store,
+			peer.StorageOld.Store, // TODO: update graceful exit to know about hashstore
 			peer.Storage2.Trust,
 			peer.DB.Satellites(),
 		)
@@ -913,12 +963,13 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, revocationDB exten
 
 		peer.ForgetSatellite.Cleaner = forgetsatellite.NewCleaner(
 			process.NamedLog(peer.Log, "forgetsatellite:cleaner"),
-			peer.Storage2.Store,
+			peer.StorageOld.Store,
 			peer.Storage2.Trust,
-			peer.Storage2.BlobsCache,
+			peer.StorageOld.BlobsCache,
 			peer.DB.Satellites(),
 			peer.DB.Reputation(),
 			peer.DB.V0PieceInfo(),
+			peer.Storage2.HashStoreBackend,
 		)
 
 		peer.ForgetSatellite.Chore = forgetsatellite.NewChore(
@@ -936,14 +987,18 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, revocationDB exten
 			debug.Cycle("Forget Satellite", peer.ForgetSatellite.Chore.Loop))
 	}
 
-	peer.Collector = collector.NewService(process.NamedLog(peer.Log, "collector"), peer.Storage2.Store, peer.UsedSerials, config.Collector)
+	peer.StorageOld.Collector = collector.NewService(
+		process.NamedLog(peer.Log, "collector"),
+		peer.StorageOld.Store,
+		peer.UsedSerials,
+		config.Collector)
 	peer.Services.Add(lifecycle.Item{
 		Name:  "collector",
-		Run:   peer.Collector.Run,
-		Close: peer.Collector.Close,
+		Run:   peer.StorageOld.Collector.Run,
+		Close: peer.StorageOld.Collector.Close,
 	})
 	peer.Debug.Server.Panel.Add(
-		debug.Cycle("Collector", peer.Collector.Loop))
+		debug.Cycle("Collector", peer.StorageOld.Collector.Loop))
 
 	{ // setup multinode endpoints
 		// TODO: add to peer?
@@ -1042,3 +1097,39 @@ func (peer *Peer) URL() storj.NodeURL { return storj.NodeURL{ID: peer.ID(), Addr
 
 // PrivateAddr returns the private address.
 func (peer *Peer) PrivateAddr() string { return peer.Server.PrivateAddr().String() }
+
+type spaceReportWithHashStore struct {
+	monitor.SpaceReport
+	hsb *piecestore.HashStoreBackend
+}
+
+func newSpaceReportWithHashStore(sr monitor.SpaceReport, hsb *piecestore.HashStoreBackend) monitor.SpaceReport {
+	return &spaceReportWithHashStore{SpaceReport: sr, hsb: hsb}
+}
+
+func (s *spaceReportWithHashStore) AvailableSpace(ctx context.Context) (int64, error) {
+	as, err := s.SpaceReport.AvailableSpace(ctx)
+	if err != nil {
+		return 0, err
+	}
+	su := s.hsb.SpaceUsage()
+
+	as -= su.Aggregate.UsedTotal
+
+	return as, nil
+}
+
+func (s *spaceReportWithHashStore) DiskSpace(ctx context.Context) (monitor.DiskSpace, error) {
+	ds, err := s.SpaceReport.DiskSpace(ctx)
+	if err != nil {
+		return monitor.DiskSpace{}, err
+	}
+	su := s.hsb.SpaceUsage()
+
+	ds.UsedForPieces += su.Aggregate.UsedForPieces
+	ds.UsedForTrash += su.Aggregate.UsedForTrash
+	ds.Available -= su.Aggregate.UsedTotal
+	ds.Free -= su.Aggregate.UsedTotal
+
+	return ds, nil
+}

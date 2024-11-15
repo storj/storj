@@ -7,7 +7,6 @@ import (
 	"context"
 	"crypto/tls"
 	"fmt"
-	"io"
 	"math"
 	"net"
 	"os"
@@ -40,9 +39,6 @@ import (
 	"storj.io/storj/satellite/repair/queue"
 	"storj.io/storj/satellite/repair/repairer"
 	"storj.io/storj/satellite/reputation"
-	"storj.io/storj/storagenode"
-	"storj.io/storj/storagenode/blobstore"
-	"storj.io/storj/storagenode/blobstore/testblobs"
 	"storj.io/uplink/private/eestream"
 	"storj.io/uplink/private/piecestore"
 )
@@ -478,9 +474,6 @@ func TestFailedDataRepair(t *testing.T) {
 		StorageNodeCount: 15,
 		UplinkCount:      1,
 		Reconfigure: testplanet.Reconfigure{
-			StorageNodeDB: func(index int, db storagenode.DB, log *zap.Logger) (storagenode.DB, error) {
-				return testblobs.NewBadDB(log.Named("baddb"), db), nil
-			},
 			Satellite: testplanet.Combine(
 				func(log *zap.Logger, index int, config *satellite.Config) {
 					config.Repairer.MaxExcessRateOptimalThreshold = RepairMaxExcessRateOptimalThreshold
@@ -541,8 +534,7 @@ func TestFailedDataRepair(t *testing.T) {
 		// set unknown error for download from bad node
 		badNode := planet.FindNode(unknownPiece.StorageNode)
 		require.NotNil(t, badNode)
-		badNodeDB := badNode.DB.(*testblobs.BadDB)
-		badNodeDB.SetError(errs.New("unknown error"))
+		badNode.Storage2.PieceBackend.TestingSetError(errs.New("unknown error"))
 
 		reputationService := satellite.Repairer.Reputation
 
@@ -723,9 +715,6 @@ func TestUnknownErrorDataRepair(t *testing.T) {
 		StorageNodeCount: 15,
 		UplinkCount:      1,
 		Reconfigure: testplanet.Reconfigure{
-			StorageNodeDB: func(index int, db storagenode.DB, log *zap.Logger) (storagenode.DB, error) {
-				return testblobs.NewBadDB(log.Named("baddb"), db), nil
-			},
 			Satellite: testplanet.Combine(
 				func(log *zap.Logger, index int, config *satellite.Config) {
 					config.Repairer.MaxExcessRateOptimalThreshold = RepairMaxExcessRateOptimalThreshold
@@ -780,8 +769,7 @@ func TestUnknownErrorDataRepair(t *testing.T) {
 		// set unknown error for download from bad node
 		badNode := planet.FindNode(unknownPiece.StorageNode)
 		require.NotNil(t, badNode)
-		badNodeDB := badNode.DB.(*testblobs.BadDB)
-		badNodeDB.SetError(errs.New("unknown error"))
+		badNode.Storage2.PieceBackend.TestingSetError(errs.New("unknown error"))
 
 		reputationService := satellite.Repairer.Reputation
 
@@ -900,8 +888,7 @@ func TestMissingPieceDataRepair_Succeed(t *testing.T) {
 		missingPieceNode := planet.FindNode(missingPiece.StorageNode)
 		require.NotNil(t, missingPieceNode)
 		pieceID := segment.RootPieceID.Derive(missingPiece.StorageNode, int32(missingPiece.Number))
-		err = missingPieceNode.Storage2.Store.Delete(ctx, satellite.ID(), pieceID)
-		require.NoError(t, err)
+		missingPieceNode.Storage2.PieceBackend.TestingDeletePiece(satellite.ID(), pieceID)
 
 		reputationService := satellite.Repairer.Reputation
 
@@ -1018,8 +1005,7 @@ func TestMissingPieceDataRepair(t *testing.T) {
 		missingPieceNode := planet.FindNode(missingPiece.StorageNode)
 		require.NotNil(t, missingPieceNode)
 		pieceID := segment.RootPieceID.Derive(missingPiece.StorageNode, int32(missingPiece.Number))
-		err = missingPieceNode.Storage2.Store.Delete(ctx, satellite.ID(), pieceID)
-		require.NoError(t, err)
+		missingPieceNode.Storage2.PieceBackend.TestingDeletePiece(satellite.ID(), pieceID)
 
 		reputationService := satellite.Repairer.Reputation
 
@@ -1150,7 +1136,7 @@ func TestCorruptDataRepair_Succeed(t *testing.T) {
 				corruptedNode := planet.FindNode(corruptedPiece.StorageNode)
 				require.NotNil(t, corruptedNode)
 				corruptedPieceID := segment.RootPieceID.Derive(corruptedPiece.StorageNode, int32(corruptedPiece.Number))
-				corruptPieceData(ctx, t, planet, corruptedNode, corruptedPieceID)
+				corruptedNode.Storage2.PieceBackend.TestingCorruptPiece(satellite.ID(), corruptedPieceID)
 
 				reputationService := satellite.Repairer.Reputation
 
@@ -1269,7 +1255,7 @@ func TestCorruptDataRepair_Failed(t *testing.T) {
 		corruptedNode := planet.FindNode(corruptedPiece.StorageNode)
 		require.NotNil(t, corruptedNode)
 		corruptedPieceID := segment.RootPieceID.Derive(corruptedPiece.StorageNode, int32(corruptedPiece.Number))
-		corruptPieceData(ctx, t, planet, corruptedNode, corruptedPieceID)
+		corruptedNode.Storage2.PieceBackend.TestingCorruptPiece(satellite.ID(), corruptedPieceID)
 
 		reputationService := satellite.Repairer.Reputation
 
@@ -2445,44 +2431,6 @@ func getRemoteSegment(ctx context.Context, t *testing.T, satellite *testplanet.S
 	return segments[0]
 }
 
-// corruptPieceData manipulates piece data on a storage node.
-func corruptPieceData(ctx context.Context, t *testing.T, planet *testplanet.Planet, corruptedNode *testplanet.StorageNode, corruptedPieceID storj.PieceID) {
-	t.Helper()
-
-	blobRef := blobstore.BlobRef{
-		Namespace: planet.Satellites[0].ID().Bytes(),
-		Key:       corruptedPieceID.Bytes(),
-	}
-
-	// get currently stored piece data from storagenode
-	reader, err := corruptedNode.Storage2.BlobsCache.Open(ctx, blobRef)
-	require.NoError(t, err)
-	pieceSize, err := reader.Size()
-	require.NoError(t, err)
-	require.True(t, pieceSize > 0)
-	pieceData := make([]byte, pieceSize)
-	n, err := io.ReadFull(reader, pieceData)
-	require.NoError(t, err)
-	require.EqualValues(t, n, pieceSize)
-
-	// delete piece data
-	err = corruptedNode.Storage2.BlobsCache.Delete(ctx, blobRef)
-	require.NoError(t, err)
-
-	// corrupt piece data (not PieceHeader) and write back to storagenode
-	// this means repair downloading should fail during piece hash verification
-	pieceData[pieceSize-1]++ // if we don't do this, this test should fail
-	writer, err := corruptedNode.Storage2.BlobsCache.Create(ctx, blobRef)
-	require.NoError(t, err)
-
-	n, err = writer.Write(pieceData)
-	require.NoError(t, err)
-	require.EqualValues(t, n, pieceSize)
-
-	err = writer.Commit(ctx)
-	require.NoError(t, err)
-}
-
 type mockConnector struct {
 	realConnector   rpc.Connector
 	addressesDialed []string
@@ -2617,7 +2565,7 @@ func TestECRepairerGetCorrupted(t *testing.T) {
 		corruptedNode := planet.FindNode(corruptedPiece.StorageNode)
 		require.NotNil(t, corruptedNode)
 		pieceID := segment.RootPieceID.Derive(corruptedPiece.StorageNode, int32(corruptedPiece.Number))
-		corruptPieceData(ctx, t, planet, corruptedNode, pieceID)
+		corruptedNode.Storage2.PieceBackend.TestingCorruptPiece(satellite.ID(), pieceID)
 
 		ecRepairer := satellite.Repairer.EcRepairer
 
@@ -2686,8 +2634,7 @@ func TestECRepairerGetMissingPiece(t *testing.T) {
 		node := planet.FindNode(missingPiece.StorageNode)
 		require.NotNil(t, node)
 		pieceID := segment.RootPieceID.Derive(missingPiece.StorageNode, int32(missingPiece.Number))
-		err = node.Storage2.Store.Delete(ctx, satellite.ID(), pieceID)
-		require.NoError(t, err)
+		node.Storage2.PieceBackend.TestingDeletePiece(satellite.ID(), pieceID)
 
 		ecRepairer := satellite.Repairer.EcRepairer
 
@@ -2781,9 +2728,6 @@ func TestECRepairerGetUnknown(t *testing.T) {
 		StorageNodeCount: 6,
 		UplinkCount:      1,
 		Reconfigure: testplanet.Reconfigure{
-			StorageNodeDB: func(index int, db storagenode.DB, log *zap.Logger) (storagenode.DB, error) {
-				return testblobs.NewBadDB(log.Named("baddb"), db), nil
-			},
 			Satellite: testplanet.ReconfigureRS(3, 3, 6, 6),
 		},
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
@@ -2824,8 +2768,7 @@ func TestECRepairerGetUnknown(t *testing.T) {
 		// set unknown error for download from bad node
 		badNode := planet.FindNode(unknownPiece.StorageNode)
 		require.NotNil(t, badNode)
-		badNodeDB := badNode.DB.(*testblobs.BadDB)
-		badNodeDB.SetError(errs.New("unknown error"))
+		badNode.Storage2.PieceBackend.TestingSetError(errs.New("unknown error"))
 
 		ecRepairer := satellite.Repairer.EcRepairer
 
@@ -2852,9 +2795,6 @@ func TestECRepairerGetFailure(t *testing.T) {
 		StorageNodeCount: 6,
 		UplinkCount:      1,
 		Reconfigure: testplanet.Reconfigure{
-			StorageNodeDB: func(index int, db storagenode.DB, log *zap.Logger) (storagenode.DB, error) {
-				return testblobs.NewBadDB(log.Named("baddb"), db), nil
-			},
 			Satellite: testplanet.ReconfigureRS(3, 3, 6, 6),
 		},
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
@@ -2903,15 +2843,14 @@ func TestECRepairerGetFailure(t *testing.T) {
 		// set unknown error for download from bad node
 		badNode := planet.FindNode(unknownPiece.StorageNode)
 		require.NotNil(t, badNode)
-		badNodeDB := badNode.DB.(*testblobs.BadDB)
-		badNodeDB.SetError(errs.New("unknown error"))
+		badNode.Storage2.PieceBackend.TestingSetError(errs.New("unknown error"))
 
 		// corrupt data for corrupted node
 		corruptedNode := planet.FindNode(corruptedPiece.StorageNode)
 		require.NotNil(t, corruptedNode)
 		corruptedPieceID := segment.RootPieceID.Derive(corruptedPiece.StorageNode, int32(corruptedPiece.Number))
 		require.NotNil(t, corruptedPieceID)
-		corruptPieceData(ctx, t, planet, corruptedNode, corruptedPieceID)
+		corruptedNode.Storage2.PieceBackend.TestingCorruptPiece(satellite.ID(), corruptedPieceID)
 
 		ecRepairer := satellite.Repairer.EcRepairer
 

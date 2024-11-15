@@ -6,7 +6,7 @@ package main
 import (
 	"bytes"
 	"context"
-	"os"
+	"io/fs"
 	"strings"
 	"testing"
 	"time"
@@ -16,10 +16,10 @@ import (
 	"go.uber.org/zap/zaptest"
 
 	"storj.io/common/memory"
+	"storj.io/common/pb"
 	"storj.io/common/testcontext"
 	"storj.io/common/testrand"
 	"storj.io/storj/private/testplanet"
-	"storj.io/storj/storagenode/blobstore"
 	"storj.io/storj/storagenode/reputation"
 	"storj.io/storj/storagenode/satellites"
 )
@@ -73,21 +73,15 @@ func TestCmdForgetSatellite(t *testing.T) {
 		address := planet.StorageNodes[0].Server.PrivateAddr().String()
 		log := zaptest.NewLogger(t)
 
-		store := planet.StorageNodes[0].Storage2.BlobsCache
-		defer ctx.Check(store.Close)
-
+		backend := planet.StorageNodes[0].Storage2.PieceBackend
 		satellite := planet.Satellites[0]
 
-		blobSize := memory.KB
-		blobRef := blobstore.BlobRef{
-			Namespace: satellite.ID().Bytes(),
-			Key:       testrand.PieceID().Bytes(),
-		}
-		w, err := store.Create(ctx, blobRef)
+		pieceID := testrand.PieceID()
+		w, err := backend.Writer(ctx, satellite.ID(), pieceID, pb.PieceHashAlgorithm_BLAKE3, time.Time{})
 		require.NoError(t, err)
-		_, err = w.Write(testrand.Bytes(blobSize))
+		_, err = w.Write(testrand.Bytes(memory.KB))
 		require.NoError(t, err)
-		require.NoError(t, w.Commit(ctx))
+		require.NoError(t, w.Commit(ctx, &pb.PieceHeader{}))
 
 		// create a new satellite reputation
 		timestamp := time.Now().UTC()
@@ -158,10 +152,9 @@ func TestCmdForgetSatellite(t *testing.T) {
 		require.Equal(t, satellites.CleanupSucceeded, satelliteInfo.Status)
 
 		// check that the blob was deleted
-		blobInfo, err := store.Stat(ctx, blobRef)
+		_, err = backend.Reader(ctx, satellite.ID(), pieceID)
 		require.Error(t, err)
-		require.True(t, errs.Is(err, os.ErrNotExist))
-		require.Nil(t, blobInfo)
+		require.True(t, errs.Is(err, fs.ErrNotExist))
 		// check that the reputation was deleted
 		rstats, err = reputationDB.Get(ctx, satellite.ID())
 		require.NoError(t, err)

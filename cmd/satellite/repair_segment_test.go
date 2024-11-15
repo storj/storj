@@ -59,8 +59,7 @@ func TestRepairSegment(t *testing.T) {
 
 		// delete all pieces
 		for _, node := range planet.StorageNodes {
-			err := node.Storage2.Store.DeleteSatelliteBlobs(ctx, planet.Satellites[0].ID())
-			require.NoError(t, err)
+			node.Storage2.PieceBackend.TestingDeleteAllPiecesForSatellite(planet.Satellites[0].ID())
 		}
 
 		// we cannot download segment so repair is not possible

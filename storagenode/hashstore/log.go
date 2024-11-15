@@ -9,6 +9,7 @@ import (
 	"math"
 	"os"
 	"sync"
+	"sync/atomic"
 )
 
 // logFile represents a ref-counted handle to a log file that stores piece data.
@@ -17,8 +18,8 @@ type logFile struct {
 	fh *os.File
 	id uint64
 
-	// mutable but unsynchronized fields
-	size uint64
+	// atomic fields
+	size atomic.Uint64
 
 	// mutable and synchronized fields
 	mu      sync.Mutex // protects the following fields
@@ -29,11 +30,9 @@ type logFile struct {
 }
 
 func newLogFile(fh *os.File, id uint64, size uint64) *logFile {
-	return &logFile{
-		fh:   fh,
-		id:   id,
-		size: size,
-	}
+	lf := &logFile{fh: fh, id: id}
+	lf.size.Store(size)
+	return lf
 }
 
 // performIntents handles any resource cleanup when the ref count reaches zero.
@@ -95,7 +94,7 @@ func (l *logFile) Release() {
 type logHeap []*logFile
 
 func (h logHeap) Len() int           { return len(h) }
-func (h logHeap) Less(i, j int) bool { return h[i].size > h[j].size }
+func (h logHeap) Less(i, j int) bool { return h[i].size.Load() > h[j].size.Load() }
 func (h logHeap) Swap(i, j int)      { h[i], h[j] = h[j], h[i] }
 func (h *logHeap) Push(x any)        { *h = append(*h, x.(*logFile)) }
 func (h *logHeap) Pop() any {
@@ -221,12 +220,16 @@ func (h *Writer) Close() (err error) {
 	// always do cleanup.
 	defer h.done()
 
+	// load the size once. no one else can be mutating the log file at the same time so this is
+	// safe.
+	size := h.lf.size.Load()
+
 	// we're about to write rSize bytes. if we can align the file to 4k after writing the record by
 	// writing less than 64 bytes, try to do so. we do this write separately from appending the
 	// record because otherwise we would have to allocate a variable width buffer causing an
 	// allocation on every Close instead of just on the calls that fix alignment.
 	var written int
-	if align := 4096 - ((uint64(h.rec.Length) + h.lf.size + RecordSize) % 4096); align > 0 && align < 64 {
+	if align := 4096 - ((uint64(h.rec.Length) + size + RecordSize) % 4096); align > 0 && align < 64 {
 		written, _ = h.lf.fh.Write(make([]byte, align))
 	}
 
@@ -238,12 +241,12 @@ func (h *Writer) Close() (err error) {
 		// if we can't write the entry, we should abort the write operation so that we can always
 		// reconstruct the table from the log file. attempt to reclaim space by seeking backwards
 		// to the record offset.
-		_, _ = h.lf.fh.Seek(int64(h.lf.size), io.SeekStart)
+		_, _ = h.lf.fh.Seek(int64(size), io.SeekStart)
 		return Error.Wrap(err)
 	}
 
 	// increase our in-memory estimate of the size of the log file for sorting.
-	h.lf.size += uint64(h.rec.Length) + uint64(written) + RecordSize
+	h.lf.size.Add(uint64(h.rec.Length) + uint64(written) + RecordSize)
 
 	// if we are not in manual mode, then we need to add the record.
 	if !h.manual {

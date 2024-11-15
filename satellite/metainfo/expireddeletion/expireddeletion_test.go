@@ -132,15 +132,6 @@ func TestExpiredDeletionForCopiedObject(t *testing.T) {
 		upl := planet.Uplinks[0]
 		expiredChore := satellite.Core.ExpiredDeletion.Chore
 
-		allSpaceUsedForPieces := func() (all int64) {
-			for _, node := range planet.StorageNodes {
-				total, _, _, err := node.Storage2.Store.SpaceUsedTotalAndBySatellite(ctx)
-				require.NoError(t, err)
-				all += total
-			}
-			return all
-		}
-
 		expiredChore.Loop.Pause()
 
 		// upload inline object with expiration time
@@ -180,14 +171,6 @@ func TestExpiredDeletionForCopiedObject(t *testing.T) {
 		objects, err = satellite.Metabase.DB.TestingAllObjects(ctx)
 		require.NoError(t, err)
 		require.Len(t, objects, 0)
-
-		for _, node := range planet.StorageNodes {
-			err = node.Collector.Collect(ctx, time.Now().Add(2*24*time.Hour))
-			require.NoError(t, err)
-		}
-
-		require.NoError(t, planet.WaitForStorageNodeEndpoints(ctx))
-		require.Equal(t, int64(0), allSpaceUsedForPieces())
 	})
 }
 

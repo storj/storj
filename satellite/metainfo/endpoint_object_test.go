@@ -2029,15 +2029,14 @@ func testDeleteObject(t *testing.T,
 			for _, tc := range testCases {
 				tc := tc
 				t.Run(tc.caseDescription, func(t *testing.T) {
-
 					createObject(ctx, t, planet, bucketName, tc.caseDescription, tc.objData)
 
 					// calculate the SNs total used space after data upload
 					var totalUsedSpace int64
 					for _, sn := range planet.StorageNodes {
-						piecesTotal, _, err := sn.Storage2.Store.SpaceUsedForPieces(ctx)
+						report, err := sn.Storage2.Monitor.DiskSpace(ctx)
 						require.NoError(t, err)
-						totalUsedSpace += piecesTotal
+						totalUsedSpace += report.UsedForPieces
 					}
 
 					objects, err := planet.Satellites[0].Metabase.DB.TestingAllObjects(ctx)
@@ -2049,9 +2048,9 @@ func testDeleteObject(t *testing.T,
 					// calculate the SNs used space after delete the pieces
 					var totalUsedSpaceAfterDelete int64
 					for _, sn := range planet.StorageNodes {
-						piecesTotal, _, err := sn.Storage2.Store.SpaceUsedForPieces(ctx)
+						report, err := sn.Storage2.Monitor.DiskSpace(ctx)
 						require.NoError(t, err)
-						totalUsedSpaceAfterDelete += piecesTotal
+						totalUsedSpaceAfterDelete += report.UsedForPieces
 					}
 
 					// we are not deleting data from SN right away so used space should be the same
@@ -2097,9 +2096,9 @@ func testDeleteObject(t *testing.T,
 			// and collect used space values for those nodes
 			snUsedSpace := make([]int64, len(planet.StorageNodes))
 			for i, node := range planet.StorageNodes {
-				var err error
-				snUsedSpace[i], _, err = node.Storage2.Store.SpaceUsedForPieces(ctx)
+				report, err := node.Storage2.Monitor.DiskSpace(ctx)
 				require.NoError(t, err)
+				snUsedSpace[i] = report.UsedForPieces
 
 				if i < numToShutdown {
 					require.NoError(t, planet.StopPeer(node))
@@ -2115,10 +2114,10 @@ func testDeleteObject(t *testing.T,
 			// we are not deleting data from SN right away so used space should be the same
 			// for online and shutdown/offline node
 			for i, sn := range planet.StorageNodes {
-				usedSpace, _, err := sn.Storage2.Store.SpaceUsedForPieces(ctx)
+				report, err := sn.Storage2.Monitor.DiskSpace(ctx)
 				require.NoError(t, err)
 
-				require.Equal(t, snUsedSpace[i], usedSpace, "StorageNode #%d", i)
+				require.Equal(t, snUsedSpace[i], report.UsedForPieces, "StorageNode #%d", i)
 			}
 		})
 	})
@@ -2153,9 +2152,9 @@ func testDeleteObject(t *testing.T,
 			// calculate the SNs total used space after data upload
 			var usedSpaceBeforeDelete int64
 			for _, sn := range planet.StorageNodes {
-				piecesTotal, _, err := sn.Storage2.Store.SpaceUsedForPieces(ctx)
+				report, err := sn.Storage2.Monitor.DiskSpace(ctx)
 				require.NoError(t, err)
-				usedSpaceBeforeDelete += piecesTotal
+				usedSpaceBeforeDelete += report.UsedForPieces
 			}
 
 			// Shutdown all the storage nodes before we delete the pieces
@@ -2173,9 +2172,9 @@ func testDeleteObject(t *testing.T,
 			// they are still holding data
 			var totalUsedSpace int64
 			for _, sn := range planet.StorageNodes {
-				piecesTotal, _, err := sn.Storage2.Store.SpaceUsedForPieces(ctx)
+				report, err := sn.Storage2.Monitor.DiskSpace(ctx)
 				require.NoError(t, err)
-				totalUsedSpace += piecesTotal
+				totalUsedSpace += report.UsedForPieces
 			}
 
 			require.Equal(t, usedSpaceBeforeDelete, totalUsedSpace, "totalUsedSpace")

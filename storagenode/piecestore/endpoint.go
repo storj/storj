@@ -9,6 +9,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"io/fs"
 	"net"
 	"reflect"
 	"runtime/trace"
@@ -101,6 +102,7 @@ type Endpoint struct {
 	trustSource trust.TrustedSatelliteSource
 	monitor     *monitor.Service
 	retain      QueueRetain
+	bfm         *retain.BloomFilterManager
 	pingStats   PingStatsSource
 
 	usage       bandwidth.Writer
@@ -125,7 +127,7 @@ type RestoreTrash interface {
 }
 
 // NewEndpoint creates a new piecestore endpoint.
-func NewEndpoint(log *zap.Logger, ident *identity.FullIdentity, trustSource trust.TrustedSatelliteSource, monitor *monitor.Service, retain QueueRetain, pingStats PingStatsSource, pieceBackend PieceBackend, ordersStore *orders.FileStore, usage bandwidth.DB, usedSerials *usedserials.Table, config Config) (*Endpoint, error) {
+func NewEndpoint(log *zap.Logger, ident *identity.FullIdentity, trustSource trust.TrustedSatelliteSource, monitor *monitor.Service, retain QueueRetain, bfm *retain.BloomFilterManager, pingStats PingStatsSource, pieceBackend PieceBackend, ordersStore *orders.FileStore, usage bandwidth.DB, usedSerials *usedserials.Table, config Config) (*Endpoint, error) {
 	return &Endpoint{
 		log:    log,
 		config: config,
@@ -134,6 +136,7 @@ func NewEndpoint(log *zap.Logger, ident *identity.FullIdentity, trustSource trus
 		trustSource: trustSource,
 		monitor:     monitor,
 		retain:      retain,
+		bfm:         bfm,
 		pingStats:   pingStats,
 
 		ordersStore: ordersStore,
@@ -663,7 +666,10 @@ func (endpoint *Endpoint) Download(stream pb.DRPCPiecestore_DownloadStream) (err
 	restoredFromTrash := false
 	pieceReader, err = endpoint.pieceBackend.Reader(ctx, limit.SatelliteId, limit.PieceId)
 	if err != nil {
-		return err
+		if errs.Is(err, fs.ErrNotExist) {
+			return rpcstatus.Wrap(rpcstatus.NotFound, err)
+		}
+		return rpcstatus.Wrap(rpcstatus.Internal, err)
 	}
 	defer func() {
 		err := pieceReader.Close() // similarly how transcation Rollback works
@@ -685,7 +691,7 @@ func (endpoint *Endpoint) Download(stream pb.DRPCPiecestore_DownloadStream) (err
 	// for repair traffic, send along the PieceHash and original OrderLimit for validation
 	// before sending the piece itself
 	if message.Limit.Action == pb.PieceAction_GET_REPAIR {
-		pieceHash, orderLimit, err := pieceReader.GetHashAndLimit(ctx)
+		pieceHash, orderLimit, err := pieceHashAndOrderLimitFromReader(pieceReader)
 		if err != nil {
 			log.Error("could not get hash and order limit", zap.Error(err))
 			return rpcstatus.Wrap(rpcstatus.Internal, err)
@@ -977,6 +983,12 @@ func (endpoint *Endpoint) processRetainReq(ctx context.Context, peerID storj.Nod
 
 	// the queue function will update the created before time based on the configurable retain buffer
 	err = endpoint.retain.Queue(ctx, peerID, retainReq)
+
+	if endpoint.bfm != nil {
+		if err := endpoint.bfm.Queue(ctx, peerID, retainReq); err != nil {
+			endpoint.log.Info("failed to set bloom filter in manager", zap.Error(err))
+		}
+	}
 
 	return &pb.RetainResponse{}, err
 }

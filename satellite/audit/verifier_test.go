@@ -5,12 +5,11 @@ package audit_test
 
 import (
 	"context"
-	"crypto/rand"
 	"errors"
 	"fmt"
 	"io"
+	"io/fs"
 	"net"
-	"os"
 	"syscall"
 	"testing"
 	"time"
@@ -34,9 +33,6 @@ import (
 	"storj.io/storj/satellite"
 	"storj.io/storj/satellite/audit"
 	"storj.io/storj/satellite/metabase"
-	"storj.io/storj/storagenode"
-	"storj.io/storj/storagenode/blobstore"
-	"storj.io/storj/storagenode/blobstore/testblobs"
 )
 
 // TestDownloadSharesHappyPath checks that the Share.Error field of all shares
@@ -420,14 +416,8 @@ func TestDownloadSharesDialIOTimeout(t *testing.T) {
 func TestDownloadSharesDownloadTimeout(t *testing.T) {
 	testWithRangedLoop(t, testplanet.Config{
 		SatelliteCount: 1, StorageNodeCount: 1, UplinkCount: 1,
-		Reconfigure: testplanet.Reconfigure{
-			StorageNodeDB: func(index int, db storagenode.DB, log *zap.Logger) (storagenode.DB, error) {
-				return testblobs.NewSlowDB(log.Named("slowdb"), db), nil
-			},
-		},
+		Reconfigure: testplanet.Reconfigure{},
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet, pauseQueueing pauseQueueingFunc, runQueueingOnce runQueueingOnceFunc) {
-		storageNodeDB := planet.StorageNodes[0].DB.(*testblobs.SlowDB)
-
 		satellite := planet.Satellites[0]
 		audits := satellite.Audit
 
@@ -477,8 +467,7 @@ func TestDownloadSharesDownloadTimeout(t *testing.T) {
 		require.NoError(t, err)
 
 		// make downloads on storage node slower than the timeout on the satellite for downloading shares
-		delay := 200 * time.Millisecond
-		storageNodeDB.SetLatency(delay)
+		planet.StorageNodes[0].Storage2.PieceBackend.TestingSetLatency(200 * time.Millisecond)
 
 		shares, err := verifier.DownloadShares(ctx, limits, privateKey, cachedNodesInfo, randomIndex, shareSize)
 		require.NoError(t, err)
@@ -648,8 +637,7 @@ func TestVerifierMissingPiece(t *testing.T) {
 		piece := segment.Pieces[0]
 		pieceID := segment.RootPieceID.Derive(piece.StorageNode, int32(piece.Number))
 		node := planet.FindNode(piece.StorageNode)
-		err = node.Storage2.Store.Delete(ctx, satellite.ID(), pieceID)
-		require.NoError(t, err)
+		node.Storage2.PieceBackend.TestingDeletePiece(satellite.ID(), pieceID)
 
 		report, err := audits.Verifier.Verify(ctx, queueSegment, nil)
 		require.NoError(t, err)
@@ -665,9 +653,6 @@ func TestVerifierNotEnoughPieces(t *testing.T) {
 	testWithRangedLoop(t, testplanet.Config{
 		SatelliteCount: 1, StorageNodeCount: 4, UplinkCount: 1,
 		Reconfigure: testplanet.Reconfigure{
-			StorageNodeDB: func(index int, db storagenode.DB, log *zap.Logger) (storagenode.DB, error) {
-				return testblobs.NewBadDB(log.Named("baddb"), db), nil
-			},
 			Satellite: testplanet.ReconfigureRS(2, 2, 4, 4),
 		},
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet, pauseQueueing pauseQueueingFunc, runQueueingOnce runQueueingOnceFunc) {
@@ -706,8 +691,7 @@ func TestVerifierNotEnoughPieces(t *testing.T) {
 		deletedPieceNum := int32(segment.Pieces[2].Number)
 
 		// return an error when the verifier attempts to download from this node
-		unknownErrorDB := unknownErrorNode.DB.(*testblobs.BadDB)
-		unknownErrorDB.SetError(errs.New("unknown error"))
+		unknownErrorNode.Storage2.PieceBackend.TestingSetError(errs.New("unknown error"))
 
 		// stop the offline node
 		err = planet.StopNodeAndUpdate(ctx, offlineNode)
@@ -715,8 +699,7 @@ func TestVerifierNotEnoughPieces(t *testing.T) {
 
 		// delete piece from deletedPieceNode
 		pieceID := segment.RootPieceID.Derive(deletedPieceNode.ID(), deletedPieceNum)
-		err = deletedPieceNode.Storage2.Store.Delete(ctx, satellite.ID(), pieceID)
-		require.NoError(t, err)
+		deletedPieceNode.Storage2.PieceBackend.TestingDeletePiece(satellite.ID(), pieceID)
 
 		report, err := audits.Verifier.Verify(ctx, queueSegment, nil)
 		require.True(t, audit.ErrNotEnoughShares.Has(err))
@@ -960,8 +943,7 @@ func TestVerifierModifiedSegmentFailsOnce(t *testing.T) {
 		piece := segment.Pieces[0]
 		pieceID := segment.RootPieceID.Derive(piece.StorageNode, int32(piece.Number))
 		node := planet.FindNode(piece.StorageNode)
-		err = node.Storage2.Store.Delete(ctx, satellite.ID(), pieceID)
-		require.NoError(t, err)
+		node.Storage2.PieceBackend.TestingDeletePiece(satellite.ID(), pieceID)
 
 		report, err := audits.Verifier.Verify(ctx, queueSegment, nil)
 		require.NoError(t, err)
@@ -988,9 +970,6 @@ func TestVerifierSlowDownload(t *testing.T) {
 	testWithRangedLoop(t, testplanet.Config{
 		SatelliteCount: 1, StorageNodeCount: 4, UplinkCount: 1,
 		Reconfigure: testplanet.Reconfigure{
-			StorageNodeDB: func(index int, db storagenode.DB, log *zap.Logger) (storagenode.DB, error) {
-				return testblobs.NewSlowDB(log.Named("slowdb"), db), nil
-			},
 			Satellite: testplanet.Combine(
 				func(log *zap.Logger, index int, config *satellite.Config) {
 					// These config values are chosen to force the slow node to time out without timing out on the three normal nodes
@@ -1026,10 +1005,9 @@ func TestVerifierSlowDownload(t *testing.T) {
 		})
 		require.NoError(t, err)
 
-		slowNode := planet.FindNode(segment.Pieces[0].StorageNode)
-		slowNodeDB := slowNode.DB.(*testblobs.SlowDB)
 		// make downloads on storage node slower than the timeout on the satellite for downloading shares
-		slowNodeDB.SetLatency(3 * time.Second)
+		slowNode := planet.FindNode(segment.Pieces[0].StorageNode)
+		slowNode.Storage2.PieceBackend.TestingSetLatency(3 * time.Second)
 
 		report, err := audits.Verifier.Verify(ctx, queueSegment, nil)
 		require.NoError(t, err)
@@ -1049,9 +1027,6 @@ func TestVerifierUnknownError(t *testing.T) {
 	testWithRangedLoop(t, testplanet.Config{
 		SatelliteCount: 1, StorageNodeCount: 4, UplinkCount: 1,
 		Reconfigure: testplanet.Reconfigure{
-			StorageNodeDB: func(index int, db storagenode.DB, log *zap.Logger) (storagenode.DB, error) {
-				return testblobs.NewBadDB(log.Named("baddb"), db), nil
-			},
 			Satellite: testplanet.ReconfigureRS(2, 2, 4, 4),
 		},
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet, pauseQueueing pauseQueueingFunc, runQueueingOnce runQueueingOnceFunc) {
@@ -1080,10 +1055,9 @@ func TestVerifierUnknownError(t *testing.T) {
 		})
 		require.NoError(t, err)
 
-		badNode := planet.FindNode(segment.Pieces[0].StorageNode)
-		badNodeDB := badNode.DB.(*testblobs.BadDB)
 		// return an error when the verifier attempts to download from this node
-		badNodeDB.SetError(errs.New("unknown error"))
+		badNode := planet.FindNode(segment.Pieces[0].StorageNode)
+		badNode.Storage2.PieceBackend.TestingSetError(errs.New("unknown error"))
 
 		report, err := audits.Verifier.Verify(ctx, queueSegment, nil)
 		require.NoError(t, err)
@@ -1205,7 +1179,7 @@ func TestAuditRepairedSegmentInExcludedCountries(t *testing.T) {
 		for _, n := range planet.StorageNodes {
 			if n.ID() == lastPiece.StorageNode {
 				pieceID := segmentAfterRepair.RootPieceID.Derive(n.ID(), int32(lastPiece.Number))
-				corruptPieceData(ctx, t, planet, n, pieceID)
+				n.Storage2.PieceBackend.TestingCorruptPiece(satellite.ID(), pieceID)
 			}
 		}
 
@@ -1253,45 +1227,6 @@ func getRemoteSegment(
 		ObjectKey:  objects[0].ObjectKey,
 		Position:   segments[0].Position,
 	}.Encode()
-}
-
-// corruptPieceData manipulates piece data on a storage node.
-func corruptPieceData(ctx context.Context, t *testing.T, planet *testplanet.Planet, corruptedNode *testplanet.StorageNode, corruptedPieceID storj.PieceID) {
-	t.Helper()
-
-	blobRef := blobstore.BlobRef{
-		Namespace: planet.Satellites[0].ID().Bytes(),
-		Key:       corruptedPieceID.Bytes(),
-	}
-
-	// get currently stored piece data from storagenode
-	reader, err := corruptedNode.Storage2.BlobsCache.Open(ctx, blobRef)
-	require.NoError(t, err)
-	pieceSize, err := reader.Size()
-	require.NoError(t, err)
-	require.True(t, pieceSize > 0)
-	pieceData := make([]byte, pieceSize)
-
-	// delete piece data
-	err = corruptedNode.Storage2.BlobsCache.Delete(ctx, blobRef)
-	require.NoError(t, err)
-
-	// create new random data
-	_, err = rand.Read(pieceData)
-	require.NoError(t, err)
-
-	// corrupt piece data (not PieceHeader) and write back to storagenode
-	// this means repair downloading should fail during piece hash verification
-	pieceData[pieceSize-1]++ // if we don't do this, this test should fail
-	writer, err := corruptedNode.Storage2.BlobsCache.Create(ctx, blobRef)
-	require.NoError(t, err)
-
-	n, err := writer.Write(pieceData)
-	require.NoError(t, err)
-	require.EqualValues(t, n, pieceSize)
-
-	err = writer.Commit(ctx)
-	require.NoError(t, err)
 }
 
 func TestIdentifyContainedNodes(t *testing.T) {
@@ -1430,9 +1365,6 @@ func TestConcurrentAuditsUnknownError(t *testing.T) {
 			// every segment gets a piece on every node, so that every segment audit
 			// hits the same set of nodes, and every node is touched by every audit
 			Satellite: testplanet.ReconfigureRS(minPieces-badNodes, minPieces, minPieces, minPieces),
-			StorageNodeDB: func(index int, db storagenode.DB, log *zap.Logger) (storagenode.DB, error) {
-				return testblobs.NewBadDB(log.Named("baddb"), db), nil
-			},
 		},
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet, pauseQueueing pauseQueueingFunc, runQueueingOnce runQueueingOnceFunc) {
 
@@ -1457,7 +1389,7 @@ func TestConcurrentAuditsUnknownError(t *testing.T) {
 
 		// make ~half of the nodes time out on all responses
 		for n := 0; n < badNodes; n++ {
-			planet.StorageNodes[n].DB.(*testblobs.BadDB).SetError(fmt.Errorf("an unrecognized error"))
+			planet.StorageNodes[n].Storage2.PieceBackend.TestingSetError(fmt.Errorf("an unrecognized error"))
 		}
 
 		// do all the audits at the same time; at least some nodes will get more than one at the same time
@@ -1513,9 +1445,6 @@ func TestConcurrentAuditsFailure(t *testing.T) {
 			// every segment gets a piece on every node, so that every segment audit
 			// hits the same set of nodes, and every node is touched by every audit
 			Satellite: testplanet.ReconfigureRS(minPieces-badNodes, minPieces, minPieces, minPieces),
-			StorageNodeDB: func(index int, db storagenode.DB, log *zap.Logger) (storagenode.DB, error) {
-				return testblobs.NewBadDB(log.Named("baddb"), db), nil
-			},
 		},
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet, pauseQueueing pauseQueueingFunc, runQueueingOnce runQueueingOnceFunc) {
 
@@ -1543,7 +1472,7 @@ func TestConcurrentAuditsFailure(t *testing.T) {
 			// Can't make _all_ calls return errors, or the directory read verification will fail
 			// (as it is triggered explicitly when ErrNotExist is returned from Open) and cause the
 			// node to panic before the test is done.
-			planet.StorageNodes[n].DB.(*testblobs.BadDB).SetError(os.ErrNotExist)
+			planet.StorageNodes[n].Storage2.PieceBackend.TestingSetError(fs.ErrNotExist)
 		}
 
 		// do all the audits at the same time; at least some nodes will get more than one at the same time
@@ -1608,9 +1537,6 @@ func TestConcurrentAuditsTimeout(t *testing.T) {
 				},
 				testplanet.ReconfigureRS(minPieces-slowNodes, minPieces, minPieces, minPieces),
 			),
-			StorageNodeDB: func(index int, db storagenode.DB, log *zap.Logger) (storagenode.DB, error) {
-				return testblobs.NewSlowDB(log.Named("slowdb"), db), nil
-			},
 		},
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet, pauseQueueing pauseQueueingFunc, runQueueingOnce runQueueingOnceFunc) {
 
@@ -1635,7 +1561,7 @@ func TestConcurrentAuditsTimeout(t *testing.T) {
 
 		// make ~half of the nodes time out on all responses
 		for n := 0; n < slowNodes; n++ {
-			planet.StorageNodes[n].DB.(*testblobs.SlowDB).SetLatency(time.Hour)
+			planet.StorageNodes[n].Storage2.PieceBackend.TestingSetLatency(time.Hour)
 		}
 
 		// do all the audits at the same time; at least some nodes will get more than one at the same time

@@ -212,7 +212,7 @@ func (s *Store) Stats() StoreStats {
 	var numLogs, lenLogs uint64
 	s.lfs.Range(func(_ uint64, lf *logFile) bool {
 		numLogs++
-		lenLogs += lf.size
+		lenLogs += lf.size.Load()
 		return true
 	})
 	s.rmu.RUnlock()
@@ -257,7 +257,7 @@ func (s *Store) initializeHeap() {
 	// collect all of the writable log files into the heap.
 	s.lfh = s.lfh[:0]
 	s.lfs.Range(func(_ uint64, lf *logFile) bool {
-		if lf.size < compaction_MaxLogSize {
+		if lf.size.Load() < compaction_MaxLogSize {
 			s.lfh.Push(lf)
 		}
 		return true
@@ -277,7 +277,7 @@ func (s *Store) replaceLogFile(lf *logFile) {
 	defer s.hmu.Unlock()
 
 	// only put the file back into the heap if it's not too big.
-	if lf.size < compaction_MaxLogSize {
+	if lf.size.Load() < compaction_MaxLogSize {
 		heap.Push(&s.lfh, lf)
 	}
 }
@@ -392,7 +392,7 @@ func (s *Store) Create(ctx context.Context, key Key, expires time.Time) (_ *Writ
 	// table on Close.
 	return newAutomaticWriter(ctx, s, lf, Record{
 		Key:     key,
-		Offset:  lf.size,
+		Offset:  lf.size.Load(),
 		Log:     lf.id,
 		Created: s.today(),
 		Expires: exp,
@@ -634,7 +634,7 @@ func (s *Store) Compact(
 			}
 
 			// compact non-empty log files that don't contain enough alive data.
-			if lf.size > 0 && float64(used[id])/float64(lf.size) < compaction_AliveFraction {
+			if size := lf.size.Load(); size > 0 && float64(used[id])/float64(size) < compaction_AliveFraction {
 				compact[id] = true
 			}
 
@@ -729,7 +729,7 @@ func (s *Store) Compact(
 					// unlock the active mutex upon Close or Cancel.
 					w := newManualWriter(ctx, s, into, Record{
 						Key:     rec.Key,
-						Offset:  into.size,
+						Offset:  into.size.Load(),
 						Log:     into.id,
 						Created: rec.Created,
 						Expires: rec.Expires,

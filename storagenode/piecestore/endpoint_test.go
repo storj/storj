@@ -6,7 +6,6 @@ package piecestore_test
 import (
 	"bytes"
 	"io"
-	"os"
 	"strings"
 	"sync/atomic"
 	"testing"
@@ -347,14 +346,6 @@ func TestDownload(t *testing.T) {
 		pieceID := storj.PieceID{1}
 		data, _, _ := uploadPiece(t, ctx, pieceID, planet.StorageNodes[0], planet.Uplinks[0], planet.Satellites[0])
 
-		// upload another piece that we will trash
-		trashPieceID := storj.PieceID{3}
-		trashPieceData, _, _ := uploadPiece(t, ctx, trashPieceID, planet.StorageNodes[0], planet.Uplinks[0], planet.Satellites[0])
-		err := planet.StorageNodes[0].Storage2.Store.Trash(ctx, planet.Satellites[0].ID(), trashPieceID, time.Now())
-		require.NoError(t, err)
-		_, err = planet.StorageNodes[0].Storage2.Store.Stat(ctx, planet.Satellites[0].ID(), trashPieceID)
-		require.Equal(t, true, errs.Is(err, os.ErrNotExist))
-
 		client, err := planet.Uplinks[0].DialPiecestore(ctx, planet.StorageNodes[0])
 		require.NoError(t, err)
 
@@ -365,24 +356,12 @@ func TestDownload(t *testing.T) {
 			// downloadData is data we are trying to download
 			downloadData []byte
 			errs         []string
-			finalChecks  func()
 		}{
 			{ // should successfully download data
 				name:         "download successful",
 				pieceID:      pieceID,
 				action:       pb.PieceAction_GET,
 				downloadData: data,
-			},
-			{ // should restore from trash and successfully download data
-				name:         "restore trash and successfully download",
-				pieceID:      trashPieceID,
-				action:       pb.PieceAction_GET,
-				downloadData: trashPieceData,
-				finalChecks: func() {
-					blobInfo, err := planet.StorageNodes[0].Storage2.Store.Stat(ctx, planet.Satellites[0].ID(), trashPieceID)
-					require.NoError(t, err)
-					require.Equal(t, trashPieceID.Bytes(), blobInfo.BlobRef().Key)
-				},
 			},
 			{ // should err with piece ID not specified
 				name:         "piece id not specified",
@@ -460,10 +439,6 @@ func TestDownload(t *testing.T) {
 				hash, originalLimit := downloader.GetHashAndLimit()
 				require.Nil(t, hash)
 				require.Nil(t, originalLimit)
-
-				if tt.finalChecks != nil {
-					tt.finalChecks()
-				}
 			})
 		}
 	})

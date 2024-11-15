@@ -4,7 +4,7 @@
 package forgetsatellite_test
 
 import (
-	"os"
+	"io/fs"
 	"testing"
 	"time"
 
@@ -12,10 +12,10 @@ import (
 	"github.com/zeebo/errs"
 
 	"storj.io/common/memory"
+	"storj.io/common/pb"
 	"storj.io/common/testcontext"
 	"storj.io/common/testrand"
 	"storj.io/storj/private/testplanet"
-	"storj.io/storj/storagenode/blobstore"
 	"storj.io/storj/storagenode/internalpb"
 	"storj.io/storj/storagenode/reputation"
 	"storj.io/storj/storagenode/satellites"
@@ -34,19 +34,12 @@ func TestCleaner(t *testing.T) {
 		// TODO(clement): remove this once I figure out why it's flaky
 		planet.StorageNodes[0].NodeStats.Cache.Reputation.Pause()
 
-		store := planet.StorageNodes[0].Storage2.BlobsCache
-		defer ctx.Check(store.Close)
-
-		blobSize := memory.KB
-		blobRef := blobstore.BlobRef{
-			Namespace: cleanupSatellite.ID().Bytes(),
-			Key:       testrand.PieceID().Bytes(),
-		}
-		w, err := store.Create(ctx, blobRef)
+		pieceID := testrand.PieceID()
+		w, err := planet.StorageNodes[0].Storage2.PieceBackend.Writer(ctx, cleanupSatellite.ID(), pieceID, pb.PieceHashAlgorithm_BLAKE3, time.Time{})
 		require.NoError(t, err)
-		_, err = w.Write(testrand.Bytes(blobSize))
+		_, err = w.Write(testrand.Bytes(1 * memory.KB))
 		require.NoError(t, err)
-		require.NoError(t, w.Commit(ctx))
+		require.NoError(t, w.Commit(ctx, &pb.PieceHeader{}))
 
 		// create a new satellite reputation
 		timestamp := time.Now().UTC()
@@ -100,10 +93,9 @@ func TestCleaner(t *testing.T) {
 		require.Equal(t, satellites.CleanupSucceeded, satellite.Status)
 
 		// check that the blob was deleted
-		blobInfo, err := store.Stat(ctx, blobRef)
+		_, err = planet.StorageNodes[0].Storage2.PieceBackend.Reader(ctx, cleanupSatellite.ID(), pieceID)
 		require.Error(t, err)
-		require.True(t, errs.Is(err, os.ErrNotExist))
-		require.Nil(t, blobInfo)
+		require.True(t, errs.Is(err, fs.ErrNotExist))
 
 		// check that the reputation was deleted
 		rstats, err = reputationDB.Get(ctx, cleanupSatellite.ID())

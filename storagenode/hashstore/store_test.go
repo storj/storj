@@ -340,7 +340,7 @@ func TestStore_WriteCancel(t *testing.T) {
 	var looped flag
 	s.lfs.Range(func(_ uint64, lf *logFile) bool {
 		assert.False(t, looped.set())
-		assert.Equal(t, lf.size, 0)
+		assert.Equal(t, lf.size.Load(), 0)
 		size, err := fileSize(lf.fh)
 		assert.NoError(t, err)
 		assert.Equal(t, size, 1024)
@@ -727,6 +727,25 @@ func TestStore_CleanupTempFiles(t *testing.T) {
 	s.AssertReopen()
 
 	assert.Error(t, af.Commit())
+}
+
+func TestStore_RaceConcurrentWriteAndStats(t *testing.T) {
+	s := newTestStore(t)
+	defer s.Close()
+
+	done := make(chan struct{})
+	go func() {
+		defer close(done)
+
+		for i := 0; i < 1000; i++ {
+			_ = s.Stats()
+		}
+	}()
+
+	for i := 0; i < 1000; i++ {
+		s.AssertCreate(time.Time{})
+	}
+	<-done
 }
 
 //

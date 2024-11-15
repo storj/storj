@@ -12,6 +12,7 @@ import (
 
 	"storj.io/common/storj"
 	"storj.io/storj/storagenode/pieces"
+	"storj.io/storj/storagenode/piecestore"
 	"storj.io/storj/storagenode/reputation"
 	"storj.io/storj/storagenode/satellites"
 	"storj.io/storj/storagenode/trust"
@@ -28,10 +29,11 @@ type Cleaner struct {
 	reputationDB  reputation.DB
 	v0PieceInfoDB pieces.V0PieceInfoDB
 	usageCache    *pieces.BlobsUsageCache
+	hsb           *piecestore.HashStoreBackend
 }
 
 // NewCleaner creates a new Cleaner.
-func NewCleaner(log *zap.Logger, store *pieces.Store, trust *trust.Pool, usageCache *pieces.BlobsUsageCache, satelliteDB satellites.DB, reputationDB reputation.DB, v0PieceInfoDB pieces.V0PieceInfoDB) *Cleaner {
+func NewCleaner(log *zap.Logger, store *pieces.Store, trust *trust.Pool, usageCache *pieces.BlobsUsageCache, satelliteDB satellites.DB, reputationDB reputation.DB, v0PieceInfoDB pieces.V0PieceInfoDB, hsb *piecestore.HashStoreBackend) *Cleaner {
 	return &Cleaner{
 		log:           log,
 		store:         store,
@@ -40,6 +42,7 @@ func NewCleaner(log *zap.Logger, store *pieces.Store, trust *trust.Pool, usageCa
 		reputationDB:  reputationDB,
 		v0PieceInfoDB: v0PieceInfoDB,
 		usageCache:    usageCache,
+		hsb:           hsb,
 	}
 }
 
@@ -111,6 +114,11 @@ func (c *Cleaner) Run(ctx context.Context, satelliteID storj.NodeID) (err error)
 	err = c.v0PieceInfoDB.WalkSatelliteV0Pieces(ctx, c.usageCache, satellite.SatelliteID, func(access pieces.StoredPieceAccess) error {
 		return c.store.Delete(ctx, satelliteID, access.PieceID())
 	})
+	if err != nil {
+		return err
+	}
+
+	err = c.hsb.ForgetSatellite(ctx, satellite.SatelliteID)
 	if err != nil {
 		return err
 	}

@@ -27,7 +27,6 @@ import (
 	"storj.io/common/testcontext"
 	"storj.io/common/testrand"
 	"storj.io/storj/cmd/storagenode/internalcmd"
-	"storj.io/storj/private/testplanet"
 	"storj.io/storj/storagenode"
 	"storj.io/storj/storagenode/blobstore"
 	"storj.io/storj/storagenode/blobstore/filestore"
@@ -950,30 +949,6 @@ func TestEmptyTrash_lazyFilewalker(t *testing.T) {
 			}
 		}
 	})
-}
-
-func TestSpaceUsedTotalAndBySatellite(t *testing.T) {
-	for _, enabled := range []bool{false, true} {
-		testplanet.Run(t, testplanet.Config{
-			SatelliteCount: 1, StorageNodeCount: 1, UplinkCount: 1,
-			Reconfigure: testplanet.Reconfigure{
-				StorageNode: func(index int, config *storagenode.Config) {
-					config.Pieces.EnableLazyFilewalker = enabled
-				},
-			},
-		}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
-			err := planet.Uplinks[0].Upload(ctx, planet.Satellites[0], "bucket", "object", testrand.Bytes(5*memory.KiB))
-			require.NoError(t, err)
-
-			satelliteID := planet.Satellites[0].ID()
-			totalPiecesSize, totalContentSize, bySatellite, err := planet.StorageNodes[0].Storage2.Store.SpaceUsedTotalAndBySatellite(ctx)
-			require.NoError(t, err)
-			require.EqualValues(t, 8192, totalPiecesSize)
-			require.EqualValues(t, 7680, totalContentSize)
-			require.EqualValues(t, 8192, bySatellite[satelliteID].Total)
-			require.EqualValues(t, 7680, bySatellite[satelliteID].ContentSize)
-		})
-	}
 }
 
 func storeSinglePiece(ctx *testcontext.Context, t testing.TB, store *pieces.Store, satelliteID storj.NodeID, pieceID storj.PieceID, data []byte) {
