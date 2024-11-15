@@ -403,6 +403,7 @@ type NoticeDismissal struct {
 	ProjectMembersPassphrase bool `json:"projectMembersPassphrase"`
 	UploadOverwriteWarning   bool `json:"uploadOverwriteWarning"`
 	VersioningBetaBanner     bool `json:"versioningBetaBanner"`
+	CunoFSBetaJoined         bool `json:"cunoFSBetaJoined"`
 }
 
 // SetUpAccountRequest holds data for completing account setup.

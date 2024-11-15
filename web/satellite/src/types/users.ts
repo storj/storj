@@ -273,7 +273,13 @@ export class UserSettings {
         public onboardingEnd = false,
         public passphrasePrompt = true,
         public onboardingStep: string | null = null,
-        public noticeDismissal: NoticeDismissal = { fileGuide: false, serverSideEncryption: false, partnerUpgradeBanner: false, projectMembersPassphrase: false },
+        public noticeDismissal: NoticeDismissal = {
+            fileGuide: false,
+            serverSideEncryption: false,
+            partnerUpgradeBanner: false,
+            projectMembersPassphrase: false,
+            cunoFSBetaJoined: false,
+        },
     ) { }
 
     public get sessionDuration(): Duration | null {
@@ -336,6 +342,7 @@ export interface NoticeDismissal {
     serverSideEncryption: boolean
     partnerUpgradeBanner: boolean
     projectMembersPassphrase: boolean
+    cunoFSBetaJoined: boolean
     uploadOverwriteWarning?: boolean;
     versioningBetaBanner?: boolean;
 }
