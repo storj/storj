@@ -115,18 +115,13 @@ type Endpoint struct {
 // QueueRetain is an interface for retaining pieces in the queue and checking status.
 // A restricted view of retain.Service.
 type QueueRetain interface {
-	Queue(satelliteID storj.NodeID, req *pb.RetainRequest) bool
+	Queue(satelliteID storj.NodeID, req *pb.RetainRequest) error
 	Status() retain.Status
 }
 
 // RestoreTrash is an interface for restoring trash.
 type RestoreTrash interface {
 	StartRestore(ctx context.Context, satellite storj.NodeID) error
-}
-
-// EnqueueDeletes is an interface for enqueuing deletes.
-type EnqueueDeletes interface {
-	Enqueue(ctx context.Context, satelliteID storj.NodeID, pieceIDs []storj.PieceID) (unhandled int)
 }
 
 // NewEndpoint creates a new piecestore endpoint.
@@ -901,17 +896,17 @@ func (endpoint *Endpoint) beginSaveOrder(ctx context.Context, limit *pb.OrderLim
 		err = commit(&ordersfile.Info{Limit: limit, Order: order})
 		if err != nil {
 			endpoint.log.Error("failed to add order", zap.Error(err))
-		} else {
+		} else if endpoint.usage != nil {
 			amount := order.Amount
 			if amountFunc != nil {
 				amount = amountFunc()
 			}
-			// We always want to save order to the database to be able to settle.
 			err = endpoint.usage.Add(context2.WithoutCancellation(ctx), limit.SatelliteId, limit.Action, amount, time.Now())
 			if err != nil {
 				endpoint.log.Error("failed to add bandwidth usage", zap.Error(err))
 			}
 		}
+
 	}, nil
 }
 
@@ -981,14 +976,9 @@ func (endpoint *Endpoint) processRetainReq(peerID storj.NodeID, retainReq *pb.Re
 	mon.IntVal("retain_creation_date").Observe(retainReq.CreationDate.Unix())
 
 	// the queue function will update the created before time based on the configurable retain buffer
-	queued := endpoint.retain.Queue(peerID, retainReq)
-	if queued {
-		endpoint.log.Info("Retain job queued", zap.Stringer("Satellite ID", peerID))
-	} else {
-		endpoint.log.Info("Retain job not queued (queue is closed)", zap.Stringer("Satellite ID", peerID))
-	}
+	err = endpoint.retain.Queue(peerID, retainReq)
 
-	return &pb.RetainResponse{}, nil
+	return &pb.RetainResponse{}, err
 }
 
 // RetainBig keeps only piece ids specified in the request, supports big bloom filters.

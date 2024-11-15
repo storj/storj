@@ -38,6 +38,8 @@ type SyncObserver struct {
 	latestCreationTime time.Time
 
 	forcedTableSize int
+
+	inlineCount, remoteCount int
 }
 
 var _ (rangedloop.Observer) = (*SyncObserver)(nil)
@@ -98,7 +100,11 @@ func (obs *SyncObserver) Finish(ctx context.Context) (err error) {
 	if err := obs.upload.UploadBloomFilters(ctx, obs.latestCreationTime, obs.retainInfos); err != nil {
 		return err
 	}
-	obs.log.Debug("collecting bloom filters finished")
+
+	obs.log.Info("collecting bloom filters finished",
+		zap.Int("inline segments", obs.inlineCount),
+		zap.Int("remote segments", obs.remoteCount))
+
 	return nil
 }
 
@@ -117,8 +123,15 @@ func (obs *SyncObserver) Process(ctx context.Context, segments []rangedloop.Segm
 	latestCreationTime := time.Time{}
 	for _, segment := range segments {
 		if segment.Inline() {
+			obs.mu.Lock()
+			obs.inlineCount++
+			obs.mu.Unlock()
 			continue
 		}
+
+		obs.mu.Lock()
+		obs.remoteCount++
+		obs.mu.Unlock()
 
 		// sanity check to detect if loop is not running against live database
 		if segment.CreatedAt.After(obs.startTime) {

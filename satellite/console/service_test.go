@@ -1711,6 +1711,9 @@ func TestChangeEmail(t *testing.T) {
 		require.Equal(t, validEmail, *user.NewUnverifiedEmail)
 		require.NotEmpty(t, user.ActivationCode)
 
+		err = service.ChangeEmail(userCtx, console.ChangeAccountEmailStep, validEmail)
+		require.True(t, console.ErrConflict.Has(err))
+
 		for i := 0; i < 3; i++ {
 			err = service.ChangeEmail(userCtx, console.VerifyNewAccountEmailStep, "random verification code")
 			require.True(t, console.ErrValidation.Has(err))

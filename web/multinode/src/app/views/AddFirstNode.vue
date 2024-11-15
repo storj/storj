@@ -24,6 +24,13 @@
             />
             <headered-input
                 class="add-first-node__left-area__input"
+                label="Node Name"
+                placeholder="Enter Node Name"
+                :error="nameError"
+                @setData="setNodeName"
+            />
+            <headered-input
+                class="add-first-node__left-area__input"
                 label="Public IP Address"
                 placeholder="Enter Public IP Address and Port"
                 :error="publicIPError"
@@ -72,7 +79,9 @@ export default class AddFirstNode extends Vue {
     private idError = '';
     private publicIPError = '';
     private apiKeyError = '';
+
     public notify = new Notify();
+    private nameError = '';
 
     /**
      * Sets node id field from value string.
@@ -96,6 +105,14 @@ export default class AddFirstNode extends Vue {
     public setApiKey(value: string): void {
         this.nodeToAdd.apiSecret = value.trim();
         this.apiKeyError = '';
+    }
+
+    /**
+     * Sets node name field from value string.
+     */
+    public setNodeName(value: string): void {
+        this.nodeToAdd.name = value.trim();
+        this.nameError = '';
     }
 
     public async onCreate(): Promise<void> {
@@ -126,6 +143,11 @@ export default class AddFirstNode extends Vue {
 
         if (!this.nodeToAdd.id) {
             this.idError = 'This field is required. Please enter a valid node ID';
+            hasNoErrors = false;
+        }
+
+        if (!this.nodeToAdd.name) {
+            this.nameError = 'This field is required. Please enter a valid node Name';
             hasNoErrors = false;
         }
 

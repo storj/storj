@@ -240,7 +240,7 @@ func (a *Auth) BeginSsoFlow(w http.ResponseWriter, r *http.Request) {
 		http.Redirect(w, r, ssoFailedAddr, http.StatusPermanentRedirect)
 	}
 
-	state, err := a.service.GetSsoStateFromEmail(email)
+	state, err := a.ssoService.GetSsoStateFromEmail(email)
 	if err != nil {
 		a.log.Error("failed to get sso state", zap.Error(err))
 		http.Redirect(w, r, ssoFailedAddr, http.StatusPermanentRedirect)
@@ -1070,11 +1070,6 @@ func (a *Auth) ForgotPassword(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if a.ssoService != nil && user.ExternalID != nil && *user.ExternalID != "" {
-		a.log.Info("sso user attempted 'forgot password' flow", zap.String("email", user.Email))
-		return
-	}
-
 	recoveryToken, err := a.service.GeneratePasswordRecoveryToken(ctx, user)
 	if err != nil {
 		a.serveJSONError(ctx, w, err)
@@ -1722,7 +1717,7 @@ func (a *Auth) getStatusCode(err error) int {
 		console.ErrActivationCode.Has(err), sso.ErrTokenVerification.Has(err),
 		sso.ErrInvalidState.Has(err):
 		return http.StatusUnauthorized
-	case console.ErrEmailUsed.Has(err), console.ErrMFAConflict.Has(err), console.ErrMFAEnabled.Has(err):
+	case console.ErrEmailUsed.Has(err), console.ErrMFAConflict.Has(err), console.ErrMFAEnabled.Has(err), console.ErrConflict.Has(err):
 		return http.StatusConflict
 	case console.ErrLoginRestricted.Has(err), console.ErrTooManyAttempts.Has(err), console.ErrForbidden.Has(err), console.ErrSsoUserRestricted.Has(err):
 		return http.StatusForbidden
@@ -1767,7 +1762,9 @@ func (a *Auth) getUserErrorMessage(err error) string {
 		return "Your login credentials are incorrect, please try again"
 	case console.ErrLoginRestricted.Has(err):
 		return "You can't be authenticated. Please contact support"
-	case console.ErrValidation.Has(err), console.ErrChangePassword.Has(err), console.ErrInvalidProjectLimit.Has(err), console.ErrNotPaidTier.Has(err), console.ErrTooManyAttempts.Has(err), console.ErrMFAEnabled.Has(err), console.ErrForbidden.Has(err):
+	case console.ErrValidation.Has(err), console.ErrChangePassword.Has(err), console.ErrInvalidProjectLimit.Has(err),
+		console.ErrNotPaidTier.Has(err), console.ErrTooManyAttempts.Has(err), console.ErrMFAEnabled.Has(err),
+		console.ErrForbidden.Has(err), console.ErrConflict.Has(err):
 		return err.Error()
 	case errors.Is(err, errNotImplemented):
 		return "The server is incapable of fulfilling the request"
