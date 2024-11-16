@@ -4,14 +4,14 @@
 package hashstore
 
 import (
+	"context"
 	"io"
 	"math"
 	"os"
 	"sync"
-
-	"github.com/zeebo/errs"
 )
 
+// logFile represents a ref-counted handle to a log file that stores piece data.
 type logFile struct {
 	// immutable fields
 	fh *os.File
@@ -36,6 +36,7 @@ func newLogFile(fh *os.File, id uint64, size uint64) *logFile {
 	}
 }
 
+// performIntents handles any resource cleanup when the ref count reaches zero.
 func (l *logFile) performIntents() {
 	if l.refs != 0 {
 		return
@@ -45,6 +46,7 @@ func (l *logFile) performIntents() {
 	}
 }
 
+// Close flags the log file to be closed when the ref count reaches zero.
 func (l *logFile) Close() {
 	l.mu.Lock()
 	defer l.mu.Unlock()
@@ -53,6 +55,7 @@ func (l *logFile) Close() {
 	l.performIntents()
 }
 
+// Remove unlinks the file from the filesystem.
 func (l *logFile) Remove() {
 	l.mu.Lock()
 	defer l.mu.Unlock()
@@ -62,6 +65,8 @@ func (l *logFile) Remove() {
 	}
 }
 
+// Acquire increases the ref count if the log file is still available (not Closed) and returns
+// true if it was able.
 func (l *logFile) Acquire() bool {
 	l.mu.Lock()
 	defer l.mu.Unlock()
@@ -74,6 +79,7 @@ func (l *logFile) Acquire() bool {
 	return true
 }
 
+// Release decreases the ref count after an Acquire and you are done operating on the log file.
 func (l *logFile) Release() {
 	l.mu.Lock()
 	defer l.mu.Unlock()
@@ -148,6 +154,7 @@ func (l *Reader) Close() error { l.lf.Release(); return nil }
 
 // Writer is a type that allows one to write a piece to a log file.
 type Writer struct {
+	ctx    context.Context
 	store  *Store
 	lf     *logFile
 	manual bool
@@ -158,8 +165,9 @@ type Writer struct {
 	rec      Record
 }
 
-func newAutomaticWriter(s *Store, lf *logFile, rec Record) *Writer {
+func newAutomaticWriter(ctx context.Context, s *Store, lf *logFile, rec Record) *Writer {
 	return &Writer{
+		ctx:    ctx,
 		store:  s,
 		lf:     lf,
 		manual: false,
@@ -168,8 +176,9 @@ func newAutomaticWriter(s *Store, lf *logFile, rec Record) *Writer {
 	}
 }
 
-func newManualWriter(s *Store, lf *logFile, rec Record) *Writer {
+func newManualWriter(ctx context.Context, s *Store, lf *logFile, rec Record) *Writer {
 	return &Writer{
+		ctx:    ctx,
 		store:  s,
 		lf:     lf,
 		manual: true,
@@ -197,7 +206,10 @@ func (h *Writer) done() {
 }
 
 // Close commits the writes that have happened. Close or Cancel must be called at least once.
-func (h *Writer) Close() error {
+func (h *Writer) Close() (err error) {
+	ctx := h.ctx
+	defer mon.Task()(&ctx)(&err)
+
 	// if we are not the first to close or we are canceled, do nothing.
 	h.mu.Lock()
 	if h.closed.set() || h.canceled.get() {
@@ -214,28 +226,28 @@ func (h *Writer) Close() error {
 	// record because otherwise we would have to allocate a variable width buffer causing an
 	// allocation on every Close instead of just on the calls that fix alignment.
 	var written int
-	if align := 4096 - ((uint64(h.rec.Length) + h.lf.size + RSize) % 4096); align > 0 && align < 64 {
+	if align := 4096 - ((uint64(h.rec.Length) + h.lf.size + RecordSize) % 4096); align > 0 && align < 64 {
 		written, _ = h.lf.fh.Write(make([]byte, align))
 	}
 
 	// append the record to the log file for reconstruction.
-	var buf [RSize]byte
-	h.rec.Write(&buf)
+	var buf [RecordSize]byte
+	h.rec.WriteTo(&buf)
 
 	if _, err := h.lf.fh.Write(buf[:]); err != nil {
 		// if we can't write the entry, we should abort the write operation so that we can always
 		// reconstruct the table from the log file. attempt to reclaim space by seeking backwards
 		// to the record offset.
 		_, _ = h.lf.fh.Seek(int64(h.lf.size), io.SeekStart)
-		return errs.Wrap(err)
+		return Error.Wrap(err)
 	}
 
 	// increase our in-memory estimate of the size of the log file for sorting.
-	h.lf.size += uint64(h.rec.Length) + uint64(written) + RSize
+	h.lf.size += uint64(h.rec.Length) + uint64(written) + RecordSize
 
 	// if we are not in manual mode, then we need to add the record.
 	if !h.manual {
-		return h.store.addRecord(h.rec)
+		return h.store.addRecord(ctx, h.rec)
 	}
 
 	return nil
@@ -243,6 +255,9 @@ func (h *Writer) Close() error {
 
 // Cancel discards the writes that have happened. Close or Cancel must be called at least once.
 func (h *Writer) Cancel() {
+	ctx := h.ctx
+	defer mon.Task()(&ctx)(nil)
+
 	// if we are not the first to cancel or we are closed, do nothing.
 	h.mu.Lock()
 	if h.canceled.set() || h.closed.get() {
@@ -266,9 +281,9 @@ func (h *Writer) Write(p []byte) (n int, err error) {
 	defer h.mu.Unlock()
 
 	if h.canceled || h.closed {
-		return 0, errs.New("invalid handle")
+		return 0, Error.New("invalid handle")
 	} else if uint64(h.rec.Length)+uint64(len(p)) > math.MaxUint32 {
-		return 0, errs.New("piece too large")
+		return 0, Error.New("piece too large")
 	}
 
 	n, err = h.lf.fh.Write(p)

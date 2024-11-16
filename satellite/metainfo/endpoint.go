@@ -32,6 +32,7 @@ import (
 	"storj.io/storj/satellite/console"
 	"storj.io/storj/satellite/internalpb"
 	"storj.io/storj/satellite/metabase"
+	"storj.io/storj/satellite/metainfo/bloomrate"
 	"storj.io/storj/satellite/metainfo/pointerverification"
 	"storj.io/storj/satellite/nodeselection"
 	"storj.io/storj/satellite/orders"
@@ -85,7 +86,7 @@ type Endpoint struct {
 	satellite                      signing.Signer
 	limiterCache                   *lrucache.ExpiringLRUOf[*rate.Limiter]
 	singleObjectUploadLimitCache   *lrucache.ExpiringLRUOf[struct{}]
-	singleObjectDownloadLimitCache *lrucache.ExpiringLRUOf[struct{}]
+	singleObjectDownloadLimitCache *bloomrate.BloomRate
 	userInfoCache                  *lrucache.ExpiringLRUOf[*console.UserInfo]
 	encInlineSegmentSize           int64 // max inline segment size + encryption overhead
 	revocations                    revocation.DB
@@ -162,10 +163,11 @@ func NewEndpoint(log *zap.Logger, buckets *buckets.Service, metabaseDB *metabase
 			Expiration: config.UploadLimiter.SingleObjectLimit,
 			Capacity:   config.UploadLimiter.CacheCapacity,
 		}),
-		singleObjectDownloadLimitCache: lrucache.NewOf[struct{}](lrucache.Options{
-			Expiration: config.DownloadLimiter.SingleObjectLimit,
-			Capacity:   config.DownloadLimiter.CacheCapacity,
-		}),
+		singleObjectDownloadLimitCache: bloomrate.NewBloomRate(
+			config.DownloadLimiter.SizeExponent,
+			config.DownloadLimiter.HashCount,
+			rate.Every(config.DownloadLimiter.SingleObjectLimit),
+			config.DownloadLimiter.BurstLimit),
 		userInfoCache: lrucache.NewOf[*console.UserInfo](lrucache.Options{
 			Expiration: config.UserInfoValidation.CacheExpiration,
 			Capacity:   config.UserInfoValidation.CacheCapacity,

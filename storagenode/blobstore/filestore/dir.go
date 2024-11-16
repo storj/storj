@@ -547,6 +547,88 @@ func (dir *Dir) TryRestoreTrashBlob(ctx context.Context, ref blobstore.BlobRef) 
 	return rename(blobPathInTrash, blobsVerPath)
 }
 
+// EmptyTrashWithoutStat is like EmptyTrash, but without calculating the newly available space.
+func (dir *Dir) EmptyTrashWithoutStat(ctx context.Context, namespace []byte, trashedBefore time.Time) (err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	err = dir.forEachTrashDayDir(ctx, namespace, func(dirTime time.Time) error {
+		// add 24h since blobs in there might have been moved in as late as 23:59:59.999
+		if !dirTime.Add(24 * time.Hour).After(trashedBefore) {
+			trashPath := dir.trashPath(namespace, dirTime)
+
+			subdirNames, err := readAllDirNames(trashPath)
+			if errors.Is(err, fs.ErrNotExist) {
+				return nil
+			} else if err != nil {
+				return err
+			}
+
+			for _, keyPrefix := range subdirNames {
+				if len(keyPrefix) != 2 {
+					// just an invalid subdir; could be garbage of many kinds. probably
+					// don't need to pass on this error
+					continue
+				}
+
+				trashPrefix := filepath.Join(trashPath, keyPrefix)
+				err := dir.deleteAllTrashFiles(ctx, trashPrefix)
+				if errors.Is(err, context.Canceled) {
+					return nil
+				}
+				if err != nil {
+					dir.log.Warn("Couldn't delete trash directory", zap.String("dir", trashPrefix), zap.Error(err))
+				}
+
+				// if directory is empty, remove it
+				_ = dir.removeButLogIfNotExist(trashPrefix)
+
+			}
+
+			_ = dir.removeButLogIfNotExist(trashPath)
+
+		}
+		return nil
+	})
+	return nil
+}
+
+var deletedFiles = mon.Counter("trash_deleted_files")
+
+func (dir *Dir) deleteAllTrashFiles(ctx context.Context, prefixDir string) error {
+	openDir, err := os.Open(prefixDir)
+	if err != nil {
+		return err
+	}
+	defer func() { err = errs.Combine(err, openDir.Close()) }()
+	for {
+		// check for context done both before and after our readdir() call
+		if err := ctx.Err(); err != nil {
+			return err
+		}
+		names, err := openDir.Readdirnames(nameBatchSize)
+		if err != nil && !errors.Is(err, io.EOF) {
+			return err
+		}
+		if os.IsNotExist(err) || len(names) == 0 {
+			return nil
+		}
+		if err := ctx.Err(); err != nil {
+			return err
+		}
+		for _, name := range names {
+			err := dir.removeButLogIfNotExist(filepath.Join(prefixDir, name))
+			if err != nil {
+				return errs.Wrap(err)
+			}
+			deletedFiles.Inc(1)
+			// also check for context done between every walkFunc callback.
+			if err := ctx.Err(); err != nil {
+				return err
+			}
+		}
+	}
+}
+
 // EmptyTrash iterates through the toplevel trash directories for the given
 // namespace and recursively deletes any of them more than 24h older than
 // trashedBefore.

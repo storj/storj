@@ -75,7 +75,7 @@ require (
 	google.golang.org/protobuf v1.35.1
 	gopkg.in/segmentio/analytics-go.v3 v3.1.0
 	gopkg.in/yaml.v3 v3.0.1
-	storj.io/common v0.0.0-20241107064117-6b3c20bcf19b
+	storj.io/common v0.0.0-20241108140224-815d6d04c62c
 	storj.io/drpc v0.0.35-0.20240709171858-0075ac871661
 	storj.io/eventkit v0.0.0-20240415002644-1d9596fee086
 	storj.io/monkit-jaeger v0.0.0-20240221095020-52b0792fa6cd

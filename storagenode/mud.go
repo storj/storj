@@ -183,7 +183,8 @@ func Module(ball *mud.Ball) {
 			pool.StartWithRefresh = true
 			return pool, err
 		})
-		mud.Tag[*trust.Pool, modular.Service](ball, modular.Service{})
+		mud.RegisterInterfaceImplementation[trust.TrustedSatelliteSource, *trust.Pool](ball)
+
 	}
 
 	{
@@ -245,8 +246,8 @@ func Module(ball *mud.Ball) {
 		}, logWrapper("contact:chore"))
 		mud.Tag[*contact.Chore, modular.Service](ball, modular.Service{})
 
-		mud.Provide[*contact.Endpoint](ball, func(log *zap.Logger, trustPool *trust.Pool, pingStats *contact.PingStats, srv *server.Server) (*contact.Endpoint, error) {
-			ep := contact.NewEndpoint(log, trustPool, pingStats)
+		mud.Provide[*contact.Endpoint](ball, func(log *zap.Logger, trustSource trust.TrustedSatelliteSource, pingStats *contact.PingStats, srv *server.Server) (*contact.Endpoint, error) {
+			ep := contact.NewEndpoint(log, trustSource, pingStats)
 			if err := pb.DRPCRegisterContact(srv.DRPC(), ep); err != nil {
 				return nil, err
 			}
@@ -317,8 +318,8 @@ func Module(ball *mud.Ball) {
 				trashExpiryInterval,
 				trust, store)
 		}, logWrapper("pieces:trash"))
-		mud.Provide[*pieces.TrashRunOnce](ball, func(log *zap.Logger, trust *trust.Pool, store *pieces.Store, stop *modular.StopTrigger) *pieces.TrashRunOnce {
-			return pieces.NewTrashRunOnce(log, trust, store, trashExpiryInterval, stop)
+		mud.Provide[*pieces.TrashRunOnce](ball, func(log *zap.Logger, blobs blobstore.Blobs, stop *modular.StopTrigger) *pieces.TrashRunOnce {
+			return pieces.NewTrashRunOnce(log, blobs, trashExpiryInterval, stop)
 		})
 
 		mud.RegisterInterfaceImplementation[piecestore.RestoreTrash, *pieces.TrashChore](ball)
@@ -331,11 +332,11 @@ func Module(ball *mud.Ball) {
 
 		mud.Provide[*piecestore.Endpoint](ball, piecestore.NewEndpoint, logWrapper("piecestore"))
 
-		mud.Provide[*orders.Service](ball, func(log *zap.Logger, ordersStore *orders.FileStore, ordersDB orders.DB, trust *trust.Pool, config orders.Config, tlsOptions *tlsopts.Options) *orders.Service {
+		mud.Provide[*orders.Service](ball, func(log *zap.Logger, ordersStore *orders.FileStore, ordersDB orders.DB, trustSource trust.TrustedSatelliteSource, config orders.Config, tlsOptions *tlsopts.Options) *orders.Service {
 			// TODO workaround for custom timeout for order sending request (read/write)
 			dialer := rpc.NewDefaultDialer(tlsOptions)
 			dialer.DialTimeout = config.SenderDialTimeout
-			return orders.NewService(log, dialer, ordersStore, ordersDB, trust, config)
+			return orders.NewService(log, dialer, ordersStore, ordersDB, trustSource, config)
 		}, logWrapper("orders"))
 		mud.Tag[*orders.Service, modular.Service](ball, modular.Service{})
 

@@ -8,14 +8,13 @@ package hashstore
 import (
 	"os"
 
-	"github.com/zeebo/errs"
 	"golang.org/x/sys/windows"
 )
 
 const flockSupported = true
 
 func flock(fh *os.File) error {
-	return errs.Wrap(windows.LockFileEx(
+	return Error.Wrap(windows.LockFileEx(
 		windows.Handle(fh.Fd()),
 		windows.LOCKFILE_EXCLUSIVE_LOCK|windows.LOCKFILE_FAIL_IMMEDIATELY,
 		0,          // reserved

@@ -57,7 +57,7 @@ func (endpoint *Endpoint) verifyOrderLimit(ctx context.Context, limit *pb.OrderL
 		return rpcstatus.Errorf(rpcstatus.InvalidArgument, "missing piece id")
 	}
 
-	if err := endpoint.trust.VerifySatelliteID(ctx, limit.SatelliteId); err != nil {
+	if err := endpoint.trustSource.VerifySatelliteID(ctx, limit.SatelliteId); err != nil {
 		return rpcstatus.Wrap(rpcstatus.PermissionDenied, err)
 	}
 
@@ -137,7 +137,7 @@ var monVerifyOrderLimitSignature = mon.Task()
 func (endpoint *Endpoint) VerifyOrderLimitSignature(ctx context.Context, limit *pb.OrderLimit) (err error) {
 	defer monVerifyOrderLimitSignature(&ctx)(&err)
 
-	signee, err := endpoint.trust.GetSignee(ctx, limit.SatelliteId)
+	signee, err := endpoint.trustSource.GetSignee(ctx, limit.SatelliteId)
 	if err != nil {
 		if errs2.IsCanceled(err) {
 			return rpcstatus.Wrap(rpcstatus.Canceled, err)

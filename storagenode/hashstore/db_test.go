@@ -7,6 +7,7 @@ import (
 	"context"
 	"errors"
 	"io"
+	"io/fs"
 	"sync/atomic"
 	"testing"
 	"time"
@@ -34,9 +35,10 @@ func TestDB_BasicOperation(t *testing.T) {
 
 	// ensure the stats look like what we expect.
 	stats := db.Stats()
+	t.Logf("%+v", stats)
 	assert.Equal(t, stats.NumSet, 1<<store_minTableSize)
-	assert.Equal(t, stats.LogAlive, uint64(len(Key{})+RSize)*stats.NumSet)
-	assert.That(t, stats.LogAlive <= stats.LogTotal) // <= because of optimistic alignment
+	assert.Equal(t, stats.LenSet, uint64(len(Key{})+RecordSize)*stats.NumSet)
+	assert.That(t, stats.LenSet <= stats.LenLogs) // <= because of optimistic alignment
 
 	// should still have all the keys after reopen.
 	db.AssertReopen()
@@ -44,14 +46,39 @@ func TestDB_BasicOperation(t *testing.T) {
 		db.AssertRead(key)
 	}
 
+	// reading a missing key should error
+	_, err := db.Read(ctx, newKey())
+	assert.Error(t, err)
+	assert.That(t, errors.Is(err, fs.ErrNotExist))
+
 	// create and read should fail after close.
 	db.Close()
 
-	_, err := db.Read(ctx, newKey())
+	_, err = db.Read(ctx, newKey())
 	assert.Error(t, err)
 
 	_, err = db.Create(ctx, newKey(), time.Time{})
 	assert.Error(t, err)
+}
+
+func TestDB_TrashStats(t *testing.T) {
+	db := newTestDB(t, alwaysTrash, nil)
+	defer db.Close()
+
+	// add keys until we are compacting, and then wait until we are not compacting.
+	for !db.Stats().Compacting {
+		db.AssertCreate(time.Time{})
+	}
+	for db.Stats().Compacting {
+		time.Sleep(time.Millisecond)
+	}
+
+	// ensure the trash stats are updated.
+	stats := db.Stats()
+	assert.That(t, stats.NumTrash > 0)
+	assert.That(t, stats.LenTrash > 0)
+	assert.That(t, stats.AvgTrash > 0)
+	assert.That(t, stats.TrashPercent > 0)
 }
 
 func TestDB_CompactionOnOpen(t *testing.T) {
@@ -187,8 +214,7 @@ func TestDB_BackgroundCompaction(t *testing.T) {
 
 		stats := func() StoreStats {
 			for {
-				stats := s.Stats()
-				if !stats.Compacting {
+				if stats := s.Stats(); !stats.Compacting {
 					return stats
 				}
 				time.Sleep(time.Millisecond)
@@ -206,7 +232,7 @@ func TestDB_BackgroundCompaction(t *testing.T) {
 		db.checkBackgroundCompactions()
 
 		// sleep until created is bigger than what it used to be.
-		for s.Stats().Created <= stats.Created {
+		for s.Stats().Table.Created <= stats.Table.Created {
 			time.Sleep(time.Millisecond)
 		}
 	}

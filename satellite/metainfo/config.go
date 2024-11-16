@@ -140,12 +140,21 @@ type RateLimiterConfig struct {
 	CacheExpiration time.Duration `help:"how long to cache the projects limiter." releaseDefault:"10m" devDefault:"10s"`
 }
 
-// ObjectLimiterConfig is a configuration struct for endpoint limiting per object.
-type ObjectLimiterConfig struct {
+// UploadLimiterConfig is a configuration struct for endpoint upload limiting.
+type UploadLimiterConfig struct {
 	Enabled           bool          `help:"whether rate limiting is enabled." releaseDefault:"true" devDefault:"true"`
-	SingleObjectLimit time.Duration `help:"how often we can interact with a single object (the same location) per API instance" default:"10ms" devDefault:"1ms"`
+	SingleObjectLimit time.Duration `help:"how often we can upload to the single object (the same location) per API instance" default:"1s" devDefault:"1ms"`
 
 	CacheCapacity int `help:"number of object locations to cache." releaseDefault:"10000" devDefault:"10" testDefault:"100"`
+}
+
+// DownloadLimiterConfig is a configuration struct for endpoint download limiting.
+type DownloadLimiterConfig struct {
+	Enabled           bool          `help:"whether rate limiting is enabled." releaseDefault:"true" devDefault:"true"`
+	SingleObjectLimit time.Duration `help:"how often we can upload to the single object (the same location) per API instance" default:"1ms"`
+	BurstLimit        int           `help:"the number of requests to allow bursts beyond the rate limit" default:"3"`
+	HashCount         int           `help:"the number of hash indexes to make into the rate limit map" default:"3"`
+	SizeExponent      int           `help:"two to this power is the amount of rate limits to store in ram. higher has less collisions." releaseDefault:"21" devDefault:"17" testDefault:"16"`
 }
 
 // ProjectLimitConfig is a configuration struct for default project limits.
@@ -167,22 +176,22 @@ type Config struct {
 	MaxInlineSegmentSize memory.Size `default:"4KiB" help:"maximum inline segment size"`
 	// we have such default value because max value for ObjectKey is 1024(1 Kib) but EncryptedObjectKey
 	// has encryption overhead 16 bytes. So overall size is 1024 + 16 * 16.
-	MaxEncryptedObjectKeyLength  int                 `default:"4000" help:"maximum encrypted object key length"`
-	MaxSegmentSize               memory.Size         `default:"64MiB" help:"maximum segment size"`
-	MaxMetadataSize              memory.Size         `default:"2KiB" help:"maximum segment metadata size"`
-	MaxCommitInterval            time.Duration       `default:"48h" testDefault:"1h" help:"maximum time allowed to pass between creating and committing a segment"`
-	MinPartSize                  memory.Size         `default:"5MiB" testDefault:"0" help:"minimum allowed part size (last part has no minimum size limit)"`
-	MaxNumberOfParts             int                 `default:"10000" help:"maximum number of parts object can contain"`
-	Overlay                      bool                `default:"true" help:"toggle flag if overlay is enabled"`
-	RS                           RSConfig            `releaseDefault:"29/35/80/110-256B" devDefault:"4/6/8/10-256B" help:"redundancy scheme configuration in the format k/m/o/n-sharesize"`
-	RateLimiter                  RateLimiterConfig   `help:"rate limiter configuration"`
-	UploadLimiter                ObjectLimiterConfig `help:"object upload limiter configuration"`
-	DownloadLimiter              ObjectLimiterConfig `help:"object download limiter configuration"`
-	ProjectLimits                ProjectLimitConfig  `help:"project limit configuration"`
-	SuccessTrackerKind           string              `default:"percent" help:"success tracker kind, bitshift or percent"`
-	SuccessTrackerTickDuration   time.Duration       `default:"10m" help:"how often to bump the generation in the node success tracker"`
-	FailureTrackerTickDuration   time.Duration       `default:"30s" help:"how often to bump the generation in the node failure tracker"`
-	SuccessTrackerTrustedUplinks []string            `help:"list of trusted uplinks for success tracker"`
+	MaxEncryptedObjectKeyLength  int                   `default:"4000" help:"maximum encrypted object key length"`
+	MaxSegmentSize               memory.Size           `default:"64MiB" help:"maximum segment size"`
+	MaxMetadataSize              memory.Size           `default:"2KiB" help:"maximum segment metadata size"`
+	MaxCommitInterval            time.Duration         `default:"48h" testDefault:"1h" help:"maximum time allowed to pass between creating and committing a segment"`
+	MinPartSize                  memory.Size           `default:"5MiB" testDefault:"0" help:"minimum allowed part size (last part has no minimum size limit)"`
+	MaxNumberOfParts             int                   `default:"10000" help:"maximum number of parts object can contain"`
+	Overlay                      bool                  `default:"true" help:"toggle flag if overlay is enabled"`
+	RS                           RSConfig              `releaseDefault:"29/35/80/110-256B" devDefault:"4/6/8/10-256B" help:"redundancy scheme configuration in the format k/m/o/n-sharesize"`
+	RateLimiter                  RateLimiterConfig     `help:"rate limiter configuration"`
+	UploadLimiter                UploadLimiterConfig   `help:"object upload limiter configuration"`
+	DownloadLimiter              DownloadLimiterConfig `help:"object download limiter configuration"`
+	ProjectLimits                ProjectLimitConfig    `help:"project limit configuration"`
+	SuccessTrackerKind           string                `default:"percent" help:"success tracker kind, bitshift or percent"`
+	SuccessTrackerTickDuration   time.Duration         `default:"10m" help:"how often to bump the generation in the node success tracker"`
+	FailureTrackerTickDuration   time.Duration         `default:"30s" help:"how often to bump the generation in the node failure tracker"`
+	SuccessTrackerTrustedUplinks []string              `help:"list of trusted uplinks for success tracker"`
 
 	// TODO remove this flag when server-side copy implementation will be finished
 	ServerSideCopy         bool `help:"enable code for server-side copy, deprecated. please leave this to true." default:"true"`

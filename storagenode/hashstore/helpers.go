@@ -12,7 +12,6 @@ import (
 	"time"
 
 	"github.com/spacemonkeygo/monkit/v3"
-	"github.com/zeebo/errs"
 
 	"storj.io/common/storj"
 	"storj.io/drpc/drpcsignal"
@@ -22,6 +21,13 @@ var mon = monkit.Package()
 
 // Key is the key space operated on by the store.
 type Key = storj.PieceID
+
+func safeDivide(x, y float64) float64 {
+	if y == 0 {
+		return 0
+	}
+	return x / y
+}
 
 //
 // date/time helpers
@@ -204,7 +210,7 @@ func (m *rwMutex) Unlock() {
 
 func fileSize(fh *os.File) (int64, error) {
 	if fi, err := fh.Stat(); err != nil {
-		return 0, errs.Wrap(err)
+		return 0, Error.Wrap(err)
 	} else {
 		return fi.Size(), nil
 	}
@@ -235,7 +241,7 @@ type atomicFile struct {
 func newAtomicFile(dir string, name string) (*atomicFile, error) {
 	fh, err := os.CreateTemp(dir, name+"-*.tmp")
 	if err != nil {
-		return nil, errs.Wrap(err)
+		return nil, Error.Wrap(err)
 	}
 	return &atomicFile{
 		File: fh,
@@ -262,10 +268,10 @@ func (a *atomicFile) Commit() (err error) {
 	}()
 
 	if err := a.Sync(); err != nil {
-		return errs.Wrap(err)
+		return Error.Wrap(err)
 	}
 	if err := os.Rename(a.Name(), filepath.Join(a.dir, a.name)); err != nil {
-		return errs.Wrap(err)
+		return Error.Wrap(err)
 	}
 
 	return nil
