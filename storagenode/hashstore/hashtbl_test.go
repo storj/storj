@@ -4,6 +4,7 @@
 package hashstore
 
 import (
+	"context"
 	"math/rand"
 	"os"
 	"path/filepath"
@@ -17,6 +18,7 @@ import (
 func TestHashtbl_BasicOperation(t *testing.T) {
 	const lrec = 14 // 16k records
 
+	ctx := context.Background()
 	h := newTestHashtbl(t, lrec)
 	defer h.Close()
 
@@ -34,7 +36,7 @@ func TestHashtbl_BasicOperation(t *testing.T) {
 		h.AssertLookup(r.Key)
 
 		// reinsert should be fine.
-		ok, err := h.Insert(r)
+		ok, err := h.Insert(ctx, r)
 		assert.NoError(t, err)
 		assert.True(t, ok)
 
@@ -43,9 +45,9 @@ func TestHashtbl_BasicOperation(t *testing.T) {
 	}
 
 	assert.Equal(t, h.Load(), 0.5)
-	nset, length := h.Estimates()
-	assert.Equal(t, nset, 1<<lrec/2)
-	assert.Equal(t, length, expLength)
+	stats := h.Stats()
+	assert.Equal(t, stats.NumSet, 1<<lrec/2)
+	assert.Equal(t, stats.LenSet, expLength)
 
 	// reopen the hash table and search again
 	h.AssertReopen()
@@ -63,21 +65,43 @@ func TestHashtbl_BasicOperation(t *testing.T) {
 	// insert, lookup, and range should fail after close.
 	h.Close()
 
-	_, _, err := h.Lookup(newKey())
+	_, _, err := h.Lookup(ctx, newKey())
 	assert.Error(t, err)
 
-	_, err = h.Insert(newRecord(newKey()))
+	_, err = h.Insert(ctx, newRecord(newKey()))
 	assert.Error(t, err)
 
-	h.Range(func(_ Record, err error) bool {
+	h.Range(ctx, func(_ Record, err error) bool {
 		assert.Error(t, err)
 		return false
 	})
 }
 
+func TestHashtbl_TrashStats(t *testing.T) {
+	h := newTestHashtbl(t, 6)
+	defer h.Close()
+
+	rec := newRecord(newKey())
+	rec.Expires = NewExpiration(1, true)
+	h.AssertInsertRecord(rec)
+
+	stats := h.Stats()
+	assert.Equal(t, stats.NumTrash, 1)
+	assert.Equal(t, stats.LenTrash, rec.Length)
+	assert.Equal(t, stats.AvgTrash, float64(rec.Length))
+
+	h.AssertReopen()
+
+	stats = h.Stats()
+	assert.Equal(t, stats.NumTrash, 1)
+	assert.Equal(t, stats.LenTrash, rec.Length)
+	assert.Equal(t, stats.AvgTrash, float64(rec.Length))
+}
+
 func TestHashtbl_Full(t *testing.T) {
 	const lrec = 10 // 1k records
 
+	ctx := context.Background()
 	h := newTestHashtbl(t, lrec)
 	defer h.Close()
 
@@ -88,12 +112,12 @@ func TestHashtbl_Full(t *testing.T) {
 	assert.Equal(t, h.Load(), 1.0)
 
 	// inserting a new record should fail.
-	ok, err := h.Insert(newRecord(newKey()))
+	ok, err := h.Insert(ctx, newRecord(newKey()))
 	assert.NoError(t, err)
 	assert.False(t, ok)
 
 	// looking up a key that does not exist should fail.
-	_, ok, err = h.Lookup(newKey())
+	_, ok, err = h.Lookup(ctx, newKey())
 	assert.NoError(t, err)
 	assert.False(t, ok)
 }
@@ -101,39 +125,40 @@ func TestHashtbl_Full(t *testing.T) {
 func TestHashtbl_LostPage(t *testing.T) {
 	const lrec = 8 // 256 records (4 pages)
 
-	assert.Equal(t, 1<<lrec, 4*rPerP) // ensure it's 4 pages.
+	assert.Equal(t, 1<<lrec, 4*recordsPerPage) // ensure it's 4 pages.
 
+	ctx := context.Background()
 	h := newTestHashtbl(t, lrec)
 	defer h.Close()
 
 	// create two keys that collide at the end of the first page.
-	k0 := Key{0: rPerP - 1}
-	k1 := Key{0: rPerP - 1, 31: 1}
+	k0 := Key{0: recordsPerPage - 1}
+	k1 := Key{0: recordsPerPage - 1, 31: 1}
 
 	// ensure the index for the first key is the last record of the first page.
 	pi0, ri0 := h.pageIndex(h.keyIndex(&k0))
 	assert.Equal(t, pi0, 0)
-	assert.Equal(t, ri0, rPerP-1)
+	assert.Equal(t, ri0, recordsPerPage-1)
 
 	// ensure the index for the second key is the same.
 	pi1, ri1 := h.pageIndex(h.keyIndex(&k1))
 	assert.Equal(t, pi1, 0)
-	assert.Equal(t, ri1, rPerP-1)
+	assert.Equal(t, ri1, recordsPerPage-1)
 
 	// insert the first key.
-	ok, err := h.Insert(newRecord(k0))
+	ok, err := h.Insert(ctx, newRecord(k0))
 	assert.NoError(t, err)
 	assert.True(t, ok)
 	h.AssertLookup(k0)
 
 	// collide it with the second key.
-	ok, err = h.Insert(newRecord(k1))
+	ok, err = h.Insert(ctx, newRecord(k1))
 	assert.NoError(t, err)
 	assert.True(t, ok)
 	h.AssertLookup(k1)
 
 	// zero out the first page manually and invalidate the page cache.
-	_, err = h.fh.WriteAt(make([]byte, pSize), pSize) // offset=pSize to skip the header page.
+	_, err = h.fh.WriteAt(make([]byte, pageSize), pageSize) // offset=pSize to skip the header page.
 	assert.NoError(t, err)
 	h.invalidatePageCache()
 
@@ -141,7 +166,7 @@ func TestHashtbl_LostPage(t *testing.T) {
 	h.AssertLookup(k1)
 
 	// the first key, though, is gone.
-	_, ok, err = h.Lookup(k0)
+	_, ok, err = h.Lookup(ctx, k0)
 	assert.NoError(t, err)
 	assert.False(t, ok)
 }
@@ -154,16 +179,17 @@ func TestHashtbl_SmallFileSizes(t *testing.T) {
 	_, err = OpenHashtbl(fh)
 	assert.Error(t, err)
 
-	assert.NoError(t, fh.Truncate(pSize))
+	assert.NoError(t, fh.Truncate(pageSize))
 	_, err = OpenHashtbl(fh)
 	assert.Error(t, err)
 
-	assert.NoError(t, fh.Truncate(pSize+(pSize-1)))
+	assert.NoError(t, fh.Truncate(pageSize+(pageSize-1)))
 	_, err = OpenHashtbl(fh)
 	assert.Error(t, err)
 }
 
 func TestHashtbl_OverwriteMergeRecords(t *testing.T) {
+	ctx := context.Background()
 	h := newTestHashtbl(t, 10)
 	defer h.Close()
 
@@ -172,48 +198,49 @@ func TestHashtbl_OverwriteMergeRecords(t *testing.T) {
 	rec.Expires = NewExpiration(1, true)
 
 	// insert the record.
-	ok, err := h.Insert(rec)
+	ok, err := h.Insert(ctx, rec)
 	assert.NoError(t, err)
 	assert.True(t, ok)
 
 	// we should get back the record.
-	got, ok, err := h.Lookup(rec.Key)
+	got, ok, err := h.Lookup(ctx, rec.Key)
 	assert.NoError(t, err)
 	assert.True(t, ok)
 	assert.Equal(t, got, rec)
 
 	// set the expiration to 0 and overwrite. this should be allowed.
 	rec.Expires = 0
-	ok, err = h.Insert(rec)
+	ok, err = h.Insert(ctx, rec)
 	assert.NoError(t, err)
 	assert.True(t, ok)
 
 	// we should get back the record with no expiration because that's a larger expiration.
-	got, ok, err = h.Lookup(rec.Key)
+	got, ok, err = h.Lookup(ctx, rec.Key)
 	assert.NoError(t, err)
 	assert.True(t, ok)
 	assert.Equal(t, got, rec)
 
 	// we should not be able to overwrite the record with a different log file.
 	rec.Log++
-	_, err = h.Insert(rec)
+	_, err = h.Insert(ctx, rec)
 	assert.Error(t, err)
 
 	// we should be able to try to overwrite the record with a smaller expiration
 	rec.Log--
 	rec.Expires = NewExpiration(2, true)
-	ok, err = h.Insert(rec)
+	ok, err = h.Insert(ctx, rec)
 	assert.NoError(t, err)
 	assert.True(t, ok)
 
 	// we should get back the record with the larger expiration.
-	got2, ok, err := h.Lookup(rec.Key)
+	got2, ok, err := h.Lookup(ctx, rec.Key)
 	assert.NoError(t, err)
 	assert.True(t, ok)
 	assert.Equal(t, got2, got)
 }
 
 func TestHashtbl_RangeExitEarly(t *testing.T) {
+	ctx := context.Background()
 	h := newTestHashtbl(t, 10)
 	defer h.Close()
 
@@ -224,7 +251,7 @@ func TestHashtbl_RangeExitEarly(t *testing.T) {
 
 	// only iterate through 10 records and then exit early.
 	n := 0
-	h.Range(func(r Record, err error) bool {
+	h.Range(ctx, func(r Record, err error) bool {
 		n++
 		return n < 10
 	})
@@ -329,6 +356,7 @@ func BenchmarkHashtbl(b *testing.B) {
 	benchmarkLRecs(b, "Compact", func(b *testing.B, lrec uint64) {
 		inserts := 1 << lrec / 2
 
+		ctx := context.Background()
 		h := newTestHashtbl(b, lrec)
 		defer h.Close()
 
@@ -336,7 +364,7 @@ func BenchmarkHashtbl(b *testing.B) {
 			h.AssertInsert()
 		}
 		var recs []Record
-		h.Range(func(rec Record, err error) bool {
+		h.Range(ctx, func(rec Record, err error) bool {
 			assert.NoError(b, err)
 			recs = append(recs, rec)
 			return true

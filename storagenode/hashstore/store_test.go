@@ -18,7 +18,6 @@ import (
 
 func TestStore_BasicOperation(t *testing.T) {
 	ctx := context.Background()
-
 	s := newTestStore(t)
 	defer s.Close()
 
@@ -41,9 +40,10 @@ func TestStore_BasicOperation(t *testing.T) {
 
 	// ensure the stats look like what we expect.
 	stats := s.Stats()
-	assert.Equal(t, stats.NumSet, 4*1024)
-	assert.Equal(t, stats.LogAlive, uint64(len(Key{})+RSize)*stats.NumSet)
-	assert.That(t, stats.LogAlive <= stats.LogTotal) // <= because of optimistic alignment
+	t.Logf("%+v", stats)
+	assert.Equal(t, stats.Table.NumSet, 4*1024)
+	assert.Equal(t, stats.Table.LenSet, uint64(len(Key{})+RecordSize)*stats.Table.NumSet)
+	assert.That(t, stats.Table.LenSet <= stats.LenLogs) // <= because of optimistic alignment
 
 	// reopen the store and ensure we can still read all of the keys.
 	s.AssertReopen()
@@ -61,6 +61,20 @@ func TestStore_BasicOperation(t *testing.T) {
 	assert.Error(t, err)
 
 	assert.Error(t, s.Compact(ctx, nil, time.Time{}))
+}
+
+func TestStore_TrashStats(t *testing.T) {
+	s := newTestStore(t)
+	defer s.Close()
+
+	s.AssertCreate(time.Time{})
+	s.AssertCompact(alwaysTrash, time.Time{})
+
+	stats := s.Stats()
+	assert.Equal(t, stats.Table.NumTrash, 1)
+	assert.Equal(t, stats.Table.LenTrash, 96)
+	assert.Equal(t, stats.Table.AvgTrash, 96.)
+	assert.Equal(t, stats.TrashPercent, 1.)
 }
 
 func TestStore_FileLocking(t *testing.T) {
@@ -95,6 +109,7 @@ func TestStore_CreateSameKeyErrors(t *testing.T) {
 }
 
 func TestStore_ReadFromCompactedFile(t *testing.T) {
+	ctx := context.Background()
 	s := newTestStore(t)
 	defer s.Close()
 
@@ -107,7 +122,7 @@ func TestStore_ReadFromCompactedFile(t *testing.T) {
 	key := s.AssertCreate(time.Time{})
 
 	// grab the record for the key so we can compare it to the record after compaction.
-	before, ok, err := s.tbl.Lookup(key)
+	before, ok, err := s.tbl.Lookup(ctx, key)
 	assert.NoError(t, err)
 	assert.True(t, ok)
 
@@ -121,7 +136,7 @@ func TestStore_ReadFromCompactedFile(t *testing.T) {
 	s.AssertCompact(alwaysTrash, time.Time{})
 
 	// ensure that the log file for the record changed and the original log file was compacted.
-	after, ok, err := s.tbl.Lookup(key)
+	after, ok, err := s.tbl.Lookup(ctx, key)
 	assert.NoError(t, err)
 	assert.True(t, ok)
 	assert.That(t, before.Log < after.Log)
@@ -235,6 +250,7 @@ func TestStore_CompactionWithTTLTakesShorterTime(t *testing.T) {
 }
 
 func TestStore_CompactLogFile(t *testing.T) {
+	ctx := context.Background()
 	s := newTestStore(t)
 	defer s.Close()
 
@@ -255,7 +271,7 @@ func TestStore_CompactLogFile(t *testing.T) {
 		key := s.AssertCreate(time.Time{})
 		live = append(live, key)
 
-		rec, ok, err := s.tbl.Lookup(key)
+		rec, ok, err := s.tbl.Lookup(ctx, key)
 		assert.NoError(t, err)
 		assert.True(t, ok)
 		recs = append(recs, rec)
@@ -275,7 +291,7 @@ func TestStore_CompactLogFile(t *testing.T) {
 		s.AssertRead(key)
 		exp := recs[n]
 
-		got, ok, err := s.tbl.Lookup(key)
+		got, ok, err := s.tbl.Lookup(ctx, key)
 		assert.NoError(t, err)
 		assert.True(t, ok)
 
@@ -366,7 +382,7 @@ func TestStore_MergeRecordsWhenCompactingWithLostPage(t *testing.T) {
 	// helper function to create a key that goes into the given page and record index. n is used to
 	// create distinct keys with the same page and record index.
 	createKey := func(pi, ri uint64, n uint8) (k Key) {
-		v := pi*rPerP + ri%rPerP
+		v := pi*recordsPerPage + ri%recordsPerPage
 		v <<= (64 - s.tbl.lrec)
 		binary.BigEndian.PutUint64(k[0:8], v)
 		k[31] = n
@@ -377,8 +393,8 @@ func TestStore_MergeRecordsWhenCompactingWithLostPage(t *testing.T) {
 	}
 
 	// create two keys that collide at the end of the first page.
-	k0 := createKey(0, rPerP-1, 0)
-	k1 := createKey(0, rPerP-1, 1)
+	k0 := createKey(0, recordsPerPage-1, 0)
+	k1 := createKey(0, recordsPerPage-1, 1)
 
 	// write k0 and k1 to the store.
 	s.AssertCreateKey(k0, time.Time{})
@@ -399,7 +415,7 @@ func TestStore_MergeRecordsWhenCompactingWithLostPage(t *testing.T) {
 	}, time.Time{}))
 
 	// clear out the first page so that any updates to k1 don't overwrite the existing entry for k1.
-	_, err = s.tbl.fh.WriteAt(make([]byte, pSize), pSize) // offset=pSize to skip the header page
+	_, err = s.tbl.fh.WriteAt(make([]byte, pageSize), pageSize) // offset=pSize to skip the header page
 	assert.NoError(t, err)
 	s.tbl.invalidatePageCache()
 
@@ -408,7 +424,7 @@ func TestStore_MergeRecordsWhenCompactingWithLostPage(t *testing.T) {
 
 	// ensure the only entries in the table are duplicate k1 entries and kl.
 	keys := []Key{k1, k1, kl}
-	s.tbl.Range(func(rec Record, err error) bool {
+	s.tbl.Range(ctx, func(rec Record, err error) bool {
 		assert.NoError(t, err)
 		assert.Equal(t, rec.Key, keys[0])
 		keys = keys[1:]
@@ -633,16 +649,16 @@ func TestStore_LogContainsDataToReconstruct(t *testing.T) {
 	// collect all of the records from the log files.
 	collectRecords := func(lf *logFile) (recs []Record) {
 		readRecord := func(off int64) (rec Record, ok bool) {
-			var buf [RSize]byte
+			var buf [RecordSize]byte
 			_, err := lf.fh.ReadAt(buf[:], off)
 			assert.NoError(t, err)
-			ok = rec.Read(&buf)
+			ok = rec.ReadFrom(&buf)
 			return rec, ok
 		}
 
 		off, err := fileSize(lf.fh)
 		assert.NoError(t, err)
-		off -= RSize
+		off -= RecordSize
 
 		for off >= 0 {
 			rec, ok := readRecord(off)
@@ -651,7 +667,7 @@ func TestStore_LogContainsDataToReconstruct(t *testing.T) {
 				continue
 			}
 			recs = append(recs, rec)
-			off = int64(rec.Offset) - RSize
+			off = int64(rec.Offset) - RecordSize
 		}
 
 		return recs
@@ -665,7 +681,7 @@ func TestStore_LogContainsDataToReconstruct(t *testing.T) {
 
 	// collect all the records in the hash table.
 	var tblRecs []Record
-	s.tbl.Range(func(rec Record, err error) bool {
+	s.tbl.Range(ctx, func(rec Record, err error) bool {
 		assert.NoError(t, err)
 		tblRecs = append(tblRecs, rec)
 		return true
@@ -690,13 +706,13 @@ func TestStore_OptimisticAlignment(t *testing.T) {
 
 	// write enough so that after the footer record is appended, we only need to add 10 bytes to the
 	// file to align it to 4k
-	_, err = w.Write(make([]byte, 4096-RSize-10))
+	_, err = w.Write(make([]byte, 4096-RecordSize-10))
 	assert.NoError(t, err)
 	assert.NoError(t, w.Close())
 
 	stats := s.Stats()
-	assert.Equal(t, stats.LogAlive, 4096-10) // alive data is 4096-rSize-10 + rSize.
-	assert.Equal(t, stats.LogTotal, 4096)    // total data should be aligned up to 4k.
+	assert.Equal(t, stats.Table.LenSet, 4096-10) // alive data is 4096-rSize-10 + rSize.
+	assert.Equal(t, stats.LenLogs, 4096)         // total data should be aligned up to 4k.
 }
 
 func TestStore_CleanupTempFiles(t *testing.T) {

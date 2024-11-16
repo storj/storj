@@ -86,7 +86,7 @@
                         Back
                     </v-btn>
                 </v-col>
-                <v-col v-if="isOnboarding" class="px-0">
+                <v-col class="px-0">
                     <v-btn
                         color="primary"
                         variant="flat"
@@ -133,7 +133,6 @@ const viewState = ref<ViewState>(ViewState.Default);
 defineProps<{
     // whether this step is the first step in a flow
     isRoot?: boolean;
-    isOnboarding?: boolean;
 }>();
 
 const emit = defineEmits<{

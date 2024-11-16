@@ -296,7 +296,7 @@ func (p *PostgresAdapter) doNextQueryAllVersionsWithStatus(ctx context.Context, 
 		fromSubstring = len(it.prefix) + 1
 	}
 
-	querySelectFields := querySelectorFields("SUBSTRING(object_key FROM $7)", it)
+	querySelectFields := querySelectorFields("SUBSTRING(object_key FROM $7) AS object_key_suffix", it)
 	return p.db.QueryContext(ctx, `
 		SELECT
 			`+querySelectFields+`
@@ -372,7 +372,7 @@ func (s *SpannerAdapter) doNextQueryAllVersionsWithStatus(ctx context.Context, i
 		fromSubstring = len(it.prefix) + 1
 	}
 
-	querySelectFields := querySelectorFields("SUBSTR(object_key, @from_substring)", it)
+	querySelectFields := querySelectorFields("SUBSTR(object_key, @from_substring) AS object_key_suffix", it)
 	rowIterator := s.client.Single().Query(ctx, spanner.Statement{
 		SQL: `
 			SELECT
@@ -442,7 +442,7 @@ func (p *PostgresAdapter) doNextQueryAllVersionsWithStatusAscending(ctx context.
 		fromSubstring = len(it.prefix) + 1
 	}
 
-	querySelectFields := querySelectorFields("SUBSTRING(object_key FROM $7)", it)
+	querySelectFields := querySelectorFields("SUBSTRING(object_key FROM $7) AS object_key_suffix", it)
 	return p.db.QueryContext(ctx, `
 		SELECT
 			`+querySelectFields+`
@@ -512,7 +512,7 @@ func (s *SpannerAdapter) doNextQueryAllVersionsWithStatusAscending(ctx context.C
 		fromSubstring = len(it.prefix) + 1
 	}
 
-	querySelectFields := querySelectorFields("SUBSTR(object_key, @from_substring)", it)
+	querySelectFields := querySelectorFields("SUBSTR(object_key, @from_substring) AS object_key_suffix", it)
 	rowIterator := s.client.Single().Query(ctx, spanner.Statement{
 		SQL: `
 			SELECT

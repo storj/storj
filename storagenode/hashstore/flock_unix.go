@@ -8,14 +8,12 @@ package hashstore
 import (
 	"os"
 	"syscall"
-
-	"github.com/zeebo/errs"
 )
 
 const flockSupported = true
 
 func flock(fh *os.File) error {
-	return errs.Wrap(syscall.Flock(
+	return Error.Wrap(syscall.Flock(
 		int(fh.Fd()),
 		syscall.LOCK_EX|syscall.LOCK_NB,
 	))
