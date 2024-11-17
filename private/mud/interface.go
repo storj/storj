@@ -9,6 +9,20 @@ import (
 	"reflect"
 )
 
+// Interface is a marker tag, to make it easier to list all possible extension points.
+// Only used for debug / helper commands.
+type Interface struct {
+}
+
+func (i Interface) String() string {
+	return "interface"
+}
+
+// CustomizeDotNode customize the graphical representation of the node in the graph, when rendered for debugging.
+func (i Interface) CustomizeDotNode(tags []string) []string {
+	return append(tags, "fontcolor=blue")
+}
+
 // RegisterInterfaceImplementation registers an interface with an implementation. Later the implementation can be replaced.
 // Only one (or zero) implementation can be registered/used at the same time.
 func RegisterInterfaceImplementation[BASE any, DEP any](ball *Ball) {
@@ -30,6 +44,7 @@ func RegisterInterfaceImplementation[BASE any, DEP any](ball *Ball) {
 		return c.instance.(BASE), nil
 	})
 	DependsOn[BASE, DEP](ball)
+	Tag[BASE, Interface](ball, Interface{})
 }
 
 // DisableImplementation removes the implementation from the list of dependencies.

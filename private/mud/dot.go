@@ -15,6 +15,13 @@ import (
 	"github.com/zeebo/errs"
 )
 
+// CustomDotNode is an interface that can be implemented by a component to customize the SVG output for debugging..
+type CustomDotNode interface {
+
+	// CustomizeDotNode can replace / modify entries, which are key=value parameters of graphviz dot.
+	CustomizeDotNode(tags []string) []string
+}
+
 // DotAll generates graph report of the modules in dot format.
 func DotAll(w io.Writer, ball *Ball) (err error) {
 	return Dot(w, ball.registry)
@@ -71,6 +78,11 @@ func Dot(w io.Writer, components []*Component) (err error) {
 			}
 		}
 
+		for _, tag := range component.tags {
+			if customize, ok := tag.(CustomDotNode); ok {
+				entries = customize.CustomizeDotNode(entries)
+			}
+		}
 		entries = append(entries, "URL=\"./"+strings.ReplaceAll(componentID, "/", "_")+"\"")
 
 		pf("%q [%v];\n", componentID, strings.Join(entries, " "))
