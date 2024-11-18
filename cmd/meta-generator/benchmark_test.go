@@ -8,15 +8,15 @@ import (
 	"testing"
 )
 
-const (
-	apiKeyB           = "15XZmgxFDiGo486PHG3QS7FfMEM4UmGieqKva8Xw5cw7pWa4QmwpYBRtCdfz7EQgpe97Tt3DUyiki38aor9AjDB5YU9nxa5ALyLsi5LjfZ2fMc7m5cs9SFFDuEWSGBWfRZcrEbxgb"
-	satelliteAddressB = "12whfK1EDvHJtajBiAUeajQLYcWqxcQmdYQU5zX5cCf6bAxfgu4@satellite-api:7777"
+var (
+	bG     *BatchGenerator
+	apiKey string
 )
 
-var bG *BatchGenerator
-
 func init() {
-	uplinkSetup(satelliteAddressB, apiKeyB)
+	satelliteAddress := os.Getenv("SA")
+	apiKey = os.Getenv("AK")
+	uplinkSetup(satelliteAddress, apiKey)
 }
 
 func setupSuite(tb testing.TB) func(tb testing.TB) {
@@ -24,7 +24,7 @@ func setupSuite(tb testing.TB) func(tb testing.TB) {
 	tR, _ := strconv.Atoi(os.Getenv("TR"))
 	wN, _ := strconv.Atoi(os.Getenv("WN"))
 	bS, _ := strconv.Atoi(os.Getenv("BS"))
-	bG = generatorSetup(bS, wN, tR, apiKeyB)
+	bG = generatorSetup(bS, wN, tR, apiKey)
 
 	// Return a function to teardown the test
 	return func(tb testing.TB) {
