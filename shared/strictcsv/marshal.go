@@ -154,11 +154,11 @@ func getGettableFields(t reflect.Type) ([]gettableField, error) {
 		switch {
 		case field.Type.Implements(marshalCSVType):
 			getter = getMarshalCSVValue
-		case reflect.PtrTo(field.Type).Implements(marshalCSVType):
+		case reflect.PointerTo(field.Type).Implements(marshalCSVType):
 			getter = getMarshalCSVValue
 		case field.Type.Implements(marshalTextType):
 			getter = getMarshalTextValue
-		case reflect.PtrTo(field.Type).Implements(marshalTextType):
+		case reflect.PointerTo(field.Type).Implements(marshalTextType):
 			getter = getMarshalTextValue
 		default:
 			ft := field.Type
