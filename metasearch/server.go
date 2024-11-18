@@ -157,7 +157,7 @@ func (s *Server) getMetadata(ctx context.Context, request *SearchRequest) (respo
 	}
 
 	meta, err := s.Repo.GetMetadata(ctx, loc)
-	if err != nil {
+	if err == nil {
 		response.Results = []SearchResult{
 			{
 				Path:     request.Path,
