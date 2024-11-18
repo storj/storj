@@ -66,6 +66,17 @@
                 </v-card-text>
             </v-card>
         </v-col>
+        <v-col cols="12" lg="4">
+            <v-card title="Add Invoice Recipients" variant="flat">
+                <v-card-text>
+                    <p>Enter additional email addresses to receive invoice copies automatically.</p>
+                    <v-divider class="my-4" />
+                    <v-btn link :href="requestURL" target="_blank" rel="noopener noreferrer" variant="outlined" color="default" size="small">
+                        Create Support Ticket
+                    </v-btn>
+                </v-card-text>
+            </v-card>
+        </v-col>
     </v-row>
 
     <add-tax-id-dialog v-model="isTaxIdDialogShown" />
@@ -81,12 +92,14 @@ import { useBillingStore } from '@/store/modules/billingStore';
 import { BillingAddress, BillingInformation, TaxID } from '@/types/payments';
 import { useLoading } from '@/composables/useLoading';
 import { useNotify } from '@/utils/hooks';
+import { useConfigStore } from '@/store/modules/configStore';
 
 import AddTaxIdDialog from '@/components/dialogs/AddTaxIdDialog.vue';
 import BillingAddressDialog from '@/components/dialogs/BillingAddressDialog.vue';
 import AddInvoiceReferenceDialog from '@/components/dialogs/AddInvoiceReferenceDialog.vue';
 
 const billingStore = useBillingStore();
+const configStore = useConfigStore();
 
 const { isLoading, withLoading } = useLoading();
 const notify = useNotify();
@@ -94,6 +107,8 @@ const notify = useNotify();
 const isTaxIdDialogShown = ref(false);
 const isAddressDialogShown = ref(false);
 const isInvoiceReferenceDialogShown = ref(false);
+
+const requestURL = computed<string>(() => configStore.state.config.generalRequestURL);
 
 const billingInformation = computed<BillingInformation | null>(() => billingStore.state.billingInformation);
 
