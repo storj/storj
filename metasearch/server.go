@@ -36,8 +36,18 @@ type BaseRequest struct {
 type SearchRequest struct {
 	BaseRequest
 
-	Page  int    `json:"page"`
-	Query string `json:"query"`
+	Match      map[string]interface{} `json:"match"`
+	Filter     string                 `json:"filter"`
+	Projection string                 `json:"projection"`
+}
+
+type SearchResponse struct {
+	Results []SearchResult `json:"results"`
+}
+
+type SearchResult struct {
+	Path     string      `json:"path"`
+	Metadata interface{} `json:"metadata"`
 }
 
 type UpdateRequest struct {
@@ -111,7 +121,7 @@ func (s *Server) validateRequest(ctx context.Context, r *http.Request, baseReque
 func (s *Server) HandleQuery(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	var request SearchRequest
-	var result interface{}
+	var result SearchResponse
 
 	err := s.validateRequest(ctx, r, &request.BaseRequest, &request)
 	if err != nil {
@@ -119,7 +129,7 @@ func (s *Server) HandleQuery(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if request.Query == "" {
+	if request.Match == nil {
 		result, err = s.getMetadata(ctx, &request)
 	} else {
 		result, err = s.searchMetadata(ctx, &request)
@@ -133,53 +143,62 @@ func (s *Server) HandleQuery(w http.ResponseWriter, r *http.Request) {
 	s.JSONResponse(w, http.StatusOK, result)
 }
 
-func (s *Server) getMetadata(ctx context.Context, reqBody *SearchRequest) (meta map[string]interface{}, err error) {
-	bucket, key, err := parsePath(reqBody.Path)
+func (s *Server) getMetadata(ctx context.Context, request *SearchRequest) (response SearchResponse, err error) {
+	bucket, key, err := parsePath(request.Path)
 	if err != nil {
-		return nil, err
+		return
 	}
 
 	loc := metabase.ObjectLocation{
-		ProjectID:  reqBody.ProjectID,
+		ProjectID:  request.ProjectID,
 		BucketName: metabase.BucketName(bucket),
 		ObjectKey:  metabase.ObjectKey(key),
 	}
 
-	return s.Repo.GetMetadata(ctx, loc)
+	meta, err := s.Repo.GetMetadata(ctx, loc)
+	if err != nil {
+		response.Results = []SearchResult{
+			{
+				Path:     request.Path,
+				Metadata: meta,
+			},
+		}
+	}
+	return
 }
 
-func (s *Server) searchMetadata(ctx context.Context, reqBody *SearchRequest) (keys []string, err error) {
-	// Parse path
-	bucket, key, err := parsePath(reqBody.Path)
+func (s *Server) searchMetadata(ctx context.Context, request *SearchRequest) (response SearchResponse, err error) {
+	bucket, key, err := parsePath(request.Path)
 	if err != nil {
-		return nil, err
+		return
 	}
 
 	loc := metabase.ObjectLocation{
-		ProjectID:  reqBody.ProjectID,
+		ProjectID:  request.ProjectID,
 		BucketName: metabase.BucketName(bucket),
 		ObjectKey:  metabase.ObjectKey(key),
 	}
 
-	// Parse query
-	var query map[string]interface{}
-	err = json.Unmarshal([]byte(reqBody.Query), &query)
+	searchResult, err := s.Repo.QueryMetadata(ctx, loc, request.Match, 1000)
 	if err != nil {
-		return nil, fmt.Errorf("%w: cannot parse query: %v", ErrBadRequest, err)
-	}
-
-	// TODO: implement pagination
-	objects, err := s.Repo.QueryMetadata(ctx, loc, query, 1000)
-	if err != nil {
-		return nil, err
+		return
 	}
 
 	// Extract keys
-	for _, obj := range objects {
-		keys = append(keys, string(obj.ObjectKey))
-	}
+	var metadata map[string]interface{}
+	response.Results = make([]SearchResult, 0, len(searchResult.Objects))
+	for _, obj := range searchResult.Objects {
+		metadata, err = parseJSON(obj.ClearMetadata)
+		if err != nil {
+			return
+		}
 
-	return keys, nil
+		response.Results = append(response.Results, SearchResult{
+			Path:     fmt.Sprintf("sj://%s/%s", obj.BucketName, obj.ObjectKey),
+			Metadata: metadata,
+		})
+	}
+	return
 }
 
 func (s *Server) HandleUpdate(w http.ResponseWriter, r *http.Request) {
