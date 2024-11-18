@@ -68,6 +68,7 @@
 
     <template v-if="!isRoot">
         <v-alert
+            v-if="!isPaidTier"
             class="mt-3 mb-2"
             density="compact"
             variant="tonal"
