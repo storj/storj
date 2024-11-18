@@ -7,6 +7,7 @@ import (
 	"encoding/json"
 	"flag"
 	"fmt"
+	"log"
 	"math/rand"
 	"net/http"
 	"net/http/httputil"
@@ -17,11 +18,16 @@ import (
 	"sync"
 	"time"
 
+	"github.com/Netflix/go-expect"
+	"github.com/google/goterm/term"
 	_ "github.com/lib/pq"
+	"storj.io/common/uuid"
 )
 
 // default values
 const (
+	label                = "benchmarks"
+	clusterPath          = "/Users/bohdanbashynskyi/storj-cluster"
 	defaultDbEndpoint    = "postgresql://root@localhost:26257/metainfo?sslmode=disable"
 	defaultSharedValues  = 0.3
 	defaultBatchSize     = 10
@@ -29,8 +35,6 @@ const (
 	defaultTotlaRecords  = 10
 	defaultDryRun        = false
 	defaultMetasearchAPI = "http://localhost:9998/meta_search"
-	defaultProjectId     = "6e037a67-4612-4292-aefe-aa18e35ee67f"
-	defaultApiKey        = "15XZjcVqxQeggDyDpPhqJvMUB6NtQ1CiuW6mAwzRAVNE5gtr7Yh12MdtqvVbYQ9rvCadeve1f2LGiB53QnFyVV9CTY5HAv3jtFvtnKiVvehh4Dz9jwYx6yhV5bD1wGBrADuKCkQxa"
 )
 
 // main parameters decalaration
@@ -41,8 +45,6 @@ var (
 	workersNumber int
 	totalRecords  int
 	dryRun        bool
-	projectId     string
-	apiKey        string
 )
 
 // Record represents a single database record
@@ -176,19 +178,25 @@ func (g *Generator) GenerateRecord() Record {
 
 // BatchGenerator handles batch generation of records
 type BatchGenerator struct {
-	generator *Generator
-	batchSize int
-	workers   int
-	dryRun    bool
+	generator    *Generator
+	batchSize    int
+	workers      int
+	totalRecords int
+	dryRun       bool
+	projectId    string
+	apiKey       string
 }
 
 // NewBatchGenerator creates a new BatchGenerator
-func NewBatchGenerator(valueShare float64, batchSize, workers int, pathCounter uint64, dryRun bool) *BatchGenerator {
+func NewBatchGenerator(valueShare float64, batchSize, workers, totalRecords int, pathCounter uint64, dryRun bool, projectId, apiKey string) *BatchGenerator {
 	return &BatchGenerator{
-		generator: NewGenerator(valueShare, pathCounter),
-		batchSize: batchSize,
-		workers:   workers,
-		dryRun:    dryRun,
+		generator:    NewGenerator(valueShare, pathCounter),
+		batchSize:    batchSize,
+		workers:      workers,
+		dryRun:       dryRun,
+		projectId:    projectId,
+		apiKey:       apiKey,
+		totalRecords: totalRecords,
 	}
 }
 
@@ -196,7 +204,7 @@ func NewBatchGenerator(valueShare float64, batchSize, workers int, pathCounter u
 func (bg *BatchGenerator) GenerateAndInsert(totalRecords int) error {
 	var wg sync.WaitGroup
 	errChan := make(chan error, bg.workers)
-	recordsPerWorker := totalRecords / bg.workers
+	recordsPerWorker := bg.totalRecords / bg.workers
 
 	// Start workers
 	for i := 0; i < bg.workers; i++ {
@@ -235,7 +243,7 @@ func (bg *BatchGenerator) processBatch(batchSize int) (err error) {
 	for i := 0; i < batchSize; i++ {
 		record := bg.generator.GenerateRecord()
 
-		if err := bg.putFile(&record); err != nil {
+		if err := putFile(&record); err != nil {
 			return err
 		}
 
@@ -247,9 +255,9 @@ func (bg *BatchGenerator) processBatch(batchSize int) (err error) {
 	return
 }
 
-func (bg *BatchGenerator) putFile(record *Record) error {
+func putFile(record *Record) error {
 	localPath := filepath.Join("/tmp", strings.ReplaceAll(record.Path, "/", "_"))
-	record.Path = "sj://benchmarks" + record.Path
+	record.Path = "sj://" + label + record.Path
 
 	if !dryRun {
 		file, err := os.Create(localPath)
@@ -261,12 +269,12 @@ func (bg *BatchGenerator) putFile(record *Record) error {
 		// Copy file
 		// TODO: rerfactor with uplink library
 		cmd := exec.Command("uplink", "cp", localPath, record.Path)
-		cmd.Dir = "/Users/bohdanbashynskyi/storj-cluster"
-		_, err = cmd.Output()
+		cmd.Dir = clusterPath
+		out, err := cmd.CombinedOutput()
+		fmt.Println(string(out))
 		if err != nil {
 			return err
 		}
-		//fmt.Println(string(out))
 
 		err = os.Remove(localPath)
 		if err != nil {
@@ -275,6 +283,15 @@ func (bg *BatchGenerator) putFile(record *Record) error {
 	}
 
 	return nil
+}
+
+func deleteFile(record *Record) error {
+	cmd := exec.Command("uplink", "rm", record.Path)
+	cmd.Dir = clusterPath
+	out, err := cmd.CombinedOutput()
+	fmt.Println(string(out))
+
+	return err
 }
 
 func (bg *BatchGenerator) putMeta(record *Record) error {
@@ -289,8 +306,8 @@ func (bg *BatchGenerator) putMeta(record *Record) error {
 		return err
 	}
 	r.Header.Add("Content-Type", "application/json")
-	r.Header.Add("Authorization", fmt.Sprintf("Bearer %s", apiKey))
-	r.Header.Add("X-Project-ID", projectId)
+	r.Header.Add("Authorization", fmt.Sprintf("Bearer %s", bg.apiKey))
+	r.Header.Add("X-Project-ID", bg.projectId)
 
 	if dryRun {
 		res, err := httputil.DumpRequest(r, true)
@@ -339,6 +356,132 @@ func getPathCount(ctx context.Context, db *sql.DB) (count uint64) {
 	return
 }
 
+func getProjectId(ctx context.Context, db *sql.DB) (projectId uuid.UUID) {
+	testFile := &Record{
+		Path: "/testFiletoGetPrjectId",
+	}
+	err := putFile(testFile)
+	if err != nil {
+		panic(fmt.Sprintf("failed to create test file: %s", err.Error()))
+	}
+
+	rows, err := db.QueryContext(ctx, `SELECT project_id FROM objects where object_key = 'testFiletoGetPrjectId'`)
+	if err != nil {
+		panic(fmt.Sprintf("failed to get project id from db: %s", err.Error()))
+	}
+	defer rows.Close()
+
+	var data []byte
+	for rows.Next() {
+		if err := rows.Scan(&data); err != nil {
+			panic(err.Error())
+		}
+	}
+	if err := rows.Err(); err != nil {
+		panic(err.Error())
+	}
+
+	projectId, err = uuid.FromBytes(data)
+	if err != nil {
+		panic(fmt.Sprintf("failed to get project id from bytes: %s", err.Error()))
+	}
+	fmt.Printf("Found projectId %s\n", projectId.String())
+
+	err = deleteFile(testFile)
+	if err != nil {
+		panic(fmt.Sprintf("failed to delete test file: %s", err.Error()))
+	}
+
+	return
+}
+
+func uplinkSetup(satelliteAddress, apiKey string) {
+	c, err := expect.NewConsole(expect.WithStdout(os.Stdout))
+	if err != nil {
+		log.Fatal(err)
+	}
+	defer c.Close()
+
+	cmd := exec.Command("uplink", "setup", "--force")
+	cmd.Dir = clusterPath
+	cmd.Stdin = c.Tty()
+	cmd.Stdout = c.Tty()
+	cmd.Stderr = c.Tty()
+
+	err = cmd.Start()
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	c.ExpectString("Enter name to import as [default: main]:")
+	c.Send(label + "\n")
+	c.ExpectString("Enter API key or Access grant:")
+	c.Send(apiKey + "\n")
+	c.ExpectString("Satellite address:")
+	c.Send(satelliteAddress + "\n")
+	c.ExpectString("Passphrase:")
+	c.Send(label + "\n")
+	c.ExpectString("Again:")
+	c.Send(label + "\n")
+	c.ExpectString("Would you like to disable encryption for object keys (allows lexicographical sorting of objects in listings)? (y/N):")
+	c.Send("y\n")
+	c.ExpectString("Would you like S3 backwards-compatible Gateway credentials? (y/N):")
+	c.Send("y\n")
+	fmt.Println(term.Greenf("Uplink setup done"))
+}
+
+func generatorSetup(bS, wN, tR int, apiKey string) {
+	//Create bucket
+	cmd := exec.Command("uplink", "mb", "sj://benchmarks")
+
+	out, err := cmd.CombinedOutput()
+	if err != nil && !strings.Contains(string(out), "bucket already exists") {
+		panic(err.Error())
+	}
+
+	// Connect to CockroachDB
+	db, err := sql.Open("postgres", defaultDbEndpoint)
+	if err != nil {
+		panic(fmt.Sprintf("failed to connect to database: %v", err))
+	}
+	defer db.Close()
+
+	ctx := context.Background()
+
+	// Initialize batch generator
+	batchGen := NewBatchGenerator(
+		defaultSharedValues,
+		bS,
+		wN,
+		tR,
+		getPathCount(ctx, db),
+		true,
+		getProjectId(ctx, db).String(),
+		apiKey,
+	)
+
+	// Generate and insert/debug records
+	startTime := time.Now()
+
+	if err := batchGen.GenerateAndInsert(totalRecords); err != nil {
+		panic(fmt.Sprintf("failed to generate records: %v", err))
+	}
+
+	fmt.Printf("Generated %v records in %v\n", tR, time.Since(startTime))
+}
+
+func clean() {
+	//Remove bucket
+	cmd := exec.Command("uplink", "rb", "sj://"+label, "--force")
+	cmd.Dir = clusterPath
+
+	out, err := cmd.CombinedOutput()
+	fmt.Println(string(out))
+	if err != nil {
+		panic(err.Error())
+	}
+}
+
 func readArgs() {
 	flag.StringVar(&dbEndpoint, "db", defaultDbEndpoint, fmt.Sprintf("db endpoint, default: %v", defaultDbEndpoint))
 	flag.Float64Var(&sharedValues, "sv", defaultSharedValues, fmt.Sprintf("percentage of shared values, default: %v", defaultSharedValues))
@@ -363,11 +506,14 @@ func main() {
 
 	// Initialize batch generator
 	batchGen := NewBatchGenerator(
-		sharedValues,          // 30% shared values
-		batchSize,             // batch size
-		workersNumber,         // number of workers
+		sharedValues,  // 30% shared values
+		batchSize,     // batch size
+		workersNumber, // number of workers
+		totalRecords,
 		getPathCount(ctx, db), // get path count
 		dryRun,                // dry run mode
+		getProjectId(ctx, db).String(),
+		os.Getenv("API_KEY"),
 	)
 
 	// Generate and insert/debug records
