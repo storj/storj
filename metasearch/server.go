@@ -12,6 +12,7 @@ import (
 	"strings"
 
 	"github.com/gorilla/mux"
+	"github.com/jmespath/go-jmespath"
 	"go.uber.org/zap"
 
 	"storj.io/common/macaroon"
@@ -186,19 +187,67 @@ func (s *Server) searchMetadata(ctx context.Context, request *SearchRequest) (re
 
 	// Extract keys
 	var metadata map[string]interface{}
-	response.Results = make([]SearchResult, 0, len(searchResult.Objects))
+	var projectedMetadata interface{}
+
+	var shouldInclude bool
+	response.Results = make([]SearchResult, 0)
 	for _, obj := range searchResult.Objects {
+		// Parse metadata
 		metadata, err = parseJSON(obj.ClearMetadata)
+		if err != nil {
+			return
+		}
+
+		// Apply filter
+		shouldInclude, err = s.filterMetadata(ctx, request, metadata)
+		if err != nil {
+			return
+		}
+		if !shouldInclude {
+			continue
+		}
+
+		// Apply projection
+		if request.Projection != "" {
+			projectedMetadata, err = jmespath.Search(request.Projection, metadata)
+		} else {
+			projectedMetadata = metadata
+		}
 		if err != nil {
 			return
 		}
 
 		response.Results = append(response.Results, SearchResult{
 			Path:     fmt.Sprintf("sj://%s/%s", obj.BucketName, obj.ObjectKey),
-			Metadata: metadata,
+			Metadata: projectedMetadata,
 		})
 	}
 	return
+}
+
+func (s *Server) filterMetadata(ctx context.Context, request *SearchRequest, metadata map[string]interface{}) (bool, error) {
+	if request.Filter == "" {
+		return true, nil
+	}
+
+	// Evaluate JMESPath filter
+	result, err := jmespath.Search(request.Filter, metadata)
+	if err != nil {
+		return false, fmt.Errorf("%w: %v", ErrBadRequest, err)
+	}
+
+	// Check if result is a boolean
+	if b, ok := result.(bool); ok {
+		return b, nil
+	}
+
+	// Check if result is nil
+	if result == nil {
+		return false, nil
+	}
+
+	// Include metadata if result is not nil or false
+	return true, nil
 }
 
 func (s *Server) HandleUpdate(w http.ResponseWriter, r *http.Request) {
