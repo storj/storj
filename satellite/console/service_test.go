@@ -155,6 +155,18 @@ func TestService(t *testing.T) {
 				require.NoError(t, err)
 				require.Equal(t, up1Proj.ID, project.ID)
 
+				minProject := service.GetMinimalProject(project)
+				require.Equal(t, up1Proj.PublicID, minProject.ID)
+				require.Equal(t, up1Proj.Name, minProject.Name)
+				require.Equal(t, up1Proj.Description, minProject.Description)
+				require.Equal(t, up1Proj.DefaultPlacement, minProject.Placement)
+				require.Equal(t, up1Proj.CreatedAt, minProject.CreatedAt)
+				require.Equal(t, up1Proj.StorageUsed, minProject.StorageUsed)
+				require.Equal(t, up1Proj.BandwidthUsed, minProject.BandwidthUsed)
+				require.Equal(t, up1Proj.DefaultVersioning, minProject.Versioning)
+				require.Equal(t, up1Proj.MemberCount, minProject.MemberCount)
+				require.Equal(t, up1Proj.MemberCount, minProject.MemberCount)
+
 				// Getting someone else project details should not work
 				project, err = service.GetProject(userCtx1, up2Proj.ID)
 				require.Error(t, err)
@@ -443,6 +455,11 @@ func TestService(t *testing.T) {
 				require.Equal(t, updatedStorageLimit, *updatedProject.UserSpecifiedStorageLimit)
 				require.Equal(t, updatedBandwidthLimit, *updatedProject.UserSpecifiedBandwidthLimit)
 				require.Equal(t, console.ProjectActive, *updatedProject.Status)
+
+				minProject := service.GetMinimalProject(updatedProject)
+				require.Equal(t, up1Proj.PublicID, minProject.ID)
+				require.Equal(t, updatedName, minProject.Name)
+				require.Equal(t, updatedDescription, minProject.Description)
 
 				// Updating someone else project details should not work
 				updatedProject, err = service.UpdateProject(userCtx1, up2Proj.ID, console.UpsertProjectInfo{
