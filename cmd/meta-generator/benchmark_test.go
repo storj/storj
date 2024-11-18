@@ -9,9 +9,11 @@ import (
 )
 
 const (
-	apiKeyB           = "15XZi7qUgrz28jZbgaMEZJ5TXa1WgfmDitAAyAdUm42d9eG6MfZvEQbEfV7xjbTgsZCnbftmD7qpK5VpokVMPaahmZiXHqs9xffnRo3wrram8BuMhKZJ7gPRexAvDrUHtD1H8EWF5"
+	apiKeyB           = "15XZmgxFDiGo486PHG3QS7FfMEM4UmGieqKva8Xw5cw7pWa4QmwpYBRtCdfz7EQgpe97Tt3DUyiki38aor9AjDB5YU9nxa5ALyLsi5LjfZ2fMc7m5cs9SFFDuEWSGBWfRZcrEbxgb"
 	satelliteAddressB = "12whfK1EDvHJtajBiAUeajQLYcWqxcQmdYQU5zX5cCf6bAxfgu4@satellite-api:7777"
 )
+
+var bG *BatchGenerator
 
 func init() {
 	uplinkSetup(satelliteAddressB, apiKeyB)
@@ -22,7 +24,7 @@ func setupSuite(tb testing.TB) func(tb testing.TB) {
 	tR, _ := strconv.Atoi(os.Getenv("TR"))
 	wN, _ := strconv.Atoi(os.Getenv("WN"))
 	bS, _ := strconv.Atoi(os.Getenv("BS"))
-	generatorSetup(bS, wN, tR, apiKeyB)
+	bG = generatorSetup(bS, wN, tR, apiKeyB)
 
 	// Return a function to teardown the test
 	return func(tb testing.TB) {
@@ -35,5 +37,13 @@ func BenchmarkSimpleQuery(b *testing.B) {
 	teardownSuite := setupSuite(b)
 	defer teardownSuite(b)
 
-	fmt.Println("some tests")
+	b.ResetTimer()
+	err := bG.searchMeta(Query{
+		Path:  fmt.Sprintf("sj://%s/", label),
+		Query: `{"field_0":"purple"}`,
+	})
+
+	if err != nil {
+		panic(err)
+	}
 }

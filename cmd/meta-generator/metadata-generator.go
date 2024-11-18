@@ -7,6 +7,7 @@ import (
 	"encoding/json"
 	"flag"
 	"fmt"
+	"io"
 	"log"
 	"math/rand"
 	"net/http"
@@ -51,6 +52,11 @@ var (
 type Record struct {
 	Path     string `json:"path"`
 	Metadata string `json:"metadata"`
+}
+
+type Query struct {
+	Path  string `json:"path"`
+	Query string `json:"query"`
 }
 
 // Generator handles the creation of test data
@@ -332,6 +338,43 @@ func (bg *BatchGenerator) putMeta(record *Record) error {
 	return nil
 }
 
+func (bg *BatchGenerator) searchMeta(query Query) error {
+	url := defaultMetasearchAPI
+	req, err := json.Marshal(query)
+	if err != nil {
+		return err
+	}
+	r, err := http.NewRequest("POST", url, bytes.NewBuffer(req))
+	if err != nil {
+		return err
+	}
+	r.Header.Add("Content-Type", "application/json")
+	r.Header.Add("Authorization", fmt.Sprintf("Bearer %s", bg.apiKey))
+	r.Header.Add("X-Project-ID", bg.projectId)
+
+	reqest, err := httputil.DumpRequest(r, true)
+	if err != nil {
+		return err
+	}
+	fmt.Println(string(reqest))
+
+	client := &http.Client{}
+	res, err := client.Do(r)
+	if err != nil {
+		return err
+	}
+	defer res.Body.Close()
+
+	bodyBytes, err := io.ReadAll(res.Body)
+	if err != nil {
+		panic(err)
+	}
+	bodyString := string(bodyBytes)
+	fmt.Println(bodyString)
+
+	return nil
+}
+
 func getPathCount(ctx context.Context, db *sql.DB) (count uint64) {
 	// Get path count
 	rows, err := db.QueryContext(ctx, `SELECT COUNT(*) FROM objects`)
@@ -430,7 +473,7 @@ func uplinkSetup(satelliteAddress, apiKey string) {
 	fmt.Println(term.Greenf("Uplink setup done"))
 }
 
-func generatorSetup(bS, wN, tR int, apiKey string) {
+func generatorSetup(bS, wN, tR int, apiKey string) *BatchGenerator {
 	//Create bucket
 	cmd := exec.Command("uplink", "mb", "sj://benchmarks")
 
@@ -468,6 +511,7 @@ func generatorSetup(bS, wN, tR int, apiKey string) {
 	}
 
 	fmt.Printf("Generated %v records in %v\n", tR, time.Since(startTime))
+	return batchGen
 }
 
 func clean() {
