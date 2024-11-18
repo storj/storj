@@ -41,6 +41,8 @@ var (
 	workersNumber int
 	totalRecords  int
 	dryRun        bool
+	projectId     string
+	apiKey        string
 )
 
 // Record represents a single database record
@@ -287,8 +289,8 @@ func (bg *BatchGenerator) putMeta(record *Record) error {
 		return err
 	}
 	r.Header.Add("Content-Type", "application/json")
-	r.Header.Add("Authorization", fmt.Sprintf("Bearer %s", defaultApiKey))
-	r.Header.Add("X-Project-ID", defaultProjectId)
+	r.Header.Add("Authorization", fmt.Sprintf("Bearer %s", apiKey))
+	r.Header.Add("X-Project-ID", projectId)
 
 	if dryRun {
 		res, err := httputil.DumpRequest(r, true)
