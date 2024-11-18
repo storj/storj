@@ -19,7 +19,7 @@ const (
 	label       = "benchmarks"
 )
 
-func setup() {
+func uplinkSetup() {
 	apiKey = "15XZkUAXp3J8m93D9AcyTiYPdFPGsaMB2R1PqrUwLAoP6h2CDz5EUZ5WrGgERNxYjs9wRc4Rhwr95Qgcxj3gNgb5yr5cYSEmwWC2UdzaKTrDm31ivFeszaMbggvkqhoyHcwwvSnjN"
 	satelliteAddress := "12whfK1EDvHJtajBiAUeajQLYcWqxcQmdYQU5zX5cCf6bAxfgu4@satellite-api:7777"
 
@@ -78,6 +78,6 @@ func clean() {
 }
 
 func BenchmarkQueryByKey(b *testing.B) {
-	setup()
-	//clean()
+	uplinkSetup()
+	clean()
 }
