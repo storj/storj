@@ -43,9 +43,10 @@ type Store struct {
 	closed drpcsignal.Signal // closed state
 	cloMu  sync.Mutex        // synchronizes closing
 
-	active    *rwMutex // semaphore of active writes to log files
-	compactMu *mutex   // held during compaction to ensure only 1 compaction at a time
-	reviveMu  *mutex   // held during revival to ensure only 1 object is revived from trash at a time
+	active      *rwMutex      // semaphore of active writes to log files
+	compactMu   *mutex        // held during compaction to ensure only 1 compaction at a time
+	reviveMu    *mutex        // held during revival to ensure only 1 object is revived from trash at a time
+	compactions atomic.Uint64 // bumped every time a compaction call finishes
 
 	maxLog atomic.Uint64              // maximum log file id
 	stats  atomic.Pointer[StoreStats] // set during compaction to maintain consistency of Stats calls
@@ -193,9 +194,10 @@ type StoreStats struct {
 	SetPercent   float64 // percent of bytes that are set in the log files.
 	TrashPercent float64 // percent of bytes that are trash in the log files.
 
-	Compacting bool         // if true, a compaction is in progress.
-	Today      uint32       // the current date.
-	Table      HashTblStats // stats about the hash table.
+	Compacting  bool         // if true, a compaction is in progress.
+	Compactions uint64       // number of compaction calls that finished
+	Today       uint32       // the current date.
+	Table       HashTblStats // stats about the hash table.
 }
 
 // Stats returns a StoreStats about the store.
@@ -229,9 +231,10 @@ func (s *Store) Stats() StoreStats {
 		SetPercent:   safeDivide(float64(stats.LenSet), float64(lenLogs)),
 		TrashPercent: safeDivide(float64(stats.LenTrash), float64(lenLogs)),
 
-		Compacting: false,
-		Today:      s.today(),
-		Table:      stats,
+		Compacting:  false,
+		Compactions: s.compactions.Load(),
+		Today:       s.today(),
+		Table:       stats,
 	}
 }
 
@@ -531,6 +534,7 @@ func (s *Store) Compact(
 	lastRestore time.Time,
 ) (err error) {
 	defer mon.Task()(&ctx)(&err)
+	defer s.compactions.Add(1) // increase the number of compactions that have finished
 
 	// create a context that inherits from the existing context that is canceled when the store is
 	// closed. this ensures that the shouldTrash callback exits when the store is closed, and allows

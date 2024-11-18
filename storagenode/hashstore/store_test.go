@@ -44,6 +44,7 @@ func TestStore_BasicOperation(t *testing.T) {
 	assert.Equal(t, stats.Table.NumSet, 4*1024)
 	assert.Equal(t, stats.Table.LenSet, uint64(len(Key{})+RecordSize)*stats.Table.NumSet)
 	assert.That(t, stats.Table.LenSet <= stats.LenLogs) // <= because of optimistic alignment
+	assert.Equal(t, stats.Compactions, 4)
 
 	// reopen the store and ensure we can still read all of the keys.
 	s.AssertReopen()

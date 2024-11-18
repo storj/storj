@@ -132,8 +132,9 @@ type DBStats struct {
 	SetPercent   float64 // percent of bytes that are set in the log files.
 	TrashPercent float64 // percent of bytes that are trash in the log files.
 
-	Compacting bool // if true, a background compaction is in progress.
-	Active     int  // which store is currently active
+	Compacting  bool   // if true, a background compaction is in progress.
+	Compactions uint64 // total number of compactions that finished on either store.
+	Active      int    // which store is currently active
 
 	S0 StoreStats // statistics about the s0 store.
 	S1 StoreStats // statistics about the s1 store.
@@ -173,8 +174,9 @@ func (d *DB) Stats() DBStats {
 		SetPercent:   safeDivide(float64(s0st.Table.LenSet+s1st.Table.LenSet), float64(s0st.LenLogs+s1st.LenLogs)),
 		TrashPercent: safeDivide(float64(s0st.Table.LenTrash+s1st.Table.LenTrash), float64(s0st.LenLogs+s1st.LenLogs)),
 
-		Compacting: compacting,
-		Active:     active,
+		Compacting:  compacting,
+		Compactions: s0st.Compactions + s1st.Compactions,
+		Active:      active,
 
 		S0: s0st,
 		S1: s1st,
@@ -317,6 +319,45 @@ func (d *DB) Read(ctx context.Context, key Key) (_ *Reader, err error) {
 	}
 
 	return nil, Error.Wrap(fs.ErrNotExist)
+}
+
+// Compact waits for any background compaction to finish and then calls Compact on both stores.
+// After a call to Compact, you can be sure that each Store was fully compacted at least once.
+func (d *DB) Compact(ctx context.Context) (err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	if err := d.closed.Err(); err != nil {
+		return err
+	}
+
+again:
+	d.mu.Lock()
+	if compact := d.compact; compact != nil {
+		// an active compaction is happening. we have to drop the mutex and wait for some event to
+		// let us proceed before trying again.
+		d.mu.Unlock()
+
+		select {
+		case <-ctx.Done():
+			return ctx.Err()
+		case <-d.closed.Signal():
+			return d.closed.Err()
+		case <-compact.done.Signal():
+		}
+
+		goto again
+	}
+	// we have the lock with no active compaction, so we can compact the Stores. we drop the lock
+	// so that Close can still interrupt us. concurrent reads should be able to proceed with no
+	// problem, but concurrent writes may conflict with the compact call and take longer.
+	active, passive := d.active, d.passive
+	d.mu.Unlock()
+
+	lastRestore := d.lastRestore(ctx)
+	return errs.Combine(
+		active.Compact(ctx, d.shouldTrash, lastRestore),
+		passive.Compact(ctx, d.shouldTrash, lastRestore),
+	)
 }
 
 func (d *DB) beginPassiveCompaction() {

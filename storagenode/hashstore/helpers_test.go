@@ -239,6 +239,12 @@ func (td *testDB) AssertRead(key Key) {
 	assert.NoError(td.t, r.Close())
 }
 
+func (td *testDB) AssertCompact() {
+	td.t.Helper()
+
+	assert.NoError(td.t, td.Compact(context.Background()))
+}
+
 //
 // other helpers
 //

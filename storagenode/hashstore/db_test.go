@@ -40,6 +40,13 @@ func TestDB_BasicOperation(t *testing.T) {
 	assert.Equal(t, stats.LenSet, uint64(len(Key{})+RecordSize)*stats.NumSet)
 	assert.That(t, stats.LenSet <= stats.LenLogs) // <= because of optimistic alignment
 
+	// should still have all the keys after manual compaction
+	db.AssertCompact()
+	for _, key := range keys {
+		db.AssertRead(key)
+	}
+	assert.That(t, db.Stats().Compactions >= stats.Compactions+2)
+
 	// should still have all the keys after reopen.
 	db.AssertReopen()
 	for _, key := range keys {
