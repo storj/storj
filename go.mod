@@ -8,6 +8,7 @@ require (
 	cloud.google.com/go v0.116.0
 	cloud.google.com/go/secretmanager v1.14.1
 	cloud.google.com/go/spanner v1.70.0
+	github.com/Netflix/go-expect v0.0.0-20220104043353-73e0943537d2
 	github.com/alessio/shellescape v1.2.2
 	github.com/alicebob/miniredis/v2 v2.13.3
 	github.com/blang/semver v3.5.1+incompatible
@@ -22,6 +23,7 @@ require (
 	github.com/gogo/protobuf v1.3.2
 	github.com/golang/mock v1.6.0
 	github.com/google/go-cmp v0.6.0
+	github.com/google/goterm v0.0.0-20190703233501-fc88cf888a3f
 	github.com/googleapis/go-sql-spanner v1.7.4
 	github.com/gorilla/mux v1.8.0
 	github.com/gorilla/schema v1.2.0
@@ -40,7 +42,6 @@ require (
 	github.com/oschwald/maxminddb-golang v1.12.0
 	github.com/pquerna/otp v1.3.0
 	github.com/redis/go-redis/v9 v9.5.1
-	github.com/rs/zerolog v1.15.0
 	github.com/shirou/gopsutil/v3 v3.21.3
 	github.com/shopspring/decimal v1.2.0
 	github.com/spacemonkeygo/monkit/v3 v3.0.23
@@ -51,6 +52,7 @@ require (
 	github.com/stretchr/testify v1.9.0
 	github.com/stripe/stripe-go/v75 v75.8.0
 	github.com/vbauerster/mpb/v8 v8.4.0
+	github.com/xtgo/uuid v0.0.0-20140804021211-a0b114877d4c
 	github.com/zeebo/assert v1.3.1
 	github.com/zeebo/blake3 v0.2.3
 	github.com/zeebo/clingy v0.0.0-20230602044025-906be850f10d
@@ -94,7 +96,6 @@ require (
 	cloud.google.com/go/profiler v0.4.0 // indirect
 	github.com/GoogleCloudPlatform/grpc-gcp-go/grpcgcp v1.5.0 // indirect
 	github.com/GoogleCloudPlatform/opentelemetry-operations-go/detectors/gcp v1.24.1 // indirect
-	github.com/Netflix/go-expect v0.0.0-20220104043353-73e0943537d2 // indirect
 	github.com/StackExchange/wmi v0.0.0-20190523213315-cbe66965904d // indirect
 	github.com/VividCortex/ewma v1.2.0 // indirect
 	github.com/acarl005/stripansi v0.0.0-20180116102854-5a71ef0e047d // indirect
@@ -130,9 +131,7 @@ require (
 	github.com/golang/protobuf v1.5.4 // indirect
 	github.com/golang/snappy v0.0.4 // indirect
 	github.com/google/flatbuffers v23.5.26+incompatible // indirect
-	github.com/google/goexpect v0.0.0-20210430020637-ab937bf7fd6f // indirect
 	github.com/google/gopacket v1.1.19 // indirect
-	github.com/google/goterm v0.0.0-20190703233501-fc88cf888a3f // indirect
 	github.com/google/pprof v0.0.0-20230602150820-91b7bce49751 // indirect
 	github.com/google/s2a-go v0.1.8 // indirect
 	github.com/google/uuid v1.6.0 // indirect
@@ -177,7 +176,6 @@ require (
 	github.com/subosito/gotenv v1.6.0 // indirect
 	github.com/tklauser/go-sysconf v0.3.4 // indirect
 	github.com/tklauser/numcpus v0.2.1 // indirect
-	github.com/xtgo/uuid v0.0.0-20140804021211-a0b114877d4c // indirect
 	github.com/yuin/gopher-lua v0.0.0-20191220021717-ab39c6098bdb // indirect
 	github.com/zeebo/admission/v3 v3.0.3 // indirect
 	github.com/zeebo/float16 v0.1.0 // indirect
