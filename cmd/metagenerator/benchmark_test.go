@@ -1,6 +1,8 @@
 package main
 
 import (
+	"context"
+	"database/sql"
 	"fmt"
 	"log"
 	"os"
@@ -16,11 +18,18 @@ const (
 )
 
 func setupSuite(tb testing.TB) func(tb testing.TB) {
+	// Connect to CockroachDB
+	db, err := sql.Open("postgres", defaultDbEndpoint)
+	if err != nil {
+		panic(fmt.Sprintf("failed to connect to database: %v", err))
+	}
+	ctx := context.Background()
+
 	log.Println("setup suite")
 	tR, _ := strconv.Atoi(os.Getenv("TR"))
 	wN, _ := strconv.Atoi(os.Getenv("WN"))
 	bS, _ := strconv.Atoi(os.Getenv("BS"))
-	db, ctx := metagenerator.GeneratorSetup(sharedValues, bS, wN, tR, apiKey, projectId, defaultDbEndpoint, defaultMetasearchAPI)
+	metagenerator.GeneratorSetup(sharedValues, bS, wN, tR, apiKey, projectId, defaultMetasearchAPI, db, ctx)
 
 	// Return a function to teardown the test
 	return func(tb testing.TB) {

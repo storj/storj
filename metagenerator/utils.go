@@ -92,15 +92,7 @@ func UplinkSetup(satelliteAddress, apiKey string) {
 	fmt.Println(term.Greenf("Uplink setup done"))
 }
 
-func GeneratorSetup(sharedValues float64, bS, wN, tR int, apiKey, projectId, dbEndpoint, metaSearchEndpoint string) (db *sql.DB, ctx context.Context) {
-	// Connect to CockroachDB
-	var err error
-	db, err = sql.Open("postgres", dbEndpoint)
-	if err != nil {
-		panic(fmt.Sprintf("failed to connect to database: %v", err))
-	}
-	ctx = context.Background()
-
+func GeneratorSetup(sharedValues float64, bS, wN, tR int, apiKey, projectId, metaSearchEndpoint string, db *sql.DB, ctx context.Context) {
 	// Initialize batch generator
 	batchGen := NewBatchGenerator(
 		db,
