@@ -16,9 +16,10 @@ var (
 )
 
 func init() {
-	satelliteAddress := os.Getenv("SA")
+	// Refactor to depend on mode
+	// satelliteAddress := os.Getenv("SA")
+	// metagenerator.UplinkSetup(satelliteAddress, apiKey)
 	apiKey = os.Getenv("AK")
-	metagenerator.UplinkSetup(satelliteAddress, apiKey)
 }
 
 func setupSuite(tb testing.TB) func(tb testing.TB) {
@@ -26,12 +27,14 @@ func setupSuite(tb testing.TB) func(tb testing.TB) {
 	tR, _ := strconv.Atoi(os.Getenv("TR"))
 	wN, _ := strconv.Atoi(os.Getenv("WN"))
 	bS, _ := strconv.Atoi(os.Getenv("BS"))
-	projectId = metagenerator.GeneratorSetup(sharedValues, bS, wN, tR, apiKey, defaultDbEndpoint, defaultMetasearchAPI)
+	pId, db, ctx := metagenerator.GeneratorSetup(sharedValues, bS, wN, tR, apiKey, defaultDbEndpoint, defaultMetasearchAPI, metagenerator.DbMode)
+	projectId = pId
 
 	// Return a function to teardown the test
 	return func(tb testing.TB) {
 		log.Println("teardown suite")
-		metagenerator.Clean()
+		metagenerator.CleanTable(ctx, db)
+		db.Close()
 	}
 }
 

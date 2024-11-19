@@ -15,6 +15,7 @@ import (
 
 	"github.com/Netflix/go-expect"
 	"github.com/google/goterm/term"
+	"storj.io/common/uuid"
 )
 
 func prettyPrint(data interface{}) {
@@ -92,24 +93,28 @@ func UplinkSetup(satelliteAddress, apiKey string) {
 	fmt.Println(term.Greenf("Uplink setup done"))
 }
 
-func GeneratorSetup(sharedValues float64, bS, wN, tR int, apiKey, dbEndpoint, metaSearchEndpoint string) (projectId string) {
-	//Create bucket
-	cmd := exec.Command("uplink", "mb", "sj://benchmarks")
-
-	out, err := cmd.CombinedOutput()
-	if err != nil && !strings.Contains(string(out), "bucket already exists") {
-		panic(err.Error())
-	}
-
+func GeneratorSetup(sharedValues float64, bS, wN, tR int, apiKey, dbEndpoint, metaSearchEndpoint, mode string) (projectId string, db *sql.DB, ctx context.Context) {
 	// Connect to CockroachDB
-	db, err := sql.Open("postgres", dbEndpoint)
+	var err error
+	db, err = sql.Open("postgres", dbEndpoint)
 	if err != nil {
 		panic(fmt.Sprintf("failed to connect to database: %v", err))
 	}
-	defer db.Close()
+	ctx = context.Background()
 
-	ctx := context.Background()
-	projectId = GetProjectId(ctx, db).String()
+	if mode == ApiMode {
+		//Create bucket
+		cmd := exec.Command("uplink", "mb", "sj://benchmarks")
+
+		out, err := cmd.CombinedOutput()
+		if err != nil && !strings.Contains(string(out), "bucket already exists") {
+			panic(err.Error())
+		}
+		projectId = GetProjectId(ctx, db).String()
+	} else {
+		pId, _ := uuid.New()
+		projectId = pId.String()
+	}
 
 	// Initialize batch generator
 	batchGen := NewBatchGenerator(
@@ -121,14 +126,14 @@ func GeneratorSetup(sharedValues float64, bS, wN, tR int, apiKey, dbEndpoint, me
 		GetPathCount(ctx, db),
 		projectId,
 		apiKey,
-		DbMode,
+		mode,
 		metaSearchEndpoint,
 	)
 
 	// Generate and insert/debug records
 	startTime := time.Now()
 
-	if err := batchGen.GenerateAndInsert(totalRecords); err != nil {
+	if err := batchGen.GenerateAndInsert(ctx, totalRecords); err != nil {
 		panic(fmt.Sprintf("failed to generate records: %v", err))
 	}
 

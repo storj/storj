@@ -1,13 +1,16 @@
 package metagenerator
 
 import (
+	"context"
 	"database/sql"
+	"encoding/json"
 	"fmt"
 	"math/rand"
 	"sync"
 	"time"
 
 	_ "github.com/lib/pq"
+	"storj.io/common/uuid"
 )
 
 // default values
@@ -90,7 +93,7 @@ func (g *Generator) generatePathPrefixes() {
 	defer g.putRand(r)
 
 	for {
-		prefix := fmt.Sprintf("/%s/%s",
+		prefix := fmt.Sprintf("%s/%s",
 			prefixes[r.Intn(len(prefixes))],
 			subPaths[r.Intn(len(subPaths))],
 		)
@@ -182,10 +185,24 @@ func NewBatchGenerator(db *sql.DB, valueShare float64, batchSize, workers, total
 }
 
 // GenerateAndInsert generates and put object with metadata in batches using multiple workers
-func (bg *BatchGenerator) GenerateAndInsert(totalRecords int) error {
+func (bg *BatchGenerator) GenerateAndInsert(ctx context.Context, totalRecords int) (err error) {
 	var wg sync.WaitGroup
 	errChan := make(chan error, bg.workers)
 	recordsPerWorker := bg.totalRecords / bg.workers
+
+	var stmt *sql.Stmt
+	if bg.mode == DbMode {
+		// Prepare the insert statement
+		// TODO: refactor with uplink library
+		stmt, err = bg.db.PrepareContext(ctx, `
+			INSERT INTO objects (project_id, bucket_name, object_key, version, stream_id, status, clear_metadata) 
+			VALUES ($1, $2, $3, $4, $5, $6, $7)
+		`)
+		if err != nil {
+			return fmt.Errorf("failed to prepare statement: %v", err)
+		}
+		defer stmt.Close()
+	}
 
 	// Start workers
 	for i := 0; i < bg.workers; i++ {
@@ -193,7 +210,7 @@ func (bg *BatchGenerator) GenerateAndInsert(totalRecords int) error {
 		go func(workerID int) {
 			defer wg.Done()
 			for j := 0; j < recordsPerWorker; j += bg.batchSize {
-				if err := bg.processBatch(bg.batchSize); err != nil {
+				if err := bg.processBatch(ctx, stmt); err != nil {
 					errChan <- fmt.Errorf("worker %d failed: %v", workerID, err)
 					return
 				}
@@ -210,13 +227,13 @@ func (bg *BatchGenerator) GenerateAndInsert(totalRecords int) error {
 	close(errChan)
 
 	// Check for any errors
-	for err := range errChan {
+	for err = range errChan {
 		if err != nil {
-			return err
+			return
 		}
 	}
 
-	return nil
+	return
 }
 
 func (bg *BatchGenerator) apiIncert(record *Record) (err error) {
@@ -226,7 +243,14 @@ func (bg *BatchGenerator) apiIncert(record *Record) (err error) {
 	return putMeta(record, bg.apiKey, bg.projectId, bg.metaSearchEndpoint)
 }
 
-func (bg *BatchGenerator) dbIncert(record *Record) (err error) {
+func (bg *BatchGenerator) dbIncert(record *Record, stmt *sql.Stmt, tx *sql.Tx, ctx context.Context) (err error) {
+	metadata, err := json.Marshal(record.Metadata)
+	if err != nil {
+		return err
+	}
+
+	pId, _ := uuid.FromString(bg.projectId)
+	_, err = tx.StmtContext(ctx, stmt).ExecContext(ctx, pId.Bytes(), Label, record.Path, 1, pId.Bytes(), 3, metadata)
 	return
 }
 
@@ -236,22 +260,34 @@ func (bg *BatchGenerator) dryRun(record *Record) (err error) {
 }
 
 // processBatch generates and inserts a batch of records
-func (bg *BatchGenerator) processBatch(batchSize int) (err error) {
-	for i := 0; i < batchSize; i++ {
+func (bg *BatchGenerator) processBatch(ctx context.Context, stmt *sql.Stmt) (err error) {
+	var tx *sql.Tx
+	if bg.mode == DbMode {
+		tx, err = bg.db.BeginTx(ctx, nil)
+		if err != nil {
+			return err
+		}
+		defer tx.Rollback()
+	}
+
+	for i := 0; i < bg.batchSize; i++ {
 		record := bg.generator.GenerateRecord()
 
 		switch bg.mode {
 		case ApiMode:
-			return bg.apiIncert(&record)
+			err = bg.apiIncert(&record)
 		case DbMode:
-			return bg.dbIncert(&record)
+			err = bg.dbIncert(&record, stmt, tx, ctx)
 		case DryRunMode:
-			return bg.dryRun(&record)
+			err = bg.dryRun(&record)
 		default:
 			panic("Unkonwn mode")
+		}
+		if err != nil {
+			return
 		}
 
 	}
 
-	return
+	return tx.Commit()
 }
