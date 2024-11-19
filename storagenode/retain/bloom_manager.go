@@ -93,7 +93,7 @@ func (bfm *BloomFilterManager) Queue(ctx context.Context, satellite storj.NodeID
 	statePtr := bfm.getStatePtrLocked(satellite)
 
 	if existing := statePtr.Load(); existing != nil && existing.created.After(req.CreationDate) {
-		return nil
+		return errs.New("new request is older than existing request: req=%v < existing=%v", req.CreationDate, existing.created)
 	}
 
 	filter, err := bloomfilter.NewFromBytes(req.Filter)
