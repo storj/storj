@@ -6,17 +6,19 @@ import (
 	"os"
 	"strconv"
 	"testing"
+
+	"storj.io/storj/metagenerator"
 )
 
 var (
-	bG     *BatchGenerator
-	apiKey string
+	apiKey    string
+	projectId string
 )
 
 func init() {
 	satelliteAddress := os.Getenv("SA")
 	apiKey = os.Getenv("AK")
-	uplinkSetup(satelliteAddress, apiKey)
+	metagenerator.UplinkSetup(satelliteAddress, apiKey)
 }
 
 func setupSuite(tb testing.TB) func(tb testing.TB) {
@@ -24,12 +26,12 @@ func setupSuite(tb testing.TB) func(tb testing.TB) {
 	tR, _ := strconv.Atoi(os.Getenv("TR"))
 	wN, _ := strconv.Atoi(os.Getenv("WN"))
 	bS, _ := strconv.Atoi(os.Getenv("BS"))
-	bG = generatorSetup(bS, wN, tR, apiKey)
+	projectId = metagenerator.GeneratorSetup(sharedValues, bS, wN, tR, apiKey, defaultDbEndpoint, defaultMetasearchAPI)
 
 	// Return a function to teardown the test
 	return func(tb testing.TB) {
 		log.Println("teardown suite")
-		clean()
+		metagenerator.Clean()
 	}
 }
 
@@ -38,10 +40,12 @@ func BenchmarkSimpleQuery(b *testing.B) {
 	defer teardownSuite(b)
 
 	b.ResetTimer()
-	err := bG.searchMeta(Query{
-		Path:  fmt.Sprintf("sj://%s/", label),
-		Query: `{"field_0":"purple"}`,
-	})
+	err := metagenerator.SearchMeta(metagenerator.Query{
+		Path: fmt.Sprintf("sj://%s/", metagenerator.Label),
+		Match: map[string]any{
+			"filed_0": "purple",
+		},
+	}, apiKey, projectId, defaultMetasearchAPI)
 
 	if err != nil {
 		panic(err)
