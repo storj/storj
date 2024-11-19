@@ -16,17 +16,26 @@ type FindObjectsByClearMetadata struct {
 	ContainsQuery string
 }
 
-func (db *DB) FindObjectsByClearMetadata(ctx context.Context, opts FindObjectsByClearMetadata, startAfter ObjectStream, batchSize int) (matchingObjects []ObjectStream, err error) {
+type FindObjectsByClearMetadataResult struct {
+	Objects []FindObjectsByClearMetadataResultObject
+}
+
+type FindObjectsByClearMetadataResultObject struct {
+	ObjectStream
+	ClearMetadata string
+}
+
+func (db *DB) FindObjectsByClearMetadata(ctx context.Context, opts FindObjectsByClearMetadata, startAfter ObjectStream, batchSize int) (result FindObjectsByClearMetadataResult, err error) {
 	defer mon.Task()(&ctx)(&err)
 	return db.ChooseAdapter(opts.ProjectID).FindObjectsByClearMetadata(ctx, opts, startAfter, batchSize)
 }
 
-func (p *PostgresAdapter) FindObjectsByClearMetadata(ctx context.Context, opts FindObjectsByClearMetadata, startAfter ObjectStream, batchSize int) (matchingObjects []ObjectStream, err error) {
+func (p *PostgresAdapter) FindObjectsByClearMetadata(ctx context.Context, opts FindObjectsByClearMetadata, startAfter ObjectStream, batchSize int) (result FindObjectsByClearMetadataResult, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	query := `
 		SELECT
-			project_id, bucket_name, object_key, version, stream_id
+			project_id, bucket_name, object_key, version, stream_id, clear_metadata
 		FROM objects
 		WHERE
 			(project_id, bucket_name) = ($1, $2) AND
@@ -38,7 +47,7 @@ func (p *PostgresAdapter) FindObjectsByClearMetadata(ctx context.Context, opts F
 		LIMIT $8;
 	`
 
-	matchingObjects = make([]ObjectStream, 0, batchSize)
+	result.Objects = make([]FindObjectsByClearMetadataResultObject, 0, batchSize)
 
 	err = withRows(p.db.QueryContext(ctx, query,
 		opts.ProjectID, opts.BucketName,
@@ -46,10 +55,10 @@ func (p *PostgresAdapter) FindObjectsByClearMetadata(ctx context.Context, opts F
 		opts.ContainsQuery,
 		batchSize),
 	)(func(rows tagsql.Rows) error {
-		var last ObjectStream
+		var last FindObjectsByClearMetadataResultObject
 		for rows.Next() {
 			err = rows.Scan(
-				&last.ProjectID, &last.BucketName, &last.ObjectKey, &last.Version, &last.StreamID)
+				&last.ProjectID, &last.BucketName, &last.ObjectKey, &last.Version, &last.StreamID, &last.ClearMetadata)
 			if err != nil {
 				return Error.Wrap(err)
 			}
@@ -61,17 +70,17 @@ func (p *PostgresAdapter) FindObjectsByClearMetadata(ctx context.Context, opts F
 				zap.Int64("Version", int64(last.Version)),
 				zap.Stringer("StreamID", last.StreamID),
 			)
-			matchingObjects = append(matchingObjects, last)
+			result.Objects = append(result.Objects, last)
 		}
 
 		return nil
 	})
 	if err != nil {
-		return nil, Error.Wrap(err)
+		return FindObjectsByClearMetadataResult{}, Error.Wrap(err)
 	}
-	return matchingObjects, nil
+	return result, nil
 }
 
-func (p *SpannerAdapter) FindObjectsByClearMetadata(ctx context.Context, opts FindObjectsByClearMetadata, startAfter ObjectStream, batchSize int) (objects []ObjectStream, err error) {
-	return nil, errors.New("not implemented")
+func (p *SpannerAdapter) FindObjectsByClearMetadata(ctx context.Context, opts FindObjectsByClearMetadata, startAfter ObjectStream, batchSize int) (result FindObjectsByClearMetadataResult, err error) {
+	return FindObjectsByClearMetadataResult{}, errors.New("not implemented")
 }
