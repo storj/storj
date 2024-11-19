@@ -15,7 +15,6 @@ import (
 	"github.com/jmespath/go-jmespath"
 	"go.uber.org/zap"
 
-	"storj.io/common/macaroon"
 	"storj.io/common/uuid"
 	"storj.io/storj/satellite/metabase"
 )
@@ -24,8 +23,9 @@ import (
 type Server struct {
 	Logger   *zap.Logger
 	Repo     MetaSearchRepo
+	Auth     Auth
 	Endpoint string
-	Router   http.Handler
+	Handler  http.Handler
 }
 
 // BaseRequest contains common fields for all requests.
@@ -68,44 +68,34 @@ type DeleteRequest struct {
 }
 
 // NewServer creates a new metasearch server process.
-func NewServer(log *zap.Logger, repo MetaSearchRepo, endpoint string) (*Server, error) {
-	peer := &Server{
+func NewServer(log *zap.Logger, repo MetaSearchRepo, auth Auth, endpoint string) (*Server, error) {
+	s := &Server{
 		Logger:   log,
 		Repo:     repo,
+		Auth:     auth,
 		Endpoint: endpoint,
 	}
 
-	return peer, nil
-}
-
-// Run starts the metasearch server.
-func (s *Server) Run() error {
 	router := mux.NewRouter()
 	router.HandleFunc("/meta_search", s.HandleQuery).Methods(http.MethodPost)
 	router.HandleFunc("/meta_search", s.HandleUpdate).Methods(http.MethodPut)
 	router.HandleFunc("/meta_search", s.HandleDelete).Methods(http.MethodDelete)
-	return http.ListenAndServe(s.Endpoint, router)
+	s.Handler = router
+
+	return s, nil
+}
+
+// Run starts the metasearch server.
+func (s *Server) Run() error {
+	return http.ListenAndServe(s.Endpoint, s.Handler)
 }
 
 func (s *Server) validateRequest(ctx context.Context, r *http.Request, baseRequest *BaseRequest, body interface{}) error {
 	// Parse authorization header
-	hdr := r.Header.Get("Authorization")
-	if hdr == "" {
-		return fmt.Errorf("%w: missing authorization header", ErrAuthorizationFailed)
-	}
-
-	// Check for valid authorization
-	if !strings.HasPrefix(hdr, "Bearer ") {
-		return fmt.Errorf("%w: invalid authorization header", ErrAuthorizationFailed)
-	}
-
-	// Parse API token
-	rawToken := strings.TrimPrefix(hdr, "Bearer ")
-	apiKey, err := macaroon.ParseAPIKey(rawToken)
+	err := s.Auth.Authenticate(r)
 	if err != nil {
-		return fmt.Errorf("%w: %s", ErrAuthorizationFailed, err)
+		return err
 	}
-	s.Logger.Info("API key", zap.String("key", fmt.Sprint(apiKey)))
 
 	// Parse project ID from header (TODO: get from API token)
 	projectID := r.Header.Get("X-Project-ID")
