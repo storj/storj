@@ -3,6 +3,7 @@
 
 import { HttpClient } from '@/utils/httpClient';
 import { AnalyticsErrorEventSource, AnalyticsEvent } from '@/utils/constants/analyticsEventNames';
+import { APIError } from '@/utils/error';
 
 /**
  * AnalyticsHttpApi is a console Analytics API.
@@ -11,6 +12,31 @@ import { AnalyticsErrorEventSource, AnalyticsEvent } from '@/utils/constants/ana
 export class AnalyticsHttpApi {
     private readonly http: HttpClient = new HttpClient();
     private readonly ROOT_PATH: string = '/api/v0/analytics';
+
+    /**
+     * Used to notify the satellite about arbitrary events that occur.
+     * Throws an error if event hasn't been submitted.
+     *
+     * @param eventName - name of the event
+     * @param props - additional properties to send with the event
+     */
+    public async ensureEventTriggered(eventName: string, props?: { [p: string]: string }): Promise<void> {
+        const path = `${this.ROOT_PATH}/event`;
+
+        const body = { eventName };
+        if (props) body['props'] = props;
+
+        const response = await this.http.post(path, JSON.stringify(body));
+        if (!response.ok) {
+            const result = await response.json();
+
+            throw new APIError({
+                status: response.status,
+                message: result.error,
+                requestID: response.headers.get('x-request-id'),
+            });
+        }
+    }
 
     /**
      * Used to notify the satellite about arbitrary events that occur.

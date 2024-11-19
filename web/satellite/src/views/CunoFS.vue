@@ -110,7 +110,7 @@
                         />
 
                         <v-text-field
-                            v-model="formData.organizaiton"
+                            v-model="formData.organization"
                             label="Organization"
                             placeholder="Enter your organization name"
                             variant="outlined"
@@ -296,6 +296,8 @@ import {
     VRow,
     VCol,
     VCard,
+    VCardItem,
+    VCardTitle,
     VCardText,
     VCheckbox,
     VTextarea,
@@ -312,9 +314,10 @@ import { useUsersStore } from '@/store/modules/usersStore';
 import { useConfigStore } from '@/store/modules/configStore';
 import { ROUTES } from '@/router';
 import { MaxNameLengthRule, RequiredRule } from '@/types/common';
-import { AnalyticsErrorEventSource } from '@/utils/constants/analyticsEventNames';
+import { AnalyticsErrorEventSource, AnalyticsEvent } from '@/utils/constants/analyticsEventNames';
 import { useLoading } from '@/composables/useLoading';
 import { useNotify } from '@/utils/hooks';
+import { useAnalyticsStore } from '@/store/modules/analyticsStore';
 
 const router = useRouter();
 const notify = useNotify();
@@ -322,9 +325,10 @@ const { isLoading, withLoading } = useLoading();
 
 const configStore = useConfigStore();
 const usersStore = useUsersStore();
+const analyticsStore = useAnalyticsStore();
 
 type FormData = {
-    organizaiton: string;
+    organization: string;
     industry: string | null;
     operatingSystem: string | null;
     teamSize: string | null;
@@ -345,7 +349,7 @@ const industries = [
     'Life Sciences',
     'High Performance Computing',
     'Machine Learning',
-    'Other',
+    OtherLabel,
 ];
 
 const operatingSystems = ['macOS', 'Windows', 'Linux'];
@@ -428,7 +432,7 @@ enum State {
 }
 
 const formData = reactive<FormData>({
-    organizaiton: '',
+    organization: '',
     industry: null,
     operatingSystem: null,
     teamSize: null,
@@ -455,8 +459,32 @@ const state = ref<State>(betaJoined.value ? State.Success : State.Form);
 
 function submitForm(): void {
     withLoading(async () => {
+        if (!(formData.industry && formData.operatingSystem && formData.teamSize && formData.storageUsage)) return;
+
         try {
-            // TODO: Add API call to submit the form data.
+            const props = {
+                organization: formData.organization,
+                industry: formData.industry === OtherLabel ? otherIndustry.value : formData.industry,
+                operatingSystem: formData.operatingSystem,
+                teamSize: formData.teamSize,
+                storageUsage: formData.storageUsage,
+                infrastructureType: formData.infrastructureType.join(', '),
+                storageBackend: formData.storageBackend.join(', '),
+                mountSolution: formData.mountSolution.join(', '),
+                desiredFeatures: formData.desiredFeatures.join(', '),
+                painPoints: formData.painPoints.join(', '),
+                comments: formData.comments,
+            };
+
+            if (isOtherStorageBackend.value && otherStorageBackend.value) {
+                props.storageBackend = props.storageBackend ? `${props.storageBackend}, ${otherStorageBackend.value}` : otherStorageBackend.value;
+            }
+            if (isOtherMountSolution.value && otherMountSolution.value) {
+                props.mountSolution = props.mountSolution ? `${props.mountSolution}, ${otherMountSolution.value}` : otherMountSolution.value;
+            }
+
+            await analyticsStore.ensureEventTriggered(AnalyticsEvent.JOIN_CUNO_FS_BETA_FORM_SUBMITTED, props);
+
             const noticeDismissal = { ...usersStore.state.settings.noticeDismissal };
             noticeDismissal.cunoFSBetaJoined = true;
             await usersStore.updateSettings({ noticeDismissal });

@@ -54,6 +54,7 @@ export enum AnalyticsEvent {
     APPLICATIONS_DOCS_CLICKED = 'Applications Docs Clicked',
     CLOUD_GPU_NAVIGATION_ITEM_CLICKED = 'Cloud GPU Navigation Item Clicked',
     CLOUD_GPU_SIGN_UP_CLICKED = 'Cloud GPU Sign Up Clicked',
+    JOIN_CUNO_FS_BETA_FORM_SUBMITTED = 'Join CunoFS Beta Form Submitted',
 }
 
 export enum AnalyticsErrorEventSource {
