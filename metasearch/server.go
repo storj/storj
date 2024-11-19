@@ -15,9 +15,7 @@ import (
 	"github.com/jmespath/go-jmespath"
 	"go.uber.org/zap"
 
-	"storj.io/common/macaroon"
 	"storj.io/common/uuid"
-	"storj.io/storj/satellite"
 	"storj.io/storj/satellite/metabase"
 )
 
@@ -25,15 +23,20 @@ import (
 type Server struct {
 	Logger   *zap.Logger
 	Repo     MetaSearchRepo
+	Auth     Auth
 	Endpoint string
-	Router   http.Handler
+	Handler  http.Handler
 }
 
+// BaseRequest contains common fields for all requests.
 type BaseRequest struct {
 	ProjectID uuid.UUID `json:"-"`
 	Path      string    `json:"path"`
+
+	location metabase.ObjectLocation
 }
 
+// SearchRequest contains fields for a view or search request.
 type SearchRequest struct {
 	BaseRequest
 
@@ -42,63 +45,57 @@ type SearchRequest struct {
 	Projection string                 `json:"projection"`
 }
 
+// SearchResponse contains fields for a view or search response.
 type SearchResponse struct {
 	Results []SearchResult `json:"results"`
 }
 
+// SearchResult contains fields for a single search result.
 type SearchResult struct {
 	Path     string      `json:"path"`
 	Metadata interface{} `json:"metadata"`
 }
 
+// UpdateRequest contains fields for an update request.
 type UpdateRequest struct {
 	BaseRequest
 	Metadata map[string]interface{} `json:"metadata"`
 }
 
+// DeleteRequest contains fields for a delete request.
 type DeleteRequest struct {
 	BaseRequest
 }
 
 // NewServer creates a new metasearch server process.
-func NewServer(log *zap.Logger, db satellite.DB, metabase *metabase.DB, endpoint string) (*Server, error) {
-	repo := NewMetabaseSearchRepository(metabase)
-	peer := &Server{
+func NewServer(log *zap.Logger, repo MetaSearchRepo, auth Auth, endpoint string) (*Server, error) {
+	s := &Server{
 		Logger:   log,
 		Repo:     repo,
+		Auth:     auth,
 		Endpoint: endpoint,
 	}
 
-	return peer, nil
-}
-
-func (s *Server) Run() error {
 	router := mux.NewRouter()
 	router.HandleFunc("/meta_search", s.HandleQuery).Methods(http.MethodPost)
 	router.HandleFunc("/meta_search", s.HandleUpdate).Methods(http.MethodPut)
 	router.HandleFunc("/meta_search", s.HandleDelete).Methods(http.MethodDelete)
-	return http.ListenAndServe(s.Endpoint, router)
+	s.Handler = router
+
+	return s, nil
+}
+
+// Run starts the metasearch server.
+func (s *Server) Run() error {
+	return http.ListenAndServe(s.Endpoint, s.Handler)
 }
 
 func (s *Server) validateRequest(ctx context.Context, r *http.Request, baseRequest *BaseRequest, body interface{}) error {
 	// Parse authorization header
-	hdr := r.Header.Get("Authorization")
-	if hdr == "" {
-		return fmt.Errorf("%w: missing authorization header", ErrAuthorizationFailed)
-	}
-
-	// Check for valid authorization
-	if !strings.HasPrefix(hdr, "Bearer ") {
-		return fmt.Errorf("%w: invalid authorization header", ErrAuthorizationFailed)
-	}
-
-	// Parse API token
-	rawToken := strings.TrimPrefix(hdr, "Bearer ")
-	apiKey, err := macaroon.ParseAPIKey(rawToken)
+	err := s.Auth.Authenticate(r)
 	if err != nil {
-		return fmt.Errorf("%w: %s", ErrAuthorizationFailed, err)
+		return err
 	}
-	s.Logger.Info("API key", zap.String("key", fmt.Sprint(apiKey)))
 
 	// Parse project ID from header (TODO: get from API token)
 	projectID := r.Header.Get("X-Project-ID")
@@ -116,9 +113,21 @@ func (s *Server) validateRequest(ctx context.Context, r *http.Request, baseReque
 		return fmt.Errorf("%w: error decoding request body: %w", ErrBadRequest, err)
 	}
 
+	// Decode path
+	bucket, key, err := parsePath(baseRequest.Path)
+	if err != nil {
+		return fmt.Errorf("%w: %s", ErrBadRequest, err)
+	}
+	baseRequest.location = metabase.ObjectLocation{
+		ProjectID:  baseRequest.ProjectID,
+		BucketName: metabase.BucketName(bucket),
+		ObjectKey:  metabase.ObjectKey(key),
+	}
+
 	return nil
 }
 
+// HandleQuery handles a metadata view or search request.
 func (s *Server) HandleQuery(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	var request SearchRequest
@@ -126,7 +135,7 @@ func (s *Server) HandleQuery(w http.ResponseWriter, r *http.Request) {
 
 	err := s.validateRequest(ctx, r, &request.BaseRequest, &request)
 	if err != nil {
-		s.ErrorResponse(w, err)
+		s.errorResponse(w, err)
 		return
 	}
 
@@ -137,26 +146,15 @@ func (s *Server) HandleQuery(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if err != nil {
-		s.ErrorResponse(w, err)
+		s.errorResponse(w, err)
 		return
 	}
 
-	s.JSONResponse(w, http.StatusOK, result)
+	s.jsonResponse(w, http.StatusOK, result)
 }
 
 func (s *Server) getMetadata(ctx context.Context, request *SearchRequest) (response SearchResponse, err error) {
-	bucket, key, err := parsePath(request.Path)
-	if err != nil {
-		return
-	}
-
-	loc := metabase.ObjectLocation{
-		ProjectID:  request.ProjectID,
-		BucketName: metabase.BucketName(bucket),
-		ObjectKey:  metabase.ObjectKey(key),
-	}
-
-	meta, err := s.Repo.GetMetadata(ctx, loc)
+	meta, err := s.Repo.GetMetadata(ctx, request.location)
 	if err == nil {
 		response.Results = []SearchResult{
 			{
@@ -169,18 +167,7 @@ func (s *Server) getMetadata(ctx context.Context, request *SearchRequest) (respo
 }
 
 func (s *Server) searchMetadata(ctx context.Context, request *SearchRequest) (response SearchResponse, err error) {
-	bucket, key, err := parsePath(request.Path)
-	if err != nil {
-		return
-	}
-
-	loc := metabase.ObjectLocation{
-		ProjectID:  request.ProjectID,
-		BucketName: metabase.BucketName(bucket),
-		ObjectKey:  metabase.ObjectKey(key),
-	}
-
-	searchResult, err := s.Repo.QueryMetadata(ctx, loc, request.Match, 1000)
+	searchResult, err := s.Repo.QueryMetadata(ctx, request.location, request.Match, 1000)
 	if err != nil {
 		return
 	}
@@ -250,72 +237,50 @@ func (s *Server) filterMetadata(ctx context.Context, request *SearchRequest, met
 	return true, nil
 }
 
+// HandleUpdate handles a metadata update request.
 func (s *Server) HandleUpdate(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	var request UpdateRequest
 
 	err := s.validateRequest(ctx, r, &request.BaseRequest, &request)
 	if err != nil {
-		s.ErrorResponse(w, err)
+		s.errorResponse(w, err)
 		return
 	}
 
-	bucket, key, err := parsePath(request.Path)
+	err = s.Repo.UpdateMetadata(ctx, request.location, request.Metadata)
 	if err != nil {
-		s.ErrorResponse(w, err)
-		return
-	}
-
-	loc := metabase.ObjectLocation{
-		ProjectID:  request.ProjectID,
-		BucketName: metabase.BucketName(bucket),
-		ObjectKey:  metabase.ObjectKey(key),
-	}
-
-	err = s.Repo.UpdateMetadata(ctx, loc, request.Metadata)
-	if err != nil {
-		s.ErrorResponse(w, err)
+		s.errorResponse(w, err)
 		return
 	}
 
 	w.WriteHeader(http.StatusNoContent)
 }
 
+// HandleDelete handles a metadata delete request.
 func (s *Server) HandleDelete(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	var request DeleteRequest
 
 	err := s.validateRequest(ctx, r, &request.BaseRequest, &request)
 	if err != nil {
-		s.ErrorResponse(w, err)
+		s.errorResponse(w, err)
 		return
 	}
 
-	bucket, key, err := parsePath(request.Path)
+	err = s.Repo.DeleteMetadata(ctx, request.location)
 	if err != nil {
-		s.ErrorResponse(w, err)
-		return
-	}
-
-	loc := metabase.ObjectLocation{
-		ProjectID:  request.ProjectID,
-		BucketName: metabase.BucketName(bucket),
-		ObjectKey:  metabase.ObjectKey(key),
-	}
-
-	err = s.Repo.DeleteMetadata(ctx, loc)
-	if err != nil {
-		s.ErrorResponse(w, err)
+		s.errorResponse(w, err)
 		return
 	}
 
 	w.WriteHeader(http.StatusNoContent)
 }
 
-func (s *Server) JSONResponse(w http.ResponseWriter, status int, body interface{}) {
+func (s *Server) jsonResponse(w http.ResponseWriter, status int, body interface{}) {
 	jsonBytes, err := json.Marshal(body)
 	if err != nil {
-		s.ErrorResponse(w, fmt.Errorf("%w: %v", ErrInternalError, err))
+		s.errorResponse(w, fmt.Errorf("%w: %v", ErrInternalError, err))
 		return
 	}
 
@@ -324,7 +289,7 @@ func (s *Server) JSONResponse(w http.ResponseWriter, status int, body interface{
 	w.Write(jsonBytes)
 }
 
-func (s *Server) ErrorResponse(w http.ResponseWriter, err error) {
+func (s *Server) errorResponse(w http.ResponseWriter, err error) {
 	s.Logger.Warn("error during API request", zap.Error(err))
 
 	var e *ErrorResponse

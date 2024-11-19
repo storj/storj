@@ -17,7 +17,7 @@ import (
 
 func main() {
 	ctx := context.Background()
-	log, err := zap.NewDevelopment()
+	log, err := zap.NewDevelopment() // TODO: use production logger
 	if err != nil {
 		panic(err)
 	}
@@ -51,7 +51,9 @@ func main() {
 	}()
 
 	endpoint := os.Getenv("STORJ_METASEARCH_ENDPOINT")
-	metadataAPI, err := metasearch.NewServer(log, db, metabase, endpoint)
+	repo := metasearch.NewMetabaseSearchRepository(metabase)
+	auth := &metasearch.HeaderAuth{}
+	metadataAPI, err := metasearch.NewServer(log, repo, auth, endpoint)
 	if err != nil {
 		log.Error("Error creating metadata api:", zap.Error(err))
 		return
