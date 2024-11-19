@@ -26,6 +26,7 @@ type MigrationState struct {
 	PassiveMigrate bool // passive migrate pieces on read
 	WriteToNew     bool // should writes go to the new store
 	ReadNewFirst   bool // should reads go to the new or old store first
+	TTLToNew       bool // any TTL write should go to the new store
 }
 
 // Migrator is an interface for migrating pieces.
@@ -149,7 +150,7 @@ func (m *MigratingBackend) getState(ctx context.Context, satellite storj.NodeID)
 func (m *MigratingBackend) Writer(ctx context.Context, satellite storj.NodeID, pieceID storj.PieceID, hash pb.PieceHashAlgorithm, expires time.Time) (_ PieceWriter, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	if state := m.getState(ctx, satellite); state.WriteToNew {
+	if state := m.getState(ctx, satellite); state.WriteToNew || (state.TTLToNew && !expires.IsZero()) {
 		return m.new.Writer(ctx, satellite, pieceID, hash, expires)
 	}
 	return m.old.Writer(ctx, satellite, pieceID, hash, expires)
