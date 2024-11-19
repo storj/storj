@@ -54,6 +54,11 @@ func main() {
 	defer db.Close()
 	ctx := context.Background()
 
+	var projectId string
+	if mode == metagenerator.ApiMode {
+		projectId = metagenerator.GetProjectId(ctx, db).String()
+	}
+
 	// Initialize batch generator
 	batchGen := metagenerator.NewBatchGenerator(
 		db,
@@ -62,7 +67,7 @@ func main() {
 		workersNumber, // number of workers
 		totalRecords,
 		metagenerator.GetPathCount(ctx, db), // get path count
-		metagenerator.GetProjectId(ctx, db).String(),
+		projectId,
 		os.Getenv("API_KEY"),
 		mode, // incert mode
 		defaultMetasearchAPI,

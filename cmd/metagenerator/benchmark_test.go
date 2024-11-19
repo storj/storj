@@ -41,8 +41,10 @@ func BenchmarkSimpleQuery(b *testing.B) {
 
 	b.ResetTimer()
 	err := metagenerator.SearchMeta(metagenerator.Query{
-		Path:  fmt.Sprintf("sj://%s/", metagenerator.Label),
-		Query: `{"field_0":"purple"}`,
+		Path: fmt.Sprintf("sj://%s/", metagenerator.Label),
+		Match: map[string]any{
+			"filed_0": "purple",
+		},
 	}, apiKey, projectId, defaultMetasearchAPI)
 
 	if err != nil {

@@ -10,8 +10,8 @@ import (
 )
 
 type Query struct {
-	Path  string `json:"path"`
-	Query string `json:"query"`
+	Path  string         `json:"path"`
+	Match map[string]any `json:"match"`
 }
 
 func putMeta(record *Record, apiKey, projectId, url string) error {
