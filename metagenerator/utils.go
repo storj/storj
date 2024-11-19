@@ -15,7 +15,6 @@ import (
 
 	"github.com/Netflix/go-expect"
 	"github.com/google/goterm/term"
-	"storj.io/common/uuid"
 )
 
 func prettyPrint(data interface{}) {
@@ -93,7 +92,7 @@ func UplinkSetup(satelliteAddress, apiKey string) {
 	fmt.Println(term.Greenf("Uplink setup done"))
 }
 
-func GeneratorSetup(sharedValues float64, bS, wN, tR int, apiKey, dbEndpoint, metaSearchEndpoint, mode string) (projectId string, db *sql.DB, ctx context.Context) {
+func GeneratorSetup(sharedValues float64, bS, wN, tR int, apiKey, projectId, dbEndpoint, metaSearchEndpoint string) (db *sql.DB, ctx context.Context) {
 	// Connect to CockroachDB
 	var err error
 	db, err = sql.Open("postgres", dbEndpoint)
@@ -101,20 +100,6 @@ func GeneratorSetup(sharedValues float64, bS, wN, tR int, apiKey, dbEndpoint, me
 		panic(fmt.Sprintf("failed to connect to database: %v", err))
 	}
 	ctx = context.Background()
-
-	if mode == ApiMode {
-		//Create bucket
-		cmd := exec.Command("uplink", "mb", "sj://benchmarks")
-
-		out, err := cmd.CombinedOutput()
-		if err != nil && !strings.Contains(string(out), "bucket already exists") {
-			panic(err.Error())
-		}
-		projectId = GetProjectId(ctx, db).String()
-	} else {
-		pId, _ := uuid.New()
-		projectId = pId.String()
-	}
 
 	// Initialize batch generator
 	batchGen := NewBatchGenerator(
@@ -126,7 +111,7 @@ func GeneratorSetup(sharedValues float64, bS, wN, tR int, apiKey, dbEndpoint, me
 		GetPathCount(ctx, db),
 		projectId,
 		apiKey,
-		mode,
+		DbMode,
 		metaSearchEndpoint,
 	)
 
