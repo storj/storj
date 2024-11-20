@@ -581,23 +581,37 @@ func (repairer *SegmentRepairer) Repair(ctx context.Context, queueSegment queue.
 	// Once it is possible to suppress or avoid the quiescence error in
 	// eestream.decodedReader, we can remove this tempfile step.
 	if !repairer.ec.inmemoryDownload {
-		tempfile, err := tmpfile.New("", "repaired-segment-*")
+		err := func() (err error) {
+			tempfile, err := tmpfile.New("", "repaired-segment-*")
+			if err != nil {
+				return repairReconstructError.New("could not open tempfile: %w", err)
+			}
+			defer func() {
+				if recoverErr := recover(); recoverErr != nil {
+					err = repairReconstructError.New("panic during segment reconstruction: %v", recoverErr)
+				}
+				if err != nil {
+					_ = tempfile.Close()
+				}
+			}()
+			_, err = io.Copy(tempfile, segmentReader)
+			if err != nil {
+				return repairReconstructError.New("could not reconstruct segment: %w", err)
+			}
+			_, err = tempfile.Seek(0, io.SeekStart)
+			if err != nil {
+				return repairReconstructError.New("could not seek to beginning of tempfile: %w", err)
+			}
+			err = segmentReader.Close()
+			if err != nil {
+				return repairReconstructError.New("could not close segmentReader: %w", err)
+			}
+			// assign tempfile before proceeding, because we've already defer-closed segmentReader
+			segmentReader = tempfile
+			return nil
+		}()
 		if err != nil {
-			return true, repairReconstructError.New("could not open tempfile: %v", err)
-		}
-		_, err = io.Copy(tempfile, segmentReader)
-		if err != nil {
-			return true, repairReconstructError.New("could not reconstruct segment: %v", err)
-		}
-		_, err = tempfile.Seek(0, io.SeekStart)
-		if err != nil {
-			return true, repairReconstructError.New("could not seek to beginning of tempfile: %v", err)
-		}
-		err = segmentReader.Close()
-		// assign to tempfile before returning, because we've already defer-closed segmentReader
-		segmentReader = tempfile
-		if err != nil {
-			return true, repairReconstructError.New("could not close segmentReader: %v", err)
+			return true, err
 		}
 	}
 
