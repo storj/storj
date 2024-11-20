@@ -414,6 +414,7 @@ func TestAllInOne(t *testing.T) {
 				satellite.Config.NodeTally,
 			),
 			audit.NewObserver(log.Named("audit"),
+				nil,
 				satellite.DB.VerifyQueue(),
 				satellite.Config.Audit,
 			),

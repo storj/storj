@@ -20,6 +20,7 @@ var Error = errs.Class("audit")
 
 // Config contains configurable values for audit chore and workers.
 type Config struct {
+	NodeFilter         string        `help:"restrict audit only to the filtered nodes" default:""`
 	MaxRetriesStatDB   int           `help:"max number of times to attempt updating a statdb batch" default:"3"`
 	MinBytesPerSecond  memory.Size   `help:"the minimum acceptable bytes that storage nodes can transfer per second to the satellite" default:"150kB" testDefault:"1.00 KB"`
 	MinDownloadTimeout time.Duration `help:"the minimum duration for downloading a share from storage nodes before timing out" default:"15s" testDefault:"5s"`

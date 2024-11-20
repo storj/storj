@@ -121,6 +121,9 @@
 # the minimum duration for downloading a share from storage nodes before timing out
 # audit.min-download-timeout: 15s
 
+# restrict audit only to the filtered nodes
+# audit.node-filter: ""
+
 # how often to recheck an empty audit queue
 # audit.queue-interval: 1h0m0s
 

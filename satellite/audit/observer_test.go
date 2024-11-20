@@ -4,6 +4,7 @@
 package audit_test
 
 import (
+	"fmt"
 	"strconv"
 	"testing"
 
@@ -18,6 +19,8 @@ import (
 	"storj.io/storj/private/testplanet"
 	"storj.io/storj/satellite/audit"
 	"storj.io/storj/satellite/metabase/rangedloop"
+	"storj.io/storj/satellite/nodeselection"
+	"storj.io/storj/storagenode"
 )
 
 // TestAuditCollector does the following:
@@ -32,9 +35,14 @@ import (
 //   - that every item in the reservoir is unique
 func TestAuditCollector(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
-		SatelliteCount: 1, StorageNodeCount: 5, UplinkCount: 1,
+		SatelliteCount: 1, StorageNodeCount: 6, UplinkCount: 1,
 		Reconfigure: testplanet.Reconfigure{
 			Satellite: testplanet.ReconfigureRS(3, 4, 5, 5),
+			StorageNode: func(index int, config *storagenode.Config) {
+				if index == 5 {
+					config.Contact.SelfSignedTags = []string{"ignore=true"}
+				}
+			},
 		},
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 		satellite := planet.Satellites[0]
@@ -50,19 +58,30 @@ func TestAuditCollector(t *testing.T) {
 			require.NoError(t, err)
 		}
 
-		observer := audit.NewObserver(zaptest.NewLogger(t), satellite.Audit.VerifyQueue, satellite.Config.Audit)
+		filter, err := nodeselection.FilterFromString(fmt.Sprintf(`exclude(tag("%s","ignore","true"))`, planet.StorageNodes[5].ID()), nil)
+		require.NoError(t, err)
+
+		include := audit.NewFilteredNodes(filter, satellite.DB.OverlayCache(), satellite.Metabase.DB)
+
+		observer := audit.NewObserver(zaptest.NewLogger(t), include, satellite.Audit.VerifyQueue, satellite.Config.Audit)
 
 		ranges := rangedloop.NewMetabaseRangeSplitter(zaptest.NewLogger(t), satellite.Metabase.DB, rangedloop.Config{
 			BatchSize: 100,
 		})
 		loop := rangedloop.NewService(zaptest.NewLogger(t), satellite.Config.RangedLoop, ranges, []rangedloop.Observer{observer})
-		_, err := loop.RunOnce(ctx)
+		_, err = loop.RunOnce(ctx)
 		require.NoError(t, err)
 
 		aliases, err := planet.Satellites[0].Metabase.DB.LatestNodesAliasMap(ctx)
 		require.NoError(t, err)
 
-		for _, node := range planet.StorageNodes {
+		// No reservoir for the last nodes, excluded by the filter
+		lastID := planet.StorageNodes[5].ID()
+		lastAlias, ok := aliases.Alias(lastID)
+		require.True(t, ok)
+		require.Nil(t, observer.Reservoirs[lastAlias])
+
+		for _, node := range planet.StorageNodes[:5] {
 			nodeID, ok := aliases.Alias(node.ID())
 			require.True(t, ok)
 
@@ -94,7 +113,7 @@ func BenchmarkRemoteSegment(b *testing.B) {
 			require.NoError(b, err)
 		}
 
-		observer := audit.NewObserver(zap.NewNop(), nil, planet.Satellites[0].Config.Audit)
+		observer := audit.NewObserver(zap.NewNop(), nil, nil, planet.Satellites[0].Config.Audit)
 
 		segments, err := planet.Satellites[0].Metabase.DB.TestingAllSegments(ctx)
 		require.NoError(b, err)

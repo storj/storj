@@ -25,6 +25,7 @@ import (
 	"storj.io/storj/satellite/metabase"
 	"storj.io/storj/satellite/metabase/rangedloop"
 	"storj.io/storj/satellite/metrics"
+	"storj.io/storj/satellite/nodeselection"
 	"storj.io/storj/satellite/overlay"
 	"storj.io/storj/satellite/repair/checker"
 	"storj.io/storj/satellite/repair/queue"
@@ -109,7 +110,15 @@ func NewRangedLoop(log *zap.Logger, db DB, metabaseDB *metabase.DB, repairQueue 
 	}
 
 	{ // setup audit observer
-		peer.Audit.Observer = audit.NewObserver(log.Named("audit"), db.VerifyQueue(), config.Audit)
+		var nodeSet audit.AuditedNodes
+		if config.Audit.NodeFilter != "" {
+			filter, err := nodeselection.FilterFromString(config.Audit.NodeFilter, nil)
+			if err != nil {
+				return nil, err
+			}
+			nodeSet = audit.NewFilteredNodes(filter, db.OverlayCache(), metabaseDB)
+		}
+		peer.Audit.Observer = audit.NewObserver(log.Named("audit"), nodeSet, db.VerifyQueue(), config.Audit)
 	}
 
 	{ // setup metrics observer
