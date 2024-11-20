@@ -153,9 +153,20 @@ func (g *Generator) GenerateRecord() Record {
 		metadata[key] = val
 	}
 
-	// on each 100000 fields Fixed matching field
-	if math.Mod(float64(g.pathCounter+1), float64(100000)) == 0 {
-		metadata["field_Benchmark"] = "benchmarkValue"
+	if math.Mod(float64(g.pathCounter+1), float64(totalRecords)) == 0 {
+		metadata["field_Benchmark_1"] = "benchmarkValue_1"
+	}
+
+	if math.Mod(float64(g.pathCounter+1), float64(totalRecords/10000)) == 0 {
+		metadata["field_Benchmark_10_000"] = "benchmarkValue_10_000"
+	}
+
+	if math.Mod(float64(g.pathCounter+1), float64(totalRecords/1000000)) == 0 {
+		metadata["field_Benchmark_1_000_000"] = "benchmarkValue_1_000_000"
+	}
+
+	if math.Mod(float64(g.pathCounter+1), float64(totalRecords/1000000)) == 0 {
+		metadata["field_Benchmark_10_000_000"] = "benchmarkValue_10_000_000"
 	}
 
 	return Record{
