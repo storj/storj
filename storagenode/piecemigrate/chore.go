@@ -22,7 +22,8 @@ var mon = monkit.Package()
 
 // Config defines the configuration for the chore.
 type Config struct {
-	Interval time.Duration `help:"" default:"10m0s"`
+	BatchSize int           `help:"how many pieces to migrate at once" default:"10000"`
+	Interval  time.Duration `help:"how long to wait between the batches" default:"10m"`
 }
 
 // Chore migrates pieces.
@@ -32,9 +33,17 @@ type Chore struct {
 	log  *zap.Logger
 	Loop *sync2.Cycle
 
+	config   Config
 	old, new piecestore.PieceBackend
-	mu       sync.Mutex
-	active   map[storj.NodeID]struct{}
+
+	migrationQueue chan migrationItem
+	mu             sync.Mutex
+	active         map[storj.NodeID]struct{}
+}
+
+type migrationItem struct {
+	satellite storj.NodeID
+	piece     storj.PieceID
 }
 
 // NewChore initializes and returns a new Chore instance.
@@ -43,17 +52,22 @@ func NewChore(log *zap.Logger, config Config, old, new piecestore.PieceBackend) 
 		log:  log,
 		Loop: sync2.NewCycle(config.Interval),
 
-		old: old,
-		new: new,
+		config: config,
+		old:    old,
+		new:    new,
 
-		active: make(map[storj.NodeID]struct{}),
+		migrationQueue: make(chan migrationItem, config.BatchSize),
+		active:         make(map[storj.NodeID]struct{}),
 	}
 }
 
 // TryMigrateOne enqueues a migration item for the given satellite and
 // piece if the queue has capacity. Fails silently if the queue is full.
 func (chore *Chore) TryMigrateOne(sat storj.NodeID, piece storj.PieceID) {
-	// ugh
+	select {
+	case chore.migrationQueue <- migrationItem{satellite: sat, piece: piece}:
+	default:
+	}
 }
 
 // SetMigrate enables or disables migration for the given satellite.
