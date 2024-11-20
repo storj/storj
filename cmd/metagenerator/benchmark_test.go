@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"database/sql"
+	"encoding/json"
 	"fmt"
 	"log"
 	"os"
@@ -34,7 +35,7 @@ func setupSuite(tb testing.TB) func(tb testing.TB) {
 	// Return a function to teardown the test
 	return func(tb testing.TB) {
 		log.Println("teardown suite")
-		metagenerator.CleanTable(ctx, db)
+		//metagenerator.CleanTable(ctx, db)
 		db.Close()
 	}
 }
@@ -44,14 +45,21 @@ func BenchmarkSimpleQuery(b *testing.B) {
 	defer teardownSuite(b)
 
 	b.ResetTimer()
-	err := metagenerator.SearchMeta(metagenerator.Query{
+	res, err := metagenerator.SearchMeta(metagenerator.Request{
 		Path: fmt.Sprintf("sj://%s/", metagenerator.Label),
 		Match: map[string]any{
 			"field_0": "purple",
 		},
 	}, apiKey, projectId, defaultMetasearchAPI)
+	b.StopTimer()
 
 	if err != nil {
 		panic(err)
 	}
+	var resp metagenerator.Response
+	err = json.Unmarshal(res, &resp)
+	if err != nil {
+		panic(err)
+	}
+	fmt.Printf("Got %v records\n", len(resp.Results))
 }
