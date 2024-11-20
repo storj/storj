@@ -50,7 +50,7 @@ func (r *mockRepo) DeleteMetadata(ctx context.Context, loc metabase.ObjectLocati
 	return nil
 }
 
-func (r *mockRepo) QueryMetadata(ctx context.Context, loc metabase.ObjectLocation, match map[string]interface{}, batchSize int) (metabase.FindObjectsByClearMetadataResult, error) {
+func (r *mockRepo) QueryMetadata(ctx context.Context, loc metabase.ObjectLocation, containsQuery map[string]interface{}, startAfter metabase.ObjectStream, batchSize int) (metabase.FindObjectsByClearMetadataResult, error) {
 	results := metabase.FindObjectsByClearMetadataResult{}
 	path := fmt.Sprintf("sj://%s/%s", loc.BucketName, loc.ObjectKey)
 
@@ -87,7 +87,7 @@ func (a *mockAuth) Authenticate(r *http.Request) error {
 
 // Utility functions
 
-const testProjectID = "00000000-0000-0000-0000-000000000000"
+const testProjectID = "12345678-1234-5678-9999-1234567890ab"
 
 func testServer() *Server {
 	repo := newMockRepo()
@@ -120,14 +120,31 @@ func assertResponse(t *testing.T, rr *httptest.ResponseRecorder, code int, body 
 	require.JSONEq(t, body, string(actualBody))
 }
 
-func responseJSON(t *testing.T, rr *httptest.ResponseRecorder) map[string]interface{} {
-	var m map[string]interface{}
-	err := json.NewDecoder(rr.Body).Decode(&m)
+// Test utility functions
+
+func TestParsePath(t *testing.T) {
+	bucket, key, err := parsePath("sj://testbucket/foo.txt")
 	require.Nil(t, err)
-	return m
+	assert.Equal(t, bucket, "testbucket")
+	assert.Equal(t, key, "foo.txt")
 }
 
-// Unit tests
+func TestPageToken(t *testing.T) {
+	projectID, _ := uuid.FromString(testProjectID)
+	startAfter := metabase.ObjectStream{
+		ProjectID:  projectID,
+		BucketName: "testbucket",
+		ObjectKey:  "foo.txt",
+		Version:    1,
+		StreamID:   uuid.UUID{},
+	}
+	generatedToken := getPageToken(startAfter)
+	parsedToken, err := parsePageToken(generatedToken)
+	assert.Nil(t, err)
+	assert.Equal(t, parsedToken, startAfter)
+}
+
+// Test server
 
 func TestMetaSearchCRUD(t *testing.T) {
 	server := testServer()

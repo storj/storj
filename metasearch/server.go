@@ -5,10 +5,13 @@ package metasearch
 
 import (
 	"context"
+	"encoding/base64"
 	"encoding/json"
 	"errors"
 	"fmt"
 	"net/http"
+	"net/url"
+	"strconv"
 	"strings"
 
 	"github.com/gorilla/mux"
@@ -36,6 +39,9 @@ type BaseRequest struct {
 	location metabase.ObjectLocation
 }
 
+const defaultBatchSize = 100
+const maxBatchSize = 1000
+
 // SearchRequest contains fields for a view or search request.
 type SearchRequest struct {
 	BaseRequest
@@ -43,11 +49,17 @@ type SearchRequest struct {
 	Match      map[string]interface{} `json:"match"`
 	Filter     string                 `json:"filter"`
 	Projection string                 `json:"projection"`
+
+	BatchSize int    `json:"batchSize"`
+	PageToken string `json:"pageToken"`
+
+	startAfter metabase.ObjectStream
 }
 
 // SearchResponse contains fields for a view or search response.
 type SearchResponse struct {
-	Results []SearchResult `json:"results"`
+	Results   []SearchResult `json:"results"`
+	PageToken string         `json:"pageToken,omitempty"`
 }
 
 // SearchResult contains fields for a single search result.
@@ -133,7 +145,7 @@ func (s *Server) HandleQuery(w http.ResponseWriter, r *http.Request) {
 	var request SearchRequest
 	var result SearchResponse
 
-	err := s.validateRequest(ctx, r, &request.BaseRequest, &request)
+	err := s.validateSearchRequest(ctx, r, &request)
 	if err != nil {
 		s.errorResponse(w, err)
 		return
@@ -153,6 +165,28 @@ func (s *Server) HandleQuery(w http.ResponseWriter, r *http.Request) {
 	s.jsonResponse(w, http.StatusOK, result)
 }
 
+func (s *Server) validateSearchRequest(ctx context.Context, r *http.Request, request *SearchRequest) error {
+	err := s.validateRequest(ctx, r, &request.BaseRequest, request)
+	if err != nil {
+		return err
+	}
+
+	// Validate batch size
+	if request.BatchSize <= 0 || request.BatchSize > maxBatchSize {
+		request.BatchSize = defaultBatchSize
+	}
+
+	// Validate pageToken
+	if request.PageToken != "" {
+		request.startAfter, err = parsePageToken(request.PageToken)
+		if err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
 func (s *Server) getMetadata(ctx context.Context, request *SearchRequest) (response SearchResponse, err error) {
 	meta, err := s.Repo.GetMetadata(ctx, request.location)
 	if err == nil {
@@ -167,7 +201,7 @@ func (s *Server) getMetadata(ctx context.Context, request *SearchRequest) (respo
 }
 
 func (s *Server) searchMetadata(ctx context.Context, request *SearchRequest) (response SearchResponse, err error) {
-	searchResult, err := s.Repo.QueryMetadata(ctx, request.location, request.Match, 1000)
+	searchResult, err := s.Repo.QueryMetadata(ctx, request.location, request.Match, request.startAfter, request.BatchSize)
 	if err != nil {
 		return
 	}
@@ -209,6 +243,13 @@ func (s *Server) searchMetadata(ctx context.Context, request *SearchRequest) (re
 			Metadata: projectedMetadata,
 		})
 	}
+
+	// Determine page token
+	if len(searchResult.Objects) >= request.BatchSize {
+		last := searchResult.Objects[len(searchResult.Objects)-1]
+		response.PageToken = getPageToken(last.ObjectStream)
+	}
+
 	return
 }
 
@@ -316,4 +357,53 @@ func parsePath(path string) (bucket string, key string, err error) {
 	}
 
 	return parts[0], parts[1], nil
+}
+
+func getPageToken(obj metabase.ObjectStream) string {
+	q := url.Values{}
+	q.Set("projectID", obj.ProjectID.String())
+	q.Set("bucketName", string(obj.BucketName))
+	q.Set("objectKey", string(obj.ObjectKey))
+	q.Set("version", strconv.FormatInt(int64(obj.Version), 10))
+
+	return base64.StdEncoding.EncodeToString([]byte(q.Encode()))
+}
+
+func parsePageToken(s string) (metabase.ObjectStream, error) {
+	b, err := base64.StdEncoding.DecodeString(s)
+	if err != nil {
+		return metabase.ObjectStream{}, fmt.Errorf("invalid page token: %w", ErrBadRequest)
+	}
+
+	q, err := url.ParseQuery(string(b))
+	if err != nil {
+		return metabase.ObjectStream{}, fmt.Errorf("invalid params in page token: %w", ErrBadRequest)
+	}
+
+	projectID, err := uuid.FromString(q.Get("projectID"))
+	if err != nil {
+		return metabase.ObjectStream{}, fmt.Errorf("invalid projectID in page token: %w", ErrBadRequest)
+	}
+
+	bucketName := metabase.BucketName(q.Get("bucketName"))
+	if bucketName == "" {
+		return metabase.ObjectStream{}, fmt.Errorf("invalid bucketName in page token: %w", ErrBadRequest)
+	}
+
+	objectKey := metabase.ObjectKey(q.Get("objectKey"))
+	if objectKey == "" {
+		return metabase.ObjectStream{}, fmt.Errorf("invalid objectKey in page token: %w", ErrBadRequest)
+	}
+
+	version, err := strconv.ParseInt(q.Get("version"), 10, 64)
+	if err != nil {
+		return metabase.ObjectStream{}, fmt.Errorf("invalid version in page token: %w", ErrBadRequest)
+	}
+
+	return metabase.ObjectStream{
+		ProjectID:  projectID,
+		BucketName: bucketName,
+		ObjectKey:  objectKey,
+		Version:    metabase.Version(version),
+	}, nil
 }
