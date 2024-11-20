@@ -14,7 +14,6 @@ import (
 	"storj.io/storj/private/migrate"
 	"storj.io/storj/shared/dbutil"
 	"storj.io/storj/shared/dbutil/pgutil"
-	"storj.io/storj/shared/dbutil/spannerutil"
 	"storj.io/storj/shared/tagsql"
 )
 
@@ -66,7 +65,7 @@ func (db *satelliteDB) MigrateToLatest(ctx context.Context) error {
 	}
 
 	switch db.impl {
-	case dbutil.Postgres, dbutil.Cockroach:
+	case dbutil.Postgres, dbutil.Cockroach, dbutil.Spanner:
 		migration := db.ProductionMigration()
 		// since we merged migration steps 0-69, the current db version should never be
 		// less than 69 unless the migration hasn't run yet
@@ -82,9 +81,6 @@ func (db *satelliteDB) MigrateToLatest(ctx context.Context) error {
 		}
 
 		return migration.Run(ctx, db.log.Named("migrate"))
-	case dbutil.Spanner:
-		// TODO(spanner): add incremental migration support
-		return migrate.CreateSpanner(ctx, "database", db.DB, false)
 	default:
 		return migrate.Create(ctx, "database", db.DB)
 	}
@@ -124,7 +120,7 @@ func (db *satelliteDBTesting) TestMigrateToLatest(ctx context.Context) error {
 	}
 
 	switch db.impl {
-	case dbutil.Postgres, dbutil.Cockroach:
+	case dbutil.Postgres, dbutil.Cockroach, dbutil.Spanner:
 		migration := db.ProductionMigration()
 
 		dbVersion, err := migration.CurrentVersion(ctx, db.log, db.DB)
@@ -137,14 +133,6 @@ func (db *satelliteDBTesting) TestMigrateToLatest(ctx context.Context) error {
 			return ErrMigrateMinVersion.New("the database must be empty, or be on the latest version (%d)", dbVersion)
 		}
 		return testMigration.Run(ctx, db.log.Named("migrate"))
-	case dbutil.Spanner:
-		params, err := spannerutil.ParseConnStr(db.source)
-		if err != nil {
-			return Error.New("invalid connection string for Spanner: %w", err)
-		}
-
-		// TODO(spanner): add incremental migration support
-		return migrate.CreateSpanner(ctx, "database", db.DB, params.Emulator)
 	default:
 		return migrate.Create(ctx, "database", db.DB)
 	}
