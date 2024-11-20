@@ -18,16 +18,14 @@ const (
 	projectId = "9088e8cc-d344-4767-8e07-901abc2734b6"
 )
 
-/*
-var totalRecords = []int{
-	100_000,
-	1_000_000,
-	10_000_000,
-	100_000_000,
+var tRs = []int{
+	10_000,
+	//1_000_000,
+	//10_000_000,
+	//100_000_000,
 }
-*/
 
-func setupSuite() func(tb testing.TB) {
+func setupSuite(tR int) func(tb testing.TB) {
 	// Connect to CockroachDB
 	db, err := sql.Open("postgres", defaultDbEndpoint)
 	if err != nil {
@@ -36,7 +34,6 @@ func setupSuite() func(tb testing.TB) {
 	ctx := context.Background()
 
 	log.Println("setup suite")
-	tR, _ := strconv.Atoi(os.Getenv("TR"))
 	wN, _ := strconv.Atoi(os.Getenv("WN"))
 	bS, _ := strconv.Atoi(os.Getenv("BS"))
 	metagenerator.GeneratorSetup(sharedFields, bS, wN, tR, apiKey, projectId, defaultMetasearchAPI, db, ctx)
@@ -50,36 +47,36 @@ func setupSuite() func(tb testing.TB) {
 }
 
 func BenchmarkSimpleQuery(b *testing.B) {
-	//setupSuite(b)
-	//teardownSuite := setupSuite(b)
-	//defer teardownSuite(b)
-	totalRecords = 100000
-	for _, n := range metagenerator.MatchingEntries {
-		if totalRecords < n {
-			break
-		}
-		b.Run(fmt.Sprintf("matching_entries_%d", n), func(b *testing.B) {
-			for i := 0; i < b.N; i++ {
-				val := fmt.Sprintf("benchmarkValue_%v", n)
-				b.ResetTimer()
-				res, err := metagenerator.SearchMeta(metagenerator.Request{
-					Path: fmt.Sprintf("sj://%s/", metagenerator.Label),
-					Match: map[string]any{
-						"field_" + val: val,
-					},
-				}, apiKey, projectId, defaultMetasearchAPI)
-				b.StopTimer()
-
-				if err != nil {
-					panic(err)
-				}
-				var resp metagenerator.Response
-				err = json.Unmarshal(res, &resp)
-				if err != nil {
-					panic(err)
-				}
-				fmt.Printf("Got %v entries\n", len(resp.Results))
+	for _, tR := range tRs {
+		teardownSuite := setupSuite(tR)
+		defer teardownSuite(b)
+		for _, n := range metagenerator.MatchingEntries {
+			if tR < n {
+				break
 			}
-		})
+			b.Run(fmt.Sprintf("total_objects_%v_matching_entries_%d", tR, n), func(b *testing.B) {
+				for i := 0; i < b.N; i++ {
+					val := fmt.Sprintf("benchmarkValue_%v", n)
+					b.ResetTimer()
+					res, err := metagenerator.SearchMeta(metagenerator.Request{
+						Path: fmt.Sprintf("sj://%s/", metagenerator.Label),
+						Match: map[string]any{
+							"field_" + val: val,
+						},
+					}, apiKey, projectId, defaultMetasearchAPI)
+					b.StopTimer()
+
+					if err != nil {
+						panic(err)
+					}
+					var resp metagenerator.Response
+					err = json.Unmarshal(res, &resp)
+					if err != nil {
+						panic(err)
+					}
+					fmt.Printf("Got %v entries\n", len(resp.Results))
+				}
+			})
+		}
 	}
 }
