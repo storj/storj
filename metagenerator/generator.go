@@ -41,7 +41,7 @@ type Record struct {
 // Generator handles the creation of test data
 type Generator struct {
 	commonValues map[string][]any
-	valueShare   float64
+	fieldShare   float64
 	pathPrefix   chan string // Channel for generating unique path prefixes
 	pathCounter  uint64      // Counter for ensuring unique paths
 	mu           sync.Mutex  // Mutex for thread-safe path generation
@@ -49,7 +49,7 @@ type Generator struct {
 }
 
 // NewGenerator creates a new Generator instance with a buffered path prefix channel
-func NewGenerator(valueShare float64, pathCounter uint64) *Generator {
+func NewGenerator(fieldShare float64, pathCounter uint64) *Generator {
 	// Create a pool of random number generators
 	randPool := sync.Pool{
 		New: func() interface{} {
@@ -63,7 +63,7 @@ func NewGenerator(valueShare float64, pathCounter uint64) *Generator {
 			"number":  {1, 2, 3, 4, 5, 6, 7, 8, 9, 10},
 			"boolean": {true, false},
 		},
-		valueShare:  valueShare,
+		fieldShare:  fieldShare,
 		pathPrefix:  make(chan string, 1000), // Buffered channel for path prefixes
 		pathCounter: pathCounter,
 		randPool:    randPool,
@@ -113,28 +113,30 @@ func (g *Generator) generatePath() string {
 }
 
 // generateValue creates either a shared or unique value
-func (g *Generator) generateValue() any {
+func (g *Generator) generateKeyValue(i int) (key string, val any) {
 	r := g.getRand()
 	defer g.putRand(r)
 
 	valueTypes := []string{"string", "number", "boolean"}
 	valueType := valueTypes[r.Intn(len(valueTypes))]
 
-	if r.Float64() < g.valueShare {
+	if r.Float64() < g.fieldShare {
 		values := g.commonValues[valueType]
-		return values[r.Intn(len(values))]
+		val = values[r.Intn(len(values))]
+		key = fmt.Sprintf("field_%v", val)
+		return
 	}
 
+	key = fmt.Sprintf("field_%d", i)
 	switch valueType {
 	case "string":
-		return fmt.Sprintf("unique_%d", r.Intn(10000))
+		val = fmt.Sprintf("unique_%d", r.Intn(10000))
 	case "number":
-		return r.Intn(10000)
+		val = r.Intn(10000)
 	case "boolean":
-		return r.Intn(2) == 1
-	default:
-		return nil
+		val = r.Intn(2) == 1
 	}
+	return
 }
 
 // GenerateRecord creates a single record with random metadata
@@ -146,8 +148,8 @@ func (g *Generator) GenerateRecord() Record {
 	metadata := make(map[string]any)
 
 	for i := 0; i < numKeys; i++ {
-		key := fmt.Sprintf("field_%d", i)
-		metadata[key] = g.generateValue()
+		key, val := g.generateKeyValue(i)
+		metadata[key] = val
 	}
 
 	return Record{
@@ -170,10 +172,10 @@ type BatchGenerator struct {
 }
 
 // NewBatchGenerator creates a new BatchGenerator
-func NewBatchGenerator(db *sql.DB, valueShare float64, batchSize, workers, totalRecords int, pathCounter uint64, projectId, apiKey, mode, metaSearchEndpoint string) *BatchGenerator {
+func NewBatchGenerator(db *sql.DB, fieldShare float64, batchSize, workers, totalRecords int, pathCounter uint64, projectId, apiKey, mode, metaSearchEndpoint string) *BatchGenerator {
 	return &BatchGenerator{
 		db:                 db,
-		generator:          NewGenerator(valueShare, pathCounter),
+		generator:          NewGenerator(fieldShare, pathCounter),
 		batchSize:          batchSize,
 		workers:            workers,
 		mode:               mode,
