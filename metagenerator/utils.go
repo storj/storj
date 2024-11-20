@@ -110,7 +110,7 @@ func GeneratorSetup(sharedValues float64, bS, wN, tR int, apiKey, projectId, met
 	// Generate and insert/debug records
 	startTime := time.Now()
 
-	if err := batchGen.GenerateAndInsert(ctx, totalRecords); err != nil {
+	if err := batchGen.GenerateAndInsert(ctx, tR); err != nil {
 		panic(fmt.Sprintf("failed to generate records: %v", err))
 	}
 

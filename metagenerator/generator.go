@@ -25,12 +25,12 @@ const (
 
 // main parameters decalaration
 var (
-	dbEndpoint    string
-	sharedValues  float64 = 0.3
-	batchSize     int
-	workersNumber int
-	totalRecords  int
-	mode          string
+	MatchingEntries = []int{
+		1,
+		10_000,
+		1_000_000,
+		10_000_000,
+	}
 )
 
 // Record represents a single database record
@@ -41,6 +41,7 @@ type Record struct {
 
 // Generator handles the creation of test data
 type Generator struct {
+	totalRecords int
 	commonValues map[string][]any
 	fieldShare   float64
 	pathPrefix   chan string // Channel for generating unique path prefixes
@@ -50,7 +51,7 @@ type Generator struct {
 }
 
 // NewGenerator creates a new Generator instance with a buffered path prefix channel
-func NewGenerator(fieldShare float64, pathCounter uint64) *Generator {
+func NewGenerator(fieldShare float64, pathCounter uint64, totalRecords int) *Generator {
 	// Create a pool of random number generators
 	randPool := sync.Pool{
 		New: func() interface{} {
@@ -64,10 +65,11 @@ func NewGenerator(fieldShare float64, pathCounter uint64) *Generator {
 			"number":  {1, 2, 3, 4, 5, 6, 7, 8, 9, 10},
 			"boolean": {true, false},
 		},
-		fieldShare:  fieldShare,
-		pathPrefix:  make(chan string, 1000), // Buffered channel for path prefixes
-		pathCounter: pathCounter,
-		randPool:    randPool,
+		fieldShare:   fieldShare,
+		pathPrefix:   make(chan string, 1000), // Buffered channel for path prefixes
+		pathCounter:  pathCounter,
+		randPool:     randPool,
+		totalRecords: totalRecords,
 	}
 
 	// Start goroutine to generate path prefixes
@@ -153,20 +155,20 @@ func (g *Generator) GenerateRecord() Record {
 		metadata[key] = val
 	}
 
-	if math.Mod(float64(g.pathCounter+1), float64(totalRecords)) == 0 {
-		metadata["field_Benchmark_1"] = "benchmarkValue_1"
-	}
-
-	if math.Mod(float64(g.pathCounter+1), float64(totalRecords/10000)) == 0 {
-		metadata["field_Benchmark_10_000"] = "benchmarkValue_10_000"
-	}
-
-	if math.Mod(float64(g.pathCounter+1), float64(totalRecords/1000000)) == 0 {
-		metadata["field_Benchmark_1_000_000"] = "benchmarkValue_1_000_000"
-	}
-
-	if math.Mod(float64(g.pathCounter+1), float64(totalRecords/1000000)) == 0 {
-		metadata["field_Benchmark_10_000_000"] = "benchmarkValue_10_000_000"
+	for _, n := range MatchingEntries {
+		if n > g.totalRecords {
+			break
+		}
+		var devider int
+		if n == 1 {
+			devider = g.totalRecords
+		} else {
+			devider = g.totalRecords / n
+		}
+		if math.Mod(float64(g.pathCounter+1), float64(devider)) == 0 {
+			val := fmt.Sprintf("benchmarkValue_%v", n)
+			metadata["field_"+val] = val
+		}
 	}
 
 	return Record{
@@ -192,7 +194,7 @@ type BatchGenerator struct {
 func NewBatchGenerator(db *sql.DB, fieldShare float64, batchSize, workers, totalRecords int, pathCounter uint64, projectId, apiKey, mode, metaSearchEndpoint string) *BatchGenerator {
 	return &BatchGenerator{
 		db:                 db,
-		generator:          NewGenerator(fieldShare, pathCounter),
+		generator:          NewGenerator(fieldShare, pathCounter, totalRecords),
 		batchSize:          batchSize,
 		workers:            workers,
 		mode:               mode,
