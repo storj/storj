@@ -12,6 +12,7 @@ import (
 	"strconv"
 	"time"
 
+	"github.com/calebcase/tmpfile"
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 	"golang.org/x/exp/maps"
@@ -567,6 +568,38 @@ func (repairer *SegmentRepairer) Repair(ctx context.Context, queueSegment queue.
 		return true, repairReconstructError.New("segment could not be reconstructed: %w", err)
 	}
 	defer func() { err = errs.Combine(err, segmentReader.Close()) }()
+
+	// Reconstruct the segment from the pieces. This should ideally happen in
+	// tandem with the new piece uploads (have Repair() read directly from
+	// segmentReader), but this causes a situation where slow uploads cause
+	// reads from the piece files to block due to backpressure, but then the
+	// slow reads are marked as inactive (a "internal: quiescence" error is
+	// returned). This causes all uploads to fail. Instead, for now, we will
+	// write the reconstructed segment to a tempfile and then upload the pieces
+	// from that.
+	//
+	// Once it is possible to suppress or avoid the quiescence error in
+	// eestream.decodedReader, we can remove this tempfile step.
+	if !repairer.ec.inmemoryDownload {
+		tempfile, err := tmpfile.New("", "repaired-segment-*")
+		if err != nil {
+			return true, repairReconstructError.New("could not open tempfile: %v", err)
+		}
+		_, err = io.Copy(tempfile, segmentReader)
+		if err != nil {
+			return true, repairReconstructError.New("could not reconstruct segment: %v", err)
+		}
+		_, err = tempfile.Seek(0, io.SeekStart)
+		if err != nil {
+			return true, repairReconstructError.New("could not seek to beginning of tempfile: %v", err)
+		}
+		err = segmentReader.Close()
+		// assign to tempfile before returning, because we've already defer-closed segmentReader
+		segmentReader = tempfile
+		if err != nil {
+			return true, repairReconstructError.New("could not close segmentReader: %v", err)
+		}
+	}
 
 	// only report audit result when segment can be successfully downloaded
 	cachedNodesReputation := make(map[storj.NodeID]overlay.ReputationStatus, len(cachedNodesInfo))
