@@ -30,7 +30,7 @@ func setupSuite(tb testing.TB) func(tb testing.TB) {
 	tR, _ := strconv.Atoi(os.Getenv("TR"))
 	wN, _ := strconv.Atoi(os.Getenv("WN"))
 	bS, _ := strconv.Atoi(os.Getenv("BS"))
-	metagenerator.GeneratorSetup(sharedValues, bS, wN, tR, apiKey, projectId, defaultMetasearchAPI, db, ctx)
+	metagenerator.GeneratorSetup(sharedFields, bS, wN, tR, apiKey, projectId, defaultMetasearchAPI, db, ctx)
 
 	// Return a function to teardown the test
 	return func(tb testing.TB) {
@@ -48,7 +48,7 @@ func BenchmarkSimpleQuery(b *testing.B) {
 	res, err := metagenerator.SearchMeta(metagenerator.Request{
 		Path: fmt.Sprintf("sj://%s/", metagenerator.Label),
 		Match: map[string]any{
-			"field_0": "purple",
+			"field_Benchmark": "benchmarkValue",
 		},
 	}, apiKey, projectId, defaultMetasearchAPI)
 	b.StopTimer()

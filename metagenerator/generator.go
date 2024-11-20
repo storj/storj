@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"encoding/json"
 	"fmt"
+	"math"
 	"math/rand"
 	"sync"
 	"time"
@@ -150,6 +151,11 @@ func (g *Generator) GenerateRecord() Record {
 	for i := 0; i < numKeys; i++ {
 		key, val := g.generateKeyValue(i)
 		metadata[key] = val
+	}
+
+	// on each 100000 fields Fixed matching field
+	if math.Mod(float64(g.pathCounter+1), float64(100000)) == 0 {
+		metadata["field_Benchmark"] = "benchmarkValue"
 	}
 
 	return Record{
