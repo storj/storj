@@ -156,14 +156,12 @@ func (g *Generator) GenerateRecord() Record {
 	}
 
 	for _, n := range MatchingEntries {
-		if n > g.totalRecords {
+		if g.totalRecords < n {
 			break
 		}
-		var devider int
+		devider := g.totalRecords / n
 		if n == 1 {
 			devider = g.totalRecords
-		} else {
-			devider = g.totalRecords / n
 		}
 		if math.Mod(float64(g.pathCounter+1), float64(devider)) == 0 {
 			val := fmt.Sprintf("benchmarkValue_%v", n)

@@ -92,7 +92,7 @@ func UplinkSetup(satelliteAddress, apiKey string) {
 	fmt.Println(term.Greenf("Uplink setup done"))
 }
 
-func GeneratorSetup(sharedValues float64, bS, wN, tR int, apiKey, projectId, metaSearchEndpoint string, db *sql.DB, ctx context.Context) {
+func GeneratorSetup(sharedValues float64, bS, wN, tR int, apiKey, projectId, metaSearchEndpoint string, db *sql.DB, ctx context.Context)  {
 	// Initialize batch generator
 	batchGen := NewBatchGenerator(
 		db,
@@ -114,8 +114,7 @@ func GeneratorSetup(sharedValues float64, bS, wN, tR int, apiKey, projectId, met
 		panic(fmt.Sprintf("failed to generate records: %v", err))
 	}
 
-	fmt.Printf("Generated %v records in %v\n", tR, time.Since(startTime))
-	return
+	fmt.Printf("Generated %v records in %v\n", tR, time.Since(startTime))	
 }
 
 func Clean() {

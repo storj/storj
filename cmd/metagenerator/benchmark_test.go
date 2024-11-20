@@ -27,7 +27,7 @@ var totalRecords = []int{
 }
 */
 
-func setupSuite(tb testing.TB) func(tb testing.TB) {
+func setupSuite() func(tb testing.TB) {
 	// Connect to CockroachDB
 	db, err := sql.Open("postgres", defaultDbEndpoint)
 	if err != nil {
@@ -50,10 +50,12 @@ func setupSuite(tb testing.TB) func(tb testing.TB) {
 }
 
 func BenchmarkSimpleQuery(b *testing.B) {
-	teardownSuite := setupSuite(b)
-	defer teardownSuite(b)
+	//setupSuite(b)
+	//teardownSuite := setupSuite(b)
+	//defer teardownSuite(b)
+	totalRecords = 100000
 	for _, n := range metagenerator.MatchingEntries {
-		if totalRecords > n {
+		if totalRecords < n {
 			break
 		}
 		b.Run(fmt.Sprintf("matching_entries_%d", n), func(b *testing.B) {
