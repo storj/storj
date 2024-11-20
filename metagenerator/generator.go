@@ -286,8 +286,10 @@ func (bg *BatchGenerator) processBatch(ctx context.Context, stmt *sql.Stmt) (err
 		if err != nil {
 			return
 		}
-
 	}
 
-	return tx.Commit()
+	if bg.mode == DbMode {
+		return tx.Commit()
+	}
+	return
 }

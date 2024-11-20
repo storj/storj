@@ -35,7 +35,7 @@ func setupSuite(tb testing.TB) func(tb testing.TB) {
 	// Return a function to teardown the test
 	return func(tb testing.TB) {
 		log.Println("teardown suite")
-		//metagenerator.CleanTable(ctx, db)
+		metagenerator.CleanTable(ctx, db)
 		db.Close()
 	}
 }
