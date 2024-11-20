@@ -9,6 +9,7 @@ import (
 	"time"
 
 	_ "github.com/lib/pq"
+	"storj.io/common/uuid"
 	"storj.io/storj/metagenerator"
 )
 
@@ -16,7 +17,7 @@ import (
 const (
 	clusterPath          = "/Users/bohdanbashynskyi/storj-cluster"
 	defaultDbEndpoint    = "postgresql://root@localhost:26257/metainfo?sslmode=disable"
-	defaultSharedValues  = 0.3
+	defaultSharedFields  = 0.3
 	defaultBatchSize     = 10
 	defaultWorkersNumber = 1
 	defaultTotlaRecords  = 10
@@ -26,7 +27,7 @@ const (
 // main parameters decalaration
 var (
 	dbEndpoint    string
-	sharedValues  float64 = 0.3
+	sharedFields  float64 = 0.3
 	batchSize     int
 	workersNumber int
 	totalRecords  int
@@ -35,11 +36,11 @@ var (
 
 func readArgs() {
 	flag.StringVar(&dbEndpoint, "db", defaultDbEndpoint, fmt.Sprintf("db endpoint, default: %v", defaultDbEndpoint))
-	flag.StringVar(&mode, "md", metagenerator.DryRunMode, fmt.Sprintf("incert mode [%s, %s, %s], default: %v", metagenerator.ApiMode, metagenerator.DbMode, metagenerator.DryRunMode, metagenerator.DryRunMode))
-	flag.Float64Var(&sharedValues, "sv", defaultSharedValues, fmt.Sprintf("percentage of shared values, default: %v", defaultSharedValues))
-	flag.IntVar(&batchSize, "bs", defaultBatchSize, fmt.Sprintf("number of records per batch, default: %v", defaultBatchSize))
-	flag.IntVar(&workersNumber, "wn", defaultWorkersNumber, fmt.Sprintf("number of workers, default: %v", defaultWorkersNumber))
-	flag.IntVar(&totalRecords, "tr", defaultTotlaRecords, fmt.Sprintf("total number of records, default: %v", defaultTotlaRecords))
+	flag.StringVar(&mode, "mode", metagenerator.DryRunMode, fmt.Sprintf("incert mode [%s, %s, %s], default: %v", metagenerator.ApiMode, metagenerator.DbMode, metagenerator.DryRunMode, metagenerator.DryRunMode))
+	flag.Float64Var(&sharedFields, "sharedFields", defaultSharedFields, fmt.Sprintf("percentage of shared fields, default: %v", defaultSharedFields))
+	flag.IntVar(&batchSize, "batchSize", defaultBatchSize, fmt.Sprintf("number of records per batch, default: %v", defaultBatchSize))
+	flag.IntVar(&workersNumber, "workersNumber", defaultWorkersNumber, fmt.Sprintf("number of workers, default: %v", defaultWorkersNumber))
+	flag.IntVar(&totalRecords, "totalRecords", defaultTotlaRecords, fmt.Sprintf("total number of records, default: %v", defaultTotlaRecords))
 	flag.Parse()
 }
 
@@ -58,11 +59,15 @@ func main() {
 	if mode == metagenerator.ApiMode {
 		projectId = metagenerator.GetProjectId(ctx, db).String()
 	}
+	if mode == metagenerator.DbMode {
+		pId, _ := uuid.New()
+		projectId = pId.String()
+	}
 
 	// Initialize batch generator
 	batchGen := metagenerator.NewBatchGenerator(
 		db,
-		sharedValues,  // 30% shared values
+		sharedFields,  // 30% shared fileds
 		batchSize,     // batch size
 		workersNumber, // number of workers
 		totalRecords,
@@ -76,7 +81,7 @@ func main() {
 	// Generate and insert/debug records
 	startTime := time.Now()
 
-	if err := batchGen.GenerateAndInsert(totalRecords); err != nil {
+	if err := batchGen.GenerateAndInsert(ctx, totalRecords); err != nil {
 		panic(fmt.Sprintf("failed to generate records: %v", err))
 	}
 

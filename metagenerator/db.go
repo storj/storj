@@ -67,3 +67,12 @@ func GetProjectId(ctx context.Context, db *sql.DB) (projectId uuid.UUID) {
 
 	return
 }
+
+func CleanTable(ctx context.Context, db *sql.DB) (projectId uuid.UUID) {
+	rows, err := db.QueryContext(ctx, `DELETE FROM objects`)
+	if err != nil {
+		panic(fmt.Sprintf("failed to clean up tsable: %s", err.Error()))
+	}
+	defer rows.Close()
+	return
+}

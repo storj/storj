@@ -92,25 +92,7 @@ func UplinkSetup(satelliteAddress, apiKey string) {
 	fmt.Println(term.Greenf("Uplink setup done"))
 }
 
-func GeneratorSetup(sharedValues float64, bS, wN, tR int, apiKey, dbEndpoint, metaSearchEndpoint string) (projectId string) {
-	//Create bucket
-	cmd := exec.Command("uplink", "mb", "sj://benchmarks")
-
-	out, err := cmd.CombinedOutput()
-	if err != nil && !strings.Contains(string(out), "bucket already exists") {
-		panic(err.Error())
-	}
-
-	// Connect to CockroachDB
-	db, err := sql.Open("postgres", dbEndpoint)
-	if err != nil {
-		panic(fmt.Sprintf("failed to connect to database: %v", err))
-	}
-	defer db.Close()
-
-	ctx := context.Background()
-	projectId = GetProjectId(ctx, db).String()
-
+func GeneratorSetup(sharedValues float64, bS, wN, tR int, apiKey, projectId, metaSearchEndpoint string, db *sql.DB, ctx context.Context) {
 	// Initialize batch generator
 	batchGen := NewBatchGenerator(
 		db,
@@ -128,7 +110,7 @@ func GeneratorSetup(sharedValues float64, bS, wN, tR int, apiKey, dbEndpoint, me
 	// Generate and insert/debug records
 	startTime := time.Now()
 
-	if err := batchGen.GenerateAndInsert(totalRecords); err != nil {
+	if err := batchGen.GenerateAndInsert(ctx, tR); err != nil {
 		panic(fmt.Sprintf("failed to generate records: %v", err))
 	}
 

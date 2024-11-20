@@ -9,9 +9,13 @@ import (
 	"net/http/httputil"
 )
 
-type Query struct {
+type Request struct {
 	Path  string         `json:"path"`
-	Match map[string]any `json:"match"`
+	Match map[string]any `json:""`
+}
+
+type Response struct {
+	Results []Record `json:"results"`
 }
 
 func putMeta(record *Record, apiKey, projectId, url string) error {
@@ -50,14 +54,14 @@ func putMeta(record *Record, apiKey, projectId, url string) error {
 	return nil
 }
 
-func SearchMeta(query Query, apiKey, projectId, url string) error {
+func SearchMeta(query Request, apiKey, projectId, url string) (bodyBytes []byte, err error) {
 	req, err := json.Marshal(query)
 	if err != nil {
-		return err
+		return
 	}
 	r, err := http.NewRequest("POST", url, bytes.NewBuffer(req))
 	if err != nil {
-		return err
+		return
 	}
 	r.Header.Add("Content-Type", "application/json")
 	r.Header.Add("Authorization", fmt.Sprintf("Bearer %s", apiKey))
@@ -65,23 +69,21 @@ func SearchMeta(query Query, apiKey, projectId, url string) error {
 
 	reqest, err := httputil.DumpRequest(r, true)
 	if err != nil {
-		return err
+		return
 	}
 	fmt.Println(string(reqest))
 
 	client := &http.Client{}
 	res, err := client.Do(r)
 	if err != nil {
-		return err
+		return
 	}
 	defer res.Body.Close()
 
-	bodyBytes, err := io.ReadAll(res.Body)
+	bodyBytes, err = io.ReadAll(res.Body)
 	if err != nil {
 		panic(err)
 	}
-	bodyString := string(bodyBytes)
-	fmt.Println(bodyString)
 
-	return nil
+	return
 }
