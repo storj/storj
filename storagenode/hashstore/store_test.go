@@ -748,6 +748,37 @@ func TestStore_RaceConcurrentWriteAndStats(t *testing.T) {
 	<-done
 }
 
+func TestStore_FailedUpdateDoesntIncreaseLogLength(t *testing.T) {
+	ctx := context.Background()
+	s := newTestStore(t)
+	defer s.Close()
+
+	getSize := func() (size uint64) {
+		s.lfs.Range(func(_ uint64, lf *logFile) bool {
+			size = lf.size.Load()
+			return false
+		})
+		return size
+	}
+	// add a key to the store
+	key := s.AssertCreate(time.Time{})
+
+	// get the size of the log file
+	size := getSize()
+	assert.NotEqual(t, size, 0)
+
+	// try to update the key. it should fail because the hashtbl does not allow updates.
+	w, err := s.Create(ctx, key, time.Time{})
+	assert.NoError(t, err)
+	_, err = w.Write(make([]byte, 500))
+	assert.NoError(t, err)
+	assert.Error(t, w.Close())
+
+	// the size of the log file should not have changed
+	newSize := getSize()
+	assert.Equal(t, size, newSize)
+}
+
 //
 // benchmarks
 //
