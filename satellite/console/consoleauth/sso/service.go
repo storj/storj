@@ -14,6 +14,7 @@ import (
 	"github.com/zeebo/errs"
 	"golang.org/x/oauth2"
 
+	"storj.io/common/sync2"
 	"storj.io/storj/satellite/console/consoleauth"
 )
 
@@ -45,6 +46,8 @@ type Service struct {
 	satelliteAddress string
 
 	providerOidcSetup map[string]OidcSetup
+
+	initialized sync2.Fence
 }
 
 // NewService creates a new Service.
@@ -103,6 +106,8 @@ func (s *Service) Initialize(ctx context.Context) (err error) {
 
 	s.providerOidcSetup = verifierMap
 
+	s.initialized.Release()
+
 	return nil
 }
 
@@ -117,7 +122,10 @@ func (s *Service) GetProviderByEmail(email string) string {
 }
 
 // GetOidcSetupByProvider returns the OIDC setup for the given provider.
-func (s *Service) GetOidcSetupByProvider(provider string) *OidcSetup {
+func (s *Service) GetOidcSetupByProvider(ctx context.Context, provider string) *OidcSetup {
+	if !s.initialized.Wait(ctx) {
+		return nil
+	}
 	if setup, ok := s.providerOidcSetup[provider]; ok {
 		return &setup
 	}
@@ -128,7 +136,7 @@ func (s *Service) GetOidcSetupByProvider(provider string) *OidcSetup {
 func (s *Service) VerifySso(ctx context.Context, provider, state, code string) (_ *OidcSsoClaims, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	oidcSetup := s.GetOidcSetupByProvider(provider)
+	oidcSetup := s.GetOidcSetupByProvider(ctx, provider)
 	if oidcSetup == nil {
 		return nil, ErrInvalidProvider.New("invalid provider %s", provider)
 	}

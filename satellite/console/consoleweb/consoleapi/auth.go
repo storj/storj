@@ -227,7 +227,7 @@ func (a *Auth) BeginSsoFlow(w http.ResponseWriter, r *http.Request) {
 	}
 
 	provider := mux.Vars(r)["provider"]
-	oidcSetup := a.ssoService.GetOidcSetupByProvider(provider)
+	oidcSetup := a.ssoService.GetOidcSetupByProvider(ctx, provider)
 	if oidcSetup == nil {
 		a.log.Error("invalid provider "+provider, zap.Error(console.ErrValidation.New("invalid provider")))
 		http.Redirect(w, r, ssoFailedAddr, http.StatusPermanentRedirect)
