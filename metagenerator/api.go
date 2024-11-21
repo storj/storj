@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"io"
 	"net/http"
-	"net/http/httputil"
 )
 
 type Request struct {
@@ -67,11 +66,13 @@ func SearchMeta(query Request, apiKey, projectId, url string) (bodyBytes []byte,
 	r.Header.Add("Authorization", fmt.Sprintf("Bearer %s", apiKey))
 	r.Header.Add("X-Project-ID", projectId)
 
-	reqest, err := httputil.DumpRequest(r, true)
-	if err != nil {
-		return
-	}
-	fmt.Println(string(reqest))
+	/*
+		reqest, err := httputil.DumpRequest(r, true)
+		if err != nil {
+			return
+		}
+		fmt.Println(string(reqest))
+	*/
 
 	client := &http.Client{}
 	res, err := client.Do(r)

@@ -28,7 +28,7 @@ func GetPathCount(ctx context.Context, db *sql.DB) (count uint64) {
 	if err := rows.Err(); err != nil {
 		panic(err.Error())
 	}
-	fmt.Printf("Found %v records\n", count)
+	//fmt.Printf("Found %v records\n", count)
 	return
 }
 

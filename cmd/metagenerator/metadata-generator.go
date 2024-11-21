@@ -81,7 +81,7 @@ func main() {
 	// Generate and insert/debug records
 	startTime := time.Now()
 
-	if err := batchGen.GenerateAndInsert(ctx, totalRecords); err != nil {
+	if err := batchGen.GenerateAndInsert(ctx); err != nil {
 		panic(fmt.Sprintf("failed to generate records: %v", err))
 	}
 

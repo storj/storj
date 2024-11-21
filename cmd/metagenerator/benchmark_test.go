@@ -3,11 +3,7 @@ package main
 import (
 	"context"
 	"database/sql"
-	"encoding/json"
 	"fmt"
-	"log"
-	"os"
-	"strconv"
 	"testing"
 
 	"storj.io/storj/metagenerator"
@@ -19,13 +15,13 @@ const (
 )
 
 var tRs = []int{
-	10_000,
-	//1_000_000,
-	//10_000_000,
-	//100_000_000,
+	100_000,
+	900_000,
+	9_000_000,
+	99_000_000,
 }
 
-func setupSuite(tR int) func(tb testing.TB) {
+func setupSuite() (func(tb testing.TB), *sql.DB, context.Context) {
 	// Connect to CockroachDB
 	db, err := sql.Open("postgres", defaultDbEndpoint)
 	if err != nil {
@@ -33,23 +29,18 @@ func setupSuite(tR int) func(tb testing.TB) {
 	}
 	ctx := context.Background()
 
-	log.Println("setup suite")
-	wN, _ := strconv.Atoi(os.Getenv("WN"))
-	bS, _ := strconv.Atoi(os.Getenv("BS"))
-	metagenerator.GeneratorSetup(sharedFields, bS, wN, tR, apiKey, projectId, defaultMetasearchAPI, db, ctx)
-
 	// Return a function to teardown the test
 	return func(tb testing.TB) {
-		log.Println("teardown suite")
 		metagenerator.CleanTable(ctx, db)
 		db.Close()
-	}
+	}, db, ctx
 }
 
 func BenchmarkSimpleQuery(b *testing.B) {
+	teardownSuite, db, ctx := setupSuite()
+	defer teardownSuite(b)
 	for _, tR := range tRs {
-		teardownSuite := setupSuite(tR)
-		defer teardownSuite(b)
+		metagenerator.GeneratorSetup(sharedFields, 1000, 10, tR, apiKey, projectId, defaultMetasearchAPI, db, ctx)
 		for _, n := range metagenerator.MatchingEntries {
 			if tR < n {
 				break
@@ -58,23 +49,25 @@ func BenchmarkSimpleQuery(b *testing.B) {
 				for i := 0; i < b.N; i++ {
 					val := fmt.Sprintf("benchmarkValue_%v", n)
 					b.ResetTimer()
-					res, err := metagenerator.SearchMeta(metagenerator.Request{
+					_, err := metagenerator.SearchMeta(metagenerator.Request{
 						Path: fmt.Sprintf("sj://%s/", metagenerator.Label),
 						Match: map[string]any{
 							"field_" + val: val,
 						},
 					}, apiKey, projectId, defaultMetasearchAPI)
-					b.StopTimer()
 
 					if err != nil {
 						panic(err)
 					}
-					var resp metagenerator.Response
-					err = json.Unmarshal(res, &resp)
-					if err != nil {
-						panic(err)
-					}
-					fmt.Printf("Got %v entries\n", len(resp.Results))
+					/*
+						b.StopTimer()
+						var resp metagenerator.Response
+						err = json.Unmarshal(res, &resp)
+						if err != nil {
+							panic(err)
+						}
+						fmt.Printf("Got %v entries\n", len(resp.Results))
+					*/
 				}
 			})
 		}
