@@ -486,7 +486,7 @@ func TestBucketCreationSelfServePlacement(t *testing.T) {
 			Placement: []byte("Poland"),
 		})
 		// cannot create bucket with custom placement if there is project default.
-		require.True(t, errs2.IsRPC(err, rpcstatus.FailedPrecondition))
+		require.True(t, errs2.IsRPC(err, rpcstatus.PlacementConflictingValues))
 
 		_, err = sat.API.Metainfo.Endpoint.CreateBucket(ctx, &pb.CreateBucketRequest{
 			Header: &pb.RequestHeader{
@@ -533,7 +533,7 @@ func TestBucketCreationSelfServePlacement(t *testing.T) {
 			Name:      []byte(bucketName),
 			Placement: []byte("EU"), // invalid placement
 		})
-		require.True(t, errs2.IsRPC(err, rpcstatus.InvalidArgument))
+		require.True(t, errs2.IsRPC(err, rpcstatus.PlacementInvalidValue))
 	})
 }
 
