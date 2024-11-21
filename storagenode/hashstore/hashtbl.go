@@ -39,6 +39,9 @@ type HashTbl struct {
 	p        page       // cached page data
 }
 
+// hashtblSize returns the size in bytes of the hashtbl given an lrec.
+func hashtblSize(lrec uint64) uint64 { return pageSize + 1<<lrec*RecordSize }
+
 // CreateHashtbl allocates a new hash table with the given log base 2 number of records and created
 // timestamp. The file is truncated and allocated to the correct size.
 func CreateHashtbl(fh *os.File, lrec uint64, created uint32) (*HashTbl, error) {
@@ -49,7 +52,7 @@ func CreateHashtbl(fh *os.File, lrec uint64, created uint32) (*HashTbl, error) {
 	}
 
 	// clear the file and truncate it to the correct length and write the header page.
-	size := int64(pageSize + 1<<lrec*RecordSize)
+	size := int64(hashtblSize(lrec))
 	if err := fh.Truncate(0); err != nil {
 		return nil, Error.New("unable to truncate hashtbl to 0: %w", err)
 	} else if err := fh.Truncate(size); err != nil {
@@ -79,7 +82,7 @@ func OpenHashtbl(fh *os.File) (_ *HashTbl, err error) {
 	lrec := uint64(bits.Len64(uint64(size-pageSize)/RecordSize) - 1)
 
 	// sanity check that our lrec is correct.
-	if pageSize+1<<lrec*RecordSize != size {
+	if int64(hashtblSize(lrec)) != size {
 		return nil, Error.New("lrec calculation mismatch: size=%d lrec=%d", size, lrec)
 	}
 

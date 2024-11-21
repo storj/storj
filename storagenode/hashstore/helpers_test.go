@@ -7,11 +7,11 @@ import (
 	"context"
 	"encoding/binary"
 	"fmt"
-	"io"
 	"os"
 	"runtime"
 	"strings"
 	"testing"
+	"testing/iotest"
 	"time"
 
 	"github.com/zeebo/assert"
@@ -160,9 +160,7 @@ func (ts *testStore) AssertRead(key Key) {
 	assert.Equal(ts.t, r.Key(), key)
 	assert.Equal(ts.t, r.Size(), len(key))
 
-	data, err := io.ReadAll(r)
-	assert.NoError(ts.t, err)
-	assert.Equal(ts.t, data, key[:])
+	assert.NoError(ts.t, iotest.TestReader(r, key[:]))
 	assert.NoError(ts.t, r.Close())
 }
 
@@ -233,9 +231,7 @@ func (td *testDB) AssertRead(key Key) {
 	assert.NoError(td.t, err)
 	assert.NotNil(td.t, r)
 
-	data, err := io.ReadAll(r)
-	assert.NoError(td.t, err)
-	assert.Equal(td.t, data, key[:])
+	assert.NoError(td.t, iotest.TestReader(r, key[:]))
 	assert.NoError(td.t, r.Close())
 }
 

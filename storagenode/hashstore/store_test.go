@@ -322,7 +322,7 @@ func TestStore_WriteCancel(t *testing.T) {
 		// cancel and close should be idempotent.
 		for j := 0; j < 5; j++ {
 			wr.Cancel()
-			assert.NoError(t, wr.Close())
+			assert.Error(t, wr.Close()) // close after cancel is an error
 		}
 
 		// writing after either should return an error.
@@ -777,6 +777,35 @@ func TestStore_FailedUpdateDoesntIncreaseLogLength(t *testing.T) {
 	// the size of the log file should not have changed
 	newSize := getSize()
 	assert.Equal(t, size, newSize)
+}
+
+func TestStore_CompactionMakesForwardProgress(t *testing.T) {
+	ctx := context.Background()
+
+	s := newTestStore(t)
+	defer s.Close()
+
+	// we are testing when compaction is trying to rewrite a log file that
+	// contains more used data than the next hashtbl. we'll do this by having
+	// a single large (multi-MB) entry and many small but dead entries and
+	// triggering compaction.
+
+	writeEntry := func(size int64, expires time.Time) {
+		w, err := s.Create(ctx, newKey(), expires)
+		assert.NoError(t, err)
+		_, err = w.Write(make([]byte, size))
+		assert.NoError(t, err)
+		assert.NoError(t, w.Close())
+	}
+
+	writeEntry(10<<20, time.Time{})
+	for i := 0; i < 1<<10; i++ {
+		writeEntry(10<<10, time.Now())
+	}
+
+	// compact the store so that the expired key is deleted.
+	s.today += 3 // 3 just in case the test is running near midnight.
+	s.AssertCompact(nil, time.Time{})
 }
 
 //

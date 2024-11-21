@@ -200,7 +200,7 @@ func (h *Writer) done() {
 
 	// if we are not in manual mode, then we need to automatically unlock.
 	if !h.manual {
-		h.store.active.RUnlock()
+		h.store.activeMu.RUnlock()
 	}
 }
 
@@ -211,11 +211,15 @@ func (h *Writer) Close() (err error) {
 
 	// if we are not the first to close or we are canceled, do nothing.
 	h.mu.Lock()
-	if h.closed.set() || h.canceled.get() {
-		h.mu.Unlock()
+	closed := h.closed.set()
+	canceled := h.canceled.get()
+	h.mu.Unlock()
+
+	if canceled {
+		return Error.New("already canceled")
+	} else if closed {
 		return nil
 	}
-	h.mu.Unlock()
 
 	// always do cleanup.
 	defer h.done()
@@ -268,11 +272,13 @@ func (h *Writer) Cancel() {
 
 	// if we are not the first to cancel or we are closed, do nothing.
 	h.mu.Lock()
-	if h.canceled.set() || h.closed.get() {
-		h.mu.Unlock()
+	closed := h.closed.get()
+	canceled := h.canceled.set()
+	h.mu.Unlock()
+
+	if closed || canceled {
 		return
 	}
-	h.mu.Unlock()
 
 	// always do cleanup.
 	defer h.done()
