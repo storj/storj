@@ -255,14 +255,13 @@ func TestStore_CompactLogFile(t *testing.T) {
 	s := newTestStore(t)
 	defer s.Close()
 
-	now := time.Now()
-
-	// add some entries to the store that are already expired so that the log file will have enough
-	// dead data to be compacted.
+	// add some entries to the store that we will expire with a compaction. this is to ensure they
+	// are added to the same log file as the live keys we add next.
 	var expired []Key
 	for i := 0; i < 10; i++ {
-		expired = append(expired, s.AssertCreate(now))
+		expired = append(expired, s.AssertCreate(time.Time{}))
 	}
+	s.AssertCompact(alwaysTrash, time.Time{})
 
 	// add some entries to the store that are not expired. keep track of their records in the
 	// hashtbl so that we can ensure they are in a new log file after compaction.
@@ -278,8 +277,8 @@ func TestStore_CompactLogFile(t *testing.T) {
 		recs = append(recs, rec)
 	}
 
-	// compact the store so that the expired key is deleted.
-	s.today += 3 // 3 just in case the test is running near midnight.
+	// compact the store so that the expired keys are deleted.
+	s.today += compaction_ExpiresDays + 1 // 1 more just in case the test is running near midnight.
 	s.AssertCompact(nil, time.Time{})
 
 	// all the expired keys should be deleted.
@@ -472,7 +471,7 @@ func TestStore_ReviveDuringCompaction(t *testing.T) {
 		go func() {
 			errCh <- s.Compact(ctx,
 				func(ctx context.Context, key Key, created time.Time) bool {
-					for !<-activity { // wait until we are sent true to continue.
+					for range activity { // wait until we are closed to continue.
 					}
 					return false
 				}, time.Time{})
@@ -489,7 +488,7 @@ func TestStore_ReviveDuringCompaction(t *testing.T) {
 				"Create",
 			)
 			// the following AssertRead call is blocked on Create, allow compaction to finish.
-			activity <- true
+			close(activity)
 		}()
 
 		// try to read the key which will attempt to revive it while compaction is running.
@@ -790,22 +789,51 @@ func TestStore_CompactionMakesForwardProgress(t *testing.T) {
 	// a single large (multi-MB) entry and many small but dead entries and
 	// triggering compaction.
 
-	writeEntry := func(size int64, expires time.Time) {
-		w, err := s.Create(ctx, newKey(), expires)
+	writeEntry := func(size int64) Key {
+		key := newKey()
+		w, err := s.Create(ctx, key, time.Time{})
 		assert.NoError(t, err)
 		_, err = w.Write(make([]byte, size))
 		assert.NoError(t, err)
 		assert.NoError(t, w.Close())
+		return key
 	}
 
-	writeEntry(10<<20, time.Time{})
+	large := writeEntry(10 << 20)
 	for i := 0; i < 1<<10; i++ {
-		writeEntry(10<<10, time.Now())
+		writeEntry(10 << 10)
 	}
+	s.AssertCompact(func(ctx context.Context, key Key, created time.Time) bool {
+		return key != large
+	}, time.Time{})
 
 	// compact the store so that the expired key is deleted.
-	s.today += 3 // 3 just in case the test is running near midnight.
+	s.today += compaction_ExpiresDays + 1 // 1 more just in case the test is running near midnight.
 	s.AssertCompact(nil, time.Time{})
+}
+
+func TestStore_CompactionExitsEarlyWhenNoModifications(t *testing.T) {
+	s := newTestStore(t)
+	defer s.Close()
+
+	s.AssertCreate(time.Time{})
+	today := s.today
+
+	check := func(lastCompact, created uint32) {
+		stats := s.Stats()
+		assert.Equal(t, stats.LastCompact, lastCompact)
+		assert.Equal(t, stats.Table.Created, created)
+	}
+
+	check(0, today)
+
+	s.today++
+	s.AssertCompact(alwaysTrash, time.Time{})
+	check(today+1, today+1)
+
+	s.today++
+	s.AssertCompact(alwaysTrash, time.Time{})
+	check(today+2, today+1)
 }
 
 //
@@ -878,31 +906,5 @@ func BenchmarkStore(b *testing.B) {
 		})
 
 		b.ReportMetric(float64(b.N)/time.Since(now).Seconds(), "pieces/sec")
-	})
-
-	b.Run("Compact", func(b *testing.B) {
-		const numKeys = 1e5
-
-		s := newTestStore(b)
-		defer s.Close()
-
-		for i := 0; i < numKeys; i++ {
-			s.AssertCreate(time.Time{})
-			if s.Load() > 0.5 {
-				s.AssertCompact(nil, time.Time{})
-			}
-		}
-		s.AssertCompact(nil, time.Time{})
-
-		b.ReportAllocs()
-		b.ResetTimer()
-
-		now := time.Now()
-
-		for i := 0; i < b.N; i++ {
-			s.AssertCompact(nil, time.Time{})
-		}
-
-		b.ReportMetric(numKeys/time.Since(now).Seconds(), "keys/sec")
 	})
 }

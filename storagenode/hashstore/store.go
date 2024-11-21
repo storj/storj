@@ -47,6 +47,7 @@ type Store struct {
 	compactMu   *mutex        // held during compaction to ensure only 1 compaction at a time
 	reviveMu    *mutex        // held during revival to ensure only 1 object is revived from trash at a time
 	compactions atomic.Uint64 // bumped every time a compaction call finishes
+	lastCompact atomic.Uint32 // date of the last compaction
 
 	maxLog atomic.Uint64              // maximum log file id
 	stats  atomic.Pointer[StoreStats] // set during compaction to maintain consistency of Stats calls
@@ -197,6 +198,7 @@ type StoreStats struct {
 	Compacting  bool         // if true, a compaction is in progress.
 	Compactions uint64       // number of compaction calls that finished
 	Today       uint32       // the current date.
+	LastCompact uint32       // the date of the last compaction.
 	Table       HashTblStats // stats about the hash table.
 }
 
@@ -234,6 +236,7 @@ func (s *Store) Stats() StoreStats {
 		Compacting:  false,
 		Compactions: s.compactions.Load(),
 		Today:       s.today(),
+		LastCompact: s.lastCompact.Load(),
 		Table:       stats,
 	}
 }
@@ -376,16 +379,16 @@ func (s *Store) Create(ctx context.Context, key Key, expires time.Time) (_ *Writ
 		}
 	}()
 
-	// try to acquire the log file.
-	lf, err := s.acquireLogFile()
-	if err != nil {
-		return nil, Error.Wrap(err)
-	}
-
 	// compute an expiration field if one is set.
 	var exp Expiration
 	if !expires.IsZero() {
 		exp = NewExpiration(timeToDateUp(expires), false)
+	}
+
+	// try to acquire the log file.
+	lf, err := s.acquireLogFile()
+	if err != nil {
+		return nil, Error.Wrap(err)
 	}
 
 	// return the automatic writer for the piece that unlocks and commits the record into the hash
@@ -571,6 +574,7 @@ func (s *Store) Compact(
 	// define some functions to tell what state records are in based on what today is and what the
 	// last restore time is.
 	today := s.today()
+	defer s.lastCompact.Store(today)
 
 	var restore uint32
 	if !lastRestore.IsZero() {
@@ -628,6 +632,8 @@ func (s *Store) compactOnce(
 	nset := uint64(0)
 	used := make(map[uint64]uint64)
 	rerr := error(nil)
+	modifications := false
+
 	s.tbl.Range(ctx, func(rec Record, err error) bool {
 		rerr = func() error {
 			if err != nil {
@@ -636,12 +642,28 @@ func (s *Store) compactOnce(
 				return err
 			}
 
+			// if we're not yet sure we're modifying the hash table, we need to check our callbacks
+			// on the record to see if the table would be modified. a record is modified when it is
+			// flagged as trash or when it is restored.
+			if !modifications {
+				if shouldTrash != nil && !rec.Expires.Trash() && shouldTrash(ctx, rec.Key, dateToTime(rec.Created)) {
+					modifications = true
+				}
+				if restored(rec.Expires) {
+					modifications = true
+				}
+			}
+
+			// if the record is expired, we will modify the hash table by not including the record.
 			if expired(rec.Expires) {
+				modifications = true
 				return nil
 			}
 
+			// the record is included in the future hash table, so account for it in used space.
 			nset++
 			used[rec.Log] += uint64(rec.Length) + RecordSize // rSize for the record footer
+
 			return nil
 		}()
 		return rerr == nil
@@ -650,7 +672,7 @@ func (s *Store) compactOnce(
 		return false, rerr
 	}
 
-	// calculate a hash table size so that it targets just under a 0.25 load factor.
+	// calculate a hash table size so that it targets just under a 0.5 load factor.
 	lrec := uint64(bits.Len64(nset)) + 1
 	if lrec < store_minTableSize {
 		lrec = store_minTableSize
@@ -676,6 +698,13 @@ func (s *Store) compactOnce(
 	})
 	if rerr != nil {
 		return false, rerr
+	}
+
+	// if there are no modifications to the hashtbl to remove expired records or flag records as
+	// trash, and we have no log file candidates to rewrite, and the hashtable would be the same
+	// size, we can exit early.
+	if !modifications && len(rewriteCandidates) == 0 && lrec == s.tbl.lrec {
+		return true, nil
 	}
 
 	// limit the number of log files we rewrite in a single compaction to so that we write
@@ -721,36 +750,37 @@ func (s *Store) compactOnce(
 				return err
 			}
 
-			// if the record is restored, clear the expiration.
+			// trash records are flagged as expired some number of days from now with a bit set to
+			// signal if they are read that there was a problem. we only check records that are not
+			// already flagged as trashed and keep the minimum time for the record to live. we do
+			// this after compaction so that we don't mistakenly count it as a "revive".
+			if shouldTrash != nil && !rec.Expires.Trash() && shouldTrash(ctx, rec.Key, dateToTime(rec.Created)) {
+				expiresTime := today + compaction_ExpiresDays
+				// if we have an existing ttl time and it's smaller, use that instead.
+				if existingTime := rec.Expires.Time(); existingTime > 0 && existingTime < expiresTime {
+					expiresTime = existingTime
+				}
+				// only update the expired time if it won't immediately be restored. this ensures
+				// we dont clear out the ttl field for no reason right after this.
+				if exp := NewExpiration(expiresTime, true); !restored(exp) {
+					rec.Expires = exp
+				}
+			}
+
+			// if the record is restored, clear the expiration. we do this after checking if the
+			// record should be trashed to ensure that restore always has precedence.
 			if restored(rec.Expires) {
 				rec.Expires = 0
 
-				// we bump created so that the shouldTrash callback likely ignores it in case
-				// the bloom filter was bad or something. this may change once the hashstore is
-				// more integrated with the system and it has more details about the bloom
-				// filter.
+				// we bump created so that the shouldTrash callback likely ignores it in case the
+				// bloom filter was bad or something. this may change once the hashstore is more
+				// integrated with the system and it has more details about the bloom filter.
 				rec.Created = today
 			}
 
 			// totally ignore any expired records.
 			if expired(rec.Expires) {
 				return nil
-			}
-
-			// trash records are flagged as expired some number of days from now with a bit set
-			// to signal if they are read that there was a problem. we only check records that
-			// are not already flagged as trashed and keep the minimum time for the record to
-			// live. we do this after compaction so that we don't mistakenly count it as a
-			// "revive".
-			if !rec.Expires.Trash() && shouldTrash != nil {
-				if shouldTrash(ctx, rec.Key, dateToTime(rec.Created)) {
-					expiresTime := today + compaction_ExpiresDays
-					// if we have an existing ttl time and it's smaller, use that instead.
-					if existingTime := rec.Expires.Time(); existingTime > 0 && existingTime < expiresTime {
-						expiresTime = existingTime
-					}
-					rec.Expires = NewExpiration(expiresTime, true)
-				}
 			}
 
 			// if the record is compacted, copy it into the new log file.

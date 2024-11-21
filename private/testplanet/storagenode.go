@@ -284,6 +284,7 @@ func (planet *Planet) newStorageNode(ctx context.Context, prefix string, index, 
 
 	// enable the Testing methdos to delete/corrupt pieces.
 	peer.Storage2.PieceBackend.TestingEnableMethods()
+	thePast := time.Now().AddDate(-1, 0, 0)
 
 	// flag some of the storage nodes to be in different migration states.
 	for _, trustSource := range sources {
@@ -292,6 +293,12 @@ func (planet *Planet) newStorageNode(ctx context.Context, prefix string, index, 
 			return nil, errs.Wrap(err)
 		}
 		for _, entry := range entries {
+			// set the restore time for the node to be way in the past.
+			if err := peer.Storage2.RestoreTimeManager.SetRestoreTime(ctx, entry.SatelliteURL.ID, thePast); err != nil {
+				return nil, errs.Wrap(err)
+			}
+
+			// set the node to write to new sometimes.
 			peer.Storage2.MigratingBackend.UpdateState(ctx, entry.SatelliteURL.ID, func(state *piecestore.MigrationState) {
 				state.WriteToNew = index%2 == 0
 				state.ReadNewFirst = index%4 == 0

@@ -22,8 +22,8 @@ import (
 var Error = errs.Class("hashstore")
 
 const (
-	db_MaxLoad     = 0.9 // maximum load factor of store before blocking new writes
-	db_CompactLoad = 0.7 // load factor before starting compaction
+	db_MaxLoad     = 0.95 // maximum load factor of store before blocking new writes
+	db_CompactLoad = 0.75 // load factor before starting compaction
 )
 
 type compactState struct {
@@ -399,10 +399,18 @@ func (d *DB) backgroundCompactions() {
 func (d *DB) checkBackgroundCompactions() {
 	shouldCompact := func(s *Store) bool {
 		stats := s.Stats()
-		// if the store isn't already compacting, and it has been at least two days since it was
-		// created, then we should compact it. note: it is 2 days it would be 1 day right after
-		// midnight. this ensures it's at least 1 day old.
-		return !stats.Compacting && stats.Today-stats.Table.Created >= 2
+		// if the store is already compacting, no need to start another compaction.
+		if stats.Compacting {
+			return false
+		}
+		// we require that the hash table be created long enough ago and that the last time we ran a
+		// compaction be long enough ago. we check both because a compaction doesn't necessarily
+		// rewrite the hash table if it detects there would be no modifications. we compare to a
+		// value of 2 days because we want to ensure that it's been at least a full day since the
+		// last compaction, and our granularity is only to the day (if it was 1, then if the last
+		// compaction was right before midnight, we would immediately be able to compact again right
+		// after midnight).
+		return stats.Today-stats.LastCompact >= 2 && stats.Today-stats.Table.Created >= 2
 	}
 
 	d.mu.Lock()

@@ -238,8 +238,8 @@ func TestDB_BackgroundCompaction(t *testing.T) {
 		// trigger a check which should ensure that the store is eventually compacted.
 		db.checkBackgroundCompactions()
 
-		// sleep until created is bigger than what it used to be.
-		for s.Stats().Table.Created <= stats.Table.Created {
+		// sleep until the number of compactions increases
+		for s.Stats().Compactions <= stats.Compactions {
 			time.Sleep(time.Millisecond)
 		}
 	}
