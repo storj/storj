@@ -4,6 +4,7 @@
 package hashstore
 
 import (
+	"container/heap"
 	"context"
 	"io"
 	"math"
@@ -15,8 +16,9 @@ import (
 // logFile represents a ref-counted handle to a log file that stores piece data.
 type logFile struct {
 	// immutable fields
-	fh *os.File
-	id uint64
+	fh  *os.File
+	id  uint64
+	ttl uint32
 
 	// atomic fields
 	size atomic.Uint64
@@ -29,8 +31,8 @@ type logFile struct {
 	removed flag       // set when the file has been removed
 }
 
-func newLogFile(fh *os.File, id uint64, size uint64) *logFile {
-	lf := &logFile{fh: fh, id: id}
+func newLogFile(fh *os.File, id uint64, ttl uint32, size uint64) *logFile {
+	lf := &logFile{fh: fh, id: id, ttl: ttl}
 	lf.size.Store(size)
 	return lf
 }
@@ -102,6 +104,59 @@ func (h *logHeap) Pop() any {
 	x := (*h)[n-1]
 	*h = (*h)[:n-1]
 	return x
+}
+
+//
+// a collection of log files
+//
+
+type logCollection struct {
+	mu  sync.Mutex
+	lfs map[uint32]*logHeap
+}
+
+func newLogCollection() *logCollection {
+	return &logCollection{
+		lfs: make(map[uint32]*logHeap),
+	}
+}
+
+func (l *logCollection) Clear() {
+	l.mu.Lock()
+	defer l.mu.Unlock()
+
+	for ttl := range l.lfs {
+		delete(l.lfs, ttl)
+	}
+}
+
+func (l *logCollection) Include(lf *logFile) {
+	l.mu.Lock()
+	defer l.mu.Unlock()
+
+	// if the log is over the max log size, don't include it.
+	if lf.size.Load() >= compaction_MaxLogSize {
+		return
+	}
+
+	lfh := l.lfs[lf.ttl]
+	if lfh == nil {
+		lfh = new(logHeap)
+		l.lfs[lf.ttl] = lfh
+	}
+
+	heap.Push(lfh, lf)
+}
+
+func (l *logCollection) Acquire(ttl uint32) *logFile {
+	l.mu.Lock()
+	defer l.mu.Unlock()
+
+	lfh := l.lfs[ttl]
+	if lfh == nil || lfh.Len() == 0 {
+		return nil
+	}
+	return heap.Pop(lfh).(*logFile)
 }
 
 //
@@ -196,7 +251,7 @@ func (h *Writer) Size() int64 {
 
 func (h *Writer) done() {
 	// always replace the log file.
-	h.store.replaceLogFile(h.lf)
+	h.store.lfc.Include(h.lf)
 
 	// if we are not in manual mode, then we need to automatically unlock.
 	if !h.manual {

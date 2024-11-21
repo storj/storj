@@ -6,7 +6,10 @@ package hashstore
 import (
 	"context"
 	"encoding/binary"
+	"fmt"
 	"io"
+	"os"
+	"path/filepath"
 	"sort"
 	"sync"
 	"testing"
@@ -143,7 +146,7 @@ func TestStore_ReadFromCompactedFile(t *testing.T) {
 	assert.That(t, before.Log < after.Log)
 
 	// move to the future so that compaction deletes the record.
-	s.today += compaction_ExpiresDays + 1
+	s.today += compaction_ExpiresDays + 1 // 1 more just in case the test is running near midnight.
 	s.AssertCompact(alwaysTrash, time.Time{})
 
 	// we should be able to read the data still because the open handle should retain a reference to
@@ -190,7 +193,7 @@ func TestStore_CompactionRespectsRestoreTime(t *testing.T) {
 	restore := dateToTime(s.today)
 
 	// compact again far enough ahead to ensure it would be deleted if not for restore.
-	s.today += compaction_ExpiresDays + 1
+	s.today += compaction_ExpiresDays + 1 // 1 more just in case the test is running near midnight.
 	s.AssertCompact(nil, restore)
 
 	// grab a reader for the key. it should still exist.
@@ -224,7 +227,7 @@ func TestStore_CompactionWithTTLTakesShorterTime(t *testing.T) {
 		s.AssertCompact(alwaysTrash, time.Time{})
 
 		// bump time to the minimum necessary to expire the key.
-		s.today += compaction_ExpiresDays + 1
+		s.today += compaction_ExpiresDays + 1 // 1 more just in case the test is running near midnight.
 		s.AssertCompact(nil, time.Time{})
 
 		// the key should not exist.
@@ -302,6 +305,39 @@ func TestStore_CompactLogFile(t *testing.T) {
 	}
 }
 
+func TestStore_ClumpObjectsByTTL(t *testing.T) {
+	ctx := context.Background()
+	s := newTestStore(t)
+	defer s.Close()
+
+	check := func(key Key, log int) {
+		rec, ok, err := s.tbl.Lookup(ctx, key)
+		assert.NoError(t, err)
+		assert.True(t, ok)
+		assert.Equal(t, rec.Log, log)
+	}
+
+	now := time.Now()
+	s.today = timeToDateDown(now)
+
+	// run twice with a reopen to ensure the ttl is persisted.
+	for runs := 0; runs < 2; runs++ {
+		// add some entries to the store with different ttls and ensure they get different log files.
+		for i := 0; i < 100; i++ {
+			key := s.AssertCreate(now.Add(24 * time.Hour * time.Duration(i)))
+			check(key, i+1)
+		}
+
+		// but if the ttl is too far ahead, it should get the same log as the no-ttl entries.
+		key := s.AssertCreate(time.Time{})
+		check(key, 101)
+		key = s.AssertCreate(now.Add(24 * time.Hour * 100))
+		check(key, 101)
+
+		s.AssertReopen()
+	}
+}
+
 func TestStore_WriteCancel(t *testing.T) {
 	s := newTestStore(t)
 	defer s.Close()
@@ -375,7 +411,6 @@ func TestStore_ReadRevivesTrash(t *testing.T) {
 
 func TestStore_MergeRecordsWhenCompactingWithLostPage(t *testing.T) {
 	ctx := context.Background()
-
 	s := newTestStore(t)
 	defer s.Close()
 
@@ -436,7 +471,7 @@ func TestStore_MergeRecordsWhenCompactingWithLostPage(t *testing.T) {
 	s.AssertCompact(nil, time.Time{})
 
 	// bump the day so that if it were to delete k1, it would have.
-	s.today += compaction_ExpiresDays + 1
+	s.today += compaction_ExpiresDays + 1 // 1 more just in case the test is running near midnight.
 	s.AssertCompact(nil, time.Time{})
 
 	// k1 should still be reachable.
@@ -446,7 +481,6 @@ func TestStore_MergeRecordsWhenCompactingWithLostPage(t *testing.T) {
 func TestStore_ReviveDuringCompaction(t *testing.T) {
 	run := func(t *testing.T, future uint32) {
 		ctx := context.Background()
-
 		s := newTestStore(t)
 		defer s.Close()
 
@@ -602,10 +636,9 @@ func TestStore_ContextCancelsCreate(t *testing.T) {
 }
 
 func TestStore_LogContainsDataToReconstruct(t *testing.T) {
-	ctx := context.Background()
-
 	const parallelism = 4
 
+	ctx := context.Background()
 	s := newTestStore(t)
 	defer s.Close()
 
@@ -780,7 +813,6 @@ func TestStore_FailedUpdateDoesntIncreaseLogLength(t *testing.T) {
 
 func TestStore_CompactionMakesForwardProgress(t *testing.T) {
 	ctx := context.Background()
-
 	s := newTestStore(t)
 	defer s.Close()
 
@@ -834,6 +866,37 @@ func TestStore_CompactionExitsEarlyWhenNoModifications(t *testing.T) {
 	s.today++
 	s.AssertCompact(alwaysTrash, time.Time{})
 	check(today+2, today+1)
+}
+
+func TestStore_FallbackToNonTTLLogFile(t *testing.T) {
+	ctx := context.Background()
+	s := newTestStore(t)
+	defer s.Close()
+
+	getLog := func(key Key) uint64 {
+		rec, ok, err := s.tbl.Lookup(ctx, key)
+		assert.NoError(t, err)
+		assert.True(t, ok)
+		return rec.Log
+	}
+
+	// add a key that goes into a non-ttl log file.
+	permKey := s.AssertCreate(time.Time{})
+
+	// create the log file that the ttl key would go into outside of the knowledge of the store so
+	// that it fails when trying to create it itself.
+	now := time.Now()
+	ttl := timeToDateUp(now)
+	name := filepath.Join(s.dir, fmt.Sprintf("log-%016x-%08x", getLog(permKey)+1, ttl))
+	fh, err := os.OpenFile(name, os.O_CREATE, 0)
+	assert.NoError(t, err)
+	assert.NoError(t, fh.Close())
+
+	// add a key that goes into a ttl log file. it should succeed anyway.
+	ttlKey := s.AssertCreate(now)
+
+	// they should be in the same log file.
+	assert.Equal(t, getLog(permKey), getLog(ttlKey))
 }
 
 //

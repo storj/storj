@@ -18,7 +18,6 @@ import (
 
 func TestDB_BasicOperation(t *testing.T) {
 	ctx := context.Background()
-
 	db := newTestDB(t, nil, nil)
 	defer db.Close()
 
@@ -90,7 +89,6 @@ func TestDB_TrashStats(t *testing.T) {
 
 func TestDB_CompactionOnOpen(t *testing.T) {
 	ctx := context.Background()
-
 	db := newTestDB(t, nil, nil)
 	defer db.Close()
 
