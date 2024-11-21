@@ -52,6 +52,7 @@ import (
 	"storj.io/storj/storagenode/reputation"
 	"storj.io/storj/storagenode/retain"
 	"storj.io/storj/storagenode/satellites"
+	"storj.io/storj/storagenode/satstore"
 	"storj.io/storj/storagenode/storagenodedb"
 	"storj.io/storj/storagenode/storageusage"
 	"storj.io/storj/storagenode/trust"
@@ -327,10 +328,20 @@ func Module(ball *mud.Ball) {
 		mud.RegisterInterfaceImplementation[piecestore.RestoreTrash, *pieces.TrashChore](ball)
 		mud.RegisterInterfaceImplementation[piecestore.QueueRetain, *retain.Service](ball)
 
+		mud.Provide[*satstore.SatelliteStore](ball, func(cfg piecestore.OldConfig) *satstore.SatelliteStore {
+			hashStoreDir := filepath.Join(cfg.Path, "hashstore")
+			metaDir := filepath.Join(hashStoreDir, "meta")
+			return satstore.NewSatelliteStore(metaDir, "migrate")
+		})
 		mud.Provide[*piecestore.OldPieceBackend](ball, piecestore.NewOldPieceBackend)
 		mud.Provide[*piecestore.HashStoreBackend](ball, func(cfg piecestore.OldConfig, bfm *retain.BloomFilterManager, rtm *retain.RestoreTimeManager, log *zap.Logger) *piecestore.HashStoreBackend {
 			dir := filepath.Join(cfg.Path, "hashstore")
 			backend := piecestore.NewHashStoreBackend(dir, bfm, rtm, log)
+			mon.Chain(backend)
+			return backend
+		})
+		mud.Provide[*piecestore.MigratingBackend](ball, func(log *zap.Logger, old *piecestore.OldPieceBackend, new *piecestore.HashStoreBackend, state *satstore.SatelliteStore) *piecestore.MigratingBackend {
+			backend := piecestore.NewMigratingBackend(log, old, new, state, nil)
 			mon.Chain(backend)
 			return backend
 		})
