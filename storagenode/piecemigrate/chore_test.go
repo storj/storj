@@ -7,6 +7,8 @@ import (
 	"bytes"
 	"context"
 	"io/fs"
+	"os"
+	"path/filepath"
 	"sync"
 	"testing"
 	"time"
@@ -14,6 +16,7 @@ import (
 	"github.com/stretchr/testify/require"
 	"github.com/zeebo/errs"
 	"go.uber.org/zap/zaptest"
+	"golang.org/x/exp/maps"
 	"golang.org/x/sync/errgroup"
 
 	"storj.io/common/memory"
@@ -26,6 +29,7 @@ import (
 	"storj.io/storj/storagenode/pieces"
 	"storj.io/storj/storagenode/piecestore"
 	"storj.io/storj/storagenode/retain"
+	"storj.io/storj/storagenode/satstore"
 )
 
 func TestChoreWithPassiveMigrationOnly(t *testing.T) {
@@ -59,23 +63,31 @@ func TestChoreWithPassiveMigrationOnly(t *testing.T) {
 	writeSatsPieces(ctx, t, old, satellites3)
 
 	config := Config{
-		BatchSize:       1000,
-		Interval:        100 * time.Millisecond,
-		MigrateInactive: true,
-		ActiveMigration: false,
+		BatchSize:         1000,
+		Interval:          100 * time.Millisecond,
+		MigrateRegardless: true,
 	}
 
-	chore := NewChore(log, config, old, new)
+	satStoreDir, satStoreExt := t.TempDir(), "chore_migrate"
+
+	for i, sat := range maps.Keys(satellites1) {
+		var v string
+		if i%2 == 0 {
+			v = "false"
+		} else {
+			v = "blabl"
+		}
+		require.NoError(t, os.WriteFile(filepath.Join(satStoreDir, sat.String()+"."+satStoreExt), []byte(v), 0644))
+	}
+
+	chore := NewChore(log, config, satstore.NewSatelliteStore(satStoreDir, satStoreExt), old, new)
 	group := errgroup.Group{}
 	group.Go(func() error { return chore.Run(ctx) })
 	defer ctx.Check(group.Wait)
 	defer ctx.Check(chore.Close)
 
-	for sat := range satellites1 {
-		chore.SetMigrate(sat, true)
-	}
 	for sat := range satellites2 {
-		chore.SetMigrate(sat, false) // explicitly excluded
+		chore.SetMigrate(sat, false, false) // explicitly excluded
 	}
 
 	for sat, pieces := range satellites2 {
@@ -162,13 +174,18 @@ func TestChoreActiveWithPassiveMigration(t *testing.T) {
 	writeSatsPieces(ctx, t, old, excludedSatellites3)
 
 	config := Config{
-		BatchSize:       100,
-		Interval:        100 * time.Millisecond,
-		MigrateInactive: false,
-		ActiveMigration: true,
+		BatchSize:         100,
+		Interval:          100 * time.Millisecond,
+		MigrateRegardless: false,
 	}
 
-	chore := NewChore(log, config, old, new)
+	satStoreDir, satStoreExt := t.TempDir(), "chore_migrate"
+
+	for sat := range migratedSatellites {
+		require.NoError(t, os.WriteFile(filepath.Join(satStoreDir, sat.String()+"."+satStoreExt), []byte("true"), 0644))
+	}
+
+	chore := NewChore(log, config, satstore.NewSatelliteStore(satStoreDir, satStoreExt), old, new)
 	group := errgroup.Group{}
 	group.Go(func() error { return chore.Run(ctx) })
 	defer ctx.Check(group.Wait)
@@ -228,18 +245,15 @@ func TestChoreActiveWithPassiveMigration(t *testing.T) {
 		}
 	})
 
-	for sat := range migratedSatellites {
-		chore.SetMigrate(sat, true)
-	}
 	for sat := range excludedSatellites1 { // explicitly excluded
-		chore.SetMigrate(sat, false)
+		chore.SetMigrate(sat, false, true)
 	}
 
 	waitUntilMigrationFinished(ctx, t, old, migratedSatellites)
 
 	// excludedSatellites3 are no longer excluded:
 	for sat, pieces := range excludedSatellites3 {
-		chore.SetMigrate(sat, true)
+		chore.SetMigrate(sat, true, true)
 		migratedSatellitesMu.Lock()
 		migratedSatellites[sat] = pieces
 		migratedSatellitesMu.Unlock()

@@ -35,8 +35,8 @@ type Migrator interface {
 	TryMigrateOne(sat storj.NodeID, piece storj.PieceID)
 }
 
-// MigratingBackend is a PieceBackend that can migrate pieces from and OldPieceBackend to a
-// HashStoreBackend.
+// MigratingBackend is a PieceBackend that can passively migrate pieces
+// from an OldPieceBackend to a HashStoreBackend.
 type MigratingBackend struct {
 	old      *OldPieceBackend
 	new      *HashStoreBackend

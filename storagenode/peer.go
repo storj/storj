@@ -681,6 +681,7 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, revocationDB exten
 		peer.Storage2.MigrationChore = piecemigrate.NewChore(
 			process.NamedLog(peer.Log, "piecemigrate:chore"),
 			config.Storage2Migration,
+			satstore.NewSatelliteStore(metaDir, "migrate_chore"),
 			peer.StorageOld.Store,
 			peer.Storage2.HashStoreBackend,
 		)

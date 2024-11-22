@@ -308,6 +308,7 @@ func (planet *Planet) newStorageNode(ctx context.Context, prefix string, index, 
 				state.WriteToNew = index%2 == 0
 				state.ReadNewFirst = index%4 == 0
 			})
+			peer.Storage2.MigrationChore.SetMigrate(entry.SatelliteURL.ID, index%2 == 0, index%4 == 0)
 		}
 	}
 
