@@ -173,7 +173,7 @@ func (db *satelliteDB) productionMigrationSpanner() *migrate.Migration {
 				Description: "Initial setup",
 				Version:     283,
 				Action: migrate.SQL{
-					`CREATE TABLE account_freeze_events (
+					`CREATE TABLE IF NOT EXISTS account_freeze_events (
 						user_id BYTES(MAX) NOT NULL,
 						event INT64 NOT NULL,
 						limits JSON,
@@ -182,7 +182,7 @@ func (db *satelliteDB) productionMigrationSpanner() *migrate.Migration {
 						created_at TIMESTAMP NOT NULL DEFAULT (current_timestamp)
 					) PRIMARY KEY ( user_id, event )`,
 
-					`CREATE TABLE accounting_rollups (
+					`CREATE TABLE IF NOT EXISTS accounting_rollups (
 						node_id BYTES(MAX) NOT NULL,
 						start_time TIMESTAMP NOT NULL,
 						put_total INT64 NOT NULL,
@@ -194,12 +194,12 @@ func (db *satelliteDB) productionMigrationSpanner() *migrate.Migration {
 						interval_end_time TIMESTAMP
 					) PRIMARY KEY ( node_id, start_time )`,
 
-					`CREATE TABLE accounting_timestamps (
+					`CREATE TABLE IF NOT EXISTS accounting_timestamps (
 						name STRING(MAX) NOT NULL,
 						value TIMESTAMP NOT NULL
 					) PRIMARY KEY ( name )`,
 
-					`CREATE TABLE billing_balances (
+					`CREATE TABLE IF NOT EXISTS billing_balances (
 						user_id BYTES(MAX) NOT NULL,
 						balance INT64 NOT NULL,
 						last_updated TIMESTAMP NOT NULL
@@ -207,7 +207,7 @@ func (db *satelliteDB) productionMigrationSpanner() *migrate.Migration {
 
 					`CREATE SEQUENCE billing_transactions_id OPTIONS (sequence_kind='bit_reversed_positive')`,
 
-					`CREATE TABLE billing_transactions (
+					`CREATE TABLE IF NOT EXISTS billing_transactions (
 						id INT64 NOT NULL DEFAULT (GET_NEXT_SEQUENCE_VALUE(SEQUENCE billing_transactions_id)),
 						user_id BYTES(MAX) NOT NULL,
 						amount INT64 NOT NULL,
@@ -221,7 +221,7 @@ func (db *satelliteDB) productionMigrationSpanner() *migrate.Migration {
 						created_at TIMESTAMP NOT NULL
 					) PRIMARY KEY ( id )`,
 
-					`CREATE TABLE bucket_bandwidth_rollups (
+					`CREATE TABLE IF NOT EXISTS bucket_bandwidth_rollups (
 						bucket_name BYTES(MAX) NOT NULL,
 						project_id BYTES(MAX) NOT NULL,
 						interval_start TIMESTAMP NOT NULL,
@@ -232,7 +232,7 @@ func (db *satelliteDB) productionMigrationSpanner() *migrate.Migration {
 						settled INT64 NOT NULL
 					) PRIMARY KEY ( project_id, bucket_name, interval_start, action )`,
 
-					`CREATE TABLE bucket_bandwidth_rollup_archives (
+					`CREATE TABLE IF NOT EXISTS bucket_bandwidth_rollup_archives (
 						bucket_name BYTES(MAX) NOT NULL,
 						project_id BYTES(MAX) NOT NULL,
 						interval_start TIMESTAMP NOT NULL,
@@ -243,7 +243,7 @@ func (db *satelliteDB) productionMigrationSpanner() *migrate.Migration {
 						settled INT64 NOT NULL
 					) PRIMARY KEY ( bucket_name, project_id, interval_start, action )`,
 
-					`CREATE TABLE bucket_storage_tallies (
+					`CREATE TABLE IF NOT EXISTS bucket_storage_tallies (
 						bucket_name BYTES(MAX) NOT NULL,
 						project_id BYTES(MAX) NOT NULL,
 						interval_start TIMESTAMP NOT NULL,
@@ -257,7 +257,7 @@ func (db *satelliteDB) productionMigrationSpanner() *migrate.Migration {
 						metadata_size INT64 NOT NULL
 					) PRIMARY KEY ( bucket_name, project_id, interval_start )`,
 
-					`CREATE TABLE coinpayments_transactions (
+					`CREATE TABLE IF NOT EXISTS coinpayments_transactions (
 						id STRING(MAX) NOT NULL,
 						user_id BYTES(MAX) NOT NULL,
 						address STRING(MAX) NOT NULL,
@@ -269,7 +269,7 @@ func (db *satelliteDB) productionMigrationSpanner() *migrate.Migration {
 						created_at TIMESTAMP NOT NULL
 					) PRIMARY KEY ( id )`,
 
-					`CREATE TABLE graceful_exit_progress (
+					`CREATE TABLE IF NOT EXISTS graceful_exit_progress (
 						node_id BYTES(MAX) NOT NULL,
 						bytes_transferred INT64 NOT NULL,
 						pieces_transferred INT64 NOT NULL DEFAULT (0),
@@ -277,7 +277,7 @@ func (db *satelliteDB) productionMigrationSpanner() *migrate.Migration {
 						updated_at TIMESTAMP NOT NULL
 					) PRIMARY KEY ( node_id )`,
 
-					`CREATE TABLE graceful_exit_segment_transfer_queue (
+					`CREATE TABLE IF NOT EXISTS graceful_exit_segment_transfer_queue (
 						node_id BYTES(MAX) NOT NULL,
 						stream_id BYTES(MAX) NOT NULL,
 						position INT64 NOT NULL,
@@ -293,7 +293,7 @@ func (db *satelliteDB) productionMigrationSpanner() *migrate.Migration {
 						order_limit_send_count INT64 NOT NULL DEFAULT (0)
 					) PRIMARY KEY ( node_id, stream_id, position, piece_num )`,
 
-					`CREATE TABLE nodes (
+					`CREATE TABLE IF NOT EXISTS nodes (
 						id BYTES(MAX) NOT NULL,
 						address STRING(MAX) NOT NULL DEFAULT (""),
 						last_net STRING(MAX) NOT NULL,
@@ -335,14 +335,14 @@ func (db *satelliteDB) productionMigrationSpanner() *migrate.Migration {
 						features INT64 NOT NULL DEFAULT (0)
 					) PRIMARY KEY ( id )`,
 
-					`CREATE TABLE node_api_versions (
+					`CREATE TABLE IF NOT EXISTS node_api_versions (
 						id BYTES(MAX) NOT NULL,
 						api_version INT64 NOT NULL,
 						created_at TIMESTAMP NOT NULL,
 						updated_at TIMESTAMP NOT NULL
 					) PRIMARY KEY ( id )`,
 
-					`CREATE TABLE node_events (
+					`CREATE TABLE IF NOT EXISTS node_events (
 						id BYTES(MAX) NOT NULL,
 						email STRING(MAX) NOT NULL,
 						last_ip_port STRING(MAX),
@@ -353,7 +353,7 @@ func (db *satelliteDB) productionMigrationSpanner() *migrate.Migration {
 						email_sent TIMESTAMP
 					) PRIMARY KEY ( id )`,
 
-					`CREATE TABLE node_tags (
+					`CREATE TABLE IF NOT EXISTS node_tags (
 						node_id BYTES(MAX) NOT NULL,
 						name STRING(MAX) NOT NULL,
 						value BYTES(MAX) NOT NULL,
@@ -361,7 +361,7 @@ func (db *satelliteDB) productionMigrationSpanner() *migrate.Migration {
 						signer BYTES(MAX) NOT NULL
 					) PRIMARY KEY ( node_id, name, signer )`,
 
-					`CREATE TABLE oauth_clients (
+					`CREATE TABLE IF NOT EXISTS oauth_clients (
 						id BYTES(MAX) NOT NULL,
 						encrypted_secret BYTES(MAX) NOT NULL,
 						redirect_url STRING(MAX) NOT NULL,
@@ -370,7 +370,7 @@ func (db *satelliteDB) productionMigrationSpanner() *migrate.Migration {
 						app_logo_url STRING(MAX) NOT NULL
 					) PRIMARY KEY ( id )`,
 
-					`CREATE TABLE oauth_codes (
+					`CREATE TABLE IF NOT EXISTS oauth_codes (
 						client_id BYTES(MAX) NOT NULL,
 						user_id BYTES(MAX) NOT NULL,
 						scope STRING(MAX) NOT NULL,
@@ -383,7 +383,7 @@ func (db *satelliteDB) productionMigrationSpanner() *migrate.Migration {
 						claimed_at TIMESTAMP
 					) PRIMARY KEY ( code )`,
 
-					`CREATE TABLE oauth_tokens (
+					`CREATE TABLE IF NOT EXISTS oauth_tokens (
 						client_id BYTES(MAX) NOT NULL,
 						user_id BYTES(MAX) NOT NULL,
 						scope STRING(MAX) NOT NULL,
@@ -393,14 +393,14 @@ func (db *satelliteDB) productionMigrationSpanner() *migrate.Migration {
 						expires_at TIMESTAMP NOT NULL
 					) PRIMARY KEY ( token )`,
 
-					`CREATE TABLE peer_identities (
+					`CREATE TABLE IF NOT EXISTS peer_identities (
 						node_id BYTES(MAX) NOT NULL,
 						leaf_serial_number BYTES(MAX) NOT NULL,
 						chain BYTES(MAX) NOT NULL,
 						updated_at TIMESTAMP NOT NULL
 					) PRIMARY KEY ( node_id )`,
 
-					`CREATE TABLE projects (
+					`CREATE TABLE IF NOT EXISTS projects (
 						id BYTES(MAX) NOT NULL,
 						public_id BYTES(MAX),
 						name STRING(MAX) NOT NULL,
@@ -435,7 +435,7 @@ func (db *satelliteDB) productionMigrationSpanner() *migrate.Migration {
 						path_encryption BOOL NOT NULL DEFAULT (true)
 					) PRIMARY KEY ( id )`,
 
-					`CREATE TABLE project_bandwidth_daily_rollups (
+					`CREATE TABLE IF NOT EXISTS project_bandwidth_daily_rollups (
 						project_id BYTES(MAX) NOT NULL,
 						interval_day DATE NOT NULL,
 						egress_allocated INT64 NOT NULL,
@@ -443,16 +443,16 @@ func (db *satelliteDB) productionMigrationSpanner() *migrate.Migration {
 						egress_dead INT64 NOT NULL DEFAULT (0)
 					) PRIMARY KEY ( project_id, interval_day )`,
 
-					`CREATE TABLE registration_tokens (
+					`CREATE TABLE IF NOT EXISTS registration_tokens (
 						secret BYTES(MAX) NOT NULL,
 						owner_id BYTES(MAX),
 						project_limit INT64 NOT NULL,
 						created_at TIMESTAMP NOT NULL
 					) PRIMARY KEY ( secret )`,
 
-					`CREATE UNIQUE INDEX index_registration_tokens_owner_id ON registration_tokens ( owner_id )`,
+					`CREATE UNIQUE INDEX IF NOT EXISTS index_registration_tokens_owner_id ON registration_tokens ( owner_id )`,
 
-					`CREATE TABLE repair_queue (
+					`CREATE TABLE IF NOT EXISTS repair_queue (
 						stream_id BYTES(MAX) NOT NULL,
 						position INT64 NOT NULL,
 						attempted_at TIMESTAMP,
@@ -462,7 +462,7 @@ func (db *satelliteDB) productionMigrationSpanner() *migrate.Migration {
 						placement INT64
 					) PRIMARY KEY ( stream_id, position )`,
 
-					`CREATE TABLE reputations (
+					`CREATE TABLE IF NOT EXISTS reputations (
 						id BYTES(MAX) NOT NULL,
 						audit_success_count INT64 NOT NULL DEFAULT (0),
 						total_audit_count INT64 NOT NULL DEFAULT (0),
@@ -482,15 +482,15 @@ func (db *satelliteDB) productionMigrationSpanner() *migrate.Migration {
 						unknown_audit_reputation_beta FLOAT64 NOT NULL DEFAULT (0)
 					) PRIMARY KEY ( id )`,
 
-					`CREATE TABLE reset_password_tokens (
+					`CREATE TABLE IF NOT EXISTS reset_password_tokens (
 						secret BYTES(MAX) NOT NULL,
 						owner_id BYTES(MAX) NOT NULL,
 						created_at TIMESTAMP NOT NULL
 					) PRIMARY KEY ( secret )`,
 
-					`CREATE UNIQUE INDEX index_reset_password_tokens_owner_id ON reset_password_tokens ( owner_id )`,
+					`CREATE UNIQUE INDEX IF NOT EXISTS index_reset_password_tokens_owner_id ON reset_password_tokens ( owner_id )`,
 
-					`CREATE TABLE reverification_audits (
+					`CREATE TABLE IF NOT EXISTS reverification_audits (
 						node_id BYTES(MAX) NOT NULL,
 						stream_id BYTES(MAX) NOT NULL,
 						position INT64 NOT NULL,
@@ -500,12 +500,12 @@ func (db *satelliteDB) productionMigrationSpanner() *migrate.Migration {
 						reverify_count INT64 NOT NULL DEFAULT (0)
 					) PRIMARY KEY ( node_id, stream_id, position )`,
 
-					`CREATE TABLE revocations (
+					`CREATE TABLE IF NOT EXISTS revocations (
 						revoked BYTES(MAX) NOT NULL,
 						api_key_id BYTES(MAX) NOT NULL
 					) PRIMARY KEY ( revoked )`,
 
-					`CREATE TABLE segment_pending_audits (
+					`CREATE TABLE IF NOT EXISTS segment_pending_audits (
 						node_id BYTES(MAX) NOT NULL,
 						stream_id BYTES(MAX) NOT NULL,
 						position INT64 NOT NULL,
@@ -516,7 +516,7 @@ func (db *satelliteDB) productionMigrationSpanner() *migrate.Migration {
 						reverify_count INT64 NOT NULL
 					) PRIMARY KEY ( node_id )`,
 
-					`CREATE TABLE storagenode_bandwidth_rollups (
+					`CREATE TABLE IF NOT EXISTS storagenode_bandwidth_rollups (
 						storagenode_id BYTES(MAX) NOT NULL,
 						interval_start TIMESTAMP NOT NULL,
 						interval_seconds INT64 NOT NULL,
@@ -525,7 +525,7 @@ func (db *satelliteDB) productionMigrationSpanner() *migrate.Migration {
 						settled INT64 NOT NULL
 					) PRIMARY KEY ( storagenode_id, interval_start, action )`,
 
-					`CREATE TABLE storagenode_bandwidth_rollup_archives (
+					`CREATE TABLE IF NOT EXISTS storagenode_bandwidth_rollup_archives (
 						storagenode_id BYTES(MAX) NOT NULL,
 						interval_start TIMESTAMP NOT NULL,
 						interval_seconds INT64 NOT NULL,
@@ -534,7 +534,7 @@ func (db *satelliteDB) productionMigrationSpanner() *migrate.Migration {
 						settled INT64 NOT NULL
 					) PRIMARY KEY ( storagenode_id, interval_start, action )`,
 
-					`CREATE TABLE storagenode_bandwidth_rollups_phase2 (
+					`CREATE TABLE IF NOT EXISTS storagenode_bandwidth_rollups_phase2 (
 						storagenode_id BYTES(MAX) NOT NULL,
 						interval_start TIMESTAMP NOT NULL,
 						interval_seconds INT64 NOT NULL,
@@ -543,9 +543,9 @@ func (db *satelliteDB) productionMigrationSpanner() *migrate.Migration {
 						settled INT64 NOT NULL
 					) PRIMARY KEY ( storagenode_id, interval_start, action )`,
 
-					`CREATE SEQUENCE storagenode_payments_id OPTIONS (sequence_kind='bit_reversed_positive')`,
+					`CREATE SEQUENCE IF NOT EXISTS storagenode_payments_id OPTIONS (sequence_kind='bit_reversed_positive')`,
 
-					`CREATE TABLE storagenode_payments (
+					`CREATE TABLE IF NOT EXISTS storagenode_payments (
 						id INT64 NOT NULL DEFAULT (GET_NEXT_SEQUENCE_VALUE(SEQUENCE storagenode_payments_id)),
 						created_at TIMESTAMP NOT NULL,
 						node_id BYTES(MAX) NOT NULL,
@@ -555,7 +555,7 @@ func (db *satelliteDB) productionMigrationSpanner() *migrate.Migration {
 						notes STRING(MAX)
 					) PRIMARY KEY ( id )`,
 
-					`CREATE TABLE storagenode_paystubs (
+					`CREATE TABLE IF NOT EXISTS storagenode_paystubs (
 						period STRING(MAX) NOT NULL,
 						node_id BYTES(MAX) NOT NULL,
 						created_at TIMESTAMP NOT NULL,
@@ -580,13 +580,13 @@ func (db *satelliteDB) productionMigrationSpanner() *migrate.Migration {
 						distributed INT64 NOT NULL
 					) PRIMARY KEY ( period, node_id )`,
 
-					`CREATE TABLE storagenode_storage_tallies (
+					`CREATE TABLE IF NOT EXISTS storagenode_storage_tallies (
 						node_id BYTES(MAX) NOT NULL,
 						interval_end_time TIMESTAMP NOT NULL,
 						data_total FLOAT64 NOT NULL
 					) PRIMARY KEY ( interval_end_time, node_id )`,
 
-					`CREATE TABLE storjscan_payments (
+					`CREATE TABLE IF NOT EXISTS storjscan_payments (
 						chain_id INT64 NOT NULL DEFAULT (0),
 						block_hash BYTES(MAX) NOT NULL,
 						block_number INT64 NOT NULL,
@@ -601,13 +601,13 @@ func (db *satelliteDB) productionMigrationSpanner() *migrate.Migration {
 						created_at TIMESTAMP NOT NULL
 					) PRIMARY KEY ( block_hash, log_index )`,
 
-					`CREATE TABLE storjscan_wallets (
+					`CREATE TABLE IF NOT EXISTS storjscan_wallets (
 						user_id BYTES(MAX) NOT NULL,
 						wallet_address BYTES(MAX) NOT NULL,
 						created_at TIMESTAMP NOT NULL
 					) PRIMARY KEY ( user_id, wallet_address )`,
 
-					`CREATE TABLE stripe_customers (
+					`CREATE TABLE IF NOT EXISTS stripe_customers (
 						user_id BYTES(MAX) NOT NULL,
 						customer_id STRING(MAX) NOT NULL,
 						billing_customer_id STRING(MAX),
@@ -616,9 +616,9 @@ func (db *satelliteDB) productionMigrationSpanner() *migrate.Migration {
 						created_at TIMESTAMP NOT NULL
 					) PRIMARY KEY ( user_id )`,
 
-					`CREATE UNIQUE INDEX index_stripe_customers_customer_id ON stripe_customers ( customer_id )`,
+					`CREATE UNIQUE INDEX IF NOT EXISTS index_stripe_customers_customer_id ON stripe_customers ( customer_id )`,
 
-					`CREATE TABLE stripecoinpayments_invoice_project_records (
+					`CREATE TABLE IF NOT EXISTS stripecoinpayments_invoice_project_records (
 						id BYTES(MAX) NOT NULL,
 						project_id BYTES(MAX) NOT NULL,
 						storage FLOAT64 NOT NULL,
@@ -631,15 +631,15 @@ func (db *satelliteDB) productionMigrationSpanner() *migrate.Migration {
 						created_at TIMESTAMP NOT NULL
 					) PRIMARY KEY ( id )`,
 
-					`CREATE UNIQUE INDEX index_stripecoinpayments_invoice_project_records_project_id_period_start_period_end ON stripecoinpayments_invoice_project_records ( project_id, period_start, period_end )`,
+					`CREATE UNIQUE INDEX IF NOT EXISTS index_stripecoinpayments_invoice_project_records_project_id_period_start_period_end ON stripecoinpayments_invoice_project_records ( project_id, period_start, period_end )`,
 
-					`CREATE TABLE stripecoinpayments_tx_conversion_rates (
+					`CREATE TABLE IF NOT EXISTS stripecoinpayments_tx_conversion_rates (
 						tx_id STRING(MAX) NOT NULL,
 						rate_numeric FLOAT64 NOT NULL,
 						created_at TIMESTAMP NOT NULL
 					) PRIMARY KEY ( tx_id )`,
 
-					`CREATE TABLE users (
+					`CREATE TABLE IF NOT EXISTS users (
 						id BYTES(MAX) NOT NULL,
 						external_id STRING(MAX),
 						email STRING(MAX) NOT NULL,
@@ -682,7 +682,7 @@ func (db *satelliteDB) productionMigrationSpanner() *migrate.Migration {
 						upgrade_time TIMESTAMP
 					) PRIMARY KEY ( id )`,
 
-					`CREATE TABLE user_settings (
+					`CREATE TABLE IF NOT EXISTS user_settings (
 						user_id BYTES(MAX) NOT NULL,
 						session_minutes INT64,
 						passphrase_prompt BOOL,
@@ -692,14 +692,14 @@ func (db *satelliteDB) productionMigrationSpanner() *migrate.Migration {
 						notice_dismissal JSON NOT NULL DEFAULT (JSON "{}")
 					) PRIMARY KEY ( user_id )`,
 
-					`CREATE TABLE value_attributions (
+					`CREATE TABLE IF NOT EXISTS value_attributions (
 						project_id BYTES(MAX) NOT NULL,
 						bucket_name BYTES(MAX) NOT NULL,
 						user_agent BYTES(MAX),
 						last_updated TIMESTAMP NOT NULL
 					) PRIMARY KEY ( project_id, bucket_name )`,
 
-					`CREATE TABLE verification_audits (
+					`CREATE TABLE IF NOT EXISTS verification_audits (
 						inserted_at TIMESTAMP NOT NULL DEFAULT (current_timestamp),
 						stream_id BYTES(MAX) NOT NULL,
 						position INT64 NOT NULL,
@@ -707,7 +707,7 @@ func (db *satelliteDB) productionMigrationSpanner() *migrate.Migration {
 						encrypted_size INT64 NOT NULL
 					) PRIMARY KEY ( inserted_at, stream_id, position )`,
 
-					`CREATE TABLE webapp_sessions (
+					`CREATE TABLE IF NOT EXISTS webapp_sessions (
 						id BYTES(MAX) NOT NULL,
 						user_id BYTES(MAX) NOT NULL,
 						ip_address STRING(MAX) NOT NULL,
@@ -716,7 +716,7 @@ func (db *satelliteDB) productionMigrationSpanner() *migrate.Migration {
 						expires_at TIMESTAMP NOT NULL
 					) PRIMARY KEY ( id )`,
 
-					`CREATE TABLE api_keys (
+					`CREATE TABLE IF NOT EXISTS api_keys (
 						id BYTES(MAX) NOT NULL,
 						project_id BYTES(MAX) NOT NULL,
 						head BYTES(MAX) NOT NULL,
@@ -730,11 +730,11 @@ func (db *satelliteDB) productionMigrationSpanner() *migrate.Migration {
 						CONSTRAINT api_keys_created_by_fkey FOREIGN KEY (created_by) REFERENCES users (id)
 					) PRIMARY KEY ( id )`,
 
-					`CREATE UNIQUE INDEX index_api_keys_head ON api_keys ( head )`,
+					`CREATE UNIQUE INDEX IF NOT EXISTS index_api_keys_head ON api_keys ( head )`,
 
-					`CREATE UNIQUE INDEX index_api_keys_name_project_id ON api_keys ( name, project_id )`,
+					`CREATE UNIQUE INDEX IF NOT EXISTS index_api_keys_name_project_id ON api_keys ( name, project_id )`,
 
-					`CREATE TABLE bucket_metainfos (
+					`CREATE TABLE IF NOT EXISTS bucket_metainfos (
 						id BYTES(MAX) NOT NULL,
 						project_id BYTES(MAX) NOT NULL,
 						name BYTES(MAX) NOT NULL,
@@ -761,7 +761,7 @@ func (db *satelliteDB) productionMigrationSpanner() *migrate.Migration {
 						CONSTRAINT bucket_metainfos_created_by_fkey FOREIGN KEY (created_by) REFERENCES users (id)
 					) PRIMARY KEY ( project_id, name )`,
 
-					`CREATE TABLE project_invitations (
+					`CREATE TABLE IF NOT EXISTS project_invitations (
 						project_id BYTES(MAX) NOT NULL,
 						email STRING(MAX) NOT NULL,
 						inviter_id BYTES(MAX),
@@ -770,7 +770,7 @@ func (db *satelliteDB) productionMigrationSpanner() *migrate.Migration {
 						CONSTRAINT project_invitations_inviter_id_fkey FOREIGN KEY (inviter_id) REFERENCES users (id) ON DELETE CASCADE
 					) PRIMARY KEY ( project_id, email )`,
 
-					`CREATE TABLE project_members (
+					`CREATE TABLE IF NOT EXISTS project_members (
 						member_id BYTES(MAX) NOT NULL,
 						project_id BYTES(MAX) NOT NULL,
 						role INT64 NOT NULL DEFAULT (0),
@@ -779,94 +779,94 @@ func (db *satelliteDB) productionMigrationSpanner() *migrate.Migration {
 						CONSTRAINT project_members_project_id_fkey FOREIGN KEY (project_id) REFERENCES projects (id) ON DELETE CASCADE
 					) PRIMARY KEY ( member_id, project_id )`,
 
-					`CREATE TABLE stripecoinpayments_apply_balance_intents (
+					`CREATE TABLE IF NOT EXISTS stripecoinpayments_apply_balance_intents (
 						tx_id STRING(MAX) NOT NULL,
 						state INT64 NOT NULL,
 						created_at TIMESTAMP NOT NULL,
 						CONSTRAINT stripecoinpayments_apply_balance_intents_tx_id_fkey FOREIGN KEY (tx_id) REFERENCES coinpayments_transactions (id) ON DELETE CASCADE
 					) PRIMARY KEY ( tx_id )`,
 
-					`CREATE INDEX accounting_rollups_start_time_index ON accounting_rollups ( start_time )`,
+					`CREATE INDEX IF NOT EXISTS accounting_rollups_start_time_index ON accounting_rollups ( start_time )`,
 
-					`CREATE INDEX billing_transactions_tx_timestamp_index ON billing_transactions ( tx_timestamp )`,
+					`CREATE INDEX IF NOT EXISTS billing_transactions_tx_timestamp_index ON billing_transactions ( tx_timestamp )`,
 
-					`CREATE INDEX bucket_bandwidth_rollups_project_id_action_interval_index ON bucket_bandwidth_rollups ( project_id, action, interval_start )`,
+					`CREATE INDEX IF NOT EXISTS bucket_bandwidth_rollups_project_id_action_interval_index ON bucket_bandwidth_rollups ( project_id, action, interval_start )`,
 
-					`CREATE INDEX bucket_bandwidth_rollups_action_interval_project_id_index ON bucket_bandwidth_rollups ( action, interval_start, project_id )`,
+					`CREATE INDEX IF NOT EXISTS bucket_bandwidth_rollups_action_interval_project_id_index ON bucket_bandwidth_rollups ( action, interval_start, project_id )`,
 
-					`CREATE INDEX bucket_bandwidth_rollups_archive_project_id_action_interval_index ON bucket_bandwidth_rollup_archives ( project_id, action, interval_start )`,
+					`CREATE INDEX IF NOT EXISTS bucket_bandwidth_rollups_archive_project_id_action_interval_index ON bucket_bandwidth_rollup_archives ( project_id, action, interval_start )`,
 
-					`CREATE INDEX bucket_bandwidth_rollups_archive_action_interval_project_id_index ON bucket_bandwidth_rollup_archives ( action, interval_start, project_id )`,
+					`CREATE INDEX IF NOT EXISTS bucket_bandwidth_rollups_archive_action_interval_project_id_index ON bucket_bandwidth_rollup_archives ( action, interval_start, project_id )`,
 
-					`CREATE INDEX bucket_storage_tallies_project_id_interval_start_index ON bucket_storage_tallies ( project_id, interval_start )`,
+					`CREATE INDEX IF NOT EXISTS bucket_storage_tallies_project_id_interval_start_index ON bucket_storage_tallies ( project_id, interval_start )`,
 
-					`CREATE INDEX bucket_storage_tallies_interval_start_index ON bucket_storage_tallies ( interval_start )`,
+					`CREATE INDEX IF NOT EXISTS bucket_storage_tallies_interval_start_index ON bucket_storage_tallies ( interval_start )`,
 
-					`CREATE INDEX graceful_exit_segment_transfer_nid_dr_qa_fa_lfa_index ON graceful_exit_segment_transfer_queue ( node_id, durability_ratio, queued_at, finished_at, last_failed_at )`,
+					`CREATE INDEX IF NOT EXISTS graceful_exit_segment_transfer_nid_dr_qa_fa_lfa_index ON graceful_exit_segment_transfer_queue ( node_id, durability_ratio, queued_at, finished_at, last_failed_at )`,
 
-					`CREATE INDEX node_last_ip ON nodes ( last_net )`,
+					`CREATE INDEX IF NOT EXISTS node_last_ip ON nodes ( last_net )`,
 
-					`CREATE INDEX nodes_dis_unk_off_exit_fin_last_success_index ON nodes ( disqualified, unknown_audit_suspended, offline_suspended, exit_finished_at, last_contact_success )`,
+					`CREATE INDEX IF NOT EXISTS nodes_dis_unk_off_exit_fin_last_success_index ON nodes ( disqualified, unknown_audit_suspended, offline_suspended, exit_finished_at, last_contact_success )`,
 
-					`CREATE INDEX nodes_last_cont_success_free_disk_ma_mi_patch_vetted_partial_index ON nodes ( last_contact_success, free_disk, major, minor, patch, vetted_at )`,
+					`CREATE INDEX IF NOT EXISTS nodes_last_cont_success_free_disk_ma_mi_patch_vetted_partial_index ON nodes ( last_contact_success, free_disk, major, minor, patch, vetted_at )`,
 
-					`CREATE INDEX nodes_dis_unk_aud_exit_init_rel_last_cont_success_stored_index ON nodes ( disqualified, unknown_audit_suspended, exit_initiated_at, release, last_contact_success )`,
+					`CREATE INDEX IF NOT EXISTS nodes_dis_unk_aud_exit_init_rel_last_cont_success_stored_index ON nodes ( disqualified, unknown_audit_suspended, exit_initiated_at, release, last_contact_success )`,
 
-					`CREATE INDEX node_events_email_event_created_at_index ON node_events ( email, event, created_at )`,
+					`CREATE INDEX IF NOT EXISTS node_events_email_event_created_at_index ON node_events ( email, event, created_at )`,
 
-					`CREATE INDEX oauth_clients_user_id_index ON oauth_clients ( user_id )`,
+					`CREATE INDEX IF NOT EXISTS oauth_clients_user_id_index ON oauth_clients ( user_id )`,
 
-					`CREATE INDEX oauth_codes_user_id_index ON oauth_codes ( user_id )`,
+					`CREATE INDEX IF NOT EXISTS oauth_codes_user_id_index ON oauth_codes ( user_id )`,
 
-					`CREATE INDEX oauth_codes_client_id_index ON oauth_codes ( client_id )`,
+					`CREATE INDEX IF NOT EXISTS oauth_codes_client_id_index ON oauth_codes ( client_id )`,
 
-					`CREATE INDEX oauth_tokens_user_id_index ON oauth_tokens ( user_id )`,
+					`CREATE INDEX IF NOT EXISTS oauth_tokens_user_id_index ON oauth_tokens ( user_id )`,
 
-					`CREATE INDEX oauth_tokens_client_id_index ON oauth_tokens ( client_id )`,
+					`CREATE INDEX IF NOT EXISTS oauth_tokens_client_id_index ON oauth_tokens ( client_id )`,
 
-					`CREATE INDEX projects_public_id_index ON projects ( public_id )`,
+					`CREATE INDEX IF NOT EXISTS projects_public_id_index ON projects ( public_id )`,
 
-					`CREATE INDEX projects_owner_id_index ON projects ( owner_id )`,
+					`CREATE INDEX IF NOT EXISTS projects_owner_id_index ON projects ( owner_id )`,
 
-					`CREATE INDEX project_bandwidth_daily_rollup_interval_day_index ON project_bandwidth_daily_rollups ( interval_day )`,
+					`CREATE INDEX IF NOT EXISTS project_bandwidth_daily_rollup_interval_day_index ON project_bandwidth_daily_rollups ( interval_day )`,
 
-					`CREATE INDEX repair_queue_updated_at_index ON repair_queue ( updated_at )`,
+					`CREATE INDEX IF NOT EXISTS repair_queue_updated_at_index ON repair_queue ( updated_at )`,
 
-					`CREATE INDEX repair_queue_num_healthy_pieces_attempted_at_index ON repair_queue ( segment_health, attempted_at )`,
+					`CREATE INDEX IF NOT EXISTS repair_queue_num_healthy_pieces_attempted_at_index ON repair_queue ( segment_health, attempted_at )`,
 
-					`CREATE INDEX repair_queue_placement_index ON repair_queue ( placement )`,
+					`CREATE INDEX IF NOT EXISTS repair_queue_placement_index ON repair_queue ( placement )`,
 
-					`CREATE INDEX reverification_audits_inserted_at_index ON reverification_audits ( inserted_at )`,
+					`CREATE INDEX IF NOT EXISTS reverification_audits_inserted_at_index ON reverification_audits ( inserted_at )`,
 
-					`CREATE INDEX storagenode_bandwidth_rollups_interval_start_index ON storagenode_bandwidth_rollups ( interval_start )`,
+					`CREATE INDEX IF NOT EXISTS storagenode_bandwidth_rollups_interval_start_index ON storagenode_bandwidth_rollups ( interval_start )`,
 
-					`CREATE INDEX storagenode_bandwidth_rollup_archives_interval_start_index ON storagenode_bandwidth_rollup_archives ( interval_start )`,
+					`CREATE INDEX IF NOT EXISTS storagenode_bandwidth_rollup_archives_interval_start_index ON storagenode_bandwidth_rollup_archives ( interval_start )`,
 
-					`CREATE INDEX storagenode_payments_node_id_period_index ON storagenode_payments ( node_id, period )`,
+					`CREATE INDEX IF NOT EXISTS storagenode_payments_node_id_period_index ON storagenode_payments ( node_id, period )`,
 
-					`CREATE INDEX storagenode_paystubs_node_id_index ON storagenode_paystubs ( node_id )`,
+					`CREATE INDEX IF NOT EXISTS storagenode_paystubs_node_id_index ON storagenode_paystubs ( node_id )`,
 
-					`CREATE INDEX storagenode_storage_tallies_node_id_index ON storagenode_storage_tallies ( node_id )`,
+					`CREATE INDEX IF NOT EXISTS storagenode_storage_tallies_node_id_index ON storagenode_storage_tallies ( node_id )`,
 
-					`CREATE INDEX storjscan_payments_chain_id_block_number_log_index_index ON storjscan_payments ( chain_id, block_number, log_index )`,
+					`CREATE INDEX IF NOT EXISTS storjscan_payments_chain_id_block_number_log_index_index ON storjscan_payments ( chain_id, block_number, log_index )`,
 
-					`CREATE INDEX storjscan_wallets_wallet_address_index ON storjscan_wallets ( wallet_address )`,
+					`CREATE INDEX IF NOT EXISTS storjscan_wallets_wallet_address_index ON storjscan_wallets ( wallet_address )`,
 
-					`CREATE INDEX stripecoinpayments_invoice_project_records_unbilled_project_id_index ON stripecoinpayments_invoice_project_records ( project_id )`,
+					`CREATE INDEX IF NOT EXISTS stripecoinpayments_invoice_project_records_unbilled_project_id_index ON stripecoinpayments_invoice_project_records ( project_id )`,
 
-					`CREATE INDEX users_email_status_index ON users ( normalized_email, status )`,
+					`CREATE INDEX IF NOT EXISTS users_email_status_index ON users ( normalized_email, status )`,
 
-					`CREATE INDEX trial_expiration_index ON users ( trial_expiration )`,
+					`CREATE INDEX IF NOT EXISTS trial_expiration_index ON users ( trial_expiration )`,
 
-					`CREATE INDEX users_external_id_index ON users ( external_id )`,
+					`CREATE INDEX IF NOT EXISTS users_external_id_index ON users ( external_id )`,
 
-					`CREATE INDEX webapp_sessions_user_id_index ON webapp_sessions ( user_id )`,
+					`CREATE INDEX IF NOT EXISTS webapp_sessions_user_id_index ON webapp_sessions ( user_id )`,
 
-					`CREATE INDEX project_invitations_project_id_index ON project_invitations ( project_id )`,
+					`CREATE INDEX IF NOT EXISTS project_invitations_project_id_index ON project_invitations ( project_id )`,
 
-					`CREATE INDEX project_invitations_email_index ON project_invitations ( email )`,
+					`CREATE INDEX IF NOT EXISTS project_invitations_email_index ON project_invitations ( email )`,
 
-					`CREATE INDEX project_members_project_id_index ON project_members ( project_id )`,
+					`CREATE INDEX IF NOT EXISTS project_members_project_id_index ON project_members ( project_id )`,
 				},
 			},
 			{
