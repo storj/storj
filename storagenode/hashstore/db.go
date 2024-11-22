@@ -7,7 +7,6 @@ import (
 	"context"
 	"io/fs"
 	"path/filepath"
-	"runtime"
 	"sync"
 	"time"
 
@@ -55,10 +54,6 @@ func New(
 	shouldTrash func(context.Context, Key, time.Time) bool,
 	lastRestore func(context.Context) time.Time,
 ) (_ *DB, err error) {
-	if runtime.GOOS == "windows" {
-		return nil, Error.New("hashstore is not available on windows")
-	}
-
 	// set default values for the optional parameters.
 	if log == nil {
 		log = zap.NewNop()

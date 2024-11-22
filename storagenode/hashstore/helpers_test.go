@@ -46,6 +46,8 @@ func newTestHashtbl(t testing.TB, lrec uint64) *testHashTbl {
 	return &testHashTbl{t: t, HashTbl: h}
 }
 
+func (th *testHashTbl) Close() { th.HashTbl.Close() }
+
 func (th *testHashTbl) AssertReopen() {
 	th.t.Helper()
 
@@ -107,6 +109,8 @@ func newTestStore(t testing.TB) *testStore {
 
 	return ts
 }
+
+func (ts *testStore) Close() { ts.Store.Close() }
 
 func (ts *testStore) AssertReopen() {
 	ts.t.Helper()
@@ -194,6 +198,8 @@ func newTestDB(t testing.TB,
 
 	return td
 }
+
+func (td *testDB) Close() { td.DB.Close() }
 
 func (td *testDB) AssertReopen() {
 	td.t.Helper()

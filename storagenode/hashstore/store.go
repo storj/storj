@@ -50,6 +50,7 @@ type Store struct {
 	lastCompact atomic.Uint32              // date of the last compaction
 	tableFull   atomic.Uint64              // bumped every time the hash table is full
 	maxLog      atomic.Uint64              // maximum log file id
+	maxHash     atomic.Uint64              // maximum hashtbl id
 	stats       atomic.Pointer[StoreStats] // set during compaction to maintain consistency of Stats calls
 
 	rmu sync.RWMutex                // protects consistency of lfs and tbl
@@ -88,111 +89,139 @@ func NewStore(dir string, log *zap.Logger) (_ *Store, err error) {
 		return nil, Error.New("unable to create directory=%q: %w", dir, err)
 	}
 
-	// acquire the lock file to prevent concurrent use of the hash table.
-	s.lock, err = os.OpenFile(filepath.Join(s.meta, "lock"), os.O_CREATE|os.O_RDONLY, 0444)
-	if err != nil {
-		return nil, Error.New("unable to acquire lock: %w", err)
-	}
-	if err := flock(s.lock); err != nil {
-		return nil, Error.New("unable to flock: %w", err)
-	}
-
-	// read all of the files in the directories.
-	entries, err := os.ReadDir(s.dir)
-	if err != nil {
-		return nil, Error.New("unable to read log directory=%q: %w", dir, err)
-	}
-
-	// load all of the log files and keep track of if there is a hashtbl file.
-	for _, entry := range entries {
-		name := entry.Name()
-
-		// skip any files that don't look like log files. log file names are either
-		//     log-<16 bytes of id>
-		//     log-<16 bytes of id>-<8 bytes of ttl>
-		// so they always begin with "log-" and are either 20 or 29 bytes long.
-		if (len(name) != 20 && len(name) != 29) || name[0:4] != "log-" {
-			continue
-		}
-
-		id, err := strconv.ParseUint(name[4:20], 16, 64)
+	{ // acquire the lock file to prevent concurrent use of the hash table.
+		s.lock, err = os.OpenFile(filepath.Join(s.meta, "lock"), os.O_CREATE|os.O_RDWR, 0600)
 		if err != nil {
-			return nil, Error.New("unable to parse name=%q: %w", name, err)
+			return nil, Error.New("unable to create lock file: %w", err)
+		}
+		if err := flock(s.lock); err != nil {
+			return nil, Error.New("unable to flock: %w", err)
+		}
+	}
+
+	{ // open all of the log files
+		entries, err := os.ReadDir(s.dir)
+		if err != nil {
+			return nil, Error.New("unable to read log directory=%q: %w", dir, err)
 		}
 
-		var ttl uint32
-		if len(name) == 29 && name[20] == '-' {
-			ttl64, err := strconv.ParseUint(name[21:29], 16, 32)
+		// load all of the log files and keep track of if there is a hashtbl file.
+		for _, entry := range entries {
+			name := entry.Name()
+
+			// skip any files that don't look like log files. log file names are either
+			//     log-<16 bytes of id>
+			//     log-<16 bytes of id>-<8 bytes of ttl>
+			// so they always begin with "log-" and are either 20 or 29 bytes long.
+			if (len(name) != 20 && len(name) != 29) || name[0:4] != "log-" {
+				continue
+			}
+
+			id, err := strconv.ParseUint(name[4:20], 16, 64)
 			if err != nil {
 				return nil, Error.New("unable to parse name=%q: %w", name, err)
 			}
-			ttl = uint32(ttl64)
-		}
 
-		fh, err := os.OpenFile(filepath.Join(s.dir, name), os.O_RDWR, 0)
-		if err != nil {
-			return nil, Error.New("unable to open log file: %w", err)
-		}
+			var ttl uint32
+			if len(name) == 29 && name[20] == '-' {
+				ttl64, err := strconv.ParseUint(name[21:29], 16, 32)
+				if err != nil {
+					return nil, Error.New("unable to parse name=%q: %w", name, err)
+				}
+				ttl = uint32(ttl64)
+			}
 
-		size, err := fh.Seek(0, io.SeekEnd)
-		if err != nil {
-			_ = fh.Close()
-			return nil, Error.New("unable to seek name=%q: %w", name, err)
-		}
-
-		if maxLog := s.maxLog.Load(); id > maxLog {
-			s.maxLog.Store(id)
-		}
-
-		lf := newLogFile(fh, id, ttl, uint64(size))
-		s.lfs.Set(id, lf)
-		s.lfc.Include(lf)
-	}
-
-	// try to open the hash table.
-	hashtblPath := filepath.Join(s.meta, "hashtbl")
-	fh, err := os.OpenFile(hashtblPath, os.O_RDWR, 0)
-	if os.IsNotExist(err) {
-		err = func() error {
-			af, err := newAtomicFile(s.meta, "hashtbl")
+			fh, err := os.OpenFile(filepath.Join(s.dir, name), os.O_RDWR, 0)
 			if err != nil {
-				return Error.Wrap(err)
+				return nil, Error.New("unable to open log file: %w", err)
 			}
-			defer af.Cancel()
 
-			ntbl, err := CreateHashtbl(af.File, store_minTableSize, s.today())
+			size, err := fh.Seek(0, io.SeekEnd)
 			if err != nil {
-				return Error.Wrap(err)
+				_ = fh.Close()
+				return nil, Error.New("unable to seek name=%q: %w", name, err)
 			}
-			defer ntbl.Close()
 
-			if err := af.Commit(); err != nil {
-				return Error.Wrap(err)
+			if maxLog := s.maxLog.Load(); id > maxLog {
+				s.maxLog.Store(id)
 			}
-			return nil
-		}()
+
+			lf := newLogFile(fh, id, ttl, uint64(size))
+			s.lfs.Set(id, lf)
+			s.lfc.Include(lf)
+		}
+	}
+
+	{ // open or create the hash table
+		entries, err := os.ReadDir(s.meta)
 		if err != nil {
-			return nil, err
+			return nil, Error.New("unable to read meta directory=%q: %w", s.meta, err)
 		}
 
-		// retry opening the hash table now that it should be created.
-		fh, err = os.OpenFile(hashtblPath, os.O_RDWR, 0)
-	}
-	if err != nil {
-		return nil, Error.Wrap(err)
-	}
+		maxName := "hashtbl" // backwards compatible with old hashtbl files
+		for _, entry := range entries {
+			name := entry.Name()
 
-	// set up the hash table to use the handle.
-	s.tbl, err = OpenHashtbl(fh)
-	if err != nil {
-		return nil, Error.Wrap(err)
-	}
+			// skip any files that don't look like hashtbl files. hashtbl file names are always
+			//     hashtbl-<16 bytes of id>
+			// so they always begin with "hashtbl-" and are 24
+			if len(name) != 24 || name[0:8] != "hashtbl-" {
+				continue
+			}
 
-	// best effort try to clean up temp files now that everything is open and flocked.
-	entries, _ = os.ReadDir(s.meta)
-	for _, entry := range entries {
-		if strings.HasSuffix(entry.Name(), ".tmp") {
-			_ = os.Remove(filepath.Join(s.meta, entry.Name()))
+			id, err := strconv.ParseUint(name[8:24], 16, 64)
+			if err != nil {
+				return nil, Error.New("unable to parse name=%q: %w", name, err)
+			}
+
+			if maxHash := s.maxHash.Load(); id > maxHash {
+				s.maxHash.Store(id)
+				maxName = name
+			}
+		}
+		maxPath := filepath.Join(s.meta, maxName)
+
+		// try to open the hashtbl file and create it if it doesn't exist.
+		fh, err := os.OpenFile(maxPath, os.O_RDWR, 0)
+		if os.IsNotExist(err) {
+			// file did not exist, so try to create it with an initial hashtbl.
+			err = func() error {
+				af, err := newAtomicFile(maxPath)
+				if err != nil {
+					return Error.New("unable to create hashtbl: %w", err)
+				}
+				defer af.Cancel()
+
+				ntbl, err := CreateHashtbl(af.File, store_minTableSize, s.today())
+				if err != nil {
+					return Error.Wrap(err)
+				}
+				defer ntbl.Close()
+
+				return af.Commit()
+			}()
+			if err != nil {
+				return nil, err
+			}
+
+			// now try to reopen the file handle after it should be created.
+			fh, err = os.OpenFile(maxPath, os.O_RDWR, 0)
+		}
+		if err != nil {
+			return nil, Error.Wrap(err)
+		}
+
+		s.tbl, err = OpenHashtbl(fh)
+		if err != nil {
+			return nil, Error.Wrap(err)
+		}
+
+		// best effort clean up any tmp files or previous hashtbls that were left behind from a
+		// previous execution.
+		for _, entry := range entries {
+			if name := entry.Name(); strings.HasPrefix(name, "hashtbl") && name != maxName {
+				_ = os.Remove(filepath.Join(s.meta, name))
+			}
 		}
 	}
 
@@ -258,7 +287,7 @@ func (s *Store) Stats() StoreStats {
 func (s *Store) createLogFile(ttl uint32) (*logFile, error) {
 	id := s.maxLog.Add(1)
 	path := filepath.Join(s.dir, fmt.Sprintf("log-%016x-%08x", id, ttl))
-	fh, err := os.OpenFile(path, os.O_CREATE|os.O_EXCL|os.O_RDWR, 0600)
+	fh, err := createFile(path)
 	if err != nil {
 		return nil, Error.Wrap(err)
 	}
@@ -727,7 +756,8 @@ func (s *Store) compactOnce(
 	}
 
 	// create a new hash table sized for the number of records.
-	af, err := newAtomicFile(s.meta, "hashtbl")
+	tblPath := filepath.Join(s.meta, fmt.Sprintf("hashtbl-%016x", s.maxHash.Add(1)))
+	af, err := newAtomicFile(tblPath)
 	if err != nil {
 		return false, Error.Wrap(err)
 	}
@@ -867,10 +897,14 @@ func (s *Store) compactOnce(
 	}
 	s.rmu.Unlock()
 
-	// now that we are no longer holding the mutex, close the old hashtbl and close and remove the
-	// newly dead log file. log files have protection to not actually close the underlying file
-	// handle until the last reader is finished.
+	// now that we are no longer holding the mutex, close and remove the old hashtbl and close and
+	// remove the newly dead log files. log files have protection to not actually close the
+	// underlying file handle until the last reader is finished. we have to strip the .tmp suffix on
+	// the hashtbl file name because the file handles were potentially created with .tmp before
+	// being renamed in place, which does not update their name.
 	otbl.Close()
+	_ = os.Remove(strings.TrimSuffix(otbl.fh.Name(), ".tmp"))
+
 	for _, lf := range toRemove {
 		lf.Close()
 		lf.Remove()

@@ -748,19 +748,6 @@ func TestStore_OptimisticAlignment(t *testing.T) {
 	assert.Equal(t, stats.LenLogs, 4096)         // total data should be aligned up to 4k.
 }
 
-func TestStore_CleanupTempFiles(t *testing.T) {
-	s := newTestStore(t)
-	defer s.Close()
-
-	af, err := newAtomicFile(s.meta, "cleanme")
-	assert.NoError(t, err)
-	defer af.Cancel()
-
-	s.AssertReopen()
-
-	assert.Error(t, af.Commit())
-}
-
 func TestStore_RaceConcurrentWriteAndStats(t *testing.T) {
 	s := newTestStore(t)
 	defer s.Close()

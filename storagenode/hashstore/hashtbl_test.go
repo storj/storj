@@ -261,11 +261,7 @@ func TestHashtbl_RangeExitEarly(t *testing.T) {
 }
 
 func TestHashtbl_LRecTooLarge(t *testing.T) {
-	fh, err := os.CreateTemp(t.TempDir(), "hashtbl")
-	assert.NoError(t, err)
-	defer func() { _ = fh.Close() }()
-
-	_, err = CreateHashtbl(fh, 57, 0)
+	_, err := CreateHashtbl(nil, 57, 0)
 	assert.Error(t, err)
 }
 

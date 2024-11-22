@@ -6,7 +6,6 @@ package hashstore
 import (
 	"context"
 	"os"
-	"path/filepath"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -230,7 +229,7 @@ func syncDirectory(dir string) {
 type atomicFile struct {
 	*os.File
 
-	dir  string
+	tmp  string
 	name string
 
 	mu        sync.Mutex // protects the following fields
@@ -238,15 +237,18 @@ type atomicFile struct {
 	committed flag
 }
 
-func newAtomicFile(dir string, name string) (*atomicFile, error) {
-	fh, err := os.CreateTemp(dir, name+"-*.tmp")
+func newAtomicFile(name string) (*atomicFile, error) {
+	tmp := name + ".tmp"
+
+	fh, err := createFile(tmp)
 	if err != nil {
 		return nil, Error.Wrap(err)
 	}
+
 	return &atomicFile{
 		File: fh,
 
-		dir:  dir,
+		tmp:  tmp,
 		name: name,
 	}, nil
 }
@@ -263,14 +265,14 @@ func (a *atomicFile) Commit() (err error) {
 	defer func() {
 		if err != nil {
 			_ = a.Close()
-			_ = os.Remove(a.Name())
+			_ = os.Remove(a.tmp)
 		}
 	}()
 
 	if err := a.Sync(); err != nil {
 		return Error.Wrap(err)
 	}
-	if err := os.Rename(a.Name(), filepath.Join(a.dir, a.name)); err != nil {
+	if err := os.Rename(a.tmp, a.name); err != nil {
 		return Error.Wrap(err)
 	}
 
@@ -286,5 +288,5 @@ func (a *atomicFile) Cancel() {
 	}
 
 	_ = a.Close()
-	_ = os.Remove(a.Name())
+	_ = os.Remove(a.tmp)
 }
