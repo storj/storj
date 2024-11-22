@@ -172,7 +172,7 @@ func fixupSpannerEmulatorMigration(migration *migrate.Migration) {
 	_, _ = rand.Read(uniqueSuffixBytes[:])
 	uniqueSuffix := hex.EncodeToString(uniqueSuffixBytes[:])
 
-	rxCreateSequence := regexp.MustCompile(`CREATE SEQUENCE ([a-zA-Z_]+)`)
+	rxCreateSequence := regexp.MustCompile(`CREATE SEQUENCE (?:IF NOT EXISTS )?([a-zA-Z_]+)`)
 	rxNextSequence := regexp.MustCompile(`GET_NEXT_SEQUENCE_VALUE\(SEQUENCE ([a-zA-Z_]+)`)
 
 	for _, step := range migration.Steps {
@@ -257,7 +257,7 @@ func (db *satelliteDB) productionMigrationSpanner() *migrate.Migration {
 						last_updated TIMESTAMP NOT NULL
 					) PRIMARY KEY ( user_id )`,
 
-					`CREATE SEQUENCE billing_transactions_id OPTIONS (sequence_kind='bit_reversed_positive')`,
+					`CREATE SEQUENCE IF NOT EXISTS billing_transactions_id OPTIONS (sequence_kind='bit_reversed_positive')`,
 
 					`CREATE TABLE IF NOT EXISTS billing_transactions (
 						id INT64 NOT NULL DEFAULT (GET_NEXT_SEQUENCE_VALUE(SEQUENCE billing_transactions_id)),
