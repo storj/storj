@@ -5,7 +5,10 @@ package satellitedb
 
 import (
 	"context"
+	"crypto/rand"
+	"encoding/hex"
 	"fmt"
+	"regexp"
 	"strings"
 
 	"github.com/zeebo/errs"
@@ -14,6 +17,7 @@ import (
 	"storj.io/storj/private/migrate"
 	"storj.io/storj/shared/dbutil"
 	"storj.io/storj/shared/dbutil/pgutil"
+	"storj.io/storj/shared/dbutil/spannerutil"
 	"storj.io/storj/shared/tagsql"
 )
 
@@ -79,6 +83,9 @@ func (db *satelliteDB) MigrateToLatest(ctx context.Context) error {
 				dbVersion, minDBVersion,
 			)
 		}
+		if db.isSpannerEmulator() {
+			fixupSpannerEmulatorMigration(migration)
+		}
 
 		return migration.Run(ctx, db.log.Named("migrate"))
 	default:
@@ -132,9 +139,54 @@ func (db *satelliteDBTesting) TestMigrateToLatest(ctx context.Context) error {
 		if dbVersion != -1 && dbVersion != testMigration.Steps[0].Version {
 			return ErrMigrateMinVersion.New("the database must be empty, or be on the latest version (%d)", dbVersion)
 		}
+		if db.isSpannerEmulator() {
+			fixupSpannerEmulatorMigration(testMigration)
+		}
+
 		return testMigration.Run(ctx, db.log.Named("migrate"))
 	default:
 		return migrate.Create(ctx, "database", db.DB)
+	}
+}
+
+func (db *satelliteDB) isSpannerEmulator() bool {
+	if db.impl != dbutil.Spanner {
+		return false
+	}
+
+	params, err := spannerutil.ParseConnStr(db.source)
+	if err != nil {
+		return false
+	}
+
+	return params.Emulator
+}
+
+// fixupSpannerEmulatorMigration fixes CREATE SEQUENCE for Spanner Emulator.
+// Spanner Emulator has a bug where you need to use unique sequence names globally,
+// because they share the same namespace.
+//
+// See https://github.com/GoogleCloudPlatform/cloud-spanner-emulator/issues/179 for more details.
+func fixupSpannerEmulatorMigration(migration *migrate.Migration) {
+	var uniqueSuffixBytes [8]byte
+	_, _ = rand.Read(uniqueSuffixBytes[:])
+	uniqueSuffix := hex.EncodeToString(uniqueSuffixBytes[:])
+
+	rxCreateSequence := regexp.MustCompile(`CREATE SEQUENCE ([a-zA-Z_]+)`)
+	rxNextSequence := regexp.MustCompile(`GET_NEXT_SEQUENCE_VALUE\(SEQUENCE ([a-zA-Z_]+)`)
+
+	for _, step := range migration.Steps {
+		if action, ok := step.Action.(migrate.SQL); ok {
+			for i, query := range action {
+				query = rxCreateSequence.ReplaceAllStringFunc(query, func(match string) string {
+					return match + "_" + uniqueSuffix
+				})
+				query = rxNextSequence.ReplaceAllStringFunc(query, func(match string) string {
+					return match + "_" + uniqueSuffix
+				})
+				action[i] = query
+			}
+		}
 	}
 }
 
