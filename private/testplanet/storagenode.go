@@ -37,6 +37,7 @@ import (
 	"storj.io/storj/storagenode/nodestats"
 	"storj.io/storj/storagenode/operator"
 	"storj.io/storj/storagenode/orders"
+	"storj.io/storj/storagenode/piecemigrate"
 	"storj.io/storj/storagenode/pieces"
 	"storj.io/storj/storagenode/piecestore"
 	"storj.io/storj/storagenode/preflight"
@@ -200,6 +201,10 @@ func (planet *Planet) newStorageNode(ctx context.Context, prefix string, index, 
 				RefreshInterval: defaultInterval,
 			},
 			MaxUsedSerialsSize: memory.MiB,
+		},
+		Storage2Migration: piecemigrate.Config{
+			BatchSize: 25,
+			Interval:  defaultInterval,
 		},
 		Pieces:    pieces.DefaultConfig,
 		Filestore: filestore.DefaultConfig,

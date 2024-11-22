@@ -53,6 +53,7 @@ import (
 	"storj.io/storj/storagenode/orders"
 	"storj.io/storj/storagenode/payouts"
 	"storj.io/storj/storagenode/payouts/estimatedpayouts"
+	"storj.io/storj/storagenode/piecemigrate"
 	"storj.io/storj/storagenode/pieces"
 	"storj.io/storj/storagenode/pieces/lazyfilewalker"
 	"storj.io/storj/storagenode/piecestore"
@@ -121,9 +122,10 @@ type Config struct {
 	Operator  operator.Config
 
 	// TODO: flatten storage config and only keep the new one
-	Storage   piecestore.OldConfig
-	Storage2  piecestore.Config
-	Collector collector.Config
+	Storage           piecestore.OldConfig
+	Storage2          piecestore.Config
+	Storage2Migration piecemigrate.Config
+	Collector         collector.Config
 
 	Filestore filestore.Config
 
@@ -264,6 +266,7 @@ type Peer struct {
 		OldPieceBackend    *piecestore.OldPieceBackend
 		HashStoreBackend   *piecestore.HashStoreBackend
 		MigrationState     *satstore.SatelliteStore
+		MigrationChore     *piecemigrate.Chore
 		MigratingBackend   *piecestore.MigratingBackend
 		PieceBackend       *piecestore.TestingBackend
 		Endpoint           *piecestore.Endpoint
@@ -675,12 +678,26 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, revocationDB exten
 			peer.Storage2.Monitor,
 		)
 
+		peer.Storage2.MigrationChore = piecemigrate.NewChore(
+			process.NamedLog(peer.Log, "piecemigrate:chore"),
+			config.Storage2Migration,
+			peer.StorageOld.Store,
+			peer.Storage2.HashStoreBackend,
+		)
+		peer.Services.Add(lifecycle.Item{
+			Name:  "piecemigrate:chore",
+			Run:   peer.Storage2.MigrationChore.Run,
+			Close: peer.Storage2.MigrationChore.Close,
+		})
+		peer.Debug.Server.Panel.Add(
+			debug.Cycle("Piecemigrate Migration Chore", peer.Storage2.MigrationChore.Loop))
+
 		peer.Storage2.MigratingBackend = piecestore.NewMigratingBackend(
 			peer.Log,
 			peer.Storage2.OldPieceBackend,
 			peer.Storage2.HashStoreBackend,
 			peer.Storage2.MigrationState,
-			nil,
+			peer.Storage2.MigrationChore,
 		)
 		mon.Chain(peer.Storage2.MigratingBackend)
 
