@@ -33,14 +33,17 @@ type Server struct {
 
 // BaseRequest contains common fields for all requests.
 type BaseRequest struct {
-	ProjectID uuid.UUID `json:"-"`
-	Path      string    `json:"path"`
-
-	location metabase.ObjectLocation
+	ProjectID uuid.UUID               `json:"-"`
+	Location  metabase.ObjectLocation `json:"-"`
 }
 
 const defaultBatchSize = 100
 const maxBatchSize = 1000
+
+// GetRequest contains fields for a get request.
+type GetRequest struct {
+	BaseRequest
+}
 
 // SearchRequest contains fields for a view or search request.
 type SearchRequest struct {
@@ -68,17 +71,6 @@ type SearchResult struct {
 	Metadata interface{} `json:"metadata"`
 }
 
-// UpdateRequest contains fields for an update request.
-type UpdateRequest struct {
-	BaseRequest
-	Metadata map[string]interface{} `json:"metadata"`
-}
-
-// DeleteRequest contains fields for a delete request.
-type DeleteRequest struct {
-	BaseRequest
-}
-
 // NewServer creates a new metasearch server process.
 func NewServer(log *zap.Logger, repo MetaSearchRepo, auth Auth, endpoint string) (*Server, error) {
 	s := &Server{
@@ -89,9 +81,13 @@ func NewServer(log *zap.Logger, repo MetaSearchRepo, auth Auth, endpoint string)
 	}
 
 	router := mux.NewRouter()
-	router.HandleFunc("/meta_search", s.HandleQuery).Methods(http.MethodPost)
-	router.HandleFunc("/meta_search", s.HandleUpdate).Methods(http.MethodPut)
-	router.HandleFunc("/meta_search", s.HandleDelete).Methods(http.MethodDelete)
+
+	// CRUD operations
+	router.HandleFunc("/metadata/{bucket}/{key:.*}", s.HandleGet).Methods(http.MethodGet)
+	router.HandleFunc("/metadata/{bucket}/{key:.*}", s.HandleUpdate).Methods(http.MethodPut)
+	router.HandleFunc("/metadata/{bucket}/{key:.*}", s.HandleDelete).Methods(http.MethodDelete)
+	router.HandleFunc("/metasearch/{bucket}", s.HandleQuery).Methods(http.MethodPost)
+	router.HandleFunc("/metasearch/{bucket}/{key:.*}", s.HandleQuery).Methods(http.MethodPost)
 	s.Handler = router
 
 	return s, nil
@@ -121,22 +117,42 @@ func (s *Server) validateRequest(ctx context.Context, r *http.Request, baseReque
 	}
 
 	// Decode request body
-	if err = json.NewDecoder(r.Body).Decode(body); err != nil {
-		return fmt.Errorf("%w: error decoding request body: %w", ErrBadRequest, err)
+	if body != nil && r.Body != nil {
+		if err = json.NewDecoder(r.Body).Decode(body); err != nil {
+			return fmt.Errorf("%w: error decoding request body: %w", ErrBadRequest, err)
+		}
 	}
 
-	// Decode path
-	bucket, key, err := parsePath(baseRequest.Path)
-	if err != nil {
-		return fmt.Errorf("%w: %s", ErrBadRequest, err)
-	}
-	baseRequest.location = metabase.ObjectLocation{
+	// Set location
+	vars := mux.Vars(r)
+	bucket := vars["bucket"]
+	key := vars["key"]
+	baseRequest.Location = metabase.ObjectLocation{
 		ProjectID:  baseRequest.ProjectID,
 		BucketName: metabase.BucketName(bucket),
 		ObjectKey:  metabase.ObjectKey(key),
 	}
 
 	return nil
+}
+
+func (s *Server) HandleGet(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	var request BaseRequest
+
+	err := s.validateRequest(ctx, r, &request, nil)
+	if err != nil {
+		s.errorResponse(w, err)
+		return
+	}
+
+	meta, err := s.Repo.GetMetadata(ctx, request.Location)
+	if err != nil {
+		s.errorResponse(w, err)
+		return
+	}
+
+	s.jsonResponse(w, http.StatusOK, meta)
 }
 
 // HandleQuery handles a metadata view or search request.
@@ -151,12 +167,7 @@ func (s *Server) HandleQuery(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if request.Match == nil {
-		result, err = s.getMetadata(ctx, &request)
-	} else {
-		result, err = s.searchMetadata(ctx, &request)
-	}
-
+	result, err = s.searchMetadata(ctx, &request)
 	if err != nil {
 		s.errorResponse(w, err)
 		return
@@ -169,6 +180,11 @@ func (s *Server) validateSearchRequest(ctx context.Context, r *http.Request, req
 	err := s.validateRequest(ctx, r, &request.BaseRequest, request)
 	if err != nil {
 		return err
+	}
+
+	// Validate match query
+	if request.Match == nil {
+		return fmt.Errorf("%w: missing match query", ErrBadRequest)
 	}
 
 	// Validate batch size
@@ -187,21 +203,8 @@ func (s *Server) validateSearchRequest(ctx context.Context, r *http.Request, req
 	return nil
 }
 
-func (s *Server) getMetadata(ctx context.Context, request *SearchRequest) (response SearchResponse, err error) {
-	meta, err := s.Repo.GetMetadata(ctx, request.location)
-	if err == nil {
-		response.Results = []SearchResult{
-			{
-				Path:     request.Path,
-				Metadata: meta,
-			},
-		}
-	}
-	return
-}
-
 func (s *Server) searchMetadata(ctx context.Context, request *SearchRequest) (response SearchResponse, err error) {
-	searchResult, err := s.Repo.QueryMetadata(ctx, request.location, request.Match, request.startAfter, request.BatchSize)
+	searchResult, err := s.Repo.QueryMetadata(ctx, request.Location, request.Match, request.startAfter, request.BatchSize)
 	if err != nil {
 		return
 	}
@@ -281,15 +284,16 @@ func (s *Server) filterMetadata(ctx context.Context, request *SearchRequest, met
 // HandleUpdate handles a metadata update request.
 func (s *Server) HandleUpdate(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
-	var request UpdateRequest
+	var request BaseRequest
+	var metadata map[string]interface{}
 
-	err := s.validateRequest(ctx, r, &request.BaseRequest, &request)
+	err := s.validateRequest(ctx, r, &request, &metadata)
 	if err != nil {
 		s.errorResponse(w, err)
 		return
 	}
 
-	err = s.Repo.UpdateMetadata(ctx, request.location, request.Metadata)
+	err = s.Repo.UpdateMetadata(ctx, request.Location, metadata)
 	if err != nil {
 		s.errorResponse(w, err)
 		return
@@ -301,15 +305,15 @@ func (s *Server) HandleUpdate(w http.ResponseWriter, r *http.Request) {
 // HandleDelete handles a metadata delete request.
 func (s *Server) HandleDelete(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
-	var request DeleteRequest
+	var request BaseRequest
 
-	err := s.validateRequest(ctx, r, &request.BaseRequest, &request)
+	err := s.validateRequest(ctx, r, &request, nil)
 	if err != nil {
 		s.errorResponse(w, err)
 		return
 	}
 
-	err = s.Repo.DeleteMetadata(ctx, request.location)
+	err = s.Repo.DeleteMetadata(ctx, request.Location)
 	if err != nil {
 		s.errorResponse(w, err)
 		return
