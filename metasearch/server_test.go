@@ -205,6 +205,14 @@ func TestMetaSearchQuery(t *testing.T) {
 	}`)
 	assert.Equal(t, rr.Code, http.StatusNoContent)
 
+	// Query without match => return all results
+	rr = handleRequest(server, http.MethodPost, "/metasearch/testbucket", ``)
+	assert.Equal(t, rr.Code, http.StatusOK)
+	var resp map[string]interface{}
+	err := json.NewDecoder(rr.Body).Decode(&resp)
+	require.Nil(t, err)
+	require.Len(t, resp["results"], 2)
+
 	// Query with match only
 	rr = handleRequest(server, http.MethodPost, "/metasearch/testbucket", `{
 		"match": {
@@ -212,8 +220,7 @@ func TestMetaSearchQuery(t *testing.T) {
 		}
 	}`)
 	assert.Equal(t, rr.Code, http.StatusOK)
-	var resp map[string]interface{}
-	err := json.NewDecoder(rr.Body).Decode(&resp)
+	err = json.NewDecoder(rr.Body).Decode(&resp)
 	require.Nil(t, err)
 	require.Len(t, resp["results"], 2)
 

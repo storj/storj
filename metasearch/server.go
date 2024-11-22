@@ -184,7 +184,7 @@ func (s *Server) validateSearchRequest(ctx context.Context, r *http.Request, req
 
 	// Validate match query
 	if request.Match == nil {
-		return fmt.Errorf("%w: missing match query", ErrBadRequest)
+		request.Match = make(map[string]interface{})
 	}
 
 	// Validate batch size
