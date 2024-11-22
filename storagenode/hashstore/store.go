@@ -25,9 +25,9 @@ import (
 const (
 	store_minTableSize = 17 // log_2 of number of records for smallest hash table
 
-	compaction_MaxLogSize    = 10 << 30 // max size of a log file
-	compaction_AliveFraction = 0.75     // if the log file is not this alive, compact it
-	compaction_ExpiresDays   = 7        // number of days to keep trash records around
+	compaction_MaxLogSize    = 1 << 30 // max size of a log file
+	compaction_AliveFraction = 0.75    // if the log file is not this alive, compact it
+	compaction_ExpiresDays   = 7       // number of days to keep trash records around
 )
 
 // Store is a hash table based key-value store with compaction.
