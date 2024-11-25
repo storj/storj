@@ -17,4 +17,5 @@ func Module(ball *mud.Ball) {
 	modular.IdentityModule(ball)
 	satellitedb.Module(ball)
 	satellite.Module(ball)
+	mud.Provide[*modular.MonkitReport](ball, modular.NewMonkitReport)
 }
