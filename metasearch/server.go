@@ -49,6 +49,7 @@ type GetRequest struct {
 type SearchRequest struct {
 	BaseRequest
 
+	KeyPrefix  string                 `json:"keyPrefix"`
 	Match      map[string]interface{} `json:"match"`
 	Filter     string                 `json:"filter"`
 	Projection string                 `json:"projection"`
@@ -87,7 +88,6 @@ func NewServer(log *zap.Logger, repo MetaSearchRepo, auth Auth, endpoint string)
 	router.HandleFunc("/metadata/{bucket}/{key:.*}", s.HandleUpdate).Methods(http.MethodPut)
 	router.HandleFunc("/metadata/{bucket}/{key:.*}", s.HandleDelete).Methods(http.MethodDelete)
 	router.HandleFunc("/metasearch/{bucket}", s.HandleQuery).Methods(http.MethodPost)
-	router.HandleFunc("/metasearch/{bucket}/{key:.*}", s.HandleQuery).Methods(http.MethodPost)
 	s.Handler = router
 
 	return s, nil
@@ -198,6 +198,11 @@ func (s *Server) validateSearchRequest(ctx context.Context, r *http.Request, req
 		if err != nil {
 			return err
 		}
+	}
+
+	// Override key by KeyPrefix parameter
+	if request.KeyPrefix != "" {
+		request.Location.ObjectKey = metabase.ObjectKey(request.KeyPrefix)
 	}
 
 	return nil

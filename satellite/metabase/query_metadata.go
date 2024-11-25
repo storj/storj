@@ -13,6 +13,7 @@ import (
 type FindObjectsByClearMetadata struct {
 	ProjectID     uuid.UUID
 	BucketName    BucketName
+	KeyPrefix     string
 	ContainsQuery string
 }
 
@@ -41,10 +42,11 @@ func (p *PostgresAdapter) FindObjectsByClearMetadata(ctx context.Context, opts F
 			(project_id, bucket_name) = ($1, $2) AND
 			(project_id, bucket_name, object_key, version) > ($3, $4, $5, $6) AND
 			clear_metadata @> $7 AND
+			left(object_key, $8) = $9 AND
 			status <> ` + statusPending + ` AND
 			(expires_at IS NULL OR expires_at > now())
 		ORDER BY project_id, bucket_name, object_key, version
-		LIMIT $8;
+		LIMIT $10;
 	`
 
 	result.Objects = make([]FindObjectsByClearMetadataResultObject, 0, batchSize)
@@ -53,6 +55,7 @@ func (p *PostgresAdapter) FindObjectsByClearMetadata(ctx context.Context, opts F
 		opts.ProjectID, opts.BucketName,
 		startAfter.ProjectID, startAfter.BucketName, []byte(startAfter.ObjectKey), startAfter.Version,
 		opts.ContainsQuery,
+		len(opts.KeyPrefix), opts.KeyPrefix,
 		batchSize),
 	)(func(rows tagsql.Rows) error {
 		var last FindObjectsByClearMetadataResultObject

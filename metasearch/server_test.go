@@ -213,6 +213,20 @@ func TestMetaSearchQuery(t *testing.T) {
 	require.Nil(t, err)
 	require.Len(t, resp["results"], 2)
 
+	// Query with key prefix
+	rr = handleRequest(server, http.MethodPost, "/metasearch/testbucket", `{
+		"keyPrefix": "foo"
+	}`)
+	assertResponse(t, rr, http.StatusOK, `{
+		"results": [{
+			"path": "sj://testbucket/foo.txt",
+			"metadata": {
+				"foo": "456",
+				"n": 1
+			}
+		}]
+	}`)
+
 	// Query with match only
 	rr = handleRequest(server, http.MethodPost, "/metasearch/testbucket", `{
 		"match": {
