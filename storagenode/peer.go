@@ -685,6 +685,8 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, revocationDB exten
 			peer.StorageOld.Store,
 			peer.Storage2.HashStoreBackend,
 		)
+		mon.Chain(peer.Storage2.MigrationChore)
+
 		peer.Services.Add(lifecycle.Item{
 			Name:  "piecemigrate:chore",
 			Run:   peer.Storage2.MigrationChore.Run,

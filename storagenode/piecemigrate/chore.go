@@ -91,6 +91,25 @@ func NewChore(log *zap.Logger, config Config, store *satstore.SatelliteStore, ol
 	return chore
 }
 
+// Stats implements monkit.StatSource.
+func (chore *Chore) Stats(cb func(key monkit.SeriesKey, field string, val float64)) {
+	b2f64 := func(b bool) float64 {
+		if b {
+			return 1
+		}
+		return 0
+	}
+
+	chore.mu.Lock()
+	sats := maps.Clone(chore.migrated)
+	chore.mu.Unlock()
+
+	for sat, active := range sats {
+		cb(monkit.NewSeriesKey("migration_status").WithTag("sat", sat.String()), "active", b2f64(active))
+	}
+	cb(monkit.NewSeriesKey("queue"), "length", float64(len(chore.migrationQueue)))
+}
+
 // TryMigrateOne enqueues a migration item for the given satellite and
 // piece if the queue has capacity. Fails silently if the queue is full.
 func (chore *Chore) TryMigrateOne(sat storj.NodeID, piece storj.PieceID) {
@@ -167,6 +186,7 @@ func (chore *Chore) runSatellite(ctx context.Context, sat storj.NodeID, activeMi
 		if err := chore.old.WalkSatellitePieces(walkCtx, sat, func(spa pieces.StoredPieceAccess) error {
 			select {
 			case chore.migrationQueue <- migrationItem{satellite: sat, piece: spa.PieceID()}:
+				mon.Counter("enqueued", monkit.NewSeriesTag("sat", sat.String())).Inc(1)
 			default:
 				cancel()
 			}
@@ -185,6 +205,7 @@ func (chore *Chore) runSatellite(ctx context.Context, sat storj.NodeID, activeMi
 		select {
 		case m := <-chore.migrationQueue:
 			if !chore.config.MigrateRegardless && !chore.getMigrate(m.satellite) {
+				incProcessedPieces(m.satellite, "skipped")
 				chore.log.Debug("skipping a piece that's not part of the migration plan",
 					zap.Stringer("sat", m.satellite),
 					zap.Stringer("id", m.piece))
@@ -194,12 +215,14 @@ func (chore *Chore) runSatellite(ctx context.Context, sat storj.NodeID, activeMi
 
 			start := time.Now()
 			if size, err := chore.migrateOne(ctx, m.satellite, m.piece); err != nil {
+				incProcessedPieces(m.satellite, "error")
 				chore.log.Info("couldn't migrate",
 					zap.Error(err),
 					zap.Stringer("sat", m.satellite),
 					zap.Stringer("id", m.piece))
 			} else {
 				d := time.Since(start)
+				incProcessedSuccesses(m.satellite, size, d)
 				chore.log.Debug("migrated a piece",
 					zap.Stringer("sat", m.satellite),
 					zap.Stringer("id", m.piece),
@@ -215,6 +238,20 @@ func (chore *Chore) runSatellite(ctx context.Context, sat storj.NodeID, activeMi
 			return n, total, nil
 		}
 	}
+}
+
+func incProcessedSuccesses(sat storj.NodeID, size int64, d time.Duration) {
+	incProcessedPieces(sat, "success")
+	satTag := monkit.NewSeriesTag("sat", sat.String())
+	mon.Counter("processed_pieces_size", satTag).Inc(size)
+	mon.DurationVal("processed_pieces_duration", satTag).Observe(d)
+}
+
+func incProcessedPieces(sat storj.NodeID, result string) {
+	mon.Counter("processed_pieces",
+		monkit.NewSeriesTag("sat", sat.String()),
+		monkit.NewSeriesTag("result", result),
+	).Inc(1)
 }
 
 // migrateOne migrates a piece returning the size of the migrated piece
