@@ -18,6 +18,7 @@ func Module(ball *mud.Ball) {
 	mud.Provide[*LiveCountObserver](ball, func(db *metabase.DB, cfg Config) *LiveCountObserver {
 		return NewLiveCountObserver(db, cfg.SuspiciousProcessedRatio, cfg.AsOfSystemInterval)
 	})
+	mud.Provide[*RunOnce](ball, NewRunOnce)
 	config.RegisterConfig[Config](ball, "ranged-loop")
 	mud.RegisterImplementation[[]Observer](ball)
 	mud.Implementation[[]Observer, *LiveCountObserver](ball)
