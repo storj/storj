@@ -1,7 +1,7 @@
 // Copyright (C) 2022 Storj Labs, Inc.
 // See LICENSE for copying information.
 
-package main
+package satellitedb
 
 import (
 	"testing"

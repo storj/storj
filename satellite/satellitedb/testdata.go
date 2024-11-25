@@ -1,7 +1,7 @@
 // Copyright (C) 2022 Storj Labs, Inc.
 // See LICENSE for copying information.
 
-package main
+package satellitedb
 
 import (
 	"context"
@@ -9,8 +9,10 @@ import (
 	"database/sql"
 	"encoding/base64"
 	"errors"
+	"strings"
 
 	"github.com/zeebo/errs"
+	"go.uber.org/zap"
 	"golang.org/x/crypto/bcrypt"
 
 	"storj.io/common/macaroon"
@@ -19,16 +21,37 @@ import (
 	"storj.io/storj/satellite"
 	"storj.io/storj/satellite/console"
 	"storj.io/storj/satellite/console/consolewasm"
+	"storj.io/storj/satellite/migration"
 )
 
-const (
-	fullMigration     = "full"
-	snapshotMigration = "snapshot"
-	testDataCreation  = "testdata"
-	noMigration       = "none"
-)
-
-var migrationTypes = []string{fullMigration, snapshotMigration, testDataCreation, noMigration}
+// MigrateSatelliteDB migrates satellite database.
+func MigrateSatelliteDB(ctx context.Context, log *zap.Logger, db satellite.DB, migrationType string) (err error) {
+	for _, migrationType := range strings.Split(migrationType, ",") {
+		switch migrationType {
+		case migration.FullMigration:
+			err = db.MigrateToLatest(ctx)
+			if err != nil {
+				return err
+			}
+		case migration.SnapshotMigration:
+			log.Info("MigrationUnsafe using latest snapshot. It's not for production", zap.String("db", "master"))
+			err = db.Testing().TestMigrateToLatest(ctx)
+			if err != nil {
+				return err
+			}
+		case migration.TestDataCreation:
+			err := createTestData(ctx, db)
+			if err != nil {
+				return err
+			}
+		case migration.NoMigration:
+		// noop
+		default:
+			return errs.New("unsupported migration type: %s, please try one of the: %s", migrationType, strings.Join(migration.MigrationTypes, ","))
+		}
+	}
+	return err
+}
 
 var (
 	projectID = uuid.UUID([16]byte{0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1})
