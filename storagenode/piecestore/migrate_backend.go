@@ -100,10 +100,10 @@ func (m *MigratingBackend) Stats(cb func(key monkit.SeriesKey, field string, val
 	sort.Slice(idStates, func(i, j int) bool { return idStates[i].id.Less(idStates[j].id) })
 
 	for _, idst := range idStates {
-		mon.Chain(monkit.StatSourceFromStruct(
+		monkit.StatSourceFromStruct(
 			monkit.NewSeriesKey("migrating_backend").WithTag("satellite", idst.id.String()),
 			idst.state,
-		))
+		).Stats(cb)
 	}
 }
 

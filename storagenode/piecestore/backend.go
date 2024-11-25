@@ -133,10 +133,10 @@ func (hsb *HashStoreBackend) Stats(cb func(key monkit.SeriesKey, field string, v
 	})
 
 	for _, iddb := range iddbs {
-		mon.Chain(monkit.StatSourceFromStruct(
+		monkit.StatSourceFromStruct(
 			monkit.NewSeriesKey("hashstore").WithTag("satellite", iddb.id.String()),
 			iddb.db.Stats(),
-		))
+		).Stats(cb)
 	}
 }
 
