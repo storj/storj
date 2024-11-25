@@ -22,6 +22,8 @@
 set -ueo pipefail
 set +x
 
+TMP=$(mktemp -d -t tmp.XXXXXXXXXX)
+
 old_api_pid=-1
 cleanup(){
     ret=$?
@@ -71,8 +73,6 @@ echo "stage1_storagenode_versions" $stage1_storagenode_versions
 echo "stage2_sat_version" $stage2_sat_version
 echo "stage2_uplink_versions" $stage2_uplink_versions
 echo "stage2_storagenode_versions" $stage2_storagenode_versions
-
-TMP=$(mktemp -d -t tmp.XXXXXXXXXX)
 
 find_unique_versions(){
     echo "$*" | tr " " "\n" | sort | uniq
