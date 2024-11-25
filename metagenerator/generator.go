@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"encoding/json"
 	"fmt"
+
 	"math"
 	"math/rand"
 	"sync"
@@ -156,14 +157,12 @@ func (g *Generator) GenerateRecord() Record {
 	}
 
 	for _, n := range MatchingEntries {
-		if n > g.totalRecords {
+		if g.totalRecords < n {
 			break
 		}
-		var devider int
+		devider := g.totalRecords / n
 		if n == 1 {
 			devider = g.totalRecords
-		} else {
-			devider = g.totalRecords / n
 		}
 		if math.Mod(float64(g.pathCounter+1), float64(devider)) == 0 {
 			val := fmt.Sprintf("benchmarkValue_%v", n)
@@ -206,7 +205,7 @@ func NewBatchGenerator(db *sql.DB, fieldShare float64, batchSize, workers, total
 }
 
 // GenerateAndInsert generates and put object with metadata in batches using multiple workers
-func (bg *BatchGenerator) GenerateAndInsert(ctx context.Context, totalRecords int) (err error) {
+func (bg *BatchGenerator) GenerateAndInsert(ctx context.Context) (err error) {
 	var wg sync.WaitGroup
 	errChan := make(chan error, bg.workers)
 	recordsPerWorker := bg.totalRecords / bg.workers
@@ -235,10 +234,11 @@ func (bg *BatchGenerator) GenerateAndInsert(ctx context.Context, totalRecords in
 					errChan <- fmt.Errorf("worker %d failed: %v", workerID, err)
 					return
 				}
-
-				if j%(bg.batchSize) == 0 {
-					fmt.Printf("Worker %d processed %d records\n", workerID, j+bg.batchSize)
-				}
+				/*
+					if j%(bg.batchSize) == 0 {
+						fmt.Printf("Worker %d processed %d records\n", workerID, j+bg.batchSize)
+					}
+				*/
 			}
 		}(i)
 	}

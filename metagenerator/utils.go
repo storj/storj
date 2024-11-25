@@ -11,7 +11,6 @@ import (
 	"os/exec"
 	"path/filepath"
 	"strings"
-	"time"
 
 	"github.com/Netflix/go-expect"
 	"github.com/google/goterm/term"
@@ -108,14 +107,13 @@ func GeneratorSetup(sharedValues float64, bS, wN, tR int, apiKey, projectId, met
 	)
 
 	// Generate and insert/debug records
-	startTime := time.Now()
+	//startTime := time.Now()
 
-	if err := batchGen.GenerateAndInsert(ctx, tR); err != nil {
+	if err := batchGen.GenerateAndInsert(ctx); err != nil {
 		panic(fmt.Sprintf("failed to generate records: %v", err))
 	}
 
-	fmt.Printf("Generated %v records in %v\n", tR, time.Since(startTime))
-	return
+	//fmt.Printf("Generated %v records in %v\n", tR, time.Since(startTime))
 }
 
 func Clean() {
