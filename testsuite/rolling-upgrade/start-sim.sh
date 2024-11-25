@@ -20,7 +20,7 @@
 #  * (step-2.sh) - Download the six inline, remote, and multisegment files from the previous two steps using the main uplink and old satellite api.
 
 set -ueo pipefail
-set +x
+set -x
 
 TMP=$(mktemp -d -t tmp.XXXXXXXXXX)
 

@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 set -Eeo pipefail
-set +x
+set -x
 
 # Required environment variables
 if [ -z "${STORJ_SIM_POSTGRES}" ]; then
