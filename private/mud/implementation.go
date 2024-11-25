@@ -31,7 +31,6 @@ func Implementation[L ~[]T, Instance any, T any](ball *Ball) {
 		RegisterImplementation[L, T](ball)
 	}
 	lookup[L](ball).requirements = append(lookup[L](ball).requirements, typeOf[Instance]())
-	Tag[Instance](ball, Optional{})
 }
 
 // ImplementationOf is a ForEach filter to get all the dependency of an implementation.

@@ -68,43 +68,6 @@ func TestImplementationOneInit(t *testing.T) {
 
 }
 
-func TestImplementationMarkedOptional(t *testing.T) {
-	ctx := testcontext.New(t)
-
-	ball := NewBall()
-	Provide[PostgresDB](ball, func() PostgresDB {
-		return PostgresDB{}
-	})
-	Provide[CockroachDB](ball, func() CockroachDB {
-		return CockroachDB{}
-	})
-
-	Implementation[[]DBAdapter, PostgresDB](ball)
-	Implementation[[]DBAdapter, CockroachDB](ball)
-	// PostgresDB is required
-	RemoveTag[PostgresDB, Optional](ball)
-
-	// initialize the non-optional components
-	// NOTE: optional is just a flag to find the right components
-	// it's the responsibility of the caller to initialize the right components.
-	for _, component := range Find(ball, And(All, func(c *Component) bool {
-		_, found := GetTagOf[Optional](c)
-		return !found
-	})) {
-		// this will ignore CockroachDB as it's not a required dependency
-		err := component.Init(ctx)
-		require.NoError(t, err)
-	}
-
-	// CockroachDB is not initialized, because it was optional
-	err := Execute0(ctx, ball, func(impl []DBAdapter) {
-		require.Len(t, impl, 1)
-		require.Equal(t, "postgres", impl[0].Name())
-	})
-	require.NoError(t, err)
-
-}
-
 type DBAdapter interface {
 	Name() string
 }
