@@ -1,7 +1,12 @@
 #!/usr/bin/env bash
 
 # Copy wasm helper file
-cp "$(go env GOROOT)/misc/wasm/wasm_exec.js" ./static/wasm
+LOCALGOROOT=$(GOTOOLCHAIN=local go env GOROOT)
+if test -f "$LOCALGOROOT/lib/wasm/wasm_exec.js"; then
+    cp "$LOCALGOROOT/lib/wasm/wasm_exec.js" ./static/wasm
+else
+    cp "$LOCALGOROOT/misc/wasm/wasm_exec.js" ./static/wasm
+fi
 
 # Take a hash of a wasm helper file
 if command -v sha256sum > /dev/null; then
