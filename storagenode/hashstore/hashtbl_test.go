@@ -136,12 +136,12 @@ func TestHashtbl_LostPage(t *testing.T) {
 	k1 := Key{0: recordsPerPage - 1, 31: 1}
 
 	// ensure the index for the first key is the last record of the first page.
-	pi0, ri0 := h.pageIndex(h.keyIndex(&k0))
+	pi0, ri0 := h.pageAndRecordIndexForSlot(h.slotForKey(&k0))
 	assert.Equal(t, pi0, 0)
 	assert.Equal(t, ri0, recordsPerPage-1)
 
 	// ensure the index for the second key is the same.
-	pi1, ri1 := h.pageIndex(h.keyIndex(&k1))
+	pi1, ri1 := h.pageAndRecordIndexForSlot(h.slotForKey(&k1))
 	assert.Equal(t, pi1, 0)
 	assert.Equal(t, ri1, recordsPerPage-1)
 
@@ -160,7 +160,6 @@ func TestHashtbl_LostPage(t *testing.T) {
 	// zero out the first page manually and invalidate the page cache.
 	_, err = h.fh.WriteAt(make([]byte, pageSize), pageSize) // offset=pSize to skip the header page.
 	assert.NoError(t, err)
-	h.invalidatePageCache()
 
 	// we should still be able to read the second key.
 	h.AssertLookup(k1)
@@ -275,8 +274,8 @@ func TestHashtbl_GrowthRetainsOrder(t *testing.T) {
 
 	for i := 0; i < 1000; i++ {
 		k := newKey()
-		k0 := h0.keyIndex(&k)
-		k1 := h1.keyIndex(&k)
+		k0 := h0.slotForKey(&k)
+		k1 := h1.slotForKey(&k)
 		assert.True(t, k1 == 2*k0 || k1 == 2*k0+1)
 	}
 }
@@ -289,7 +288,7 @@ func TestHashtbl_Wraparound(t *testing.T) {
 	newEndKey := func() Key {
 		k := newKey()
 		k[0] = 255
-		assert.Equal(t, h.keyIndex(&k), 255)
+		assert.Equal(t, h.slotForKey(&k), 255)
 		return k
 	}
 

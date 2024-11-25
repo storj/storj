@@ -418,10 +418,10 @@ func TestStore_MergeRecordsWhenCompactingWithLostPage(t *testing.T) {
 	// create distinct keys with the same page and record index.
 	createKey := func(pi, ri uint64, n uint8) (k Key) {
 		v := pi*recordsPerPage + ri%recordsPerPage
-		v <<= (64 - s.tbl.lrec)
+		v <<= (64 - s.tbl.logSlots)
 		binary.BigEndian.PutUint64(k[0:8], v)
 		k[31] = n
-		gpi, gri := s.tbl.pageIndex(s.tbl.keyIndex(&k))
+		gpi, gri := s.tbl.pageAndRecordIndexForSlot(s.tbl.slotForKey(&k))
 		assert.Equal(t, gpi, pi)
 		assert.Equal(t, gri, ri)
 		return k
@@ -452,7 +452,6 @@ func TestStore_MergeRecordsWhenCompactingWithLostPage(t *testing.T) {
 	// clear out the first page so that any updates to k1 don't overwrite the existing entry for k1.
 	_, err = s.tbl.fh.WriteAt(make([]byte, pageSize), pageSize) // offset=pSize to skip the header page
 	assert.NoError(t, err)
-	s.tbl.invalidatePageCache()
 
 	// reading k1 will cause it to revive, adding the duplicate entry for k1.
 	s.AssertRead(k1)
@@ -897,6 +896,22 @@ func TestStore_FallbackToNonTTLLogFile(t *testing.T) {
 
 	// they should be in the same log file.
 	assert.Equal(t, getLog(permKey), getLog(ttlKey))
+}
+
+func TestStore_HashtblFull(t *testing.T) {
+	ctx := context.Background()
+	s := newTestStore(t)
+	defer s.Close()
+
+	for {
+		w, err := s.Create(ctx, newKey(), time.Time{})
+		assert.NoError(t, err)
+		if err := w.Close(); err != nil {
+			break
+		}
+	}
+
+	assert.Equal(t, s.Stats().TableFull, 1)
 }
 
 //

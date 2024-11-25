@@ -48,6 +48,7 @@ type Store struct {
 	reviveMu    *mutex                     // held during revival to ensure only 1 object is revived from trash at a time
 	compactions atomic.Uint64              // bumped every time a compaction call finishes
 	lastCompact atomic.Uint32              // date of the last compaction
+	tableFull   atomic.Uint64              // bumped every time the hash table is full
 	maxLog      atomic.Uint64              // maximum log file id
 	stats       atomic.Pointer[StoreStats] // set during compaction to maintain consistency of Stats calls
 
@@ -208,6 +209,7 @@ type StoreStats struct {
 
 	Compacting  bool         // if true, a compaction is in progress.
 	Compactions uint64       // number of compaction calls that finished
+	TableFull   uint64       // number of times the hashtbl was full trying to insert
 	Today       uint32       // the current date.
 	LastCompact uint32       // the date of the last compaction.
 	Table       HashTblStats // stats about the hash table.
@@ -246,6 +248,7 @@ func (s *Store) Stats() StoreStats {
 
 		Compacting:  false,
 		Compactions: s.compactions.Load(),
+		TableFull:   s.tableFull.Load(),
 		Today:       s.today(),
 		LastCompact: s.lastCompact.Load(),
 		Table:       stats,
@@ -297,6 +300,18 @@ func (s *Store) addRecord(ctx context.Context, rec Record) error {
 	if err != nil {
 		return Error.Wrap(err)
 	} else if !ok {
+		// if this happens, we're in some weird situation where our estimate of the load must be
+		// way off. as a last ditch effort, try to recompute the estimates, bump some counters, and
+		// loudly complain with some potentially helpful debugging information.
+		s.tableFull.Add(1)
+		beforeLoad := s.tbl.Load()
+		estError := s.tbl.computeEstimates()
+		afterLoad := s.tbl.Load()
+		s.log.Error("hash table is full",
+			zap.NamedError("compute_estimates", estError),
+			zap.Float64("before_load", beforeLoad),
+			zap.Float64("after_load", afterLoad),
+		)
 		return Error.New("hash table is full")
 	} else {
 		return nil
@@ -657,9 +672,9 @@ func (s *Store) compactOnce(
 	}
 
 	// calculate a hash table size so that it targets just under a 0.5 load factor.
-	lrec := uint64(bits.Len64(nset)) + 1
-	if lrec < store_minTableSize {
-		lrec = store_minTableSize
+	logSlots := uint64(bits.Len64(nset)) + 1
+	if logSlots < store_minTableSize {
+		logSlots = store_minTableSize
 	}
 
 	// using the information, determine which log files are candidates for rewriting.
@@ -687,14 +702,14 @@ func (s *Store) compactOnce(
 	// if there are no modifications to the hashtbl to remove expired records or flag records as
 	// trash, and we have no log file candidates to rewrite, and the hashtable would be the same
 	// size, we can exit early.
-	if !modifications && len(rewriteCandidates) == 0 && lrec == s.tbl.lrec {
+	if !modifications && len(rewriteCandidates) == 0 && logSlots == s.tbl.logSlots {
 		return true, nil
 	}
 
 	// limit the number of log files we rewrite in a single compaction to so that we write around
 	// the amount of a size of the new hashtbl. this bounds the extra space necessary to compact.
 	rewrite := make(map[uint64]bool)
-	target := hashtblSize(lrec)
+	target := hashtblSize(logSlots)
 	for id := range rewriteCandidates {
 		if used[id] <= target {
 			rewrite[id] = true
@@ -718,7 +733,7 @@ func (s *Store) compactOnce(
 	}
 	defer af.Cancel()
 
-	ntbl, err := CreateHashtbl(af.File, lrec, today)
+	ntbl, err := CreateHashtbl(af.File, logSlots, today)
 	if err != nil {
 		return false, Error.Wrap(err)
 	}
