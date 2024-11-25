@@ -9,6 +9,8 @@ then
     go install golang.org/dl/go1.16.15@latest && go1.16.15 download
 fi
 
+TMP=$(mktemp -d -t tmp.XXXXXXXXXX)
+
 cleanup(){
     ret=$?
     echo "EXIT STATUS: $ret"
@@ -62,8 +64,6 @@ echo "stage1_storagenode_versions" $stage1_storagenode_versions
 echo "stage2_sat_version" $stage2_sat_version
 echo "stage2_uplink_versions" $stage2_uplink_versions
 echo "stage2_storagenode_versions" $stage2_storagenode_versions
-
-TMP=$(mktemp -d -t tmp.XXXXXXXXXX)
 
 find_unique_versions(){
     echo "$*" | tr " " "\n" | sort | uniq
