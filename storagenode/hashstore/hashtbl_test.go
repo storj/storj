@@ -5,6 +5,7 @@ package hashstore
 
 import (
 	"context"
+	"encoding/binary"
 	"math/rand"
 	"os"
 	"path/filepath"
@@ -130,6 +131,9 @@ func TestHashtbl_LostPage(t *testing.T) {
 	ctx := context.Background()
 	h := newTestHashtbl(t, lrec)
 	defer h.Close()
+
+	// we depend on writing keys to specific pages, so turn off key hashing.
+	h.header.hashKey = false
 
 	// create two keys that collide at the end of the first page.
 	k0 := Key{0: recordsPerPage - 1}
@@ -284,6 +288,9 @@ func TestHashtbl_Wraparound(t *testing.T) {
 	h := newTestHashtbl(t, 8)
 	defer h.Close()
 
+	// we depend on writing keys to specific pages, so turn off key hashing.
+	h.header.hashKey = false
+
 	// newEndKey creates a key that has a keyIndex of 255.
 	newEndKey := func() Key {
 		k := newKey()
@@ -304,6 +311,81 @@ func TestHashtbl_Wraparound(t *testing.T) {
 	for _, k := range keys {
 		h.AssertLookup(k)
 	}
+}
+
+func TestHashtbl_ResizeDoesNotBiasEstimate(t *testing.T) {
+	const lrec = 15
+
+	ctx := context.Background()
+	h0 := newTestHashtbl(t, lrec)
+	defer h0.Close()
+
+	for i := 0; i < 1<<(lrec-1); i++ {
+		h0.AssertInsert()
+	}
+
+	h1 := newTestHashtbl(t, lrec+1)
+	defer h1.Close()
+
+	h0.Range(ctx, func(rec Record, err error) bool {
+		assert.NoError(t, err)
+		ok, err := h1.Insert(ctx, rec)
+		assert.That(t, ok)
+		assert.NoError(t, err)
+		return true
+	})
+
+	h1.AssertReopen()
+	t.Logf("%v", h1.Load())
+	assert.That(t, h1.Load() >= 0.1)
+	assert.That(t, h1.Load() <= 0.3)
+}
+
+func TestHashtbl_RandomDistributionOfSequentialKeys(t *testing.T) {
+	const lrec = 10
+
+	h := newTestHashtbl(t, lrec)
+	defer h.Close()
+
+	// load keys into the hash table that would be sequential with no hashing.
+	var k Key
+	for i := 1 << lrec / 2; i < 1<<lrec; i++ {
+		binary.BigEndian.PutUint64(k[0:8], uint64(i)<<(64-lrec))
+		h.AssertInsertRecord(newRecord(k))
+	}
+
+	// ensure no page is empty. the probability of any page being empty with a random distribution
+	// is less than 2^64.
+	var p page
+	for offset := int64(pageSize); offset < int64(hashtblSize(lrec)); offset += pageSize {
+		_, err := h.fh.ReadAt(p[:], offset)
+		assert.NoError(t, err)
+		if p == (page{}) {
+			t.Fatal("empty page found")
+		}
+	}
+}
+
+func TestHashtbl_EstimateWithNonuniformTable(t *testing.T) {
+	const lrec = 17
+
+	h := newTestHashtbl(t, lrec)
+	defer h.Close()
+
+	// completely fill the table.
+	for i := 0; i < 1<<lrec; i++ {
+		h.AssertInsert()
+	}
+
+	// overwrite the first half of the table with zeros.
+	_, err := h.fh.WriteAt(make([]byte, (hashtblSize(lrec)-pageSize)/2), pageSize)
+	assert.NoError(t, err)
+
+	// the load should be around 0.5 after recomputing the estimates.
+	h.AssertReopen()
+	t.Logf("%v", h.Load())
+	assert.That(t, h.Load() >= 0.4)
+	assert.That(t, h.Load() <= 0.6)
 }
 
 //

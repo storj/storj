@@ -417,14 +417,15 @@ func TestStore_MergeRecordsWhenCompactingWithLostPage(t *testing.T) {
 	// helper function to create a key that goes into the given page and record index. n is used to
 	// create distinct keys with the same page and record index.
 	createKey := func(pi, ri uint64, n uint8) (k Key) {
-		v := pi*recordsPerPage + ri%recordsPerPage
-		v <<= (64 - s.tbl.logSlots)
-		binary.BigEndian.PutUint64(k[0:8], v)
-		k[31] = n
-		gpi, gri := s.tbl.pageAndRecordIndexForSlot(s.tbl.slotForKey(&k))
-		assert.Equal(t, gpi, pi)
-		assert.Equal(t, gri, ri)
-		return k
+		rng := mwc.Rand()
+		for {
+			binary.BigEndian.PutUint64(k[0:8], rng.Uint64())
+			k[31] = n
+			gpi, gri := s.tbl.pageAndRecordIndexForSlot(s.tbl.slotForKey(&k))
+			if pi == gpi && ri == gri {
+				return k
+			}
+		}
 	}
 
 	// create two keys that collide at the end of the first page.

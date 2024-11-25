@@ -18,13 +18,18 @@ import (
 
 const invalidPage = ^uint64(0)
 
+type hashtblHeader struct {
+	created uint32 // when the hashtbl was created
+	hashKey bool   // if we apply a hash function to the key
+}
+
 // HashTbl is an on disk hash table of records.
 type HashTbl struct {
-	fh       *os.File // file handle backing the hashtbl
-	logSlots uint64   // log_2 of the maximum number of slots
-	numSlots uint64   // 1 << logSlots, the actual maximum number of slots
-	slotMask uint64   // numSlots - 1, a bit mask for the maximum number of slots
-	created  uint32   // the day the hashtbl was created
+	fh       *os.File      // file handle backing the hashtbl
+	logSlots uint64        // log_2 of the maximum number of slots
+	numSlots uint64        // 1 << logSlots, the actual maximum number of slots
+	slotMask uint64        // numSlots - 1, a bit mask for the maximum number of slots
+	header   hashtblHeader // header information
 
 	closed drpcsignal.Signal // closed state
 	cloMu  sync.Mutex        // synchronizes closing
@@ -50,6 +55,11 @@ func CreateHashtbl(fh *os.File, logSlots uint64, created uint32) (*HashTbl, erro
 		return nil, Error.New("logSlots too large: %d", logSlots)
 	}
 
+	header := hashtblHeader{
+		created: created,
+		hashKey: true,
+	}
+
 	// clear the file and truncate it to the correct length and write the header page.
 	size := int64(hashtblSize(logSlots))
 	if err := fh.Truncate(0); err != nil {
@@ -58,7 +68,7 @@ func CreateHashtbl(fh *os.File, logSlots uint64, created uint32) (*HashTbl, erro
 		return nil, Error.New("unable to truncate hashtbl to %d: %w", size, err)
 	} else if err := fallocate(fh, size); err != nil {
 		return nil, Error.New("unable to fallocate hashtbl to %d: %w", size, err)
-	} else if err := writeHashtblHeader(fh, created); err != nil {
+	} else if err := writeHashtblHeader(fh, header); err != nil {
 		return nil, Error.Wrap(err)
 	}
 
@@ -86,7 +96,7 @@ func OpenHashtbl(fh *os.File) (_ *HashTbl, err error) {
 	}
 
 	// read the header information from the first page.
-	created, err := readHashtblHeader(fh)
+	header, err := readHashtblHeader(fh)
 	if err != nil {
 		return nil, Error.Wrap(err)
 	}
@@ -96,7 +106,7 @@ func OpenHashtbl(fh *os.File) (_ *HashTbl, err error) {
 		logSlots: logSlots,
 		numSlots: 1 << logSlots,
 		slotMask: 1<<logSlots - 1,
-		created:  created,
+		header:   header,
 	}
 
 	// estimate numSet, lenSet, numTrash and lenTrash.
@@ -142,7 +152,7 @@ func (h *HashTbl) Stats() HashTblStats {
 		TableSize: pageSize + h.numSlots*RecordSize,
 		Load:      safeDivide(float64(h.numSet), float64(h.numSlots)),
 
-		Created: h.created,
+		Created: h.header.created,
 	}
 }
 
@@ -163,11 +173,18 @@ func (h *HashTbl) Close() {
 }
 
 // writeHashtblHeader writes the header page to the file handle.
-func writeHashtblHeader(fh *os.File, created uint32) error {
+func writeHashtblHeader(fh *os.File, header hashtblHeader) error {
 	var buf [pageSize]byte
 
 	copy(buf[0:4], "HTBL")
-	binary.BigEndian.PutUint32(buf[4:8], created)
+	binary.BigEndian.PutUint32(buf[4:8], header.created) // write the created field.
+	if header.hashKey {
+		buf[8] = 1 // write the hashKey field.
+	} else {
+		buf[8] = 0
+	}
+
+	// write the checksum
 	binary.BigEndian.PutUint64(buf[pageSize-8:pageSize], xxh3.Hash(buf[:pageSize-8]))
 
 	// write the header page.
@@ -176,28 +193,35 @@ func writeHashtblHeader(fh *os.File, created uint32) error {
 }
 
 // readHashtblHeader reads the header page from the file handle.
-func readHashtblHeader(fh *os.File) (created uint32, err error) {
+func readHashtblHeader(fh *os.File) (header hashtblHeader, err error) {
 	// read the magic bytes.
 	var buf [pageSize]byte
 	if _, err := fh.ReadAt(buf[:], 0); err != nil {
-		return 0, Error.New("unable to read header: %w", err)
+		return hashtblHeader{}, Error.New("unable to read header: %w", err)
 	} else if string(buf[0:4]) != "HTBL" {
-		return 0, Error.New("invalid header: %q", buf[0:4])
+		return hashtblHeader{}, Error.New("invalid header: %q", buf[0:4])
 	}
 
 	// check the checksum.
 	hash := binary.BigEndian.Uint64(buf[pageSize-8 : pageSize])
 	if computed := xxh3.Hash(buf[:pageSize-8]); hash != computed {
-		return 0, Error.New("invalid header checksum: %x != %x", hash, computed)
+		return hashtblHeader{}, Error.New("invalid header checksum: %x != %x", hash, computed)
 	}
 
-	// read the created field.
-	return binary.BigEndian.Uint32(buf[4:8]), nil
+	header.created = binary.BigEndian.Uint32(buf[4:8]) // read the created field.
+	header.hashKey = buf[8] != 0                       // read the hashKey field.
+
+	return header, nil
 }
 
 // slotForKey computes the slot for the given key.
 func (h *HashTbl) slotForKey(k *Key) uint64 {
-	v := binary.BigEndian.Uint64(k[0:8])
+	var v uint64
+	if h.header.hashKey {
+		v = xxh3.Hash(k[:])
+	} else {
+		v = binary.BigEndian.Uint64(k[0:8])
+	}
 	s := (64 - h.logSlots) % 64
 	return (v >> s) & h.slotMask
 }
