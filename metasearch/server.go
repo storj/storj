@@ -49,13 +49,13 @@ type GetRequest struct {
 type SearchRequest struct {
 	BaseRequest
 
-	KeyPrefix  string                 `json:"keyPrefix"`
-	Match      map[string]interface{} `json:"match"`
-	Filter     string                 `json:"filter"`
-	Projection string                 `json:"projection"`
+	KeyPrefix  string                 `json:"keyPrefix,omitempty"`
+	Match      map[string]interface{} `json:"match,omitempty"`
+	Filter     string                 `json:"filter,omitempty"`
+	Projection string                 `json:"projection,omitempty"`
 
-	BatchSize int    `json:"batchSize"`
-	PageToken string `json:"pageToken"`
+	BatchSize int    `json:"batchSize,omitempty"`
+	PageToken string `json:"pageToken,omitempty"`
 
 	startAfter metabase.ObjectStream
 }

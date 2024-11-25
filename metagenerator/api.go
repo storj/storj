@@ -7,6 +7,8 @@ import (
 	"io"
 	"net/http"
 	"net/http/httputil"
+
+	"storj.io/storj/metasearch"
 )
 
 type Request struct {
@@ -54,7 +56,7 @@ func putMeta(record *Record, apiKey, projectId, url string) error {
 	return nil
 }
 
-func SearchMeta(query Request, apiKey, projectId, url string) (bodyBytes []byte, err error) {
+func SearchMeta(query metasearch.SearchRequest, apiKey, projectId, url string) (bodyBytes []byte, err error) {
 	req, err := json.Marshal(query)
 	if err != nil {
 		return

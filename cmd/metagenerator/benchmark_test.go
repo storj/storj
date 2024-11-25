@@ -11,6 +11,7 @@ import (
 	"testing"
 
 	"storj.io/storj/metagenerator"
+	"storj.io/storj/metasearch"
 )
 
 const (
@@ -60,12 +61,12 @@ func BenchmarkSimpleQuery(b *testing.B) {
 			for i := 0; i < b.N; i++ {
 				val := fmt.Sprintf("benchmarkValue_%v", n)
 				b.ResetTimer()
-				res, err := metagenerator.SearchMeta(metagenerator.Request{
-					Path: fmt.Sprintf("sj://%s/", metagenerator.Label),
+				url := fmt.Sprintf("%s/metasearch/%s", defaultMetasearchAPI, metagenerator.Label)
+				res, err := metagenerator.SearchMeta(metasearch.SearchRequest{
 					Match: map[string]any{
 						"field_" + val: val,
 					},
-				}, apiKey, projectId, defaultMetasearchAPI)
+				}, apiKey, projectId, url)
 				b.StopTimer()
 
 				if err != nil {
