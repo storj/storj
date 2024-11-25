@@ -48,7 +48,7 @@ func (br *BloomRate) Allow(now time.Time, key []byte) bool {
 	allowed := false
 	for _, seed := range br.hashes {
 		mh.SetSeed(seed)
-		mh.Write(key)
+		_, _ = mh.Write(key)
 		if br.rates[int(mh.Sum64()&uint64(len(br.rates)-1))].Allow(now, br.limit, br.burst) {
 			allowed = true
 			// we can't break out of the for loop here. we need to make sure all
