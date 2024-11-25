@@ -174,7 +174,7 @@ func forEachComponent(components []*Component, callback func(component *Componen
 // Execute executes a function with injecting all the required dependencies with type based Dependency Injection.
 func Execute[A any](ctx context.Context, ball *Ball, factory interface{}, options ...any) (A, error) {
 	var a A
-	response, err := runWithParams(ctx, ball, factory, options...)
+	response, err := runWithParams[A](ctx, ball, factory, options...)
 	if err != nil {
 		return a, err
 	}
@@ -192,7 +192,7 @@ func Execute[A any](ctx context.Context, ball *Ball, factory interface{}, option
 
 // Execute0 executes a function with injection all required parameters. Same as Execute but without return type.
 func Execute0(ctx context.Context, ball *Ball, factory interface{}) error {
-	_, err := runWithParams(ctx, ball, factory)
+	_, err := runWithParams[any](ctx, ball, factory)
 	if err != nil {
 		return err
 	}
@@ -200,7 +200,7 @@ func Execute0(ctx context.Context, ball *Ball, factory interface{}) error {
 }
 
 // injectAnd execute calls the `factory` method, finding all required parameters in the registry.
-func runWithParams(ctx context.Context, ball *Ball, factory interface{}, options ...any) ([]reflect.Value, error) {
+func runWithParams[A any](ctx context.Context, ball *Ball, factory interface{}, options ...any) ([]reflect.Value, error) {
 	ft := reflect.TypeOf(factory)
 	if reflect.Func != ft.Kind() {
 		panic("Provider argument must be a func()")
@@ -238,10 +238,13 @@ func runWithParams(ctx context.Context, ball *Ball, factory interface{}, options
 				val = wrapper.wrapper(val)
 			}
 			var rv reflect.Value
-			if dep.instance != nil {
-				rv = reflect.ValueOf(val)
-			} else {
+			if dep.instance == nil {
 				rv = reflect.Zero(dep.target)
+			} else if isInjector(dep.instance) {
+				res := reflect.ValueOf(dep.instance).Call([]reflect.Value{reflect.ValueOf(ball), reflect.ValueOf(typeOf[A]())})
+				rv = res[0]
+			} else {
+				rv = reflect.ValueOf(val)
 			}
 			args = append(args, rv)
 			continue
@@ -251,6 +254,23 @@ func runWithParams(ctx context.Context, ball *Ball, factory interface{}, options
 	}
 	return reflect.ValueOf(factory).Call(args), nil
 }
+
+func isInjector(instance any) bool {
+	funcType := reflect.TypeOf(instance)
+
+	if funcType == nil || funcType.Kind() != reflect.Func {
+		return false
+	}
+
+	if funcType.NumIn() != 2 {
+		return false
+	}
+
+	return funcType.In(0) == reflect.TypeOf(&Ball{})
+}
+
+// Injector is a function which can be used to inject a specific type.
+type Injector[T any] func(ball *Ball, t reflect.Type) T
 
 // Wrapper can be used during injection to decorate existing instances.
 type Wrapper struct {
@@ -282,6 +302,49 @@ func getWrapperByType(in reflect.Type, options []any) (Wrapper, bool) {
 	return Wrapper{}, false
 }
 
+// Factory is like Provide, but instead of storing an instance in the component, it stores a factory function.
+// factory function is called each time when the instance is required.
+// Useful for logger, which requires further adjustment when it's injected.
+func Factory[A any](ball *Ball, factory interface{}) {
+	if component := lookup[A](ball); component != nil {
+		panic("duplicate registration, " + name[A]())
+	}
+	component := &Component{}
+	component.create = &Stage{
+		run: func(a any, ctx context.Context) (err error) {
+			component.instance, err = Execute[Injector[A]](ctx, ball, factory)
+			return err
+		},
+	}
+
+	component.target = reflect.TypeOf((*A)(nil)).Elem()
+	ball.registry = append(ball.registry, component)
+
+	registerDependencies(ball, component, factory)
+}
+
+// registerDependency creates new dependency connection between the component and any function parameters of factory function.
+func registerDependencies(ball *Ball, c *Component, factory interface{}) {
+	// mark dependencies
+	ft := reflect.TypeOf(factory)
+	if ft.Kind() != reflect.Func {
+		panic("factory parameter of Provide must be a func")
+	}
+	for i := 0; i < ft.NumIn(); i++ {
+		// internal dependency without component
+		if ft.In(i) == reflect.TypeOf(ball) {
+			continue
+		}
+
+		// context can be injected any time
+		if ft.In(i).String() == "context.Context" {
+			continue
+		}
+
+		c.addRequirement(ft.In(i))
+	}
+}
+
 // Provide registers a new instance to the dependency pool.
 // Run/Close methods are auto-detected (stage is created if they exist).
 func Provide[A any](ball *Ball, factory interface{}, options ...any) {
@@ -308,24 +371,7 @@ func Provide[A any](ball *Ball, factory interface{}, options ...any) {
 		registerFunc[A](closeF, component.close, "Close")
 	}
 
-	// mark dependencies
-	ft := reflect.TypeOf(factory)
-	if ft.Kind() != reflect.Func {
-		panic("factory parameter of Provide must be a func")
-	}
-	for i := 0; i < ft.NumIn(); i++ {
-		// internal dependency without component
-		if ft.In(i) == reflect.TypeOf(ball) {
-			continue
-		}
-
-		// context can be injected any time
-		if ft.In(i).String() == "context.Context" {
-			continue
-		}
-
-		component.addRequirement(ft.In(i))
-	}
+	registerDependencies(ball, component, factory)
 }
 
 // registerFunc tries to find a func with supported signature, to be used for stage runner func.
