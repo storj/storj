@@ -18,7 +18,6 @@ import (
 	"storj.io/common/pb"
 	"storj.io/common/peertls/extensions"
 	"storj.io/common/peertls/tlsopts"
-	"storj.io/common/process"
 	"storj.io/common/rpc"
 	"storj.io/common/storj"
 	"storj.io/common/version"
@@ -128,7 +127,7 @@ func Module(ball *mud.Ball) {
 				ConcurrentFileHandles: cfg.FlatExpirationStoreFileHandles,
 				MaxBufferTime:         cfg.FlatExpirationStoreMaxBufferTime,
 			})
-		}, logWrapper("pieceexpiration"))
+		})
 		mud.RegisterInterfaceImplementation[pieces.PieceExpirationDB, *pieces.PieceExpirationStore](ball)
 	}
 
@@ -140,12 +139,12 @@ func Module(ball *mud.Ball) {
 	{ // version setup
 		mud.Provide[*checker.Service](ball, func(log *zap.Logger, config checker.Config, versionInfo version.Info) *checker.Service {
 			return checker.NewService(log, config, versionInfo, "Storagenode")
-		}, logWrapper("version"))
+		})
 
 		versionCheckInterval := 12 * time.Hour
 
 		mud.Provide[*snversion.Chore](ball, func(log *zap.Logger, checker *checker.Service, notificationsService *notifications.Service, nodeID storj.NodeID) *snversion.Chore {
-			return snversion.NewChore(process.NamedLog(log, "version:chore"), checker, notificationsService, nodeID, versionCheckInterval)
+			return snversion.NewChore(log, checker, notificationsService, nodeID, versionCheckInterval)
 		})
 
 		mud.Tag[*snversion.Chore, modular.Service](ball, modular.Service{})
@@ -176,13 +175,13 @@ func Module(ball *mud.Ball) {
 				srv.AddHTTPFallback(fallback.Handler)
 			}
 			return srv, nil
-		}, logWrapper("server"))
+		})
 
 	}
 
 	{ // setup trust pool
 		mud.Provide[*trust.Pool](ball, func(log *zap.Logger, satDb satellites.DB, dialer rpc.Dialer, config trust.Config) (*trust.Pool, error) {
-			pool, err := trust.NewPool(process.NamedLog(log, "trust"), trust.Dialer(dialer), config, satDb)
+			pool, err := trust.NewPool(log, trust.Dialer(dialer), config, satDb)
 			pool.StartWithRefresh = true
 			return pool, err
 		})
@@ -191,7 +190,7 @@ func Module(ball *mud.Ball) {
 	}
 
 	{
-		mud.Provide[*preflight.LocalTime](ball, preflight.NewLocalTime, logWrapper("preflight:localtime"))
+		mud.Provide[*preflight.LocalTime](ball, preflight.NewLocalTime)
 	}
 
 	{ // setup contact service
@@ -242,11 +241,11 @@ func Module(ball *mud.Ball) {
 			return &tags
 		})
 
-		mud.Provide[*contact.Service](ball, contact.NewService, logWrapper("contact:service"))
+		mud.Provide[*contact.Service](ball, contact.NewService)
 
 		mud.Provide[*contact.Chore](ball, func(log *zap.Logger, contactConfig contact.Config, service *contact.Service) *contact.Chore {
 			return contact.NewChore(log, contactConfig.Interval, service)
-		}, logWrapper("contact:chore"))
+		})
 		mud.Tag[*contact.Chore, modular.Service](ball, modular.Service{})
 
 		mud.Provide[*contact.Endpoint](ball, func(log *zap.Logger, trustSource trust.TrustedSatelliteSource, pingStats *contact.PingStats, srv *server.Server) (*contact.Endpoint, error) {
@@ -262,7 +261,7 @@ func Module(ball *mud.Ball) {
 	// setup bandwidth service
 	{
 		mud.Provide[*bandwidth.Cache](ball, bandwidth.NewCache)
-		mud.Provide[*bandwidth.Service](ball, bandwidth.NewService, logWrapper("bandwidth"))
+		mud.Provide[*bandwidth.Service](ball, bandwidth.NewService)
 		mud.Tag[*bandwidth.Service, modular.Service](ball, modular.Service{})
 	}
 
@@ -276,16 +275,16 @@ func Module(ball *mud.Ball) {
 
 		mud.Provide[*lazyfilewalker.Supervisor](ball, func(log *zap.Logger, config lazyfilewalker.Config) *lazyfilewalker.Supervisor {
 			return lazyfilewalker.NewSupervisor(log, config, executable)
-		}, logWrapper("lazyfilewalker"))
+		})
 
-		mud.Provide[*pieces.Store](ball, pieces.NewStore, logWrapper("pieces"))
+		mud.Provide[*pieces.Store](ball, pieces.NewStore)
 
 		mud.Provide[*pieces.BlobsUsageCache](ball, func(log *zap.Logger, blobs RawBlobs) *pieces.BlobsUsageCache {
 			return pieces.NewBlobsUsageCache(log, blobs)
-		}, logWrapper("blobscache"))
+		})
 		mud.Provide[*pieces.CacheService](ball, func(log *zap.Logger, usageCache *pieces.BlobsUsageCache, store *pieces.Store, usedSpaceDB pieces.PieceSpaceUsedDB, storage2Config piecestore.Config) *pieces.CacheService {
 			return pieces.NewService(log, usageCache, store, usedSpaceDB, storage2Config.CacheSyncInterval, storage2Config.PieceScanOnStartup)
-		}, logWrapper("piecestore:cache"))
+		})
 
 		mud.View[DB, RawBlobs](ball, func(db DB) RawBlobs {
 			return db.Pieces()
@@ -301,9 +300,9 @@ func Module(ball *mud.Ball) {
 		mud.RegisterInterfaceImplementation[monitor.DiskVerification, *pieces.Store](ball)
 		mud.Provide[*monitor.Service](ball, func(log *zap.Logger, verifier monitor.DiskVerification, oldConfig piecestore.OldConfig, contact *contact.Service, spaceReport monitor.SpaceReport, config monitor.Config) *monitor.Service {
 			return monitor.NewService(log, verifier, contact, oldConfig.KBucketRefreshInterval, spaceReport, config)
-		}, logWrapper("piecestore:monitor"))
+		})
 
-		mud.Provide[*retain.Service](ball, retain.NewService, logWrapper("retain"))
+		mud.Provide[*retain.Service](ball, retain.NewService)
 		mud.Provide[*retain.RunOnce](ball, retain.NewRunOnce)
 
 		mud.Provide[*usedserials.Table](ball, func(storage2Config piecestore.Config) *usedserials.Table {
@@ -312,7 +311,7 @@ func Module(ball *mud.Ball) {
 
 		mud.Provide[*orders.FileStore](ball, func(log *zap.Logger, storage2Config piecestore.Config) (*orders.FileStore, error) {
 			return orders.NewFileStore(log, storage2Config.Orders.Path, storage2Config.OrderLimitGracePeriod)
-		}, logWrapper("ordersfilestore"))
+		})
 
 		mud.Provide[*pieces.TrashChore](ball, func(log *zap.Logger, trust *trust.Pool, store *pieces.Store) *pieces.TrashChore {
 			return pieces.NewTrashChore(
@@ -320,7 +319,7 @@ func Module(ball *mud.Ball) {
 				24*time.Hour,
 				trashExpiryInterval,
 				trust, store)
-		}, logWrapper("pieces:trash"))
+		})
 		mud.Provide[*pieces.TrashRunOnce](ball, func(log *zap.Logger, blobs blobstore.Blobs, stop *modular.StopTrigger) *pieces.TrashRunOnce {
 			return pieces.NewTrashRunOnce(log, blobs, trashExpiryInterval, stop)
 		})
@@ -356,31 +355,31 @@ func Module(ball *mud.Ball) {
 			return retain.NewRestoreTimeManager(cfg.Path)
 		})
 
-		mud.Provide[*piecestore.Endpoint](ball, piecestore.NewEndpoint, logWrapper("piecestore"))
+		mud.Provide[*piecestore.Endpoint](ball, piecestore.NewEndpoint)
 
 		mud.Provide[*orders.Service](ball, func(log *zap.Logger, ordersStore *orders.FileStore, trustSource trust.TrustedSatelliteSource, config orders.Config, tlsOptions *tlsopts.Options) *orders.Service {
 			// TODO workaround for custom timeout for order sending request (read/write)
 			dialer := rpc.NewDefaultDialer(tlsOptions)
 			dialer.DialTimeout = config.SenderDialTimeout
 			return orders.NewService(log, dialer, ordersStore, trustSource, config)
-		}, logWrapper("orders"))
+		})
 		mud.Tag[*orders.Service, modular.Service](ball, modular.Service{})
 
 	}
 
 	{ // setup payouts.
-		mud.Provide[*payouts.Service](ball, payouts.NewService, logWrapper("payouts:service"))
-		mud.Provide[*payouts.Endpoint](ball, payouts.NewEndpoint, logWrapper("payouts:endpoint"))
+		mud.Provide[*payouts.Service](ball, payouts.NewService)
+		mud.Provide[*payouts.Endpoint](ball, payouts.NewEndpoint)
 	}
 
 	{ // setup reputation service.
-		mud.Provide[*reputation.Service](ball, reputation.NewService, logWrapper("reputation:service"))
-		mud.Provide[*reputation.Chore](ball, reputation.NewChore, logWrapper("reputation:chore"))
+		mud.Provide[*reputation.Service](ball, reputation.NewService)
+		mud.Provide[*reputation.Chore](ball, reputation.NewChore)
 		mud.Tag[*reputation.Chore, modular.Service](ball, modular.Service{})
 	}
 
 	{ // setup node stats service
-		mud.Provide[*nodestats.Service](ball, nodestats.NewService, logWrapper("nodestats:service"))
+		mud.Provide[*nodestats.Service](ball, nodestats.NewService)
 		mud.Provide[nodestats.CacheStorage](ball, func(sdb storageusage.DB, pdb payouts.DB, prdb pricing.DB) nodestats.CacheStorage {
 			return nodestats.CacheStorage{
 				StorageUsage: sdb,
@@ -388,7 +387,7 @@ func Module(ball *mud.Ball) {
 				Pricing:      prdb,
 			}
 		})
-		mud.Provide[*nodestats.Cache](ball, nodestats.NewCache, logWrapper("nodestats:cache"))
+		mud.Provide[*nodestats.Cache](ball, nodestats.NewCache)
 		mud.Tag[*nodestats.Cache, modular.Service](ball, modular.Service{})
 	}
 
@@ -415,12 +414,6 @@ func Module(ball *mud.Ball) {
 	})
 	mud.Tag[*EndpointRegistration, modular.Service](ball, modular.Service{})
 
-}
-
-func logWrapper(name string) any {
-	return mud.NewWrapper[*zap.Logger](func(logger *zap.Logger) *zap.Logger {
-		return process.NamedLog(logger, name)
-	})
 }
 
 // EndpointRegistration is a pseudo component to wire server and DRPC endpoints together.
