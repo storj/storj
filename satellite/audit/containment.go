@@ -31,3 +31,24 @@ type Containment interface {
 	Delete(ctx context.Context, job *PieceLocator) (wasDeleted, nodeStillContained bool, err error)
 	GetAllContainedNodes(ctx context.Context) ([]pb.NodeID, error)
 }
+
+type noContainment struct {
+}
+
+func (n noContainment) Get(ctx context.Context, nodeID pb.NodeID) (*ReverificationJob, error) {
+	return nil, nil
+}
+
+func (n noContainment) Insert(ctx context.Context, job *PieceLocator) error {
+	return nil
+}
+
+func (n noContainment) Delete(ctx context.Context, job *PieceLocator) (wasDeleted, nodeStillContained bool, err error) {
+	return false, false, nil
+}
+
+func (n noContainment) GetAllContainedNodes(ctx context.Context) ([]pb.NodeID, error) {
+	return []pb.NodeID{}, nil
+}
+
+var _ Containment = &noContainment{}
