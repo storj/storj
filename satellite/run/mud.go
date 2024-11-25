@@ -11,12 +11,10 @@ import (
 	"storj.io/storj/shared/modular/logger"
 )
 
-// CreateModule registers all the possible components for the satellite instance.
-func CreateModule() *mud.Ball {
-	ball := &mud.Ball{}
+// Module registers all the possible components for the satellite instance.
+func Module(ball *mud.Ball) {
 	logger.Module(ball)
 	modular.IdentityModule(ball)
 	satellitedb.Module(ball)
 	satellite.Module(ball)
-	return ball
 }
