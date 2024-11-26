@@ -214,6 +214,11 @@ func TestStore_TTL(t *testing.T) {
 	// add an entry to the store that is already expired.
 	key := s.AssertCreate(time.Now())
 
+	// ensure the stats have it in the ttl section.
+	stats := s.Stats()
+	assert.Equal(t, stats.NumLogs, stats.NumLogsTTL)
+	assert.Equal(t, stats.LenLogs, stats.LenLogsTTL)
+
 	// compact the store so that the expired key is deleted.
 	s.today += 3 // 3 just in case the test is running near midnight.
 	s.AssertCompact(nil, time.Time{})

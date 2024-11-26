@@ -121,8 +121,10 @@ type DBStats struct {
 	TableSize uint64  // total number of bytes in the hash table.
 	Load      float64 // percent of slots that are set.
 
-	NumLogs uint64 // total number of log files.
-	LenLogs uint64 // total number of bytes in the log files.
+	NumLogs    uint64 // total number of log files.
+	LenLogs    uint64 // total number of bytes in the log files.
+	NumLogsTTL uint64 // total number of log files with ttl set.
+	LenLogsTTL uint64 // total number of bytes in log files with ttl set.
 
 	SetPercent   float64 // percent of bytes that are set in the log files.
 	TrashPercent float64 // percent of bytes that are trash in the log files.
@@ -163,8 +165,10 @@ func (d *DB) Stats() DBStats {
 		TableSize: s0st.Table.TableSize + s1st.Table.TableSize,
 		Load:      safeDivide(float64(s0st.Table.NumSet+s1st.Table.NumSet), float64(s0st.Table.NumSlots+s1st.Table.NumSlots)),
 
-		NumLogs: s0st.NumLogs + s1st.NumLogs,
-		LenLogs: s0st.LenLogs + s1st.LenLogs,
+		NumLogs:    s0st.NumLogs + s1st.NumLogs,
+		LenLogs:    s0st.LenLogs + s1st.LenLogs,
+		NumLogsTTL: s0st.NumLogsTTL + s1st.NumLogsTTL,
+		LenLogsTTL: s0st.LenLogsTTL + s1st.LenLogsTTL,
 
 		SetPercent:   safeDivide(float64(s0st.Table.LenSet+s1st.Table.LenSet), float64(s0st.LenLogs+s1st.LenLogs)),
 		TrashPercent: safeDivide(float64(s0st.Table.LenTrash+s1st.Table.LenTrash), float64(s0st.LenLogs+s1st.LenLogs)),

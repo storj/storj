@@ -230,8 +230,10 @@ func NewStore(dir string, log *zap.Logger) (_ *Store, err error) {
 
 // StoreStats is a collection of statistics about a store.
 type StoreStats struct {
-	NumLogs uint64 // total number of log files.
-	LenLogs uint64 // total number of bytes in the log files.
+	NumLogs    uint64 // total number of log files.
+	LenLogs    uint64 // total number of bytes in the log files.
+	NumLogsTTL uint64 // total number of log files with ttl set.
+	LenLogsTTL uint64 // total number of bytes in log files with ttl set.
 
 	SetPercent   float64 // percent of bytes that are set in the log files.
 	TrashPercent float64 // percent of bytes that are trash in the log files.
@@ -254,9 +256,15 @@ func (s *Store) Stats() StoreStats {
 	stats := s.tbl.Stats()
 
 	var numLogs, lenLogs uint64
+	var numLogsTTL, lenLogsTTL uint64
 	s.lfs.Range(func(_ uint64, lf *logFile) bool {
+		size := lf.size.Load()
 		numLogs++
-		lenLogs += lf.size.Load()
+		lenLogs += size
+		if lf.ttl > 0 {
+			numLogsTTL++
+			lenLogsTTL += size
+		}
 		return true
 	})
 	s.rmu.RUnlock()
@@ -268,8 +276,10 @@ func (s *Store) Stats() StoreStats {
 	stats.AvgTrash = safeDivide(float64(stats.LenTrash), float64(stats.NumTrash))
 
 	return StoreStats{
-		NumLogs: numLogs,
-		LenLogs: lenLogs,
+		NumLogs:    numLogs,
+		LenLogs:    lenLogs,
+		NumLogsTTL: numLogsTTL,
+		LenLogsTTL: lenLogsTTL,
 
 		SetPercent:   safeDivide(float64(stats.LenSet), float64(lenLogs)),
 		TrashPercent: safeDivide(float64(stats.LenTrash), float64(lenLogs)),

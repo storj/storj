@@ -87,6 +87,27 @@ func TestDB_TrashStats(t *testing.T) {
 	assert.That(t, stats.TrashPercent > 0)
 }
 
+func TestDB_TTLStats(t *testing.T) {
+	db := newTestDB(t, nil, nil)
+	defer db.Close()
+
+	// create an entry with a ttl.
+	db.AssertCreate(time.Now())
+
+	// ensure the ttl stats are updated.
+	stats := db.Stats()
+	assert.Equal(t, stats.NumLogs, stats.NumLogsTTL)
+	assert.Equal(t, stats.LenLogs, stats.LenLogsTTL)
+
+	// create an entry without ttl.
+	db.AssertCreate(time.Time{})
+
+	// ensure the non-ttl stats are updated.
+	stats = db.Stats()
+	assert.Equal(t, stats.NumLogs, 2*stats.NumLogsTTL)
+	assert.Equal(t, stats.LenLogs, 2*stats.LenLogsTTL)
+}
+
 func TestDB_CompactionOnOpen(t *testing.T) {
 	ctx := context.Background()
 	db := newTestDB(t, nil, nil)
