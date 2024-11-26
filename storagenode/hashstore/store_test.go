@@ -886,7 +886,10 @@ func TestStore_FallbackToNonTTLLogFile(t *testing.T) {
 	// that it fails when trying to create it itself.
 	now := time.Now()
 	ttl := timeToDateUp(now)
-	name := filepath.Join(s.dir, fmt.Sprintf("log-%016x-%08x", getLog(permKey)+1, ttl))
+	id := getLog(permKey) + 1
+	dir := filepath.Join(s.dir, fmt.Sprintf("%02x", byte(id)))
+	assert.NoError(t, os.MkdirAll(dir, 0755))
+	name := filepath.Join(dir, fmt.Sprintf("log-%016x-%08x", id, ttl))
 	fh, err := os.OpenFile(name, os.O_CREATE, 0)
 	assert.NoError(t, err)
 	assert.NoError(t, fh.Close())

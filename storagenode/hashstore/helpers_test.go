@@ -8,6 +8,7 @@ import (
 	"encoding/binary"
 	"fmt"
 	"os"
+	"path/filepath"
 	"runtime"
 	"strings"
 	"testing"
@@ -23,6 +24,34 @@ func TestSaturatingUint32(t *testing.T) {
 	assert.Equal(t, saturatingUint23(-1), 1<<23-1)
 	assert.Equal(t, saturatingUint23(1<<23-1), 1<<23-1)
 	assert.Equal(t, saturatingUint23(1<<23), 1<<23-1)
+}
+
+func TestAllFiles(t *testing.T) {
+	dir := t.TempDir()
+
+	touch := func(name string) {
+		assert.NoError(t, os.MkdirAll(filepath.Join(dir, filepath.Dir(name)), 0755))
+		assert.NoError(t, os.WriteFile(filepath.Join(dir, name), nil, 0644))
+	}
+
+	// backwards compatibility
+	touch("log-0000000000000001-00000000")
+	touch("log-0000000000000002-0000ffff")
+
+	// new format
+	touch("03/log-0000000000000003-00000000")
+	touch("04/log-0000000000000004-00000000")
+	touch("03/log-0000000000000103-00000000")
+
+	entries, err := allFiles(dir)
+	assert.NoError(t, err)
+	assert.Equal(t, entries, []string{
+		filepath.Join(dir, "03/log-0000000000000003-00000000"),
+		filepath.Join(dir, "03/log-0000000000000103-00000000"),
+		filepath.Join(dir, "04/log-0000000000000004-00000000"),
+		filepath.Join(dir, "log-0000000000000001-00000000"),
+		filepath.Join(dir, "log-0000000000000002-0000ffff"),
+	})
 }
 
 //

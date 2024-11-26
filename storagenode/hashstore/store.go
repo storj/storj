@@ -100,14 +100,14 @@ func NewStore(dir string, log *zap.Logger) (_ *Store, err error) {
 	}
 
 	{ // open all of the log files
-		entries, err := os.ReadDir(s.dir)
+		paths, err := allFiles(s.dir)
 		if err != nil {
-			return nil, Error.New("unable to read log directory=%q: %w", dir, err)
+			return nil, err
 		}
 
 		// load all of the log files and keep track of if there is a hashtbl file.
-		for _, entry := range entries {
-			name := entry.Name()
+		for _, path := range paths {
+			name := filepath.Base(path)
 
 			// skip any files that don't look like log files. log file names are either
 			//     log-<16 bytes of id>
@@ -131,7 +131,7 @@ func NewStore(dir string, log *zap.Logger) (_ *Store, err error) {
 				ttl = uint32(ttl64)
 			}
 
-			fh, err := os.OpenFile(filepath.Join(s.dir, name), os.O_RDWR, 0)
+			fh, err := os.OpenFile(path, os.O_RDWR, 0)
 			if err != nil {
 				return nil, Error.New("unable to open log file: %w", err)
 			}
@@ -295,7 +295,11 @@ func (s *Store) Stats() StoreStats {
 
 func (s *Store) createLogFile(ttl uint32) (*logFile, error) {
 	id := s.maxLog.Add(1)
-	path := filepath.Join(s.dir, fmt.Sprintf("log-%016x-%08x", id, ttl))
+	dir := filepath.Join(s.dir, fmt.Sprintf("%02x", byte(id)))
+	path := filepath.Join(dir, fmt.Sprintf("log-%016x-%08x", id, ttl))
+	if err := os.MkdirAll(dir, 0755); err != nil {
+		return nil, Error.Wrap(err)
+	}
 	fh, err := createFile(path)
 	if err != nil {
 		return nil, Error.Wrap(err)
