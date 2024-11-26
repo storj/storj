@@ -250,7 +250,7 @@ func TestNodeListFilter(t *testing.T) {
 }
 
 func TestAttributeFilter(t *testing.T) {
-	filter, err := NewAttributeFilter("email", "email@test")
+	filter, err := NewAttributeFilter("email", "==", "email@test")
 	require.NoError(t, err)
 	require.True(t, filter.Match(&SelectedNode{
 		Email: "email@test",
@@ -259,12 +259,20 @@ func TestAttributeFilter(t *testing.T) {
 		Email: "notemail@test",
 	}))
 
-	filter, err = NewAttributeFilter("email", stringNotMatch(""))
+	filter, err = NewAttributeFilter("email", "==", stringNotMatch(""))
 	require.NoError(t, err)
 	require.False(t, filter.Match(&SelectedNode{
 		Email: "",
 	}))
 
+	filter, err = NewAttributeFilter("email", "!=", "email@test")
+	require.NoError(t, err)
+	require.True(t, filter.Match(&SelectedNode{
+		Email: "email2@test",
+	}))
+	require.False(t, filter.Match(&SelectedNode{
+		Email: "email@test",
+	}))
 }
 
 // BenchmarkNodeFilterFullTable checks performances of rule evaluation on ALL storage nodes.

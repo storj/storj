@@ -909,9 +909,9 @@ func TestIfWithEqSelector(t *testing.T) {
 
 func TestDualSelector(t *testing.T) {
 
-	slowFilter, err := nodeselection.NewAttributeFilter("email", "slow")
+	slowFilter, err := nodeselection.NewAttributeFilter("email", "==", "slow")
 	require.NoError(t, err)
-	fastFilter, err := nodeselection.NewAttributeFilter("email", "fast")
+	fastFilter, err := nodeselection.NewAttributeFilter("email", "==", "fast")
 	require.NoError(t, err)
 
 	t.Run("3 from slow, 7 from remaining", func(t *testing.T) {
