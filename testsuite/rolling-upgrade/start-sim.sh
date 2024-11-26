@@ -56,7 +56,8 @@ git fetch --tags
 # if it's running on a release branch, we will set the stage 1 version to be the latest previous major release
 # if it's running on main, we will set the stage 1 version to be the current release version
 current_commit=$(git rev-parse HEAD)
-stage1_release_version=$(git tag -l --sort -version:refname | grep -v rc | head -1)
+# uses { head -1; cat >/dev/null; } to ensure all output from grep is consumed and pipe won't fail
+stage1_release_version=$(git tag -l --sort -version:refname | grep -v rc | { head -1; cat >/dev/null; } )
 if [[ $BRANCH_NAME = v* ]]; then
     stage1_release_version=$($SCRIPTDIR/../find-previous-release.sh --major)
 fi
