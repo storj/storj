@@ -26,8 +26,8 @@ func NewCoreLoad(config CoreLoadConfig) *CoreLoad {
 
 var monLoad = mon.FloatVal("core_load")
 
-// Available implements availability.
-func (s *CoreLoad) Available() (bool, error) {
+// Enabled implements Enablement.
+func (s *CoreLoad) Enabled() (bool, error) {
 	cores := float64(runtime.NumCPU())
 	load, err := getLoad()
 	if err != nil {

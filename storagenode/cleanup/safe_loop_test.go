@@ -27,7 +27,7 @@ func TestSafeLoop(t *testing.T) {
 		CheckingPeriod: 100 * time.Millisecond,
 		RunPeriod:      3 * time.Second,
 	}
-	l := NewSafeLoop(log, a, cfg)
+	l := NewSafeLoop(log, []Enablement{a}, cfg)
 	ctx := testcontext.New(t)
 	result := make(chan error)
 	go func() {
@@ -98,8 +98,8 @@ type mockAvailability struct {
 	available atomic.Bool
 }
 
-func (m *mockAvailability) Available() (bool, error) {
+func (m *mockAvailability) Enabled() (bool, error) {
 	return m.available.Load(), nil
 }
 
-var _ Availability = &mockAvailability{}
+var _ Enablement = &mockAvailability{}
