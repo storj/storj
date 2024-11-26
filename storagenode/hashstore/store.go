@@ -261,12 +261,11 @@ func (s *Store) Stats() StoreStats {
 	})
 	s.rmu.RUnlock()
 
-	// account for record footers in log files not included in the length field
-	// in the record.
+	// account for record footers in log files not included in the length field in the record.
 	stats.LenSet += RecordSize * stats.NumSet
-	stats.AvgSet += RecordSize
+	stats.AvgSet = safeDivide(float64(stats.LenSet), float64(stats.NumSet))
 	stats.LenTrash += RecordSize * stats.NumTrash
-	stats.AvgTrash += RecordSize
+	stats.AvgTrash = safeDivide(float64(stats.LenTrash), float64(stats.NumTrash))
 
 	return StoreStats{
 		NumLogs: numLogs,

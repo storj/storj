@@ -24,6 +24,12 @@ func TestStore_BasicOperation(t *testing.T) {
 	s := newTestStore(t)
 	defer s.Close()
 
+	// ensure stats works before any keys are added.
+	stats := s.Stats()
+	assert.Equal(t, stats.Table.NumSet, 0)
+	assert.Equal(t, stats.Table.LenSet, 0)
+	assert.Equal(t, stats.Table.AvgSet, 0.)
+
 	var keys []Key
 
 	// write a bunch of keys and compact a couple of times.
@@ -42,10 +48,11 @@ func TestStore_BasicOperation(t *testing.T) {
 	}
 
 	// ensure the stats look like what we expect.
-	stats := s.Stats()
+	stats = s.Stats()
 	t.Logf("%+v", stats)
 	assert.Equal(t, stats.Table.NumSet, 4*1024)
 	assert.Equal(t, stats.Table.LenSet, uint64(len(Key{})+RecordSize)*stats.Table.NumSet)
+	assert.Equal(t, stats.Table.AvgSet, float64(len(Key{})+RecordSize))
 	assert.That(t, stats.Table.LenSet <= stats.LenLogs) // <= because of optimistic alignment
 	assert.Equal(t, stats.Compactions, 4)
 
