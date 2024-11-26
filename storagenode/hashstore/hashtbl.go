@@ -436,7 +436,7 @@ func (h *HashTbl) Insert(rec Record) (_ bool, err error) {
 			// otherwise, it is our key, and as noted above we need to merge the records, erroring
 			// if fields are mutated, and picking the "larger" expiration time.
 			if !RecordsEqualish(rec, tmp) {
-				return false, Error.New("collision detected: put:%v != exist:%v", rec, tmp)
+				return false, Error.New("put:%v != exist:%v: %w", rec, tmp, ErrCollision)
 			}
 
 			rec.Expires = MaxExpiration(rec.Expires, tmp.Expires)
