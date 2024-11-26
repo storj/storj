@@ -32,7 +32,67 @@ import (
 	"storj.io/storj/storagenode/satstore"
 )
 
+func TestDuplicates(t *testing.T) {
+	t.Parallel()
+
+	ctx := testcontext.New(t)
+	defer ctx.Cleanup()
+
+	log := zaptest.NewLogger(t)
+	defer ctx.Check(log.Sync)
+
+	dir, err := filestore.NewDir(log, t.TempDir())
+	require.NoError(t, err)
+
+	blobs := filestore.New(log, dir, filestore.DefaultConfig)
+	defer ctx.Check(blobs.Close)
+
+	fw := pieces.NewFileWalker(log, blobs, nil, nil, nil)
+
+	bfm, err := retain.NewBloomFilterManager(t.TempDir(), 0)
+	require.NoError(t, err)
+
+	rtm := retain.NewRestoreTimeManager(t.TempDir())
+
+	old := pieces.NewStore(log, fw, nil, blobs, nil, nil, pieces.DefaultConfig)
+	new := piecestore.NewHashStoreBackend(t.TempDir(), bfm, rtm, log)
+
+	config := Config{
+		BatchSize: 100,
+		Interval:  100 * time.Millisecond,
+	}
+
+	chore := NewChore(log, config, satstore.NewSatelliteStore(t.TempDir(), "chore_migrate"), old, new)
+	group := errgroup.Group{}
+	group.Go(func() error { return chore.Run(ctx) })
+	defer ctx.Check(group.Wait)
+	defer ctx.Check(chore.Close)
+
+	sats1 := randomSatsPieces(1, 3)
+	writeSatsPieces(ctx, t, old, sats1)
+	sats2 := randomSatsPieces(2, 6)
+	writeSatsPieces(ctx, t, old, sats2)
+
+	for sat := range sats1 {
+		chore.SetMigrate(sat, true, true)
+	}
+	for sat := range sats2 {
+		chore.SetMigrate(sat, true, true)
+	}
+
+	waitUntilMigrationFinished(ctx, t, old, sats1)
+	waitUntilMigrationFinished(ctx, t, old, sats2)
+
+	// simulate that the delete has failed
+	writeSatsPieces(ctx, t, old, sats1)
+
+	waitUntilMigrationFinished(ctx, t, old, sats1)
+	waitUntilMigrationFinished(ctx, t, old, sats2)
+}
+
 func TestChoreWithPassiveMigrationOnly(t *testing.T) {
+	t.Parallel()
+
 	ctx := testcontext.New(t)
 	defer ctx.Cleanup()
 
@@ -140,6 +200,8 @@ func TestChoreWithPassiveMigrationOnly(t *testing.T) {
 }
 
 func TestChoreActiveWithPassiveMigration(t *testing.T) {
+	t.Parallel()
+
 	ctx := testcontext.New(t)
 	defer ctx.Cleanup()
 
@@ -174,9 +236,8 @@ func TestChoreActiveWithPassiveMigration(t *testing.T) {
 	writeSatsPieces(ctx, t, old, excludedSatellites3)
 
 	config := Config{
-		BatchSize:         100,
-		Interval:          100 * time.Millisecond,
-		MigrateRegardless: false,
+		BatchSize: 100,
+		Interval:  100 * time.Millisecond,
 	}
 
 	satStoreDir, satStoreExt := t.TempDir(), "chore_migrate"
