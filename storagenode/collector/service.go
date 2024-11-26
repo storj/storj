@@ -105,6 +105,11 @@ func (service *Service) Collect(ctx context.Context, now time.Time) (err error) 
 			return errs.Wrap(err)
 		}
 
+		if len(infoLists) == 0 {
+			// no more expired pieces; exit the loop
+			return nil
+		}
+
 		for _, eiList := range infoLists {
 			if ctx.Err() != nil {
 				return errs.Wrap(ctx.Err())
