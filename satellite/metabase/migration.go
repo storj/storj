@@ -16,10 +16,6 @@ import (
 // MigrateMetainfoDB migrates metabase database.
 func MigrateMetainfoDB(ctx context.Context, log *zap.Logger, db *DB, migrationType string) (err error) {
 	for _, migrationType := range strings.Split(migrationType, ",") {
-		migrationType = strings.TrimSpace(migrationType)
-		if migrationType == "" {
-			continue
-		}
 		switch migrationType {
 		case migration.FullMigration:
 			err = db.MigrateToLatest(ctx)

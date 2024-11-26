@@ -15,6 +15,34 @@ import (
 	"storj.io/storj/shared/dbutil/spannerutil"
 )
 
+// Module is a mud module.
+func Module(ball *mud.Ball) {
+	mud.Provide[*DB](ball, OpenDatabaseWithMigration)
+}
+
+type DatabaseConfig struct {
+	MigrationUnsafe string `help:"comma separated migration types to run during every startup (none: no migration, snapshot: creating db from latest test snapshot (for testing only), testdata: create testuser in addition to a migration, full: do the normal migration (equals to 'satellite run migration'" default:"none" hidden:"true"`
+	URL             string
+	Config
+}
+
+func OpenDatabaseWithMigration(ctx context.Context, logger *zap.Logger, cfg DatabaseConfig) (*DB, error) {
+	metabaseDB, err := Open(ctx, logger, cfg.URL, Config{
+		ApplicationName:  cfg.ApplicationName,
+		MinPartSize:      cfg.MinPartSize,
+		MaxNumberOfParts: cfg.MaxNumberOfParts,
+	})
+	if err != nil {
+		return nil, errs.New("Error creating metabase connection on satellite api: %+v", err)
+	}
+
+	err = MigrateMetainfoDB(ctx, logger, metabaseDB, cfg.MigrationUnsafe)
+	if err != nil {
+		return nil, err
+	}
+	return metabaseDB, err
+}
+
 //go:embed adapter_spanner_scheme.sql
 var spannerDDL string
 var spannerDDLs = spannerutil.MustSplitSQLStatements(spannerDDL)
