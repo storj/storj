@@ -5,7 +5,10 @@
     <v-container>
         <trial-expiration-banner v-if="isTrialExpirationBanner && isUserProjectOwner" :expired="isExpired" />
 
-        <PageTitleComponent title="Browse Buckets" />
+        <PageTitleComponent
+            title="Browse Buckets"
+            extra-info="Project usage statistics are not real-time. Recent uploads, downloads, or other actions may not be immediately reflected."
+        />
         <PageSubtitleComponent
             subtitle="Buckets are where you upload and organize your data."
             link="https://docs.storj.io/learn/concepts/key-architecture-constructs#bucket"
