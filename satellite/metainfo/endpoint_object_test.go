@@ -5835,6 +5835,16 @@ func TestEndpoint_CopyObjectWithRetention(t *testing.T) {
 			require.Zero(t, cmp.Diff(r, &o.Retention, cmpopts.EquateApproxTime(0)))
 		}
 
+		requireRetentionWithinDuration := func(t *testing.T, satellite *testplanet.Satellite, projectID uuid.UUID, bucketName, key string, r *metabase.Retention, duration time.Duration) {
+			if r == nil {
+				return
+			}
+			o := requireObject(t, satellite, projectID, bucketName, key)
+			require.Nil(t, o.ExpiresAt)
+			require.Equal(t, r.Mode, o.Retention.Mode)
+			require.WithinDuration(t, r.RetainUntil, o.Retention.RetainUntil, duration)
+		}
+
 		requireLegalHold := func(t *testing.T, satellite *testplanet.Satellite, projectID uuid.UUID, bucketName, key string, lh bool) {
 			o := requireObject(t, satellite, projectID, bucketName, key)
 			require.Equal(t, lh, o.LegalHold)
@@ -5939,7 +5949,31 @@ func TestEndpoint_CopyObjectWithRetention(t *testing.T) {
 				NewEncryptedObjectKey: []byte(dstKey),
 				Retention:             retentionToProto(expectedRetention),
 			})
-			rpctest.RequireCode(t, err, rpcstatus.FailedPrecondition)
+			rpctest.RequireCode(t, err, rpcstatus.ObjectLockEndpointsDisabled)
+			requireNoObject(t, satellite, project.ID, dstBucket, dstKey)
+		})
+
+		t.Run("unversioned bucket", func(t *testing.T) {
+			dstBucket, dstKey := testrand.BucketName(), testrand.Path()
+
+			_, err := satellite.DB.Buckets().CreateBucket(ctx, buckets.Bucket{
+				Name:      dstBucket,
+				ProjectID: project.ID,
+			})
+			require.NoError(t, err)
+
+			beginResponse := newCopy(t, satellite, project.ID, apiKey.SerializeRaw(), srcBucket, nil, dstBucket, dstKey)
+
+			_, err = satellite.API.Metainfo.Endpoint.FinishCopyObject(ctx, &pb.FinishCopyObjectRequest{
+				Header: &pb.RequestHeader{
+					ApiKey: apiKey.SerializeRaw(),
+				},
+				StreamId:              beginResponse.StreamId,
+				NewBucket:             []byte(dstBucket),
+				NewEncryptedObjectKey: []byte(dstKey),
+				Retention:             retentionToProto(randRetention(storj.ComplianceMode)),
+			})
+			rpctest.RequireCode(t, err, rpcstatus.ObjectLockBucketRetentionConfigurationMissing)
 			requireNoObject(t, satellite, project.ID, dstBucket, dstKey)
 		})
 
@@ -6070,6 +6104,51 @@ func TestEndpoint_CopyObjectWithRetention(t *testing.T) {
 				requireNoObject(t, satellite, project.ID, dstBucket, dstKey)
 			}
 		})
+
+		t.Run("use default retention", func(t *testing.T) {
+			dstBucket, dstKey1, dstKey2 := testrand.BucketName(), testrand.Path(), testrand.Path()
+
+			_, err := satellite.DB.Buckets().CreateBucket(ctx, buckets.Bucket{
+				Name:       dstBucket,
+				ProjectID:  project.ID,
+				Versioning: buckets.VersioningEnabled,
+				ObjectLock: buckets.ObjectLockSettings{
+					Enabled:              true,
+					DefaultRetentionMode: storj.GovernanceMode,
+					DefaultRetentionDays: 1,
+				},
+			})
+			require.NoError(t, err)
+
+			beginResponse1 := newCopy(t, satellite, project.ID, apiKey.SerializeRaw(), srcBucket, nil, dstBucket, dstKey1)
+			beginResponse2 := newCopy(t, satellite, project.ID, apiKey.SerializeRaw(), srcBucket, nil, dstBucket, dstKey2)
+
+			finishCopy := func(streamID storj.StreamID, dstBucket, dstKey string, retention *pb.Retention) {
+				_, err = satellite.API.Metainfo.Endpoint.FinishCopyObject(ctx, &pb.FinishCopyObjectRequest{
+					Header: &pb.RequestHeader{
+						ApiKey: apiKey.SerializeRaw(),
+					},
+					StreamId:              streamID,
+					NewBucket:             []byte(dstBucket),
+					NewEncryptedObjectKey: []byte(dstKey),
+					Retention:             retention,
+				})
+				require.NoError(t, err)
+			}
+
+			finishCopy(beginResponse1.StreamId, dstBucket, dstKey1, nil)
+
+			retention := randRetention(storj.ComplianceMode)
+
+			finishCopy(beginResponse2.StreamId, dstBucket, dstKey2, retentionToProto(retention))
+
+			requireRetentionWithinDuration(t, satellite, project.ID, dstBucket, dstKey1, &metabase.Retention{
+				Mode:        storj.GovernanceMode,
+				RetainUntil: time.Now().AddDate(0, 0, 1),
+			}, time.Minute)
+
+			requireRetention(t, satellite, project.ID, dstBucket, dstKey2, &retention)
+		})
 	})
 }
 
@@ -6186,6 +6265,16 @@ func TestEndpoint_MoveObjectWithRetention(t *testing.T) {
 			require.Zero(t, cmp.Diff(r, &o.Retention, cmpopts.EquateApproxTime(0)))
 		}
 
+		requireRetentionWithinDuration := func(t *testing.T, satellite *testplanet.Satellite, projectID uuid.UUID, bucketName, key string, r *metabase.Retention, duration time.Duration) {
+			if r == nil {
+				return
+			}
+			o := requireObject(t, satellite, projectID, bucketName, key)
+			require.Nil(t, o.ExpiresAt)
+			require.Equal(t, r.Mode, o.Retention.Mode)
+			require.WithinDuration(t, r.RetainUntil, o.Retention.RetainUntil, duration)
+		}
+
 		requireLegalHold := func(t *testing.T, satellite *testplanet.Satellite, projectID uuid.UUID, bucketName, key string, lh bool) {
 			o := requireObject(t, satellite, projectID, bucketName, key)
 			require.Equal(t, lh, o.LegalHold)
@@ -6283,6 +6372,30 @@ func TestEndpoint_MoveObjectWithRetention(t *testing.T) {
 				Retention:             retentionToProto(expectedRetention),
 			})
 			rpctest.RequireCode(t, err, rpcstatus.ObjectLockEndpointsDisabled)
+			requireNoObject(t, satellite, project.ID, dstBucket, dstKey)
+		})
+
+		t.Run("unversioned bucket", func(t *testing.T) {
+			dstBucket, dstKey := testrand.BucketName(), testrand.Path()
+
+			_, err := satellite.DB.Buckets().CreateBucket(ctx, buckets.Bucket{
+				Name:      dstBucket,
+				ProjectID: project.ID,
+			})
+			require.NoError(t, err)
+
+			beginResponse := newMove(t, satellite, project.ID, apiKey.SerializeRaw(), srcBucket, nil, metabase.Retention{}, false, dstBucket, dstKey)
+
+			_, err = satellite.API.Metainfo.Endpoint.FinishMoveObject(ctx, &pb.FinishMoveObjectRequest{
+				Header: &pb.RequestHeader{
+					ApiKey: apiKey.SerializeRaw(),
+				},
+				StreamId:              beginResponse.StreamId,
+				NewBucket:             []byte(dstBucket),
+				NewEncryptedObjectKey: []byte(dstKey),
+				Retention:             retentionToProto(randRetention(storj.ComplianceMode)),
+			})
+			rpctest.RequireCode(t, err, rpcstatus.ObjectLockBucketRetentionConfigurationMissing)
 			requireNoObject(t, satellite, project.ID, dstBucket, dstKey)
 		})
 
@@ -6428,6 +6541,51 @@ func TestEndpoint_MoveObjectWithRetention(t *testing.T) {
 			})
 			rpctest.RequireCode(t, err, rpcstatus.ObjectLockObjectProtected)
 			requireNoObject(t, satellite, project.ID, dstBucket, dstKey)
+		})
+
+		t.Run("default retention", func(t *testing.T) {
+			dstBucket, dstKey1, dstKey2 := testrand.BucketName(), testrand.Path(), testrand.Path()
+
+			_, err := satellite.DB.Buckets().CreateBucket(ctx, buckets.Bucket{
+				Name:       dstBucket,
+				ProjectID:  project.ID,
+				Versioning: buckets.VersioningEnabled,
+				ObjectLock: buckets.ObjectLockSettings{
+					Enabled:              true,
+					DefaultRetentionMode: storj.GovernanceMode,
+					DefaultRetentionDays: 1,
+				},
+			})
+			require.NoError(t, err)
+
+			beginResponse1 := newMove(t, satellite, project.ID, apiKey.SerializeRaw(), srcBucket, nil, metabase.Retention{}, false, dstBucket, dstKey1)
+			beginResponse2 := newMove(t, satellite, project.ID, apiKey.SerializeRaw(), srcBucket, nil, metabase.Retention{}, false, dstBucket, dstKey2)
+
+			finishMove := func(streamID storj.StreamID, dstBucket, dstKey string, retention *pb.Retention) {
+				_, err = satellite.API.Metainfo.Endpoint.FinishMoveObject(ctx, &pb.FinishMoveObjectRequest{
+					Header: &pb.RequestHeader{
+						ApiKey: apiKey.SerializeRaw(),
+					},
+					StreamId:              streamID,
+					NewBucket:             []byte(dstBucket),
+					NewEncryptedObjectKey: []byte(dstKey),
+					Retention:             retention,
+				})
+				require.NoError(t, err)
+			}
+
+			finishMove(beginResponse1.StreamId, dstBucket, dstKey1, nil)
+
+			retention := randRetention(storj.ComplianceMode)
+
+			finishMove(beginResponse2.StreamId, dstBucket, dstKey2, retentionToProto(retention))
+
+			requireRetentionWithinDuration(t, satellite, project.ID, dstBucket, dstKey1, &metabase.Retention{
+				Mode:        storj.GovernanceMode,
+				RetainUntil: time.Now().AddDate(0, 0, 1),
+			}, time.Minute)
+
+			requireRetention(t, satellite, project.ID, dstBucket, dstKey2, &retention)
 		})
 	})
 }

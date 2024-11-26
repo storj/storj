@@ -2798,36 +2798,28 @@ func (endpoint *Endpoint) FinishMoveObject(ctx context.Context, req *pb.ObjectFi
 	}
 	endpoint.usageTracking(keyInfo, req.Header, fmt.Sprintf("%T", req))
 
-	objectLockRequested := retention.Enabled() || req.LegalHold
-	if objectLockRequested && !endpoint.config.ObjectLockEnabled {
+	if (retention.Enabled() || req.LegalHold) && !endpoint.config.ObjectLockEnabled {
 		return nil, rpcstatus.Error(rpcstatus.ObjectLockEndpointsDisabled, objectLockDisabledErrMsg)
 	}
 
-	var versioningEnabled bool
+	// TODO this needs to be optimized to avoid DB call on each request
+	bucket, err := endpoint.buckets.GetBucket(ctx, req.NewBucket, keyInfo.ProjectID)
+	if err != nil {
+		if buckets.ErrBucketNotFound.Has(err) {
+			return nil, rpcstatus.Errorf(rpcstatus.NotFound, "bucket not found: %s", req.NewBucket)
+		}
+		endpoint.log.Error("unable to check bucket", zap.Error(err))
+		return nil, rpcstatus.Error(rpcstatus.Internal, "unable to get bucket state")
+	}
 
-	if objectLockRequested {
-		enabled, err := endpoint.buckets.GetBucketObjectLockEnabled(ctx, req.NewBucket, keyInfo.ProjectID)
-		if err != nil {
-			if buckets.ErrBucketNotFound.Has(err) {
-				return nil, rpcstatus.Errorf(rpcstatus.NotFound, "bucket not found: %s", req.NewBucket)
-			}
-			endpoint.log.Error("unable to check whether bucket has Object Lock enabled", zap.Error(err))
-			return nil, rpcstatus.Error(rpcstatus.Internal, "unable to copy object")
-		}
-		if !enabled {
-			return nil, rpcstatus.Errorf(rpcstatus.ObjectLockBucketRetentionConfigurationMissing, "cannot specify Object Lock settings when uploading into a bucket without Object Lock enabled")
-		}
-		versioningEnabled = true
-	} else {
-		state, err := endpoint.buckets.GetBucketVersioningState(ctx, req.NewBucket, keyInfo.ProjectID)
-		if err != nil {
-			if buckets.ErrBucketNotFound.Has(err) {
-				return nil, rpcstatus.Errorf(rpcstatus.NotFound, "bucket not found: %s", req.NewBucket)
-			}
-			endpoint.log.Error("unable to check bucket versioning state", zap.Error(err))
-			return nil, rpcstatus.Error(rpcstatus.Internal, "unable to copy object")
-		}
-		versioningEnabled = state == buckets.VersioningEnabled
+	if (retention.Enabled() || req.LegalHold) && (bucket.Versioning != buckets.VersioningEnabled || !bucket.ObjectLock.Enabled) {
+		// note: AWS returns an "object lock configuration missing" error for both unversioned or missing object lock configuration
+		// which differs slightly to other endpoints that return an error about invalid bucket state for an unversioned bucket.
+		return nil, rpcstatus.Errorf(rpcstatus.ObjectLockBucketRetentionConfigurationMissing, "cannot specify Object Lock settings when uploading into a bucket without Object Lock enabled")
+	}
+
+	if bucket.ObjectLock.Enabled && bucket.ObjectLock.DefaultRetentionMode != storj.NoRetention && !retention.Enabled() {
+		retention = useDefaultBucketRetention(bucket.ObjectLock, now)
 	}
 
 	streamID, err := endpoint.unmarshalSatStreamID(ctx, req.StreamId)
@@ -2856,7 +2848,7 @@ func (endpoint *Endpoint) FinishMoveObject(ctx context.Context, req *pb.ObjectFi
 
 		NewDisallowDelete: !canDelete,
 
-		NewVersioned: versioningEnabled,
+		NewVersioned: bucket.Versioning == buckets.VersioningEnabled,
 
 		Retention: retention,
 		LegalHold: req.LegalHold,
@@ -3083,40 +3075,32 @@ func (endpoint *Endpoint) FinishCopyObject(ctx context.Context, req *pb.ObjectFi
 	}
 	endpoint.usageTracking(keyInfo, req.Header, fmt.Sprintf("%T", req))
 
-	objectLockRequested := retention.Enabled() || req.LegalHold
-	if objectLockRequested && !endpoint.config.ObjectLockEnabled {
-		return nil, rpcstatus.Error(rpcstatus.FailedPrecondition, objectLockDisabledErrMsg)
+	if (retention.Enabled() || req.LegalHold) && !endpoint.config.ObjectLockEnabled {
+		return nil, rpcstatus.Error(rpcstatus.ObjectLockEndpointsDisabled, objectLockDisabledErrMsg)
 	}
 
 	if err := endpoint.checkEncryptedMetadataSize(req.NewEncryptedMetadata, req.NewEncryptedMetadataKey); err != nil {
 		return nil, err
 	}
 
-	var versioningEnabled bool
+	// TODO this needs to be optimized to avoid DB call on each request
+	bucket, err := endpoint.buckets.GetBucket(ctx, req.NewBucket, keyInfo.ProjectID)
+	if err != nil {
+		if buckets.ErrBucketNotFound.Has(err) {
+			return nil, rpcstatus.Errorf(rpcstatus.NotFound, "bucket not found: %s", req.NewBucket)
+		}
+		endpoint.log.Error("unable to check bucket", zap.Error(err))
+		return nil, rpcstatus.Error(rpcstatus.Internal, "unable to get bucket state")
+	}
 
-	if objectLockRequested {
-		enabled, err := endpoint.buckets.GetBucketObjectLockEnabled(ctx, req.NewBucket, keyInfo.ProjectID)
-		if err != nil {
-			if buckets.ErrBucketNotFound.Has(err) {
-				return nil, rpcstatus.Errorf(rpcstatus.NotFound, "bucket not found: %s", req.NewBucket)
-			}
-			endpoint.log.Error("unable to check whether bucket has Object Lock enabled", zap.Error(err))
-			return nil, rpcstatus.Error(rpcstatus.Internal, "unable to copy object")
-		}
-		if !enabled {
-			return nil, rpcstatus.Errorf(rpcstatus.ObjectLockBucketRetentionConfigurationMissing, "cannot specify Object Lock settings when uploading into a bucket without Object Lock enabled")
-		}
-		versioningEnabled = true
-	} else {
-		state, err := endpoint.buckets.GetBucketVersioningState(ctx, req.NewBucket, keyInfo.ProjectID)
-		if err != nil {
-			if buckets.ErrBucketNotFound.Has(err) {
-				return nil, rpcstatus.Errorf(rpcstatus.NotFound, "bucket not found: %s", req.NewBucket)
-			}
-			endpoint.log.Error("unable to check bucket versioning state", zap.Error(err))
-			return nil, rpcstatus.Error(rpcstatus.Internal, "unable to copy object")
-		}
-		versioningEnabled = state == buckets.VersioningEnabled
+	if (retention.Enabled() || req.LegalHold) && (bucket.Versioning != buckets.VersioningEnabled || !bucket.ObjectLock.Enabled) {
+		// note: AWS returns an "object lock configuration missing" error for both unversioned or missing object lock configuration
+		// which differs slightly to other endpoints that return an error about invalid bucket state for an unversioned bucket.
+		return nil, rpcstatus.Errorf(rpcstatus.ObjectLockBucketRetentionConfigurationMissing, "cannot specify Object Lock settings when uploading into a bucket without Object Lock enabled")
+	}
+
+	if bucket.ObjectLock.Enabled && bucket.ObjectLock.DefaultRetentionMode != storj.NoRetention && !retention.Enabled() {
+		retention = useDefaultBucketRetention(bucket.ObjectLock, now)
 	}
 
 	streamID, err := endpoint.unmarshalSatStreamID(ctx, req.StreamId)
@@ -3154,7 +3138,7 @@ func (endpoint *Endpoint) FinishCopyObject(ctx context.Context, req *pb.ObjectFi
 		// TODO(ver): currently we always allow deletion, to not change behaviour.
 		NewDisallowDelete: false,
 
-		NewVersioned: versioningEnabled,
+		NewVersioned: bucket.Versioning == buckets.VersioningEnabled,
 
 		Retention: retention,
 		LegalHold: req.LegalHold,
