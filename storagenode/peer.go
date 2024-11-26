@@ -549,36 +549,9 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, revocationDB exten
 			peer.StorageOld.LazyFileWalker = lazyfilewalker.NewSupervisor(process.NamedLog(peer.Log, "lazyfilewalker"), db.Config().LazyFilewalkerConfig(), executable)
 		}
 
-		var oldPieceExpiration pieces.PieceExpirationDB
-		if config.Pieces.EnableFlatExpirationStore {
-			flatFileStorePath := config.Pieces.FlatExpirationStorePath
-			if abs := filepath.IsAbs(flatFileStorePath); !abs {
-				if config.Storage2.DatabaseDir != "" {
-					flatFileStorePath = filepath.Join(config.Storage2.DatabaseDir, flatFileStorePath)
-				} else {
-					flatFileStorePath = filepath.Join(config.Storage.Path, flatFileStorePath)
-				}
-			}
-
-			var chainedStore pieces.PieceExpirationDB
-			if config.Pieces.FlatExpirationIncludeSQLite {
-				chainedStore = peer.DB.PieceExpirationDB()
-			}
-			pieceExpirationStore, err := pieces.NewPieceExpirationStore(process.NamedLog(peer.Log, "pieceexpiration"), chainedStore, pieces.PieceExpirationConfig{
-				DataDir:               flatFileStorePath,
-				ConcurrentFileHandles: config.Pieces.FlatExpirationStoreFileHandles,
-				MaxBufferTime:         config.Pieces.FlatExpirationStoreMaxBufferTime,
-			})
-			if err != nil {
-				return nil, errs.Combine(err, peer.Close())
-			}
-			peer.Services.Add(lifecycle.Item{
-				Name:  "pieceexpirationstore",
-				Close: pieceExpirationStore.Close,
-			})
-			oldPieceExpiration = pieceExpirationStore
-		} else {
-			oldPieceExpiration = peer.DB.PieceExpirationDB()
+		oldPieceExpiration, err := getPieceExpirationStore(process.NamedLog(log, "pieceexpiration"), db.PieceExpirationDB(), config.Storage, config.Storage2, config.Pieces)
+		if err != nil {
+			return nil, errs.Combine(err, peer.Close())
 		}
 
 		peer.StorageOld.Store = pieces.NewStore(process.NamedLog(peer.Log, "pieces"),
@@ -1150,4 +1123,33 @@ func (s *spaceReportWithHashStore) DiskSpace(ctx context.Context) (monitor.DiskS
 	ds.Free -= su.Aggregate.UsedTotal
 
 	return ds, nil
+}
+
+func getPieceExpirationStore(log *zap.Logger, expDB pieces.PieceExpirationDB, oldCfg piecestore.OldConfig, storeCfg piecestore.Config, cfg pieces.Config) (pieces.PieceExpirationDB, error) {
+	if !cfg.EnableFlatExpirationStore {
+		return expDB, nil
+	}
+
+	flatFileStorePath := cfg.FlatExpirationStorePath
+	if abs := filepath.IsAbs(flatFileStorePath); !abs {
+		if storeCfg.DatabaseDir != "" {
+			flatFileStorePath = filepath.Join(storeCfg.DatabaseDir, flatFileStorePath)
+		} else {
+			flatFileStorePath = filepath.Join(oldCfg.Path, flatFileStorePath)
+		}
+	}
+	flatExpStore, err := pieces.NewPieceExpirationStore(log, pieces.PieceExpirationConfig{
+		DataDir:               flatFileStorePath,
+		ConcurrentFileHandles: cfg.FlatExpirationStoreFileHandles,
+		MaxBufferTime:         cfg.FlatExpirationStoreMaxBufferTime,
+	})
+
+	if err != nil {
+		return nil, err
+	}
+
+	if !cfg.FlatExpirationIncludeSQLite {
+		return flatExpStore, nil
+	}
+	return pieces.NewCombinedExpirationStore(log, expDB, flatExpStore), nil
 }

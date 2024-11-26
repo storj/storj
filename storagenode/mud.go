@@ -122,8 +122,7 @@ func Module(ball *mud.Ball) {
 					flatFileStorePath = filepath.Join(oldCfg.Path, flatFileStorePath)
 				}
 			}
-
-			return pieces.NewPieceExpirationStore(log, nil, pieces.PieceExpirationConfig{
+			return pieces.NewPieceExpirationStore(log, pieces.PieceExpirationConfig{
 				DataDir:               flatFileStorePath,
 				ConcurrentFileHandles: cfg.FlatExpirationStoreFileHandles,
 				MaxBufferTime:         cfg.FlatExpirationStoreMaxBufferTime,
