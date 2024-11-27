@@ -297,7 +297,7 @@ func (r *Reader) GetPieceHeader() (*pb.PieceHeader, error) {
 func (r *Reader) Read(data []byte) (int, error) {
 	if r.formatVersion >= filestore.FormatV1 && r.pos < V1PieceHeaderReservedArea {
 		// should only be necessary once per reader. or zero times, if GetPieceHeader is used
-		if _, err := r.blob.Seek(V1PieceHeaderReservedArea, io.SeekStart); err != nil {
+		if _, err := r.Seek(0, io.SeekStart); err != nil {
 			return 0, Error.Wrap(err)
 		}
 	}
