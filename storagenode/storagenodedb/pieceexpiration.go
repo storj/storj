@@ -52,7 +52,7 @@ func (db *pieceExpirationDB) GetExpired(ctx context.Context, now time.Time, limi
 		if exp.Before(now) {
 			satList, ok := infoRecordsBySatellite[ei.SatelliteID]
 			if !ok {
-				satList = pieces.NewExpiredInfoRecords(ei.SatelliteID, true, 1)
+				satList = pieces.NewExpiredInfoRecords(ei.SatelliteID, false, 1)
 				infoRecordsBySatellite[ei.SatelliteID] = satList
 				info = append(info, satList)
 			}
