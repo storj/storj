@@ -28,7 +28,6 @@ import (
 	"storj.io/storj/satellite/piecelist"
 	sndebug "storj.io/storj/shared/debug"
 	"storj.io/storj/shared/modular/config"
-
 )
 
 // Module is a mud module.
@@ -79,4 +78,5 @@ func Module(ball *mud.Ball) {
 
 	mud.View[DB, nodeevents.DB](ball, DB.NodeEvents)
 
+	piecelist.Module(ball)
 }
