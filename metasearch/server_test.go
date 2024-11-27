@@ -97,9 +97,9 @@ func testServer() *Server {
 	return server
 }
 
-func testRequest(method, body string) *http.Request {
+func testRequest(method, path, body string) *http.Request {
 	var r *http.Request
-	url := "/service/meta_search"
+	url := "http://localhost" + path
 	if body != "" {
 		r, _ = http.NewRequest(method, url, strings.NewReader(body))
 	} else {
@@ -108,6 +108,13 @@ func testRequest(method, body string) *http.Request {
 	r.Header.Set("Authorization", "Bearer testtoken")
 	r.Header.Set("X-Project-ID", testProjectID)
 	return r
+}
+
+func handleRequest(server *Server, method string, path string, body string) *httptest.ResponseRecorder {
+	rr := httptest.NewRecorder()
+	r := testRequest(method, path, body)
+	server.Handler.ServeHTTP(rr, r)
+	return rr
 }
 
 func assertResponse(t *testing.T, rr *httptest.ResponseRecorder, code int, body string) {
@@ -150,55 +157,33 @@ func TestMetaSearchCRUD(t *testing.T) {
 	server := testServer()
 
 	// Insert metadata
-	rr := httptest.NewRecorder()
-	r := testRequest(http.MethodPut, `{
-		"path": "sj://testbucket/foo.txt",
-		"metadata": {
-			"foo": "456",
-			"n": 2,
-			"tags": [
-				"tag1",
-				"tag3"
-			]
-		}
+	rr := handleRequest(server, http.MethodPut, "/metadata/testbucket/foo.txt", `{
+		"foo": "456",
+		"n": 2,
+		"tags": [
+			"tag1",
+			"tag3"
+		]
 	}`)
-	server.HandleUpdate(rr, r)
 	assert.Equal(t, rr.Code, http.StatusNoContent)
 
 	// Get metadata
-	rr = httptest.NewRecorder()
-	r = testRequest(http.MethodPost, `{
-		"path": "sj://testbucket/foo.txt"
-	}`)
-	server.HandleQuery(rr, r)
+	rr = handleRequest(server, http.MethodGet, "/metadata/testbucket/foo.txt", "")
 	assertResponse(t, rr, http.StatusOK, `{
-		"results": [{
-			"path": "sj://testbucket/foo.txt",
-			"metadata": {
-				"foo": "456",
-				"n": 2,
-				"tags": [
-					"tag1",
-					"tag3"
-				]
-			}
-		}]
+		"foo": "456",
+		"n": 2,
+		"tags": [
+			"tag1",
+			"tag3"
+		]
 	}`)
 
 	// Delete metadata
-	rr = httptest.NewRecorder()
-	r = testRequest(http.MethodDelete, `{
-		"path": "sj://testbucket/foo.txt"
-	}`)
-	server.HandleDelete(rr, r)
+	rr = handleRequest(server, http.MethodDelete, "/metadata/testbucket/foo.txt", "")
 	assert.Equal(t, rr.Code, http.StatusNoContent)
 
 	// Get metadata again
-	rr = httptest.NewRecorder()
-	r = testRequest(http.MethodPost, `{
-		"path": "sj://testbucket/foo.txt"
-	}`)
-	server.HandleQuery(rr, r)
+	rr = handleRequest(server, http.MethodGet, "/metadata/testbucket/foo.txt", "")
 	assertResponse(t, rr, http.StatusNotFound, `{
 		"error": "not found"
 	}`)
@@ -208,52 +193,58 @@ func TestMetaSearchQuery(t *testing.T) {
 	server := testServer()
 
 	// Insert metadata
-	rr := httptest.NewRecorder()
-	r := testRequest(http.MethodPut, `{
-		"path": "sj://testbucket/foo.txt",
-		"metadata": {
-			"foo": "456",
-			"n": 1
-		}
+	rr := handleRequest(server, http.MethodPut, "/metadata/testbucket/foo.txt", `{
+		"foo": "456",
+		"n": 1
 	}`)
-	server.HandleUpdate(rr, r)
 	assert.Equal(t, rr.Code, http.StatusNoContent)
 
-	r = testRequest(http.MethodPut, `{
-		"path": "sj://testbucket/bar.txt",
-		"metadata": {
-			"foo": "456",
-			"n": 2
-		}
+	rr = handleRequest(server, http.MethodPut, "/metadata/testbucket/bar.txt", `{
+		"foo": "456",
+		"n": 2
 	}`)
-	server.HandleUpdate(rr, r)
 	assert.Equal(t, rr.Code, http.StatusNoContent)
 
-	// Query with match only
-	rr = httptest.NewRecorder()
-	r = testRequest(http.MethodPost, `{
-		"path": "sj://testbucket/",
-		"match": {
-			"foo": "456"
-		}
-	}`)
-	server.HandleQuery(rr, r)
+	// Query without match => return all results
+	rr = handleRequest(server, http.MethodPost, "/metasearch/testbucket", ``)
 	assert.Equal(t, rr.Code, http.StatusOK)
 	var resp map[string]interface{}
 	err := json.NewDecoder(rr.Body).Decode(&resp)
 	require.Nil(t, err)
 	require.Len(t, resp["results"], 2)
 
+	// Query with key prefix
+	rr = handleRequest(server, http.MethodPost, "/metasearch/testbucket", `{
+		"keyPrefix": "foo"
+	}`)
+	assertResponse(t, rr, http.StatusOK, `{
+		"results": [{
+			"path": "sj://testbucket/foo.txt",
+			"metadata": {
+				"foo": "456",
+				"n": 1
+			}
+		}]
+	}`)
+
+	// Query with match only
+	rr = handleRequest(server, http.MethodPost, "/metasearch/testbucket", `{
+		"match": {
+			"foo": "456"
+		}
+	}`)
+	assert.Equal(t, rr.Code, http.StatusOK)
+	err = json.NewDecoder(rr.Body).Decode(&resp)
+	require.Nil(t, err)
+	require.Len(t, resp["results"], 2)
+
 	// Query with match and filter
-	rr = httptest.NewRecorder()
-	r = testRequest(http.MethodPost, `{
-		"path": "sj://testbucket/",
+	rr = handleRequest(server, http.MethodPost, "/metasearch/testbucket", `{
 		"match": {
 			"foo": "456"
 		},
 		"filter": "n > `+"`1`"+`"
 	}`)
-	server.HandleQuery(rr, r)
 	assertResponse(t, rr, http.StatusOK, `{
 		"results": [{
 			"path": "sj://testbucket/bar.txt",
@@ -265,16 +256,13 @@ func TestMetaSearchQuery(t *testing.T) {
 	}`)
 
 	// Query with match, filter and projection
-	rr = httptest.NewRecorder()
-	r = testRequest(http.MethodPost, `{
-		"path": "sj://testbucket/",
+	rr = handleRequest(server, http.MethodPost, "/metasearch/testbucket", `{
 		"match": {
 			"foo": "456"
 		},
 		"filter": "n > `+"`1`"+`",
 		"projection": "n"
 	}`)
-	server.HandleQuery(rr, r)
 	assertResponse(t, rr, http.StatusOK, `{
 		"results": [{
 			"path": "sj://testbucket/bar.txt",

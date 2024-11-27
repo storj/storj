@@ -21,7 +21,7 @@ const (
 	defaultBatchSize     = 10
 	defaultWorkersNumber = 1
 	defaultTotlaRecords  = 10
-	defaultMetasearchAPI = "http://localhost:9998/meta_search"
+	defaultMetasearchAPI = "http://localhost:9998"
 )
 
 // main parameters decalaration

@@ -87,6 +87,7 @@ func (r *MetabaseSearchRepository) QueryMetadata(ctx context.Context, loc metaba
 	opts := metabase.FindObjectsByClearMetadata{
 		ProjectID:     loc.ProjectID,
 		BucketName:    loc.BucketName,
+		KeyPrefix:     string(loc.ObjectKey),
 		ContainsQuery: string(query),
 	}
 
