@@ -56,7 +56,7 @@ func (db *DB) DeleteExpiredObjects(ctx context.Context, opts DeleteExpiredObject
 			}
 
 			ok := limiter.Go(ctx, func() {
-				objectsDeleted, segmentsDeleted, err := a.DeleteObjectsAndSegments(ctx, expiredObjects)
+				objectsDeleted, segmentsDeleted, err := a.DeleteObjectsAndSegmentsNoVerify(ctx, expiredObjects)
 				if err != nil {
 					db.log.Error("failed to delete expired objects from DB", zap.Error(err), zap.String("adapter", fmt.Sprintf("%T", a)))
 				}
@@ -352,8 +352,8 @@ func (db *DB) deleteObjectsAndSegmentsBatch(ctx context.Context, batchsize int, 
 	}
 }
 
-// DeleteObjectsAndSegments deletes expired objects and associated segments.
-func (p *PostgresAdapter) DeleteObjectsAndSegments(ctx context.Context, objects []ObjectStream) (objectsDeleted, segmentsDeleted int64, err error) {
+// DeleteObjectsAndSegmentsNoVerify deletes expired objects and associated segments.
+func (p *PostgresAdapter) DeleteObjectsAndSegmentsNoVerify(ctx context.Context, objects []ObjectStream) (objectsDeleted, segmentsDeleted int64, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	if len(objects) == 0 {
@@ -406,8 +406,11 @@ func (p *PostgresAdapter) DeleteObjectsAndSegments(ctx context.Context, objects 
 	return objectsDeleted, segmentsDeleted, nil
 }
 
-// DeleteObjectsAndSegments deletes expired objects and associated segments.
-func (s *SpannerAdapter) DeleteObjectsAndSegments(ctx context.Context, objects []ObjectStream) (objectsDeleted, segmentsDeleted int64, err error) {
+// DeleteObjectsAndSegmentsNoVerify deletes expired objects and associated segments.
+//
+// The implementation does not do extra verification whether the stream id-s belong or belonged to the objects.
+// So, if the callers supplies objects with incorrect StreamID-s it may end up deleting unrelated segments.
+func (s *SpannerAdapter) DeleteObjectsAndSegmentsNoVerify(ctx context.Context, objects []ObjectStream) (objectsDeleted, segmentsDeleted int64, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	if len(objects) == 0 {
@@ -415,51 +418,37 @@ func (s *SpannerAdapter) DeleteObjectsAndSegments(ctx context.Context, objects [
 	}
 
 	_, err = s.client.ReadWriteTransaction(ctx, func(ctx context.Context, tx *spanner.ReadWriteTransaction) error {
-		// can't use Mutations here, since we only want to delete objects by the specified keys
-		// if and only if the stream_id matches.
-		var statements []spanner.Statement
+		var streamIDs [][]byte
 		for _, obj := range objects {
-			obj := obj
-			statements = append(statements, spanner.Statement{
-				SQL: `
-					DELETE FROM objects
-					WHERE (project_id, bucket_name, object_key, version, stream_id) = (@project_id, @bucket_name, @object_key, @version, @stream_id)
-				`,
-				Params: map[string]interface{}{
-					"project_id":  obj.ProjectID,
-					"bucket_name": obj.BucketName,
-					"object_key":  obj.ObjectKey,
-					"version":     obj.Version,
-					"stream_id":   obj.StreamID,
-				},
-			})
-		}
-		numDeleteds, err := tx.BatchUpdate(ctx, statements)
-		if err != nil {
-			return Error.Wrap(err)
-		}
-		for _, numDeleted := range numDeleteds {
-			objectsDeleted += numDeleted
+			streamIDs = append(streamIDs, obj.StreamID.Bytes())
 		}
 
-		stmts := make([]spanner.Statement, len(objects))
-		for ix, object := range objects {
-			stmts[ix] = spanner.Statement{
-				SQL: `DELETE FROM segments WHERE @stream_id = stream_id`,
-				Params: map[string]interface{}{
-					"stream_id": object.StreamID.Bytes(),
+		deletedCounts, err := tx.BatchUpdate(ctx, []spanner.Statement{
+			{
+				SQL: `
+					DELETE FROM objects
+					WHERE STRUCT<ProjectID BYTES, BucketName STRING, ObjectKey BYTES, Version INT64, StreamID BYTES>(project_id, bucket_name, object_key, version, stream_id) IN UNNEST(@objects)
+				`,
+				Params: map[string]any{
+					"objects": objects,
 				},
-			}
+			},
+			{
+				SQL: `
+					DELETE FROM segments
+					WHERE stream_id IN UNNEST(@stream_ids)
+				`,
+				Params: map[string]any{
+					"stream_ids": streamIDs,
+				},
+			},
+		})
+		if err != nil {
+			return err
 		}
-		if len(stmts) > 0 {
-			numSegments, err := tx.BatchUpdate(ctx, stmts)
-			if err != nil {
-				return Error.Wrap(err)
-			}
-			for _, v := range numSegments {
-				segmentsDeleted += v
-			}
-		}
+
+		objectsDeleted = deletedCounts[0]
+		segmentsDeleted = deletedCounts[1]
 		return nil
 	})
 	if err != nil {
