@@ -7,6 +7,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/binary"
+	"fmt"
 	"os"
 	"path/filepath"
 	"sort"
@@ -262,6 +263,97 @@ func TestPieceExpirationPeriodicFlushing(t *testing.T) {
 	size := st.Size()
 	const recordSize = int64(len(storj.PieceID{})) + 8
 	require.Equal(t, recordSize, size)
+}
+
+func TestGetLastExpired(t *testing.T) {
+	ctx := testcontext.New(t)
+	defer ctx.Cleanup()
+
+	dataDir := ctx.Dir("pieceexpiration")
+	store, err := NewPieceExpirationStore(zaptest.NewLogger(t), nil, PieceExpirationConfig{
+		DataDir:               dataDir,
+		ConcurrentFileHandles: 2,
+	})
+	require.NoError(t, err)
+	defer ctx.Check(store.Close)
+
+	satelliteID := testrand.NodeID()
+	path := PathEncoding.EncodeToString(satelliteID[:])
+	now, err := time.Parse("2006-01-02T15:04", "2024-01-02T15:04")
+	require.NoError(t, err)
+
+	_, _, err = store.GetLatestExpired(ctx, satelliteID, now)
+	require.NoError(t, err)
+
+	err = store.SetExpiration(ctx, satelliteID, testrand.PieceID(), now, 123)
+	require.NoError(t, err)
+
+	err = store.SetExpiration(ctx, satelliteID, testrand.PieceID(), now.Add(-time.Hour), 123)
+	require.NoError(t, err)
+
+	err = store.SetExpiration(ctx, satelliteID, testrand.PieceID(), now.Add(-2*time.Hour), 123)
+	require.NoError(t, err)
+
+	err = store.SetExpiration(ctx, satelliteID, testrand.PieceID(), now.Add(time.Hour*-5), 123)
+	require.NoError(t, err)
+
+	next, before, err := store.GetLatestExpired(ctx, satelliteID, now)
+	require.NoError(t, err)
+	require.Equal(t, filepath.Join(dataDir, path, "2024-01-02_14.dat"), next)
+	require.Equal(t, "2024-01-02 14", before.Format("2006-01-02 15"))
+	fmt.Print(before)
+
+	// if you repeat it with previous before, you can get one older file
+	next, before, err = store.GetLatestExpired(ctx, satelliteID, before)
+	require.NoError(t, err)
+	require.Equal(t, filepath.Join(dataDir, path, "2024-01-02_13.dat"), next)
+	require.Equal(t, "2024-01-02 13", before.Format("2006-01-02 15"))
+
+	next, before, err = store.GetLatestExpired(ctx, satelliteID, before)
+	require.NoError(t, err)
+	require.Equal(t, filepath.Join(dataDir, path, "2024-01-02_10.dat"), next)
+	require.Equal(t, "2024-01-02 10", before.Format("2006-01-02 15"))
+
+	// no more files
+	next, before, err = store.GetLatestExpired(ctx, satelliteID, before)
+	require.NoError(t, err)
+	require.Equal(t, "", next)
+}
+
+func TestGetExpiredFromFile(t *testing.T) {
+	ctx := testcontext.New(t)
+	defer ctx.Cleanup()
+
+	dataDir := ctx.Dir("pieceexpiration")
+	store, err := NewPieceExpirationStore(zaptest.NewLogger(t), nil, PieceExpirationConfig{
+		DataDir:               dataDir,
+		ConcurrentFileHandles: 2,
+	})
+	require.NoError(t, err)
+	defer ctx.Check(store.Close)
+
+	satelliteID := testrand.NodeID()
+
+	now := time.Now()
+
+	var expectedIDs []storj.PieceID
+	for i := 0; i < 10; i++ {
+		pieceID := testrand.PieceID()
+		err = store.SetExpiration(ctx, satelliteID, pieceID, now.Add(-time.Hour), int64(pieceID.Bytes()[0]))
+		require.NoError(t, err)
+		expectedIDs = append(expectedIDs, pieceID)
+	}
+
+	flatFile, _, err := store.GetLatestExpired(ctx, satelliteID, now)
+	require.NoError(t, err)
+
+	ix := 0
+	err = GetExpiredFromFile(ctx, flatFile, func(id storj.PieceID, size uint64) {
+		require.Equal(t, expectedIDs[ix], id)
+		require.Equal(t, uint64(expectedIDs[ix].Bytes()[0]), size)
+		ix++
+	})
+	require.NoError(t, err)
 }
 
 // FlattenExpirationInfoLists flattens a slice of ExpiredInfoRecords, each with
