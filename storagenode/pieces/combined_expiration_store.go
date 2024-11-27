@@ -36,15 +36,15 @@ func (c *CombinedExpirationStore) SetExpiration(ctx context.Context, satellite s
 }
 
 // GetExpired returns the expired pieces.
-func (c *CombinedExpirationStore) GetExpired(ctx context.Context, expiresBefore time.Time, limits ExpirationLimits) ([]*ExpiredInfoRecords, error) {
+func (c *CombinedExpirationStore) GetExpired(ctx context.Context, expiresBefore time.Time, opts ExpirationOptions) ([]*ExpiredInfoRecords, error) {
 	var errList errs.Group
-	expired, err := c.flatFileStore.GetExpired(ctx, expiresBefore, limits)
+	expired, err := c.flatFileStore.GetExpired(ctx, expiresBefore, opts)
 	if err != nil {
 		errList.Add(err)
 	}
 
 	if c.chainedDB != nil {
-		chainedExpired, err := c.chainedDB.GetExpired(ctx, expiresBefore, limits)
+		chainedExpired, err := c.chainedDB.GetExpired(ctx, expiresBefore, opts)
 		if err != nil {
 			errList.Add(err)
 		}
@@ -72,17 +72,17 @@ func (c *CombinedExpirationStore) DeleteExpirations(ctx context.Context, expires
 }
 
 // DeleteExpirationsBatch deletes the expirations for the given time.
-func (c *CombinedExpirationStore) DeleteExpirationsBatch(ctx context.Context, now time.Time, limits ExpirationLimits) error {
+func (c *CombinedExpirationStore) DeleteExpirationsBatch(ctx context.Context, now time.Time, opts ExpirationOptions) error {
 	var errList errs.Group
 
-	c.log.Debug("deleting expired pieces from flat file store", zap.Time("expiresAt", now), zap.Any("limits", limits))
-	if err := c.flatFileStore.DeleteExpirationsBatch(ctx, now, limits); err != nil {
+	c.log.Debug("deleting expired pieces from flat file store", zap.Time("expiresAt", now), zap.Any("opts", opts))
+	if err := c.flatFileStore.DeleteExpirationsBatch(ctx, now, opts); err != nil {
 		errList.Add(err)
 	}
 
 	if c.chainedDB != nil {
-		c.log.Debug("deleting expired pieces from flat file store", zap.Time("expiresAt", now), zap.Any("limits", limits))
-		errList.Add(c.chainedDB.DeleteExpirationsBatch(ctx, now, limits))
+		c.log.Debug("deleting expired pieces from flat file store", zap.Time("expiresAt", now), zap.Any("opts", opts))
+		errList.Add(c.chainedDB.DeleteExpirationsBatch(ctx, now, opts))
 	}
 
 	return errList.Err()

@@ -25,6 +25,7 @@ type Config struct {
 	ExpirationGracePeriod time.Duration `help:"how long should the collector wait before deleting expired pieces. Should not be less than 30 min since nodes are allowed to be 30 mins out of sync with the satellite." default:"1h0m0s"`
 	ExpirationBatchSize   int           `help:"how many expired pieces to delete in one batch. If <= 0, all expired pieces will be deleted in one batch. (ignored by flat file store)" default:"1000"`
 	FlatFileBatchLimit    int           `help:"how many per hour flat files can be deleted in one batch." default:"5"`
+	ReverseOrder          bool          `help:"delete expired pieces in reverse order (recently expired first)" default:"false"`
 }
 
 // Service implements collecting expired pieces on the storage node.
@@ -37,7 +38,7 @@ type Service struct {
 
 	Loop *sync2.Cycle
 
-	limits                pieces.ExpirationLimits
+	opts                  pieces.ExpirationOptions
 	expirationGracePeriod time.Duration
 }
 
@@ -48,14 +49,16 @@ func NewService(log *zap.Logger, pieceStore *pieces.Store, usedSerials *usedseri
 		config.ExpirationGracePeriod = 1 * time.Hour
 	}
 
+	opts := pieces.DefaultExpirationOptions()
+	opts.Limits.BatchSize = config.ExpirationBatchSize
+	opts.Limits.FlatFileLimit = config.FlatFileBatchLimit
+	opts.ReverseOrder = config.ReverseOrder
+
 	return &Service{
-		log:         log,
-		pieces:      pieceStore,
-		usedSerials: usedSerials,
-		limits: pieces.ExpirationLimits{
-			BatchSize:     config.ExpirationBatchSize,
-			FlatFileLimit: config.FlatFileBatchLimit,
-		},
+		log:                   log,
+		pieces:                pieceStore,
+		usedSerials:           usedSerials,
+		opts:                  opts,
 		expirationGracePeriod: config.ExpirationGracePeriod,
 		Loop:                  sync2.NewCycle(config.Interval),
 	}
@@ -100,7 +103,7 @@ func (service *Service) Collect(ctx context.Context, now time.Time) (err error) 
 	}()
 
 	for {
-		infoLists, err := service.pieces.GetExpiredBatchSkipV0(ctx, now, service.limits)
+		infoLists, err := service.pieces.GetExpiredBatchSkipV0(ctx, now, service.opts)
 		if err != nil {
 			return errs.Wrap(err)
 		}
@@ -128,7 +131,7 @@ func (service *Service) Collect(ctx context.Context, now time.Time) (err error) 
 		}
 
 		// delete the batch from the database
-		if deleteErr := service.pieces.DeleteExpiredBatchSkipV0(ctx, now, service.limits); deleteErr != nil {
+		if deleteErr := service.pieces.DeleteExpiredBatchSkipV0(ctx, now, service.opts); deleteErr != nil {
 			service.log.Error("error during deleting expired pieces: ", zap.Error(deleteErr))
 			return errs.Wrap(deleteErr)
 		}

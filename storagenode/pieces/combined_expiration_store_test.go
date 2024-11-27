@@ -50,7 +50,7 @@ func TestPieceExpirationCombinedStore(t *testing.T) {
 		require.NoError(t, err)
 
 		// check to see that values are in both backends
-		expirationLists, err := combinedStore.GetExpired(ctx, now.Add(72*time.Hour), pieces.DefaultExpirationLimits())
+		expirationLists, err := combinedStore.GetExpired(ctx, now.Add(72*time.Hour), pieces.DefaultExpirationOptions())
 		require.NoError(t, err)
 		expirationInfos := pieces.FlattenExpirationInfoLists(expirationLists)
 		require.Len(t, expirationInfos, 4)
@@ -71,14 +71,13 @@ func TestPieceExpirationCombinedStore(t *testing.T) {
 		})
 
 		// delete up to now+36h
-		err = combinedStore.DeleteExpirationsBatch(ctx, now.Add(36*time.Hour), pieces.ExpirationLimits{
-			BatchSize:     10,
-			FlatFileLimit: -1,
-		})
+		opts := pieces.DefaultExpirationOptions()
+		opts.Limits.BatchSize = 10
+		err = combinedStore.DeleteExpirationsBatch(ctx, now.Add(36*time.Hour), opts)
 		require.NoError(t, err)
 
 		// piece1 should be deleted from both databases, and not the others
-		expirationLists, err = combinedStore.GetExpired(ctx, now.Add(72*time.Hour), pieces.DefaultExpirationLimits())
+		expirationLists, err = combinedStore.GetExpired(ctx, now.Add(72*time.Hour), pieces.DefaultExpirationOptions())
 		require.NoError(t, err)
 		expirationInfos = pieces.FlattenExpirationInfoLists(expirationLists)
 		require.Len(t, expirationInfos, 2)
@@ -93,7 +92,7 @@ func TestPieceExpirationCombinedStore(t *testing.T) {
 		})
 
 		// querying sqlite3 db only
-		expirationLists, err = sqliteDB.GetExpired(ctx, now.Add(72*time.Hour), pieces.DefaultExpirationLimits())
+		expirationLists, err = sqliteDB.GetExpired(ctx, now.Add(72*time.Hour), pieces.DefaultExpirationOptions())
 		require.NoError(t, err)
 		expirationInfos = pieces.FlattenExpirationInfoLists(expirationLists)
 		require.Len(t, expirationInfos, 1)

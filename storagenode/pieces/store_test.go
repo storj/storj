@@ -746,9 +746,9 @@ func TestGetExpired(t *testing.T) {
 		assert.True(t, expired[1].InPieceInfo)
 
 		// GetExpiredBatchSkipV0
-		expiredLists, err = store.GetExpiredBatchSkipV0(ctx, now, pieces.ExpirationLimits{
-			BatchSize: 1,
-		})
+		opts := pieces.DefaultExpirationOptions()
+		opts.Limits.BatchSize = 1
+		expiredLists, err = store.GetExpiredBatchSkipV0(ctx, now, opts)
 		require.NoError(t, err)
 		expired = pieces.FlattenExpirationInfoLists(expiredLists)
 
