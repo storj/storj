@@ -3116,6 +3116,26 @@ func (s *Service) GetUsersOwnedProjectsPage(ctx context.Context, cursor Projects
 	return page, nil
 }
 
+// JoinCunoFSBeta is a method for tracking user joined cunoFS beta.
+func (s *Service) JoinCunoFSBeta(ctx context.Context, data analytics.TrackJoinCunoFSBetaFields) (err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	user, err := s.getUserAndAuditLog(ctx, "join cunoFS beta")
+	if err != nil {
+		return ErrUnauthorized.Wrap(err)
+	}
+
+	if user.Status == PendingBotVerification {
+		return ErrBotUser.New(contactSupportErrMsg)
+	}
+
+	data.Email = user.Email
+
+	s.analytics.JoinCunoFSBeta(data)
+
+	return nil
+}
+
 // CreateProject is a method for creating new project.
 func (s *Service) CreateProject(ctx context.Context, projectInfo UpsertProjectInfo) (p *Project, err error) {
 	defer mon.Task()(&ctx)(&err)
