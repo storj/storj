@@ -68,7 +68,7 @@ func NewStore(dir string, log *zap.Logger) (_ *Store, err error) {
 		dir:   dir,
 		meta:  filepath.Join(dir, "meta"),
 		log:   log,
-		today: func() uint32 { return timeToDateDown(time.Now()) },
+		today: func() uint32 { return TimeToDateDown(time.Now()) },
 		lfc:   newLogCollection(),
 
 		activeMu:  newRWMutex(),
@@ -423,7 +423,7 @@ func (s *Store) Create(ctx context.Context, key Key, expires time.Time) (_ *Writ
 	// compute an expiration field if one is set.
 	var exp Expiration
 	if !expires.IsZero() {
-		exp = NewExpiration(timeToDateUp(expires), false)
+		exp = NewExpiration(TimeToDateUp(expires), false)
 	}
 
 	// try to acquire the log file.
@@ -608,7 +608,7 @@ func (s *Store) Compact(
 
 	var restore uint32
 	if !lastRestore.IsZero() {
-		restore = timeToDateUp(lastRestore)
+		restore = TimeToDateUp(lastRestore)
 	}
 
 	restored := func(e Expiration) bool {
@@ -676,7 +676,7 @@ func (s *Store) compactOnce(
 			// on the record to see if the table would be modified. a record is modified when it is
 			// flagged as trash or when it is restored.
 			if !modifications {
-				if shouldTrash != nil && !rec.Expires.Trash() && shouldTrash(ctx, rec.Key, dateToTime(rec.Created)) {
+				if shouldTrash != nil && !rec.Expires.Trash() && shouldTrash(ctx, rec.Key, DateToTime(rec.Created)) {
 					modifications = true
 				}
 				if restored(rec.Expires) {
@@ -784,7 +784,7 @@ func (s *Store) compactOnce(
 			// signal if they are read that there was a problem. we only check records that are not
 			// already flagged as trashed and keep the minimum time for the record to live. we do
 			// this after compaction so that we don't mistakenly count it as a "revive".
-			if shouldTrash != nil && !rec.Expires.Trash() && shouldTrash(ctx, rec.Key, dateToTime(rec.Created)) {
+			if shouldTrash != nil && !rec.Expires.Trash() && shouldTrash(ctx, rec.Key, DateToTime(rec.Created)) {
 				expiresTime := today + compaction_ExpiresDays
 				// if we have an existing ttl time and it's smaller, use that instead.
 				if existingTime := rec.Expires.Time(); existingTime > 0 && existingTime < expiresTime {

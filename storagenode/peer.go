@@ -604,7 +604,10 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, revocationDB exten
 
 		peer.Storage2.MigrationState = satstore.NewSatelliteStore(metaDir, "migrate")
 		peer.Storage2.RestoreTimeManager = retain.NewRestoreTimeManager(metaDir)
-		peer.Storage2.BloomFilterManager, err = retain.NewBloomFilterManager(metaDir)
+		peer.Storage2.BloomFilterManager, err = retain.NewBloomFilterManager(
+			metaDir,
+			config.Retain.MaxTimeSkew,
+		)
 		if err != nil {
 			peer.Log.Info("error encountered loading bloom filters", zap.Error(err))
 		}

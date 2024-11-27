@@ -172,7 +172,7 @@ func createEndpoint(ctx context.Context, satIdent, snIdent *identity.FullIdentit
 
 	bandwidthdbCache := bandwidth.NewCache(snDB.Bandwidth())
 
-	bfm := try.E1(retain.NewBloomFilterManager("bfm"))
+	bfm := try.E1(retain.NewBloomFilterManager("bfm", cfg.Retain.MaxTimeSkew))
 
 	var pieceBackend piecestore.PieceBackend
 	switch *backend {

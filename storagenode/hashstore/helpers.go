@@ -34,19 +34,34 @@ func safeDivide(x, y float64) float64 {
 // date/time helpers
 //
 
-// saturatingUint23 returns the uint32 value of x, saturating to the maximum if the conversion
-// would overflow or underflow. This is used to put a maximum date on expiration times and so that
-// if someone passes in an expiration way in the future it doesn't end up in the past.
-func saturatingUint23(x int64) uint32 {
-	if uint64(x) >= 1<<23-1 {
+// clampDate returns the uint32 value of d, saturating to the maximum if the conversion would
+// overflow and returning 1 if it is negative. This is used to put a maximum date on expiration
+// times and so that if someone passes in an expiration way in the future it doesn't end up in the
+// past, and if someone passes an expiration before 1970, it gets set to the minimum past value in
+// 1970.
+func clampDate(d int64) uint32 {
+	if d < 0 {
+		return 1
+	} else if uint64(d) >= 1<<23-1 {
 		return 1<<23 - 1
 	}
-	return uint32(x)
+	return uint32(d)
 }
 
-func timeToDateDown(t time.Time) uint32 { return saturatingUint23(t.Unix() / 86400) }
-func timeToDateUp(t time.Time) uint32   { return saturatingUint23((t.Unix() + 86400 - 1) / 86400) }
-func dateToTime(d uint32) time.Time     { return time.Unix(int64(d)*86400, 0).UTC() }
+// TimeToDateDown returns a number of days past the epoch that is less than or equal to t.
+func TimeToDateDown(t time.Time) uint32 { return clampDate(t.Unix() / 86400) }
+
+// TimeToDateUp returns a number of days past the epoch that is greater than or equal to t.
+func TimeToDateUp(t time.Time) uint32 { return clampDate((t.Unix() + 86400 - 1) / 86400) }
+
+// DateToTime returns the earliest time in the day for the given date.
+func DateToTime(d uint32) time.Time { return time.Unix(int64(d)*86400, 0).UTC() }
+
+// NormalizeTTL takes a time and returns a time that is an output of DateToTime that is larger than
+// or equal to the input time, for all times before the year 24937. In other words, it rounds up to
+// the closest time representable for a TTL, and rounds down if no such time is possible (i.e. times
+// after year 24937).
+func NormalizeTTL(t time.Time) time.Time { return DateToTime(TimeToDateUp(t)) }
 
 //
 // simple boolean flag that can be used to set once

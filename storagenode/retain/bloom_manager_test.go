@@ -25,7 +25,7 @@ func TestBloomFilterManager(t *testing.T) {
 	excludedPiece := testrand.PieceID()
 
 	// make a bloom filter manager and get the trash callback once
-	bfm, err := NewBloomFilterManager(dir)
+	bfm, err := NewBloomFilterManager(dir, 0)
 	assert.NoError(t, err)
 	fn := bfm.GetBloomFilter(sat)
 
@@ -53,7 +53,7 @@ func TestBloomFilterManager(t *testing.T) {
 	assert.True(t, bfm.GetCreatedTime(sat).Equal(now))
 
 	// reopen the bloom filter manager and ensure the filter is still there
-	bfm, err = NewBloomFilterManager(dir)
+	bfm, err = NewBloomFilterManager(dir, 0)
 	assert.NoError(t, err)
 	fn = bfm.GetBloomFilter(sat)
 

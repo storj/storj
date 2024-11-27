@@ -23,7 +23,8 @@ type ShouldTrashFunc = func(ctx context.Context, pieceID storj.PieceID, created 
 // BloomFilterManager manages a directory that holds the most recent bloom filter for satellites and
 // allows getting a callback to query them.
 type BloomFilterManager struct {
-	ss *satstore.SatelliteStore
+	ss   *satstore.SatelliteStore
+	skew time.Duration
 
 	mu sync.Mutex
 	m  map[storj.NodeID]*atomic.Pointer[bloomFilterState]
@@ -42,9 +43,10 @@ type bloomFilterState struct {
 // NewBloomFilterManager constructs a BloomFilterManager with the given directory. This function
 // does not do the standard pattern where an error means the return result is invalid. Indeed, the
 // result is always valid, and the errors are purely informational.
-func NewBloomFilterManager(dir string) (*BloomFilterManager, error) {
+func NewBloomFilterManager(dir string, skew time.Duration) (*BloomFilterManager, error) {
 	bfm := &BloomFilterManager{
-		ss: satstore.NewSatelliteStore(dir, "bloomfilter"),
+		ss:   satstore.NewSatelliteStore(dir, "bloomfilter"),
+		skew: skew,
 
 		m: make(map[storj.NodeID]*atomic.Pointer[bloomFilterState]),
 	}
@@ -137,6 +139,8 @@ func (bfm *BloomFilterManager) GetBloomFilter(satellite storj.NodeID) ShouldTras
 
 	return func(ctx context.Context, pieceID storj.PieceID, created time.Time) bool {
 		state := statePtr.Load()
-		return state != nil && created.Before(state.created) && !state.filter.Contains(pieceID)
+		return state != nil &&
+			state.created.Sub(created) > bfm.skew &&
+			!state.filter.Contains(pieceID)
 	}
 }

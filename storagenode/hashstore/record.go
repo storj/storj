@@ -96,9 +96,9 @@ func (r Record) String() string {
 		r.Log,
 		r.Length,
 		r.Created,
-		dateToTime(r.Created).Format(time.DateOnly),
+		DateToTime(r.Created).Format(time.DateOnly),
 		r.Expires.Time(),
-		dateToTime(r.Expires.Time()).Format(time.DateOnly),
+		DateToTime(r.Expires.Time()).Format(time.DateOnly),
 		r.Expires.Trash(),
 	)
 }

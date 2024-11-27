@@ -197,7 +197,7 @@ func TestStore_CompactionRespectsRestoreTime(t *testing.T) {
 	s.AssertCompact(alwaysTrash, time.Time{})
 
 	// assume a restore call came in today.
-	restore := dateToTime(s.today)
+	restore := DateToTime(s.today)
 
 	// compact again far enough ahead to ensure it would be deleted if not for restore.
 	s.today += compaction_ExpiresDays + 1 // 1 more just in case the test is running near midnight.
@@ -330,7 +330,7 @@ func TestStore_ClumpObjectsByTTL(t *testing.T) {
 	}
 
 	now := time.Now()
-	s.today = timeToDateDown(now)
+	s.today = TimeToDateDown(now)
 
 	// run twice with a reopen to ensure the ttl is persisted.
 	for runs := 0; runs < 2; runs++ {
@@ -953,7 +953,7 @@ func TestStore_FallbackToNonTTLLogFile(t *testing.T) {
 	// create the log file that the ttl key would go into outside of the knowledge of the store so
 	// that it fails when trying to create it itself.
 	now := time.Now()
-	ttl := timeToDateUp(now)
+	ttl := TimeToDateUp(now)
 	id := getLog(permKey) + 1
 	dir := filepath.Join(s.dir, fmt.Sprintf("%02x", byte(id)))
 	assert.NoError(t, os.MkdirAll(dir, 0755))

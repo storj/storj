@@ -19,11 +19,32 @@ import (
 	"github.com/zeebo/mwc"
 )
 
-func TestSaturatingUint32(t *testing.T) {
-	assert.Equal(t, saturatingUint23(0), 0)
-	assert.Equal(t, saturatingUint23(-1), 1<<23-1)
-	assert.Equal(t, saturatingUint23(1<<23-1), 1<<23-1)
-	assert.Equal(t, saturatingUint23(1<<23), 1<<23-1)
+func TestClampTTL(t *testing.T) {
+	assert.Equal(t, clampDate(0), 0)
+	assert.Equal(t, clampDate(-1), 1)
+	assert.Equal(t, clampDate(1<<23-1), 1<<23-1)
+	assert.Equal(t, clampDate(1<<23), 1<<23-1)
+
+	rng := mwc.Rand()
+	for i := 0; i < 1000; i++ {
+		// a negative timestamp still goes into the future
+		ttl := time.Unix(-rng.Int63(), 0)
+		assert.That(t, NormalizeTTL(ttl).After(ttl))
+	}
+
+	largestTTL := uint64(DateToTime(clampDate(1<<63 - 1)).Unix())
+	for i := 0; i < 1000; i++ {
+		// a positive timestamp smaller than largestTTL goes into the future
+		ttl := time.Unix(int64(rng.Uint64n(largestTTL)), 0)
+		assert.That(t, !NormalizeTTL(ttl).Before(ttl))
+	}
+
+	for i := 0; i < 1000; i++ {
+		// anything larger than largestTTL goes into the past, but that's a problem for someone in
+		// the year 24937.
+		ttl := time.Unix(int64(largestTTL)+int64(i*i*i), 0)
+		assert.That(t, !NormalizeTTL(ttl).After(ttl))
+	}
 }
 
 func TestAllFiles(t *testing.T) {

@@ -349,8 +349,8 @@ func Module(ball *mud.Ball) {
 		// default is the old one
 		mud.RegisterInterfaceImplementation[piecestore.PieceBackend, *piecestore.OldPieceBackend](ball)
 
-		mud.Provide[*retain.BloomFilterManager](ball, func(cfg piecestore.OldConfig) (*retain.BloomFilterManager, error) {
-			return retain.NewBloomFilterManager(cfg.Path)
+		mud.Provide[*retain.BloomFilterManager](ball, func(cfg piecestore.OldConfig, rcfg retain.Config) (*retain.BloomFilterManager, error) {
+			return retain.NewBloomFilterManager(cfg.Path, rcfg.MaxTimeSkew)
 		})
 		mud.Provide[*retain.RestoreTimeManager](ball, func(cfg piecestore.OldConfig) *retain.RestoreTimeManager {
 			return retain.NewRestoreTimeManager(cfg.Path)
