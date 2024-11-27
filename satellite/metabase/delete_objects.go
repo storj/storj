@@ -571,7 +571,7 @@ func (s *SpannerAdapter) DeleteInactiveObjectsAndSegments(ctx context.Context, o
 		numSegments, err := tx.Update(ctx, spanner.Statement{
 			SQL: `
 				DELETE FROM segments
-				WHERE ARRAY_INCLUDES(@stream_ids, stream_id)
+				WHERE stream_id IN UNNEST(@stream_ids)
 			`,
 			Params: map[string]interface{}{
 				"stream_ids": streamIDs,
