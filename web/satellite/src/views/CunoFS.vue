@@ -189,15 +189,8 @@
                                 density="compact"
                                 hide-details
                             />
-                            <v-checkbox
-                                key="other-backend"
-                                v-model="isOtherStorageBackend"
-                                :label="OtherLabel"
-                                density="compact"
-                                hide-details
-                            />
                             <v-text-field
-                                v-if="isOtherStorageBackend"
+                                v-if="formData.storageBackend.includes(OtherLabel)"
                                 v-model="otherStorageBackend"
                                 label="Other Storage Backend"
                                 variant="outlined"
@@ -218,15 +211,8 @@
                                 density="compact"
                                 hide-details
                             />
-                            <v-checkbox
-                                key="other-solutions"
-                                v-model="isOtherMountSolution"
-                                :label="OtherLabel"
-                                density="compact"
-                                hide-details
-                            />
                             <v-text-field
-                                v-if="isOtherMountSolution"
+                                v-if="formData.mountSolution.includes(OtherLabel)"
                                 v-model="otherMountSolution"
                                 label="Other Mount Solution"
                                 variant="outlined"
@@ -364,13 +350,13 @@ const teamSizes = [
 ];
 
 const storageRanges = [
-    'Less than 1TB',
-    '1TB - 10TB',
-    '10TB - 50TB',
-    '50TB - 100TB',
-    '100TB - 1PB',
-    '1PB - 10PB',
-    '10PB - 50PB',
+    'Less than 1 TB',
+    '1TB-10TB',
+    '10TB-50TB',
+    '50TB-100TB',
+    '100TB-1PB',
+    '1PB-10PB',
+    '10PB-50PB',
     '50PB+',
 ];
 
@@ -388,6 +374,7 @@ const storageBackends = [
     'Azure Blob Storage',
     'Local NAS/SAN',
     'S3-Compatible Object Storage',
+    OtherLabel,
 ];
 
 const mountSolutions = [
@@ -395,6 +382,7 @@ const mountSolutions = [
     'Mountain Duck',
     'NetApp Cloud Volumes',
     'None yet',
+    OtherLabel,
 ];
 
 const desiredFeatures = [
@@ -417,7 +405,7 @@ const desiredFeatures = [
 ];
 
 const painPoints = [
-    'Slow Download/Upload Times',
+    'Slow Download/Upload times',
     'File Version Conflicts',
     'Remote Collaboration Issues',
     'Limited Local Storage',
@@ -446,8 +434,6 @@ const formData = reactive<FormData>({
 });
 
 const formValid = ref<boolean>(false);
-const isOtherStorageBackend = ref<boolean>(false);
-const isOtherMountSolution = ref<boolean>(false);
 const otherIndustry = ref<string>('');
 const otherStorageBackend = ref<string>('');
 const otherMountSolution = ref<string>('');
@@ -462,7 +448,25 @@ function submitForm(): void {
         if (!(formData.industry && formData.operatingSystem && formData.teamSize && formData.storageUsage)) return;
 
         try {
-            const props = {
+            const hubspotData = {
+                companyName: formData.organization,
+                industryUseCase: formData.industry,
+                otherIndustryUseCase: formData.industry === OtherLabel ? otherIndustry.value : '',
+                operatingSystem: formData.operatingSystem,
+                teamSize: formData.teamSize,
+                currentStorageUsage: formData.storageUsage,
+                infraType: formData.infrastructureType.join(';'),
+                currentStorageBackends: formData.storageBackend.join(';'),
+                currentStorageMountSolution: formData.mountSolution.join(';'),
+                desiredFeatures: formData.desiredFeatures.join(';'),
+                currentPainPoints: formData.painPoints.join(';'),
+                specificTasks: formData.comments,
+            };
+
+            // This is a specific hubspot event tracking for cunoFS beta form submission.
+            await analyticsStore.joinCunoFSBeta(hubspotData);
+
+            const segmentProps = {
                 organization: formData.organization,
                 industry: formData.industry === OtherLabel ? otherIndustry.value : formData.industry,
                 operatingSystem: formData.operatingSystem,
@@ -475,15 +479,15 @@ function submitForm(): void {
                 painPoints: formData.painPoints.join(', '),
                 comments: formData.comments,
             };
-
-            if (isOtherStorageBackend.value && otherStorageBackend.value) {
-                props.storageBackend = props.storageBackend ? `${props.storageBackend}, ${otherStorageBackend.value}` : otherStorageBackend.value;
+            if (formData.storageBackend.includes(OtherLabel) && otherStorageBackend.value) {
+                segmentProps.storageBackend = segmentProps.storageBackend ? `${segmentProps.storageBackend}, ${otherStorageBackend.value}` : otherStorageBackend.value;
             }
-            if (isOtherMountSolution.value && otherMountSolution.value) {
-                props.mountSolution = props.mountSolution ? `${props.mountSolution}, ${otherMountSolution.value}` : otherMountSolution.value;
+            if (formData.mountSolution.includes(OtherLabel) && otherMountSolution.value) {
+                segmentProps.mountSolution = segmentProps.mountSolution ? `${segmentProps.mountSolution}, ${otherMountSolution.value}` : otherMountSolution.value;
             }
 
-            await analyticsStore.ensureEventTriggered(AnalyticsEvent.JOIN_CUNO_FS_BETA_FORM_SUBMITTED, props);
+            // This is a specific segment event tracking for cunoFS beta form submission.
+            await analyticsStore.ensureEventTriggered(AnalyticsEvent.JOIN_CUNO_FS_BETA_FORM_SUBMITTED, segmentProps);
 
             const noticeDismissal = { ...usersStore.state.settings.noticeDismissal };
             noticeDismissal.cunoFSBetaJoined = true;

@@ -5,12 +5,17 @@ import { defineStore } from 'pinia';
 
 import { AnalyticsHttpApi } from '@/api/analytics';
 import { AnalyticsErrorEventSource, AnalyticsEvent } from '@/utils/constants/analyticsEventNames';
+import { JoinCunoFSBetaForm } from '@/types/analytics';
 
 export const useAnalyticsStore = defineStore('analytics', () => {
     const analytics: AnalyticsHttpApi = new AnalyticsHttpApi();
 
     async function ensureEventTriggered(eventName: AnalyticsEvent, props?: { [p: string]: string }): Promise<void> {
         await analytics.ensureEventTriggered(eventName, props);
+    }
+
+    async function joinCunoFSBeta(data: JoinCunoFSBetaForm): Promise<void> {
+        await analytics.joinCunoFSBeta(data);
     }
 
     function eventTriggered(eventName: AnalyticsEvent, props?: { [p: string]: string }): void {
@@ -57,5 +62,6 @@ export const useAnalyticsStore = defineStore('analytics', () => {
         errorEventTriggered,
         linkEventTriggered,
         pageVisit,
+        joinCunoFSBeta,
     };
 });

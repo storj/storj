@@ -4,6 +4,7 @@
 import { HttpClient } from '@/utils/httpClient';
 import { AnalyticsErrorEventSource, AnalyticsEvent } from '@/utils/constants/analyticsEventNames';
 import { APIError } from '@/utils/error';
+import { JoinCunoFSBetaForm } from '@/types/analytics';
 
 /**
  * AnalyticsHttpApi is a console Analytics API.
@@ -12,6 +13,26 @@ import { APIError } from '@/utils/error';
 export class AnalyticsHttpApi {
     private readonly http: HttpClient = new HttpClient();
     private readonly ROOT_PATH: string = '/api/v0/analytics';
+
+    /**
+     * Used to track user filled the form to join cunoFS beta.
+     *
+     * @param data - form data
+     */
+    public async joinCunoFSBeta(data: JoinCunoFSBetaForm): Promise<void> {
+        const path = `${this.ROOT_PATH}/join-cunofs-beta`;
+
+        const response = await this.http.post(path, JSON.stringify(data));
+        if (!response.ok) {
+            const result = await response.json();
+
+            throw new APIError({
+                status: response.status,
+                message: result.error,
+                requestID: response.headers.get('x-request-id'),
+            });
+        }
+    }
 
     /**
      * Used to notify the satellite about arbitrary events that occur.
