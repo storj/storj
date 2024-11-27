@@ -22,6 +22,7 @@ import (
 	"storj.io/storj/satellite/nodeselection"
 	"storj.io/storj/satellite/orders"
 	"storj.io/storj/satellite/overlay"
+	"storj.io/storj/satellite/piecelist"
 	sndebug "storj.io/storj/shared/debug"
 	"storj.io/storj/shared/modular/config"
 )
@@ -70,4 +71,5 @@ func Module(ball *mud.Ball) {
 
 	mud.View[DB, nodeevents.DB](ball, DB.NodeEvents)
 
+	piecelist.Module(ball)
 }
