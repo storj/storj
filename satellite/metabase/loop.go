@@ -344,6 +344,8 @@ func (it *spannerLoopSegmentIterator) Next(ctx context.Context, item *LoopSegmen
 }
 
 func (it *spannerLoopSegmentIterator) doNextQuery(ctx context.Context) (_ *spanner.RowIterator) {
+	defer mon.Task()(&ctx)(nil)
+
 	stmt := spanner.Statement{
 		SQL: `
 			SELECT
