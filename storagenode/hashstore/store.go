@@ -90,7 +90,7 @@ func NewStore(dir string, log *zap.Logger) (_ *Store, err error) {
 	}
 
 	{ // acquire the lock file to prevent concurrent use of the hash table.
-		s.lock, err = os.OpenFile(filepath.Join(s.meta, "lock"), os.O_CREATE|os.O_RDWR, 0600)
+		s.lock, err = os.OpenFile(filepath.Join(s.meta, "lock"), os.O_CREATE|os.O_RDONLY, 0666)
 		if err != nil {
 			return nil, Error.New("unable to create lock file: %w", err)
 		}
