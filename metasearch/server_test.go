@@ -81,8 +81,8 @@ func (r *mockRepo) QueryMetadata(ctx context.Context, loc metabase.ObjectLocatio
 
 type mockAuth struct{}
 
-func (a *mockAuth) Authenticate(r *http.Request) error {
-	return nil
+func (a *mockAuth) Authenticate(ctx context.Context, r *http.Request) (uuid.UUID, error) {
+	return uuid.UUID{}, nil
 }
 
 // Utility functions
