@@ -673,6 +673,7 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, revocationDB exten
 		)
 
 		peer.Storage2.MigratingBackend = piecestore.NewMigratingBackend(
+			peer.Log,
 			peer.Storage2.OldPieceBackend,
 			peer.Storage2.HashStoreBackend,
 			peer.Storage2.MigrationState,
