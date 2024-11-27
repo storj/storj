@@ -11,6 +11,7 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"strings"
 	"sync"
 	"time"
 
@@ -216,6 +217,83 @@ func (peStore *PieceExpirationStore) getSatellitesWithExpirations(ctx context.Co
 
 var monGetExpiredForSatellite = mon.Task()
 
+// GetExpiredFiles returns the expired files which can be deleted.
+func (peStore *PieceExpirationStore) GetExpiredFiles(ctx context.Context, satellite storj.NodeID, before time.Time) ([]string, error) {
+	before = before.UTC().Truncate(time.Hour)
+	satelliteDir := PathEncoding.EncodeToString(satellite[:])
+	peDir := filepath.Join(peStore.dataDir, satelliteDir)
+	dirfd, err := os.Open(peDir)
+	if err != nil {
+		if errors.Is(err, os.ErrNotExist) {
+			peStore.log.Warn("piece_expierations directory doesn't exist", zap.String("file", peDir))
+			return nil, nil
+		}
+		return nil, ErrPieceExpiration.Wrap(err)
+	}
+	defer func() { _ = dirfd.Close() }()
+	names, err := dirfd.Readdirnames(-1)
+	if err != nil {
+		return nil, ErrPieceExpiration.Wrap(err)
+	}
+	slices.Sort(names)
+	slices.Reverse(names)
+
+	var filtered []string
+	for _, name := range names {
+		hour, err := time.ParseInLocation(PieceExpirationFileNameFormat, name, time.UTC)
+		if err != nil {
+			// not a piece expiration file
+			continue
+		}
+		// the file covers the period of one hour, so it has elapsed only if the whole hour has passed
+		if hour.Before(before) {
+			filtered = append(filtered, filepath.Join(peDir, name))
+		}
+	}
+	return filtered, nil
+}
+
+// GetExpiredFromFile read one piece expiration file and calls callback for each piece.
+func GetExpiredFromFile(ctx context.Context, filename string, callback func(id storj.PieceID, size uint64)) error {
+	readF, err := os.Open(filename)
+	if err != nil {
+		return err
+	}
+	defer func() { _ = readF.Close() }()
+
+	var pieceID storj.PieceID
+	var sizeBuf [8]byte
+	buf := bufio.NewReader(readF)
+	for {
+		if err := ctx.Err(); err != nil {
+			return ctx.Err()
+		}
+		_, err := io.ReadFull(buf, pieceID[:])
+		if errors.Is(err, io.EOF) {
+			return nil
+		}
+		if err != nil {
+			return ErrPieceExpiration.New("reading piece expiration file %s: %w", filename, err)
+		}
+		_, err = io.ReadFull(buf, sizeBuf[:])
+		// shouldn't happen, but not a big deal, as we supposed to process all the pieces anyway (except last one without size)
+		if errors.Is(err, io.EOF) {
+			return nil
+		}
+		if err != nil {
+			return ErrPieceExpiration.New("reading piece expiration file %s: %w", filename, err)
+		}
+		size := binary.BigEndian.Uint64(sizeBuf[:])
+		callback(pieceID, size)
+	}
+}
+
+// DeleteExpiredFile deletes the piece expiration file.
+func DeleteExpiredFile(ctx context.Context, file string) error {
+	// TODO: we will do full delete very soon, after some testing.
+	return os.Rename(file, strings.ReplaceAll(file, ".dat", ".trash"))
+}
+
 // GetExpiredForSatellite gets piece IDs that expire or have expired before the
 // given time for a specific satellite.
 func (peStore *PieceExpirationStore) GetExpiredForSatellite(ctx context.Context, satellite storj.NodeID, now time.Time, opts ExpirationOptions) (infos *ExpiredInfoRecords, err error) {
@@ -389,6 +467,7 @@ func (peStore *PieceExpirationStore) getElapsedHoursWithExpirations(ctx context.
 		hour, err := time.ParseInLocation(PieceExpirationFileNameFormat, name, time.UTC)
 		if err != nil {
 			// not a piece expiration file
+			peStore.log.Warn("unexpected file in piece expiration directory", zap.String("filename", name))
 			continue
 		}
 		// the file covers the period of one hour, so it has elapsed only if the whole hour has passed
