@@ -86,7 +86,7 @@ func NewChore(log *zap.Logger, config Config, store *satstore.SatelliteStore, ol
 	}
 
 	_ = store.Range(func(sat storj.NodeID, data []byte) error {
-		b, _ := strconv.ParseBool(string(data))
+		b, _ := strconv.ParseBool(string(bytes.TrimSpace(data)))
 		chore.SetMigrate(sat, true, b)
 		return nil
 	})

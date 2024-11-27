@@ -62,7 +62,7 @@ func TestDuplicates(t *testing.T) {
 		Interval:  100 * time.Millisecond,
 	}
 
-	chore := NewChore(log, config, satstore.NewSatelliteStore(t.TempDir(), "chore_migrate"), old, new)
+	chore := NewChore(log, config, satstore.NewSatelliteStore(t.TempDir(), "migrate_chore"), old, new)
 	group := errgroup.Group{}
 	group.Go(func() error { return chore.Run(ctx) })
 	defer ctx.Check(group.Wait)
@@ -128,7 +128,7 @@ func TestChoreWithPassiveMigrationOnly(t *testing.T) {
 		MigrateRegardless: true,
 	}
 
-	satStoreDir, satStoreExt := t.TempDir(), "chore_migrate"
+	satStoreDir, satStoreExt := t.TempDir(), "migrate_chore"
 
 	for i, sat := range maps.Keys(satellites1) {
 		var v string
@@ -240,10 +240,10 @@ func TestChoreActiveWithPassiveMigration(t *testing.T) {
 		Interval:  100 * time.Millisecond,
 	}
 
-	satStoreDir, satStoreExt := t.TempDir(), "chore_migrate"
+	satStoreDir, satStoreExt := t.TempDir(), "migrate_chore"
 
 	for sat := range migratedSatellites {
-		require.NoError(t, os.WriteFile(filepath.Join(satStoreDir, sat.String()+"."+satStoreExt), []byte("true"), 0644))
+		require.NoError(t, os.WriteFile(filepath.Join(satStoreDir, sat.String()+"."+satStoreExt), []byte("true\n"), 0644))
 	}
 
 	chore := NewChore(log, config, satstore.NewSatelliteStore(satStoreDir, satStoreExt), old, new)
