@@ -61,6 +61,9 @@
 # the number of concurrent api requests that can be made
 # analytics.hub-spot.concurrent-sends: 4
 
+# the hubspot form ID for cunoFS beta
+# analytics.hub-spot.cuno-fs-beta-form-id: ""
+
 # the default timeout for the hubspot http client
 # analytics.hub-spot.default-timeout: 10s
 

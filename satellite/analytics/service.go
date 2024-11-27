@@ -275,6 +275,23 @@ type TrackCreateUserFields struct {
 	SignupCaptcha    *float64
 }
 
+// TrackJoinCunoFSBetaFields contains input data for tracking a join CunoFS beta event.
+type TrackJoinCunoFSBetaFields struct {
+	Email                       string `json:"email"`
+	CompanyName                 string `json:"companyName"`
+	IndustryUseCase             string `json:"industryUseCase"`
+	OtherIndustryUseCase        string `json:"otherIndustryUseCase"`
+	OperatingSystem             string `json:"operatingSystem"`
+	TeamSize                    string `json:"teamSize"`
+	CurrentStorageUsage         string `json:"currentStorageUsage"`
+	InfraType                   string `json:"infraType"`
+	CurrentStorageBackends      string `json:"currentStorageBackends"`
+	CurrentStorageMountSolution string `json:"currentStorageMountSolution"`
+	DesiredFeatures             string `json:"desiredFeatures"`
+	CurrentPainPoints           string `json:"currentPainPoints"`
+	SpecificTasks               string `json:"specificTasks"`
+}
+
 // TrackOnboardingInfoFields contains input data entered after first login.
 type TrackOnboardingInfoFields struct {
 	ID                     uuid.UUID
@@ -371,6 +388,14 @@ func (service *Service) CreateContact(fields TrackCreateUserFields) {
 		return
 	}
 	service.hubspot.EnqueueCreateUserMinimal(fields)
+}
+
+// JoinCunoFSBeta sends a join cunoFS beta form to hubspot.
+func (service *Service) JoinCunoFSBeta(fields TrackJoinCunoFSBetaFields) {
+	if !service.config.Enabled {
+		return
+	}
+	service.hubspot.EnqueueJoinCunoFSBeta(fields)
 }
 
 // ChangeContactEmail changes contact's email address.

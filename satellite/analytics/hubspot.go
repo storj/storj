@@ -28,16 +28,17 @@ const (
 
 // HubSpotConfig is a configuration struct for Concurrent Sending of Events.
 type HubSpotConfig struct {
-	RefreshToken    string        `help:"hubspot refresh token" default:""`
-	TokenAPI        string        `help:"hubspot token refresh API" default:"https://api.hubapi.com/oauth/v1/token"`
-	ClientID        string        `help:"hubspot client ID" default:""`
-	ClientSecret    string        `help:"hubspot client secret" default:""`
-	ChannelSize     int           `help:"the number of events that can be in the queue before dropping" default:"1000"`
-	ConcurrentSends int           `help:"the number of concurrent api requests that can be made" default:"4"`
-	DefaultTimeout  time.Duration `help:"the default timeout for the hubspot http client" default:"10s"`
-	EventPrefix     string        `help:"the prefix for the event name" default:""`
-	SignupFormId    string        `help:"the hubspot form ID for signup" default:""`
-	LifeCycleStage  string        `help:"the hubspot lifecycle stage for new accounts" default:""`
+	RefreshToken     string        `help:"hubspot refresh token" default:""`
+	TokenAPI         string        `help:"hubspot token refresh API" default:"https://api.hubapi.com/oauth/v1/token"`
+	ClientID         string        `help:"hubspot client ID" default:""`
+	ClientSecret     string        `help:"hubspot client secret" default:""`
+	ChannelSize      int           `help:"the number of events that can be in the queue before dropping" default:"1000"`
+	ConcurrentSends  int           `help:"the number of concurrent api requests that can be made" default:"4"`
+	DefaultTimeout   time.Duration `help:"the default timeout for the hubspot http client" default:"10s"`
+	EventPrefix      string        `help:"the prefix for the event name" default:""`
+	SignupFormId     string        `help:"the hubspot form ID for signup" default:""`
+	CunoFSBetaFormId string        `help:"the hubspot form ID for cunoFS beta" default:""`
+	LifeCycleStage   string        `help:"the hubspot lifecycle stage for new accounts" default:""`
 }
 
 // HubSpotEvent is a configuration struct for sending API request to HubSpot.
@@ -165,6 +166,48 @@ func (q *HubSpotEvents) EnqueueCreateUserMinimal(fields TrackCreateUserFields) {
 	case q.events <- []HubSpotEvent{createUser, sendUserEvent}:
 	default:
 		q.log.Error("create user hubspot event failed, event channel is full")
+	}
+}
+
+// EnqueueJoinCunoFSBeta is for tracking user join cunoFS beta using hubspot form.
+func (q *HubSpotEvents) EnqueueJoinCunoFSBeta(fields TrackJoinCunoFSBetaFields) {
+	newField := func(name string, value string) map[string]string {
+		return map[string]string{
+			"name":  name,
+			"value": value,
+		}
+	}
+
+	formFields := []map[string]string{
+		newField("email", fields.Email),
+		newField("company", fields.CompanyName),
+		newField("industry_use_case", fields.IndustryUseCase),
+		newField("operating_system", fields.OperatingSystem),
+		newField("team_size", fields.TeamSize),
+		newField("current_storage_usage", fields.CurrentStorageUsage),
+		newField("infrastructure_type", fields.InfraType),
+		newField("current_storage_backends", fields.CurrentStorageBackends),
+		newField("current_storage_mount_solution", fields.CurrentStorageMountSolution),
+		newField("desired_features", fields.DesiredFeatures),
+		newField("current_pain_points", fields.CurrentPainPoints),
+		newField("cunofs_beta_specific_tasks", fields.SpecificTasks),
+	}
+	if fields.IndustryUseCase == "Other" {
+		formFields = append(formFields, newField("other_industry_use_case", fields.OtherIndustryUseCase))
+	}
+
+	formURL := fmt.Sprintf(hubspotFormTemplate, q.config.CunoFSBetaFormId)
+	joinBetaEvent := HubSpotEvent{
+		Endpoint: formURL,
+		Data: map[string]interface{}{
+			"fields": formFields,
+		},
+	}
+
+	select {
+	case q.events <- []HubSpotEvent{joinBetaEvent}:
+	default:
+		q.log.Error("join cunoFS beta hubspot event failed, event channel is full")
 	}
 }
 
