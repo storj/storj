@@ -445,7 +445,6 @@ func (planet *Planet) newSatellite(ctx context.Context, prefix string, index int
 	config.Debug.Addr = ""
 	config.Reputation.AuditHistory.OfflineDQEnabled = false
 	config.Server.Config.Extensions.Revocation = false
-	config.Orders.OrdersSemaphoreSize = 0
 	config.Checker.NodeFailureRate = 0
 	config.Audit.MaxRetriesStatDB = 0
 	config.GarbageCollection.RetainSendTimeout = 0

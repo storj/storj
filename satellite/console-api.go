@@ -313,7 +313,6 @@ func NewConsoleAPI(log *zap.Logger, full *identity.FullIdentity, db DB,
 			satelliteSignee,
 			peer.Orders.DB,
 			peer.DB.NodeAPIVersion(),
-			config.Orders.OrdersSemaphoreSize,
 			peer.Orders.Service,
 		)
 
