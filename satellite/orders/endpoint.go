@@ -178,16 +178,19 @@ type Endpoint struct {
 	DB               DB
 	nodeAPIVersionDB nodeapiversion.DB
 	ordersService    *Service
+
+	acceptOrders bool
 }
 
 // NewEndpoint new orders receiving endpoint.
-func NewEndpoint(log *zap.Logger, satelliteSignee signing.Signee, db DB, nodeAPIVersionDB nodeapiversion.DB, ordersService *Service) *Endpoint {
+func NewEndpoint(log *zap.Logger, satelliteSignee signing.Signee, db DB, nodeAPIVersionDB nodeapiversion.DB, ordersService *Service, acceptOrders bool) *Endpoint {
 	return &Endpoint{
 		log:              log,
 		satelliteSignee:  satelliteSignee,
 		DB:               db,
 		nodeAPIVersionDB: nodeAPIVersionDB,
 		ordersService:    ordersService,
+		acceptOrders:     acceptOrders,
 	}
 }
 
@@ -221,6 +224,10 @@ func trackFinalStatus(status pb.SettlementWithWindowResponse_Status) {
 func (endpoint *Endpoint) SettlementWithWindowFinal(stream pb.DRPCOrders_SettlementWithWindowStream) (err error) {
 	ctx := stream.Context()
 	defer mon.Task()(&ctx)(&err)
+
+	if !endpoint.acceptOrders {
+		return rpcstatus.Error(rpcstatus.Unavailable, "orders endpoint is unavailable. try again later.")
+	}
 
 	var alreadyProcessed bool
 	var status pb.SettlementWithWindowResponse_Status
@@ -446,4 +453,9 @@ func (endpoint *Endpoint) isValid(ctx context.Context, log *zap.Logger, order *p
 		return false
 	}
 	return true
+}
+
+// TestingSetAcceptOrdersValid sets endpoint acceptOrders to the provided value. Used only for testing.
+func (endpoint *Endpoint) TestingSetAcceptOrdersValid(acceptOrders bool) {
+	endpoint.acceptOrders = acceptOrders
 }
