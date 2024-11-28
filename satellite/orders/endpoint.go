@@ -177,27 +177,16 @@ type Endpoint struct {
 	satelliteSignee  signing.Signee
 	DB               DB
 	nodeAPIVersionDB nodeapiversion.DB
-	ordersSemaphore  chan struct{}
 	ordersService    *Service
 }
 
 // NewEndpoint new orders receiving endpoint.
-//
-// ordersSemaphoreSize controls the number of concurrent clients allowed to submit orders at once.
-// A value of zero means unlimited.
-func NewEndpoint(log *zap.Logger, satelliteSignee signing.Signee, db DB, nodeAPIVersionDB nodeapiversion.DB,
-	ordersSemaphoreSize int, ordersService *Service) *Endpoint {
-	var ordersSemaphore chan struct{}
-	if ordersSemaphoreSize > 0 {
-		ordersSemaphore = make(chan struct{}, ordersSemaphoreSize)
-	}
-
+func NewEndpoint(log *zap.Logger, satelliteSignee signing.Signee, db DB, nodeAPIVersionDB nodeapiversion.DB, ordersService *Service) *Endpoint {
 	return &Endpoint{
 		log:              log,
 		satelliteSignee:  satelliteSignee,
 		DB:               db,
 		nodeAPIVersionDB: nodeAPIVersionDB,
-		ordersSemaphore:  ordersSemaphore,
 		ordersService:    ordersService,
 	}
 }

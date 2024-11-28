@@ -1100,9 +1100,6 @@ identity.key-path: /root/.local/share/storj/identity/satellite/identity.key
 # how often to flush the rollups write cache to the database
 # orders.flush-interval: 1m0s
 
-# how many concurrent orders to process at once. zero is unlimited
-# orders.orders-semaphore-size: 2
-
 # default AS OF SYSTEM TIME for service
 # overlay.as-of-system-time: -10s
 
