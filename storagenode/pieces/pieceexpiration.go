@@ -11,7 +11,6 @@ import (
 	"io"
 	"os"
 	"path/filepath"
-	"strings"
 	"sync"
 	"time"
 
@@ -224,6 +223,7 @@ func (peStore *PieceExpirationStore) GetLatestExpired(ctx context.Context, satel
 	dirfd, err := os.Open(peDir)
 	if err != nil {
 		if errors.Is(err, os.ErrNotExist) {
+			peStore.log.Warn("piece_expierations directory doesn't exist", zap.String("file", peDir))
 			return "", time.Time{}, nil
 		}
 		return "", time.Time{}, ErrPieceExpiration.Wrap(err)
@@ -238,6 +238,7 @@ func (peStore *PieceExpirationStore) GetLatestExpired(ctx context.Context, satel
 	for _, name := range names {
 		hour, err := time.ParseInLocation(PieceExpirationFileNameFormat, name, time.UTC)
 		if err != nil {
+			peStore.log.Warn("not a piece expiration file", zap.String("filename", name))
 			// not a piece expiration file
 			continue
 		}
@@ -286,8 +287,7 @@ func GetExpiredFromFile(ctx context.Context, filename string, callback func(id s
 
 // DeleteExpiredFile deletes the piece expiration file.
 func DeleteExpiredFile(ctx context.Context, file string) error {
-	// TODO: we will do full delete very soon, after some testing.
-	return os.Rename(file, strings.ReplaceAll(file, ".dat", ".trash"))
+	return os.Remove(file)
 }
 
 // GetExpiredForSatellite gets piece IDs that expire or have expired before the
