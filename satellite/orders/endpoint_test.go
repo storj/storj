@@ -9,6 +9,7 @@ import (
 
 	"github.com/stretchr/testify/require"
 
+	"storj.io/common/memory"
 	"storj.io/common/pb"
 	"storj.io/common/signing"
 	"storj.io/common/storj"
@@ -424,5 +425,36 @@ func TestSettlementWithWindowEndpointErrors(t *testing.T) {
 				require.EqualValues(t, 0, newBbw)
 			})
 		}
+	})
+}
+
+func TestSettlementWithWindowFinal_RejectOrders(t *testing.T) {
+	// this test checks that if orders are rejected by the satellite, they will be
+	// settled correctly when the satellite starts accepting orders again
+	testplanet.Run(t, testplanet.Config{
+		SatelliteCount: 1, StorageNodeCount: 1, UplinkCount: 1,
+	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+		// start rejecting orders
+		planet.Satellites[0].Orders.Endpoint.TestingSetAcceptOrdersValid(false)
+		err := planet.Uplinks[0].Upload(ctx, planet.Satellites[0], "bucket", "object", testrand.Bytes(5*memory.KiB))
+		require.NoError(t, err)
+
+		require.NoError(t, planet.WaitForStorageNodeEndpoints(ctx))
+
+		planet.StorageNodes[0].Storage2.Orders.SendOrders(ctx, time.Now().Add(24*time.Hour))
+
+		result, err := planet.StorageNodes[0].OrdersStore.ListUnsentBySatellite(ctx, time.Now().Add(24*time.Hour))
+		require.NoError(t, err)
+		// orders were not sent
+		require.NotEmpty(t, result)
+
+		// start accepting orders
+		planet.Satellites[0].Orders.Endpoint.TestingSetAcceptOrdersValid(true)
+		planet.StorageNodes[0].Storage2.Orders.SendOrders(ctx, time.Now().Add(24*time.Hour))
+
+		result, err = planet.StorageNodes[0].OrdersStore.ListUnsentBySatellite(ctx, time.Now().Add(24*time.Hour))
+		require.NoError(t, err)
+		// all orders were sent
+		require.Empty(t, result)
 	})
 }

@@ -41,6 +41,9 @@ type Config struct {
 	NodeStatusLogging bool           `hidden:"true" help:"deprecated, log the offline/disqualification status of nodes" default:"false" testDefault:"true"`
 
 	DownloadTailToleranceOverrides string `help:"how many nodes should be used for downloads for certain k. must be >= k. if not specified, this is calculated from long tail tolerance. format is comma separated like k-d,k-d,k-d e.g. 29-35,3-5." default:""`
+
+	// TODO (spanner): can be removed after the migration
+	AcceptOrders bool `help:"determine if orders from storage nodes should be accepted" default:"true"`
 }
 
 // Overlay defines the overlay dependency of orders.Service.
