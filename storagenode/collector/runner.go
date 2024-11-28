@@ -36,6 +36,7 @@ func NewRunnerOnce(log *zap.Logger, peStore *pieces.PieceExpirationStore, blobs 
 
 // Run implements Runner interface.
 func (r RunOnce) Run(ctx context.Context) (err error) {
+	defer mon.Task()(&ctx)(&err)
 	defer r.stop.Cancel()
 	monCounter := mon.Counter("collector_files_deleted")
 
@@ -86,6 +87,10 @@ func (r RunOnce) Run(ctx context.Context) (err error) {
 				continue
 			}
 
+			// process is cancelled, let's not delete the file, yet.
+			if ctx.Err() != nil {
+				return ctx.Err()
+			}
 			err = pieces.DeleteExpiredFile(ctx, next)
 			if err != nil {
 				r.log.Warn("Couldn't delete flat file", zap.String("file", next), zap.Error(err))

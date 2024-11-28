@@ -7,8 +7,8 @@ import "time"
 
 // PeriodConfig contains the configuration for Period.
 type PeriodConfig struct {
-	FromHour int `usage:"hour to start cleanup" default:"0"`
-	ToHour   int `usage:"hour to stop cleanup" default:"24"`
+	FromHour int `help:"hour to start cleanup" default:"0"`
+	ToHour   int `help:"hour to stop cleanup" default:"24"`
 }
 
 // Period is an availability check which is false if the current time is outside the configured period.
@@ -23,7 +23,7 @@ func NewPeriod(config PeriodConfig) *Period {
 
 // Enabled implements Enablement.
 func (p *Period) Enabled() (bool, error) {
-	hour := time.Now().Hour()
+	hour := time.Now().UTC().Hour()
 	return hour >= p.config.FromHour && hour <= p.config.ToHour, nil
 }
 
