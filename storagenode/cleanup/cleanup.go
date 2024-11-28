@@ -9,11 +9,11 @@ import (
 
 	"go.uber.org/zap"
 
-	"storj.io/common/storj"
+	"storj.io/storj/shared/modular"
 	"storj.io/storj/storagenode/blobstore"
 	"storj.io/storj/storagenode/collector"
 	"storj.io/storj/storagenode/pieces"
-	"storj.io/storj/storagenode/piecestore/usedserials"
+	"storj.io/storj/storagenode/retain"
 )
 
 // Cleanup is a service, which combines retain,TTL,trash, and runs only once (if load is not too high).
@@ -24,18 +24,30 @@ type Cleanup struct {
 
 	trashExpiryInterval time.Duration
 	collector           *collector.Service
+	trashRunner         *pieces.TrashRunOnce
+	expireRunner        collector.RunOnce
+	retainRunner        *retain.RunOnce
 }
 
 // NewCleanup creates a new Cleanup.
-func NewCleanup(log *zap.Logger, loop *SafeLoop, blobs blobstore.Blobs, pieces *pieces.Store, usedSerials *usedserials.Table, config collector.Config) *Cleanup {
-	collectorService := collector.NewService(log, pieces, usedSerials, config)
+func NewCleanup(log *zap.Logger, loop *SafeLoop, blobs blobstore.Blobs, store *pieces.PieceExpirationStore, ps *pieces.Store, rc retain.Config) *Cleanup {
+
+	noCancel := &modular.StopTrigger{
+		Cancel: func() {
+		},
+	}
+	trashRunner := pieces.NewTrashRunOnce(log, blobs, 7*24*time.Hour, noCancel)
+	expireRunner := collector.NewRunnerOnce(log, store, blobs, noCancel)
+	retainRunner := retain.NewRunOnce(log, ps, rc, noCancel)
 	return &Cleanup{
 		loop: loop,
 		// TODO: change if it's configurable. Right now it's hardcoded in storagenode/peer.go, what we wouldn't like to depends on.
 		trashExpiryInterval: 7 * 24 * time.Hour,
 		blobs:               blobs,
 		log:                 log,
-		collector:           collectorService,
+		trashRunner:         trashRunner,
+		expireRunner:        expireRunner,
+		retainRunner:        retainRunner,
 	}
 }
 
@@ -44,55 +56,33 @@ func (c *Cleanup) Run(ctx context.Context) error {
 	return c.loop.RunSafe(ctx, c.RunOnce)
 }
 
-// RunOnce executes all (TODO) chores, one by one. Can be stopped with cancelling context.
+// RunOnce executes all chores, one by one. Can be stopped with cancelling context.
 func (c *Cleanup) RunOnce(ctx context.Context) (err error) {
 	defer mon.Task()(&ctx)(&err)
-	err = c.EmptyTrash(ctx)
+	err = c.trashRunner.Run(ctx)
 	if ctx.Err() != nil {
 		return ctx.Err()
 	}
-
-	err = c.RunCollector(ctx)
-	if ctx.Err() != nil {
-		return ctx.Err()
-	}
-
-	// TODO: run all the other chores as well (retain)
-	return nil
-
-}
-
-// RunCollector runs the collector.
-func (c *Cleanup) RunCollector(ctx context.Context) (err error) {
-	defer mon.Task()(&ctx)(&err)
-	return c.collector.Collect(ctx, time.Now())
-}
-
-// EmptyTrash removes all the trashed pieces, which are older than the trashExpiryInterval.
-func (c *Cleanup) EmptyTrash(ctx context.Context) (err error) {
-	defer mon.Task()(&ctx)(&err)
-	namespaces, err := c.blobs.ListNamespaces(ctx)
 	if err != nil {
-		c.log.Error("couldn't get list of namespaces", zap.Error(err))
-		return nil
+		return err
 	}
-	for _, namespace := range namespaces {
-		var satellite storj.NodeID
-		copy(satellite[:], namespace)
-		timeStart := time.Now()
-		c.log.Info("emptying trash started", zap.Stringer("Satellite ID", satellite))
-		trashedBefore := time.Now().Add(-c.trashExpiryInterval)
-		if ws, ok := c.blobs.(pieces.SupportEmptyTrashWithoutStat); ok {
-			err = ws.EmptyTrashWithoutStat(ctx, namespace, trashedBefore)
-		} else {
-			_, _, err = c.blobs.EmptyTrash(ctx, namespace, trashedBefore)
-		}
-		if err != nil {
-			c.log.Error("emptying trash failed", zap.Error(err))
-		} else {
-			c.log.Debug("emptying trash finished", zap.Stringer("Satellite ID", satellite), zap.Duration("elapsed", time.Since(timeStart)))
-		}
 
+	err = c.expireRunner.Run(ctx)
+	if ctx.Err() != nil {
+		return ctx.Err()
 	}
+	if err != nil {
+		return err
+	}
+
+	err = c.retainRunner.Run(ctx)
+	if ctx.Err() != nil {
+		return ctx.Err()
+	}
+	if err != nil {
+		return err
+	}
+
 	return nil
+
 }
