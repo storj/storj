@@ -38,13 +38,13 @@ func TestPage_BasicOperation(t *testing.T) {
 	var p page
 
 	var recs []Record
-	for i := uint64(0); i < rPerP; i++ {
+	for i := uint64(0); i < recordsPerPage; i++ {
 		rec := newRecord(newKey())
 		recs = append(recs, rec)
 		p.writeRecord(i, rec)
 	}
 
-	for i := uint64(0); i < rPerP; i++ {
+	for i := uint64(0); i < recordsPerPage; i++ {
 		var tmp Record
 		p.readRecord(i, &tmp)
 		assert.Equal(t, tmp, recs[i])

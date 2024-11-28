@@ -13,7 +13,7 @@ The `access.wasm` code can then be loaded into the browser in a script tag in an
 
 To copy the JavaScript support file, run:
 ```
-$ cp "$(go env GOROOT)/misc/wasm/wasm_exec.js" .
+$ cp "$(go env GOROOT)/lib/wasm/wasm_exec.js" .
 ```
 Ref: [Golang WebAssembly docs](https://github.com/golang/go/wiki/WebAssembly)
 

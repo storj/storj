@@ -124,7 +124,6 @@
                                                 <v-card :loading="isLoading" class="pa-1" :class="{'no-border pa-0': !isLoading}">
                                                     <AddTokensStep
                                                         v-if="!isLoading"
-                                                        is-onboarding
                                                         @back="onBackFromTokens"
                                                         @success="toNextStep"
                                                     />

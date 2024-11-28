@@ -39,18 +39,26 @@ var monGetExpired = mon.Task()
 
 // GetExpired gets piece IDs that expire or have expired before the given time.
 // If batchSize is less than or equal to 0, it will return all expired pieces in one batch.
-func (db *pieceExpirationDB) GetExpired(ctx context.Context, now time.Time, batchSize int) (info []pieces.ExpiredInfo, err error) {
+func (db *pieceExpirationDB) GetExpired(ctx context.Context, now time.Time, limits pieces.ExpirationLimits) (info []*pieces.ExpiredInfoRecords, err error) {
 	defer monGetExpired(&ctx)(&err)
 
 	now = now.UTC()
 
 	db.mu.Lock()
 	count := 0
+	infoRecordsBySatellite := make(map[storj.NodeID]*pieces.ExpiredInfoRecords)
+
 	for ei, exp := range db.buf {
 		if exp.Before(now) {
-			info = append(info, ei)
+			satList, ok := infoRecordsBySatellite[ei.SatelliteID]
+			if !ok {
+				satList = pieces.NewExpiredInfoRecords(ei.SatelliteID, false, 1)
+				infoRecordsBySatellite[ei.SatelliteID] = satList
+				info = append(info, satList)
+			}
+			satList.Append(ei.PieceID, ei.PieceSize)
 			count++
-			if batchSize > 0 && count >= batchSize {
+			if limits.BatchSize > 0 && count >= limits.BatchSize {
 				break
 			}
 		}
@@ -58,12 +66,12 @@ func (db *pieceExpirationDB) GetExpired(ctx context.Context, now time.Time, batc
 	db.mu.Unlock()
 
 	// if we have enough pieces in the buffer, we don't need to query the database
-	if batchSize > 0 && count >= batchSize {
+	if limits.BatchSize > 0 && count >= limits.BatchSize {
 		return info, nil
 	}
 
-	batchSize -= count
-	expiredFromDB, err := db.getExpiredPaginated(ctx, now, batchSize)
+	limits.BatchSize -= count
+	expiredFromDB, err := db.getExpiredPaginated(ctx, now, limits.BatchSize)
 	if err != nil {
 		return nil, err
 	}
@@ -79,7 +87,7 @@ var monGetExpiredPaginated = mon.Task()
 
 // getExpiredPaginated returns a paginated list of expired pieces.
 // If limit is less than or equal to 0, it will return all expired pieces.
-func (db *pieceExpirationDB) getExpiredPaginated(ctx context.Context, now time.Time, limit int) (info []pieces.ExpiredInfo, err error) {
+func (db *pieceExpirationDB) getExpiredPaginated(ctx context.Context, now time.Time, limit int) (info []*pieces.ExpiredInfoRecords, err error) {
 	defer monGetExpiredPaginated(&ctx)(&err)
 
 	query := `
@@ -107,13 +115,20 @@ func (db *pieceExpirationDB) getExpiredPaginated(ctx context.Context, now time.T
 		err = errs.Combine(err, rows.Err(), rows.Close())
 	}()
 
+	infoRecordsBySatellite := make(map[storj.NodeID]*pieces.ExpiredInfoRecords)
 	for rows.Next() {
 		var ei pieces.ExpiredInfo
 		err = rows.Scan(&ei.SatelliteID, &ei.PieceID)
 		if err != nil {
 			return nil, ErrPieceExpiration.Wrap(err)
 		}
-		info = append(info, ei)
+		satList, ok := infoRecordsBySatellite[ei.SatelliteID]
+		if !ok {
+			satList = pieces.NewExpiredInfoRecords(ei.SatelliteID, false, 1)
+			info = append(info, satList)
+			infoRecordsBySatellite[ei.SatelliteID] = satList
+		}
+		satList.Append(ei.PieceID, ei.PieceSize)
 	}
 
 	return info, nil
@@ -185,10 +200,10 @@ var monDeleteExpirationsBatch = mon.Task()
 // DeleteExpirationsBatch removes expiration records for pieces that have expired before the given time
 // and falls within the limit.
 // If limit is less than or equal to 0, it will delete all expired pieces.
-func (db *pieceExpirationDB) DeleteExpirationsBatch(ctx context.Context, now time.Time, limit int) (err error) {
+func (db *pieceExpirationDB) DeleteExpirationsBatch(ctx context.Context, now time.Time, limits pieces.ExpirationLimits) (err error) {
 	defer monDeleteExpirationsBatch(&ctx)(&err)
 
-	if limit <= 0 {
+	if limits.BatchSize <= 0 {
 		return db.DeleteExpirations(ctx, now)
 	}
 
@@ -211,7 +226,7 @@ func (db *pieceExpirationDB) DeleteExpirationsBatch(ctx context.Context, now tim
 				ORDER BY piece_expiration
 				LIMIT ?
 			)
-	`, now, limit)
+	`, now, limits.BatchSize)
 
 	return ErrPieceExpiration.Wrap(err)
 }

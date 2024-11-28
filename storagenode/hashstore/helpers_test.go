@@ -7,11 +7,12 @@ import (
 	"context"
 	"encoding/binary"
 	"fmt"
-	"io"
 	"os"
+	"path/filepath"
 	"runtime"
 	"strings"
 	"testing"
+	"testing/iotest"
 	"time"
 
 	"github.com/zeebo/assert"
@@ -23,6 +24,34 @@ func TestSaturatingUint32(t *testing.T) {
 	assert.Equal(t, saturatingUint23(-1), 1<<23-1)
 	assert.Equal(t, saturatingUint23(1<<23-1), 1<<23-1)
 	assert.Equal(t, saturatingUint23(1<<23), 1<<23-1)
+}
+
+func TestAllFiles(t *testing.T) {
+	dir := t.TempDir()
+
+	touch := func(name string) {
+		assert.NoError(t, os.MkdirAll(filepath.Join(dir, filepath.Dir(name)), 0755))
+		assert.NoError(t, os.WriteFile(filepath.Join(dir, name), nil, 0644))
+	}
+
+	// backwards compatibility
+	touch("log-0000000000000001-00000000")
+	touch("log-0000000000000002-0000ffff")
+
+	// new format
+	touch("03/log-0000000000000003-00000000")
+	touch("04/log-0000000000000004-00000000")
+	touch("03/log-0000000000000103-00000000")
+
+	entries, err := allFiles(dir)
+	assert.NoError(t, err)
+	assert.Equal(t, entries, []string{
+		filepath.Join(dir, "03/log-0000000000000003-00000000"),
+		filepath.Join(dir, "03/log-0000000000000103-00000000"),
+		filepath.Join(dir, "04/log-0000000000000004-00000000"),
+		filepath.Join(dir, "log-0000000000000001-00000000"),
+		filepath.Join(dir, "log-0000000000000002-0000ffff"),
+	})
 }
 
 //
@@ -46,6 +75,8 @@ func newTestHashtbl(t testing.TB, lrec uint64) *testHashTbl {
 	return &testHashTbl{t: t, HashTbl: h}
 }
 
+func (th *testHashTbl) Close() { th.HashTbl.Close() }
+
 func (th *testHashTbl) AssertReopen() {
 	th.t.Helper()
 
@@ -63,7 +94,7 @@ func (th *testHashTbl) AssertReopen() {
 func (th *testHashTbl) AssertInsertRecord(rec Record) {
 	th.t.Helper()
 
-	ok, err := th.Insert(rec)
+	ok, err := th.Insert(context.Background(), rec)
 	assert.NoError(th.t, err)
 	assert.True(th.t, ok)
 }
@@ -79,7 +110,7 @@ func (th *testHashTbl) AssertInsert() Record {
 func (th *testHashTbl) AssertLookup(k Key) Record {
 	th.t.Helper()
 
-	r, ok, err := th.Lookup(k)
+	r, ok, err := th.Lookup(context.Background(), k)
 	assert.NoError(th.t, err)
 	assert.True(th.t, ok)
 	return r
@@ -107,6 +138,8 @@ func newTestStore(t testing.TB) *testStore {
 
 	return ts
 }
+
+func (ts *testStore) Close() { ts.Store.Close() }
 
 func (ts *testStore) AssertReopen() {
 	ts.t.Helper()
@@ -160,9 +193,7 @@ func (ts *testStore) AssertRead(key Key) {
 	assert.Equal(ts.t, r.Key(), key)
 	assert.Equal(ts.t, r.Size(), len(key))
 
-	data, err := io.ReadAll(r)
-	assert.NoError(ts.t, err)
-	assert.Equal(ts.t, data, key[:])
+	assert.NoError(ts.t, iotest.TestReader(r, key[:]))
 	assert.NoError(ts.t, r.Close())
 }
 
@@ -196,6 +227,8 @@ func newTestDB(t testing.TB,
 
 	return td
 }
+
+func (td *testDB) Close() { td.DB.Close() }
 
 func (td *testDB) AssertReopen() {
 	td.t.Helper()
@@ -233,10 +266,14 @@ func (td *testDB) AssertRead(key Key) {
 	assert.NoError(td.t, err)
 	assert.NotNil(td.t, r)
 
-	data, err := io.ReadAll(r)
-	assert.NoError(td.t, err)
-	assert.Equal(td.t, data, key[:])
+	assert.NoError(td.t, iotest.TestReader(r, key[:]))
 	assert.NoError(td.t, r.Close())
+}
+
+func (td *testDB) AssertCompact() {
+	td.t.Helper()
+
+	assert.NoError(td.t, td.Compact(context.Background()))
 }
 
 //

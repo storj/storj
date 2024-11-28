@@ -278,20 +278,17 @@ obStore.$onAction(({ name, after, args }) => {
     }
 });
 
-const unwatch = watch(pendingPayments, async newPayments => {
-    if (user.value.paidTier) {
-        unwatch();
-        return;
-    }
+const processedTXs = new Set<string>();
 
+watch(pendingPayments, async newPayments => {
     if (!newPayments.length) return;
 
-    const newConfirmedPayments = newPayments.some(p => p.status === PaymentStatus.Confirmed);
-    if (!newConfirmedPayments) return;
+    const unprocessedConfirmedPayments = newPayments.filter(p => p.status === PaymentStatus.Confirmed && !processedTXs.has(p.transaction));
+    if (!unprocessedConfirmedPayments.length) return;
 
-    const tokensSum = totalValueCounter(newPayments, 'tokenValue');
+    const tokensSum = totalValueCounter(unprocessedConfirmedPayments, 'tokenValue');
     if (tokensSum > 0) {
-        const bonusSum = totalValueCounter(newPayments, 'bonusTokens');
+        const bonusSum = totalValueCounter(unprocessedConfirmedPayments, 'bonusTokens');
 
         notify.success(`Successful deposit of ${tokensSum} STORJ tokens. You received an additional bonus of ${bonusSum} STORJ tokens.`);
 
@@ -301,20 +298,19 @@ const unwatch = watch(pendingPayments, async newPayments => {
         ]).catch((_) => {});
     }
 
-    await usersStore.getUser();
+    unprocessedConfirmedPayments.forEach(p => processedTXs.add(p.transaction));
 
-    if (user.value.paidTier) {
-        await Promise.all([
-            projectsStore.getProjectConfig(),
-            projectsStore.getProjectLimits(projectsStore.state.selectedProject.id),
-        ]).catch((_) => {});
+    if (!user.value.paidTier) {
+        await usersStore.getUser();
 
-        notify.success('Account was successfully upgraded!');
+        if (user.value.paidTier) {
+            await Promise.all([
+                projectsStore.getProjectConfig(),
+                projectsStore.getProjectLimits(projectsStore.state.selectedProject.id),
+            ]).catch((_) => {});
 
-        billingStore.stopPaymentsPolling();
-        billingStore.clearPendingPayments();
-
-        unwatch();
+            notify.success('Account was successfully upgraded!');
+        }
     }
 }, { deep: true, immediate: true });
 

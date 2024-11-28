@@ -6,7 +6,6 @@ package satellitedb
 import (
 	"context"
 	"database/sql"
-	"encoding/base64"
 	"errors"
 	"fmt"
 	"sort"
@@ -27,6 +26,7 @@ import (
 	"storj.io/storj/shared/dbutil"
 	"storj.io/storj/shared/dbutil/pgutil"
 	"storj.io/storj/shared/dbutil/retrydb"
+	"storj.io/storj/shared/dbutil/spannerutil"
 	"storj.io/storj/shared/dbutil/txutil"
 	"storj.io/storj/shared/location"
 	"storj.io/storj/shared/tagsql"
@@ -507,36 +507,46 @@ func (cache *overlaycache) GetNodes(ctx context.Context, nodeIDs storj.NodeIDLis
 
 	case dbutil.Spanner:
 		records = make([]nodeselection.SelectedNode, len(nodeIDs))
-		err = withRows(cache.db.Query(ctx, `
-			SELECT id, address, email, wallet, last_net,
-				last_ip_port, country_code,
-				piece_count, free_disk,
-				last_contact_success > ? AS online,
-				(offline_suspended IS NOT NULL OR unknown_audit_suspended IS NOT NULL) AS suspended,
-				exit_initiated_at IS NOT NULL AS exiting,
-				vetted_at IS NOT NULL AS vetted,
-				TO_JSON(ARRAY(
-					SELECT AS STRUCT
-						node_tags.name as Name,
-						node_tags.value as Value,
-						node_tags.signed_at as SignedAt,
-						node_tags.signer as Signer
-					FROM node_tags
-					WHERE node_tags.node_id = id
-				)) AS tags
-			FROM nodes
-			WHERE nodes.id IN UNNEST(?)
-				AND disqualified IS NULL
-				AND exit_finished_at IS NULL
-			`, time.Now().Add(-onlineWindow), nodeIDs.Bytes(),
-		))(func(rows tagsql.Rows) error {
-			for rows.Next() {
+		err := spannerutil.UnderlyingClient(ctx, cache.db.DB.DB, func(client *spanner.Client) error {
+			iter := client.Single().Query(ctx, spanner.Statement{
+				SQL: `
+					SELECT id, address, email, wallet, last_net,
+						last_ip_port, country_code,
+						piece_count, free_disk,
+						last_contact_success > @online_threshold AS online,
+						(offline_suspended IS NOT NULL OR unknown_audit_suspended IS NOT NULL) AS suspended,
+						exit_initiated_at IS NOT NULL AS exiting,
+						vetted_at IS NOT NULL AS vetted,
+						ARRAY(
+							SELECT AS STRUCT
+								node_tags.name as Name,
+								node_tags.value as Value,
+								node_tags.signed_at as SignedAt,
+								node_tags.signer as Signer
+							FROM node_tags
+							WHERE node_tags.node_id = id
+						) AS tags
+					FROM nodes
+					WHERE nodes.id IN UNNEST(@nodes)
+						AND disqualified IS NULL
+						AND exit_finished_at IS NULL
+				`,
+				Params: map[string]any{
+					"online_threshold": time.Now().Add(-onlineWindow),
+					"nodes":            nodeIDs.Bytes(),
+				},
+			})
+
+			return Error.Wrap(iter.Do(func(row *spanner.Row) error {
 				var node nodeselection.SelectedNode
 				node.Address = &pb.NodeAddress{}
 				var lastIPPort, countryCode sql.NullString
-				var tagsJSON spanner.NullJSON
 
-				err = rows.Scan(
+				// TODO(spanner): currently only supports scanning into []*struct.
+				// Needs https://github.com/googleapis/google-cloud-go/issues/11090 to fix.
+				var tags []*nodeselection.NodeTag
+
+				err = row.Columns(
 					&node.ID, &node.Address.Address, &node.Email, &node.Wallet, &node.LastNet,
 					&lastIPPort, &countryCode,
 					&node.PieceCount, &node.FreeDisk,
@@ -544,7 +554,7 @@ func (cache *overlaycache) GetNodes(ctx context.Context, nodeIDs storj.NodeIDLis
 					&node.Suspended,
 					&node.Exiting,
 					&node.Vetted,
-					&tagsJSON)
+					&tags)
 				if err != nil {
 					return Error.Wrap(err)
 				}
@@ -556,15 +566,14 @@ func (cache *overlaycache) GetNodes(ctx context.Context, nodeIDs storj.NodeIDLis
 					node.CountryCode = location.ToCountryCode(countryCode.String)
 				}
 
-				if tagsJSON.Valid {
-					// TODO(spanner): use the struct types directly when https://github.com/googleapis/go-sql-spanner/issues/309 gets fixed.
-					node.Tags, err = spannerJSONToNodeTags(tagsJSON.Value)
-					if err != nil {
-						return Error.Wrap(err)
-					}
-
-					for i := range node.Tags {
-						node.Tags[i].NodeID = node.ID
+				if len(tags) > 0 {
+					node.Tags = make([]nodeselection.NodeTag, 0, len(tags))
+					for _, tag := range tags {
+						if tag == nil {
+							continue
+						}
+						tag.NodeID = node.ID
+						node.Tags = append(node.Tags, *tag)
 					}
 				}
 
@@ -574,8 +583,9 @@ func (cache *overlaycache) GetNodes(ctx context.Context, nodeIDs storj.NodeIDLis
 						break
 					}
 				}
-			}
-			return nil
+
+				return nil
+			}))
 		})
 		if err != nil {
 			return nil, Error.Wrap(err)
@@ -584,64 +594,6 @@ func (cache *overlaycache) GetNodes(ctx context.Context, nodeIDs storj.NodeIDLis
 	default:
 		return nil, Error.New("unsupported implementation")
 	}
-}
-
-func spannerJSONToNodeTags(v any) ([]nodeselection.NodeTag, error) {
-	if v == nil {
-		return nil, nil
-	}
-
-	// TODO(spanner): use the struct types directly when https://github.com/googleapis/go-sql-spanner/issues/309
-	// gets fixed.
-	tagValues, ok := v.([]any)
-	if !ok {
-		return nil, Error.New("expected []any")
-	}
-
-	var tags []nodeselection.NodeTag
-	for _, tagValue := range tagValues {
-		fields, ok := tagValue.(map[string]any)
-		if !ok {
-			return nil, Error.New("expected fields")
-		}
-		var tag nodeselection.NodeTag
-		for field, value := range fields {
-			s, ok := value.(string)
-			if !ok {
-				return nil, Error.New("expected a string value")
-			}
-
-			switch field {
-			case "Name":
-				tag.Name = s
-			case "SignedAt":
-				var err error
-				tag.SignedAt, err = time.Parse(time.RFC3339Nano, s)
-				if err != nil {
-					return nil, Error.Wrap(err)
-				}
-			case "Signer":
-				signerBytes, err := base64.StdEncoding.DecodeString(s)
-				if err != nil {
-					return nil, Error.New("expected base64 from spanner: %w", err)
-				}
-				tag.Signer, err = storj.NodeIDFromBytes(signerBytes)
-				if err != nil {
-					return nil, Error.Wrap(err)
-				}
-			case "Value":
-				var err error
-				tag.Value, err = base64.StdEncoding.DecodeString(s)
-				if err != nil {
-					return nil, Error.New("expected base64 from spanner: %w", err)
-				}
-			default:
-				return nil, Error.New("unexpected field %q", field)
-			}
-		}
-		tags = append(tags, tag)
-	}
-	return tags, nil
 }
 
 // AccountingNodeInfo gets records for all specified nodes for accounting.

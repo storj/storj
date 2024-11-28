@@ -23,7 +23,8 @@ var mon = monkit.Package()
 type Config struct {
 	Interval              time.Duration `help:"how frequently expired pieces are collected" default:"1h0m0s"`
 	ExpirationGracePeriod time.Duration `help:"how long should the collector wait before deleting expired pieces. Should not be less than 30 min since nodes are allowed to be 30 mins out of sync with the satellite." default:"1h0m0s"`
-	ExpirationBatchSize   int           `help:"how many expired pieces to delete in one batch. If <= 0, all expired pieces will be deleted in one batch." default:"1000"`
+	ExpirationBatchSize   int           `help:"how many expired pieces to delete in one batch. If <= 0, all expired pieces will be deleted in one batch. (ignored by flat file store)" default:"1000"`
+	FlatFileBatchLimit    int           `help:"how many per hour flat files can be deleted in one batch." default:"5"`
 }
 
 // Service implements collecting expired pieces on the storage node.
@@ -36,22 +37,25 @@ type Service struct {
 
 	Loop *sync2.Cycle
 
-	batchSize             int
+	limits                pieces.ExpirationLimits
 	expirationGracePeriod time.Duration
 }
 
 // NewService creates a new collector service.
-func NewService(log *zap.Logger, pieces *pieces.Store, usedSerials *usedserials.Table, config Config) *Service {
+func NewService(log *zap.Logger, pieceStore *pieces.Store, usedSerials *usedserials.Table, config Config) *Service {
 	if config.ExpirationGracePeriod.Minutes() < 30 {
 		log.Warn("ExpirationGracePeriod cannot not be less than 30 minutes. Using default")
 		config.ExpirationGracePeriod = 1 * time.Hour
 	}
 
 	return &Service{
-		log:                   log,
-		pieces:                pieces,
-		usedSerials:           usedSerials,
-		batchSize:             config.ExpirationBatchSize,
+		log:         log,
+		pieces:      pieceStore,
+		usedSerials: usedSerials,
+		limits: pieces.ExpirationLimits{
+			BatchSize:     config.ExpirationBatchSize,
+			FlatFileLimit: config.FlatFileBatchLimit,
+		},
 		expirationGracePeriod: config.ExpirationGracePeriod,
 		Loop:                  sync2.NewCycle(config.Interval),
 	}
@@ -96,33 +100,35 @@ func (service *Service) Collect(ctx context.Context, now time.Time) (err error) 
 	}()
 
 	for {
-		batch, err := service.pieces.GetExpiredBatchSkipV0(ctx, now, service.batchSize)
+		infoLists, err := service.pieces.GetExpiredBatchSkipV0(ctx, now, service.limits)
 		if err != nil {
 			return errs.Wrap(err)
 		}
 
-		count := len(batch)
-		if count == 0 {
+		if len(infoLists) == 0 {
+			// no more expired pieces; exit the loop
 			return nil
 		}
 
-		for _, ei := range batch {
+		for _, eiList := range infoLists {
 			if ctx.Err() != nil {
 				return errs.Wrap(ctx.Err())
 			}
-			// delete the piece from the storage
-			err := service.pieces.DeleteSkipV0(ctx, ei.SatelliteID, ei.PieceID, ei.PieceSize)
-			if err != nil {
-				service.log.Warn("unable to delete piece", zap.Stringer("Satellite ID", ei.SatelliteID), zap.Stringer("Piece ID", ei.PieceID), zap.Error(err))
-			} else {
-				service.log.Debug("deleted expired piece", zap.Stringer("Satellite ID", ei.SatelliteID), zap.Stringer("Piece ID", ei.PieceID))
+			numCollected += eiList.Len()
+			for i := 0; i < eiList.Len(); i++ {
+				pieceID, pieceSize := eiList.PieceIDAtIndex(i)
+				// delete the piece from the storage
+				err := service.pieces.DeleteSkipV0(ctx, eiList.SatelliteID, pieceID, pieceSize)
+				if err != nil {
+					service.log.Warn("unable to delete piece", zap.Stringer("Satellite ID", eiList.SatelliteID), zap.Stringer("Piece ID", pieceID), zap.Error(err))
+				} else {
+					service.log.Debug("deleted expired piece", zap.Stringer("Satellite ID", eiList.SatelliteID), zap.Stringer("Piece ID", pieceID))
+				}
 			}
 		}
 
-		numCollected += count
-
 		// delete the batch from the database
-		if deleteErr := service.pieces.DeleteExpiredBatchSkipV0(ctx, now, service.batchSize); deleteErr != nil {
+		if deleteErr := service.pieces.DeleteExpiredBatchSkipV0(ctx, now, service.limits); deleteErr != nil {
 			service.log.Error("error during deleting expired pieces: ", zap.Error(deleteErr))
 			return errs.Wrap(deleteErr)
 		}

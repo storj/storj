@@ -259,6 +259,14 @@
             <v-col cols="12" md="auto">
                 <v-card-title class="font-weight-bold pl-0">
                     Storage buckets
+                    <v-tooltip width="250" location="bottom">
+                        <template #activator="activator">
+                            <v-icon v-bind="activator.props" size="16" :icon="Info" class="ml-2 text-medium-emphasis" />
+                        </template>
+                        <template #default>
+                            <p>Project usage statistics are not real-time. Recent uploads, downloads, or other actions may not be immediately reflected.</p>
+                        </template>
+                    </v-tooltip>
                 </v-card-title>
                 <p class="text-medium-emphasis">
                     Buckets are where you upload and organize your data.

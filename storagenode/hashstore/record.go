@@ -12,27 +12,27 @@ import (
 )
 
 const (
-	// RSize is the size of a serialized record in bytes.
-	RSize = 64
+	// RecordSize is the size of a serialized record in bytes.
+	RecordSize = 64
 
-	pSize = 4096
-	rPerP = pSize / RSize
+	pageSize       = 4096
+	recordsPerPage = pageSize / RecordSize
 
-	_ uintptr = -(pSize % RSize) // ensure records evenly divide the page size
+	_ uintptr = -(pageSize % RecordSize) // ensure records evenly divide the page size
 )
 
-type page [pSize]byte
+type page [pageSize]byte
 
 func (p *page) readRecord(n uint64, rec *Record) bool {
-	if b := p[(n*RSize)%pSize:]; len(b) >= RSize {
-		return rec.Read((*[RSize]byte)(b))
+	if b := p[(n*RecordSize)%pageSize:]; len(b) >= RecordSize {
+		return rec.ReadFrom((*[RecordSize]byte)(b))
 	}
 	return false
 }
 
 func (p *page) writeRecord(n uint64, rec Record) {
-	if b := p[(n*RSize)%pSize:]; len(b) >= RSize {
-		rec.Write((*[RSize]byte)(b))
+	if b := p[(n*RecordSize)%pageSize:]; len(b) >= RecordSize {
+		rec.WriteTo((*[RecordSize]byte)(b))
 	}
 }
 
@@ -110,10 +110,10 @@ func RecordsEqualish(a, b Record) bool {
 	return a == b
 }
 
-func checksumBuffer(buf *[RSize]byte) uint64 { return xxh3.Hash(buf[0:56]) >> 1 }
+func checksumBuffer(buf *[RecordSize]byte) uint64 { return xxh3.Hash(buf[0:56]) >> 1 }
 
-// Write stores the record and its checksum into the buffer.
-func (r *Record) Write(buf *[RSize]byte) {
+// WriteTo stores the record and its checksum into the buffer.
+func (r *Record) WriteTo(buf *[RecordSize]byte) {
 	*(*Key)(buf[0:32]) = r.Key
 	binary.LittleEndian.PutUint64(buf[32:32+8], r.Offset&0xffffffffffff)
 	binary.LittleEndian.PutUint64(buf[38:38+8], r.Log&0xffffffffffffffff)
@@ -123,9 +123,9 @@ func (r *Record) Write(buf *[RSize]byte) {
 	binary.LittleEndian.PutUint64(buf[56:56+8], checksumBuffer(buf))
 }
 
-// Read updates the record with the values from the buffer and returns true if the checksum is
+// ReadFrom updates the record with the values from the buffer and returns true if the checksum is
 // valid.
-func (r *Record) Read(buf *[RSize]byte) bool {
+func (r *Record) ReadFrom(buf *[RecordSize]byte) bool {
 	r.Key = *(*Key)(buf[0:32])
 	r.Offset = binary.LittleEndian.Uint64(buf[32:32+8]) & 0xffffffffffff
 	r.Log = binary.LittleEndian.Uint64(buf[38:38+8]) & 0xffffffffffffffff

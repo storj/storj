@@ -19,7 +19,6 @@ import (
 	"storj.io/storj/private/date"
 	"storj.io/storj/storagenode/payouts"
 	"storj.io/storj/storagenode/pricing"
-	"storj.io/storj/storagenode/reputation"
 	"storj.io/storj/storagenode/storageusage"
 	"storj.io/storj/storagenode/trust"
 )
@@ -27,13 +26,12 @@ import (
 // Config defines nodestats cache configuration.
 type Config struct {
 	MaxSleep       time.Duration `help:"maximum duration to wait before requesting data" releaseDefault:"300s" devDefault:"1s"`
-	ReputationSync time.Duration `help:"how often to sync reputation" releaseDefault:"4h" devDefault:"1m"`
+	ReputationSync time.Duration `help:"how often to sync reputation" releaseDefault:"4h" devDefault:"1m" deprecated:"use --reputation.interval" hidden:"true"`
 	StorageSync    time.Duration `help:"how often to sync storage" releaseDefault:"12h" devDefault:"2m"`
 }
 
 // CacheStorage encapsulates cache DBs.
 type CacheStorage struct {
-	Reputation   reputation.DB
 	StorageUsage storageusage.DB
 	Payout       payouts.DB
 	Pricing      pricing.DB
@@ -45,33 +43,29 @@ type CacheStorage struct {
 type Cache struct {
 	log *zap.Logger
 
-	db                CacheStorage
-	service           *Service
-	payoutEndpoint    *payouts.Endpoint
-	reputationService *reputation.Service
-	trust             *trust.Pool
+	db             CacheStorage
+	service        *Service
+	payoutEndpoint *payouts.Endpoint
+	trust          *trust.Pool
 
-	maxSleep   time.Duration
-	Reputation *sync2.Cycle
-	Storage    *sync2.Cycle
+	maxSleep time.Duration
+	Storage  *sync2.Cycle
 
 	UsageStat *UsageStat
 }
 
 // NewCache creates new caching service instance.
 func NewCache(log *zap.Logger, config Config, db CacheStorage, service *Service,
-	payoutEndpoint *payouts.Endpoint, reputationService *reputation.Service, trust *trust.Pool) *Cache {
+	payoutEndpoint *payouts.Endpoint, trust *trust.Pool) *Cache {
 
 	cache := &Cache{
-		log:               log,
-		db:                db,
-		service:           service,
-		payoutEndpoint:    payoutEndpoint,
-		reputationService: reputationService,
-		trust:             trust,
-		maxSleep:          config.MaxSleep,
-		Reputation:        sync2.NewCycle(config.ReputationSync),
-		Storage:           sync2.NewCycle(config.StorageSync),
+		log:            log,
+		db:             db,
+		service:        service,
+		payoutEndpoint: payoutEndpoint,
+		trust:          trust,
+		maxSleep:       config.MaxSleep,
+		Storage:        sync2.NewCycle(config.StorageSync),
 
 		UsageStat: NewUsageStat(),
 	}
@@ -118,18 +112,6 @@ func (cache *Cache) Run(ctx context.Context) error {
 		cache.log.Error("Get pricing-model/join date failed", zap.Error(err))
 	}
 
-	cache.Reputation.Start(ctx, &group, func(ctx context.Context) error {
-		if err := cache.sleep(ctx); err != nil {
-			return err
-		}
-
-		err := cache.CacheReputationStats(ctx)
-		if err != nil {
-			cache.log.Error("Get stats query failed", zap.Error(err))
-		}
-
-		return nil
-	})
 	cache.Storage.Start(ctx, &group, func(ctx context.Context) error {
 		if err := cache.sleep(ctx); err != nil {
 			return err
@@ -149,45 +131,6 @@ func (cache *Cache) Run(ctx context.Context) error {
 	})
 
 	return group.Wait()
-}
-
-// CacheReputationStats queries node stats from all the satellites
-// known to the storagenode and stores information into db.
-func (cache *Cache) CacheReputationStats(ctx context.Context) (err error) {
-	defer mon.Task()(&ctx)(&err)
-
-	return cache.satelliteLoop(ctx, func(satellite storj.NodeID) error {
-		stats, err := cache.service.GetReputationStats(ctx, satellite)
-		if err != nil {
-			return err
-		}
-
-		satelliteTag := monkit.NewSeriesTag("satellite", satellite.String())
-		mon.Counter("reputation_audits_total", satelliteTag).Set(stats.Audit.TotalCount)
-		mon.Counter("reputation_audits_success", satelliteTag).Set(stats.Audit.SuccessCount)
-		mon.FloatVal("reputation_online_score", satelliteTag).Observe(stats.OnlineScore)
-		mon.FloatVal("reputation_score", satelliteTag).Observe(stats.Audit.Score)
-		mon.FloatVal("reputation_unknown_score", satelliteTag).Observe(stats.Audit.UnknownScore)
-		suspensionAge := mon.DurationVal("reputation_suspension_age", satelliteTag)
-		if stats.SuspendedAt == nil {
-			suspensionAge.Observe(0)
-		} else {
-			suspensionAge.Observe(time.Since(*stats.SuspendedAt))
-		}
-		dqAge := mon.DurationVal("reputation_dq_age", satelliteTag)
-		if stats.DisqualifiedAt == nil {
-			dqAge.Observe(0)
-		} else {
-			dqAge.Observe(time.Since(*stats.DisqualifiedAt))
-		}
-
-		if err = cache.reputationService.Store(ctx, *stats, satellite); err != nil {
-			cache.log.Error("failed to store reputation", zap.Error(err))
-			return err
-		}
-
-		return nil
-	})
 }
 
 // UsageStat caches last space usage value for each satellite, to make it available for monkit.
@@ -331,7 +274,6 @@ func (cache *Cache) satelliteLoop(ctx context.Context, fn func(id storj.NodeID) 
 // Close closes underlying cycles.
 func (cache *Cache) Close() error {
 	defer mon.Task()(nil)(nil)
-	cache.Reputation.Close()
 	cache.Storage.Close()
 	return nil
 }

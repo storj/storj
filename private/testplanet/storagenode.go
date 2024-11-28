@@ -40,6 +40,7 @@ import (
 	"storj.io/storj/storagenode/pieces"
 	"storj.io/storj/storagenode/piecestore"
 	"storj.io/storj/storagenode/preflight"
+	"storj.io/storj/storagenode/reputation"
 	"storj.io/storj/storagenode/retain"
 	"storj.io/storj/storagenode/storagenodedb/storagenodedbtest"
 	"storj.io/storj/storagenode/trust"
@@ -154,10 +155,14 @@ func (planet *Planet) newStorageNode(ctx context.Context, prefix string, index, 
 		Collector: collector.Config{
 			Interval: defaultInterval,
 		},
+		Reputation: reputation.Config{
+			MaxSleep: 0,
+			Interval: defaultInterval,
+			Cache:    true,
+		},
 		Nodestats: nodestats.Config{
-			MaxSleep:       0,
-			ReputationSync: defaultInterval,
-			StorageSync:    defaultInterval,
+			MaxSleep:    0,
+			StorageSync: defaultInterval,
 		},
 		Console: consoleserver.Config{
 			Address:   planet.NewListenAddress(),
@@ -277,8 +282,29 @@ func (planet *Planet) newStorageNode(ctx context.Context, prefix string, index, 
 		return nil, errs.Wrap(err)
 	}
 
-	// Mark the peer's PieceDeleter as in testing mode, so it is easy to wait on the deleter
-	peer.Storage2.PieceDeleter.SetupTest()
+	// enable the Testing methdos to delete/corrupt pieces.
+	peer.Storage2.PieceBackend.TestingEnableMethods()
+	thePast := time.Now().AddDate(-1, 0, 0)
+
+	// flag some of the storage nodes to be in different migration states.
+	for _, trustSource := range sources {
+		entries, err := trustSource.FetchEntries(ctx)
+		if err != nil {
+			return nil, errs.Wrap(err)
+		}
+		for _, entry := range entries {
+			// set the restore time for the node to be way in the past.
+			if err := peer.Storage2.RestoreTimeManager.SetRestoreTime(ctx, entry.SatelliteURL.ID, thePast); err != nil {
+				return nil, errs.Wrap(err)
+			}
+
+			// set the node to write to new sometimes.
+			peer.Storage2.MigratingBackend.UpdateState(ctx, entry.SatelliteURL.ID, func(state *piecestore.MigrationState) {
+				state.WriteToNew = index%2 == 0
+				state.ReadNewFirst = index%4 == 0
+			})
+		}
+	}
 
 	err = db.MigrateToLatest(ctx)
 	if err != nil {
@@ -299,21 +325,21 @@ func (planet *Planet) newStorageNode(ctx context.Context, prefix string, index, 
 			cmd := internalcmd.NewUsedSpaceFilewalkerCmd()
 			cmd.Logger = log.Named("used-space-filewalker")
 			cmd.Ctx = ctx
-			peer.Storage2.LazyFileWalker.TestingSetUsedSpaceCmd(cmd)
+			peer.StorageOld.LazyFileWalker.TestingSetUsedSpaceCmd(cmd)
 		}
 		{
 			// set up the GC lazyfilewalker filewalker
 			cmd := internalcmd.NewGCFilewalkerCmd()
 			cmd.Logger = log.Named("gc-filewalker")
 			cmd.Ctx = ctx
-			peer.Storage2.LazyFileWalker.TestingSetGCCmd(cmd)
+			peer.StorageOld.LazyFileWalker.TestingSetGCCmd(cmd)
 		}
 		{
 			// set up the trash cleanup lazyfilewalker filewalker
 			cmd := internalcmd.NewTrashFilewalkerCmd()
 			cmd.Logger = log.Named("trash-filewalker")
 			cmd.Ctx = ctx
-			peer.Storage2.LazyFileWalker.TestingSetTrashCleanupCmd(cmd)
+			peer.StorageOld.LazyFileWalker.TestingSetTrashCleanupCmd(cmd)
 		}
 	}
 

@@ -180,6 +180,15 @@
                 </template>
             </navigation-item>
 
+            <navigation-item v-if="showCunoFS" :title="ROUTES.CunoFSBeta.name" :to="cunoFSURL" @click="closeDrawer">
+                <template #prepend>
+                    <component :is="HardDrive" :size="18" />
+                </template>
+                <template #chip>
+                    <v-chip color="success" class="ml-1" size="small">New</v-chip>
+                </template>
+            </navigation-item>
+
             <!-- Resources Menu -->
             <v-menu location="end" transition="scale-transition">
                 <template #activator="{ props: activatorProps }">
@@ -292,6 +301,7 @@ import {
     MessageCircleQuestion,
     BookOpenText,
     Microchip,
+    HardDrive,
 } from 'lucide-vue-next';
 
 import { Project } from '@/types/projects';
@@ -352,6 +362,8 @@ const dashboardURL = computed<string>(() => `${projectURLBase.value}/${ROUTES.Da
 
 const domainsURL = computed<string>(() => `${projectURLBase.value}/${ROUTES.Domains.path}`);
 
+const cunoFSURL = computed<string>(() => `${projectURLBase.value}/${ROUTES.CunoFSBeta.path}`);
+
 const teamURL = computed<string>(() => `${projectURLBase.value}/${ROUTES.Team.path}`);
 
 const appsURL = computed<string>(() => `${projectURLBase.value}/${ROUTES.Applications.path}`);
@@ -380,6 +392,8 @@ const hasManagedPassphrase = computed((): boolean => {
 });
 
 const valdiSignUpURL = computed<string>(() => configStore.state.config.valdiSignUpURL);
+
+const showCunoFS = computed<boolean>(() => configStore.state.config.cunoFSBetaEnabled);
 
 /**
  * Conditionally closes the navigation drawer.

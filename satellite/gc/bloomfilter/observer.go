@@ -53,6 +53,8 @@ type Observer struct {
 	seed            byte
 
 	forcedTableSize int
+
+	inlineCount, expiredCount, remoteCount int
 }
 
 var _ (rangedloop.Observer) = (*Observer)(nil)
@@ -134,16 +136,26 @@ func (obs *Observer) Join(ctx context.Context, partial rangedloop.Partial) (err 
 		}
 	}
 
+	obs.inlineCount += pieceTracker.inlineCount
+	obs.expiredCount += pieceTracker.expiredCount
+	obs.remoteCount += pieceTracker.remoteCount
+
 	return nil
 }
 
 // Finish uploads the bloom filters.
 func (obs *Observer) Finish(ctx context.Context) (err error) {
 	defer mon.Task()(&ctx)(&err)
+
 	if err := obs.upload.UploadBloomFilters(ctx, obs.creationTime, obs.retainInfos); err != nil {
 		return err
 	}
-	obs.log.Debug("collecting bloom filters finished")
+
+	obs.log.Info("collecting bloom filters finished",
+		zap.Int("inline segments", obs.inlineCount),
+		zap.Int("expired segments", obs.expiredCount),
+		zap.Int("remote segments", obs.remoteCount))
+
 	return nil
 }
 
@@ -179,6 +191,8 @@ type observerFork struct {
 	latestCreationTime map[string]time.Time
 
 	forcedTableSize int
+
+	inlineCount, expiredCount, remoteCount int
 }
 
 // newObserverFork instantiates a new observer fork to process different segment range.
@@ -201,13 +215,16 @@ func (fork *observerFork) Process(ctx context.Context, segments []rangedloop.Seg
 	now := time.Now()
 	for _, segment := range segments {
 		if segment.Inline() {
+			fork.inlineCount++
 			continue
 		}
 
 		if fork.config.ExcludeExpiredPieces && segment.Expired(now) {
+			fork.expiredCount++
 			continue
 		}
 
+		fork.remoteCount++
 		fork.updateLatestCreationTime(segment)
 
 		deriver := segment.RootPieceID.Deriver()

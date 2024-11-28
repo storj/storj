@@ -17,7 +17,7 @@ import (
 	"storj.io/storj/storagenode/bandwidth"
 	"storj.io/storj/storagenode/contact"
 	"storj.io/storj/storagenode/internalpb"
-	"storj.io/storj/storagenode/pieces"
+	"storj.io/storj/storagenode/monitor"
 	"storj.io/storj/storagenode/piecestore"
 )
 
@@ -34,11 +34,11 @@ var (
 type Endpoint struct {
 	internalpb.DRPCPieceStoreInspectorUnimplementedServer
 
-	log        *zap.Logger
-	pieceStore *pieces.Store
-	contact    *contact.Service
-	pingStats  *contact.PingStats
-	usageDB    bandwidth.DB
+	log         *zap.Logger
+	spaceReport monitor.SpaceReport
+	contact     *contact.Service
+	pingStats   *contact.PingStats
+	usageDB     bandwidth.DB
 
 	startTime        time.Time
 	pieceStoreConfig piecestore.OldConfig
@@ -49,7 +49,7 @@ type Endpoint struct {
 // NewEndpoint creates piecestore inspector instance.
 func NewEndpoint(
 	log *zap.Logger,
-	pieceStore *pieces.Store,
+	spaceReport monitor.SpaceReport,
 	contact *contact.Service,
 	pingStats *contact.PingStats,
 	usageDB bandwidth.DB,
@@ -59,7 +59,7 @@ func NewEndpoint(
 
 	return &Endpoint{
 		log:              log,
-		pieceStore:       pieceStore,
+		spaceReport:      spaceReport,
 		contact:          contact,
 		pingStats:        pingStats,
 		usageDB:          usageDB,
@@ -80,7 +80,7 @@ func (inspector *Endpoint) retrieveStats(ctx context.Context) (_ *internalpb.Sta
 	defer mon.Task()(&ctx)(&err)
 
 	// Space Usage
-	piecesContentSize, err := inspector.pieceStore.SpaceUsedForPiecesAndTrash(ctx)
+	report, err := inspector.spaceReport.DiskSpace(ctx)
 	if err != nil {
 		return nil, rpcstatus.Error(rpcstatus.Internal, err.Error())
 	}
@@ -92,10 +92,10 @@ func (inspector *Endpoint) retrieveStats(ctx context.Context) (_ *internalpb.Sta
 	egress := usage.Get + usage.GetAudit + usage.GetRepair
 
 	totalUsedBandwidth := usage.Total()
-	availableSpace := inspector.pieceStoreConfig.AllocatedDiskSpace.Int64() - piecesContentSize
+	availableSpace := inspector.pieceStoreConfig.AllocatedDiskSpace.Int64() - report.UsedForPieces
 
 	return &internalpb.StatSummaryResponse{
-		UsedSpace:      piecesContentSize,
+		UsedSpace:      report.UsedForPieces,
 		AvailableSpace: availableSpace,
 		UsedIngress:    ingress,
 		UsedEgress:     egress,

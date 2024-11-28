@@ -5,12 +5,13 @@ package root
 
 import (
 	_ "storj.io/storj/private/version" // This attaches version information during release builds.
+	"storj.io/storj/shared/modular/cli"
 	_ "storj.io/storj/web/storagenode" // This embeds storagenode assets.
 )
 
 // Main is the main entrypoint. Can be called from real `main` package after importing optional modules.
 func Main() {
-	rootCmd, _ := newRootCmd()
+	rootCmd, _ := cli.NewRootCmd("storagenode", Module)
 
 	err := rootCmd.Execute()
 	if err != nil {

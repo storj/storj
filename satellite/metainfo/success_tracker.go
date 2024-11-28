@@ -351,7 +351,10 @@ func (t *parameterizedSuccessTracker) Stats(cb func(monkit.SeriesKey, string, fl
 
 	t.data.Range(func(_, ctrI any) bool {
 		ctr, _ := ctrI.(*atomic.Uint64)
-		dist.Insert(t.score(ctr.Load()))
+		val := t.score(ctr.Load())
+		if !math.IsNaN(val) {
+			dist.Insert(val)
+		}
 		return true
 	})
 

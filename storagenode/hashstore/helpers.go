@@ -5,6 +5,7 @@ package hashstore
 
 import (
 	"context"
+	"io/fs"
 	"os"
 	"path/filepath"
 	"sync"
@@ -12,7 +13,6 @@ import (
 	"time"
 
 	"github.com/spacemonkeygo/monkit/v3"
-	"github.com/zeebo/errs"
 
 	"storj.io/common/storj"
 	"storj.io/drpc/drpcsignal"
@@ -22,6 +22,13 @@ var mon = monkit.Package()
 
 // Key is the key space operated on by the store.
 type Key = storj.PieceID
+
+func safeDivide(x, y float64) float64 {
+	if y == 0 {
+		return 0
+	}
+	return x / y
+}
 
 //
 // date/time helpers
@@ -204,7 +211,7 @@ func (m *rwMutex) Unlock() {
 
 func fileSize(fh *os.File) (int64, error) {
 	if fi, err := fh.Stat(); err != nil {
-		return 0, errs.Wrap(err)
+		return 0, Error.Wrap(err)
 	} else {
 		return fi.Size(), nil
 	}
@@ -217,6 +224,18 @@ func syncDirectory(dir string) {
 	}
 }
 
+// allFiles recursively collects all files in the given directory and returns
+// their full path.
+func allFiles(dir string) (paths []string, err error) {
+	err = filepath.WalkDir(dir, func(path string, d fs.DirEntry, err error) error {
+		if !d.IsDir() {
+			paths = append(paths, path)
+		}
+		return err
+	})
+	return paths, Error.Wrap(err)
+}
+
 //
 // atomic file creation helper
 //
@@ -224,7 +243,7 @@ func syncDirectory(dir string) {
 type atomicFile struct {
 	*os.File
 
-	dir  string
+	tmp  string
 	name string
 
 	mu        sync.Mutex // protects the following fields
@@ -232,15 +251,18 @@ type atomicFile struct {
 	committed flag
 }
 
-func newAtomicFile(dir string, name string) (*atomicFile, error) {
-	fh, err := os.CreateTemp(dir, name+"-*.tmp")
+func newAtomicFile(name string) (*atomicFile, error) {
+	tmp := name + ".tmp"
+
+	fh, err := createFile(tmp)
 	if err != nil {
-		return nil, errs.Wrap(err)
+		return nil, Error.Wrap(err)
 	}
+
 	return &atomicFile{
 		File: fh,
 
-		dir:  dir,
+		tmp:  tmp,
 		name: name,
 	}, nil
 }
@@ -257,15 +279,15 @@ func (a *atomicFile) Commit() (err error) {
 	defer func() {
 		if err != nil {
 			_ = a.Close()
-			_ = os.Remove(a.Name())
+			_ = os.Remove(a.tmp)
 		}
 	}()
 
 	if err := a.Sync(); err != nil {
-		return errs.Wrap(err)
+		return Error.Wrap(err)
 	}
-	if err := os.Rename(a.Name(), filepath.Join(a.dir, a.name)); err != nil {
-		return errs.Wrap(err)
+	if err := os.Rename(a.tmp, a.name); err != nil {
+		return Error.Wrap(err)
 	}
 
 	return nil
@@ -280,5 +302,5 @@ func (a *atomicFile) Cancel() {
 	}
 
 	_ = a.Close()
-	_ = os.Remove(a.Name())
+	_ = os.Remove(a.tmp)
 }

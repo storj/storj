@@ -36,7 +36,7 @@ node('node') {
 
           // fetch the remote main branch
           sh 'git fetch --no-tags --progress -- https://github.com/storj/storj.git +refs/heads/main:refs/remotes/origin/main'
-          sh 'docker run -u $(id -u):$(id -g) --rm -i -v $PWD:$PWD -w $PWD --entrypoint $PWD/testsuite/rolling-upgrade/start-sim.sh -e BRANCH_NAME -e STORJ_SIM_POSTGRES -e STORJ_SIM_REDIS -e STORJ_MIGRATION_DB -e STORJ_SKIP_FIX_LAST_NETS -e STORJ_CONSOLE_SIGNUP_ACTIVATION_CODE_ENABLED --link redis-$BUILD_NUMBER:redis --link cockroach-$BUILD_NUMBER:cockroach storjlabs/golang:1.22.7'
+          sh 'docker run -u $(id -u):$(id -g) --rm -i -v $PWD:$PWD -w $PWD --entrypoint $PWD/testsuite/rolling-upgrade/start-sim.sh -e BRANCH_NAME -e STORJ_SIM_POSTGRES -e STORJ_SIM_REDIS -e STORJ_MIGRATION_DB -e STORJ_SKIP_FIX_LAST_NETS -e STORJ_CONSOLE_SIGNUP_ACTIVATION_CODE_ENABLED --link redis-$BUILD_NUMBER:redis --link cockroach-$BUILD_NUMBER:cockroach storjlabs/golang:1.23.3'
         }
         catch(err){
             throw err

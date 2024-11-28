@@ -101,7 +101,7 @@ const balance = computed((): string => {
     if (!wallet.value.address) {
         return '';
     }
-    return '$' + wallet.value.balance.value.toLocaleString();
+    return wallet.value.balance.formattedValue;
 });
 
 /**

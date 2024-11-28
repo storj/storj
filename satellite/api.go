@@ -299,10 +299,10 @@ func NewAPI(log *zap.Logger, full *identity.FullIdentity, db DB,
 			return nil, errs.New("Unknown success tracker kind %q", config.Metainfo.SuccessTrackerKind)
 		}
 		peer.SuccessTrackers = metainfo.NewSuccessTrackers(trustedUplinks, newTracker)
-		mon.Chain(peer.SuccessTrackers)
+		monkit.ScopeNamed(mon.Name() + ".success_trackers").Chain(peer.SuccessTrackers)
 
 		peer.FailureTracker = metainfo.NewPercentSuccessTracker()
-		mon.Chain(peer.FailureTracker)
+		monkit.ScopeNamed(mon.Name() + ".failure_tracker").Chain(peer.FailureTracker)
 	}
 
 	placements, err := config.Placement.Parse(config.Overlay.Node.CreateDefaultPlacement, nodeselection.NewPlacementConfigEnvironment(peer.SuccessTrackers, peer.FailureTracker))
@@ -417,6 +417,7 @@ func NewAPI(log *zap.Logger, full *identity.FullIdentity, db DB,
 
 	{ // setup metainfo
 		peer.Metainfo.Metabase = metabaseDB
+		config.Metainfo.SelfServePlacementSelectEnabled = config.Console.Placement.SelfServeEnabled
 
 		peer.Metainfo.Endpoint, err = metainfo.NewEndpoint(
 			peer.Log.Named("metainfo:endpoint"),
@@ -704,6 +705,7 @@ func NewAPI(log *zap.Logger, full *identity.FullIdentity, db DB,
 				accountFreezeService,
 				emissionService,
 				peer.KeyManagement.Service,
+				peer.SSO.Service,
 				externalAddress,
 				consoleConfig.SatelliteName,
 				config.Metainfo.ProjectLimits.MaxBuckets,

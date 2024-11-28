@@ -126,6 +126,7 @@ const (
 	eventApplicationsDocsClicked      = "Applications Docs Clicked"
 	eventCloudGPUNavigationClicked    = "Cloud GPU Navigation Item Clicked"
 	eventCloudGPUSignupClicked        = "Cloud GPU Sign Up Clicked"
+	eventJoinCunoFSBetaSubmitted      = "Join CunoFS Beta Form Submitted"
 )
 
 var (
@@ -218,7 +219,8 @@ func NewService(log *zap.Logger, config Config, satelliteName string) *Service {
 		eventGalleryViewClicked, eventResendInviteClicked, eventRemoveProjectMemberCLicked, eventCopyInviteLinkClicked, eventUserSignUp,
 		eventPersonalInfoSubmitted, eventBusinessInfoSubmitted, eventUseCaseSelected, eventOnboardingCompleted, eventOnboardingAbandoned,
 		eventPersonalSelected, eventBusinessSelected, eventUserUpgraded, eventUpgradeClicked, eventArrivedFromSource, eventApplicationsDocsClicked,
-		eventApplicationsSetupClicked, eventApplicationsSetupCompleted, eventCloudGPUNavigationClicked, eventCloudGPUSignupClicked} {
+		eventApplicationsSetupClicked, eventApplicationsSetupCompleted, eventCloudGPUNavigationClicked, eventCloudGPUSignupClicked,
+		eventJoinCunoFSBetaSubmitted} {
 		service.clientEvents[name] = true
 	}
 

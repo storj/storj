@@ -13,7 +13,8 @@ import (
 	"storj.io/storj/storagenode/blobstore"
 )
 
-func diskInfoFromPath(path string) (info blobstore.DiskInfo, err error) {
+// DiskInfoFromPath returns the disk info for the given path.
+func DiskInfoFromPath(path string) (info blobstore.DiskInfo, err error) {
 	var stat unix.Statfs_t
 	err = unix.Statfs(path, &stat)
 	if err != nil {

@@ -79,6 +79,7 @@ func Module(ball *mud.Ball) {
 	config.RegisterConfig[retain.Config](ball, "retain")
 	config.RegisterConfig[bandwidth.Config](ball, "bandwidth")
 	config.RegisterConfig[checker.Config](ball, "version")
+	config.RegisterConfig[reputation.Config](ball, "reputation")
 
 	mud.View[piecestore.Config, trust.Config](ball, func(c piecestore.Config) trust.Config {
 		return c.Trust
@@ -183,7 +184,8 @@ func Module(ball *mud.Ball) {
 			pool.StartWithRefresh = true
 			return pool, err
 		})
-		mud.Tag[*trust.Pool, modular.Service](ball, modular.Service{})
+		mud.RegisterInterfaceImplementation[trust.TrustedSatelliteSource, *trust.Pool](ball)
+
 	}
 
 	{
@@ -245,8 +247,8 @@ func Module(ball *mud.Ball) {
 		}, logWrapper("contact:chore"))
 		mud.Tag[*contact.Chore, modular.Service](ball, modular.Service{})
 
-		mud.Provide[*contact.Endpoint](ball, func(log *zap.Logger, trustPool *trust.Pool, pingStats *contact.PingStats, srv *server.Server) (*contact.Endpoint, error) {
-			ep := contact.NewEndpoint(log, trustPool, pingStats)
+		mud.Provide[*contact.Endpoint](ball, func(log *zap.Logger, trustSource trust.TrustedSatelliteSource, pingStats *contact.PingStats, srv *server.Server) (*contact.Endpoint, error) {
+			ep := contact.NewEndpoint(log, trustSource, pingStats)
 			if err := pb.DRPCRegisterContact(srv.DRPC(), ep); err != nil {
 				return nil, err
 			}
@@ -276,10 +278,6 @@ func Module(ball *mud.Ball) {
 
 		mud.Provide[*pieces.Store](ball, pieces.NewStore, logWrapper("pieces"))
 
-		mud.Provide[*pieces.Deleter](ball, func(log *zap.Logger, store *pieces.Store, storage2Config piecestore.Config) *pieces.Deleter {
-			return pieces.NewDeleter(log, store, storage2Config.DeleteWorkers, storage2Config.DeleteQueueSize)
-		}, logWrapper("piecedeleter"))
-
 		mud.Provide[*pieces.BlobsUsageCache](ball, func(log *zap.Logger, blobs RawBlobs) *pieces.BlobsUsageCache {
 			return pieces.NewBlobsUsageCache(log, blobs)
 		}, logWrapper("blobscache"))
@@ -293,13 +291,14 @@ func Module(ball *mud.Ball) {
 
 		mud.RegisterInterfaceImplementation[blobstore.Blobs, RawBlobs](ball)
 
-		mud.Provide[monitor.SpaceReport](ball, func(log *zap.Logger, store *pieces.Store, config monitor.Config) monitor.SpaceReport {
-			return monitor.NewDedicatedDisk(log, store, config.MinimumDiskSpace.Int64(), config.ReservedBytes.Int64())
+		mud.Provide[monitor.SpaceReport](ball, func(log *zap.Logger, oldConfig piecestore.OldConfig, config monitor.Config) monitor.SpaceReport {
+			return monitor.NewDedicatedDisk(log, oldConfig.Path, config.MinimumDiskSpace.Int64(), config.ReservedBytes.Int64())
 		})
 		config.RegisterConfig[monitor.Config](ball, "monitor")
 
-		mud.Provide[*monitor.Service](ball, func(log *zap.Logger, store *pieces.Store, oldConfig piecestore.OldConfig, contact *contact.Service, spaceReport monitor.SpaceReport, config monitor.Config) *monitor.Service {
-			return monitor.NewService(log, store, contact, oldConfig.KBucketRefreshInterval, spaceReport, config)
+		mud.RegisterInterfaceImplementation[monitor.DiskVerification, *pieces.Store](ball)
+		mud.Provide[*monitor.Service](ball, func(log *zap.Logger, verifier monitor.DiskVerification, oldConfig piecestore.OldConfig, contact *contact.Service, spaceReport monitor.SpaceReport, config monitor.Config) *monitor.Service {
+			return monitor.NewService(log, verifier, contact, oldConfig.KBucketRefreshInterval, spaceReport, config)
 		}, logWrapper("piecestore:monitor"))
 
 		mud.Provide[*retain.Service](ball, retain.NewService, logWrapper("retain"))
@@ -320,26 +319,38 @@ func Module(ball *mud.Ball) {
 				trashExpiryInterval,
 				trust, store)
 		}, logWrapper("pieces:trash"))
-		mud.Provide[*pieces.TrashRunOnce](ball, func(log *zap.Logger, trust *trust.Pool, store *pieces.Store, stop *modular.StopTrigger) *pieces.TrashRunOnce {
-			return pieces.NewTrashRunOnce(log, trust, store, trashExpiryInterval, stop)
+		mud.Provide[*pieces.TrashRunOnce](ball, func(log *zap.Logger, blobs blobstore.Blobs, stop *modular.StopTrigger) *pieces.TrashRunOnce {
+			return pieces.NewTrashRunOnce(log, blobs, trashExpiryInterval, stop)
 		})
 
 		mud.RegisterInterfaceImplementation[piecestore.RestoreTrash, *pieces.TrashChore](ball)
-		mud.RegisterInterfaceImplementation[piecestore.EnqueueDeletes, *pieces.Deleter](ball)
 		mud.RegisterInterfaceImplementation[piecestore.QueueRetain, *retain.Service](ball)
 
-		mud.Provide[piecestore.PieceBackend](ball,
-			func(store *pieces.Store, trashChore piecestore.RestoreTrash, monitor *monitor.Service) piecestore.PieceBackend {
-				return piecestore.NewOldPieceBackend(store, trashChore, monitor)
-			})
+		mud.Provide[*piecestore.OldPieceBackend](ball, piecestore.NewOldPieceBackend)
+		mud.Provide[*piecestore.HashStoreBackend](ball, func(cfg piecestore.OldConfig, bfm *retain.BloomFilterManager, rtm *retain.RestoreTimeManager, log *zap.Logger) *piecestore.HashStoreBackend {
+			dir := filepath.Join(cfg.Path, "hashstore")
+			backend := piecestore.NewHashStoreBackend(dir, bfm, rtm, log)
+			mon.Chain(backend)
+			return backend
+		})
+
+		// default is the old one
+		mud.RegisterInterfaceImplementation[piecestore.PieceBackend, *piecestore.OldPieceBackend](ball)
+
+		mud.Provide[*retain.BloomFilterManager](ball, func(cfg piecestore.OldConfig) (*retain.BloomFilterManager, error) {
+			return retain.NewBloomFilterManager(cfg.Path)
+		})
+		mud.Provide[*retain.RestoreTimeManager](ball, func(cfg piecestore.OldConfig) *retain.RestoreTimeManager {
+			return retain.NewRestoreTimeManager(cfg.Path)
+		})
 
 		mud.Provide[*piecestore.Endpoint](ball, piecestore.NewEndpoint, logWrapper("piecestore"))
 
-		mud.Provide[*orders.Service](ball, func(log *zap.Logger, ordersStore *orders.FileStore, ordersDB orders.DB, trust *trust.Pool, config orders.Config, tlsOptions *tlsopts.Options) *orders.Service {
+		mud.Provide[*orders.Service](ball, func(log *zap.Logger, ordersStore *orders.FileStore, trustSource trust.TrustedSatelliteSource, config orders.Config, tlsOptions *tlsopts.Options) *orders.Service {
 			// TODO workaround for custom timeout for order sending request (read/write)
 			dialer := rpc.NewDefaultDialer(tlsOptions)
 			dialer.DialTimeout = config.SenderDialTimeout
-			return orders.NewService(log, dialer, ordersStore, ordersDB, trust, config)
+			return orders.NewService(log, dialer, ordersStore, trustSource, config)
 		}, logWrapper("orders"))
 		mud.Tag[*orders.Service, modular.Service](ball, modular.Service{})
 
@@ -352,13 +363,14 @@ func Module(ball *mud.Ball) {
 
 	{ // setup reputation service.
 		mud.Provide[*reputation.Service](ball, reputation.NewService, logWrapper("reputation:service"))
+		mud.Provide[*reputation.Chore](ball, reputation.NewChore, logWrapper("reputation:chore"))
+		mud.Tag[*reputation.Chore, modular.Service](ball, modular.Service{})
 	}
 
 	{ // setup node stats service
 		mud.Provide[*nodestats.Service](ball, nodestats.NewService, logWrapper("nodestats:service"))
-		mud.Provide[nodestats.CacheStorage](ball, func(rdb reputation.DB, sdb storageusage.DB, pdb payouts.DB, prdb pricing.DB) nodestats.CacheStorage {
+		mud.Provide[nodestats.CacheStorage](ball, func(sdb storageusage.DB, pdb payouts.DB, prdb pricing.DB) nodestats.CacheStorage {
 			return nodestats.CacheStorage{
-				Reputation:   rdb,
 				StorageUsage: sdb,
 				Payout:       pdb,
 				Pricing:      prdb,

@@ -78,15 +78,14 @@ func retainTest(t *testing.T, tableSize int) {
 		_, err = rangedLoop.RunOnce(ctx)
 		require.NoError(t, err)
 
-		storageNode0 := planet.StorageNodes[0]
-		require.Zero(t, storageNode0.Peer.Storage2.RetainService.TestingHowManyQueued())
+		require.Zero(t, planet.StorageNodes[0].Storage2.BloomFilterManager.GetCreatedTime(planet.Satellites[0].ID()))
 
 		// send to storagenode
 		err = gcsender.RunOnce(ctx)
 		require.NoError(t, err)
 
 		require.Eventually(t, func() bool {
-			return storageNode0.Peer.Storage2.RetainService.TestingHowManyQueued() == 1
+			return !planet.StorageNodes[0].Storage2.BloomFilterManager.GetCreatedTime(planet.Satellites[0].ID()).IsZero()
 		}, 10*time.Second, 50*time.Millisecond)
 
 		// check that zip was moved to sent
@@ -170,15 +169,11 @@ func TestSendRetainFiltersDisqualifiedNode(t *testing.T) {
 		})
 		require.NoError(t, err)
 
-		for _, node := range planet.StorageNodes {
-			require.Zero(t, node.Peer.Storage2.RetainService.TestingHowManyQueued())
-		}
-
 		// send to storagenodes
 		require.NoError(t, gcsender.RunOnce(ctx))
 
 		for _, node := range planet.StorageNodes {
-			require.Zero(t, node.Peer.Storage2.RetainService.TestingHowManyQueued())
+			require.Zero(t, node.Storage2.BloomFilterManager.GetCreatedTime(planet.Satellites[0].ID()))
 		}
 	})
 }

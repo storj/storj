@@ -340,6 +340,9 @@ compensation.withheld-percents: 75,75,75,50,50,50,25,25,25,0,0,0,0,0,0
 # indicates if Content Security Policy is enabled
 # console.csp-enabled: true
 
+# whether prompt to join cunoFS beta is visible
+# console.cuno-fs-beta-enabled: false
+
 # days left before trial end notification
 # console.days-before-trial-end-notification: 3
 
@@ -640,6 +643,13 @@ contact.external-address: ""
 # whether to enable durability report (rangedloop observer)
 # durability-report.enabled: true
 
+# Node attributes used by the durability segment loop to classify risks
+# durability.classes:
+# - last_net
+# - last_ip
+# - wallet
+# - email
+
 # how often to send reminders to users who need to verify their email
 # email-reminders.chore-interval: 24h0m0s
 
@@ -898,14 +908,20 @@ identity.key-path: /root/.local/share/storj/identity/satellite/identity.key
 # the database connection string to use
 # metainfo.database-url: postgres://
 
-# number of object locations to cache.
-# metainfo.download-limiter.cache-capacity: 10000
+# the number of requests to allow bursts beyond the rate limit
+# metainfo.download-limiter.burst-limit: 3
 
 # whether rate limiting is enabled.
 # metainfo.download-limiter.enabled: true
 
-# how often we can interact with a single object (the same location) per API instance
-# metainfo.download-limiter.single-object-limit: 10ms
+# the number of hash indexes to make into the rate limit map
+# metainfo.download-limiter.hash-count: 3
+
+# how often we can upload to the single object (the same location) per API instance
+# metainfo.download-limiter.single-object-limit: 1ms
+
+# two to this power is the amount of rate limits to store in ram. higher has less collisions.
+# metainfo.download-limiter.size-exponent: 21
 
 # how often to bump the generation in the node failure tracker
 # metainfo.failure-tracker-tick-duration: 30s
@@ -991,8 +1007,8 @@ identity.key-path: /root/.local/share/storj/identity/satellite/identity.key
 # whether rate limiting is enabled.
 # metainfo.upload-limiter.enabled: true
 
-# how often we can interact with a single object (the same location) per API instance
-# metainfo.upload-limiter.single-object-limit: 10ms
+# how often we can upload to the single object (the same location) per API instance
+# metainfo.upload-limiter.single-object-limit: 1s
 
 # enable the use of bucket level object versioning
 # metainfo.use-bucket-level-object-versioning: false

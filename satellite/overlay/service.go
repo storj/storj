@@ -313,6 +313,7 @@ type Service struct {
 	DownloadSelectionCache *DownloadSelectionCache
 	LastNetFunc            LastNetFunc
 	placementDefinitions   nodeselection.PlacementDefinitions
+	placementLookup        map[string]storj.PlacementConstraint
 }
 
 // LastNetFunc is the type of a function that will be used to derive a network from an ip and port.
@@ -365,6 +366,10 @@ func NewService(log *zap.Logger, db DB, nodeEvents nodeevents.DB, placements nod
 		return nil, errs.Wrap(err)
 	}
 
+	placementLookup := make(map[string]storj.PlacementConstraint, len(placements))
+	for _, placement := range placements {
+		placementLookup[placement.Name] = placement.ID
+	}
 	return &Service{
 		log:                  log,
 		db:                   db,
@@ -381,6 +386,7 @@ func NewService(log *zap.Logger, db DB, nodeEvents nodeevents.DB, placements nod
 		LastNetFunc:            MaskOffLastNet,
 
 		placementDefinitions: placements,
+		placementLookup:      placementLookup,
 	}, nil
 }
 
@@ -746,6 +752,12 @@ func (service *Service) GetNodeTags(ctx context.Context, id storj.NodeID) (nodes
 // It comes from the name of the placement (or `nodeselection.Location` in case of legacy config).
 func (service *Service) GetLocationFromPlacement(placement storj.PlacementConstraint) string {
 	return service.placementDefinitions[placement].Name
+}
+
+// GetPlacementConstraintFromName returns the placement constraint given the placement name.
+func (service *Service) GetPlacementConstraintFromName(name string) (id storj.PlacementConstraint, exists bool) {
+	id, exists = service.placementLookup[name]
+	return id, exists
 }
 
 // ResolveIPAndNetwork resolves the target address and determines its IP and appropriate last_net, as indicated.

@@ -113,7 +113,7 @@ type Service struct {
 	mu   sync.Mutex
 	self NodeInfo
 
-	trust     *trust.Pool
+	trust     trust.TrustedSatelliteSource
 	quicStats *QUICStats
 
 	initialized sync2.Fence
@@ -122,7 +122,7 @@ type Service struct {
 }
 
 // NewService creates a new contact service.
-func NewService(log *zap.Logger, dialer rpc.Dialer, self NodeInfo, trust *trust.Pool, quicStats *QUICStats, tags *pb.SignedNodeTagSets) *Service {
+func NewService(log *zap.Logger, dialer rpc.Dialer, self NodeInfo, trust trust.TrustedSatelliteSource, quicStats *QUICStats, tags *pb.SignedNodeTagSets) *Service {
 	return &Service{
 		log:       log,
 		rand:      rand.New(rand.NewSource(time.Now().UnixNano())),

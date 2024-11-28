@@ -133,7 +133,7 @@ func (p *PostgresAdapter) ListObjects(ctx context.Context, opts ListObjects) (re
 
 		var objectKey = `object_key`
 		if opts.Prefix != "" {
-			objectKey = `substring(object_key from $7) AS object_key`
+			objectKey = `substring(object_key from $7) AS object_key_suffix`
 		}
 
 		var statusCondition = `status != ` + statusPending
@@ -324,7 +324,7 @@ func (s *SpannerAdapter) ListObjects(ctx context.Context, opts ListObjects) (res
 
 		var objectKey = `object_key`
 		if opts.Prefix != "" {
-			objectKey = `substr(object_key, @prefix_len) AS object_key`
+			objectKey = `substr(object_key, @prefix_len) AS object_key_suffix`
 		}
 
 		var statusCondition = `status != ` + statusPending

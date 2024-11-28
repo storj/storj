@@ -293,7 +293,7 @@ const project = computed<Project>(() => {
 });
 
 const projectCanBeDeleted = computed(() => {
-    return deleteProjectEnabled.value && isProjectOwner.value && isProjectOwnerPaidTier.value && !usersStore.state.user.externalID;
+    return deleteProjectEnabled.value && isProjectOwner.value && !usersStore.state.user.externalID;
 });
 
 /**

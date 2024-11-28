@@ -242,7 +242,17 @@ func (endpoint *Endpoint) CreateBucket(ctx context.Context, req *pb.BucketCreate
 	if err != nil {
 		return nil, rpcstatus.Error(rpcstatus.InvalidArgument, err.Error())
 	}
-	bucketReq.Placement = project.DefaultPlacement
+	if !endpoint.config.SelfServePlacementSelectEnabled || project.DefaultPlacement != storj.DefaultPlacement {
+		if req.Placement != nil {
+			return nil, rpcstatus.Error(rpcstatus.PlacementConflictingValues, "conflicting placement values")
+		}
+		bucketReq.Placement = project.DefaultPlacement
+	} else if req.Placement != nil {
+		bucketReq.Placement, exists = endpoint.overlay.GetPlacementConstraintFromName(string(req.Placement))
+		if !exists {
+			return nil, rpcstatus.Error(rpcstatus.PlacementInvalidValue, "invalid placement value")
+		}
+	}
 
 	if endpoint.config.UseBucketLevelObjectVersioningByProject(project) {
 		if bucketReq.ObjectLock.Enabled {

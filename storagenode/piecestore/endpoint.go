@@ -9,6 +9,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"io/fs"
 	"net"
 	"reflect"
 	"runtime/trace"
@@ -97,11 +98,12 @@ type Endpoint struct {
 	log    *zap.Logger
 	config Config
 
-	ident     *identity.FullIdentity
-	trust     *trust.Pool
-	monitor   *monitor.Service
-	retain    QueueRetain
-	pingStats PingStatsSource
+	ident       *identity.FullIdentity
+	trustSource trust.TrustedSatelliteSource
+	monitor     *monitor.Service
+	retain      QueueRetain
+	bfm         *retain.BloomFilterManager
+	pingStats   PingStatsSource
 
 	usage       bandwidth.Writer
 	ordersStore *orders.FileStore
@@ -115,7 +117,7 @@ type Endpoint struct {
 // QueueRetain is an interface for retaining pieces in the queue and checking status.
 // A restricted view of retain.Service.
 type QueueRetain interface {
-	Queue(satelliteID storj.NodeID, req *pb.RetainRequest) bool
+	Queue(ctx context.Context, satelliteID storj.NodeID, req *pb.RetainRequest) error
 	Status() retain.Status
 }
 
@@ -124,22 +126,18 @@ type RestoreTrash interface {
 	StartRestore(ctx context.Context, satellite storj.NodeID) error
 }
 
-// EnqueueDeletes is an interface for enqueuing deletes.
-type EnqueueDeletes interface {
-	Enqueue(ctx context.Context, satelliteID storj.NodeID, pieceIDs []storj.PieceID) (unhandled int)
-}
-
 // NewEndpoint creates a new piecestore endpoint.
-func NewEndpoint(log *zap.Logger, ident *identity.FullIdentity, trust *trust.Pool, monitor *monitor.Service, retain QueueRetain, pingStats PingStatsSource, pieceBackend PieceBackend, ordersStore *orders.FileStore, usage bandwidth.DB, usedSerials *usedserials.Table, config Config) (*Endpoint, error) {
+func NewEndpoint(log *zap.Logger, ident *identity.FullIdentity, trustSource trust.TrustedSatelliteSource, monitor *monitor.Service, retain QueueRetain, bfm *retain.BloomFilterManager, pingStats PingStatsSource, pieceBackend PieceBackend, ordersStore *orders.FileStore, usage bandwidth.DB, usedSerials *usedserials.Table, config Config) (*Endpoint, error) {
 	return &Endpoint{
 		log:    log,
 		config: config,
 
-		ident:     ident,
-		trust:     trust,
-		monitor:   monitor,
-		retain:    retain,
-		pingStats: pingStats,
+		ident:       ident,
+		trustSource: trustSource,
+		monitor:     monitor,
+		retain:      retain,
+		bfm:         bfm,
+		pingStats:   pingStats,
 
 		ordersStore: ordersStore,
 		usage:       usage,
@@ -668,7 +666,10 @@ func (endpoint *Endpoint) Download(stream pb.DRPCPiecestore_DownloadStream) (err
 	restoredFromTrash := false
 	pieceReader, err = endpoint.pieceBackend.Reader(ctx, limit.SatelliteId, limit.PieceId)
 	if err != nil {
-		return err
+		if errs.Is(err, fs.ErrNotExist) {
+			return rpcstatus.Wrap(rpcstatus.NotFound, err)
+		}
+		return rpcstatus.Wrap(rpcstatus.Internal, err)
 	}
 	defer func() {
 		err := pieceReader.Close() // similarly how transcation Rollback works
@@ -690,7 +691,7 @@ func (endpoint *Endpoint) Download(stream pb.DRPCPiecestore_DownloadStream) (err
 	// for repair traffic, send along the PieceHash and original OrderLimit for validation
 	// before sending the piece itself
 	if message.Limit.Action == pb.PieceAction_GET_REPAIR {
-		pieceHash, orderLimit, err := pieceReader.GetHashAndLimit(ctx)
+		pieceHash, orderLimit, err := pieceHashAndOrderLimitFromReader(pieceReader)
 		if err != nil {
 			log.Error("could not get hash and order limit", zap.Error(err))
 			return rpcstatus.Wrap(rpcstatus.Internal, err)
@@ -901,17 +902,17 @@ func (endpoint *Endpoint) beginSaveOrder(ctx context.Context, limit *pb.OrderLim
 		err = commit(&ordersfile.Info{Limit: limit, Order: order})
 		if err != nil {
 			endpoint.log.Error("failed to add order", zap.Error(err))
-		} else {
+		} else if endpoint.usage != nil {
 			amount := order.Amount
 			if amountFunc != nil {
 				amount = amountFunc()
 			}
-			// We always want to save order to the database to be able to settle.
 			err = endpoint.usage.Add(context2.WithoutCancellation(ctx), limit.SatelliteId, limit.Action, amount, time.Now())
 			if err != nil {
 				endpoint.log.Error("failed to add bandwidth usage", zap.Error(err))
 			}
 		}
+
 	}, nil
 }
 
@@ -924,7 +925,7 @@ func (endpoint *Endpoint) RestoreTrash(ctx context.Context, restoreTrashReq *pb.
 		return nil, rpcstatus.Wrap(rpcstatus.Unauthenticated, err)
 	}
 
-	err = endpoint.trust.VerifySatelliteID(ctx, peer.ID)
+	err = endpoint.trustSource.VerifySatelliteID(ctx, peer.ID)
 	if err != nil {
 		return nil, rpcstatus.Error(rpcstatus.PermissionDenied, "RestoreTrash called with untrusted ID")
 	}
@@ -951,7 +952,7 @@ func (endpoint *Endpoint) Retain(ctx context.Context, retainReq *pb.RetainReques
 		return nil, rpcstatus.Wrap(rpcstatus.Unauthenticated, err)
 	}
 
-	err = endpoint.trust.VerifySatelliteID(ctx, peer.ID)
+	err = endpoint.trustSource.VerifySatelliteID(ctx, peer.ID)
 	if err != nil {
 		return nil, rpcstatus.Errorf(rpcstatus.PermissionDenied, "retain called with untrusted ID")
 	}
@@ -967,10 +968,10 @@ func (endpoint *Endpoint) Retain(ctx context.Context, retainReq *pb.RetainReques
 		}
 	}
 
-	return endpoint.processRetainReq(peer.ID, retainReq)
+	return endpoint.processRetainReq(ctx, peer.ID, retainReq)
 }
 
-func (endpoint *Endpoint) processRetainReq(peerID storj.NodeID, retainReq *pb.RetainRequest) (res *pb.RetainResponse, err error) {
+func (endpoint *Endpoint) processRetainReq(ctx context.Context, peerID storj.NodeID, retainReq *pb.RetainRequest) (res *pb.RetainResponse, err error) {
 	filter, err := bloomfilter.NewFromBytes(retainReq.GetFilter())
 	if err != nil {
 		return nil, rpcstatus.Wrap(rpcstatus.InvalidArgument, err)
@@ -981,14 +982,15 @@ func (endpoint *Endpoint) processRetainReq(peerID storj.NodeID, retainReq *pb.Re
 	mon.IntVal("retain_creation_date").Observe(retainReq.CreationDate.Unix())
 
 	// the queue function will update the created before time based on the configurable retain buffer
-	queued := endpoint.retain.Queue(peerID, retainReq)
-	if queued {
-		endpoint.log.Info("Retain job queued", zap.Stringer("Satellite ID", peerID))
-	} else {
-		endpoint.log.Info("Retain job not queued (queue is closed)", zap.Stringer("Satellite ID", peerID))
+	err = endpoint.retain.Queue(ctx, peerID, retainReq)
+
+	if endpoint.bfm != nil {
+		if err := endpoint.bfm.Queue(ctx, peerID, retainReq); err != nil {
+			endpoint.log.Info("failed to set bloom filter in manager", zap.Error(err))
+		}
 	}
 
-	return &pb.RetainResponse{}, nil
+	return &pb.RetainResponse{}, err
 }
 
 // RetainBig keeps only piece ids specified in the request, supports big bloom filters.
@@ -1009,7 +1011,7 @@ func (endpoint *Endpoint) RetainBig(stream pb.DRPCPiecestore_RetainBigStream) (e
 		return rpcstatus.Wrap(rpcstatus.Unauthenticated, err)
 	}
 
-	err = endpoint.trust.VerifySatelliteID(ctx, peer.ID)
+	err = endpoint.trustSource.VerifySatelliteID(ctx, peer.ID)
 	if err != nil {
 		return rpcstatus.Errorf(rpcstatus.PermissionDenied, "retain called with untrusted ID")
 	}
@@ -1017,7 +1019,7 @@ func (endpoint *Endpoint) RetainBig(stream pb.DRPCPiecestore_RetainBigStream) (e
 	if err != nil {
 		return rpcstatus.Wrap(rpcstatus.Internal, err)
 	}
-	_, err = endpoint.processRetainReq(peer.ID, &retainReq)
+	_, err = endpoint.processRetainReq(ctx, peer.ID, &retainReq)
 	return err
 }
 

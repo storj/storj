@@ -68,6 +68,7 @@
 
     <template v-if="!isRoot">
         <v-alert
+            v-if="!isPaidTier"
             class="mt-3 mb-2"
             density="compact"
             variant="tonal"
@@ -86,7 +87,7 @@
                         Back
                     </v-btn>
                 </v-col>
-                <v-col v-if="isOnboarding" class="px-0">
+                <v-col class="px-0">
                     <v-btn
                         color="primary"
                         variant="flat"
@@ -133,7 +134,6 @@ const viewState = ref<ViewState>(ViewState.Default);
 defineProps<{
     // whether this step is the first step in a flow
     isRoot?: boolean;
-    isOnboarding?: boolean;
 }>();
 
 const emit = defineEmits<{
@@ -209,9 +209,7 @@ watch(() => pendingPayments.value, async () => {
 onMounted(async (): Promise<void> => {
     setViewState();
 
-    if (!isPaidTier.value) {
-        billingStore.startPaymentsPolling();
-    }
+    billingStore.startPaymentsPolling();
 
     if (!canvas.value) {
         return;

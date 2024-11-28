@@ -231,11 +231,13 @@ func (endpoint *Endpoint) RetryBeginSegmentPieces(ctx context.Context, req *pb.R
 	// the current list of order limits.
 	// TODO: It's possible that a node gets reused across multiple calls to RetryBeginSegmentPieces.
 	excludedIDs := make([]storj.NodeID, 0, len(segmentID.OriginalOrderLimits))
+	successTracker := endpoint.successTrackers.GetTracker(peer.ID)
 	isTrusted := endpoint.successTrackers.IsTrusted(peer.ID)
 	for pieceNumber, orderLimit := range segmentID.OriginalOrderLimits {
 		excludedIDs = append(excludedIDs, orderLimit.Limit.StorageNodeId)
-		if isTrusted {
-			if _, found := retryingPieceNumberSet[int32(pieceNumber)]; found {
+		if _, found := retryingPieceNumberSet[int32(pieceNumber)]; found {
+			successTracker.Increment(orderLimit.Limit.StorageNodeId, false)
+			if isTrusted {
 				endpoint.failureTracker.Increment(orderLimit.Limit.StorageNodeId, false)
 			}
 		}

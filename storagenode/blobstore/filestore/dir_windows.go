@@ -16,7 +16,8 @@ import (
 	"storj.io/storj/storagenode/blobstore"
 )
 
-func diskInfoFromPath(path string) (info blobstore.DiskInfo, err error) {
+// DiskInfoFromPath returns the disk info for the given path.
+func DiskInfoFromPath(path string) (info blobstore.DiskInfo, err error) {
 	absPath, err := filepath.Abs(path)
 	if err != nil {
 		absPath = path

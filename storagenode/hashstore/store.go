@@ -4,7 +4,6 @@
 package hashstore
 
 import (
-	"container/heap"
 	"context"
 	"fmt"
 	"io"
@@ -17,7 +16,6 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 
 	"storj.io/common/context2"
@@ -27,32 +25,33 @@ import (
 const (
 	store_minTableSize = 17 // log_2 of number of records for smallest hash table
 
-	compaction_MaxLogSize    = 10 << 30 // max size of a log file
-	compaction_AliveFraction = 0.75     // if the log file is not this alive, compact it
-	compaction_ExpiresDays   = 7        // number of days to keep trash records around
+	compaction_MaxLogSize    = 1 << 30 // max size of a log file
+	compaction_AliveFraction = 0.75    // if the log file is not this alive, compact it
+	compaction_ExpiresDays   = 7       // number of days to keep trash records around
 )
 
 // Store is a hash table based key-value store with compaction.
 type Store struct {
 	// immutable data
-	dir   string        // directory containing log files
-	meta  string        // directory containing meta files (lock + hashtbl)
-	log   *zap.Logger   // logger for unhandleable errors
-	today func() uint32 // hook for getting the current timestamp
-	lock  *os.File      // lock file to prevent multiple processes from using the same store
+	dir   string         // directory containing log files
+	meta  string         // directory containing meta files (lock + hashtbl)
+	log   *zap.Logger    // logger for unhandleable errors
+	today func() uint32  // hook for getting the current timestamp
+	lock  *os.File       // lock file to prevent multiple processes from using the same store
+	lfc   *logCollection // collection of log files ready to be written into
 
 	closed drpcsignal.Signal // closed state
 	cloMu  sync.Mutex        // synchronizes closing
 
-	active    *rwMutex // semaphore of active writes to log files
-	compactMu *mutex   // held during compaction to ensure only 1 compaction at a time
-	reviveMu  *mutex   // held during revival to ensure only 1 object is revived from trash at a time
-
-	maxLog atomic.Uint64              // maximum log file id
-	stats  atomic.Pointer[StoreStats] // set during compaction to maintain consistency of Stats calls
-
-	hmu sync.Mutex // enforces atomic access to the heap
-	lfh logHeap    // heap of log files sorted by size ready to be written into
+	activeMu    *rwMutex                   // semaphore of active writes to log files
+	compactMu   *mutex                     // held during compaction to ensure only 1 compaction at a time
+	reviveMu    *mutex                     // held during revival to ensure only 1 object is revived from trash at a time
+	compactions atomic.Uint64              // bumped every time a compaction call finishes
+	lastCompact atomic.Uint32              // date of the last compaction
+	tableFull   atomic.Uint64              // bumped every time the hash table is full
+	maxLog      atomic.Uint64              // maximum log file id
+	maxHash     atomic.Uint64              // maximum hashtbl id
+	stats       atomic.Pointer[StoreStats] // set during compaction to maintain consistency of Stats calls
 
 	rmu sync.RWMutex                // protects consistency of lfs and tbl
 	lfs atomicMap[uint64, *logFile] // all log files
@@ -70,8 +69,9 @@ func NewStore(dir string, log *zap.Logger) (_ *Store, err error) {
 		meta:  filepath.Join(dir, "meta"),
 		log:   log,
 		today: func() uint32 { return timeToDateDown(time.Now()) },
+		lfc:   newLogCollection(),
 
-		active:    newRWMutex(),
+		activeMu:  newRWMutex(),
 		compactMu: newMutex(),
 		reviveMu:  newMutex(),
 	}
@@ -86,100 +86,142 @@ func NewStore(dir string, log *zap.Logger) (_ *Store, err error) {
 
 	// attempt to make the meta directory which ensures all parent directories exist.
 	if err := os.MkdirAll(s.meta, 0755); err != nil {
-		return nil, errs.New("unable to create directory=%q: %w", dir, err)
+		return nil, Error.New("unable to create directory=%q: %w", dir, err)
 	}
 
-	// acquire the lock file to prevent concurrent use of the hash table.
-	s.lock, err = os.OpenFile(filepath.Join(s.meta, "lock"), os.O_CREATE|os.O_RDONLY, 0444)
-	if err != nil {
-		return nil, errs.New("unable to acquire lock: %w", err)
-	}
-	if err := flock(s.lock); err != nil {
-		return nil, errs.New("unable to flock: %w", err)
-	}
-
-	// read all of the files in the directories.
-	entries, err := os.ReadDir(s.dir)
-	if err != nil {
-		return nil, errs.New("unable to read log directory=%q: %w", dir, err)
-	}
-
-	// load all of the log files and keep track of if there is a hashtbl file.
-	for _, entry := range entries {
-		name := entry.Name()
-
-		// skip any files that don't look like log files.
-		if len(name) != 3+1+16 || !strings.HasPrefix(name, "log-") {
-			continue
-		}
-
-		id, err := strconv.ParseUint(name[4:20], 16, 64)
+	{ // acquire the lock file to prevent concurrent use of the hash table.
+		s.lock, err = os.OpenFile(filepath.Join(s.meta, "lock"), os.O_CREATE|os.O_RDONLY, 0666)
 		if err != nil {
-			return nil, errs.New("unable to parse name=%q: %w", name, err)
+			return nil, Error.New("unable to create lock file: %w", err)
 		}
-		fh, err := os.OpenFile(filepath.Join(s.dir, name), os.O_RDWR, 0)
-		if err != nil {
-			return nil, errs.New("unable to open log file: %w", err)
+		if err := flock(s.lock); err != nil {
+			return nil, Error.New("unable to flock: %w", err)
 		}
-		size, err := fh.Seek(0, io.SeekEnd)
-		if err != nil {
-			_ = fh.Close()
-			return nil, errs.New("unable to seek name=%q: %w", name, err)
-		}
-
-		if maxLog := s.maxLog.Load(); id > maxLog {
-			s.maxLog.Store(id)
-		}
-		s.lfs.Set(id, newLogFile(fh, id, uint64(size)))
 	}
 
-	// with the set of log files created, initialize the heap.
-	s.initializeHeap()
-
-	// try to open the hash table.
-	hashtblPath := filepath.Join(s.meta, "hashtbl")
-	fh, err := os.OpenFile(hashtblPath, os.O_RDWR, 0)
-	if os.IsNotExist(err) {
-		err = func() error {
-			af, err := newAtomicFile(s.meta, "hashtbl")
-			if err != nil {
-				return errs.Wrap(err)
-			}
-			defer af.Cancel()
-
-			ntbl, err := CreateHashtbl(af.File, store_minTableSize, s.today())
-			if err != nil {
-				return errs.Wrap(err)
-			}
-			defer ntbl.Close()
-
-			if err := af.Commit(); err != nil {
-				return errs.Wrap(err)
-			}
-			return nil
-		}()
+	{ // open all of the log files
+		paths, err := allFiles(s.dir)
 		if err != nil {
 			return nil, err
 		}
 
-		// retry opening the hash table now that it should be created.
-		fh, err = os.OpenFile(hashtblPath, os.O_RDWR, 0)
-	}
-	if err != nil {
-		return nil, errs.Wrap(err)
+		// load all of the log files and keep track of if there is a hashtbl file.
+		for _, path := range paths {
+			name := filepath.Base(path)
+
+			// skip any files that don't look like log files. log file names are either
+			//     log-<16 bytes of id>
+			//     log-<16 bytes of id>-<8 bytes of ttl>
+			// so they always begin with "log-" and are either 20 or 29 bytes long.
+			if (len(name) != 20 && len(name) != 29) || name[0:4] != "log-" {
+				continue
+			}
+
+			id, err := strconv.ParseUint(name[4:20], 16, 64)
+			if err != nil {
+				return nil, Error.New("unable to parse name=%q: %w", name, err)
+			}
+
+			var ttl uint32
+			if len(name) == 29 && name[20] == '-' {
+				ttl64, err := strconv.ParseUint(name[21:29], 16, 32)
+				if err != nil {
+					return nil, Error.New("unable to parse name=%q: %w", name, err)
+				}
+				ttl = uint32(ttl64)
+			}
+
+			fh, err := os.OpenFile(path, os.O_RDWR, 0)
+			if err != nil {
+				return nil, Error.New("unable to open log file: %w", err)
+			}
+
+			size, err := fh.Seek(0, io.SeekEnd)
+			if err != nil {
+				_ = fh.Close()
+				return nil, Error.New("unable to seek name=%q: %w", name, err)
+			}
+
+			if maxLog := s.maxLog.Load(); id > maxLog {
+				s.maxLog.Store(id)
+			}
+
+			lf := newLogFile(fh, id, ttl, uint64(size))
+			s.lfs.Set(id, lf)
+			s.lfc.Include(lf)
+		}
 	}
 
-	// set up the hash table to use the handle.
-	s.tbl, err = OpenHashtbl(fh)
-	if err != nil {
-		return nil, errs.Wrap(err)
-	}
+	{ // open or create the hash table
+		entries, err := os.ReadDir(s.meta)
+		if err != nil {
+			return nil, Error.New("unable to read meta directory=%q: %w", s.meta, err)
+		}
 
-	// best effort try to clean up temp files now that everything is open and flocked.
-	entries, _ = os.ReadDir(s.meta)
-	for _, entry := range entries {
-		if strings.HasSuffix(entry.Name(), ".tmp") {
-			_ = os.Remove(filepath.Join(s.meta, entry.Name()))
+		maxName := "hashtbl" // backwards compatible with old hashtbl files
+		for _, entry := range entries {
+			name := entry.Name()
+
+			// skip any files that don't look like hashtbl files. hashtbl file names are always
+			//     hashtbl-<16 bytes of id>
+			// so they always begin with "hashtbl-" and are 24
+			if len(name) != 24 || name[0:8] != "hashtbl-" {
+				continue
+			}
+
+			id, err := strconv.ParseUint(name[8:24], 16, 64)
+			if err != nil {
+				return nil, Error.New("unable to parse name=%q: %w", name, err)
+			}
+
+			if maxHash := s.maxHash.Load(); id > maxHash {
+				s.maxHash.Store(id)
+				maxName = name
+			}
+		}
+		maxPath := filepath.Join(s.meta, maxName)
+
+		// try to open the hashtbl file and create it if it doesn't exist.
+		fh, err := os.OpenFile(maxPath, os.O_RDWR, 0)
+		if os.IsNotExist(err) {
+			// file did not exist, so try to create it with an initial hashtbl.
+			err = func() error {
+				af, err := newAtomicFile(maxPath)
+				if err != nil {
+					return Error.New("unable to create hashtbl: %w", err)
+				}
+				defer af.Cancel()
+
+				ntbl, err := CreateHashtbl(af.File, store_minTableSize, s.today())
+				if err != nil {
+					return Error.Wrap(err)
+				}
+				defer ntbl.Close()
+
+				return af.Commit()
+			}()
+			if err != nil {
+				return nil, err
+			}
+
+			// now try to reopen the file handle after it should be created.
+			fh, err = os.OpenFile(maxPath, os.O_RDWR, 0)
+		}
+		if err != nil {
+			return nil, Error.Wrap(err)
+		}
+
+		s.tbl, err = OpenHashtbl(fh)
+		if err != nil {
+			return nil, Error.Wrap(err)
+		}
+
+		// best effort clean up any tmp files or previous hashtbls that were left behind from a
+		// previous execution.
+		for _, entry := range entries {
+			if name := entry.Name(); strings.HasPrefix(name, "hashtbl") && name != maxName {
+				_ = os.Remove(filepath.Join(s.meta, name))
+			}
 		}
 	}
 
@@ -188,20 +230,20 @@ func NewStore(dir string, log *zap.Logger) (_ *Store, err error) {
 
 // StoreStats is a collection of statistics about a store.
 type StoreStats struct {
-	Load     float64 // number of set entries divided by number of slots in the hash table.
-	NumSlots uint64  // total number of slots in the hash table.
-	NumSet   uint64  // number of set entries in the hash table.
-	AvgSize  float64 // average size of pieces in the store.
+	NumLogs    uint64 // total number of log files.
+	LenLogs    uint64 // total number of bytes in the log files.
+	NumLogsTTL uint64 // total number of log files with ttl set.
+	LenLogsTTL uint64 // total number of bytes in log files with ttl set.
 
-	NumLogs     uint64  // total number of log files.
-	LogAlive    uint64  // number of bytes in the log files that are alive (records point to them).
-	LogTotal    uint64  // total number of bytes in the log files.
-	LogFraction float64 // percent of bytes that are alive in the log files.
-	TableSize   uint64  // total number of bytes in the hash table.
+	SetPercent   float64 // percent of bytes that are set in the log files.
+	TrashPercent float64 // percent of bytes that are trash in the log files.
 
-	Compacting bool   // if true, a compaction is in progress.
-	Created    uint32 // the date that the active hash table was created.
-	Today      uint32 // the current date.
+	Compacting  bool         // if true, a compaction is in progress.
+	Compactions uint64       // number of compaction calls that finished
+	TableFull   uint64       // number of times the hashtbl was full trying to insert
+	Today       uint32       // the current date.
+	LastCompact uint32       // the date of the last compaction.
+	Table       HashTblStats // stats about the hash table.
 }
 
 // Stats returns a StoreStats about the store.
@@ -211,111 +253,108 @@ func (s *Store) Stats() StoreStats {
 	}
 
 	s.rmu.RLock()
-	nset, alive := s.tbl.Estimates()
-	nrec := s.tbl.nrec
-	created := s.tbl.created
+	stats := s.tbl.Stats()
 
-	var numLogs, logTotal uint64
+	var numLogs, lenLogs uint64
+	var numLogsTTL, lenLogsTTL uint64
 	s.lfs.Range(func(_ uint64, lf *logFile) bool {
+		size := lf.size.Load()
 		numLogs++
-		logTotal += lf.size
+		lenLogs += size
+		if lf.ttl > 0 {
+			numLogsTTL++
+			lenLogsTTL += size
+		}
 		return true
 	})
 	s.rmu.RUnlock()
 
-	alive += RSize * nset // account for record footers in log files.
+	// account for record footers in log files not included in the length field in the record.
+	stats.LenSet += RecordSize * stats.NumSet
+	stats.AvgSet = safeDivide(float64(stats.LenSet), float64(stats.NumSet))
+	stats.LenTrash += RecordSize * stats.NumTrash
+	stats.AvgTrash = safeDivide(float64(stats.LenTrash), float64(stats.NumTrash))
 
 	return StoreStats{
-		Load:     float64(nset) / float64(nrec),
-		NumSlots: nrec,
-		NumSet:   nset,
-		AvgSize:  float64(alive) / float64(nset),
+		NumLogs:    numLogs,
+		LenLogs:    lenLogs,
+		NumLogsTTL: numLogsTTL,
+		LenLogsTTL: lenLogsTTL,
 
-		NumLogs:     numLogs,
-		LogAlive:    alive,
-		LogTotal:    logTotal,
-		LogFraction: float64(alive) / float64(logTotal),
-		TableSize:   RSize * nrec,
+		SetPercent:   safeDivide(float64(stats.LenSet), float64(lenLogs)),
+		TrashPercent: safeDivide(float64(stats.LenTrash), float64(lenLogs)),
 
-		Compacting: false,
-		Created:    created,
-		Today:      s.today(),
+		Compacting:  false,
+		Compactions: s.compactions.Load(),
+		TableFull:   s.tableFull.Load(),
+		Today:       s.today(),
+		LastCompact: s.lastCompact.Load(),
+		Table:       stats,
 	}
 }
 
-func (s *Store) createLogFile() (*logFile, error) {
+func (s *Store) createLogFile(ttl uint32) (*logFile, error) {
 	id := s.maxLog.Add(1)
-	path := filepath.Join(s.dir, fmt.Sprintf("log-%016x", id))
-	fh, err := os.OpenFile(path, os.O_CREATE|os.O_EXCL|os.O_RDWR, 0600)
-	if err != nil {
-		return nil, errs.Wrap(err)
+	dir := filepath.Join(s.dir, fmt.Sprintf("%02x", byte(id)))
+	path := filepath.Join(dir, fmt.Sprintf("log-%016x-%08x", id, ttl))
+	if err := os.MkdirAll(dir, 0755); err != nil {
+		return nil, Error.Wrap(err)
 	}
-	lf := newLogFile(fh, id, 0)
+	fh, err := createFile(path)
+	if err != nil {
+		return nil, Error.Wrap(err)
+	}
+	lf := newLogFile(fh, id, ttl, 0)
 	s.lfs.Set(id, lf)
 	return lf, nil
 }
 
-func (s *Store) initializeHeap() {
-	s.hmu.Lock()
-	defer s.hmu.Unlock()
-
-	// collect all of the writable log files into the heap.
-	s.lfh = s.lfh[:0]
-	s.lfs.Range(func(_ uint64, lf *logFile) bool {
-		if lf.size < compaction_MaxLogSize {
-			s.lfh.Push(lf)
-		}
-		return true
-	})
-	heap.Init(&s.lfh)
-}
-
-func (s *Store) replaceLogFile(lf *logFile) {
-	// sometimes a Writer is created with a nil store so that it can turn off automatically
-	// replacing log files.
-	if s == nil {
-		return
+func (s *Store) acquireLogFile(ttl uint32) (*logFile, error) {
+	// if the ttl is too far in the future, just ignore it for the hint so that we can't create an
+	// unbounded amount of log files. besides, something with no ttl is approximately something with
+	// a huge ttl, so the clumping isn't as useful very far out.
+	if ttl-s.today() > 100 {
+		ttl = 0
 	}
 
-	// acquire the heap mutex to push the log back into the heap of active log files.
-	s.hmu.Lock()
-	defer s.hmu.Unlock()
-
-	// only put the file back into the heap if it's not too big.
-	if lf.size < compaction_MaxLogSize {
-		heap.Push(&s.lfh, lf)
-	}
-}
-
-func (s *Store) tryPopLogFile() *logFile {
-	s.hmu.Lock()
-	defer s.hmu.Unlock()
-
-	if s.lfh.Len() == 0 {
-		return nil
-	}
-	return heap.Pop(&s.lfh).(*logFile)
-}
-
-func (s *Store) acquireLogFile() (*logFile, error) {
-	if lf := s.tryPopLogFile(); lf != nil {
+	if lf := s.lfc.Acquire(ttl); lf != nil {
 		return lf, nil
 	}
-	return s.createLogFile()
+
+	// if we couldn't acquire a log file, try to create one. if it fails, we can try again but with
+	// a zero ttl because maybe the problem is too many file handles or something but we may already
+	// have a log file ready for pieces with no ttl.
+	lf, err := s.createLogFile(ttl)
+	if err != nil && ttl != 0 {
+		return s.acquireLogFile(0)
+	}
+	return lf, err
 }
 
-func (s *Store) addRecord(rec Record) error {
+func (s *Store) addRecord(ctx context.Context, rec Record) error {
 	// sometimes a Writer is created with a nil store so that it can disable automatically writing
 	// records.
 	if s == nil {
 		return nil
 	}
 
-	ok, err := s.tbl.Insert(rec)
+	ok, err := s.tbl.Insert(ctx, rec)
 	if err != nil {
-		return errs.Wrap(err)
+		return Error.Wrap(err)
 	} else if !ok {
-		return errs.New("hash table is full")
+		// if this happens, we're in some weird situation where our estimate of the load must be
+		// way off. as a last ditch effort, try to recompute the estimates, bump some counters, and
+		// loudly complain with some potentially helpful debugging information.
+		s.tableFull.Add(1)
+		beforeLoad := s.tbl.Load()
+		estError := s.tbl.computeEstimates()
+		afterLoad := s.tbl.Load()
+		s.log.Error("hash table is full",
+			zap.NamedError("compute_estimates", estError),
+			zap.Float64("before_load", beforeLoad),
+			zap.Float64("after_load", afterLoad),
+		)
+		return Error.New("hash table is full")
 	} else {
 		return nil
 	}
@@ -335,7 +374,7 @@ func (s *Store) Close() {
 	s.cloMu.Lock()
 	defer s.cloMu.Unlock()
 
-	if !s.closed.Set(errs.New("store closed")) {
+	if !s.closed.Set(Error.New("store closed")) {
 		return
 	}
 
@@ -345,8 +384,8 @@ func (s *Store) Close() {
 	defer s.compactMu.Unlock()
 
 	// acquire the write mutex to ensure all writes are finished.
-	s.active.WaitLock()
-	defer s.active.Unlock()
+	s.activeMu.WaitLock()
+	defer s.activeMu.Unlock()
 
 	// we can now close all of the resources.
 	s.lfs.Range(func(id uint64, lf *logFile) bool {
@@ -354,7 +393,7 @@ func (s *Store) Close() {
 		lf.Close()
 		return true
 	})
-	s.lfh = nil
+	s.lfc.Clear()
 
 	if s.tbl != nil {
 		s.tbl.Close()
@@ -368,22 +407,18 @@ func (s *Store) Close() {
 // Create returns a Handle that writes data to the store. The error on Close must be checked.
 // Expires is when the data expires, or zero if it never expires.
 func (s *Store) Create(ctx context.Context, key Key, expires time.Time) (_ *Writer, err error) {
-	if err := s.active.RLock(ctx, &s.closed); err != nil {
+	defer mon.Task()(&ctx)(&err)
+
+	if err := s.activeMu.RLock(ctx, &s.closed); err != nil {
 		return nil, err
 	}
 
 	// unlock if we return an error.
 	defer func() {
 		if err != nil {
-			s.active.RUnlock()
+			s.activeMu.RUnlock()
 		}
 	}()
-
-	// try to acquire the log file.
-	lf, err := s.acquireLogFile()
-	if err != nil {
-		return nil, errs.Wrap(err)
-	}
 
 	// compute an expiration field if one is set.
 	var exp Expiration
@@ -391,11 +426,17 @@ func (s *Store) Create(ctx context.Context, key Key, expires time.Time) (_ *Writ
 		exp = NewExpiration(timeToDateUp(expires), false)
 	}
 
+	// try to acquire the log file.
+	lf, err := s.acquireLogFile(exp.Time())
+	if err != nil {
+		return nil, Error.Wrap(err)
+	}
+
 	// return the automatic writer for the piece that unlocks and commits the record into the hash
 	// table on Close.
-	return newAutomaticWriter(s, lf, Record{
+	return newAutomaticWriter(ctx, s, lf, Record{
 		Key:     key,
-		Offset:  lf.size,
+		Offset:  lf.size.Load(),
 		Log:     lf.id,
 		Created: s.today(),
 		Expires: exp,
@@ -404,7 +445,9 @@ func (s *Store) Create(ctx context.Context, key Key, expires time.Time) (_ *Writ
 
 // Read returns a Reader that reads data from the store. The Reader will be nil if the key does not
 // exist.
-func (s *Store) Read(ctx context.Context, key Key) (*Reader, error) {
+func (s *Store) Read(ctx context.Context, key Key) (_ *Reader, err error) {
+	defer mon.Task()(&ctx)(&err)
+
 	// check if we're already closed so we don't have to worry about select nondeterminism: a
 	// closed store will definitely error.
 	if err := s.closed.Err(); err != nil {
@@ -417,8 +460,8 @@ func (s *Store) Read(ctx context.Context, key Key) (*Reader, error) {
 	s.rmu.RLock()
 	defer s.rmu.RUnlock()
 
-	if rec, ok, err := s.tbl.Lookup(key); err != nil {
-		return nil, errs.Wrap(err)
+	if rec, ok, err := s.tbl.Lookup(ctx, key); err != nil {
+		return nil, Error.Wrap(err)
 	} else if !ok {
 		return nil, nil
 	} else {
@@ -426,13 +469,15 @@ func (s *Store) Read(ctx context.Context, key Key) (*Reader, error) {
 	}
 }
 
-func (s *Store) readerForRecord(ctx context.Context, rec Record, revive bool) (*Reader, error) {
+func (s *Store) readerForRecord(ctx context.Context, rec Record, revive bool) (_ *Reader, err error) {
+	defer mon.Task()(&ctx)(&err)
+
 	lf, ok := s.lfs.Lookup(rec.Log)
 	if !ok {
-		return nil, errs.New("record points to unknown log file rec=%v", rec)
+		return nil, Error.New("record points to unknown log file rec=%v", rec)
 	}
 	if !lf.Acquire() {
-		return nil, errs.New("unable to acquire log file for reading rec=%v", rec)
+		return nil, Error.New("unable to acquire log file for reading rec=%v", rec)
 	}
 
 	if revive && rec.Expires.Trash() {
@@ -470,7 +515,7 @@ func (s *Store) reviveRecord(ctx context.Context, lf *logFile, rec Record) (err 
 		defer s.compactMu.Unlock()
 
 		rec.Expires = 0
-		return s.addRecord(rec)
+		return s.addRecord(ctx, rec)
 	}
 
 	// uh oh, a compaction is potentially ongoing (it may have just finished right after the TryLock
@@ -491,7 +536,7 @@ func (s *Store) reviveRecord(ctx context.Context, lf *logFile, rec Record) (err 
 	// added to.
 	w, err := s.Create(ctx, rec.Key, time.Time{})
 	if err != nil {
-		return errs.Wrap(err)
+		return Error.Wrap(err)
 	}
 	defer w.Cancel()
 
@@ -499,13 +544,13 @@ func (s *Store) reviveRecord(ctx context.Context, lf *logFile, rec Record) (err 
 	// happy. as noted in 1, we're safe to do a lookup into s.tbl here even without the rmu held
 	// because we know no compaction is ongoing due to having a writer acquired, and compaction is
 	// the only thing that does anything other than than add entries to the hash table.
-	if tmp, ok, err := s.tbl.Lookup(rec.Key); err == nil && ok {
+	if tmp, ok, err := s.tbl.Lookup(ctx, rec.Key); err == nil && ok {
 		if tmp.Expires == 0 {
 			return nil
 		}
 
 		tmp.Expires = 0
-		return s.addRecord(tmp)
+		return s.addRecord(ctx, tmp)
 	}
 
 	// 3. otherwise, we either had an error looking up the current record, or the entry got fully
@@ -515,10 +560,10 @@ func (s *Store) reviveRecord(ctx context.Context, lf *logFile, rec Record) (err 
 	// file.
 	_, err = io.Copy(w, newLogReader(lf, rec))
 	if err != nil {
-		return errs.Wrap(err)
+		return Error.Wrap(err)
 	}
 	if err := w.Close(); err != nil {
-		return errs.Wrap(err)
+		return Error.Wrap(err)
 	}
 
 	return nil
@@ -533,6 +578,19 @@ func (s *Store) Compact(
 	lastRestore time.Time,
 ) (err error) {
 	defer mon.Task()(&ctx)(&err)
+	defer s.compactions.Add(1) // increase the number of compactions that have finished
+
+	// ensure only one compaction at a time.
+	if err := s.compactMu.Lock(ctx, &s.closed); err != nil {
+		return err
+	}
+	defer s.compactMu.Unlock()
+
+	// stop all writers from starting and wait for all current writers to finish.
+	if err := s.activeMu.Lock(ctx, &s.closed); err != nil {
+		return err
+	}
+	defer s.activeMu.Unlock()
 
 	// create a context that inherits from the existing context that is canceled when the store is
 	// closed. this ensures that the shouldTrash callback exits when the store is closed, and allows
@@ -547,18 +605,6 @@ func (s *Store) Compact(
 		}
 	}()
 
-	// ensure only one compaction at a time.
-	if err := s.compactMu.Lock(ctx, &s.closed); err != nil {
-		return err
-	}
-	defer s.compactMu.Unlock()
-
-	// stop all writers from starting and wait for all current writers to finish.
-	if err := s.active.Lock(ctx, &s.closed); err != nil {
-		return err
-	}
-	defer s.active.Unlock()
-
 	// cache stats so that the call doesn't get inconsistent internal values and clear them out when
 	// we're finished.
 	stats := s.Stats()
@@ -569,6 +615,7 @@ func (s *Store) Compact(
 	// define some functions to tell what state records are in based on what today is and what the
 	// last restore time is.
 	today := s.today()
+	defer s.lastCompact.Store(today)
 
 	var restore uint32
 	if !lastRestore.IsZero() {
@@ -597,34 +644,83 @@ func (s *Store) Compact(
 		return true
 	}
 
+	// we will loop looking for a log to rewrite and compact the hash table without that log file
+	// until we have no log files left to rewrite. this does more work (reads and writes the hash
+	// table each time we need to write a log file) but ensures we use minimal extra disk space when
+	// we need to rewrite multiple log files.
+	for {
+		completed, err := s.compactOnce(ctx, today, expired, restored, shouldTrash)
+		if err != nil {
+			return err
+		} else if completed {
+			break
+		}
+	}
+
+	return nil
+}
+
+func (s *Store) compactOnce(
+	ctx context.Context,
+	today uint32,
+	expired func(e Expiration) bool,
+	restored func(e Expiration) bool,
+	shouldTrash func(ctx context.Context, key Key, created time.Time) bool,
+) (completed bool, err error) {
+	defer mon.Task()(&ctx)(&err)
+
 	// collect statistics about the hash table and how live each of the log files are.
 	nset := uint64(0)
 	used := make(map[uint64]uint64)
 	rerr := error(nil)
-	s.tbl.Range(func(rec Record, err error) bool {
+	modifications := false
+
+	s.tbl.Range(ctx, func(rec Record, err error) bool {
 		rerr = func() error {
 			if err != nil {
-				return errs.Wrap(err)
+				return Error.Wrap(err)
 			} else if err := ctx.Err(); err != nil {
 				return err
 			}
 
+			// if we're not yet sure we're modifying the hash table, we need to check our callbacks
+			// on the record to see if the table would be modified. a record is modified when it is
+			// flagged as trash or when it is restored.
+			if !modifications {
+				if shouldTrash != nil && !rec.Expires.Trash() && shouldTrash(ctx, rec.Key, dateToTime(rec.Created)) {
+					modifications = true
+				}
+				if restored(rec.Expires) {
+					modifications = true
+				}
+			}
+
+			// if the record is expired, we will modify the hash table by not including the record.
 			if expired(rec.Expires) {
+				modifications = true
 				return nil
 			}
 
+			// the record is included in the future hash table, so account for it in used space.
 			nset++
-			used[rec.Log] += uint64(rec.Length) + RSize // rSize for the record footer
+			used[rec.Log] += uint64(rec.Length) + RecordSize // rSize for the record footer
+
 			return nil
 		}()
 		return rerr == nil
 	})
 	if rerr != nil {
-		return rerr
+		return false, rerr
 	}
 
-	// using the information, determine which logs need compaction.
-	compact := make(map[uint64]bool)
+	// calculate a hash table size so that it targets just under a 0.5 load factor.
+	logSlots := uint64(bits.Len64(nset)) + 1
+	if logSlots < store_minTableSize {
+		logSlots = store_minTableSize
+	}
+
+	// using the information, determine which log files are candidates for rewriting.
+	rewriteCandidates := make(map[uint64]bool)
 	s.lfs.Range(func(id uint64, lf *logFile) bool {
 		rerr = func() error {
 			if err := ctx.Err(); err != nil {
@@ -632,8 +728,9 @@ func (s *Store) Compact(
 			}
 
 			// compact non-empty log files that don't contain enough alive data.
-			if lf.size > 0 && float64(used[id])/float64(lf.size) < compaction_AliveFraction {
-				compact[id] = true
+			size := lf.size.Load()
+			if size > 0 && float64(used[id])/float64(size) < compaction_AliveFraction {
+				rewriteCandidates[id] = true
 			}
 
 			return nil
@@ -641,38 +738,78 @@ func (s *Store) Compact(
 		return rerr == nil
 	})
 	if rerr != nil {
-		return rerr
+		return false, rerr
 	}
 
-	// calculate a hash table size so that it targets just under a 0.25 load factor.
-	lrec := uint64(bits.Len64(nset)) + 1
-	if lrec < store_minTableSize {
-		lrec = store_minTableSize
+	// if there are no modifications to the hashtbl to remove expired records or flag records as
+	// trash, and we have no log file candidates to rewrite, and the hashtable would be the same
+	// size, we can exit early.
+	if !modifications && len(rewriteCandidates) == 0 && logSlots == s.tbl.logSlots {
+		return true, nil
+	}
+
+	// limit the number of log files we rewrite in a single compaction to so that we write around
+	// the amount of a size of the new hashtbl. this bounds the extra space necessary to compact.
+	rewrite := make(map[uint64]bool)
+	target := hashtblSize(logSlots)
+	for id := range rewriteCandidates {
+		if used[id] <= target {
+			rewrite[id] = true
+			target -= used[id]
+		}
+	}
+
+	// special case: if we have some values in maybeRewrite but we have no files in rewrite we need
+	// to include one to ensure progress.
+	if len(rewriteCandidates) > 0 && len(rewrite) == 0 {
+		for id := range rewriteCandidates {
+			rewrite[id] = true
+			break
+		}
 	}
 
 	// create a new hash table sized for the number of records.
-	af, err := newAtomicFile(s.meta, "hashtbl")
+	tblPath := filepath.Join(s.meta, fmt.Sprintf("hashtbl-%016x", s.maxHash.Add(1)))
+	af, err := newAtomicFile(tblPath)
 	if err != nil {
-		return errs.Wrap(err)
+		return false, Error.Wrap(err)
 	}
 	defer af.Cancel()
 
-	ntbl, err := CreateHashtbl(af.File, lrec, today)
+	ntbl, err := CreateHashtbl(af.File, logSlots, today)
 	if err != nil {
-		return errs.Wrap(err)
+		return false, Error.Wrap(err)
 	}
 
 	// copy all of the entries from the hash table to the new table, skipping expired entries, and
-	// rewriting any entries that are in logs marked for compaction.
-	s.tbl.Range(func(rec Record, err error) bool {
+	// rewriting any entries that are in the log files that we are rewriting.
+	s.tbl.Range(ctx, func(rec Record, err error) bool {
 		rerr = func() error {
 			if err != nil {
-				return errs.Wrap(err)
+				return Error.Wrap(err)
 			} else if err := ctx.Err(); err != nil {
 				return err
 			}
 
-			// if the record is restored, clear the expiration.
+			// trash records are flagged as expired some number of days from now with a bit set to
+			// signal if they are read that there was a problem. we only check records that are not
+			// already flagged as trashed and keep the minimum time for the record to live. we do
+			// this after compaction so that we don't mistakenly count it as a "revive".
+			if shouldTrash != nil && !rec.Expires.Trash() && shouldTrash(ctx, rec.Key, dateToTime(rec.Created)) {
+				expiresTime := today + compaction_ExpiresDays
+				// if we have an existing ttl time and it's smaller, use that instead.
+				if existingTime := rec.Expires.Time(); existingTime > 0 && existingTime < expiresTime {
+					expiresTime = existingTime
+				}
+				// only update the expired time if it won't immediately be restored. this ensures
+				// we dont clear out the ttl field for no reason right after this.
+				if exp := NewExpiration(expiresTime, true); !restored(exp) {
+					rec.Expires = exp
+				}
+			}
+
+			// if the record is restored, clear the expiration. we do this after checking if the
+			// record should be trashed to ensure that restore always has precedence.
 			if restored(rec.Expires) {
 				rec.Expires = 0
 
@@ -687,47 +824,31 @@ func (s *Store) Compact(
 				return nil
 			}
 
-			// trash records are flagged as expired some number of days from now with a bit set to
-			// signal if they are read that there was a problem. we only check records that are not
-			// already flagged as trashed and keep the minimum time for the record to live. we do
-			// this after compaction so that we don't mistakenly count it as a "revive".
-			if !rec.Expires.Trash() && shouldTrash != nil {
-				if shouldTrash(ctx, rec.Key, dateToTime(rec.Created)) {
-					expiresTime := today + compaction_ExpiresDays
-					// if we have an existing ttl time and it's smaller, use that instead.
-					if existingTime := rec.Expires.Time(); existingTime > 0 && existingTime < expiresTime {
-						expiresTime = existingTime
-					}
-					rec.Expires = NewExpiration(expiresTime, true)
-				}
-			}
-
 			// if the record is compacted, copy it into the new log file.
-			if compact[rec.Log] {
+			if rewrite[rec.Log] {
 				err := func() error {
 					r, err := s.readerForRecord(ctx, rec, false)
 					if err != nil {
-						return errs.Wrap(err)
+						return Error.Wrap(err)
 					}
 					defer r.Release() // same as r.Close() but no error to worry about.
 
-					// acquire a log file to write the entry into. if we're compacting that log file
-					// we have to pick a different one. doing this can only increase the amount of
-					// live data in a log file, so it can't end up wanting to be compacted.
+					// acquire a log file to write the entry into. if we're rewriting that log file
+					// we have to pick a different one.
 				acquire:
-					into, err := s.acquireLogFile()
+					into, err := s.acquireLogFile(rec.Expires.Time())
 					if err != nil {
-						return errs.Wrap(err)
-					} else if compact[into.id] {
+						return Error.Wrap(err)
+					} else if rewriteCandidates[into.id] {
 						goto acquire
 					}
 
 					// create a Writer to handle writing the entry into the log file. manual mode is
 					// set so that it doesn't attempt to add the record to the current hash table or
 					// unlock the active mutex upon Close or Cancel.
-					w := newManualWriter(s, into, Record{
+					w := newManualWriter(ctx, s, into, Record{
 						Key:     rec.Key,
-						Offset:  into.size,
+						Offset:  into.size.Load(),
 						Log:     into.id,
 						Created: rec.Created,
 						Expires: rec.Expires,
@@ -736,12 +857,12 @@ func (s *Store) Compact(
 
 					// copy the record data.
 					if _, err := io.Copy(w, r); err != nil {
-						return errs.New("writing into compacted log: %w", err)
+						return Error.New("writing into compacted log: %w", err)
 					}
 
 					// finalize the data in the log file.
 					if err := w.Close(); err != nil {
-						return errs.New("closing compacted log: %w", err)
+						return Error.New("closing compacted log: %w", err)
 					}
 
 					// get the updated record information from the writer.
@@ -749,15 +870,15 @@ func (s *Store) Compact(
 					return nil
 				}()
 				if err != nil {
-					return errs.Wrap(err)
+					return Error.Wrap(err)
 				}
 			}
 
 			// insert the record into the new hash table.
-			if ok, err := ntbl.Insert(rec); err != nil {
-				return errs.Wrap(err)
+			if ok, err := ntbl.Insert(ctx, rec); err != nil {
+				return Error.Wrap(err)
 			} else if !ok {
-				return errs.New("compaction hash table is full")
+				return Error.New("compaction hash table is full")
 			}
 
 			return nil
@@ -765,14 +886,14 @@ func (s *Store) Compact(
 		return rerr == nil
 	})
 	if rerr != nil {
-		return rerr
+		return false, rerr
 	}
 
 	// commit the new hash table. there should be no error cases in this function after this point
-	// because a process restart may have the store open with this new hash table, so we have to
-	// go forward with it.
+	// because a process restart may have the store open with this new hash table, so we have to go
+	// forward with it.
 	if err := af.Commit(); err != nil {
-		return errs.New("unable to commit newly compacted hashtbl: %w", err)
+		return false, Error.New("unable to commit newly compacted hashtbl: %w", err)
 	}
 
 	// swap the new hash table in and collect the set of log files to remove. we don't close and
@@ -781,18 +902,22 @@ func (s *Store) Compact(
 	otbl := s.tbl
 	s.tbl = ntbl
 
-	toRemove := make([]*logFile, 0, len(compact))
-	for id := range compact {
+	toRemove := make([]*logFile, 0, len(rewrite))
+	for id := range rewrite {
 		if lf, ok := s.lfs.LoadAndDelete(id); ok {
 			toRemove = append(toRemove, lf)
 		}
 	}
 	s.rmu.Unlock()
 
-	// now that we are no longer holding the mutex, close the old hashtbl and close and remove any
-	// newly dead log files. log files have protection to not actually close the underlying file
-	// handle until the last reader is finished.
+	// now that we are no longer holding the mutex, close and remove the old hashtbl and close and
+	// remove the newly dead log files. log files have protection to not actually close the
+	// underlying file handle until the last reader is finished. we have to strip the .tmp suffix on
+	// the hashtbl file name because the file handles were potentially created with .tmp before
+	// being renamed in place, which does not update their name.
 	otbl.Close()
+	_ = os.Remove(strings.TrimSuffix(otbl.fh.Name(), ".tmp"))
+
 	for _, lf := range toRemove {
 		lf.Close()
 		lf.Remove()
@@ -804,7 +929,13 @@ func (s *Store) Compact(
 
 	// before we allow writers to proceed, reinitialize the heap with the log files so that it has
 	// the best set of logs to write into and doesn't contain any now closed/removed logs.
-	s.initializeHeap()
+	s.lfc.Clear()
+	s.lfs.Range(func(_ uint64, lf *logFile) bool {
+		s.lfc.Include(lf)
+		return true
+	})
 
-	return nil
+	// if we rewrote every log file that we could potentially rewrite, then we're done. len is
+	// sufficient here because rewrite is a subset of rewriteCandidates.
+	return len(rewriteCandidates) == len(rewrite), nil
 }
