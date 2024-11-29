@@ -23,7 +23,6 @@ type Cleanup struct {
 	loop  *SafeLoop
 
 	trashExpiryInterval time.Duration
-	collector           *collector.Service
 	trashRunner         *pieces.TrashRunOnce
 	expireRunner        collector.RunOnce
 	retainRunner        *retain.RunOnce
