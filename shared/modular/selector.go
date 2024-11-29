@@ -62,6 +62,10 @@ func CreateSelectorFromString(ball *mud.Ball, selection string) mud.ComponentSel
 			}
 			mud.ReplaceDependencyOf(from[0], to[0])
 		default:
+			to := mud.Find(ball, includeType(s))
+			if len(to) != 1 {
+				panic(fmt.Sprintf("implementation selector %s should match one component", s))
+			}
 			selector = mud.Or(selector, includeType(s))
 		}
 	}
