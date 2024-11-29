@@ -18,6 +18,7 @@ import (
 // Module is a mud module.
 func Module(ball *mud.Ball) {
 	mud.Provide[*DB](ball, OpenDatabaseWithMigration)
+	mud.View[*DB, DB](ball, mud.Dereference[DB])
 }
 
 // DatabaseConfig is the minimum required configuration for metabase.

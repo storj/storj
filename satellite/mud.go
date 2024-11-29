@@ -7,13 +7,20 @@ import (
 	"go.uber.org/zap"
 
 	"storj.io/common/debug"
+	"storj.io/common/pb"
 	"storj.io/common/peertls/extensions"
 	"storj.io/common/peertls/tlsopts"
 	"storj.io/common/rpc"
 	"storj.io/common/signing"
 	"storj.io/storj/private/mud"
 	"storj.io/storj/private/revocation"
+	"storj.io/storj/private/server"
+	"storj.io/storj/satellite/accounting"
+	"storj.io/storj/satellite/accounting/live"
+	"storj.io/storj/satellite/attribution"
 	"storj.io/storj/satellite/audit"
+	"storj.io/storj/satellite/buckets"
+	"storj.io/storj/satellite/console"
 	"storj.io/storj/satellite/console/consoleweb"
 	"storj.io/storj/satellite/metabase"
 	"storj.io/storj/satellite/metabase/rangedloop"
@@ -23,6 +30,7 @@ import (
 	"storj.io/storj/satellite/orders"
 	"storj.io/storj/satellite/overlay"
 	"storj.io/storj/satellite/piecelist"
+	srevocation "storj.io/storj/satellite/revocation"
 	sndebug "storj.io/storj/shared/debug"
 	"storj.io/storj/shared/modular/config"
 )
@@ -72,4 +80,43 @@ func Module(ball *mud.Ball) {
 	mud.View[DB, nodeevents.DB](ball, DB.NodeEvents)
 
 	piecelist.Module(ball)
+
+	buckets.Module(ball)
+	mud.View[DB, buckets.DB](ball, DB.Buckets)
+
+	mud.View[DB, attribution.DB](ball, DB.Attribution)
+
+	mud.View[DB, overlay.PeerIdentities](ball, DB.PeerIdentities)
+
+	mud.View[DB, srevocation.DB](ball, DB.Revocation)
+
+	mud.View[DB, console.DB](ball, DB.Console)
+	console.Module(ball)
+	mud.RegisterInterfaceImplementation[metainfo.APIKeys, console.APIKeys](ball)
+
+	// should be defined here due to circular dependencies (accounting vs live/console config)
+	mud.Provide[*accounting.Service](ball, func(log *zap.Logger, projectAccountingDB accounting.ProjectAccounting, liveAccounting accounting.Cache, metabaseDB metabase.DB, cc console.Config, config, lc live.Config) *accounting.Service {
+		return accounting.NewService(log, projectAccountingDB, liveAccounting, metabaseDB, lc.BandwidthCacheTTL, cc.UsageLimits.Storage.Free, cc.UsageLimits.Bandwidth.Free, cc.UsageLimits.Segment.Free, lc.AsOfSystemInterval)
+	})
+	accounting.Module(ball)
+	mud.View[DB, accounting.ProjectAccounting](ball, DB.ProjectAccounting)
+
+	live.Module(ball)
+
+	{
+		mud.Provide[*server.Server](ball, server.New)
+		config.RegisterConfig[server.Config](ball, "server2")
+	}
+
+	mud.Provide[*EndpointRegistration](ball, func(srv *server.Server, metainfoEndpoint *metainfo.Endpoint) (*EndpointRegistration, error) {
+		err := pb.DRPCRegisterMetainfo(srv.DRPC(), metainfoEndpoint)
+		if err != nil {
+			return nil, err
+		}
+		return &EndpointRegistration{}, nil
+	})
+
 }
+
+// EndpointRegistration is a pseudo component to wire server and DRPC endpoints together.
+type EndpointRegistration struct{}
