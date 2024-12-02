@@ -51,11 +51,13 @@ var (
 
 // OldConfig contains everything necessary for a server.
 type OldConfig struct {
-	Path                   string         `help:"path to store data in" default:"$CONFDIR/storage"`
-	WhitelistedSatellites  storj.NodeURLs `help:"a comma-separated list of approved satellite node urls (unused)" devDefault:"" releaseDefault:""`
-	AllocatedDiskSpace     memory.Size    `user:"true" help:"total allocated disk space in bytes" default:"1TB"`
-	AllocatedBandwidth     memory.Size    `user:"true" help:"total allocated bandwidth in bytes (deprecated)" default:"0B"`
-	KBucketRefreshInterval time.Duration  `help:"how frequently Kademlia bucket should be refreshed with node stats" default:"1h0m0s"`
+	Path               string      `help:"path to store data in" default:"$CONFDIR/storage"`
+	AllocatedDiskSpace memory.Size `user:"true" help:"total allocated disk space in bytes" default:"1TB"`
+
+	// deprecated flags
+	WhitelistedSatellites  storj.NodeURLs `help:"a comma-separated list of approved satellite node urls (unused)" devDefault:"" releaseDefault:"" hidden:"true" deprecated:"true"`
+	AllocatedBandwidth     memory.Size    `user:"true" help:"total allocated bandwidth in bytes (deprecated)" default:"0B" hidden:"true" deprecated:"true"`
+	KBucketRefreshInterval time.Duration  `help:"how frequently Kademlia bucket should be refreshed with node stats (deprecated)" default:"1h0m0s" hidden:"true" deprecated:"true"`
 }
 
 // Config defines parameters for piecestore endpoint.
@@ -63,14 +65,10 @@ type Config struct {
 	DatabaseDir             string        `help:"directory to store databases. if empty, uses data path" default:""`
 	ExpirationGracePeriod   time.Duration `help:"how soon before expiration date should things be considered expired" default:"48h0m0s"`
 	MaxConcurrentRequests   int           `help:"how many concurrent requests are allowed, before uploads are rejected. 0 represents unlimited." default:"0"`
-	DeleteWorkers           int           `help:"how many piece delete workers" default:"1"`
-	DeleteQueueSize         int           `help:"size of the piece delete queue" default:"10000"`
-	ExistsCheckWorkers      int           `help:"how many workers to use to check if satellite pieces exists" default:"5"`
 	OrderLimitGracePeriod   time.Duration `help:"how long after OrderLimit creation date are OrderLimits no longer accepted" default:"1h0m0s"`
 	CacheSyncInterval       time.Duration `help:"how often the space used cache is synced to persistent storage" releaseDefault:"1h0m0s" devDefault:"0h1m0s"`
 	PieceScanOnStartup      bool          `help:"if set to true, all pieces disk usage is recalculated on startup" default:"true"`
 	StreamOperationTimeout  time.Duration `help:"how long to spend waiting for a stream operation before canceling" default:"30m"`
-	RetainTimeBuffer        time.Duration `help:"allows for small differences in the satellite and storagenode clocks" default:"48h0m0s" deprecated:"true"`
 	ReportCapacityThreshold memory.Size   `help:"threshold below which to immediately notify satellite of capacity" default:"5GB" hidden:"true"`
 	MaxUsedSerialsSize      memory.Size   `help:"amount of memory allowed for used serials store - once surpassed, serials will be dropped at random" default:"1MB"`
 
@@ -78,10 +76,15 @@ type Config struct {
 	MinUploadSpeedGraceDuration       time.Duration `help:"if MinUploadSpeed is configured, after a period of time after the client initiated the upload, the server will flag unusually slow upload client" default:"0h0m10s"`
 	MinUploadSpeedCongestionThreshold float64       `help:"if the portion defined by the total number of alive connection per MaxConcurrentRequest reaches this threshold, a slow upload client will no longer be monitored and flagged" default:"0.8"`
 
-	Trust trust.Config
-
+	Trust   trust.Config
 	Monitor monitor.Config
 	Orders  orders.Config
+
+	// deprecated flags
+	DeleteWorkers      int           `help:"how many piece delete workers (unused)" default:"1" hidden:"true" deprecated:"true"`
+	DeleteQueueSize    int           `help:"size of the piece delete queue (unused)" default:"10000" hidden:"true" deprecated:"true"`
+	ExistsCheckWorkers int           `help:"how many workers to use to check if satellite pieces exists (unused)" default:"5" hidden:"true" deprecated:"true"`
+	RetainTimeBuffer   time.Duration `help:"allows for small differences in the satellite and storagenode clocks" default:"48h0m0s" hidden:"true" deprecated:"true"`
 }
 
 // PingStatsSource stores the last time when the target was pinged.
