@@ -693,8 +693,10 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, revocationDB exten
 			peer.Identity,
 			peer.Storage2.Trust,
 			peer.Storage2.Monitor,
-			peer.StorageOld.RetainService,
-			peer.Storage2.BloomFilterManager,
+			[]piecestore.QueueRetain{
+				peer.StorageOld.RetainService,
+				peer.Storage2.BloomFilterManager,
+			},
 			peer.Contact.PingStats,
 			peer.Storage2.PieceBackend,
 			peer.OrdersStore,

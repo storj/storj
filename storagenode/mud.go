@@ -325,7 +325,8 @@ func Module(ball *mud.Ball) {
 		})
 
 		mud.RegisterInterfaceImplementation[piecestore.RestoreTrash, *pieces.TrashChore](ball)
-		mud.RegisterInterfaceImplementation[piecestore.QueueRetain, *retain.Service](ball)
+		mud.RegisterImplementation[[]piecestore.QueueRetain](ball)
+		mud.Implementation[[]piecestore.QueueRetain, *retain.Service](ball)
 
 		mud.Provide[*satstore.SatelliteStore](ball, func(cfg piecestore.OldConfig) *satstore.SatelliteStore {
 			hashStoreDir := filepath.Join(cfg.Path, "hashstore")
@@ -351,6 +352,7 @@ func Module(ball *mud.Ball) {
 		mud.Provide[*retain.BloomFilterManager](ball, func(cfg piecestore.OldConfig, rcfg retain.Config) (*retain.BloomFilterManager, error) {
 			return retain.NewBloomFilterManager(cfg.Path, rcfg.MaxTimeSkew)
 		})
+		mud.Implementation[[]piecestore.QueueRetain, *retain.BloomFilterManager](ball)
 		mud.Provide[*retain.RestoreTimeManager](ball, func(cfg piecestore.OldConfig) *retain.RestoreTimeManager {
 			return retain.NewRestoreTimeManager(cfg.Path)
 		})

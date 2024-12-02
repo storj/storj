@@ -13,7 +13,7 @@ import (
 
 var presets = map[string]string{
 	// storagenode with hashtable based storage, all services required only by standard storagenode are disabled.
-	"@hashstore": "storagenode.EndpointRegistration,contact.Endpoint,contact.Chore,bandwidth.Service,orders.Service,debug.Wrapper,piecestore.PieceBackend=piecestore.HashStoreBackend,piecestore.QueueRetain=retain.BloomFilterManager,!monitor.DiskVerification",
+	"@hashstore": "storagenode.EndpointRegistration,contact.Endpoint,contact.Chore,bandwidth.Service,orders.Service,debug.Wrapper,piecestore.PieceBackend=piecestore.HashStoreBackend,!retain.Service,!monitor.DiskVerification",
 }
 
 // CreateSelector create a custom component hierarchy selector based on environment variables.

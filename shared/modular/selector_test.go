@@ -118,7 +118,7 @@ func TestCreateSelector(t *testing.T) {
 		}, mud.All)
 		require.NoError(t, err)
 		// only rebellion + tool interface
-		require.Len(t, components, 2)
+		require.Len(t, components, 1)
 		rebellion := mud.MustLookup[RebellionService](ball)
 		require.Nil(t, rebellion.Tool)
 	})

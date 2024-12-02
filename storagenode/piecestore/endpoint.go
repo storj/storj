@@ -101,8 +101,7 @@ type Endpoint struct {
 	ident       *identity.FullIdentity
 	trustSource trust.TrustedSatelliteSource
 	monitor     *monitor.Service
-	retain      QueueRetain
-	bfm         *retain.BloomFilterManager
+	retain      []QueueRetain
 	pingStats   PingStatsSource
 
 	usage       bandwidth.Writer
@@ -127,7 +126,7 @@ type RestoreTrash interface {
 }
 
 // NewEndpoint creates a new piecestore endpoint.
-func NewEndpoint(log *zap.Logger, ident *identity.FullIdentity, trustSource trust.TrustedSatelliteSource, monitor *monitor.Service, retain QueueRetain, bfm *retain.BloomFilterManager, pingStats PingStatsSource, pieceBackend PieceBackend, ordersStore *orders.FileStore, usage bandwidth.DB, usedSerials *usedserials.Table, config Config) (*Endpoint, error) {
+func NewEndpoint(log *zap.Logger, ident *identity.FullIdentity, trustSource trust.TrustedSatelliteSource, monitor *monitor.Service, retain []QueueRetain, pingStats PingStatsSource, pieceBackend PieceBackend, ordersStore *orders.FileStore, usage bandwidth.DB, usedSerials *usedserials.Table, config Config) (*Endpoint, error) {
 	return &Endpoint{
 		log:    log,
 		config: config,
@@ -136,7 +135,6 @@ func NewEndpoint(log *zap.Logger, ident *identity.FullIdentity, trustSource trus
 		trustSource: trustSource,
 		monitor:     monitor,
 		retain:      retain,
-		bfm:         bfm,
 		pingStats:   pingStats,
 
 		ordersStore: ordersStore,
@@ -941,12 +939,6 @@ func (endpoint *Endpoint) RestoreTrash(ctx context.Context, restoreTrashReq *pb.
 // Retain keeps only piece ids specified in the request.
 func (endpoint *Endpoint) Retain(ctx context.Context, retainReq *pb.RetainRequest) (res *pb.RetainResponse, err error) {
 	defer mon.Task()(&ctx)(&err)
-
-	// if retain status is disabled, quit immediately
-	if endpoint.retain.Status() == retain.Disabled {
-		return &pb.RetainResponse{}, nil
-	}
-
 	peer, err := identity.PeerIdentityFromContext(ctx)
 	if err != nil {
 		return nil, rpcstatus.Wrap(rpcstatus.Unauthenticated, err)
@@ -981,12 +973,15 @@ func (endpoint *Endpoint) processRetainReq(ctx context.Context, peerID storj.Nod
 	mon.IntVal("retain_filter_hash_count").Observe(int64(filterHashCount))
 	mon.IntVal("retain_creation_date").Observe(retainReq.CreationDate.Unix())
 
-	// the queue function will update the created before time based on the configurable retain buffer
-	err = endpoint.retain.Queue(ctx, peerID, retainReq)
+	endpoint.log.Info("New bloomfilter is received", zap.Stringer("satellite", peerID), zap.Time("creation", retainReq.CreationDate))
 
-	if endpoint.bfm != nil {
-		if err := endpoint.bfm.Queue(ctx, peerID, retainReq); err != nil {
-			endpoint.log.Info("failed to set bloom filter in manager", zap.Error(err))
+	for _, qr := range endpoint.retain {
+		// the queue function will update the created before time based on the configurable retain buffer
+		if qr.Status() != retain.Disabled {
+			err = qr.Queue(ctx, peerID, retainReq)
+			if err != nil {
+				endpoint.log.Info("failed to set bloom filter", zap.Error(err), zap.String("queue", fmt.Sprintf("%T", qr)))
+			}
 		}
 	}
 
@@ -1000,11 +995,6 @@ func (endpoint *Endpoint) RetainBig(stream pb.DRPCPiecestore_RetainBigStream) (e
 	defer func() {
 		_ = stream.Close()
 	}()
-
-	// if retain status is disabled, quit immediately
-	if endpoint.retain.Status() == retain.Disabled {
-		return nil
-	}
 
 	peer, err := identity.PeerIdentityFromContext(ctx)
 	if err != nil {

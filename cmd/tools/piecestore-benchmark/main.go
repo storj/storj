@@ -184,7 +184,7 @@ func createEndpoint(ctx context.Context, satIdent, snIdent *identity.FullIdentit
 	default:
 		pieceBackend = piecestore.NewOldPieceBackend(piecesStore, trashChore, monitorService)
 	}
-	endpoint := try.E1(piecestore.NewEndpoint(log, snIdent, trustPool, monitorService, retainService, bfm, new(contact.PingStats), pieceBackend, ordersStore, bandwidthdbCache, usedSerials, cfg.Storage2))
+	endpoint := try.E1(piecestore.NewEndpoint(log, snIdent, trustPool, monitorService, []piecestore.QueueRetain{retainService, bfm}, new(contact.PingStats), pieceBackend, ordersStore, bandwidthdbCache, usedSerials, cfg.Storage2))
 	collectorService := collector.NewService(log, piecesStore, usedSerials, collector.Config{Interval: 1000 * time.Hour})
 
 	return endpoint, collectorService
