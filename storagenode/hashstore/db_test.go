@@ -25,7 +25,7 @@ func TestDB_BasicOperation(t *testing.T) {
 
 	// add enough keys to ensure a background compaction.
 	for i := 0; i < 1<<store_minTableSize; i++ {
-		keys = append(keys, db.AssertCreate(time.Time{}))
+		keys = append(keys, db.AssertCreate())
 	}
 
 	for _, key := range keys {
@@ -73,7 +73,7 @@ func TestDB_TrashStats(t *testing.T) {
 
 	// add keys until we are compacting, and then wait until we are not compacting.
 	for !db.Stats().Compacting {
-		db.AssertCreate(time.Time{})
+		db.AssertCreate()
 	}
 	for db.Stats().Compacting {
 		time.Sleep(time.Millisecond)
@@ -92,7 +92,7 @@ func TestDB_TTLStats(t *testing.T) {
 	defer db.Close()
 
 	// create an entry with a ttl.
-	db.AssertCreate(time.Now())
+	db.AssertCreate(WithTTL(time.Now()))
 
 	// ensure the ttl stats are updated.
 	stats := db.Stats()
@@ -100,7 +100,7 @@ func TestDB_TTLStats(t *testing.T) {
 	assert.Equal(t, stats.LenLogs, stats.LenLogsTTL)
 
 	// create an entry without ttl.
-	db.AssertCreate(time.Time{})
+	db.AssertCreate()
 
 	// ensure the non-ttl stats are updated.
 	stats = db.Stats()
@@ -157,7 +157,7 @@ func TestDB_SlowCompactionCreatesBackpressure(t *testing.T) {
 	}()
 
 	for !done.Load() {
-		db.AssertCreate(time.Time{})
+		db.AssertCreate()
 	}
 }
 

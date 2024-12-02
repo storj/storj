@@ -175,20 +175,27 @@ func (ts *testStore) AssertCreateKey(key Key, expires time.Time) {
 	assert.NoError(ts.t, wr.Close())
 }
 
-func (ts *testStore) AssertCreate(expires time.Time) Key {
+func (ts *testStore) AssertCreate(opts ...any) Key {
 	ts.t.Helper()
+
+	var expires time.Time
+	checkOptions(opts, func(t WithTTL) { expires = time.Time(t) })
 
 	key := newKey()
 	ts.AssertCreateKey(key, expires)
 	return key
 }
 
-func (ts *testStore) AssertRead(key Key) {
+func (ts *testStore) AssertRead(key Key, opts ...any) {
 	ts.t.Helper()
 
 	r, err := ts.Read(context.Background(), key)
 	assert.NoError(ts.t, err)
 	assert.NotNil(ts.t, r)
+
+	checkOptions(opts, func(rt AssertTrash) {
+		assert.Equal(ts.t, rt, r.Trash())
+	})
 
 	assert.Equal(ts.t, r.Key(), key)
 	assert.Equal(ts.t, r.Size(), len(key))
@@ -251,8 +258,11 @@ func (td *testDB) AssertCreateKey(key Key, expires time.Time) {
 	assert.NoError(td.t, wr.Close())
 }
 
-func (td *testDB) AssertCreate(expires time.Time) Key {
+func (td *testDB) AssertCreate(opts ...any) Key {
 	td.t.Helper()
+
+	var expires time.Time
+	checkOptions(opts, func(t WithTTL) { expires = time.Time(t) })
 
 	key := newKey()
 	td.AssertCreateKey(key, expires)
@@ -280,6 +290,19 @@ func (td *testDB) AssertCompact() {
 // other helpers
 //
 
+type (
+	AssertTrash bool
+	WithTTL     time.Time
+)
+
+func checkOptions[T any](opts []any, cb func(T)) {
+	for _, opt := range opts {
+		if v, ok := opt.(T); ok {
+			cb(v)
+		}
+	}
+}
+
 func newKey() (k Key) {
 	_, _ = mwc.Rand().Read(k[:])
 	return
@@ -306,20 +329,25 @@ func blockOnContext(ctx context.Context, key Key, created time.Time) bool {
 	return false
 }
 
-func waitForGoroutine(frames ...string) {
+func waitForGoroutine(frames ...string) { waitForGoroutines(1, frames...) }
+
+func waitForGoroutines(count int, frames ...string) {
 	var buf [1 << 20]byte
 
 	for {
+		matches := 0
 		stacks := string(buf[:runtime.Stack(buf[:], true)])
 	goroutine:
 		for _, g := range strings.Split(stacks, "\n\n") {
 			for _, frame := range frames {
 				if !strings.Contains(g, frame) {
-					time.Sleep(time.Millisecond)
 					continue goroutine
 				}
 			}
-			return
+			matches++
+			if matches >= count {
+				return
+			}
 		}
 		time.Sleep(1 * time.Millisecond)
 	}

@@ -456,7 +456,7 @@ func (s *Store) Read(ctx context.Context, key Key) (_ *Reader, err error) {
 		return nil, err
 	}
 
-	// ensure that tbl and lfs are consistent
+	// ensure that tbl and lfs are consistent.
 	s.rmu.RLock()
 	defer s.rmu.RUnlock()
 
@@ -475,8 +475,7 @@ func (s *Store) readerForRecord(ctx context.Context, rec Record, revive bool) (_
 	lf, ok := s.lfs.Lookup(rec.Log)
 	if !ok {
 		return nil, Error.New("record points to unknown log file rec=%v", rec)
-	}
-	if !lf.Acquire() {
+	} else if !lf.Acquire() {
 		return nil, Error.New("unable to acquire log file for reading rec=%v", rec)
 	}
 
@@ -503,35 +502,25 @@ func (s *Store) reviveRecord(ctx context.Context, lf *logFile, rec Record) (err 
 	// was trashed so we should revive it no matter what.
 	ctx = context2.WithoutCancellation(ctx)
 
-	if err := s.reviveMu.Lock(ctx, &s.closed); err != nil {
-		return err
-	}
-	defer s.reviveMu.Unlock()
-
-	// easy case: if we can acquire the compaction mutex, then we can be sure that no compaction is
-	// ongoing so we can just write the record with a cleared expires field. we're already holding
-	// the rmu so the tbl will not be mutated and the record points at a valid log file.
-	if s.compactMu.TryLock() {
-		defer s.compactMu.Unlock()
-
-		rec.Expires = 0
-		return s.addRecord(ctx, rec)
-	}
-
-	// uh oh, a compaction is potentially ongoing (it may have just finished right after the TryLock
-	// failed). we're still holding rmu, so we can't wait on the compaction because it could be
-	// trying to acquire rmu. fortunately, because we have a handle to the log file, we can always
-	// read the piece even if it gets fully deleted by compaction. the last tricky bit is to decide
-	// if we need to re-write the piece or if we can get away with updating the record like above.
-	// once we have acquired a write slot, we can be sure that no compaction is ongoing so we can
-	// check the table to see if the record matches as it usually will.
+	// a compaction is potentially ongoing and we're still holding rmu, so we can't wait on the
+	// compaction because it could be trying to acquire rmu. fortunately, because we have a handle
+	// to the log file, we can always read the piece even if it gets fully deleted by compaction.
+	// the last tricky bit is to decide if we need to re-write the piece or if we can get away with
+	// updating the record. once we have acquired a write slot, we can be sure that no compaction is
+	// ongoing so we can check the table to see if the record matches as it usually will.
 
 	// 0. drop the mutex so compaction can proceed. this may invalidate the log file pointed at by
 	// rec but we have a handle to it so we'll still be able to read it.
 	s.rmu.RUnlock()
 	defer s.rmu.RLock()
 
-	// 1. acquire a write slot, ensuring that no compaction is ongoing and we can write to a log if
+	// 1. acquire the revive mutex.
+	if err := s.reviveMu.Lock(ctx, &s.closed); err != nil {
+		return err
+	}
+	defer s.reviveMu.Unlock()
+
+	// 2. acquire a write slot, ensuring that no compaction is ongoing and we can write to a log if
 	// necessary. once we have a writer, we know the state of the hash table and logs can only be
 	// added to.
 	w, err := s.Create(ctx, rec.Key, time.Time{})
@@ -540,7 +529,7 @@ func (s *Store) reviveRecord(ctx context.Context, lf *logFile, rec Record) (err 
 	}
 	defer w.Cancel()
 
-	// 2. find the current state of the record. if found, we can just update the expiration and be
+	// 3. find the current state of the record. if found, we can just update the expiration and be
 	// happy. as noted in 1, we're safe to do a lookup into s.tbl here even without the rmu held
 	// because we know no compaction is ongoing due to having a writer acquired, and compaction is
 	// the only thing that does anything other than than add entries to the hash table.
@@ -553,7 +542,7 @@ func (s *Store) reviveRecord(ctx context.Context, lf *logFile, rec Record) (err 
 		return s.addRecord(ctx, tmp)
 	}
 
-	// 3. otherwise, we either had an error looking up the current record, or the entry got fully
+	// 4. otherwise, we either had an error looking up the current record, or the entry got fully
 	// deleted, and the open file handle is the last remaining evidence that it exists, so we have
 	// to rewrite it. note that we purposefully do not close the log reader because after this
 	// function exits, a log reader will be created and returned to the user using the same log
