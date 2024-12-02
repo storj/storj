@@ -5,7 +5,6 @@ package hashstore
 
 import (
 	"context"
-	"encoding/binary"
 	"fmt"
 	"io"
 	"os"
@@ -120,7 +119,6 @@ func TestStore_CreateSameKeyErrors(t *testing.T) {
 }
 
 func TestStore_ReadFromCompactedFile(t *testing.T) {
-	ctx := context.Background()
 	s := newTestStore(t)
 	defer s.Close()
 
@@ -133,7 +131,7 @@ func TestStore_ReadFromCompactedFile(t *testing.T) {
 	key := s.AssertCreate()
 
 	// grab the record for the key so we can compare it to the record after compaction.
-	before, ok, err := s.tbl.Lookup(ctx, key)
+	before, ok, err := s.tbl.Lookup(key)
 	assert.NoError(t, err)
 	assert.True(t, ok)
 
@@ -147,7 +145,7 @@ func TestStore_ReadFromCompactedFile(t *testing.T) {
 	s.AssertCompact(alwaysTrash, time.Time{})
 
 	// ensure that the log file for the record changed and the original log file was compacted.
-	after, ok, err := s.tbl.Lookup(ctx, key)
+	after, ok, err := s.tbl.Lookup(key)
 	assert.NoError(t, err)
 	assert.True(t, ok)
 	assert.That(t, before.Log < after.Log)
@@ -266,7 +264,6 @@ func TestStore_CompactionWithTTLTakesShorterTime(t *testing.T) {
 }
 
 func TestStore_CompactLogFile(t *testing.T) {
-	ctx := context.Background()
 	s := newTestStore(t)
 	defer s.Close()
 
@@ -286,7 +283,7 @@ func TestStore_CompactLogFile(t *testing.T) {
 		key := s.AssertCreate()
 		live = append(live, key)
 
-		rec, ok, err := s.tbl.Lookup(ctx, key)
+		rec, ok, err := s.tbl.Lookup(key)
 		assert.NoError(t, err)
 		assert.True(t, ok)
 		recs = append(recs, rec)
@@ -306,7 +303,7 @@ func TestStore_CompactLogFile(t *testing.T) {
 		s.AssertRead(key)
 		exp := recs[n]
 
-		got, ok, err := s.tbl.Lookup(ctx, key)
+		got, ok, err := s.tbl.Lookup(key)
 		assert.NoError(t, err)
 		assert.True(t, ok)
 
@@ -318,12 +315,11 @@ func TestStore_CompactLogFile(t *testing.T) {
 }
 
 func TestStore_ClumpObjectsByTTL(t *testing.T) {
-	ctx := context.Background()
 	s := newTestStore(t)
 	defer s.Close()
 
 	check := func(key Key, log int) {
-		rec, ok, err := s.tbl.Lookup(ctx, key)
+		rec, ok, err := s.tbl.Lookup(key)
 		assert.NoError(t, err)
 		assert.True(t, ok)
 		assert.Equal(t, rec.Log, log)
@@ -426,30 +422,16 @@ func TestStore_MergeRecordsWhenCompactingWithLostPage(t *testing.T) {
 	s := newTestStore(t)
 	defer s.Close()
 
-	// helper function to create a key that goes into the given page and record index. n is used to
-	// create distinct keys with the same page and record index.
-	createKey := func(pi, ri uint64, n uint8) (k Key) {
-		rng := mwc.Rand()
-		for {
-			binary.BigEndian.PutUint64(k[0:8], rng.Uint64())
-			k[31] = n
-			gpi, gri := s.tbl.pageAndRecordIndexForSlot(s.tbl.slotForKey(&k))
-			if pi == gpi && ri == gri {
-				return k
-			}
-		}
-	}
-
 	// create two keys that collide at the end of the first page.
-	k0 := createKey(0, recordsPerPage-1, 0)
-	k1 := createKey(0, recordsPerPage-1, 1)
+	k0 := newKeyAt(s.tbl, 0, recordsPerPage-1, 0)
+	k1 := newKeyAt(s.tbl, 0, recordsPerPage-1, 1)
 
 	// write k0 and k1 to the store.
 	s.AssertCreateKey(k0, time.Time{})
 	s.AssertCreateKey(k1, time.Time{})
 
 	// create a large key in the third page so that the log file is kept alive.
-	kl := createKey(2, 0, 0)
+	kl := newKeyAt(s.tbl, 2, 0, 0)
 
 	w, err := s.Create(ctx, kl, time.Time{})
 	assert.NoError(t, err)
@@ -471,7 +453,7 @@ func TestStore_MergeRecordsWhenCompactingWithLostPage(t *testing.T) {
 
 	// ensure the only entries in the table are duplicate k1 entries and kl.
 	keys := []Key{k1, k1, kl}
-	s.tbl.Range(ctx, func(rec Record, err error) bool {
+	s.tbl.Range(func(rec Record, err error) bool {
 		assert.NoError(t, err)
 		assert.Equal(t, rec.Key, keys[0])
 		keys = keys[1:]
@@ -794,7 +776,7 @@ func TestStore_LogContainsDataToReconstruct(t *testing.T) {
 
 	// collect all the records in the hash table.
 	var tblRecs []Record
-	s.tbl.Range(ctx, func(rec Record, err error) bool {
+	s.tbl.Range(func(rec Record, err error) bool {
 		assert.NoError(t, err)
 		tblRecs = append(tblRecs, rec)
 		return true
@@ -936,12 +918,11 @@ func TestStore_CompactionExitsEarlyWhenNoModifications(t *testing.T) {
 }
 
 func TestStore_FallbackToNonTTLLogFile(t *testing.T) {
-	ctx := context.Background()
 	s := newTestStore(t)
 	defer s.Close()
 
 	getLog := func(key Key) uint64 {
-		rec, ok, err := s.tbl.Lookup(ctx, key)
+		rec, ok, err := s.tbl.Lookup(key)
 		assert.NoError(t, err)
 		assert.True(t, ok)
 		return rec.Log
@@ -1056,4 +1037,33 @@ func BenchmarkStore(b *testing.B) {
 
 		b.ReportMetric(float64(b.N)/time.Since(now).Seconds(), "pieces/sec")
 	})
+
+	benchmarkLRecs(b, "Compact", func(b *testing.B, lrec uint64) {
+		s := newTestStore(b)
+		defer s.Close()
+
+		for i := uint64(0); i < 1<<lrec; i++ {
+			s.AssertCreate()
+			if s.Load() > 0.5 {
+				s.AssertCompact(nil, time.Time{})
+			}
+		}
+		s.AssertCompact(nil, time.Time{})
+
+		b.ReportAllocs()
+		b.ResetTimer()
+		now := time.Now()
+
+		for i := 0; i < b.N; i++ {
+			var once sync.Once
+			trashOne := func(ctx context.Context, key Key, created time.Time) (trash bool) {
+				once.Do(func() { trash = true })
+				return trash
+			}
+			assert.NoError(b, s.Compact(ctx, trashOne, time.Time{}))
+		}
+
+		b.ReportMetric(float64(b.N*int(1)<<lrec)/time.Since(now).Seconds(), "rec/sec")
+	})
+
 }

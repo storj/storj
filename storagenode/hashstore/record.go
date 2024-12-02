@@ -18,8 +18,20 @@ const (
 	pageSize       = 4096
 	recordsPerPage = pageSize / RecordSize
 
+	bigPageSize       = 256 * pageSize
+	recordsPerBigPage = bigPageSize / RecordSize
+
 	_ uintptr = -(pageSize % RecordSize) // ensure records evenly divide the page size
 )
+
+type bigPage [bigPageSize]byte
+
+func (p *bigPage) readRecord(n uint64, rec *Record) bool {
+	if b := p[(n*RecordSize)%bigPageSize:]; len(b) >= RecordSize {
+		return rec.ReadFrom((*[RecordSize]byte)(b))
+	}
+	return false
+}
 
 type page [pageSize]byte
 

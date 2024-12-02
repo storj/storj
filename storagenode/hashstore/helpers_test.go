@@ -115,7 +115,7 @@ func (th *testHashTbl) AssertReopen() {
 func (th *testHashTbl) AssertInsertRecord(rec Record) {
 	th.t.Helper()
 
-	ok, err := th.Insert(context.Background(), rec)
+	ok, err := th.Insert(rec)
 	assert.NoError(th.t, err)
 	assert.True(th.t, ok)
 }
@@ -131,7 +131,7 @@ func (th *testHashTbl) AssertInsert() Record {
 func (th *testHashTbl) AssertLookup(k Key) Record {
 	th.t.Helper()
 
-	r, ok, err := th.Lookup(context.Background(), k)
+	r, ok, err := th.Lookup(k)
 	assert.NoError(th.t, err)
 	assert.True(th.t, ok)
 	return r
@@ -329,6 +329,18 @@ func newKey() (k Key) {
 	return
 }
 
+func newKeyAt(h *HashTbl, pi uint64, ri uint64, n uint8) (k Key) {
+	rng := mwc.Rand()
+	for {
+		binary.BigEndian.PutUint64(k[0:8], rng.Uint64())
+		k[31] = n
+		gpi, gri := h.pageAndRecordIndexForSlot(h.slotForKey(&k))
+		if pi == gpi && ri == gri {
+			return k
+		}
+	}
+}
+
 func newRecord(k Key) Record {
 	n := binary.BigEndian.Uint32(k[28:32])
 	return Record{
@@ -390,7 +402,7 @@ func benchmarkSizes(b *testing.B, name string, run func(*testing.B, uint64)) {
 
 func benchmarkLRecs(b *testing.B, name string, run func(*testing.B, uint64)) {
 	b.Run(name, func(b *testing.B) {
-		for lrec := uint64(6); lrec < 15; lrec++ {
+		for lrec := uint64(14); lrec < 20; lrec++ {
 			b.Run(fmt.Sprintf("lrec=%d", lrec), func(b *testing.B) { run(b, lrec) })
 		}
 	})
