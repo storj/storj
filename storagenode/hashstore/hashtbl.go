@@ -4,7 +4,6 @@
 package hashstore
 
 import (
-	"context"
 	"encoding/binary"
 	"math/bits"
 	"os"
@@ -231,12 +230,27 @@ func (h *HashTbl) pageAndRecordIndexForSlot(slot uint64) (pageIdx uint64, recIdx
 	return slot / recordsPerPage, slot % recordsPerPage
 }
 
+// bigPageAndRecordIndexForSlot computes the page and record index for the slot'th slot.
+func (h *HashTbl) bigPageAndRecordIndexForSlot(slot uint64) (pageIdx uint64, recIdx uint64) {
+	return slot / recordsPerBigPage, slot % recordsPerBigPage
+}
+
 // readPage reads the page at pageIndex into p.
 func (h *HashTbl) readPage(pageIndex uint64, p *page) error {
 	h.mu.Lock()
 	defer h.mu.Unlock()
 
 	offset := pageSize + int64(pageIndex*pageSize) // add pageSize to skip header page
+	_, err := h.fh.ReadAt(p[:], offset)
+	return Error.Wrap(err)
+}
+
+// readBigPage reads the bigPage at pageIndex into p.
+func (h *HashTbl) readBigPage(pageIndex uint64, p *bigPage) error {
+	h.mu.Lock()
+	defer h.mu.Unlock()
+
+	offset := pageSize + int64(pageIndex*bigPageSize) // add pageSize to skip header page
 	_, err := h.fh.ReadAt(p[:], offset)
 	return Error.Wrap(err)
 }
@@ -324,9 +338,11 @@ func (h *HashTbl) Load() float64 {
 	return float64(h.numSet) / float64(h.numSlots)
 }
 
+var rangeTask = mon.Task()
+
 // Range iterates over the records in hash table order.
-func (h *HashTbl) Range(ctx context.Context, fn func(Record, error) bool) {
-	defer mon.Task()(&ctx)(nil)
+func (h *HashTbl) Range(fn func(Record, error) bool) {
+	defer rangeTask(nil)(nil)
 
 	h.opMu.RLock()
 	defer h.opMu.RUnlock()
@@ -338,14 +354,14 @@ func (h *HashTbl) Range(ctx context.Context, fn func(Record, error) bool) {
 
 	var (
 		tmp           Record
-		cachedPage    page
+		cachedPage    bigPage
 		cachedPageIdx = invalidPage
 	)
 
 	for slot := uint64(0); slot < h.numSlots; slot++ {
-		pageIdx, recIdx := h.pageAndRecordIndexForSlot(slot)
+		pageIdx, recIdx := h.bigPageAndRecordIndexForSlot(slot)
 		if pageIdx != cachedPageIdx {
-			if err := h.readPage(pageIdx, &cachedPage); err != nil {
+			if err := h.readBigPage(pageIdx, &cachedPage); err != nil {
 				fn(Record{}, err)
 				return
 			}
@@ -360,11 +376,13 @@ func (h *HashTbl) Range(ctx context.Context, fn func(Record, error) bool) {
 	}
 }
 
+var insertTask = mon.Task()
+
 // Insert adds a record to the hash table. It returns (true, nil) if the record was inserted, it
 // returns (false, nil) if the hash table is full, and (false, err) if any errors happened trying
 // to insert the record.
-func (h *HashTbl) Insert(ctx context.Context, rec Record) (_ bool, err error) {
-	defer mon.Task()(&ctx)(&err)
+func (h *HashTbl) Insert(rec Record) (_ bool, err error) {
+	defer insertTask(nil)(&err)
 
 	h.opMu.Lock()
 	defer h.opMu.Unlock()
@@ -448,11 +466,13 @@ func (h *HashTbl) Insert(ctx context.Context, rec Record) (_ bool, err error) {
 	return false, nil
 }
 
+var lookupTask = mon.Task()
+
 // Lookup returns the record for the given key if it exists in the hash table. It returns (rec,
 // true, nil) if the record existed, (rec{}, false, nil) if it did not exist, and (rec{}, false,
 // err) if any errors happened trying to look up the record.
-func (h *HashTbl) Lookup(ctx context.Context, key Key) (_ Record, _ bool, err error) {
-	defer mon.Task()(&ctx)(&err)
+func (h *HashTbl) Lookup(key Key) (_ Record, _ bool, err error) {
+	defer lookupTask(nil)(&err)
 
 	h.opMu.RLock()
 	defer h.opMu.RUnlock()

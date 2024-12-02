@@ -338,7 +338,7 @@ func (s *Store) addRecord(ctx context.Context, rec Record) error {
 		return nil
 	}
 
-	ok, err := s.tbl.Insert(ctx, rec)
+	ok, err := s.tbl.Insert(rec)
 	if err != nil {
 		return Error.Wrap(err)
 	} else if !ok {
@@ -460,7 +460,7 @@ func (s *Store) Read(ctx context.Context, key Key) (_ *Reader, err error) {
 	s.rmu.RLock()
 	defer s.rmu.RUnlock()
 
-	if rec, ok, err := s.tbl.Lookup(ctx, key); err != nil {
+	if rec, ok, err := s.tbl.Lookup(key); err != nil {
 		return nil, Error.Wrap(err)
 	} else if !ok {
 		return nil, nil
@@ -533,7 +533,7 @@ func (s *Store) reviveRecord(ctx context.Context, lf *logFile, rec Record) (err 
 	// happy. as noted in 1, we're safe to do a lookup into s.tbl here even without the rmu held
 	// because we know no compaction is ongoing due to having a writer acquired, and compaction is
 	// the only thing that does anything other than than add entries to the hash table.
-	if tmp, ok, err := s.tbl.Lookup(ctx, rec.Key); err == nil && ok {
+	if tmp, ok, err := s.tbl.Lookup(rec.Key); err == nil && ok {
 		if tmp.Expires == 0 {
 			return nil
 		}
@@ -664,7 +664,7 @@ func (s *Store) compactOnce(
 	rerr := error(nil)
 	modifications := false
 
-	s.tbl.Range(ctx, func(rec Record, err error) bool {
+	s.tbl.Range(func(rec Record, err error) bool {
 		rerr = func() error {
 			if err != nil {
 				return Error.Wrap(err)
@@ -772,7 +772,7 @@ func (s *Store) compactOnce(
 
 	// copy all of the entries from the hash table to the new table, skipping expired entries, and
 	// rewriting any entries that are in the log files that we are rewriting.
-	s.tbl.Range(ctx, func(rec Record, err error) bool {
+	s.tbl.Range(func(rec Record, err error) bool {
 		rerr = func() error {
 			if err != nil {
 				return Error.Wrap(err)
@@ -864,7 +864,7 @@ func (s *Store) compactOnce(
 			}
 
 			// insert the record into the new hash table.
-			if ok, err := ntbl.Insert(ctx, rec); err != nil {
+			if ok, err := ntbl.Insert(rec); err != nil {
 				return Error.Wrap(err)
 			} else if !ok {
 				return Error.New("compaction hash table is full")
