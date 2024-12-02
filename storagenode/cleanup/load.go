@@ -10,5 +10,5 @@ import (
 )
 
 func getLoad() (float64, error) {
-	return runtime.NumCPU(), nil
+	return float64(runtime.NumCPU()), nil
 }
