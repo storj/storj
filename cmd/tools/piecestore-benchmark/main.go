@@ -160,7 +160,7 @@ func createEndpoint(ctx context.Context, satIdent, snIdent *identity.FullIdentit
 		spaceReport = monitor.NewSharedDisk(log, piecesStore, cfg.Storage2.Monitor.MinimumDiskSpace.Int64(), 1<<40)
 	}
 
-	monitorService := monitor.NewService(log, piecesStore, contactService, time.Hour, spaceReport, cfg.Storage2.Monitor)
+	monitorService := monitor.NewService(log, piecesStore, contactService, spaceReport, cfg.Storage2.Monitor)
 
 	retainService := retain.NewService(log, piecesStore, cfg.Retain)
 

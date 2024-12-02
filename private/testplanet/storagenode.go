@@ -188,6 +188,7 @@ func (planet *Planet) newStorageNode(ctx context.Context, prefix string, index, 
 				Path:            filepath.Join(storageDir, "orders"),
 			},
 			Monitor: monitor.Config{
+				Interval:                  defaultInterval,
 				MinimumDiskSpace:          100 * memory.MB,
 				NotifyLowDiskCooldown:     defaultInterval,
 				VerifyDirReadableInterval: defaultInterval,

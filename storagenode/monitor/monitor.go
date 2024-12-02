@@ -49,7 +49,7 @@ type DiskSpace struct {
 
 // Config defines parameters for storage node disk and bandwidth usage monitoring.
 type Config struct {
-	Interval                  time.Duration `help:"how frequently Kademlia bucket should be refreshed with node stats" default:"1h0m0s"`
+	Interval                  time.Duration `help:"how frequently to report storage stats to the satellite" default:"1h0m0s"`
 	VerifyDirReadableInterval time.Duration `help:"how frequently to verify the location and readability of the storage directory" releaseDefault:"1m" devDefault:"30s"`
 	VerifyDirWritableInterval time.Duration `help:"how frequently to verify writability of storage directory" releaseDefault:"5m" devDefault:"30s"`
 	VerifyDirReadableTimeout  time.Duration `help:"how long to wait for a storage directory readability verification to complete" releaseDefault:"1m" devDefault:"10s"`
@@ -85,12 +85,12 @@ type Service struct {
 }
 
 // NewService creates a new storage node monitoring service.
-func NewService(log *zap.Logger, verifier DiskVerification, contact *contact.Service, interval time.Duration, spaceReport SpaceReport, config Config) *Service {
+func NewService(log *zap.Logger, verifier DiskVerification, contact *contact.Service, spaceReport SpaceReport, config Config) *Service {
 	return &Service{
 		log:                   log,
 		contact:               contact,
 		cooldown:              sync2.NewCooldown(config.NotifyLowDiskCooldown),
-		Loop:                  sync2.NewCycle(interval),
+		Loop:                  sync2.NewCycle(config.Interval),
 		VerifyDirReadableLoop: sync2.NewCycle(config.VerifyDirReadableInterval),
 		VerifyDirWritableLoop: sync2.NewCycle(config.VerifyDirWritableInterval),
 		Config:                config,

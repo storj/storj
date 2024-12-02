@@ -298,9 +298,7 @@ func Module(ball *mud.Ball) {
 		config.RegisterConfig[monitor.Config](ball, "monitor")
 
 		mud.RegisterInterfaceImplementation[monitor.DiskVerification, *pieces.Store](ball)
-		mud.Provide[*monitor.Service](ball, func(log *zap.Logger, verifier monitor.DiskVerification, oldConfig piecestore.OldConfig, contact *contact.Service, spaceReport monitor.SpaceReport, config monitor.Config) *monitor.Service {
-			return monitor.NewService(log, verifier, contact, oldConfig.KBucketRefreshInterval, spaceReport, config)
-		})
+		mud.Provide[*monitor.Service](ball, monitor.NewService)
 
 		mud.Provide[*retain.Service](ball, retain.NewService)
 		mud.Provide[*retain.RunOnce](ball, retain.NewRunOnce)
