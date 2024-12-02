@@ -123,10 +123,10 @@ pipeline {
                         }
                     }
                 }
-                stage('Storage Node 1.20') {
+                stage('Storage Node 1.20 (Windows)') {
                     steps {
                         sh './scripts/generate-gomod-for-storagenode-go1.20.sh go.mod .build/go.storagenode.mod'
-                        sh 'go.min vet -modfile .build/go.storagenode.mod ./...'
+                        sh 'GOOS=windows GOARCH=amd64 CGO_ENABLED=1 CC="zig cc -target x86_64-windows-gnu" go.min vet -modfile .build/go.storagenode.mod ./...'
                     }
                 }
             }
