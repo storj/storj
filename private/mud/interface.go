@@ -58,6 +58,7 @@ func DisableImplementation[BASE any](ball *Ball) {
 func DisableImplementationOf(c *Component) {
 	c.requirements = []reflect.Type{}
 	AddTagOf[Nullable](c, Nullable{})
+	AddTagOf[Optional](c, Optional{})
 }
 
 // ReplaceDependency replaces the dependency of a component. Can be used to switch to an alternative implementation.
