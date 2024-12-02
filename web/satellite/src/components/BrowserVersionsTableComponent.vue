@@ -83,7 +83,7 @@
                                             <v-icon class="ml-2" :class="{ 'invisible': !isHovering }" :icon="Copy" />
                                         </template>
                                         <template #default>
-                                            <span v-if="mdAndDown">{{ '...' + file.VersionId.slice(-9) }}</span>
+                                            <span v-if="lgAndDown">{{ '...' + file.VersionId.slice(-9) }}</span>
                                             <span v-else>{{ file.VersionId }}</span>
                                         </template>
                                     </v-chip>
@@ -333,7 +333,7 @@ const obStore = useObjectBrowserStore();
 const projectsStore = useProjectsStore();
 const bucketsStore = useBucketsStore();
 
-const { mdAndDown } = useDisplay();
+const { lgAndDown } = useDisplay();
 const notify = useNotify();
 const router = useRouter();
 const { withTrialCheck } = usePreCheck();
