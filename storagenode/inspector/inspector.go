@@ -92,11 +92,10 @@ func (inspector *Endpoint) retrieveStats(ctx context.Context) (_ *internalpb.Sta
 	egress := usage.Get + usage.GetAudit + usage.GetRepair
 
 	totalUsedBandwidth := usage.Total()
-	availableSpace := inspector.pieceStoreConfig.AllocatedDiskSpace.Int64() - report.UsedForPieces
 
 	return &internalpb.StatSummaryResponse{
 		UsedSpace:      report.UsedForPieces,
-		AvailableSpace: availableSpace,
+		AvailableSpace: report.Available,
 		UsedIngress:    ingress,
 		UsedEgress:     egress,
 		UsedBandwidth:  totalUsedBandwidth,
