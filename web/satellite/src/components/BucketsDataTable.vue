@@ -307,16 +307,14 @@ const showRegionTag = computed<boolean>(() => {
 });
 
 /**
- * Whether versioning has been enabled for current project.
+ * Whether versioning is enabled for current project.
  */
-const versioningUIEnabled = computed(() => projectsStore.versioningUIEnabled);
+const versioningUIEnabled = computed(() => configStore.state.config.versioningUIEnabled);
 
 /**
  * Whether object lock is enabled for current project.
  */
-const objectLockUIEnabled = computed<boolean>(() => {
-    return projectsStore.objectLockUIEnabledForProject && configStore.objectLockUIEnabled;
-});
+const objectLockUIEnabled = computed<boolean>(() => configStore.state.config.objectLockUIEnabled);
 
 const isTableSortable = computed<boolean>(() => {
     return page.value.totalCount <= cursor.value.limit;

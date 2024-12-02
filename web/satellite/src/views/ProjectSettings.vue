@@ -132,7 +132,7 @@
             </v-col>
         </v-row>
 
-        <template v-if="promptForVersioningBeta || versioningUIEnabled">
+        <template v-if="versioningUIEnabled">
             <v-row>
                 <v-col>
                     <h3 class="mt-5">Features</h3>
@@ -141,42 +141,32 @@
 
             <v-row>
                 <v-col cols="12" sm="6" lg="4">
-                    <v-card title="Object Versioning (beta)">
-                        <v-card-subtitle v-if="versioningUIEnabled">
+                    <v-card title="Object Versioning">
+                        <v-card-subtitle>
                             Versioning is enabled for this project.
-                        </v-card-subtitle>
-                        <v-card-subtitle v-else>
-                            Enable object versioning on this project.
                         </v-card-subtitle>
 
                         <v-card-text>
                             <v-divider class="mb-4" />
-                            <v-btn v-if="allowVersioningToggle" color="primary" size="small">
-                                Learn More
-                                <versioning-beta-dialog v-model="isVersioningDialogShown" />
-                            </v-btn>
-                            <v-btn v-else-if="versioningUIEnabled" variant="outlined" color="default" size="small" rounded="md">
+                            <v-btn variant="outlined" color="default" size="small" rounded="md">
                                 View Details
-                                <versioning-beta-dialog info />
+                                <versioning-info-dialog v-model="isVersioningDialogShown" />
                             </v-btn>
                         </v-card-text>
                     </v-card>
                 </v-col>
 
-                <v-col v-if="objectLockEnabled" cols="12" sm="6" lg="4">
-                    <v-card title="Object Lock (Beta)">
-                        <v-card-subtitle v-if="objectLockUIEnabledForProject">
-                            Enabled through Object Versioning (beta).
-                        </v-card-subtitle>
-                        <v-card-subtitle v-else>
-                            Versioning is required to use this feature.
+                <v-col v-if="objectLockUIEnabled" cols="12" sm="6" lg="4">
+                    <v-card title="Object Lock">
+                        <v-card-subtitle>
+                            Object Lock is enabled for this project.
                         </v-card-subtitle>
 
                         <v-card-text>
                             <v-divider class="mb-4" />
-                            <v-btn color="default" variant="outlined" size="small" :disabled="!objectLockUIEnabledForProject">
+                            <v-btn color="default" variant="outlined" size="small">
                                 View Details
-                                <lock-beta-dialog />
+                                <object-lock-info-dialog />
                             </v-btn>
                         </v-card-text>
                     </v-card>
@@ -216,7 +206,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed, onMounted, ref, watch } from 'vue';
+import { computed, onMounted, ref } from 'vue';
 import {
     VContainer,
     VCard,
@@ -250,18 +240,17 @@ import EditProjectLimitDialog from '@/components/dialogs/EditProjectLimitDialog.
 import PageTitleComponent from '@/components/PageTitleComponent.vue';
 import PageSubtitleComponent from '@/components/PageSubtitleComponent.vue';
 import TrialExpirationBanner from '@/components/TrialExpirationBanner.vue';
-import VersioningBetaDialog from '@/components/dialogs/VersioningBetaDialog.vue';
+import VersioningInfoDialog from '@/components/dialogs/VersioningInfoDialog.vue';
 import ProjectEncryptionInformationDialog from '@/components/dialogs/ProjectEncryptionInformationDialog.vue';
 import CreateProjectDialog from '@/components/dialogs/CreateProjectDialog.vue';
 import DeleteProjectDialog  from '@/components/dialogs/DeleteProjectDialog.vue';
-import LockBetaDialog from '@/components/dialogs/LockBetaDialog.vue';
+import ObjectLockInfoDialog from '@/components/dialogs/ObjectLockInfoDialog.vue';
 
 const isCreateProjectDialogShown = ref<boolean>(false);
 const isDeleteProjectDialogShown = ref<boolean>(false);
 const isEditDetailsDialogShown = ref<boolean>(false);
 const isEditLimitDialogShown = ref<boolean>(false);
 const isVersioningDialogShown = ref<boolean>(false);
-const allowVersioningToggle = ref<boolean>(false);
 const fieldToChange = ref<FieldToChange>(FieldToChange.Name);
 const limitToChange = ref<LimitToChange>(LimitToChange.Storage);
 
@@ -319,22 +308,15 @@ const isProjectOwnerOrAdmin = computed(() => {
     return isProjectOwner.value || isAdmin;
 });
 
-const promptForVersioningBeta = computed<boolean>(() => projectsStore.promptForVersioningBeta);
+/**
+ * Whether versioning UI is enabled.
+ */
+const versioningUIEnabled = computed(() => configStore.state.config.versioningUIEnabled);
 
 /**
- * Whether versioning has been enabled for current project.
+ * Whether object lock UI is enabled.
  */
-const versioningUIEnabled = computed(() => projectsStore.versioningUIEnabled);
-
-/**
- * Whether object lock has been enabled for current project.
- */
-const objectLockUIEnabledForProject = computed(() => projectsStore.objectLockUIEnabledForProject);
-
-/**
- * whether object lock UI is globally enabled.
- */
-const objectLockEnabled = computed(() => configStore.objectLockUIEnabled);
+const objectLockUIEnabled = computed(() => configStore.state.config.objectLockUIEnabled);
 
 /**
  * whether this project has a satellite managed passphrase.
@@ -484,13 +466,4 @@ onMounted(async () => {
         notify.error(`Error fetching project limits. ${error.message}`, AnalyticsErrorEventSource.PROJECT_SETTINGS_AREA);
     }
 });
-
-watch(() => [projectsStore.promptForVersioningBeta, isVersioningDialogShown.value], (values) => {
-    if (values[0] && !allowVersioningToggle.value) {
-        allowVersioningToggle.value = true;
-    } else if (!values[0] && !values[1] && allowVersioningToggle.value) {
-        // throttle the banner dismissal for the dialog close animation.
-        setTimeout(() => allowVersioningToggle.value = false, 500);
-    }
-}, { immediate: true });
 </script>

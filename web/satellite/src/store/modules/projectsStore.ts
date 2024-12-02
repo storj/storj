@@ -58,17 +58,6 @@ export const useProjectsStore = defineStore('projects', () => {
     const api: ProjectsApi = new ProjectsHttpApi();
 
     const selectedProjectConfig: ComputedRef<ProjectConfig> = computed(() => state.selectedProjectConfig);
-    const versioningUIEnabled: ComputedRef<boolean> = computed(() => selectedProjectConfig.value.versioningUIEnabled);
-
-    /**
-     * This indicates whether a project has object lock enabled for it.
-     * In the background (satellite), it is dependent on whether the object
-     * lock feature is enabled for the satellite (metainfo) and whether
-     * the project has opted in for versioning (versioningUIEnabled).
-     */
-    const objectLockUIEnabledForProject: ComputedRef<boolean> = computed(() => state.selectedProjectConfig.objectLockUIEnabled);
-
-    const promptForVersioningBeta: ComputedRef<boolean> = computed(() => selectedProjectConfig.value.promptForVersioningBeta);
 
     const usersFirstProject = computed<Project>(() => {
         return state.projects.reduce((earliest, current) => {
@@ -228,10 +217,6 @@ export const useProjectsStore = defineStore('projects', () => {
         return state.selectedProjectConfig;
     }
 
-    async function setVersioningOptInStatus(status: 'in' | 'out'): Promise<void> {
-        await api.setVersioningOptInStatus(state.selectedProject.id, status);
-    }
-
     async function updateProjectName(fieldsToUpdate: ProjectFields): Promise<void> {
         await api.update(state.selectedProject.id, {
             name: fieldsToUpdate.name,
@@ -312,10 +297,6 @@ export const useProjectsStore = defineStore('projects', () => {
         await api.respondToInvitation(projectID, response);
     }
 
-    function selectInvitation(invite: ProjectInvitation): void {
-        state.selectedInvitation = invite;
-    }
-
     function clear(): void {
         state.projects = [];
         state.selectedProject = DEFAULT_PROJECT;
@@ -327,18 +308,6 @@ export const useProjectsStore = defineStore('projects', () => {
         state.chartDataBefore = new Date();
         state.invitations = [];
         state.selectedInvitation = DEFAULT_INVITATION;
-    }
-
-    function projectsCount(userID: string): number {
-        let projectsCount = 0;
-
-        state.projects.forEach((project: Project) => {
-            if (project.ownerId === userID) {
-                projectsCount++;
-            }
-        });
-
-        return projectsCount;
     }
 
     const projects = computed(() => {
@@ -354,9 +323,6 @@ export const useProjectsStore = defineStore('projects', () => {
     return {
         state,
         selectedProjectConfig,
-        versioningUIEnabled,
-        objectLockUIEnabledForProject,
-        promptForVersioningBeta,
         usersFirstProject,
         getProjects,
         deleteProject,
@@ -367,7 +333,6 @@ export const useProjectsStore = defineStore('projects', () => {
         selectProject,
         deselectProject,
         getProjectConfig,
-        setVersioningOptInStatus,
         updateProjectName,
         updateProjectDescription,
         updateProjectStorageLimit,
@@ -380,8 +345,6 @@ export const useProjectsStore = defineStore('projects', () => {
         getEmissionImpact,
         getUserInvitations,
         respondToInvitation,
-        selectInvitation,
-        projectsCount,
         clear,
         projects,
         projectsWithoutSelected,

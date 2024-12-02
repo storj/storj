@@ -341,6 +341,7 @@ const stepInfos = {
         validate: (): boolean => {
             return formValid.value;
         },
+        nextText: () => objectLockUIEnabled.value || allowVersioningStep.value ? 'Next' : 'Create Bucket',
         noRef: true,
     }),
     [CreateStep.ObjectLock]: new StepInfo<CreateStep>({
@@ -415,24 +416,20 @@ const defaultRetPeriodResult = computed<string>(() => {
 /**
  * Whether versioning has been enabled for current project.
  */
-const versioningUIEnabled = computed<boolean>(() => {
-    return projectsStore.versioningUIEnabled;
-});
+const versioningUIEnabled = computed<boolean>(() => configStore.state.config.versioningUIEnabled);
 
 /**
  * Whether the versioning step should be shown.
  * Projects with versioning enabled as default should not have this step.
  */
 const allowVersioningStep = computed<boolean>(() => {
-    return versioningUIEnabled.value  && project.value.versioning !== Versioning.Enabled;
+    return versioningUIEnabled.value && project.value.versioning !== Versioning.Enabled;
 });
 
 /**
  * Whether object lock is enabled for current project.
  */
-const objectLockUIEnabled = computed<boolean>(() => {
-    return projectsStore.objectLockUIEnabledForProject && configStore.objectLockUIEnabled;
-});
+const objectLockUIEnabled = computed<boolean>(() => configStore.state.config.objectLockUIEnabled);
 
 const bucketNameRules = computed((): ValidationRule<string>[] => {
     return [

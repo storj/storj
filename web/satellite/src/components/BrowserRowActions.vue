@@ -233,9 +233,7 @@ const bucket = computed<BucketMetadata | undefined>(() => {
  * Whether object lock is enabled for current bucket.
  */
 const objectLockEnabledForBucket = computed<boolean>(() => {
-    return configStore.objectLockUIEnabled
-        && projectsStore.objectLockUIEnabledForProject
-        && !!bucket.value?.objectLockEnabled;
+    return configStore.state.config.objectLockUIEnabled && !!bucket.value?.objectLockEnabled;
 });
 
 /**

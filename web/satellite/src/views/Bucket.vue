@@ -307,8 +307,8 @@ import { ROUTES } from '@/router';
 import { Versioning } from '@/types/versioning';
 import { BucketMetadata } from '@/types/buckets';
 import { usePreCheck } from '@/composables/usePreCheck';
-import { DuplicateUploadError } from '@/utils/error';
 import { useUsersStore } from '@/store/modules/usersStore';
+import { useConfigStore } from '@/store/modules/configStore';
 
 import PageTitleComponent from '@/components/PageTitleComponent.vue';
 import BrowserBreadcrumbsComponent from '@/components/BrowserBreadcrumbsComponent.vue';
@@ -331,6 +331,7 @@ const projectsStore = useProjectsStore();
 const analyticsStore = useAnalyticsStore();
 const appStore = useAppStore();
 const userStore = useUsersStore();
+const configStore = useConfigStore();
 
 const router = useRouter();
 const route = useRoute();
@@ -359,7 +360,7 @@ const duplicateFiles = ref<string[]>([]);
  * Whether versioning has been enabled for current project and allowed for this bucket specifically.
  */
 const versioningUIEnabled = computed(() => {
-    return projectsStore.versioningUIEnabled
+    return configStore.state.config.versioningUIEnabled
       && bucket.value
       && bucket.value.versioning !== Versioning.NotSupported
       && bucket.value.versioning !== Versioning.Unversioned;
@@ -370,7 +371,7 @@ const versioningUIEnabled = computed(() => {
  */
 const ignoreDuplicateUploads = computed<boolean>(() => {
     const duplicateWarningDismissed = !!userStore.state.settings.noticeDismissal?.uploadOverwriteWarning;
-    const versioningEnabled = projectsStore.versioningUIEnabled && bucket.value && bucket.value.versioning === Versioning.Enabled;
+    const versioningEnabled = configStore.state.config.versioningUIEnabled && bucket.value && bucket.value.versioning === Versioning.Enabled;
     return versioningEnabled || duplicateWarningDismissed;
 });
 

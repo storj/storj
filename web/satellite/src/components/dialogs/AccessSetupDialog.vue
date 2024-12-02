@@ -374,10 +374,7 @@ const stepName = computed<string>(() => {
 /**
  * Whether object lock UI is enabled.
  */
-const objectLockUIEnabled = computed<boolean>(() => {
-    return configStore.objectLockUIEnabled
-      && projectsStore.objectLockUIEnabledForProject;
-});
+const objectLockUIEnabled = computed<boolean>(() => configStore.state.config.objectLockUIEnabled);
 
 const stepInfos: Record<SetupStep, StepInfo> = {
     [SetupStep.ChooseAccessStep]: new StepInfo(

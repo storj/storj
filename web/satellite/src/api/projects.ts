@@ -145,41 +145,16 @@ export class ProjectsHttpApi implements ProjectsApi {
         const result = await response.json();
         if (response.ok) {
             return new ProjectConfig(
-                result.versioningUIEnabled,
-                result.promptForVersioningBeta,
                 result.hasManagedPassphrase,
                 result.passphrase ?? '',
                 result.isOwnerPaidTier,
                 result.role,
-                result.objectLockUIEnabled,
             );
         }
 
         throw new APIError({
             status: response.status,
             message: result.error || 'Could not get project config',
-            requestID: response.headers.get('x-request-id'),
-        });
-    }
-
-    /**
-     * Opt in or out of versioning beta.
-     *
-     * @param projectId - the project's ID
-     * @param status - the new opt-in status
-     * @throws Error
-     */
-    public async setVersioningOptInStatus(projectId: string, status: 'in' | 'out'): Promise<void> {
-        const path = `${this.ROOT_PATH}/${projectId}/versioning-opt-${status}`;
-        const response = await this.http.patch(path, null);
-        if (response.ok) {
-            return;
-        }
-
-        const result = await response.json();
-        throw new APIError({
-            status: response.status,
-            message: result.error || `Can not change opt in status`,
             requestID: response.headers.get('x-request-id'),
         });
     }

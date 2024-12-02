@@ -45,15 +45,6 @@ export interface ProjectsApi {
     getConfig(projectId: string): Promise<ProjectConfig>;
 
     /**
-     * Opt in or out of versioning beta.
-     *
-     * @param projectId - the project's ID
-     * @param status - the new opt-in status
-     * @throws Error
-     */
-    setVersioningOptInStatus(projectId: string, status: 'in' | 'out'): Promise<void>;
-
-    /**
      * Update project name and description.
      *
      * @param projectId - project ID
@@ -183,17 +174,10 @@ export class Project {
  */
 export class ProjectConfig {
     public constructor(
-        public versioningUIEnabled: boolean = false,
-        public promptForVersioningBeta: boolean = false,
         public hasManagedPassphrase: boolean = false,
         public passphrase: string = '',
         public isOwnerPaidTier: boolean = false,
         public _role: number = 1,
-        // This indicates whether a project has object lock enabled for it.
-        // In the background (satellite), it is dependent on whether the object
-        // lock feature is enabled for the satellite (metainfo) and whether
-        // the project has opted in for versioning (versioningUIEnabled).
-        public objectLockUIEnabled: boolean = false,
     ) {}
 
     public get role(): ProjectItemRole {

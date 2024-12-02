@@ -72,6 +72,7 @@ type FrontendConfig struct {
 	AltObjBrowserPagingThreshold      int                   `json:"altObjBrowserPagingThreshold"`
 	DomainsPageEnabled                bool                  `json:"domainsPageEnabled"`
 	ActiveSessionsViewEnabled         bool                  `json:"activeSessionsViewEnabled"`
+	VersioningUIEnabled               bool                  `json:"versioningUIEnabled"`
 	ObjectLockUIEnabled               bool                  `json:"objectLockUIEnabled"`
 	ValdiSignUpURL                    string                `json:"valdiSignUpURL"`
 	SsoEnabled                        bool                  `json:"ssoEnabled"`

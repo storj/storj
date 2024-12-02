@@ -22,13 +22,6 @@ export const useConfigStore = defineStore('config', () => {
         return state.config.pricingPackagesEnabled ? RouteConfig.PricingPlanStep : RouteConfig.OverviewStep;
     });
 
-    /**
-     * This is whether the UI for object locking is globally enabled or not.
-     * It is a combination of whether the object lock feature itself is enabled
-     * in metainfo and another flag of the same name console.
-     */
-    const objectLockUIEnabled: ComputedRef<boolean> = computed(() => state.config.objectLockUIEnabled);
-
     async function getConfig(): Promise<FrontendConfig> {
         const result = await configApi.get();
 
@@ -44,7 +37,6 @@ export const useConfigStore = defineStore('config', () => {
     return {
         state,
         firstOnboardingStep,
-        objectLockUIEnabled,
         getConfig,
         getBillingEnabled,
     };

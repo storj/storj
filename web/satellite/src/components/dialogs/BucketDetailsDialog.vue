@@ -113,15 +113,12 @@ const model = defineModel<boolean>({ required: true });
 /**
  * Whether versioning has been enabled for current project.
  */
-const versioningUIEnabled = computed(() => projectsStore.versioningUIEnabled);
+const versioningUIEnabled = computed(() => configStore.state.config.versioningUIEnabled);
 
 /**
  * Whether object lock UI is enabled.
  */
-const objectLockUIEnabled = computed<boolean>(() => {
-    return configStore.objectLockUIEnabled
-      && projectsStore.objectLockUIEnabledForProject;
-});
+const objectLockUIEnabled = computed<boolean>(() => configStore.state.config.objectLockUIEnabled);
 
 const defaultRetentionPeriod = computed(() => {
     const { objectLockEnabled, defaultRetentionDays, defaultRetentionYears } = bucket.value;

@@ -24,7 +24,7 @@
                         </v-sheet>
                     </template>
                     <v-card-title class="font-weight-bold">
-                        Object Lock (Beta)
+                        Object Lock
                     </v-card-title>
                     <template #append>
                         <v-btn
@@ -44,7 +44,7 @@
                 <v-row>
                     <v-col>
                         <p>
-                            Object Lock, enabled through Object Versioning, allows you to lock individual objects from being deleted or overwritten for a specified period of time.
+                            Object Lock allows you to lock individual objects from being deleted or overwritten for a specified period of time.
                         </p>
 
                         <v-expansion-panels static>
@@ -152,7 +152,7 @@ const model = defineModel<boolean>({ default: false });
 
 const docsLink = 'https://storj.dev/dcs/api/s3/object-lock';
 
-function trackGoToDocs() {
+function trackGoToDocs(): void {
     analyticsStore.pageVisit(docsLink, PageVisitSource.DOCS);
     analyticsStore.eventTriggered(AnalyticsEvent.VIEW_DOCS_CLICKED);
 }

@@ -68,6 +68,7 @@ export class FrontendConfig {
     altObjBrowserPagingThreshold: number;
     domainsPageEnabled: boolean;
     activeSessionsViewEnabled: boolean;
+    versioningUIEnabled: boolean;
     objectLockUIEnabled: boolean;
     valdiSignUpURL: string;
     ssoEnabled: boolean;
