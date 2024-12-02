@@ -24,7 +24,6 @@ import (
 	"storj.io/common/rpc/rpcstatus"
 	"storj.io/common/signing"
 	"storj.io/common/storj"
-	"storj.io/common/uuid"
 	"storj.io/eventkit"
 	"storj.io/storj/satellite/accounting"
 	"storj.io/storj/satellite/attribution"
@@ -90,7 +89,7 @@ type Endpoint struct {
 	userInfoCache                  *lrucache.ExpiringLRUOf[*console.UserInfo]
 	encInlineSegmentSize           int64 // max inline segment size + encryption overhead
 	revocations                    revocation.DB
-	config                         ExtendedConfig
+	config                         Config
 	versionCollector               *versionCollector
 	zstdDecoder                    *zstd.Decoder
 	zstdEncoder                    *zstd.Encoder
@@ -111,11 +110,6 @@ func NewEndpoint(log *zap.Logger, buckets *buckets.Service, metabaseDB *metabase
 	config Config, placement nodeselection.PlacementDefinitions) (*Endpoint, error) {
 
 	// TODO do something with too many params
-
-	extendedConfig, err := NewExtendedConfig(config)
-	if err != nil {
-		return nil, err
-	}
 
 	encInlineSegmentSize, err := encryption.CalcEncryptedSize(config.MaxInlineSegmentSize.Int64(), storj.EncryptionParameters{
 		CipherSuite: storj.EncAESGCM,
@@ -174,7 +168,7 @@ func NewEndpoint(log *zap.Logger, buckets *buckets.Service, metabaseDB *metabase
 		}),
 		encInlineSegmentSize: encInlineSegmentSize,
 		revocations:          revocations,
-		config:               extendedConfig,
+		config:               config,
 		versionCollector:     newVersionCollector(log),
 		zstdDecoder:          decoder,
 		zstdEncoder:          encoder,
@@ -226,16 +220,6 @@ func (endpoint *Endpoint) TestSetObjectLockEnabled(enabled bool) {
 // Used for testing.
 func (endpoint *Endpoint) TestSetUseBucketLevelVersioning(enabled bool) {
 	endpoint.config.UseBucketLevelObjectVersioning = enabled
-}
-
-// TestSetUseBucketLevelVersioningByProjectID sets whether bucket-level Object Versioning functionality should be enabled
-// for a specific project. Used for testing.
-func (endpoint *Endpoint) TestSetUseBucketLevelVersioningByProjectID(projectID uuid.UUID, enabled bool) {
-	if !enabled {
-		delete(endpoint.config.useBucketLevelObjectVersioningProjects, projectID)
-		return
-	}
-	endpoint.config.useBucketLevelObjectVersioningProjects[projectID] = struct{}{}
 }
 
 // ProjectInfo returns allowed ProjectInfo for the provided API key.

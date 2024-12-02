@@ -113,7 +113,7 @@ type Config struct {
 	AltObjBrowserPagingThreshold    int           `help:"number of objects triggering simplified native S3 pagination" default:"10000"`
 	DomainsPageEnabled              bool          `help:"whether domains page should be shown" default:"false"`
 	ActiveSessionsViewEnabled       bool          `help:"whether active sessions table view should be shown" default:"false"`
-	ObjectLockUIEnabled             bool          `help:"whether object lock UI should be shown, regardless of whether the feature is enabled" default:"false"`
+	ObjectLockUIEnabled             bool          `help:"whether object lock UI should be shown, regardless of whether the feature is enabled" default:"true"`
 	CunoFSBetaEnabled               bool          `help:"whether prompt to join cunoFS beta is visible" default:"false"`
 
 	OauthCodeExpiry         time.Duration `help:"how long oauth authorization codes are issued for" default:"10m"`
@@ -315,7 +315,6 @@ func NewServer(logger *zap.Logger, config Config, service *console.Service, oidc
 	projectsRouter.Handle("/{id}/invite-link", http.HandlerFunc(projectsController.GetInviteLink)).Methods(http.MethodGet, http.MethodOptions)
 	projectsRouter.Handle("/{id}/emission", http.HandlerFunc(projectsController.GetEmissionImpact)).Methods(http.MethodGet, http.MethodOptions)
 	projectsRouter.Handle("/{id}/config", http.HandlerFunc(projectsController.GetConfig)).Methods(http.MethodGet, http.MethodOptions)
-	projectsRouter.Handle("/{id}/versioning-opt-{status}", http.HandlerFunc(projectsController.OptInToVersioning)).Methods(http.MethodPatch, http.MethodOptions)
 	projectsRouter.Handle("/invitations", http.HandlerFunc(projectsController.GetUserInvitations)).Methods(http.MethodGet, http.MethodOptions)
 	projectsRouter.Handle("/invitations/{id}/respond", http.HandlerFunc(projectsController.RespondToInvitation)).Methods(http.MethodPost, http.MethodOptions)
 

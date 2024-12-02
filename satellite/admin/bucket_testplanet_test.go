@@ -98,12 +98,13 @@ func TestAdminBucketGeofenceAPI(t *testing.T) {
 					require.NoError(t, err)
 
 					expected, err := json.Marshal(buckets.Bucket{
-						ID:        b.ID,
-						Name:      b.Name,
-						ProjectID: testCase.project,
-						Created:   b.Created,
-						CreatedBy: b.CreatedBy,
-						Placement: storj.EU,
+						ID:         b.ID,
+						Name:       b.Name,
+						ProjectID:  testCase.project,
+						Created:    b.Created,
+						CreatedBy:  b.CreatedBy,
+						Placement:  storj.EU,
+						Versioning: buckets.Unversioned,
 					})
 					require.NoError(t, err, "failed to json encode expected bucket")
 

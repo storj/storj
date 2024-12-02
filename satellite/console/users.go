@@ -402,7 +402,6 @@ type NoticeDismissal struct {
 	PartnerUpgradeBanner     bool `json:"partnerUpgradeBanner"`
 	ProjectMembersPassphrase bool `json:"projectMembersPassphrase"`
 	UploadOverwriteWarning   bool `json:"uploadOverwriteWarning"`
-	VersioningBetaBanner     bool `json:"versioningBetaBanner"`
 	CunoFSBetaJoined         bool `json:"cunoFSBetaJoined"`
 }
 

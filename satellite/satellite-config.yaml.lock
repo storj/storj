@@ -452,7 +452,7 @@ compensation.withheld-percents: 75,75,75,50,50,50,25,25,25,0,0,0,0,0,0
 # console.object-browser-key-name-prefix: .storj-web-file-browser-api-key-
 
 # whether object lock UI should be shown, regardless of whether the feature is enabled
-# console.object-lock-ui-enabled: false
+# console.object-lock-ui-enabled: true
 
 # enable open registration
 # console.open-registration-enabled: false
@@ -954,7 +954,7 @@ identity.key-path: /root/.local/share/storj/identity/satellite/identity.key
 # metainfo.node-alias-cache-full-refresh: false
 
 # enable the use of bucket-level Object Lock
-# metainfo.object-lock-enabled: false
+# metainfo.object-lock-enabled: true
 
 # toggle flag if overlay is enabled
 # metainfo.overlay: true
@@ -1011,7 +1011,7 @@ identity.key-path: /root/.local/share/storj/identity/satellite/identity.key
 # metainfo.upload-limiter.single-object-limit: 1s
 
 # enable the use of bucket level object versioning
-# metainfo.use-bucket-level-object-versioning: false
+# metainfo.use-bucket-level-object-versioning: true
 
 # switch to iterator based implementation.
 # metainfo.use-list-objects-iterator: false

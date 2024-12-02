@@ -11,7 +11,6 @@ import (
 
 	"storj.io/common/memory"
 	"storj.io/common/uuid"
-	"storj.io/storj/satellite/console"
 	"storj.io/storj/satellite/metabase"
 	"storj.io/storj/satellite/nodeselection"
 	"storj.io/uplink/private/eestream"
@@ -200,11 +199,9 @@ type Config struct {
 
 	NodeAliasCacheFullRefresh bool `help:"node alias cache does a full refresh when a value is missing" default:"false"`
 
-	UseBucketLevelObjectVersioning bool `help:"enable the use of bucket level object versioning" default:"false"`
-	// flag to simplify testing by enabling bucket level versioning feature only for specific projects
-	UseBucketLevelObjectVersioningProjects []string `help:"list of projects which will have UseBucketLevelObjectVersioning feature flag enabled" default:"" hidden:"true"`
+	UseBucketLevelObjectVersioning bool `help:"enable the use of bucket level object versioning" default:"true"`
 
-	ObjectLockEnabled bool `help:"enable the use of bucket-level Object Lock" default:"false"`
+	ObjectLockEnabled bool `help:"enable the use of bucket-level Object Lock" default:"true"`
 
 	UserInfoValidation UserInfoValidationConfig `help:"Config for user info validation"`
 
@@ -228,60 +225,6 @@ func (c Config) Metabase(applicationName string) metabase.Config {
 		TestingPrecommitDeleteMode: metabase.TestingPrecommitDeleteMode(c.TestingPrecommitDeleteMode),
 		TestingSpannerProjects:     c.TestingSpannerProjects,
 	}
-}
-
-// ExtendedConfig extended config keeps additional helper fields and methods around Config.
-type ExtendedConfig struct {
-	Config
-
-	useBucketLevelObjectVersioningProjects map[uuid.UUID]struct{}
-}
-
-// NewExtendedConfig creates new instance of extended config.
-func NewExtendedConfig(config Config) (_ ExtendedConfig, err error) {
-	extendedConfig := ExtendedConfig{
-		Config:                                 config,
-		useBucketLevelObjectVersioningProjects: make(map[uuid.UUID]struct{}),
-	}
-	for _, projectIDString := range config.UseBucketLevelObjectVersioningProjects {
-		projectID, err := uuid.FromString(projectIDString)
-		if err != nil {
-			return ExtendedConfig{}, err
-		}
-		extendedConfig.useBucketLevelObjectVersioningProjects[projectID] = struct{}{}
-	}
-
-	return extendedConfig, nil
-}
-
-// UseBucketLevelObjectVersioningByProject checks if UseBucketLevelObjectVersioning should be enabled for specific project.
-func (ec ExtendedConfig) UseBucketLevelObjectVersioningByProject(project *console.Project) bool {
-	// if its globally enabled don't look at projects
-	if !ec.UseBucketLevelObjectVersioning {
-		if _, ok := ec.useBucketLevelObjectVersioningProjects[project.ID]; ok {
-			return true
-		}
-		// account for whether the project has opted in to versioning beta
-		if !project.PromptedForVersioningBeta {
-			return false
-		} else if project.PromptedForVersioningBeta && project.DefaultVersioning != console.VersioningUnsupported {
-			return true
-		} else {
-			return false
-		}
-	}
-
-	return true
-}
-
-// ObjectLockEnabledByProject checks if bucket-level Object Lock functionality
-// should be enabled for a specific project.
-func (ec ExtendedConfig) ObjectLockEnabledByProject(project *console.Project) bool {
-	// if its globally enabled don't look at projects
-	if !ec.ObjectLockEnabled {
-		return false
-	}
-	return ec.UseBucketLevelObjectVersioningByProject(project)
 }
 
 // UUIDsFlag is a configuration struct that keeps info about project IDs

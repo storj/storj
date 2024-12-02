@@ -167,7 +167,6 @@ func TestAuth(t *testing.T) {
 				PartnerUpgradeBanner:     false,
 				ProjectMembersPassphrase: false,
 				UploadOverwriteWarning:   false,
-				VersioningBetaBanner:     false,
 			}
 
 			testGetSettings(expectedSettings{
@@ -186,7 +185,6 @@ func TestAuth(t *testing.T) {
 			noticeDismissal.PartnerUpgradeBanner = true
 			noticeDismissal.ProjectMembersPassphrase = true
 			noticeDismissal.UploadOverwriteWarning = true
-			noticeDismissal.VersioningBetaBanner = true
 			resp, _ := test.request(http.MethodPatch, "/auth/account/settings",
 				test.toJSON(map[string]interface{}{
 					"sessionDuration":  duration,
@@ -200,7 +198,6 @@ func TestAuth(t *testing.T) {
 						"partnerUpgradeBanner":     noticeDismissal.PartnerUpgradeBanner,
 						"projectMembersPassphrase": noticeDismissal.ProjectMembersPassphrase,
 						"uploadOverwriteWarning":   noticeDismissal.UploadOverwriteWarning,
-						"versioningBetaBanner":     noticeDismissal.VersioningBetaBanner,
 					},
 				}))
 
@@ -612,31 +609,6 @@ func TestProjects(t *testing.T) {
 					"name": "new name",
 				}))
 			require.Equal(t, http.StatusOK, resp.StatusCode)
-		}
-
-		{ // Versioning_Opt_In
-			projectID, err := uuid.FromString(test.defaultProjectID())
-			require.NoError(t, err)
-
-			checkVersioning := func(prompted bool, versioning console.DefaultVersioning) {
-				project, err := planet.Satellites[0].DB.Console().Projects().Get(ctx, projectID)
-				require.NoError(t, err)
-
-				require.Equal(t, prompted, project.PromptedForVersioningBeta)
-				require.Equal(t, versioning, project.DefaultVersioning)
-			}
-
-			checkVersioning(false, console.Unversioned)
-
-			resp, _ := test.request(http.MethodPatch, fmt.Sprintf("/projects/%s/versioning-opt-out", projectID), nil)
-			require.Equal(t, http.StatusOK, resp.StatusCode)
-
-			checkVersioning(true, console.VersioningUnsupported)
-
-			resp, _ = test.request(http.MethodPatch, fmt.Sprintf("/projects/%s/versioning-opt-in", projectID), nil)
-			require.Equal(t, http.StatusOK, resp.StatusCode)
-
-			checkVersioning(true, console.Unversioned)
 		}
 	})
 }

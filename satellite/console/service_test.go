@@ -1401,13 +1401,7 @@ func TestService(t *testing.T) {
 				pr, err := sat.AddProject(userCtx1, up1Proj.OwnerID, "config test")
 				require.NoError(t, err)
 				require.NotNil(t, pr)
-				require.False(t, pr.PromptedForVersioningBeta)
 				require.Equal(t, pr.DefaultVersioning, console.Unversioned)
-
-				versioningConfig := console.ObjectLockAndVersioningConfig{
-					UseBucketLevelObjectVersioning: true,
-				}
-				require.NoError(t, service.TestSetObjectLockAndVersioningConfig(versioningConfig))
 
 				// Getting project config as a non-member should not work
 				config, err := service.GetProjectConfig(userCtx2, pr.ID)
@@ -1420,9 +1414,6 @@ func TestService(t *testing.T) {
 				require.NotNil(t, config)
 				require.True(t, config.IsOwnerPaidTier)
 				require.Equal(t, console.RoleAdmin, config.Role)
-				require.False(t, config.ObjectLockUIEnabled)
-				// versioning enabled for all projects
-				require.True(t, config.VersioningUIEnabled)
 
 				// add userCtx2 as member
 				member, err := service.GetUser(ctx, up2Proj.OwnerID)
@@ -1437,115 +1428,6 @@ func TestService(t *testing.T) {
 				require.Equal(t, console.RoleMember, config.Role)
 				// member is not paid tier, but project owner is.
 				require.True(t, config.IsOwnerPaidTier)
-
-				// disable for all projects
-				versioningConfig.UseBucketLevelObjectVersioning = false
-				// add project to closed beta
-				versioningConfig.UseBucketLevelObjectVersioningProjects = []string{pr.ID.String()}
-				require.NoError(t, service.TestSetObjectLockAndVersioningConfig(versioningConfig))
-
-				config, err = service.GetProjectConfig(userCtx1, pr.ID)
-				require.NoError(t, err)
-				require.NotNil(t, config)
-				require.False(t, config.ObjectLockUIEnabled)
-				// versioning disabled for all projects but this is true
-				// because project is in closed beta.
-				require.True(t, config.VersioningUIEnabled)
-				require.False(t, config.PromptForVersioningBeta)
-
-				// disable closed beta
-				versioningConfig.UseBucketLevelObjectVersioningProjects = []string{}
-				require.NoError(t, service.TestSetObjectLockAndVersioningConfig(versioningConfig))
-
-				require.False(t, pr.PromptedForVersioningBeta)
-				require.Equal(t, pr.DefaultVersioning, console.Unversioned)
-
-				config, err = service.GetProjectConfig(userCtx1, pr.ID)
-				require.NoError(t, err)
-				require.NotNil(t, config)
-				require.False(t, config.ObjectLockUIEnabled)
-				// 1. versioning disabled for all projects.
-				// 2. project is not in closed beta
-				// 3. project owner has not being prompted for versioning opt in
-				require.False(t, config.VersioningUIEnabled)
-				require.True(t, config.PromptForVersioningBeta)
-
-				config, err = service.GetProjectConfig(userCtx2, pr.ID)
-				require.NoError(t, err)
-				require.False(t, config.ObjectLockUIEnabled)
-				// member will not be prompted for versioning opt in
-				require.False(t, config.PromptForVersioningBeta)
-
-				pr.PromptedForVersioningBeta = true
-				err = sat.DB.Console().Projects().Update(userCtx1, pr)
-				require.NoError(t, err)
-
-				config, err = service.GetProjectConfig(userCtx1, pr.ID)
-				require.NoError(t, err)
-				require.NotNil(t, config)
-				require.False(t, config.ObjectLockUIEnabled)
-				// 1. user prompted for versioning opt in
-				// 2. project default versioning is unversioned (user has opted project in)
-				require.True(t, config.VersioningUIEnabled)
-				require.False(t, config.PromptForVersioningBeta)
-
-				pr.PromptedForVersioningBeta = false
-				err = sat.DB.Console().Projects().Update(userCtx1, pr)
-				require.NoError(t, err)
-
-				// opt out
-				// UpdateVersioningOptInStatus sets pr.PromptedForVersioningBeta to true
-				require.NoError(t, service.UpdateVersioningOptInStatus(userCtx1, pr.ID, console.VersioningOptOut))
-
-				config, err = service.GetProjectConfig(userCtx1, pr.ID)
-				require.NoError(t, err)
-				require.NotNil(t, config)
-				require.False(t, config.ObjectLockUIEnabled)
-				// 1. user prompted for versioning opt in
-				// 2. project default versioning is VersioningUnsupported (user has opted project out)
-				require.False(t, config.VersioningUIEnabled)
-				require.False(t, config.PromptForVersioningBeta)
-
-				versioningConfig.UseBucketLevelObjectVersioning = true
-				versioningConfig.ObjectLockEnabled = true
-				require.NoError(t, service.TestSetObjectLockAndVersioningConfig(versioningConfig))
-
-				config, err = service.GetProjectConfig(userCtx1, pr.ID)
-				require.NoError(t, err)
-				require.True(t, config.ObjectLockUIEnabled)
-
-				versioningConfig.UseBucketLevelObjectVersioning = false
-				require.NoError(t, service.TestSetObjectLockAndVersioningConfig(versioningConfig))
-
-				config, err = service.GetProjectConfig(userCtx1, pr.ID)
-				require.NoError(t, err)
-				// object lock is enabled but versioning is disabled
-				// so the UI should be disabled as object lock requires versioning.
-				require.False(t, config.ObjectLockUIEnabled)
-
-				versioningConfig.UseBucketLevelObjectVersioning = true
-				require.NoError(t, service.TestSetObjectLockAndVersioningConfig(versioningConfig))
-
-				versioningConfig.ObjectLockEnabled = false
-				require.NoError(t, service.TestSetObjectLockAndVersioningConfig(versioningConfig))
-
-				config, err = service.GetProjectConfig(userCtx1, pr.ID)
-				require.NoError(t, err)
-				require.False(t, config.ObjectLockUIEnabled)
-
-				versioningConfig.ObjectLockEnabled = true
-				require.NoError(t, service.TestSetObjectLockAndVersioningConfig(versioningConfig))
-
-				config, err = service.GetProjectConfig(userCtx1, pr.ID)
-				require.NoError(t, err)
-				require.True(t, config.ObjectLockUIEnabled)
-
-				versioningConfig.ObjectLockEnabled = false
-				require.NoError(t, service.TestSetObjectLockAndVersioningConfig(versioningConfig))
-
-				config, err = service.GetProjectConfig(userCtx1, pr.ID)
-				require.NoError(t, err)
-				require.False(t, config.ObjectLockUIEnabled)
 
 				_, err = service.GetProjectConfig(userCtx1, disabledProject.ID)
 				require.True(t, console.ErrUnauthorized.Has(err))
@@ -3345,7 +3227,6 @@ func TestUserSettings(t *testing.T) {
 			PartnerUpgradeBanner:     false,
 			ProjectMembersPassphrase: false,
 			UploadOverwriteWarning:   false,
-			VersioningBetaBanner:     false,
 		}
 		require.Equal(t, noticeDismissal, settings.NoticeDismissal)
 
@@ -3378,7 +3259,6 @@ func TestUserSettings(t *testing.T) {
 		noticeDismissal.PartnerUpgradeBanner = true
 		noticeDismissal.ProjectMembersPassphrase = true
 		noticeDismissal.UploadOverwriteWarning = true
-		noticeDismissal.VersioningBetaBanner = true
 		settings, err = srv.SetUserSettings(userCtx, console.UpsertUserSettingsRequest{
 			SessionDuration: &sessionDurPtr,
 			OnboardingStart: &onboardingBool,

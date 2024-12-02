@@ -153,12 +153,11 @@ type Project struct {
 	RateLimitDelete  *int `json:"rateLimitDelete,omitempty"`
 	BurstLimitDelete *int `json:"burstLimitDelete,omitempty"`
 
-	DefaultPlacement          storj.PlacementConstraint `json:"defaultPlacement"`
-	DefaultVersioning         DefaultVersioning         `json:"defaultVersioning"`
-	PromptedForVersioningBeta bool                      `json:"-"`
-	PassphraseEnc             []byte                    `json:"-"`
-	PassphraseEncKeyID        *int                      `json:"-"`
-	PathEncryption            *bool                     `json:"-"`
+	DefaultPlacement   storj.PlacementConstraint `json:"defaultPlacement"`
+	DefaultVersioning  DefaultVersioning         `json:"defaultVersioning"`
+	PassphraseEnc      []byte                    `json:"-"`
+	PassphraseEncKeyID *int                      `json:"-"`
+	PathEncryption     *bool                     `json:"-"`
 }
 
 // ProjectStatus - is used to indicate status of the user's project.
@@ -261,9 +260,6 @@ type LimitRequestInfo struct {
 
 // ProjectConfig holds config for available "features" for a project.
 type ProjectConfig struct {
-	VersioningUIEnabled     bool `json:"versioningUIEnabled"`
-	ObjectLockUIEnabled     bool `json:"objectLockUIEnabled"`
-	PromptForVersioningBeta bool `json:"promptForVersioningBeta"`
 	// HasManagedPassphrase is a failsafe to prevent user-managed-encryption behavior in the UI if
 	// managed encryption is enabled for a project, but the satellite is unable to decrypt the passphrase.
 	HasManagedPassphrase bool              `json:"hasManagedPassphrase"`

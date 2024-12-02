@@ -992,21 +992,6 @@ func TestCreateBucketWithObjectLockEnabled(t *testing.T) {
 
 			_, err = endpoint.CreateBucket(ctx, req)
 			rpctest.RequireCode(t, err, rpcstatus.ObjectLockDisabledForProject)
-
-			endpoint.TestSetUseBucketLevelVersioningByProjectID(project.ID, true)
-
-			_, err = endpoint.CreateBucket(ctx, req)
-			require.NoError(t, err)
-
-			endpoint.TestSetUseBucketLevelVersioningByProjectID(project.ID, false)
-
-			req.Name = []byte(testrand.BucketName())
-			_, err = endpoint.CreateBucket(ctx, req)
-			rpctest.RequireCode(t, err, rpcstatus.ObjectLockDisabledForProject)
-
-			require.NoError(t, sat.API.Console.Service.UpdateVersioningOptInStatus(userCtx, project.ID, console.VersioningOptIn))
-			_, err = endpoint.CreateBucket(ctx, req)
-			require.NoError(t, err)
 		})
 	})
 }

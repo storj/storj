@@ -134,13 +134,8 @@ func (endpoint *Endpoint) SetBucketVersioning(ctx context.Context, req *pb.SetBu
 	}
 	endpoint.usageTracking(keyInfo, req.Header, fmt.Sprintf("%T", req))
 
-	project, err := endpoint.projects.Get(ctx, keyInfo.ProjectID)
-	if err != nil {
-		return nil, err
-	}
-
-	if !endpoint.config.UseBucketLevelObjectVersioningByProject(project) {
-		return nil, rpcstatus.Error(rpcstatus.PermissionDenied, "versioning not allowed for this project")
+	if !endpoint.config.UseBucketLevelObjectVersioning {
+		return nil, rpcstatus.Error(rpcstatus.PermissionDenied, "versioning not allowed")
 	}
 	if req.Versioning {
 		err = endpoint.buckets.EnableBucketVersioning(ctx, req.GetName(), keyInfo.ProjectID)
@@ -208,7 +203,7 @@ func (endpoint *Endpoint) CreateBucket(ctx context.Context, req *pb.BucketCreate
 		return nil, rpcstatus.Error(rpcstatus.NotFound, "no such project")
 	}
 
-	if req.ObjectLockEnabled && !endpoint.config.ObjectLockEnabledByProject(project) {
+	if req.ObjectLockEnabled && !(endpoint.config.UseBucketLevelObjectVersioning && endpoint.config.ObjectLockEnabled) {
 		return nil, rpcstatus.Error(rpcstatus.ObjectLockDisabledForProject, projectNoLockErrMsg)
 	}
 
@@ -254,7 +249,7 @@ func (endpoint *Endpoint) CreateBucket(ctx context.Context, req *pb.BucketCreate
 		}
 	}
 
-	if endpoint.config.UseBucketLevelObjectVersioningByProject(project) {
+	if endpoint.config.UseBucketLevelObjectVersioning {
 		if bucketReq.ObjectLock.Enabled {
 			bucketReq.Versioning = buckets.VersioningEnabled
 		} else {

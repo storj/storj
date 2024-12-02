@@ -93,16 +93,6 @@ const (
 	accountActionWrongStepOrderErrMsg    = "Wrong step order. Please restart the flow"
 )
 
-// VersioningOptInStatus is a type for versioning beta opt in status.
-type VersioningOptInStatus string
-
-const (
-	// VersioningOptIn is a status for opting in.
-	VersioningOptIn VersioningOptInStatus = "in"
-	// VersioningOptOut is a status for opting out.
-	VersioningOptOut VersioningOptInStatus = "out"
-)
-
 var (
 	// Error describes internal console error.
 	Error = errs.Class("console service")
@@ -303,15 +293,6 @@ func NewService(log *zap.Logger, store DB, restKeys RESTKeys, projectAccounting 
 	partners := make(map[string]struct{}, len(config.VarPartners))
 	for _, partner := range config.VarPartners {
 		partners[partner] = struct{}{}
-	}
-
-	objectLockAndVersioningConfig.projectMap = make(map[uuid.UUID]struct{}, len(objectLockAndVersioningConfig.UseBucketLevelObjectVersioningProjects))
-	for _, id := range objectLockAndVersioningConfig.UseBucketLevelObjectVersioningProjects {
-		projectID, err := uuid.FromString(id)
-		if err != nil {
-			return nil, Error.Wrap(err)
-		}
-		objectLockAndVersioningConfig.projectMap[projectID] = struct{}{}
 	}
 
 	paymentSourceChainIDs := make(map[int64]string)
@@ -3032,45 +3013,17 @@ func (s *Service) GetProjectConfig(ctx context.Context, projectID uuid.UUID) (*P
 		s.analytics.TrackManagedEncryptionError(user.ID, user.Email, project.ID, "kms service not enabled on satellite")
 	}
 
-	versioningUIEnabled, promptForVersioningBeta := s.GetObjectVersioningUIEnabledByProject(project)
 	return &ProjectConfig{
-		VersioningUIEnabled:     versioningUIEnabled,
-		ObjectLockUIEnabled:     s.objectLockAndVersioningConfig.ObjectLockEnabled && versioningUIEnabled,
-		PromptForVersioningBeta: promptForVersioningBeta && project.OwnerID == user.ID,
-		HasManagedPassphrase:    hasManagedPassphrase,
-		Passphrase:              string(passphrase),
-		IsOwnerPaidTier:         isOwnerPaidTier,
-		Role:                    isMember.membership.Role,
+		HasManagedPassphrase: hasManagedPassphrase,
+		Passphrase:           string(passphrase),
+		IsOwnerPaidTier:      isOwnerPaidTier,
+		Role:                 isMember.membership.Role,
 	}, nil
 }
 
-// GetObjectLockUIEnabledByProject returns whether object lock is enabled for the project.
-func (s *Service) GetObjectLockUIEnabledByProject(project *Project) bool {
-	if !s.objectLockAndVersioningConfig.ObjectLockEnabled {
-		return false
-	}
-	versioningEnabled, _ := s.GetObjectVersioningUIEnabledByProject(project)
-	return versioningEnabled
-}
-
-// GetObjectVersioningUIEnabledByProject returns whether object versioning is enabled for the project.
-func (s *Service) GetObjectVersioningUIEnabledByProject(project *Project) (versioningUIEnabled bool, promptForVersioningBeta bool) {
-	versioningUIEnabled = true
-	promptForVersioningBeta = false
-	if !s.objectLockAndVersioningConfig.UseBucketLevelObjectVersioning {
-		if _, ok := s.objectLockAndVersioningConfig.projectMap[project.ID]; !ok {
-			if !project.PromptedForVersioningBeta {
-				promptForVersioningBeta = true
-				versioningUIEnabled = false
-			} else if project.PromptedForVersioningBeta && project.DefaultVersioning != VersioningUnsupported {
-				versioningUIEnabled = true
-			} else {
-				versioningUIEnabled = false
-			}
-		}
-	}
-
-	return versioningUIEnabled, promptForVersioningBeta
+// GetObjectLockUIEnabled returns whether object lock is enabled.
+func (s *Service) GetObjectLockUIEnabled() bool {
+	return s.objectLockAndVersioningConfig.UseBucketLevelObjectVersioning && s.objectLockAndVersioningConfig.ObjectLockEnabled
 }
 
 // GetUsersProjects is a method for querying all projects.
@@ -3567,38 +3520,6 @@ func (s *Service) validateLimits(ctx context.Context, project *Project, updatedL
 	}
 
 	return nil
-}
-
-// UpdateVersioningOptInStatus updates the default versioning of a project.
-// It is intended to be used to opt projects into versioning beta i.e.:
-// console.VersioningUnsupported = opt out
-// console.Unversioned or console.VersioningEnabled = opt in.
-func (s *Service) UpdateVersioningOptInStatus(ctx context.Context, projectID uuid.UUID, optInStatus VersioningOptInStatus) error {
-	var err error
-	defer mon.Task()(&ctx)(&err)
-
-	user, err := s.getUserAndAuditLog(ctx, "update versioning opt-in status", zap.String("projectID", projectID.String()))
-	if err != nil {
-		return Error.Wrap(err)
-	}
-
-	_, project, err := s.isProjectOwner(ctx, user.ID, projectID)
-	if err != nil {
-		return Error.Wrap(err)
-	}
-
-	project.PromptedForVersioningBeta = true
-	err = s.store.Projects().Update(ctx, project)
-	if err != nil {
-		return Error.Wrap(err)
-	}
-
-	versioning := VersioningUnsupported
-	if optInStatus == VersioningOptIn {
-		versioning = Unversioned
-	}
-
-	return Error.Wrap(s.store.Projects().UpdateDefaultVersioning(ctx, project.ID, versioning))
 }
 
 // RequestLimitIncrease is a method for requesting limit increase for a project.
@@ -5964,22 +5885,6 @@ func (s *Service) ParseInviteToken(ctx context.Context, token string) (publicID 
 	}
 
 	return claims.ID, claims.Email, nil
-}
-
-// TestSetObjectLockAndVersioningConfig allows tests to switch the versioning config.
-func (s *Service) TestSetObjectLockAndVersioningConfig(config ObjectLockAndVersioningConfig) error {
-	config.projectMap = make(map[uuid.UUID]struct{}, len(config.UseBucketLevelObjectVersioningProjects))
-	for _, id := range config.UseBucketLevelObjectVersioningProjects {
-		projectID, err := uuid.FromString(id)
-		if err != nil {
-			return Error.Wrap(err)
-		}
-		config.projectMap[projectID] = struct{}{}
-	}
-
-	s.objectLockAndVersioningConfig = config
-
-	return nil
 }
 
 // TestSetNow allows tests to have the Service act as if the current time is whatever they want.

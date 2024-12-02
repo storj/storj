@@ -10,7 +10,6 @@ import (
 	"github.com/spf13/pflag"
 
 	"storj.io/common/storj"
-	"storj.io/common/uuid"
 )
 
 // Config keeps track of core console service configuration parameters.
@@ -86,10 +85,8 @@ type SessionConfig struct {
 
 // ObjectLockAndVersioningConfig contains configurations for object versioning.
 type ObjectLockAndVersioningConfig struct {
-	ObjectLockEnabled                      bool
-	UseBucketLevelObjectVersioning         bool
-	UseBucketLevelObjectVersioningProjects []string
-	projectMap                             map[uuid.UUID]struct{}
+	ObjectLockEnabled              bool
+	UseBucketLevelObjectVersioning bool
 }
 
 // EdgeURLOverrides contains edge service URL overrides.
