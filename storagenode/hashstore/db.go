@@ -420,15 +420,18 @@ func (d *DB) checkBackgroundCompactions() {
 		return
 	}
 
-	// compact the passive store if it needs it.
-	if shouldCompact(d.passive) {
+	// compact the active store if it needs it. we do this first in case the passive store has
+	// nothing to compact but is old enough to flag that it should be attempted. in that case, we'll
+	// spin doing nothing compacting the passive store forever and never attempt to compact the
+	// active store, defeating the point of background compactions.
+	if shouldCompact(d.active) {
+		d.active, d.passive = d.passive, d.active
 		d.beginPassiveCompaction()
 		return
 	}
 
-	// compact the active store if it needs it.
-	if shouldCompact(d.active) {
-		d.active, d.passive = d.passive, d.active
+	// compact the passive store if it needs it.
+	if shouldCompact(d.passive) {
 		d.beginPassiveCompaction()
 		return
 	}
