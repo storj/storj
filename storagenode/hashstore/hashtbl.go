@@ -15,7 +15,7 @@ import (
 	"storj.io/drpc/drpcsignal"
 )
 
-const invalidPage = ^uint64(0)
+const invalidPage = 1<<64 - 1
 
 type hashtblHeader struct {
 	created uint32 // when the hashtbl was created
@@ -26,14 +26,16 @@ type hashtblHeader struct {
 type HashTbl struct {
 	fh       *os.File      // file handle backing the hashtbl
 	logSlots uint64        // log_2 of the maximum number of slots
-	numSlots uint64        // 1 << logSlots, the actual maximum number of slots
-	slotMask uint64        // numSlots - 1, a bit mask for the maximum number of slots
+	numSlots slotIdxT      // 1 << logSlots, the actual maximum number of slots
+	slotMask slotIdxT      // numSlots - 1, a bit mask for the maximum number of slots
 	header   hashtblHeader // header information
 
 	closed drpcsignal.Signal // closed state
 	cloMu  sync.Mutex        // synchronizes closing
 
 	opMu sync.RWMutex // protects operations
+
+	buffer *rwBigPageCache // buffer for inserts
 
 	mu       sync.Mutex // protects the following fields
 	numSet   uint64     // estimated number of set records
@@ -44,6 +46,24 @@ type HashTbl struct {
 
 // hashtblSize returns the size in bytes of the hashtbl given an logSlots.
 func hashtblSize(logSlots uint64) uint64 { return pageSize + 1<<logSlots*RecordSize }
+
+type (
+	slotIdxT    uint64 // index of a slot in the hashtbl
+	pageIdxT    uint64 // index of a page in the hashtbl
+	bigPageIdxT uint64 // index of a bigPage in the hashtbl
+)
+
+func (s slotIdxT) PageIndexes() (pageIdxT, uint64) {
+	return pageIdxT(s / recordsPerPage), uint64(s % recordsPerPage)
+}
+
+func (s slotIdxT) BigPageIndexes() (bigPageIdxT, uint64) {
+	return bigPageIdxT(s / recordsPerBigPage), uint64(s % recordsPerBigPage)
+}
+
+func (s slotIdxT) Offset() int64    { return pageSize + int64(s*RecordSize) }
+func (p pageIdxT) Offset() int64    { return pageSize + int64(p*pageSize) }
+func (p bigPageIdxT) Offset() int64 { return pageSize + int64(p*bigPageSize) }
 
 // CreateHashtbl allocates a new hash table with the given log base 2 number of records and created
 // timestamp. The file is truncated and allocated to the correct size.
@@ -149,8 +169,8 @@ func (h *HashTbl) Stats() HashTblStats {
 		LenTrash: h.lenTrash,
 		AvgTrash: safeDivide(float64(h.lenTrash), float64(h.numTrash)),
 
-		NumSlots:  h.numSlots,
-		TableSize: pageSize + h.numSlots*RecordSize,
+		NumSlots:  uint64(h.numSlots),
+		TableSize: hashtblSize(h.logSlots),
 		Load:      safeDivide(float64(h.numSet), float64(h.numSlots)),
 
 		Created: h.header.created,
@@ -216,7 +236,7 @@ func readHashtblHeader(fh *os.File) (header hashtblHeader, err error) {
 }
 
 // slotForKey computes the slot for the given key.
-func (h *HashTbl) slotForKey(k *Key) uint64 {
+func (h *HashTbl) slotForKey(k *Key) slotIdxT {
 	var v uint64
 	if h.header.hashKey {
 		v = xxh3.Hash(k[:])
@@ -224,51 +244,7 @@ func (h *HashTbl) slotForKey(k *Key) uint64 {
 		v = binary.BigEndian.Uint64(k[0:8])
 	}
 	s := (64 - h.logSlots) % 64
-	return (v >> s) & h.slotMask
-}
-
-// pageAndRecordIndexForSlot computes the page and record index for the slot'th slot.
-func (h *HashTbl) pageAndRecordIndexForSlot(slot uint64) (pageIdx uint64, recIdx uint64) {
-	return slot / recordsPerPage, slot % recordsPerPage
-}
-
-// bigPageAndRecordIndexForSlot computes the page and record index for the slot'th slot.
-func (h *HashTbl) bigPageAndRecordIndexForSlot(slot uint64) (pageIdx uint64, recIdx uint64) {
-	return slot / recordsPerBigPage, slot % recordsPerBigPage
-}
-
-// readPage reads the page at pageIndex into p.
-func (h *HashTbl) readPage(pageIndex uint64, p *page) error {
-	h.mu.Lock()
-	defer h.mu.Unlock()
-
-	offset := pageSize + int64(pageIndex*pageSize) // add pageSize to skip header page
-	_, err := h.fh.ReadAt(p[:], offset)
-	return Error.Wrap(err)
-}
-
-// readBigPage reads the bigPage at pageIndex into p.
-func (h *HashTbl) readBigPage(pageIndex uint64, p *bigPage) error {
-	h.mu.Lock()
-	defer h.mu.Unlock()
-
-	offset := pageSize + int64(pageIndex*bigPageSize) // add pageSize to skip header page
-	_, err := h.fh.ReadAt(p[:], offset)
-	return Error.Wrap(err)
-}
-
-// writeRecord writes rec into the slot'th slot.
-func (h *HashTbl) writeRecord(slot uint64, rec Record) error {
-	h.mu.Lock()
-	defer h.mu.Unlock()
-
-	var buf [RecordSize]byte
-	rec.WriteTo(&buf)
-
-	offset := pageSize + int64(slot*RecordSize) // add pageSize to skip header page
-	_, err := h.fh.WriteAt(buf[:], offset)
-
-	return Error.Wrap(err)
+	return slotIdxT(v>>s) & h.slotMask
 }
 
 // computeEstimates samples the hash table to compute the number of set keys and the total length of
@@ -280,7 +256,7 @@ func (h *HashTbl) computeEstimates() (err error) {
 	defer h.opMu.RUnlock()
 
 	// sample some pages worth of records but less than the total
-	maxPages := h.numSlots / recordsPerPage
+	maxPages := uint64(h.numSlots / recordsPerPage)
 	samplePages := uint64(256)
 	if samplePages > maxPages {
 		samplePages = maxPages
@@ -290,25 +266,26 @@ func (h *HashTbl) computeEstimates() (err error) {
 		numSet, lenSet     uint64
 		numTrash, lenTrash uint64
 
-		p   page
 		rng = mwc.Rand()
 	)
 
+	var cache roPageCache
+	cache.Init(h.fh)
+
 	for i := uint64(0); i < samplePages; i++ {
 		pageIdx := rng.Uint64n(maxPages)
-		if err := h.readPage(pageIdx, &p); err != nil {
-			return err
-		}
-
 		for recIdx := uint64(0); recIdx < recordsPerPage; recIdx++ {
-			var tmp Record
-			if p.readRecord(recIdx, &tmp) {
+			slot := slotIdxT(pageIdx*recordsPerPage + recIdx)
+			rec, valid, err := cache.ReadRecord(slot)
+			if err != nil {
+				return Error.Wrap(err)
+			} else if valid {
 				numSet++
-				lenSet += uint64(tmp.Length)
+				lenSet += uint64(rec.Length)
 
-				if tmp.Expires.Trash() {
+				if rec.Expires.Trash() {
 					numTrash++
-					lenTrash += uint64(tmp.Length)
+					lenTrash += uint64(rec.Length)
 				}
 			}
 		}
@@ -354,28 +331,60 @@ func (h *HashTbl) Range(fn func(Record, error) bool) {
 		return
 	}
 
-	var (
-		tmp           Record
-		cachedPage    bigPage
-		cachedPageIdx = invalidPage
-	)
+	var cache roBigPageCache
+	cache.Init(h.fh)
 
-	for slot := uint64(0); slot < h.numSlots; slot++ {
-		pageIdx, recIdx := h.bigPageAndRecordIndexForSlot(slot)
-		if pageIdx != cachedPageIdx {
-			if err := h.readBigPage(pageIdx, &cachedPage); err != nil {
-				fn(Record{}, err)
-				return
-			}
-			cachedPageIdx = pageIdx
-		}
-
-		if cachedPage.readRecord(recIdx, &tmp) {
-			if !fn(tmp, nil) {
+	for slot := slotIdxT(0); slot < h.numSlots; slot++ {
+		rec, valid, err := cache.ReadRecord(slot)
+		if err != nil {
+			fn(Record{}, Error.Wrap(err))
+			return
+		} else if valid {
+			if !fn(rec, nil) {
 				return
 			}
 		}
 	}
+}
+
+// ExpectOrdered signals that incoming writes to the hashtbl will be ordered so that a large shared
+// buffer across Insert calls would be effective. This is useful when rewriting a hashtbl during a
+// Compaction, for instance. It returns a flush callback that both flushes any potentially buffered
+// records and disables the expectation. Additionally, Lookups may not find entries written until
+// after the flush callback is called. If flush returns an error there is no guarantee about what
+// records were written. It returns a done callback that discards any potentially buffered records
+// and disables the expectation. At least one of flush or done must be called. It returns an error
+// if called again before flush or done is called.
+func (h *HashTbl) ExpectOrdered() (flush func() error, done func(), err error) {
+	h.opMu.Lock()
+	defer h.opMu.Unlock()
+
+	if h.buffer != nil {
+		return nil, nil, Error.New("buffer already exists")
+	}
+
+	buffer := new(rwBigPageCache)
+	h.buffer = buffer
+	h.buffer.Init(h.fh)
+
+	return func() (err error) {
+			h.opMu.Lock()
+			defer h.opMu.Unlock()
+
+			if h.buffer == buffer {
+				err = h.buffer.Flush()
+				h.buffer = nil
+			}
+
+			return Error.Wrap(err)
+		}, func() {
+			h.opMu.Lock()
+			defer h.opMu.Unlock()
+
+			if h.buffer == buffer {
+				h.buffer = nil
+			}
+		}, nil
 }
 
 var insertTask = mon.Task()
@@ -393,13 +402,10 @@ func (h *HashTbl) Insert(rec Record) (_ bool, err error) {
 		return false, err
 	}
 
-	var (
-		tmp           Record
-		cachedPage    page
-		cachedPageIdx = invalidPage
-	)
+	var cache rwPageCache
+	cache.Init(h.fh)
 
-	for slot, attempt := h.slotForKey(&rec.Key), uint64(0); attempt < h.numSlots; slot, attempt = (slot+1)&h.slotMask, attempt+1 {
+	for slot, attempt := h.slotForKey(&rec.Key), slotIdxT(0); attempt < h.numSlots; slot, attempt = (slot+1)&h.slotMask, attempt+1 {
 		// note that in lookup, we protect against lost pages by reading at least 2 pages worth of
 		// records before bailing due to an invalid record. we don't do that here so it's possible
 		// in the presence of lost pages to have the same key present twice and the latter one be
@@ -413,14 +419,20 @@ func (h *HashTbl) Insert(rec Record) (_ bool, err error) {
 		// compaction and so we can error if the fields don't match except for the expiration field
 		// which we can take to be the longer lasting value.
 
-		pageIdx, recIdx := h.pageAndRecordIndexForSlot(slot)
-		if pageIdx != cachedPageIdx {
-			if err := h.readPage(pageIdx, &cachedPage); err != nil {
-				return false, Error.Wrap(err)
-			}
-			cachedPageIdx = pageIdx
+		var (
+			tmp   Record
+			valid bool
+			err   error
+		)
+
+		if h.buffer != nil {
+			tmp, valid, err = h.buffer.ReadRecord(slot)
+		} else {
+			tmp, valid, err = cache.ReadRecord(slot)
 		}
-		valid := cachedPage.readRecord(recIdx, &tmp)
+		if err != nil {
+			return false, Error.Wrap(err)
+		}
 
 		// if we have a valid record, we need to do some checks.
 		if valid {
@@ -439,7 +451,12 @@ func (h *HashTbl) Insert(rec Record) (_ bool, err error) {
 		}
 
 		// thus it is either invalid or the key matches and the record is updated, so we can write.
-		if err := h.writeRecord(slot, rec); err != nil {
+		if h.buffer != nil {
+			err = h.buffer.WriteRecord(slot, rec)
+		} else {
+			err = cache.WriteRecord(slot, rec)
+		}
+		if err != nil {
 			return false, Error.Wrap(err)
 		}
 
@@ -483,23 +500,14 @@ func (h *HashTbl) Lookup(key Key) (_ Record, _ bool, err error) {
 		return Record{}, false, err
 	}
 
-	var (
-		tmp           Record
-		cachedPage    page
-		cachedPageIdx = invalidPage
-	)
+	var cache roPageCache
+	cache.Init(h.fh)
 
-	for slot, attempt := h.slotForKey(&key), uint64(0); attempt < h.numSlots; slot, attempt = (slot+1)&h.slotMask, attempt+1 {
-		pageIdx, recIdx := h.pageAndRecordIndexForSlot(slot)
-		if pageIdx != cachedPageIdx {
-			if err := h.readPage(pageIdx, &cachedPage); err != nil {
-				return Record{}, false, Error.Wrap(err)
-			}
-			cachedPageIdx = pageIdx
-		}
-		valid := cachedPage.readRecord(recIdx, &tmp)
-
-		if !valid {
+	for slot, attempt := h.slotForKey(&key), slotIdxT(0); attempt < h.numSlots; slot, attempt = (slot+1)&h.slotMask, attempt+1 {
+		rec, valid, err := cache.ReadRecord(slot)
+		if err != nil {
+			return Record{}, false, Error.Wrap(err)
+		} else if !valid {
 			// even if the record is invalid, keep looking for up to 2 pages. this causes us more
 			// reads when looking up a key that does not exist, but helps us find keys that maybe do
 			// exist if a page write was lost. fortunately, we often do not get queried for keys
@@ -507,12 +515,169 @@ func (h *HashTbl) Lookup(key Key) (_ Record, _ bool, err error) {
 			if attempt < 2*recordsPerPage {
 				continue
 			}
-
 			return Record{}, false, nil
-		} else if tmp.Key == key {
-			return tmp, true, nil
+		} else if rec.Key == key {
+			return rec, true, nil
 		}
 	}
 
 	return Record{}, false, nil
+}
+
+//
+// read-only hashtbl page caches
+//
+
+type roPageCache struct {
+	fh *os.File
+	i  pageIdxT
+	p  page
+}
+
+func (c *roPageCache) Init(fh *os.File) {
+	c.fh = fh
+	c.i = invalidPage
+}
+
+func (c *roPageCache) ReadRecord(slot slotIdxT) (rec Record, valid bool, err error) {
+	pi, ri := slot.PageIndexes()
+	if pi != c.i {
+		c.i = invalidPage // invalidate the page in case the read fails
+		if _, err := c.fh.ReadAt(c.p[:], pi.Offset()); err != nil {
+			return Record{}, false, Error.Wrap(err)
+		}
+		c.i = pi
+	}
+	valid = c.p.readRecord(ri, &rec)
+	return rec, valid, nil
+}
+
+type roBigPageCache struct {
+	fh *os.File
+	i  bigPageIdxT
+	p  bigPage
+}
+
+func (c *roBigPageCache) Init(fh *os.File) {
+	c.fh = fh
+	c.i = invalidPage
+}
+
+func (c *roBigPageCache) ReadRecord(slot slotIdxT) (rec Record, valid bool, err error) {
+	pi, ri := slot.BigPageIndexes()
+	if pi != c.i {
+		c.i = invalidPage // invalidate the page in case the read fails
+		if _, err := c.fh.ReadAt(c.p[:], pi.Offset()); err != nil {
+			return Record{}, false, Error.Wrap(err)
+		}
+		c.i = pi
+	}
+	valid = c.p.readRecord(ri, &rec)
+	return rec, valid, nil
+}
+
+//
+// write-back hashtbl page caches
+//
+
+type rwPageCache struct {
+	fh *os.File
+	i  pageIdxT
+	p  page
+}
+
+func (c *rwPageCache) Init(fh *os.File) {
+	c.fh = fh
+	c.i = invalidPage
+}
+
+func (c *rwPageCache) setPage(pi pageIdxT) (err error) {
+	if c.i == pi {
+		return nil
+	}
+	c.i = invalidPage // invalidate the page in case the read fails
+	if _, err := c.fh.ReadAt(c.p[:], pi.Offset()); err != nil {
+		return Error.Wrap(err)
+	}
+	c.i = pi
+	return nil
+}
+
+func (c *rwPageCache) ReadRecord(slot slotIdxT) (rec Record, valid bool, err error) {
+	pi, ri := slot.PageIndexes()
+	if err := c.setPage(pi); err != nil {
+		return Record{}, false, Error.Wrap(err)
+	}
+	valid = c.p.readRecord(ri, &rec)
+	return rec, valid, nil
+}
+
+func (c *rwPageCache) WriteRecord(slot slotIdxT, rec Record) (err error) {
+	// directly write the record because this page cache is used in situations where we expect only
+	// a single record to be written.
+	var buf [RecordSize]byte
+	rec.WriteTo(&buf)
+	_, err = c.fh.WriteAt(buf[:], slot.Offset())
+
+	// update or invalidate our in memory page
+	if pi, ri := slot.PageIndexes(); pi == c.i {
+		if err != nil {
+			c.i = invalidPage
+		} else {
+			c.p.writeRecord(ri, rec)
+		}
+	}
+
+	return Error.Wrap(err)
+}
+
+type rwBigPageCache struct {
+	fh *os.File
+	i  bigPageIdxT
+	p  bigPage
+}
+
+func (c *rwBigPageCache) Init(fh *os.File) {
+	c.fh = fh
+	c.i = invalidPage
+}
+
+func (c *rwBigPageCache) setPage(pi bigPageIdxT) (err error) {
+	if c.i == pi {
+		return nil
+	} else if err := c.Flush(); err != nil {
+		return Error.Wrap(err)
+	}
+	c.i = invalidPage // invalidate the page in case the read fails
+	if _, err := c.fh.ReadAt(c.p[:], pi.Offset()); err != nil {
+		return Error.Wrap(err)
+	}
+	c.i = pi
+	return nil
+}
+
+func (c *rwBigPageCache) ReadRecord(slot slotIdxT) (rec Record, valid bool, err error) {
+	pi, ri := slot.BigPageIndexes()
+	if err := c.setPage(pi); err != nil {
+		return Record{}, false, Error.Wrap(err)
+	}
+	valid = c.p.readRecord(ri, &rec)
+	return rec, valid, nil
+}
+
+func (c *rwBigPageCache) WriteRecord(slot slotIdxT, rec Record) (err error) {
+	pi, ri := slot.BigPageIndexes()
+	if err := c.setPage(pi); err != nil {
+		return Error.Wrap(err)
+	}
+	c.p.writeRecord(ri, rec)
+	return nil
+}
+
+func (c *rwBigPageCache) Flush() (err error) {
+	if c.i == invalidPage {
+		return nil
+	}
+	_, err = c.fh.WriteAt(c.p[:], c.i.Offset())
+	return Error.Wrap(err)
 }

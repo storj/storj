@@ -415,9 +415,14 @@ func BenchmarkHashtbl(b *testing.B) {
 
 		for i := 0; i < b.N; i++ {
 			h := newTestHashtbl(b, lrec+1)
+			flush, _, err := h.ExpectOrdered()
+			assert.NoError(b, err)
+
 			for _, rec := range recs {
 				h.AssertInsertRecord(rec)
 			}
+
+			assert.NoError(b, flush())
 			h.Close()
 		}
 

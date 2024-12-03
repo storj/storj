@@ -329,12 +329,12 @@ func newKey() (k Key) {
 	return
 }
 
-func newKeyAt(h *HashTbl, pi uint64, ri uint64, n uint8) (k Key) {
+func newKeyAt(h *HashTbl, pi pageIdxT, ri uint64, n uint8) (k Key) {
 	rng := mwc.Rand()
 	for {
 		binary.BigEndian.PutUint64(k[0:8], rng.Uint64())
 		k[31] = n
-		gpi, gri := h.pageAndRecordIndexForSlot(h.slotForKey(&k))
+		gpi, gri := h.slotForKey(&k).PageIndexes()
 		if pi == gpi && ri == gri {
 			return k
 		}
