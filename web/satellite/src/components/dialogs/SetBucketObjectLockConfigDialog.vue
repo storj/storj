@@ -36,7 +36,7 @@
 
             <v-divider />
 
-            <v-form v-model="formValid" class="pa-6" @submit.prevent="onSetLock">
+            <v-form ref="form" v-model="formValid" class="pa-6" @submit.prevent="onSetLock">
                 <v-row>
                     <v-col>
                         <p class="mb-4">
@@ -132,6 +132,7 @@ const props = defineProps<{
 
 const model = defineModel<boolean>({ required: true });
 
+const form = ref<VForm>();
 const formValid = ref<boolean>(false);
 const defaultRetentionMode = ref<ObjLockMode>();
 const defaultRetentionPeriod = ref<number>(0);
@@ -284,6 +285,13 @@ watch(model, value => {
         defaultRetentionMode.value = undefined;
         defaultRetentionPeriod.value = 0;
         defaultRetentionPeriodUnit.value = DefaultObjectLockPeriodUnit.DAYS;
+    }
+});
+
+watch([model, form], async () => {
+    if (model.value && form.value) {
+        const result = await form.value.validate();
+        formValid.value = result.valid;
     }
 });
 </script>
