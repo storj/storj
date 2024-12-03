@@ -317,12 +317,8 @@ func (h *HashTbl) Load() float64 {
 	return float64(h.numSet) / float64(h.numSlots)
 }
 
-var rangeTask = mon.Task()
-
 // Range iterates over the records in hash table order.
 func (h *HashTbl) Range(fn func(Record, error) bool) {
-	defer rangeTask(nil)(nil)
-
 	h.opMu.RLock()
 	defer h.opMu.RUnlock()
 
@@ -387,14 +383,10 @@ func (h *HashTbl) ExpectOrdered() (flush func() error, done func(), err error) {
 		}, nil
 }
 
-var insertTask = mon.Task()
-
 // Insert adds a record to the hash table. It returns (true, nil) if the record was inserted, it
 // returns (false, nil) if the hash table is full, and (false, err) if any errors happened trying
 // to insert the record.
 func (h *HashTbl) Insert(rec Record) (_ bool, err error) {
-	defer insertTask(nil)(&err)
-
 	h.opMu.Lock()
 	defer h.opMu.Unlock()
 
@@ -485,14 +477,10 @@ func (h *HashTbl) Insert(rec Record) (_ bool, err error) {
 	return false, nil
 }
 
-var lookupTask = mon.Task()
-
 // Lookup returns the record for the given key if it exists in the hash table. It returns (rec,
 // true, nil) if the record existed, (rec{}, false, nil) if it did not exist, and (rec{}, false,
 // err) if any errors happened trying to look up the record.
 func (h *HashTbl) Lookup(key Key) (_ Record, _ bool, err error) {
-	defer lookupTask(nil)(&err)
-
 	h.opMu.RLock()
 	defer h.opMu.RUnlock()
 
