@@ -376,7 +376,7 @@ func TestIterateLoopSegments(t *testing.T) {
 					BatchSize:            1,
 					SpannerReadTimestamp: time.Now().Add(-time.Hour),
 				},
-				Result: nil,
+				ErrText: `spanner: code = "InvalidArgument", desc = "Table not found: segments [at 11:30]\n                        FROM segments\n                             ^"`,
 			}.Check(ctx, t, db)
 
 			beforeUpload := time.Now()

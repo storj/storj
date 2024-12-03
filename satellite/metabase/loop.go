@@ -407,6 +407,8 @@ func (s *SpannerAdapter) IterateLoopSegments(ctx context.Context, aliasCache *No
 
 	defer func() {
 		it.curRows.Stop()
+
+		err = errs.Combine(err, it.failErr)
 	}()
 
 	return fn(ctx, it)
