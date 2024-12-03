@@ -1058,7 +1058,9 @@ func BenchmarkStore(b *testing.B) {
 		defer s.Close()
 
 		for i := uint64(0); i < 1<<lrec; i++ {
-			s.AssertCreate()
+			wr, err := s.Create(context.Background(), newKey(), time.Time{})
+			assert.NoError(b, err)
+			assert.NoError(b, wr.Close())
 			if s.Load() > 0.5 {
 				s.AssertCompact(nil, time.Time{})
 			}
@@ -1080,5 +1082,4 @@ func BenchmarkStore(b *testing.B) {
 
 		b.ReportMetric(float64(b.N*int(1)<<lrec)/time.Since(now).Seconds(), "rec/sec")
 	})
-
 }

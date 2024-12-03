@@ -331,13 +331,7 @@ func (s *Store) acquireLogFile(ttl uint32) (*logFile, error) {
 	return lf, err
 }
 
-func (s *Store) addRecord(ctx context.Context, rec Record) error {
-	// sometimes a Writer is created with a nil store so that it can disable automatically writing
-	// records.
-	if s == nil {
-		return nil
-	}
-
+func (s *Store) addRecord(rec Record) error {
 	ok, err := s.tbl.Insert(rec)
 	if err != nil {
 		return Error.Wrap(err)
@@ -539,7 +533,7 @@ func (s *Store) reviveRecord(ctx context.Context, lf *logFile, rec Record) (err 
 		}
 
 		tmp.Expires = 0
-		return s.addRecord(ctx, tmp)
+		return s.addRecord(tmp)
 	}
 
 	// 4. otherwise, we either had an error looking up the current record, or the entry got fully
