@@ -136,12 +136,12 @@ func TestHashtbl_LostPage(t *testing.T) {
 	k1 := Key{0: recordsPerPage - 1, 31: 1}
 
 	// ensure the index for the first key is the last record of the first page.
-	pi0, ri0 := h.pageAndRecordIndexForSlot(h.slotForKey(&k0))
+	pi0, ri0 := pageAndRecordIndexForSlot(h.slotForKey(&k0))
 	assert.Equal(t, pi0, 0)
 	assert.Equal(t, ri0, recordsPerPage-1)
 
 	// ensure the index for the second key is the same.
-	pi1, ri1 := h.pageAndRecordIndexForSlot(h.slotForKey(&k1))
+	pi1, ri1 := pageAndRecordIndexForSlot(h.slotForKey(&k1))
 	assert.Equal(t, pi1, 0)
 	assert.Equal(t, ri1, recordsPerPage-1)
 
@@ -445,9 +445,14 @@ func BenchmarkHashtbl(b *testing.B) {
 
 		for i := 0; i < b.N; i++ {
 			h := newTestHashtbl(b, lrec+1)
+			done, err := h.ExpectOrdered()
+			assert.NoError(b, err)
+
 			for _, rec := range recs {
 				h.AssertInsertRecord(rec)
 			}
+
+			assert.NoError(b, done())
 			h.Close()
 		}
 

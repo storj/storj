@@ -430,7 +430,7 @@ func TestStore_MergeRecordsWhenCompactingWithLostPage(t *testing.T) {
 		for {
 			binary.BigEndian.PutUint64(k[0:8], rng.Uint64())
 			k[31] = n
-			gpi, gri := s.tbl.pageAndRecordIndexForSlot(s.tbl.slotForKey(&k))
+			gpi, gri := pageAndRecordIndexForSlot(s.tbl.slotForKey(&k))
 			if pi == gpi && ri == gri {
 				return k
 			}

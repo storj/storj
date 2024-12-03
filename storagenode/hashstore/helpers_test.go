@@ -390,7 +390,7 @@ func benchmarkSizes(b *testing.B, name string, run func(*testing.B, uint64)) {
 
 func benchmarkLRecs(b *testing.B, name string, run func(*testing.B, uint64)) {
 	b.Run(name, func(b *testing.B) {
-		for lrec := uint64(6); lrec < 25; lrec++ {
+		for lrec := uint64(store_minTableSize); lrec < 25; lrec++ {
 			b.Run(fmt.Sprintf("lrec=%d", lrec), func(b *testing.B) { run(b, lrec) })
 		}
 	})

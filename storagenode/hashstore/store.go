@@ -769,6 +769,10 @@ func (s *Store) compactOnce(
 	if err != nil {
 		return false, Error.Wrap(err)
 	}
+	flush, err := ntbl.ExpectOrdered()
+	if err != nil {
+		return false, Error.Wrap(err)
+	}
 
 	// copy all of the entries from the hash table to the new table, skipping expired entries, and
 	// rewriting any entries that are in the log files that we are rewriting.
@@ -876,6 +880,10 @@ func (s *Store) compactOnce(
 	})
 	if rerr != nil {
 		return false, rerr
+	}
+
+	if err := flush(); err != nil {
+		return false, Error.Wrap(err)
 	}
 
 	// commit the new hash table. there should be no error cases in this function after this point
