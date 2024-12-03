@@ -5,7 +5,6 @@ package metabase
 
 import (
 	"context"
-	"database/sql"
 	"errors"
 	"math"
 	"time"
@@ -415,42 +414,20 @@ func (s *SpannerAdapter) IterateLoopSegments(ctx context.Context, aliasCache *No
 }
 
 func (it *spannerLoopSegmentIterator) scanItem(ctx context.Context, item *LoopSegmentEntry) (err error) {
-	var position int64
-	var createdAt time.Time
 	var repairedAt, expiresAt spanner.NullTime
-	var encryptedSize, plainOffset, plainSize, placement int64
+	var encryptedSize, plainSize int64
 
-	if it.db.Implementation() == dbutil.Spanner {
-		spannerPlacement := sql.NullInt64{}
-		if err := it.curRow.Columns(&item.StreamID, &position,
-			&createdAt, &expiresAt, &repairedAt,
-			&item.RootPieceID,
-			&encryptedSize, &plainOffset, &plainSize,
-			redundancyScheme{&item.Redundancy},
-			&item.AliasPieces,
-			&spannerPlacement,
-		); err != nil {
-			return Error.New("failed to scan segment: %w", err)
-		}
-		if spannerPlacement.Valid {
-			placement = spannerPlacement.Int64
-		}
-	} else {
-		if err := it.curRow.Columns(&item.StreamID, &position,
-			&createdAt, &expiresAt, &repairedAt,
-			&item.RootPieceID,
-			&encryptedSize, &plainOffset, &plainSize,
-			redundancyScheme{&item.Redundancy},
-			&item.AliasPieces,
-			&placement,
-		); err != nil {
-			return Error.New("failed to scan segment: %w", err)
-		}
-
+	if err := it.curRow.Columns(&item.StreamID, &item.Position,
+		&item.CreatedAt, &expiresAt, &repairedAt,
+		&item.RootPieceID,
+		&encryptedSize, &item.PlainOffset, &plainSize,
+		redundancyScheme{&item.Redundancy},
+		&item.AliasPieces,
+		&item.Placement,
+	); err != nil {
+		return Error.New("failed to scan segment: %w", err)
 	}
 
-	item.Position = SegmentPositionFromEncoded(uint64(position))
-	item.CreatedAt = createdAt
 	if repairedAt.Valid {
 		item.RepairedAt = &repairedAt.Time
 	} else {
@@ -461,11 +438,10 @@ func (it *spannerLoopSegmentIterator) scanItem(ctx context.Context, item *LoopSe
 	} else {
 		item.ExpiresAt = nil
 	}
+
 	item.EncryptedSize = int32(encryptedSize)
-	item.PlainOffset = plainOffset
 	item.PlainSize = int32(plainSize)
 
-	item.Placement = storj.PlacementConstraint(placement)
 	item.Pieces, err = it.aliasCache.ConvertAliasesToPieces(ctx, item.AliasPieces)
 	if err != nil {
 		return Error.New("failed to scan segment: %w", err)
