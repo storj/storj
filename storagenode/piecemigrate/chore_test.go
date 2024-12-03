@@ -58,8 +58,7 @@ func TestDuplicates(t *testing.T) {
 	new := piecestore.NewHashStoreBackend(t.TempDir(), bfm, rtm, log)
 
 	config := Config{
-		BatchSize: 100,
-		Interval:  100 * time.Millisecond,
+		Interval: 100 * time.Millisecond,
 	}
 
 	chore := NewChore(log, config, satstore.NewSatelliteStore(t.TempDir(), "migrate_chore"), old, new)
@@ -73,21 +72,19 @@ func TestDuplicates(t *testing.T) {
 	sats2 := randomSatsPieces(2, 6)
 	writeSatsPieces(ctx, t, old, sats2)
 
-	for sat := range sats1 {
-		chore.SetMigrate(sat, true, true)
-	}
-	for sat := range sats2 {
-		chore.SetMigrate(sat, true, true)
-	}
+	setMigrateActive(chore, sats1)
+	setMigrateActive(chore, sats2)
 
-	waitUntilMigrationFinished(ctx, t, old, sats1)
-	waitUntilMigrationFinished(ctx, t, old, sats2)
+	waitUntilActiveMigrationFinished(ctx, t, chore, old, sats1)
+	waitUntilActiveMigrationFinished(ctx, t, chore, old, sats2)
 
 	// simulate that the delete has failed
 	writeSatsPieces(ctx, t, old, sats1)
 
-	waitUntilMigrationFinished(ctx, t, old, sats1)
-	waitUntilMigrationFinished(ctx, t, old, sats2)
+	setMigrateActive(chore, sats1)
+
+	waitUntilActiveMigrationFinished(ctx, t, chore, old, sats1)
+	waitUntilActiveMigrationFinished(ctx, t, chore, old, sats2)
 }
 
 func TestChoreWithPassiveMigrationOnly(t *testing.T) {
@@ -123,7 +120,7 @@ func TestChoreWithPassiveMigrationOnly(t *testing.T) {
 	writeSatsPieces(ctx, t, old, satellites3)
 
 	config := Config{
-		BatchSize:         1000,
+		BufferSize:        400,
 		Interval:          100 * time.Millisecond,
 		MigrateRegardless: true,
 	}
@@ -236,8 +233,8 @@ func TestChoreActiveWithPassiveMigration(t *testing.T) {
 	writeSatsPieces(ctx, t, old, excludedSatellites3)
 
 	config := Config{
-		BatchSize: 100,
-		Interval:  100 * time.Millisecond,
+		BufferSize: 1,
+		Interval:   100 * time.Millisecond,
 	}
 
 	satStoreDir, satStoreExt := t.TempDir(), "migrate_chore"
@@ -310,7 +307,7 @@ func TestChoreActiveWithPassiveMigration(t *testing.T) {
 		chore.SetMigrate(sat, false, true)
 	}
 
-	waitUntilMigrationFinished(ctx, t, old, migratedSatellites)
+	waitUntilActiveMigrationFinished(ctx, t, chore, old, migratedSatellites)
 
 	// excludedSatellites3 are no longer excluded:
 	for sat, pieces := range excludedSatellites3 {
@@ -320,7 +317,7 @@ func TestChoreActiveWithPassiveMigration(t *testing.T) {
 		migratedSatellitesMu.Unlock()
 	}
 
-	waitUntilMigrationFinished(ctx, t, old, migratedSatellites)
+	waitUntilActiveMigrationFinished(ctx, t, chore, old, migratedSatellites)
 
 	// migration complete! let's check if the new backend contains what
 	// we migrated to it:
@@ -482,7 +479,7 @@ func existsInBackend(ctx context.Context, t *testing.T, backend piecestore.Piece
 }
 
 func waitUntilMigrationFinished(ctx context.Context, t *testing.T, store *pieces.Store, satsPieces map[storj.NodeID][]*pieceToCheck) {
-	for done := false; !done; {
+	for {
 		var count int
 		for sat := range satsPieces {
 			var c int
@@ -493,7 +490,24 @@ func waitUntilMigrationFinished(ctx context.Context, t *testing.T, store *pieces
 			t.Logf("%d left to migrate for %s", c, sat)
 			count += c
 		}
-		done = count == 0
+		if count == 0 {
+			return
+		}
 		time.Sleep(time.Second)
+	}
+}
+
+func waitUntilActiveMigrationFinished(ctx context.Context, t *testing.T, chore *Chore, store *pieces.Store, satsPieces map[storj.NodeID][]*pieceToCheck) {
+	waitUntilMigrationFinished(ctx, t, store, satsPieces)
+	for sat := range satsPieces {
+		v, ok := chore.getMigrate(sat)
+		require.True(t, ok)
+		require.False(t, v)
+	}
+}
+
+func setMigrateActive(chore *Chore, satsPieces map[storj.NodeID][]*pieceToCheck) {
+	for sat := range satsPieces {
+		chore.SetMigrate(sat, true, true)
 	}
 }

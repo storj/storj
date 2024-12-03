@@ -43,8 +43,8 @@ type Backend interface {
 
 // Config defines the configuration for the chore.
 type Config struct {
-	BatchSize         int           `help:"how many pieces to migrate at once" default:"10000"`
-	Interval          time.Duration `help:"how long to wait between the batches" default:"10m"`
+	BufferSize        int           `help:"how many pieces to buffer" default:"1"`
+	Interval          time.Duration `help:"how long to wait between pooling satellites for active migration" default:"10m"`
 	MigrateRegardless bool          `help:"whether to also migrate pieces for satellites outside currently set" default:"false"`
 }
 
@@ -52,17 +52,21 @@ type Config struct {
 //
 // architecture: Chore
 type Chore struct {
-	log  *zap.Logger
-	Loop *sync2.Cycle
+	log      *zap.Logger
+	services errs2.Group
+	Loop     *sync2.Cycle
 
-	config Config
-	old    Backend
-	new    piecestore.PieceBackend
+	config             Config
+	old                Backend
+	new                piecestore.PieceBackend
+	reportingBatchSize int
+
+	mu       sync.Mutex
+	migrated map[storj.NodeID]bool // map[sat](activeMigration?)
 
 	migrationQueue   chan migrationItem
 	baselineDataRate *monkit.FloatVal
-	mu               sync.Mutex
-	migrated         map[storj.NodeID]bool // map[sat](activeMigration?)
+	closing          sync2.Event
 }
 
 type migrationItem struct {
@@ -76,13 +80,15 @@ func NewChore(log *zap.Logger, config Config, store *satstore.SatelliteStore, ol
 		log:  log,
 		Loop: sync2.NewCycle(config.Interval),
 
-		config: config,
-		old:    old,
-		new:    new,
+		config:             config,
+		old:                old,
+		new:                new,
+		reportingBatchSize: 10000,
 
-		migrationQueue:   make(chan migrationItem, config.BatchSize),
+		migrated: make(map[storj.NodeID]bool),
+
+		migrationQueue:   make(chan migrationItem, config.BufferSize),
 		baselineDataRate: mon.FloatVal("migration_chore"),
-		migrated:         make(map[storj.NodeID]bool),
 	}
 
 	_ = store.Range(func(sat storj.NodeID, data []byte) error {
@@ -136,24 +142,46 @@ func (chore *Chore) SetMigrate(sat storj.NodeID, migrate, activeMigration bool) 
 	}
 }
 
-func (chore *Chore) getMigrate(sat storj.NodeID) bool {
+func (chore *Chore) swapMigrate(sat storj.NodeID, oldMigrate, newMigrate, oldActive, newActive bool) {
 	chore.mu.Lock()
 	defer chore.mu.Unlock()
 
-	_, ok := chore.migrated[sat]
-	return ok
+	active, migrate := chore.migrated[sat]
+
+	if active != oldActive || migrate != oldMigrate {
+		return
+	}
+
+	if newMigrate {
+		chore.migrated[sat] = newActive
+	} else {
+		delete(chore.migrated, sat)
+	}
 }
 
-// Run starts the chore loop to migrate pieces based on the
-// configuration.
+func (chore *Chore) getMigrate(sat storj.NodeID) (bool, bool) {
+	chore.mu.Lock()
+	defer chore.mu.Unlock()
+
+	v, ok := chore.migrated[sat]
+	return v, ok
+}
+
+// Run runs the chore.
 func (chore *Chore) Run(ctx context.Context) (err error) {
 	defer mon.Task()(&ctx)(&err)
-	return chore.Loop.Run(ctx, chore.RunOnce)
+
+	chore.services.Go(func() error {
+		return chore.Loop.Run(ctx, chore.runOnce)
+	})
+	chore.services.Go(func() error {
+		return chore.processQueue(ctx)
+	})
+
+	return errs.Combine(chore.services.Wait()...)
 }
 
-// RunOnce executes a single iteration of the chore to migrate pieces
-// based on the configuration.
-func (chore *Chore) RunOnce(ctx context.Context) (err error) {
+func (chore *Chore) runOnce(ctx context.Context) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	chore.mu.Lock()
@@ -161,53 +189,66 @@ func (chore *Chore) RunOnce(ctx context.Context) (err error) {
 	chore.mu.Unlock()
 
 	for sat, active := range sats {
-		n, size, err := chore.runSatellite(ctx, sat, active)
-
-		chore.log.Info("batch processed",
-			zap.Error(err),
-			zap.Stringer("sat", sat),
-			zap.Int("successes", n),
-			zap.Int64("total", size))
-
-		if err != nil {
-			return err
+		if active {
+			if err := chore.enqueueSatellite(ctx, sat); err != nil {
+				chore.log.Error("failed to enqueue for migration",
+					zap.Error(err),
+					zap.Stringer("sat", sat))
+			} else {
+				chore.log.Info("enqueued for migration",
+					zap.Stringer("sat", sat))
+				chore.swapMigrate(sat, true, true, true, false)
+			}
 		}
 	}
 
-	// NOTE(artur): we will keep going if we have inflight pieces in the
-	// queue, and that's probably fine. however, we will sleep for
-	// chore.config.Interval after a processed batch.
+	chore.log.Info("all enqueued for migration; will sleep before next pooling",
+		zap.Duration("interval", chore.config.Interval))
+
 	return nil
 }
 
-func (chore *Chore) runSatellite(ctx context.Context, sat storj.NodeID, activeMigration bool) (n int, total int64, err error) {
+// enqueueSatellite enqueues pieces for migration from the old to the
+// new backend for a given satellite. Returns an error if it fails to
+// list the pieces.
+func (chore *Chore) enqueueSatellite(ctx context.Context, sat storj.NodeID) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	if activeMigration {
-		walkCtx, cancel := context.WithCancel(ctx)
-		defer cancel()
-		if err := chore.old.WalkSatellitePieces(walkCtx, sat, func(spa pieces.StoredPieceAccess) error {
-			select {
-			case chore.migrationQueue <- migrationItem{satellite: sat, piece: spa.PieceID()}:
-				mon.Counter("enqueued", monkit.NewSeriesTag("sat", sat.String())).Inc(1)
-			default:
-				cancel()
-			}
-			return nil
-		}); err != nil && !errs2.IsCanceled(err) {
-			chore.log.Info("couldn't list new pieces to migrate",
-				zap.Error(err),
-				zap.Stringer("sat", sat))
-			// even if we couldn't list new pieces, we might have new
-			// pieces from other sources in the queue now. let's keep
-			// going and process them
-		}
+	if err = chore.old.WalkSatellitePieces(ctx, sat, func(spa pieces.StoredPieceAccess) error {
+		chore.migrationQueue <- migrationItem{satellite: sat, piece: spa.PieceID()}
+		mon.Counter("enqueued", monkit.NewSeriesTag("sat", sat.String())).Inc(1)
+		return nil
+	}); err != nil {
+		return errs.New("couldn't list new pieces to migrate: %w", err)
 	}
 
+	return nil
+}
+
+// processQueue processes the migration queue, migrating pieces from the
+// old to the new backend.
+func (chore *Chore) processQueue(ctx context.Context) (err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	var (
+		n     int
+		total int64
+	)
 	for {
+		if n%chore.reportingBatchSize == 0 {
+			chore.log.Info("processed a bunch of pieces",
+				zap.Error(err),
+				zap.Int("successes", n),
+				zap.Int64("size", total))
+		}
+
 		select {
+		case <-chore.closing.Signaled():
+			return nil
+		case <-ctx.Done():
+			return ctx.Err()
 		case m := <-chore.migrationQueue:
-			if !chore.config.MigrateRegardless && !chore.getMigrate(m.satellite) {
+			if _, ok := chore.getMigrate(m.satellite); !chore.config.MigrateRegardless && !ok {
 				incProcessedPieces(m.satellite, "skipped")
 				chore.log.Debug("skipping a piece that's not part of the migration plan",
 					zap.Stringer("sat", m.satellite),
@@ -237,8 +278,6 @@ func (chore *Chore) runSatellite(ctx context.Context, sat storj.NodeID, activeMi
 				// if we should be going slower
 				chore.baselineDataRate.Observe(float64(size) / d.Seconds())
 			}
-		default:
-			return n, total, nil
 		}
 	}
 }
@@ -259,12 +298,6 @@ func incProcessedPieces(sat storj.NodeID, result string) {
 
 // migrateOne migrates a piece returning the size of the migrated piece
 // and any error encountered.
-//
-// NOTE/TODO?(artur): there might be a situation where there are two
-// identical items in the queue due to different callers adding to the
-// migration queue. that's okay, but should we proactively check for
-// whether it's already in the new backend to skip the rest of the
-// method? maybe this wouldn't be too frequent, so maybe that's fine.
 func (chore *Chore) migrateOne(ctx context.Context, sat storj.NodeID, piece storj.PieceID) (size int64, err error) {
 	defer mon.Task()(&ctx)(&err)
 
@@ -408,5 +441,6 @@ func compareReaders(r1, r2 io.Reader) (bool, error) {
 // Always returns nil.
 func (chore *Chore) Close() (err error) {
 	chore.Loop.Close()
+	chore.closing.Signal()
 	return nil
 }
