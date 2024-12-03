@@ -20,7 +20,7 @@
                     </v-sheet>
                 </template>
                 <v-card-title class="font-weight-bold">
-                    Delete Object{{ props.files.length > 1 ? 's' : '' }} and {{ foldersCount > 0 ? foldersCount > 1 ? 'Folders' : 'Folder' : '' }}
+                    Delete Object{{ props.files.length > 1 ? 's' : '' }} {{ !!foldersCount ? 'and' : '' }} {{ foldersCount > 0 ? foldersCount > 1 ? 'Folders' : 'Folder' : '' }}
                 </v-card-title>
                 <template #append>
                     <v-btn
