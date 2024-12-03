@@ -113,11 +113,12 @@ func (service *Service) Collect(ctx context.Context, now time.Time) (err error) 
 			return nil
 		}
 
+		var numCollectedForBatch int
 		for _, eiList := range infoLists {
 			if ctx.Err() != nil {
 				return errs.Wrap(ctx.Err())
 			}
-			numCollected += eiList.Len()
+			numCollectedForBatch += eiList.Len()
 			for i := 0; i < eiList.Len(); i++ {
 				pieceID, pieceSize := eiList.PieceIDAtIndex(i)
 				// delete the piece from the storage
@@ -129,6 +130,12 @@ func (service *Service) Collect(ctx context.Context, now time.Time) (err error) 
 				}
 			}
 		}
+
+		if numCollectedForBatch == 0 {
+			// no more expired pieces; exit the loop
+			return nil
+		}
+		numCollected += numCollectedForBatch
 
 		// delete the batch from the database
 		if deleteErr := service.pieces.DeleteExpiredBatchSkipV0(ctx, now, service.opts); deleteErr != nil {
