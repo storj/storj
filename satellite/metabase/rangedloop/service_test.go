@@ -567,6 +567,7 @@ func TestRangedLoop_SpannerStaleReads(t *testing.T) {
 		}
 
 		countObserver := &rangedlooptest.CountObserver{}
+		beforeCreate := time.Now()
 		metabasetest.CreateObject(ctx, t, db, metabasetest.RandObjectStream(), 1)
 
 		config := rangedloop.Config{
@@ -575,7 +576,7 @@ func TestRangedLoop_SpannerStaleReads(t *testing.T) {
 		}
 
 		// using stale read from before creating object
-		provider := rangedloop.NewMetabaseRangeSplitter(db, 0, time.Hour, 10)
+		provider := rangedloop.NewMetabaseRangeSplitter(db, 0, time.Since(beforeCreate), 10)
 		service := rangedloop.NewService(zaptest.NewLogger(t), config, provider, []rangedloop.Observer{countObserver})
 		_, err := service.RunOnce(ctx)
 		require.NoError(t, err)
