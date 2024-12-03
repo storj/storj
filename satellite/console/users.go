@@ -223,6 +223,11 @@ func (s UserStatus) Value() (driver.Value, error) {
 	return int64(s), nil
 }
 
+// Valid checks if the user status is valid.
+func (s UserStatus) Valid() bool {
+	return s.String() != ""
+}
+
 // User is a database object that describes User entity.
 type User struct {
 	ID         uuid.UUID `json:"id"`
