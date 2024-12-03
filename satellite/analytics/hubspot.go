@@ -182,18 +182,18 @@ func (q *HubSpotEvents) EnqueueJoinCunoFSBeta(fields TrackJoinCunoFSBetaFields) 
 		newField("email", fields.Email),
 		newField("company", fields.CompanyName),
 		newField("industry_use_case", fields.IndustryUseCase),
+		newField("other_industry_use_case", fields.OtherIndustryUseCase),
 		newField("operating_system", fields.OperatingSystem),
 		newField("team_size", fields.TeamSize),
 		newField("current_storage_usage", fields.CurrentStorageUsage),
 		newField("infrastructure_type", fields.InfraType),
 		newField("current_storage_backends", fields.CurrentStorageBackends),
+		newField("other_storage_backend", fields.OtherStorageBackend),
 		newField("current_storage_mount_solution", fields.CurrentStorageMountSolution),
+		newField("other_storage_mount_solution", fields.OtherStorageMountSolution),
 		newField("desired_features", fields.DesiredFeatures),
 		newField("current_pain_points", fields.CurrentPainPoints),
 		newField("cunofs_beta_specific_tasks", fields.SpecificTasks),
-	}
-	if fields.IndustryUseCase == "Other" {
-		formFields = append(formFields, newField("other_industry_use_case", fields.OtherIndustryUseCase))
 	}
 
 	formURL := fmt.Sprintf(hubspotFormTemplate, q.config.CunoFSBetaFormId)

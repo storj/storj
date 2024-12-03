@@ -10,7 +10,9 @@ export type JoinCunoFSBetaForm = {
     currentStorageUsage: string;
     infraType: string;
     currentStorageBackends: string;
+    otherStorageBackend: string;
     currentStorageMountSolution: string;
+    otherStorageMountSolution: string;
     desiredFeatures: string;
     currentPainPoints: string;
     specificTasks: string;

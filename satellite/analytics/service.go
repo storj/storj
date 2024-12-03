@@ -286,7 +286,9 @@ type TrackJoinCunoFSBetaFields struct {
 	CurrentStorageUsage         string `json:"currentStorageUsage"`
 	InfraType                   string `json:"infraType"`
 	CurrentStorageBackends      string `json:"currentStorageBackends"`
+	OtherStorageBackend         string `json:"otherStorageBackend"`
 	CurrentStorageMountSolution string `json:"currentStorageMountSolution"`
+	OtherStorageMountSolution   string `json:"otherStorageMountSolution"`
 	DesiredFeatures             string `json:"desiredFeatures"`
 	CurrentPainPoints           string `json:"currentPainPoints"`
 	SpecificTasks               string `json:"specificTasks"`
