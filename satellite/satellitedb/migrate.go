@@ -878,6 +878,17 @@ func (db *satelliteDB) productionMigrationSpanner() *migrate.Migration {
 					`ALTER TABLE projects ADD COLUMN status INT64 DEFAULT (1)`,
 				},
 			},
+			{
+				DB:          &db.migrationDB,
+				Description: "drop all nodes table indexes execept primary key",
+				Version:     285,
+				Action: migrate.SQL{
+					`DROP INDEX IF EXISTS nodes_last_cont_success_free_disk_ma_mi_patch_vetted_partial_index`,
+					`DROP INDEX IF EXISTS nodes_dis_unk_aud_exit_init_rel_last_cont_success_stored_index`,
+					`DROP INDEX IF EXISTS node_last_ip`,
+					`DROP INDEX IF EXISTS nodes_dis_unk_off_exit_fin_last_success_index`,
+				},
+			},
 			// NB: after updating testdata in `testdata`, run
 			//     `go generate` to update `migratez.go`.
 		},
@@ -3596,6 +3607,17 @@ func (db *satelliteDB) productionMigrationPostgres() *migrate.Migration {
 				Version:     284,
 				Action: migrate.SQL{
 					`ALTER TABLE projects ADD COLUMN status INTEGER DEFAULT 1;`,
+				},
+			},
+			{
+				DB:          &db.migrationDB,
+				Description: "drop all nodes table indexes execept primary key",
+				Version:     285,
+				Action: migrate.SQL{
+					`DROP INDEX IF EXISTS nodes_last_cont_success_free_disk_ma_mi_patch_vetted_partial_index`,
+					`DROP INDEX IF EXISTS nodes_dis_unk_aud_exit_init_rel_last_cont_success_stored_index`,
+					`DROP INDEX IF EXISTS node_last_ip`,
+					`DROP INDEX IF EXISTS nodes_dis_unk_off_exit_fin_last_success_index`,
 				},
 			},
 			// NB: after updating testdata in `testdata`, run

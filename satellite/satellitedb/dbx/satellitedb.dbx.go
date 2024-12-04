@@ -1018,14 +1018,6 @@ func (obj *pgxDB) Schema() []string {
 
 		`CREATE INDEX graceful_exit_segment_transfer_nid_dr_qa_fa_lfa_index ON graceful_exit_segment_transfer_queue ( node_id, durability_ratio, queued_at, finished_at, last_failed_at )`,
 
-		`CREATE INDEX node_last_ip ON nodes ( last_net )`,
-
-		`CREATE INDEX nodes_dis_unk_off_exit_fin_last_success_index ON nodes ( disqualified, unknown_audit_suspended, offline_suspended, exit_finished_at, last_contact_success )`,
-
-		`CREATE INDEX nodes_last_cont_success_free_disk_ma_mi_patch_vetted_partial_index ON nodes ( last_contact_success, free_disk, major, minor, patch, vetted_at ) WHERE nodes.disqualified is NULL AND nodes.unknown_audit_suspended is NULL AND nodes.exit_initiated_at is NULL AND nodes.release = true AND nodes.last_net != ''`,
-
-		`CREATE INDEX nodes_dis_unk_aud_exit_init_rel_last_cont_success_stored_index ON nodes ( disqualified, unknown_audit_suspended, exit_initiated_at, release, last_contact_success ) WHERE nodes.disqualified is NULL AND nodes.unknown_audit_suspended is NULL AND nodes.exit_initiated_at is NULL AND nodes.release = true`,
-
 		`CREATE INDEX node_events_email_event_created_at_index ON node_events ( email, event, created_at ) WHERE node_events.email_sent is NULL`,
 
 		`CREATE INDEX oauth_clients_user_id_index ON oauth_clients ( user_id )`,
@@ -1948,14 +1940,6 @@ func (obj *pgxcockroachDB) Schema() []string {
 
 		`CREATE INDEX graceful_exit_segment_transfer_nid_dr_qa_fa_lfa_index ON graceful_exit_segment_transfer_queue ( node_id, durability_ratio, queued_at, finished_at, last_failed_at )`,
 
-		`CREATE INDEX node_last_ip ON nodes ( last_net )`,
-
-		`CREATE INDEX nodes_dis_unk_off_exit_fin_last_success_index ON nodes ( disqualified, unknown_audit_suspended, offline_suspended, exit_finished_at, last_contact_success )`,
-
-		`CREATE INDEX nodes_last_cont_success_free_disk_ma_mi_patch_vetted_partial_index ON nodes ( last_contact_success, free_disk, major, minor, patch, vetted_at ) WHERE nodes.disqualified is NULL AND nodes.unknown_audit_suspended is NULL AND nodes.exit_initiated_at is NULL AND nodes.release = true AND nodes.last_net != ''`,
-
-		`CREATE INDEX nodes_dis_unk_aud_exit_init_rel_last_cont_success_stored_index ON nodes ( disqualified, unknown_audit_suspended, exit_initiated_at, release, last_contact_success ) WHERE nodes.disqualified is NULL AND nodes.unknown_audit_suspended is NULL AND nodes.exit_initiated_at is NULL AND nodes.release = true`,
-
 		`CREATE INDEX node_events_email_event_created_at_index ON node_events ( email, event, created_at ) WHERE node_events.email_sent is NULL`,
 
 		`CREATE INDEX oauth_clients_user_id_index ON oauth_clients ( user_id )`,
@@ -2848,14 +2832,6 @@ func (obj *spannerDB) Schema() []string {
 
 		`CREATE INDEX graceful_exit_segment_transfer_nid_dr_qa_fa_lfa_index ON graceful_exit_segment_transfer_queue ( node_id, durability_ratio, queued_at, finished_at, last_failed_at )`,
 
-		`CREATE INDEX node_last_ip ON nodes ( last_net )`,
-
-		`CREATE INDEX nodes_dis_unk_off_exit_fin_last_success_index ON nodes ( disqualified, unknown_audit_suspended, offline_suspended, exit_finished_at, last_contact_success )`,
-
-		`CREATE INDEX nodes_last_cont_success_free_disk_ma_mi_patch_vetted_partial_index ON nodes ( last_contact_success, free_disk, major, minor, patch, vetted_at )`,
-
-		`CREATE INDEX nodes_dis_unk_aud_exit_init_rel_last_cont_success_stored_index ON nodes ( disqualified, unknown_audit_suspended, exit_initiated_at, release, last_contact_success )`,
-
 		`CREATE INDEX node_events_email_event_created_at_index ON node_events ( email, event, created_at )`,
 
 		`CREATE INDEX oauth_clients_user_id_index ON oauth_clients ( user_id )`,
@@ -2964,14 +2940,6 @@ func (obj *spannerDB) DropSchema() []string {
 		`DROP INDEX IF EXISTS bucket_storage_tallies_interval_start_index`,
 
 		`DROP INDEX IF EXISTS graceful_exit_segment_transfer_nid_dr_qa_fa_lfa_index`,
-
-		`DROP INDEX IF EXISTS node_last_ip`,
-
-		`DROP INDEX IF EXISTS nodes_dis_unk_off_exit_fin_last_success_index`,
-
-		`DROP INDEX IF EXISTS nodes_last_cont_success_free_disk_ma_mi_patch_vetted_partial_index`,
-
-		`DROP INDEX IF EXISTS nodes_dis_unk_aud_exit_init_rel_last_cont_success_stored_index`,
 
 		`DROP INDEX IF EXISTS node_events_email_event_created_at_index`,
 
