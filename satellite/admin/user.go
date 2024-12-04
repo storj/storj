@@ -1058,14 +1058,14 @@ func (server *Server) deleteUser(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Ensure user has no own projects any longer
-	projects, err := server.db.Console().Projects().GetOwn(ctx, user.ID)
+	projects, err := server.db.Console().Projects().GetOwnActive(ctx, user.ID)
 	if err != nil {
-		sendJSONError(w, "unable to list projects",
+		sendJSONError(w, "unable to list active projects",
 			err.Error(), http.StatusInternalServerError)
 		return
 	}
 	if len(projects) > 0 {
-		sendJSONError(w, "some projects still exist",
+		sendJSONError(w, "some active projects still exist",
 			fmt.Sprintf("%v", projects), http.StatusConflict)
 		return
 	}
