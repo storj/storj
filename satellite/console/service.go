@@ -3129,6 +3129,21 @@ func (s *Service) JoinCunoFSBeta(ctx context.Context, data analytics.TrackJoinCu
 		return ErrBotUser.New(contactSupportErrMsg)
 	}
 
+	settings, err := s.store.Users().GetSettings(ctx, user.ID)
+	if err != nil {
+		if !errs.Is(err, sql.ErrNoRows) {
+			return Error.Wrap(err)
+		}
+	}
+
+	betaJoined := false
+	if settings != nil {
+		betaJoined = settings.NoticeDismissal.CunoFSBetaJoined
+	}
+	if betaJoined {
+		return ErrConflict.New("user already joined cunoFS beta")
+	}
+
 	data.Email = user.Email
 
 	s.analytics.JoinCunoFSBeta(data)
