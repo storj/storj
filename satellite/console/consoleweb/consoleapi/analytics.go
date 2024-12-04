@@ -155,6 +155,11 @@ func (a *Analytics) JoinCunoFSBeta(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
+		if console.ErrConflict.Has(err) {
+			a.serveJSONError(ctx, w, http.StatusConflict, err)
+			return
+		}
+
 		a.serveJSONError(ctx, w, http.StatusInternalServerError, err)
 		return
 	}
