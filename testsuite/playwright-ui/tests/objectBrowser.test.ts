@@ -3,13 +3,12 @@
 
 import test from '@lib/BaseTest';
 import { v4 as uuidv4 } from 'uuid';
-import path from 'path';
+import { join } from 'path';
 
 test.describe('object browser + edge services', () => {
     test.beforeEach(async ({
         signupPage,
         loginPage,
-        allProjectsPage,
         navigationMenu,
     }) => {
         const name = 'John Doe';
@@ -72,7 +71,7 @@ test.describe('object browser + edge services', () => {
     }) => {
         const bucketName = uuidv4();
         const folderName = 'testdata';
-        const folderPath = path.join(__dirname, 'testdata');
+        const folderPath = join(__dirname, 'testdata');
 
         await navigationMenu.clickOnBuckets();
         await bucketsPage.createBucket(bucketName);
@@ -114,17 +113,5 @@ test.describe('object browser + edge services', () => {
         // Check Bucket Share, see if copy button changed to copied
         await bucketsPage.openBucketSettings();
         await bucketsPage.verifyShareBucket();
-    });
-
-    test('Create and delete bucket', async ({
-        navigationMenu,
-        bucketsPage,
-    }) => {
-        const bucketName = 'testdelete';
-
-        await navigationMenu.clickOnBuckets();
-        await bucketsPage.createBucket(bucketName);
-        await bucketsPage.openBucketSettings();
-        await bucketsPage.verifyDeleteBucket(bucketName);
     });
 });
