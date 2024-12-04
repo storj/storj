@@ -638,6 +638,10 @@ onBeforeMount(async () => {
         signupPromoCode.value = route.query.promo.toString();
     }
 
+    if (queryEmail.value) {
+        checkSSO(queryEmail.value);
+    }
+
     // If partner.value is true, attempt to load the partner-specific configuration
     if (partner.value) {
         try {

@@ -88,6 +88,7 @@
                                 flat
                                 clearable
                                 required
+                                :disabled="!!pathEmail"
                                 @update:model-value="checkSSO"
                             />
 
@@ -461,6 +462,7 @@ onMounted(() => {
     pathEmail.value = route.query.email as string ?? null;
     if (pathEmail.value) {
         email.value = pathEmail.value.trim();
+        checkSSO(email.value);
     }
 
     ssoFailed.value = !!route.query.sso_failed;
