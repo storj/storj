@@ -22,7 +22,7 @@
                                 in helping shape the future of high-performance storage.
                             </p>
                         </v-card-text>
-                        <v-card class="pa-5 mt-5 mb-10">
+                        <v-card class="pa-5 mt-5 mb-10" variant="flat">
                             <h3 class="mb-2 font-weight-medium">
                                 What happens next?
                             </h3>
@@ -51,7 +51,7 @@
                     </v-card-item>
                 </v-card>
                 <v-card v-else class="pa-4 pa-sm-8 mx-auto" max-width="800">
-                    <img src="@/assets/storj-plus-cuno.webp" alt="Storj + cunoFS" class="w-100 rounded-lg mb-4">
+                    <img src="@/assets/storj-plus-cuno.webp" alt="Storj + cunoFS" class="w-100 rounded-lg mb-3">
 
                     <h1 class="mb-2">
                         Join the Insider Beta for cunoFS
@@ -106,156 +106,140 @@
                             label="Email"
                             readonly
                             variant="outlined"
-                            class="mb-4"
+                            density="compact"
+                            class="mb-3"
                         />
 
                         <v-text-field
                             v-model="formData.organization"
-                            label="Organization"
-                            placeholder="Enter your organization name"
+                            label="Enter your organization name"
                             variant="outlined"
                             required
                             :rules="[RequiredRule, MaxNameLengthRule]"
-                            class="mb-4"
+                            density="compact"
+                            class="mb-3"
                         />
 
                         <v-select
                             v-model="formData.industry"
                             :items="industries"
-                            label="Industry/Use Case"
+                            label="Select your industry / use case"
                             variant="outlined"
                             required
                             :rules="[RequiredRule, MaxNameLengthRule]"
-                            class="mb-4"
+                            density="compact"
+                            class="mb-3"
                         />
                         <v-text-field
                             v-if="formData.industry === OtherLabel"
                             v-model="otherIndustry"
-                            label="Other Industry/Use Case"
+                            label="Enter other industry / use case"
                             variant="outlined"
                             required
                             :rules="[RequiredRule, MaxNameLengthRule]"
-                            class="mb-4"
+                            density="compact"
+                            class="mb-3"
                         />
 
                         <v-select
                             v-model="formData.operatingSystem"
                             :items="operatingSystems"
-                            label="Operating System"
+                            label="Select your operating system"
                             required
                             :rules="[RequiredRule]"
-                            class="mb-4"
+                            density="compact"
+                            class="mb-3"
                         />
 
                         <v-select
                             v-model="formData.teamSize"
                             :items="teamSizes"
-                            label="Team Size"
+                            label="Select your team size"
                             required
                             :rules="[RequiredRule]"
-                            class="mb-4"
+                            density="compact"
+                            class="mb-3"
                         />
 
                         <v-select
                             v-model="formData.storageUsage"
                             :items="storageRanges"
-                            label="Current Storage Usage"
+                            label="Select your current storage usage"
                             required
                             :rules="[RequiredRule]"
-                            class="mb-4"
+                            density="compact"
+                            class="mb-3"
                         />
 
-                        <v-card-text class="px-0">
-                            <div class="text-subtitle-1 mb-2 font-weight-bold">Infrastructure Type</div>
-                            <v-checkbox
-                                v-for="type in infrastructureTypes"
-                                :key="type"
-                                v-model="formData.infrastructureType"
-                                :label="type"
-                                :value="type"
-                                density="compact"
-                                hide-details
-                            />
-                        </v-card-text>
+                        <v-select
+                            v-model="formData.infrastructureType"
+                            :items="infrastructureTypes"
+                            label="Select your infrastructure types"
+                            multiple
+                            density="compact"
+                            class="mb-3"
+                        />
 
-                        <v-card-text class="px-0">
-                            <div class="text-subtitle-1 mb-2 font-weight-bold">Current Storage Backends</div>
-                            <v-checkbox
-                                v-for="backend in storageBackends"
-                                :key="backend"
-                                v-model="formData.storageBackend"
-                                :label="backend"
-                                :value="backend"
-                                density="compact"
-                                hide-details
-                            />
-                            <v-text-field
-                                v-if="formData.storageBackend.includes(OtherLabel)"
-                                v-model="otherStorageBackend"
-                                label="Other Storage Backend"
-                                variant="outlined"
-                                class="mt-4"
-                                :rules="[MaxNameLengthRule]"
-                                hide-details
-                            />
-                        </v-card-text>
+                        <v-select
+                            v-model="formData.storageBackend"
+                            :items="storageBackends"
+                            label="Select your current storage backends"
+                            multiple
+                            density="compact"
+                            class="mb-3"
+                        />
+                        <v-text-field
+                            v-if="formData.storageBackend.includes(OtherLabel)"
+                            v-model="otherStorageBackend"
+                            label="Enter other storage backend"
+                            variant="outlined"
+                            :rules="[MaxNameLengthRule]"
+                            density="compact"
+                            class="mb-3"
+                        />
 
-                        <v-card-text class="px-0">
-                            <div class="text-subtitle-1 mb-2 font-weight-bold">Current Storage Mount Solution</div>
-                            <v-checkbox
-                                v-for="solution in mountSolutions"
-                                :key="solution"
-                                v-model="formData.mountSolution"
-                                :label="solution"
-                                :value="solution"
-                                density="compact"
-                                hide-details
-                            />
-                            <v-text-field
-                                v-if="formData.mountSolution.includes(OtherLabel)"
-                                v-model="otherMountSolution"
-                                label="Other Mount Solution"
-                                variant="outlined"
-                                class="mt-4"
-                                :rules="[MaxNameLengthRule]"
-                                hide-details
-                            />
-                        </v-card-text>
+                        <v-select
+                            v-model="formData.mountSolution"
+                            :items="mountSolutions"
+                            label="Select if you use any mount solutions"
+                            multiple
+                            density="compact"
+                            class="mb-3"
+                        />
+                        <v-text-field
+                            v-if="formData.mountSolution.includes(OtherLabel)"
+                            v-model="otherMountSolution"
+                            label="Enter other mount solution"
+                            variant="outlined"
+                            :rules="[MaxNameLengthRule]"
+                            density="compact"
+                            class="mb-3"
+                        />
 
-                        <v-card-text class="px-0">
-                            <div class="text-subtitle-1 mb-2 font-weight-bold">Desired Features</div>
-                            <v-checkbox
-                                v-for="feature in desiredFeatures"
-                                :key="feature"
-                                v-model="formData.desiredFeatures"
-                                :label="feature"
-                                :value="feature"
-                                density="compact"
-                                hide-details
-                            />
-                        </v-card-text>
+                        <v-select
+                            v-model="formData.desiredFeatures"
+                            :items="desiredFeatures"
+                            label="Select your desired features"
+                            multiple
+                            density="compact"
+                            class="mb-3"
+                        />
 
-                        <v-card-text class="px-0">
-                            <div class="text-subtitle-1 mb-2 font-weight-bold">Current Pain Points</div>
-                            <v-checkbox
-                                v-for="point in painPoints"
-                                :key="point"
-                                v-model="formData.painPoints"
-                                :label="point"
-                                :value="point"
-                                density="compact"
-                                hide-details
-                            />
-                        </v-card-text>
+                        <v-select
+                            v-model="formData.painPoints"
+                            :items="painPoints"
+                            label="Select any current pain points"
+                            multiple
+                            density="compact"
+                            class="mb-3"
+                        />
 
                         <v-textarea
                             v-model="formData.comments"
                             label="What specific tasks or workflows will you use cunoFS for?"
                             placeholder="What specific tasks or workflows will you use cunoFS for?"
                             variant="outlined"
-                            class="rounded-lg mt-4"
                             maxlength="500"
-                            rows="3"
                         />
 
                         <v-btn
@@ -285,7 +269,6 @@ import {
     VCardItem,
     VCardTitle,
     VCardText,
-    VCheckbox,
     VTextarea,
     VTextField,
     VSelect,
