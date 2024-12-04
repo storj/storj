@@ -107,11 +107,6 @@ func (verifier *Verifier) Verify(ctx context.Context, segment Segment, skip map[
 		recordStats(report, len(segmentInfo.Pieces), err)
 	}()
 
-	if segment.Expired(verifier.nowFn()) {
-		verifier.log.Debug("segment expired before Verify")
-		return Report{}, nil
-	}
-
 	segmentInfo, err = verifier.metabase.GetSegmentByPosition(ctx, metabase.GetSegmentByPosition{
 		StreamID: segment.StreamID,
 		Position: segment.Position,
@@ -122,6 +117,10 @@ func (verifier *Verifier) Verify(ctx context.Context, segment Segment, skip map[
 			return Report{}, nil
 		}
 		return Report{}, err
+	}
+	if segmentInfo.Expired(verifier.nowFn()) {
+		verifier.log.Debug("segment expired before Verify")
+		return Report{}, nil
 	}
 
 	randomIndex, err := GetRandomStripe(ctx, segmentInfo)
