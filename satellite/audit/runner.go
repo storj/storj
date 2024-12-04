@@ -5,11 +5,16 @@ package audit
 
 import (
 	"context"
+	"encoding/csv"
 	"encoding/hex"
 	"fmt"
+	"io"
+	"os"
 	"strconv"
 	"strings"
 
+	"github.com/spacemonkeygo/monkit/v3"
+	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 
 	"storj.io/common/uuid"
@@ -26,21 +31,17 @@ type RunOnce struct {
 	verifier *Verifier
 	stop     *modular.StopTrigger
 	log      *zap.Logger
-	segment  Segment
+	segment  string
 }
 
 // NewRunOnce creates a new RunOnce.
 func NewRunOnce(log *zap.Logger, verifier *Verifier, stop *modular.StopTrigger, r RunOnceConfig) (*RunOnce, error) {
-	streamID, position, err := ParseSegmentPosition(r.Segment)
 	return &RunOnce{
 		log:      log,
 		verifier: verifier,
 		stop:     stop,
-		segment: Segment{
-			StreamID: streamID,
-			Position: position,
-		},
-	}, err
+		segment:  r.Segment,
+	}, nil
 }
 
 // Run executes ranged loop only once.
@@ -48,24 +49,61 @@ func (r *RunOnce) Run(ctx context.Context) error {
 	defer func() {
 		r.stop.Cancel()
 	}()
+	if _, err := os.Stat(r.segment); err == nil {
+		in, err := os.Open(r.segment)
+		if err != nil {
+			return errs.Wrap(err)
+		}
+		defer in.Close()
+		ci := csv.NewReader(in)
+		for {
+			record, err := ci.Read()
+			if err == io.EOF {
+				break
+			}
+			if err != nil {
+				return errs.Wrap(err)
+			}
+			streamID, position, err := ParseSegmentPosition(fmt.Sprintf("%s/%s", record[0], record[1]))
+			if err != nil {
+				return errs.Wrap(err)
+			}
+			err = r.auditOne(ctx, streamID, position)
+			if err != nil {
+				r.log.Warn("Audit is failed", zap.Stringer("stream_id", streamID), zap.Uint64("position", position.Encode()), zap.Error(err))
+			}
+		}
+		return nil
+	}
 
-	report, err := r.verifier.Verify(ctx, r.segment, nil)
+	streamID, position, err := ParseSegmentPosition(r.segment)
+	err = r.auditOne(ctx, streamID, position)
 	if err != nil {
 		return err
 	}
-	fmt.Println("FAILED")
-	for _, nodeID := range report.Fails {
-		fmt.Println("   ", nodeID)
-	}
-	fmt.Println("SUCCESS")
-	for _, nodeID := range report.Successes {
-		fmt.Println("   ", nodeID)
-	}
-	fmt.Println("UNKNOWN")
-	for _, nodeID := range report.Unknown {
-		fmt.Println("   ", nodeID)
-	}
+
 	return nil
+}
+
+func (r *RunOnce) auditOne(ctx context.Context, streamID uuid.UUID, position metabase.SegmentPosition) error {
+	report, err := r.verifier.Verify(ctx, Segment{
+		StreamID: streamID,
+		Position: position,
+	}, nil)
+	if err != nil {
+		return err
+	}
+	for _, result := range report.Fails {
+		mon.Counter("audit_failure", monkit.NewSeriesTag("node", result.StorageNode.String())).Inc(1)
+	}
+	for _, result := range report.Unknown {
+		mon.Counter("audit_unknown", monkit.NewSeriesTag("node", result.String())).Inc(1)
+	}
+	for _, result := range report.Successes {
+		mon.Counter("audit_success", monkit.NewSeriesTag("node", result.String())).Inc(1)
+	}
+
+	return err
 }
 
 // ParseSegmentPosition parse segment position from segment/pos format
@@ -80,14 +118,14 @@ func ParseSegmentPosition(i string) (uuid.UUID, metabase.SegmentPosition, error)
 		}
 		sp = metabase.SegmentPositionFromEncoded(uint64(part))
 	}
-	su, err := ParseUUID(parts[0])
+	su, err := parseUUID(parts[0])
 	if err != nil {
 		return uuid.UUID{}, metabase.SegmentPosition{}, err
 	}
 	return su, sp, nil
 }
 
-func ParseUUID(id string) (uuid.UUID, error) {
+func parseUUID(id string) (uuid.UUID, error) {
 	if id[0] == '#' {
 		sid, _ := uuid.New()
 		decoded, err := hex.DecodeString(id[1:])
