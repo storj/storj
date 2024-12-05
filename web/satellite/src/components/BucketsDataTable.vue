@@ -97,6 +97,18 @@
                     </v-chip>
                 </div>
             </template>
+            <template #item.objectLockEnabled="{ item }">
+                <div class="text-no-wrap">
+                    <v-tooltip location="top" :text="getObjectLockInfo(item)">
+                        <template #activator="{ props }">
+                            <v-icon v-bind="props" size="28" :icon="Lock" class="mr-1 pa-1 rounded-lg border" />
+                        </template>
+                    </v-tooltip>
+                    <v-chip variant="tonal" color="default" size="small">
+                        {{ item.objectLockEnabled ? 'Enabled' : 'Disabled' }}
+                    </v-chip>
+                </div>
+            </template>
             <template #item.actions="{ item }">
                 <v-tooltip v-if="bucketsBeingDeleted.has(item.name)" location="top" text="Deleting bucket">
                     <template #activator="{ props }">
@@ -161,7 +173,7 @@
                                 <component :is="Lock" :size="18" />
                             </template>
                             <v-list-item-title class="ml-3">
-                                Object Lock
+                                {{ item.objectLockEnabled ? 'Lock Settings' : 'Enable Lock' }}
                             </v-list-item-title>
                         </v-list-item>
                         <v-list-item link @click="() => showShareBucketDialog(item.name)">
@@ -253,6 +265,7 @@ import { usePreCheck } from '@/composables/usePreCheck';
 import { Versioning } from '@/types/versioning';
 import { Time } from '@/utils/time';
 import { useObjectBrowserStore } from '@/store/modules/objectBrowserStore';
+import { capitalizedMode, NO_MODE_SET } from '@/types/objectLock';
 
 import DeleteBucketDialog from '@/components/dialogs/DeleteBucketDialog.vue';
 import EnterBucketPassphraseDialog from '@/components/dialogs/EnterBucketPassphraseDialog.vue';
@@ -340,6 +353,10 @@ const headers = computed<DataTableHeader[]>(() => {
 
     if (versioningUIEnabled.value) {
         hdrs.push({ title: 'Versioning', key: 'versioning', sortable: isTableSortable.value });
+    }
+
+    if (objectLockUIEnabled.value) {
+        hdrs.push({ title: 'Lock', key: 'objectLockEnabled', sortable: isTableSortable.value });
     }
 
     hdrs.push(
@@ -471,6 +488,24 @@ function getVersioningInfo(status: Versioning): string {
         return 'This bucket does not have versioning enabled.';
     default:
         return 'Unknown versioning status.';
+    }
+}
+
+/**
+ * Returns helper info based on object lock status.
+ */
+function getObjectLockInfo(bucket: Bucket): string {
+    switch (true) {
+    case !bucket.objectLockEnabled:
+        return 'Object lock not enabled.';
+    case bucket.defaultRetentionMode === NO_MODE_SET:
+        return 'Default Mode: None';
+    case bucket.defaultRetentionDays !== null:
+        return `Default Mode: ${capitalizedMode(bucket.defaultRetentionMode)} / ${bucket.defaultRetentionDays} day${ bucket.defaultRetentionDays > 1 ? 's' : '' } retention`;
+    case bucket.defaultRetentionYears !== null:
+        return `Default Mode: ${capitalizedMode(bucket.defaultRetentionMode)} / ${bucket.defaultRetentionYears} year${ bucket.defaultRetentionYears > 1 ? 's' : '' } retention`;
+    default:
+        return 'Unknown object lock status.';
     }
 }
 

@@ -104,6 +104,7 @@
                                 </v-chip-group>
                                 <SetDefaultObjectLockConfig
                                     v-if="enableObjectLock"
+                                    :existing-mode="NO_MODE_SET"
                                     @updateDefaultMode="newMode => defaultRetentionMode = newMode"
                                     @updatePeriodValue="newPeriod => defaultRetentionPeriod = newPeriod"
                                     @updatePeriodUnit="newUnit => defaultRetentionPeriodUnit = newUnit"
@@ -193,7 +194,7 @@
                                     color="default"
                                     class="mt-1 mb-4 font-weight-bold text-capitalize"
                                 >
-                                    {{ defaultRetentionMode?.toLowerCase() ?? 'Not Set' }}
+                                    {{ defaultRetentionMode?.toLowerCase() ?? NO_MODE_SET }}
                                 </v-chip>
                                 <p>Default Retention Period:</p>
                                 <v-chip
@@ -306,7 +307,7 @@ import { AccessGrant, EdgeCredentials } from '@/types/accessGrants';
 import { StepInfo, ValidationRule } from '@/types/common';
 import { Versioning } from '@/types/versioning';
 import { ROUTES } from '@/router';
-import { DefaultObjectLockPeriodUnit, ObjLockMode } from '@/types/objectLock';
+import { DefaultObjectLockPeriodUnit, NO_MODE_SET, ObjLockMode } from '@/types/objectLock';
 
 import SetDefaultObjectLockConfig from '@/components/dialogs/defaultBucketLockConfig/SetDefaultObjectLockConfig.vue';
 
@@ -397,14 +398,14 @@ const enableVersioning = ref<boolean>(false);
 const enableObjectLock = ref<boolean>(false);
 const bucketName = ref<string>('');
 const worker = ref<Worker | null>(null);
-const defaultRetentionMode = ref<ObjLockMode>();
+const defaultRetentionMode = ref<ObjLockMode | typeof NO_MODE_SET>(NO_MODE_SET);
 const defaultRetentionPeriod = ref<number>(0);
 const defaultRetentionPeriodUnit = ref<DefaultObjectLockPeriodUnit>(DefaultObjectLockPeriodUnit.DAYS);
 
 const project = computed(() => projectsStore.state.selectedProject);
 
 const defaultRetPeriodResult = computed<string>(() => {
-    if (defaultRetentionPeriod.value === 0) return 'Not Set';
+    if (defaultRetentionPeriod.value === 0) return NO_MODE_SET;
 
     let unit = defaultRetentionPeriodUnit.value.toString();
     if (defaultRetentionPeriod.value === 1) {
@@ -590,7 +591,7 @@ async function openBucket(): Promise<void> {
 async function setObjectLockConfig(clientType: ClientType): Promise<void> {
     await bucketsStore.setObjectLockConfig(bucketName.value, clientType, {
         DefaultRetention: {
-            Mode: defaultRetentionMode.value,
+            Mode: defaultRetentionMode.value === NO_MODE_SET ? undefined : defaultRetentionMode.value,
             Days: defaultRetentionPeriodUnit.value === DefaultObjectLockPeriodUnit.DAYS ? defaultRetentionPeriod.value : undefined,
             Years: defaultRetentionPeriodUnit.value === DefaultObjectLockPeriodUnit.YEARS ? defaultRetentionPeriod.value : undefined,
         },
@@ -613,7 +614,7 @@ async function onCreate(): Promise<void> {
             await bucketsStore.setS3Client(projectID);
         }
         await bucketsStore.createBucket(bucketName.value, enableObjectLock.value, enableVersioning.value);
-        if (enableObjectLock.value && defaultRetentionMode.value) await setObjectLockConfig(ClientType.REGULAR);
+        if (enableObjectLock.value && defaultRetentionMode.value !== NO_MODE_SET) await setObjectLockConfig(ClientType.REGULAR);
         await bucketsStore.getBuckets(1, projectID);
         analyticsStore.eventTriggered(AnalyticsEvent.BUCKET_CREATED);
 
@@ -628,7 +629,7 @@ async function onCreate(): Promise<void> {
 
     if (edgeCredentialsForCreate.value.accessKeyId) {
         await bucketsStore.createBucketWithNoPassphrase(bucketName.value, enableObjectLock.value, enableVersioning.value);
-        if (enableObjectLock.value && defaultRetentionMode.value) await setObjectLockConfig(ClientType.FOR_CREATE);
+        if (enableObjectLock.value && defaultRetentionMode.value !== NO_MODE_SET) await setObjectLockConfig(ClientType.FOR_CREATE);
         await bucketsStore.getBuckets(1, projectID);
         analyticsStore.eventTriggered(AnalyticsEvent.BUCKET_CREATED);
         if (!bucketWasCreated.value) {
@@ -700,7 +701,7 @@ async function onCreate(): Promise<void> {
     const creds: EdgeCredentials = await agStore.getEdgeCredentials(accessGrant);
     bucketsStore.setEdgeCredentialsForCreate(creds);
     await bucketsStore.createBucketWithNoPassphrase(bucketName.value, enableObjectLock.value, enableVersioning.value);
-    if (enableObjectLock.value && defaultRetentionMode.value) await setObjectLockConfig(ClientType.FOR_CREATE);
+    if (enableObjectLock.value && defaultRetentionMode.value !== NO_MODE_SET) await setObjectLockConfig(ClientType.FOR_CREATE);
     await bucketsStore.getBuckets(1, projectID);
     analyticsStore.eventTriggered(AnalyticsEvent.BUCKET_CREATED);
 
@@ -721,7 +722,7 @@ watchEffect(() => {
 watch(enableObjectLock, value => {
     if (!value) {
         enableVersioning.value = false;
-        defaultRetentionMode.value = undefined;
+        defaultRetentionMode.value = NO_MODE_SET;
         defaultRetentionPeriod.value = 0;
         defaultRetentionPeriodUnit.value = DefaultObjectLockPeriodUnit.DAYS;
     }
@@ -746,7 +747,7 @@ watch(innerContent, newContent => {
     stepNumber.value = 1;
     enableVersioning.value = false;
     enableObjectLock.value = false;
-    defaultRetentionMode.value = undefined;
+    defaultRetentionMode.value = NO_MODE_SET;
     defaultRetentionPeriod.value = 0;
     defaultRetentionPeriodUnit.value = DefaultObjectLockPeriodUnit.DAYS;
 });
