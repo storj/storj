@@ -482,7 +482,7 @@ export class PaymentsHttpApi implements PaymentsApi {
 
         const wallet = await response.json();
         if (wallet) {
-            return new Wallet(wallet.address, wallet.balance);
+            return new Wallet(wallet.address, new TokenAmount(wallet.balance.value, wallet.balance.currency));
         }
 
         throw new Error('Can not get wallet');
