@@ -6,7 +6,7 @@
         v-model="model"
         :persistent="isLoading"
         width="auto"
-        max-width="420px"
+        max-width="440px"
         transition="fade-transition"
     >
         <v-card>
@@ -21,7 +21,7 @@
                         <component :is="Lock" :size="18" />
                     </v-sheet>
                 </template>
-                <v-card-title class="font-weight-bold">Lock</v-card-title>
+                <v-card-title class="font-weight-bold">Lock Settings</v-card-title>
                 <template #append>
                     <v-btn
                         icon="$close"
@@ -39,8 +39,11 @@
             <v-form ref="form" v-model="formValid" class="pa-6" @submit.prevent="onSetLock">
                 <v-row>
                     <v-col>
-                        <p class="mb-4">
-                            Enabling object lock will prevent objects from being deleted or overwritten for a specified period of time.
+                        <p v-if="bucketData.objectLockEnabled" class="mb-4">
+                            Object Lock is enabled on this bucket. This setting cannot be disabled.
+                        </p>
+                        <p v-else class="mb-4">
+                            Object Lock is disabled on this bucket.
                         </p>
                         <set-default-object-lock-config
                             :existing-mode="defaultRetentionMode"
@@ -78,7 +81,7 @@
                             :loading="isLoading"
                             @click="onSetLock"
                         >
-                            Set Lock
+                            Save Changes
                         </v-btn>
                     </v-col>
                 </v-row>
@@ -108,7 +111,7 @@ import type { ObjectLockRule } from '@aws-sdk/client-s3';
 import { useLoading } from '@/composables/useLoading';
 import { AnalyticsErrorEventSource } from '@/utils/constants/analyticsEventNames';
 import { useNotify } from '@/utils/hooks';
-import { DefaultObjectLockPeriodUnit, ObjLockMode } from '@/types/objectLock';
+import { DefaultObjectLockPeriodUnit, NO_MODE_SET, ObjLockMode } from '@/types/objectLock';
 import { Bucket } from '@/types/buckets';
 import { ClientType, useBucketsStore } from '@/store/modules/bucketsStore';
 import { AccessGrant, EdgeCredentials } from '@/types/accessGrants';
@@ -134,7 +137,7 @@ const model = defineModel<boolean>({ required: true });
 
 const form = ref<VForm>();
 const formValid = ref<boolean>(false);
-const defaultRetentionMode = ref<ObjLockMode>();
+const defaultRetentionMode = ref<ObjLockMode | typeof NO_MODE_SET>(NO_MODE_SET);
 const defaultRetentionPeriod = ref<number>(0);
 const defaultRetentionPeriodUnit = ref<DefaultObjectLockPeriodUnit>(DefaultObjectLockPeriodUnit.DAYS);
 const worker = ref<Worker | null>(null);
@@ -153,7 +156,7 @@ function onSetLock(): void {
     withLoading(async () => {
         try {
             let rule: ObjectLockRule | undefined = undefined;
-            if (defaultRetentionMode.value) {
+            if (defaultRetentionMode.value !== NO_MODE_SET) {
                 rule = {
                     DefaultRetention: {
                         Mode: defaultRetentionMode.value,
@@ -272,7 +275,7 @@ watch(model, value => {
     if (value) {
         setWorker();
 
-        defaultRetentionMode.value = bucketData.value.defaultRetentionMode === 'Not set' ? undefined : bucketData.value.defaultRetentionMode;
+        defaultRetentionMode.value = bucketData.value.defaultRetentionMode;
 
         if (bucketData.value.defaultRetentionYears) {
             defaultRetentionPeriodUnit.value = DefaultObjectLockPeriodUnit.YEARS;
@@ -282,7 +285,7 @@ watch(model, value => {
             defaultRetentionPeriod.value = bucketData.value.defaultRetentionDays;
         }
     } else {
-        defaultRetentionMode.value = undefined;
+        defaultRetentionMode.value = NO_MODE_SET;
         defaultRetentionPeriod.value = 0;
         defaultRetentionPeriodUnit.value = DefaultObjectLockPeriodUnit.DAYS;
     }

@@ -96,6 +96,7 @@ import { useConfigStore } from '@/store/modules/configStore';
 import { useNotify } from '@/utils/hooks';
 import { useLoading } from '@/composables/useLoading';
 import { AnalyticsErrorEventSource } from '@/utils/constants/analyticsEventNames';
+import { NO_MODE_SET } from '@/types/objectLock';
 
 const bucketsStore = useBucketsStore();
 const configStore = useConfigStore();
@@ -123,7 +124,7 @@ const objectLockUIEnabled = computed<boolean>(() => configStore.state.config.obj
 const defaultRetentionPeriod = computed(() => {
     const { objectLockEnabled, defaultRetentionDays, defaultRetentionYears } = bucket.value;
 
-    if (!objectLockEnabled) return 'Not Set';
+    if (!objectLockEnabled) return NO_MODE_SET;
 
     if (defaultRetentionDays) {
         return `${defaultRetentionDays} Day${defaultRetentionDays > 1 ? 's' : ''}`;
@@ -133,7 +134,7 @@ const defaultRetentionPeriod = computed(() => {
         return `${defaultRetentionYears} Year${defaultRetentionYears > 1 ? 's' : ''}`;
     }
 
-    return 'Not Set';
+    return NO_MODE_SET;
 });
 
 const showRegionTag = computed<boolean>(() => {
