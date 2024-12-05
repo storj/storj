@@ -4,7 +4,7 @@
 import { DEFAULT_PAGE_LIMIT } from '@/types/pagination';
 import { Placement } from '@/types/placements';
 import { Versioning } from '@/types/versioning';
-import { COMPLIANCE_LOCK, GOVERNANCE_LOCK, ObjLockMode } from '@/types/objectLock';
+import { COMPLIANCE_LOCK, GOVERNANCE_LOCK, NO_MODE_SET, ObjLockMode } from '@/types/objectLock';
 
 /**
  * Exposes all bucket-related functionality.
@@ -48,7 +48,7 @@ export interface BucketsApi {
  * Bucket class holds info for Bucket entity.
  */
 export class Bucket {
-    public defaultRetentionMode: ObjLockMode | 'Not set' = 'Not set';
+    public defaultRetentionMode: ObjLockMode | typeof NO_MODE_SET = NO_MODE_SET;
 
     public constructor(
         public name: string = '',

@@ -5,22 +5,27 @@
     <p>Select default object lock mode (optional):</p>
     <v-chip-group
         v-model="defaultRetentionMode"
+        :rules="[RequiredRule]"
         filter
+        mandatory
         selected-class="font-weight-bold"
         class="my-1"
     >
-        <v-chip :value="GOVERNANCE_LOCK" variant="outlined" filter color="info">
+        <v-chip :value="NO_MODE_SET" variant="outlined" color="info">
+            No Default Mode
+        </v-chip>
+        <v-chip :value="GOVERNANCE_LOCK" variant="outlined" color="info">
             Governance
         </v-chip>
-        <v-chip :value="COMPLIANCE_LOCK" variant="outlined" filter color="info">
+        <v-chip :value="COMPLIANCE_LOCK" variant="outlined" color="info">
             Compliance
         </v-chip>
     </v-chip-group>
     <v-alert variant="tonal" color="default">
-        <p class="font-weight-bold text-body-2 mb-1 text-capitalize">Enable Object Lock ({{ defaultRetentionMode ? defaultRetentionMode.toLowerCase() : 'No Default' }} Mode)</p>
+        <p class="font-weight-bold text-body-2 mb-1 text-capitalize">Enable Object Lock ({{ defaultRetentionMode !== NO_MODE_SET ? defaultRetentionMode.toLowerCase() : 'No Default' }} Mode)</p>
         <p class="text-subtitle-2">{{ defaultLockModeInfo }}</p>
     </v-alert>
-    <template v-if="defaultRetentionMode">
+    <template v-if="defaultRetentionMode !== NO_MODE_SET">
         <p class="my-2">Default retention period:</p>
         <v-text-field
             v-model="period"
@@ -61,22 +66,28 @@ import { computed, ref, watch } from 'vue';
 import { VAlert, VChip, VChipGroup, VTextField, VListItem, VBtn, VMenu, VList } from 'vuetify/components';
 import { ChevronDown, ChevronUp } from 'lucide-vue-next';
 
-import { COMPLIANCE_LOCK, DefaultObjectLockPeriodUnit, GOVERNANCE_LOCK, ObjLockMode } from '@/types/objectLock';
+import {
+    COMPLIANCE_LOCK,
+    DefaultObjectLockPeriodUnit,
+    GOVERNANCE_LOCK,
+    NO_MODE_SET,
+    ObjLockMode,
+} from '@/types/objectLock';
 import { RequiredRule, ValidationRule } from '@/types/common';
 
 const emit = defineEmits<{
-    'updateDefaultMode': [value: ObjLockMode | undefined];
+    'updateDefaultMode': [value: ObjLockMode | typeof NO_MODE_SET];
     'updatePeriodValue': [value: number];
     'updatePeriodUnit': [value: DefaultObjectLockPeriodUnit];
 }>();
 
 const props = defineProps<{
-    existingMode?: ObjLockMode;
+    existingMode: ObjLockMode | typeof NO_MODE_SET;
     existingPeriod?: number;
     existingPeriodUnit?: DefaultObjectLockPeriodUnit;
 }>();
 
-const defaultRetentionMode = ref<ObjLockMode | undefined>(props.existingMode);
+const defaultRetentionMode = ref<ObjLockMode | typeof NO_MODE_SET>(props.existingMode);
 const period = ref<number>(props.existingPeriod ?? 0);
 const periodUnit = ref<DefaultObjectLockPeriodUnit>(props.existingPeriodUnit ?? DefaultObjectLockPeriodUnit.DAYS);
 
