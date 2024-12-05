@@ -132,13 +132,10 @@ type DBStats struct {
 	Compacting  bool   // if true, a background compaction is in progress.
 	Compactions uint64 // total number of compactions that finished on either store.
 	Active      int    // which store is currently active
-
-	S0 StoreStats // statistics about the s0 store.
-	S1 StoreStats // statistics about the s1 store.
 }
 
-// Stats returns statistics about the database.
-func (d *DB) Stats() DBStats {
+// Stats returns statistics about the database and underlying stores.
+func (d *DB) Stats() (DBStats, StoreStats, StoreStats) {
 	d.mu.Lock()
 	s0, s1, active := d.active, d.passive, 0
 	compacting := d.compact != nil
@@ -176,10 +173,7 @@ func (d *DB) Stats() DBStats {
 		Compacting:  compacting,
 		Compactions: s0st.Compactions + s1st.Compactions,
 		Active:      active,
-
-		S0: s0st,
-		S1: s1st,
-	}
+	}, s0st, s1st
 }
 
 // Close closes down the database and blocks until all background processes have stopped.

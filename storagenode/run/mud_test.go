@@ -1,9 +1,13 @@
+// Copyright (C) 2024 Storj Labs, Inc.
+// See LICENSE for copying information.
+
 package root
 
 import (
+	"testing"
+
 	"storj.io/storj/private/mud"
 	"storj.io/storj/shared/modular"
-	"testing"
 )
 
 func TestModule(t *testing.T) {

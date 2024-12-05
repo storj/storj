@@ -133,9 +133,20 @@ func (hsb *HashStoreBackend) Stats(cb func(key monkit.SeriesKey, field string, v
 	})
 
 	for _, iddb := range iddbs {
+
+		dbStat, s0Stat, s1Stat := iddb.db.Stats()
+		taggedSeries := monkit.NewSeriesKey("hashstore").WithTag("satellite", iddb.id.String())
 		monkit.StatSourceFromStruct(
-			monkit.NewSeriesKey("hashstore").WithTag("satellite", iddb.id.String()),
-			iddb.db.Stats(),
+			taggedSeries,
+			dbStat,
+		).Stats(cb)
+		monkit.StatSourceFromStruct(
+			taggedSeries.WithTag("db", "s0"),
+			s0Stat,
+		).Stats(cb)
+		monkit.StatSourceFromStruct(
+			taggedSeries.WithTag("db", "s1"),
+			s1Stat,
 		).Stats(cb)
 	}
 }
@@ -166,7 +177,7 @@ type SpaceUsageBySatellite struct {
 func (hsb *HashStoreBackend) SpaceUsage() (subs SpaceUsageBySatellite) {
 	subs.BySatellite = make(map[storj.NodeID]SpaceUsage)
 	for id, db := range hsb.dbsCopy() {
-		stats := db.Stats()
+		stats, _, _ := db.Stats()
 		su := SpaceUsage{
 			UsedTotal:       int64(stats.LenLogs + stats.TableSize),
 			UsedForPieces:   int64(stats.LenSet - stats.LenTrash),

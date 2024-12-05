@@ -33,7 +33,7 @@ func TestDB_BasicOperation(t *testing.T) {
 	}
 
 	// ensure the stats look like what we expect.
-	stats := db.Stats()
+	stats, _, _ := db.Stats()
 	t.Logf("%+v", stats)
 	assert.Equal(t, stats.NumSet, 1<<store_minTableSize)
 	assert.Equal(t, stats.LenSet, uint64(len(Key{})+RecordSize)*stats.NumSet)
@@ -80,7 +80,7 @@ func TestDB_TrashStats(t *testing.T) {
 	}
 
 	// ensure the trash stats are updated.
-	stats := db.Stats()
+	stats, _, _ := db.Stats()
 	assert.That(t, stats.NumTrash > 0)
 	assert.That(t, stats.LenTrash > 0)
 	assert.That(t, stats.AvgTrash > 0)
@@ -95,7 +95,7 @@ func TestDB_TTLStats(t *testing.T) {
 	db.AssertCreate(WithTTL(time.Now()))
 
 	// ensure the ttl stats are updated.
-	stats := db.Stats()
+	stats, _, _ := db.Stats()
 	assert.Equal(t, stats.NumLogs, stats.NumLogsTTL)
 	assert.Equal(t, stats.LenLogs, stats.LenLogsTTL)
 
@@ -103,7 +103,7 @@ func TestDB_TTLStats(t *testing.T) {
 	db.AssertCreate()
 
 	// ensure the non-ttl stats are updated.
-	stats = db.Stats()
+	stats, _, _ = db.Stats()
 	assert.Equal(t, stats.NumLogs, 2*stats.NumLogsTTL)
 	assert.Equal(t, stats.LenLogs, 2*stats.LenLogsTTL)
 }
