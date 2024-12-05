@@ -8,6 +8,7 @@ import (
 	"context"
 	"io"
 	"io/fs"
+	"math/rand"
 	"strconv"
 	"sync"
 	"time"
@@ -44,6 +45,8 @@ type Backend interface {
 // Config defines the configuration for the chore.
 type Config struct {
 	BufferSize        int           `help:"how many pieces to buffer" default:"1"`
+	Delay             time.Duration `help:"constant delay between migration of two pieces. 0 means no delay" default:"0"`
+	Jitter            bool          `help:"whether to add jitter to the delay; has no effect if delay is 0" default:"true"`
 	Interval          time.Duration `help:"how long to wait between pooling satellites for active migration" default:"10m"`
 	MigrateRegardless bool          `help:"whether to also migrate pieces for satellites outside currently set" default:"false"`
 }
@@ -278,6 +281,13 @@ func (chore *Chore) processQueue(ctx context.Context) (err error) {
 				// if we should be going slower
 				chore.baselineDataRate.Observe(float64(size) / d.Seconds())
 			}
+		}
+		if d := chore.config.Delay; d > 0 {
+			if chore.config.Jitter {
+				d += time.Duration(rand.Int63n(int64(d / 2)))
+			}
+			chore.log.Debug("delaying before next piece", zap.Duration("delay", d))
+			time.Sleep(d)
 		}
 	}
 }
