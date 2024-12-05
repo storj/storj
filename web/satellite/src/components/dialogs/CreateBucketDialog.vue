@@ -135,6 +135,7 @@
                                         v-if="!enableObjectLock"
                                         variant="outlined"
                                         filter
+                                        color="info"
                                         :value="false"
                                     >
                                         Disabled
@@ -142,8 +143,8 @@
                                     <v-chip
                                         variant="outlined"
                                         filter
+                                        color="info"
                                         :value="true"
-                                        color="primary"
                                     >
                                         Enabled
                                     </v-chip>
@@ -714,6 +715,15 @@ async function onCreate(): Promise<void> {
 watchEffect(() => {
     if (enableObjectLock.value) {
         enableVersioning.value = true;
+    }
+});
+
+watch(enableObjectLock, value => {
+    if (!value) {
+        enableVersioning.value = false;
+        defaultRetentionMode.value = undefined;
+        defaultRetentionPeriod.value = 0;
+        defaultRetentionPeriodUnit.value = DefaultObjectLockPeriodUnit.DAYS;
     }
 });
 
