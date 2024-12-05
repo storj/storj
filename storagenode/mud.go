@@ -236,10 +236,7 @@ func Module(ball *mud.Ball) {
 			return contact.NewQUICStats(server.IsQUICEnabled())
 		})
 
-		mud.Provide[*pb.SignedNodeTagSets](ball, func(config contact.Config) *pb.SignedNodeTagSets {
-			tags := pb.SignedNodeTagSets(config.Tags)
-			return &tags
-		})
+		mud.Provide[*pb.SignedNodeTagSets](ball, contact.GetTags)
 
 		mud.Provide[*contact.Service](ball, contact.NewService)
 
