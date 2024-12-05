@@ -369,15 +369,19 @@ func (db *DB) openDatabase(ctx context.Context, dbName string) error {
 
 // openDatabase opens or creates a database at the specified path.
 func (db *DB) openDatabaseWithStat(ctx context.Context, dbName string, registerStat bool) error {
+
+	// re-use existing, opened database to avoid duplicated monkit registration.
+	// forcing db.CloseDatabase + dbOpenDatabase is not safe, as each open database will register new monkit stats
+	dbContainer, ok := db.SQLDBs[dbName]
+	if ok && dbContainer.GetDB() != nil {
+		return nil
+	}
+
 	path := db.filepathFromDBName(dbName)
 
 	driver := db.config.Driver
 	if driver == "" {
 		driver = "sqlite3"
-	}
-
-	if err := db.closeDatabase(dbName); err != nil {
-		return ErrDatabase.Wrap(err)
 	}
 
 	wal := "&_journal=WAL"
@@ -1256,7 +1260,7 @@ func (db *DB) Migration(ctx context.Context) *migrate.Migration {
 				Description: "Create notifications table",
 				Version:     28,
 				CreateDB: func(ctx context.Context, log *zap.Logger) error {
-					if err := db.openDatabase(ctx, NotificationsDBName); err != nil {
+					if err := db.openDatabaseWithStat(ctx, NotificationsDBName, false); err != nil {
 						return ErrDatabase.Wrap(err)
 					}
 
@@ -1317,7 +1321,7 @@ func (db *DB) Migration(ctx context.Context) *migrate.Migration {
 				Description: "Create paystubs table and payments table",
 				Version:     32,
 				CreateDB: func(ctx context.Context, log *zap.Logger) error {
-					if err := db.openDatabase(ctx, HeldAmountDBName); err != nil {
+					if err := db.openDatabaseWithStat(ctx, HeldAmountDBName, false); err != nil {
 						return ErrDatabase.Wrap(err)
 					}
 
@@ -1416,7 +1420,7 @@ func (db *DB) Migration(ctx context.Context) *migrate.Migration {
 				Description: "Create pricing table",
 				Version:     35,
 				CreateDB: func(ctx context.Context, log *zap.Logger) error {
-					if err := db.openDatabase(ctx, PricingDBName); err != nil {
+					if err := db.openDatabaseWithStat(ctx, PricingDBName, false); err != nil {
 						return ErrDatabase.Wrap(err)
 					}
 
@@ -1877,7 +1881,7 @@ func (db *DB) Migration(ctx context.Context) *migrate.Migration {
 				Description: "Create secret table",
 				Version:     46,
 				CreateDB: func(ctx context.Context, log *zap.Logger) error {
-					if err := db.openDatabase(ctx, APIKeysDBName); err != nil {
+					if err := db.openDatabaseWithStat(ctx, APIKeysDBName, false); err != nil {
 						return ErrDatabase.Wrap(err)
 					}
 
@@ -2088,7 +2092,7 @@ func (db *DB) Migration(ctx context.Context) *migrate.Migration {
 				Description: "Create gc_filewalker_progress db",
 				Version:     55,
 				CreateDB: func(ctx context.Context, log *zap.Logger) error {
-					if err := db.openDatabase(ctx, GCFilewalkerProgressDBName); err != nil {
+					if err := db.openDatabaseWithStat(ctx, GCFilewalkerProgressDBName, false); err != nil {
 						return ErrDatabase.Wrap(err)
 					}
 
@@ -2108,7 +2112,7 @@ func (db *DB) Migration(ctx context.Context) *migrate.Migration {
 				Description: "Create used_space_per_prefix db",
 				Version:     56,
 				CreateDB: func(ctx context.Context, log *zap.Logger) error {
-					if err := db.openDatabase(ctx, UsedSpacePerPrefixDBName); err != nil {
+					if err := db.openDatabaseWithStat(ctx, UsedSpacePerPrefixDBName, false); err != nil {
 						return ErrDatabase.Wrap(err)
 					}
 
