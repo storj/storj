@@ -58,12 +58,13 @@ type DB interface {
 
 	// Get looks up the node by nodeID
 	Get(ctx context.Context, nodeID storj.NodeID) (*NodeDossier, error)
-	// GetNodes gets records for all specified nodes as of the given system interval. The
-	// onlineWindow is used to determine whether each node is marked as Online. The results are
-	// returned in a slice of the same length as the input nodeIDs, and each index of the returned
-	// list corresponds to the same index in nodeIDs. If a node is not known, or is disqualified
-	// or exited, the corresponding returned SelectedNode will have a zero value.
-	GetNodes(ctx context.Context, nodeIDs storj.NodeIDList, onlineWindow, asOfSystemInterval time.Duration) (_ []nodeselection.SelectedNode, err error)
+	// GetActiveNodes gets records for nodes that have not exited or disqualified
+	// The onlineWindow is used to determine whether each node is marked as Online.
+	// The results are returned in a slice of the same length as the input nodeIDs,
+	// and each index of the returned list corresponds to the same index in nodeIDs.
+	// If a node is not known, or is disqualified or exited, the corresponding returned
+	// SelectedNode will have a zero value.
+	GetActiveNodes(ctx context.Context, nodeIDs storj.NodeIDList, onlineWindow, asOfSystemInterval time.Duration) (_ []nodeselection.SelectedNode, err error)
 	// GetParticipatingNodes returns all known participating nodes (this includes all known nodes
 	// excluding nodes that have been disqualified or gracefully exited).
 	GetParticipatingNodes(ctx context.Context, onlineWindow, asOfSystemInterval time.Duration) (_ []nodeselection.SelectedNode, err error)
@@ -513,16 +514,17 @@ func (service *Service) InsertOfflineNodeEvents(ctx context.Context, cooldown ti
 	return count, err
 }
 
-// GetNodes gets records for all specified nodes. The configured OnlineWindow is used to determine
-// whether each node is marked as Online. The results are returned in a slice of the same length as
-// the input nodeIDs, and each index of the returned list corresponds to the same index in nodeIDs.
+// GetActiveNodes gets records for all specified nodes that have not exited or been disqualified.
+// The configured OnlineWindow is used to determine whether each node is marked as Online.
+// The results are returned in a slice of the same length as the input nodeIDs,
+// and each index of the returned list corresponds to the same index in nodeIDs.
 // If a node is not known, or is disqualified or exited, the corresponding returned SelectedNode
 // will have a zero value.
-func (service *Service) GetNodes(ctx context.Context, nodeIDs storj.NodeIDList) (records []nodeselection.SelectedNode, err error) {
+func (service *Service) GetActiveNodes(ctx context.Context, nodeIDs storj.NodeIDList) (records []nodeselection.SelectedNode, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	// TODO add as of system time
-	return service.db.GetNodes(ctx, nodeIDs, service.config.Node.OnlineWindow, 0)
+	return service.db.GetActiveNodes(ctx, nodeIDs, service.config.Node.OnlineWindow, 0)
 }
 
 // GetParticipatingNodes returns all known participating nodes (this includes all known nodes

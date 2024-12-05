@@ -440,12 +440,13 @@ func (cache *overlaycache) UpdateLastOfflineEmail(ctx context.Context, nodeIDs s
 	return err
 }
 
-// GetNodes gets records for all specified nodes as of the given system interval. The
-// onlineWindow is used to determine whether each node is marked as Online. The results are
-// returned in a slice of the same length as the input nodeIDs, and each index of the returned
-// list corresponds to the same index in nodeIDs. If a node is not known, or is disqualified
-// or exited, the corresponding returned SelectedNode will have a zero value.
-func (cache *overlaycache) GetNodes(ctx context.Context, nodeIDs storj.NodeIDList, onlineWindow, asOfSystemInterval time.Duration) (records []nodeselection.SelectedNode, err error) {
+// GetActiveNodes gets records for nodes that have not exited or disqualified
+// The onlineWindow is used to determine whether each node is marked as Online.
+// The results are returned in a slice of the same length as the input nodeIDs,
+// and each index of the returned list corresponds to the same index in nodeIDs.
+// If a node is not known, or is disqualified or exited, the corresponding returned
+// SelectedNode will have a zero value.
+func (cache *overlaycache) GetActiveNodes(ctx context.Context, nodeIDs storj.NodeIDList, onlineWindow, asOfSystemInterval time.Duration) (records []nodeselection.SelectedNode, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	if len(nodeIDs) == 0 {
