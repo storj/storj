@@ -763,11 +763,17 @@ func (s *Store) compactOnce(
 	if err != nil {
 		return false, Error.Wrap(err)
 	}
-	flush, done, err := ntbl.ExpectOrdered()
-	if err != nil {
-		return false, Error.Wrap(err)
+
+	// only expect ordered if both tables have the same key ordering.
+	flush := func() error { return nil }
+	if ntbl.header.hashKey == s.tbl.header.hashKey {
+		var done func()
+		flush, done, err = ntbl.ExpectOrdered()
+		if err != nil {
+			return false, Error.Wrap(err)
+		}
+		defer done()
 	}
-	defer done()
 
 	// copy all of the entries from the hash table to the new table, skipping expired entries, and
 	// rewriting any entries that are in the log files that we are rewriting.
