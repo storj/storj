@@ -523,8 +523,7 @@ func (service *Service) InsertOfflineNodeEvents(ctx context.Context, cooldown ti
 func (service *Service) GetActiveNodes(ctx context.Context, nodeIDs storj.NodeIDList) (records []nodeselection.SelectedNode, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	// TODO add as of system time
-	return service.db.GetActiveNodes(ctx, nodeIDs, service.config.Node.OnlineWindow, 0)
+	return service.db.GetActiveNodes(ctx, nodeIDs, service.config.Node.OnlineWindow, service.config.AsOfSystemTime)
 }
 
 // GetParticipatingNodes returns all known participating nodes (this includes all known nodes
