@@ -217,7 +217,7 @@ func (d *DB) getActive(ctx context.Context) (*Store, error) {
 	d.mu.Lock()
 	defer d.mu.Unlock()
 
-	if err := d.closed.Err(); err != nil {
+	if err := signalError(&d.closed); err != nil {
 		return nil, err
 	}
 
@@ -262,7 +262,7 @@ func (d *DB) waitOnState(ctx context.Context, state *compactState) (err error) {
 
 	// check if we're already closed so we don't have to worry about select nondeterminism: a closed
 	// db or already canceled context will definitely error.
-	if err := d.closed.Err(); err != nil {
+	if err := signalError(&d.closed); err != nil {
 		return err
 	} else if err := ctx.Err(); err != nil {
 		return err
@@ -271,7 +271,7 @@ func (d *DB) waitOnState(ctx context.Context, state *compactState) (err error) {
 	case <-ctx.Done():
 		return ctx.Err()
 	case <-d.closed.Signal():
-		return d.closed.Err()
+		return signalError(&d.closed)
 	case <-state.done.Signal():
 		return nil
 	}
@@ -295,7 +295,7 @@ func (d *DB) Create(ctx context.Context, key Key, expires time.Time) (_ *Writer,
 func (d *DB) Read(ctx context.Context, key Key) (_ *Reader, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	if err := d.closed.Err(); err != nil {
+	if err := signalError(&d.closed); err != nil {
 		return nil, err
 	}
 
@@ -325,11 +325,11 @@ func (d *DB) Read(ctx context.Context, key Key) (_ *Reader, err error) {
 func (d *DB) Compact(ctx context.Context) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	if err := d.closed.Err(); err != nil {
+again:
+	if err := signalError(&d.closed); err != nil {
 		return err
 	}
 
-again:
 	d.mu.Lock()
 	if compact := d.compact; compact != nil {
 		// an active compaction is happening. we have to drop the mutex and wait for some event to
@@ -340,7 +340,7 @@ again:
 		case <-ctx.Done():
 			return ctx.Err()
 		case <-d.closed.Signal():
-			return d.closed.Err()
+			return signalError(&d.closed)
 		case <-compact.done.Signal():
 		}
 

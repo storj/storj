@@ -279,6 +279,36 @@ func TestDB_BackgroundCompaction(t *testing.T) {
 	})
 }
 
+func TestDB_CompactCallWaitsForCurrentCompaction(t *testing.T) {
+	var done atomic.Bool
+	throttle := make(chan struct{})
+
+	db := newTestDB(t, func(ctx context.Context, key Key, created time.Time) bool {
+		done.Store(true)
+		for range throttle {
+		}
+		return false
+	}, nil)
+	defer db.Close()
+
+	// write entries until a background compaction has started.
+	for !done.Load() {
+		db.AssertCreate()
+	}
+
+	// wait for a Compact call to be blocked in select waiting for the previous compaction and then
+	// allow the compaction to proceed.
+	go func() {
+		waitForGoroutine(
+			"hashstore.(*DB).Compact",
+			"[select]",
+		)
+		close(throttle)
+	}()
+
+	assert.NoError(t, db.Compact(context.Background()))
+}
+
 //
 // benchmarks
 //

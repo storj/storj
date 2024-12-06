@@ -322,7 +322,7 @@ func (h *HashTbl) Range(fn func(Record, error) bool) {
 	h.opMu.RLock()
 	defer h.opMu.RUnlock()
 
-	if err := h.closed.Err(); err != nil {
+	if err := signalError(&h.closed); err != nil {
 		fn(Record{}, err)
 		return
 	}
@@ -390,7 +390,7 @@ func (h *HashTbl) Insert(rec Record) (_ bool, err error) {
 	h.opMu.Lock()
 	defer h.opMu.Unlock()
 
-	if err := h.closed.Err(); err != nil {
+	if err := signalError(&h.closed); err != nil {
 		return false, err
 	}
 
@@ -484,7 +484,7 @@ func (h *HashTbl) Lookup(key Key) (_ Record, _ bool, err error) {
 	h.opMu.RLock()
 	defer h.opMu.RUnlock()
 
-	if err := h.closed.Err(); err != nil {
+	if err := signalError(&h.closed); err != nil {
 		return Record{}, false, err
 	}
 

@@ -477,7 +477,7 @@ func (s *Store) Read(ctx context.Context, key Key) (_ *Reader, err error) {
 
 	// check if we're already closed so we don't have to worry about select nondeterminism: a
 	// closed store will definitely error.
-	if err := s.closed.Err(); err != nil {
+	if err := signalError(&s.closed); err != nil {
 		return nil, err
 	} else if err := ctx.Err(); err != nil {
 		return nil, err
