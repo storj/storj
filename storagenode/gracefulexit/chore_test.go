@@ -80,10 +80,11 @@ func exitSatellite(ctx context.Context, t *testing.T, planet *testplanet.Planet,
 	timeMutex.Unlock()
 
 	// check that the satellite knows the storage node is exiting.
-	exitingNodes, err := satellite1.DB.OverlayCache().GetExitingNodes(ctx)
+	// Note we cannot use GetExitingNodes, because there's a background worker that may finish the exit before
+	// we check here.
+	exitingNodeDossier, err := satellite1.DB.OverlayCache().Get(ctx, exitingNode.ID())
 	require.NoError(t, err)
-	require.Len(t, exitingNodes, 1)
-	require.Equal(t, exitingNode.ID(), exitingNodes[0].NodeID)
+	require.NotNil(t, exitingNodeDossier.ExitStatus.ExitInitiatedAt)
 
 	// run the SN chore again to start processing transfers.
 	exitingNode.GracefulExit.Chore.Loop.TriggerWait()
