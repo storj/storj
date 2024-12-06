@@ -944,7 +944,7 @@ func TestStore_FallbackToNonTTLLogFile(t *testing.T) {
 	assert.NoError(t, fh.Close())
 
 	// add a key that goes into a ttl log file. it should succeed anyway.
-	ttlKey := s.AssertCreate(now)
+	ttlKey := s.AssertCreate(WithTTL(now))
 
 	// they should be in the same log file.
 	assert.Equal(t, getLog(permKey), getLog(ttlKey))
@@ -964,6 +964,42 @@ func TestStore_HashtblFull(t *testing.T) {
 	}
 
 	assert.Equal(t, s.Stats().TableFull, 1)
+}
+
+func TestStore_StatsWhileCompacting(t *testing.T) {
+	s := newTestStore(t)
+	defer s.Close()
+
+	// insert a key for compaction to attempt to process.
+	s.AssertCreate()
+
+	// begin a compaction in the background that we can control when it proceeds with the trash
+	// callback.
+	activity := make(chan bool)
+	errCh := make(chan error)
+
+	go func() {
+		errCh <- s.Compact(context.Background(),
+			func(ctx context.Context, key Key, created time.Time) bool {
+				for range activity { // wait until we are closed to continue.
+				}
+				return false
+			}, time.Time{})
+	}()
+
+	// wait until the compaction is asking to trash our key.
+	activity <- false
+
+	// stats should indicate we're compacting.
+	stats := s.Stats()
+	assert.That(t, stats.Compacting)
+	assert.That(t, stats.Compaction.Elapsed > 0)
+
+	// allow compaction to finish.
+	close(activity)
+
+	// compaction should not have errored.
+	assert.NoError(t, <-errCh)
 }
 
 //

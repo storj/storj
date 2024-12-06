@@ -120,15 +120,6 @@ func newMutex() *mutex {
 
 func (s *mutex) WaitLock() { s.ch <- struct{}{} }
 
-func (s *mutex) TryLock() bool {
-	select {
-	case s.ch <- struct{}{}:
-		return true
-	default:
-		return false
-	}
-}
-
 func (s *mutex) Lock(ctx context.Context, closed *drpcsignal.Signal) error {
 	if err := ctx.Err(); err != nil {
 		return err

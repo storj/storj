@@ -43,15 +43,24 @@ type Store struct {
 	closed drpcsignal.Signal // closed state
 	cloMu  sync.Mutex        // synchronizes closing
 
-	activeMu    *rwMutex                   // semaphore of active writes to log files
-	compactMu   *mutex                     // held during compaction to ensure only 1 compaction at a time
-	reviveMu    *mutex                     // held during revival to ensure only 1 object is revived from trash at a time
-	compactions atomic.Uint64              // bumped every time a compaction call finishes
-	lastCompact atomic.Uint32              // date of the last compaction
-	tableFull   atomic.Uint64              // bumped every time the hash table is full
-	maxLog      atomic.Uint64              // maximum log file id
-	maxHash     atomic.Uint64              // maximum hashtbl id
-	stats       atomic.Pointer[StoreStats] // set during compaction to maintain consistency of Stats calls
+	activeMu  *rwMutex // semaphore of active writes to log files
+	compactMu *mutex   // held during compaction to ensure only 1 compaction at a time
+	reviveMu  *mutex   // held during revival to ensure only 1 object is revived from trash at a time
+
+	maxLog  atomic.Uint64 // maximum log file id
+	maxHash atomic.Uint64 // maximum hashtbl id
+
+	stats struct { // contains statistics for monitoring the store
+		compactions atomic.Uint64 // bumped every time a compaction call finishes
+		lastCompact atomic.Uint32 // date of the last compaction
+		tableFull   atomic.Uint64 // bumped every time the hash table is full
+
+		cached           atomic.Pointer[StoreStats] // set during compaction to maintain consistency of Stats calls
+		startTime        atomic.Value               // time of the start of the current compaction
+		writeTime        atomic.Value               // time of the start of writing the new hash table
+		totalRecords     atomic.Uint64              // total number of records to be processed in current compaction
+		processedRecords atomic.Uint64              // total number of records processed in current compaction
+	}
 
 	rmu sync.RWMutex                // protects consistency of lfs and tbl
 	lfs atomicMap[uint64, *logFile] // all log files
@@ -244,12 +253,35 @@ type StoreStats struct {
 	Today       uint32       // the current date.
 	LastCompact uint32       // the date of the last compaction.
 	Table       HashTblStats // stats about the hash table.
+
+	Compaction struct { // stats about the current compaction
+		Elapsed          float64 // number of seconds elapsed in the compaction
+		Remaining        float64 // estimated number of seconds remaining in the compaction
+		TotalRecords     uint64  // total number of records expected to be processed in the compaction
+		ProcessedRecords uint64  // total number of records processed in the compaction
+	}
 }
 
 // Stats returns a StoreStats about the store.
 func (s *Store) Stats() StoreStats {
-	if stats := s.stats.Load(); stats != nil {
-		return *stats
+	if statsPtr := s.stats.cached.Load(); statsPtr != nil {
+		stats := *statsPtr
+
+		start := s.stats.startTime.Load().(time.Time)
+		write := s.stats.writeTime.Load().(time.Time)
+		total := s.stats.totalRecords.Load()
+		processed := s.stats.processedRecords.Load()
+
+		elapsed := time.Since(start).Seconds()
+		remaining := time.Since(write).Seconds() * safeDivide(float64(total-processed), float64(processed))
+
+		stats.Compacting = true
+		stats.Compaction.Elapsed = elapsed
+		stats.Compaction.Remaining = remaining
+		stats.Compaction.TotalRecords = total
+		stats.Compaction.ProcessedRecords = processed
+
+		return stats
 	}
 
 	s.rmu.RLock()
@@ -285,10 +317,10 @@ func (s *Store) Stats() StoreStats {
 		TrashPercent: safeDivide(float64(stats.LenTrash), float64(lenLogs)),
 
 		Compacting:  false,
-		Compactions: s.compactions.Load(),
-		TableFull:   s.tableFull.Load(),
+		Compactions: s.stats.compactions.Load(),
+		TableFull:   s.stats.tableFull.Load(),
 		Today:       s.today(),
-		LastCompact: s.lastCompact.Load(),
+		LastCompact: s.stats.lastCompact.Load(),
 		Table:       stats,
 	}
 }
@@ -339,7 +371,7 @@ func (s *Store) addRecord(rec Record) error {
 		// if this happens, we're in some weird situation where our estimate of the load must be
 		// way off. as a last ditch effort, try to recompute the estimates, bump some counters, and
 		// loudly complain with some potentially helpful debugging information.
-		s.tableFull.Add(1)
+		s.stats.tableFull.Add(1)
 		beforeLoad := s.tbl.Load()
 		estError := s.tbl.computeEstimates()
 		afterLoad := s.tbl.Load()
@@ -400,16 +432,17 @@ func (s *Store) Close() {
 
 // Create returns a Handle that writes data to the store. The error on Close must be checked.
 // Expires is when the data expires, or zero if it never expires.
-func (s *Store) Create(ctx context.Context, key Key, expires time.Time) (_ *Writer, err error) {
+func (s *Store) Create(ctx context.Context, key Key, expires time.Time) (w *Writer, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	if err := s.activeMu.RLock(ctx, &s.closed); err != nil {
 		return nil, err
 	}
 
-	// unlock if we return an error.
+	// unlock if we don't return a Writer. this is safer than if we're returning an error because
+	// if a panic happens, both values will be nil.
 	defer func() {
-		if err != nil {
+		if w == nil {
 			s.activeMu.RUnlock()
 		}
 	}()
@@ -561,7 +594,7 @@ func (s *Store) Compact(
 	lastRestore time.Time,
 ) (err error) {
 	defer mon.Task()(&ctx)(&err)
-	defer s.compactions.Add(1) // increase the number of compactions that have finished
+	defer s.stats.compactions.Add(1) // increase the number of compactions that have finished
 
 	// ensure only one compaction at a time.
 	if err := s.compactMu.Lock(ctx, &s.closed); err != nil {
@@ -588,17 +621,10 @@ func (s *Store) Compact(
 		}
 	}()
 
-	// cache stats so that the call doesn't get inconsistent internal values and clear them out when
-	// we're finished.
-	stats := s.Stats()
-	stats.Compacting = true
-	s.stats.Store(&stats)
-	defer s.stats.Store(nil)
-
 	// define some functions to tell what state records are in based on what today is and what the
 	// last restore time is.
 	today := s.today()
-	defer s.lastCompact.Store(today)
+	defer s.stats.lastCompact.Store(today)
 
 	var restore uint32
 	if !lastRestore.IsZero() {
@@ -652,8 +678,23 @@ func (s *Store) compactOnce(
 ) (completed bool, err error) {
 	defer mon.Task()(&ctx)(&err)
 
+	// reset the compaction values before storing the cached stats so that any Stats calls get
+	// correct values. these are only read when s.stats.cached is set, so they must be cleared
+	// before we set it.
+	s.stats.startTime.Store(time.Now())
+	s.stats.writeTime.Store(time.Time{}) // we store a zero value so that we always have a set time.
+	s.stats.totalRecords.Store(0)
+	s.stats.processedRecords.Store(0)
+
+	// cache stats so that the call doesn't get inconsistent internal values and clear them out when
+	// we're finished.
+	stats := s.Stats()
+	s.stats.cached.Store(&stats)
+	defer s.stats.cached.Store(nil)
+
 	// collect statistics about the hash table and how live each of the log files are.
 	nset := uint64(0)
+	nexist := uint64(0)
 	used := make(map[uint64]uint64)
 	rerr := error(nil)
 	modifications := false
@@ -665,6 +706,7 @@ func (s *Store) compactOnce(
 			} else if err := ctx.Err(); err != nil {
 				return err
 			}
+			nexist++ // bump the number of records that exist for progress reporting.
 
 			// if we're not yet sure we're modifying the hash table, we need to check our callbacks
 			// on the record to see if the table would be modified. a record is modified when it is
@@ -695,6 +737,9 @@ func (s *Store) compactOnce(
 	if rerr != nil {
 		return false, rerr
 	}
+
+	// update the total number of records expected to be processed in this compaction.
+	s.stats.totalRecords.Store(nexist)
 
 	// calculate a hash table size so that it targets just under a 0.5 load factor.
 	logSlots := uint64(bits.Len64(nset)) + 1
@@ -775,6 +820,9 @@ func (s *Store) compactOnce(
 		defer done()
 	}
 
+	// update the beginning of the write time for progress reporting.
+	s.stats.writeTime.Store(time.Now())
+
 	// copy all of the entries from the hash table to the new table, skipping expired entries, and
 	// rewriting any entries that are in the log files that we are rewriting.
 	s.tbl.Range(func(rec Record, err error) bool {
@@ -784,6 +832,7 @@ func (s *Store) compactOnce(
 			} else if err := ctx.Err(); err != nil {
 				return err
 			}
+			s.stats.processedRecords.Add(1) // bump the number of records processed for progress reporting.
 
 			// trash records are flagged as expired some number of days from now with a bit set to
 			// signal if they are read that there was a problem. we only check records that are not
