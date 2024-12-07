@@ -12,6 +12,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/stretchr/testify/require"
 	"github.com/zeebo/assert"
 	"github.com/zeebo/mwc"
 )
@@ -33,7 +34,7 @@ func TestDB_BasicOperation(t *testing.T) {
 	}
 
 	// ensure the stats look like what we expect.
-	stats := db.Stats()
+	stats, _, _ := db.Stats()
 	t.Logf("%+v", stats)
 	assert.Equal(t, stats.NumSet, 1<<store_minTableSize)
 	assert.Equal(t, stats.LenSet, uint64(len(Key{})+RecordSize)*stats.NumSet)
@@ -44,7 +45,8 @@ func TestDB_BasicOperation(t *testing.T) {
 	for _, key := range keys {
 		db.AssertRead(key)
 	}
-	assert.That(t, db.Stats().Compactions >= stats.Compactions+2)
+	stats2, _, _ := db.Stats()
+	assert.That(t, stats2.Compactions >= stats.Compactions+2)
 
 	// should still have all the keys after reopen.
 	db.AssertReopen()
@@ -72,15 +74,21 @@ func TestDB_TrashStats(t *testing.T) {
 	defer db.Close()
 
 	// add keys until we are compacting, and then wait until we are not compacting.
-	for !db.Stats().Compacting {
+	for {
 		db.AssertCreate()
-	}
-	for db.Stats().Compacting {
-		time.Sleep(time.Millisecond)
+		stat, _, _ := db.Stats()
+		if stat.Compacting {
+			break
+		}
 	}
 
+	require.Eventually(t, func() bool {
+		stats, _, _ := db.Stats()
+		return !stats.Compacting
+	}, 1*time.Minute, time.Millisecond)
+
 	// ensure the trash stats are updated.
-	stats := db.Stats()
+	stats, _, _ := db.Stats()
 	assert.That(t, stats.NumTrash > 0)
 	assert.That(t, stats.LenTrash > 0)
 	assert.That(t, stats.AvgTrash > 0)
@@ -95,7 +103,7 @@ func TestDB_TTLStats(t *testing.T) {
 	db.AssertCreate(WithTTL(time.Now()))
 
 	// ensure the ttl stats are updated.
-	stats := db.Stats()
+	stats, _, _ := db.Stats()
 	assert.Equal(t, stats.NumLogs, stats.NumLogsTTL)
 	assert.Equal(t, stats.LenLogs, stats.LenLogsTTL)
 
@@ -103,7 +111,7 @@ func TestDB_TTLStats(t *testing.T) {
 	db.AssertCreate()
 
 	// ensure the non-ttl stats are updated.
-	stats = db.Stats()
+	stats, _, _ = db.Stats()
 	assert.Equal(t, stats.NumLogs, 2*stats.NumLogsTTL)
 	assert.Equal(t, stats.LenLogs, 2*stats.LenLogsTTL)
 }
