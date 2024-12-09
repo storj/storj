@@ -327,6 +327,11 @@ func (h *HashTbl) Range(fn func(Record, error) bool) {
 		return
 	}
 
+	var (
+		numSet, lenSet     uint64
+		numTrash, lenTrash uint64
+	)
+
 	var cache roBigPageCache
 	cache.Init(h.fh)
 
@@ -339,8 +344,21 @@ func (h *HashTbl) Range(fn func(Record, error) bool) {
 			if !fn(rec, nil) {
 				return
 			}
+
+			numSet++
+			lenSet += uint64(rec.Length)
+
+			if rec.Expires.Trash() {
+				numTrash++
+				lenTrash += uint64(rec.Length)
+			}
 		}
 	}
+
+	h.mu.Lock()
+	h.numSet, h.lenSet = numSet, lenSet
+	h.numTrash, h.lenTrash = numTrash, lenTrash
+	h.mu.Unlock()
 }
 
 // ExpectOrdered signals that incoming writes to the hashtbl will be ordered so that a large shared
