@@ -304,12 +304,26 @@ func (planet *Planet) newStorageNode(ctx context.Context, prefix string, index, 
 				return nil, errs.Wrap(err)
 			}
 
-			// set the node to write to new sometimes.
+			// set the node to write (+ TTL)/read to/from new sometimes.
+			// migrate actively and passively sometimes.
+			//
+			// this is how the different parameters alternate:
+			//
+			//                  |           11111111112222…
+			// number of nodes  | 012345678901234567890123…
+			// --------------------------------------------
+			// TTLToNew         | -x-x-x-x-x-x-x-x-x-x-x-x…
+			// WriteToNew       | x-x-x-x-x-x-x-x-x-x-x-x-…
+			// ReadNewFirst     | xx--xx--xx--xx--xx--xx--…
+			// PassiveMigrate   | xxxx----xxxx----xxxx----…
+			// active migration | xxxxxxxx--------xxxxxxxx…
 			peer.Storage2.MigratingBackend.UpdateState(ctx, entry.SatelliteURL.ID, func(state *piecestore.MigrationState) {
+				state.TTLToNew = index%2 != 0
 				state.WriteToNew = index%2 == 0
-				state.ReadNewFirst = index%4 == 0
+				state.ReadNewFirst = index%4 < 2
+				state.PassiveMigrate = index%8 < 4
 			})
-			peer.Storage2.MigrationChore.SetMigrate(entry.SatelliteURL.ID, index%2 == 0, index%4 == 0)
+			peer.Storage2.MigrationChore.SetMigrate(entry.SatelliteURL.ID, true, index%16 < 8)
 		}
 	}
 
