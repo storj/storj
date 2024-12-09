@@ -222,6 +222,11 @@ func (endpoint *Endpoint) TestSetUseBucketLevelVersioning(enabled bool) {
 	endpoint.config.UseBucketLevelObjectVersioning = enabled
 }
 
+// TestSelfServePlacementEnabled sets whether self-serve placement should be enabled.
+func (endpoint *Endpoint) TestSelfServePlacementEnabled(enabled bool) {
+	endpoint.config.SelfServePlacementSelectEnabled = enabled
+}
+
 // ProjectInfo returns allowed ProjectInfo for the provided API key.
 func (endpoint *Endpoint) ProjectInfo(ctx context.Context, req *pb.ProjectInfoRequest) (_ *pb.ProjectInfoResponse, err error) {
 	defer mon.Task()(&ctx)(&err)
