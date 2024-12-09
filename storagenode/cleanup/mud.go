@@ -25,4 +25,5 @@ func Module(ball *mud.Ball) {
 	config.RegisterConfig[CoreLoadConfig](ball, "cleanup.load")
 	config.RegisterConfig[FileExistsConfig](ball, "cleanup.file")
 	config.RegisterConfig[PeriodConfig](ball, "cleanup.period")
+	config.RegisterConfig[Config](ball, "cleanup")
 }

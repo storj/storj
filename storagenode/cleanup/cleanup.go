@@ -16,6 +16,13 @@ import (
 	"storj.io/storj/storagenode/retain"
 )
 
+// Config is the config for the Cleanup.
+type Config struct {
+	Trash  bool `help:"enable/disable trash cleanup phase" default:"true"`
+	Expire bool `help:"enable/disable TTL expired pieces collection phase" default:"true"`
+	Retain bool `help:"enable/disable garbage collection phase" default:"true"`
+}
+
 // Cleanup is a service, which combines retain,TTL,trash, and runs only once (if load is not too high).
 type Cleanup struct {
 	log   *zap.Logger
@@ -26,10 +33,11 @@ type Cleanup struct {
 	trashRunner         *pieces.TrashRunOnce
 	expireRunner        collector.RunOnce
 	retainRunner        *retain.RunOnce
+	config              Config
 }
 
 // NewCleanup creates a new Cleanup.
-func NewCleanup(log *zap.Logger, loop *SafeLoop, blobs blobstore.Blobs, store *pieces.PieceExpirationStore, ps *pieces.Store, rc retain.Config) *Cleanup {
+func NewCleanup(log *zap.Logger, loop *SafeLoop, blobs blobstore.Blobs, store *pieces.PieceExpirationStore, ps *pieces.Store, rc retain.Config, config Config) *Cleanup {
 
 	noCancel := &modular.StopTrigger{
 		Cancel: func() {
@@ -47,6 +55,7 @@ func NewCleanup(log *zap.Logger, loop *SafeLoop, blobs blobstore.Blobs, store *p
 		trashRunner:         trashRunner,
 		expireRunner:        expireRunner,
 		retainRunner:        retainRunner,
+		config:              config,
 	}
 }
 
@@ -58,28 +67,34 @@ func (c *Cleanup) Run(ctx context.Context) error {
 // RunOnce executes all chores, one by one. Can be stopped with cancelling context.
 func (c *Cleanup) RunOnce(ctx context.Context) (err error) {
 	defer mon.Task()(&ctx)(&err)
-	err = c.trashRunner.Run(ctx)
-	if ctx.Err() != nil {
-		return ctx.Err()
-	}
-	if err != nil {
-		return err
-	}
-
-	err = c.expireRunner.Run(ctx)
-	if ctx.Err() != nil {
-		return ctx.Err()
-	}
-	if err != nil {
-		return err
+	if c.config.Trash {
+		if ctx.Err() != nil {
+			return ctx.Err()
+		}
+		err = c.trashRunner.Run(ctx)
+		if err != nil {
+			return err
+		}
 	}
 
-	err = c.retainRunner.Run(ctx)
-	if ctx.Err() != nil {
-		return ctx.Err()
+	if c.config.Expire {
+		if ctx.Err() != nil {
+			return ctx.Err()
+		}
+		err = c.expireRunner.Run(ctx)
+		if err != nil {
+			return err
+		}
 	}
-	if err != nil {
-		return err
+
+	if c.config.Retain {
+		if ctx.Err() != nil {
+			return ctx.Err()
+		}
+		err = c.retainRunner.Run(ctx)
+		if err != nil {
+			return err
+		}
 	}
 
 	return nil
