@@ -7,13 +7,16 @@ import (
 	"context"
 	"time"
 
+	"go.uber.org/zap"
+
 	"storj.io/common/uuid"
 	"storj.io/storj/satellite/metabase"
 )
 
 // MetabaseRangeSplitter implements RangeSplitter.
 type MetabaseRangeSplitter struct {
-	db *metabase.DB
+	log *zap.Logger
+	db  *metabase.DB
 
 	asOfSystemInterval   time.Duration
 	spannerStaleInterval time.Duration
@@ -31,8 +34,9 @@ type MetabaseSegmentProvider struct {
 }
 
 // NewMetabaseRangeSplitter creates the segment provider.
-func NewMetabaseRangeSplitter(db *metabase.DB, asOfSystemInterval time.Duration, spannerStaleInterval time.Duration, batchSize int) *MetabaseRangeSplitter {
+func NewMetabaseRangeSplitter(log *zap.Logger, db *metabase.DB, asOfSystemInterval time.Duration, spannerStaleInterval time.Duration, batchSize int) *MetabaseRangeSplitter {
 	return &MetabaseRangeSplitter{
+		log:                  log,
 		db:                   db,
 		asOfSystemInterval:   asOfSystemInterval,
 		spannerStaleInterval: spannerStaleInterval,
@@ -50,6 +54,8 @@ func (provider *MetabaseRangeSplitter) CreateRanges(nRanges int, batchSize int) 
 	spannerReadTimestamp := time.Time{}
 	if provider.spannerStaleInterval > 0 {
 		spannerReadTimestamp = time.Now().Add(-provider.spannerStaleInterval)
+
+		provider.log.Info("Setting Spanner stale read timestamp", zap.Time("timestamp", spannerReadTimestamp))
 	}
 
 	rangeProviders := []SegmentProvider{}

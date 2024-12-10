@@ -101,9 +101,11 @@ func (service *Service) Run(ctx context.Context) (err error) {
 	service.log.Info("ranged loop initialized")
 
 	return service.Loop.Run(ctx, func(ctx context.Context) error {
-		service.log.Info("ranged loop started",
+		service.log.Info("Ranged loop started",
 			zap.Int("parallelism", service.config.Parallelism),
-			zap.Int("batchSize", service.config.BatchSize),
+			zap.Int("batch_size", service.config.BatchSize),
+			zap.Duration("asofsystem_interval", service.config.AsOfSystemInterval),
+			zap.Duration("spannerstale_interval", service.config.SpannerStaleInterval),
 		)
 		_, err := service.RunOnce(ctx)
 		if err != nil {
