@@ -6,12 +6,12 @@ package hashstore
 import (
 	"context"
 	"io/fs"
+	"math/rand"
 	"path/filepath"
 	"sync"
 	"time"
 
 	"github.com/zeebo/errs"
-	"github.com/zeebo/mwc"
 	"go.uber.org/zap"
 
 	"storj.io/drpc/drpcsignal"
@@ -380,17 +380,32 @@ func (d *DB) beginPassiveCompaction() {
 func (d *DB) backgroundCompactions() {
 	defer d.wg.Done()
 
+	const (
+		averageSleep = 24     // hours
+		maxSleep     = 2 * 24 // hours
+	)
+
+	rng := rand.New(rand.NewSource(time.Now().UnixNano()))
+
 	for {
+		// jitter background compactions so that they happen randomly through a day. we sample an
+		// exponential distribution because if you have a uniform distribution of events over some
+		// time range, the gaps between the events will be exponentially distributed. statistics!
+		// also note that a float64 can represent all integers up to 2^53 exactly, so in terms of
+		// nanoseconds, that's ~100 days, so there's no need to worry about float imprecision.
+		sleep := rng.ExpFloat64() * averageSleep
+		if sleep > maxSleep {
+			sleep = maxSleep
+		}
+		timer := time.NewTimer(time.Duration(sleep * float64(time.Hour)))
+
 		select {
 		case <-d.closed.Signal():
+			timer.Stop()
 			return
 
-		case <-time.After(time.Minute):
-			// jitter background compactions so that they happen randomly through the day. since
-			// we're checking once a minute, only actually do the check on average once a day.
-			if mwc.Rand().Intn(24*60) == 0 {
-				d.checkBackgroundCompactions()
-			}
+		case <-timer.C:
+			d.checkBackgroundCompactions()
 		}
 	}
 }
