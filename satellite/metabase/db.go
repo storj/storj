@@ -647,6 +647,17 @@ func (p *PostgresAdapter) PostgresMigration() *migrate.Migration {
 					`DROP TABLE IF EXISTS segment_copies`,
 				},
 			},
+			{
+				DB:          &db,
+				Description: "add clear_metadata field to objects table",
+				Version:     21,
+				Action: migrate.SQL{
+					`ALTER TABLE objects ADD COLUMN clear_metadata JSONB`,
+					`CREATE INDEX ON objects USING GIN (project_id, bucket_name, clear_metadata)`,
+					`
+					COMMENT ON COLUMN objects.clear_metadata is 'clear_metadata contains unencrypted metadata that indexed for efficient metadata search.';
+				`},
+			},
 		},
 	}
 }
