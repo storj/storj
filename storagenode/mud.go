@@ -348,11 +348,15 @@ func Module(ball *mud.Ball) {
 		mud.RegisterInterfaceImplementation[piecestore.PieceBackend, *piecestore.OldPieceBackend](ball)
 
 		mud.Provide[*retain.BloomFilterManager](ball, func(cfg piecestore.OldConfig, rcfg retain.Config) (*retain.BloomFilterManager, error) {
-			return retain.NewBloomFilterManager(cfg.Path, rcfg.MaxTimeSkew)
+			hashStoreDir := filepath.Join(cfg.Path, "hashstore")
+			metaDir := filepath.Join(hashStoreDir, "meta")
+			return retain.NewBloomFilterManager(metaDir, rcfg.MaxTimeSkew)
 		})
 		mud.Implementation[[]piecestore.QueueRetain, *retain.BloomFilterManager](ball)
 		mud.Provide[*retain.RestoreTimeManager](ball, func(cfg piecestore.OldConfig) *retain.RestoreTimeManager {
-			return retain.NewRestoreTimeManager(cfg.Path)
+			hashStoreDir := filepath.Join(cfg.Path, "hashstore")
+			metaDir := filepath.Join(hashStoreDir, "meta")
+			return retain.NewRestoreTimeManager(metaDir)
 		})
 
 		mud.Provide[*piecestore.Endpoint](ball, piecestore.NewEndpoint)
