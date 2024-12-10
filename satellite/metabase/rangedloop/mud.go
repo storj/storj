@@ -4,6 +4,8 @@
 package rangedloop
 
 import (
+	"go.uber.org/zap"
+
 	"storj.io/storj/private/mud"
 	"storj.io/storj/satellite/metabase"
 	"storj.io/storj/shared/modular/config"
@@ -11,8 +13,9 @@ import (
 
 // Module is a mud module.
 func Module(ball *mud.Ball) {
-	mud.Provide[RangeSplitter](ball, func(db *metabase.DB, config Config) *MetabaseRangeSplitter {
-		return NewMetabaseRangeSplitter(db, config.AsOfSystemInterval, config.SpannerStaleInterval, config.BatchSize)
+
+	mud.Provide[RangeSplitter](ball, func(log *zap.Logger, db *metabase.DB, config Config) *MetabaseRangeSplitter {
+		return NewMetabaseRangeSplitter(log, db, config.AsOfSystemInterval, config.SpannerStaleInterval, config.BatchSize)
 	})
 	mud.Provide[*Service](ball, NewService)
 	mud.Provide[*LiveCountObserver](ball, func(db *metabase.DB, cfg Config) *LiveCountObserver {
