@@ -329,11 +329,14 @@ func Module(ball *mud.Ball) {
 			return satstore.NewSatelliteStore(metaDir, "migrate")
 		})
 		mud.Provide[*piecestore.OldPieceBackend](ball, piecestore.NewOldPieceBackend)
-		mud.Provide[*piecestore.HashStoreBackend](ball, func(cfg piecestore.OldConfig, bfm *retain.BloomFilterManager, rtm *retain.RestoreTimeManager, log *zap.Logger) *piecestore.HashStoreBackend {
+		mud.Provide[*piecestore.HashStoreBackend](ball, func(cfg piecestore.OldConfig, bfm *retain.BloomFilterManager, rtm *retain.RestoreTimeManager, log *zap.Logger) (*piecestore.HashStoreBackend, error) {
 			dir := filepath.Join(cfg.Path, "hashstore")
-			backend := piecestore.NewHashStoreBackend(dir, bfm, rtm, log)
+			backend, err := piecestore.NewHashStoreBackend(dir, bfm, rtm, log)
+			if err != nil {
+				return nil, err
+			}
 			mon.Chain(backend)
-			return backend
+			return backend, nil
 		})
 		mud.Provide[*piecestore.MigratingBackend](ball, func(log *zap.Logger, old *piecestore.OldPieceBackend, new *piecestore.HashStoreBackend, state *satstore.SatelliteStore) *piecestore.MigratingBackend {
 			backend := piecestore.NewMigratingBackend(log, old, new, state, nil)

@@ -55,7 +55,8 @@ func TestDuplicates(t *testing.T) {
 	rtm := retain.NewRestoreTimeManager(t.TempDir())
 
 	old := pieces.NewStore(log, fw, nil, blobs, nil, nil, pieces.DefaultConfig)
-	new := piecestore.NewHashStoreBackend(t.TempDir(), bfm, rtm, log)
+	new, err := piecestore.NewHashStoreBackend(t.TempDir(), bfm, rtm, log)
+	require.NoError(t, err)
 
 	config := Config{
 		Interval: 100 * time.Millisecond,
@@ -110,7 +111,8 @@ func TestChoreWithPassiveMigrationOnly(t *testing.T) {
 	rtm := retain.NewRestoreTimeManager(t.TempDir())
 
 	old := pieces.NewStore(log, fw, nil, blobs, nil, nil, pieces.DefaultConfig)
-	new := piecestore.NewHashStoreBackend(t.TempDir(), bfm, rtm, log)
+	new, err := piecestore.NewHashStoreBackend(t.TempDir(), bfm, rtm, log)
+	require.NoError(t, err)
 
 	satellites1 := randomSatsPieces(2, 100)
 	writeSatsPieces(ctx, t, old, satellites1)
@@ -219,7 +221,8 @@ func TestChoreActiveWithPassiveMigration(t *testing.T) {
 	rtm := retain.NewRestoreTimeManager(t.TempDir())
 
 	old := pieces.NewStore(log, fw, nil, blobs, nil, nil, pieces.DefaultConfig)
-	new := piecestore.NewHashStoreBackend(t.TempDir(), bfm, rtm, log)
+	new, err := piecestore.NewHashStoreBackend(t.TempDir(), bfm, rtm, log)
+	require.NoError(t, err)
 
 	migratedSatellites := randomSatsPieces(3, 1000)
 	migratedSatellitesMu := sync.Mutex{}

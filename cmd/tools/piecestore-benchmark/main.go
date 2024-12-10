@@ -178,7 +178,7 @@ func createEndpoint(ctx context.Context, satIdent, snIdent *identity.FullIdentit
 	switch *backend {
 	case "hashstore", "hash":
 		rtm := retain.NewRestoreTimeManager("rtm")
-		hsb := piecestore.NewHashStoreBackend("hashstore", bfm, rtm, log)
+		hsb := try.E1(piecestore.NewHashStoreBackend("hashstore", bfm, rtm, log))
 		mon.Chain(hsb)
 		pieceBackend = hsb
 	default:

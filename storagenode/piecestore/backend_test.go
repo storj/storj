@@ -54,7 +54,8 @@ func BenchmarkPieceStore(b *testing.B) {
 		run(b, func(b *testing.B) PieceBackend {
 			bfm, _ := retain.NewBloomFilterManager(b.TempDir(), 0)
 			rtm := retain.NewRestoreTimeManager(b.TempDir())
-			backend := NewHashStoreBackend(b.TempDir(), bfm, rtm, nil)
+			backend, err := NewHashStoreBackend(b.TempDir(), bfm, rtm, nil)
+			require.NoError(b, err)
 			return backend
 		}, 64*1024)
 	})

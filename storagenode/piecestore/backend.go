@@ -6,6 +6,7 @@ package piecestore
 import (
 	"context"
 	"encoding/binary"
+	"errors"
 	"hash"
 	"io"
 	"io/fs"
@@ -75,8 +76,9 @@ func NewHashStoreBackend(
 	bfm *retain.BloomFilterManager,
 	rtm *retain.RestoreTimeManager,
 	log *zap.Logger,
-) *HashStoreBackend {
-	return &HashStoreBackend{
+) (*HashStoreBackend, error) {
+
+	hsb := &HashStoreBackend{
 		dir: dir,
 		bfm: bfm,
 		rtm: rtm,
@@ -84,6 +86,28 @@ func NewHashStoreBackend(
 
 		dbs: map[storj.NodeID]*hashstore.DB{},
 	}
+
+	// open any existing databases
+	entries, err := os.ReadDir(dir)
+	if errors.Is(err, fs.ErrNotExist) {
+		return hsb, nil
+	} else if err != nil {
+		return nil, errs.Wrap(err)
+	}
+	for _, entry := range entries {
+		if !entry.IsDir() {
+			continue
+		}
+		satellite, err := storj.NodeIDFromString(entry.Name())
+		if err != nil {
+			continue // ignore directories that aren't node IDs
+		}
+		if _, err := hsb.getDB(satellite); err != nil {
+			return nil, errs.Wrap(err)
+		}
+	}
+
+	return hsb, nil
 }
 
 // TestingCompact calls Compact on all of the hashstore databases.
@@ -220,9 +244,13 @@ func (hsb *HashStoreBackend) getDB(satellite storj.NodeID) (*hashstore.DB, error
 		return db, nil
 	}
 
+	start := time.Now()
+
 	var log *zap.Logger
 	if hsb.log != nil {
 		log = hsb.log.With(zap.String("satellite", satellite.String()))
+	} else {
+		log = zap.NewNop()
 	}
 
 	var (
@@ -250,6 +278,7 @@ func (hsb *HashStoreBackend) getDB(satellite storj.NodeID) (*hashstore.DB, error
 
 	hsb.dbs[satellite] = db
 
+	log.Info("hashstore opened successfully", zap.Duration("open_time", time.Since(start)))
 	return db, nil
 }
 

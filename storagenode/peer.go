@@ -615,12 +615,15 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, revocationDB exten
 			peer.Log.Info("error encountered loading bloom filters", zap.Error(err))
 		}
 
-		peer.Storage2.HashStoreBackend = piecestore.NewHashStoreBackend(
+		peer.Storage2.HashStoreBackend, err = piecestore.NewHashStoreBackend(
 			hashStoreDir,
 			peer.Storage2.BloomFilterManager,
 			peer.Storage2.RestoreTimeManager,
 			process.NamedLog(peer.Log, "hashstore"),
 		)
+		if err != nil {
+			return nil, errs.Combine(err, peer.Close())
+		}
 		mon.Chain(peer.Storage2.HashStoreBackend)
 
 		peer.Storage2.SpaceReport = newSpaceReportWithHashStore(
