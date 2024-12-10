@@ -845,6 +845,9 @@ func WeightedSelector(value NodeValue, defaultValue int64, initFilter NodeFilter
 		}
 		return func(requester storj.NodeID, selectN int, excluded []storj.NodeID, alreadySelected []*SelectedNode) ([]*SelectedNode, error) {
 			var selected []*SelectedNode
+			if n == 0 {
+				return selected, nil
+			}
 			for i := 0; i < selectN*5; i++ {
 				r := rand.Intn(n)
 				var selectedNode *SelectedNode

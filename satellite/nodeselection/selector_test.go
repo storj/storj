@@ -1224,6 +1224,13 @@ func TestWeightedSelector(t *testing.T) {
 		}
 	}
 
+	selector = nodeselection.WeightedSelector(val, 100, nodeselection.NodeFilterFunc(func(node *nodeselection.SelectedNode) bool {
+		return false
+	}))(nodes, nil)
+	selectedNodes, err := selector(storj.NodeID{}, 10, nil, nil)
+	require.NoError(t, err)
+	require.Len(t, selectedNodes, 0)
+
 	// specific node selected at least 3 times more
 	require.Greater(t, float64(histogram[nodes[0].ID])/float64(histogram[nodes[1].ID]), float64(3))
 
