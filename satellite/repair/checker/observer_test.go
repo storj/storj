@@ -604,7 +604,9 @@ func TestObserver_PlacementCheck(t *testing.T) {
 			Satellite: testplanet.Combine(
 				testplanet.ReconfigureRS(1, 2, 4, 4),
 				func(log *zap.Logger, index int, config *satellite.Config) {
-					config.RangedLoop.Interval = 10 * time.Second
+					// we need ranged loop enabled, but we will trigger it manually (and wait for results)
+					// one day interval guarantees that it won't be executed meantime (which can drain repair queue messages)
+					config.RangedLoop.Interval = 24 * time.Hour
 				},
 			),
 		},
