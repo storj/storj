@@ -28,7 +28,7 @@
             items-per-page-text="Accounts per page"
             :items-per-page-options="tableSizeOptions(page.totalCount)"
             no-data-text="No results found"
-            item-value="email"
+            :item-value="(item) => ({email: item.email, isInvite: hasInviteActionItem(item)})"
             select-strategy="all"
             item-selectable="selectable"
             :show-select="isUserAdmin"
@@ -96,13 +96,13 @@
                                 class="text-error"
                                 density="comfortable"
                                 link
-                                @click="() => onSingleDelete(item.email)"
+                                @click="() => onSingleDelete(item)"
                             >
                                 <template #prepend>
                                     <component :is="UserMinus" :size="18" />
                                 </template>
                                 <v-list-item-title class="ml-3 text-body-2 font-weight-medium">
-                                    Remove Member
+                                    {{ hasInviteActionItem(item) ? "Remove Invite" : "Remove Member" }}
                                 </v-list-item-title>
                             </v-list-item>
                         </v-list>
@@ -114,7 +114,7 @@
 
     <remove-project-member-dialog
         v-model="isRemoveMembersDialogShown"
-        :emails="membersToDelete"
+        :removables="membersToDelete"
         @deleted="onPostDelete"
     />
 
@@ -236,8 +236,8 @@ const isRemoveMembersDialogShown = ref<boolean>(false);
 const isChangeMembersRoleShown = ref<boolean>(false);
 const search = ref<string>('');
 const searchTimer = ref<NodeJS.Timeout>();
-const selectedMembers = ref<string[]>([]);
-const memberToDelete = ref<string>();
+const selectedMembers = ref<{email:string, isInvite: boolean}[]>([]);
+const memberToDelete = ref<{email:string, isInvite: boolean}>();
 const memberToUpdate = ref<RenderedItem>();
 
 const headers = ref<DataTableHeader[]>([
@@ -302,7 +302,7 @@ const projectMembers = computed((): RenderedItem[] => {
 /**
  * Returns the members to be deleted to the delete dialog.
  */
-const membersToDelete = computed<string[]>(() => {
+const membersToDelete = computed<{email:string, isInvite: boolean}[]>(() => {
     if (memberToDelete.value) return [memberToDelete.value];
     return selectedMembers.value;
 });
@@ -346,19 +346,19 @@ async function onUpdatePage(page: number): Promise<void> {
  * Handles post delete operations.
  */
 async function onPostDelete(): Promise<void> {
-    if (selectedMembers.value.includes(usersStore.state.user.email)) {
+    if (selectedMembers.value.map(s => s.email).includes(usersStore.state.user.email)) {
         router.push(ROUTES.Projects.path);
         return;
     }
 
     search.value = '';
     selectedMembers.value = [];
-    memberToDelete.value = '';
+    memberToDelete.value = undefined;
     await onUpdatePage(FIRST_PAGE);
 }
 
-function onSingleDelete(email: string): void {
-    memberToDelete.value = email;
+function onSingleDelete(item: RenderedItem): void {
+    memberToDelete.value = { email: item.email, isInvite: hasInviteActionItem(item) };
     isRemoveMembersDialogShown.value = true;
 }
 
@@ -467,7 +467,7 @@ function showDeleteDialog(): void {
 }
 
 watch(isRemoveMembersDialogShown, (value) => {
-    if (!value) memberToDelete.value = '';
+    if (!value) memberToDelete.value = undefined;
 });
 
 /**
