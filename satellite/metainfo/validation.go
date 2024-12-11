@@ -70,6 +70,14 @@ func (endpoint *Endpoint) validateAuth(ctx context.Context, header *pb.RequestHe
 		return nil, err
 	}
 
+	if endpoint.migrationModeFlag.Enabled() {
+		if _, found := endpoint.config.TestingSpannerProjects[keyInfo.ProjectID]; !found {
+			if !readAction(action) {
+				return nil, rpcstatus.Error(rpcstatus.ResourceExhausted, "try again later")
+			}
+		}
+	}
+
 	err = key.Check(ctx, keyInfo.Secret, keyInfo.Version, action, endpoint.revocations)
 	if err != nil {
 		endpoint.log.Debug("unauthorized request", zap.Error(err))
@@ -112,6 +120,16 @@ func (endpoint *Endpoint) ValidateAuthN(ctx context.Context, header *pb.RequestH
 		return nil, err
 	}
 
+	if endpoint.migrationModeFlag.Enabled() {
+		if _, found := endpoint.config.TestingSpannerProjects[keyInfo.ProjectID]; !found {
+			for _, p := range permissions {
+				if !readAction(p.Action) {
+					return nil, rpcstatus.Error(rpcstatus.ResourceExhausted, "try again later")
+				}
+			}
+		}
+	}
+
 	for _, p := range permissions {
 		err = key.Check(ctx, keyInfo.Secret, keyInfo.Version, p.Action, endpoint.revocations)
 		if p.ActionPermitted != nil {
@@ -124,6 +142,14 @@ func (endpoint *Endpoint) ValidateAuthN(ctx context.Context, header *pb.RequestH
 	}
 
 	return keyInfo, nil
+}
+
+func readAction(action macaroon.Action) bool {
+	switch action.Op {
+	case macaroon.ActionRead, macaroon.ActionList, macaroon.ActionGetObjectRetention, macaroon.ActionGetObjectLegalHold:
+		return true
+	}
+	return false
 }
 
 // ValidateAuthAny validates things like API keys, rate limit and user permissions.
@@ -152,6 +178,16 @@ func (endpoint *Endpoint) ValidateAuthAny(ctx context.Context, header *pb.Reques
 	key, keyInfo, err := endpoint.validateBasic(ctx, header, rateLimitKind)
 	if err != nil {
 		return nil, err
+	}
+
+	if endpoint.migrationModeFlag.Enabled() {
+		if _, found := endpoint.config.TestingSpannerProjects[keyInfo.ProjectID]; !found {
+			for _, p := range permissions {
+				if !readAction(p.Action) {
+					return nil, rpcstatus.Error(rpcstatus.ResourceExhausted, "try again later")
+				}
+			}
+		}
 	}
 
 	var combinedErrs error

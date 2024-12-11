@@ -5,8 +5,11 @@ package metainfo
 
 import (
 	"fmt"
+	"io"
+	"net/http"
 	"strconv"
 	"strings"
+	"sync/atomic"
 	"time"
 
 	"storj.io/common/memory"
@@ -212,6 +215,7 @@ type Config struct {
 	TestOptimizedInlineObjectUpload bool      `default:"false" devDefault:"true" help:"enables optimization for uploading objects with single inline segment"`
 	TestingPrecommitDeleteMode      int       `default:"0" help:"which code path to use for precommit delete step for unversioned objects, 0 is the default (old) code path."`
 	TestingSpannerProjects          UUIDsFlag `default:""  help:"list of project IDs for which Spanner metabase DB is enabled" hidden:"true"`
+	TestingMigrationMode            bool      `default:"false"  help:"sets metainfo API into migration mode, only read actions are allowed" hidden:"true"`
 }
 
 // Metabase constructs Metabase configuration based on Metainfo configuration with specific application name.
@@ -269,4 +273,59 @@ func (m UUIDsFlag) String() string {
 		i++
 	}
 	return b.String()
+}
+
+// MigrationModeFlagExtension defines custom debug endpoint for metainfo migration mode flag.
+type MigrationModeFlagExtension struct {
+	migrationMode atomic.Bool
+}
+
+// NewMigrationModeFlagExtension creates a new instance of MigrationModeFlagExtension.
+func NewMigrationModeFlagExtension(config Config) *MigrationModeFlagExtension {
+	m := &MigrationModeFlagExtension{}
+	m.migrationMode.Store(config.TestingMigrationMode)
+	return m
+}
+
+// Description is a display name for the UI.
+func (m *MigrationModeFlagExtension) Description() string {
+	return "give ability to get or set state of metainfo TestingMigrationMode flag"
+}
+
+// Path is the unique HTTP path fragment.
+func (m *MigrationModeFlagExtension) Path() string {
+	return "/metainfo/flags/migration-mode"
+}
+
+// Handler is the HTTP handler for the path.
+func (m *MigrationModeFlagExtension) Handler(w http.ResponseWriter, r *http.Request) {
+
+	switch r.Method {
+	case http.MethodGet:
+		_, err := w.Write([]byte(strconv.FormatBool(m.migrationMode.Load())))
+		if err != nil {
+			w.WriteHeader(http.StatusInternalServerError)
+			_, _ = fmt.Fprintf(w, "internal error: %v", err)
+		}
+	case http.MethodPut:
+		body, err := io.ReadAll(r.Body)
+		if err != nil {
+			w.WriteHeader(http.StatusInternalServerError)
+			_, _ = fmt.Fprintf(w, "internal error: %v", err)
+		}
+		value, err := strconv.ParseBool(string(body))
+		if err != nil {
+			w.WriteHeader(http.StatusBadRequest)
+			_, _ = fmt.Fprintf(w, "internal error: %v", err)
+		}
+		m.migrationMode.Store(value)
+	default:
+		w.WriteHeader(http.StatusMethodNotAllowed)
+		_, _ = fmt.Fprintf(w, "Only GET or PUT are supported.")
+	}
+}
+
+// Enabled returns true if migration mode is enabled.
+func (m *MigrationModeFlagExtension) Enabled() bool {
+	return m.migrationMode.Load()
 }
