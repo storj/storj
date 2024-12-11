@@ -416,7 +416,7 @@ func (s *SpannerAdapter) IterateLoopSegments(ctx context.Context, aliasCache *No
 func (it *spannerLoopSegmentIterator) scanItem(ctx context.Context, item *LoopSegmentEntry) (err error) {
 	var repairedAt, expiresAt spanner.NullTime
 	var encryptedSize, plainSize int64
-
+	// test
 	if err := it.curRow.Columns(&item.StreamID, &item.Position,
 		&item.CreatedAt, &expiresAt, &repairedAt,
 		&item.RootPieceID,
