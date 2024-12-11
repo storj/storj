@@ -59,6 +59,8 @@ func TestDuplicates(t *testing.T) {
 
 	config := Config{
 		Interval: 100 * time.Millisecond,
+		Delay:    time.Millisecond,
+		Jitter:   true,
 	}
 
 	chore := NewChore(log, config, satstore.NewSatelliteStore(t.TempDir(), "migrate_chore"), old, new)
@@ -75,16 +77,14 @@ func TestDuplicates(t *testing.T) {
 	setMigrateActive(chore, sats1)
 	setMigrateActive(chore, sats2)
 
-	waitUntilActiveMigrationFinished(ctx, t, chore, old, sats1)
-	waitUntilActiveMigrationFinished(ctx, t, chore, old, sats2)
+	waitUntilMigrationFinished(ctx, t, old, sats1)
+	waitUntilMigrationFinished(ctx, t, old, sats2)
 
 	// simulate that the delete has failed
 	writeSatsPieces(ctx, t, old, sats1)
 
-	setMigrateActive(chore, sats1)
-
-	waitUntilActiveMigrationFinished(ctx, t, chore, old, sats1)
-	waitUntilActiveMigrationFinished(ctx, t, chore, old, sats2)
+	waitUntilMigrationFinished(ctx, t, old, sats1)
+	waitUntilMigrationFinished(ctx, t, old, sats2)
 }
 
 func TestChoreWithPassiveMigrationOnly(t *testing.T) {
@@ -307,7 +307,7 @@ func TestChoreActiveWithPassiveMigration(t *testing.T) {
 		chore.SetMigrate(sat, false, true)
 	}
 
-	waitUntilActiveMigrationFinished(ctx, t, chore, old, migratedSatellites)
+	waitUntilMigrationFinished(ctx, t, old, migratedSatellites)
 
 	// excludedSatellites3 are no longer excluded:
 	for sat, pieces := range excludedSatellites3 {
@@ -317,7 +317,7 @@ func TestChoreActiveWithPassiveMigration(t *testing.T) {
 		migratedSatellitesMu.Unlock()
 	}
 
-	waitUntilActiveMigrationFinished(ctx, t, chore, old, migratedSatellites)
+	waitUntilMigrationFinished(ctx, t, old, migratedSatellites)
 
 	// migration complete! let's check if the new backend contains what
 	// we migrated to it:
@@ -494,15 +494,6 @@ func waitUntilMigrationFinished(ctx context.Context, t *testing.T, store *pieces
 			return
 		}
 		time.Sleep(time.Second)
-	}
-}
-
-func waitUntilActiveMigrationFinished(ctx context.Context, t *testing.T, chore *Chore, store *pieces.Store, satsPieces map[storj.NodeID][]*pieceToCheck) {
-	waitUntilMigrationFinished(ctx, t, store, satsPieces)
-	for sat := range satsPieces {
-		v, ok := chore.getMigrate(sat)
-		require.True(t, ok)
-		require.False(t, v)
 	}
 }
 
