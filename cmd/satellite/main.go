@@ -1041,6 +1041,7 @@ func cmdRestoreTrash(cmd *cobra.Command, args []string) error {
 
 	successes := new(int64)
 	failures := new(int64)
+	nonexistent := new(int64)
 
 	undelete := func(node *nodeselection.SelectedNode) {
 		log.Info("starting restore trash", zap.String("Node ID", node.ID.String()))
@@ -1089,11 +1090,15 @@ func cmdRestoreTrash(cmd *cobra.Command, args []string) error {
 		for _, nodeid := range args {
 			parsedNodeID, err := storj.NodeIDFromString(nodeid)
 			if err != nil {
-				return err
+				log.Error("unable to parse node id", zap.String("Node ID", nodeid), zap.Error(err))
+				atomic.AddInt64(nonexistent, 1)
+				continue
 			}
 			dossier, err := db.OverlayCache().Get(ctx, parsedNodeID)
 			if err != nil {
-				return err
+				log.Error("unable to find node id", zap.String("Node ID", nodeid), zap.Error(err))
+				atomic.AddInt64(nonexistent, 1)
+				continue
 			}
 			nodes = append(nodes, &nodeselection.SelectedNode{
 				ID:         dossier.Id,
@@ -1115,7 +1120,7 @@ func cmdRestoreTrash(cmd *cobra.Command, args []string) error {
 	}
 	limiter.Wait()
 
-	log.Sugar().Infof("restore trash complete. %d successes, %d failures", *successes, *failures)
+	log.Sugar().Infof("restore trash complete. %d successes, %d failures, %d nonexistent", *successes, *failures, *nonexistent)
 	return nil
 }
 
