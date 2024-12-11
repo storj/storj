@@ -83,8 +83,7 @@
                                             <v-icon class="ml-2" :class="{ 'invisible': !isHovering }" :icon="Copy" />
                                         </template>
                                         <template #default>
-                                            <span v-if="lgAndDown">{{ '...' + file.VersionId.slice(-9) }}</span>
-                                            <span v-else>{{ file.VersionId }}</span>
+                                            <span>{{ '...' + file.VersionId.slice(-9) }}</span>
                                         </template>
                                     </v-chip>
                                 </template>
@@ -288,7 +287,6 @@ import {
     VIcon,
 } from 'vuetify/components';
 import { ChevronLeft, ChevronRight, Copy } from 'lucide-vue-next';
-import { useDisplay } from 'vuetify';
 
 import {
     BrowserObject,
@@ -333,7 +331,6 @@ const obStore = useObjectBrowserStore();
 const projectsStore = useProjectsStore();
 const bucketsStore = useBucketsStore();
 
-const { lgAndDown } = useDisplay();
 const notify = useNotify();
 const router = useRouter();
 const { withTrialCheck } = usePreCheck();
