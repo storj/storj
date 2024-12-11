@@ -200,9 +200,13 @@ func (chore *Chore) enqueueSatellite(ctx context.Context, sat storj.NodeID) (err
 	defer mon.Task()(&ctx)(&err)
 
 	if err = chore.old.WalkSatellitePieces(ctx, sat, func(spa pieces.StoredPieceAccess) error {
-		chore.migrationQueue <- migrationItem{satellite: sat, piece: spa.PieceID()}
-		mon.Counter("enqueued", monkit.NewSeriesTag("sat", sat.String())).Inc(1)
-		return nil
+		select {
+		case <-ctx.Done():
+			return ctx.Err()
+		case chore.migrationQueue <- migrationItem{satellite: sat, piece: spa.PieceID()}:
+			mon.Counter("enqueued", monkit.NewSeriesTag("sat", sat.String())).Inc(1)
+			return nil
+		}
 	}); err != nil {
 		return errs.New("couldn't list new pieces to migrate: %w", err)
 	}
