@@ -23,8 +23,6 @@ import (
 )
 
 const (
-	store_minTableSize = 17 // log_2 of number of records for smallest hash table
-
 	compaction_MaxLogSize    = 1 << 30 // max size of a log file
 	compaction_AliveFraction = 0.75    // if the log file is not this alive, compact it
 	compaction_ExpiresDays   = 7       // number of days to keep trash records around
@@ -201,7 +199,7 @@ func NewStore(dir string, log *zap.Logger) (_ *Store, err error) {
 				}
 				defer af.Cancel()
 
-				ntbl, err := CreateHashtbl(af.File, store_minTableSize, s.today())
+				ntbl, err := CreateHashtbl(af.File, hashtbl_minLogSlots, s.today())
 				if err != nil {
 					return Error.Wrap(err)
 				}
@@ -743,8 +741,8 @@ func (s *Store) compactOnce(
 
 	// calculate a hash table size so that it targets just under a 0.5 load factor.
 	logSlots := uint64(bits.Len64(nset)) + 1
-	if logSlots < store_minTableSize {
-		logSlots = store_minTableSize
+	if logSlots < hashtbl_minLogSlots {
+		logSlots = hashtbl_minLogSlots
 	}
 
 	// using the information, determine which log files are candidates for rewriting.

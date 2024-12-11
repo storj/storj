@@ -510,7 +510,7 @@ func waitForGoroutines(count int, frames ...string) {
 				return
 			}
 		}
-		time.Sleep(1 * time.Millisecond)
+		time.Sleep(10 * time.Millisecond)
 	}
 }
 

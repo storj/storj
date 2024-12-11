@@ -15,7 +15,15 @@ import (
 	"storj.io/drpc/drpcsignal"
 )
 
-const invalidPage = 1<<64 - 1
+const (
+	invalidPage = 1<<64 - 1
+
+	hashtbl_minLogSlots = 14 // log_2 of number of slots for smallest hash table
+	hashtbl_maxLogSlots = 56 // log_2 of number of slots for largest hash table
+
+	_ int64  = pageSize + 1<<hashtbl_maxLogSlots*RecordSize    // compiler error if overflows int64
+	_ uint64 = 1<<hashtbl_minLogSlots*RecordSize - bigPageSize // compiler error if negative
+)
 
 type hashtblHeader struct {
 	created uint32 // when the hashtbl was created
@@ -68,10 +76,10 @@ func (p bigPageIdxT) Offset() int64 { return pageSize + int64(p*bigPageSize) }
 // CreateHashtbl allocates a new hash table with the given log base 2 number of records and created
 // timestamp. The file is truncated and allocated to the correct size.
 func CreateHashtbl(fh *os.File, logSlots uint64, created uint32) (*HashTbl, error) {
-	const maxLogSlots = 56
-	const _ int64 = pageSize + 1<<maxLogSlots*RecordSize // compiler error if overflows int64
-	if logSlots > maxLogSlots {
+	if logSlots > hashtbl_maxLogSlots {
 		return nil, Error.New("logSlots too large: logSlots=%d", logSlots)
+	} else if logSlots < hashtbl_minLogSlots {
+		return nil, Error.New("logSlots too small: logSlots=%d", logSlots)
 	}
 
 	header := hashtblHeader{

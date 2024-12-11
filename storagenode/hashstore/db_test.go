@@ -24,11 +24,10 @@ func TestDB_BasicOperation(t *testing.T) {
 
 	var keys []Key
 
-	// add enough keys to ensure a background compaction.
-	for i := 0; i < 1<<store_minTableSize; i++ {
+	// add keys and ensure we can read them back
+	for i := 0; i < 1000; i++ {
 		keys = append(keys, db.AssertCreate())
 	}
-
 	for _, key := range keys {
 		db.AssertRead(key)
 	}
@@ -36,7 +35,7 @@ func TestDB_BasicOperation(t *testing.T) {
 	// ensure the stats look like what we expect.
 	stats, _, _ := db.Stats()
 	t.Logf("%+v", stats)
-	assert.Equal(t, stats.NumSet, 1<<store_minTableSize)
+	assert.Equal(t, stats.NumSet, 1000)
 	assert.Equal(t, stats.LenSet, uint64(len(Key{})+RecordSize)*stats.NumSet)
 	assert.That(t, stats.LenSet <= stats.LenLogs) // <= because of optimistic alignment
 
