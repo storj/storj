@@ -90,6 +90,7 @@ type Endpoint struct {
 	encInlineSegmentSize           int64 // max inline segment size + encryption overhead
 	revocations                    revocation.DB
 	config                         Config
+	migrationModeFlag              *MigrationModeFlagExtension
 	versionCollector               *versionCollector
 	zstdDecoder                    *zstd.Decoder
 	zstdEncoder                    *zstd.Encoder
@@ -107,7 +108,7 @@ func NewEndpoint(log *zap.Logger, buckets *buckets.Service, metabaseDB *metabase
 	orders *orders.Service, cache *overlay.Service, attributions attribution.DB, peerIdentities overlay.PeerIdentities,
 	apiKeys APIKeys, projectUsage *accounting.Service, projects console.Projects, projectMembers console.ProjectMembers, users console.Users,
 	satellite signing.Signer, revocations revocation.DB, successTrackers *SuccessTrackers, failureTracker SuccessTracker,
-	config Config, placement nodeselection.PlacementDefinitions) (*Endpoint, error) {
+	config Config, migrationModeFlag *MigrationModeFlagExtension, placement nodeselection.PlacementDefinitions) (*Endpoint, error) {
 
 	// TODO do something with too many params
 
@@ -169,6 +170,7 @@ func NewEndpoint(log *zap.Logger, buckets *buckets.Service, metabaseDB *metabase
 		encInlineSegmentSize: encInlineSegmentSize,
 		revocations:          revocations,
 		config:               config,
+		migrationModeFlag:    migrationModeFlag,
 		versionCollector:     newVersionCollector(log),
 		zstdDecoder:          decoder,
 		zstdEncoder:          encoder,
@@ -182,8 +184,9 @@ func NewEndpoint(log *zap.Logger, buckets *buckets.Service, metabaseDB *metabase
 // TestingNewAPIKeysEndpoint returns an endpoint suitable for testing api keys behaviour.
 func TestingNewAPIKeysEndpoint(log *zap.Logger, apiKeys APIKeys) *Endpoint {
 	return &Endpoint{
-		log:     log,
-		apiKeys: apiKeys,
+		log:               log,
+		apiKeys:           apiKeys,
+		migrationModeFlag: NewMigrationModeFlagExtension(Config{}),
 	}
 }
 
