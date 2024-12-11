@@ -214,6 +214,8 @@ func NewAPI(log *zap.Logger, full *identity.FullIdentity, db DB,
 		peer.Buckets.Service = buckets.NewService(db.Buckets(), metabaseDB)
 	}
 
+	migrationModeFlag := metainfo.NewMigrationModeFlagExtension(config.Metainfo)
+
 	{ // setup debug
 		var err error
 		if config.Debug.Addr != "" {
@@ -225,7 +227,8 @@ func NewAPI(log *zap.Logger, full *identity.FullIdentity, db DB,
 		}
 		debugConfig := config.Debug
 		debugConfig.ControlTitle = "API"
-		peer.Debug.Server = debug.NewServerWithAtomicLevel(log.Named("debug"), peer.Debug.Listener, monkit.Default, debugConfig, atomicLogLevel)
+		peer.Debug.Server = debug.NewServerWithAtomicLevel(log.Named("debug"), peer.Debug.Listener, monkit.Default,
+			debugConfig, atomicLogLevel, migrationModeFlag)
 		peer.Servers.Add(lifecycle.Item{
 			Name:  "debug",
 			Run:   peer.Debug.Server.Run,
@@ -437,6 +440,7 @@ func NewAPI(log *zap.Logger, full *identity.FullIdentity, db DB,
 			peer.SuccessTrackers,
 			peer.FailureTracker,
 			config.Metainfo,
+			migrationModeFlag,
 			placements,
 		)
 		if err != nil {
