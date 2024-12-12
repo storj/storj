@@ -235,6 +235,30 @@ func (p *Payments) AddCreditCard(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
+// UpdateCreditCard is used to update the credit card details.
+func (p *Payments) UpdateCreditCard(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	var err error
+	defer mon.Task()(&ctx)(&err)
+
+	var params payments.CardUpdateParams
+	if err = json.NewDecoder(r.Body).Decode(&params); err != nil {
+		p.serveJSONError(ctx, w, http.StatusBadRequest, err)
+		return
+	}
+
+	err = p.service.Payments().UpdateCreditCard(ctx, params)
+	if err != nil {
+		if console.ErrUnauthorized.Has(err) {
+			web.ServeCustomJSONError(ctx, p.log, w, http.StatusUnauthorized, err, rootError(err).Error())
+			return
+		}
+
+		web.ServeCustomJSONError(ctx, p.log, w, http.StatusInternalServerError, err, rootError(err).Error())
+		return
+	}
+}
+
 // AddCardByPaymentMethodID is used to save new credit card and attach it to payment account.
 // It uses payment method id instead of token.
 func (p *Payments) AddCardByPaymentMethodID(w http.ResponseWriter, r *http.Request) {

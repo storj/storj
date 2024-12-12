@@ -187,6 +187,57 @@ func (creditCards *creditCards) Add(ctx context.Context, userID uuid.UUID, cardT
 	}, nil
 }
 
+// Update updates the credit card details.
+func (creditCards *creditCards) Update(ctx context.Context, userID uuid.UUID, params payments.CardUpdateParams) (err error) {
+	defer mon.Task()(&ctx, userID, params.CardID)(&err)
+
+	customerID, err := creditCards.service.db.Customers().GetCustomerID(ctx, userID)
+	if err != nil {
+		return payments.ErrAccountNotSetup.Wrap(err)
+	}
+
+	cardIter := creditCards.service.stripeClient.PaymentMethods().List(&stripe.PaymentMethodListParams{
+		ListParams: stripe.ListParams{Context: ctx},
+		Customer:   &customerID,
+		Type:       stripe.String(string(stripe.PaymentMethodTypeCard)),
+	})
+
+	isUserCard := false
+	for cardIter.Next() {
+		if cardIter.PaymentMethod().ID == params.CardID {
+			isUserCard = true
+			break
+		}
+	}
+
+	if err = cardIter.Err(); err != nil {
+		return Error.Wrap(err)
+	}
+
+	if !isUserCard {
+		return ErrCardNotFound.New("this card is not attached to this account.")
+	}
+
+	cardParams := &stripe.PaymentMethodParams{
+		Params: stripe.Params{Context: ctx},
+		Card: &stripe.PaymentMethodCardParams{
+			ExpMonth: stripe.Int64(params.ExpMonth),
+			ExpYear:  stripe.Int64(params.ExpYear),
+		},
+	}
+
+	_, err = creditCards.service.stripeClient.PaymentMethods().Update(params.CardID, cardParams)
+	if err != nil {
+		stripeErr := &stripe.Error{}
+		if errors.As(err, &stripeErr) {
+			err = errs.Wrap(errors.New(stripeErr.Msg))
+		}
+		return Error.Wrap(err)
+	}
+
+	return nil
+}
+
 // AddByPaymentMethodID is used to save new credit card, attach it to payment account and make it default
 // using the payment method id instead of the token. In this case, the payment method should already be
 // created by the frontend using the stripe payment element for example.

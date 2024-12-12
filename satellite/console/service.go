@@ -524,6 +524,23 @@ func (payment Payments) AddCreditCard(ctx context.Context, creditCardToken strin
 	return card, nil
 }
 
+// UpdateCreditCard is used to update credit card details.
+func (payment Payments) UpdateCreditCard(ctx context.Context, params payments.CardUpdateParams) (err error) {
+	defer mon.Task()(&ctx, params.CardID)(&err)
+
+	user, err := payment.service.getUserAndAuditLog(ctx, "update credit card")
+	if err != nil {
+		return Error.Wrap(err)
+	}
+
+	err = payment.service.accounts.CreditCards().Update(ctx, user.ID, params)
+	if err != nil {
+		return Error.Wrap(err)
+	}
+
+	return nil
+}
+
 // AddCardByPaymentMethodID is used to save new credit card and attach it to payment account.
 func (payment Payments) AddCardByPaymentMethodID(ctx context.Context, pmID string) (card payments.CreditCard, err error) {
 	defer mon.Task()(&ctx, pmID)(&err)

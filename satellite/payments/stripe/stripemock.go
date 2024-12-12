@@ -521,6 +521,32 @@ func (m *mockPaymentMethods) New(params *stripe.PaymentMethodParams) (*stripe.Pa
 	return newMethod, nil
 }
 
+func (m *mockPaymentMethods) Update(id string, params *stripe.PaymentMethodParams) (*stripe.PaymentMethod, error) {
+	if params.Card == nil || params.Card.ExpMonth == nil || params.Card.ExpYear == nil {
+		return nil, errors.New("missing required field")
+	}
+	card := &stripe.PaymentMethodCard{
+		ExpMonth: *params.Card.ExpMonth,
+		ExpYear:  *params.Card.ExpYear,
+	}
+
+	method, err := m.Get(id, nil)
+	if err != nil {
+		return nil, err
+	}
+	if method.Card == nil {
+		return nil, errors.New("payment method has no card")
+	}
+
+	m.root.mu.Lock()
+	defer m.root.mu.Unlock()
+
+	method.Card.ExpMonth = card.ExpMonth
+	method.Card.ExpYear = card.ExpYear
+
+	return method, nil
+}
+
 func (m *mockPaymentMethods) Attach(id string, params *stripe.PaymentMethodAttachParams) (*stripe.PaymentMethod, error) {
 	m.root.mu.Lock()
 	defer m.root.mu.Unlock()
