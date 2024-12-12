@@ -91,6 +91,11 @@ var _ rangedloop.Partial = &Fork{}
 func (f *Fork) Process(ctx context.Context, segments []rangedloop.Segment) error {
 	for _, segment := range segments {
 
+		// skip expired segments
+		if segment.Expired(time.Now()) {
+			continue
+		}
+
 		pieceNumber := -1
 		for _, piece := range segment.Pieces {
 			if piece.StorageNode == f.nodeID {
