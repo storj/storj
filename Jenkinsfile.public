@@ -111,7 +111,7 @@ pipeline {
                 }
                 stage('Other') {
                     steps {
-                        sh 'golangci-lint --config /go/ci/.golangci.yml -j=2 --timeout=4m run'
+                        sh 'golangci-lint --config /go/ci/.golangci.yml -j=2 --timeout=5m run --show-stats --verbose'
                         sh 'protolock status'
                         dir("testsuite/storjscan") {
                             sh 'go vet ./...'
