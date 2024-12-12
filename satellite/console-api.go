@@ -313,8 +313,8 @@ func NewConsoleAPI(log *zap.Logger, full *identity.FullIdentity, db DB,
 			satelliteSignee,
 			peer.Orders.DB,
 			peer.DB.NodeAPIVersion(),
-			config.Orders.OrdersSemaphoreSize,
 			peer.Orders.Service,
+			config.Orders.AcceptOrders,
 		)
 
 		if err := pb.DRPCRegisterOrders(peer.Server.DRPC(), peer.Orders.Endpoint); err != nil {

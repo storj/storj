@@ -1085,6 +1085,9 @@ identity.key-path: /root/.local/share/storj/identity/satellite/identity.key
 # max number of offline emails to send a node operator until the node comes back online
 # offline-nodes.max-emails: 3
 
+# determine if orders from storage nodes should be accepted
+# orders.accept-orders: true
+
 # how many nodes should be used for downloads for certain k. must be >= k. if not specified, this is calculated from long tail tolerance. format is comma separated like k-d,k-d,k-d e.g. 29-35,3-5.
 # orders.download-tail-tolerance-overrides: ""
 
@@ -1099,9 +1102,6 @@ identity.key-path: /root/.local/share/storj/identity/satellite/identity.key
 
 # how often to flush the rollups write cache to the database
 # orders.flush-interval: 1m0s
-
-# how many concurrent orders to process at once. zero is unlimited
-# orders.orders-semaphore-size: 2
 
 # default AS OF SYSTEM TIME for service
 # overlay.as-of-system-time: -10s

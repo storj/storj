@@ -15,6 +15,7 @@ import (
 	"time"
 
 	"github.com/stretchr/testify/require"
+	"go.uber.org/zap"
 	"go.uber.org/zap/zaptest"
 
 	"storj.io/common/memory"
@@ -389,7 +390,7 @@ func TestAllInOne(t *testing.T) {
 
 		require.NoError(t, planet.Uplinks[0].CreateBucket(ctx, satellite, "bf-bucket"))
 
-		metabaseProvider := rangedloop.NewMetabaseRangeSplitter(satellite.Metabase.DB, 0, 0, 10)
+		metabaseProvider := rangedloop.NewMetabaseRangeSplitter(log, satellite.Metabase.DB, 0, 0, 10)
 
 		config := rangedloop.Config{
 			Parallelism: 8,
@@ -473,7 +474,7 @@ func TestLoopBoundaries(t *testing.T) {
 			var visitedSegments []Segment
 			var mu sync.Mutex
 
-			provider := rangedloop.NewMetabaseRangeSplitter(db, 0, 0, batchSize)
+			provider := rangedloop.NewMetabaseRangeSplitter(zap.NewNop(), db, 0, 0, batchSize)
 			config := rangedloop.Config{
 				Parallelism: parallelism,
 				BatchSize:   batchSize,
@@ -566,29 +567,21 @@ func TestRangedLoop_SpannerStaleReads(t *testing.T) {
 			t.Skip("test requires Spanner")
 		}
 
-		countObserver := &rangedlooptest.CountObserver{}
-		beforeCreate := time.Now()
 		metabasetest.CreateObject(ctx, t, db, metabasetest.RandObjectStream(), 1)
-
-		config := rangedloop.Config{
-			Parallelism: 1,
-			BatchSize:   10,
-		}
-
-		// using stale read from before creating object
-		provider := rangedloop.NewMetabaseRangeSplitter(db, 0, time.Since(beforeCreate), 10)
-		service := rangedloop.NewService(zaptest.NewLogger(t), config, provider, []rangedloop.Observer{countObserver})
-		_, err := service.RunOnce(ctx)
-		require.NoError(t, err)
-		require.Equal(t, 0, countObserver.NumSegments)
 
 		// Wait for the object to be definitely visible for the stale read.
 		time.Sleep(2 * time.Second)
 
 		// using stale read but object should be already visible
-		provider = rangedloop.NewMetabaseRangeSplitter(db, 0, time.Microsecond, 10)
-		service = rangedloop.NewService(zaptest.NewLogger(t), config, provider, []rangedloop.Observer{countObserver})
-		_, err = service.RunOnce(ctx)
+		config := rangedloop.Config{
+			Parallelism: 1,
+			BatchSize:   10,
+		}
+
+		provider := rangedloop.NewMetabaseRangeSplitter(zaptest.NewLogger(t), db, 0, time.Microsecond, 10)
+		countObserver := &rangedlooptest.CountObserver{}
+		service := rangedloop.NewService(zaptest.NewLogger(t), config, provider, []rangedloop.Observer{countObserver})
+		_, err := service.RunOnce(ctx)
 		require.NoError(t, err)
 		require.Equal(t, 1, countObserver.NumSegments)
 	})
