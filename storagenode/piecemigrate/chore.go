@@ -145,23 +145,6 @@ func (chore *Chore) SetMigrate(sat storj.NodeID, migrate, activeMigration bool) 
 	}
 }
 
-func (chore *Chore) swapMigrate(sat storj.NodeID, oldMigrate, newMigrate, oldActive, newActive bool) {
-	chore.mu.Lock()
-	defer chore.mu.Unlock()
-
-	active, migrate := chore.migrated[sat]
-
-	if active != oldActive || migrate != oldMigrate {
-		return
-	}
-
-	if newMigrate {
-		chore.migrated[sat] = newActive
-	} else {
-		delete(chore.migrated, sat)
-	}
-}
-
 func (chore *Chore) getMigrate(sat storj.NodeID) (bool, bool) {
 	chore.mu.Lock()
 	defer chore.mu.Unlock()
@@ -200,7 +183,6 @@ func (chore *Chore) runOnce(ctx context.Context) (err error) {
 			} else {
 				chore.log.Info("enqueued for migration",
 					zap.Stringer("sat", sat))
-				chore.swapMigrate(sat, true, true, true, false)
 			}
 		}
 	}

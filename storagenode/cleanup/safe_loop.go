@@ -35,7 +35,7 @@ type SafeLoop struct {
 // SafeLoopConfig is the configuration for SafeLoop.
 type SafeLoopConfig struct {
 	CheckingPeriod time.Duration `help:"time period to check the availability condition" default:"1m"`
-	RunPeriod      time.Duration `help:"minimum time between the execution of cleanup" default:"1h"`
+	RunPeriod      time.Duration `help:"minimum time between the execution of cleanup" default:"15m"`
 }
 
 // NewSafeLoop creates a new SafeLoop.
@@ -52,12 +52,14 @@ func NewSafeLoop(log *zap.Logger, availability []Enablement, cfg SafeLoopConfig)
 func (s *SafeLoop) RunSafe(ctx context.Context, do func(ctx context.Context) error) (err error) {
 	defer mon.Task()(&ctx)(&err)
 	result := make(chan error, 1)
+	// initial run after 10 seconds
+	period := 0 * time.Second
 	for {
 		select {
 		case <-ctx.Done():
 			return nil
-		case <-time.After(s.config.CheckingPeriod):
-			s.log.Info("checking availability conditions")
+		case <-time.After(period):
+			period = s.config.CheckingPeriod
 			enable := true
 			for _, check := range s.availability {
 				vote, err := check.Enabled()

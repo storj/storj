@@ -30,6 +30,17 @@ func safeDivide(x, y float64) float64 {
 	return x / y
 }
 
+var signalClosed = Error.New("signal closed")
+
+func signalError(sig *drpcsignal.Signal) error {
+	if err, ok := sig.Get(); !ok {
+		return nil
+	} else if err != nil {
+		return err
+	}
+	return signalClosed
+}
+
 //
 // date/time helpers
 //
@@ -123,14 +134,14 @@ func (s *mutex) WaitLock() { s.ch <- struct{}{} }
 func (s *mutex) Lock(ctx context.Context, closed *drpcsignal.Signal) error {
 	if err := ctx.Err(); err != nil {
 		return err
-	} else if err := closed.Err(); err != nil {
+	} else if err := signalError(closed); err != nil {
 		return err
 	}
 	select {
 	case s.ch <- struct{}{}:
 		return nil
 	case <-closed.Signal():
-		return closed.Err()
+		return signalError(closed)
 	case <-ctx.Done():
 		return ctx.Err()
 	}
@@ -159,7 +170,7 @@ func newRWMutex() *rwMutex {
 func (m *rwMutex) RLock(ctx context.Context, closed *drpcsignal.Signal) error {
 	if err := ctx.Err(); err != nil {
 		return err
-	} else if err := closed.Err(); err != nil {
+	} else if err := signalError(closed); err != nil {
 		return err
 	}
 	for {
@@ -191,7 +202,7 @@ func (m *rwMutex) WaitLock() {
 func (m *rwMutex) Lock(ctx context.Context, closed *drpcsignal.Signal) error {
 	if err := ctx.Err(); err != nil {
 		return err
-	} else if err := closed.Err(); err != nil {
+	} else if err := signalError(closed); err != nil {
 		return err
 	}
 	for {
@@ -277,8 +288,10 @@ func (a *atomicFile) Commit() (err error) {
 	a.mu.Lock()
 	defer a.mu.Unlock()
 
-	if a.committed.set() || a.canceled.get() {
+	if a.committed.set() {
 		return nil
+	} else if a.canceled.get() {
+		return Error.New("atomic file already canceled")
 	}
 
 	// attempt to unlink the temporary file if there are any commit errors.

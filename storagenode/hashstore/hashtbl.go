@@ -322,10 +322,15 @@ func (h *HashTbl) Range(fn func(Record, error) bool) {
 	h.opMu.RLock()
 	defer h.opMu.RUnlock()
 
-	if err := h.closed.Err(); err != nil {
+	if err := signalError(&h.closed); err != nil {
 		fn(Record{}, err)
 		return
 	}
+
+	var (
+		numSet, lenSet     uint64
+		numTrash, lenTrash uint64
+	)
 
 	var cache roBigPageCache
 	cache.Init(h.fh)
@@ -339,8 +344,21 @@ func (h *HashTbl) Range(fn func(Record, error) bool) {
 			if !fn(rec, nil) {
 				return
 			}
+
+			numSet++
+			lenSet += uint64(rec.Length)
+
+			if rec.Expires.Trash() {
+				numTrash++
+				lenTrash += uint64(rec.Length)
+			}
 		}
 	}
+
+	h.mu.Lock()
+	h.numSet, h.lenSet = numSet, lenSet
+	h.numTrash, h.lenTrash = numTrash, lenTrash
+	h.mu.Unlock()
 }
 
 // ExpectOrdered signals that incoming writes to the hashtbl will be ordered so that a large shared
@@ -390,7 +408,7 @@ func (h *HashTbl) Insert(rec Record) (_ bool, err error) {
 	h.opMu.Lock()
 	defer h.opMu.Unlock()
 
-	if err := h.closed.Err(); err != nil {
+	if err := signalError(&h.closed); err != nil {
 		return false, err
 	}
 
@@ -484,7 +502,7 @@ func (h *HashTbl) Lookup(key Key) (_ Record, _ bool, err error) {
 	h.opMu.RLock()
 	defer h.opMu.RUnlock()
 
-	if err := h.closed.Err(); err != nil {
+	if err := signalError(&h.closed); err != nil {
 		return Record{}, false, err
 	}
 

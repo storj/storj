@@ -10,6 +10,7 @@ import (
 	"fmt"
 	"io"
 	"math/rand"
+	"strconv"
 	"time"
 
 	"github.com/davecgh/go-spew/spew"
@@ -159,6 +160,13 @@ func (verifier *Verifier) Verify(ctx context.Context, segment Segment, skip map[
 			zap.String("Segment", segmentInfoString(segment)))
 	}
 
+	// this will pass additional info to restored from trash event sent by underlying libuplink
+	//nolint: revive
+	//lint:ignore SA1029 this is a temporary solution
+	ctx = context.WithValue(ctx, "restored_from_trash", map[string]string{
+		"StreamID":       segment.StreamID.String(),
+		"StreamPosition": strconv.Itoa(int(segment.Position.Encode())),
+	})
 	shares, err := verifier.DownloadShares(ctx, orderLimits, privateKey, cachedNodesInfo, randomIndex, segmentInfo.Redundancy.ShareSize)
 	if err != nil {
 		return Report{
