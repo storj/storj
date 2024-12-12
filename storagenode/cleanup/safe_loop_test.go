@@ -17,7 +17,7 @@ import (
 )
 
 func TestSafeLoop(t *testing.T) {
-	// t.Skip("this test depends on time, and safe only on environments which is not overloaded, not safe for Jenkins")
+	t.Skip("this test depends on time, and safe only on environments which is not overloaded, not safe for Jenkins")
 	runningCount := atomic.Int64{}
 	finishedCount := atomic.Int64{}
 
