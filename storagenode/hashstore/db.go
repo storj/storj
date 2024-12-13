@@ -135,9 +135,11 @@ type DBStats struct {
 	SetPercent   float64 // percent of bytes that are set in the log files.
 	TrashPercent float64 // percent of bytes that are trash in the log files.
 
-	Compacting  bool   // if true, a background compaction is in progress.
-	Compactions uint64 // total number of compactions that finished on either store.
-	Active      int    // which store is currently active
+	Compacting    bool   // if true, a background compaction is in progress.
+	Compactions   uint64 // total number of compactions that finished on either store.
+	Active        int    // which store is currently active
+	LogsRewritten uint64 // total number of log files attempted to be rewritten.
+	DataRewritten uint64 // total number of bytes of data rewritten.
 }
 
 // Stats returns statistics about the database and underlying stores.
@@ -176,9 +178,11 @@ func (d *DB) Stats() (DBStats, StoreStats, StoreStats) {
 		SetPercent:   safeDivide(float64(s0st.Table.LenSet+s1st.Table.LenSet), float64(s0st.LenLogs+s1st.LenLogs)),
 		TrashPercent: safeDivide(float64(s0st.Table.LenTrash+s1st.Table.LenTrash), float64(s0st.LenLogs+s1st.LenLogs)),
 
-		Compacting:  compacting,
-		Compactions: s0st.Compactions + s1st.Compactions,
-		Active:      active,
+		Compacting:    compacting,
+		Compactions:   s0st.Compactions + s1st.Compactions,
+		Active:        active,
+		LogsRewritten: s0st.LogsRewritten + s1st.LogsRewritten,
+		DataRewritten: s0st.DataRewritten + s1st.DataRewritten,
 	}, s0st, s1st
 }
 

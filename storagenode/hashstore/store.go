@@ -53,6 +53,9 @@ type Store struct {
 		lastCompact atomic.Uint32 // date of the last compaction
 		tableFull   atomic.Uint64 // bumped every time the hash table is full
 
+		logsRewritten atomic.Uint64 // bumped when a log file is marked to be rewritten
+		dataRewritten atomic.Uint64 // bumped whenever a record is rewritten with the length of the record
+
 		cached           atomic.Pointer[StoreStats] // set during compaction to maintain consistency of Stats calls
 		startTime        atomic.Value               // time of the start of the current compaction
 		writeTime        atomic.Value               // time of the start of writing the new hash table
@@ -245,12 +248,14 @@ type StoreStats struct {
 	SetPercent   float64 // percent of bytes that are set in the log files.
 	TrashPercent float64 // percent of bytes that are trash in the log files.
 
-	Compacting  bool         // if true, a compaction is in progress.
-	Compactions uint64       // number of compaction calls that finished
-	TableFull   uint64       // number of times the hashtbl was full trying to insert
-	Today       uint32       // the current date.
-	LastCompact uint32       // the date of the last compaction.
-	Table       HashTblStats // stats about the hash table.
+	Compacting    bool         // if true, a compaction is in progress.
+	Compactions   uint64       // number of compaction calls that finished
+	TableFull     uint64       // number of times the hashtbl was full trying to insert
+	Today         uint32       // the current date.
+	LastCompact   uint32       // the date of the last compaction.
+	LogsRewritten uint64       // number of log files attempted to be rewritten.
+	DataRewritten uint64       // number of bytes rewritten in the log files.
+	Table         HashTblStats // stats about the hash table.
 
 	Compaction struct { // stats about the current compaction
 		Elapsed          float64 // number of seconds elapsed in the compaction
@@ -314,12 +319,14 @@ func (s *Store) Stats() StoreStats {
 		SetPercent:   safeDivide(float64(stats.LenSet), float64(lenLogs)),
 		TrashPercent: safeDivide(float64(stats.LenTrash), float64(lenLogs)),
 
-		Compacting:  false,
-		Compactions: s.stats.compactions.Load(),
-		TableFull:   s.stats.tableFull.Load(),
-		Today:       s.today(),
-		LastCompact: s.stats.lastCompact.Load(),
-		Table:       stats,
+		Compacting:    false,
+		Compactions:   s.stats.compactions.Load(),
+		TableFull:     s.stats.tableFull.Load(),
+		Today:         s.today(),
+		LastCompact:   s.stats.lastCompact.Load(),
+		LogsRewritten: s.stats.logsRewritten.Load(),
+		DataRewritten: s.stats.dataRewritten.Load(),
+		Table:         stats,
 	}
 }
 
@@ -693,7 +700,8 @@ func (s *Store) compactOnce(
 	// collect statistics about the hash table and how live each of the log files are.
 	nset := uint64(0)
 	nexist := uint64(0)
-	used := make(map[uint64]uint64)
+	alive := make(map[uint64]uint64)
+	total := make(map[uint64]uint64)
 	rerr := error(nil)
 	modifications := false
 
@@ -704,7 +712,12 @@ func (s *Store) compactOnce(
 			} else if err := ctx.Err(); err != nil {
 				return err
 			}
-			nexist++ // bump the number of records that exist for progress reporting.
+
+			// keep track of every record that exists in the hash table and the total size of the
+			// record and its footer. this differs from the log size field because of optimistic
+			// padding.
+			nexist++
+			total[rec.Log] += uint64(rec.Length) + RecordSize // rSize for the record footer
 
 			// if we're not yet sure we're modifying the hash table, we need to check our callbacks
 			// on the record to see if the table would be modified. a record is modified when it is
@@ -724,9 +737,9 @@ func (s *Store) compactOnce(
 				return nil
 			}
 
-			// the record is included in the future hash table, so account for it in used space.
+			// the record is included in the future hash table, so account for it in alive space.
 			nset++
-			used[rec.Log] += uint64(rec.Length) + RecordSize // rSize for the record footer
+			alive[rec.Log] += uint64(rec.Length) + RecordSize // rSize for the record footer
 
 			return nil
 		}()
@@ -755,7 +768,7 @@ func (s *Store) compactOnce(
 
 			// compact non-empty log files that don't contain enough alive data.
 			size := lf.size.Load()
-			if size > 0 && float64(used[id])/float64(size) < compaction_AliveFraction {
+			if size > 0 && float64(alive[id])/float64(size) < compaction_AliveFraction {
 				rewriteCandidates[id] = true
 			}
 
@@ -765,6 +778,24 @@ func (s *Store) compactOnce(
 	})
 	if rerr != nil {
 		return false, rerr
+	}
+
+	// if we have no rewrite candidates, then rewrite the log with the largest amount of dead
+	// records. this helps the steady state of a node that is basically full to more eagerly reclaim
+	// space for more uploads. it doesn't use the log's size field because that includes space for
+	// optimistic padding, and so we would rewrite totally alive logs if they had padding.
+	if len(rewriteCandidates) == 0 {
+		var maxDead uint64
+		var maxLog *logFile
+		s.lfs.Range(func(id uint64, lf *logFile) bool {
+			if dead := total[id] - alive[id]; dead > maxDead {
+				maxDead, maxLog = dead, lf
+			}
+			return true
+		})
+		if maxLog != nil {
+			rewriteCandidates[maxLog.id] = true
+		}
 	}
 
 	// if there are no modifications to the hashtbl to remove expired records or flag records as
@@ -779,9 +810,9 @@ func (s *Store) compactOnce(
 	rewrite := make(map[uint64]bool)
 	target := hashtblSize(logSlots)
 	for id := range rewriteCandidates {
-		if used[id] <= target {
+		if alive[id] <= target {
 			rewrite[id] = true
-			target -= used[id]
+			target -= alive[id]
 		}
 	}
 
@@ -793,6 +824,9 @@ func (s *Store) compactOnce(
 			break
 		}
 	}
+
+	// increment the number of log files we're attempting to rewrite.
+	s.stats.logsRewritten.Add(uint64(len(rewrite)))
 
 	// create a new hash table sized for the number of records.
 	tblPath := filepath.Join(s.meta, fmt.Sprintf("hashtbl-%016x", s.maxHash.Add(1)))
@@ -908,6 +942,10 @@ func (s *Store) compactOnce(
 
 					// get the updated record information from the writer.
 					rec = w.rec
+
+					// bump the amount of data we rewrote.
+					s.stats.dataRewritten.Add(uint64(rec.Length) + RecordSize)
+
 					return nil
 				}()
 				if err != nil {
