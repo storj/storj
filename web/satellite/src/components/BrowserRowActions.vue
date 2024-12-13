@@ -283,7 +283,7 @@ async function onDeleteClick(): Promise<void> {
 }
 
 async function getLockStatus() {
-    if (!objectLockEnabledForBucket.value || props.file.type === 'folder') {
+    if (!objectLockEnabledForBucket.value || props.file.type === 'folder' || props.file.isDeleteMarker) {
         return;
     }
     if (isGettingLockStatus.value) {
