@@ -203,7 +203,7 @@ func (a *Auth) GetSsoUrl(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	ssoUrl, err := url.JoinPath(a.ExternalAddress, "sso", provider)
-	if provider == "" {
+	if err != nil {
 		a.serveJSONError(ctx, w, err)
 		return
 	}
@@ -240,7 +240,7 @@ func (a *Auth) BeginSsoFlow(w http.ResponseWriter, r *http.Request) {
 		http.Redirect(w, r, ssoFailedAddr, http.StatusPermanentRedirect)
 	}
 
-	state, err := a.ssoService.GetSsoStateFromEmail(email)
+	state, err := a.ssoService.GetSsoStateFromEmail(strings.ToLower(email))
 	if err != nil {
 		a.log.Error("failed to get sso state", zap.Error(err))
 		http.Redirect(w, r, ssoFailedAddr, http.StatusPermanentRedirect)
