@@ -201,7 +201,7 @@ export class ProjectMember implements ProjectMemberItemModel {
         public id: string = '',
         private _role: number = 0,
     ) {
-        this.user = new User(this.id, this.fullName, this.shortName, this.email);
+        this.user = new User(this.id, '', this.fullName, this.shortName, this.email);
         this.setRole();
     }
 
