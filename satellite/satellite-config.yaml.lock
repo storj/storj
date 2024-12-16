@@ -1016,9 +1016,6 @@ identity.key-path: /root/.local/share/storj/identity/satellite/identity.key
 # enable the use of bucket level object versioning
 # metainfo.use-bucket-level-object-versioning: true
 
-# switch to iterator based implementation.
-# metainfo.use-list-objects-iterator: false
-
 # user info cache capacity
 # metainfo.user-info-validation.cache-capacity: 10000
 
