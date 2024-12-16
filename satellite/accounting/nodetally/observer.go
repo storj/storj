@@ -29,6 +29,11 @@ var (
 	_ rangedloop.Partial  = (*observerFork)(nil)
 )
 
+// Config contains configurable values for nodetally observer.
+type Config struct {
+	BatchSize int `help:"batch size for saving tallies into DB" default:"1000" testDefault:"10"`
+}
+
 // Observer implements node tally ranged loop observer.
 type Observer struct {
 	log        *zap.Logger
@@ -36,17 +41,19 @@ type Observer struct {
 
 	metabaseDB *metabase.DB
 
+	batchSize     int
 	nowFn         func() time.Time
 	lastTallyTime time.Time
 	Node          map[metabase.NodeAlias]float64
 }
 
 // NewObserver creates new tally range loop observer.
-func NewObserver(log *zap.Logger, accounting accounting.StoragenodeAccounting, metabaseDB *metabase.DB) *Observer {
+func NewObserver(log *zap.Logger, accounting accounting.StoragenodeAccounting, metabaseDB *metabase.DB, config Config) *Observer {
 	return &Observer{
 		log:        log,
 		accounting: accounting,
 		metabaseDB: metabaseDB,
+		batchSize:  config.BatchSize,
 		nowFn:      time.Now,
 		Node:       map[metabase.NodeAlias]float64{},
 	}
@@ -102,13 +109,14 @@ func (observer *Observer) Finish(ctx context.Context) (err error) {
 	// calculate byte hours, not just bytes
 	hours := finishTime.Sub(observer.lastTallyTime).Hours()
 	var totalSum float64
-	nodeIDs := make([]storj.NodeID, 0, len(observer.Node))
-	byteHours := make([]float64, 0, len(observer.Node))
+	nodeIDs := make([]storj.NodeID, 0, observer.batchSize)
+	byteHours := make([]float64, 0, observer.batchSize)
 	nodeAliasMap, err := observer.metabaseDB.LatestNodesAliasMap(ctx)
 	if err != nil {
 		return err
 	}
 
+	var errs errs.Group
 	for alias, pieceSize := range observer.Node {
 		totalSum += pieceSize
 		nodeID, ok := nodeAliasMap.Node(alias)
@@ -116,18 +124,29 @@ func (observer *Observer) Finish(ctx context.Context) (err error) {
 			observer.log.Error("unrecognized node alias in ranged-loop tally", zap.Int32("node-alias", int32(alias)))
 			continue
 		}
+
 		nodeIDs = append(nodeIDs, nodeID)
 		byteHours = append(byteHours, pieceSize*hours)
+
+		if len(nodeIDs) >= observer.batchSize {
+			err = observer.accounting.SaveTallies(ctx, finishTime, nodeIDs, byteHours)
+			if err != nil {
+				errs.Add(Error.New("StorageNodeAccounting.SaveTallies failed: %v", err))
+			}
+
+			nodeIDs = nodeIDs[:0]
+			byteHours = byteHours[:0]
+		}
 	}
 
 	monRangedTally.IntVal("nodetallies.totalsum").Observe(int64(totalSum)) //mon:locked
 
 	err = observer.accounting.SaveTallies(ctx, finishTime, nodeIDs, byteHours)
 	if err != nil {
-		return Error.New("StorageNodeAccounting.SaveTallies failed: %v", err)
+		errs.Add(Error.New("StorageNodeAccounting.SaveTallies failed: %v", err))
 	}
 
-	return nil
+	return errs.Err()
 }
 
 // SetNow overrides the timestamp used to store the result.

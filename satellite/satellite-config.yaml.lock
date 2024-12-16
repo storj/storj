@@ -1070,6 +1070,9 @@ identity.key-path: /root/.local/share/storj/identity/satellite/identity.key
 # how long the earliest instance of an event for a particular email should exist in the DB before it is selected
 # node-events.selection-wait-period: 5m0s
 
+# batch size for saving tallies into DB
+# node-tally.batch-size: 1000
+
 # how long to wait between sending Node Offline emails
 # offline-nodes.cooldown: 24h0m0s
 
