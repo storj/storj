@@ -75,7 +75,7 @@ func (endpoint *Endpoint) verifyOrderLimit(ctx context.Context, limit *pb.OrderL
 		serialExpiration = graceExpiration
 	}
 
-	if err := endpoint.usedSerials.Add(limit.SatelliteId, limit.SerialNumber, serialExpiration); err != nil {
+	if err := endpoint.usedSerials.Add(ctx, limit.SatelliteId, limit.SerialNumber, serialExpiration); err != nil {
 		return rpcstatus.Wrap(rpcstatus.Unauthenticated, err)
 	}
 

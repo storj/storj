@@ -90,7 +90,7 @@ func (service *Service) Close() (err error) {
 func (service *Service) Collect(ctx context.Context, now time.Time) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	service.usedSerials.DeleteExpired(now)
+	service.usedSerials.DeleteExpired(ctx, now)
 
 	service.log.Info("expired pieces collection started")
 	numCollected := 0
