@@ -24,6 +24,7 @@ import (
 	version_checker "storj.io/storj/private/version/checker"
 	"storj.io/storj/satellite/accounting"
 	"storj.io/storj/satellite/accounting/live"
+	"storj.io/storj/satellite/accounting/nodetally"
 	"storj.io/storj/satellite/accounting/projectbwcleanup"
 	"storj.io/storj/satellite/accounting/rollup"
 	"storj.io/storj/satellite/accounting/rolluparchive"
@@ -204,6 +205,7 @@ type Config struct {
 	ZombieDeletion  zombiedeletion.Config
 
 	Tally            tally.Config
+	NodeTally        nodetally.Config
 	Rollup           rollup.Config
 	RollupArchive    rolluparchive.Config
 	LiveAccounting   live.Config
