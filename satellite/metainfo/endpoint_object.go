@@ -2375,6 +2375,7 @@ func (endpoint *Endpoint) objectEntryToProtoListItem(ctx context.Context, bucket
 		EncryptedObjectKey: []byte(entry.ObjectKey),
 		Status:             pb.Object_Status(entry.Status),
 		ObjectVersion:      entry.StreamVersionID().Bytes(),
+		IsLatest:           entry.IsLatest,
 	}
 
 	expiresAt := time.Time{}
