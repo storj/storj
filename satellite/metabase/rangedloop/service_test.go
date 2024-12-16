@@ -409,6 +409,7 @@ func TestAllInOne(t *testing.T) {
 			nodetally.NewObserver(log.Named("accounting:nodetally"),
 				satellite.DB.StoragenodeAccounting(),
 				satellite.Metabase.DB,
+				satellite.Config.NodeTally,
 			),
 			audit.NewObserver(log.Named("audit"),
 				satellite.DB.VerifyQueue(),

@@ -118,7 +118,7 @@ func NewRangedLoop(log *zap.Logger, db DB, metabaseDB *metabase.DB, config *Conf
 		peer.Accounting.NodeTallyObserver = nodetally.NewObserver(
 			log.Named("accounting:nodetally"),
 			db.StoragenodeAccounting(),
-			metabaseDB)
+			metabaseDB, config.NodeTally)
 	}
 
 	{ // setup piece tracker observer
