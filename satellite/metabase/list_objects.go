@@ -65,10 +65,6 @@ type ListObjectsResult struct {
 func (db *DB) ListObjects(ctx context.Context, opts ListObjects) (result ListObjectsResult, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	if db.config.UseListObjectsIterator {
-		return db.ListObjectsWithIterator(ctx, opts)
-	}
-
 	if err := opts.Verify(); err != nil {
 		return ListObjectsResult{}, err
 	}
