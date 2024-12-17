@@ -108,6 +108,7 @@ func Module(ball *mud.Ball) {
 		config.RegisterConfig[server.Config](ball, "server2")
 	}
 
+	mud.Provide[*metainfo.MigrationModeFlagExtension](ball, metainfo.NewMigrationModeFlagExtension)
 	mud.Provide[*EndpointRegistration](ball, func(srv *server.Server, metainfoEndpoint *metainfo.Endpoint) (*EndpointRegistration, error) {
 		err := pb.DRPCRegisterMetainfo(srv.DRPC(), metainfoEndpoint)
 		if err != nil {
