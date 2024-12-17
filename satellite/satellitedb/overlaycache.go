@@ -13,6 +13,7 @@ import (
 	"time"
 
 	"cloud.google.com/go/spanner"
+	"github.com/jackc/pgx/v5"
 	"github.com/spacemonkeygo/monkit/v3"
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
@@ -25,6 +26,7 @@ import (
 	"storj.io/storj/satellite/satellitedb/dbx"
 	"storj.io/storj/shared/dbutil"
 	"storj.io/storj/shared/dbutil/pgutil"
+	"storj.io/storj/shared/dbutil/pgxutil"
 	"storj.io/storj/shared/dbutil/retrydb"
 	"storj.io/storj/shared/dbutil/spannerutil"
 	"storj.io/storj/shared/dbutil/txutil"
@@ -1960,111 +1962,193 @@ var (
 
 // TestAddNodes adds nodes for testing purposes, without any validation.
 func (cache *overlaycache) TestAddNodes(ctx context.Context, nodes []*overlay.NodeDossier) (err error) {
-	for _, node := range nodes {
-		id, lastnet, email, wallet, create, err := convertNodeDossierToCreateFields(node)
-		if err != nil {
+	switch cache.db.impl {
+	case dbutil.Postgres, dbutil.Cockroach:
+		return Error.Wrap(pgxutil.Conn(ctx, cache.db.DB, func(conn *pgx.Conn) error {
+			source := newCopyFromNodeDossiers(nodes)
+			_, err := conn.CopyFrom(ctx, pgx.Identifier{"nodes"}, source.Columns(), source)
 			return Error.Wrap(err)
+		}))
+	case dbutil.Spanner:
+		muts := make([]*spanner.Mutation, 0, len(nodes))
+		source := newCopyFromNodeDossiers(nodes)
+
+		for source.Next() {
+			vals, err := source.Values()
+			if err != nil {
+				return Error.Wrap(err)
+			}
+			muts = append(muts, spanner.Insert("nodes", source.Columns(), vals))
 		}
 
-		if err := cache.db.CreateNoReturn_Node(ctx, id, lastnet, email, wallet, create); err != nil {
+		return Error.Wrap(spannerutil.UnderlyingClient(ctx, cache.db.DB, func(client *spanner.Client) error {
+			_, err := client.Apply(ctx, muts)
 			return Error.Wrap(err)
-		}
+		}))
+	default:
+		return Error.New("unsupported implementation")
 	}
-	return nil
 }
 
-func convertNodeDossierToCreateFields(node *overlay.NodeDossier) (id dbx.Node_Id_Field, lastnet dbx.Node_LastNet_Field, email dbx.Node_Email_Field, wallet dbx.Node_Wallet_Field, create dbx.Node_Create_Fields, err error) {
-	id = dbx.Node_Id(node.Id.Bytes())
+type copyFromNodeDossiers struct {
+	idx  int
+	rows []*overlay.NodeDossier
+}
 
-	lastnet = dbx.Node_LastNet(node.LastNet)
-	create.LastIpPort = dbx.Node_LastIpPort(node.LastIPPort)
-
-	email = dbx.Node_Email(node.Operator.Email)
-	wallet = dbx.Node_Wallet(node.Operator.Wallet)
-
-	create.Address = dbx.Node_Address(node.Node.Address.Address)
-
-	if noise := node.Node.Address.NoiseInfo; noise != nil {
-		create.NoiseProto = dbx.Node_NoiseProto(int(noise.Proto))
-		create.NoisePublicKey = dbx.Node_NoisePublicKey(noise.PublicKey)
+func newCopyFromNodeDossiers(rows []*overlay.NodeDossier) *copyFromNodeDossiers {
+	return &copyFromNodeDossiers{
+		rows: rows,
+		idx:  -1,
 	}
-	create.DebounceLimit = dbx.Node_DebounceLimit(int(node.Node.Address.DebounceLimit))
-	create.Features = dbx.Node_Features(int(node.Node.Address.Features))
+}
 
-	create.FreeDisk = dbx.Node_FreeDisk(node.Capacity.FreeDisk)
+func (ctr *copyFromNodeDossiers) Next() bool {
+	ctr.idx++
+	return ctr.idx < len(ctr.rows)
+}
 
-	create.Latency90 = dbx.Node_Latency90(node.Reputation.Latency90)
-	create.LastContactSuccess = dbx.Node_LastContactSuccess(node.Reputation.LastContactSuccess)
-	create.LastContactFailure = dbx.Node_LastContactFailure(node.Reputation.LastContactFailure)
-	if node.Reputation.OfflineUnderReview != nil {
-		create.UnderReview = dbx.Node_UnderReview(*node.Reputation.OfflineUnderReview)
+func (ctr *copyFromNodeDossiers) Columns() []string {
+	return []string{
+		"id",
+		"address",
+		"last_net",
+		"last_ip_port",
+		"country_code",
+		"protocol",
+		"email",
+
+		"wallet",
+		"wallet_features",
+
+		"free_disk",
+		"piece_count",
+
+		"major",
+		"minor",
+		"patch",
+		"commit_hash",
+		"release_timestamp",
+		"release",
+
+		"latency_90",
+		"created_at",
+		"updated_at",
+		"last_contact_success",
+		"last_contact_failure",
+
+		"disqualified",
+		"disqualification_reason",
+		"unknown_audit_suspended",
+		"offline_suspended",
+		"vetted_at",
+		"under_review",
+
+		"exit_initiated_at",
+		"exit_loop_completed_at",
+		"exit_finished_at",
+		"exit_success",
+
+		"contained",
+		"last_offline_email",
+		"last_software_update_email",
+
+		"noise_proto",
+		"noise_public_key",
+
+		"debounce_limit",
+		"features",
+	}
+}
+
+func (ctr *copyFromNodeDossiers) Values() ([]any, error) {
+	node := ctr.rows[ctr.idx]
+
+	walletFeatures, err := encodeWalletFeatures(node.Operator.WalletFeatures)
+	if err != nil {
+		return nil, err
 	}
 
-	status := node.Reputation.Status
-	// TODO: status.Email
-
-	if status.Disqualified != nil {
-		create.Disqualified = dbx.Node_Disqualified(*status.Disqualified)
-	}
-	if status.DisqualificationReason != nil {
-		create.DisqualificationReason = dbx.Node_DisqualificationReason(int(*status.DisqualificationReason))
-	}
-	if status.UnknownAuditSuspended != nil {
-		create.UnknownAuditSuspended = dbx.Node_UnknownAuditSuspended(*status.UnknownAuditSuspended)
-	}
-	if status.OfflineSuspended != nil {
-		create.OfflineSuspended = dbx.Node_OfflineSuspended(*status.OfflineSuspended)
-	}
-	if status.VettedAt != nil {
-		create.VettedAt = dbx.Node_VettedAt(*status.VettedAt)
-	}
-
+	var major, minor, patch int64
 	if node.Version.Version != "" {
 		ver, err := version.NewSemVer(node.Version.Version)
 		if err != nil {
-			return id, lastnet, email, wallet, create, err
+			return nil, err
 		}
-		create.Major = dbx.Node_Major(int64(ver.Major))
-		create.Minor = dbx.Node_Minor(int64(ver.Minor))
-		create.Patch = dbx.Node_Patch(int64(ver.Patch))
-	}
-	create.CommitHash = dbx.Node_CommitHash(node.Version.CommitHash)
-	create.ReleaseTimestamp = dbx.Node_ReleaseTimestamp(node.Version.Timestamp)
-	create.Release = dbx.Node_Release(node.Version.Release)
-
-	if len(node.Operator.WalletFeatures) > 0 {
-		walletFeatures, err := encodeWalletFeatures(node.Operator.WalletFeatures)
-		if err != nil {
-			return id, lastnet, email, wallet, create, err
-		}
-		create.WalletFeatures = dbx.Node_WalletFeatures(walletFeatures)
+		major = int64(ver.Major)
+		minor = int64(ver.Minor)
+		patch = int64(ver.Patch)
 	}
 
-	// DEPRECATED: create.Protocol = dbx.Node_Protocol()
-	// TODO: create.Contained = dbx.Node_Contained(node.Contained)
-
+	status := node.Reputation.Status
 	exitStatus := node.ExitStatus
-	if exitStatus.ExitInitiatedAt != nil {
-		create.ExitInitiatedAt = dbx.Node_ExitInitiatedAt(*exitStatus.ExitInitiatedAt)
-	}
-	if exitStatus.ExitLoopCompletedAt != nil {
-		create.ExitLoopCompletedAt = dbx.Node_ExitLoopCompletedAt(*exitStatus.ExitLoopCompletedAt)
-	}
-	if exitStatus.ExitFinishedAt != nil {
-		create.ExitFinishedAt = dbx.Node_ExitFinishedAt(*exitStatus.ExitFinishedAt)
-	}
-	create.ExitSuccess = dbx.Node_ExitSuccess(exitStatus.ExitSuccess)
 
-	if node.LastOfflineEmail != nil {
-		create.LastOfflineEmail = dbx.Node_LastOfflineEmail(*node.LastOfflineEmail)
+	var noiseProto *int64
+	var noisePublicKey []byte
+	if noise := node.Node.Address.NoiseInfo; noise != nil {
+		proto := int64(noise.Proto)
+		noiseProto = &proto
+		noisePublicKey = noise.PublicKey
 	}
-	if node.LastSoftwareUpdateEmail != nil {
-		create.LastSoftwareUpdateEmail = dbx.Node_LastSoftwareUpdateEmail(*node.LastSoftwareUpdateEmail)
-	}
-	create.CountryCode = dbx.Node_CountryCode(node.CountryCode.String())
 
-	return id, lastnet, email, wallet, create, nil
+	var disqualificationReason *int64
+	if node.DisqualificationReason != nil {
+		reason := int64(*node.DisqualificationReason)
+		disqualificationReason = &reason
+	}
+
+	return []any{
+		node.Id,
+		node.Node.Address.Address,
+		node.LastNet,
+		node.LastIPPort,
+		node.CountryCode.String(),
+		0, // deprecated
+		node.Operator.Email,
+
+		node.Operator.Wallet,
+		walletFeatures,
+
+		node.Capacity.FreeDisk,
+		0,
+
+		major,
+		minor,
+		patch,
+		node.Version.CommitHash,
+		node.Version.Timestamp,
+		node.Version.Release,
+
+		node.Reputation.Latency90,
+		node.CreatedAt,
+		node.CreatedAt, // actually UpdatedAt, but dossier does not contain it
+		node.Reputation.LastContactSuccess,
+		node.Reputation.LastContactFailure,
+
+		status.Disqualified,
+		disqualificationReason,
+		status.UnknownAuditSuspended,
+		status.OfflineSuspended,
+		status.VettedAt,
+		node.Reputation.OfflineUnderReview,
+
+		exitStatus.ExitInitiatedAt,
+		exitStatus.ExitLoopCompletedAt,
+		exitStatus.ExitFinishedAt,
+		exitStatus.ExitSuccess,
+
+		nil, // TODO: node dossier only contains boolean for contained
+		node.LastOfflineEmail,
+		node.LastSoftwareUpdateEmail,
+
+		noiseProto,
+		noisePublicKey,
+
+		int(node.Node.Address.DebounceLimit),
+		int(node.Node.Address.Features),
+	}, nil
 }
+
+func (ctr *copyFromNodeDossiers) Err() error { return nil }
 
 // TestVetNode directly sets a node's vetted_at timestamp to make testing easier.
 func (cache *overlaycache) TestVetNode(ctx context.Context, nodeID storj.NodeID) (vettedTime *time.Time, err error) {
