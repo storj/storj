@@ -3780,7 +3780,16 @@ func TestEndpoint_UploadObjectWithDefaultRetention(t *testing.T) {
 			}
 		}
 
-		test := func(t *testing.T, mode storj.RetentionMode, days, years int, overrideRetention *pb.Retention, commitInline bool) {
+		type testOpts struct {
+			defaultRetentionMode  storj.RetentionMode
+			defaultRetentionDays  int
+			defaultRetentionYears int
+			overrideRetention     *pb.Retention
+			expectedRetention     metabase.Retention
+			commitInline          bool
+		}
+
+		test := func(t *testing.T, opts testOpts) {
 			bucketName := testrand.BucketName()
 			_, err = bucketsDB.CreateBucket(ctx, buckets.Bucket{
 				Name:       bucketName,
@@ -3788,15 +3797,14 @@ func TestEndpoint_UploadObjectWithDefaultRetention(t *testing.T) {
 				Versioning: buckets.VersioningEnabled,
 				ObjectLock: buckets.ObjectLockSettings{
 					Enabled:               true,
-					DefaultRetentionMode:  mode,
-					DefaultRetentionDays:  days,
-					DefaultRetentionYears: years,
+					DefaultRetentionMode:  opts.defaultRetentionMode,
+					DefaultRetentionDays:  opts.defaultRetentionDays,
+					DefaultRetentionYears: opts.defaultRetentionYears,
 				},
 			})
 			require.NoError(t, err)
 
 			objectKey := testrand.Path()
-			now := time.Now()
 
 			req := &pb.BeginObjectRequest{
 				Header:             &pb.RequestHeader{ApiKey: apiKey.SerializeRaw()},
@@ -3806,10 +3814,10 @@ func TestEndpoint_UploadObjectWithDefaultRetention(t *testing.T) {
 					CipherSuite: pb.CipherSuite_ENC_AESGCM,
 					BlockSize:   256,
 				},
-				Retention: overrideRetention,
+				Retention: opts.overrideRetention,
 			}
 
-			if commitInline {
+			if opts.commitInline {
 				_, _, _, err := endpoint.CommitInlineObject(ctx, req, inlineSegmentReq(req), &pb.CommitObjectRequest{
 					Header: req.Header,
 				})
@@ -3834,47 +3842,123 @@ func TestEndpoint_UploadObjectWithDefaultRetention(t *testing.T) {
 			})
 			require.NoError(t, err)
 
-			expectedMode := mode
-			expectedRetainUntil := now.AddDate(years, 0, days)
-			if overrideRetention != nil {
-				expectedMode = storj.RetentionMode(overrideRetention.Mode)
-				expectedRetainUntil = overrideRetention.RetainUntil
-			}
-
-			require.Equal(t, expectedMode, retention.Mode)
-			require.WithinDuration(t, expectedRetainUntil, retention.RetainUntil, time.Second)
+			require.Equal(t, opts.expectedRetention.Mode, retention.Mode)
+			require.WithinDuration(t, opts.expectedRetention.RetainUntil, retention.RetainUntil, time.Minute)
 		}
 
 		t.Run("Use default retention", func(t *testing.T) {
+			opts := testOpts{
+				defaultRetentionMode: storj.ComplianceMode,
+				defaultRetentionDays: 3,
+				expectedRetention: metabase.Retention{
+					Mode:        storj.ComplianceMode,
+					RetainUntil: time.Now().AddDate(0, 0, 3),
+				},
+			}
+
 			t.Run("Days, Compliance mode, CommitObject", func(t *testing.T) {
-				test(t, storj.ComplianceMode, 3, 0, nil, false)
+				test(t, opts)
 			})
 
 			t.Run("Days, Compliance mode, CommitInlineObject", func(t *testing.T) {
-				test(t, storj.ComplianceMode, 3, 0, nil, true)
+				opts.commitInline = true
+				test(t, opts)
 			})
 
+			opts = testOpts{
+				defaultRetentionMode: storj.GovernanceMode,
+				defaultRetentionDays: 5,
+				expectedRetention: metabase.Retention{
+					Mode:        storj.GovernanceMode,
+					RetainUntil: time.Now().AddDate(0, 0, 5),
+				},
+			}
+
 			t.Run("Years, Governance mode, CommitObject", func(t *testing.T) {
-				test(t, storj.GovernanceMode, 0, 5, nil, false)
+				test(t, opts)
 			})
 
 			t.Run("Years, Governance mode, CommitInlineObject", func(t *testing.T) {
-				test(t, storj.GovernanceMode, 0, 5, nil, true)
+				opts.commitInline = true
+				test(t, opts)
+			})
+
+			t.Run("Leap year", func(t *testing.T) {
+				// Find the nearest date N years after the current date that lies after a leap day.
+				now := time.Now()
+				futureYear := now.Year()
+				for {
+					if (futureYear%4 == 0 && futureYear%100 != 0) || (futureYear%400 == 0) {
+						leapDay := time.Date(futureYear, time.February, 29, 0, 0, 0, 0, time.UTC)
+						if leapDay.After(now) {
+							break
+						}
+					}
+					futureYear++
+				}
+				years := futureYear - now.Year()
+
+				// Expect 1 day to always be considered a 24-hour period, with no adjustments
+				// made to accommodate the leap day.
+				opts := testOpts{
+					defaultRetentionMode: storj.ComplianceMode,
+					defaultRetentionDays: 365 * years,
+					expectedRetention: metabase.Retention{
+						Mode:        storj.ComplianceMode,
+						RetainUntil: time.Now().AddDate(0, 0, 365*years),
+					},
+				}
+
+				t.Run("Days, CommitObject", func(t *testing.T) {
+					test(t, opts)
+				})
+
+				t.Run("Days, CommitInlineObject", func(t *testing.T) {
+					opts.commitInline = true
+					test(t, opts)
+				})
+
+				// Expect the retention period duration to take the leap day into account.
+				opts = testOpts{
+					defaultRetentionMode:  storj.ComplianceMode,
+					defaultRetentionYears: years,
+					expectedRetention: metabase.Retention{
+						Mode:        storj.ComplianceMode,
+						RetainUntil: time.Now().AddDate(0, 0, 365*years+1),
+					},
+				}
+
+				t.Run("Years, CommitObject", func(t *testing.T) {
+					test(t, opts)
+				})
+
+				t.Run("Years, CommitInlineObject", func(t *testing.T) {
+					opts.commitInline = true
+					test(t, opts)
+				})
 			})
 		})
 
 		t.Run("Override default retention", func(t *testing.T) {
+			opts := testOpts{
+				defaultRetentionMode:  storj.GovernanceMode,
+				defaultRetentionYears: 3,
+				overrideRetention: &pb.Retention{
+					Mode:        pb.Retention_GOVERNANCE,
+					RetainUntil: time.Now().AddDate(0, 0, 5),
+				},
+				expectedRetention: metabase.Retention{
+					Mode:        storj.GovernanceMode,
+					RetainUntil: time.Now().AddDate(0, 0, 5),
+				},
+				commitInline: false,
+			}
 			t.Run("CommitObject", func(t *testing.T) {
-				test(t, storj.ComplianceMode, 3, 0, &pb.Retention{
-					Mode:        pb.Retention_Mode(storj.GovernanceMode),
-					RetainUntil: time.Now().AddDate(0, 0, 7),
-				}, false)
+				test(t, opts)
 			})
 			t.Run("CommitInlineObject", func(t *testing.T) {
-				test(t, storj.ComplianceMode, 3, 0, &pb.Retention{
-					Mode:        pb.Retention_Mode(storj.GovernanceMode),
-					RetainUntil: time.Now().AddDate(0, 0, 7),
-				}, true)
+				opts.commitInline = true
+				test(t, opts)
 			})
 		})
 
