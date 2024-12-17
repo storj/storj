@@ -22,6 +22,7 @@ import {
     BillingAddress,
     TaxCountry,
     TaxID,
+    UpdateCardParams,
 } from '@/types/payments';
 import { HttpClient } from '@/utils/httpClient';
 import { Time } from '@/utils/time';
@@ -184,6 +185,28 @@ export class PaymentsHttpApi implements PaymentsApi {
         throw new APIError({
             status: response.status,
             message: result.error || 'Can not add credit card',
+            requestID: response.headers.get('x-request-id'),
+        });
+    }
+
+    /**
+     * Update credit card
+     * @param params - the parameters to update the card with.
+     * @throws Error
+     */
+    public async updateCreditCard(params: UpdateCardParams): Promise<void> {
+        const path = `${this.ROOT_PATH}/cards`;
+        const response = await this.client.put(path, JSON.stringify(params));
+
+        if (response.ok) {
+            return;
+        }
+
+        const result = await response.json();
+
+        throw new APIError({
+            status: response.status,
+            message: result.error || 'Can not update credit card',
             requestID: response.headers.get('x-request-id'),
         });
     }

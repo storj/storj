@@ -51,6 +51,13 @@ export interface PaymentsApi {
     addCreditCard(token: string): Promise<void>;
 
     /**
+     * Update credit card
+     * @param params - the parameters to update the card with.
+     * @throws Error
+     */
+    updateCreditCard(params: UpdateCardParams): Promise<void>;
+
+    /**
      * Add payment method.
      * @param pmID - stripe payment method id of the credit card
      * @throws Error
@@ -815,4 +822,10 @@ export interface BillingInformation {
     address?: BillingAddress,
     taxIDs?: TaxID[],
     invoiceReference: string,
+}
+
+export interface UpdateCardParams{
+    cardID:  string
+    expMonth: number
+    expYear: number
 }

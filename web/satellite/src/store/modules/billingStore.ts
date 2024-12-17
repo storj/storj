@@ -23,6 +23,7 @@ import {
     TaxCountry,
     Tax,
     TaxID,
+    UpdateCardParams,
 } from '@/types/payments';
 import { PaymentsHttpApi } from '@/api/payments';
 import { PricingPlanInfo } from '@/types/common';
@@ -115,6 +116,10 @@ export const useBillingStore = defineStore('billing', () => {
 
     async function addCreditCard(token: string): Promise<void> {
         await api.addCreditCard(token);
+    }
+
+    async function updateCreditCard(params: UpdateCardParams): Promise<void> {
+        await api.updateCreditCard(params);
     }
 
     async function addCardByPaymentMethodID(pmID: string): Promise<void> {
@@ -250,6 +255,7 @@ export const useBillingStore = defineStore('billing', () => {
         setupAccount,
         getCreditCards,
         addCreditCard,
+        updateCreditCard,
         addCardByPaymentMethodID,
         attemptPayments,
         makeCardDefault,
