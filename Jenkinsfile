@@ -58,29 +58,29 @@ node('node') {
       echo "Current build result: ${currentBuild.result}"
     }
 
-    // stage('Build Windows Installer') {
-    //   lastStage = env.STAGE_NAME
-    //   node('windows') {
-    //     checkout scm
+    stage('Build Windows Installer') {
+      lastStage = env.STAGE_NAME
+      node('windows') {
+        checkout scm
 
-    //     unstash "storagenode-binaries"
+        unstash "storagenode-binaries"
 
-    //     bat 'installer\\windows\\buildrelease.bat'
+        bat 'installer\\windows\\buildrelease.bat'
 
-    //     stash name: "storagenode-installer", includes: "release/**/storagenode*.msi"
+        stash name: "storagenode-installer", includes: "release/**/storagenode*.msi"
 
-    //     echo "Current build result: ${currentBuild.result}"
-    //   }
-    // }
+        echo "Current build result: ${currentBuild.result}"
+      }
+    }
 
-    // stage('Sign Windows Installer') {
-    //   lastStage = env.STAGE_NAME
-    //   unstash "storagenode-installer"
+    stage('Sign Windows Installer') {
+      lastStage = env.STAGE_NAME
+      unstash "storagenode-installer"
 
-    //   sh 'make sign-windows-installer'
+      sh 'make sign-windows-installer'
 
-    //   echo "Current build result: ${currentBuild.result}"
-    // }
+      echo "Current build result: ${currentBuild.result}"
+    }
 
     stage('Build Images') {
       lastStage = env.STAGE_NAME
