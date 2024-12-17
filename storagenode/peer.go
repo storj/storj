@@ -620,10 +620,12 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, revocationDB exten
 		)
 		mon.Chain(peer.Storage2.HashStoreBackend)
 
-		peer.Storage2.SpaceReport = newSpaceReportWithHashStore(
-			peer.Storage2.SpaceReport,
-			peer.Storage2.HashStoreBackend,
-		)
+		if !config.Storage2.Monitor.DedicatedDisk {
+			peer.Storage2.SpaceReport = newSpaceReportWithHashStore(
+				peer.Storage2.SpaceReport,
+				peer.Storage2.HashStoreBackend,
+			)
+		}
 
 		peer.Storage2.Monitor = monitor.NewService(
 			process.NamedLog(log, "piecestore:monitor"),
