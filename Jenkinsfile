@@ -58,6 +58,20 @@ node('node') {
       echo "Current build result: ${currentBuild.result}"
     }
 
+    stage('Build Images') {
+      lastStage = env.STAGE_NAME
+      sh 'make images'
+
+      echo "Current build result: ${currentBuild.result}"
+    }
+
+    stage('Push Images') {
+      lastStage = env.STAGE_NAME
+      sh 'make push-images'
+
+      echo "Current build result: ${currentBuild.result}"
+    }
+
     stage('Build Windows Installer') {
       lastStage = env.STAGE_NAME
       node('windows') {
@@ -82,19 +96,6 @@ node('node') {
       echo "Current build result: ${currentBuild.result}"
     }
 
-    stage('Build Images') {
-      lastStage = env.STAGE_NAME
-      sh 'make images'
-
-      echo "Current build result: ${currentBuild.result}"
-    }
-
-    stage('Push Images') {
-      lastStage = env.STAGE_NAME
-      sh 'make push-images'
-
-      echo "Current build result: ${currentBuild.result}"
-    }
 
     stage('Upload') {
       lastStage = env.STAGE_NAME
