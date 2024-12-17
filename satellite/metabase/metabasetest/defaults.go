@@ -6,7 +6,9 @@ package metabasetest
 import (
 	"time"
 
+	"storj.io/common/memory"
 	"storj.io/common/storj"
+	"storj.io/common/testrand"
 	"storj.io/storj/satellite/metabase"
 )
 
@@ -41,6 +43,34 @@ func DefaultRawSegment(obj metabase.ObjectStream, segmentPosition metabase.Segme
 
 		EncryptedSize: 1024,
 		PlainSize:     512,
+		PlainOffset:   0,
+		Redundancy:    DefaultRedundancy,
+	}
+}
+
+// DefaultRemoteRawSegment returns default remote raw segment.
+func DefaultRemoteRawSegment(obj metabase.ObjectStream, segmentPosition metabase.SegmentPosition) metabase.RawSegment {
+	pieces := metabase.Pieces{}
+	for i := 0; i < 10; i++ {
+		pieces = append(pieces, metabase.Piece{
+			Number:      uint16(i),
+			StorageNode: testrand.NodeID(),
+		})
+	}
+
+	return metabase.RawSegment{
+		StreamID:    obj.StreamID,
+		Position:    segmentPosition,
+		RootPieceID: testrand.PieceID(),
+
+		Pieces:    pieces,
+		CreatedAt: time.Now(),
+
+		EncryptedKey:      testrand.Bytes(32),
+		EncryptedKeyNonce: testrand.Bytes(32),
+
+		EncryptedSize: 11 * memory.KiB.Int32(),
+		PlainSize:     10 * memory.KiB.Int32(),
 		PlainOffset:   0,
 		Redundancy:    DefaultRedundancy,
 	}
