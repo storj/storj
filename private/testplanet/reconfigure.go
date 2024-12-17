@@ -14,6 +14,7 @@ import (
 	"storj.io/storj/multinode"
 	"storj.io/storj/satellite"
 	"storj.io/storj/satellite/metabase"
+	"storj.io/storj/satellite/satellitedb"
 	"storj.io/storj/storagenode"
 	"storj.io/storj/versioncontrol"
 )
@@ -21,6 +22,7 @@ import (
 // Reconfigure allows to change node configurations.
 type Reconfigure struct {
 	SatelliteDB         func(log *zap.Logger, index int, db satellite.DB) (satellite.DB, error)
+	SatelliteDBOptions  func(log *zap.Logger, index int, options *satellitedb.Options)
 	SatelliteMetabaseDB func(log *zap.Logger, index int, db *metabase.DB) (*metabase.DB, error)
 	Satellite           func(log *zap.Logger, index int, config *satellite.Config)
 	Uplink              func(log *zap.Logger, index int, config *UplinkConfig)
@@ -130,4 +132,10 @@ var DisableQUIC = Reconfigure{
 	StorageNode: func(index int, config *storagenode.Config) {
 		config.Server.DisableQUIC = true
 	},
+}
+
+// SatelliteDBDisableCaches helper function to disable caches in satellite db.
+func SatelliteDBDisableCaches(log *zap.Logger, index int, options *satellitedb.Options) {
+	options.APIKeysLRUOptions.Capacity = 0
+	options.RevocationLRUOptions.Capacity = 0
 }

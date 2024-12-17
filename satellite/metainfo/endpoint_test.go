@@ -37,6 +37,9 @@ var (
 func TestEndpoint_NoStorageNodes(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
 		SatelliteCount: 1, UplinkCount: 3,
+		Reconfigure: testplanet.Reconfigure{
+			SatelliteDBOptions: testplanet.SatelliteDBDisableCaches,
+		},
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 		t.Run("revoke access", func(t *testing.T) {
 			accessIssuer := planet.Uplinks[0].Access[planet.Satellites[0].ID()]
@@ -579,6 +582,7 @@ func TestRateLimit_ProjectRateLimitOverrideCachedExpired(t *testing.T) {
 				config.Metainfo.RateLimiter.Rate = 2
 				config.Metainfo.RateLimiter.CacheExpiration = time.Second
 			},
+			SatelliteDBOptions: testplanet.SatelliteDBDisableCaches,
 		},
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 		ul := planet.Uplinks[0]
@@ -637,6 +641,7 @@ func TestRateLimit_ExceededBurstLimit(t *testing.T) {
 				config.Metainfo.RateLimiter.Rate = float64(burstLimit)
 				config.Metainfo.RateLimiter.CacheExpiration = 500 * time.Millisecond
 			},
+			SatelliteDBOptions: testplanet.SatelliteDBDisableCaches,
 		},
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 		ul := planet.Uplinks[0]

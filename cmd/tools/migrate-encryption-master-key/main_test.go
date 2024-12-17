@@ -17,6 +17,7 @@ import (
 	migrator "storj.io/storj/cmd/tools/migrate-encryption-master-key"
 	"storj.io/storj/satellite/console"
 	"storj.io/storj/satellite/kms"
+	"storj.io/storj/satellite/satellitedb"
 	"storj.io/storj/satellite/satellitedb/satellitedbtest"
 	"storj.io/storj/shared/dbutil/tempdb"
 )
@@ -72,7 +73,9 @@ func TestMigrateEncryptionPassphrases(t *testing.T) {
 			tempDB, err := tempdb.OpenUnique(ctx, satelliteDB.MasterDB.URL, schema)
 			require.NoError(t, err)
 
-			db, err := satellitedbtest.CreateMasterDBOnTopOf(ctx, log, tempDB, "migrate-public-ids")
+			db, err := satellitedbtest.CreateMasterDBOnTopOf(ctx, log, tempDB, satellitedb.Options{
+				ApplicationName: "migrate-public-ids",
+			})
 			require.NoError(t, err)
 			defer ctx.Check(db.Close)
 

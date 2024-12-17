@@ -10,6 +10,7 @@ import (
 	"path/filepath"
 	"runtime/pprof"
 	"strconv"
+	"time"
 
 	"github.com/spf13/pflag"
 	"github.com/zeebo/errs"
@@ -56,7 +57,9 @@ import (
 	"storj.io/storj/satellite/payments/stripe"
 	"storj.io/storj/satellite/repair/repairer"
 	"storj.io/storj/satellite/reputation"
+	"storj.io/storj/satellite/satellitedb"
 	"storj.io/storj/satellite/satellitedb/satellitedbtest"
+	"storj.io/storj/shared/lrucache"
 )
 
 // Satellite contains all the processes needed to run a full Satellite setup.
@@ -403,7 +406,22 @@ func (planet *Planet) newSatellite(ctx context.Context, prefix string, index int
 		return nil, errs.Wrap(err)
 	}
 
-	db, err := satellitedbtest.CreateMasterDB(ctx, log.Named("db"), planet.config.Name, "S", index, databases.MasterDB, applicationName)
+	defaultSatDBOptions := satellitedb.Options{
+		ApplicationName: applicationName,
+		APIKeysLRUOptions: lrucache.Options{
+			Expiration: 1 * time.Minute,
+			Capacity:   100,
+		},
+		RevocationLRUOptions: lrucache.Options{
+			Expiration: 1 * time.Minute,
+			Capacity:   100,
+		},
+	}
+	if planet.config.Reconfigure.SatelliteDBOptions != nil {
+		planet.config.Reconfigure.SatelliteDBOptions(log, index, &defaultSatDBOptions)
+	}
+
+	db, err := satellitedbtest.CreateMasterDB(ctx, log.Named("db"), planet.config.Name, "S", index, databases.MasterDB, defaultSatDBOptions)
 	if err != nil {
 		return nil, errs.Wrap(err)
 	}
