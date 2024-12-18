@@ -143,7 +143,7 @@ pipeline {
                 STORJ_TEST_LOG_LEVEL = 'info'
                 COVERFLAGS = "${ env.BRANCH_NAME == 'main' ? '-coverprofile=.build/coverprofile -coverpkg=storj.io/storj/private/...,storj.io/storj/satellite/...,storj.io/storj/storagenode/...,storj.io/storj/versioncontrol/...' : ''}"
                 GOEXPERIMENT = 'nocoverageredesign'
-                STORJ_TEST_SPANNER = 'spanner://127.0.0.1:9010?emulator|spanner://127.0.0.1:9011?emulator|spanner://127.0.0.1:9012?emulator|spanner://127.0.0.1:9013?emulator'
+                STORJ_TEST_SPANNER = 'spanner://127.0.0.1:9010?emulator|spanner://127.0.0.1:9011?emulator|spanner://127.0.0.1:9012?emulator|spanner://127.0.0.1:9013?emulator|spanner://127.0.0.1:9014?emulator|spanner://127.0.0.1:9015?emulator'
                 SPANNER_DISABLE_BUILTIN_METRICS = 'true'
             }
             steps {
@@ -155,6 +155,8 @@ pipeline {
                 sh '/usr/local/bin/spanner_emulator --host_port 127.0.0.1:9011 &'
                 sh '/usr/local/bin/spanner_emulator --host_port 127.0.0.1:9012 &'
                 sh '/usr/local/bin/spanner_emulator --host_port 127.0.0.1:9013 &'
+                sh '/usr/local/bin/spanner_emulator --host_port 127.0.0.1:9014 &'
+                sh '/usr/local/bin/spanner_emulator --host_port 127.0.0.1:9015 &'
 
                 sh 'use-ports -from 1024 -to 10000 &'
 
