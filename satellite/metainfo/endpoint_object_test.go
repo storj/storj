@@ -3961,11 +3961,11 @@ func TestEndpoint_UploadObjectWithDefaultRetention(t *testing.T) {
 			})
 
 			opts = testOpts{
-				defaultRetentionMode: storj.GovernanceMode,
-				defaultRetentionDays: 5,
+				defaultRetentionMode:  storj.GovernanceMode,
+				defaultRetentionYears: 5,
 				expectedRetention: metabase.Retention{
 					Mode:        storj.GovernanceMode,
-					RetainUntil: time.Now().AddDate(0, 0, 5),
+					RetainUntil: time.Now().AddDate(5, 0, 0),
 				},
 			}
 
@@ -4040,7 +4040,7 @@ func TestEndpoint_UploadObjectWithDefaultRetention(t *testing.T) {
 
 		t.Run("Override default retention", func(t *testing.T) {
 			opts := testOpts{
-				defaultRetentionMode:  storj.GovernanceMode,
+				defaultRetentionMode:  storj.ComplianceMode,
 				defaultRetentionYears: 3,
 				overrideRetention: &pb.Retention{
 					Mode:        pb.Retention_GOVERNANCE,
@@ -4052,9 +4052,11 @@ func TestEndpoint_UploadObjectWithDefaultRetention(t *testing.T) {
 				},
 				commitInline: false,
 			}
+
 			t.Run("CommitObject", func(t *testing.T) {
 				test(t, opts)
 			})
+
 			t.Run("CommitInlineObject", func(t *testing.T) {
 				opts.commitInline = true
 				test(t, opts)
