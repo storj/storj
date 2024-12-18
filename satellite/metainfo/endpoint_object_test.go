@@ -2808,6 +2808,100 @@ func TestListObjectDuplicates(t *testing.T) {
 	})
 }
 
+func TestListObjects_Cursor(t *testing.T) {
+	testplanet.Run(t, testplanet.Config{
+		SatelliteCount: 1, StorageNodeCount: 0, UplinkCount: 1,
+	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+
+		t.Run("committed", func(t *testing.T) {
+			project, err := planet.Uplinks[0].OpenProject(ctx, planet.Satellites[0])
+			require.NoError(t, err)
+			defer ctx.Check(project.Close)
+
+			_, err = project.EnsureBucket(ctx, "committed")
+			require.NoError(t, err)
+
+			expectedObjects := map[string]bool{
+				"test1.dat": true,
+				"test2.dat": true,
+			}
+
+			for object := range expectedObjects {
+				upload, err := project.UploadObject(ctx, "committed", object, nil)
+				require.NoError(t, err)
+				_, err = upload.Write(make([]byte, 256))
+				require.NoError(t, err)
+				require.NoError(t, upload.Commit())
+			}
+
+			list := project.ListObjects(ctx, "committed", nil)
+
+			// get the first list item and make it a cursor for the next list request
+			more := list.Next()
+			require.True(t, more)
+			require.NoError(t, list.Err())
+			delete(expectedObjects, list.Item().Key)
+			cursor := list.Item().Key
+
+			// list again with cursor set to the first item from previous list request
+			list = project.ListObjects(ctx, "committed", &uplink.ListObjectsOptions{Cursor: cursor})
+
+			// expect the second item as the first item in this new list request
+			more = list.Next()
+			require.True(t, more)
+			require.NoError(t, list.Err())
+			require.NotNil(t, list.Item())
+			require.False(t, list.Item().IsPrefix)
+			delete(expectedObjects, list.Item().Key)
+
+			require.Empty(t, expectedObjects)
+			require.False(t, list.Next())
+		})
+
+		t.Run("pending", func(t *testing.T) {
+			project, err := planet.Uplinks[0].OpenProject(ctx, planet.Satellites[0])
+			require.NoError(t, err)
+			defer ctx.Check(project.Close)
+
+			_, err = project.EnsureBucket(ctx, "pending")
+			require.NoError(t, err)
+
+			expectedObjects := map[string]bool{
+				"test1.dat": true,
+				"test2.dat": true,
+			}
+
+			for object := range expectedObjects {
+				_, err := project.BeginUpload(ctx, "pending", object, nil)
+				require.NoError(t, err)
+			}
+
+			list := project.ListUploads(ctx, "pending", nil)
+
+			// get the first list item and make it a cursor for the next list request
+			more := list.Next()
+			require.True(t, more)
+			require.NoError(t, list.Err())
+			delete(expectedObjects, list.Item().Key)
+			cursor := list.Item().Key
+
+			// list again with cursor set to the first item from previous list request
+			list = project.ListUploads(ctx, "pending", &uplink.ListUploadsOptions{Cursor: cursor})
+
+			// expect the second item as the first item in this new list request
+			more = list.Next()
+			require.True(t, more)
+			require.NoError(t, list.Err())
+			require.NotNil(t, list.Item())
+			require.False(t, list.Item().IsPrefix)
+			delete(expectedObjects, list.Item().Key)
+
+			require.Empty(t, expectedObjects)
+			require.False(t, list.Next())
+		})
+	})
+}
+
 func TestListUploads(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
 		SatelliteCount:   1,
