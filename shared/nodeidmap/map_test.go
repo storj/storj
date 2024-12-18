@@ -1,7 +1,7 @@
 // Copyright (C) 2024 Storj Labs, Inc.
 // See LICENSE for copying information.
 
-package nodeidmap
+package nodeidmap_test
 
 import (
 	"testing"
@@ -10,72 +10,8 @@ import (
 
 	"storj.io/common/storj"
 	"storj.io/common/testrand"
+	"storj.io/storj/shared/nodeidmap"
 )
-
-func TestEntry(t *testing.T) {
-	root := &entry[int]{
-		id:    idsuffix{1, 2, 3},
-		value: 123,
-		next: &entry[int]{
-			id:    idsuffix{4, 5, 6},
-			value: 456,
-		},
-	}
-
-	// Find
-
-	x, ok := root.Find(idsuffix{1, 2, 3})
-	require.True(t, ok)
-	require.Equal(t, root, x)
-
-	x, ok = root.Find(idsuffix{4, 5, 6})
-	require.True(t, ok)
-	require.Equal(t, root.next, x)
-
-	x, ok = root.Find(idsuffix{7, 8, 9})
-	require.False(t, ok)
-	require.Equal(t, root.next, x)
-
-	// Ensure
-
-	x, ok = root.Ensure(idsuffix{1, 2, 3})
-	require.True(t, ok)
-	require.Equal(t, root, x)
-
-	x, ok = root.Ensure(idsuffix{4, 5, 6})
-	require.True(t, ok)
-	require.Equal(t, root.next, x)
-
-	x, ok = root.Ensure(idsuffix{7, 8, 9})
-	require.False(t, ok)
-	require.Equal(t, root.next.next, x)
-	require.Equal(t, 0, x.value)
-
-	require.Equal(t,
-		map[idsuffix]int{
-			{1, 2, 3}: 123,
-			{4, 5, 6}: 456,
-			{7, 8, 9}: 0,
-		}, root.AsMap())
-
-	// Set
-
-	root.Set(idsuffix{1, 2, 3}, 123000)
-	root.Set(idsuffix{7, 8, 9}, 789)
-	root.Set(idsuffix{10, 11, 12}, 101112)
-
-	require.Equal(t,
-		map[idsuffix]int{
-			{1, 2, 3}:    123000,
-			{4, 5, 6}:    456,
-			{7, 8, 9}:    789,
-			{10, 11, 12}: 101112,
-		}, root.AsMap())
-
-	// Clone
-
-	require.Equal(t, root.AsMap(), root.Clone().AsMap())
-}
 
 // testid constructs a node id for testing, setting the first byte as the prefix and rest as the suffix.
 func testid(x string) (r storj.NodeID) {
@@ -85,7 +21,7 @@ func testid(x string) (r storj.NodeID) {
 }
 
 func TestMap(t *testing.T) {
-	xs := Make[int]()
+	xs := nodeidmap.Make[int]()
 
 	// Range is implicitly tested via .AsMap
 
@@ -149,8 +85,8 @@ func TestMap(t *testing.T) {
 }
 
 func TestMap_Add(t *testing.T) {
-	a := Make[int]()
-	b := Make[int]()
+	a := nodeidmap.Make[int]()
+	b := nodeidmap.Make[int]()
 
 	// check that order doesn't matter when combining
 	a.Store(testid("12"), 0x12_00)
@@ -199,7 +135,7 @@ func BenchmarkLoad(b *testing.B) {
 		testindexes = append(testindexes, testrand.Intn(len(entries)))
 	}
 
-	m := Make[int32]()
+	m := nodeidmap.Make[int32]()
 	g := map[storj.NodeID]int32{}
 	for _, e := range entries {
 		m.Store(e.ID, e.Value)
