@@ -624,6 +624,10 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, revocationDB exten
 		if err != nil {
 			return nil, errs.Combine(err, peer.Close())
 		}
+		peer.Services.Add(lifecycle.Item{
+			Name:  "hashstore",
+			Close: peer.Storage2.HashStoreBackend.Close,
+		})
 		mon.Chain(peer.Storage2.HashStoreBackend)
 
 		if !config.Storage2.Monitor.DedicatedDisk {

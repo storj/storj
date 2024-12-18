@@ -124,14 +124,16 @@ func (hsb *HashStoreBackend) TestingCompact(ctx context.Context) error {
 }
 
 // Close closes the HashStoreBackend.
-func (hsb *HashStoreBackend) Close() {
+func (hsb *HashStoreBackend) Close() error {
 	hsb.mu.Lock()
 	defer hsb.mu.Unlock()
 
 	for _, db := range hsb.dbs {
 		db.Close()
 	}
+	return nil
 }
+
 func (hsb *HashStoreBackend) dbsCopy() map[storj.NodeID]*hashstore.DB {
 	hsb.mu.Lock()
 	defer hsb.mu.Unlock()
