@@ -32,6 +32,7 @@ type RawObject struct {
 	Status       ObjectStatus
 	SegmentCount int32
 
+	ClearMetadata                 *string
 	EncryptedMetadataNonce        []byte
 	EncryptedMetadata             []byte
 	EncryptedMetadataEncryptedKey []byte
