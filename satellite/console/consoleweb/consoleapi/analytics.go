@@ -143,6 +143,16 @@ func (a *Analytics) JoinCunoFSBeta(w http.ResponseWriter, r *http.Request) {
 		a.serveJSONError(ctx, w, http.StatusInternalServerError, err)
 	}
 
+	err = a.service.ValidateFreeFormFieldLengths(
+		&data.CompanyName, &data.IndustryUseCase,
+		&data.OtherIndustryUseCase, &data.OtherStorageBackend,
+		&data.OtherStorageMountSolution,
+	)
+	if err != nil {
+		a.serveJSONError(ctx, w, http.StatusBadRequest, err)
+		return
+	}
+
 	err = a.service.JoinCunoFSBeta(ctx, data)
 	if err != nil {
 		if console.ErrUnauthorized.Has(err) {

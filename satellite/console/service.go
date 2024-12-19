@@ -2688,6 +2688,11 @@ func (s *Service) UpdateAccount(ctx context.Context, fullName string, shortName 
 		return ErrValidation.Wrap(err)
 	}
 
+	err = s.ValidateFreeFormFieldLengths(&fullName, &shortName)
+	if err != nil {
+		return err
+	}
+
 	user.FullName = fullName
 	user.ShortName = shortName
 	shortNamePtr := &user.ShortName
@@ -2718,6 +2723,14 @@ func (s *Service) SetupAccount(ctx context.Context, requestData SetUpAccountRequ
 	companyName, err := s.getValidatedCompanyName(&requestData)
 	if err != nil {
 		return ErrValidation.Wrap(err)
+	}
+
+	err = s.ValidateFreeFormFieldLengths(
+		requestData.StorageUseCase, requestData.OtherUseCase,
+		requestData.Position, requestData.FunctionalArea,
+	)
+	if err != nil {
+		return err
 	}
 
 	err = s.store.Users().Update(ctx, user.ID, UpdateUserRequest{
@@ -5985,4 +5998,15 @@ func (s *Service) TestToggleSatelliteManagedEncryption(b bool) {
 func (s *Service) TestToggleSsoEnabled(enabled bool, ssoService *sso.Service) {
 	s.ssoEnabled = enabled
 	s.ssoService = ssoService
+}
+
+// ValidateFreeFormFieldLengths checks if any of the given values
+// exceeds the maximum length.
+func (s *Service) ValidateFreeFormFieldLengths(values ...*string) error {
+	for _, value := range values {
+		if value != nil && len(*value) > s.config.MaxNameCharacters {
+			return ErrValidation.New("field length exceeds maximum length %d", s.config.MaxNameCharacters)
+		}
+	}
+	return nil
 }
