@@ -13,8 +13,8 @@ import (
 	"github.com/spf13/viper"
 	"github.com/zeebo/structs"
 
-	"storj.io/storj/private/mud"
 	"storj.io/storj/shared/modular/config"
+	"storj.io/storj/shared/mud"
 )
 
 // LoadConfig loads configuration with vip, and binds it to the registered (and selected) Config components.

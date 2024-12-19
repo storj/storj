@@ -12,8 +12,8 @@ import (
 	"go.uber.org/zap"
 
 	"storj.io/common/debug"
-	"storj.io/storj/private/mud"
 	"storj.io/storj/shared/modular"
+	"storj.io/storj/shared/mud"
 )
 
 // Wrapper combines the debug server and the listener.

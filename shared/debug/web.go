@@ -17,7 +17,7 @@ import (
 
 	"github.com/spacemonkeygo/monkit/v3"
 
-	"storj.io/storj/private/mud"
+	"storj.io/storj/shared/mud"
 )
 
 // ModuleGraph is a debug extension to visualize the module graph.

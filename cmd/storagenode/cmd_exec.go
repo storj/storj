@@ -12,10 +12,10 @@ import (
 
 	"storj.io/common/cfgstruct"
 	"storj.io/common/process"
-	"storj.io/storj/private/mud"
 	"storj.io/storj/shared/modular"
 	"storj.io/storj/shared/modular/cli"
 	"storj.io/storj/shared/modular/config"
+	"storj.io/storj/shared/mud"
 	"storj.io/storj/storagenode"
 )
 

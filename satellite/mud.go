@@ -12,7 +12,6 @@ import (
 	"storj.io/common/peertls/tlsopts"
 	"storj.io/common/rpc"
 	"storj.io/common/signing"
-	"storj.io/storj/private/mud"
 	"storj.io/storj/private/revocation"
 	"storj.io/storj/private/server"
 	"storj.io/storj/satellite/accounting"
@@ -33,6 +32,7 @@ import (
 	srevocation "storj.io/storj/satellite/revocation"
 	sndebug "storj.io/storj/shared/debug"
 	"storj.io/storj/shared/modular/config"
+	"storj.io/storj/shared/mud"
 )
 
 // Module is a mud module.

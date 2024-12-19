@@ -15,12 +15,12 @@ import (
 	"storj.io/common/cfgstruct"
 	"storj.io/common/memory"
 	"storj.io/common/testcontext"
-	"storj.io/storj/private/mud"
 	"storj.io/storj/satellite/metabase"
 	"storj.io/storj/satellite/metainfo"
 	"storj.io/storj/satellite/satellitedb/satellitedbtest"
 	"storj.io/storj/shared/dbutil"
 	"storj.io/storj/shared/dbutil/pgutil"
+	"storj.io/storj/shared/mud"
 )
 
 // RunWithConfig runs tests with specific metabase configuration.

@@ -16,7 +16,7 @@ import (
 	"go.uber.org/zap/zapcore"
 
 	"storj.io/common/process/gcloudlogging"
-	"storj.io/storj/private/mud"
+	"storj.io/storj/shared/mud"
 )
 
 // Config is the configuration for the logging.

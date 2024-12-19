@@ -8,7 +8,7 @@ import (
 	"os"
 	"strings"
 
-	"storj.io/storj/private/mud"
+	"storj.io/storj/shared/mud"
 )
 
 var presets = map[string]string{

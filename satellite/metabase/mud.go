@@ -11,8 +11,8 @@ import (
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 
-	"storj.io/storj/private/mud"
 	"storj.io/storj/shared/dbutil/spannerutil"
+	"storj.io/storj/shared/mud"
 )
 
 // Module is a mud module.
