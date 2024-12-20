@@ -101,7 +101,7 @@
                 <div class="text-no-wrap">
                     <v-tooltip location="top" :text="getObjectLockInfo(item)">
                         <template #activator="{ props }">
-                            <v-icon v-bind="props" size="28" :icon="Lock" class="mr-1 pa-1 rounded-lg border" />
+                            <v-icon v-bind="props" size="28" :icon="item.objectLockEnabled ? LockKeyhole : LockKeyholeOpen" class="mr-1 pa-1 rounded-lg border" />
                         </template>
                     </v-tooltip>
                     <v-chip variant="tonal" color="default" size="small">
@@ -248,6 +248,8 @@ import {
     History,
     LandPlot,
     Lock,
+    LockKeyhole,
+    LockKeyholeOpen,
 } from 'lucide-vue-next';
 
 import { Memory, Size } from '@/utils/bytesSize';
