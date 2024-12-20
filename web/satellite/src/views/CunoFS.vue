@@ -474,10 +474,7 @@ function submitForm(): void {
             // This is a specific segment event tracking for cunoFS beta form submission.
             await analyticsStore.ensureEventTriggered(AnalyticsEvent.JOIN_CUNO_FS_BETA_FORM_SUBMITTED, segmentProps);
 
-            const noticeDismissal = { ...usersStore.state.settings.noticeDismissal };
-            noticeDismissal.cunoFSBetaJoined = true;
-            await usersStore.updateSettings({ noticeDismissal });
-
+            await usersStore.getSettings();
             state.value = State.Success;
         } catch (error) {
             notify.notifyError(error, AnalyticsErrorEventSource.CUNO_FS_BETA_FORM);

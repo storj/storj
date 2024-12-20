@@ -3177,9 +3177,11 @@ func (s *Service) JoinCunoFSBeta(ctx context.Context, data analytics.TrackJoinCu
 		}
 	}
 
+	var noticeDismissal NoticeDismissal
 	betaJoined := false
 	if settings != nil {
 		betaJoined = settings.NoticeDismissal.CunoFSBetaJoined
+		noticeDismissal = settings.NoticeDismissal
 	}
 	if betaJoined {
 		return ErrConflict.New("user already joined cunoFS beta")
@@ -3188,6 +3190,14 @@ func (s *Service) JoinCunoFSBeta(ctx context.Context, data analytics.TrackJoinCu
 	data.Email = user.Email
 
 	s.analytics.JoinCunoFSBeta(data)
+
+	noticeDismissal.CunoFSBetaJoined = true
+	err = s.store.Users().UpsertSettings(ctx, user.ID, UpsertUserSettingsRequest{
+		NoticeDismissal: &noticeDismissal,
+	})
+	if err != nil {
+		return errs.Combine(Error.New("Your submission was successfully received, but something else went wrong"), err)
+	}
 
 	return nil
 }
@@ -6006,6 +6016,17 @@ func (s *Service) ValidateFreeFormFieldLengths(values ...*string) error {
 	for _, value := range values {
 		if value != nil && len(*value) > s.config.MaxNameCharacters {
 			return ErrValidation.New("field length exceeds maximum length %d", s.config.MaxNameCharacters)
+		}
+	}
+	return nil
+}
+
+// ValidateLongFormInputLengths checks if any of the given values
+// exceeds the maximum length for long form fields.
+func (s *Service) ValidateLongFormInputLengths(values ...*string) error {
+	for _, value := range values {
+		if value != nil && len(*value) > s.config.MaxLongFormFieldCharacters {
+			return ErrValidation.New("field length exceeds maximum length %d", s.config.MaxLongFormFieldCharacters)
 		}
 	}
 	return nil

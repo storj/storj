@@ -427,6 +427,9 @@ compensation.withheld-percents: 75,75,75,50,50,50,25,25,25,0,0,0,0,0,0
 # number of times user can try to login without penalty
 # console.login-attempts-without-penalty: 3
 
+# defines the maximum number of characters allowed for long form fields, e.g. comment type fields
+# console.max-long-form-field-characters: 500
+
 # defines the maximum number of characters allowed for names, e.g. user first/last names and company names
 # console.max-name-characters: 100
 
