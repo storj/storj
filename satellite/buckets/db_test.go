@@ -24,23 +24,9 @@ import (
 
 func newTestBucket(name string, projectID uuid.UUID) buckets.Bucket {
 	return buckets.Bucket{
-		ID:                  testrand.UUID(),
-		Name:                name,
-		ProjectID:           projectID,
-		PathCipher:          storj.EncAESGCM,
-		DefaultSegmentsSize: 65536,
-		DefaultRedundancyScheme: storj.RedundancyScheme{
-			Algorithm:      storj.ReedSolomon,
-			ShareSize:      9,
-			RequiredShares: 10,
-			RepairShares:   11,
-			OptimalShares:  12,
-			TotalShares:    13,
-		},
-		DefaultEncryptionParameters: storj.EncryptionParameters{
-			CipherSuite: storj.EncAESGCM,
-			BlockSize:   9 * 10,
-		},
+		ID:        testrand.UUID(),
+		Name:      name,
+		ProjectID: projectID,
 		Placement: storj.EU,
 		ObjectLock: buckets.ObjectLockSettings{
 			Enabled: true,
@@ -74,10 +60,6 @@ func TestBasicBucketOperations(t *testing.T) {
 		require.Equal(t, expectedBucket.ID, bucket.ID)
 		require.Equal(t, expectedBucket.Name, bucket.Name)
 		require.Equal(t, expectedBucket.ProjectID, bucket.ProjectID)
-		require.Equal(t, expectedBucket.PathCipher, bucket.PathCipher)
-		require.Equal(t, expectedBucket.DefaultSegmentsSize, bucket.DefaultSegmentsSize)
-		require.Equal(t, expectedBucket.DefaultRedundancyScheme, bucket.DefaultRedundancyScheme)
-		require.Equal(t, expectedBucket.DefaultEncryptionParameters, bucket.DefaultEncryptionParameters)
 		require.Equal(t, expectedBucket.Placement, bucket.Placement)
 		require.Equal(t, expectedBucket.ObjectLock, bucket.ObjectLock)
 

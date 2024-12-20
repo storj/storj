@@ -72,16 +72,16 @@ func (db *bucketsDB) CreateBucket(ctx context.Context, bucket buckets.Bucket) (_
 		dbx.BucketMetainfo_Id(bucket.ID[:]),
 		dbx.BucketMetainfo_ProjectId(bucket.ProjectID[:]),
 		dbx.BucketMetainfo_Name([]byte(bucket.Name)),
-		dbx.BucketMetainfo_PathCipher(int(bucket.PathCipher)),
-		dbx.BucketMetainfo_DefaultSegmentSize(int(bucket.DefaultSegmentsSize)),
-		dbx.BucketMetainfo_DefaultEncryptionCipherSuite(int(bucket.DefaultEncryptionParameters.CipherSuite)),
-		dbx.BucketMetainfo_DefaultEncryptionBlockSize(int(bucket.DefaultEncryptionParameters.BlockSize)),
-		dbx.BucketMetainfo_DefaultRedundancyAlgorithm(int(bucket.DefaultRedundancyScheme.Algorithm)),
-		dbx.BucketMetainfo_DefaultRedundancyShareSize(int(bucket.DefaultRedundancyScheme.ShareSize)),
-		dbx.BucketMetainfo_DefaultRedundancyRequiredShares(int(bucket.DefaultRedundancyScheme.RequiredShares)),
-		dbx.BucketMetainfo_DefaultRedundancyRepairShares(int(bucket.DefaultRedundancyScheme.RepairShares)),
-		dbx.BucketMetainfo_DefaultRedundancyOptimalShares(int(bucket.DefaultRedundancyScheme.OptimalShares)),
-		dbx.BucketMetainfo_DefaultRedundancyTotalShares(int(bucket.DefaultRedundancyScheme.TotalShares)),
+		dbx.BucketMetainfo_PathCipher(0),
+		dbx.BucketMetainfo_DefaultSegmentSize(0),
+		dbx.BucketMetainfo_DefaultEncryptionCipherSuite(0),
+		dbx.BucketMetainfo_DefaultEncryptionBlockSize(0),
+		dbx.BucketMetainfo_DefaultRedundancyAlgorithm(0),
+		dbx.BucketMetainfo_DefaultRedundancyShareSize(0),
+		dbx.BucketMetainfo_DefaultRedundancyRequiredShares(0),
+		dbx.BucketMetainfo_DefaultRedundancyRepairShares(0),
+		dbx.BucketMetainfo_DefaultRedundancyOptimalShares(0),
+		dbx.BucketMetainfo_DefaultRedundancyTotalShares(0),
 		optionalFields,
 	)
 	if err != nil {
@@ -91,7 +91,7 @@ func (db *bucketsDB) CreateBucket(ctx context.Context, bucket buckets.Bucket) (_
 		return buckets.Bucket{}, buckets.ErrBucket.Wrap(err)
 	}
 
-	bucket, err = convertDBXtoBucket(row)
+	bucket, err = convertFullDBXtoBucket(row)
 	if err != nil {
 		return buckets.Bucket{}, buckets.ErrBucket.Wrap(err)
 	}
@@ -101,7 +101,7 @@ func (db *bucketsDB) CreateBucket(ctx context.Context, bucket buckets.Bucket) (_
 // GetBucket returns a bucket.
 func (db *bucketsDB) GetBucket(ctx context.Context, bucketName []byte, projectID uuid.UUID) (_ buckets.Bucket, err error) {
 	defer mon.Task()(&ctx)(&err)
-	dbxBucket, err := db.db.Get_BucketMetainfo_By_ProjectId_And_Name(ctx,
+	dbxBucket, err := db.db.Get_Bucket(ctx,
 		dbx.BucketMetainfo_ProjectId(projectID[:]),
 		dbx.BucketMetainfo_Name(bucketName),
 	)
@@ -111,7 +111,7 @@ func (db *bucketsDB) GetBucket(ctx context.Context, bucketName []byte, projectID
 		}
 		return buckets.Bucket{}, buckets.ErrBucket.Wrap(err)
 	}
-	return convertDBXtoBucket(dbxBucket)
+	return convertDBXtoBucket(projectID, string(bucketName), dbxBucket)
 }
 
 // GetBucketPlacement returns with the placement constraint identifier.
@@ -293,7 +293,7 @@ func (db *bucketsDB) UpdateBucket(ctx context.Context, bucket buckets.Bucket) (_
 	if err != nil {
 		return buckets.Bucket{}, buckets.ErrBucket.Wrap(err)
 	}
-	return convertDBXtoBucket(dbxBucket)
+	return convertFullDBXtoBucket(dbxBucket)
 }
 
 // UpdateBucketObjectLockSettings updates object lock settings for a bucket without an extra database query.
@@ -367,7 +367,7 @@ func (db *bucketsDB) UpdateBucketObjectLockSettings(ctx context.Context, params 
 		return buckets.Bucket{}, buckets.ErrBucketNotFound.New("%s", params.Name)
 	}
 
-	return convertDBXtoBucket(dbxBucket)
+	return convertFullDBXtoBucket(dbxBucket)
 }
 
 // GetBucketObjectLockSettings returns a bucket's object lock settings.
@@ -484,7 +484,7 @@ func (db *bucketsDB) ListBuckets(ctx context.Context, projectID uuid.UUID, listO
 			// Check that the bucket is allowed to be viewed
 			_, bucketAllowed := allowedBuckets.Buckets[string(dbxBucket.Name)]
 			if bucketAllowed || allowedBuckets.All {
-				item, err := convertDBXtoBucket(dbxBucket)
+				item, err := convertFullDBXtoBucket(dbxBucket)
 				if err != nil {
 					return bucketList, buckets.ErrBucket.Wrap(err)
 				}
@@ -517,7 +517,7 @@ func (db *bucketsDB) CountBuckets(ctx context.Context, projectID uuid.UUID) (cou
 	return int(count64), nil
 }
 
-func convertDBXtoBucket(dbxBucket *dbx.BucketMetainfo) (bucket buckets.Bucket, err error) {
+func convertFullDBXtoBucket(dbxBucket *dbx.BucketMetainfo) (bucket buckets.Bucket, err error) {
 	id, err := uuid.FromBytes(dbxBucket.Id)
 	if err != nil {
 		return bucket, buckets.ErrBucket.Wrap(err)
@@ -536,25 +536,58 @@ func convertDBXtoBucket(dbxBucket *dbx.BucketMetainfo) (bucket buckets.Bucket, e
 	}
 
 	bucket = buckets.Bucket{
-		ID:                  id,
-		Name:                string(dbxBucket.Name),
-		ProjectID:           project,
-		Created:             dbxBucket.CreatedAt,
-		CreatedBy:           createdBy,
-		PathCipher:          storj.CipherSuite(dbxBucket.PathCipher),
-		DefaultSegmentsSize: int64(dbxBucket.DefaultSegmentSize),
-		DefaultRedundancyScheme: storj.RedundancyScheme{
-			Algorithm:      storj.RedundancyAlgorithm(dbxBucket.DefaultRedundancyAlgorithm),
-			ShareSize:      int32(dbxBucket.DefaultRedundancyShareSize),
-			RequiredShares: int16(dbxBucket.DefaultRedundancyRequiredShares),
-			RepairShares:   int16(dbxBucket.DefaultRedundancyRepairShares),
-			OptimalShares:  int16(dbxBucket.DefaultRedundancyOptimalShares),
-			TotalShares:    int16(dbxBucket.DefaultRedundancyTotalShares),
+		ID:         id,
+		Name:       string(dbxBucket.Name),
+		ProjectID:  project,
+		Created:    dbxBucket.CreatedAt,
+		CreatedBy:  createdBy,
+		Versioning: buckets.Versioning(dbxBucket.Versioning),
+		ObjectLock: buckets.ObjectLockSettings{
+			Enabled: dbxBucket.ObjectLockEnabled,
 		},
-		DefaultEncryptionParameters: storj.EncryptionParameters{
-			CipherSuite: storj.CipherSuite(dbxBucket.DefaultEncryptionCipherSuite),
-			BlockSize:   int32(dbxBucket.DefaultEncryptionBlockSize),
-		},
+	}
+
+	if dbxBucket.Placement != nil {
+		bucket.Placement = storj.PlacementConstraint(*dbxBucket.Placement)
+	}
+
+	if dbxBucket.UserAgent != nil {
+		bucket.UserAgent = dbxBucket.UserAgent
+	}
+
+	if dbxBucket.DefaultRetentionMode != nil {
+		bucket.ObjectLock.DefaultRetentionMode = storj.RetentionMode(*dbxBucket.DefaultRetentionMode)
+	}
+	if dbxBucket.DefaultRetentionDays != nil {
+		bucket.ObjectLock.DefaultRetentionDays = *dbxBucket.DefaultRetentionDays
+	}
+	if dbxBucket.DefaultRetentionYears != nil {
+		bucket.ObjectLock.DefaultRetentionYears = *dbxBucket.DefaultRetentionYears
+	}
+
+	return bucket, nil
+}
+
+func convertDBXtoBucket(projectID uuid.UUID, name string, dbxBucket *dbx.Id_CreatedBy_UserAgent_CreatedAt_Placement_Versioning_ObjectLockEnabled_DefaultRetentionMode_DefaultRetentionDays_DefaultRetentionYears_Row) (bucket buckets.Bucket, err error) {
+	id, err := uuid.FromBytes(dbxBucket.Id)
+	if err != nil {
+		return bucket, buckets.ErrBucket.Wrap(err)
+	}
+
+	var createdBy uuid.UUID
+	if dbxBucket.CreatedBy != nil {
+		createdBy, err = uuid.FromBytes(dbxBucket.CreatedBy)
+		if err != nil {
+			return bucket, buckets.ErrBucket.Wrap(err)
+		}
+	}
+
+	bucket = buckets.Bucket{
+		ID:         id,
+		Name:       name,
+		ProjectID:  projectID,
+		Created:    dbxBucket.CreatedAt,
+		CreatedBy:  createdBy,
 		Versioning: buckets.Versioning(dbxBucket.Versioning),
 		ObjectLock: buckets.ObjectLockSettings{
 			Enabled: dbxBucket.ObjectLockEnabled,

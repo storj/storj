@@ -9,7 +9,6 @@ import (
 
 	"github.com/stretchr/testify/require"
 
-	"storj.io/common/storj"
 	"storj.io/common/testcontext"
 	"storj.io/common/testrand"
 	"storj.io/storj/private/testplanet"
@@ -69,24 +68,20 @@ func TestUsers(t *testing.T) {
 
 		// create a bucket with no UserAgent
 		_, err = bucketService.CreateBucket(ctx, buckets.Bucket{
-			ID:                  testrand.UUID(),
-			Name:                "testbucket",
-			ProjectID:           proj.ID,
-			Created:             time.Now(),
-			PathCipher:          storj.EncAESGCM,
-			DefaultSegmentsSize: int64(100),
+			ID:        testrand.UUID(),
+			Name:      "testbucket",
+			ProjectID: proj.ID,
+			Created:   time.Now(),
 		})
 		require.NoError(t, err)
 
 		// update a bucket with UserAgent
 		bucket, err := bucketService.UpdateBucket(ctx, buckets.Bucket{
-			ID:                  testrand.UUID(),
-			Name:                "testbucket",
-			ProjectID:           proj.ID,
-			Created:             time.Now(),
-			PathCipher:          storj.EncAESGCM,
-			DefaultSegmentsSize: int64(100),
-			UserAgent:           testUserAgent,
+			ID:        testrand.UUID(),
+			Name:      "testbucket",
+			ProjectID: proj.ID,
+			Created:   time.Now(),
+			UserAgent: testUserAgent,
 		})
 		require.NoError(t, err)
 		require.Equal(t, testUserAgent, bucket.UserAgent)

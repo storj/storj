@@ -42,19 +42,15 @@ var (
 
 // Bucket contains information about a specific bucket.
 type Bucket struct {
-	ID                          uuid.UUID
-	Name                        string
-	ProjectID                   uuid.UUID
-	CreatedBy                   uuid.UUID
-	UserAgent                   []byte
-	Created                     time.Time
-	PathCipher                  storj.CipherSuite
-	DefaultSegmentsSize         int64
-	DefaultRedundancyScheme     storj.RedundancyScheme
-	DefaultEncryptionParameters storj.EncryptionParameters
-	Placement                   storj.PlacementConstraint
-	Versioning                  Versioning
-	ObjectLock                  ObjectLockSettings
+	ID         uuid.UUID
+	Name       string
+	ProjectID  uuid.UUID
+	CreatedBy  uuid.UUID
+	UserAgent  []byte
+	Created    time.Time
+	Placement  storj.PlacementConstraint
+	Versioning Versioning
+	ObjectLock ObjectLockSettings
 }
 
 // UpdateBucketObjectLockParams contains the parameters for updating bucket object lock settings.

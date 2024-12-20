@@ -146,6 +146,13 @@ read one (
 	where bucket_metainfo.name = ?
 )
 
+read one (
+    select bucket_metainfo.id bucket_metainfo.created_by bucket_metainfo.user_agent bucket_metainfo.created_at bucket_metainfo.placement bucket_metainfo.versioning bucket_metainfo.object_lock_enabled bucket_metainfo.default_retention_mode bucket_metainfo.default_retention_days bucket_metainfo.default_retention_years
+	where bucket_metainfo.project_id = ?
+	where bucket_metainfo.name = ?
+	suffix bucket
+)
+
 read has (
 	select bucket_metainfo
 	where bucket_metainfo.project_id = ?
