@@ -42,6 +42,7 @@ import (
 	"storj.io/storj/storagenode/orders"
 	"storj.io/storj/storagenode/payouts"
 	"storj.io/storj/storagenode/payouts/estimatedpayouts"
+	"storj.io/storj/storagenode/piecemigrate"
 	"storj.io/storj/storagenode/pieces"
 	"storj.io/storj/storagenode/pieces/lazyfilewalker"
 	"storj.io/storj/storagenode/piecestore"
@@ -71,6 +72,7 @@ func Module(ball *mud.Ball) {
 	config.RegisterConfig[preflight.Config](ball, "preflight")
 	config.RegisterConfig[piecestore.Config](ball, "storage2")
 	config.RegisterConfig[piecestore.OldConfig](ball, "storage")
+	config.RegisterConfig[piecemigrate.Config](ball, "piecemigrate")
 	config.RegisterConfig[debug.Config](ball, "debug")
 	config.RegisterConfig[filestore.Config](ball, "filestore")
 	config.RegisterConfig[pieces.Config](ball, "pieces")
@@ -109,7 +111,6 @@ func Module(ball *mud.Ball) {
 
 	{ // setup notification service.
 		mud.Provide[*notifications.Service](ball, notifications.NewService)
-
 	}
 
 	{
@@ -176,7 +177,6 @@ func Module(ball *mud.Ball) {
 			}
 			return srv, nil
 		})
-
 	}
 
 	{ // setup trust pool
@@ -186,7 +186,6 @@ func Module(ball *mud.Ball) {
 			return pool, err
 		})
 		mud.RegisterInterfaceImplementation[trust.TrustedSatelliteSource, *trust.Pool](ball)
-
 	}
 
 	{
@@ -338,8 +337,15 @@ func Module(ball *mud.Ball) {
 			mon.Chain(backend)
 			return backend, nil
 		})
-		mud.Provide[*piecestore.MigratingBackend](ball, func(log *zap.Logger, old *piecestore.OldPieceBackend, new *piecestore.HashStoreBackend, state *satstore.SatelliteStore) *piecestore.MigratingBackend {
-			backend := piecestore.NewMigratingBackend(log, old, new, state, nil)
+		mud.Provide[*piecemigrate.Chore](ball, func(log *zap.Logger, config piecemigrate.Config, old *pieces.Store, new *piecestore.HashStoreBackend, piecestoreOldConfig piecestore.OldConfig) *piecemigrate.Chore {
+			hashStoreDir := filepath.Join(piecestoreOldConfig.Path, "hashstore")
+			metaDir := filepath.Join(hashStoreDir, "meta")
+			chore := piecemigrate.NewChore(log, config, satstore.NewSatelliteStore(metaDir, "migrate_chore"), old, new)
+			mon.Chain(chore)
+			return chore
+		})
+		mud.Provide[*piecestore.MigratingBackend](ball, func(log *zap.Logger, old *piecestore.OldPieceBackend, new *piecestore.HashStoreBackend, state *satstore.SatelliteStore, chore *piecemigrate.Chore) *piecestore.MigratingBackend {
+			backend := piecestore.NewMigratingBackend(log, old, new, state, chore)
 			mon.Chain(backend)
 			return backend
 		})
@@ -368,7 +374,6 @@ func Module(ball *mud.Ball) {
 			return orders.NewService(log, dialer, ordersStore, trustSource, config)
 		})
 		mud.Tag[*orders.Service, modular.Service](ball, modular.Service{})
-
 	}
 
 	{ // setup payouts.
@@ -417,7 +422,6 @@ func Module(ball *mud.Ball) {
 		return &EndpointRegistration{}, nil
 	})
 	mud.Tag[*EndpointRegistration, modular.Service](ball, modular.Service{})
-
 }
 
 // EndpointRegistration is a pseudo component to wire server and DRPC endpoints together.
