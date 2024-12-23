@@ -416,7 +416,7 @@ func queryData(ctx context.Context, db tagsql.DB, schema *dbschema.Schema) (*dbs
 }
 
 func openUniqueDB(ctx context.Context, connStr string, name string) (db tagsql.DB, tempConnstr string, err error) {
-	tempDB, err := tempdb.OpenUnique(ctx, connStr, name)
+	tempDB, err := tempdb.OpenUnique(ctx, connStr, name, nil)
 	if err != nil {
 		return nil, "", err
 	}

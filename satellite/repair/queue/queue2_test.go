@@ -122,7 +122,7 @@ func testorderHealthyPieces(t *testing.T, connStr string) {
 	defer ctx.Cleanup()
 
 	// create tempDB
-	tempDB, err := tempdb.OpenUnique(ctx, connStr, "orderhealthy")
+	tempDB, err := tempdb.OpenUnique(ctx, connStr, "orderhealthy", nil)
 	require.NoError(t, err)
 	defer func() { require.NoError(t, tempDB.Close()) }()
 
