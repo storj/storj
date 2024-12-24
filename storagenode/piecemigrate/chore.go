@@ -16,6 +16,7 @@ import (
 	"github.com/spacemonkeygo/monkit/v3"
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
+	"go.uber.org/zap/zapcore"
 	"golang.org/x/exp/maps"
 
 	"storj.io/common/errs2"
@@ -187,8 +188,15 @@ func (chore *Chore) runOnce(ctx context.Context) (err error) {
 		}
 	}
 
+	satsMarshaler := zapcore.ObjectMarshalerFunc(func(enc zapcore.ObjectEncoder) error {
+		for sat, active := range sats {
+			enc.AddBool(sat.String(), active)
+		}
+		return nil
+	})
+
 	chore.log.Info("all enqueued for migration; will sleep before next pooling",
-		zap.Duration("interval", chore.config.Interval))
+		zap.Object("active", satsMarshaler), zap.Duration("interval", chore.config.Interval))
 
 	return nil
 }
@@ -224,7 +232,7 @@ func (chore *Chore) processQueue(ctx context.Context) (err error) {
 		total int64
 	)
 	for {
-		if n%chore.reportingBatchSize == 0 {
+		if n > 0 && n%chore.reportingBatchSize == 0 {
 			chore.log.Info("processed a bunch of pieces",
 				zap.Error(err),
 				zap.Int("successes", n),
