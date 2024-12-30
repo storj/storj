@@ -193,6 +193,19 @@ Deletes the user.
 
 Updates the limits of the user and user's existing project(s) limits found by its email.
 
+The limits are sent in the body, the limits that are not sent are not updated. The limits are sent
+in bytes.
+
+An example of a request body:
+
+```json
+{
+  "bandwidth": 100000000000000,
+  "segment": 100000000,
+  "storage": 50000000000000
+}
+```
+
 #### DELETE /api/users/{user-email}/mfa
 
 Disables the user's mfa.
