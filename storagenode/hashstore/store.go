@@ -17,8 +17,11 @@ import (
 	"time"
 
 	"go.uber.org/zap"
+	"go.uber.org/zap/zapcore"
+	"golang.org/x/exp/maps"
 
 	"storj.io/common/context2"
+	"storj.io/common/memory"
 	"storj.io/drpc/drpcsignal"
 )
 
@@ -601,6 +604,16 @@ func (s *Store) Compact(
 	defer mon.Task()(&ctx)(&err)
 	defer s.stats.compactions.Add(1) // increase the number of compactions that have finished
 
+	start := time.Now()
+	s.log.Info("beginning compaction", zap.Any("stats", s.Stats()))
+	defer func() {
+		s.log.Info("finished compaction",
+			zap.Duration("duration", time.Since(start)),
+			zap.Error(err),
+			zap.Any("stats", s.Stats()),
+		)
+	}()
+
 	// ensure only one compaction at a time.
 	if err := s.compactMu.Lock(ctx, &s.closed); err != nil {
 		return err
@@ -612,6 +625,13 @@ func (s *Store) Compact(
 		return err
 	}
 	defer s.activeMu.Unlock()
+
+	// log that we acquired the locks only if it took a while.
+	if dur := time.Since(start); dur > time.Second {
+		s.log.Info("compaction acquired locks",
+			zap.Duration("duration", dur),
+		)
+	}
 
 	// create a context that inherits from the existing context that is canceled when the store is
 	// closed. this ensures that the shouldTrash callback exits when the store is closed, and allows
@@ -683,6 +703,16 @@ func (s *Store) compactOnce(
 ) (completed bool, err error) {
 	defer mon.Task()(&ctx)(&err)
 
+	start := time.Now()
+	s.log.Info("compact once started", zap.Uint32("today", today))
+	defer func() {
+		s.log.Info("compact once finished",
+			zap.Duration("duration", time.Since(start)),
+			zap.Bool("completed", completed),
+			zap.Error(err),
+		)
+	}()
+
 	// reset the compaction values before storing the cached stats so that any Stats calls get
 	// correct values. these are only read when s.stats.cached is set, so they must be cleared
 	// before we set it.
@@ -717,7 +747,7 @@ func (s *Store) compactOnce(
 			// record and its footer. this differs from the log size field because of optimistic
 			// padding.
 			nexist++
-			total[rec.Log] += uint64(rec.Length) + RecordSize // rSize for the record footer
+			total[rec.Log] += uint64(rec.Length) + RecordSize // RecordSize for the record footer
 
 			// if we're not yet sure we're modifying the hash table, we need to check our callbacks
 			// on the record to see if the table would be modified. a record is modified when it is
@@ -739,7 +769,7 @@ func (s *Store) compactOnce(
 
 			// the record is included in the future hash table, so account for it in alive space.
 			nset++
-			alive[rec.Log] += uint64(rec.Length) + RecordSize // rSize for the record footer
+			alive[rec.Log] += uint64(rec.Length) + RecordSize // RecordSize for the record footer
 
 			return nil
 		}()
@@ -794,15 +824,13 @@ func (s *Store) compactOnce(
 			return true
 		})
 		if maxLog != nil {
+			s.log.Info("including log due to no rewrite candidates",
+				zap.Uint64("id", maxLog.id),
+				zap.String("path", maxLog.fh.Name()),
+				zap.String("dead", memory.FormatBytes(int64(maxDead))),
+			)
 			rewriteCandidates[maxLog.id] = true
 		}
-	}
-
-	// if there are no modifications to the hashtbl to remove expired records or flag records as
-	// trash, and we have no log file candidates to rewrite, and the hashtable would be the same
-	// size, we can exit early.
-	if !modifications && len(rewriteCandidates) == 0 && logSlots == s.tbl.logSlots {
-		return true, nil
 	}
 
 	// limit the number of log files we rewrite in a single compaction to so that we write around
@@ -816,13 +844,35 @@ func (s *Store) compactOnce(
 		}
 	}
 
-	// special case: if we have some values in maybeRewrite but we have no files in rewrite we need
-	// to include one to ensure progress.
+	// special case: if we have some values in rewriteCandidates but we have no files in rewrite we
+	// need to include one to ensure progress.
 	if len(rewriteCandidates) > 0 && len(rewrite) == 0 {
 		for id := range rewriteCandidates {
 			rewrite[id] = true
 			break
 		}
+	}
+
+	// log about the compaction read stats, skipping the construction of the slices for which logs
+	// we are rewriting if the log level is disabled.
+	if ce := s.log.Check(zapcore.InfoLevel, "compaction computed details"); ce != nil {
+		ce.Write(
+			zap.Uint64("nset", nset),
+			zap.Uint64("nexist", nexist),
+			zap.Bool("modifications", modifications),
+			zap.Uint64("curr logSlots", s.tbl.logSlots),
+			zap.Uint64("next logSlots", logSlots),
+			zap.Uint64s("candidates", maps.Keys(rewriteCandidates)),
+			zap.Uint64s("rewrite", maps.Keys(rewrite)),
+			zap.Duration("duration", time.Since(start)),
+		)
+	}
+
+	// if there are no modifications to the hashtbl to remove expired records or flag records as
+	// trash, and we have no log file candidates to rewrite, and the hashtable would be the same
+	// size, we can exit early.
+	if !modifications && len(rewriteCandidates) == 0 && logSlots == s.tbl.logSlots {
+		return true, nil
 	}
 
 	// increment the number of log files we're attempting to rewrite.
@@ -855,6 +905,18 @@ func (s *Store) compactOnce(
 	// update the beginning of the write time for progress reporting.
 	s.stats.writeTime.Store(time.Now())
 
+	// keep track of statistics about some events that can happen to records during the compaction.
+	totalRecords := uint64(0)
+	totalBytes := uint64(0)
+	rewrittenRecords := uint64(0)
+	rewrittenBytes := uint64(0)
+	trashedRecords := uint64(0)
+	trashedBytes := uint64(0)
+	restoredRecords := uint64(0)
+	restoredBytes := uint64(0)
+	expiredRecords := uint64(0)
+	expiredBytes := uint64(0)
+
 	// copy all of the entries from the hash table to the new table, skipping expired entries, and
 	// rewriting any entries that are in the log files that we are rewriting.
 	s.tbl.Range(func(rec Record, err error) bool {
@@ -880,6 +942,9 @@ func (s *Store) compactOnce(
 				// we dont clear out the ttl field for no reason right after this.
 				if exp := NewExpiration(expiresTime, true); !restored(exp) {
 					rec.Expires = exp
+
+					trashedRecords++
+					trashedBytes += uint64(rec.Length)
 				}
 			}
 
@@ -892,10 +957,16 @@ func (s *Store) compactOnce(
 				// bloom filter was bad or something. this may change once the hashstore is more
 				// integrated with the system and it has more details about the bloom filter.
 				rec.Created = today
+
+				restoredRecords++
+				restoredBytes += uint64(rec.Length)
 			}
 
 			// totally ignore any expired records.
 			if expired(rec.Expires) {
+				expiredRecords++
+				expiredBytes += uint64(rec.Length)
+
 				return nil
 			}
 
@@ -946,6 +1017,9 @@ func (s *Store) compactOnce(
 					// bump the amount of data we rewrote.
 					s.stats.dataRewritten.Add(uint64(rec.Length) + RecordSize)
 
+					rewrittenRecords++
+					rewrittenBytes += uint64(rec.Length)
+
 					return nil
 				}()
 				if err != nil {
@@ -959,6 +1033,9 @@ func (s *Store) compactOnce(
 			} else if !ok {
 				return Error.New("compaction hash table is full")
 			}
+
+			totalRecords++
+			totalBytes += uint64(rec.Length)
 
 			return nil
 		}()
@@ -978,6 +1055,21 @@ func (s *Store) compactOnce(
 	if err := af.Commit(); err != nil {
 		return false, Error.New("unable to commit newly compacted hashtbl: %w", err)
 	}
+
+	// log information about important events that happened to records during the writing of the new
+	// hashtbl.
+	s.log.Info("hashtbl rewritten",
+		zap.Uint64("total records", totalRecords),
+		zap.String("total bytes", memory.FormatBytes(int64(totalBytes))),
+		zap.Uint64("rewritten records", rewrittenRecords),
+		zap.String("rewritten bytes", memory.FormatBytes(int64(rewrittenBytes))),
+		zap.Uint64("trashed records", trashedRecords),
+		zap.String("trashed bytes", memory.FormatBytes(int64(trashedBytes))),
+		zap.Uint64("restored records", restoredRecords),
+		zap.String("restored bytes", memory.FormatBytes(int64(restoredBytes))),
+		zap.Uint64("expired records", expiredRecords),
+		zap.String("expired bytes", memory.FormatBytes(int64(expiredBytes))),
+	)
 
 	// swap the new hash table in and collect the set of log files to remove. we don't close and
 	// remove the log files while holding the lock to avoid doing i/o while blocking readers.
