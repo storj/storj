@@ -80,7 +80,7 @@ func (p *PostgresAdapter) ListObjects(ctx context.Context, opts ListObjects) (re
 	const maxSkipVersionsUntilRequery = 100
 
 	// maxSkipPrefixUntilRequery is the limit on how many entries we scan inside a prefix, until we requery.
-	const maxSkipPrefixUntilRequery = 10
+	const maxSkipPrefixUntilRequery = 2
 
 	// minQuerySize ensures that we list a more entries, as there's a significant overhead to a single query.
 	const minQuerySize = 100
@@ -272,7 +272,7 @@ func (s *SpannerAdapter) ListObjects(ctx context.Context, opts ListObjects) (res
 	const maxSkipVersionsUntilRequery = 100
 
 	// maxSkipPrefixUntilRequery is the limit on how many entries we scan inside a prefix, until we requery.
-	const maxSkipPrefixUntilRequery = 10
+	const maxSkipPrefixUntilRequery = 2
 
 	// minQuerySize ensures that we list a more entries, as there's a significant overhead to a single query.
 	const minQuerySize = 100
