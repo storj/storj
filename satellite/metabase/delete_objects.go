@@ -6,7 +6,6 @@ package metabase
 import (
 	"context"
 	"encoding/hex"
-	"errors"
 	"fmt"
 	"time"
 
@@ -14,7 +13,6 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
-	"google.golang.org/api/iterator"
 
 	"storj.io/common/sync2"
 	"storj.io/common/uuid"
@@ -581,17 +579,6 @@ func (s *SpannerAdapter) DeleteInactiveObjectsAndSegments(ctx context.Context, o
 	return objectsDeleted, segmentsDeleted, nil
 }
 
-// DeleteObjectsLastCommittedVersion indicates that (*DB).DeleteObjects should delete an object's
-// last committed version.
-//   - For unversioned buckets, this deletes the committed, unversioned object at the specified location.
-//   - For buckets with versioning enabled, this adds a delete marker as the latest version at the
-//     specified location without deleting any object versions.
-//   - For buckets with versioning suspended, this deletes all unversioned objects and markers
-//     at the specified location, replacing them with a delete marker as the latest version.
-//
-// It is intended for use in DeleteObjectsItem.
-const DeleteObjectsLastCommittedVersion = Version(0)
-
 // DeleteObjects contains options for deleting multiple committed objects from a bucket.
 type DeleteObjects struct {
 	ProjectID  uuid.UUID
@@ -604,8 +591,8 @@ type DeleteObjects struct {
 
 // DeleteObjectsItem describes the location of an object in a bucket to be deleted.
 type DeleteObjectsItem struct {
-	ObjectKey ObjectKey
-	Version   Version
+	ObjectKey       ObjectKey
+	StreamVersionID StreamVersionID
 }
 
 // Verify verifies bucket object deletion request fields.
@@ -625,11 +612,12 @@ func (opts DeleteObjects) Verify() error {
 		return ErrInvalidRequest.New("Items is too long; expected <= %d, but got %d", deleteObjectsMaxItems, itemCount)
 	}
 	for i, item := range opts.Items {
-		switch {
-		case item.ObjectKey == "":
+		if item.ObjectKey == "" {
 			return ErrInvalidRequest.New("Items[%d].ObjectKey missing", i)
-		case item.Version <= 0 && item.Version != DeleteObjectsLastCommittedVersion:
-			return ErrInvalidRequest.New("Items[%d].Version invalid: %v", i, item.Version)
+		}
+		version := item.StreamVersionID.Version()
+		if !item.StreamVersionID.IsZero() && version <= 0 {
+			return ErrInvalidRequest.New("Items[%d].StreamVersionID invalid: version is %v", i, version)
 		}
 	}
 	return nil
@@ -655,9 +643,20 @@ const (
 
 // DeleteObjectsResultItem contains the result of an attempt to delete a specific object from a bucket.
 type DeleteObjectsResultItem struct {
-	ObjectKey ObjectKey
-	Version   Version
-	Status    DeleteObjectsStatus
+	ObjectKey                ObjectKey
+	RequestedStreamVersionID StreamVersionID
+
+	Removed *DeleteObjectsInfo
+	Marker  *DeleteObjectsInfo
+
+	Status DeleteObjectsStatus
+}
+
+// DeleteObjectsInfo contains information about an object that was deleted or a delete marker that was inserted
+// as a result of processing a DeleteObjects request item.
+type DeleteObjectsInfo struct {
+	StreamVersionID StreamVersionID
+	Status          ObjectStatus
 }
 
 // DeleteObjects deletes specific objects from a bucket.
@@ -710,8 +709,8 @@ func (opts DeleteObjects) processResults() (info deleteObjectsSetupInfo) {
 	info.results = make([]DeleteObjectsResultItem, len(info.resultsIndices))
 	for item, resultsIdx := range info.resultsIndices {
 		info.results[resultsIdx] = DeleteObjectsResultItem{
-			ObjectKey: item.ObjectKey,
-			Version:   item.Version,
+			ObjectKey:                item.ObjectKey,
+			RequestedStreamVersionID: item.StreamVersionID,
 		}
 	}
 
@@ -730,7 +729,7 @@ func (p *PostgresAdapter) DeleteObjectsPlain(ctx context.Context, opts DeleteObj
 	for i := 0; i < len(processedOpts.results); i++ {
 		resultItem := &processedOpts.results[i]
 
-		if resultItem.Version == DeleteObjectsLastCommittedVersion {
+		if resultItem.RequestedStreamVersionID.IsZero() {
 			err = Error.Wrap(withRows(
 				p.db.QueryContext(ctx, `
 					WITH deleted_objects AS (
@@ -745,7 +744,7 @@ func (p *PostgresAdapter) DeleteObjectsPlain(ctx context.Context, opts DeleteObj
 						WHERE segments.stream_id IN (SELECT deleted_objects.stream_id FROM deleted_objects)
 						RETURNING 1
 					)
-					SELECT version, (SELECT COUNT(*) FROM deleted_segments) FROM deleted_objects`,
+					SELECT version, stream_id, (SELECT COUNT(*) FROM deleted_segments) FROM deleted_objects`,
 					opts.ProjectID,
 					opts.BucketName,
 					resultItem.ObjectKey,
@@ -758,22 +757,31 @@ func (p *PostgresAdapter) DeleteObjectsPlain(ctx context.Context, opts DeleteObj
 
 				var (
 					version      Version
+					streamID     uuid.UUID
 					segmentCount int64
 				)
-				if err := rows.Scan(&version, &segmentCount); err != nil {
+				if err := rows.Scan(&version, &streamID, &segmentCount); err != nil {
 					return errs.Wrap(err)
 				}
 
 				result.DeletedSegmentCount += segmentCount
+
+				sv := NewStreamVersionID(version, streamID)
+				deleteInfo := &DeleteObjectsInfo{
+					StreamVersionID: sv,
+					Status:          CommittedUnversioned,
+				}
+				resultItem.Removed = deleteInfo
 				resultItem.Status = DeleteStatusOK
 
 				// Handle the case where an object was specified twice in the deletion request:
 				// once with a version omitted and once with a version set. We must ensure that
 				// when the object is deleted, both result items that reference it are updated.
 				if i, ok := processedOpts.resultsIndices[DeleteObjectsItem{
-					ObjectKey: resultItem.ObjectKey,
-					Version:   version,
+					ObjectKey:       resultItem.ObjectKey,
+					StreamVersionID: sv,
 				}]; ok {
+					processedOpts.results[i].Removed = deleteInfo
 					processedOpts.results[i].Status = DeleteStatusOK
 				}
 
@@ -798,7 +806,8 @@ func (p *PostgresAdapter) DeleteObjectsPlain(ctx context.Context, opts DeleteObj
 						DELETE FROM objects
 						WHERE
 							(project_id, bucket_name, object_key, version) = ($1, $2, $3, $4)
-							AND (expires_at IS NULL OR expires_at > $5)
+							AND SUBSTR(stream_id, 9) = $5
+							AND (expires_at IS NULL OR expires_at > $6)
 						RETURNING status, stream_id
 					), deleted_segments AS (
 						DELETE FROM segments
@@ -809,7 +818,8 @@ func (p *PostgresAdapter) DeleteObjectsPlain(ctx context.Context, opts DeleteObj
 					opts.ProjectID,
 					opts.BucketName,
 					resultItem.ObjectKey,
-					resultItem.Version,
+					resultItem.RequestedStreamVersionID.Version(),
+					resultItem.RequestedStreamVersionID.StreamIDSuffix(),
 					now,
 				),
 			)(func(rows tagsql.Rows) error {
@@ -824,24 +834,23 @@ func (p *PostgresAdapter) DeleteObjectsPlain(ctx context.Context, opts DeleteObj
 				if err := rows.Scan(&status, &segmentCount); err != nil {
 					return errs.Wrap(err)
 				}
+
 				result.DeletedSegmentCount += segmentCount
+
+				deleteInfo := &DeleteObjectsInfo{
+					StreamVersionID: resultItem.RequestedStreamVersionID,
+					Status:          status,
+				}
+				resultItem.Removed = deleteInfo
 				resultItem.Status = DeleteStatusOK
 
 				if status == CommittedUnversioned {
 					if i, ok := processedOpts.resultsIndices[DeleteObjectsItem{
 						ObjectKey: resultItem.ObjectKey,
-						Version:   DeleteObjectsLastCommittedVersion,
 					}]; ok {
+						processedOpts.results[i].Removed = deleteInfo
 						processedOpts.results[i].Status = DeleteStatusOK
 					}
-				}
-
-				if rows.Next() {
-					logMultipleCommittedVersionsError(p.log, ObjectLocation{
-						ProjectID:  opts.ProjectID,
-						BucketName: opts.BucketName,
-						ObjectKey:  resultItem.ObjectKey,
-					})
 				}
 
 				return nil
@@ -888,17 +897,20 @@ func (s *SpannerAdapter) DeleteObjectsPlain(ctx context.Context, opts DeleteObje
 		resultItem := &processedOpts.results[i]
 
 		var (
-			deletedSegmentCount       int64
-			multipleCommittedVersions bool
+			deletedSegmentCount int64
+			linkedResultItem    *DeleteObjectsResultItem
 		)
 
-		if resultItem.Version == DeleteObjectsLastCommittedVersion {
+		if resultItem.RequestedStreamVersionID.IsZero() {
+			var multipleCommittedVersions bool
 			_, err = s.client.ReadWriteTransaction(ctx, func(ctx context.Context, tx *spanner.ReadWriteTransaction) (err error) {
 				deletedSegmentCount = 0
 				multipleCommittedVersions = false
-				var streamIDs [][]byte
+				linkedResultItem = nil
 
-				rows := tx.Query(ctx, spanner.Statement{
+				var streamIDsToDelete [][]byte
+
+				err = errs.Wrap(tx.Query(ctx, spanner.Statement{
 					SQL: `
 						DELETE FROM objects
 						WHERE
@@ -913,125 +925,57 @@ func (s *SpannerAdapter) DeleteObjectsPlain(ctx context.Context, opts DeleteObje
 						"object_key":  resultItem.ObjectKey,
 						"now":         now,
 					},
-				})
-				defer rows.Stop()
+				}).Do(func(row *spanner.Row) error {
+					var (
+						version       Version
+						streamIDBytes []byte
+					)
+					if err := row.Columns(&version, &streamIDBytes); err != nil {
+						return errs.Wrap(err)
+					}
 
-				row, err := rows.Next()
-				if err != nil {
-					if errors.Is(err, iterator.Done) {
+					streamIDsToDelete = append(streamIDsToDelete, streamIDBytes)
+
+					if resultItem.Removed != nil {
+						multipleCommittedVersions = true
 						return nil
 					}
-					return errs.Wrap(err)
-				}
 
-				var (
-					version  Version
-					streamID []byte
-				)
-				if err := row.Columns(&version, &streamID); err != nil {
-					return errs.Wrap(err)
-				}
-
-				_, err = rows.Next()
-				switch {
-				case errors.Is(err, iterator.Done):
-				case err == nil:
-					multipleCommittedVersions = true
-				default:
-					return errs.Wrap(err)
-				}
-				rows.Stop()
-
-				streamIDs = append(streamIDs, streamID)
-				resultItem.Status = DeleteStatusOK
-
-				// Handle the case where an object was specified twice in the deletion request:
-				// once with a version omitted and once with a version set. We must ensure that
-				// when the object is deleted, both deletion results that reference it are updated.
-				if i, ok := processedOpts.resultsIndices[DeleteObjectsItem{
-					ObjectKey: resultItem.ObjectKey,
-					Version:   version,
-				}]; ok {
-					processedOpts.results[i].Status = DeleteStatusOK
-				}
-
-				deletedSegmentCount, err = spannerDeleteSegmentsByStreamID(ctx, tx, streamIDs)
-				return err
-			})
-		} else {
-			if resultItem.Status == DeleteStatusOK {
-				continue
-			}
-
-			_, err = s.client.ReadWriteTransaction(ctx, func(ctx context.Context, tx *spanner.ReadWriteTransaction) (err error) {
-				deletedSegmentCount = 0
-				multipleCommittedVersions = false
-				var streamIDs [][]byte
-
-				rows := tx.Query(ctx, spanner.Statement{
-					SQL: `
-						DELETE FROM objects
-						WHERE
-							(project_id, bucket_name, object_key, version) = (@project_id, @bucket_name, @object_key, @version)
-							AND (expires_at IS NULL OR expires_at > @now)
-						THEN RETURN status, stream_id
-					`,
-					Params: map[string]interface{}{
-						"project_id":  opts.ProjectID,
-						"bucket_name": opts.BucketName,
-						"object_key":  resultItem.ObjectKey,
-						"version":     resultItem.Version,
-						"now":         now,
-					},
-				})
-				defer rows.Stop()
-
-				row, err := rows.Next()
-				if err != nil {
-					if errors.Is(err, iterator.Done) {
-						return nil
+					streamID, err := uuid.FromBytes(streamIDBytes)
+					if err != nil {
+						return errs.Wrap(err)
 					}
-					return errs.Wrap(err)
-				}
 
-				var (
-					status   ObjectStatus
-					streamID []byte
-				)
-				if err := row.Columns(&status, &streamID); err != nil {
-					return errs.Wrap(err)
-				}
+					sv := NewStreamVersionID(version, streamID)
+					deleteInfo := &DeleteObjectsInfo{
+						StreamVersionID: sv,
+						Status:          CommittedUnversioned,
+					}
+					resultItem.Removed = deleteInfo
+					resultItem.Status = DeleteStatusOK
 
-				_, err = rows.Next()
-				switch {
-				case errors.Is(err, iterator.Done):
-				case err == nil:
-					multipleCommittedVersions = true
-				default:
-					return errs.Wrap(err)
-				}
-				rows.Stop()
-
-				resultItem.Status = DeleteStatusOK
-				streamIDs = append(streamIDs, streamID)
-
-				if status == CommittedUnversioned {
+					// Handle the case where an object was specified twice in the deletion request:
+					// once with a version omitted and once with a version set. We must ensure that
+					// when the object is deleted, both deletion results that reference it are updated.
 					if i, ok := processedOpts.resultsIndices[DeleteObjectsItem{
-						ObjectKey: resultItem.ObjectKey,
-						Version:   DeleteObjectsLastCommittedVersion,
+						ObjectKey:       resultItem.ObjectKey,
+						StreamVersionID: sv,
 					}]; ok {
-						processedOpts.results[i].Status = DeleteStatusOK
+						linkedResultItem = &processedOpts.results[i]
+						linkedResultItem.Removed = deleteInfo
+						linkedResultItem.Status = DeleteStatusOK
 					}
+
+					return nil
+				}))
+				if err != nil {
+					return err
 				}
 
-				deletedSegmentCount, err = spannerDeleteSegmentsByStreamID(ctx, tx, streamIDs)
+				deletedSegmentCount, err = spannerDeleteSegmentsByStreamID(ctx, tx, streamIDsToDelete)
 				return err
 			})
-		}
-
-		if err == nil {
-			result.DeletedSegmentCount += deletedSegmentCount
-			if multipleCommittedVersions {
+			if err == nil && multipleCommittedVersions {
 				logMultipleCommittedVersionsError(s.log, ObjectLocation{
 					ProjectID:  opts.ProjectID,
 					BucketName: opts.BucketName,
@@ -1039,6 +983,74 @@ func (s *SpannerAdapter) DeleteObjectsPlain(ctx context.Context, opts DeleteObje
 				})
 			}
 		} else {
+			if resultItem.Status == DeleteStatusOK {
+				continue
+			}
+
+			_, err = s.client.ReadWriteTransaction(ctx, func(ctx context.Context, tx *spanner.ReadWriteTransaction) (err error) {
+				deletedSegmentCount = 0
+				linkedResultItem = nil
+
+				var streamID []byte
+
+				err = errs.Wrap(tx.Query(ctx, spanner.Statement{
+					SQL: `
+						DELETE FROM objects
+						WHERE
+							(project_id, bucket_name, object_key, version) = (@project_id, @bucket_name, @object_key, @version)
+							AND SUBSTR(stream_id, 9) = @stream_id_suffix
+							AND (expires_at IS NULL OR expires_at > @now)
+						THEN RETURN status, stream_id
+					`,
+					Params: map[string]interface{}{
+						"project_id":       opts.ProjectID,
+						"bucket_name":      opts.BucketName,
+						"object_key":       resultItem.ObjectKey,
+						"version":          resultItem.RequestedStreamVersionID.Version(),
+						"stream_id_suffix": resultItem.RequestedStreamVersionID.StreamIDSuffix(),
+						"now":              now,
+					},
+				}).Do(func(row *spanner.Row) error {
+					var status ObjectStatus
+					if err := row.Columns(&status, &streamID); err != nil {
+						return errs.Wrap(err)
+					}
+
+					deleteInfo := &DeleteObjectsInfo{
+						StreamVersionID: resultItem.RequestedStreamVersionID,
+						Status:          status,
+					}
+					resultItem.Removed = deleteInfo
+					resultItem.Status = DeleteStatusOK
+
+					if status == CommittedUnversioned {
+						if i, ok := processedOpts.resultsIndices[DeleteObjectsItem{
+							ObjectKey: resultItem.ObjectKey,
+						}]; ok {
+							linkedResultItem = &processedOpts.results[i]
+							linkedResultItem.Removed = deleteInfo
+							linkedResultItem.Status = DeleteStatusOK
+						}
+					}
+
+					return nil
+				}))
+				if err != nil || resultItem.Removed == nil {
+					return err
+				}
+
+				deletedSegmentCount, err = spannerDeleteSegmentsByStreamID(ctx, tx, [][]byte{streamID})
+				return err
+			})
+		}
+
+		if err == nil {
+			result.DeletedSegmentCount += deletedSegmentCount
+		} else {
+			resultItem.Removed = nil
+			if linkedResultItem != nil {
+				linkedResultItem.Removed = nil
+			}
 			for j := i; j < len(processedOpts.results); j++ {
 				processedOpts.results[j].Status = DeleteStatusInternalError
 			}

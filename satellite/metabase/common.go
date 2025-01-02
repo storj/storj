@@ -554,6 +554,11 @@ func (s StreamVersionID) Bytes() []byte {
 	return s[:]
 }
 
+// IsZero returns whether all bytes in the StreamVersionID are 0.
+func (s StreamVersionID) IsZero() bool {
+	return s == StreamVersionID{}
+}
+
 // NewStreamVersionID returns a new stream version id.
 func NewStreamVersionID(version Version, streamID uuid.UUID) StreamVersionID {
 	var sv StreamVersionID
