@@ -3981,17 +3981,21 @@ func TestEndpoint_UploadObjectWithDefaultRetention(t *testing.T) {
 			t.Run("Leap year", func(t *testing.T) {
 				// Find the nearest date N years after the current date that lies after a leap day.
 				now := time.Now()
-				futureYear := now.Year()
+				leapYear := now.Year()
+				var leapDay time.Time
 				for {
-					if (futureYear%4 == 0 && futureYear%100 != 0) || (futureYear%400 == 0) {
-						leapDay := time.Date(futureYear, time.February, 29, 0, 0, 0, 0, time.UTC)
+					if (leapYear%4 == 0 && leapYear%100 != 0) || (leapYear%400 == 0) {
+						leapDay = time.Date(leapYear, time.February, 29, 0, 0, 0, 0, time.UTC)
 						if leapDay.After(now) {
 							break
 						}
 					}
-					futureYear++
+					leapYear++
 				}
-				years := futureYear - now.Year()
+				years := leapYear - now.Year()
+				if now.AddDate(years, 0, 0).Before(leapDay) {
+					years++
+				}
 
 				// Expect 1 day to always be considered a 24-hour period, with no adjustments
 				// made to accommodate the leap day.
