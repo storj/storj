@@ -932,6 +932,18 @@ identity.key-path: /root/.local/share/storj/identity/satellite/identity.key
 # how often to bump the generation in the node failure tracker
 # metainfo.failure-tracker-tick-duration: 30s
 
+# minimum number of items to query at a time
+# metainfo.list-objects.min-batch-size: 100
+
+# prefixes to skip before requerying
+# metainfo.list-objects.prefix-skip-requery: 2
+
+# extra items to list for non-recursive queries
+# metainfo.list-objects.query-extra-for-non-recursive: 10
+
+# versions to skip before requerying
+# metainfo.list-objects.version-skip-requery: 100
+
 # maximum time allowed to pass between creating and committing a segment
 # metainfo.max-commit-interval: 48h0m0s
 
