@@ -31,3 +31,15 @@ func (limit intLimitRange) Ensure(v *int) {
 
 // Max returns maximum value for the given range.
 func (limit intLimitRange) Max() int { return int(limit) }
+
+// ensureRange ensures v is between min and max. It's sets to def, when the value is 0.
+func ensureRange(v *int, def, min, max int) {
+	switch {
+	case *v == 0:
+		*v = def
+	case *v < min:
+		*v = min
+	case *v > max:
+		*v = max
+	}
+}

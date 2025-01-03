@@ -205,6 +205,8 @@ type Config struct {
 
 	UseListObjectsForListing bool `help:"switch to new ListObjects implementation" default:"false" devDefault:"true" testDefault:"true"`
 
+	ListObjects ListObjectsFlags `help:"tuning parameters for list objects"`
+
 	ObjectLockEnabled bool `help:"enable the use of bucket-level Object Lock" default:"true"`
 
 	UserInfoValidation UserInfoValidationConfig `help:"Config for user info validation"`

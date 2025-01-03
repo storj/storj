@@ -39,6 +39,20 @@ type ListObjects struct {
 	AllVersions           bool
 	IncludeCustomMetadata bool
 	IncludeSystemMetadata bool
+
+	Params ListObjectsParams
+}
+
+// ListObjectsParams contains flags for tuning the ListObjects query.
+type ListObjectsParams struct {
+	// VersionSkipRequery is a limit on how many versions to skip before requerying.
+	VersionSkipRequery int
+	// PrefixSkipRequery is a limit on how many same prefix to skip before requerying.
+	PrefixSkipRequery int
+	// QueryExtraForNonRecursive is how many extra entries to query for non-recursive.
+	QueryExtraForNonRecursive int
+	// MinBatchSize is the number of items to query at the same time.
+	MinBatchSize int
 }
 
 // Verify verifies get object request fields.
@@ -71,31 +85,28 @@ func (db *DB) ListObjects(ctx context.Context, opts ListObjects) (result ListObj
 
 	ListLimit.Ensure(&opts.Limit)
 
+	ensureRange(&opts.Params.VersionSkipRequery, 100, 1, 500)
+	ensureRange(&opts.Params.PrefixSkipRequery, 2, 1, 500)
+	ensureRange(&opts.Params.MinBatchSize, 100, 1, 500)
+	ensureRange(&opts.Params.QueryExtraForNonRecursive, 10, 1, 50)
+
 	return db.ChooseAdapter(opts.ProjectID).ListObjects(ctx, opts)
 }
 
 // ListObjects lists objects.
 func (p *PostgresAdapter) ListObjects(ctx context.Context, opts ListObjects) (result ListObjectsResult, err error) {
-	// maxSkipVersionsUntilRequery is the limit on how many versions we query for a single object, until we requery.
-	const maxSkipVersionsUntilRequery = 100
-
-	// maxSkipPrefixUntilRequery is the limit on how many entries we scan inside a prefix, until we requery.
-	const maxSkipPrefixUntilRequery = 2
-
-	// minQuerySize ensures that we list a more entries, as there's a significant overhead to a single query.
-	const minQuerySize = 100
+	params := opts.Params
 
 	// requeryLimit is a safety net for invalid implementation.
 	requeryLimit := opts.Limit + 10 // we do some extra queries, but, roughly at most we should have one query per entry
 
-	// extraSkipEntries to avoid requerying in the common case of !AllVersions.
-	const extraSkipEntries = 10
 	// extraEntriesForMore is the additional entry we need for determining whether there are more entries.
 	const extraEntriesForMore = 1
-	batchSize := opts.Limit + extraEntriesForMore + extraSkipEntries
 
-	if batchSize < minQuerySize {
-		batchSize = minQuerySize
+	batchSize := opts.Limit + extraEntriesForMore + params.QueryExtraForNonRecursive
+
+	if batchSize < params.MinBatchSize {
+		batchSize = params.MinBatchSize
 	}
 
 	// lastEntry is used to keep track of the last entry put into the result.
@@ -202,7 +213,7 @@ func (p *PostgresAdapter) ListObjects(ctx context.Context, opts ListObjects) (re
 					skipCount.Version++
 				}
 
-				if skipCount.Prefix >= maxSkipPrefixUntilRequery || skipCount.Version >= maxSkipVersionsUntilRequery {
+				if skipCount.Prefix >= params.PrefixSkipRequery || skipCount.Version >= params.VersionSkipRequery {
 					skipAhead = true
 					skipCount = skipCounter{}
 					// we landed inside a large number of repeated items,
@@ -266,28 +277,20 @@ func (p *PostgresAdapter) ListObjects(ctx context.Context, opts ListObjects) (re
 // ListObjects lists objects.
 func (s *SpannerAdapter) ListObjects(ctx context.Context, opts ListObjects) (result ListObjectsResult, err error) {
 	// TODO(spanner): retune all of these for Spanner. Also, can we use a smarter query now
-	// using some feature that wasn't in Cockroach? (e.g. windowed queries).
+	// using some feature such as windowed queries to avoid requeries.
 
-	// maxSkipVersionsUntilRequery is the limit on how many versions we query for a single object, until we requery.
-	const maxSkipVersionsUntilRequery = 100
-
-	// maxSkipPrefixUntilRequery is the limit on how many entries we scan inside a prefix, until we requery.
-	const maxSkipPrefixUntilRequery = 2
-
-	// minQuerySize ensures that we list a more entries, as there's a significant overhead to a single query.
-	const minQuerySize = 100
+	params := opts.Params
 
 	// requeryLimit is a safety net for invalid implementation.
 	requeryLimit := opts.Limit + 10 // we do some extra queries, but, roughly at most we should have one query per entry
 
-	// extraSkipEntries to avoid requerying in the common case of !AllVersions.
-	const extraSkipEntries = 10
 	// extraEntriesForMore is the additional entry we need for determining whether there are more entries.
 	const extraEntriesForMore = 1
-	batchSize := opts.Limit + extraEntriesForMore + extraSkipEntries
 
-	if batchSize < minQuerySize {
-		batchSize = minQuerySize
+	batchSize := opts.Limit + extraEntriesForMore + params.QueryExtraForNonRecursive
+
+	if batchSize < params.MinBatchSize {
+		batchSize = params.MinBatchSize
 	}
 
 	// lastEntry is used to keep track of the last entry put into the result.
@@ -411,7 +414,7 @@ func (s *SpannerAdapter) ListObjects(ctx context.Context, opts ListObjects) (res
 						skipCount.Version++
 					}
 
-					if skipCount.Prefix >= maxSkipPrefixUntilRequery || skipCount.Version >= maxSkipVersionsUntilRequery {
+					if skipCount.Prefix >= params.PrefixSkipRequery || skipCount.Version >= params.VersionSkipRequery {
 						skipAhead = true
 						skipCount = skipCounter{}
 						// we landed inside a large number of repeated items,

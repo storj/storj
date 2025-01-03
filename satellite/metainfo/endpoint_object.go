@@ -1316,6 +1316,17 @@ func calculateStreamRange(object metabase.Object, req *pb.Range) (*metabase.Stre
 	return nil, nil
 }
 
+// ListObjectsFlags contains flags for tuning the ListObjects query.
+type ListObjectsFlags struct {
+	VersionSkipRequery        int `default:"100" help:"versions to skip before requerying"`
+	PrefixSkipRequery         int `default:"2" help:"prefixes to skip before requerying"`
+	QueryExtraForNonRecursive int `default:"10" help:"extra items to list for non-recursive queries"`
+	MinBatchSize              int `default:"100" help:"minimum number of items to query at a time"`
+}
+
+// ensure that ListObjectsParams and ListObjectsFlags are exactly compatible.
+var _ = metabase.ListObjectsParams(ListObjectsFlags{})
+
 // ListObjects list objects according to specific parameters.
 func (endpoint *Endpoint) ListObjects(ctx context.Context, req *pb.ObjectListRequest) (resp *pb.ObjectListResponse, err error) {
 	defer mon.Task()(&ctx)(&err)
@@ -1445,6 +1456,8 @@ func (endpoint *Endpoint) ListObjects(ctx context.Context, req *pb.ObjectListReq
 
 				IncludeCustomMetadata: includeCustomMetadata,
 				IncludeSystemMetadata: includeSystemMetadata,
+
+				Params: metabase.ListObjectsParams(endpoint.config.ListObjects),
 			})
 		if err != nil {
 			return nil, endpoint.ConvertMetabaseErr(err)
