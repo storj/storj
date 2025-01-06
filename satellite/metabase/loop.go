@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"cloud.google.com/go/spanner"
+	"cloud.google.com/go/spanner/apiv1/spannerpb"
 	"github.com/zeebo/errs"
 	"google.golang.org/api/iterator"
 
@@ -372,7 +373,9 @@ func (it *spannerLoopSegmentIterator) doNextQuery(ctx context.Context) (_ *spann
 	if it.readTimestamp.IsZero() {
 		return it.db.client.Single().Query(ctx, stmt)
 	}
-	return it.db.client.Single().WithTimestampBound(spanner.ReadTimestamp(it.readTimestamp)).Query(ctx, stmt)
+	return it.db.client.Single().WithTimestampBound(spanner.ReadTimestamp(it.readTimestamp)).QueryWithOptions(ctx, stmt, spanner.QueryOptions{
+		Priority: spannerpb.RequestOptions_PRIORITY_MEDIUM,
+	})
 }
 
 // IterateLoopSegments implements Adapter.
