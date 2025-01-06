@@ -40,7 +40,8 @@ type ListObjects struct {
 	IncludeCustomMetadata bool
 	IncludeSystemMetadata bool
 
-	Params ListObjectsParams
+	Unversioned bool
+	Params      ListObjectsParams
 }
 
 // ListObjectsParams contains flags for tuning the ListObjects query.
@@ -565,7 +566,7 @@ func (opts *ListObjects) lastVersion() Version {
 
 // VersionAscending returns whether the versions in the result are in ascending order.
 func (opts *ListObjects) VersionAscending() bool {
-	return opts.Pending
+	return opts.Pending || opts.Unversioned
 }
 
 func (opts *ListObjects) orderBy() string {
