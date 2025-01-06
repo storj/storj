@@ -14,16 +14,18 @@ export class HttpClient {
      * @param method holds http method type
      * @param path
      * @param body serialized JSON
+     * @param customHeaders custom headers used for a request
      */
-    private async sendJSON(method: string, path: string, body: string | null): Promise<Response> {
+    private async sendJSON(method: string, path: string, body: string | null, customHeaders?: Record<string, string>): Promise<Response> {
         const request: RequestInit = {
             method: method,
             body: body,
+            headers: {
+                'Content-Type': 'application/json',
+            },
         };
 
-        request.headers = {
-            'Content-Type': 'application/json',
-        };
+        if (customHeaders) request.headers = { ...request.headers, ...customHeaders };
 
         const response = await fetch(path, request);
         if (response.status === 401) {
@@ -38,9 +40,10 @@ export class HttpClient {
      * Performs POST http request with JSON body.
      * @param path
      * @param body serialized JSON
+     * @param customHeaders custom headers used for a request
      */
-    public async post(path: string, body: string | null): Promise<Response> {
-        return this.sendJSON('POST', path, body);
+    public async post(path: string, body: string | null, customHeaders?: Record<string, string>): Promise<Response> {
+        return this.sendJSON('POST', path, body, customHeaders);
     }
 
     /**

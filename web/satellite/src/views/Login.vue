@@ -256,6 +256,8 @@ const emailRules: ((_: string) => boolean | string)[] = [
 
 const ssoEnabled = computed(() => configStore.state.config.ssoEnabled);
 
+const csrfToken = computed<string>(() => configStore.state.config.csrfToken);
+
 const passwordRules = computed(() => {
     if (!ssoEnabled.value) {
         return [ RequiredRule ];
@@ -406,7 +408,7 @@ async function onLoginClick(): Promise<void> {
  */
 async function login(): Promise<void> {
     try {
-        const tokenInfo: TokenInfo = await auth.token(email.value, password.value, captchaResponseToken.value, passcode.value, recoveryCode.value, rememberForOneWeek.value);
+        const tokenInfo: TokenInfo = await auth.token(email.value, password.value, captchaResponseToken.value, passcode.value, recoveryCode.value, csrfToken.value, rememberForOneWeek.value);
         LocalData.setSessionExpirationDate(tokenInfo.expiresAt);
         if (rememberForOneWeek.value) {
             LocalData.setCustomSessionDuration(604800); // 7 days in seconds.

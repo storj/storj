@@ -5,10 +5,8 @@ package consoleweb
 
 import (
 	"context"
-	"crypto/rand"
 	"crypto/subtle"
 	_ "embed"
-	"encoding/base64"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -117,6 +115,7 @@ type Config struct {
 	ActiveSessionsViewEnabled       bool          `help:"whether active sessions table view should be shown" default:"false"`
 	ObjectLockUIEnabled             bool          `help:"whether object lock UI should be shown, regardless of whether the feature is enabled" default:"true"`
 	CunoFSBetaEnabled               bool          `help:"whether prompt to join cunoFS beta is visible" default:"false"`
+	CSRFProtectionEnabled           bool          `help:"whether CSRF protection is enabled for some of the endpoints" default:"false" testDefault:"false"`
 
 	OauthCodeExpiry         time.Duration `help:"how long oauth authorization codes are issued for" default:"10m"`
 	OauthAccessTokenExpiry  time.Duration `help:"how long oauth access tokens are issued for" default:"24h"`
@@ -351,7 +350,7 @@ func NewServer(logger *zap.Logger, config Config, service *console.Service, oidc
 	authRouter.Handle("/mfa/generate-secret-key", server.withAuth(http.HandlerFunc(authController.GenerateMFASecretKey))).Methods(http.MethodPost, http.MethodOptions)
 	authRouter.Handle("/mfa/regenerate-recovery-codes", server.withAuth(server.userIDRateLimiter.Limit(http.HandlerFunc(authController.RegenerateMFARecoveryCodes)))).Methods(http.MethodPost, http.MethodOptions)
 	authRouter.Handle("/logout", server.withAuth(http.HandlerFunc(authController.Logout))).Methods(http.MethodPost, http.MethodOptions)
-	authRouter.Handle("/token", server.ipRateLimiter.Limit(http.HandlerFunc(authController.Token))).Methods(http.MethodPost, http.MethodOptions)
+	authRouter.Handle("/token", server.withCSRFProtection(server.ipRateLimiter.Limit(http.HandlerFunc(authController.Token)))).Methods(http.MethodPost, http.MethodOptions)
 	authRouter.Handle("/token-by-api-key", server.ipRateLimiter.Limit(http.HandlerFunc(authController.TokenByAPIKey))).Methods(http.MethodPost, http.MethodOptions)
 	authRouter.Handle("/register", server.ipRateLimiter.Limit(http.HandlerFunc(authController.Register))).Methods(http.MethodPost, http.MethodOptions)
 	authRouter.Handle("/code-activation", server.ipRateLimiter.Limit(http.HandlerFunc(authController.ActivateAccount))).Methods(http.MethodPatch, http.MethodOptions)
@@ -748,27 +747,17 @@ func (server *Server) appHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	csrfToken, err := generateCSRFToken()
-	if err != nil {
-		server.log.Error("Failed to generate CSRF token", zap.Error(err))
-		return
-	}
+	if server.cookieAuth != nil && server.config.CSRFProtectionEnabled {
+		csrfToken, err := server.service.GenerateCSRFToken()
+		if err != nil {
+			server.log.Error("Failed to generate CSRF token", zap.Error(err))
+			return
+		}
 
-	if server.cookieAuth != nil {
 		server.cookieAuth.SetCSRFCookie(w, csrfToken)
 	}
 
 	http.ServeContent(w, r, path, info.ModTime(), file)
-}
-
-// generateCSRFToken creates a secure random CSRF token.
-func generateCSRFToken() (string, error) {
-	b := make([]byte, 32)
-	if _, err := rand.Read(b); err != nil {
-		return "", err
-	}
-
-	return base64.StdEncoding.EncodeToString(b), nil
 }
 
 // varBlockerMiddleWare is a middleware that blocks requests from VAR partners.
@@ -881,17 +870,62 @@ func (server *Server) withRequest(handler http.Handler) http.Handler {
 	})
 }
 
+// withCSRFProtection validates the CSRF token using double-submit cookie pattern.
+func (server *Server) withCSRFProtection(handler http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if !server.config.CSRFProtectionEnabled {
+			handler.ServeHTTP(w, r)
+			return
+		}
+
+		var err error
+		ctx := r.Context()
+
+		defer mon.Task()(&ctx)(&err)
+
+		csrfHeaderToken := r.Header.Get("X-CSRF-Token")
+		if csrfHeaderToken == "" {
+			web.ServeJSONError(ctx, server.log, w, http.StatusForbidden, errs.New("CSRF token missing in request header"))
+			return
+		}
+
+		csrfCookie, err := r.Cookie(server.cookieAuth.GetCSRFCookieName())
+		if err != nil {
+			web.ServeJSONError(ctx, server.log, w, http.StatusForbidden, errs.New("CSRF token cookie missing"))
+			return
+		}
+
+		if csrfHeaderToken != csrfCookie.Value {
+			web.ServeJSONError(ctx, server.log, w, http.StatusForbidden, errs.New("Invalid CSRF token"))
+			return
+		}
+
+		err = server.service.ValidateCSRFToken(csrfHeaderToken)
+		if err != nil {
+			web.ServeJSONError(ctx, server.log, w, http.StatusForbidden, err)
+			return
+		}
+
+		handler.ServeHTTP(w, r)
+	})
+}
+
 // frontendConfigHandler handles sending the frontend config to the client.
 func (server *Server) frontendConfigHandler(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	defer mon.Task()(&ctx)(nil)
 	w.Header().Set(contentType, applicationJSON)
 
-	csrfCookie, err := r.Cookie(server.cookieAuth.GetCSRFCookieName())
-	if err != nil {
-		w.WriteHeader(http.StatusForbidden)
-		server.log.Error("CSRF token cookie missing in config endpoint", zap.Error(err))
-		return
+	csrfToken := ""
+	if server.config.CSRFProtectionEnabled {
+		csrfCookie, err := r.Cookie(server.cookieAuth.GetCSRFCookieName())
+		if err != nil {
+			w.WriteHeader(http.StatusForbidden)
+			server.log.Error("CSRF token cookie missing in config endpoint", zap.Error(err))
+			return
+		}
+
+		csrfToken = csrfCookie.Value
 	}
 
 	cfg := FrontendConfig{
@@ -961,10 +995,10 @@ func (server *Server) frontendConfigHandler(w http.ResponseWriter, r *http.Reque
 		SelfServePlacementSelectEnabled:   server.config.Placement.SelfServeEnabled,
 		SelfServePlacementNames:           server.config.Placement.SelfServeNames,
 		CunoFSBetaEnabled:                 server.config.CunoFSBetaEnabled,
-		CSRFToken:                         csrfCookie.Value,
+		CSRFToken:                         csrfToken,
 	}
 
-	err = json.NewEncoder(w).Encode(&cfg)
+	err := json.NewEncoder(w).Encode(&cfg)
 	if err != nil {
 		w.WriteHeader(http.StatusInternalServerError)
 		server.log.Error("failed to write frontend config", zap.Error(err))

@@ -961,6 +961,43 @@ func (s *Service) VerifyRegistrationCaptcha(ctx context.Context, captchaResp, us
 	return true, nil, nil
 }
 
+// GenerateCSRFToken generates a new secure and signed CSRF protection token.
+func (s *Service) GenerateCSRFToken() (string, error) {
+	b := make([]byte, 32)
+	if _, err := rand.Read(b); err != nil {
+		return "", err
+	}
+
+	token := consoleauth.Token{Payload: b}
+
+	signature, err := s.tokens.SignToken(token)
+	if err != nil {
+		return "", err
+	}
+
+	token.Signature = signature
+
+	return token.String(), nil
+}
+
+// ValidateCSRFToken validates the CSRF protection token.
+func (s *Service) ValidateCSRFToken(value string) error {
+	token, err := consoleauth.FromBase64URLString(value)
+	if err != nil {
+		return err
+	}
+
+	valid, err := s.tokens.ValidateToken(token)
+	if err != nil {
+		return err
+	}
+	if !valid {
+		return errs.New("Invalid CSRF token")
+	}
+
+	return nil
+}
+
 // CreateUser gets password hash value and creates new inactive User.
 func (s *Service) CreateUser(ctx context.Context, user CreateUser, tokenSecret RegistrationSecret) (u *User, err error) {
 	defer mon.Task()(&ctx)(&err)

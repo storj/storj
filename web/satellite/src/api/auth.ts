@@ -76,9 +76,10 @@ export class AuthHttpApi implements UsersApi {
      * @param mfaPasscode - MFA passcode
      * @param mfaRecoveryCode - MFA recovery code
      * @param rememberForOneWeek - flag to remember user
+     * @param csrfToken - CSRF token
      * @throws Error
      */
-    public async token(email: string, password: string, captchaResponse: string, mfaPasscode: string, mfaRecoveryCode: string, rememberForOneWeek = false): Promise<TokenInfo> {
+    public async token(email: string, password: string, captchaResponse: string, mfaPasscode: string, mfaRecoveryCode: string, csrfToken: string, rememberForOneWeek = false): Promise<TokenInfo> {
         const path = `${this.ROOT_PATH}/token`;
         const body = {
             email,
@@ -89,7 +90,7 @@ export class AuthHttpApi implements UsersApi {
             rememberForOneWeek,
         };
 
-        const response = await this.http.post(path, JSON.stringify(body));
+        const response = await this.http.post(path, JSON.stringify(body), { 'X-CSRF-Token': csrfToken });
         if (response.ok) {
             const result = await response.json();
             if (result.error) {
@@ -251,8 +252,6 @@ export class AuthHttpApi implements UsersApi {
             message: result.error || 'Can not delete account. Please try again later',
             requestID: response.headers.get('x-request-id'),
         });
-
-        return null;
     }
 
     /**
