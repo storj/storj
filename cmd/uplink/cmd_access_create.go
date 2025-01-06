@@ -27,6 +27,7 @@ type cmdAccessCreate struct {
 	exportTo        string
 
 	unencryptedObjectKeys *bool
+	unencryptedMetadata   *bool
 }
 
 func newCmdAccessCreate(ex ulext.External) *cmdAccessCreate {
@@ -45,6 +46,9 @@ func (c *cmdAccessCreate) Setup(params clingy.Parameters) {
 	c.exportTo = params.Flag("export-to", "Export the access to this file path", "").(string)
 
 	c.unencryptedObjectKeys = params.Flag("unencrypted-object-keys", "If set, the created access grant won't encrypt object keys", nil,
+		clingy.Transform(strconv.ParseBool), clingy.Boolean, clingy.Optional,
+	).(*bool)
+	c.unencryptedMetadata = params.Flag("unencrypted-metadata", "If set, the created access grant won't encrypt object metadata", nil,
 		clingy.Transform(strconv.ParseBool), clingy.Boolean, clingy.Optional,
 	).(*bool)
 
@@ -90,6 +94,21 @@ func (c *cmdAccessCreate) Execute(ctx context.Context) (err error) {
 		}
 	}
 
+	unencryptedMetadata := false
+	if c.unencryptedMetadata != nil {
+		unencryptedMetadata = *c.unencryptedMetadata
+	} else if !c.passphraseStdin {
+		answer, err := c.ex.PromptInput(ctx, "Would you like to disable encryption for object metadata (allows metadata search functionality)? (y/N):")
+		if err != nil {
+			return errs.Wrap(err)
+		}
+
+		answer = strings.ToLower(answer)
+		if answer == "y" || answer == "yes" {
+			unencryptedMetadata = true
+		}
+	}
+
 	var passphrase string
 	if c.passphraseStdin {
 		stdinData, err := io.ReadAll(clingy.Stdin(ctx))
@@ -107,7 +126,7 @@ func (c *cmdAccessCreate) Execute(ctx context.Context) (err error) {
 		return errs.New("Encryption passphrase must be non-empty")
 	}
 
-	access, err := c.ex.RequestAccess(ctx, c.satelliteAddr, c.apiKey, passphrase, unencryptedObjectKeys)
+	access, err := c.ex.RequestAccess(ctx, c.satelliteAddr, c.apiKey, passphrase, unencryptedObjectKeys, unencryptedMetadata)
 	if err != nil {
 		return errs.Wrap(err)
 	}

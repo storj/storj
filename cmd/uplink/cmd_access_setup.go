@@ -91,7 +91,18 @@ func (c *cmdAccessSetup) Execute(ctx context.Context) (err error) {
 			unencryptedObjectKeys = true
 		}
 
-		access, err = c.ex.RequestAccess(ctx, satelliteAddr, keyOrGrant, passphrase, unencryptedObjectKeys)
+		unencryptedMetadata := false
+		answer, err = c.ex.PromptInput(ctx, "Would you like to disable encryption for object metadata (allows metadata search functionality)? (y/N):")
+		if err != nil {
+			return errs.Wrap(err)
+		}
+
+		answer = strings.ToLower(answer)
+		if answer == "y" || answer == "yes" {
+			unencryptedMetadata = true
+		}
+
+		access, err = c.ex.RequestAccess(ctx, satelliteAddr, keyOrGrant, passphrase, unencryptedObjectKeys, unencryptedMetadata)
 		if err != nil {
 			return errs.Wrap(err)
 		}
