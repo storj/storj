@@ -419,7 +419,7 @@ func Min(sources ...interface{}) ScoreNode {
 					minScore = get
 				}
 			default:
-				panic(fmt.Sprintf("min is supported only between float64,int64 and SourceNode (like the tracker), but got %T", source))
+				panic(fmt.Sprintf("min is supported only between float64,int64 and ScoreNode (like the tracker), but got %T", source))
 			}
 		}
 		return minScore

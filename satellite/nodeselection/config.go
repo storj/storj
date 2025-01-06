@@ -357,8 +357,10 @@ func SelectorFromString(expr string, environment *PlacementConfigEnvironment) (N
 		"lastbut":            LastBut,
 		"median":             Median,
 		"piececount":         PieceCount,
-		"desc":               Desc,
-
+		// deprecated: use * -1 instead
+		"desc":           Desc,
+		"node_attribute": CreateNodeAttribute,
+		"node_value":     CreateNodeValue,
 		"maxgroup": func(attribute interface{}) ScoreSelection {
 			switch value := attribute.(type) {
 			case NodeAttribute:
@@ -374,6 +376,7 @@ func SelectorFromString(expr string, environment *PlacementConfigEnvironment) (N
 			}
 		},
 	}
+	env = addArithmetic(env)
 	for k, v := range supportedFilters {
 		env[k] = v
 	}
