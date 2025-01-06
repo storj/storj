@@ -370,6 +370,12 @@ func (it *spannerLoopSegmentIterator) doNextQuery(ctx context.Context) (_ *spann
 			"batchsize":   it.batchSize,
 		}}
 
+	// emulator doesn't support this hint yet
+	if !it.db.connParams.Emulator {
+		// https://cloud.google.com/spanner/docs/sql-best-practices#enforce-scan-method
+		stmt.SQL = "@{SCAN_METHOD=BATCH}" + stmt.SQL
+	}
+
 	if it.readTimestamp.IsZero() {
 		return it.db.client.Single().Query(ctx, stmt)
 	}
