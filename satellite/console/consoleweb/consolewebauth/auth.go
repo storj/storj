@@ -19,15 +19,17 @@ type CookieSettings struct {
 
 // CookieAuth handles cookie authorization.
 type CookieAuth struct {
-	settings CookieSettings
-	domain   string
+	settings     CookieSettings
+	csrfSettings CookieSettings
+	domain       string
 }
 
 // NewCookieAuth create new cookie authorization with provided settings.
-func NewCookieAuth(settings CookieSettings, domain string) *CookieAuth {
+func NewCookieAuth(settings, csrfSettings CookieSettings, domain string) *CookieAuth {
 	return &CookieAuth{
-		settings: settings,
-		domain:   domain,
+		settings:     settings,
+		csrfSettings: csrfSettings,
+		domain:       domain,
 	}
 }
 
@@ -78,4 +80,21 @@ func (auth *CookieAuth) RemoveTokenCookie(w http.ResponseWriter) {
 // GetTokenCookieName returns the name of the cookie storing the session token.
 func (auth *CookieAuth) GetTokenCookieName() string {
 	return auth.settings.Name
+}
+
+// SetCSRFCookie sets parametrized CSRF cookie that is not accessible from js.
+func (auth *CookieAuth) SetCSRFCookie(w http.ResponseWriter, value string) {
+	http.SetCookie(w, &http.Cookie{
+		Domain:   auth.domain,
+		Name:     auth.csrfSettings.Name,
+		Value:    value,
+		Path:     auth.csrfSettings.Path,
+		HttpOnly: true,
+		SameSite: http.SameSiteStrictMode,
+	})
+}
+
+// GetCSRFCookieName returns the name of the cookie storing the CSRF token.
+func (auth *CookieAuth) GetCSRFCookieName() string {
+	return auth.csrfSettings.Name
 }

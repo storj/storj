@@ -5,8 +5,10 @@ package consoleweb
 
 import (
 	"context"
+	"crypto/rand"
 	"crypto/subtle"
 	_ "embed"
+	"encoding/base64"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -255,6 +257,9 @@ func NewServer(logger *zap.Logger, config Config, service *console.Service, oidc
 
 	server.cookieAuth = consolewebauth.NewCookieAuth(consolewebauth.CookieSettings{
 		Name: "_tokenKey",
+		Path: "/",
+	}, consolewebauth.CookieSettings{
+		Name: "csrf_token",
 		Path: "/",
 	}, server.config.AuthCookieDomain)
 
@@ -743,7 +748,27 @@ func (server *Server) appHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	csrfToken, err := generateCSRFToken()
+	if err != nil {
+		server.log.Error("Failed to generate CSRF token", zap.Error(err))
+		return
+	}
+
+	if server.cookieAuth != nil {
+		server.cookieAuth.SetCSRFCookie(w, csrfToken)
+	}
+
 	http.ServeContent(w, r, path, info.ModTime(), file)
+}
+
+// generateCSRFToken creates a secure random CSRF token.
+func generateCSRFToken() (string, error) {
+	b := make([]byte, 32)
+	if _, err := rand.Read(b); err != nil {
+		return "", err
+	}
+
+	return base64.StdEncoding.EncodeToString(b), nil
 }
 
 // varBlockerMiddleWare is a middleware that blocks requests from VAR partners.
@@ -862,6 +887,13 @@ func (server *Server) frontendConfigHandler(w http.ResponseWriter, r *http.Reque
 	defer mon.Task()(&ctx)(nil)
 	w.Header().Set(contentType, applicationJSON)
 
+	csrfCookie, err := r.Cookie(server.cookieAuth.GetCSRFCookieName())
+	if err != nil {
+		w.WriteHeader(http.StatusForbidden)
+		server.log.Error("CSRF token cookie missing in config endpoint", zap.Error(err))
+		return
+	}
+
 	cfg := FrontendConfig{
 		ExternalAddress:                   server.config.ExternalAddress,
 		SatelliteName:                     server.config.SatelliteName,
@@ -929,9 +961,10 @@ func (server *Server) frontendConfigHandler(w http.ResponseWriter, r *http.Reque
 		SelfServePlacementSelectEnabled:   server.config.Placement.SelfServeEnabled,
 		SelfServePlacementNames:           server.config.Placement.SelfServeNames,
 		CunoFSBetaEnabled:                 server.config.CunoFSBetaEnabled,
+		CSRFToken:                         csrfCookie.Value,
 	}
 
-	err := json.NewEncoder(w).Encode(&cfg)
+	err = json.NewEncoder(w).Encode(&cfg)
 	if err != nil {
 		w.WriteHeader(http.StatusInternalServerError)
 		server.log.Error("failed to write frontend config", zap.Error(err))

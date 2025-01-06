@@ -79,6 +79,7 @@ type FrontendConfig struct {
 	SelfServePlacementSelectEnabled   bool                  `json:"selfServePlacementSelectEnabled"`
 	SelfServePlacementNames           []string              `json:"selfServePlacementNames"`
 	CunoFSBetaEnabled                 bool                  `json:"cunoFSBetaEnabled"`
+	CSRFToken                         string                `json:"csrfToken"`
 }
 
 // Satellites is a configuration value that contains a list of satellite names and addresses.
