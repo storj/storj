@@ -88,7 +88,7 @@ func (db *DB) ListObjects(ctx context.Context, opts ListObjects) (result ListObj
 	ensureRange(&opts.Params.VersionSkipRequery, 1000, 1, 100000)
 	ensureRange(&opts.Params.PrefixSkipRequery, 1000, 1, 100000)
 	ensureRange(&opts.Params.MinBatchSize, 100, 1, 100000)
-	ensureRange(&opts.Params.QueryExtraForNonRecursive, 10, 1, 50)
+	ensureRange(&opts.Params.QueryExtraForNonRecursive, 10, 1, 100000)
 
 	return db.ChooseAdapter(opts.ProjectID).ListObjects(ctx, opts)
 }
@@ -103,7 +103,10 @@ func (p *PostgresAdapter) ListObjects(ctx context.Context, opts ListObjects) (re
 	// extraEntriesForMore is the additional entry we need for determining whether there are more entries.
 	const extraEntriesForMore = 1
 
-	batchSize := opts.Limit + extraEntriesForMore + params.QueryExtraForNonRecursive
+	batchSize := opts.Limit + extraEntriesForMore
+	if !opts.Recursive {
+		batchSize += params.QueryExtraForNonRecursive
+	}
 
 	if batchSize < params.MinBatchSize {
 		batchSize = params.MinBatchSize
@@ -286,7 +289,10 @@ func (s *SpannerAdapter) ListObjects(ctx context.Context, opts ListObjects) (res
 	// extraEntriesForMore is the additional entry we need for determining whether there are more entries.
 	const extraEntriesForMore = 1
 
-	batchSize := opts.Limit + extraEntriesForMore + params.QueryExtraForNonRecursive
+	batchSize := opts.Limit + extraEntriesForMore
+	if !opts.Recursive {
+		batchSize += params.QueryExtraForNonRecursive
+	}
 
 	if batchSize < params.MinBatchSize {
 		batchSize = params.MinBatchSize
