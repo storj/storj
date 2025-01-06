@@ -86,9 +86,9 @@ func (db *DB) ListObjects(ctx context.Context, opts ListObjects) (result ListObj
 
 	ListLimit.Ensure(&opts.Limit)
 
-	ensureRange(&opts.Params.VersionSkipRequery, 100, 1, 500)
-	ensureRange(&opts.Params.PrefixSkipRequery, 2, 1, 500)
-	ensureRange(&opts.Params.MinBatchSize, 100, 1, 500)
+	ensureRange(&opts.Params.VersionSkipRequery, 1000, 1, 100000)
+	ensureRange(&opts.Params.PrefixSkipRequery, 1000, 1, 100000)
+	ensureRange(&opts.Params.MinBatchSize, 100, 1, 100000)
 	ensureRange(&opts.Params.QueryExtraForNonRecursive, 10, 1, 50)
 
 	return db.ChooseAdapter(opts.ProjectID).ListObjects(ctx, opts)
@@ -179,9 +179,8 @@ func (p *PostgresAdapter) ListObjects(ctx context.Context, opts ListObjects) (re
 			}
 			scannedCount++
 
-			// skip a duplicate prefix entry, which only happens with opts.Recursive
-			// TODO: does this need opts.AllVersions
-			skipPrefix := lastEntry.Set && opts.AllVersions && lastEntry.IsPrefix && entry.IsPrefix && lastEntry.ObjectKey == entry.ObjectKey
+			// skip a duplicate prefix entry, which only happens with !opts.Recursive
+			skipPrefix := lastEntry.Set && lastEntry.IsPrefix && entry.IsPrefix && lastEntry.ObjectKey == entry.ObjectKey
 			// skip duplicate object key with other versions, when !opts.AllVersions
 			sameEntry := lastEntry.IsPrefix == entry.IsPrefix && lastEntry.ObjectKey == entry.ObjectKey
 			skipVersion := lastEntry.Set && !opts.AllVersions && sameEntry
@@ -380,9 +379,8 @@ func (s *SpannerAdapter) ListObjects(ctx context.Context, opts ListObjects) (res
 				}
 				scannedCount++
 
-				// skip a duplicate prefix entry, which only happens with opts.Recursive
-				// TODO: does this need opts.AllVersions
-				skipPrefix := lastEntry.Set && opts.AllVersions && lastEntry.IsPrefix && entry.IsPrefix && lastEntry.ObjectKey == entry.ObjectKey
+				// skip a duplicate prefix entry, which only happens with !opts.Recursive
+				skipPrefix := lastEntry.Set && lastEntry.IsPrefix && entry.IsPrefix && lastEntry.ObjectKey == entry.ObjectKey
 				// skip duplicate object key with other versions, when !opts.AllVersions
 				sameEntry := lastEntry.IsPrefix == entry.IsPrefix && lastEntry.ObjectKey == entry.ObjectKey
 				skipVersion := lastEntry.Set && !opts.AllVersions && sameEntry
