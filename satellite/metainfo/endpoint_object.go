@@ -1394,7 +1394,7 @@ func (endpoint *Endpoint) ListObjects(ctx context.Context, req *pb.ObjectListReq
 		// Or create a cursor key that's one higher and the first version (depending on the sorting order)
 
 		if endpoint.config.UseListObjectsForListing {
-			if status == metabase.Pending || bucket.Versioning.IsUnversioned() {
+			if status == metabase.Pending {
 				// For pending objects it's the maximum version.
 				cursorVersion = metabase.MaxVersion
 			} else {
@@ -1457,8 +1457,7 @@ func (endpoint *Endpoint) ListObjects(ctx context.Context, req *pb.ObjectListReq
 				IncludeCustomMetadata: includeCustomMetadata,
 				IncludeSystemMetadata: includeSystemMetadata,
 
-				Unversioned: bucket.Versioning.IsUnversioned(),
-				Params:      metabase.ListObjectsParams(endpoint.config.ListObjects),
+				Params: metabase.ListObjectsParams(endpoint.config.ListObjects),
 			})
 		if err != nil {
 			return nil, endpoint.ConvertMetabaseErr(err)
