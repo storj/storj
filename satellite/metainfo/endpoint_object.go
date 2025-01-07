@@ -1372,31 +1372,14 @@ func (endpoint *Endpoint) ListObjects(ctx context.Context, req *pb.ObjectListReq
 	if len(cursorKey) != 0 {
 		cursorKey = prefix + cursorKey
 
-		// This is a workaround to avoid duplicates while listing objects by libuplink.
-		// Because version is not part of cursor yet we need to specify a version that lists the next
-		// version from a given key.
+		// TODO this is a workaround to avoid duplicates while listing objects by libuplink.
+		// because version is not part of cursor yet and we can have object with version higher
+		// than 1 we cannot use hardcoded version 1 as default.
+		// This workaround should be in place for a longer time even if metainfo protocol will be
+		// fix as we still want to avoid this problem for older libuplink versions.
 		//
-		// The meaning of the cursor is to start iterating from the next item.
-		// For pending objects we sort items version ascending, for all others descending.
-		//
-		// So, to skip a given cursorKey we need to select either the last version (depending on the sorting order)
-		// Or create a cursor key that's one higher and the first version (depending on the sorting order)
-
-		if endpoint.config.UseListObjectsForListing {
-			if status == metabase.Pending {
-				// For pending objects it's the maximum version.
-				cursorVersion = metabase.MaxVersion
-			} else {
-				// For non-pending objects it's 0. (Because they are sorted in descending order)
-				cursorVersion = 0
-			}
-		} else {
-			// TODO: for some reason the old codepath always set it to MaxVersion.
-			// Let's keep it as such.
-			//
-			// I'm guessing IterateObjectsAllVersionsWithStatusAscending handles this logic internally.
-			cursorVersion = metabase.MaxVersion
-		}
+		// it should be set in case of pending and committed objects
+		cursorVersion = metabase.MaxVersion
 	}
 
 	if len(req.VersionCursor) != 0 {
