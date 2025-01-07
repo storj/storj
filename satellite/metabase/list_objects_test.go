@@ -4,11 +4,13 @@
 package metabase_test
 
 import (
+	"fmt"
 	"strconv"
 	"strings"
 	"testing"
 	"time"
 
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
 	"storj.io/common/testcontext"
@@ -2402,5 +2404,51 @@ func TestListObjects_Stress(t *testing.T) {
 			Limit:       4,
 		})
 		require.NoError(t, err)
+	})
+}
+
+func TestListObjects_RescanCursor(t *testing.T) {
+	metabasetest.Run(t, func(ctx *testcontext.Context, t *testing.T, db *metabase.DB) {
+		obj := metabasetest.RandObjectStream()
+
+		objects := []metabase.RawObject{}
+		for i := 0; i < 1; i++ {
+			for j := 0; j < 3; j++ {
+				for k := 0; k < 3; k++ {
+					objects = append(objects, metabase.RawObject{
+						ObjectStream: metabase.ObjectStream{
+							ProjectID:  obj.ProjectID,
+							BucketName: metabase.BucketName("bucket"),
+							ObjectKey:  metabase.ObjectKey(fmt.Sprintf("%d/%d/%d/object-%d", i, j, k, i+j+k)),
+							Version:    1,
+							StreamID:   uuid.UUID{1, byte(i), byte(k), byte(j)},
+						},
+					})
+				}
+			}
+		}
+
+		require.NoError(t, db.TestingBatchInsertObjects(ctx, objects))
+
+		all, err := db.TestingAllObjects(ctx)
+		require.NoError(t, err)
+		require.Equal(t, len(objects), len(all))
+
+		result, err := db.ListObjects(ctx, metabase.ListObjects{
+			ProjectID:  obj.ProjectID,
+			BucketName: "bucket",
+			Recursive:  true,
+			Cursor: metabase.ListObjectsCursor{
+				Key:     "0/0/0/object-0",
+				Version: 1,
+			},
+			Params: metabase.ListObjectsParams{
+				MinBatchSize: 1,
+			},
+			Limit: len(objects) - 2,
+		})
+		require.NoError(t, err)
+		assert.Len(t, result.Objects, len(objects)-2)
+		require.True(t, result.More)
 	})
 }

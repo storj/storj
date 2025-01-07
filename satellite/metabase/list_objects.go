@@ -105,6 +105,16 @@ func (p *PostgresAdapter) ListObjects(ctx context.Context, opts ListObjects) (re
 	const extraEntriesForMore = 1
 
 	batchSize := opts.Limit + extraEntriesForMore
+
+	// extraEntriesForIsLatest is used for skipping over object versions that are before the cursor.
+	// To determine IsLatest status, we need to scan from the lowest version of the object, hence we end up
+	// with versions that happen to be before the cursor. To avoid a second query we'll query a few more as a guess.
+	const extraEntriesForIsLatest = 3
+	if opts.Cursor != (ListObjectsCursor{}) {
+		batchSize += extraEntriesForIsLatest
+	}
+
+	// For non-recursive queries, we'll probably need to skip over some things inside a prefix.
 	if !opts.Recursive {
 		batchSize += params.QueryExtraForNonRecursive
 	}
@@ -291,6 +301,16 @@ func (s *SpannerAdapter) ListObjects(ctx context.Context, opts ListObjects) (res
 	const extraEntriesForMore = 1
 
 	batchSize := opts.Limit + extraEntriesForMore
+
+	// extraEntriesForIsLatest is used for skipping over object versions that are before the cursor.
+	// To determine IsLatest status, we need to scan from the lowest version of the object, hence we end up
+	// with versions that happen to be before the cursor. To avoid a second query we'll query a few more as a guess.
+	const extraEntriesForIsLatest = 3
+	if opts.Cursor != (ListObjectsCursor{}) {
+		batchSize += extraEntriesForIsLatest
+	}
+
+	// For non-recursive queries, we'll probably need to skip over some things inside a prefix.
 	if !opts.Recursive {
 		batchSize += params.QueryExtraForNonRecursive
 	}
@@ -362,7 +382,7 @@ func (s *SpannerAdapter) ListObjects(ctx context.Context, opts ListObjects) (res
 
 		scannedCount := 0
 		skipAhead := false
-		done := false
+		foundLastItem := false
 
 		err := func() error {
 			rowIterator := s.client.Single().Query(ctx, stmt)
@@ -373,7 +393,6 @@ func (s *SpannerAdapter) ListObjects(ctx context.Context, opts ListObjects) (res
 				row, err := rowIterator.Next()
 				if err != nil {
 					if errors.Is(err, iterator.Done) {
-						done = true
 						return nil
 					}
 					return Error.Wrap(err)
@@ -442,7 +461,7 @@ func (s *SpannerAdapter) ListObjects(ctx context.Context, opts ListObjects) (res
 				if len(result.Objects) >= opts.Limit+1 {
 					result.More = true
 					result.Objects = result.Objects[:opts.Limit]
-					done = true
+					foundLastItem = true
 					return nil
 				}
 			}
@@ -451,7 +470,7 @@ func (s *SpannerAdapter) ListObjects(ctx context.Context, opts ListObjects) (res
 		if err != nil {
 			return result, Error.Wrap(err)
 		}
-		if done {
+		if foundLastItem {
 			return result, nil
 		}
 
