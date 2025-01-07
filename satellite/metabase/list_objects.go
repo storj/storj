@@ -171,22 +171,17 @@ func (p *PostgresAdapter) ListObjects(ctx context.Context, opts ListObjects) (re
 			// TODO: does this need opts.AllVersions
 			skipPrefix := lastEntry.Set && opts.AllVersions && lastEntry.IsPrefix && entry.IsPrefix && lastEntry.ObjectKey == entry.ObjectKey
 			// skip duplicate object key with other versions, when !opts.AllVersions
-			sameEntry := lastEntry.IsPrefix == entry.IsPrefix && lastEntry.ObjectKey == entry.ObjectKey
-			skipVersion := lastEntry.Set && !opts.AllVersions && sameEntry
+			skipVersion := lastEntry.Set && !opts.AllVersions && lastEntry.IsPrefix == entry.IsPrefix && lastEntry.ObjectKey == entry.ObjectKey
 
 			// we'll need to ensure that when we are iterating only latest objects that we don't
 			// emit an object entry when we start iterating from half-way in versions.
 			var skipCursorAllVersionsDoubleCheck bool
-			if entryKeyMatchesCursor(opts.Prefix, entry.ObjectKey, opts.Cursor.Key) {
+			if !opts.AllVersions && entryKeyMatchesCursor(opts.Prefix, entry.ObjectKey, opts.Cursor.Key) {
 				if opts.VersionAscending() {
 					skipCursorAllVersionsDoubleCheck = entry.Version <= opts.Cursor.Version
 				} else {
 					skipCursorAllVersionsDoubleCheck = entry.Version >= opts.Cursor.Version
 				}
-			}
-
-			if !opts.Pending && !entry.IsPrefix {
-				entry.IsLatest = !sameEntry || !lastEntry.Set
 			}
 
 			lastEntry.Set = true
@@ -380,22 +375,17 @@ func (s *SpannerAdapter) ListObjects(ctx context.Context, opts ListObjects) (res
 				// TODO: does this need opts.AllVersions
 				skipPrefix := lastEntry.Set && opts.AllVersions && lastEntry.IsPrefix && entry.IsPrefix && lastEntry.ObjectKey == entry.ObjectKey
 				// skip duplicate object key with other versions, when !opts.AllVersions
-				sameEntry := lastEntry.IsPrefix == entry.IsPrefix && lastEntry.ObjectKey == entry.ObjectKey
-				skipVersion := lastEntry.Set && !opts.AllVersions && sameEntry
+				skipVersion := lastEntry.Set && !opts.AllVersions && lastEntry.IsPrefix == entry.IsPrefix && lastEntry.ObjectKey == entry.ObjectKey
 
 				// we'll need to ensure that when we are iterating only latest objects that we don't
 				// emit an object entry when we start iterating from half-way in versions.
 				var skipCursorAllVersionsDoubleCheck bool
-				if entryKeyMatchesCursor(opts.Prefix, entry.ObjectKey, opts.Cursor.Key) {
+				if !opts.AllVersions && entryKeyMatchesCursor(opts.Prefix, entry.ObjectKey, opts.Cursor.Key) {
 					if opts.VersionAscending() {
 						skipCursorAllVersionsDoubleCheck = entry.Version <= opts.Cursor.Version
 					} else {
 						skipCursorAllVersionsDoubleCheck = entry.Version >= opts.Cursor.Version
 					}
-				}
-
-				if !opts.Pending && !entry.IsPrefix {
-					entry.IsLatest = !sameEntry || !lastEntry.Set
 				}
 
 				lastEntry.Set = true
@@ -611,9 +601,14 @@ func (opts *ListObjects) StartCursor() ListObjectsCursor {
 		// Otherwise, we must be after the prefix, and let's leave the cursor as is.
 		// We could also entirely skip the query to the database.
 
-		// We need to start from the latest version, so we can set the "Latest bool" correctly.
-		// produced, because we may need to skip it.
-		return ListObjectsCursor{Key: opts.Cursor.Key, Version: opts.FirstVersion()}
+		if !opts.AllVersions {
+			// We'll do the same behavior of double checking the "versions",
+			// however, since the cursor is past prefix, we can entirely skip
+			// this logic.
+			return ListObjectsCursor{Key: opts.Cursor.Key, Version: opts.FirstVersion()}
+		}
+
+		return opts.Cursor
 	}
 
 	keyWithoutPrefix := opts.Cursor.Key[len(opts.Prefix):]
@@ -629,9 +624,13 @@ func (opts *ListObjects) StartCursor() ListObjectsCursor {
 		}
 	}
 
-	// We need to start from the latest version, so we can set the "Latest bool" correctly.
-	// produced, because we may need to skip it.
-	return ListObjectsCursor{Key: opts.Cursor.Key, Version: opts.FirstVersion()}
+	if !opts.AllVersions {
+		// We need to double check whether the latest entry has been already
+		// produced, because we may need to skip it.
+		return ListObjectsCursor{Key: opts.Cursor.Key, Version: opts.FirstVersion()}
+	}
+
+	return opts.Cursor
 }
 
 func scanListObjectsEntryPostgres(rows tagsql.Rows, opts *ListObjects) (item ObjectEntry, err error) {

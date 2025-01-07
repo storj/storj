@@ -18,8 +18,13 @@ import (
 
 // NaiveObjectsDB implements a slow reference ListObjects implementation.
 type NaiveObjectsDB struct {
-	VersionAsc  []metabase.ObjectEntry
-	VersionDesc []metabase.ObjectEntry
+	VersionAsc  []naiveObjectEntry
+	VersionDesc []naiveObjectEntry
+}
+
+type naiveObjectEntry struct {
+	IsLatest bool
+	metabase.ObjectEntry
 }
 
 // NewNaiveObjectsDB returns a new NaiveObjectsDB.
@@ -29,15 +34,15 @@ func NewNaiveObjectsDB(rawentries []metabase.ObjectEntry) *NaiveObjectsDB {
 		return versiondesc[i].Less(versiondesc[k])
 	})
 
-	entries := make([]metabase.ObjectEntry, 0, len(rawentries))
+	entries := make([]naiveObjectEntry, 0, len(rawentries))
 
 	lastEntry := metabase.ObjectKey("")
 	for _, entry := range versiondesc {
-		if entry.Status != metabase.Pending {
-			entry.IsLatest = entry.ObjectKey != lastEntry
-			lastEntry = entry.ObjectKey
-		}
-		entries = append(entries, entry)
+		entries = append(entries, naiveObjectEntry{
+			IsLatest:    entry.ObjectKey != lastEntry,
+			ObjectEntry: entry,
+		})
+		lastEntry = entry.ObjectKey
 	}
 
 	db := &NaiveObjectsDB{
@@ -46,7 +51,7 @@ func NewNaiveObjectsDB(rawentries []metabase.ObjectEntry) *NaiveObjectsDB {
 	}
 
 	sort.Slice(db.VersionAsc, func(i, k int) bool {
-		return db.VersionAsc[i].LessVersionAsc(db.VersionAsc[k])
+		return db.VersionAsc[i].LessVersionAsc(db.VersionAsc[k].ObjectEntry)
 	})
 	return db
 }
@@ -109,7 +114,7 @@ func (db *NaiveObjectsDB) ListObjects(ctx context.Context, opts metabase.ListObj
 			scoped.IsPrefix = true
 			scoped.Status = metabase.Prefix
 		} else {
-			scoped = *entry
+			scoped = entry.ObjectEntry
 			scoped.ObjectKey = entryKey
 			clearEntryMetadata(&opts, &scoped)
 		}
@@ -145,7 +150,7 @@ func entryExcludedByCursor(opts *metabase.ListObjects, entryKeyWithPrefix metaba
 	return entryKeyWithPrefix <= opts.Cursor.Key
 }
 
-func calculateEntryKey(opts *metabase.ListObjects, entry *metabase.ObjectEntry) (entryKeyWithPrefix, entryKey metabase.ObjectKey, entryVersion metabase.Version, isPrefix bool) {
+func calculateEntryKey(opts *metabase.ListObjects, entry *naiveObjectEntry) (entryKeyWithPrefix, entryKey metabase.ObjectKey, entryVersion metabase.Version, isPrefix bool) {
 	entryKey = entry.ObjectKey[len(opts.Prefix):]
 
 	if !opts.Recursive {
@@ -202,7 +207,7 @@ func TestNaiveObjectsDB_Basic(t *testing.T) {
 			Cursor:      metabase.ListObjectsCursor{Key: "a/", Version: 0},
 		},
 		[]metabase.ObjectEntry{
-			{ObjectKey: "b", Version: 1, Status: metabase.CommittedVersioned, IsLatest: true},
+			{ObjectKey: "b", Version: 1, Status: metabase.CommittedVersioned},
 		},
 	)
 
@@ -220,7 +225,7 @@ func TestNaiveObjectsDB_Basic(t *testing.T) {
 			Cursor:      metabase.ListObjectsCursor{Key: "\x00", Version: 0},
 		},
 		[]metabase.ObjectEntry{
-			{ObjectKey: "\x00\x00", Version: 1, Status: metabase.CommittedVersioned, IsLatest: true},
+			{ObjectKey: "\x00\x00", Version: 1, Status: metabase.CommittedVersioned},
 		},
 	)
 
@@ -238,7 +243,7 @@ func TestNaiveObjectsDB_Basic(t *testing.T) {
 			Cursor:      metabase.ListObjectsCursor{Key: "\x00/", Version: 0},
 		},
 		[]metabase.ObjectEntry{
-			{ObjectKey: "\x00\xff", Version: 5, Status: metabase.CommittedVersioned, IsLatest: true},
+			{ObjectKey: "\x00\xff", Version: 5, Status: metabase.CommittedVersioned},
 		},
 	)
 
@@ -256,7 +261,7 @@ func TestNaiveObjectsDB_Basic(t *testing.T) {
 			Cursor:      metabase.ListObjectsCursor{Key: "\x00/", Version: metabase.MaxVersion},
 		},
 		[]metabase.ObjectEntry{
-			{ObjectKey: "\x00\xff", Version: 5, Status: metabase.CommittedVersioned, IsLatest: true},
+			{ObjectKey: "\x00\xff", Version: 5, Status: metabase.CommittedVersioned},
 		},
 	)
 
@@ -275,7 +280,7 @@ func TestNaiveObjectsDB_Basic(t *testing.T) {
 		},
 		[]metabase.ObjectEntry{
 			{ObjectKey: "\x00/", Version: 0, Status: metabase.Prefix, IsPrefix: true},
-			{ObjectKey: "\x00\xff", Version: 5, Status: metabase.CommittedVersioned, IsLatest: true},
+			{ObjectKey: "\x00\xff", Version: 5, Status: metabase.CommittedVersioned},
 		},
 	)
 }

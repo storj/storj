@@ -14,7 +14,6 @@ import (
 // ObjectEntry contains information about an item in a bucket.
 type ObjectEntry struct {
 	IsPrefix bool
-	IsLatest bool
 
 	ObjectKey ObjectKey
 	Version   Version

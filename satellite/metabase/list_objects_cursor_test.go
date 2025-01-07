@@ -33,11 +33,19 @@ func TestListObjects_startCursor(t *testing.T) {
 					Cursor:      metabase.ListObjectsCursor{},
 				}
 
-				// latest version double check
-				assert.Equal(t, metabase.ListObjectsCursor{
-					Key:     "",
-					Version: opts.FirstVersion(),
-				}, opts.StartCursor(), opts)
+				switch {
+				case !allVersions:
+					// latest version double check, optional
+					assert.Equal(t, metabase.ListObjectsCursor{
+						Key:     "",
+						Version: opts.FirstVersion(),
+					}, opts.StartCursor(), opts)
+				default:
+					assert.Equal(t, metabase.ListObjectsCursor{
+						Key:     "",
+						Version: 0,
+					}, opts.StartCursor(), opts)
+				}
 			}
 		}
 	}
@@ -56,11 +64,23 @@ func TestListObjects_startCursor(t *testing.T) {
 					},
 				}
 
-				// latest version double check
-				assert.Equal(t, metabase.ListObjectsCursor{
-					Key:     "a",
-					Version: opts.FirstVersion(),
-				}, opts.StartCursor(), opts)
+				switch {
+				case !allVersions:
+					// latest version double check
+					assert.Equal(t, metabase.ListObjectsCursor{
+						Key:     "a",
+						Version: opts.FirstVersion(),
+					}, opts.StartCursor(), opts)
+
+				case allVersions:
+					assert.Equal(t, metabase.ListObjectsCursor{
+						Key:     "a",
+						Version: 100,
+					}, opts.StartCursor(), opts)
+
+				default:
+					panic("unhandled scenario")
+				}
 			}
 		}
 	}
@@ -82,7 +102,13 @@ func TestListObjects_startCursor(t *testing.T) {
 					}
 
 					switch {
-					case recursive:
+					case recursive && allVersions:
+						assert.Equal(t, metabase.ListObjectsCursor{
+							Key:     prefix + "a/a",
+							Version: 100,
+						}, opts.StartCursor(), opts)
+
+					case recursive && !allVersions:
 						// latest version double check
 						assert.Equal(t, metabase.ListObjectsCursor{
 							Key:     prefix + "a/a",
@@ -120,11 +146,23 @@ func TestListObjects_startCursor(t *testing.T) {
 						Prefix: prefix,
 					}
 
-					// latest version double check
-					assert.Equal(t, metabase.ListObjectsCursor{
-						Key:     prefix + "a",
-						Version: opts.FirstVersion(),
-					}, opts.StartCursor(), opts)
+					switch {
+					case !allVersions:
+						// latest version double check
+						assert.Equal(t, metabase.ListObjectsCursor{
+							Key:     prefix + "a",
+							Version: opts.FirstVersion(),
+						}, opts.StartCursor(), opts)
+
+					case allVersions:
+						assert.Equal(t, metabase.ListObjectsCursor{
+							Key:     prefix + "a",
+							Version: 100,
+						}, opts.StartCursor(), opts)
+
+					default:
+						panic("unhandled scenario")
+					}
 				}
 			}
 		}
@@ -146,11 +184,23 @@ func TestListObjects_startCursor(t *testing.T) {
 						Prefix: prefix,
 					}
 
-					// latest version double check
-					assert.Equal(t, metabase.ListObjectsCursor{
-						Key:     prefix,
-						Version: opts.FirstVersion(),
-					}, opts.StartCursor(), opts)
+					switch {
+					case !allVersions:
+						// latest version double check
+						assert.Equal(t, metabase.ListObjectsCursor{
+							Key:     prefix,
+							Version: opts.FirstVersion(),
+						}, opts.StartCursor(), opts)
+
+					case allVersions:
+						assert.Equal(t, metabase.ListObjectsCursor{
+							Key:     prefix,
+							Version: 100,
+						}, opts.StartCursor(), opts)
+
+					default:
+						panic("unhandled scenario")
+					}
 				}
 			}
 		}
@@ -197,11 +247,23 @@ func TestListObjects_startCursor(t *testing.T) {
 						Prefix: "b/",
 					}
 
-					// latest version double check
-					assert.Equal(t, metabase.ListObjectsCursor{
-						Key:     cursor,
-						Version: opts.FirstVersion(),
-					}, opts.StartCursor(), opts)
+					switch {
+					case !allVersions:
+						// latest version double check, optional
+						assert.Equal(t, metabase.ListObjectsCursor{
+							Key:     cursor,
+							Version: opts.FirstVersion(),
+						}, opts.StartCursor(), opts)
+
+					case allVersions:
+						assert.Equal(t, metabase.ListObjectsCursor{
+							Key:     cursor,
+							Version: 100,
+						}, opts.StartCursor(), opts)
+
+					default:
+						panic("unhandled scenario")
+					}
 				}
 			}
 		}

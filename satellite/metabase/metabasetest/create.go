@@ -178,10 +178,7 @@ func CreateSegments(ctx *testcontext.Context, t testing.TB, db *metabase.DB, obj
 func CreateVersionedObjectsWithKeys(ctx *testcontext.Context, t *testing.T, db *metabase.DB, projectID uuid.UUID, bucketName metabase.BucketName, keys map[metabase.ObjectKey][]metabase.Version) map[metabase.ObjectKey]metabase.ObjectEntry {
 	objects := make(map[metabase.ObjectKey]metabase.ObjectEntry, len(keys))
 	for key, versions := range keys {
-		for i, version := range versions {
-			if i > 0 && version <= versions[i-1] {
-				panic("versions should be in ascending order")
-			}
+		for _, version := range versions {
 			obj := RandObjectStream()
 			obj.ProjectID = projectID
 			obj.BucketName = bucketName
@@ -192,7 +189,6 @@ func CreateVersionedObjectsWithKeys(ctx *testcontext.Context, t *testing.T, db *
 			CreateObjectVersioned(ctx, t, db, obj, 0)
 
 			objects[key] = metabase.ObjectEntry{
-				IsLatest:   i+1 == len(versions),
 				ObjectKey:  obj.ObjectKey,
 				Version:    obj.Version,
 				StreamID:   obj.StreamID,
@@ -211,11 +207,7 @@ func CreateVersionedObjectsWithKeys(ctx *testcontext.Context, t *testing.T, db *
 func CreatePendingObjectsWithKeys(ctx *testcontext.Context, t *testing.T, db *metabase.DB, projectID uuid.UUID, bucketName metabase.BucketName, keys map[metabase.ObjectKey][]metabase.Version) map[metabase.ObjectKey]metabase.ObjectEntry {
 	objects := make(map[metabase.ObjectKey]metabase.ObjectEntry, len(keys))
 	for key, versions := range keys {
-		for i, version := range versions {
-			if i > 0 && version <= versions[i-1] {
-				panic("versions should be in ascending order")
-			}
-
+		for _, version := range versions {
 			obj := RandObjectStream()
 			obj.ProjectID = projectID
 			obj.BucketName = bucketName
@@ -227,7 +219,6 @@ func CreatePendingObjectsWithKeys(ctx *testcontext.Context, t *testing.T, db *me
 
 			k := key + ":" + metabase.ObjectKey(strconv.Itoa(int(version)))
 			objects[k] = metabase.ObjectEntry{
-				IsLatest:   false,
 				ObjectKey:  obj.ObjectKey,
 				Version:    obj.Version,
 				StreamID:   obj.StreamID,
@@ -247,11 +238,7 @@ func CreateVersionedObjectsWithKeysAll(ctx *testcontext.Context, t *testing.T, d
 	objects := make(map[metabase.ObjectKey][]metabase.ObjectEntry, len(keys))
 	for key, versions := range keys {
 		items := []metabase.ObjectEntry{}
-		for i, version := range versions {
-			if i > 0 && version <= versions[i-1] {
-				panic("versions should be in ascending order")
-			}
-
+		for _, version := range versions {
 			obj := RandObjectStream()
 			obj.ProjectID = projectID
 			obj.BucketName = bucketName
@@ -262,7 +249,6 @@ func CreateVersionedObjectsWithKeysAll(ctx *testcontext.Context, t *testing.T, d
 			CreateObjectVersioned(ctx, t, db, obj, 0)
 
 			items = append(items, metabase.ObjectEntry{
-				IsLatest:   i+1 == len(versions),
 				ObjectKey:  obj.ObjectKey,
 				Version:    obj.Version,
 				StreamID:   obj.StreamID,
