@@ -104,11 +104,6 @@ func (v Versioning) IsUnversioned() bool {
 	return v == VersioningUnsupported || v == Unversioned
 }
 
-// IsVersioned returns true if bucket is either in a versioned or suspended state.
-func (v Versioning) IsVersioned() bool {
-	return !v.IsUnversioned()
-}
-
 // MinimalBucket contains minimal bucket fields for metainfo protocol.
 type MinimalBucket struct {
 	Name      []byte

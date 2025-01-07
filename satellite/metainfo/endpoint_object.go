@@ -1318,8 +1318,8 @@ func calculateStreamRange(object metabase.Object, req *pb.Range) (*metabase.Stre
 
 // ListObjectsFlags contains flags for tuning the ListObjects query.
 type ListObjectsFlags struct {
-	VersionSkipRequery        int `default:"1000" help:"versions to skip before requerying"`
-	PrefixSkipRequery         int `default:"1000" help:"prefixes to skip before requerying"`
+	VersionSkipRequery        int `default:"100" help:"versions to skip before requerying"`
+	PrefixSkipRequery         int `default:"2" help:"prefixes to skip before requerying"`
 	QueryExtraForNonRecursive int `default:"10" help:"extra items to list for non-recursive queries"`
 	MinBatchSize              int `default:"100" help:"minimum number of items to query at a time"`
 }
@@ -1450,7 +1450,7 @@ func (endpoint *Endpoint) ListObjects(ctx context.Context, req *pb.ObjectListReq
 				Pending: status == metabase.Pending,
 				// for pending, we always need all versions
 				// when bucket is unversioned, then requesting all versions is slightly faster
-				AllVersions: req.IncludeAllVersions || status == metabase.Pending,
+				AllVersions: req.IncludeAllVersions || status == metabase.Pending || bucket.Versioning.IsUnversioned(),
 				Recursive:   req.Recursive,
 				Limit:       limit,
 
