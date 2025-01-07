@@ -43,6 +43,7 @@ type Config struct {
 	// TODO remove this flag when server-side copy implementation will be finished
 	ServerSideCopy         bool
 	ServerSideCopyDisabled bool
+	UseListObjectsIterator bool
 
 	NodeAliasCacheFullRefresh bool
 

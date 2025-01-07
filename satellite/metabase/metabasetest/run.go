@@ -66,6 +66,7 @@ func Run(t *testing.T, fn func(ctx *testcontext.Context, t *testing.T, db *metab
 		MaxNumberOfParts:           config.MaxNumberOfParts,
 		ServerSideCopy:             config.ServerSideCopy,
 		ServerSideCopyDisabled:     config.ServerSideCopyDisabled,
+		UseListObjectsIterator:     config.UseListObjectsIterator,
 		TestingUniqueUnversioned:   true,
 		TestingPrecommitDeleteMode: metabase.TestingPrecommitDeleteMode(config.TestingPrecommitDeleteMode),
 	}, fn, flags...)

@@ -65,6 +65,7 @@ var (
 	databaseConn   = flag.String("database", os.Getenv("STORJ_TEST_COCKROACH"), "database to use for testing")
 	benchmarkCount = flag.Int("benchmark", 6, "how many times to repeat a single query for benchmarking")
 	filter         = flag.String("filter", "", "run only tests that match this regular expression")
+	skipIterator   = flag.Bool("skip-iterator", false, "skip iterator benchmark")
 	skipList       = flag.Bool("skip-list", false, "skip list objects benchmark")
 
 	cpuprofile = flag.String("cpuprofile", "", "profile cpu")
@@ -180,7 +181,7 @@ func Setup(ctx context.Context, log *zap.Logger, db *metabase.DB) error {
 // Benchmark runs benchmarks with the configured scenarios.
 func Benchmark(ctx context.Context, log *zap.Logger, db *metabase.DB) (err error) {
 	prefix := "bench-" + time.Now().Format("2006-01-02_15-04-05")
-	var listFile *os.File
+	var listFile, iterateFile *os.File
 
 	if !*skipList {
 		var err error
@@ -189,6 +190,15 @@ func Benchmark(ctx context.Context, log *zap.Logger, db *metabase.DB) (err error
 			return errs.Wrap(err)
 		}
 		defer func() { _ = listFile.Close() }()
+	}
+
+	if !*skipIterator {
+		var err error
+		iterateFile, err = os.Create(prefix + ".Iterate.log")
+		if err != nil {
+			return errs.Wrap(err)
+		}
+		defer func() { _ = iterateFile.Close() }()
 	}
 
 	var rx *regexp.Regexp
@@ -224,6 +234,14 @@ func Benchmark(ctx context.Context, log *zap.Logger, db *metabase.DB) (err error
 								return errs.Wrap(err)
 							}
 							_ = listFile.Sync()
+						}
+						if !*skipIterator {
+							err := benchmarkIterator(ctx, slog, db, testName, opts, iterateFile)
+							err = ignoreTimeoutOrCancel(err)
+							if err != nil {
+								return errs.Wrap(err)
+							}
+							_ = iterateFile.Sync()
 						}
 
 						if ctx.Err() != nil {
@@ -298,6 +316,50 @@ func benchmarkListObjects(ctx context.Context, log *zap.Logger, db *metabase.DB,
 		}
 	}
 
+	return nil
+}
+
+func benchmarkIterator(ctx context.Context, log *zap.Logger, db *metabase.DB, testName string, opts metabase.ListObjects, out io.Writer) error {
+	if opts.Pending || opts.AllVersions {
+		// not supported
+		return nil
+	}
+
+	totalTime := time.Duration(0)
+
+	for range repeat(*benchmarkCount) {
+		startClock := time.Now()
+		start := hrtime.Now()
+		result, err := db.ListObjectsWithIterator(ctx, opts)
+		finish := hrtime.Now()
+		finishClock := time.Now()
+
+		duration := finish - start
+		if duration < 0 { // hrtime seems to not handle tsc wrapping nicely
+			duration = finishClock.Sub(startClock)
+		}
+		totalTime += duration
+
+		if err != nil {
+			return errs.Wrap(err)
+		}
+		log.Info("Iterator",
+			zap.Duration("time", duration),
+			zap.Int("result", len(result.Objects)),
+			zap.Bool("pending", opts.Pending),
+			zap.Bool("recursive", opts.Recursive),
+			zap.Bool("all", opts.AllVersions),
+			zap.Int("limit", opts.Limit),
+		)
+
+		line := fmt.Sprintf("Benchmark%v\t1\t%v ns/op", testName, duration.Nanoseconds())
+		fmt.Println(line)
+		_, _ = fmt.Fprintln(out, line)
+
+		if totalTime > maxTimePerBenchmark {
+			break
+		}
+	}
 	return nil
 }
 
