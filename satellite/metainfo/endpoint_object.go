@@ -22,6 +22,7 @@ import (
 	"storj.io/common/pb"
 	"storj.io/common/rpc/rpcstatus"
 	"storj.io/common/storj"
+	"storj.io/common/usermeta"
 	"storj.io/common/uuid"
 	"storj.io/eventkit"
 	"storj.io/storj/satellite/buckets"
@@ -199,6 +200,15 @@ func (endpoint *Endpoint) BeginObject(ctx context.Context, req *pb.ObjectBeginRe
 		nonce = req.EncryptedMetadataNonce[:]
 	}
 
+	var clearMetadata *string
+	if len(req.ClearMetadata) > 0 {
+		um, err := usermeta.UnmarshalJSON(req.ClearMetadata)
+		if err != nil {
+			return nil, rpcstatus.Error(rpcstatus.InvalidArgument, "invalid clear_metadata")
+		}
+		clearMetadata = &um
+	}
+
 	opts := metabase.BeginObjectNextVersion{
 		ObjectStream: metabase.ObjectStream{
 			ProjectID:  keyInfo.ProjectID,
@@ -212,6 +222,7 @@ func (endpoint *Endpoint) BeginObject(ctx context.Context, req *pb.ObjectBeginRe
 		EncryptedMetadata:             req.EncryptedMetadata,
 		EncryptedMetadataEncryptedKey: req.EncryptedMetadataEncryptedKey,
 		EncryptedMetadataNonce:        nonce,
+		ClearMetadata:                 clearMetadata,
 
 		Retention: retention,
 		LegalHold: req.LegalHold,
@@ -390,6 +401,14 @@ func (endpoint *Endpoint) CommitObject(ctx context.Context, req *pb.ObjectCommit
 			request.EncryptedMetadataNonce = streamMeta.LastSegmentMeta.KeyNonce
 			request.EncryptedMetadataEncryptedKey = streamMeta.LastSegmentMeta.EncryptedKey
 		}
+	}
+	if len(req.ClearMetadata) > 0 {
+		metadata, err := usermeta.UnmarshalJSON(req.ClearMetadata)
+		if err != nil {
+			return nil, rpcstatus.Error(rpcstatus.InvalidArgument, "invalid clear_metadata")
+		}
+		request.OverrideEncryptedMetadata = true
+		request.ClearMetadata = &metadata
 	}
 
 	if err := endpoint.checkEncryptedMetadataSize(request.EncryptedMetadata, request.EncryptedMetadataEncryptedKey); err != nil {
@@ -626,6 +645,15 @@ func (endpoint *Endpoint) CommitInlineObject(ctx context.Context, beginObjectReq
 		metadataNonce = commitObjectReq.EncryptedMetadataNonce[:]
 	}
 
+	var clearMetadata *string
+	if len(commitObjectReq.ClearMetadata) > 0 {
+		um, err := usermeta.UnmarshalJSON(commitObjectReq.ClearMetadata)
+		if err != nil {
+			return nil, nil, nil, rpcstatus.Error(rpcstatus.InvalidArgument, "invalid clear_metadata")
+		}
+		clearMetadata = &um
+	}
+
 	objectStream := metabase.ObjectStream{
 		ProjectID:  keyInfo.ProjectID,
 		BucketName: metabase.BucketName(bucket.Name),
@@ -657,6 +685,7 @@ func (endpoint *Endpoint) CommitInlineObject(ctx context.Context, beginObjectReq
 		EncryptedMetadata:             commitObjectReq.EncryptedMetadata,
 		EncryptedMetadataEncryptedKey: commitObjectReq.EncryptedMetadataEncryptedKey,
 		EncryptedMetadataNonce:        metadataNonce,
+		ClearMetadata:                 clearMetadata,
 
 		Retention: retention,
 		LegalHold: beginObjectReq.LegalHold,

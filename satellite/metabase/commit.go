@@ -6,6 +6,7 @@ package metabase
 import (
 	"context"
 	"database/sql"
+	"encoding/json"
 	"errors"
 	"strings"
 	"time"
@@ -54,9 +55,10 @@ type BeginObjectNextVersion struct {
 	ExpiresAt              *time.Time
 	ZombieDeletionDeadline *time.Time
 
-	EncryptedMetadata             []byte // optional
-	EncryptedMetadataNonce        []byte // optional
-	EncryptedMetadataEncryptedKey []byte // optional
+	EncryptedMetadata             []byte  // optional
+	EncryptedMetadataNonce        []byte  // optional
+	EncryptedMetadataEncryptedKey []byte  // optional
+	ClearMetadata                 *string // optional
 
 	Encryption storj.EncryptionParameters
 
@@ -79,6 +81,10 @@ func (opts *BeginObjectNextVersion) Verify() error {
 		return ErrInvalidRequest.New("EncryptedMetadataNonce and EncryptedMetadataEncryptedKey must be not set if EncryptedMetadata is not set")
 	case opts.EncryptedMetadata != nil && (opts.EncryptedMetadataNonce == nil || opts.EncryptedMetadataEncryptedKey == nil):
 		return ErrInvalidRequest.New("EncryptedMetadataNonce and EncryptedMetadataEncryptedKey must be set if EncryptedMetadata is set")
+	}
+
+	if opts.ClearMetadata != nil && !json.Valid([]byte(*opts.ClearMetadata)) {
+		return ErrInvalidRequest.New("ClearMetadata must be a valid JSON")
 	}
 
 	if err := opts.Retention.Verify(); err != nil {
@@ -142,6 +148,7 @@ func (p *PostgresAdapter) BeginObjectNextVersion(ctx context.Context, opts Begin
 				expires_at, encryption,
 				zombie_deletion_deadline,
 				encrypted_metadata, encrypted_metadata_nonce, encrypted_metadata_encrypted_key,
+				clear_metadata,
 				retention_mode, retain_until
 			) VALUES (
 				$1, $2, $3,
@@ -155,13 +162,15 @@ func (p *PostgresAdapter) BeginObjectNextVersion(ctx context.Context, opts Begin
 				$4, $5, $6,
 				$7,
 				$8, $9, $10,
-				$11, $12
+				$11,
+				$12, $13
 			)
 			RETURNING status, version, created_at
 		`, opts.ProjectID, opts.BucketName, opts.ObjectKey, opts.StreamID,
 		opts.ExpiresAt, encryptionParameters{&opts.Encryption},
 		opts.ZombieDeletionDeadline,
 		opts.EncryptedMetadata, opts.EncryptedMetadataNonce, opts.EncryptedMetadataEncryptedKey,
+		opts.ClearMetadata,
 		lockModeWrapper{
 			retentionMode: &opts.Retention.Mode,
 			legalHold:     &opts.LegalHold,
@@ -953,9 +962,10 @@ type CommitObject struct {
 	// be explicit if we would like to set it with CommitObject which will
 	// override any existing metadata.
 	OverrideEncryptedMetadata     bool
-	EncryptedMetadata             []byte // optional
-	EncryptedMetadataNonce        []byte // optional
-	EncryptedMetadataEncryptedKey []byte // optional
+	EncryptedMetadata             []byte  // optional
+	EncryptedMetadataNonce        []byte  // optional
+	EncryptedMetadataEncryptedKey []byte  // optional
+	ClearMetadata                 *string //optional
 
 	DisallowDelete bool
 
@@ -979,6 +989,9 @@ func (c *CommitObject) Verify() error {
 		} else if c.EncryptedMetadata != nil && (c.EncryptedMetadataNonce == nil || c.EncryptedMetadataEncryptedKey == nil) {
 			return ErrInvalidRequest.New("EncryptedMetadataNonce and EncryptedMetadataEncryptedKey must be set if EncryptedMetadata is set")
 		}
+	}
+	if c.ClearMetadata != nil && !json.Valid([]byte(*c.ClearMetadata)) {
+		return ErrInvalidRequest.New("ClearMetadata must be a valid JSON")
 	}
 	return nil
 }
@@ -1114,11 +1127,13 @@ func (ptx *postgresTransactionAdapter) finalizeObjectCommit(ctx context.Context,
 			opts.EncryptedMetadataNonce,
 			opts.EncryptedMetadata,
 			opts.EncryptedMetadataEncryptedKey,
+			opts.ClearMetadata,
 		)
 		metadataColumns = `,
 				encrypted_metadata_nonce         = $13,
 				encrypted_metadata               = $14,
-				encrypted_metadata_encrypted_key = $15
+				encrypted_metadata_encrypted_key = $15,
+				clear_metadata                   = $16
 			`
 	}
 	err = ptx.tx.QueryRowContext(ctx, `
@@ -1143,12 +1158,12 @@ func (ptx *postgresTransactionAdapter) finalizeObjectCommit(ctx context.Context,
 				status       = `+statusPending+`
 			RETURNING
 				created_at, expires_at,
-				encrypted_metadata, encrypted_metadata_encrypted_key, encrypted_metadata_nonce,
+				encrypted_metadata, encrypted_metadata_encrypted_key, encrypted_metadata_nonce, clear_metadata,
 				encryption,
 				retention_mode, retain_until
 			`, args...).Scan(
 		&object.CreatedAt, &object.ExpiresAt,
-		&object.EncryptedMetadata, &object.EncryptedMetadataEncryptedKey, &object.EncryptedMetadataNonce,
+		&object.EncryptedMetadata, &object.EncryptedMetadataEncryptedKey, &object.EncryptedMetadataNonce, &object.ClearMetadata,
 		encryptionParameters{&object.Encryption},
 		lockModeWrapper{
 			retentionMode: &object.Retention.Mode,
@@ -1346,9 +1361,10 @@ type CommitInlineObject struct {
 	ExpiresAt  *time.Time
 	Encryption storj.EncryptionParameters
 
-	EncryptedMetadata             []byte // optional
-	EncryptedMetadataNonce        []byte // optional
-	EncryptedMetadataEncryptedKey []byte // optional
+	EncryptedMetadata             []byte  // optional
+	EncryptedMetadataNonce        []byte  // optional
+	EncryptedMetadataEncryptedKey []byte  // optional
+	ClearMetadata                 *string // optional
 
 	Retention Retention // optional
 	LegalHold bool
@@ -1377,6 +1393,10 @@ func (c *CommitInlineObject) Verify() error {
 		return ErrInvalidRequest.New("EncryptedMetadataNonce and EncryptedMetadataEncryptedKey must be not set if EncryptedMetadata is not set")
 	} else if c.EncryptedMetadata != nil && (c.EncryptedMetadataNonce == nil || c.EncryptedMetadataEncryptedKey == nil) {
 		return ErrInvalidRequest.New("EncryptedMetadataNonce and EncryptedMetadataEncryptedKey must be set if EncryptedMetadata is set")
+	}
+
+	if c.ClearMetadata != nil && !json.Valid([]byte(*c.ClearMetadata)) {
+		return ErrInvalidRequest.New("ClearMetadata must be a valid JSON")
 	}
 
 	if err := c.Retention.Verify(); err != nil {
@@ -1432,6 +1452,7 @@ func (db *DB) CommitInlineObject(ctx context.Context, opts CommitInlineObject) (
 		object.EncryptedMetadata = opts.EncryptedMetadata
 		object.EncryptedMetadataEncryptedKey = opts.EncryptedMetadataEncryptedKey
 		object.EncryptedMetadataNonce = opts.EncryptedMetadataNonce
+		object.ClearMetadata = opts.ClearMetadata
 		object.Retention = opts.Retention
 		object.LegalHold = opts.LegalHold
 
@@ -1473,6 +1494,7 @@ func (ptx *postgresTransactionAdapter) finalizeInlineObjectCommit(ctx context.Co
 			total_plain_size, total_encrypted_size,
 			zombie_deletion_deadline,
 			encrypted_metadata, encrypted_metadata_nonce, encrypted_metadata_encrypted_key,
+			clear_metadata,
 			retention_mode, retain_until
 		) VALUES (
 			$1, $2, $3, $4, $5,
@@ -1480,7 +1502,8 @@ func (ptx *postgresTransactionAdapter) finalizeInlineObjectCommit(ctx context.Co
 			$10, $11,
 			$12,
 			$13, $14, $15,
-			$16, $17
+			$16,
+			$17, $18
 		)
 		RETURNING created_at`,
 		object.ProjectID, object.BucketName, object.ObjectKey, object.Version, object.StreamID,
@@ -1488,6 +1511,7 @@ func (ptx *postgresTransactionAdapter) finalizeInlineObjectCommit(ctx context.Co
 		object.TotalPlainSize, object.TotalEncryptedSize,
 		nil,
 		object.EncryptedMetadata, object.EncryptedMetadataNonce, object.EncryptedMetadataEncryptedKey,
+		object.ClearMetadata,
 		lockModeWrapper{
 			retentionMode: &object.Retention.Mode,
 			legalHold:     &object.LegalHold,
