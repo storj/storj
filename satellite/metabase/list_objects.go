@@ -388,7 +388,6 @@ func (s *SpannerAdapter) ListObjects(ctx context.Context, opts ListObjects) (res
 			rowIterator := s.client.Single().Query(ctx, stmt)
 			defer rowIterator.Stop()
 
-		readEntries:
 			for {
 				row, err := rowIterator.Next()
 				if err != nil {
@@ -443,7 +442,7 @@ func (s *SpannerAdapter) ListObjects(ctx context.Context, opts ListObjects) (res
 						skipCount = skipCounter{}
 						// we landed inside a large number of repeated items,
 						// either prefixes or versions, let's requery and skip
-						break readEntries
+						return nil
 					}
 
 					continue
@@ -465,7 +464,6 @@ func (s *SpannerAdapter) ListObjects(ctx context.Context, opts ListObjects) (res
 					return nil
 				}
 			}
-			return nil
 		}()
 		if err != nil {
 			return result, Error.Wrap(err)
