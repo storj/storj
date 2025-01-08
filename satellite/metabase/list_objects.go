@@ -363,7 +363,6 @@ func (s *SpannerAdapter) ListObjects(ctx context.Context, opts ListObjects) (res
 				row, err := rowIterator.Next()
 				if err != nil {
 					if errors.Is(err, iterator.Done) {
-						done = true
 						return nil
 					}
 					return Error.Wrap(err)
