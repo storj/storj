@@ -181,6 +181,8 @@ func (q *HubSpotEvents) EnqueueJoinCunoFSBeta(fields TrackJoinCunoFSBetaFields) 
 	formFields := []map[string]string{
 		newField("email", fields.Email),
 		newField("company", fields.CompanyName),
+		newField("firstname", fields.FirstName),
+		newField("lastname", fields.LastName),
 		newField("industry_use_case", fields.IndustryUseCase),
 		newField("other_industry_use_case", fields.OtherIndustryUseCase),
 		newField("operating_system", fields.OperatingSystem),

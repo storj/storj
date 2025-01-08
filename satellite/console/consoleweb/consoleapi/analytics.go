@@ -144,6 +144,7 @@ func (a *Analytics) JoinCunoFSBeta(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if err = a.service.ValidateFreeFormFieldLengths(
+		&data.FirstName, &data.LastName,
 		&data.CompanyName, &data.IndustryUseCase,
 		&data.OtherIndustryUseCase, &data.OtherStorageBackend,
 		&data.OtherStorageMountSolution,
