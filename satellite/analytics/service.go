@@ -279,6 +279,8 @@ type TrackCreateUserFields struct {
 type TrackJoinCunoFSBetaFields struct {
 	Email                       string `json:"email"`
 	CompanyName                 string `json:"companyName"`
+	FirstName                   string `json:"firstName"`
+	LastName                    string `json:"lastName"`
 	IndustryUseCase             string `json:"industryUseCase"`
 	OtherIndustryUseCase        string `json:"otherIndustryUseCase"`
 	OperatingSystem             string `json:"operatingSystem"`
