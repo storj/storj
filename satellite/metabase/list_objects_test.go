@@ -4,6 +4,7 @@
 package metabase_test
 
 import (
+	"fmt"
 	"strconv"
 	"strings"
 	"testing"
@@ -2488,5 +2489,53 @@ func TestListObjects_Stress(t *testing.T) {
 			Limit:       4,
 		})
 		require.NoError(t, err)
+	})
+}
+
+func TestListObjects_RescanCursor(t *testing.T) {
+	metabasetest.Run(t, func(ctx *testcontext.Context, t *testing.T, db *metabase.DB) {
+		obj := metabasetest.RandObjectStream()
+
+		objects := []metabase.RawObject{}
+		for i := 0; i < 11; i++ {
+			objects = append(objects, metabase.RawObject{
+				ObjectStream: metabase.ObjectStream{
+					ProjectID:  obj.ProjectID,
+					BucketName: metabase.BucketName("bucket"),
+					ObjectKey:  metabase.ObjectKey("0000"),
+					Version:    1 + metabase.Version(i),
+					StreamID:   uuid.UUID{1},
+				},
+			})
+		}
+		for i := 0; i < 105; i++ {
+			objects = append(objects, metabase.RawObject{
+				ObjectStream: metabase.ObjectStream{
+					ProjectID:  obj.ProjectID,
+					BucketName: metabase.BucketName("bucket"),
+					ObjectKey:  metabase.ObjectKey(fmt.Sprintf("%04d", i+1)),
+					Version:    1,
+					StreamID:   uuid.UUID{1},
+				},
+			})
+		}
+
+		require.NoError(t, db.TestingBatchInsertObjects(ctx, objects))
+
+		result, err := db.ListObjects(ctx, metabase.ListObjects{
+			ProjectID:   obj.ProjectID,
+			BucketName:  "bucket",
+			Recursive:   false,
+			Pending:     false,
+			AllVersions: false,
+			Cursor: metabase.ListObjectsCursor{
+				Key:     "0000",
+				Version: 1,
+			},
+			Limit: 100,
+		})
+		require.NoError(t, err)
+		t.Log(len(result.Objects))
+		require.True(t, result.More)
 	})
 }
