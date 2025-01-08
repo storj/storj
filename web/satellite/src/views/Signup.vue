@@ -97,6 +97,7 @@
                                 </v-text-field>
                                 <password-strength
                                     v-if="showPasswordStrength"
+                                    :email="email"
                                     :password="password"
                                 />
                             </div>

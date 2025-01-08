@@ -52,17 +52,32 @@
                             required
                             autofocus
                         />
-                        <v-text-field
-                            v-model="newPassword"
-                            variant="outlined"
-                            type="password"
-                            :rules="newRules"
-                            label="New password"
-                            placeholder="Enter a new password"
-                            class="mb-2"
-                            :hide-details="false"
-                            required
-                        />
+                        <v-tooltip
+                            v-model="showPasswordStrength"
+                            width="500px"
+                            location="bottom"
+                            :open-on-hover="false"
+                        >
+                            <template #activator="{ props }">
+                                <v-text-field
+                                    v-model="newPassword"
+                                    v-bind="props"
+                                    variant="outlined"
+                                    type="password"
+                                    :rules="newRules"
+                                    label="New password"
+                                    placeholder="Enter a new password"
+                                    class="mb-2"
+                                    :hide-details="false"
+                                    required
+                                    @update:focused="showPasswordStrength = !showPasswordStrength"
+                                />
+                            </template>
+                            <password-strength
+                                :email="userEmail"
+                                :password="newPassword"
+                            />
+                        </v-tooltip>
                         <v-text-field
                             variant="outlined"
                             type="password"
@@ -109,7 +124,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref } from 'vue';
+import { computed, ref } from 'vue';
 import {
     VDialog,
     VCard,
@@ -122,6 +137,7 @@ import {
     VBtn,
     VForm,
     VTextField,
+    VTooltip,
     VSheet,
 } from 'vuetify/components';
 import { SquareAsterisk } from 'lucide-vue-next';
@@ -133,6 +149,9 @@ import { AuthHttpApi } from '@/api/auth';
 import { useAnalyticsStore } from '@/store/modules/analyticsStore';
 import { AnalyticsErrorEventSource, AnalyticsEvent } from '@/utils/constants/analyticsEventNames';
 import { useNotify } from '@/utils/hooks';
+import { useUsersStore } from '@/store/modules/usersStore';
+
+import PasswordStrength from '@/components/PasswordStrength.vue';
 
 const auth: AuthHttpApi = new AuthHttpApi();
 const oldRules = [
@@ -152,12 +171,16 @@ const analyticsStore = useAnalyticsStore();
 const { config } = useConfigStore().state;
 const { isLoading, withLoading } = useLoading();
 const notify = useNotify();
+const userStore = useUsersStore();
 
 const model = defineModel<boolean>({ required: true });
 
 const formValid = ref<boolean>(false);
+const showPasswordStrength = ref(false);
 const oldPassword = ref<string>('');
 const newPassword = ref<string>('');
+
+const userEmail = computed<string>(() => userStore.state.user?.email ?? '');
 
 /**
  * Handles change password request.
@@ -180,3 +203,8 @@ async function onChangePassword(): Promise<void> {
     });
 }
 </script>
+<style scoped lang="scss">
+:deep(.v-overlay__content) {
+    padding: 0 !important;
+}
+</style>

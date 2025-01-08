@@ -117,6 +117,7 @@ const BAR_WIDTH = {
 
 const props = defineProps<{
     password: string;
+    email?: string;
 }>();
 
 /**
@@ -202,6 +203,7 @@ function scorePassword(): number {
         letters[password[i]] = (letters[password[i]] || 0) + 1;
         score += 5 / letters[password[i]];
     }
+    score = Math.min(score, 60);
 
     const variations: boolean[] = [
         /\d/.test(password),
@@ -210,14 +212,32 @@ function scorePassword(): number {
         /\W/.test(password),
     ];
 
-    let variationCount = 0;
-    variations.forEach((check) => {
-        variationCount += check ? 1 : 0;
-    });
+    score += variations.filter(Boolean).length * 10;
 
-    score += variationCount * 10;
+    const isSequential = (str: string): boolean => {
+        const sequences = 'abcdefghijklmnopqrstuvwxyz0123456789';
+        const reversed = sequences.split('').reverse().join('');
 
-    return score;
+        for (let i = 0; i < str.length - 2; i++) {
+            const substr = str.slice(i, i + 3);
+            if (sequences.includes(substr) || reversed.includes(substr)) {
+                return true;
+            }
+        }
+        return false;
+    };
+
+    if (isSequential(password.toLowerCase())) {
+        // Penalize sequential patterns
+        score -= 20;
+    }
+
+    if (props.email && password === props.email) {
+        // Penalize password that is the same as email
+        score -= 20;
+    }
+
+    return Math.max(score, 0);
 }
 </script>
 
