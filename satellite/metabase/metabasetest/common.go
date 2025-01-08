@@ -4,7 +4,9 @@
 package metabasetest
 
 import (
+	"regexp"
 	"sort"
+	"strings"
 	"testing"
 	"time"
 
@@ -80,7 +82,11 @@ func checkError(t require.TestingT, err error, errClass *errs.Class, errText str
 		require.True(t, errClass.Has(err), "expected an error %q got %q", *errClass, err)
 	}
 	if errText != "" {
-		require.EqualError(t, err, errClass.New("%v", errText).Error())
+		if errText[0] == '/' {
+			require.Regexp(t, regexp.MustCompile(strings.Trim(errText, "/")), err.Error())
+		} else {
+			require.EqualError(t, err, errClass.New("%v", errText).Error())
+		}
 	}
 	if errClass == nil && errText == "" {
 		require.NoError(t, err)

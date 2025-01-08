@@ -197,6 +197,10 @@ func TestMigrateCockroach(t *testing.T) {
 }
 
 func TestMigrateSpanner(t *testing.T) {
+	if os.Getenv("STORJ_TEST_ENVIRONMENT") == "spanner-nightly" {
+		t.Skip("test takes too long on production Spanner")
+	}
+
 	t.Parallel()
 	connstr := dbtest.PickSpanner(t)
 	t.Run("Versions", func(t *testing.T) { migrateTest(t, connstr) })
