@@ -2367,6 +2367,14 @@ func (endpoint *Endpoint) objectToProto(ctx context.Context, object metabase.Obj
 		}
 	}
 
+	var clearMetadata []byte
+	if object.ClearMetadata != nil {
+		clearMetadata, err = usermeta.MarshalJSON(*object.ClearMetadata)
+		if err != nil {
+			return nil, errs.New("unable to convert clear metadata to protobuf object")
+		}
+	}
+
 	result := &pb.Object{
 		Bucket:             []byte(object.BucketName),
 		EncryptedObjectKey: []byte(object.ObjectKey),
@@ -2382,6 +2390,8 @@ func (endpoint *Endpoint) objectToProto(ctx context.Context, object metabase.Obj
 		EncryptedMetadata:             metadataBytes,
 		EncryptedMetadataNonce:        nonce,
 		EncryptedMetadataEncryptedKey: object.EncryptedMetadataEncryptedKey,
+		ClearMetadata:                 clearMetadata,
+
 		EncryptionParameters: &pb.EncryptionParameters{
 			CipherSuite: pb.CipherSuite(object.Encryption.CipherSuite),
 			BlockSize:   int64(object.Encryption.BlockSize),
