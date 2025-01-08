@@ -102,10 +102,30 @@
 
                     <v-form v-model="formValid" @submit.prevent="submitForm">
                         <v-text-field
-                            :model-value="userEmail"
+                            :model-value="user.email"
                             label="Email"
                             readonly
                             variant="outlined"
+                            density="compact"
+                            class="mb-3"
+                        />
+
+                        <v-text-field
+                            v-model="formData.firstName"
+                            label="Enter your first name"
+                            variant="outlined"
+                            required
+                            :rules="[RequiredRule, MaxNameLengthRule]"
+                            density="compact"
+                            class="mb-3"
+                        />
+
+                        <v-text-field
+                            v-model="formData.lastName"
+                            label="Enter your last name"
+                            variant="outlined"
+                            required
+                            :rules="[RequiredRule, MaxNameLengthRule]"
                             density="compact"
                             class="mb-3"
                         />
@@ -287,6 +307,7 @@ import { AnalyticsErrorEventSource, AnalyticsEvent } from '@/utils/constants/ana
 import { useLoading } from '@/composables/useLoading';
 import { useNotify } from '@/utils/hooks';
 import { useAnalyticsStore } from '@/store/modules/analyticsStore';
+import { User } from '@/types/users';
 
 const router = useRouter();
 const notify = useNotify();
@@ -298,6 +319,8 @@ const analyticsStore = useAnalyticsStore();
 
 type FormData = {
     organization: string;
+    firstName: string;
+    lastName: string;
     industry: string | null;
     operatingSystem: string | null;
     teamSize: string | null;
@@ -402,8 +425,12 @@ enum State {
     Success,
 }
 
+const user = computed<User>(() => usersStore.state.user);
+
 const formData = reactive<FormData>({
     organization: '',
+    firstName: user.value.fullName.split(' ')[0] ?? '',
+    lastName: user.value.fullName.split(' ')[1] ?? '',
     industry: null,
     operatingSystem: null,
     teamSize: null,
@@ -421,18 +448,19 @@ const otherIndustry = ref<string>('');
 const otherStorageBackend = ref<string>('');
 const otherMountSolution = ref<string>('');
 
-const userEmail = computed<string>(() => usersStore.state.user.email);
 const betaJoined = computed<boolean>(() => usersStore.state.settings.noticeDismissal.cunoFSBetaJoined);
 
 const state = ref<State>(betaJoined.value ? State.Success : State.Form);
 
 function submitForm(): void {
     withLoading(async () => {
-        if (!(formData.industry && formData.operatingSystem && formData.teamSize && formData.storageUsage)) return;
+        if (!(formData.industry && formData.firstName && formData.lastName && formData.operatingSystem && formData.teamSize && formData.storageUsage)) return;
 
         try {
             const hubspotData = {
                 companyName: formData.organization,
+                firstName: formData.firstName,
+                lastName: formData.lastName,
                 industryUseCase: formData.industry,
                 otherIndustryUseCase: otherIndustry.value,
                 operatingSystem: formData.operatingSystem,
@@ -453,6 +481,8 @@ function submitForm(): void {
 
             const segmentProps = {
                 organization: formData.organization,
+                firstName: formData.firstName,
+                lastName: formData.lastName,
                 industry: formData.industry === OtherLabel ? otherIndustry.value : formData.industry,
                 operatingSystem: formData.operatingSystem,
                 teamSize: formData.teamSize,
