@@ -46,12 +46,9 @@
                             Object Lock is disabled on this bucket.
                         </p>
                         <set-default-object-lock-config
-                            :existing-mode="defaultRetentionMode"
-                            :existing-period="defaultRetentionPeriod"
-                            :existing-period-unit="defaultRetentionPeriodUnit"
-                            @updateDefaultMode="newMode => defaultRetentionMode = newMode"
-                            @updatePeriodValue="newPeriod => defaultRetentionPeriod = newPeriod"
-                            @updatePeriodUnit="newUnit => defaultRetentionPeriodUnit = newUnit"
+                            v-model:default-retention-period="defaultRetentionPeriod"
+                            v-model:default-retention-mode="defaultRetentionMode"
+                            v-model:period-unit="defaultRetentionPeriodUnit"
                         />
                     </v-col>
                 </v-row>
