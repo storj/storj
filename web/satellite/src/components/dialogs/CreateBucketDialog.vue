@@ -104,10 +104,9 @@
                                 </v-chip-group>
                                 <SetDefaultObjectLockConfig
                                     v-if="enableObjectLock"
-                                    :existing-mode="NO_MODE_SET"
-                                    @updateDefaultMode="newMode => defaultRetentionMode = newMode"
-                                    @updatePeriodValue="newPeriod => defaultRetentionPeriod = newPeriod"
-                                    @updatePeriodUnit="newUnit => defaultRetentionPeriodUnit = newUnit"
+                                    v-model:default-retention-period="defaultRetentionPeriod"
+                                    v-model:default-retention-mode="defaultRetentionMode"
+                                    v-model:period-unit="defaultRetentionPeriodUnit"
                                 />
                                 <v-alert v-else variant="tonal" color="default">
                                     <p class="font-weight-bold text-body-2 mb-1">Object Lock Disabled (Default)</p>
