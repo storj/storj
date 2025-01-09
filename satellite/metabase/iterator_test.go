@@ -4186,6 +4186,7 @@ func objectEntryFromRaw(m metabase.RawObject) metabase.ObjectEntry {
 		EncryptedMetadataNonce:        m.EncryptedMetadataNonce,
 		EncryptedMetadata:             m.EncryptedMetadata,
 		EncryptedMetadataEncryptedKey: m.EncryptedMetadataEncryptedKey,
+		ClearMetadata:                 m.ClearMetadata,
 		TotalEncryptedSize:            m.TotalEncryptedSize,
 		TotalPlainSize:                m.TotalPlainSize,
 		FixedSegmentSize:              m.FixedSegmentSize,

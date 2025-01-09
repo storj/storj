@@ -566,6 +566,12 @@ func querySelectorFields(objectKeyColumn string, it *objectsIterator) string {
 			,encrypted_metadata_nonce
 			,encrypted_metadata
 			,encrypted_metadata_encrypted_key`
+
+		if it.adapter.Implementation().SupportsClearMetadata() {
+			querySelectFields += `
+				,clear_metadata
+			`
+		}
 	}
 
 	return querySelectFields
@@ -660,6 +666,9 @@ func (it *objectsIterator) scanItem(item *ObjectEntry) (err error) {
 			&item.EncryptedMetadata,
 			&item.EncryptedMetadataEncryptedKey,
 		)
+		if it.adapter.Implementation().SupportsClearMetadata() {
+			fields = append(fields, &item.ClearMetadata)
+		}
 	}
 
 	err = it.curRows.Scan(fields...)

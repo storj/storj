@@ -146,3 +146,12 @@ func (impl Implementation) Float64Type() string {
 		panic("unsupported Float64Type")
 	}
 }
+
+func (impl Implementation) SupportsClearMetadata() bool {
+	switch impl {
+	case Postgres, Cockroach:
+		return true
+	default:
+		return false
+	}
+}

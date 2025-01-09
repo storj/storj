@@ -2466,6 +2466,13 @@ func (endpoint *Endpoint) objectEntryToProtoListItem(ctx context.Context, bucket
 		item.EncryptedMetadata = metadataBytes
 		item.EncryptedMetadataNonce = nonce
 		item.EncryptedMetadataEncryptedKey = entry.EncryptedMetadataEncryptedKey
+
+		if entry.ClearMetadata != nil {
+			item.ClearMetadata, err = usermeta.MarshalJSON(*entry.ClearMetadata)
+			if err != nil {
+				return nil, err
+			}
+		}
 	}
 
 	// Add Stream ID to list items if listing is for pending objects.

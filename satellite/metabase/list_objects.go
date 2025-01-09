@@ -662,6 +662,7 @@ func scanListObjectsEntryPostgres(rows tagsql.Rows, opts *ListObjects) (item Obj
 			&item.EncryptedMetadataNonce,
 			&item.EncryptedMetadata,
 			&item.EncryptedMetadataEncryptedKey,
+			&item.ClearMetadata,
 		)
 	}
 
@@ -712,6 +713,7 @@ func scanListObjectsEntrySpanner(row *spanner.Row, opts *ListObjects) (item Obje
 			&item.EncryptedMetadataNonce,
 			&item.EncryptedMetadata,
 			&item.EncryptedMetadataEncryptedKey,
+			// TODO: support ClearMetadata
 		)
 	}
 

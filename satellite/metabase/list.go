@@ -31,6 +31,7 @@ type ObjectEntry struct {
 	EncryptedMetadataNonce        []byte
 	EncryptedMetadata             []byte
 	EncryptedMetadataEncryptedKey []byte
+	ClearMetadata                 *string
 
 	TotalPlainSize     int64
 	TotalEncryptedSize int64

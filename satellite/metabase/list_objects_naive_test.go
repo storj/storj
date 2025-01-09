@@ -180,6 +180,7 @@ func clearEntryMetadata(opts *metabase.ListObjects, entry *metabase.ObjectEntry)
 		entry.EncryptedMetadataNonce = nil
 		entry.EncryptedMetadata = nil
 		entry.EncryptedMetadataEncryptedKey = nil
+		entry.ClearMetadata = nil
 	}
 }
 
