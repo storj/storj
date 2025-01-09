@@ -5,7 +5,6 @@ package metabase
 
 import (
 	"context"
-	"encoding/hex"
 	"fmt"
 	"time"
 
@@ -213,27 +212,18 @@ type DeleteZombieObjects struct {
 func (db *DB) DeleteZombieObjects(ctx context.Context, opts DeleteZombieObjects) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	for _, a := range db.adapters {
-		err = db.deleteObjectsAndSegmentsBatch(ctx, opts.BatchSize, func(startAfter ObjectStream, batchsize int) (last ObjectStream, err error) {
-			objects, err := a.FindZombieObjects(ctx, opts, startAfter, batchsize)
+	for _, adapter := range db.adapters {
+		err := adapter.IterateZombieObjects(ctx, opts, func(ctx context.Context, objects []ObjectStream) error {
+			objectsDeleted, segmentsDeleted, err := adapter.DeleteInactiveObjectsAndSegments(ctx, objects, opts)
 			if err != nil {
-				return ObjectStream{}, Error.Wrap(err)
-			}
-
-			if len(objects) == 0 {
-				return ObjectStream{}, nil
-			}
-			objectsDeleted, segmentsDeleted, err := a.DeleteInactiveObjectsAndSegments(ctx, objects, opts)
-			if err != nil {
-				return ObjectStream{}, Error.Wrap(err)
+				return Error.Wrap(err)
 			}
 
 			mon.Meter("zombie_object_delete").Mark64(objectsDeleted)
 			mon.Meter("object_delete").Mark64(objectsDeleted)
 			mon.Meter("zombie_segment_delete").Mark64(segmentsDeleted)
 			mon.Meter("segment_delete").Mark64(segmentsDeleted)
-
-			return objects[len(objects)-1], nil
+			return nil
 		})
 		if err != nil {
 			db.log.Warn("delete from DB zombie objects", zap.Error(err))
@@ -242,72 +232,62 @@ func (db *DB) DeleteZombieObjects(ctx context.Context, opts DeleteZombieObjects)
 	return nil
 }
 
-// FindZombieObjects locates up to batchSize zombie objects that need deletion.
-func (p *PostgresAdapter) FindZombieObjects(ctx context.Context, opts DeleteZombieObjects, startAfter ObjectStream, batchSize int) (objects []ObjectStream, err error) {
+type postgresStatement struct {
+	SQL    string
+	Params []any
+}
+
+// IterateZombieObjects locates up to batchSize zombie objects that need deletion.
+func (p *PostgresAdapter) IterateZombieObjects(ctx context.Context, opts DeleteZombieObjects, process func(context.Context, []ObjectStream) error) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	// pending objects migrated to metabase didn't have zombie_deletion_deadline column set, because
-	// of that we need to get into account also object with zombie_deletion_deadline set to NULL
-	query := `
+	return Error.Wrap(p.processObjectStreamBatches(ctx, opts.AsOfSystemInterval, opts.BatchSize, postgresStatement{
+		SQL: `
 			SELECT
 				project_id, bucket_name, object_key, version, stream_id
 			FROM objects
-			` + p.impl.AsOfSystemInterval(opts.AsOfSystemInterval) + `
 			WHERE
-				(project_id, bucket_name, object_key, version) > ($1, $2, $3, $4)
-				AND status = ` + statusPending + `
-				AND (zombie_deletion_deadline IS NULL OR zombie_deletion_deadline < $5)
-				ORDER BY project_id, bucket_name, object_key, version
-			LIMIT $6;`
-
-	objects = make([]ObjectStream, 0, batchSize)
-
-	err = withRows(p.db.QueryContext(ctx, query,
-		startAfter.ProjectID, startAfter.BucketName, []byte(startAfter.ObjectKey), startAfter.Version,
-		opts.DeadlineBefore,
-		batchSize),
-	)(func(rows tagsql.Rows) error {
-		var last ObjectStream
-		for rows.Next() {
-			err = rows.Scan(&last.ProjectID, &last.BucketName, &last.ObjectKey, &last.Version, &last.StreamID)
-			if err != nil {
-				return Error.Wrap(err)
-			}
-
-			p.log.Debug("selected zombie object for deleting it",
-				zap.Stringer("Project", last.ProjectID),
-				zap.Stringer("Bucket", last.BucketName),
-				zap.String("Object Key", string(last.ObjectKey)),
-				zap.Int64("Version", int64(last.Version)),
-				zap.String("StreamID", hex.EncodeToString(last.StreamID[:])),
-			)
-			objects = append(objects, last)
-		}
-
-		return nil
-	})
-	if err != nil {
-		return nil, Error.Wrap(err)
-	}
-	return objects, nil
+				status = ` + statusPending + `
+				AND (zombie_deletion_deadline IS NULL OR zombie_deletion_deadline < $1)
+		`,
+		Params: []any{
+			opts.DeadlineBefore,
+		},
+	}, process))
 }
 
-// FindZombieObjects locates up to batchSize zombie objects that need deletion.
-func (s *SpannerAdapter) FindZombieObjects(ctx context.Context, opts DeleteZombieObjects, startAfter ObjectStream, batchSize int) (objects []ObjectStream, err error) {
+// processObjectStreamBatches scans and processes object streams in batches of batchSize based on the query.
+func (p *PostgresAdapter) processObjectStreamBatches(ctx context.Context, asOfSystemInterval time.Duration, batchSize int, stmt postgresStatement, process func(context.Context, []ObjectStream) error) (err error) {
+	return Error.Wrap(withRows(
+		p.db.QueryContext(ctx, stmt.SQL, stmt.Params...),
+	)(func(rows tagsql.Rows) error {
+		batch := make([]ObjectStream, 0, batchSize)
+		for rows.Next() {
+			var stream ObjectStream
+			if err := rows.Scan(&stream.ProjectID, &stream.BucketName, &stream.ObjectKey, &stream.Version, &stream.StreamID); err != nil {
+				return Error.Wrap(err)
+			}
+			batch = append(batch, stream)
+			if len(batch) > batchSize {
+				if err := process(ctx, batch); err != nil {
+					return Error.Wrap(err)
+				}
+				batch = batch[:0]
+			}
+		}
+
+		if len(batch) > 0 {
+			return Error.Wrap(process(ctx, batch))
+		}
+		return nil
+	}))
+}
+
+// IterateZombieObjects locates up to batchSize zombie objects that need deletion.
+func (s *SpannerAdapter) IterateZombieObjects(ctx context.Context, opts DeleteZombieObjects, process func(context.Context, []ObjectStream) error) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	// pending objects migrated to metabase didn't have zombie_deletion_deadline column set, because
-	// of that we need to get into account also object with zombie_deletion_deadline set to NULL
-	tuple, err := spannerutil.TupleGreaterThanSQL(
-		[]string{"project_id", "bucket_name", "object_key", "version"},
-		[]string{"@project_id", "@bucket_name", "@object_key", "@version"},
-		false,
-	)
-	if err != nil {
-		return nil, Error.Wrap(err)
-	}
-
-	objects, err = spannerutil.CollectRows(s.client.Single().QueryWithOptions(ctx, spanner.Statement{
+	return Error.Wrap(s.processObjectStreamBatches(ctx, opts.AsOfSystemInterval, opts.BatchSize, spanner.Statement{
 		SQL: `
 			SELECT
 				project_id, bucket_name, object_key, version, stream_id
@@ -315,41 +295,60 @@ func (s *SpannerAdapter) FindZombieObjects(ctx context.Context, opts DeleteZombi
 			WHERE
 				status = ` + statusPending + `
 				AND (zombie_deletion_deadline IS NULL OR zombie_deletion_deadline < @deadline)
-				AND ` + tuple + `
-			ORDER BY project_id, bucket_name, object_key, version
-			LIMIT @batch_size
 		`,
 		Params: map[string]interface{}{
-			"project_id":  startAfter.ProjectID,
-			"bucket_name": startAfter.BucketName,
-			"object_key":  startAfter.ObjectKey,
-			"version":     startAfter.Version,
-			"deadline":    opts.DeadlineBefore,
-			"batch_size":  batchSize,
+			"deadline": opts.DeadlineBefore,
 		},
+	}, process))
+}
+
+// processObjectStreamBatches scans and processes object streams in batches of batchSize based on the query.
+func (s *SpannerAdapter) processObjectStreamBatches(ctx context.Context, asOfSystemInterval time.Duration, batchSize int, stmt spanner.Statement, process func(context.Context, []ObjectStream) error) (err error) {
+	txn, err := s.client.BatchReadOnlyTransaction(ctx, spanner.StrongRead())
+	if err != nil {
+		return Error.Wrap(err)
+	}
+	defer txn.Close()
+
+	partitions, err := txn.PartitionQueryWithOptions(ctx, stmt, spanner.PartitionOptions{
+		PartitionBytes: 0,
+		MaxPartitions:  0,
 	}, spanner.QueryOptions{
 		Priority: spannerpb.RequestOptions_PRIORITY_LOW,
-	}), func(row *spanner.Row, object *ObjectStream) error {
-		err := row.Columns(&object.ProjectID, &object.BucketName, &object.ObjectKey, &object.Version, &object.StreamID)
+	})
+	if err != nil {
+		return Error.Wrap(err)
+	}
+
+	batch := make([]ObjectStream, 0, batchSize)
+	for _, partition := range partitions {
+		iter := txn.Execute(ctx, partition)
+		err := iter.Do(func(r *spanner.Row) error {
+			var stream ObjectStream
+			if err := r.Columns(&stream.ProjectID, &stream.BucketName, &stream.ObjectKey, &stream.Version, &stream.StreamID); err != nil {
+				return Error.Wrap(err)
+			}
+
+			batch = append(batch, stream)
+			if len(batch) == batchSize {
+				if err := process(ctx, batch); err != nil {
+					return Error.Wrap(err)
+				}
+				batch = batch[:0]
+			}
+
+			return nil
+		})
 		if err != nil {
 			return Error.Wrap(err)
 		}
-
-		s.log.Debug("selected zombie object for deleting it",
-			zap.Stringer("Project", object.ProjectID),
-			zap.Stringer("Bucket", object.BucketName),
-			zap.String("Object Key", string(object.ObjectKey)),
-			zap.Int64("Version", int64(object.Version)),
-			zap.String("StreamID", hex.EncodeToString(object.StreamID[:])),
-		)
-
-		return nil
-	})
-	if err != nil {
-		return nil, Error.Wrap(err)
 	}
 
-	return objects, nil
+	if len(batch) > 0 {
+		return Error.Wrap(process(ctx, batch))
+	}
+
+	return nil
 }
 
 func (db *DB) deleteObjectsAndSegmentsBatch(ctx context.Context, batchsize int, deleteBatch func(startAfter ObjectStream, batchsize int) (last ObjectStream, err error)) (err error) {
