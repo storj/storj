@@ -3164,6 +3164,15 @@ func (endpoint *Endpoint) FinishCopyObject(ctx context.Context, req *pb.ObjectFi
 		return nil, rpcstatus.Error(rpcstatus.InvalidArgument, err.Error())
 	}
 
+	var clearMetadata *string
+	if req.NewClearMetadata != nil {
+		um, err := usermeta.UnmarshalJSON(req.NewClearMetadata)
+		if err != nil {
+			return nil, rpcstatus.Error(rpcstatus.InvalidArgument, err.Error())
+		}
+		clearMetadata = &um
+	}
+
 	object, err := endpoint.metabase.FinishCopyObject(ctx, metabase.FinishCopyObject{
 		ObjectStream: metabase.ObjectStream{
 			ProjectID:  keyInfo.ProjectID,
@@ -3180,6 +3189,7 @@ func (endpoint *Endpoint) FinishCopyObject(ctx context.Context, req *pb.ObjectFi
 		NewEncryptedMetadata:         req.NewEncryptedMetadata,
 		NewEncryptedMetadataKeyNonce: req.NewEncryptedMetadataKeyNonce,
 		NewEncryptedMetadataKey:      req.NewEncryptedMetadataKey,
+		NewClearMetadata:             clearMetadata,
 
 		// TODO(ver): currently we always allow deletion, to not change behaviour.
 		NewDisallowDelete: false,

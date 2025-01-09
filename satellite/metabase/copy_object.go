@@ -20,7 +20,7 @@ import (
 
 type copyObjectTransactionAdapter interface {
 	getSegmentsForCopy(ctx context.Context, object Object) (segments transposedSegmentList, err error)
-	finalizeObjectCopy(ctx context.Context, opts FinishCopyObject, nextVersion Version, newStatus ObjectStatus, sourceObject Object, copyMetadata []byte, newSegments transposedSegmentList) (newObject Object, err error)
+	finalizeObjectCopy(ctx context.Context, opts FinishCopyObject, nextVersion Version, newStatus ObjectStatus, sourceObject Object, copyEncryptedMetadata []byte, copyClearMetadata *string, newSegments transposedSegmentList) (newObject Object, err error)
 	getObjectNonPendingExactVersion(ctx context.Context, opts FinishCopyObject) (_ Object, err error)
 }
 
@@ -58,6 +58,7 @@ type FinishCopyObject struct {
 	NewEncryptedMetadata         []byte
 	NewEncryptedMetadataKeyNonce storj.Nonce
 	NewEncryptedMetadataKey      []byte
+	NewClearMetadata             *string
 
 	NewSegmentKeys []EncryptedKeyAndNonce
 
@@ -162,7 +163,8 @@ func (db *DB) FinishCopyObject(ctx context.Context, opts FinishCopyObject) (obje
 	}
 
 	newObject := Object{}
-	var copyMetadata []byte
+	var copyEncryptedMetadata []byte
+	var copyClearMetadata *string
 
 	var precommit PrecommitConstraintResult
 	err = db.ChooseAdapter(opts.ProjectID).WithTx(ctx, func(ctx context.Context, adapter TransactionAdapter) error {
@@ -211,9 +213,11 @@ func (db *DB) FinishCopyObject(ctx context.Context, opts FinishCopyObject) (obje
 		}
 
 		if opts.OverrideMetadata {
-			copyMetadata = opts.NewEncryptedMetadata
+			copyEncryptedMetadata = opts.NewEncryptedMetadata
+			copyClearMetadata = opts.NewClearMetadata
 		} else {
-			copyMetadata = sourceObject.EncryptedMetadata
+			copyEncryptedMetadata = sourceObject.EncryptedMetadata
+			copyClearMetadata = sourceObject.ClearMetadata
 		}
 
 		precommit, err = db.PrecommitConstraint(ctx, PrecommitConstraint{
@@ -227,7 +231,7 @@ func (db *DB) FinishCopyObject(ctx context.Context, opts FinishCopyObject) (obje
 
 		newStatus := committedWhereVersioned(opts.NewVersioned)
 
-		newObject, err = adapter.finalizeObjectCopy(ctx, opts, precommit.HighestVersion+1, newStatus, sourceObject, copyMetadata, newSegments)
+		newObject, err = adapter.finalizeObjectCopy(ctx, opts, precommit.HighestVersion+1, newStatus, sourceObject, copyEncryptedMetadata, copyClearMetadata, newSegments)
 		return err
 	})
 
@@ -238,7 +242,7 @@ func (db *DB) FinishCopyObject(ctx context.Context, opts FinishCopyObject) (obje
 	newObject.StreamID = opts.NewStreamID
 	newObject.BucketName = opts.NewBucket
 	newObject.ObjectKey = opts.NewEncryptedObjectKey
-	newObject.EncryptedMetadata = copyMetadata
+	newObject.EncryptedMetadata = copyEncryptedMetadata
 	newObject.EncryptedMetadataEncryptedKey = opts.NewEncryptedMetadataKey
 	if !opts.NewEncryptedMetadataKeyNonce.IsZero() {
 		newObject.EncryptedMetadataNonce = opts.NewEncryptedMetadataKeyNonce[:]
@@ -378,7 +382,7 @@ func (stx *spannerTransactionAdapter) getSegmentsForCopy(ctx context.Context, so
 	return segments, err
 }
 
-func (ptx *postgresTransactionAdapter) finalizeObjectCopy(ctx context.Context, opts FinishCopyObject, nextVersion Version, newStatus ObjectStatus, sourceObject Object, copyMetadata []byte, newSegments transposedSegmentList) (newObject Object, err error) {
+func (ptx *postgresTransactionAdapter) finalizeObjectCopy(ctx context.Context, opts FinishCopyObject, nextVersion Version, newStatus ObjectStatus, sourceObject Object, copyEncryptedMetadata []byte, copyClearMetadata *string, newSegments transposedSegmentList) (newObject Object, err error) {
 	// TODO we need to handle metadata correctly (copy from original object or replace)
 	row := ptx.tx.QueryRowContext(ctx, `
 			INSERT INTO objects (
@@ -386,6 +390,7 @@ func (ptx *postgresTransactionAdapter) finalizeObjectCopy(ctx context.Context, o
 				status, expires_at, segment_count,
 				encryption,
 				encrypted_metadata, encrypted_metadata_nonce, encrypted_metadata_encrypted_key,
+				clear_metadata,
 				total_plain_size, total_encrypted_size, fixed_segment_size,
 				zombie_deletion_deadline,
 				retention_mode, retain_until
@@ -394,16 +399,18 @@ func (ptx *postgresTransactionAdapter) finalizeObjectCopy(ctx context.Context, o
 				$6, $7, $8,
 				$9,
 				$10, $11, $12,
-				$13, $14, $15,
+				$13,
+				$14, $15, $16,
 				null,
-				$16, $17
+				$17, $18
 			)
 			RETURNING
 				created_at`,
 		opts.ProjectID, opts.NewBucket, opts.NewEncryptedObjectKey, nextVersion, opts.NewStreamID,
 		newStatus, sourceObject.ExpiresAt, sourceObject.SegmentCount,
 		encryptionParameters{&sourceObject.Encryption},
-		copyMetadata, opts.NewEncryptedMetadataKeyNonce, opts.NewEncryptedMetadataKey,
+		copyEncryptedMetadata, opts.NewEncryptedMetadataKeyNonce, opts.NewEncryptedMetadataKey,
+		copyClearMetadata,
 		sourceObject.TotalPlainSize, sourceObject.TotalEncryptedSize, sourceObject.FixedSegmentSize,
 		lockModeWrapper{retentionMode: &opts.Retention.Mode, legalHold: &opts.LegalHold},
 		timeWrapper{&opts.Retention.RetainUntil},
@@ -450,7 +457,7 @@ func (ptx *postgresTransactionAdapter) finalizeObjectCopy(ctx context.Context, o
 	return newObject, nil
 }
 
-func (stx *spannerTransactionAdapter) finalizeObjectCopy(ctx context.Context, opts FinishCopyObject, nextVersion Version, newStatus ObjectStatus, sourceObject Object, copyMetadata []byte, newSegments transposedSegmentList) (newObject Object, err error) {
+func (stx *spannerTransactionAdapter) finalizeObjectCopy(ctx context.Context, opts FinishCopyObject, nextVersion Version, newStatus ObjectStatus, sourceObject Object, copyEncryptedMetadata []byte, copyClearMetadata *string, newSegments transposedSegmentList) (newObject Object, err error) {
 	// TODO we need to handle metadata correctly (copy from original object or replace)
 
 	newObject = sourceObject
@@ -487,7 +494,7 @@ func (stx *spannerTransactionAdapter) finalizeObjectCopy(ctx context.Context, op
 			"expires_at":                       sourceObject.ExpiresAt,
 			"segment_count":                    int64(sourceObject.SegmentCount),
 			"encryption":                       encryptionParameters{&sourceObject.Encryption},
-			"encrypted_metadata":               copyMetadata,
+			"encrypted_metadata":               copyEncryptedMetadata, // TODO: support clear_metadata
 			"encrypted_metadata_nonce":         opts.NewEncryptedMetadataKeyNonce,
 			"encrypted_metadata_encrypted_key": opts.NewEncryptedMetadataKey,
 			"total_plain_size":                 sourceObject.TotalPlainSize,
@@ -556,6 +563,7 @@ func (ptx *postgresTransactionAdapter) getObjectNonPendingExactVersion(ctx conte
 			created_at, expires_at,
 			segment_count,
 			encrypted_metadata_nonce, encrypted_metadata, encrypted_metadata_encrypted_key,
+			clear_metadata,
 			total_plain_size, total_encrypted_size, fixed_segment_size,
 			encryption
 		FROM objects
@@ -569,6 +577,7 @@ func (ptx *postgresTransactionAdapter) getObjectNonPendingExactVersion(ctx conte
 			&object.CreatedAt, &object.ExpiresAt,
 			&object.SegmentCount,
 			&object.EncryptedMetadataNonce, &object.EncryptedMetadata, &object.EncryptedMetadataEncryptedKey,
+			&object.ClearMetadata,
 			&object.TotalPlainSize, &object.TotalEncryptedSize, &object.FixedSegmentSize,
 			encryptionParameters{&object.Encryption},
 		)
