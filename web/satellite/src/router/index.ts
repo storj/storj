@@ -22,7 +22,7 @@ enum RouteName {
     Access = 'Access Keys',
     Team = 'Team',
     Domains = 'Domains',
-    CunoFS = 'CunoFS',
+    CunoFS = 'cunoFS',
     Applications = 'Applications',
     ProjectSettings = 'Project Settings',
     Login = 'Login',
