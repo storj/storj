@@ -230,18 +230,32 @@ func (endpoint *Endpoint) validateBasic(ctx context.Context, header *pb.RequestH
 	if keyInfo.UserAgent != nil {
 		userAgent = string(keyInfo.UserAgent)
 	}
-	ek.Event("auth",
+
+	// we add 3 tags now, 1 in a defer, and 4 tags in checkRate, so allocate space for
+	// 8 tags. the only downside to getting this number wrong is we do some unnecessary
+	// allocations.
+	authTags := make([]eventkit.Tag, 0, 8)
+	authTags = append(authTags,
 		eventkit.String("user-agent", userAgent),
-		eventkit.String("project", keyInfo.ProjectID.String()),
+		eventkit.String("project", keyInfo.ProjectID.String()), // deprecated?
 		eventkit.String("partner", string(keyInfo.UserAgent)),
 	)
+	defer func() {
+		authTags = append(authTags,
+			// this might be OK but the overall rpc might still return some other
+			// code besides this one.
+			eventkit.String("basic-status", rpcstatus.Code(err).String()),
+		)
+
+		ek.Event("auth", authTags...)
+	}()
 
 	if err = endpoint.checkUserStatus(ctx, keyInfo); err != nil {
 		endpoint.log.Debug("user status check failed", zap.Error(err))
 		return nil, nil, err
 	}
 
-	if err = endpoint.checkRate(ctx, keyInfo, rateKind); err != nil {
+	if err = endpoint.checkRate(ctx, keyInfo, rateKind, &authTags); err != nil {
 		endpoint.log.Debug("rate check failed", zap.Error(err))
 		return nil, nil, err
 	}
@@ -279,7 +293,8 @@ func (endpoint *Endpoint) validateRevoke(ctx context.Context, header *pb.Request
 // If the project has an operation-specific rate limit for the operation in question, that is used
 // Otherwise, if the project has a basic "project-level" rate limit, that is used
 // Otherwise, the global rate limit configs on the satellite are used.
-func (endpoint *Endpoint) checkRate(ctx context.Context, apiKeyInfo *console.APIKeyInfo, rateKind console.LimitKind) (err error) {
+// If eventTags is not nil, project rate limit tags are added to the eventTag list.
+func (endpoint *Endpoint) checkRate(ctx context.Context, apiKeyInfo *console.APIKeyInfo, rateKind console.LimitKind, eventTags *[]eventkit.Tag) (err error) {
 	defer mon.Task()(&ctx)(&err)
 	if !endpoint.config.RateLimiter.Enabled {
 		return nil
@@ -339,11 +354,15 @@ func (endpoint *Endpoint) checkRate(ctx context.Context, apiKeyInfo *console.API
 		if limiter.Burst() == 0 && limiter.Limit() == 0 {
 			return rpcstatus.Error(rpcstatus.PermissionDenied, "All access disabled")
 		}
-		endpoint.log.Warn("too many requests for project",
-			zap.Stringer("Project Public ID", apiKeyInfo.ProjectPublicID),
-			zap.Float64("rate limit", float64(limiter.Limit())),
-			zap.Float64("burst limit", float64(limiter.Burst())),
-			zap.Int("rate limit kind", int(rateKind)))
+
+		if eventTags != nil {
+			*eventTags = append(*eventTags,
+				eventkit.Bool("project-limited", true),
+				eventkit.Float64("rate-limit", float64(limiter.Limit())),
+				eventkit.Float64("burst-limit", float64(limiter.Burst())),
+				eventkit.Int64("rate-limit-kind", int64(rateKind)),
+			)
+		}
 
 		mon.Event("metainfo_rate_limit_exceeded") //mon:locked
 
