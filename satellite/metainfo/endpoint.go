@@ -274,8 +274,7 @@ func (endpoint *Endpoint) RevokeAPIKey(ctx context.Context, req *pb.RevokeAPIKey
 
 	err = endpoint.revocations.Revoke(ctx, macToRevoke.Tail(), keyInfo.ID[:])
 	if err != nil {
-		endpoint.log.Error("Failed to revoke API key", zap.Error(err))
-		return nil, rpcstatus.Error(rpcstatus.Internal, "Failed to revoke API key")
+		return nil, endpoint.ConvertKnownErrWithMessage(err, "Failed to revoke API key")
 	}
 
 	return &pb.RevokeAPIKeyResponse{}, nil
@@ -296,17 +295,17 @@ func (endpoint *Endpoint) packStreamID(ctx context.Context, satStreamID *interna
 
 	signedStreamID, err := SignStreamID(ctx, endpoint.satellite, satStreamID)
 	if err != nil {
-		return nil, rpcstatus.Error(rpcstatus.Internal, err.Error())
+		return nil, rpcstatus.Wrap(rpcstatus.Internal, err)
 	}
 
 	encodedStreamID, err := pb.Marshal(signedStreamID)
 	if err != nil {
-		return nil, rpcstatus.Error(rpcstatus.Internal, err.Error())
+		return nil, rpcstatus.Wrap(rpcstatus.Internal, err)
 	}
 
 	streamID, err = storj.StreamIDFromBytes(encodedStreamID)
 	if err != nil {
-		return nil, rpcstatus.Error(rpcstatus.Internal, err.Error())
+		return nil, rpcstatus.Wrap(rpcstatus.Internal, err)
 	}
 	return streamID, nil
 }
@@ -406,8 +405,19 @@ func (endpoint *Endpoint) unmarshalSatSegmentID(ctx context.Context, segmentID s
 	return satSegmentID, nil
 }
 
-// ConvertMetabaseErr converts domain errors from metabase to appropriate rpc statuses errors.
+// ConvertMetabaseErr converts known domain errors to appropriate rpc statuses errors.
 func (endpoint *Endpoint) ConvertMetabaseErr(err error) error {
+	return endpoint.ConvertKnownErrWithMessage(err, "internal error")
+}
+
+// ConvertKnownErr converts known domain errors to appropriate rpc statuses errors.
+func (endpoint *Endpoint) ConvertKnownErr(err error) error {
+	return endpoint.ConvertKnownErrWithMessage(err, "internal error")
+}
+
+// ConvertKnownErrWithMessage converts known domain errors to appropriate rpc statuses errors with
+// a custom message.
+func (endpoint *Endpoint) ConvertKnownErrWithMessage(err error, message string) error {
 	switch {
 	case err == nil:
 		return nil
@@ -446,8 +456,8 @@ func (endpoint *Endpoint) ConvertMetabaseErr(err error) error {
 		// TODO(spanner): it's far from perfect we should be handling this on lower level
 		return rpcstatus.Wrap(rpcstatus.Canceled, context.Canceled)
 	default:
-		endpoint.log.Error("internal", zap.Error(err))
-		return rpcstatus.Error(rpcstatus.Internal, "internal error")
+		endpoint.log.Error(message, zap.Error(err))
+		return rpcstatus.Error(rpcstatus.Internal, message)
 	}
 }
 
