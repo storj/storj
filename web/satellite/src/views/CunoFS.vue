@@ -46,7 +46,7 @@
                             target="_blank"
                             rel="noopener noreferrer"
                         >
-                            CunoFS Install Guide
+                            cunoFS Install Guide
                         </v-btn>
                     </v-card-item>
                 </v-card>
