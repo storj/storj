@@ -216,6 +216,7 @@ func BenchmarkPrecommitConstraintUnversioned(b *testing.B) {
 				baseObj.ObjectKey = metabase.ObjectKey(fmt.Sprintf("overwrite/%d", i))
 				object := metabase.RawObject{
 					ObjectStream: baseObj,
+					Status:       metabase.CommittedUnversioned,
 				}
 				objects = append(objects, object)
 			}

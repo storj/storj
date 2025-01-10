@@ -2407,48 +2407,97 @@ func TestListObjects_Stress(t *testing.T) {
 	})
 }
 
-func TestListObjects_RescanCursor(t *testing.T) {
+func TestListObjects_Requery(t *testing.T) {
 	metabasetest.Run(t, func(ctx *testcontext.Context, t *testing.T, db *metabase.DB) {
-		obj := metabasetest.RandObjectStream()
+		t.Run("unversioned", func(t *testing.T) {
+			defer metabasetest.DeleteAll{}.Check(ctx, t, db)
+			obj := metabasetest.RandObjectStream()
 
-		objects := []metabase.RawObject{}
-		for i := 0; i < 1; i++ {
-			for j := 0; j < 3; j++ {
-				for k := 0; k < 3; k++ {
-					objects = append(objects, metabase.RawObject{
-						ObjectStream: metabase.ObjectStream{
-							ProjectID:  obj.ProjectID,
-							BucketName: metabase.BucketName("bucket"),
-							ObjectKey:  metabase.ObjectKey(fmt.Sprintf("%d/%d/%d/object-%d", i, j, k, i+j+k)),
-							Version:    1,
-							StreamID:   uuid.UUID{1, byte(i), byte(k), byte(j)},
-						},
-					})
+			objects := []metabase.RawObject{}
+			for i := 0; i < 1; i++ {
+				for j := 0; j < 3; j++ {
+					for k := 0; k < 3; k++ {
+						objects = append(objects, metabase.RawObject{
+							ObjectStream: metabase.ObjectStream{
+								ProjectID:  obj.ProjectID,
+								BucketName: metabase.BucketName("bucket"),
+								ObjectKey:  metabase.ObjectKey(fmt.Sprintf("%d/%d/%d/object-%d", i, j, k, i+j+k)),
+								Version:    1,
+								StreamID:   uuid.UUID{1, byte(i), byte(k), byte(j)},
+							},
+							Status: metabase.CommittedUnversioned,
+						})
+					}
 				}
 			}
-		}
 
-		require.NoError(t, db.TestingBatchInsertObjects(ctx, objects))
+			require.NoError(t, db.TestingBatchInsertObjects(ctx, objects))
 
-		all, err := db.TestingAllObjects(ctx)
-		require.NoError(t, err)
-		require.Equal(t, len(objects), len(all))
-
-		result, err := db.ListObjects(ctx, metabase.ListObjects{
-			ProjectID:  obj.ProjectID,
-			BucketName: "bucket",
-			Recursive:  true,
-			Cursor: metabase.ListObjectsCursor{
-				Key:     "0/0/0/object-0",
-				Version: 1,
-			},
-			Params: metabase.ListObjectsParams{
-				MinBatchSize: 1,
-			},
-			Limit: len(objects) - 2,
+			result, err := db.ListObjects(ctx, metabase.ListObjects{
+				ProjectID:  obj.ProjectID,
+				BucketName: "bucket",
+				Recursive:  true,
+				Cursor: metabase.ListObjectsCursor{
+					Key:     "0/0/0/object-0",
+					Version: 1,
+				},
+				Params: metabase.ListObjectsParams{
+					MinBatchSize: 1,
+				},
+				Limit: len(objects) - 2,
+			})
+			require.NoError(t, err)
+			assert.Len(t, result.Objects, len(objects)-2)
+			require.True(t, result.More)
 		})
-		require.NoError(t, err)
-		assert.Len(t, result.Objects, len(objects)-2)
-		require.True(t, result.More)
+
+		t.Run("versioned", func(t *testing.T) {
+			defer metabasetest.DeleteAll{}.Check(ctx, t, db)
+			obj := metabasetest.RandObjectStream()
+
+			objects := []metabase.RawObject{}
+			for i := 0; i < 11; i++ {
+				objects = append(objects, metabase.RawObject{
+					ObjectStream: metabase.ObjectStream{
+						ProjectID:  obj.ProjectID,
+						BucketName: metabase.BucketName("bucket"),
+						ObjectKey:  metabase.ObjectKey("0000"),
+						Version:    1 + metabase.Version(i),
+						StreamID:   uuid.UUID{1},
+					},
+					Status: metabase.CommittedVersioned,
+				})
+			}
+			for i := 0; i < 105; i++ {
+				objects = append(objects, metabase.RawObject{
+					ObjectStream: metabase.ObjectStream{
+						ProjectID:  obj.ProjectID,
+						BucketName: metabase.BucketName("bucket"),
+						ObjectKey:  metabase.ObjectKey(fmt.Sprintf("%04d", i+1)),
+						Version:    1,
+						StreamID:   uuid.UUID{1},
+					},
+					Status: metabase.CommittedVersioned,
+				})
+			}
+
+			require.NoError(t, db.TestingBatchInsertObjects(ctx, objects))
+
+			result, err := db.ListObjects(ctx, metabase.ListObjects{
+				ProjectID:   obj.ProjectID,
+				BucketName:  "bucket",
+				Recursive:   false,
+				Pending:     false,
+				AllVersions: false,
+				Cursor: metabase.ListObjectsCursor{
+					Key:     "0000",
+					Version: 1,
+				},
+				Limit: 100,
+			})
+			require.NoError(t, err)
+			t.Log(len(result.Objects))
+			require.True(t, result.More)
+		})
 	})
 }

@@ -607,7 +607,9 @@ func TestIterateObjectsWithStatus(t *testing.T) {
 				ObjectStream: metabase.ObjectStream{
 					ProjectID:  projectID,
 					BucketName: bucketName,
+					Version:    1,
 				},
+				Status: metabase.CommittedVersioned,
 			}
 
 			for a := 0; a <= 0xFF; a++ {
@@ -2533,7 +2535,9 @@ func TestIterateObjectsWithStatusAscending(t *testing.T) {
 				ObjectStream: metabase.ObjectStream{
 					ProjectID:  projectID,
 					BucketName: bucketName,
+					Version:    1,
 				},
+				Status: metabase.CommittedVersioned,
 			}
 
 			for a := 0; a <= 0xFF; a++ {
