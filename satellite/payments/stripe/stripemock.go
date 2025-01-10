@@ -104,6 +104,7 @@ type mockStripeState struct {
 
 	customers                   *mockCustomersState
 	paymentMethods              *mockPaymentMethods
+	paymentIntents              *mockPaymentIntents
 	invoices                    *mockInvoices
 	invoiceItems                *mockInvoiceItems
 	customerBalanceTransactions *mockCustomerBalanceTransactions
@@ -137,6 +138,7 @@ func NewStripeMock(customersDB CustomersDB, usersDB console.Users) Client {
 	state := &mockStripeState{}
 	state.customers = &mockCustomersState{}
 	state.paymentMethods = newMockPaymentMethods(state)
+	state.paymentIntents = &mockPaymentIntents{}
 	state.invoiceItems = newMockInvoiceItems(state)
 	state.invoices = newMockInvoices(state, state.invoiceItems)
 	state.customerBalanceTransactions = newMockCustomerBalanceTransactions(state)
@@ -167,6 +169,10 @@ func (m *mockStripeClient) Customers() Customers {
 
 func (m *mockStripeClient) PaymentMethods() PaymentMethods {
 	return m.paymentMethods
+}
+
+func (m *mockStripeClient) PaymentIntents() PaymentIntents {
+	return m.paymentIntents
 }
 
 func (m *mockStripeClient) Invoices() Invoices {
@@ -586,6 +592,17 @@ func (m *mockPaymentMethods) Detach(id string, params *stripe.PaymentMethodDetac
 	}
 
 	return unattached, nil
+}
+
+type mockPaymentIntents struct {
+}
+
+func (m *mockPaymentIntents) New(params *stripe.PaymentIntentParams) (*stripe.PaymentIntent, error) {
+	return &stripe.PaymentIntent{
+		Status:   stripe.PaymentIntentStatusSucceeded,
+		Amount:   *params.Amount,
+		Metadata: params.Metadata,
+	}, nil
 }
 
 type mockInvoices struct {

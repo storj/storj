@@ -96,6 +96,9 @@ type Accounts interface {
 	// CreditCards exposes all needed functionality to manage account credit cards.
 	CreditCards() CreditCards
 
+	// PaymentIntents exposes all needed functionality to manage credit cards charging.
+	PaymentIntents() PaymentIntents
+
 	// StorjTokens exposes all storj token related functionality.
 	StorjTokens() StorjTokens
 

@@ -20,6 +20,7 @@ import (
 	"github.com/stripe/stripe-go/v75/form"
 	"github.com/stripe/stripe-go/v75/invoice"
 	"github.com/stripe/stripe-go/v75/invoiceitem"
+	"github.com/stripe/stripe-go/v75/paymentintent"
 	"github.com/stripe/stripe-go/v75/paymentmethod"
 	"github.com/stripe/stripe-go/v75/promotioncode"
 	"github.com/stripe/stripe-go/v75/taxid"
@@ -32,6 +33,7 @@ import (
 type Client interface {
 	Customers() Customers
 	PaymentMethods() PaymentMethods
+	PaymentIntents() PaymentIntents
 	Invoices() Invoices
 	InvoiceItems() InvoiceItems
 	CustomerBalanceTransactions() CustomerBalanceTransactions
@@ -57,6 +59,11 @@ type PaymentMethods interface {
 	Get(id string, params *stripe.PaymentMethodParams) (*stripe.PaymentMethod, error)
 	Attach(id string, params *stripe.PaymentMethodAttachParams) (*stripe.PaymentMethod, error)
 	Detach(id string, params *stripe.PaymentMethodDetachParams) (*stripe.PaymentMethod, error)
+}
+
+// PaymentIntents Stripe PaymentIntents interface.
+type PaymentIntents interface {
+	New(params *stripe.PaymentIntentParams) (*stripe.PaymentIntent, error)
 }
 
 // Invoices Stripe Invoices interface.
@@ -122,6 +129,8 @@ type stripeClient struct {
 	invoices *invoice.Client
 	// paymentMethods is the client used to invoke /payment_methods APIs.
 	paymentMethods *paymentmethod.Client
+	// paymentIntents is the client used to invoke /payment_intents APIs.
+	paymentIntents *paymentintent.Client
 	// promotionCodes is the client used to invoke /promotion_codes APIs.
 	promotionCodes *promotioncode.Client
 	// taxIDs is the client used to invoke /tax_ids APIs.
@@ -137,6 +146,7 @@ func (s *stripeClient) Customers() Customers           { return s.customers }
 func (s *stripeClient) InvoiceItems() InvoiceItems     { return s.invoiceItems }
 func (s *stripeClient) Invoices() Invoices             { return s.invoices }
 func (s *stripeClient) PaymentMethods() PaymentMethods { return s.paymentMethods }
+func (s *stripeClient) PaymentIntents() PaymentIntents { return s.paymentIntents }
 func (s *stripeClient) PromoCodes() PromoCodes         { return s.promotionCodes }
 func (s *stripeClient) TaxIDs() TaxIDs                 { return s.taxIDs }
 

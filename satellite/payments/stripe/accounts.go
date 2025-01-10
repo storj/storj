@@ -35,6 +35,11 @@ func (accounts *accounts) CreditCards() payments.CreditCards {
 	return &creditCards{service: accounts.service}
 }
 
+// PaymentIntents exposes all needed functionality to manage credit cards charging.
+func (accounts *accounts) PaymentIntents() payments.PaymentIntents {
+	return &paymentIntents{service: accounts.service}
+}
+
 // Balances exposes all needed functionality to manage account balances.
 func (accounts *accounts) Balances() payments.Balances {
 	return &balances{service: accounts.service}
