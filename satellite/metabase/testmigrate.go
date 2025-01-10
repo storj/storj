@@ -101,7 +101,7 @@ func (p *PostgresAdapter) testMigrateToLatest(ctx context.Context) error {
 					COMMENT ON COLUMN objects.retention_mode is 'retention_mode specifies an object version''s retention mode: NULL/0=none, and 1=compliance.';
 					COMMENT ON COLUMN objects.retain_until   is 'retain_until specifies when an object version''s retention period ends.';
 
-					CREATE INDEX ON objects USING GIN (project_id, bucket_name, clear_metadata);
+					CREATE INDEX ON objects USING GIN (clear_metadata);
 
 					CREATE TABLE segments (
 						stream_id  BYTEA NOT NULL,
