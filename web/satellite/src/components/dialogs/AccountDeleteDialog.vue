@@ -8,6 +8,7 @@
         max-width="450px"
         transition="fade-transition"
         persistent
+        scrollable
     >
         <v-card rounded="xlg">
             <v-sheet>
@@ -39,183 +40,185 @@
 
             <v-divider />
 
-            <v-window v-model="step">
-                <v-window-item :value="DeleteAccountStep.InitStep">
-                    <v-form class="pa-6" @submit.prevent>
-                        <v-row>
-                            <v-col>
-                                <p class="font-weight-bold mb-4">
-                                    You are about to permanently delete your Storj account, all of your projects and
-                                    all associated data. This action cannot be undone.
-                                </p>
-                                <p>Account:</p>
-                                <v-chip variant="tonal">
-                                    {{ user.email }}
-                                </v-chip>
-                            </v-col>
-                        </v-row>
-                    </v-form>
-                </v-window-item>
+            <v-card-text class="pa-0">
+                <v-window v-model="step">
+                    <v-window-item :value="DeleteAccountStep.InitStep">
+                        <v-form class="pa-6" @submit.prevent>
+                            <v-row>
+                                <v-col>
+                                    <p class="font-weight-bold mb-4">
+                                        You are about to permanently delete your Storj account, all of your projects and
+                                        all associated data. This action cannot be undone.
+                                    </p>
+                                    <p>Account:</p>
+                                    <v-chip variant="tonal">
+                                        {{ user.email }}
+                                    </v-chip>
+                                </v-col>
+                            </v-row>
+                        </v-form>
+                    </v-window-item>
 
-                <v-window-item :value="DeleteAccountStep.DeleteBucketsStep">
-                    <v-form class="pa-6">
-                        <v-row>
-                            <v-col>
-                                <p class="font-weight-bold mb-4">
-                                    Before we proceed with your account deletion request,
-                                    please delete all of your data and buckets.
-                                </p>
-                                <p class="font-weight-bold mb-4">Projects: <v-chip color="error">{{ ownedProjects }}</v-chip></p>
-                                <p class="font-weight-bold mb-4">Total buckets: <v-chip color="error">{{ buckets }}</v-chip></p>
-                                <v-alert variant="tonal" type="info">
-                                    Once you delete all of your buckets, then you can proceed with account deletion.
-                                </v-alert>
-                            </v-col>
-                        </v-row>
-                    </v-form>
-                </v-window-item>
+                    <v-window-item :value="DeleteAccountStep.DeleteBucketsStep">
+                        <v-form class="pa-6">
+                            <v-row>
+                                <v-col>
+                                    <p class="font-weight-bold mb-4">
+                                        Before we proceed with your account deletion request,
+                                        please delete all of your data and buckets.
+                                    </p>
+                                    <p class="font-weight-bold mb-4">Projects: <v-chip color="error">{{ ownedProjects }}</v-chip></p>
+                                    <p class="font-weight-bold mb-4">Total buckets: <v-chip color="error">{{ buckets }}</v-chip></p>
+                                    <v-alert variant="tonal" type="info">
+                                        Once you delete all of your buckets, then you can proceed with account deletion.
+                                    </v-alert>
+                                </v-col>
+                            </v-row>
+                        </v-form>
+                    </v-window-item>
 
-                <v-window-item :value="DeleteAccountStep.DeleteAccessKeysStep">
-                    <v-form class="pa-6">
-                        <v-row>
-                            <v-col>
-                                <p class="font-weight-bold mb-4">
-                                    Before we proceed with your account deletion request,
-                                    please delete all of your access keys:
-                                </p>
-                                <p class="font-weight-bold mb-4">Projects: <v-chip color="error">{{ ownedProjects }}</v-chip></p>
-                                <p class="font-weight-bold mb-4">Total access keys: <v-chip color="error">{{ apiKeys }}</v-chip></p>
-                                <v-alert variant="tonal" type="info">
-                                    Once you delete all of your access keys, then you can proceed with account deletion.
-                                </v-alert>
-                            </v-col>
-                        </v-row>
-                    </v-form>
-                </v-window-item>
+                    <v-window-item :value="DeleteAccountStep.DeleteAccessKeysStep">
+                        <v-form class="pa-6">
+                            <v-row>
+                                <v-col>
+                                    <p class="font-weight-bold mb-4">
+                                        Before we proceed with your account deletion request,
+                                        please delete all of your access keys:
+                                    </p>
+                                    <p class="font-weight-bold mb-4">Projects: <v-chip color="error">{{ ownedProjects }}</v-chip></p>
+                                    <p class="font-weight-bold mb-4">Total access keys: <v-chip color="error">{{ apiKeys }}</v-chip></p>
+                                    <v-alert variant="tonal" type="info">
+                                        Once you delete all of your access keys, then you can proceed with account deletion.
+                                    </v-alert>
+                                </v-col>
+                            </v-row>
+                        </v-form>
+                    </v-window-item>
 
-                <v-window-item :value="DeleteAccountStep.PayInvoicesStep">
-                    <v-form class="pa-6">
-                        <v-row>
-                            <v-col>
-                                <p class="font-weight-bold mb-4">
-                                    Before we proceed with your account deletion request,
-                                    please review the following information:
-                                </p>
-                                <p class="font-weight-bold mb-4">Invoice status: <v-chip color="error">{{ unpaidInvoices }} unpaid {{ unpaidInvoices > 1 ? 'invoices' : 'invoice' }}</v-chip></p>
-                                <p class="font-weight-bold mb-4">Unpaid invoices amount: <v-chip color="error">{{ centsToDollars(amountOwed) }}</v-chip></p>
-                                <v-alert variant="tonal" type="error">
-                                    Please pay all of your outstanding invoices by adding a new payment method to delete your account.
-                                </v-alert>
-                                <!-- <v-btn class="mt-4" color="error" block @click="goToBilling()">Pay Invoices</v-btn> -->
-                            </v-col>
-                        </v-row>
-                    </v-form>
-                </v-window-item>
+                    <v-window-item :value="DeleteAccountStep.PayInvoicesStep">
+                        <v-form class="pa-6">
+                            <v-row>
+                                <v-col>
+                                    <p class="font-weight-bold mb-4">
+                                        Before we proceed with your account deletion request,
+                                        please review the following information:
+                                    </p>
+                                    <p class="font-weight-bold mb-4">Invoice status: <v-chip color="error">{{ unpaidInvoices }} unpaid {{ unpaidInvoices > 1 ? 'invoices' : 'invoice' }}</v-chip></p>
+                                    <p class="font-weight-bold mb-4">Unpaid invoices amount: <v-chip color="error">{{ centsToDollars(amountOwed) }}</v-chip></p>
+                                    <v-alert variant="tonal" type="error">
+                                        Please pay all of your outstanding invoices by adding a new payment method to delete your account.
+                                    </v-alert>
+                                    <!-- <v-btn class="mt-4" color="error" block @click="goToBilling()">Pay Invoices</v-btn> -->
+                                </v-col>
+                            </v-row>
+                        </v-form>
+                    </v-window-item>
 
-                <v-window-item :value="DeleteAccountStep.WaitForInvoicingStep">
-                    <v-form class="pa-6">
-                        <v-row>
-                            <v-col>
-                                <p class="font-weight-bold mb-4">
-                                    There's some recent usage on your account that hasn't been paid yet. To delete your account, please
-                                    follow these steps:
-                                </p>
-                                <p class="mb-4">1. Please wait until the end of the current billing cycle (typically the end of the month).</p>
-                                <p class="mb-4">2. We'll generate your final invoice early in the following month (usually around the 4th day).</p>
-                                <p class="mb-4">3. Once the invoice is paid, you can resume the account deletion process.</p>
-                                <v-alert variant="tonal" type="info">
-                                    If you have an outstanding balance or need immediate assistance, please contact our suuport team to
-                                    request account deletion and discuss any potential refunds.
-                                </v-alert>
-                                <!-- <v-btn class="mt-4" block @click="model = false">Close</v-btn> -->
-                            </v-col>
-                        </v-row>
-                    </v-form>
-                </v-window-item>
+                    <v-window-item :value="DeleteAccountStep.WaitForInvoicingStep">
+                        <v-form class="pa-6">
+                            <v-row>
+                                <v-col>
+                                    <p class="font-weight-bold mb-4">
+                                        There's some recent usage on your account that hasn't been paid yet. To delete your account, please
+                                        follow these steps:
+                                    </p>
+                                    <p class="mb-4">1. Please wait until the end of the current billing cycle (typically the end of the month).</p>
+                                    <p class="mb-4">2. We'll generate your final invoice early in the following month (usually around the 4th day).</p>
+                                    <p class="mb-4">3. Once the invoice is paid, you can resume the account deletion process.</p>
+                                    <v-alert variant="tonal" type="info">
+                                        If you have an outstanding balance or need immediate assistance, please contact our suuport team to
+                                        request account deletion and discuss any potential refunds.
+                                    </v-alert>
+                                    <!-- <v-btn class="mt-4" block @click="model = false">Close</v-btn> -->
+                                </v-col>
+                            </v-row>
+                        </v-form>
+                    </v-window-item>
 
-                <v-window-item :value="DeleteAccountStep.VerifyPasswordStep">
-                    <v-form ref="passwordForm" class="pa-6" @submit.prevent>
-                        <v-row>
-                            <v-col>
-                                <p>Enter your account password to continue.</p>
-                                <v-text-field
-                                    v-model="password"
-                                    type="password"
-                                    label="Password"
-                                    class="mt-6"
-                                    :rules="[RequiredRule]"
-                                    required
-                                />
-                            </v-col>
-                        </v-row>
-                    </v-form>
-                </v-window-item>
+                    <v-window-item :value="DeleteAccountStep.VerifyPasswordStep">
+                        <v-form ref="passwordForm" class="pa-6" @submit.prevent>
+                            <v-row>
+                                <v-col>
+                                    <p>Enter your account password to continue.</p>
+                                    <v-text-field
+                                        v-model="password"
+                                        type="password"
+                                        label="Password"
+                                        class="mt-6"
+                                        :rules="[RequiredRule]"
+                                        required
+                                    />
+                                </v-col>
+                            </v-row>
+                        </v-form>
+                    </v-window-item>
 
-                <v-window-item v-if="user.isMFAEnabled" :value="DeleteAccountStep.Verify2faStep">
-                    <v-form class="pa-6" @submit.prevent>
-                        <v-row>
-                            <v-col>
-                                <p>Enter the code from your 2FA application.</p>
-                                <v-otp-input
-                                    ref="otpInput2fa"
-                                    :model-value="code2fa"
-                                    class="mt-6"
-                                    type="number"
-                                    maxlength="6"
-                                    :error="isOTPInputError"
-                                    @update:modelValue="value => onOTPValueChange(value)"
-                                />
-                            </v-col>
-                        </v-row>
-                    </v-form>
-                </v-window-item>
+                    <v-window-item v-if="user.isMFAEnabled" :value="DeleteAccountStep.Verify2faStep">
+                        <v-form class="pa-6" @submit.prevent>
+                            <v-row>
+                                <v-col>
+                                    <p>Enter the code from your 2FA application.</p>
+                                    <v-otp-input
+                                        ref="otpInput2fa"
+                                        :model-value="code2fa"
+                                        class="mt-6"
+                                        type="number"
+                                        maxlength="6"
+                                        :error="isOTPInputError"
+                                        @update:modelValue="value => onOTPValueChange(value)"
+                                    />
+                                </v-col>
+                            </v-row>
+                        </v-form>
+                    </v-window-item>
 
-                <v-window-item :value="DeleteAccountStep.VerifyEmailStep">
-                    <v-form class="pa-6" @submit.prevent>
-                        <v-row>
-                            <v-col>
-                                <p>Enter the 6-digit code you received on email.</p>
-                                <v-otp-input
-                                    ref="otpInputVerify"
-                                    :model-value="verifyEmailCode"
-                                    class="mt-6"
-                                    type="number"
-                                    maxlength="6"
-                                    :error="isOTPInputError"
-                                    @update:modelValue="value => onOTPValueChange(value)"
-                                />
-                            </v-col>
-                        </v-row>
-                    </v-form>
-                </v-window-item>
+                    <v-window-item :value="DeleteAccountStep.VerifyEmailStep">
+                        <v-form class="pa-6" @submit.prevent>
+                            <v-row>
+                                <v-col>
+                                    <p>Enter the 6-digit code you received on email.</p>
+                                    <v-otp-input
+                                        ref="otpInputVerify"
+                                        :model-value="verifyEmailCode"
+                                        class="mt-6"
+                                        type="number"
+                                        maxlength="6"
+                                        :error="isOTPInputError"
+                                        @update:modelValue="value => onOTPValueChange(value)"
+                                    />
+                                </v-col>
+                            </v-row>
+                        </v-form>
+                    </v-window-item>
 
-                <v-window-item :value="DeleteAccountStep.ConfirmDeleteStep">
-                    <v-form class="pa-6" @submit.prevent>
-                        <v-row>
-                            <v-col>
-                                <p>Please confirm that you want to permanently delete your account.</p>
-                                <v-chip
-                                    variant="tonal"
-                                    class="my-4 font-weight-bold"
-                                >
-                                    {{ user.email }}
-                                </v-chip>
-                                <v-checkbox-btn v-model="isDeleteConfirmed" label="I want to delete this account." density="compact" />
-                            </v-col>
-                        </v-row>
-                    </v-form>
-                </v-window-item>
+                    <v-window-item :value="DeleteAccountStep.ConfirmDeleteStep">
+                        <v-form class="pa-6" @submit.prevent>
+                            <v-row>
+                                <v-col>
+                                    <p>Please confirm that you want to permanently delete your account.</p>
+                                    <v-chip
+                                        variant="tonal"
+                                        class="my-4 font-weight-bold"
+                                    >
+                                        {{ user.email }}
+                                    </v-chip>
+                                    <v-checkbox-btn v-model="isDeleteConfirmed" label="I want to delete this account." density="compact" />
+                                </v-col>
+                            </v-row>
+                        </v-form>
+                    </v-window-item>
 
-                <v-window-item :value="DeleteAccountStep.FinalConfirmDeleteStep">
-                    <v-form class="pa-6" @submit.prevent>
-                        <v-row>
-                            <v-col>
-                                <p class="font-weight-bold">This action will delete your account. You will be logged out immediately and receive a confirmation email.</p>
-                            </v-col>
-                        </v-row>
-                    </v-form>
-                </v-window-item>
-            </v-window>
+                    <v-window-item :value="DeleteAccountStep.FinalConfirmDeleteStep">
+                        <v-form class="pa-6" @submit.prevent>
+                            <v-row>
+                                <v-col>
+                                    <p class="font-weight-bold">This action will delete your account. You will be logged out immediately and receive a confirmation email.</p>
+                                </v-col>
+                            </v-row>
+                        </v-form>
+                    </v-window-item>
+                </v-window>
+            </v-card-text>
 
             <v-divider />
 
@@ -293,6 +296,7 @@ import {
     VAlert,
     VBtn,
     VCard,
+    VCardText,
     VCardActions,
     VCardItem,
     VCardTitle,
