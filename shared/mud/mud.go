@@ -123,7 +123,7 @@ func findTag[Tag any](c *Component) (Tag, bool) {
 // With the help of the dependency graph, they can be executed in the right order.
 func DependsOn[BASE any, DEPENDENCY any](ball *Ball) {
 	c := MustLookupComponent[BASE](ball)
-	c.addRequirement(typeOf[DEPENDENCY]())
+	c.AddRequirement(typeOf[DEPENDENCY]())
 }
 
 // ForEach executes a callback action on all the selected components.
@@ -341,7 +341,7 @@ func registerDependencies(ball *Ball, c *Component, factory interface{}) {
 			continue
 		}
 
-		c.addRequirement(ft.In(i))
+		c.AddRequirement(ft.In(i))
 	}
 }
 

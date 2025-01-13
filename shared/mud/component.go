@@ -110,7 +110,8 @@ func stageStr(stage *Stage, s string) string {
 	return strings.ToUpper(s)
 }
 
-func (c *Component) addRequirement(in reflect.Type) {
+// AddRequirement marks the argument type as dependency of this component.
+func (c *Component) AddRequirement(in reflect.Type) {
 	for _, req := range c.requirements {
 		if req == in {
 			return
