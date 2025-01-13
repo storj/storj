@@ -354,6 +354,49 @@ versioncontrol-image: versioncontrol_linux_arm versioncontrol_linux_arm64 versio
 		--build-arg=GOARCH=arm64 --build-arg=DOCKER_ARCH=arm64v8 \
 		-f cmd/versioncontrol/Dockerfile .
 
+.PHONY: darwin-binaries
+darwin-binaries:
+	echo "Building Darwin binaries (identity, uplink) for amd64, arm64"
+	@components="identity uplink"; \
+	arches="amd64 arm64"; \
+	for comp in $$components; do \
+		for arch in $$arches; do \
+			output_dir="release/$(TAG)"; \
+			bin_name="$$comp"_darwin_"$$arch$(FILEEXT)"; \
+			dest_path="$$output_dir/$$bin_name"; \
+			if [ -f "$$dest_path" ]; then \
+				echo "$$dest_path already exists, skipping..."; \
+				continue; \
+			fi; \
+			echo ""; \
+			echo "Building $$comp for Darwin/$$arch"; \
+			mkdir -p "$$output_dir"; \
+			mkdir -p /tmp/go-cache /tmp/go-pkg; \
+			\
+			docker run --rm -i \
+				-v "$$PWD":/go/src/storj.io/storj \
+				-e GO111MODULE=on \
+				-e GOOS=darwin \
+				-e GOARCH="$$arch" \
+				-e GOARM=6 \
+				-e CGO_ENABLED=1 \
+				-e GOCACHE=/tmp/.cache/go-build \
+				-e CGO_ENABLED=false \
+				-v /tmp/go-cache:/tmp/.cache/go-build \
+				-v /tmp/go-pkg:/go/pkg \
+				-w /go/src/storj.io/storj \
+				-e GOPROXY \
+				-u $(shell id -u):$(shell id -g) \
+				golang:$(GO_VERSION) \
+				scripts/release.sh build $(EXTRA_ARGS) \
+					-o "$$dest_path" \
+					storj.io/storj/cmd/$$comp; \
+			\
+			chmod 755 "$$dest_path"; \
+			rm -f "$${dest_path%.exe}.zip"; \
+		done; \
+	done
+
 .PHONY: binary
 binary: CUSTOMTAG = -${GOOS}-${GOARCH}
 binary:
@@ -408,7 +451,7 @@ certificates_%:
 .PHONY: identity_%
 identity_%:
 	$(MAKE) binary-check COMPONENT=identity GOARCH=$(word 3, $(subst _, ,$@)) GOOS=$(word 2, $(subst _, ,$@))
-.PHONE: multinode_%
+.PHONY: multinode_%
 multinode_%: multinode-console
 	$(MAKE) binary-check COMPONENT=multinode GOARCH=$(word 3, $(subst _, ,$@)) GOOS=$(word 2, $(subst _, ,$@))
 .PHONY: satellite_%
