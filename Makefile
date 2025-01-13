@@ -354,6 +354,28 @@ versioncontrol-image: versioncontrol_linux_arm versioncontrol_linux_arm64 versio
 		--build-arg=GOARCH=arm64 --build-arg=DOCKER_ARCH=arm64v8 \
 		-f cmd/versioncontrol/Dockerfile .
 
+.PHONY: identity_darwin_amd64
+identity_darwin_amd64:
+	@if [ -f release/${TAG}/identity_darwin_amd64 ]; \
+	then \
+		echo "release/${TAG}/identity_darwin_amd64 exists"; \
+		exit 1; \
+	fi
+
+	mkdir -p release/${TAG}
+	mkdir -p /tmp/go-cache /tmp/go-pkg
+
+	docker run --rm -i -v "${PWD}":/go/src/storj.io/storj -e GO111MODULE=on \
+	-e GOOS=darwin -e GOARCH=amd64 -e GOARM=6 -e CGO_ENABLED=1 \
+    -e GOCACHE=/tmp/.cache/go-build -e CGO_ENABLED=false \
+    -v /tmp/go-cache:/tmp/.cache/go-build -v /tmp/go-pkg:/go/pkg \
+    -w /go/src/storj.io/storj -e GOPROXY -u $(shell id -u):$(shell id -g) golang:${GO_VERSION} \
+    scripts/release.sh build $(EXTRA_ARGS) -o release/${TAG}/identity_darwin_amd64${FILEEXT} \
+    storj.io/storj/cmd/identity
+
+	chmod 755 release/${TAG}/identity_darwin_amd64${FILEEXT}
+	rm -f release/${TAG}/identity_darwin_amd64.zip
+
 .PHONY: binary
 binary: CUSTOMTAG = -${GOOS}-${GOARCH}
 binary:
@@ -408,7 +430,7 @@ certificates_%:
 .PHONY: identity_%
 identity_%:
 	$(MAKE) binary-check COMPONENT=identity GOARCH=$(word 3, $(subst _, ,$@)) GOOS=$(word 2, $(subst _, ,$@))
-.PHONE: multinode_%
+.PHONY: multinode_%
 multinode_%: multinode-console
 	$(MAKE) binary-check COMPONENT=multinode GOARCH=$(word 3, $(subst _, ,$@)) GOOS=$(word 2, $(subst _, ,$@))
 .PHONY: satellite_%
