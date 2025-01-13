@@ -1,0 +1,11 @@
+FROM debian
+RUN apt-get update && apt-get install -y clang git wget
+RUN GOLANG_VERSION=1.23.4 \
+    && DIGEST='6924efde5de86fe277676e929dc9917d466efa02fb934197bc2eba35d5680971' \
+    && wget -O go.tgz "https://golang.org/dl/go1.23.4.linux-amd64.tar.gz" \
+    && echo "${DIGEST} *go.tgz" | sha256sum -c - \
+    &&	tar -C /usr/local -xzf go.tgz \
+    && rm go.tgz \
+    && echo PATH: $PATH
+ENV PATH=$PATH:/usr/local/go/bin
+
