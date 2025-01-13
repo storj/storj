@@ -703,6 +703,30 @@ func (payment Payments) ProjectsCharges(ctx context.Context, since, before time.
 	return payment.service.accounts.ProjectCharges(ctx, user.ID, since, before)
 }
 
+// HandleWebhookEvent handles any event from payment provider.
+func (payment Payments) HandleWebhookEvent(ctx context.Context, signature string, payload []byte) (err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	event, err := payment.service.accounts.WebhookEvents().ParseEvent(ctx, signature, payload)
+	if err != nil {
+		return Error.Wrap(err)
+	}
+
+	// TODO: handle other events if needed.
+	if event.Type != payments.EventTypePaymentIntentSucceeded {
+		return nil
+	}
+
+	_, ok := event.Data["metadata"].(map[string]interface{})
+	if !ok {
+		return Error.New("webhook event metadata missing or invalid")
+	}
+
+	// TODO: add event handlers
+
+	return nil
+}
+
 // ListCreditCards returns a list of credit cards for a given payment account.
 func (payment Payments) ListCreditCards(ctx context.Context) (_ []payments.CreditCard, err error) {
 	defer mon.Task()(&ctx)(&err)

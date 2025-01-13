@@ -117,6 +117,7 @@ type Config struct {
 	ObjectLockUIEnabled             bool          `help:"whether object lock UI should be shown, regardless of whether the feature is enabled" default:"true"`
 	CunoFSBetaEnabled               bool          `help:"whether prompt to join cunoFS beta is visible" default:"false"`
 	CSRFProtectionEnabled           bool          `help:"whether CSRF protection is enabled for some of the endpoints" default:"false" testDefault:"false"`
+	BillingAddFundsEnabled          bool          `help:"whether billing add funds feature is enabled" default:"false"`
 
 	OauthCodeExpiry         time.Duration `help:"how long oauth authorization codes are issued for" default:"10m"`
 	OauthAccessTokenExpiry  time.Duration `help:"how long oauth access tokens are issued for" default:"24h"`
@@ -430,6 +431,9 @@ func NewServer(logger *zap.Logger, config Config, service *console.Service, oidc
 		if config.PricingPackagesEnabled {
 			paymentsRouter.HandleFunc("/purchase-package", paymentController.PurchasePackage).Methods(http.MethodPost, http.MethodOptions)
 			paymentsRouter.HandleFunc("/package-available", paymentController.PackageAvailable).Methods(http.MethodGet, http.MethodOptions)
+		}
+		if config.BillingAddFundsEnabled {
+			paymentsRouter.HandleFunc("/webhook", paymentController.HandleWebhookEvent).Methods(http.MethodPost, http.MethodOptions)
 		}
 	}
 
@@ -1006,6 +1010,7 @@ func (server *Server) frontendConfigHandler(w http.ResponseWriter, r *http.Reque
 		SelfServePlacementNames:           server.config.Placement.SelfServeNames,
 		CunoFSBetaEnabled:                 server.config.CunoFSBetaEnabled,
 		CSRFToken:                         csrfToken,
+		BillingAddFundsEnabled:            server.config.BillingAddFundsEnabled,
 	}
 
 	err := json.NewEncoder(w).Encode(&cfg)

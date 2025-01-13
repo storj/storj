@@ -800,6 +800,36 @@ func (p *Payments) GetTaxCountries(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
+// HandleWebhookEvent handles a webhook event from the payments provider.
+func (p *Payments) HandleWebhookEvent(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	var err error
+	defer mon.Task()(&ctx)(&err)
+
+	signature := r.Header.Get("Stripe-Signature")
+	if signature == "" {
+		p.log.Error("missing stripe signature")
+		return
+	}
+
+	payload, err := io.ReadAll(r.Body)
+	if err != nil {
+		p.log.Error("failed reading payments webhook body: %v", zap.Error(ErrPaymentsAPI.Wrap(err)))
+		return
+	}
+
+	err = p.service.Payments().HandleWebhookEvent(ctx, signature, payload)
+	if err != nil {
+		p.log.Error("failed to process webhook event: %v", zap.Error(ErrPaymentsAPI.Wrap(err)))
+
+		// We return error to stripe to retry the webhook.
+		w.WriteHeader(http.StatusInternalServerError)
+		return
+	}
+
+	w.WriteHeader(http.StatusOK)
+}
+
 // GetCountryTaxes returns a list of taxes supported for a country.
 func (p *Payments) GetCountryTaxes(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()

@@ -265,6 +265,9 @@ compensation.withheld-percents: 75,75,75,50,50,50,25,25,25,0,0,0,0,0,0
 # url link for for beta satellite support
 # console.beta-satellite-support-url: ""
 
+# whether billing add funds feature is enabled
+# console.billing-add-funds-enabled: false
+
 # indicates if billing features should be enabled
 # console.billing-features-enabled: true
 
@@ -1258,6 +1261,9 @@ identity.key-path: /root/.local/share/storj/identity/satellite/identity.key
 
 # stripe API secret key
 # payments.stripe-coin-payments.stripe-secret-key: ""
+
+# stripe webhookEvents secret token
+# payments.stripe-coin-payments.stripe-webhook-secret: ""
 
 # whether to use idempotency for create/update requests
 # payments.stripe-coin-payments.use-idempotency: false

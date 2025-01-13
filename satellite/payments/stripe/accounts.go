@@ -40,6 +40,11 @@ func (accounts *accounts) PaymentIntents() payments.PaymentIntents {
 	return &paymentIntents{service: accounts.service}
 }
 
+// WebhookEvents exposes all needed functionality to handle a stripe webhookEvents event.
+func (accounts *accounts) WebhookEvents() payments.WebhookEvents {
+	return &webhookEvents{service: accounts.service}
+}
+
 // Balances exposes all needed functionality to manage account balances.
 func (accounts *accounts) Balances() payments.Balances {
 	return &balances{service: accounts.service}

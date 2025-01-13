@@ -63,6 +63,7 @@ type Config struct {
 	StripeSecretKey        string `help:"stripe API secret key" default:""`
 	StripePublicKey        string `help:"stripe API public key" default:""`
 	StripeFreeTierCouponID string `help:"stripe free tier coupon ID" default:""`
+	StripeWebhookSecret    string `help:"stripe webhookEvents secret token" default:""`
 	AutoAdvance            bool   `help:"toggle autoadvance feature for invoice creation" default:"false"`
 	ListingLimit           int    `help:"sets the maximum amount of items before we start paging on requests" default:"100" hidden:"true"`
 	SkipEmptyInvoices      bool   `help:"if set, skips the creation of empty invoices for customers with zero usage for the billing period" default:"true"`
@@ -108,6 +109,7 @@ type Service struct {
 	removeExpiredCredit  bool
 	useIdempotency       bool
 	deleteAccountEnabled bool
+	webhookSecret        string
 	nowFn                func() time.Time
 	partnerPlacementMap  payments.PartnersPlacementProductMap
 	placementProductMap  payments.PlacementProductMap
@@ -144,6 +146,7 @@ func NewService(log *zap.Logger, stripeClient Client, config Config, db DB, wall
 		maxParallelCalls:       config.MaxParallelCalls,
 		removeExpiredCredit:    config.RemoveExpiredCredit,
 		useIdempotency:         config.UseIdempotency,
+		webhookSecret:          config.StripeWebhookSecret,
 		partnerPlacementMap:    partnerPlacementMap,
 		placementProductMap:    placementProductMap,
 		productPriceMap:        productPriceMap,

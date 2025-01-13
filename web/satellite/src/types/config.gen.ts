@@ -76,6 +76,7 @@ export class FrontendConfig {
     selfServePlacementNames: string[] | null;
     cunoFSBetaEnabled: boolean;
     csrfToken: string;
+    billingAddFundsEnabled: boolean;
 }
 
 export class MultiCaptchaConfig {

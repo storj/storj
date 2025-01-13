@@ -107,4 +107,7 @@ type Accounts interface {
 
 	// Coupons exposes all needed functionality to manage coupons.
 	Coupons() Coupons
+
+	// WebhookEvents exposes all needed functionality to handle a stripe webhook event.
+	WebhookEvents() WebhookEvents
 }
