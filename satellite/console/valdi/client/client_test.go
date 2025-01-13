@@ -199,3 +199,76 @@ func TestCreateUser(t *testing.T) {
 		})
 	}
 }
+
+func TestCreateAPIKey(t *testing.T) {
+	apiKeysEndpoint, err := url.JoinPath(validURL, client.APIKeyPath)
+	require.NoError(t, err)
+
+	mockClient, transport := httpmock.NewClient()
+
+	keyResp := client.CreateAPIKeyResponse{
+		APIKey:            "1234",
+		SecretAccessToken: "abc123",
+	}
+
+	keyJSONData, err := json.Marshal(keyResp)
+	require.NoError(t, err)
+
+	valdiErr := client.ErrorMessage{
+		Detail: "valdi error message",
+	}
+
+	errJSONData, err := json.Marshal(valdiErr)
+	require.NoError(t, err)
+
+	ctx := testcontext.New(t)
+	defer ctx.Cleanup()
+
+	keyFile, keyPath := generateKey(t, ctx)
+	defer ctx.Check(keyFile.Close)
+
+	keyPaths := []string{"", keyPath}
+
+	for _, kp := range keyPaths {
+		signRequests := kp != ""
+
+		testSuffix := ""
+		if signRequests {
+			testSuffix = " with request signing"
+		}
+
+		vClient, err := client.NewClient(zaptest.NewLogger(t), mockClient, client.Config{
+			APIBaseURL:   validURL,
+			SignRequests: signRequests,
+			RSAKeyPath:   kp,
+		})
+		require.NoError(t, err)
+
+		t.Run("returns api key when status 200"+testSuffix, func(t *testing.T) {
+			expectStatus := http.StatusOK
+			transport.AddResponse(apiKeysEndpoint, httpmock.Response{
+				StatusCode: expectStatus,
+				Body:       string(keyJSONData),
+			})
+
+			apiKey, status, err := vClient.CreateAPIKey(ctx, "test@storj.test")
+			require.NoError(t, err)
+			require.Equal(t, expectStatus, status)
+			require.NotNil(t, apiKey)
+			require.Equal(t, keyResp, *apiKey)
+		})
+		t.Run("returns client error when status not 200"+testSuffix, func(t *testing.T) {
+			expectStatus := http.StatusForbidden
+			transport.AddResponse(apiKeysEndpoint, httpmock.Response{
+				StatusCode: expectStatus,
+				Body:       string(errJSONData),
+			})
+
+			apiKey, status, err := vClient.CreateAPIKey(ctx, "test@storj.test")
+			require.Error(t, err)
+			require.Contains(t, err.Error(), valdiErr.Detail)
+			require.Equal(t, expectStatus, status)
+			require.Nil(t, apiKey)
+		})
+	}
+}
