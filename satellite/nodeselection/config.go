@@ -95,16 +95,26 @@ func (e *PlacementConfigEnvironment) apply(env map[any]any) {
 
 // LoadConfig loads the placement yaml file and creates the Placement definitions.
 func LoadConfig(configFile string, environment *PlacementConfigEnvironment) (PlacementDefinitions, error) {
+	data, err := os.ReadFile(configFile)
+	if err != nil {
+		return nil, errs.New("Couldn't read placement config file from %s: %v", configFile, err)
+	}
+	placements, err := LoadConfigFromString(string(data), environment)
+	if err != nil {
+		return nil, errs.New("Couldn't parse placement config file from %s: %v", configFile, err)
+	}
+	return placements, nil
+}
+
+// LoadConfigFromString loads the placement YAML from a string and creates the Placement definitions.
+func LoadConfigFromString(config string, environment *PlacementConfigEnvironment) (PlacementDefinitions, error) {
 	placements := make(PlacementDefinitions)
 
 	cfg := &placementConfig{}
-	raw, err := os.ReadFile(configFile)
+
+	err := yaml.Unmarshal([]byte(config), &cfg)
 	if err != nil {
-		return placements, errs.New("Couldn't load placement config from file %s: %v", configFile, err)
-	}
-	err = yaml.Unmarshal(raw, &cfg)
-	if err != nil {
-		return placements, errs.New("Couldn't parse placement config as YAML from file  %s: %v", configFile, err)
+		return placements, errs.New("Couldn't parse placement config as YAML: %v", err)
 	}
 
 	templates := map[string]string{}
