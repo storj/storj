@@ -31,6 +31,7 @@ import { ChangeEmailStep, DeleteAccountStep } from '@/types/accountActions';
 export class AuthHttpApi implements UsersApi {
     private readonly http: HttpClient = new HttpClient();
     private readonly ROOT_PATH: string = '/api/v0/auth';
+    private readonly csrfHeader: string = 'X-CSRF-Token';
 
     /**
      * Used to resend an registration confirmation email.
@@ -90,7 +91,7 @@ export class AuthHttpApi implements UsersApi {
             rememberForOneWeek,
         };
 
-        const response = await this.http.post(path, JSON.stringify(body), { 'X-CSRF-Token': csrfToken });
+        const response = await this.http.post(path, JSON.stringify(body), { [this.csrfHeader]: csrfToken });
         if (response.ok) {
             const result = await response.json();
             if (result.error) {
@@ -156,9 +157,9 @@ export class AuthHttpApi implements UsersApi {
      *
      * @throws Error
      */
-    public async logout(): Promise<void> {
+    public async logout(csrfToken: string): Promise<void> {
         const path = `${this.ROOT_PATH}/logout`;
-        const response = await this.http.post(path, null);
+        const response = await this.http.post(path, null, { [this.csrfHeader]: csrfToken });
 
         if (response.ok) {
             return;
