@@ -376,12 +376,13 @@ func (it *spannerLoopSegmentIterator) doNextQuery(ctx context.Context) (_ *spann
 		stmt.SQL = "@{SCAN_METHOD=BATCH}" + stmt.SQL
 	}
 
-	if it.readTimestamp.IsZero() {
-		return it.db.client.Single().Query(ctx, stmt)
+	opts := spanner.QueryOptions{
+		Priority: spannerpb.RequestOptions_PRIORITY_LOW,
 	}
-	return it.db.client.Single().WithTimestampBound(spanner.ReadTimestamp(it.readTimestamp)).QueryWithOptions(ctx, stmt, spanner.QueryOptions{
-		Priority: spannerpb.RequestOptions_PRIORITY_MEDIUM,
-	})
+	if it.readTimestamp.IsZero() {
+		return it.db.client.Single().QueryWithOptions(ctx, stmt, opts)
+	}
+	return it.db.client.Single().WithTimestampBound(spanner.ReadTimestamp(it.readTimestamp)).QueryWithOptions(ctx, stmt, opts)
 }
 
 // IterateLoopSegments implements Adapter.
