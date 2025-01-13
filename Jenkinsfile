@@ -58,6 +58,13 @@ node('node') {
       echo "Current build result: ${currentBuild.result}"
     }
 
+    stage('Build Darwin Binaries') {
+      lastStage = env.STAGE_NAME
+      sh 'make darwin-binaries'
+
+      echo "Current build result: ${currentBuild.result}"
+    }
+
     stage('Build Images') {
       lastStage = env.STAGE_NAME
       sh 'make images'
