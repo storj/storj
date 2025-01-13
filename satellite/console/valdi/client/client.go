@@ -30,9 +30,9 @@ var (
 
 // Config holds configuration of Client.
 type Config struct {
-	APIBaseURL   string `help:"base url of valdi external API" testDefault:"http://localhost:1234"`
+	APIBaseURL   string `help:"base url of valdi external API" releaseDefault:"https://api.valdi.ai" devDefault:"http://localhost:1234"`
 	RSAKeyPath   string `help:"path to RSA private key for signing valdi requests" default:""`
-	SignRequests bool   `help:"whether to sign valdi requests with valdi RSA key" releaseDefault:"true" testDefault:"false" hidden:"true"`
+	SignRequests bool   `help:"whether to sign valdi requests with valdi RSA key" releaseDefault:"true" devDefault:"false" hidden:"true"`
 }
 
 // Client makes requests to Valdi API.

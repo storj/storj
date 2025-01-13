@@ -325,6 +325,9 @@ compensation.withheld-percents: 75,75,75,50,50,50,25,25,25,0,0,0,0,0,0
 # bad captcha score threshold which is used to prevent bot user activity
 # console.captcha.score-cutoff-threshold: 0.8
 
+# whether to enable cloud GPU functionality
+# console.cloud-gpus-enabled: false
+
 # additional values for Content Security Policy connect-src, space separated
 # console.connect-src-suffix: '*.tardigradeshare.io *.storjshare.io *.storjapi.io *.storjsatelliteshare.io'
 
@@ -1555,6 +1558,15 @@ server.private-address: 127.0.0.1:7778
 
 # Whether the private Userinfo rpc endpoint is enabled
 # userinfo.enabled: false
+
+# base url of valdi external API
+# valdi.api-base-url: https://api.valdi.ai
+
+# path to RSA private key for signing valdi requests
+# valdi.rsa-key-path: ""
+
+# the base email address for valdi satellite project email addresses. Important: once this has been used to create users, it should not be changed
+# valdi.satellite-email: ""
 
 # Interval to check the version
 # version.check-interval: 15m0s

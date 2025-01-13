@@ -8,6 +8,7 @@ import (
 	"errors"
 	"fmt"
 	"net"
+	"net/http"
 	"runtime/pprof"
 
 	"github.com/spacemonkeygo/monkit/v3"
@@ -38,6 +39,8 @@ import (
 	"storj.io/storj/satellite/console/consoleweb"
 	"storj.io/storj/satellite/console/restkeys"
 	"storj.io/storj/satellite/console/userinfo"
+	"storj.io/storj/satellite/console/valdi"
+	vclient "storj.io/storj/satellite/console/valdi/client"
 	"storj.io/storj/satellite/emission"
 	"storj.io/storj/satellite/kms"
 	"storj.io/storj/satellite/mailservice"
@@ -124,6 +127,11 @@ type ConsoleAPI struct {
 		Service    *console.Service
 		Endpoint   *consoleweb.Server
 		AuthTokens *consoleauth.Service
+	}
+
+	Valdi struct {
+		Service *valdi.Service
+		Client  *vclient.Client
 	}
 
 	OIDC struct {
@@ -498,6 +506,18 @@ func NewConsoleAPI(log *zap.Logger, full *identity.FullIdentity, db DB,
 			consoleConfig.AccountFreeze,
 		)
 
+		if config.Console.CloudGpusEnabled {
+			peer.Valdi.Client, err = vclient.NewClient(peer.Log.Named("valdi:client"), http.DefaultClient, config.Valdi.Config)
+			if err != nil {
+				return nil, errs.Combine(err, peer.Close())
+			}
+
+			peer.Valdi.Service, err = valdi.NewService(peer.Log.Named("valdi:service"), config.Valdi, peer.Valdi.Client)
+			if err != nil {
+				return nil, errs.Combine(err, peer.Close())
+			}
+		}
+
 		peer.Console.Service, err = console.NewService(
 			peer.Log.Named("console:service"),
 			peer.DB.Console(),
@@ -524,6 +544,7 @@ func NewConsoleAPI(log *zap.Logger, full *identity.FullIdentity, db DB,
 				ObjectLockEnabled:              config.Metainfo.ObjectLockEnabled,
 				UseBucketLevelObjectVersioning: config.Metainfo.UseBucketLevelObjectVersioning,
 			},
+			peer.Valdi.Service,
 			consoleConfig.Config,
 		)
 		if err != nil {

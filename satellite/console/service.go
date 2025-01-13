@@ -43,6 +43,8 @@ import (
 	"storj.io/storj/satellite/console/consoleauth"
 	"storj.io/storj/satellite/console/consoleauth/sso"
 	"storj.io/storj/satellite/console/consoleweb/consoleapi/utils"
+	"storj.io/storj/satellite/console/valdi"
+	vclient "storj.io/storj/satellite/console/valdi/client"
 	"storj.io/storj/satellite/emission"
 	"storj.io/storj/satellite/kms"
 	"storj.io/storj/satellite/mailservice"
@@ -227,6 +229,7 @@ type Service struct {
 	emission                   *emission.Service
 	kmsService                 *kms.Service
 	ssoService                 *sso.Service
+	valdiService               *valdi.Service
 
 	satelliteAddress string
 	satelliteName    string
@@ -267,7 +270,7 @@ func NewService(log *zap.Logger, store DB, restKeys RESTKeys, projectAccounting 
 	billingDb billing.TransactionsDB, analytics *analytics.Service, tokens *consoleauth.Service, mailService *mailservice.Service,
 	accountFreezeService *AccountFreezeService, emission *emission.Service, kmsService *kms.Service, ssoService *sso.Service, satelliteAddress string,
 	satelliteName string, maxProjectBuckets int, ssoEnabled bool, placements nodeselection.PlacementDefinitions,
-	objectLockAndVersioningConfig ObjectLockAndVersioningConfig, config Config) (*Service, error) {
+	objectLockAndVersioningConfig ObjectLockAndVersioningConfig, valdiService *valdi.Service, config Config) (*Service, error) {
 	if store == nil {
 		return nil, errs.New("store can't be nil")
 	}
@@ -333,6 +336,7 @@ func NewService(log *zap.Logger, store DB, restKeys RESTKeys, projectAccounting 
 		accountFreezeService:          accountFreezeService,
 		emission:                      emission,
 		kmsService:                    kmsService,
+		valdiService:                  valdiService,
 		ssoService:                    ssoService,
 		satelliteAddress:              satelliteAddress,
 		satelliteName:                 satelliteName,
@@ -396,6 +400,44 @@ func (s *Service) getUserAndAuditLog(ctx context.Context, operation string, extr
 // Payments separates all payment related functionality.
 func (s *Service) Payments() Payments {
 	return Payments{service: s}
+}
+
+// GetValdiAPIKey gets a valdi API key. If one doesn't exist, it is created. If a valdi user needs to be created first, it creates that too.
+func (s *Service) GetValdiAPIKey(ctx context.Context, projectID uuid.UUID) (key *vclient.CreateAPIKeyResponse, status int, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	user, err := s.getUserAndAuditLog(ctx, "create valdi api key", zap.String("projectID", projectID.String()))
+	if err != nil {
+		return nil, http.StatusInternalServerError, Error.Wrap(err)
+	}
+
+	// TODO: all project members?
+	_, p, err := s.isProjectOwner(ctx, user.ID, projectID)
+	if err != nil {
+		status = http.StatusInternalServerError
+		if ErrUnauthorized.Has(err) || errs.Is(err, sql.ErrNoRows) {
+			status = http.StatusUnauthorized
+		}
+		return nil, status, Error.Wrap(err)
+	}
+
+	// shouldn't be nil if err is nil, but just check it anyway
+	if p == nil {
+		return nil, http.StatusInternalServerError, Error.Wrap(errs.New("nil project"))
+	}
+
+	key, status, err = s.valdiService.CreateAPIKey(ctx, p.PublicID)
+	if status != http.StatusNotFound {
+		return key, status, Error.Wrap(err)
+	}
+
+	status, err = s.valdiService.CreateUser(ctx, p.PublicID)
+	if err != nil {
+		return nil, status, Error.Wrap(err)
+	}
+
+	key, status, err = s.valdiService.CreateAPIKey(ctx, p.PublicID)
+	return key, status, Error.Wrap(err)
 }
 
 // SetupAccount creates payment account for authorized user.
