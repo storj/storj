@@ -284,9 +284,8 @@ type spannerLoopSegmentIterator struct {
 	db *SpannerAdapter
 
 	batchSize int
-	// TODO(spanner) would be nice to have it at some point
 	// batchPieces are reused between result pages to reduce memory consumption
-	// batchPieces []Pieces
+	batchPieces []Pieces
 
 	readTimestamp time.Time
 
@@ -395,7 +394,8 @@ func (s *SpannerAdapter) IterateLoopSegments(ctx context.Context, aliasCache *No
 
 		readTimestamp: opts.SpannerReadTimestamp,
 
-		batchSize: opts.BatchSize,
+		batchSize:   opts.BatchSize,
+		batchPieces: make([]Pieces, opts.BatchSize),
 
 		curIndex: 0,
 		cursor: loopSegmentIteratorCursor{
@@ -452,7 +452,14 @@ func (it *spannerLoopSegmentIterator) scanItem(ctx context.Context, item *LoopSe
 	item.EncryptedSize = int32(encryptedSize)
 	item.PlainSize = int32(plainSize)
 
-	item.Pieces, err = it.aliasCache.ConvertAliasesToPieces(ctx, item.AliasPieces)
+	// allocate new Pieces only if existing have not enough capacity
+	if cap(it.batchPieces[it.curIndex]) < len(item.AliasPieces) {
+		it.batchPieces[it.curIndex] = make(Pieces, len(item.AliasPieces))
+	} else {
+		it.batchPieces[it.curIndex] = it.batchPieces[it.curIndex][:len(item.AliasPieces)]
+	}
+
+	item.Pieces, err = it.aliasCache.convertAliasesToPieces(ctx, item.AliasPieces, it.batchPieces[it.curIndex])
 	if err != nil {
 		return Error.New("failed to scan segment: %w", err)
 	}
