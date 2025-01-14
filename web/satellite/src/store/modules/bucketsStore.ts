@@ -6,6 +6,7 @@ import { defineStore } from 'pinia';
 import {
     S3Client,
     S3ClientConfig,
+    BucketLocationConstraint,
     CreateBucketCommand,
     DeleteBucketCommand,
     ListObjectsV2Command,
@@ -21,7 +22,7 @@ import {
     BucketCursor,
     BucketPage,
     BucketsApi,
-    BucketMetadata,
+    BucketMetadata, PlacementDetails,
 } from '@/types/buckets';
 import { BucketsHttpApi } from '@/api/buckets';
 import { AccessGrant, EdgeCredentials } from '@/types/accessGrants';
@@ -42,6 +43,7 @@ export enum ClientType {
 export class BucketsState {
     public allBucketNames: string[] = [];
     public allBucketMetadata: BucketMetadata[] = [];
+    public placementDetails: PlacementDetails[] = [];
     public cursor: BucketCursor = { limit: DEFAULT_PAGE_LIMIT, search: '', page: FIRST_PAGE };
     public page: BucketPage = { buckets: new Array<Bucket>(), currentPage: 1, pageCount: 1, offset: 0, limit: DEFAULT_PAGE_LIMIT, search: '', totalCount: 0 };
     public edgeCredentials: EdgeCredentials = new EdgeCredentials();
@@ -108,6 +110,13 @@ export const useBucketsStore = defineStore('buckets', () => {
 
     async function getAllBucketsMetadata(projectID: string): Promise<void> {
         state.allBucketMetadata = await api.getAllBucketMetadata(projectID);
+    }
+
+    async function getPlacementDetails(projectID: string): Promise<void> {
+        if (state.placementDetails.length) {
+            return;
+        }
+        state.placementDetails = await api.getPlacementDetails(projectID);
     }
 
     function setPromptForPassphrase(value: boolean): void {
@@ -294,15 +303,22 @@ export const useBucketsStore = defineStore('buckets', () => {
         state.fileComponentPath = path;
     }
 
-    async function createBucket(name: string, enableObjectLock: boolean, enableBucketVersioning: boolean): Promise<void> {
+    async function createBucket(params: {
+        name: string, enableObjectLock: boolean,
+        enableVersioning: boolean,
+        placementName?: string,
+    }): Promise<void> {
         await state.s3Client.send(new CreateBucketCommand({
-            Bucket: name,
-            ObjectLockEnabledForBucket: enableObjectLock,
+            Bucket: params.name,
+            ObjectLockEnabledForBucket: params.enableObjectLock,
+            CreateBucketConfiguration: {
+                LocationConstraint: params.placementName as BucketLocationConstraint,
+            },
         }));
         // If object lock is enabled, versioning is enabled implicitly.
-        if (enableBucketVersioning && !enableObjectLock) {
+        if (params.enableVersioning && !params.enableObjectLock) {
             await state.s3Client.send(new PutBucketVersioningCommand({
-                Bucket: name,
+                Bucket: params.name,
                 VersioningConfiguration: {
                     Status: BucketVersioningStatus.Enabled,
                 },
@@ -327,15 +343,23 @@ export const useBucketsStore = defineStore('buckets', () => {
         }));
     }
 
-    async function createBucketWithNoPassphrase(name: string, enableObjectLock: boolean, enableBucketVersioning: boolean): Promise<void> {
+    async function createBucketWithNoPassphrase(params: {
+        name: string,
+        enableObjectLock: boolean,
+        enableVersioning: boolean,
+        placementName?: string,
+    }): Promise<void> {
         await state.s3ClientForCreate.send(new CreateBucketCommand({
-            Bucket: name,
-            ObjectLockEnabledForBucket: enableObjectLock,
+            Bucket: params.name,
+            ObjectLockEnabledForBucket: params.enableObjectLock,
+            CreateBucketConfiguration: {
+                LocationConstraint: params.placementName as BucketLocationConstraint,
+            },
         }));
         // If object lock is enabled, versioning is enabled implicitly.
-        if (enableBucketVersioning && !enableObjectLock) {
+        if (params.enableVersioning && !params.enableObjectLock) {
             await state.s3ClientForCreate.send(new PutBucketVersioningCommand({
-                Bucket: name,
+                Bucket: params.name,
                 VersioningConfiguration: {
                     Status: BucketVersioningStatus.Enabled,
                 },
@@ -418,6 +442,7 @@ export const useBucketsStore = defineStore('buckets', () => {
 
     function clear(): void {
         state.allBucketNames = [];
+        state.placementDetails = [];
         state.cursor = new BucketCursor('', DEFAULT_PAGE_LIMIT, FIRST_PAGE);
         state.page = new BucketPage([], '', DEFAULT_PAGE_LIMIT, 0, 1, 1, 0);
         state.enterPassphraseCallback = null;
@@ -431,6 +456,7 @@ export const useBucketsStore = defineStore('buckets', () => {
         getSingleBucket,
         getAllBucketsNames,
         getAllBucketsMetadata,
+        getPlacementDetails,
         setPromptForPassphrase,
         setEdgeCredentials,
         setEdgeCredentialsForDelete,

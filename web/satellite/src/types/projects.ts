@@ -168,6 +168,7 @@ export class Project {
         public memberCount: number = 0,
         public edgeURLOverrides?: EdgeURLOverrides,
         public versioning: Versioning = Versioning.NotSupported,
+        public placement: number = 0,
         public storageUsed: number = 0,
         public bandwidthUsed: number = 0,
     ) {}

@@ -11,7 +11,7 @@ import {
     PaymentsApi,
     PaymentsHistoryItem,
     ProjectCharges,
-    ProjectUsagePriceModel,
+    UsagePriceModel,
     TokenAmount,
     NativePaymentHistoryItem,
     Wallet,
@@ -23,6 +23,7 @@ import {
     TaxCountry,
     TaxID,
     UpdateCardParams,
+    PriceModelForPlacementRequest,
 } from '@/types/payments';
 import { HttpClient } from '@/utils/httpClient';
 import { Time } from '@/utils/time';
@@ -106,7 +107,7 @@ export class PaymentsHttpApi implements PaymentsApi {
     /**
      * projectUsagePriceModel returns the user's default price model for project usage.
      */
-    public async projectUsagePriceModel(): Promise<ProjectUsagePriceModel> {
+    public async projectUsagePriceModel(): Promise<UsagePriceModel> {
         const path = `${this.ROOT_PATH}/pricing`;
         const response = await this.client.get(path);
 
@@ -120,10 +121,39 @@ export class PaymentsHttpApi implements PaymentsApi {
 
         const model = await response.json();
         if (model) {
-            return new ProjectUsagePriceModel(model.storageMBMonthCents, model.egressMBCents, model.segmentMonthCents);
+            return new UsagePriceModel(model.storageMBMonthCents, model.egressMBCents, model.segmentMonthCents);
         }
 
-        return new ProjectUsagePriceModel();
+        return new UsagePriceModel();
+    }
+
+    /**
+     * getPlacementPriceModel returns the usage price model for the user and placement.
+     */
+    public async getPlacementPriceModel(params: PriceModelForPlacementRequest): Promise<UsagePriceModel> {
+        const url = new URL(`${this.ROOT_PATH}/placement-pricing`, window.location.href);
+        url.searchParams.append('projectID', params.projectID);
+        if (params.placementName) {
+            url.searchParams.append('placementName', params.placementName);
+        } else if (params.placement) {
+            url.searchParams.append('placement', params.placement.toString());
+        }
+        const response = await this.client.get(url.toString());
+
+        if (!response.ok) {
+            throw new APIError({
+                status: response.status,
+                message: 'Can not get price model for placement',
+                requestID: response.headers.get('x-request-id'),
+            });
+        }
+
+        const model = await response.json();
+        if (model) {
+            return new UsagePriceModel(model.storageMBMonthCents, model.egressMBCents, model.segmentMonthCents);
+        }
+
+        return new UsagePriceModel();
     }
 
     /**

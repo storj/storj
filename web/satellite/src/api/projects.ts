@@ -55,6 +55,7 @@ export class ProjectsHttpApi implements ProjectsApi {
                 result.memberCount,
                 result.edgeURLOverrides,
                 getVersioning(result.versioning),
+                result.placement,
             );
         }
 
@@ -92,6 +93,7 @@ export class ProjectsHttpApi implements ProjectsApi {
             p.memberCount,
             p.edgeURLOverrides,
             getVersioning(p.versioning),
+            p.placement,
             p.storageUsed,
             p.bandwidthUsed,
         ));
@@ -399,6 +401,7 @@ export class ProjectsHttpApi implements ProjectsApi {
                 p.memberCount,
                 p.edgeURLOverrides,
                 getVersioning(p.versioning),
+                p.placement,
             ));
 
         return new ProjectsPage(projects, page.limit, page.offset, page.pageCount, page.currentPage, page.totalCount);

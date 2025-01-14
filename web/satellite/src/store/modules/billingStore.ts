@@ -18,12 +18,13 @@ import {
     PaymentStatus,
     PaymentWithConfirmations,
     ProjectCharges,
-    ProjectUsagePriceModel,
+    UsagePriceModel,
     Wallet,
     TaxCountry,
     Tax,
     TaxID,
     UpdateCardParams,
+    PriceModelForPlacementRequest,
 } from '@/types/payments';
 import { PaymentsHttpApi } from '@/api/payments';
 import { PricingPlanInfo } from '@/types/common';
@@ -35,7 +36,7 @@ export class PaymentsState {
     public pendingPaymentsWithConfirmations: PaymentWithConfirmations[] = [];
     public nativePaymentsHistory: NativePaymentHistoryItem[] = [];
     public projectCharges: ProjectCharges = new ProjectCharges();
-    public usagePriceModel: ProjectUsagePriceModel = new ProjectUsagePriceModel();
+    public usagePriceModel: UsagePriceModel = new UsagePriceModel();
     public startDate: Date = new Date();
     public endDate: Date = new Date();
     public coupon: Coupon | null = null;
@@ -199,6 +200,10 @@ export const useBillingStore = defineStore('billing', () => {
         state.usagePriceModel = await api.projectUsagePriceModel();
     }
 
+    async function getPriceModelForPlacement(params: PriceModelForPlacementRequest): Promise<UsagePriceModel> {
+        return await api.getPlacementPriceModel(params);
+    }
+
     async function applyCouponCode(code: string): Promise<void> {
         state.coupon = await api.applyCouponCode(code);
     }
@@ -228,7 +233,7 @@ export const useBillingStore = defineStore('billing', () => {
         state.paymentsHistory = new PaymentHistoryPage([]);
         state.nativePaymentsHistory = [];
         state.projectCharges = new ProjectCharges();
-        state.usagePriceModel = new ProjectUsagePriceModel();
+        state.usagePriceModel = new UsagePriceModel();
         state.pendingPaymentsWithConfirmations = [];
         state.startDate = new Date();
         state.endDate = new Date();
@@ -266,6 +271,7 @@ export const useBillingStore = defineStore('billing', () => {
         startPaymentsPolling,
         stopPaymentsPolling,
         getProjectUsagePriceModel,
+        getPriceModelForPlacement,
         applyCouponCode,
         getCoupon,
         getPricingPackageAvailable,

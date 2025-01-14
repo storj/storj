@@ -41,7 +41,12 @@ export interface PaymentsApi {
     /**
      * projectUsagePriceModel returns the project usage price model for the user.
      */
-    projectUsagePriceModel(): Promise<ProjectUsagePriceModel>;
+    projectUsagePriceModel(): Promise<UsagePriceModel>;
+
+    /**
+     * getPlacementPriceModel returns the usage price model for the user and placement.
+     */
+    getPlacementPriceModel(params: PriceModelForPlacementRequest): Promise<UsagePriceModel>;
 
     /**
      * Add credit card
@@ -466,7 +471,7 @@ export class ProjectCharge {
  */
 type ProjectChargesJSON = {
     priceModels: {
-        [partner: string]: JSONRepresentable<ProjectUsagePriceModel>
+        [partner: string]: JSONRepresentable<UsagePriceModel>
     }
     charges: {
         [projectID: string]: {
@@ -484,7 +489,7 @@ type ProjectChargesJSON = {
  */
 export class ProjectCharges {
     private map = new Map<string, Map<string, ProjectCharge>>();
-    private priceModels = new Map<string, ProjectUsagePriceModel>();
+    private priceModels = new Map<string, UsagePriceModel>();
 
     /**
      * Set the usage charge for a project and partner.
@@ -505,7 +510,7 @@ export class ProjectCharges {
      * @param partner - The name of the partner.
      * @param model - The price model for the partner.
      */
-    public setUsagePriceModel(partner: string, model: ProjectUsagePriceModel): void {
+    public setUsagePriceModel(partner: string, model: UsagePriceModel): void {
         this.priceModels.set(partner, model);
     }
 
@@ -526,7 +531,7 @@ export class ProjectCharges {
      *
      * @param partner - The name of the partner.
      */
-    public getUsagePriceModel(partner: string): ProjectUsagePriceModel | undefined {
+    public getUsagePriceModel(partner: string): UsagePriceModel | undefined {
         return this.priceModels.get(partner);
     }
 
@@ -623,7 +628,7 @@ export class ProjectCharges {
         const charges = new ProjectCharges();
 
         Object.entries(json.priceModels).forEach(([partner, model]) => {
-            charges.setUsagePriceModel(partner, new ProjectUsagePriceModel(
+            charges.setUsagePriceModel(partner, new UsagePriceModel(
                 model.storageMBMonthCents,
                 model.egressMBCents,
                 model.segmentMonthCents,
@@ -782,7 +787,7 @@ export class TokenAmount {
 /**
  * ProjectUsagePriceModel represents price model for project usage.
  */
-export class ProjectUsagePriceModel {
+export class UsagePriceModel {
     public constructor(
         public readonly storageMBMonthCents: string = '',
         public readonly egressMBCents: string = '',
@@ -828,4 +833,10 @@ export interface UpdateCardParams {
     cardID:  string
     expMonth: number
     expYear: number
+}
+
+export interface PriceModelForPlacementRequest {
+    placementName?: string;
+    placement?: number;
+    projectID: string;
 }

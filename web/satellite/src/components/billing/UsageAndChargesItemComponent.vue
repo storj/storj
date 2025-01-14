@@ -115,7 +115,7 @@ import {
 import { Calendar } from 'lucide-vue-next';
 
 import { CENTS_MB_TO_DOLLARS_GB_SHIFT, centsToDollars, decimalShift, formatPrice } from '@/utils/strings';
-import { ProjectCharge, ProjectCharges, ProjectUsagePriceModel } from '@/types/payments';
+import { ProjectCharge, ProjectCharges, UsagePriceModel } from '@/types/payments';
 import { Project } from '@/types/projects';
 import { Size } from '@/utils/bytesSize';
 import { SHORT_MONTHS_NAMES } from '@/utils/constants/date';
@@ -171,7 +171,7 @@ const projectCharges = computed((): ProjectCharges => {
 /**
  * Returns project usage price model from store.
  */
-function getPriceModel(partner: string): ProjectUsagePriceModel {
+function getPriceModel(partner: string): UsagePriceModel {
     return projectCharges.value.getUsagePriceModel(partner) || billingStore.state.usagePriceModel;
 }
 
