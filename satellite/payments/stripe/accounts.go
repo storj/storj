@@ -527,7 +527,7 @@ func (accounts *accounts) GetPartnerPlacementPriceModel(partner string, placemen
 	if price, ok := accounts.service.productPriceMap[product]; ok {
 		return price, nil
 	}
-	return payments.ProjectUsagePriceModel{}, ErrPricingNotfound.New("pricing not found for partner %q and placement %q", partner, placement)
+	return payments.ProjectUsagePriceModel{}, ErrPricingNotfound.New("pricing not found for partner %s and placement %d", partner, placement)
 }
 
 // CheckProjectInvoicingStatus returns error if for the given project there are outstanding project records and/or usage
