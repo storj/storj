@@ -36,8 +36,8 @@ type BaseRequest struct {
 	Location  metabase.ObjectLocation `json:"-"`
 }
 
-const defaultBatchSize = 100
-const maxBatchSize = 1000
+const defaultBatchSize = 1000
+const maxBatchSize = 10000
 
 // GetRequest contains fields for a get request.
 type GetRequest struct {
