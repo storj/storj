@@ -19,7 +19,7 @@
                             height="40"
                             rounded="lg"
                         >
-                            <component :is="AtSign" :size="18" />
+                            <component :is="MailPlus" :size="18" />
                         </v-sheet>
                     </template>
                     <v-card-title class="font-weight-bold">
@@ -226,7 +226,7 @@ import {
     VWindow,
     VWindowItem,
 } from 'vuetify/components';
-import { AtSign } from 'lucide-vue-next';
+import { MailPlus } from 'lucide-vue-next';
 
 import { ChangeEmailStep } from '@/types/accountActions';
 import { User } from '@/types/users';

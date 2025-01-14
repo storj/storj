@@ -14,39 +14,39 @@
 
         <v-row>
             <v-col cols="12" sm="6" lg="4">
-                <v-card title="Project Name">
+                <v-card title="Project Name" class="pa-2">
                     <v-card-text>
-                        <v-chip color="default" variant="tonal" size="small" class="font-weight-bold">
+                        <v-chip color="primary" variant="tonal" size="small" class="font-weight-bold">
                             {{ project.name }}
                         </v-chip>
-                        <v-divider class="my-4" />
-                        <v-btn variant="outlined" color="default" size="small" rounded="md" @click="showEditNameDialog">
+                        <v-divider class="my-4 border-0" />
+                        <v-btn variant="outlined" color="default" :prepend-icon="Pencil" @click="showEditNameDialog">
                             Edit Name
                         </v-btn>
                     </v-card-text>
                 </v-card>
             </v-col>
             <v-col cols="12" sm="6" lg="4">
-                <v-card title="Project Description">
+                <v-card title="Project Description" class="pa-2">
                     <v-card-text>
-                        <v-chip color="default" variant="tonal" size="small" class="font-weight-bold">
+                        <v-chip color="primary" variant="tonal" size="small" class="font-weight-bold">
                             {{ project.description }}
                         </v-chip>
-                        <v-divider class="my-4" />
-                        <v-btn variant="outlined" color="default" size="small" rounded="md" @click="showEditDescriptionDialog">
+                        <v-divider class="my-4 border-0" />
+                        <v-btn variant="outlined" color="default" :prepend-icon="Pencil" @click="showEditDescriptionDialog">
                             Edit Description
                         </v-btn>
                     </v-card-text>
                 </v-card>
             </v-col>
             <v-col v-if="satelliteManagedEncryptionEnabled || hasManagedPassphrase" cols="12" lg="4">
-                <v-card title="Project Encryption">
+                <v-card title="Project Encryption" class="pa-2">
                     <v-card-text>
-                        <v-chip color="default" variant="tonal" size="small" class="font-weight-bold" :prepend-icon="Check">
+                        <v-chip color="primary" variant="tonal" size="small" class="font-weight-bold" :prepend-icon="Check">
                             {{ hasManagedPassphrase ? 'Automatic' : 'Manual' }}
                         </v-chip>
-                        <v-divider class="my-4" />
-                        <v-btn variant="outlined" color="default" rounded="md" size="small">
+                        <v-divider class="my-4 border-0" />
+                        <v-btn variant="outlined" color="default" :prepend-icon="View">
                             View Details
                             <project-encryption-information-dialog @new-project="isCreateProjectDialogShown = true" />
                         </v-btn>
@@ -57,20 +57,19 @@
 
         <v-row>
             <v-col>
-                <h3 class="mt-5">Limits</h3>
+                <h3 class="mt-5">Project Limits</h3>
             </v-col>
         </v-row>
 
         <v-row v-if="!isProjectOwnerPaidTier && billingEnabled">
             <v-col cols="12" lg="4">
-                <v-card title="Free Trial">
+                <v-card title="Free Trial" class="pa-2">
                     <v-card-subtitle>
                         {{ storageLimitFormatted }} Storage / {{ bandwidthLimitFormatted }} Bandwidth. <br>
                         Need more? Upgrade to Pro Account.
                     </v-card-subtitle>
                     <v-card-text>
-                        <v-divider class="mb-4" />
-                        <v-btn variant="flat" color="primary" size="small" rounded="md" :append-icon="ArrowRight" @click="toggleUpgradeFlow">
+                        <v-btn variant="flat" color="primary" :append-icon="ArrowRight" @click="toggleUpgradeFlow">
                             Upgrade
                         </v-btn>
                     </v-card-text>
@@ -80,14 +79,13 @@
 
         <v-row v-else>
             <v-col cols="12" sm="6" lg="4">
-                <v-card title="Storage">
+                <v-card title="Storage" class="pa-2">
                     <v-card-subtitle>
                         Limit: {{ storageLimitFormatted }} <br>
                         <span v-if="!noLimitsUiEnabled">Available Storage: {{ paidStorageLimitFormatted }}</span>
                     </v-card-subtitle>
                     <v-card-text>
-                        <v-divider class="mb-4" />
-                        <v-btn variant="outlined" color="default" size="small" rounded="md" @click="showStorageLimitDialog">
+                        <v-btn variant="outlined" color="default" :prepend-icon="Infinity" @click="showStorageLimitDialog">
                             Edit Storage Limit
                         </v-btn>
                     </v-card-text>
@@ -95,14 +93,13 @@
             </v-col>
 
             <v-col cols="12" sm="6" lg="4">
-                <v-card title="Download">
+                <v-card title="Download" class="pa-2">
                     <v-card-subtitle>
                         Limit: {{ bandwidthLimitFormatted }} {{ bandwidthLimitFormatted === 'No Limit' ? '' : 'per month' }}<br>
                         <span v-if="!noLimitsUiEnabled">Available Download: {{ paidBandwidthLimitFormatted }} per month</span>
                     </v-card-subtitle>
                     <v-card-text>
-                        <v-divider class="mb-4" />
-                        <v-btn variant="outlined" color="default" size="small" rounded="md" @click="showBandwidthLimitDialog">
+                        <v-btn variant="outlined" color="default" :prepend-icon="Infinity" @click="showBandwidthLimitDialog">
                             Edit Download Limit
                         </v-btn>
                     </v-card-text>
@@ -110,18 +107,17 @@
             </v-col>
 
             <v-col v-if="!noLimitsUiEnabled" cols="12" sm="6" lg="4">
-                <v-card title="Account Limits">
+                <v-card title="Account Limits" class="pa-2">
                     <v-card-subtitle>
                         Storage limit: {{ paidStorageLimitFormatted }} <br>
                         Download limit: {{ paidBandwidthLimitFormatted }} per month
                     </v-card-subtitle>
                     <v-card-text>
-                        <v-divider class="mb-4" />
                         <v-btn
                             variant="outlined"
                             color="default"
-                            size="small"
                             rounded="md"
+                            :append-icon="ExternalLink"
                             @click="openRequestUrl"
                         >
                             Request Limits Increase
@@ -141,14 +137,13 @@
 
             <v-row>
                 <v-col cols="12" sm="6" lg="4">
-                    <v-card title="Object Versioning">
+                    <v-card title="Object Versioning" class="pa-2">
                         <v-card-subtitle>
                             Versioning is enabled for this project.
                         </v-card-subtitle>
 
                         <v-card-text>
-                            <v-divider class="mb-4" />
-                            <v-btn variant="outlined" color="default" size="small" rounded="md">
+                            <v-btn variant="outlined" color="default">
                                 View Details
                                 <versioning-info-dialog v-model="isVersioningDialogShown" />
                             </v-btn>
@@ -157,14 +152,13 @@
                 </v-col>
 
                 <v-col v-if="objectLockUIEnabled" cols="12" sm="6" lg="4">
-                    <v-card title="Object Lock">
+                    <v-card title="Object Lock" class="pa-2">
                         <v-card-subtitle>
                             Object Lock is enabled for this project.
                         </v-card-subtitle>
 
                         <v-card-text>
-                            <v-divider class="mb-4" />
-                            <v-btn color="default" variant="outlined" size="small">
+                            <v-btn color="default" variant="outlined">
                                 View Details
                                 <object-lock-info-dialog />
                             </v-btn>
@@ -183,13 +177,13 @@
 
             <v-row>
                 <v-col cols="12" sm="6" lg="4">
-                    <v-card title="Delete Project">
+                    <v-card title="Delete Project" class="pa-2">
                         <v-card-text>
                             <v-chip color="default" variant="tonal" size="small" class="font-weight-bold">
                                 Delete this project.
                             </v-chip>
-                            <v-divider class="my-4" />
-                            <v-btn variant="outlined" color="error" size="small" rounded="md" @click="isDeleteProjectDialogShown = true">
+                            <v-divider class="my-4 border-0" />
+                            <v-btn variant="outlined" color="error" @click="isDeleteProjectDialogShown = true">
                                 Delete
                             </v-btn>
                         </v-card-text>
@@ -219,7 +213,7 @@ import {
     VIcon,
     VChip,
 } from 'vuetify/components';
-import { ArrowRight, SquareArrowOutUpRight, Check } from 'lucide-vue-next';
+import { ArrowRight, SquareArrowOutUpRight, Check, Pencil, View, Infinity, ExternalLink } from 'lucide-vue-next';
 
 import { useProjectsStore } from '@/store/modules/projectsStore';
 import { FieldToChange, LimitToChange, Project } from '@/types/projects';

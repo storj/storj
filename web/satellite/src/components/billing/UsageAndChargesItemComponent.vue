@@ -2,13 +2,16 @@
 // See LICENSE for copying information.
 
 <template>
-    <v-card rounded="lg" variant="flat" class="mb-4">
+    <v-card class="mb-2">
         <v-expansion-panels>
-            <v-expansion-panel rounded="lg">
+            <v-expansion-panel min-height="64">
                 <v-expansion-panel-title>
                     <v-row justify="space-between" align="center">
                         <v-col>
-                            {{ projectName }}
+                            <v-row align="center" no-gutters>
+                                <img src="@/assets/icon-project-tonal.svg" alt="Project" class="mr-3">
+                                <span class="font-weight-bold text-body-2">{{ projectName }}</span>
+                            </v-row>
                         </v-col>
                         <v-col class="text-start text-sm-end mr-2">
                             <span class="align-end">
@@ -21,7 +24,7 @@
                         </v-col>
                     </v-row>
                 </v-expansion-panel-title>
-                <v-expansion-panel-text class="pt-4 pb-2">
+                <v-expansion-panel-text>
                     <v-table density="comfortable" class="border rounded-lg">
                         <thead>
                             <tr>
@@ -86,7 +89,7 @@
                             </tr>
                         </tbody>
                     </v-table>
-                    <v-btn class="mt-4" variant="outlined" color="default" size="small" rounded="md" :prepend-icon="Calendar">
+                    <v-btn class="mt-4" :prepend-icon="Calendar">
                         <detailed-usage-report-dialog :project-i-d="projectId" />
                         Detailed Project Report
                     </v-btn>

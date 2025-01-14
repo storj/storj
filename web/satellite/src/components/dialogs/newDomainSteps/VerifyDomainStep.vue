@@ -19,7 +19,6 @@
                 v-if="!isSuccess && isVerifyError"
                 color="error"
                 variant="tonal"
-                border
                 class="mt-4"
                 title="Unable to verify domain"
                 text="DNS record not found. Please check your DNS configuration."
@@ -28,7 +27,7 @@
                 v-if="!isSuccess && isNotCorrectError"
                 color="error"
                 variant="tonal"
-                border class="mt-4"
+                class="mt-4"
                 :title="`${notCorrectRecordType} is not correct`"
                 :text="`Please update the following ${notCorrectRecordType} record:`"
             >

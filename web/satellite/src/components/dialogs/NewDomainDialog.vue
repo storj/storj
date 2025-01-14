@@ -15,10 +15,19 @@
             <v-sheet>
                 <v-card-item class="pa-6">
                     <template #prepend>
-                        <v-card-title class="font-weight-bold">
-                            {{ currentTitle }}
-                        </v-card-title>
+                        <v-sheet
+                            class="border-sm d-flex justify-center align-center"
+                            width="40"
+                            height="40"
+                            rounded="lg"
+                        >
+                            <v-icon :icon="Globe" size="18" />
+                        </v-sheet>
                     </template>
+
+                    <v-card-title class="font-weight-bold">
+                        {{ currentTitle }}
+                    </v-card-title>
 
                     <template #append>
                         <v-btn
@@ -164,7 +173,9 @@ import {
     VSheet,
     VWindow,
     VWindowItem,
+    VIcon,
 } from 'vuetify/components';
+import { Globe } from 'lucide-vue-next';
 
 import { NewDomainFlowStep } from '@/types/domains';
 import { useBucketsStore } from '@/store/modules/bucketsStore';

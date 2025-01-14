@@ -42,17 +42,18 @@
                         mandatory
                         border
                         inset
-                        density="comfortable"
-                        class="pa-1"
+                        rounded="lg"
+                        class="theme-toggle pa-1"
                     >
                         <v-tooltip text="Light Theme" location="bottom">
                             <template #activator="{ props: darkProps }">
                                 <v-btn
                                     v-bind="darkProps"
-                                    rounded="xl"
+                                    rounded="md"
                                     :icon="Sun"
                                     size="x-small"
                                     class="px-4"
+                                    density="compact"
                                     aria-label="Toggle Light Theme"
                                     @click="toggleTheme('light')"
                                 />
@@ -63,10 +64,11 @@
                             <template #activator="{ props: lightProps }">
                                 <v-btn
                                     v-bind="lightProps"
-                                    rounded="xl"
+                                    rounded="md"
                                     :icon="MoonStar"
                                     size="x-small"
                                     class="px-4"
+                                    density="compact"
                                     aria-label="Toggle Dark Theme"
                                     @click="toggleTheme('dark')"
                                 />
@@ -89,7 +91,7 @@
                 </template>
 
                 <!-- My Account Menu -->
-                <v-list class="px-2 rounded-lg">
+                <v-list class="px-2 rounded-lg" active-class="text-primary">
                     <v-list-item class="py-2">
                         <v-list-item-title class="text-body-2">
                             Account

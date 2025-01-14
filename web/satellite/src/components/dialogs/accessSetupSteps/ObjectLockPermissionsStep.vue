@@ -16,7 +16,7 @@
                     @click="onAllClick"
                 >
                     <template v-if="permissions.length === allPermissions.length" #prepend>
-                        <v-icon><Check :stroke-width="4" /></v-icon>
+                        <v-icon><Check /></v-icon>
                     </template>
                     All Permissions
                 </v-btn>
@@ -26,7 +26,7 @@
                     filter
                     column
                     multiple
-                    selected-class="text-info font-weight-bold"
+                    selected-class="font-weight-bold"
                     class="mt-2 mb-3"
                 >
                     <v-chip

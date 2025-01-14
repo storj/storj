@@ -2,11 +2,11 @@
 // See LICENSE for copying information.
 
 <template>
-    <v-list-item link lines="one" :to="to" class="my-1" tabindex="0" @click="onClick" @keydown.space.prevent="onClick">
+    <v-list-item link lines="one" :to="to" class="my-1" tabindex="0" active-class="text-primary" @click="onClick" @keydown.space.prevent="onClick">
         <template #prepend>
             <slot name="prepend" />
         </template>
-        <v-list-item-title class="ml-4">{{ title }} <slot name="chip" /> </v-list-item-title>
+        <v-list-item-title class="ml-4">{{ title }}</v-list-item-title>
         <v-list-item-subtitle v-if="subtitle" class="ml-4">{{ subtitle }}</v-list-item-subtitle>
         <template #append>
             <slot name="append" />

@@ -13,11 +13,11 @@
         <v-card ref="innerContent">
             <v-sheet>
                 <v-card-item class="pa-6">
-                    <v-card-title class="font-weight-bold">
+                    <v-card-title class="font-weight-bold mt-n1">
                         New {{ selectedApp ? selectedApp.name : '' }} Access
                     </v-card-title>
                     <v-card-subtitle class="text-caption pb-0">
-                        Step: {{ stepName }}
+                        {{ stepName }}
                     </v-card-subtitle>
                     <template #append>
                         <v-btn
@@ -30,7 +30,7 @@
                         />
                     </template>
                     <template v-if="selectedApp" #prepend>
-                        <img :src="selectedApp.src" :alt="selectedApp.name" width="40" height="40" class="rounded">
+                        <img :src="selectedApp.src" :alt="selectedApp.name" width="40" height="40" class="rounded-md border pa-2">
                     </template>
                     <template v-else #prepend>
                         <v-sheet
@@ -343,11 +343,11 @@ const hasManagedPassphrase = computed<boolean>(() => projectsStore.state.selecte
 const stepName = computed<string>(() => {
     switch (step.value) {
     case SetupStep.ChooseAccessStep:
-        return 'Access Name And Type';
+        return 'Access Name and Type';
     case SetupStep.EncryptionInfo:
-        return 'Encryption Info';
+        return 'Encryption Information';
     case SetupStep.ChooseFlowStep:
-        return 'Flow Type';
+        return 'Configure Access';
     case SetupStep.AccessEncryption:
         return 'Access Encryption';
     case SetupStep.EnterNewPassphrase:
@@ -355,17 +355,17 @@ const stepName = computed<string>(() => {
     case SetupStep.PassphraseGenerated:
         return 'Passphrase Generated';
     case SetupStep.ChoosePermissionsStep:
-        return 'Basic Permissions';
+        return 'Access Permissions';
     case SetupStep.ObjectLockPermissionsStep:
         return 'Object Lock Permissions';
     case SetupStep.SelectBucketsStep:
         return 'Bucket Restrictions';
     case SetupStep.OptionalExpirationStep:
-        return 'Optional Expiration';
+        return 'Access Expiration';
     case SetupStep.ConfirmDetailsStep:
-        return 'Confirm Details';
+        return 'Confirm Access Details';
     case SetupStep.AccessCreatedStep:
-        return 'Access Created';
+        return 'Access Created Successfully';
     default:
         return '';
     }

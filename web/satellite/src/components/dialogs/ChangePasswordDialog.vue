@@ -18,7 +18,7 @@
                         height="40"
                         rounded="lg"
                     >
-                        <component :is="SquareAsterisk" :size="18" />
+                        <component :is="Lock" :size="18" />
                     </v-sheet>
                 </template>
                 <v-card-title class="font-weight-bold">Change Password</v-card-title>
@@ -140,7 +140,7 @@ import {
     VTooltip,
     VSheet,
 } from 'vuetify/components';
-import { SquareAsterisk } from 'lucide-vue-next';
+import { Lock } from 'lucide-vue-next';
 
 import { RequiredRule } from '@/types/common';
 import { useLoading } from '@/composables/useLoading';

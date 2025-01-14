@@ -40,15 +40,15 @@
                 mandatory
                 border
                 inset
-                density="comfortable"
+                rounded="lg"
                 class="pa-1 bg-surface mr-1"
             >
                 <v-tooltip text="Light Theme" location="bottom">
                     <template #activator="{ props }">
                         <v-btn
                             v-bind="props"
-                            rounded="xl"
-                            density="comfortable"
+                            rounded="md"
+                            density="compact"
                             size="x-small"
                             class="px-4"
                             :icon="Sun"
@@ -62,8 +62,8 @@
                     <template #activator="{ props }">
                         <v-btn
                             v-bind="props"
-                            rounded="xl"
-                            density="comfortable"
+                            rounded="md"
+                            density="compact"
                             size="x-small"
                             class="px-4"
                             :icon="MoonStar"

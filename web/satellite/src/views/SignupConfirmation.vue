@@ -55,7 +55,6 @@
                             color="error"
                             title="Invalid Code"
                             text="Account activation failed. If you are sure your code is correct, please check your email inbox for a notification with further instructions."
-                            rounded="lg"
                             density="comfortable"
                             class="mt-1 mb-3"
                             border

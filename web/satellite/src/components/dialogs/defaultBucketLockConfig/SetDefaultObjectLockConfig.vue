@@ -11,13 +11,13 @@
         selected-class="font-weight-bold"
         class="my-1"
     >
-        <v-chip :value="NO_MODE_SET" variant="outlined" color="info">
+        <v-chip :value="NO_MODE_SET">
             No Default Mode
         </v-chip>
-        <v-chip :value="GOVERNANCE_LOCK" variant="outlined" color="info">
+        <v-chip :value="GOVERNANCE_LOCK">
             Governance
         </v-chip>
-        <v-chip :value="COMPLIANCE_LOCK" variant="outlined" color="info">
+        <v-chip :value="COMPLIANCE_LOCK">
             Compliance
         </v-chip>
     </v-chip-group>
@@ -26,7 +26,7 @@
         <p class="text-subtitle-2">{{ defaultLockModeInfo }}</p>
     </v-alert>
     <template v-if="defaultRetentionMode !== NO_MODE_SET">
-        <p class="my-2">Default retention period:</p>
+        <p class="mt-4 mb-2">Default retention period:</p>
         <v-text-field
             ref="periodInput"
             v-model="defaultRetentionPeriod"

@@ -7,7 +7,7 @@
             <v-col cols="12">
                 <p>Select the permissions you want to allow.</p>
                 <v-btn
-                    :color="permissions.length === 4 ? 'info' : 'secondary'"
+                    :color="permissions.length === 4 ? 'primary' : 'secondary'"
                     variant="outlined"
                     density="compact"
                     size="default"
@@ -16,7 +16,7 @@
                     @click="onAllClick"
                 >
                     <template v-if="permissions.length === 4" #prepend>
-                        <v-icon><Check :stroke-width="4" /></v-icon>
+                        <v-icon><Check /></v-icon>
                     </template>
                     All Permissions
                 </v-btn>
@@ -25,7 +25,7 @@
                     variant="outlined"
                     filter
                     multiple
-                    selected-class="text-info font-weight-bold"
+                    selected-class="font-weight-bold"
                     class="mt-2"
                     :class="{ 'mb-3': !invalid }"
                 >

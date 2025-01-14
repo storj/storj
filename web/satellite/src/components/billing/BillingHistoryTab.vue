@@ -2,7 +2,7 @@
 // See LICENSE for copying information.
 
 <template>
-    <v-card variant="flat">
+    <v-card class="pa-4">
         <v-data-table-server
             :loading="isLoading"
             :headers="headers"

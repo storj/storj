@@ -35,12 +35,11 @@
                         mandatory
                         border
                         inset
-                        density="comfortable"
+                        rounded="lg"
                         class="pa-1 bg-surface"
                     >
                         <v-btn
-                            size="small"
-                            rounded="xl"
+                            rounded="md"
                             active-class="active"
                             :active="!isTableView"
                             aria-label="Toggle Cards View"
@@ -52,17 +51,16 @@
                             Cards
                         </v-btn>
                         <v-btn
-                            size="small"
-                            rounded="xl"
+                            rounded="md"
                             active-class="active"
                             :active="isTableView"
                             aria-label="Toggle Table View"
                             @click="isTableView = true"
                         >
                             <template #prepend>
-                                <component :is="List" :size="15" />
+                                <component :is="Table" :size="15" />
                             </template>
-                            List
+                            Table
                         </v-btn>
                     </v-btn-toggle>
                 </v-col>
@@ -106,7 +104,7 @@ import {
     VBtnToggle,
 } from 'vuetify/components';
 import { useRouter } from 'vue-router';
-import { CirclePlus, Grid2X2, List } from 'lucide-vue-next';
+import { CirclePlus, Grid2X2, Table } from 'lucide-vue-next';
 
 import { ProjectItemModel } from '@/types/projects';
 import { useProjectsStore } from '@/store/modules/projectsStore';

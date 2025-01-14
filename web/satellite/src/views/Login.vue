@@ -12,7 +12,6 @@
                             variant="tonal"
                             color="error"
                             text="hCaptcha is required. If you are using a VPN, try disabling it."
-                            rounded="lg"
                             density="comfortable"
                             class="mt-2 mb-3"
                             border
@@ -23,7 +22,6 @@
                             :color="isActivatedError ? 'error' : 'success'"
                             :title="isActivatedError ? 'Oops!' :'Success!'"
                             :text="isActivatedError ? 'This account has already been verified.' : 'Account verified.'"
-                            rounded="lg"
                             density="comfortable"
                             class="mt-1 mb-3"
                             border
@@ -34,7 +32,6 @@
                             color="error"
                             title="Oops!"
                             text="The invite link you used has expired or is invalid."
-                            rounded="lg"
                             density="comfortable"
                             class="mt-1 mb-3"
                             border
@@ -45,7 +42,6 @@
                             color="error"
                             title="Single Sign-on Failed"
                             text="Single sign-on failed. Please check with your administrator."
-                            rounded="lg"
                             density="comfortable"
                             class="mt-1 mb-3"
                             border
@@ -58,7 +54,6 @@
                             text="Login failed. Please check if this is the correct satellite for your account. If you are
                             sure your credentials are correct, please check your email inbox for a notification with
                             further instructions."
-                            rounded="lg"
                             density="comfortable"
                             class="mt-1 mb-3"
                             border

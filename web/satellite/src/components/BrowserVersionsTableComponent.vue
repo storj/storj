@@ -2,7 +2,7 @@
 // See LICENSE for copying information.
 
 <template>
-    <v-card>
+    <v-card class="pa-4">
         <!-- We cast expandedFiles to type 'any' because of the weird Vuetify limitation/bug -->
         <!-- https://github.com/vuetifyjs/vuetify/issues/20006 -->
         <v-data-table-server
@@ -111,7 +111,7 @@
 
             <template #no-data>
                 <p class="text-body-2 cursor-pointer py-14 rounded-xlg my-4" @click="emit('uploadClick')">
-                    {{ search ? 'No data found' : 'Drag and drop objects or folders here, or click to upload objects.' }}
+                    {{ search ? 'No data found' : 'Drag and drop files or folders here, or click to upload files.' }}
                 </p>
             </template>
 

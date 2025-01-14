@@ -67,8 +67,8 @@
                                 />
                                 <v-btn
                                     v-if="!isDescriptionShown"
-                                    variant="text"
-                                    color="default"
+                                    variant="tonal"
+                                    color="primary"
                                     :prepend-icon="Plus"
                                     @click="isDescriptionShown = true"
                                 >
@@ -97,10 +97,10 @@
                                 <p><b>Project Encryption</b></p>
                                 <p class="my-2">Choose the encryption method for your data.</p>
                                 <v-chip-group v-model="passphraseManageMode" column filter variant="outlined" selected-class="font-weight-bold" mandatory>
-                                    <v-chip color="primary" value="auto">
+                                    <v-chip value="auto">
                                         Automatic
                                     </v-chip>
-                                    <v-chip color="primary" value="manual">Self-managed</v-chip>
+                                    <v-chip value="manual">Self-managed</v-chip>
 
                                     <v-divider thickness="0" class="my-1" />
 
@@ -153,7 +153,7 @@
                 <v-row>
                     <template v-if="!showLimitIncreaseDialog">
                         <v-col cols="12">
-                            Request project limit increase.
+                            You've reached your project limit. Request an increase to create more projects.
                         </v-col>
                     </template>
                     <template v-else>
