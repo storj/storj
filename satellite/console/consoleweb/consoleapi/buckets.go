@@ -135,6 +135,20 @@ func (b *Buckets) GetBucketMetadata(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
+// GetPlacementDetails returns a list of available placements and their details.
+func (b *Buckets) GetPlacementDetails(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	var err error
+	defer mon.Task()(&ctx)(&err)
+
+	w.Header().Set("Content-Type", "application/json")
+
+	err = json.NewEncoder(w).Encode(b.service.GetPlacementDetails())
+	if err != nil {
+		b.log.Error("failed to write placement details json", zap.Error(ErrBucketsAPI.Wrap(err)))
+	}
+}
+
 // GetBucketTotals returns a page of bucket usage totals since project creation.
 func (b *Buckets) GetBucketTotals(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()

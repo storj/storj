@@ -4565,6 +4565,35 @@ func (s *Service) GetBucketMetadata(ctx context.Context, projectID uuid.UUID) (l
 	return list, nil
 }
 
+// PlacementDetail represents human-readable details of a placement.
+type PlacementDetail struct {
+	ID          int    `json:"id"`
+	IdName      string `json:"idName"`
+	Name        string `json:"name"`
+	Title       string `json:"title"`
+	Description string `json:"description"`
+}
+
+// GetPlacementDetails retrieves available placement for self-serve with human-readable details.
+// TODO: This should be moved to the config.
+func (s *Service) GetPlacementDetails() []PlacementDetail {
+	return []PlacementDetail{
+		{
+			ID:          0,
+			IdName:      "global",
+			Name:        "Global",
+			Title:       "Global - Best for globally distributed workloads",
+			Description: "The data will be stored on the Storj globally distributed network, no restrictions by regions."},
+		{
+			ID:          3,
+			IdName:      "us-select-1",
+			Name:        "Storj Select",
+			Title:       "Storj US Select",
+			Description: "Store data only on Select nodes in the United States.",
+		},
+	}
+}
+
 // GetUsageReport retrieves usage rollups for every bucket of a single or all the user owned projects for a given period.
 func (s *Service) GetUsageReport(ctx context.Context, since, before time.Time, projectID uuid.UUID) ([]accounting.ProjectReportItem, error) {
 	var err error
