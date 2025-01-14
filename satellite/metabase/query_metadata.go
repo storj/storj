@@ -5,7 +5,9 @@ package metabase
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
+	"fmt"
 
 	"go.uber.org/zap"
 
@@ -29,6 +31,10 @@ type FindObjectsByClearMetadataResultObject struct {
 	ClearMetadata string
 }
 
+const (
+	MaxFindObjectsByClearMetadataQuerySize = 10
+)
+
 func (db *DB) FindObjectsByClearMetadata(ctx context.Context, opts FindObjectsByClearMetadata, startAfter ObjectStream, batchSize int) (result FindObjectsByClearMetadataResult, err error) {
 	defer mon.Task()(&ctx)(&err)
 	return db.ChooseAdapter(opts.ProjectID).FindObjectsByClearMetadata(ctx, opts, startAfter, batchSize)
@@ -37,60 +43,79 @@ func (db *DB) FindObjectsByClearMetadata(ctx context.Context, opts FindObjectsBy
 func (p *PostgresAdapter) FindObjectsByClearMetadata(ctx context.Context, opts FindObjectsByClearMetadata, startAfter ObjectStream, batchSize int) (result FindObjectsByClearMetadataResult, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	// Determine first and last object conditions
-	//
-	// It looks like the query is optimized most consistently if we have both a
-	// start and end condition for object keys. So we come up with one, even if
-	// we do not have a start condition or prefix.
-	var startCondition string
-	var startKey ObjectKey
-	var startVersion Version
-	if startAfter.ProjectID.IsZero() {
-		// first page => use key prefix
-		startCondition = `(project_id, bucket_name, object_key, version) >= ($1, $2, $3, $4)`
-		startKey = ObjectKey(opts.KeyPrefix)
-		startVersion = 0
-	} else {
-		// subsequent pages => use startAfter
-		startCondition = `(project_id, bucket_name, object_key, version) > ($1, $2, $3, $4)`
-		startKey = startAfter.ObjectKey
-		startVersion = startAfter.Version
-	}
-
-	var endCondition string
-	var endKey = []byte(opts.KeyPrefix)
-	if len(endKey) == 0 || endKey[len(endKey)-1] == 0xff {
-		// TODO: this is not 100% accurate, but it is the best we can do without a prefix.
-		endKey = append(endKey, 0xff)
-		endCondition = `(project_id, bucket_name, object_key, version) <= ($5, $6, $7, $8)`
-	} else {
-		endKey[len(endKey)-1]++
-		endCondition = `(project_id, bucket_name, object_key, version) < ($5, $6, $7, $8)`
-	}
-
 	// Create query
 	query := `
 		SELECT
 			project_id, bucket_name, object_key, version, stream_id, clear_metadata
-		FROM objects
+		FROM objects@objects_pkey
 		WHERE
-			` + startCondition + ` AND
-			` + endCondition + ` AND
-			clear_metadata @> $9 AND
-			status <> ` + statusPending + ` AND
-			(expires_at IS NULL OR expires_at > now())
-		ORDER BY project_id, bucket_name, object_key, version
-		LIMIT $10;
 	`
+
+	// We make a subquery for each clear_metadata part. This is optimized for
+	// CockroachDB whose optimizer is very unpredictable when querying with
+	// multiple JSONB values, and would often scan the full table instead of
+	// using the GIN index.
+	args := make([]interface{}, 0)
+	containsQueryParts, err := splitToJSONLeaves(opts.ContainsQuery)
+	if err != nil {
+		return FindObjectsByClearMetadataResult{}, Error.Wrap(err)
+	}
+	if len(containsQueryParts) > MaxFindObjectsByClearMetadataQuerySize {
+		return FindObjectsByClearMetadataResult{}, Error.New("too many values in metadata query")
+	}
+
+	if len(containsQueryParts) > 0 {
+		query += `(project_id, bucket_name, object_key, version) IN (`
+		for i, part := range containsQueryParts {
+			if i > 0 {
+				query += "INTERSECTION \n"
+			}
+			query += fmt.Sprintf("(SELECT project_id, bucket_name, object_key, version FROM objects@objects_clear_metadata_idx WHERE clear_metadata @> $%d)\n", len(args)+1)
+			args = append(args, part)
+		}
+		query += `)`
+	}
+	if len(args) > 0 {
+		query += ` AND `
+	}
+
+	query += fmt.Sprintf("project_id = $%d AND bucket_name = $%d AND status <> $%d AND (expires_at IS NULL OR expires_at > now())", len(args)+1, len(args)+2, len(args)+3)
+	args = append(args, opts.ProjectID, opts.BucketName, statusPending)
+
+	// Determine first and last object conditions
+	if startAfter.ProjectID.IsZero() {
+		// first page => use key prefix
+		query += fmt.Sprintf("\nAND (project_id, bucket_name, object_key, version) >= ($%d, $%d, $%d, $%d)", len(args)+1, len(args)+2, len(args)+3, len(args)+4)
+		args = append(args, opts.ProjectID, opts.BucketName, ObjectKey(opts.KeyPrefix), 0)
+	} else {
+		// subsequent pages => use startAfter
+		query += fmt.Sprintf("\nAND (project_id, bucket_name, object_key, version) > ($%d, $%d, $%d, $%d)", len(args)+1, len(args)+2, len(args)+3, len(args)+4)
+		args = append(args, opts.ProjectID, opts.BucketName, startAfter.ObjectKey, startAfter.Version)
+	}
+
+	if opts.KeyPrefix != "" {
+		prefixLimit := PrefixLimit(ObjectKey(opts.KeyPrefix))
+		query += fmt.Sprintf("\nAND (project_id, bucket_name, object_key, version) < ($%d, $%d, $%d, $%d)", len(args)+1, len(args)+2, len(args)+3, len(args)+4)
+		args = append(args, opts.ProjectID, opts.BucketName, prefixLimit, 0)
+	}
+
+	query += fmt.Sprintf("\nORDER BY project_id, bucket_name, object_key, version LIMIT $%d", len(args)+1)
+	// fmt.Println(query)
+	args = append(args, batchSize)
+
+	// Execute query
+	p.log.Debug("Querying objects by clear metadata",
+		zap.Stringer("Project", opts.ProjectID),
+		zap.Stringer("Bucket", opts.BucketName),
+		zap.String("KeyPrefix", string(opts.KeyPrefix)),
+		zap.String("ContainsQuery", opts.ContainsQuery),
+		zap.Int("BatchSize", batchSize),
+		zap.String("StartAfterKey", string(startAfter.ObjectKey)),
+	)
 
 	result.Objects = make([]FindObjectsByClearMetadataResultObject, 0, batchSize)
 
-	err = withRows(p.db.QueryContext(ctx, query,
-		opts.ProjectID, opts.BucketName, startKey, startVersion,
-		opts.ProjectID, opts.BucketName, endKey, 0,
-		opts.ContainsQuery,
-		batchSize),
-	)(func(rows tagsql.Rows) error {
+	err = withRows(p.db.QueryContext(ctx, query, args...))(func(rows tagsql.Rows) error {
 		var last FindObjectsByClearMetadataResultObject
 		for rows.Next() {
 			err = rows.Scan(
@@ -99,13 +124,6 @@ func (p *PostgresAdapter) FindObjectsByClearMetadata(ctx context.Context, opts F
 				return Error.Wrap(err)
 			}
 
-			p.log.Debug("Querying objects by clear metadata",
-				zap.Stringer("Project", last.ProjectID),
-				zap.Stringer("Bucket", last.BucketName),
-				zap.String("Object Key", string(last.ObjectKey)),
-				zap.Int64("Version", int64(last.Version)),
-				zap.Stringer("StreamID", last.StreamID),
-			)
 			result.Objects = append(result.Objects, last)
 		}
 
@@ -119,4 +137,43 @@ func (p *PostgresAdapter) FindObjectsByClearMetadata(ctx context.Context, opts F
 
 func (p *SpannerAdapter) FindObjectsByClearMetadata(ctx context.Context, opts FindObjectsByClearMetadata, startAfter ObjectStream, batchSize int) (result FindObjectsByClearMetadataResult, err error) {
 	return FindObjectsByClearMetadataResult{}, errors.New("not implemented")
+}
+
+func splitToJSONLeaves(j string) ([]string, error) {
+	var obj interface{}
+	if err := json.Unmarshal([]byte(j), &obj); err != nil {
+		return nil, err
+	}
+
+	var leaves []string
+	splitToLeafValues(obj, func(v interface{}) {
+		if b, err := json.Marshal(v); err == nil {
+			leaves = append(leaves, string(b))
+		}
+	})
+	return leaves, nil
+}
+
+func splitToLeafValues(obj interface{}, add func(interface{})) []interface{} {
+	switch obj := obj.(type) {
+	case map[string]interface{}:
+		for k, v := range obj {
+			splitToLeafValues(v, func(v interface{}) {
+				m := make(map[string]interface{})
+				m[k] = v
+				add(m)
+			})
+		}
+	case []interface{}:
+		for _, v := range obj {
+			splitToLeafValues(v, func(v interface{}) {
+				a := make([]interface{}, 1)
+				a[0] = v
+				add(a)
+			})
+		}
+	default:
+		add(obj)
+	}
+	return nil
 }
