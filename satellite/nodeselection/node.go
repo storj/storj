@@ -124,25 +124,35 @@ func AnyNodeTagAttribute(tagName string) NodeAttribute {
 // CreateNodeValue creates a NodeValue from a string definition.
 func CreateNodeValue(attr string) (NodeValue, error) {
 	if strings.HasPrefix(attr, "tag:") {
-		parts := strings.Split(strings.TrimSpace(strings.TrimPrefix(attr, "tag:")), "/")
-		switch len(parts) {
-		case 2:
-			id, err := storj.NodeIDFromString(parts[0])
-			if err != nil {
-				return nil, errs.New("node attribute definition (%s) has invalid NodeID: %s", attr, err.Error())
-			}
-			return func(node SelectedNode) float64 {
-				tag, err := node.Tags.FindBySignerAndName(id, parts[1])
-				if err != nil {
-					return 0
-				}
-				num, _ := strconv.ParseFloat(string(tag.Value), 64)
-				return num
-			}, nil
-
-		default:
-			return nil, errs.New("tag attribute should be defined as`tag:signer/key`")
+		signer, tagName, ok := strings.Cut(strings.TrimSpace(strings.TrimPrefix(attr, "tag:")), "/")
+		if !ok {
+			return nil, errs.New("tag attribute should be defined as`tag:signer/key or tag:signer/key?default`")
 		}
+
+		id, err := storj.NodeIDFromString(signer)
+		if err != nil {
+			return nil, errs.New("node attribute definition (%s) has invalid NodeID: %s", attr, err.Error())
+		}
+		var defaultValue float64
+		name, defaultVal, withDefault := strings.Cut(tagName, "?")
+		if withDefault {
+			val, err := strconv.ParseFloat(defaultVal, 64)
+			if err != nil {
+				return nil, errs.New("node attribute definition (%s) has invalid default value (must be float): %s", attr, err.Error())
+			}
+			defaultValue = val
+		}
+		return func(node SelectedNode) float64 {
+			tag, err := node.Tags.FindBySignerAndName(id, name)
+			if err != nil {
+				return defaultValue
+			}
+			num, err := strconv.ParseFloat(string(tag.Value), 64)
+			if err != nil {
+				return defaultValue
+			}
+			return num
+		}, nil
 	}
 	switch attr {
 	case "free_disk":
