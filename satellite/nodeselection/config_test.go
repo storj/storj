@@ -219,7 +219,7 @@ func TestArithmetic(t *testing.T) {
 	t.Run("divide", func(t *testing.T) {
 		res, err := mito.Eval("node_value(\"free_disk\") / 2.0", env)
 		require.NoError(t, err)
-		require.Equal(t, int64(1), res.(NodeValue)(node))
+		require.Equal(t, 1.0, res.(NodeValue)(node))
 	})
 
 	t.Run("pow", func(t *testing.T) {
@@ -239,14 +239,14 @@ func TestArithmetic(t *testing.T) {
 			res, err := mito.Eval("node_value(\"free_disk\") ^ 3.0", env)
 			require.NoError(t, err)
 			i := res.(NodeValue)(node)
-			require.Equal(t, int64(8), i)
+			require.Equal(t, 8.0, i)
 		})
 
 		t.Run("node field and tag", func(t *testing.T) {
 			res, err := mito.Eval("node_value(\"free_disk\") ^ node_value(\"tag:1111111111111111111111111111111VyS547o/weight\")", env)
 			require.NoError(t, err)
 			i := res.(NodeValue)(node)
-			require.Equal(t, int64(8), i)
+			require.Equal(t, 8.0, i)
 		})
 	})
 }

@@ -73,7 +73,7 @@ func (node *SelectedNode) Clone() *SelectedNode {
 type NodeAttribute func(SelectedNode) string
 
 // NodeValue returns a numerical value for each node.
-type NodeValue func(node SelectedNode) int64
+type NodeValue func(node SelectedNode) float64
 
 // LastNetAttribute is used for subnet based declumping/selection.
 var LastNetAttribute = mustCreateNodeAttribute("last_net")
@@ -131,13 +131,13 @@ func CreateNodeValue(attr string) (NodeValue, error) {
 			if err != nil {
 				return nil, errs.New("node attribute definition (%s) has invalid NodeID: %s", attr, err.Error())
 			}
-			return func(node SelectedNode) int64 {
+			return func(node SelectedNode) float64 {
 				tag, err := node.Tags.FindBySignerAndName(id, parts[1])
 				if err != nil {
 					return 0
 				}
-				num, _ := strconv.Atoi(string(tag.Value))
-				return int64(num)
+				num, _ := strconv.ParseFloat(string(tag.Value), 64)
+				return num
 			}, nil
 
 		default:
@@ -146,12 +146,12 @@ func CreateNodeValue(attr string) (NodeValue, error) {
 	}
 	switch attr {
 	case "free_disk":
-		return func(node SelectedNode) int64 {
-			return node.FreeDisk
+		return func(node SelectedNode) float64 {
+			return float64(node.FreeDisk)
 		}, nil
 	case "piece_count":
-		return func(node SelectedNode) int64 {
-			return node.PieceCount
+		return func(node SelectedNode) float64 {
+			return float64(node.PieceCount)
 		}, nil
 	default:
 		return nil, errors.New("Unsupported node value: " + attr)
