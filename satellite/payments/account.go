@@ -83,6 +83,9 @@ type Accounts interface {
 	// GetPartnerPlacementPriceModel returns the usage price model for a partner and placement.
 	GetPartnerPlacementPriceModel(partner string, placement storj.PlacementConstraint) (ProjectUsagePriceModel, error)
 
+	// GetPartnerPlacements returns the placements for a partner.
+	GetPartnerPlacements(partner string) []storj.PlacementConstraint
+
 	// CheckProjectInvoicingStatus returns error if for the given project there are outstanding project records and/or usage
 	// which have not been applied/invoiced yet (meaning sent over to stripe).
 	CheckProjectInvoicingStatus(ctx context.Context, projectID uuid.UUID) error

@@ -24,6 +24,7 @@ type Config struct {
 	UnregisteredInviteEmailsEnabled   bool                      `help:"indicates whether invitation emails can be sent to unregistered email addresses" default:"true"`
 	UserBalanceForUpgrade             int64                     `help:"amount of base units of US micro dollars needed to upgrade user's tier status" default:"10000000"`
 	PlacementEdgeURLOverrides         PlacementEdgeURLOverrides `help:"placement-specific edge service URL overrides in the format {\"placementID\": {\"authService\": \"...\", \"publicLinksharing\": \"...\", \"internalLinksharing\": \"...\"}, \"placementID2\": ...}"`
+	SelfServePlacementDetails         PlacementDetails          `help:"human-readable details for placements allowed for self serve placement in the format {\"placementID\": {\"idName\": \"...\", \"name\": \"...\", \"title\": \"...\", \"description\": \"...\"}}"`
 	BlockExplorerURL                  string                    `help:"url of the transaction block explorer" default:"https://etherscan.io/"`
 	ZkSyncBlockExplorerURL            string                    `help:"url of the zkSync transaction block explorer" default:"https://explorer.zksync.io/"`
 	BillingFeaturesEnabled            bool                      `help:"indicates if billing features should be enabled" default:"true"`
@@ -147,4 +148,72 @@ func (ov *PlacementEdgeURLOverrides) Get(placement storj.PlacementConstraint) (o
 	}
 	overrides, ok = ov.overrideMap[placement]
 	return overrides, ok
+}
+
+// PlacementDetail represents human-readable details of a placement.
+type PlacementDetail struct {
+	ID          storj.PlacementConstraint `json:"id"`
+	IdName      string                    `json:"idName"`
+	Name        string                    `json:"name"`
+	Title       string                    `json:"title"`
+	Description string                    `json:"description"`
+}
+
+// PlacementDetails represents a mapping between placement IDs and their human-readable details.
+type PlacementDetails struct {
+	detailMap map[storj.PlacementConstraint]PlacementDetail
+}
+
+// Ensure that PlacementDetails implements pflag.Value.
+var _ pflag.Value = (*PlacementDetails)(nil)
+
+// Type implements pflag.Value.
+func (PlacementDetails) Type() string { return "console.PlacementDetails" }
+
+// String implements pflag.Value.
+func (pd *PlacementDetails) String() string {
+	if pd == nil || len(pd.detailMap) == 0 {
+		return ""
+	}
+
+	details, err := json.Marshal(pd.detailMap)
+	if err != nil {
+		return ""
+	}
+
+	return string(details)
+}
+
+// SetMap sets the internal mapping between a placement and detail.
+func (pd *PlacementDetails) SetMap(overrides map[storj.PlacementConstraint]PlacementDetail) {
+	pd.detailMap = overrides
+}
+
+// Set implements pflag.Value.
+func (pd *PlacementDetails) Set(s string) error {
+	if s == "" {
+		return nil
+	}
+
+	details := make(map[storj.PlacementConstraint]PlacementDetail)
+	err := json.Unmarshal([]byte(s), &details)
+	if err != nil {
+		return err
+	}
+	pd.detailMap = details
+	for constraint, detail := range details {
+		detail.ID = constraint
+		pd.detailMap[constraint] = detail
+	}
+
+	return nil
+}
+
+// Get returns the details for the given placement ID.
+func (pd *PlacementDetails) Get(placement storj.PlacementConstraint) (details PlacementDetail, ok bool) {
+	if pd == nil {
+		return PlacementDetail{}, false
+	}
+	details, ok = pd.detailMap[placement]
+	return details, ok
 }

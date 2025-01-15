@@ -143,7 +143,30 @@ func (b *Buckets) GetPlacementDetails(w http.ResponseWriter, r *http.Request) {
 
 	w.Header().Set("Content-Type", "application/json")
 
-	err = json.NewEncoder(w).Encode(b.service.GetPlacementDetails())
+	projectIDString := r.URL.Query().Get("projectID")
+	if projectIDString == "" {
+		b.serveJSONError(ctx, w, http.StatusBadRequest, errs.New("Project ID was not provided."))
+		return
+	}
+
+	projectID, err := uuid.FromString(projectIDString)
+	if err != nil {
+		b.serveJSONError(ctx, w, http.StatusBadRequest, err)
+		return
+	}
+
+	placementDetails, err := b.service.GetPlacementDetails(ctx, projectID)
+	if err != nil {
+		if console.ErrUnauthorized.Has(err) {
+			b.serveJSONError(ctx, w, http.StatusUnauthorized, err)
+			return
+		}
+
+		b.serveJSONError(ctx, w, http.StatusInternalServerError, err)
+		return
+	}
+
+	err = json.NewEncoder(w).Encode(placementDetails)
 	if err != nil {
 		b.log.Error("failed to write placement details json", zap.Error(ErrBucketsAPI.Wrap(err)))
 	}

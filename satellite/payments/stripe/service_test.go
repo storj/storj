@@ -1607,11 +1607,15 @@ func TestProjectUsagePrice(t *testing.T) {
 	})
 }
 
-func TestPartnerPlacementPrice(t *testing.T) {
+func TestPartnerPlacements(t *testing.T) {
 	var (
-		product      = "product"
-		partner      = "partner"
-		placement    = storj.PlacementConstraint(10)
+		product         = "product"
+		partner         = "partner"
+		placement       = storj.PlacementConstraint(10)
+		placementDetail = console.PlacementDetail{
+			ID:     10,
+			IdName: "placement10",
+		}
 		productPrice = paymentsconfig.ProjectUsagePrice{
 			StorageTB: "4",
 			EgressTB:  "5",
@@ -1632,6 +1636,10 @@ func TestPartnerPlacementPrice(t *testing.T) {
 				config.Payments.PlacementPriceOverrides.SetMap(map[int]string{int(placement): product})
 				config.Payments.PartnersPlacementPriceOverrides.SetMap(map[string]paymentsconfig.PlacementProductMap{
 					partner: config.Payments.PlacementPriceOverrides,
+				})
+				config.Console.SelfServePlacementDetails.SetMap(map[storj.PlacementConstraint]console.PlacementDetail{
+					0:         {ID: 0},
+					placement: placementDetail,
 				})
 			},
 		},
@@ -1662,6 +1670,18 @@ func TestPartnerPlacementPrice(t *testing.T) {
 		model, err = sat.API.Console.Service.Payments().GetPartnerPlacementPriceModel(userCtx, proj.ID, placement)
 		require.NoError(t, err)
 		require.Equal(t, productModel, model)
+
+		details, err := sat.API.Console.Service.GetPlacementDetails(userCtx, proj.ID)
+		require.NoError(t, err)
+		require.Len(t, details, 1)
+		require.Equal(t, placementDetail, details[0])
+
+		err = sat.DB.Console().Projects().UpdateUserAgent(ctx, proj.ID, make([]byte, 0))
+		require.NoError(t, err)
+
+		details, err = sat.API.Console.Service.GetPlacementDetails(userCtx, proj.ID)
+		require.NoError(t, err)
+		require.Empty(t, details)
 	})
 }
 

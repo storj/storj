@@ -535,6 +535,9 @@ compensation.withheld-percents: 75,75,75,50,50,50,25,25,25,0,0,0,0,0,0
 # whether self-serve account delete flow is enabled
 # console.self-serve-account-delete-enabled: false
 
+# human-readable details for placements allowed for self serve placement in the format {"placementID": {"idName": "...", "name": "...", "title": "...", "description": "..."}}
+# console.self-serve-placement-details: ""
+
 # used to communicate with web crawlers and other web robots
 # console.seo: "User-agent: *\nDisallow: \nDisallow: /cgi-bin/"
 
