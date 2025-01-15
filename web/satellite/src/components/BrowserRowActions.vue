@@ -32,7 +32,7 @@
             </v-btn>
 
             <v-btn
-                v-if="!isVersion && !file.isDeleteMarker"
+                v-if="(!isVersion && !file.isDeleteMarker) || file.isLatest"
                 variant="text"
                 color="default"
                 size="small"
