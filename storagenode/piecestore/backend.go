@@ -159,21 +159,11 @@ func (hsb *HashStoreBackend) Stats(cb func(key monkit.SeriesKey, field string, v
 	})
 
 	for _, iddb := range iddbs {
-
 		dbStat, s0Stat, s1Stat := iddb.db.Stats()
 		taggedSeries := monkit.NewSeriesKey("hashstore").WithTag("satellite", iddb.id.String())
-		monkit.StatSourceFromStruct(
-			taggedSeries,
-			dbStat,
-		).Stats(cb)
-		monkit.StatSourceFromStruct(
-			taggedSeries.WithTag("db", "s0"),
-			s0Stat,
-		).Stats(cb)
-		monkit.StatSourceFromStruct(
-			taggedSeries.WithTag("db", "s1"),
-			s1Stat,
-		).Stats(cb)
+		monkit.StatSourceFromStruct(taggedSeries, dbStat).Stats(cb)
+		monkit.StatSourceFromStruct(taggedSeries.WithTag("db", "s0"), s0Stat).Stats(cb)
+		monkit.StatSourceFromStruct(taggedSeries.WithTag("db", "s1"), s1Stat).Stats(cb)
 	}
 }
 

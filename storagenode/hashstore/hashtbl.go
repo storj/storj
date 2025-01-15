@@ -12,6 +12,7 @@ import (
 	"github.com/zeebo/mwc"
 	"github.com/zeebo/xxh3"
 
+	"storj.io/common/memory"
 	"storj.io/drpc/drpcsignal"
 )
 
@@ -148,17 +149,17 @@ func OpenHashtbl(fh *os.File) (_ *HashTbl, err error) {
 
 // HashTblStats contains statistics about the hash table.
 type HashTblStats struct {
-	NumSet uint64  // number of set records.
-	LenSet uint64  // sum of lengths in set records.
-	AvgSet float64 // average size of length of records.
+	NumSet uint64      // number of set records.
+	LenSet memory.Size // sum of lengths in set records.
+	AvgSet float64     // average size of length of records.
 
-	NumTrash uint64  // number of set trash records.
-	LenTrash uint64  // sum of lengths in set trash records.
-	AvgTrash float64 // average size of length of trash records.
+	NumTrash uint64      // number of set trash records.
+	LenTrash memory.Size // sum of lengths in set trash records.
+	AvgTrash float64     // average size of length of trash records.
 
-	NumSlots  uint64  // total number of records available.
-	TableSize uint64  // total number of bytes in the hash table.
-	Load      float64 // percent of slots that are set.
+	NumSlots  uint64      // total number of records available.
+	TableSize memory.Size // total number of bytes in the hash table.
+	Load      float64     // percent of slots that are set.
 
 	Created uint32 // date that the hashtbl was created.
 }
@@ -170,15 +171,15 @@ func (h *HashTbl) Stats() HashTblStats {
 
 	return HashTblStats{
 		NumSet: h.numSet,
-		LenSet: h.lenSet,
+		LenSet: memory.Size(h.lenSet),
 		AvgSet: safeDivide(float64(h.lenSet), float64(h.numSet)),
 
 		NumTrash: h.numTrash,
-		LenTrash: h.lenTrash,
+		LenTrash: memory.Size(h.lenTrash),
 		AvgTrash: safeDivide(float64(h.lenTrash), float64(h.numTrash)),
 
 		NumSlots:  uint64(h.numSlots),
-		TableSize: hashtblSize(h.logSlots),
+		TableSize: memory.Size(hashtblSize(h.logSlots)),
 		Load:      safeDivide(float64(h.numSet), float64(h.numSlots)),
 
 		Created: h.header.created,

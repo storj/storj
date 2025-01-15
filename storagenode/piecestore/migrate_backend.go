@@ -80,34 +80,20 @@ func NewMigratingBackend(log *zap.Logger, old *OldPieceBackend, new *HashStoreBa
 
 // Stats implements monkit.StatSource.
 func (m *MigratingBackend) Stats(cb func(key monkit.SeriesKey, field string, val float64)) {
-	type floatMigrationState struct {
-		PassiveMigrate float64
-		WriteToNew     float64
-		ReadNewFirst   float64
-	}
-
 	type IDState struct {
 		id    storj.NodeID
-		state floatMigrationState
+		state MigrationState
 	}
 
 	states := *m.states.Load()
 	idStates := make([]IDState, 0, len(states))
 	for id, state := range states {
-		b2f := func(b bool) float64 {
-			if b {
-				return 1
-			}
-			return 0
-		}
-		idStates = append(idStates, IDState{id, floatMigrationState{
-			PassiveMigrate: b2f(state.PassiveMigrate),
-			WriteToNew:     b2f(state.WriteToNew),
-			ReadNewFirst:   b2f(state.ReadNewFirst),
-		}})
+		idStates = append(idStates, IDState{id, state})
 	}
 
-	sort.Slice(idStates, func(i, j int) bool { return idStates[i].id.Less(idStates[j].id) })
+	sort.Slice(idStates, func(i, j int) bool {
+		return idStates[i].id.Less(idStates[j].id)
+	})
 
 	for _, idst := range idStates {
 		monkit.StatSourceFromStruct(
