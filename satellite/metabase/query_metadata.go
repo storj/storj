@@ -68,7 +68,7 @@ func (p *PostgresAdapter) FindObjectsByClearMetadata(ctx context.Context, opts F
 		query += `(project_id, bucket_name, object_key, version) IN (`
 		for i, part := range containsQueryParts {
 			if i > 0 {
-				query += "INTERSECTION \n"
+				query += "INTERSECT \n"
 			}
 			query += fmt.Sprintf("(SELECT project_id, bucket_name, object_key, version FROM objects@objects_clear_metadata_idx WHERE clear_metadata @> $%d)\n", len(args)+1)
 			args = append(args, part)
