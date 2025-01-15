@@ -1207,10 +1207,10 @@ func TestWeightedSelector(t *testing.T) {
 
 	// 3x more chance to be selected --> selecting 10 nodes --> very high chance, for being selected (at least once)
 	nodes[0].Tags[0].Value = []byte("500")
-	val, err := nodeselection.CreateNodeValue("tag:1111111111111111111111111111111112m1s9K/weight")
+	val, err := nodeselection.CreateNodeValue("tag:1111111111111111111111111111111112m1s9K/weight?100")
 	require.NoError(t, err)
 
-	selector := nodeselection.WeightedSelector(val, 100, 0, 1, nil)(nodes, nil)
+	selector := nodeselection.WeightedSelector(val, nil)(nodes, nil)
 
 	histogram := map[storj.NodeID]int{}
 
@@ -1224,7 +1224,7 @@ func TestWeightedSelector(t *testing.T) {
 		}
 	}
 
-	selector = nodeselection.WeightedSelector(val, 100, 0, 1, nodeselection.NodeFilterFunc(func(node *nodeselection.SelectedNode) bool {
+	selector = nodeselection.WeightedSelector(val, nodeselection.NodeFilterFunc(func(node *nodeselection.SelectedNode) bool {
 		return false
 	}))(nodes, nil)
 	selectedNodes, err := selector(storj.NodeID{}, 10, nil, nil)
