@@ -81,7 +81,11 @@
             />
             <v-card-item class="pt-0">
                 <v-card-title>
-                    <small :title="item.browserObject.Key">
+                    <small
+                        class="link text-decoration-none"
+                        :title="item.browserObject.Key"
+                        @click="() => emit('previewClick', item.browserObject)"
+                    >
                         {{ item.browserObject.Key }}
                     </small>
                 </v-card-title>
