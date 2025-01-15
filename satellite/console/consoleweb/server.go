@@ -260,6 +260,12 @@ func NewServer(logger *zap.Logger, config Config, service *console.Service, oidc
 	}, consolewebauth.CookieSettings{
 		Name: "csrf_token",
 		Path: "/",
+	}, consolewebauth.CookieSettings{
+		Name: "sso_state",
+		Path: "/",
+	}, consolewebauth.CookieSettings{
+		Name: "sso_email_token",
+		Path: "/",
 	}, server.config.AuthCookieDomain)
 
 	if server.config.ExternalAddress != "" {
@@ -749,7 +755,7 @@ func (server *Server) appHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if server.cookieAuth != nil && server.config.CSRFProtectionEnabled {
-		csrfToken, err := server.service.GenerateCSRFToken()
+		csrfToken, err := server.service.GenerateSecurityToken()
 		if err != nil {
 			server.log.Error("Failed to generate CSRF token", zap.Error(err))
 			return
@@ -901,7 +907,7 @@ func (server *Server) withCSRFProtection(handler http.Handler) http.Handler {
 			return
 		}
 
-		err = server.service.ValidateCSRFToken(csrfHeaderToken)
+		err = server.service.ValidateSecurityToken(csrfHeaderToken)
 		if err != nil {
 			web.ServeJSONError(ctx, server.log, w, http.StatusForbidden, err)
 			return

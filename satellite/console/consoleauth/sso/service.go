@@ -151,7 +151,7 @@ func (s *Service) GetOidcSetupByProvider(ctx context.Context, provider string) *
 }
 
 // VerifySso verifies the SSO code as state against a provider.
-func (s *Service) VerifySso(ctx context.Context, provider, state, code string) (_ *OidcSsoClaims, err error) {
+func (s *Service) VerifySso(ctx context.Context, provider, emailToken, code string) (_ *OidcSsoClaims, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	oidcSetup := s.GetOidcSetupByProvider(ctx, provider)
@@ -193,25 +193,29 @@ func (s *Service) VerifySso(ctx context.Context, provider, state, code string) (
 			claims.Sub = claims.Oid
 			if claims.Email == "" {
 				return nil, ErrInvalidEmail.New("email is empty")
-
 			}
 		}
 		claims.Email = strings.ToLower(claims.Email)
 	}
 
-	stat, err := s.GetSsoStateFromEmail(claims.Email)
-	if err != nil {
-		return nil, Error.New("failed to get state")
+	p := s.GetProviderByEmail(claims.Email)
+	if p != provider {
+		return nil, ErrInvalidEmail.New("email %s does not match provider %s", claims.Email, provider)
 	}
-	if state != stat {
-		return nil, ErrInvalidState.New("state mismatch")
+
+	token, err := s.GetSsoEmailToken(claims.Email)
+	if err != nil {
+		return nil, Error.New("failed to get email token")
+	}
+	if emailToken != token {
+		return nil, Error.New("invalid email token")
 	}
 
 	return &claims, nil
 }
 
-// GetSsoStateFromEmail returns a signed string derived from the email address.
-func (s *Service) GetSsoStateFromEmail(email string) (string, error) {
+// GetSsoEmailToken returns a signed string derived from the email address.
+func (s *Service) GetSsoEmailToken(email string) (string, error) {
 	sum := sha256.Sum256([]byte(email))
 	signed, err := s.tokens.Sign(sum[:])
 	if err != nil {

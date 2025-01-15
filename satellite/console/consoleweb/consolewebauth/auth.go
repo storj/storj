@@ -19,17 +19,21 @@ type CookieSettings struct {
 
 // CookieAuth handles cookie authorization.
 type CookieAuth struct {
-	settings     CookieSettings
-	csrfSettings CookieSettings
-	domain       string
+	settings              CookieSettings
+	csrfSettings          CookieSettings
+	ssoStateSettings      CookieSettings
+	ssoEmailTokenSettings CookieSettings
+	domain                string
 }
 
 // NewCookieAuth create new cookie authorization with provided settings.
-func NewCookieAuth(settings, csrfSettings CookieSettings, domain string) *CookieAuth {
+func NewCookieAuth(settings, csrfSettings, ssoStateSettings, ssoEmailTokenSettings CookieSettings, domain string) *CookieAuth {
 	return &CookieAuth{
-		settings:     settings,
-		csrfSettings: csrfSettings,
-		domain:       domain,
+		settings:              settings,
+		csrfSettings:          csrfSettings,
+		ssoStateSettings:      ssoStateSettings,
+		ssoEmailTokenSettings: ssoEmailTokenSettings,
+		domain:                domain,
 	}
 }
 
@@ -97,4 +101,54 @@ func (auth *CookieAuth) SetCSRFCookie(w http.ResponseWriter, value string) {
 // GetCSRFCookieName returns the name of the cookie storing the CSRF token.
 func (auth *CookieAuth) GetCSRFCookieName() string {
 	return auth.csrfSettings.Name
+}
+
+// SetSSOCookies sets parametrized SSO cookies that are not accessible from js.
+func (auth *CookieAuth) SetSSOCookies(w http.ResponseWriter, state, emailToken string) {
+	http.SetCookie(w, &http.Cookie{
+		Name:     auth.ssoStateSettings.Name,
+		Path:     auth.ssoStateSettings.Path,
+		Value:    state,
+		HttpOnly: true,
+		Expires:  time.Now().Add(1 * time.Hour),
+		SameSite: http.SameSiteLaxMode,
+	})
+	http.SetCookie(w, &http.Cookie{
+		Name:     auth.ssoEmailTokenSettings.Name,
+		Path:     auth.ssoEmailTokenSettings.Path,
+		Value:    emailToken,
+		HttpOnly: true,
+		Expires:  time.Now().Add(1 * time.Hour),
+		SameSite: http.SameSiteLaxMode,
+	})
+}
+
+// RemoveSSOCookies removes SSO cookies that are not accessible from js.
+func (auth *CookieAuth) RemoveSSOCookies(w http.ResponseWriter) {
+	http.SetCookie(w, &http.Cookie{
+		Name:     auth.ssoStateSettings.Name,
+		Path:     auth.ssoStateSettings.Path,
+		Value:    "",
+		Expires:  time.Unix(0, 0),
+		HttpOnly: true,
+		SameSite: http.SameSiteLaxMode,
+	})
+	http.SetCookie(w, &http.Cookie{
+		Name:     auth.ssoEmailTokenSettings.Name,
+		Path:     auth.ssoEmailTokenSettings.Path,
+		Value:    "",
+		Expires:  time.Unix(0, 0),
+		HttpOnly: true,
+		SameSite: http.SameSiteLaxMode,
+	})
+}
+
+// GetSSOStateCookieName returns the name of the cookie storing the SSO state.
+func (auth *CookieAuth) GetSSOStateCookieName() string {
+	return auth.ssoStateSettings.Name
+}
+
+// GetSSOEmailTokenCookieName returns the name of the cookie storing the SSO email token.
+func (auth *CookieAuth) GetSSOEmailTokenCookieName() string {
+	return auth.ssoEmailTokenSettings.Name
 }
