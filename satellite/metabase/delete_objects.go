@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"cloud.google.com/go/spanner"
+	"cloud.google.com/go/spanner/apiv1/spannerpb"
 	"github.com/jackc/pgx/v5"
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
@@ -139,7 +140,7 @@ func (s *SpannerAdapter) FindExpiredObjects(ctx context.Context, opts DeleteExpi
 	defer mon.Task()(&ctx)(&err)
 
 	// TODO(spanner): check whether this query is executed efficiently
-	expiredObjects, err = spannerutil.CollectRows(s.client.Single().Query(ctx, spanner.Statement{
+	expiredObjects, err = spannerutil.CollectRows(s.client.Single().QueryWithOptions(ctx, spanner.Statement{
 		SQL: `
 			SELECT
 				project_id, bucket_name, object_key, version, stream_id,
@@ -163,6 +164,8 @@ func (s *SpannerAdapter) FindExpiredObjects(ctx context.Context, opts DeleteExpi
 			"expires_at":  opts.ExpiredBefore,
 			"batch_size":  batchSize,
 		},
+	}, spanner.QueryOptions{
+		Priority: spannerpb.RequestOptions_PRIORITY_LOW,
 	}), func(row *spanner.Row, object *ObjectStream) error {
 		var expiresAt time.Time
 		err := row.Columns(
@@ -294,7 +297,7 @@ func (s *SpannerAdapter) FindZombieObjects(ctx context.Context, opts DeleteZombi
 		return nil, Error.Wrap(err)
 	}
 
-	objects, err = spannerutil.CollectRows(s.client.Single().Query(ctx, spanner.Statement{
+	objects, err = spannerutil.CollectRows(s.client.Single().QueryWithOptions(ctx, spanner.Statement{
 		SQL: `
 			SELECT
 				project_id, bucket_name, object_key, version, stream_id
@@ -314,6 +317,8 @@ func (s *SpannerAdapter) FindZombieObjects(ctx context.Context, opts DeleteZombi
 			"deadline":    opts.DeadlineBefore,
 			"batch_size":  batchSize,
 		},
+	}, spanner.QueryOptions{
+		Priority: spannerpb.RequestOptions_PRIORITY_LOW,
 	}), func(row *spanner.Row, object *ObjectStream) error {
 		err := row.Columns(&object.ProjectID, &object.BucketName, &object.ObjectKey, &object.Version, &object.StreamID)
 		if err != nil {
@@ -420,13 +425,13 @@ func (s *SpannerAdapter) DeleteObjectsAndSegmentsNoVerify(ctx context.Context, o
 		return 0, 0, nil
 	}
 
-	_, err = s.client.ReadWriteTransaction(ctx, func(ctx context.Context, tx *spanner.ReadWriteTransaction) error {
+	_, err = s.client.ReadWriteTransactionWithOptions(ctx, func(ctx context.Context, tx *spanner.ReadWriteTransaction) error {
 		var streamIDs [][]byte
 		for _, obj := range objects {
 			streamIDs = append(streamIDs, obj.StreamID.Bytes())
 		}
 
-		deletedCounts, err := tx.BatchUpdate(ctx, []spanner.Statement{
+		deletedCounts, err := tx.BatchUpdateWithOptions(ctx, []spanner.Statement{
 			{
 				SQL: `
 					DELETE FROM objects
@@ -445,6 +450,8 @@ func (s *SpannerAdapter) DeleteObjectsAndSegmentsNoVerify(ctx context.Context, o
 					"stream_ids": streamIDs,
 				},
 			},
+		}, spanner.QueryOptions{
+			Priority: spannerpb.RequestOptions_PRIORITY_LOW,
 		})
 		if err != nil {
 			return err
@@ -453,6 +460,8 @@ func (s *SpannerAdapter) DeleteObjectsAndSegmentsNoVerify(ctx context.Context, o
 		objectsDeleted = deletedCounts[0]
 		segmentsDeleted = deletedCounts[1]
 		return nil
+	}, spanner.TransactionOptions{
+		CommitPriority: spannerpb.RequestOptions_PRIORITY_LOW,
 	})
 	if err != nil {
 		return 0, 0, Error.New("unable to delete expired objects: %w", err)
@@ -517,7 +526,7 @@ func (s *SpannerAdapter) DeleteInactiveObjectsAndSegments(ctx context.Context, o
 		return 0, 0, nil
 	}
 
-	_, err = s.client.ReadWriteTransaction(ctx, func(ctx context.Context, tx *spanner.ReadWriteTransaction) error {
+	_, err = s.client.ReadWriteTransactionWithOptions(ctx, func(ctx context.Context, tx *spanner.ReadWriteTransaction) error {
 		// can't use Mutations here, since we only want to delete objects by the specified keys
 		// if and only if the stream_id matches and no associated segments were uploaded after
 		// opts.InactiveDeadline.
@@ -547,7 +556,9 @@ func (s *SpannerAdapter) DeleteInactiveObjectsAndSegments(ctx context.Context, o
 			})
 		}
 
-		numDeleteds, err := tx.BatchUpdate(ctx, statements)
+		numDeleteds, err := tx.BatchUpdateWithOptions(ctx, statements, spanner.QueryOptions{
+			Priority: spannerpb.RequestOptions_PRIORITY_LOW,
+		})
 		if err != nil {
 			return Error.Wrap(err)
 		}
@@ -560,7 +571,7 @@ func (s *SpannerAdapter) DeleteInactiveObjectsAndSegments(ctx context.Context, o
 			objectsDeleted += numDeleted
 		}
 
-		numSegments, err := tx.Update(ctx, spanner.Statement{
+		numSegments, err := tx.UpdateWithOptions(ctx, spanner.Statement{
 			SQL: `
 				DELETE FROM segments
 				WHERE stream_id IN UNNEST(@stream_ids)
@@ -568,12 +579,16 @@ func (s *SpannerAdapter) DeleteInactiveObjectsAndSegments(ctx context.Context, o
 			Params: map[string]interface{}{
 				"stream_ids": streamIDs,
 			},
+		}, spanner.QueryOptions{
+			Priority: spannerpb.RequestOptions_PRIORITY_LOW,
 		})
 		if err != nil {
 			return Error.Wrap(err)
 		}
 		segmentsDeleted += numSegments
 		return nil
+	}, spanner.TransactionOptions{
+		CommitPriority: spannerpb.RequestOptions_PRIORITY_LOW,
 	})
 	if err != nil {
 		return objectsDeleted, segmentsDeleted, Error.New("unable to delete zombie objects: %w", err)
