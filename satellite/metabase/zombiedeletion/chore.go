@@ -23,7 +23,7 @@ var (
 
 // Config contains configurable values for zombie object cleanup.
 type Config struct {
-	Interval           time.Duration `help:"the time between each attempt to go through the db and clean up zombie objects" releaseDefault:"12h" devDefault:"10s"`
+	Interval           time.Duration `help:"the time between each attempt to go through the db and clean up zombie objects" releaseDefault:"15h" devDefault:"10s"`
 	Enabled            bool          `help:"set if zombie object cleanup is enabled or not" default:"true"`
 	ListLimit          int           `help:"how many objects to query in a batch" default:"100"`
 	InactiveFor        time.Duration `help:"after what time object will be deleted if there where no new upload activity" default:"24h"`
