@@ -698,7 +698,7 @@ const chartDateRange = computed<Date[]>({
     get: () => {
         const dates: Date[] = [...datePickerModel.value];
         if (!dates.length) {
-            for (let i = 6; i >= 0; i--) {
+            for (let i = 7; i > 0; i--) {
                 const d = new Date();
                 d.setDate(d.getDate() - i);
                 dates.push(d);
