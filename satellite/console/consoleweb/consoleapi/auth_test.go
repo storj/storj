@@ -1548,6 +1548,17 @@ func TestSsoMethods(t *testing.T) {
 		require.Equal(t, user.Email, ssoUser.Email)
 		require.Equal(t, console.Active, ssoUser.Status)
 
+		// GetUserForSsoAuth should return the user if the email matches an existing user
+		// with a different external ID and associate the new external ID with the user.
+		ssoUser, err = service.GetUserForSsoAuth(ctx, sso.OidcSsoClaims{
+			Sub:   "newID",
+			Email: user.Email,
+			Name:  "some name",
+		}, provider, "", "")
+		require.NoError(t, err)
+		require.Equal(t, user.ID, ssoUser.ID)
+		require.Equal(t, getExternalID("newID"), *ssoUser.ExternalID)
+
 		user = createUserFn("test5@mail.test")
 		require.NoError(t, err)
 

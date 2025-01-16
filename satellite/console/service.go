@@ -1338,7 +1338,8 @@ func (s *Service) GetUserForSsoAuth(ctx context.Context, claims sso.OidcSsoClaim
 		}
 	}
 
-	if user.ExternalID == nil {
+	if user.ExternalID == nil || *user.ExternalID != externalID {
+		s.log.Info("updating external ID", zap.String("userID", user.ID.String()), zap.String("email", user.Email))
 		// associate existing user with this external ID.
 		err = s.UpdateExternalID(ctx, user, externalID)
 		if err != nil {
