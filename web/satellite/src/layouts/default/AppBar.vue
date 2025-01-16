@@ -19,7 +19,7 @@
         <v-app-bar-title class="mt-n1 ml-1 mr-2 flex-initial" :class="{ 'ml-4': !showNavDrawerButton }">
             <router-link :to="ROUTES.Projects.path">
                 <v-img
-                    v-if="theme.global.current.value.dark"
+                    v-if="themeStore.globalTheme?.dark"
                     src="@/assets/logo-dark.svg"
                     width="120"
                     alt="Storj Logo"
@@ -36,44 +36,62 @@
         <template #append>
             <v-menu offset-y width="200" class="rounded-xl">
                 <template #activator="{ props: activatorProps }">
-                    <!-- Theme Toggle Light/Dark Mode -->
-                    <v-btn-toggle
-                        v-model="activeTheme"
-                        mandatory
-                        border
-                        inset
-                        density="comfortable"
-                        class="pa-1"
-                    >
-                        <v-tooltip text="Light Theme" location="bottom">
-                            <template #activator="{ props: darkProps }">
-                                <v-btn
-                                    v-bind="darkProps"
-                                    rounded="xl"
-                                    :icon="Sun"
-                                    size="x-small"
-                                    class="px-4"
-                                    aria-label="Toggle Light Theme"
-                                    @click="toggleTheme('light')"
-                                />
-                            </template>
-                        </v-tooltip>
+                    <v-btn
+                        v-bind="activatorProps"
+                        variant="outlined"
+                        color="default"
+                        size="small"
+                        rounded="xl"
+                        :icon="activeThemeIcon"
+                    />
+                </template>
 
-                        <v-tooltip text="Dark Theme" location="bottom">
-                            <template #activator="{ props: lightProps }">
-                                <v-btn
-                                    v-bind="lightProps"
-                                    rounded="xl"
-                                    :icon="MoonStar"
-                                    size="x-small"
-                                    class="px-4"
-                                    aria-label="Toggle Dark Theme"
-                                    @click="toggleTheme('dark')"
-                                />
-                            </template>
-                        </v-tooltip>
-                    </v-btn-toggle>
+                <v-list class="px-2 rounded-lg">
+                    <v-list-item :active="activeTheme === 0" @click="themeStore.setTheme('light')">
+                        <v-list-item-title class="text-body-2">
+                            <v-btn
+                                class="mr-3"
+                                variant="outlined"
+                                color="default"
+                                size="x-small"
+                                rounded="lg"
+                                :icon="Sun"
+                            />
+                            Light
+                        </v-list-item-title>
+                    </v-list-item>
 
+                    <v-list-item :active="activeTheme === 1" @click="themeStore.setTheme('dark')">
+                        <v-list-item-title class="text-body-2">
+                            <v-btn
+                                class="mr-3"
+                                variant="outlined"
+                                color="default"
+                                size="x-small"
+                                rounded="lg"
+                                :icon="MoonStar"
+                            />
+                            Dark
+                        </v-list-item-title>
+                    </v-list-item>
+
+                    <v-list-item :active="activeTheme === 2" @click="themeStore.setTheme('auto')">
+                        <v-list-item-title class="text-body-2">
+                            <v-btn
+                                class="mr-3"
+                                variant="outlined"
+                                color="default"
+                                size="x-small"
+                                rounded="lg"
+                                :icon="smAndDown ? Smartphone : Monitor"
+                            />
+                            System
+                        </v-list-item-title>
+                    </v-list-item>
+                </v-list>
+            </v-menu>
+            <v-menu offset-y width="200" class="rounded-xl">
+                <template #activator="{ props: activatorProps }">
                     <!-- My Account Dropdown Button -->
                     <v-btn
                         v-bind="activatorProps"
@@ -172,15 +190,14 @@
 </template>
 
 <script setup lang="ts">
-import { ref, watch, computed } from 'vue';
-import { useDisplay, useTheme } from 'vuetify';
+import { computed } from 'vue';
+import { useDisplay } from 'vuetify';
 import {
     VAppBar,
     VAppBarNavIcon,
     VAppBarTitle,
     VImg,
     VMenu,
-    VBtnToggle,
     VTooltip,
     VBtn,
     VList,
@@ -197,6 +214,8 @@ import {
     CreditCard,
     CircleArrowUp,
     LogOut,
+    Monitor,
+    Smartphone,
 } from 'lucide-vue-next';
 
 import { useAppStore } from '@/store/modules/appStore';
@@ -206,6 +225,7 @@ import { useConfigStore } from '@/store/modules/configStore';
 import { ROUTES } from '@/router';
 import { User } from '@/types/users';
 import { useLogout } from '@/composables/useLogout';
+import { useThemeStore } from '@/store/modules/themeStore';
 
 import IconSatellite from '@/components/icons/IconSatellite.vue';
 import AccountSetupDialog from '@/components/dialogs/AccountSetupDialog.vue';
@@ -214,20 +234,40 @@ const appStore = useAppStore();
 const usersStore = useUsersStore();
 const configStore = useConfigStore();
 
-const theme = useTheme();
+const themeStore = useThemeStore();
 const notify = useNotify();
-const { mdAndDown } = useDisplay();
+const { mdAndDown, smAndDown } = useDisplay();
 const { logout } = useLogout();
 
 const settingsPath = ROUTES.Account.with(ROUTES.AccountSettings).path;
 const billingPath = ROUTES.Account.with(ROUTES.Billing).path;
 
-const activeTheme = ref<number>(0);
-
 withDefaults(defineProps<{
     showNavDrawerButton: boolean;
 }>(), {
     showNavDrawerButton: false,
+});
+
+const activeTheme = computed<number>(() => {
+    switch (themeStore.state.name) {
+    case 'light':
+        return 0;
+    case 'dark':
+        return 1;
+    default:
+        return 2;
+    }
+});
+
+const activeThemeIcon = computed(() => {
+    switch (themeStore.state.name) {
+    case 'light':
+        return Sun;
+    case 'dark':
+        return MoonStar;
+    default:
+        return themeStore.globalTheme?.dark ? MoonStar : Sun;
+    }
 });
 
 /**
@@ -253,18 +293,6 @@ const user = computed<User>(() => usersStore.state.user);
 const isPaidTier = computed<boolean>(() => {
     return user.value.paidTier ?? false;
 });
-
-function toggleTheme(newTheme: string): void {
-    if ((newTheme === 'dark' && theme.global.current.value.dark) || (newTheme === 'light' && !theme.global.current.value.dark)) {
-        return;
-    }
-    theme.global.name.value = newTheme;
-    localStorage.setItem('theme', newTheme);  // Store the selected theme in localStorage
-}
-
-watch(() => theme.global.current.value.dark, (newVal: boolean) => {
-    activeTheme.value = newVal ? 1 : 0;
-}, { immediate: true });
 
 function closeSideNav(): void {
     if (mdAndDown.value) appStore.toggleNavigationDrawer(false);
