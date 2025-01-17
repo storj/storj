@@ -238,20 +238,13 @@ func (p *PostgresAdapter) TestingGetAllObjects(ctx context.Context) (_ []RawObje
 
 // TestingGetAllObjects returns the state of the database.
 func (s *SpannerAdapter) TestingGetAllObjects(ctx context.Context) (_ []RawObject, err error) {
-	return spannerutil.CollectRows(s.client.Single().Query(ctx, spanner.Statement{
-		SQL: `
-			SELECT
-				project_id, bucket_name, object_key, version, stream_id,
-				created_at, expires_at,
-				status, segment_count,
-				encrypted_metadata_nonce, encrypted_metadata, encrypted_metadata_encrypted_key,
-				total_plain_size, total_encrypted_size, fixed_segment_size,
-				encryption,
-				zombie_deletion_deadline,
-				retention_mode, retain_until
-			FROM objects
-			ORDER BY project_id ASC, bucket_name ASC, object_key ASC, version ASC
-		`,
+	return spannerutil.CollectRows(s.client.Single().Read(ctx, "objects", spanner.AllKeys(), []string{
+		"project_id", "bucket_name", "object_key", "version", "stream_id",
+		"created_at", "expires_at",
+		"status", "segment_count",
+		"encrypted_metadata_nonce", "encrypted_metadata", "encrypted_metadata_encrypted_key",
+		"total_plain_size", "total_encrypted_size", "fixed_segment_size",
+		"encryption", "zombie_deletion_deadline", "retention_mode", "retain_until",
 	}), func(row *spanner.Row, obj *RawObject) error {
 		err := row.Columns(
 			&obj.ProjectID,
@@ -532,19 +525,14 @@ func (p *PostgresAdapter) TestingGetAllSegments(ctx context.Context, aliasCache 
 
 // TestingGetAllSegments implements Adapter.
 func (s *SpannerAdapter) TestingGetAllSegments(ctx context.Context, aliasCache *NodeAliasCache) (segments []RawSegment, err error) {
-	return spannerutil.CollectRows(s.client.Single().Query(ctx, spanner.Statement{SQL: `
-		SELECT
-			stream_id, position,
-			created_at, repaired_at, expires_at,
-			root_piece_id, encrypted_key_nonce, encrypted_key,
-			encrypted_size, plain_offset, plain_size,
-			encrypted_etag,
-			redundancy,
-			inline_data, remote_alias_pieces,
-			placement
-		FROM segments
-		ORDER BY stream_id ASC, position ASC
-	`}), func(row *spanner.Row, segment *RawSegment) error {
+	return spannerutil.CollectRows(s.client.Single().Read(ctx, "segments", spanner.AllKeys(), []string{
+		"stream_id", "position",
+		"created_at", "repaired_at", "expires_at",
+		"root_piece_id", "encrypted_key_nonce", "encrypted_key",
+		"encrypted_size", "plain_offset", "plain_size",
+		"encrypted_etag", "redundancy", "inline_data", "remote_alias_pieces",
+		"placement",
+	}), func(row *spanner.Row, segment *RawSegment) error {
 		var aliasPieces AliasPieces
 
 		err := row.Columns(
