@@ -584,7 +584,7 @@ func (service *Service) UpdateCheckIn(ctx context.Context, node NodeCheckInInfo,
 
 	oldInfo, err := service.Get(ctx, node.NodeID)
 	if err != nil && !ErrNodeNotFound.Has(err) {
-		return Error.New("failed to get node info from DB")
+		return Error.New("failed to get node info from DB: %w", err)
 	}
 
 	if oldInfo == nil {

@@ -795,11 +795,10 @@ func WeightedSelector(value NodeValue, defaultValue, valueBallast, valuePower fl
 		normalized := make([]float64, n)
 		total := float64(0)
 		for ix, node := range filtered {
-			nodeValueInt := value(*node)
-			nodeValue := float64(nodeValueInt)
-			if nodeValueInt == 0 {
+			nodeValue := value(*node)
+			if nodeValue == 0 {
 				nodeValue = defaultValue
-			} else if nodeValueInt <= 0 {
+			} else if nodeValue <= 0 {
 				nodeValue = 0
 			}
 			nodeValue = math.Pow(nodeValue, valuePower) + valueBallast

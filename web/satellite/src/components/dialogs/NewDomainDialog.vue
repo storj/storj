@@ -43,77 +43,79 @@
 
             <v-divider />
 
-            <v-window
-                v-model="step"
-                class="new-domain__window"
-                :class="{ 'new-domain__window--loading': isFetching || isGenerating }"
-            >
-                <v-window-item :value="NewDomainFlowStep.CustomDomain">
-                    <new-custom-domain-step
-                        :ref="stepInfos[NewDomainFlowStep.CustomDomain].ref"
-                        @domain-changed="val => domain = val"
-                        @bucket-changed="val => bucket = val"
-                        @submit="nextStep"
-                    />
-                </v-window-item>
+            <v-card-text class="pa-0">
+                <v-window
+                    v-model="step"
+                    class="new-domain__window"
+                    :class="{ 'new-domain__window--loading': isFetching || isGenerating }"
+                >
+                    <v-window-item :value="NewDomainFlowStep.CustomDomain">
+                        <new-custom-domain-step
+                            :ref="stepInfos[NewDomainFlowStep.CustomDomain].ref"
+                            @domain-changed="val => domain = val"
+                            @bucket-changed="val => bucket = val"
+                            @submit="nextStep"
+                        />
+                    </v-window-item>
 
-                <v-window-item :value="NewDomainFlowStep.SetupDomainAccess">
-                    <access-encryption-step
-                        :ref="stepInfos[NewDomainFlowStep.SetupDomainAccess].ref"
-                        @selectOption="val => passphraseOption = val"
-                        @passphraseChanged="val => passphrase = val"
-                        @submit="nextStep"
-                    />
-                </v-window-item>
+                    <v-window-item :value="NewDomainFlowStep.SetupDomainAccess">
+                        <access-encryption-step
+                            :ref="stepInfos[NewDomainFlowStep.SetupDomainAccess].ref"
+                            @selectOption="val => passphraseOption = val"
+                            @passphraseChanged="val => passphrase = val"
+                            @submit="nextStep"
+                        />
+                    </v-window-item>
 
-                <v-window-item :value="NewDomainFlowStep.EnterNewPassphrase">
-                    <enter-passphrase-step
-                        :ref="stepInfos[NewDomainFlowStep.EnterNewPassphrase].ref"
-                        @passphraseChanged="val => passphrase = val"
-                    />
-                </v-window-item>
+                    <v-window-item :value="NewDomainFlowStep.EnterNewPassphrase">
+                        <enter-passphrase-step
+                            :ref="stepInfos[NewDomainFlowStep.EnterNewPassphrase].ref"
+                            @passphraseChanged="val => passphrase = val"
+                        />
+                    </v-window-item>
 
-                <v-window-item :value="NewDomainFlowStep.PassphraseGenerated">
-                    <passphrase-generated-step
-                        :ref="stepInfos[NewDomainFlowStep.PassphraseGenerated].ref"
-                        :name="accessName"
-                        @passphraseChanged="val => passphrase = val"
-                    />
-                </v-window-item>
+                    <v-window-item :value="NewDomainFlowStep.PassphraseGenerated">
+                        <passphrase-generated-step
+                            :ref="stepInfos[NewDomainFlowStep.PassphraseGenerated].ref"
+                            :name="accessName"
+                            @passphraseChanged="val => passphrase = val"
+                        />
+                    </v-window-item>
 
-                <v-window-item :value="NewDomainFlowStep.SetupCNAME">
-                    <setup-c-n-a-m-e-step
-                        :ref="stepInfos[NewDomainFlowStep.SetupCNAME].ref"
-                        :domain="domain"
-                        :cname="cname"
-                    />
-                </v-window-item>
+                    <v-window-item :value="NewDomainFlowStep.SetupCNAME">
+                        <setup-c-n-a-m-e-step
+                            :ref="stepInfos[NewDomainFlowStep.SetupCNAME].ref"
+                            :domain="domain"
+                            :cname="cname"
+                        />
+                    </v-window-item>
 
-                <v-window-item :value="NewDomainFlowStep.SetupTXT">
-                    <setup-t-x-t-step
-                        :ref="stepInfos[NewDomainFlowStep.SetupTXT].ref"
-                        :domain="domain"
-                        :storj-root="storjRoot"
-                        :storj-access="storjAccess"
-                        :storj-tls="storjTLS"
-                    />
-                </v-window-item>
+                    <v-window-item :value="NewDomainFlowStep.SetupTXT">
+                        <setup-t-x-t-step
+                            :ref="stepInfos[NewDomainFlowStep.SetupTXT].ref"
+                            :domain="domain"
+                            :storj-root="storjRoot"
+                            :storj-access="storjAccess"
+                            :storj-tls="storjTLS"
+                        />
+                    </v-window-item>
 
-                <v-window-item :value="NewDomainFlowStep.VerifyDomain">
-                    <verify-domain-step
-                        :ref="stepInfos[NewDomainFlowStep.VerifyDomain].ref"
-                        :domain="domain"
-                        :cname="cname"
-                        :txt="txt"
-                    />
-                </v-window-item>
+                    <v-window-item :value="NewDomainFlowStep.VerifyDomain">
+                        <verify-domain-step
+                            :ref="stepInfos[NewDomainFlowStep.VerifyDomain].ref"
+                            :domain="domain"
+                            :cname="cname"
+                            :txt="txt"
+                        />
+                    </v-window-item>
 
-                <v-window-item :value="NewDomainFlowStep.DomainConnected">
-                    <domain-connected-step
-                        :ref="stepInfos[NewDomainFlowStep.DomainConnected].ref"
-                    />
-                </v-window-item>
-            </v-window>
+                    <v-window-item :value="NewDomainFlowStep.DomainConnected">
+                        <domain-connected-step
+                            :ref="stepInfos[NewDomainFlowStep.DomainConnected].ref"
+                        />
+                    </v-window-item>
+                </v-window>
+            </v-card-text>
 
             <v-divider />
 
@@ -166,6 +168,7 @@ import {
     VCardActions,
     VCardItem,
     VCardTitle,
+    VCardText,
     VCol,
     VDialog,
     VDivider,

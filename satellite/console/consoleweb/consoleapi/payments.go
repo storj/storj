@@ -655,9 +655,9 @@ func (p *Payments) GetPartnerPlacementPriceModel(w http.ResponseWriter, r *http.
 	w.Header().Set("Content-Type", "application/json")
 
 	var placement storj.PlacementConstraint
-	placementStr := mux.Vars(r)["placement"]
+	placementStr := r.URL.Query().Get("placement")
 	if placementStr == "" {
-		placementStr = mux.Vars(r)["placementName"]
+		placementStr = r.URL.Query().Get("placementName")
 		placement, err = p.service.GetPlacementByName(placementStr)
 		if err != nil {
 			p.serveJSONError(ctx, w, http.StatusNotFound, err)
@@ -672,7 +672,7 @@ func (p *Payments) GetPartnerPlacementPriceModel(w http.ResponseWriter, r *http.
 		placement = storj.PlacementConstraint(pl)
 	}
 
-	projectIDStr := mux.Vars(r)["projectID"]
+	projectIDStr := r.URL.Query().Get("projectID")
 	if projectIDStr == "" {
 		p.serveJSONError(ctx, w, http.StatusBadRequest, errs.New("projectID is required"))
 		return

@@ -97,6 +97,7 @@
                             is-version
                             :is-file-deleted="item.browserObject.isDeleteMarker"
                             align="right"
+                            @share-click="onShareClick(file)"
                             @preview-click="onFileClick(file)"
                             @delete-file-click="onDeleteFileClick(file)"
                             @restore-object-click="onRestoreObjectClick(file)"
@@ -164,8 +165,6 @@
                             :deleting="isBeingDeleted(item.raw.browserObject)"
                             :file="item.raw.browserObject"
                             align="right"
-                            @delete-file-click="onDeleteFileClick(item.raw.browserObject)"
-                            @share-click="onShareClick(item.raw.browserObject)"
                         />
                     </td>
                 </tr>

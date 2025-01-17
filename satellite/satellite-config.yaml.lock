@@ -145,17 +145,14 @@
 # how stale reliable node cache can be
 # checker.reliability-cache-staleness: 5m0s
 
-# [DEPRECATED] comma-separated override values for repair threshold in the format k-threshold
-# checker.repair-overrides: ""
-
 # Number of damaged segments to buffer in-memory before flushing to the repair queue
 # checker.repair-queue-insert-batch-size: 100
 
 # comma-separated override values for repair success target in the format k-target
-# checker.repair-target-overrides: 29-65
+# checker.repair-target-overrides: ""
 
 # comma-separated override values for repair threshold in the format k-threshold
-# checker.repair-threshold-overrides: 29-52
+# checker.repair-threshold-overrides: ""
 
 # percent of held amount disposed to node after leaving withheld
 compensation.dispose-percent: 50
@@ -1578,7 +1575,7 @@ server.private-address: 127.0.0.1:7778
 # zombie-deletion.inactive-for: 24h0m0s
 
 # the time between each attempt to go through the db and clean up zombie objects
-# zombie-deletion.interval: 12h0m0s
+# zombie-deletion.interval: 15h0m0s
 
 # how many objects to query in a batch
 # zombie-deletion.list-limit: 100

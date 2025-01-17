@@ -4481,6 +4481,8 @@ func (s *Service) GetSingleBucketTotals(ctx context.Context, projectID uuid.UUID
 		return nil, Error.Wrap(err)
 	}
 
+	usage.Location = s.placements[usage.DefaultPlacement].Name
+
 	return usage, nil
 }
 

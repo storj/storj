@@ -10,6 +10,7 @@
         transition="fade-transition"
         :persistent="isLoading || satelliteManagedEncryptionEnabled"
         :scrim="false"
+        scrollable
         @update:model-value="v => model = v"
     >
         <v-card ref="innerContent">
@@ -149,6 +150,7 @@
                     </v-form>
                 </v-window-item>
             </v-window>
+
             <v-form v-else-if="isProjectLimitReached && usersStore.state.user.paidTier" v-model="formValid" class="pa-6" @submit.prevent>
                 <v-row>
                     <template v-if="!showLimitIncreaseDialog">
@@ -255,6 +257,7 @@ import {
     VCard,
     VCardItem,
     VCardTitle,
+    VCardText,
     VCardActions,
     VChip,
     VChipGroup,

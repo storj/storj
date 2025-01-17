@@ -36,20 +36,20 @@ func convertType(b any, t reflect.Type) (any, error) {
 		case NodeValue:
 			return bv, nil
 		case float64:
-			return NodeValue(func(node SelectedNode) int64 {
-				return int64(bv)
+			return NodeValue(func(node SelectedNode) float64 {
+				return bv
 			}), nil
 		case float32:
-			return NodeValue(func(node SelectedNode) int64 {
-				return int64(bv)
+			return NodeValue(func(node SelectedNode) float64 {
+				return float64(bv)
 			}), nil
 		case int:
-			return NodeValue(func(node SelectedNode) int64 {
-				return int64(bv)
+			return NodeValue(func(node SelectedNode) float64 {
+				return float64(bv)
 			}), nil
 		case int64:
-			return NodeValue(func(node SelectedNode) int64 {
-				return bv
+			return NodeValue(func(node SelectedNode) float64 {
+				return float64(bv)
 			}), nil
 		}
 	}
@@ -94,10 +94,10 @@ func addArithmetic(in map[any]interface{}) map[any]interface{} {
 		case reflect.TypeOf(float64(1)):
 			return math.Pow(a.(float64), b.(float64)), nil
 		case reflect.TypeOf(NodeValue(nil)):
-			return NodeValue(func(node SelectedNode) int64 {
+			return NodeValue(func(node SelectedNode) float64 {
 				av := a.(NodeValue)(node)
 				bv := b.(NodeValue)(node)
-				return int64(math.Pow(float64(av), float64(bv)))
+				return math.Pow(float64(av), float64(bv))
 			}), nil
 		default:
 			return nil, errs.New("unsupported type for exponentiation: %T", a)
@@ -121,7 +121,7 @@ func addArithmetic(in map[any]interface{}) map[any]interface{} {
 		case reflect.TypeOf(float64(1)):
 			return a.(float64) + b.(float64), nil
 		case reflect.TypeOf(NodeValue(nil)):
-			return NodeValue(func(node SelectedNode) int64 {
+			return NodeValue(func(node SelectedNode) float64 {
 				return a.(NodeValue)(node) + b.(NodeValue)(node)
 			}), nil
 		default:
@@ -146,7 +146,7 @@ func addArithmetic(in map[any]interface{}) map[any]interface{} {
 		case reflect.TypeOf(float64(1)):
 			return a.(float64) - b.(float64), nil
 		case reflect.TypeOf(NodeValue(nil)):
-			return NodeValue(func(node SelectedNode) int64 {
+			return NodeValue(func(node SelectedNode) float64 {
 				return a.(NodeValue)(node) - b.(NodeValue)(node)
 			}), nil
 		default:
@@ -171,7 +171,7 @@ func addArithmetic(in map[any]interface{}) map[any]interface{} {
 		case reflect.TypeOf(float64(1)):
 			return a.(float64) * b.(float64), nil
 		case reflect.TypeOf(NodeValue(nil)):
-			return NodeValue(func(node SelectedNode) int64 {
+			return NodeValue(func(node SelectedNode) float64 {
 				return a.(NodeValue)(node) * b.(NodeValue)(node)
 			}), nil
 		default:
@@ -196,7 +196,7 @@ func addArithmetic(in map[any]interface{}) map[any]interface{} {
 		case reflect.TypeOf(float64(1)):
 			return a.(float64) / b.(float64), nil
 		case reflect.TypeOf(NodeValue(nil)):
-			return NodeValue(func(node SelectedNode) int64 {
+			return NodeValue(func(node SelectedNode) float64 {
 				return a.(NodeValue)(node) / b.(NodeValue)(node)
 			}), nil
 		default:
