@@ -4,7 +4,6 @@
 package console
 
 import (
-	"storj.io/storj/shared/modular/config"
 	"storj.io/storj/shared/mud"
 )
 
@@ -14,5 +13,4 @@ func Module(ball *mud.Ball) {
 	mud.View[DB, Projects](ball, DB.Projects)
 	mud.View[DB, ProjectMembers](ball, DB.ProjectMembers)
 	mud.View[DB, Users](ball, DB.Users)
-	config.RegisterConfig[Config](ball, "console")
 }
