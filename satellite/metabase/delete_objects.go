@@ -137,8 +137,20 @@ func (p *PostgresAdapter) FindExpiredObjects(ctx context.Context, opts DeleteExp
 func (s *SpannerAdapter) FindExpiredObjects(ctx context.Context, opts DeleteExpiredObjects, startAfter ObjectStream, batchSize int) (expiredObjects []ObjectStream, err error) {
 	defer mon.Task()(&ctx)(&err)
 
+	// TODO: make util for using stale reads
+	transaction := s.client.Single()
+	if opts.AsOfSystemInterval != 0 {
+		// spanner requires non-negative staleness
+		staleness := opts.AsOfSystemInterval
+		if staleness < 0 {
+			staleness *= -1
+		}
+
+		transaction = transaction.WithTimestampBound(spanner.MaxStaleness(staleness))
+	}
+
 	// TODO(spanner): check whether this query is executed efficiently
-	expiredObjects, err = spannerutil.CollectRows(s.client.Single().QueryWithOptions(ctx, spanner.Statement{
+	expiredObjects, err = spannerutil.CollectRows(transaction.QueryWithOptions(ctx, spanner.Statement{
 		SQL: `
 			SELECT
 				project_id, bucket_name, object_key, version, stream_id,
