@@ -237,7 +237,7 @@ func (endpoint *Endpoint) validateBasic(ctx context.Context, header *pb.RequestH
 	authTags := make([]eventkit.Tag, 0, 8)
 	authTags = append(authTags,
 		eventkit.String("user-agent", userAgent),
-		eventkit.String("project", keyInfo.ProjectID.String()), // deprecated?
+		eventkit.String("project-public-id", keyInfo.ProjectPublicID.String()),
 		eventkit.String("partner", string(keyInfo.UserAgent)),
 	)
 	defer func() {
