@@ -107,7 +107,7 @@ func NewStore(dir string, log *zap.Logger) (_ *Store, err error) {
 		if err != nil {
 			return nil, Error.New("unable to create lock file: %w", err)
 		}
-		if err := flock(s.lock); err != nil {
+		if err := optimisticFlock(s.lock); err != nil {
 			return nil, Error.New("unable to flock: %w", err)
 		}
 	}
