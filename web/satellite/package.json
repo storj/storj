@@ -31,7 +31,7 @@
     "stream-browserify": "3.0.0",
     "vue": "3.5.4",
     "vue-router": "4.4.4",
-    "vuetify": "3.7.1"
+    "vuetify": "3.7.7"
   },
   "devDependencies": {
     "@stylistic/eslint-plugin": "2.8.0",
