@@ -20,17 +20,15 @@ type CookieSettings struct {
 // CookieAuth handles cookie authorization.
 type CookieAuth struct {
 	settings              CookieSettings
-	csrfSettings          CookieSettings
 	ssoStateSettings      CookieSettings
 	ssoEmailTokenSettings CookieSettings
 	domain                string
 }
 
 // NewCookieAuth create new cookie authorization with provided settings.
-func NewCookieAuth(settings, csrfSettings, ssoStateSettings, ssoEmailTokenSettings CookieSettings, domain string) *CookieAuth {
+func NewCookieAuth(settings, ssoStateSettings, ssoEmailTokenSettings CookieSettings, domain string) *CookieAuth {
 	return &CookieAuth{
 		settings:              settings,
-		csrfSettings:          csrfSettings,
 		ssoStateSettings:      ssoStateSettings,
 		ssoEmailTokenSettings: ssoEmailTokenSettings,
 		domain:                domain,
@@ -86,23 +84,6 @@ func (auth *CookieAuth) GetTokenCookieName() string {
 	return auth.settings.Name
 }
 
-// SetCSRFCookie sets parametrized CSRF cookie that is not accessible from js.
-func (auth *CookieAuth) SetCSRFCookie(w http.ResponseWriter, value string) {
-	http.SetCookie(w, &http.Cookie{
-		Domain:   auth.domain,
-		Name:     auth.csrfSettings.Name,
-		Value:    value,
-		Path:     auth.csrfSettings.Path,
-		HttpOnly: true,
-		SameSite: http.SameSiteStrictMode,
-	})
-}
-
-// GetCSRFCookieName returns the name of the cookie storing the CSRF token.
-func (auth *CookieAuth) GetCSRFCookieName() string {
-	return auth.csrfSettings.Name
-}
-
 // SetSSOCookies sets parametrized SSO cookies that are not accessible from js.
 func (auth *CookieAuth) SetSSOCookies(w http.ResponseWriter, state, emailToken string) {
 	http.SetCookie(w, &http.Cookie{
@@ -151,4 +132,18 @@ func (auth *CookieAuth) GetSSOStateCookieName() string {
 // GetSSOEmailTokenCookieName returns the name of the cookie storing the SSO email token.
 func (auth *CookieAuth) GetSSOEmailTokenCookieName() string {
 	return auth.ssoEmailTokenSettings.Name
+}
+
+// CSRFCookieName is the name of the cookie storing the CSRF token.
+const CSRFCookieName = "csrf_token"
+
+// SetCSRFCookie sets parametrized CSRF cookie that is not accessible from js.
+func SetCSRFCookie(w http.ResponseWriter, value string) {
+	http.SetCookie(w, &http.Cookie{
+		Name:     CSRFCookieName,
+		Value:    value,
+		Path:     "/",
+		HttpOnly: true,
+		SameSite: http.SameSiteStrictMode,
+	})
 }

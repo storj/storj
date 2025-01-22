@@ -259,9 +259,6 @@ func NewServer(logger *zap.Logger, config Config, service *console.Service, oidc
 		Name: "_tokenKey",
 		Path: "/",
 	}, consolewebauth.CookieSettings{
-		Name: "csrf_token",
-		Path: "/",
-	}, consolewebauth.CookieSettings{
 		Name: "sso_state",
 		Path: "/",
 	}, consolewebauth.CookieSettings{
@@ -763,14 +760,13 @@ func (server *Server) appHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if server.cookieAuth != nil && server.config.CSRFProtectionEnabled {
+	if server.config.CSRFProtectionEnabled {
 		csrfToken, err := server.service.GenerateSecurityToken()
 		if err != nil {
 			server.log.Error("Failed to generate CSRF token", zap.Error(err))
-			return
+		} else {
+			consolewebauth.SetCSRFCookie(w, csrfToken)
 		}
-
-		server.cookieAuth.SetCSRFCookie(w, csrfToken)
 	}
 
 	http.ServeContent(w, r, path, info.ModTime(), file)
@@ -905,7 +901,7 @@ func (server *Server) withCSRFProtection(handler http.Handler) http.Handler {
 			return
 		}
 
-		csrfCookie, err := r.Cookie(server.cookieAuth.GetCSRFCookieName())
+		csrfCookie, err := r.Cookie(consolewebauth.CSRFCookieName)
 		if err != nil {
 			web.ServeJSONError(ctx, server.log, w, http.StatusForbidden, errs.New("CSRF token cookie missing"))
 			return
@@ -934,14 +930,12 @@ func (server *Server) frontendConfigHandler(w http.ResponseWriter, r *http.Reque
 
 	csrfToken := ""
 	if server.config.CSRFProtectionEnabled {
-		csrfCookie, err := r.Cookie(server.cookieAuth.GetCSRFCookieName())
+		csrfCookie, err := r.Cookie(consolewebauth.CSRFCookieName)
 		if err != nil {
-			w.WriteHeader(http.StatusForbidden)
 			server.log.Error("CSRF token cookie missing in config endpoint", zap.Error(err))
-			return
+		} else {
+			csrfToken = csrfCookie.Value
 		}
-
-		csrfToken = csrfCookie.Value
 	}
 
 	cfg := FrontendConfig{
