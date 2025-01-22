@@ -63,7 +63,6 @@ export default createVuetify({
         },
         VList: {
             rounded: 'lg',
-            nav: true,
         },
         VListItem: {
             rounded: 'md',
