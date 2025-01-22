@@ -6,8 +6,8 @@
         <template #prepend>
             <div class="d-flex flex-row align-center ml-2 mr-1 mt-n1">
                 <img
-                    v-if="themeStore.globalTheme?.dark"
-                    src="@/assets/logo-dark.svg"
+                v-if="themeStore.globalTheme?.dark"
+                src="@/assets/logo-dark.svg"
                     height="23"
                     width="auto"
                     alt="Storj Logo"
@@ -41,16 +41,16 @@
                         variant="outlined"
                         color="default"
                         size="small"
-                        rounded="xl"
+                        rounded="lg"
                         :icon="activeThemeIcon"
                     />
                 </template>
 
                 <v-list class="px-2 rounded-lg">
-                    <v-list-item :active="activeTheme === 0" @click="themeStore.setTheme('light')">
+                    <v-list-item :active="activeTheme === 0" @click="themeStore.setTheme('light')" class="px-2">
                         <v-list-item-title class="text-body-2">
                             <v-btn
-                                class="mr-3"
+                                class="mr-2"
                                 variant="outlined"
                                 color="default"
                                 size="x-small"
@@ -61,10 +61,10 @@
                         </v-list-item-title>
                     </v-list-item>
 
-                    <v-list-item :active="activeTheme === 1" @click="themeStore.setTheme('dark')">
+                    <v-list-item :active="activeTheme === 1" @click="themeStore.setTheme('dark')" class="px-2">
                         <v-list-item-title class="text-body-2">
                             <v-btn
-                                class="mr-3"
+                                class="mr-2"
                                 variant="outlined"
                                 color="default"
                                 size="x-small"
@@ -75,10 +75,10 @@
                         </v-list-item-title>
                     </v-list-item>
 
-                    <v-list-item :active="activeTheme === 2" @click="themeStore.setTheme('auto')">
+                    <v-list-item :active="activeTheme === 2" @click="themeStore.setTheme('auto')" class="px-2">
                         <v-list-item-title class="text-body-2">
                             <v-btn
-                                class="mr-3"
+                                class="mr-2"
                                 variant="outlined"
                                 color="default"
                                 size="x-small"
