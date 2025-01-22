@@ -110,8 +110,7 @@ func (rq *reverifyQueue) GetNextJob(ctx context.Context, retryInterval time.Dura
 		job, err = scanJobFunc(row)
 		return job, err
 	case dbutil.Spanner:
-		err = rq.db.WithTx(ctx, func(ctx context.Context, tx *dbx.Tx) error {
-			selectQuery := `
+		selectQuery := `
 			UPDATE reverification_audits
 			SET last_attempt = CURRENT_TIMESTAMP(),
 				reverify_count = reverify_count + 1
@@ -123,10 +122,8 @@ func (rq *reverifyQueue) GetNextJob(ctx context.Context, retryInterval time.Dura
 				LIMIT 1
 			)
 			THEN RETURN node_id, stream_id, position, piece_num, inserted_at, reverify_count`
-			row := tx.QueryRowContext(ctx, selectQuery, retryInterval.Nanoseconds())
-			job, err = scanJobFunc(row)
-			return err
-		})
+		row := rq.db.QueryRowContext(ctx, selectQuery, retryInterval.Nanoseconds())
+		job, err = scanJobFunc(row)
 		return job, err
 	default:
 		return nil, audit.Error.New("unsupported database dialect: %s", rq.db.impl)
