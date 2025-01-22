@@ -88,13 +88,11 @@ func (keys *attributionDB) Insert(ctx context.Context, info *attribution.Info) (
 			return nil, Error.Wrap(err)
 		}
 	case dbutil.Spanner:
-		err := keys.db.WithTx(ctx, func(ctx context.Context, tx *dbx.Tx) error {
-			return tx.QueryRowContext(ctx, `
-				INSERT OR IGNORE INTO value_attributions (project_id, bucket_name, user_agent, last_updated)
-				VALUES (?, ?, ?, CURRENT_TIMESTAMP())
-				THEN RETURN last_updated`, info.ProjectID[:], info.BucketName, info.UserAgent).Scan(&info.CreatedAt)
-			// TODO when sql.ErrNoRows is returned then CreatedAt is not set
-		})
+		err := keys.db.QueryRowContext(ctx, `
+			INSERT OR IGNORE INTO value_attributions (project_id, bucket_name, user_agent, last_updated)
+			VALUES (?, ?, ?, CURRENT_TIMESTAMP())
+			THEN RETURN last_updated`, info.ProjectID[:], info.BucketName, info.UserAgent).Scan(&info.CreatedAt)
+		// TODO when sql.ErrNoRows is returned then CreatedAt is not set
 		if errors.Is(err, sql.ErrNoRows) {
 			return info, nil
 		}
