@@ -450,6 +450,7 @@ func NewAPI(log *zap.Logger, full *identity.FullIdentity, db DB,
 			config.Metainfo,
 			migrationModeFlag,
 			placements,
+			config.Console.PlacementEdgeURLOverrides,
 		)
 		if err != nil {
 			return nil, errs.Combine(err, peer.Close())
