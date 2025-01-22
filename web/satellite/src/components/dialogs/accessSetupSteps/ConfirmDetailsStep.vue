@@ -18,7 +18,7 @@
                             <p class="text-medium-emphasis text-body-2 mb-1">{{ item.title }}</p>
                         </template>
                         <template #subtitle>
-                            <p class="text-body-2 text-wrap">{{ item.value }}</p> 
+                            <p class="text-body-2 text-wrap">{{ item.value }}</p>
                         </template>
                     </v-list-item>
                 </v-list>
