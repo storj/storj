@@ -94,23 +94,7 @@ const progressColor = computed(() => {
 
 <style scoped lang="scss">
     .no-limit-progress {
-        background: linear-gradient(90deg,
-        #091C45,   /* Secondary blue */
-        #2338C0,   /* Dark blue */
-        #0052FF,   /* Primary blue */
-        #0052FF,   /* Primary blue */
-        #00c6ff,   /* Cyan */
-        #00ff6a,   /* Green */
-        #00C257,   /* Green 2 */
-        #ffb018,   /* Yellow */
-        #FF8E45,   /* Orange */
-        #ff4ed8,   /* Pink */
-        #882de3,   /* Purple */
-        #0052FF,   /* Primary blue */
-        #0052FF,   /* Primary blue */
-        #2338C0,   /* Dark blue */
-        #091C45,   /* Secondary blue*/
-    );
+        background: linear-gradient(90deg, #091C45, #2338C0, #0052FF, #0052FF, #00c6ff, #00ff6a, #00C257, #ffb018, #FF8E45, #ff4ed8, #882de3, #0052FF, #0052FF, #2338C0, #091C45);
         background-size: 200% 100%;
         animation: gradient-animation 12s linear infinite;
         transition: all 0.14s ease-in-out;

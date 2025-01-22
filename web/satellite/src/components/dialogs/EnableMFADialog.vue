@@ -157,6 +157,7 @@ import {
     VCardActions,
     VCardItem,
     VCardTitle,
+    VCardText,
     VCol,
     VDialog,
     VDivider,

@@ -39,7 +39,7 @@ import { AnalyticsErrorEventSource } from '@/utils/constants/analyticsEventNames
 import { useAppStore } from '@/store/modules/appStore';
 import { useNotificationsStore } from '@/store/modules/notificationsStore';
 import { DEFAULT_PAGE_LIMIT } from '@/types/pagination';
-import { ObjectDeleteError, DuplicateUploadError } from '@/utils/error';
+import { ObjectDeleteError } from '@/utils/error';
 import { useConfigStore } from '@/store/modules/configStore';
 import { LocalData } from '@/utils/localData';
 import { ObjectLockStatus, Retention } from '@/types/objectLock';

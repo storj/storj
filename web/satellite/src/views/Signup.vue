@@ -303,7 +303,7 @@ import { useRoute, useRouter } from 'vue-router';
 import { Check } from 'lucide-vue-next';
 
 import { useConfigStore } from '@/store/modules/configStore';
-import { EmailRule, RequiredRule, ValidationRule } from '@/types/common';
+import { EmailRule, RequiredRule } from '@/types/common';
 import { MultiCaptchaConfig } from '@/types/config.gen';
 import { PartnerConfig } from '@/types/partners';
 import { AuthHttpApi } from '@/api/auth';
@@ -542,7 +542,7 @@ function checkSSO(mail: string) {
         // check if the URL is valid.
             new URL(urlStr);
             ssoUrl.value = urlStr;
-        } catch (_) {
+        } catch {
             ssoUrl.value = SsoCheckState.Failed;
         }
     }, 1000);

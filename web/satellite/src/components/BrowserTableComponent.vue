@@ -691,7 +691,7 @@ watch(() => props.forceEmpty, v => !v && fetchFiles());
     }
 
     &__file-guide :deep(.v-overlay__content) {
-        color: var(--c-white) !important;
+        color: #fff !important;
         background-color: rgb(var(--v-theme-primary)) !important;
     }
 }
