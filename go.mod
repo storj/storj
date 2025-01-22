@@ -13,11 +13,12 @@ require (
 	github.com/calebcase/tmpfile v1.0.3
 	github.com/coreos/go-oidc/v3 v3.11.0
 	github.com/davecgh/go-spew v1.1.2-0.20180830191138-d8f796af33cc
-	github.com/dgraph-io/badger/v4 v4.2.0
+	github.com/dgraph-io/badger/v4 v4.5.0
 	github.com/dsnet/try v0.0.3
 	github.com/fatih/color v1.15.0
 	github.com/go-oauth2/oauth2/v4 v4.4.2
 	github.com/gogo/protobuf v1.3.2
+	github.com/golang-jwt/jwt v3.2.1+incompatible
 	github.com/golang/mock v1.6.0
 	github.com/google/go-cmp v0.6.0
 	github.com/googleapis/go-sql-spanner v1.8.1-0.20241118085922-b4803a6488b1
@@ -29,7 +30,7 @@ require (
 	github.com/jtolds/monkit-hw/v2 v2.0.0-20250117140252-1a544613ac79
 	github.com/jtolio/mito v0.0.0-20230523171229-d78ef06bb77b
 	github.com/jtolio/noiseconn v0.0.0-20230301220541-88105e6c8ac6
-	github.com/klauspost/compress v1.17.7
+	github.com/klauspost/compress v1.17.11
 	github.com/loov/hrtime v1.0.3
 	github.com/mattn/go-sqlite3 v1.14.19
 	github.com/nsf/jsondiff v0.0.0-20200515183724-f29ed568f4ce
@@ -41,10 +42,10 @@ require (
 	github.com/shopspring/decimal v1.2.0
 	github.com/spacemonkeygo/monkit/v3 v3.0.24
 	github.com/spacemonkeygo/tlshowdy v0.0.0-20160207005338-8fa2cec1d7cd
-	github.com/spf13/cobra v1.8.0
+	github.com/spf13/cobra v1.8.1
 	github.com/spf13/pflag v1.0.5
 	github.com/spf13/viper v1.18.2
-	github.com/stretchr/testify v1.9.0
+	github.com/stretchr/testify v1.10.0
 	github.com/stripe/stripe-go/v75 v75.8.0
 	github.com/vbauerster/mpb/v8 v8.4.0
 	github.com/zeebo/assert v1.3.1
@@ -105,7 +106,7 @@ require (
 	github.com/census-instrumentation/opencensus-proto v0.4.1 // indirect
 	github.com/cespare/xxhash/v2 v2.3.0 // indirect
 	github.com/cncf/xds/go v0.0.0-20240905190251-b4127c9b8d78 // indirect
-	github.com/dgraph-io/ristretto v0.1.1 // indirect
+	github.com/dgraph-io/ristretto/v2 v2.0.0 // indirect
 	github.com/dgryski/go-rendezvous v0.0.0-20200823014737-9f7001d12a5f // indirect
 	github.com/dustin/go-humanize v1.0.1 // indirect
 	github.com/elastic/gosigar v0.14.3 // indirect
@@ -120,12 +121,8 @@ require (
 	github.com/go-ole/go-ole v1.2.6 // indirect
 	github.com/go-task/slim-sprig v0.0.0-20230315185526-52ccab3ef572 // indirect
 	github.com/goccy/go-json v0.10.2 // indirect
-	github.com/golang-jwt/jwt v3.2.1+incompatible // indirect
-	github.com/golang/glog v1.2.2 // indirect
 	github.com/golang/groupcache v0.0.0-20210331224755-41bb18bfe9da // indirect
-	github.com/golang/protobuf v1.5.4 // indirect
-	github.com/golang/snappy v0.0.4 // indirect
-	github.com/google/flatbuffers v23.5.26+incompatible // indirect
+	github.com/google/flatbuffers v24.3.25+incompatible // indirect
 	github.com/google/gopacket v1.1.19 // indirect
 	github.com/google/pprof v0.0.0-20230602150820-91b7bce49751 // indirect
 	github.com/google/s2a-go v0.1.8 // indirect

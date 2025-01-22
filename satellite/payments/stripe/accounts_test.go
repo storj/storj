@@ -112,6 +112,7 @@ func TestSignupCouponCodes(t *testing.T) {
 			false,
 			nodeselection.NewPlacementDefinitions(),
 			console.ObjectLockAndVersioningConfig{},
+			nil,
 			console.Config{PasswordCost: console.TestPasswordCost, DefaultProjectLimit: 5},
 		)
 

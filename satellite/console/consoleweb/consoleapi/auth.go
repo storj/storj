@@ -143,9 +143,35 @@ func (a *Auth) AuthenticateSso(w http.ResponseWriter, r *http.Request) {
 
 	provider := mux.Vars(r)["provider"]
 
+	stateCookie, err := r.Cookie(a.cookieAuth.GetSSOStateCookieName())
+	if err != nil {
+		a.log.Error("Error verifying SSO auth", zap.Error(console.ErrValidation.New("missing state cookie")))
+		http.Redirect(w, r, ssoFailedAddr, http.StatusPermanentRedirect)
+		return
+	}
+	emailTokenCookie, err := r.Cookie(a.cookieAuth.GetSSOEmailTokenCookieName())
+	if err != nil {
+		a.log.Error("Error verifying SSO auth", zap.Error(console.ErrValidation.New("missing email token cookie")))
+		http.Redirect(w, r, ssoFailedAddr, http.StatusPermanentRedirect)
+		return
+	}
+
 	ssoState := r.URL.Query().Get("state")
 	if ssoState == "" {
-		a.log.Error("Error verifying SSO auth", zap.Error(console.ErrValidation.New("missing email hash")))
+		a.log.Error("Error verifying SSO auth", zap.Error(console.ErrValidation.New("missing state value")))
+		http.Redirect(w, r, ssoFailedAddr, http.StatusPermanentRedirect)
+		return
+	}
+
+	if ssoState != stateCookie.Value {
+		a.log.Error("Error verifying SSO auth", zap.Error(sso.ErrInvalidState.New("")))
+		http.Redirect(w, r, ssoFailedAddr, http.StatusPermanentRedirect)
+		return
+	}
+
+	err = a.service.ValidateSecurityToken(ssoState)
+	if err != nil {
+		a.log.Error("Error verifying SSO auth", zap.Error(sso.ErrInvalidState.New("invalid signature")))
 		http.Redirect(w, r, ssoFailedAddr, http.StatusPermanentRedirect)
 		return
 	}
@@ -157,12 +183,14 @@ func (a *Auth) AuthenticateSso(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	claims, err := a.ssoService.VerifySso(ctx, provider, ssoState, code)
+	claims, err := a.ssoService.VerifySso(ctx, provider, emailTokenCookie.Value, code)
 	if err != nil {
 		a.log.Error("Error verifying SSO auth", zap.Error(err))
 		http.Redirect(w, r, ssoFailedAddr, http.StatusPermanentRedirect)
 		return
 	}
+
+	a.cookieAuth.RemoveSSOCookies(w)
 
 	ip, err := web.GetRequestIP(r)
 	if err != nil {
@@ -238,14 +266,25 @@ func (a *Auth) BeginSsoFlow(w http.ResponseWriter, r *http.Request) {
 	if email == "" {
 		a.log.Error("email is required for SSO flow", zap.Error(console.ErrValidation.New("email is required")))
 		http.Redirect(w, r, ssoFailedAddr, http.StatusPermanentRedirect)
+		return
 	}
 
-	state, err := a.ssoService.GetSsoStateFromEmail(strings.ToLower(email))
+	emailToken, err := a.ssoService.GetSsoEmailToken(email)
 	if err != nil {
-		a.log.Error("failed to get sso state", zap.Error(err))
+		a.log.Error("failed to get security token", zap.Error(err))
 		http.Redirect(w, r, ssoFailedAddr, http.StatusPermanentRedirect)
 		return
 	}
+
+	state, err := a.service.GenerateSecurityToken()
+	if err != nil {
+		a.log.Error("failed to generate sso state", zap.Error(err))
+		http.Redirect(w, r, ssoFailedAddr, http.StatusPermanentRedirect)
+		return
+	}
+
+	a.cookieAuth.SetSSOCookies(w, state, emailToken)
+
 	http.Redirect(w, r, oidcSetup.Config.AuthCodeURL(state), http.StatusFound)
 }
 

@@ -43,6 +43,8 @@ import (
 	"storj.io/storj/satellite/console/consoleauth"
 	"storj.io/storj/satellite/console/consoleauth/sso"
 	"storj.io/storj/satellite/console/consoleweb/consoleapi/utils"
+	"storj.io/storj/satellite/console/valdi"
+	vclient "storj.io/storj/satellite/console/valdi/client"
 	"storj.io/storj/satellite/emission"
 	"storj.io/storj/satellite/kms"
 	"storj.io/storj/satellite/mailservice"
@@ -227,6 +229,7 @@ type Service struct {
 	emission                   *emission.Service
 	kmsService                 *kms.Service
 	ssoService                 *sso.Service
+	valdiService               *valdi.Service
 
 	satelliteAddress string
 	satelliteName    string
@@ -267,7 +270,7 @@ func NewService(log *zap.Logger, store DB, restKeys RESTKeys, projectAccounting 
 	billingDb billing.TransactionsDB, analytics *analytics.Service, tokens *consoleauth.Service, mailService *mailservice.Service,
 	accountFreezeService *AccountFreezeService, emission *emission.Service, kmsService *kms.Service, ssoService *sso.Service, satelliteAddress string,
 	satelliteName string, maxProjectBuckets int, ssoEnabled bool, placements nodeselection.PlacementDefinitions,
-	objectLockAndVersioningConfig ObjectLockAndVersioningConfig, config Config) (*Service, error) {
+	objectLockAndVersioningConfig ObjectLockAndVersioningConfig, valdiService *valdi.Service, config Config) (*Service, error) {
 	if store == nil {
 		return nil, errs.New("store can't be nil")
 	}
@@ -333,6 +336,7 @@ func NewService(log *zap.Logger, store DB, restKeys RESTKeys, projectAccounting 
 		accountFreezeService:          accountFreezeService,
 		emission:                      emission,
 		kmsService:                    kmsService,
+		valdiService:                  valdiService,
 		ssoService:                    ssoService,
 		satelliteAddress:              satelliteAddress,
 		satelliteName:                 satelliteName,
@@ -396,6 +400,44 @@ func (s *Service) getUserAndAuditLog(ctx context.Context, operation string, extr
 // Payments separates all payment related functionality.
 func (s *Service) Payments() Payments {
 	return Payments{service: s}
+}
+
+// GetValdiAPIKey gets a valdi API key. If one doesn't exist, it is created. If a valdi user needs to be created first, it creates that too.
+func (s *Service) GetValdiAPIKey(ctx context.Context, projectID uuid.UUID) (key *vclient.CreateAPIKeyResponse, status int, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	user, err := s.getUserAndAuditLog(ctx, "create valdi api key", zap.String("projectID", projectID.String()))
+	if err != nil {
+		return nil, http.StatusInternalServerError, Error.Wrap(err)
+	}
+
+	// TODO: all project members?
+	_, p, err := s.isProjectOwner(ctx, user.ID, projectID)
+	if err != nil {
+		status = http.StatusInternalServerError
+		if ErrUnauthorized.Has(err) || errs.Is(err, sql.ErrNoRows) {
+			status = http.StatusUnauthorized
+		}
+		return nil, status, Error.Wrap(err)
+	}
+
+	// shouldn't be nil if err is nil, but just check it anyway
+	if p == nil {
+		return nil, http.StatusInternalServerError, Error.Wrap(errs.New("nil project"))
+	}
+
+	key, status, err = s.valdiService.CreateAPIKey(ctx, p.PublicID)
+	if status != http.StatusNotFound {
+		return key, status, Error.Wrap(err)
+	}
+
+	status, err = s.valdiService.CreateUser(ctx, p.PublicID)
+	if err != nil {
+		return nil, status, Error.Wrap(err)
+	}
+
+	key, status, err = s.valdiService.CreateAPIKey(ctx, p.PublicID)
+	return key, status, Error.Wrap(err)
 }
 
 // SetupAccount creates payment account for authorized user.
@@ -961,8 +1003,8 @@ func (s *Service) VerifyRegistrationCaptcha(ctx context.Context, captchaResp, us
 	return true, nil, nil
 }
 
-// GenerateCSRFToken generates a new secure and signed CSRF protection token.
-func (s *Service) GenerateCSRFToken() (string, error) {
+// GenerateSecurityToken generates a random signed security token.
+func (s *Service) GenerateSecurityToken() (string, error) {
 	b := make([]byte, 32)
 	if _, err := rand.Read(b); err != nil {
 		return "", err
@@ -980,8 +1022,8 @@ func (s *Service) GenerateCSRFToken() (string, error) {
 	return token.String(), nil
 }
 
-// ValidateCSRFToken validates the CSRF protection token.
-func (s *Service) ValidateCSRFToken(value string) error {
+// ValidateSecurityToken validates a signed security token.
+func (s *Service) ValidateSecurityToken(value string) error {
 	token, err := consoleauth.FromBase64URLString(value)
 	if err != nil {
 		return err
@@ -1338,7 +1380,8 @@ func (s *Service) GetUserForSsoAuth(ctx context.Context, claims sso.OidcSsoClaim
 		}
 	}
 
-	if user.ExternalID == nil {
+	if user.ExternalID == nil || *user.ExternalID != externalID {
+		s.log.Info("updating external ID", zap.String("userID", user.ID.String()), zap.String("email", user.Email))
 		// associate existing user with this external ID.
 		err = s.UpdateExternalID(ctx, user, externalID)
 		if err != nil {
@@ -4563,6 +4606,35 @@ func (s *Service) GetBucketMetadata(ctx context.Context, projectID uuid.UUID) (l
 	}
 
 	return list, nil
+}
+
+// PlacementDetail represents human-readable details of a placement.
+type PlacementDetail struct {
+	ID          int    `json:"id"`
+	IdName      string `json:"idName"`
+	Name        string `json:"name"`
+	Title       string `json:"title"`
+	Description string `json:"description"`
+}
+
+// GetPlacementDetails retrieves available placement for self-serve with human-readable details.
+// TODO: This should be moved to the config.
+func (s *Service) GetPlacementDetails() []PlacementDetail {
+	return []PlacementDetail{
+		{
+			ID:          0,
+			IdName:      "global",
+			Name:        "Global",
+			Title:       "Global - Best for globally distributed workloads",
+			Description: "The data will be stored on the Storj globally distributed network, no restrictions by regions."},
+		{
+			ID:          3,
+			IdName:      "us-select-1",
+			Name:        "Storj Select",
+			Title:       "Storj US Select",
+			Description: "Store data only on Select nodes in the United States.",
+		},
+	}
 }
 
 // GetUsageReport retrieves usage rollups for every bucket of a single or all the user owned projects for a given period.

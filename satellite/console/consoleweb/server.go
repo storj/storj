@@ -99,6 +99,7 @@ type Config struct {
 	OptionalSignupSuccessURL        string        `help:"optional url to external registration success page" default:""`
 	HomepageURL                     string        `help:"url link to storj.io homepage" default:"https://www.storj.io"`
 	ValdiSignUpURL                  string        `help:"url link to Valdi sign up page" default:""`
+	CloudGpusEnabled                bool          `help:"whether to enable cloud GPU functionality" default:"false"`
 	NativeTokenPaymentsEnabled      bool          `help:"indicates if storj native token payments system is enabled" default:"false"`
 	PricingPackagesEnabled          bool          `help:"whether to allow purchasing pricing packages" default:"true"`
 	GalleryViewEnabled              bool          `help:"whether to show new gallery view" default:"true"`
@@ -259,6 +260,12 @@ func NewServer(logger *zap.Logger, config Config, service *console.Service, oidc
 		Path: "/",
 	}, consolewebauth.CookieSettings{
 		Name: "csrf_token",
+		Path: "/",
+	}, consolewebauth.CookieSettings{
+		Name: "sso_state",
+		Path: "/",
+	}, consolewebauth.CookieSettings{
+		Name: "sso_email_token",
 		Path: "/",
 	}, server.config.AuthCookieDomain)
 
@@ -427,6 +434,7 @@ func NewServer(logger *zap.Logger, config Config, service *console.Service, oidc
 	bucketsRouter.Use(server.withAuth)
 	bucketsRouter.HandleFunc("/bucket-names", bucketsController.AllBucketNames).Methods(http.MethodGet, http.MethodOptions)
 	bucketsRouter.HandleFunc("/bucket-placements", bucketsController.GetBucketMetadata).Methods(http.MethodGet, http.MethodOptions)
+	bucketsRouter.HandleFunc("/placement-details", bucketsController.GetPlacementDetails).Methods(http.MethodGet, http.MethodOptions)
 	bucketsRouter.HandleFunc("/bucket-metadata", bucketsController.GetBucketMetadata).Methods(http.MethodGet, http.MethodOptions)
 	bucketsRouter.HandleFunc("/usage-totals", bucketsController.GetBucketTotals).Methods(http.MethodGet, http.MethodOptions)
 	bucketsRouter.HandleFunc("/bucket-totals", bucketsController.GetSingleBucketTotals).Methods(http.MethodGet, http.MethodOptions)
@@ -748,7 +756,7 @@ func (server *Server) appHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if server.cookieAuth != nil && server.config.CSRFProtectionEnabled {
-		csrfToken, err := server.service.GenerateCSRFToken()
+		csrfToken, err := server.service.GenerateSecurityToken()
 		if err != nil {
 			server.log.Error("Failed to generate CSRF token", zap.Error(err))
 			return
@@ -900,7 +908,7 @@ func (server *Server) withCSRFProtection(handler http.Handler) http.Handler {
 			return
 		}
 
-		err = server.service.ValidateCSRFToken(csrfHeaderToken)
+		err = server.service.ValidateSecurityToken(csrfHeaderToken)
 		if err != nil {
 			web.ServeJSONError(ctx, server.log, w, http.StatusForbidden, err)
 			return

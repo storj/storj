@@ -127,7 +127,7 @@
                                     </v-checkbox>
                                 </v-col>
 
-                                <v-col>
+                                <v-col v-if="ssoUnavailable">
                                     <p class="text-right mt-n2 mb-4">
                                         <router-link class="link" :to="ROUTES.ForgotPassword.path">
                                             Forgot Password
@@ -355,7 +355,7 @@ function checkSSO(mail: string) {
             // check if the URL is valid.
             new URL(urlStr);
             ssoUrl.value = urlStr;
-        } catch (_) {
+        } catch {
             ssoUrl.value = SsoCheckState.Failed;
         }
     }, 1000);
