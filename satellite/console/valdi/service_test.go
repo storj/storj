@@ -17,7 +17,7 @@ import (
 	"storj.io/common/testrand"
 	"storj.io/storj/private/httpmock"
 	"storj.io/storj/satellite/console/valdi"
-	"storj.io/storj/satellite/console/valdi/client"
+	"storj.io/storj/satellite/console/valdi/valdiclient"
 )
 
 var validURL = "http://localhost:1234"
@@ -25,7 +25,7 @@ var validURL = "http://localhost:1234"
 func TestNewService(t *testing.T) {
 	mockClient, _ := httpmock.NewClient()
 
-	vClient, err := client.NewClient(zaptest.NewLogger(t), mockClient, client.Config{
+	vClient, err := valdiclient.New(zaptest.NewLogger(t), mockClient, valdiclient.Config{
 		APIBaseURL: validURL,
 	})
 	require.NoError(t, err)
@@ -63,7 +63,7 @@ func TestCreateUserEmail(t *testing.T) {
 
 	mockClient, _ := httpmock.NewClient()
 
-	vClient, err := client.NewClient(zaptest.NewLogger(t), mockClient, client.Config{
+	vClient, err := valdiclient.New(zaptest.NewLogger(t), mockClient, valdiclient.Config{
 		APIBaseURL: validURL,
 	})
 	require.NoError(t, err)
@@ -81,7 +81,7 @@ func TestServiceCreateAPIKey(t *testing.T) {
 
 	mockClient, transport := httpmock.NewClient()
 
-	vClient, err := client.NewClient(zaptest.NewLogger(t), mockClient, client.Config{
+	vClient, err := valdiclient.New(zaptest.NewLogger(t), mockClient, valdiclient.Config{
 		APIBaseURL: validURL,
 	})
 	require.NoError(t, err)
@@ -93,7 +93,7 @@ func TestServiceCreateAPIKey(t *testing.T) {
 
 	id := testrand.UUID()
 
-	keySuccess := &client.CreateAPIKeyResponse{
+	keySuccess := &valdiclient.CreateAPIKeyResponse{
 		APIKey:            "1234",
 		SecretAccessToken: "abc123",
 	}
@@ -101,7 +101,7 @@ func TestServiceCreateAPIKey(t *testing.T) {
 	jsonKey, err := json.Marshal(keySuccess)
 	require.NoError(t, err)
 
-	apiKeyEndpoint, err := url.JoinPath(validURL, client.APIKeyPath)
+	apiKeyEndpoint, err := url.JoinPath(validURL, valdiclient.APIKeyPath)
 	require.NoError(t, err)
 
 	transport.AddResponse(apiKeyEndpoint, httpmock.Response{
@@ -114,7 +114,7 @@ func TestServiceCreateAPIKey(t *testing.T) {
 	require.Equal(t, http.StatusOK, status)
 	require.Equal(t, keySuccess, apiKey)
 
-	valdiErr := &client.ErrorMessage{
+	valdiErr := &valdiclient.ErrorMessage{
 		Detail: "user not found",
 	}
 
@@ -138,7 +138,7 @@ func TestServiceCreateUser(t *testing.T) {
 
 	mockClient, transport := httpmock.NewClient()
 
-	vClient, err := client.NewClient(zaptest.NewLogger(t), mockClient, client.Config{
+	vClient, err := valdiclient.New(zaptest.NewLogger(t), mockClient, valdiclient.Config{
 		APIBaseURL: validURL,
 	})
 	require.NoError(t, err)
@@ -150,7 +150,7 @@ func TestServiceCreateUser(t *testing.T) {
 
 	id := testrand.UUID()
 
-	userEndpoint, err := url.JoinPath(validURL, client.UserPath)
+	userEndpoint, err := url.JoinPath(validURL, valdiclient.UserPath)
 	require.NoError(t, err)
 
 	transport.AddResponse(userEndpoint, httpmock.Response{
@@ -161,7 +161,7 @@ func TestServiceCreateUser(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, http.StatusCreated, status)
 
-	valdiErr := &client.ErrorMessage{
+	valdiErr := &valdiclient.ErrorMessage{
 		Detail: "username already exists",
 	}
 

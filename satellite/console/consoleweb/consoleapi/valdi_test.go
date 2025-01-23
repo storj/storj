@@ -18,7 +18,7 @@ import (
 	"storj.io/storj/private/httpmock"
 	"storj.io/storj/private/testplanet"
 	"storj.io/storj/satellite"
-	vclient "storj.io/storj/satellite/console/valdi/client"
+	"storj.io/storj/satellite/console/valdi/valdiclient"
 )
 
 func TestValdiGetAPIKey(t *testing.T) {
@@ -51,12 +51,12 @@ func TestValdiGetAPIKey(t *testing.T) {
 
 		mockClient, transport := httpmock.NewClient()
 
-		testValdiClient, err := vclient.NewClient(zaptest.NewLogger(t), mockClient, sat.Config.Valdi.Config)
+		testValdiClient, err := valdiclient.New(zaptest.NewLogger(t), mockClient, sat.Config.Valdi.Config)
 		require.NoError(t, err)
 
 		*sat.API.Valdi.Client = *testValdiClient
 
-		keySuccessResp := &vclient.CreateAPIKeyResponse{
+		keySuccessResp := &valdiclient.CreateAPIKeyResponse{
 			APIKey:            "1234",
 			SecretAccessToken: "abc123",
 		}
@@ -64,7 +64,7 @@ func TestValdiGetAPIKey(t *testing.T) {
 		jsonKey, err := json.Marshal(keySuccessResp)
 		require.NoError(t, err)
 
-		apiKeyEndpoint, err := url.JoinPath(sat.Config.Valdi.APIBaseURL, vclient.APIKeyPath)
+		apiKeyEndpoint, err := url.JoinPath(sat.Config.Valdi.APIBaseURL, valdiclient.APIKeyPath)
 		require.NoError(t, err)
 
 		t.Run("success", func(t *testing.T) {
@@ -77,13 +77,13 @@ func TestValdiGetAPIKey(t *testing.T) {
 			require.NoError(t, err)
 			require.Equal(t, http.StatusOK, status)
 			require.NotNil(t, body)
-			apiKeyResp := &vclient.CreateAPIKeyResponse{}
+			apiKeyResp := &valdiclient.CreateAPIKeyResponse{}
 			require.NoError(t, json.Unmarshal(body, apiKeyResp))
 			require.Equal(t, keySuccessResp, apiKeyResp)
 		})
 
 		t.Run("errors", func(t *testing.T) {
-			valdiErr := &vclient.ErrorMessage{
+			valdiErr := &valdiclient.ErrorMessage{
 				Detail: "some valdi error",
 			}
 

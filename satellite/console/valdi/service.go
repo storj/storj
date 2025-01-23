@@ -15,7 +15,7 @@ import (
 
 	"storj.io/common/uuid"
 	"storj.io/storj/satellite/console/consoleweb/consoleapi/utils"
-	"storj.io/storj/satellite/console/valdi/client"
+	"storj.io/storj/satellite/console/valdi/valdiclient"
 )
 
 var mon = monkit.Package()
@@ -40,19 +40,19 @@ var (
 // Config contains configurable values for valdi service.
 type Config struct {
 	SatelliteEmail string `help:"the base email address for valdi satellite project email addresses. Important: once this has been used to create users, it should not be changed" default:""`
-	client.Config
+	valdiclient.Config
 }
 
 // Service handles valdi functionality.
 type Service struct {
 	log         *zap.Logger
-	client      *client.Client
+	client      *valdiclient.Client
 	emailName   string
 	emailDomain string
 }
 
 // NewService is a constructor for valdi Service.
-func NewService(log *zap.Logger, config Config, client *client.Client) (*Service, error) {
+func NewService(log *zap.Logger, config Config, client *valdiclient.Client) (*Service, error) {
 	if client == nil {
 		return nil, Error.New("valdi client cannot be nil")
 	}
@@ -72,7 +72,7 @@ func NewService(log *zap.Logger, config Config, client *client.Client) (*Service
 }
 
 // CreateAPIKey creates an API key.
-func (s *Service) CreateAPIKey(ctx context.Context, projectID uuid.UUID) (_ *client.CreateAPIKeyResponse, status int, err error) {
+func (s *Service) CreateAPIKey(ctx context.Context, projectID uuid.UUID) (_ *valdiclient.CreateAPIKeyResponse, status int, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	email := s.CreateUserEmail(projectID)
@@ -96,7 +96,7 @@ func (s *Service) CreateUser(ctx context.Context, projectID uuid.UUID) (status i
 		return http.StatusInternalServerError, Error.Wrap(err)
 	}
 
-	createUserData := client.UserCreationData{
+	createUserData := valdiclient.UserCreationData{
 		Email:    email,
 		Username: username.String(),
 		Country:  "USA",

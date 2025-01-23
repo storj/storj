@@ -1,7 +1,7 @@
 // Copyright (C) 2024 Storj Labs, Inc.
 // See LICENSE for copying information.
 
-package client
+package valdiclient
 
 import (
 	"crypto/rsa"
@@ -49,8 +49,8 @@ type ErrorMessage struct {
 	Detail string `json:"detail"`
 }
 
-// NewClient creates a new valdi client.
-func NewClient(log *zap.Logger, httpClient *http.Client, config Config) (*Client, error) {
+// New creates a new valdi client.
+func New(log *zap.Logger, httpClient *http.Client, config Config) (*Client, error) {
 	err := verifyURL(config.APIBaseURL)
 	if err != nil {
 		return nil, err

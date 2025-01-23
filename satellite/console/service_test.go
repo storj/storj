@@ -42,7 +42,7 @@ import (
 	"storj.io/storj/satellite/buckets"
 	"storj.io/storj/satellite/console"
 	"storj.io/storj/satellite/console/consoleweb/consoleapi"
-	vclient "storj.io/storj/satellite/console/valdi/client"
+	"storj.io/storj/satellite/console/valdi/valdiclient"
 	"storj.io/storj/satellite/kms"
 	"storj.io/storj/satellite/nodeselection"
 	"storj.io/storj/satellite/payments"
@@ -4941,7 +4941,7 @@ func TestGetValdiAPIKey(t *testing.T) {
 
 		mockClient, transport := httpmock.NewClient()
 
-		testValdiClient, err := vclient.NewClient(zaptest.NewLogger(t), mockClient, sat.Config.Valdi.Config)
+		testValdiClient, err := valdiclient.New(zaptest.NewLogger(t), mockClient, sat.Config.Valdi.Config)
 		require.NoError(t, err)
 
 		*sat.API.Valdi.Client = *testValdiClient
@@ -4982,7 +4982,7 @@ func TestGetValdiAPIKey(t *testing.T) {
 			require.Nil(t, key)
 		})
 
-		keySuccessResp := &vclient.CreateAPIKeyResponse{
+		keySuccessResp := &valdiclient.CreateAPIKeyResponse{
 			APIKey:            "1234",
 			SecretAccessToken: "abc123",
 		}
@@ -4994,7 +4994,7 @@ func TestGetValdiAPIKey(t *testing.T) {
 			firstAPIKeyResp   interface{}
 
 			createUserStatus int
-			createUserError  *vclient.ErrorMessage
+			createUserError  *valdiclient.ErrorMessage
 
 			secondAPIKeyStatus int
 			secondAPIKeyResp   interface{}
@@ -5006,7 +5006,7 @@ func TestGetValdiAPIKey(t *testing.T) {
 				name: "create key errors with 404, then create user and create key succeed",
 
 				firstAPIKeyStatus: http.StatusNotFound,
-				firstAPIKeyResp:   &vclient.ErrorMessage{Detail: "user doesn't exist"},
+				firstAPIKeyResp:   &valdiclient.ErrorMessage{Detail: "user doesn't exist"},
 
 				createUserStatus: http.StatusCreated,
 
@@ -5020,10 +5020,10 @@ func TestGetValdiAPIKey(t *testing.T) {
 				name: "create key errors with 404, then create user errors",
 
 				firstAPIKeyStatus: http.StatusNotFound,
-				firstAPIKeyResp:   &vclient.ErrorMessage{Detail: "user doesn't exist"},
+				firstAPIKeyResp:   &valdiclient.ErrorMessage{Detail: "user doesn't exist"},
 
 				createUserStatus: http.StatusConflict,
-				createUserError:  &vclient.ErrorMessage{Detail: "username already exists"},
+				createUserError:  &valdiclient.ErrorMessage{Detail: "username already exists"},
 
 				expectedStorjStatus: http.StatusConflict,
 				expectedStorjResp:   "username already exists",
@@ -5032,12 +5032,12 @@ func TestGetValdiAPIKey(t *testing.T) {
 				name: "create key errors with 404, then create user succeeds, and create key errors",
 
 				firstAPIKeyStatus: http.StatusNotFound,
-				firstAPIKeyResp:   &vclient.ErrorMessage{Detail: "user doesn't exist"},
+				firstAPIKeyResp:   &valdiclient.ErrorMessage{Detail: "user doesn't exist"},
 
 				createUserStatus: http.StatusCreated,
 
 				secondAPIKeyStatus: http.StatusInternalServerError,
-				secondAPIKeyResp:   &vclient.ErrorMessage{Detail: "some internal valdi error"},
+				secondAPIKeyResp:   &valdiclient.ErrorMessage{Detail: "some internal valdi error"},
 
 				expectedStorjStatus: http.StatusInternalServerError,
 				expectedStorjResp:   "some internal valdi error",
@@ -5055,7 +5055,7 @@ func TestGetValdiAPIKey(t *testing.T) {
 				name: "create key fails, not 404",
 
 				firstAPIKeyStatus: http.StatusInternalServerError,
-				firstAPIKeyResp: &vclient.ErrorMessage{
+				firstAPIKeyResp: &valdiclient.ErrorMessage{
 					Detail: "some internal valdi error",
 				},
 
@@ -5064,10 +5064,10 @@ func TestGetValdiAPIKey(t *testing.T) {
 			},
 		}
 
-		apiKeyEndpoint, err := url.JoinPath(sat.Config.Valdi.APIBaseURL, vclient.APIKeyPath)
+		apiKeyEndpoint, err := url.JoinPath(sat.Config.Valdi.APIBaseURL, valdiclient.APIKeyPath)
 		require.NoError(t, err)
 
-		userEndpoint, err := url.JoinPath(sat.Config.Valdi.APIBaseURL, vclient.UserPath)
+		userEndpoint, err := url.JoinPath(sat.Config.Valdi.APIBaseURL, valdiclient.UserPath)
 		require.NoError(t, err)
 
 		for _, tt := range tests {

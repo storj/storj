@@ -40,7 +40,7 @@ import (
 	"storj.io/storj/satellite/console/restkeys"
 	"storj.io/storj/satellite/console/userinfo"
 	"storj.io/storj/satellite/console/valdi"
-	vclient "storj.io/storj/satellite/console/valdi/client"
+	"storj.io/storj/satellite/console/valdi/valdiclient"
 	"storj.io/storj/satellite/emission"
 	"storj.io/storj/satellite/kms"
 	"storj.io/storj/satellite/mailservice"
@@ -131,7 +131,7 @@ type ConsoleAPI struct {
 
 	Valdi struct {
 		Service *valdi.Service
-		Client  *vclient.Client
+		Client  *valdiclient.Client
 	}
 
 	OIDC struct {
@@ -507,7 +507,7 @@ func NewConsoleAPI(log *zap.Logger, full *identity.FullIdentity, db DB,
 		)
 
 		if config.Console.CloudGpusEnabled {
-			peer.Valdi.Client, err = vclient.NewClient(peer.Log.Named("valdi:client"), http.DefaultClient, config.Valdi.Config)
+			peer.Valdi.Client, err = valdiclient.New(peer.Log.Named("valdi:client"), http.DefaultClient, config.Valdi.Config)
 			if err != nil {
 				return nil, errs.Combine(err, peer.Close())
 			}

@@ -44,7 +44,7 @@ import (
 	"storj.io/storj/satellite/console/consoleauth/sso"
 	"storj.io/storj/satellite/console/consoleweb/consoleapi/utils"
 	"storj.io/storj/satellite/console/valdi"
-	vclient "storj.io/storj/satellite/console/valdi/client"
+	"storj.io/storj/satellite/console/valdi/valdiclient"
 	"storj.io/storj/satellite/emission"
 	"storj.io/storj/satellite/kms"
 	"storj.io/storj/satellite/mailservice"
@@ -403,7 +403,7 @@ func (s *Service) Payments() Payments {
 }
 
 // GetValdiAPIKey gets a valdi API key. If one doesn't exist, it is created. If a valdi user needs to be created first, it creates that too.
-func (s *Service) GetValdiAPIKey(ctx context.Context, projectID uuid.UUID) (key *vclient.CreateAPIKeyResponse, status int, err error) {
+func (s *Service) GetValdiAPIKey(ctx context.Context, projectID uuid.UUID) (key *valdiclient.CreateAPIKeyResponse, status int, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	user, err := s.getUserAndAuditLog(ctx, "create valdi api key", zap.String("projectID", projectID.String()))
