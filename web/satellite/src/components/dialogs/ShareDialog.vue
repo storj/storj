@@ -76,6 +76,14 @@
                             </template>
                         </v-textarea>
                     </v-col>
+                    <v-col v-if="rawLink" cols="12">
+                        <p class="text-subtitle-2 font-weight-bold mb-2">Raw link</p>
+                        <v-textarea :model-value="rawLink" variant="solo-filled" rounded="lg" hide-details="auto" rows="1" auto-grow no-resize flat readonly class="text-caption">
+                            <template #append-inner>
+                                <input-copy-button :value="rawLink" />
+                            </template>
+                        </v-textarea>
+                    </v-col>
                 </v-row>
             </div>
 
@@ -88,7 +96,7 @@
                             Close
                         </v-btn>
                     </v-col>
-                    <v-col>
+                    <v-col v-if="!rawLink">
                         <v-btn
                             :color="justCopied ? 'success' : 'primary'"
                             variant="flat"
@@ -156,6 +164,7 @@ const { generateBucketShareURL, generateFileOrFolderShareURL } = useLinksharing(
 const innerContent = ref<VCard | null>(null);
 const isLoading = ref<boolean>(true);
 const link = ref<string>('');
+const rawLink = ref<string>('');
 
 const copiedTimeout = ref<ReturnType<typeof setTimeout> | null>(null);
 const justCopied = computed<boolean>(() => copiedTimeout.value !== null);
@@ -188,6 +197,7 @@ watch(() => innerContent.value, async (comp: VCard | null): Promise<void> => {
 
     isLoading.value = true;
     link.value = '';
+    rawLink.value = '';
     analyticsStore.eventTriggered(AnalyticsEvent.LINK_SHARED);
 
     try {
@@ -201,6 +211,9 @@ watch(() => innerContent.value, async (comp: VCard | null): Promise<void> => {
                 // TODO: replace magic string type of BrowserObject.type with some constant/enum.
                 props.file.type === 'folder' ? ShareType.Folder : ShareType.Object,
             );
+            // If the shared item is a file, generate a raw link.
+            // string.replace() replaces only the first occurrence of the substring.
+            if (props.file.type === 'file') rawLink.value = link.value.replace('/s/', '/raw/');
         }
     } catch (error) {
         error.message = `Unable to get sharing URL. ${error.message}`;

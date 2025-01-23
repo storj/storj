@@ -6,6 +6,7 @@ export class ObjectBrowserPageObjects {
     static DISTRIBUTION_BUTTON_XPATH = `//button[@id='Distribution']`;
     static SHARE_BUTTON_XPATH = `//button[@id='Share']`;
     static COPY_LINK_BUTTON_XPATH = `//button[span[text()='Copy Link']]`;
+    static COPY_ICON_BUTTON = `[aria-roledescription="copy-btn"]`;
     static COPIED_TEXT = `Copied`;
     static SHARE_MODAL_LOADER_CLASS = `.share-dialog__content--loading`;
     static OBJECT_MAP_IMAGE_XPATH = `//img[@id='Map']`;

@@ -50,18 +50,18 @@ test.describe('object browser + edge services', () => {
 
         // Checks if the link-sharing buttons work
         await objectBrowserPage.verifyObjectMapIsVisible();
-        await objectBrowserPage.verifyShareLink();
+        await objectBrowserPage.verifyShareObjectLink();
 
         // Checks for successful download
         await objectBrowserPage.downloadFromPreview();
-        await objectBrowserPage.closePreview(fileName);
+        await objectBrowserPage.closePreview();
 
         // Delete old file and upload new with the same file name
         await objectBrowserPage.deleteObjectByName(fileName, 'Text');
         await objectBrowserPage.uploadFile(fileName, 'text/csv');
         await objectBrowserPage.openObjectPreview(fileName, 'Text');
         await objectBrowserPage.verifyObjectMapIsVisible();
-        await objectBrowserPage.verifyShareLink();
+        await objectBrowserPage.verifyShareObjectLink();
     });
 
     test('Folder creation and folder drag and drop upload', async ({
@@ -103,7 +103,7 @@ test.describe('object browser + edge services', () => {
 
         // Checks the image preview of the tiny apple png file
         await objectBrowserPage.verifyImagePreviewIsVisible();
-        await objectBrowserPage.closePreview(fileName);
+        await objectBrowserPage.closePreview();
 
         // Checks for Bucket Detail Header and correct bucket name
         await navigationMenu.clickOnBuckets();
