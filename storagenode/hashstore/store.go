@@ -107,7 +107,7 @@ func NewStore(dir string, log *zap.Logger) (_ *Store, err error) {
 		if err != nil {
 			return nil, Error.New("unable to create lock file: %w", err)
 		}
-		if err := flock(s.lock); err != nil {
+		if err := optimisticFlock(s.lock); err != nil {
 			return nil, Error.New("unable to flock: %w", err)
 		}
 	}
@@ -243,10 +243,10 @@ func NewStore(dir string, log *zap.Logger) (_ *Store, err error) {
 
 // StoreStats is a collection of statistics about a store.
 type StoreStats struct {
-	NumLogs    uint64 // total number of log files.
-	LenLogs    uint64 // total number of bytes in the log files.
-	NumLogsTTL uint64 // total number of log files with ttl set.
-	LenLogsTTL uint64 // total number of bytes in log files with ttl set.
+	NumLogs    uint64      // total number of log files.
+	LenLogs    memory.Size // total number of bytes in the log files.
+	NumLogsTTL uint64      // total number of log files with ttl set.
+	LenLogsTTL memory.Size // total number of bytes in log files with ttl set.
 
 	SetPercent   float64 // percent of bytes that are set in the log files.
 	TrashPercent float64 // percent of bytes that are trash in the log files.
@@ -257,7 +257,7 @@ type StoreStats struct {
 	Today         uint32       // the current date.
 	LastCompact   uint32       // the date of the last compaction.
 	LogsRewritten uint64       // number of log files attempted to be rewritten.
-	DataRewritten uint64       // number of bytes rewritten in the log files.
+	DataRewritten memory.Size  // number of bytes rewritten in the log files.
 	Table         HashTblStats // stats about the hash table.
 
 	Compaction struct { // stats about the current compaction
@@ -308,16 +308,16 @@ func (s *Store) Stats() StoreStats {
 	s.rmu.RUnlock()
 
 	// account for record footers in log files not included in the length field in the record.
-	stats.LenSet += RecordSize * stats.NumSet
+	stats.LenSet += memory.Size(RecordSize * stats.NumSet)
 	stats.AvgSet = safeDivide(float64(stats.LenSet), float64(stats.NumSet))
-	stats.LenTrash += RecordSize * stats.NumTrash
+	stats.LenTrash += memory.Size(RecordSize * stats.NumTrash)
 	stats.AvgTrash = safeDivide(float64(stats.LenTrash), float64(stats.NumTrash))
 
 	return StoreStats{
 		NumLogs:    numLogs,
-		LenLogs:    lenLogs,
+		LenLogs:    memory.Size(lenLogs),
 		NumLogsTTL: numLogsTTL,
-		LenLogsTTL: lenLogsTTL,
+		LenLogsTTL: memory.Size(lenLogsTTL),
 
 		SetPercent:   safeDivide(float64(stats.LenSet), float64(lenLogs)),
 		TrashPercent: safeDivide(float64(stats.LenTrash), float64(lenLogs)),
@@ -328,7 +328,7 @@ func (s *Store) Stats() StoreStats {
 		Today:         s.today(),
 		LastCompact:   s.stats.lastCompact.Load(),
 		LogsRewritten: s.stats.logsRewritten.Load(),
-		DataRewritten: s.stats.dataRewritten.Load(),
+		DataRewritten: memory.Size(s.stats.dataRewritten.Load()),
 		Table:         stats,
 	}
 }

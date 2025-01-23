@@ -188,6 +188,9 @@ func (service *Service) pingSatelliteOnce(ctx context.Context, id storj.NodeID) 
 	if self.FastOpen {
 		features |= uint64(pb.NodeAddress_TCP_FASTOPEN_ENABLED)
 	}
+
+	mon.IntVal("reported_capacity").Observe(self.Capacity.FreeDisk)
+
 	resp, err := pb.NewDRPCNodeClient(conn).CheckIn(ctx, &pb.CheckInRequest{
 		Address:             self.Address,
 		Version:             &self.Version,
