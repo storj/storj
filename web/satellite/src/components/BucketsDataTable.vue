@@ -80,7 +80,7 @@
                     <v-icon size="28" class="mr-1 pa-1 rounded-lg border">
                         <component :is="item.location === 'global' ? Earth : LandPlot" :size="18" />
                     </v-icon>
-                    <v-chip variant="tonal" color="default" size="small" class="text-capitalize">
+                    <v-chip variant="tonal" :color="item.location === 'global' ? 'success' : 'primary'" size="small" class="text-capitalize">
                         {{ item.location || `unknown(${item.defaultPlacement})` }}
                     </v-chip>
                 </div>
@@ -92,7 +92,7 @@
                             <v-icon v-bind="props" size="28" :icon="getVersioningIcon(item.versioning)" class="mr-1 pa-1 rounded-lg border" />
                         </template>
                     </v-tooltip>
-                    <v-chip variant="tonal" color="default" size="small">
+                    <v-chip variant="tonal" :color="getVersioningChipColor(item.versioning)" size="small">
                         {{ item.versioning }}
                     </v-chip>
                 </div>
@@ -104,7 +104,7 @@
                             <v-icon v-bind="props" size="28" :icon="item.objectLockEnabled ? LockKeyhole : LockKeyholeOpen" class="mr-1 pa-1 rounded-lg border" />
                         </template>
                     </v-tooltip>
-                    <v-chip variant="tonal" color="default" size="small">
+                    <v-chip variant="tonal" :color="item.objectLockEnabled ? 'success' : 'default'" size="small">
                         {{ item.objectLockEnabled ? 'Enabled' : 'Disabled' }}
                     </v-chip>
                 </div>
@@ -526,6 +526,20 @@ function getVersioningIcon(status: Versioning): FunctionalComponent {
         return CircleMinus;
     default:
         return CircleHelp;
+    }
+}
+
+/**
+ * Returns chip color based on versioning status.
+ */
+function getVersioningChipColor(status: Versioning): string {
+    switch (status) {
+    case Versioning.Enabled:
+        return 'success';
+    case Versioning.Suspended:
+        return 'warning';
+    default:
+        return 'default';
     }
 }
 

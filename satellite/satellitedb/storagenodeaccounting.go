@@ -811,42 +811,36 @@ func (db *StoragenodeAccounting) ArchiveRollupsBefore(ctx context.Context, befor
 			Action        int64
 		}
 
-		err = db.db.WithTx(ctx, func(ctx context.Context, tx *dbx.Tx) error {
-			for rowCount := int64(batchSize); rowCount >= int64(batchSize); {
-				err := withRows(tx.Tx.QueryContext(ctx, query, before, batchSize))(func(rows tagsql.Rows) error {
-					var storagenodesToDelete []storagenodeToDelete
-					for rows.Next() {
-						var s storagenodeToDelete
-						if err := rows.Scan(&s.StoragenodeID, &s.IntervalStart, &s.Action); err != nil {
-							err = errs.Combine(err, rows.Err(), rows.Close())
-							return err
-						}
-						storagenodesToDelete = append(storagenodesToDelete, s)
-					}
-
-					res, err := tx.Tx.ExecContext(ctx,
-						`DELETE FROM storagenode_bandwidth_rollups WHERE STRUCT<StoragenodeID BYTES, IntervalStart TIMESTAMP, Action INT64>(storagenode_id, interval_start, action) IN UNNEST(?)`,
-						storagenodesToDelete)
-					if err != nil {
+		for rowCount := int64(batchSize); rowCount >= int64(batchSize); {
+			err := withRows(db.db.QueryContext(ctx, query, before, batchSize))(func(rows tagsql.Rows) error {
+				var storagenodesToDelete []storagenodeToDelete
+				for rows.Next() {
+					var s storagenodeToDelete
+					if err := rows.Scan(&s.StoragenodeID, &s.IntervalStart, &s.Action); err != nil {
+						err = errs.Combine(err, rows.Err(), rows.Close())
 						return err
 					}
+					storagenodesToDelete = append(storagenodesToDelete, s)
+				}
 
-					rowCount, err = res.RowsAffected()
-					if err != nil {
-						return err
-					}
-					nodeRollupsDeleted += int(rowCount)
-
-					return nil
-				})
+				res, err := db.db.ExecContext(ctx,
+					`DELETE FROM storagenode_bandwidth_rollups WHERE STRUCT<StoragenodeID BYTES, IntervalStart TIMESTAMP, Action INT64>(storagenode_id, interval_start, action) IN UNNEST(?)`,
+					storagenodesToDelete)
 				if err != nil {
 					return err
 				}
+
+				rowCount, err = res.RowsAffected()
+				if err != nil {
+					return err
+				}
+				nodeRollupsDeleted += int(rowCount)
+
+				return nil
+			})
+			if err != nil {
+				return 0, Error.Wrap(err)
 			}
-			return nil
-		})
-		if err != nil {
-			return 0, Error.Wrap(err)
 		}
 
 	default:

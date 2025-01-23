@@ -2143,13 +2143,30 @@ func TestDeleteAccount(t *testing.T) {
 			// does not affect deletion of free users.
 			lastMonth := time.Date(year, month-1, 1, 0, 0, 0, 0, time.UTC)
 			egress := int64(1000000)
-			require.NoError(t, sat.DB.Orders().UpdateBucketBandwidthSettle(ctx, p2.ID, []byte(bucket.Name), pb.PieceAction_GET, egress, 0, lastMonth))
+			require.NoError(t, sat.DB.Orders().UpdateBucketBandwidthSettle(ctx, p2.ID, []byte(bucket.Name), pb.PieceAction_GET, egress, 0, lastMonth.Add(time.Hour)))
 
 			resp, err = service.DeleteAccount(userCtx, console.VerifyAccountMfaStep, "test")
 			require.NoError(t, err)
 			if user.PaidTier {
-				require.NotNil(t, resp)
-				require.True(t, resp.InvoicingIncomplete)
+				if resp == nil {
+					// TODO(moby) - additional logging to debug possible flakiness in the future; delete if flakiness is resolved
+					// see https://github.com/storj/storj/issues/7242
+					t.Log("egress inserted above for timestamp", lastMonth.Add(time.Hour))
+
+					// logic taken from CheckProjectUsageStatus in satellite/payments/stripe/accounts.go
+					firstOfMonth := time.Date(year, month, 1, 0, 0, 0, 0, time.UTC)
+					lastMonthUsage, err := sat.DB.ProjectAccounting().GetProjectTotal(ctx, p2.ID, firstOfMonth.AddDate(0, -1, 0), firstOfMonth.AddDate(0, 0, -1))
+					require.NoError(t, err)
+					t.Log("Egress result from GetProjectTotal:", lastMonthUsage.Egress)
+					t.Log("range:", firstOfMonth.AddDate(0, -1, 0), firstOfMonth.AddDate(0, 0, -1))
+					err = sat.DB.StripeCoinPayments().ProjectRecords().Check(ctx, p2.ID, firstOfMonth.AddDate(0, -1, 0), firstOfMonth)
+					t.Log("Err result from stripe project records Check:", err)
+					t.Log("range:", firstOfMonth.AddDate(0, -1, 0), firstOfMonth)
+					require.Fail(t, "expected not-nil response; please share this test failure on https://github.com/storj/storj/issues/7242")
+				} else {
+					// require.NotNil(t, resp) // TODO(moby) uncomment check when conditional is removed
+					require.True(t, resp.InvoicingIncomplete)
+				}
 			} else {
 				require.Nil(t, resp)
 			}

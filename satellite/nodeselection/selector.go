@@ -776,7 +776,7 @@ func RoundWithProbability(r float64) int {
 // valueBallast.
 // Some nodes can be selected more often than others.
 // The implementation is based on Walker's alias method: https://www.youtube.com/watch?v=retAwpUv42E
-func WeightedSelector(value NodeValue, defaultValue, valueBallast, valuePower float64, initFilter NodeFilter) NodeSelectorInit {
+func WeightedSelector(weightFunc NodeValue, initFilter NodeFilter) NodeSelectorInit {
 	return func(nodes []*SelectedNode, filter NodeFilter) NodeSelector {
 		var filtered []*SelectedNode
 		for _, node := range nodes {
@@ -795,13 +795,7 @@ func WeightedSelector(value NodeValue, defaultValue, valueBallast, valuePower fl
 		normalized := make([]float64, n)
 		total := float64(0)
 		for ix, node := range filtered {
-			nodeValue := value(*node)
-			if nodeValue == 0 {
-				nodeValue = defaultValue
-			} else if nodeValue <= 0 {
-				nodeValue = 0
-			}
-			nodeValue = math.Pow(nodeValue, valuePower) + valueBallast
+			nodeValue := weightFunc(*node)
 			total += nodeValue
 			normalized[ix] = nodeValue
 		}

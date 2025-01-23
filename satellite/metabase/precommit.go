@@ -6,6 +6,7 @@ package metabase
 import (
 	"context"
 	"database/sql"
+	"encoding/hex"
 	"errors"
 	"time"
 
@@ -382,7 +383,7 @@ func (ptx *postgresTransactionAdapter) precommitDeleteUnversioned(ctx context.Co
 		// But this is left as a protection against a broken implementation.
 		ptx.postgresAdapter.log.Error("object with multiple committed versions were found!",
 			zap.Stringer("Project ID", loc.ProjectID), zap.Stringer("Bucket Name", loc.BucketName),
-			zap.ByteString("Object Key", []byte(loc.ObjectKey)), zap.Int("deleted", result.DeletedObjectCount))
+			zap.String("Object Key", hex.EncodeToString([]byte(loc.ObjectKey))), zap.Int("deleted", result.DeletedObjectCount))
 
 		mon.Meter("multiple_committed_versions").Mark(1)
 
@@ -505,7 +506,7 @@ func (ptx *postgresTransactionAdapter) precommitDeleteUnversionedWithSQLCheck(ct
 	if result.DeletedObjectCount > 1 {
 		ptx.postgresAdapter.log.Error("object with multiple committed versions were found!",
 			zap.Stringer("Project ID", loc.ProjectID), zap.Stringer("Bucket Name", loc.BucketName),
-			zap.ByteString("Object Key", []byte(loc.ObjectKey)), zap.Int("deleted", result.DeletedObjectCount))
+			zap.String("Object Key", hex.EncodeToString([]byte(loc.ObjectKey))), zap.Int("deleted", result.DeletedObjectCount))
 
 		mon.Meter("multiple_committed_versions").Mark(1)
 
@@ -626,7 +627,7 @@ func (ptx *postgresTransactionAdapter) precommitDeleteUnversionedWithVersionChec
 	if result.DeletedObjectCount > 1 {
 		ptx.postgresAdapter.log.Error("object with multiple committed versions were found!",
 			zap.Stringer("Project ID", loc.ProjectID), zap.Stringer("Bucket Name", loc.BucketName),
-			zap.ByteString("Object Key", []byte(loc.ObjectKey)), zap.Int("deleted", result.DeletedObjectCount))
+			zap.String("Object Key", hex.EncodeToString([]byte(loc.ObjectKey))), zap.Int("deleted", result.DeletedObjectCount))
 
 		mon.Meter("multiple_committed_versions").Mark(1)
 
@@ -699,7 +700,7 @@ func (stx *spannerTransactionAdapter) precommitDeleteUnversioned(ctx context.Con
 	if len(result.Deleted) > 1 {
 		stx.spannerAdapter.log.Error("object with multiple committed versions were found!",
 			zap.Stringer("Project ID", loc.ProjectID), zap.Stringer("Bucket Name", loc.BucketName),
-			zap.ByteString("Object Key", []byte(loc.ObjectKey)), zap.Int("deleted", len(result.Deleted)))
+			zap.String("Object Key", hex.EncodeToString([]byte(loc.ObjectKey))), zap.Int("deleted", len(result.Deleted)))
 
 		mon.Meter("multiple_committed_versions").Mark(1)
 
@@ -877,7 +878,7 @@ func (ptx *postgresTransactionAdapter) precommitDeleteUnversionedWithNonPending(
 	if result.DeletedObjectCount > 1 {
 		ptx.postgresAdapter.log.Error("object with multiple committed versions were found!",
 			zap.Stringer("Project ID", loc.ProjectID), zap.Stringer("Bucket Name", loc.BucketName),
-			zap.ByteString("Object Key", []byte(loc.ObjectKey)), zap.Int("deleted", result.DeletedObjectCount))
+			zap.String("Object Key", hex.EncodeToString([]byte(loc.ObjectKey))), zap.Int("deleted", result.DeletedObjectCount))
 
 		mon.Meter("multiple_committed_versions").Mark(1)
 
@@ -1141,7 +1142,7 @@ func (stx *spannerTransactionAdapter) precommitDeleteUnversionedWithNonPending(c
 	if len(result.Deleted) > 1 {
 		stx.spannerAdapter.log.Error("object with multiple committed versions were found!",
 			zap.Stringer("Project ID", loc.ProjectID), zap.Stringer("Bucket Name", loc.BucketName),
-			zap.ByteString("Object Key", []byte(loc.ObjectKey)), zap.Int("deleted", result.DeletedObjectCount))
+			zap.String("Object Key", hex.EncodeToString([]byte(loc.ObjectKey))), zap.Int("deleted", result.DeletedObjectCount))
 
 		mon.Meter("multiple_committed_versions").Mark(1)
 

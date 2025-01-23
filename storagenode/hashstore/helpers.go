@@ -245,7 +245,7 @@ func syncDirectory(dir string) {
 // their full path.
 func allFiles(dir string) (paths []string, err error) {
 	err = filepath.WalkDir(dir, func(path string, d fs.DirEntry, err error) error {
-		if !d.IsDir() {
+		if err == nil && !d.IsDir() {
 			paths = append(paths, path)
 		}
 		return err
