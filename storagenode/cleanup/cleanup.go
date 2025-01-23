@@ -18,9 +18,10 @@ import (
 
 // Config is the config for the Cleanup.
 type Config struct {
-	Trash  bool `help:"enable/disable trash cleanup phase" default:"true"`
-	Expire bool `help:"enable/disable TTL expired pieces collection phase" default:"true"`
-	Retain bool `help:"enable/disable garbage collection phase" default:"true"`
+	Trash       bool `help:"enable/disable trash cleanup phase" default:"true"`
+	Expire      bool `help:"enable/disable TTL expired pieces collection phase" default:"true"`
+	DeleteEmpty bool `help:"enable/disable deletion of empty directories and zero sized files" default:"false"`
+	Retain      bool `help:"enable/disable garbage collection phase" default:"true"`
 }
 
 // Cleanup is a service, which combines retain,TTL,trash, and runs only once (if load is not too high).
@@ -33,11 +34,12 @@ type Cleanup struct {
 	trashRunner         *pieces.TrashRunOnce
 	expireRunner        collector.RunOnce
 	retainRunner        *retain.RunOnce
+	deleteEmptyRunner   *DeleteEmpty
 	config              Config
 }
 
 // NewCleanup creates a new Cleanup.
-func NewCleanup(log *zap.Logger, loop *SafeLoop, blobs blobstore.Blobs, store *pieces.PieceExpirationStore, ps *pieces.Store, rc retain.Config, config Config) *Cleanup {
+func NewCleanup(log *zap.Logger, loop *SafeLoop, deleteEmpty *DeleteEmpty, blobs blobstore.Blobs, store *pieces.PieceExpirationStore, ps *pieces.Store, rc retain.Config, config Config) *Cleanup {
 
 	noCancel := &modular.StopTrigger{
 		Cancel: func() {
@@ -55,6 +57,7 @@ func NewCleanup(log *zap.Logger, loop *SafeLoop, blobs blobstore.Blobs, store *p
 		trashRunner:         trashRunner,
 		expireRunner:        expireRunner,
 		retainRunner:        retainRunner,
+		deleteEmptyRunner:   deleteEmpty,
 		config:              config,
 	}
 }
@@ -87,6 +90,15 @@ func (c *Cleanup) RunOnce(ctx context.Context) (err error) {
 		}
 	}
 
+	if c.config.DeleteEmpty {
+		if ctx.Err() != nil {
+			return ctx.Err()
+		}
+		err := c.deleteEmptyRunner.Delete(ctx)
+		if err != nil {
+			return err
+		}
+	}
 	if c.config.Retain {
 		if ctx.Err() != nil {
 			return ctx.Err()
