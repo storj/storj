@@ -18,7 +18,7 @@
                             <p class="text-medium-emphasis text-body-2 mb-1">{{ item.title }}</p>
                         </template>
                         <template #subtitle>
-                            <p class="text-body-2 text-wrap">{{ item.value }}</p>
+                            <p class="text-body-2">{{ item.value }}</p>
                         </template>
                     </v-list-item>
                 </v-list>
@@ -66,3 +66,12 @@ const items = computed<Item[]>(() => {
     return its;
 });
 </script>
+
+<style scoped>
+:deep(.v-list-item-subtitle) {
+    -webkit-line-clamp: unset !important;
+    white-space: normal !important;
+    white-space-collapse: collapse !important;
+    text-wrap: wrap !important;
+}
+</style>
