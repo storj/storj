@@ -9,7 +9,7 @@
                 <v-chip-group
                     v-model="flowType"
                     class="mt-2 mb-3"
-                    selected-class="text-info font-weight-bold"
+                    selected-class="font-weight-bold"
                     variant="outlined"
                     mandatory
                     column

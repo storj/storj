@@ -2,7 +2,7 @@
 // See LICENSE for copying information.
 
 <template>
-    <v-card>
+    <v-card class="pa-4">
         <v-text-field
             v-model="search"
             label="Search"
@@ -13,9 +13,8 @@
             hide-details
             clearable
             density="comfortable"
-            rounded="lg"
-            :maxlength="MAX_SEARCH_VALUE_LENGTH"
-            class="mx-2 mt-2"
+            xl11 :maxlength="MAX_SEARCH_VALUE_LENGTH"
+            class="mb-4"
         />
 
         <v-data-table-server
@@ -28,6 +27,7 @@
             items-per-page-text="Buckets per page"
             :items-per-page-options="tableSizeOptions(page.totalCount)"
             no-data-text="No buckets found"
+            class="border"
             hover
             @update:itemsPerPage="onUpdateLimit"
             @update:page="onUpdatePage"
@@ -43,7 +43,7 @@
                     @click="openBucket(item.name)"
                 >
                     <template #default>
-                        <img class="mr-3" src="../assets/icon-bucket-tonal.svg" alt="Bucket">
+                        <img class="mr-3" src="@/assets/icon-bucket-tonal.svg" alt="Bucket">
                         <div class="max-width">
                             <p class="font-weight-bold text-lowercase text-truncate">{{ item.name }}</p>
                         </div>

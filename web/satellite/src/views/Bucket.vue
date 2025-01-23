@@ -7,7 +7,7 @@
         @dragover.prevent="isDragging = true"
     >
         <dropzone-dialog v-model="isDragging" :bucket="bucketName" @file-drop="onUpload" />
-        <page-title-component title="Browse Objects" />
+        <page-title-component title="Browse" />
 
         <browser-breadcrumbs-component />
         <v-col>
@@ -30,7 +30,7 @@
                                 <component :is="FileUp" :size="18" />
                             </template>
                             <v-list-item-title class="text-body-2 ml-3">
-                                Upload Objects
+                                Upload Files
                             </v-list-item-title>
                         </v-list-item>
 
@@ -83,7 +83,7 @@
                         <v-btn
                             variant="outlined"
                             color="default"
-                            class="ml-2 ml-sm-4"
+                            class="mx-2 mx-sm-4"
                             v-bind="props"
                             :prepend-icon="Settings"
                             :append-icon="ChevronDown"
@@ -186,46 +186,47 @@
 
                 <v-spacer v-if="smAndUp" />
 
-                <v-col class="pa-0 pt-5 pa-sm-0" cols="auto">
+                <v-col class="pa-0 pt-5 pa-sm-0 text-sm-right" cols="12" sm="4">
                     <v-btn-toggle
                         mandatory
                         border
                         inset
-                        density="comfortable"
+                        rounded="lg"
                         class="pa-1 bg-surface"
                     >
                         <v-tooltip v-if="showObjectVersions" location="top" activator="parent">
                             Please hide versions to toggle the view.
                         </v-tooltip>
-                        <v-tooltip :disabled="showObjectVersions" location="top">
+                        <v-tooltip :disabled="showObjectVersions || $vuetify.display.smAndDown" location="top">
                             <template #activator="{ props }">
                                 <v-btn
                                     :disabled="showObjectVersions"
                                     size="small"
-                                    rounded="xl"
+                                    rounded="md"
                                     active-class="active"
                                     :active="isCardView"
-                                    aria-label="Toggle Cards View"
+                                    aria-label="Toggle Card View"
+                                    :title="$vuetify.display.smAndDown ? 'Card view shows image previews using download bandwidth.' : undefined"
                                     v-bind="props"
                                     @click="isCardView = true"
                                 >
-                                    <component :is="ScanEye" :size="14" class="mr-1" />
-                                    Gallery
+                                    <component :is="Grid2X2" :size="14" class="mr-1" />
+                                    Cards
                                 </v-btn>
                             </template>
-                            Gallery view shows image previews using download bandwidth.
+                            Card view shows image previews using download bandwidth.
                         </v-tooltip>
                         <v-btn
                             :disabled="showObjectVersions"
                             size="small"
-                            rounded="xl"
+                            rounded="md"
                             active-class="active"
                             :active="!isCardView"
                             aria-label="Toggle Table View"
                             @click="isCardView = false"
                         >
                             <component :is="List" :size="14" class="mr-1" />
-                            List
+                            Table
                         </v-btn>
                     </v-btn-toggle>
                 </v-col>
@@ -289,10 +290,10 @@ import { FileUp,
     Trash2,
     History,
     CirclePause,
-    ScanEye,
     List,
     Eye,
     EyeOff,
+    Grid2X2,
 } from 'lucide-vue-next';
 
 import { useBucketsStore } from '@/store/modules/bucketsStore';

@@ -2,7 +2,7 @@
 // See LICENSE for copying information.
 
 <template>
-    <v-card>
+    <v-card class="pa-4">
         <v-text-field
             v-if="!isAltPagination"
             v-model="search"
@@ -14,8 +14,7 @@
             hide-details
             clearable
             density="comfortable"
-            rounded="lg"
-            class="mx-2 mt-2"
+            class="mb-4"
             @update:modelValue="analyticsStore.eventTriggered(AnalyticsEvent.SEARCH_BUCKETS)"
         />
 
@@ -41,7 +40,7 @@
         >
             <template #no-data>
                 <p class="text-body-2 cursor-pointer py-14 rounded-xlg my-4" @click="emit('uploadClick')">
-                    {{ search ? 'No data found' : 'Drag and drop objects or folders here, or click to upload objects.' }}
+                    {{ search ? 'No data found' : 'Drag and drop files or folders here, or click to upload files.' }}
                 </p>
             </template>
             <template #item="{ index, props: rowProps }">

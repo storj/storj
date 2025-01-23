@@ -44,10 +44,10 @@
                     <v-col>
                         <p class="mb-2">Encryption method:</p>
                         <v-chip-group v-model="encryption" filter variant="tonal" column selected-class="font-weight-bold" mandatory>
-                            <v-chip color="default" value="auto" class="cursor-default" :disabled="encryption === 'manual'">
+                            <v-chip color="primary" value="auto" class="cursor-default" :disabled="encryption === 'manual'">
                                 Automatic
                             </v-chip>
-                            <v-chip color="default" value="manual" class="cursor-default" :disabled="encryption === 'auto'">Manual</v-chip>
+                            <v-chip color="primary" value="manual" class="cursor-default" :disabled="encryption === 'auto'">Manual</v-chip>
 
                             <v-divider thickness="0" class="my-1" />
 

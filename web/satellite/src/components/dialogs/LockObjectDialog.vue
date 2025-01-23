@@ -90,7 +90,7 @@
                                 <v-chip-group
                                     v-model="lockType"
                                     class="mb-4"
-                                    selected-class="text-primary font-weight-bold"
+                                    selected-class="font-weight-bold"
                                     mandatory
                                     column
                                     filter
@@ -123,12 +123,12 @@
                             <v-chip-group
                                 v-model="selectedRange"
                                 class="mb-4"
-                                selected-class="text-primary font-weight-bold"
+                                selected-class="font-weight-bold"
                                 mandatory
                                 column
                                 filter
                             >
-                                <v-chip v-for="range in ranges" :key="range.label" :value="range" variant="outlined">
+                                <v-chip v-for="range in ranges" :key="range.label" :value="range">
                                     {{ range.label }}
                                 </v-chip>
                             </v-chip-group>

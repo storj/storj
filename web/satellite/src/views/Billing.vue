@@ -15,10 +15,10 @@
             </v-col>
         </v-row>
 
-        <v-card color="default" class="mt-2 mb-6" variant="flat">
+        <v-card color="default" class="mt-2 mb-6" rounded="md">
             <v-tabs
                 v-model="tab"
-                color="default"
+                color="primary"
                 center-active
                 show-arrows
                 grow
@@ -42,19 +42,19 @@
         </v-card>
 
         <v-window v-model="tab">
-            <v-window-item>
+            <v-window-item class="pb-2">
                 <v-row>
                     <v-col cols="12" sm="4">
                         <v-card
                             :subtitle="`For ${new Date().toLocaleString('en-US', { month: 'long', year: 'numeric' })}`"
-                            variant="flat"
+                            class="pa-2"
                         >
                             <template #title>
                                 <v-row class="align-center">
                                     <v-col>
                                         <span>Estimated Total Cost</span>
                                         <span class="ml-2">
-                                            <v-icon class="text-cursor-pointer" size="15" :icon="Info" />
+                                            <v-icon class="text-cursor-pointer" size="14" :icon="Info" color="info" />
                                             <v-tooltip
                                                 class="text-center"
                                                 activator="parent"
@@ -70,23 +70,23 @@
                                 <v-progress-linear v-if="isLoading" indeterminate />
                             </template>
                             <v-card-text>
-                                <v-chip color="warning" variant="tonal" class="font-weight-bold mb-2">
-                                    {{ centsToDollars(priceSummary) }}
-                                </v-chip>
-                                <v-divider class="my-4" />
-                                <v-btn variant="outlined" color="default" size="small" rounded="md" class="mr-2" :append-icon="ArrowRight" @click="tab = TABS['billing-history']">View Billing History</v-btn>
+                                <div class="d-flex align-center">
+                                    <span class="text-h5 font-weight-bold">{{ centsToDollars(priceSummary) }}</span>
+                                </div>
+                                <v-divider class="my-4 border-0" />
+                                <v-btn variant="outlined" color="default" rounded="md" class="mr-2" :append-icon="ArrowRight" @click="tab = TABS['billing-history']">View Billing History</v-btn>
                             </v-card-text>
                         </v-card>
                     </v-col>
 
                     <v-col cols="12" sm="4">
-                        <v-card subtitle="Your Storj account balance" variant="flat">
+                        <v-card subtitle="Your Storj account balance" class="pa-2">
                             <template #title>
                                 <v-row class="align-center">
                                     <v-col>
                                         <span>Available Funds</span>
                                         <span class="ml-2">
-                                            <v-icon class="text-cursor-pointer" size="15" :icon="Info" />
+                                            <v-icon class="text-cursor-pointer" size="14" :icon="Info" color="info" />
                                             <v-tooltip
                                                 class="text-center"
                                                 activator="parent"
@@ -102,11 +102,11 @@
                                 <v-progress-linear v-if="isLoading" indeterminate />
                             </template>
                             <v-card-text>
-                                <v-chip color="success" variant="tonal" class="font-weight-bold mb-2">
-                                    {{ formattedAccountBalance }}
-                                </v-chip>
-                                <v-divider class="my-4" />
-                                <v-btn variant="outlined" color="default" size="small" rounded="md" class="mr-2" :prepend-icon="Plus" @click="onAddTokensClicked">
+                                <div class="d-flex align-center">
+                                    <span class="text-h5 font-weight-bold">{{ formattedAccountBalance }}</span>
+                                </div>
+                                <v-divider class="my-4 border-0" />
+                                <v-btn variant="outlined" color="default" class="mr-2" :prepend-icon="Plus" @click="onAddTokensClicked">
                                     Add STORJ Tokens
                                 </v-btn>
                             </v-card-text>
@@ -116,9 +116,8 @@
                     <v-col cols="12" sm="4">
                         <v-card
                             v-if="isLoading"
-                            class="d-flex align-center justify-center"
+                            class="d-flex align-center justify-center pa-2"
                             height="200"
-                            variant="flat"
                         >
                             <template #loader>
                                 <v-progress-linear v-if="isLoading" indeterminate />
@@ -129,26 +128,23 @@
                             :title="`Coupon / ${coupon.name}`"
                             height="100%"
                             :subtitle="`${isCouponActive ? 'Active' : 'Expired'} / ${couponExpiration}`"
-                            variant="flat"
+                            class="pa-2"
                         >
                             <v-card-text>
                                 <v-chip
                                     :color="isCouponActive ? 'success' : 'error'"
                                     variant="tonal"
-                                    class="font-weight-bold mb-2"
+                                    class="font-weight-bold"
                                 >
                                     {{ couponDiscount }}
                                 </v-chip>
 
-                                <v-divider class="my-4" />
+                                <v-divider class="my-4 border-0" />
 
                                 <v-btn
                                     v-if="couponCodeBillingUIEnabled"
                                     variant="outlined"
                                     color="default"
-                                    size="small"
-                                    class="mr-2"
-                                    rounded="md"
                                     :prepend-icon="Plus"
                                     @click="isAddCouponDialogShown = true"
                                 >
@@ -161,21 +157,18 @@
                             v-else-if="couponCodeBillingUIEnabled"
                             title="Coupon"
                             subtitle="Apply a new coupon to your account"
-                            variant="flat"
+                            class="pa-2"
                         >
                             <v-card-text>
-                                <v-chip color="default" variant="tonal" class="font-weight-bold mb-2">
+                                <v-chip color="default" variant="tonal" class="text-caption">
                                     No Coupon
                                 </v-chip>
 
-                                <v-divider class="my-4" />
+                                <v-divider class="my-4 border-0" />
 
                                 <v-btn
                                     variant="outlined"
                                     color="default"
-                                    size="small"
-                                    class="mr-2"
-                                    rounded="md"
                                     :prepend-icon="Plus"
                                     @click="isAddCouponDialogShown = true"
                                 >
@@ -188,9 +181,9 @@
 
                 <v-row>
                     <v-col>
-                        <v-card title="Detailed Usage Report" subtitle="Get a complete usage report for all your projects." variant="flat">
+                        <v-card title="Detailed Usage Report" subtitle="Get a complete usage report for all your projects." class="usage-report-card pa-2">
                             <v-card-text>
-                                <v-btn variant="outlined" color="default" size="small" rounded="md" :prepend-icon="Calendar">
+                                <v-btn variant="outlined" color="default" rounded="md" :prepend-icon="Calendar">
                                     <detailed-usage-report-dialog />
                                     Detailed Account Report
                                 </v-btn>
@@ -207,7 +200,7 @@
                 <usage-and-charges-component v-else :project-ids="projectIDs" />
             </v-window-item>
 
-            <v-window-item>
+            <v-window-item class="pb-2">
                 <v-row>
                     <v-col cols="12" md="4" sm="6">
                         <StorjTokenCardComponent ref="tokenCardComponent" @historyClicked="tab = TABS.transactions" />
@@ -223,15 +216,15 @@
                 </v-row>
             </v-window-item>
 
-            <v-window-item>
+            <v-window-item class="pb-2">
                 <token-transactions-table-component />
             </v-window-item>
 
-            <v-window-item>
+            <v-window-item class="pb-2">
                 <billing-history-tab />
             </v-window-item>
 
-            <v-window-item v-if="billingInformationUIEnabled">
+            <v-window-item v-if="billingInformationUIEnabled" class="pb-2">
                 <billing-information-tab />
             </v-window-item>
         </v-window>
@@ -451,3 +444,28 @@ onMounted(async () => {
     }
 });
 </script>
+
+<style scoped>
+.usage-report-card {
+    background-color: rgb(var(--v-theme-surface)) !important;
+    background-image: repeating-linear-gradient(
+        45deg,
+        rgba(var(--v-theme-primary), 0.02) 0,
+        rgba(var(--v-theme-primary), 0.02) 1px,
+        transparent 1px,
+        transparent 10px
+    );
+    background-size: 14px 14px;
+}
+
+.usage-report-card:hover {
+    background-image: repeating-linear-gradient(
+        45deg,
+        rgba(var(--v-theme-primary), 0.04) 0,
+        rgba(var(--v-theme-primary), 0.04) 1px,
+        transparent 1px,
+        transparent 10px
+    );
+    transition: background-image 0.3s ease;
+}
+</style>

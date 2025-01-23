@@ -18,7 +18,7 @@
                 </template>
 
                 <!-- Project Menu -->
-                <v-list class="pa-2">
+                <v-list class="pa-2" active-class="text-primary">
                     <!-- My Projects -->
                     <template v-if="ownProjects.length">
                         <v-list-item router-link :to="ROUTES.Projects.path" @click="closeDrawer">
@@ -26,7 +26,7 @@
                                 <component :is="Box" :size="18" />
                             </template>
                             <v-list-item-title class="ml-4">
-                                <v-chip color="secondary" variant="tonal" size="small" class="font-weight-bold" link @click="closeDrawer">
+                                <v-chip color="primary" variant="tonal" size="small" class="font-weight-bold" link @click="closeDrawer">
                                     My Projects
                                 </v-chip>
                             </v-list-item-title>
@@ -175,8 +175,8 @@
                 <template #prepend>
                     <component :is="Microchip" :size="18" />
                 </template>
-                <template #chip>
-                    <v-chip color="success" class="ml-1" size="small">New</v-chip>
+                <template #append>
+                    <v-chip color="success" size="small">New</v-chip>
                 </template>
             </navigation-item>
 
@@ -184,8 +184,8 @@
                 <template #prepend>
                     <component :is="HardDrive" :size="18" />
                 </template>
-                <template #chip>
-                    <v-chip color="success" class="ml-1" size="small">New</v-chip>
+                <template #append>
+                    <v-chip color="success" size="small">New</v-chip>
                 </template>
             </navigation-item>
 

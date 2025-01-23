@@ -45,118 +45,117 @@
 
             <v-divider />
 
-            <v-card-text v-if="!billingEnabled || !isProjectLimitReached" class="pa-0">
-                <v-window v-model="createStep">
-                    <v-window-item :value="CreateSteps.Info">
-                        <v-form v-model="formValid" class="pa-6" @submit.prevent>
-                            <v-row>
-                                <v-col cols="12">
-                                    Projects are where you and your team can upload and manage data, and view usage statistics and billing.
-                                </v-col>
-                                <v-col cols="12">
-                                    <v-text-field
-                                        id="Project Name"
-                                        v-model="name"
-                                        variant="outlined"
-                                        :rules="nameRules"
-                                        label="Project Name"
-                                        :counter="MAX_NAME_LENGTH"
-                                        :maxlength="MAX_NAME_LENGTH"
-                                        persistent-counter
-                                        :hide-details="false"
-                                        autofocus
-                                        required
-                                    />
-                                    <v-btn
-                                        v-if="!isDescriptionShown"
-                                        variant="text"
-                                        color="default"
-                                        :prepend-icon="Plus"
-                                        @click="isDescriptionShown = true"
-                                    >
-                                        Add Description (Optional)
-                                    </v-btn>
-                                </v-col>
-                                <v-col v-if="isDescriptionShown" cols="12">
-                                    <v-text-field
-                                        v-model="description"
-                                        variant="outlined"
-                                        :rules="descriptionRules"
-                                        :hide-details="false"
-                                        label="Project Description (Optional)"
-                                        :counter="MAX_DESCRIPTION_LENGTH"
-                                        :maxlength="MAX_DESCRIPTION_LENGTH"
-                                        persistent-counter
-                                    />
-                                </v-col>
-                            </v-row>
-                        </v-form>
-                    </v-window-item>
-                    <v-window-item :value="CreateSteps.ManageMode">
-                        <v-form v-model="formValid" class="pa-6">
-                            <v-row>
-                                <v-col>
-                                    <p><b>Project Encryption</b></p>
-                                    <p class="my-2">Choose the encryption method for your data.</p>
-                                    <v-chip-group v-model="passphraseManageMode" column filter variant="outlined" selected-class="font-weight-bold" mandatory>
-                                        <v-chip color="primary" value="auto">
-                                            Automatic
-                                        </v-chip>
-                                        <v-chip color="primary" value="manual">Self-managed</v-chip>
+            <v-window v-if="!billingEnabled || !isProjectLimitReached" v-model="createStep">
+                <v-window-item :value="CreateSteps.Info">
+                    <v-form v-model="formValid" class="pa-6" @submit.prevent>
+                        <v-row>
+                            <v-col cols="12">
+                                Projects are where you and your team can upload and manage data, and view usage statistics and billing.
+                            </v-col>
+                            <v-col cols="12">
+                                <v-text-field
+                                    id="Project Name"
+                                    v-model="name"
+                                    variant="outlined"
+                                    :rules="nameRules"
+                                    label="Project Name"
+                                    :counter="MAX_NAME_LENGTH"
+                                    :maxlength="MAX_NAME_LENGTH"
+                                    persistent-counter
+                                    :hide-details="false"
+                                    autofocus
+                                    required
+                                />
+                                <v-btn
+                                    v-if="!isDescriptionShown"
+                                    variant="tonal"
+                                    color="primary"
+                                    :prepend-icon="Plus"
+                                    @click="isDescriptionShown = true"
+                                >
+                                    Add Description (Optional)
+                                </v-btn>
+                            </v-col>
+                            <v-col v-if="isDescriptionShown" cols="12">
+                                <v-text-field
+                                    v-model="description"
+                                    variant="outlined"
+                                    :rules="descriptionRules"
+                                    :hide-details="false"
+                                    label="Project Description (Optional)"
+                                    :counter="MAX_DESCRIPTION_LENGTH"
+                                    :maxlength="MAX_DESCRIPTION_LENGTH"
+                                    persistent-counter
+                                />
+                            </v-col>
+                        </v-row>
+                    </v-form>
+                </v-window-item>
+                <v-window-item :value="CreateSteps.ManageMode">
+                    <v-form v-model="formValid" class="pa-6">
+                        <v-row>
+                            <v-col>
+                                <p><b>Project Encryption</b></p>
+                                <p class="my-2">Choose the encryption method for your data.</p>
+                                <v-chip-group v-model="passphraseManageMode" column filter variant="outlined" selected-class="font-weight-bold" mandatory>
+                                    <v-chip value="auto">
+                                        Automatic
+                                    </v-chip>
+                                    <v-chip value="manual">Self-managed</v-chip>
 
-                                        <v-divider thickness="0" class="my-1" />
+                                    <v-divider thickness="0" class="my-1" />
 
-                                        <v-alert v-if="passphraseManageMode === 'auto'" variant="tonal" color="default">
-                                            <p>
-                                                <v-chip rounded="md" class="text-caption font-weight-medium" color="secondary" variant="tonal" size="small">
-                                                    Recommended for ease of use and teams
-                                                </v-chip>
-                                            </p>
-                                            <p class="text-body-2 my-2 font-weight-bold">
-                                                Storj securely manages the encryption and decryption of your project automatically.
-                                            </p>
-                                            <p class="text-body-2 my-2">
-                                                Fewer steps to upload, download, manage, and browse your data. No need to remember an additional encryption passphrase.
-                                            </p>
-                                            <p class="text-body-2 my-2">
-                                                Team members you invite will automatically have access to your project's data.
-                                            </p>
-                                            <p class="text-body-2 m-2">
-                                                <a class="link" @click="goToDocs">Learn more in the documentation.</a>
-                                            </p>
-                                        </v-alert>
+                                    <v-alert v-if="passphraseManageMode === 'auto'" variant="tonal" color="default">
+                                        <p>
+                                            <v-chip rounded="md" class="text-caption font-weight-medium" color="secondary" variant="tonal" size="small">
+                                                Recommended for ease of use and teams
+                                            </v-chip>
+                                        </p>
+                                        <p class="text-body-2 my-2 font-weight-bold">
+                                            Storj securely manages the encryption and decryption of your project automatically.
+                                        </p>
+                                        <p class="text-body-2 my-2">
+                                            Fewer steps to upload, download, manage, and browse your data. No need to remember an additional encryption passphrase.
+                                        </p>
+                                        <p class="text-body-2 my-2">
+                                            Team members you invite will automatically have access to your project's data.
+                                        </p>
+                                        <p class="text-body-2 m-2">
+                                            <a class="link" @click="goToDocs">Learn more in the documentation.</a>
+                                        </p>
+                                    </v-alert>
 
-                                        <v-alert v-if="passphraseManageMode === 'manual'" variant="tonal" color="default">
-                                            <p>
-                                                <v-chip rounded="md" class="text-caption font-weight-medium" color="secondary" variant="tonal" size="small">
-                                                    Best for control over your data encryption
-                                                </v-chip>
-                                            </p>
-                                            <p class="text-body-2 my-2 font-weight-bold">
-                                                You are responsible for securely managing your own data encryption passphrase.
-                                            </p>
-                                            <p class="text-body-2 my-2">
-                                                You need to enter your passphrase each time you access your data. If you forget the passphrase, you can't recover your data.
-                                            </p>
-                                            <p class="text-body-2 my-2">
-                                                Team members must share and enter the same encryption passphrase to access the data.
-                                            </p>
-                                            <p class="text-body-2 mt-2">
-                                                <a class="link" @click="goToDocs">Learn more in the documentation.</a>
-                                            </p>
-                                        </v-alert>
-                                    </v-chip-group>
-                                </v-col>
-                            </v-row>
-                        </v-form>
-                    </v-window-item>
-                </v-window>
-            </v-card-text>
+                                    <v-alert v-if="passphraseManageMode === 'manual'" variant="tonal" color="default">
+                                        <p>
+                                            <v-chip rounded="md" class="text-caption font-weight-medium" color="secondary" variant="tonal" size="small">
+                                                Best for control over your data encryption
+                                            </v-chip>
+                                        </p>
+                                        <p class="text-body-2 my-2 font-weight-bold">
+                                            You are responsible for securely managing your own data encryption passphrase.
+                                        </p>
+                                        <p class="text-body-2 my-2">
+                                            You need to enter your passphrase each time you access your data. If you forget the passphrase, you can't recover your data.
+                                        </p>
+                                        <p class="text-body-2 my-2">
+                                            Team members must share and enter the same encryption passphrase to access the data.
+                                        </p>
+                                        <p class="text-body-2 mt-2">
+                                            <a class="link" @click="goToDocs">Learn more in the documentation.</a>
+                                        </p>
+                                    </v-alert>
+                                </v-chip-group>
+                            </v-col>
+                        </v-row>
+                    </v-form>
+                </v-window-item>
+            </v-window>
+
             <v-form v-else-if="isProjectLimitReached && usersStore.state.user.paidTier" v-model="formValid" class="pa-6" @submit.prevent>
                 <v-row>
                     <template v-if="!showLimitIncreaseDialog">
                         <v-col cols="12">
-                            Request project limit increase.
+                            You've reached your project limit. Request an increase to create more projects.
                         </v-col>
                     </template>
                     <template v-else>

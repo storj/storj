@@ -2,96 +2,131 @@
 // See LICENSE for copying information.
 
 <template>
-    <v-card
-        class="positioning mt-n2"
-        width="100%"
-        position="absolute"
-        elevation="12"
-        variant="elevated"
-        :theme="oppositeTheme"
-    >
-        <v-card-item class="mt-1">
-            <v-card-title>Password Security Level</v-card-title>
-            <template #append>
-                <v-btn
-                    icon="$close"
-                    variant="text"
-                    size="x-small"
-                    color="default"
-                />
-            </template>
-        </v-card-item>
-        <v-card-item>
-            <p class="text-body-2 font-weight-bold mb-2" :style="strengthLabelColor">{{ passwordStrength }}</p>
-            <v-progress-linear :model-value="barWidth" :color="passwordStrengthColor" rounded="lg" />
-        </v-card-item>
-        <v-card-item>
-            <p class="text-body-2">Your password should contain:</p>
-            <v-checkbox
-                tabindex="-1"
-                class="no-pointer-events text-body-2"
-                :model-value="isPasswordLengthAcceptable"
-                color="success"
-                density="compact"
-                hide-details
+    <div class="password-strength mb-5 rounded-lg border" role="group" aria-label="Password strength indicator">
+        <!-- Simple strength indicator -->
+        <div class="d-flex align-center justify-space-between">
+            <div class="d-flex align-center">
+                <span
+                    class="text-body-2 font-weight-bold"
+                    :style="strengthLabelColor"
+                    aria-live="polite"
+                >
+                    {{ props.password.length >= passMinLength ? 'Password strength: ' : '' }}{{ passwordStrength }}
+                </span>
+                <v-icon
+                    v-if="passwordStrength === PASSWORD_STRENGTH.strong || passwordStrength === PASSWORD_STRENGTH.veryStrong" class="ml-1"
+                    color="success"
+                    size="16"
+                >
+                    <Check stroke-width="3" />
+                </v-icon>
+            </div>
+            <v-btn
+                icon
+                size="xx-small"
+                variant="text"
+                color="default"
+                rounded="md"
+                class="transition-transform px-0"
+                :class="{ 'rotate-180': expanded }"
+                :aria-expanded="expanded"
+                aria-controls="password-requirements"
+                title="Show password requirements"
+                @click="expanded = !expanded"
             >
-                <template #label>
-                    <p class="text-body-2">Between {{ passMinLength }} and {{ passMaxLength }} Latin characters</p>
-                </template>
-            </v-checkbox>
-            <p class="text-body-2 mt-2">Its nice to have:</p>
-            <v-checkbox
-                tabindex="-1"
-                class="no-pointer-events text-body-2"
-                :model-value="hasLowerAndUpperCaseLetters"
-                color="success"
-                density="compact"
-                hide-details
+                <v-icon size="16">
+                    <ChevronDown />
+                </v-icon>
+            </v-btn>
+        </div>
+        <v-progress-linear
+            :model-value="barWidth"
+            :color="passwordStrengthColor"
+            rounded="lg"
+            class="mt-1 mb-4"
+            height="3"
+            role="progressbar"
+        />
+
+        <!-- Expandable details -->
+        <v-expand-transition>
+            <v-card
+                v-if="expanded"
+                id="password-requirements"
+                class="mb-4"
+                width="100%"
+                rounded="md"
+                role="region"
+                aria-label="Password requirements"
             >
-                <template #label>
-                    <p class="text-body-2">Upper and lowercase letters</p>
-                </template>
-            </v-checkbox>
-            <v-checkbox
-                tabindex="-1"
-                class="no-pointer-events text-body-2 mt-n2"
-                :model-value="hasSpecialCharacter"
-                color="success"
-                density="compact"
-                hide-details
-            >
-                <template #label>
-                    <p class="text-body-2">At least one special character</p>
-                </template>
-            </v-checkbox>
-            <p class="text-caption mt-2">
-                Avoid using a password that you use on other websites or that might be easily guessed by someone else.
-            </p>
-        </v-card-item>
-    </v-card>
+                <v-card-item>
+                    <p class="text-body-2 font-weight-medium mt-1">Your password should contain:</p>
+                    <v-checkbox
+                        tabindex="-1"
+                        class="no-pointer-events text-body-2"
+                        :model-value="isPasswordLengthAcceptable"
+                        :aria-checked="isPasswordLengthAcceptable"
+                        color="success"
+                        density="compact"
+                        hide-details
+                    >
+                        <template #label>
+                            <p class="text-body-2">Between {{ passMinLength }} and {{ passMaxLength }} Latin characters</p>
+                        </template>
+                    </v-checkbox>
+
+                    <p class="text-body-2 font-weight-medium">Its nice to have:</p>
+                    <v-checkbox
+                        tabindex="-1"
+                        class="no-pointer-events text-body-2"
+                        :model-value="hasLowerAndUpperCaseLetters"
+                        color="success"
+                        density="compact"
+                        hide-details
+                    >
+                        <template #label>
+                            <p class="text-body-2">Upper and lowercase letters</p>
+                        </template>
+                    </v-checkbox>
+                    <v-checkbox
+                        tabindex="-1"
+                        class="no-pointer-events text-body-2 mt-n3"
+                        :model-value="hasSpecialCharacter"
+                        color="success"
+                        density="compact"
+                        hide-details
+                    >
+                        <template #label>
+                            <p class="text-body-2">At least one special character</p>
+                        </template>
+                    </v-checkbox>
+
+                    <p class="text-caption text-high-emphasis">
+                        Avoid using a password that you use on other websites or that might be easily guessed by someone else.
+                    </p>
+                </v-card-item>
+            </v-card>
+        </v-expand-transition>
+    </div>
 </template>
 
 <script setup lang="ts">
-import { computed } from 'vue';
-import { useTheme } from 'vuetify';
+import { computed, ref } from 'vue';
 import {
     VCard,
     VCardItem,
     VProgressLinear,
     VCheckbox,
-    VCardTitle,
     VBtn,
+    VIcon,
+    VExpandTransition,
 } from 'vuetify/components';
+import { Check, ChevronDown } from 'lucide-vue-next';
 
 import { useConfigStore } from '@/store/modules/configStore';
 
 const configStore = useConfigStore();
-
-const theme = useTheme();
-
-const oppositeTheme = computed(() => {
-    return theme.current.value.dark ? 'light' : 'dark';
-});
+const expanded = ref(false);
 
 const PASSWORD_STRENGTH = {
     veryStrong: 'Very Strong',
@@ -120,16 +155,10 @@ const props = defineProps<{
     email?: string;
 }>();
 
-/**
- * Returns the maximum password length from the store.
- */
 const passMaxLength = computed((): number => {
     return configStore.state.config.passwordMaximumLength;
 });
 
-/**
- * Returns the minimum password length from the store.
- */
 const passMinLength = computed((): number => {
     return configStore.state.config.passwordMinimumLength;
 });
@@ -139,16 +168,13 @@ const isPasswordLengthAcceptable = computed((): boolean => {
         && props.password.length >= passMinLength.value;
 });
 
-/**
- * Returns password strength label depends on score.
- */
 const passwordStrength = computed((): string => {
     if (props.password.length < passMinLength.value) {
-        return `Use ${passMinLength.value} or more characters`;
+        return `Minimum ${passMinLength.value} characters`;
     }
 
     if (props.password.length > passMaxLength.value) {
-        return `Use ${passMaxLength.value} or fewer characters`;
+        return `Maximum ${passMaxLength.value} characters`;
     }
 
     const score = scorePassword();
@@ -165,16 +191,10 @@ const passwordStrength = computed((): string => {
     return PASSWORD_STRENGTH.weak;
 });
 
-/**
- * Color for indicator between red as weak and green as strong password.
- */
 const passwordStrengthColor = computed((): string => {
     return PASSWORD_STRENGTH_COLORS[passwordStrength.value] || PASSWORD_STRENGTH_COLORS.default;
 });
 
-/**
- * Fills password strength indicator bar.
- */
 const barWidth = computed((): string => {
     return BAR_WIDTH[passwordStrength.value] || BAR_WIDTH.default;
 });
@@ -191,9 +211,6 @@ const hasSpecialCharacter = computed((): boolean => {
     return /\W/.test(props.password);
 });
 
-/**
- * Returns password strength score depends on length, case variations and special characters.
- */
 function scorePassword(): number {
     const password = props.password;
     let score = 0;
@@ -242,7 +259,38 @@ function scorePassword(): number {
 </script>
 
 <style scoped lang="scss">
-.positioning {
-    z-index: 1;
+.password-strength {
+    width: 100%;
+    background: rgb(var(--v-theme-background));
+    padding: 12px 16px 2px;
+
+    // border: 1px solid rgb(var(--v-theme-border));
+
+    .v-progress-linear {
+        transition: all 0.3s ease;
+    }
+}
+
+.strength-label-transition {
+    transition: color 0.3s ease;
+}
+
+.requirements-card-enter-active,
+.requirements-card-leave-active {
+    transition: opacity 0.3s, transform 0.3s;
+}
+
+.requirements-card-enter-from,
+.requirements-card-leave-to {
+    opacity: 0;
+    transform: translateY(-10px);
+}
+
+.transition-transform {
+    transition: transform 0.3s ease;
+}
+
+.rotate-180 {
+    transform: rotate(180deg);
 }
 </style>

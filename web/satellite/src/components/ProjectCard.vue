@@ -2,11 +2,11 @@
 // See LICENSE for copying information.
 
 <template>
-    <v-card>
+    <v-card class="pa-2">
         <div class="h-100 d-flex flex-column justify-space-between">
             <v-card-item>
                 <div class="d-flex justify-space-between">
-                    <v-chip :color="item ? PROJECT_ROLE_COLORS[item.role] : 'primary'" variant="tonal" class="font-weight-bold my-2" size="small">
+                    <v-chip :color="item ? PROJECT_ROLE_COLORS[item.role] : 'primary'" variant="tonal" class="font-weight-bold mt-1 mb-2" size="small">
                         <component :is="Box" :size="12" class="mr-1" />
                         {{ item?.role || 'Project' }}
                     </v-chip>
@@ -24,7 +24,6 @@
                 </v-card-subtitle>
             </v-card-item>
             <v-card-text class="flex-grow-0">
-                <v-divider class="mt-1 mb-4" />
                 <v-btn v-if="!item" color="primary" size="small" class="mr-2" @click="emit('createClick')">
                     Create Project
                 </v-btn>
@@ -43,8 +42,8 @@
                         Decline
                     </v-btn>
                 </template>
-                <v-btn v-else color="primary" size="small" rounded="md" class="mr-2" @click="openProject">Open Project</v-btn>
-                <v-btn v-if="item?.role === ProjectRole.Owner" color="default" variant="outlined" size="small" rounded="md" density="comfortable" icon>
+                <v-btn v-else color="primary" class="mr-2" @click="openProject">Open Project</v-btn>
+                <v-btn v-if="item?.role === ProjectRole.Owner" color="default" variant="outlined" density="comfortable" icon>
                     <v-icon :icon="Ellipsis" />
 
                     <v-menu activator="parent" location="bottom" transition="fade-transition">

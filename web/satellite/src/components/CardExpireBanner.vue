@@ -8,7 +8,6 @@
         variant="outlined"
         :type="cardExpired ? 'error' : 'info'"
         :title="`Credit Card ${cardExpired ? 'Expired' : 'Expiring Soon'}`"
-        rounded="lg"
         class="my-4 pb-4"
         border
     >

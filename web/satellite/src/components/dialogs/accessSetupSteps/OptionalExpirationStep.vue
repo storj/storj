@@ -10,7 +10,7 @@
                     v-model="expiration"
                     column
                     mandatory
-                    selected-class="text-info font-weight-bold"
+                    selected-class="font-weight-bold"
                     variant="outlined"
                     class="mt-2"
                 >

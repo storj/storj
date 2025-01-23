@@ -37,7 +37,7 @@
 
             <v-form v-model="formValid" class="pa-6" @submit.prevent>
                 <v-row>
-                    <v-col cols="6">
+                    <v-col cols="12" sm="6">
                         <p class="text-subtitle-2 mb-2">Current Limit</p>
                         <v-text-field
                             class="edit-project-limit__text-field"
@@ -71,7 +71,7 @@
                             </template>
                         </v-text-field>
                     </v-col>
-                    <v-col cols="6">
+                    <v-col cols="12" sm="6">
                         <p class="text-subtitle-2 mb-2">Set {{ limitType }} Limit</p>
                         <v-text-field
                             class="edit-project-limit__text-field"

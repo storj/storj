@@ -2,7 +2,7 @@
 // See LICENSE for copying information.
 
 <template>
-    <v-card>
+    <v-card class="pa-4">
         <v-text-field
             v-model="search"
             label="Search"
@@ -14,7 +14,7 @@
             clearable
             density="comfortable"
             rounded="lg"
-            class="mx-2 mt-2"
+            class="mb-4"
         />
 
         <v-data-table
@@ -37,11 +37,11 @@
                     block
                     @click="openProject(item)"
                 >
-                    <img src="../assets/icon-project-tonal.svg" alt="Project" class="mr-3">
+                    <img src="@/assets/icon-project-tonal.svg" alt="Project" class="mr-3">
                     {{ item.name }}
                 </v-btn>
                 <div v-else class="pl-1 pr-4 ml-n1 d-flex align-center justify-start font-weight-bold">
-                    <img src="../assets/icon-project-tonal.svg" alt="Project" class="mr-3">
+                    <img src="@/assets/icon-project-tonal.svg" alt="Project" class="mr-3">
                     <span class="text-no-wrap">{{ item.name }}</span>
                 </div>
             </template>

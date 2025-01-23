@@ -11,7 +11,6 @@
                         <v-alert
                             variant="tonal"
                             color="info"
-                            rounded="lg"
                             density="comfortable"
                             border
                         >
@@ -74,32 +73,39 @@
                                 class="pos-relative"
                                 :class="{ hidden: !ssoUnavailable }"
                             >
-                                <v-text-field
-                                    id="Password"
-                                    v-model="password"
-                                    class="mb-5"
-                                    label="Password"
-                                    placeholder="Enter a password"
-                                    color="secondary"
-                                    hide-details="auto"
-                                    :type="showPassword ? 'text' : 'password'"
-                                    :rules="passwordRules"
-                                    required
-                                    @update:focused="showPasswordStrength = !showPasswordStrength"
-                                >
-                                    <template #append-inner>
-                                        <password-input-eye-icons
-                                            :is-visible="showPassword"
-                                            type="password"
-                                            @toggleVisibility="showPassword = !showPassword"
+                                <div class="password-field-container">
+                                    <v-text-field
+                                        id="Password"
+                                        v-model="password"
+                                        class="mb-5"
+                                        label="Password"
+                                        placeholder="Enter a password"
+                                        color="secondary"
+                                        hide-details="auto"
+                                        :type="showPassword ? 'text' : 'password'"
+                                        :rules="passwordRules"
+                                        required
+                                        @focus="showPasswordStrength = true"
+                                    >
+                                        <template #append-inner>
+                                            <password-input-eye-icons
+                                                :is-visible="showPassword"
+                                                type="password"
+                                                :aria-label="showPassword ? 'Hide password' : 'Show password'"
+                                                @toggleVisibility="showPassword = !showPassword"
+                                            />
+                                        </template>
+                                    </v-text-field>
+
+                                    <transition name="fade">
+                                        <password-strength
+                                            v-if="showPasswordStrength && password"
+                                            :email="email"
+                                            :password="password"
+                                            class="password-strength-indicator"
                                         />
-                                    </template>
-                                </v-text-field>
-                                <password-strength
-                                    v-if="showPasswordStrength"
-                                    :email="email"
-                                    :password="password"
-                                />
+                                    </transition>
+                                </div>
                             </div>
 
                             <v-text-field
@@ -129,7 +135,6 @@
                                 class="my-2"
                                 variant="tonal"
                                 color="warning"
-                                rounded="lg"
                                 density="comfortable"
                                 border
                             >
@@ -166,7 +171,7 @@
                                 required
                             >
                                 <template #label>
-                                    <p class="text-body-2">
+                                    <p class="text-body-2 terms-text">
                                         I agree to the
                                         <a class="link font-weight-medium" href="https://storj.io/terms-of-service/" target="_blank" rel="noopener">terms of service</a>
                                         and
@@ -661,3 +666,27 @@ watch(password, () => {
     }
 });
 </script>
+
+<style scoped>
+.password-field-container {
+    position: relative;
+}
+
+.password-strength-indicator {
+    margin-top: 4px;
+}
+
+.fade-enter-active,
+.fade-leave-active {
+    transition: opacity 0.3s ease;
+}
+
+.fade-enter-from,
+.fade-leave-to {
+    opacity: 0;
+}
+
+.terms-text {
+    letter-spacing: -0.3px !important;
+}
+</style>

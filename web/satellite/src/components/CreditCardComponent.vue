@@ -2,14 +2,14 @@
 // See LICENSE for copying information.
 
 <template>
-    <v-card title="Credit Card" variant="flat">
+    <v-card title="Card" class="pa-2">
         <v-card-text>
-            <v-chip color="default" size="small" variant="tonal" class="font-weight-bold mr-2 text-capitalize">{{ card.brand }}</v-chip>
-            <v-chip v-if="card.isDefault" color="info" size="small" variant="tonal" class="font-weight-bold">Default</v-chip>
-            <v-divider class="my-4" />
+            <v-chip color="primary" size="small" variant="tonal" class="font-weight-bold mr-2 text-capitalize">{{ card.brand }}</v-chip>
+            <v-chip v-if="card.isDefault" color="default" size="small" variant="tonal" class="font-weight-bold">Default</v-chip>
+            <v-divider class="my-6 border-0" />
             <p>Card Number</p>
             <v-chip color="default" variant="text" class="pl-0 font-weight-bold mt-2">**** **** **** {{ card.last4 }}</v-chip>
-            <v-divider class="my-4" />
+            <v-divider class="my-6 border-0" />
             <p>Exp. Date</p>
             <v-col v-if="isEditing" class="pl-0 pb-0">
                 <div class="d-flex justify-start align-end">
@@ -35,16 +35,16 @@
                     </v-col>
                 </v-row>
             </v-chip>
-            <v-divider class="my-4" />
+            <v-divider class="my-6 border-0" />
             <v-row class="ma-0 align-center">
                 <template v-if="!isEditing">
-                    <v-btn variant="outlined" color="default" size="small" class="mr-2" @click="isEditing = true">Edit Card</v-btn>
-                    <v-btn variant="outlined" color="default" size="small" class="mr-2" @click="isEditDefaultCCDialog = true">Edit Default</v-btn>
-                    <v-btn variant="outlined" color="default" size="small" @click="isRemoveCCDialog = true">Remove</v-btn>
+                    <v-btn variant="outlined" color="default" class="mr-2" @click="isEditing = true">Edit Card</v-btn>
+                    <v-btn variant="outlined" color="default" class="mr-2" @click="isEditDefaultCCDialog = true">Edit Default</v-btn>
+                    <v-btn variant="outlined" color="default" @click="isRemoveCCDialog = true">Remove</v-btn>
                 </template>
                 <template v-else class="ma-0 align-center">
-                    <v-btn variant="outlined" color="primary" size="small" class="mr-2" :loading="isLoading" :disabled="savingDisabled" @click="saveCard">Save</v-btn>
-                    <v-btn variant="outlined" color="default" size="small" :disabled="isLoading" @click="isEditing = false">Cancel</v-btn>
+                    <v-btn variant="outlined" color="primary" class="mr-2" :loading="isLoading" :disabled="savingDisabled" @click="saveCard">Save</v-btn>
+                    <v-btn variant="outlined" color="default" :disabled="isLoading" @click="isEditing = false">Cancel</v-btn>
                 </template>
             </v-row>
         </v-card-text>

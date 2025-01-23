@@ -19,7 +19,7 @@
                         height="40"
                         rounded="lg"
                     >
-                        <component :is="RectangleEllipsis" :size="18" />
+                        <component :is="ShieldCheck" :size="18" />
                     </v-sheet>
                 </template>
                 <v-card-title class="font-weight-bold">Setup Two-Factor</v-card-title>
@@ -167,7 +167,7 @@ import {
     VSheet,
 } from 'vuetify/components';
 import QRCode from 'qrcode';
-import { RectangleEllipsis } from 'lucide-vue-next';
+import { ShieldCheck } from 'lucide-vue-next';
 
 import { useLoading } from '@/composables/useLoading';
 import { useConfigStore } from '@/store/modules/configStore';

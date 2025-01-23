@@ -9,7 +9,6 @@
         variant="tonal"
         :title="bannerText[threshold].title"
         :type="bannerText[threshold].hundred ? 'error' : 'warning'"
-        rounded="lg"
         class="my-2"
         border
     >
