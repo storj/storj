@@ -69,7 +69,13 @@
 
         <v-row v-if="isTableView">
             <v-col>
-                <ProjectsTableComponent :items="items" @join-click="onJoinClicked" @invite-click="(item) => onInviteClicked(item)" />
+                <ProjectsTableComponent
+                    :items="items"
+                    @join-click="onJoinClicked"
+                    @edit-click="editClick"
+                    @update-limits-click="updateLimitsClick"
+                    @invite-click="(item) => onInviteClicked(item)"
+                />
             </v-col>
         </v-row>
 
@@ -78,7 +84,14 @@
                 <ProjectCard class="h-100" @create-click="newProjectClicked" />
             </v-col>
             <v-col v-for="item in items" v-else :key="item.id" cols="12" sm="6" md="4" lg="3">
-                <ProjectCard :item="item" class="h-100" @join-click="onJoinClicked(item)" @invite-click="onInviteClicked(item)" />
+                <ProjectCard
+                    :item="item"
+                    class="h-100"
+                    @join-click="onJoinClicked(item)"
+                    @invite-click="onInviteClicked(item)"
+                    @edit-click="(field) => editClick(item, field)"
+                    @update-limits-click="(limit) => updateLimitsClick(item, limit)"
+                />
             </v-col>
         </v-row>
     </v-container>
@@ -91,10 +104,12 @@
     />
     <create-project-dialog v-model="isCreateProjectDialogShown" />
     <add-team-member-dialog v-model="isAddMemberDialogShown" :project-id="addMemberProjectId" />
+    <edit-project-details-dialog v-model="isEditProjectDialogShown" :field="fieldToEdit" />
+    <edit-project-limit-dialog v-model="isUpdateLimitsDialogShown" :limit-type="limitToChange" />
 </template>
 
 <script setup lang="ts">
-import { computed, onMounted, ref } from 'vue';
+import { computed, onMounted, ref, watch } from 'vue';
 import {
     VContainer,
     VRow,
@@ -106,7 +121,7 @@ import {
 import { useRouter } from 'vue-router';
 import { CirclePlus, Grid2X2, Table } from 'lucide-vue-next';
 
-import { ProjectItemModel } from '@/types/projects';
+import { FieldToChange, LimitToChange, ProjectItemModel } from '@/types/projects';
 import { useProjectsStore } from '@/store/modules/projectsStore';
 import { useUsersStore } from '@/store/modules/usersStore';
 import { ProjectRole } from '@/types/projectMembers';
@@ -115,11 +130,12 @@ import { useLowTokenBalance } from '@/composables/useLowTokenBalance';
 import { useConfigStore } from '@/store/modules/configStore';
 import { useBillingStore } from '@/store/modules/billingStore';
 import { ROUTES } from '@/router';
-import { AnalyticsEvent } from '@/utils/constants/analyticsEventNames';
+import { AnalyticsErrorEventSource, AnalyticsEvent } from '@/utils/constants/analyticsEventNames';
 import { useAnalyticsStore } from '@/store/modules/analyticsStore';
 import { Dimensions, Size } from '@/utils/bytesSize';
 import { usePreCheck } from '@/composables/usePreCheck';
 import { AccountBalance, CreditCard } from '@/types/payments';
+import { useNotify } from '@/utils/hooks';
 
 import ProjectCard from '@/components/ProjectCard.vue';
 import PageTitleComponent from '@/components/PageTitleComponent.vue';
@@ -130,6 +146,8 @@ import AddTeamMemberDialog from '@/components/dialogs/AddTeamMemberDialog.vue';
 import LowTokenBalanceBanner from '@/components/LowTokenBalanceBanner.vue';
 import TrialExpirationBanner from '@/components/TrialExpirationBanner.vue';
 import CardExpireBanner from '@/components/CardExpireBanner.vue';
+import EditProjectDetailsDialog from '@/components/dialogs/EditProjectDetailsDialog.vue';
+import EditProjectLimitDialog from '@/components/dialogs/EditProjectLimitDialog.vue';
 
 const analyticsStore = useAnalyticsStore();
 const appStore = useAppStore();
@@ -137,6 +155,7 @@ const projectsStore = useProjectsStore();
 const usersStore = useUsersStore();
 const configStore = useConfigStore();
 const billingStore = useBillingStore();
+const notify = useNotify();
 
 const router = useRouter();
 const isLowBalance = useLowTokenBalance();
@@ -147,6 +166,10 @@ const isJoinProjectDialogShown = ref<boolean>(false);
 const isCreateProjectDialogShown = ref<boolean>(false);
 const addMemberProjectId = ref<string>('');
 const isAddMemberDialogShown = ref<boolean>(false);
+const limitToChange = ref(LimitToChange.Storage);
+const fieldToEdit = ref(FieldToChange.Name);
+const isEditProjectDialogShown = ref(false);
+const isUpdateLimitsDialogShown = ref(false);
 const isLoading = ref<boolean>(true);
 
 /**
@@ -231,6 +254,24 @@ function onInviteClicked(item: ProjectItemModel): void {
     }, true);
 }
 
+function editClick(item: ProjectItemModel, field: FieldToChange): void {
+    projectsStore.selectProject(item.id);
+    fieldToEdit.value = field;
+    isEditProjectDialogShown.value = true;
+}
+
+async function updateLimitsClick(item: ProjectItemModel, limit: LimitToChange): Promise<void> {
+    try {
+        projectsStore.selectProject(item.id);
+        // await projectsStore.getProjectLimits(item.id);
+        isUpdateLimitsDialogShown.value = true;
+        limitToChange.value = limit;
+    } catch (error) {
+        projectsStore.deselectProject();
+        notify.notifyError(error, AnalyticsErrorEventSource.ALL_PROJECT_DASHBOARD);
+    }
+}
+
 /**
  * Formats value to needed form and returns it.
  */
@@ -242,6 +283,11 @@ function formattedValue(value: Size): string {
         return `${value.formattedBytes.replace(/\.0+$/, '')}${value.label}`;
     }
 }
+
+watch([isEditProjectDialogShown, isUpdateLimitsDialogShown], ([edit, update]) => {
+    if (edit || update) return;
+    projectsStore.deselectProject();
+});
 
 onMounted(async () => {
     if (billingEnabled.value) {

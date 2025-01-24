@@ -47,6 +47,42 @@
 
                     <v-menu activator="parent" location="bottom" transition="fade-transition">
                         <v-list class="pa-1">
+                            <v-list-item link @click="() => editClick(FieldToChange.Name)">
+                                <template #prepend>
+                                    <component :is="FilePenLine" :size="18" />
+                                </template>
+                                <v-list-item-title class="text-body-2 ml-3">
+                                    Edit Name
+                                </v-list-item-title>
+                            </v-list-item>
+
+                            <v-list-item link @click="() => editClick(FieldToChange.Description)">
+                                <template #prepend>
+                                    <component :is="FilePenLine" :size="18" />
+                                </template>
+                                <v-list-item-title class="text-body-2 ml-3">
+                                    Edit Description
+                                </v-list-item-title>
+                            </v-list-item>
+
+                            <v-list-item v-if="isPaidTier" link @click="() => updateLimitsClick(LimitToChange.Storage)">
+                                <template #prepend>
+                                    <component :is="Cloud" :size="18" />
+                                </template>
+                                <v-list-item-title class="text-body-2 ml-3">
+                                    Update Storage Limit
+                                </v-list-item-title>
+                            </v-list-item>
+
+                            <v-list-item v-if="isPaidTier" link @click="() => updateLimitsClick(LimitToChange.Bandwidth)">
+                                <template #prepend>
+                                    <component :is="DownloadCloud" :size="18" />
+                                </template>
+                                <v-list-item-title class="text-body-2 ml-3">
+                                    Update Download Limit
+                                </v-list-item-title>
+                            </v-list-item>
+
                             <v-list-item link @click="() => onSettingsClick()">
                                 <template #prepend>
                                     <component :is="Settings" :size="18" />
@@ -75,26 +111,32 @@
 </template>
 
 <script setup lang="ts">
-import { ref } from 'vue';
+import { computed, ref } from 'vue';
 import { useRouter } from 'vue-router';
 import {
+    VBtn,
     VCard,
     VCardItem,
+    VCardSubtitle,
+    VCardText,
+    VCardTitle,
     VChip,
-    VBtn,
+    VDivider,
     VIcon,
-    VMenu,
     VList,
     VListItem,
     VListItemTitle,
-    VDivider,
-    VCardTitle,
-    VCardSubtitle,
-    VCardText,
+    VMenu,
 } from 'vuetify/components';
-import { Ellipsis, Settings, UserPlus, Box } from 'lucide-vue-next';
+import { Box, Cloud, DownloadCloud, Ellipsis, FilePenLine, Settings, UserPlus } from 'lucide-vue-next';
 
-import { ProjectItemModel, PROJECT_ROLE_COLORS, ProjectInvitationResponse } from '@/types/projects';
+import {
+    FieldToChange,
+    LimitToChange,
+    PROJECT_ROLE_COLORS,
+    ProjectInvitationResponse,
+    ProjectItemModel,
+} from '@/types/projects';
 import { ProjectRole } from '@/types/projectMembers';
 import { useProjectsStore } from '@/store/modules/projectsStore';
 import { useAnalyticsStore } from '@/store/modules/analyticsStore';
@@ -102,6 +144,7 @@ import { AnalyticsErrorEventSource, AnalyticsEvent } from '@/utils/constants/ana
 import { useNotify } from '@/utils/hooks';
 import { ROUTES } from '@/router';
 import { useBucketsStore } from '@/store/modules/bucketsStore';
+import { useUsersStore } from '@/store/modules/usersStore';
 
 const props = defineProps<{
     item?: ProjectItemModel,
@@ -111,15 +154,20 @@ const emit = defineEmits<{
     joinClick: [];
     createClick: [];
     inviteClick: [];
+    editClick: [FieldToChange];
+    updateLimitsClick: [LimitToChange];
 }>();
 
 const analyticsStore = useAnalyticsStore();
 const bucketsStore = useBucketsStore();
 const projectsStore = useProjectsStore();
+const userStore = useUsersStore();
 const router = useRouter();
 const notify = useNotify();
 
 const isDeclining = ref<boolean>(false);
+
+const isPaidTier = computed(() => userStore.state.user.paidTier);
 
 /**
  * Selects the project and navigates to the project dashboard.
@@ -149,6 +197,16 @@ function onSettingsClick(): void {
         name: ROUTES.ProjectSettings.name,
         params: { id: projectsStore.state.selectedProject.urlId },
     });
+}
+
+function editClick(field: FieldToChange): void {
+    if (!props.item) return;
+    emit('editClick', field);
+}
+
+function updateLimitsClick(limit: LimitToChange): void {
+    if (!props.item) return;
+    emit('updateLimitsClick', limit);
 }
 
 /**
