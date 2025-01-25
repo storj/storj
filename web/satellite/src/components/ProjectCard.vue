@@ -24,17 +24,16 @@
                 </v-card-subtitle>
             </v-card-item>
             <v-card-text class="flex-grow-0">
-                <v-btn v-if="!item" color="primary" size="small" class="mr-2" @click="emit('createClick')">
+                <v-btn v-if="!item" color="primary" class="mr-2" @click="emit('createClick')">
                     Create Project
                 </v-btn>
                 <template v-else-if="item?.role === ProjectRole.Invited">
-                    <v-btn color="primary" size="small" class="mr-2" :disabled="isDeclining" @click="emit('joinClick')">
+                    <v-btn color="primary" class="mr-2" :disabled="isDeclining" @click="emit('joinClick')">
                         Join Project
                     </v-btn>
                     <v-btn
                         variant="outlined"
                         color="default"
-                        size="small"
                         class="mr-2"
                         :loading="isDeclining"
                         @click="declineInvitation"
