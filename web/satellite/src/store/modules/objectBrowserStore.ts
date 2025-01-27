@@ -1,7 +1,7 @@
 // Copyright (C) 2023 Storj Labs, Inc.
 // See LICENSE for copying information.
 
-import { computed, reactive, UnwrapNestedRefs } from 'vue';
+import { computed, reactive, UnwrapNestedRefs, h } from 'vue';
 import { defineStore } from 'pinia';
 import {
     _Object,
@@ -43,6 +43,7 @@ import { ObjectDeleteError } from '@/utils/error';
 import { useConfigStore } from '@/store/modules/configStore';
 import { LocalData } from '@/utils/localData';
 import { ObjectLockStatus, Retention } from '@/types/objectLock';
+import { NotifyRenderedUplinkCLIMessage } from '@/types/DelayedNotification';
 
 export type BrowserObject = {
     Key: string;
@@ -164,6 +165,8 @@ export const useObjectBrowserStore = defineStore('objectBrowser', () => {
     const state = reactive<FilesState>(new FilesState());
 
     const configStore = useConfigStore();
+    const appStore = useAppStore();
+    const { notifyError, notifyWarning } = useNotificationsStore();
 
     // TODO: replace a hard-coded value with a config value?
     const isAltPagination = computed<boolean>(() => {
@@ -672,9 +675,6 @@ export const useObjectBrowserStore = defineStore('objectBrowser', () => {
     async function enqueueUpload(key: string, body: File): Promise<void> {
         assertIsInitialized(state);
 
-        const appStore = useAppStore();
-        const { notifyError } = useNotificationsStore();
-
         const params = {
             Bucket: state.bucket,
             Key: key,
@@ -707,7 +707,24 @@ export const useObjectBrowserStore = defineStore('objectBrowser', () => {
                 type: 'file',
             });
 
+            notifyError(() => {
+                return [
+                    h('span', {}, `${key}: the file size is too large. To upload large files, please use the `),
+                    ...NotifyRenderedUplinkCLIMessage,
+                ];
+            }, AnalyticsErrorEventSource.OBJECT_UPLOAD_ERROR, undefined, 10000);
+
             return;
+        }
+
+        // If file size exceeds 5 GB, show warning message.
+        if (body.size > (5 * 1024 * 1024 * 1024)) {
+            notifyWarning(() => {
+                return [
+                    h('span', {}, `To upload large files, please consider using the `),
+                    ...NotifyRenderedUplinkCLIMessage,
+                ];
+            }, undefined, 10000);
         }
 
         // Upload 4 parts at a time.
@@ -788,13 +805,20 @@ export const useObjectBrowserStore = defineStore('objectBrowser', () => {
         item.status = UploadingStatus.Failed;
         item.failedMessage = FailedUploadMessage.Failed;
 
-        const { notifyError } = useNotificationsStore();
-
         const limitExceededError = 'storage limit exceeded';
         if (error.message.includes(limitExceededError)) {
             notifyError(`Error: ${limitExceededError}`, AnalyticsErrorEventSource.OBJECT_UPLOAD_ERROR);
         } else {
             notifyError(error.message, AnalyticsErrorEventSource.OBJECT_UPLOAD_ERROR);
+        }
+
+        if (item.Body.size > (1024 * 1024 * 1024)) {
+            notifyWarning(() => {
+                return [
+                    h('span', {}, `To upload large files, please consider using the `),
+                    ...NotifyRenderedUplinkCLIMessage,
+                ];
+            }, undefined, 10000);
         }
     }
 
