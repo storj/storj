@@ -53,7 +53,7 @@
     <enter-bucket-passphrase-dialog
         v-if="currentStep === OnboardingStep.UploadFiles || currentStep === OnboardingStep.CreateAccess"
         v-model="isBucketPassphraseDialogOpen"
-        @passphraseEntered="passphraseDialogCallback"
+        @passphrase-entered="passphraseDialogCallback"
     />
     <manage-passphrase-dialog
         v-if="currentStep === OnboardingStep.EncryptionPassphrase"

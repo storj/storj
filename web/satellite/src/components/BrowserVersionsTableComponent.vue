@@ -34,7 +34,7 @@
                         <v-checkbox-btn
                             :model-value="selectedFiles.includes(file)"
                             hide-details
-                            @update:modelValue="(selected) => toggleSelectObjectVersion(selected as boolean, file)"
+                            @update:model-value="(selected) => toggleSelectObjectVersion(selected as boolean, file)"
                         />
                     </td>
                     <td>
@@ -123,7 +123,7 @@
                             :model-value="areAllVersionsSelected(item.raw.browserObject)"
                             :indeterminate="areSomeVersionsSelected(item.raw.browserObject)"
                             hide-details
-                            @update:modelValue="(selected) => updateSelectedVersions(item.raw.browserObject, selected)"
+                            @update:model-value="(selected) => updateSelectedVersions(item.raw.browserObject, selected)"
                         />
                     </td>
                     <td>

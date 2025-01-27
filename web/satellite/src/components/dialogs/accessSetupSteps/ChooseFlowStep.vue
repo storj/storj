@@ -13,7 +13,7 @@
                     variant="outlined"
                     mandatory
                     column
-                    @update:modelValue="val => emit('setFlowType', val)"
+                    @update:model-value="val => emit('setFlowType', val)"
                 >
                     <v-chip
                         :key="FlowType.FullAccess"

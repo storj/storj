@@ -53,7 +53,7 @@ const filePath = computed<string>(() => bucketsStore.state.fileComponentPath);
 type BreadcrumbItem = {
     title: string;
     to: string;
-}
+};
 
 /**
  * Returns breadcrumb items corresponding to parts in the object browser path.

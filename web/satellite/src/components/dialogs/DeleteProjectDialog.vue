@@ -137,7 +137,7 @@
                                         type="number"
                                         maxlength="6"
                                         :error="isOTPInputError"
-                                        @update:modelValue="value => onOTPValueChange(value)"
+                                        @update:model-value="value => onOTPValueChange(value)"
                                     />
                                 </v-col>
                             </v-row>
@@ -156,7 +156,7 @@
                                         type="number"
                                         maxlength="6"
                                         :error="isOTPInputError"
-                                        @update:modelValue="value => onOTPValueChange(value)"
+                                        @update:model-value="value => onOTPValueChange(value)"
                                     />
                                 </v-col>
                             </v-row>

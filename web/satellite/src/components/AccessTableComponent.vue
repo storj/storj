@@ -29,9 +29,9 @@
             select-strategy="page"
             hover
             show-select
-            @update:itemsPerPage="onUpdateLimit"
+            @update:items-per-page="onUpdateLimit"
             @update:page="onUpdatePage"
-            @update:sortBy="onUpdateSortBy"
+            @update:sort-by="onUpdateSortBy"
         >
             <template #item.name="{ item }">
                 <span class="font-weight-medium">
@@ -212,7 +212,7 @@ function onUpdatePage(page: number): void {
 /**
  * Handles update table sorting event.
  */
-function onUpdateSortBy(sortBy: {key: keyof AccessGrantsOrderBy, order: keyof SortDirection}[]): void {
+function onUpdateSortBy(sortBy: { key: keyof AccessGrantsOrderBy, order: keyof SortDirection }[]): void {
     if (!sortBy.length) return;
 
     const sorting = sortBy[0];

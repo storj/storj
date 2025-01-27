@@ -70,11 +70,11 @@ export const FREE_PLAN_INFO = new PricingPlanInfo(
 );
 
 // TODO: fully implement these types and their methods according to their Go counterparts
-export type UUID = string
-export type MemorySize = string
-export type Time = string
+export type UUID = string;
+export type MemorySize = string;
+export type Time = string;
 
-export function tableSizeOptions(itemCount: number, isObjectBrowser = false): {title: string, value: number}[] {
+export function tableSizeOptions(itemCount: number, isObjectBrowser = false): { title: string, value: number }[] {
     const opts = [
         { title: '10', value: 10 },
         { title: '25', value: 25 },
@@ -93,7 +93,7 @@ export type DataTableHeader = {
     align?: 'start' | 'end' | 'center';
     sortable?: boolean;
     width?: number | string;
-}
+};
 
 export type SortItem = {
     key: string;

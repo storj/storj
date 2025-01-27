@@ -305,7 +305,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue';
+import { computed, onBeforeUnmount, onMounted, ref, watch , ComponentPublicInstance } from 'vue';
 import {
     VBtn,
     VCard,
@@ -318,7 +318,6 @@ import {
     VTooltip,
 } from 'vuetify/components';
 import { VDateInput } from 'vuetify/labs/components';
-import { ComponentPublicInstance } from '@vue/runtime-core';
 import { useRouter } from 'vue-router';
 import { Info, CirclePlus, CircleArrowUp, Cloud, CloudDownload } from 'lucide-vue-next';
 
@@ -363,7 +362,7 @@ import CardExpireBanner from '@/components/CardExpireBanner.vue';
 type ValueUnit = {
     value: number
     unit: string
-}
+};
 
 const appStore = useAppStore();
 const usersStore = useUsersStore();

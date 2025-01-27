@@ -59,9 +59,9 @@
                         <choose-access-step
                             :ref="stepInfos[SetupStep.ChooseAccessStep].ref"
                             @name-changed="newName => name = newName"
-                            @typeChanged="newType => accessType = newType"
+                            @type-changed="newType => accessType = newType"
                             @submit="nextStep"
-                            @appChanged="application => selectedApp = application"
+                            @app-changed="application => selectedApp = application"
                         />
                     </v-window-item>
 
@@ -73,15 +73,15 @@
                         <choose-flow-step
                             :ref="stepInfos[SetupStep.ChooseFlowStep].ref"
                             :app="selectedApp"
-                            @setFlowType="val => flowType = val"
+                            @set-flow-type="val => flowType = val"
                         />
                     </v-window-item>
 
                     <v-window-item :value="SetupStep.AccessEncryption">
                         <access-encryption-step
                             :ref="stepInfos[SetupStep.AccessEncryption].ref"
-                            @selectOption="val => passphraseOption = val"
-                            @passphraseChanged="val => passphrase = val"
+                            @select-option="val => passphraseOption = val"
+                            @passphrase-changed="val => passphrase = val"
                             @submit="nextStep"
                         />
                     </v-window-item>
@@ -89,7 +89,7 @@
                     <v-window-item :value="SetupStep.EnterNewPassphrase">
                         <enter-passphrase-step
                             :ref="stepInfos[SetupStep.EnterNewPassphrase].ref"
-                            @passphraseChanged="val => passphrase = val"
+                            @passphrase-changed="val => passphrase = val"
                         />
                     </v-window-item>
 
@@ -97,28 +97,28 @@
                         <passphrase-generated-step
                             :ref="stepInfos[SetupStep.PassphraseGenerated].ref"
                             :name="name"
-                            @passphraseChanged="val => passphrase = val"
+                            @passphrase-changed="val => passphrase = val"
                         />
                     </v-window-item>
 
                     <v-window-item :value="SetupStep.ChoosePermissionsStep">
                         <choose-permissions-step
                             :ref="stepInfos[SetupStep.ChoosePermissionsStep].ref"
-                            @permissionsChanged="val => permissions = val"
+                            @permissions-changed="val => permissions = val"
                         />
                     </v-window-item>
 
                     <v-window-item :value="SetupStep.ObjectLockPermissionsStep">
                         <object-lock-permissions-step
                             :ref="stepInfos[SetupStep.ObjectLockPermissionsStep].ref"
-                            @permissionsChanged="val => objectLockPermissions = val"
+                            @permissions-changed="val => objectLockPermissions = val"
                         />
                     </v-window-item>
 
                     <v-window-item :value="SetupStep.SelectBucketsStep">
                         <select-buckets-step
                             :ref="stepInfos[SetupStep.SelectBucketsStep].ref"
-                            @bucketsChanged="val => buckets = val"
+                            @buckets-changed="val => buckets = val"
                         />
                     </v-window-item>
 
@@ -126,7 +126,7 @@
                         <optional-expiration-step
                             :ref="stepInfos[SetupStep.OptionalExpirationStep].ref"
                             :end-date="endDate"
-                            @endDateChanged="val => endDate = val"
+                            @end-date-changed="val => endDate = val"
                         />
                     </v-window-item>
 

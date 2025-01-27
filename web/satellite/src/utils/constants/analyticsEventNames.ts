@@ -122,7 +122,7 @@ export enum PageVisitSource {
     DOCS = 'docs',
     FORUM = 'forum',
     SUPPORT = 'support',
-    VALDI = 'valdi'
+    VALDI = 'valdi',
 }
 
 export const SATELLITE_MANAGED_ENCRYPTION_DOCS_PAGE = 'https://docs.storj.io/learn/concepts/encryption-key/storj-vs-user-managed-encryption';

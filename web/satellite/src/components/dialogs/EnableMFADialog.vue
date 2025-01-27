@@ -72,7 +72,7 @@
                                 type="number"
                                 autofocus
                                 maxlength="6"
-                                @update:modelValue="value => onValueChange(value)"
+                                @update:model-value="value => onValueChange(value)"
                             />
                         </v-card-item>
                     </v-window-item>

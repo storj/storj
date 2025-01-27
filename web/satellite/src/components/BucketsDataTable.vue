@@ -29,9 +29,9 @@
             no-data-text="No buckets found"
             class="border"
             hover
-            @update:itemsPerPage="onUpdateLimit"
+            @update:items-per-page="onUpdateLimit"
             @update:page="onUpdatePage"
-            @update:sortBy="onUpdateSort"
+            @update:sort-by="onUpdateSort"
         >
             <template #item.name="{ item }">
                 <v-btn
@@ -207,7 +207,7 @@
         </v-data-table-server>
     </v-card>
     <delete-bucket-dialog v-model="isDeleteBucketDialogShown" :bucket-name="bucketToDelete" />
-    <enter-bucket-passphrase-dialog v-model="isBucketPassphraseDialogOpen" @passphraseEntered="passphraseDialogCallback" />
+    <enter-bucket-passphrase-dialog v-model="isBucketPassphraseDialogOpen" @passphrase-entered="passphraseDialogCallback" />
     <share-dialog v-model="isShareBucketDialogShown" :bucket-name="shareBucketName" />
     <bucket-details-dialog v-model="isBucketDetailsDialogShown" :bucket-name="bucketDetailsName" />
     <set-bucket-object-lock-config-dialog v-if="objectLockUIEnabled" v-model="isSetBucketObjectLockDialogShown" :bucket-name="bucketObjectLockName" />
@@ -307,7 +307,7 @@ let passphraseDialogCallback: () => void = () => {};
 type SortItem = {
     key: keyof Bucket;
     order: boolean | 'asc' | 'desc';
-}
+};
 
 const displayedItems = computed<Bucket[]>(() => {
     const items = page.value.buckets;

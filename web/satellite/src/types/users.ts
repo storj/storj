@@ -184,7 +184,7 @@ export class User {
 export type ExpirationInfo = {
     isCloseToExpiredTrial: boolean;
     days: number;
-}
+};
 
 /**
  * User class holds info for updating User.

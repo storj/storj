@@ -13,7 +13,7 @@
                     selected-class="font-weight-bold"
                     variant="outlined"
                     class="mt-2 mb-3"
-                    @update:modelValue="onChangeOption"
+                    @update:model-value="onChangeOption"
                 >
                     <v-chip
                         filter

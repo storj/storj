@@ -32,9 +32,9 @@
             item-selectable="selectable"
             :show-select="isUserAdmin"
             :hover="isUserAdmin"
-            @update:itemsPerPage="onUpdateLimit"
+            @update:items-per-page="onUpdateLimit"
             @update:page="onUpdatePage"
-            @update:sortBy="onUpdateSortBy"
+            @update:sort-by="onUpdateSortBy"
         >
             <template #item.name="{ item }">
                 <span class="font-weight-bold">
@@ -215,7 +215,7 @@ type RenderedItem = {
     date: string,
     selectable: boolean,
     expired: boolean,
-}
+};
 
 const usersStore = useUsersStore();
 const analyticsStore = useAnalyticsStore();
@@ -235,8 +235,8 @@ const isRemoveMembersDialogShown = ref<boolean>(false);
 const isChangeMembersRoleShown = ref<boolean>(false);
 const search = ref<string>('');
 const searchTimer = ref<NodeJS.Timeout>();
-const selectedMembers = ref<{email:string, isInvite: boolean}[]>([]);
-const memberToDelete = ref<{email:string, isInvite: boolean}>();
+const selectedMembers = ref<{ email:string, isInvite: boolean }[]>([]);
+const memberToDelete = ref<{ email:string, isInvite: boolean }>();
 const memberToUpdate = ref<RenderedItem>();
 
 const headers = ref<DataTableHeader[]>([
@@ -301,7 +301,7 @@ const projectMembers = computed((): RenderedItem[] => {
 /**
  * Returns the members to be deleted to the delete dialog.
  */
-const membersToDelete = computed<{email:string, isInvite: boolean}[]>(() => {
+const membersToDelete = computed<{ email:string, isInvite: boolean }[]>(() => {
     if (memberToDelete.value) return [memberToDelete.value];
     return selectedMembers.value;
 });
@@ -364,7 +364,7 @@ function onSingleDelete(item: RenderedItem): void {
 /**
  * Handles update table sorting event.
  */
-async function onUpdateSortBy(sortBy: {key: keyof ProjectMemberOrderBy, order: keyof SortDirection}[]): Promise<void> {
+async function onUpdateSortBy(sortBy: { key: keyof ProjectMemberOrderBy, order: keyof SortDirection }[]): Promise<void> {
     if (!sortBy.length) return;
 
     const sorting = sortBy[0];

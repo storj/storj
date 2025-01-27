@@ -80,7 +80,7 @@ type DisplayedItem = {
     status: string;
     link: string;
     timestamp: Date;
-}
+};
 
 const { isLoading, withLoading } = useLoading();
 const notify = useNotify();

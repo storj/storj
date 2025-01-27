@@ -16,4 +16,4 @@ export type JoinCunoFSBetaForm = {
     desiredFeatures: string;
     currentPainPoints: string;
     specificTasks: string;
-}
+};

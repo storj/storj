@@ -257,7 +257,6 @@ import {
     VCard,
     VCardItem,
     VCardTitle,
-    VCardText,
     VCardActions,
     VChip,
     VChipGroup,

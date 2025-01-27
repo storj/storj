@@ -83,29 +83,29 @@ export type UploadingBrowserObject = BrowserObject & {
     Bucket: string;
     Body: File;
     failedMessage?: FailedUploadMessage;
-}
+};
 
 export type PreviewCache = {
     url: string,
     lastModified: number,
-}
+};
 
 export const MAX_KEY_COUNT = 500;
 
 export type ObjectBrowserCursor = {
     page: number,
     limit: number,
-}
+};
 
 export type ObjectRange = {
     start: number,
     end: number,
-}
+};
 
 export type FileToUpload = {
     path: string,
     file: File,
-}
+};
 
 export class FilesState {
     s3: S3Client | null = null;

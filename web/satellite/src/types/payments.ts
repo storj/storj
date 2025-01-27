@@ -696,7 +696,7 @@ export enum CouponDuration {
     /**
      * Indicates that a coupon is applied every billing period forever.
      */
-    Forever = 'forever'
+    Forever = 'forever',
 }
 
 /**
@@ -824,7 +824,7 @@ export interface BillingInformation {
     invoiceReference: string,
 }
 
-export interface UpdateCardParams{
+export interface UpdateCardParams {
     cardID:  string
     expMonth: number
     expYear: number

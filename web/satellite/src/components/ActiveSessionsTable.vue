@@ -12,9 +12,9 @@
             :item-value="(item: Session) => item"
             no-data-text="No results found"
             class="elevation-0 border-0"
-            @update:itemsPerPage="onUpdateLimit"
+            @update:items-per-page="onUpdateLimit"
             @update:page="onUpdatePage"
-            @update:sortBy="onUpdateSortBy"
+            @update:sort-by="onUpdateSortBy"
         >
             <template #item.isCurrent="{ item }">
                 <v-chip :color="item.isCurrent ? 'success' : 'primary'" class="font-weight-bold" size="small" label>
@@ -103,7 +103,7 @@ function onUpdatePage(page: number): void {
     fetch(page, cursor.value.limit);
 }
 
-function onUpdateSortBy(sortBy: {key: keyof SessionsOrderBy, order: keyof SortDirection}[]): void {
+function onUpdateSortBy(sortBy: { key: keyof SessionsOrderBy, order: keyof SortDirection }[]): void {
     if (!sortBy.length) return;
 
     const sorting = sortBy[0];

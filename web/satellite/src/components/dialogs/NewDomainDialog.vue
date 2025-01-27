@@ -61,8 +61,8 @@
                     <v-window-item :value="NewDomainFlowStep.SetupDomainAccess">
                         <access-encryption-step
                             :ref="stepInfos[NewDomainFlowStep.SetupDomainAccess].ref"
-                            @selectOption="val => passphraseOption = val"
-                            @passphraseChanged="val => passphrase = val"
+                            @select-option="val => passphraseOption = val"
+                            @passphrase-changed="val => passphrase = val"
                             @submit="nextStep"
                         />
                     </v-window-item>
@@ -70,7 +70,7 @@
                     <v-window-item :value="NewDomainFlowStep.EnterNewPassphrase">
                         <enter-passphrase-step
                             :ref="stepInfos[NewDomainFlowStep.EnterNewPassphrase].ref"
-                            @passphraseChanged="val => passphrase = val"
+                            @passphrase-changed="val => passphrase = val"
                         />
                     </v-window-item>
 
@@ -78,7 +78,7 @@
                         <passphrase-generated-step
                             :ref="stepInfos[NewDomainFlowStep.PassphraseGenerated].ref"
                             :name="accessName"
-                            @passphraseChanged="val => passphrase = val"
+                            @passphrase-changed="val => passphrase = val"
                         />
                     </v-window-item>
 

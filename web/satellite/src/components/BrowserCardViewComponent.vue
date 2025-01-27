@@ -15,7 +15,7 @@
                     hide-details
                     clearable
                     density="comfortable"
-                    @update:modelValue="analyticsStore.eventTriggered(AnalyticsEvent.SEARCH_BUCKETS)"
+                    @update:model-value="analyticsStore.eventTriggered(AnalyticsEvent.SEARCH_BUCKETS)"
                 />
             </v-col>
             <v-col cols="auto">

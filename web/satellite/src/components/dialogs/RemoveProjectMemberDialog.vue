@@ -108,7 +108,7 @@ import { useProjectMembersStore } from '@/store/modules/projectMembersStore';
 import { AnalyticsErrorEventSource } from '@/utils/constants/analyticsEventNames';
 
 const props = defineProps<{
-    removables: {email:string, isInvite: boolean}[],
+    removables: { email:string, isInvite: boolean }[],
 }>();
 
 const model = defineModel<boolean>({ required: true });
@@ -123,7 +123,7 @@ const pmStore = useProjectMembersStore();
 const { isLoading, withLoading } = useLoading();
 const notify = useNotify();
 
-const firstThreeSelected = computed<{email:string, isInvite: boolean}[]>(() => props.removables.slice(0, 3));
+const firstThreeSelected = computed<{ email:string, isInvite: boolean }[]>(() => props.removables.slice(0, 3));
 
 const memberInviteText = computed<string>(() => {
     const membersLength = props.removables.filter(e => !e.isInvite).length;

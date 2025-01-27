@@ -31,5 +31,5 @@ export class ABTestValues {
 
 // Enum of all AB test hit actions
 export enum ABHitAction {
-    UPGRADE_ACCOUNT_CLICKED= 'upgrade_clicked'
+    UPGRADE_ACCOUNT_CLICKED= 'upgrade_clicked',
 }

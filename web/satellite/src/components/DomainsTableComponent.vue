@@ -54,7 +54,7 @@ import { DataTableHeader } from '@/types/common';
 type SortItem = {
     key: keyof Domain;
     order: boolean | 'asc' | 'desc';
-}
+};
 
 const domainsStore = useDomainsStore();
 

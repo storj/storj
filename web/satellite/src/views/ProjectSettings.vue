@@ -85,7 +85,7 @@
                         <span v-if="!noLimitsUiEnabled">Available Storage: {{ paidStorageLimitFormatted }}</span>
                     </v-card-subtitle>
                     <v-card-text>
-                        <v-btn variant="outlined" color="default" :prepend-icon="Infinity" @click="showStorageLimitDialog">
+                        <v-btn variant="outlined" color="default" :prepend-icon="InfinityIcon" @click="showStorageLimitDialog">
                             Edit Storage Limit
                         </v-btn>
                     </v-card-text>
@@ -99,7 +99,7 @@
                         <span v-if="!noLimitsUiEnabled">Available Download: {{ paidBandwidthLimitFormatted }} per month</span>
                     </v-card-subtitle>
                     <v-card-text>
-                        <v-btn variant="outlined" color="default" :prepend-icon="Infinity" @click="showBandwidthLimitDialog">
+                        <v-btn variant="outlined" color="default" :prepend-icon="InfinityIcon" @click="showBandwidthLimitDialog">
                             Edit Download Limit
                         </v-btn>
                     </v-card-text>
@@ -213,7 +213,7 @@ import {
     VIcon,
     VChip,
 } from 'vuetify/components';
-import { ArrowRight, SquareArrowOutUpRight, Check, Pencil, View, Infinity, ExternalLink } from 'lucide-vue-next';
+import { ArrowRight, SquareArrowOutUpRight, Check, Pencil, View, Infinity as InfinityIcon, ExternalLink } from 'lucide-vue-next';
 
 import { useProjectsStore } from '@/store/modules/projectsStore';
 import { FieldToChange, LimitToChange, Project } from '@/types/projects';

@@ -15,7 +15,7 @@
             clearable
             density="comfortable"
             class="mb-4"
-            @update:modelValue="analyticsStore.eventTriggered(AnalyticsEvent.SEARCH_BUCKETS)"
+            @update:model-value="analyticsStore.eventTriggered(AnalyticsEvent.SEARCH_BUCKETS)"
         />
 
         <v-data-table-server
@@ -36,7 +36,7 @@
             :items-length="isAltPagination ? cursor.limit : totalObjectCount"
             :items-per-page-options="isAltPagination ? [] : tableSizeOptions(totalObjectCount, true)"
             @update:page="onPageChange"
-            @update:itemsPerPage="onLimitChange"
+            @update:items-per-page="onLimitChange"
         >
             <template #no-data>
                 <p class="text-body-2 cursor-pointer py-14 rounded-xlg my-4" @click="emit('uploadClick')">

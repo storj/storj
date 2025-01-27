@@ -203,7 +203,7 @@
             <v-window-item class="pb-2">
                 <v-row>
                     <v-col cols="12" md="4" sm="6">
-                        <StorjTokenCardComponent ref="tokenCardComponent" @historyClicked="tab = TABS.transactions" />
+                        <StorjTokenCardComponent ref="tokenCardComponent" @history-clicked="tab = TABS.transactions" />
                     </v-col>
 
                     <v-col v-for="(card, i) in creditCards" :key="i" cols="12" md="4" sm="6">
