@@ -433,6 +433,7 @@ func NewServer(logger *zap.Logger, config Config, service *console.Service, oidc
 			paymentsRouter.HandleFunc("/package-available", paymentController.PackageAvailable).Methods(http.MethodGet, http.MethodOptions)
 		}
 		if config.BillingAddFundsEnabled {
+			paymentsRouter.HandleFunc("/add-funds", paymentController.AddFunds).Methods(http.MethodPost, http.MethodOptions)
 			paymentsRouter.HandleFunc("/webhook", paymentController.HandleWebhookEvent).Methods(http.MethodPost, http.MethodOptions)
 		}
 	}
@@ -1011,6 +1012,8 @@ func (server *Server) frontendConfigHandler(w http.ResponseWriter, r *http.Reque
 		CunoFSBetaEnabled:                 server.config.CunoFSBetaEnabled,
 		CSRFToken:                         csrfToken,
 		BillingAddFundsEnabled:            server.config.BillingAddFundsEnabled,
+		MaxAddFundsAmount:                 server.config.MaxAddFundsAmount,
+		MinAddFundsAmount:                 server.config.MinAddFundsAmount,
 	}
 
 	err := json.NewEncoder(w).Encode(&cfg)

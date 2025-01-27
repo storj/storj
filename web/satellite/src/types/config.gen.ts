@@ -77,6 +77,8 @@ export class FrontendConfig {
     cunoFSBetaEnabled: boolean;
     csrfToken: string;
     billingAddFundsEnabled: boolean;
+    maxAddFundsAmount: number;
+    minAddFundsAmount: number;
 }
 
 export class MultiCaptchaConfig {

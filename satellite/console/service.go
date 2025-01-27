@@ -703,6 +703,37 @@ func (payment Payments) ProjectsCharges(ctx context.Context, since, before time.
 	return payment.service.accounts.ProjectCharges(ctx, user.ID, since, before)
 }
 
+// AddFunds starts the process of adding funds to the user's account.
+func (payment Payments) AddFunds(ctx context.Context, params payments.AddFundsParams) (response *payments.ChargeCardResponse, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	user, err := payment.service.getUserAndAuditLog(ctx, "project charges")
+	if err != nil {
+		return nil, ErrUnauthorized.Wrap(err)
+	}
+
+	if params.CardID == "" {
+		return nil, ErrValidation.New("card id is required")
+	}
+	if params.Amount < payment.service.config.MinAddFundsAmount {
+		return nil, ErrValidation.New("amount is too low")
+	}
+	if params.Amount > payment.service.config.MaxAddFundsAmount {
+		return nil, ErrValidation.New("amount is too high")
+	}
+
+	response, err = payment.service.accounts.PaymentIntents().ChargeCard(ctx, payments.ChargeCardRequest{
+		UserID: user.ID,
+		CardID: params.CardID,
+		Amount: int64(params.Amount),
+	})
+	if err != nil {
+		return nil, Error.Wrap(err)
+	}
+
+	return response, nil
+}
+
 // HandleWebhookEvent handles any event from payment provider.
 func (payment Payments) HandleWebhookEvent(ctx context.Context, signature string, payload []byte) (err error) {
 	defer mon.Task()(&ctx)(&err)

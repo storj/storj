@@ -17,6 +17,12 @@ type PaymentIntents interface {
 	ChargeCard(ctx context.Context, req ChargeCardRequest) (*ChargeCardResponse, error)
 }
 
+// AddFundsParams holds the parameters needed to add funds to an account balance.
+type AddFundsParams struct {
+	CardID string `json:"cardID"`
+	Amount int    `json:"amount"`
+}
+
 // ChargeCardRequest is the request to charge a credit card.
 type ChargeCardRequest struct {
 	UserID   uuid.UUID

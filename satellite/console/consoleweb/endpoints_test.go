@@ -363,6 +363,7 @@ func TestPayments(t *testing.T) {
 				config.Payments.PartnersPlacementPriceOverrides.SetMap(map[string]paymentsconfig.PlacementProductMap{
 					partner: config.Payments.PlacementPriceOverrides,
 				})
+				config.Console.BillingAddFundsEnabled = true
 			},
 		},
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
@@ -413,6 +414,31 @@ func TestPayments(t *testing.T) {
 			resp, body := test.request(http.MethodGet, "/payments/account/charges?from=1619827200&to=1620844320", nil)
 			require.Contains(t, body, "egress")
 			require.Equal(t, http.StatusOK, resp.StatusCode)
+		}
+
+		{ // Post_AddFunds
+			consoleCfg := test.planet.Satellites[0].Config.Console
+
+			makeRequest := func(cardID string, amount int) Response {
+				resp, _ := test.request(http.MethodPost, "/payments/add-funds", test.toJSON(map[string]any{
+					"cardID": cardID,
+					"amount": amount,
+				}))
+
+				return resp
+			}
+
+			response := makeRequest("", 100)
+			require.Equal(test.t, http.StatusBadRequest, response.StatusCode)
+
+			response = makeRequest("testID", consoleCfg.MaxAddFundsAmount+1)
+			require.Equal(test.t, http.StatusBadRequest, response.StatusCode)
+
+			response = makeRequest("testID", consoleCfg.MinAddFundsAmount-1)
+			require.Equal(test.t, http.StatusBadRequest, response.StatusCode)
+
+			response = makeRequest("testID", consoleCfg.MinAddFundsAmount)
+			require.Equal(test.t, http.StatusOK, response.StatusCode)
 		}
 
 		{ // Get_TaxCountries

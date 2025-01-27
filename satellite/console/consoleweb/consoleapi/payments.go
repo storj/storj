@@ -800,6 +800,40 @@ func (p *Payments) GetTaxCountries(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
+// AddFunds starts the process of adding funds to the user's account.
+func (p *Payments) AddFunds(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	var err error
+	defer mon.Task()(&ctx)(&err)
+
+	w.Header().Set("Content-Type", "application/json")
+
+	var params payments.AddFundsParams
+	if err = json.NewDecoder(r.Body).Decode(&params); err != nil {
+		p.serveJSONError(ctx, w, http.StatusBadRequest, err)
+		return
+	}
+
+	resp, err := p.service.Payments().AddFunds(ctx, params)
+	if err != nil {
+		if console.ErrUnauthorized.Has(err) {
+			p.serveJSONError(ctx, w, http.StatusUnauthorized, err)
+			return
+		}
+		if console.ErrValidation.Has(err) {
+			p.serveJSONError(ctx, w, http.StatusBadRequest, err)
+			return
+		}
+
+		p.serveJSONError(ctx, w, http.StatusInternalServerError, err)
+		return
+	}
+
+	if err = json.NewEncoder(w).Encode(resp); err != nil {
+		p.log.Error("failed to encode add funds response", zap.Error(ErrPaymentsAPI.Wrap(err)))
+	}
+}
+
 // HandleWebhookEvent handles a webhook event from the payments provider.
 func (p *Payments) HandleWebhookEvent(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
