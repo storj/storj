@@ -306,7 +306,8 @@ func (endpoint *Endpoint) Upload(stream pb.DRPCPiecestore_UploadStream) (err err
 			mon.IntVal("upload_failure_size_bytes").Observe(uploadSize)
 			mon.IntVal("upload_failure_duration_ns").Observe(uploadDuration)
 			mon.FloatVal("upload_failure_rate_bytes_per_sec").Observe(uploadRate)
-			if errors.Is(err, context.Canceled) || errors.Is(err, io.ErrUnexpectedEOF) || rpcstatus.Code(err) == rpcstatus.Canceled {
+			if errors.Is(err, context.Canceled) || errors.Is(err, io.ErrUnexpectedEOF) ||
+				rpcstatus.Code(err) == rpcstatus.Canceled || rpcstatus.Code(err) == rpcstatus.Aborted {
 				// This is common in normal operation, and shouldn't throw a full error.
 				log.Debug("upload failed", zap.Int64("Size", uploadSize), zap.Error(err))
 
@@ -329,6 +330,9 @@ func (endpoint *Endpoint) Upload(stream pb.DRPCPiecestore_UploadStream) (err err
 
 	pieceWriter, err = endpoint.pieceBackend.Writer(ctx, limit.SatelliteId, limit.PieceId, hashAlgorithm, limit.PieceExpiration)
 	if err != nil {
+		if errs2.IsCanceled(err) {
+			return rpcstatus.Wrap(rpcstatus.Canceled, err)
+		}
 		endpoint.log.Error("upload internal error", zap.Error(err))
 		return rpcstatus.Wrap(rpcstatus.Internal, err)
 	}
