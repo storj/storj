@@ -175,7 +175,7 @@ pipeline {
 
                 sh 'go test -parallel 6 -p 12 -vet=off $COVERFLAGS -timeout 32m -json -race ./... 2>&1 | tee .build/tests.json | xunit -out .build/tests.xml'
 
-                sh 'killall emulator_main'
+                sh 'killall spanner_emulator'
             }
 
             post {
@@ -222,7 +222,7 @@ pipeline {
 
                 sh 'go test -parallel 1 -p 1 -vet=off -timeout 20m -short -run XYZXYZXYZXYZ -bench . -benchtime 1x ./...'
 
-                sh 'killall emulator_main'
+                sh 'killall spanner_emulator'
             }
         }
 
@@ -242,7 +242,7 @@ pipeline {
 
                         sh 'make test-sim'
 
-                        sh 'killall emulator_main'
+                        sh 'killall spanner_emulator'
                         // sh 'make test-certificates' // flaky
                     }
                 }
@@ -288,7 +288,7 @@ pipeline {
 
                 sh 'make test-satellite-ui'
 
-                sh 'killall emulator_main'
+                sh 'killall spanner_emulator'
             }
 
             post {
