@@ -32,6 +32,7 @@ func (we *webhookEvents) ParseEvent(ctx context.Context, signature string, paylo
 	}
 
 	genericEvent := &payments.WebhookEvent{
+		ID:   stripeEvent.ID,
 		Type: payments.WebhookEventType(stripeEvent.Type),
 		Data: stripeEvent.Data.Object,
 	}

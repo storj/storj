@@ -27,6 +27,7 @@ var (
 
 // WebhookEvent represents a generic webhook event.
 type WebhookEvent struct {
+	ID   string
 	Type WebhookEventType
 	Data map[string]interface{}
 }
