@@ -232,7 +232,7 @@ func (endpoint *Endpoint) Upload(stream pb.DRPCPiecestore_UploadStream) (err err
 		})
 	switch {
 	case err != nil:
-		if errs2.IsCanceled(err) || errors.Is(err, io.ErrUnexpectedEOF) {
+		if errs2.IsCanceled(err) || errors.Is(err, io.ErrUnexpectedEOF) || errors.Is(err, io.EOF) {
 			return rpcstatus.Wrap(rpcstatus.Canceled, err)
 		}
 		endpoint.log.Error("upload internal error", zap.Error(err))
