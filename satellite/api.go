@@ -419,6 +419,7 @@ func NewAPI(log *zap.Logger, full *identity.FullIdentity, db DB,
 			peer.DB.NodeAPIVersion(),
 			peer.Orders.Service,
 			config.Orders.AcceptOrders,
+			peer.Overlay.Service,
 		)
 
 		if err := pb.DRPCRegisterOrders(peer.Server.DRPC(), peer.Orders.Endpoint); err != nil {
