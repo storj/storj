@@ -434,7 +434,7 @@ func NewServer(logger *zap.Logger, config Config, service *console.Service, oidc
 		}
 		if config.BillingAddFundsEnabled {
 			paymentsRouter.Handle("/add-funds", server.withCSRFProtection(http.HandlerFunc(paymentController.AddFunds))).Methods(http.MethodPost, http.MethodOptions)
-			paymentsRouter.HandleFunc("/webhook", paymentController.HandleWebhookEvent).Methods(http.MethodPost, http.MethodOptions)
+			router.HandleFunc("/api/v0/payments/webhook", paymentController.HandleWebhookEvent).Methods(http.MethodPost, http.MethodOptions)
 		}
 	}
 

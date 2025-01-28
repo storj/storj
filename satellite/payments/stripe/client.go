@@ -167,6 +167,7 @@ func NewStripeClient(log *zap.Logger, config Config) Client {
 		invoiceItems:                &invoiceitem.Client{B: backends.API, Key: key},
 		invoices:                    &invoice.Client{B: backends.API, Key: key},
 		paymentMethods:              &paymentmethod.Client{B: backends.API, Key: key},
+		paymentIntents:              &paymentintent.Client{B: backends.API, Key: key},
 		promotionCodes:              &promotioncode.Client{B: backends.API, Key: key},
 		taxIDs:                      &taxid.Client{B: backends.API, Key: key},
 	}

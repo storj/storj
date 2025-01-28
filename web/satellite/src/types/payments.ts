@@ -57,6 +57,14 @@ export interface PaymentsApi {
     addCreditCard(token: string, csrfProtectionToken: string): Promise<void>;
 
     /**
+     * Add credit card
+     * @param cardID - the ID of the credit card to charge
+     * @param amount - the amount of funds to add, in cents
+     * @throws Error
+     */
+    addFunds(cardID: string, amount: number): Promise<AddFundsResponse>;
+
+    /**
      * Update credit card
      * @param params - the parameters to update the card with.
      * @param csrfProtectionToken - CSRF token
@@ -804,6 +812,12 @@ export class UsagePriceModel {
         public readonly egressMBCents: string = '',
         public readonly segmentMonthCents: string = '',
     ) { }
+}
+
+export interface AddFundsResponse {
+    success: boolean,
+    clientSecret: string,
+    paymentIntentID: string,
 }
 
 export interface TaxCountry {
