@@ -593,7 +593,6 @@ func (endpoint *Endpoint) Download(stream pb.DRPCPiecestore_DownloadStream) (err
 	if err := endpoint.verifyOrderLimit(ctx, limit); err != nil {
 		mon.Counter("download_failure_count", actionSeriesTag).Inc(1)
 		mon.Meter("download_verify_orderlimit_failed", actionSeriesTag).Mark(1)
-		log.Error("download failed", zap.Error(err))
 		return err
 	}
 
