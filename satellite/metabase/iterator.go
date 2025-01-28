@@ -586,13 +586,11 @@ func nextBucket(b BucketName) BucketName {
 func (p *PostgresAdapter) doNextQueryPendingObjectsByKey(ctx context.Context, it *objectsIterator) (_ tagsql.Rows, err error) {
 	defer mon.Task()(&ctx)(&err)
 
+	querySelectFields := querySelectorFields("object_key", it)
+
 	return p.db.QueryContext(ctx, `
 			SELECT
-				object_key, stream_id, version, status, encryption,
-				created_at, expires_at,
-				segment_count,
-				total_plain_size, total_encrypted_size, fixed_segment_size,
-				encrypted_metadata_nonce, encrypted_metadata, encrypted_metadata_encrypted_key
+				`+querySelectFields+`
 			FROM objects
 			WHERE
 				(project_id, bucket_name, object_key) = ($1, $2, $3)
