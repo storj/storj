@@ -72,18 +72,15 @@ pipeline {
             }
         }
 
-        stage('Build') {
-            parallel {
-                stage('db') {
-                    steps {
-                        sh 'service postgresql start'
-                        dir('.build') {
-                            sh '''
-                                cockroach start-single-node --insecure --store=type=mem,size=3GiB \
-                                --listen-addr=localhost:26257 --http-addr=localhost:8087 \
-                                --cache 1024MiB --max-sql-memory 1024MiB --background
-                            '''
-                    }
+        stage('Start DB') {
+            steps {
+                sh 'service postgresql start'
+                dir('.build') {
+                    sh '''
+                        cockroach start-single-node --insecure --store=type=mem,size=3GiB \
+                        --listen-addr=localhost:26257 --http-addr=localhost:8087 \
+                        --cache 1024MiB --max-sql-memory 1024MiB --background
+                    '''
                 }
             }
         }
