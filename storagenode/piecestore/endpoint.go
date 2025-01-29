@@ -13,6 +13,7 @@ import (
 	"net"
 	"reflect"
 	"runtime/trace"
+	"strconv"
 	"sync"
 	"sync/atomic"
 	"syscall"
@@ -437,6 +438,14 @@ func (endpoint *Endpoint) Upload(stream pb.DRPCPiecestore_UploadStream) (err err
 				return true, rpcstatus.Wrap(rpcstatus.Internal, err)
 			}
 			committed = true
+
+			if !info.OrderLimit.PieceExpiration.IsZero() {
+				mon.IntVal("piece_expiration_date",
+					monkit.NewSeriesTag("size", strconv.FormatInt(message.Done.PieceSize, 10)),
+					monkit.NewSeriesTag("satellite_id", limit.SatelliteId.String()),
+					monkit.NewSeriesTag("piece_id", limit.PieceId.String()),
+				).Observe(info.OrderLimit.PieceExpiration.Unix())
+			}
 		}
 
 		storageNodeHash, err := signing.SignPieceHash(ctx, signing.SignerFromFullIdentity(endpoint.ident), &pb.PieceHash{
