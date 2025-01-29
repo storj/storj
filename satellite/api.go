@@ -60,6 +60,7 @@ import (
 	"storj.io/storj/satellite/payments/stripe"
 	"storj.io/storj/satellite/reputation"
 	"storj.io/storj/satellite/snopayouts"
+	"storj.io/storj/satellite/trust"
 	"storj.io/storj/shared/nodetag"
 )
 
@@ -201,6 +202,7 @@ type API struct {
 
 	SuccessTrackers *metainfo.SuccessTrackers
 	FailureTracker  metainfo.SuccessTracker
+	TrustedUplinks  *trust.TrustedPeersList
 }
 
 // NewAPI creates a new satellite API process.
@@ -297,23 +299,38 @@ func NewAPI(log *zap.Logger, full *identity.FullIdentity, db DB,
 	}
 
 	{
-		var trustedUplinks []storj.NodeID
-		for _, uplinkIDString := range config.Metainfo.SuccessTrackerTrustedUplinks {
-			uplinkID, err := storj.NodeIDFromString(uplinkIDString)
-			if err != nil {
-				log.Warn("Wrong uplink ID for the trusted list of the success trackers", zap.String("uplink", uplinkIDString), zap.Error(err))
-			}
-			trustedUplinks = append(trustedUplinks, uplinkID)
+		successTrackerTrustedUplinks, err := parseNodeIDs(config.Metainfo.SuccessTrackerTrustedUplinks)
+		if err != nil {
+			log.Warn("Wrong uplink ID for the trusted list of the success trackers", zap.Error(err))
+			return nil, err
 		}
+
+		successTrackerUplinks, err := parseNodeIDs(config.Metainfo.SuccessTrackerUplinks)
+		if err != nil {
+			log.Warn("Wrong uplink ID for the list of the success trackers", zap.Error(err))
+			return nil, err
+		}
+
+		trustedUplinkSlice, err := parseNodeIDs(config.Metainfo.TrustedUplinks)
+		if err != nil {
+			log.Warn("Wrong uplink ID for the list of the trusted uplinks", zap.Error(err))
+			return nil, err
+		}
+
+		trustedUplinkSlice = append(trustedUplinkSlice, successTrackerTrustedUplinks...)
+		successTrackerUplinks = append(successTrackerUplinks, successTrackerTrustedUplinks...)
+
 		newTracker, ok := metainfo.GetNewSuccessTracker(config.Metainfo.SuccessTrackerKind)
 		if !ok {
 			return nil, errs.New("Unknown success tracker kind %q", config.Metainfo.SuccessTrackerKind)
 		}
-		peer.SuccessTrackers = metainfo.NewSuccessTrackers(trustedUplinks, newTracker)
+		peer.SuccessTrackers = metainfo.NewSuccessTrackers(successTrackerUplinks, newTracker)
 		monkit.ScopeNamed(mon.Name() + ".success_trackers").Chain(peer.SuccessTrackers)
 
 		peer.FailureTracker = metainfo.NewPercentSuccessTracker()
 		monkit.ScopeNamed(mon.Name() + ".failure_tracker").Chain(peer.FailureTracker)
+
+		peer.TrustedUplinks = trust.NewTrustedPeerList(trustedUplinkSlice)
 	}
 
 	placements, err := config.Placement.Parse(config.Overlay.Node.CreateDefaultPlacement, nodeselection.NewPlacementConfigEnvironment(peer.SuccessTrackers, peer.FailureTracker))
@@ -448,10 +465,12 @@ func NewAPI(log *zap.Logger, full *identity.FullIdentity, db DB,
 			peer.DB.Revocation(),
 			peer.SuccessTrackers,
 			peer.FailureTracker,
+			peer.TrustedUplinks,
 			config.Metainfo,
 			migrationModeFlag,
 			placements,
 			config.Console.PlacementEdgeURLOverrides,
+			config.Orders.TrustedOrders,
 		)
 		if err != nil {
 			return nil, errs.Combine(err, peer.Close())
@@ -869,3 +888,15 @@ func (peer *API) URL() storj.NodeURL {
 
 // PrivateAddr returns the private address.
 func (peer *API) PrivateAddr() string { return peer.Server.PrivateAddr().String() }
+
+func parseNodeIDs(nodeIDs []string) ([]storj.NodeID, error) {
+	rv := make([]storj.NodeID, 0, len(nodeIDs))
+	for _, nodeID := range nodeIDs {
+		parsedID, err := storj.NodeIDFromString(nodeID)
+		if err != nil {
+			return nil, err
+		}
+		rv = append(rv, parsedID)
+	}
+	return rv, nil
+}

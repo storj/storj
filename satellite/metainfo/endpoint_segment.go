@@ -228,7 +228,7 @@ func (endpoint *Endpoint) RetryBeginSegmentPieces(ctx context.Context, req *pb.R
 	// TODO: It's possible that a node gets reused across multiple calls to RetryBeginSegmentPieces.
 	excludedIDs := make([]storj.NodeID, 0, len(segmentID.OriginalOrderLimits))
 	successTracker := endpoint.successTrackers.GetTracker(peer.ID)
-	isTrusted := endpoint.successTrackers.IsTrusted(peer.ID)
+	isTrusted := endpoint.trustedUplinks.IsTrusted(peer.ID)
 	for pieceNumber, orderLimit := range segmentID.OriginalOrderLimits {
 		excludedIDs = append(excludedIDs, orderLimit.Limit.StorageNodeId)
 		if _, found := retryingPieceNumberSet[int32(pieceNumber)]; found {
@@ -340,7 +340,7 @@ func (endpoint *Endpoint) CommitSegment(ctx context.Context, req *pb.SegmentComm
 	}
 
 	// verify the piece upload results
-	validPieces, invalidPieces, err := endpoint.pointerVerification.SelectValidPieces(ctx, req.UploadResult, originalLimits)
+	validPieces, invalidPieces, err := endpoint.pointerVerification.SelectValidPieces(ctx, peer, req.UploadResult, originalLimits)
 	if err != nil {
 		endpoint.log.Debug("pointer verification failed", zap.Error(err))
 		return nil, rpcstatus.Errorf(rpcstatus.InvalidArgument, "pointer verification failed: %s", err)
@@ -453,7 +453,7 @@ func (endpoint *Endpoint) CommitSegment(ctx context.Context, req *pb.SegmentComm
 	// increment our counters in the success tracker appropriate to the committing uplink
 	{
 		tracker := endpoint.successTrackers.GetTracker(peer.ID)
-		isTrusted := endpoint.successTrackers.IsTrusted(peer.ID)
+		isTrusted := endpoint.trustedUplinks.IsTrusted(peer.ID)
 		validPieceSet := make(map[storj.NodeID]struct{}, len(validPieces))
 		for _, piece := range validPieces {
 			tracker.Increment(piece.NodeId, true)

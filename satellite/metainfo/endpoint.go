@@ -37,6 +37,7 @@ import (
 	"storj.io/storj/satellite/orders"
 	"storj.io/storj/satellite/overlay"
 	"storj.io/storj/satellite/revocation"
+	"storj.io/storj/satellite/trust"
 	"storj.io/storj/shared/lrucache"
 )
 
@@ -96,6 +97,7 @@ type Endpoint struct {
 	zstdEncoder                    *zstd.Encoder
 	successTrackers                *SuccessTrackers
 	failureTracker                 SuccessTracker
+	trustedUplinks                 *trust.TrustedPeersList
 	placement                      nodeselection.PlacementDefinitions
 	placementEdgeUrlOverrides      console.PlacementEdgeURLOverrides
 
@@ -109,7 +111,9 @@ func NewEndpoint(log *zap.Logger, buckets *buckets.Service, metabaseDB *metabase
 	orders *orders.Service, cache *overlay.Service, attributions attribution.DB, peerIdentities overlay.PeerIdentities,
 	apiKeys APIKeys, projectUsage *accounting.Service, projects console.Projects, projectMembers console.ProjectMembers, users console.Users,
 	satellite signing.Signer, revocations revocation.DB, successTrackers *SuccessTrackers, failureTracker SuccessTracker,
-	config Config, migrationModeFlag *MigrationModeFlagExtension, placement nodeselection.PlacementDefinitions, placementEdgeUrlOverrides console.PlacementEdgeURLOverrides) (*Endpoint, error) {
+	trustedUplinks *trust.TrustedPeersList, config Config, migrationModeFlag *MigrationModeFlagExtension,
+	placement nodeselection.PlacementDefinitions, placementEdgeUrlOverrides console.PlacementEdgeURLOverrides, trustedOrders bool) (
+	*Endpoint, error) {
 
 	// TODO do something with too many params
 
@@ -143,7 +147,7 @@ func NewEndpoint(log *zap.Logger, buckets *buckets.Service, metabaseDB *metabase
 		orders:              orders,
 		overlay:             cache,
 		attributions:        attributions,
-		pointerVerification: pointerverification.NewService(peerIdentities),
+		pointerVerification: pointerverification.NewService(peerIdentities, cache, trustedUplinks, trustedOrders),
 		apiKeys:             apiKeys,
 		projectUsage:        projectUsage,
 		projects:            projects,
@@ -177,6 +181,7 @@ func NewEndpoint(log *zap.Logger, buckets *buckets.Service, metabaseDB *metabase
 		zstdEncoder:               encoder,
 		successTrackers:           successTrackers,
 		failureTracker:            failureTracker,
+		trustedUplinks:            trustedUplinks,
 		placement:                 placement,
 		placementEdgeUrlOverrides: placementEdgeUrlOverrides,
 		rateLimiterTime:           time.Now,
