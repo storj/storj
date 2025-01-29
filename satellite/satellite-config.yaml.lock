@@ -1136,6 +1136,9 @@ identity.key-path: /root/.local/share/storj/identity/satellite/identity.key
 # how often to flush the rollups write cache to the database
 # orders.flush-interval: 1m0s
 
+# stops validating orders received from trusted nodes
+# orders.trusted-orders: false
+
 # default AS OF SYSTEM TIME for service
 # overlay.as-of-system-time: -10s
 

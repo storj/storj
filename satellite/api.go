@@ -418,7 +418,7 @@ func NewAPI(log *zap.Logger, full *identity.FullIdentity, db DB,
 			peer.Orders.DB,
 			peer.DB.NodeAPIVersion(),
 			peer.Orders.Service,
-			config.Orders.AcceptOrders,
+			config.Orders,
 			peer.Overlay.Service,
 		)
 

@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/stretchr/testify/require"
+	"go.uber.org/zap"
 
 	"storj.io/common/memory"
 	"storj.io/common/pb"
@@ -16,8 +17,10 @@ import (
 	"storj.io/common/testcontext"
 	"storj.io/common/testrand"
 	"storj.io/storj/private/testplanet"
+	"storj.io/storj/satellite"
 	"storj.io/storj/satellite/internalpb"
 	"storj.io/storj/satellite/metabase"
+	"storj.io/storj/satellite/nodeselection"
 )
 
 func TestSettlementWithWindowEndpointManyOrders(t *testing.T) {
@@ -428,15 +431,28 @@ func TestSettlementWithWindowEndpointErrors(t *testing.T) {
 	})
 }
 
-func TestSettlementWithWindowFinal_RejectOrders(t *testing.T) {
-	// this test checks that if orders are rejected by the satellite, they will be
-	// settled correctly when the satellite starts accepting orders again
+func TestSettlementWithWindowFinal_TrustedOrders(t *testing.T) {
+	// test checks if trusted node will be able to send orders without any issue
 	testplanet.Run(t, testplanet.Config{
 		SatelliteCount: 1, StorageNodeCount: 1, UplinkCount: 1,
+		Reconfigure: testplanet.Reconfigure{
+			Satellite: func(log *zap.Logger, index int, config *satellite.Config) {
+				config.Orders.TrustedOrders = true
+			},
+		},
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
-		// start rejecting orders
-		planet.Satellites[0].Orders.Endpoint.TestingSetAcceptOrdersValid(false)
-		err := planet.Uplinks[0].Upload(ctx, planet.Satellites[0], "bucket", "object", testrand.Bytes(5*memory.KiB))
+		err := planet.Satellites[0].DB.OverlayCache().UpdateNodeTags(ctx, nodeselection.NodeTags{
+			nodeselection.NodeTag{
+				NodeID:   planet.StorageNodes[0].ID(),
+				SignedAt: time.Now(),
+				Signer:   storj.NodeID{30: 1},
+				Name:     "trusted_orders",
+				Value:    []byte("true"),
+			},
+		})
+		require.NoError(t, err)
+
+		err = planet.Uplinks[0].Upload(ctx, planet.Satellites[0], "bucket", "object", testrand.Bytes(5*memory.KiB))
 		require.NoError(t, err)
 
 		require.NoError(t, planet.WaitForStorageNodeEndpoints(ctx))
@@ -445,16 +461,6 @@ func TestSettlementWithWindowFinal_RejectOrders(t *testing.T) {
 
 		result, err := planet.StorageNodes[0].OrdersStore.ListUnsentBySatellite(ctx, time.Now().Add(24*time.Hour))
 		require.NoError(t, err)
-		// orders were not sent
-		require.NotEmpty(t, result)
-
-		// start accepting orders
-		planet.Satellites[0].Orders.Endpoint.TestingSetAcceptOrdersValid(true)
-		planet.StorageNodes[0].Storage2.Orders.SendOrders(ctx, time.Now().Add(24*time.Hour))
-
-		result, err = planet.StorageNodes[0].OrdersStore.ListUnsentBySatellite(ctx, time.Now().Add(24*time.Hour))
-		require.NoError(t, err)
-		// all orders were sent
 		require.Empty(t, result)
 	})
 }
