@@ -29,6 +29,7 @@ import (
 
 // this is the zero signer that we use in production. this go syntax is equivalent to
 // 0000000000000000000000000000000000000000000000000000000000000100.
+// TODO make this configurable.
 var trustedOperatorSigner = storj.NodeID{30: 1}
 
 // DB implements saving order after receiving from storage node.
@@ -179,24 +180,23 @@ func SortStoragenodeBandwidthRollups(rollups []StoragenodeBandwidthRollup) {
 type Endpoint struct {
 	pb.DRPCOrdersUnimplementedServer
 	log              *zap.Logger
+	config           Config
 	satelliteSignee  signing.Signee
 	DB               DB
 	nodeAPIVersionDB nodeapiversion.DB
 	ordersService    *Service
 	overlay          *overlay.Service
-
-	acceptOrders bool
 }
 
 // NewEndpoint new orders receiving endpoint.
-func NewEndpoint(log *zap.Logger, satelliteSignee signing.Signee, db DB, nodeAPIVersionDB nodeapiversion.DB, ordersService *Service, acceptOrders bool, overlay *overlay.Service) *Endpoint {
+func NewEndpoint(log *zap.Logger, satelliteSignee signing.Signee, db DB, nodeAPIVersionDB nodeapiversion.DB, ordersService *Service, config Config, overlay *overlay.Service) *Endpoint {
 	return &Endpoint{
 		log:              log,
+		config:           config,
 		satelliteSignee:  satelliteSignee,
 		DB:               db,
 		nodeAPIVersionDB: nodeAPIVersionDB,
 		ordersService:    ordersService,
-		acceptOrders:     acceptOrders,
 		overlay:          overlay,
 	}
 }
@@ -232,7 +232,7 @@ func (endpoint *Endpoint) SettlementWithWindowFinal(stream pb.DRPCOrders_Settlem
 	ctx := stream.Context()
 	defer mon.Task()(&ctx)(&err)
 
-	if !endpoint.acceptOrders {
+	if !endpoint.config.AcceptOrders {
 		return rpcstatus.Error(rpcstatus.Unavailable, "orders endpoint is unavailable. try again later.")
 	}
 
@@ -247,9 +247,11 @@ func (endpoint *Endpoint) SettlementWithWindowFinal(stream pb.DRPCOrders_Settlem
 	}
 
 	skipSignatures := false
-	if node, err := endpoint.overlay.CachedGet(ctx, peer.ID); err == nil {
-		if tag, err := node.Tags.FindBySignerAndName(trustedOperatorSigner, "trusted_orders"); err == nil {
-			skipSignatures = string(tag.Value) == "true"
+	if endpoint.config.TrustedOrders {
+		if node, err := endpoint.overlay.CachedGet(ctx, peer.ID); err == nil {
+			if tag, err := node.Tags.FindBySignerAndName(trustedOperatorSigner, "trusted_orders"); err == nil {
+				skipSignatures = string(tag.Value) == "true"
+			}
 		}
 	}
 	mon.BoolVal("skip_signatures").Observe(skipSignatures)
@@ -474,5 +476,5 @@ func (endpoint *Endpoint) isValid(ctx context.Context, log *zap.Logger, order *p
 
 // TestingSetAcceptOrdersValid sets endpoint acceptOrders to the provided value. Used only for testing.
 func (endpoint *Endpoint) TestingSetAcceptOrdersValid(acceptOrders bool) {
-	endpoint.acceptOrders = acceptOrders
+	endpoint.config.AcceptOrders = acceptOrders
 }
