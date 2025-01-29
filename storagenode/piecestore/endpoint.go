@@ -15,6 +15,7 @@ import (
 	"runtime/trace"
 	"sync"
 	"sync/atomic"
+	"syscall"
 	"time"
 
 	"github.com/spacemonkeygo/monkit/v3"
@@ -610,7 +611,7 @@ func (endpoint *Endpoint) Download(stream pb.DRPCPiecestore_DownloadStream) (err
 		downloadDuration := dt.Nanoseconds()
 		// NOTE: Check if the `switch` statement inside of this conditional block must be updated if you
 		// change this condition.
-		if errs2.IsCanceled(err) || drpc.ClosedError.Has(err) || (err == nil && chunk.ChunkSize != downloadSize) {
+		if errs2.IsCanceled(err) || drpc.ClosedError.Has(err) || (err == nil && chunk.ChunkSize != downloadSize) || errors.Is(err, syscall.ECONNRESET) {
 			mon.Counter("download_cancel_count", actionSeriesTag).Inc(1)
 			mon.Meter("download_cancel_byte_meter", actionSeriesTag).Mark64(downloadSize)
 			mon.IntVal("download_cancel_size_bytes", actionSeriesTag).Observe(downloadSize)
