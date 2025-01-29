@@ -72,7 +72,7 @@ export const useNotificationsStore = defineStore('notifications', () => {
 
     function notifyWarning(message: NotificationMessage, title?: string, remainingTime?: number): void {
         const notification = new DelayedNotification(
-            () => deleteNotification(notification.id),
+            remainingTime ? () => deleteNotification(notification.id) : () => {},
             NotificationType.Warning,
             message,
             title,

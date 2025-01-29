@@ -134,6 +134,8 @@ export class FilesState {
     // Local storage data changes are not reactive.
     // So we need to store this info here to make sure components rerender on changes.
     objectCountOfSelectedBucket = LocalData.getObjectCountOfSelectedBucket() ?? 0;
+
+    largeFileNotificationTimeout: ReturnType<typeof setTimeout> | undefined;
 }
 
 type InitializedFilesState = FilesState & {
@@ -712,19 +714,22 @@ export const useObjectBrowserStore = defineStore('objectBrowser', () => {
                     h('span', {}, `${key}: the file size is too large. To upload large files, please use the `),
                     ...NotifyRenderedUplinkCLIMessage,
                 ];
-            }, AnalyticsErrorEventSource.OBJECT_UPLOAD_ERROR, undefined, 10000);
+            }, AnalyticsErrorEventSource.OBJECT_UPLOAD_ERROR, undefined);
 
             return;
         }
 
         // If file size exceeds 5 GB, show warning message.
         if (body.size > (5 * 1024 * 1024 * 1024)) {
-            notifyWarning(() => {
-                return [
-                    h('span', {}, `To upload large files, please consider using the `),
-                    ...NotifyRenderedUplinkCLIMessage,
-                ];
-            }, undefined, 10000);
+            clearTimeout(state.largeFileNotificationTimeout);
+            state.largeFileNotificationTimeout = setTimeout(() => {
+                notifyWarning(() => {
+                    return [
+                        h('span', {}, `To upload large files, please consider using the `),
+                        ...NotifyRenderedUplinkCLIMessage,
+                    ];
+                }, undefined);
+            }, 100);
         }
 
         // Upload 4 parts at a time.
@@ -1308,6 +1313,8 @@ export const useObjectBrowserStore = defineStore('objectBrowser', () => {
         state.showObjectVersions = { value: false, userModified: false };
         state.versionsExpandedKeys = [];
         state.objectCountOfSelectedBucket = 0;
+        clearTimeout(state.largeFileNotificationTimeout);
+        state.largeFileNotificationTimeout = undefined;
     }
 
     return {
