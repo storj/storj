@@ -214,7 +214,7 @@ func (endpoint *Endpoint) Upload(stream pb.DRPCPiecestore_UploadStream) (err err
 	endpoint.pingStats.WasPinged(time.Now())
 
 	if endpoint.config.MaxConcurrentRequests > 0 && int(liveRequests) > endpoint.config.MaxConcurrentRequests {
-		endpoint.log.Error("upload rejected, too many requests",
+		endpoint.log.Info("upload rejected, too many requests",
 			zap.Int32("live requests", liveRequests),
 			zap.Int("requestLimit", endpoint.config.MaxConcurrentRequests),
 		)
