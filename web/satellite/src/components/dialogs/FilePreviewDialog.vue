@@ -9,6 +9,7 @@
         fullscreen
         theme="dark"
         no-click-animation
+        :persistent="false"
     >
         <v-card class="preview-card">
             <v-toolbar

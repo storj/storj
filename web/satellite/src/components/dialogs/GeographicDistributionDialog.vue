@@ -6,6 +6,7 @@
         v-model="model"
         max-width="420px"
         transition="fade-transition"
+        :persistent="false"
     >
         <v-card :loading="isLoading">
             <v-card-item class="pa-6">
