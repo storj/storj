@@ -406,7 +406,7 @@ func (s *Service) Payments() Payments {
 func (s *Service) GetValdiAPIKey(ctx context.Context, projectID uuid.UUID) (key *valdiclient.CreateAPIKeyResponse, status int, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	user, err := s.getUserAndAuditLog(ctx, "create valdi api key", zap.String("projectID", projectID.String()))
+	user, err := s.getUserAndAuditLog(ctx, "get valdi api key", zap.String("projectID", projectID.String()))
 	if err != nil {
 		return nil, http.StatusInternalServerError, Error.Wrap(err)
 	}
@@ -515,11 +515,11 @@ func (payment Payments) RemoveTaxID(ctx context.Context, id string) (_ *payments
 	return newInfo, Error.Wrap(err)
 }
 
-// GetBillingInformation updates a user's billing information.
+// GetBillingInformation gets a user's billing information.
 func (payment Payments) GetBillingInformation(ctx context.Context) (information *payments.BillingInformation, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	user, err := payment.service.getUserAndAuditLog(ctx, "save billing information")
+	user, err := payment.service.getUserAndAuditLog(ctx, "get billing information")
 	if err != nil {
 		return nil, Error.Wrap(err)
 	}
@@ -707,7 +707,7 @@ func (payment Payments) ProjectsCharges(ctx context.Context, since, before time.
 func (payment Payments) AddFunds(ctx context.Context, params payments.AddFundsParams) (response *payments.ChargeCardResponse, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	user, err := payment.service.getUserAndAuditLog(ctx, "project charges")
+	user, err := payment.service.getUserAndAuditLog(ctx, "add funds")
 	if err != nil {
 		return nil, ErrUnauthorized.Wrap(err)
 	}
@@ -4039,7 +4039,7 @@ func (s *Service) DeleteProjectMembersAndInvitations(ctx context.Context, projec
 func (s *Service) UpdateProjectMemberRole(ctx context.Context, memberID, projectID uuid.UUID, newRole ProjectMemberRole) (pm *ProjectMember, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	user, err := s.getUserAndAuditLog(ctx, "update project member role", zap.String("projectID", projectID.String()))
+	user, err := s.getUserAndAuditLog(ctx, "update project member role", zap.String("projectID", projectID.String()), zap.String("updatedMemberID", memberID.String()), zap.String("newRole", newRole.String()))
 	if err != nil {
 		return nil, ErrUnauthorized.Wrap(err)
 	}

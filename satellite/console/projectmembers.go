@@ -85,3 +85,14 @@ const (
 	// RoleMember indicates that the member has regular member rights.
 	RoleMember ProjectMemberRole = 1
 )
+
+func (mr ProjectMemberRole) String() string {
+	switch mr {
+	case RoleAdmin:
+		return "admin"
+	case RoleMember:
+		return "member"
+	}
+
+	return ""
+}
