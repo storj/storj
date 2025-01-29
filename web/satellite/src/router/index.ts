@@ -43,7 +43,7 @@ export abstract class ROUTES {
     public static Project = new NavigationLink(':id', RouteName.Project);
     public static Dashboard = new NavigationLink('dashboard', RouteName.Dashboard);
     public static Buckets = new NavigationLink('buckets', RouteName.Buckets);
-    public static Bucket = new NavigationLink(':browserPath+', RouteName.Bucket);
+    public static Bucket = new NavigationLink(':browserPath(.*)+', RouteName.Bucket);
     public static Access = new NavigationLink('access', RouteName.Access);
     public static Team = new NavigationLink('team', RouteName.Team);
     public static Domains = new NavigationLink('domains', RouteName.Domains);
