@@ -20,7 +20,7 @@ func TestParsedConfig(t *testing.T) {
 
 	config, err := LoadConfig("config_test.yaml", NewPlacementConfigEnvironment(mockTracker{}, nil))
 	require.NoError(t, err)
-	require.Len(t, config, 11)
+	require.Len(t, config, 12)
 
 	{
 		// checking filters
@@ -113,7 +113,7 @@ func TestParsedConfigWithoutTracker(t *testing.T) {
 	// tracker is not available for certain microservices (like repair). Still the placement should work.
 	config, err := LoadConfig("config_test.yaml", NewPlacementConfigEnvironment(nil, nil))
 	require.NoError(t, err)
-	require.Len(t, config, 11)
+	require.Len(t, config, 12)
 
 	// smoketest for creating choice of two selector
 	selected, err := config[2].Selector(

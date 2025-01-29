@@ -327,7 +327,22 @@ func SelectorFromString(expr string, environment *PlacementConfigEnvironment) (N
 			}
 			return BalancedGroupBasedSelector(attr, filter), nil
 		},
-		"weighted": func(valueFunc NodeValue, filter NodeFilter) (NodeSelectorInit, error) {
+		"weighted": func(attribute string, defaultWeight float64, filter NodeFilter) (NodeSelectorInit, error) {
+			value, err := CreateNodeValue(attribute)
+			if err != nil {
+				return nil, err
+			}
+			return WeightedSelector(NodeValue(func(node SelectedNode) float64 {
+				nodeValue := value(node)
+				if nodeValue == 0 {
+					nodeValue = defaultWeight
+				} else if nodeValue <= 0 {
+					nodeValue = 0
+				}
+				return nodeValue
+			}), filter), nil
+		},
+		"weightedf": func(valueFunc NodeValue, filter NodeFilter) (NodeSelectorInit, error) {
 			return WeightedSelector(valueFunc, filter), nil
 		},
 		"weighted_with_adjustment": func(attribute string, defaultWeight, valueBallast, valuePower float64, filter NodeFilter) (NodeSelectorInit, error) {
