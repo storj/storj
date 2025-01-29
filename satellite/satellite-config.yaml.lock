@@ -1010,8 +1010,11 @@ identity.key-path: /root/.local/share/storj/identity/satellite/identity.key
 # how often to bump the generation in the node success tracker
 # metainfo.success-tracker-tick-duration: 10m0s
 
-# list of trusted uplinks for success tracker
+# list of trusted uplinks for success tracker, deprecated. please use success-tracker-uplinks for uplinks that should get their own success tracker profiles and trusted-uplinks for uplinks that are trusted individually.
 # metainfo.success-tracker-trusted-uplinks: []
+
+# list of uplinks for success tracker
+# metainfo.success-tracker-uplinks: []
 
 # test the new query for non-recursive listing
 # metainfo.test-listing-query: false
@@ -1021,6 +1024,9 @@ identity.key-path: /root/.local/share/storj/identity/satellite/identity.key
 
 # which code path to use for precommit delete step for unversioned objects, 0 is the default (old) code path.
 # metainfo.testing-precommit-delete-mode: 0
+
+# list of trusted uplinks
+# metainfo.trusted-uplinks: []
 
 # number of object locations to cache.
 # metainfo.upload-limiter.cache-capacity: 10000

@@ -25,12 +25,8 @@ import (
 	"storj.io/storj/satellite/metabase"
 	"storj.io/storj/satellite/nodeapiversion"
 	"storj.io/storj/satellite/overlay"
+	"storj.io/storj/satellite/trust"
 )
-
-// this is the zero signer that we use in production. this go syntax is equivalent to
-// 0000000000000000000000000000000000000000000000000000000000000100.
-// TODO make this configurable.
-var trustedOperatorSigner = storj.NodeID{30: 1}
 
 // DB implements saving order after receiving from storage node.
 //
@@ -249,7 +245,7 @@ func (endpoint *Endpoint) SettlementWithWindowFinal(stream pb.DRPCOrders_Settlem
 	skipSignatures := false
 	if endpoint.config.TrustedOrders {
 		if node, err := endpoint.overlay.CachedGet(ctx, peer.ID); err == nil {
-			if tag, err := node.Tags.FindBySignerAndName(trustedOperatorSigner, "trusted_orders"); err == nil {
+			if tag, err := node.Tags.FindBySignerAndName(trust.TrustedOperatorSigner, "trusted_orders"); err == nil {
 				skipSignatures = string(tag.Value) == "true"
 			}
 		}

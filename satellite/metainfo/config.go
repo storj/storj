@@ -193,7 +193,9 @@ type Config struct {
 	SuccessTrackerKind           string                `default:"percent" help:"success tracker kind, bitshift or percent"`
 	SuccessTrackerTickDuration   time.Duration         `default:"10m" help:"how often to bump the generation in the node success tracker"`
 	FailureTrackerTickDuration   time.Duration         `default:"30s" help:"how often to bump the generation in the node failure tracker"`
-	SuccessTrackerTrustedUplinks []string              `help:"list of trusted uplinks for success tracker"`
+	SuccessTrackerTrustedUplinks []string              `help:"list of trusted uplinks for success tracker, deprecated. please use success-tracker-uplinks for uplinks that should get their own success tracker profiles and trusted-uplinks for uplinks that are trusted individually."`
+	SuccessTrackerUplinks        []string              `help:"list of uplinks for success tracker"`
+	TrustedUplinks               []string              `help:"list of trusted uplinks"`
 
 	// TODO remove this flag when server-side copy implementation will be finished
 	ServerSideCopy         bool `help:"enable code for server-side copy, deprecated. please leave this to true." default:"true"`

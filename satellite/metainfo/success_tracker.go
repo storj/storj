@@ -106,13 +106,6 @@ func (t *SuccessTrackers) GetTracker(uplink storj.NodeID) SuccessTracker {
 	return t.global
 }
 
-// IsTrusted returns if the client uplink is a trusted uplink for the purposes
-// of success tracking.
-func (t *SuccessTrackers) IsTrusted(uplink storj.NodeID) bool {
-	_, ok := t.trackers[uplink]
-	return ok
-}
-
 // Get returns a function that can be used to get an estimate of how good a node
 // is for a given uplink.
 func (t *SuccessTrackers) Get(uplink storj.NodeID) func(node *nodeselection.SelectedNode) float64 {
