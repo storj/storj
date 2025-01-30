@@ -102,7 +102,7 @@ var (
 	}
 	runConsoleAPICmd = &cobra.Command{
 		Use:   "console-api",
-		Short: "Run the satellite API",
+		Short: "Run the satellite console API",
 		RunE:  cmdConsoleAPIRun,
 	}
 	runUICmd = &cobra.Command{
