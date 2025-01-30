@@ -2,7 +2,7 @@
 // See LICENSE for copying information.
 
 import { defineStore } from 'pinia';
-import { reactive } from 'vue';
+import { computed, reactive } from 'vue';
 
 import {
     AccessGrant,
@@ -31,6 +31,8 @@ export const useAccessGrantsStore = defineStore('accessGrants', () => {
 
     const configStore = useConfigStore();
     const projectsStore = useProjectsStore();
+
+    const csrfToken = computed<string>(() => configStore.state.config.csrfToken);
 
     async function startWorker(): Promise<void> {
         // TODO(vitalii): create an issue here https://github.com/vitejs/vite
@@ -81,11 +83,11 @@ export const useAccessGrantsStore = defineStore('accessGrants', () => {
     }
 
     async function createAccessGrant(name: string, projectID: string): Promise<AccessGrant> {
-        return await api.create(projectID, name);
+        return await api.create(projectID, name, csrfToken.value);
     }
 
     async function deleteAccessGrants(ids: string[]): Promise<void> {
-        await api.delete(ids);
+        await api.delete(ids, csrfToken.value);
     }
 
     async function getEdgeCredentials(accessGrant: string, isPublic = false): Promise<EdgeCredentials> {
