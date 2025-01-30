@@ -14,9 +14,10 @@ export interface ProjectsApi {
      * Creates project.
      *
      * @param createProjectFields - contains project information
+     * @param csrfProtectionToken - CSRF token
      * @throws Error
      */
-    create(createProjectFields: ProjectFields): Promise<Project>;
+    create(createProjectFields: ProjectFields, csrfProtectionToken: string): Promise<Project>;
     /**
      * Fetch projects.
      *
@@ -31,9 +32,10 @@ export interface ProjectsApi {
      * @param projectId
      * @param step
      * @param data
+     * @param csrfProtectionToken
      * @throws Error
      */
-    delete(projectId: string, step: DeleteProjectStep, data: string): Promise<ProjectDeletionData | null>;
+    delete(projectId: string, step: DeleteProjectStep, data: string, csrfProtectionToken: string): Promise<ProjectDeletionData | null>;
 
     /**
      * Fetch config for project.
@@ -49,18 +51,20 @@ export interface ProjectsApi {
      *
      * @param projectId - project ID
      * @param updateProjectFields - project fields to update
+     * @param csrfProtectionToken - CSRF token
      * @throws Error
      */
-    update(projectId: string, updateProjectFields: UpdateProjectFields): Promise<void>;
+    update(projectId: string, updateProjectFields: UpdateProjectFields, csrfProtectionToken: string): Promise<void>;
 
     /**
      * Update project user specified limits.
      *
      * @param projectId - project ID
      * @param fields - project limits to update
+     * @param csrfProtectionToken - CSRF token
      * @throws Error
      */
-    updateLimits(projectId: string, fields: UpdateProjectLimitsFields): Promise<void>;
+    updateLimits(projectId: string, fields: UpdateProjectLimitsFields, csrfProtectionToken: string): Promise<void>;
 
     /**
      * Get project limits.
@@ -136,7 +140,7 @@ export interface ProjectsApi {
      *
      * @throws Error
      */
-    respondToInvitation(projectID: string, response: ProjectInvitationResponse): Promise<void>;
+    respondToInvitation(projectID: string, response: ProjectInvitationResponse, csrfProtectionToken: string): Promise<void>;
 }
 
 /**

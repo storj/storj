@@ -31,7 +31,6 @@ import { ChangeEmailStep, DeleteAccountStep } from '@/types/accountActions';
 export class AuthHttpApi implements UsersApi {
     private readonly http: HttpClient = new HttpClient();
     private readonly ROOT_PATH: string = '/api/v0/auth';
-    private readonly csrfHeader: string = 'X-CSRF-Token';
 
     /**
      * Used to resend an registration confirmation email.
@@ -77,10 +76,10 @@ export class AuthHttpApi implements UsersApi {
      * @param mfaPasscode - MFA passcode
      * @param mfaRecoveryCode - MFA recovery code
      * @param rememberForOneWeek - flag to remember user
-     * @param csrfToken - CSRF token
+     * @param csrfProtectionToken - CSRF token
      * @throws Error
      */
-    public async token(email: string, password: string, captchaResponse: string, mfaPasscode: string, mfaRecoveryCode: string, csrfToken: string, rememberForOneWeek = false): Promise<TokenInfo> {
+    public async token(email: string, password: string, captchaResponse: string, mfaPasscode: string, mfaRecoveryCode: string, csrfProtectionToken: string, rememberForOneWeek = false): Promise<TokenInfo> {
         const path = `${this.ROOT_PATH}/token`;
         const body = {
             email,
@@ -91,7 +90,7 @@ export class AuthHttpApi implements UsersApi {
             rememberForOneWeek,
         };
 
-        const response = await this.http.post(path, JSON.stringify(body), { [this.csrfHeader]: csrfToken });
+        const response = await this.http.post(path, JSON.stringify(body), { csrfProtectionToken });
         if (response.ok) {
             const result = await response.json();
             if (result.error) {
@@ -157,9 +156,9 @@ export class AuthHttpApi implements UsersApi {
      *
      * @throws Error
      */
-    public async logout(csrfToken: string): Promise<void> {
+    public async logout(csrfProtectionToken: string): Promise<void> {
         const path = `${this.ROOT_PATH}/logout`;
-        const response = await this.http.post(path, null, { [this.csrfHeader]: csrfToken });
+        const response = await this.http.post(path, null, { csrfProtectionToken });
 
         if (response.ok) {
             return;

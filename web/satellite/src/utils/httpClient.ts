@@ -4,19 +4,25 @@
 import { ErrorUnauthorized } from '@/api/errors/ErrorUnauthorized';
 import { RouteConfig } from '@/types/router';
 
+interface AdditionalHeaders {
+    csrfProtectionToken?: string;
+}
+
 /**
  * HttpClient is a custom wrapper around fetch api.
  * Exposes get, post and delete methods for JSON strings.
  */
 export class HttpClient {
+    private readonly csrfHeader: string = 'X-CSRF-Token';
+
     /**
      *
      * @param method holds http method type
      * @param path
      * @param body serialized JSON
-     * @param customHeaders custom headers used for a request
+     * @param additionalHeaders custom headers used for a request
      */
-    private async sendJSON(method: string, path: string, body: string | null, customHeaders?: Record<string, string>): Promise<Response> {
+    private async sendJSON(method: string, path: string, body: string | null, additionalHeaders?: AdditionalHeaders): Promise<Response> {
         const request: RequestInit = {
             method: method,
             body: body,
@@ -25,7 +31,11 @@ export class HttpClient {
             },
         };
 
-        if (customHeaders) request.headers = { ...request.headers, ...customHeaders };
+        if (additionalHeaders && request.headers) {
+            if (additionalHeaders.csrfProtectionToken) {
+                request.headers[this.csrfHeader] = additionalHeaders.csrfProtectionToken;
+            }
+        }
 
         const response = await fetch(path, request);
         if (response.status === 401) {
@@ -40,28 +50,30 @@ export class HttpClient {
      * Performs POST http request with JSON body.
      * @param path
      * @param body serialized JSON
-     * @param customHeaders custom headers used for a request
+     * @param additionalHeaders custom headers used for a request
      */
-    public async post(path: string, body: string | null, customHeaders?: Record<string, string>): Promise<Response> {
-        return this.sendJSON('POST', path, body, customHeaders);
+    public async post(path: string, body: string | null, additionalHeaders?: AdditionalHeaders): Promise<Response> {
+        return this.sendJSON('POST', path, body, additionalHeaders);
     }
 
     /**
      * Performs PATCH http request with JSON body.
      * @param path
      * @param body serialized JSON
+     * @param additionalHeaders custom headers used for a request
      */
-    public async patch(path: string, body: string | null): Promise<Response> {
-        return this.sendJSON('PATCH', path, body);
+    public async patch(path: string, body: string | null, additionalHeaders?: AdditionalHeaders): Promise<Response> {
+        return this.sendJSON('PATCH', path, body, additionalHeaders);
     }
 
     /**
      * Performs PUT http request with JSON body.
      * @param path
      * @param body serialized JSON
+     * @param additionalHeaders custom headers used for a request
      */
-    public async put(path: string, body: string | null): Promise<Response> {
-        return this.sendJSON('PUT', path, body);
+    public async put(path: string, body: string | null, additionalHeaders?: AdditionalHeaders): Promise<Response> {
+        return this.sendJSON('PUT', path, body, additionalHeaders);
     }
 
     /**
@@ -76,9 +88,10 @@ export class HttpClient {
      * Performs DELETE http request.
      * @param path
      * @param body serialized JSON
+     * @param additionalHeaders custom headers used for a request
      */
-    public async delete(path: string, body: string | null = null): Promise<Response> {
-        return this.sendJSON('DELETE', path, body);
+    public async delete(path: string, body: string | null = null, additionalHeaders?: AdditionalHeaders): Promise<Response> {
+        return this.sendJSON('DELETE', path, body, additionalHeaders);
     }
 
     /**
