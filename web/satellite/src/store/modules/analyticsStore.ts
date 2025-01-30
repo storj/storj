@@ -2,32 +2,37 @@
 // See LICENSE for copying information.
 
 import { defineStore } from 'pinia';
+import { computed } from 'vue';
 
 import { AnalyticsHttpApi } from '@/api/analytics';
 import { AnalyticsErrorEventSource, AnalyticsEvent } from '@/utils/constants/analyticsEventNames';
 import { JoinCunoFSBetaForm } from '@/types/analytics';
+import { useConfigStore } from '@/store/modules/configStore';
 
 export const useAnalyticsStore = defineStore('analytics', () => {
     const analytics: AnalyticsHttpApi = new AnalyticsHttpApi();
 
+    const configStore = useConfigStore();
+    const csrfToken = computed<string>(() => configStore.state.config.csrfToken);
+
     async function ensureEventTriggered(eventName: AnalyticsEvent, props?: { [p: string]: string }): Promise<void> {
-        await analytics.ensureEventTriggered(eventName, props);
+        await analytics.ensureEventTriggered(eventName, csrfToken.value, props);
     }
 
     async function joinCunoFSBeta(data: JoinCunoFSBetaForm): Promise<void> {
-        await analytics.joinCunoFSBeta(data);
+        await analytics.joinCunoFSBeta(data, csrfToken.value);
     }
 
     function eventTriggered(eventName: AnalyticsEvent, props?: { [p: string]: string }): void {
-        analytics.eventTriggered(eventName, props).catch(_ => { });
+        analytics.eventTriggered(eventName, csrfToken.value, props).catch(_ => { });
     }
 
     function linkEventTriggered(eventName: AnalyticsEvent, link: string): void {
-        analytics.linkEventTriggered(eventName, link).catch(_ => { });
+        analytics.linkEventTriggered(eventName, link, csrfToken.value).catch(_ => { });
     }
 
     function pageVisit(pagePath: string, source: string): void {
-        analytics.pageVisit(pagePath).catch(_ => { });
+        analytics.pageVisit(pagePath, csrfToken.value).catch(_ => { });
 
         let url: string;
         if (pagePath.includes('http')) {
@@ -53,7 +58,7 @@ export const useAnalyticsStore = defineStore('analytics', () => {
     }
 
     function errorEventTriggered(source: AnalyticsErrorEventSource): void {
-        analytics.errorEventTriggered(source).catch(_ => { });
+        analytics.errorEventTriggered(source, csrfToken.value).catch(_ => { });
     }
 
     return {

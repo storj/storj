@@ -466,6 +466,7 @@ func NewServer(logger *zap.Logger, config Config, service *console.Service, oidc
 	analyticsRouter := router.PathPrefix(analyticsPath).Subrouter()
 	analyticsRouter.Use(server.withCORS)
 	analyticsRouter.Use(server.withAuth)
+	analyticsRouter.Use(server.withCSRFProtection)
 	analyticsRouter.HandleFunc("/event", analyticsController.EventTriggered).Methods(http.MethodPost, http.MethodOptions)
 	analyticsRouter.HandleFunc("/page", analyticsController.PageEventTriggered).Methods(http.MethodPost, http.MethodOptions)
 	analyticsRouter.HandleFunc("/join-cunofs-beta", analyticsController.JoinCunoFSBeta).Methods(http.MethodPost, http.MethodOptions)
