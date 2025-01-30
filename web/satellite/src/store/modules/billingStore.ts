@@ -28,6 +28,7 @@ import {
 } from '@/types/payments';
 import { PaymentsHttpApi } from '@/api/payments';
 import { PricingPlanInfo } from '@/types/common';
+import { useConfigStore } from '@/store/modules/configStore';
 
 export class PaymentsState {
     public balance: AccountBalance = new AccountBalance();
@@ -53,6 +54,9 @@ export const useBillingStore = defineStore('billing', () => {
 
     const api: PaymentsApi = new PaymentsHttpApi();
 
+    const configStore = useConfigStore();
+    const csrfToken = computed<string>(() => configStore.state.config.csrfToken);
+
     const paymentsPollingInterval = ref<number>();
 
     const defaultCard = computed<CreditCard>(() => state.creditCards.find(card => card.isDefault) ?? new CreditCard());
@@ -77,14 +81,14 @@ export const useBillingStore = defineStore('billing', () => {
     }
 
     async function addTaxID(taxID: TaxID): Promise<void> {
-        state.billingInformation = await api.addTaxID(taxID);
+        state.billingInformation = await api.addTaxID(taxID, csrfToken.value);
     }
     async function removeTaxID(ID: string): Promise<void> {
-        state.billingInformation = await api.removeTaxID(ID);
+        state.billingInformation = await api.removeTaxID(ID, csrfToken.value);
     }
 
     async function addInvoiceReference(reference: string): Promise<void> {
-        state.billingInformation = await api.addInvoiceReference(reference);
+        state.billingInformation = await api.addInvoiceReference(reference, csrfToken.value);
     }
 
     async function getBillingInformation(): Promise<void> {
@@ -92,7 +96,7 @@ export const useBillingStore = defineStore('billing', () => {
     }
 
     async function saveBillingAddress(address: BillingAddress): Promise<void> {
-        state.billingInformation = await api.saveBillingAddress(address);
+        state.billingInformation = await api.saveBillingAddress(address, csrfToken.value);
     }
 
     async function getWallet(): Promise<void> {
@@ -100,11 +104,11 @@ export const useBillingStore = defineStore('billing', () => {
     }
 
     async function claimWallet(): Promise<void> {
-        state.wallet = await api.claimWallet();
+        state.wallet = await api.claimWallet(csrfToken.value);
     }
 
     async function setupAccount(): Promise<string> {
-        return await api.setupAccount();
+        return await api.setupAccount(csrfToken.value);
     }
 
     async function getCreditCards(): Promise<CreditCard[]> {
@@ -116,23 +120,23 @@ export const useBillingStore = defineStore('billing', () => {
     }
 
     async function addCreditCard(token: string): Promise<void> {
-        await api.addCreditCard(token);
+        await api.addCreditCard(token, csrfToken.value);
     }
 
     async function updateCreditCard(params: UpdateCardParams): Promise<void> {
-        await api.updateCreditCard(params);
+        await api.updateCreditCard(params, csrfToken.value);
     }
 
     async function addCardByPaymentMethodID(pmID: string): Promise<void> {
-        await api.addCardByPaymentMethodID(pmID);
+        await api.addCardByPaymentMethodID(pmID, csrfToken.value);
     }
 
     async function attemptPayments(): Promise<void> {
-        await api.attemptPayments();
+        await api.attemptPayments(csrfToken.value);
     }
 
     async function makeCardDefault(id: string): Promise<void> {
-        await api.makeCreditCardDefault(id);
+        await api.makeCreditCardDefault(id, csrfToken.value);
 
         state.creditCards.forEach(card => {
             card.isDefault = card.id === id;
@@ -140,7 +144,7 @@ export const useBillingStore = defineStore('billing', () => {
     }
 
     async function removeCreditCard(cardId: string): Promise<void> {
-        await api.removeCreditCard(cardId);
+        await api.removeCreditCard(cardId, csrfToken.value);
 
         state.creditCards = state.creditCards.filter(card => card.id !== cardId);
     }
@@ -205,7 +209,7 @@ export const useBillingStore = defineStore('billing', () => {
     }
 
     async function applyCouponCode(code: string): Promise<void> {
-        state.coupon = await api.applyCouponCode(code);
+        state.coupon = await api.applyCouponCode(code, csrfToken.value);
     }
 
     async function getCoupon(): Promise<void> {
@@ -217,7 +221,7 @@ export const useBillingStore = defineStore('billing', () => {
     }
 
     async function purchasePricingPackage(dataStr: string, isPMID: boolean): Promise<void> {
-        await api.purchasePricingPackage(dataStr, isPMID);
+        await api.purchasePricingPackage(dataStr, isPMID, csrfToken.value);
     }
 
     function setPricingPlansAvailable(available: boolean, info: PricingPlanInfo | null = null): void {
