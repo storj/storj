@@ -190,7 +190,7 @@ async function onChangePassword(): Promise<void> {
 
     await withLoading(async () => {
         try {
-            await auth.changePassword(oldPassword.value, newPassword.value);
+            await auth.changePassword(oldPassword.value, newPassword.value, config.csrfToken);
 
             notify.success('Password successfully changed!');
             analyticsStore.eventTriggered(AnalyticsEvent.PASSWORD_CHANGED);

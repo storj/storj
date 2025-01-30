@@ -38,6 +38,9 @@ export class UsersState {
 export const useUsersStore = defineStore('users', () => {
     const state = reactive<UsersState>(new UsersState());
 
+    const configStore = useConfigStore();
+    const csrfToken = computed<string>(() => configStore.state.config.csrfToken);
+
     const userName = computed(() => {
         return state.user.getFullName();
     });
@@ -51,18 +54,18 @@ export const useUsersStore = defineStore('users', () => {
     const api: UsersApi = new AuthHttpApi();
 
     async function updateUser(userInfo: UpdatedUser): Promise<void> {
-        await api.update(userInfo);
+        await api.update(userInfo, csrfToken.value);
 
         state.user.fullName = userInfo.fullName;
         state.user.shortName = userInfo.shortName;
     }
 
     async function changeEmail(step: ChangeEmailStep, data: string): Promise<void> {
-        await api.changeEmail(step, data);
+        await api.changeEmail(step, data, csrfToken.value);
     }
 
     async function deleteAccount(step: DeleteAccountStep, data: string): Promise<AccountDeletionData | null> {
-        return await api.deleteAccount(step, data);
+        return await api.deleteAccount(step, data, csrfToken.value);
     }
 
     async function getSessions(pageNumber: number, limit = DEFAULT_PAGE_LIMIT): Promise<SessionsPage> {
@@ -77,7 +80,7 @@ export const useUsersStore = defineStore('users', () => {
     }
 
     async function invalidateSession(sessionID: string): Promise<void> {
-        await api.invalidateSession(sessionID);
+        await api.invalidateSession(sessionID, csrfToken.value);
     }
 
     function setSessionsSortingBy(order: SessionsOrderBy): void {
@@ -114,22 +117,22 @@ export const useUsersStore = defineStore('users', () => {
     }
 
     async function disableUserMFA(request: DisableMFARequest): Promise<void> {
-        await api.disableUserMFA(request.passcode, request.recoveryCode);
+        await api.disableUserMFA(request.passcode, request.recoveryCode, csrfToken.value);
     }
 
     async function enableUserMFA(passcode: string): Promise<void> {
-        const recoveryCodes = await api.enableUserMFA(passcode);
+        const recoveryCodes = await api.enableUserMFA(passcode, csrfToken.value);
 
         state.userMFARecoveryCodes = recoveryCodes;
         state.user.mfaRecoveryCodeCount = recoveryCodes.length;
     }
 
     async function generateUserMFASecret(): Promise<void> {
-        state.userMFASecret = await api.generateUserMFASecret();
+        state.userMFASecret = await api.generateUserMFASecret(csrfToken.value);
     }
 
     async function regenerateUserMFARecoveryCodes(code: { recoveryCode?: string, passcode?: string }): Promise<void> {
-        const codes = await api.regenerateUserMFARecoveryCodes(code.passcode, code.recoveryCode);
+        const codes = await api.regenerateUserMFARecoveryCodes(csrfToken.value, code.passcode, code.recoveryCode);
 
         state.userMFARecoveryCodes = codes;
         state.user.mfaRecoveryCodeCount = codes.length;
@@ -144,7 +147,7 @@ export const useUsersStore = defineStore('users', () => {
     }
 
     async function updateSettings(update: SetUserSettingsData): Promise<void> {
-        state.settings = await api.updateSettings(update);
+        state.settings = await api.updateSettings(update, csrfToken.value);
     }
 
     function setUser(user: User): void {
