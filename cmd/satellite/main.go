@@ -384,7 +384,7 @@ var (
 	recordOneOffPaymentsCfg struct {
 		Database string `help:"satellite database connection string" releaseDefault:"postgres://" devDefault:"postgres://"`
 	}
-	partnerAttribtionCfg struct {
+	partnerAttributionCfg struct {
 		Database string `help:"satellite database connection string" releaseDefault:"postgres://" devDefault:"postgres://"`
 		Output   string `help:"destination of report output" default:""`
 	}
@@ -487,7 +487,7 @@ func init() {
 	process.Bind(recordOneOffPaymentsCmd, &recordOneOffPaymentsCfg, defaults, cfgstruct.ConfDir(confDir), cfgstruct.IdentityDir(identityDir))
 	process.Bind(reportsGracefulExitCmd, &reportsGracefulExitCfg, defaults, cfgstruct.ConfDir(confDir), cfgstruct.IdentityDir(identityDir))
 	process.Bind(reportsVerifyGEReceiptCmd, &reportsVerifyGracefulExitReceiptCfg, defaults, cfgstruct.ConfDir(confDir), cfgstruct.IdentityDir(identityDir))
-	process.Bind(partnerAttributionCmd, &partnerAttribtionCfg, defaults, cfgstruct.ConfDir(confDir), cfgstruct.IdentityDir(identityDir))
+	process.Bind(partnerAttributionCmd, &partnerAttributionCfg, defaults, cfgstruct.ConfDir(confDir), cfgstruct.IdentityDir(identityDir))
 	process.Bind(applyFreeTierCouponsCmd, &runCfg, defaults, cfgstruct.ConfDir(confDir), cfgstruct.IdentityDir(identityDir))
 	process.Bind(setInvoiceStatusCmd, &runCfg, defaults, cfgstruct.ConfDir(confDir), cfgstruct.IdentityDir(identityDir))
 	process.Bind(setInvoiceStatusCmd, &setInvoiceStatusCfg, defaults, cfgstruct.ConfDir(confDir), cfgstruct.IdentityDir(identityDir))
@@ -812,12 +812,12 @@ func cmdValueAttribution(cmd *cobra.Command, args []string) (err error) {
 	}
 
 	// send output to stdout
-	if partnerAttribtionCfg.Output == "" {
-		return reports.GenerateAttributionCSV(ctx, partnerAttribtionCfg.Database, start, end, userAgents, os.Stdout)
+	if partnerAttributionCfg.Output == "" {
+		return reports.GenerateAttributionCSV(ctx, partnerAttributionCfg.Database, start, end, userAgents, os.Stdout)
 	}
 
 	// send output to file
-	file, err := os.Create(partnerAttribtionCfg.Output)
+	file, err := os.Create(partnerAttributionCfg.Output)
 	if err != nil {
 		return err
 	}
@@ -826,13 +826,13 @@ func cmdValueAttribution(cmd *cobra.Command, args []string) (err error) {
 		err = errs.Combine(err, file.Close())
 		if err != nil {
 			log.Error("Error closing the output file after retrieving partner value attribution data.",
-				zap.String("Output File", partnerAttribtionCfg.Output),
+				zap.String("Output File", partnerAttributionCfg.Output),
 				zap.Error(err),
 			)
 		}
 	}()
 
-	return reports.GenerateAttributionCSV(ctx, partnerAttribtionCfg.Database, start, end, userAgents, file)
+	return reports.GenerateAttributionCSV(ctx, partnerAttributionCfg.Database, start, end, userAgents, file)
 }
 
 // cmdSetInvoiceStatus sets the status of all open invoices within the provided period to the provided status.
