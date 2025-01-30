@@ -49,7 +49,7 @@ type postgresStatement struct {
 	Params []any
 }
 
-// IterateZombieObjects locates up to batchSize zombie objects that need deletion.
+// IterateZombieObjects iterates over all zombie objects and calls process with at most opts.BatchSize objects.
 func (p *PostgresAdapter) IterateZombieObjects(ctx context.Context, opts DeleteZombieObjects, process func(context.Context, []ObjectStream) error) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
@@ -68,7 +68,7 @@ func (p *PostgresAdapter) IterateZombieObjects(ctx context.Context, opts DeleteZ
 	}, process))
 }
 
-// IterateZombieObjects locates up to batchSize zombie objects that need deletion.
+// IterateZombieObjects iterates over all zombie objects and calls process with at most opts.BatchSize objects.
 func (s *SpannerAdapter) IterateZombieObjects(ctx context.Context, opts DeleteZombieObjects, process func(context.Context, []ObjectStream) error) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
