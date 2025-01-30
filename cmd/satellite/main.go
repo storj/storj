@@ -361,6 +361,40 @@ var (
 		RunE:  cmdFixLastNets,
 	}
 
+	deleteDataCmd = &cobra.Command{
+		Use:   "delete-data",
+		Short: "Delete accounts and their objects",
+		Long: "Delete accounts including their objects/segments, buckets, projects, and the user's " +
+			"account",
+	}
+
+	deleteObjectsCmd = &cobra.Command{
+		Use:   "delete-objects",
+		Short: "Delete objects and their segments",
+		Long: "Delete from a list of users accounts their objects and segments.\nAccounts must be on " +
+			"'pending deletion' status, when not they are logged with an info message and skipped. " +
+			"Unexisting accounts are logged with an debug message and skipped.\nSystem errors exit the " +
+			"process with an error message.\nThe accounts are read from a CSV file with a single " +
+			"column that contains the email of the user's account; the first row is considered as " +
+			"header if it doesn't contain '@'",
+		Args: cobra.ExactArgs(1),
+		RunE: cmdDeleteObjects,
+	}
+
+	deleteAccountsCmd = &cobra.Command{
+		Use:   "delete-accounts",
+		Short: "Delete accounts and their associated entities",
+		Long: "From the list of users accounts it redacts the users' personal information and marks " +
+			"their accounts as deleted, deactivate their projects, and delete their API keys.\n The " +
+			"accounts must be on 'pending deletion' status and to not have any bucket, otherwise, they " +
+			"are logged with an info message and skipped. Unexisting accounts are logged with a debug  " +
+			"message and skipped.\nSystem errors exit the process with an error message.\nThe accounts " +
+			"are read from a CSV file with a single column that contains the email of the user's " +
+			"account; the first row is considered as header if it doesn't contain '@'",
+		Args: cobra.ExactArgs(1),
+		RunE: cmdDeleteAccounts,
+	}
+
 	runCfg   Satellite
 	setupCfg Satellite
 
@@ -436,6 +470,7 @@ func init() {
 	rootCmd.AddCommand(fetchPiecesCmd)
 	rootCmd.AddCommand(repairSegmentCmd)
 	rootCmd.AddCommand(fixLastNetsCmd)
+	rootCmd.AddCommand(deleteDataCmd)
 	reportsCmd.AddCommand(nodeUsageCmd)
 	reportsCmd.AddCommand(partnerAttributionCmd)
 	reportsCmd.AddCommand(reportsGracefulExitCmd)
@@ -464,6 +499,8 @@ func init() {
 	billingCmd.AddCommand(completePendingInvoiceTokenPaymentCmd)
 	billingCmd.AddCommand(stripeCustomerCmd)
 	consistencyCmd.AddCommand(consistencyGECleanupCmd)
+	deleteDataCmd.AddCommand(deleteObjectsCmd)
+	deleteDataCmd.AddCommand(deleteAccountsCmd)
 	process.Bind(runCmd, &runCfg, defaults, cfgstruct.ConfDir(confDir), cfgstruct.IdentityDir(identityDir))
 	process.Bind(runMigrationCmd, &runCfg, defaults, cfgstruct.ConfDir(confDir), cfgstruct.IdentityDir(identityDir))
 	process.Bind(runAPICmd, &runCfg, defaults, cfgstruct.ConfDir(confDir), cfgstruct.IdentityDir(identityDir))
@@ -506,6 +543,8 @@ func init() {
 	process.Bind(stripeCustomerCmd, &runCfg, defaults, cfgstruct.ConfDir(confDir), cfgstruct.IdentityDir(identityDir))
 	process.Bind(consistencyGECleanupCmd, &consistencyGECleanupCfg, defaults, cfgstruct.ConfDir(confDir), cfgstruct.IdentityDir(identityDir))
 	process.Bind(fixLastNetsCmd, &runCfg, defaults, cfgstruct.ConfDir(confDir), cfgstruct.IdentityDir(identityDir))
+	process.Bind(deleteObjectsCmd, &runCfg, defaults, cfgstruct.ConfDir(confDir), cfgstruct.IdentityDir(identityDir))
+	process.Bind(deleteAccountsCmd, &runCfg, defaults, cfgstruct.ConfDir(confDir), cfgstruct.IdentityDir(identityDir))
 
 	if err := consistencyGECleanupCmd.MarkFlagRequired("before"); err != nil {
 		panic(err)
