@@ -1101,17 +1101,6 @@ func (s *Service) CreateUser(ctx context.Context, user CreateUser, tokenSecret R
 
 	mon.Counter("create_user_attempt").Inc(1) //mon:locked
 
-	valid, captchaScore, err := s.VerifyRegistrationCaptcha(ctx, user.CaptchaResponse, user.IP)
-	if err != nil {
-		mon.Counter("create_user_captcha_error").Inc(1) //mon:locked
-		s.log.Error("captcha authorization failed", zap.Error(err))
-		return nil, ErrCaptcha.Wrap(err)
-	}
-	if !valid {
-		mon.Counter("create_user_captcha_unsuccessful").Inc(1) //mon:locked
-		return nil, ErrCaptcha.New("captcha validation unsuccessful")
-	}
-
 	if err := user.IsValid(user.AllowNoName); err != nil {
 		// NOTE: error is already wrapped with an appropriated class.
 		return nil, err
@@ -1147,7 +1136,7 @@ func (s *Service) CreateUser(ctx context.Context, user CreateUser, tokenSecret R
 			EmployeeCount:    user.EmployeeCount,
 			HaveSalesContact: user.HaveSalesContact,
 			SignupPromoCode:  user.SignupPromoCode,
-			SignupCaptcha:    captchaScore,
+			SignupCaptcha:    user.CaptchaScore,
 			ActivationCode:   user.ActivationCode,
 			SignupId:         user.SignupId,
 			PaidTier:         user.PaidTier,

@@ -43,8 +43,6 @@ storj.io/storj/satellite/audit."verify_shares_downloaded_successfully" IntVal
 storj.io/storj/satellite/console."change_email_2fa_passcode_failure" Counter
 storj.io/storj/satellite/console."change_email_locked_out" Counter
 storj.io/storj/satellite/console."create_user_attempt" Counter
-storj.io/storj/satellite/console."create_user_captcha_error" Counter
-storj.io/storj/satellite/console."create_user_captcha_unsuccessful" Counter
 storj.io/storj/satellite/console."create_user_duplicate_unverified" Counter
 storj.io/storj/satellite/console."create_user_duplicate_verified" Counter
 storj.io/storj/satellite/console."create_user_success" Counter
@@ -77,6 +75,8 @@ storj.io/storj/satellite/console/consoleweb/consoleapi."account_activation_faile
 storj.io/storj/satellite/console/consoleweb/consoleapi."account_activation_lockout_initiated" Counter
 storj.io/storj/satellite/console/consoleweb/consoleapi."account_activation_lockout_reinitiated" Counter
 storj.io/storj/satellite/console/consoleweb/consoleapi."account_activation_user_failed_count" IntVal
+storj.io/storj/satellite/console/consoleweb/consoleapi."create_user_captcha_error" Counter
+storj.io/storj/satellite/console/consoleweb/consoleapi."create_user_captcha_unsuccessful" Counter
 storj.io/storj/satellite/contact."failed_dial" Event
 storj.io/storj/satellite/contact."failed_ping_node" Event
 storj.io/storj/satellite/gracefulexit."graceful_exit_init_node_age_seconds" FloatVal
