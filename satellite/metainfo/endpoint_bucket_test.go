@@ -193,7 +193,7 @@ func TestDeleteBucket(t *testing.T) {
 		expectedObjects := map[string][]byte{
 			"single-segment-object":        testrand.Bytes(10 * memory.KiB),
 			"multi-segment-object":         testrand.Bytes(50 * memory.KiB),
-			"remote-segment-inline-object": testrand.Bytes(33 * memory.KiB),
+			"remote-segment-inline-object": testrand.Bytes(1 * memory.KiB),
 		}
 
 		uploadObjects := func(t *testing.T, bucketName metabase.BucketName) {
