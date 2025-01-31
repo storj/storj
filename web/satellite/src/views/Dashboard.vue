@@ -28,7 +28,7 @@
                 />
             </v-col>
             <v-col cols="auto" class="pt-0 mt-0 pt-md-5">
-                <v-btn v-if="!isPaidTier && billingEnabled" variant="outlined" color="default" :prepend-icon="CircleArrowUp" @click="appStore.toggleUpgradeFlow(true)">
+                <v-btn v-if="isUserProjectOwner && !isPaidTier && billingEnabled" variant="outlined" color="default" :prepend-icon="CircleArrowUp" @click="appStore.toggleUpgradeFlow(true)">
                     Upgrade
                 </v-btn>
             </v-col>
@@ -154,7 +154,7 @@
                     :used="`${couponProgress}% Used`"
                     :limit="`Included free usage: ${couponValue}`"
                     :available="`${couponRemainingPercent}% Available`"
-                    :hide-cta="!isProjectOwner"
+                    :hide-cta="!isUserProjectOwner"
                     :cta="isFreeTierCoupon ? 'Learn more' : 'View Coupons'"
                     @cta-click="onCouponCTAClicked"
                 />
@@ -521,17 +521,12 @@ const segmentUsedPercent = computed((): number => {
 const isProjectOwnerPaidTier = computed(() => projectsStore.selectedProjectConfig.isOwnerPaidTier);
 
 /**
- * Returns whether this project is owned by the current user.
- */
-const isProjectOwner = computed(() => selectedProject.value.ownerId === usersStore.state.user.id);
-
-/**
  * Returns whether this project is owned by the current user
  * or whether they're an admin.
  */
 const isProjectOwnerOrAdmin = computed(() => {
     const isAdmin = projectsStore.selectedProjectConfig.role === ProjectRole.Admin;
-    return isProjectOwner.value || isAdmin;
+    return isUserProjectOwner.value || isAdmin;
 });
 
 /**
@@ -810,7 +805,7 @@ function recalculateChartWidth(): void {
  * or the edit limit dialog.
  */
 function onNeedMoreClicked(source: LimitToChange): void {
-    if (isProjectOwner.value && !isPaidTier.value && billingEnabled.value) {
+    if (isUserProjectOwner.value && !isPaidTier.value && billingEnabled.value) {
         appStore.toggleUpgradeFlow(true);
         return;
     }
@@ -830,7 +825,7 @@ function onNeedMoreClicked(source: LimitToChange): void {
  * Returns CTA label based on paid tier status and current usage.
  */
 function getCTALabel(usage: number, isSegment = false): string {
-    if (isProjectOwner.value && !isPaidTier.value && billingEnabled.value) {
+    if (isUserProjectOwner.value && !isPaidTier.value && billingEnabled.value) {
         if (usage >= 100) {
             return 'Upgrade now';
         }
@@ -852,7 +847,7 @@ function getCTALabel(usage: number, isSegment = false): string {
  * Conditionally opens the upgrade dialog or docs link.
  */
 function onSegmentsCTAClicked(): void {
-    if (isProjectOwner.value && !isPaidTier.value && billingEnabled.value) {
+    if (isUserProjectOwner.value && !isPaidTier.value && billingEnabled.value) {
         appStore.toggleUpgradeFlow(true);
         return;
     }
@@ -876,7 +871,7 @@ function onCouponCTAClicked(): void {
  * Opens limit increase request link in a new tab.
  */
 function onBucketsCTAClicked(): void {
-    if (isProjectOwner.value && !isPaidTier.value && billingEnabled.value) {
+    if (isUserProjectOwner.value && !isPaidTier.value && billingEnabled.value) {
         appStore.toggleUpgradeFlow(true);
         return;
     }
