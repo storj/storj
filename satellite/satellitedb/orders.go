@@ -452,6 +452,20 @@ func (db *ordersDB) UpdateBandwidthBatch(ctx context.Context, rollups []orders.B
 		return nil
 	}
 
+	switch db.db.impl {
+	case dbutil.Postgres, dbutil.Cockroach:
+		return db.updateBandwidthBatchPostgres(ctx, rollups)
+	case dbutil.Spanner:
+		return db.updateBandwidthBatchSpanner(ctx, rollups)
+	default:
+		return errs.New("unsupported database dialect: %s", db.db.impl)
+	}
+}
+
+// updateBandwidthBatchPostgres updates bucket and project bandwidth rollups in the database.
+func (db *ordersDB) updateBandwidthBatchPostgres(ctx context.Context, rollups []orders.BucketBandwidthRollup) (err error) {
+	defer mon.Task()(&ctx)(&err)
+
 	return db.db.WithTx(ctx, func(ctx context.Context, tx *dbx.Tx) error {
 		defer mon.Task()(&ctx)(&err)
 
@@ -490,9 +504,7 @@ func (db *ordersDB) UpdateBandwidthBatch(ctx context.Context, rollups []orders.B
 		emptyAllocatedSlice := make([]int64, len(projectIDs))
 
 		if len(projectIDs) > 0 {
-			switch db.db.impl {
-			case dbutil.Postgres, dbutil.Cockroach:
-				_, err = tx.Tx.ExecContext(ctx, `
+			_, err = tx.Tx.ExecContext(ctx, `
 				INSERT INTO bucket_bandwidth_rollups (
 					project_id, bucket_name,
 					interval_start, interval_seconds,
@@ -506,76 +518,10 @@ func (db *ordersDB) UpdateBandwidthBatch(ctx context.Context, rollups []orders.B
 					inline = bucket_bandwidth_rollups.inline + EXCLUDED.inline,
 					settled = bucket_bandwidth_rollups.settled + EXCLUDED.settled
 			`, pgutil.UUIDArray(projectIDs), pgutil.ByteaArray(bucketNames), pgutil.TimestampTZArray(intervalStartSlice),
-					defaultIntervalSeconds,
-					pgutil.Int4Array(actionSlice), pgutil.Int8Array(inlineSlice), pgutil.Int8Array(emptyAllocatedSlice), pgutil.Int8Array(settledSlice))
-				if err != nil {
-					return errs.New("bucket bandwidth rollup batch flush failed: %w", err)
-				}
-			case dbutil.Spanner:
-				// TODO(spanner): optimize this by not constructing the intermediate slices.
-
-				// This is a two-phased approach instead of just a single query like Postgres/Cockroach since
-				// Spanner does not support updating only a subset of a tables columns when inserting and updating rows
-				// at the same time (using INSERT OR UPDATE). First, we update the subset of columns for the existing rows,
-				// and then second we insert the data into the table ignoring rows that already exist.
-				type rollupUpdate struct {
-					ProjectID       []byte
-					BucketName      []byte
-					IntervalStart   time.Time
-					IntervalSeconds int64
-					Action          int64
-					Inline          int64
-					Allocated       int64
-					Settled         int64
-				}
-
-				rollups := make([]rollupUpdate, len(projectIDs))
-				for i := range rollups {
-					rollups[i] = rollupUpdate{
-						ProjectID:       projectIDs[i].Bytes(),
-						BucketName:      bucketNames[i],
-						IntervalStart:   intervalStartSlice[i],
-						IntervalSeconds: int64(defaultIntervalSeconds),
-						Action:          int64(actionSlice[i]),
-						Inline:          inlineSlice[i],
-						Allocated:       emptyAllocatedSlice[i],
-						Settled:         settledSlice[i],
-					}
-				}
-
-				// TODO(spanner): this is a candidate for performance optimization from application performance testing
-				// This is currently executed as a single update for each row as a single query to update all rows would
-				// first need to have a WHERE clause utilizing INNER JOIN and UNNEST in a similar structure as the
-				// INSERT OR IGNORE statement below, and second would need to combine the input query parameter slices
-				// for each column (inline and settled) in order to update the columns for a row with the correct values.
-				// Doing so is a much more complex query that is prone to errors, and it is not yet clear whether that
-				// query would perform better in production-like use cases.
-				updateBBRStatement := tx.Rebind(`
-					UPDATE bucket_bandwidth_rollups bbr
-					SET bbr.inline = bbr.inline + ?,
-						bbr.settled = bbr.settled + ?
-					WHERE bbr.project_id = ? AND bbr.bucket_name = ? AND bbr.interval_start = ? AND bbr.action = ?
-				`)
-
-				for _, r := range rollups {
-					_, err = tx.Tx.ExecContext(ctx, updateBBRStatement, r.Inline, r.Settled, r.ProjectID, r.BucketName, r.IntervalStart, r.Action)
-					if err != nil {
-						return errs.New("bucket bandwidth rollup batch update failed: %w", err)
-					}
-				}
-
-				_, err = tx.Tx.ExecContext(ctx, tx.Rebind(`
-					INSERT OR IGNORE INTO bucket_bandwidth_rollups (
-						project_id, bucket_name,
-						interval_start, interval_seconds,
-						action, inline, allocated, settled)
-					(SELECT ProjectID, BucketName, IntervalStart, IntervalSeconds, Action, Inline, Allocated, Settled FROM UNNEST(?))
-				`), rollups)
-				if err != nil {
-					return errs.New("bucket bandwidth rollup batch insert failed: %w", err)
-				}
-			default:
-				return errs.New("unsupported database dialect: %s", db.db.impl)
+				defaultIntervalSeconds,
+				pgutil.Int4Array(actionSlice), pgutil.Int8Array(inlineSlice), pgutil.Int8Array(emptyAllocatedSlice), pgutil.Int8Array(settledSlice))
+			if err != nil {
+				return errs.New("bucket bandwidth rollup batch flush failed: %w", err)
 			}
 		}
 
@@ -607,10 +553,8 @@ func (db *ordersDB) UpdateBandwidthBatch(ctx context.Context, rollups []orders.B
 		}
 
 		if len(projectIDs) > 0 {
-			switch db.db.impl {
-			case dbutil.Postgres, dbutil.Cockroach:
-				// TODO: explore updating project_bandwidth_daily_rollups table to use "timestamp with time zone" for interval_day
-				_, err = tx.Tx.ExecContext(ctx, `
+			// TODO: explore updating project_bandwidth_daily_rollups table to use "timestamp with time zone" for interval_day
+			_, err = tx.Tx.ExecContext(ctx, `
 				INSERT INTO project_bandwidth_daily_rollups(project_id, interval_day, egress_allocated, egress_settled, egress_dead)
 					SELECT unnest($1::bytea[]), unnest($2::date[]), unnest($3::bigint[]), unnest($4::bigint[]), unnest($5::bigint[])
 				ON CONFLICT(project_id, interval_day)
@@ -619,67 +563,202 @@ func (db *ordersDB) UpdateBandwidthBatch(ctx context.Context, rollups []orders.B
 					egress_settled   = project_bandwidth_daily_rollups.egress_settled   + EXCLUDED.egress_settled::bigint,
 					egress_dead      = project_bandwidth_daily_rollups.egress_dead      + EXCLUDED.egress_dead::bigint
 			`, pgutil.UUIDArray(projectIDs), pgutil.DateArray(intervalStartSlice), pgutil.Int8Array(allocatedSlice), pgutil.Int8Array(settledSlice), pgutil.Int8Array(deadSlice))
+			if err != nil {
+				return errs.New("project bandwidth daily rollup batch flush failed: %w", err)
+			}
+		}
+		return nil
+	})
+}
+
+// updateBandwidthBatchSpanner updates bucket and project bandwidth rollups in the database.
+func (db *ordersDB) updateBandwidthBatchSpanner(ctx context.Context, rollups []orders.BucketBandwidthRollup) (err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	return db.db.WithTx(ctx, func(ctx context.Context, tx *dbx.Tx) error {
+		defer mon.Task()(&ctx)(&err)
+
+		// TODO reorg code to make clear what we are inserting/updating to
+		// bucket_bandwidth_rollups and project_bandwidth_daily_rollups
+
+		bucketRUMap := rollupBandwidth(rollups, toHourlyInterval, getBucketRollupKey)
+
+		projectIDs := make([]uuid.UUID, 0, len(bucketRUMap))
+		bucketNames := make([][]byte, 0, len(bucketRUMap))
+		intervalStartSlice := make([]time.Time, 0, len(bucketRUMap))
+		actionSlice := make([]int32, 0, len(bucketRUMap))
+		inlineSlice := make([]int64, 0, len(bucketRUMap))
+		settledSlice := make([]int64, 0, len(bucketRUMap))
+
+		bucketRUMapKeys := make([]BandwidthRollupKey, 0, len(bucketRUMap))
+		for key := range bucketRUMap {
+			bucketRUMapKeys = append(bucketRUMapKeys, key)
+		}
+
+		SortBandwidthRollupKeys(bucketRUMapKeys)
+
+		for _, rollupInfo := range bucketRUMapKeys {
+			usage := bucketRUMap[rollupInfo]
+			if usage.Inline != 0 || usage.Settled != 0 {
+				projectIDs = append(projectIDs, rollupInfo.ProjectID)
+				bucketNames = append(bucketNames, []byte(rollupInfo.BucketName))
+				intervalStartSlice = append(intervalStartSlice, time.Unix(rollupInfo.IntervalStart, 0))
+				actionSlice = append(actionSlice, int32(rollupInfo.Action))
+				inlineSlice = append(inlineSlice, usage.Inline)
+				settledSlice = append(settledSlice, usage.Settled)
+			}
+		}
+
+		// allocated must be not-null so lets keep slice until we will change DB schema
+		emptyAllocatedSlice := make([]int64, len(projectIDs))
+
+		if len(projectIDs) > 0 {
+			// TODO(spanner): optimize this by not constructing the intermediate slices.
+
+			// This is a two-phased approach instead of just a single query like Postgres/Cockroach since
+			// Spanner does not support updating only a subset of a tables columns when inserting and updating rows
+			// at the same time (using INSERT OR UPDATE). First, we update the subset of columns for the existing rows,
+			// and then second we insert the data into the table ignoring rows that already exist.
+			type rollupUpdate struct {
+				ProjectID       []byte
+				BucketName      []byte
+				IntervalStart   time.Time
+				IntervalSeconds int64
+				Action          int64
+				Inline          int64
+				Allocated       int64
+				Settled         int64
+			}
+
+			rollups := make([]rollupUpdate, len(projectIDs))
+			for i := range rollups {
+				rollups[i] = rollupUpdate{
+					ProjectID:       projectIDs[i].Bytes(),
+					BucketName:      bucketNames[i],
+					IntervalStart:   intervalStartSlice[i],
+					IntervalSeconds: int64(defaultIntervalSeconds),
+					Action:          int64(actionSlice[i]),
+					Inline:          inlineSlice[i],
+					Allocated:       emptyAllocatedSlice[i],
+					Settled:         settledSlice[i],
+				}
+			}
+
+			// TODO(spanner): this is a candidate for performance optimization from application performance testing
+			// This is currently executed as a single update for each row as a single query to update all rows would
+			// first need to have a WHERE clause utilizing INNER JOIN and UNNEST in a similar structure as the
+			// INSERT OR IGNORE statement below, and second would need to combine the input query parameter slices
+			// for each column (inline and settled) in order to update the columns for a row with the correct values.
+			// Doing so is a much more complex query that is prone to errors, and it is not yet clear whether that
+			// query would perform better in production-like use cases.
+			updateBBRStatement := tx.Rebind(`
+				UPDATE bucket_bandwidth_rollups bbr
+				SET bbr.inline = bbr.inline + ?,
+					bbr.settled = bbr.settled + ?
+				WHERE bbr.project_id = ? AND bbr.bucket_name = ? AND bbr.interval_start = ? AND bbr.action = ?
+			`)
+
+			for _, r := range rollups {
+				_, err = tx.Tx.ExecContext(ctx, updateBBRStatement, r.Inline, r.Settled, r.ProjectID, r.BucketName, r.IntervalStart, r.Action)
 				if err != nil {
-					return errs.New("project bandwidth daily rollup batch flush failed: %w", err)
+					return errs.New("bucket bandwidth rollup batch update failed: %w", err)
 				}
-			case dbutil.Spanner:
-				// TODO(spanner): optimize this by not constructing the intermediate slices.
+			}
 
-				// This is a two-phased approach instead of just a single query like Postgres/Cockroach since
-				// Spanner does not support updating only a subset of a tables columns when inserting and updating rows
-				// at the same time (using INSERT OR UPDATE). First, we update the subset of columns for the existing rows,
-				// and then second we insert the data into the table ignoring rows that already exist.
+			_, err = tx.Tx.ExecContext(ctx, tx.Rebind(`
+				INSERT OR IGNORE INTO bucket_bandwidth_rollups (
+					project_id, bucket_name,
+					interval_start, interval_seconds,
+					action, inline, allocated, settled)
+				(SELECT ProjectID, BucketName, IntervalStart, IntervalSeconds, Action, Inline, Allocated, Settled FROM UNNEST(?))
+			`), rollups)
+			if err != nil {
+				return errs.New("bucket bandwidth rollup batch insert failed: %w", err)
+			}
+		}
 
-				type rollupUpdate struct {
-					ProjectID       []byte
-					IntervalDay     civil.Date
-					EgressAllocated int64
-					EgressSettled   int64
-					EgressDead      int64
+		projectRUMap := rollupBandwidth(rollups, toDailyInterval, getProjectRollupKey)
+
+		projectIDs = make([]uuid.UUID, 0, len(projectRUMap))
+		intervalStartSlice = make([]time.Time, 0, len(projectRUMap))
+		allocatedSlice := make([]int64, 0, len(projectRUMap))
+		settledSlice = make([]int64, 0, len(projectRUMap))
+		deadSlice := make([]int64, 0, len(projectRUMap))
+
+		projectRUMapKeys := make([]BandwidthRollupKey, 0, len(projectRUMap))
+		for key := range projectRUMap {
+			if key.Action == pb.PieceAction_GET {
+				projectRUMapKeys = append(projectRUMapKeys, key)
+			}
+		}
+
+		SortBandwidthRollupKeys(projectRUMapKeys)
+
+		for _, rollupInfo := range projectRUMapKeys {
+			usage := projectRUMap[rollupInfo]
+			projectIDs = append(projectIDs, rollupInfo.ProjectID)
+			intervalStartSlice = append(intervalStartSlice, time.Unix(rollupInfo.IntervalStart, 0))
+
+			allocatedSlice = append(allocatedSlice, usage.Allocated)
+			settledSlice = append(settledSlice, usage.Settled)
+			deadSlice = append(deadSlice, usage.Dead)
+		}
+
+		if len(projectIDs) > 0 {
+			// TODO(spanner): optimize this by not constructing the intermediate slices.
+
+			// This is a two-phased approach instead of just a single query like Postgres/Cockroach since
+			// Spanner does not support updating only a subset of a tables columns when inserting and updating rows
+			// at the same time (using INSERT OR UPDATE). First, we update the subset of columns for the existing rows,
+			// and then second we insert the data into the table ignoring rows that already exist.
+
+			type rollupUpdate struct {
+				ProjectID       []byte
+				IntervalDay     civil.Date
+				EgressAllocated int64
+				EgressSettled   int64
+				EgressDead      int64
+			}
+
+			rollups := make([]rollupUpdate, len(projectIDs))
+			for i := range rollups {
+				rollups[i] = rollupUpdate{
+					ProjectID:       projectIDs[i].Bytes(),
+					IntervalDay:     civil.DateOf(intervalStartSlice[i]),
+					EgressAllocated: allocatedSlice[i],
+					EgressSettled:   settledSlice[i],
+					EgressDead:      deadSlice[i],
 				}
+			}
 
-				rollups := make([]rollupUpdate, len(projectIDs))
-				for i := range rollups {
-					rollups[i] = rollupUpdate{
-						ProjectID:       projectIDs[i].Bytes(),
-						IntervalDay:     civil.DateOf(intervalStartSlice[i]),
-						EgressAllocated: allocatedSlice[i],
-						EgressSettled:   settledSlice[i],
-						EgressDead:      deadSlice[i],
-					}
-				}
+			// TODO(spanner): this is a candidate for performance optimization from application performance testing
+			// This is currently executed as a single update for each row as a single query to update all rows would
+			// first need to have a WHERE clause utilizing INNER JOIN and UNNEST in a similar structure as the
+			// INSERT OR IGNORE statement below, and second would need to combine the input query parameter slices
+			// for each column (inline and settled) in order to update the columns for a row with the correct values.
+			// Doing so is a much more complex query that is prone to errors, and it is not yet clear whether that
+			// query would perform better in production-like use cases.
+			updatePBDRRStatement := tx.Rebind(`
+				UPDATE project_bandwidth_daily_rollups pbdr
+				SET pbdr.egress_allocated = pbdr.egress_allocated + ?,
+					pbdr.egress_settled = pbdr.egress_settled + ?,
+					pbdr.egress_dead = pbdr.egress_dead + ?
+				WHERE project_id = ? AND interval_day = ?
+			`)
 
-				// TODO(spanner): this is a candidate for performance optimization from application performance testing
-				// This is currently executed as a single update for each row as a single query to update all rows would
-				// first need to have a WHERE clause utilizing INNER JOIN and UNNEST in a similar structure as the
-				// INSERT OR IGNORE statement below, and second would need to combine the input query parameter slices
-				// for each column (inline and settled) in order to update the columns for a row with the correct values.
-				// Doing so is a much more complex query that is prone to errors, and it is not yet clear whether that
-				// query would perform better in production-like use cases.
-				updatePBDRRStatement := tx.Rebind(`
-					UPDATE project_bandwidth_daily_rollups pbdr
-					SET pbdr.egress_allocated = pbdr.egress_allocated + ?,
-						pbdr.egress_settled = pbdr.egress_settled + ?,
-						pbdr.egress_dead = pbdr.egress_dead + ?
-					WHERE project_id = ? AND interval_day = ?
-				`)
-
-				for _, r := range rollups {
-					_, err = tx.Tx.ExecContext(ctx, updatePBDRRStatement, r.EgressAllocated, r.EgressSettled, r.EgressDead, r.ProjectID, r.IntervalDay)
-					if err != nil {
-						return errs.New("project bandwidth daily rollup batch update failed: %w", err)
-					}
-				}
-
-				_, err = tx.Tx.ExecContext(ctx, tx.Rebind(`
-					INSERT OR IGNORE INTO project_bandwidth_daily_rollups (project_id, interval_day, egress_allocated, egress_settled, egress_dead)
-						(SELECT ProjectID, IntervalDay, EgressAllocated, EgressSettled, EgressDead FROM UNNEST(?))
-				`), rollups)
+			for _, r := range rollups {
+				_, err = tx.Tx.ExecContext(ctx, updatePBDRRStatement, r.EgressAllocated, r.EgressSettled, r.EgressDead, r.ProjectID, r.IntervalDay)
 				if err != nil {
-					return errs.New("project bandwidth daily rollup batch insert failed: %w", err)
+					return errs.New("project bandwidth daily rollup batch update failed: %w", err)
 				}
-			default:
-				return errs.New("unsupported database dialect: %s", db.db.impl)
+			}
+
+			_, err = tx.Tx.ExecContext(ctx, tx.Rebind(`
+				INSERT OR IGNORE INTO project_bandwidth_daily_rollups (project_id, interval_day, egress_allocated, egress_settled, egress_dead)
+					(SELECT ProjectID, IntervalDay, EgressAllocated, EgressSettled, EgressDead FROM UNNEST(?))
+			`), rollups)
+			if err != nil {
+				return errs.New("project bandwidth daily rollup batch insert failed: %w", err)
 			}
 		}
 		return nil
