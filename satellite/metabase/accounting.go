@@ -125,17 +125,8 @@ func (s *SpannerAdapter) CollectBucketTallies(ctx context.Context, opts CollectB
 		return nil, Error.Wrap(err)
 	}
 
-	transaction := s.client.Single()
-	if opts.AsOfSystemInterval != 0 {
-		// spanner requires non-negative staleness
-		staleness := opts.AsOfSystemInterval
-		if staleness < 0 {
-			staleness *= -1
-		}
-
-		transaction = transaction.WithTimestampBound(spanner.MaxStaleness(staleness))
-	}
-	return spannerutil.CollectRows(transaction.QueryWithOptions(ctx, spanner.Statement{
+	txn := s.client.Single().WithTimestampBound(spannerutil.MaxStalenessFromAOSI(opts.AsOfSystemInterval))
+	return spannerutil.CollectRows(txn.QueryWithOptions(ctx, spanner.Statement{
 		SQL: `
 			SELECT
 				project_id, bucket_name,
