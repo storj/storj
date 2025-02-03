@@ -376,9 +376,10 @@ func (stx *spannerTransactionAdapter) precommitDeleteUnversioned(ctx context.Con
 	}), func(row *spanner.Row, item *Version) error {
 		return Error.Wrap(row.Columns(item))
 	})
+	// no previous versions found, return early
 	if errors.Is(err, iterator.Done) {
 		result.HighestVersion = 0
-		err = nil
+		return result, nil
 	}
 	if err != nil {
 		return PrecommitConstraintResult{}, Error.Wrap(err)
