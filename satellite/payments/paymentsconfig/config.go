@@ -34,7 +34,7 @@ type Config struct {
 	UsagePrice         ProjectUsagePrice
 
 	// TODO: if we decide to put default product in here and change away from overrides, change the type name.
-	Products                        PriceOverrides              `help:"semicolon-separated list of products and their price structures in the format: product:storage,egress,segment,egress_discount_ratio. The egress discount ratio is the ratio of free egress per unit-month of storage"`
+	Products                        ProductPriceOverrides       `help:"semicolon-separated list of products and their product IDs and price structures in the format: product:productID,storage,egress,segment,egress_discount_ratio. The egress discount ratio is the ratio of free egress per unit-month of storage"`
 	PlacementPriceOverrides         PlacementProductMap         `help:"semicolon-separated list of placement price overrides in the format: placement:product. Multiple placements may be mapped to a single product like so: p0,p1:product. Products must be defined by the --payments.products config, or the satellite will not start."`
 	PartnersPlacementPriceOverrides PartnersPlacementProductMap `help:"semicolon-separated list of partners to placement price overrides in the format: partner0[placement0:product0;placement1,placement2:product1];partner1[etc...] If a partner uses a placement not defined for them in this config, they will be charged according to --payments.placement-price-overrides."`
 
@@ -164,6 +164,119 @@ func (p PriceOverrides) ToModels() (map[string]payments.ProjectUsagePriceModel, 
 			return nil, err
 		}
 		models[key] = model
+	}
+	return models, nil
+}
+
+// ProductUsagePrice represents the product ID and usage price for a product.
+type ProductUsagePrice struct {
+	ProductID int32
+	ProjectUsagePrice
+}
+
+// ProductPriceOverrides represents a mapping between a string and product price overrides.
+type ProductPriceOverrides struct {
+	overrideMap map[string]ProductUsagePrice
+}
+
+// Type returns the type of the pflag.Value.
+func (ProductPriceOverrides) Type() string { return "paymentsconfig.ProductPriceOverrides" }
+
+// String returns the string representation of the price overrides.
+func (p *ProductPriceOverrides) String() string {
+	if p == nil {
+		return ""
+	}
+	var s strings.Builder
+	left := len(p.overrideMap)
+	for key, prices := range p.overrideMap {
+		egressDiscount := strconv.FormatFloat(prices.EgressDiscountRatio, 'f', -1, 64)
+		s.WriteString(fmt.Sprintf("%s:%d,%s,%s,%s,%s", key, prices.ProductID, prices.StorageTB, prices.EgressTB, prices.Segment, egressDiscount))
+		left--
+		if left > 0 {
+			s.WriteRune(';')
+		}
+	}
+	return s.String()
+}
+
+// Set sets the list of price overrides to the parsed string.
+func (p *ProductPriceOverrides) Set(s string) error {
+	overrideMap := make(map[string]ProductUsagePrice)
+	productIDsSeen := make(map[int32]struct{})
+	for _, overrideStr := range strings.Split(s, ";") {
+		if overrideStr == "" {
+			continue
+		}
+
+		info := strings.Split(overrideStr, ":")
+		if len(info) != 2 {
+			return Error.New("Invalid price override (expected format key:productID,storage,egress,segment,egress_discount_ratio, got %s)", overrideStr)
+		}
+
+		key := strings.TrimSpace(info[0])
+		if len(key) == 0 {
+			return Error.New("Price override key must not be empty")
+		}
+
+		valuesStr := info[1]
+		values := strings.Split(valuesStr, ",")
+		if len(values) != 5 {
+			return Error.New("Invalid values (expected format productID,storage,egress,segment,egress_discount_ratio, got %s)", valuesStr)
+		}
+
+		productID64, err := strconv.ParseInt(values[0], 10, 32)
+		if err != nil {
+			return Error.New("Invalid product ID '%s' (%s)", values[0], err)
+		}
+		productID := int32(productID64)
+		if _, ok := productIDsSeen[productID]; ok {
+			return Error.New("Product ID mapped multiple times. Check the config for (%d) and ensure only one product has this product ID.", productID)
+		}
+		productIDsSeen[productID] = struct{}{}
+
+		for i := 1; i < 4; i++ {
+			if _, err := decimal.NewFromString(values[i]); err != nil {
+				return Error.New("Invalid price '%s' (%s)", values[i], err)
+			}
+		}
+
+		egressDiscount, err := strconv.ParseFloat(values[4], 64)
+		if err != nil {
+			return Error.New("Invalid egress discount ratio '%s' (%s)", values[4], err)
+		}
+
+		overrideMap[info[0]] = ProductUsagePrice{
+			ProductID: productID,
+			ProjectUsagePrice: ProjectUsagePrice{
+				StorageTB:           values[1],
+				EgressTB:            values[2],
+				Segment:             values[3],
+				EgressDiscountRatio: egressDiscount,
+			},
+		}
+	}
+	p.overrideMap = overrideMap
+	return nil
+}
+
+// SetMap sets the internal mapping between a string and usage prices.
+func (p *ProductPriceOverrides) SetMap(overrides map[string]ProductUsagePrice) {
+	p.overrideMap = overrides
+}
+
+// ToModels returns the price overrides represented as a mapping between a string and product usage price models.
+func (p ProductPriceOverrides) ToModels() (map[string]payments.ProductUsagePriceModel, error) {
+	models := make(map[string]payments.ProductUsagePriceModel)
+	for key, prices := range p.overrideMap {
+		projectUsageModel, err := prices.ToModel()
+		if err != nil {
+			return nil, err
+		}
+		models[key] = payments.ProductUsagePriceModel{
+			ProductID:              prices.ProductID,
+			ProjectUsagePriceModel: projectUsageModel,
+		}
 	}
 	return models, nil
 }

@@ -535,7 +535,7 @@ func (accounts *accounts) GetPartnerPlacementPriceModel(partner string, placemen
 		product = accounts.service.placementProductMap.GetProductByPlacement(int(placement))
 	}
 	if price, ok := accounts.service.productPriceMap[product]; ok {
-		return price, nil
+		return price.ProjectUsagePriceModel, nil
 	}
 	return payments.ProjectUsagePriceModel{}, ErrPricingNotfound.New("pricing not found for partner %s and placement %d", partner, placement)
 }

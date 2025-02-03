@@ -1616,10 +1616,13 @@ func TestPartnerPlacements(t *testing.T) {
 			ID:     10,
 			IdName: "placement10",
 		}
-		productPrice = paymentsconfig.ProjectUsagePrice{
-			StorageTB: "4",
-			EgressTB:  "5",
-			Segment:   "6",
+		productPrice = paymentsconfig.ProductUsagePrice{
+			ProductID: 1,
+			ProjectUsagePrice: paymentsconfig.ProjectUsagePrice{
+				StorageTB: "4",
+				EgressTB:  "5",
+				Segment:   "6",
+			},
 		}
 	)
 	productModel, err := productPrice.ToModel()
@@ -1630,7 +1633,7 @@ func TestPartnerPlacements(t *testing.T) {
 		Reconfigure: testplanet.Reconfigure{
 			Satellite: func(log *zap.Logger, index int, config *satellite.Config) {
 				config.Placement = nodeselection.ConfigurablePlacementRule{PlacementRules: `10:annotation("location", "placement10")`}
-				config.Payments.Products.SetMap(map[string]paymentsconfig.ProjectUsagePrice{
+				config.Payments.Products.SetMap(map[string]paymentsconfig.ProductUsagePrice{
 					product: productPrice,
 				})
 				config.Payments.PlacementPriceOverrides.SetMap(map[int]string{int(placement): product})

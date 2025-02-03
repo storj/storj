@@ -340,11 +340,13 @@ func TestPayments(t *testing.T) {
 			ID:     10,
 			IdName: "placement10",
 		}
-		productPrice = paymentsconfig.ProjectUsagePrice{
-			EgressDiscountRatio: 0.1,
-			StorageTB:           "4",
-			EgressTB:            "5",
-			Segment:             "6",
+		productPrice = paymentsconfig.ProductUsagePrice{
+			ProductID: 1,
+			ProjectUsagePrice: paymentsconfig.ProjectUsagePrice{
+				StorageTB: "4",
+				EgressTB:  "5",
+				Segment:   "6",
+			},
 		}
 	)
 	productModel, err := productPrice.ToModel()
@@ -360,7 +362,7 @@ func TestPayments(t *testing.T) {
 				config.Console.Placement.SelfServeEnabled = true
 				config.Console.Placement.SelfServeNames = []string{"placement10"}
 
-				config.Payments.Products.SetMap(map[string]paymentsconfig.ProjectUsagePrice{
+				config.Payments.Products.SetMap(map[string]paymentsconfig.ProductUsagePrice{
 					product: productPrice,
 				})
 				config.Payments.PlacementPriceOverrides.SetMap(map[int]string{int(placement): product})
