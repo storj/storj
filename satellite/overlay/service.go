@@ -419,6 +419,12 @@ func (service *Service) CachedGetOnlineNodesForGet(ctx context.Context, nodeIDs 
 	return service.DownloadSelectionCache.GetNodes(ctx, nodeIDs)
 }
 
+// CachedGet returns a node from the download selection cache from the supplied nodeID.
+func (service *Service) CachedGet(ctx context.Context, nodeID storj.NodeID) (_ *nodeselection.SelectedNode, err error) {
+	defer mon.Task()(&ctx)(&err)
+	return service.DownloadSelectionCache.GetNode(ctx, nodeID)
+}
+
 // GetOnlineNodesForAuditRepair returns a map of nodes for the supplied nodeIDs.
 func (service *Service) GetOnlineNodesForAuditRepair(ctx context.Context, nodeIDs []storj.NodeID) (_ map[storj.NodeID]*NodeReputation, err error) {
 	defer mon.Task()(&ctx)(&err)
@@ -584,7 +590,7 @@ func (service *Service) UpdateCheckIn(ctx context.Context, node NodeCheckInInfo,
 
 	oldInfo, err := service.Get(ctx, node.NodeID)
 	if err != nil && !ErrNodeNotFound.Has(err) {
-		return Error.New("failed to get node info from DB")
+		return Error.New("failed to get node info from DB: %w", err)
 	}
 
 	if oldInfo == nil {

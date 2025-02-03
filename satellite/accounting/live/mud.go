@@ -4,9 +4,9 @@
 package live
 
 import (
-	"storj.io/storj/private/mud"
 	"storj.io/storj/satellite/accounting"
 	"storj.io/storj/shared/modular/config"
+	"storj.io/storj/shared/mud"
 )
 
 // Module is a mud module.

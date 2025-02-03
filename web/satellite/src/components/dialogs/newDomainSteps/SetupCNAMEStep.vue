@@ -5,12 +5,12 @@
     <v-form class="pa-3" @submit.prevent>
         <v-card-text>
             In your DNS provider, create CNAME record.
-            <v-text-field variant="solo-filled" flat class="my-4" density="comfortable" label="Hostname" :model-value="domain" readonly hide-details>
+            <v-text-field variant="solo-filled" flat class="my-4" label="Hostname" :model-value="domain" readonly hide-details>
                 <template #append-inner>
                     <input-copy-button :value="domain" />
                 </template>
             </v-text-field>
-            <v-text-field variant="solo-filled" flat class="my-4" density="comfortable" label="Content" :model-value="cname" readonly hide-details>
+            <v-text-field variant="solo-filled" flat class="my-4" label="Content" :model-value="cname" readonly hide-details>
                 <template #append-inner>
                     <input-copy-button :value="cname" />
                 </template>

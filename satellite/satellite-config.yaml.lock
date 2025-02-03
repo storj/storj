@@ -145,17 +145,14 @@
 # how stale reliable node cache can be
 # checker.reliability-cache-staleness: 5m0s
 
-# [DEPRECATED] comma-separated override values for repair threshold in the format k-threshold
-# checker.repair-overrides: ""
-
 # Number of damaged segments to buffer in-memory before flushing to the repair queue
 # checker.repair-queue-insert-batch-size: 100
 
 # comma-separated override values for repair success target in the format k-target
-# checker.repair-target-overrides: 29-65
+# checker.repair-target-overrides: ""
 
 # comma-separated override values for repair threshold in the format k-threshold
-# checker.repair-threshold-overrides: 29-52
+# checker.repair-threshold-overrides: ""
 
 # percent of held amount disposed to node after leaving withheld
 compensation.dispose-percent: 50
@@ -268,6 +265,9 @@ compensation.withheld-percents: 75,75,75,50,50,50,25,25,25,0,0,0,0,0,0
 # url link for for beta satellite support
 # console.beta-satellite-support-url: ""
 
+# whether billing add funds feature is enabled
+# console.billing-add-funds-enabled: false
+
 # indicates if billing features should be enabled
 # console.billing-features-enabled: true
 
@@ -328,6 +328,9 @@ compensation.withheld-percents: 75,75,75,50,50,50,25,25,25,0,0,0,0,0,0
 # bad captcha score threshold which is used to prevent bot user activity
 # console.captcha.score-cutoff-threshold: 0.8
 
+# whether to enable cloud GPU functionality
+# console.cloud-gpus-enabled: false
+
 # additional values for Content Security Policy connect-src, space separated
 # console.connect-src-suffix: '*.tardigradeshare.io *.storjshare.io *.storjapi.io *.storjsatelliteshare.io'
 
@@ -342,6 +345,9 @@ compensation.withheld-percents: 75,75,75,50,50,50,25,25,25,0,0,0,0,0,0
 
 # indicates if Content Security Policy is enabled
 # console.csp-enabled: true
+
+# whether CSRF protection is enabled for some of the endpoints
+# console.csrf-protection-enabled: false
 
 # whether prompt to join cunoFS beta is visible
 # console.cuno-fs-beta-enabled: false
@@ -427,11 +433,20 @@ compensation.withheld-percents: 75,75,75,50,50,50,25,25,25,0,0,0,0,0,0
 # number of times user can try to login without penalty
 # console.login-attempts-without-penalty: 3
 
+# maximum amount (in cents) allowed to be added to an account balance.
+# console.max-add-funds-amount: 10000
+
+# defines the maximum number of characters allowed for long form fields, e.g. comment type fields
+# console.max-long-form-field-characters: 500
+
 # defines the maximum number of characters allowed for names, e.g. user first/last names and company names
 # console.max-name-characters: 100
 
 # additional values for Content Security Policy media-src, space separated
 # console.media-src-suffix: '*.tardigradeshare.io *.storjshare.io *.storjsatelliteshare.io'
+
+# minimum amount (in cents) allowed to be added to an account balance.
+# console.min-add-funds-amount: 100
 
 # indicates if storj native token payments system is enabled
 # console.native-token-payments-enabled: false
@@ -929,6 +944,18 @@ identity.key-path: /root/.local/share/storj/identity/satellite/identity.key
 # how often to bump the generation in the node failure tracker
 # metainfo.failure-tracker-tick-duration: 30s
 
+# minimum number of items to query at a time
+# metainfo.list-objects.min-batch-size: 100
+
+# prefixes to skip before requerying
+# metainfo.list-objects.prefix-skip-requery: 1000
+
+# extra items to list for non-recursive queries
+# metainfo.list-objects.query-extra-for-non-recursive: 10
+
+# versions to skip before requerying
+# metainfo.list-objects.version-skip-requery: 1000
+
 # maximum time allowed to pass between creating and committing a segment
 # metainfo.max-commit-interval: 48h0m0s
 
@@ -980,6 +1007,9 @@ identity.key-path: /root/.local/share/storj/identity/satellite/identity.key
 # redundancy scheme configuration in the format k/m/o/n-sharesize
 # metainfo.rs: 29/35/80/110-256 B
 
+# send edge URL overrides through the GetProjectInfo endpoint
+# metainfo.send-edge-url-overrides: false
+
 # enable code for server-side copy, deprecated. please leave this to true.
 # metainfo.server-side-copy: true
 
@@ -992,8 +1022,11 @@ identity.key-path: /root/.local/share/storj/identity/satellite/identity.key
 # how often to bump the generation in the node success tracker
 # metainfo.success-tracker-tick-duration: 10m0s
 
-# list of trusted uplinks for success tracker
+# list of trusted uplinks for success tracker, deprecated. please use success-tracker-uplinks for uplinks that should get their own success tracker profiles and trusted-uplinks for uplinks that are trusted individually.
 # metainfo.success-tracker-trusted-uplinks: []
+
+# list of uplinks for success tracker
+# metainfo.success-tracker-uplinks: []
 
 # test the new query for non-recursive listing
 # metainfo.test-listing-query: false
@@ -1003,6 +1036,9 @@ identity.key-path: /root/.local/share/storj/identity/satellite/identity.key
 
 # which code path to use for precommit delete step for unversioned objects, 0 is the default (old) code path.
 # metainfo.testing-precommit-delete-mode: 0
+
+# list of trusted uplinks
+# metainfo.trusted-uplinks: []
 
 # number of object locations to cache.
 # metainfo.upload-limiter.cache-capacity: 10000
@@ -1015,6 +1051,9 @@ identity.key-path: /root/.local/share/storj/identity/satellite/identity.key
 
 # enable the use of bucket level object versioning
 # metainfo.use-bucket-level-object-versioning: true
+
+# switch to new ListObjects implementation
+# metainfo.use-list-objects-for-listing: false
 
 # user info cache capacity
 # metainfo.user-info-validation.cache-capacity: 10000
@@ -1102,6 +1141,9 @@ identity.key-path: /root/.local/share/storj/identity/satellite/identity.key
 
 # how often to flush the rollups write cache to the database
 # orders.flush-interval: 1m0s
+
+# stops validating orders received from trusted nodes
+# orders.trusted-orders: false
 
 # default AS OF SYSTEM TIME for service
 # overlay.as-of-system-time: -10s
@@ -1237,6 +1279,9 @@ identity.key-path: /root/.local/share/storj/identity/satellite/identity.key
 
 # stripe API secret key
 # payments.stripe-coin-payments.stripe-secret-key: ""
+
+# stripe webhookEvents secret token
+# payments.stripe-coin-payments.stripe-webhook-secret: ""
 
 # whether to use idempotency for create/update requests
 # payments.stripe-coin-payments.use-idempotency: false
@@ -1538,6 +1583,15 @@ server.private-address: 127.0.0.1:7778
 # Whether the private Userinfo rpc endpoint is enabled
 # userinfo.enabled: false
 
+# base url of valdi external API
+# valdi.api-base-url: https://api.valdi.ai
+
+# path to RSA private key for signing valdi requests
+# valdi.rsa-key-path: ""
+
+# the base email address for valdi satellite project email addresses. Important: once this has been used to create users, it should not be changed
+# valdi.satellite-email: ""
+
 # Interval to check the version
 # version.check-interval: 15m0s
 
@@ -1557,7 +1611,7 @@ server.private-address: 127.0.0.1:7778
 # zombie-deletion.inactive-for: 24h0m0s
 
 # the time between each attempt to go through the db and clean up zombie objects
-# zombie-deletion.interval: 12h0m0s
+# zombie-deletion.interval: 15h0m0s
 
 # how many objects to query in a batch
 # zombie-deletion.list-limit: 100

@@ -13,9 +13,9 @@ Requires setting `Authorization` header for requests.
     * [API Endpoints](#api-endpoints)
         * [User Management](#user-management)
             * [POST /api/users](#post-apiusers)
-            * [PUT /api/users/{user-email}](#put-apiusersuser-email)
-            * [GET /api/users/{user-email}](#get-apiusersuser-email)
-            * [GET /api/users/{user-email}/limits](#get-apiusersuser-emaillimits)
+            * [PUT /api/users/{user-email} - DEPRECATED](#put-apiusersuser-email---deprecated)
+            * [GET /api/users/{user-email} - DEPRECATED](#get-apiusersuser-email---deprecated)
+            * [GET /api/users/{user-email}/limits - DEPRECATED](#get-apiusersuser-emaillimits---deprecated)
             * [DELETE /api/users/{user-email}](#delete-apiusersuser-email)
             * [PUT /api/users/{user-email}/limits](#put-apiusersuser-emaillimits)
             * [DELETE /api/users/{user-email}/mfa](#delete-apiusersuser-emailmfa)
@@ -30,38 +30,39 @@ Requires setting `Authorization` header for requests.
             * [DELETE /api/users/{user-email}/billing-warning](#delete-apiusersuser-emailbilling-warning)
             * [GET /api/users/deletion/pending](#get-apiusersdeletionpending)
             * [GET /api/users/deletion/requested-by-user](#get-apiusersdeletionrequested-by-user)
-            * [PATCH /api/users/{user-email}/geofence](#patch-apiusersuser-emailgeofence)
-            * [DELETE /api/users/{user-email}/geofence](#delete-apiusersuser-emailgeofence)
+            * [PATCH /api/users/{user-email}/geofence - DEPRECATED](#patch-apiusersuser-emailgeofence---deprecated)
+            * [DELETE /api/users/{user-email}/geofence - DEPRECATED](#delete-apiusersuser-emailgeofence---deprecated)
             * [PATCH /api/users/{user-email}/activate-account/disable-bot-restriction](#patch-apiusersuser-emailactivate-accountdisable-bot-restriction)
             * [PATCH /api/users/{user-email}/trial-expiration](#patch-apiusersuser-emailtrial-expiration)
+            * [PUT /api/users/{user-email}/status/{user-status}](#put-apiusersuser-emailstatususer-status)
         * [OAuth Client Management](#oauth-client-management)
             * [POST /api/oauth/clients](#post-apioauthclients)
             * [PUT /api/oauth/clients/{id}](#put-apioauthclientsid)
             * [DELETE /api/oauth/clients/{id}](#delete-apioauthclientsid)
         * [Project Management](#project-management)
             * [POST /api/projects](#post-apiprojects)
-            * [GET /api/projects/{project-id}](#get-apiprojectsproject-id)
-            * [PUT /api/projects/{project-id}](#put-apiprojectsproject-id)
+            * [GET /api/projects/{project-id} - DEPRECATED](#get-apiprojectsproject-id---deprecated)
+            * [PUT /api/projects/{project-id} - DEPRECATED](#put-apiprojectsproject-id---deprecated)
             * [DELETE /api/projects/{project-id}](#delete-apiprojectsproject-id)
             * [GET /api/projects/{project}/apikeys](#get-apiprojectsprojectapikeys)
             * [POST /api/projects/{project}/apikeys](#post-apiprojectsprojectapikeys)
             * [DELETE /api/projects/{project}/apikeys?name={value}](#delete-apiprojectsprojectapikeysnamevalue)
             * [GET /api/projects/{project-id}/usage](#get-apiprojectsproject-idusage)
-            * [GET /api/projects/{project-id}/limit](#get-apiprojectsproject-idlimit)
+            * [GET /api/projects/{project-id}/limit - DEPRECATED](#get-apiprojectsproject-idlimit---deprecated)
             * [Update limits](#update-limits)
-                * [PUT /api/projects/{project-id}/limit?usage={value}](#put-apiprojectsproject-idlimitusagevalue)
-                * [PUT /api/projects/{project-id}/limit?bandwidth={value}](#put-apiprojectsproject-idlimitbandwidthvalue)
-                * [PUT /api/projects/{project-id}/limit?rate={value}](#put-apiprojectsproject-idlimitratevalue)
-                * [PUT /api/projects/{project-id}/limit?buckets={value}](#put-apiprojectsproject-idlimitbucketsvalue)
-                * [PUT /api/projects/{project-id}/limit?burst={value}](#put-apiprojectsproject-idlimitburstvalue)
-                * [PUT /api/projects/{project-id}/limit?segments={value}](#put-apiprojectsproject-idlimitsegmentsvalue)
+                * [PUT /api/projects/{project-id}/limit?usage={value} - DEPRECATED](#put-apiprojectsproject-idlimitusagevalue---deprecated)
+                * [PUT /api/projects/{project-id}/limit?bandwidth={value} - DEPRECATED](#put-apiprojectsproject-idlimitbandwidthvalue---deprecated)
+                * [PUT /api/projects/{project-id}/limit?rate={value} - DEPRECATED](#put-apiprojectsproject-idlimitratevalue---deprecated)
+                * [PUT /api/projects/{project-id}/limit?buckets={value} - DEPRECATED](#put-apiprojectsproject-idlimitbucketsvalue---deprecated)
+                * [PUT /api/projects/{project-id}/limit?burst={value} - DEPRECATED](#put-apiprojectsproject-idlimitburstvalue---deprecated)
+                * [PUT /api/projects/{project-id}/limit?segments={value} - DEPRECATED](#put-apiprojectsproject-idlimitsegmentsvalue---deprecated)
             * [PUT /api/projects/{project-id}/geofence?region={value}](#put-apiprojectsproject-idgeofenceregionvalue)
             * [DELETE /api/projects/{project-id}/geofence](#delete-apiprojectsproject-idgeofence)
         * [Bucket Management](#bucket-management)
-            * [GET /api/projects/{project-id}/buckets/{bucket-name}](#get-apiprojectsproject-idbucketsbucket-name)
+            * [GET /api/projects/{project-id}/buckets/{bucket-name} - DEPRECATED](#get-apiprojectsproject-idbucketsbucket-name---deprecated)
             * [Geofencing](#geofencing)
-                * [POST /api/projects/{project-id}/buckets/{bucket-name}/geofence?region={value}](#post-apiprojectsproject-idbucketsbucket-namegeofenceregionvalue)
-                * [DELETE /api/projects/{project-id}/buckets/{bucket-name}/geofence](#delete-apiprojectsproject-idbucketsbucket-namegeofence)
+                * [POST /api/projects/{project-id}/buckets/{bucket-name}/geofence?region={value} - DEPRECATED](#post-apiprojectsproject-idbucketsbucket-namegeofenceregionvalue---deprecated)
+                * [DELETE /api/projects/{project-id}/buckets/{bucket-name}/geofence - DEPRECATED](#delete-apiprojectsproject-idbucketsbucket-namegeofence---deprecated)
         * [Project API Keys Management](#project-api-keys-management)
             * [GET /api/apikeys/{api-key}](#get-apiapikeysapi-key)
             * [DELETE /api/apikeys/{api-key}](#delete-apiapikeysapi-key)
@@ -192,6 +193,19 @@ Deletes the user.
 
 Updates the limits of the user and user's existing project(s) limits found by its email.
 
+The limits are sent in the body, the limits that are not sent are not updated. The limits are sent
+in bytes.
+
+An example of a request body:
+
+```json
+{
+  "bandwidth": 100000000000000,
+  "segment": 100000000,
+  "storage": 50000000000000
+}
+```
+
 #### DELETE /api/users/{user-email}/mfa
 
 Disables the user's mfa.
@@ -292,6 +306,10 @@ or
   "trialExpiration": null
 }
 ```
+
+#### PUT /api/users/{user-email}/status/{user-status}
+
+Set the user status to the specified value.
 
 ### OAuth Client Management
 

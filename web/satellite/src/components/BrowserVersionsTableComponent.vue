@@ -2,7 +2,7 @@
 // See LICENSE for copying information.
 
 <template>
-    <v-card>
+    <v-card class="pa-4">
         <!-- We cast expandedFiles to type 'any' because of the weird Vuetify limitation/bug -->
         <!-- https://github.com/vuetifyjs/vuetify/issues/20006 -->
         <v-data-table-server
@@ -34,7 +34,7 @@
                         <v-checkbox-btn
                             :model-value="selectedFiles.includes(file)"
                             hide-details
-                            @update:modelValue="(selected) => toggleSelectObjectVersion(selected as boolean, file)"
+                            @update:model-value="(selected) => toggleSelectObjectVersion(selected as boolean, file)"
                         />
                     </td>
                     <td>
@@ -97,6 +97,7 @@
                             is-version
                             :is-file-deleted="item.browserObject.isDeleteMarker"
                             align="right"
+                            @share-click="onShareClick(file)"
                             @preview-click="onFileClick(file)"
                             @delete-file-click="onDeleteFileClick(file)"
                             @restore-object-click="onRestoreObjectClick(file)"
@@ -111,7 +112,7 @@
 
             <template #no-data>
                 <p class="text-body-2 cursor-pointer py-14 rounded-xlg my-4" @click="emit('uploadClick')">
-                    {{ search ? 'No data found' : 'Drag and drop objects or folders here, or click to upload objects.' }}
+                    {{ search ? 'No data found' : 'Drag and drop files or folders here, or click to upload files.' }}
                 </p>
             </template>
 
@@ -122,7 +123,7 @@
                             :model-value="areAllVersionsSelected(item.raw.browserObject)"
                             :indeterminate="areSomeVersionsSelected(item.raw.browserObject)"
                             hide-details
-                            @update:modelValue="(selected) => updateSelectedVersions(item.raw.browserObject, selected)"
+                            @update:model-value="(selected) => updateSelectedVersions(item.raw.browserObject, selected)"
                         />
                     </td>
                     <td>
@@ -164,8 +165,6 @@
                             :deleting="isBeingDeleted(item.raw.browserObject)"
                             :file="item.raw.browserObject"
                             align="right"
-                            @delete-file-click="onDeleteFileClick(item.raw.browserObject)"
-                            @share-click="onShareClick(item.raw.browserObject)"
                         />
                     </td>
                 </tr>
@@ -736,7 +735,7 @@ watch(() => compProps.forceEmpty, v => !v && fetchFiles());
     }
 
     &__file-guide :deep(.v-overlay__content) {
-        color: var(--c-white) !important;
+        color: #fff !important;
         background-color: rgb(var(--v-theme-primary)) !important;
     }
 }

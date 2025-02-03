@@ -24,6 +24,8 @@ import (
 	"storj.io/storj/private/date"
 	"storj.io/storj/satellite/metabase"
 	"storj.io/storj/satellite/nodeapiversion"
+	"storj.io/storj/satellite/overlay"
+	"storj.io/storj/satellite/trust"
 )
 
 // DB implements saving order after receiving from storage node.
@@ -174,23 +176,24 @@ func SortStoragenodeBandwidthRollups(rollups []StoragenodeBandwidthRollup) {
 type Endpoint struct {
 	pb.DRPCOrdersUnimplementedServer
 	log              *zap.Logger
+	config           Config
 	satelliteSignee  signing.Signee
 	DB               DB
 	nodeAPIVersionDB nodeapiversion.DB
 	ordersService    *Service
-
-	acceptOrders bool
+	overlay          *overlay.Service
 }
 
 // NewEndpoint new orders receiving endpoint.
-func NewEndpoint(log *zap.Logger, satelliteSignee signing.Signee, db DB, nodeAPIVersionDB nodeapiversion.DB, ordersService *Service, acceptOrders bool) *Endpoint {
+func NewEndpoint(log *zap.Logger, satelliteSignee signing.Signee, db DB, nodeAPIVersionDB nodeapiversion.DB, ordersService *Service, config Config, overlay *overlay.Service) *Endpoint {
 	return &Endpoint{
 		log:              log,
+		config:           config,
 		satelliteSignee:  satelliteSignee,
 		DB:               db,
 		nodeAPIVersionDB: nodeAPIVersionDB,
 		ordersService:    ordersService,
-		acceptOrders:     acceptOrders,
+		overlay:          overlay,
 	}
 }
 
@@ -225,7 +228,7 @@ func (endpoint *Endpoint) SettlementWithWindowFinal(stream pb.DRPCOrders_Settlem
 	ctx := stream.Context()
 	defer mon.Task()(&ctx)(&err)
 
-	if !endpoint.acceptOrders {
+	if !endpoint.config.AcceptOrders {
 		return rpcstatus.Error(rpcstatus.Unavailable, "orders endpoint is unavailable. try again later.")
 	}
 
@@ -238,6 +241,16 @@ func (endpoint *Endpoint) SettlementWithWindowFinal(stream pb.DRPCOrders_Settlem
 		endpoint.log.Debug("err peer identity from context", zap.Error(err))
 		return rpcstatus.Error(rpcstatus.Unauthenticated, err.Error())
 	}
+
+	skipSignatures := false
+	if endpoint.config.TrustedOrders {
+		if node, err := endpoint.overlay.CachedGet(ctx, peer.ID); err == nil {
+			if tag, err := node.Tags.FindBySignerAndName(trust.TrustedOperatorSigner, "trusted_orders"); err == nil {
+				skipSignatures = string(tag.Value) == "true"
+			}
+		}
+	}
+	mon.BoolVal("skip_signatures").Observe(skipSignatures)
 
 	versionAtLeast, err := endpoint.nodeAPIVersionDB.VersionAtLeast(ctx, peer.ID, nodeapiversion.HasWindowedOrders)
 	if err != nil {
@@ -293,7 +306,7 @@ func (endpoint *Endpoint) SettlementWithWindowFinal(stream pb.DRPCOrders_Settlem
 		serialNum := order.SerialNumber
 
 		// don't process orders that aren't valid
-		if !endpoint.isValid(ctx, log, order, orderLimit, peer.ID, window) {
+		if !endpoint.isValid(ctx, log, order, orderLimit, peer.ID, window, skipSignatures) {
 			continue
 		}
 
@@ -411,7 +424,7 @@ func (endpoint *Endpoint) SettlementWithWindowFinal(stream pb.DRPCOrders_Settlem
 }
 
 func (endpoint *Endpoint) isValid(ctx context.Context, log *zap.Logger, order *pb.Order,
-	orderLimit *pb.OrderLimit, peerID storj.NodeID, window int64) bool {
+	orderLimit *pb.OrderLimit, peerID storj.NodeID, window int64, skipSignatures bool) bool {
 	if orderLimit.StorageNodeId != peerID {
 		log.Debug("storage node id mismatch")
 		mon.Event("order_not_valid_storagenodeid")
@@ -424,17 +437,19 @@ func (endpoint *Endpoint) isValid(ctx context.Context, log *zap.Logger, order *p
 		mon.Event("order_not_valid_expired")
 		return false
 	}
-	// satellite verifies that it signed the order limit
-	if err := signing.VerifyOrderLimitSignature(ctx, endpoint.satelliteSignee, orderLimit); err != nil {
-		log.Debug("invalid settlement: unable to verify order limit")
-		mon.Event("order_not_valid_satellite_signature")
-		return false
-	}
-	// satellite verifies that the order signature matches pub key in order limit
-	if err := signing.VerifyUplinkOrderSignature(ctx, orderLimit.UplinkPublicKey, order); err != nil {
-		log.Debug("invalid settlement: unable to verify order")
-		mon.Event("order_not_valid_uplink_signature")
-		return false
+	if !skipSignatures {
+		// satellite verifies that it signed the order limit
+		if err := signing.VerifyOrderLimitSignature(ctx, endpoint.satelliteSignee, orderLimit); err != nil {
+			log.Debug("invalid settlement: unable to verify order limit")
+			mon.Event("order_not_valid_satellite_signature")
+			return false
+		}
+		// satellite verifies that the order signature matches pub key in order limit
+		if err := signing.VerifyUplinkOrderSignature(ctx, orderLimit.UplinkPublicKey, order); err != nil {
+			log.Debug("invalid settlement: unable to verify order")
+			mon.Event("order_not_valid_uplink_signature")
+			return false
+		}
 	}
 	if orderLimit.SerialNumber != order.SerialNumber {
 		log.Debug("invalid settlement: invalid serial number")
@@ -457,5 +472,5 @@ func (endpoint *Endpoint) isValid(ctx context.Context, log *zap.Logger, order *p
 
 // TestingSetAcceptOrdersValid sets endpoint acceptOrders to the provided value. Used only for testing.
 func (endpoint *Endpoint) TestingSetAcceptOrdersValid(acceptOrders bool) {
-	endpoint.acceptOrders = acceptOrders
+	endpoint.config.AcceptOrders = acceptOrders
 }

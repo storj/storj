@@ -9,7 +9,7 @@ import (
 
 	"github.com/stretchr/testify/require"
 
-	"storj.io/storj/private/mud"
+	"storj.io/storj/shared/mud"
 )
 
 func TestRun(t *testing.T) {

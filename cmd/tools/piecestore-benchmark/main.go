@@ -152,16 +152,6 @@ func createEndpoint(ctx context.Context, satIdent, snIdent *identity.FullIdentit
 
 	contactService := contact.NewService(log, dialer, self, trustPool, contact.NewQUICStats(false), &pb.SignedNodeTagSets{})
 
-	var spaceReport monitor.SpaceReport
-
-	if *dedicatedDisk {
-		spaceReport = monitor.NewDedicatedDisk(log, cfg.Storage.Path, cfg.Storage2.Monitor.MinimumDiskSpace.Int64(), 100_000_000)
-	} else {
-		spaceReport = monitor.NewSharedDisk(log, piecesStore, cfg.Storage2.Monitor.MinimumDiskSpace.Int64(), 1<<40)
-	}
-
-	monitorService := monitor.NewService(log, piecesStore, contactService, spaceReport, cfg.Storage2.Monitor)
-
 	retainService := retain.NewService(log, piecesStore, cfg.Retain)
 
 	trashChore := pieces.NewTrashChore(log, 24*time.Hour, 7*24*time.Hour, trustPool, piecesStore)
@@ -174,16 +164,29 @@ func createEndpoint(ctx context.Context, satIdent, snIdent *identity.FullIdentit
 
 	bfm := try.E1(retain.NewBloomFilterManager("bfm", cfg.Retain.MaxTimeSkew))
 
+	rtm := retain.NewRestoreTimeManager("rtm")
+	hsb := try.E1(piecestore.NewHashStoreBackend("hashstore", bfm, rtm, log))
+	mon.Chain(hsb)
+
+	var spaceReport monitor.SpaceReport
+	if *dedicatedDisk {
+		spaceReport = monitor.NewDedicatedDisk(log, cfg.Storage.Path, cfg.Storage2.Monitor.MinimumDiskSpace.Int64(), 100_000_000)
+	} else {
+		spaceReport = monitor.NewSharedDisk(log, piecesStore, hsb, cfg.Storage2.Monitor.MinimumDiskSpace.Int64(), 1<<40)
+	}
+
+	monitorService := monitor.NewService(log, piecesStore, contactService, spaceReport, cfg.Storage2.Monitor)
+
+	opb := piecestore.NewOldPieceBackend(piecesStore, trashChore, monitorService)
+
 	var pieceBackend piecestore.PieceBackend
 	switch *backend {
 	case "hashstore", "hash":
-		rtm := retain.NewRestoreTimeManager("rtm")
-		hsb := try.E1(piecestore.NewHashStoreBackend("hashstore", bfm, rtm, log))
-		mon.Chain(hsb)
 		pieceBackend = hsb
 	default:
-		pieceBackend = piecestore.NewOldPieceBackend(piecesStore, trashChore, monitorService)
+		pieceBackend = opb
 	}
+
 	endpoint := try.E1(piecestore.NewEndpoint(log, snIdent, trustPool, monitorService, []piecestore.QueueRetain{retainService, bfm}, new(contact.PingStats), pieceBackend, ordersStore, bandwidthdbCache, usedSerials, cfg.Storage2))
 	collectorService := collector.NewService(log, piecesStore, usedSerials, collector.Config{Interval: 1000 * time.Hour})
 

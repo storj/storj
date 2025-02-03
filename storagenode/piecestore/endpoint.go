@@ -15,6 +15,7 @@ import (
 	"runtime/trace"
 	"sync"
 	"sync/atomic"
+	"syscall"
 	"time"
 
 	"github.com/spacemonkeygo/monkit/v3"
@@ -214,7 +215,7 @@ func (endpoint *Endpoint) Upload(stream pb.DRPCPiecestore_UploadStream) (err err
 	endpoint.pingStats.WasPinged(time.Now())
 
 	if endpoint.config.MaxConcurrentRequests > 0 && int(liveRequests) > endpoint.config.MaxConcurrentRequests {
-		endpoint.log.Error("upload rejected, too many requests",
+		endpoint.log.Info("upload rejected, too many requests",
 			zap.Int32("live requests", liveRequests),
 			zap.Int("requestLimit", endpoint.config.MaxConcurrentRequests),
 		)
@@ -232,7 +233,7 @@ func (endpoint *Endpoint) Upload(stream pb.DRPCPiecestore_UploadStream) (err err
 		})
 	switch {
 	case err != nil:
-		if errs2.IsCanceled(err) || errors.Is(err, io.ErrUnexpectedEOF) {
+		if errs2.IsCanceled(err) || errors.Is(err, io.ErrUnexpectedEOF) || errors.Is(err, io.EOF) {
 			return rpcstatus.Wrap(rpcstatus.Canceled, err)
 		}
 		endpoint.log.Error("upload internal error", zap.Error(err))
@@ -306,7 +307,8 @@ func (endpoint *Endpoint) Upload(stream pb.DRPCPiecestore_UploadStream) (err err
 			mon.IntVal("upload_failure_size_bytes").Observe(uploadSize)
 			mon.IntVal("upload_failure_duration_ns").Observe(uploadDuration)
 			mon.FloatVal("upload_failure_rate_bytes_per_sec").Observe(uploadRate)
-			if errors.Is(err, context.Canceled) || errors.Is(err, io.ErrUnexpectedEOF) || rpcstatus.Code(err) == rpcstatus.Canceled {
+			if errors.Is(err, context.Canceled) || errors.Is(err, io.ErrUnexpectedEOF) ||
+				rpcstatus.Code(err) == rpcstatus.Canceled || rpcstatus.Code(err) == rpcstatus.Aborted {
 				// This is common in normal operation, and shouldn't throw a full error.
 				log.Debug("upload failed", zap.Int64("Size", uploadSize), zap.Error(err))
 
@@ -329,6 +331,9 @@ func (endpoint *Endpoint) Upload(stream pb.DRPCPiecestore_UploadStream) (err err
 
 	pieceWriter, err = endpoint.pieceBackend.Writer(ctx, limit.SatelliteId, limit.PieceId, hashAlgorithm, limit.PieceExpiration)
 	if err != nil {
+		if errs2.IsCanceled(err) {
+			return rpcstatus.Wrap(rpcstatus.Canceled, err)
+		}
 		endpoint.log.Error("upload internal error", zap.Error(err))
 		return rpcstatus.Wrap(rpcstatus.Internal, err)
 	}
@@ -589,7 +594,6 @@ func (endpoint *Endpoint) Download(stream pb.DRPCPiecestore_DownloadStream) (err
 	if err := endpoint.verifyOrderLimit(ctx, limit); err != nil {
 		mon.Counter("download_failure_count", actionSeriesTag).Inc(1)
 		mon.Meter("download_verify_orderlimit_failed", actionSeriesTag).Mark(1)
-		log.Error("download failed", zap.Error(err))
 		return err
 	}
 
@@ -607,7 +611,7 @@ func (endpoint *Endpoint) Download(stream pb.DRPCPiecestore_DownloadStream) (err
 		downloadDuration := dt.Nanoseconds()
 		// NOTE: Check if the `switch` statement inside of this conditional block must be updated if you
 		// change this condition.
-		if errs2.IsCanceled(err) || drpc.ClosedError.Has(err) || (err == nil && chunk.ChunkSize != downloadSize) {
+		if errs2.IsCanceled(err) || drpc.ClosedError.Has(err) || (err == nil && chunk.ChunkSize != downloadSize) || errors.Is(err, syscall.ECONNRESET) {
 			mon.Counter("download_cancel_count", actionSeriesTag).Inc(1)
 			mon.Meter("download_cancel_byte_meter", actionSeriesTag).Mark64(downloadSize)
 			mon.IntVal("download_cancel_size_bytes", actionSeriesTag).Observe(downloadSize)

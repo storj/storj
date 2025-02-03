@@ -34,9 +34,9 @@ func TestSortedDependency(t *testing.T) {
 	Provide[Service2](ball, NewService2)
 
 	sorted := sortedComponents(ball)
-	require.Equal(t, "storj.io/storj/private/mud.DB", sorted[0].ID())
-	require.Equal(t, "storj.io/storj/private/mud.Service1", sorted[1].ID())
-	require.Equal(t, "storj.io/storj/private/mud.Service2", sorted[2].ID())
+	require.Equal(t, "storj.io/storj/shared/mud.DB", sorted[0].ID())
+	require.Equal(t, "storj.io/storj/shared/mud.Service1", sorted[1].ID())
+	require.Equal(t, "storj.io/storj/shared/mud.Service2", sorted[2].ID())
 }
 
 type Key struct{}

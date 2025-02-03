@@ -21,8 +21,8 @@ func BenchmarkPieceStore(b *testing.B) {
 
 	run := func(b *testing.B, backendFunc func(b *testing.B) PieceBackend, size int64) {
 		backend := backendFunc(b)
-		if cl, ok := backend.(interface{ Close() }); ok {
-			defer cl.Close()
+		if cl, ok := backend.(interface{ Close() error }); ok {
+			defer func() { _ = cl.Close() }()
 		}
 
 		buf := make([]byte, size)

@@ -124,14 +124,16 @@ func (hsb *HashStoreBackend) TestingCompact(ctx context.Context) error {
 }
 
 // Close closes the HashStoreBackend.
-func (hsb *HashStoreBackend) Close() {
+func (hsb *HashStoreBackend) Close() error {
 	hsb.mu.Lock()
 	defer hsb.mu.Unlock()
 
 	for _, db := range hsb.dbs {
 		db.Close()
 	}
+	return nil
 }
+
 func (hsb *HashStoreBackend) dbsCopy() map[storj.NodeID]*hashstore.DB {
 	hsb.mu.Lock()
 	defer hsb.mu.Unlock()
@@ -157,59 +159,22 @@ func (hsb *HashStoreBackend) Stats(cb func(key monkit.SeriesKey, field string, v
 	})
 
 	for _, iddb := range iddbs {
-
 		dbStat, s0Stat, s1Stat := iddb.db.Stats()
 		taggedSeries := monkit.NewSeriesKey("hashstore").WithTag("satellite", iddb.id.String())
-		monkit.StatSourceFromStruct(
-			taggedSeries,
-			dbStat,
-		).Stats(cb)
-		monkit.StatSourceFromStruct(
-			taggedSeries.WithTag("db", "s0"),
-			s0Stat,
-		).Stats(cb)
-		monkit.StatSourceFromStruct(
-			taggedSeries.WithTag("db", "s1"),
-			s1Stat,
-		).Stats(cb)
+		monkit.StatSourceFromStruct(taggedSeries, dbStat).Stats(cb)
+		monkit.StatSourceFromStruct(taggedSeries.WithTag("db", "s0"), s0Stat).Stats(cb)
+		monkit.StatSourceFromStruct(taggedSeries.WithTag("db", "s1"), s1Stat).Stats(cb)
 	}
 }
 
-// SpaceUsage describes the amount of space used by a PieceBackend.
-type SpaceUsage struct {
-	UsedTotal       int64 // total space used including metadata and unreferenced data
-	UsedForPieces   int64 // total space used by live pieces
-	UsedForTrash    int64 // total space used by trash pieces
-	UsedForMetadata int64 // total space used by metadata (hash tables and stuff)
-}
-
-func (su *SpaceUsage) add(osu SpaceUsage) {
-	su.UsedTotal += osu.UsedTotal
-	su.UsedForPieces += osu.UsedForPieces
-	su.UsedForTrash += osu.UsedForTrash
-	su.UsedForMetadata += osu.UsedForMetadata
-}
-
-// SpaceUsageBySatellite describes an aggregate space usage and a space usage for each satellite
-// known about.
-type SpaceUsageBySatellite struct {
-	Aggregate   SpaceUsage
-	BySatellite map[storj.NodeID]SpaceUsage
-}
-
-// SpaceUsage gets a SpaceUsageBySatellite from the HashStoreBackend.
-func (hsb *HashStoreBackend) SpaceUsage() (subs SpaceUsageBySatellite) {
-	subs.BySatellite = make(map[storj.NodeID]SpaceUsage)
-	for id, db := range hsb.dbsCopy() {
+// SpaceUsage gets a monitor.SpaceUsage from the HashStoreBackend.
+func (hsb *HashStoreBackend) SpaceUsage() (subs monitor.SpaceUsage) {
+	for _, db := range hsb.dbsCopy() {
 		stats, _, _ := db.Stats()
-		su := SpaceUsage{
-			UsedTotal:       int64(stats.LenLogs + stats.TableSize),
-			UsedForPieces:   int64(stats.LenSet - stats.LenTrash),
-			UsedForTrash:    int64(stats.LenTrash),
-			UsedForMetadata: int64(stats.TableSize),
-		}
-		subs.BySatellite[id] = su
-		subs.Aggregate.add(su)
+		subs.UsedTotal += int64(stats.LenLogs + stats.TableSize)
+		subs.UsedForPieces += int64(stats.LenSet - stats.LenTrash)
+		subs.UsedForTrash += int64(stats.LenTrash)
+		subs.UsedForMetadata += int64(stats.TableSize)
 	}
 	return subs
 }

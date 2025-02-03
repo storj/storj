@@ -43,6 +43,7 @@ import (
 	"storj.io/storj/satellite/console/emailreminders"
 	"storj.io/storj/satellite/console/restkeys"
 	"storj.io/storj/satellite/console/userinfo"
+	"storj.io/storj/satellite/console/valdi"
 	"storj.io/storj/satellite/contact"
 	"storj.io/storj/satellite/durability"
 	"storj.io/storj/satellite/emission"
@@ -217,6 +218,7 @@ type Config struct {
 
 	RESTKeys         restkeys.Config
 	Console          consoleweb.Config
+	Valdi            valdi.Config
 	ConsoleAuth      consoleauth.Config
 	EmailReminders   emailreminders.Config
 	ConsoleDBCleanup dbcleanup.Config

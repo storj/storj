@@ -312,18 +312,6 @@ func (ts *testStore) AssertCompact(
 	assert.NoError(ts.t, ts.Compact(context.Background(), shouldTrash, restore))
 }
 
-func (ts *testStore) AssertCreateKey(key Key, expires time.Time) {
-	ts.t.Helper()
-
-	wr, err := ts.Create(context.Background(), key, expires)
-	assert.NoError(ts.t, err)
-	assert.Equal(ts.t, wr.Size(), int64(0))
-	_, err = wr.Write(key[:])
-	assert.NoError(ts.t, err)
-	assert.Equal(ts.t, wr.Size(), int64(len(key)))
-	assert.NoError(ts.t, wr.Close())
-}
-
 func (ts *testStore) AssertCreate(opts ...any) Key {
 	ts.t.Helper()
 
@@ -331,7 +319,21 @@ func (ts *testStore) AssertCreate(opts ...any) Key {
 	checkOptions(opts, func(t WithTTL) { expires = time.Time(t) })
 
 	key := newKey()
-	ts.AssertCreateKey(key, expires)
+	checkOptions(opts, func(t WithKey) { key = Key(t) })
+
+	data := key[:]
+	checkOptions(opts, func(t WithData) { data = []byte(t) })
+
+	wr, err := ts.Create(context.Background(), key, expires)
+	assert.NoError(ts.t, err)
+	assert.Equal(ts.t, wr.Size(), int64(0))
+
+	_, err = wr.Write(data)
+	assert.NoError(ts.t, err)
+
+	assert.Equal(ts.t, wr.Size(), int64(len(data)))
+	assert.NoError(ts.t, wr.Close())
+
 	return key
 }
 
@@ -347,9 +349,13 @@ func (ts *testStore) AssertRead(key Key, opts ...any) {
 	})
 
 	assert.Equal(ts.t, r.Key(), key)
-	assert.Equal(ts.t, r.Size(), len(key))
 
-	assert.NoError(ts.t, iotest.TestReader(r, key[:]))
+	data := key[:]
+	checkOptions(opts, func(t WithData) { data = []byte(t) })
+
+	assert.Equal(ts.t, r.Size(), len(data))
+	assert.NoError(ts.t, iotest.TestReader(r, data))
+
 	assert.NoError(ts.t, r.Close())
 }
 
@@ -442,6 +448,8 @@ func (td *testDB) AssertCompact() {
 type (
 	AssertTrash bool
 	WithTTL     time.Time
+	WithData    []byte
+	WithKey     Key
 )
 
 func checkOptions[T any](opts []any, cb func(T)) {

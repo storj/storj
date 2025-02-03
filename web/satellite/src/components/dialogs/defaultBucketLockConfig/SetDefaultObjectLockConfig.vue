@@ -11,13 +11,13 @@
         selected-class="font-weight-bold"
         class="my-1"
     >
-        <v-chip :value="NO_MODE_SET" variant="outlined" color="info">
+        <v-chip :value="NO_MODE_SET">
             No Default Mode
         </v-chip>
-        <v-chip :value="GOVERNANCE_LOCK" variant="outlined" color="info">
+        <v-chip :value="GOVERNANCE_LOCK">
             Governance
         </v-chip>
-        <v-chip :value="COMPLIANCE_LOCK" variant="outlined" color="info">
+        <v-chip :value="COMPLIANCE_LOCK">
             Compliance
         </v-chip>
     </v-chip-group>
@@ -26,9 +26,10 @@
         <p class="text-subtitle-2">{{ defaultLockModeInfo }}</p>
     </v-alert>
     <template v-if="defaultRetentionMode !== NO_MODE_SET">
-        <p class="my-2">Default retention period:</p>
+        <p class="mt-4 mb-2">Default retention period:</p>
         <v-text-field
-            v-model="period"
+            ref="periodInput"
+            v-model="defaultRetentionPeriod"
             variant="outlined"
             density="comfortable"
             type="number"
@@ -75,28 +76,17 @@ import {
 } from '@/types/objectLock';
 import { RequiredRule, ValidationRule } from '@/types/common';
 
-const emit = defineEmits<{
-    'updateDefaultMode': [value: ObjLockMode | typeof NO_MODE_SET];
-    'updatePeriodValue': [value: number];
-    'updatePeriodUnit': [value: DefaultObjectLockPeriodUnit];
-}>();
+const periodInput = ref<VTextField | null>(null);
 
-const props = defineProps<{
-    existingMode: ObjLockMode | typeof NO_MODE_SET;
-    existingPeriod?: number;
-    existingPeriodUnit?: DefaultObjectLockPeriodUnit;
-}>();
-
-const defaultRetentionMode = ref<ObjLockMode | typeof NO_MODE_SET>(props.existingMode);
-const period = ref<number>(props.existingPeriod ?? 0);
-const periodUnit = ref<DefaultObjectLockPeriodUnit>(props.existingPeriodUnit ?? DefaultObjectLockPeriodUnit.DAYS);
+const defaultRetentionMode = defineModel<ObjLockMode | typeof NO_MODE_SET>('defaultRetentionMode', { required: true });
+const defaultRetentionPeriod = defineModel<number>('defaultRetentionPeriod', { required: true });
+const periodUnit = defineModel<DefaultObjectLockPeriodUnit>('periodUnit', { required: true });
 
 const dropdownModel = computed<(DefaultObjectLockPeriodUnit.DAYS | DefaultObjectLockPeriodUnit.YEARS)[]>({
     get: () => [ periodUnit.value ],
     set: value => {
         if (value[0]) {
             periodUnit.value = value[0];
-            emit('updatePeriodUnit', value[0]);
         }
     },
 });
@@ -120,26 +110,32 @@ const rules = computed<ValidationRule<string>[]>(() => {
         v => !(isNaN(+v) || isNaN(parseInt(v))) || 'Invalid number',
         v => !/[.,]/.test(v) || 'Value must be a whole number',
         v => (parseInt(v) > 0) || 'Value must be a positive number',
+        v => {
+            if (periodUnit.value === DefaultObjectLockPeriodUnit.DAYS && parseInt(v) > 3650)
+                return 'Value must be less than or equal to 3650';
+            if (periodUnit.value === DefaultObjectLockPeriodUnit.YEARS && parseInt(v) > 10)
+                return 'Value must be less than or equal to 10';
+            return true;
+        },
     ];
 });
 
 function updateInputText(value: string): void {
     if (!value) {
-        period.value = 0;
+        defaultRetentionPeriod.value = 0;
         return;
     }
 
     const num = +value;
     if (isNaN(num) || isNaN(parseInt(value))) return;
-    period.value = num;
+    defaultRetentionPeriod.value = num;
 }
 
 watch(defaultRetentionMode, (newValue) => {
-    emit('updateDefaultMode', newValue);
-    if (!newValue) period.value = 0;
+    if (newValue === NO_MODE_SET) defaultRetentionPeriod.value = 0;
 });
 
-watch(period, (newValue) => {
-    emit('updatePeriodValue', newValue);
+watch(dropdownModel, _ => {
+    periodInput.value?.validate();
 });
 </script>

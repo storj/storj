@@ -10,6 +10,8 @@ import (
 	"encoding/json"
 	"fmt"
 	"math/rand"
+	"net/http"
+	"net/url"
 	"sort"
 	"strings"
 	"testing"
@@ -20,6 +22,7 @@ import (
 	stripeLib "github.com/stripe/stripe-go/v75"
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
+	"go.uber.org/zap/zaptest"
 	"golang.org/x/crypto/bcrypt"
 
 	"storj.io/common/currency"
@@ -31,6 +34,7 @@ import (
 	"storj.io/common/testrand"
 	"storj.io/common/uuid"
 	"storj.io/storj/private/blockchain"
+	"storj.io/storj/private/httpmock"
 	"storj.io/storj/private/post"
 	"storj.io/storj/private/testplanet"
 	"storj.io/storj/satellite"
@@ -38,6 +42,7 @@ import (
 	"storj.io/storj/satellite/buckets"
 	"storj.io/storj/satellite/console"
 	"storj.io/storj/satellite/console/consoleweb/consoleapi"
+	"storj.io/storj/satellite/console/valdi/valdiclient"
 	"storj.io/storj/satellite/kms"
 	"storj.io/storj/satellite/nodeselection"
 	"storj.io/storj/satellite/payments"
@@ -154,6 +159,18 @@ func TestService(t *testing.T) {
 				project, err := service.GetProject(userCtx1, up1Proj.ID)
 				require.NoError(t, err)
 				require.Equal(t, up1Proj.ID, project.ID)
+
+				minProject := service.GetMinimalProject(project)
+				require.Equal(t, up1Proj.PublicID, minProject.ID)
+				require.Equal(t, up1Proj.Name, minProject.Name)
+				require.Equal(t, up1Proj.Description, minProject.Description)
+				require.Equal(t, up1Proj.DefaultPlacement, minProject.Placement)
+				require.Equal(t, up1Proj.CreatedAt, minProject.CreatedAt)
+				require.Equal(t, up1Proj.StorageUsed, minProject.StorageUsed)
+				require.Equal(t, up1Proj.BandwidthUsed, minProject.BandwidthUsed)
+				require.Equal(t, up1Proj.DefaultVersioning, minProject.Versioning)
+				require.Equal(t, up1Proj.MemberCount, minProject.MemberCount)
+				require.Equal(t, up1Proj.MemberCount, minProject.MemberCount)
 
 				// Getting someone else project details should not work
 				project, err = service.GetProject(userCtx1, up2Proj.ID)
@@ -443,6 +460,11 @@ func TestService(t *testing.T) {
 				require.Equal(t, updatedStorageLimit, *updatedProject.UserSpecifiedStorageLimit)
 				require.Equal(t, updatedBandwidthLimit, *updatedProject.UserSpecifiedBandwidthLimit)
 				require.Equal(t, console.ProjectActive, *updatedProject.Status)
+
+				minProject := service.GetMinimalProject(updatedProject)
+				require.Equal(t, up1Proj.PublicID, minProject.ID)
+				require.Equal(t, updatedName, minProject.Name)
+				require.Equal(t, updatedDescription, minProject.Description)
 
 				// Updating someone else project details should not work
 				updatedProject, err = service.UpdateProject(userCtx1, up2Proj.ID, console.UpsertProjectInfo{
@@ -2121,13 +2143,30 @@ func TestDeleteAccount(t *testing.T) {
 			// does not affect deletion of free users.
 			lastMonth := time.Date(year, month-1, 1, 0, 0, 0, 0, time.UTC)
 			egress := int64(1000000)
-			require.NoError(t, sat.DB.Orders().UpdateBucketBandwidthSettle(ctx, p2.ID, []byte(bucket.Name), pb.PieceAction_GET, egress, 0, lastMonth))
+			require.NoError(t, sat.DB.Orders().UpdateBucketBandwidthSettle(ctx, p2.ID, []byte(bucket.Name), pb.PieceAction_GET, egress, 0, lastMonth.Add(time.Hour)))
 
 			resp, err = service.DeleteAccount(userCtx, console.VerifyAccountMfaStep, "test")
 			require.NoError(t, err)
 			if user.PaidTier {
-				require.NotNil(t, resp)
-				require.True(t, resp.InvoicingIncomplete)
+				if resp == nil {
+					// TODO(moby) - additional logging to debug possible flakiness in the future; delete if flakiness is resolved
+					// see https://github.com/storj/storj/issues/7242
+					t.Log("egress inserted above for timestamp", lastMonth.Add(time.Hour))
+
+					// logic taken from CheckProjectUsageStatus in satellite/payments/stripe/accounts.go
+					firstOfMonth := time.Date(year, month, 1, 0, 0, 0, 0, time.UTC)
+					lastMonthUsage, err := sat.DB.ProjectAccounting().GetProjectTotal(ctx, p2.ID, firstOfMonth.AddDate(0, -1, 0), firstOfMonth.AddDate(0, 0, -1))
+					require.NoError(t, err)
+					t.Log("Egress result from GetProjectTotal:", lastMonthUsage.Egress)
+					t.Log("range:", firstOfMonth.AddDate(0, -1, 0), firstOfMonth.AddDate(0, 0, -1))
+					err = sat.DB.StripeCoinPayments().ProjectRecords().Check(ctx, p2.ID, firstOfMonth.AddDate(0, -1, 0), firstOfMonth)
+					t.Log("Err result from stripe project records Check:", err)
+					t.Log("range:", firstOfMonth.AddDate(0, -1, 0), firstOfMonth)
+					require.Fail(t, "expected not-nil response; please share this test failure on https://github.com/storj/storj/issues/7242")
+				} else {
+					// require.NotNil(t, resp) // TODO(moby) uncomment check when conditional is removed
+					require.True(t, resp.InvoicingIncomplete)
+				}
 			} else {
 				require.Nil(t, resp)
 			}
@@ -4878,5 +4917,206 @@ func TestDelayedBotFreeze(t *testing.T) {
 		event, err = accFreezeDB.Get(ctx, user.ID, console.BotFreeze)
 		require.True(t, errs.Is(err, sql.ErrNoRows))
 		require.Nil(t, event)
+	})
+}
+
+func TestGetValdiAPIKey(t *testing.T) {
+	testplanet.Run(t, testplanet.Config{
+		SatelliteCount: 1, StorageNodeCount: 0, UplinkCount: 2,
+		Reconfigure: testplanet.Reconfigure{
+			Satellite: func(log *zap.Logger, index int, config *satellite.Config) {
+				config.Console.CloudGpusEnabled = true
+				config.Valdi.SignRequests = false
+				config.Valdi.SatelliteEmail = "storj@storj.test"
+				config.Console.RateLimit.Burst = 10
+			},
+		},
+	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+		sat := planet.Satellites[0]
+		service := sat.API.Console.Service
+
+		user1, err := sat.DB.Console().Users().GetByEmail(ctx, planet.Uplinks[0].User[sat.ID()].Email)
+		require.NoError(t, err)
+		p := planet.Uplinks[0].Projects[0]
+
+		mockClient, transport := httpmock.NewClient()
+
+		testValdiClient, err := valdiclient.New(zaptest.NewLogger(t), mockClient, sat.Config.Valdi.Config)
+		require.NoError(t, err)
+
+		*sat.API.Valdi.Client = *testValdiClient
+
+		t.Run("non-existent project", func(t *testing.T) {
+			userCtx, err := sat.UserContext(ctx, user1.ID)
+			require.NoError(t, err)
+
+			key, status, err := service.GetValdiAPIKey(userCtx, testrand.UUID())
+			require.Error(t, err)
+			require.Equal(t, http.StatusUnauthorized, status)
+			require.Nil(t, key)
+		})
+
+		user2, err := sat.DB.Console().Users().GetByEmail(ctx, planet.Uplinks[1].User[sat.ID()].Email)
+		require.NoError(t, err)
+
+		t.Run("not project member", func(t *testing.T) {
+			userCtx, err := sat.UserContext(ctx, user2.ID)
+			require.NoError(t, err)
+
+			key, status, err := service.GetValdiAPIKey(userCtx, p.PublicID)
+			require.Error(t, err)
+			require.Equal(t, http.StatusUnauthorized, status)
+			require.Nil(t, key)
+		})
+
+		_, err = sat.DB.Console().ProjectMembers().Insert(ctx, user2.ID, p.ID, console.RoleMember)
+		require.NoError(t, err)
+
+		t.Run("not project owner", func(t *testing.T) {
+			userCtx, err := sat.UserContext(ctx, user2.ID)
+			require.NoError(t, err)
+
+			key, status, err := service.GetValdiAPIKey(userCtx, p.PublicID)
+			require.Error(t, err)
+			require.Equal(t, http.StatusUnauthorized, status)
+			require.Nil(t, key)
+		})
+
+		keySuccessResp := &valdiclient.CreateAPIKeyResponse{
+			APIKey:            "1234",
+			SecretAccessToken: "abc123",
+		}
+
+		tests := []struct {
+			name string
+
+			firstAPIKeyStatus int
+			firstAPIKeyResp   interface{}
+
+			createUserStatus int
+			createUserError  *valdiclient.ErrorMessage
+
+			secondAPIKeyStatus int
+			secondAPIKeyResp   interface{}
+
+			expectedStorjStatus int
+			expectedStorjResp   interface{}
+		}{
+			{
+				name: "create key errors with 404, then create user and create key succeed",
+
+				firstAPIKeyStatus: http.StatusNotFound,
+				firstAPIKeyResp:   &valdiclient.ErrorMessage{Detail: "user doesn't exist"},
+
+				createUserStatus: http.StatusCreated,
+
+				secondAPIKeyStatus: http.StatusOK,
+				secondAPIKeyResp:   keySuccessResp,
+
+				expectedStorjStatus: http.StatusOK,
+				expectedStorjResp:   keySuccessResp,
+			},
+			{
+				name: "create key errors with 404, then create user errors",
+
+				firstAPIKeyStatus: http.StatusNotFound,
+				firstAPIKeyResp:   &valdiclient.ErrorMessage{Detail: "user doesn't exist"},
+
+				createUserStatus: http.StatusConflict,
+				createUserError:  &valdiclient.ErrorMessage{Detail: "username already exists"},
+
+				expectedStorjStatus: http.StatusConflict,
+				expectedStorjResp:   "username already exists",
+			},
+			{
+				name: "create key errors with 404, then create user succeeds, and create key errors",
+
+				firstAPIKeyStatus: http.StatusNotFound,
+				firstAPIKeyResp:   &valdiclient.ErrorMessage{Detail: "user doesn't exist"},
+
+				createUserStatus: http.StatusCreated,
+
+				secondAPIKeyStatus: http.StatusInternalServerError,
+				secondAPIKeyResp:   &valdiclient.ErrorMessage{Detail: "some internal valdi error"},
+
+				expectedStorjStatus: http.StatusInternalServerError,
+				expectedStorjResp:   "some internal valdi error",
+			},
+			{
+				name: "create key succeeds",
+
+				firstAPIKeyStatus: http.StatusOK,
+				firstAPIKeyResp:   keySuccessResp,
+
+				expectedStorjStatus: http.StatusOK,
+				expectedStorjResp:   keySuccessResp,
+			},
+			{
+				name: "create key fails, not 404",
+
+				firstAPIKeyStatus: http.StatusInternalServerError,
+				firstAPIKeyResp: &valdiclient.ErrorMessage{
+					Detail: "some internal valdi error",
+				},
+
+				expectedStorjStatus: http.StatusInternalServerError,
+				expectedStorjResp:   "some internal valdi error",
+			},
+		}
+
+		apiKeyEndpoint, err := url.JoinPath(sat.Config.Valdi.APIBaseURL, valdiclient.APIKeyPath)
+		require.NoError(t, err)
+
+		userEndpoint, err := url.JoinPath(sat.Config.Valdi.APIBaseURL, valdiclient.UserPath)
+		require.NoError(t, err)
+
+		for _, tt := range tests {
+			t.Run(tt.name, func(t *testing.T) {
+				body, err := json.Marshal(tt.firstAPIKeyResp)
+				require.NoError(t, err)
+
+				transport.AddResponse(apiKeyEndpoint, httpmock.Response{
+					StatusCode: tt.firstAPIKeyStatus,
+					Body:       string(body),
+				})
+
+				if tt.createUserStatus != 0 {
+					body := ""
+					if tt.createUserError != nil {
+						errJSONData, err := json.Marshal(tt.createUserError)
+						require.NoError(t, err)
+						body = string(errJSONData)
+					}
+
+					transport.AddResponse(userEndpoint, httpmock.Response{
+						StatusCode: tt.createUserStatus,
+						Body:       body,
+					})
+				}
+
+				if tt.secondAPIKeyStatus != 0 {
+					keyJSONData, err := json.Marshal(tt.secondAPIKeyResp)
+					require.NoError(t, err)
+
+					transport.AddResponse(apiKeyEndpoint, httpmock.Response{
+						StatusCode: tt.secondAPIKeyStatus,
+						Body:       string(keyJSONData),
+					})
+				}
+
+				userCtx, err := sat.UserContext(ctx, user1.ID)
+				require.NoError(t, err)
+
+				key, status, err := service.GetValdiAPIKey(userCtx, p.ID)
+				require.Equal(t, tt.expectedStorjStatus, status)
+				switch tt.expectedStorjStatus {
+				case http.StatusOK:
+					require.Equal(t, key, tt.expectedStorjResp)
+				case http.StatusInternalServerError:
+				default:
+					require.Contains(t, err.Error(), tt.expectedStorjResp)
+				}
+			})
+		}
 	})
 }

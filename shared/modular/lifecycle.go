@@ -9,7 +9,7 @@ import (
 
 	"golang.org/x/sync/errgroup"
 
-	"storj.io/storj/private/mud"
+	"storj.io/storj/shared/mud"
 )
 
 // StopTrigger is a helper to stop all the components and finish the process. Just call cancel.

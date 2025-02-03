@@ -19,6 +19,7 @@ import (
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap"
 
+	"storj.io/common/storj"
 	"storj.io/common/testcontext"
 	"storj.io/common/uuid"
 	"storj.io/storj/private/apigen"
@@ -26,7 +27,9 @@ import (
 	"storj.io/storj/satellite"
 	"storj.io/storj/satellite/accounting"
 	"storj.io/storj/satellite/console"
+	"storj.io/storj/satellite/nodeselection"
 	"storj.io/storj/satellite/payments"
+	"storj.io/storj/satellite/payments/paymentsconfig"
 	"storj.io/storj/satellite/payments/storjscan/blockchaintest"
 )
 
@@ -329,8 +332,40 @@ func TestAnalytics(t *testing.T) {
 }
 
 func TestPayments(t *testing.T) {
+	var (
+		product      = "product"
+		partner      = ""
+		placement    = storj.PlacementConstraint(3)
+		productPrice = paymentsconfig.ProjectUsagePrice{
+			EgressDiscountRatio: 0.1,
+			StorageTB:           "4",
+			EgressTB:            "5",
+			Segment:             "6",
+		}
+	)
+	productModel, err := productPrice.ToModel()
+	require.NoError(t, err)
+
 	testplanet.Run(t, testplanet.Config{
 		SatelliteCount: 1, StorageNodeCount: 0, UplinkCount: 1,
+		Reconfigure: testplanet.Reconfigure{
+			Satellite: func(log *zap.Logger, index int, config *satellite.Config) {
+				config.Placement = nodeselection.ConfigurablePlacementRule{
+					PlacementRules: `3:annotation("location","us-select-1")`,
+				}
+				config.Console.Placement.SelfServeEnabled = true
+				config.Console.Placement.SelfServeNames = []string{"us-select-1"}
+
+				config.Payments.Products.SetMap(map[string]paymentsconfig.ProjectUsagePrice{
+					product: productPrice,
+				})
+				config.Payments.PlacementPriceOverrides.SetMap(map[int]string{int(placement): product})
+				config.Payments.PartnersPlacementPriceOverrides.SetMap(map[string]paymentsconfig.PlacementProductMap{
+					partner: config.Payments.PlacementPriceOverrides,
+				})
+				config.Console.BillingAddFundsEnabled = true
+			},
+		},
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 		test := newTest(t, ctx, planet)
 		user := test.defaultUser()
@@ -381,6 +416,31 @@ func TestPayments(t *testing.T) {
 			require.Equal(t, http.StatusOK, resp.StatusCode)
 		}
 
+		{ // Post_AddFunds
+			consoleCfg := test.planet.Satellites[0].Config.Console
+
+			makeRequest := func(cardID string, amount int) Response {
+				resp, _ := test.request(http.MethodPost, "/payments/add-funds", test.toJSON(map[string]any{
+					"cardID": cardID,
+					"amount": amount,
+				}))
+
+				return resp
+			}
+
+			response := makeRequest("", 100)
+			require.Equal(test.t, http.StatusBadRequest, response.StatusCode)
+
+			response = makeRequest("testID", consoleCfg.MaxAddFundsAmount+1)
+			require.Equal(test.t, http.StatusBadRequest, response.StatusCode)
+
+			response = makeRequest("testID", consoleCfg.MinAddFundsAmount-1)
+			require.Equal(test.t, http.StatusBadRequest, response.StatusCode)
+
+			response = makeRequest("testID", consoleCfg.MinAddFundsAmount)
+			require.Equal(test.t, http.StatusOK, response.StatusCode)
+		}
+
 		{ // Get_TaxCountries
 			resp, body := test.request(http.MethodGet, "/payments/countries", nil)
 			var countries []payments.TaxCountry
@@ -399,6 +459,19 @@ func TestPayments(t *testing.T) {
 			require.Equal(t, http.StatusOK, resp.StatusCode)
 			require.NoError(t, json.Unmarshal([]byte(body), &txs))
 			require.Equal(t, taxes, txs)
+		}
+
+		{ // Get_PlacementPricing
+			projectID := test.defaultProjectID()
+			resp, body := test.request(http.MethodGet, "/payments/placement-pricing?placementName=us-select-1&projectID="+projectID, nil)
+			require.Equal(t, http.StatusOK, resp.StatusCode)
+
+			var model payments.ProjectUsagePriceModel
+			require.NoError(t, json.Unmarshal([]byte(body), &model))
+			require.Equal(t, productModel.EgressDiscountRatio, model.EgressDiscountRatio)
+			require.Equal(t, productModel.EgressMBCents.String(), model.EgressMBCents.String())
+			require.Equal(t, productModel.SegmentMonthCents.String(), model.SegmentMonthCents.String())
+			require.Equal(t, productModel.StorageMBMonthCents.String(), model.StorageMBMonthCents.String())
 		}
 	})
 }

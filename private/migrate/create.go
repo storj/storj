@@ -10,7 +10,6 @@ import (
 	"fmt"
 	"strings"
 
-	spannerdriver "github.com/googleapis/go-sql-spanner"
 	"github.com/zeebo/errs"
 
 	"storj.io/storj/shared/dbutil/txutil"
@@ -87,11 +86,8 @@ func CreateSpanner(ctx context.Context, identifier string, db DBX) error {
 			}
 		}()
 
-		if err := conn.Raw(ctx, func(driverConn interface{}) error {
-			// Get the Spanner connection interface and start a DDL batch on the connection.
-			return driverConn.(spannerdriver.SpannerConn).StartBatchDDL()
-		}); err != nil {
-			return fmt.Errorf("conn.Raw failed: %w", err)
+		if _, err := conn.ExecContext(ctx, "START BATCH DDL"); err != nil {
+			return fmt.Errorf("START BATCH DDL failed: %w", err)
 		}
 
 		for _, schemaDDL := range db.Schema() {
@@ -100,10 +96,8 @@ func CreateSpanner(ctx context.Context, identifier string, db DBX) error {
 			}
 		}
 
-		if err := conn.Raw(ctx, func(driverConn interface{}) error {
-			return driverConn.(spannerdriver.SpannerConn).RunBatch(ctx)
-		}); err != nil {
-			return Error.New("conn.Raw failed: %w", err)
+		if _, err := conn.ExecContext(ctx, "RUN BATCH"); err != nil {
+			return fmt.Errorf("RUN BATCH failed: %w", err)
 		}
 
 		if _, err := db.ExecContext(ctx, db.Rebind(`INSERT INTO table_schemas(id, schemaText) VALUES (?, ?);`), identifier, schema); err != nil {

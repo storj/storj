@@ -11,6 +11,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"net/http/cookiejar"
 	"net/url"
 	"regexp"
 	"strconv"
@@ -1547,6 +1548,17 @@ func TestSsoMethods(t *testing.T) {
 		require.Equal(t, user.Email, ssoUser.Email)
 		require.Equal(t, console.Active, ssoUser.Status)
 
+		// GetUserForSsoAuth should return the user if the email matches an existing user
+		// with a different external ID and associate the new external ID with the user.
+		ssoUser, err = service.GetUserForSsoAuth(ctx, sso.OidcSsoClaims{
+			Sub:   "newID",
+			Email: user.Email,
+			Name:  "some name",
+		}, provider, "", "")
+		require.NoError(t, err)
+		require.Equal(t, user.ID, ssoUser.ID)
+		require.Equal(t, getExternalID("newID"), *ssoUser.ExternalID)
+
 		user = createUserFn("test5@mail.test")
 		require.NoError(t, err)
 
@@ -1605,6 +1617,11 @@ func TestSsoFlow(t *testing.T) {
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 		sat := planet.Satellites[0]
 
+		jar, err := cookiejar.New(&cookiejar.Options{PublicSuffixList: nil})
+		require.NoError(t, err)
+
+		client := &http.Client{Jar: jar}
+
 		getSsoURL := func(email string, expectedCode int) string {
 			ssoRootURL, err := url.JoinPath(sat.ConsoleURL(), "/sso")
 			require.NoError(t, err)
@@ -1620,7 +1637,7 @@ func TestSsoFlow(t *testing.T) {
 			req, err := http.NewRequestWithContext(ctx, http.MethodGet, providerUrl.String(), nil)
 			require.NoError(t, err)
 
-			result, err := http.DefaultClient.Do(req)
+			result, err := client.Do(req)
 			require.NoError(t, err)
 			require.Equal(t, expectedCode, result.StatusCode)
 
@@ -1645,7 +1662,7 @@ func TestSsoFlow(t *testing.T) {
 		req, err := http.NewRequestWithContext(ctx, http.MethodGet, getSsoURL("some@fake.test", http.StatusOK), nil)
 		require.NoError(t, err)
 
-		result, err := http.DefaultClient.Do(req)
+		result, err := client.Do(req)
 		require.NoError(t, err)
 		// success should redirect to the satellite UI
 		require.Equal(t, sat.ConsoleURL()+"/", result.Request.URL.String())

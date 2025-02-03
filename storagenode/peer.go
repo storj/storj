@@ -579,29 +579,6 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, revocationDB exten
 			Close: peer.StorageOld.TrashChore.Close,
 		})
 
-		if config.Storage2.Monitor.DedicatedDisk {
-			peer.Storage2.SpaceReport = monitor.NewDedicatedDisk(log, config.Storage.Path, config.Storage2.Monitor.MinimumDiskSpace.Int64(), config.Storage2.Monitor.ReservedBytes.Int64())
-		} else {
-			peer.Storage2.SpaceReport = monitor.NewSharedDisk(log, peer.StorageOld.Store, config.Storage2.Monitor.MinimumDiskSpace.Int64(), config.Storage.AllocatedDiskSpace.Int64())
-
-			// enable cache service only when using shared disk
-			peer.StorageOld.CacheService = pieces.NewService(
-				process.NamedLog(log, "piecestore:cache"),
-				peer.StorageOld.BlobsCache,
-				peer.StorageOld.Store,
-				peer.DB.PieceSpaceUsedDB(),
-				config.Storage2.CacheSyncInterval,
-				config.Storage2.PieceScanOnStartup,
-			)
-			peer.Services.Add(lifecycle.Item{
-				Name:  "piecestore:cache",
-				Run:   peer.StorageOld.CacheService.Run,
-				Close: peer.StorageOld.CacheService.Close,
-			})
-			peer.Debug.Server.Panel.Add(
-				debug.Cycle("Piecestore Cache", peer.StorageOld.CacheService.Loop))
-		}
-
 		hashStoreDir := filepath.Join(config.Storage.Path, "hashstore")
 		metaDir := filepath.Join(hashStoreDir, "meta")
 
@@ -624,12 +601,34 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, revocationDB exten
 		if err != nil {
 			return nil, errs.Combine(err, peer.Close())
 		}
+		peer.Services.Add(lifecycle.Item{
+			Name:  "hashstore",
+			Close: peer.Storage2.HashStoreBackend.Close,
+		})
 		mon.Chain(peer.Storage2.HashStoreBackend)
 
-		peer.Storage2.SpaceReport = newSpaceReportWithHashStore(
-			peer.Storage2.SpaceReport,
-			peer.Storage2.HashStoreBackend,
-		)
+		if config.Storage2.Monitor.DedicatedDisk {
+			peer.Storage2.SpaceReport = monitor.NewDedicatedDisk(log, config.Storage.Path, config.Storage2.Monitor.MinimumDiskSpace.Int64(), config.Storage2.Monitor.ReservedBytes.Int64())
+		} else {
+			peer.Storage2.SpaceReport = monitor.NewSharedDisk(log, peer.StorageOld.Store, peer.Storage2.HashStoreBackend, config.Storage2.Monitor.MinimumDiskSpace.Int64(), config.Storage.AllocatedDiskSpace.Int64())
+
+			// enable cache service only when using shared disk
+			peer.StorageOld.CacheService = pieces.NewService(
+				process.NamedLog(log, "piecestore:cache"),
+				peer.StorageOld.BlobsCache,
+				peer.StorageOld.Store,
+				peer.DB.PieceSpaceUsedDB(),
+				config.Storage2.CacheSyncInterval,
+				config.Storage2.PieceScanOnStartup,
+			)
+			peer.Services.Add(lifecycle.Item{
+				Name:  "piecestore:cache",
+				Run:   peer.StorageOld.CacheService.Run,
+				Close: peer.StorageOld.CacheService.Close,
+			})
+			peer.Debug.Server.Panel.Add(
+				debug.Cycle("Piecestore Cache", peer.StorageOld.CacheService.Loop))
+		}
 
 		peer.Storage2.Monitor = monitor.NewService(
 			process.NamedLog(log, "piecestore:monitor"),
@@ -854,9 +853,7 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, revocationDB exten
 		peer.Console.Service, err = console.NewService(
 			process.NamedLog(peer.Log, "console:service"),
 			peer.Bandwidth.Cache,
-			peer.StorageOld.Store, // TODO: update console to know about hashstore
 			peer.Version.Service,
-			config.Storage.AllocatedDiskSpace,
 			config.Operator.Wallet,
 			versionInfo,
 			peer.Storage2.Trust,
@@ -867,10 +864,10 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, revocationDB exten
 			peer.Contact.PingStats,
 			peer.Contact.Service,
 			peer.Estimation.Service,
-			peer.StorageOld.BlobsCache, // TODO: update console to know about hashstore
 			config.Operator.WalletFeatures,
 			port,
 			peer.Contact.QUICStats,
+			peer.Storage2.SpaceReport,
 		)
 		if err != nil {
 			return nil, errs.Combine(err, peer.Close())
@@ -1115,42 +1112,6 @@ func (peer *Peer) URL() storj.NodeURL { return storj.NodeURL{ID: peer.ID(), Addr
 
 // PrivateAddr returns the private address.
 func (peer *Peer) PrivateAddr() string { return peer.Server.PrivateAddr().String() }
-
-type spaceReportWithHashStore struct {
-	monitor.SpaceReport
-	hsb *piecestore.HashStoreBackend
-}
-
-func newSpaceReportWithHashStore(sr monitor.SpaceReport, hsb *piecestore.HashStoreBackend) monitor.SpaceReport {
-	return &spaceReportWithHashStore{SpaceReport: sr, hsb: hsb}
-}
-
-func (s *spaceReportWithHashStore) AvailableSpace(ctx context.Context) (int64, error) {
-	as, err := s.SpaceReport.AvailableSpace(ctx)
-	if err != nil {
-		return 0, err
-	}
-	su := s.hsb.SpaceUsage()
-
-	as -= su.Aggregate.UsedTotal
-
-	return as, nil
-}
-
-func (s *spaceReportWithHashStore) DiskSpace(ctx context.Context) (monitor.DiskSpace, error) {
-	ds, err := s.SpaceReport.DiskSpace(ctx)
-	if err != nil {
-		return monitor.DiskSpace{}, err
-	}
-	su := s.hsb.SpaceUsage()
-
-	ds.UsedForPieces += su.Aggregate.UsedForPieces
-	ds.UsedForTrash += su.Aggregate.UsedForTrash
-	ds.Available -= su.Aggregate.UsedTotal
-	ds.Free -= su.Aggregate.UsedTotal
-
-	return ds, nil
-}
 
 func getPieceExpirationStore(log *zap.Logger, expDB pieces.PieceExpirationDB, oldCfg piecestore.OldConfig, storeCfg piecestore.Config, cfg pieces.Config) (pieces.PieceExpirationDB, error) {
 	if !cfg.EnableFlatExpirationStore {

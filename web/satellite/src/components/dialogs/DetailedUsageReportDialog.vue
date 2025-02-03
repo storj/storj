@@ -33,7 +33,7 @@
 
             <v-form class="pa-6">
                 <p class="text-subtitle-2 mb-2">Select date range to generate your report:</p>
-                <v-chip-group v-model="option" mandatory filter color="primary">
+                <v-chip-group v-model="option" mandatory filter>
                     <v-chip :value="Options.Month" variant="outlined">Past Month</v-chip>
                     <v-chip :value="Options.Year" variant="outlined">Past Year</v-chip>
                     <v-chip :value="Options.Custom" variant="outlined">Choose Dates</v-chip>

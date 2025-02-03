@@ -4,7 +4,6 @@
 <template>
     <v-dialog
         v-model="model"
-        scrollable
         min-width="320px"
         :max-width="maxWidth"
         transition="fade-transition"
@@ -31,7 +30,7 @@
 
             <v-divider />
 
-            <v-card-item class="py-4">
+            <v-card-item class="pa-4">
                 <v-window v-model="step">
                     <v-window-item :value="UpgradeAccountStep.Info">
                         <UpgradeInfoStep
@@ -62,7 +61,7 @@
                             </v-row>
                             <v-window v-model="paymentTab">
                                 <v-window-item :value="PaymentOption.CreditCard">
-                                    <v-row justify="center" align="center">
+                                    <v-row class="ma-0" justify="center" align="center">
                                         <v-col cols="12" sm="12" md="10" lg="8">
                                             <AddCreditCardStep
                                                 v-model:loading="loading"
@@ -73,7 +72,7 @@
                                     </v-row>
                                 </v-window-item>
                                 <v-window-item :value="PaymentOption.StorjTokens">
-                                    <v-row justify="center" align="center" class="mt-2">
+                                    <v-row justify="center" align="center" class="ma-0 mt-2">
                                         <v-col cols="12" sm="12" md="10" lg="8">
                                             <v-card :loading="loading" class="pa-1" :class="{'no-border pa-0': !loading}">
                                                 <AddTokensStep

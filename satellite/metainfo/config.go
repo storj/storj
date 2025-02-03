@@ -193,7 +193,9 @@ type Config struct {
 	SuccessTrackerKind           string                `default:"percent" help:"success tracker kind, bitshift or percent"`
 	SuccessTrackerTickDuration   time.Duration         `default:"10m" help:"how often to bump the generation in the node success tracker"`
 	FailureTrackerTickDuration   time.Duration         `default:"30s" help:"how often to bump the generation in the node failure tracker"`
-	SuccessTrackerTrustedUplinks []string              `help:"list of trusted uplinks for success tracker"`
+	SuccessTrackerTrustedUplinks []string              `help:"list of trusted uplinks for success tracker, deprecated. please use success-tracker-uplinks for uplinks that should get their own success tracker profiles and trusted-uplinks for uplinks that are trusted individually."`
+	SuccessTrackerUplinks        []string              `help:"list of uplinks for success tracker"`
+	TrustedUplinks               []string              `help:"list of trusted uplinks"`
 
 	// TODO remove this flag when server-side copy implementation will be finished
 	ServerSideCopy         bool `help:"enable code for server-side copy, deprecated. please leave this to true." default:"true"`
@@ -203,11 +205,17 @@ type Config struct {
 
 	UseBucketLevelObjectVersioning bool `help:"enable the use of bucket level object versioning" default:"true"`
 
+	UseListObjectsForListing bool `help:"switch to new ListObjects implementation" default:"false" devDefault:"true" testDefault:"true"`
+
+	ListObjects ListObjectsFlags `help:"tuning parameters for list objects"`
+
 	ObjectLockEnabled bool `help:"enable the use of bucket-level Object Lock" default:"true"`
 
 	UserInfoValidation UserInfoValidationConfig `help:"Config for user info validation"`
 
 	SelfServePlacementSelectEnabled bool `help:"whether self-serve placement selection feature is enabled. Provided by console config." default:"false" hidden:"true"`
+
+	SendEdgeUrlOverrides bool `help:"send edge URL overrides through the GetProjectInfo endpoint" default:"false"`
 
 	// TODO remove when we benchmarking are done and decision is made.
 	TestListingQuery                bool      `default:"false" help:"test the new query for non-recursive listing"`

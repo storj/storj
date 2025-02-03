@@ -40,6 +40,10 @@ var (
 	// Error defines stripecoinpayments service error.
 	Error = errs.Class("stripecoinpayments service")
 
+	// ErrPricingNotfound is returned when pricing model for a
+	// partner and/or placement is not found.
+	ErrPricingNotfound = errs.Class("pricing not found")
+
 	mon = monkit.Package()
 
 	_ healthcheck.HealthCheck = (*Service)(nil)
@@ -59,6 +63,7 @@ type Config struct {
 	StripeSecretKey        string `help:"stripe API secret key" default:""`
 	StripePublicKey        string `help:"stripe API public key" default:""`
 	StripeFreeTierCouponID string `help:"stripe free tier coupon ID" default:""`
+	StripeWebhookSecret    string `help:"stripe webhookEvents secret token" default:""`
 	AutoAdvance            bool   `help:"toggle autoadvance feature for invoice creation" default:"false"`
 	ListingLimit           int    `help:"sets the maximum amount of items before we start paging on requests" default:"100" hidden:"true"`
 	SkipEmptyInvoices      bool   `help:"if set, skips the creation of empty invoices for customers with zero usage for the billing period" default:"true"`
@@ -104,11 +109,15 @@ type Service struct {
 	removeExpiredCredit  bool
 	useIdempotency       bool
 	deleteAccountEnabled bool
+	webhookSecret        string
 	nowFn                func() time.Time
+	partnerPlacementMap  payments.PartnersPlacementProductMap
+	placementProductMap  payments.PlacementProductMap
+	productPriceMap      map[string]payments.ProjectUsagePriceModel
 }
 
 // NewService creates a Service instance.
-func NewService(log *zap.Logger, stripeClient Client, config Config, db DB, walletsDB storjscan.WalletsDB, billingDB billing.TransactionsDB, projectsDB console.Projects, usersDB console.Users, usageDB accounting.ProjectAccounting, usagePrices payments.ProjectUsagePriceModel, usagePriceOverrides map[string]payments.ProjectUsagePriceModel, packagePlans map[string]payments.PackagePlan, bonusRate int64, analyticsService *analytics.Service, emissionService *emission.Service, deleteAccountEnabled bool) (*Service, error) {
+func NewService(log *zap.Logger, stripeClient Client, config Config, db DB, walletsDB storjscan.WalletsDB, billingDB billing.TransactionsDB, projectsDB console.Projects, usersDB console.Users, usageDB accounting.ProjectAccounting, usagePrices payments.ProjectUsagePriceModel, usagePriceOverrides map[string]payments.ProjectUsagePriceModel, productPriceMap map[string]payments.ProjectUsagePriceModel, partnerPlacementMap payments.PartnersPlacementProductMap, placementProductMap payments.PlacementProductMap, packagePlans map[string]payments.PackagePlan, bonusRate int64, analyticsService *analytics.Service, emissionService *emission.Service, deleteAccountEnabled bool) (*Service, error) {
 	var partners []string
 	for partner := range usagePriceOverrides {
 		partners = append(partners, partner)
@@ -137,6 +146,10 @@ func NewService(log *zap.Logger, stripeClient Client, config Config, db DB, wall
 		maxParallelCalls:       config.MaxParallelCalls,
 		removeExpiredCredit:    config.RemoveExpiredCredit,
 		useIdempotency:         config.UseIdempotency,
+		webhookSecret:          config.StripeWebhookSecret,
+		partnerPlacementMap:    partnerPlacementMap,
+		placementProductMap:    placementProductMap,
+		productPriceMap:        productPriceMap,
 		deleteAccountEnabled:   deleteAccountEnabled,
 		nowFn:                  time.Now,
 	}, nil

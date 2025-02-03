@@ -197,6 +197,10 @@ func TestMigrateCockroach(t *testing.T) {
 }
 
 func TestMigrateSpanner(t *testing.T) {
+	if os.Getenv("STORJ_TEST_ENVIRONMENT") == "spanner-nightly" {
+		t.Skip("test takes too long on production Spanner")
+	}
+
 	t.Parallel()
 	connstr := dbtest.PickSpanner(t)
 	t.Run("Versions", func(t *testing.T) { migrateTest(t, connstr) })
@@ -416,7 +420,7 @@ func queryData(ctx context.Context, db tagsql.DB, schema *dbschema.Schema) (*dbs
 }
 
 func openUniqueDB(ctx context.Context, connStr string, name string) (db tagsql.DB, tempConnstr string, err error) {
-	tempDB, err := tempdb.OpenUnique(ctx, connStr, name)
+	tempDB, err := tempdb.OpenUnique(ctx, connStr, name, nil)
 	if err != nil {
 		return nil, "", err
 	}

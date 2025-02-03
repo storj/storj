@@ -9,7 +9,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"storj.io/common/testcontext"
-	"storj.io/storj/private/mud"
+	"storj.io/storj/shared/mud"
 )
 
 type Store interface {

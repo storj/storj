@@ -46,39 +46,43 @@ export const useNotificationsStore = defineStore('notifications', () => {
         }
     }
 
-    function notifySuccess(message: NotificationMessage, title?: string): void {
+    function notifySuccess(message: NotificationMessage, title?: string, remainingTime?: number): void {
         const notification = new DelayedNotification(
             () => deleteNotification(notification.id),
             NotificationType.Success,
             message,
             title,
+            remainingTime,
         );
 
         addNotification(notification);
     }
 
-    function notifyInfo(message: NotificationMessage, title?: string): void {
+    function notifyInfo(message: NotificationMessage, title?: string, remainingTime?: number): void {
         const notification = new DelayedNotification(
             () => deleteNotification(notification.id),
             NotificationType.Info,
             message,
             title,
+            remainingTime,
         );
 
         addNotification(notification);
     }
 
-    function notifyWarning(message: NotificationMessage): void {
+    function notifyWarning(message: NotificationMessage, title?: string, remainingTime?: number): void {
         const notification = new DelayedNotification(
-            () => deleteNotification(notification.id),
+            remainingTime ? () => deleteNotification(notification.id) : () => {},
             NotificationType.Warning,
             message,
+            title,
+            remainingTime,
         );
 
         addNotification(notification);
     }
 
-    function notifyError(message: NotificationMessage, source: AnalyticsErrorEventSource | null = null): void {
+    function notifyError(message: NotificationMessage, source: AnalyticsErrorEventSource | null = null, title?: string, remainingTime?: number): void {
         if (source) {
             state.analytics.errorEventTriggered(source);
         }
@@ -87,6 +91,8 @@ export const useNotificationsStore = defineStore('notifications', () => {
             () => deleteNotification(notification.id),
             NotificationType.Error,
             message,
+            title,
+            remainingTime,
         );
 
         addNotification(notification);

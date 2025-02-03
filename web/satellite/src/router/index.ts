@@ -22,7 +22,7 @@ enum RouteName {
     Access = 'Access Keys',
     Team = 'Team',
     Domains = 'Domains',
-    CunoFS = 'CunoFS',
+    CunoFS = 'cunoFS',
     Applications = 'Applications',
     ProjectSettings = 'Project Settings',
     Login = 'Login',
@@ -140,7 +140,6 @@ const routes: RouteRecordRaw[] = [
     },
     {
         path: ROUTES.Projects.with(ROUTES.Project).path,
-        name: RouteName.Project,
         component: () => import('@/layouts/default/Default.vue'),
         children: [
             {

@@ -62,7 +62,10 @@
             </template>
 
             <v-col>
-                <v-alert variant="tonal">
+                <v-alert variant="tonal" color="info" class="mb-4">
+                    <p class="text-subtitle-2">Tip: If you experience connection issues in some applications, try pasting the Endpoint URL without the "https://" prefix.</p>
+                </v-alert>
+                <v-alert variant="tonal" color="success">
                     <p class="text-subtitle-2 font-weight-bold">Next steps</p>
                     <p class="text-subtitle-2">Please read the documentation to find where to enter the access you created.</p>
                 </v-alert>

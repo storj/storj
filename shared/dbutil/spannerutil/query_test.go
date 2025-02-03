@@ -61,15 +61,9 @@ func TestQuerySchema(t *testing.T) {
 	ctx := testcontext.New(t)
 
 	connstr := dbtest.PickSpanner(t)
-	db, err := OpenUnique(ctx, connstr, t.Name())
+	db, err := OpenUnique(ctx, connstr, t.Name(), MustSplitSQLStatements(dbSetup))
 	require.NoError(t, err)
 	defer func() { require.NoError(t, db.Close()) }()
-
-	ddls := MustSplitSQLStatements(dbSetup)
-	for i, ddl := range ddls {
-		_, err := db.ExecContext(ctx, ddl)
-		require.NoError(t, err, "failed to execute ddl %d", i)
-	}
 
 	schema, err := QuerySchema(ctx, db)
 	require.NoError(t, err)

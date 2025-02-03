@@ -8,6 +8,7 @@ import (
 	"errors"
 	"fmt"
 	"net"
+	"net/http"
 	"os"
 	"runtime/pprof"
 	"strings"
@@ -40,6 +41,8 @@ import (
 	"storj.io/storj/satellite/console/consoleweb"
 	"storj.io/storj/satellite/console/restkeys"
 	"storj.io/storj/satellite/console/userinfo"
+	"storj.io/storj/satellite/console/valdi"
+	"storj.io/storj/satellite/console/valdi/valdiclient"
 	"storj.io/storj/satellite/contact"
 	"storj.io/storj/satellite/emission"
 	"storj.io/storj/satellite/gracefulexit"
@@ -57,6 +60,7 @@ import (
 	"storj.io/storj/satellite/payments/stripe"
 	"storj.io/storj/satellite/reputation"
 	"storj.io/storj/satellite/snopayouts"
+	"storj.io/storj/satellite/trust"
 	"storj.io/storj/shared/nodetag"
 )
 
@@ -149,6 +153,11 @@ type API struct {
 		AuthTokens *consoleauth.Service
 	}
 
+	Valdi struct {
+		Service *valdi.Service
+		Client  *valdiclient.Client
+	}
+
 	NodeStats struct {
 		Endpoint *nodestats.Endpoint
 	}
@@ -193,6 +202,7 @@ type API struct {
 
 	SuccessTrackers *metainfo.SuccessTrackers
 	FailureTracker  metainfo.SuccessTracker
+	TrustedUplinks  *trust.TrustedPeersList
 }
 
 // NewAPI creates a new satellite API process.
@@ -289,23 +299,38 @@ func NewAPI(log *zap.Logger, full *identity.FullIdentity, db DB,
 	}
 
 	{
-		var trustedUplinks []storj.NodeID
-		for _, uplinkIDString := range config.Metainfo.SuccessTrackerTrustedUplinks {
-			uplinkID, err := storj.NodeIDFromString(uplinkIDString)
-			if err != nil {
-				log.Warn("Wrong uplink ID for the trusted list of the success trackers", zap.String("uplink", uplinkIDString), zap.Error(err))
-			}
-			trustedUplinks = append(trustedUplinks, uplinkID)
+		successTrackerTrustedUplinks, err := parseNodeIDs(config.Metainfo.SuccessTrackerTrustedUplinks)
+		if err != nil {
+			log.Warn("Wrong uplink ID for the trusted list of the success trackers", zap.Error(err))
+			return nil, err
 		}
+
+		successTrackerUplinks, err := parseNodeIDs(config.Metainfo.SuccessTrackerUplinks)
+		if err != nil {
+			log.Warn("Wrong uplink ID for the list of the success trackers", zap.Error(err))
+			return nil, err
+		}
+
+		trustedUplinkSlice, err := parseNodeIDs(config.Metainfo.TrustedUplinks)
+		if err != nil {
+			log.Warn("Wrong uplink ID for the list of the trusted uplinks", zap.Error(err))
+			return nil, err
+		}
+
+		trustedUplinkSlice = append(trustedUplinkSlice, successTrackerTrustedUplinks...)
+		successTrackerUplinks = append(successTrackerUplinks, successTrackerTrustedUplinks...)
+
 		newTracker, ok := metainfo.GetNewSuccessTracker(config.Metainfo.SuccessTrackerKind)
 		if !ok {
 			return nil, errs.New("Unknown success tracker kind %q", config.Metainfo.SuccessTrackerKind)
 		}
-		peer.SuccessTrackers = metainfo.NewSuccessTrackers(trustedUplinks, newTracker)
+		peer.SuccessTrackers = metainfo.NewSuccessTrackers(successTrackerUplinks, newTracker)
 		monkit.ScopeNamed(mon.Name() + ".success_trackers").Chain(peer.SuccessTrackers)
 
 		peer.FailureTracker = metainfo.NewPercentSuccessTracker()
 		monkit.ScopeNamed(mon.Name() + ".failure_tracker").Chain(peer.FailureTracker)
+
+		peer.TrustedUplinks = trust.NewTrustedPeerList(trustedUplinkSlice)
 	}
 
 	placements, err := config.Placement.Parse(config.Overlay.Node.CreateDefaultPlacement, nodeselection.NewPlacementConfigEnvironment(peer.SuccessTrackers, peer.FailureTracker))
@@ -410,7 +435,8 @@ func NewAPI(log *zap.Logger, full *identity.FullIdentity, db DB,
 			peer.Orders.DB,
 			peer.DB.NodeAPIVersion(),
 			peer.Orders.Service,
-			config.Orders.AcceptOrders,
+			config.Orders,
+			peer.Overlay.Service,
 		)
 
 		if err := pb.DRPCRegisterOrders(peer.Server.DRPC(), peer.Orders.Endpoint); err != nil {
@@ -439,9 +465,12 @@ func NewAPI(log *zap.Logger, full *identity.FullIdentity, db DB,
 			peer.DB.Revocation(),
 			peer.SuccessTrackers,
 			peer.FailureTracker,
+			peer.TrustedUplinks,
 			config.Metainfo,
 			migrationModeFlag,
 			placements,
+			config.Console.PlacementEdgeURLOverrides,
+			config.Orders.TrustedOrders,
 		)
 		if err != nil {
 			return nil, errs.Combine(err, peer.Close())
@@ -610,6 +639,10 @@ func NewAPI(log *zap.Logger, full *identity.FullIdentity, db DB,
 				return nil, errs.Combine(err, peer.Close())
 			}
 
+			productPrices, err := pc.Products.ToModels()
+			if err != nil {
+				return nil, errs.Combine(err, peer.Close())
+			}
 			peer.Payments.StripeService, err = stripe.NewService(
 				peer.Log.Named("payments.stripe:service"),
 				stripeClient,
@@ -622,6 +655,9 @@ func NewAPI(log *zap.Logger, full *identity.FullIdentity, db DB,
 				peer.DB.ProjectAccounting(),
 				prices,
 				priceOverrides,
+				productPrices,
+				pc.PartnersPlacementPriceOverrides.ToMap(),
+				pc.PlacementPriceOverrides.ToMap(),
 				pc.PackagePlans.Packages,
 				pc.BonusRate,
 				peer.Analytics.Service,
@@ -693,6 +729,18 @@ func NewAPI(log *zap.Logger, full *identity.FullIdentity, db DB,
 				consoleConfig.AccountFreeze,
 			)
 
+			if config.Console.CloudGpusEnabled {
+				peer.Valdi.Client, err = valdiclient.New(peer.Log.Named("valdi:client"), http.DefaultClient, config.Valdi.Config)
+				if err != nil {
+					return nil, errs.Combine(err, peer.Close())
+				}
+
+				peer.Valdi.Service, err = valdi.NewService(peer.Log.Named("valdi:service"), config.Valdi, peer.Valdi.Client)
+				if err != nil {
+					return nil, errs.Combine(err, peer.Close())
+				}
+			}
+
 			peer.Console.Service, err = console.NewService(
 				peer.Log.Named("console:service"),
 				peer.DB.Console(),
@@ -719,6 +767,7 @@ func NewAPI(log *zap.Logger, full *identity.FullIdentity, db DB,
 					ObjectLockEnabled:              config.Metainfo.ObjectLockEnabled,
 					UseBucketLevelObjectVersioning: config.Metainfo.UseBucketLevelObjectVersioning,
 				},
+				peer.Valdi.Service,
 				consoleConfig.Config,
 			)
 			if err != nil {
@@ -839,3 +888,15 @@ func (peer *API) URL() storj.NodeURL {
 
 // PrivateAddr returns the private address.
 func (peer *API) PrivateAddr() string { return peer.Server.PrivateAddr().String() }
+
+func parseNodeIDs(nodeIDs []string) ([]storj.NodeID, error) {
+	rv := make([]storj.NodeID, 0, len(nodeIDs))
+	for _, nodeID := range nodeIDs {
+		parsedID, err := storj.NodeIDFromString(nodeID)
+		if err != nil {
+			return nil, err
+		}
+		rv = append(rv, parsedID)
+	}
+	return rv, nil
+}

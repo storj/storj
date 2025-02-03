@@ -3,25 +3,28 @@
 
 <template>
     <v-col cols="12" md="6" lg="6" xl="3">
-        <v-card class="px-2 py-4 h-100 align-content-space-between flex-grow-1 d-flex flex-column">
+        <v-card class="px-1 py-3 h-100 align-content-space-between flex-grow-1 d-flex flex-column">
             <v-card-item class="pb-0">
-                <img :src="app.src" :alt="app.name" width="48" height="48" class="rounded">
+                <img
+                    :src="app.src"
+                    :alt="app.name"
+                    width="48"
+                    height="48"
+                    class="rounded-md border pa-2 bg-background mr-3"
+                >
             </v-card-item>
 
             <v-card-item>
-                <v-chip size="small" variant="tonal" color="default" class="mb-2">
-                    {{ app.category }}
-                </v-chip>
-                <h3 class="mb-1">
+                <h3 class="mb-2">
                     {{ app.name }}
                 </h3>
-                <p class="mt-1 text-high-emphasis">
+                <p class="text-high-emphasis">
                     {{ app.description }}
                 </p>
             </v-card-item>
 
             <v-card-item class="bottom mt-auto">
-                <v-btn color="primary" :append-icon="ArrowRight" @click="onSetup">
+                <v-btn color="default" variant="outlined" :append-icon="ArrowRight" @click="onSetup">
                     Setup
                 </v-btn>
                 <v-btn
@@ -52,7 +55,7 @@
 
 <script setup lang="ts">
 import { computed, ref } from 'vue';
-import { VBtn, VCard, VCardItem, VChip, VCol } from 'vuetify/components';
+import { VBtn, VCard, VCardItem, VCol } from 'vuetify/components';
 import { ArrowRight, SquareArrowOutUpRight } from 'lucide-vue-next';
 
 import { Application, UplinkApp } from '@/types/applications';

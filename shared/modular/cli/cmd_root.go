@@ -13,8 +13,8 @@ import (
 	"storj.io/common/cfgstruct"
 	"storj.io/common/fpath"
 	"storj.io/common/version"
-	"storj.io/storj/private/mud"
 	"storj.io/storj/shared/modular"
+	"storj.io/storj/shared/mud"
 )
 
 // Factory contains default values for configuration flags.

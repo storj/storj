@@ -39,4 +39,4 @@ export type CheckDNSResponse = {
     expectedTXT: string[]
     gotCNAME: string
     gotTXT: string[]
-}
+};

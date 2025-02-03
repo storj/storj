@@ -2,9 +2,11 @@
 // See LICENSE for copying information.
 
 <template>
-    <v-card variant="flat" title="Add Card">
+    <v-card title="Add New Card" subtitle="Add a new credit/debit card for payment." class="pa-2">
         <v-card-text>
-            <v-btn v-if="!isCardInputShown" variant="outlined" color="default" size="small" rounded="md" class="mr-2" @click="onShowCardInput">+ Add New Card</v-btn>
+            <div v-if="!isCardInputShown">
+                <v-btn variant="outlined" color="default" class="mr-2" @click="onShowCardInput">+ Add New Card</v-btn>
+            </div>
 
             <template v-else>
                 <StripeCardElement
@@ -22,7 +24,8 @@
 
             <div v-if="isCardInputShown" class="mt-4">
                 <v-btn
-                    color="primary" size="small" class="mr-2"
+                    color="primary"
+                    class="mr-2"
                     :loading="isLoading"
                     :disabled="!stripeReady"
                     @click="onSaveCardClick"
@@ -30,7 +33,9 @@
                     Add Card
                 </v-btn>
                 <v-btn
-                    variant="outlined" color="default" size="small" class="mr-2"
+                    variant="outlined"
+                    color="default"
+                    class="mr-2"
                     :disabled="isLoading"
                     @click="isCardInputShown = false"
                 >

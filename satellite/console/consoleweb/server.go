@@ -99,6 +99,7 @@ type Config struct {
 	OptionalSignupSuccessURL        string        `help:"optional url to external registration success page" default:""`
 	HomepageURL                     string        `help:"url link to storj.io homepage" default:"https://www.storj.io"`
 	ValdiSignUpURL                  string        `help:"url link to Valdi sign up page" default:""`
+	CloudGpusEnabled                bool          `help:"whether to enable cloud GPU functionality" default:"false"`
 	NativeTokenPaymentsEnabled      bool          `help:"indicates if storj native token payments system is enabled" default:"false"`
 	PricingPackagesEnabled          bool          `help:"whether to allow purchasing pricing packages" default:"true"`
 	GalleryViewEnabled              bool          `help:"whether to show new gallery view" default:"true"`
@@ -115,6 +116,8 @@ type Config struct {
 	ActiveSessionsViewEnabled       bool          `help:"whether active sessions table view should be shown" default:"false"`
 	ObjectLockUIEnabled             bool          `help:"whether object lock UI should be shown, regardless of whether the feature is enabled" default:"true"`
 	CunoFSBetaEnabled               bool          `help:"whether prompt to join cunoFS beta is visible" default:"false"`
+	CSRFProtectionEnabled           bool          `help:"whether CSRF protection is enabled for some of the endpoints" default:"false" testDefault:"false"`
+	BillingAddFundsEnabled          bool          `help:"whether billing add funds feature is enabled" default:"false"`
 
 	OauthCodeExpiry         time.Duration `help:"how long oauth authorization codes are issued for" default:"10m"`
 	OauthAccessTokenExpiry  time.Duration `help:"how long oauth access tokens are issued for" default:"24h"`
@@ -256,6 +259,12 @@ func NewServer(logger *zap.Logger, config Config, service *console.Service, oidc
 	server.cookieAuth = consolewebauth.NewCookieAuth(consolewebauth.CookieSettings{
 		Name: "_tokenKey",
 		Path: "/",
+	}, consolewebauth.CookieSettings{
+		Name: "sso_state",
+		Path: "/",
+	}, consolewebauth.CookieSettings{
+		Name: "sso_email_token",
+		Path: "/",
 	}, server.config.AuthCookieDomain)
 
 	if server.config.ExternalAddress != "" {
@@ -299,30 +308,38 @@ func NewServer(logger *zap.Logger, config Config, service *console.Service, oidc
 	projectsRouter.Use(server.withCORS)
 	projectsRouter.Use(server.withAuth)
 	projectsRouter.Handle("", http.HandlerFunc(projectsController.GetUserProjects)).Methods(http.MethodGet, http.MethodOptions)
-	projectsRouter.Handle("", http.HandlerFunc(projectsController.CreateProject)).Methods(http.MethodPost, http.MethodOptions)
+	projectsRouter.Handle("", server.withCSRFProtection(http.HandlerFunc(projectsController.CreateProject))).Methods(http.MethodPost, http.MethodOptions)
 	projectsRouter.Handle("/paged", http.HandlerFunc(projectsController.GetPagedProjects)).Methods(http.MethodGet, http.MethodOptions)
-	projectsRouter.Handle("/{id}", http.HandlerFunc(projectsController.UpdateProject)).Methods(http.MethodPatch, http.MethodOptions)
-	projectsRouter.Handle("/{id}", http.HandlerFunc(projectsController.DeleteProject)).Methods(http.MethodDelete, http.MethodOptions)
-	projectsRouter.Handle("/{id}/limits", http.HandlerFunc(projectsController.UpdateUserSpecifiedLimits)).Methods(http.MethodPatch, http.MethodOptions)
+	projectsRouter.Handle("/{id}", server.withCSRFProtection(http.HandlerFunc(projectsController.UpdateProject))).Methods(http.MethodPatch, http.MethodOptions)
+	projectsRouter.Handle("/{id}", server.withCSRFProtection(http.HandlerFunc(projectsController.DeleteProject))).Methods(http.MethodDelete, http.MethodOptions)
+	projectsRouter.Handle("/{id}/limits", server.withCSRFProtection(http.HandlerFunc(projectsController.UpdateUserSpecifiedLimits))).Methods(http.MethodPatch, http.MethodOptions)
 	projectsRouter.Handle("/{id}/limit-increase", http.HandlerFunc(projectsController.RequestLimitIncrease)).Methods(http.MethodPost, http.MethodOptions)
-	projectsRouter.Handle("/{id}/members", http.HandlerFunc(projectsController.DeleteMembersAndInvitations)).Methods(http.MethodDelete, http.MethodOptions)
+	projectsRouter.Handle("/{id}/members", server.withCSRFProtection(http.HandlerFunc(projectsController.DeleteMembersAndInvitations))).Methods(http.MethodDelete, http.MethodOptions)
 	projectsRouter.Handle("/{id}/salt", http.HandlerFunc(projectsController.GetSalt)).Methods(http.MethodGet, http.MethodOptions)
 	projectsRouter.Handle("/{id}/members", http.HandlerFunc(projectsController.GetMembersAndInvitations)).Methods(http.MethodGet, http.MethodOptions)
-	projectsRouter.Handle("/{id}/members/{memberID}", http.HandlerFunc(projectsController.UpdateMemberRole)).Methods(http.MethodPatch, http.MethodOptions)
+	projectsRouter.Handle("/{id}/members/{memberID}", server.withCSRFProtection(http.HandlerFunc(projectsController.UpdateMemberRole))).Methods(http.MethodPatch, http.MethodOptions)
 	projectsRouter.Handle("/{id}/members/{memberID}", http.HandlerFunc(projectsController.GetMember)).Methods(http.MethodGet, http.MethodOptions)
-	projectsRouter.Handle("/{id}/invite/{email}", server.userIDRateLimiter.Limit(http.HandlerFunc(projectsController.InviteUser))).Methods(http.MethodPost, http.MethodOptions)
-	projectsRouter.Handle("/{id}/reinvite", server.userIDRateLimiter.Limit(http.HandlerFunc(projectsController.ReinviteUsers))).Methods(http.MethodPost, http.MethodOptions)
+	projectsRouter.Handle("/{id}/invite/{email}", server.userIDRateLimiter.Limit(server.withCSRFProtection(http.HandlerFunc(projectsController.InviteUser)))).Methods(http.MethodPost, http.MethodOptions)
+	projectsRouter.Handle("/{id}/reinvite", server.userIDRateLimiter.Limit(server.withCSRFProtection(http.HandlerFunc(projectsController.ReinviteUsers)))).Methods(http.MethodPost, http.MethodOptions)
 	projectsRouter.Handle("/{id}/invite-link", http.HandlerFunc(projectsController.GetInviteLink)).Methods(http.MethodGet, http.MethodOptions)
 	projectsRouter.Handle("/{id}/emission", http.HandlerFunc(projectsController.GetEmissionImpact)).Methods(http.MethodGet, http.MethodOptions)
 	projectsRouter.Handle("/{id}/config", http.HandlerFunc(projectsController.GetConfig)).Methods(http.MethodGet, http.MethodOptions)
 	projectsRouter.Handle("/invitations", http.HandlerFunc(projectsController.GetUserInvitations)).Methods(http.MethodGet, http.MethodOptions)
-	projectsRouter.Handle("/invitations/{id}/respond", http.HandlerFunc(projectsController.RespondToInvitation)).Methods(http.MethodPost, http.MethodOptions)
+	projectsRouter.Handle("/invitations/{id}/respond", server.withCSRFProtection(http.HandlerFunc(projectsController.RespondToInvitation))).Methods(http.MethodPost, http.MethodOptions)
 
 	usageLimitsController := consoleapi.NewUsageLimits(logger, service, server.config.AllowedUsageReportDateRange)
 	projectsRouter.Handle("/{id}/usage-limits", http.HandlerFunc(usageLimitsController.ProjectUsageLimits)).Methods(http.MethodGet, http.MethodOptions)
 	projectsRouter.Handle("/usage-limits", http.HandlerFunc(usageLimitsController.TotalUsageLimits)).Methods(http.MethodGet, http.MethodOptions)
 	projectsRouter.Handle("/{id}/daily-usage", http.HandlerFunc(usageLimitsController.DailyUsage)).Methods(http.MethodGet, http.MethodOptions)
 	projectsRouter.Handle("/usage-report", server.userIDRateLimiter.Limit(http.HandlerFunc(usageLimitsController.UsageReport))).Methods(http.MethodGet, http.MethodOptions)
+
+	if server.config.CloudGpusEnabled {
+		valdiController := consoleapi.NewValdi(logger, service)
+		valdiRouter := router.PathPrefix("/api/v0/valdi").Subrouter()
+		valdiRouter.Use(server.withCORS)
+		valdiRouter.Use(server.withAuth)
+		valdiRouter.Handle("/api-keys/{project-id}", server.userIDRateLimiter.Limit(http.HandlerFunc(valdiController.GetAPIKey))).Methods(http.MethodGet, http.MethodOptions)
+	}
 
 	badPasswords, err := server.loadBadPasswords()
 	if err != nil {
@@ -333,31 +350,31 @@ func NewServer(logger *zap.Logger, config Config, service *console.Service, oidc
 	authRouter := router.PathPrefix("/api/v0/auth").Subrouter()
 	authRouter.Use(server.withCORS)
 	authRouter.Handle("/account", server.withAuth(http.HandlerFunc(authController.GetAccount))).Methods(http.MethodGet, http.MethodOptions)
-	authRouter.Handle("/account", server.withAuth(http.HandlerFunc(authController.UpdateAccount))).Methods(http.MethodPatch, http.MethodOptions)
-	authRouter.Handle("/account", server.withAuth(http.HandlerFunc(authController.DeleteAccount))).Methods(http.MethodDelete, http.MethodOptions)
-	authRouter.Handle("/account/setup", server.withAuth(http.HandlerFunc(authController.SetupAccount))).Methods(http.MethodPatch, http.MethodOptions)
-	authRouter.Handle("/account/change-password", server.withAuth(server.userIDRateLimiter.Limit(http.HandlerFunc(authController.ChangePassword)))).Methods(http.MethodPost, http.MethodOptions)
+	authRouter.Handle("/account", server.withCSRFProtection(server.withAuth(http.HandlerFunc(authController.UpdateAccount)))).Methods(http.MethodPatch, http.MethodOptions)
+	authRouter.Handle("/account", server.withCSRFProtection(server.withAuth(http.HandlerFunc(authController.DeleteAccount)))).Methods(http.MethodDelete, http.MethodOptions)
+	authRouter.Handle("/account/setup", server.withCSRFProtection(server.withAuth(http.HandlerFunc(authController.SetupAccount)))).Methods(http.MethodPatch, http.MethodOptions)
+	authRouter.Handle("/account/change-password", server.withCSRFProtection(server.withAuth(server.userIDRateLimiter.Limit(http.HandlerFunc(authController.ChangePassword))))).Methods(http.MethodPost, http.MethodOptions)
 	authRouter.Handle("/account/freezestatus", server.withAuth(http.HandlerFunc(authController.GetFreezeStatus))).Methods(http.MethodGet, http.MethodOptions)
 	authRouter.Handle("/account/settings", server.withAuth(http.HandlerFunc(authController.GetUserSettings))).Methods(http.MethodGet, http.MethodOptions)
-	authRouter.Handle("/account/settings", server.withAuth(http.HandlerFunc(authController.SetUserSettings))).Methods(http.MethodPatch, http.MethodOptions)
-	authRouter.Handle("/account/onboarding", server.withAuth(http.HandlerFunc(authController.SetOnboardingStatus))).Methods(http.MethodPatch, http.MethodOptions)
-	authRouter.Handle("/mfa/enable", server.withAuth(server.userIDRateLimiter.Limit(http.HandlerFunc(authController.EnableUserMFA)))).Methods(http.MethodPost, http.MethodOptions)
-	authRouter.Handle("/mfa/disable", server.withAuth(server.userIDRateLimiter.Limit(http.HandlerFunc(authController.DisableUserMFA)))).Methods(http.MethodPost, http.MethodOptions)
-	authRouter.Handle("/mfa/generate-secret-key", server.withAuth(http.HandlerFunc(authController.GenerateMFASecretKey))).Methods(http.MethodPost, http.MethodOptions)
-	authRouter.Handle("/mfa/regenerate-recovery-codes", server.withAuth(server.userIDRateLimiter.Limit(http.HandlerFunc(authController.RegenerateMFARecoveryCodes)))).Methods(http.MethodPost, http.MethodOptions)
-	authRouter.Handle("/logout", server.withAuth(http.HandlerFunc(authController.Logout))).Methods(http.MethodPost, http.MethodOptions)
-	authRouter.Handle("/token", server.ipRateLimiter.Limit(http.HandlerFunc(authController.Token))).Methods(http.MethodPost, http.MethodOptions)
+	authRouter.Handle("/account/settings", server.withCSRFProtection(server.withAuth(http.HandlerFunc(authController.SetUserSettings)))).Methods(http.MethodPatch, http.MethodOptions)
+	authRouter.Handle("/account/onboarding", server.withCSRFProtection(server.withAuth(http.HandlerFunc(authController.SetOnboardingStatus)))).Methods(http.MethodPatch, http.MethodOptions)
+	authRouter.Handle("/mfa/enable", server.withCSRFProtection(server.withAuth(server.userIDRateLimiter.Limit(http.HandlerFunc(authController.EnableUserMFA))))).Methods(http.MethodPost, http.MethodOptions)
+	authRouter.Handle("/mfa/disable", server.withCSRFProtection(server.withAuth(server.userIDRateLimiter.Limit(http.HandlerFunc(authController.DisableUserMFA))))).Methods(http.MethodPost, http.MethodOptions)
+	authRouter.Handle("/mfa/generate-secret-key", server.withCSRFProtection(server.withAuth(http.HandlerFunc(authController.GenerateMFASecretKey)))).Methods(http.MethodPost, http.MethodOptions)
+	authRouter.Handle("/mfa/regenerate-recovery-codes", server.withCSRFProtection(server.withAuth(server.userIDRateLimiter.Limit(http.HandlerFunc(authController.RegenerateMFARecoveryCodes))))).Methods(http.MethodPost, http.MethodOptions)
+	authRouter.Handle("/logout", server.withCSRFProtection(server.withAuth(http.HandlerFunc(authController.Logout)))).Methods(http.MethodPost, http.MethodOptions)
+	authRouter.Handle("/token", server.withCSRFProtection(server.ipRateLimiter.Limit(http.HandlerFunc(authController.Token)))).Methods(http.MethodPost, http.MethodOptions)
 	authRouter.Handle("/token-by-api-key", server.ipRateLimiter.Limit(http.HandlerFunc(authController.TokenByAPIKey))).Methods(http.MethodPost, http.MethodOptions)
 	authRouter.Handle("/register", server.ipRateLimiter.Limit(http.HandlerFunc(authController.Register))).Methods(http.MethodPost, http.MethodOptions)
 	authRouter.Handle("/code-activation", server.ipRateLimiter.Limit(http.HandlerFunc(authController.ActivateAccount))).Methods(http.MethodPatch, http.MethodOptions)
 	authRouter.Handle("/forgot-password", server.ipRateLimiter.Limit(http.HandlerFunc(authController.ForgotPassword))).Methods(http.MethodPost, http.MethodOptions)
 	authRouter.Handle("/resend-email", server.ipRateLimiter.Limit(http.HandlerFunc(authController.ResendEmail))).Methods(http.MethodPost, http.MethodOptions)
 	authRouter.Handle("/reset-password", server.ipRateLimiter.Limit(http.HandlerFunc(authController.ResetPassword))).Methods(http.MethodPost, http.MethodOptions)
-	authRouter.Handle("/refresh-session", server.withAuth(http.HandlerFunc(authController.RefreshSession))).Methods(http.MethodPost, http.MethodOptions)
+	authRouter.Handle("/refresh-session", server.withCSRFProtection(server.withAuth(http.HandlerFunc(authController.RefreshSession)))).Methods(http.MethodPost, http.MethodOptions)
 	authRouter.Handle("/sessions", server.withAuth(http.HandlerFunc(authController.GetActiveSessions))).Methods(http.MethodGet, http.MethodOptions)
-	authRouter.Handle("/invalidate-session/{id}", server.withAuth(http.HandlerFunc(authController.InvalidateSessionByID))).Methods(http.MethodPost, http.MethodOptions)
+	authRouter.Handle("/invalidate-session/{id}", server.withCSRFProtection(server.withAuth(http.HandlerFunc(authController.InvalidateSessionByID)))).Methods(http.MethodPost, http.MethodOptions)
 	authRouter.Handle("/limit-increase", server.withAuth(http.HandlerFunc(authController.RequestLimitIncrease))).Methods(http.MethodPatch, http.MethodOptions)
-	authRouter.Handle("/change-email", server.withAuth(http.HandlerFunc(authController.ChangeEmail))).Methods(http.MethodPost, http.MethodOptions)
+	authRouter.Handle("/change-email", server.withCSRFProtection(server.withAuth(http.HandlerFunc(authController.ChangeEmail)))).Methods(http.MethodPost, http.MethodOptions)
 
 	domainsController := consoleapi.NewDomains(logger, service)
 	domainsRouter := router.PathPrefix("/api/v0/domains").Subrouter()
@@ -384,34 +401,40 @@ func NewServer(logger *zap.Logger, config Config, service *console.Service, oidc
 		varBlocker := newVarBlockerMiddleWare(&server, config.VarPartners, allowedRoutes)
 		paymentsRouter.Use(varBlocker.withVarBlocker)
 
-		paymentsRouter.Handle("/attempt-payments", server.userIDRateLimiter.Limit(http.HandlerFunc(paymentController.TriggerAttemptPayment))).Methods(http.MethodPost, http.MethodOptions)
-		paymentsRouter.Handle("/payment-methods", server.userIDRateLimiter.Limit(http.HandlerFunc(paymentController.AddCardByPaymentMethodID))).Methods(http.MethodPost, http.MethodOptions)
-		paymentsRouter.Handle("/cards", server.userIDRateLimiter.Limit(http.HandlerFunc(paymentController.AddCreditCard))).Methods(http.MethodPost, http.MethodOptions)
-		paymentsRouter.HandleFunc("/cards", paymentController.MakeCreditCardDefault).Methods(http.MethodPatch, http.MethodOptions)
+		paymentsRouter.Handle("/attempt-payments", server.userIDRateLimiter.Limit(server.withCSRFProtection(http.HandlerFunc(paymentController.TriggerAttemptPayment)))).Methods(http.MethodPost, http.MethodOptions)
+		paymentsRouter.Handle("/payment-methods", server.userIDRateLimiter.Limit(server.withCSRFProtection(http.HandlerFunc(paymentController.AddCardByPaymentMethodID)))).Methods(http.MethodPost, http.MethodOptions)
+		paymentsRouter.Handle("/cards", server.userIDRateLimiter.Limit(server.withCSRFProtection(http.HandlerFunc(paymentController.AddCreditCard)))).Methods(http.MethodPost, http.MethodOptions)
+		paymentsRouter.Handle("/cards", server.withCSRFProtection(http.HandlerFunc(paymentController.UpdateCreditCard))).Methods(http.MethodPut, http.MethodOptions)
+		paymentsRouter.Handle("/cards", server.withCSRFProtection(http.HandlerFunc(paymentController.MakeCreditCardDefault))).Methods(http.MethodPatch, http.MethodOptions)
 		paymentsRouter.HandleFunc("/cards", paymentController.ListCreditCards).Methods(http.MethodGet, http.MethodOptions)
-		paymentsRouter.HandleFunc("/cards/{cardId}", paymentController.RemoveCreditCard).Methods(http.MethodDelete, http.MethodOptions)
+		paymentsRouter.Handle("/cards/{cardId}", server.withCSRFProtection(http.HandlerFunc(paymentController.RemoveCreditCard))).Methods(http.MethodDelete, http.MethodOptions)
 		paymentsRouter.HandleFunc("/account/charges", paymentController.ProjectsCharges).Methods(http.MethodGet, http.MethodOptions)
 		paymentsRouter.HandleFunc("/account/balance", paymentController.AccountBalance).Methods(http.MethodGet, http.MethodOptions)
 		paymentsRouter.HandleFunc("/account/billing-information", paymentController.GetBillingInformation).Methods(http.MethodGet, http.MethodOptions)
-		paymentsRouter.HandleFunc("/account/billing-address", paymentController.SaveBillingAddress).Methods(http.MethodPatch, http.MethodOptions)
-		paymentsRouter.HandleFunc("/account/tax-ids", paymentController.AddTaxID).Methods(http.MethodPost, http.MethodOptions)
-		paymentsRouter.HandleFunc("/account/invoice-reference", paymentController.AddInvoiceReference).Methods(http.MethodPost, http.MethodOptions)
-		paymentsRouter.HandleFunc("/account/tax-ids/{taxID}", paymentController.RemoveTaxID).Methods(http.MethodDelete, http.MethodOptions)
-		paymentsRouter.HandleFunc("/account", paymentController.SetupAccount).Methods(http.MethodPost, http.MethodOptions)
+		paymentsRouter.Handle("/account/billing-address", server.withCSRFProtection(http.HandlerFunc(paymentController.SaveBillingAddress))).Methods(http.MethodPatch, http.MethodOptions)
+		paymentsRouter.Handle("/account/tax-ids", server.withCSRFProtection(http.HandlerFunc(paymentController.AddTaxID))).Methods(http.MethodPost, http.MethodOptions)
+		paymentsRouter.Handle("/account/invoice-reference", server.withCSRFProtection(http.HandlerFunc(paymentController.AddInvoiceReference))).Methods(http.MethodPost, http.MethodOptions)
+		paymentsRouter.Handle("/account/tax-ids/{taxID}", server.withCSRFProtection(http.HandlerFunc(paymentController.RemoveTaxID))).Methods(http.MethodDelete, http.MethodOptions)
+		paymentsRouter.Handle("/account", server.withCSRFProtection(http.HandlerFunc(paymentController.SetupAccount))).Methods(http.MethodPost, http.MethodOptions)
 		paymentsRouter.HandleFunc("/wallet", paymentController.GetWallet).Methods(http.MethodGet, http.MethodOptions)
-		paymentsRouter.HandleFunc("/wallet", paymentController.ClaimWallet).Methods(http.MethodPost, http.MethodOptions)
+		paymentsRouter.Handle("/wallet", server.withCSRFProtection(http.HandlerFunc(paymentController.ClaimWallet))).Methods(http.MethodPost, http.MethodOptions)
 		paymentsRouter.HandleFunc("/wallet/payments", paymentController.WalletPayments).Methods(http.MethodGet, http.MethodOptions)
 		paymentsRouter.HandleFunc("/wallet/payments-with-confirmations", paymentController.WalletPaymentsWithConfirmations).Methods(http.MethodGet, http.MethodOptions)
 		paymentsRouter.HandleFunc("/billing-history", paymentController.BillingHistory).Methods(http.MethodGet, http.MethodOptions)
 		paymentsRouter.HandleFunc("/invoice-history", paymentController.InvoiceHistory).Methods(http.MethodGet, http.MethodOptions)
-		paymentsRouter.Handle("/coupon/apply", server.userIDRateLimiter.Limit(http.HandlerFunc(paymentController.ApplyCouponCode))).Methods(http.MethodPatch, http.MethodOptions)
+		paymentsRouter.Handle("/coupon/apply", server.userIDRateLimiter.Limit(server.withCSRFProtection(http.HandlerFunc(paymentController.ApplyCouponCode)))).Methods(http.MethodPatch, http.MethodOptions)
 		paymentsRouter.HandleFunc("/coupon", paymentController.GetCoupon).Methods(http.MethodGet, http.MethodOptions)
 		paymentsRouter.HandleFunc("/pricing", paymentController.GetProjectUsagePriceModel).Methods(http.MethodGet, http.MethodOptions)
+		paymentsRouter.HandleFunc("/placement-pricing", paymentController.GetPartnerPlacementPriceModel).Methods(http.MethodGet, http.MethodOptions)
 		paymentsRouter.HandleFunc("/countries", paymentController.GetTaxCountries).Methods(http.MethodGet, http.MethodOptions)
 		paymentsRouter.HandleFunc("/countries/{countryCode}/taxes", paymentController.GetCountryTaxes).Methods(http.MethodGet, http.MethodOptions)
 		if config.PricingPackagesEnabled {
-			paymentsRouter.HandleFunc("/purchase-package", paymentController.PurchasePackage).Methods(http.MethodPost, http.MethodOptions)
+			paymentsRouter.Handle("/purchase-package", server.withCSRFProtection(http.HandlerFunc(paymentController.PurchasePackage))).Methods(http.MethodPost, http.MethodOptions)
 			paymentsRouter.HandleFunc("/package-available", paymentController.PackageAvailable).Methods(http.MethodGet, http.MethodOptions)
+		}
+		if config.BillingAddFundsEnabled {
+			paymentsRouter.Handle("/add-funds", server.withCSRFProtection(http.HandlerFunc(paymentController.AddFunds))).Methods(http.MethodPost, http.MethodOptions)
+			paymentsRouter.HandleFunc("/webhook", paymentController.HandleWebhookEvent).Methods(http.MethodPost, http.MethodOptions)
 		}
 	}
 
@@ -421,6 +444,7 @@ func NewServer(logger *zap.Logger, config Config, service *console.Service, oidc
 	bucketsRouter.Use(server.withAuth)
 	bucketsRouter.HandleFunc("/bucket-names", bucketsController.AllBucketNames).Methods(http.MethodGet, http.MethodOptions)
 	bucketsRouter.HandleFunc("/bucket-placements", bucketsController.GetBucketMetadata).Methods(http.MethodGet, http.MethodOptions)
+	bucketsRouter.HandleFunc("/placement-details", bucketsController.GetPlacementDetails).Methods(http.MethodGet, http.MethodOptions)
 	bucketsRouter.HandleFunc("/bucket-metadata", bucketsController.GetBucketMetadata).Methods(http.MethodGet, http.MethodOptions)
 	bucketsRouter.HandleFunc("/usage-totals", bucketsController.GetBucketTotals).Methods(http.MethodGet, http.MethodOptions)
 	bucketsRouter.HandleFunc("/bucket-totals", bucketsController.GetSingleBucketTotals).Methods(http.MethodGet, http.MethodOptions)
@@ -741,6 +765,15 @@ func (server *Server) appHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	if server.config.CSRFProtectionEnabled {
+		csrfToken, err := server.service.GenerateSecurityToken()
+		if err != nil {
+			server.log.Error("Failed to generate CSRF token", zap.Error(err))
+		} else {
+			consolewebauth.SetCSRFCookie(w, csrfToken)
+		}
+	}
+
 	http.ServeContent(w, r, path, info.ModTime(), file)
 }
 
@@ -854,11 +887,61 @@ func (server *Server) withRequest(handler http.Handler) http.Handler {
 	})
 }
 
+// withCSRFProtection validates the CSRF token using double-submit cookie pattern.
+func (server *Server) withCSRFProtection(handler http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if !server.config.CSRFProtectionEnabled {
+			handler.ServeHTTP(w, r)
+			return
+		}
+
+		var err error
+		ctx := r.Context()
+
+		defer mon.Task()(&ctx)(&err)
+
+		csrfHeaderToken := r.Header.Get("X-CSRF-Token")
+		if csrfHeaderToken == "" {
+			web.ServeJSONError(ctx, server.log, w, http.StatusForbidden, errs.New("CSRF token missing in request header"))
+			return
+		}
+
+		csrfCookie, err := r.Cookie(consolewebauth.CSRFCookieName)
+		if err != nil {
+			web.ServeJSONError(ctx, server.log, w, http.StatusForbidden, errs.New("CSRF token cookie missing"))
+			return
+		}
+
+		if csrfHeaderToken != csrfCookie.Value {
+			web.ServeJSONError(ctx, server.log, w, http.StatusForbidden, errs.New("Invalid CSRF token"))
+			return
+		}
+
+		err = server.service.ValidateSecurityToken(csrfHeaderToken)
+		if err != nil {
+			web.ServeJSONError(ctx, server.log, w, http.StatusForbidden, err)
+			return
+		}
+
+		handler.ServeHTTP(w, r)
+	})
+}
+
 // frontendConfigHandler handles sending the frontend config to the client.
 func (server *Server) frontendConfigHandler(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	defer mon.Task()(&ctx)(nil)
 	w.Header().Set(contentType, applicationJSON)
+
+	csrfToken := ""
+	if server.config.CSRFProtectionEnabled {
+		csrfCookie, err := r.Cookie(consolewebauth.CSRFCookieName)
+		if err != nil {
+			server.log.Error("CSRF token cookie missing in config endpoint", zap.Error(err))
+		} else {
+			csrfToken = csrfCookie.Value
+		}
+	}
 
 	cfg := FrontendConfig{
 		ExternalAddress:                   server.config.ExternalAddress,
@@ -927,6 +1010,10 @@ func (server *Server) frontendConfigHandler(w http.ResponseWriter, r *http.Reque
 		SelfServePlacementSelectEnabled:   server.config.Placement.SelfServeEnabled,
 		SelfServePlacementNames:           server.config.Placement.SelfServeNames,
 		CunoFSBetaEnabled:                 server.config.CunoFSBetaEnabled,
+		CSRFToken:                         csrfToken,
+		BillingAddFundsEnabled:            server.config.BillingAddFundsEnabled,
+		MaxAddFundsAmount:                 server.config.MaxAddFundsAmount,
+		MinAddFundsAmount:                 server.config.MinAddFundsAmount,
 	}
 
 	err := json.NewEncoder(w).Encode(&cfg)

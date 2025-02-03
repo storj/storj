@@ -42,6 +42,14 @@ export interface BucketsApi {
      * @throws Error
      */
     getAllBucketMetadata(projectId: string): Promise<BucketMetadata[]>
+
+    /**
+     * Fetch placement details
+     *
+     * @returns PlacementDetails[]
+     * @throws Error
+     */
+    getPlacementDetails(projectID: string): Promise<PlacementDetails[]>;
 }
 
 /**
@@ -107,5 +115,15 @@ export class BucketMetadata {
         public versioning: Versioning = Versioning.NotSupported,
         public placement: Placement = new Placement(),
         public objectLockEnabled: boolean = false,
+    ) { }
+}
+
+export class PlacementDetails {
+    public constructor(
+        public id: string = '',
+        public idName: string = '',
+        public name: string = '',
+        public title: string = '',
+        public description: string = '',
     ) { }
 }

@@ -16,6 +16,7 @@ import (
 	"github.com/spacemonkeygo/monkit/v3"
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
+	"go.uber.org/zap/zapcore"
 	"golang.org/x/exp/maps"
 
 	"storj.io/common/errs2"
@@ -49,6 +50,8 @@ type Config struct {
 	Jitter            bool          `help:"whether to add jitter to the delay; has no effect if delay is 0" default:"true"`
 	Interval          time.Duration `help:"how long to wait between pooling satellites for active migration" default:"10m"`
 	MigrateRegardless bool          `help:"whether to also migrate pieces for satellites outside currently set" default:"false"`
+	MigrateExpired    bool          `help:"whether to also migrate expired pieces" default:"true"`
+	DeleteExpired     bool          `help:"whether to also delete expired pieces; has no effect if expired are migrated" default:"true"`
 }
 
 // Chore migrates pieces.
@@ -187,8 +190,15 @@ func (chore *Chore) runOnce(ctx context.Context) (err error) {
 		}
 	}
 
+	satsMarshaler := zapcore.ObjectMarshalerFunc(func(enc zapcore.ObjectEncoder) error {
+		for sat, active := range sats {
+			enc.AddBool(sat.String(), active)
+		}
+		return nil
+	})
+
 	chore.log.Info("all enqueued for migration; will sleep before next pooling",
-		zap.Duration("interval", chore.config.Interval))
+		zap.Object("active", satsMarshaler), zap.Duration("interval", chore.config.Interval))
 
 	return nil
 }
@@ -224,7 +234,7 @@ func (chore *Chore) processQueue(ctx context.Context) (err error) {
 		total int64
 	)
 	for {
-		if n%chore.reportingBatchSize == 0 {
+		if n > 0 && n%chore.reportingBatchSize == 0 {
 			chore.log.Info("processed a bunch of pieces",
 				zap.Error(err),
 				zap.Int("successes", n),
@@ -324,6 +334,29 @@ func (chore *Chore) migrateOne(ctx context.Context, sat storj.NodeID, piece stor
 		return 0, errs.New("getting the piece header: %w", err)
 	}
 
+	if e := hdr.OrderLimit.PieceExpiration; !e.IsZero() && e.Before(time.Now()) && !chore.config.MigrateExpired {
+		if !chore.config.DeleteExpired {
+			return 0, nil
+		}
+	} else {
+		if size, err = chore.copyPiece(ctx, src, sat, piece, hdr); err != nil {
+			return 0, err
+		}
+	}
+
+	// after committing, the piece has been successfully migrated; we
+	// can now delete it from the old backend.
+	//
+	// TODO(artur): if it's an expired piece, should we also delete it
+	// from wherever it's tracked?
+	if err = chore.old.Delete(ctx, sat, piece); err != nil {
+		return 0, errs.New("deleting: %w", err)
+	}
+
+	return size, nil
+}
+
+func (chore *Chore) copyPiece(ctx context.Context, src *pieces.Reader, sat storj.NodeID, piece storj.PieceID, hdr *pb.PieceHeader) (size int64, err error) {
 	dst, err := chore.new.Writer(ctx, sat, piece, hdr.HashAlgorithm, hdr.OrderLimit.PieceExpiration)
 	if err != nil {
 		return 0, errs.New("opening the new writer: %w", err)
@@ -364,12 +397,6 @@ func (chore *Chore) migrateOne(ctx context.Context, sat storj.NodeID, piece stor
 		// the content matches. what most likely happened is the last
 		// time it was migrated, delete failed or was interrupted. we
 		// are free to delete it now.
-	}
-
-	// after committing, the piece has been successfully migrated; we
-	// can now delete it from the old backend.
-	if err = chore.old.Delete(ctx, sat, piece); err != nil {
-		return 0, errs.New("deleting: %w", err)
 	}
 
 	return size, nil

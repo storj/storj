@@ -8,7 +8,7 @@
                 <v-text-field
                     v-model="name"
                     label="Access Name"
-                    placeholder="Enter access name"
+                    placeholder="Enter a name for this access key"
                     variant="outlined"
                     autofocus
                     :hide-details="false"
@@ -19,19 +19,17 @@
                 />
             </v-col>
             <v-col>
-                <p>Access type</p>
+                <label class="mb-2">Access Type</label>
                 <v-chip-group
                     v-model="accessType"
                     class="mb-3"
                     selected-class="font-weight-bold"
-                    color="info"
                     mandatory
                     column
                 >
                     <v-chip
                         :key="AccessType.S3"
                         :value="AccessType.S3"
-                        color="info"
                         variant="outlined"
                         filter
                     >
@@ -41,7 +39,6 @@
                     <v-chip
                         :key="AccessType.AccessGrant"
                         :value="AccessType.AccessGrant"
-                        color="info"
                         variant="outlined"
                         filter
                     >
@@ -52,7 +49,6 @@
                         v-if="!hasManagedPassphrase"
                         :key="AccessType.APIKey"
                         :value="AccessType.APIKey"
-                        color="info"
                         variant="outlined"
                         filter
                     >
@@ -61,30 +57,29 @@
                 </v-chip-group>
 
                 <template v-if="accessType === AccessType.S3">
-                    <v-alert variant="tonal" width="auto">
-                        <p class="text-subtitle-2">Gives access through S3 compatible applications. <a href="https://docs.storj.io/dcs/access#create-s3-credentials" target="_blank" rel="noopener noreferrer" class="link">Learn more in the documentation.</a></p>
+                    <v-alert color="default" variant="tonal" width="auto">
+                        <p class="text-subtitle-2 mb-4">Gives access through S3 compatible applications. <a href="https://docs.storj.io/dcs/access#create-s3-credentials" target="_blank" rel="noopener noreferrer" class="link">Learn more in the documentation.</a></p>
+                        <v-autocomplete
+                            v-model="selectedApp"
+                            :items="applications"
+                            :item-title="app => app.name"
+                            :item-value="app => app"
+                            variant="outlined"
+                            label="Application (optional)"
+                            placeholder="Search or select an application"
+                            no-data-text="No applications found."
+                            density="comfortable"
+                            hide-details
+                            clearable
+                        />
                     </v-alert>
-                    <v-autocomplete
-                        v-model="selectedApp"
-                        :items="applications"
-                        :item-title="app => app.name"
-                        :item-value="app => app"
-                        class="mt-6"
-                        variant="outlined"
-                        color="default"
-                        label="Application (optional)"
-                        placeholder="Select application"
-                        no-data-text="No applications found."
-                        hide-details
-                        clearable
-                    />
                 </template>
 
-                <v-alert v-else-if="accessType === AccessType.AccessGrant" variant="tonal" width="auto">
+                <v-alert v-else-if="accessType === AccessType.AccessGrant" color="default" variant="tonal" width="auto">
                     <p class="text-subtitle-2">Gives access through native clients such as uplink. <a href="https://docs.storj.io/learn/concepts/access/access-grants" target="_blank" rel="noopener noreferrer" class="link">Learn more in the documentation.</a></p>
                 </v-alert>
 
-                <v-alert v-else-if="accessType === AccessType.APIKey" variant="tonal" width="auto">
+                <v-alert v-else-if="accessType === AccessType.APIKey" color="default" variant="tonal" width="auto">
                     <p class="text-subtitle-2">Use it for generating access keys programatically. <a href="https://docs.storj.io/learn/concepts/access/access-grants/api-key" target="_blank" rel="noopener noreferrer" class="link">Learn more in the documentation.</a></p>
                 </v-alert>
             </v-col>

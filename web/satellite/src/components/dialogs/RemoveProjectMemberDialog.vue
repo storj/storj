@@ -20,7 +20,7 @@
                         <component :is="UserMinus" :size="18" />
                     </v-sheet>
                 </template>
-                <v-card-title class="font-weight-bold">Remove member</v-card-title>
+                <v-card-title class="font-weight-bold">Remove {{ memberInviteText }}</v-card-title>
                 <template #append>
                     <v-btn
                         icon="$close"
@@ -36,21 +36,24 @@
             <v-divider />
 
             <v-card-item class="pa-6">
-                <p class="mb-3">The following team members will be removed.</p>
+                <p class="mb-3">
+                    The following {{ removables.filter(e => !e.isInvite).length ? "team" : "" }}
+                    {{ memberInviteText }} will be removed.
+                </p>
 
                 <v-chip
-                    v-for="email in firstThreeSelected"
-                    :key="email"
+                    v-for="removable in firstThreeSelected"
+                    :key="removable.email"
                     class="mb-4 mr-1"
                 >
                     <template #default>
                         <div class="max-width">
-                            <p :title="email" class="text-truncate">{{ email }}</p>
+                            <p :title="removable.email" class="text-truncate">{{ removable.email }}</p>
                         </div>
                     </template>
                 </v-chip>
-                <v-chip v-if="props.emails.length > 3" rounded class="mb-3 mr-1">
-                    + {{ props.emails.length - 3 }} more
+                <v-chip v-if="removables.length > 3" rounded class="mb-3 mr-1">
+                    + {{ removables.length - 3 }} more
                 </v-chip>
 
                 <v-alert variant="tonal" class="pa-4" color="warning">
@@ -105,7 +108,7 @@ import { useProjectMembersStore } from '@/store/modules/projectMembersStore';
 import { AnalyticsErrorEventSource } from '@/utils/constants/analyticsEventNames';
 
 const props = defineProps<{
-    emails: string[],
+    removables: { email:string, isInvite: boolean }[],
 }>();
 
 const model = defineModel<boolean>({ required: true });
@@ -120,12 +123,27 @@ const pmStore = useProjectMembersStore();
 const { isLoading, withLoading } = useLoading();
 const notify = useNotify();
 
-const firstThreeSelected = computed<string[]>(() => props.emails.slice(0, 3));
+const firstThreeSelected = computed<{ email:string, isInvite: boolean }[]>(() => props.removables.slice(0, 3));
+
+const memberInviteText = computed<string>(() => {
+    const membersLength = props.removables.filter(e => !e.isInvite).length;
+    const invitesLength = props.removables.length - membersLength;
+
+    const memberTxt = `member${membersLength > 1 ? 's' : ''}`;
+    const inviteTxt = `invite${invitesLength > 1 ? 's' : ''}`;
+    if (membersLength && invitesLength) {
+        return `${memberTxt} and ${inviteTxt}`;
+    }
+    if (invitesLength) {
+        return inviteTxt;
+    }
+    return memberTxt;
+});
 
 async function onDelete(): Promise<void> {
     await withLoading(async () => {
         try {
-            await pmStore.deleteProjectMembers(projectsStore.state.selectedProject.id, props.emails);
+            await pmStore.deleteProjectMembers(projectsStore.state.selectedProject.id, props.removables.map(e => e.email));
             notify.success('Members were successfully removed from the project');
             emit('deleted');
             model.value = false;

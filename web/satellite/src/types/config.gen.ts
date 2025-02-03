@@ -75,6 +75,10 @@ export class FrontendConfig {
     selfServePlacementSelectEnabled: boolean;
     selfServePlacementNames: string[] | null;
     cunoFSBetaEnabled: boolean;
+    csrfToken: string;
+    billingAddFundsEnabled: boolean;
+    maxAddFundsAmount: number;
+    minAddFundsAmount: number;
 }
 
 export class MultiCaptchaConfig {

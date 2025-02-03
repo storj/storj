@@ -66,6 +66,12 @@ func (keys *APIKeys) CreateAPIKey(w http.ResponseWriter, r *http.Request) {
 	}
 	name := string(bodyBytes)
 
+	err = keys.service.ValidateFreeFormFieldLengths(&name)
+	if err != nil {
+		keys.serveJSONError(ctx, w, http.StatusBadRequest, err)
+		return
+	}
+
 	apiKeyVersion := macaroon.APIKeyVersionMin
 	if keys.service.GetObjectLockUIEnabled() {
 		apiKeyVersion = macaroon.APIKeyVersionObjectLock

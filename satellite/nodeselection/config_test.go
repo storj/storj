@@ -6,6 +6,7 @@ package nodeselection
 import (
 	"testing"
 
+	"github.com/jtolio/mito"
 	"github.com/stretchr/testify/require"
 
 	"storj.io/common/identity/testidentity"
@@ -19,7 +20,7 @@ func TestParsedConfig(t *testing.T) {
 
 	config, err := LoadConfig("config_test.yaml", NewPlacementConfigEnvironment(mockTracker{}, nil))
 	require.NoError(t, err)
-	require.Len(t, config, 11)
+	require.Len(t, config, 12)
 
 	{
 		// checking filters
@@ -112,7 +113,7 @@ func TestParsedConfigWithoutTracker(t *testing.T) {
 	// tracker is not available for certain microservices (like repair). Still the placement should work.
 	config, err := LoadConfig("config_test.yaml", NewPlacementConfigEnvironment(nil, nil))
 	require.NoError(t, err)
-	require.Len(t, config, 11)
+	require.Len(t, config, 12)
 
 	// smoketest for creating choice of two selector
 	selected, err := config[2].Selector(
@@ -169,6 +170,85 @@ func TestSelectorFromString(t *testing.T) {
 		require.NotEqual(t, testidentity.MustPregeneratedIdentity(1, storj.LatestIDVersion()).ID, selected[0].ID)
 	}
 
+}
+
+func TestArithmetic(t *testing.T) {
+	zeroSigner, err := storj.NodeIDFromString("1111111111111111111111111111111VyS547o")
+	require.NoError(t, err)
+	node := SelectedNode{
+		FreeDisk: 2,
+		Tags: NodeTags{
+			{Name: "weight", Value: []byte("3"), Signer: zeroSigner},
+		},
+	}
+
+	env := map[any]any{}
+	env["node_value"] = func(name string) NodeValue {
+		val, err := CreateNodeValue(name)
+		if err != nil {
+			panic("Invalid node value: " + err.Error())
+		}
+		return val
+	}
+	addArithmetic(env)
+
+	t.Run("add", func(t *testing.T) {
+		res, err := mito.Eval("2 + 3", env)
+		require.NoError(t, err)
+		require.Equal(t, 5, res)
+	})
+
+	t.Run("subtract", func(t *testing.T) {
+		res, err := mito.Eval("2 - 3", env)
+		require.NoError(t, err)
+		require.Equal(t, -1, res)
+	})
+
+	t.Run("multiply", func(t *testing.T) {
+		res, err := mito.Eval("2 * -1.0", env)
+		require.NoError(t, err)
+		require.Equal(t, -2.0, res)
+	})
+
+	t.Run("multiply with precedence", func(t *testing.T) {
+		res, err := mito.Eval("(2 + 10) * -1.0", env)
+		require.NoError(t, err)
+		require.Equal(t, -12.0, res)
+	})
+
+	t.Run("divide", func(t *testing.T) {
+		res, err := mito.Eval("node_value(\"free_disk\") / 2.0", env)
+		require.NoError(t, err)
+		require.Equal(t, 1.0, res.(NodeValue)(node))
+	})
+
+	t.Run("pow", func(t *testing.T) {
+		t.Run("integers", func(t *testing.T) {
+			res, err := mito.Eval("2 ^ 3", env)
+			require.NoError(t, err)
+			require.Equal(t, 8.0, res)
+		})
+
+		t.Run("integer and float", func(t *testing.T) {
+			res, err := mito.Eval("2 ^ 3.0", env)
+			require.NoError(t, err)
+			require.Equal(t, 8.0, res)
+		})
+
+		t.Run("node_value and float", func(t *testing.T) {
+			res, err := mito.Eval("node_value(\"free_disk\") ^ 3.0", env)
+			require.NoError(t, err)
+			i := res.(NodeValue)(node)
+			require.Equal(t, 8.0, i)
+		})
+
+		t.Run("node field and tag", func(t *testing.T) {
+			res, err := mito.Eval("node_value(\"free_disk\") ^ node_value(\"tag:1111111111111111111111111111111VyS547o/weight\")", env)
+			require.NoError(t, err)
+			i := res.(NodeValue)(node)
+			require.Equal(t, 8.0, i)
+		})
+	})
 }
 
 type mockTracker struct {

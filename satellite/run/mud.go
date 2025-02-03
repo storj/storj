@@ -4,11 +4,11 @@
 package root
 
 import (
-	"storj.io/storj/private/mud"
 	"storj.io/storj/satellite"
 	"storj.io/storj/satellite/satellitedb"
 	"storj.io/storj/shared/modular"
 	"storj.io/storj/shared/modular/logger"
+	"storj.io/storj/shared/mud"
 )
 
 // Module registers all the possible components for the satellite instance.

@@ -6,7 +6,7 @@
         <h1 class="text-h5 font-weight-bold my-2">{{ title }}</h1>
         <v-tooltip v-if="extraInfo" width="250" location="bottom">
             <template #activator="activator">
-                <v-icon v-bind="activator.props" size="16" :icon="Info" class="ml-2 text-medium-emphasis" />
+                <v-icon v-bind="activator.props" size="14" :icon="Info" class="ml-2 text-primary" />
             </template>
             <template #default>
                 <p>{{ extraInfo }}</p>

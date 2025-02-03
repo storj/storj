@@ -13,7 +13,7 @@ import (
 	"go.uber.org/zap/zaptest"
 
 	"storj.io/common/testcontext"
-	"storj.io/storj/private/mud"
+	"storj.io/storj/shared/mud"
 )
 
 // Run executes mud test or benchmark with the give module, creating (and closing) Target and all transitive dependencies.

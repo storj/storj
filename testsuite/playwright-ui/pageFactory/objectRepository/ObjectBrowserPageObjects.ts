@@ -6,10 +6,11 @@ export class ObjectBrowserPageObjects {
     static DISTRIBUTION_BUTTON_XPATH = `//button[@id='Distribution']`;
     static SHARE_BUTTON_XPATH = `//button[@id='Share']`;
     static COPY_LINK_BUTTON_XPATH = `//button[span[text()='Copy Link']]`;
+    static COPY_ICON_BUTTON = `[aria-roledescription="copy-btn"]`;
     static COPIED_TEXT = `Copied`;
     static SHARE_MODAL_LOADER_CLASS = `.share-dialog__content--loading`;
     static OBJECT_MAP_IMAGE_XPATH = `//img[@id='Map']`;
-    static OBJECT_ROW_MORE_BUTTON_XPATH = `//button[@title='More Actions']`;
+    static OBJECT_ROW_MORE_BUTTON_XPATH = `//button[@title='More Actions'][ancestor::td]`;
     static DELETE_ROW_ACTION_BUTTON_XPATH = `//div[div[div[text()=' Delete ']]]`;
     static CONFIRM_DELETE_BUTTON_XPATH = `//button[span[text()=' Delete ']]`;
     static FILE_INPUT_XPATH = `//input[@id='File Input']`;

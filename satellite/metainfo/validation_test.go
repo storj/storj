@@ -248,6 +248,7 @@ func TestEndpoint_checkRate(t *testing.T) {
 				// make global rate/burst limit 1
 				config.Metainfo.RateLimiter.Rate = 1
 			},
+			SatelliteDBOptions: testplanet.SatelliteDBDisableCaches,
 		},
 	},
 		func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {

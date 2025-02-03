@@ -2,7 +2,7 @@
 // See LICENSE for copying information.
 
 <template>
-    <v-card>
+    <v-card class="pa-4">
         <v-text-field
             v-model="search"
             label="Search"
@@ -14,7 +14,7 @@
             clearable
             density="comfortable"
             rounded="lg"
-            class="mx-2 mt-2"
+            class="mb-4"
         />
 
         <v-data-table
@@ -37,11 +37,11 @@
                     block
                     @click="openProject(item)"
                 >
-                    <img src="../assets/icon-project-tonal.svg" alt="Project" class="mr-3">
+                    <img src="@/assets/icon-project-tonal.svg" alt="Project" class="mr-3">
                     {{ item.name }}
                 </v-btn>
                 <div v-else class="pl-1 pr-4 ml-n1 d-flex align-center justify-start font-weight-bold">
-                    <img src="../assets/icon-project-tonal.svg" alt="Project" class="mr-3">
+                    <img src="@/assets/icon-project-tonal.svg" alt="Project" class="mr-3">
                     <span class="text-no-wrap">{{ item.name }}</span>
                 </div>
             </template>
@@ -86,6 +86,42 @@
                         <v-menu activator="parent" location="bottom" transition="scale-transition">
                             <v-list class="pa-1">
                                 <template v-if="item.role === ProjectRole.Owner">
+                                    <v-list-item link @click="() => emit('editClick', item, FieldToChange.Name)">
+                                        <template #prepend>
+                                            <component :is="FilePenLine" :size="18" />
+                                        </template>
+                                        <v-list-item-title class="text-body-2 ml-3">
+                                            Edit Name
+                                        </v-list-item-title>
+                                    </v-list-item>
+
+                                    <v-list-item link @click="() => emit('editClick', item, FieldToChange.Description)">
+                                        <template #prepend>
+                                            <component :is="FilePenLine" :size="18" />
+                                        </template>
+                                        <v-list-item-title class="text-body-2 ml-3">
+                                            Edit Description
+                                        </v-list-item-title>
+                                    </v-list-item>
+
+                                    <v-list-item v-if="isPaidTier" link @click="() => emit('updateLimitsClick', item, LimitToChange.Storage)">
+                                        <template #prepend>
+                                            <component :is="Cloud" :size="18" />
+                                        </template>
+                                        <v-list-item-title class="text-body-2 ml-3">
+                                            Update Storage Limit
+                                        </v-list-item-title>
+                                    </v-list-item>
+
+                                    <v-list-item v-if="isPaidTier" link @click="() => emit('updateLimitsClick', item, LimitToChange.Bandwidth)">
+                                        <template #prepend>
+                                            <component :is="DownloadCloud" :size="18" />
+                                        </template>
+                                        <v-list-item-title class="text-body-2 ml-3">
+                                            Update Download Limit
+                                        </v-list-item-title>
+                                    </v-list-item>
+
                                     <v-list-item link @click="() => onSettingsClick(item)">
                                         <template #prepend>
                                             <component :is="Settings" :size="18" />
@@ -94,7 +130,9 @@
                                             Project Settings
                                         </v-list-item-title>
                                     </v-list-item>
+
                                     <v-divider class="my-1" />
+
                                     <v-list-item link @click="emit('inviteClick', item)">
                                         <template #prepend>
                                             <component :is="UserPlus" :size="18" />
@@ -122,7 +160,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref } from 'vue';
+import { computed, ref } from 'vue';
 import { useRouter } from 'vue-router';
 import {
     VCard,
@@ -137,10 +175,16 @@ import {
     VDivider,
     VDataTable,
 } from 'vuetify/components';
-import { Ellipsis, Search, UserPlus, Settings, Trash2 } from 'lucide-vue-next';
+import { Ellipsis, Search, UserPlus, Settings, Trash2, Cloud, DownloadCloud, FilePenLine } from 'lucide-vue-next';
 
 import { Time } from '@/utils/time';
-import { ProjectItemModel, PROJECT_ROLE_COLORS, ProjectInvitationResponse } from '@/types/projects';
+import {
+    ProjectItemModel,
+    PROJECT_ROLE_COLORS,
+    ProjectInvitationResponse,
+    FieldToChange,
+    LimitToChange,
+} from '@/types/projects';
 import { ProjectRole } from '@/types/projectMembers';
 import { useProjectsStore } from '@/store/modules/projectsStore';
 import { useAnalyticsStore } from '@/store/modules/analyticsStore';
@@ -149,6 +193,7 @@ import { useNotify } from '@/utils/hooks';
 import { ROUTES } from '@/router';
 import { useBucketsStore } from '@/store/modules/bucketsStore';
 import { DataTableHeader, SortItem } from '@/types/common';
+import { useUsersStore } from '@/store/modules/usersStore';
 
 defineProps<{
     items: ProjectItemModel[],
@@ -157,6 +202,8 @@ defineProps<{
 const emit = defineEmits<{
     (event: 'joinClick', item: ProjectItemModel): void;
     (event: 'inviteClick', item: ProjectItemModel): void;
+    (event: 'editClick', item: ProjectItemModel, field: FieldToChange): void;
+    (event: 'updateLimitsClick', item: ProjectItemModel, limit: LimitToChange): void;
 }>();
 
 const search = ref<string>('');
@@ -165,6 +212,7 @@ const decliningIds = ref(new Set<string>());
 const analyticsStore = useAnalyticsStore();
 const bucketsStore = useBucketsStore();
 const projectsStore = useProjectsStore();
+const userStore = useUsersStore();
 
 const router = useRouter();
 const notify = useNotify();
@@ -179,6 +227,8 @@ const headers: DataTableHeader[] = [
     { title: 'Date Added', key: 'createdAt' },
     { title: 'Actions', key: 'actions', sortable: false, width: '0' },
 ];
+
+const isPaidTier = computed(() => userStore.state.user.paidTier);
 
 /**
  * Selects the project and navigates to the project dashboard.

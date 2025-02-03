@@ -9,10 +9,12 @@ import (
 	"database/sql"
 	"encoding/hex"
 	"fmt"
+	"regexp"
 
 	_ "github.com/googleapis/go-sql-spanner" // register the spanner driver
 	"github.com/spacemonkeygo/monkit/v3"
 	"github.com/zeebo/errs"
+	"golang.org/x/exp/slices"
 
 	"storj.io/storj/shared/dbutil"
 	"storj.io/storj/shared/dbutil/dbschema"
@@ -30,11 +32,24 @@ func CreateRandomTestingDatabaseName(n int) string {
 	return hex.EncodeToString(data)
 }
 
+var rxInsertQuery = regexp.MustCompile(`(?i)^\s*insert\s+into\b`)
+
 // OpenUnique opens a spanner database with a temporary unique schema, which will be cleaned up
 // when closed. It is expected that this should normally be used by way of
 // "storj.io/storj/shared/dbutil/tempdb".OpenUnique() instead of calling it directly.
-func OpenUnique(ctx context.Context, connstr string, databasePrefix string) (*dbutil.TempDatabase, error) {
-	ephemeral, err := CreateEphemeralDB(ctx, connstr, databasePrefix)
+func OpenUnique(ctx context.Context, connstr string, databasePrefix string, extraStatements []string) (*dbutil.TempDatabase, error) {
+	// separate DDL and DML queries
+	// TODO(spanner): this only handles insert queries, which is sufficient for tests, but it's not a general solution.
+	insertStatements := []string{}
+	extraStatements = slices.DeleteFunc(extraStatements, func(v string) bool {
+		if rxInsertQuery.MatchString(v) {
+			insertStatements = append(insertStatements, v)
+			return true
+		}
+		return false
+	})
+
+	ephemeral, err := CreateEphemeralDB(ctx, connstr, databasePrefix, extraStatements...)
 	if err != nil {
 		return nil, errs.New("failed to create database: %w", err)
 	}
@@ -48,6 +63,14 @@ func OpenUnique(ctx context.Context, connstr string, databasePrefix string) (*db
 	if err != nil {
 		_ = ephemeral.Close(ctx)
 		return nil, errs.New("failed to connect to %q with driver spanner: %w", connstr, err)
+	}
+
+	for _, query := range insertStatements {
+		_, err := db.Exec(ctx, query)
+		if err != nil {
+			_ = ephemeral.Close(ctx)
+			return nil, errs.New("failed to execute %q with driver spanner: %w", query, err)
+		}
 	}
 
 	dbutil.Configure(ctx, db, "tmp_spanner", mon)

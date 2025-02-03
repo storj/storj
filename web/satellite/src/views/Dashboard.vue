@@ -19,7 +19,7 @@
         <v-row align="center" justify="space-between">
             <v-col cols="12" md="auto">
                 <PageTitleComponent
-                    title="Project dashboard"
+                    title="Project Dashboard"
                     extra-info="Project usage statistics are not real-time. Recent uploads, downloads, or other actions may not be immediately reflected."
                 />
                 <PageSubtitleComponent
@@ -43,20 +43,21 @@
                     subtitle="Project total"
                     :data="limits.objectCount.toLocaleString()"
                     :to="ROUTES.Buckets.path"
+                    color="info"
                     extra-info="Project usage statistics are not real-time. Recent uploads, downloads, or other actions may not be immediately reflected."
                 />
             </v-col>
             <v-col v-if="!emissionImpactViewEnabled" cols="6" md="4" lg="2">
-                <CardStatsComponent title="Segments" subtitle="All object pieces" :data="limits.segmentCount.toLocaleString()" :to="ROUTES.Buckets.path" />
+                <CardStatsComponent title="Segments" color="info" subtitle="All object pieces" :data="limits.segmentCount.toLocaleString()" :to="ROUTES.Buckets.path" />
             </v-col>
             <v-col cols="6" md="4" lg="2">
-                <CardStatsComponent title="Buckets" subtitle="In this project" :data="bucketsCount.toLocaleString()" :to="ROUTES.Buckets.path" />
+                <CardStatsComponent title="Buckets" color="info" subtitle="In this project" :data="bucketsCount.toLocaleString()" :to="ROUTES.Buckets.path" />
             </v-col>
             <v-col cols="6" md="4" lg="2">
-                <CardStatsComponent title="Access Keys" subtitle="Total keys" :data="accessGrantsCount.toLocaleString()" :to="ROUTES.Access.path" />
+                <CardStatsComponent title="Access Keys" color="info" subtitle="Total keys" :data="accessGrantsCount.toLocaleString()" :to="ROUTES.Access.path" />
             </v-col>
             <v-col cols="6" md="4" lg="2">
-                <CardStatsComponent title="Team" subtitle="Project members" :data="teamSize.toLocaleString()" :to="ROUTES.Team.path" />
+                <CardStatsComponent title="Team" color="info" subtitle="Project members" :data="teamSize.toLocaleString()" :to="ROUTES.Team.path" />
             </v-col>
             <template v-if="emissionImpactViewEnabled">
                 <v-col cols="12" sm="6" md="4" lg="2">
@@ -69,7 +70,7 @@
                     >
                         Click to learn more
                     </v-tooltip>
-                    <CardStatsComponent title="CO₂ Estimated" subtitle="For this project" :data="co2Estimated" link />
+                    <CardStatsComponent title="CO₂ Estimated" subtitle="For this project" color="info" :data="co2Estimated" link />
                 </v-col>
                 <v-col cols="12" sm="6" md="4" lg="2">
                     <emissions-dialog />
@@ -90,9 +91,9 @@
         </v-row>
 
         <v-row class="d-flex align-center justify-center mb-5">
-            <v-col cols="12" md="6">
+            <v-col cols="12" md="6" xl="3">
                 <UsageProgressComponent
-                    icon="cloud"
+                    icon="storage"
                     title="Storage"
                     :progress="storageUsedPercent"
                     :used="`${usedLimitFormatted(limits.storageUsed)} Used`"
@@ -104,9 +105,9 @@
                     @cta-click="onNeedMoreClicked(LimitToChange.Storage)"
                 />
             </v-col>
-            <v-col cols="12" md="6">
+            <v-col cols="12" md="6" xl="3">
                 <UsageProgressComponent
-                    icon="arrow-down"
+                    icon="download"
                     title="Download"
                     :progress="egressUsedPercent"
                     :used="`${usedLimitFormatted(limits.bandwidthUsed)} Used`"
@@ -118,9 +119,9 @@
                     @cta-click="onNeedMoreClicked(LimitToChange.Bandwidth)"
                 />
             </v-col>
-            <v-col cols="12" md="6">
+            <v-col cols="12" md="6" xl="3">
                 <UsageProgressComponent
-                    icon="globe"
+                    icon="segments"
                     title="Segments"
                     :progress="segmentUsedPercent"
                     :used="`${limits.segmentUsed.toLocaleString()} Used`"
@@ -144,10 +145,10 @@
                     </template>
                 </UsageProgressComponent>
             </v-col>
-            <v-col cols="12" md="6">
+            <v-col cols="12" md="6" xl="3">
                 <UsageProgressComponent
                     v-if="isCouponCard"
-                    icon="check"
+                    icon="coupon"
                     :title="isFreeTierCoupon ? 'Free Usage' : 'Coupon'"
                     :progress="couponProgress"
                     :used="`${couponProgress}% Used`"
@@ -173,7 +174,7 @@
 
         <v-row align="center" justify="space-between">
             <v-col cols="12" md="auto">
-                <v-card-title class="font-weight-bold pl-0">Daily usage</v-card-title>
+                <v-card-title class="font-weight-bold pl-0">Daily Usage</v-card-title>
                 <p class="text-medium-emphasis">
                     Select date range to view daily usage statistics.
                 </p>
@@ -199,36 +200,40 @@
 
         <v-row class="d-flex align-center justify-center mt-2 mb-5">
             <v-col cols="12" md="6">
-                <v-card ref="chartContainer" class="pb-4">
+                <v-card ref="chartContainer" class="pa-1 pb-3">
                     <template #title>
                         <v-card-title class="d-flex align-center">
-                            <IconCloud class="mr-2" width="18" height="18" />
+                            <v-icon :icon="Cloud" size="small" color="primary" class="mr-2" />
                             Storage
                         </v-card-title>
                     </template>
-                    <StorageChart
-                        :width="chartWidth"
-                        :height="160"
-                        :data="storageUsage"
-                        :since="chartsSinceDate"
-                        :before="chartsBeforeDate"
-                    />
+                    <v-card-item class="pt-1">
+                        <v-card class="dot-background" rounded="md">
+                            <StorageChart
+                                :width="chartWidth"
+                                :height="240"
+                                :data="storageUsage"
+                                :since="chartsSinceDate"
+                                :before="chartsBeforeDate"
+                            />
+                        </v-card>
+                    </v-card-item>
                 </v-card>
             </v-col>
             <v-col cols="12" md="6">
-                <v-card class="pb-4">
+                <v-card class="pa-1 pb-3">
                     <template #title>
                         <v-card-title class="d-flex align-center justify-space-between">
                             <v-row class="ma-0 align-center">
-                                <component :is="ArrowDownToLine" :size="18" class="mr-2" />
+                                <v-icon :icon="CloudDownload" size="small" color="primary" class="mr-2" />
                                 Download
-                                <v-tooltip width="250" location="bottom">
+                                <v-tooltip width="240" location="bottom">
                                     <template #activator="{ props }">
-                                        <v-icon v-bind="props" size="16" :icon="Info" class="ml-2 text-medium-emphasis" />
+                                        <v-icon v-bind="props" size="12" :icon="Info" class="ml-2 text-medium-emphasis" />
                                     </template>
                                     <template #default>
                                         <p>
-                                            The most recent data may change as download moves from "allocated" to "settled".
+                                            The most recent data may change as download bandwidth moves from "allocated" to "settled".
                                             <a
                                                 class="link"
                                                 href="https://docs.storj.io/dcs/pricing#bandwidth-fee"
@@ -243,13 +248,17 @@
                             </v-row>
                         </v-card-title>
                     </template>
-                    <BandwidthChart
-                        :width="chartWidth"
-                        :height="160"
-                        :data="allocatedBandwidthUsage"
-                        :since="chartsSinceDate"
-                        :before="chartsBeforeDate"
-                    />
+                    <v-card-item class="pt-1">
+                        <v-card class="dot-background" rounded="md">
+                            <BandwidthChart
+                                :width="chartWidth"
+                                :height="240"
+                                :data="allocatedBandwidthUsage"
+                                :since="chartsSinceDate"
+                                :before="chartsBeforeDate"
+                            />
+                        </v-card>
+                    </v-card-item>
                 </v-card>
             </v-col>
         </v-row>
@@ -257,10 +266,10 @@
         <v-row align="center" justify="space-between">
             <v-col cols="12" md="auto">
                 <v-card-title class="font-weight-bold pl-0">
-                    Storage buckets
-                    <v-tooltip width="250" location="bottom">
+                    Storage Buckets
+                    <v-tooltip width="240" location="bottom">
                         <template #activator="activator">
-                            <v-icon v-bind="activator.props" size="16" :icon="Info" class="ml-2 text-medium-emphasis" />
+                            <v-icon v-bind="activator.props" size="14" :icon="Info" color="info" class="ml-1" />
                         </template>
                         <template #default>
                             <p>Project usage statistics are not real-time. Recent uploads, downloads, or other actions may not be immediately reflected.</p>
@@ -296,11 +305,12 @@
 </template>
 
 <script setup lang="ts">
-import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue';
+import { computed, onBeforeUnmount, onMounted, ref, watch , ComponentPublicInstance } from 'vue';
 import {
     VBtn,
     VCard,
     VCardTitle,
+    VCardItem,
     VCol,
     VContainer,
     VRow,
@@ -308,9 +318,8 @@ import {
     VTooltip,
 } from 'vuetify/components';
 import { VDateInput } from 'vuetify/labs/components';
-import { ComponentPublicInstance } from '@vue/runtime-core';
 import { useRouter } from 'vue-router';
-import { Info, ArrowDownToLine, CirclePlus, CircleArrowUp } from 'lucide-vue-next';
+import { Info, CirclePlus, CircleArrowUp, Cloud, CloudDownload } from 'lucide-vue-next';
 
 import { useUsersStore } from '@/store/modules/usersStore';
 import { useProjectsStore } from '@/store/modules/projectsStore';
@@ -342,7 +351,6 @@ import StorageChart from '@/components/StorageChart.vue';
 import BucketsDataTable from '@/components/BucketsDataTable.vue';
 import EditProjectLimitDialog from '@/components/dialogs/EditProjectLimitDialog.vue';
 import CreateBucketDialog from '@/components/dialogs/CreateBucketDialog.vue';
-import IconCloud from '@/components/icons/IconCloud.vue';
 import LimitWarningBanners from '@/components/LimitWarningBanners.vue';
 import LowTokenBalanceBanner from '@/components/LowTokenBalanceBanner.vue';
 import NextStepsContainer from '@/components/onboarding/NextStepsContainer.vue';
@@ -354,7 +362,7 @@ import CardExpireBanner from '@/components/CardExpireBanner.vue';
 type ValueUnit = {
     value: number
     unit: string
-}
+};
 
 const appStore = useAppStore();
 const usersStore = useUsersStore();
@@ -698,7 +706,7 @@ const chartDateRange = computed<Date[]>({
     get: () => {
         const dates: Date[] = [...datePickerModel.value];
         if (!dates.length) {
-            for (let i = 6; i >= 0; i--) {
+            for (let i = 7; i > 0; i--) {
                 const d = new Date();
                 d.setDate(d.getDate() - i);
                 dates.push(d);
@@ -971,5 +979,11 @@ watch(datePickerModel, async (newRange) => {
     input {
         cursor: pointer;
     }
+}
+
+.dot-background {
+    background-image: radial-gradient(circle, rgba(var(--v-theme-on-surface),0.04) 1px, transparent 1px);
+    background-size: 12px 12px;
+    background-color: rgb(var(--v-theme-surface));;
 }
 </style>

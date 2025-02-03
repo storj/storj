@@ -9,9 +9,9 @@ import (
 	"go.uber.org/zap"
 
 	"storj.io/common/storj"
-	"storj.io/storj/private/mud"
 	"storj.io/storj/satellite/metabase"
 	"storj.io/storj/shared/modular/config"
+	"storj.io/storj/shared/mud"
 )
 
 // Module is a mud module.

@@ -57,6 +57,9 @@ export const useProjectsStore = defineStore('projects', () => {
 
     const api: ProjectsApi = new ProjectsHttpApi();
 
+    const configStore = useConfigStore();
+    const csrfToken = computed<string>(() => configStore.state.config.csrfToken);
+
     const selectedProjectConfig: ComputedRef<ProjectConfig> = computed(() => state.selectedProjectConfig);
 
     const usersFirstProject = computed<Project>(() => {
@@ -87,7 +90,7 @@ export const useProjectsStore = defineStore('projects', () => {
     }
 
     async function deleteProject(projectId: string, step: DeleteProjectStep, data: string): Promise<ProjectDeletionData | null> {
-        const resp = await api.delete(projectId, step, data);
+        const resp = await api.delete(projectId, step, data, csrfToken.value);
         if (!resp && step === DeleteProjectStep.ConfirmDeleteStep) {
             state.projects = state.projects.filter((p) => p.id !== projectId);
         }
@@ -174,7 +177,7 @@ export const useProjectsStore = defineStore('projects', () => {
     }
 
     async function createProject(createProjectFields: ProjectFields): Promise<Project> {
-        const createdProject = await api.create(createProjectFields);
+        const createdProject = await api.create(createProjectFields, csrfToken.value);
 
         state.projects.push(createdProject);
         calculateURLIds();
@@ -221,7 +224,7 @@ export const useProjectsStore = defineStore('projects', () => {
         await api.update(state.selectedProject.id, {
             name: fieldsToUpdate.name,
             description: state.selectedProject.description,
-        });
+        }, csrfToken.value);
 
         state.selectedProject.name = fieldsToUpdate.name;
     }
@@ -230,7 +233,7 @@ export const useProjectsStore = defineStore('projects', () => {
         await api.update(state.selectedProject.id, {
             name: state.selectedProject.name,
             description: fieldsToUpdate.description,
-        });
+        }, csrfToken.value);
 
         state.selectedProject.description = fieldsToUpdate.description;
     }
@@ -238,7 +241,7 @@ export const useProjectsStore = defineStore('projects', () => {
     async function updateProjectStorageLimit(newLimit: number): Promise<void> {
         await api.updateLimits(state.selectedProject.id, {
             storageLimit: newLimit.toString(),
-        });
+        }, csrfToken.value);
 
         state.currentLimits = readonly({
             ...state.currentLimits,
@@ -249,7 +252,7 @@ export const useProjectsStore = defineStore('projects', () => {
     async function updateProjectBandwidthLimit(newLimit: number): Promise<void> {
         await api.updateLimits(state.selectedProject.id, {
             bandwidthLimit: newLimit.toString(),
-        });
+        }, csrfToken.value);
 
         state.currentLimits = readonly({
             ...state.currentLimits,
@@ -294,7 +297,7 @@ export const useProjectsStore = defineStore('projects', () => {
     }
 
     async function respondToInvitation(projectID: string, response: ProjectInvitationResponse): Promise<void> {
-        await api.respondToInvitation(projectID, response);
+        await api.respondToInvitation(projectID, response, csrfToken.value);
     }
 
     function clear(): void {

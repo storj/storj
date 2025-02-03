@@ -10,10 +10,10 @@ import (
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 
-	"storj.io/storj/private/mud"
 	"storj.io/storj/satellite"
 	"storj.io/storj/shared/lrucache"
 	"storj.io/storj/shared/modular/config"
+	"storj.io/storj/shared/mud"
 )
 
 // Module is a mud module.

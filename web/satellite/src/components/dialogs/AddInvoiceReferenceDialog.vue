@@ -26,6 +26,7 @@
             <v-divider />
 
             <v-card-item class="px-6">
+                <p class="mt-1 mb-4">Add any additional information you want to appear on your invoice here.</p>
                 <v-form class="pt-2" @submit.prevent="upsertInvoiceReference">
                     <v-text-field
                         v-model="reference"

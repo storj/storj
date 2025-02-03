@@ -2,7 +2,7 @@
 // See LICENSE for copying information.
 
 <template>
-    <v-card variant="flat">
+    <v-card class="pa-4">
         <v-text-field
             v-model="search"
             label="Search"
@@ -13,8 +13,7 @@
             hide-details
             clearable
             density="comfortable"
-            rounded="lg"
-            class="mx-2 mt-2"
+            class="mb-4"
         />
         <v-data-table
             :sort-by="sortBy"
@@ -81,13 +80,13 @@ type DisplayedItem = {
     status: string;
     link: string;
     timestamp: Date;
-}
+};
 
 const { isLoading, withLoading } = useLoading();
 const notify = useNotify();
 const billingStore = useBillingStore();
 
-const sortBy = ref<SortItem[]>([{ key: 'timestamp', order: 'asc' }]);
+const sortBy = ref<SortItem[]>([{ key: 'timestamp', order: 'desc' }]);
 const search = ref<string>('');
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any

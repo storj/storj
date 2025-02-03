@@ -18,6 +18,8 @@ import (
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 
+	"storj.io/common/storj"
+	"storj.io/common/uuid"
 	"storj.io/storj/private/web"
 	"storj.io/storj/satellite/console"
 	"storj.io/storj/satellite/payments"
@@ -227,6 +229,30 @@ func (p *Payments) AddCreditCard(w http.ResponseWriter, r *http.Request) {
 
 		if stripe.ErrDuplicateCard.Has(err) {
 			web.ServeCustomJSONError(ctx, p.log, w, http.StatusBadRequest, err, rootError(err).Error())
+			return
+		}
+
+		web.ServeCustomJSONError(ctx, p.log, w, http.StatusInternalServerError, err, rootError(err).Error())
+		return
+	}
+}
+
+// UpdateCreditCard is used to update the credit card details.
+func (p *Payments) UpdateCreditCard(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	var err error
+	defer mon.Task()(&ctx)(&err)
+
+	var params payments.CardUpdateParams
+	if err = json.NewDecoder(r.Body).Decode(&params); err != nil {
+		p.serveJSONError(ctx, w, http.StatusBadRequest, err)
+		return
+	}
+
+	err = p.service.Payments().UpdateCreditCard(ctx, params)
+	if err != nil {
+		if console.ErrUnauthorized.Has(err) {
+			web.ServeCustomJSONError(ctx, p.log, w, http.StatusUnauthorized, err, rootError(err).Error())
 			return
 		}
 
@@ -620,6 +646,59 @@ func (p *Payments) GetProjectUsagePriceModel(w http.ResponseWriter, r *http.Requ
 	}
 }
 
+// GetPartnerPlacementPriceModel returns the bucket usage price model for the user and placement.
+func (p *Payments) GetPartnerPlacementPriceModel(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	var err error
+	defer mon.Task()(&ctx)(&err)
+
+	w.Header().Set("Content-Type", "application/json")
+
+	var placement storj.PlacementConstraint
+	placementStr := r.URL.Query().Get("placement")
+	if placementStr == "" {
+		placementStr = r.URL.Query().Get("placementName")
+		placement, err = p.service.GetPlacementByName(placementStr)
+		if err != nil {
+			p.serveJSONError(ctx, w, http.StatusNotFound, err)
+			return
+		}
+	} else {
+		pl, err := strconv.ParseInt(placementStr, 10, 64)
+		if err != nil {
+			p.serveJSONError(ctx, w, http.StatusBadRequest, errs.New("invalid placement"))
+			return
+		}
+		placement = storj.PlacementConstraint(pl)
+	}
+
+	projectIDStr := r.URL.Query().Get("projectID")
+	if projectIDStr == "" {
+		p.serveJSONError(ctx, w, http.StatusBadRequest, errs.New("projectID is required"))
+		return
+	}
+
+	projectID, err := uuid.FromString(projectIDStr)
+	if err != nil {
+		p.serveJSONError(ctx, w, http.StatusBadRequest, errs.New("invalid project id: %v", err))
+		return
+	}
+
+	pricing, err := p.service.Payments().GetPartnerPlacementPriceModel(ctx, projectID, placement)
+	if err != nil {
+		if stripe.ErrPricingNotfound.Has(err) {
+			p.serveJSONError(ctx, w, http.StatusNotFound, err)
+			return
+		}
+		p.serveJSONError(ctx, w, http.StatusInternalServerError, err)
+		return
+	}
+
+	if err = json.NewEncoder(w).Encode(pricing); err != nil {
+		p.log.Error("failed to encode project usage price model", zap.Error(ErrPaymentsAPI.Wrap(err)))
+	}
+}
+
 // PurchasePackage purchases one of the configured paymentsconfig.PackagePlans.
 func (p *Payments) PurchasePackage(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
@@ -719,6 +798,70 @@ func (p *Payments) GetTaxCountries(w http.ResponseWriter, r *http.Request) {
 	if err = json.NewEncoder(w).Encode(payments.TaxCountries); err != nil {
 		p.log.Error("failed to encode project usage price model", zap.Error(ErrPaymentsAPI.Wrap(err)))
 	}
+}
+
+// AddFunds starts the process of adding funds to the user's account.
+func (p *Payments) AddFunds(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	var err error
+	defer mon.Task()(&ctx)(&err)
+
+	w.Header().Set("Content-Type", "application/json")
+
+	var params payments.AddFundsParams
+	if err = json.NewDecoder(r.Body).Decode(&params); err != nil {
+		p.serveJSONError(ctx, w, http.StatusBadRequest, err)
+		return
+	}
+
+	resp, err := p.service.Payments().AddFunds(ctx, params)
+	if err != nil {
+		if console.ErrUnauthorized.Has(err) {
+			p.serveJSONError(ctx, w, http.StatusUnauthorized, err)
+			return
+		}
+		if console.ErrValidation.Has(err) {
+			p.serveJSONError(ctx, w, http.StatusBadRequest, err)
+			return
+		}
+
+		p.serveJSONError(ctx, w, http.StatusInternalServerError, err)
+		return
+	}
+
+	if err = json.NewEncoder(w).Encode(resp); err != nil {
+		p.log.Error("failed to encode add funds response", zap.Error(ErrPaymentsAPI.Wrap(err)))
+	}
+}
+
+// HandleWebhookEvent handles a webhook event from the payments provider.
+func (p *Payments) HandleWebhookEvent(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	var err error
+	defer mon.Task()(&ctx)(&err)
+
+	signature := r.Header.Get("Stripe-Signature")
+	if signature == "" {
+		p.log.Error("missing stripe signature")
+		return
+	}
+
+	payload, err := io.ReadAll(r.Body)
+	if err != nil {
+		p.log.Error("failed reading payments webhook body: %v", zap.Error(ErrPaymentsAPI.Wrap(err)))
+		return
+	}
+
+	err = p.service.Payments().HandleWebhookEvent(ctx, signature, payload)
+	if err != nil {
+		p.log.Error("failed to process webhook event: %v", zap.Error(ErrPaymentsAPI.Wrap(err)))
+
+		// We return error to stripe to retry the webhook.
+		w.WriteHeader(http.StatusInternalServerError)
+		return
+	}
+
+	w.WriteHeader(http.StatusOK)
 }
 
 // GetCountryTaxes returns a list of taxes supported for a country.

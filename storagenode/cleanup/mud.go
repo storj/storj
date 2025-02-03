@@ -4,8 +4,8 @@
 package cleanup
 
 import (
-	"storj.io/storj/private/mud"
 	"storj.io/storj/shared/modular/config"
+	"storj.io/storj/shared/mud"
 )
 
 // Module is a mud module.
@@ -15,6 +15,7 @@ func Module(ball *mud.Ball) {
 	mud.Provide[*CoreLoad](ball, NewCoreLoad)
 	mud.Provide[*FileExists](ball, NewFileExists)
 	mud.Provide[*Period](ball, NewPeriod)
+	mud.Provide[*DeleteEmpty](ball, NewDeleteEmpty)
 
 	mud.RegisterImplementation[[]Enablement](ball)
 	mud.Implementation[[]Enablement, *CoreLoad](ball)

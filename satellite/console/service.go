@@ -32,6 +32,7 @@ import (
 	"storj.io/common/http/requestid"
 	"storj.io/common/macaroon"
 	"storj.io/common/memory"
+	"storj.io/common/storj"
 	"storj.io/common/uuid"
 	"storj.io/storj/private/api"
 	"storj.io/storj/private/blockchain"
@@ -42,6 +43,8 @@ import (
 	"storj.io/storj/satellite/console/consoleauth"
 	"storj.io/storj/satellite/console/consoleauth/sso"
 	"storj.io/storj/satellite/console/consoleweb/consoleapi/utils"
+	"storj.io/storj/satellite/console/valdi"
+	"storj.io/storj/satellite/console/valdi/valdiclient"
 	"storj.io/storj/satellite/emission"
 	"storj.io/storj/satellite/kms"
 	"storj.io/storj/satellite/mailservice"
@@ -197,6 +200,9 @@ var (
 
 	// ErrFailedToUpgrade occurs when a user can't be upgraded to paid tier.
 	ErrFailedToUpgrade = errs.Class("failed to upgrade user to paid tier")
+
+	// ErrPlacementNotFound occurs when a placement is not found.
+	ErrPlacementNotFound = errs.Class("placement not found")
 )
 
 // Service is handling accounts related logic.
@@ -210,6 +216,7 @@ type Service struct {
 	projectUsage               *accounting.Service
 	buckets                    buckets.DB
 	placements                 nodeselection.PlacementDefinitions
+	placementNameLookup        map[string]storj.PlacementConstraint
 	accounts                   payments.Accounts
 	depositWallets             payments.DepositWallets
 	billing                    billing.TransactionsDB
@@ -222,6 +229,7 @@ type Service struct {
 	emission                   *emission.Service
 	kmsService                 *kms.Service
 	ssoService                 *sso.Service
+	valdiService               *valdi.Service
 
 	satelliteAddress string
 	satelliteName    string
@@ -262,7 +270,7 @@ func NewService(log *zap.Logger, store DB, restKeys RESTKeys, projectAccounting 
 	billingDb billing.TransactionsDB, analytics *analytics.Service, tokens *consoleauth.Service, mailService *mailservice.Service,
 	accountFreezeService *AccountFreezeService, emission *emission.Service, kmsService *kms.Service, ssoService *sso.Service, satelliteAddress string,
 	satelliteName string, maxProjectBuckets int, ssoEnabled bool, placements nodeselection.PlacementDefinitions,
-	objectLockAndVersioningConfig ObjectLockAndVersioningConfig, config Config) (*Service, error) {
+	objectLockAndVersioningConfig ObjectLockAndVersioningConfig, valdiService *valdi.Service, config Config) (*Service, error) {
 	if store == nil {
 		return nil, errs.New("store can't be nil")
 	}
@@ -302,6 +310,11 @@ func NewService(log *zap.Logger, store DB, restKeys RESTKeys, projectAccounting 
 		}
 	}
 
+	placementNameLookup := make(map[string]storj.PlacementConstraint, len(placements))
+	for _, placement := range placements {
+		placementNameLookup[placement.Name] = placement.ID
+	}
+
 	return &Service{
 		log:                           log,
 		auditLogger:                   log.Named("auditlog"),
@@ -311,6 +324,7 @@ func NewService(log *zap.Logger, store DB, restKeys RESTKeys, projectAccounting 
 		projectUsage:                  projectUsage,
 		buckets:                       buckets,
 		placements:                    placements,
+		placementNameLookup:           placementNameLookup,
 		accounts:                      accounts,
 		depositWallets:                depositWallets,
 		billing:                       billingDb,
@@ -322,6 +336,7 @@ func NewService(log *zap.Logger, store DB, restKeys RESTKeys, projectAccounting 
 		accountFreezeService:          accountFreezeService,
 		emission:                      emission,
 		kmsService:                    kmsService,
+		valdiService:                  valdiService,
 		ssoService:                    ssoService,
 		satelliteAddress:              satelliteAddress,
 		satelliteName:                 satelliteName,
@@ -385,6 +400,44 @@ func (s *Service) getUserAndAuditLog(ctx context.Context, operation string, extr
 // Payments separates all payment related functionality.
 func (s *Service) Payments() Payments {
 	return Payments{service: s}
+}
+
+// GetValdiAPIKey gets a valdi API key. If one doesn't exist, it is created. If a valdi user needs to be created first, it creates that too.
+func (s *Service) GetValdiAPIKey(ctx context.Context, projectID uuid.UUID) (key *valdiclient.CreateAPIKeyResponse, status int, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	user, err := s.getUserAndAuditLog(ctx, "get valdi api key", zap.String("projectID", projectID.String()))
+	if err != nil {
+		return nil, http.StatusInternalServerError, Error.Wrap(err)
+	}
+
+	// TODO: all project members?
+	_, p, err := s.isProjectOwner(ctx, user.ID, projectID)
+	if err != nil {
+		status = http.StatusInternalServerError
+		if ErrUnauthorized.Has(err) || errs.Is(err, sql.ErrNoRows) {
+			status = http.StatusUnauthorized
+		}
+		return nil, status, Error.Wrap(err)
+	}
+
+	// shouldn't be nil if err is nil, but just check it anyway
+	if p == nil {
+		return nil, http.StatusInternalServerError, Error.Wrap(errs.New("nil project"))
+	}
+
+	key, status, err = s.valdiService.CreateAPIKey(ctx, p.PublicID)
+	if status != http.StatusNotFound {
+		return key, status, Error.Wrap(err)
+	}
+
+	status, err = s.valdiService.CreateUser(ctx, p.PublicID)
+	if err != nil {
+		return nil, status, Error.Wrap(err)
+	}
+
+	key, status, err = s.valdiService.CreateAPIKey(ctx, p.PublicID)
+	return key, status, Error.Wrap(err)
 }
 
 // SetupAccount creates payment account for authorized user.
@@ -462,11 +515,11 @@ func (payment Payments) RemoveTaxID(ctx context.Context, id string) (_ *payments
 	return newInfo, Error.Wrap(err)
 }
 
-// GetBillingInformation updates a user's billing information.
+// GetBillingInformation gets a user's billing information.
 func (payment Payments) GetBillingInformation(ctx context.Context) (information *payments.BillingInformation, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	user, err := payment.service.getUserAndAuditLog(ctx, "save billing information")
+	user, err := payment.service.getUserAndAuditLog(ctx, "get billing information")
 	if err != nil {
 		return nil, Error.Wrap(err)
 	}
@@ -522,6 +575,23 @@ func (payment Payments) AddCreditCard(ctx context.Context, creditCardToken strin
 	}
 
 	return card, nil
+}
+
+// UpdateCreditCard is used to update credit card details.
+func (payment Payments) UpdateCreditCard(ctx context.Context, params payments.CardUpdateParams) (err error) {
+	defer mon.Task()(&ctx, params.CardID)(&err)
+
+	user, err := payment.service.getUserAndAuditLog(ctx, "update credit card")
+	if err != nil {
+		return Error.Wrap(err)
+	}
+
+	err = payment.service.accounts.CreditCards().Update(ctx, user.ID, params)
+	if err != nil {
+		return Error.Wrap(err)
+	}
+
+	return nil
 }
 
 // AddCardByPaymentMethodID is used to save new credit card and attach it to payment account.
@@ -631,6 +701,61 @@ func (payment Payments) ProjectsCharges(ctx context.Context, since, before time.
 	}
 
 	return payment.service.accounts.ProjectCharges(ctx, user.ID, since, before)
+}
+
+// AddFunds starts the process of adding funds to the user's account.
+func (payment Payments) AddFunds(ctx context.Context, params payments.AddFundsParams) (response *payments.ChargeCardResponse, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	user, err := payment.service.getUserAndAuditLog(ctx, "add funds")
+	if err != nil {
+		return nil, ErrUnauthorized.Wrap(err)
+	}
+
+	if params.CardID == "" {
+		return nil, ErrValidation.New("card id is required")
+	}
+	if params.Amount < payment.service.config.MinAddFundsAmount {
+		return nil, ErrValidation.New("amount is too low")
+	}
+	if params.Amount > payment.service.config.MaxAddFundsAmount {
+		return nil, ErrValidation.New("amount is too high")
+	}
+
+	response, err = payment.service.accounts.PaymentIntents().ChargeCard(ctx, payments.ChargeCardRequest{
+		UserID: user.ID,
+		CardID: params.CardID,
+		Amount: int64(params.Amount),
+	})
+	if err != nil {
+		return nil, Error.Wrap(err)
+	}
+
+	return response, nil
+}
+
+// HandleWebhookEvent handles any event from payment provider.
+func (payment Payments) HandleWebhookEvent(ctx context.Context, signature string, payload []byte) (err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	event, err := payment.service.accounts.WebhookEvents().ParseEvent(ctx, signature, payload)
+	if err != nil {
+		return Error.Wrap(err)
+	}
+
+	// TODO: handle other events if needed.
+	if event.Type != payments.EventTypePaymentIntentSucceeded {
+		return nil
+	}
+
+	_, ok := event.Data["metadata"].(map[string]interface{})
+	if !ok {
+		return Error.New("webhook event metadata missing or invalid")
+	}
+
+	// TODO: add event handlers
+
+	return nil
 }
 
 // ListCreditCards returns a list of credit cards for a given payment account.
@@ -931,6 +1056,43 @@ func (s *Service) VerifyRegistrationCaptcha(ctx context.Context, captchaResp, us
 		return s.registrationCaptchaHandler.Verify(ctx, captchaResp, userIP)
 	}
 	return true, nil, nil
+}
+
+// GenerateSecurityToken generates a random signed security token.
+func (s *Service) GenerateSecurityToken() (string, error) {
+	b := make([]byte, 32)
+	if _, err := rand.Read(b); err != nil {
+		return "", err
+	}
+
+	token := consoleauth.Token{Payload: b}
+
+	signature, err := s.tokens.SignToken(token)
+	if err != nil {
+		return "", err
+	}
+
+	token.Signature = signature
+
+	return token.String(), nil
+}
+
+// ValidateSecurityToken validates a signed security token.
+func (s *Service) ValidateSecurityToken(value string) error {
+	token, err := consoleauth.FromBase64URLString(value)
+	if err != nil {
+		return err
+	}
+
+	valid, err := s.tokens.ValidateToken(token)
+	if err != nil {
+		return err
+	}
+	if !valid {
+		return errs.New("Invalid CSRF token")
+	}
+
+	return nil
 }
 
 // CreateUser gets password hash value and creates new inactive User.
@@ -1273,7 +1435,8 @@ func (s *Service) GetUserForSsoAuth(ctx context.Context, claims sso.OidcSsoClaim
 		}
 	}
 
-	if user.ExternalID == nil {
+	if user.ExternalID == nil || *user.ExternalID != externalID {
+		s.log.Info("updating external ID", zap.String("userID", user.ID.String()), zap.String("email", user.Email))
 		// associate existing user with this external ID.
 		err = s.UpdateExternalID(ctx, user, externalID)
 		if err != nil {
@@ -2660,6 +2823,11 @@ func (s *Service) UpdateAccount(ctx context.Context, fullName string, shortName 
 		return ErrValidation.Wrap(err)
 	}
 
+	err = s.ValidateFreeFormFieldLengths(&fullName, &shortName)
+	if err != nil {
+		return err
+	}
+
 	user.FullName = fullName
 	user.ShortName = shortName
 	shortNamePtr := &user.ShortName
@@ -2690,6 +2858,14 @@ func (s *Service) SetupAccount(ctx context.Context, requestData SetUpAccountRequ
 	companyName, err := s.getValidatedCompanyName(&requestData)
 	if err != nil {
 		return ErrValidation.Wrap(err)
+	}
+
+	err = s.ValidateFreeFormFieldLengths(
+		requestData.StorageUseCase, requestData.OtherUseCase,
+		requestData.Position, requestData.FunctionalArea,
+	)
+	if err != nil {
+		return err
 	}
 
 	err = s.store.Users().Update(ctx, user.ID, UpdateUserRequest{
@@ -3063,6 +3239,7 @@ func (s *Service) GetMinimalProject(project *Project) ProjectInfo {
 		StorageUsed:   project.StorageUsed,
 		BandwidthUsed: project.BandwidthUsed,
 		Versioning:    project.DefaultVersioning,
+		Placement:     project.DefaultPlacement,
 	}
 
 	if edgeURLs, ok := s.config.PlacementEdgeURLOverrides.Get(project.DefaultPlacement); ok {
@@ -3136,9 +3313,11 @@ func (s *Service) JoinCunoFSBeta(ctx context.Context, data analytics.TrackJoinCu
 		}
 	}
 
+	var noticeDismissal NoticeDismissal
 	betaJoined := false
 	if settings != nil {
 		betaJoined = settings.NoticeDismissal.CunoFSBetaJoined
+		noticeDismissal = settings.NoticeDismissal
 	}
 	if betaJoined {
 		return ErrConflict.New("user already joined cunoFS beta")
@@ -3147,6 +3326,14 @@ func (s *Service) JoinCunoFSBeta(ctx context.Context, data analytics.TrackJoinCu
 	data.Email = user.Email
 
 	s.analytics.JoinCunoFSBeta(data)
+
+	noticeDismissal.CunoFSBetaJoined = true
+	err = s.store.Users().UpsertSettings(ctx, user.ID, UpsertUserSettingsRequest{
+		NoticeDismissal: &noticeDismissal,
+	})
+	if err != nil {
+		return errs.Combine(Error.New("Your submission was successfully received, but something else went wrong"), err)
+	}
 
 	return nil
 }
@@ -3852,7 +4039,7 @@ func (s *Service) DeleteProjectMembersAndInvitations(ctx context.Context, projec
 func (s *Service) UpdateProjectMemberRole(ctx context.Context, memberID, projectID uuid.UUID, newRole ProjectMemberRole) (pm *ProjectMember, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	user, err := s.getUserAndAuditLog(ctx, "update project member role", zap.String("projectID", projectID.String()))
+	user, err := s.getUserAndAuditLog(ctx, "update project member role", zap.String("projectID", projectID.String()), zap.String("updatedMemberID", memberID.String()), zap.String("newRole", newRole.String()))
 	if err != nil {
 		return nil, ErrUnauthorized.Wrap(err)
 	}
@@ -4392,6 +4579,8 @@ func (s *Service) GetSingleBucketTotals(ctx context.Context, projectID uuid.UUID
 		return nil, Error.Wrap(err)
 	}
 
+	usage.Location = s.placements[usage.DefaultPlacement].Name
+
 	return usage, nil
 }
 
@@ -4472,6 +4661,35 @@ func (s *Service) GetBucketMetadata(ctx context.Context, projectID uuid.UUID) (l
 	}
 
 	return list, nil
+}
+
+// PlacementDetail represents human-readable details of a placement.
+type PlacementDetail struct {
+	ID          int    `json:"id"`
+	IdName      string `json:"idName"`
+	Name        string `json:"name"`
+	Title       string `json:"title"`
+	Description string `json:"description"`
+}
+
+// GetPlacementDetails retrieves available placement for self-serve with human-readable details.
+// TODO: This should be moved to the config.
+func (s *Service) GetPlacementDetails() []PlacementDetail {
+	return []PlacementDetail{
+		{
+			ID:          0,
+			IdName:      "global",
+			Name:        "Global",
+			Title:       "Global - Best for globally distributed workloads",
+			Description: "The data will be stored on the Storj globally distributed network, no restrictions by regions."},
+		{
+			ID:          3,
+			IdName:      "us-select-1",
+			Name:        "Storj Select",
+			Title:       "Storj US Select",
+			Description: "Store data only on Select nodes in the United States.",
+		},
+	}
 }
 
 // GetUsageReport retrieves usage rollups for every bucket of a single or all the user owned projects for a given period.
@@ -5011,6 +5229,14 @@ func (s *Service) isProjectMember(ctx context.Context, userID uuid.UUID, project
 	return isProjectMember{}, ErrNoMembership.New(unauthorizedErrMsg)
 }
 
+// GetPlacementByName returns the placement constraint by name.
+func (s *Service) GetPlacementByName(name string) (storj.PlacementConstraint, error) {
+	if placement, ok := s.placementNameLookup[name]; ok {
+		return placement, nil
+	}
+	return storj.DefaultPlacement, ErrPlacementNotFound.New("")
+}
+
 // WalletInfo contains all the information about a destination wallet assigned to a user.
 type WalletInfo struct {
 	Address blockchain.Address `json:"address"`
@@ -5311,6 +5537,19 @@ func (payment Payments) ApplyCredit(ctx context.Context, amount int64, desc stri
 func (payment Payments) GetProjectUsagePriceModel(partner string) (_ *payments.ProjectUsagePriceModel) {
 	model := payment.service.accounts.GetProjectUsagePriceModel(partner)
 	return &model
+}
+
+// GetPartnerPlacementPriceModel returns the project usage price model for the project's user agent and placement.
+func (payment Payments) GetPartnerPlacementPriceModel(ctx context.Context, projectID uuid.UUID, placement storj.PlacementConstraint) (payments.ProjectUsagePriceModel, error) {
+	user, err := GetUser(ctx)
+	if err != nil {
+		return payments.ProjectUsagePriceModel{}, ErrUnauthorized.Wrap(err)
+	}
+	isMember, err := payment.service.isProjectMember(ctx, user.ID, projectID)
+	if err != nil {
+		return payments.ProjectUsagePriceModel{}, ErrUnauthorized.Wrap(err)
+	}
+	return payment.service.accounts.GetPartnerPlacementPriceModel(string(isMember.project.UserAgent), placement)
 }
 
 func findMembershipByProjectID(memberships []ProjectMember, projectID uuid.UUID) (ProjectMember, bool) {
@@ -5936,4 +6175,26 @@ func (s *Service) TestToggleSatelliteManagedEncryption(b bool) {
 func (s *Service) TestToggleSsoEnabled(enabled bool, ssoService *sso.Service) {
 	s.ssoEnabled = enabled
 	s.ssoService = ssoService
+}
+
+// ValidateFreeFormFieldLengths checks if any of the given values
+// exceeds the maximum length.
+func (s *Service) ValidateFreeFormFieldLengths(values ...*string) error {
+	for _, value := range values {
+		if value != nil && len(*value) > s.config.MaxNameCharacters {
+			return ErrValidation.New("field length exceeds maximum length %d", s.config.MaxNameCharacters)
+		}
+	}
+	return nil
+}
+
+// ValidateLongFormInputLengths checks if any of the given values
+// exceeds the maximum length for long form fields.
+func (s *Service) ValidateLongFormInputLengths(values ...*string) error {
+	for _, value := range values {
+		if value != nil && len(*value) > s.config.MaxLongFormFieldCharacters {
+			return ErrValidation.New("field length exceeds maximum length %d", s.config.MaxLongFormFieldCharacters)
+		}
+	}
+	return nil
 }

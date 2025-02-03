@@ -419,7 +419,7 @@ func Min(sources ...interface{}) ScoreNode {
 					minScore = get
 				}
 			default:
-				panic(fmt.Sprintf("min is supported only between float64,int64 and SourceNode (like the tracker), but got %T", source))
+				panic(fmt.Sprintf("min is supported only between float64,int64 and ScoreNode (like the tracker), but got %T", source))
 			}
 		}
 		return minScore
@@ -772,9 +772,11 @@ func RoundWithProbability(r float64) int {
 }
 
 // WeightedSelector selects randomly from nodes, but supporting custom probabilities.
+// Each node value is raised to the valuePower power, and then added to
+// valueBallast.
 // Some nodes can be selected more often than others.
 // The implementation is based on Walker's alias method: https://www.youtube.com/watch?v=retAwpUv42E
-func WeightedSelector(value NodeValue, defaultValue int64, initFilter NodeFilter) NodeSelectorInit {
+func WeightedSelector(weightFunc NodeValue, initFilter NodeFilter) NodeSelectorInit {
 	return func(nodes []*SelectedNode, filter NodeFilter) NodeSelector {
 		var filtered []*SelectedNode
 		for _, node := range nodes {
@@ -791,26 +793,21 @@ func WeightedSelector(value NodeValue, defaultValue int64, initFilter NodeFilter
 		n := len(filtered)
 
 		normalized := make([]float64, n)
-		total := int64(0)
+		total := float64(0)
 		for ix, node := range filtered {
-			nodeValue := value(*node)
-			if nodeValue == 0 {
-				nodeValue = defaultValue
-			} else if nodeValue < 0 {
-				nodeValue = 0
-			}
+			nodeValue := weightFunc(*node)
 			total += nodeValue
-			normalized[ix] = float64(nodeValue)
+			normalized[ix] = nodeValue
 		}
 
 		// in case of all value is zero, we need to select nodes with the same chance
 		// it's safe to use 1, instead of all values --> total will be len(filtered)
 		if total == 0 {
-			total = int64(len(filtered))
+			total = float64(len(filtered))
 		}
 
 		for ix := range filtered {
-			normalized[ix] = normalized[ix] / float64(total) * float64(n)
+			normalized[ix] = normalized[ix] / total * float64(n)
 		}
 
 		threshold := float64(1)

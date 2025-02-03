@@ -477,6 +477,11 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB,
 			return nil, errs.Combine(err, peer.Close())
 		}
 
+		productPrices, err := pc.Products.ToModels()
+		if err != nil {
+			return nil, errs.Combine(err, peer.Close())
+		}
+
 		service, err := stripe.NewService(
 			peer.Log.Named("payments.stripe:service"),
 			stripeClient,
@@ -489,6 +494,9 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB,
 			peer.DB.ProjectAccounting(),
 			prices,
 			priceOverrides,
+			productPrices,
+			pc.PartnersPlacementPriceOverrides.ToMap(),
+			pc.PlacementPriceOverrides.ToMap(),
 			pc.PackagePlans.Packages,
 			pc.BonusRate,
 			peer.Analytics.Service,

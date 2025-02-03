@@ -13,6 +13,7 @@ import (
 	"time"
 
 	"github.com/calebcase/tmpfile"
+	"github.com/spacemonkeygo/monkit/v3"
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 	"golang.org/x/exp/maps"
@@ -399,6 +400,20 @@ func (repairer *SegmentRepairer) Repair(ctx context.Context, queueSegment queue.
 		alreadySelected = append(alreadySelected, &selectedNodes[i])
 	}
 
+	{
+		// we should download at least segment.Redundancy.RequiredShares, but sometimes it's enough to download unhealthy but retrievable pieces
+		// here we estimate the benefit of using a direct download approach
+		placementTag := monkit.NewSeriesTag("placement", fmt.Sprintf("%d", segment.Placement))
+		if requestCount <= piecesCheck.UnhealthyRetrievable.Count() && // we have enough unhealthy-retrievable, to use them without segment recreation
+			requestCount < int(segment.Redundancy.RequiredShares) { // it's better to download unhealthy-retrievable, as it causes fewer downloads
+			// we can use unhealthy retrievable pieces, instead of reconstruct segments.
+
+			// instead of required_shares, we would download only the requestCount
+			mon.Counter("repairer_unnecessary_downloads", placementTag).Inc(int64(segment.Redundancy.RequiredShares) - int64(requestCount))
+		}
+		mon.Counter("repairer_required_downloads", placementTag).Inc(int64(requestCount))
+	}
+
 	// Request Overlay for n-h new storage nodes
 	request := overlay.FindStorageNodesRequest{
 		RequestedCount:  requestCount,
@@ -666,7 +681,7 @@ func (repairer *SegmentRepairer) Repair(ctx context.Context, queueSegment queue.
 		}
 	}
 
-	putLimits, putPrivateKey, err := repairer.orders.CreatePutRepairOrderLimits(ctx, segment, getOrderLimits, toKeep, newNodes)
+	putLimits, putPrivateKey, err := repairer.orders.CreatePutRepairOrderLimits(ctx, segment, newRedundancy, getOrderLimits, toKeep, newNodes)
 	if err != nil {
 		return false, orderLimitFailureError.New("could not create PUT_REPAIR order limits: %w", err)
 	}
@@ -862,6 +877,16 @@ func (repairer *SegmentRepairer) newRedundancy(redundancy storj.RedundancyScheme
 	}
 	if overrideValue := repairer.repairTargetOverrides.GetOverrideValue(redundancy); overrideValue != 0 {
 		redundancy.OptimalShares = int16(overrideValue)
+	}
+	if redundancy.OptimalShares <= redundancy.RepairShares {
+		// if a segment has exactly repair segments, we consider it in need of
+		// repair. we don't want to upload a new object right into the state of
+		// needing repair, so we need at least one more, though arguably this is
+		// a misconfiguration.
+		redundancy.OptimalShares = redundancy.RepairShares + 1
+	}
+	if redundancy.TotalShares < redundancy.OptimalShares {
+		redundancy.TotalShares = redundancy.OptimalShares
 	}
 	return redundancy
 }

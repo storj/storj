@@ -65,11 +65,12 @@ func (p *PostgresAdapter) DeleteAllBucketObjects(ctx context.Context, opts Delet
 	query := `
 		WITH deleted_objects AS (
 			DELETE FROM objects
-			WHERE stream_id IN (
-				SELECT stream_id FROM objects
-				WHERE (project_id, bucket_name) = ($1, $2)
-				LIMIT $3
-			)
+			WHERE (project_id, bucket_name) = ($1, $2) AND
+				stream_id IN (
+					SELECT stream_id FROM objects
+					WHERE (project_id, bucket_name) = ($1, $2)
+					LIMIT $3
+				)
 			RETURNING objects.stream_id, objects.segment_count
 		), deleted_segments AS (
 			DELETE FROM segments
@@ -126,12 +127,14 @@ func (s *SpannerAdapter) DeleteAllBucketObjects(ctx context.Context, opts Delete
 		streamIDs, err := spannerutil.CollectRows(tx.Query(ctx, spanner.Statement{
 			SQL: `
 				DELETE FROM objects
-				WHERE stream_id IN (
-					SELECT stream_id FROM objects
-					WHERE project_id = @project_id AND bucket_name = @bucket_name
-					ORDER BY project_id, bucket_name
-					LIMIT @delete_limit
-				)
+				WHERE
+					(project_id, bucket_name) = (@project_id, @bucket_name) AND
+					stream_id IN (
+						SELECT stream_id FROM objects
+						WHERE (project_id, bucket_name) = (@project_id, @bucket_name)
+						ORDER BY project_id, bucket_name
+						LIMIT @delete_limit
+					)
 				THEN RETURN stream_id
 			`,
 			Params: map[string]interface{}{

@@ -461,38 +461,25 @@ type AttributeFilter struct {
 	value  interface{}
 }
 
-// NewAttributeFilter creates new attribute filter. NewAttributeFilter can be
-// called in two ways, either like `NewAttributeFilter("attr", "value")`, or
-// `NewAttributeFilter("attr", "<", 3). The first style, 2 arguments, is
-// a string equality test. The second style, 3 arguments, is a more generic
-// form of the first. String equality can be specified, but also inequalities
-// as well.
+// NewAttributeFilter creates new attribute filter. testStr is the type of
+// equality test to perform, can be "=", "==", "!=", "<>", "<", "<=", ">", ">=".
 // If value is stringNotMatch, then the test is inverted.
-func NewAttributeFilter(attr string, args ...any) (*AttributeFilter, error) {
-	var value any
+func NewAttributeFilter(attr string, testStr string, value any) (*AttributeFilter, error) {
 	test := mito.OpEqual
-	switch len(args) {
-	case 1:
-		value = args[0]
-	case 2:
-		value = args[1]
-		switch args[0] {
-		case "=", "==":
-		case "!=", "<>":
-			test = mito.OpNotEqual
-		case "<":
-			test = mito.OpLess
-		case "<=":
-			test = mito.OpLessEqual
-		case ">":
-			test = mito.OpGreater
-		case ">=":
-			test = mito.OpGreaterEqual
-		default:
-			return nil, errs.New("invalid call to create new attribute filter. Received 3 arguments, second argument was not an expected test")
-		}
+	switch testStr {
+	case "=", "==", "":
+	case "!=", "<>":
+		test = mito.OpNotEqual
+	case "<":
+		test = mito.OpLess
+	case "<=":
+		test = mito.OpLessEqual
+	case ">":
+		test = mito.OpGreater
+	case ">=":
+		test = mito.OpGreaterEqual
 	default:
-		return nil, errs.New("invalid call to create new attribute filter. Expected 2 or 3 arguments")
+		return nil, errs.New("invalid call to create new attribute filter. Received 3 arguments, second argument was not an expected test")
 	}
 
 	m, err := createNodeMapping(attr)

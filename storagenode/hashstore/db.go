@@ -14,6 +14,7 @@ import (
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 
+	"storj.io/common/memory"
 	"storj.io/drpc/drpcsignal"
 )
 
@@ -115,29 +116,31 @@ func New(
 
 // DBStats is a collection of statistics about a database.
 type DBStats struct {
-	NumSet uint64  // number of set records.
-	LenSet uint64  // sum of lengths in set records.
-	AvgSet float64 // average size of length of records.
+	NumSet uint64      // number of set records.
+	LenSet memory.Size // sum of lengths in set records.
+	AvgSet float64     // average size of length of records.
 
-	NumTrash uint64  // number of set trash records.
-	LenTrash uint64  // sum of lengths in set trash records.
-	AvgTrash float64 // average size of length of trash records.
+	NumTrash uint64      // number of set trash records.
+	LenTrash memory.Size // sum of lengths in set trash records.
+	AvgTrash float64     // average size of length of trash records.
 
-	NumSlots  uint64  // total number of records available.
-	TableSize uint64  // total number of bytes in the hash table.
-	Load      float64 // percent of slots that are set.
+	NumSlots  uint64      // total number of records available.
+	TableSize memory.Size // total number of bytes in the hash table.
+	Load      float64     // percent of slots that are set.
 
-	NumLogs    uint64 // total number of log files.
-	LenLogs    uint64 // total number of bytes in the log files.
-	NumLogsTTL uint64 // total number of log files with ttl set.
-	LenLogsTTL uint64 // total number of bytes in log files with ttl set.
+	NumLogs    uint64      // total number of log files.
+	LenLogs    memory.Size // total number of bytes in the log files.
+	NumLogsTTL uint64      // total number of log files with ttl set.
+	LenLogsTTL memory.Size // total number of bytes in log files with ttl set.
 
 	SetPercent   float64 // percent of bytes that are set in the log files.
 	TrashPercent float64 // percent of bytes that are trash in the log files.
 
-	Compacting  bool   // if true, a background compaction is in progress.
-	Compactions uint64 // total number of compactions that finished on either store.
-	Active      int    // which store is currently active
+	Compacting    bool        // if true, a background compaction is in progress.
+	Compactions   uint64      // total number of compactions that finished on either store.
+	Active        int         // which store is currently active
+	LogsRewritten uint64      // total number of log files attempted to be rewritten.
+	DataRewritten memory.Size // total number of bytes of data rewritten.
 }
 
 // Stats returns statistics about the database and underlying stores.
@@ -176,9 +179,11 @@ func (d *DB) Stats() (DBStats, StoreStats, StoreStats) {
 		SetPercent:   safeDivide(float64(s0st.Table.LenSet+s1st.Table.LenSet), float64(s0st.LenLogs+s1st.LenLogs)),
 		TrashPercent: safeDivide(float64(s0st.Table.LenTrash+s1st.Table.LenTrash), float64(s0st.LenLogs+s1st.LenLogs)),
 
-		Compacting:  compacting,
-		Compactions: s0st.Compactions + s1st.Compactions,
-		Active:      active,
+		Compacting:    compacting,
+		Compactions:   s0st.Compactions + s1st.Compactions,
+		Active:        active,
+		LogsRewritten: s0st.LogsRewritten + s1st.LogsRewritten,
+		DataRewritten: s0st.DataRewritten + s1st.DataRewritten,
 	}, s0st, s1st
 }
 

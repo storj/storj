@@ -8,11 +8,13 @@ import (
 	"crypto/sha256"
 	"encoding/base64"
 	"net/url"
+	"strings"
 
 	goOIDC "github.com/coreos/go-oidc/v3/oidc"
 	"github.com/spacemonkeygo/monkit/v3"
 	"github.com/zeebo/errs"
 	"golang.org/x/oauth2"
+	"golang.org/x/oauth2/microsoft"
 
 	"storj.io/common/sync2"
 	"storj.io/storj/satellite/console/consoleauth"
@@ -31,8 +33,13 @@ var (
 	ErrTokenVerification = errs.Class("sso:failed token verification")
 	// ErrInvalidState is returned when the state is invalid not what was expected.
 	ErrInvalidState = errs.Class("sso:invalid state")
+	// ErrInvalidEmail is returned when the email given by sso provider is invalid.
+	ErrInvalidEmail = errs.Class("sso:invalid email")
 	// ErrInvalidClaims is returned when the claims fail to be parsed.
 	ErrInvalidClaims = errs.Class("sso:invalid claims")
+
+	// MicrosoftEntraUrlHost is the host of the Microsoft Entra provider.
+	MicrosoftEntraUrlHost = "microsoftonline.com"
 
 	mon = monkit.Package()
 )
@@ -77,17 +84,27 @@ func (s *Service) Initialize(ctx context.Context) (err error) {
 			}
 			verifier = &MockVerifier{}
 		} else {
+			providerUrl := info.ProviderURL.String()
+			endpoint := oauth2.Endpoint{
+				AuthURL:  providerUrl + "/oauth2/v1/authorize",
+				TokenURL: providerUrl + "/oauth2/v1/token",
+			}
+			if strings.Contains(providerUrl, MicrosoftEntraUrlHost) {
+				// the Microsoft Entra provider url is in the format
+				// https://login.microsoftonline.com/<tenant_id>/v2.0
+				split := strings.Split(providerUrl, "/")
+				tenantID := strings.Split(providerUrl, "/")[len(split)-2]
+				endpoint = microsoft.AzureADEndpoint(tenantID)
+			}
 			conf = &oauth2.Config{
 				ClientID:     info.ClientID,
 				ClientSecret: info.ClientSecret,
 				RedirectURL:  callbackAddr,
-				Endpoint: oauth2.Endpoint{
-					AuthURL:  info.ProviderURL.String() + "/oauth2/v1/authorize",
-					TokenURL: info.ProviderURL.String() + "/oauth2/v1/token",
-				},
-				Scopes: []string{goOIDC.ScopeOpenID, "email", "profile"},
+				Endpoint:     endpoint,
+				Scopes:       []string{goOIDC.ScopeOpenID, "email", "profile"},
 			}
-			provider, err := goOIDC.NewProvider(ctx, info.ProviderURL.String())
+
+			provider, err := goOIDC.NewProvider(ctx, providerUrl)
 			if err != nil {
 				return Error.Wrap(err)
 			}
@@ -99,6 +116,7 @@ func (s *Service) Initialize(ctx context.Context) (err error) {
 		}
 
 		verifierMap[providerName] = OidcSetup{
+			Url:      info.ProviderURL.String(),
 			Config:   conf,
 			Verifier: verifier,
 		}
@@ -133,7 +151,7 @@ func (s *Service) GetOidcSetupByProvider(ctx context.Context, provider string) *
 }
 
 // VerifySso verifies the SSO code as state against a provider.
-func (s *Service) VerifySso(ctx context.Context, provider, state, code string) (_ *OidcSsoClaims, err error) {
+func (s *Service) VerifySso(ctx context.Context, provider, emailToken, code string) (_ *OidcSsoClaims, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	oidcSetup := s.GetOidcSetupByProvider(ctx, provider)
@@ -167,21 +185,37 @@ func (s *Service) VerifySso(ctx context.Context, provider, state, code string) (
 		if err = idToken.Claims(&claims); err != nil {
 			return nil, ErrInvalidClaims.Wrap(err)
 		}
+		if strings.Contains(oidcSetup.Url, MicrosoftEntraUrlHost) {
+			// For Microsoft Entra, the oid claim is the user's
+			// unique identifier. The email claim is not guaranteed
+			// the PreferredUsername claim may be the user's email.
+			// https://learn.microsoft.com/en-us/entra/identity-platform/id-token-claims-reference
+			claims.Sub = claims.Oid
+			if claims.Email == "" {
+				return nil, ErrInvalidEmail.New("email is empty")
+			}
+		}
+		claims.Email = strings.ToLower(claims.Email)
 	}
 
-	stat, err := s.GetSsoStateFromEmail(claims.Email)
-	if err != nil {
-		return nil, Error.New("failed to get state")
+	p := s.GetProviderByEmail(claims.Email)
+	if p != provider {
+		return nil, ErrInvalidEmail.New("email %s does not match provider %s", claims.Email, provider)
 	}
-	if state != stat {
-		return nil, ErrInvalidState.New("state mismatch")
+
+	token, err := s.GetSsoEmailToken(claims.Email)
+	if err != nil {
+		return nil, Error.New("failed to get email token")
+	}
+	if emailToken != token {
+		return nil, Error.New("invalid email token")
 	}
 
 	return &claims, nil
 }
 
-// GetSsoStateFromEmail returns a signed string derived from the email address.
-func (s *Service) GetSsoStateFromEmail(email string) (string, error) {
+// GetSsoEmailToken returns a signed string derived from the email address.
+func (s *Service) GetSsoEmailToken(email string) (string, error) {
 	sum := sha256.Sum256([]byte(email))
 	signed, err := s.tokens.Sign(sum[:])
 	if err != nil {

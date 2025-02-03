@@ -124,7 +124,7 @@ func TestStore_ReadFromCompactedFile(t *testing.T) {
 
 	// add some already expired entries to the store so the log file is compacted.
 	for i := 0; i < 100; i++ {
-		s.AssertCreate(WithTTL(time.Now().Add(-100 * 24 * time.Hour)))
+		s.AssertCreate(WithTTL(time.Unix(1, 0)))
 	}
 
 	// add an entry to the store that does not expire.
@@ -249,7 +249,7 @@ func TestStore_CompactionWithTTLTakesShorterTime(t *testing.T) {
 		defer s.Close()
 
 		// add an entry to the store that is already expired.
-		key := s.AssertCreate(WithTTL(time.Now()))
+		key := s.AssertCreate(WithTTL(time.Unix(1, 0)))
 
 		// flag the key as trash.
 		s.AssertCompact(alwaysTrash, time.Time{})
@@ -427,17 +427,13 @@ func TestStore_MergeRecordsWhenCompactingWithLostPage(t *testing.T) {
 	k1 := newKeyAt(s.tbl, 0, recordsPerPage-1, 1)
 
 	// write k0 and k1 to the store.
-	s.AssertCreateKey(k0, time.Time{})
-	s.AssertCreateKey(k1, time.Time{})
+	s.AssertCreate(WithKey(k0))
+	s.AssertCreate(WithKey(k1))
 
 	// create a large key in the third page so that the log file is kept alive.
 	kl := newKeyAt(s.tbl, 2, 0, 0)
 
-	w, err := s.Create(ctx, kl, time.Time{})
-	assert.NoError(t, err)
-	_, err = w.Write(make([]byte, 10*1024))
-	assert.NoError(t, err)
-	assert.NoError(t, w.Close())
+	s.AssertCreate(WithKey(kl), WithData(make([]byte, 10*1024)))
 
 	// compact the store flagging k1 as trash.
 	assert.NoError(t, s.Compact(ctx, func(_ context.Context, key Key, _ time.Time) bool {
@@ -445,7 +441,7 @@ func TestStore_MergeRecordsWhenCompactingWithLostPage(t *testing.T) {
 	}, time.Time{}))
 
 	// clear out the first page so that any updates to k1 don't overwrite the existing entry for k1.
-	_, err = s.tbl.fh.WriteAt(make([]byte, pageSize), pageSize) // offset=pSize to skip the header page
+	_, err := s.tbl.fh.WriteAt(make([]byte, pageSize), pageSize) // offset=pSize to skip the header page
 	assert.NoError(t, err)
 
 	// reading k1 will cause it to revive, adding the duplicate entry for k1.
@@ -796,14 +792,9 @@ func TestStore_OptimisticAlignment(t *testing.T) {
 	s := newTestStore(t)
 	defer s.Close()
 
-	w, err := s.Create(context.Background(), newKey(), time.Time{})
-	assert.NoError(t, err)
-
 	// write enough so that after the footer record is appended, we only need to add 10 bytes to the
 	// file to align it to 4k
-	_, err = w.Write(make([]byte, 4096-RecordSize-10))
-	assert.NoError(t, err)
-	assert.NoError(t, w.Close())
+	s.AssertCreate(WithData(make([]byte, 4096-RecordSize-10)))
 
 	stats := s.Stats()
 	assert.Equal(t, stats.Table.LenSet, 4096-10) // alive data is 4096-rSize-10 + rSize.
@@ -861,7 +852,6 @@ func TestStore_FailedUpdateDoesntIncreaseLogLength(t *testing.T) {
 }
 
 func TestStore_CompactionMakesForwardProgress(t *testing.T) {
-	ctx := context.Background()
 	s := newTestStore(t)
 	defer s.Close()
 
@@ -870,19 +860,9 @@ func TestStore_CompactionMakesForwardProgress(t *testing.T) {
 	// a single large (multi-MB) entry and many small but dead entries and
 	// triggering compaction.
 
-	writeEntry := func(size int64) Key {
-		key := newKey()
-		w, err := s.Create(ctx, key, time.Time{})
-		assert.NoError(t, err)
-		_, err = w.Write(make([]byte, size))
-		assert.NoError(t, err)
-		assert.NoError(t, w.Close())
-		return key
-	}
-
-	large := writeEntry(10 << 20)
+	large := s.AssertCreate(WithData(make([]byte, 10<<20)))
 	for i := 0; i < 1<<10; i++ {
-		writeEntry(10 << 10)
+		s.AssertCreate(WithData(make([]byte, 10<<10)))
 	}
 	s.AssertCompact(func(ctx context.Context, key Key, created time.Time) bool {
 		return key != large
@@ -1002,6 +982,53 @@ func TestStore_StatsWhileCompacting(t *testing.T) {
 	assert.NoError(t, <-errCh)
 }
 
+func TestStore_CompactionRewritesLogsWhenNothingToDo(t *testing.T) {
+	s := newTestStore(t)
+	defer s.Close()
+
+	getLog := func(key Key) uint64 {
+		rec, ok, err := s.tbl.Lookup(key)
+		assert.NoError(t, err)
+		assert.True(t, ok)
+		return rec.Log
+	}
+
+	// make a ballast key that stays alive that should prevent the log file from being rewritten
+	// under normal conditions while also being a specific size to tickle optimistic alignment to
+	// ensure we don't continuously rewrite log files with some padding, and an already expired key
+	// so that the log is not fully alive so that it can be considered a candidate regardless.
+	data := make([]byte, 4096-RecordSize-10)
+	ballast := s.AssertCreate(WithData(data))
+	assert.Equal(t, getLog(ballast), 1)
+
+	s.AssertCreate(WithData(nil), WithTTL(time.Unix(1, 0)))
+
+	// on the first compaction the log should be rewritten.
+	s.AssertCompact(nil, time.Time{})
+	assert.Equal(t, getLog(ballast), 2)
+
+	{
+		stats := s.Stats()
+		assert.Equal(t, stats.Compactions, 1)
+		assert.Equal(t, stats.LogsRewritten, 1)
+		assert.Equal(t, stats.DataRewritten, len(data)+RecordSize)
+	}
+
+	// the log should be fully alive data and so should not be rewritten on subsequent compactions.
+	s.AssertCompact(nil, time.Time{})
+	assert.Equal(t, getLog(ballast), 2)
+
+	{
+		stats := s.Stats()
+		assert.Equal(t, stats.Compactions, 2)
+		assert.Equal(t, stats.LogsRewritten, 1)
+		assert.Equal(t, stats.DataRewritten, len(data)+RecordSize)
+	}
+
+	// we should still be able to read the ballast still.
+	s.AssertRead(ballast, WithData(data))
+}
+
 //
 // benchmarks
 //
@@ -1023,15 +1050,9 @@ func BenchmarkStore(b *testing.B) {
 		now := time.Now()
 
 		for i := 0; i < b.N; i++ {
-			wr, err := s.Create(ctx, newKey(), time.Time{})
-			assert.NoError(b, err)
-
-			_, err = wr.Write(buf)
-			assert.NoError(b, err)
-			assert.NoError(b, wr.Close())
-
+			s.AssertCreate(WithData(buf))
 			if l := s.Load(); l > 0.5 {
-				assert.NoError(b, s.Compact(ctx, nil, time.Time{}))
+				s.AssertCompact(nil, time.Time{})
 			}
 		}
 
@@ -1054,17 +1075,11 @@ func BenchmarkStore(b *testing.B) {
 
 		b.RunParallel(func(pb *testing.PB) {
 			for pb.Next() {
-				wr, err := s.Create(ctx, newKey(), time.Time{})
-				assert.NoError(b, err)
-
-				_, err = wr.Write(buf)
-				assert.NoError(b, err)
-				assert.NoError(b, wr.Close())
-
+				s.AssertCreate(WithData(buf))
 				if l := s.Load(); l > 0.5 {
 					cmu.Lock()
 					if s.Load() > 0.5 {
-						assert.NoError(b, s.Compact(ctx, nil, time.Time{}))
+						s.AssertCompact(nil, time.Time{})
 					}
 					cmu.Unlock()
 				}
@@ -1079,9 +1094,7 @@ func BenchmarkStore(b *testing.B) {
 		defer s.Close()
 
 		for i := uint64(0); i < 1<<lrec; i++ {
-			wr, err := s.Create(context.Background(), newKey(), time.Time{})
-			assert.NoError(b, err)
-			assert.NoError(b, wr.Close())
+			s.AssertCreate(WithData(nil))
 			if s.Load() > 0.5 {
 				s.AssertCompact(nil, time.Time{})
 			}

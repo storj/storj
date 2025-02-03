@@ -32,6 +32,74 @@ import (
 	"storj.io/storj/storagenode/satstore"
 )
 
+func TestExpiredPiecesRemoval(t *testing.T) {
+	t.Parallel()
+
+	ctx := testcontext.New(t)
+	defer ctx.Cleanup()
+
+	log := zaptest.NewLogger(t)
+	defer ctx.Check(log.Sync)
+
+	dir, err := filestore.NewDir(log, t.TempDir())
+	require.NoError(t, err)
+
+	blobs := filestore.New(log, dir, filestore.DefaultConfig)
+	defer ctx.Check(blobs.Close)
+
+	fw := pieces.NewFileWalker(log, blobs, nil, nil, nil)
+
+	bfm, err := retain.NewBloomFilterManager(t.TempDir(), 0)
+	require.NoError(t, err)
+
+	rtm := retain.NewRestoreTimeManager(t.TempDir())
+
+	old := pieces.NewStore(log, fw, nil, blobs, nil, nil, pieces.DefaultConfig)
+	new, err := piecestore.NewHashStoreBackend(t.TempDir(), bfm, rtm, log)
+	require.NoError(t, err)
+
+	config := Config{
+		Interval:      100 * time.Millisecond,
+		Delay:         time.Millisecond,
+		Jitter:        true,
+		DeleteExpired: true,
+	}
+
+	chore := NewChore(log, config, satstore.NewSatelliteStore(t.TempDir(), "migrate_chore"), old, new)
+	group := errgroup.Group{}
+	group.Go(func() error { return chore.Run(ctx) })
+	defer ctx.Check(group.Wait)
+	defer ctx.Check(chore.Close)
+
+	sats1 := randomSatsPieces(1, 3)
+	writeSatsPieces(ctx, t, old, sats1)
+	sats2 := randomSatsPieces(2, 6)
+	writeSatsPiecesWithExpiration(ctx, t, old, sats2, time.Now().Add(-time.Hour))
+
+	setMigrateActive(chore, sats1)
+	setMigrateActive(chore, sats2)
+
+	waitUntilMigrationFinished(ctx, t, old, sats1)
+	waitUntilMigrationFinished(ctx, t, old, sats2)
+
+	for sat, pieces := range sats1 {
+		for _, p := range pieces {
+			readFromBackend(ctx, t, new, sat, p)
+		}
+	}
+	for sat, pieces := range sats1 {
+		for _, p := range pieces {
+			require.False(t, existsInStore(ctx, t, old, sat, p.id))
+		}
+	}
+	for sat, pieces := range sats2 {
+		for _, p := range pieces {
+			require.False(t, existsInStore(ctx, t, old, sat, p.id))
+			require.False(t, existsInBackend(ctx, t, new, sat, p.id))
+		}
+	}
+}
+
 func TestDuplicates(t *testing.T) {
 	t.Parallel()
 
@@ -119,12 +187,14 @@ func TestChoreWithPassiveMigrationOnly(t *testing.T) {
 	satellites2 := randomSatsPieces(2, 100)
 	writeSatsPieces(ctx, t, old, satellites2)
 	satellites3 := randomSatsPieces(2, 100)
-	writeSatsPieces(ctx, t, old, satellites3)
+	writeSatsPiecesWithExpiration(ctx, t, old, satellites3, time.Now().Add(-time.Hour))
 
 	config := Config{
 		BufferSize:        400,
 		Interval:          100 * time.Millisecond,
 		MigrateRegardless: true,
+		MigrateExpired:    true,
+		DeleteExpired:     true,
 	}
 
 	satStoreDir, satStoreExt := t.TempDir(), "migrate_chore"
@@ -391,15 +461,19 @@ func randomSatsPieces(n, nPieces int) map[storj.NodeID][]*pieceToCheck {
 	return ret
 }
 
-func writeSatsPieces(ctx context.Context, t *testing.T, store *pieces.Store, satsPieces map[storj.NodeID][]*pieceToCheck) {
+func writeSatsPiecesWithExpiration(ctx context.Context, t *testing.T, store *pieces.Store, satsPieces map[storj.NodeID][]*pieceToCheck, expiration time.Time) {
 	for sat, pieces := range satsPieces {
 		for _, p := range pieces {
-			writeToStore(ctx, t, store, sat, p)
+			writeToStore(ctx, t, store, sat, p, expiration)
 		}
 	}
 }
 
-func writeToStore(ctx context.Context, t *testing.T, store *pieces.Store, sat storj.NodeID, piece *pieceToCheck) {
+func writeSatsPieces(ctx context.Context, t *testing.T, store *pieces.Store, satsPieces map[storj.NodeID][]*pieceToCheck) {
+	writeSatsPiecesWithExpiration(ctx, t, store, satsPieces, time.Time{})
+}
+
+func writeToStore(ctx context.Context, t *testing.T, store *pieces.Store, sat storj.NodeID, piece *pieceToCheck, expiration time.Time) {
 	w, err := store.Writer(ctx, sat, piece.id, piece.hashAlgo)
 	require.NoError(t, err)
 	defer func() { require.NoError(t, w.Cancel(ctx)) }()
@@ -412,7 +486,12 @@ func writeToStore(ctx context.Context, t *testing.T, store *pieces.Store, sat st
 
 	piece.hash = w.Hash()
 
-	require.NoError(t, w.Commit(ctx, &pb.PieceHeader{Hash: w.Hash()}))
+	require.NoError(t, w.Commit(ctx, &pb.PieceHeader{
+		Hash: w.Hash(),
+		OrderLimit: pb.OrderLimit{
+			PieceExpiration: expiration,
+		},
+	}))
 }
 
 func readFromStore(ctx context.Context, t *testing.T, store *pieces.Store, sat storj.NodeID, piece *pieceToCheck) {

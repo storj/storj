@@ -12,7 +12,7 @@ import (
 	"github.com/spf13/cobra"
 	"github.com/zeebo/errs"
 
-	"storj.io/storj/private/mud"
+	"storj.io/storj/shared/mud"
 )
 
 // NewComponentCmd creates a new components command with subcommands.

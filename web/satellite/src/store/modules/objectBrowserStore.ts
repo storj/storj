@@ -1,7 +1,7 @@
 // Copyright (C) 2023 Storj Labs, Inc.
 // See LICENSE for copying information.
 
-import { computed, reactive, UnwrapNestedRefs } from 'vue';
+import { computed, reactive, UnwrapNestedRefs, h } from 'vue';
 import { defineStore } from 'pinia';
 import {
     _Object,
@@ -39,10 +39,11 @@ import { AnalyticsErrorEventSource } from '@/utils/constants/analyticsEventNames
 import { useAppStore } from '@/store/modules/appStore';
 import { useNotificationsStore } from '@/store/modules/notificationsStore';
 import { DEFAULT_PAGE_LIMIT } from '@/types/pagination';
-import { ObjectDeleteError, DuplicateUploadError } from '@/utils/error';
+import { ObjectDeleteError } from '@/utils/error';
 import { useConfigStore } from '@/store/modules/configStore';
 import { LocalData } from '@/utils/localData';
 import { ObjectLockStatus, Retention } from '@/types/objectLock';
+import { NotifyRenderedUplinkCLIMessage } from '@/types/DelayedNotification';
 
 export type BrowserObject = {
     Key: string;
@@ -82,29 +83,29 @@ export type UploadingBrowserObject = BrowserObject & {
     Bucket: string;
     Body: File;
     failedMessage?: FailedUploadMessage;
-}
+};
 
 export type PreviewCache = {
     url: string,
     lastModified: number,
-}
+};
 
 export const MAX_KEY_COUNT = 500;
 
 export type ObjectBrowserCursor = {
     page: number,
     limit: number,
-}
+};
 
 export type ObjectRange = {
     start: number,
     end: number,
-}
+};
 
 export type FileToUpload = {
     path: string,
     file: File,
-}
+};
 
 export class FilesState {
     s3: S3Client | null = null;
@@ -133,6 +134,8 @@ export class FilesState {
     // Local storage data changes are not reactive.
     // So we need to store this info here to make sure components rerender on changes.
     objectCountOfSelectedBucket = LocalData.getObjectCountOfSelectedBucket() ?? 0;
+
+    largeFileNotificationTimeout: ReturnType<typeof setTimeout> | undefined;
 }
 
 type InitializedFilesState = FilesState & {
@@ -164,6 +167,8 @@ export const useObjectBrowserStore = defineStore('objectBrowser', () => {
     const state = reactive<FilesState>(new FilesState());
 
     const configStore = useConfigStore();
+    const appStore = useAppStore();
+    const { notifyError, notifyWarning } = useNotificationsStore();
 
     // TODO: replace a hard-coded value with a config value?
     const isAltPagination = computed<boolean>(() => {
@@ -672,9 +677,6 @@ export const useObjectBrowserStore = defineStore('objectBrowser', () => {
     async function enqueueUpload(key: string, body: File): Promise<void> {
         assertIsInitialized(state);
 
-        const appStore = useAppStore();
-        const { notifyError } = useNotificationsStore();
-
         const params = {
             Bucket: state.bucket,
             Key: key,
@@ -707,7 +709,27 @@ export const useObjectBrowserStore = defineStore('objectBrowser', () => {
                 type: 'file',
             });
 
+            notifyError(() => {
+                return [
+                    h('span', {}, `${key}: the file size is too large. To upload large files, please use the `),
+                    ...NotifyRenderedUplinkCLIMessage,
+                ];
+            }, AnalyticsErrorEventSource.OBJECT_UPLOAD_ERROR, undefined);
+
             return;
+        }
+
+        // If file size exceeds 5 GB, show warning message.
+        if (body.size > (5 * 1024 * 1024 * 1024)) {
+            clearTimeout(state.largeFileNotificationTimeout);
+            state.largeFileNotificationTimeout = setTimeout(() => {
+                notifyWarning(() => {
+                    return [
+                        h('span', {}, `To upload large files, please consider using the `),
+                        ...NotifyRenderedUplinkCLIMessage,
+                    ];
+                }, undefined);
+            }, 100);
         }
 
         // Upload 4 parts at a time.
@@ -788,13 +810,20 @@ export const useObjectBrowserStore = defineStore('objectBrowser', () => {
         item.status = UploadingStatus.Failed;
         item.failedMessage = FailedUploadMessage.Failed;
 
-        const { notifyError } = useNotificationsStore();
-
         const limitExceededError = 'storage limit exceeded';
         if (error.message.includes(limitExceededError)) {
             notifyError(`Error: ${limitExceededError}`, AnalyticsErrorEventSource.OBJECT_UPLOAD_ERROR);
         } else {
             notifyError(error.message, AnalyticsErrorEventSource.OBJECT_UPLOAD_ERROR);
+        }
+
+        if (item.Body.size > (1024 * 1024 * 1024)) {
+            notifyWarning(() => {
+                return [
+                    h('span', {}, `To upload large files, please consider using the `),
+                    ...NotifyRenderedUplinkCLIMessage,
+                ];
+            }, undefined, 10000);
         }
     }
 
@@ -1284,6 +1313,8 @@ export const useObjectBrowserStore = defineStore('objectBrowser', () => {
         state.showObjectVersions = { value: false, userModified: false };
         state.versionsExpandedKeys = [];
         state.objectCountOfSelectedBucket = 0;
+        clearTimeout(state.largeFileNotificationTimeout);
+        state.largeFileNotificationTimeout = undefined;
     }
 
     return {

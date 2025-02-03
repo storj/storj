@@ -2,7 +2,7 @@
 // See LICENSE for copying information.
 
 <template>
-    <v-card variant="outlined" rounded="lg">
+    <v-card variant="flat" rounded="md">
         <div class="h-100 d-flex flex-column justify-space-between">
             <a role="button" class="h-100" @click="previewClicked">
                 <template v-if="previewType === PreviewType.Image">
@@ -25,7 +25,7 @@
                                     :src="item.typeInfo.icon"
                                     :alt="item.typeInfo.title + 'icon'"
                                     :aria-roledescription="item.typeInfo.title + 'icon'"
-                                    height="52"
+                                    height="70"
                                 >
                             </div>
                         </template>
@@ -48,7 +48,7 @@
                                 :alt="item.typeInfo.title + 'icon'"
                                 :aria-roledescription="item.typeInfo.title + 'icon'"
                                 class="bg-background rounded-xlg"
-                                height="52"
+                                height="70"
                             >
                             </div>
                         </div>
@@ -62,7 +62,7 @@
                         :src="item.typeInfo.icon"
                         :alt="item.typeInfo.title + 'icon'"
                         :aria-roledescription="item.typeInfo.title + 'icon'"
-                        height="52"
+                        height="70"
                     >
                 </div>
             </a>
@@ -81,7 +81,11 @@
             />
             <v-card-item class="pt-0">
                 <v-card-title>
-                    <small :title="item.browserObject.Key">
+                    <small
+                        class="link text-decoration-none"
+                        :title="item.browserObject.Key"
+                        @click="() => emit('previewClick', item.browserObject)"
+                    >
                         {{ item.browserObject.Key }}
                     </small>
                 </v-card-title>

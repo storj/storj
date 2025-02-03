@@ -4,6 +4,7 @@
 package collector_test
 
 import (
+	"context"
 	"testing"
 	"time"
 
@@ -15,6 +16,7 @@ import (
 	"storj.io/storj/private/testplanet"
 	"storj.io/storj/storagenode"
 	"storj.io/storj/storagenode/pieces"
+	"storj.io/storj/storagenode/piecestore"
 )
 
 func TestCollector(t *testing.T) {
@@ -29,6 +31,14 @@ func TestCollector(t *testing.T) {
 			),
 		},
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+		// disableMigrationBackend disables the migration backend for
+		// this test to ensure that pieces with TTL are not moved to the
+		// hashstore, allowing the test to focus on the collection of
+		// expired pieces in the old store. This is necessary because
+		// the test is specifically designed to verify the functionality
+		// of the old collector.
+		disableMigrationBackend(ctx, planet)
+
 		// check that the collector runs without error when there are no expired pieces
 		err := planet.StorageNodes[1].StorageOld.Collector.Collect(ctx, time.Now())
 		require.NoError(t, err)
@@ -74,6 +84,14 @@ func TestCollector_oldDB(t *testing.T) {
 			),
 		},
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+		// disableMigrationBackend disables the migration backend for
+		// this test to ensure that pieces with TTL are not moved to the
+		// hashstore, allowing the test to focus on the collection of
+		// expired pieces in the old store. This is necessary because
+		// the test is specifically designed to verify the functionality
+		// of the old collector.
+		disableMigrationBackend(ctx, planet)
+
 		// check that the collector runs without error when there are no expired pieces
 		err := planet.StorageNodes[1].StorageOld.Collector.Collect(ctx, time.Now())
 		require.NoError(t, err)
@@ -105,4 +123,18 @@ func TestCollector_oldDB(t *testing.T) {
 		// check that pieces are deleted
 		checkExpired(time.Now().Add(2*time.Hour), 0)
 	})
+}
+
+func disableMigrationBackend(ctx context.Context, planet *testplanet.Planet) {
+	for _, sn := range planet.StorageNodes {
+		for _, sat := range planet.Satellites {
+			sn.Storage2.MigratingBackend.UpdateState(ctx, sat.ID(), func(state *piecestore.MigrationState) {
+				state.PassiveMigrate = false
+				state.WriteToNew = false
+				state.ReadNewFirst = false
+				state.TTLToNew = false
+			})
+			sn.Storage2.MigrationChore.SetMigrate(sat.ID(), false, false)
+		}
+	}
 }

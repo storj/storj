@@ -2,7 +2,7 @@
 // See LICENSE for copying information.
 
 <template>
-    <v-card>
+    <v-card class="pa-4">
         <v-text-field
             v-model="search"
             label="Search"
@@ -13,9 +13,8 @@
             hide-details
             clearable
             density="comfortable"
-            rounded="lg"
-            :maxlength="MAX_SEARCH_VALUE_LENGTH"
-            class="mx-2 mt-2"
+            xl11 :maxlength="MAX_SEARCH_VALUE_LENGTH"
+            class="mb-4"
         />
 
         <v-data-table-server
@@ -28,10 +27,11 @@
             items-per-page-text="Buckets per page"
             :items-per-page-options="tableSizeOptions(page.totalCount)"
             no-data-text="No buckets found"
+            class="border"
             hover
-            @update:itemsPerPage="onUpdateLimit"
+            @update:items-per-page="onUpdateLimit"
             @update:page="onUpdatePage"
-            @update:sortBy="onUpdateSort"
+            @update:sort-by="onUpdateSort"
         >
             <template #item.name="{ item }">
                 <v-btn
@@ -43,7 +43,7 @@
                     @click="openBucket(item.name)"
                 >
                     <template #default>
-                        <img class="mr-3" src="../assets/icon-bucket-tonal.svg" alt="Bucket">
+                        <img class="mr-3" src="@/assets/icon-bucket-tonal.svg" alt="Bucket">
                         <div class="max-width">
                             <p class="font-weight-bold text-lowercase text-truncate">{{ item.name }}</p>
                         </div>
@@ -80,7 +80,7 @@
                     <v-icon size="28" class="mr-1 pa-1 rounded-lg border">
                         <component :is="item.location === 'global' ? Earth : LandPlot" :size="18" />
                     </v-icon>
-                    <v-chip variant="tonal" color="default" size="small" class="text-capitalize">
+                    <v-chip variant="tonal" :color="item.location === 'global' ? 'success' : 'primary'" size="small" class="text-capitalize">
                         {{ item.location || `unknown(${item.defaultPlacement})` }}
                     </v-chip>
                 </div>
@@ -92,7 +92,7 @@
                             <v-icon v-bind="props" size="28" :icon="getVersioningIcon(item.versioning)" class="mr-1 pa-1 rounded-lg border" />
                         </template>
                     </v-tooltip>
-                    <v-chip variant="tonal" color="default" size="small">
+                    <v-chip variant="tonal" :color="getVersioningChipColor(item.versioning)" size="small">
                         {{ item.versioning }}
                     </v-chip>
                 </div>
@@ -101,10 +101,10 @@
                 <div class="text-no-wrap">
                     <v-tooltip location="top" :text="getObjectLockInfo(item)">
                         <template #activator="{ props }">
-                            <v-icon v-bind="props" size="28" :icon="Lock" class="mr-1 pa-1 rounded-lg border" />
+                            <v-icon v-bind="props" size="28" :icon="item.objectLockEnabled ? LockKeyhole : LockKeyholeOpen" class="mr-1 pa-1 rounded-lg border" />
                         </template>
                     </v-tooltip>
-                    <v-chip variant="tonal" color="default" size="small">
+                    <v-chip variant="tonal" :color="item.objectLockEnabled ? 'success' : 'default'" size="small">
                         {{ item.objectLockEnabled ? 'Enabled' : 'Disabled' }}
                     </v-chip>
                 </div>
@@ -207,7 +207,7 @@
         </v-data-table-server>
     </v-card>
     <delete-bucket-dialog v-model="isDeleteBucketDialogShown" :bucket-name="bucketToDelete" />
-    <enter-bucket-passphrase-dialog v-model="isBucketPassphraseDialogOpen" @passphraseEntered="passphraseDialogCallback" />
+    <enter-bucket-passphrase-dialog v-model="isBucketPassphraseDialogOpen" @passphrase-entered="passphraseDialogCallback" />
     <share-dialog v-model="isShareBucketDialogShown" :bucket-name="shareBucketName" />
     <bucket-details-dialog v-model="isBucketDetailsDialogShown" :bucket-name="bucketDetailsName" />
     <set-bucket-object-lock-config-dialog v-if="objectLockUIEnabled" v-model="isSetBucketObjectLockDialogShown" :bucket-name="bucketObjectLockName" />
@@ -248,6 +248,8 @@ import {
     History,
     LandPlot,
     Lock,
+    LockKeyhole,
+    LockKeyholeOpen,
 } from 'lucide-vue-next';
 
 import { Memory, Size } from '@/utils/bytesSize';
@@ -305,7 +307,7 @@ let passphraseDialogCallback: () => void = () => {};
 type SortItem = {
     key: keyof Bucket;
     order: boolean | 'asc' | 'desc';
-}
+};
 
 const displayedItems = computed<Bucket[]>(() => {
     const items = page.value.buckets;
@@ -524,6 +526,20 @@ function getVersioningIcon(status: Versioning): FunctionalComponent {
         return CircleMinus;
     default:
         return CircleHelp;
+    }
+}
+
+/**
+ * Returns chip color based on versioning status.
+ */
+function getVersioningChipColor(status: Versioning): string {
+    switch (status) {
+    case Versioning.Enabled:
+        return 'success';
+    case Versioning.Suspended:
+        return 'warning';
+    default:
+        return 'default';
     }
 }
 

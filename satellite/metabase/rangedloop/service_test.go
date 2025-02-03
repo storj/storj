@@ -8,7 +8,6 @@ import (
 	"errors"
 	"fmt"
 	"sort"
-	"strconv"
 	"sync"
 	"sync/atomic"
 	"testing"
@@ -18,7 +17,6 @@ import (
 	"go.uber.org/zap"
 	"go.uber.org/zap/zaptest"
 
-	"storj.io/common/memory"
 	"storj.io/common/storj"
 	"storj.io/common/testcontext"
 	"storj.io/common/testrand"
@@ -378,19 +376,20 @@ func TestLoopContinuesAfterObserverError(t *testing.T) {
 
 func TestAllInOne(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
-		SatelliteCount: 1, StorageNodeCount: 4, UplinkCount: 1,
+		SatelliteCount: 1, UplinkCount: 1,
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 		log := zaptest.NewLogger(t)
 		satellite := planet.Satellites[0]
 
+		segments := []metabase.RawSegment{}
 		for i := 0; i < 100; i++ {
-			err := planet.Uplinks[0].Upload(ctx, satellite, "testbucket", "object"+strconv.Itoa(i), testrand.Bytes(5*memory.KiB))
-			require.NoError(t, err)
+			stream := metabasetest.RandObjectStream()
+			segments = append(segments, metabasetest.DefaultRawSegment(stream, metabase.SegmentPosition{}))
 		}
 
-		require.NoError(t, planet.Uplinks[0].CreateBucket(ctx, satellite, "bf-bucket"))
+		require.NoError(t, planet.Satellites[0].Metabase.DB.TestingBatchInsertSegments(ctx, segments))
 
-		metabaseProvider := rangedloop.NewMetabaseRangeSplitter(log, satellite.Metabase.DB, 0, 0, 10)
+		require.NoError(t, planet.Uplinks[0].CreateBucket(ctx, satellite, "bf-bucket"))
 
 		config := rangedloop.Config{
 			Parallelism: 8,
@@ -403,6 +402,7 @@ func TestAllInOne(t *testing.T) {
 		require.NoError(t, err)
 		bfConfig.AccessGrant = accessGrant
 
+		metabaseProvider := rangedloop.NewMetabaseRangeSplitter(log, satellite.Metabase.DB, 0, 0, 10)
 		service := rangedloop.NewService(log, config, metabaseProvider, []rangedloop.Observer{
 			rangedloop.NewLiveCountObserver(satellite.Metabase.DB, config.SuspiciousProcessedRatio, config.AsOfSystemInterval),
 			metrics.NewObserver(),

@@ -95,16 +95,26 @@ func (e *PlacementConfigEnvironment) apply(env map[any]any) {
 
 // LoadConfig loads the placement yaml file and creates the Placement definitions.
 func LoadConfig(configFile string, environment *PlacementConfigEnvironment) (PlacementDefinitions, error) {
+	data, err := os.ReadFile(configFile)
+	if err != nil {
+		return nil, errs.New("Couldn't read placement config file from %s: %v", configFile, err)
+	}
+	placements, err := LoadConfigFromString(string(data), environment)
+	if err != nil {
+		return nil, errs.New("Couldn't parse placement config file from %s: %v", configFile, err)
+	}
+	return placements, nil
+}
+
+// LoadConfigFromString loads the placement YAML from a string and creates the Placement definitions.
+func LoadConfigFromString(config string, environment *PlacementConfigEnvironment) (PlacementDefinitions, error) {
 	placements := make(PlacementDefinitions)
 
 	cfg := &placementConfig{}
-	raw, err := os.ReadFile(configFile)
+
+	err := yaml.Unmarshal([]byte(config), &cfg)
 	if err != nil {
-		return placements, errs.New("Couldn't load placement config from file %s: %v", configFile, err)
-	}
-	err = yaml.Unmarshal(raw, &cfg)
-	if err != nil {
-		return placements, errs.New("Couldn't parse placement config as YAML from file  %s: %v", configFile, err)
+		return placements, errs.New("Couldn't parse placement config as YAML: %v", err)
 	}
 
 	templates := map[string]string{}
@@ -317,12 +327,38 @@ func SelectorFromString(expr string, environment *PlacementConfigEnvironment) (N
 			}
 			return BalancedGroupBasedSelector(attr, filter), nil
 		},
-		"weighted": func(attribute string, defaultWeight int64, filter NodeFilter) (NodeSelectorInit, error) {
-			attr, err := CreateNodeValue(attribute)
+		"weighted": func(attribute string, defaultWeight float64, filter NodeFilter) (NodeSelectorInit, error) {
+			value, err := CreateNodeValue(attribute)
 			if err != nil {
 				return nil, err
 			}
-			return WeightedSelector(attr, defaultWeight, filter), nil
+			return WeightedSelector(NodeValue(func(node SelectedNode) float64 {
+				nodeValue := value(node)
+				if nodeValue == 0 {
+					nodeValue = defaultWeight
+				} else if nodeValue <= 0 {
+					nodeValue = 0
+				}
+				return nodeValue
+			}), filter), nil
+		},
+		"weightedf": func(valueFunc NodeValue, filter NodeFilter) (NodeSelectorInit, error) {
+			return WeightedSelector(valueFunc, filter), nil
+		},
+		"weighted_with_adjustment": func(attribute string, defaultWeight, valueBallast, valuePower float64, filter NodeFilter) (NodeSelectorInit, error) {
+			value, err := CreateNodeValue(attribute)
+			if err != nil {
+				return nil, err
+			}
+			return WeightedSelector(NodeValue(func(node SelectedNode) float64 {
+				nodeValue := value(node)
+				if nodeValue == 0 {
+					nodeValue = defaultWeight
+				} else if nodeValue <= 0 {
+					nodeValue = 0
+				}
+				return math.Pow(nodeValue, valuePower) + valueBallast
+			}), filter), nil
 		},
 		"filterbest": FilterBest,
 		"bestofn":    BestOfN,
@@ -350,8 +386,10 @@ func SelectorFromString(expr string, environment *PlacementConfigEnvironment) (N
 		"lastbut":            LastBut,
 		"median":             Median,
 		"piececount":         PieceCount,
-		"desc":               Desc,
-
+		// deprecated: use * -1 instead
+		"desc":           Desc,
+		"node_attribute": CreateNodeAttribute,
+		"node_value":     CreateNodeValue,
 		"maxgroup": func(attribute interface{}) ScoreSelection {
 			switch value := attribute.(type) {
 			case NodeAttribute:
@@ -367,6 +405,7 @@ func SelectorFromString(expr string, environment *PlacementConfigEnvironment) (N
 			}
 		},
 	}
+	env = addArithmetic(env)
 	for k, v := range supportedFilters {
 		env[k] = v
 	}

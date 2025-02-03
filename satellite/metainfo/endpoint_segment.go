@@ -48,7 +48,7 @@ func (endpoint *Endpoint) beginSegment(ctx context.Context, req *pb.SegmentBegin
 
 	streamID, err := endpoint.unmarshalSatStreamID(ctx, req.StreamId)
 	if err != nil {
-		return nil, rpcstatus.Error(rpcstatus.InvalidArgument, err.Error())
+		return nil, rpcstatus.Wrap(rpcstatus.InvalidArgument, err)
 	}
 
 	keyInfo, err := endpoint.validateAuth(ctx, req.Header, macaroon.Action{
@@ -100,21 +100,18 @@ func (endpoint *Endpoint) beginSegment(ctx context.Context, req *pb.SegmentBegin
 		if overlay.ErrNotEnoughNodes.Has(err) {
 			return nil, rpcstatus.Error(rpcstatus.FailedPrecondition, err.Error())
 		}
-		endpoint.log.Error("internal", zap.Error(err))
-		return nil, rpcstatus.Error(rpcstatus.Internal, "internal error")
+		return nil, endpoint.ConvertKnownErrWithMessage(err, "internal error")
 	}
 
 	bucket := metabase.BucketLocation{ProjectID: keyInfo.ProjectID, BucketName: metabase.BucketName(streamID.Bucket)}
 	rootPieceID, addressedLimits, piecePrivateKey, err := endpoint.orders.CreatePutOrderLimits(ctx, bucket, nodes, streamID.ExpirationDate, maxPieceSize)
 	if err != nil {
-		endpoint.log.Error("internal", zap.Error(err))
-		return nil, rpcstatus.Error(rpcstatus.Internal, "unable to create order limits")
+		return nil, endpoint.ConvertKnownErrWithMessage(err, "unable to create order limits")
 	}
 
 	id, err := uuid.FromBytes(streamID.StreamId)
 	if err != nil {
-		endpoint.log.Error("internal", zap.Error(err))
-		return nil, rpcstatus.Error(rpcstatus.Internal, "unable to parse stream id")
+		return nil, endpoint.ConvertKnownErrWithMessage(err, "unable to parse stream id")
 	}
 
 	pieces := metabase.Pieces{}
@@ -156,8 +153,7 @@ func (endpoint *Endpoint) beginSegment(ctx context.Context, req *pb.SegmentBegin
 		RedundancyScheme:    redundancyScheme,
 	})
 	if err != nil {
-		endpoint.log.Error("internal", zap.Error(err))
-		return nil, rpcstatus.Error(rpcstatus.Internal, "unable to create segment id")
+		return nil, endpoint.ConvertKnownErrWithMessage(err, "unable to create segment id")
 	}
 
 	endpoint.log.Debug("Segment Upload", zap.Stringer("Project ID", keyInfo.ProjectID), zap.String("operation", "put"), zap.String("type", "remote"))
@@ -232,7 +228,7 @@ func (endpoint *Endpoint) RetryBeginSegmentPieces(ctx context.Context, req *pb.R
 	// TODO: It's possible that a node gets reused across multiple calls to RetryBeginSegmentPieces.
 	excludedIDs := make([]storj.NodeID, 0, len(segmentID.OriginalOrderLimits))
 	successTracker := endpoint.successTrackers.GetTracker(peer.ID)
-	isTrusted := endpoint.successTrackers.IsTrusted(peer.ID)
+	isTrusted := endpoint.trustedUplinks.IsTrusted(peer.ID)
 	for pieceNumber, orderLimit := range segmentID.OriginalOrderLimits {
 		excludedIDs = append(excludedIDs, orderLimit.Limit.StorageNodeId)
 		if _, found := retryingPieceNumberSet[int32(pieceNumber)]; found {
@@ -252,22 +248,19 @@ func (endpoint *Endpoint) RetryBeginSegmentPieces(ctx context.Context, req *pb.R
 		if overlay.ErrNotEnoughNodes.Has(err) {
 			return nil, rpcstatus.Error(rpcstatus.FailedPrecondition, err.Error())
 		}
-		endpoint.log.Error("internal", zap.Error(err))
-		return nil, rpcstatus.Error(rpcstatus.Internal, err.Error())
+		return nil, endpoint.ConvertKnownErrWithMessage(err, err.Error())
 	}
 
 	addressedLimits, err := endpoint.orders.ReplacePutOrderLimits(ctx, segmentID.RootPieceId, segmentID.OriginalOrderLimits, nodes, req.RetryPieceNumbers)
 	if err != nil {
-		endpoint.log.Error("internal", zap.Error(err))
-		return nil, rpcstatus.Error(rpcstatus.Internal, "internal error")
+		return nil, endpoint.ConvertKnownErrWithMessage(err, "internal error")
 	}
 
 	segmentID.OriginalOrderLimits = addressedLimits
 
 	amendedSegmentID, err := endpoint.packSegmentID(ctx, segmentID)
 	if err != nil {
-		endpoint.log.Error("internal", zap.Error(err))
-		return nil, rpcstatus.Error(rpcstatus.Internal, "unable to create segment id")
+		return nil, endpoint.ConvertKnownErrWithMessage(err, "unable to create segment id")
 	}
 
 	endpoint.log.Debug("Segment Upload Piece Retry", zap.Stringer("Project ID", keyInfo.ProjectID), zap.String("operation", "put"), zap.String("type", "remote"))
@@ -347,7 +340,7 @@ func (endpoint *Endpoint) CommitSegment(ctx context.Context, req *pb.SegmentComm
 	}
 
 	// verify the piece upload results
-	validPieces, invalidPieces, err := endpoint.pointerVerification.SelectValidPieces(ctx, req.UploadResult, originalLimits)
+	validPieces, invalidPieces, err := endpoint.pointerVerification.SelectValidPieces(ctx, peer, req.UploadResult, originalLimits)
 	if err != nil {
 		endpoint.log.Debug("pointer verification failed", zap.Error(err))
 		return nil, rpcstatus.Errorf(rpcstatus.InvalidArgument, "pointer verification failed: %s", err)
@@ -387,8 +380,7 @@ func (endpoint *Endpoint) CommitSegment(ctx context.Context, req *pb.SegmentComm
 
 	id, err := uuid.FromBytes(streamID.StreamId)
 	if err != nil {
-		endpoint.log.Error("internal", zap.Error(err))
-		return nil, rpcstatus.Error(rpcstatus.Internal, "unable to parse stream id")
+		return nil, endpoint.ConvertKnownErrWithMessage(err, "unable to parse stream id")
 	}
 
 	var expiresAt *time.Time
@@ -461,7 +453,7 @@ func (endpoint *Endpoint) CommitSegment(ctx context.Context, req *pb.SegmentComm
 	// increment our counters in the success tracker appropriate to the committing uplink
 	{
 		tracker := endpoint.successTrackers.GetTracker(peer.ID)
-		isTrusted := endpoint.successTrackers.IsTrusted(peer.ID)
+		isTrusted := endpoint.trustedUplinks.IsTrusted(peer.ID)
 		validPieceSet := make(map[storj.NodeID]struct{}, len(validPieces))
 		for _, piece := range validPieces {
 			tracker.Increment(piece.NodeId, true)
@@ -524,8 +516,7 @@ func (endpoint *Endpoint) MakeInlineSegment(ctx context.Context, req *pb.Segment
 
 	id, err := uuid.FromBytes(streamID.StreamId)
 	if err != nil {
-		endpoint.log.Error("internal", zap.Error(err))
-		return nil, rpcstatus.Error(rpcstatus.Internal, "unable to parse stream id")
+		return nil, endpoint.ConvertKnownErrWithMessage(err, "unable to parse stream id")
 	}
 
 	if err := endpoint.checkUploadLimits(ctx, keyInfo); err != nil {
@@ -566,8 +557,7 @@ func (endpoint *Endpoint) MakeInlineSegment(ctx context.Context, req *pb.Segment
 	bucket := metabase.BucketLocation{ProjectID: keyInfo.ProjectID, BucketName: metabase.BucketName(streamID.Bucket)}
 	err = endpoint.orders.UpdatePutInlineOrder(ctx, bucket, inlineUsed)
 	if err != nil {
-		endpoint.log.Error("internal", zap.Error(err))
-		return nil, rpcstatus.Error(rpcstatus.Internal, "unable to update PUT inline order")
+		return nil, endpoint.ConvertKnownErrWithMessage(err, "unable to update PUT inline order")
 	}
 
 	if err := endpoint.addSegmentToUploadLimits(ctx, keyInfo, inlineUsed); err != nil {
@@ -611,8 +601,7 @@ func (endpoint *Endpoint) ListSegments(ctx context.Context, req *pb.SegmentListR
 
 	id, err := uuid.FromBytes(streamID.StreamId)
 	if err != nil {
-		endpoint.log.Error("internal", zap.Error(err))
-		return nil, rpcstatus.Error(rpcstatus.Internal, "unable to parse stream id")
+		return nil, endpoint.ConvertKnownErrWithMessage(err, "unable to parse stream id")
 	}
 
 	result, err := endpoint.metabase.ListStreamPositions(ctx, metabase.ListStreamPositions{
@@ -630,8 +619,7 @@ func (endpoint *Endpoint) ListSegments(ctx context.Context, req *pb.SegmentListR
 
 	response, err := convertStreamListResults(result)
 	if err != nil {
-		endpoint.log.Error("unable to convert stream list", zap.Error(err))
-		return nil, rpcstatus.Error(rpcstatus.Internal, "unable to convert stream list")
+		return nil, endpoint.ConvertKnownErrWithMessage(err, "unable to convert stream list")
 	}
 	response.EncryptionParameters = streamID.EncryptionParameters
 
@@ -708,8 +696,7 @@ func (endpoint *Endpoint) DownloadSegment(ctx context.Context, req *pb.SegmentDo
 
 	id, err := uuid.FromBytes(streamID.StreamId)
 	if err != nil {
-		endpoint.log.Error("internal", zap.Error(err))
-		return nil, rpcstatus.Error(rpcstatus.Internal, "unable to parse stream id")
+		return nil, endpoint.ConvertKnownErrWithMessage(err, "unable to parse stream id")
 	}
 
 	var segment metabase.Segment
@@ -756,15 +743,13 @@ func (endpoint *Endpoint) DownloadSegment(ctx context.Context, req *pb.SegmentDo
 
 	encryptedKeyNonce, err := storj.NonceFromBytes(segment.EncryptedKeyNonce)
 	if err != nil {
-		endpoint.log.Error("unable to get encryption key nonce from metadata", zap.Error(err))
-		return nil, rpcstatus.Error(rpcstatus.Internal, "unable to get encryption key nonce from metadata")
+		return nil, endpoint.ConvertKnownErrWithMessage(err, "unable to get encryption key nonce from metadata")
 	}
 
 	if segment.Inline() {
 		err := endpoint.orders.UpdateGetInlineOrder(ctx, bucket, int64(len(segment.InlineData)))
 		if err != nil {
-			endpoint.log.Error("internal", zap.Error(err))
-			return nil, rpcstatus.Error(rpcstatus.Internal, "unable to update GET inline order")
+			return nil, endpoint.ConvertKnownErrWithMessage(err, "unable to update GET inline order")
 		}
 
 		endpoint.versionCollector.collectTransferStats(req.Header.UserAgent, download, len(segment.InlineData))
@@ -797,8 +782,7 @@ func (endpoint *Endpoint) DownloadSegment(ctx context.Context, req *pb.SegmentDo
 				zap.Error(err),
 			)
 		}
-		endpoint.log.Error("internal", zap.Error(err))
-		return nil, rpcstatus.Error(rpcstatus.Internal, "unable to create order limits")
+		return nil, endpoint.ConvertKnownErrWithMessage(err, "unable to create order limits")
 	}
 
 	endpoint.versionCollector.collectTransferStats(req.Header.UserAgent, download, int(segment.EncryptedSize))

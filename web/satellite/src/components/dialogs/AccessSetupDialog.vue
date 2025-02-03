@@ -9,15 +9,16 @@
         min-width="320px"
         transition="fade-transition"
         persistent
+        scrollable
     >
         <v-card ref="innerContent">
             <v-sheet>
                 <v-card-item class="pa-6">
-                    <v-card-title class="font-weight-bold">
+                    <v-card-title class="font-weight-bold mt-n1">
                         New {{ selectedApp ? selectedApp.name : '' }} Access
                     </v-card-title>
                     <v-card-subtitle class="text-caption pb-0">
-                        Step: {{ stepName }}
+                        {{ stepName }}
                     </v-card-subtitle>
                     <template #append>
                         <v-btn
@@ -30,7 +31,7 @@
                         />
                     </template>
                     <template v-if="selectedApp" #prepend>
-                        <img :src="selectedApp.src" :alt="selectedApp.name" width="40" height="40" class="rounded">
+                        <img :src="selectedApp.src" :alt="selectedApp.name" width="40" height="40" class="rounded-md border pa-2">
                     </template>
                     <template v-else #prepend>
                         <v-sheet
@@ -48,110 +49,112 @@
 
             <v-divider />
 
-            <v-window
-                v-model="step"
-                class="setup-app__window"
-                :class="{ 'setup-app__window--loading': isFetching }"
-            >
-                <v-window-item :value="SetupStep.ChooseAccessStep">
-                    <choose-access-step
-                        :ref="stepInfos[SetupStep.ChooseAccessStep].ref"
-                        @name-changed="newName => name = newName"
-                        @typeChanged="newType => accessType = newType"
-                        @submit="nextStep"
-                        @appChanged="application => selectedApp = application"
-                    />
-                </v-window-item>
+            <v-card-text class="pa-0">
+                <v-window
+                    v-model="step"
+                    class="setup-app__window"
+                    :class="{ 'setup-app__window--loading': isFetching }"
+                >
+                    <v-window-item :value="SetupStep.ChooseAccessStep">
+                        <choose-access-step
+                            :ref="stepInfos[SetupStep.ChooseAccessStep].ref"
+                            @name-changed="newName => name = newName"
+                            @type-changed="newType => accessType = newType"
+                            @submit="nextStep"
+                            @app-changed="application => selectedApp = application"
+                        />
+                    </v-window-item>
 
-                <v-window-item :value="SetupStep.EncryptionInfo">
-                    <encryption-info-step :ref="stepInfos[SetupStep.EncryptionInfo].ref" />
-                </v-window-item>
+                    <v-window-item :value="SetupStep.EncryptionInfo">
+                        <encryption-info-step :ref="stepInfos[SetupStep.EncryptionInfo].ref" />
+                    </v-window-item>
 
-                <v-window-item :value="SetupStep.ChooseFlowStep">
-                    <choose-flow-step
-                        :ref="stepInfos[SetupStep.ChooseFlowStep].ref"
-                        :app="selectedApp"
-                        @setFlowType="val => flowType = val"
-                    />
-                </v-window-item>
+                    <v-window-item :value="SetupStep.ChooseFlowStep">
+                        <choose-flow-step
+                            :ref="stepInfos[SetupStep.ChooseFlowStep].ref"
+                            :app="selectedApp"
+                            @set-flow-type="val => flowType = val"
+                        />
+                    </v-window-item>
 
-                <v-window-item :value="SetupStep.AccessEncryption">
-                    <access-encryption-step
-                        :ref="stepInfos[SetupStep.AccessEncryption].ref"
-                        @selectOption="val => passphraseOption = val"
-                        @passphraseChanged="val => passphrase = val"
-                        @submit="nextStep"
-                    />
-                </v-window-item>
+                    <v-window-item :value="SetupStep.AccessEncryption">
+                        <access-encryption-step
+                            :ref="stepInfos[SetupStep.AccessEncryption].ref"
+                            @select-option="val => passphraseOption = val"
+                            @passphrase-changed="val => passphrase = val"
+                            @submit="nextStep"
+                        />
+                    </v-window-item>
 
-                <v-window-item :value="SetupStep.EnterNewPassphrase">
-                    <enter-passphrase-step
-                        :ref="stepInfos[SetupStep.EnterNewPassphrase].ref"
-                        @passphraseChanged="val => passphrase = val"
-                    />
-                </v-window-item>
+                    <v-window-item :value="SetupStep.EnterNewPassphrase">
+                        <enter-passphrase-step
+                            :ref="stepInfos[SetupStep.EnterNewPassphrase].ref"
+                            @passphrase-changed="val => passphrase = val"
+                        />
+                    </v-window-item>
 
-                <v-window-item :value="SetupStep.PassphraseGenerated">
-                    <passphrase-generated-step
-                        :ref="stepInfos[SetupStep.PassphraseGenerated].ref"
-                        :name="name"
-                        @passphraseChanged="val => passphrase = val"
-                    />
-                </v-window-item>
+                    <v-window-item :value="SetupStep.PassphraseGenerated">
+                        <passphrase-generated-step
+                            :ref="stepInfos[SetupStep.PassphraseGenerated].ref"
+                            :name="name"
+                            @passphrase-changed="val => passphrase = val"
+                        />
+                    </v-window-item>
 
-                <v-window-item :value="SetupStep.ChoosePermissionsStep">
-                    <choose-permissions-step
-                        :ref="stepInfos[SetupStep.ChoosePermissionsStep].ref"
-                        @permissionsChanged="val => permissions = val"
-                    />
-                </v-window-item>
+                    <v-window-item :value="SetupStep.ChoosePermissionsStep">
+                        <choose-permissions-step
+                            :ref="stepInfos[SetupStep.ChoosePermissionsStep].ref"
+                            @permissions-changed="val => permissions = val"
+                        />
+                    </v-window-item>
 
-                <v-window-item :value="SetupStep.ObjectLockPermissionsStep">
-                    <object-lock-permissions-step
-                        :ref="stepInfos[SetupStep.ObjectLockPermissionsStep].ref"
-                        @permissionsChanged="val => objectLockPermissions = val"
-                    />
-                </v-window-item>
+                    <v-window-item :value="SetupStep.ObjectLockPermissionsStep">
+                        <object-lock-permissions-step
+                            :ref="stepInfos[SetupStep.ObjectLockPermissionsStep].ref"
+                            @permissions-changed="val => objectLockPermissions = val"
+                        />
+                    </v-window-item>
 
-                <v-window-item :value="SetupStep.SelectBucketsStep">
-                    <select-buckets-step
-                        :ref="stepInfos[SetupStep.SelectBucketsStep].ref"
-                        @bucketsChanged="val => buckets = val"
-                    />
-                </v-window-item>
+                    <v-window-item :value="SetupStep.SelectBucketsStep">
+                        <select-buckets-step
+                            :ref="stepInfos[SetupStep.SelectBucketsStep].ref"
+                            @buckets-changed="val => buckets = val"
+                        />
+                    </v-window-item>
 
-                <v-window-item :value="SetupStep.OptionalExpirationStep">
-                    <optional-expiration-step
-                        :ref="stepInfos[SetupStep.OptionalExpirationStep].ref"
-                        :end-date="endDate"
-                        @endDateChanged="val => endDate = val"
-                    />
-                </v-window-item>
+                    <v-window-item :value="SetupStep.OptionalExpirationStep">
+                        <optional-expiration-step
+                            :ref="stepInfos[SetupStep.OptionalExpirationStep].ref"
+                            :end-date="endDate"
+                            @end-date-changed="val => endDate = val"
+                        />
+                    </v-window-item>
 
-                <v-window-item :value="SetupStep.ConfirmDetailsStep">
-                    <confirm-details-step
-                        :ref="stepInfos[SetupStep.ConfirmDetailsStep].ref"
-                        :name="name"
-                        :type="accessType"
-                        :permissions="permissions"
-                        :object-lock-permissions="objectLockPermissions"
-                        :buckets="buckets"
-                        :end-date="endDate"
-                    />
-                </v-window-item>
+                    <v-window-item :value="SetupStep.ConfirmDetailsStep">
+                        <confirm-details-step
+                            :ref="stepInfos[SetupStep.ConfirmDetailsStep].ref"
+                            :name="name"
+                            :type="accessType"
+                            :permissions="permissions"
+                            :object-lock-permissions="objectLockPermissions"
+                            :buckets="buckets"
+                            :end-date="endDate"
+                        />
+                    </v-window-item>
 
-                <v-window-item :value="SetupStep.AccessCreatedStep">
-                    <access-created-step
-                        :ref="stepInfos[SetupStep.AccessCreatedStep].ref"
-                        :name="name"
-                        :app="selectedApp"
-                        :cli-access="cliAccess"
-                        :access-grant="accessGrant"
-                        :credentials="credentials"
-                        :access-type="accessType"
-                    />
-                </v-window-item>
-            </v-window>
+                    <v-window-item :value="SetupStep.AccessCreatedStep">
+                        <access-created-step
+                            :ref="stepInfos[SetupStep.AccessCreatedStep].ref"
+                            :name="name"
+                            :app="selectedApp"
+                            :cli-access="cliAccess"
+                            :access-grant="accessGrant"
+                            :credentials="credentials"
+                            :access-type="accessType"
+                        />
+                    </v-window-item>
+                </v-window>
+            </v-card-text>
 
             <v-divider />
 
@@ -211,6 +214,7 @@ import {
     VCardItem,
     VCardSubtitle,
     VCardTitle,
+    VCardText,
     VCol,
     VDialog,
     VDivider,
@@ -343,11 +347,11 @@ const hasManagedPassphrase = computed<boolean>(() => projectsStore.state.selecte
 const stepName = computed<string>(() => {
     switch (step.value) {
     case SetupStep.ChooseAccessStep:
-        return 'Access Name And Type';
+        return 'Access Name and Type';
     case SetupStep.EncryptionInfo:
-        return 'Encryption Info';
+        return 'Encryption Information';
     case SetupStep.ChooseFlowStep:
-        return 'Flow Type';
+        return 'Configure Access';
     case SetupStep.AccessEncryption:
         return 'Access Encryption';
     case SetupStep.EnterNewPassphrase:
@@ -355,17 +359,17 @@ const stepName = computed<string>(() => {
     case SetupStep.PassphraseGenerated:
         return 'Passphrase Generated';
     case SetupStep.ChoosePermissionsStep:
-        return 'Basic Permissions';
+        return 'Access Permissions';
     case SetupStep.ObjectLockPermissionsStep:
         return 'Object Lock Permissions';
     case SetupStep.SelectBucketsStep:
         return 'Bucket Restrictions';
     case SetupStep.OptionalExpirationStep:
-        return 'Optional Expiration';
+        return 'Access Expiration';
     case SetupStep.ConfirmDetailsStep:
-        return 'Confirm Details';
+        return 'Confirm Access Details';
     case SetupStep.AccessCreatedStep:
-        return 'Access Created';
+        return 'Access Created Successfully';
     default:
         return '';
     }
