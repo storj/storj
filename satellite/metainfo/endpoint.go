@@ -99,7 +99,6 @@ type Endpoint struct {
 	failureTracker                 SuccessTracker
 	trustedUplinks                 *trust.TrustedPeersList
 	placement                      nodeselection.PlacementDefinitions
-	placementEdgeUrlOverrides      console.PlacementEdgeURLOverrides
 
 	// rateLimiterTime is a function that returns the time to check with the rate limiter.
 	// It's handy for testing purposes. It defaults to time.Now.
@@ -112,7 +111,7 @@ func NewEndpoint(log *zap.Logger, buckets *buckets.Service, metabaseDB *metabase
 	apiKeys APIKeys, projectUsage *accounting.Service, projects console.Projects, projectMembers console.ProjectMembers, users console.Users,
 	satellite signing.Signer, revocations revocation.DB, successTrackers *SuccessTrackers, failureTracker SuccessTracker,
 	trustedUplinks *trust.TrustedPeersList, config Config, migrationModeFlag *MigrationModeFlagExtension,
-	placement nodeselection.PlacementDefinitions, placementEdgeUrlOverrides console.PlacementEdgeURLOverrides, trustedOrders bool) (
+	placement nodeselection.PlacementDefinitions, trustedOrders bool) (
 	*Endpoint, error) {
 
 	// TODO do something with too many params
@@ -172,19 +171,18 @@ func NewEndpoint(log *zap.Logger, buckets *buckets.Service, metabaseDB *metabase
 			Expiration: config.UserInfoValidation.CacheExpiration,
 			Capacity:   config.UserInfoValidation.CacheCapacity,
 		}),
-		encInlineSegmentSize:      encInlineSegmentSize,
-		revocations:               revocations,
-		config:                    config,
-		migrationModeFlag:         migrationModeFlag,
-		versionCollector:          newVersionCollector(log),
-		zstdDecoder:               decoder,
-		zstdEncoder:               encoder,
-		successTrackers:           successTrackers,
-		failureTracker:            failureTracker,
-		trustedUplinks:            trustedUplinks,
-		placement:                 placement,
-		placementEdgeUrlOverrides: placementEdgeUrlOverrides,
-		rateLimiterTime:           time.Now,
+		encInlineSegmentSize: encInlineSegmentSize,
+		revocations:          revocations,
+		config:               config,
+		migrationModeFlag:    migrationModeFlag,
+		versionCollector:     newVersionCollector(log),
+		zstdDecoder:          decoder,
+		zstdEncoder:          encoder,
+		successTrackers:      successTrackers,
+		failureTracker:       failureTracker,
+		trustedUplinks:       trustedUplinks,
+		placement:            placement,
+		rateLimiterTime:      time.Now,
 	}, nil
 }
 
@@ -256,26 +254,11 @@ func (endpoint *Endpoint) ProjectInfo(ctx context.Context, req *pb.ProjectInfoRe
 	if err != nil {
 		return nil, err
 	}
-	info := &pb.ProjectInfoResponse{
+
+	return &pb.ProjectInfoResponse{
 		ProjectPublicId: keyInfo.ProjectPublicID.Bytes(),
 		ProjectSalt:     salt,
-	}
-
-	if endpoint.config.SendEdgeUrlOverrides {
-		project, err := endpoint.projects.Get(ctx, keyInfo.ProjectID)
-		if err != nil {
-			return nil, err
-		}
-		if edgeURLs, ok := endpoint.placementEdgeUrlOverrides.Get(project.DefaultPlacement); ok {
-			info.EdgeUrlOverrides = &pb.EdgeUrlOverrides{
-				AuthService:        []byte(edgeURLs.AuthService),
-				PublicLinksharing:  []byte(edgeURLs.PublicLinksharing),
-				PrivateLinksharing: []byte(edgeURLs.InternalLinksharing),
-			}
-		}
-	}
-
-	return info, nil
+	}, nil
 }
 
 // RevokeAPIKey handles requests to revoke an api key.

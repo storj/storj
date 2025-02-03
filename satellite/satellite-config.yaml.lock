@@ -995,9 +995,6 @@ identity.key-path: /root/.local/share/storj/identity/satellite/identity.key
 # redundancy scheme configuration in the format k/m/o/n-sharesize
 # metainfo.rs: 29/35/80/110-256 B
 
-# send edge URL overrides through the GetProjectInfo endpoint
-# metainfo.send-edge-url-overrides: false
-
 # enable code for server-side copy, deprecated. please leave this to true.
 # metainfo.server-side-copy: true
 

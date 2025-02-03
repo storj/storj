@@ -461,7 +461,6 @@ func NewAPI(log *zap.Logger, full *identity.FullIdentity, db DB,
 			config.Metainfo,
 			migrationModeFlag,
 			placements,
-			config.Console.PlacementEdgeURLOverrides,
 			config.Orders.TrustedOrders,
 		)
 		if err != nil {
