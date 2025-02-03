@@ -220,7 +220,6 @@ type Config struct {
 	// TODO remove when we benchmarking are done and decision is made.
 	TestListingQuery                bool      `default:"false" help:"test the new query for non-recursive listing"`
 	TestOptimizedInlineObjectUpload bool      `default:"false" devDefault:"true" help:"enables optimization for uploading objects with single inline segment"`
-	TestingPrecommitDeleteMode      int       `default:"0" help:"which code path to use for precommit delete step for unversioned objects, 0 is the default (old) code path."`
 	TestingSpannerProjects          UUIDsFlag `default:""  help:"list of project IDs for which Spanner metabase DB is enabled" hidden:"true"`
 	TestingMigrationMode            bool      `default:"false"  help:"sets metainfo API into migration mode, only read actions are allowed" hidden:"true"`
 }
@@ -228,13 +227,12 @@ type Config struct {
 // Metabase constructs Metabase configuration based on Metainfo configuration with specific application name.
 func (c Config) Metabase(applicationName string) metabase.Config {
 	return metabase.Config{
-		ApplicationName:            applicationName,
-		MinPartSize:                c.MinPartSize,
-		MaxNumberOfParts:           c.MaxNumberOfParts,
-		ServerSideCopy:             c.ServerSideCopy,
-		NodeAliasCacheFullRefresh:  c.NodeAliasCacheFullRefresh,
-		TestingPrecommitDeleteMode: metabase.TestingPrecommitDeleteMode(c.TestingPrecommitDeleteMode),
-		TestingSpannerProjects:     c.TestingSpannerProjects,
+		ApplicationName:           applicationName,
+		MinPartSize:               c.MinPartSize,
+		MaxNumberOfParts:          c.MaxNumberOfParts,
+		ServerSideCopy:            c.ServerSideCopy,
+		NodeAliasCacheFullRefresh: c.NodeAliasCacheFullRefresh,
+		TestingSpannerProjects:    c.TestingSpannerProjects,
 	}
 }
 

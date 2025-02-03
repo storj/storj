@@ -61,13 +61,12 @@ func Run(t *testing.T, fn func(ctx *testcontext.Context, t *testing.T, db *metab
 	)
 
 	RunWithConfig(t, metabase.Config{
-		ApplicationName:            "satellite-metabase-test",
-		MinPartSize:                config.MinPartSize,
-		MaxNumberOfParts:           config.MaxNumberOfParts,
-		ServerSideCopy:             config.ServerSideCopy,
-		ServerSideCopyDisabled:     config.ServerSideCopyDisabled,
-		TestingUniqueUnversioned:   true,
-		TestingPrecommitDeleteMode: metabase.TestingPrecommitDeleteMode(config.TestingPrecommitDeleteMode),
+		ApplicationName:          "satellite-metabase-test",
+		MinPartSize:              config.MinPartSize,
+		MaxNumberOfParts:         config.MaxNumberOfParts,
+		ServerSideCopy:           config.ServerSideCopy,
+		ServerSideCopyDisabled:   config.ServerSideCopyDisabled,
+		TestingUniqueUnversioned: true,
 	}, fn, flags...)
 }
 
@@ -79,10 +78,9 @@ func Bench(b *testing.B, fn func(ctx *testcontext.Context, b *testing.B, db *met
 			tctx := testcontext.New(b)
 			defer tctx.Cleanup()
 			db, err := satellitedbtest.CreateMetabaseDB(tctx, zaptest.NewLogger(b), b.Name(), "M", 0, dbinfo.MetabaseDB, metabase.Config{
-				ApplicationName:            "satellite-bench",
-				MinPartSize:                5 * memory.MiB,
-				MaxNumberOfParts:           10000,
-				TestingPrecommitDeleteMode: metabase.DefaultUnversionedPrecommitMode,
+				ApplicationName:  "satellite-bench",
+				MinPartSize:      5 * memory.MiB,
+				MaxNumberOfParts: 10000,
 			})
 			require.NoError(b, err)
 
@@ -118,8 +116,6 @@ func TestModule(ball *mud.Ball, dbinfo satellitedbtest.SatelliteDatabases, confi
 
 			ServerSideCopy:         config.ServerSideCopy,
 			ServerSideCopyDisabled: config.ServerSideCopyDisabled,
-
-			TestingPrecommitDeleteMode: config.TestingPrecommitDeleteMode,
 		}
 		return cfg
 	})
