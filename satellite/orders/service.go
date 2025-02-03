@@ -284,6 +284,26 @@ func getLimitByStorageNodeID(limits []*pb.AddressedOrderLimit, storageNodeID sto
 	return nil
 }
 
+// CreateLitePutOrderLimits creates AddressedOrderLimits with the minimal amount of information
+// necessary to reconstruct a full order limit if you had a signing key.
+func (service *Service) CreateLitePutOrderLimits(ctx context.Context, bucket metabase.BucketLocation, nodes []*nodeselection.SelectedNode, pieceExpiration time.Time, maxPieceSize int64) (_ storj.PieceID, _ []*pb.AddressedOrderLimit, privateKey storj.PiecePrivateKey, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	signer, err := NewSignerPut(service, pieceExpiration, time.Now(), maxPieceSize, bucket)
+	if err != nil {
+		return storj.PieceID{}, nil, storj.PiecePrivateKey{}, Error.Wrap(err)
+	}
+
+	for pieceNum, node := range nodes {
+		_, err := signer.SignLite(ctx, resolveStorageNode_Selected(node, true), int32(pieceNum))
+		if err != nil {
+			return storj.PieceID{}, nil, storj.PiecePrivateKey{}, Error.Wrap(err)
+		}
+	}
+
+	return signer.RootPieceID, signer.AddressedLimits, signer.PrivateKey, nil
+}
+
 // CreatePutOrderLimits creates the order limits for uploading pieces to nodes.
 func (service *Service) CreatePutOrderLimits(ctx context.Context, bucket metabase.BucketLocation, nodes []*nodeselection.SelectedNode, pieceExpiration time.Time, maxPieceSize int64) (_ storj.PieceID, _ []*pb.AddressedOrderLimit, privateKey storj.PiecePrivateKey, err error) {
 	defer mon.Task()(&ctx)(&err)

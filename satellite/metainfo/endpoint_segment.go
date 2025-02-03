@@ -103,10 +103,24 @@ func (endpoint *Endpoint) beginSegment(ctx context.Context, req *pb.SegmentBegin
 		return nil, endpoint.ConvertKnownErrWithMessage(err, "internal error")
 	}
 
+	var (
+		rootPieceID     storj.PieceID
+		addressedLimits []*pb.AddressedOrderLimit
+		piecePrivateKey storj.PiecePrivateKey
+	)
+
 	bucket := metabase.BucketLocation{ProjectID: keyInfo.ProjectID, BucketName: metabase.BucketName(streamID.Bucket)}
-	rootPieceID, addressedLimits, piecePrivateKey, err := endpoint.orders.CreatePutOrderLimits(ctx, bucket, nodes, streamID.ExpirationDate, maxPieceSize)
-	if err != nil {
-		return nil, endpoint.ConvertKnownErrWithMessage(err, "unable to create order limits")
+
+	if objectJustCreated && req.LiteRequest {
+		rootPieceID, addressedLimits, piecePrivateKey, err = endpoint.orders.CreateLitePutOrderLimits(ctx, bucket, nodes, streamID.ExpirationDate, maxPieceSize)
+		if err != nil {
+			return nil, endpoint.ConvertKnownErrWithMessage(err, "unable to create order limits")
+		}
+	} else {
+		rootPieceID, addressedLimits, piecePrivateKey, err = endpoint.orders.CreatePutOrderLimits(ctx, bucket, nodes, streamID.ExpirationDate, maxPieceSize)
+		if err != nil {
+			return nil, endpoint.ConvertKnownErrWithMessage(err, "unable to create order limits")
+		}
 	}
 
 	id, err := uuid.FromBytes(streamID.StreamId)
