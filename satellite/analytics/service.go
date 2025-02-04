@@ -476,7 +476,7 @@ func (service *Service) TrackUserOnboardingInfo(fields TrackOnboardingInfoFields
 }
 
 // TrackSignedIn sends an "Signed In" event to Segment.
-func (service *Service) TrackSignedIn(userID uuid.UUID, email string) {
+func (service *Service) TrackSignedIn(userID uuid.UUID, email, anonymousID string) {
 	if !service.config.Enabled {
 		return
 	}
@@ -485,8 +485,9 @@ func (service *Service) TrackSignedIn(userID uuid.UUID, email string) {
 	traits.SetEmail(email)
 
 	service.enqueueMessage(segment.Identify{
-		UserId: userID.String(),
-		Traits: traits,
+		UserId:      userID.String(),
+		AnonymousId: anonymousID,
+		Traits:      traits,
 	})
 
 	props := service.newPropertiesWithSatellite()

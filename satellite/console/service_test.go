@@ -2304,7 +2304,14 @@ func TestDeleteAccount(t *testing.T) {
 
 			require.NoError(t, sat.API.Buckets.Service.DeleteBucket(ctx, []byte(bucket.Name), p2.ID))
 
-			_, err = service.GenerateSessionToken(ctx, user.ID, user.Email, "", "", nil)
+			_, err = service.GenerateSessionToken(ctx, console.SessionTokenRequest{
+				UserID:         user.ID,
+				Email:          user.Email,
+				IP:             "",
+				UserAgent:      "",
+				AnonymousID:    "",
+				CustomDuration: nil,
+			})
 			require.NoError(t, err)
 
 			sessions, err := sat.DB.Console().WebappSessions().GetAllByUserID(ctx, user.ID)
@@ -3037,7 +3044,14 @@ func TestChangePassword(t *testing.T) {
 		require.NoError(t, err)
 
 		for i := 0; i < 2; i++ {
-			_, err = sat.API.Console.Service.GenerateSessionToken(userCtx, user.ID, user.Email, "", "", nil)
+			_, err = sat.API.Console.Service.GenerateSessionToken(userCtx, console.SessionTokenRequest{
+				UserID:         user.ID,
+				Email:          user.Email,
+				IP:             "",
+				UserAgent:      "",
+				AnonymousID:    "",
+				CustomDuration: nil,
+			})
 			require.NoError(t, err)
 		}
 		sessions, err := sat.DB.Console().WebappSessions().GetAllByUserID(ctx, user.ID)
@@ -3093,7 +3107,14 @@ func TestGenerateSessionToken(t *testing.T) {
 		require.NoError(t, err)
 
 		now := time.Now()
-		token1, err := srv.GenerateSessionToken(userCtx, user.ID, user.Email, "", "", nil)
+		token1, err := srv.GenerateSessionToken(userCtx, console.SessionTokenRequest{
+			UserID:         user.ID,
+			Email:          user.Email,
+			IP:             "",
+			UserAgent:      "",
+			AnonymousID:    "",
+			CustomDuration: nil,
+		})
 		require.NoError(t, err)
 		require.NotNil(t, token1)
 
@@ -3106,7 +3127,14 @@ func TestGenerateSessionToken(t *testing.T) {
 		}))
 
 		now = time.Now()
-		token2, err := srv.GenerateSessionToken(userCtx, user.ID, user.Email, "", "", nil)
+		token2, err := srv.GenerateSessionToken(userCtx, console.SessionTokenRequest{
+			UserID:         user.ID,
+			Email:          user.Email,
+			IP:             "",
+			UserAgent:      "",
+			AnonymousID:    "",
+			CustomDuration: nil,
+		})
 		require.NoError(t, err)
 		token2Duration := token2.ExpiresAt.Sub(now)
 		require.Greater(t, token2Duration, token1Duration)
@@ -3119,7 +3147,14 @@ func TestGenerateSessionToken(t *testing.T) {
 		}))
 
 		now = time.Now()
-		token3, err := srv.GenerateSessionToken(userCtx, user.ID, user.Email, "", "", nil)
+		token3, err := srv.GenerateSessionToken(userCtx, console.SessionTokenRequest{
+			UserID:         user.ID,
+			Email:          user.Email,
+			IP:             "",
+			UserAgent:      "",
+			AnonymousID:    "",
+			CustomDuration: nil,
+		})
 		require.NoError(t, err)
 		token3Duration := token3.ExpiresAt.Sub(now)
 		require.Less(t, token3Duration, token1Duration)
@@ -3127,7 +3162,14 @@ func TestGenerateSessionToken(t *testing.T) {
 		now = time.Now()
 		customDuration := 7 * 24 * time.Hour
 		inAWeek := now.Add(customDuration)
-		token4, err := srv.GenerateSessionToken(userCtx, user.ID, user.Email, "", "", &customDuration)
+		token4, err := srv.GenerateSessionToken(userCtx, console.SessionTokenRequest{
+			UserID:         user.ID,
+			Email:          user.Email,
+			IP:             "",
+			UserAgent:      "",
+			AnonymousID:    "",
+			CustomDuration: &customDuration,
+		})
 		require.NoError(t, err)
 		require.True(t, token4.ExpiresAt.After(inAWeek))
 	})
@@ -3153,7 +3195,14 @@ func TestRefreshSessionToken(t *testing.T) {
 		require.NoError(t, err)
 
 		now := time.Now()
-		token, err := srv.GenerateSessionToken(userCtx, user.ID, user.Email, "", "", nil)
+		token, err := srv.GenerateSessionToken(userCtx, console.SessionTokenRequest{
+			UserID:         user.ID,
+			Email:          user.Email,
+			IP:             "",
+			UserAgent:      "",
+			AnonymousID:    "",
+			CustomDuration: nil,
+		})
 		require.NoError(t, err)
 		require.NotNil(t, token)
 

@@ -171,6 +171,7 @@ type AuthUser struct {
 	RememberForOneWeek bool   `json:"rememberForOneWeek"`
 	IP                 string `json:"-"`
 	UserAgent          string `json:"-"`
+	AnonymousID        string `json:"-"`
 }
 
 // TokenInfo holds info for user authentication token responses.

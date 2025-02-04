@@ -48,7 +48,14 @@ func doRequestWithAuth(
 ) (responseBody []byte, statusCode int, err error) {
 	fullURL := "http://" + sat.API.Console.Listener.Addr().String() + "/api/v0/" + endpoint
 
-	tokenInfo, err := sat.API.Console.Service.GenerateSessionToken(ctx, user.ID, user.Email, "", "", nil)
+	tokenInfo, err := sat.API.Console.Service.GenerateSessionToken(ctx, console.SessionTokenRequest{
+		UserID:         user.ID,
+		Email:          user.Email,
+		IP:             "",
+		UserAgent:      "",
+		AnonymousID:    "",
+		CustomDuration: nil,
+	})
 	if err != nil {
 		return nil, 0, err
 	}

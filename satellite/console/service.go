@@ -1498,8 +1498,18 @@ func (s *Service) GeneratePasswordRecoveryToken(ctx context.Context, user *User)
 	return resetPasswordToken.Secret.String(), nil
 }
 
+// SessionTokenRequest contains information needed to create a session token.
+type SessionTokenRequest struct {
+	UserID         uuid.UUID
+	Email          string
+	IP             string
+	UserAgent      string
+	AnonymousID    string
+	CustomDuration *time.Duration
+}
+
 // GenerateSessionToken creates a new session and returns the string representation of its token.
-func (s *Service) GenerateSessionToken(ctx context.Context, userID uuid.UUID, email, ip, userAgent string, customDuration *time.Duration) (_ *TokenInfo, err error) {
+func (s *Service) GenerateSessionToken(ctx context.Context, req SessionTokenRequest) (_ *TokenInfo, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	sessionID, err := uuid.New()
@@ -1508,10 +1518,10 @@ func (s *Service) GenerateSessionToken(ctx context.Context, userID uuid.UUID, em
 	}
 
 	duration := s.config.Session.Duration
-	if customDuration != nil {
-		duration = *customDuration
+	if req.CustomDuration != nil {
+		duration = *req.CustomDuration
 	} else if s.config.Session.InactivityTimerEnabled {
-		settings, err := s.store.Users().GetSettings(ctx, userID)
+		settings, err := s.store.Users().GetSettings(ctx, req.UserID)
 		if err != nil && !errs.Is(err, sql.ErrNoRows) {
 			return nil, Error.Wrap(err)
 		}
@@ -1523,7 +1533,7 @@ func (s *Service) GenerateSessionToken(ctx context.Context, userID uuid.UUID, em
 	}
 	expiresAt := time.Now().Add(duration)
 
-	_, err = s.store.WebappSessions().Create(ctx, sessionID, userID, ip, userAgent, expiresAt)
+	_, err = s.store.WebappSessions().Create(ctx, sessionID, req.UserID, req.IP, req.UserAgent, expiresAt)
 	if err != nil {
 		return nil, err
 	}
@@ -1536,9 +1546,9 @@ func (s *Service) GenerateSessionToken(ctx context.Context, userID uuid.UUID, em
 	}
 	token.Signature = signature
 
-	s.auditLog(ctx, "login", &userID, email)
+	s.auditLog(ctx, "login", &req.UserID, req.Email)
 
-	s.analytics.TrackSignedIn(userID, email)
+	s.analytics.TrackSignedIn(req.UserID, req.Email, req.AnonymousID)
 
 	return &TokenInfo{
 		Token:     token,
@@ -1905,7 +1915,14 @@ func (s *Service) Token(ctx context.Context, request AuthUser) (response *TokenI
 		weekDuration := 7 * 24 * time.Hour
 		customDurationPtr = &weekDuration
 	}
-	response, err = s.GenerateSessionToken(ctx, user.ID, user.Email, request.IP, request.UserAgent, customDurationPtr)
+	response, err = s.GenerateSessionToken(ctx, SessionTokenRequest{
+		UserID:         user.ID,
+		Email:          user.Email,
+		IP:             request.IP,
+		UserAgent:      request.UserAgent,
+		AnonymousID:    request.AnonymousID,
+		CustomDuration: customDurationPtr,
+	})
 	if err != nil {
 		return nil, err
 	}
@@ -2028,6 +2045,16 @@ func (s *Service) logInVerifyMFA(ctx context.Context, user *User, request AuthUs
 	return nil
 }
 
+// LoadAjsAnonymousID looks for ajs_anonymous_id cookie.
+// this cookie is set from the website if the user opts into cookies from Storj.
+func LoadAjsAnonymousID(req *http.Request) string {
+	cookie, err := req.Cookie("ajs_anonymous_id")
+	if err != nil {
+		return ""
+	}
+	return cookie.Value
+}
+
 // TokenByAPIKey authenticates User by API Key and returns session token.
 func (s *Service) TokenByAPIKey(ctx context.Context, userAgent string, ip string, apiKey string) (response *TokenInfo, err error) {
 	defer mon.Task()(&ctx)(&err)
@@ -2042,7 +2069,14 @@ func (s *Service) TokenByAPIKey(ctx context.Context, userAgent string, ip string
 		return nil, Error.New(failedToRetrieveUserErrMsg)
 	}
 
-	response, err = s.GenerateSessionToken(ctx, user.ID, user.Email, ip, userAgent, nil)
+	response, err = s.GenerateSessionToken(ctx, SessionTokenRequest{
+		UserID:         user.ID,
+		Email:          user.Email,
+		IP:             ip,
+		UserAgent:      userAgent,
+		AnonymousID:    "",
+		CustomDuration: nil,
+	})
 	if err != nil {
 		return nil, Error.New(generateSessionTokenErrMsg)
 	}

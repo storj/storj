@@ -1150,7 +1150,14 @@ func (server *Server) accountActivationHandler(w http.ResponseWriter, r *http.Re
 		return
 	}
 
-	tokenInfo, err := server.service.GenerateSessionToken(ctx, user.ID, user.Email, ip, r.UserAgent(), nil)
+	tokenInfo, err := server.service.GenerateSessionToken(ctx, console.SessionTokenRequest{
+		UserID:         user.ID,
+		Email:          user.Email,
+		IP:             ip,
+		UserAgent:      r.UserAgent(),
+		AnonymousID:    consoleapi.LoadAjsAnonymousID(r),
+		CustomDuration: nil,
+	})
 	if err != nil {
 		server.serveError(w, http.StatusInternalServerError)
 		return
