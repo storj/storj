@@ -19,4 +19,5 @@ export class LoginPageObjects {
     static COMPANY_NAME_EDITBOX_ID = `//input[@id='Company Name']`;
     static JOB_ROLE_EDITBOX_ID = `//input[@id='Job Role']`;
     static JOB_ROLE_SELECTION_XPATH = `//div[contains(text(), 'Software Developer')]`;
+    static CONTINUE_BUTTON_ID = `#continue-btn`;
 }
