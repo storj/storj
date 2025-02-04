@@ -681,7 +681,7 @@ func (p *PostgresAdapter) deleteObjectLastCommittedPlain(ctx context.Context, op
 		result.Removed, result.DeletedSegmentCount, err = scanObjectDeletionPostgres(ctx, opts.ObjectLocation, rows)
 		return err
 	})
-	return result, err
+	return result, Error.Wrap(err)
 }
 
 func (p *PostgresAdapter) deleteObjectLastCommittedPlainUsingObjectLock(ctx context.Context, opts DeleteObjectLastCommitted) (result DeleteObjectResult, err error) {
@@ -912,7 +912,7 @@ func (s *SpannerAdapter) deleteObjectLastCommittedPlainUsingObjectLock(ctx conte
 	})
 	if err != nil {
 		if ErrObjectLock.Has(err) {
-			return DeleteObjectResult{}, errs.Wrap(err)
+			return DeleteObjectResult{}, err
 		}
 		return DeleteObjectResult{}, Error.Wrap(err)
 	}
@@ -1145,13 +1145,13 @@ func (s *SpannerAdapter) DeleteObjectLastCommittedVersioned(ctx context.Context,
 					"marker":      deleterMarkerStreamID,
 				},
 			}), func(row *spanner.Row, item *Object) error {
-				return Error.Wrap(row.Columns(&item.Version, &item.CreatedAt))
+				return errs.Wrap(row.Columns(&item.Version, &item.CreatedAt))
 			})
 		if err != nil {
 			if errors.Is(err, iterator.Done) {
 				return ErrObjectNotFound.Wrap(Error.New("object does not exist"))
 			}
-			return Error.Wrap(err)
+			return errs.Wrap(err)
 		}
 
 		deleted.ProjectID = opts.ProjectID
@@ -1165,7 +1165,10 @@ func (s *SpannerAdapter) DeleteObjectLastCommittedVersioned(ctx context.Context,
 		return nil
 	})
 	if err != nil {
-		return DeleteObjectResult{}, err
+		if ErrObjectNotFound.Has(err) {
+			return DeleteObjectResult{}, err
+		}
+		return DeleteObjectResult{}, Error.Wrap(err)
 	}
 	return result, nil
 }

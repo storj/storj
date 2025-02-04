@@ -72,9 +72,6 @@ type Adapter interface {
 	DeleteObjectLastCommittedSuspended(ctx context.Context, opts DeleteObjectLastCommitted, deleterMarkerStreamID uuid.UUID) (result DeleteObjectResult, err error)
 	DeleteObjectLastCommittedVersioned(ctx context.Context, opts DeleteObjectLastCommitted, deleterMarkerStreamID uuid.UUID) (result DeleteObjectResult, err error)
 
-	DeleteObjectsPlain(ctx context.Context, opts DeleteObjects) (result DeleteObjectsResult, err error)
-	DeleteObjectsVersioned(ctx context.Context, opts DeleteObjects) (result DeleteObjectsResult, err error)
-
 	IterateExpiredObjects(ctx context.Context, opts DeleteExpiredObjects, process func(context.Context, []ObjectStream) error) (err error)
 	DeleteObjectsAndSegmentsNoVerify(ctx context.Context, objects []ObjectStream) (objectsDeleted, segmentsDeleted int64, err error)
 	IterateZombieObjects(ctx context.Context, opts DeleteZombieObjects, process func(context.Context, []ObjectStream) error) (err error)

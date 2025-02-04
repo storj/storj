@@ -86,17 +86,17 @@ func TestDeleteObjects(t *testing.T) {
 					Result: metabase.DeleteObjectsResult{
 						Items: []metabase.DeleteObjectsResultItem{
 							{
-								ObjectKey:                obj1.ObjectKey,
-								RequestedStreamVersionID: obj1StreamVersionID,
+								ObjectKey: obj2.ObjectKey,
 								Removed: &metabase.DeleteObjectsInfo{
-									StreamVersionID: obj1StreamVersionID,
+									StreamVersionID: obj2.StreamVersionID(),
 									Status:          metabase.CommittedUnversioned,
 								},
 								Status: metabase.DeleteStatusOK,
 							}, {
-								ObjectKey: obj2.ObjectKey,
+								ObjectKey:                obj1.ObjectKey,
+								RequestedStreamVersionID: obj1StreamVersionID,
 								Removed: &metabase.DeleteObjectsInfo{
-									StreamVersionID: obj2.StreamVersionID(),
+									StreamVersionID: obj1StreamVersionID,
 									Status:          metabase.CommittedUnversioned,
 								},
 								Status: metabase.DeleteStatusOK,
@@ -145,12 +145,12 @@ func TestDeleteObjects(t *testing.T) {
 					Result: metabase.DeleteObjectsResult{
 						Items: []metabase.DeleteObjectsResultItem{
 							{
+								ObjectKey: key2,
+								Status:    metabase.DeleteStatusNotFound,
+							}, {
 								ObjectKey:                key1,
 								RequestedStreamVersionID: streamVersionID1,
 								Status:                   metabase.DeleteStatusNotFound,
-							}, {
-								ObjectKey: key2,
-								Status:    metabase.DeleteStatusNotFound,
 							}, {
 								ObjectKey:                obj.ObjectKey,
 								RequestedStreamVersionID: objStreamVersionID1,
@@ -294,14 +294,14 @@ func TestDeleteObjects(t *testing.T) {
 					Result: metabase.DeleteObjectsResult{
 						Items: []metabase.DeleteObjectsResultItem{
 							{
+								ObjectKey: obj.ObjectKey,
+								Removed:   expectedRemoved,
+								Status:    metabase.DeleteStatusOK,
+							}, {
 								ObjectKey:                obj.ObjectKey,
 								RequestedStreamVersionID: sv,
 								Removed:                  expectedRemoved,
 								Status:                   metabase.DeleteStatusOK,
-							}, {
-								ObjectKey: obj.ObjectKey,
-								Removed:   expectedRemoved,
-								Status:    metabase.DeleteStatusOK,
 							},
 						},
 						DeletedSegmentCount: int64(obj.SegmentCount),
@@ -365,6 +365,20 @@ func TestDeleteObjects(t *testing.T) {
 					Result: metabase.DeleteObjectsResult{
 						Items: []metabase.DeleteObjectsResultItem{
 							{
+								ObjectKey: obj3.ObjectKey,
+								Marker: &metabase.DeleteObjectsInfo{
+									StreamVersionID: metabase.NewStreamVersionID(obj3.Version+1, uuid.UUID{}),
+									Status:          metabase.DeleteMarkerVersioned,
+								},
+								Status: metabase.DeleteStatusOK,
+							}, {
+								ObjectKey: obj4.ObjectKey,
+								Marker: &metabase.DeleteObjectsInfo{
+									StreamVersionID: metabase.NewStreamVersionID(obj4.Version+1, uuid.UUID{}),
+									Status:          metabase.DeleteMarkerVersioned,
+								},
+								Status: metabase.DeleteStatusOK,
+							}, {
 								ObjectKey:                obj1.ObjectKey,
 								RequestedStreamVersionID: obj1StreamVersionID,
 								Removed: &metabase.DeleteObjectsInfo{
@@ -378,20 +392,6 @@ func TestDeleteObjects(t *testing.T) {
 								Removed: &metabase.DeleteObjectsInfo{
 									StreamVersionID: obj2StreamVersionID,
 									Status:          metabase.CommittedUnversioned,
-								},
-								Status: metabase.DeleteStatusOK,
-							}, {
-								ObjectKey: obj3.ObjectKey,
-								Marker: &metabase.DeleteObjectsInfo{
-									StreamVersionID: metabase.NewStreamVersionID(obj3.Version+1, uuid.UUID{}),
-									Status:          metabase.DeleteMarkerVersioned,
-								},
-								Status: metabase.DeleteStatusOK,
-							}, {
-								ObjectKey: obj4.ObjectKey,
-								Marker: &metabase.DeleteObjectsInfo{
-									StreamVersionID: metabase.NewStreamVersionID(obj4.Version+1, uuid.UUID{}),
-									Status:          metabase.DeleteMarkerVersioned,
 								},
 								Status: metabase.DeleteStatusOK,
 							},
@@ -464,16 +464,16 @@ func TestDeleteObjects(t *testing.T) {
 					Result: metabase.DeleteObjectsResult{
 						Items: []metabase.DeleteObjectsResultItem{
 							{
-								ObjectKey:                missingObjStream1.ObjectKey,
-								RequestedStreamVersionID: missingStreamVersionID,
-								Status:                   metabase.DeleteStatusNotFound,
-							}, {
 								ObjectKey: missingObjStream2.ObjectKey,
 								Marker: &metabase.DeleteObjectsInfo{
 									StreamVersionID: metabase.NewStreamVersionID(1, uuid.UUID{}),
 									Status:          metabase.DeleteMarkerVersioned,
 								},
 								Status: metabase.DeleteStatusOK,
+							}, {
+								ObjectKey:                missingObjStream1.ObjectKey,
+								RequestedStreamVersionID: missingStreamVersionID,
+								Status:                   metabase.DeleteStatusNotFound,
 							}, {
 								ObjectKey:                obj.ObjectKey,
 								RequestedStreamVersionID: badStreamVersionID1,
@@ -599,18 +599,18 @@ func TestDeleteObjects(t *testing.T) {
 					Result: metabase.DeleteObjectsResult{
 						Items: []metabase.DeleteObjectsResultItem{
 							{
+								ObjectKey: obj2.ObjectKey,
+								Marker: &metabase.DeleteObjectsInfo{
+									StreamVersionID: metabase.NewStreamVersionID(obj2.Version+1, uuid.UUID{}),
+									Status:          metabase.DeleteMarkerVersioned,
+								},
+								Status: metabase.DeleteStatusOK,
+							}, {
 								ObjectKey:                obj1.ObjectKey,
 								RequestedStreamVersionID: obj1StreamVersionID,
 								Removed: &metabase.DeleteObjectsInfo{
 									StreamVersionID: obj1StreamVersionID,
 									Status:          metabase.CommittedUnversioned,
-								},
-								Status: metabase.DeleteStatusOK,
-							}, {
-								ObjectKey: obj2.ObjectKey,
-								Marker: &metabase.DeleteObjectsInfo{
-									StreamVersionID: metabase.NewStreamVersionID(obj2.Version+1, uuid.UUID{}),
-									Status:          metabase.DeleteMarkerVersioned,
 								},
 								Status: metabase.DeleteStatusOK,
 							},
@@ -654,18 +654,18 @@ func TestDeleteObjects(t *testing.T) {
 					Result: metabase.DeleteObjectsResult{
 						Items: []metabase.DeleteObjectsResultItem{
 							{
+								ObjectKey: obj.ObjectKey,
+								Marker: &metabase.DeleteObjectsInfo{
+									StreamVersionID: metabase.NewStreamVersionID(obj.Version+1, uuid.UUID{}),
+									Status:          metabase.DeleteMarkerVersioned,
+								},
+								Status: metabase.DeleteStatusOK,
+							}, {
 								ObjectKey:                obj.ObjectKey,
 								RequestedStreamVersionID: sv,
 								Removed: &metabase.DeleteObjectsInfo{
 									StreamVersionID: sv,
 									Status:          metabase.CommittedUnversioned,
-								},
-								Status: metabase.DeleteStatusOK,
-							}, {
-								ObjectKey: obj.ObjectKey,
-								Marker: &metabase.DeleteObjectsInfo{
-									StreamVersionID: metabase.NewStreamVersionID(1, uuid.UUID{}),
-									Status:          metabase.DeleteMarkerVersioned,
 								},
 								Status: metabase.DeleteStatusOK,
 							},
@@ -676,7 +676,7 @@ func TestDeleteObjects(t *testing.T) {
 
 				deleteMarker, err := db.GetObjectExactVersion(ctx, metabase.GetObjectExactVersion{
 					ObjectLocation: obj.Location(),
-					Version:        1,
+					Version:        obj.Version + 1,
 				})
 				require.NoError(t, err)
 
