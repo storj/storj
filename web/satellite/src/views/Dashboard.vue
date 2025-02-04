@@ -233,15 +233,7 @@
                                     </template>
                                     <template #default>
                                         <p>
-                                            The most recent data may change as download bandwidth moves from "allocated" to "settled".
-                                            <a
-                                                class="link"
-                                                href="https://docs.storj.io/dcs/pricing#bandwidth-fee"
-                                                target="_blank"
-                                                rel="noopener noreferrer"
-                                            >
-                                                Learn more
-                                            </a>
+                                            Download bandwidth appears here after downloads complete or cancel within 48 hours.
                                         </p>
                                     </template>
                                 </v-tooltip>
@@ -253,7 +245,7 @@
                             <BandwidthChart
                                 :width="chartWidth"
                                 :height="240"
-                                :data="allocatedBandwidthUsage"
+                                :data="settledBandwidthUsage"
                                 :since="chartsSinceDate"
                                 :before="chartsBeforeDate"
                             />
@@ -735,9 +727,9 @@ const storageUsage = computed((): DataStamp[] => {
 /**
  * Returns allocated bandwidth chart data from store.
  */
-const allocatedBandwidthUsage = computed((): DataStamp[] => {
+const settledBandwidthUsage = computed((): DataStamp[] => {
     return ChartUtils.populateEmptyUsage(
-        projectsStore.state.allocatedBandwidthChartData, chartsSinceDate.value, chartsBeforeDate.value,
+        projectsStore.state.settledBandwidthChartData, chartsSinceDate.value, chartsBeforeDate.value,
     );
 });
 

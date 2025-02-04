@@ -340,6 +340,11 @@ export class ProjectsHttpApi implements ProjectsApi {
                 date.setHours(0, 0, 0, 0);
                 return new DataStamp(el.value, date);
             }),
+            usage.settledBandwidthUsage.map(el => {
+                const date = new Date(el.date);
+                date.setHours(0, 0, 0, 0);
+                return new DataStamp(el.value, date);
+            }),
         );
     }
 
