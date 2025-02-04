@@ -25,6 +25,7 @@ import {
     TaxID,
     UpdateCardParams,
     PriceModelForPlacementRequest,
+    AddFundsResponse,
 } from '@/types/payments';
 import { PaymentsHttpApi } from '@/api/payments';
 import { PricingPlanInfo } from '@/types/common';
@@ -78,6 +79,10 @@ export const useBillingStore = defineStore('billing', () => {
     async function getCountryTaxes(countryCode: string): Promise<void> {
         state.taxes = [];
         state.taxes = await api.getCountryTaxes(countryCode);
+    }
+
+    async function addFunds(cardID: string, amount: number): Promise<AddFundsResponse> {
+        return await api.addFunds(cardID, amount);
     }
 
     async function addTaxID(taxID: TaxID): Promise<void> {
@@ -256,6 +261,7 @@ export const useBillingStore = defineStore('billing', () => {
         getTaxCountries,
         getCountryTaxes,
         addTaxID,
+        addFunds,
         removeTaxID,
         getBillingInformation,
         addInvoiceReference,
