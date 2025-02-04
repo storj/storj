@@ -146,12 +146,11 @@ func (service *Service) SelectValidPieces(ctx context.Context, uplink *identity.
 		}
 
 		if !nodeTrustedByUploadResponse[uploadResponseIdx] {
-			peerIdentity := service.identities.GetCached(ctx, piece.NodeId)
-			if peerIdentity == nil {
+			signee := service.identities.GetCached(ctx, piece.NodeId)
+			if signee == nil {
 				// This shouldn't happen due to the caching in the start of the func.
 				return nil, nil, Error.New("nil identity returned (%v)", piece.NodeId)
 			}
-			signee := signing.SigneeFromPeerIdentity(peerIdentity)
 
 			// verify the signature
 			err = signing.VerifyPieceHashSignature(ctx, signee, piece.Hash)
@@ -159,11 +158,10 @@ func (service *Service) SelectValidPieces(ctx context.Context, uplink *identity.
 				// TODO: check whether the identity changed from what it was before.
 
 				// Maybe the cache has gone stale?
-				peerIdentity, err := service.identities.GetUpdated(ctx, piece.NodeId)
+				signee, err := service.identities.GetUpdated(ctx, piece.NodeId)
 				if err != nil {
 					return nil, nil, Error.Wrap(err)
 				}
-				signee := signing.SigneeFromPeerIdentity(peerIdentity)
 
 				// let's check the signature again
 				err = signing.VerifyPieceHashSignature(ctx, signee, piece.Hash)
