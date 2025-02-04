@@ -187,6 +187,18 @@
                 <v-spacer v-if="smAndUp" />
 
                 <v-col class="pa-0 pt-5 pa-sm-0 text-sm-right" cols="12" sm="4">
+                    <v-btn
+                        v-if="versioningUIEnabled"
+                        variant="outlined"
+                        color="default"
+                        class="mr-2 mr-md-2 mb-sm-1 mb-md-0"
+                        @click="obStore.toggleShowObjectVersions()"
+                    >
+                        <template #prepend>
+                            <component :is="showObjectVersions ? EyeOff : Eye" :size="18" />
+                        </template>
+                        {{ showObjectVersions ? "Hide" : "Show" }} Versions
+                    </v-btn>
                     <v-btn-toggle
                         mandatory
                         border
