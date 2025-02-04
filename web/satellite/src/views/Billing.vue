@@ -44,7 +44,7 @@
         <v-window v-model="tab">
             <v-window-item class="pb-2">
                 <v-row>
-                    <v-col cols="12" sm="4">
+                    <v-col cols="12" md="4">
                         <v-card
                             :subtitle="`For ${new Date().toLocaleString('en-US', { month: 'long', year: 'numeric' })}`"
                             class="pa-2"
@@ -79,7 +79,7 @@
                         </v-card>
                     </v-col>
 
-                    <v-col cols="12" sm="4">
+                    <v-col cols="12" md="4">
                         <v-card subtitle="Your Storj account balance" class="pa-2">
                             <template #title>
                                 <v-row class="align-center">
@@ -124,7 +124,7 @@
                         </v-card>
                     </v-col>
 
-                    <v-col cols="12" sm="4">
+                    <v-col cols="12" md="4">
                         <v-card
                             v-if="isLoading"
                             class="d-flex align-center justify-center pa-2"
