@@ -173,12 +173,6 @@ type Satellite struct {
 		Service *mailservice.Service
 	}
 
-	ConsoleBackend struct {
-		Listener net.Listener
-		Service  *console.Service
-		Endpoint *consoleweb.Server
-	}
-
 	ConsoleFrontend struct {
 		Listener net.Listener
 		Endpoint *consoleweb.Server
