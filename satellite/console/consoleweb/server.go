@@ -37,6 +37,7 @@ import (
 	"storj.io/storj/satellite/abtesting"
 	"storj.io/storj/satellite/analytics"
 	"storj.io/storj/satellite/console"
+	"storj.io/storj/satellite/console/consoleauth/csrf"
 	"storj.io/storj/satellite/console/consoleauth/sso"
 	"storj.io/storj/satellite/console/consoleweb/consoleapi"
 	"storj.io/storj/satellite/console/consoleweb/consolewebauth"
@@ -153,6 +154,7 @@ type Server struct {
 	mailService *mailservice.Service
 	analytics   *analytics.Service
 	abTesting   *abtesting.Service
+	csrfService *csrf.Service
 
 	listener          net.Listener
 	server            http.Server
@@ -232,9 +234,9 @@ func (a *apiAuth) RemoveAuthCookie(w http.ResponseWriter) {
 
 // NewServer creates new instance of console server.
 func NewServer(logger *zap.Logger, config Config, service *console.Service, oidcService *oidc.Service, mailService *mailservice.Service,
-	analytics *analytics.Service, abTesting *abtesting.Service, accountFreezeService *console.AccountFreezeService, ssoService *sso.Service, listener net.Listener,
-	stripePublicKey string, neededTokenPaymentConfirmations int, nodeURL storj.NodeURL, objectLockAndVersioningConfig console.ObjectLockAndVersioningConfig,
-	analyticsConfig analytics.Config, packagePlans paymentsconfig.PackagePlans) *Server {
+	analytics *analytics.Service, abTesting *abtesting.Service, accountFreezeService *console.AccountFreezeService, ssoService *sso.Service,
+	csrfService *csrf.Service, listener net.Listener, stripePublicKey string, neededTokenPaymentConfirmations int, nodeURL storj.NodeURL,
+	objectLockAndVersioningConfig console.ObjectLockAndVersioningConfig, analyticsConfig analytics.Config, packagePlans paymentsconfig.PackagePlans) *Server {
 	initAdditionalMimeTypes()
 
 	server := Server{
@@ -245,6 +247,7 @@ func NewServer(logger *zap.Logger, config Config, service *console.Service, oidc
 		mailService:                     mailService,
 		analytics:                       analytics,
 		abTesting:                       abTesting,
+		csrfService:                     csrfService,
 		stripePublicKey:                 stripePublicKey,
 		neededTokenPaymentConfirmations: neededTokenPaymentConfirmations,
 		ipRateLimiter:                   web.NewIPRateLimiter(config.RateLimit, logger),
@@ -347,7 +350,7 @@ func NewServer(logger *zap.Logger, config Config, service *console.Service, oidc
 		server.log.Error("unable to load bad passwords list", zap.Error(err))
 	}
 
-	authController := consoleapi.NewAuth(logger, service, accountFreezeService, mailService, server.cookieAuth, server.analytics, ssoService, config.SatelliteName, server.config.ExternalAddress, config.LetUsKnowURL, config.TermsAndConditionsURL, config.ContactInfoURL, config.GeneralRequestURL, config.SignupActivationCodeEnabled, badPasswords)
+	authController := consoleapi.NewAuth(logger, service, accountFreezeService, mailService, server.cookieAuth, server.analytics, ssoService, csrfService, config.SatelliteName, server.config.ExternalAddress, config.LetUsKnowURL, config.TermsAndConditionsURL, config.ContactInfoURL, config.GeneralRequestURL, config.SignupActivationCodeEnabled, badPasswords)
 	authRouter := router.PathPrefix("/api/v0/auth").Subrouter()
 	authRouter.Use(server.withCORS)
 	authRouter.Handle("/account", server.withAuth(http.HandlerFunc(authController.GetAccount))).Methods(http.MethodGet, http.MethodOptions)
@@ -565,13 +568,14 @@ func (server *Server) Run(ctx context.Context) (err error) {
 // It should only be used with RunFrontEnd and Close. We plan on moving this to its own type, but
 // right now since we have a feature flag to allow the backend server to continue serving the frontend, it
 // makes it easier if they are the same type.
-func NewFrontendServer(logger *zap.Logger, config Config, listener net.Listener, nodeURL storj.NodeURL, stripePublicKey string) (server *Server, err error) {
+func NewFrontendServer(logger *zap.Logger, config Config, listener net.Listener, nodeURL storj.NodeURL, csrfService *csrf.Service, stripePublicKey string) (server *Server, err error) {
 	server = &Server{
 		log:             logger,
 		config:          config,
 		listener:        listener,
 		nodeURL:         nodeURL,
 		stripePublicKey: stripePublicKey,
+		csrfService:     csrfService,
 	}
 
 	logger.Debug("Starting Satellite UI server.", zap.Stringer("Address", server.listener.Addr()))
@@ -768,11 +772,8 @@ func (server *Server) appHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if server.config.CSRFProtectionEnabled {
-		csrfToken, err := server.service.GenerateSecurityToken()
-		if err != nil {
-			server.log.Error("Failed to generate CSRF token", zap.Error(err))
-		} else {
-			consolewebauth.SetCSRFCookie(w, csrfToken)
+		if err = server.csrfService.SetCookie(w); err != nil {
+			server.log.Error("Failed to set CSRF cookie", zap.Error(err))
 		}
 	}
 
@@ -908,7 +909,7 @@ func (server *Server) withCSRFProtection(handler http.Handler) http.Handler {
 			return
 		}
 
-		csrfCookie, err := r.Cookie(consolewebauth.CSRFCookieName)
+		csrfCookie, err := r.Cookie(csrf.CookieName)
 		if err != nil {
 			web.ServeJSONError(ctx, server.log, w, http.StatusForbidden, errs.New("CSRF token cookie missing"))
 			return
@@ -937,8 +938,7 @@ func (server *Server) frontendConfigHandler(w http.ResponseWriter, r *http.Reque
 
 	csrfToken := ""
 	if server.config.CSRFProtectionEnabled {
-		csrfCookie, err := r.Cookie(consolewebauth.CSRFCookieName)
-		if err != nil {
+		if csrfCookie, err := r.Cookie(csrf.CookieName); err != nil {
 			server.log.Error("CSRF token cookie missing in config endpoint", zap.Error(err))
 		} else {
 			csrfToken = csrfCookie.Value

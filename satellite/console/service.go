@@ -1095,25 +1095,6 @@ func (s *Service) VerifyRegistrationCaptcha(ctx context.Context, captchaResp, us
 	return true, nil, nil
 }
 
-// GenerateSecurityToken generates a random signed security token.
-func (s *Service) GenerateSecurityToken() (string, error) {
-	b := make([]byte, 32)
-	if _, err := rand.Read(b); err != nil {
-		return "", err
-	}
-
-	token := consoleauth.Token{Payload: b}
-
-	signature, err := s.tokens.SignToken(token)
-	if err != nil {
-		return "", err
-	}
-
-	token.Signature = signature
-
-	return token.String(), nil
-}
-
 // ValidateSecurityToken validates a signed security token.
 func (s *Service) ValidateSecurityToken(value string) error {
 	token, err := consoleauth.FromBase64URLString(value)
@@ -1126,7 +1107,7 @@ func (s *Service) ValidateSecurityToken(value string) error {
 		return err
 	}
 	if !valid {
-		return errs.New("Invalid CSRF token")
+		return errs.New("Invalid security token")
 	}
 
 	return nil

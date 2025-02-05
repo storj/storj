@@ -133,17 +133,3 @@ func (auth *CookieAuth) GetSSOStateCookieName() string {
 func (auth *CookieAuth) GetSSOEmailTokenCookieName() string {
 	return auth.ssoEmailTokenSettings.Name
 }
-
-// CSRFCookieName is the name of the cookie storing the CSRF token.
-const CSRFCookieName = "csrf_token"
-
-// SetCSRFCookie sets parametrized CSRF cookie that is not accessible from js.
-func SetCSRFCookie(w http.ResponseWriter, value string) {
-	http.SetCookie(w, &http.Cookie{
-		Name:     CSRFCookieName,
-		Value:    value,
-		Path:     "/",
-		HttpOnly: true,
-		SameSite: http.SameSiteStrictMode,
-	})
-}

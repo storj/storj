@@ -27,6 +27,7 @@ import (
 	"storj.io/storj/satellite/analytics"
 	"storj.io/storj/satellite/console"
 	"storj.io/storj/satellite/console/consoleauth"
+	"storj.io/storj/satellite/console/consoleauth/csrf"
 	"storj.io/storj/satellite/console/consoleauth/sso"
 	"storj.io/storj/satellite/console/consoleweb/consoleapi/utils"
 	"storj.io/storj/satellite/console/consoleweb/consolewebauth"
@@ -61,11 +62,12 @@ type Auth struct {
 	analytics                 *analytics.Service
 	mailService               *mailservice.Service
 	ssoService                *sso.Service
+	csrfService               *csrf.Service
 	cookieAuth                *consolewebauth.CookieAuth
 }
 
 // NewAuth is a constructor for api auth controller.
-func NewAuth(log *zap.Logger, service *console.Service, accountFreezeService *console.AccountFreezeService, mailService *mailservice.Service, cookieAuth *consolewebauth.CookieAuth, analytics *analytics.Service, ssoService *sso.Service, satelliteName, externalAddress, letUsKnowURL, termsAndConditionsURL, contactInfoURL, generalRequestURL string, activationCodeEnabled bool, badPasswords map[string]struct{}) *Auth {
+func NewAuth(log *zap.Logger, service *console.Service, accountFreezeService *console.AccountFreezeService, mailService *mailservice.Service, cookieAuth *consolewebauth.CookieAuth, analytics *analytics.Service, ssoService *sso.Service, csrfService *csrf.Service, satelliteName, externalAddress, letUsKnowURL, termsAndConditionsURL, contactInfoURL, generalRequestURL string, activationCodeEnabled bool, badPasswords map[string]struct{}) *Auth {
 	return &Auth{
 		log:                       log,
 		ExternalAddress:           externalAddress,
@@ -85,6 +87,7 @@ func NewAuth(log *zap.Logger, service *console.Service, accountFreezeService *co
 		analytics:                 analytics,
 		badPasswords:              badPasswords,
 		ssoService:                ssoService,
+		csrfService:               csrfService,
 	}
 }
 
@@ -276,7 +279,7 @@ func (a *Auth) BeginSsoFlow(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	state, err := a.service.GenerateSecurityToken()
+	state, err := a.csrfService.GenerateSecurityToken()
 	if err != nil {
 		a.log.Error("failed to generate sso state", zap.Error(err))
 		http.Redirect(w, r, ssoFailedAddr, http.StatusPermanentRedirect)

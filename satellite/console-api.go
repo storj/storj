@@ -35,6 +35,7 @@ import (
 	"storj.io/storj/satellite/buckets"
 	"storj.io/storj/satellite/console"
 	"storj.io/storj/satellite/console/consoleauth"
+	"storj.io/storj/satellite/console/consoleauth/csrf"
 	"storj.io/storj/satellite/console/consoleauth/sso"
 	"storj.io/storj/satellite/console/consoleweb"
 	"storj.io/storj/satellite/console/restkeys"
@@ -156,6 +157,10 @@ type ConsoleAPI struct {
 
 	SSO struct {
 		Service *sso.Service
+	}
+
+	CSRF struct {
+		Service *csrf.Service
 	}
 
 	HealthCheck struct {
@@ -480,7 +485,8 @@ func NewConsoleAPI(log *zap.Logger, full *identity.FullIdentity, db DB,
 			return nil, errs.New("Auth token secret required")
 		}
 
-		peer.Console.AuthTokens = consoleauth.NewService(config.ConsoleAuth, &consoleauth.Hmac{Secret: []byte(consoleConfig.AuthTokenSecret)})
+		signer := &consoleauth.Hmac{Secret: []byte(consoleConfig.AuthTokenSecret)}
+		peer.Console.AuthTokens = consoleauth.NewService(config.ConsoleAuth, signer)
 
 		externalAddress := consoleConfig.ExternalAddress
 		if externalAddress == "" {
@@ -552,6 +558,8 @@ func NewConsoleAPI(log *zap.Logger, full *identity.FullIdentity, db DB,
 			return nil, errs.Combine(err, peer.Close())
 		}
 
+		peer.CSRF.Service = csrf.NewService(signer)
+
 		peer.Console.Endpoint = consoleweb.NewServer(
 			peer.Log.Named("console:endpoint"),
 			consoleConfig,
@@ -562,6 +570,7 @@ func NewConsoleAPI(log *zap.Logger, full *identity.FullIdentity, db DB,
 			peer.ABTesting.Service,
 			accountFreezeService,
 			peer.SSO.Service,
+			peer.CSRF.Service,
 			peer.Console.Listener,
 			config.Payments.StripeCoinPayments.StripePublicKey,
 			config.Payments.Storjscan.Confirmations, peer.URL(), console.ObjectLockAndVersioningConfig{
