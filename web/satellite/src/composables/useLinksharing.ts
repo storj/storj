@@ -13,6 +13,8 @@ import { useBucketsStore } from '@/store/modules/bucketsStore';
 import { useObjectBrowserStore } from '@/store/modules/objectBrowserStore';
 import { AccessGrant, EdgeCredentials } from '@/types/accessGrants';
 import { Project } from '@/types/projects';
+import { Download } from '@/utils/download';
+import { DownloadPrefixFormat } from '@/types/browser';
 
 const WORKER_ERR_MSG = 'Worker is not defined';
 
@@ -76,6 +78,18 @@ export function useLinksharing() {
         if (type === ShareType.Folder) url = `${url}/`;
 
         return url;
+    }
+
+    async function downloadPrefix(path: string, format: DownloadPrefixFormat): Promise<void> {
+        const now = new Date();
+        const expiresAt = new Date();
+        expiresAt.setHours(now.getHours() + 1);
+
+        const creds = await generatePublicCredentials(bucketsStore.state.apiKey, path, expiresAt, bucketsStore.state.passphrase);
+
+        const url = new URL(`${linksharingURL.value}/s/${creds.accessKeyId}/${path}?download=1&download-kind=${format}`);
+
+        Download.fileByLink(url.href);
     }
 
     async function getObjectDistributionMap(path: string): Promise<Blob> {
@@ -179,5 +193,6 @@ export function useLinksharing() {
         generateBucketShareURL,
         generateFileOrFolderShareURL,
         getObjectDistributionMap,
+        downloadPrefix,
     };
 }

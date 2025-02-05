@@ -80,6 +80,7 @@ export class FrontendConfig {
     maxAddFundsAmount: number;
     minAddFundsAmount: number;
     downloadPrefixEnabled: boolean;
+    zipDownloadLimit: number;
 }
 
 export class MultiCaptchaConfig {

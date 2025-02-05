@@ -604,6 +604,9 @@ compensation.withheld-percents: 75,75,75,50,50,50,25,25,25,0,0,0,0,0,0
 # whether to load templates on each request
 # console.watch: false
 
+# maximum number of objects allowed for a zip format download
+# console.zip-download-limit: 1000
+
 # url of the zkSync transaction block explorer
 # console.zk-sync-block-explorer-url: https://explorer.zksync.io/
 
