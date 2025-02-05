@@ -118,6 +118,7 @@ type Config struct {
 	CunoFSBetaEnabled               bool          `help:"whether prompt to join cunoFS beta is visible" default:"false"`
 	CSRFProtectionEnabled           bool          `help:"whether CSRF protection is enabled for some of the endpoints" default:"false" testDefault:"false"`
 	BillingAddFundsEnabled          bool          `help:"whether billing add funds feature is enabled" default:"false"`
+	DownloadPrefixEnabled           bool          `help:"whether prefix (bucket/folder) download is enabled" default:"false"`
 
 	OauthCodeExpiry         time.Duration `help:"how long oauth authorization codes are issued for" default:"10m"`
 	OauthAccessTokenExpiry  time.Duration `help:"how long oauth access tokens are issued for" default:"24h"`
@@ -1015,6 +1016,7 @@ func (server *Server) frontendConfigHandler(w http.ResponseWriter, r *http.Reque
 		BillingAddFundsEnabled:            server.config.BillingAddFundsEnabled,
 		MaxAddFundsAmount:                 server.config.MaxAddFundsAmount,
 		MinAddFundsAmount:                 server.config.MinAddFundsAmount,
+		DownloadPrefixEnabled:             server.config.DownloadPrefixEnabled,
 	}
 
 	err := json.NewEncoder(w).Encode(&cfg)

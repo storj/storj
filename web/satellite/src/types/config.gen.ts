@@ -79,6 +79,7 @@ export class FrontendConfig {
     billingAddFundsEnabled: boolean;
     maxAddFundsAmount: number;
     minAddFundsAmount: number;
+    downloadPrefixEnabled: boolean;
 }
 
 export class MultiCaptchaConfig {
