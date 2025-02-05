@@ -52,6 +52,7 @@ CREATE TABLE bucket_bandwidth_rollups (
 	interval_start timestamp with time zone NOT NULL,
 	interval_seconds integer NOT NULL,
 	action integer NOT NULL,
+	product_id integer,
 	inline bigint NOT NULL,
 	allocated bigint NOT NULL,
 	settled bigint NOT NULL,
@@ -60,6 +61,7 @@ CREATE TABLE bucket_bandwidth_rollups (
 CREATE TABLE bucket_bandwidth_rollup_archives (
 	bucket_name bytea NOT NULL,
 	project_id bytea NOT NULL,
+	product_id integer,
 	interval_start timestamp with time zone NOT NULL,
 	interval_seconds integer NOT NULL,
 	action integer NOT NULL,
@@ -72,6 +74,7 @@ CREATE TABLE bucket_storage_tallies (
 	bucket_name bytea NOT NULL,
 	project_id bytea NOT NULL,
 	interval_start timestamp with time zone NOT NULL,
+	product_id integer,
 	total_bytes bigint NOT NULL DEFAULT 0,
 	inline bigint NOT NULL,
 	remote bigint NOT NULL,
@@ -263,6 +266,7 @@ CREATE TABLE projects (
 ) ;
 CREATE TABLE project_bandwidth_daily_rollups (
 	project_id bytea NOT NULL,
+	product_id integer,
 	interval_day date NOT NULL,
 	egress_allocated bigint NOT NULL,
 	egress_settled bigint NOT NULL,
