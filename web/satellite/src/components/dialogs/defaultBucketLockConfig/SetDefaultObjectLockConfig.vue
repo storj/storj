@@ -12,7 +12,7 @@
         class="my-1"
     >
         <v-chip :value="NO_MODE_SET">
-            No Default Mode
+            No Default
         </v-chip>
         <v-chip :value="GOVERNANCE_LOCK">
             Governance
@@ -21,45 +21,47 @@
             Compliance
         </v-chip>
     </v-chip-group>
-    <v-alert variant="tonal" color="default">
+    <v-alert variant="tonal" color="info" class="mt-1">
         <p class="font-weight-bold text-body-2 mb-1 text-capitalize">Enable Object Lock ({{ defaultRetentionMode !== NO_MODE_SET ? defaultRetentionMode.toLowerCase() : 'No Default' }} Mode)</p>
         <p class="text-subtitle-2">{{ defaultLockModeInfo }}</p>
+        <template v-if="defaultRetentionMode !== NO_MODE_SET">
+            <p class="mt-4 mb-2 font-weight-medium">Enter the default retention period:</p>
+            <v-text-field
+                ref="periodInput"
+                v-model="defaultRetentionPeriod"
+                variant="outlined"
+                density="comfortable"
+                type="number"
+                :rules="rules"
+                hide-details="auto"
+                color="primary"
+                @update:model-value="updateInputText"
+            >
+                <template #append-inner>
+                    <v-menu>
+                        <template #activator="{ props: slotProps, isActive }">
+                            <v-btn
+                                class="h-100 text-medium-emphasis"
+                                variant="text"
+                                density="comfortable"
+                                color="default"
+                                :append-icon="isActive ? ChevronUp : ChevronDown"
+                                v-bind="slotProps"
+                                @mousedown.stop
+                                @click.stop
+                            >
+                                <span class="font-weight-regular">{{ periodUnit }}</span>
+                            </v-btn>
+                        </template>
+                        <v-list v-model:selected="dropdownModel" density="compact" class="pa-1">
+                            <v-list-item :title="DefaultObjectLockPeriodUnit.DAYS" :value="DefaultObjectLockPeriodUnit.DAYS" />
+                            <v-list-item :title="DefaultObjectLockPeriodUnit.YEARS" :value="DefaultObjectLockPeriodUnit.YEARS" />
+                        </v-list>
+                    </v-menu>
+                </template>
+            </v-text-field>
+        </template>
     </v-alert>
-    <template v-if="defaultRetentionMode !== NO_MODE_SET">
-        <p class="mt-4 mb-2">Default retention period:</p>
-        <v-text-field
-            ref="periodInput"
-            v-model="defaultRetentionPeriod"
-            variant="outlined"
-            density="comfortable"
-            type="number"
-            :rules="rules"
-            @update:model-value="updateInputText"
-        >
-            <template #append-inner>
-                <v-menu>
-                    <template #activator="{ props: slotProps, isActive }">
-                        <v-btn
-                            class="h-100 text-medium-emphasis"
-                            variant="text"
-                            density="comfortable"
-                            color="default"
-                            :append-icon="isActive ? ChevronUp : ChevronDown"
-                            v-bind="slotProps"
-                            @mousedown.stop
-                            @click.stop
-                        >
-                            <span class="font-weight-regular">{{ periodUnit }}</span>
-                        </v-btn>
-                    </template>
-                    <v-list v-model:selected="dropdownModel" density="compact">
-                        <v-list-item :title="DefaultObjectLockPeriodUnit.DAYS" :value="DefaultObjectLockPeriodUnit.DAYS" />
-                        <v-list-item :title="DefaultObjectLockPeriodUnit.YEARS" :value="DefaultObjectLockPeriodUnit.YEARS" />
-                    </v-list>
-                </v-menu>
-            </template>
-        </v-text-field>
-    </template>
 </template>
 
 <script setup lang="ts">

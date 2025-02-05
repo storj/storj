@@ -44,7 +44,7 @@
         <v-window v-model="tab">
             <v-window-item class="pb-2">
                 <v-row>
-                    <v-col cols="12" sm="4">
+                    <v-col cols="12" md="4">
                         <v-card
                             :subtitle="`For ${new Date().toLocaleString('en-US', { month: 'long', year: 'numeric' })}`"
                             class="pa-2"
@@ -79,7 +79,7 @@
                         </v-card>
                     </v-col>
 
-                    <v-col cols="12" sm="4">
+                    <v-col cols="12" md="4">
                         <v-card subtitle="Your Storj account balance" class="pa-2">
                             <template #title>
                                 <v-row class="align-center">
@@ -106,6 +106,17 @@
                                     <span class="text-h5 font-weight-bold">{{ formattedAccountBalance }}</span>
                                 </div>
                                 <v-divider class="my-4 border-0" />
+                                <v-btn
+                                    v-if="addFundsEnabled"
+                                    variant="outlined"
+                                    color="default"
+                                    class="mr-2"
+                                    :prepend-icon="Plus"
+                                    :disabled="!creditCards.length"
+                                    @click="isAddFundsDialogShown = true"
+                                >
+                                    Add Funds
+                                </v-btn>
                                 <v-btn variant="outlined" color="default" class="mr-2" :prepend-icon="Plus" @click="onAddTokensClicked">
                                     Add STORJ Tokens
                                 </v-btn>
@@ -113,7 +124,7 @@
                         </v-card>
                     </v-col>
 
-                    <v-col cols="12" sm="4">
+                    <v-col cols="12" md="4">
                         <v-card
                             v-if="isLoading"
                             class="d-flex align-center justify-center pa-2"
@@ -231,6 +242,7 @@
     </v-container>
 
     <apply-coupon-code-dialog v-model="isAddCouponDialogShown" />
+    <add-funds-dialog v-if="addFundsEnabled" v-model="isAddFundsDialogShown" />
 </template>
 
 <script setup lang="ts">
@@ -281,6 +293,7 @@ import ApplyCouponCodeDialog from '@/components/dialogs/ApplyCouponCodeDialog.vu
 import LowTokenBalanceBanner from '@/components/LowTokenBalanceBanner.vue';
 import DetailedUsageReportDialog from '@/components/dialogs/DetailedUsageReportDialog.vue';
 import BillingInformationTab from '@/components/billing/BillingInformationTab.vue';
+import AddFundsDialog from '@/components/dialogs/AddFundsDialog.vue';
 
 enum TABS {
     overview,
@@ -308,6 +321,7 @@ const isLowBalance = useLowTokenBalance();
 
 const isRollupLoading = ref(true);
 const isAddCouponDialogShown = ref<boolean>(false);
+const isAddFundsDialogShown = ref<boolean>(false);
 
 const tokenCardComponent = ref<IStorjTokenCardComponent>();
 
@@ -317,6 +331,7 @@ const creditCards = computed((): CreditCard[] => {
 
 const couponCodeBillingUIEnabled = computed<boolean>(() => configStore.state.config.couponCodeBillingUIEnabled);
 const billingInformationUIEnabled = computed<boolean>(() => configStore.state.config.billingInformationTabEnabled);
+const addFundsEnabled = computed<boolean>(() => configStore.state.config.billingAddFundsEnabled);
 
 /**
  * projectIDs is an array of all of the project IDs for which there exist project usage charges.

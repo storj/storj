@@ -83,7 +83,7 @@
                     </v-window-item>
 
                     <v-window-item v-if="selfPlacementEnabled" :value="CreateStep.Location">
-                        <v-form v-model="formValid" class="pa-7" @submit.prevent>
+                        <v-form v-model="formValid" class="pa-6" @submit.prevent>
                             <v-row>
                                 <v-col cols="12">
                                     <p class="font-weight-bold mb-2">
@@ -140,7 +140,7 @@
                     </v-window-item>
 
                     <v-window-item :value="CreateStep.ObjectLock">
-                        <v-form v-model="formValid" class="pa-7" @submit.prevent>
+                        <v-form v-model="formValid" class="pa-6" @submit.prevent>
                             <v-row>
                                 <v-col>
                                     <p class="font-weight-bold mb-2">Do you need object lock?</p>
@@ -243,76 +243,78 @@
                     </v-window-item>
 
                     <v-window-item :value="CreateStep.Confirmation">
-                        <v-row class="pa-7">
-                            <v-col>
-                                <p class="mb-4">You are about to create a new bucket with the following settings:</p>
-                                <p>Name:</p>
-                                <v-chip
-                                    variant="tonal"
-                                    value="Disabled"
-                                    color="default"
-                                    class="mt-1 mb-4 font-weight-bold"
-                                >
-                                    {{ bucketName }}
-                                </v-chip>
-
-                                <template v-if="selfPlacementEnabled">
-                                    <p>Location:</p>
+                        <v-card-text class="pa-6">
+                            <v-row>
+                                <v-col>
+                                    <p class="mb-4">You are about to create a new bucket with the following settings:</p>
+                                    <p>Name:</p>
                                     <v-chip
                                         variant="tonal"
                                         value="Disabled"
                                         color="default"
                                         class="mt-1 mb-4 font-weight-bold"
                                     >
-                                        {{ bucketLocationName }}
+                                        {{ bucketName }}
                                     </v-chip>
-                                </template>
 
-                                <template v-if="objectLockUIEnabled">
-                                    <p>Object Lock:</p>
-                                    <v-chip
-                                        variant="tonal"
-                                        value="Disabled"
-                                        color="default"
-                                        class="mt-1 mb-4 font-weight-bold"
-                                    >
-                                        {{ enableObjectLock ? 'Enabled' : 'Disabled' }}
-                                    </v-chip>
-                                    <p>Default Retention Mode:</p>
-                                    <v-chip
-                                        variant="tonal"
-                                        color="default"
-                                        class="mt-1 mb-4 font-weight-bold text-capitalize"
-                                    >
-                                        {{ defaultRetentionMode?.toLowerCase() ?? NO_MODE_SET }}
-                                    </v-chip>
-                                    <p>Default Retention Period:</p>
-                                    <v-chip
-                                        variant="tonal"
-                                        color="default"
-                                        class="mt-1 mb-4 font-weight-bold"
-                                    >
-                                        {{ defaultRetPeriodResult }}
-                                    </v-chip>
-                                </template>
+                                    <template v-if="selfPlacementEnabled">
+                                        <p>Location:</p>
+                                        <v-chip
+                                            variant="tonal"
+                                            value="Disabled"
+                                            color="default"
+                                            class="mt-1 mb-4 font-weight-bold"
+                                        >
+                                            {{ bucketLocationName }}
+                                        </v-chip>
+                                    </template>
 
-                                <template v-if="versioningUIEnabled">
-                                    <p>Versioning:</p>
-                                    <v-chip
-                                        variant="tonal"
-                                        value="Disabled"
-                                        color="default"
-                                        class="mt-1 font-weight-bold"
-                                    >
-                                        {{ enableVersioning ? 'Enabled' : 'Disabled' }}
-                                    </v-chip>
-                                </template>
-                            </v-col>
-                        </v-row>
+                                    <template v-if="objectLockUIEnabled">
+                                        <p>Object Lock:</p>
+                                        <v-chip
+                                            variant="tonal"
+                                            value="Disabled"
+                                            color="default"
+                                            class="mt-1 mb-4 font-weight-bold"
+                                        >
+                                            {{ enableObjectLock ? 'Enabled' : 'Disabled' }}
+                                        </v-chip>
+                                        <p>Default Retention Mode:</p>
+                                        <v-chip
+                                            variant="tonal"
+                                            color="default"
+                                            class="mt-1 mb-4 font-weight-bold text-capitalize"
+                                        >
+                                            {{ defaultRetentionMode?.toLowerCase() ?? NO_MODE_SET }}
+                                        </v-chip>
+                                        <p>Default Retention Period:</p>
+                                        <v-chip
+                                            variant="tonal"
+                                            color="default"
+                                            class="mt-1 mb-4 font-weight-bold"
+                                        >
+                                            {{ defaultRetPeriodResult }}
+                                        </v-chip>
+                                    </template>
+
+                                    <template v-if="versioningUIEnabled">
+                                        <p>Versioning:</p>
+                                        <v-chip
+                                            variant="tonal"
+                                            value="Disabled"
+                                            color="default"
+                                            class="mt-1 font-weight-bold"
+                                        >
+                                            {{ enableVersioning ? 'Enabled' : 'Disabled' }}
+                                        </v-chip>
+                                    </template>
+                                </v-col>
+                            </v-row>
+                        </v-card-text>
                     </v-window-item>
 
                     <v-window-item :value="CreateStep.Success">
-                        <div class="pa-7">
+                        <v-card-text class="pa-6">
                             <v-row>
                                 <v-col>
                                     <p>
@@ -329,12 +331,11 @@
                                         {{ bucketName }}
                                     </v-chip>
                                     <p>
-                                        You open the bucket and start uploading objects, or close this dialog and get back to view all
-                                        buckets.
+                                        You can open the bucket to start uploading objects, or close this dialog to return to all buckets.
                                     </p>
                                 </v-col>
                             </v-row>
-                        </div>
+                        </v-card-text>
                     </v-window-item>
                 </v-window>
             </v-card-text>
