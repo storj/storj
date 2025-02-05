@@ -116,6 +116,7 @@ export enum AnalyticsErrorEventSource {
     UPLOAD_OVERWRITE_WARNING_DIALOG = 'Upload Overwrite Warning Dialog',
     LOCK_OBJECT_DIALOG = 'Lock Object Dialog',
     LEGAL_HOLD_DIALOG = 'Legal Hold Dialog',
+    ADD_FUNDS_DIALOG = 'Add Funds Dialog',
 }
 
 export enum PageVisitSource {

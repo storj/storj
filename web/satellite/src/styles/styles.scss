@@ -297,6 +297,12 @@ a.v-card:hover {
   padding: .25rem 0;
 }
 
+// Card Text
+.v-card-text {
+  font-size: 0.9375rem !important;
+  letter-spacing: 0 !important;
+}
+
 // Cards Hover
 .v-card--hover:hover {
   box-shadow: 0 5px 5px -3px var(--v-shadow-key-umbra-opacity, rgba(0, 0, 0, .1)), 0 8px 10px 1px var(--v-shadow-key-penumbra-opacity, rgba(0, 0, 0, .07)), 0 3px 14px 2px var(--v-shadow-key-ambient-opacity, rgba(0, 0, 0, .05));

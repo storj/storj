@@ -511,10 +511,7 @@ func (cache *overlaycache) GetActiveNodes(ctx context.Context, nodeIDs storj.Nod
 	case dbutil.Spanner:
 		records = make([]nodeselection.SelectedNode, len(nodeIDs))
 		err := spannerutil.UnderlyingClient(ctx, cache.db.DB.DB, func(client *spanner.Client) error {
-			tx := client.Single()
-			if asOfSystemInterval < 0 {
-				tx = tx.WithTimestampBound(spanner.MaxStaleness(-asOfSystemInterval))
-			}
+			tx := client.Single().WithTimestampBound(spannerutil.MaxStalenessFromAOSI(asOfSystemInterval))
 			iter := tx.Query(ctx, spanner.Statement{
 				SQL: `
 					SELECT id, address, email, wallet, last_net,

@@ -24,8 +24,6 @@ type precommitTransactionAdapter interface {
 	precommitQueryHighest(ctx context.Context, loc ObjectLocation) (highest Version, err error)
 	precommitQueryHighestAndUnversioned(ctx context.Context, loc ObjectLocation) (highest Version, unversionedExists bool, err error)
 	precommitDeleteUnversioned(ctx context.Context, loc ObjectLocation) (result PrecommitConstraintResult, err error)
-	precommitDeleteUnversionedWithSQLCheck(ctx context.Context, loc ObjectLocation) (result PrecommitConstraintResult, err error)
-	precommitDeleteUnversionedWithVersionCheck(ctx context.Context, loc ObjectLocation) (result PrecommitConstraintResult, err error)
 }
 
 // PrecommitConstraint is arguments to ensure that a single unversioned object or delete marker exists in the
@@ -35,8 +33,6 @@ type PrecommitConstraint struct {
 
 	Versioned      bool
 	DisallowDelete bool
-
-	TestingPrecommitDeleteMode TestingPrecommitDeleteMode
 }
 
 // PrecommitConstraintResult returns the result of enforcing precommit constraint.
@@ -51,33 +47,6 @@ type PrecommitConstraintResult struct {
 	// HighestVersion returns tha highest version that was present in the table.
 	// It returns 0 if there was none.
 	HighestVersion Version
-}
-
-// TestingPrecommitDeleteMode represents what strategy to use when executing a precommit object deletion. We are using
-// it only to test different strategies for deleting objects in the precommit phase. In production it shouldn't be set
-// to anything other than DefaultUnversionedPrecommitMode.
-type TestingPrecommitDeleteMode int
-
-const (
-	// DefaultUnversionedPrecommitMode represents a default precommit object deletion strategy.
-	DefaultUnversionedPrecommitMode TestingPrecommitDeleteMode = 0
-
-	// WithPrecheckSQLUnversionedPrecommitMode represents a precommit object deletion strategy
-	// that performs a preliminary check using a subquery within the DELETE query to ensure that
-	// the object exists before attempting to delete it.
-	WithPrecheckSQLUnversionedPrecommitMode TestingPrecommitDeleteMode = 1
-
-	// WithVersionPrecheckUnversionedPrecommitMode represents a precommit object deletion strategy
-	// that refrains from executing a deletion query and exits early if no object versions are
-	// present at the specified location.
-	WithVersionPrecheckUnversionedPrecommitMode TestingPrecommitDeleteMode = 2
-)
-
-// PrecommitDeleteModes is a list of all possible precommit delete modes.
-var PrecommitDeleteModes = []TestingPrecommitDeleteMode{
-	DefaultUnversionedPrecommitMode,
-	WithPrecheckSQLUnversionedPrecommitMode,
-	WithVersionPrecheckUnversionedPrecommitMode,
 }
 
 func (r *PrecommitConstraintResult) submitMetrics() {
@@ -114,16 +83,7 @@ func (db *DB) PrecommitConstraint(ctx context.Context, opts PrecommitConstraint,
 		return result, nil
 	}
 
-	switch opts.TestingPrecommitDeleteMode {
-	case DefaultUnversionedPrecommitMode:
-		return adapter.precommitDeleteUnversioned(ctx, opts.Location)
-	case WithPrecheckSQLUnversionedPrecommitMode:
-		return adapter.precommitDeleteUnversionedWithSQLCheck(ctx, opts.Location)
-	case WithVersionPrecheckUnversionedPrecommitMode:
-		return adapter.precommitDeleteUnversionedWithVersionCheck(ctx, opts.Location)
-	default:
-		return PrecommitConstraintResult{}, Error.New("Invalid precommit delete mode version: %d", opts.TestingPrecommitDeleteMode)
-	}
+	return adapter.precommitDeleteUnversioned(ctx, opts.Location)
 }
 
 // precommitQueryHighest queries the highest version for a given object.
@@ -397,258 +357,6 @@ func (ptx *postgresTransactionAdapter) precommitDeleteUnversioned(ctx context.Co
 	return result, nil
 }
 
-// precommitDeleteUnversionedWithSQLCheck deletes the unversioned object at loc and also returns the highest version. deletes the unversioned object at loc and also returns the highest version.
-// it will skip the delete if no deletable objects are found.
-func (ptx *postgresTransactionAdapter) precommitDeleteUnversionedWithSQLCheck(ctx context.Context, loc ObjectLocation) (result PrecommitConstraintResult, err error) {
-	defer mon.Task()(&ctx)(&err)
-
-	var deleted Object
-
-	var version sql.NullInt64
-	var streamID uuid.NullUUID
-	var createdAt sql.NullTime
-	var segmentCount, fixedSegmentSize sql.NullInt32
-	var totalPlainSize, totalEncryptedSize sql.NullInt64
-	var status sql.NullByte
-	var encryptionParams nullableValue[encryptionParameters]
-	encryptionParams.value.EncryptionParameters = &deleted.Encryption
-
-	err = ptx.tx.QueryRowContext(ctx, `
-		WITH highest_object AS (
-			SELECT version
-			FROM objects
-			WHERE (project_id, bucket_name, object_key) = ($1, $2, $3)
-			ORDER BY version DESC
-			LIMIT 1
-		), deleted_objects AS (
-			DELETE FROM objects
-			WHERE
-				EXISTS (SELECT * from highest_object)
-				AND (project_id, bucket_name, object_key) = ($1, $2, $3)
-				AND status IN `+statusesUnversioned+`
-			RETURNING
-				version, stream_id,
-				created_at, expires_at,
-				status, segment_count,
-				encrypted_metadata_nonce, encrypted_metadata, encrypted_metadata_encrypted_key,
-				total_plain_size, total_encrypted_size, fixed_segment_size,
-				encryption,
-				retention_mode, retain_until
-		), deleted_segments AS (
-			DELETE FROM segments
-			WHERE segments.stream_id IN (SELECT deleted_objects.stream_id FROM deleted_objects)
-			RETURNING segments.stream_id
-		)
-		SELECT
-			(SELECT version FROM deleted_objects),
-			(SELECT stream_id FROM deleted_objects),
-			(SELECT created_at FROM deleted_objects),
-			(SELECT expires_at FROM deleted_objects),
-			(SELECT status FROM deleted_objects),
-			(SELECT segment_count FROM deleted_objects),
-			(SELECT encrypted_metadata_nonce FROM deleted_objects),
-			(SELECT encrypted_metadata FROM deleted_objects),
-			(SELECT encrypted_metadata_encrypted_key FROM deleted_objects),
-			(SELECT total_plain_size FROM deleted_objects),
-			(SELECT total_encrypted_size FROM deleted_objects),
-			(SELECT fixed_segment_size FROM deleted_objects),
-			(SELECT encryption FROM deleted_objects),
-			(SELECT retention_mode FROM deleted_objects),
-			(SELECT retain_until FROM deleted_objects),
-			(SELECT count(*) FROM deleted_objects),
-			(SELECT count(*) FROM deleted_segments),
-			coalesce((SELECT version FROM highest_object), 0)
-	`, loc.ProjectID, loc.BucketName, loc.ObjectKey).
-		Scan(
-			&version,
-			&streamID,
-			&createdAt,
-			&deleted.ExpiresAt,
-			&status,
-			&segmentCount,
-			&deleted.EncryptedMetadataNonce,
-			&deleted.EncryptedMetadata,
-			&deleted.EncryptedMetadataEncryptedKey,
-			&totalPlainSize,
-			&totalEncryptedSize,
-			&fixedSegmentSize,
-			&encryptionParams,
-			lockModeWrapper{
-				retentionMode: &deleted.Retention.Mode,
-				legalHold:     &deleted.LegalHold,
-			},
-			timeWrapper{&deleted.Retention.RetainUntil},
-			&result.DeletedObjectCount,
-			&result.DeletedSegmentCount,
-			&result.HighestVersion,
-		)
-	if errors.Is(err, sql.ErrNoRows) {
-		return result, nil
-	}
-	if err != nil {
-		return PrecommitConstraintResult{}, Error.Wrap(err)
-	}
-
-	deleted.ProjectID = loc.ProjectID
-	deleted.BucketName = loc.BucketName
-	deleted.ObjectKey = loc.ObjectKey
-	deleted.Version = Version(version.Int64)
-
-	deleted.Status = ObjectStatus(status.Byte)
-	deleted.StreamID = streamID.UUID
-	deleted.CreatedAt = createdAt.Time
-	deleted.SegmentCount = segmentCount.Int32
-
-	deleted.TotalPlainSize = totalPlainSize.Int64
-	deleted.TotalEncryptedSize = totalEncryptedSize.Int64
-	deleted.FixedSegmentSize = fixedSegmentSize.Int32
-
-	if result.DeletedObjectCount > 1 {
-		ptx.postgresAdapter.log.Error("object with multiple committed versions were found!",
-			zap.Stringer("Project ID", loc.ProjectID), zap.Stringer("Bucket Name", loc.BucketName),
-			zap.String("Object Key", hex.EncodeToString([]byte(loc.ObjectKey))), zap.Int("deleted", result.DeletedObjectCount))
-
-		mon.Meter("multiple_committed_versions").Mark(1)
-
-		return result, Error.New(multipleCommittedVersionsErrMsg)
-	}
-
-	if result.DeletedObjectCount > 0 {
-		result.Deleted = append(result.Deleted, deleted)
-	}
-
-	return result, nil
-}
-
-// precommitDeleteUnversionedWithVersionCheck deletes the unversioned object at loc and also returns the highest version. deletes the unversioned object at loc and also returns the highest version.
-// it will skip the delete if no deletable objects are found.
-func (ptx *postgresTransactionAdapter) precommitDeleteUnversionedWithVersionCheck(ctx context.Context, loc ObjectLocation) (result PrecommitConstraintResult, err error) {
-	defer mon.Task()(&ctx)(&err)
-
-	result.HighestVersion, err = ptx.precommitQueryHighest(ctx, loc)
-	if err != nil {
-		return PrecommitConstraintResult{}, Error.Wrap(err)
-	}
-
-	if result.HighestVersion == 0 {
-		// no previous versions, nothing to delete
-		return result, nil
-	}
-
-	var deleted Object
-
-	var version sql.NullInt64
-	var streamID uuid.NullUUID
-	var createdAt sql.NullTime
-	var segmentCount, fixedSegmentSize sql.NullInt32
-	var totalPlainSize, totalEncryptedSize sql.NullInt64
-	var status sql.NullByte
-	var encryptionParams nullableValue[encryptionParameters]
-	encryptionParams.value.EncryptionParameters = &deleted.Encryption
-
-	err = ptx.tx.QueryRowContext(ctx, `
-		WITH deleted_objects AS (
-			DELETE FROM objects
-			WHERE
-				(project_id, bucket_name, object_key) = ($1, $2, $3)
-				AND status IN `+statusesUnversioned+`
-			RETURNING
-				version, stream_id,
-				created_at, expires_at,
-				status, segment_count,
-				encrypted_metadata_nonce, encrypted_metadata, encrypted_metadata_encrypted_key,
-				total_plain_size, total_encrypted_size, fixed_segment_size,
-				encryption,
-				retention_mode, retain_until
-		), deleted_segments AS (
-			DELETE FROM segments
-			WHERE segments.stream_id IN (SELECT deleted_objects.stream_id FROM deleted_objects)
-			RETURNING segments.stream_id
-		)
-		SELECT
-			(SELECT version FROM deleted_objects),
-			(SELECT stream_id FROM deleted_objects),
-			(SELECT created_at FROM deleted_objects),
-			(SELECT expires_at FROM deleted_objects),
-			(SELECT status FROM deleted_objects),
-			(SELECT segment_count FROM deleted_objects),
-			(SELECT encrypted_metadata_nonce FROM deleted_objects),
-			(SELECT encrypted_metadata FROM deleted_objects),
-			(SELECT encrypted_metadata_encrypted_key FROM deleted_objects),
-			(SELECT total_plain_size FROM deleted_objects),
-			(SELECT total_encrypted_size FROM deleted_objects),
-			(SELECT fixed_segment_size FROM deleted_objects),
-			(SELECT encryption FROM deleted_objects),
-			(SELECT retention_mode FROM deleted_objects),
-			(SELECT retain_until FROM deleted_objects),
-			(SELECT count(*) FROM deleted_objects),
-			(SELECT count(*) FROM deleted_segments)
-	`, loc.ProjectID, loc.BucketName, loc.ObjectKey).
-		Scan(
-			&version,
-			&streamID,
-			&createdAt,
-			&deleted.ExpiresAt,
-			&status,
-			&segmentCount,
-			&deleted.EncryptedMetadataNonce,
-			&deleted.EncryptedMetadata,
-			&deleted.EncryptedMetadataEncryptedKey,
-			&totalPlainSize,
-			&totalEncryptedSize,
-			&fixedSegmentSize,
-			&encryptionParams,
-			lockModeWrapper{
-				retentionMode: &deleted.Retention.Mode,
-				legalHold:     &deleted.LegalHold,
-			},
-			timeWrapper{&deleted.Retention.RetainUntil},
-			&result.DeletedObjectCount,
-			&result.DeletedSegmentCount,
-		)
-	if err != nil {
-		return PrecommitConstraintResult{}, Error.Wrap(err)
-	}
-
-	deleted.ProjectID = loc.ProjectID
-	deleted.BucketName = loc.BucketName
-	deleted.ObjectKey = loc.ObjectKey
-	deleted.Version = Version(version.Int64)
-
-	deleted.Status = ObjectStatus(status.Byte)
-	deleted.StreamID = streamID.UUID
-	deleted.CreatedAt = createdAt.Time
-	deleted.SegmentCount = segmentCount.Int32
-
-	deleted.TotalPlainSize = totalPlainSize.Int64
-	deleted.TotalEncryptedSize = totalEncryptedSize.Int64
-	deleted.FixedSegmentSize = fixedSegmentSize.Int32
-
-	if result.DeletedObjectCount > 1 {
-		ptx.postgresAdapter.log.Error("object with multiple committed versions were found!",
-			zap.Stringer("Project ID", loc.ProjectID), zap.Stringer("Bucket Name", loc.BucketName),
-			zap.String("Object Key", hex.EncodeToString([]byte(loc.ObjectKey))), zap.Int("deleted", result.DeletedObjectCount))
-
-		mon.Meter("multiple_committed_versions").Mark(1)
-
-		return result, Error.New(multipleCommittedVersionsErrMsg)
-	}
-
-	if result.DeletedObjectCount > 0 {
-		result.Deleted = append(result.Deleted, deleted)
-	}
-
-	return result, nil
-}
-
-func (stx *spannerTransactionAdapter) precommitDeleteUnversionedWithVersionCheck(ctx context.Context, loc ObjectLocation) (result PrecommitConstraintResult, err error) {
-	return stx.precommitDeleteUnversioned(ctx, loc)
-}
-
-func (stx *spannerTransactionAdapter) precommitDeleteUnversionedWithSQLCheck(ctx context.Context, loc ObjectLocation) (result PrecommitConstraintResult, err error) {
-	return stx.precommitDeleteUnversioned(ctx, loc)
-}
-
 func (stx *spannerTransactionAdapter) precommitDeleteUnversioned(ctx context.Context, loc ObjectLocation) (result PrecommitConstraintResult, err error) {
 	defer mon.Task()(&ctx)(&err)
 
@@ -668,9 +376,10 @@ func (stx *spannerTransactionAdapter) precommitDeleteUnversioned(ctx context.Con
 	}), func(row *spanner.Row, item *Version) error {
 		return Error.Wrap(row.Columns(item))
 	})
+	// no previous versions found, return early
 	if errors.Is(err, iterator.Done) {
 		result.HighestVersion = 0
-		err = nil
+		return result, nil
 	}
 	if err != nil {
 		return PrecommitConstraintResult{}, Error.Wrap(err)

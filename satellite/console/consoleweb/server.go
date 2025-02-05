@@ -434,7 +434,7 @@ func NewServer(logger *zap.Logger, config Config, service *console.Service, oidc
 		}
 		if config.BillingAddFundsEnabled {
 			paymentsRouter.Handle("/add-funds", server.withCSRFProtection(http.HandlerFunc(paymentController.AddFunds))).Methods(http.MethodPost, http.MethodOptions)
-			paymentsRouter.HandleFunc("/webhook", paymentController.HandleWebhookEvent).Methods(http.MethodPost, http.MethodOptions)
+			router.HandleFunc("/api/v0/payments/webhook", paymentController.HandleWebhookEvent).Methods(http.MethodPost, http.MethodOptions)
 		}
 	}
 
@@ -453,9 +453,9 @@ func NewServer(logger *zap.Logger, config Config, service *console.Service, oidc
 	apiKeysRouter := router.PathPrefix("/api/v0/api-keys").Subrouter()
 	apiKeysRouter.Use(server.withCORS)
 	apiKeysRouter.Use(server.withAuth)
-	apiKeysRouter.Handle("/create/{projectID}", http.HandlerFunc(apiKeysController.CreateAPIKey)).Methods(http.MethodPost, http.MethodOptions)
-	apiKeysRouter.Handle("/delete-by-name", http.HandlerFunc(apiKeysController.DeleteByNameAndProjectID)).Methods(http.MethodDelete, http.MethodOptions)
-	apiKeysRouter.Handle("/delete-by-ids", http.HandlerFunc(apiKeysController.DeleteByIDs)).Methods(http.MethodDelete, http.MethodOptions)
+	apiKeysRouter.Handle("/create/{projectID}", server.withCSRFProtection(http.HandlerFunc(apiKeysController.CreateAPIKey))).Methods(http.MethodPost, http.MethodOptions)
+	apiKeysRouter.Handle("/delete-by-name", server.withCSRFProtection(http.HandlerFunc(apiKeysController.DeleteByNameAndProjectID))).Methods(http.MethodDelete, http.MethodOptions)
+	apiKeysRouter.Handle("/delete-by-ids", server.withCSRFProtection(http.HandlerFunc(apiKeysController.DeleteByIDs))).Methods(http.MethodDelete, http.MethodOptions)
 	apiKeysRouter.HandleFunc("/list-paged", apiKeysController.GetProjectAPIKeys).Methods(http.MethodGet, http.MethodOptions)
 	apiKeysRouter.HandleFunc("/api-key-names", apiKeysController.GetAllAPIKeyNames).Methods(http.MethodGet, http.MethodOptions)
 
@@ -466,6 +466,7 @@ func NewServer(logger *zap.Logger, config Config, service *console.Service, oidc
 	analyticsRouter := router.PathPrefix(analyticsPath).Subrouter()
 	analyticsRouter.Use(server.withCORS)
 	analyticsRouter.Use(server.withAuth)
+	analyticsRouter.Use(server.withCSRFProtection)
 	analyticsRouter.HandleFunc("/event", analyticsController.EventTriggered).Methods(http.MethodPost, http.MethodOptions)
 	analyticsRouter.HandleFunc("/page", analyticsController.PageEventTriggered).Methods(http.MethodPost, http.MethodOptions)
 	analyticsRouter.HandleFunc("/join-cunofs-beta", analyticsController.JoinCunoFSBeta).Methods(http.MethodPost, http.MethodOptions)

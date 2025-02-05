@@ -28,25 +28,27 @@ func (pi *paymentIntents) ChargeCard(ctx context.Context, request payments.Charg
 	}
 
 	intent, err := pi.service.stripeClient.PaymentIntents().New(&stripe.PaymentIntentParams{
-		Amount:        stripe.Int64(request.Amount),
-		Customer:      stripe.String(customerID),
-		PaymentMethod: stripe.String(request.CardID),
-		Currency:      stripe.String(string(stripe.CurrencyUSD)),
-		Metadata:      request.Metadata,
+		Amount:             stripe.Int64(request.Amount),
+		Customer:           stripe.String(customerID),
+		PaymentMethod:      stripe.String(request.CardID),
+		Currency:           stripe.String(string(stripe.CurrencyUSD)),
+		ConfirmationMethod: stripe.String(string(stripe.PaymentIntentConfirmationMethodAutomatic)),
+		Metadata:           request.Metadata,
 	})
 	if err != nil {
 		stripeErr := &stripe.Error{}
 		if errors.As(err, &stripeErr) {
-			if stripeErr.PaymentIntent != nil && stripeErr.PaymentIntent.Status == stripe.PaymentIntentStatusRequiresAction {
-				return &payments.ChargeCardResponse{
-					Success:         false,
-					ClientSecret:    stripeErr.PaymentIntent.ClientSecret,
-					PaymentIntentID: stripeErr.PaymentIntent.ID,
-				}, nil
-			}
+			err = errs.Wrap(errors.New(stripeErr.Msg))
 		}
-
 		return nil, Error.Wrap(err)
+	}
+
+	if intent.Status == stripe.PaymentIntentStatusRequiresConfirmation || intent.Status == stripe.PaymentIntentStatusRequiresAction {
+		return &payments.ChargeCardResponse{
+			Success:         false,
+			ClientSecret:    intent.ClientSecret,
+			PaymentIntentID: intent.ID,
+		}, nil
 	}
 
 	if intent.Status != stripe.PaymentIntentStatusSucceeded {

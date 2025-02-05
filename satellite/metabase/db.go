@@ -46,9 +46,8 @@ type Config struct {
 
 	NodeAliasCacheFullRefresh bool
 
-	TestingUniqueUnversioned   bool
-	TestingPrecommitDeleteMode TestingPrecommitDeleteMode
-	TestingSpannerProjects     map[uuid.UUID]struct{}
+	TestingUniqueUnversioned bool
+	TestingSpannerProjects   map[uuid.UUID]struct{}
 }
 
 // DB implements a database for storing objects and segments.

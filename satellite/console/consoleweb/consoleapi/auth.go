@@ -427,6 +427,27 @@ func (a *Auth) Register(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	ip, err := web.GetRequestIP(r)
+	if err != nil {
+		a.serveJSONError(ctx, w, err)
+		return
+	}
+
+	valid, captchaScore, err := a.service.VerifyRegistrationCaptcha(ctx, registerData.CaptchaResponse, ip)
+	if err != nil {
+		mon.Counter("create_user_captcha_error").Inc(1) //mon:locked
+		a.log.Error("captcha authorization failed", zap.Error(err))
+
+		a.serveJSONError(ctx, w, console.ErrCaptcha.Wrap(err))
+		return
+	}
+	if !valid {
+		mon.Counter("create_user_captcha_unsuccessful").Inc(1) //mon:locked
+
+		a.serveJSONError(ctx, w, console.ErrCaptcha.New("captcha validation unsuccessful"))
+		return
+	}
+
 	verified, unverified, err := a.service.GetUserByEmailWithUnverified(ctx, registerData.Email)
 	if err != nil && !console.ErrEmailNotFound.Has(err) {
 		a.serveJSONError(ctx, w, err)
@@ -456,12 +477,6 @@ func (a *Auth) Register(w http.ResponseWriter, r *http.Request) {
 		registerData.UserAgent = []byte(registerData.Partner)
 	}
 
-	ip, err := web.GetRequestIP(r)
-	if err != nil {
-		a.serveJSONError(ctx, w, err)
-		return
-	}
-
 	var code string
 	var requestID string
 	if a.ActivationCodeEnabled {
@@ -488,6 +503,7 @@ func (a *Auth) Register(w http.ResponseWriter, r *http.Request) {
 		EmployeeCount:    registerData.EmployeeCount,
 		HaveSalesContact: registerData.HaveSalesContact,
 		CaptchaResponse:  registerData.CaptchaResponse,
+		CaptchaScore:     captchaScore,
 		IP:               ip,
 		SignupPromoCode:  registerData.SignupPromoCode,
 		ActivationCode:   code,

@@ -101,25 +101,26 @@ type UserInfo struct {
 
 // CreateUser struct holds info for User creation.
 type CreateUser struct {
-	ExternalId       *string `json:"-"`
-	FullName         string  `json:"fullName"`
-	ShortName        string  `json:"shortName"`
-	Email            string  `json:"email"`
-	UserAgent        []byte  `json:"userAgent"`
-	Password         string  `json:"password"`
-	IsProfessional   bool    `json:"isProfessional"`
-	Position         string  `json:"position"`
-	CompanyName      string  `json:"companyName"`
-	WorkingOn        string  `json:"workingOn"`
-	EmployeeCount    string  `json:"employeeCount"`
-	HaveSalesContact bool    `json:"haveSalesContact"`
-	CaptchaResponse  string  `json:"captchaResponse"`
-	IP               string  `json:"ip"`
-	SignupPromoCode  string  `json:"signupPromoCode"`
-	ActivationCode   string  `json:"-"`
-	SignupId         string  `json:"-"`
-	AllowNoName      bool    `json:"-"`
-	PaidTier         bool    `json:"-"`
+	ExternalId       *string  `json:"-"`
+	FullName         string   `json:"fullName"`
+	ShortName        string   `json:"shortName"`
+	Email            string   `json:"email"`
+	UserAgent        []byte   `json:"userAgent"`
+	Password         string   `json:"password"`
+	IsProfessional   bool     `json:"isProfessional"`
+	Position         string   `json:"position"`
+	CompanyName      string   `json:"companyName"`
+	WorkingOn        string   `json:"workingOn"`
+	EmployeeCount    string   `json:"employeeCount"`
+	HaveSalesContact bool     `json:"haveSalesContact"`
+	CaptchaResponse  string   `json:"captchaResponse"`
+	IP               string   `json:"ip"`
+	SignupPromoCode  string   `json:"signupPromoCode"`
+	CaptchaScore     *float64 `json:"-"`
+	ActivationCode   string   `json:"-"`
+	SignupId         string   `json:"-"`
+	AllowNoName      bool     `json:"-"`
+	PaidTier         bool     `json:"-"`
 }
 
 // CreateSsoUser struct holds info for SSO User creation.

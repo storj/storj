@@ -723,9 +723,10 @@ func (payment Payments) AddFunds(ctx context.Context, params payments.AddFundsPa
 	}
 
 	response, err = payment.service.accounts.PaymentIntents().ChargeCard(ctx, payments.ChargeCardRequest{
-		UserID: user.ID,
-		CardID: params.CardID,
-		Amount: int64(params.Amount),
+		UserID:   user.ID,
+		CardID:   params.CardID,
+		Amount:   int64(params.Amount),
+		Metadata: map[string]string{"user_id": user.ID.String()},
 	})
 	if err != nil {
 		return nil, Error.Wrap(err)
@@ -748,12 +749,48 @@ func (payment Payments) HandleWebhookEvent(ctx context.Context, signature string
 		return nil
 	}
 
-	_, ok := event.Data["metadata"].(map[string]interface{})
-	if !ok {
-		return Error.New("webhook event metadata missing or invalid")
+	err = payment.handlePaymentIntentSucceeded(ctx, event)
+	if err != nil {
+		return Error.Wrap(err)
 	}
 
-	// TODO: add event handlers
+	return nil
+}
+
+func (payment Payments) handlePaymentIntentSucceeded(ctx context.Context, event *payments.WebhookEvent) (err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	// Unlikely to happen, but just in case.
+	if event == nil {
+		return errs.New("webhook event is nil")
+	}
+
+	metadata, ok := event.Data["metadata"].(map[string]interface{})
+	if !ok {
+		return errs.New("webhook event metadata missing or invalid")
+	}
+
+	userIDStr, ok := metadata["user_id"].(string)
+	if !ok {
+		return errs.New("user_id missing in webhook event metadata")
+	}
+
+	amount, ok := event.Data["amount"].(float64)
+	if !ok {
+		return errs.New("amount missing in webhook event data")
+	}
+
+	userID, err := uuid.FromString(userIDStr)
+	if err != nil {
+		return err
+	}
+
+	description := fmt.Sprintf("Credit applied via webhook event: %s", event.ID)
+
+	_, err = payment.service.accounts.Balances().ApplyCredit(ctx, userID, int64(amount), description)
+	if err != nil {
+		return err
+	}
 
 	return nil
 }
@@ -1101,17 +1138,6 @@ func (s *Service) CreateUser(ctx context.Context, user CreateUser, tokenSecret R
 
 	mon.Counter("create_user_attempt").Inc(1) //mon:locked
 
-	valid, captchaScore, err := s.VerifyRegistrationCaptcha(ctx, user.CaptchaResponse, user.IP)
-	if err != nil {
-		mon.Counter("create_user_captcha_error").Inc(1) //mon:locked
-		s.log.Error("captcha authorization failed", zap.Error(err))
-		return nil, ErrCaptcha.Wrap(err)
-	}
-	if !valid {
-		mon.Counter("create_user_captcha_unsuccessful").Inc(1) //mon:locked
-		return nil, ErrCaptcha.New("captcha validation unsuccessful")
-	}
-
 	if err := user.IsValid(user.AllowNoName); err != nil {
 		// NOTE: error is already wrapped with an appropriated class.
 		return nil, err
@@ -1147,7 +1173,7 @@ func (s *Service) CreateUser(ctx context.Context, user CreateUser, tokenSecret R
 			EmployeeCount:    user.EmployeeCount,
 			HaveSalesContact: user.HaveSalesContact,
 			SignupPromoCode:  user.SignupPromoCode,
-			SignupCaptcha:    captchaScore,
+			SignupCaptcha:    user.CaptchaScore,
 			ActivationCode:   user.ActivationCode,
 			SignupId:         user.SignupId,
 			PaidTier:         user.PaidTier,

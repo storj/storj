@@ -7,7 +7,7 @@ import (
 	"context"
 	"sync"
 
-	"storj.io/common/identity"
+	"storj.io/common/signing"
 	"storj.io/common/storj"
 	"storj.io/storj/satellite/overlay"
 )
@@ -17,19 +17,19 @@ type IdentityCache struct {
 	db overlay.PeerIdentities
 
 	mu     sync.RWMutex
-	cached map[storj.NodeID]*identity.PeerIdentity
+	cached map[storj.NodeID]signing.Signee
 }
 
 // NewIdentityCache returns an IdentityCache.
 func NewIdentityCache(db overlay.PeerIdentities) *IdentityCache {
 	return &IdentityCache{
 		db:     db,
-		cached: map[storj.NodeID]*identity.PeerIdentity{},
+		cached: map[storj.NodeID]signing.Signee{},
 	}
 }
 
 // GetCached returns the peer identity in the cache.
-func (cache *IdentityCache) GetCached(ctx context.Context, id storj.NodeID) *identity.PeerIdentity {
+func (cache *IdentityCache) GetCached(ctx context.Context, id storj.NodeID) signing.Signee {
 	defer mon.Task()(&ctx)(nil)
 
 	cache.mu.RLock()
@@ -39,19 +39,20 @@ func (cache *IdentityCache) GetCached(ctx context.Context, id storj.NodeID) *ide
 }
 
 // GetUpdated returns the identity from database and updates the cache.
-func (cache *IdentityCache) GetUpdated(ctx context.Context, id storj.NodeID) (_ *identity.PeerIdentity, err error) {
+func (cache *IdentityCache) GetUpdated(ctx context.Context, id storj.NodeID) (_ signing.Signee, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	identity, err := cache.db.Get(ctx, id)
 	if err != nil {
 		return nil, Error.Wrap(err)
 	}
+	signee := signing.SigneeFromPeerIdentity(identity)
 
 	cache.mu.Lock()
 	defer cache.mu.Unlock()
-	cache.cached[id] = identity
+	cache.cached[id] = signee
 
-	return identity, nil
+	return signee, nil
 }
 
 // EnsureCached loads any missing identity into cache.
@@ -84,7 +85,7 @@ func (cache *IdentityCache) EnsureCached(ctx context.Context, nodes []storj.Node
 	defer cache.mu.Unlock()
 
 	for _, identity := range identities {
-		cache.cached[identity.ID] = identity
+		cache.cached[identity.ID] = signing.SigneeFromPeerIdentity(identity)
 	}
 
 	return nil

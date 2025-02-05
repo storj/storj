@@ -24,6 +24,7 @@ import {
     TaxID,
     UpdateCardParams,
     PriceModelForPlacementRequest,
+    AddFundsResponse,
 } from '@/types/payments';
 import { HttpClient } from '@/utils/httpClient';
 import { Time } from '@/utils/time';
@@ -36,6 +37,32 @@ import { APIError } from '@/utils/error';
 export class PaymentsHttpApi implements PaymentsApi {
     private readonly client: HttpClient = new HttpClient();
     private readonly ROOT_PATH: string = '/api/v0/payments';
+
+    /**
+     * Starts add funds flow.
+     *
+     * @throws Error
+     */
+    public async addFunds(cardID: string, amount: number): Promise<AddFundsResponse> {
+        const path = `${this.ROOT_PATH}/add-funds`;
+        const response = await this.client.post(path, JSON.stringify({ cardID, amount }));
+
+        const result = await response.json();
+
+        if (!response.ok) {
+            throw new APIError({
+                status: response.status,
+                message: result.error || 'Can not add funds',
+                requestID: response.headers.get('x-request-id'),
+            });
+        }
+
+        return {
+            success: result.success,
+            clientSecret: result.clientSecret,
+            paymentIntentID: result.paymentIntentID,
+        };
+    }
 
     /**
      * Get account balance.

@@ -55,78 +55,79 @@
             </v-col>
         </v-row>
 
-        <v-row>
-            <v-col>
-                <h3 class="mt-5">Project Limits</h3>
-            </v-col>
-        </v-row>
+        <template v-if="isProjectOwner || (!isProjectOwner && isProjectOwnerPaidTier)">
+            <v-row>
+                <v-col>
+                    <h3 class="mt-5">Project Limits</h3>
+                </v-col>
+            </v-row>
 
-        <v-row v-if="!isProjectOwnerPaidTier && billingEnabled">
-            <v-col cols="12" lg="4">
-                <v-card title="Free Trial" class="pa-2">
-                    <v-card-subtitle>
-                        {{ storageLimitFormatted }} Storage / {{ bandwidthLimitFormatted }} Bandwidth. <br>
-                        Need more? Upgrade to Pro Account.
-                    </v-card-subtitle>
-                    <v-card-text>
-                        <v-btn variant="flat" color="primary" :append-icon="ArrowRight" @click="toggleUpgradeFlow">
-                            Upgrade
-                        </v-btn>
-                    </v-card-text>
-                </v-card>
-            </v-col>
-        </v-row>
+            <v-row v-if="!isProjectOwnerPaidTier && billingEnabled">
+                <v-col cols="12" lg="4">
+                    <v-card title="Free Trial" class="pa-2">
+                        <v-card-subtitle>
+                            {{ storageLimitFormatted }} Storage / {{ bandwidthLimitFormatted }} Bandwidth. <br>
+                            Need more? Upgrade to Pro Account.
+                        </v-card-subtitle>
+                        <v-card-text>
+                            <v-btn variant="flat" color="primary" :append-icon="ArrowRight" @click="toggleUpgradeFlow">
+                                Upgrade
+                            </v-btn>
+                        </v-card-text>
+                    </v-card>
+                </v-col>
+            </v-row>
 
-        <v-row v-else>
-            <v-col cols="12" sm="6" lg="4">
-                <v-card title="Storage" class="pa-2">
-                    <v-card-subtitle>
-                        Limit: {{ storageLimitFormatted }} <br>
-                        <span v-if="!noLimitsUiEnabled">Available Storage: {{ paidStorageLimitFormatted }}</span>
-                    </v-card-subtitle>
-                    <v-card-text>
-                        <v-btn variant="outlined" color="default" :prepend-icon="InfinityIcon" @click="showStorageLimitDialog">
-                            Edit Storage Limit
-                        </v-btn>
-                    </v-card-text>
-                </v-card>
-            </v-col>
+            <v-row v-else>
+                <v-col cols="12" sm="6" lg="4">
+                    <v-card title="Storage" class="pa-2">
+                        <v-card-subtitle>
+                            Limit: {{ storageLimitFormatted }} <br>
+                            <span v-if="!noLimitsUiEnabled">Available Storage: {{ paidStorageLimitFormatted }}</span>
+                        </v-card-subtitle>
+                        <v-card-text>
+                            <v-btn variant="outlined" color="default" :prepend-icon="InfinityIcon" @click="showStorageLimitDialog">
+                                Edit Storage Limit
+                            </v-btn>
+                        </v-card-text>
+                    </v-card>
+                </v-col>
 
-            <v-col cols="12" sm="6" lg="4">
-                <v-card title="Download" class="pa-2">
-                    <v-card-subtitle>
-                        Limit: {{ bandwidthLimitFormatted }} {{ bandwidthLimitFormatted === 'No Limit' ? '' : 'per month' }}<br>
-                        <span v-if="!noLimitsUiEnabled">Available Download: {{ paidBandwidthLimitFormatted }} per month</span>
-                    </v-card-subtitle>
-                    <v-card-text>
-                        <v-btn variant="outlined" color="default" :prepend-icon="InfinityIcon" @click="showBandwidthLimitDialog">
-                            Edit Download Limit
-                        </v-btn>
-                    </v-card-text>
-                </v-card>
-            </v-col>
+                <v-col cols="12" sm="6" lg="4">
+                    <v-card title="Download" class="pa-2">
+                        <v-card-subtitle>
+                            Limit: {{ bandwidthLimitFormatted }} {{ bandwidthLimitFormatted === 'No Limit' ? '' : 'per month' }}<br>
+                            <span v-if="!noLimitsUiEnabled">Available Download: {{ paidBandwidthLimitFormatted }} per month</span>
+                        </v-card-subtitle>
+                        <v-card-text>
+                            <v-btn variant="outlined" color="default" :prepend-icon="InfinityIcon" @click="showBandwidthLimitDialog">
+                                Edit Download Limit
+                            </v-btn>
+                        </v-card-text>
+                    </v-card>
+                </v-col>
 
-            <v-col v-if="!noLimitsUiEnabled" cols="12" sm="6" lg="4">
-                <v-card title="Account Limits" class="pa-2">
-                    <v-card-subtitle>
-                        Storage limit: {{ paidStorageLimitFormatted }} <br>
-                        Download limit: {{ paidBandwidthLimitFormatted }} per month
-                    </v-card-subtitle>
-                    <v-card-text>
-                        <v-btn
-                            variant="outlined"
-                            color="default"
-                            rounded="md"
-                            :append-icon="ExternalLink"
-                            @click="openRequestUrl"
-                        >
-                            Request Limits Increase
-                            <v-icon end :icon="SquareArrowOutUpRight" />
-                        </v-btn>
-                    </v-card-text>
-                </v-card>
-            </v-col>
-        </v-row>
+                <v-col v-if="!noLimitsUiEnabled" cols="12" sm="6" lg="4">
+                    <v-card title="Account Limits" class="pa-2">
+                        <v-card-subtitle>
+                            Storage limit: {{ paidStorageLimitFormatted }} <br>
+                            Download limit: {{ paidBandwidthLimitFormatted }} per month
+                        </v-card-subtitle>
+                        <v-card-text>
+                            <v-btn
+                                variant="outlined"
+                                color="default"
+                                rounded="md"
+                                :append-icon="ExternalLink"
+                                @click="openRequestUrl"
+                            >
+                                Request Limits Increase
+                            </v-btn>
+                        </v-card-text>
+                    </v-card>
+                </v-col>
+            </v-row>
+        </template>
 
         <template v-if="versioningUIEnabled">
             <v-row>
