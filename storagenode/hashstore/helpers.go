@@ -116,8 +116,12 @@ type atomicMap[K comparable, V any] struct {
 
 func (a *atomicMap[K, V]) Delete(k K)   { a.m.Delete(k) }
 func (a *atomicMap[K, V]) Set(k K, v V) { a.m.Store(k, v) }
-func (a *atomicMap[K, V]) Range(fn func(K, V) bool) {
-	a.m.Range(func(k, v any) bool { return fn(k.(K), v.(V)) })
+func (a *atomicMap[K, V]) Range(fn func(K, V) (bool, error)) (err error) {
+	a.m.Range(func(k, v any) (ok bool) {
+		ok, err = fn(k.(K), v.(V))
+		return ok && err == nil
+	})
+	return err
 }
 
 func (a *atomicMap[K, V]) LoadAndDelete(k K) (V, bool) {

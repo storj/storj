@@ -77,7 +77,9 @@ type Store struct {
 }
 
 // NewStore creates or opens a store in the given directory.
-func NewStore(dir string, log *zap.Logger) (_ *Store, err error) {
+func NewStore(ctx context.Context, dir string, log *zap.Logger) (_ *Store, err error) {
+	defer mon.Task()(&ctx)(&err)
+
 	if log == nil {
 		log = zap.NewNop()
 	}
@@ -210,7 +212,7 @@ func NewStore(dir string, log *zap.Logger) (_ *Store, err error) {
 				}
 				defer af.Cancel()
 
-				ntbl, err := CreateHashtbl(af.File, hashtbl_minLogSlots, s.today())
+				ntbl, err := CreateHashtbl(ctx, af.File, hashtbl_minLogSlots, s.today())
 				if err != nil {
 					return Error.Wrap(err)
 				}
@@ -229,7 +231,7 @@ func NewStore(dir string, log *zap.Logger) (_ *Store, err error) {
 			return nil, Error.Wrap(err)
 		}
 
-		s.tbl, err = OpenHashtbl(fh)
+		s.tbl, err = OpenHashtbl(ctx, fh)
 		if err != nil {
 			return nil, Error.Wrap(err)
 		}
@@ -300,7 +302,7 @@ func (s *Store) Stats() StoreStats {
 
 	var numLogs, lenLogs uint64
 	var numLogsTTL, lenLogsTTL uint64
-	s.lfs.Range(func(_ uint64, lf *logFile) bool {
+	_ = s.lfs.Range(func(_ uint64, lf *logFile) (bool, error) {
 		size := lf.size.Load()
 		numLogs++
 		lenLogs += size
@@ -308,7 +310,7 @@ func (s *Store) Stats() StoreStats {
 			numLogsTTL++
 			lenLogsTTL += size
 		}
-		return true
+		return true, nil
 	})
 	s.rmu.RUnlock()
 
@@ -376,8 +378,8 @@ func (s *Store) acquireLogFile(ttl uint32) (*logFile, error) {
 	return lf, err
 }
 
-func (s *Store) addRecord(rec Record) error {
-	ok, err := s.tbl.Insert(rec)
+func (s *Store) addRecord(ctx context.Context, rec Record) error {
+	ok, err := s.tbl.Insert(ctx, rec)
 	if err != nil {
 		return Error.Wrap(err)
 	} else if !ok {
@@ -386,7 +388,7 @@ func (s *Store) addRecord(rec Record) error {
 		// loudly complain with some potentially helpful debugging information.
 		s.stats.tableFull.Add(1)
 		beforeLoad := s.tbl.Load()
-		estError := s.tbl.computeEstimates()
+		estError := s.tbl.ComputeEstimates(ctx)
 		afterLoad := s.tbl.Load()
 		s.log.Error("hash table is full",
 			zap.NamedError("compute_estimates", estError),
@@ -427,10 +429,10 @@ func (s *Store) Close() {
 	defer s.activeMu.Unlock()
 
 	// we can now close all of the resources.
-	s.lfs.Range(func(id uint64, lf *logFile) bool {
+	_ = s.lfs.Range(func(id uint64, lf *logFile) (bool, error) {
 		s.lfs.Delete(id)
 		lf.Close()
-		return true
+		return true, nil
 	})
 	s.lfc.Clear()
 
@@ -500,7 +502,7 @@ func (s *Store) Read(ctx context.Context, key Key) (_ *Reader, err error) {
 	s.rmu.RLock()
 	defer s.rmu.RUnlock()
 
-	if rec, ok, err := s.tbl.Lookup(key); err != nil {
+	if rec, ok, err := s.tbl.Lookup(ctx, key); err != nil {
 		return nil, Error.Wrap(err)
 	} else if !ok {
 		return nil, nil
@@ -573,13 +575,13 @@ func (s *Store) reviveRecord(ctx context.Context, lf *logFile, rec Record) (err 
 	// happy. as noted in 1, we're safe to do a lookup into s.tbl here even without the rmu held
 	// because we know no compaction is ongoing due to having a writer acquired, and compaction is
 	// the only thing that does anything other than than add entries to the hash table.
-	if tmp, ok, err := s.tbl.Lookup(rec.Key); err == nil && ok {
+	if tmp, ok, err := s.tbl.Lookup(ctx, rec.Key); err == nil && ok {
 		if tmp.Expires == 0 {
 			return nil
 		}
 
 		tmp.Expires = 0
-		return s.addRecord(tmp)
+		return s.addRecord(ctx, tmp)
 	}
 
 	// 4. otherwise, we either had an error looking up the current record, or the entry got fully
@@ -737,51 +739,44 @@ func (s *Store) compactOnce(
 	nexist := uint64(0)
 	alive := make(map[uint64]uint64)
 	total := make(map[uint64]uint64)
-	rerr := error(nil)
 	modifications := false
 
-	s.tbl.Range(func(rec Record, err error) bool {
-		rerr = func() error {
-			if err != nil {
-				return Error.Wrap(err)
-			} else if err := ctx.Err(); err != nil {
-				return err
-			}
+	if err := s.tbl.Range(ctx, func(ctx context.Context, rec Record) (bool, error) {
+		if err := ctx.Err(); err != nil {
+			return false, err
+		}
 
-			// keep track of every record that exists in the hash table and the total size of the
-			// record and its footer. this differs from the log size field because of optimistic
-			// padding.
-			nexist++
-			total[rec.Log] += uint64(rec.Length) + RecordSize // RecordSize for the record footer
+		// keep track of every record that exists in the hash table and the total size of the
+		// record and its footer. this differs from the log size field because of optimistic
+		// padding.
+		nexist++
+		total[rec.Log] += uint64(rec.Length) + RecordSize // RecordSize for the record footer
 
-			// if we're not yet sure we're modifying the hash table, we need to check our callbacks
-			// on the record to see if the table would be modified. a record is modified when it is
-			// flagged as trash or when it is restored.
-			if !modifications {
-				if shouldTrash != nil && !rec.Expires.Trash() && shouldTrash(ctx, rec.Key, DateToTime(rec.Created)) {
-					modifications = true
-				}
-				if restored(rec.Expires) {
-					modifications = true
-				}
-			}
-
-			// if the record is expired, we will modify the hash table by not including the record.
-			if expired(rec.Expires) {
+		// if we're not yet sure we're modifying the hash table, we need to check our callbacks
+		// on the record to see if the table would be modified. a record is modified when it is
+		// flagged as trash or when it is restored.
+		if !modifications {
+			if shouldTrash != nil && !rec.Expires.Trash() && shouldTrash(ctx, rec.Key, DateToTime(rec.Created)) {
 				modifications = true
-				return nil
 			}
+			if restored(rec.Expires) {
+				modifications = true
+			}
+		}
 
-			// the record is included in the future hash table, so account for it in alive space.
-			nset++
-			alive[rec.Log] += uint64(rec.Length) + RecordSize // RecordSize for the record footer
+		// if the record is expired, we will modify the hash table by not including the record.
+		if expired(rec.Expires) {
+			modifications = true
+			return true, nil
+		}
 
-			return nil
-		}()
-		return rerr == nil
-	})
-	if rerr != nil {
-		return false, rerr
+		// the record is included in the future hash table, so account for it in alive space.
+		nset++
+		alive[rec.Log] += uint64(rec.Length) + RecordSize // RecordSize for the record footer
+
+		return true, nil
+	}); err != nil {
+		return false, err
 	}
 
 	// update the total number of records expected to be processed in this compaction.
@@ -795,24 +790,20 @@ func (s *Store) compactOnce(
 
 	// using the information, determine which log files are candidates for rewriting.
 	rewriteCandidates := make(map[uint64]bool)
-	s.lfs.Range(func(id uint64, lf *logFile) bool {
-		rerr = func() error {
-			if err := ctx.Err(); err != nil {
-				return err
-			}
+	if err := s.lfs.Range(func(id uint64, lf *logFile) (bool, error) {
+		if err := ctx.Err(); err != nil {
+			return false, err
+		}
 
-			// compact non-empty log files that don't contain enough alive data.
-			size := lf.size.Load()
-			if size > 0 && float64(alive[id])/float64(size) < compaction_AliveFraction {
-				rewriteCandidates[id] = true
-			}
+		// compact non-empty log files that don't contain enough alive data.
+		size := lf.size.Load()
+		if size > 0 && float64(alive[id])/float64(size) < compaction_AliveFraction {
+			rewriteCandidates[id] = true
+		}
 
-			return nil
-		}()
-		return rerr == nil
-	})
-	if rerr != nil {
-		return false, rerr
+		return true, nil
+	}); err != nil {
+		return false, err
 	}
 
 	// if we have no rewrite candidates, then rewrite the log with the largest amount of dead
@@ -822,11 +813,11 @@ func (s *Store) compactOnce(
 	if len(rewriteCandidates) == 0 {
 		var maxDead uint64
 		var maxLog *logFile
-		s.lfs.Range(func(id uint64, lf *logFile) bool {
+		_ = s.lfs.Range(func(id uint64, lf *logFile) (bool, error) {
 			if dead := total[id] - alive[id]; dead > maxDead {
 				maxDead, maxLog = dead, lf
 			}
-			return true
+			return true, nil
 		})
 		if maxLog != nil {
 			s.log.Info("including log due to no rewrite candidates",
@@ -891,7 +882,7 @@ func (s *Store) compactOnce(
 	}
 	defer af.Cancel()
 
-	ntbl, err := CreateHashtbl(af.File, logSlots, today)
+	ntbl, err := CreateHashtbl(ctx, af.File, logSlots, today)
 	if err != nil {
 		return false, Error.Wrap(err)
 	}
@@ -900,7 +891,7 @@ func (s *Store) compactOnce(
 	flush := func() error { return nil }
 	if ntbl.header.hashKey == s.tbl.header.hashKey {
 		var done func()
-		flush, done, err = ntbl.ExpectOrdered()
+		flush, done, err = ntbl.ExpectOrdered(ctx)
 		if err != nil {
 			return false, Error.Wrap(err)
 		}
@@ -924,130 +915,124 @@ func (s *Store) compactOnce(
 
 	// copy all of the entries from the hash table to the new table, skipping expired entries, and
 	// rewriting any entries that are in the log files that we are rewriting.
-	s.tbl.Range(func(rec Record, err error) bool {
-		rerr = func() error {
-			if err != nil {
-				return Error.Wrap(err)
-			} else if err := ctx.Err(); err != nil {
-				return err
+	if err := s.tbl.Range(ctx, func(ctx context.Context, rec Record) (bool, error) {
+		if err := ctx.Err(); err != nil {
+			return false, err
+		}
+		s.stats.processedRecords.Add(1) // bump the number of records processed for progress reporting.
+
+		// trash records are flagged as expired some number of days from now with a bit set to
+		// signal if they are read that there was a problem. we only check records that are not
+		// already flagged as trashed and keep the minimum time for the record to live. we do this
+		// after compaction so that we don't mistakenly count it as a "revive".
+		if shouldTrash != nil && !rec.Expires.Trash() && shouldTrash(ctx, rec.Key, DateToTime(rec.Created)) {
+			expiresTime := today + compaction_ExpiresDays
+			// if we have an existing ttl time and it's smaller, use that instead.
+			if existingTime := rec.Expires.Time(); existingTime > 0 && existingTime < expiresTime {
+				expiresTime = existingTime
 			}
-			s.stats.processedRecords.Add(1) // bump the number of records processed for progress reporting.
+			// only update the expired time if it won't immediately be restored. this ensures we
+			// dont clear out the ttl field for no reason right after this.
+			if exp := NewExpiration(expiresTime, true); !restored(exp) {
+				rec.Expires = exp
 
-			// trash records are flagged as expired some number of days from now with a bit set to
-			// signal if they are read that there was a problem. we only check records that are not
-			// already flagged as trashed and keep the minimum time for the record to live. we do
-			// this after compaction so that we don't mistakenly count it as a "revive".
-			if shouldTrash != nil && !rec.Expires.Trash() && shouldTrash(ctx, rec.Key, DateToTime(rec.Created)) {
-				expiresTime := today + compaction_ExpiresDays
-				// if we have an existing ttl time and it's smaller, use that instead.
-				if existingTime := rec.Expires.Time(); existingTime > 0 && existingTime < expiresTime {
-					expiresTime = existingTime
-				}
-				// only update the expired time if it won't immediately be restored. this ensures
-				// we dont clear out the ttl field for no reason right after this.
-				if exp := NewExpiration(expiresTime, true); !restored(exp) {
-					rec.Expires = exp
-
-					trashedRecords++
-					trashedBytes += uint64(rec.Length)
-				}
+				trashedRecords++
+				trashedBytes += uint64(rec.Length)
 			}
+		}
 
-			// if the record is restored, clear the expiration. we do this after checking if the
-			// record should be trashed to ensure that restore always has precedence.
-			if restored(rec.Expires) {
-				rec.Expires = 0
+		// if the record is restored, clear the expiration. we do this after checking if the record
+		// should be trashed to ensure that restore always has precedence.
+		if restored(rec.Expires) {
+			rec.Expires = 0
 
-				// we bump created so that the shouldTrash callback likely ignores it in case the
-				// bloom filter was bad or something. this may change once the hashstore is more
-				// integrated with the system and it has more details about the bloom filter.
-				rec.Created = today
+			// we bump created so that the shouldTrash callback likely ignores it in case the bloom
+			// filter was bad or something. this may change once the hashstore is more integrated
+			// with the system and it has more details about the bloom filter.
+			rec.Created = today
 
-				restoredRecords++
-				restoredBytes += uint64(rec.Length)
-			}
+			restoredRecords++
+			restoredBytes += uint64(rec.Length)
+		}
 
-			// totally ignore any expired records.
-			if expired(rec.Expires) {
-				expiredRecords++
-				expiredBytes += uint64(rec.Length)
+		// totally ignore any expired records.
+		if expired(rec.Expires) {
+			expiredRecords++
+			expiredBytes += uint64(rec.Length)
 
-				return nil
-			}
+			return true, nil
+		}
 
-			// if the record is compacted, copy it into the new log file.
-			if rewrite[rec.Log] {
-				err := func() error {
-					r, err := s.readerForRecord(ctx, rec, false)
-					if err != nil {
-						return Error.Wrap(err)
-					}
-					defer r.Release() // same as r.Close() but no error to worry about.
-
-					// acquire a log file to write the entry into. if we're rewriting that log file
-					// we have to pick a different one.
-				acquire:
-					into, err := s.acquireLogFile(rec.Expires.Time())
-					if err != nil {
-						return Error.Wrap(err)
-					} else if rewriteCandidates[into.id] {
-						goto acquire
-					}
-
-					// create a Writer to handle writing the entry into the log file. manual mode is
-					// set so that it doesn't attempt to add the record to the current hash table or
-					// unlock the active mutex upon Close or Cancel.
-					w := newManualWriter(ctx, s, into, Record{
-						Key:     rec.Key,
-						Offset:  into.size.Load(),
-						Log:     into.id,
-						Created: rec.Created,
-						Expires: rec.Expires,
-					})
-					defer w.Cancel()
-
-					// copy the record data.
-					if _, err := io.Copy(w, r); err != nil {
-						return Error.New("writing into compacted log: %w", err)
-					}
-
-					// finalize the data in the log file.
-					if err := w.Close(); err != nil {
-						return Error.New("closing compacted log: %w", err)
-					}
-
-					// get the updated record information from the writer.
-					rec = w.rec
-
-					// bump the amount of data we rewrote.
-					s.stats.dataRewritten.Add(uint64(rec.Length) + RecordSize)
-
-					rewrittenRecords++
-					rewrittenBytes += uint64(rec.Length)
-
-					return nil
-				}()
+		// if the record is compacted, copy it into the new log file.
+		if rewrite[rec.Log] {
+			err := func() error {
+				r, err := s.readerForRecord(ctx, rec, false)
 				if err != nil {
 					return Error.Wrap(err)
 				}
+				defer r.Release() // same as r.Close() but no error to worry about.
+
+				// acquire a log file to write the entry into. if we're rewriting that log file
+				// we have to pick a different one.
+			acquire:
+				into, err := s.acquireLogFile(rec.Expires.Time())
+				if err != nil {
+					return Error.Wrap(err)
+				} else if rewriteCandidates[into.id] {
+					goto acquire
+				}
+
+				// create a Writer to handle writing the entry into the log file. manual mode is set
+				// so that it doesn't attempt to add the record to the current hash table or unlock
+				// the active mutex upon Close or Cancel.
+				w := newManualWriter(ctx, s, into, Record{
+					Key:     rec.Key,
+					Offset:  into.size.Load(),
+					Log:     into.id,
+					Created: rec.Created,
+					Expires: rec.Expires,
+				})
+				defer w.Cancel()
+
+				// copy the record data.
+				if _, err := io.Copy(w, r); err != nil {
+					return Error.New("writing into compacted log: %w", err)
+				}
+
+				// finalize the data in the log file.
+				if err := w.Close(); err != nil {
+					return Error.New("closing compacted log: %w", err)
+				}
+
+				// get the updated record information from the writer.
+				rec = w.rec
+
+				// bump the amount of data we rewrote.
+				s.stats.dataRewritten.Add(uint64(rec.Length) + RecordSize)
+
+				rewrittenRecords++
+				rewrittenBytes += uint64(rec.Length)
+
+				return nil
+			}()
+			if err != nil {
+				return false, Error.Wrap(err)
 			}
+		}
 
-			// insert the record into the new hash table.
-			if ok, err := ntbl.Insert(rec); err != nil {
-				return Error.Wrap(err)
-			} else if !ok {
-				return Error.New("compaction hash table is full")
-			}
+		// insert the record into the new hash table.
+		if ok, err := ntbl.Insert(ctx, rec); err != nil {
+			return false, Error.Wrap(err)
+		} else if !ok {
+			return false, Error.New("compaction hash table is full")
+		}
 
-			totalRecords++
-			totalBytes += uint64(rec.Length)
+		totalRecords++
+		totalBytes += uint64(rec.Length)
 
-			return nil
-		}()
-		return rerr == nil
-	})
-	if rerr != nil {
-		return false, rerr
+		return true, nil
+	}); err != nil {
+		return false, err
 	}
 
 	if err := flush(); err != nil {
@@ -1110,9 +1095,9 @@ func (s *Store) compactOnce(
 	// before we allow writers to proceed, reinitialize the heap with the log files so that it has
 	// the best set of logs to write into and doesn't contain any now closed/removed logs.
 	s.lfc.Clear()
-	s.lfs.Range(func(_ uint64, lf *logFile) bool {
+	_ = s.lfs.Range(func(_ uint64, lf *logFile) (bool, error) {
 		s.lfc.Include(lf)
-		return true
+		return true, nil
 	})
 
 	// if we rewrote every log file that we could potentially rewrite, then we're done. len is

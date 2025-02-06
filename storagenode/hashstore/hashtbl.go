@@ -4,6 +4,7 @@
 package hashstore
 
 import (
+	"context"
 	"encoding/binary"
 	"math/bits"
 	"os"
@@ -76,7 +77,9 @@ func (p bigPageIdxT) Offset() int64 { return pageSize + int64(p*bigPageSize) }
 
 // CreateHashtbl allocates a new hash table with the given log base 2 number of records and created
 // timestamp. The file is truncated and allocated to the correct size.
-func CreateHashtbl(fh *os.File, logSlots uint64, created uint32) (*HashTbl, error) {
+func CreateHashtbl(ctx context.Context, fh *os.File, logSlots uint64, created uint32) (_ *HashTbl, err error) {
+	defer mon.Task()(&ctx)(&err)
+
 	if logSlots > hashtbl_maxLogSlots {
 		return nil, Error.New("logSlots too large: logSlots=%d", logSlots)
 	} else if logSlots < hashtbl_minLogSlots {
@@ -104,11 +107,13 @@ func CreateHashtbl(fh *os.File, logSlots uint64, created uint32) (*HashTbl, erro
 
 	// this is a bit wasteful in the sense that we will do some stat calls, reread the header page,
 	// and compute estimates, but it reduces code paths and is not that expensive overall.
-	return OpenHashtbl(fh)
+	return OpenHashtbl(ctx, fh)
 }
 
 // OpenHashtbl opens an existing hash table stored in the given file handle.
-func OpenHashtbl(fh *os.File) (_ *HashTbl, err error) {
+func OpenHashtbl(ctx context.Context, fh *os.File) (_ *HashTbl, err error) {
+	defer mon.Task()(&ctx)(&err)
+
 	// compute the number of records from the file size of the hash table.
 	size, err := fileSize(fh)
 	if err != nil {
@@ -140,7 +145,7 @@ func OpenHashtbl(fh *os.File) (_ *HashTbl, err error) {
 	}
 
 	// estimate numSet, lenSet, numTrash and lenTrash.
-	if err := h.computeEstimates(); err != nil {
+	if err := h.ComputeEstimates(ctx); err != nil {
 		return nil, Error.Wrap(err)
 	}
 
@@ -256,10 +261,10 @@ func (h *HashTbl) slotForKey(k *Key) slotIdxT {
 	return slotIdxT(v>>s) & h.slotMask
 }
 
-// computeEstimates samples the hash table to compute the number of set keys and the total length of
+// ComputeEstimates samples the hash table to compute the number of set keys and the total length of
 // the length fields in all of the set records.
-func (h *HashTbl) computeEstimates() (err error) {
-	defer mon.Task()(nil)(&err)
+func (h *HashTbl) ComputeEstimates(ctx context.Context) (err error) {
+	defer mon.Task()(&ctx)(&err)
 
 	h.opMu.RLock()
 	defer h.opMu.RUnlock()
@@ -327,13 +332,12 @@ func (h *HashTbl) Load() float64 {
 }
 
 // Range iterates over the records in hash table order.
-func (h *HashTbl) Range(fn func(Record, error) bool) {
+func (h *HashTbl) Range(ctx context.Context, fn func(context.Context, Record) (bool, error)) error {
 	h.opMu.RLock()
 	defer h.opMu.RUnlock()
 
 	if err := signalError(&h.closed); err != nil {
-		fn(Record{}, err)
-		return
+		return err
 	}
 
 	var (
@@ -347,11 +351,12 @@ func (h *HashTbl) Range(fn func(Record, error) bool) {
 	for slot := slotIdxT(0); slot < h.numSlots; slot++ {
 		rec, valid, err := cache.ReadRecord(slot)
 		if err != nil {
-			fn(Record{}, Error.Wrap(err))
-			return
+			return Error.Wrap(err)
 		} else if valid {
-			if !fn(rec, nil) {
-				return
+			if ok, err := fn(ctx, rec); err != nil {
+				return err
+			} else if !ok {
+				return nil
 			}
 
 			numSet++
@@ -368,6 +373,8 @@ func (h *HashTbl) Range(fn func(Record, error) bool) {
 	h.numSet, h.lenSet = numSet, lenSet
 	h.numTrash, h.lenTrash = numTrash, lenTrash
 	h.mu.Unlock()
+
+	return nil
 }
 
 // ExpectOrdered signals that incoming writes to the hashtbl will be ordered so that a large shared
@@ -378,7 +385,7 @@ func (h *HashTbl) Range(fn func(Record, error) bool) {
 // records were written. It returns a done callback that discards any potentially buffered records
 // and disables the expectation. At least one of flush or done must be called. It returns an error
 // if called again before flush or done is called.
-func (h *HashTbl) ExpectOrdered() (flush func() error, done func(), err error) {
+func (h *HashTbl) ExpectOrdered(ctx context.Context) (flush func() error, done func(), err error) {
 	h.opMu.Lock()
 	defer h.opMu.Unlock()
 
@@ -413,7 +420,7 @@ func (h *HashTbl) ExpectOrdered() (flush func() error, done func(), err error) {
 // Insert adds a record to the hash table. It returns (true, nil) if the record was inserted, it
 // returns (false, nil) if the hash table is full, and (false, err) if any errors happened trying
 // to insert the record.
-func (h *HashTbl) Insert(rec Record) (_ bool, err error) {
+func (h *HashTbl) Insert(ctx context.Context, rec Record) (_ bool, err error) {
 	h.opMu.Lock()
 	defer h.opMu.Unlock()
 
@@ -507,7 +514,7 @@ func (h *HashTbl) Insert(rec Record) (_ bool, err error) {
 // Lookup returns the record for the given key if it exists in the hash table. It returns (rec,
 // true, nil) if the record existed, (rec{}, false, nil) if it did not exist, and (rec{}, false,
 // err) if any errors happened trying to look up the record.
-func (h *HashTbl) Lookup(key Key) (_ Record, _ bool, err error) {
+func (h *HashTbl) Lookup(ctx context.Context, key Key) (_ Record, _ bool, err error) {
 	h.opMu.RLock()
 	defer h.opMu.RUnlock()
 

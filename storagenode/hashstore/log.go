@@ -306,7 +306,7 @@ func (h *Writer) Close() (err error) {
 
 	// if we are not in manual mode, then we need to add the record.
 	if !h.manual {
-		if err := h.store.addRecord(h.rec); err != nil {
+		if err := h.store.addRecord(ctx, h.rec); err != nil {
 			// if we can't add the record, we should abort the write operation and attempt to
 			// reclaim space by seeking backwards to the record offset.
 			_, _ = h.lf.fh.Seek(int64(size), io.SeekStart)

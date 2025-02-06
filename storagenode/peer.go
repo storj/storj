@@ -593,6 +593,7 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, revocationDB exten
 		}
 
 		peer.Storage2.HashStoreBackend, err = piecestore.NewHashStoreBackend(
+			context.Background(),
 			hashStoreDir,
 			peer.Storage2.BloomFilterManager,
 			peer.Storage2.RestoreTimeManager,
