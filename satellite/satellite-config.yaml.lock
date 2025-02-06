@@ -929,8 +929,11 @@ identity.key-path: /root/.local/share/storj/identity/satellite/identity.key
 # two to this power is the amount of rate limits to store in ram. higher has less collisions.
 # metainfo.download-limiter.size-exponent: 21
 
+# the chance to skip a failure tracker generation bump
+# metainfo.failure-tracker-chance-to-skip: 0.6
+
 # how often to bump the generation in the node failure tracker
-# metainfo.failure-tracker-tick-duration: 30s
+# metainfo.failure-tracker-tick-duration: 5s
 
 # minimum number of items to query at a time
 # metainfo.list-objects.min-batch-size: 100

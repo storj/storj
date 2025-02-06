@@ -319,7 +319,7 @@ func NewAPI(log *zap.Logger, full *identity.FullIdentity, db DB,
 		peer.SuccessTrackers = metainfo.NewSuccessTrackers(successTrackerUplinks, newTracker)
 		monkit.ScopeNamed(mon.Name() + ".success_trackers").Chain(peer.SuccessTrackers)
 
-		peer.FailureTracker = metainfo.NewPercentSuccessTracker()
+		peer.FailureTracker = metainfo.NewStochasticPercentSuccessTracker(float32(config.Metainfo.FailureTrackerChanceToSkip))
 		monkit.ScopeNamed(mon.Name() + ".failure_tracker").Chain(peer.FailureTracker)
 
 		peer.TrustedUplinks = trust.NewTrustedPeerList(trustedUplinkSlice)
