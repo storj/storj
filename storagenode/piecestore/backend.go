@@ -72,6 +72,7 @@ type HashStoreBackend struct {
 // NewHashStoreBackend constructs a new HashStoreBackend with the provided values. The log and hash
 // directory are allowed to be the same.
 func NewHashStoreBackend(
+	ctx context.Context,
 	dir string,
 	bfm *retain.BloomFilterManager,
 	rtm *retain.RestoreTimeManager,
@@ -102,7 +103,7 @@ func NewHashStoreBackend(
 		if err != nil {
 			continue // ignore directories that aren't node IDs
 		}
-		if _, err := hsb.getDB(satellite); err != nil {
+		if _, err := hsb.getDB(ctx, satellite); err != nil {
 			return nil, errs.Wrap(err)
 		}
 	}
@@ -201,7 +202,7 @@ func (hsb *HashStoreBackend) dbDir(satellite storj.NodeID) string {
 	return filepath.Join(hsb.dir, satellite.String())
 }
 
-func (hsb *HashStoreBackend) getDB(satellite storj.NodeID) (*hashstore.DB, error) {
+func (hsb *HashStoreBackend) getDB(ctx context.Context, satellite storj.NodeID) (*hashstore.DB, error) {
 	hsb.mu.Lock()
 	defer hsb.mu.Unlock()
 
@@ -232,6 +233,7 @@ func (hsb *HashStoreBackend) getDB(satellite storj.NodeID) (*hashstore.DB, error
 	}
 
 	db, err := hashstore.New(
+		ctx,
 		hsb.dbDir(satellite),
 		log,
 		shouldTrash,
@@ -251,7 +253,7 @@ func (hsb *HashStoreBackend) getDB(satellite storj.NodeID) (*hashstore.DB, error
 func (hsb *HashStoreBackend) Writer(ctx context.Context, satellite storj.NodeID, pieceID storj.PieceID, hashAlgo pb.PieceHashAlgorithm, expires time.Time) (_ PieceWriter, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	db, err := hsb.getDB(satellite)
+	db, err := hsb.getDB(ctx, satellite)
 	if err != nil {
 		return nil, err
 	}
@@ -275,7 +277,7 @@ func (hsb *HashStoreBackend) Writer(ctx context.Context, satellite storj.NodeID,
 func (hsb *HashStoreBackend) Reader(ctx context.Context, satellite storj.NodeID, pieceID storj.PieceID) (_ PieceReader, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	db, err := hsb.getDB(satellite)
+	db, err := hsb.getDB(ctx, satellite)
 	if err != nil {
 		return nil, err
 	}

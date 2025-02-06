@@ -319,7 +319,7 @@ func BenchmarkDB(b *testing.B) {
 		buf := make([]byte, size)
 		_, _ = mwc.Rand().Read(buf)
 
-		db, err := New(b.TempDir(), nil, nil, nil)
+		db, err := New(ctx, b.TempDir(), nil, nil, nil)
 		assert.NoError(b, err)
 		defer db.Close()
 
@@ -345,7 +345,7 @@ func BenchmarkDB(b *testing.B) {
 		buf := make([]byte, size)
 		_, _ = mwc.Rand().Read(buf)
 
-		db, err := New(b.TempDir(), nil, nil, nil)
+		db, err := New(ctx, b.TempDir(), nil, nil, nil)
 		assert.NoError(b, err)
 		defer db.Close()
 
@@ -373,7 +373,7 @@ func BenchmarkDB(b *testing.B) {
 		buf := make([]byte, size)
 		_, _ = mwc.Rand().Read(buf)
 
-		db, err := New(b.TempDir(), nil, nil, nil)
+		db, err := New(ctx, b.TempDir(), nil, nil, nil)
 		assert.NoError(b, err)
 		defer db.Close()
 
