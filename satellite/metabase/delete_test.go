@@ -448,7 +448,7 @@ func TestDeleteObjectExactVersion(t *testing.T) {
 			metabasetest.Verify{}.Check(ctx, t, db)
 		})
 
-		t.Run("Delete object with retention", func(t *testing.T) {
+		t.Run("Delete committed object with retention", func(t *testing.T) {
 			metabasetest.ObjectLockDeletionTestRunner{
 				TestProtected: func(t *testing.T, testCase metabasetest.ObjectLockDeletionTestCase) {
 					defer metabasetest.DeleteAll{}.Check(ctx, t, db)
@@ -508,6 +508,45 @@ func TestDeleteObjectExactVersion(t *testing.T) {
 
 					metabasetest.Verify{}.Check(ctx, t, db)
 				},
+			}.Run(t)
+		})
+
+		t.Run("Delete partial object with retention", func(t *testing.T) {
+			test := func(t *testing.T, testCase metabasetest.ObjectLockDeletionTestCase) {
+				defer metabasetest.DeleteAll{}.Check(ctx, t, db)
+
+				object := metabasetest.BeginObjectExactVersion{
+					Opts: metabase.BeginObjectExactVersion{
+						ObjectStream: obj,
+						Encryption:   metabasetest.DefaultEncryption,
+						Retention:    testCase.Retention,
+						LegalHold:    testCase.LegalHold,
+					},
+				}.Check(ctx, t, db)
+
+				expected := object
+				expected.ZombieDeletionDeadline = nil
+
+				metabasetest.DeleteObjectExactVersion{
+					Opts: metabase.DeleteObjectExactVersion{
+						ObjectLocation: location,
+						Version:        obj.Version,
+						ObjectLock: metabase.ObjectLockDeleteOptions{
+							Enabled:          true,
+							BypassGovernance: testCase.BypassGovernance,
+						},
+					},
+					Result: metabase.DeleteObjectResult{
+						Removed: []metabase.Object{expected},
+					},
+				}.Check(ctx, t, db)
+
+				metabasetest.Verify{}.Check(ctx, t, db)
+			}
+
+			metabasetest.ObjectLockDeletionTestRunner{
+				TestProtected: test,
+				TestRemovable: test,
 			}.Run(t)
 		})
 	})
