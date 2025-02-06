@@ -175,7 +175,7 @@ func TestStore_CompactionEventuallyDeletes(t *testing.T) {
 	// compact a bunch of times, every day incrementing by one. we need to do two extra days because
 	// the first compaction flags it to be deleted after ExpiresDays, we then need to wait that many
 	// days, and then the next compaction will actually delete it.
-	for i := 0; i < 1+compaction_ExpiresDays+1; i++ {
+	for i := uint32(0); i < 1+compaction_ExpiresDays+1; i++ {
 		s.AssertCompact(alwaysTrash, time.Time{})
 		s.today++
 	}
@@ -231,7 +231,7 @@ func TestStore_CompactionWithTTLTakesShorterTime(t *testing.T) {
 		defer s.Close()
 
 		// add an entry to the store that will expire way in the future.
-		key := s.AssertCreate(WithTTL(time.Now().Add(24 * time.Hour * 10 * compaction_ExpiresDays)))
+		key := s.AssertCreate(WithTTL(time.Now().Add(24 * time.Hour * 10 * time.Duration(compaction_ExpiresDays))))
 
 		// flag the key as trash.
 		s.AssertCompact(alwaysTrash, time.Time{})
@@ -398,7 +398,7 @@ func TestStore_ReadRevivesTrash(t *testing.T) {
 	// add an entry to the store that does not expire.
 	key := s.AssertCreate()
 
-	for i := 0; i < 5*compaction_ExpiresDays; i++ {
+	for i := uint32(0); i < 5*compaction_ExpiresDays; i++ {
 		// flag the key as trash.
 		s.AssertCompact(alwaysTrash, time.Time{})
 
