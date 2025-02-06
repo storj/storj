@@ -30,18 +30,13 @@ const (
 
 )
 
-type hashtblHeader struct {
-	created uint32 // when the hashtbl was created
-	hashKey bool   // if we apply a hash function to the key
-}
-
 // HashTbl is an on disk hash table of records.
 type HashTbl struct {
-	fh       *os.File      // file handle backing the hashtbl
-	logSlots uint64        // log_2 of the maximum number of slots
-	numSlots slotIdxT      // 1 << logSlots, the actual maximum number of slots
-	slotMask slotIdxT      // numSlots - 1, a bit mask for the maximum number of slots
-	header   hashtblHeader // header information
+	fh       *os.File  // file handle backing the hashtbl
+	logSlots uint64    // log_2 of the maximum number of slots
+	numSlots slotIdxT  // 1 << logSlots, the actual maximum number of slots
+	slotMask slotIdxT  // numSlots - 1, a bit mask for the maximum number of slots
+	header   TblHeader // header information
 
 	opMu rwMutex // protects operations
 
@@ -89,9 +84,9 @@ func CreateHashtbl(ctx context.Context, fh *os.File, logSlots uint64, created ui
 		return nil, Error.New("logSlots too small: logSlots=%d", logSlots)
 	}
 
-	header := hashtblHeader{
-		created: created,
-		hashKey: true,
+	header := TblHeader{
+		Created: created,
+		HashKey: true,
 	}
 
 	// clear the file and truncate it to the correct length and write the header page.
@@ -104,7 +99,7 @@ func CreateHashtbl(ctx context.Context, fh *os.File, logSlots uint64, created ui
 		return nil, Error.New("unable to truncate hashtbl to %d: %w", size, err)
 	} else if err := fallocate(fh, size); err != nil {
 		return nil, Error.New("unable to fallocate hashtbl to %d: %w", size, err)
-	} else if err := writeHashtblHeader(fh, header); err != nil {
+	} else if err := WriteTblHeader(fh, header); err != nil {
 		return nil, Error.Wrap(err)
 	}
 
@@ -134,7 +129,7 @@ func OpenHashtbl(ctx context.Context, fh *os.File) (_ *HashTbl, err error) {
 	}
 
 	// read the header information from the first page.
-	header, err := readHashtblHeader(fh)
+	header, err := ReadTblHeader(fh)
 	if err != nil {
 		return nil, Error.Wrap(err)
 	}
@@ -155,29 +150,12 @@ func OpenHashtbl(ctx context.Context, fh *os.File) (_ *HashTbl, err error) {
 	return h, nil
 }
 
-// HashTblStats contains statistics about the hash table.
-type HashTblStats struct {
-	NumSet uint64      // number of set records.
-	LenSet memory.Size // sum of lengths in set records.
-	AvgSet float64     // average size of length of records.
-
-	NumTrash uint64      // number of set trash records.
-	LenTrash memory.Size // sum of lengths in set trash records.
-	AvgTrash float64     // average size of length of trash records.
-
-	NumSlots  uint64      // total number of records available.
-	TableSize memory.Size // total number of bytes in the hash table.
-	Load      float64     // percent of slots that are set.
-
-	Created uint32 // date that the hashtbl was created.
-}
-
-// Stats returns a HashTblStats about the hash table.
-func (h *HashTbl) Stats() HashTblStats {
+// Stats returns a TblStats about the hash table.
+func (h *HashTbl) Stats() TblStats {
 	h.mu.Lock()
 	defer h.mu.Unlock()
 
-	return HashTblStats{
+	return TblStats{
 		NumSet: h.numSet,
 		LenSet: memory.Size(h.lenSet),
 		AvgSet: safeDivide(float64(h.lenSet), float64(h.numSet)),
@@ -190,9 +168,18 @@ func (h *HashTbl) Stats() HashTblStats {
 		TableSize: memory.Size(hashtblSize(h.logSlots)),
 		Load:      safeDivide(float64(h.numSet), float64(h.numSlots)),
 
-		Created: h.header.created,
+		Created: h.header.Created,
 	}
 }
+
+// LogSlots returns the logSlots the table was created with.
+func (h *HashTbl) LogSlots() uint64 { return h.logSlots }
+
+// Header returns the TblHeader the table was created with.
+func (h *HashTbl) Header() TblHeader { return h.header }
+
+// Handle returns the file handle the table was created with.
+func (h *HashTbl) Handle() *os.File { return h.fh }
 
 // Close closes the hash table and returns when no more operations are running.
 func (h *HashTbl) Close() {
@@ -210,52 +197,10 @@ func (h *HashTbl) Close() {
 	_ = h.fh.Close()
 }
 
-// writeHashtblHeader writes the header page to the file handle.
-func writeHashtblHeader(fh *os.File, header hashtblHeader) error {
-	var buf [headerSize]byte
-
-	copy(buf[0:4], "HTBL")
-	binary.BigEndian.PutUint32(buf[4:8], header.created) // write the created field.
-	if header.hashKey {
-		buf[8] = 1 // write the hashKey field.
-	} else {
-		buf[8] = 0
-	}
-
-	// write the checksum
-	binary.BigEndian.PutUint64(buf[headerSize-8:headerSize], xxh3.Hash(buf[:headerSize-8]))
-
-	// write the header page.
-	_, err := fh.WriteAt(buf[:], 0)
-	return Error.Wrap(err)
-}
-
-// readHashtblHeader reads the header page from the file handle.
-func readHashtblHeader(fh *os.File) (header hashtblHeader, err error) {
-	// read the magic bytes.
-	var buf [headerSize]byte
-	if _, err := fh.ReadAt(buf[:], 0); err != nil {
-		return hashtblHeader{}, Error.New("unable to read header: %w", err)
-	} else if string(buf[0:4]) != "HTBL" {
-		return hashtblHeader{}, Error.New("invalid header: %q", buf[0:4])
-	}
-
-	// check the checksum.
-	hash := binary.BigEndian.Uint64(buf[headerSize-8 : headerSize])
-	if computed := xxh3.Hash(buf[:headerSize-8]); hash != computed {
-		return hashtblHeader{}, Error.New("invalid header checksum: %x != %x", hash, computed)
-	}
-
-	header.created = binary.BigEndian.Uint32(buf[4:8]) // read the created field.
-	header.hashKey = buf[8] != 0                       // read the hashKey field.
-
-	return header, nil
-}
-
 // slotForKey computes the slot for the given key.
 func (h *HashTbl) slotForKey(k *Key) slotIdxT {
 	var v uint64
-	if h.header.hashKey {
+	if h.header.HashKey {
 		v = xxh3.Hash(k[:])
 	} else {
 		v = binary.BigEndian.Uint64(k[0:8])

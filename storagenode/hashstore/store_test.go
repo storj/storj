@@ -465,15 +465,15 @@ func TestStore_MergeRecordsWhenCompactingWithLostPage(t *testing.T) {
 	defer s.Close()
 
 	// create two keys that collide at the end of the first page.
-	k0 := newKeyAt(s.tbl, 0, recordsPerPage-1, 0)
-	k1 := newKeyAt(s.tbl, 0, recordsPerPage-1, 1)
+	k0 := newKeyAt(s.tbl.(*HashTbl), 0, recordsPerPage-1, 0)
+	k1 := newKeyAt(s.tbl.(*HashTbl), 0, recordsPerPage-1, 1)
 
 	// write k0 and k1 to the store.
 	s.AssertCreate(WithKey(k0))
 	s.AssertCreate(WithKey(k1))
 
 	// create a large key in the third page so that the log file is kept alive.
-	kl := newKeyAt(s.tbl, 2, 0, 0)
+	kl := newKeyAt(s.tbl.(*HashTbl), 2, 0, 0)
 
 	s.AssertCreate(WithKey(kl), WithData(make([]byte, 10*1024)))
 
@@ -483,7 +483,7 @@ func TestStore_MergeRecordsWhenCompactingWithLostPage(t *testing.T) {
 	}, time.Time{}))
 
 	// clear out the first page so that any updates to k1 don't overwrite the existing entry for k1.
-	_, err := s.tbl.fh.WriteAt(make([]byte, pageSize), headerSize) // offset=headerSize to skip the header page
+	_, err := s.tbl.Handle().WriteAt(make([]byte, pageSize), headerSize) // offset=headerSize to skip the header page
 	assert.NoError(t, err)
 
 	// reading k1 will cause it to revive, adding the duplicate entry for k1.

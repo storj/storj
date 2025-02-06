@@ -81,7 +81,7 @@ type Store struct {
 
 	rmu sync.RWMutex                // protects consistency of lfs and tbl
 	lfs atomicMap[uint64, *logFile] // all log files
-	tbl *HashTbl                    // hash table of records
+	tbl Tbl                         // hash table of records
 }
 
 // NewStore creates or opens a store in the given directory.
@@ -247,10 +247,11 @@ func NewStore(ctx context.Context, logsPath string, tablePath string, log *zap.L
 			return nil, Error.Wrap(err)
 		}
 
-		s.tbl, err = OpenHashtbl(ctx, fh)
+		ntbl, err := OpenHashtbl(ctx, fh)
 		if err != nil {
 			return nil, Error.Wrap(err)
 		}
+		s.tbl = ntbl
 
 		// best effort clean up any tmp files or previous hashtbls that were left behind from a
 		// previous execution.
@@ -274,14 +275,14 @@ type StoreStats struct {
 	SetPercent   float64 // percent of bytes that are set in the log files.
 	TrashPercent float64 // percent of bytes that are trash in the log files.
 
-	Compacting    bool         // if true, a compaction is in progress.
-	Compactions   uint64       // number of compaction calls that finished
-	TableFull     uint64       // number of times the hashtbl was full trying to insert
-	Today         uint32       // the current date.
-	LastCompact   uint32       // the date of the last compaction.
-	LogsRewritten uint64       // number of log files attempted to be rewritten.
-	DataRewritten memory.Size  // number of bytes rewritten in the log files.
-	Table         HashTblStats // stats about the hash table.
+	Compacting    bool        // if true, a compaction is in progress.
+	Compactions   uint64      // number of compaction calls that finished
+	TableFull     uint64      // number of times the hashtbl was full trying to insert
+	Today         uint32      // the current date.
+	LastCompact   uint32      // the date of the last compaction.
+	LogsRewritten uint64      // number of log files attempted to be rewritten.
+	DataRewritten memory.Size // number of bytes rewritten in the log files.
+	Table         TblStats    // stats about the hash table.
 
 	Compaction struct { // stats about the current compaction
 		Elapsed          float64 // number of seconds elapsed in the compaction
@@ -886,7 +887,7 @@ func (s *Store) compactOnce(
 			zap.Uint64("nset", nset),
 			zap.Uint64("nexist", nexist),
 			zap.Bool("modifications", modifications),
-			zap.Uint64("curr logSlots", s.tbl.logSlots),
+			zap.Uint64("curr logSlots", s.tbl.LogSlots()),
 			zap.Uint64("next logSlots", logSlots),
 			zap.Uint64s("candidates", maps.Keys(rewriteCandidates)),
 			zap.Uint64s("rewrite", maps.Keys(rewrite)),
@@ -897,7 +898,7 @@ func (s *Store) compactOnce(
 	// if there are no modifications to the hashtbl to remove expired records or flag records as
 	// trash, and we have no log file candidates to rewrite, and the hashtable would be the same
 	// size, we can exit early.
-	if !modifications && len(rewriteCandidates) == 0 && logSlots == s.tbl.logSlots {
+	if !modifications && len(rewriteCandidates) == 0 && logSlots == s.tbl.LogSlots() {
 		return true, nil
 	}
 
@@ -919,7 +920,7 @@ func (s *Store) compactOnce(
 
 	// only expect ordered if both tables have the same key ordering.
 	flush := func() error { return nil }
-	if ntbl.header.hashKey == s.tbl.header.hashKey {
+	if ntbl.Header().HashKey == s.tbl.Header().HashKey {
 		var done func()
 		flush, done, err = ntbl.ExpectOrdered(ctx)
 		if err != nil {
@@ -1072,7 +1073,7 @@ func (s *Store) compactOnce(
 	// the hashtbl file name because the file handles were potentially created with .tmp before
 	// being renamed in place, which does not update their name.
 	otbl.Close()
-	_ = os.Remove(strings.TrimSuffix(otbl.fh.Name(), ".tmp"))
+	_ = os.Remove(strings.TrimSuffix(otbl.Handle().Name(), ".tmp"))
 
 	for _, lf := range toRemove {
 		lf.Close()
