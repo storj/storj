@@ -25,10 +25,15 @@ import (
 	"storj.io/drpc/drpcsignal"
 )
 
-const (
-	compaction_MaxLogSize    = 1 << 30 // max size of a log file
-	compaction_AliveFraction = 0.75    // if the log file is not this alive, compact it
-	compaction_ExpiresDays   = 7       // number of days to keep trash records around
+var (
+	// max size of a log file.
+	compaction_MaxLogSize = uint64(envInt("STORJ_HASHSTORE_COMPACTION_MAX_LOG_SIZE", 1<<30))
+
+	// number of days to keep trash records around.
+	compaction_ExpiresDays = uint32(envInt("STORJ_HASHSTORE_COMPACTION_EXPIRES_DAYS", 7))
+
+	// if the log file is not this alive, compact it.
+	compaction_AliveFraction = envFloat("STORJ_HASHSTORE_COMPACTION_ALIVE_FRAC", 0.75)
 )
 
 // Store is a hash table based key-value store with compaction.
