@@ -148,7 +148,7 @@ func NewPercentSuccessTracker() SuccessTracker {
 	return new(percentSuccessTracker)
 }
 
-// NewStochasticPercentSuccessTracker creates a new percent-based success tracker with a stochastic chance of bumping a node's generation
+// NewStochasticPercentSuccessTracker creates a new percent-based success tracker with a stochastic chance of bumping a node's generation.
 func NewStochasticPercentSuccessTracker(chanceToSkip float32) SuccessTracker {
 	return &percentSuccessTracker{chanceToSkip: chanceToSkip}
 }
