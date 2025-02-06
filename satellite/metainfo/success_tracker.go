@@ -13,6 +13,7 @@ import (
 	"sync/atomic"
 
 	"github.com/spacemonkeygo/monkit/v3"
+	"github.com/zeebo/mwc"
 	"golang.org/x/exp/maps"
 
 	"storj.io/common/storj"
@@ -131,19 +132,25 @@ func (t *SuccessTrackers) Stats(cb func(monkit.SeriesKey, string, float64)) {
 // percent success tracker
 //
 
-const nodeSuccessGenerations = 4
+const nodeSuccessGenerations = 8
 
 type nodeCounterArray [nodeSuccessGenerations]atomic.Uint64
 
 type percentSuccessTracker struct {
-	mu   sync.Mutex
-	gen  atomic.Uint64
-	data sync.Map // storj.NodeID -> *nodeCounterArray
+	mu           sync.Mutex
+	gen          atomic.Uint64
+	data         sync.Map // storj.NodeID -> *nodeCounterArray
+	chanceToSkip float32
 }
 
 // NewPercentSuccessTracker creates a new percent-based success tracker.
 func NewPercentSuccessTracker() SuccessTracker {
 	return new(percentSuccessTracker)
+}
+
+// NewStochasticPercentSuccessTracker creates a new percent-based success tracker with a stochastic chance of bumping a node's generation
+func NewStochasticPercentSuccessTracker(chanceToSkip float32) SuccessTracker {
+	return &percentSuccessTracker{chanceToSkip: chanceToSkip}
 }
 
 func (t *percentSuccessTracker) Increment(node storj.NodeID, success bool) {
@@ -194,7 +201,9 @@ func (t *percentSuccessTracker) BumpGeneration() {
 	gen := (t.gen.Add(1) + 1) % nodeSuccessGenerations
 	t.data.Range(func(_, ctrsI any) bool {
 		ctrs, _ := ctrsI.(*nodeCounterArray)
-		ctrs[gen].Store(0)
+		if t.chanceToSkip == 0 || mwc.Float32() >= t.chanceToSkip {
+			ctrs[gen].Store(0)
+		}
 		return true
 	})
 }
