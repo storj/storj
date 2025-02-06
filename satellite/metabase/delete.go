@@ -68,6 +68,8 @@ type DeleteObjectResult struct {
 	Removed []Object
 	// Markers contains the delete markers that were added.
 	Markers []Object
+	// DeletedSegmentCount is the number of segments that were deleted.
+	DeletedSegmentCount int
 }
 
 // DeleteObjectExactVersion deletes an exact object version.
@@ -83,9 +85,8 @@ func (db *DB) DeleteObjectExactVersion(ctx context.Context, opts DeleteObjectExa
 	}
 
 	mon.Meter("object_delete").Mark(len(result.Removed))
-	for _, object := range result.Removed {
-		mon.Meter("segment_delete").Mark(int(object.SegmentCount))
-	}
+	mon.Meter("segment_delete").Mark(result.DeletedSegmentCount)
+
 	return result, nil
 }
 
@@ -115,15 +116,10 @@ func (p *PostgresAdapter) deleteObjectExactVersion(ctx context.Context, opts Del
 				WHERE segments.stream_id IN (SELECT deleted_objects.stream_id FROM deleted_objects)
 				RETURNING segments.stream_id
 			)
-			SELECT
-				version, stream_id, created_at, expires_at, status, segment_count, encrypted_metadata_nonce,
-				encrypted_metadata, encrypted_metadata_encrypted_key, total_plain_size, total_encrypted_size,
-				fixed_segment_size, encryption,
-				retention_mode, retain_until
-			FROM deleted_objects`,
+			SELECT *, (SELECT COUNT(*) FROM deleted_segments) FROM deleted_objects`,
 			opts.ProjectID, opts.BucketName, opts.ObjectKey, opts.Version),
 	)(func(rows tagsql.Rows) error {
-		result.Removed, err = scanObjectDeletionPostgres(ctx, opts.ObjectLocation, rows)
+		result.Removed, result.DeletedSegmentCount, err = scanObjectDeletionPostgres(ctx, opts.ObjectLocation, rows)
 		return err
 	})
 	return result, err
@@ -168,7 +164,11 @@ func (p *PostgresAdapter) deleteObjectExactVersionUsingObjectLock(ctx context.Co
 			WHERE segments.stream_id IN (SELECT deleted_objects.stream_id FROM deleted_objects)
 			RETURNING segments.stream_id
 		)
-		SELECT *, EXISTS(SELECT 1 FROM deleted_objects) FROM objects_to_delete
+		SELECT
+			*,
+			EXISTS(SELECT 1 FROM deleted_objects),
+			(SELECT COUNT(*) FROM deleted_segments)
+		FROM objects_to_delete
 		`, opts.ProjectID, opts.BucketName, opts.ObjectKey, opts.Version, opts.ObjectLock.BypassGovernance, now,
 	))(func(rows tagsql.Rows) error {
 		if !rows.Next() {
@@ -196,6 +196,7 @@ func (p *PostgresAdapter) deleteObjectExactVersionUsingObjectLock(ctx context.Co
 			},
 			timeWrapper{&object.Retention.RetainUntil},
 			&deleted,
+			&result.DeletedSegmentCount,
 		)
 		if err != nil {
 			return errs.New("unable to delete object: %w", err)
@@ -268,7 +269,11 @@ func (s *SpannerAdapter) deleteObjectExactVersionWithTx(ctx context.Context, tx 
 		}
 	}
 	if len(stmts) > 0 {
-		_, err = tx.BatchUpdate(ctx, stmts)
+		var counts []int64
+		counts, err = tx.BatchUpdate(ctx, stmts)
+		for _, count := range counts {
+			result.DeletedSegmentCount += int(count)
+		}
 	}
 	if err != nil {
 		return DeleteObjectResult{}, errs.Wrap(err)
@@ -384,9 +389,7 @@ func (db *DB) DeletePendingObject(ctx context.Context, opts DeletePendingObject)
 	}
 
 	mon.Meter("object_delete").Mark(len(result.Removed))
-	for _, object := range result.Removed {
-		mon.Meter("segment_delete").Mark(int(object.SegmentCount))
-	}
+	mon.Meter("segment_delete").Mark(result.DeletedSegmentCount)
 
 	return result, nil
 }
@@ -409,17 +412,12 @@ func (p *PostgresAdapter) DeletePendingObject(ctx context.Context, opts DeletePe
 				WHERE segments.stream_id IN (SELECT deleted_objects.stream_id FROM deleted_objects)
 				RETURNING segments.stream_id
 			)
-			SELECT
-				version, stream_id, created_at, expires_at, status, segment_count,
-				encrypted_metadata_nonce, encrypted_metadata, encrypted_metadata_encrypted_key,
-				total_plain_size, total_encrypted_size, fixed_segment_size, encryption,
-				retention_mode, retain_until
-			FROM deleted_objects
+			SELECT *, (SELECT COUNT(*) FROM deleted_segments) FROM deleted_objects
 		`, opts.ProjectID, opts.BucketName, opts.ObjectKey, opts.Version, opts.StreamID))(func(rows tagsql.Rows) error {
-		result.Removed, err = scanObjectDeletionPostgres(ctx, opts.Location(), rows)
+		result.Removed, result.DeletedSegmentCount, err = scanObjectDeletionPostgres(ctx, opts.Location(), rows)
 		return err
 	})
-	return result, err
+	return result, Error.Wrap(err)
 }
 
 // DeletePendingObject deletes a pending object with specified version and streamID.
@@ -451,7 +449,11 @@ func (s *SpannerAdapter) DeletePendingObject(ctx context.Context, opts DeletePen
 			}
 		}
 		if len(stmts) > 0 {
-			_, err = tx.BatchUpdate(ctx, stmts)
+			var counts []int64
+			counts, err = tx.BatchUpdate(ctx, stmts)
+			for _, count := range counts {
+				result.DeletedSegmentCount += int(count)
+			}
 		}
 		return errs.Wrap(err)
 	})
@@ -462,7 +464,7 @@ func (s *SpannerAdapter) DeletePendingObject(ctx context.Context, opts DeletePen
 }
 
 // scanObjectDeletionPostgres reads in the results of an object deletion from the database.
-func scanObjectDeletionPostgres(ctx context.Context, location ObjectLocation, rows tagsql.Rows) (objects []Object, err error) {
+func scanObjectDeletionPostgres(ctx context.Context, location ObjectLocation, rows tagsql.Rows) (objects []Object, deletedSegmentCount int, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	objects = make([]Object, 0, 10)
@@ -484,15 +486,16 @@ func scanObjectDeletionPostgres(ctx context.Context, location ObjectLocation, ro
 				legalHold:     &object.LegalHold,
 			},
 			timeWrapper{&object.Retention.RetainUntil},
+			&deletedSegmentCount,
 		)
 		if err != nil {
-			return nil, Error.New("unable to delete object: %w", err)
+			return objects, deletedSegmentCount, Error.New("unable to delete object: %w", err)
 		}
 
 		objects = append(objects, object)
 	}
 
-	return objects, nil
+	return objects, deletedSegmentCount, nil
 }
 
 const collectDeletedObjectsSpannerFields = " " +
@@ -589,8 +592,8 @@ func (db *DB) DeleteObjectLastCommitted(
 	}
 
 	mon.Meter("object_delete").Mark(len(result.Removed))
-	for _, object := range result.Removed {
-		mon.Meter("segment_delete").Mark(int(object.SegmentCount))
+	if result.DeletedSegmentCount > 0 {
+		mon.Meter("segment_delete").Mark(result.DeletedSegmentCount)
 	}
 
 	return result, nil
@@ -598,7 +601,7 @@ func (db *DB) DeleteObjectLastCommitted(
 
 // DeleteObjectLastCommittedPlain deletes an object last committed version when
 // opts.Suspended and opts.Versioned are both false.
-func (p *PostgresAdapter) DeleteObjectLastCommittedPlain(ctx context.Context, opts DeleteObjectLastCommitted) (DeleteObjectResult, error) {
+func (p *PostgresAdapter) DeleteObjectLastCommittedPlain(ctx context.Context, opts DeleteObjectLastCommitted) (result DeleteObjectResult, err error) {
 	if opts.ObjectLock.Enabled {
 		return p.deleteObjectLastCommittedPlainUsingObjectLock(ctx, opts)
 	}
@@ -630,15 +633,10 @@ func (p *PostgresAdapter) deleteObjectLastCommittedPlain(ctx context.Context, op
 				WHERE segments.stream_id IN (SELECT deleted_objects.stream_id FROM deleted_objects)
 				RETURNING segments.stream_id
 			)
-			SELECT
-				version, stream_id, created_at, expires_at, status, segment_count, encrypted_metadata_nonce,
-				encrypted_metadata, encrypted_metadata_encrypted_key, total_plain_size, total_encrypted_size,
-				fixed_segment_size, encryption,
-				retention_mode, retain_until
-			FROM deleted_objects`,
+			SELECT *, (SELECT COUNT(*) FROM deleted_segments) FROM deleted_objects`,
 			opts.ProjectID, opts.BucketName, opts.ObjectKey),
 	)(func(rows tagsql.Rows) error {
-		result.Removed, err = scanObjectDeletionPostgres(ctx, opts.ObjectLocation, rows)
+		result.Removed, result.DeletedSegmentCount, err = scanObjectDeletionPostgres(ctx, opts.ObjectLocation, rows)
 		return err
 	})
 	return result, err
@@ -687,7 +685,11 @@ func (p *PostgresAdapter) deleteObjectLastCommittedPlainUsingObjectLock(ctx cont
 			WHERE segments.stream_id IN (SELECT deleted_objects.stream_id FROM deleted_objects)
 			RETURNING 1
 		)
-		SELECT *, EXISTS(SELECT 1 FROM deleted_objects) FROM objects_to_delete
+		SELECT
+			*,
+			EXISTS(SELECT 1 FROM deleted_objects),
+			(SELECT COUNT(*) FROM deleted_segments)
+		FROM objects_to_delete
 		`, opts.ProjectID, opts.BucketName, opts.ObjectKey, opts.ObjectLock.BypassGovernance, now,
 	))(func(rows tagsql.Rows) error {
 		if !rows.Next() {
@@ -714,6 +716,7 @@ func (p *PostgresAdapter) deleteObjectLastCommittedPlainUsingObjectLock(ctx cont
 				legalHold:     &object.LegalHold,
 			}, timeWrapper{&object.Retention.RetainUntil},
 			&deleted,
+			&result.DeletedSegmentCount,
 		)
 		if err != nil {
 			return errs.New("unable to delete object: %w", err)
@@ -791,7 +794,11 @@ func (s *SpannerAdapter) deleteObjectLastCommittedPlain(ctx context.Context, opt
 			}
 		}
 		if len(stmts) > 0 {
-			_, err = tx.BatchUpdate(ctx, stmts)
+			var counts []int64
+			counts, err = tx.BatchUpdate(ctx, stmts)
+			for _, count := range counts {
+				result.DeletedSegmentCount += int(count)
+			}
 		}
 		return errs.Wrap(err)
 	})
@@ -912,6 +919,7 @@ func (p *PostgresAdapter) DeleteObjectLastCommittedSuspended(ctx context.Context
 			return ErrObjectNotFound.New("unable to delete object")
 		}
 		result.Removed = precommit.Deleted
+		result.DeletedSegmentCount = precommit.DeletedSegmentCount
 
 		row := tx.(*postgresTransactionAdapter).tx.QueryRowContext(ctx, `
 				INSERT INTO objects (
@@ -973,6 +981,7 @@ func (s *SpannerAdapter) DeleteObjectLastCommittedSuspended(ctx context.Context,
 			return ErrObjectNotFound.New("unable to delete object")
 		}
 		result.Removed = precommit.Deleted
+		result.DeletedSegmentCount = precommit.DeletedSegmentCount
 
 		err = stx.tx.Query(ctx, spanner.Statement{
 			SQL: `

@@ -127,12 +127,8 @@ func (db *DB) DeleteObjects(ctx context.Context, opts DeleteObjects) (result Del
 			deletedObjects++
 		}
 	}
-	if deletedObjects > 0 {
-		mon.Meter("object_delete").Mark(deletedObjects)
-	}
-	if result.DeletedSegmentCount > 0 {
-		mon.Meter("segment_delete").Mark64(result.DeletedSegmentCount)
-	}
+	mon.Meter("object_delete").Mark(deletedObjects)
+	mon.Meter("segment_delete").Mark64(result.DeletedSegmentCount)
 
 	return result, nil
 }
