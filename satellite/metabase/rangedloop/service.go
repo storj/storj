@@ -32,6 +32,8 @@ type Config struct {
 	AsOfSystemInterval   time.Duration `help:"as of system interval" releaseDefault:"-5m" devDefault:"-1us" testDefault:"-1us"`
 	Interval             time.Duration `help:"how often to run the loop" releaseDefault:"2h" devDefault:"10s" testDefault:"0"`
 	SpannerStaleInterval time.Duration `help:"sets spanner stale read timestamp as now()-interval" default:"0"`
+	// TODO: remove this flag when we will know which type is optimal for ranged loop
+	TestingSpannerQueryType string `help:"use to select query type which will be used to execute ranged loop (sql|read)" default:"" testDefault:"read" hidden:"true"`
 
 	SuspiciousProcessedRatio float64 `help:"ratio where to consider processed count as supicious" default:"0.03"`
 }

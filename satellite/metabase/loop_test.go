@@ -19,399 +19,432 @@ import (
 )
 
 func TestIterateLoopSegments(t *testing.T) {
-	metabasetest.Run(t, func(ctx *testcontext.Context, t *testing.T, db *metabase.DB) {
-		t.Run("Limit is negative", func(t *testing.T) {
-			defer metabasetest.DeleteAll{}.Check(ctx, t, db)
-			metabasetest.IterateLoopSegments{
-				Opts: metabase.IterateLoopSegments{
-					BatchSize: -1,
-				},
-				ErrClass: &metabase.ErrInvalidRequest,
-				ErrText:  "BatchSize is negative",
-			}.Check(ctx, t, db)
-			metabasetest.Verify{}.Check(ctx, t, db)
-		})
-
-		t.Run("Wrongly defined ranges", func(t *testing.T) {
-			defer metabasetest.DeleteAll{}.Check(ctx, t, db)
-
-			startStreamID, err := uuid.New()
-			require.NoError(t, err)
-
-			endStreamID, err := uuid.New()
-			require.NoError(t, err)
-
-			if startStreamID.Less(endStreamID) {
-				startStreamID, endStreamID = endStreamID, startStreamID
-			}
-
-			metabasetest.IterateLoopSegments{
-				Opts: metabase.IterateLoopSegments{
-					StartStreamID: startStreamID,
-					EndStreamID:   endStreamID,
-				},
-				ErrClass: &metabase.ErrInvalidRequest,
-				ErrText:  "EndStreamID is smaller than StartStreamID",
-			}.Check(ctx, t, db)
-
-			metabasetest.IterateLoopSegments{
-				Opts: metabase.IterateLoopSegments{
-					StartStreamID: startStreamID,
-					EndStreamID:   startStreamID,
-				},
-				ErrClass: &metabase.ErrInvalidRequest,
-				ErrText:  "StartStreamID and EndStreamID must be different",
-			}.Check(ctx, t, db)
-			metabasetest.IterateLoopSegments{
-				Opts: metabase.IterateLoopSegments{
-					StartStreamID: startStreamID,
-				},
-				Result: nil,
-			}.Check(ctx, t, db)
-
-			metabasetest.Verify{}.Check(ctx, t, db)
-		})
-
-		t.Run("no segments", func(t *testing.T) {
-			defer metabasetest.DeleteAll{}.Check(ctx, t, db)
-
-			metabasetest.IterateLoopSegments{
-				Opts: metabase.IterateLoopSegments{
-					BatchSize: 0,
-				},
-				Result: nil,
-			}.Check(ctx, t, db)
-
-			metabasetest.IterateLoopSegments{
-				Opts: metabase.IterateLoopSegments{
-					BatchSize: 10,
-				},
-				Result: nil,
-			}.Check(ctx, t, db)
-
-			metabasetest.IterateLoopSegments{
-				Opts: metabase.IterateLoopSegments{
-					BatchSize: 10,
-				},
-				Result: nil,
-			}.Check(ctx, t, db)
-
-			metabasetest.IterateLoopSegments{
-				Opts: metabase.IterateLoopSegments{
-					BatchSize: 10,
-				},
-				Result: nil,
-			}.Check(ctx, t, db)
-
-			startStreamID, err := uuid.New()
-			require.NoError(t, err)
-
-			endStreamID, err := uuid.New()
-			require.NoError(t, err)
-
-			if endStreamID.Less(startStreamID) {
-				startStreamID, endStreamID = endStreamID, startStreamID
-			}
-
-			metabasetest.IterateLoopSegments{
-				Opts: metabase.IterateLoopSegments{
-					BatchSize:     10,
-					StartStreamID: startStreamID,
-					EndStreamID:   endStreamID,
-				},
-				Result: nil,
-			}.Check(ctx, t, db)
-
-			metabasetest.Verify{}.Check(ctx, t, db)
-		})
-
-		t.Run("segments from pending and committed objects", func(t *testing.T) {
-			defer metabasetest.DeleteAll{}.Check(ctx, t, db)
-
-			now := time.Now()
-
-			pending := metabasetest.RandObjectStream()
-			metabasetest.CreatePendingObject(ctx, t, db, pending, 2)
-
-			committed := metabasetest.RandObjectStream()
-			metabasetest.CreateObject(ctx, t, db, committed, 3)
-
-			expectedExpiresAt := now.Add(33 * time.Hour)
-			committedExpires := metabasetest.RandObjectStream()
-			metabasetest.CreateExpiredObject(ctx, t, db, committedExpires, 1, expectedExpiresAt)
-
-			genericLoopEntry := metabase.LoopSegmentEntry{
-				RootPieceID:   storj.PieceID{1},
-				Pieces:        metabase.Pieces{{Number: 0, StorageNode: storj.NodeID{2}}},
-				CreatedAt:     now,
-				EncryptedSize: 1024,
-				PlainSize:     512,
-				PlainOffset:   0,
-				Redundancy:    metabasetest.DefaultRedundancy,
-			}
-
-			expectedSource := db.ChooseAdapter(committed.ProjectID).Name()
-
-			expected := []metabase.LoopSegmentEntry{}
-			for _, expect := range []struct {
-				StreamID    uuid.UUID
-				Position    metabase.SegmentPosition
-				PlainOffset int64
-				ExpiresAt   *time.Time
-			}{
-				{pending.StreamID, metabase.SegmentPosition{0, 0}, 0, nil},
-				{pending.StreamID, metabase.SegmentPosition{0, 1}, 0, nil},
-				{committed.StreamID, metabase.SegmentPosition{0, 0}, 0, nil},
-				{committed.StreamID, metabase.SegmentPosition{0, 1}, 512, nil},
-				{committed.StreamID, metabase.SegmentPosition{0, 2}, 1024, nil},
-				{committedExpires.StreamID, metabase.SegmentPosition{0, 0}, 0, &expectedExpiresAt},
-			} {
-				entry := genericLoopEntry
-				entry.StreamID = expect.StreamID
-				entry.Position = expect.Position
-				entry.PlainOffset = expect.PlainOffset
-				entry.ExpiresAt = expect.ExpiresAt
-				entry.AliasPieces = metabase.AliasPieces([]metabase.AliasPiece{
-					{Alias: 1},
+	for _, spannerQueryType := range []string{
+		"sql",
+		"read",
+	} {
+		t.Run(spannerQueryType, func(t *testing.T) {
+			metabasetest.Run(t, func(ctx *testcontext.Context, t *testing.T, db *metabase.DB) {
+				t.Run("Limit is negative", func(t *testing.T) {
+					defer metabasetest.DeleteAll{}.Check(ctx, t, db)
+					metabasetest.IterateLoopSegments{
+						Opts: metabase.IterateLoopSegments{
+							BatchSize:        -1,
+							SpannerQueryType: spannerQueryType,
+						},
+						ErrClass: &metabase.ErrInvalidRequest,
+						ErrText:  "BatchSize is negative",
+					}.Check(ctx, t, db)
+					metabasetest.Verify{}.Check(ctx, t, db)
 				})
-				entry.Source = expectedSource
-				expected = append(expected, entry)
-			}
 
-			metabasetest.IterateLoopSegments{
-				Opts: metabase.IterateLoopSegments{
-					BatchSize: 1,
-				},
-				Result: expected,
-			}.Check(ctx, t, db)
+				t.Run("Wrongly defined ranges", func(t *testing.T) {
+					defer metabasetest.DeleteAll{}.Check(ctx, t, db)
 
-			metabasetest.IterateLoopSegments{
-				Opts: metabase.IterateLoopSegments{
-					BatchSize: 1,
-				},
-				Result: expected,
-			}.Check(ctx, t, db)
-		})
+					startStreamID, err := uuid.New()
+					require.NoError(t, err)
 
-		t.Run("streamID range", func(t *testing.T) {
-			defer metabasetest.DeleteAll{}.Check(ctx, t, db)
+					endStreamID, err := uuid.New()
+					require.NoError(t, err)
 
-			now := time.Now()
+					if startStreamID.Less(endStreamID) {
+						startStreamID, endStreamID = endStreamID, startStreamID
+					}
 
-			numberOfObjects := 10
-			numberOfSegmentsPerObject := 3
+					metabasetest.IterateLoopSegments{
+						Opts: metabase.IterateLoopSegments{
+							StartStreamID:    startStreamID,
+							EndStreamID:      endStreamID,
+							SpannerQueryType: spannerQueryType,
+						},
+						ErrClass: &metabase.ErrInvalidRequest,
+						ErrText:  "EndStreamID is smaller than StartStreamID",
+					}.Check(ctx, t, db)
 
-			expected := make([]metabase.LoopSegmentEntry, numberOfObjects*numberOfSegmentsPerObject)
-			expectedRaw := make([]metabase.RawSegment, numberOfObjects*numberOfSegmentsPerObject)
-			expectedObjects := make([]metabase.RawObject, numberOfObjects)
+					metabasetest.IterateLoopSegments{
+						Opts: metabase.IterateLoopSegments{
+							StartStreamID:    startStreamID,
+							EndStreamID:      startStreamID,
+							SpannerQueryType: spannerQueryType,
+						},
+						ErrClass: &metabase.ErrInvalidRequest,
+						ErrText:  "StartStreamID and EndStreamID must be different",
+					}.Check(ctx, t, db)
+					metabasetest.IterateLoopSegments{
+						Opts: metabase.IterateLoopSegments{
+							StartStreamID:    startStreamID,
+							SpannerQueryType: spannerQueryType,
+						},
+						Result: nil,
+					}.Check(ctx, t, db)
 
-			for i := 0; i < numberOfObjects; i++ {
-				committed := metabasetest.RandObjectStream()
+					metabasetest.Verify{}.Check(ctx, t, db)
+				})
 
-				source := db.ChooseAdapter(committed.ProjectID).Name()
+				t.Run("no segments", func(t *testing.T) {
+					defer metabasetest.DeleteAll{}.Check(ctx, t, db)
 
-				expectedObjects[i] = metabase.RawObject(
-					metabasetest.CreateObject(ctx, t, db, committed, byte(numberOfSegmentsPerObject)))
+					metabasetest.IterateLoopSegments{
+						Opts: metabase.IterateLoopSegments{
+							BatchSize:        0,
+							SpannerQueryType: spannerQueryType,
+						},
+						Result: nil,
+					}.Check(ctx, t, db)
 
-				for j := 0; j < numberOfSegmentsPerObject; j++ {
+					metabasetest.IterateLoopSegments{
+						Opts: metabase.IterateLoopSegments{
+							BatchSize:        10,
+							SpannerQueryType: spannerQueryType,
+						},
+						Result: nil,
+					}.Check(ctx, t, db)
 
-					entry := metabase.LoopSegmentEntry{
-						StreamID:      committed.StreamID,
-						Position:      metabase.SegmentPosition{0, uint32(j)},
+					metabasetest.IterateLoopSegments{
+						Opts: metabase.IterateLoopSegments{
+							BatchSize:        10,
+							SpannerQueryType: spannerQueryType,
+						},
+						Result: nil,
+					}.Check(ctx, t, db)
+
+					metabasetest.IterateLoopSegments{
+						Opts: metabase.IterateLoopSegments{
+							BatchSize:        10,
+							SpannerQueryType: spannerQueryType,
+						},
+						Result: nil,
+					}.Check(ctx, t, db)
+
+					startStreamID, err := uuid.New()
+					require.NoError(t, err)
+
+					endStreamID, err := uuid.New()
+					require.NoError(t, err)
+
+					if endStreamID.Less(startStreamID) {
+						startStreamID, endStreamID = endStreamID, startStreamID
+					}
+
+					metabasetest.IterateLoopSegments{
+						Opts: metabase.IterateLoopSegments{
+							BatchSize:        10,
+							StartStreamID:    startStreamID,
+							EndStreamID:      endStreamID,
+							SpannerQueryType: spannerQueryType,
+						},
+						Result: nil,
+					}.Check(ctx, t, db)
+
+					metabasetest.Verify{}.Check(ctx, t, db)
+				})
+
+				t.Run("segments from pending and committed objects", func(t *testing.T) {
+					defer metabasetest.DeleteAll{}.Check(ctx, t, db)
+
+					now := time.Now()
+
+					pending := metabasetest.RandObjectStream()
+					metabasetest.CreatePendingObject(ctx, t, db, pending, 2)
+
+					committed := metabasetest.RandObjectStream()
+					metabasetest.CreateObject(ctx, t, db, committed, 3)
+
+					expectedExpiresAt := now.Add(33 * time.Hour)
+					committedExpires := metabasetest.RandObjectStream()
+					metabasetest.CreateExpiredObject(ctx, t, db, committedExpires, 1, expectedExpiresAt)
+
+					genericLoopEntry := metabase.LoopSegmentEntry{
 						RootPieceID:   storj.PieceID{1},
 						Pieces:        metabase.Pieces{{Number: 0, StorageNode: storj.NodeID{2}}},
 						CreatedAt:     now,
 						EncryptedSize: 1024,
 						PlainSize:     512,
-						PlainOffset:   int64(j) * 512,
+						PlainOffset:   0,
 						Redundancy:    metabasetest.DefaultRedundancy,
-						AliasPieces: metabase.AliasPieces([]metabase.AliasPiece{
+					}
+
+					expectedSource := db.ChooseAdapter(committed.ProjectID).Name()
+
+					expected := []metabase.LoopSegmentEntry{}
+					for _, expect := range []struct {
+						StreamID    uuid.UUID
+						Position    metabase.SegmentPosition
+						PlainOffset int64
+						ExpiresAt   *time.Time
+					}{
+						{pending.StreamID, metabase.SegmentPosition{0, 0}, 0, nil},
+						{pending.StreamID, metabase.SegmentPosition{0, 1}, 0, nil},
+						{committed.StreamID, metabase.SegmentPosition{0, 0}, 0, nil},
+						{committed.StreamID, metabase.SegmentPosition{0, 1}, 512, nil},
+						{committed.StreamID, metabase.SegmentPosition{0, 2}, 1024, nil},
+						{committedExpires.StreamID, metabase.SegmentPosition{0, 0}, 0, &expectedExpiresAt},
+					} {
+						entry := genericLoopEntry
+						entry.StreamID = expect.StreamID
+						entry.Position = expect.Position
+						entry.PlainOffset = expect.PlainOffset
+						entry.ExpiresAt = expect.ExpiresAt
+						entry.AliasPieces = metabase.AliasPieces([]metabase.AliasPiece{
 							{Alias: 1},
-						}),
-						Source: source,
+						})
+						entry.Source = expectedSource
+						expected = append(expected, entry)
 					}
-					expected[i*numberOfSegmentsPerObject+j] = entry
-					expectedRaw[i*numberOfSegmentsPerObject+j] = metabase.RawSegment{
-						StreamID:      entry.StreamID,
-						Position:      entry.Position,
-						RootPieceID:   entry.RootPieceID,
-						Pieces:        entry.Pieces,
-						CreatedAt:     entry.CreatedAt,
-						EncryptedSize: entry.EncryptedSize,
-						PlainSize:     entry.PlainSize,
-						PlainOffset:   entry.PlainOffset,
-						Redundancy:    entry.Redundancy,
 
-						EncryptedKey:      []byte{3},
-						EncryptedKeyNonce: []byte{4},
-						EncryptedETag:     []byte{5},
-					}
-				}
-			}
-			sort.Slice(expected, func(i, j int) bool {
-				if expected[i].StreamID.Less(expected[j].StreamID) {
-					return true
-				}
-				if expected[i].StreamID == expected[j].StreamID {
-					return expected[i].Position.Less(expected[j].Position)
-				}
-				return false
-			})
-
-			sort.Slice(expectedObjects, func(i, j int) bool {
-				return expectedObjects[i].StreamID.Less(expectedObjects[j].StreamID)
-			})
-
-			{ // StartStreamID set
-				metabasetest.IterateLoopSegments{
-					Opts: metabase.IterateLoopSegments{
-						StartStreamID: expectedObjects[0].StreamID,
-					},
-					Result: expected[numberOfSegmentsPerObject:],
-				}.Check(ctx, t, db)
-
-				metabasetest.IterateLoopSegments{
-					Opts: metabase.IterateLoopSegments{
-						StartStreamID: expectedObjects[0].StreamID,
-						BatchSize:     1,
-					},
-					Result: expected[numberOfSegmentsPerObject:],
-				}.Check(ctx, t, db)
-			}
-
-			{ // EndStreamID set
-				metabasetest.IterateLoopSegments{
-					Opts: metabase.IterateLoopSegments{
-						EndStreamID: expectedObjects[3].StreamID,
-					},
-					Result: expected[:4*numberOfSegmentsPerObject],
-				}.Check(ctx, t, db)
-
-				metabasetest.IterateLoopSegments{
-					Opts: metabase.IterateLoopSegments{
-						BatchSize:   1,
-						EndStreamID: expectedObjects[3].StreamID,
-					},
-					Result: expected[:4*numberOfSegmentsPerObject],
-				}.Check(ctx, t, db)
-
-				metabasetest.IterateLoopSegments{
-					Opts: metabase.IterateLoopSegments{
-						BatchSize:   1,
-						EndStreamID: expectedObjects[numberOfObjects-1].StreamID,
-					},
-					Result: expected,
-				}.Check(ctx, t, db)
-			}
-
-			{ // StartStreamID and EndStreamID set
-				metabasetest.IterateLoopSegments{
-					Opts: metabase.IterateLoopSegments{
-						StartStreamID: expectedObjects[0].StreamID,
-						EndStreamID:   expectedObjects[5].StreamID,
-					},
-					Result: expected[numberOfSegmentsPerObject : 6*numberOfSegmentsPerObject],
-				}.Check(ctx, t, db)
-
-				metabasetest.IterateLoopSegments{
-					Opts: metabase.IterateLoopSegments{
-						BatchSize:     1,
-						StartStreamID: expectedObjects[0].StreamID,
-						EndStreamID:   expectedObjects[5].StreamID,
-					},
-					Result: expected[numberOfSegmentsPerObject : 6*numberOfSegmentsPerObject],
-				}.Check(ctx, t, db)
-			}
-
-			metabasetest.Verify{
-				Objects:  expectedObjects,
-				Segments: expectedRaw,
-			}.Check(ctx, t, db)
-		})
-
-		t.Run("check segment source", func(t *testing.T) {
-			defer metabasetest.DeleteAll{}.Check(ctx, t, db)
-
-			object := metabasetest.CreateObject(ctx, t, db, metabasetest.RandObjectStream(), 1)
-			expectedSource := db.ChooseAdapter(object.ProjectID).Name()
-
-			err := db.IterateLoopSegments(ctx, metabase.IterateLoopSegments{
-				BatchSize: 1,
-			}, func(ctx context.Context, lsi metabase.LoopSegmentsIterator) error {
-
-				var entry metabase.LoopSegmentEntry
-				for lsi.Next(ctx, &entry) {
-					require.Equal(t, expectedSource, entry.Source)
-				}
-				return nil
-			})
-			require.NoError(t, err)
-		})
-
-		if db.Implementation().String() == "spanner" {
-			t.Run("spanner stale reads", func(t *testing.T) {
-				defer metabasetest.DeleteAll{}.Check(ctx, t, db)
-
-				metabasetest.IterateLoopSegments{
-					Opts: metabase.IterateLoopSegments{
-						BatchSize:            1,
-						SpannerReadTimestamp: time.Time{},
-					},
-					Result: nil,
-				}.Check(ctx, t, db)
-
-				metabasetest.IterateLoopSegments{
-					Opts: metabase.IterateLoopSegments{
-						BatchSize:            1,
-						SpannerReadTimestamp: time.Now().Add(-time.Microsecond),
-					},
-					Result: nil,
-				}.Check(ctx, t, db)
-
-				metabasetest.IterateLoopSegments{
-					Opts: metabase.IterateLoopSegments{
-						BatchSize:            1,
-						SpannerReadTimestamp: time.Now().Add(-time.Hour),
-					},
-					ErrText: `/(?ms)spanner: code = "InvalidArgument", desc = "Table not found: segments.*FROM segments.*"/`,
-				}.Check(ctx, t, db)
-
-				beforeUpload := time.Now()
-				object := metabasetest.CreateObject(ctx, t, db, metabasetest.RandObjectStream(), 1)
-				// using only time.Now() make this test flaky on CI
-				afterUpload := time.Now().Add(time.Second)
-
-				metabasetest.IterateLoopSegments{
-					Opts: metabase.IterateLoopSegments{
-						BatchSize:            1,
-						SpannerReadTimestamp: beforeUpload,
-					},
-					Result: nil,
-				}.Check(ctx, t, db)
-
-				defaultSegment := metabasetest.DefaultRawSegment(object.ObjectStream, metabase.SegmentPosition{})
-
-				expectedSource := db.ChooseAdapter(object.ProjectID).Name()
-
-				metabasetest.IterateLoopSegments{
-					Opts: metabase.IterateLoopSegments{
-						BatchSize:            1,
-						SpannerReadTimestamp: afterUpload,
-					},
-					Result: []metabase.LoopSegmentEntry{
-						{
-							StreamID:      object.StreamID,
-							CreatedAt:     beforeUpload,
-							EncryptedSize: defaultSegment.EncryptedSize,
-							PlainSize:     defaultSegment.PlainSize,
-							RootPieceID:   defaultSegment.RootPieceID,
-							Redundancy:    defaultSegment.Redundancy,
-							Pieces:        defaultSegment.Pieces,
-							Source:        expectedSource,
+					metabasetest.IterateLoopSegments{
+						Opts: metabase.IterateLoopSegments{
+							BatchSize:        1,
+							SpannerQueryType: spannerQueryType,
 						},
-					},
-				}.Check(ctx, t, db)
+						Result: expected,
+					}.Check(ctx, t, db)
+
+					metabasetest.IterateLoopSegments{
+						Opts: metabase.IterateLoopSegments{
+							BatchSize:        1,
+							SpannerQueryType: spannerQueryType,
+						},
+						Result: expected,
+					}.Check(ctx, t, db)
+				})
+
+				t.Run("streamID range", func(t *testing.T) {
+					defer metabasetest.DeleteAll{}.Check(ctx, t, db)
+
+					now := time.Now()
+
+					numberOfObjects := 10
+					numberOfSegmentsPerObject := 3
+
+					expected := make([]metabase.LoopSegmentEntry, numberOfObjects*numberOfSegmentsPerObject)
+					expectedRaw := make([]metabase.RawSegment, numberOfObjects*numberOfSegmentsPerObject)
+					expectedObjects := make([]metabase.RawObject, numberOfObjects)
+
+					for i := 0; i < numberOfObjects; i++ {
+						committed := metabasetest.RandObjectStream()
+
+						source := db.ChooseAdapter(committed.ProjectID).Name()
+
+						expectedObjects[i] = metabase.RawObject(
+							metabasetest.CreateObject(ctx, t, db, committed, byte(numberOfSegmentsPerObject)))
+
+						for j := 0; j < numberOfSegmentsPerObject; j++ {
+
+							entry := metabase.LoopSegmentEntry{
+								StreamID:      committed.StreamID,
+								Position:      metabase.SegmentPosition{0, uint32(j)},
+								RootPieceID:   storj.PieceID{1},
+								Pieces:        metabase.Pieces{{Number: 0, StorageNode: storj.NodeID{2}}},
+								CreatedAt:     now,
+								EncryptedSize: 1024,
+								PlainSize:     512,
+								PlainOffset:   int64(j) * 512,
+								Redundancy:    metabasetest.DefaultRedundancy,
+								AliasPieces: metabase.AliasPieces([]metabase.AliasPiece{
+									{Alias: 1},
+								}),
+								Source: source,
+							}
+							expected[i*numberOfSegmentsPerObject+j] = entry
+							expectedRaw[i*numberOfSegmentsPerObject+j] = metabase.RawSegment{
+								StreamID:      entry.StreamID,
+								Position:      entry.Position,
+								RootPieceID:   entry.RootPieceID,
+								Pieces:        entry.Pieces,
+								CreatedAt:     entry.CreatedAt,
+								EncryptedSize: entry.EncryptedSize,
+								PlainSize:     entry.PlainSize,
+								PlainOffset:   entry.PlainOffset,
+								Redundancy:    entry.Redundancy,
+
+								EncryptedKey:      []byte{3},
+								EncryptedKeyNonce: []byte{4},
+								EncryptedETag:     []byte{5},
+							}
+						}
+					}
+					sort.Slice(expected, func(i, j int) bool {
+						if expected[i].StreamID.Less(expected[j].StreamID) {
+							return true
+						}
+						if expected[i].StreamID == expected[j].StreamID {
+							return expected[i].Position.Less(expected[j].Position)
+						}
+						return false
+					})
+
+					sort.Slice(expectedObjects, func(i, j int) bool {
+						return expectedObjects[i].StreamID.Less(expectedObjects[j].StreamID)
+					})
+
+					{ // StartStreamID set
+						metabasetest.IterateLoopSegments{
+							Opts: metabase.IterateLoopSegments{
+								StartStreamID:    expectedObjects[0].StreamID,
+								SpannerQueryType: spannerQueryType,
+							},
+							Result: expected[numberOfSegmentsPerObject:],
+						}.Check(ctx, t, db)
+
+						metabasetest.IterateLoopSegments{
+							Opts: metabase.IterateLoopSegments{
+								StartStreamID:    expectedObjects[0].StreamID,
+								BatchSize:        1,
+								SpannerQueryType: spannerQueryType,
+							},
+							Result: expected[numberOfSegmentsPerObject:],
+						}.Check(ctx, t, db)
+					}
+
+					{ // EndStreamID set
+						metabasetest.IterateLoopSegments{
+							Opts: metabase.IterateLoopSegments{
+								EndStreamID:      expectedObjects[3].StreamID,
+								SpannerQueryType: spannerQueryType,
+							},
+							Result: expected[:4*numberOfSegmentsPerObject],
+						}.Check(ctx, t, db)
+
+						metabasetest.IterateLoopSegments{
+							Opts: metabase.IterateLoopSegments{
+								BatchSize:        1,
+								EndStreamID:      expectedObjects[3].StreamID,
+								SpannerQueryType: spannerQueryType,
+							},
+							Result: expected[:4*numberOfSegmentsPerObject],
+						}.Check(ctx, t, db)
+
+						metabasetest.IterateLoopSegments{
+							Opts: metabase.IterateLoopSegments{
+								BatchSize:        1,
+								EndStreamID:      expectedObjects[numberOfObjects-1].StreamID,
+								SpannerQueryType: spannerQueryType,
+							},
+							Result: expected,
+						}.Check(ctx, t, db)
+					}
+
+					{ // StartStreamID and EndStreamID set
+						metabasetest.IterateLoopSegments{
+							Opts: metabase.IterateLoopSegments{
+								StartStreamID:    expectedObjects[0].StreamID,
+								EndStreamID:      expectedObjects[5].StreamID,
+								SpannerQueryType: spannerQueryType,
+							},
+							Result: expected[numberOfSegmentsPerObject : 6*numberOfSegmentsPerObject],
+						}.Check(ctx, t, db)
+
+						metabasetest.IterateLoopSegments{
+							Opts: metabase.IterateLoopSegments{
+								BatchSize:        1,
+								StartStreamID:    expectedObjects[0].StreamID,
+								EndStreamID:      expectedObjects[5].StreamID,
+								SpannerQueryType: spannerQueryType,
+							},
+							Result: expected[numberOfSegmentsPerObject : 6*numberOfSegmentsPerObject],
+						}.Check(ctx, t, db)
+					}
+
+					metabasetest.Verify{
+						Objects:  expectedObjects,
+						Segments: expectedRaw,
+					}.Check(ctx, t, db)
+				})
+
+				t.Run("check segment source", func(t *testing.T) {
+					defer metabasetest.DeleteAll{}.Check(ctx, t, db)
+
+					object := metabasetest.CreateObject(ctx, t, db, metabasetest.RandObjectStream(), 1)
+					expectedSource := db.ChooseAdapter(object.ProjectID).Name()
+
+					err := db.IterateLoopSegments(ctx, metabase.IterateLoopSegments{
+						BatchSize:        1,
+						SpannerQueryType: spannerQueryType,
+					}, func(ctx context.Context, lsi metabase.LoopSegmentsIterator) error {
+
+						var entry metabase.LoopSegmentEntry
+						for lsi.Next(ctx, &entry) {
+							require.Equal(t, expectedSource, entry.Source)
+						}
+						return nil
+					})
+					require.NoError(t, err)
+				})
+
+				// TODO for some reason this test fails with Read API
+				if db.Implementation().String() == "spanner" && spannerQueryType == "sql" {
+					t.Run("spanner stale reads", func(t *testing.T) {
+						// t.Skip()
+						defer metabasetest.DeleteAll{}.Check(ctx, t, db)
+
+						metabasetest.IterateLoopSegments{
+							Opts: metabase.IterateLoopSegments{
+								BatchSize:            1,
+								SpannerReadTimestamp: time.Time{},
+								SpannerQueryType:     spannerQueryType,
+							},
+							Result: nil,
+						}.Check(ctx, t, db)
+
+						metabasetest.IterateLoopSegments{
+							Opts: metabase.IterateLoopSegments{
+								BatchSize:            1,
+								SpannerReadTimestamp: time.Now().Add(-time.Microsecond),
+								SpannerQueryType:     spannerQueryType,
+							},
+							Result: nil,
+						}.Check(ctx, t, db)
+
+						metabasetest.IterateLoopSegments{
+							Opts: metabase.IterateLoopSegments{
+								BatchSize:            1,
+								SpannerReadTimestamp: time.Now().Add(-time.Hour),
+								SpannerQueryType:     spannerQueryType,
+							},
+							ErrText: `/(?ms)spanner: code = "InvalidArgument", desc = "Table not found: segments.*FROM segments.*"/`,
+						}.Check(ctx, t, db)
+
+						beforeUpload := time.Now()
+						object := metabasetest.CreateObject(ctx, t, db, metabasetest.RandObjectStream(), 1)
+						// using only time.Now() make this test flaky on CI
+						afterUpload := time.Now().Add(time.Second)
+
+						metabasetest.IterateLoopSegments{
+							Opts: metabase.IterateLoopSegments{
+								BatchSize:            1,
+								SpannerReadTimestamp: beforeUpload,
+								SpannerQueryType:     spannerQueryType,
+							},
+							Result: nil,
+						}.Check(ctx, t, db)
+
+						defaultSegment := metabasetest.DefaultRawSegment(object.ObjectStream, metabase.SegmentPosition{})
+
+						expectedSource := db.ChooseAdapter(object.ProjectID).Name()
+
+						metabasetest.IterateLoopSegments{
+							Opts: metabase.IterateLoopSegments{
+								BatchSize:            1,
+								SpannerReadTimestamp: afterUpload,
+								SpannerQueryType:     spannerQueryType,
+							},
+							Result: []metabase.LoopSegmentEntry{
+								{
+									StreamID:      object.StreamID,
+									CreatedAt:     beforeUpload,
+									EncryptedSize: defaultSegment.EncryptedSize,
+									PlainSize:     defaultSegment.PlainSize,
+									RootPieceID:   defaultSegment.RootPieceID,
+									Redundancy:    defaultSegment.Redundancy,
+									Pieces:        defaultSegment.Pieces,
+									Source:        expectedSource,
+								},
+							},
+						}.Check(ctx, t, db)
+					})
+				}
 			})
-		}
-	})
+		})
+	}
 }

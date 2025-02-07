@@ -28,6 +28,7 @@ type MetabaseSegmentProvider struct {
 	uuidRange            UUIDRange
 	asOfSystemInterval   time.Duration
 	spannerReadTimestamp time.Time
+	spannerQueryType     string
 	batchSize            int
 }
 
@@ -61,6 +62,7 @@ func (provider *MetabaseRangeSplitter) CreateRanges(nRanges int, batchSize int) 
 			uuidRange:            uuidRange,
 			asOfSystemInterval:   provider.config.AsOfSystemInterval,
 			spannerReadTimestamp: spannerReadTimestamp,
+			spannerQueryType:     provider.config.TestingSpannerQueryType,
 			batchSize:            batchSize,
 		})
 	}
@@ -91,6 +93,7 @@ func (provider *MetabaseSegmentProvider) Iterate(ctx context.Context, fn func([]
 		StartStreamID:        startStreamID,
 		EndStreamID:          endStreamID,
 		SpannerReadTimestamp: provider.spannerReadTimestamp,
+		SpannerQueryType:     provider.spannerQueryType,
 	}, func(ctx context.Context, iterator metabase.LoopSegmentsIterator) error {
 		segments := make([]Segment, 0, provider.batchSize)
 
