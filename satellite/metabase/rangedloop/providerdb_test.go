@@ -16,7 +16,6 @@ import (
 	"storj.io/storj/satellite/metabase"
 	"storj.io/storj/satellite/metabase/metabasetest"
 	"storj.io/storj/satellite/metabase/rangedloop"
-	"storj.io/storj/shared/dbutil"
 )
 
 type in struct {
@@ -32,11 +31,6 @@ type expected struct {
 
 func TestMetabaseSegementProvider(t *testing.T) {
 	metabasetest.Run(t, func(ctx *testcontext.Context, t *testing.T, db *metabase.DB) {
-		if db.Implementation() == dbutil.Spanner {
-			// TODO(spanner): seems to be flaky
-			t.Skip("not correct for spanner")
-		}
-
 		inouts := []struct {
 			in       in
 			expected expected
