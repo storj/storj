@@ -137,5 +137,4 @@ func TestNodes(t *testing.T) {
 	require.Equal(t, max, nodeSelection[high])
 	require.Equal(t, min, nodeSelection[low])
 	require.Equal(t, 0, nodeSelection[excluded])
-
 }

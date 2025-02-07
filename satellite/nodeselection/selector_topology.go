@@ -5,9 +5,10 @@ package nodeselection
 
 import (
 	"math"
-	"math/rand"
 	"strconv"
 	"strings"
+
+	"github.com/zeebo/mwc"
 
 	"storj.io/common/storj"
 )
@@ -127,9 +128,10 @@ func (n *Nodes) Select(i []int, excluded []storj.NodeID) (selection []*SelectedN
 func collectIndexes(nodes []*SelectedNode, ids []storj.NodeID) []int {
 	var indexes []int
 	for ix, node := range nodes {
-		for _, exclusion := range ids {
-			if exclusion == node.ID {
+		for i := range ids {
+			if ids[i] == node.ID {
 				indexes = append(indexes, ix)
+				break
 			}
 		}
 	}
@@ -153,10 +155,12 @@ func (w WeightedRandom) Random(k int, exclusion []int) []int {
 		k = n
 	}
 
+	rng := mwc.Rand()
+
 	items := make([]WeightedItem, n)
 	for i, weight := range w {
 
-		r := rand.Float64()
+		r := rng.Float64()
 		// Handle edge case of zero weight
 		if weight <= 0 || excluded(exclusion, i) {
 			items[i] = WeightedItem{Index: i, Score: math.Inf(-1)}
