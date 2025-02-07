@@ -426,7 +426,7 @@ func (opb *OldPieceBackend) Reader(ctx context.Context, satellite storj.NodeID, 
 		}, nil
 	}
 	if !errs.Is(err, fs.ErrNotExist) {
-		return nil, rpcstatus.Wrap(rpcstatus.Internal, err)
+		return nil, rpcstatus.NamedWrap("old-piece-backend-open-fail", rpcstatus.Internal, err)
 	}
 
 	// check if the file is in trash, if so, restore it and
@@ -436,13 +436,13 @@ func (opb *OldPieceBackend) Reader(ctx context.Context, satellite storj.NodeID, 
 		opb.monitor.VerifyDirReadableLoop.TriggerWait()
 
 		// we want to return the original "file does not exist" error to the rpc client
-		return nil, rpcstatus.Wrap(rpcstatus.NotFound, err)
+		return nil, rpcstatus.NamedWrap("not-found", rpcstatus.NotFound, err)
 	}
 
 	// try to open the file again
 	reader, err = opb.store.Reader(ctx, satellite, pieceID)
 	if err != nil {
-		return nil, rpcstatus.Wrap(rpcstatus.Internal, err)
+		return nil, rpcstatus.NamedWrap("old-piece-backend-open-fail-after-trash-restore", rpcstatus.Internal, err)
 	}
 	return &oldPieceReader{
 		Reader:    reader,
