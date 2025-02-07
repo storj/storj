@@ -182,6 +182,7 @@
             <v-col cols="auto" class="pt-0 mt-0 pt-md-7">
                 <v-date-input
                     v-model="chartDateRange"
+                    :allowed-dates="allowDate"
                     label="Select Date Range"
                     min-width="260px"
                     multiple="range"
@@ -693,7 +694,7 @@ const chartDateRange = computed<Date[]>({
     get: () => {
         const dates: Date[] = [...datePickerModel.value];
         if (!dates.length) {
-            for (let i = 7; i > 0; i--) {
+            for (let i = 6; i >= 0; i--) {
                 const d = new Date();
                 d.setDate(d.getDate() - i);
                 dates.push(d);
@@ -746,6 +747,18 @@ const emissionImpactViewEnabled = computed<boolean>(() => {
 const emission = computed<Emission>(()  => {
     return projectsStore.state.emission;
 });
+
+function allowDate(date: unknown): boolean {
+    if (!date) return false;
+    const d = new Date(date as string);
+    if (isNaN(d.getTime())) return false;
+
+    d.setHours(0, 0, 0, 0);
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+
+    return d <= today;
+}
 
 /**
  * Returns adjusted value and unit.

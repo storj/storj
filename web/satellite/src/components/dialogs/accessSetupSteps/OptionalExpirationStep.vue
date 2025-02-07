@@ -76,6 +76,7 @@
         <v-overlay v-model="isDatePicker" persistent class="align-center justify-center">
             <v-date-picker
                 v-model="datePickerModel"
+                :allowed-dates="allowDate"
                 show-adjacent-months
                 @update:model-value="onDatePickerSubmit"
             >
@@ -136,6 +137,18 @@ function getNowOffset(days = 0, months = 0, years = 0): Date {
         now.getDate() + days,
         11, 59, 59,
     );
+}
+
+function allowDate(date: unknown): boolean {
+    if (!date) return false;
+    const d = new Date(date as string);
+    if (isNaN(d.getTime())) return false;
+
+    d.setHours(0, 0, 0, 0);
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+
+    return d > today;
 }
 
 /**
