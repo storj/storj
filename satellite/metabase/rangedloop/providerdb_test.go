@@ -112,7 +112,11 @@ func runTest(ctx *testcontext.Context, t *testing.T, db *metabase.DB, in in, exp
 		createSegment(ctx, t, db, u)
 	}
 
-	provider := rangedloop.NewMetabaseRangeSplitter(zap.NewNop(), db, -1*time.Microsecond, -1*time.Microsecond, in.batchSize)
+	provider := rangedloop.NewMetabaseRangeSplitter(zap.NewNop(), db, rangedloop.Config{
+		AsOfSystemInterval:   -1 * time.Microsecond,
+		SpannerStaleInterval: -1 * time.Microsecond,
+		BatchSize:            in.batchSize,
+	})
 	ranges, err := provider.CreateRanges(in.nRanges, in.batchSize)
 	require.NoError(t, err)
 

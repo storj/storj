@@ -402,7 +402,9 @@ func TestAllInOne(t *testing.T) {
 		require.NoError(t, err)
 		bfConfig.AccessGrant = accessGrant
 
-		metabaseProvider := rangedloop.NewMetabaseRangeSplitter(log, satellite.Metabase.DB, 0, 0, 10)
+		metabaseProvider := rangedloop.NewMetabaseRangeSplitter(log, satellite.Metabase.DB, rangedloop.Config{
+			BatchSize: 10,
+		})
 		service := rangedloop.NewService(log, config, metabaseProvider, []rangedloop.Observer{
 			rangedloop.NewLiveCountObserver(satellite.Metabase.DB, config.SuspiciousProcessedRatio, config.AsOfSystemInterval),
 			metrics.NewObserver(),
@@ -475,7 +477,9 @@ func TestLoopBoundaries(t *testing.T) {
 			var visitedSegments []Segment
 			var mu sync.Mutex
 
-			provider := rangedloop.NewMetabaseRangeSplitter(zap.NewNop(), db, 0, 0, batchSize)
+			provider := rangedloop.NewMetabaseRangeSplitter(zap.NewNop(), db, rangedloop.Config{
+				BatchSize: batchSize,
+			})
 			config := rangedloop.Config{
 				Parallelism: parallelism,
 				BatchSize:   batchSize,
@@ -579,7 +583,10 @@ func TestRangedLoop_SpannerStaleReads(t *testing.T) {
 			BatchSize:   10,
 		}
 
-		provider := rangedloop.NewMetabaseRangeSplitter(zaptest.NewLogger(t), db, 0, time.Microsecond, 10)
+		provider := rangedloop.NewMetabaseRangeSplitter(zaptest.NewLogger(t), db, rangedloop.Config{
+			SpannerStaleInterval: time.Microsecond,
+			BatchSize:            10,
+		})
 		countObserver := &rangedlooptest.CountObserver{}
 		service := rangedloop.NewService(zaptest.NewLogger(t), config, provider, []rangedloop.Observer{countObserver})
 		_, err := service.RunOnce(ctx)
