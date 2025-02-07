@@ -73,10 +73,89 @@ func cmdDeleteAccounts(_ *cobra.Command, _ []string) error {
 //
 // It returns an error when a system error is found or when the CSV file has an error.
 func deleteObjects(
-	ctx context.Context, log *zap.Logger, satDB satellite.DB, metabaseDB *metabase.DB, csvFile io.Reader,
+	ctx context.Context, log *zap.Logger, satDB satellite.DB, metabaseDB *metabase.DB, csvData io.Reader,
 ) error {
+	rows := CSVEmails{
+		Data:       csvData,
+		UserStatus: console.PendingDeletion,
+		Log:        log,
+		DB:         satDB.Console(),
+	}
+
+	return rows.ForEach(ctx, func(user *console.User, projects []console.Project) error {
+		for _, p := range projects {
+			var (
+				blopts = buckets.ListOptions{
+					Direction: buckets.DirectionForward,
+				}
+				bcks = buckets.List{
+					More: true, // Allows to start the first iteration of the loop of buckets.
+				}
+				err error
+			)
+
+			for bcks.More {
+				bcks, err = satDB.Buckets().ListBuckets(ctx,
+					p.ID, blopts, macaroon.AllowedBuckets{All: true},
+				)
+				if err != nil {
+					return errs.New(
+						"error listing buckets for project %q (user: %q): %+v", p.Name, user.Email, err,
+					)
+				}
+
+				for _, b := range bcks.Items {
+					_, err := metabaseDB.DeleteAllBucketObjects(ctx, metabase.DeleteAllBucketObjects{
+						Bucket: metabase.BucketLocation{
+							ProjectID:  p.ID,
+							BucketName: metabase.BucketName(b.Name),
+						},
+					})
+					if err != nil {
+						return errs.New(
+							"error deleting all objects from bucket %q (project: %q, user: %q): %+v",
+							b.Name, p.Name, user.Email, err,
+						)
+					}
+
+					if err := satDB.Buckets().DeleteBucket(ctx, []byte(b.Name), p.ID); err != nil {
+						return errs.New(
+							"error deleting bucket %q (project: %q, user: %q): %+v",
+							b.Name, p.Name, user.Email, err,
+						)
+					}
+				}
+
+				blopts = blopts.NextPage(bcks)
+			}
+		}
+
+		return nil
+	})
+}
+
+// CSVEmails is a CSV file with user's emails.
+// If the first rown doesn't contain `@`, then its is considered a header and skipped.
+//
+// See the ForEach method for more details.
+type CSVEmails struct {
+	Data       io.Reader
+	UserStatus console.UserStatus
+	Log        *zap.Logger
+	DB         console.DB
+}
+
+// ForEach gets the user and its projects for each email in the CSV and call fn.
+//
+// It skips the emails which don't match any user's account or their status aren't ce.UserStatus.
+// First case log a debug message and the second case log an info message.
+//
+// It returns an error if there is an error in the CSV, retrieving the user or projects, a user's
+// account doesn't have the UserStatus, or the fn returns an error.
+func (ce *CSVEmails) ForEach(
+	ctx context.Context, fn func(user *console.User, projects []console.Project) error) error {
 	firstRow := true
-	csvReader := csv.NewReader(csvFile)
+	csvReader := csv.NewReader(ce.Data)
 	for {
 		record, err := csvReader.Read()
 		if err != nil {
@@ -95,69 +174,27 @@ func deleteObjects(
 				continue
 			}
 		}
-		user, err := satDB.Console().Users().GetByEmail(ctx, email)
+		user, err := ce.DB.Users().GetByEmail(ctx, email)
 		if err != nil {
 			if errors.Is(err, sql.ErrNoRows) {
-				log.Debug("skipping not found user's account", zap.String("email", email))
+				ce.Log.Debug("skipping not found user's account", zap.String("email", email))
 				continue
 			}
 			return errs.New("error getting user %q: %+v", email, err)
 		}
 
-		if user.Status != console.PendingDeletion {
-			log.Debug("skipping not pending deletion user's account", zap.String("email", email))
+		if user.Status != ce.UserStatus {
+			ce.Log.Info("skipping not pending deletion user's account", zap.String("email", email))
 			continue
 		}
 
-		projects, err := satDB.Console().Projects().GetOwn(ctx, user.ID)
+		projects, err := ce.DB.Projects().GetOwn(ctx, user.ID)
 		if err != nil {
 			return errs.New("error getting project from user %q: %+v", email, err)
 		}
 
-		for _, p := range projects {
-			var (
-				blopts = buckets.ListOptions{
-					Direction: buckets.DirectionForward,
-				}
-				bcks = buckets.List{
-					More: true, // Allows to start the first iteration of the loop of buckets.
-				}
-			)
-
-			for bcks.More {
-				bcks, err = satDB.Buckets().ListBuckets(ctx,
-					p.ID, blopts, macaroon.AllowedBuckets{All: true},
-				)
-				if err != nil {
-					return errs.New(
-						"error listing buckets for project %q (user: %q): %+v", p.Name, email, err,
-					)
-				}
-
-				for _, b := range bcks.Items {
-					_, err := metabaseDB.DeleteAllBucketObjects(ctx, metabase.DeleteAllBucketObjects{
-						Bucket: metabase.BucketLocation{
-							ProjectID:  p.ID,
-							BucketName: metabase.BucketName(b.Name),
-						},
-					})
-					if err != nil {
-						return errs.New(
-							"error deleting all objects from bucket %q (project: %q, user: %q): %+v",
-							b.Name, p.Name, email, err,
-						)
-					}
-
-					if err := satDB.Buckets().DeleteBucket(ctx, []byte(b.Name), p.ID); err != nil {
-						return errs.New(
-							"error deleting bucket %q (project: %q, user: %q): %+v",
-							b.Name, p.Name, email, err,
-						)
-					}
-				}
-
-				blopts = blopts.NextPage(bcks)
-			}
+		if err := fn(user, projects); err != nil {
+			return err
 		}
 	}
 
