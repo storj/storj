@@ -488,8 +488,10 @@ func (endpoint *Endpoint) Upload(stream pb.DRPCPiecestore_UploadStream) (err err
 	}
 
 	for {
-		if err := speedEstimate.EnsureLimit(memory.Size(pieceWriter.Size()), endpoint.isCongested(), time.Now()); err != nil {
-			return rpcstatus.NamedWrap("client-too-slow", rpcstatus.Aborted, err)
+		if endpoint.config.MinUploadSpeed > 0 {
+			if err := speedEstimate.EnsureLimit(memory.Size(pieceWriter.Size()), endpoint.isCongested(), time.Now()); err != nil {
+				return rpcstatus.NamedWrap("client-too-slow", rpcstatus.Aborted, err)
+			}
 		}
 
 		// TODO: reuse messages to avoid allocations
@@ -1056,6 +1058,10 @@ type speedEstimation struct {
 
 // EnsureLimit makes sure that in non-congested condition, a slow-upload client will be flagged out.
 func (estimate *speedEstimation) EnsureLimit(transferred memory.Size, congested bool, now time.Time) error {
+	if estimate.limit == 0 {
+		return nil
+	}
+
 	if estimate.lastChecked.IsZero() {
 		estimate.lastChecked = now
 		return nil
