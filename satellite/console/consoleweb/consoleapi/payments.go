@@ -848,15 +848,15 @@ func (p *Payments) HandleWebhookEvent(w http.ResponseWriter, r *http.Request) {
 
 	payload, err := io.ReadAll(r.Body)
 	if err != nil {
-		p.log.Error("failed reading payments webhook body: %v", zap.Error(ErrPaymentsAPI.Wrap(err)))
+		p.log.Error("failed reading payments webhook body", zap.Error(ErrPaymentsAPI.Wrap(err)))
 		return
 	}
 
 	err = p.service.Payments().HandleWebhookEvent(ctx, signature, payload)
 	if err != nil {
-		p.log.Error("failed to process webhook event: %v", zap.Error(ErrPaymentsAPI.Wrap(err)))
+		p.log.Error("failed to process webhook event", zap.Error(ErrPaymentsAPI.Wrap(err)))
 
-		// We return error to stripe to retry the webhook.
+		// We return error to stripe to retry sending this event.
 		w.WriteHeader(http.StatusInternalServerError)
 		return
 	}
