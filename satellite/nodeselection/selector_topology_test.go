@@ -49,11 +49,10 @@ func TestNodes(t *testing.T) {
 	// will use at the end, but we need here to initialize the nodeSelection
 	dcSelection := map[string]int{}
 	serverSelection := map[string]int{}
-	nodeSelection := map[string]int{}
+	nodeSelection := map[storj.NodeID]int{}
 
 	var high, low, excluded storj.NodeID
 	{
-
 		// building the node pool
 		for dc, servers := range serversPerDatacenter {
 			for _, server := range servers {
@@ -96,7 +95,7 @@ func TestNodes(t *testing.T) {
 					}
 
 					// counter for assertion. We need 0 even if nodes are not selected.
-					nodeSelection[node.ID.String()] = 0
+					nodeSelection[node.ID] = 0
 					root.Add(node, attributes, weight)
 				}
 			}
@@ -110,7 +109,7 @@ func TestNodes(t *testing.T) {
 		for _, s := range selection {
 			dcSelection[attributes[0](*s)]++
 			serverSelection[attributes[0](*s)+"."+attributes[1](*s)]++
-			nodeSelection[s.ID.String()]++
+			nodeSelection[s.ID]++
 		}
 	}
 
@@ -123,7 +122,10 @@ func TestNodes(t *testing.T) {
 
 	max, min := 0, -1
 
-	for _, count := range nodeSelection {
+	for id, count := range nodeSelection {
+		if id == excluded {
+			continue
+		}
 		if count > max {
 			max = count
 		}
@@ -131,8 +133,9 @@ func TestNodes(t *testing.T) {
 			min = count
 		}
 	}
-	require.Equal(t, max, nodeSelection[high.String()])
-	require.Equal(t, min, nodeSelection[low.String()])
-	require.Equal(t, 0, nodeSelection[excluded.String()])
+
+	require.Equal(t, max, nodeSelection[high])
+	require.Equal(t, min, nodeSelection[low])
+	require.Equal(t, 0, nodeSelection[excluded])
 
 }
