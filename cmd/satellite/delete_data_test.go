@@ -29,11 +29,11 @@ func TestDeleteObjects(t *testing.T) {
 				testplanet.MaxSegmentSize(13*memory.KiB),
 			),
 		},
-		UplinkCount: 5, SatelliteCount: 1, StorageNodeCount: 4,
+		UplinkCount: 6, SatelliteCount: 1, StorageNodeCount: 4,
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 		sat := planet.Satellites[0]
 		uplinks := planet.Uplinks
-		require.Len(t, uplinks, 5) // The test is based on 5 uplinks
+		require.Len(t, uplinks, 6) // The test is based on 6 uplinks
 
 		bucketsObjects := map[string]map[string][]byte{
 			"bucket1": {
@@ -97,16 +97,22 @@ func TestDeleteObjects(t *testing.T) {
 			require.NoError(t, upload.Commit())
 		}
 
+		// 6th Uplink has a project with one bucket with one object, but the user's won't be set to
+		// "pending deletion" status.
+		require.NoError(t, uplinks[5].Upload(
+			ctx, sat, "my-bucket", "my-object", bucketsObjects["bucket1"]["single-segment-object"]),
+		)
+
 		// Ensure the number of objects before the deletion.
 		objects, err := sat.Metabase.DB.TestingAllObjects(ctx)
 		require.NoError(t, err)
-		require.Len(t, objects, 10)
+		require.Len(t, objects, 11)
 
-		// Set the accounts in "pending deletion" status.
-		for _, ul := range uplinks {
+		// Set the accounts in "pending deletion" status, except the 6th Uplink.
+		for i := 0; i < len(uplinks)-1; i++ {
 			pendingStatus := console.PendingDeletion
 			require.NoError(t,
-				sat.DB.Console().Users().Update(ctx, ul.Projects[0].Owner.ID, console.UpdateUserRequest{
+				sat.DB.Console().Users().Update(ctx, uplinks[i].Projects[0].Owner.ID, console.UpdateUserRequest{
 					Status: &pendingStatus,
 				}))
 		}
@@ -128,16 +134,26 @@ func TestDeleteObjects(t *testing.T) {
 		// Check that all the data was deleted.
 		objects, err = sat.Metabase.DB.TestingAllObjects(ctx)
 		require.NoError(t, err)
-		require.Len(t, objects, 0)
+		require.Len(t, objects, 1) // The user of the 6th is not in "pending deletion" status.
 
 		// check that there aren't buckets.
-		for _, uplnk := range uplinks {
-			buckets, err := uplnk.ListBuckets(ctx, sat)
+		for i := 0; i < len(uplinks)-1; i++ {
+			buckets, err := uplinks[i].ListBuckets(ctx, sat)
 			require.NoError(t, err)
 			require.Len(t, buckets, 0)
 		}
 
 		ulkExtBuckets := ulkExtProject.ListBuckets(ctx, &uplink.ListBucketsOptions{})
 		require.False(t, ulkExtBuckets.Next())
+
+		{ // Verify that the 6th uplink has a its data, a bucket and an object.
+			buckets, err := uplinks[5].ListBuckets(ctx, sat)
+			require.NoError(t, err)
+			require.Len(t, buckets, 1)
+
+			objects, err := uplinks[5].ListObjects(ctx, sat, buckets[0].Name)
+			require.NoError(t, err)
+			require.Len(t, objects, 1)
+		}
 	})
 }
