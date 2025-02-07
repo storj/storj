@@ -149,10 +149,13 @@ import { useProjectsStore } from '@/store/modules/projectsStore';
 import { EdgeCredentials } from '@/types/accessGrants';
 import { useConfigStore } from '@/store/modules/configStore';
 
-const props = defineProps<{
+const props = withDefaults(defineProps<{
     prefixType: DownloadPrefixType
-    path: string
-}>();
+    bucket: string
+    prefix?: string
+}>(), {
+    prefix: '',
+});
 
 const notify = useNotify();
 const { withTrialCheck, withManagedPassphraseCheck } = usePreCheck();
@@ -180,11 +183,6 @@ const edgeCredentials = computed((): EdgeCredentials => bucketsStore.state.edgeC
 async function onDownload(): Promise<void> {
     withTrialCheck(() => { withManagedPassphraseCheck(async () => {
         await withLoading(async () => {
-            if (!props.path) {
-                notify.error('Path is not provided', AnalyticsErrorEventSource.DOWNLOAD_PREFIX_DIALOG);
-                return;
-            }
-
             if (!edgeCredentials.value.accessKeyId) {
                 try {
                     await bucketsStore.setS3Client(projectsStore.state.selectedProject.id);
@@ -195,7 +193,7 @@ async function onDownload(): Promise<void> {
             }
 
             try {
-                await downloadPrefix(props.path, downloadFormat.value);
+                await downloadPrefix(props.bucket, props.prefix, downloadFormat.value);
                 model.value = false;
             } catch (error) {
                 notify.error(`Unable to download ${props.prefixType}. ${error.message}`, AnalyticsErrorEventSource.DOWNLOAD_PREFIX_DIALOG);

@@ -80,14 +80,20 @@ export function useLinksharing() {
         return url;
     }
 
-    async function downloadPrefix(path: string, format: DownloadPrefixFormat): Promise<void> {
+    async function downloadPrefix(bucketName: string, prefix: string, format: DownloadPrefixFormat): Promise<void> {
         const now = new Date();
         const expiresAt = new Date();
         expiresAt.setHours(now.getHours() + 1);
 
-        const creds = await generatePublicCredentials(bucketsStore.state.apiKey, path, expiresAt, bucketsStore.state.passphrase);
+        let fullPath = bucketName;
+        if (prefix) fullPath = `${fullPath}/${prefix}/`;
 
-        const url = new URL(`${linksharingURL.value}/s/${creds.accessKeyId}/${path}?download=1&download-kind=${format}`);
+        const creds = await generatePublicCredentials(bucketsStore.state.apiKey, fullPath, expiresAt, bucketsStore.state.passphrase);
+
+        let link = `${publicLinksharingURL.value}/s/${creds.accessKeyId}/${bucketName}`;
+        if (prefix) link = `${link}/${encodeURIComponent(prefix.trim())}/`;
+
+        const url = new URL(`${link}?download=1&download-kind=${format}`);
 
         Download.fileByLink(url.href);
     }

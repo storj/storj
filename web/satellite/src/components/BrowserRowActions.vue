@@ -128,6 +128,15 @@
                             </v-list-item>
                         </template>
 
+                        <v-list-item v-if="downloadPrefixEnabled && file.type === 'folder'" density="comfortable" link @click="emit('downloadFolderClick')">
+                            <template #prepend>
+                                <component :is="Download" :size="18" />
+                            </template>
+                            <v-list-item-title class="ml-3 text-body-2 font-weight-medium">
+                                Download
+                            </v-list-item-title>
+                        </v-list-item>
+
                         <v-list-item v-if="!isVersion && !file.isDeleteMarker" density="comfortable" link @click="emit('shareClick')">
                             <template #prepend>
                                 <component :is="Share" :size="18" />
@@ -207,6 +216,7 @@ const emit = defineEmits<{
     previewClick: [];
     deleteFileClick: [];
     shareClick: [];
+    downloadFolderClick: [];
     restoreObjectClick: [];
     lockObjectClick: [];
     legalHoldClick: [];
@@ -221,6 +231,8 @@ const lockStatus = ref<ObjectLockStatus>();
 const alignClass = computed<string>(() => {
     return 'text-' + props.align;
 });
+
+const downloadPrefixEnabled = computed<boolean>(() => configStore.state.config.downloadPrefixEnabled);
 
 /**
  * Returns metadata of the current bucket.

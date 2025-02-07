@@ -98,6 +98,7 @@
                             @lock-object-click="onLockObjectClick((item as BrowserObjectWrapper).browserObject)"
                             @legal-hold-click="onLegalHoldClick((item as BrowserObjectWrapper).browserObject)"
                             @locked-object-delete="(fullObject) => onLockedObjectDelete(fullObject)"
+                            @download-folder-click="onDownloadFolder((item as BrowserObjectWrapper).browserObject)"
                         />
                     </template>
                 </v-data-table-row>
@@ -199,6 +200,13 @@
         :file="lockActionFile"
         @content-removed="lockActionFile = null"
     />
+    <download-prefix-dialog
+        v-if="downloadPrefixEnabled"
+        v-model="isDownloadPrefixDialogShown"
+        :prefix-type="DownloadPrefixType.Folder"
+        :bucket="bucketName"
+        :prefix="folderToDownload"
+    />
 </template>
 
 <script setup lang="ts">
@@ -232,7 +240,14 @@ import { Size } from '@/utils/bytesSize';
 import { AnalyticsErrorEventSource, AnalyticsEvent } from '@/utils/constants/analyticsEventNames';
 import { useBucketsStore } from '@/store/modules/bucketsStore';
 import { DataTableHeader, SortItem, tableSizeOptions } from '@/types/common';
-import { BrowserObjectTypeInfo, BrowserObjectWrapper, EXTENSION_INFOS, FILE_INFO, FOLDER_INFO } from '@/types/browser';
+import {
+    BrowserObjectTypeInfo,
+    BrowserObjectWrapper,
+    DownloadPrefixType,
+    EXTENSION_INFOS,
+    FILE_INFO,
+    FOLDER_INFO,
+} from '@/types/browser';
 import { useAnalyticsStore } from '@/store/modules/analyticsStore';
 import { useUsersStore } from '@/store/modules/usersStore';
 import { ROUTES } from '@/router';
@@ -241,6 +256,7 @@ import { BucketMetadata } from '@/types/buckets';
 import { DEFAULT_PAGE_LIMIT } from '@/types/pagination';
 import { Versioning } from '@/types/versioning';
 import { usePreCheck } from '@/composables/usePreCheck';
+import { useConfigStore } from '@/store/modules/configStore';
 
 import BrowserRowActions from '@/components/BrowserRowActions.vue';
 import FilePreviewDialog from '@/components/dialogs/FilePreviewDialog.vue';
@@ -250,6 +266,7 @@ import DeleteVersionedFileDialog from '@/components/dialogs/DeleteVersionedFileD
 import LockObjectDialog from '@/components/dialogs/LockObjectDialog.vue';
 import LockedDeleteErrorDialog from '@/components/dialogs/LockedDeleteErrorDialog.vue';
 import LegalHoldObjectDialog from '@/components/dialogs/LegalHoldObjectDialog.vue';
+import DownloadPrefixDialog from '@/components/dialogs/DownloadPrefixDialog.vue';
 
 type SortKey = 'name' | 'type' | 'size' | 'date';
 
@@ -277,6 +294,7 @@ const obStore = useObjectBrowserStore();
 const projectsStore = useProjectsStore();
 const bucketsStore = useBucketsStore();
 const userStore = useUsersStore();
+const configStore = useConfigStore();
 
 const notify = useNotify();
 const router = useRouter();
@@ -296,10 +314,14 @@ const isLockDialogShown = ref<boolean>(false);
 const isLegalHoldDialogShown = ref<boolean>(false);
 const isLockedObjectDeleteDialogShown = ref<boolean>(false);
 const routePageCache = new Map<string, number>();
+const isDownloadPrefixDialogShown = ref<boolean>(false);
+const folderToDownload = ref<string>('');
 
 const pageSizes = [DEFAULT_PAGE_LIMIT, 25, 50, 100];
 const sortBy: SortItem[] = [{ key: 'name', order: 'asc' }];
 const collator = new Intl.Collator('en', { sensitivity: 'case' });
+
+const downloadPrefixEnabled = computed<boolean>(() => configStore.state.config.downloadPrefixEnabled);
 
 /**
  * Indicates if alternative pagination should be used.
@@ -458,6 +480,16 @@ const filesToDelete = computed<BrowserObject[]>(() => {
     if (fileToDelete.value) return [fileToDelete.value];
     return obStore.state.selectedFiles;
 });
+
+/**
+ * Handles download bucket action.
+ */
+function onDownloadFolder(object: BrowserObject): void {
+    withTrialCheck(() => {
+        folderToDownload.value = `${object.path ?? ''}${object.Key}`;
+        isDownloadPrefixDialogShown.value = true;
+    });
+}
 
 /**
  * Handles previous page click for alternative pagination.

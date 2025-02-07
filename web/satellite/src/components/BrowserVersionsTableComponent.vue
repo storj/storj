@@ -166,6 +166,7 @@
                             :file="item.raw.browserObject"
                             align="right"
                             @delete-file-click="onDeleteFileClick(item.raw.browserObject)"
+                            @download-folder-click="onDownloadFolder(item.raw.browserObject)"
                         />
                     </td>
                 </tr>
@@ -267,6 +268,13 @@
         :file="lockActionFile"
         @content-removed="lockActionFile = null"
     />
+    <download-prefix-dialog
+        v-if="downloadPrefixEnabled"
+        v-model="isDownloadPrefixDialogShown"
+        :prefix-type="DownloadPrefixType.Folder"
+        :bucket="bucketName"
+        :prefix="folderToDownload"
+    />
 </template>
 
 <script setup lang="ts">
@@ -299,12 +307,20 @@ import { useNotify } from '@/utils/hooks';
 import { Size } from '@/utils/bytesSize';
 import { AnalyticsErrorEventSource } from '@/utils/constants/analyticsEventNames';
 import { useBucketsStore } from '@/store/modules/bucketsStore';
-import { BrowserObjectTypeInfo, BrowserObjectWrapper, EXTENSION_INFOS, FILE_INFO, FOLDER_INFO } from '@/types/browser';
+import {
+    BrowserObjectTypeInfo,
+    BrowserObjectWrapper,
+    DownloadPrefixType,
+    EXTENSION_INFOS,
+    FILE_INFO,
+    FOLDER_INFO,
+} from '@/types/browser';
 import { ROUTES } from '@/router';
 import { Time } from '@/utils/time';
 import { DEFAULT_PAGE_LIMIT } from '@/types/pagination';
 import { DataTableHeader } from '@/types/common';
 import { usePreCheck } from '@/composables/usePreCheck';
+import { useConfigStore } from '@/store/modules/configStore';
 
 import BrowserRowActions from '@/components/BrowserRowActions.vue';
 import FilePreviewDialog from '@/components/dialogs/FilePreviewDialog.vue';
@@ -317,6 +333,7 @@ import DeleteVersionsDialog from '@/components/dialogs/DeleteVersionsDialog.vue'
 import LockObjectDialog from '@/components/dialogs/LockObjectDialog.vue';
 import LockedDeleteErrorDialog from '@/components/dialogs/LockedDeleteErrorDialog.vue';
 import LegalHoldObjectDialog from '@/components/dialogs/LegalHoldObjectDialog.vue';
+import DownloadPrefixDialog from '@/components/dialogs/DownloadPrefixDialog.vue';
 
 const compProps = defineProps<{
     forceEmpty?: boolean;
@@ -330,6 +347,7 @@ const emit = defineEmits<{
 const obStore = useObjectBrowserStore();
 const projectsStore = useProjectsStore();
 const bucketsStore = useBucketsStore();
+const configStore = useConfigStore();
 
 const notify = useNotify();
 const router = useRouter();
@@ -350,6 +368,8 @@ const isRestoreDialogShown = ref<boolean>(false);
 const isLockDialogShown = ref<boolean>(false);
 const isLegalHoldDialogShown = ref<boolean>(false);
 const isLockedObjectDeleteDialogShown = ref<boolean>(false);
+const isDownloadPrefixDialogShown = ref<boolean>(false);
+const folderToDownload = ref<string>('');
 
 const pageSizes = [DEFAULT_PAGE_LIMIT, 25, 50, 100];
 
@@ -366,6 +386,8 @@ const headers = computed<DataTableHeader[]>(() => {
         { title: '', key: 'actions', sortable: false, width: 0 },
     ];
 });
+
+const downloadPrefixEnabled = computed<boolean>(() => configStore.state.config.downloadPrefixEnabled);
 
 /**
  * Returns the name of the selected bucket.
@@ -453,6 +475,16 @@ const filesToDelete = computed<BrowserObject[]>(() => {
 const continuationTokens = computed(() => obStore.state.continuationTokens);
 
 const hasNextPage = computed(() => !!continuationTokens.value.get(cursor.value.page + 1));
+
+/**
+ * Handles download bucket action.
+ */
+function onDownloadFolder(object: BrowserObject): void {
+    withTrialCheck(() => {
+        folderToDownload.value = `${object.path ?? ''}${object.Key}`;
+        isDownloadPrefixDialogShown.value = true;
+    });
+}
 
 /**
  * Handles previous page click for alternative pagination.

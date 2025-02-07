@@ -284,7 +284,7 @@
         @proceed="upload(true)"
         @cancel="clearUpload"
     />
-    <download-prefix-dialog v-if="downloadPrefixEnabled" v-model="isDownloadPrefixDialogShown" :prefix-type="DownloadPrefixType.Bucket" :path="bucketToDownload" />
+    <download-prefix-dialog v-if="downloadPrefixEnabled" v-model="isDownloadPrefixDialogShown" :prefix-type="DownloadPrefixType.Bucket" :bucket="bucketToDownload" />
 </template>
 
 <script setup lang="ts">
