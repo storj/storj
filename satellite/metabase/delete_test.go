@@ -1322,6 +1322,52 @@ func TestDeleteObjectLastCommitted(t *testing.T) {
 		})
 
 		t.Run("Delete object with retention", func(t *testing.T) {
+			t.Run("Versioned", func(t *testing.T) {
+				test := func(t *testing.T, testCase metabasetest.ObjectLockDeletionTestCase) {
+					defer metabasetest.DeleteAll{}.Check(ctx, t, db)
+
+					object, segments := metabasetest.CreateTestObject{
+						BeginObjectExactVersion: &metabase.BeginObjectExactVersion{
+							ObjectStream: obj,
+							Encryption:   metabasetest.DefaultEncryption,
+							Retention:    testCase.Retention,
+							LegalHold:    testCase.LegalHold,
+						},
+					}.Run(ctx, t, db, obj, 1)
+
+					markerObjStream := obj
+					markerObjStream.Version++
+
+					deleted := metabasetest.DeleteObjectLastCommitted{
+						Opts: metabase.DeleteObjectLastCommitted{
+							ObjectLocation: obj.Location(),
+							ObjectLock: metabase.ObjectLockDeleteOptions{
+								Enabled:          true,
+								BypassGovernance: testCase.BypassGovernance,
+							},
+							Versioned: true,
+						},
+						Result: metabase.DeleteObjectResult{
+							Markers: []metabase.Object{{
+								ObjectStream: markerObjStream,
+								CreatedAt:    time.Now(),
+								Status:       metabase.DeleteMarkerVersioned,
+							}},
+						},
+					}.Check(ctx, t, db)
+
+					metabasetest.Verify{
+						Objects:  metabasetest.ObjectsToRaw(object, deleted.Markers[0]),
+						Segments: metabasetest.SegmentsToRaw(segments),
+					}.Check(ctx, t, db)
+				}
+
+				metabasetest.ObjectLockDeletionTestRunner{
+					TestProtected: test,
+					TestRemovable: test,
+				}.Run(t)
+			})
+
 			t.Run("Suspended", func(t *testing.T) {
 				metabasetest.ObjectLockDeletionTestRunner{
 					TestProtected: func(t *testing.T, testCase metabasetest.ObjectLockDeletionTestCase) {
