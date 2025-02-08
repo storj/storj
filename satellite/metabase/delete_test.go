@@ -452,6 +452,45 @@ func TestDeleteObjectExactVersion(t *testing.T) {
 			metabasetest.Verify{}.Check(ctx, t, db)
 		})
 
+		t.Run("Using stream ID suffix", func(t *testing.T) {
+			defer metabasetest.DeleteAll{}.Check(ctx, t, db)
+
+			object, segments := metabasetest.CreateTestObject{
+				BeginObjectExactVersion: &metabase.BeginObjectExactVersion{
+					ObjectStream: obj,
+					Encryption:   metabasetest.DefaultEncryption,
+				},
+			}.Run(ctx, t, db, obj, 2)
+
+			metabasetest.DeleteObjectExactVersion{
+				Opts: metabase.DeleteObjectExactVersion{
+					ObjectLocation: location,
+					Version:        obj.Version,
+					StreamIDSuffix: metabase.StreamIDSuffix(testrand.Bytes(8)),
+				},
+				Result: metabase.DeleteObjectResult{
+					Removed: []metabase.Object{},
+				},
+			}.Check(ctx, t, db)
+
+			metabasetest.Verify{
+				Objects:  metabasetest.ObjectsToRaw(object),
+				Segments: metabasetest.SegmentsToRaw(segments),
+			}.Check(ctx, t, db)
+
+			metabasetest.DeleteObjectExactVersion{
+				Opts: metabase.DeleteObjectExactVersion{
+					ObjectLocation: location,
+					Version:        obj.Version,
+					StreamIDSuffix: obj.StreamIDSuffix(),
+				},
+				Result: metabase.DeleteObjectResult{
+					Removed:             []metabase.Object{object},
+					DeletedSegmentCount: 2,
+				},
+			}.Check(ctx, t, db)
+		})
+
 		t.Run("Delete committed object with retention", func(t *testing.T) {
 			metabasetest.ObjectLockDeletionTestRunner{
 				TestProtected: func(t *testing.T, testCase metabasetest.ObjectLockDeletionTestCase) {

@@ -45,7 +45,8 @@ type ObjectLockDeleteOptions struct {
 
 // DeleteObjectExactVersion contains arguments necessary for deleting an exact version of object.
 type DeleteObjectExactVersion struct {
-	Version Version
+	Version        Version
+	StreamIDSuffix StreamIDSuffix
 	ObjectLocation
 
 	ObjectLock ObjectLockDeleteOptions
@@ -101,11 +102,25 @@ func (p *PostgresAdapter) DeleteObjectExactVersion(ctx context.Context, opts Del
 func (p *PostgresAdapter) deleteObjectExactVersion(ctx context.Context, opts DeleteObjectExactVersion) (result DeleteObjectResult, err error) {
 	defer mon.Task()(&ctx)(&err)
 
+	args := []interface{}{
+		opts.ProjectID,
+		opts.BucketName,
+		opts.ObjectKey,
+		opts.Version,
+	}
+
+	var streamIDFilter string
+	if !opts.StreamIDSuffix.IsZero() {
+		streamIDFilter = "AND SUBSTR(stream_id, 9) = $5"
+		args = append(args, opts.StreamIDSuffix)
+	}
+
 	err = withRows(
 		p.db.QueryContext(ctx, `
 			WITH deleted_objects AS (
 				DELETE FROM objects
 				WHERE (project_id, bucket_name, object_key, version) = ($1, $2, $3, $4)
+				`+streamIDFilter+`
 				RETURNING
 					version, stream_id, created_at, expires_at, status, segment_count, encrypted_metadata_nonce,
 					encrypted_metadata, encrypted_metadata_encrypted_key, total_plain_size, total_encrypted_size,
@@ -117,7 +132,7 @@ func (p *PostgresAdapter) deleteObjectExactVersion(ctx context.Context, opts Del
 				RETURNING segments.stream_id
 			)
 			SELECT *, (SELECT COUNT(*) FROM deleted_segments) FROM deleted_objects`,
-			opts.ProjectID, opts.BucketName, opts.ObjectKey, opts.Version),
+			args...),
 	)(func(rows tagsql.Rows) error {
 		result.Removed, result.DeletedSegmentCount, err = scanObjectDeletionPostgres(ctx, opts.ObjectLocation, rows)
 		return err
@@ -132,7 +147,23 @@ func (p *PostgresAdapter) deleteObjectExactVersionUsingObjectLock(ctx context.Co
 		object  *Object
 		deleted bool
 	)
+
 	now := time.Now().Truncate(time.Microsecond)
+
+	args := []interface{}{
+		opts.ProjectID,
+		opts.BucketName,
+		opts.ObjectKey,
+		opts.Version,
+		opts.ObjectLock.BypassGovernance,
+		now,
+	}
+
+	var streamIDFilter string
+	if !opts.StreamIDSuffix.IsZero() {
+		streamIDFilter = "AND SUBSTR(stream_id, 9) = $7"
+		args = append(args, opts.StreamIDSuffix)
+	}
 
 	err = withRows(p.db.QueryContext(ctx, `
 		WITH objects_to_delete AS (
@@ -143,10 +174,12 @@ func (p *PostgresAdapter) deleteObjectExactVersionUsingObjectLock(ctx context.Co
 				retention_mode, retain_until
 			FROM objects
 			WHERE (project_id, bucket_name, object_key, version) = ($1, $2, $3, $4)
+			`+streamIDFilter+`
 		), deleted_objects AS (
 			DELETE FROM objects
 			WHERE
 				(project_id, bucket_name, object_key, version) = ($1, $2, $3, $4)
+				`+streamIDFilter+`
 				AND CASE
 					WHEN status = `+statusPending+` THEN TRUE
 					WHEN COALESCE(retention_mode, `+retentionModeNone+`) = 0 THEN TRUE
@@ -169,7 +202,7 @@ func (p *PostgresAdapter) deleteObjectExactVersionUsingObjectLock(ctx context.Co
 			EXISTS(SELECT 1 FROM deleted_objects),
 			(SELECT COUNT(*) FROM deleted_segments)
 		FROM objects_to_delete
-		`, opts.ProjectID, opts.BucketName, opts.ObjectKey, opts.Version, opts.ObjectLock.BypassGovernance, now,
+		`, args...,
 	))(func(rows tagsql.Rows) error {
 		if !rows.Next() {
 			return nil
@@ -242,18 +275,27 @@ func (s *SpannerAdapter) DeleteObjectExactVersion(ctx context.Context, opts Dele
 func (s *SpannerAdapter) deleteObjectExactVersionWithTx(ctx context.Context, tx *spanner.ReadWriteTransaction, opts DeleteObjectExactVersion) (result DeleteObjectResult, err error) {
 	defer mon.Task()(&ctx)(&err)
 
+	params := map[string]interface{}{
+		"project_id":  opts.ProjectID,
+		"bucket_name": opts.BucketName,
+		"object_key":  opts.ObjectKey,
+		"version":     opts.Version,
+	}
+
+	var streamIDFilter string
+	if !opts.StreamIDSuffix.IsZero() {
+		streamIDFilter = "AND ENDS_WITH(stream_id, @stream_id_suffix)"
+		params["stream_id_suffix"] = opts.StreamIDSuffix
+	}
+
 	result.Removed, err = collectDeletedObjectsSpanner(ctx, opts.ObjectLocation,
 		tx.Query(ctx, spanner.Statement{
 			SQL: `
 				DELETE FROM objects
 				WHERE (project_id, bucket_name, object_key, version) = (@project_id, @bucket_name, @object_key, @version)
+				` + streamIDFilter + `
 				THEN RETURN` + collectDeletedObjectsSpannerFields,
-			Params: map[string]interface{}{
-				"project_id":  opts.ProjectID,
-				"bucket_name": opts.BucketName,
-				"object_key":  opts.ObjectKey,
-				"version":     opts.Version,
-			},
+			Params: params,
 		}))
 	if err != nil {
 		return DeleteObjectResult{}, errs.Wrap(err)
