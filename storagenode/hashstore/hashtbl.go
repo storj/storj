@@ -20,11 +20,14 @@ import (
 const (
 	invalidPage = 1<<64 - 1
 
+	headerSize = 4096
+
 	hashtbl_minLogSlots = 14 // log_2 of number of slots for smallest hash table
 	hashtbl_maxLogSlots = 56 // log_2 of number of slots for largest hash table
 
-	_ int64  = pageSize + 1<<hashtbl_maxLogSlots*RecordSize    // compiler error if overflows int64
+	_ int64  = headerSize + 1<<hashtbl_maxLogSlots*RecordSize  // compiler error if overflows int64
 	_ uint64 = 1<<hashtbl_minLogSlots*RecordSize - bigPageSize // compiler error if negative
+
 )
 
 type hashtblHeader struct {
@@ -55,7 +58,7 @@ type HashTbl struct {
 }
 
 // hashtblSize returns the size in bytes of the hashtbl given an logSlots.
-func hashtblSize(logSlots uint64) uint64 { return pageSize + 1<<logSlots*RecordSize }
+func hashtblSize(logSlots uint64) uint64 { return headerSize + 1<<logSlots*RecordSize }
 
 type (
 	slotIdxT    uint64 // index of a slot in the hashtbl
@@ -71,9 +74,9 @@ func (s slotIdxT) BigPageIndexes() (bigPageIdxT, uint64) {
 	return bigPageIdxT(s / recordsPerBigPage), uint64(s % recordsPerBigPage)
 }
 
-func (s slotIdxT) Offset() int64    { return pageSize + int64(s*RecordSize) }
-func (p pageIdxT) Offset() int64    { return pageSize + int64(p*pageSize) }
-func (p bigPageIdxT) Offset() int64 { return pageSize + int64(p*bigPageSize) }
+func (s slotIdxT) Offset() int64    { return headerSize + int64(s*RecordSize) }
+func (p pageIdxT) Offset() int64    { return headerSize + int64(p*pageSize) }
+func (p bigPageIdxT) Offset() int64 { return headerSize + int64(p*bigPageSize) }
 
 // CreateHashtbl allocates a new hash table with the given log base 2 number of records and created
 // timestamp. The file is truncated and allocated to the correct size.
@@ -93,7 +96,7 @@ func CreateHashtbl(ctx context.Context, fh *os.File, logSlots uint64, created ui
 
 	// clear the file and truncate it to the correct length and write the header page.
 	size := int64(hashtblSize(logSlots))
-	if size < pageSize+bigPageSize {
+	if size < headerSize+bigPageSize {
 		return nil, Error.New("hashtbl size too small: size=%d logSlots=%d", size, logSlots)
 	} else if err := fh.Truncate(0); err != nil {
 		return nil, Error.New("unable to truncate hashtbl to 0: %w", err)
@@ -118,12 +121,12 @@ func OpenHashtbl(ctx context.Context, fh *os.File) (_ *HashTbl, err error) {
 	size, err := fileSize(fh)
 	if err != nil {
 		return nil, Error.New("unable to determine hashtbl size: %w", err)
-	} else if size < pageSize+pageSize { // header page + at least 1 page of records
+	} else if size < headerSize+pageSize { // header page + at least 1 page of records
 		return nil, Error.New("hashtbl file too small: size=%d", size)
 	}
 
 	// compute the logSlots from the size.
-	logSlots := uint64(bits.Len64(uint64(size-pageSize)/RecordSize) - 1)
+	logSlots := uint64(bits.Len64(uint64(size-headerSize)/RecordSize) - 1)
 
 	// sanity check that our logSlots is correct.
 	if int64(hashtblSize(logSlots)) != size {
@@ -209,7 +212,7 @@ func (h *HashTbl) Close() {
 
 // writeHashtblHeader writes the header page to the file handle.
 func writeHashtblHeader(fh *os.File, header hashtblHeader) error {
-	var buf [pageSize]byte
+	var buf [headerSize]byte
 
 	copy(buf[0:4], "HTBL")
 	binary.BigEndian.PutUint32(buf[4:8], header.created) // write the created field.
@@ -220,7 +223,7 @@ func writeHashtblHeader(fh *os.File, header hashtblHeader) error {
 	}
 
 	// write the checksum
-	binary.BigEndian.PutUint64(buf[pageSize-8:pageSize], xxh3.Hash(buf[:pageSize-8]))
+	binary.BigEndian.PutUint64(buf[headerSize-8:headerSize], xxh3.Hash(buf[:headerSize-8]))
 
 	// write the header page.
 	_, err := fh.WriteAt(buf[:], 0)
@@ -230,7 +233,7 @@ func writeHashtblHeader(fh *os.File, header hashtblHeader) error {
 // readHashtblHeader reads the header page from the file handle.
 func readHashtblHeader(fh *os.File) (header hashtblHeader, err error) {
 	// read the magic bytes.
-	var buf [pageSize]byte
+	var buf [headerSize]byte
 	if _, err := fh.ReadAt(buf[:], 0); err != nil {
 		return hashtblHeader{}, Error.New("unable to read header: %w", err)
 	} else if string(buf[0:4]) != "HTBL" {
@@ -238,8 +241,8 @@ func readHashtblHeader(fh *os.File) (header hashtblHeader, err error) {
 	}
 
 	// check the checksum.
-	hash := binary.BigEndian.Uint64(buf[pageSize-8 : pageSize])
-	if computed := xxh3.Hash(buf[:pageSize-8]); hash != computed {
+	hash := binary.BigEndian.Uint64(buf[headerSize-8 : headerSize])
+	if computed := xxh3.Hash(buf[:headerSize-8]); hash != computed {
 		return hashtblHeader{}, Error.New("invalid header checksum: %x != %x", hash, computed)
 	}
 
@@ -272,11 +275,13 @@ func (h *HashTbl) ComputeEstimates(ctx context.Context) (err error) {
 	defer h.opMu.RUnlock()
 
 	// sample some pages worth of records but less than the total
-	maxPages := uint64(h.numSlots / recordsPerPage)
-	samplePages := uint64(256)
-	if samplePages > maxPages {
-		samplePages = maxPages
+	maxRecords := uint64(h.numSlots)
+	sampleRecords := uint64(16384)
+	if sampleRecords > maxRecords {
+		sampleRecords = maxRecords
 	}
+	samplePages := sampleRecords / recordsPerPage
+	maxPages := maxRecords / recordsPerPage
 
 	var (
 		numSet, lenSet     uint64
