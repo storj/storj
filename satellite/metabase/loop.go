@@ -18,6 +18,7 @@ import (
 	"storj.io/common/storj"
 	"storj.io/common/uuid"
 	"storj.io/storj/shared/dbutil"
+	"storj.io/storj/shared/dbutil/spannerutil"
 	"storj.io/storj/shared/tagsql"
 )
 
@@ -289,7 +290,8 @@ type spannerLoopSegmentIterator struct {
 	// batchPieces are reused between result pages to reduce memory consumption
 	batchPieces []Pieces
 
-	readTimestamp time.Time
+	asOfSystemInterval time.Duration
+	readTimestamp      time.Time
 
 	curIndex int
 	curRows  *spanner.RowIterator
@@ -380,10 +382,13 @@ func (it *spannerLoopSegmentIterator) doNextQuery(ctx context.Context) (_ *spann
 	opts := spanner.QueryOptions{
 		Priority: spannerpb.RequestOptions_PRIORITY_LOW,
 	}
-	if it.readTimestamp.IsZero() {
-		return it.db.client.Single().QueryWithOptions(ctx, stmt, opts)
+	readOnlyTx := it.db.client.Single()
+	if !it.readTimestamp.IsZero() {
+		readOnlyTx = readOnlyTx.WithTimestampBound(spanner.ReadTimestamp(it.readTimestamp))
+	} else {
+		readOnlyTx = readOnlyTx.WithTimestampBound(spannerutil.MaxStalenessFromAOSI(it.asOfSystemInterval))
 	}
-	return it.db.client.Single().WithTimestampBound(spanner.ReadTimestamp(it.readTimestamp)).QueryWithOptions(ctx, stmt, opts)
+	return readOnlyTx.QueryWithOptions(ctx, stmt, opts)
 }
 
 // IterateLoopSegments implements Adapter.
@@ -411,7 +416,8 @@ func (s *SpannerAdapter) IterateLoopSegments(ctx context.Context, aliasCache *No
 			db:         s,
 			aliasCache: aliasCache,
 
-			readTimestamp: opts.SpannerReadTimestamp,
+			asOfSystemInterval: opts.AsOfSystemInterval,
+			readTimestamp:      opts.SpannerReadTimestamp,
 
 			batchSize:   opts.BatchSize,
 			batchPieces: make([]Pieces, opts.BatchSize),
@@ -433,7 +439,8 @@ func (s *SpannerAdapter) IterateLoopSegments(ctx context.Context, aliasCache *No
 			db:         s,
 			aliasCache: aliasCache,
 
-			readTimestamp: opts.SpannerReadTimestamp,
+			asOfSystemInterval: opts.AsOfSystemInterval,
+			readTimestamp:      opts.SpannerReadTimestamp,
 
 			batchPieces: make([]Pieces, opts.BatchSize),
 			cursor:      cursor,
@@ -462,7 +469,8 @@ type spannerReadLoopSegmentIterator struct {
 	// batchPieces are reused between result pages to reduce memory consumption
 	batchPieces []Pieces
 
-	readTimestamp time.Time
+	asOfSystemInterval time.Duration
+	readTimestamp      time.Time
 
 	curIndex int
 	curRows  *spanner.RowIterator
@@ -496,6 +504,8 @@ func (it *spannerReadLoopSegmentIterator) doQuery(ctx context.Context) (_ *spann
 	readOnlyTx := it.db.client.Single()
 	if !it.readTimestamp.IsZero() {
 		readOnlyTx = readOnlyTx.WithTimestampBound(spanner.ReadTimestamp(it.readTimestamp))
+	} else {
+		readOnlyTx = readOnlyTx.WithTimestampBound(spannerutil.MaxStalenessFromAOSI(it.asOfSystemInterval))
 	}
 
 	return readOnlyTx.ReadWithOptions(ctx, "segments", keyRange,
