@@ -7,6 +7,7 @@ import (
 	"bytes"
 	"context"
 	"database/sql"
+	"encoding/base64"
 	"encoding/json"
 	"fmt"
 	"math/rand"
@@ -1425,6 +1426,10 @@ func TestService(t *testing.T) {
 				require.NotNil(t, pr)
 				require.Equal(t, pr.DefaultVersioning, console.Unversioned)
 
+				salt, err := sat.DB.Console().Projects().GetSalt(ctx, pr.ID)
+				require.NoError(t, err)
+				require.NotNil(t, salt)
+
 				// Getting project config as a non-member should not work
 				config, err := service.GetProjectConfig(userCtx2, pr.ID)
 				require.Error(t, err)
@@ -1436,6 +1441,7 @@ func TestService(t *testing.T) {
 				require.NotNil(t, config)
 				require.True(t, config.IsOwnerPaidTier)
 				require.Equal(t, console.RoleAdmin, config.Role)
+				require.Equal(t, base64.StdEncoding.EncodeToString(salt), config.Salt)
 
 				// add userCtx2 as member
 				member, err := service.GetUser(ctx, up2Proj.OwnerID)

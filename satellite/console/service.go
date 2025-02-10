@@ -8,6 +8,7 @@ import (
 	"context"
 	"crypto/rand"
 	"database/sql"
+	"encoding/base64"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -3157,6 +3158,7 @@ func (s *Service) GetEmissionImpact(ctx context.Context, projectID uuid.UUID) (*
 func (s *Service) GetProjectConfig(ctx context.Context, projectID uuid.UUID) (*ProjectConfig, error) {
 	var err error
 	defer mon.Task()(&ctx)(&err)
+
 	user, err := s.getUserAndAuditLog(ctx, "get project config", zap.String("projectID", projectID.String()))
 	if err != nil {
 		return nil, ErrUnauthorized.Wrap(err)
@@ -3168,6 +3170,11 @@ func (s *Service) GetProjectConfig(ctx context.Context, projectID uuid.UUID) (*P
 	}
 
 	project := isMember.project
+
+	salt, err := s.store.Projects().GetSalt(ctx, project.ID)
+	if err != nil {
+		return nil, Error.Wrap(err)
+	}
 
 	isOwnerPaidTier, err := s.store.Users().GetUserPaidTier(ctx, project.OwnerID)
 	if err != nil {
@@ -3202,6 +3209,7 @@ func (s *Service) GetProjectConfig(ctx context.Context, projectID uuid.UUID) (*P
 		Passphrase:           string(passphrase),
 		IsOwnerPaidTier:      isOwnerPaidTier,
 		Role:                 isMember.membership.Role,
+		Salt:                 base64.StdEncoding.EncodeToString(salt),
 	}, nil
 }
 

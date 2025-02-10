@@ -267,6 +267,7 @@ type ProjectConfig struct {
 	Passphrase           string            `json:"passphrase,omitempty"`
 	IsOwnerPaidTier      bool              `json:"isOwnerPaidTier"`
 	Role                 ProjectMemberRole `json:"role"`
+	Salt                 string            `json:"salt"`
 }
 
 // DeleteProjectInfo holds data for project deletion UI flow.
