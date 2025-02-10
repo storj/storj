@@ -25,6 +25,7 @@ import (
 	"github.com/spf13/pflag"
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
+	"go.uber.org/zap/zapcore"
 	"golang.org/x/crypto/bcrypt"
 
 	"storj.io/common/cfgstruct"
@@ -5707,7 +5708,19 @@ func (s *Service) GetUserSettings(ctx context.Context) (settings *UserSettings, 
 func (s *Service) SetUserSettings(ctx context.Context, request UpsertUserSettingsRequest) (settings *UserSettings, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	user, err := s.getUserAndAuditLog(ctx, "get user settings")
+	fields := []zapcore.Field{}
+
+	if request.OnboardingStart != nil {
+		fields = append(fields, zap.Bool("onboardingStart", *request.OnboardingStart))
+	}
+	if request.OnboardingEnd != nil {
+		fields = append(fields, zap.Bool("onboardingEnd", *request.OnboardingEnd))
+	}
+	if request.OnboardingStep != nil {
+		fields = append(fields, zap.String("onboardingStep", *request.OnboardingStep))
+	}
+
+	user, err := s.getUserAndAuditLog(ctx, "set user settings", fields...)
 	if err != nil {
 		return nil, Error.Wrap(err)
 	}
