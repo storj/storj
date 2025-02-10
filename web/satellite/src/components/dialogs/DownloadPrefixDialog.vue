@@ -120,7 +120,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed } from 'vue';
+import { ref, computed, watch } from 'vue';
 import { FolderArchive, Check, Download } from 'lucide-vue-next';
 import {
     VDialog,
@@ -137,6 +137,7 @@ import {
     VSheet,
     VChip,
 } from 'vuetify/components';
+import { useDisplay } from 'vuetify';
 
 import { useLoading } from '@/composables/useLoading';
 import { usePreCheck } from '@/composables/usePreCheck';
@@ -161,6 +162,7 @@ const notify = useNotify();
 const { withTrialCheck, withManagedPassphraseCheck } = usePreCheck();
 const { isLoading, withLoading } = useLoading();
 const { downloadPrefix } = useLinksharing();
+const { platform } = useDisplay();
 
 const bucketsStore = useBucketsStore();
 const projectsStore = useProjectsStore();
@@ -201,6 +203,16 @@ async function onDownload(): Promise<void> {
         });
     });});
 }
+
+watch(model, async newVal => {
+    if (newVal) {
+        if (platform.value.linux || platform.value.mac) {
+            downloadFormat.value = DownloadPrefixFormat.TAR_GZ;
+        } else {
+            downloadFormat.value = DownloadPrefixFormat.ZIP;
+        }
+    }
+});
 </script>
 
 <style scoped lang="scss">
