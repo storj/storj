@@ -15,7 +15,7 @@ const (
 	// RecordSize is the size of a serialized record in bytes.
 	RecordSize = 64
 
-	pageSize       = 4096
+	pageSize       = 512
 	recordsPerPage = pageSize / RecordSize
 
 	bigPageSize       = 256 * pageSize

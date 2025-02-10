@@ -135,7 +135,7 @@ func TestHashtbl_LostPage(t *testing.T) {
 	h.AssertLookup(k1)
 
 	// zero out the first page manually and invalidate the page cache.
-	_, err = h.fh.WriteAt(make([]byte, pageSize), pageSize) // offset=pSize to skip the header page.
+	_, err = h.fh.WriteAt(make([]byte, pageSize), headerSize) // offset=headerSize to skip the header page.
 	assert.NoError(t, err)
 
 	// we should still be able to read the second key.
@@ -157,11 +157,11 @@ func TestHashtbl_SmallFileSizes(t *testing.T) {
 	_, err = OpenHashtbl(ctx, fh)
 	assert.Error(t, err)
 
-	assert.NoError(t, fh.Truncate(pageSize))
+	assert.NoError(t, fh.Truncate(headerSize))
 	_, err = OpenHashtbl(ctx, fh)
 	assert.Error(t, err)
 
-	assert.NoError(t, fh.Truncate(pageSize+(pageSize-1)))
+	assert.NoError(t, fh.Truncate(headerSize+(pageSize-1)))
 	_, err = OpenHashtbl(ctx, fh)
 	assert.Error(t, err)
 }
@@ -314,13 +314,13 @@ func TestHashtbl_RandomDistributionOfSequentialKeys(t *testing.T) {
 		h.AssertInsertRecord(newRecord(k))
 	}
 
-	// ensure no page is empty. the probability of any page being empty with a random distribution
+	// ensure no 4096 byte page is empty. the probability of any page being empty with a random distribution
 	// is less than 2^50.
-	var p page
-	for offset := int64(pageSize); offset < int64(hashtblSize(hashtbl_minLogSlots)); offset += pageSize {
+	var p [4096]byte
+	for offset := int64(headerSize); offset < int64(hashtblSize(hashtbl_minLogSlots)); offset += int64(len(p)) {
 		_, err := h.fh.ReadAt(p[:], offset)
 		assert.NoError(t, err)
-		if p == (page{}) {
+		if p == ([4096]byte{}) {
 			t.Fatal("empty page found")
 		}
 	}
@@ -336,7 +336,7 @@ func TestHashtbl_EstimateWithNonuniformTable(t *testing.T) {
 	}
 
 	// overwrite the first half of the table with zeros.
-	_, err := h.fh.WriteAt(make([]byte, (hashtblSize(hashtbl_minLogSlots)-pageSize)/2), pageSize)
+	_, err := h.fh.WriteAt(make([]byte, (hashtblSize(hashtbl_minLogSlots)-headerSize)/2), headerSize)
 	assert.NoError(t, err)
 
 	// the load should be around 0.5 after recomputing the estimates.
