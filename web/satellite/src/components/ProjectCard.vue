@@ -92,8 +92,6 @@
                                 </v-list-item-title>
                             </v-list-item>
 
-                            <v-divider class="my-1" />
-
                             <v-list-item link class="mt-1" @click="emit('inviteClick')">
                                 <template #prepend>
                                     <component :is="UserPlus" :size="18" />
