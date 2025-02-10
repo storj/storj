@@ -568,7 +568,7 @@ func TestStore_MultipleReviveDuringCompaction(t *testing.T) {
 	// start a goroutine that waits for 2 stacks to be blocked in reviveRecord where one of them
 	// is blocked trying to Create to recreate the trashed record and allow compaction to continue.
 	go func() {
-		waitForGoroutines(2,
+		waitForGoroutine(
 			"(*Store).reviveRecord",
 			"(*mutex).Lock",
 		)
@@ -576,7 +576,6 @@ func TestStore_MultipleReviveDuringCompaction(t *testing.T) {
 			"(*Store).reviveRecord",
 			"(*Store).Create",
 			"(*rwMutex).RLock",
-			"(*mutex).Lock",
 		)
 		close(activity)
 	}()

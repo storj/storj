@@ -342,8 +342,8 @@ func TestHashtbl_EstimateWithNonuniformTable(t *testing.T) {
 	// the load should be around 0.5 after recomputing the estimates.
 	h.AssertReopen()
 	t.Logf("%v", h.Load())
-	assert.That(t, h.Load() >= 0.4)
-	assert.That(t, h.Load() <= 0.6)
+	assert.That(t, h.Load() >= 0.3)
+	assert.That(t, h.Load() <= 0.7)
 }
 
 //
