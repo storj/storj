@@ -40,10 +40,10 @@ type HashTbl struct {
 	slotMask slotIdxT      // numSlots - 1, a bit mask for the maximum number of slots
 	header   hashtblHeader // header information
 
+	opMu rwMutex // protects operations
+
 	closed drpcsignal.Signal // closed state
 	cloMu  sync.Mutex        // synchronizes closing
-
-	opMu sync.RWMutex // protects operations
 
 	buffer *rwBigPageCache // buffer for inserts
 
@@ -201,7 +201,7 @@ func (h *HashTbl) Close() {
 	}
 
 	// grab the lock to ensure all operations have finished before closing the file handle.
-	h.opMu.Lock()
+	h.opMu.WaitLock()
 	defer h.opMu.Unlock()
 
 	_ = h.fh.Close()
@@ -266,7 +266,9 @@ func (h *HashTbl) slotForKey(k *Key) slotIdxT {
 func (h *HashTbl) ComputeEstimates(ctx context.Context) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	h.opMu.RLock()
+	if err := h.opMu.RLock(ctx, &h.closed); err != nil {
+		return err
+	}
 	defer h.opMu.RUnlock()
 
 	// sample some pages worth of records but less than the total
@@ -333,12 +335,10 @@ func (h *HashTbl) Load() float64 {
 
 // Range iterates over the records in hash table order.
 func (h *HashTbl) Range(ctx context.Context, fn func(context.Context, Record) (bool, error)) error {
-	h.opMu.RLock()
-	defer h.opMu.RUnlock()
-
-	if err := signalError(&h.closed); err != nil {
+	if err := h.opMu.RLock(ctx, &h.closed); err != nil {
 		return err
 	}
+	defer h.opMu.RUnlock()
 
 	var (
 		numSet, lenSet     uint64
@@ -386,7 +386,9 @@ func (h *HashTbl) Range(ctx context.Context, fn func(context.Context, Record) (b
 // and disables the expectation. At least one of flush or done must be called. It returns an error
 // if called again before flush or done is called.
 func (h *HashTbl) ExpectOrdered(ctx context.Context) (flush func() error, done func(), err error) {
-	h.opMu.Lock()
+	if err := h.opMu.Lock(ctx, &h.closed); err != nil {
+		return nil, nil, err
+	}
 	defer h.opMu.Unlock()
 
 	if h.buffer != nil {
@@ -398,7 +400,7 @@ func (h *HashTbl) ExpectOrdered(ctx context.Context) (flush func() error, done f
 	h.buffer.Init(h.fh)
 
 	return func() (err error) {
-			h.opMu.Lock()
+			h.opMu.WaitLock()
 			defer h.opMu.Unlock()
 
 			if h.buffer == buffer {
@@ -408,7 +410,7 @@ func (h *HashTbl) ExpectOrdered(ctx context.Context) (flush func() error, done f
 
 			return Error.Wrap(err)
 		}, func() {
-			h.opMu.Lock()
+			h.opMu.WaitLock()
 			defer h.opMu.Unlock()
 
 			if h.buffer == buffer {
@@ -421,17 +423,21 @@ func (h *HashTbl) ExpectOrdered(ctx context.Context) (flush func() error, done f
 // returns (false, nil) if the hash table is full, and (false, err) if any errors happened trying
 // to insert the record.
 func (h *HashTbl) Insert(ctx context.Context, rec Record) (_ bool, err error) {
-	h.opMu.Lock()
-	defer h.opMu.Unlock()
-
-	if err := signalError(&h.closed); err != nil {
+	if err := h.opMu.Lock(ctx, &h.closed); err != nil {
 		return false, err
 	}
+	defer h.opMu.Unlock()
 
 	var cache rwPageCache
 	cache.Init(h.fh)
 
 	for slot, attempt := h.slotForKey(&rec.Key), slotIdxT(0); attempt < h.numSlots; slot, attempt = (slot+1)&h.slotMask, attempt+1 {
+		if err := ctx.Err(); err != nil {
+			return false, err
+		} else if err := signalError(&h.closed); err != nil {
+			return false, err
+		}
+
 		// note that in lookup, we protect against lost pages by reading at least 2 pages worth of
 		// records before bailing due to an invalid record. we don't do that here so it's possible
 		// in the presence of lost pages to have the same key present twice and the latter one be
@@ -515,17 +521,21 @@ func (h *HashTbl) Insert(ctx context.Context, rec Record) (_ bool, err error) {
 // true, nil) if the record existed, (rec{}, false, nil) if it did not exist, and (rec{}, false,
 // err) if any errors happened trying to look up the record.
 func (h *HashTbl) Lookup(ctx context.Context, key Key) (_ Record, _ bool, err error) {
-	h.opMu.RLock()
-	defer h.opMu.RUnlock()
-
-	if err := signalError(&h.closed); err != nil {
+	if err := h.opMu.RLock(ctx, &h.closed); err != nil {
 		return Record{}, false, err
 	}
+	defer h.opMu.RUnlock()
 
 	var cache roPageCache
 	cache.Init(h.fh)
 
 	for slot, attempt := h.slotForKey(&key), slotIdxT(0); attempt < h.numSlots; slot, attempt = (slot+1)&h.slotMask, attempt+1 {
+		if err := ctx.Err(); err != nil {
+			return Record{}, false, err
+		} else if err := signalError(&h.closed); err != nil {
+			return Record{}, false, err
+		}
+
 		rec, valid, err := cache.ReadRecord(slot)
 		if err != nil {
 			return Record{}, false, Error.Wrap(err)

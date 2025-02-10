@@ -4,13 +4,11 @@
 package hashstore
 
 import (
-	"context"
 	"io/fs"
 	"os"
 	"path/filepath"
 	"strconv"
 	"sync"
-	"sync/atomic"
 	"time"
 
 	"github.com/spacemonkeygo/monkit/v3"
@@ -138,111 +136,6 @@ func (a *atomicMap[K, V]) Lookup(k K) (V, bool) {
 		return *new(V), false
 	}
 	return v.(V), true
-}
-
-//
-// context/signal aware mutex
-//
-
-type mutex struct {
-	ch chan struct{}
-}
-
-func newMutex() *mutex {
-	return &mutex{ch: make(chan struct{}, 1)}
-}
-
-func (s *mutex) WaitLock() { s.ch <- struct{}{} }
-
-func (s *mutex) Lock(ctx context.Context, closed *drpcsignal.Signal) error {
-	if err := ctx.Err(); err != nil {
-		return err
-	} else if err := signalError(closed); err != nil {
-		return err
-	}
-	select {
-	case s.ch <- struct{}{}:
-		return nil
-	case <-closed.Signal():
-		return signalError(closed)
-	case <-ctx.Done():
-		return ctx.Err()
-	}
-}
-
-func (s *mutex) Unlock() { <-s.ch }
-
-//
-// context/signal aware rw-mutex
-//
-
-type rwMutex struct {
-	wmu *mutex
-	rmu *mutex
-	rw  sync.RWMutex
-	rs  atomic.Int64
-}
-
-func newRWMutex() *rwMutex {
-	return &rwMutex{
-		wmu: newMutex(),
-		rmu: newMutex(),
-	}
-}
-
-func (m *rwMutex) RLock(ctx context.Context, closed *drpcsignal.Signal) error {
-	if err := ctx.Err(); err != nil {
-		return err
-	} else if err := signalError(closed); err != nil {
-		return err
-	}
-	for {
-		if m.rw.TryRLock() {
-			if m.rs.Add(1) == 1 {
-				m.rmu.WaitLock() // should not block because rs ensures we're the first reader.
-			}
-			return nil
-		}
-		if err := m.wmu.Lock(ctx, closed); err != nil {
-			return err
-		}
-		m.wmu.Unlock()
-	}
-}
-
-func (m *rwMutex) RUnlock() {
-	if m.rs.Add(-1) == 0 {
-		m.rmu.Unlock()
-	}
-	m.rw.RUnlock()
-}
-
-func (m *rwMutex) WaitLock() {
-	m.rw.Lock()
-	m.wmu.WaitLock()
-}
-
-func (m *rwMutex) Lock(ctx context.Context, closed *drpcsignal.Signal) error {
-	if err := ctx.Err(); err != nil {
-		return err
-	} else if err := signalError(closed); err != nil {
-		return err
-	}
-	for {
-		if m.rw.TryLock() {
-			m.wmu.WaitLock() // should not block because rwmutex is locked.
-			return nil
-		}
-		if err := m.rmu.Lock(ctx, closed); err != nil {
-			return err
-		}
-		m.rmu.Unlock()
-	}
-}
-
-func (m *rwMutex) Unlock() {
-	m.wmu.Unlock()
-	m.rw.Unlock()
 }
 
 //
