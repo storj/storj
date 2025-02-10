@@ -281,7 +281,7 @@ export const useProjectsStore = defineStore('projects', () => {
     }
 
     async function getProjectSalt(projectID: string): Promise<string> {
-        return await api.getSalt(projectID);
+        return state.selectedProjectConfig.salt || await api.getSalt(projectID);
     }
 
     async function getEmissionImpact(projectID: string): Promise<void> {

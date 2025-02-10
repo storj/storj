@@ -183,6 +183,7 @@ export class ProjectConfig {
         public passphrase: string = '',
         public isOwnerPaidTier: boolean = false,
         public _role: number = 1,
+        public salt: string = '',
     ) {}
 
     public get role(): ProjectItemRole {
