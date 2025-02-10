@@ -392,3 +392,13 @@ func (t timeWrapper) DecodeSpanner(val interface{}) error {
 	}
 	return t.Scan(val)
 }
+
+// EncodeSpanner implements spanner.Encoder.
+func (s StreamIDSuffix) EncodeSpanner() (any, error) {
+	return s.Value()
+}
+
+// Value implements sql/driver.Valuer.
+func (s StreamIDSuffix) Value() (driver.Value, error) {
+	return s[:], nil
+}
