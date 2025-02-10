@@ -165,6 +165,7 @@
                             :deleting="isBeingDeleted(item.raw.browserObject)"
                             :file="item.raw.browserObject"
                             align="right"
+                            @delete-file-click="onDeleteFileClick(item.raw.browserObject)"
                         />
                     </td>
                 </tr>
