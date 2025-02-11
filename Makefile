@@ -4,7 +4,6 @@ GOOS ?= linux
 GOARCH ?= amd64
 GOPATH ?= $(shell go env GOPATH)
 NODE_VERSION ?= 20.10.0
-MODULAR_NODE_VERSION ?= $(shell git show -s --date='format:%Y.%m' --format='v%cd.%ct-%h' HEAD)
 COMPOSE_PROJECT_NAME := ${TAG}-$(shell git rev-parse --abbrev-ref HEAD)
 BRANCH_NAME ?= $(shell git rev-parse --abbrev-ref HEAD | sed "s!/!-!g")
 GIT_TAG := $(shell git rev-parse --short HEAD)
@@ -301,7 +300,7 @@ satellite-wasm:
 	scripts/build-wasm.sh ;\
 
 .PHONY: images
-images: multinode-image satellite-image uplink-image versioncontrol-image storagenode-image## Build multinode, satellite and versioncontrol Docker images
+images: multinode-image satellite-image uplink-image versioncontrol-image storagenode-image modular-storagenode-image ## Build multinode, satellite and versioncontrol Docker images
 	echo Built version: ${TAG}
 
 .PHONY: multinode-image
@@ -357,27 +356,11 @@ versioncontrol-image: versioncontrol_linux_arm versioncontrol_linux_arm64 versio
 
 .PHONY: modular-storagenode-image
 modular-storagenode-image: ## Build modular storagenode Docker image
-	${DOCKER_BUILDX} --load --pull=true -t ghcr.io/storj/storagenode:${MODULAR_NODE_VERSION} \
-		--platform=linux/amd64 \
-		--build-arg=GO_DOCKER_PLATFORM=linux/amd64 \
-		--build-arg=DOCKER_PLATFORM=linux/amd64 \
-		--build-arg=DOCKER_ARCH=amd64 \
-		--build-arg=BUILD_VERSION=${MODULAR_NODE_VERSION} \
-		-f storagenode/storagenode/Dockerfile .
-	${DOCKER_BUILDX} --load --pull=true -t ghcr.io/storj/storagenode:${MODULAR_NODE_VERSION} \
-		--platform=linux/arm64/v8 \
-		--build-arg=GO_DOCKER_PLATFORM=linux/arm64/v8 \
-		--build-arg=DOCKER_PLATFORM=linux/arm64/v8 \
-		--build-arg=DOCKER_ARCH=arm64v8 \
-		--build-arg=BUILD_VERSION=${MODULAR_NODE_VERSION} \
-		-f storagenode/storagenode/Dockerfile .
-	${DOCKER_BUILDX} --load --pull=true -t ghcr.io/storj/storagenode:${MODULAR_NODE_VERSION} \
-		--platform=linux/arm/v5 \
-		--build-arg=GO_DOCKER_PLATFORM=linux/arm/v7 \
-		--build-arg=DOCKER_PLATFORM=linux/arm/v5 \
-		--build-arg=DOCKER_ARCH=arm32v5 \
-		--build-arg=BUILD_VERSION=${MODULAR_NODE_VERSION} \
-		-f storagenode/storagenode/Dockerfile .
+	./storagenode/storagenode/docker.sh build --arch amd64,arm64v8,arm32v5
+
+.PHONY: push-modular-storagenode-image
+push-modular-storagenode-image: ## Push modular storagenode Docker image
+	./storagenode/storagenode/docker.sh push --repo $(REPO) --unified-tag
 
 .PHONY: darwin-binaries
 darwin-binaries:
@@ -542,6 +525,8 @@ push-images: ## Push Docker images to Docker Hub (jenkins)
 		; done \
 	; done
 	docker push img.dev.storj.io/dev/storagenode:${TAG}${CUSTOMTAG}-amd64
+	REPO=storjlabs/storagenode-modular $(MAKE) push-modular-storagenode-image
+	REPO=ghcr.io/storj/storagenode-modular $(MAKE) push-modular-storagenode-image
 
 .PHONY: binaries-upload
 binaries-upload: ## Upload binaries to Google Storage (jenkins)
