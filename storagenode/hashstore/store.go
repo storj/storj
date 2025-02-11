@@ -965,59 +965,20 @@ func (s *Store) compactOnce(
 
 		// if the record is compacted, copy it into the new log file.
 		if rewrite[rec.Log] {
-			err := func() error {
-				r, err := s.readerForRecord(ctx, rec, false)
-				if err != nil {
-					return Error.Wrap(err)
-				}
-				defer r.Release() // same as r.Close() but no error to worry about.
-
-				// acquire a log file to write the entry into. if we're rewriting that log file
-				// we have to pick a different one.
-			acquire:
-				into, err := s.acquireLogFile(rec.Expires.Time())
-				if err != nil {
-					return Error.Wrap(err)
-				} else if rewriteCandidates[into.id] {
-					goto acquire
-				}
-
-				// create a Writer to handle writing the entry into the log file. manual mode is set
-				// so that it doesn't attempt to add the record to the current hash table or unlock
-				// the active mutex upon Close or Cancel.
-				w := newManualWriter(ctx, s, into, Record{
-					Key:     rec.Key,
-					Offset:  into.size.Load(),
-					Log:     into.id,
-					Created: rec.Created,
-					Expires: rec.Expires,
-				})
-				defer w.Cancel()
-
-				// copy the record data.
-				if _, err := io.Copy(w, r); err != nil {
-					return Error.New("writing into compacted log: %w", err)
-				}
-
-				// finalize the data in the log file.
-				if err := w.Close(); err != nil {
-					return Error.New("closing compacted log: %w", err)
-				}
-
-				// get the updated record information from the writer.
-				rec = w.rec
-
-				// bump the amount of data we rewrote.
-				s.stats.dataRewritten.Add(uint64(rec.Length) + RecordSize)
-
-				rewrittenRecords++
-				rewrittenBytes += uint64(rec.Length)
-
-				return nil
-			}()
+			// CAREFUL: we have to update the record to the value returned by rewrite record which
+			// contains all the updated info. don't use := here!
+			var err error
+			rec, err = s.rewriteRecord(ctx, rec, rewriteCandidates)
 			if err != nil {
 				return false, Error.Wrap(err)
 			}
+
+			// bump the amount of data we rewrote.
+			s.stats.dataRewritten.Add(uint64(rec.Length) + RecordSize)
+
+			// keep track of the number of records and bytes we rewrote for logs.
+			rewrittenRecords++
+			rewrittenBytes += uint64(rec.Length)
 		}
 
 		// insert the record into the new hash table.
@@ -1103,4 +1064,59 @@ func (s *Store) compactOnce(
 	// if we rewrote every log file that we could potentially rewrite, then we're done. len is
 	// sufficient here because rewrite is a subset of rewriteCandidates.
 	return len(rewriteCandidates) == len(rewrite), nil
+}
+
+func (s *Store) rewriteRecord(ctx context.Context, rec Record, rewriteCandidates map[uint64]bool) (Record, error) {
+	r, err := s.readerForRecord(ctx, rec, false)
+	if err != nil {
+		return rec, Error.Wrap(err)
+	}
+	defer r.Release() // same as r.Close() but no error to worry about.
+
+	// WARNING! this is subtle, but what we do is take the log file directly out of the reader, seek
+	// it to the appropriate place, and use an io.LimitReader so that the go stdlib using io.Copy
+	// will do copy_file_range if available avoiding the copy into userspace. it would be a problem
+	// if multiple concurrent readers or writers were using the file pos at the same time. in the
+	// case of this code it's safe to use Seek because rewriteRecord is only called during
+	// compaction which means there are no writers and compaction does not call it in parallel so
+	// there is only one reader that uses the pos and it must be us.
+	var from io.Reader = r
+	if _, err := r.lf.fh.Seek(int64(rec.Offset), io.SeekStart); err == nil {
+		from = io.LimitReader(r.lf.fh, int64(rec.Length))
+	}
+
+	// acquire a log file to write the entry into. if we're rewriting that log file
+	// we have to pick a different one.
+	var into *logFile
+	for into == nil || rewriteCandidates[into.id] {
+		into, err = s.acquireLogFile(rec.Expires.Time())
+		if err != nil {
+			return rec, Error.Wrap(err)
+		}
+	}
+
+	// create a Writer to handle writing the entry into the log file. manual mode is set
+	// so that it doesn't attempt to add the record to the current hash table or unlock
+	// the active mutex upon Close or Cancel.
+	w := newManualWriter(ctx, s, into, Record{
+		Key:     rec.Key,
+		Offset:  into.size.Load(),
+		Log:     into.id,
+		Created: rec.Created,
+		Expires: rec.Expires,
+	})
+	defer w.Cancel()
+
+	// copy the record data.
+	if _, err := io.Copy(w, from); err != nil {
+		return rec, Error.New("writing into compacted log: %w", err)
+	}
+
+	// finalize the data in the log file.
+	if err := w.Close(); err != nil {
+		return rec, Error.New("closing compacted log: %w", err)
+	}
+
+	// get the updated record information from the writer.
+	return w.rec, nil
 }

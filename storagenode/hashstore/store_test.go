@@ -1119,4 +1119,23 @@ func BenchmarkStore(b *testing.B) {
 
 		b.ReportMetric(float64(b.N*int(1)<<lrec)/time.Since(now).Seconds(), "rec/sec")
 	})
+
+	b.Run("RewriteRecord", func(b *testing.B) {
+		s := newTestStore(b)
+		defer s.Close()
+
+		key := s.AssertCreate(WithData(make([]byte, 200*1024)))
+		rec, ok, err := s.tbl.Lookup(ctx, key)
+		assert.NoError(b, err)
+		assert.True(b, ok)
+
+		b.SetBytes(int64(rec.Length))
+		b.ReportAllocs()
+		b.ResetTimer()
+
+		for i := 0; i < b.N; i++ {
+			rec, err = s.rewriteRecord(ctx, rec, nil)
+			assert.NoError(b, err)
+		}
+	})
 }
