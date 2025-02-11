@@ -1317,15 +1317,15 @@ func TestConcurrentAuditsSuccess(t *testing.T) {
 			require.NoError(t, err)
 		}
 
-		listResult, err := getAllSegments(ctx, satellite.Metabase.DB, numConcurrentAudits)
+		listResult, err := satellite.Metabase.DB.ListVerifySegments(ctx, metabase.ListVerifySegments{Limit: numConcurrentAudits})
 		require.NoError(t, err)
-		require.Len(t, listResult, numConcurrentAudits)
+		require.Len(t, listResult.Segments, numConcurrentAudits)
 
 		// do all the audits at the same time; at least some nodes will get more than one at the same time
 		group, auditCtx := errgroup.WithContext(ctx)
 		reports := make([]audit.Report, numConcurrentAudits)
 
-		for n, seg := range listResult {
+		for n, seg := range listResult.Segments {
 			n := n
 			seg := seg
 			group.Go(func() error {
@@ -1392,9 +1392,9 @@ func TestConcurrentAuditsUnknownError(t *testing.T) {
 			require.NoError(t, err)
 		}
 
-		listResult, err := getAllSegments(ctx, satellite.Metabase.DB, numConcurrentAudits)
+		listResult, err := satellite.Metabase.DB.ListVerifySegments(ctx, metabase.ListVerifySegments{Limit: numConcurrentAudits})
 		require.NoError(t, err)
-		require.Len(t, listResult, numConcurrentAudits)
+		require.Len(t, listResult.Segments, numConcurrentAudits)
 
 		// make ~half of the nodes time out on all responses
 		for n := 0; n < badNodes; n++ {
@@ -1405,7 +1405,7 @@ func TestConcurrentAuditsUnknownError(t *testing.T) {
 		group, auditCtx := errgroup.WithContext(ctx)
 		reports := make([]audit.Report, numConcurrentAudits)
 
-		for n, seg := range listResult {
+		for n, seg := range listResult.Segments {
 			n := n
 			seg := seg
 			group.Go(func() error {
@@ -1472,9 +1472,9 @@ func TestConcurrentAuditsFailure(t *testing.T) {
 			require.NoError(t, err)
 		}
 
-		listResult, err := getAllSegments(ctx, satellite.Metabase.DB, numConcurrentAudits)
+		listResult, err := satellite.Metabase.DB.ListVerifySegments(ctx, metabase.ListVerifySegments{Limit: numConcurrentAudits})
 		require.NoError(t, err)
-		require.Len(t, listResult, numConcurrentAudits)
+		require.Len(t, listResult.Segments, numConcurrentAudits)
 
 		// make ~half of the nodes return a Not Found error on all responses
 		for n := 0; n < badNodes; n++ {
@@ -1488,7 +1488,7 @@ func TestConcurrentAuditsFailure(t *testing.T) {
 		group, auditCtx := errgroup.WithContext(ctx)
 		reports := make([]audit.Report, numConcurrentAudits)
 
-		for n, seg := range listResult {
+		for n, seg := range listResult.Segments {
 			n := n
 			seg := seg
 			group.Go(func() error {
@@ -1564,9 +1564,9 @@ func TestConcurrentAuditsTimeout(t *testing.T) {
 			require.NoError(t, err)
 		}
 
-		listResult, err := getAllSegments(ctx, satellite.Metabase.DB, numConcurrentAudits)
+		listResult, err := satellite.Metabase.DB.ListVerifySegments(ctx, metabase.ListVerifySegments{Limit: numConcurrentAudits})
 		require.NoError(t, err)
-		require.Len(t, listResult, numConcurrentAudits)
+		require.Len(t, listResult.Segments, numConcurrentAudits)
 
 		// make ~half of the nodes time out on all responses
 		for n := 0; n < slowNodes; n++ {
@@ -1577,7 +1577,7 @@ func TestConcurrentAuditsTimeout(t *testing.T) {
 		group, auditCtx := errgroup.WithContext(ctx)
 		reports := make([]audit.Report, numConcurrentAudits)
 
-		for n, seg := range listResult {
+		for n, seg := range listResult.Segments {
 			n := n
 			seg := seg
 			group.Go(func() error {
@@ -1642,18 +1642,4 @@ func TestConcurrentAuditsTimeout(t *testing.T) {
 			require.EqualValues(t, appearancesPerNode[planet.StorageNodes[n].ID()], numConcurrentAudits)
 		}
 	})
-}
-
-func getAllSegments(ctx context.Context, db *metabase.DB, limit int) (segments []metabase.LoopSegmentEntry, err error) {
-	err = db.IterateLoopSegments(ctx, metabase.IterateLoopSegments{BatchSize: limit}, func(ctx context.Context, iter metabase.LoopSegmentsIterator) error {
-		var entry metabase.LoopSegmentEntry
-		for iter.Next(ctx, &entry) {
-			segments = append(segments, entry)
-		}
-		return nil
-	})
-	if err != nil {
-		return nil, err
-	}
-	return segments, nil
 }
