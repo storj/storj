@@ -150,14 +150,8 @@ func Info(ctx context.Context, log *zap.Logger) error {
 
 // Setup (re)creates the data based on scenarios specified above.
 func Setup(ctx context.Context, log *zap.Logger, db *metabase.DB) error {
-	err1 := db.DestroyTables(ctx)
-	log.Info("destroyed tables", zap.Error(err1))
-
-	err3 := db.TestMigrateToLatest(ctx)
-	log.Info("recreate tables", zap.Error(err3))
-	if err3 != nil {
-		return err3
-	}
+	err1 := db.TestingDeleteAll(ctx)
+	log.Info("delete all", zap.Error(err1))
 
 	for _, scenario := range scenarios {
 		log.Info("setting up scenario "+scenario.Name, zap.Int("objects", scenario.Setup.Expected()))

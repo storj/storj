@@ -12,6 +12,7 @@ import (
 	"go.uber.org/zap/zaptest"
 
 	"storj.io/common/testcontext"
+	"storj.io/common/uuid"
 	"storj.io/storj/satellite/metabase"
 	"storj.io/storj/satellite/satellitedb/satellitedbtest"
 	"storj.io/storj/shared/dbutil/dbschema"
@@ -57,7 +58,12 @@ func schemaFromMigration(t *testing.T, ctx *testcontext.Context, dbinfo satellit
 	err = migration(ctx, db)
 	require.NoError(t, err)
 
-	scheme, err = pgutil.QuerySnapshot(ctx, db.UnderlyingTagSQL())
+	adapter := db.ChooseAdapter(uuid.UUID{})
+
+	pgAdapter, ok := adapter.(*metabase.PostgresAdapter)
+	require.True(t, ok, "Spanner not supported yet for testing snapshots and querying schema")
+
+	scheme, err = pgutil.QuerySnapshot(ctx, pgAdapter.UnderlyingDB())
 	require.NoError(t, err)
 
 	return scheme

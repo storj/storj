@@ -56,7 +56,6 @@ type Config struct {
 // DB implements a database for storing objects and segments.
 type DB struct {
 	log *zap.Logger
-	db  tagsql.DB
 
 	aliasCache *NodeAliasCache
 
@@ -105,10 +104,10 @@ func Open(ctx context.Context, log *zap.Logger, connstr string, config Config) (
 			}
 			dbutil.Configure(ctx, rawdb, "metabase", mon)
 
-			db.db = postgresRebind{rawdb}
+			db_db := postgresRebind{rawdb}
 			db.adapters[i] = &PostgresAdapter{
 				log:                      log,
-				db:                       db.db,
+				db:                       db_db,
 				impl:                     impl,
 				connstr:                  connstr,
 				testingUniqueUnversioned: config.TestingUniqueUnversioned,
@@ -120,11 +119,11 @@ func Open(ctx context.Context, log *zap.Logger, connstr string, config Config) (
 			}
 			dbutil.Configure(ctx, rawdb, "metabase", mon)
 
-			db.db = postgresRebind{rawdb}
+			db_db := postgresRebind{rawdb}
 			db.adapters[i] = &CockroachAdapter{
 				PostgresAdapter{
 					log:                      log,
-					db:                       db.db,
+					db:                       db_db,
 					impl:                     impl,
 					connstr:                  connstr,
 					testingUniqueUnversioned: config.TestingUniqueUnversioned,
@@ -178,10 +177,6 @@ func (db *DB) ChooseAdapter(projectID uuid.UUID) Adapter {
 	return db.adapters[0]
 }
 
-// UnderlyingTagSQL returns *tagsql.DB.
-// TODO: remove.
-func (db *DB) UnderlyingTagSQL() tagsql.DB { return db.db }
-
 // Ping checks whether connection has been established to all adapters.
 func (db *DB) Ping(ctx context.Context) error {
 	for _, adapter := range db.adapters {
@@ -221,30 +216,12 @@ func (db *DB) TestingSetCleanup(cleanup func() error) {
 // Close closes the connection to database.
 func (db *DB) Close() error {
 	var err error
-	if db.db != nil {
-		err = Error.Wrap(db.db.Close())
-	}
 	for _, adapter := range db.adapters {
 		if c, isCloser := adapter.(io.Closer); isCloser {
 			err = errs.Combine(err, Error.Wrap(c.Close()))
 		}
 	}
 	return errs.Combine(err, db.testCleanup())
-}
-
-// DestroyTables deletes all tables.
-//
-// TODO: remove this, only for bootstrapping.
-func (db *DB) DestroyTables(ctx context.Context) error {
-	_, err := db.db.ExecContext(ctx, `
-		DROP TABLE IF EXISTS objects;
-		DROP TABLE IF EXISTS segments;
-		DROP TABLE IF EXISTS node_aliases;
-		DROP TABLE IF EXISTS metabase_versions;
-		DROP SEQUENCE IF EXISTS node_alias_seq;
-	`)
-	db.aliasCache.reset()
-	return Error.Wrap(err)
 }
 
 // TestMigrateToLatest replaces the migration steps with only one step to create metabase db.
