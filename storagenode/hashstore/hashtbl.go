@@ -274,6 +274,11 @@ func (h *HashTbl) ComputeEstimates(ctx context.Context) (err error) {
 	}
 	defer h.opMu.RUnlock()
 
+	const (
+		pagesPerGroup   = 8
+		recordsPerGroup = recordsPerPage * pagesPerGroup
+	)
+
 	// sample some pages worth of records but less than the total
 	maxRecords := uint64(h.numSlots)
 	sampleRecords := uint64(16384)
@@ -281,7 +286,9 @@ func (h *HashTbl) ComputeEstimates(ctx context.Context) (err error) {
 		sampleRecords = maxRecords
 	}
 	samplePages := sampleRecords / recordsPerPage
+	samplePageGroups := samplePages / pagesPerGroup
 	maxPages := maxRecords / recordsPerPage
+	maxGroup := maxPages / pagesPerGroup
 
 	var (
 		numSet, lenSet     uint64
@@ -293,9 +300,10 @@ func (h *HashTbl) ComputeEstimates(ctx context.Context) (err error) {
 	var cache roPageCache
 	cache.Init(h.fh)
 
-	for i := uint64(0); i < samplePages; i++ {
-		pageIdx := rng.Uint64n(maxPages)
-		for recIdx := uint64(0); recIdx < recordsPerPage; recIdx++ {
+	for i := uint64(0); i < samplePageGroups; i++ {
+		groupIdx := rng.Uint64n(maxGroup)
+		pageIdx := groupIdx * pagesPerGroup
+		for recIdx := uint64(0); recIdx < recordsPerGroup; recIdx++ {
 			slot := slotIdxT(pageIdx*recordsPerPage + recIdx)
 			rec, valid, err := cache.ReadRecord(slot)
 			if err != nil {
