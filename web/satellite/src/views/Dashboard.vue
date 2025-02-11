@@ -857,7 +857,7 @@ function onSegmentsCTAClicked(): void {
         return;
     }
 
-    window.open('https://docs.storj.io/dcs/pricing#per-segment-fee', '_blank', 'noreferrer');
+    window.open('https://storj.dev/support/usage-limit-increases#segment-limit', '_blank', 'noreferrer');
 }
 
 /**
