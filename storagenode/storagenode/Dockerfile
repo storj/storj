@@ -13,16 +13,14 @@ ARG CGO_ENABLED=1
 RUN echo "Building storagenode version ${BUILD_VERSION}"
 COPY go.mod go.sum ./
 RUN go mod download
+COPY .git .git
 COPY ./storagenode ./storagenode
 COPY ./web/storagenode ./web/storagenode
 COPY ./shared ./shared
 COPY ./private ./private
 ENV GOCACHE=/root/.cache/go-build
 RUN --mount=type=cache,target="/root/.cache/go-build" \
-    go install -ldflags "-X storj.io/common/version.buildRelease=true \
-    -X storj.io/common/version.buildVersion=${BUILD_VERSION} \
-    -X storj.io/common/version.buildTimestamp=$(date +%s) \
-    -X storj.io/common/version.buildRelease=true" ./storagenode/storagenode
+    ./storagenode/storagenode/build.sh install ./storagenode/storagenode
 
 FROM --platform=${DOCKER_PLATFORM:-linux/amd64} ${DOCKER_ARCH:-amd64}/debian:bookworm-slim
 COPY --from=ca-cert /etc/ssl/certs/ca-certificates.crt /etc/ssl/certs/ca-certificates.crt
