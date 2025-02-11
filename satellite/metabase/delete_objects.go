@@ -38,8 +38,8 @@ type DeleteObjectsItem struct {
 func (opts DeleteObjects) Verify() error {
 	itemCount := len(opts.Items)
 	switch {
-	case opts.Suspended:
-		return ErrInvalidRequest.New("deletion from buckets with versioning suspended is not yet supported")
+	case opts.Versioned && opts.Suspended:
+		return ErrInvalidRequest.New("Versioned and Suspended must not be simultaneously enabled")
 	case opts.ObjectLock.Enabled:
 		return ErrInvalidRequest.New("deletion from buckets with Object Lock enabled is not yet supported")
 	case opts.ProjectID.IsZero():
@@ -73,12 +73,12 @@ type DeleteObjectsResult struct {
 type DeleteObjectsStatus int
 
 const (
+	// DeleteStatusUnprocessed indicates that the deletion was not processed due to an internal error.
+	DeleteStatusUnprocessed DeleteObjectsStatus = iota
 	// DeleteStatusNotFound indicates that the object could not be deleted because it didn't exist.
-	DeleteStatusNotFound DeleteObjectsStatus = iota
+	DeleteStatusNotFound
 	// DeleteStatusOK indicates that the object was successfully deleted.
 	DeleteStatusOK
-	// DeleteStatusInternalError indicates that an internal error occurred when attempting to delete the object.
-	DeleteStatusInternalError
 )
 
 // DeleteObjectsResultItem contains the result of an attempt to delete a specific object from a bucket.
@@ -101,7 +101,7 @@ type DeleteObjectsInfo struct {
 
 // DeleteObjects deletes specific objects from a bucket.
 //
-// TODO: Support Object Lock and properly handle buckets with versioning suspended.
+// TODO: Support Object Lock.
 func (db *DB) DeleteObjects(ctx context.Context, opts DeleteObjects) (result DeleteObjectsResult, err error) {
 	defer mon.Task()(&ctx)(&err)
 
@@ -139,8 +139,19 @@ func (db *DB) DeleteObjects(ctx context.Context, opts DeleteObjects) (result Del
 		if opts.Versioned {
 			var deleteMarkerStreamID uuid.UUID
 			deleteMarkerStreamID, err = generateDeleteMarkerStreamID()
-			if err == nil {
-				deleteObjectResult, err = adapter.DeleteObjectLastCommittedVersioned(ctx, deleteOpts, deleteMarkerStreamID)
+			if err != nil {
+				return result, err
+			}
+			deleteObjectResult, err = adapter.DeleteObjectLastCommittedVersioned(ctx, deleteOpts, deleteMarkerStreamID)
+		} else if opts.Suspended {
+			var deleteMarkerStreamID uuid.UUID
+			deleteMarkerStreamID, err = generateDeleteMarkerStreamID()
+			if err != nil {
+				return result, err
+			}
+			deleteObjectResult, err = adapter.DeleteObjectLastCommittedSuspended(ctx, deleteOpts, deleteMarkerStreamID)
+			if ErrObjectNotFound.Has(err) {
+				err = nil
 			}
 		} else {
 			deleteObjectResult, err = adapter.DeleteObjectLastCommittedPlain(ctx, deleteOpts)
@@ -182,17 +193,21 @@ func (db *DB) DeleteObjects(ctx context.Context, opts DeleteObjects) (result Del
 		}
 
 		if err != nil {
-			for k := i; k < len(processedOpts.results); k++ {
-				processedOpts.results[k].Status = DeleteStatusInternalError
-			}
 			return result, err
+		}
+
+		if resultItem.Status == DeleteStatusUnprocessed {
+			resultItem.Status = DeleteStatusNotFound
 		}
 	}
 
 	for i := processedOpts.lastCommittedCount; i < len(processedOpts.results); i++ {
 		resultItem := &processedOpts.results[i]
+		if resultItem.Status == DeleteStatusOK {
+			continue
+		}
 
-		if opts.Versioned {
+		if opts.Versioned || opts.Suspended {
 			// Prevent the removal of a delete marker that was added in a previous iteration.
 			if linkedItemIdx, ok := processedOpts.resultsIndices[DeleteObjectsItem{
 				ObjectKey: resultItem.ObjectKey,
@@ -226,10 +241,11 @@ func (db *DB) DeleteObjects(ctx context.Context, opts DeleteObjects) (result Del
 		}
 
 		if err != nil {
-			for k := i; k < len(processedOpts.results); k++ {
-				processedOpts.results[k].Status = DeleteStatusInternalError
-			}
-			break
+			return result, err
+		}
+
+		if resultItem.Status == DeleteStatusUnprocessed {
+			resultItem.Status = DeleteStatusNotFound
 		}
 	}
 
