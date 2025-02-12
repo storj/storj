@@ -229,6 +229,65 @@ func NewAPI(log *zap.Logger, full *identity.FullIdentity, db DB,
 		peer.Buckets.Service = buckets.NewService(db.Buckets(), metabaseDB)
 	}
 
+	placements, err := config.Placement.Parse(config.Overlay.Node.CreateDefaultPlacement, nodeselection.NewPlacementConfigEnvironment(peer.SuccessTrackers, peer.FailureTracker))
+	if err != nil {
+		return nil, err
+	}
+
+	{ // setup overlay
+		peer.Overlay.DB = peer.DB.OverlayCache()
+
+		peer.Overlay.Service, err = overlay.NewService(peer.Log.Named("overlay"), peer.Overlay.DB, peer.DB.NodeEvents(), placements, config.Console.ExternalAddress, config.Console.SatelliteName, config.Overlay)
+		if err != nil {
+			return nil, errs.Combine(err, peer.Close())
+		}
+		peer.Services.Add(lifecycle.Item{
+			Name:  "overlay",
+			Run:   peer.Overlay.Service.Run,
+			Close: peer.Overlay.Service.Close,
+		})
+	}
+
+	var trackerInfo *metainfo.TrackerInfo
+
+	{
+		successTrackerTrustedUplinks, err := parseNodeIDs(config.Metainfo.SuccessTrackerTrustedUplinks)
+		if err != nil {
+			log.Warn("Wrong uplink ID for the trusted list of the success trackers", zap.Error(err))
+			return nil, err
+		}
+
+		successTrackerUplinks, err := parseNodeIDs(config.Metainfo.SuccessTrackerUplinks)
+		if err != nil {
+			log.Warn("Wrong uplink ID for the list of the success trackers", zap.Error(err))
+			return nil, err
+		}
+
+		trustedUplinkSlice, err := parseNodeIDs(config.Metainfo.TrustedUplinks)
+		if err != nil {
+			log.Warn("Wrong uplink ID for the list of the trusted uplinks", zap.Error(err))
+			return nil, err
+		}
+
+		trustedUplinkSlice = append(trustedUplinkSlice, successTrackerTrustedUplinks...)
+		successTrackerUplinks = append(successTrackerUplinks, successTrackerTrustedUplinks...)
+
+		newTracker, ok := metainfo.GetNewSuccessTracker(config.Metainfo.SuccessTrackerKind)
+		if !ok {
+			return nil, errs.New("Unknown success tracker kind %q", config.Metainfo.SuccessTrackerKind)
+		}
+		peer.SuccessTrackers = metainfo.NewSuccessTrackers(successTrackerUplinks, newTracker)
+		monkit.ScopeNamed(mon.Name() + ".success_trackers").Chain(peer.SuccessTrackers)
+
+		peer.FailureTracker = metainfo.NewStochasticPercentSuccessTracker(float32(config.Metainfo.FailureTrackerChanceToSkip))
+		monkit.ScopeNamed(mon.Name() + ".failure_tracker").Chain(peer.FailureTracker)
+
+		peer.TrustedUplinks = trust.NewTrustedPeerList(trustedUplinkSlice)
+
+		trackerInfo = metainfo.NewTrackerInfo(peer.SuccessTrackers, peer.FailureTracker, successTrackerUplinks, peer.Overlay.DB)
+
+	}
+
 	migrationModeFlag := metainfo.NewMigrationModeFlagExtension(config.Metainfo)
 
 	{ // setup debug
@@ -242,16 +301,15 @@ func NewAPI(log *zap.Logger, full *identity.FullIdentity, db DB,
 		}
 		debugConfig := config.Debug
 		debugConfig.ControlTitle = "API"
+
 		peer.Debug.Server = debug.NewServerWithAtomicLevel(log.Named("debug"), peer.Debug.Listener, monkit.Default,
-			debugConfig, atomicLogLevel, migrationModeFlag)
+			debugConfig, atomicLogLevel, migrationModeFlag, trackerInfo)
 		peer.Servers.Add(lifecycle.Item{
 			Name:  "debug",
 			Run:   peer.Debug.Server.Run,
 			Close: peer.Debug.Server.Close,
 		})
 	}
-
-	var err error
 
 	{
 		peer.Log.Info("Version info",
@@ -300,60 +358,6 @@ func NewAPI(log *zap.Logger, full *identity.FullIdentity, db DB,
 				return peer.Server.Run(ctx)
 			},
 			Close: peer.Server.Close,
-		})
-	}
-
-	{
-		successTrackerTrustedUplinks, err := parseNodeIDs(config.Metainfo.SuccessTrackerTrustedUplinks)
-		if err != nil {
-			log.Warn("Wrong uplink ID for the trusted list of the success trackers", zap.Error(err))
-			return nil, err
-		}
-
-		successTrackerUplinks, err := parseNodeIDs(config.Metainfo.SuccessTrackerUplinks)
-		if err != nil {
-			log.Warn("Wrong uplink ID for the list of the success trackers", zap.Error(err))
-			return nil, err
-		}
-
-		trustedUplinkSlice, err := parseNodeIDs(config.Metainfo.TrustedUplinks)
-		if err != nil {
-			log.Warn("Wrong uplink ID for the list of the trusted uplinks", zap.Error(err))
-			return nil, err
-		}
-
-		trustedUplinkSlice = append(trustedUplinkSlice, successTrackerTrustedUplinks...)
-		successTrackerUplinks = append(successTrackerUplinks, successTrackerTrustedUplinks...)
-
-		newTracker, ok := metainfo.GetNewSuccessTracker(config.Metainfo.SuccessTrackerKind)
-		if !ok {
-			return nil, errs.New("Unknown success tracker kind %q", config.Metainfo.SuccessTrackerKind)
-		}
-		peer.SuccessTrackers = metainfo.NewSuccessTrackers(successTrackerUplinks, newTracker)
-		monkit.ScopeNamed(mon.Name() + ".success_trackers").Chain(peer.SuccessTrackers)
-
-		peer.FailureTracker = metainfo.NewStochasticPercentSuccessTracker(float32(config.Metainfo.FailureTrackerChanceToSkip))
-		monkit.ScopeNamed(mon.Name() + ".failure_tracker").Chain(peer.FailureTracker)
-
-		peer.TrustedUplinks = trust.NewTrustedPeerList(trustedUplinkSlice)
-	}
-
-	placements, err := config.Placement.Parse(config.Overlay.Node.CreateDefaultPlacement, nodeselection.NewPlacementConfigEnvironment(peer.SuccessTrackers, peer.FailureTracker))
-	if err != nil {
-		return nil, err
-	}
-
-	{ // setup overlay
-		peer.Overlay.DB = peer.DB.OverlayCache()
-
-		peer.Overlay.Service, err = overlay.NewService(peer.Log.Named("overlay"), peer.Overlay.DB, peer.DB.NodeEvents(), placements, config.Console.ExternalAddress, config.Console.SatelliteName, config.Overlay)
-		if err != nil {
-			return nil, errs.Combine(err, peer.Close())
-		}
-		peer.Services.Add(lifecycle.Item{
-			Name:  "overlay",
-			Run:   peer.Overlay.Service.Run,
-			Close: peer.Overlay.Service.Close,
 		})
 	}
 
