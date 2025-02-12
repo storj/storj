@@ -321,6 +321,7 @@ import { DEFAULT_PAGE_LIMIT } from '@/types/pagination';
 import { DataTableHeader } from '@/types/common';
 import { usePreCheck } from '@/composables/usePreCheck';
 import { useConfigStore } from '@/store/modules/configStore';
+import { useLoading } from '@/composables/useLoading';
 
 import BrowserRowActions from '@/components/BrowserRowActions.vue';
 import FilePreviewDialog from '@/components/dialogs/FilePreviewDialog.vue';
@@ -352,6 +353,7 @@ const configStore = useConfigStore();
 const notify = useNotify();
 const router = useRouter();
 const { withTrialCheck } = usePreCheck();
+const { withLoading } = useLoading();
 
 const isFetching = ref<boolean>(false);
 const search = ref<string>('');
@@ -633,28 +635,32 @@ function isBeingDeleted(file: BrowserObject): boolean {
  * Handles file click.
  */
 function onFileClick(file: BrowserObject): void {
+    if (compProps.loading || isFetching.value) return;
+
     withTrialCheck(() => {
-        if (!file.type) return;
-        if (file.isDeleteMarker) return;
+        withLoading(async () => {
+            if (!file.type) return;
+            if (file.isDeleteMarker) return;
 
-        if (file.type === 'folder') {
-            const uriParts = [file.Key];
-            if (filePath.value) {
-                uriParts.unshift(...filePath.value.split('/'));
+            if (file.type === 'folder') {
+                const uriParts = [file.Key];
+                if (filePath.value) {
+                    uriParts.unshift(...filePath.value.split('/'));
+                }
+                const pathAndKey = uriParts.map(part => encodeURIComponent(part)).join('/');
+                await router.push(`${ROUTES.Projects.path}/${projectsStore.state.selectedProject.urlId}/${ROUTES.Buckets.path}/${bucketName.value}/${pathAndKey}`);
+                return;
             }
-            const pathAndKey = uriParts.map(part => encodeURIComponent(part)).join('/');
-            router.push(`${ROUTES.Projects.path}/${projectsStore.state.selectedProject.urlId}/${ROUTES.Buckets.path}/${bucketName.value}/${pathAndKey}`);
-            return;
-        }
-        if (!file.VersionId) {
-            return;
-        }
+            if (!file.VersionId) {
+                return;
+            }
 
-        obStore.setObjectPathForModal((file.path ?? '') + file.Key);
-        fileToPreview.value = file;
-        const parentFile = allFiles.value.find(f => f.browserObject.Key === file.Key && f.browserObject.path === file.path);
-        fileVersionsToPreview.value = parentFile?.browserObject?.Versions?.filter(v => !v.isDeleteMarker);
-        previewDialog.value = true;
+            obStore.setObjectPathForModal((file.path ?? '') + file.Key);
+            fileToPreview.value = file;
+            const parentFile = allFiles.value.find(f => f.browserObject.Key === file.Key && f.browserObject.path === file.path);
+            fileVersionsToPreview.value = parentFile?.browserObject?.Versions?.filter(v => !v.isDeleteMarker);
+            previewDialog.value = true;
+        });
     });
 }
 

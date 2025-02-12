@@ -257,6 +257,7 @@ import { DEFAULT_PAGE_LIMIT } from '@/types/pagination';
 import { Versioning } from '@/types/versioning';
 import { usePreCheck } from '@/composables/usePreCheck';
 import { useConfigStore } from '@/store/modules/configStore';
+import { useLoading } from '@/composables/useLoading';
 
 import BrowserRowActions from '@/components/BrowserRowActions.vue';
 import FilePreviewDialog from '@/components/dialogs/FilePreviewDialog.vue';
@@ -299,6 +300,7 @@ const configStore = useConfigStore();
 const notify = useNotify();
 const router = useRouter();
 const { withTrialCheck } = usePreCheck();
+const { withLoading } = useLoading();
 
 const isFetching = ref<boolean>(false);
 const search = ref<string>('');
@@ -585,23 +587,27 @@ function getFileInfo(file: BrowserObject): { name: string; ext: string; typeInfo
  * Handles file click.
  */
 function onFileClick(file: BrowserObject): void {
+    if (props.loading || isFetching.value) return;
+
     withTrialCheck(() => {
-        if (!file.type) return;
+        withLoading(async () => {
+            if (!file.type) return;
 
-        if (file.type === 'folder') {
-            const uriParts = [file.Key];
-            if (filePath.value) {
-                uriParts.unshift(...filePath.value.split('/'));
+            if (file.type === 'folder') {
+                const uriParts = [file.Key];
+                if (filePath.value) {
+                    uriParts.unshift(...filePath.value.split('/'));
+                }
+                const pathAndKey = uriParts.map(part => encodeURIComponent(part)).join('/');
+                await router.push(`${ROUTES.Projects.path}/${projectsStore.state.selectedProject.urlId}/${ROUTES.Buckets.path}/${bucketName.value}/${pathAndKey}`);
+                return;
             }
-            const pathAndKey = uriParts.map(part => encodeURIComponent(part)).join('/');
-            router.push(`${ROUTES.Projects.path}/${projectsStore.state.selectedProject.urlId}/${ROUTES.Buckets.path}/${bucketName.value}/${pathAndKey}`);
-            return;
-        }
 
-        obStore.setObjectPathForModal((file.path ?? '') + file.Key);
-        fileToPreview.value = file;
-        previewDialog.value = true;
-        dismissFileGuide();
+            obStore.setObjectPathForModal((file.path ?? '') + file.Key);
+            fileToPreview.value = file;
+            previewDialog.value = true;
+            dismissFileGuide();
+        });
     });
 }
 
