@@ -42,6 +42,12 @@ func testGCWithObservers(t *testing.T, run func(t *testing.T, makeObserver func(
 				return bloomfilter.NewSyncObserver(zaptest.NewLogger(t), config, planet.Satellites[0].Overlay.DB)
 			},
 		},
+		{
+			name: "SyncObserverV2",
+			factory: func(config bloomfilter.Config, planet *testplanet.Planet) rangedloop.Observer {
+				return bloomfilter.NewSyncObserverV2(zaptest.NewLogger(t), config, planet.Satellites[0].Overlay.DB)
+			},
+		},
 	}
 
 	for _, tc := range cases {

@@ -21,7 +21,7 @@ var mon = monkit.Package()
 
 // TestingObserver provides testing methods for bloom filter generation ranged loop observers.
 type TestingObserver interface {
-	TestingRetainInfos() nodeidmap.Map[*RetainInfo]
+	TestingRetainInfos() MinimalRetainInfoMap
 	TestingForceTableSize(size int)
 }
 
@@ -34,6 +34,13 @@ type Overlay interface {
 type RetainInfo struct {
 	Filter *bloomfilter.Filter
 	Count  int
+}
+
+// MinimalRetainInfoMap is what is exposed by the observer to the upload.
+type MinimalRetainInfoMap interface {
+	IsEmpty() bool
+	Load(nodeID storj.NodeID) (info *RetainInfo, ok bool)
+	Range(f func(nodeID storj.NodeID, info *RetainInfo) bool)
 }
 
 // Observer implements a rangedloop observer to collect bloom filters for the garbage collection.
@@ -164,7 +171,7 @@ func (obs *Observer) Finish(ctx context.Context) (err error) {
 }
 
 // TestingRetainInfos returns retain infos collected by observer.
-func (obs *Observer) TestingRetainInfos() nodeidmap.Map[*RetainInfo] {
+func (obs *Observer) TestingRetainInfos() MinimalRetainInfoMap {
 	return obs.retainInfos
 }
 
