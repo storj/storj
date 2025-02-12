@@ -813,6 +813,8 @@ const (
 )
 
 // processProjectRecord creates or updates invoice line items for stripe customer.
+// TODO: this method share quite common logic with the createInvoiceItems method;
+// consider refactoring.
 func (service *Service) processProjectRecord(ctx context.Context, cusID, projName string, record ProjectRecord, userID uuid.UUID, period time.Time) (skipped bool, err error) {
 	defer mon.Task()(&ctx)(&err)
 
