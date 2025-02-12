@@ -28,7 +28,7 @@ func TestCollectRows(t *testing.T) {
 	spannertest.RunClient(ctx, t, testSchema, func(t *testing.T, client *spanner.Client) {
 		{
 			items, err := spannerutil.CollectRows(
-				client.ReadOnlyTransaction().Query(ctx, spanner.Statement{
+				client.Single().Query(ctx, spanner.Statement{
 					SQL: "SELECT username FROM users",
 				}),
 				func(row *spanner.Row, item *string) error {
@@ -54,7 +54,7 @@ func TestCollectRows(t *testing.T) {
 
 		{
 			items, err := spannerutil.CollectRows(
-				client.ReadOnlyTransaction().Query(ctx, spanner.Statement{
+				client.Single().Query(ctx, spanner.Statement{
 					SQL: "SELECT username FROM users ORDER BY username",
 				}),
 				func(row *spanner.Row, item *string) error {
@@ -71,7 +71,7 @@ func TestCollectRow(t *testing.T) {
 	spannertest.RunClient(ctx, t, testSchema, func(t *testing.T, client *spanner.Client) {
 		{
 			item, err := spannerutil.CollectRow(
-				client.ReadOnlyTransaction().Query(ctx, spanner.Statement{
+				client.Single().Query(ctx, spanner.Statement{
 					SQL: "SELECT username FROM users",
 				}),
 				func(row *spanner.Row, item *string) error {
@@ -97,7 +97,7 @@ func TestCollectRow(t *testing.T) {
 
 		{
 			item, err := spannerutil.CollectRow(
-				client.ReadOnlyTransaction().Query(ctx, spanner.Statement{
+				client.Single().Query(ctx, spanner.Statement{
 					SQL: "SELECT username FROM users ORDER BY username LIMIT 1",
 				}),
 				func(row *spanner.Row, item *string) error {
@@ -109,7 +109,7 @@ func TestCollectRow(t *testing.T) {
 
 		{
 			_, err := spannerutil.CollectRow(
-				client.ReadOnlyTransaction().Query(ctx, spanner.Statement{
+				client.Single().Query(ctx, spanner.Statement{
 					SQL: "SELECT username FROM users ORDER BY username",
 				}),
 				func(row *spanner.Row, item *string) error {
