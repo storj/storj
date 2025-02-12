@@ -16,6 +16,7 @@ import (
 	"sync/atomic"
 	"time"
 
+	"github.com/zeebo/mwc"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
 	"golang.org/x/exp/maps"
@@ -33,7 +34,8 @@ var (
 	compaction_ExpiresDays = uint32(envInt("STORJ_HASHSTORE_COMPACTION_EXPIRES_DAYS", 7))
 
 	// if the log file is not this alive, compact it.
-	compaction_AliveFraction = envFloat("STORJ_HASHSTORE_COMPACTION_ALIVE_FRAC", 0.75)
+	compaction_AliveFraction     = envFloat("STORJ_HASHSTORE_COMPACTION_ALIVE_FRAC", 0.25)
+	compaction_ProbabilityFactor = compaction_AliveFraction / (1 - compaction_AliveFraction)
 
 	// multiple of the hashtbl to rewrite in a single compaction.
 	compaction_RewriteMultiple = envFloat("STORJ_HASHSTORE_COMPACTION_REWRITE_MULTIPLE", 1)
@@ -798,9 +800,20 @@ func (s *Store) compactOnce(
 			return false, err
 		}
 
-		// compact non-empty log files that don't contain enough alive data.
-		size := lf.size.Load()
-		if size > 0 && float64(alive[id])/float64(size) < compaction_AliveFraction {
+		if func() bool {
+			// if the log is empty, no need to delete it just to create it again later.
+			size := lf.size.Load()
+			if size == 0 {
+				return false
+			}
+			// compute the alive percent. if it's zero, always try to rewrite it.
+			alive := float64(alive[id]) / float64(size)
+			if alive == 0 {
+				return true
+			}
+			// compute the probability factor and include it that frequently.
+			return mwc.Float64() < compaction_ProbabilityFactor*(1-alive)/alive
+		}() {
 			rewriteCandidates[id] = true
 		}
 
@@ -809,10 +822,9 @@ func (s *Store) compactOnce(
 		return false, err
 	}
 
-	// if we have no rewrite candidates, then rewrite the log with the largest amount of dead
-	// records. this helps the steady state of a node that is basically full to more eagerly reclaim
-	// space for more uploads. it doesn't use the log's size field because that includes space for
-	// optimistic padding, and so we would rewrite totally alive logs if they had padding.
+	// if we have no rewrite candidates, then rewrite the log with the largest amount of dead data.
+	// this helps the steady state of a node that is basically full to more eagerly reclaim space
+	// for more uploads.
 	if len(rewriteCandidates) == 0 {
 		var maxDead uint64
 		var maxLog *logFile
