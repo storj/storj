@@ -22,20 +22,22 @@ type Chore struct {
 	log     *zap.Logger
 	service *Service
 
-	mu       sync.Mutex
-	cycles   map[storj.NodeID]*sync2.Cycle
-	started  sync2.Fence
-	interval time.Duration
+	mu      sync.Mutex
+	cycles  map[storj.NodeID]*sync2.Cycle
+	started sync2.Fence
+
+	interval, timeout time.Duration
 }
 
 // NewChore creates a new contact chore.
-func NewChore(log *zap.Logger, interval time.Duration, service *Service) *Chore {
+func NewChore(log *zap.Logger, interval, timeout time.Duration, service *Service) *Chore {
 	return &Chore{
 		log:     log,
 		service: service,
 
 		cycles:   make(map[storj.NodeID]*sync2.Cycle),
 		interval: interval,
+		timeout:  timeout,
 	}
 }
 
@@ -84,7 +86,7 @@ func (chore *Chore) updateCycles(ctx context.Context, group *errgroup.Group, sat
 		cycle := sync2.NewCycle(chore.interval)
 		chore.cycles[satellite] = cycle
 		cycle.Start(ctx, group, func(ctx context.Context) error {
-			return chore.service.pingSatellite(ctx, satellite, chore.interval)
+			return chore.service.pingSatellite(ctx, satellite, chore.interval, chore.timeout)
 		})
 	}
 

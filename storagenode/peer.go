@@ -508,7 +508,7 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, revocationDB exten
 
 		peer.Contact.Service = contact.NewService(process.NamedLog(peer.Log, "contact:service"), peer.Dialer, self, peer.Storage2.Trust, peer.Contact.QUICStats, tags)
 
-		peer.Contact.Chore = contact.NewChore(process.NamedLog(peer.Log, "contact:chore"), config.Contact.Interval, peer.Contact.Service)
+		peer.Contact.Chore = contact.NewChore(process.NamedLog(peer.Log, "contact:chore"), config.Contact.Interval, config.Contact.CheckInTimeout, peer.Contact.Service)
 		peer.Services.Add(lifecycle.Item{
 			Name:  "contact:chore",
 			Run:   peer.Contact.Chore.Run,
@@ -637,6 +637,7 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, revocationDB exten
 			peer.Contact.Service,
 			peer.Storage2.SpaceReport,
 			config.Storage2.Monitor,
+			config.Contact.CheckInTimeout,
 		)
 		peer.Services.Add(lifecycle.Item{
 			Name:  "piecestore:monitor",

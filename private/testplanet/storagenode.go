@@ -222,7 +222,8 @@ func (planet *Planet) newStorageNode(ctx context.Context, prefix string, index, 
 			Interval: defaultInterval,
 		},
 		Contact: contact.Config{
-			Interval: defaultInterval,
+			Interval:       defaultInterval,
+			CheckInTimeout: 15 * time.Second,
 		},
 		GracefulExit: gracefulexit.Config{
 			ChoreInterval:          defaultInterval,
