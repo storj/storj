@@ -141,6 +141,7 @@ func (endpoint *Endpoint) CheckIn(ctx context.Context, req *pb.CheckInRequest) (
 	err = endpoint.service.overlay.UpdateCheckIn(ctx, nodeInfo, time.Now().UTC())
 	if err != nil {
 		endpoint.log.Info("failed to update check in", zap.String("node address", req.Address), zap.Stringer("Node ID", nodeID), zap.Error(err))
+		endpoint.service.idLimiter.BackOut(ctx, nodeIDBytesAsString)
 		return nil, rpcstatus.Error(rpcstatus.Internal, Error.Wrap(err).Error())
 	}
 
