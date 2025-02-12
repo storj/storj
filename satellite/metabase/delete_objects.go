@@ -40,8 +40,6 @@ func (opts DeleteObjects) Verify() error {
 	switch {
 	case opts.Versioned && opts.Suspended:
 		return ErrInvalidRequest.New("Versioned and Suspended must not be simultaneously enabled")
-	case opts.ObjectLock.Enabled:
-		return ErrInvalidRequest.New("deletion from buckets with Object Lock enabled is not yet supported")
 	case opts.ProjectID.IsZero():
 		return ErrInvalidRequest.New("ProjectID missing")
 	case opts.BucketName == "":
@@ -79,6 +77,8 @@ const (
 	DeleteStatusNotFound
 	// DeleteStatusOK indicates that the object was successfully deleted.
 	DeleteStatusOK
+	// DeleteStatusObjectLocked indicates that the object's Object Lock configuration prevented its deletion.
+	DeleteStatusObjectLocked
 )
 
 // DeleteObjectsResultItem contains the result of an attempt to delete a specific object from a bucket.
@@ -100,8 +100,6 @@ type DeleteObjectsInfo struct {
 }
 
 // DeleteObjects deletes specific objects from a bucket.
-//
-// TODO: Support Object Lock.
 func (db *DB) DeleteObjects(ctx context.Context, opts DeleteObjects) (result DeleteObjectsResult, err error) {
 	defer mon.Task()(&ctx)(&err)
 
@@ -133,6 +131,7 @@ func (db *DB) DeleteObjects(ctx context.Context, opts DeleteObjects) (result Del
 				BucketName: opts.BucketName,
 				ObjectKey:  resultItem.ObjectKey,
 			},
+			ObjectLock: opts.ObjectLock,
 		}
 
 		var deleteObjectResult DeleteObjectResult
@@ -193,7 +192,12 @@ func (db *DB) DeleteObjects(ctx context.Context, opts DeleteObjects) (result Del
 		}
 
 		if err != nil {
-			return result, err
+			if ErrObjectLock.Has(err) {
+				resultItem.Status = DeleteStatusObjectLocked
+				err = nil
+			} else {
+				return result, err
+			}
 		}
 
 		if resultItem.Status == DeleteStatusUnprocessed {
@@ -214,6 +218,7 @@ func (db *DB) DeleteObjects(ctx context.Context, opts DeleteObjects) (result Del
 			}]; ok {
 				marker := processedOpts.results[linkedItemIdx].Marker
 				if marker != nil && marker.StreamVersionID == resultItem.RequestedStreamVersionID {
+					resultItem.Status = DeleteStatusNotFound
 					continue
 				}
 			}
@@ -228,6 +233,7 @@ func (db *DB) DeleteObjects(ctx context.Context, opts DeleteObjects) (result Del
 			},
 			Version:        resultItem.RequestedStreamVersionID.Version(),
 			StreamIDSuffix: resultItem.RequestedStreamVersionID.StreamIDSuffix(),
+			ObjectLock:     opts.ObjectLock,
 		})
 
 		result.DeletedSegmentCount += int64(deleteObjectResult.DeletedSegmentCount)
@@ -241,7 +247,12 @@ func (db *DB) DeleteObjects(ctx context.Context, opts DeleteObjects) (result Del
 		}
 
 		if err != nil {
-			return result, err
+			if ErrObjectLock.Has(err) {
+				resultItem.Status = DeleteStatusObjectLocked
+				err = nil
+			} else {
+				return result, err
+			}
 		}
 
 		if resultItem.Status == DeleteStatusUnprocessed {
