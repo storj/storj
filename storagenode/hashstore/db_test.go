@@ -37,7 +37,7 @@ func TestDB_BasicOperation(t *testing.T) {
 	t.Logf("%+v", stats)
 	assert.Equal(t, stats.NumSet, 1000)
 	assert.Equal(t, stats.LenSet, uint64(len(Key{})+RecordSize)*stats.NumSet)
-	assert.That(t, stats.LenSet <= stats.LenLogs) // <= because of optimistic alignment
+	assert.Equal(t, stats.LenSet, stats.LenLogs)
 
 	// should still have all the keys after manual compaction
 	db.AssertCompact()
