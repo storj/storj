@@ -294,6 +294,11 @@ func (endpoint *Endpoint) Upload(stream pb.DRPCPiecestore_UploadStream) (err err
 		}
 		uploadDuration := dt.Nanoseconds()
 
+		// we may return with specific named code, even if the real error is just cancelled
+		if errs2.IsCanceled(err) && rpcstatus.Code(err) != rpcstatus.Canceled && rpcstatus.Code(err) != rpcstatus.Aborted {
+			err = rpcstatus.NamedWrap("context-canceled", rpcstatus.Canceled, err)
+		}
+
 		if (errs2.IsCanceled(err) || drpc.ClosedError.Has(err)) && !committed {
 			mon.Counter("upload_cancel_count").Inc(1)
 			mon.Meter("upload_cancel_byte_meter").Mark64(uploadSize)
@@ -331,10 +336,6 @@ func (endpoint *Endpoint) Upload(stream pb.DRPCPiecestore_UploadStream) (err err
 
 	pieceWriter, err = endpoint.pieceBackend.Writer(ctx, limit.SatelliteId, limit.PieceId, hashAlgorithm, limit.PieceExpiration)
 	if err != nil {
-		if errs2.IsCanceled(err) {
-			return rpcstatus.NamedWrap("context-canceled", rpcstatus.Canceled, err)
-		}
-		endpoint.log.Error("upload internal error", zap.Error(err))
 		return rpcstatus.NamedWrap("disk-create-failure", rpcstatus.Internal, err)
 	}
 	defer func() {
@@ -400,7 +401,6 @@ func (endpoint *Endpoint) Upload(stream pb.DRPCPiecestore_UploadStream) (err err
 				return err
 			}()
 			if err != nil {
-				endpoint.log.Error("upload internal error", zap.Error(err))
 				return true, rpcstatus.NamedWrap("disk-write-failure", rpcstatus.Internal, err)
 			}
 		}
@@ -415,7 +415,6 @@ func (endpoint *Endpoint) Upload(stream pb.DRPCPiecestore_UploadStream) (err err
 
 		calculatedHash := pieceWriter.Hash()
 		if err := endpoint.VerifyPieceHash(ctx, limit, message.Done, calculatedHash); err != nil {
-			endpoint.log.Error("upload internal error", zap.Error(err))
 			return true, rpcstatus.NamedWrap("piece-hash-verify-fail", rpcstatus.Internal, err)
 		}
 		if message.Done.PieceSize != pieceWriter.Size() {
@@ -433,7 +432,6 @@ func (endpoint *Endpoint) Upload(stream pb.DRPCPiecestore_UploadStream) (err err
 				OrderLimit:    *limit,
 			}
 			if err := pieceWriter.Commit(ctx, info); err != nil {
-				endpoint.log.Error("upload internal error", zap.Error(err))
 				return true, rpcstatus.NamedWrap("commit-failure", rpcstatus.Internal, err)
 			}
 			committed = true
@@ -447,7 +445,6 @@ func (endpoint *Endpoint) Upload(stream pb.DRPCPiecestore_UploadStream) (err err
 			Timestamp:     time.Now(),
 		})
 		if err != nil {
-			endpoint.log.Error("upload internal error", zap.Error(err))
 			return true, rpcstatus.NamedWrap("sign-piece-hash-failure", rpcstatus.Internal, err)
 		}
 
