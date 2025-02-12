@@ -52,7 +52,7 @@ func TestStore_BasicOperation(t *testing.T) {
 	assert.Equal(t, stats.Table.NumSet, 4*1024)
 	assert.Equal(t, stats.Table.LenSet, uint64(len(Key{})+RecordSize)*stats.Table.NumSet)
 	assert.Equal(t, stats.Table.AvgSet, float64(len(Key{})+RecordSize))
-	assert.That(t, stats.Table.LenSet <= stats.LenLogs) // <= because of optimistic alignment
+	assert.Equal(t, stats.Table.LenSet, stats.LenLogs)
 	assert.Equal(t, stats.Compactions, 4)
 
 	// reopen the store and ensure we can still read all of the keys.
@@ -789,19 +789,6 @@ func TestStore_LogContainsDataToReconstruct(t *testing.T) {
 	assert.DeepEqual(t, lfRecs, tblRecs)
 }
 
-func TestStore_OptimisticAlignment(t *testing.T) {
-	s := newTestStore(t)
-	defer s.Close()
-
-	// write enough so that after the footer record is appended, we only need to add 10 bytes to the
-	// file to align it to 4k
-	s.AssertCreate(WithData(make([]byte, 4096-RecordSize-10)))
-
-	stats := s.Stats()
-	assert.Equal(t, stats.Table.LenSet, 4096-10) // alive data is 4096-rSize-10 + rSize.
-	assert.Equal(t, stats.LenLogs, 4096)         // total data should be aligned up to 4k.
-}
-
 func TestStore_RaceConcurrentWriteAndStats(t *testing.T) {
 	s := newTestStore(t)
 	defer s.Close()
@@ -997,10 +984,9 @@ func TestStore_CompactionRewritesLogsWhenNothingToDo(t *testing.T) {
 	}
 
 	// make a ballast key that stays alive that should prevent the log file from being rewritten
-	// under normal conditions while also being a specific size to tickle optimistic alignment to
-	// ensure we don't continuously rewrite log files with some padding, and an already expired key
-	// so that the log is not fully alive so that it can be considered a candidate regardless.
-	data := make([]byte, 4096-RecordSize-10)
+	// under normal conditions and an already expired key so that the log is not fully alive so that
+	// it can be considered a candidate regardless.
+	data := make([]byte, 4096)
 	ballast := s.AssertCreate(WithData(data))
 	assert.Equal(t, getLog(ballast), 1)
 
