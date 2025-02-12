@@ -82,10 +82,11 @@ type Service struct {
 	Config                Config
 	spaceReport           SpaceReport
 	verifier              DiskVerification
+	checkInTimeout        time.Duration
 }
 
 // NewService creates a new storage node monitoring service.
-func NewService(log *zap.Logger, verifier DiskVerification, contact *contact.Service, spaceReport SpaceReport, config Config) *Service {
+func NewService(log *zap.Logger, verifier DiskVerification, contact *contact.Service, spaceReport SpaceReport, config Config, checkInTimeout time.Duration) *Service {
 	return &Service{
 		log:                   log,
 		contact:               contact,
@@ -96,6 +97,7 @@ func NewService(log *zap.Logger, verifier DiskVerification, contact *contact.Ser
 		Config:                config,
 		verifier:              verifier,
 		spaceReport:           spaceReport,
+		checkInTimeout:        checkInTimeout,
 	}
 }
 
@@ -128,7 +130,7 @@ func (service *Service) Run(ctx context.Context) (err error) {
 			return nil
 		}
 
-		err = service.contact.PingSatellites(ctx, service.Config.NotifyLowDiskCooldown)
+		err = service.contact.PingSatellites(ctx, service.Config.NotifyLowDiskCooldown, service.checkInTimeout)
 		if err != nil {
 			service.log.Error("error notifying satellites: ", zap.Error(err))
 		}
