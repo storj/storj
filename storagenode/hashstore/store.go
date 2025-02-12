@@ -34,6 +34,9 @@ var (
 
 	// if the log file is not this alive, compact it.
 	compaction_AliveFraction = envFloat("STORJ_HASHSTORE_COMPACTION_ALIVE_FRAC", 0.75)
+
+	// multiple of the hashtbl to rewrite in a single compaction.
+	compaction_RewriteMultiple = envFloat("STORJ_HASHSTORE_COMPACTION_REWRITE_MULTIPLE", 1)
 )
 
 // Store is a hash table based key-value store with compaction.
@@ -832,7 +835,7 @@ func (s *Store) compactOnce(
 	// limit the number of log files we rewrite in a single compaction to so that we write around
 	// the amount of a size of the new hashtbl. this bounds the extra space necessary to compact.
 	rewrite := make(map[uint64]bool)
-	target := hashtblSize(logSlots)
+	target := uint64(float64(hashtblSize(logSlots)) * compaction_RewriteMultiple)
 	for id := range rewriteCandidates {
 		if alive[id] <= target {
 			rewrite[id] = true
