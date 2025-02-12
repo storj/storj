@@ -61,14 +61,11 @@
 # the number of concurrent api requests that can be made
 # analytics.hub-spot.concurrent-sends: 4
 
-# the hubspot form ID for cunoFS beta
-# analytics.hub-spot.cuno-fs-beta-form-id: ""
+# the hubspot form URL for cunoFS beta
+# analytics.hub-spot.cuno-fs-beta-form-url: ""
 
 # the default timeout for the hubspot http client
 # analytics.hub-spot.default-timeout: 10s
-
-# the prefix for the event name
-# analytics.hub-spot.event-prefix: ""
 
 # the hubspot lifecycle stage for new accounts
 # analytics.hub-spot.life-cycle-stage: ""
@@ -76,8 +73,11 @@
 # hubspot refresh token
 # analytics.hub-spot.refresh-token: ""
 
-# the hubspot form ID for signup
-# analytics.hub-spot.signup-form-id: ""
+# the event name for signup action
+# analytics.hub-spot.signup-event-name: ""
+
+# the hubspot form URL for signup
+# analytics.hub-spot.signup-form-url: ""
 
 # hubspot token refresh API
 # analytics.hub-spot.token-api: https://api.hubapi.com/oauth/v1/token

@@ -22,23 +22,21 @@ import (
 
 const (
 	expiryBufferTime = 5 * time.Minute
-	// string template for hubspot submission form. %s is a placeholder for the form(ID) being submitted.
-	hubspotFormTemplate = "https://api.hsforms.com/submissions/v3/integration/submit/44965639/%s"
 )
 
 // HubSpotConfig is a configuration struct for Concurrent Sending of Events.
 type HubSpotConfig struct {
-	RefreshToken     string        `help:"hubspot refresh token" default:""`
-	TokenAPI         string        `help:"hubspot token refresh API" default:"https://api.hubapi.com/oauth/v1/token"`
-	ClientID         string        `help:"hubspot client ID" default:""`
-	ClientSecret     string        `help:"hubspot client secret" default:""`
-	ChannelSize      int           `help:"the number of events that can be in the queue before dropping" default:"1000"`
-	ConcurrentSends  int           `help:"the number of concurrent api requests that can be made" default:"4"`
-	DefaultTimeout   time.Duration `help:"the default timeout for the hubspot http client" default:"10s"`
-	EventPrefix      string        `help:"the prefix for the event name" default:""`
-	SignupFormId     string        `help:"the hubspot form ID for signup" default:""`
-	CunoFSBetaFormId string        `help:"the hubspot form ID for cunoFS beta" default:""`
-	LifeCycleStage   string        `help:"the hubspot lifecycle stage for new accounts" default:""`
+	RefreshToken      string        `help:"hubspot refresh token" default:""`
+	TokenAPI          string        `help:"hubspot token refresh API" default:"https://api.hubapi.com/oauth/v1/token"`
+	ClientID          string        `help:"hubspot client ID" default:""`
+	ClientSecret      string        `help:"hubspot client secret" default:""`
+	ChannelSize       int           `help:"the number of events that can be in the queue before dropping" default:"1000"`
+	ConcurrentSends   int           `help:"the number of concurrent api requests that can be made" default:"4"`
+	DefaultTimeout    time.Duration `help:"the default timeout for the hubspot http client" default:"10s"`
+	SignupEventName   string        `help:"the event name for signup action" default:""`
+	SignupFormURL     string        `help:"the hubspot form URL for signup" default:""`
+	CunoFSBetaFormURL string        `help:"the hubspot form URL for cunoFS beta" default:""`
+	LifeCycleStage    string        `help:"the hubspot lifecycle stage for new accounts" default:""`
 }
 
 // HubSpotEvent is a configuration struct for sending API request to HubSpot.
@@ -111,6 +109,11 @@ func (q *HubSpotEvents) Run(ctx context.Context) error {
 
 // EnqueueCreateUserMinimal is for creating user in HubSpot using the minimal form.
 func (q *HubSpotEvents) EnqueueCreateUserMinimal(fields TrackCreateUserFields) {
+	if q.config.SignupFormURL == "" || q.config.SignupEventName == "" {
+		q.log.Warn("hubspot signup form URL or event name is not set")
+		return
+	}
+
 	newField := func(name string, value interface{}) map[string]interface{} {
 		return map[string]interface{}{
 			"name":  name,
@@ -136,8 +139,6 @@ func (q *HubSpotEvents) EnqueueCreateUserMinimal(fields TrackCreateUserFields) {
 		"satellite_selected": q.satelliteName,
 	}
 
-	formURL := fmt.Sprintf(hubspotFormTemplate, q.config.SignupFormId)
-
 	data := map[string]interface{}{
 		"fields": formFields,
 	}
@@ -149,7 +150,7 @@ func (q *HubSpotEvents) EnqueueCreateUserMinimal(fields TrackCreateUserFields) {
 	}
 
 	createUser := HubSpotEvent{
-		Endpoint: formURL,
+		Endpoint: q.config.SignupFormURL,
 		Data:     data,
 	}
 
@@ -157,7 +158,7 @@ func (q *HubSpotEvents) EnqueueCreateUserMinimal(fields TrackCreateUserFields) {
 		Endpoint: "https://api.hubapi.com/events/v3/send",
 		Data: map[string]interface{}{
 			"email":      fields.Email,
-			"eventName":  q.config.EventPrefix + "_" + strings.ToLower(q.satelliteName) + "_" + "account_created",
+			"eventName":  q.config.SignupEventName,
 			"properties": properties,
 		},
 	}
@@ -171,6 +172,11 @@ func (q *HubSpotEvents) EnqueueCreateUserMinimal(fields TrackCreateUserFields) {
 
 // EnqueueJoinCunoFSBeta is for tracking user join cunoFS beta using hubspot form.
 func (q *HubSpotEvents) EnqueueJoinCunoFSBeta(fields TrackJoinCunoFSBetaFields) {
+	if q.config.CunoFSBetaFormURL == "" {
+		q.log.Warn("hubspot cunoFS beta form URL is not set")
+		return
+	}
+
 	newField := func(name string, value string) map[string]string {
 		return map[string]string{
 			"name":  name,
@@ -198,9 +204,8 @@ func (q *HubSpotEvents) EnqueueJoinCunoFSBeta(fields TrackJoinCunoFSBetaFields) 
 		newField("cunofs_beta_specific_tasks", fields.SpecificTasks),
 	}
 
-	formURL := fmt.Sprintf(hubspotFormTemplate, q.config.CunoFSBetaFormId)
 	joinBetaEvent := HubSpotEvent{
-		Endpoint: formURL,
+		Endpoint: q.config.CunoFSBetaFormURL,
 		Data: map[string]interface{}{
 			"fields": formFields,
 		},
