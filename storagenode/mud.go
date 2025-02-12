@@ -240,7 +240,7 @@ func Module(ball *mud.Ball) {
 		mud.Provide[*contact.Service](ball, contact.NewService)
 
 		mud.Provide[*contact.Chore](ball, func(log *zap.Logger, contactConfig contact.Config, service *contact.Service) *contact.Chore {
-			return contact.NewChore(log, contactConfig.Interval, service)
+			return contact.NewChore(log, contactConfig.Interval, contactConfig.CheckInTimeout, service)
 		})
 		mud.Tag[*contact.Chore, modular.Service](ball, modular.Service{})
 
@@ -294,7 +294,9 @@ func Module(ball *mud.Ball) {
 		config.RegisterConfig[monitor.Config](ball, "monitor")
 
 		mud.RegisterInterfaceImplementation[monitor.DiskVerification, *pieces.Store](ball)
-		mud.Provide[*monitor.Service](ball, monitor.NewService)
+		mud.Provide[*monitor.Service](ball, func(log *zap.Logger, verifier monitor.DiskVerification, contactService *contact.Service, report monitor.SpaceReport, config monitor.Config, contactConfig contact.Config) *monitor.Service {
+			return monitor.NewService(log, verifier, contactService, report, config, contactConfig.CheckInTimeout)
+		})
 
 		mud.Provide[*retain.Service](ball, retain.NewService)
 		mud.Provide[*retain.RunOnce](ball, retain.NewRunOnce)

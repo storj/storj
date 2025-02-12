@@ -108,7 +108,7 @@ func TestServicePingSatellites(t *testing.T) {
 		}
 
 		node.Contact.Service.UpdateSelf(&newCapacity)
-		err := node.Contact.Service.PingSatellites(ctx, 10*time.Second)
+		err := node.Contact.Service.PingSatellites(ctx, 10*time.Second, 15*time.Second)
 		require.NoError(t, err)
 
 		for _, satellite := range planet.Satellites {
