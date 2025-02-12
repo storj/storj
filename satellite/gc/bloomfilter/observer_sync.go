@@ -108,7 +108,7 @@ func (obs *SyncObserver) Finish(ctx context.Context) (err error) {
 }
 
 // TestingRetainInfos returns retain infos collected by observer.
-func (obs *SyncObserver) TestingRetainInfos() nodeidmap.Map[*RetainInfo] {
+func (obs *SyncObserver) TestingRetainInfos() MinimalRetainInfoMap {
 	return obs.retainInfos
 }
 
