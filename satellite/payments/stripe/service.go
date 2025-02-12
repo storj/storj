@@ -69,7 +69,7 @@ type Config struct {
 	SkipEmptyInvoices      bool   `help:"if set, skips the creation of empty invoices for customers with zero usage for the billing period" default:"true"`
 	MaxParallelCalls       int    `help:"the maximum number of concurrent Stripe API calls in invoicing methods" default:"10"`
 	RemoveExpiredCredit    bool   `help:"whether to remove expired package credit or not" default:"true"`
-	UseIdempotency         bool   `help:"whether to use idempotency for create/update requests" default:"false"`
+	UseIdempotency         bool   `help:"whether to use idempotency for create/update requests" default:"true"`
 	Retries                RetryConfig
 }
 
