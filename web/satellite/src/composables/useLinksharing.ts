@@ -13,6 +13,8 @@ import { useBucketsStore } from '@/store/modules/bucketsStore';
 import { useObjectBrowserStore } from '@/store/modules/objectBrowserStore';
 import { AccessGrant, EdgeCredentials } from '@/types/accessGrants';
 import { Project } from '@/types/projects';
+import { Download } from '@/utils/download';
+import { DownloadPrefixFormat } from '@/types/browser';
 
 const WORKER_ERR_MSG = 'Worker is not defined';
 
@@ -57,8 +59,17 @@ export function useLinksharing() {
         if (objectKey) fullPath = `${fullPath}/${objectKey}`;
         if (type === ShareType.Folder) fullPath = `${fullPath}/`;
 
-        const LINK_SHARING_AG_NAME = `${fullPath}_shared-${type}_${new Date().toISOString()}`;
-        const grant: AccessGrant = await agStore.createAccessGrant(LINK_SHARING_AG_NAME, selectedProject.value.id);
+        // Use the object key as the access name for objects and folders.
+        let accessName = objectKey;
+        if (type === ShareType.Bucket) {
+            accessName = bucketName;
+        }
+
+        let linksharingAGName = `${accessName}_shared-${type}_${new Date().toISOString()}`;
+        if (linksharingAGName.length > configStore.state.config.maxNameCharacters) {
+            linksharingAGName = `shared-${type}_${new Date().toISOString()}`;
+        }
+        const grant: AccessGrant = await agStore.createAccessGrant(linksharingAGName, selectedProject.value.id);
         const creds: EdgeCredentials = await generatePublicCredentials(grant.secret, fullPath, null);
 
         let url = `${publicLinksharingURL.value}/s/${creds.accessKeyId}/${bucketName}`;
@@ -67,6 +78,18 @@ export function useLinksharing() {
         if (type === ShareType.Folder) url = `${url}/`;
 
         return url;
+    }
+
+    async function downloadPrefix(path: string, format: DownloadPrefixFormat): Promise<void> {
+        const now = new Date();
+        const expiresAt = new Date();
+        expiresAt.setHours(now.getHours() + 1);
+
+        const creds = await generatePublicCredentials(bucketsStore.state.apiKey, path, expiresAt, bucketsStore.state.passphrase);
+
+        const url = new URL(`${linksharingURL.value}/s/${creds.accessKeyId}/${path}?download=1&download-kind=${format}`);
+
+        Download.fileByLink(url.href);
     }
 
     async function getObjectDistributionMap(path: string): Promise<Blob> {
@@ -170,5 +193,6 @@ export function useLinksharing() {
         generateBucketShareURL,
         generateFileOrFolderShareURL,
         getObjectDistributionMap,
+        downloadPrefix,
     };
 }

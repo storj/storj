@@ -117,6 +117,7 @@ export enum AnalyticsErrorEventSource {
     LOCK_OBJECT_DIALOG = 'Lock Object Dialog',
     LEGAL_HOLD_DIALOG = 'Legal Hold Dialog',
     ADD_FUNDS_DIALOG = 'Add Funds Dialog',
+    DOWNLOAD_PREFIX_DIALOG = 'Download Prefix Dialog',
 }
 
 export enum PageVisitSource {

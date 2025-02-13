@@ -193,7 +193,7 @@ func Module(ball *mud.Ball) {
 	}
 
 	{ // setup contact service
-		mud.Provide[contact.NodeInfo](ball, func(id storj.NodeID, contactConfig contact.Config, operator operator.Config, versionInfo version.Info, server *server.Server) (contact.NodeInfo, error) {
+		mud.Provide[contact.NodeInfo](ball, func(ctx context.Context, id storj.NodeID, contactConfig contact.Config, operator operator.Config, versionInfo version.Info, server *server.Server) (contact.NodeInfo, error) {
 			externalAddress := contactConfig.ExternalAddress
 			if externalAddress == "" {
 				externalAddress = server.Addr().String()
@@ -204,7 +204,7 @@ func Module(ball *mud.Ball) {
 				return contact.NodeInfo{}, err
 			}
 
-			noiseKeyAttestation, err := server.NoiseKeyAttestation(context.Background())
+			noiseKeyAttestation, err := server.NoiseKeyAttestation(ctx)
 			if err != nil {
 				return contact.NodeInfo{}, err
 			}
@@ -328,9 +328,9 @@ func Module(ball *mud.Ball) {
 			return satstore.NewSatelliteStore(metaDir, "migrate")
 		})
 		mud.Provide[*piecestore.OldPieceBackend](ball, piecestore.NewOldPieceBackend)
-		mud.Provide[*piecestore.HashStoreBackend](ball, func(cfg piecestore.OldConfig, bfm *retain.BloomFilterManager, rtm *retain.RestoreTimeManager, log *zap.Logger) (*piecestore.HashStoreBackend, error) {
+		mud.Provide[*piecestore.HashStoreBackend](ball, func(ctx context.Context, cfg piecestore.OldConfig, bfm *retain.BloomFilterManager, rtm *retain.RestoreTimeManager, log *zap.Logger) (*piecestore.HashStoreBackend, error) {
 			dir := filepath.Join(cfg.Path, "hashstore")
-			backend, err := piecestore.NewHashStoreBackend(dir, bfm, rtm, log)
+			backend, err := piecestore.NewHashStoreBackend(ctx, dir, bfm, rtm, log)
 			if err != nil {
 				return nil, err
 			}

@@ -184,6 +184,14 @@
                                 Share Bucket
                             </v-list-item-title>
                         </v-list-item>
+                        <v-list-item v-if="downloadPrefixEnabled" link @click="() => onDownloadBucket(item.name)">
+                            <template #prepend>
+                                <component :is="DownloadIcon" :size="18" />
+                            </template>
+                            <v-list-item-title class="ml-3">
+                                Download Bucket
+                            </v-list-item-title>
+                        </v-list-item>
                         <v-list-item link @click="() => showBucketDetailsModal(item.name)">
                             <template #prepend>
                                 <component :is="ReceiptText" :size="18" />
@@ -212,6 +220,7 @@
     <bucket-details-dialog v-model="isBucketDetailsDialogShown" :bucket-name="bucketDetailsName" />
     <set-bucket-object-lock-config-dialog v-if="objectLockUIEnabled" v-model="isSetBucketObjectLockDialogShown" :bucket-name="bucketObjectLockName" />
     <toggle-versioning-dialog v-model="bucketToToggleVersioning" @toggle="fetchBuckets" />
+    <download-prefix-dialog v-if="downloadPrefixEnabled" v-model="isDownloadPrefixDialogShown" :prefix-type="DownloadPrefixType.Bucket" :path="bucketToDownload" />
 </template>
 
 <script setup lang="ts">
@@ -233,23 +242,24 @@ import {
     VTooltip,
 } from 'vuetify/components';
 import {
+    ArrowRight,
     CircleCheck,
     CircleHelp,
     CircleMinus,
     CirclePause,
     CircleX,
-    Ellipsis,
-    Search,
-    ReceiptText,
-    Share,
-    Trash2,
-    ArrowRight,
+    DownloadIcon,
     Earth,
+    Ellipsis,
     History,
     LandPlot,
     Lock,
     LockKeyhole,
     LockKeyholeOpen,
+    ReceiptText,
+    Search,
+    Share,
+    Trash2,
 } from 'lucide-vue-next';
 
 import { Memory, Size } from '@/utils/bytesSize';
@@ -260,7 +270,7 @@ import { useNotify } from '@/utils/hooks';
 import { AnalyticsErrorEventSource } from '@/utils/constants/analyticsEventNames';
 import { useProjectsStore } from '@/store/modules/projectsStore';
 import { DEFAULT_PAGE_LIMIT } from '@/types/pagination';
-import { tableSizeOptions, MAX_SEARCH_VALUE_LENGTH, DataTableHeader } from '@/types/common';
+import { DataTableHeader, MAX_SEARCH_VALUE_LENGTH, tableSizeOptions } from '@/types/common';
 import { EdgeCredentials } from '@/types/accessGrants';
 import { ROUTES } from '@/router';
 import { usePreCheck } from '@/composables/usePreCheck';
@@ -268,6 +278,7 @@ import { Versioning } from '@/types/versioning';
 import { Time } from '@/utils/time';
 import { useObjectBrowserStore } from '@/store/modules/objectBrowserStore';
 import { capitalizedMode, NO_MODE_SET } from '@/types/objectLock';
+import { DownloadPrefixType } from '@/types/browser';
 
 import DeleteBucketDialog from '@/components/dialogs/DeleteBucketDialog.vue';
 import EnterBucketPassphraseDialog from '@/components/dialogs/EnterBucketPassphraseDialog.vue';
@@ -275,6 +286,7 @@ import ShareDialog from '@/components/dialogs/ShareDialog.vue';
 import BucketDetailsDialog from '@/components/dialogs/BucketDetailsDialog.vue';
 import ToggleVersioningDialog from '@/components/dialogs/ToggleVersioningDialog.vue';
 import SetBucketObjectLockConfigDialog from '@/components/dialogs/SetBucketObjectLockConfigDialog.vue';
+import DownloadPrefixDialog from '@/components/dialogs/DownloadPrefixDialog.vue';
 
 const bucketsStore = useBucketsStore();
 const obStore = useObjectBrowserStore();
@@ -298,6 +310,8 @@ const isBucketPassphraseDialogOpen = ref(false);
 const isShareBucketDialogShown = ref<boolean>(false);
 const isSetBucketObjectLockDialogShown = ref<boolean>(false);
 const isBucketDetailsDialogShown = ref<boolean>(false);
+const isDownloadPrefixDialogShown = ref<boolean>(false);
+const bucketToDownload = ref<string>('');
 const pageWidth = ref<number>(document.body.clientWidth);
 const sortBy = ref<SortItem[] | undefined>([{ key: 'name', order: 'asc' }]);
 const bucketToToggleVersioning = ref<BucketMetadata | null>(null);
@@ -316,6 +330,8 @@ const displayedItems = computed<Bucket[]>(() => {
 
     return items;
 });
+
+const downloadPrefixEnabled = computed<boolean>(() => configStore.state.config.downloadPrefixEnabled);
 
 const showRegionTag = computed<boolean>(() => {
     return configStore.state.config.enableRegionTag;
@@ -598,6 +614,32 @@ function openBucket(bucketName: string): void {
         passphraseDialogCallback = () => openBucket(selectedBucketName.value);
         isBucketPassphraseDialogOpen.value = true;
     });
+}
+
+/**
+ * Handles download bucket action.
+ */
+function onDownloadBucket(bucketName: string): void {
+    withTrialCheck(() => { withManagedPassphraseCheck(async () => {
+        if (!bucketName) {
+            return;
+        }
+
+        function setBucketDownload(): void {
+            bucketToDownload.value = bucketName;
+            isDownloadPrefixDialogShown.value = true;
+        }
+
+        if (promptForPassphrase.value) {
+            passphraseDialogCallback = setBucketDownload;
+
+            bucketsStore.setFileComponentBucketName(bucketName);
+            isBucketPassphraseDialogOpen.value = true;
+            return;
+        }
+
+        setBucketDownload();
+    });});
 }
 
 /**

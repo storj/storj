@@ -182,6 +182,7 @@
             <v-col cols="auto" class="pt-0 mt-0 pt-md-7">
                 <v-date-input
                     v-model="chartDateRange"
+                    :allowed-dates="allowDate"
                     label="Select Date Range"
                     min-width="260px"
                     multiple="range"
@@ -233,15 +234,7 @@
                                     </template>
                                     <template #default>
                                         <p>
-                                            The most recent data may change as download bandwidth moves from "allocated" to "settled".
-                                            <a
-                                                class="link"
-                                                href="https://docs.storj.io/dcs/pricing#bandwidth-fee"
-                                                target="_blank"
-                                                rel="noopener noreferrer"
-                                            >
-                                                Learn more
-                                            </a>
+                                            Download bandwidth appears here after downloads complete or cancel within 48 hours.
                                         </p>
                                     </template>
                                 </v-tooltip>
@@ -253,7 +246,7 @@
                             <BandwidthChart
                                 :width="chartWidth"
                                 :height="240"
-                                :data="allocatedBandwidthUsage"
+                                :data="settledBandwidthUsage"
                                 :since="chartsSinceDate"
                                 :before="chartsBeforeDate"
                             />
@@ -701,7 +694,7 @@ const chartDateRange = computed<Date[]>({
     get: () => {
         const dates: Date[] = [...datePickerModel.value];
         if (!dates.length) {
-            for (let i = 7; i > 0; i--) {
+            for (let i = 6; i >= 0; i--) {
                 const d = new Date();
                 d.setDate(d.getDate() - i);
                 dates.push(d);
@@ -735,9 +728,9 @@ const storageUsage = computed((): DataStamp[] => {
 /**
  * Returns allocated bandwidth chart data from store.
  */
-const allocatedBandwidthUsage = computed((): DataStamp[] => {
+const settledBandwidthUsage = computed((): DataStamp[] => {
     return ChartUtils.populateEmptyUsage(
-        projectsStore.state.allocatedBandwidthChartData, chartsSinceDate.value, chartsBeforeDate.value,
+        projectsStore.state.settledBandwidthChartData, chartsSinceDate.value, chartsBeforeDate.value,
     );
 });
 
@@ -754,6 +747,18 @@ const emissionImpactViewEnabled = computed<boolean>(() => {
 const emission = computed<Emission>(()  => {
     return projectsStore.state.emission;
 });
+
+function allowDate(date: unknown): boolean {
+    if (!date) return false;
+    const d = new Date(date as string);
+    if (isNaN(d.getTime())) return false;
+
+    d.setHours(0, 0, 0, 0);
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+
+    return d <= today;
+}
 
 /**
  * Returns adjusted value and unit.
@@ -852,7 +857,7 @@ function onSegmentsCTAClicked(): void {
         return;
     }
 
-    window.open('https://docs.storj.io/dcs/pricing#per-segment-fee', '_blank', 'noreferrer');
+    window.open('https://storj.dev/support/usage-limit-increases#segment-limit', '_blank', 'noreferrer');
 }
 
 /**

@@ -13,8 +13,46 @@ import (
 
 	"storj.io/common/pb"
 	"storj.io/common/storj"
+	"storj.io/common/testcontext"
+	"storj.io/storj/shared/bloomfilter"
 	"storj.io/storj/storagenode/retain"
 )
+
+func TestHashstoreBackendTrash(t *testing.T) {
+	ctx := testcontext.New(t)
+
+	// allocate a hash backend
+	bfm, _ := retain.NewBloomFilterManager(t.TempDir(), 0)
+	rtm := retain.NewRestoreTimeManager(t.TempDir())
+	backend, err := NewHashStoreBackend(ctx, t.TempDir(), bfm, rtm, nil)
+	require.NoError(t, err)
+	defer ctx.Check(backend.Close)
+
+	// write an empty piece
+	wr, err := backend.Writer(ctx, storj.NodeID{}, storj.PieceID{}, pb.PieceHashAlgorithm_BLAKE3, time.Time{})
+	require.NoError(t, err)
+	require.NoError(t, wr.Commit(ctx, &pb.PieceHeader{
+		Hash: wr.Hash(),
+	}))
+
+	// set the restore time to way in the past and add an empty bloom filter way in the future that
+	// will cause the piece to be trashed
+	require.NoError(t, rtm.TestingSetRestoreTime(ctx, storj.NodeID{}, time.Now().AddDate(-1, 0, 0)))
+	filter := bloomfilter.NewOptimal(1000, 0.01)
+	require.NoError(t, bfm.Queue(ctx, storj.NodeID{}, &pb.RetainRequest{
+		CreationDate: time.Now().AddDate(1, 0, 0),
+		Filter:       filter.Bytes(),
+	}))
+
+	// compact to trigger the piece being flagged as trash
+	require.NoError(t, backend.dbs[storj.NodeID{}].Compact(ctx))
+
+	// ensure the piece is trash
+	rd, err := backend.Reader(ctx, storj.NodeID{}, storj.PieceID{})
+	require.NoError(t, err)
+	defer ctx.Check(rd.Close)
+	require.True(t, rd.Trash())
+}
 
 func BenchmarkPieceStore(b *testing.B) {
 	var satellite storj.NodeID
@@ -54,7 +92,7 @@ func BenchmarkPieceStore(b *testing.B) {
 		run(b, func(b *testing.B) PieceBackend {
 			bfm, _ := retain.NewBloomFilterManager(b.TempDir(), 0)
 			rtm := retain.NewRestoreTimeManager(b.TempDir())
-			backend, err := NewHashStoreBackend(b.TempDir(), bfm, rtm, nil)
+			backend, err := NewHashStoreBackend(context.Background(), b.TempDir(), bfm, rtm, nil)
 			require.NoError(b, err)
 			return backend
 		}, 64*1024)

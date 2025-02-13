@@ -187,7 +187,11 @@ This endpoint returns information about users limits.
 
 #### DELETE /api/users/{user-email}
 
-Deletes the user.
+Redacts the user's personal information and sets the user's status to `deleted`.
+
+It will return an error if the user:
+- has active projects (see [DELETE /api/projects/{project-id}](#delete-apiprojectsproject-id)).
+- has unpaid invoices.
 
 #### PUT /api/users/{user-email}/limits
 
@@ -390,7 +394,12 @@ Updates project name or description.
 
 #### DELETE /api/projects/{project-id}
 
-Deletes the project.
+Set the project's status to `disabled`. This is considered deleted from the Storj point of view and
+it remains for historical data analysis.
+
+If self-deletion feature is enabled, user requested its deletion, and user is not in the paid tier
+or the last final invoice is generated otherwise, the project's data (objects, segments, and
+buckets) are deleted.
 
 #### GET /api/projects/{project}/apikeys
 

@@ -535,9 +535,19 @@ func (accounts *accounts) GetPartnerPlacementPriceModel(partner string, placemen
 		product = accounts.service.placementProductMap.GetProductByPlacement(int(placement))
 	}
 	if price, ok := accounts.service.productPriceMap[product]; ok {
-		return price, nil
+		return price.ProjectUsagePriceModel, nil
 	}
 	return payments.ProjectUsagePriceModel{}, ErrPricingNotfound.New("pricing not found for partner %s and placement %d", partner, placement)
+}
+
+// GetPartnerPlacements returns the placements for a partner.
+func (accounts *accounts) GetPartnerPlacements(partner string) []storj.PlacementConstraint {
+	placements := make([]storj.PlacementConstraint, 0)
+	placementMap := accounts.service.partnerPlacementMap[partner]
+	for placement := range placementMap {
+		placements = append(placements, storj.PlacementConstraint(placement))
+	}
+	return placements
 }
 
 // CheckProjectInvoicingStatus returns error if for the given project there are outstanding project records and/or usage

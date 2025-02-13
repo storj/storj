@@ -16,7 +16,6 @@ import (
 	"storj.io/storj/satellite/metabase"
 	"storj.io/storj/satellite/metabase/metabasetest"
 	"storj.io/storj/satellite/metabase/rangedloop"
-	"storj.io/storj/shared/dbutil"
 )
 
 type in struct {
@@ -32,11 +31,6 @@ type expected struct {
 
 func TestMetabaseSegementProvider(t *testing.T) {
 	metabasetest.Run(t, func(ctx *testcontext.Context, t *testing.T, db *metabase.DB) {
-		if db.Implementation() == dbutil.Spanner {
-			// TODO(spanner): seems to be flaky
-			t.Skip("not correct for spanner")
-		}
-
 		inouts := []struct {
 			in       in
 			expected expected
@@ -112,7 +106,11 @@ func runTest(ctx *testcontext.Context, t *testing.T, db *metabase.DB, in in, exp
 		createSegment(ctx, t, db, u)
 	}
 
-	provider := rangedloop.NewMetabaseRangeSplitter(zap.NewNop(), db, -1*time.Microsecond, -1*time.Microsecond, in.batchSize)
+	provider := rangedloop.NewMetabaseRangeSplitter(zap.NewNop(), db, rangedloop.Config{
+		AsOfSystemInterval:   -1 * time.Microsecond,
+		SpannerStaleInterval: -1 * time.Microsecond,
+		BatchSize:            in.batchSize,
+	})
 	ranges, err := provider.CreateRanges(in.nRanges, in.batchSize)
 	require.NoError(t, err)
 

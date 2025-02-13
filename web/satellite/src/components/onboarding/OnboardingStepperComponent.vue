@@ -46,7 +46,6 @@
         @access-created="onAccessCreated"
     />
     <CreateBucketDialog
-        v-if="currentStep === OnboardingStep.CreateBucket"
         v-model="isBucketDialogOpen"
         @created="onBucketCreated"
     />

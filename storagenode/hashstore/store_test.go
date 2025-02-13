@@ -52,7 +52,7 @@ func TestStore_BasicOperation(t *testing.T) {
 	assert.Equal(t, stats.Table.NumSet, 4*1024)
 	assert.Equal(t, stats.Table.LenSet, uint64(len(Key{})+RecordSize)*stats.Table.NumSet)
 	assert.Equal(t, stats.Table.AvgSet, float64(len(Key{})+RecordSize))
-	assert.That(t, stats.Table.LenSet <= stats.LenLogs) // <= because of optimistic alignment
+	assert.Equal(t, stats.Table.LenSet, stats.LenLogs)
 	assert.Equal(t, stats.Compactions, 4)
 
 	// reopen the store and ensure we can still read all of the keys.
@@ -92,16 +92,17 @@ func TestStore_FileLocking(t *testing.T) {
 		t.Skip("flock not supported on this platform")
 	}
 
+	ctx := context.Background()
 	s := newTestStore(t)
 	defer s.Close()
 
 	// flock should stop a second store from being created with the same hashdir.
-	_, err := NewStore(s.dir, nil)
+	_, err := NewStore(ctx, s.dir, nil)
 	assert.Error(t, err)
 
 	// it should still be locked even after compact makes a new hashtbl file.
 	s.AssertCompact(nil, time.Time{})
-	_, err = NewStore(s.dir, nil)
+	_, err = NewStore(ctx, s.dir, nil)
 	assert.Error(t, err)
 }
 
@@ -119,6 +120,7 @@ func TestStore_CreateSameKeyErrors(t *testing.T) {
 }
 
 func TestStore_ReadFromCompactedFile(t *testing.T) {
+	ctx := context.Background()
 	s := newTestStore(t)
 	defer s.Close()
 
@@ -131,7 +133,7 @@ func TestStore_ReadFromCompactedFile(t *testing.T) {
 	key := s.AssertCreate()
 
 	// grab the record for the key so we can compare it to the record after compaction.
-	before, ok, err := s.tbl.Lookup(key)
+	before, ok, err := s.tbl.Lookup(ctx, key)
 	assert.NoError(t, err)
 	assert.True(t, ok)
 
@@ -145,7 +147,7 @@ func TestStore_ReadFromCompactedFile(t *testing.T) {
 	s.AssertCompact(alwaysTrash, time.Time{})
 
 	// ensure that the log file for the record changed and the original log file was compacted.
-	after, ok, err := s.tbl.Lookup(key)
+	after, ok, err := s.tbl.Lookup(ctx, key)
 	assert.NoError(t, err)
 	assert.True(t, ok)
 	assert.That(t, before.Log < after.Log)
@@ -175,7 +177,7 @@ func TestStore_CompactionEventuallyDeletes(t *testing.T) {
 	// compact a bunch of times, every day incrementing by one. we need to do two extra days because
 	// the first compaction flags it to be deleted after ExpiresDays, we then need to wait that many
 	// days, and then the next compaction will actually delete it.
-	for i := 0; i < 1+compaction_ExpiresDays+1; i++ {
+	for i := uint32(0); i < 1+compaction_ExpiresDays+1; i++ {
 		s.AssertCompact(alwaysTrash, time.Time{})
 		s.today++
 	}
@@ -231,7 +233,7 @@ func TestStore_CompactionWithTTLTakesShorterTime(t *testing.T) {
 		defer s.Close()
 
 		// add an entry to the store that will expire way in the future.
-		key := s.AssertCreate(WithTTL(time.Now().Add(24 * time.Hour * 10 * compaction_ExpiresDays)))
+		key := s.AssertCreate(WithTTL(time.Now().Add(24 * time.Hour * 10 * time.Duration(compaction_ExpiresDays))))
 
 		// flag the key as trash.
 		s.AssertCompact(alwaysTrash, time.Time{})
@@ -264,6 +266,7 @@ func TestStore_CompactionWithTTLTakesShorterTime(t *testing.T) {
 }
 
 func TestStore_CompactLogFile(t *testing.T) {
+	ctx := context.Background()
 	s := newTestStore(t)
 	defer s.Close()
 
@@ -283,7 +286,7 @@ func TestStore_CompactLogFile(t *testing.T) {
 		key := s.AssertCreate()
 		live = append(live, key)
 
-		rec, ok, err := s.tbl.Lookup(key)
+		rec, ok, err := s.tbl.Lookup(ctx, key)
 		assert.NoError(t, err)
 		assert.True(t, ok)
 		recs = append(recs, rec)
@@ -303,7 +306,7 @@ func TestStore_CompactLogFile(t *testing.T) {
 		s.AssertRead(key)
 		exp := recs[n]
 
-		got, ok, err := s.tbl.Lookup(key)
+		got, ok, err := s.tbl.Lookup(ctx, key)
 		assert.NoError(t, err)
 		assert.True(t, ok)
 
@@ -315,11 +318,12 @@ func TestStore_CompactLogFile(t *testing.T) {
 }
 
 func TestStore_ClumpObjectsByTTL(t *testing.T) {
+	ctx := context.Background()
 	s := newTestStore(t)
 	defer s.Close()
 
 	check := func(key Key, log int) {
-		rec, ok, err := s.tbl.Lookup(key)
+		rec, ok, err := s.tbl.Lookup(ctx, key)
 		assert.NoError(t, err)
 		assert.True(t, ok)
 		assert.Equal(t, rec.Log, log)
@@ -381,14 +385,14 @@ func TestStore_WriteCancel(t *testing.T) {
 	// there should be one log file and it should be empty, but the file did have bytes written so
 	// it should be that long.
 	var looped flag
-	s.lfs.Range(func(_ uint64, lf *logFile) bool {
+	assert.NoError(t, s.lfs.Range(func(_ uint64, lf *logFile) (bool, error) {
 		assert.False(t, looped.set())
 		assert.Equal(t, lf.size.Load(), 0)
 		size, err := fileSize(lf.fh)
 		assert.NoError(t, err)
 		assert.Equal(t, size, 1024)
-		return true
-	})
+		return true, nil
+	}))
 }
 
 func TestStore_ReadRevivesTrash(t *testing.T) {
@@ -398,7 +402,7 @@ func TestStore_ReadRevivesTrash(t *testing.T) {
 	// add an entry to the store that does not expire.
 	key := s.AssertCreate()
 
-	for i := 0; i < 5*compaction_ExpiresDays; i++ {
+	for i := uint32(0); i < 5*compaction_ExpiresDays; i++ {
 		// flag the key as trash.
 		s.AssertCompact(alwaysTrash, time.Time{})
 
@@ -441,7 +445,7 @@ func TestStore_MergeRecordsWhenCompactingWithLostPage(t *testing.T) {
 	}, time.Time{}))
 
 	// clear out the first page so that any updates to k1 don't overwrite the existing entry for k1.
-	_, err := s.tbl.fh.WriteAt(make([]byte, pageSize), pageSize) // offset=pSize to skip the header page
+	_, err := s.tbl.fh.WriteAt(make([]byte, pageSize), headerSize) // offset=headerSize to skip the header page
 	assert.NoError(t, err)
 
 	// reading k1 will cause it to revive, adding the duplicate entry for k1.
@@ -449,12 +453,11 @@ func TestStore_MergeRecordsWhenCompactingWithLostPage(t *testing.T) {
 
 	// ensure the only entries in the table are duplicate k1 entries and kl.
 	keys := []Key{k1, k1, kl}
-	s.tbl.Range(func(rec Record, err error) bool {
-		assert.NoError(t, err)
+	assert.NoError(t, s.tbl.Range(ctx, func(ctx context.Context, rec Record) (bool, error) {
 		assert.Equal(t, rec.Key, keys[0])
 		keys = keys[1:]
-		return true
-	})
+		return true, nil
+	}))
 	assert.Equal(t, len(keys), 0)
 
 	// when we compact, it should take the later expiration for k1 so it will never delete it.
@@ -565,7 +568,7 @@ func TestStore_MultipleReviveDuringCompaction(t *testing.T) {
 	// start a goroutine that waits for 2 stacks to be blocked in reviveRecord where one of them
 	// is blocked trying to Create to recreate the trashed record and allow compaction to continue.
 	go func() {
-		waitForGoroutines(2,
+		waitForGoroutine(
 			"(*Store).reviveRecord",
 			"(*mutex).Lock",
 		)
@@ -573,7 +576,6 @@ func TestStore_MultipleReviveDuringCompaction(t *testing.T) {
 			"(*Store).reviveRecord",
 			"(*Store).Create",
 			"(*rwMutex).RLock",
-			"(*mutex).Lock",
 		)
 		close(activity)
 	}()
@@ -765,18 +767,17 @@ func TestStore_LogContainsDataToReconstruct(t *testing.T) {
 	}
 
 	var lfRecs []Record
-	s.lfs.Range(func(_ uint64, lf *logFile) bool {
+	assert.NoError(t, s.lfs.Range(func(_ uint64, lf *logFile) (bool, error) {
 		lfRecs = append(lfRecs, collectRecords(lf)...)
-		return true
-	})
+		return true, nil
+	}))
 
 	// collect all the records in the hash table.
 	var tblRecs []Record
-	s.tbl.Range(func(rec Record, err error) bool {
-		assert.NoError(t, err)
+	assert.NoError(t, s.tbl.Range(ctx, func(ctx context.Context, rec Record) (bool, error) {
 		tblRecs = append(tblRecs, rec)
-		return true
-	})
+		return true, nil
+	}))
 
 	// both sets of records should be equal.
 	sort.Slice(lfRecs, func(i, j int) bool {
@@ -786,19 +787,6 @@ func TestStore_LogContainsDataToReconstruct(t *testing.T) {
 		return string(tblRecs[i].Key[:]) < string(tblRecs[j].Key[:])
 	})
 	assert.DeepEqual(t, lfRecs, tblRecs)
-}
-
-func TestStore_OptimisticAlignment(t *testing.T) {
-	s := newTestStore(t)
-	defer s.Close()
-
-	// write enough so that after the footer record is appended, we only need to add 10 bytes to the
-	// file to align it to 4k
-	s.AssertCreate(WithData(make([]byte, 4096-RecordSize-10)))
-
-	stats := s.Stats()
-	assert.Equal(t, stats.Table.LenSet, 4096-10) // alive data is 4096-rSize-10 + rSize.
-	assert.Equal(t, stats.LenLogs, 4096)         // total data should be aligned up to 4k.
 }
 
 func TestStore_RaceConcurrentWriteAndStats(t *testing.T) {
@@ -826,10 +814,10 @@ func TestStore_FailedUpdateDoesntIncreaseLogLength(t *testing.T) {
 	defer s.Close()
 
 	getSize := func() (size uint64) {
-		s.lfs.Range(func(_ uint64, lf *logFile) bool {
+		assert.NoError(t, s.lfs.Range(func(_ uint64, lf *logFile) (bool, error) {
 			size = lf.size.Load()
-			return false
-		})
+			return false, nil
+		}))
 		return size
 	}
 	// add a key to the store
@@ -898,11 +886,12 @@ func TestStore_CompactionExitsEarlyWhenNoModifications(t *testing.T) {
 }
 
 func TestStore_FallbackToNonTTLLogFile(t *testing.T) {
+	ctx := context.Background()
 	s := newTestStore(t)
 	defer s.Close()
 
 	getLog := func(key Key) uint64 {
-		rec, ok, err := s.tbl.Lookup(key)
+		rec, ok, err := s.tbl.Lookup(ctx, key)
 		assert.NoError(t, err)
 		assert.True(t, ok)
 		return rec.Log
@@ -983,21 +972,21 @@ func TestStore_StatsWhileCompacting(t *testing.T) {
 }
 
 func TestStore_CompactionRewritesLogsWhenNothingToDo(t *testing.T) {
+	ctx := context.Background()
 	s := newTestStore(t)
 	defer s.Close()
 
 	getLog := func(key Key) uint64 {
-		rec, ok, err := s.tbl.Lookup(key)
+		rec, ok, err := s.tbl.Lookup(ctx, key)
 		assert.NoError(t, err)
 		assert.True(t, ok)
 		return rec.Log
 	}
 
 	// make a ballast key that stays alive that should prevent the log file from being rewritten
-	// under normal conditions while also being a specific size to tickle optimistic alignment to
-	// ensure we don't continuously rewrite log files with some padding, and an already expired key
-	// so that the log is not fully alive so that it can be considered a candidate regardless.
-	data := make([]byte, 4096-RecordSize-10)
+	// under normal conditions and an already expired key so that the log is not fully alive so that
+	// it can be considered a candidate regardless.
+	data := make([]byte, 4096)
 	ballast := s.AssertCreate(WithData(data))
 	assert.Equal(t, getLog(ballast), 1)
 
@@ -1115,5 +1104,24 @@ func BenchmarkStore(b *testing.B) {
 		}
 
 		b.ReportMetric(float64(b.N*int(1)<<lrec)/time.Since(now).Seconds(), "rec/sec")
+	})
+
+	b.Run("RewriteRecord", func(b *testing.B) {
+		s := newTestStore(b)
+		defer s.Close()
+
+		key := s.AssertCreate(WithData(make([]byte, 200*1024)))
+		rec, ok, err := s.tbl.Lookup(ctx, key)
+		assert.NoError(b, err)
+		assert.True(b, ok)
+
+		b.SetBytes(int64(rec.Length))
+		b.ReportAllocs()
+		b.ResetTimer()
+
+		for i := 0; i < b.N; i++ {
+			rec, err = s.rewriteRecord(ctx, rec, nil)
+			assert.NoError(b, err)
+		}
 	})
 }

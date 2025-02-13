@@ -42,4 +42,7 @@ placements:
   - id: 11
     name: weightedf
     selector: weightedf(node_value("tag:$SIGNER_ZERO/weight?100") / 100,select("tag:surge","==", "true"))
+  - id: 12
+    name: topology
+    selector: topology(node_value("tag:$SIGNER_ZERO/weight?100") / 100,"3,2","tag:datacenter,tag:server", select("tag:surge","==", "true"))
 

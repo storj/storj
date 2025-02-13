@@ -37,6 +37,7 @@ import (
 	"storj.io/storj/satellite/buckets"
 	"storj.io/storj/satellite/console"
 	"storj.io/storj/satellite/console/consoleauth"
+	"storj.io/storj/satellite/console/consoleauth/csrf"
 	"storj.io/storj/satellite/console/consoleauth/sso"
 	"storj.io/storj/satellite/console/consoleweb"
 	"storj.io/storj/satellite/console/restkeys"
@@ -196,6 +197,10 @@ type API struct {
 		Service *sso.Service
 	}
 
+	CSRF struct {
+		Service *csrf.Service
+	}
+
 	HealthCheck struct {
 		Server *healthcheck.Server
 	}
@@ -327,7 +332,7 @@ func NewAPI(log *zap.Logger, full *identity.FullIdentity, db DB,
 		peer.SuccessTrackers = metainfo.NewSuccessTrackers(successTrackerUplinks, newTracker)
 		monkit.ScopeNamed(mon.Name() + ".success_trackers").Chain(peer.SuccessTrackers)
 
-		peer.FailureTracker = metainfo.NewPercentSuccessTracker()
+		peer.FailureTracker = metainfo.NewStochasticPercentSuccessTracker(float32(config.Metainfo.FailureTrackerChanceToSkip))
 		monkit.ScopeNamed(mon.Name() + ".failure_tracker").Chain(peer.FailureTracker)
 
 		peer.TrustedUplinks = trust.NewTrustedPeerList(trustedUplinkSlice)
@@ -702,7 +707,8 @@ func NewAPI(log *zap.Logger, full *identity.FullIdentity, db DB,
 				return nil, errs.New("Auth token secret required")
 			}
 
-			peer.Console.AuthTokens = consoleauth.NewService(config.ConsoleAuth, &consoleauth.Hmac{Secret: []byte(consoleConfig.AuthTokenSecret)})
+			signer := &consoleauth.Hmac{Secret: []byte(consoleConfig.AuthTokenSecret)}
+			peer.Console.AuthTokens = consoleauth.NewService(config.ConsoleAuth, signer)
 
 			externalAddress := consoleConfig.ExternalAddress
 			if externalAddress == "" {
@@ -774,6 +780,8 @@ func NewAPI(log *zap.Logger, full *identity.FullIdentity, db DB,
 				return nil, errs.Combine(err, peer.Close())
 			}
 
+			peer.CSRF.Service = csrf.NewService(signer)
+
 			peer.Console.Endpoint = consoleweb.NewServer(
 				peer.Log.Named("console:endpoint"),
 				consoleConfig,
@@ -784,6 +792,7 @@ func NewAPI(log *zap.Logger, full *identity.FullIdentity, db DB,
 				peer.ABTesting.Service,
 				accountFreezeService,
 				peer.SSO.Service,
+				peer.CSRF.Service,
 				peer.Console.Listener,
 				config.Payments.StripeCoinPayments.StripePublicKey,
 				config.Payments.Storjscan.Confirmations,

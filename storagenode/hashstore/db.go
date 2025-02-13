@@ -57,10 +57,13 @@ type DB struct {
 
 // New makes or opens an existing database in the directory allowing for nlogs concurrent writes.
 func New(
+	ctx context.Context,
 	dir string, log *zap.Logger,
 	shouldTrash func(context.Context, Key, time.Time) bool,
 	lastRestore func(context.Context) time.Time,
 ) (_ *DB, err error) {
+	defer mon.Task()(&ctx)(&err)
+
 	// set default values for the optional parameters.
 	if log == nil {
 		log = zap.NewNop()
@@ -83,11 +86,11 @@ func New(
 	}()
 
 	// open the active and passive stores.
-	d.active, err = NewStore(filepath.Join(dir, "s0"), log.With(zap.String("store", "s0")))
+	d.active, err = NewStore(ctx, filepath.Join(dir, "s0"), log.With(zap.String("store", "s0")))
 	if err != nil {
 		return nil, Error.Wrap(err)
 	}
-	d.passive, err = NewStore(filepath.Join(dir, "s1"), log.With(zap.String("store", "s1")))
+	d.passive, err = NewStore(ctx, filepath.Join(dir, "s1"), log.With(zap.String("store", "s1")))
 	if err != nil {
 		return nil, Error.Wrap(err)
 	}

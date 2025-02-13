@@ -7,6 +7,7 @@ import (
 	"bytes"
 	"context"
 	"database/sql"
+	"encoding/base64"
 	"encoding/json"
 	"fmt"
 	"math/rand"
@@ -1425,6 +1426,10 @@ func TestService(t *testing.T) {
 				require.NotNil(t, pr)
 				require.Equal(t, pr.DefaultVersioning, console.Unversioned)
 
+				salt, err := sat.DB.Console().Projects().GetSalt(ctx, pr.ID)
+				require.NoError(t, err)
+				require.NotNil(t, salt)
+
 				// Getting project config as a non-member should not work
 				config, err := service.GetProjectConfig(userCtx2, pr.ID)
 				require.Error(t, err)
@@ -1436,6 +1441,7 @@ func TestService(t *testing.T) {
 				require.NotNil(t, config)
 				require.True(t, config.IsOwnerPaidTier)
 				require.Equal(t, console.RoleAdmin, config.Role)
+				require.Equal(t, base64.StdEncoding.EncodeToString(salt), config.Salt)
 
 				// add userCtx2 as member
 				member, err := service.GetUser(ctx, up2Proj.OwnerID)
@@ -1990,6 +1996,9 @@ func TestDeleteAccount(t *testing.T) {
 		uplinks := planet.Uplinks
 		require.Len(t, uplinks, 2)
 
+		// pause rollup archive loop because some of the tests insert bandwidth rollups during time periods the loop would clean up
+		sat.Accounting.RollupArchive.Loop.Pause()
+
 		for i, uplink := range uplinks {
 			usrLogin := uplink.User[sat.ID()]
 			user, _, err := service.GetUserByEmailWithUnverified(ctx, usrLogin.Email)
@@ -2148,25 +2157,8 @@ func TestDeleteAccount(t *testing.T) {
 			resp, err = service.DeleteAccount(userCtx, console.VerifyAccountMfaStep, "test")
 			require.NoError(t, err)
 			if user.PaidTier {
-				if resp == nil {
-					// TODO(moby) - additional logging to debug possible flakiness in the future; delete if flakiness is resolved
-					// see https://github.com/storj/storj/issues/7242
-					t.Log("egress inserted above for timestamp", lastMonth.Add(time.Hour))
-
-					// logic taken from CheckProjectUsageStatus in satellite/payments/stripe/accounts.go
-					firstOfMonth := time.Date(year, month, 1, 0, 0, 0, 0, time.UTC)
-					lastMonthUsage, err := sat.DB.ProjectAccounting().GetProjectTotal(ctx, p2.ID, firstOfMonth.AddDate(0, -1, 0), firstOfMonth.AddDate(0, 0, -1))
-					require.NoError(t, err)
-					t.Log("Egress result from GetProjectTotal:", lastMonthUsage.Egress)
-					t.Log("range:", firstOfMonth.AddDate(0, -1, 0), firstOfMonth.AddDate(0, 0, -1))
-					err = sat.DB.StripeCoinPayments().ProjectRecords().Check(ctx, p2.ID, firstOfMonth.AddDate(0, -1, 0), firstOfMonth)
-					t.Log("Err result from stripe project records Check:", err)
-					t.Log("range:", firstOfMonth.AddDate(0, -1, 0), firstOfMonth)
-					require.Fail(t, "expected not-nil response; please share this test failure on https://github.com/storj/storj/issues/7242")
-				} else {
-					// require.NotNil(t, resp) // TODO(moby) uncomment check when conditional is removed
-					require.True(t, resp.InvoicingIncomplete)
-				}
+				require.NotNil(t, resp)
+				require.True(t, resp.InvoicingIncomplete)
 			} else {
 				require.Nil(t, resp)
 			}

@@ -333,14 +333,20 @@ func TestAnalytics(t *testing.T) {
 
 func TestPayments(t *testing.T) {
 	var (
-		product      = "product"
-		partner      = ""
-		placement    = storj.PlacementConstraint(3)
-		productPrice = paymentsconfig.ProjectUsagePrice{
-			EgressDiscountRatio: 0.1,
-			StorageTB:           "4",
-			EgressTB:            "5",
-			Segment:             "6",
+		product         = "product"
+		partner         = ""
+		placement       = storj.PlacementConstraint(10)
+		placementDetail = console.PlacementDetail{
+			ID:     10,
+			IdName: "placement10",
+		}
+		productPrice = paymentsconfig.ProductUsagePrice{
+			ProductID: 1,
+			ProjectUsagePrice: paymentsconfig.ProjectUsagePrice{
+				StorageTB: "4",
+				EgressTB:  "5",
+				Segment:   "6",
+			},
 		}
 	)
 	productModel, err := productPrice.ToModel()
@@ -351,17 +357,21 @@ func TestPayments(t *testing.T) {
 		Reconfigure: testplanet.Reconfigure{
 			Satellite: func(log *zap.Logger, index int, config *satellite.Config) {
 				config.Placement = nodeselection.ConfigurablePlacementRule{
-					PlacementRules: `3:annotation("location","us-select-1")`,
+					PlacementRules: `10:annotation("location", "placement10")`,
 				}
 				config.Console.Placement.SelfServeEnabled = true
-				config.Console.Placement.SelfServeNames = []string{"us-select-1"}
+				config.Console.Placement.SelfServeNames = []string{"placement10"}
 
-				config.Payments.Products.SetMap(map[string]paymentsconfig.ProjectUsagePrice{
+				config.Payments.Products.SetMap(map[string]paymentsconfig.ProductUsagePrice{
 					product: productPrice,
 				})
 				config.Payments.PlacementPriceOverrides.SetMap(map[int]string{int(placement): product})
 				config.Payments.PartnersPlacementPriceOverrides.SetMap(map[string]paymentsconfig.PlacementProductMap{
 					partner: config.Payments.PlacementPriceOverrides,
+				})
+				config.Console.SelfServePlacementDetails.SetMap(map[storj.PlacementConstraint]console.PlacementDetail{
+					0:         {ID: 0},
+					placement: placementDetail,
 				})
 				config.Console.BillingAddFundsEnabled = true
 			},
@@ -463,7 +473,7 @@ func TestPayments(t *testing.T) {
 
 		{ // Get_PlacementPricing
 			projectID := test.defaultProjectID()
-			resp, body := test.request(http.MethodGet, "/payments/placement-pricing?placementName=us-select-1&projectID="+projectID, nil)
+			resp, body := test.request(http.MethodGet, "/payments/placement-pricing?placementName="+placementDetail.IdName+"&projectID="+projectID, nil)
 			require.Equal(t, http.StatusOK, resp.StatusCode)
 
 			var model payments.ProjectUsagePriceModel
@@ -472,6 +482,24 @@ func TestPayments(t *testing.T) {
 			require.Equal(t, productModel.EgressMBCents.String(), model.EgressMBCents.String())
 			require.Equal(t, productModel.SegmentMonthCents.String(), model.SegmentMonthCents.String())
 			require.Equal(t, productModel.StorageMBMonthCents.String(), model.StorageMBMonthCents.String())
+		}
+
+		{ // Get_PlacementDetails
+			projectIdStr := test.defaultProjectID()
+			projectID, err := uuid.FromString(projectIdStr)
+			require.NoError(t, err)
+
+			project, err := planet.Satellites[0].DB.Console().Projects().Get(ctx, projectID)
+			require.NoError(t, err)
+			require.Empty(t, project.UserAgent)
+
+			resp, body := test.request(http.MethodGet, "/buckets/placement-details?projectID="+projectIdStr, nil)
+			require.Equal(t, http.StatusOK, resp.StatusCode)
+
+			var details []console.PlacementDetail
+			require.NoError(t, json.Unmarshal([]byte(body), &details))
+			require.Len(t, details, 1)
+			require.Equal(t, placementDetail, details[0])
 		}
 	})
 }

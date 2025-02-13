@@ -14,6 +14,9 @@ import {
     BucketVersioningStatus,
     PutObjectLockConfigurationCommand,
     ObjectLockRule,
+    ListObjectVersionsCommandInput,
+    ListObjectVersionsCommandOutput,
+    ListObjectVersionsCommand,
 } from '@aws-sdk/client-s3';
 import { SignatureV4 } from '@smithy/signature-v4';
 
@@ -406,6 +409,18 @@ export const useBucketsStore = defineStore('buckets', () => {
         return (!response || response.KeyCount === undefined) ? 0 : response.KeyCount;
     }
 
+    async function checkBucketEmpty(name: string): Promise<boolean> {
+        const input: ListObjectVersionsCommandInput = {
+            Bucket: name,
+            Delimiter: '/',
+            Prefix: '',
+            MaxKeys: 10,
+        };
+
+        const response: ListObjectVersionsCommandOutput = await state.s3ClientForDelete.send(new ListObjectVersionsCommand(input));
+        return !(response.DeleteMarkers?.length || response.Versions?.length || response.CommonPrefixes?.length);
+    }
+
     function clearS3Data(): void {
         state.apiKey = '';
         state.passphrase = '';
@@ -475,6 +490,7 @@ export const useBucketsStore = defineStore('buckets', () => {
         deleteBucket,
         handleDeleteBucketRequest,
         getObjectsCount,
+        checkBucketEmpty,
         clearS3Data,
         clear,
     };

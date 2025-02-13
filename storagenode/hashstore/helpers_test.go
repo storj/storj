@@ -11,15 +11,12 @@ import (
 	"path/filepath"
 	"runtime"
 	"strings"
-	"sync"
 	"testing"
 	"testing/iotest"
 	"time"
 
 	"github.com/zeebo/assert"
 	"github.com/zeebo/mwc"
-
-	"storj.io/drpc/drpcsignal"
 )
 
 func TestClampTTL(t *testing.T) {
@@ -121,88 +118,6 @@ func TestAtomicFile(t *testing.T) {
 	}
 }
 
-func TestMutex(t *testing.T) {
-	mu := newMutex()
-	closed := new(drpcsignal.Signal)
-	ctx := context.Background()
-
-	var state int
-	var wg sync.WaitGroup
-
-	wg.Add(100)
-	for i := 0; i < 100; i++ {
-		go func() {
-			defer wg.Done()
-
-			assert.NoError(t, mu.Lock(ctx, closed))
-			defer mu.Unlock()
-
-			state++
-		}()
-	}
-
-	wg.Wait()
-	assert.Equal(t, state, 100)
-
-	{ // canceled context should fail acquire
-		ctx, cancel := context.WithCancel(ctx)
-		cancel()
-		assert.Error(t, mu.Lock(ctx, closed))
-	}
-
-	{ // closed signal should fail acquire
-		closed.Set(nil)
-		assert.Error(t, mu.Lock(ctx, closed))
-	}
-}
-
-func TestRWMutex(t *testing.T) {
-	mu := newRWMutex()
-	closed := new(drpcsignal.Signal)
-	ctx := context.Background()
-
-	var state int
-	var wg sync.WaitGroup
-
-	wg.Add(200)
-	for i := 0; i < 100; i++ {
-		go func() {
-			defer wg.Done()
-
-			assert.NoError(t, mu.Lock(ctx, closed))
-			defer mu.Unlock()
-
-			state++
-		}()
-	}
-	for i := 0; i < 100; i++ {
-		go func() {
-			defer wg.Done()
-
-			assert.NoError(t, mu.RLock(ctx, closed))
-			defer mu.RUnlock()
-
-			runtime.KeepAlive(state)
-		}()
-	}
-
-	wg.Wait()
-	assert.Equal(t, state, 100)
-
-	{ // canceled context should fail acquire
-		ctx, cancel := context.WithCancel(ctx)
-		cancel()
-		assert.Error(t, mu.Lock(ctx, closed))
-		assert.Error(t, mu.RLock(ctx, closed))
-	}
-
-	{ // closed signal should fail acquire
-		closed.Set(nil)
-		assert.Error(t, mu.Lock(ctx, closed))
-		assert.Error(t, mu.RLock(ctx, closed))
-	}
-}
-
 //
 // hashtbl
 //
@@ -218,7 +133,7 @@ func newTestHashtbl(t testing.TB, lrec uint64) *testHashTbl {
 	fh, err := os.CreateTemp(t.TempDir(), "hashtbl")
 	assert.NoError(t, err)
 
-	h, err := CreateHashtbl(fh, lrec, 0)
+	h, err := CreateHashtbl(context.Background(), fh, lrec, 0)
 	assert.NoError(t, err)
 
 	return &testHashTbl{t: t, HashTbl: h}
@@ -234,7 +149,7 @@ func (th *testHashTbl) AssertReopen() {
 	fh, err := os.Open(th.fh.Name())
 	assert.NoError(th.t, err)
 
-	h, err := OpenHashtbl(fh)
+	h, err := OpenHashtbl(context.Background(), fh)
 	assert.NoError(th.t, err)
 
 	th.HashTbl = h
@@ -243,7 +158,7 @@ func (th *testHashTbl) AssertReopen() {
 func (th *testHashTbl) AssertInsertRecord(rec Record) {
 	th.t.Helper()
 
-	ok, err := th.Insert(rec)
+	ok, err := th.Insert(context.Background(), rec)
 	assert.NoError(th.t, err)
 	assert.True(th.t, ok)
 }
@@ -259,7 +174,7 @@ func (th *testHashTbl) AssertInsert() Record {
 func (th *testHashTbl) AssertLookup(k Key) Record {
 	th.t.Helper()
 
-	r, ok, err := th.Lookup(k)
+	r, ok, err := th.Lookup(context.Background(), k)
 	assert.NoError(th.t, err)
 	assert.True(th.t, ok)
 	return r
@@ -278,7 +193,7 @@ type testStore struct {
 func newTestStore(t testing.TB) *testStore {
 	t.Helper()
 
-	s, err := NewStore(t.TempDir(), nil)
+	s, err := NewStore(context.Background(), t.TempDir(), nil)
 	assert.NoError(t, err)
 
 	ts := &testStore{t: t, Store: s, today: s.today()}
@@ -295,7 +210,7 @@ func (ts *testStore) AssertReopen() {
 
 	ts.Store.Close()
 
-	s, err := NewStore(ts.dir, ts.log)
+	s, err := NewStore(context.Background(), ts.dir, ts.log)
 	assert.NoError(ts.t, err)
 
 	s.today = func() uint32 { return ts.today }
@@ -382,7 +297,7 @@ func newTestDB(t testing.TB,
 ) *testDB {
 	t.Helper()
 
-	db, err := New(t.TempDir(), nil, dead, restore)
+	db, err := New(context.Background(), t.TempDir(), nil, dead, restore)
 	assert.NoError(t, err)
 
 	td := &testDB{t: t, DB: db}
@@ -397,7 +312,7 @@ func (td *testDB) AssertReopen() {
 
 	td.DB.Close()
 
-	db, err := New(td.dir, td.log, td.shouldTrash, td.lastRestore)
+	db, err := New(context.Background(), td.dir, td.log, td.shouldTrash, td.lastRestore)
 	assert.NoError(td.t, err)
 
 	td.DB = db

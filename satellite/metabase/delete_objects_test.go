@@ -21,10 +21,11 @@ func TestDeleteObjects(t *testing.T) {
 		projectID := testrand.UUID()
 		bucketName := metabase.BucketName(testrand.BucketName())
 
-		createObject := func(t *testing.T, objStream metabase.ObjectStream) (metabase.Object, []metabase.Segment) {
+		createObject := func(t *testing.T, objStream metabase.ObjectStream, versioned bool) (metabase.Object, []metabase.Segment) {
 			return metabasetest.CreateTestObject{
 				CommitObject: &metabase.CommitObject{
 					ObjectStream: objStream,
+					Versioned:    versioned,
 				},
 			}.Run(ctx, t, db, objStream, 2)
 		}
@@ -47,8 +48,8 @@ func TestDeleteObjects(t *testing.T) {
 			t.Run("Basic", func(t *testing.T) {
 				defer metabasetest.DeleteAll{}.Check(ctx, t, db)
 
-				obj1, _ := createObject(t, randObjectStream())
-				obj2, _ := createObject(t, randObjectStream())
+				obj1, _ := createObject(t, randObjectStream(), false)
+				obj2, _ := createObject(t, randObjectStream(), false)
 
 				// These objects are added to ensure that we don't accidentally
 				// delete objects residing in different projects or buckets.
@@ -58,7 +59,7 @@ func TestDeleteObjects(t *testing.T) {
 					ObjectKey:  obj1.ObjectKey,
 					Version:    obj1.Version,
 					StreamID:   testrand.UUID(),
-				})
+				}, false)
 
 				differentProjectObj, differentProjectSegs := createObject(t, metabase.ObjectStream{
 					ProjectID:  testrand.UUID(),
@@ -66,7 +67,7 @@ func TestDeleteObjects(t *testing.T) {
 					ObjectKey:  obj1.ObjectKey,
 					Version:    obj1.Version,
 					StreamID:   testrand.UUID(),
-				})
+				}, false)
 
 				obj1StreamVersionID := obj1.StreamVersionID()
 
@@ -86,17 +87,17 @@ func TestDeleteObjects(t *testing.T) {
 					Result: metabase.DeleteObjectsResult{
 						Items: []metabase.DeleteObjectsResultItem{
 							{
-								ObjectKey:                obj1.ObjectKey,
-								RequestedStreamVersionID: obj1StreamVersionID,
+								ObjectKey: obj2.ObjectKey,
 								Removed: &metabase.DeleteObjectsInfo{
-									StreamVersionID: obj1StreamVersionID,
+									StreamVersionID: obj2.StreamVersionID(),
 									Status:          metabase.CommittedUnversioned,
 								},
 								Status: metabase.DeleteStatusOK,
 							}, {
-								ObjectKey: obj2.ObjectKey,
+								ObjectKey:                obj1.ObjectKey,
+								RequestedStreamVersionID: obj1StreamVersionID,
 								Removed: &metabase.DeleteObjectsInfo{
-									StreamVersionID: obj2.StreamVersionID(),
+									StreamVersionID: obj1StreamVersionID,
 									Status:          metabase.CommittedUnversioned,
 								},
 								Status: metabase.DeleteStatusOK,
@@ -119,7 +120,7 @@ func TestDeleteObjects(t *testing.T) {
 				streamVersionID1 := metabase.NewStreamVersionID(randVersion(), testrand.UUID())
 
 				// Ensure that an object is not deleted if only one of the object's version and stream ID is correct.
-				obj, segments := createObject(t, randObjectStream())
+				obj, segments := createObject(t, randObjectStream(), false)
 				objStreamVersionID1 := metabase.NewStreamVersionID(obj.Version, testrand.UUID())
 				objStreamVersionID2 := metabase.NewStreamVersionID(randVersion(), obj.StreamID)
 
@@ -145,12 +146,12 @@ func TestDeleteObjects(t *testing.T) {
 					Result: metabase.DeleteObjectsResult{
 						Items: []metabase.DeleteObjectsResultItem{
 							{
+								ObjectKey: key2,
+								Status:    metabase.DeleteStatusNotFound,
+							}, {
 								ObjectKey:                key1,
 								RequestedStreamVersionID: streamVersionID1,
 								Status:                   metabase.DeleteStatusNotFound,
-							}, {
-								ObjectKey: key2,
-								Status:    metabase.DeleteStatusNotFound,
 							}, {
 								ObjectKey:                obj.ObjectKey,
 								RequestedStreamVersionID: objStreamVersionID1,
@@ -235,7 +236,7 @@ func TestDeleteObjects(t *testing.T) {
 			t.Run("Duplicate deletion", func(t *testing.T) {
 				defer metabasetest.DeleteAll{}.Check(ctx, t, db)
 
-				obj, _ := createObject(t, randObjectStream())
+				obj, _ := createObject(t, randObjectStream(), false)
 				sv := obj.StreamVersionID()
 				reqItem := metabase.DeleteObjectsItem{
 					ObjectKey:       obj.ObjectKey,
@@ -270,7 +271,7 @@ func TestDeleteObjects(t *testing.T) {
 			t.Run("Duplicate deletion (indirect)", func(t *testing.T) {
 				defer metabasetest.DeleteAll{}.Check(ctx, t, db)
 
-				obj, _ := createObject(t, randObjectStream())
+				obj, _ := createObject(t, randObjectStream(), false)
 				sv := obj.StreamVersionID()
 
 				expectedRemoved := &metabase.DeleteObjectsInfo{
@@ -278,7 +279,7 @@ func TestDeleteObjects(t *testing.T) {
 					Status:          metabase.CommittedUnversioned,
 				}
 
-				metabasetest.DeleteObjects{
+				opts := metabasetest.DeleteObjects{
 					Opts: metabase.DeleteObjects{
 						ProjectID:  projectID,
 						BucketName: bucketName,
@@ -294,19 +295,28 @@ func TestDeleteObjects(t *testing.T) {
 					Result: metabase.DeleteObjectsResult{
 						Items: []metabase.DeleteObjectsResultItem{
 							{
+								ObjectKey: obj.ObjectKey,
+								Removed:   expectedRemoved,
+								Status:    metabase.DeleteStatusOK,
+							}, {
 								ObjectKey:                obj.ObjectKey,
 								RequestedStreamVersionID: sv,
 								Removed:                  expectedRemoved,
 								Status:                   metabase.DeleteStatusOK,
-							}, {
-								ObjectKey: obj.ObjectKey,
-								Removed:   expectedRemoved,
-								Status:    metabase.DeleteStatusOK,
 							},
 						},
 						DeletedSegmentCount: int64(obj.SegmentCount),
 					},
-				}.Check(ctx, t, db)
+				}
+				opts.Check(ctx, t, db)
+
+				metabasetest.Verify{}.Check(ctx, t, db)
+
+				metabasetest.DeleteAll{}.Check(ctx, t, db)
+
+				createObject(t, obj.ObjectStream, false)
+				opts.Opts.Items[0], opts.Opts.Items[1] = opts.Opts.Items[1], opts.Opts.Items[0]
+				opts.Check(ctx, t, db)
 
 				metabasetest.Verify{}.Check(ctx, t, db)
 			})
@@ -318,14 +328,14 @@ func TestDeleteObjects(t *testing.T) {
 
 				// We create 4 objects to ensure that the method can handle multiple
 				// of each kind of deletion (exact version deletion or delete marker insertion).
-				obj1, _ := createObject(t, randObjectStream())
-				obj2, _ := createObject(t, randObjectStream())
+				obj1, _ := createObject(t, randObjectStream(), true)
+				obj2, _ := createObject(t, randObjectStream(), true)
 
 				obj1StreamVersionID := obj1.StreamVersionID()
 				obj2StreamVersionID := obj2.StreamVersionID()
 
-				obj3, obj3Segments := createObject(t, randObjectStream())
-				obj4, obj4Segments := createObject(t, randObjectStream())
+				obj3, obj3Segments := createObject(t, randObjectStream(), true)
+				obj4, obj4Segments := createObject(t, randObjectStream(), true)
 
 				differentBucketObj, differentBucketSegs := createObject(t, metabase.ObjectStream{
 					ProjectID:  obj1.ProjectID,
@@ -333,7 +343,7 @@ func TestDeleteObjects(t *testing.T) {
 					ObjectKey:  obj1.ObjectKey,
 					Version:    obj1.Version,
 					StreamID:   testrand.UUID(),
-				})
+				}, true)
 
 				differentProjectObj, differentProjectSegs := createObject(t, metabase.ObjectStream{
 					ProjectID:  testrand.UUID(),
@@ -341,7 +351,7 @@ func TestDeleteObjects(t *testing.T) {
 					ObjectKey:  obj1.ObjectKey,
 					Version:    obj1.Version,
 					StreamID:   testrand.UUID(),
-				})
+				}, true)
 
 				metabasetest.DeleteObjects{
 					Opts: metabase.DeleteObjects{
@@ -365,22 +375,6 @@ func TestDeleteObjects(t *testing.T) {
 					Result: metabase.DeleteObjectsResult{
 						Items: []metabase.DeleteObjectsResultItem{
 							{
-								ObjectKey:                obj1.ObjectKey,
-								RequestedStreamVersionID: obj1StreamVersionID,
-								Removed: &metabase.DeleteObjectsInfo{
-									StreamVersionID: obj1StreamVersionID,
-									Status:          metabase.CommittedUnversioned,
-								},
-								Status: metabase.DeleteStatusOK,
-							}, {
-								ObjectKey:                obj2.ObjectKey,
-								RequestedStreamVersionID: obj2StreamVersionID,
-								Removed: &metabase.DeleteObjectsInfo{
-									StreamVersionID: obj2StreamVersionID,
-									Status:          metabase.CommittedUnversioned,
-								},
-								Status: metabase.DeleteStatusOK,
-							}, {
 								ObjectKey: obj3.ObjectKey,
 								Marker: &metabase.DeleteObjectsInfo{
 									StreamVersionID: metabase.NewStreamVersionID(obj3.Version+1, uuid.UUID{}),
@@ -392,6 +386,22 @@ func TestDeleteObjects(t *testing.T) {
 								Marker: &metabase.DeleteObjectsInfo{
 									StreamVersionID: metabase.NewStreamVersionID(obj4.Version+1, uuid.UUID{}),
 									Status:          metabase.DeleteMarkerVersioned,
+								},
+								Status: metabase.DeleteStatusOK,
+							}, {
+								ObjectKey:                obj1.ObjectKey,
+								RequestedStreamVersionID: obj1StreamVersionID,
+								Removed: &metabase.DeleteObjectsInfo{
+									StreamVersionID: obj1StreamVersionID,
+									Status:          metabase.CommittedVersioned,
+								},
+								Status: metabase.DeleteStatusOK,
+							}, {
+								ObjectKey:                obj2.ObjectKey,
+								RequestedStreamVersionID: obj2StreamVersionID,
+								Removed: &metabase.DeleteObjectsInfo{
+									StreamVersionID: obj2StreamVersionID,
+									Status:          metabase.CommittedVersioned,
 								},
 								Status: metabase.DeleteStatusOK,
 							},
@@ -437,7 +447,7 @@ func TestDeleteObjects(t *testing.T) {
 				missingStreamVersionID := metabase.NewStreamVersionID(missingObjStream1.Version, missingObjStream1.StreamID)
 
 				// Ensure that an object is not deleted if only one of the object's version and stream ID is correct.
-				obj, segments := createObject(t, randObjectStream())
+				obj, segments := createObject(t, randObjectStream(), true)
 				badStreamVersionID1 := metabase.NewStreamVersionID(obj.Version, testrand.UUID())
 				badStreamVersionID2 := metabase.NewStreamVersionID(randVersion(), obj.StreamID)
 
@@ -464,16 +474,16 @@ func TestDeleteObjects(t *testing.T) {
 					Result: metabase.DeleteObjectsResult{
 						Items: []metabase.DeleteObjectsResultItem{
 							{
-								ObjectKey:                missingObjStream1.ObjectKey,
-								RequestedStreamVersionID: missingStreamVersionID,
-								Status:                   metabase.DeleteStatusNotFound,
-							}, {
 								ObjectKey: missingObjStream2.ObjectKey,
 								Marker: &metabase.DeleteObjectsInfo{
 									StreamVersionID: metabase.NewStreamVersionID(1, uuid.UUID{}),
 									Status:          metabase.DeleteMarkerVersioned,
 								},
 								Status: metabase.DeleteStatusOK,
+							}, {
+								ObjectKey:                missingObjStream1.ObjectKey,
+								RequestedStreamVersionID: missingStreamVersionID,
+								Status:                   metabase.DeleteStatusNotFound,
 							}, {
 								ObjectKey:                obj.ObjectKey,
 								RequestedStreamVersionID: badStreamVersionID1,
@@ -577,14 +587,14 @@ func TestDeleteObjects(t *testing.T) {
 			t.Run("Duplicate deletion", func(t *testing.T) {
 				defer metabasetest.DeleteAll{}.Check(ctx, t, db)
 
-				obj1, _ := createObject(t, randObjectStream())
+				obj1, _ := createObject(t, randObjectStream(), true)
 				obj1StreamVersionID := obj1.StreamVersionID()
 				reqItem1 := metabase.DeleteObjectsItem{
 					ObjectKey:       obj1.ObjectKey,
 					StreamVersionID: obj1StreamVersionID,
 				}
 
-				obj2, obj2Segments := createObject(t, randObjectStream())
+				obj2, obj2Segments := createObject(t, randObjectStream(), true)
 				reqItem2 := metabase.DeleteObjectsItem{
 					ObjectKey: obj2.ObjectKey,
 				}
@@ -599,18 +609,18 @@ func TestDeleteObjects(t *testing.T) {
 					Result: metabase.DeleteObjectsResult{
 						Items: []metabase.DeleteObjectsResultItem{
 							{
-								ObjectKey:                obj1.ObjectKey,
-								RequestedStreamVersionID: obj1StreamVersionID,
-								Removed: &metabase.DeleteObjectsInfo{
-									StreamVersionID: obj1StreamVersionID,
-									Status:          metabase.CommittedUnversioned,
-								},
-								Status: metabase.DeleteStatusOK,
-							}, {
 								ObjectKey: obj2.ObjectKey,
 								Marker: &metabase.DeleteObjectsInfo{
 									StreamVersionID: metabase.NewStreamVersionID(obj2.Version+1, uuid.UUID{}),
 									Status:          metabase.DeleteMarkerVersioned,
+								},
+								Status: metabase.DeleteStatusOK,
+							}, {
+								ObjectKey:                obj1.ObjectKey,
+								RequestedStreamVersionID: obj1StreamVersionID,
+								Removed: &metabase.DeleteObjectsInfo{
+									StreamVersionID: obj1StreamVersionID,
+									Status:          metabase.CommittedVersioned,
 								},
 								Status: metabase.DeleteStatusOK,
 							},
@@ -634,10 +644,10 @@ func TestDeleteObjects(t *testing.T) {
 			t.Run("Duplicate deletion (indirect)", func(t *testing.T) {
 				defer metabasetest.DeleteAll{}.Check(ctx, t, db)
 
-				obj, _ := createObject(t, randObjectStream())
+				obj, _ := createObject(t, randObjectStream(), true)
 				sv := obj.StreamVersionID()
 
-				metabasetest.DeleteObjects{
+				opts := metabasetest.DeleteObjects{
 					Opts: metabase.DeleteObjects{
 						ProjectID:  projectID,
 						BucketName: bucketName,
@@ -654,29 +664,419 @@ func TestDeleteObjects(t *testing.T) {
 					Result: metabase.DeleteObjectsResult{
 						Items: []metabase.DeleteObjectsResultItem{
 							{
+								ObjectKey: obj.ObjectKey,
+								Marker: &metabase.DeleteObjectsInfo{
+									StreamVersionID: metabase.NewStreamVersionID(obj.Version+1, uuid.UUID{}),
+									Status:          metabase.DeleteMarkerVersioned,
+								},
+								Status: metabase.DeleteStatusOK,
+							}, {
 								ObjectKey:                obj.ObjectKey,
 								RequestedStreamVersionID: sv,
 								Removed: &metabase.DeleteObjectsInfo{
 									StreamVersionID: sv,
-									Status:          metabase.CommittedUnversioned,
-								},
-								Status: metabase.DeleteStatusOK,
-							}, {
-								ObjectKey: obj.ObjectKey,
-								Marker: &metabase.DeleteObjectsInfo{
-									StreamVersionID: metabase.NewStreamVersionID(1, uuid.UUID{}),
-									Status:          metabase.DeleteMarkerVersioned,
+									Status:          metabase.CommittedVersioned,
 								},
 								Status: metabase.DeleteStatusOK,
 							},
 						},
 						DeletedSegmentCount: int64(obj.SegmentCount),
 					},
-				}.Check(ctx, t, db)
+				}
+				opts.Check(ctx, t, db)
 
 				deleteMarker, err := db.GetObjectExactVersion(ctx, metabase.GetObjectExactVersion{
 					ObjectLocation: obj.Location(),
-					Version:        1,
+					Version:        obj.Version + 1,
+				})
+				require.NoError(t, err)
+
+				metabasetest.Verify{
+					Objects: metabasetest.ObjectsToRaw(deleteMarker),
+				}.Check(ctx, t, db)
+
+				metabasetest.DeleteAll{}.Check(ctx, t, db)
+
+				createObject(t, obj.ObjectStream, true)
+				opts.Opts.Items[0], opts.Opts.Items[1] = opts.Opts.Items[1], opts.Opts.Items[0]
+				opts.Check(ctx, t, db)
+
+				deleteMarker, err = db.GetObjectExactVersion(ctx, metabase.GetObjectExactVersion{
+					ObjectLocation: obj.Location(),
+					Version:        obj.Version + 1,
+				})
+				require.NoError(t, err)
+
+				metabasetest.Verify{
+					Objects: metabasetest.ObjectsToRaw(deleteMarker),
+				}.Check(ctx, t, db)
+			})
+		})
+
+		t.Run("Suspended", func(t *testing.T) {
+			t.Run("Basic", func(t *testing.T) {
+				defer metabasetest.DeleteAll{}.Check(ctx, t, db)
+
+				exactVersionObj1, _ := createObject(t, randObjectStream(), true)
+				exactVersionObj1SVID := exactVersionObj1.StreamVersionID()
+
+				exactVersionObj2, _ := createObject(t, randObjectStream(), true)
+				exactVersionObj2SVID := exactVersionObj2.StreamVersionID()
+
+				// Ensure that if an unversioned object version exists at this location,
+				// it should be deleted, and a delete marker is inserted as the last version.
+				lastCommittedObj1, _ := createObject(t, randObjectStream(), false)
+
+				// Ensure that if a versioned object exists at this location,
+				// it isn't deleted, and a delete marker is inserted as the last version.
+				lastCommittedObj2, lastCommittedObj2Segs := createObject(t, randObjectStream(), true)
+
+				differentBucketObj, differentBucketSegs := createObject(t, metabase.ObjectStream{
+					ProjectID:  exactVersionObj1.ProjectID,
+					BucketName: metabase.BucketName(testrand.BucketName()),
+					ObjectKey:  exactVersionObj1.ObjectKey,
+					Version:    exactVersionObj1.Version,
+					StreamID:   testrand.UUID(),
+				}, true)
+
+				differentProjectObj, differentProjectSegs := createObject(t, metabase.ObjectStream{
+					ProjectID:  testrand.UUID(),
+					BucketName: exactVersionObj1.BucketName,
+					ObjectKey:  exactVersionObj1.ObjectKey,
+					Version:    exactVersionObj1.Version,
+					StreamID:   testrand.UUID(),
+				}, true)
+
+				metabasetest.DeleteObjects{
+					Opts: metabase.DeleteObjects{
+						ProjectID:  projectID,
+						BucketName: bucketName,
+						Suspended:  true,
+						Items: []metabase.DeleteObjectsItem{
+							{
+								ObjectKey:       exactVersionObj1.ObjectKey,
+								StreamVersionID: exactVersionObj1SVID,
+							}, {
+								ObjectKey:       exactVersionObj2.ObjectKey,
+								StreamVersionID: exactVersionObj2SVID,
+							}, {
+								ObjectKey: lastCommittedObj1.ObjectKey,
+							}, {
+								ObjectKey: lastCommittedObj2.ObjectKey,
+							},
+						},
+					},
+					Result: metabase.DeleteObjectsResult{
+						Items: []metabase.DeleteObjectsResultItem{
+							{
+								ObjectKey: lastCommittedObj1.ObjectKey,
+								Removed: &metabase.DeleteObjectsInfo{
+									StreamVersionID: lastCommittedObj1.StreamVersionID(),
+									Status:          metabase.CommittedUnversioned,
+								},
+								Marker: &metabase.DeleteObjectsInfo{
+									StreamVersionID: metabase.NewStreamVersionID(lastCommittedObj1.Version+1, uuid.UUID{}),
+									Status:          metabase.DeleteMarkerUnversioned,
+								},
+								Status: metabase.DeleteStatusOK,
+							}, {
+								ObjectKey: lastCommittedObj2.ObjectKey,
+								Marker: &metabase.DeleteObjectsInfo{
+									StreamVersionID: metabase.NewStreamVersionID(lastCommittedObj2.Version+1, uuid.UUID{}),
+									Status:          metabase.DeleteMarkerUnversioned,
+								},
+								Status: metabase.DeleteStatusOK,
+							}, {
+								ObjectKey:                exactVersionObj1.ObjectKey,
+								RequestedStreamVersionID: exactVersionObj1SVID,
+								Removed: &metabase.DeleteObjectsInfo{
+									StreamVersionID: exactVersionObj1SVID,
+									Status:          metabase.CommittedVersioned,
+								},
+								Status: metabase.DeleteStatusOK,
+							}, {
+								ObjectKey:                exactVersionObj2.ObjectKey,
+								RequestedStreamVersionID: exactVersionObj2SVID,
+								Removed: &metabase.DeleteObjectsInfo{
+									StreamVersionID: exactVersionObj2SVID,
+									Status:          metabase.CommittedVersioned,
+								},
+								Status: metabase.DeleteStatusOK,
+							},
+						},
+						DeletedSegmentCount: int64(exactVersionObj1.SegmentCount + exactVersionObj2.SegmentCount + lastCommittedObj1.SegmentCount),
+					},
+				}.Check(ctx, t, db)
+
+				obj3DeleteMarker, err := db.GetObjectExactVersion(ctx, metabase.GetObjectExactVersion{
+					ObjectLocation: lastCommittedObj1.Location(),
+					Version:        lastCommittedObj1.Version + 1,
+				})
+				require.NoError(t, err)
+
+				obj4DeleteMarker, err := db.GetObjectExactVersion(ctx, metabase.GetObjectExactVersion{
+					ObjectLocation: lastCommittedObj2.Location(),
+					Version:        lastCommittedObj2.Version + 1,
+				})
+				require.NoError(t, err)
+
+				metabasetest.Verify{
+					Objects: metabasetest.ObjectsToRaw(
+						lastCommittedObj2,
+						obj3DeleteMarker,
+						obj4DeleteMarker,
+						differentBucketObj,
+						differentProjectObj,
+					),
+					Segments: metabasetest.SegmentsToRaw(concat(
+						lastCommittedObj2Segs,
+						differentBucketSegs,
+						differentProjectSegs,
+					)),
+				}.Check(ctx, t, db)
+			})
+
+			t.Run("Not found", func(t *testing.T) {
+				defer metabasetest.DeleteAll{}.Check(ctx, t, db)
+
+				missingObjStream1, missingObjStream2 := randObjectStream(), randObjectStream()
+				missingStreamVersionID := metabase.NewStreamVersionID(missingObjStream1.Version, missingObjStream1.StreamID)
+
+				// Ensure that an object is not deleted if only one of the object's version and stream ID is correct.
+				obj, segments := createObject(t, randObjectStream(), true)
+				badStreamVersionID1 := metabase.NewStreamVersionID(obj.Version, testrand.UUID())
+				badStreamVersionID2 := metabase.NewStreamVersionID(randVersion(), obj.StreamID)
+
+				metabasetest.DeleteObjects{
+					Opts: metabase.DeleteObjects{
+						ProjectID:  projectID,
+						BucketName: bucketName,
+						Suspended:  true,
+						Items: []metabase.DeleteObjectsItem{
+							{
+								ObjectKey:       missingObjStream1.ObjectKey,
+								StreamVersionID: missingStreamVersionID,
+							}, {
+								ObjectKey: missingObjStream2.ObjectKey,
+							}, {
+								ObjectKey:       obj.ObjectKey,
+								StreamVersionID: badStreamVersionID1,
+							}, {
+								ObjectKey:       obj.ObjectKey,
+								StreamVersionID: badStreamVersionID2,
+							},
+						},
+					},
+					Result: metabase.DeleteObjectsResult{
+						Items: []metabase.DeleteObjectsResultItem{
+							{
+								ObjectKey: missingObjStream2.ObjectKey,
+								Status:    metabase.DeleteStatusNotFound,
+							}, {
+								ObjectKey:                missingObjStream1.ObjectKey,
+								RequestedStreamVersionID: missingStreamVersionID,
+								Status:                   metabase.DeleteStatusNotFound,
+							}, {
+								ObjectKey:                obj.ObjectKey,
+								RequestedStreamVersionID: badStreamVersionID1,
+								Status:                   metabase.DeleteStatusNotFound,
+							}, {
+								ObjectKey:                obj.ObjectKey,
+								RequestedStreamVersionID: badStreamVersionID2,
+								Status:                   metabase.DeleteStatusNotFound,
+							},
+						},
+					},
+				}.Check(ctx, t, db)
+
+				metabasetest.Verify{
+					Objects:  metabasetest.ObjectsToRaw(obj),
+					Segments: metabasetest.SegmentsToRaw(segments),
+				}.Check(ctx, t, db)
+			})
+
+			t.Run("Pending object", func(t *testing.T) {
+				defer metabasetest.DeleteAll{}.Check(ctx, t, db)
+
+				pending := metabasetest.BeginObjectExactVersion{
+					Opts: metabase.BeginObjectExactVersion{
+						ObjectStream: randObjectStream(),
+						Encryption:   metabasetest.DefaultEncryption,
+					},
+				}.Check(ctx, t, db)
+				sv := pending.StreamVersionID()
+
+				segments := metabasetest.CreateSegments(ctx, t, db, pending.ObjectStream, nil, 2)
+
+				metabasetest.DeleteObjects{
+					Opts: metabase.DeleteObjects{
+						ProjectID:  projectID,
+						BucketName: bucketName,
+						Suspended:  true,
+						Items: []metabase.DeleteObjectsItem{{
+							ObjectKey: pending.ObjectKey,
+						}},
+					},
+					Result: metabase.DeleteObjectsResult{
+						Items: []metabase.DeleteObjectsResultItem{{
+							ObjectKey: pending.ObjectKey,
+							Status:    metabase.DeleteStatusNotFound,
+						}},
+					},
+				}.Check(ctx, t, db)
+
+				metabasetest.Verify{
+					Objects:  metabasetest.ObjectsToRaw(pending),
+					Segments: metabasetest.SegmentsToRaw(segments),
+				}.Check(ctx, t, db)
+
+				metabasetest.DeleteObjects{
+					Opts: metabase.DeleteObjects{
+						ProjectID:  projectID,
+						BucketName: bucketName,
+						Suspended:  true,
+						Items: []metabase.DeleteObjectsItem{{
+							ObjectKey:       pending.ObjectKey,
+							StreamVersionID: sv,
+						}},
+					},
+					Result: metabase.DeleteObjectsResult{
+						Items: []metabase.DeleteObjectsResultItem{{
+							ObjectKey:                pending.ObjectKey,
+							RequestedStreamVersionID: sv,
+							Removed: &metabase.DeleteObjectsInfo{
+								StreamVersionID: sv,
+								Status:          metabase.Pending,
+							},
+							Status: metabase.DeleteStatusOK,
+						}},
+						DeletedSegmentCount: int64(len(segments)),
+					},
+				}.Check(ctx, t, db)
+
+				metabasetest.Verify{}.Check(ctx, t, db)
+			})
+
+			t.Run("Duplicate deletion", func(t *testing.T) {
+				defer metabasetest.DeleteAll{}.Check(ctx, t, db)
+
+				obj1, _ := createObject(t, randObjectStream(), true)
+				obj1StreamVersionID := obj1.StreamVersionID()
+				reqItem1 := metabase.DeleteObjectsItem{
+					ObjectKey:       obj1.ObjectKey,
+					StreamVersionID: obj1StreamVersionID,
+				}
+
+				obj2, obj2Segments := createObject(t, randObjectStream(), true)
+				reqItem2 := metabase.DeleteObjectsItem{
+					ObjectKey: obj2.ObjectKey,
+				}
+
+				metabasetest.DeleteObjects{
+					Opts: metabase.DeleteObjects{
+						ProjectID:  projectID,
+						BucketName: bucketName,
+						Suspended:  true,
+						Items:      []metabase.DeleteObjectsItem{reqItem1, reqItem1, reqItem2, reqItem2},
+					},
+					Result: metabase.DeleteObjectsResult{
+						Items: []metabase.DeleteObjectsResultItem{
+							{
+								ObjectKey: obj2.ObjectKey,
+								Marker: &metabase.DeleteObjectsInfo{
+									StreamVersionID: metabase.NewStreamVersionID(obj2.Version+1, uuid.UUID{}),
+									Status:          metabase.DeleteMarkerUnversioned,
+								},
+								Status: metabase.DeleteStatusOK,
+							}, {
+								ObjectKey:                obj1.ObjectKey,
+								RequestedStreamVersionID: obj1StreamVersionID,
+								Removed: &metabase.DeleteObjectsInfo{
+									StreamVersionID: obj1StreamVersionID,
+									Status:          metabase.CommittedVersioned,
+								},
+								Status: metabase.DeleteStatusOK,
+							},
+						},
+						DeletedSegmentCount: int64(obj1.SegmentCount),
+					},
+				}.Check(ctx, t, db)
+
+				deleteMarker, err := db.GetObjectExactVersion(ctx, metabase.GetObjectExactVersion{
+					ObjectLocation: obj2.Location(),
+					Version:        obj2.Version + 1,
+				})
+				require.NoError(t, err)
+
+				metabasetest.Verify{
+					Objects:  metabasetest.ObjectsToRaw(obj2, deleteMarker),
+					Segments: metabasetest.SegmentsToRaw(obj2Segments),
+				}.Check(ctx, t, db)
+			})
+
+			t.Run("Duplicate deletion (indirect)", func(t *testing.T) {
+				defer metabasetest.DeleteAll{}.Check(ctx, t, db)
+
+				obj, _ := createObject(t, randObjectStream(), true)
+				sv := obj.StreamVersionID()
+
+				opts := metabasetest.DeleteObjects{
+					Opts: metabase.DeleteObjects{
+						ProjectID:  projectID,
+						BucketName: bucketName,
+						Suspended:  true,
+						Items: []metabase.DeleteObjectsItem{
+							{
+								ObjectKey:       obj.ObjectKey,
+								StreamVersionID: sv,
+							}, {
+								ObjectKey: obj.ObjectKey,
+							},
+						},
+					},
+					Result: metabase.DeleteObjectsResult{
+						Items: []metabase.DeleteObjectsResultItem{
+							{
+								ObjectKey: obj.ObjectKey,
+								Marker: &metabase.DeleteObjectsInfo{
+									StreamVersionID: metabase.NewStreamVersionID(obj.Version+1, uuid.UUID{}),
+									Status:          metabase.DeleteMarkerUnversioned,
+								},
+								Status: metabase.DeleteStatusOK,
+							}, {
+								ObjectKey:                obj.ObjectKey,
+								RequestedStreamVersionID: sv,
+								Removed: &metabase.DeleteObjectsInfo{
+									StreamVersionID: sv,
+									Status:          metabase.CommittedVersioned,
+								},
+								Status: metabase.DeleteStatusOK,
+							},
+						},
+						DeletedSegmentCount: int64(obj.SegmentCount),
+					},
+				}
+				opts.Check(ctx, t, db)
+
+				deleteMarker, err := db.GetObjectExactVersion(ctx, metabase.GetObjectExactVersion{
+					ObjectLocation: obj.Location(),
+					Version:        obj.Version + 1,
+				})
+				require.NoError(t, err)
+
+				metabasetest.Verify{
+					Objects: metabasetest.ObjectsToRaw(deleteMarker),
+				}.Check(ctx, t, db)
+
+				metabasetest.DeleteAll{}.Check(ctx, t, db)
+
+				createObject(t, obj.ObjectStream, true)
+				opts.Opts.Items[0], opts.Opts.Items[1] = opts.Opts.Items[1], opts.Opts.Items[0]
+				opts.Check(ctx, t, db)
+
+				deleteMarker, err = db.GetObjectExactVersion(ctx, metabase.GetObjectExactVersion{
+					ObjectLocation: obj.Location(),
+					Version:        obj.Version + 1,
 				})
 				require.NoError(t, err)
 

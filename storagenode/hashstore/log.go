@@ -283,15 +283,6 @@ func (h *Writer) Close() (err error) {
 	// safe.
 	size := h.lf.size.Load()
 
-	// we're about to write rSize bytes. if we can align the file to 4k after writing the record by
-	// writing less than 64 bytes, try to do so. we do this write separately from appending the
-	// record because otherwise we would have to allocate a variable width buffer causing an
-	// allocation on every Close instead of just on the calls that fix alignment.
-	var padding int
-	if align := 4096 - ((uint64(h.rec.Length) + size + RecordSize) % 4096); align > 0 && align < 64 {
-		padding, _ = h.lf.fh.Write(make([]byte, align))
-	}
-
 	// append the record to the log file for reconstruction.
 	var buf [RecordSize]byte
 	h.rec.WriteTo(&buf)
@@ -306,7 +297,7 @@ func (h *Writer) Close() (err error) {
 
 	// if we are not in manual mode, then we need to add the record.
 	if !h.manual {
-		if err := h.store.addRecord(h.rec); err != nil {
+		if err := h.store.addRecord(ctx, h.rec); err != nil {
 			// if we can't add the record, we should abort the write operation and attempt to
 			// reclaim space by seeking backwards to the record offset.
 			_, _ = h.lf.fh.Seek(int64(size), io.SeekStart)
@@ -315,7 +306,7 @@ func (h *Writer) Close() (err error) {
 	}
 
 	// increase our in-memory estimate of the size of the log file for sorting.
-	h.lf.size.Add(uint64(h.rec.Length) + uint64(padding) + RecordSize)
+	h.lf.size.Add(uint64(h.rec.Length) + RecordSize)
 
 	return nil
 }

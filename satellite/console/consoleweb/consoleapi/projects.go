@@ -771,6 +771,7 @@ func (p *Projects) GetConfig(w http.ResponseWriter, r *http.Request) {
 	id, err := uuid.FromString(idParam)
 	if err != nil {
 		p.serveJSONError(ctx, w, http.StatusBadRequest, err)
+		return
 	}
 
 	config, err := p.service.GetProjectConfig(ctx, id)

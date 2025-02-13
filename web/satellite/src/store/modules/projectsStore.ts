@@ -43,7 +43,7 @@ export class ProjectsState {
     public totalLimits: Readonly<ProjectLimits> = DEFAULT_PROJECT_LIMITS;
     public cursor: ProjectsCursor = new ProjectsCursor();
     public page: ProjectsPage = new ProjectsPage();
-    public allocatedBandwidthChartData: DataStamp[] = [];
+    public settledBandwidthChartData: DataStamp[] = [];
     public storageChartData: DataStamp[] = [];
     public chartDataSince: Date = new Date();
     public chartDataBefore: Date = new Date();
@@ -170,7 +170,7 @@ export const useProjectsStore = defineStore('projects', () => {
     async function getDailyProjectData(payload: ProjectUsageDateRange): Promise<void> {
         const usage: ProjectsStorageBandwidthDaily = await api.getDailyUsage(state.selectedProject.id, payload.since, payload.before);
 
-        state.allocatedBandwidthChartData = usage.allocatedBandwidth;
+        state.settledBandwidthChartData = usage.settledBandwidth;
         state.storageChartData = usage.storage;
         state.chartDataSince = payload.since;
         state.chartDataBefore = payload.before;
@@ -281,7 +281,7 @@ export const useProjectsStore = defineStore('projects', () => {
     }
 
     async function getProjectSalt(projectID: string): Promise<string> {
-        return await api.getSalt(projectID);
+        return state.selectedProjectConfig.salt || await api.getSalt(projectID);
     }
 
     async function getEmissionImpact(projectID: string): Promise<void> {
@@ -306,7 +306,7 @@ export const useProjectsStore = defineStore('projects', () => {
         state.currentLimits = DEFAULT_PROJECT_LIMITS;
         state.totalLimits = new ProjectLimits();
         state.storageChartData = [];
-        state.allocatedBandwidthChartData = [];
+        state.settledBandwidthChartData = [];
         state.chartDataSince = new Date();
         state.chartDataBefore = new Date();
         state.invitations = [];

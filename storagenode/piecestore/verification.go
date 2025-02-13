@@ -36,36 +36,36 @@ func (endpoint *Endpoint) verifyOrderLimit(ctx context.Context, limit *pb.OrderL
 	now := time.Now()
 	switch {
 	case limit.Limit < 0:
-		return rpcstatus.Error(rpcstatus.InvalidArgument, "order limit is negative")
+		return rpcstatus.NamedError("negative-order-limit", rpcstatus.InvalidArgument, "order limit is negative")
 	case endpoint.ident.ID != limit.StorageNodeId:
-		return rpcstatus.Errorf(rpcstatus.InvalidArgument, "order intended for other storagenode: %v", limit.StorageNodeId)
+		return rpcstatus.NamedErrorf("wrong-storage-node", rpcstatus.InvalidArgument, "order intended for other storagenode: %v", limit.StorageNodeId)
 	case endpoint.IsExpired(limit.PieceExpiration):
-		return rpcstatus.Errorf(rpcstatus.InvalidArgument, "piece expired: %v", limit.PieceExpiration)
+		return rpcstatus.NamedErrorf("piece-expired", rpcstatus.InvalidArgument, "piece expired: %v", limit.PieceExpiration)
 	case endpoint.IsExpired(limit.OrderExpiration):
-		return rpcstatus.Errorf(rpcstatus.InvalidArgument, "order expired: %v", limit.OrderExpiration)
+		return rpcstatus.NamedErrorf("order-expired", rpcstatus.InvalidArgument, "order expired: %v", limit.OrderExpiration)
 	case now.Sub(limit.OrderCreation) > endpoint.config.OrderLimitGracePeriod:
-		return rpcstatus.Errorf(rpcstatus.InvalidArgument, "order created too long ago: OrderCreation %v < SystemClock %v", limit.OrderCreation, now)
+		return rpcstatus.NamedErrorf("order-too-old", rpcstatus.InvalidArgument, "order created too long ago: OrderCreation %v < SystemClock %v", limit.OrderCreation, now)
 	case limit.OrderCreation.Sub(now) > endpoint.config.OrderLimitGracePeriod:
-		return rpcstatus.Errorf(rpcstatus.InvalidArgument, "order created too far in the future: OrderCreation %v > SystemClock %v", limit.OrderCreation, now)
+		return rpcstatus.NamedErrorf("future-order", rpcstatus.InvalidArgument, "order created too far in the future: OrderCreation %v > SystemClock %v", limit.OrderCreation, now)
 	case limit.SatelliteId.IsZero():
-		return rpcstatus.Errorf(rpcstatus.InvalidArgument, "missing satellite id")
+		return rpcstatus.NamedErrorf("no-satellite-id", rpcstatus.InvalidArgument, "missing satellite id")
 	case limit.UplinkPublicKey.IsZero():
-		return rpcstatus.Errorf(rpcstatus.InvalidArgument, "missing uplink public key")
+		return rpcstatus.NamedErrorf("no-uplink-pubkey", rpcstatus.InvalidArgument, "missing uplink public key")
 	case len(limit.SatelliteSignature) == 0:
-		return rpcstatus.Errorf(rpcstatus.InvalidArgument, "missing satellite signature")
+		return rpcstatus.NamedErrorf("no-sat-sig", rpcstatus.InvalidArgument, "missing satellite signature")
 	case limit.PieceId.IsZero():
-		return rpcstatus.Errorf(rpcstatus.InvalidArgument, "missing piece id")
+		return rpcstatus.NamedErrorf("no-piece-id", rpcstatus.InvalidArgument, "missing piece id")
 	}
 
 	if err := endpoint.trustSource.VerifySatelliteID(ctx, limit.SatelliteId); err != nil {
-		return rpcstatus.Wrap(rpcstatus.PermissionDenied, err)
+		return rpcstatus.NamedWrap("untrusted-satellite", rpcstatus.PermissionDenied, err)
 	}
 
 	if err := endpoint.VerifyOrderLimitSignature(ctx, limit); err != nil {
 		if errs2.IsCanceled(err) {
-			return rpcstatus.Wrap(rpcstatus.Canceled, err)
+			return rpcstatus.NamedWrap("context-canceled", rpcstatus.Canceled, err)
 		}
-		return rpcstatus.Wrap(rpcstatus.Unauthenticated, err)
+		return rpcstatus.NamedWrap("order-limit-sig-verify-fail", rpcstatus.Unauthenticated, err)
 	}
 
 	serialExpiration := limit.OrderExpiration
@@ -76,7 +76,7 @@ func (endpoint *Endpoint) verifyOrderLimit(ctx context.Context, limit *pb.OrderL
 	}
 
 	if err := endpoint.usedSerials.Add(ctx, limit.SatelliteId, limit.SerialNumber, serialExpiration); err != nil {
-		return rpcstatus.Wrap(rpcstatus.Unauthenticated, err)
+		return rpcstatus.NamedWrap("used-serial-addition-failure", rpcstatus.Unauthenticated, err)
 	}
 
 	return nil
@@ -89,22 +89,22 @@ func (endpoint *Endpoint) VerifyOrder(ctx context.Context, limit *pb.OrderLimit,
 	defer monVerifyOrder(&ctx)(&err)
 
 	if order.SerialNumber != limit.SerialNumber {
-		return rpcstatus.Error(rpcstatus.InvalidArgument, "order serial number changed during upload")
+		return rpcstatus.NamedError("serial-mismatch", rpcstatus.InvalidArgument, "order serial number changed during upload")
 	}
 	// TODO: add check for minimum allocation step
 	if order.Amount < largestOrderAmount {
-		return rpcstatus.Errorf(rpcstatus.InvalidArgument,
+		return rpcstatus.NamedErrorf("order-didnt-increase", rpcstatus.InvalidArgument,
 			"order contained smaller amount=%v, previous=%v",
 			order.Amount, largestOrderAmount)
 	}
 	if order.Amount > limit.Limit {
-		return rpcstatus.Errorf(rpcstatus.InvalidArgument,
+		return rpcstatus.NamedErrorf("order-too-big", rpcstatus.InvalidArgument,
 			"order exceeded allowed amount=%v, limit=%v",
 			order.Amount, limit.Limit)
 	}
 
 	if err := signing.VerifyUplinkOrderSignature(ctx, limit.UplinkPublicKey, order); err != nil {
-		return rpcstatus.Wrap(rpcstatus.Unauthenticated, err)
+		return rpcstatus.NamedWrap("order-sig-verify-fail", rpcstatus.Unauthenticated, err)
 	}
 
 	return nil
@@ -115,17 +115,17 @@ func (endpoint *Endpoint) VerifyPieceHash(ctx context.Context, limit *pb.OrderLi
 	defer mon.Task()(&ctx)(&err)
 
 	if limit == nil || hash == nil || len(expectedHash) == 0 {
-		return rpcstatus.Error(rpcstatus.InvalidArgument, "invalid arguments")
+		return rpcstatus.NamedError("missing-piece-hash-val", rpcstatus.InvalidArgument, "invalid arguments")
 	}
 	if limit.PieceId != hash.PieceId {
-		return rpcstatus.Error(rpcstatus.InvalidArgument, "piece id changed")
+		return rpcstatus.NamedError("piece-id-mismatch", rpcstatus.InvalidArgument, "piece id changed")
 	}
 	if !bytes.Equal(hash.Hash, expectedHash) {
-		return rpcstatus.Error(rpcstatus.InvalidArgument, "hashes don't match")
+		return rpcstatus.NamedError("hash-mismatch", rpcstatus.InvalidArgument, "hashes don't match")
 	}
 
 	if err := signing.VerifyUplinkPieceHashSignature(ctx, limit.UplinkPublicKey, hash); err != nil {
-		return rpcstatus.Error(rpcstatus.Unauthenticated, "invalid piece hash signature")
+		return rpcstatus.NamedError("hash-sig-verify-fail", rpcstatus.Unauthenticated, "invalid piece hash signature")
 	}
 
 	return nil
@@ -140,14 +140,14 @@ func (endpoint *Endpoint) VerifyOrderLimitSignature(ctx context.Context, limit *
 	signee, err := endpoint.trustSource.GetSignee(ctx, limit.SatelliteId)
 	if err != nil {
 		if errs2.IsCanceled(err) {
-			return rpcstatus.Wrap(rpcstatus.Canceled, err)
+			return rpcstatus.NamedWrap("context-canceled", rpcstatus.Canceled, err)
 		}
-		return rpcstatus.Wrap(rpcstatus.Unauthenticated,
+		return rpcstatus.NamedWrap("trusted-satellite-missing", rpcstatus.Unauthenticated,
 			ErrVerifyUntrusted.New("unable to get signee: %w", err))
 	}
 
 	if err := signing.VerifyOrderLimitSignature(ctx, signee, limit); err != nil {
-		return rpcstatus.Wrap(rpcstatus.Unauthenticated,
+		return rpcstatus.NamedWrap("order-limit-sig-verify-fail", rpcstatus.Unauthenticated,
 			ErrVerifyUntrusted.New("invalid order limit signature: %w", err))
 	}
 

@@ -69,7 +69,7 @@ type Config struct {
 	SkipEmptyInvoices      bool   `help:"if set, skips the creation of empty invoices for customers with zero usage for the billing period" default:"true"`
 	MaxParallelCalls       int    `help:"the maximum number of concurrent Stripe API calls in invoicing methods" default:"10"`
 	RemoveExpiredCredit    bool   `help:"whether to remove expired package credit or not" default:"true"`
-	UseIdempotency         bool   `help:"whether to use idempotency for create/update requests" default:"false"`
+	UseIdempotency         bool   `help:"whether to use idempotency for create/update requests" default:"true"`
 	Retries                RetryConfig
 }
 
@@ -113,11 +113,11 @@ type Service struct {
 	nowFn                func() time.Time
 	partnerPlacementMap  payments.PartnersPlacementProductMap
 	placementProductMap  payments.PlacementProductMap
-	productPriceMap      map[string]payments.ProjectUsagePriceModel
+	productPriceMap      map[string]payments.ProductUsagePriceModel
 }
 
 // NewService creates a Service instance.
-func NewService(log *zap.Logger, stripeClient Client, config Config, db DB, walletsDB storjscan.WalletsDB, billingDB billing.TransactionsDB, projectsDB console.Projects, usersDB console.Users, usageDB accounting.ProjectAccounting, usagePrices payments.ProjectUsagePriceModel, usagePriceOverrides map[string]payments.ProjectUsagePriceModel, productPriceMap map[string]payments.ProjectUsagePriceModel, partnerPlacementMap payments.PartnersPlacementProductMap, placementProductMap payments.PlacementProductMap, packagePlans map[string]payments.PackagePlan, bonusRate int64, analyticsService *analytics.Service, emissionService *emission.Service, deleteAccountEnabled bool) (*Service, error) {
+func NewService(log *zap.Logger, stripeClient Client, config Config, db DB, walletsDB storjscan.WalletsDB, billingDB billing.TransactionsDB, projectsDB console.Projects, usersDB console.Users, usageDB accounting.ProjectAccounting, usagePrices payments.ProjectUsagePriceModel, usagePriceOverrides map[string]payments.ProjectUsagePriceModel, productPriceMap map[string]payments.ProductUsagePriceModel, partnerPlacementMap payments.PartnersPlacementProductMap, placementProductMap payments.PlacementProductMap, packagePlans map[string]payments.PackagePlan, bonusRate int64, analyticsService *analytics.Service, emissionService *emission.Service, deleteAccountEnabled bool) (*Service, error) {
 	var partners []string
 	for partner := range usagePriceOverrides {
 		partners = append(partners, partner)

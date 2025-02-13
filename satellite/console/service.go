@@ -8,6 +8,7 @@ import (
 	"context"
 	"crypto/rand"
 	"database/sql"
+	"encoding/base64"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -25,6 +26,7 @@ import (
 	"github.com/spf13/pflag"
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
+	"go.uber.org/zap/zapcore"
 	"golang.org/x/crypto/bcrypt"
 
 	"storj.io/common/cfgstruct"
@@ -1095,25 +1097,6 @@ func (s *Service) VerifyRegistrationCaptcha(ctx context.Context, captchaResp, us
 	return true, nil, nil
 }
 
-// GenerateSecurityToken generates a random signed security token.
-func (s *Service) GenerateSecurityToken() (string, error) {
-	b := make([]byte, 32)
-	if _, err := rand.Read(b); err != nil {
-		return "", err
-	}
-
-	token := consoleauth.Token{Payload: b}
-
-	signature, err := s.tokens.SignToken(token)
-	if err != nil {
-		return "", err
-	}
-
-	token.Signature = signature
-
-	return token.String(), nil
-}
-
 // ValidateSecurityToken validates a signed security token.
 func (s *Service) ValidateSecurityToken(value string) error {
 	token, err := consoleauth.FromBase64URLString(value)
@@ -1126,7 +1109,7 @@ func (s *Service) ValidateSecurityToken(value string) error {
 		return err
 	}
 	if !valid {
-		return errs.New("Invalid CSRF token")
+		return errs.New("Invalid security token")
 	}
 
 	return nil
@@ -3175,6 +3158,7 @@ func (s *Service) GetEmissionImpact(ctx context.Context, projectID uuid.UUID) (*
 func (s *Service) GetProjectConfig(ctx context.Context, projectID uuid.UUID) (*ProjectConfig, error) {
 	var err error
 	defer mon.Task()(&ctx)(&err)
+
 	user, err := s.getUserAndAuditLog(ctx, "get project config", zap.String("projectID", projectID.String()))
 	if err != nil {
 		return nil, ErrUnauthorized.Wrap(err)
@@ -3186,6 +3170,11 @@ func (s *Service) GetProjectConfig(ctx context.Context, projectID uuid.UUID) (*P
 	}
 
 	project := isMember.project
+
+	salt, err := s.store.Projects().GetSalt(ctx, project.ID)
+	if err != nil {
+		return nil, Error.Wrap(err)
+	}
 
 	isOwnerPaidTier, err := s.store.Users().GetUserPaidTier(ctx, project.OwnerID)
 	if err != nil {
@@ -3220,6 +3209,7 @@ func (s *Service) GetProjectConfig(ctx context.Context, projectID uuid.UUID) (*P
 		Passphrase:           string(passphrase),
 		IsOwnerPaidTier:      isOwnerPaidTier,
 		Role:                 isMember.membership.Role,
+		Salt:                 base64.StdEncoding.EncodeToString(salt),
 	}, nil
 }
 
@@ -4689,33 +4679,25 @@ func (s *Service) GetBucketMetadata(ctx context.Context, projectID uuid.UUID) (l
 	return list, nil
 }
 
-// PlacementDetail represents human-readable details of a placement.
-type PlacementDetail struct {
-	ID          int    `json:"id"`
-	IdName      string `json:"idName"`
-	Name        string `json:"name"`
-	Title       string `json:"title"`
-	Description string `json:"description"`
-}
-
-// GetPlacementDetails retrieves available placement for self-serve with human-readable details.
-// TODO: This should be moved to the config.
-func (s *Service) GetPlacementDetails() []PlacementDetail {
-	return []PlacementDetail{
-		{
-			ID:          0,
-			IdName:      "global",
-			Name:        "Global",
-			Title:       "Global - Best for globally distributed workloads",
-			Description: "The data will be stored on the Storj globally distributed network, no restrictions by regions."},
-		{
-			ID:          3,
-			IdName:      "us-select-1",
-			Name:        "Storj Select",
-			Title:       "Storj US Select",
-			Description: "Store data only on Select nodes in the United States.",
-		},
+// GetPlacementDetails retrieves all placement with human-readable details available to a project's user agent.
+func (s *Service) GetPlacementDetails(ctx context.Context, projectID uuid.UUID) (_ []PlacementDetail, err error) {
+	user, err := GetUser(ctx)
+	if err != nil {
+		return nil, ErrUnauthorized.Wrap(err)
 	}
+	isMember, err := s.isProjectMember(ctx, user.ID, projectID)
+	if err != nil {
+		return nil, ErrUnauthorized.Wrap(err)
+	}
+
+	details := make([]PlacementDetail, 0)
+	placements := s.accounts.GetPartnerPlacements(string(isMember.project.UserAgent))
+	for _, placement := range placements {
+		if detail, ok := s.config.SelfServePlacementDetails.detailMap[placement]; ok {
+			details = append(details, detail)
+		}
+	}
+	return details, nil
 }
 
 // GetUsageReport retrieves usage rollups for every bucket of a single or all the user owned projects for a given period.
@@ -5726,7 +5708,19 @@ func (s *Service) GetUserSettings(ctx context.Context) (settings *UserSettings, 
 func (s *Service) SetUserSettings(ctx context.Context, request UpsertUserSettingsRequest) (settings *UserSettings, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	user, err := s.getUserAndAuditLog(ctx, "get user settings")
+	fields := []zapcore.Field{}
+
+	if request.OnboardingStart != nil {
+		fields = append(fields, zap.Bool("onboardingStart", *request.OnboardingStart))
+	}
+	if request.OnboardingEnd != nil {
+		fields = append(fields, zap.Bool("onboardingEnd", *request.OnboardingEnd))
+	}
+	if request.OnboardingStep != nil {
+		fields = append(fields, zap.String("onboardingStep", *request.OnboardingStep))
+	}
+
+	user, err := s.getUserAndAuditLog(ctx, "set user settings", fields...)
 	if err != nil {
 		return nil, Error.Wrap(err)
 	}

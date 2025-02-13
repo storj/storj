@@ -360,6 +360,7 @@ func SelectorFromString(expr string, environment *PlacementConfigEnvironment) (N
 				return math.Pow(nodeValue, valuePower) + valueBallast
 			}), filter), nil
 		},
+		"topology":   TopologySelector,
 		"filterbest": FilterBest,
 		"bestofn":    BestOfN,
 		"eq": func(a, b string) func(SelectedNode) bool {

@@ -211,10 +211,9 @@ import {
     VBtn,
     VCol,
     VRow,
-    VIcon,
     VChip,
 } from 'vuetify/components';
-import { ArrowRight, SquareArrowOutUpRight, Check, Pencil, View, Infinity as InfinityIcon, ExternalLink } from 'lucide-vue-next';
+import { ArrowRight, Check, Pencil, View, Infinity as InfinityIcon, ExternalLink } from 'lucide-vue-next';
 
 import { useProjectsStore } from '@/store/modules/projectsStore';
 import { FieldToChange, LimitToChange, Project } from '@/types/projects';

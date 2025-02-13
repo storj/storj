@@ -7,6 +7,7 @@ import (
 	"context"
 	"errors"
 	"math"
+	"strings"
 	"time"
 
 	"cloud.google.com/go/spanner"
@@ -17,6 +18,7 @@ import (
 	"storj.io/common/storj"
 	"storj.io/common/uuid"
 	"storj.io/storj/shared/dbutil"
+	"storj.io/storj/shared/dbutil/spannerutil"
 	"storj.io/storj/shared/tagsql"
 )
 
@@ -60,6 +62,7 @@ type IterateLoopSegments struct {
 	EndStreamID          uuid.UUID
 	AsOfSystemInterval   time.Duration
 	SpannerReadTimestamp time.Time
+	SpannerQueryType     string
 }
 
 // Verify verifies segments request fields.
@@ -287,7 +290,8 @@ type spannerLoopSegmentIterator struct {
 	// batchPieces are reused between result pages to reduce memory consumption
 	batchPieces []Pieces
 
-	readTimestamp time.Time
+	asOfSystemInterval time.Duration
+	readTimestamp      time.Time
 
 	curIndex int
 	curRows  *spanner.RowIterator
@@ -330,7 +334,7 @@ func (it *spannerLoopSegmentIterator) Next(ctx context.Context, item *LoopSegmen
 		}
 	}
 
-	err = it.scanItem(ctx, item)
+	err = scanSpannerItem(ctx, it.curRow, it.aliasCache, it.batchPieces, it.curIndex, it.db.Name(), item)
 	if err != nil {
 		it.failErr = errs.Combine(it.failErr, err)
 		return false
@@ -378,56 +382,176 @@ func (it *spannerLoopSegmentIterator) doNextQuery(ctx context.Context) (_ *spann
 	opts := spanner.QueryOptions{
 		Priority: spannerpb.RequestOptions_PRIORITY_LOW,
 	}
-	if it.readTimestamp.IsZero() {
-		return it.db.client.Single().QueryWithOptions(ctx, stmt, opts)
+	readOnlyTx := it.db.client.Single()
+	if !it.readTimestamp.IsZero() {
+		readOnlyTx = readOnlyTx.WithTimestampBound(spanner.ReadTimestamp(it.readTimestamp))
+	} else {
+		readOnlyTx = readOnlyTx.WithTimestampBound(spannerutil.MaxStalenessFromAOSI(it.asOfSystemInterval))
 	}
-	return it.db.client.Single().WithTimestampBound(spanner.ReadTimestamp(it.readTimestamp)).QueryWithOptions(ctx, stmt, opts)
+	return readOnlyTx.QueryWithOptions(ctx, stmt, opts)
 }
 
 // IterateLoopSegments implements Adapter.
 func (s *SpannerAdapter) IterateLoopSegments(ctx context.Context, aliasCache *NodeAliasCache, opts IterateLoopSegments, fn func(context.Context, LoopSegmentsIterator) error) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	it := &spannerLoopSegmentIterator{
-		db:         s,
-		aliasCache: aliasCache,
-
-		readTimestamp: opts.SpannerReadTimestamp,
-
-		batchSize:   opts.BatchSize,
-		batchPieces: make([]Pieces, opts.BatchSize),
-
-		curIndex: 0,
-		cursor: loopSegmentIteratorCursor{
-			StartStreamID: opts.StartStreamID,
-			EndStreamID:   opts.EndStreamID,
-		},
+	cursor := loopSegmentIteratorCursor{
+		StartStreamID: opts.StartStreamID,
+		EndStreamID:   opts.EndStreamID,
 	}
 
 	if !opts.StartStreamID.IsZero() {
 		// uses MaxInt32 instead of MaxUint32 because position is an int8 in db.
-		it.cursor.StartPosition = SegmentPosition{math.MaxInt32, math.MaxInt32}
+		cursor.StartPosition = SegmentPosition{math.MaxInt32, math.MaxInt32}
 	}
-	if it.cursor.EndStreamID.IsZero() {
-		it.cursor.EndStreamID = uuid.Max()
+	if cursor.EndStreamID.IsZero() {
+		cursor.EndStreamID = uuid.Max()
 	}
 
-	it.curRows = it.doNextQuery(ctx)
+	opts.SpannerQueryType = strings.ToLower(opts.SpannerQueryType)
+	var it LoopSegmentsIterator
+	switch {
+	case opts.SpannerQueryType == "sql" || opts.SpannerQueryType == "":
+		sqlIt := &spannerLoopSegmentIterator{
+			db:         s,
+			aliasCache: aliasCache,
 
-	defer func() {
-		it.curRows.Stop()
+			asOfSystemInterval: opts.AsOfSystemInterval,
+			readTimestamp:      opts.SpannerReadTimestamp,
 
-		err = errs.Combine(err, it.failErr)
-	}()
+			batchSize:   opts.BatchSize,
+			batchPieces: make([]Pieces, opts.BatchSize),
+			cursor:      cursor,
+			curIndex:    0,
+		}
+
+		sqlIt.curRows = sqlIt.doNextQuery(ctx)
+
+		defer func() {
+			sqlIt.curRows.Stop()
+
+			err = errs.Combine(err, sqlIt.failErr)
+		}()
+
+		it = sqlIt
+	case opts.SpannerQueryType == "read":
+		readIt := &spannerReadLoopSegmentIterator{
+			db:         s,
+			aliasCache: aliasCache,
+
+			asOfSystemInterval: opts.AsOfSystemInterval,
+			readTimestamp:      opts.SpannerReadTimestamp,
+
+			batchPieces: make([]Pieces, opts.BatchSize),
+			cursor:      cursor,
+			curIndex:    0,
+		}
+
+		readIt.curRows = readIt.doQuery(ctx)
+
+		defer func() {
+			readIt.curRows.Stop()
+
+			err = errs.Combine(err, readIt.failErr)
+		}()
+
+		it = readIt
+	default:
+		return ErrInvalidRequest.New("invalid SpannerQueryType: %q", opts.SpannerQueryType)
+	}
 
 	return fn(ctx, it)
 }
 
-func (it *spannerLoopSegmentIterator) scanItem(ctx context.Context, item *LoopSegmentEntry) (err error) {
+type spannerReadLoopSegmentIterator struct {
+	db *SpannerAdapter
+
+	// batchPieces are reused between result pages to reduce memory consumption
+	batchPieces []Pieces
+
+	asOfSystemInterval time.Duration
+	readTimestamp      time.Time
+
+	curIndex int
+	curRows  *spanner.RowIterator
+	cursor   loopSegmentIteratorCursor
+
+	// failErr is set when either scan or next query fails during iteration.
+	failErr    error
+	aliasCache *NodeAliasCache
+}
+
+func (it *spannerReadLoopSegmentIterator) doQuery(ctx context.Context) (_ *spanner.RowIterator) {
+	defer mon.Task()(&ctx)(nil)
+
+	opts := &spanner.ReadOptions{
+		Priority: spannerpb.RequestOptions_PRIORITY_LOW,
+	}
+
+	keyRange := spanner.KeyRange{
+		Start: spanner.Key{},
+		End:   spanner.Key{},
+		Kind:  spanner.OpenClosed,
+	}
+	if it.cursor.StartStreamID.IsZero() {
+		keyRange.Start = spanner.Key{it.cursor.StartStreamID.Bytes()}
+	} else {
+		keyRange.Start = spanner.Key{it.cursor.StartStreamID.Bytes(), int64(it.cursor.StartPosition.Encode())}
+	}
+
+	keyRange.End = spanner.Key{it.cursor.EndStreamID.Bytes(), int64(SegmentPosition{math.MaxInt32, math.MaxInt32}.Encode())}
+
+	readOnlyTx := it.db.client.Single()
+	if !it.readTimestamp.IsZero() {
+		readOnlyTx = readOnlyTx.WithTimestampBound(spanner.ReadTimestamp(it.readTimestamp))
+	} else {
+		readOnlyTx = readOnlyTx.WithTimestampBound(spannerutil.MaxStalenessFromAOSI(it.asOfSystemInterval))
+	}
+
+	return readOnlyTx.ReadWithOptions(ctx, "segments", keyRange,
+		[]string{
+			"stream_id", "position",
+			"created_at", "expires_at", "repaired_at",
+			"root_piece_id",
+			"encrypted_size",
+			"plain_offset", "plain_size",
+			"redundancy",
+			"remote_alias_pieces",
+			"placement",
+		}, opts)
+}
+
+// Next returns true if there was another item and copy it in item.
+func (it *spannerReadLoopSegmentIterator) Next(ctx context.Context, item *LoopSegmentEntry) bool {
+	if it.curIndex == len(it.batchPieces) {
+		it.curIndex = 0
+	}
+
+	row, err := it.curRows.Next()
+	if errors.Is(err, iterator.Done) {
+		return false
+	}
+	if err != nil {
+		it.failErr = errs.Combine(it.failErr, err)
+		return false
+	}
+
+	err = scanSpannerItem(ctx, row, it.aliasCache, it.batchPieces, it.curIndex, it.db.Name(), item)
+	if err != nil {
+		it.failErr = errs.Combine(it.failErr, err)
+		return false
+	}
+
+	it.curIndex++
+	return true
+}
+
+func scanSpannerItem(ctx context.Context, row *spanner.Row, aliasCache *NodeAliasCache,
+	batchPieces []Pieces, curIndex int, dbName string, item *LoopSegmentEntry) (err error) {
 	var repairedAt, expiresAt spanner.NullTime
 	var encryptedSize, plainSize int64
 
-	if err := it.curRow.Columns(&item.StreamID, &item.Position,
+	if err := row.Columns(&item.StreamID, &item.Position,
 		&item.CreatedAt, &expiresAt, &repairedAt,
 		&item.RootPieceID,
 		&encryptedSize, &item.PlainOffset, &plainSize,
@@ -453,17 +577,17 @@ func (it *spannerLoopSegmentIterator) scanItem(ctx context.Context, item *LoopSe
 	item.PlainSize = int32(plainSize)
 
 	// allocate new Pieces only if existing have not enough capacity
-	if cap(it.batchPieces[it.curIndex]) < len(item.AliasPieces) {
-		it.batchPieces[it.curIndex] = make(Pieces, len(item.AliasPieces))
+	if cap(batchPieces[curIndex]) < len(item.AliasPieces) {
+		batchPieces[curIndex] = make(Pieces, len(item.AliasPieces))
 	} else {
-		it.batchPieces[it.curIndex] = it.batchPieces[it.curIndex][:len(item.AliasPieces)]
+		batchPieces[curIndex] = batchPieces[curIndex][:len(item.AliasPieces)]
 	}
 
-	item.Pieces, err = it.aliasCache.convertAliasesToPieces(ctx, item.AliasPieces, it.batchPieces[it.curIndex])
+	item.Pieces, err = aliasCache.convertAliasesToPieces(ctx, item.AliasPieces, batchPieces[curIndex])
 	if err != nil {
 		return Error.New("failed to scan segment: %w", err)
 	}
-	item.Source = it.db.Name()
+	item.Source = dbName
 
 	return nil
 }

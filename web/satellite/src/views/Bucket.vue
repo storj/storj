@@ -152,6 +152,21 @@
                             </v-list-item-title>
                         </v-list-item>
                         <v-list-item
+                            v-if="downloadPrefixEnabled"
+                            density="comfortable"
+                            link
+                            @click="onDownloadBucket"
+                        >
+                            <template #prepend>
+                                <component :is="DownloadIcon" :size="18" />
+                            </template>
+                            <v-list-item-title
+                                class="ml-3 text-body-2 font-weight-medium"
+                            >
+                                Download Bucket
+                            </v-list-item-title>
+                        </v-list-item>
+                        <v-list-item
                             density="comfortable"
                             link
                             @click="isBucketDetailsDialogShown = true"
@@ -187,6 +202,18 @@
                 <v-spacer v-if="smAndUp" />
 
                 <v-col class="pa-0 pt-5 pa-sm-0 text-sm-right" cols="12" sm="4">
+                    <v-btn
+                        v-if="versioningUIEnabled"
+                        variant="outlined"
+                        color="default"
+                        class="mr-2 mr-md-2 mb-sm-1 mb-md-0"
+                        @click="obStore.toggleShowObjectVersions()"
+                    >
+                        <template #prepend>
+                            <component :is="showObjectVersions ? EyeOff : Eye" :size="18" />
+                        </template>
+                        {{ showObjectVersions ? "Hide" : "Show" }} Versions
+                    </v-btn>
                     <v-btn-toggle
                         mandatory
                         border
@@ -257,6 +284,7 @@
         @proceed="upload(true)"
         @cancel="clearUpload"
     />
+    <download-prefix-dialog v-if="downloadPrefixEnabled" v-model="isDownloadPrefixDialogShown" :prefix-type="DownloadPrefixType.Bucket" :path="bucketToDownload" />
 </template>
 
 <script setup lang="ts">
@@ -280,7 +308,8 @@ import {
     VTooltip,
 } from 'vuetify/components';
 import { useDisplay } from 'vuetify';
-import { FileUp,
+import {
+    FileUp,
     FolderUp,
     ChevronDown,
     Settings,
@@ -294,6 +323,7 @@ import { FileUp,
     Eye,
     EyeOff,
     Grid2X2,
+    DownloadIcon,
 } from 'lucide-vue-next';
 
 import { useBucketsStore } from '@/store/modules/bucketsStore';
@@ -310,6 +340,7 @@ import { BucketMetadata } from '@/types/buckets';
 import { usePreCheck } from '@/composables/usePreCheck';
 import { useUsersStore } from '@/store/modules/usersStore';
 import { useConfigStore } from '@/store/modules/configStore';
+import { DownloadPrefixType } from '@/types/browser';
 
 import PageTitleComponent from '@/components/PageTitleComponent.vue';
 import BrowserBreadcrumbsComponent from '@/components/BrowserBreadcrumbsComponent.vue';
@@ -325,6 +356,7 @@ import DeleteBucketDialog from '@/components/dialogs/DeleteBucketDialog.vue';
 import ToggleVersioningDialog from '@/components/dialogs/ToggleVersioningDialog.vue';
 import UploadOverwriteWarningDialog from '@/components/dialogs/UploadOverwriteWarningDialog.vue';
 import BrowserVersionsTableComponent from '@/components/BrowserVersionsTableComponent.vue';
+import DownloadPrefixDialog from '@/components/dialogs/DownloadPrefixDialog.vue';
 
 const bucketsStore = useBucketsStore();
 const obStore = useObjectBrowserStore();
@@ -354,6 +386,8 @@ const isBucketDetailsDialogShown = ref<boolean>(false);
 const isDeleteBucketDialogShown = ref<boolean>(false);
 const isDuplicateUploadDialogShown = ref<boolean>(false);
 const bucketToToggleVersioning = ref<BucketMetadata | null>(null);
+const isDownloadPrefixDialogShown = ref<boolean>(false);
+const bucketToDownload = ref<string>('');
 
 const duplicateFiles = ref<string[]>([]);
 
@@ -366,6 +400,8 @@ const versioningUIEnabled = computed(() => {
       && bucket.value.versioning !== Versioning.NotSupported
       && bucket.value.versioning !== Versioning.Unversioned;
 });
+
+const downloadPrefixEnabled = computed<boolean>(() => configStore.state.config.downloadPrefixEnabled);
 
 /**
  * Whether the user should be warned when uploading duplicate files.
@@ -439,6 +475,16 @@ async function buttonFileUpload(): Promise<void> {
 function onNewFolderClick(): void {
     withTrialCheck(() => {
         isNewFolderDialogOpen.value = true;
+    });
+}
+
+/**
+ * Handles download bucket action.
+ */
+function onDownloadBucket(): void {
+    withTrialCheck(() => {
+        bucketToDownload.value = bucketName.value;
+        isDownloadPrefixDialogShown.value = true;
     });
 }
 
@@ -563,7 +609,7 @@ watch(isBucketPassphraseDialogOpen, isOpen => {
 watch(() => route.params.browserPath, browserPath => {
     if (browserPath === undefined) return;
 
-    let bucketName = '', filePath = '';
+    let bucketName: string, filePath = '';
     if (typeof browserPath === 'string') {
         bucketName = browserPath;
     } else {

@@ -269,6 +269,10 @@ func TestPercentSuccessTracker(t *testing.T) {
 		check(storj.NodeID{0: 1}, 3./5)
 		check(storj.NodeID{0: 2}, 4./5)
 
+		do(tr.BumpGeneration)
+		do(tr.BumpGeneration)
+		do(tr.BumpGeneration)
+		do(tr.BumpGeneration)
 		do(tr.BumpGeneration) // first generation finally falls out
 		do(func() { tr.Increment(storj.NodeID{0: 1}, true) })
 		do(func() { tr.Increment(storj.NodeID{0: 2}, false) })

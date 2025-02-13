@@ -37,7 +37,7 @@ func TestDB_BasicOperation(t *testing.T) {
 	t.Logf("%+v", stats)
 	assert.Equal(t, stats.NumSet, 1000)
 	assert.Equal(t, stats.LenSet, uint64(len(Key{})+RecordSize)*stats.NumSet)
-	assert.That(t, stats.LenSet <= stats.LenLogs) // <= because of optimistic alignment
+	assert.Equal(t, stats.LenSet, stats.LenLogs)
 
 	// should still have all the keys after manual compaction
 	db.AssertCompact()
@@ -319,7 +319,7 @@ func BenchmarkDB(b *testing.B) {
 		buf := make([]byte, size)
 		_, _ = mwc.Rand().Read(buf)
 
-		db, err := New(b.TempDir(), nil, nil, nil)
+		db, err := New(ctx, b.TempDir(), nil, nil, nil)
 		assert.NoError(b, err)
 		defer db.Close()
 
@@ -345,7 +345,7 @@ func BenchmarkDB(b *testing.B) {
 		buf := make([]byte, size)
 		_, _ = mwc.Rand().Read(buf)
 
-		db, err := New(b.TempDir(), nil, nil, nil)
+		db, err := New(ctx, b.TempDir(), nil, nil, nil)
 		assert.NoError(b, err)
 		defer db.Close()
 
@@ -373,7 +373,7 @@ func BenchmarkDB(b *testing.B) {
 		buf := make([]byte, size)
 		_, _ = mwc.Rand().Read(buf)
 
-		db, err := New(b.TempDir(), nil, nil, nil)
+		db, err := New(ctx, b.TempDir(), nil, nil, nil)
 		assert.NoError(b, err)
 		defer db.Close()
 

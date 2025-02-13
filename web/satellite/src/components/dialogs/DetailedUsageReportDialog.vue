@@ -41,6 +41,7 @@
                 <v-date-picker
                     v-if="option === Options.Custom"
                     v-model="customRange"
+                    :allowed-dates="allowDate"
                     header="Choose Dates"
                     multiple="range"
                     show-adjacent-months
@@ -142,6 +143,18 @@ function setChooseDates(): void {
     before.value = undefined;
     option.value = Options.Custom;
     customRange.value = [];
+}
+
+function allowDate(date: unknown): boolean {
+    if (!date) return false;
+    const d = new Date(date as string);
+    if (isNaN(d.getTime())) return false;
+
+    d.setHours(0, 0, 0, 0);
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+
+    return d <= today;
 }
 
 function downloadReport(): void {
