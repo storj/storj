@@ -444,16 +444,22 @@ func benchmarkSizes(b *testing.B, name string, run func(*testing.B, uint64)) {
 		b.Run("1KB", func(b *testing.B) { run(b, 1*1024) })
 		b.Run("4KB", func(b *testing.B) { run(b, 4*1024) })
 		b.Run("16KB", func(b *testing.B) { run(b, 16*1024) })
-		b.Run("64KB", func(b *testing.B) { run(b, 64*1024) })
-		b.Run("256KB", func(b *testing.B) { run(b, 256*1024) })
-		b.Run("1MB", func(b *testing.B) { run(b, 1*1024*1024) })
-		b.Run("2MB", func(b *testing.B) { run(b, 2*1024*1024) })
+		if !testing.Short() {
+			b.Run("64KB", func(b *testing.B) { run(b, 64*1024) })
+			b.Run("256KB", func(b *testing.B) { run(b, 256*1024) })
+			b.Run("1MB", func(b *testing.B) { run(b, 1*1024*1024) })
+			b.Run("2MB", func(b *testing.B) { run(b, 2*1024*1024) })
+		}
 	})
 }
 
 func benchmarkLRecs(b *testing.B, name string, run func(*testing.B, uint64)) {
 	b.Run(name, func(b *testing.B) {
-		for lrec := uint64(14); lrec < 20; lrec++ {
+		nrecs := uint64(20)
+		if testing.Short() {
+			nrecs = 16
+		}
+		for lrec := uint64(14); lrec < nrecs; lrec++ {
 			b.Run(fmt.Sprintf("lrec=%d", lrec), func(b *testing.B) { run(b, lrec) })
 		}
 	})
