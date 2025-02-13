@@ -97,12 +97,12 @@ func TestStore_FileLocking(t *testing.T) {
 	defer s.Close()
 
 	// flock should stop a second store from being created with the same hashdir.
-	_, err := NewStore(ctx, s.dir, nil)
+	_, err := NewStore(ctx, s.logsPath, "", nil)
 	assert.Error(t, err)
 
 	// it should still be locked even after compact makes a new hashtbl file.
 	s.AssertCompact(nil, time.Time{})
-	_, err = NewStore(ctx, s.dir, nil)
+	_, err = NewStore(ctx, s.logsPath, "", nil)
 	assert.Error(t, err)
 }
 
@@ -905,7 +905,7 @@ func TestStore_FallbackToNonTTLLogFile(t *testing.T) {
 	now := time.Now()
 	ttl := TimeToDateUp(now)
 	id := getLog(permKey) + 1
-	dir := filepath.Join(s.dir, fmt.Sprintf("%02x", byte(id)))
+	dir := filepath.Join(s.logsPath, fmt.Sprintf("%02x", byte(id)))
 	assert.NoError(t, os.MkdirAll(dir, 0755))
 	name := filepath.Join(dir, fmt.Sprintf("log-%016x-%08x", id, ttl))
 	fh, err := os.OpenFile(name, os.O_CREATE, 0)

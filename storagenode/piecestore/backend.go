@@ -60,7 +60,9 @@ type PieceReader interface {
 
 // HashStoreBackend implements PieceBackend using the hashstore.
 type HashStoreBackend struct {
-	dir string
+	logsPath  string
+	tablePath string
+
 	bfm *retain.BloomFilterManager
 	rtm *retain.RestoreTimeManager
 	log *zap.Logger
@@ -73,23 +75,29 @@ type HashStoreBackend struct {
 // directory are allowed to be the same.
 func NewHashStoreBackend(
 	ctx context.Context,
-	dir string,
+	logsPath string,
+	tablePath string,
 	bfm *retain.BloomFilterManager,
 	rtm *retain.RestoreTimeManager,
 	log *zap.Logger,
 ) (*HashStoreBackend, error) {
 
+	if tablePath == "" {
+		tablePath = logsPath
+	}
+
 	hsb := &HashStoreBackend{
-		dir: dir,
-		bfm: bfm,
-		rtm: rtm,
-		log: log,
+		logsPath:  logsPath,
+		tablePath: tablePath,
+		bfm:       bfm,
+		rtm:       rtm,
+		log:       log,
 
 		dbs: map[storj.NodeID]*hashstore.DB{},
 	}
 
 	// open any existing databases
-	entries, err := os.ReadDir(dir)
+	entries, err := os.ReadDir(logsPath)
 	if errors.Is(err, fs.ErrNotExist) {
 		return hsb, nil
 	} else if err != nil {
@@ -195,11 +203,16 @@ func (hsb *HashStoreBackend) ForgetSatellite(ctx context.Context, satellite stor
 
 	db.Close()
 
-	return os.RemoveAll(hsb.dbDir(satellite))
-}
+	err = os.RemoveAll(filepath.Join(hsb.logsPath, satellite.String()))
+	if err != nil {
+		return errs.Wrap(err)
+	}
 
-func (hsb *HashStoreBackend) dbDir(satellite storj.NodeID) string {
-	return filepath.Join(hsb.dir, satellite.String())
+	err = os.RemoveAll(filepath.Join(hsb.tablePath, satellite.String()))
+	if err != nil {
+		return errs.Wrap(err)
+	}
+	return nil
 }
 
 func (hsb *HashStoreBackend) getDB(ctx context.Context, satellite storj.NodeID) (*hashstore.DB, error) {
@@ -234,7 +247,8 @@ func (hsb *HashStoreBackend) getDB(ctx context.Context, satellite storj.NodeID) 
 
 	db, err := hashstore.New(
 		ctx,
-		hsb.dbDir(satellite),
+		filepath.Join(hsb.logsPath, satellite.String()),
+		filepath.Join(hsb.tablePath, satellite.String()),
 		log,
 		shouldTrash,
 		lastRestore,

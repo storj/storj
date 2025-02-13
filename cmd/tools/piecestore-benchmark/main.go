@@ -165,7 +165,7 @@ func createEndpoint(ctx context.Context, satIdent, snIdent *identity.FullIdentit
 	bfm := try.E1(retain.NewBloomFilterManager("bfm", cfg.Retain.MaxTimeSkew))
 
 	rtm := retain.NewRestoreTimeManager("rtm")
-	hsb := try.E1(piecestore.NewHashStoreBackend(ctx, "hashstore", bfm, rtm, log))
+	hsb := try.E1(piecestore.NewHashStoreBackend(ctx, "hashstore", "", bfm, rtm, log))
 	mon.Chain(hsb)
 
 	var spaceReport monitor.SpaceReport
