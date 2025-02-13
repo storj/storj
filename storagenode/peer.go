@@ -42,6 +42,7 @@ import (
 	"storj.io/storj/storagenode/contact"
 	"storj.io/storj/storagenode/forgetsatellite"
 	"storj.io/storj/storagenode/gracefulexit"
+	"storj.io/storj/storagenode/hashstore"
 	"storj.io/storj/storagenode/healthcheck"
 	"storj.io/storj/storagenode/inspector"
 	"storj.io/storj/storagenode/internalpb"
@@ -120,6 +121,8 @@ type Config struct {
 	Preflight preflight.Config
 	Contact   contact.Config
 	Operator  operator.Config
+
+	Hashstore hashstore.Config
 
 	// TODO: flatten storage config and only keep the new one
 	Storage           piecestore.OldConfig
@@ -579,8 +582,8 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, revocationDB exten
 			Close: peer.StorageOld.TrashChore.Close,
 		})
 
-		hashStoreDir := filepath.Join(config.Storage.Path, "hashstore")
-		metaDir := filepath.Join(hashStoreDir, "meta")
+		logsPath, tablePath := config.Hashstore.Directories(config.Storage.Path)
+		metaDir := filepath.Join(logsPath, "meta")
 
 		peer.Storage2.MigrationState = satstore.NewSatelliteStore(metaDir, "migrate")
 		peer.Storage2.RestoreTimeManager = retain.NewRestoreTimeManager(metaDir)
@@ -594,7 +597,8 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, revocationDB exten
 
 		peer.Storage2.HashStoreBackend, err = piecestore.NewHashStoreBackend(
 			context.Background(),
-			hashStoreDir,
+			logsPath,
+			tablePath,
 			peer.Storage2.BloomFilterManager,
 			peer.Storage2.RestoreTimeManager,
 			process.NamedLog(peer.Log, "hashstore"),

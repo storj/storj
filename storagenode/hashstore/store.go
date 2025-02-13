@@ -44,12 +44,12 @@ var (
 // Store is a hash table based key-value store with compaction.
 type Store struct {
 	// immutable data
-	dir   string         // directory containing log files
-	meta  string         // directory containing meta files (lock + hashtbl)
-	log   *zap.Logger    // logger for unhandleable errors
-	today func() uint32  // hook for getting the current timestamp
-	lock  *os.File       // lock file to prevent multiple processes from using the same store
-	lfc   *logCollection // collection of log files ready to be written into
+	logsPath  string         // directory containing log files
+	tablePath string         // directory containing meta files (lock + hashtbl)
+	log       *zap.Logger    // logger for unhandleable errors
+	today     func() uint32  // hook for getting the current timestamp
+	lock      *os.File       // lock file to prevent multiple processes from using the same store
+	lfc       *logCollection // collection of log files ready to be written into
 
 	closed drpcsignal.Signal // closed state
 	cloMu  sync.Mutex        // synchronizes closing
@@ -82,19 +82,23 @@ type Store struct {
 }
 
 // NewStore creates or opens a store in the given directory.
-func NewStore(ctx context.Context, dir string, log *zap.Logger) (_ *Store, err error) {
+func NewStore(ctx context.Context, logsPath string, tablePath string, log *zap.Logger) (_ *Store, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	if log == nil {
 		log = zap.NewNop()
 	}
 
+	if tablePath == "" {
+		tablePath = filepath.Join(logsPath, "meta")
+	}
+
 	s := &Store{
-		dir:   dir,
-		meta:  filepath.Join(dir, "meta"),
-		log:   log,
-		today: func() uint32 { return TimeToDateDown(time.Now()) },
-		lfc:   newLogCollection(),
+		logsPath:  logsPath,
+		tablePath: tablePath,
+		log:       log,
+		today:     func() uint32 { return TimeToDateDown(time.Now()) },
+		lfc:       newLogCollection(),
 
 		activeMu:  newRWMutex(),
 		compactMu: newMutex(),
@@ -110,12 +114,16 @@ func NewStore(ctx context.Context, dir string, log *zap.Logger) (_ *Store, err e
 	}()
 
 	// attempt to make the meta directory which ensures all parent directories exist.
-	if err := os.MkdirAll(s.meta, 0755); err != nil {
-		return nil, Error.New("unable to create directory=%q: %w", dir, err)
+	if err := os.MkdirAll(s.tablePath, 0755); err != nil {
+		return nil, Error.New("unable to create directory=%q: %w", s.tablePath, err)
+	}
+
+	if err := os.MkdirAll(s.logsPath, 0755); err != nil {
+		return nil, Error.New("unable to create directory=%q: %w", s.logsPath, err)
 	}
 
 	{ // acquire the lock file to prevent concurrent use of the hash table.
-		s.lock, err = os.OpenFile(filepath.Join(s.meta, "lock"), os.O_CREATE|os.O_RDONLY, 0666)
+		s.lock, err = os.OpenFile(filepath.Join(s.tablePath, "lock"), os.O_CREATE|os.O_RDONLY, 0666)
 		if err != nil {
 			return nil, Error.New("unable to create lock file: %w", err)
 		}
@@ -125,7 +133,7 @@ func NewStore(ctx context.Context, dir string, log *zap.Logger) (_ *Store, err e
 	}
 
 	{ // open all of the log files
-		paths, err := allFiles(s.dir)
+		paths, err := allFiles(s.logsPath)
 		if err != nil {
 			return nil, err
 		}
@@ -178,9 +186,9 @@ func NewStore(ctx context.Context, dir string, log *zap.Logger) (_ *Store, err e
 	}
 
 	{ // open or create the hash table
-		entries, err := os.ReadDir(s.meta)
+		entries, err := os.ReadDir(s.tablePath)
 		if err != nil {
-			return nil, Error.New("unable to read meta directory=%q: %w", s.meta, err)
+			return nil, Error.New("unable to read meta directory=%q: %w", s.tablePath, err)
 		}
 
 		maxName := "hashtbl" // backwards compatible with old hashtbl files
@@ -204,7 +212,7 @@ func NewStore(ctx context.Context, dir string, log *zap.Logger) (_ *Store, err e
 				maxName = name
 			}
 		}
-		maxPath := filepath.Join(s.meta, maxName)
+		maxPath := filepath.Join(s.tablePath, maxName)
 
 		// try to open the hashtbl file and create it if it doesn't exist.
 		fh, err := os.OpenFile(maxPath, os.O_RDWR, 0)
@@ -245,7 +253,7 @@ func NewStore(ctx context.Context, dir string, log *zap.Logger) (_ *Store, err e
 		// previous execution.
 		for _, entry := range entries {
 			if name := entry.Name(); strings.HasPrefix(name, "hashtbl") && name != maxName {
-				_ = os.Remove(filepath.Join(s.meta, name))
+				_ = os.Remove(filepath.Join(s.tablePath, name))
 			}
 		}
 	}
@@ -347,7 +355,7 @@ func (s *Store) Stats() StoreStats {
 
 func (s *Store) createLogFile(ttl uint32) (*logFile, error) {
 	id := s.maxLog.Add(1)
-	dir := filepath.Join(s.dir, fmt.Sprintf("%02x", byte(id)))
+	dir := filepath.Join(s.logsPath, fmt.Sprintf("%02x", byte(id)))
 	path := filepath.Join(dir, fmt.Sprintf("log-%016x-%08x", id, ttl))
 	if err := os.MkdirAll(dir, 0755); err != nil {
 		return nil, Error.Wrap(err)
@@ -890,7 +898,7 @@ func (s *Store) compactOnce(
 	s.stats.logsRewritten.Add(uint64(len(rewrite)))
 
 	// create a new hash table sized for the number of records.
-	tblPath := filepath.Join(s.meta, fmt.Sprintf("hashtbl-%016x", s.maxHash.Add(1)))
+	tblPath := filepath.Join(s.tablePath, fmt.Sprintf("hashtbl-%016x", s.maxHash.Add(1)))
 	af, err := newAtomicFile(tblPath)
 	if err != nil {
 		return false, Error.Wrap(err)
@@ -1065,8 +1073,8 @@ func (s *Store) compactOnce(
 	}
 
 	// best effort sync the directories now that we are done with mutations.
-	syncDirectory(s.meta)
-	syncDirectory(s.dir)
+	syncDirectory(s.tablePath)
+	syncDirectory(s.logsPath)
 
 	// before we allow writers to proceed, reinitialize the heap with the log files so that it has
 	// the best set of logs to write into and doesn't contain any now closed/removed logs.

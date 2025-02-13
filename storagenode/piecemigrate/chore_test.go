@@ -55,7 +55,7 @@ func TestExpiredPiecesRemoval(t *testing.T) {
 	rtm := retain.NewRestoreTimeManager(t.TempDir())
 
 	old := pieces.NewStore(log, fw, nil, blobs, nil, nil, pieces.DefaultConfig)
-	new, err := piecestore.NewHashStoreBackend(ctx, t.TempDir(), bfm, rtm, log)
+	new, err := piecestore.NewHashStoreBackend(ctx, t.TempDir(), "", bfm, rtm, log)
 	require.NoError(t, err)
 
 	config := Config{
@@ -123,7 +123,7 @@ func TestDuplicates(t *testing.T) {
 	rtm := retain.NewRestoreTimeManager(t.TempDir())
 
 	old := pieces.NewStore(log, fw, nil, blobs, nil, nil, pieces.DefaultConfig)
-	new, err := piecestore.NewHashStoreBackend(ctx, t.TempDir(), bfm, rtm, log)
+	new, err := piecestore.NewHashStoreBackend(ctx, t.TempDir(), "", bfm, rtm, log)
 	require.NoError(t, err)
 
 	config := Config{
@@ -179,7 +179,7 @@ func TestChoreWithPassiveMigrationOnly(t *testing.T) {
 	rtm := retain.NewRestoreTimeManager(t.TempDir())
 
 	old := pieces.NewStore(log, fw, nil, blobs, nil, nil, pieces.DefaultConfig)
-	new, err := piecestore.NewHashStoreBackend(ctx, t.TempDir(), bfm, rtm, log)
+	new, err := piecestore.NewHashStoreBackend(ctx, t.TempDir(), filepath.Join(t.TempDir(), "foo"), bfm, rtm, log)
 	require.NoError(t, err)
 
 	satellites1 := randomSatsPieces(2, 100)
@@ -291,7 +291,7 @@ func TestChoreActiveWithPassiveMigration(t *testing.T) {
 	rtm := retain.NewRestoreTimeManager(t.TempDir())
 
 	old := pieces.NewStore(log, fw, nil, blobs, nil, nil, pieces.DefaultConfig)
-	new, err := piecestore.NewHashStoreBackend(ctx, t.TempDir(), bfm, rtm, log)
+	new, err := piecestore.NewHashStoreBackend(ctx, t.TempDir(), t.TempDir(), bfm, rtm, log)
 	require.NoError(t, err)
 
 	migratedSatellites := randomSatsPieces(3, 1000)
