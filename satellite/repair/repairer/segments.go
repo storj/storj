@@ -32,7 +32,6 @@ import (
 	"storj.io/storj/satellite/repair/queue"
 	"storj.io/storj/shared/location"
 	"storj.io/uplink/private/eestream"
-	"storj.io/uplink/private/piecestore"
 )
 
 var (
@@ -958,7 +957,7 @@ func (repairer *SegmentRepairer) AdminFetchPieces(ctx context.Context, log *zap.
 
 			pieceReadCloser, hash, originalLimit, err := repairer.ec.downloadAndVerifyPiece(ctx, limit, address, getPrivateKey, saveDir, pieceSize)
 			// if piecestore dial with last ip:port failed try again with node address
-			if triedLastIPPort && piecestore.Error.Has(err) {
+			if triedLastIPPort && ErrDialFailed.Has(err) {
 				if pieceReadCloser != nil {
 					_ = pieceReadCloser.Close()
 				}
