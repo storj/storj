@@ -172,6 +172,13 @@ func TestSelectorFromString(t *testing.T) {
 
 }
 
+func TestTargetType(t *testing.T) {
+	r := targetType(float64(1), ScoreNodeFunc(func(uplink storj.NodeID, node *SelectedNode) float64 {
+		return 0
+	}))
+	require.Equal(t, "ScoreNode", r.Name())
+}
+
 func TestArithmetic(t *testing.T) {
 	zeroSigner, err := storj.NodeIDFromString("1111111111111111111111111111111VyS547o")
 	require.NoError(t, err)
@@ -190,6 +197,9 @@ func TestArithmetic(t *testing.T) {
 		}
 		return val
 	}
+	env["uploadSuccessTracker"] = ScoreNodeFunc(func(uplink storj.NodeID, node *SelectedNode) float64 {
+		return 1.0
+	})
 	addArithmetic(env)
 
 	t.Run("add", func(t *testing.T) {
@@ -247,6 +257,13 @@ func TestArithmetic(t *testing.T) {
 			require.NoError(t, err)
 			i := res.(NodeValue)(node)
 			require.Equal(t, 8.0, i)
+		})
+
+		t.Run("score node and node field", func(t *testing.T) {
+			res, err := mito.Eval("uploadSuccessTracker + node_value(\"free_disk\") ^ 2", env)
+			require.NoError(t, err)
+			i := res.(ScoreNode).Get(storj.NodeID{})(&node)
+			require.Equal(t, 5.0, i)
 		})
 	})
 }
