@@ -193,7 +193,7 @@ type testStore struct {
 func newTestStore(t testing.TB) *testStore {
 	t.Helper()
 
-	s, err := NewStore(context.Background(), t.TempDir(), nil)
+	s, err := NewStore(context.Background(), t.TempDir(), "", nil)
 	assert.NoError(t, err)
 
 	ts := &testStore{t: t, Store: s, today: s.today()}
@@ -210,7 +210,7 @@ func (ts *testStore) AssertReopen() {
 
 	ts.Store.Close()
 
-	s, err := NewStore(context.Background(), ts.dir, ts.log)
+	s, err := NewStore(context.Background(), ts.logsPath, ts.tablePath, ts.log)
 	assert.NoError(ts.t, err)
 
 	s.today = func() uint32 { return ts.today }
@@ -297,7 +297,7 @@ func newTestDB(t testing.TB,
 ) *testDB {
 	t.Helper()
 
-	db, err := New(context.Background(), t.TempDir(), nil, dead, restore)
+	db, err := New(context.Background(), t.TempDir(), "", nil, dead, restore)
 	assert.NoError(t, err)
 
 	td := &testDB{t: t, DB: db}
@@ -312,7 +312,7 @@ func (td *testDB) AssertReopen() {
 
 	td.DB.Close()
 
-	db, err := New(context.Background(), td.dir, td.log, td.shouldTrash, td.lastRestore)
+	db, err := New(context.Background(), td.logsPath, td.tablePath, td.log, td.shouldTrash, td.lastRestore)
 	assert.NoError(td.t, err)
 
 	td.DB = db

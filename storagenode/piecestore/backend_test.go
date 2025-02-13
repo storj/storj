@@ -24,7 +24,7 @@ func TestHashstoreBackendTrash(t *testing.T) {
 	// allocate a hash backend
 	bfm, _ := retain.NewBloomFilterManager(t.TempDir(), 0)
 	rtm := retain.NewRestoreTimeManager(t.TempDir())
-	backend, err := NewHashStoreBackend(ctx, t.TempDir(), bfm, rtm, nil)
+	backend, err := NewHashStoreBackend(ctx, t.TempDir(), "", bfm, rtm, nil)
 	require.NoError(t, err)
 	defer ctx.Check(backend.Close)
 
@@ -92,7 +92,7 @@ func BenchmarkPieceStore(b *testing.B) {
 		run(b, func(b *testing.B) PieceBackend {
 			bfm, _ := retain.NewBloomFilterManager(b.TempDir(), 0)
 			rtm := retain.NewRestoreTimeManager(b.TempDir())
-			backend, err := NewHashStoreBackend(context.Background(), b.TempDir(), bfm, rtm, nil)
+			backend, err := NewHashStoreBackend(context.Background(), b.TempDir(), "", bfm, rtm, nil)
 			require.NoError(b, err)
 			return backend
 		}, 64*1024)
