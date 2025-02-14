@@ -37,6 +37,9 @@ type HubSpotConfig struct {
 	SignupFormURL     string        `help:"the hubspot form URL for signup" default:""`
 	CunoFSBetaFormURL string        `help:"the hubspot form URL for cunoFS beta" default:""`
 	LifeCycleStage    string        `help:"the hubspot lifecycle stage for new accounts" default:""`
+
+	AccountObjectCreatedWebhookEnabled bool          `help:"whether account object created webhook is enabled" default:"false"`
+	WebhookRequestLifetime             time.Duration `help:"the lifetime of the webhook request" default:"5m"`
 }
 
 // HubSpotEvent is a configuration struct for sending API request to HubSpot.

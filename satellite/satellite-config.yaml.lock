@@ -49,6 +49,9 @@
 # enable analytics reporting
 # analytics.enabled: false
 
+# whether account object created webhook is enabled
+# analytics.hub-spot.account-object-created-webhook-enabled: false
+
 # the number of events that can be in the queue before dropping
 # analytics.hub-spot.channel-size: 1000
 
@@ -81,6 +84,9 @@
 
 # hubspot token refresh API
 # analytics.hub-spot.token-api: https://api.hubapi.com/oauth/v1/token
+
+# the lifetime of the webhook request
+# analytics.hub-spot.webhook-request-lifetime: 5m0s
 
 # the url of the plausible API
 # analytics.plausible.api-url: https://plausible.io/api/event
