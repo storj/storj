@@ -4,6 +4,24 @@
 <template>
     <v-list-item :title="item.Key" class="px-6" height="54" :link="props.item.status === UploadingStatus.Finished">
         <template #append>
+            <v-tooltip v-if="isBetween5GBand30GB" location="top">
+                <p>
+                    For files over 5GB, we recommend using
+                    <a href="https://storj.dev/dcs/api/uplink-cli" target="_blank" rel="noopener noreferrer">Storj CLI</a>
+                </p>
+                <p>
+                    for better reliability than browser upload.
+                </p>
+                <template #activator="{ props: activatorProps }">
+                    <v-icon
+                        class="mr-2"
+                        v-bind="activatorProps"
+                        :icon="InfoIcon"
+                        color="warning"
+                    />
+                </template>
+            </v-tooltip>
+
             <v-tooltip :text="uploadStatus" location="left">
                 <template #activator="{ props: activatorProps }">
                     <v-progress-circular
@@ -40,7 +58,7 @@
 <script setup lang="ts">
 import { computed, FunctionalComponent } from 'vue';
 import { VListItem, VIcon, VProgressCircular, VTooltip } from 'vuetify/components';
-import { Ban, CircleX, CircleCheck, Info } from 'lucide-vue-next';
+import { Ban, CircleX, CircleCheck, Info, InfoIcon } from 'lucide-vue-next';
 
 import {
     UploadingBrowserObject,
@@ -56,6 +74,12 @@ const notify = useNotify();
 const props = defineProps<{
     item: UploadingBrowserObject
 }>();
+
+const isBetween5GBand30GB = computed((): boolean => {
+    const gb5 = 5 * 1024 * 1024 * 1024;
+    const gb30 = 30 * 1024 * 1024 * 1024;
+    return props.item.Size > gb5 && props.item.Size < gb30;
+});
 
 const uploadStatus = computed((): string => {
     if (props.item.status === UploadingStatus.InProgress) {
@@ -87,7 +111,7 @@ const iconColor = computed((): string => {
     if (props.item.status === UploadingStatus.Finished) {
         return 'success';
     } else if (props.item.status === UploadingStatus.Failed) {
-        return 'warning';
+        return 'error';
     } else if (props.item.status === UploadingStatus.Cancelled) {
         return 'error';
     } else {

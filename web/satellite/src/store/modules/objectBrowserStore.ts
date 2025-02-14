@@ -701,7 +701,7 @@ export const useObjectBrowserStore = defineStore('objectBrowser', () => {
             state.uploading.push({
                 ...params,
                 progress: 0,
-                Size: 0,
+                Size: body.size,
                 LastModified: new Date(),
                 Body: body,
                 status: UploadingStatus.Failed,
@@ -711,25 +711,12 @@ export const useObjectBrowserStore = defineStore('objectBrowser', () => {
 
             notifyError(() => {
                 return [
-                    h('span', {}, `${key}: the file size is too large. To upload large files, please use the `),
+                    h('span', {}, `${key}: To upload files above 30GB, please use the `),
                     ...NotifyRenderedUplinkCLIMessage,
                 ];
             }, AnalyticsErrorEventSource.OBJECT_UPLOAD_ERROR, undefined);
 
             return;
-        }
-
-        // If file size exceeds 5 GB, show warning message.
-        if (body.size > (5 * 1024 * 1024 * 1024)) {
-            clearTimeout(state.largeFileNotificationTimeout);
-            state.largeFileNotificationTimeout = setTimeout(() => {
-                notifyWarning(() => {
-                    return [
-                        h('span', {}, `To upload large files, please consider using the `),
-                        ...NotifyRenderedUplinkCLIMessage,
-                    ];
-                }, undefined);
-            }, 100);
         }
 
         // Upload 4 parts at a time.
@@ -767,7 +754,7 @@ export const useObjectBrowserStore = defineStore('objectBrowser', () => {
             ...params,
             upload,
             progress: 0,
-            Size: 0,
+            Size: body.size,
             LastModified: new Date(),
             status: UploadingStatus.InProgress,
             type: 'file',

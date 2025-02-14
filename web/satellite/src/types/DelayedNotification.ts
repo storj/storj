@@ -14,7 +14,6 @@ export enum NotificationType {
 
 export const NotifyRenderedUplinkCLIMessage = [
     h('a', { class: 'link', href: 'https://storj.dev/dcs/api/uplink-cli', target: '_blank', rel: 'noopener noreferrer' }, 'Uplink CLI'),
-    h('span', {}, ' tool.'),
 ];
 
 type RenderFunction = () => (string | VNode | (string | VNode)[]);
