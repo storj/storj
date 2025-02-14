@@ -21,7 +21,7 @@ require (
 	github.com/golang-jwt/jwt v3.2.1+incompatible
 	github.com/golang/mock v1.7.0-rc.1
 	github.com/google/go-cmp v0.6.0
-	github.com/googleapis/go-sql-spanner v1.11.1-0.20250214130109-598e90e4e542
+	github.com/googleapis/go-sql-spanner v1.11.1-0.20250214171559-1bccea5dfec5
 	github.com/gorilla/mux v1.8.0
 	github.com/gorilla/schema v1.2.0
 	github.com/jackc/pgerrcode v0.0.0-20201024163028-a0d42d470451
