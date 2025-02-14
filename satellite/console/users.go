@@ -287,6 +287,8 @@ type User struct {
 
 	NewUnverifiedEmail          *string `json:"-"`
 	EmailChangeVerificationStep int     `json:"-"`
+
+	HubspotObjectID *string `json:"-"`
 }
 
 // ResponseUser is an entity which describes db User and can be sent in response.
@@ -379,6 +381,8 @@ type UpdateUserRequest struct {
 
 	NewUnverifiedEmail          **string
 	EmailChangeVerificationStep *int
+
+	HubspotObjectID **string
 }
 
 // UserSettings contains configurations for a user.

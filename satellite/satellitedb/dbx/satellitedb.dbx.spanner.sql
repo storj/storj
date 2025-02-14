@@ -462,7 +462,8 @@ CREATE TABLE users (
 	activation_code STRING(MAX),
 	signup_id STRING(MAX),
 	trial_expiration TIMESTAMP,
-	upgrade_time TIMESTAMP
+	upgrade_time TIMESTAMP,
+	hubspot_object_id STRING(MAX)
 ) PRIMARY KEY ( id ) ;
 CREATE TABLE user_settings (
 	user_id BYTES(MAX) NOT NULL,

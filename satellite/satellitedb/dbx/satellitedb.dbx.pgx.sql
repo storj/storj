@@ -500,6 +500,7 @@ CREATE TABLE users (
 	signup_id text,
 	trial_expiration timestamp with time zone,
 	upgrade_time timestamp with time zone,
+	hubspot_object_id text,
 	PRIMARY KEY ( id )
 ) ;
 CREATE TABLE user_settings (

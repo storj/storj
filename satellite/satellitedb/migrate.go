@@ -889,6 +889,14 @@ func (db *satelliteDB) productionMigrationSpanner() *migrate.Migration {
 					`DROP INDEX IF EXISTS nodes_dis_unk_off_exit_fin_last_success_index`,
 				},
 			},
+			{
+				DB:          &db.migrationDB,
+				Description: "add hubspot_object_id column to users",
+				Version:     286,
+				Action: migrate.SQL{
+					`ALTER TABLE users ADD COLUMN hubspot_object_id STRING(MAX)`,
+				},
+			},
 			// NB: after updating testdata in `testdata`, run
 			//     `go generate` to update `migratez.go`.
 		},
@@ -3618,6 +3626,14 @@ func (db *satelliteDB) productionMigrationPostgres() *migrate.Migration {
 					`DROP INDEX IF EXISTS nodes_dis_unk_aud_exit_init_rel_last_cont_success_stored_index`,
 					`DROP INDEX IF EXISTS node_last_ip`,
 					`DROP INDEX IF EXISTS nodes_dis_unk_off_exit_fin_last_success_index`,
+				},
+			},
+			{
+				DB:          &db.migrationDB,
+				Description: "add hubspot_object_id column to users",
+				Version:     286,
+				Action: migrate.SQL{
+					`ALTER TABLE users ADD COLUMN hubspot_object_id TEXT`,
 				},
 			},
 			// NB: after updating testdata in `testdata`, run
