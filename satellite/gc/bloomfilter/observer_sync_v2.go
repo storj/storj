@@ -119,12 +119,12 @@ func (observer *SyncObserverV2) Start(ctx context.Context, startTime time.Time) 
 }
 
 // Fork returns itself as a partial.
-func (observer *SyncObserverV2) Fork(ctx context.Context) (_ rangedloop.Partial, err error) {
+func (observer *SyncObserverV2) Fork(context.Context) (rangedloop.Partial, error) {
 	return observer, nil
 }
 
 // Join is a no-op.
-func (observer *SyncObserverV2) Join(ctx context.Context, partial rangedloop.Partial) (err error) {
+func (*SyncObserverV2) Join(context.Context, rangedloop.Partial) error {
 	return nil
 }
 
@@ -196,7 +196,10 @@ func (observer *SyncObserverV2) Process(ctx context.Context, segments []rangedlo
 
 // add adds a piece ID to the relevant node's RetainInfo.
 func (observer *SyncObserverV2) add(nodeID storj.NodeID, pieceID storj.PieceID) {
-	v, _ := observer.retainInfos.m.LoadOrStore(nodeID, &concurrentRetainInfo{})
+	v, ok := observer.retainInfos.m.Load(nodeID)
+	if !ok {
+		v, _ = observer.retainInfos.m.LoadOrStore(nodeID, &concurrentRetainInfo{})
+	}
 	cri := v.(*concurrentRetainInfo)
 	cri.mu.Lock()
 	defer cri.mu.Unlock()
