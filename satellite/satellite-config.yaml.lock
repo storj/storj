@@ -947,6 +947,9 @@ identity.key-path: /root/.local/share/storj/identity/satellite/identity.key
 # the database connection string to use
 # metainfo.database-url: postgres://
 
+# enable the use of the DeleteObjects endpoint
+# metainfo.delete-objects-enabled: false
+
 # the number of requests to allow bursts beyond the rate limit
 # metainfo.download-limiter.burst-limit: 3
 
