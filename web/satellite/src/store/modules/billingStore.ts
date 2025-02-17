@@ -82,7 +82,7 @@ export const useBillingStore = defineStore('billing', () => {
     }
 
     async function addFunds(cardID: string, amount: number): Promise<AddFundsResponse> {
-        return await api.addFunds(cardID, amount);
+        return await api.addFunds(cardID, amount, csrfToken.value);
     }
 
     async function addTaxID(taxID: TaxID): Promise<void> {

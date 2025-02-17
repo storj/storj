@@ -60,9 +60,10 @@ export interface PaymentsApi {
      * Add credit card
      * @param cardID - the ID of the credit card to charge
      * @param amount - the amount of funds to add, in cents
+     * @param csrfProtectionToken - CSRF token
      * @throws Error
      */
-    addFunds(cardID: string, amount: number): Promise<AddFundsResponse>;
+    addFunds(cardID: string, amount: number, csrfProtectionToken: string): Promise<AddFundsResponse>;
 
     /**
      * Update credit card

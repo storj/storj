@@ -43,9 +43,9 @@ export class PaymentsHttpApi implements PaymentsApi {
      *
      * @throws Error
      */
-    public async addFunds(cardID: string, amount: number): Promise<AddFundsResponse> {
+    public async addFunds(cardID: string, amount: number, csrfProtectionToken: string): Promise<AddFundsResponse> {
         const path = `${this.ROOT_PATH}/add-funds`;
-        const response = await this.client.post(path, JSON.stringify({ cardID, amount }));
+        const response = await this.client.post(path, JSON.stringify({ cardID, amount }), { csrfProtectionToken });
 
         const result = await response.json();
 
