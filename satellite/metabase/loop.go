@@ -22,7 +22,7 @@ import (
 	"storj.io/storj/shared/tagsql"
 )
 
-const loopIteratorBatchSizeLimit = intLimitRange(5000)
+const loopIteratorBatchSizeLimit = intLimitRange(50000)
 
 // SegmentIterator returns the next segment.
 type SegmentIterator func(ctx context.Context, segment *LoopSegmentEntry) bool
@@ -293,6 +293,8 @@ type spannerLoopSegmentIterator struct {
 	asOfSystemInterval time.Duration
 	readTimestamp      time.Time
 
+	doNextQueryFunc func(ctx context.Context) (_ *spanner.RowIterator)
+
 	curIndex int
 	curRows  *spanner.RowIterator
 	curRow   *spanner.Row
@@ -318,7 +320,7 @@ func (it *spannerLoopSegmentIterator) Next(ctx context.Context, item *LoopSegmen
 			return false
 		}
 
-		rows := it.doNextQuery(ctx)
+		rows := it.doNextQueryFunc(ctx)
 
 		it.curRows.Stop()
 
@@ -346,7 +348,7 @@ func (it *spannerLoopSegmentIterator) Next(ctx context.Context, item *LoopSegmen
 	return true
 }
 
-func (it *spannerLoopSegmentIterator) doNextQuery(ctx context.Context) (_ *spanner.RowIterator) {
+func (it *spannerLoopSegmentIterator) doNextSQLQuery(ctx context.Context) (_ *spanner.RowIterator) {
 	defer mon.Task()(&ctx)(nil)
 
 	stmt := spanner.Statement{
@@ -391,101 +393,12 @@ func (it *spannerLoopSegmentIterator) doNextQuery(ctx context.Context) (_ *spann
 	return readOnlyTx.QueryWithOptions(ctx, stmt, opts)
 }
 
-// IterateLoopSegments implements Adapter.
-func (s *SpannerAdapter) IterateLoopSegments(ctx context.Context, aliasCache *NodeAliasCache, opts IterateLoopSegments, fn func(context.Context, LoopSegmentsIterator) error) (err error) {
-	defer mon.Task()(&ctx)(&err)
-
-	cursor := loopSegmentIteratorCursor{
-		StartStreamID: opts.StartStreamID,
-		EndStreamID:   opts.EndStreamID,
-	}
-
-	if !opts.StartStreamID.IsZero() {
-		// uses MaxInt32 instead of MaxUint32 because position is an int8 in db.
-		cursor.StartPosition = SegmentPosition{math.MaxInt32, math.MaxInt32}
-	}
-	if cursor.EndStreamID.IsZero() {
-		cursor.EndStreamID = uuid.Max()
-	}
-
-	opts.SpannerQueryType = strings.ToLower(opts.SpannerQueryType)
-	var it LoopSegmentsIterator
-	switch {
-	case opts.SpannerQueryType == "sql" || opts.SpannerQueryType == "":
-		sqlIt := &spannerLoopSegmentIterator{
-			db:         s,
-			aliasCache: aliasCache,
-
-			asOfSystemInterval: opts.AsOfSystemInterval,
-			readTimestamp:      opts.SpannerReadTimestamp,
-
-			batchSize:   opts.BatchSize,
-			batchPieces: make([]Pieces, opts.BatchSize),
-			cursor:      cursor,
-			curIndex:    0,
-		}
-
-		sqlIt.curRows = sqlIt.doNextQuery(ctx)
-
-		defer func() {
-			sqlIt.curRows.Stop()
-
-			err = errs.Combine(err, sqlIt.failErr)
-		}()
-
-		it = sqlIt
-	case opts.SpannerQueryType == "read":
-		readIt := &spannerReadLoopSegmentIterator{
-			db:         s,
-			aliasCache: aliasCache,
-
-			asOfSystemInterval: opts.AsOfSystemInterval,
-			readTimestamp:      opts.SpannerReadTimestamp,
-
-			batchPieces: make([]Pieces, opts.BatchSize),
-			cursor:      cursor,
-			curIndex:    0,
-		}
-
-		readIt.curRows = readIt.doQuery(ctx)
-
-		defer func() {
-			readIt.curRows.Stop()
-
-			err = errs.Combine(err, readIt.failErr)
-		}()
-
-		it = readIt
-	default:
-		return ErrInvalidRequest.New("invalid SpannerQueryType: %q", opts.SpannerQueryType)
-	}
-
-	return fn(ctx, it)
-}
-
-type spannerReadLoopSegmentIterator struct {
-	db *SpannerAdapter
-
-	// batchPieces are reused between result pages to reduce memory consumption
-	batchPieces []Pieces
-
-	asOfSystemInterval time.Duration
-	readTimestamp      time.Time
-
-	curIndex int
-	curRows  *spanner.RowIterator
-	cursor   loopSegmentIteratorCursor
-
-	// failErr is set when either scan or next query fails during iteration.
-	failErr    error
-	aliasCache *NodeAliasCache
-}
-
-func (it *spannerReadLoopSegmentIterator) doQuery(ctx context.Context) (_ *spanner.RowIterator) {
+func (it *spannerLoopSegmentIterator) doNextReadQuery(ctx context.Context) (_ *spanner.RowIterator) {
 	defer mon.Task()(&ctx)(nil)
 
 	opts := &spanner.ReadOptions{
 		Priority: spannerpb.RequestOptions_PRIORITY_LOW,
+		Limit:    it.batchSize,
 	}
 
 	keyRange := spanner.KeyRange{
@@ -521,29 +434,53 @@ func (it *spannerReadLoopSegmentIterator) doQuery(ctx context.Context) (_ *spann
 		}, opts)
 }
 
-// Next returns true if there was another item and copy it in item.
-func (it *spannerReadLoopSegmentIterator) Next(ctx context.Context, item *LoopSegmentEntry) bool {
-	if it.curIndex == len(it.batchPieces) {
-		it.curIndex = 0
+// IterateLoopSegments implements Adapter.
+func (s *SpannerAdapter) IterateLoopSegments(ctx context.Context, aliasCache *NodeAliasCache, opts IterateLoopSegments, fn func(context.Context, LoopSegmentsIterator) error) (err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	cursor := loopSegmentIteratorCursor{
+		StartStreamID: opts.StartStreamID,
+		EndStreamID:   opts.EndStreamID,
 	}
 
-	row, err := it.curRows.Next()
-	if errors.Is(err, iterator.Done) {
-		return false
+	if !opts.StartStreamID.IsZero() {
+		// uses MaxInt32 instead of MaxUint32 because position is an int8 in db.
+		cursor.StartPosition = SegmentPosition{math.MaxInt32, math.MaxInt32}
 	}
-	if err != nil {
-		it.failErr = errs.Combine(it.failErr, err)
-		return false
-	}
-
-	err = scanSpannerItem(ctx, row, it.aliasCache, it.batchPieces, it.curIndex, it.db.Name(), item)
-	if err != nil {
-		it.failErr = errs.Combine(it.failErr, err)
-		return false
+	if cursor.EndStreamID.IsZero() {
+		cursor.EndStreamID = uuid.Max()
 	}
 
-	it.curIndex++
-	return true
+	it := &spannerLoopSegmentIterator{
+		db:         s,
+		aliasCache: aliasCache,
+
+		asOfSystemInterval: opts.AsOfSystemInterval,
+		readTimestamp:      opts.SpannerReadTimestamp,
+
+		batchSize:   opts.BatchSize,
+		batchPieces: make([]Pieces, opts.BatchSize),
+		cursor:      cursor,
+		curIndex:    0,
+	}
+
+	opts.SpannerQueryType = strings.ToLower(opts.SpannerQueryType)
+	switch {
+	case opts.SpannerQueryType == "sql" || opts.SpannerQueryType == "":
+		it.doNextQueryFunc = it.doNextSQLQuery
+	case opts.SpannerQueryType == "read":
+		it.doNextQueryFunc = it.doNextReadQuery
+	default:
+		return ErrInvalidRequest.New("invalid SpannerQueryType: %q", opts.SpannerQueryType)
+	}
+	it.curRows = it.doNextQueryFunc(ctx)
+
+	defer func() {
+		it.curRows.Stop()
+
+		err = errs.Combine(err, it.failErr)
+	}()
+	return fn(ctx, it)
 }
 
 func scanSpannerItem(ctx context.Context, row *spanner.Row, aliasCache *NodeAliasCache,
