@@ -2,9 +2,9 @@
 // See LICENSE for copying information.
 
 <template>
-    <v-row>
+    <v-row class="ma-0">
         <v-col v-if="!smAndDown" cols="6">
-            <h4 class="font-weight-bold mt-2 mb-4">Free Trial</h4>
+            <h4 class="font-weight-bold mb-4">Free Trial</h4>
             <v-btn
                 block
                 disabled
@@ -22,7 +22,7 @@
             </v-sheet>
         </v-col>
         <v-col :cols="smAndDown ? 12 : '6'">
-            <h4 class="font-weight-bold mt-2 mb-4">Pro Account</h4>
+            <h4 class="font-weight-bold mb-4">Pro Account</h4>
             <v-btn
                 class="mb-1"
                 block

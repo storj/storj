@@ -2,7 +2,7 @@
 // See LICENSE for copying information.
 
 <template>
-    <p class="mb-4">
+    <p class="my-4">
         By saving your card information, you allow Storj to charge your card for future payments in accordance with
         the <a class="link font-weight-medium" href="https://storj.io/terms-of-service/" target="_blank" rel="noopener">terms of service</a>.
     </p>
@@ -10,10 +10,12 @@
     <StripeCardElement
         v-if="paymentElementEnabled"
         ref="stripeCardInput"
+        @ready="stripeReady = true"
     />
     <StripeCardInput
         v-else
         ref="stripeCardInput"
+        @ready="stripeReady = true"
     />
 
     <v-row justify="center" class="mx-0 mt-4 mb-1">
@@ -33,6 +35,7 @@
                 block
                 color="success"
                 :loading="loading"
+                :disabled="!stripeReady"
                 :prepend-icon="LockKeyhole"
                 @click="onSaveCardClick"
             >
@@ -82,6 +85,7 @@ const emit = defineEmits<{
 }>();
 
 const stripeCardInput = ref<StripeForm | null>(null);
+const stripeReady = ref<boolean>(false);
 
 /**
  * Indicates whether stripe payment element is enabled.

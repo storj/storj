@@ -135,7 +135,7 @@ func TestServicePayments(t *testing.T) {
 			require.NoError(t, err)
 			require.Equal(t, expected, actual)
 		})
-	}, satellitedbtest.WithSpanner())
+	})
 }
 
 func TestServiceWallets(t *testing.T) {
@@ -181,7 +181,7 @@ func TestServiceWallets(t *testing.T) {
 			require.NoError(t, err)
 			require.Equal(t, walletAddress1, actual)
 		})
-	}, satellitedbtest.WithSpanner())
+	})
 
 }
 
@@ -352,7 +352,7 @@ func TestListPayments(t *testing.T) {
 				}
 			}
 		}
-	}, satellitedbtest.WithSpanner())
+	})
 }
 
 func TestListPaymentsMultipleChainIds(t *testing.T) {
@@ -459,7 +459,7 @@ func TestListPaymentsMultipleChainIds(t *testing.T) {
 				}
 			}
 		}
-	}, satellitedbtest.WithSpanner())
+	})
 }
 
 // compareTransactions is a helper method to compare tx used to create db entry,

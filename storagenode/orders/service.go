@@ -96,22 +96,21 @@ type Service struct {
 
 	dialer      rpc.Dialer
 	ordersStore *FileStore
-	orders      DB
-	trust       *trust.Pool
+
+	trustSource trust.TrustedSatelliteSource
 
 	Sender  *sync2.Cycle
 	Cleanup *sync2.Cycle
 }
 
 // NewService creates an order service.
-func NewService(log *zap.Logger, dialer rpc.Dialer, ordersStore *FileStore, orders DB, trust *trust.Pool, config Config) *Service {
+func NewService(log *zap.Logger, dialer rpc.Dialer, ordersStore *FileStore, trustSource trust.TrustedSatelliteSource, config Config) *Service {
 	return &Service{
 		log:         log,
 		dialer:      dialer,
 		ordersStore: ordersStore,
-		orders:      orders,
 		config:      config,
-		trust:       trust,
+		trustSource: trustSource,
 
 		Sender:  sync2.NewCycle(config.SenderInterval),
 		Cleanup: sync2.NewCycle(config.CleanupInterval),
@@ -154,19 +153,13 @@ func (service *Service) CleanArchive(ctx context.Context, deleteBefore time.Time
 	defer mon.Task()(&ctx)(&err)
 	service.log.Debug("cleaning")
 
-	deleted, err := service.orders.CleanArchive(ctx, deleteBefore)
-	if err != nil {
-		service.log.Error("cleaning DB archive", zap.Error(err))
-		return nil
-	}
-
 	err = service.ordersStore.CleanArchive(deleteBefore)
 	if err != nil {
 		service.log.Error("cleaning filestore archive", zap.Error(err))
 		return nil
 	}
 
-	service.log.Debug("cleanup finished", zap.Int("items deleted", deleted))
+	service.log.Debug("cleanup finished")
 	return nil
 }
 
@@ -210,7 +203,7 @@ func (service *Service) SendOrders(ctx context.Context, now time.Time) {
 				log := service.log.With(zap.Stringer("satelliteID", satelliteID))
 
 				skipSettlement := false
-				nodeURL, err := service.trust.GetNodeURL(ctx, satelliteID)
+				nodeURL, err := service.trustSource.GetNodeURL(ctx, satelliteID)
 				if err != nil {
 					log.Error("unable to get satellite address", zap.Error(err))
 

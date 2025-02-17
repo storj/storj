@@ -7,7 +7,6 @@ import (
 	"context"
 	"crypto/tls"
 	"fmt"
-	"io"
 	"math"
 	"net"
 	"os"
@@ -40,9 +39,6 @@ import (
 	"storj.io/storj/satellite/repair/queue"
 	"storj.io/storj/satellite/repair/repairer"
 	"storj.io/storj/satellite/reputation"
-	"storj.io/storj/storagenode"
-	"storj.io/storj/storagenode/blobstore"
-	"storj.io/storj/storagenode/blobstore/testblobs"
 	"storj.io/uplink/private/eestream"
 	"storj.io/uplink/private/piecestore"
 )
@@ -478,9 +474,6 @@ func TestFailedDataRepair(t *testing.T) {
 		StorageNodeCount: 15,
 		UplinkCount:      1,
 		Reconfigure: testplanet.Reconfigure{
-			StorageNodeDB: func(index int, db storagenode.DB, log *zap.Logger) (storagenode.DB, error) {
-				return testblobs.NewBadDB(log.Named("baddb"), db), nil
-			},
 			Satellite: testplanet.Combine(
 				func(log *zap.Logger, index int, config *satellite.Config) {
 					config.Repairer.MaxExcessRateOptimalThreshold = RepairMaxExcessRateOptimalThreshold
@@ -541,8 +534,7 @@ func TestFailedDataRepair(t *testing.T) {
 		// set unknown error for download from bad node
 		badNode := planet.FindNode(unknownPiece.StorageNode)
 		require.NotNil(t, badNode)
-		badNodeDB := badNode.DB.(*testblobs.BadDB)
-		badNodeDB.SetError(errs.New("unknown error"))
+		badNode.Storage2.PieceBackend.TestingSetError(errs.New("unknown error"))
 
 		reputationService := satellite.Repairer.Reputation
 
@@ -723,9 +715,6 @@ func TestUnknownErrorDataRepair(t *testing.T) {
 		StorageNodeCount: 15,
 		UplinkCount:      1,
 		Reconfigure: testplanet.Reconfigure{
-			StorageNodeDB: func(index int, db storagenode.DB, log *zap.Logger) (storagenode.DB, error) {
-				return testblobs.NewBadDB(log.Named("baddb"), db), nil
-			},
 			Satellite: testplanet.Combine(
 				func(log *zap.Logger, index int, config *satellite.Config) {
 					config.Repairer.MaxExcessRateOptimalThreshold = RepairMaxExcessRateOptimalThreshold
@@ -780,8 +769,7 @@ func TestUnknownErrorDataRepair(t *testing.T) {
 		// set unknown error for download from bad node
 		badNode := planet.FindNode(unknownPiece.StorageNode)
 		require.NotNil(t, badNode)
-		badNodeDB := badNode.DB.(*testblobs.BadDB)
-		badNodeDB.SetError(errs.New("unknown error"))
+		badNode.Storage2.PieceBackend.TestingSetError(errs.New("unknown error"))
 
 		reputationService := satellite.Repairer.Reputation
 
@@ -900,8 +888,7 @@ func TestMissingPieceDataRepair_Succeed(t *testing.T) {
 		missingPieceNode := planet.FindNode(missingPiece.StorageNode)
 		require.NotNil(t, missingPieceNode)
 		pieceID := segment.RootPieceID.Derive(missingPiece.StorageNode, int32(missingPiece.Number))
-		err = missingPieceNode.Storage2.Store.Delete(ctx, satellite.ID(), pieceID)
-		require.NoError(t, err)
+		missingPieceNode.Storage2.PieceBackend.TestingDeletePiece(satellite.ID(), pieceID)
 
 		reputationService := satellite.Repairer.Reputation
 
@@ -1018,8 +1005,7 @@ func TestMissingPieceDataRepair(t *testing.T) {
 		missingPieceNode := planet.FindNode(missingPiece.StorageNode)
 		require.NotNil(t, missingPieceNode)
 		pieceID := segment.RootPieceID.Derive(missingPiece.StorageNode, int32(missingPiece.Number))
-		err = missingPieceNode.Storage2.Store.Delete(ctx, satellite.ID(), pieceID)
-		require.NoError(t, err)
+		missingPieceNode.Storage2.PieceBackend.TestingDeletePiece(satellite.ID(), pieceID)
 
 		reputationService := satellite.Repairer.Reputation
 
@@ -1150,7 +1136,7 @@ func TestCorruptDataRepair_Succeed(t *testing.T) {
 				corruptedNode := planet.FindNode(corruptedPiece.StorageNode)
 				require.NotNil(t, corruptedNode)
 				corruptedPieceID := segment.RootPieceID.Derive(corruptedPiece.StorageNode, int32(corruptedPiece.Number))
-				corruptPieceData(ctx, t, planet, corruptedNode, corruptedPieceID)
+				corruptedNode.Storage2.PieceBackend.TestingCorruptPiece(satellite.ID(), corruptedPieceID)
 
 				reputationService := satellite.Repairer.Reputation
 
@@ -1269,7 +1255,7 @@ func TestCorruptDataRepair_Failed(t *testing.T) {
 		corruptedNode := planet.FindNode(corruptedPiece.StorageNode)
 		require.NotNil(t, corruptedNode)
 		corruptedPieceID := segment.RootPieceID.Derive(corruptedPiece.StorageNode, int32(corruptedPiece.Number))
-		corruptPieceData(ctx, t, planet, corruptedNode, corruptedPieceID)
+		corruptedNode.Storage2.PieceBackend.TestingCorruptPiece(satellite.ID(), corruptedPieceID)
 
 		reputationService := satellite.Repairer.Reputation
 
@@ -1823,74 +1809,103 @@ func TestIrreparableSegmentNodesOffline(t *testing.T) {
 }
 
 func TestRepairTargetOverrides(t *testing.T) {
-	testplanet.Run(t, testplanet.Config{
-		SatelliteCount:   1,
-		StorageNodeCount: 10,
-		UplinkCount:      1,
-		Reconfigure: testplanet.Reconfigure{
-			Satellite: testplanet.Combine(
-				testplanet.ReconfigureRS(2, 3, 7, 7),
-				func(log *zap.Logger, index int, config *satellite.Config) {
-					config.Checker.RepairThresholdOverrides.Values[2] = 4
-					config.Checker.RepairTargetOverrides.Values[2] = 5
-				},
-			),
+	testCases := []struct {
+		name               string
+		rsConfig           func(log *zap.Logger, index int, config *satellite.Config)
+		repairThreshold    int
+		repairTarget       int
+		offlineNodes       int
+		expectedPieceCount []int
+	}{
+		{
+			name:               "RS(2,3,4,4) with 1 node offline, threshold=3, target=7",
+			rsConfig:           testplanet.ReconfigureRS(2, 3, 4, 4),
+			repairThreshold:    3,
+			repairTarget:       7,
+			offlineNodes:       1,
+			expectedPieceCount: []int{7},
 		},
-	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
-		// first, upload some remote data
-		uplinkPeer := planet.Uplinks[0]
-		satellite := planet.Satellites[0]
-		// stop audit to prevent possible interactions i.e. repair timeout problems
-		satellite.Audit.Worker.Loop.Stop()
+		{
+			name:               "RS(2,3,7,7) with 3 nodes offline, threshold=4, target=5",
+			rsConfig:           testplanet.ReconfigureRS(2, 3, 7, 7),
+			repairThreshold:    4,
+			repairTarget:       5,
+			offlineNodes:       3,
+			expectedPieceCount: []int{5, 6},
+		},
+	}
 
-		satellite.RangedLoop.RangedLoop.Service.Loop.Stop()
-		satellite.Repair.Repairer.Loop.Pause()
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			testplanet.Run(t, testplanet.Config{
+				SatelliteCount:   1,
+				StorageNodeCount: 10,
+				UplinkCount:      1,
+				Reconfigure: testplanet.Reconfigure{
+					Satellite: testplanet.Combine(
+						tc.rsConfig,
+						func(log *zap.Logger, index int, config *satellite.Config) {
+							config.Checker.RepairThresholdOverrides.Values[2] = tc.repairThreshold
+							config.Checker.RepairTargetOverrides.Values[2] = tc.repairTarget
+						},
+					),
+				},
+			}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+				// Upload some remote data
+				uplinkPeer := planet.Uplinks[0]
+				satellite := planet.Satellites[0]
 
-		err := uplinkPeer.Upload(ctx, satellite, "testbucket", "test/path", testrand.Bytes(8*memory.KiB))
-		require.NoError(t, err)
+				// Stop audit to prevent interactions
+				satellite.Audit.Worker.Loop.Stop()
+				satellite.RangedLoop.RangedLoop.Service.Loop.Stop()
+				satellite.Repair.Repairer.Loop.Pause()
 
-		segment := getRemoteSegment(ctx, t, satellite)
+				err := uplinkPeer.Upload(ctx, satellite, "testbucket", "test/path", testrand.Bytes(8*memory.KiB))
+				require.NoError(t, err)
 
-		toMarkOffline := 3
-		for _, piece := range segment.Pieces[:toMarkOffline] {
-			node := planet.FindNode(piece.StorageNode)
+				segment := getRemoteSegment(ctx, t, satellite)
+				require.GreaterOrEqual(t, len(segment.Pieces), tc.offlineNodes, "Not enough pieces to take offline")
 
-			err := planet.StopNodeAndUpdate(ctx, node)
-			require.NoError(t, err)
+				// Take specified number of nodes offline
+				for _, piece := range segment.Pieces[:tc.offlineNodes] {
+					node := planet.FindNode(piece.StorageNode)
+					err := planet.StopNodeAndUpdate(ctx, node)
+					require.NoError(t, err)
 
-			err = updateNodeCheckIn(ctx, satellite.DB.OverlayCache(), node, false, time.Now().Add(-24*time.Hour))
-			require.NoError(t, err)
-		}
+					err = updateNodeCheckIn(ctx, satellite.DB.OverlayCache(), node, false, time.Now().Add(-24*time.Hour))
+					require.NoError(t, err)
+				}
 
-		// trigger checker with ranged loop to add segment to repair queue
-		_, err = satellite.RangedLoop.RangedLoop.Service.RunOnce(ctx)
-		require.NoError(t, err)
+				// Trigger checker to add segment to repair queue
+				_, err = satellite.RangedLoop.RangedLoop.Service.RunOnce(ctx)
+				require.NoError(t, err)
 
-		// Verify that the segment is on the repair queue
-		count, err := satellite.DB.RepairQueue().Count(ctx)
-		require.NoError(t, err)
-		require.Equal(t, count, 1)
+				// Ensure segment is in repair queue
+				count, err := satellite.DB.RepairQueue().Count(ctx)
+				require.NoError(t, err)
+				require.Equal(t, 1, count)
 
-		// Run the repairer
-		satellite.Repair.Repairer.Loop.Restart()
-		satellite.Repair.Repairer.Loop.TriggerWait()
-		satellite.Repair.Repairer.Loop.Pause()
-		satellite.Repair.Repairer.WaitForPendingRepairs()
+				// Run the repair process
+				satellite.Repair.Repairer.Loop.Restart()
+				satellite.Repair.Repairer.Loop.TriggerWait()
+				satellite.Repair.Repairer.Loop.Pause()
+				satellite.Repair.Repairer.WaitForPendingRepairs()
 
-		// Verify that repair queue is empty and segment was repaired
-		count, err = satellite.DB.RepairQueue().Count(ctx)
-		require.NoError(t, err)
-		require.Zero(t, count)
+				// Verify repair queue is empty after repair
+				count, err = satellite.DB.RepairQueue().Count(ctx)
+				require.NoError(t, err)
+				require.Zero(t, count)
 
-		segment = getRemoteSegment(ctx, t, satellite)
-		require.NotNil(t, segment.RepairedAt)
-
-		// for repair we aren't uploading number of pieces exact to optimal shares but we will
-		// upload between optimal shares and optimal shares * MaxExcessRateOptimalThreshold (e.g. 0.05)
-		// In production target number of pieces will be usually equal to optimal shares but on test env
-		// where things are going fast it may from time to time upload more pieces.
-		require.Contains(t, []int{5, 6}, len(segment.Pieces))
-	})
+				// for repair we aren't uploading number of pieces exact to optimal shares but we will
+				// upload between optimal shares and optimal shares * MaxExcessRateOptimalThreshold (e.g. 0.05)
+				// In production target number of pieces will be usually equal to optimal shares but on test env
+				// where things are going fast it may from time to time upload more pieces.
+				segment = getRemoteSegment(ctx, t, satellite)
+				require.NotNil(t, segment.RepairedAt)
+				require.Contains(t, tc.expectedPieceCount, len(segment.Pieces), "Unexpected piece count after repair")
+			})
+		})
+	}
 }
 
 func updateNodeCheckIn(ctx context.Context, overlayDB overlay.DB, node *testplanet.StorageNode, isUp bool, timestamp time.Time) error {
@@ -2445,44 +2460,6 @@ func getRemoteSegment(ctx context.Context, t *testing.T, satellite *testplanet.S
 	return segments[0]
 }
 
-// corruptPieceData manipulates piece data on a storage node.
-func corruptPieceData(ctx context.Context, t *testing.T, planet *testplanet.Planet, corruptedNode *testplanet.StorageNode, corruptedPieceID storj.PieceID) {
-	t.Helper()
-
-	blobRef := blobstore.BlobRef{
-		Namespace: planet.Satellites[0].ID().Bytes(),
-		Key:       corruptedPieceID.Bytes(),
-	}
-
-	// get currently stored piece data from storagenode
-	reader, err := corruptedNode.Storage2.BlobsCache.Open(ctx, blobRef)
-	require.NoError(t, err)
-	pieceSize, err := reader.Size()
-	require.NoError(t, err)
-	require.True(t, pieceSize > 0)
-	pieceData := make([]byte, pieceSize)
-	n, err := io.ReadFull(reader, pieceData)
-	require.NoError(t, err)
-	require.EqualValues(t, n, pieceSize)
-
-	// delete piece data
-	err = corruptedNode.Storage2.BlobsCache.Delete(ctx, blobRef)
-	require.NoError(t, err)
-
-	// corrupt piece data (not PieceHeader) and write back to storagenode
-	// this means repair downloading should fail during piece hash verification
-	pieceData[pieceSize-1]++ // if we don't do this, this test should fail
-	writer, err := corruptedNode.Storage2.BlobsCache.Create(ctx, blobRef)
-	require.NoError(t, err)
-
-	n, err = writer.Write(pieceData)
-	require.NoError(t, err)
-	require.EqualValues(t, n, pieceSize)
-
-	err = writer.Commit(ctx)
-	require.NoError(t, err)
-}
-
 type mockConnector struct {
 	realConnector   rpc.Connector
 	addressesDialed []string
@@ -2617,7 +2594,7 @@ func TestECRepairerGetCorrupted(t *testing.T) {
 		corruptedNode := planet.FindNode(corruptedPiece.StorageNode)
 		require.NotNil(t, corruptedNode)
 		pieceID := segment.RootPieceID.Derive(corruptedPiece.StorageNode, int32(corruptedPiece.Number))
-		corruptPieceData(ctx, t, planet, corruptedNode, pieceID)
+		corruptedNode.Storage2.PieceBackend.TestingCorruptPiece(satellite.ID(), pieceID)
 
 		ecRepairer := satellite.Repairer.EcRepairer
 
@@ -2686,8 +2663,7 @@ func TestECRepairerGetMissingPiece(t *testing.T) {
 		node := planet.FindNode(missingPiece.StorageNode)
 		require.NotNil(t, node)
 		pieceID := segment.RootPieceID.Derive(missingPiece.StorageNode, int32(missingPiece.Number))
-		err = node.Storage2.Store.Delete(ctx, satellite.ID(), pieceID)
-		require.NoError(t, err)
+		node.Storage2.PieceBackend.TestingDeletePiece(satellite.ID(), pieceID)
 
 		ecRepairer := satellite.Repairer.EcRepairer
 
@@ -2781,9 +2757,6 @@ func TestECRepairerGetUnknown(t *testing.T) {
 		StorageNodeCount: 6,
 		UplinkCount:      1,
 		Reconfigure: testplanet.Reconfigure{
-			StorageNodeDB: func(index int, db storagenode.DB, log *zap.Logger) (storagenode.DB, error) {
-				return testblobs.NewBadDB(log.Named("baddb"), db), nil
-			},
 			Satellite: testplanet.ReconfigureRS(3, 3, 6, 6),
 		},
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
@@ -2824,8 +2797,7 @@ func TestECRepairerGetUnknown(t *testing.T) {
 		// set unknown error for download from bad node
 		badNode := planet.FindNode(unknownPiece.StorageNode)
 		require.NotNil(t, badNode)
-		badNodeDB := badNode.DB.(*testblobs.BadDB)
-		badNodeDB.SetError(errs.New("unknown error"))
+		badNode.Storage2.PieceBackend.TestingSetError(errs.New("unknown error"))
 
 		ecRepairer := satellite.Repairer.EcRepairer
 
@@ -2852,9 +2824,6 @@ func TestECRepairerGetFailure(t *testing.T) {
 		StorageNodeCount: 6,
 		UplinkCount:      1,
 		Reconfigure: testplanet.Reconfigure{
-			StorageNodeDB: func(index int, db storagenode.DB, log *zap.Logger) (storagenode.DB, error) {
-				return testblobs.NewBadDB(log.Named("baddb"), db), nil
-			},
 			Satellite: testplanet.ReconfigureRS(3, 3, 6, 6),
 		},
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
@@ -2903,15 +2872,14 @@ func TestECRepairerGetFailure(t *testing.T) {
 		// set unknown error for download from bad node
 		badNode := planet.FindNode(unknownPiece.StorageNode)
 		require.NotNil(t, badNode)
-		badNodeDB := badNode.DB.(*testblobs.BadDB)
-		badNodeDB.SetError(errs.New("unknown error"))
+		badNode.Storage2.PieceBackend.TestingSetError(errs.New("unknown error"))
 
 		// corrupt data for corrupted node
 		corruptedNode := planet.FindNode(corruptedPiece.StorageNode)
 		require.NotNil(t, corruptedNode)
 		corruptedPieceID := segment.RootPieceID.Derive(corruptedPiece.StorageNode, int32(corruptedPiece.Number))
 		require.NotNil(t, corruptedPieceID)
-		corruptPieceData(ctx, t, planet, corruptedNode, corruptedPieceID)
+		corruptedNode.Storage2.PieceBackend.TestingCorruptPiece(satellite.ID(), corruptedPieceID)
 
 		ecRepairer := satellite.Repairer.EcRepairer
 

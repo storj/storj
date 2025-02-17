@@ -6,7 +6,7 @@ import {
     BucketCursor,
     BucketMetadata,
     BucketPage,
-    BucketsApi,
+    BucketsApi, PlacementDetails,
 } from '@/types/buckets';
 import { HttpClient } from '@/utils/httpClient';
 import { APIError } from '@/utils/error';
@@ -63,6 +63,9 @@ export class BucketsHttpApi implements BucketsApi {
                     usage.segmentCount,
                     new Date(usage.since),
                     new Date(usage.before),
+                    usage.defaultRetentionMode,
+                    usage.defaultRetentionDays,
+                    usage.defaultRetentionYears,
                 ),
             ) || [],
             result.search,
@@ -112,6 +115,9 @@ export class BucketsHttpApi implements BucketsApi {
             result.segmentCount,
             new Date(result.since),
             new Date(result.before),
+            result.defaultRetentionMode,
+            result.defaultRetentionDays,
+            result.defaultRetentionYears,
         );
     }
 
@@ -166,6 +172,35 @@ export class BucketsHttpApi implements BucketsApi {
                 bVersioning.placement.location,
             ),
             bVersioning.objectLockEnabled,
+        )) || [];
+    }
+
+    /**
+     * Fetch placement details
+     *
+     * @returns PlacementDetails[]
+     * @throws Error
+     */
+    public async getPlacementDetails(projectID: string): Promise<PlacementDetails[]> {
+        const path = `${this.ROOT_PATH}/placement-details?projectID=${projectID}`;
+        const response = await this.client.get(path);
+
+        if (!response.ok) {
+            throw new APIError({
+                status: response.status,
+                message: 'Can not get placement details',
+                requestID: response.headers.get('x-request-id'),
+            });
+        }
+
+        const result = await response.json();
+
+        return result?.map(detail => new PlacementDetails(
+            detail.id,
+            detail.idName,
+            detail.name,
+            detail.title,
+            detail.description,
         )) || [];
     }
 }

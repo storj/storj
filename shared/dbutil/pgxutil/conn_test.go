@@ -18,7 +18,7 @@ import (
 
 func TestConn(t *testing.T) {
 	dbtest.Run(t, func(ctx *testcontext.Context, t *testing.T, connstr string) {
-		db, err := tempdb.OpenUnique(ctx, connstr, "pgutil-query")
+		db, err := tempdb.OpenUnique(ctx, connstr, "pgutil-query", nil)
 		require.NoError(t, err)
 		defer ctx.Check(db.Close)
 

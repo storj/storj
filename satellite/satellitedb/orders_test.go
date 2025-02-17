@@ -118,7 +118,7 @@ func TestUpdateBucketBandwidthAllocation(t *testing.T) {
 		require.Equal(t, int64(0), inline)
 		require.Equal(t, int64(0), settled)
 
-	}, satellitedbtest.WithSpanner())
+	})
 }
 
 func TestUpdateBucketBandwidthSettle(t *testing.T) {
@@ -144,7 +144,7 @@ func TestUpdateBucketBandwidthSettle(t *testing.T) {
 		require.Equal(t, int64(0), inline)
 		require.Equal(t, int64(300), settled)
 
-	}, satellitedbtest.WithSpanner())
+	})
 }
 
 func TestUpdateBucketBandwidthInline(t *testing.T) {
@@ -170,7 +170,7 @@ func TestUpdateBucketBandwidthInline(t *testing.T) {
 		require.Equal(t, int64(300), inline)
 		require.Equal(t, int64(0), settled)
 
-	}, satellitedbtest.WithSpanner())
+	})
 }
 
 func TestUpdateStoragenodeBandwidthSettle(t *testing.T) {
@@ -194,7 +194,7 @@ func TestUpdateStoragenodeBandwidthSettle(t *testing.T) {
 		require.NoError(t, err)
 		require.Equal(t, int64(300), res)
 
-	}, satellitedbtest.WithSpanner())
+	})
 }
 
 func TestUpdateBandwidthBatch(t *testing.T) {
@@ -228,7 +228,7 @@ func TestUpdateBandwidthBatch(t *testing.T) {
 		require.Equal(t, int64(100), inline)
 		require.Equal(t, int64(20), settled)
 
-	}, satellitedbtest.WithSpanner())
+	})
 }
 
 func TestUpdateBandwidthBatch_partialUpdate(t *testing.T) {
@@ -298,5 +298,5 @@ func TestUpdateBandwidthBatch_partialUpdate(t *testing.T) {
 		require.Equal(t, int64(55), inline)
 		require.Equal(t, int64(10), settled)
 
-	}, satellitedbtest.WithSpanner())
+	})
 }

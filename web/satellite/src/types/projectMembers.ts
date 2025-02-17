@@ -24,20 +24,22 @@ export interface ProjectMembersApi {
      *
      * @param projectId
      * @param email email of the project member to add
+     * @param csrfProtectionToken CSRF token
      *
      * @throws Error
      */
-    invite(projectId: string, email: string): Promise<void>;
+    invite(projectId: string, email: string, csrfProtectionToken: string): Promise<void>;
 
     /**
      * Resends invitations to pending project members.
      *
      * @param projectId
      * @param emails emails of the project members whose invitations should be resent
+     * @param csrfProtectionToken CSRF token
      *
      * @throws Error
      */
-    reinvite(projectId: string, emails: string[]): Promise<void>;
+    reinvite(projectId: string, emails: string[], csrfProtectionToken: string): Promise<void>;
 
     /**
      * Used for fetching team member related to project.
@@ -55,10 +57,11 @@ export interface ProjectMembersApi {
      * @param projectID
      * @param memberID
      * @param role
+     * @param csrfProtectionToken CSRF token
      *
      * @throws Error
      */
-    updateRole(projectID: string, memberID: string, role: ProjectRole): Promise<ProjectMember>
+    updateRole(projectID: string, memberID: string, role: ProjectRole, csrfProtectionToken: string): Promise<ProjectMember>
 
     /**
      * Get invite link for the specified project and email.
@@ -75,10 +78,11 @@ export interface ProjectMembersApi {
      *
      * @param projectId
      * @param emails
+     * @param csrfProtectionToken
      *
      * @throws Error
      */
-    delete(projectId: string, emails: string[]): Promise<void>;
+    delete(projectId: string, emails: string[], csrfProtectionToken: string): Promise<void>;
 
     /**
      * Fetch Project Members
@@ -201,7 +205,7 @@ export class ProjectMember implements ProjectMemberItemModel {
         public id: string = '',
         private _role: number = 0,
     ) {
-        this.user = new User(this.id, this.fullName, this.shortName, this.email);
+        this.user = new User(this.id, '', this.fullName, this.shortName, this.email);
         this.setRole();
     }
 

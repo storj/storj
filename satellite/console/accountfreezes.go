@@ -808,7 +808,7 @@ func (s *AccountFreezeService) TrialExpirationUnfreezeUser(ctx context.Context, 
 	defer mon.Task()(&ctx)(&err)
 
 	err = s.store.WithTx(ctx, func(ctx context.Context, tx DBTx) error {
-		_, err = tx.Users().Get(ctx, userID)
+		user, err := tx.Users().Get(ctx, userID)
 		if err != nil {
 			return err
 		}
@@ -838,6 +838,16 @@ func (s *AccountFreezeService) TrialExpirationUnfreezeUser(ctx context.Context, 
 		err = tx.AccountFreezeEvents().DeleteByUserIDAndEvent(ctx, userID, TrialExpirationFreeze)
 		if err != nil {
 			return err
+		}
+
+		if user.Status == PendingDeletion {
+			status := Active
+			err = tx.Users().Update(ctx, userID, UpdateUserRequest{
+				Status: &status,
+			})
+			if err != nil {
+				return err
+			}
 		}
 
 		return nil
@@ -989,7 +999,7 @@ func (s *AccountFreezeService) ShouldEscalateFreezeEvent(ctx context.Context, ev
 		return shouldEscalate, nil
 	}
 
-	projects, err := s.store.Projects().GetByUserID(ctx, event.UserID)
+	projects, err := s.store.Projects().GetActiveByUserID(ctx, event.UserID)
 	if err != nil {
 		return false, ErrAccountFreeze.Wrap(err)
 	}
@@ -1084,7 +1094,7 @@ func (s *AccountFreezeService) upsertFreezeEvent(ctx context.Context, tx DBTx, d
 		data.newFreezeEvent.Limits.User = userLimits
 	}
 
-	projects, err := tx.Projects().GetOwn(ctx, data.user.ID)
+	projects, err := tx.Projects().GetOwnActive(ctx, data.user.ID)
 	if err != nil {
 		return err
 	}

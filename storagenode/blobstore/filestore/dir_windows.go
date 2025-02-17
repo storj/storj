@@ -16,7 +16,8 @@ import (
 	"storj.io/storj/storagenode/blobstore"
 )
 
-func diskInfoFromPath(path string) (info blobstore.DiskInfo, err error) {
+// DiskInfoFromPath returns the disk info for the given path.
+func DiskInfoFromPath(path string) (info blobstore.DiskInfo, err error) {
 	absPath, err := filepath.Abs(path)
 	if err != nil {
 		absPath = path
@@ -81,6 +82,19 @@ func rename(oldpath, newpath string) error {
 		return &os.LinkError{Op: "replace", Old: oldpath, New: newpath, Err: err}
 	}
 
+	return nil
+}
+
+// rmDir removes the directory named by path.
+func rmDir(path string) error {
+	pathp, err := windows.UTF16PtrFromString(tryFixLongPath(path))
+	if err != nil {
+		return &os.PathError{Op: "remove", Path: path, Err: err}
+	}
+	err = windows.RemoveDirectory(pathp)
+	if err != nil {
+		return &os.PathError{Op: "remove", Path: path, Err: err}
+	}
 	return nil
 }
 

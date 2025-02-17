@@ -10,7 +10,7 @@
     >
         <span class="label">{{ selectedOption.label }}</span>
         <svg width="8" height="4" viewBox="0 0 8 4" fill="none" xmlns="http://www.w3.org/2000/svg">
-            <path d="M3.33657 3.73107C3.70296 4.09114 4.29941 4.08814 4.66237 3.73107L7.79796 0.650836C8.16435 0.291517 8.01864 0 7.47247 0L0.526407 0C-0.0197628 0 -0.16292 0.294525 0.200917 0.650836L3.33657 3.73107Z" fill="#131D3A" />
+            <path d="M3.33657 3.73107C3.70296 4.09114 4.29941 4.08814 4.66237 3.73107L7.79796 0.650836C8.16435 0.291517 8.01864 0 7.47247 0L0.526407 0C-0.0197628 0 -0.16292 0.294525 0.200917 0.650836L3.33657 3.73107Z" fill="currentColor" />
         </svg>
         <div v-if="areOptionsShown" v-click-outside="closeOptions" class="dropdown__selection">
             <div class="dropdown__selection__overflow-container">
@@ -92,17 +92,16 @@ export default class VDropdown extends Vue {
         align-items: center;
         justify-content: space-between;
         padding: 0 16px;
-        border: 1px solid var(--c-gray--light);
+        border: 1px solid var(--v-border-base);
         border-radius: 6px;
         font-size: 16px;
-        color: var(--c-title);
+        color: var(--v-text-base);
         cursor: pointer;
         font-family: 'font_medium', sans-serif;
         z-index: 998;
 
         &:hover {
             border-color: var(--c-gray);
-            color: var(--c-title);
         }
 
         &.active {
@@ -114,10 +113,10 @@ export default class VDropdown extends Vue {
             top: 52px;
             left: 0;
             width: 100%;
-            border: 1px solid var(--c-gray--light);
+            border: 1px solid var(--v-border-base);
             border-radius: 6px;
             overflow: hidden;
-            background: white;
+            background: var(--v-background-base);
             z-index: 999;
 
             &__overflow-container {
@@ -134,11 +133,11 @@ export default class VDropdown extends Vue {
                 height: 40px;
                 width: 100% !important;
                 cursor: pointer;
-                border-bottom: 1px solid var(--c-gray--light);
+                border-bottom: 1px solid var(--v-border-base);
                 box-sizing: border-box;
 
                 &:hover {
-                    background: var(--c-background);
+                    background: var(--v-active-base);
                 }
             }
         }

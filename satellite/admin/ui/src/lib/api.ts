@@ -383,6 +383,14 @@ export class Admin {
 						trialExpiration: date === 'null' ? null : this.toISOStringWithLocalTimezone(date)
 					}) as Promise<null>;
 				}
+			},
+			{
+				name: 'set pending deletion ',
+				desc: "Set the user to 'pending deletion' status",
+				params: [['email', new InputText('email', true)]],
+				func: async (email: string): Promise<null> => {
+					return this.fetch('PUT', `users/${email}/status/3`) as Promise<null>;
+				}
 			}
 		],
 		rest_api_keys: [

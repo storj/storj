@@ -8,7 +8,7 @@
                 <div class="payouts-by-node__top-area__left-area__title-area">
                     <div class="payouts-by-node__top-area__left-area__title-area__arrow" @click="redirectToPayoutSummary">
                         <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                            <path fill-rule="evenodd" clip-rule="evenodd" d="M13.3398 0.554956C14.0797 1.2949 14.0797 2.49458 13.3398 3.23452L6.46904 10.1053H22.1053C23.1517 10.1053 24 10.9536 24 12C24 13.0464 23.1517 13.8947 22.1053 13.8947H6.46904L13.3398 20.7655C14.0797 21.5054 14.0797 22.7051 13.3398 23.445C12.5998 24.185 11.4002 24.185 10.6602 23.445L0.554956 13.3398C-0.184985 12.5998 -0.184985 11.4002 0.554956 10.6602L10.6602 0.554956C11.4002 -0.184985 12.5998 -0.184985 13.3398 0.554956Z" fill="#252A32" />
+                            <path fill-rule="evenodd" clip-rule="evenodd" d="M13.3398 0.554956C14.0797 1.2949 14.0797 2.49458 13.3398 3.23452L6.46904 10.1053H22.1053C23.1517 10.1053 24 10.9536 24 12C24 13.0464 23.1517 13.8947 22.1053 13.8947H6.46904L13.3398 20.7655C14.0797 21.5054 14.0797 22.7051 13.3398 23.445C12.5998 24.185 11.4002 24.185 10.6602 23.445L0.554956 13.3398C-0.184985 12.5998 -0.184985 11.4002 0.554956 10.6602L10.6602 0.554956C11.4002 -0.184985 12.5998 -0.184985 13.3398 0.554956Z" fill="currentColor" />
                         </svg>
                     </div>
                     <h1 class="payouts-by-node__top-area__left-area__title-area__title">{{ nodeTitle }}</h1>
@@ -251,7 +251,7 @@ export default class PayoutsPage extends Vue {
                     &__title {
                         font-family: 'font_bold', sans-serif;
                         font-size: 32px;
-                        color: var(--c-title);
+                        color: var(--v-header-base);
                         white-space: nowrap;
                         text-overflow: ellipsis;
                         position: relative;
@@ -263,7 +263,7 @@ export default class PayoutsPage extends Vue {
                 &__wallet {
                     font-family: 'font_medium', sans-serif;
                     font-size: 16px;
-                    color: var(--c-title);
+                    color: var(--v-header-base);
                     margin-bottom: 16px;
                 }
 
@@ -293,7 +293,7 @@ export default class PayoutsPage extends Vue {
 
                     &__label {
                         font-size: 16px;
-                        color: var(--c-gray);
+                        color: var(--v-text-base);
                         font-family: 'font_medium', sans-serif;
                         margin-bottom: 10px;
                     }
@@ -301,14 +301,14 @@ export default class PayoutsPage extends Vue {
                     &__value {
                         font-size: 22px;
                         font-family: 'font_bold', sans-serif;
-                        color: var(--c-title);
+                        color: var(--v-header-base);
                     }
                 }
 
                 &__divider {
                     height: 60px;
                     width: 1px;
-                    background: var(--c-gray--light);
+                    background: var(--v-border-base);
                 }
             }
         }
@@ -357,19 +357,19 @@ export default class PayoutsPage extends Vue {
 
                         &__label {
                             font-size: 12px;
-                            color: var(--c-gray);
+                            color: var(--v-text-base);
                             margin-bottom: 10px;
                         }
 
                         &__value {
                             font-size: 18px;
-                            color: var(--c-title);
+                            color: var(--v-header-base);
                         }
                     }
 
                     &__information {
                         font-size: 14px;
-                        color: var(--c-title);
+                        color: var(--v-header-base);
 
                         &__title {
                             font-family: 'font_bold', sans-serif;
@@ -399,7 +399,7 @@ export default class PayoutsPage extends Vue {
                 font-family: 'font_bold', sans-serif;
                 font-size: 24px;
                 margin-bottom: 20px;
-                color: var(--c-title);
+                color: var(--v-header-base);
             }
         }
     }
@@ -407,9 +407,10 @@ export default class PayoutsPage extends Vue {
     .info-block {
         margin-bottom: 20px;
         padding: 20px;
+        border: 1px solid var(--v-border-base);
 
         &.information {
-            background: #f8f8f9;
+            background: var(--v-background-base);
         }
     }
 </style>

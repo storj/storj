@@ -8,8 +8,9 @@ export class APIError extends Error {
     public status: number;
     public requestID: string | null;
 
-    constructor(data: {status: number, message: string, requestID: string | null}) {
+    constructor(data: { status: number, message: string, requestID: string | null }) {
         super(data.message);
+        this.status = data.status;
         this.message = data.message;
         this.requestID = data.requestID;
     }

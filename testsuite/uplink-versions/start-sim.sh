@@ -9,6 +9,8 @@ then
     go install golang.org/dl/go1.16.15@latest && go1.16.15 download
 fi
 
+TMP=$(mktemp -d -t tmp.XXXXXXXXXX)
+
 cleanup(){
     ret=$?
     echo "EXIT STATUS: $ret"
@@ -63,8 +65,6 @@ echo "stage2_sat_version" $stage2_sat_version
 echo "stage2_uplink_versions" $stage2_uplink_versions
 echo "stage2_storagenode_versions" $stage2_storagenode_versions
 
-TMP=$(mktemp -d -t tmp.XXXXXXXXXX)
-
 find_unique_versions(){
     echo "$*" | tr " " "\n" | sort | uniq
 }
@@ -93,17 +93,17 @@ install_sim(){
     local bin_dir="$2"
     mkdir -p ${bin_dir}
 
-    go build -race -v -o ${bin_dir}/storagenode storj.io/storj/cmd/storagenode >/dev/null 2>&1
-    go build -race -v -o ${bin_dir}/satellite storj.io/storj/cmd/satellite >/dev/null 2>&1
-    go build -race -v -o ${bin_dir}/storj-sim storj.io/storj/cmd/storj-sim >/dev/null 2>&1
-    go build -race -v -o ${bin_dir}/versioncontrol storj.io/storj/cmd/versioncontrol >/dev/null 2>&1
+    go build -race -o ${bin_dir}/storagenode storj.io/storj/cmd/storagenode 2>&1
+    go build -race -o ${bin_dir}/satellite storj.io/storj/cmd/satellite 2>&1
+    go build -race -o ${bin_dir}/storj-sim storj.io/storj/cmd/storj-sim 2>&1
+    go build -race -o ${bin_dir}/versioncontrol storj.io/storj/cmd/versioncontrol 2>&1
 
-    go build -race -v -o ${bin_dir}/uplink storj.io/storj/cmd/uplink >/dev/null 2>&1
-    go build -race -v -o ${bin_dir}/identity storj.io/storj/cmd/identity >/dev/null 2>&1
-    go build -race -v -o ${bin_dir}/certificates storj.io/storj/cmd/certificates >/dev/null 2>&1
+    go build -race -o ${bin_dir}/uplink storj.io/storj/cmd/uplink 2>&1
+    go build -race -o ${bin_dir}/identity storj.io/storj/cmd/identity 2>&1
+    go build -race -o ${bin_dir}/certificates storj.io/storj/cmd/certificates 2>&1
 
     if [ -d "${work_dir}/cmd/gateway" ]; then
-        (cd ${work_dir}/cmd/gateway && go build -race -v -o ${bin_dir}/gateway storj.io/storj/cmd/gateway >/dev/null 2>&1)
+        (cd ${work_dir}/cmd/gateway && go build -race -o ${bin_dir}/gateway storj.io/storj/cmd/gateway 2>&1)
     else
         GOBIN=${bin_dir} go install -race storj.io/gateway@latest
     fi
@@ -111,7 +111,7 @@ install_sim(){
         # as storj-sim is most likely installed from $PWD and contains storj-sim version which requires multinode
         # install the most recent multinode version from $PWD
         # multinode versions that are below c08ca361d83b252da8ba466896f23fdc6dddc1d9 throws on run if UI was not build
-        go build -race -v -o ${bin_dir}/multinode storj.io/storj/cmd/multinode >/dev/null 2>&1
+        go build -race -o ${bin_dir}/multinode storj.io/storj/cmd/multinode 2>&1
     fi
 }
 
@@ -236,9 +236,9 @@ for version in ${unique_versions}; do
             mkdir -p ${bin_dir}
 
             if version_ge "$version" "v1.64.0"; then
-                go build -race -v -o ${bin_dir}/uplink storj.io/storj/cmd/uplink >/dev/null 2>&1
+                go build -race -o ${bin_dir}/uplink storj.io/storj/cmd/uplink 2>&1
             else
-                go1.16.15 build -race -v -o ${bin_dir}/uplink storj.io/storj/cmd/uplink >/dev/null 2>&1
+                go1.16.15 build -race -o ${bin_dir}/uplink storj.io/storj/cmd/uplink 2>&1
             fi
 
             popd

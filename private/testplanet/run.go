@@ -29,8 +29,7 @@ func Run(t *testing.T, config Config, test func(t *testing.T, ctx *testcontext.C
 
 	for _, satelliteDB := range databases {
 		satelliteDB := satelliteDB
-		// TODO(spanner): remove this check once full Spanner support is complete
-		if !config.EnableSpanner && satelliteDB.Name == "Spanner" {
+		if config.SkipSpanner && satelliteDB.Name == "Spanner" {
 			t.Skipf("Test is not enabled to run on Spanner.")
 		}
 		t.Run(satelliteDB.Name, func(t *testing.T) {

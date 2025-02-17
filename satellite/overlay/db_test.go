@@ -25,7 +25,7 @@ import (
 
 func TestDQNodesLastSeenBefore(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
-		SatelliteCount: 1, StorageNodeCount: 3, EnableSpanner: true,
+		SatelliteCount: 1, StorageNodeCount: 3,
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 		planet.Satellites[0].Overlay.DQStrayNodes.Loop.Pause()
 
@@ -235,5 +235,5 @@ func TestDBDisqualifyNode(t *testing.T) {
 				assert.Equal(t, testcase.Reason, *info.DisqualificationReason)
 			})
 		}
-	}, satellitedbtest.WithSpanner())
+	})
 }

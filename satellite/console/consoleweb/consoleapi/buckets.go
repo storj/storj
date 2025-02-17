@@ -135,6 +135,43 @@ func (b *Buckets) GetBucketMetadata(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
+// GetPlacementDetails returns a list of available placements and their details.
+func (b *Buckets) GetPlacementDetails(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	var err error
+	defer mon.Task()(&ctx)(&err)
+
+	w.Header().Set("Content-Type", "application/json")
+
+	projectIDString := r.URL.Query().Get("projectID")
+	if projectIDString == "" {
+		b.serveJSONError(ctx, w, http.StatusBadRequest, errs.New("Project ID was not provided."))
+		return
+	}
+
+	projectID, err := uuid.FromString(projectIDString)
+	if err != nil {
+		b.serveJSONError(ctx, w, http.StatusBadRequest, err)
+		return
+	}
+
+	placementDetails, err := b.service.GetPlacementDetails(ctx, projectID)
+	if err != nil {
+		if console.ErrUnauthorized.Has(err) {
+			b.serveJSONError(ctx, w, http.StatusUnauthorized, err)
+			return
+		}
+
+		b.serveJSONError(ctx, w, http.StatusInternalServerError, err)
+		return
+	}
+
+	err = json.NewEncoder(w).Encode(placementDetails)
+	if err != nil {
+		b.log.Error("failed to write placement details json", zap.Error(ErrBucketsAPI.Wrap(err)))
+	}
+}
+
 // GetBucketTotals returns a page of bucket usage totals since project creation.
 func (b *Buckets) GetBucketTotals(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()

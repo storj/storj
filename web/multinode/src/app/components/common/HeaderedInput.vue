@@ -108,7 +108,7 @@ export default class HeaderedInput extends HeaderlessInput {
                 font-family: 'font_regular', sans-serif;
                 font-size: 16px;
                 line-height: 21px;
-                color: var(--c-gray);
+                color: var(--v-text-base);
             }
 
             &__error {
@@ -144,8 +144,14 @@ export default class HeaderedInput extends HeaderlessInput {
         &__optional {
             font-size: 16px;
             line-height: 21px;
-            color: #afb7c1;
+            color: var(--v-text-base);
         }
+    }
+
+    .headered-textarea {
+        padding: 15px 22px;
+        text-indent: 0;
+        line-height: 26px;
     }
 
     .headered-input,
@@ -160,21 +166,24 @@ export default class HeaderedInput extends HeaderlessInput {
         outline: none;
         box-shadow: none;
         font-family: 'font_regular', sans-serif;
-        border: 1px solid var(--c-gray--light);
+        border: 1px solid var(--v-border-base);
         border-radius: var(--br-input);
-        color: #354049;
+        color: var(--v-text-base);
         caret-color: var(--c-primary);
         box-sizing: border-box;
 
         &::placeholder {
             color: var(--c-placeholder);
         }
-    }
 
-    .headered-textarea {
-        padding: 15px 22px;
-        text-indent: 0;
-        line-height: 26px;
+        &:hover {
+            border: 2px solid var(--v-header-base);
+        }
+
+        &:focus,
+        &:active {
+            border: 2px solid var(--v-primary-base);
+        }
     }
 
     .add-label {

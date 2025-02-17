@@ -11,6 +11,7 @@ import (
 
 	"cloud.google.com/go/spanner"
 	"github.com/zeebo/errs"
+	"go.uber.org/zap"
 	"google.golang.org/api/iterator"
 
 	"storj.io/common/storj"
@@ -66,7 +67,7 @@ func (db *DB) UpdateSegmentPieces(ctx context.Context, opts UpdateSegmentPieces)
 
 	if err := opts.OldPieces.Verify(); err != nil {
 		if ErrInvalidRequest.Has(err) {
-			return ErrInvalidRequest.New("OldPieces: %v", errs.Unwrap(err))
+			return ErrInvalidRequest.New("OldPieces: %v", errors.Unwrap(err))
 		}
 		return err
 	}
@@ -78,12 +79,17 @@ func (db *DB) UpdateSegmentPieces(ctx context.Context, opts UpdateSegmentPieces)
 	// its possible that in this method we will have less pieces
 	// than optimal shares (e.g. after repair)
 	if len(opts.NewPieces) < int(opts.NewRedundancy.RepairShares) {
-		return ErrInvalidRequest.New("number of new pieces is less than new redundancy repair shares value")
+		db.log.Warn("number of new pieces is less than new redundancy repair shares value (segment will return to repair queue)",
+			zap.Int("new_pieces", len(opts.NewPieces)),
+			zap.Int("new_redundancy_repair_shares", int(opts.NewRedundancy.RepairShares)))
+	}
+	if len(opts.NewPieces) < int(opts.NewRedundancy.RequiredShares) {
+		return ErrInvalidRequest.New("number of pieces is less than redundancy required shares")
 	}
 
 	if err := opts.NewPieces.Verify(); err != nil {
 		if ErrInvalidRequest.Has(err) {
-			return ErrInvalidRequest.New("NewPieces: %v", errs.Unwrap(err))
+			return ErrInvalidRequest.New("NewPieces: %v", errors.Unwrap(err))
 		}
 		return err
 	}

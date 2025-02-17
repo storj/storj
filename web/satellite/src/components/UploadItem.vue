@@ -12,7 +12,7 @@
                         :indeterminate="!item.progress"
                         :size="20"
                         color="secondary"
-                        :model-value="progressStyle"
+                        :model-value="item.progress"
                     />
                     <v-icon
                         v-else
@@ -56,13 +56,6 @@ const notify = useNotify();
 const props = defineProps<{
     item: UploadingBrowserObject
 }>();
-
-const progressStyle = computed((): number => {
-    if (props.item.progress) {
-        return 360*(props.item.progress/100);
-    }
-    return 0;
-});
 
 const uploadStatus = computed((): string => {
     if (props.item.status === UploadingStatus.InProgress) {

@@ -2,7 +2,7 @@
 // See LICENSE for copying information.
 
 <template>
-    <v-card>
+    <v-card class="pa-4">
         <!-- We cast expandedFiles to type 'any' because of the weird Vuetify limitation/bug -->
         <!-- https://github.com/vuetifyjs/vuetify/issues/20006 -->
         <v-data-table-server
@@ -16,7 +16,7 @@
             show-expand
             :item-value="(item: BrowserObjectWrapper) => item.browserObject"
             :items-length="allFiles.length"
-            :item-selectable="(item: BrowserObjectWrapper) => item.browserObject.type !== 'folder' && !item.browserObject.Versions?.length"
+            :item-selectable="(item: BrowserObjectWrapper) => !item.browserObject.Versions?.length"
             :must-sort="false"
             hover
         >
@@ -34,7 +34,7 @@
                         <v-checkbox-btn
                             :model-value="selectedFiles.includes(file)"
                             hide-details
-                            @update:modelValue="(selected) => toggleSelectObjectVersion(selected as boolean, file)"
+                            @update:model-value="(selected) => toggleSelectObjectVersion(selected as boolean, file)"
                         />
                     </td>
                     <td>
@@ -83,8 +83,7 @@
                                             <v-icon class="ml-2" :class="{ 'invisible': !isHovering }" :icon="Copy" />
                                         </template>
                                         <template #default>
-                                            <span v-if="mdAndDown">{{ '...' + file.VersionId.slice(-9) }}</span>
-                                            <span v-else>{{ file.VersionId }}</span>
+                                            <span>{{ '...' + file.VersionId.slice(-9) }}</span>
                                         </template>
                                     </v-chip>
                                 </template>
@@ -98,6 +97,7 @@
                             is-version
                             :is-file-deleted="item.browserObject.isDeleteMarker"
                             align="right"
+                            @share-click="onShareClick(file)"
                             @preview-click="onFileClick(file)"
                             @delete-file-click="onDeleteFileClick(file)"
                             @restore-object-click="onRestoreObjectClick(file)"
@@ -112,7 +112,7 @@
 
             <template #no-data>
                 <p class="text-body-2 cursor-pointer py-14 rounded-xlg my-4" @click="emit('uploadClick')">
-                    {{ search ? 'No data found' : 'Drag and drop objects or folders here, or click to upload objects.' }}
+                    {{ search ? 'No data found' : 'Drag and drop files or folders here, or click to upload files.' }}
                 </p>
             </template>
 
@@ -120,11 +120,10 @@
                 <tr v-if="shouldRenderRow(item.raw.browserObject)">
                     <td class="v-data-table__td v-data-table-column--no-padding v-data-table-column--align-start">
                         <v-checkbox-btn
-                            v-if="!isFolder(item.raw.browserObject)"
                             :model-value="areAllVersionsSelected(item.raw.browserObject)"
                             :indeterminate="areSomeVersionsSelected(item.raw.browserObject)"
                             hide-details
-                            @update:modelValue="(selected) => updateSelectedVersions(item.raw.browserObject, selected)"
+                            @update:model-value="(selected) => updateSelectedVersions(item.raw.browserObject, selected)"
                         />
                     </td>
                     <td>
@@ -153,13 +152,21 @@
                     <td />
                     <td />
                     <td />
-                    <td>
+                    <td class="text-right">
                         <VBtn
                             v-if="!isFolder(item.raw.browserObject)"
                             :icon="getExpandOrCollapseIcon(item.raw.browserObject)"
                             size="small"
                             variant="text"
                             @click="toggleFileExpanded(item.raw.browserObject)"
+                        />
+                        <browser-row-actions
+                            v-else
+                            :deleting="isBeingDeleted(item.raw.browserObject)"
+                            :file="item.raw.browserObject"
+                            align="right"
+                            @delete-file-click="onDeleteFileClick(item.raw.browserObject)"
+                            @download-folder-click="onDownloadFolder(item.raw.browserObject)"
                         />
                     </td>
                 </tr>
@@ -261,6 +268,13 @@
         :file="lockActionFile"
         @content-removed="lockActionFile = null"
     />
+    <download-prefix-dialog
+        v-if="downloadPrefixEnabled"
+        v-model="isDownloadPrefixDialogShown"
+        :prefix-type="DownloadPrefixType.Folder"
+        :bucket="bucketName"
+        :prefix="folderToDownload"
+    />
 </template>
 
 <script setup lang="ts">
@@ -281,7 +295,6 @@ import {
     VIcon,
 } from 'vuetify/components';
 import { ChevronLeft, ChevronRight, Copy } from 'lucide-vue-next';
-import { useDisplay } from 'vuetify';
 
 import {
     BrowserObject,
@@ -294,12 +307,21 @@ import { useNotify } from '@/utils/hooks';
 import { Size } from '@/utils/bytesSize';
 import { AnalyticsErrorEventSource } from '@/utils/constants/analyticsEventNames';
 import { useBucketsStore } from '@/store/modules/bucketsStore';
-import { BrowserObjectTypeInfo, BrowserObjectWrapper, EXTENSION_INFOS, FILE_INFO, FOLDER_INFO } from '@/types/browser';
+import {
+    BrowserObjectTypeInfo,
+    BrowserObjectWrapper,
+    DownloadPrefixType,
+    EXTENSION_INFOS,
+    FILE_INFO,
+    FOLDER_INFO,
+} from '@/types/browser';
 import { ROUTES } from '@/router';
 import { Time } from '@/utils/time';
 import { DEFAULT_PAGE_LIMIT } from '@/types/pagination';
 import { DataTableHeader } from '@/types/common';
 import { usePreCheck } from '@/composables/usePreCheck';
+import { useConfigStore } from '@/store/modules/configStore';
+import { useLoading } from '@/composables/useLoading';
 
 import BrowserRowActions from '@/components/BrowserRowActions.vue';
 import FilePreviewDialog from '@/components/dialogs/FilePreviewDialog.vue';
@@ -312,6 +334,7 @@ import DeleteVersionsDialog from '@/components/dialogs/DeleteVersionsDialog.vue'
 import LockObjectDialog from '@/components/dialogs/LockObjectDialog.vue';
 import LockedDeleteErrorDialog from '@/components/dialogs/LockedDeleteErrorDialog.vue';
 import LegalHoldObjectDialog from '@/components/dialogs/LegalHoldObjectDialog.vue';
+import DownloadPrefixDialog from '@/components/dialogs/DownloadPrefixDialog.vue';
 
 const compProps = defineProps<{
     forceEmpty?: boolean;
@@ -325,11 +348,12 @@ const emit = defineEmits<{
 const obStore = useObjectBrowserStore();
 const projectsStore = useProjectsStore();
 const bucketsStore = useBucketsStore();
+const configStore = useConfigStore();
 
-const { mdAndDown } = useDisplay();
 const notify = useNotify();
 const router = useRouter();
 const { withTrialCheck } = usePreCheck();
+const { withLoading } = useLoading();
 
 const isFetching = ref<boolean>(false);
 const search = ref<string>('');
@@ -346,6 +370,8 @@ const isRestoreDialogShown = ref<boolean>(false);
 const isLockDialogShown = ref<boolean>(false);
 const isLegalHoldDialogShown = ref<boolean>(false);
 const isLockedObjectDeleteDialogShown = ref<boolean>(false);
+const isDownloadPrefixDialogShown = ref<boolean>(false);
+const folderToDownload = ref<string>('');
 
 const pageSizes = [DEFAULT_PAGE_LIMIT, 25, 50, 100];
 
@@ -362,6 +388,8 @@ const headers = computed<DataTableHeader[]>(() => {
         { title: '', key: 'actions', sortable: false, width: 0 },
     ];
 });
+
+const downloadPrefixEnabled = computed<boolean>(() => configStore.state.config.downloadPrefixEnabled);
 
 /**
  * Returns the name of the selected bucket.
@@ -449,6 +477,16 @@ const filesToDelete = computed<BrowserObject[]>(() => {
 const continuationTokens = computed(() => obStore.state.continuationTokens);
 
 const hasNextPage = computed(() => !!continuationTokens.value.get(cursor.value.page + 1));
+
+/**
+ * Handles download bucket action.
+ */
+function onDownloadFolder(object: BrowserObject): void {
+    withTrialCheck(() => {
+        folderToDownload.value = `${object.path ?? ''}${object.Key}`;
+        isDownloadPrefixDialogShown.value = true;
+    });
+}
 
 /**
  * Handles previous page click for alternative pagination.
@@ -542,6 +580,9 @@ function shouldRenderRow(file: BrowserObject): boolean {
  * Returns whether a files versions are all selected.
  */
 function areAllVersionsSelected(file: BrowserObject): boolean {
+    if (file.type === 'folder') {
+        return selectedFiles.value.includes(file);
+    }
     return !!file.Versions?.every(v => selectedFiles.value.includes(v));
 }
 
@@ -567,6 +608,14 @@ function toggleFileExpanded(file: BrowserObject): void {
  * Handles version selection.
  */
 function updateSelectedVersions(file: BrowserObject, selected: boolean): void {
+    if (file.type === 'folder') {
+        if (selected) {
+            obStore.updateSelectedFiles([...selectedFiles.value, file]);
+        } else {
+            obStore.updateSelectedFiles(selectedFiles.value.filter(f => f !== file));
+        }
+        return;
+    }
     if (selected) {
         obStore.updateSelectedFiles([...selectedFiles.value, ...file.Versions ?? []]);
     } else {
@@ -586,28 +635,32 @@ function isBeingDeleted(file: BrowserObject): boolean {
  * Handles file click.
  */
 function onFileClick(file: BrowserObject): void {
+    if (compProps.loading || isFetching.value) return;
+
     withTrialCheck(() => {
-        if (!file.type) return;
-        if (file.isDeleteMarker) return;
+        withLoading(async () => {
+            if (!file.type) return;
+            if (file.isDeleteMarker) return;
 
-        if (file.type === 'folder') {
-            const uriParts = [file.Key];
-            if (filePath.value) {
-                uriParts.unshift(...filePath.value.split('/'));
+            if (file.type === 'folder') {
+                const uriParts = [file.Key];
+                if (filePath.value) {
+                    uriParts.unshift(...filePath.value.split('/'));
+                }
+                const pathAndKey = uriParts.map(part => encodeURIComponent(part)).join('/');
+                await router.push(`${ROUTES.Projects.path}/${projectsStore.state.selectedProject.urlId}/${ROUTES.Buckets.path}/${bucketName.value}/${pathAndKey}`);
+                return;
             }
-            const pathAndKey = uriParts.map(part => encodeURIComponent(part)).join('/');
-            router.push(`${ROUTES.Projects.path}/${projectsStore.state.selectedProject.urlId}/${ROUTES.Buckets.path}/${bucketName.value}/${pathAndKey}`);
-            return;
-        }
-        if (!file.VersionId) {
-            return;
-        }
+            if (!file.VersionId) {
+                return;
+            }
 
-        obStore.setObjectPathForModal((file.path ?? '') + file.Key);
-        fileToPreview.value = file;
-        const parentFile = allFiles.value.find(f => f.browserObject.Key === file.Key && f.browserObject.path === file.path);
-        fileVersionsToPreview.value = parentFile?.browserObject?.Versions?.filter(v => !v.isDeleteMarker);
-        previewDialog.value = true;
+            obStore.setObjectPathForModal((file.path ?? '') + file.Key);
+            fileToPreview.value = file;
+            const parentFile = allFiles.value.find(f => f.browserObject.Key === file.Key && f.browserObject.path === file.path);
+            fileVersionsToPreview.value = parentFile?.browserObject?.Versions?.filter(v => !v.isDeleteMarker);
+            previewDialog.value = true;
+        });
     });
 }
 
@@ -647,6 +700,14 @@ async function fetchFiles(page = 1, saveNextToken = true): Promise<void> {
 function onDeleteFileClick(file: BrowserObject): void {
     fileToDelete.value = file;
     isDeleteFileDialogShown.value = true;
+}
+
+/**
+ * Handles Share button click event.
+ */
+function onShareClick(file: BrowserObject): void {
+    fileToShare.value = file;
+    isShareDialogShown.value = true;
 }
 
 /**
@@ -713,7 +774,7 @@ watch(() => compProps.forceEmpty, v => !v && fetchFiles());
     }
 
     &__file-guide :deep(.v-overlay__content) {
-        color: var(--c-white) !important;
+        color: #fff !important;
         background-color: rgb(var(--v-theme-primary)) !important;
     }
 }

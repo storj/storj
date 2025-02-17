@@ -27,8 +27,9 @@ func PieceExpirationFunctionalityTest(ctx context.Context, t *testing.T, expireD
 	pieceID := testrand.PieceID()
 
 	// GetExpired with no matches
-	expired, err := expireDB.GetExpired(ctx, time.Now(), -1)
+	expiredLists, err := expireDB.GetExpired(ctx, time.Now(), DefaultExpirationOptions())
 	require.NoError(t, err)
+	expired := FlattenExpirationInfoLists(expiredLists)
 	require.Len(t, expired, 0)
 
 	// DeleteExpiration with no matches
@@ -46,8 +47,9 @@ func PieceExpirationFunctionalityTest(ctx context.Context, t *testing.T, expireD
 	require.NoError(t, err)
 
 	// GetExpired normal usage
-	expired, err = expireDB.GetExpired(ctx, expireAt, -1)
+	expiredLists, err = expireDB.GetExpired(ctx, expireAt, DefaultExpirationOptions())
 	require.NoError(t, err)
+	expired = FlattenExpirationInfoLists(expiredLists)
 	require.Len(t, expired, 1)
 
 	// DeleteExpiration normal usage
@@ -55,7 +57,8 @@ func PieceExpirationFunctionalityTest(ctx context.Context, t *testing.T, expireD
 	require.NoError(t, err)
 
 	// Should not be there anymore
-	expired, err = expireDB.GetExpired(ctx, expireAt.Add(365*24*time.Hour), -1)
+	expiredLists, err = expireDB.GetExpired(ctx, expireAt.Add(365*24*time.Hour), DefaultExpirationOptions())
+	expired = FlattenExpirationInfoLists(expiredLists)
 	require.NoError(t, err)
 	require.Len(t, expired, 0)
 }
@@ -63,7 +66,7 @@ func PieceExpirationFunctionalityTest(ctx context.Context, t *testing.T, expireD
 func TestPieceExpirationStore(t *testing.T) {
 	ctx := testcontext.New(t)
 
-	store, err := NewPieceExpirationStore(zaptest.NewLogger(t), nil, PieceExpirationConfig{
+	store, err := NewPieceExpirationStore(zaptest.NewLogger(t), PieceExpirationConfig{
 		DataDir:               ctx.Dir("pieceexpiration"),
 		ConcurrentFileHandles: 10,
 	})
@@ -78,7 +81,7 @@ func TestPieceExpirationStoreInDepth(t *testing.T) {
 	defer ctx.Cleanup()
 
 	dataDir := ctx.Dir("pieceexpiration")
-	store, err := NewPieceExpirationStore(zaptest.NewLogger(t), nil, PieceExpirationConfig{
+	store, err := NewPieceExpirationStore(zaptest.NewLogger(t), PieceExpirationConfig{
 		DataDir:               dataDir,
 		ConcurrentFileHandles: 2,
 	})
@@ -109,41 +112,43 @@ func TestPieceExpirationStoreInDepth(t *testing.T) {
 	}
 
 	afterExpirations := now.Add(time.Duration(numSatellites*numPieces+1) * time.Hour)
-	expirationInfos, err := store.GetExpired(ctx, afterExpirations, -1)
+	expirationLists, err := store.GetExpired(ctx, afterExpirations, DefaultExpirationOptions())
 	require.NoError(t, err)
 
-	require.Len(t, expirationInfos, numSatellites*numPieces)
-	sort.Slice(expirationInfos, func(i, j int) bool {
-		cmp := expirationInfos[i].SatelliteID.Compare(expirationInfos[j].SatelliteID)
-		if cmp < 0 {
-			return true
-		}
-		if cmp > 0 {
-			return false
-		}
-		return bytes.Compare(expirationInfos[i].PieceID[:], expirationInfos[j].PieceID[:]) < 0
+	require.Len(t, expirationLists, numSatellites)
+	sort.Slice(expirationLists, func(i, j int) bool {
+		return expirationLists[i].SatelliteID.Less(expirationLists[j].SatelliteID)
 	})
 
 	for i := range satellites {
+		require.Equal(t, satellites[i], expirationLists[i].SatelliteID)
+		require.Equal(t, len(expirePieces), expirationLists[i].Len(), expirationLists)
 		for p := range expirePieces {
-			require.Equal(t, satellites[i], expirationInfos[i*numPieces+p].SatelliteID)
-			require.Equal(t, expirePieces[p], expirationInfos[i*numPieces+p].PieceID)
-			require.Equal(t, int64(100*i+p+1), expirationInfos[i*numPieces+p].PieceSize)
+			ei := expirationLists[i].Index(p)
+			require.Equal(t, expirePieces[p], ei.PieceID)
+			require.Equal(t, satellites[i], ei.SatelliteID)
+			require.Equal(t, int64(100*i+p+1), ei.PieceSize)
+			require.False(t, ei.InPieceInfo)
+
+			piece, size := expirationLists[i].PieceIDAtIndex(p)
+			require.Equal(t, expirePieces[p], piece)
+			require.Equal(t, int64(100*i+p+1), size)
 		}
 	}
 
-	err = store.DeleteExpirationsForSatellite(ctx, satellites[0], afterExpirations)
+	err = store.DeleteExpirationsForSatellite(ctx, satellites[0], afterExpirations, DefaultExpirationOptions())
 	require.NoError(t, err)
 
-	expirationInfos, err = store.GetExpired(ctx, afterExpirations, -1)
+	expirationLists, err = store.GetExpired(ctx, afterExpirations, DefaultExpirationOptions())
 	require.NoError(t, err)
-
+	expirationInfos := FlattenExpirationInfoLists(expirationLists)
 	require.Len(t, expirationInfos, (numSatellites-1)*numPieces)
+
 	for i := range satellites {
+		if i == 0 {
+			continue
+		}
 		for p := range expirePieces {
-			if i == 0 {
-				continue
-			}
 			require.Equal(t, satellites[i], expirationInfos[(i-1)*numPieces+p].SatelliteID)
 			require.Equal(t, expirePieces[p], expirationInfos[(i-1)*numPieces+p].PieceID)
 		}
@@ -152,8 +157,9 @@ func TestPieceExpirationStoreInDepth(t *testing.T) {
 	err = store.DeleteExpirations(ctx, afterExpirations)
 	require.NoError(t, err)
 
-	expirationInfos, err = store.GetExpired(ctx, afterExpirations, -1)
+	expirationLists, err = store.GetExpired(ctx, afterExpirations, DefaultExpirationOptions())
 	require.NoError(t, err)
+	expirationInfos = FlattenExpirationInfoLists(expirationLists)
 
 	require.Len(t, expirationInfos, 0)
 }
@@ -163,7 +169,7 @@ func TestPieceExpirationStoreFileTruncation(t *testing.T) {
 	defer ctx.Cleanup()
 
 	dataDir := ctx.Dir("pieceexpiration")
-	store, err := NewPieceExpirationStore(zaptest.NewLogger(t), nil, PieceExpirationConfig{
+	store, err := NewPieceExpirationStore(zaptest.NewLogger(t), PieceExpirationConfig{
 		DataDir:               dataDir,
 		ConcurrentFileHandles: 2,
 	})
@@ -202,20 +208,23 @@ func TestPieceExpirationStoreFileTruncation(t *testing.T) {
 	require.NoError(t, f.Close())
 
 	// check all piece expirations in store
-	expirationInfos, err := store.GetExpired(ctx, now.Add(time.Hour), -1)
+	expirationLists, err := store.GetExpired(ctx, now.Add(time.Hour), DefaultExpirationOptions())
 	require.NoError(t, err)
-	require.Len(t, expirationInfos, 1)
-	require.Equal(t, satelliteID, expirationInfos[0].SatelliteID)
-	require.Equal(t, pieceID1, expirationInfos[0].PieceID)
-	require.Equal(t, int64(100), expirationInfos[0].PieceSize)
+	require.Len(t, expirationLists, 1)
+	require.Equal(t, satelliteID, expirationLists[0].SatelliteID)
+	require.Equal(t, 1, expirationLists[0].Len())
+	ei := expirationLists[0].Index(0)
+	require.Equal(t, pieceID1, ei.PieceID)
+	require.Equal(t, int64(100), ei.PieceSize)
 
 	// append another piece expiration record for pieceID2 through the store,
 	// to ensure that the result is still not corrupted
 	err = store.SetExpiration(ctx, satelliteID, pieceID2, now, 200)
 	require.NoError(t, err)
 
-	expirationInfos, err = store.GetExpired(ctx, now.Add(time.Hour), -1)
+	expirationLists, err = store.GetExpired(ctx, now.Add(time.Hour), DefaultExpirationOptions())
 	require.NoError(t, err)
+	expirationInfos := FlattenExpirationInfoLists(expirationLists)
 	require.Len(t, expirationInfos, 2)
 	require.Equal(t, satelliteID, expirationInfos[0].SatelliteID)
 	require.Equal(t, pieceID1, expirationInfos[0].PieceID)
@@ -230,7 +239,7 @@ func TestPieceExpirationPeriodicFlushing(t *testing.T) {
 	defer ctx.Cleanup()
 
 	dataDir := ctx.Dir("pieceexpiration")
-	store, err := NewPieceExpirationStore(zaptest.NewLogger(t), nil, PieceExpirationConfig{
+	store, err := NewPieceExpirationStore(zaptest.NewLogger(t), PieceExpirationConfig{
 		DataDir:               dataDir,
 		ConcurrentFileHandles: 2,
 		MaxBufferTime:         100 * time.Millisecond,
@@ -253,4 +262,95 @@ func TestPieceExpirationPeriodicFlushing(t *testing.T) {
 	size := st.Size()
 	const recordSize = int64(len(storj.PieceID{})) + 8
 	require.Equal(t, recordSize, size)
+}
+
+func TestLastExpiredFiles(t *testing.T) {
+	ctx := testcontext.New(t)
+	defer ctx.Cleanup()
+
+	dataDir := ctx.Dir("pieceexpiration")
+	store, err := NewPieceExpirationStore(zaptest.NewLogger(t), PieceExpirationConfig{
+		DataDir:               dataDir,
+		ConcurrentFileHandles: 2,
+	})
+	require.NoError(t, err)
+	defer ctx.Check(store.Close)
+
+	satelliteID := testrand.NodeID()
+	path := PathEncoding.EncodeToString(satelliteID[:])
+	now, err := time.Parse("2006-01-02T15:04", "2024-01-02T15:04")
+	require.NoError(t, err)
+
+	expired, err := store.GetExpiredFiles(ctx, satelliteID, now)
+	require.NoError(t, err)
+	require.Len(t, expired, 0)
+
+	err = store.SetExpiration(ctx, satelliteID, testrand.PieceID(), now, 123)
+	require.NoError(t, err)
+
+	err = store.SetExpiration(ctx, satelliteID, testrand.PieceID(), now.Add(-time.Hour), 123)
+	require.NoError(t, err)
+
+	err = store.SetExpiration(ctx, satelliteID, testrand.PieceID(), now.Add(-2*time.Hour), 123)
+	require.NoError(t, err)
+
+	err = store.SetExpiration(ctx, satelliteID, testrand.PieceID(), now.Add(time.Hour*-5), 123)
+	require.NoError(t, err)
+
+	expired, err = store.GetExpiredFiles(ctx, satelliteID, now)
+	require.NoError(t, err)
+
+	require.Equal(t, filepath.Join(dataDir, path, "2024-01-02_14.dat"), expired[0])
+	require.Equal(t, filepath.Join(dataDir, path, "2024-01-02_13.dat"), expired[1])
+	require.Equal(t, filepath.Join(dataDir, path, "2024-01-02_10.dat"), expired[2])
+
+}
+
+func TestGetExpiredFromFile(t *testing.T) {
+	ctx := testcontext.New(t)
+	defer ctx.Cleanup()
+
+	dataDir := ctx.Dir("pieceexpiration")
+	store, err := NewPieceExpirationStore(zaptest.NewLogger(t), PieceExpirationConfig{
+		DataDir:               dataDir,
+		ConcurrentFileHandles: 2,
+	})
+	require.NoError(t, err)
+	defer ctx.Check(store.Close)
+
+	satelliteID := testrand.NodeID()
+
+	now := time.Now()
+
+	var expectedIDs []storj.PieceID
+	for i := 0; i < 10; i++ {
+		pieceID := testrand.PieceID()
+		err = store.SetExpiration(ctx, satelliteID, pieceID, now.Add(-time.Hour), int64(pieceID.Bytes()[0]))
+		require.NoError(t, err)
+		expectedIDs = append(expectedIDs, pieceID)
+	}
+
+	flatFiles, err := store.GetExpiredFiles(ctx, satelliteID, now)
+	require.NoError(t, err)
+
+	ix := 0
+	err = GetExpiredFromFile(ctx, flatFiles[0], func(id storj.PieceID, size uint64) {
+		require.Equal(t, expectedIDs[ix], id)
+		require.Equal(t, uint64(expectedIDs[ix].Bytes()[0]), size)
+		ix++
+	})
+	require.NoError(t, err)
+}
+
+// FlattenExpirationInfoLists flattens a slice of ExpiredInfoRecords, each with
+// their own lists of piece IDs, into a slice of ExpiredInfo. This is probably
+// only useful in test.
+func FlattenExpirationInfoLists(expiredLists []*ExpiredInfoRecords) []ExpiredInfo {
+	var expired []ExpiredInfo
+	for _, eiList := range expiredLists {
+		for i := 0; i < eiList.Len(); i++ {
+			expired = append(expired, eiList.Index(i))
+		}
+	}
+	return expired
 }

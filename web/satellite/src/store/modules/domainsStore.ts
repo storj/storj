@@ -33,7 +33,7 @@ export const useDomainsStore = defineStore('domains', () => {
 
         const { generatePublicCredentials } = useLinksharing();
 
-        const creds = await generatePublicCredentials(apiKey.secret, `sj://${bucket}`, null, passphrase);
+        const creds = await generatePublicCredentials(apiKey.secret, bucket, null, passphrase);
 
         // TODO: rework when we have a way to store those.
         state.domains.push(new Domain(creds.accessKeyId, accessName, new Date()));

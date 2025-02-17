@@ -123,7 +123,6 @@ export default class HeaderlessInput extends Vue {
     public onInput(event: Event): void {
         if (!event.target) { return; }
         const target = event.target as HTMLInputElement;
-        if (!target || !target.value) { return; }
 
         if (target.value.length > this.maxSymbols) {
             this.value = target.value.slice(0, this.maxSymbols);
@@ -218,7 +217,7 @@ export default class HeaderlessInput extends Vue {
         &__label {
             font-size: 16px;
             line-height: 21px;
-            color: var(--c-label);
+            color: var(--v-header-base);
             margin-bottom: 0;
         }
 
@@ -251,6 +250,15 @@ export default class HeaderlessInput extends Vue {
         text-indent: 20px;
         border: 1px solid rgb(56 75 101 / 40%);
         border-radius: 6px;
+
+        &:hover {
+            border: 2px solid var(--v-header-base);
+        }
+
+        &:focus,
+        &:active {
+            border: 2px solid var(--v-primary-base);
+        }
     }
 
     .headerless-input::placeholder {

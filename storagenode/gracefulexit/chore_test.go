@@ -46,10 +46,6 @@ func exitSatellite(ctx context.Context, t *testing.T, planet *testplanet.Planet,
 	satellite1 := planet.Satellites[0]
 	exitingNode.GracefulExit.Chore.Loop.Pause()
 
-	_, piecesContentSize, err := exitingNode.Storage2.BlobsCache.SpaceUsedBySatellite(ctx, satellite1.ID())
-	require.NoError(t, err)
-	require.NotZero(t, piecesContentSize)
-
 	exitStatus := overlay.ExitStatusRequest{
 		NodeID:          exitingNode.ID(),
 		ExitInitiatedAt: time.Now(),
@@ -62,10 +58,10 @@ func exitSatellite(ctx context.Context, t *testing.T, planet *testplanet.Planet,
 		return time.Now().Add(timeForward)
 	})
 
-	_, err = satellite1.Overlay.DB.UpdateExitStatus(ctx, &exitStatus)
+	_, err := satellite1.Overlay.DB.UpdateExitStatus(ctx, &exitStatus)
 	require.NoError(t, err)
 
-	err = exitingNode.DB.Satellites().InitiateGracefulExit(ctx, satellite1.ID(), time.Now(), piecesContentSize)
+	err = exitingNode.DB.Satellites().InitiateGracefulExit(ctx, satellite1.ID(), time.Now(), 0)
 	require.NoError(t, err)
 
 	// check that the storage node is exiting
@@ -84,10 +80,11 @@ func exitSatellite(ctx context.Context, t *testing.T, planet *testplanet.Planet,
 	timeMutex.Unlock()
 
 	// check that the satellite knows the storage node is exiting.
-	exitingNodes, err := satellite1.DB.OverlayCache().GetExitingNodes(ctx)
+	// Note we cannot use GetExitingNodes, because there's a background worker that may finish the exit before
+	// we check here.
+	exitingNodeDossier, err := satellite1.DB.OverlayCache().Get(ctx, exitingNode.ID())
 	require.NoError(t, err)
-	require.Len(t, exitingNodes, 1)
-	require.Equal(t, exitingNode.ID(), exitingNodes[0].NodeID)
+	require.NotNil(t, exitingNodeDossier.ExitStatus.ExitInitiatedAt)
 
 	// run the SN chore again to start processing transfers.
 	exitingNode.GracefulExit.Chore.Loop.TriggerWait()

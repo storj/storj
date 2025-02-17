@@ -52,7 +52,7 @@ export default class VModal extends Vue {
 
         .modal {
             position: relative;
-            background: white;
+            background: var(--v-background-base);
             padding: 80px 97px;
             height: auto;
             z-index: 1001;
@@ -61,7 +61,7 @@ export default class VModal extends Vue {
             &__header {
                 font-family: 'font_bold', sans-serif;
                 font-size: 32px;
-                color: var(--c-title);
+                color: var(--v-header-base);
                 display: flex;
                 justify-content: center;
             }

@@ -144,6 +144,10 @@ func TestBucketAttribution(t *testing.T) {
 func TestQueryAttribution(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
 		SatelliteCount: 1, StorageNodeCount: 4, UplinkCount: 0,
+		// TODO(spanner): There's an emulator bug with regards to MAX(timestamp),
+		// which causes some queries to fail.
+		// https://github.com/GoogleCloudPlatform/cloud-spanner-emulator/issues/73
+		SkipSpanner: true,
 		Reconfigure: testplanet.Reconfigure{
 			Satellite: testplanet.ReconfigureRS(2, 3, 4, 4),
 		},
@@ -248,6 +252,10 @@ func TestQueryAttribution(t *testing.T) {
 func TestAttributionReport(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
 		SatelliteCount: 1, StorageNodeCount: 4, UplinkCount: 1,
+		// TODO(spanner): There's an emulator bug with regards to MAX(timestamp),
+		// which causes some queries to fail.
+		// https://github.com/GoogleCloudPlatform/cloud-spanner-emulator/issues/73
+		SkipSpanner: true,
 		Reconfigure: testplanet.Reconfigure{
 			Satellite: testplanet.ReconfigureRS(2, 3, 4, 4),
 		},

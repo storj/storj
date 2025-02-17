@@ -5,6 +5,7 @@ package satellitedb
 
 import (
 	"context"
+	"database/sql"
 	"time"
 
 	"github.com/zeebo/errs"
@@ -59,8 +60,12 @@ func (ne *nodeEvents) GetLatestByEmailAndEvent(ctx context.Context, email string
 
 	dbxNE, err := ne.db.First_NodeEvent_By_Email_And_Event_OrderBy_Desc_CreatedAt(ctx, dbx.NodeEvent_Email(email), dbx.NodeEvent_Event(int(event)))
 	if err != nil {
-		return nodeEvent, err
+		return nodeEvent, Error.Wrap(err)
 	}
+	if dbxNE == nil {
+		return nodeEvent, Error.Wrap(sql.ErrNoRows)
+	}
+
 	return fromDBX(dbxNE)
 }
 

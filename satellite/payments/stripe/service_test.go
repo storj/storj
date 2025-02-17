@@ -20,6 +20,7 @@ import (
 	"storj.io/common/currency"
 	"storj.io/common/memory"
 	"storj.io/common/pb"
+	"storj.io/common/storj"
 	"storj.io/common/testcontext"
 	"storj.io/common/testrand"
 	"storj.io/common/uuid"
@@ -31,6 +32,7 @@ import (
 	"storj.io/storj/satellite/buckets"
 	"storj.io/storj/satellite/console"
 	"storj.io/storj/satellite/metabase"
+	"storj.io/storj/satellite/nodeselection"
 	"storj.io/storj/satellite/payments"
 	"storj.io/storj/satellite/payments/billing"
 	"storj.io/storj/satellite/payments/paymentsconfig"
@@ -237,7 +239,7 @@ func TestService_SetInvoiceStatusPaid(t *testing.T) {
 
 func TestService_SetInvoiceStatusInvalid(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
-		SatelliteCount: 1, StorageNodeCount: 0, UplinkCount: 0, EnableSpanner: true,
+		SatelliteCount: 1, StorageNodeCount: 0, UplinkCount: 0,
 		Reconfigure: testplanet.Reconfigure{
 			Satellite: func(log *zap.Logger, index int, config *satellite.Config) {
 				config.Payments.StripeCoinPayments.ListingLimit = 4
@@ -297,7 +299,7 @@ func TestService_SetInvoiceStatusInvalid(t *testing.T) {
 
 func TestService_BalanceInvoiceItems(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
-		SatelliteCount: 1, StorageNodeCount: 0, UplinkCount: 0, EnableSpanner: true,
+		SatelliteCount: 1, StorageNodeCount: 0, UplinkCount: 0,
 		Reconfigure: testplanet.Reconfigure{
 			Satellite: func(log *zap.Logger, index int, config *satellite.Config) {
 				config.Payments.StripeCoinPayments.ListingLimit = 4
@@ -399,7 +401,7 @@ func TestService_BalanceInvoiceItems(t *testing.T) {
 
 func TestService_InvoiceElementsProcessing(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
-		SatelliteCount: 1, StorageNodeCount: 0, UplinkCount: 0, EnableSpanner: true,
+		SatelliteCount: 1, StorageNodeCount: 0, UplinkCount: 0,
 		Reconfigure: testplanet.Reconfigure{
 			Satellite: func(log *zap.Logger, index int, config *satellite.Config) {
 				config.Payments.StripeCoinPayments.ListingLimit = 4
@@ -569,7 +571,7 @@ func TestService_InvoiceElementsProcessingGrouped(t *testing.T) {
 
 func TestService_InvoiceUserWithManyProjects(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
-		SatelliteCount: 1, StorageNodeCount: 0, UplinkCount: 0, EnableSpanner: true,
+		SatelliteCount: 1, StorageNodeCount: 0, UplinkCount: 0,
 		Reconfigure: testplanet.Reconfigure{
 			Satellite: func(log *zap.Logger, index int, config *satellite.Config) {
 				config.Payments.StripeCoinPayments.ListingLimit = 4
@@ -676,7 +678,7 @@ func TestService_InvoiceUserWithManyProjects(t *testing.T) {
 
 func TestService_FinalizeInvoices(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
-		SatelliteCount: 1, StorageNodeCount: 0, UplinkCount: 0, EnableSpanner: true,
+		SatelliteCount: 1, StorageNodeCount: 0, UplinkCount: 0,
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 		satellite := planet.Satellites[0]
 		stripeClient := satellite.API.Payments.StripeClient
@@ -919,7 +921,7 @@ func TestService_InvoiceItemsFromProjectUsage(t *testing.T) {
 
 func TestService_PayInvoiceFromTokenBalance(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
-		SatelliteCount: 1, StorageNodeCount: 0, UplinkCount: 0, EnableSpanner: true,
+		SatelliteCount: 1, StorageNodeCount: 0, UplinkCount: 0,
 		Reconfigure: testplanet.Reconfigure{
 			Satellite: func(log *zap.Logger, index int, config *satellite.Config) {
 				config.Payments.StripeCoinPayments.ListingLimit = 4
@@ -1008,7 +1010,7 @@ func TestService_PayInvoiceFromTokenBalance(t *testing.T) {
 
 func TestService_PayMultipleInvoiceFromTokenBalance(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
-		SatelliteCount: 1, StorageNodeCount: 0, UplinkCount: 0, EnableSpanner: true,
+		SatelliteCount: 1, StorageNodeCount: 0, UplinkCount: 0,
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 		satellite := planet.Satellites[0]
 
@@ -1113,7 +1115,7 @@ func TestService_PayMultipleInvoiceFromTokenBalance(t *testing.T) {
 
 func TestService_PayMultipleInvoiceForCustomer(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
-		SatelliteCount: 1, StorageNodeCount: 0, UplinkCount: 0, EnableSpanner: true,
+		SatelliteCount: 1, StorageNodeCount: 0, UplinkCount: 0,
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 		satellite := planet.Satellites[0]
 
@@ -1252,7 +1254,7 @@ func TestService_PayMultipleInvoiceForCustomer(t *testing.T) {
 
 func TestFailPendingInvoicePayment(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
-		SatelliteCount: 1, StorageNodeCount: 0, UplinkCount: 0, EnableSpanner: true,
+		SatelliteCount: 1, StorageNodeCount: 0, UplinkCount: 0,
 		Reconfigure: testplanet.Reconfigure{
 			Satellite: func(log *zap.Logger, index int, config *satellite.Config) {
 				config.Payments.StripeCoinPayments.ListingLimit = 4
@@ -1520,7 +1522,7 @@ func TestProjectUsagePrice(t *testing.T) {
 	require.NoError(t, err)
 
 	testplanet.Run(t, testplanet.Config{
-		SatelliteCount: 1, StorageNodeCount: 0, UplinkCount: 0, EnableSpanner: true,
+		SatelliteCount: 1, StorageNodeCount: 0, UplinkCount: 0,
 		Reconfigure: testplanet.Reconfigure{
 			Satellite: func(log *zap.Logger, index int, config *satellite.Config) {
 				config.Payments.UsagePrice = defaultPrice
@@ -1602,6 +1604,87 @@ func TestProjectUsagePrice(t *testing.T) {
 				require.Equal(t, storage, items[2].UnitAmountDecimal)
 			})
 		}
+	})
+}
+
+func TestPartnerPlacements(t *testing.T) {
+	var (
+		product         = "product"
+		partner         = "partner"
+		placement       = storj.PlacementConstraint(10)
+		placementDetail = console.PlacementDetail{
+			ID:     10,
+			IdName: "placement10",
+		}
+		productPrice = paymentsconfig.ProductUsagePrice{
+			ProductID: 1,
+			ProjectUsagePrice: paymentsconfig.ProjectUsagePrice{
+				StorageTB: "4",
+				EgressTB:  "5",
+				Segment:   "6",
+			},
+		}
+	)
+	productModel, err := productPrice.ToModel()
+	require.NoError(t, err)
+
+	testplanet.Run(t, testplanet.Config{
+		SatelliteCount: 1, StorageNodeCount: 0, UplinkCount: 0,
+		Reconfigure: testplanet.Reconfigure{
+			Satellite: func(log *zap.Logger, index int, config *satellite.Config) {
+				config.Placement = nodeselection.ConfigurablePlacementRule{PlacementRules: `10:annotation("location", "placement10")`}
+				config.Payments.Products.SetMap(map[string]paymentsconfig.ProductUsagePrice{
+					product: productPrice,
+				})
+				config.Payments.PlacementPriceOverrides.SetMap(map[int]string{int(placement): product})
+				config.Payments.PartnersPlacementPriceOverrides.SetMap(map[string]paymentsconfig.PlacementProductMap{
+					partner: config.Payments.PlacementPriceOverrides,
+				})
+				config.Console.SelfServePlacementDetails.SetMap(map[storj.PlacementConstraint]console.PlacementDetail{
+					0:         {ID: 0},
+					placement: placementDetail,
+				})
+			},
+		},
+	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+		sat := planet.Satellites[0]
+
+		model, err := sat.API.Payments.Accounts.GetPartnerPlacementPriceModel(partner, placement)
+		require.NoError(t, err)
+		require.Equal(t, productModel, model)
+
+		user, err := sat.AddUser(ctx, console.CreateUser{
+			FullName:  "Test User",
+			Password:  "password",
+			Email:     "email@test.test",
+			UserAgent: []byte(partner),
+		}, 1)
+		require.NoError(t, err)
+
+		userCtx, err := sat.UserContext(ctx, user.ID)
+		require.NoError(t, err)
+
+		proj, err := sat.API.Console.Service.CreateProject(userCtx, console.UpsertProjectInfo{
+			Name: "testproject",
+		})
+		require.NoError(t, err)
+		require.Equal(t, partner, string(proj.UserAgent))
+
+		model, err = sat.API.Console.Service.Payments().GetPartnerPlacementPriceModel(userCtx, proj.ID, placement)
+		require.NoError(t, err)
+		require.Equal(t, productModel, model)
+
+		details, err := sat.API.Console.Service.GetPlacementDetails(userCtx, proj.ID)
+		require.NoError(t, err)
+		require.Len(t, details, 1)
+		require.Equal(t, placementDetail, details[0])
+
+		err = sat.DB.Console().Projects().UpdateUserAgent(ctx, proj.ID, make([]byte, 0))
+		require.NoError(t, err)
+
+		details, err = sat.API.Console.Service.GetPlacementDetails(userCtx, proj.ID)
+		require.NoError(t, err)
+		require.Empty(t, details)
 	})
 }
 
@@ -1802,7 +1885,7 @@ func TestRemoveExpiredPackageCredit(t *testing.T) {
 
 func TestService_PayInvoiceBillingID(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
-		SatelliteCount: 1, StorageNodeCount: 0, UplinkCount: 0, EnableSpanner: true,
+		SatelliteCount: 1, StorageNodeCount: 0, UplinkCount: 0,
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 		satellite := planet.Satellites[0]
 		payments := satellite.API.Payments

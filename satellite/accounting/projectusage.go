@@ -5,7 +5,6 @@ package accounting
 
 import (
 	"context"
-	"math"
 	"time"
 
 	"github.com/spacemonkeygo/monkit/v3"
@@ -348,16 +347,20 @@ func (usage *Service) TestSetAsOfSystemInterval(asOfSystemInterval time.Duration
 	usage.asOfSystemInterval = asOfSystemInterval
 }
 
+// unlimitedThreshold this value will be used to check if the project has unlimited bw/storage/segments.
+// Every limitation above this value will be considered as unlimited.
+const unlimitedThreshold = 9000000000000000000 // 9EB
+
 func unlimitedDownloads(limit *int64) bool {
 	if limit == nil {
 		return false
 	}
-	return *limit == int64(noLimits) || *limit == math.MaxInt64
+	return *limit == int64(noLimits) || *limit > unlimitedThreshold
 }
 
 func unlimitedUploads(storageLimit *int64, segmentLimit *int64) bool {
 	if storageLimit == nil || segmentLimit == nil {
 		return false
 	}
-	return (*storageLimit == int64(noLimits) || *storageLimit == math.MaxInt64) && (*segmentLimit == int64(noLimits) || *segmentLimit == math.MaxInt64)
+	return (*storageLimit == int64(noLimits) || *storageLimit > unlimitedThreshold) && (*segmentLimit == int64(noLimits) || *segmentLimit > unlimitedThreshold)
 }

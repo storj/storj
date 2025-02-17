@@ -11,7 +11,7 @@ import {
     PaymentsApi,
     PaymentsHistoryItem,
     ProjectCharges,
-    ProjectUsagePriceModel,
+    UsagePriceModel,
     TokenAmount,
     NativePaymentHistoryItem,
     Wallet,
@@ -22,6 +22,9 @@ import {
     BillingAddress,
     TaxCountry,
     TaxID,
+    UpdateCardParams,
+    PriceModelForPlacementRequest,
+    AddFundsResponse,
 } from '@/types/payments';
 import { HttpClient } from '@/utils/httpClient';
 import { Time } from '@/utils/time';
@@ -34,6 +37,32 @@ import { APIError } from '@/utils/error';
 export class PaymentsHttpApi implements PaymentsApi {
     private readonly client: HttpClient = new HttpClient();
     private readonly ROOT_PATH: string = '/api/v0/payments';
+
+    /**
+     * Starts add funds flow.
+     *
+     * @throws Error
+     */
+    public async addFunds(cardID: string, amount: number): Promise<AddFundsResponse> {
+        const path = `${this.ROOT_PATH}/add-funds`;
+        const response = await this.client.post(path, JSON.stringify({ cardID, amount }));
+
+        const result = await response.json();
+
+        if (!response.ok) {
+            throw new APIError({
+                status: response.status,
+                message: result.error || 'Can not add funds',
+                requestID: response.headers.get('x-request-id'),
+            });
+        }
+
+        return {
+            success: result.success,
+            clientSecret: result.clientSecret,
+            paymentIntentID: result.paymentIntentID,
+        };
+    }
 
     /**
      * Get account balance.
@@ -66,9 +95,9 @@ export class PaymentsHttpApi implements PaymentsApi {
      *
      * @throws Error
      */
-    public async setupAccount(): Promise<string> {
+    public async setupAccount(csrfProtectionToken: string): Promise<string> {
         const path = `${this.ROOT_PATH}/account`;
-        const response = await this.client.post(path, null);
+        const response = await this.client.post(path, null, { csrfProtectionToken });
         const couponType = await response.json();
 
         if (response.ok) {
@@ -105,7 +134,7 @@ export class PaymentsHttpApi implements PaymentsApi {
     /**
      * projectUsagePriceModel returns the user's default price model for project usage.
      */
-    public async projectUsagePriceModel(): Promise<ProjectUsagePriceModel> {
+    public async projectUsagePriceModel(): Promise<UsagePriceModel> {
         const path = `${this.ROOT_PATH}/pricing`;
         const response = await this.client.get(path);
 
@@ -119,20 +148,50 @@ export class PaymentsHttpApi implements PaymentsApi {
 
         const model = await response.json();
         if (model) {
-            return new ProjectUsagePriceModel(model.storageMBMonthCents, model.egressMBCents, model.segmentMonthCents);
+            return new UsagePriceModel(model.storageMBMonthCents, model.egressMBCents, model.segmentMonthCents);
         }
 
-        return new ProjectUsagePriceModel();
+        return new UsagePriceModel();
+    }
+
+    /**
+     * getPlacementPriceModel returns the usage price model for the user and placement.
+     */
+    public async getPlacementPriceModel(params: PriceModelForPlacementRequest): Promise<UsagePriceModel> {
+        const url = new URL(`${this.ROOT_PATH}/placement-pricing`, window.location.href);
+        url.searchParams.append('projectID', params.projectID);
+        if (params.placementName) {
+            url.searchParams.append('placementName', params.placementName);
+        } else if (params.placement) {
+            url.searchParams.append('placement', params.placement.toString());
+        }
+        const response = await this.client.get(url.toString());
+
+        if (!response.ok) {
+            throw new APIError({
+                status: response.status,
+                message: 'Can not get price model for placement',
+                requestID: response.headers.get('x-request-id'),
+            });
+        }
+
+        const model = await response.json();
+        if (model) {
+            return new UsagePriceModel(model.storageMBMonthCents, model.egressMBCents, model.segmentMonthCents);
+        }
+
+        return new UsagePriceModel();
     }
 
     /**
      * Add payment method.
      * @param pmID - stripe payment method id of the credit card
+     * @param csrfProtectionToken - CSRF token
      * @throws Error
      */
-    public async addCardByPaymentMethodID(pmID: string): Promise<void> {
+    public async addCardByPaymentMethodID(pmID: string, csrfProtectionToken: string): Promise<void> {
         const path = `${this.ROOT_PATH}/payment-methods`;
-        const response = await this.client.post(path, pmID);
+        const response = await this.client.post(path, pmID, { csrfProtectionToken });
 
         if (response.ok) {
             return;
@@ -149,9 +208,9 @@ export class PaymentsHttpApi implements PaymentsApi {
     /**
      * Attempt to pay overdue invoices.
      */
-    public async attemptPayments(): Promise<void> {
+    public async attemptPayments(csrfProtectionToken: string): Promise<void> {
         const path = `${this.ROOT_PATH}/attempt-payments`;
-        const response = await this.client.post(path, null);
+        const response = await this.client.post(path, null, { csrfProtectionToken });
 
         if (response.ok) {
             return;
@@ -169,11 +228,12 @@ export class PaymentsHttpApi implements PaymentsApi {
      * Add credit card.
      *
      * @param token - stripe token used to add a credit card as a payment method
+     * @param csrfProtectionToken - CSRF token
      * @throws Error
      */
-    public async addCreditCard(token: string): Promise<void> {
+    public async addCreditCard(token: string, csrfProtectionToken: string): Promise<void> {
         const path = `${this.ROOT_PATH}/cards`;
-        const response = await this.client.post(path, token);
+        const response = await this.client.post(path, token, { csrfProtectionToken });
 
         if (response.ok) {
             return;
@@ -189,14 +249,38 @@ export class PaymentsHttpApi implements PaymentsApi {
     }
 
     /**
+     * Update credit card
+     * @param params - the parameters to update the card with.
+     * @param csrfProtectionToken - CSRF token
+     * @throws Error
+     */
+    public async updateCreditCard(params: UpdateCardParams, csrfProtectionToken: string): Promise<void> {
+        const path = `${this.ROOT_PATH}/cards`;
+        const response = await this.client.put(path, JSON.stringify(params), { csrfProtectionToken });
+
+        if (response.ok) {
+            return;
+        }
+
+        const result = await response.json();
+
+        throw new APIError({
+            status: response.status,
+            message: result.error || 'Can not update credit card',
+            requestID: response.headers.get('x-request-id'),
+        });
+    }
+
+    /**
      * Detach credit card from payment account.
      *
      * @param cardId
+     * @param csrfProtectionToken
      * @throws Error
      */
-    public async removeCreditCard(cardId: string): Promise<void> {
+    public async removeCreditCard(cardId: string, csrfProtectionToken: string): Promise<void> {
         const path = `${this.ROOT_PATH}/cards/${cardId}`;
-        const response = await this.client.delete(path, null);
+        const response = await this.client.delete(path, null, { csrfProtectionToken });
 
         if (response.ok) {
             return;
@@ -240,11 +324,12 @@ export class PaymentsHttpApi implements PaymentsApi {
      * Make credit card default.
      *
      * @param cardId
+     * @param csrfProtectionToken
      * @throws Error
      */
-    public async makeCreditCardDefault(cardId: string): Promise<void> {
+    public async makeCreditCardDefault(cardId: string, csrfProtectionToken: string): Promise<void> {
         const path = `${this.ROOT_PATH}/cards`;
-        const response = await this.client.patch(path, cardId);
+        const response = await this.client.patch(path, cardId, { csrfProtectionToken });
 
         if (response.ok) {
             return;
@@ -381,11 +466,12 @@ export class PaymentsHttpApi implements PaymentsApi {
      * applyCouponCode applies a coupon code.
      *
      * @param couponCode
+     * @param csrfProtectionToken
      * @throws Error
      */
-    public async applyCouponCode(couponCode: string): Promise<Coupon> {
+    public async applyCouponCode(couponCode: string, csrfProtectionToken: string): Promise<Coupon> {
         const path = `${this.ROOT_PATH}/coupon/apply`;
-        const response = await this.client.patch(path, couponCode);
+        const response = await this.client.patch(path, couponCode, { csrfProtectionToken });
         const errMsg = `Could not apply coupon code "${couponCode}"`;
 
         if (!response.ok) {
@@ -482,7 +568,7 @@ export class PaymentsHttpApi implements PaymentsApi {
 
         const wallet = await response.json();
         if (wallet) {
-            return new Wallet(wallet.address, wallet.balance);
+            return new Wallet(wallet.address, new TokenAmount(wallet.balance.value, wallet.balance.currency));
         }
 
         throw new Error('Can not get wallet');
@@ -513,11 +599,12 @@ export class PaymentsHttpApi implements PaymentsApi {
      * add user's default invoice reference.
      *
      * @param reference - invoice reference to be shown on invoices
+     * @param csrfProtectionToken - CSRF token
      * @throws Error
      */
-    public async addInvoiceReference(reference: string): Promise<BillingInformation> {
+    public async addInvoiceReference(reference: string, csrfProtectionToken: string): Promise<BillingInformation> {
         const path = `${this.ROOT_PATH}/account/invoice-reference`;
-        const response = await this.client.post(path, JSON.stringify({ reference }));
+        const response = await this.client.post(path, JSON.stringify({ reference }), { csrfProtectionToken });
 
         const result = await response.json();
         if (!response.ok) {
@@ -535,11 +622,12 @@ export class PaymentsHttpApi implements PaymentsApi {
      * save user's billing information.
      *
      * @param address - billing information to save
+     * @param csrfProtectionToken - CSRF token
      * @throws Error
      */
-    public async saveBillingAddress(address: BillingAddress): Promise<BillingInformation> {
+    public async saveBillingAddress(address: BillingAddress, csrfProtectionToken: string): Promise<BillingInformation> {
         const path = `${this.ROOT_PATH}/account/billing-address`;
-        const response = await this.client.patch(path, JSON.stringify(address));
+        const response = await this.client.patch(path, JSON.stringify(address), { csrfProtectionToken });
 
         const result = await response.json();
         if (!response.ok) {
@@ -559,9 +647,9 @@ export class PaymentsHttpApi implements PaymentsApi {
      * @returns wallet
      * @throws Error
      */
-    public async claimWallet(): Promise<Wallet> {
+    public async claimWallet(csrfProtectionToken: string): Promise<Wallet> {
         const path = `${this.ROOT_PATH}/wallet`;
-        const response = await this.client.post(path, null);
+        const response = await this.client.post(path, null, { csrfProtectionToken });
 
         if (!response.ok) {
             throw new APIError({
@@ -625,11 +713,12 @@ export class PaymentsHttpApi implements PaymentsApi {
      * add a tax ID to a user's account.
      *
      * @param taxID - the tax ID to save
+     * @param csrfProtectionToken - CSRF token
      * @throws Error
      */
-    public async addTaxID(taxID: TaxID): Promise<BillingInformation> {
+    public async addTaxID(taxID: TaxID, csrfProtectionToken: string): Promise<BillingInformation> {
         const path = `${this.ROOT_PATH}/account/tax-ids`;
-        const response = await this.client.post(path, JSON.stringify(taxID));
+        const response = await this.client.post(path, JSON.stringify(taxID), { csrfProtectionToken });
 
         const result = await response.json();
         if (!response.ok) {
@@ -648,9 +737,9 @@ export class PaymentsHttpApi implements PaymentsApi {
      *
      * @throws Error
      */
-    public async removeTaxID(taxID: string): Promise<BillingInformation> {
+    public async removeTaxID(taxID: string, csrfProtectionToken: string): Promise<BillingInformation> {
         const path = `${this.ROOT_PATH}/account/tax-ids/${taxID}`;
-        const response = await this.client.delete(path);
+        const response = await this.client.delete(path, null, { csrfProtectionToken });
 
         const result = await response.json();
         if (!response.ok) {
@@ -669,11 +758,12 @@ export class PaymentsHttpApi implements PaymentsApi {
      *
      * @param dataStr - the Stripe payment method id or token of the credit card
      * @param isPMID - whether the dataStr is a payment method id or token
+     * @param csrfProtectionToken - CSRF token
      * @throws Error
      */
-    public async purchasePricingPackage(dataStr: string, isPMID: boolean): Promise<void> {
+    public async purchasePricingPackage(dataStr: string, isPMID: boolean, csrfProtectionToken: string): Promise<void> {
         const path = `${this.ROOT_PATH}/purchase-package?pmID=${isPMID}`;
-        const response = await this.client.post(path, dataStr);
+        const response = await this.client.post(path, dataStr, { csrfProtectionToken });
 
         if (response.ok) {
             return;

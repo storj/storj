@@ -4,7 +4,6 @@
 <template>
     <v-dialog
         v-model="model"
-        scrollable
         min-width="320px"
         :max-width="maxWidth"
         transition="fade-transition"
@@ -31,7 +30,7 @@
 
             <v-divider />
 
-            <v-card-item class="py-4">
+            <v-card-item class="pa-4">
                 <v-window v-model="step">
                     <v-window-item :value="UpgradeAccountStep.Info">
                         <UpgradeInfoStep
@@ -41,26 +40,52 @@
                     </v-window-item>
 
                     <v-window-item :value="UpgradeAccountStep.Options">
-                        <UpgradeOptionsStep
-                            :loading="loading"
-                            @add-card="() => setStep(UpgradeAccountStep.AddCC)"
-                            @add-tokens="onAddTokens"
-                        />
-                    </v-window-item>
-
-                    <v-window-item :value="UpgradeAccountStep.AddCC">
-                        <AddCreditCardStep
-                            v-model:loading="loading"
-                            @success="() => setStep(UpgradeAccountStep.Success)"
-                            @back="() => setStep(UpgradeAccountStep.Options)"
-                        />
-                    </v-window-item>
-
-                    <v-window-item :value="UpgradeAccountStep.AddTokens">
-                        <AddTokensStep
-                            @back="() => setStep(UpgradeAccountStep.Options)"
-                            @success="() => setStep(UpgradeAccountStep.Success)"
-                        />
+                        <v-container>
+                            <v-row justify="center" align="center">
+                                <v-col cols="12" sm="12" md="10" lg="8">
+                                    <v-tabs
+                                        v-model="paymentTab"
+                                        color="default"
+                                        center-active
+                                        show-arrows
+                                        grow
+                                    >
+                                        <v-tab>
+                                            Credit Card
+                                        </v-tab>
+                                        <v-tab>
+                                            STORJ tokens
+                                        </v-tab>
+                                    </v-tabs>
+                                </v-col>
+                            </v-row>
+                            <v-window v-model="paymentTab">
+                                <v-window-item :value="PaymentOption.CreditCard">
+                                    <v-row class="ma-0" justify="center" align="center">
+                                        <v-col cols="12" sm="12" md="10" lg="8">
+                                            <AddCreditCardStep
+                                                v-model:loading="loading"
+                                                @success="() => setStep(UpgradeAccountStep.Success)"
+                                                @back="() => setStep(UpgradeAccountStep.Info)"
+                                            />
+                                        </v-col>
+                                    </v-row>
+                                </v-window-item>
+                                <v-window-item :value="PaymentOption.StorjTokens">
+                                    <v-row justify="center" align="center" class="ma-0 mt-2">
+                                        <v-col cols="12" sm="12" md="10" lg="8">
+                                            <v-card :loading="loading" class="pa-1" :class="{'no-border pa-0': !loading}">
+                                                <AddTokensStep
+                                                    v-if="!loading"
+                                                    @back="() => setStep(UpgradeAccountStep.Info)"
+                                                    @success="onAddTokensSuccess"
+                                                />
+                                            </v-card>
+                                        </v-col>
+                                    </v-row>
+                                </v-window-item>
+                            </v-window>
+                        </v-container>
                     </v-window-item>
 
                     <v-window-item :value="UpgradeAccountStep.Success">
@@ -87,16 +112,31 @@
 
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue';
-import { VBtn, VCard, VCardItem, VCardTitle, VDialog, VDivider, VWindow, VWindowItem } from 'vuetify/components';
+import {
+    VBtn,
+    VCard,
+    VCardItem,
+    VCardTitle,
+    VDialog,
+    VDivider,
+    VWindow,
+    VWindowItem,
+    VRow,
+    VCol,
+    VTabs,
+    VTab,
+    VContainer,
+} from 'vuetify/components';
 
 import { useBillingStore } from '@/store/modules/billingStore';
 import { useNotify } from '@/utils/hooks';
 import { AnalyticsErrorEventSource, AnalyticsEvent } from '@/utils/constants/analyticsEventNames';
 import { useAnalyticsStore } from '@/store/modules/analyticsStore';
 import { PricingPlanInfo } from '@/types/common';
+import { Wallet } from '@/types/payments';
+import { useUsersStore } from '@/store/modules/usersStore';
 
 import UpgradeInfoStep from '@/components/dialogs/upgradeAccountFlow/UpgradeInfoStep.vue';
-import UpgradeOptionsStep from '@/components/dialogs/upgradeAccountFlow/UpgradeOptionsStep.vue';
 import AddCreditCardStep from '@/components/dialogs/upgradeAccountFlow/AddCreditCardStep.vue';
 import AddTokensStep from '@/components/dialogs/upgradeAccountFlow/AddTokensStep.vue';
 import SuccessStep from '@/components/dialogs/upgradeAccountFlow/SuccessStep.vue';
@@ -115,12 +155,22 @@ enum UpgradeAccountStep {
 
 const analyticsStore = useAnalyticsStore();
 const billingStore = useBillingStore();
+const usersStore = useUsersStore();
+
 const notify = useNotify();
 
 const step = ref<UpgradeAccountStep>(UpgradeAccountStep.Info);
 const loading = ref<boolean>(false);
 const plan = ref<PricingPlanInfo>();
 const content = ref<HTMLElement | null>(null);
+const wallet = computed<Wallet>(() => billingStore.state.wallet as Wallet);
+
+enum PaymentOption {
+    CreditCard,
+    StorjTokens,
+}
+
+const paymentTab = ref<PaymentOption>(PaymentOption.CreditCard);
 
 withDefaults(defineProps<{
     scrim?: boolean,
@@ -147,11 +197,17 @@ const maxWidth = computed(() => {
     case UpgradeAccountStep.Info:
     case UpgradeAccountStep.PricingPlanSelection:
     case UpgradeAccountStep.AddTokens:
+    case UpgradeAccountStep.Options:
         return '720px';
     default:
         return '460px';
     }
 });
+
+/**
+ * Returns whether the user is in paid tier.
+ */
+const isPaidTier = computed((): boolean => usersStore.state.user.paidTier);
 
 /**
  * Claims wallet and sets add token step.
@@ -165,13 +221,20 @@ async function onAddTokens(): Promise<void> {
         await billingStore.claimWallet();
 
         analyticsStore.eventTriggered(AnalyticsEvent.ADD_FUNDS_CLICKED);
-
-        setStep(UpgradeAccountStep.AddTokens);
     } catch (error) {
         notify.notifyError(error, AnalyticsErrorEventSource.UPGRADE_ACCOUNT_MODAL);
     }
 
     loading.value = false;
+}
+
+function onAddTokensSuccess(): void {
+    if (isPaidTier.value) {
+        setStep(UpgradeAccountStep.Success);
+        return;
+    }
+
+    model.value = false;
 }
 
 /**
@@ -196,6 +259,10 @@ async function setSecondStep() {
     setStep(newStep);
 }
 
+watch(paymentTab, newTab => {
+    if (newTab === PaymentOption.StorjTokens && !wallet.value.address) onAddTokens();
+});
+
 watch(content, (value) => {
     if (!value) {
         setStep(UpgradeAccountStep.Info);
@@ -205,3 +272,9 @@ watch(content, (value) => {
 
 defineExpose({ setSecondStep });
 </script>
+
+<style scoped lang="scss">
+.no-border {
+    border: 0 !important;
+}
+</style>

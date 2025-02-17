@@ -132,7 +132,7 @@ var pickCockroach uint64
 var pickSpanner uint64
 
 func pickNext(dbstr string, counter *uint64) string {
-	values := strings.Split(dbstr, ";")
+	values := strings.Split(dbstr, "|")
 	if len(values) <= 1 {
 		return dbstr
 	}

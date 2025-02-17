@@ -179,7 +179,7 @@ func TestGetPagedWithInvitationsByProjectID(t *testing.T) {
 				require.Equal(t, reverseMemberIDs, getIDsFromDB(cursor), errMsg(cursor))
 			}
 		})
-	}, satellitedbtest.WithSpanner())
+	})
 }
 
 func TestUpdateRole(t *testing.T) {
@@ -205,5 +205,5 @@ func TestUpdateRole(t *testing.T) {
 		member, err = membersDB.UpdateRole(ctx, memberUser.ID, projectID, console.RoleMember)
 		require.NoError(t, err)
 		require.Equal(t, console.RoleMember, member.Role)
-	}, satellitedbtest.WithSpanner())
+	})
 }

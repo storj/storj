@@ -131,6 +131,57 @@ func (a *Analytics) PageViewTriggered(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusAccepted)
 }
 
+// JoinCunoFSBeta sends a join form data event to hubspot.
+func (a *Analytics) JoinCunoFSBeta(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	var err error
+	defer mon.Task()(&ctx)(&err)
+
+	var data analytics.TrackJoinCunoFSBetaFields
+	err = json.NewDecoder(r.Body).Decode(&data)
+	if err != nil {
+		a.serveJSONError(ctx, w, http.StatusInternalServerError, err)
+	}
+
+	if err = a.service.ValidateFreeFormFieldLengths(
+		&data.FirstName, &data.LastName,
+		&data.CompanyName, &data.IndustryUseCase,
+		&data.OtherIndustryUseCase, &data.OtherStorageBackend,
+		&data.OtherStorageMountSolution,
+	); err != nil {
+		a.serveJSONError(ctx, w, http.StatusBadRequest, err)
+		return
+	}
+
+	if err = a.service.ValidateLongFormInputLengths(&data.SpecificTasks); err != nil {
+		a.serveJSONError(ctx, w, http.StatusBadRequest, ErrAnalyticsAPI.New("specific tasks field is too long"))
+		return
+	}
+
+	err = a.service.JoinCunoFSBeta(ctx, data)
+	if err != nil {
+		if console.ErrUnauthorized.Has(err) {
+			a.serveJSONError(ctx, w, http.StatusUnauthorized, err)
+			return
+		}
+
+		if console.ErrBotUser.Has(err) {
+			a.serveJSONError(ctx, w, http.StatusForbidden, err)
+			return
+		}
+
+		if console.ErrConflict.Has(err) {
+			a.serveJSONError(ctx, w, http.StatusConflict, err)
+			return
+		}
+
+		a.serveJSONError(ctx, w, http.StatusInternalServerError, err)
+		return
+	}
+
+	w.WriteHeader(http.StatusOK)
+}
+
 // serveJSONError writes JSON error to response output stream.
 func (a *Analytics) serveJSONError(ctx context.Context, w http.ResponseWriter, status int, err error) {
 	web.ServeJSONError(ctx, a.log, w, status, err)

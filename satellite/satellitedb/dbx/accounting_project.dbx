@@ -152,3 +152,5 @@ read all (
 	where bucket_storage_tally.interval_start <= ?
 	orderby desc bucket_storage_tally.interval_start
 )
+
+delete bucket_storage_tally ( where bucket_storage_tally.interval_start < ? )

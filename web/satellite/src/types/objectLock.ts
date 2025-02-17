@@ -3,12 +3,22 @@
 
 import { ObjectLockLegalHoldStatus, ObjectLockMode } from '@aws-sdk/client-s3';
 
+export const NO_MODE_SET = 'Not Set';
 export const COMPLIANCE_LOCK = ObjectLockMode.COMPLIANCE;
 export const GOVERNANCE_LOCK = ObjectLockMode.GOVERNANCE;
-export type ObjLockMode = typeof GOVERNANCE_LOCK | typeof COMPLIANCE_LOCK
+export type ObjLockMode = typeof GOVERNANCE_LOCK | typeof COMPLIANCE_LOCK;
+
+export function capitalizedMode(mode: ObjLockMode): string {
+    return mode.charAt(0).toUpperCase() + mode.slice(1).toLowerCase();
+}
 
 export const LEGAL_HOLD_ON = ObjectLockLegalHoldStatus.ON;
 export const LEGAL_HOLD_OFF = ObjectLockLegalHoldStatus.OFF;
+
+export enum DefaultObjectLockPeriodUnit {
+    DAYS = 'Days',
+    YEARS = 'Years',
+}
 
 export class Retention {
     mode: ObjectLockMode | '';

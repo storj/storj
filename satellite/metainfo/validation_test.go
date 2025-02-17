@@ -241,9 +241,6 @@ func TestEndpoint_validateAuthN(t *testing.T) {
 }
 
 func TestEndpoint_checkRate(t *testing.T) {
-	ctx := testcontext.New(t)
-	defer ctx.Cleanup()
-
 	testplanet.Run(t, testplanet.Config{
 		SatelliteCount: 1, StorageNodeCount: 1, UplinkCount: 2,
 		Reconfigure: testplanet.Reconfigure{
@@ -251,6 +248,7 @@ func TestEndpoint_checkRate(t *testing.T) {
 				// make global rate/burst limit 1
 				config.Metainfo.RateLimiter.Rate = 1
 			},
+			SatelliteDBOptions: testplanet.SatelliteDBDisableCaches,
 		},
 	},
 		func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
@@ -297,6 +295,12 @@ func TestEndpoint_checkRate(t *testing.T) {
 			burstList := int64(5)
 			burstDelete := int64(6)
 			burstPut := int64(7)
+
+			// Mock the rate limiter time to depend on the execution time
+			rateLimiterTime := time.Now()
+			endpoint.TestingSetRateLimiterTime(func() time.Time {
+				return rateLimiterTime
+			})
 
 			// switch project so that cached rate limiter isn't used for next test stage
 			peerctx := rpcpeer.NewContext(ctx, &rpcpeer.Peer{
@@ -444,9 +448,6 @@ func TestEndpoint_checkRate(t *testing.T) {
 }
 
 func TestEndpoint_checkUserStatus(t *testing.T) {
-	ctx := testcontext.New(t)
-	defer ctx.Cleanup()
-
 	testplanet.Run(t, testplanet.Config{
 		SatelliteCount: 1, StorageNodeCount: 1, UplinkCount: 2,
 		Reconfigure: testplanet.Reconfigure{

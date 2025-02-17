@@ -8,6 +8,7 @@
         </nav>
         <div class="dashboard-area__right-area">
             <header class="dashboard-area__right-area__header">
+                <theme-selector />
                 <add-new-node />
             </header>
             <div class="dashboard-area__right-area__content">
@@ -20,6 +21,8 @@
 <script lang="ts">
 import { Component, Vue } from 'vue-property-decorator';
 
+import ThemeSelector from '../components/common/ThemeSelector.vue';
+
 import { UnauthorizedError } from '@/api';
 
 import AddNewNode from '@/app/components/modals/AddNewNode.vue';
@@ -29,6 +32,7 @@ import NavigationArea from '@/app/components/navigation/NavigationArea.vue';
 @Component({
     components: {
         AddNewNode,
+        ThemeSelector,
         NavigationArea,
     },
 })
@@ -66,8 +70,8 @@ export default class Dashboard extends Vue {
                 display: flex;
                 align-items: center;
                 justify-content: flex-end;
-                border: 1px solid var(--c-gray--light);
-                background: var(--c-block-gray);
+                border: 1px solid var(--v-border-base);
+                background: var(--v-background-base);
             }
 
             &__content {

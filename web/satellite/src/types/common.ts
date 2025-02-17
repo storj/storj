@@ -70,11 +70,11 @@ export const FREE_PLAN_INFO = new PricingPlanInfo(
 );
 
 // TODO: fully implement these types and their methods according to their Go counterparts
-export type UUID = string
-export type MemorySize = string
-export type Time = string
+export type UUID = string;
+export type MemorySize = string;
+export type Time = string;
 
-export function tableSizeOptions(itemCount: number, isObjectBrowser = false): {title: string, value: number}[] {
+export function tableSizeOptions(itemCount: number, isObjectBrowser = false): { title: string, value: number }[] {
     const opts = [
         { title: '10', value: 10 },
         { title: '25', value: 25 },
@@ -93,7 +93,7 @@ export type DataTableHeader = {
     align?: 'start' | 'end' | 'center';
     sortable?: boolean;
     width?: number | string;
-}
+};
 
 export type SortItem = {
     key: string;
@@ -167,7 +167,7 @@ interface StepInfoData<T> {
     prev?: SetupLocation<T>,
     prevText?: string,
     next?: SetupLocation<T>,
-    nextText?: string,
+    nextText?: string | (() => string),
     beforeNext?: () => Promise<void>,
     setup?: () => void | Promise<void>,
     validate?: () => boolean,
@@ -179,7 +179,7 @@ export class StepInfo<T> {
     public prev?: ComputedRef<T | undefined>;
     public next?: ComputedRef<T | undefined>;
     public prevText?: string;
-    public nextText?: string;
+    public nextText?: ComputedRef<string>;
     public beforeNext?: () => Promise<void>;
     public setup?: () => void | Promise<void>;
     public validate?: () => boolean;
@@ -195,6 +195,12 @@ export class StepInfo<T> {
         this.validate = data.validate;
 
         this.prevText = data.prevText ? data.prevText : (!data.prev) ? 'Cancel' : 'Back';
-        this.nextText = data.nextText ? data.nextText : (!data.next) ? 'Done' : 'Next';
+
+        this.nextText = computed(() => {
+            if (typeof data.nextText === 'function') {
+                return data.nextText();
+            }
+            return data.nextText ? data.nextText : (!data.next ? 'Done' : 'Next');
+        });
     }
 }

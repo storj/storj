@@ -157,5 +157,5 @@ func TestPayoutDB(t *testing.T) {
 			_, err = snoPayoutDB.GetPayment(ctx, testrand.NodeID(), "2020-01")
 			require.Error(t, err)
 		}
-	}, satellitedbtest.WithSpanner())
+	})
 }

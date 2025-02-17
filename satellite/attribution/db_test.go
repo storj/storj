@@ -173,7 +173,7 @@ func TestQueryAttribution(t *testing.T) {
 
 			verifyData(ctx, t, db.Attribution(), &td)
 		}
-	}, satellitedbtest.WithSpanner())
+	})
 }
 
 func TestQueryAllAttribution(t *testing.T) {
@@ -259,7 +259,7 @@ func TestQueryAllAttribution(t *testing.T) {
 			testData[i] = td
 		}
 		verifyAllData(ctx, t, db.Attribution(), testData, false)
-	}, satellitedbtest.WithSpanner())
+	})
 }
 
 func TestQueryAllAttributionNoStorage(t *testing.T) {
@@ -346,7 +346,7 @@ func TestQueryAllAttributionNoStorage(t *testing.T) {
 			testData[i] = td
 		}
 		verifyAllData(ctx, t, db.Attribution(), testData, false)
-	}, satellitedbtest.WithSpanner())
+	})
 }
 
 func TestQueryAllAttributionNoBW(t *testing.T) {
@@ -433,7 +433,7 @@ func TestQueryAllAttributionNoBW(t *testing.T) {
 			testData[i] = td
 		}
 		verifyAllData(ctx, t, db.Attribution(), testData, true)
-	}, satellitedbtest.WithSpanner())
+	})
 }
 
 func verifyData(ctx *testcontext.Context, t *testing.T, attributionDB attribution.DB, testData *AttributionTestData) {

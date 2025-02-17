@@ -67,14 +67,31 @@ func (admin *EmulatorAdmin) CreateInstance(ctx context.Context, params ConnParam
 		return err
 	}
 
+	instance := &instancepb.Instance{
+		Config:      params.ProjectPath() + "/instanceConfigs/emulator-config",
+		DisplayName: params.Instance,
+	}
+
+	if params.CreateInstance.DisplayName != "" {
+		instance.DisplayName = params.CreateInstance.DisplayName
+	}
+	if params.CreateInstance.Config != "" {
+		instance.Config = params.CreateInstance.Config
+	}
+	if params.CreateInstance.NodeCount != 0 {
+		instance.NodeCount = params.CreateInstance.NodeCount
+	}
+	if params.CreateInstance.ProcessingUnits != 0 {
+		instance.ProcessingUnits = params.CreateInstance.ProcessingUnits
+	}
+	if instance.NodeCount == 0 && instance.ProcessingUnits == 0 {
+		instance.NodeCount = 1
+	}
+
 	op, err := admin.Instances.CreateInstance(ctx, &instancepb.CreateInstanceRequest{
 		Parent:     params.ProjectPath(),
 		InstanceId: params.Instance,
-		Instance: &instancepb.Instance{
-			Config:      params.ProjectPath() + "/instanceConfigs/emulator-config",
-			DisplayName: params.Instance,
-			NodeCount:   1,
-		},
+		Instance:   instance,
 	})
 	if err != nil {
 		return fmt.Errorf("failed CreateInstance: %w", err)

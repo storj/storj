@@ -5,6 +5,7 @@
     <v-dialog
         v-model="model"
         persistent
+        scrollable
         width="auto"
         max-width="460px"
         transition="fade-transition"
@@ -18,7 +19,7 @@
                         height="40"
                         rounded="lg"
                     >
-                        <component :is="RectangleEllipsis" :size="18" />
+                        <component :is="ShieldCheck" :size="18" />
                     </v-sheet>
                 </template>
                 <v-card-title class="font-weight-bold">Setup Two-Factor</v-card-title>
@@ -33,63 +34,69 @@
                     />
                 </template>
             </v-card-item>
-            <v-divider />
-            <v-window v-model="step" :class="{ 'overflow-y-auto': step === 0 }">
-                <!-- QR code step -->
-                <v-window-item :value="0">
-                    <v-card-item class="pa-6">
-                        <p>Scan this QR code in your two-factor application.</p>
-                    </v-card-item>
-                    <v-card-item align="center" justify="center" class="rounded-lg border mx-6">
-                        <v-col cols="auto">
-                            <canvas ref="canvas" />
-                        </v-col>
-                    </v-card-item>
-                    <v-card-item class="pa-6">
-                        <p>Unable to scan? Enter the following code instead.</p>
-                    </v-card-item>
-                    <v-card-item class="rounded-lg border mx-6 mb-6 py-2">
-                        <v-col>
-                            <p class="font-weight-medium text-body-2 text-center"> {{ userMFASecret }}</p>
-                        </v-col>
-                    </v-card-item>
-                </v-window-item>
 
-                <!-- Enter code step -->
-                <v-window-item :value="1">
-                    <v-card-item class="px-6 pt-4 pb-0">
-                        <p>Enter the authentication code generated in your two-factor application to confirm your setup.</p>
-                        <v-otp-input
-                            ref="otpInput"
-                            class="pt-2"
-                            :model-value="confirmPasscode"
-                            :error="isError"
-                            :disabled="isLoading"
-                            type="number"
-                            autofocus
-                            maxlength="6"
-                            @update:modelValue="value => onValueChange(value)"
-                        />
-                    </v-card-item>
-                </v-window-item>
-
-                <!-- Save codes step -->
-                <v-window-item :value="2">
-                    <v-card-item class="px-6 py-4">
-                        <p>Please save these codes somewhere to be able to recover access to your account.</p>
-                    </v-card-item>
-                    <v-divider />
-                    <v-card-item class="px-6 py-4">
-                        <p
-                            v-for="(code, index) in userMFARecoveryCodes"
-                            :key="index"
-                        >
-                            {{ code }}
-                        </p>
-                    </v-card-item>
-                </v-window-item>
-            </v-window>
             <v-divider />
+
+            <v-card-text class="pa-0">
+                <v-window v-model="step" :class="{ 'overflow-y-auto': step === 0 }">
+                    <!-- QR code step -->
+                    <v-window-item :value="0">
+                        <v-card-item class="pa-6">
+                            <p>Scan this QR code in your two-factor application.</p>
+                        </v-card-item>
+                        <v-card-item align="center" justify="center" class="rounded-lg border mx-6">
+                            <v-col cols="auto">
+                                <canvas ref="canvas" />
+                            </v-col>
+                        </v-card-item>
+                        <v-card-item class="pa-6">
+                            <p>Unable to scan? Enter the following code instead.</p>
+                        </v-card-item>
+                        <v-card-item class="rounded-lg border mx-6 mb-6 py-2">
+                            <v-col>
+                                <p class="font-weight-medium text-body-2 text-center"> {{ userMFASecret }}</p>
+                            </v-col>
+                        </v-card-item>
+                    </v-window-item>
+
+                    <!-- Enter code step -->
+                    <v-window-item :value="1">
+                        <v-card-item class="px-6 pt-4 pb-0">
+                            <p>Enter the authentication code generated in your two-factor application to confirm your setup.</p>
+                            <v-otp-input
+                                ref="otpInput"
+                                class="pt-2"
+                                :model-value="confirmPasscode"
+                                :error="isError"
+                                :disabled="isLoading"
+                                type="number"
+                                autofocus
+                                maxlength="6"
+                                @update:model-value="value => onValueChange(value)"
+                            />
+                        </v-card-item>
+                    </v-window-item>
+
+                    <!-- Save codes step -->
+                    <v-window-item :value="2">
+                        <v-card-item class="px-6 py-4">
+                            <p>Please save these codes somewhere to be able to recover access to your account.</p>
+                        </v-card-item>
+                        <v-divider />
+                        <v-card-item class="px-6 py-4">
+                            <p
+                                v-for="(code, index) in userMFARecoveryCodes"
+                                :key="index"
+                            >
+                                {{ code }}
+                            </p>
+                        </v-card-item>
+                    </v-window-item>
+                </v-window>
+            </v-card-text>
+
+            <v-divider />
+
             <v-card-actions class="pa-6">
                 <v-row>
                     <v-col v-if="step !== 2">
@@ -150,6 +157,7 @@ import {
     VCardActions,
     VCardItem,
     VCardTitle,
+    VCardText,
     VCol,
     VDialog,
     VDivider,
@@ -160,7 +168,7 @@ import {
     VSheet,
 } from 'vuetify/components';
 import QRCode from 'qrcode';
-import { RectangleEllipsis } from 'lucide-vue-next';
+import { ShieldCheck } from 'lucide-vue-next';
 
 import { useLoading } from '@/composables/useLoading';
 import { useConfigStore } from '@/store/modules/configStore';
@@ -240,7 +248,7 @@ function enable(): void {
         try {
             await usersStore.enableUserMFA(confirmPasscode.value);
             await usersStore.getUser();
-            await showCodes();
+            step.value = 2;
 
             analyticsStore.eventTriggered(AnalyticsEvent.MFA_ENABLED);
         } catch (error) {
@@ -248,18 +256,6 @@ function enable(): void {
             isError.value = true;
         }
     });
-}
-
-/**
- * Toggles view to MFA Recovery Codes state.
- */
-async function showCodes() {
-    try {
-        await usersStore.generateUserMFARecoveryCodes();
-        step.value = 2;
-    } catch (error) {
-        notify.notifyError(error, AnalyticsErrorEventSource.ENABLE_MFA_MODAL);
-    }
 }
 
 function initialiseOTPInput() {

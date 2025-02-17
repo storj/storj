@@ -7,6 +7,7 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func TestParseConnStr(t *testing.T) {
@@ -34,6 +35,10 @@ func TestParseConnStr(t *testing.T) {
 				Database: "DATABASE",
 				Emulator: true,
 			},
+		},
+		{
+			input:   "spanner://spanner:9010/projects/PROJECT/instances/INSTANCE/databases/DATABASE?invalid&emulator",
+			wantErr: true,
 		},
 		{
 			input: "spanner://spanner:9010/projects/PROJECT/instances/INSTANCE/databases/DATABASE",
@@ -131,6 +136,18 @@ func TestParseConnStr(t *testing.T) {
 			input:   "spanner://projects?emulator",
 			wantErr: true,
 		},
+		{
+			input: "spanner://spanner:9010?create-instance.display-name=Hello&create-instance.config=us1&create-instance.node-count=3&create-instance.processing-units=100",
+			want: ConnParams{
+				Host: "spanner:9010",
+				CreateInstance: ConnParamsCreateInstance{
+					DisplayName:     "Hello",
+					Config:          "us1",
+					NodeCount:       3,
+					ProcessingUnits: 100,
+				},
+			},
+		},
 	}
 
 	for _, test := range tests {
@@ -148,4 +165,18 @@ func TestParseConnStr(t *testing.T) {
 
 		assert.Equal(t, test.want, got)
 	}
+}
+
+func TestConnParams_String(t *testing.T) {
+	params := ConnParams{
+		Host: "spanner:9010",
+		CreateInstance: ConnParamsCreateInstance{
+			DisplayName:     "Hello",
+			Config:          "us1",
+			NodeCount:       3,
+			ProcessingUnits: 100,
+		},
+	}
+
+	require.Equal(t, "spanner://spanner:9010?create-instance.config=us1&create-instance.display-name=Hello&create-instance.node-count=3&create-instance.processing-units=100", params.ConnStr())
 }

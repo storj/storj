@@ -25,7 +25,7 @@
     />
     <update-session-timeout-prompt-dialog
         v-model="isUpdateTimeoutPromptModalShown"
-        @showSetTimeoutModal="isSetTimeoutModalShown = true"
+        @show-set-timeout-modal="isSetTimeoutModalShown = true"
     />
     <session-expired-dialog v-model="sessionTimeout.sessionExpiredModalShown.value" />
 </template>

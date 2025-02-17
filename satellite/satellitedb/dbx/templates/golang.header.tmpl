@@ -91,10 +91,10 @@ func makeErr(err error) error {
 		return wrapErr(e)
 	}
 	e = &Error{Err: err}
-	switch err {
-	case sql.ErrNoRows:
+	switch {
+	case errors.Is(err, sql.ErrNoRows):
 		e.Code = ErrorCode_NoRows
-	case sql.ErrTxDone:
+	case errors.Is(err, sql.ErrTxDone):
 		e.Code = ErrorCode_TxDone
 	}
 	return wrapErr(e)
@@ -136,6 +136,22 @@ func constraintViolation(err error, constraint string) error {
 		Code: ErrorCode_ConstraintViolation,
 		Constraint: constraint,
 	})
+}
+
+func closeRows(rows *sql.Rows, err *error) {
+	rowsErr := rows.Err()
+	closeErr := rows.Close()
+	if *err != nil {
+		// throw away errors from .Err() and .Close(), if any; they are almost certainly less important
+		// than the error we already have
+		return
+	}
+	if rowsErr != nil {
+		// throw away error from .Close(), if any; it is probably less important
+		*err = rowsErr
+		return
+	}
+	*err = closeErr
 }
 
 type driver interface {

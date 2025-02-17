@@ -18,6 +18,8 @@ import (
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 
+	"storj.io/common/storj"
+	"storj.io/common/uuid"
 	"storj.io/storj/private/web"
 	"storj.io/storj/satellite/console"
 	"storj.io/storj/satellite/payments"
@@ -105,11 +107,6 @@ func (p *Payments) ProjectsCharges(w http.ResponseWriter, r *http.Request) {
 	var err error
 	defer mon.Task()(&ctx)(&err)
 
-	var response struct {
-		PriceModels map[string]payments.ProjectUsagePriceModel `json:"priceModels"`
-		Charges     payments.ProjectChargesResponse            `json:"charges"`
-	}
-
 	w.Header().Set("Content-Type", "application/json")
 
 	sinceStamp, err := strconv.ParseInt(r.URL.Query().Get("from"), 10, 64)
@@ -135,6 +132,11 @@ func (p *Payments) ProjectsCharges(w http.ResponseWriter, r *http.Request) {
 
 		p.serveJSONError(ctx, w, http.StatusInternalServerError, err)
 		return
+	}
+
+	var response struct {
+		PriceModels map[string]payments.ProjectUsagePriceModel `json:"priceModels"`
+		Charges     payments.ProjectChargesResponse            `json:"charges"`
 	}
 
 	response.Charges = charges
@@ -171,7 +173,7 @@ func (p *Payments) TriggerAttemptPayment(w http.ResponseWriter, r *http.Request)
 
 	freezes, err := p.accountFreezeService.GetAll(ctx, userID)
 	if err != nil {
-		web.ServeCustomJSONError(ctx, p.log, w, http.StatusInternalServerError, err, errs.Unwrap(err).Error())
+		web.ServeCustomJSONError(ctx, p.log, w, http.StatusInternalServerError, err, rootError(err).Error())
 		return
 	}
 
@@ -185,7 +187,7 @@ func (p *Payments) TriggerAttemptPayment(w http.ResponseWriter, r *http.Request)
 
 	err = p.service.Payments().AttemptPayOverdueInvoices(ctx)
 	if err != nil {
-		web.ServeCustomJSONError(ctx, p.log, w, http.StatusInternalServerError, err, errs.Unwrap(err).Error())
+		web.ServeCustomJSONError(ctx, p.log, w, http.StatusInternalServerError, err, rootError(err).Error())
 		return
 	}
 
@@ -221,16 +223,40 @@ func (p *Payments) AddCreditCard(w http.ResponseWriter, r *http.Request) {
 	_, err = p.service.Payments().AddCreditCard(ctx, token)
 	if err != nil {
 		if console.ErrUnauthorized.Has(err) {
-			web.ServeCustomJSONError(ctx, p.log, w, http.StatusUnauthorized, err, errs.Unwrap(err).Error())
+			web.ServeCustomJSONError(ctx, p.log, w, http.StatusUnauthorized, err, rootError(err).Error())
 			return
 		}
 
 		if stripe.ErrDuplicateCard.Has(err) {
-			web.ServeCustomJSONError(ctx, p.log, w, http.StatusBadRequest, err, errs.Unwrap(err).Error())
+			web.ServeCustomJSONError(ctx, p.log, w, http.StatusBadRequest, err, rootError(err).Error())
 			return
 		}
 
-		web.ServeCustomJSONError(ctx, p.log, w, http.StatusInternalServerError, err, errs.Unwrap(err).Error())
+		web.ServeCustomJSONError(ctx, p.log, w, http.StatusInternalServerError, err, rootError(err).Error())
+		return
+	}
+}
+
+// UpdateCreditCard is used to update the credit card details.
+func (p *Payments) UpdateCreditCard(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	var err error
+	defer mon.Task()(&ctx)(&err)
+
+	var params payments.CardUpdateParams
+	if err = json.NewDecoder(r.Body).Decode(&params); err != nil {
+		p.serveJSONError(ctx, w, http.StatusBadRequest, err)
+		return
+	}
+
+	err = p.service.Payments().UpdateCreditCard(ctx, params)
+	if err != nil {
+		if console.ErrUnauthorized.Has(err) {
+			web.ServeCustomJSONError(ctx, p.log, w, http.StatusUnauthorized, err, rootError(err).Error())
+			return
+		}
+
+		web.ServeCustomJSONError(ctx, p.log, w, http.StatusInternalServerError, err, rootError(err).Error())
 		return
 	}
 }
@@ -253,16 +279,16 @@ func (p *Payments) AddCardByPaymentMethodID(w http.ResponseWriter, r *http.Reque
 	_, err = p.service.Payments().AddCardByPaymentMethodID(ctx, pmID)
 	if err != nil {
 		if console.ErrUnauthorized.Has(err) {
-			web.ServeCustomJSONError(ctx, p.log, w, http.StatusUnauthorized, err, errs.Unwrap(err).Error())
+			web.ServeCustomJSONError(ctx, p.log, w, http.StatusUnauthorized, err, rootError(err).Error())
 			return
 		}
 
 		if stripe.ErrDuplicateCard.Has(err) {
-			web.ServeCustomJSONError(ctx, p.log, w, http.StatusBadRequest, err, errs.Unwrap(err).Error())
+			web.ServeCustomJSONError(ctx, p.log, w, http.StatusBadRequest, err, rootError(err).Error())
 			return
 		}
 
-		web.ServeCustomJSONError(ctx, p.log, w, http.StatusInternalServerError, err, errs.Unwrap(err).Error())
+		web.ServeCustomJSONError(ctx, p.log, w, http.StatusInternalServerError, err, rootError(err).Error())
 		return
 	}
 }
@@ -620,6 +646,59 @@ func (p *Payments) GetProjectUsagePriceModel(w http.ResponseWriter, r *http.Requ
 	}
 }
 
+// GetPartnerPlacementPriceModel returns the bucket usage price model for the user and placement.
+func (p *Payments) GetPartnerPlacementPriceModel(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	var err error
+	defer mon.Task()(&ctx)(&err)
+
+	w.Header().Set("Content-Type", "application/json")
+
+	var placement storj.PlacementConstraint
+	placementStr := r.URL.Query().Get("placement")
+	if placementStr == "" {
+		placementStr = r.URL.Query().Get("placementName")
+		placement, err = p.service.GetPlacementByName(placementStr)
+		if err != nil {
+			p.serveJSONError(ctx, w, http.StatusNotFound, err)
+			return
+		}
+	} else {
+		pl, err := strconv.ParseInt(placementStr, 10, 64)
+		if err != nil {
+			p.serveJSONError(ctx, w, http.StatusBadRequest, errs.New("invalid placement"))
+			return
+		}
+		placement = storj.PlacementConstraint(pl)
+	}
+
+	projectIDStr := r.URL.Query().Get("projectID")
+	if projectIDStr == "" {
+		p.serveJSONError(ctx, w, http.StatusBadRequest, errs.New("projectID is required"))
+		return
+	}
+
+	projectID, err := uuid.FromString(projectIDStr)
+	if err != nil {
+		p.serveJSONError(ctx, w, http.StatusBadRequest, errs.New("invalid project id: %v", err))
+		return
+	}
+
+	pricing, err := p.service.Payments().GetPartnerPlacementPriceModel(ctx, projectID, placement)
+	if err != nil {
+		if stripe.ErrPricingNotfound.Has(err) {
+			p.serveJSONError(ctx, w, http.StatusNotFound, err)
+			return
+		}
+		p.serveJSONError(ctx, w, http.StatusInternalServerError, err)
+		return
+	}
+
+	if err = json.NewEncoder(w).Encode(pricing); err != nil {
+		p.log.Error("failed to encode project usage price model", zap.Error(ErrPaymentsAPI.Wrap(err)))
+	}
+}
+
 // PurchasePackage purchases one of the configured paymentsconfig.PackagePlans.
 func (p *Payments) PurchasePackage(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
@@ -721,6 +800,70 @@ func (p *Payments) GetTaxCountries(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
+// AddFunds starts the process of adding funds to the user's account.
+func (p *Payments) AddFunds(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	var err error
+	defer mon.Task()(&ctx)(&err)
+
+	w.Header().Set("Content-Type", "application/json")
+
+	var params payments.AddFundsParams
+	if err = json.NewDecoder(r.Body).Decode(&params); err != nil {
+		p.serveJSONError(ctx, w, http.StatusBadRequest, err)
+		return
+	}
+
+	resp, err := p.service.Payments().AddFunds(ctx, params)
+	if err != nil {
+		if console.ErrUnauthorized.Has(err) {
+			p.serveJSONError(ctx, w, http.StatusUnauthorized, err)
+			return
+		}
+		if console.ErrValidation.Has(err) {
+			p.serveJSONError(ctx, w, http.StatusBadRequest, err)
+			return
+		}
+
+		p.serveJSONError(ctx, w, http.StatusInternalServerError, err)
+		return
+	}
+
+	if err = json.NewEncoder(w).Encode(resp); err != nil {
+		p.log.Error("failed to encode add funds response", zap.Error(ErrPaymentsAPI.Wrap(err)))
+	}
+}
+
+// HandleWebhookEvent handles a webhook event from the payments provider.
+func (p *Payments) HandleWebhookEvent(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	var err error
+	defer mon.Task()(&ctx)(&err)
+
+	signature := r.Header.Get("Stripe-Signature")
+	if signature == "" {
+		p.log.Error("missing stripe signature")
+		return
+	}
+
+	payload, err := io.ReadAll(r.Body)
+	if err != nil {
+		p.log.Error("failed reading payments webhook body", zap.Error(ErrPaymentsAPI.Wrap(err)))
+		return
+	}
+
+	err = p.service.Payments().HandleWebhookEvent(ctx, signature, payload)
+	if err != nil {
+		p.log.Error("failed to process webhook event", zap.Error(ErrPaymentsAPI.Wrap(err)))
+
+		// We return error to stripe to retry sending this event.
+		w.WriteHeader(http.StatusInternalServerError)
+		return
+	}
+
+	w.WriteHeader(http.StatusOK)
+}
+
 // GetCountryTaxes returns a list of taxes supported for a country.
 func (p *Payments) GetCountryTaxes(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
@@ -764,7 +907,7 @@ func (p *Payments) GetBillingInformation(w http.ResponseWriter, r *http.Request)
 			return
 		}
 
-		web.ServeCustomJSONError(ctx, p.log, w, http.StatusInternalServerError, err, errs.Unwrap(err).Error())
+		web.ServeCustomJSONError(ctx, p.log, w, http.StatusInternalServerError, err, rootError(err).Error())
 		return
 	}
 
@@ -798,7 +941,7 @@ func (p *Payments) SaveBillingAddress(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
-		web.ServeCustomJSONError(ctx, p.log, w, http.StatusInternalServerError, err, errs.Unwrap(err).Error())
+		web.ServeCustomJSONError(ctx, p.log, w, http.StatusInternalServerError, err, rootError(err).Error())
 		return
 	}
 
@@ -833,7 +976,7 @@ func (p *Payments) AddInvoiceReference(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
-		web.ServeCustomJSONError(ctx, p.log, w, http.StatusInternalServerError, err, errs.Unwrap(err).Error())
+		web.ServeCustomJSONError(ctx, p.log, w, http.StatusInternalServerError, err, rootError(err).Error())
 		return
 	}
 
@@ -870,7 +1013,7 @@ func (p *Payments) AddTaxID(w http.ResponseWriter, r *http.Request) {
 		if payments.ErrInvalidTaxID.Has(err) {
 			status = http.StatusBadRequest
 		}
-		web.ServeCustomJSONError(ctx, p.log, w, status, err, errs.Unwrap(err).Error())
+		web.ServeCustomJSONError(ctx, p.log, w, status, err, rootError(err).Error())
 		return
 	}
 
@@ -900,7 +1043,7 @@ func (p *Payments) RemoveTaxID(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
-		web.ServeCustomJSONError(ctx, p.log, w, http.StatusInternalServerError, err, errs.Unwrap(err).Error())
+		web.ServeCustomJSONError(ctx, p.log, w, http.StatusInternalServerError, err, rootError(err).Error())
 		return
 	}
 
@@ -912,4 +1055,29 @@ func (p *Payments) RemoveTaxID(w http.ResponseWriter, r *http.Request) {
 // serveJSONError writes JSON error to response output stream.
 func (p *Payments) serveJSONError(ctx context.Context, w http.ResponseWriter, status int, err error) {
 	web.ServeJSONError(ctx, p.log, w, status, err)
+}
+
+// rootError unwraps all layers of an error to get at the core error; the
+// one not wrapping any other error. If it encounters a grouped error while
+// unwrapping, it will treat the first error in the group as the most
+// important; the one which will be unwrapped further in search of the core
+// error.
+func rootError(err error) error {
+	for {
+		if multiUnwrappingErr, ok := err.(interface {
+			Unwrap() []error
+		}); ok {
+			unwrappedGroup := multiUnwrappingErr.Unwrap()
+			if len(unwrappedGroup) == 0 {
+				return err
+			}
+			err = unwrappedGroup[0]
+			continue
+		}
+		unwrappedErr := errors.Unwrap(err)
+		if unwrappedErr == nil {
+			return err
+		}
+		err = unwrappedErr
+	}
 }

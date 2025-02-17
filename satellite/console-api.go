@@ -8,6 +8,7 @@ import (
 	"errors"
 	"fmt"
 	"net"
+	"net/http"
 	"runtime/pprof"
 
 	"github.com/spacemonkeygo/monkit/v3"
@@ -34,14 +35,17 @@ import (
 	"storj.io/storj/satellite/buckets"
 	"storj.io/storj/satellite/console"
 	"storj.io/storj/satellite/console/consoleauth"
+	"storj.io/storj/satellite/console/consoleauth/csrf"
+	"storj.io/storj/satellite/console/consoleauth/sso"
 	"storj.io/storj/satellite/console/consoleweb"
 	"storj.io/storj/satellite/console/restkeys"
 	"storj.io/storj/satellite/console/userinfo"
+	"storj.io/storj/satellite/console/valdi"
+	"storj.io/storj/satellite/console/valdi/valdiclient"
 	"storj.io/storj/satellite/emission"
 	"storj.io/storj/satellite/kms"
 	"storj.io/storj/satellite/mailservice"
 	"storj.io/storj/satellite/metabase"
-	"storj.io/storj/satellite/metainfo"
 	"storj.io/storj/satellite/nodeselection"
 	"storj.io/storj/satellite/oidc"
 	"storj.io/storj/satellite/orders"
@@ -126,6 +130,11 @@ type ConsoleAPI struct {
 		AuthTokens *consoleauth.Service
 	}
 
+	Valdi struct {
+		Service *valdi.Service
+		Client  *valdiclient.Client
+	}
+
 	OIDC struct {
 		Service *oidc.Service
 	}
@@ -146,11 +155,17 @@ type ConsoleAPI struct {
 		Service *kms.Service
 	}
 
+	SSO struct {
+		Service *sso.Service
+	}
+
+	CSRF struct {
+		Service *csrf.Service
+	}
+
 	HealthCheck struct {
 		Server *healthcheck.Server
 	}
-
-	SuccessTrackers *metainfo.SuccessTrackers
 }
 
 // NewConsoleAPI creates a new satellite console API process.
@@ -277,7 +292,7 @@ func NewConsoleAPI(log *zap.Logger, full *identity.FullIdentity, db DB,
 		peer.OIDC.Service = oidc.NewService(db.OIDC())
 	}
 
-	placement, err := config.Placement.Parse(config.Overlay.Node.CreateDefaultPlacement, nodeselection.NewPlacementConfigEnvironment(peer.SuccessTrackers))
+	placement, err := config.Placement.Parse(config.Overlay.Node.CreateDefaultPlacement, nodeselection.NewPlacementConfigEnvironment(nil, nil))
 	if err != nil {
 		return nil, err
 	}
@@ -311,8 +326,9 @@ func NewConsoleAPI(log *zap.Logger, full *identity.FullIdentity, db DB,
 			satelliteSignee,
 			peer.Orders.DB,
 			peer.DB.NodeAPIVersion(),
-			config.Orders.OrdersSemaphoreSize,
 			peer.Orders.Service,
+			config.Orders,
+			peer.Overlay.Service,
 		)
 
 		if err := pb.DRPCRegisterOrders(peer.Server.DRPC(), peer.Orders.Endpoint); err != nil {
@@ -405,6 +421,11 @@ func NewConsoleAPI(log *zap.Logger, full *identity.FullIdentity, db DB,
 			return nil, errs.Combine(err, peer.Close())
 		}
 
+		productPrices, err := pc.Products.ToModels()
+		if err != nil {
+			return nil, errs.Combine(err, peer.Close())
+		}
+
 		peer.Payments.StripeService, err = stripe.NewService(
 			peer.Log.Named("payments.stripe:service"),
 			stripeClient,
@@ -417,6 +438,9 @@ func NewConsoleAPI(log *zap.Logger, full *identity.FullIdentity, db DB,
 			peer.DB.ProjectAccounting(),
 			prices,
 			priceOverrides,
+			productPrices,
+			pc.PartnersPlacementPriceOverrides.ToMap(),
+			pc.PlacementPriceOverrides.ToMap(),
 			pc.PackagePlans.Packages,
 			pc.BonusRate,
 			peer.Analytics.Service,
@@ -452,6 +476,7 @@ func NewConsoleAPI(log *zap.Logger, full *identity.FullIdentity, db DB,
 
 	{ // setup console
 		consoleConfig := config.Console
+		consoleConfig.SsoEnabled = config.SSO.Enabled
 		peer.Console.Listener, err = net.Listen("tcp", consoleConfig.Address)
 		if err != nil {
 			return nil, errs.Combine(err, peer.Close())
@@ -460,11 +485,26 @@ func NewConsoleAPI(log *zap.Logger, full *identity.FullIdentity, db DB,
 			return nil, errs.New("Auth token secret required")
 		}
 
-		peer.Console.AuthTokens = consoleauth.NewService(config.ConsoleAuth, &consoleauth.Hmac{Secret: []byte(consoleConfig.AuthTokenSecret)})
+		signer := &consoleauth.Hmac{Secret: []byte(consoleConfig.AuthTokenSecret)}
+		peer.Console.AuthTokens = consoleauth.NewService(config.ConsoleAuth, signer)
 
 		externalAddress := consoleConfig.ExternalAddress
 		if externalAddress == "" {
 			externalAddress = "http://" + peer.Console.Listener.Addr().String()
+		}
+
+		if config.SSO.Enabled {
+			// setup sso
+			peer.SSO.Service = sso.NewService(
+				externalAddress,
+				peer.Console.AuthTokens,
+				config.SSO,
+			)
+
+			peer.Services.Add(lifecycle.Item{
+				Name: "sso:service",
+				Run:  peer.SSO.Service.Initialize,
+			})
 		}
 
 		accountFreezeService := console.NewAccountFreezeService(
@@ -472,6 +512,18 @@ func NewConsoleAPI(log *zap.Logger, full *identity.FullIdentity, db DB,
 			peer.Analytics.Service,
 			consoleConfig.AccountFreeze,
 		)
+
+		if config.Console.CloudGpusEnabled {
+			peer.Valdi.Client, err = valdiclient.New(peer.Log.Named("valdi:client"), http.DefaultClient, config.Valdi.Config)
+			if err != nil {
+				return nil, errs.Combine(err, peer.Close())
+			}
+
+			peer.Valdi.Service, err = valdi.NewService(peer.Log.Named("valdi:service"), config.Valdi, peer.Valdi.Client)
+			if err != nil {
+				return nil, errs.Combine(err, peer.Close())
+			}
+		}
 
 		peer.Console.Service, err = console.NewService(
 			peer.Log.Named("console:service"),
@@ -489,20 +541,24 @@ func NewConsoleAPI(log *zap.Logger, full *identity.FullIdentity, db DB,
 			accountFreezeService,
 			emissionService,
 			peer.KeyManagement.Service,
+			peer.SSO.Service,
 			externalAddress,
 			consoleConfig.SatelliteName,
 			config.Metainfo.ProjectLimits.MaxBuckets,
+			config.SSO.Enabled,
 			placement,
 			console.ObjectLockAndVersioningConfig{
-				ObjectLockEnabled:                      config.Metainfo.ObjectLockEnabled,
-				UseBucketLevelObjectVersioning:         config.Metainfo.UseBucketLevelObjectVersioning,
-				UseBucketLevelObjectVersioningProjects: config.Metainfo.UseBucketLevelObjectVersioningProjects,
+				ObjectLockEnabled:              config.Metainfo.ObjectLockEnabled,
+				UseBucketLevelObjectVersioning: config.Metainfo.UseBucketLevelObjectVersioning,
 			},
+			peer.Valdi.Service,
 			consoleConfig.Config,
 		)
 		if err != nil {
 			return nil, errs.Combine(err, peer.Close())
 		}
+
+		peer.CSRF.Service = csrf.NewService(signer)
 
 		peer.Console.Endpoint = consoleweb.NewServer(
 			peer.Log.Named("console:endpoint"),
@@ -513,12 +569,13 @@ func NewConsoleAPI(log *zap.Logger, full *identity.FullIdentity, db DB,
 			peer.Analytics.Service,
 			peer.ABTesting.Service,
 			accountFreezeService,
+			peer.SSO.Service,
+			peer.CSRF.Service,
 			peer.Console.Listener,
 			config.Payments.StripeCoinPayments.StripePublicKey,
 			config.Payments.Storjscan.Confirmations, peer.URL(), console.ObjectLockAndVersioningConfig{
-				ObjectLockEnabled:                      config.Metainfo.ObjectLockEnabled,
-				UseBucketLevelObjectVersioning:         config.Metainfo.UseBucketLevelObjectVersioning,
-				UseBucketLevelObjectVersioningProjects: config.Metainfo.UseBucketLevelObjectVersioningProjects,
+				ObjectLockEnabled:              config.Metainfo.ObjectLockEnabled,
+				UseBucketLevelObjectVersioning: config.Metainfo.UseBucketLevelObjectVersioning,
 			},
 			config.Analytics,
 			config.Payments.PackagePlans,

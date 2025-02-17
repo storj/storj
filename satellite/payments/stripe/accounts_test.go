@@ -57,6 +57,8 @@ func TestSignupCouponCodes(t *testing.T) {
 
 		priceOverrides, err := pc.UsagePriceOverrides.ToModels()
 		require.NoError(t, err)
+		productPrices, err := pc.Products.ToModels()
+		require.NoError(t, err)
 
 		paymentsService, err := stripe.NewService(
 			log.Named("payments.stripe:service"),
@@ -73,6 +75,9 @@ func TestSignupCouponCodes(t *testing.T) {
 			db.ProjectAccounting(),
 			prices,
 			priceOverrides,
+			productPrices,
+			pc.PartnersPlacementPriceOverrides.ToMap(),
+			pc.PlacementPriceOverrides.ToMap(),
 			pc.PackagePlans.Packages,
 			pc.BonusRate,
 			nil,
@@ -100,11 +105,14 @@ func TestSignupCouponCodes(t *testing.T) {
 			nil,
 			nil,
 			nil,
+			nil,
 			"",
 			"",
 			sat.Config.Metainfo.ProjectLimits.MaxBuckets,
+			false,
 			nodeselection.NewPlacementDefinitions(),
 			console.ObjectLockAndVersioningConfig{},
+			nil,
 			console.Config{PasswordCost: console.TestPasswordCost, DefaultProjectLimit: 5},
 		)
 

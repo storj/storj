@@ -15,9 +15,17 @@ import (
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 
+	"storj.io/common/storj"
 	"storj.io/storj/satellite/accounting"
+	"storj.io/storj/satellite/overlay"
 	"storj.io/storj/satellite/satellitedb"
 )
+
+// UsageCSVRow represents data from NodePaymentInfo without exposing dbx.
+type UsageCSVRow struct {
+	accounting.NodePaymentInfo
+	overlay.NodeAccountingInfo
+}
 
 // generateNodeUsageCSV creates a report with node usage data for all nodes in a given period which can be used for payments.
 func generateNodeUsageCSV(ctx context.Context, start time.Time, end time.Time, output io.Writer) error {
@@ -29,9 +37,31 @@ func generateNodeUsageCSV(ctx context.Context, start time.Time, end time.Time, o
 		err = errs.Combine(err, db.Close())
 	}()
 
-	rows, err := db.StoragenodeAccounting().QueryPaymentInfo(ctx, start, end)
+	paymentInfos, err := db.StoragenodeAccounting().QueryPaymentInfo(ctx, start, end)
 	if err != nil {
 		return err
+	}
+
+	var nodeIDs storj.NodeIDList
+	for _, paymentInfo := range paymentInfos {
+		nodeIDs = append(nodeIDs, paymentInfo.NodeID)
+	}
+
+	nodes, err := db.OverlayCache().AccountingNodeInfo(ctx, nodeIDs)
+	if err != nil {
+		return err
+	}
+
+	rows := make([]UsageCSVRow, len(paymentInfos))
+	for i, paymentInfo := range paymentInfos {
+		node, ok := nodes[paymentInfo.NodeID]
+		if !ok {
+			return errs.New("node info missing for %v", paymentInfo.NodeID)
+		}
+		rows[i] = UsageCSVRow{
+			NodePaymentInfo:    paymentInfo,
+			NodeAccountingInfo: node,
+		}
 	}
 
 	w := csv.NewWriter(output)
@@ -51,15 +81,8 @@ func generateNodeUsageCSV(ctx context.Context, start time.Time, end time.Time, o
 		return err
 	}
 
-	for _, row := range rows {
-		nid := row.NodeID
-
-		node, err := db.OverlayCache().Get(ctx, nid)
-		if err != nil {
-			return err
-		}
-
-		row.Wallet = node.Operator.Wallet
+	for i := range rows {
+		row := &rows[i]
 		record := structToStringSlice(row)
 		if err := w.Write(record); err != nil {
 			return err
@@ -75,7 +98,7 @@ func generateNodeUsageCSV(ctx context.Context, start time.Time, end time.Time, o
 	return err
 }
 
-func structToStringSlice(s *accounting.CSVRow) []string {
+func structToStringSlice(s *UsageCSVRow) []string {
 	dqStr := ""
 	if s.Disqualified != nil {
 		dqStr = s.Disqualified.Format("2006-01-02")

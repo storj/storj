@@ -89,7 +89,7 @@ export default class WalletsPage extends Vue {
         &__title {
             font-family: 'font_bold', sans-serif;
             font-size: 32px;
-            color: var(--c-title);
+            color: var(--v-header-base);
             margin-bottom: 36px;
         }
 
@@ -118,11 +118,13 @@ export default class WalletsPage extends Vue {
                 font-family: 'font_bold', sans-serif;
                 font-size: 16px;
                 margin-bottom: 8px;
+                color: var(--v-header-base);
             }
 
             &__description {
                 font-family: 'font_regular', sans-serif;
                 margin-bottom: 16px;
+                color: var(--v-text-base);
             }
 
             &__link {
@@ -143,7 +145,7 @@ export default class WalletsPage extends Vue {
                 color: #74777e;
 
                 strong {
-                    color: var(--c-title);
+                    color: var(--v-header-base);
                 }
             }
         }
@@ -151,9 +153,10 @@ export default class WalletsPage extends Vue {
 
     .info-block {
         padding: 20px;
+        border: var(--v-border-base);
 
         &.information {
-            background: #f8f8f9;
+            background: var(--v-active-base);
         }
     }
 </style>

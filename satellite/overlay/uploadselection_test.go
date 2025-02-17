@@ -773,8 +773,8 @@ func (m *mockdb) Get(ctx context.Context, nodeID storj.NodeID) (*overlay.NodeDos
 	panic("implement me")
 }
 
-// GetNodes satisfies nodeevents.DB interface.
-func (m *mockdb) GetNodes(ctx context.Context, nodeIDs storj.NodeIDList, onlineWindow, asOfSystemInterval time.Duration) (_ []nodeselection.SelectedNode, err error) {
+// GetActiveNodes satisfies nodeevents.DB interface.
+func (m *mockdb) GetActiveNodes(ctx context.Context, nodeIDs storj.NodeIDList, onlineWindow, asOfSystemInterval time.Duration) (_ []nodeselection.SelectedNode, err error) {
 	panic("implement me")
 }
 
@@ -853,16 +853,6 @@ func (m *mockdb) GetExitStatus(ctx context.Context, nodeID storj.NodeID) (exitSt
 	panic("implement me")
 }
 
-// GetNodesNetwork satisfies nodeevents.DB interface.
-func (m *mockdb) GetNodesNetwork(ctx context.Context, nodeIDs []storj.NodeID) (nodeNets []string, err error) {
-	panic("implement me")
-}
-
-// GetNodesNetworkInOrder satisfies nodeevents.DB interface.
-func (m *mockdb) GetNodesNetworkInOrder(ctx context.Context, nodeIDs []storj.NodeID) (nodeNets []string, err error) {
-	panic("implement me")
-}
-
 // DisqualifyNode satisfies nodeevents.DB interface.
 func (m *mockdb) DisqualifyNode(ctx context.Context, nodeID storj.NodeID, disqualifiedAt time.Time, reason overlay.DisqualificationReason) (email string, err error) {
 	panic("implement me")
@@ -890,6 +880,11 @@ func (m *mockdb) TestSuspendNodeUnknownAudit(ctx context.Context, nodeID storj.N
 
 // TestUnsuspendNodeUnknownAudit satisfies nodeevents.DB interface.
 func (m *mockdb) TestUnsuspendNodeUnknownAudit(ctx context.Context, nodeID storj.NodeID) (err error) {
+	panic("implement me")
+}
+
+// TestAddNodes satisfies nodeevents.DB interface.
+func (m *mockdb) TestAddNodes(ctx context.Context, nodes []*overlay.NodeDossier) (err error) {
 	panic("implement me")
 }
 
@@ -945,5 +940,10 @@ func (m *mockdb) GetNodeTags(ctx context.Context, id storj.NodeID) (nodeselectio
 
 // GetLastIPPortByNodeTagNames gets last IP and port from nodes where node exists in node tags with a particular name.
 func (m *mockdb) GetLastIPPortByNodeTagNames(ctx context.Context, ids storj.NodeIDList, tagName []string) (lastIPPorts map[storj.NodeID]*string, err error) {
+	panic("implement me")
+}
+
+// AccountingNodeInfo gets records for all specified nodes for accounting.
+func (m *mockdb) AccountingNodeInfo(ctx context.Context, nodeIDs storj.NodeIDList) (_ map[storj.NodeID]overlay.NodeAccountingInfo, err error) {
 	panic("implement me")
 }

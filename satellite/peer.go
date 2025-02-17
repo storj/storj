@@ -24,6 +24,7 @@ import (
 	version_checker "storj.io/storj/private/version/checker"
 	"storj.io/storj/satellite/accounting"
 	"storj.io/storj/satellite/accounting/live"
+	"storj.io/storj/satellite/accounting/nodetally"
 	"storj.io/storj/satellite/accounting/projectbwcleanup"
 	"storj.io/storj/satellite/accounting/rollup"
 	"storj.io/storj/satellite/accounting/rolluparchive"
@@ -36,11 +37,13 @@ import (
 	"storj.io/storj/satellite/compensation"
 	"storj.io/storj/satellite/console"
 	"storj.io/storj/satellite/console/consoleauth"
+	"storj.io/storj/satellite/console/consoleauth/sso"
 	"storj.io/storj/satellite/console/consoleweb"
 	"storj.io/storj/satellite/console/dbcleanup"
 	"storj.io/storj/satellite/console/emailreminders"
 	"storj.io/storj/satellite/console/restkeys"
 	"storj.io/storj/satellite/console/userinfo"
+	"storj.io/storj/satellite/console/valdi"
 	"storj.io/storj/satellite/contact"
 	"storj.io/storj/satellite/durability"
 	"storj.io/storj/satellite/emission"
@@ -74,6 +77,7 @@ import (
 	"storj.io/storj/satellite/reputation"
 	"storj.io/storj/satellite/revocation"
 	"storj.io/storj/satellite/snopayouts"
+	"storj.io/storj/shared/dbutil"
 	"storj.io/storj/shared/tagsql"
 )
 
@@ -147,6 +151,8 @@ type DB interface {
 
 // TestingDB defines access to database testing facilities.
 type TestingDB interface {
+	// Implementation returns the implementations of the databases.
+	Implementation() []dbutil.Implementation
 	// Rebind adapts a query's syntax for a database dialect.
 	Rebind(query string) string
 	// RawDB returns the underlying database connection to the primary database.
@@ -194,11 +200,13 @@ type Config struct {
 	RepairQueueCheck repairer.QueueStatConfig
 
 	RangedLoop rangedloop.Config
+	Durability durability.Config
 
 	ExpiredDeletion expireddeletion.Config
 	ZombieDeletion  zombiedeletion.Config
 
 	Tally            tally.Config
+	NodeTally        nodetally.Config
 	Rollup           rollup.Config
 	RollupArchive    rolluparchive.Config
 	LiveAccounting   live.Config
@@ -210,6 +218,7 @@ type Config struct {
 
 	RESTKeys         restkeys.Config
 	Console          consoleweb.Config
+	Valdi            valdi.Config
 	ConsoleAuth      consoleauth.Config
 	EmailReminders   emailreminders.Config
 	ConsoleDBCleanup dbcleanup.Config
@@ -231,6 +240,8 @@ type Config struct {
 	DurabilityReport durability.ReportConfig
 
 	KeyManagement kms.Config
+
+	SSO sso.Config
 
 	HealthCheck healthcheck.Config
 

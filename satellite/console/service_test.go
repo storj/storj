@@ -7,9 +7,12 @@ import (
 	"bytes"
 	"context"
 	"database/sql"
+	"encoding/base64"
 	"encoding/json"
 	"fmt"
 	"math/rand"
+	"net/http"
+	"net/url"
 	"sort"
 	"strings"
 	"testing"
@@ -20,6 +23,7 @@ import (
 	stripeLib "github.com/stripe/stripe-go/v75"
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
+	"go.uber.org/zap/zaptest"
 	"golang.org/x/crypto/bcrypt"
 
 	"storj.io/common/currency"
@@ -31,6 +35,7 @@ import (
 	"storj.io/common/testrand"
 	"storj.io/common/uuid"
 	"storj.io/storj/private/blockchain"
+	"storj.io/storj/private/httpmock"
 	"storj.io/storj/private/post"
 	"storj.io/storj/private/testplanet"
 	"storj.io/storj/satellite"
@@ -38,6 +43,7 @@ import (
 	"storj.io/storj/satellite/buckets"
 	"storj.io/storj/satellite/console"
 	"storj.io/storj/satellite/console/consoleweb/consoleapi"
+	"storj.io/storj/satellite/console/valdi/valdiclient"
 	"storj.io/storj/satellite/kms"
 	"storj.io/storj/satellite/nodeselection"
 	"storj.io/storj/satellite/payments"
@@ -55,7 +61,7 @@ func TestService(t *testing.T) {
 		placements[i] = fmt.Sprintf("loc-%d", i)
 	}
 	testplanet.Run(t, testplanet.Config{
-		SatelliteCount: 1, StorageNodeCount: 1, UplinkCount: 4, EnableSpanner: true,
+		SatelliteCount: 1, StorageNodeCount: 1, UplinkCount: 4,
 		Reconfigure: testplanet.Reconfigure{
 			Satellite: func(log *zap.Logger, index int, config *satellite.Config) {
 				config.Payments.StripeCoinPayments.StripeFreeTierCouponID = stripe.MockCouponID1
@@ -107,6 +113,17 @@ func TestService(t *testing.T) {
 				return
 			}
 
+			disableProject := func(ctx context.Context, projectID uuid.UUID) {
+				err = sat.API.DB.Console().Projects().UpdateStatus(ctx, projectID, console.ProjectDisabled)
+				require.NoError(t, err)
+			}
+
+			disabledProject, err := service.CreateProject(userCtx1, console.UpsertProjectInfo{Name: "disabled project"})
+			require.NoError(t, err)
+			require.NotNil(t, disabledProject)
+
+			disableProject(ctx, disabledProject.ID)
+
 			t.Run("GetUserHasVarPartner", func(t *testing.T) {
 				varUser, err := sat.AddUser(ctx, console.CreateUser{
 					FullName:  "Var User",
@@ -144,13 +161,34 @@ func TestService(t *testing.T) {
 				require.NoError(t, err)
 				require.Equal(t, up1Proj.ID, project.ID)
 
+				minProject := service.GetMinimalProject(project)
+				require.Equal(t, up1Proj.PublicID, minProject.ID)
+				require.Equal(t, up1Proj.Name, minProject.Name)
+				require.Equal(t, up1Proj.Description, minProject.Description)
+				require.Equal(t, up1Proj.DefaultPlacement, minProject.Placement)
+				require.Equal(t, up1Proj.CreatedAt, minProject.CreatedAt)
+				require.Equal(t, up1Proj.StorageUsed, minProject.StorageUsed)
+				require.Equal(t, up1Proj.BandwidthUsed, minProject.BandwidthUsed)
+				require.Equal(t, up1Proj.DefaultVersioning, minProject.Versioning)
+				require.Equal(t, up1Proj.MemberCount, minProject.MemberCount)
+				require.Equal(t, up1Proj.MemberCount, minProject.MemberCount)
+
 				// Getting someone else project details should not work
 				project, err = service.GetProject(userCtx1, up2Proj.ID)
 				require.Error(t, err)
 				require.Nil(t, project)
+
+				_, err = service.GetProject(userCtx1, disabledProject.ID)
+				require.True(t, console.ErrUnauthorized.Has(err))
 			})
 
 			t.Run("GetUsersProjects", func(t *testing.T) {
+				newProject, err := service.CreateProject(userCtx3, console.UpsertProjectInfo{Name: "new project"})
+				require.NoError(t, err)
+				require.NotNil(t, newProject)
+
+				disableProject(ctx, newProject.ID)
+
 				projects, err := service.GetUsersProjects(userCtx3)
 				require.NoError(t, err)
 				require.Len(t, projects, 1)
@@ -204,6 +242,10 @@ func TestService(t *testing.T) {
 				// Getting project salt as a non-member should not work
 				salt, err = service.GetSalt(userCtx1, up2Proj.ID)
 				require.Error(t, err)
+				require.Nil(t, salt)
+
+				salt, err = service.GetSalt(userCtx1, disabledProject.ID)
+				require.True(t, console.ErrUnauthorized.Has(err))
 				require.Nil(t, salt)
 			})
 
@@ -390,6 +432,7 @@ func TestService(t *testing.T) {
 					CreatedAt:   time.Now(),
 				})
 				require.NoError(t, err)
+				require.Equal(t, console.ProjectActive, *p.Status)
 				require.Equal(t, storj.EU, p.DefaultPlacement)
 			})
 
@@ -417,6 +460,12 @@ func TestService(t *testing.T) {
 				require.Equal(t, *up1Proj.BandwidthLimit, *updatedProject.BandwidthLimit)
 				require.Equal(t, updatedStorageLimit, *updatedProject.UserSpecifiedStorageLimit)
 				require.Equal(t, updatedBandwidthLimit, *updatedProject.UserSpecifiedBandwidthLimit)
+				require.Equal(t, console.ProjectActive, *updatedProject.Status)
+
+				minProject := service.GetMinimalProject(updatedProject)
+				require.Equal(t, up1Proj.PublicID, minProject.ID)
+				require.Equal(t, updatedName, minProject.Name)
+				require.Equal(t, updatedDescription, minProject.Description)
 
 				// Updating someone else project details should not work
 				updatedProject, err = service.UpdateProject(userCtx1, up2Proj.ID, console.UpsertProjectInfo{
@@ -527,6 +576,9 @@ func TestService(t *testing.T) {
 				// remove user2.
 				err = service.DeleteProjectMembersAndInvitations(userCtx1, up1Proj.ID, []string{user2.Email})
 				require.NoError(t, err)
+
+				_, err = service.UpdateProject(userCtx1, disabledProject.ID, console.UpsertProjectInfo{Name: updatedName})
+				require.Error(t, err)
 			})
 
 			t.Run("UpdateUserSpecifiedProjectLimits", func(t *testing.T) {
@@ -577,6 +629,9 @@ func TestService(t *testing.T) {
 				require.NoError(t, err)
 				require.Nil(t, project.UserSpecifiedStorageLimit)
 				require.Equal(t, updatedBandwidthLimit, *project.UserSpecifiedBandwidthLimit)
+
+				err = service.UpdateUserSpecifiedLimits(userCtx1, disabledProject.ID, console.UpdateLimitsInfo{StorageLimit: &limit0})
+				require.True(t, console.ErrUnauthorized.Has(err))
 			})
 
 			t.Run("AddProjectMembers", func(t *testing.T) {
@@ -592,6 +647,9 @@ func TestService(t *testing.T) {
 				addedUsers, err = service.AddProjectMembers(userCtx1, up2Proj.ID, []string{up2User.Email})
 				require.Error(t, err)
 				require.Nil(t, addedUsers)
+
+				_, err = service.AddProjectMembers(userCtx1, disabledProject.ID, []string{up2User.Email})
+				require.True(t, console.ErrUnauthorized.Has(err))
 			})
 
 			t.Run("GetProjectMembersAndInvitations", func(t *testing.T) {
@@ -621,6 +679,13 @@ func TestService(t *testing.T) {
 				)
 				require.Error(t, err)
 				require.Nil(t, userPage)
+
+				_, err = service.GetProjectMembersAndInvitations(
+					userCtx1,
+					disabledProject.ID,
+					console.ProjectMembersCursor{Page: 1, Limit: 10},
+				)
+				require.True(t, console.ErrUnauthorized.Has(err))
 			})
 
 			t.Run("UpdateProjectMemberRole", func(t *testing.T) {
@@ -649,6 +714,9 @@ func TestService(t *testing.T) {
 				pm, err := service.UpdateProjectMemberRole(userCtx1, newUser.ID, up1Proj.ID, console.RoleAdmin)
 				require.NoError(t, err)
 				require.EqualValues(t, console.RoleAdmin, pm.Role)
+
+				_, err = service.UpdateProjectMemberRole(userCtx1, newUser.ID, disabledProject.ID, console.RoleAdmin)
+				require.Error(t, err)
 			})
 
 			t.Run("DeleteProjectMembersAndInvitations", func(t *testing.T) {
@@ -700,7 +768,7 @@ func TestService(t *testing.T) {
 
 				memberships, err := sat.DB.Console().ProjectMembers().GetByMemberID(ctx, user1.ID)
 				require.NoError(t, err)
-				require.Len(t, memberships, 1)
+				require.Len(t, memberships, 2)
 				require.NotEqual(t, up2Proj.ID, memberships[0].ProjectID)
 
 				err = service.RespondToProjectInvitation(invitedUserCtx, up1Proj.ID, console.ProjectInvitationAccept)
@@ -720,6 +788,13 @@ func TestService(t *testing.T) {
 
 				_, err = sat.DB.Console().ProjectMembers().GetByMemberIDAndProjectID(ctx, invitedMember.MemberID, up1Proj.ID)
 				require.ErrorIs(t, err, sql.ErrNoRows)
+
+				err = service.DeleteProjectMembersAndInvitations(
+					userCtx1,
+					disabledProject.ID,
+					[]string{invitedUser.Email, "nobody@mail.test"},
+				)
+				require.True(t, console.ErrUnauthorized.Has(err))
 			})
 
 			t.Run("CreateAPIKey", func(t *testing.T) {
@@ -727,6 +802,9 @@ func TestService(t *testing.T) {
 				require.NoError(t, err)
 				require.NotNil(t, createdAPIKey)
 				require.Equal(t, up2Proj.OwnerID, createdAPIKey.CreatedBy)
+
+				_, _, err = service.CreateAPIKey(userCtx1, disabledProject.ID, "test key", macaroon.APIKeyVersionMin)
+				require.True(t, console.ErrUnauthorized.Has(err))
 			})
 
 			t.Run("DeleteAPIKeys", func(t *testing.T) {
@@ -817,6 +895,9 @@ func TestService(t *testing.T) {
 				pm, err = service.GetProjectMember(memberCtx, member.ID, pr.ID)
 				require.NoError(t, err)
 				require.Equal(t, console.RoleMember, pm.Role)
+
+				_, err = service.GetProjectMember(userCtx1, member.ID, disabledProject.ID)
+				require.True(t, console.ErrNoMembership.Has(err))
 			})
 
 			t.Run("GetProjectUsageLimits", func(t *testing.T) {
@@ -950,6 +1031,9 @@ func TestService(t *testing.T) {
 				require.NoError(t, err)
 				require.NotNil(t, limits2)
 				require.Equal(t, settledAmount+settledAmount, limits2.BandwidthUsed)
+
+				_, err = service.GetProjectUsageLimits(userCtx1, disabledProject.PublicID)
+				require.True(t, console.ErrUnauthorized.Has(err))
 			})
 
 			t.Run("GetAllBucketNames", func(t *testing.T) {
@@ -985,6 +1069,9 @@ func TestService(t *testing.T) {
 				bucketsForUnauthorizedUser, err := service.GetAllBucketNames(userCtx1, up2Proj.ID)
 				require.Error(t, err)
 				require.Nil(t, bucketsForUnauthorizedUser)
+
+				_, err = service.GetAllBucketNames(userCtx1, disabledProject.ID)
+				require.True(t, console.ErrUnauthorized.Has(err))
 			})
 
 			t.Run("GetBucketTotals", func(t *testing.T) {
@@ -1004,6 +1091,9 @@ func TestService(t *testing.T) {
 				for _, b := range bt.BucketUsages {
 					require.Equal(t, placements[int(b.DefaultPlacement)], b.Location)
 				}
+
+				_, err = service.GetBucketTotals(userCtx1, disabledProject.ID, accounting.BucketUsageCursor{Limit: 100, Page: 1}, time.Now())
+				require.True(t, console.ErrUnauthorized.Has(err))
 			})
 
 			t.Run("GetSingleBucketTotals", func(t *testing.T) {
@@ -1039,6 +1129,9 @@ func TestService(t *testing.T) {
 				require.NoError(t, err)
 				require.Equal(t, storj.EU, bt.DefaultPlacement)
 				require.Equal(t, buckets.VersioningEnabled, bt.Versioning)
+
+				_, err = service.GetSingleBucketTotals(userCtx1, disabledProject.ID, storedBucket.Name, time.Now())
+				require.True(t, console.ErrUnauthorized.Has(err))
 			})
 
 			t.Run("GetBucketMetadata", func(t *testing.T) {
@@ -1062,6 +1155,9 @@ func TestService(t *testing.T) {
 					}
 					require.Fail(t, "bucket name not in list", b.Name)
 				}
+
+				_, err = service.GetBucketMetadata(userCtx1, disabledProject.ID)
+				require.True(t, console.ErrUnauthorized.Has(err))
 			})
 
 			t.Run("DeleteAPIKeyByNameAndProjectID", func(t *testing.T) {
@@ -1110,6 +1206,9 @@ func TestService(t *testing.T) {
 				info, err = sat.DB.Console().APIKeys().Get(ctx, createdKey.ID)
 				require.Error(t, err)
 				require.Nil(t, info)
+
+				err = service.DeleteAPIKeyByNameAndProjectID(userCtx1, apikey.Name, disabledProject.ID)
+				require.True(t, console.ErrUnauthorized.Has(err))
 			})
 			t.Run("ApplyFreeTierCoupon", func(t *testing.T) {
 				// testplanet applies the free tier coupon first, so we need to change it in order
@@ -1244,6 +1343,9 @@ func TestService(t *testing.T) {
 				require.Greater(t, impact.StorjImpact, zeroValue)
 				require.Greater(t, impact.HyperscalerImpact, zeroValue)
 				require.Greater(t, impact.SavedTrees, int64(0))
+
+				_, err = service.GetEmissionImpact(userCtx1, disabledProject.ID)
+				require.True(t, console.ErrUnauthorized.Has(err))
 			})
 			t.Run("GetUsageReport", func(t *testing.T) {
 				usr, err := sat.AddUser(ctx, console.CreateUser{
@@ -1309,19 +1411,24 @@ func TestService(t *testing.T) {
 				items, err = service.GetUsageReport(usrCtx, now, inAnHour, uuid.UUID{})
 				require.NoError(t, err)
 				require.Len(t, items, 2)
+
+				_, err = service.GetUsageReport(userCtx1, now, inAnHour, disabledProject.ID)
+				require.True(t, console.ErrUnauthorized.Has(err))
 			})
 
 			t.Run("GetProjectConfig", func(t *testing.T) {
+				newLimit := 5
+				err = sat.DB.Console().Users().Update(ctx, up1Proj.OwnerID, console.UpdateUserRequest{ProjectLimit: &newLimit})
+				require.NoError(t, err)
+
 				pr, err := sat.AddProject(userCtx1, up1Proj.OwnerID, "config test")
 				require.NoError(t, err)
 				require.NotNil(t, pr)
-				require.False(t, pr.PromptedForVersioningBeta)
 				require.Equal(t, pr.DefaultVersioning, console.Unversioned)
 
-				versioningConfig := console.ObjectLockAndVersioningConfig{
-					UseBucketLevelObjectVersioning: true,
-				}
-				require.NoError(t, service.TestSetObjectLockAndVersioningConfig(versioningConfig))
+				salt, err := sat.DB.Console().Projects().GetSalt(ctx, pr.ID)
+				require.NoError(t, err)
+				require.NotNil(t, salt)
 
 				// Getting project config as a non-member should not work
 				config, err := service.GetProjectConfig(userCtx2, pr.ID)
@@ -1334,9 +1441,7 @@ func TestService(t *testing.T) {
 				require.NotNil(t, config)
 				require.True(t, config.IsOwnerPaidTier)
 				require.Equal(t, console.RoleAdmin, config.Role)
-				require.False(t, config.ObjectLockUIEnabled)
-				// versioning enabled for all projects
-				require.True(t, config.VersioningUIEnabled)
+				require.Equal(t, base64.StdEncoding.EncodeToString(salt), config.Salt)
 
 				// add userCtx2 as member
 				member, err := service.GetUser(ctx, up2Proj.OwnerID)
@@ -1352,114 +1457,8 @@ func TestService(t *testing.T) {
 				// member is not paid tier, but project owner is.
 				require.True(t, config.IsOwnerPaidTier)
 
-				// disable for all projects
-				versioningConfig.UseBucketLevelObjectVersioning = false
-				// add project to closed beta
-				versioningConfig.UseBucketLevelObjectVersioningProjects = []string{pr.ID.String()}
-				require.NoError(t, service.TestSetObjectLockAndVersioningConfig(versioningConfig))
-
-				config, err = service.GetProjectConfig(userCtx1, pr.ID)
-				require.NoError(t, err)
-				require.NotNil(t, config)
-				require.False(t, config.ObjectLockUIEnabled)
-				// versioning disabled for all projects but this is true
-				// because project is in closed beta.
-				require.True(t, config.VersioningUIEnabled)
-				require.False(t, config.PromptForVersioningBeta)
-
-				// disable closed beta
-				versioningConfig.UseBucketLevelObjectVersioningProjects = []string{}
-				require.NoError(t, service.TestSetObjectLockAndVersioningConfig(versioningConfig))
-
-				require.False(t, pr.PromptedForVersioningBeta)
-				require.Equal(t, pr.DefaultVersioning, console.Unversioned)
-
-				config, err = service.GetProjectConfig(userCtx1, pr.ID)
-				require.NoError(t, err)
-				require.NotNil(t, config)
-				require.False(t, config.ObjectLockUIEnabled)
-				// 1. versioning disabled for all projects.
-				// 2. project is not in closed beta
-				// 3. project owner has not being prompted for versioning opt in
-				require.False(t, config.VersioningUIEnabled)
-				require.True(t, config.PromptForVersioningBeta)
-
-				config, err = service.GetProjectConfig(userCtx2, pr.ID)
-				require.NoError(t, err)
-				require.False(t, config.ObjectLockUIEnabled)
-				// member will not be prompted for versioning opt in
-				require.False(t, config.PromptForVersioningBeta)
-
-				pr.PromptedForVersioningBeta = true
-				err = sat.DB.Console().Projects().Update(userCtx1, pr)
-				require.NoError(t, err)
-
-				config, err = service.GetProjectConfig(userCtx1, pr.ID)
-				require.NoError(t, err)
-				require.NotNil(t, config)
-				require.False(t, config.ObjectLockUIEnabled)
-				// 1. user prompted for versioning opt in
-				// 2. project default versioning is unversioned (user has opted project in)
-				require.True(t, config.VersioningUIEnabled)
-				require.False(t, config.PromptForVersioningBeta)
-
-				pr.PromptedForVersioningBeta = false
-				err = sat.DB.Console().Projects().Update(userCtx1, pr)
-				require.NoError(t, err)
-
-				// opt out
-				// UpdateVersioningOptInStatus sets pr.PromptedForVersioningBeta to true
-				require.NoError(t, service.UpdateVersioningOptInStatus(userCtx1, pr.ID, console.VersioningOptOut))
-
-				config, err = service.GetProjectConfig(userCtx1, pr.ID)
-				require.NoError(t, err)
-				require.NotNil(t, config)
-				require.False(t, config.ObjectLockUIEnabled)
-				// 1. user prompted for versioning opt in
-				// 2. project default versioning is VersioningUnsupported (user has opted project out)
-				require.False(t, config.VersioningUIEnabled)
-				require.False(t, config.PromptForVersioningBeta)
-
-				versioningConfig.UseBucketLevelObjectVersioning = true
-				versioningConfig.ObjectLockEnabled = true
-				require.NoError(t, service.TestSetObjectLockAndVersioningConfig(versioningConfig))
-
-				config, err = service.GetProjectConfig(userCtx1, pr.ID)
-				require.NoError(t, err)
-				require.True(t, config.ObjectLockUIEnabled)
-
-				versioningConfig.UseBucketLevelObjectVersioning = false
-				require.NoError(t, service.TestSetObjectLockAndVersioningConfig(versioningConfig))
-
-				config, err = service.GetProjectConfig(userCtx1, pr.ID)
-				require.NoError(t, err)
-				// object lock is enabled but versioning is disabled
-				// so the UI should be disabled as object lock requires versioning.
-				require.False(t, config.ObjectLockUIEnabled)
-
-				versioningConfig.UseBucketLevelObjectVersioning = true
-				require.NoError(t, service.TestSetObjectLockAndVersioningConfig(versioningConfig))
-
-				versioningConfig.ObjectLockEnabled = false
-				require.NoError(t, service.TestSetObjectLockAndVersioningConfig(versioningConfig))
-
-				config, err = service.GetProjectConfig(userCtx1, pr.ID)
-				require.NoError(t, err)
-				require.False(t, config.ObjectLockUIEnabled)
-
-				versioningConfig.ObjectLockEnabled = true
-				require.NoError(t, service.TestSetObjectLockAndVersioningConfig(versioningConfig))
-
-				config, err = service.GetProjectConfig(userCtx1, pr.ID)
-				require.NoError(t, err)
-				require.True(t, config.ObjectLockUIEnabled)
-
-				versioningConfig.ObjectLockEnabled = false
-				require.NoError(t, service.TestSetObjectLockAndVersioningConfig(versioningConfig))
-
-				config, err = service.GetProjectConfig(userCtx1, pr.ID)
-				require.NoError(t, err)
-				require.False(t, config.ObjectLockUIEnabled)
+				_, err = service.GetProjectConfig(userCtx1, disabledProject.ID)
+				require.True(t, console.ErrUnauthorized.Has(err))
 			})
 		})
 }
@@ -1622,6 +1621,9 @@ func TestChangeEmail(t *testing.T) {
 		require.Equal(t, validEmail, *user.NewUnverifiedEmail)
 		require.NotEmpty(t, user.ActivationCode)
 
+		err = service.ChangeEmail(userCtx, console.ChangeAccountEmailStep, validEmail)
+		require.True(t, console.ErrConflict.Has(err))
+
 		for i := 0; i < 3; i++ {
 			err = service.ChangeEmail(userCtx, console.VerifyNewAccountEmailStep, "random verification code")
 			require.True(t, console.ErrValidation.Has(err))
@@ -1646,6 +1648,22 @@ func TestChangeEmail(t *testing.T) {
 		require.Equal(t, "", *user.NewUnverifiedEmail)
 		require.Equal(t, validEmail, user.Email)
 		require.Empty(t, user.ActivationCode)
+
+		// test sso user can't change email.
+		ssoUser, err := sat.AddUser(ctx, console.CreateUser{
+			Email:    "test@storj.test",
+			FullName: "test test",
+		}, 1)
+		require.NoError(t, err)
+		require.NoError(t, service.UpdateExternalID(ctx, ssoUser, "test:1234"))
+
+		ssoUserCtx, err := sat.UserContext(ctx, ssoUser.ID)
+		require.NoError(t, err)
+
+		err = service.ChangeEmail(ssoUserCtx, console.ChangeAccountEmailStep, "foobar")
+		require.Error(t, err)
+		require.True(t, console.ErrForbidden.Has(err))
+		require.Contains(t, err.Error(), "sso")
 	})
 }
 
@@ -1676,15 +1694,6 @@ func TestDeleteProject(t *testing.T) {
 			require.NoError(t, err)
 			return userCtx, user
 		}
-		userCtx, user := updateContext()
-
-		require.Len(t, uplinks[0].Projects, 1)
-		p := uplinks[0].Projects[0]
-
-		// free user can't delete project
-		resp, err := service.DeleteProject(userCtx, p.ID, console.VerifyAccountMfaStep, "test")
-		require.True(t, console.ErrNotPaidTier.Has(err))
-		require.Nil(t, resp)
 
 		uplink := uplinks[1]
 
@@ -1697,9 +1706,9 @@ func TestDeleteProject(t *testing.T) {
 		require.NoError(t, db.Console().Users().Update(ctx, user.ID, console.UpdateUserRequest{PaidTier: &user.PaidTier}))
 
 		require.Len(t, uplink.Projects, 1)
-		p = uplink.Projects[0]
+		p := uplink.Projects[0]
 
-		userCtx, user = updateContext()
+		userCtx, user := updateContext()
 
 		// check resp contains buckets
 		bucket := buckets.Bucket{
@@ -1710,7 +1719,7 @@ func TestDeleteProject(t *testing.T) {
 		_, err = sat.API.Buckets.Service.CreateBucket(userCtx, bucket)
 		require.NoError(t, err)
 
-		resp, err = service.DeleteProject(userCtx, p.ID, console.VerifyAccountMfaStep, "test")
+		resp, err := service.DeleteProject(userCtx, p.ID, console.VerifyAccountMfaStep, "test")
 		require.Error(t, err)
 		require.NotNil(t, resp)
 		require.Equal(t, 1, resp.Buckets)
@@ -1942,9 +1951,33 @@ func TestDeleteProject(t *testing.T) {
 		require.NoError(t, err)
 		require.Nil(t, resp)
 
-		projects, err := db.Console().Projects().GetOwn(ctx, user.ID)
+		projects, err := db.Console().Projects().GetOwnActive(ctx, user.ID)
 		require.NoError(t, err)
 		require.Zero(t, len(projects))
+
+		// test sso user can't delete project
+		ssoUser, err := sat.AddUser(ctx, console.CreateUser{
+			Email:    "test@sso.test",
+			FullName: "test test",
+			PaidTier: true,
+		}, 1)
+		require.NoError(t, err)
+		require.NoError(t, service.UpdateExternalID(ctx, ssoUser, "test:1234"))
+
+		ssoUserCtx, err := sat.UserContext(ctx, ssoUser.ID)
+		require.NoError(t, err)
+
+		project, err = service.CreateProject(ssoUserCtx, console.UpsertProjectInfo{
+			Name:        "test",
+			Description: "desc",
+		})
+		require.NoError(t, err)
+		require.NotNil(t, project)
+
+		_, err = service.DeleteProject(ssoUserCtx, project.ID, console.DeleteAccountInit, "foobar")
+		require.Error(t, err)
+		require.True(t, console.ErrForbidden.Has(err))
+		require.Contains(t, err.Error(), "sso")
 	})
 }
 
@@ -1962,6 +1995,9 @@ func TestDeleteAccount(t *testing.T) {
 		service := sat.API.Console.Service
 		uplinks := planet.Uplinks
 		require.Len(t, uplinks, 2)
+
+		// pause rollup archive loop because some of the tests insert bandwidth rollups during time periods the loop would clean up
+		sat.Accounting.RollupArchive.Loop.Pause()
 
 		for i, uplink := range uplinks {
 			usrLogin := uplink.User[sat.ID()]
@@ -2116,7 +2152,7 @@ func TestDeleteAccount(t *testing.T) {
 			// does not affect deletion of free users.
 			lastMonth := time.Date(year, month-1, 1, 0, 0, 0, 0, time.UTC)
 			egress := int64(1000000)
-			require.NoError(t, sat.DB.Orders().UpdateBucketBandwidthSettle(ctx, p2.ID, []byte(bucket.Name), pb.PieceAction_GET, egress, 0, lastMonth))
+			require.NoError(t, sat.DB.Orders().UpdateBucketBandwidthSettle(ctx, p2.ID, []byte(bucket.Name), pb.PieceAction_GET, egress, 0, lastMonth.Add(time.Hour)))
 
 			resp, err = service.DeleteAccount(userCtx, console.VerifyAccountMfaStep, "test")
 			require.NoError(t, err)
@@ -2268,7 +2304,14 @@ func TestDeleteAccount(t *testing.T) {
 
 			require.NoError(t, sat.API.Buckets.Service.DeleteBucket(ctx, []byte(bucket.Name), p2.ID))
 
-			_, err = service.GenerateSessionToken(ctx, user.ID, user.Email, "", "", nil)
+			_, err = service.GenerateSessionToken(ctx, console.SessionTokenRequest{
+				UserID:         user.ID,
+				Email:          user.Email,
+				IP:             "",
+				UserAgent:      "",
+				AnonymousID:    "",
+				CustomDuration: nil,
+			})
 			require.NoError(t, err)
 
 			sessions, err := sat.DB.Console().WebappSessions().GetAllByUserID(ctx, user.ID)
@@ -2293,7 +2336,7 @@ func TestDeleteAccount(t *testing.T) {
 			require.Empty(t, user.ActivationCode)
 			require.Contains(t, user.Email, "deactivated")
 
-			projects, err := db.Console().Projects().GetOwn(ctx, user.ID)
+			projects, err := db.Console().Projects().GetOwnActive(ctx, user.ID)
 			require.NoError(t, err)
 			require.Zero(t, len(projects))
 
@@ -2307,6 +2350,83 @@ func TestDeleteAccount(t *testing.T) {
 			require.NoError(t, err)
 			require.Len(t, sessions, 0)
 		}
+
+		// test sso user can't delete account
+		ssoUser, err := sat.AddUser(ctx, console.CreateUser{
+			Email:    "test@sso.test",
+			FullName: "test test",
+		}, 1)
+		require.NoError(t, err)
+		require.NoError(t, service.UpdateExternalID(ctx, ssoUser, "test:1234"))
+
+		ssoUserCtx, err := sat.UserContext(ctx, ssoUser.ID)
+		require.NoError(t, err)
+		_, err = service.DeleteAccount(ssoUserCtx, console.DeleteAccountInit, "foobar")
+		require.Error(t, err)
+		require.True(t, console.ErrForbidden.Has(err))
+		require.Contains(t, err.Error(), "sso")
+	})
+}
+
+func TestUpdateUserOnSignup(t *testing.T) {
+	testplanet.Run(t, testplanet.Config{
+		SatelliteCount: 1, StorageNodeCount: 0, UplinkCount: 0,
+		Reconfigure: testplanet.Reconfigure{
+			Satellite: func(log *zap.Logger, index int, config *satellite.Config) {
+				config.Console.FreeTrialDuration = 48 * time.Hour
+			},
+		},
+	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+		sat := planet.Satellites[0]
+		service := sat.API.Console.Service
+
+		regToken, err := service.CreateRegToken(ctx, 1)
+		require.NoError(t, err)
+
+		requestData := console.CreateUser{
+			FullName:        "old inactive",
+			ShortName:       "old inactive",
+			Email:           "inactive@mail.test",
+			Password:        "old password",
+			UserAgent:       []byte("partner1"),
+			SignupPromoCode: "test",
+			ActivationCode:  "111111",
+			SignupId:        "test",
+		}
+
+		user, err := service.CreateUser(ctx, requestData, regToken.Secret)
+		require.NoError(t, err)
+		require.NotNil(t, user)
+
+		requestData.FullName = "new active"
+		requestData.ShortName = "new active"
+		requestData.Password = "new password"
+		requestData.UserAgent = []byte("partnerNew")
+		requestData.SignupPromoCode = "new test"
+		requestData.ActivationCode = "222222"
+		requestData.SignupId = "new test"
+
+		newNow := time.Now().Add(24 * time.Hour)
+		service.TestSetNow(func() time.Time {
+			return newNow
+		})
+
+		err = service.UpdateUserOnSignup(ctx, user, requestData)
+		require.NoError(t, err)
+
+		user, err = service.GetUser(ctx, user.ID)
+		require.NoError(t, err)
+		require.Equal(t, requestData.FullName, user.FullName)
+		require.Equal(t, requestData.ShortName, user.ShortName)
+		require.Equal(t, requestData.UserAgent, user.UserAgent)
+		require.Equal(t, requestData.SignupPromoCode, user.SignupPromoCode)
+		require.Equal(t, requestData.ActivationCode, user.ActivationCode)
+		require.Equal(t, requestData.SignupId, user.SignupId)
+		require.NotNil(t, user.TrialExpiration)
+		require.WithinDuration(t, newNow.Add(sat.Config.Console.FreeTrialDuration), *user.TrialExpiration, time.Minute)
+
+		err = bcrypt.CompareHashAndPassword(user.PasswordHash, []byte(requestData.Password))
+		require.NoError(t, err)
 	})
 }
 
@@ -2793,7 +2913,7 @@ func TestMFA(t *testing.T) {
 
 func TestResetPassword(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
-		SatelliteCount: 1, StorageNodeCount: 0, UplinkCount: 0, EnableSpanner: true,
+		SatelliteCount: 1, StorageNodeCount: 0, UplinkCount: 0,
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 		sat := planet.Satellites[0]
 		service := sat.API.Console.Service
@@ -2912,7 +3032,7 @@ func TestResetPassword(t *testing.T) {
 
 func TestChangePassword(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
-		SatelliteCount: 1, StorageNodeCount: 0, UplinkCount: 1, EnableSpanner: true,
+		SatelliteCount: 1, StorageNodeCount: 0, UplinkCount: 1,
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 		sat := planet.Satellites[0]
 		upl := planet.Uplinks[0]
@@ -2924,7 +3044,14 @@ func TestChangePassword(t *testing.T) {
 		require.NoError(t, err)
 
 		for i := 0; i < 2; i++ {
-			_, err = sat.API.Console.Service.GenerateSessionToken(userCtx, user.ID, user.Email, "", "", nil)
+			_, err = sat.API.Console.Service.GenerateSessionToken(userCtx, console.SessionTokenRequest{
+				UserID:         user.ID,
+				Email:          user.Email,
+				IP:             "",
+				UserAgent:      "",
+				AnonymousID:    "",
+				CustomDuration: nil,
+			})
 			require.NoError(t, err)
 		}
 		sessions, err := sat.DB.Console().WebappSessions().GetAllByUserID(ctx, user.ID)
@@ -2932,7 +3059,7 @@ func TestChangePassword(t *testing.T) {
 		require.Len(t, sessions, 2)
 
 		// generate a password recovery token to test that changing password invalidates it
-		passwordRecoveryToken, err := sat.API.Console.Service.GeneratePasswordRecoveryToken(userCtx, user.ID)
+		passwordRecoveryToken, err := sat.API.Console.Service.GeneratePasswordRecoveryToken(userCtx, user)
 		require.NoError(t, err)
 
 		sessionID := sessions[0].ID
@@ -2980,7 +3107,14 @@ func TestGenerateSessionToken(t *testing.T) {
 		require.NoError(t, err)
 
 		now := time.Now()
-		token1, err := srv.GenerateSessionToken(userCtx, user.ID, user.Email, "", "", nil)
+		token1, err := srv.GenerateSessionToken(userCtx, console.SessionTokenRequest{
+			UserID:         user.ID,
+			Email:          user.Email,
+			IP:             "",
+			UserAgent:      "",
+			AnonymousID:    "",
+			CustomDuration: nil,
+		})
 		require.NoError(t, err)
 		require.NotNil(t, token1)
 
@@ -2993,7 +3127,14 @@ func TestGenerateSessionToken(t *testing.T) {
 		}))
 
 		now = time.Now()
-		token2, err := srv.GenerateSessionToken(userCtx, user.ID, user.Email, "", "", nil)
+		token2, err := srv.GenerateSessionToken(userCtx, console.SessionTokenRequest{
+			UserID:         user.ID,
+			Email:          user.Email,
+			IP:             "",
+			UserAgent:      "",
+			AnonymousID:    "",
+			CustomDuration: nil,
+		})
 		require.NoError(t, err)
 		token2Duration := token2.ExpiresAt.Sub(now)
 		require.Greater(t, token2Duration, token1Duration)
@@ -3006,7 +3147,14 @@ func TestGenerateSessionToken(t *testing.T) {
 		}))
 
 		now = time.Now()
-		token3, err := srv.GenerateSessionToken(userCtx, user.ID, user.Email, "", "", nil)
+		token3, err := srv.GenerateSessionToken(userCtx, console.SessionTokenRequest{
+			UserID:         user.ID,
+			Email:          user.Email,
+			IP:             "",
+			UserAgent:      "",
+			AnonymousID:    "",
+			CustomDuration: nil,
+		})
 		require.NoError(t, err)
 		token3Duration := token3.ExpiresAt.Sub(now)
 		require.Less(t, token3Duration, token1Duration)
@@ -3014,7 +3162,14 @@ func TestGenerateSessionToken(t *testing.T) {
 		now = time.Now()
 		customDuration := 7 * 24 * time.Hour
 		inAWeek := now.Add(customDuration)
-		token4, err := srv.GenerateSessionToken(userCtx, user.ID, user.Email, "", "", &customDuration)
+		token4, err := srv.GenerateSessionToken(userCtx, console.SessionTokenRequest{
+			UserID:         user.ID,
+			Email:          user.Email,
+			IP:             "",
+			UserAgent:      "",
+			AnonymousID:    "",
+			CustomDuration: &customDuration,
+		})
 		require.NoError(t, err)
 		require.True(t, token4.ExpiresAt.After(inAWeek))
 	})
@@ -3040,7 +3195,14 @@ func TestRefreshSessionToken(t *testing.T) {
 		require.NoError(t, err)
 
 		now := time.Now()
-		token, err := srv.GenerateSessionToken(userCtx, user.ID, user.Email, "", "", nil)
+		token, err := srv.GenerateSessionToken(userCtx, console.SessionTokenRequest{
+			UserID:         user.ID,
+			Email:          user.Email,
+			IP:             "",
+			UserAgent:      "",
+			AnonymousID:    "",
+			CustomDuration: nil,
+		})
 		require.NoError(t, err)
 		require.NotNil(t, token)
 
@@ -3145,7 +3307,6 @@ func TestUserSettings(t *testing.T) {
 			PartnerUpgradeBanner:     false,
 			ProjectMembersPassphrase: false,
 			UploadOverwriteWarning:   false,
-			VersioningBetaBanner:     false,
 		}
 		require.Equal(t, noticeDismissal, settings.NoticeDismissal)
 
@@ -3178,7 +3339,6 @@ func TestUserSettings(t *testing.T) {
 		noticeDismissal.PartnerUpgradeBanner = true
 		noticeDismissal.ProjectMembersPassphrase = true
 		noticeDismissal.UploadOverwriteWarning = true
-		noticeDismissal.VersioningBetaBanner = true
 		settings, err = srv.SetUserSettings(userCtx, console.UpsertUserSettingsRequest{
 			SessionDuration: &sessionDurPtr,
 			OnboardingStart: &onboardingBool,
@@ -3600,7 +3760,7 @@ func TestDeleteAllSessionsByUserIDExcept(t *testing.T) {
 func TestSatelliteManagedProject(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
 		SatelliteCount: 1, StorageNodeCount: 0, UplinkCount: 1,
-		EnableSpanner: true,
+
 		Reconfigure: testplanet.Reconfigure{
 			Satellite: func(log *zap.Logger, index int, config *satellite.Config) {
 				config.Console.SatelliteManagedEncryptionEnabled = true
@@ -3771,7 +3931,7 @@ func TestSatelliteManagedProjectWithDisabled(t *testing.T) {
 func TestSatelliteManagedProjectWithDisabledAndConfig(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
 		SatelliteCount: 1, StorageNodeCount: 0, UplinkCount: 1,
-		EnableSpanner: true,
+
 		Reconfigure: testplanet.Reconfigure{
 			Satellite: func(log *zap.Logger, index int, config *satellite.Config) {
 				config.Console.SatelliteManagedEncryptionEnabled = false
@@ -3845,7 +4005,7 @@ func TestSatelliteManagedProjectWithDisabledAndConfig(t *testing.T) {
 
 func TestPaymentsWalletPayments(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
-		SatelliteCount: 1, StorageNodeCount: 0, UplinkCount: 0, EnableSpanner: true,
+		SatelliteCount: 1, StorageNodeCount: 0, UplinkCount: 0,
 		Reconfigure: testplanet.Reconfigure{
 			Satellite: func(log *zap.Logger, index int, config *satellite.Config) {
 				config.Payments.BillingConfig.DisableLoop = false
@@ -4798,5 +4958,206 @@ func TestDelayedBotFreeze(t *testing.T) {
 		event, err = accFreezeDB.Get(ctx, user.ID, console.BotFreeze)
 		require.True(t, errs.Is(err, sql.ErrNoRows))
 		require.Nil(t, event)
+	})
+}
+
+func TestGetValdiAPIKey(t *testing.T) {
+	testplanet.Run(t, testplanet.Config{
+		SatelliteCount: 1, StorageNodeCount: 0, UplinkCount: 2,
+		Reconfigure: testplanet.Reconfigure{
+			Satellite: func(log *zap.Logger, index int, config *satellite.Config) {
+				config.Console.CloudGpusEnabled = true
+				config.Valdi.SignRequests = false
+				config.Valdi.SatelliteEmail = "storj@storj.test"
+				config.Console.RateLimit.Burst = 10
+			},
+		},
+	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+		sat := planet.Satellites[0]
+		service := sat.API.Console.Service
+
+		user1, err := sat.DB.Console().Users().GetByEmail(ctx, planet.Uplinks[0].User[sat.ID()].Email)
+		require.NoError(t, err)
+		p := planet.Uplinks[0].Projects[0]
+
+		mockClient, transport := httpmock.NewClient()
+
+		testValdiClient, err := valdiclient.New(zaptest.NewLogger(t), mockClient, sat.Config.Valdi.Config)
+		require.NoError(t, err)
+
+		*sat.API.Valdi.Client = *testValdiClient
+
+		t.Run("non-existent project", func(t *testing.T) {
+			userCtx, err := sat.UserContext(ctx, user1.ID)
+			require.NoError(t, err)
+
+			key, status, err := service.GetValdiAPIKey(userCtx, testrand.UUID())
+			require.Error(t, err)
+			require.Equal(t, http.StatusUnauthorized, status)
+			require.Nil(t, key)
+		})
+
+		user2, err := sat.DB.Console().Users().GetByEmail(ctx, planet.Uplinks[1].User[sat.ID()].Email)
+		require.NoError(t, err)
+
+		t.Run("not project member", func(t *testing.T) {
+			userCtx, err := sat.UserContext(ctx, user2.ID)
+			require.NoError(t, err)
+
+			key, status, err := service.GetValdiAPIKey(userCtx, p.PublicID)
+			require.Error(t, err)
+			require.Equal(t, http.StatusUnauthorized, status)
+			require.Nil(t, key)
+		})
+
+		_, err = sat.DB.Console().ProjectMembers().Insert(ctx, user2.ID, p.ID, console.RoleMember)
+		require.NoError(t, err)
+
+		t.Run("not project owner", func(t *testing.T) {
+			userCtx, err := sat.UserContext(ctx, user2.ID)
+			require.NoError(t, err)
+
+			key, status, err := service.GetValdiAPIKey(userCtx, p.PublicID)
+			require.Error(t, err)
+			require.Equal(t, http.StatusUnauthorized, status)
+			require.Nil(t, key)
+		})
+
+		keySuccessResp := &valdiclient.CreateAPIKeyResponse{
+			APIKey:            "1234",
+			SecretAccessToken: "abc123",
+		}
+
+		tests := []struct {
+			name string
+
+			firstAPIKeyStatus int
+			firstAPIKeyResp   interface{}
+
+			createUserStatus int
+			createUserError  *valdiclient.ErrorMessage
+
+			secondAPIKeyStatus int
+			secondAPIKeyResp   interface{}
+
+			expectedStorjStatus int
+			expectedStorjResp   interface{}
+		}{
+			{
+				name: "create key errors with 404, then create user and create key succeed",
+
+				firstAPIKeyStatus: http.StatusNotFound,
+				firstAPIKeyResp:   &valdiclient.ErrorMessage{Detail: "user doesn't exist"},
+
+				createUserStatus: http.StatusCreated,
+
+				secondAPIKeyStatus: http.StatusOK,
+				secondAPIKeyResp:   keySuccessResp,
+
+				expectedStorjStatus: http.StatusOK,
+				expectedStorjResp:   keySuccessResp,
+			},
+			{
+				name: "create key errors with 404, then create user errors",
+
+				firstAPIKeyStatus: http.StatusNotFound,
+				firstAPIKeyResp:   &valdiclient.ErrorMessage{Detail: "user doesn't exist"},
+
+				createUserStatus: http.StatusConflict,
+				createUserError:  &valdiclient.ErrorMessage{Detail: "username already exists"},
+
+				expectedStorjStatus: http.StatusConflict,
+				expectedStorjResp:   "username already exists",
+			},
+			{
+				name: "create key errors with 404, then create user succeeds, and create key errors",
+
+				firstAPIKeyStatus: http.StatusNotFound,
+				firstAPIKeyResp:   &valdiclient.ErrorMessage{Detail: "user doesn't exist"},
+
+				createUserStatus: http.StatusCreated,
+
+				secondAPIKeyStatus: http.StatusInternalServerError,
+				secondAPIKeyResp:   &valdiclient.ErrorMessage{Detail: "some internal valdi error"},
+
+				expectedStorjStatus: http.StatusInternalServerError,
+				expectedStorjResp:   "some internal valdi error",
+			},
+			{
+				name: "create key succeeds",
+
+				firstAPIKeyStatus: http.StatusOK,
+				firstAPIKeyResp:   keySuccessResp,
+
+				expectedStorjStatus: http.StatusOK,
+				expectedStorjResp:   keySuccessResp,
+			},
+			{
+				name: "create key fails, not 404",
+
+				firstAPIKeyStatus: http.StatusInternalServerError,
+				firstAPIKeyResp: &valdiclient.ErrorMessage{
+					Detail: "some internal valdi error",
+				},
+
+				expectedStorjStatus: http.StatusInternalServerError,
+				expectedStorjResp:   "some internal valdi error",
+			},
+		}
+
+		apiKeyEndpoint, err := url.JoinPath(sat.Config.Valdi.APIBaseURL, valdiclient.APIKeyPath)
+		require.NoError(t, err)
+
+		userEndpoint, err := url.JoinPath(sat.Config.Valdi.APIBaseURL, valdiclient.UserPath)
+		require.NoError(t, err)
+
+		for _, tt := range tests {
+			t.Run(tt.name, func(t *testing.T) {
+				body, err := json.Marshal(tt.firstAPIKeyResp)
+				require.NoError(t, err)
+
+				transport.AddResponse(apiKeyEndpoint, httpmock.Response{
+					StatusCode: tt.firstAPIKeyStatus,
+					Body:       string(body),
+				})
+
+				if tt.createUserStatus != 0 {
+					body := ""
+					if tt.createUserError != nil {
+						errJSONData, err := json.Marshal(tt.createUserError)
+						require.NoError(t, err)
+						body = string(errJSONData)
+					}
+
+					transport.AddResponse(userEndpoint, httpmock.Response{
+						StatusCode: tt.createUserStatus,
+						Body:       body,
+					})
+				}
+
+				if tt.secondAPIKeyStatus != 0 {
+					keyJSONData, err := json.Marshal(tt.secondAPIKeyResp)
+					require.NoError(t, err)
+
+					transport.AddResponse(apiKeyEndpoint, httpmock.Response{
+						StatusCode: tt.secondAPIKeyStatus,
+						Body:       string(keyJSONData),
+					})
+				}
+
+				userCtx, err := sat.UserContext(ctx, user1.ID)
+				require.NoError(t, err)
+
+				key, status, err := service.GetValdiAPIKey(userCtx, p.ID)
+				require.Equal(t, tt.expectedStorjStatus, status)
+				switch tt.expectedStorjStatus {
+				case http.StatusOK:
+					require.Equal(t, key, tt.expectedStorjResp)
+				case http.StatusInternalServerError:
+				default:
+					require.Contains(t, err.Error(), tt.expectedStorjResp)
+				}
+			})
+		}
 	})
 }

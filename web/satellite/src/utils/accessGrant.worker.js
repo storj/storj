@@ -81,6 +81,8 @@ self.onmessage = async function (event) {
             const isBypassGovernanceRetention = data.isBypassGovernanceRetention ?? false;
             const isPutObjectLegalHold = data.isPutObjectLegalHold ?? false;
             const isGetObjectLegalHold = data.isGetObjectLegalHold ?? false;
+            const isPutObjectLockConfiguration = data.isPutObjectLockConfiguration ?? false;
+            const isGetObjectLockConfiguration = data.isGetObjectLockConfiguration ?? false;
             const notBefore = data.notBefore;
             const notAfter = data.notAfter;
 
@@ -95,6 +97,8 @@ self.onmessage = async function (event) {
             permission.AllowBypassGovernanceRetention = isBypassGovernanceRetention;
             permission.AllowPutObjectLegalHold = isPutObjectLegalHold;
             permission.AllowGetObjectLegalHold = isGetObjectLegalHold;
+            permission.AllowPutBucketObjectLockConfiguration = isPutObjectLockConfiguration;
+            permission.AllowGetBucketObjectLockConfiguration = isGetObjectLockConfiguration;
 
             if (notBefore) permission.NotBefore = notBefore;
             if (notAfter) permission.NotAfter = notAfter;

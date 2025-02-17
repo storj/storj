@@ -14,6 +14,7 @@ import (
 
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap"
+	"golang.org/x/exp/slices"
 
 	"storj.io/common/memory"
 	"storj.io/common/pb"
@@ -242,11 +243,21 @@ func TestObserver_CheckSegmentCopy(t *testing.T) {
 		_, err = rangedLoopService.RunOnce(ctx)
 		require.NoError(t, err)
 
+		ensureExistsOnce := func(t *testing.T, got *queue.InjuredSegment) {
+			for i, s := range segmentsAfterCopy {
+				if s.StreamID == got.StreamID && s.Position == got.Position {
+					segmentsAfterCopy = slices.Delete(segmentsAfterCopy, i, i+1)
+					return
+				}
+			}
+			t.Fatal("segment not found")
+		}
+
 		// check that repair queue has original segment and copied one as it has exactly the same metadata
-		for _, segment := range segmentsAfterCopy {
+		for i := 0; i < 2; i++ {
 			injuredSegments, err := repairQueue.Select(ctx, 1, nil, nil)
 			require.NoError(t, err)
-			require.Equal(t, segment.StreamID, injuredSegments[0].StreamID)
+			ensureExistsOnce(t, &injuredSegments[0])
 		}
 
 		injuredSegments, err := repairQueue.Count(ctx)
@@ -453,7 +464,7 @@ func TestRepairObserver(t *testing.T) {
 			service := rangedloop.NewService(planet.Log(), rangedloop.Config{
 				Parallelism: tc.Parallelism,
 				BatchSize:   tc.BatchSize,
-			}, rangedloop.NewMetabaseRangeSplitter(planet.Satellites[0].Metabase.DB, config.RangedLoop.AsOfSystemInterval, config.RangedLoop.SpannerStaleInterval, config.RangedLoop.BatchSize), []rangedloop.Observer{observer})
+			}, rangedloop.NewMetabaseRangeSplitter(planet.Log(), planet.Satellites[0].Metabase.DB, config.RangedLoop), []rangedloop.Observer{observer})
 
 			_, err = service.RunOnce(ctx)
 			require.NoError(t, err)
@@ -593,7 +604,9 @@ func TestObserver_PlacementCheck(t *testing.T) {
 			Satellite: testplanet.Combine(
 				testplanet.ReconfigureRS(1, 2, 4, 4),
 				func(log *zap.Logger, index int, config *satellite.Config) {
-					config.RangedLoop.Interval = 10 * time.Second
+					// we need ranged loop enabled, but we will trigger it manually (and wait for results)
+					// one day interval guarantees that it won't be executed meantime (which can drain repair queue messages)
+					config.RangedLoop.Interval = 24 * time.Hour
 				},
 			),
 		},

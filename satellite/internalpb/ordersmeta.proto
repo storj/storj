@@ -12,4 +12,5 @@ message OrderLimitMetadata {
     bytes bucket_id = 1;
     bytes project_bucket_prefix = 2;
     bytes compact_project_bucket_prefix = 3;
+    int32 product_id = 4;
 }

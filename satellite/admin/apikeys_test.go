@@ -94,6 +94,7 @@ func TestApiKeyDelete(t *testing.T) {
 			Satellite: func(_ *zap.Logger, _ int, config *satellite.Config) {
 				config.Admin.Address = "127.0.0.1:0"
 			},
+			SatelliteDBOptions: testplanet.SatelliteDBDisableCaches,
 		},
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 		address := planet.Satellites[0].Admin.Admin.Listener.Addr()

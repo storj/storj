@@ -72,8 +72,8 @@ export default class NavigationArea extends Vue {
         display: flex;
         flex-direction: column;
         align-items: flex-start;
-        border-right: 1px solid var(--c-gray--light);
-        background: var(--c-block-gray);
+        border-right: 1px solid var(--v-border-base);
+        background: var(--v-background-base);
 
         &__logo {
             margin-bottom: 62px;
@@ -90,7 +90,7 @@ export default class NavigationArea extends Vue {
             text-decoration: none;
 
             ::v-deep path {
-                fill: var(--c-label);
+                fill: var(--v-text-base);
             }
 
             &__link {
@@ -104,21 +104,21 @@ export default class NavigationArea extends Vue {
                     line-height: 23px;
                     margin: 0 0 0 15px;
                     white-space: nowrap;
-                    color: var(--c-label);
+                    color: var(--v-text-base);
                 }
             }
 
             &.router-link-active,
             &:hover {
-                background: #e7e9eb;
+                background: var(--v-active-base);
                 border-radius: 6px;
 
                 .navigation-area__item-container__link__title {
-                    color: var(--c-title);
+                    color: var(--v-text-base);
                 }
 
                 ::v-deep path {
-                    fill: var(--c-title) !important;
+                    fill: var(--v-text-base) !important;
                     opacity: 1;
                 }
             }

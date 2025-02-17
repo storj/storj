@@ -456,54 +456,59 @@ var _ NodeFilter = AllowedNodesFilter{}
 
 // AttributeFilter selects nodes based on dynamic node attributes (eg. vetted=true or tag:owner=...).
 type AttributeFilter struct {
-	attribute NodeAttribute
-	test      mito.OpType
-	value     interface{}
+	mapper func(SelectedNode) any
+	test   mito.OpType
+	value  interface{}
 }
 
-// NewAttributeFilter creates new attribute filter. NewAttributeFilter can be
-// called in two ways, either like `NewAttributeFilter("attr", "value")`, or
-// `NewAttributeFilter("attr", "<", 3). The first style, 2 arguments, is
-// a string equality test. The second style, 3 arguments, is a more generic
-// form of the first. String equality can be specified, but also inequalities
-// as well.
+// NewAttributeFilter creates new attribute filter. testStr is the type of
+// equality test to perform, can be "=", "==", "!=", "<>", "<", "<=", ">", ">=".
 // If value is stringNotMatch, then the test is inverted.
-func NewAttributeFilter(attr string, args ...any) (*AttributeFilter, error) {
-	var value any
+func NewAttributeFilter(attr string, testStr string, value any) (*AttributeFilter, error) {
 	test := mito.OpEqual
-	switch len(args) {
-	case 1:
-		value = args[0]
-	case 2:
-		value = args[1]
-		switch args[0] {
-		case "=", "==":
-		case "!=", "<>":
-			test = mito.OpNotEqual
-		case "<":
-			test = mito.OpLess
-		case "<=":
-			test = mito.OpLessEqual
-		case ">":
-			test = mito.OpGreater
-		case ">=":
-			test = mito.OpGreaterEqual
-		default:
-			return nil, errs.New("invalid call to create new attribute filter. Received 3 arguments, second argument was not an expected test")
-		}
+	switch testStr {
+	case "=", "==", "":
+	case "!=", "<>":
+		test = mito.OpNotEqual
+	case "<":
+		test = mito.OpLess
+	case "<=":
+		test = mito.OpLessEqual
+	case ">":
+		test = mito.OpGreater
+	case ">=":
+		test = mito.OpGreaterEqual
 	default:
-		return nil, errs.New("invalid call to create new attribute filter. Expected 2 or 3 arguments")
+		return nil, errs.New("invalid call to create new attribute filter. Received 3 arguments, second argument was not an expected test")
 	}
 
-	attribute, err := CreateNodeAttribute(attr)
+	m, err := createNodeMapping(attr)
 	if err != nil {
 		return nil, err
 	}
 	return &AttributeFilter{
-		attribute: attribute,
-		test:      test,
-		value:     value,
+		mapper: m,
+		test:   test,
+		value:  value,
 	}, nil
+}
+
+// CreateNodeMapping creates either NodeValue Or NodeAttribute from a string.
+// Try to use the more specific, typed CreateNodeValue and CreateNodeAttribute when possible.
+func createNodeMapping(attr string) (func(node SelectedNode) any, error) {
+	na, err := CreateNodeAttribute(attr)
+	if err == nil {
+		return func(node SelectedNode) any {
+			return na(node)
+		}, nil
+	}
+	nv, err2 := CreateNodeValue(attr)
+	if err2 == nil {
+		return func(node SelectedNode) any {
+			return nv(node)
+		}, nil
+	}
+	return nil, errs.New("String %s is neither a node attribute (%s) nor a node value (%s)", attr, err, err2)
 }
 
 func compare(a any, test mito.OpType, b any) bool {
@@ -521,7 +526,7 @@ func compare(a any, test mito.OpType, b any) bool {
 
 // Match implements NodeFilter.
 func (a *AttributeFilter) Match(node *SelectedNode) bool {
-	attribute := a.attribute(*node)
+	attribute := a.mapper(*node)
 
 	switch v := a.value.(type) {
 	case stringNotMatch:

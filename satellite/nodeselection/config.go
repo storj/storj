@@ -6,11 +6,13 @@ package nodeselection
 import (
 	"bytes"
 	"fmt"
+	"math"
 	"os"
 	"strings"
 
 	"github.com/jtolio/mito"
 	"github.com/zeebo/errs"
+	"golang.org/x/exp/maps"
 	"gopkg.in/yaml.v3"
 
 	"storj.io/common/storj"
@@ -42,29 +44,43 @@ type UploadSuccessTracker interface {
 	Get(uplink storj.NodeID) func(node *SelectedNode) float64
 }
 
-// NoopTracker doesn't tracker uploads at all. Always returns with zero.
-type NoopTracker struct {
+// UploadFailureTracker keeps track of node failures.
+type UploadFailureTracker interface {
+	Get(node *SelectedNode) float64
+}
+
+type uploadFailureTrackerFunc func(node *SelectedNode) float64
+
+func (f uploadFailureTrackerFunc) Get(node *SelectedNode) float64 { return f(node) }
+
+// NoopSuccessTracker doesn't track uploads at all. Always returns with zero.
+type NoopSuccessTracker struct {
 }
 
 // Get implements UploadSuccessTracker.
-func (n NoopTracker) Get(uplink storj.NodeID) func(node *SelectedNode) float64 {
+func (n NoopSuccessTracker) Get(uplink storj.NodeID) func(node *SelectedNode) float64 {
 	return func(node *SelectedNode) float64 { return 0 }
 }
 
-var _ UploadSuccessTracker = NoopTracker{}
+var _ UploadSuccessTracker = NoopSuccessTracker{}
 
 // PlacementConfigEnvironment includes all generic functions and variables, which can be used in the configuration.
 type PlacementConfigEnvironment struct {
-	tracker UploadSuccessTracker
+	successTracker UploadSuccessTracker
+	failureTracker UploadFailureTracker
 }
 
 // NewPlacementConfigEnvironment creates PlacementConfigEnvironment.
-func NewPlacementConfigEnvironment(tracker UploadSuccessTracker) *PlacementConfigEnvironment {
-	if tracker == nil {
-		tracker = NoopTracker{}
+func NewPlacementConfigEnvironment(successTracker UploadSuccessTracker, failureTracker UploadFailureTracker) *PlacementConfigEnvironment {
+	if successTracker == nil {
+		successTracker = NoopSuccessTracker{}
+	}
+	if failureTracker == nil {
+		failureTracker = uploadFailureTrackerFunc(func(node *SelectedNode) float64 { return math.NaN() })
 	}
 	return &PlacementConfigEnvironment{
-		tracker: tracker,
+		successTracker: successTracker,
+		failureTracker: failureTracker,
 	}
 }
 
@@ -72,21 +88,33 @@ func (e *PlacementConfigEnvironment) apply(env map[any]any) {
 	if e == nil {
 		return
 	}
-	env["tracker"] = e.tracker
+	env["tracker"] = e.successTracker // backcompat
+	env["uploadSuccessTracker"] = e.successTracker
+	env["uploadFailureTracker"] = e.failureTracker
 }
 
 // LoadConfig loads the placement yaml file and creates the Placement definitions.
 func LoadConfig(configFile string, environment *PlacementConfigEnvironment) (PlacementDefinitions, error) {
+	data, err := os.ReadFile(configFile)
+	if err != nil {
+		return nil, errs.New("Couldn't read placement config file from %s: %v", configFile, err)
+	}
+	placements, err := LoadConfigFromString(string(data), environment)
+	if err != nil {
+		return nil, errs.New("Couldn't parse placement config file from %s: %v", configFile, err)
+	}
+	return placements, nil
+}
+
+// LoadConfigFromString loads the placement YAML from a string and creates the Placement definitions.
+func LoadConfigFromString(config string, environment *PlacementConfigEnvironment) (PlacementDefinitions, error) {
 	placements := make(PlacementDefinitions)
 
 	cfg := &placementConfig{}
-	raw, err := os.ReadFile(configFile)
+
+	err := yaml.Unmarshal([]byte(config), &cfg)
 	if err != nil {
-		return placements, errs.New("Couldn't load placement config from file %s: %v", configFile, err)
-	}
-	err = yaml.Unmarshal(raw, &cfg)
-	if err != nil {
-		return placements, errs.New("Couldn't parse placement config as YAML from file  %s: %v", configFile, err)
+		return placements, errs.New("Couldn't parse placement config as YAML: %v", err)
 	}
 
 	templates := map[string]string{}
@@ -114,7 +142,7 @@ func LoadConfig(configFile string, environment *PlacementConfigEnvironment) (Pla
 		}
 
 		filter := resolveTemplates(def.Filter)
-		p.NodeFilter, err = FilterFromString(filter)
+		p.NodeFilter, err = FilterFromString(filter, environment)
 		if err != nil {
 			return placements, errs.New("Filter definition '%s' of placement %d is invalid: %v", filter, def.ID, err)
 		}
@@ -210,14 +238,23 @@ var supportedFilters = map[any]any{
 	},
 	"nodelist": AllowedNodesFromFile,
 	"select":   NewAttributeFilter,
+
+	"successfulAtLeastPercent": func(tracker UploadFailureTracker, percent float64) (NodeFilter, error) {
+		return NodeFilterFunc(func(node *SelectedNode) bool {
+			current := tracker.Get(node)
+			return math.IsNaN(current) || percent <= current
+		}), nil
+	},
 }
 
 // FilterFromString parses complex node filter expressions from config lines.
-func FilterFromString(expr string) (NodeFilter, error) {
+func FilterFromString(expr string, environment *PlacementConfigEnvironment) (NodeFilter, error) {
 	if expr == "" {
 		expr = "all()"
 	}
-	filter, err := mito.Eval(expr, supportedFilters)
+	env := maps.Clone(supportedFilters)
+	environment.apply(env)
+	filter, err := mito.Eval(expr, env)
 	if err != nil {
 		return nil, errs.New("Invalid filter definition '%s', %v", expr, err)
 	}
@@ -290,6 +327,40 @@ func SelectorFromString(expr string, environment *PlacementConfigEnvironment) (N
 			}
 			return BalancedGroupBasedSelector(attr, filter), nil
 		},
+		"weighted": func(attribute string, defaultWeight float64, filter NodeFilter) (NodeSelectorInit, error) {
+			value, err := CreateNodeValue(attribute)
+			if err != nil {
+				return nil, err
+			}
+			return WeightedSelector(NodeValue(func(node SelectedNode) float64 {
+				nodeValue := value(node)
+				if nodeValue == 0 {
+					nodeValue = defaultWeight
+				} else if nodeValue <= 0 {
+					nodeValue = 0
+				}
+				return nodeValue
+			}), filter), nil
+		},
+		"weightedf": func(valueFunc NodeValue, filter NodeFilter) (NodeSelectorInit, error) {
+			return WeightedSelector(valueFunc, filter), nil
+		},
+		"weighted_with_adjustment": func(attribute string, defaultWeight, valueBallast, valuePower float64, filter NodeFilter) (NodeSelectorInit, error) {
+			value, err := CreateNodeValue(attribute)
+			if err != nil {
+				return nil, err
+			}
+			return WeightedSelector(NodeValue(func(node SelectedNode) float64 {
+				nodeValue := value(node)
+				if nodeValue == 0 {
+					nodeValue = defaultWeight
+				} else if nodeValue <= 0 {
+					nodeValue = 0
+				}
+				return math.Pow(nodeValue, valuePower) + valueBallast
+			}), filter), nil
+		},
+		"topology":   TopologySelector,
 		"filterbest": FilterBest,
 		"bestofn":    BestOfN,
 		"eq": func(a, b string) func(SelectedNode) bool {
@@ -316,8 +387,10 @@ func SelectorFromString(expr string, environment *PlacementConfigEnvironment) (N
 		"lastbut":            LastBut,
 		"median":             Median,
 		"piececount":         PieceCount,
-		"desc":               Desc,
-
+		// deprecated: use * -1 instead
+		"desc":           Desc,
+		"node_attribute": CreateNodeAttribute,
+		"node_value":     CreateNodeValue,
 		"maxgroup": func(attribute interface{}) ScoreSelection {
 			switch value := attribute.(type) {
 			case NodeAttribute:
@@ -333,6 +406,7 @@ func SelectorFromString(expr string, environment *PlacementConfigEnvironment) (N
 			}
 		},
 	}
+	env = addArithmetic(env)
 	for k, v := range supportedFilters {
 		env[k] = v
 	}

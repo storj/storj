@@ -6,7 +6,6 @@ package consoleapi_test
 import (
 	"bytes"
 	"context"
-	"database/sql"
 	"encoding/json"
 	"fmt"
 	"net/http"
@@ -582,26 +581,8 @@ func TestDeleteProject(t *testing.T) {
 		require.Empty(t, body)
 
 		project, err := sat.DB.Console().Projects().Get(ctx, p)
-		require.Error(t, err)
-		require.ErrorIs(t, err, sql.ErrNoRows)
-		require.Nil(t, project)
-
-		// free user can't delete project
-		user2, err := sat.DB.Console().Users().GetByEmail(ctx, planet.Uplinks[1].User[sat.ID()].Email)
 		require.NoError(t, err)
-
-		payload, err = json.Marshal(consoleapi.AccountActionData{Step: console.DeleteProjectInit})
-		require.NoError(t, err)
-
-		endpoint = fmt.Sprintf("projects/%s", p2.String())
-		body, status, err = doRequestWithAuth(ctx, t, sat, user2, http.MethodDelete, endpoint, bytes.NewBuffer(payload))
-		require.NoError(t, err)
-		require.Equal(t, http.StatusInternalServerError, status)
-		require.Contains(t, string(body), "You must upgrade")
-
-		project, err = sat.DB.Console().Projects().Get(ctx, p2)
-		require.NoError(t, err)
-		require.NotNil(t, project)
+		require.Equal(t, console.ProjectDisabled, *project.Status)
 	})
 }
 

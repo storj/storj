@@ -7,6 +7,7 @@ import (
 	"bytes"
 	"context"
 	"crypto/subtle"
+	"fmt"
 	"regexp"
 	"strconv"
 	"strings"
@@ -32,7 +33,12 @@ import (
 	"storj.io/storj/satellite/metabase"
 )
 
-const encryptedKeySize = 48
+const (
+	encryptedKeySize = 48
+
+	maxRetentionDays  = 36500
+	maxRetentionYears = 10
+)
 
 var (
 	ipRegexp           = regexp.MustCompile(`^(([0-9]|[1-9][0-9]|1[0-9]{2}|2[0-4][0-9]|25[0-5])\.){3}([0-9]|[1-9][0-9]|1[0-9]{2}|2[0-4][0-9]|25[0-5])$`)
@@ -62,6 +68,14 @@ func (endpoint *Endpoint) validateAuth(ctx context.Context, header *pb.RequestHe
 	key, keyInfo, err := endpoint.validateBasic(ctx, header, rateLimitKind)
 	if err != nil {
 		return nil, err
+	}
+
+	if endpoint.migrationModeFlag.Enabled() {
+		if _, found := endpoint.config.TestingSpannerProjects[keyInfo.ProjectID]; !found {
+			if !readAction(action) {
+				return nil, rpcstatus.Error(rpcstatus.ResourceExhausted, "try again later")
+			}
+		}
 	}
 
 	err = key.Check(ctx, keyInfo.Secret, keyInfo.Version, action, endpoint.revocations)
@@ -106,6 +120,16 @@ func (endpoint *Endpoint) ValidateAuthN(ctx context.Context, header *pb.RequestH
 		return nil, err
 	}
 
+	if endpoint.migrationModeFlag.Enabled() {
+		if _, found := endpoint.config.TestingSpannerProjects[keyInfo.ProjectID]; !found {
+			for _, p := range permissions {
+				if !readAction(p.Action) {
+					return nil, rpcstatus.Error(rpcstatus.ResourceExhausted, "try again later")
+				}
+			}
+		}
+	}
+
 	for _, p := range permissions {
 		err = key.Check(ctx, keyInfo.Secret, keyInfo.Version, p.Action, endpoint.revocations)
 		if p.ActionPermitted != nil {
@@ -118,6 +142,14 @@ func (endpoint *Endpoint) ValidateAuthN(ctx context.Context, header *pb.RequestH
 	}
 
 	return keyInfo, nil
+}
+
+func readAction(action macaroon.Action) bool {
+	switch action.Op {
+	case macaroon.ActionRead, macaroon.ActionList, macaroon.ActionGetObjectRetention, macaroon.ActionGetObjectLegalHold:
+		return true
+	}
+	return false
 }
 
 // ValidateAuthAny validates things like API keys, rate limit and user permissions.
@@ -146,6 +178,16 @@ func (endpoint *Endpoint) ValidateAuthAny(ctx context.Context, header *pb.Reques
 	key, keyInfo, err := endpoint.validateBasic(ctx, header, rateLimitKind)
 	if err != nil {
 		return nil, err
+	}
+
+	if endpoint.migrationModeFlag.Enabled() {
+		if _, found := endpoint.config.TestingSpannerProjects[keyInfo.ProjectID]; !found {
+			for _, p := range permissions {
+				if !readAction(p.Action) {
+					return nil, rpcstatus.Error(rpcstatus.ResourceExhausted, "try again later")
+				}
+			}
+		}
 	}
 
 	var combinedErrs error
@@ -188,18 +230,32 @@ func (endpoint *Endpoint) validateBasic(ctx context.Context, header *pb.RequestH
 	if keyInfo.UserAgent != nil {
 		userAgent = string(keyInfo.UserAgent)
 	}
-	ek.Event("auth",
+
+	// we add 3 tags now, 1 in a defer, and 4 tags in checkRate, so allocate space for
+	// 8 tags. the only downside to getting this number wrong is we do some unnecessary
+	// allocations.
+	authTags := make([]eventkit.Tag, 0, 8)
+	authTags = append(authTags,
 		eventkit.String("user-agent", userAgent),
-		eventkit.String("project", keyInfo.ProjectID.String()),
+		eventkit.String("project-public-id", keyInfo.ProjectPublicID.String()),
 		eventkit.String("partner", string(keyInfo.UserAgent)),
 	)
+	defer func() {
+		authTags = append(authTags,
+			// this might be OK but the overall rpc might still return some other
+			// code besides this one.
+			eventkit.String("basic-status", rpcstatus.Code(err).String()),
+		)
+
+		ek.Event("auth", authTags...)
+	}()
 
 	if err = endpoint.checkUserStatus(ctx, keyInfo); err != nil {
 		endpoint.log.Debug("user status check failed", zap.Error(err))
 		return nil, nil, err
 	}
 
-	if err = endpoint.checkRate(ctx, keyInfo, rateKind); err != nil {
+	if err = endpoint.checkRate(ctx, keyInfo, rateKind, &authTags); err != nil {
 		endpoint.log.Debug("rate check failed", zap.Error(err))
 		return nil, nil, err
 	}
@@ -237,7 +293,8 @@ func (endpoint *Endpoint) validateRevoke(ctx context.Context, header *pb.Request
 // If the project has an operation-specific rate limit for the operation in question, that is used
 // Otherwise, if the project has a basic "project-level" rate limit, that is used
 // Otherwise, the global rate limit configs on the satellite are used.
-func (endpoint *Endpoint) checkRate(ctx context.Context, apiKeyInfo *console.APIKeyInfo, rateKind console.LimitKind) (err error) {
+// If eventTags is not nil, project rate limit tags are added to the eventTag list.
+func (endpoint *Endpoint) checkRate(ctx context.Context, apiKeyInfo *console.APIKeyInfo, rateKind console.LimitKind, eventTags *[]eventkit.Tag) (err error) {
 	defer mon.Task()(&ctx)(&err)
 	if !endpoint.config.RateLimiter.Enabled {
 		return nil
@@ -277,7 +334,7 @@ func (endpoint *Endpoint) checkRate(ctx context.Context, apiKeyInfo *console.API
 		checkSetRate(apiKeyInfo.ProjectRateLimitHead, apiKeyInfo.ProjectBurstLimitHead, "-head")
 	case console.RateLimitGet:
 		checkSetRate(apiKeyInfo.ProjectRateLimitGet, apiKeyInfo.ProjectBurstLimitGet, "-get")
-	case console.RateLimitPut:
+	case console.RateLimitPut, console.RateLimitPutNoError:
 		checkSetRate(apiKeyInfo.ProjectRateLimitPut, apiKeyInfo.ProjectBurstLimitPut, "-put")
 	case console.RateLimitList:
 		checkSetRate(apiKeyInfo.ProjectRateLimitList, apiKeyInfo.ProjectBurstLimitList, "-list")
@@ -293,19 +350,26 @@ func (endpoint *Endpoint) checkRate(ctx context.Context, apiKeyInfo *console.API
 		return rpcstatus.Error(rpcstatus.Unavailable, err.Error())
 	}
 
-	if !limiter.Allow() {
+	if !limiter.AllowN(endpoint.rateLimiterTime(), 1) {
 		if limiter.Burst() == 0 && limiter.Limit() == 0 {
 			return rpcstatus.Error(rpcstatus.PermissionDenied, "All access disabled")
 		}
-		endpoint.log.Warn("too many requests for project",
-			zap.Stringer("Project Public ID", apiKeyInfo.ProjectPublicID),
-			zap.Float64("rate limit", float64(limiter.Limit())),
-			zap.Float64("burst limit", float64(limiter.Burst())),
-			zap.Int("rate limit kind", int(rateKind)))
+
+		if eventTags != nil {
+			*eventTags = append(*eventTags,
+				eventkit.Bool("project-limited", true),
+				eventkit.Float64("rate-limit", float64(limiter.Limit())),
+				eventkit.Float64("burst-limit", float64(limiter.Burst())),
+				eventkit.Int64("rate-limit-kind", int64(rateKind)),
+			)
+		}
 
 		mon.Event("metainfo_rate_limit_exceeded") //mon:locked
 
-		return rpcstatus.Error(rpcstatus.ResourceExhausted, "Too Many Requests")
+		if rateKind != console.RateLimitPutNoError {
+			return rpcstatus.Error(rpcstatus.ResourceExhausted, "Too Many Requests")
+		}
+		return nil
 	}
 
 	return nil
@@ -461,6 +525,96 @@ func protobufRetentionToMetabase(pbRetention *pb.Retention) metabase.Retention {
 		Mode:        storj.RetentionMode(pbRetention.Mode),
 		RetainUntil: pbRetention.RetainUntil,
 	}
+}
+
+// convertProtobufObjectLockConfig validates and converts *pb.ObjectLockConfiguration.
+func convertProtobufObjectLockConfig(config *pb.ObjectLockConfiguration) (updateParams buckets.UpdateBucketObjectLockParams, err error) {
+	if config == nil {
+		return buckets.UpdateBucketObjectLockParams{}, rpcstatus.Error(
+			rpcstatus.ObjectLockInvalidBucketRetentionConfiguration,
+			"Object Lock configuration is required",
+		)
+	}
+
+	if !config.Enabled {
+		return buckets.UpdateBucketObjectLockParams{}, rpcstatus.Error(
+			rpcstatus.ObjectLockInvalidBucketRetentionConfiguration,
+			"Object Lock can't be disabled",
+		)
+	}
+
+	updateParams.ObjectLockEnabled = true
+
+	if config.DefaultRetention == nil {
+		noRetention := storj.NoRetention
+		updateParams.DefaultRetentionMode = doublePtr(noRetention)
+		updateParams.DefaultRetentionDays = nilDoublePtr[int]()
+		updateParams.DefaultRetentionYears = nilDoublePtr[int]()
+	} else {
+		if config.DefaultRetention.Mode == pb.Retention_INVALID {
+			return buckets.UpdateBucketObjectLockParams{}, rpcstatus.Error(
+				rpcstatus.ObjectLockInvalidBucketRetentionConfiguration,
+				"Invalid retention mode",
+			)
+		}
+
+		mode := storj.RetentionMode(config.DefaultRetention.Mode)
+		updateParams.DefaultRetentionMode = doublePtr(mode)
+
+		switch duration := config.DefaultRetention.Duration.(type) {
+		case *pb.DefaultRetention_Days:
+			days := int(duration.Days)
+			switch {
+			case days <= 0:
+				return buckets.UpdateBucketObjectLockParams{}, rpcstatus.Error(
+					rpcstatus.ObjectLockInvalidBucketRetentionConfiguration,
+					"Days must be a positive integer",
+				)
+			case days > maxRetentionDays:
+				return buckets.UpdateBucketObjectLockParams{}, rpcstatus.Error(
+					rpcstatus.ObjectLockInvalidBucketRetentionConfiguration,
+					fmt.Sprintf("Days must not exceed %d", maxRetentionDays),
+				)
+			}
+			updateParams.DefaultRetentionDays = doublePtr(days)
+			updateParams.DefaultRetentionYears = nilDoublePtr[int]()
+		case *pb.DefaultRetention_Years:
+			years := int(duration.Years)
+			switch {
+			case years <= 0:
+				return buckets.UpdateBucketObjectLockParams{}, rpcstatus.Error(
+					rpcstatus.ObjectLockInvalidBucketRetentionConfiguration,
+					"Years must be a positive integer",
+				)
+			case years > maxRetentionYears:
+				return buckets.UpdateBucketObjectLockParams{}, rpcstatus.Error(
+					rpcstatus.ObjectLockInvalidBucketRetentionConfiguration,
+					fmt.Sprintf("Years must not exceed %d", maxRetentionYears),
+				)
+			}
+			updateParams.DefaultRetentionYears = doublePtr(years)
+			updateParams.DefaultRetentionDays = nilDoublePtr[int]()
+		default:
+			return buckets.UpdateBucketObjectLockParams{}, rpcstatus.Error(
+				rpcstatus.ObjectLockInvalidBucketRetentionConfiguration,
+				"Either days or years must be specified",
+			)
+		}
+	}
+
+	return updateParams, nil
+}
+
+// doublePtr returns a double pointer to the given value.
+func doublePtr[T any](value T) **T {
+	ptr := &value
+	return &ptr
+}
+
+// nilDoublePtr returns a double pointer to nil.
+func nilDoublePtr[T any]() **T {
+	var ptr *T
+	return &ptr
 }
 
 func isLowerLetter(r byte) bool {
@@ -665,7 +819,7 @@ func (endpoint *Endpoint) checkObjectUploadRate(ctx context.Context, projectID u
 	// if object location is in cache it means that we won't allow to upload yet here,
 	// if it's not or internally key expired we are good to go
 	key := strings.Join([]string{string(projectID[:]), string(bucketName), string(objectKey)}, "/")
-	_, _ = endpoint.singleObjectLimitCache.Get(ctx, key, func() (struct{}, error) {
+	_, _ = endpoint.singleObjectUploadLimitCache.Get(ctx, key, func() (struct{}, error) {
 		limited = false
 		return struct{}{}, nil
 	})

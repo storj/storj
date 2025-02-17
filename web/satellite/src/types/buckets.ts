@@ -4,6 +4,7 @@
 import { DEFAULT_PAGE_LIMIT } from '@/types/pagination';
 import { Placement } from '@/types/placements';
 import { Versioning } from '@/types/versioning';
+import { COMPLIANCE_LOCK, GOVERNANCE_LOCK, NO_MODE_SET, ObjLockMode } from '@/types/objectLock';
 
 /**
  * Exposes all bucket-related functionality.
@@ -41,12 +42,22 @@ export interface BucketsApi {
      * @throws Error
      */
     getAllBucketMetadata(projectId: string): Promise<BucketMetadata[]>
+
+    /**
+     * Fetch placement details
+     *
+     * @returns PlacementDetails[]
+     * @throws Error
+     */
+    getPlacementDetails(projectID: string): Promise<PlacementDetails[]>;
 }
 
 /**
  * Bucket class holds info for Bucket entity.
  */
 export class Bucket {
+    public defaultRetentionMode: ObjLockMode | typeof NO_MODE_SET = NO_MODE_SET;
+
     public constructor(
         public name: string = '',
         public versioning: Versioning = Versioning.NotSupported,
@@ -59,7 +70,14 @@ export class Bucket {
         public segmentCount: number = 0,
         public since: Date = new Date(),
         public before: Date = new Date(),
-    ) { }
+        public _defaultRetentionMode: number = 0,
+        public defaultRetentionDays: number | null = null,
+        public defaultRetentionYears: number | null = null,
+    ) {
+        if (this._defaultRetentionMode) {
+            this.defaultRetentionMode = this._defaultRetentionMode === 1 ? COMPLIANCE_LOCK : GOVERNANCE_LOCK;
+        }
+    }
 }
 
 /**
@@ -97,5 +115,15 @@ export class BucketMetadata {
         public versioning: Versioning = Versioning.NotSupported,
         public placement: Placement = new Placement(),
         public objectLockEnabled: boolean = false,
+    ) { }
+}
+
+export class PlacementDetails {
+    public constructor(
+        public id: string = '',
+        public idName: string = '',
+        public name: string = '',
+        public title: string = '',
+        public description: string = '',
     ) { }
 }

@@ -186,7 +186,7 @@ watch(innerContent, comp => {
         }
         try {
             hasLegalHold.value = await obStore.getObjectLegalHold(props.file);
-        } catch (_) {
+        } catch {
             /* empty */
         }
     });

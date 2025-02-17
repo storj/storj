@@ -39,6 +39,21 @@ type ListObjects struct {
 	AllVersions           bool
 	IncludeCustomMetadata bool
 	IncludeSystemMetadata bool
+
+	Unversioned bool
+	Params      ListObjectsParams
+}
+
+// ListObjectsParams contains flags for tuning the ListObjects query.
+type ListObjectsParams struct {
+	// VersionSkipRequery is a limit on how many versions to skip before requerying.
+	VersionSkipRequery int
+	// PrefixSkipRequery is a limit on how many same prefix to skip before requerying.
+	PrefixSkipRequery int
+	// QueryExtraForNonRecursive is how many extra entries to query for non-recursive.
+	QueryExtraForNonRecursive int
+	// MinBatchSize is the number of items to query at the same time.
+	MinBatchSize int
 }
 
 // Verify verifies get object request fields.
@@ -65,41 +80,47 @@ type ListObjectsResult struct {
 func (db *DB) ListObjects(ctx context.Context, opts ListObjects) (result ListObjectsResult, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	if db.config.UseListObjectsIterator {
-		return db.ListObjectsWithIterator(ctx, opts)
-	}
-
 	if err := opts.Verify(); err != nil {
 		return ListObjectsResult{}, err
 	}
 
 	ListLimit.Ensure(&opts.Limit)
 
+	ensureRange(&opts.Params.VersionSkipRequery, 1000, 1, 100000)
+	ensureRange(&opts.Params.PrefixSkipRequery, 1000, 1, 100000)
+	ensureRange(&opts.Params.MinBatchSize, 100, 1, 100000)
+	ensureRange(&opts.Params.QueryExtraForNonRecursive, 10, 1, 100000)
+
 	return db.ChooseAdapter(opts.ProjectID).ListObjects(ctx, opts)
 }
 
 // ListObjects lists objects.
 func (p *PostgresAdapter) ListObjects(ctx context.Context, opts ListObjects) (result ListObjectsResult, err error) {
-	// maxSkipVersionsUntilRequery is the limit on how many versions we query for a single object, until we requery.
-	const maxSkipVersionsUntilRequery = 100
-
-	// maxSkipPrefixUntilRequery is the limit on how many entries we scan inside a prefix, until we requery.
-	const maxSkipPrefixUntilRequery = 10
-
-	// minQuerySize ensures that we list a more entries, as there's a significant overhead to a single query.
-	const minQuerySize = 100
+	params := opts.Params
 
 	// requeryLimit is a safety net for invalid implementation.
 	requeryLimit := opts.Limit + 10 // we do some extra queries, but, roughly at most we should have one query per entry
 
-	// extraSkipEntries to avoid requerying in the common case of !AllVersions.
-	const extraSkipEntries = 10
 	// extraEntriesForMore is the additional entry we need for determining whether there are more entries.
 	const extraEntriesForMore = 1
-	batchSize := opts.Limit + extraEntriesForMore + extraSkipEntries
 
-	if batchSize < minQuerySize {
-		batchSize = minQuerySize
+	batchSize := opts.Limit + extraEntriesForMore
+
+	// extraEntriesForIsLatest is used for skipping over object versions that are before the cursor.
+	// To determine IsLatest status, we need to scan from the lowest version of the object, hence we end up
+	// with versions that happen to be before the cursor. To avoid a second query we'll query a few more as a guess.
+	const extraEntriesForIsLatest = 3
+	if opts.Cursor != (ListObjectsCursor{}) {
+		batchSize += extraEntriesForIsLatest
+	}
+
+	// For non-recursive queries, we'll probably need to skip over some things inside a prefix.
+	if !opts.Recursive {
+		batchSize += params.QueryExtraForNonRecursive
+	}
+
+	if batchSize < params.MinBatchSize {
+		batchSize = params.MinBatchSize
 	}
 
 	// lastEntry is used to keep track of the last entry put into the result.
@@ -133,7 +154,7 @@ func (p *PostgresAdapter) ListObjects(ctx context.Context, opts ListObjects) (re
 
 		var objectKey = `object_key`
 		if opts.Prefix != "" {
-			objectKey = `substring(object_key from $7) AS object_key`
+			objectKey = `substring(object_key from $7) AS object_key_suffix`
 		}
 
 		var statusCondition = `status != ` + statusPending
@@ -171,21 +192,25 @@ func (p *PostgresAdapter) ListObjects(ctx context.Context, opts ListObjects) (re
 			}
 			scannedCount++
 
-			// skip a duplicate prefix entry, which only happens with opts.Recursive
-			// TODO: does this need opts.AllVersions
-			skipPrefix := lastEntry.Set && opts.AllVersions && lastEntry.IsPrefix && entry.IsPrefix && lastEntry.ObjectKey == entry.ObjectKey
+			// skip a duplicate prefix entry, which only happens with !opts.Recursive
+			skipPrefix := lastEntry.Set && lastEntry.IsPrefix && entry.IsPrefix && lastEntry.ObjectKey == entry.ObjectKey
 			// skip duplicate object key with other versions, when !opts.AllVersions
-			skipVersion := lastEntry.Set && !opts.AllVersions && lastEntry.IsPrefix == entry.IsPrefix && lastEntry.ObjectKey == entry.ObjectKey
+			sameEntry := lastEntry.IsPrefix == entry.IsPrefix && lastEntry.ObjectKey == entry.ObjectKey
+			skipVersion := lastEntry.Set && !opts.AllVersions && sameEntry
 
 			// we'll need to ensure that when we are iterating only latest objects that we don't
 			// emit an object entry when we start iterating from half-way in versions.
 			var skipCursorAllVersionsDoubleCheck bool
-			if !opts.AllVersions && entryKeyMatchesCursor(opts.Prefix, entry.ObjectKey, opts.Cursor.Key) {
+			if entryKeyMatchesCursor(opts.Prefix, entry.ObjectKey, opts.Cursor.Key) {
 				if opts.VersionAscending() {
 					skipCursorAllVersionsDoubleCheck = entry.Version <= opts.Cursor.Version
 				} else {
 					skipCursorAllVersionsDoubleCheck = entry.Version >= opts.Cursor.Version
 				}
+			}
+
+			if !opts.Pending && !entry.IsPrefix {
+				entry.IsLatest = !sameEntry || !lastEntry.Set
 			}
 
 			lastEntry.Set = true
@@ -201,7 +226,7 @@ func (p *PostgresAdapter) ListObjects(ctx context.Context, opts ListObjects) (re
 					skipCount.Version++
 				}
 
-				if skipCount.Prefix >= maxSkipPrefixUntilRequery || skipCount.Version >= maxSkipVersionsUntilRequery {
+				if skipCount.Prefix >= params.PrefixSkipRequery || skipCount.Version >= params.VersionSkipRequery {
 					skipAhead = true
 					skipCount = skipCounter{}
 					// we landed inside a large number of repeated items,
@@ -265,28 +290,33 @@ func (p *PostgresAdapter) ListObjects(ctx context.Context, opts ListObjects) (re
 // ListObjects lists objects.
 func (s *SpannerAdapter) ListObjects(ctx context.Context, opts ListObjects) (result ListObjectsResult, err error) {
 	// TODO(spanner): retune all of these for Spanner. Also, can we use a smarter query now
-	// using some feature that wasn't in Cockroach? (e.g. windowed queries).
+	// using some feature such as windowed queries to avoid requeries.
 
-	// maxSkipVersionsUntilRequery is the limit on how many versions we query for a single object, until we requery.
-	const maxSkipVersionsUntilRequery = 100
-
-	// maxSkipPrefixUntilRequery is the limit on how many entries we scan inside a prefix, until we requery.
-	const maxSkipPrefixUntilRequery = 10
-
-	// minQuerySize ensures that we list a more entries, as there's a significant overhead to a single query.
-	const minQuerySize = 100
+	params := opts.Params
 
 	// requeryLimit is a safety net for invalid implementation.
 	requeryLimit := opts.Limit + 10 // we do some extra queries, but, roughly at most we should have one query per entry
 
-	// extraSkipEntries to avoid requerying in the common case of !AllVersions.
-	const extraSkipEntries = 10
 	// extraEntriesForMore is the additional entry we need for determining whether there are more entries.
 	const extraEntriesForMore = 1
-	batchSize := opts.Limit + extraEntriesForMore + extraSkipEntries
 
-	if batchSize < minQuerySize {
-		batchSize = minQuerySize
+	batchSize := opts.Limit + extraEntriesForMore
+
+	// extraEntriesForIsLatest is used for skipping over object versions that are before the cursor.
+	// To determine IsLatest status, we need to scan from the lowest version of the object, hence we end up
+	// with versions that happen to be before the cursor. To avoid a second query we'll query a few more as a guess.
+	const extraEntriesForIsLatest = 3
+	if opts.Cursor != (ListObjectsCursor{}) {
+		batchSize += extraEntriesForIsLatest
+	}
+
+	// For non-recursive queries, we'll probably need to skip over some things inside a prefix.
+	if !opts.Recursive {
+		batchSize += params.QueryExtraForNonRecursive
+	}
+
+	if batchSize < params.MinBatchSize {
+		batchSize = params.MinBatchSize
 	}
 
 	// lastEntry is used to keep track of the last entry put into the result.
@@ -324,7 +354,7 @@ func (s *SpannerAdapter) ListObjects(ctx context.Context, opts ListObjects) (res
 
 		var objectKey = `object_key`
 		if opts.Prefix != "" {
-			objectKey = `substr(object_key, @prefix_len) AS object_key`
+			objectKey = `substr(object_key, @prefix_len) AS object_key_suffix`
 		}
 
 		var statusCondition = `status != ` + statusPending
@@ -352,18 +382,16 @@ func (s *SpannerAdapter) ListObjects(ctx context.Context, opts ListObjects) (res
 
 		scannedCount := 0
 		skipAhead := false
-		done := false
+		foundLastItem := false
 
 		err := func() error {
 			rowIterator := s.client.Single().Query(ctx, stmt)
 			defer rowIterator.Stop()
 
-		readEntries:
 			for {
 				row, err := rowIterator.Next()
 				if err != nil {
 					if errors.Is(err, iterator.Done) {
-						done = true
 						return nil
 					}
 					return Error.Wrap(err)
@@ -375,21 +403,25 @@ func (s *SpannerAdapter) ListObjects(ctx context.Context, opts ListObjects) (res
 				}
 				scannedCount++
 
-				// skip a duplicate prefix entry, which only happens with opts.Recursive
-				// TODO: does this need opts.AllVersions
-				skipPrefix := lastEntry.Set && opts.AllVersions && lastEntry.IsPrefix && entry.IsPrefix && lastEntry.ObjectKey == entry.ObjectKey
+				// skip a duplicate prefix entry, which only happens with !opts.Recursive
+				skipPrefix := lastEntry.Set && lastEntry.IsPrefix && entry.IsPrefix && lastEntry.ObjectKey == entry.ObjectKey
 				// skip duplicate object key with other versions, when !opts.AllVersions
-				skipVersion := lastEntry.Set && !opts.AllVersions && lastEntry.IsPrefix == entry.IsPrefix && lastEntry.ObjectKey == entry.ObjectKey
+				sameEntry := lastEntry.IsPrefix == entry.IsPrefix && lastEntry.ObjectKey == entry.ObjectKey
+				skipVersion := lastEntry.Set && !opts.AllVersions && sameEntry
 
 				// we'll need to ensure that when we are iterating only latest objects that we don't
 				// emit an object entry when we start iterating from half-way in versions.
 				var skipCursorAllVersionsDoubleCheck bool
-				if !opts.AllVersions && entryKeyMatchesCursor(opts.Prefix, entry.ObjectKey, opts.Cursor.Key) {
+				if entryKeyMatchesCursor(opts.Prefix, entry.ObjectKey, opts.Cursor.Key) {
 					if opts.VersionAscending() {
 						skipCursorAllVersionsDoubleCheck = entry.Version <= opts.Cursor.Version
 					} else {
 						skipCursorAllVersionsDoubleCheck = entry.Version >= opts.Cursor.Version
 					}
+				}
+
+				if !opts.Pending && !entry.IsPrefix {
+					entry.IsLatest = !sameEntry || !lastEntry.Set
 				}
 
 				lastEntry.Set = true
@@ -405,12 +437,12 @@ func (s *SpannerAdapter) ListObjects(ctx context.Context, opts ListObjects) (res
 						skipCount.Version++
 					}
 
-					if skipCount.Prefix >= maxSkipPrefixUntilRequery || skipCount.Version >= maxSkipVersionsUntilRequery {
+					if skipCount.Prefix >= params.PrefixSkipRequery || skipCount.Version >= params.VersionSkipRequery {
 						skipAhead = true
 						skipCount = skipCounter{}
 						// we landed inside a large number of repeated items,
 						// either prefixes or versions, let's requery and skip
-						break readEntries
+						return nil
 					}
 
 					continue
@@ -428,16 +460,15 @@ func (s *SpannerAdapter) ListObjects(ctx context.Context, opts ListObjects) (res
 				if len(result.Objects) >= opts.Limit+1 {
 					result.More = true
 					result.Objects = result.Objects[:opts.Limit]
-					done = true
+					foundLastItem = true
 					return nil
 				}
 			}
-			return nil
 		}()
 		if err != nil {
 			return result, Error.Wrap(err)
 		}
-		if done {
+		if foundLastItem {
 			return result, nil
 		}
 
@@ -556,7 +587,7 @@ func (opts *ListObjects) lastVersion() Version {
 
 // VersionAscending returns whether the versions in the result are in ascending order.
 func (opts *ListObjects) VersionAscending() bool {
-	return opts.Pending
+	return opts.Pending || opts.Unversioned
 }
 
 func (opts *ListObjects) orderBy() string {
@@ -605,14 +636,9 @@ func (opts *ListObjects) StartCursor() ListObjectsCursor {
 		// Otherwise, we must be after the prefix, and let's leave the cursor as is.
 		// We could also entirely skip the query to the database.
 
-		if !opts.AllVersions {
-			// We'll do the same behavior of double checking the "versions",
-			// however, since the cursor is past prefix, we can entirely skip
-			// this logic.
-			return ListObjectsCursor{Key: opts.Cursor.Key, Version: opts.FirstVersion()}
-		}
-
-		return opts.Cursor
+		// We need to start from the latest version, so we can set the "Latest bool" correctly.
+		// produced, because we may need to skip it.
+		return ListObjectsCursor{Key: opts.Cursor.Key, Version: opts.FirstVersion()}
 	}
 
 	keyWithoutPrefix := opts.Cursor.Key[len(opts.Prefix):]
@@ -628,13 +654,9 @@ func (opts *ListObjects) StartCursor() ListObjectsCursor {
 		}
 	}
 
-	if !opts.AllVersions {
-		// We need to double check whether the latest entry has been already
-		// produced, because we may need to skip it.
-		return ListObjectsCursor{Key: opts.Cursor.Key, Version: opts.FirstVersion()}
-	}
-
-	return opts.Cursor
+	// We need to start from the latest version, so we can set the "Latest bool" correctly.
+	// produced, because we may need to skip it.
+	return ListObjectsCursor{Key: opts.Cursor.Key, Version: opts.FirstVersion()}
 }
 
 func scanListObjectsEntryPostgres(rows tagsql.Rows, opts *ListObjects) (item ObjectEntry, err error) {

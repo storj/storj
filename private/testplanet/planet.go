@@ -67,8 +67,8 @@ type Config struct {
 
 	applicationName string
 
-	// EnableSpanner is a flag used to tell tests to run on the Spanner database.
-	EnableSpanner bool
+	// SkipSpanner is a flag used to tell tests to skip Spanner tests.
+	SkipSpanner bool
 }
 
 // DatabaseConfig defines connection strings for database.

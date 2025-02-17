@@ -47,7 +47,7 @@ func TestBasicMigrationSqlite(t *testing.T) {
 
 func TestBasicMigration(t *testing.T) {
 	dbtest.Run(t, func(ctx *testcontext.Context, t *testing.T, connstr string) {
-		db, err := tempdb.OpenUnique(ctx, connstr, "create-")
+		db, err := tempdb.OpenUnique(ctx, connstr, "create-", nil)
 		if err != nil {
 			t.Fatal(err)
 		}

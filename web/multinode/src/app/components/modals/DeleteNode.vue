@@ -13,7 +13,7 @@
             </div>
             <div slot="footer" class="delete-node__footer">
                 <v-button label="Cancel" :is-white="true" width="205px" :on-press="closeModal" />
-                <v-button label="Delete" width="205px" :on-press="onDelete" />
+                <v-button label="Delete" :is-deletion="true" width="205px" :on-press="onDelete" />
             </div>
         </v-modal>
     </div>
@@ -82,10 +82,10 @@ export default class AddNewNode extends Vue {
             text-align: left;
             font-family: 'font_medium', sans-serif;
             font-size: 14px;
-            color: var(--c-title);
+            color: var(--v-header-base);
 
             &:hover {
-                background: var(--c-background);
+                background: var(--v-active-base);
             }
         }
 
@@ -98,8 +98,8 @@ export default class AddNewNode extends Vue {
                 padding: 10px 12px;
                 font-family: 'font_regular', sans-serif;
                 font-size: 14px;
-                color: var(--c-title);
-                background: var(--c-background);
+                color: var(--v-header-base);
+                background: var(--v-active-base);
                 border-radius: 32px;
             }
         }

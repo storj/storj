@@ -2,16 +2,32 @@
 // See LICENSE for copying information.
 
 <template>
-    <v-card title="Credit Card" variant="flat">
+    <v-card title="Card" class="pa-2">
         <v-card-text>
-            <v-chip color="default" size="small" variant="tonal" class="font-weight-bold mr-2 text-capitalize">{{ card.brand }}</v-chip>
-            <v-chip v-if="card.isDefault" color="info" size="small" variant="tonal" class="font-weight-bold">Default</v-chip>
-            <v-divider class="my-4" />
+            <v-chip color="primary" size="small" variant="tonal" class="font-weight-bold mr-2 text-capitalize">{{ card.brand }}</v-chip>
+            <v-chip v-if="card.isDefault" color="default" size="small" variant="tonal" class="font-weight-bold">Default</v-chip>
+            <v-divider class="my-6 border-0" />
             <p>Card Number</p>
             <v-chip color="default" variant="text" class="pl-0 font-weight-bold mt-2">**** **** **** {{ card.last4 }}</v-chip>
-            <v-divider class="my-4" />
+            <v-divider class="my-6 border-0" />
             <p>Exp. Date</p>
-            <v-chip :color="card.isExpired ? 'error' : 'default'" variant="text" class="pl-0 font-weight-bold mt-2">
+            <v-col v-if="isEditing" class="pl-0 pb-0">
+                <div class="d-flex justify-start align-end">
+                    <v-number-input
+                        v-model="expMonth" class="mr-1"
+                        density="compact" variant="outlined"
+                        :min="1" :max="12" :disabled="isLoading"
+                        max-width="50" hide-details
+                    />
+                    <v-number-input
+                        v-model="expYear" density="compact"
+                        :min="currentYear" :disabled="isLoading"
+                        variant="outlined" max-width="75"
+                        hide-details
+                    />
+                </div>
+            </v-col>
+            <v-chip v-else :color="card.isExpired ? 'error' : 'default'" variant="text" class="pl-0 font-weight-bold mt-2">
                 <v-row>
                     <v-col cols="12" class="d-flex justify-start align-center pt-2">
                         {{ card.expMonth }}/{{ card.expYear }}
@@ -19,30 +35,98 @@
                     </v-col>
                 </v-row>
             </v-chip>
-            <v-divider class="my-4" />
+            <v-divider class="my-6 border-0" />
             <v-row class="ma-0 align-center">
-                <v-btn variant="outlined" color="default" size="small" class="mr-2" @click="isEditDefaultCCDialog = true">Edit Default</v-btn>
-                <v-btn variant="outlined" color="default" size="small" @click="isRemoveCCDialog = true">Remove</v-btn>
+                <template v-if="!isEditing">
+                    <v-btn variant="outlined" color="default" class="mr-2" @click="isEditing = true">Edit Card</v-btn>
+                    <v-btn variant="outlined" color="default" class="mr-2" @click="isEditDefaultCCDialog = true">Edit Default</v-btn>
+                    <v-btn variant="outlined" color="default" @click="isRemoveCCDialog = true">Remove</v-btn>
+                </template>
+                <template v-else class="ma-0 align-center">
+                    <v-btn variant="outlined" color="primary" class="mr-2" :loading="isLoading" :disabled="savingDisabled" @click="saveCard">Save</v-btn>
+                    <v-btn variant="outlined" color="default" :disabled="isLoading" @click="isEditing = false">Cancel</v-btn>
+                </template>
             </v-row>
         </v-card-text>
     </v-card>
-    <remove-credit-card-dialog v-model="isRemoveCCDialog" :card="card" @editDefault="isEditDefaultCCDialog = true" />
+    <remove-credit-card-dialog v-model="isRemoveCCDialog" :card="card" @edit-default="isEditDefaultCCDialog = true" />
     <edit-default-credit-card-dialog v-model="isEditDefaultCCDialog" />
 </template>
 
 <script setup lang="ts">
-import { ref } from 'vue';
-import { VBtn, VCard, VCardText, VChip, VDivider, VRow, VCol } from 'vuetify/components';
+import { computed, ref } from 'vue';
+import { VNumberInput } from 'vuetify/labs/components';
+import { VBtn, VCard, VCardText, VChip, VCol, VDivider, VRow } from 'vuetify/components';
 
 import { CreditCard } from '@/types/payments';
+import { useLoading } from '@/composables/useLoading';
+import { useBillingStore } from '@/store/modules/billingStore';
+import { useNotify } from '@/utils/hooks';
+import { AnalyticsErrorEventSource } from '@/utils/constants/analyticsEventNames';
+import { useUsersStore } from '@/store/modules/usersStore';
 
 import RemoveCreditCardDialog from '@/components/dialogs/RemoveCreditCardDialog.vue';
 import EditDefaultCreditCardDialog from '@/components/dialogs/EditDefaultCreditCardDialog.vue';
 
-defineProps<{
+const billingStore = useBillingStore();
+const notify = useNotify();
+const usersStore = useUsersStore();
+const { withLoading, isLoading } = useLoading();
+
+const props = defineProps<{
     card: CreditCard,
 }>();
 
+const currentYear = new Date().getFullYear();
+
 const isRemoveCCDialog = ref<boolean>(false);
 const isEditDefaultCCDialog = ref<boolean>(false);
+const isEditing = ref(false);
+const expMonth = ref<number>(props.card.expMonth);
+const expYear = ref<number>(props.card.expYear);
+
+const savingDisabled = computed(() => {
+    return expMonth.value === props.card.expMonth && expYear.value === props.card.expYear;
+});
+
+async function saveCard() {
+    await withLoading(async () => {
+        try {
+            await billingStore.updateCreditCard({
+                cardID: props.card.id,
+                expMonth: expMonth.value,
+                expYear: expYear.value,
+            });
+            await billingStore.getCreditCards();
+        } catch (error) {
+            notify.notifyError(error, AnalyticsErrorEventSource.BILLING_PAYMENT_METHODS_TAB);
+            return;
+        }
+
+        isEditing.value = false;
+        attemptPayments();
+        notify.success('Default credit card was successfully edited');
+    });
+}
+
+async function attemptPayments() {
+    const frozenOrWarned = usersStore.state.user.freezeStatus?.frozen ||
+      usersStore.state.user.freezeStatus?.trialExpiredFrozen ||
+      usersStore.state.user.freezeStatus?.warned;
+    if (!frozenOrWarned) {
+        return;
+    }
+    try {
+        await billingStore.attemptPayments();
+        await usersStore.getUser();
+    } catch (error) {
+        notify.notifyError(error, AnalyticsErrorEventSource.BILLING_PAYMENT_METHODS_TAB);
+    }
+}
 </script>
+
+<style lang="scss" scoped>
+:deep(div.v-field__append-inner) {
+    display: none;
+}
+</style>

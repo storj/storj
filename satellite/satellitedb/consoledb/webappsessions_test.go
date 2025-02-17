@@ -39,7 +39,7 @@ func TestWebappSessionsCreate(t *testing.T) {
 
 		_, err = sessions.Create(ctx, id, userID, address, userAgent, expiresAt)
 		require.Error(t, err)
-	}, satellitedbtest.WithSpanner())
+	})
 }
 
 func TestWebappSessionsGetBySessionID(t *testing.T) {
@@ -69,7 +69,7 @@ func TestWebappSessionsGetBySessionID(t *testing.T) {
 		require.Equal(t, address, session.Address)
 		require.Equal(t, userAgent, session.UserAgent)
 		require.WithinDuration(t, expiresAt, session.ExpiresAt, 0)
-	}, satellitedbtest.WithSpanner())
+	})
 }
 
 func TestWebappSessionsGetAllByUserID(t *testing.T) {
@@ -121,7 +121,7 @@ func TestWebappSessionsGetAllByUserID(t *testing.T) {
 		require.Equal(t, address, allSessions[1].Address)
 		require.Equal(t, userAgent, allSessions[1].UserAgent)
 		require.WithinDuration(t, expiresAt, allSessions[1].ExpiresAt, 0)
-	}, satellitedbtest.WithSpanner())
+	})
 }
 
 func TestWebappSessionsDeleteBySessionID(t *testing.T) {
@@ -149,7 +149,7 @@ func TestWebappSessionsDeleteBySessionID(t *testing.T) {
 
 		_, err = sessions.GetBySessionID(ctx, session2.ID)
 		require.NoError(t, err)
-	}, satellitedbtest.WithSpanner())
+	})
 }
 
 func TestWebappSessionsDeleteAllByUserID(t *testing.T) {
@@ -208,7 +208,7 @@ func TestWebappSessionsDeleteAllByUserID(t *testing.T) {
 		require.NoError(t, err)
 		require.Len(t, allSessions, 1)
 		require.Equal(t, excluded, allSessions[0].ID)
-	}, satellitedbtest.WithSpanner())
+	})
 }
 
 func TestDeleteExpired(t *testing.T) {
@@ -231,7 +231,7 @@ func TestDeleteExpired(t *testing.T) {
 		require.ErrorIs(t, err, sql.ErrNoRows)
 		_, err = sessionsDB.GetBySessionID(ctx, newSession.ID)
 		require.NoError(t, err)
-	}, satellitedbtest.WithSpanner())
+	})
 }
 
 func TestGetActivePagedByUserID(t *testing.T) {
@@ -312,5 +312,5 @@ func TestGetActivePagedByUserID(t *testing.T) {
 		})
 		require.NoError(t, err)
 		require.Len(t, page.Sessions, 0)
-	}, satellitedbtest.WithSpanner())
+	})
 }

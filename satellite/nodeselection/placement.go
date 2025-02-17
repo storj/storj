@@ -131,9 +131,7 @@ func (c *ConfigurablePlacementRule) Type() string {
 // defaultPlacement is used to create the placement if no placement has been set.
 func (c ConfigurablePlacementRule) Parse(defaultPlacement func() (Placement, error), environment *PlacementConfigEnvironment) (PlacementDefinitions, error) {
 	if environment == nil {
-		environment = &PlacementConfigEnvironment{
-			tracker: NoopTracker{},
-		}
+		environment = NewPlacementConfigEnvironment(nil, nil)
 	}
 	if c.PlacementRules == "" {
 		dp, err := defaultPlacement()
@@ -367,6 +365,7 @@ func (d PlacementDefinitions) AddPlacementFromString(definitions string) error {
 		}
 
 		placement.Name = GetAnnotation(placement.NodeFilter, Location)
+		placement.ID = storj.PlacementConstraint(id)
 
 		d[storj.PlacementConstraint(id)] = placement
 	}

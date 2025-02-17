@@ -11,14 +11,20 @@ import (
 	"storj.io/common/storj"
 )
 
+// Writer is just enough methods to update used bandwidth.
+type Writer interface {
+	Add(ctx context.Context, satelliteID storj.NodeID, action pb.PieceAction, amount int64, created time.Time) error
+	AddBatch(ctx context.Context, usages map[CacheKey]*Usage) (err error)
+}
+
 // DB contains information about bandwidth usage.
 //
 // architecture: Database
 type DB interface {
-	Add(ctx context.Context, satelliteID storj.NodeID, action pb.PieceAction, amount int64, created time.Time) error
+	Writer
 	// MonthSummary returns summary of the current months bandwidth usages.
 	MonthSummary(ctx context.Context, now time.Time) (int64, error)
-	AddBatch(ctx context.Context, usages map[CacheKey]*Usage) (err error)
+
 	// Summary returns summary of bandwidth usages.
 	Summary(ctx context.Context, from, to time.Time) (*Usage, error)
 	// EgressSummary returns summary of egress bandwidth usages.

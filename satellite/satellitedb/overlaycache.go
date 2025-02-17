@@ -12,6 +12,8 @@ import (
 	"strings"
 	"time"
 
+	"cloud.google.com/go/spanner"
+	"github.com/jackc/pgx/v5"
 	"github.com/spacemonkeygo/monkit/v3"
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
@@ -23,8 +25,10 @@ import (
 	"storj.io/storj/satellite/overlay"
 	"storj.io/storj/satellite/satellitedb/dbx"
 	"storj.io/storj/shared/dbutil"
-	"storj.io/storj/shared/dbutil/cockroachutil"
 	"storj.io/storj/shared/dbutil/pgutil"
+	"storj.io/storj/shared/dbutil/pgxutil"
+	"storj.io/storj/shared/dbutil/retrydb"
+	"storj.io/storj/shared/dbutil/spannerutil"
 	"storj.io/storj/shared/dbutil/txutil"
 	"storj.io/storj/shared/location"
 	"storj.io/storj/shared/tagsql"
@@ -45,7 +49,7 @@ func (cache *overlaycache) SelectAllStorageNodesUpload(ctx context.Context, sele
 	for {
 		reputable, new, err = cache.selectAllStorageNodesUpload(ctx, selectionCfg)
 		if err != nil {
-			if cockroachutil.NeedsRetry(err) {
+			if retrydb.ShouldRetryIdempotent(err) {
 				continue
 			}
 			return reputable, new, err
@@ -102,7 +106,6 @@ func (cache *overlaycache) selectAllStorageNodesUpload(ctx context.Context, sele
 		query := `
 			SELECT id, address, email, wallet, last_net, last_ip_port, vetted_at, country_code, noise_proto, noise_public_key, debounce_limit, features, country_code, piece_count, free_disk
 			FROM nodes
-			` + cache.db.impl.AsOfSystemInterval(selectionCfg.AsOfSystemTime.Interval()) + `
 			WHERE disqualified IS NULL
 				AND unknown_audit_suspended IS NULL
 				AND offline_suspended IS NULL
@@ -178,7 +181,7 @@ func (cache *overlaycache) SelectAllStorageNodesDownload(ctx context.Context, on
 		nodes, err = cache.selectAllStorageNodesDownload(ctx, onlineWindow, asOf)
 		if err != nil {
 
-			if cockroachutil.NeedsRetry(err) {
+			if retrydb.ShouldRetryIdempotent(err) {
 				continue
 			}
 			return nodes, err
@@ -263,103 +266,6 @@ func (cache *overlaycache) selectAllStorageNodesDownload(ctx context.Context, on
 	return nodes, Error.Wrap(rows.Err())
 }
 
-// GetNodesNetwork returns the /24 subnet for each storage node. Order is not guaranteed.
-// If a requested node is not in the database, no corresponding last_net will be returned
-// for that node.
-func (cache *overlaycache) GetNodesNetwork(ctx context.Context, nodeIDs []storj.NodeID) (nodeNets []string, err error) {
-	var query string
-
-	switch cache.db.impl {
-	case dbutil.Cockroach, dbutil.Postgres:
-		query = `SELECT last_net FROM nodes WHERE id = any($1::bytea[])`
-	case dbutil.Spanner:
-		query = `SELECT last_net FROM nodes WHERE id IN UNNEST(?)`
-	default:
-		return nil, Error.New("unsupported implementation")
-	}
-
-	for {
-		nodeNets, err = cache.getNodesNetwork(ctx, nodeIDs, query)
-		if err != nil {
-			if cockroachutil.NeedsRetry(err) {
-				continue
-			}
-			return nodeNets, err
-		}
-		break
-	}
-
-	return nodeNets, err
-}
-
-// GetNodesNetworkInOrder returns the /24 subnet for each storage node, in order. If a
-// requested node is not in the database, an empty string will be returned corresponding
-// to that node's last_net.
-func (cache *overlaycache) GetNodesNetworkInOrder(ctx context.Context, nodeIDs []storj.NodeID) (nodeNets []string, err error) {
-	switch cache.db.impl {
-	case dbutil.Cockroach, dbutil.Postgres:
-		query := `
-			SELECT coalesce(n.last_net, '')
-			FROM unnest($1::bytea[]) WITH ORDINALITY AS input(node_id, ord)
-				LEFT OUTER JOIN nodes n ON input.node_id = n.id
-			ORDER BY input.ord
-		`
-		for {
-			nodeNets, err = cache.getNodesNetwork(ctx, nodeIDs, query)
-			if err != nil {
-				if cockroachutil.NeedsRetry(err) {
-					continue
-				}
-				return nodeNets, err
-			}
-			break
-		}
-		return nodeNets, err
-	case dbutil.Spanner:
-		query := `
-			SELECT coalesce(n.last_net, '')
-			FROM (SELECT node_id , ord AS ord   FROM unnest(?) AS node_id WITH OFFSET AS ord) input
-				LEFT OUTER JOIN nodes n ON input.node_id = n.id
-			ORDER BY input.ord
-		`
-		nodeNets, err = cache.getNodesNetwork(ctx, nodeIDs, query)
-		if err != nil {
-			return nodeNets, err
-		}
-		return nodeNets, err
-	default:
-		return nil, Error.New("unsupported database: %v", cache.db.impl)
-	}
-}
-
-func (cache *overlaycache) getNodesNetwork(ctx context.Context, nodeIDs []storj.NodeID, query string) (nodeNets []string, err error) {
-	defer mon.Task()(&ctx)(&err)
-
-	var rows tagsql.Rows
-	switch cache.db.impl {
-	case dbutil.Cockroach, dbutil.Postgres:
-		rows, err = cache.db.Query(ctx, cache.db.Rebind(query), pgutil.NodeIDArray(nodeIDs))
-	case dbutil.Spanner:
-		rows, err = cache.db.Query(ctx, cache.db.Rebind(query), storj.NodeIDList(nodeIDs).Bytes())
-	default:
-		return nil, Error.New("unsupported implementation")
-	}
-	if err != nil {
-		return nil, err
-	}
-	defer func() { err = errs.Combine(err, rows.Close()) }()
-
-	for rows.Next() {
-		var ip string
-		err = rows.Scan(&ip)
-		if err != nil {
-			return nil, err
-		}
-		nodeNets = append(nodeNets, ip)
-	}
-	return nodeNets, Error.Wrap(rows.Err())
-}
-
 // Get looks up the node by nodeID.
 func (cache *overlaycache) Get(ctx context.Context, id storj.NodeID) (dossier *overlay.NodeDossier, err error) {
 	defer mon.Task()(&ctx)(&err)
@@ -384,7 +290,7 @@ func (cache *overlaycache) GetOnlineNodesForAuditRepair(ctx context.Context, nod
 	for {
 		nodes, err = cache.getOnlineNodesForAuditRepair(ctx, nodeIDs, onlineWindow)
 		if err != nil {
-			if cockroachutil.NeedsRetry(err) {
+			if retrydb.ShouldRetryIdempotent(err) {
 				continue
 			}
 			return nodes, err
@@ -416,7 +322,7 @@ func (cache *overlaycache) getOnlineNodesForAuditRepair(ctx context.Context, nod
 			SELECT last_net, id, address, email, last_ip_port, noise_proto, noise_public_key, debounce_limit, features,
 			vetted_at, unknown_audit_suspended, offline_suspended
 			FROM nodes
-			WHERE id IN (SELECT node_id FROM unnest(?) AS  node_id )
+			WHERE id IN unnest(?)
 				AND disqualified IS NULL
 				AND exit_finished_at IS NULL
 				AND last_contact_success > ?
@@ -520,14 +426,14 @@ func (cache *overlaycache) UpdateLastOfflineEmail(ctx context.Context, nodeIDs s
 			UPDATE nodes
 			SET last_offline_email = $1
 			WHERE id = any($2::bytea[])
-			`, timestamp, pgutil.NodeIDArray(nodeIDs))
+		`, timestamp, pgutil.NodeIDArray(nodeIDs))
 
 	case dbutil.Spanner:
 		_, err = cache.db.ExecContext(ctx, `
 			UPDATE nodes
 			SET last_offline_email = ?
-				WHERE id IN (SELECT node_id FROM unnest(?) AS node_id)
-			`, timestamp, nodeIDs.Bytes())
+			WHERE id IN unnest(?)
+		`, timestamp, nodeIDs.Bytes())
 
 	default:
 		return Error.New("unsupported implementation")
@@ -536,22 +442,24 @@ func (cache *overlaycache) UpdateLastOfflineEmail(ctx context.Context, nodeIDs s
 	return err
 }
 
-// GetNodes gets records for all specified nodes as of the given system interval. The
-// onlineWindow is used to determine whether each node is marked as Online. The results are
-// returned in a slice of the same length as the input nodeIDs, and each index of the returned
-// list corresponds to the same index in nodeIDs. If a node is not known, or is disqualified
-// or exited, the corresponding returned SelectedNode will have a zero value.
-func (cache *overlaycache) GetNodes(ctx context.Context, nodeIDs storj.NodeIDList, onlineWindow, asOfSystemInterval time.Duration) (records []nodeselection.SelectedNode, err error) {
+// GetActiveNodes gets records for nodes that have not exited or disqualified
+// The onlineWindow is used to determine whether each node is marked as Online.
+// The results are returned in a slice of the same length as the input nodeIDs,
+// and each index of the returned list corresponds to the same index in nodeIDs.
+// If a node is not known, or is disqualified or exited, the corresponding returned
+// SelectedNode will have a zero value.
+func (cache *overlaycache) GetActiveNodes(ctx context.Context, nodeIDs storj.NodeIDList, onlineWindow, asOfSystemInterval time.Duration) (records []nodeselection.SelectedNode, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	if len(nodeIDs) == 0 {
 		return nil, Error.New("no ids provided")
 	}
 
-	indexesToZero := []int{}
-
 	switch cache.db.impl {
 	case dbutil.Cockroach, dbutil.Postgres:
+
+		indexesToZero := []int{}
+
 		err = withRows(cache.db.Query(ctx, `
 			SELECT n.id, n.address, n.email, n.wallet, n.last_net, n.last_ip_port, n.country_code, n.piece_count, n.free_disk,
 				n.last_contact_success > $2 AS online,
@@ -591,58 +499,150 @@ func (cache *overlaycache) GetNodes(ctx context.Context, nodeIDs storj.NodeIDLis
 			}
 			return nil
 		})
+
+		if err != nil {
+			return nil, Error.Wrap(err)
+		}
+		for _, i := range indexesToZero {
+			records[i] = nodeselection.SelectedNode{}
+		}
+		return records, nil
+
 	case dbutil.Spanner:
-		err = withRows(cache.db.Query(ctx, `
-			SELECT n.id, n.address, n.email, n.wallet, n.last_net, n.last_ip_port, n.country_code, n.piece_count, n.free_disk,
-				n.last_contact_success > ? AS online,
-				(n.offline_suspended IS NOT NULL OR n.unknown_audit_suspended IS NOT NULL) AS suspended,
-				n.disqualified IS NOT NULL AS disqualified,
-				n.exit_initiated_at IS NOT NULL AS exiting,
-				n.exit_finished_at IS NOT NULL AS exited,
-				node_tags.name, node_tags.value, node_tags.signed_at, node_tags.signer,
-				n.vetted_at IS NOT NULL AS vetted
-			FROM (SELECT * FROM UNNEST (?) AS node_id WITH OFFSET AS ordinal) input
-			LEFT OUTER JOIN nodes n ON input.node_id = n.id
-            LEFT JOIN node_tags on node_tags.node_id = n.id
-			`+cache.db.impl.AsOfSystemInterval(asOfSystemInterval)+`
-			ORDER BY input.ordinal
-			`, time.Now().Add(-onlineWindow), nodeIDs.Bytes(),
-		))(func(rows tagsql.Rows) error {
-			for rows.Next() {
-				node, tag, disqualifiedOrExited, err := scanSelectedNodeWithTagSpanner(rows)
+		records = make([]nodeselection.SelectedNode, len(nodeIDs))
+		err := spannerutil.UnderlyingClient(ctx, cache.db.DB.DB, func(client *spanner.Client) error {
+			tx := client.Single().WithTimestampBound(spannerutil.MaxStalenessFromAOSI(asOfSystemInterval))
+			iter := tx.Query(ctx, spanner.Statement{
+				SQL: `
+					SELECT id, address, email, wallet, last_net,
+						last_ip_port, country_code,
+						piece_count, free_disk,
+						last_contact_success > @online_threshold AS online,
+						(offline_suspended IS NOT NULL OR unknown_audit_suspended IS NOT NULL) AS suspended,
+						exit_initiated_at IS NOT NULL AS exiting,
+						vetted_at IS NOT NULL AS vetted,
+						ARRAY(
+							SELECT AS STRUCT
+								node_tags.name as Name,
+								node_tags.value as Value,
+								node_tags.signed_at as SignedAt,
+								node_tags.signer as Signer
+							FROM node_tags
+							WHERE node_tags.node_id = id
+						) AS tags
+					FROM nodes
+					WHERE nodes.id IN UNNEST(@nodes)
+						AND disqualified IS NULL
+						AND exit_finished_at IS NULL
+				`,
+				Params: map[string]any{
+					"online_threshold": time.Now().Add(-onlineWindow),
+					"nodes":            nodeIDs.Bytes(),
+				},
+			})
+
+			return Error.Wrap(iter.Do(func(row *spanner.Row) error {
+				var node nodeselection.SelectedNode
+				node.Address = &pb.NodeAddress{}
+				var lastIPPort, countryCode sql.NullString
+
+				// TODO(spanner): currently only supports scanning into []*struct.
+				// Needs https://github.com/googleapis/google-cloud-go/issues/11090 to fix.
+				var tags []*nodeselection.NodeTag
+
+				err = row.Columns(
+					&node.ID, &node.Address.Address, &node.Email, &node.Wallet, &node.LastNet,
+					&lastIPPort, &countryCode,
+					&node.PieceCount, &node.FreeDisk,
+					&node.Online,
+					&node.Suspended,
+					&node.Exiting,
+					&node.Vetted,
+					&tags)
 				if err != nil {
-					return err
+					return Error.Wrap(err)
 				}
 
-				// just a joined new tag to the previous entry
-				if len(records) > 0 && !tag.NodeID.IsZero() && records[len(records)-1].ID == tag.NodeID {
-					records[len(records)-1].Tags = append(records[len(records)-1].Tags, tag)
-					continue
+				if lastIPPort.Valid {
+					node.LastIPPort = lastIPPort.String
+				}
+				if countryCode.Valid {
+					node.CountryCode = location.ToCountryCode(countryCode.String)
 				}
 
-				if tag.Name != "" {
-					node.Tags = append(node.Tags, tag)
+				if len(tags) > 0 {
+					node.Tags = make([]nodeselection.NodeTag, 0, len(tags))
+					for _, tag := range tags {
+						if tag == nil {
+							continue
+						}
+						tag.NodeID = node.ID
+						node.Tags = append(node.Tags, *tag)
+					}
 				}
 
-				records = append(records, node)
-				if disqualifiedOrExited {
-					indexesToZero = append(indexesToZero, len(records)-1)
+				for i, id := range nodeIDs {
+					if id == node.ID {
+						records[i] = node
+						break
+					}
 				}
-			}
-			return nil
+
+				return nil
+			}))
 		})
+		if err != nil {
+			return nil, Error.Wrap(err)
+		}
+		return records, nil
 	default:
 		return nil, Error.New("unsupported implementation")
 	}
-	if err != nil {
-		return nil, Error.Wrap(err)
+}
+
+// AccountingNodeInfo gets records for all specified nodes for accounting.
+func (cache *overlaycache) AccountingNodeInfo(ctx context.Context, nodeIDs storj.NodeIDList) (_ map[storj.NodeID]overlay.NodeAccountingInfo, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	if len(nodeIDs) == 0 {
+		return nil, Error.New("no ids provided")
 	}
 
-	for _, i := range indexesToZero {
-		records[i] = nodeselection.SelectedNode{}
+	var rows tagsql.Rows
+
+	switch cache.db.impl {
+	case dbutil.Cockroach, dbutil.Postgres:
+		rows, err = cache.db.Query(ctx, `
+			SELECT id, created_at, wallet, disqualified
+			FROM nodes
+			WHERE id = any($1::bytea[])
+		`, pgutil.NodeIDArray(nodeIDs))
+
+	case dbutil.Spanner:
+		rows, err = cache.db.Query(ctx, `
+			SELECT id, created_at, wallet, disqualified
+			FROM nodes
+			WHERE id IN UNNEST(?)
+		`, nodeIDs.Bytes())
+	default:
+		return nil, Error.New("unsupported implementation")
 	}
 
-	return records, Error.Wrap(err)
+	xs := map[storj.NodeID]overlay.NodeAccountingInfo{}
+	err = withRows(rows, err)(func(rows tagsql.Rows) error {
+		for rows.Next() {
+			var id storj.NodeID
+			var info overlay.NodeAccountingInfo
+			err := rows.Scan(&id, &info.NodeCreationDate, &info.Wallet, &info.Disqualified)
+			if err != nil {
+				return Error.Wrap(err)
+			}
+			xs[id] = info
+		}
+		return nil
+	})
+
+	return xs, Error.Wrap(err)
 }
 
 // GetParticipatingNodes returns all known participating nodes (this includes all known nodes
@@ -781,65 +781,6 @@ func scanSelectedNode(rows tagsql.Rows) (nodeselection.SelectedNode, error) {
 	node.Exiting = exiting.Bool
 	node.Vetted = vetted.Bool
 	return node, nil
-}
-
-func scanSelectedNodeWithTagSpanner(rows tagsql.Rows) (_ nodeselection.SelectedNode, _ nodeselection.NodeTag, disqualifiedOrExited bool, err error) {
-	var node nodeselection.SelectedNode
-	node.Address = &pb.NodeAddress{}
-	var nodeID []byte
-	var address, wallet, email, lastNet, lastIPPort, countryCode sql.NullString
-	var online, suspended, disqualified, exiting, exited, vetted sql.NullBool
-	var pieceCount sql.NullInt64
-	var freeDisk sql.NullInt64
-
-	var tag nodeselection.NodeTag
-	var name []byte
-	signedAt := &time.Time{}
-	signer := []byte{}
-
-	err = rows.Scan(&nodeID, &address, &email, &wallet, &lastNet, &lastIPPort, &countryCode, &pieceCount, &freeDisk,
-		&online, &suspended, &disqualified, &exiting, &exited, &name, &tag.Value, &signedAt, &signer, &vetted)
-	if err != nil {
-		return nodeselection.SelectedNode{}, nodeselection.NodeTag{}, true, err
-	}
-
-	// If node ID was null, no record was found for the specified ID. For our purposes
-	// here, we will treat that as equivalent to a node being DQ'd or exited.
-	if nodeID == nil {
-		// return an empty record
-		return nodeselection.SelectedNode{}, nodeselection.NodeTag{}, true, nil
-	}
-	// nodeID was valid, so from here on we assume all the other non-null fields are valid, per database constraints
-	node.ID = storj.NodeID(nodeID)
-	node.Address.Address = address.String
-	node.Email = email.String
-	node.Wallet = wallet.String
-	node.LastNet = lastNet.String
-	if lastIPPort.Valid {
-		node.LastIPPort = lastIPPort.String
-	}
-	if countryCode.Valid {
-		node.CountryCode = location.ToCountryCode(countryCode.String)
-	}
-	if pieceCount.Valid {
-		node.PieceCount = pieceCount.Int64
-	}
-	if freeDisk.Valid {
-		node.FreeDisk = freeDisk.Int64
-	}
-	node.Online = online.Bool
-	node.Suspended = suspended.Bool
-	node.Exiting = exiting.Bool
-	node.Vetted = vetted.Bool
-
-	if len(name) > 0 {
-		tag.Name = string(name)
-		tag.SignedAt = *signedAt
-		tag.Signer = storj.NodeID(signer)
-		tag.NodeID = node.ID
-	}
-
-	return node, tag, disqualified.Bool || exited.Bool, nil
 }
 
 func scanSelectedNodeWithTag(rows tagsql.Rows) (_ nodeselection.SelectedNode, _ nodeselection.NodeTag, disqualifiedOrExited bool, err error) {
@@ -1141,7 +1082,7 @@ func (cache *overlaycache) GetExitingNodes(ctx context.Context) (exitingNodes []
 	for {
 		exitingNodes, err = cache.getExitingNodes(ctx)
 		if err != nil {
-			if cockroachutil.NeedsRetry(err) {
+			if retrydb.ShouldRetryIdempotent(err) {
 				continue
 			}
 			return exitingNodes, err
@@ -1182,7 +1123,7 @@ func (cache *overlaycache) GetExitStatus(ctx context.Context, nodeID storj.NodeI
 	for {
 		exitStatus, err = cache.getExitStatus(ctx, nodeID)
 		if err != nil {
-			if cockroachutil.NeedsRetry(err) {
+			if retrydb.ShouldRetryIdempotent(err) {
 				continue
 			}
 			return exitStatus, err
@@ -1196,24 +1137,11 @@ func (cache *overlaycache) GetExitStatus(ctx context.Context, nodeID storj.NodeI
 func (cache *overlaycache) getExitStatus(ctx context.Context, nodeID storj.NodeID) (_ *overlay.ExitStatus, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	var rows tagsql.Rows
-
-	switch cache.db.impl {
-	case dbutil.Cockroach, dbutil.Postgres:
-		rows, err = cache.db.Query(ctx, cache.db.Rebind(`
-			SELECT id, exit_initiated_at, exit_loop_completed_at, exit_finished_at, exit_success
-			FROM nodes
-			WHERE id = ?
-		`), nodeID)
-	case dbutil.Spanner:
-		rows, err = cache.db.Query(ctx, cache.db.Rebind(`
-			SELECT id, exit_initiated_at, exit_loop_completed_at, exit_finished_at, exit_success
-			FROM nodes
-			WHERE id = ?
-		`), nodeID.Bytes())
-	default:
-		return nil, Error.New("unsupported implementation")
-	}
+	rows, err := cache.db.Query(ctx, cache.db.Rebind(`
+		SELECT id, exit_initiated_at, exit_loop_completed_at, exit_finished_at, exit_success
+		FROM nodes
+		WHERE id = ?
+	`), nodeID)
 
 	if err != nil {
 		return nil, Error.Wrap(err)
@@ -1236,7 +1164,7 @@ func (cache *overlaycache) GetGracefulExitCompletedByTimeFrame(ctx context.Conte
 	for {
 		exitedNodes, err = cache.getGracefulExitCompletedByTimeFrame(ctx, begin, end)
 		if err != nil {
-			if cockroachutil.NeedsRetry(err) {
+			if retrydb.ShouldRetryIdempotent(err) {
 				continue
 			}
 			return exitedNodes, err
@@ -1280,7 +1208,7 @@ func (cache *overlaycache) GetGracefulExitIncompleteByTimeFrame(ctx context.Cont
 	for {
 		exitingNodes, err = cache.getGracefulExitIncompleteByTimeFrame(ctx, begin, end)
 		if err != nil {
-			if cockroachutil.NeedsRetry(err) {
+			if retrydb.ShouldRetryIdempotent(err) {
 				continue
 			}
 			return exitingNodes, err
@@ -1486,7 +1414,7 @@ func (cache *overlaycache) DQNodesLastSeenBefore(ctx context.Context, cutoff tim
 	for {
 		nodeIDs, err = cache.getNodesForDQLastSeenBefore(ctx, cutoff, limit)
 		if err != nil {
-			if cockroachutil.NeedsRetry(err) {
+			if retrydb.ShouldRetryIdempotent(err) {
 				continue
 			}
 			return nil, 0, err
@@ -1540,7 +1468,7 @@ func (cache *overlaycache) DQNodesLastSeenBefore(ctx context.Context, cutoff tim
 				UPDATE nodes
 				SET disqualified = current_timestamp,
 					disqualification_reason = ?
-				WHERE id IN (SELECT node_id FROM UNNEST(?) AS node_id)
+				WHERE id IN UNNEST(?)
 					AND disqualified IS NULL
 					AND exit_finished_at IS NULL
 					AND last_contact_success < ?
@@ -2029,6 +1957,196 @@ var (
 	ErrVetting = errs.Class("vetting")
 )
 
+// TestAddNodes adds nodes for testing purposes, without any validation.
+func (cache *overlaycache) TestAddNodes(ctx context.Context, nodes []*overlay.NodeDossier) (err error) {
+	switch cache.db.impl {
+	case dbutil.Postgres, dbutil.Cockroach:
+		return Error.Wrap(pgxutil.Conn(ctx, cache.db.DB, func(conn *pgx.Conn) error {
+			source := newCopyFromNodeDossiers(nodes)
+			_, err := conn.CopyFrom(ctx, pgx.Identifier{"nodes"}, source.Columns(), source)
+			return Error.Wrap(err)
+		}))
+	case dbutil.Spanner:
+		muts := make([]*spanner.Mutation, 0, len(nodes))
+		source := newCopyFromNodeDossiers(nodes)
+
+		for source.Next() {
+			vals, err := source.Values()
+			if err != nil {
+				return Error.Wrap(err)
+			}
+			muts = append(muts, spanner.Insert("nodes", source.Columns(), vals))
+		}
+
+		return Error.Wrap(spannerutil.UnderlyingClient(ctx, cache.db.DB, func(client *spanner.Client) error {
+			_, err := client.Apply(ctx, muts)
+			return Error.Wrap(err)
+		}))
+	default:
+		return Error.New("unsupported implementation")
+	}
+}
+
+type copyFromNodeDossiers struct {
+	idx  int
+	rows []*overlay.NodeDossier
+}
+
+func newCopyFromNodeDossiers(rows []*overlay.NodeDossier) *copyFromNodeDossiers {
+	return &copyFromNodeDossiers{
+		rows: rows,
+		idx:  -1,
+	}
+}
+
+func (ctr *copyFromNodeDossiers) Next() bool {
+	ctr.idx++
+	return ctr.idx < len(ctr.rows)
+}
+
+func (ctr *copyFromNodeDossiers) Columns() []string {
+	return []string{
+		"id",
+		"address",
+		"last_net",
+		"last_ip_port",
+		"country_code",
+		"protocol",
+		"email",
+
+		"wallet",
+		"wallet_features",
+
+		"free_disk",
+		"piece_count",
+
+		"major",
+		"minor",
+		"patch",
+		"commit_hash",
+		"release_timestamp",
+		"release",
+
+		"latency_90",
+		"created_at",
+		"updated_at",
+		"last_contact_success",
+		"last_contact_failure",
+
+		"disqualified",
+		"disqualification_reason",
+		"unknown_audit_suspended",
+		"offline_suspended",
+		"vetted_at",
+		"under_review",
+
+		"exit_initiated_at",
+		"exit_loop_completed_at",
+		"exit_finished_at",
+		"exit_success",
+
+		"contained",
+		"last_offline_email",
+		"last_software_update_email",
+
+		"noise_proto",
+		"noise_public_key",
+
+		"debounce_limit",
+		"features",
+	}
+}
+
+func (ctr *copyFromNodeDossiers) Values() ([]any, error) {
+	node := ctr.rows[ctr.idx]
+
+	walletFeatures, err := encodeWalletFeatures(node.Operator.WalletFeatures)
+	if err != nil {
+		return nil, err
+	}
+
+	var major, minor, patch int64
+	if node.Version.Version != "" {
+		ver, err := version.NewSemVer(node.Version.Version)
+		if err != nil {
+			return nil, err
+		}
+		major = int64(ver.Major)
+		minor = int64(ver.Minor)
+		patch = int64(ver.Patch)
+	}
+
+	status := node.Reputation.Status
+	exitStatus := node.ExitStatus
+
+	var noiseProto *int64
+	var noisePublicKey []byte
+	if noise := node.Node.Address.NoiseInfo; noise != nil {
+		proto := int64(noise.Proto)
+		noiseProto = &proto
+		noisePublicKey = noise.PublicKey
+	}
+
+	var disqualificationReason *int64
+	if node.DisqualificationReason != nil {
+		reason := int64(*node.DisqualificationReason)
+		disqualificationReason = &reason
+	}
+
+	return []any{
+		node.Id,
+		node.Node.Address.Address,
+		node.LastNet,
+		node.LastIPPort,
+		node.CountryCode.String(),
+		0, // deprecated
+		node.Operator.Email,
+
+		node.Operator.Wallet,
+		walletFeatures,
+
+		node.Capacity.FreeDisk,
+		0,
+
+		major,
+		minor,
+		patch,
+		node.Version.CommitHash,
+		node.Version.Timestamp,
+		node.Version.Release,
+
+		node.Reputation.Latency90,
+		node.CreatedAt,
+		node.CreatedAt, // actually UpdatedAt, but dossier does not contain it
+		node.Reputation.LastContactSuccess,
+		node.Reputation.LastContactFailure,
+
+		status.Disqualified,
+		disqualificationReason,
+		status.UnknownAuditSuspended,
+		status.OfflineSuspended,
+		status.VettedAt,
+		node.Reputation.OfflineUnderReview,
+
+		exitStatus.ExitInitiatedAt,
+		exitStatus.ExitLoopCompletedAt,
+		exitStatus.ExitFinishedAt,
+		exitStatus.ExitSuccess,
+
+		nil, // TODO: node dossier only contains boolean for contained
+		node.LastOfflineEmail,
+		node.LastSoftwareUpdateEmail,
+
+		noiseProto,
+		noisePublicKey,
+
+		int(node.Node.Address.DebounceLimit),
+		int(node.Node.Address.Features),
+	}, nil
+}
+
+func (ctr *copyFromNodeDossiers) Err() error { return nil }
+
 // TestVetNode directly sets a node's vetted_at timestamp to make testing easier.
 func (cache *overlaycache) TestVetNode(ctx context.Context, nodeID storj.NodeID) (vettedTime *time.Time, err error) {
 	updateFields := dbx.Node_Update_Fields{
@@ -2278,8 +2396,8 @@ func (cache *overlaycache) GetLastIPPortByNodeTagNames(ctx context.Context, ids 
 		rows, err = cache.db.Query(ctx, cache.db.Rebind(`
 			SELECT id, last_ip_port FROM nodes n
 			JOIN node_tags nt ON n.id = nt.node_id
-			WHERE nt.node_id IN  (SELECT node_id FROM UNNEST(?) node_id)
-				AND nt.name IN (SELECT name FROM UNNEST(?) name)
+			WHERE nt.node_id IN UNNEST(?)
+				AND nt.name IN UNNEST(?)
 				AND n.last_ip_port != ''
 				AND n.last_ip_port IS NOT NULL;
 		`), ids.Bytes(), tagNames)

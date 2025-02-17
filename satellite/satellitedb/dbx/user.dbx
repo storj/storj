@@ -14,8 +14,16 @@ model user (
 		fields trial_expiration
 	)
 
+	index (
+		name users_external_id_index
+		fields external_id
+		where user.external_id != null
+	)
+
 	// id is an uuid for the user.
 	field id                 blob
+	// external_id is a user id provided by an external source, such as a single-sign-on identity provider.
+	field external_id        text      ( updatable, nullable )
 	// email is the user specified email.
 	field email              text      ( updatable )
 	// normalized_email is the email transformed by usual rules, e.g. case-insensitive.
@@ -138,6 +146,10 @@ read one (
 read one (
 	select user.upgrade_time
 	where user.id = ?
+)
+read one (
+	select user
+	where user.external_id = ?
 )
 
 read paged (

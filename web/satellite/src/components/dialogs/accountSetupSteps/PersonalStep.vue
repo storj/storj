@@ -85,12 +85,14 @@ import { MaxNameLengthRule, RequiredRule } from '@/types/common';
 import { AuthHttpApi } from '@/api/auth';
 import { AnalyticsEvent } from '@/utils/constants/analyticsEventNames';
 import { useAnalyticsStore } from '@/store/modules/analyticsStore';
+import { useConfigStore } from '@/store/modules/configStore';
 
 import IconPersonal from '@/components/icons/IconPersonal.vue';
 
 const auth = new AuthHttpApi();
 
 const analyticsStore = useAnalyticsStore();
+const configStore = useConfigStore();
 
 withDefaults(defineProps<{
     loading: boolean,
@@ -117,7 +119,7 @@ async function setupAccount() {
         haveSalesContact: false,
         interestedInPartnering: false,
         isProfessional: false,
-    });
+    }, configStore.state.config.csrfToken);
 
     analyticsStore.eventTriggered(AnalyticsEvent.PERSONAL_INFO_SUBMITTED);
 }

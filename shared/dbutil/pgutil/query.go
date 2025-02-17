@@ -241,6 +241,7 @@ var rxPostgresForeignKey = regexp.MustCompile(
 var (
 	rxIndex                  = regexp.MustCompile(`^CREATE( UNIQUE)? INDEX (.*) ON .*\.(.*) USING btree \(([^)]+)\)(?: STORING \([^)]+\))?(?: WHERE (.+))?`)
 	indexDirNullsOrderRemove = strings.NewReplacer(" ASC", "", " DESC", "", " NULLS", "", " FIRST", "", " LAST", "")
+	typeDescriptorRx         = regexp.MustCompile(`::(:)?[a-zA-Z0-9_ ]+`)
 )
 
 func parseColumnDefault(columnDefault string) string {
@@ -250,9 +251,7 @@ func parseColumnDefault(columnDefault string) string {
 	}
 
 	// hackity hack: cockroach sometimes adds type descriptors to the default. ignore em!
-	if idx := strings.Index(columnDefault, ":::"); idx >= 0 {
-		columnDefault = columnDefault[:idx]
-	}
+	columnDefault = typeDescriptorRx.ReplaceAllString(columnDefault, "")
 
 	return columnDefault
 }
@@ -314,11 +313,16 @@ func parseIndexDefinition(indexdef string) (*dbschema.Index, error) {
 		name = "storagenode_storage_tallies_pkey"
 	}
 
+	columns := strings.Split(indexDirNullsOrderRemove.Replace(matches[4]), ", ")
+	for i, column := range columns {
+		columns[i] = UnquoteIdentifier(column)
+	}
+
 	return &dbschema.Index{
 		Name:    name,
 		Table:   matches[3],
 		Unique:  matches[1] != "",
-		Columns: strings.Split(indexDirNullsOrderRemove.Replace(matches[4]), ", "),
+		Columns: columns,
 		Partial: matches[5],
 	}, nil
 }

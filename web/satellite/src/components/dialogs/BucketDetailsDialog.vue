@@ -4,7 +4,6 @@
 <template>
     <v-dialog
         v-model="model"
-        width="auto"
         max-width="460px"
         transition="fade-transition"
     >
@@ -40,16 +39,65 @@
             <v-divider />
 
             <v-card-item>
-                <v-list lines="one">
-                    <v-list-item title="Name" :subtitle="bucket.name" class="px-0" />
-                    <v-list-item title="Objects" :subtitle="bucket.objectCount.toLocaleString()" class="px-0" />
-                    <v-list-item title="Segments" :subtitle="bucket.segmentCount.toLocaleString()" class="px-0" />
-                    <v-list-item title="Storage" :subtitle="bucket.storage.toFixed(2) + 'GB'" class="px-0" />
-                    <v-list-item v-if="showRegionTag" title="Location" :subtitle="bucket.location || `unknown(${bucket.defaultPlacement})`" class="px-0" />
-                    <v-list-item v-if="versioningUIEnabled" title="Versioning" :subtitle="bucket.versioning" class="px-0" />
-                    <v-list-item v-if="objectLockUIEnabled" title="Object lock" :subtitle="bucket.objectLockEnabled ? 'Enabled' : 'Disabled'" class="px-0" />
-                    <v-list-item title="Date Created" :subtitle="bucket.since.toUTCString()" class="px-0" />
-                    <v-list-item title="Last Updated" :subtitle="bucket.before.toUTCString()" class="px-0" />
+                <v-list lines="one" class="px-0">
+                    <v-list-item title="Name" :subtitle="bucket.name" class="px-0 rounded-lg mb-2 border pl-3">
+                        <template #prepend>
+                            <component :is="TextCursorInput" :size="18" class="mr-3" />
+                        </template>
+                    </v-list-item>
+                    <v-list-item title="Objects" :subtitle="bucket.objectCount.toLocaleString()" class="px-0 rounded-lg mb-2 border pl-3">
+                        <template #prepend>
+                            <component :is="File" :size="18" class="mr-3" />
+                        </template>
+                    </v-list-item>
+                    <v-list-item title="Segments" :subtitle="bucket.segmentCount.toLocaleString()" class="px-0 rounded-lg mb-2 border pl-3">
+                        <template #prepend>
+                            <component :is="Puzzle" :size="18" class="mr-3" />
+                        </template>
+                    </v-list-item>
+                    <v-list-item title="Storage" :subtitle="bucket.storage.toFixed(2) + 'GB'" class="px-0 rounded-lg mb-2 border pl-3">
+                        <template #prepend>
+                            <component :is="Cloud" :size="18" class="mr-3" />
+                        </template>
+                    </v-list-item>
+                    <v-list-item v-if="showRegionTag" title="Location" :subtitle="bucket.location || `unknown(${bucket.defaultPlacement})`" class="px-0 rounded-lg mb-2 border pl-3">
+                        <template #prepend>
+                            <component :is="LandPlot" :size="18" class="mr-3" />
+                        </template>
+                    </v-list-item>
+                    <v-list-item v-if="versioningUIEnabled" title="Versioning" :subtitle="bucket.versioning" class="px-0 bg-background rounded-lg mb-2 border pl-3">
+                        <template #prepend>
+                            <component :is="History" :size="18" class="mr-3" />
+                        </template>
+                    </v-list-item>
+                    <v-list-item v-if="objectLockUIEnabled" title="Object Lock" :subtitle="bucket.objectLockEnabled ? 'Enabled' : 'Disabled'" class="px-0 bg-background rounded-lg mb-2 border pl-3">
+                        <template #prepend>
+                            <component :is="LockKeyhole" :size="18" class="mr-3" />
+                        </template>
+                    </v-list-item>
+                    <v-list-item v-if="objectLockUIEnabled" title="Default Lock Mode" class="px-0 bg-background rounded-lg mb-2 border pl-3">
+                        <template #prepend>
+                            <component :is="Shield" :size="18" class="mr-3" />
+                        </template>
+                        <template #subtitle>
+                            <p class="text-capitalize">{{ bucket.defaultRetentionMode.toLowerCase() }}</p>
+                        </template>
+                    </v-list-item>
+                    <v-list-item v-if="objectLockUIEnabled" title="Default Retention Period" :subtitle="defaultRetentionPeriod" class="px-0 bg-background rounded-lg mb-2 border pl-3">
+                        <template #prepend>
+                            <component :is="Clock" :size="18" class="mr-3" />
+                        </template>
+                    </v-list-item>
+                    <v-list-item title="Date Created" :subtitle="bucket.since.toUTCString()" class="px-0 bg-background rounded-lg mb-2 border pl-3">
+                        <template #prepend>
+                            <component :is="CalendarPlus" :size="18" class="mr-3" />
+                        </template>
+                    </v-list-item>
+                    <v-list-item title="Last Updated" :subtitle="bucket.before.toUTCString()" class="px-0 bg-background rounded-lg mb-2 border pl-3">
+                        <template #prepend>
+                            <component :is="CalendarClock" :size="18" class="mr-3" />
+                        </template>
+                    </v-list-item>
                 </v-list>
             </v-card-item>
 
@@ -82,7 +130,20 @@ import {
     VList,
     VListItem,
 } from 'vuetify/components';
-import { ReceiptText } from 'lucide-vue-next';
+import {
+    ReceiptText,
+    TextCursorInput,
+    File,
+    Puzzle,
+    Cloud,
+    LandPlot,
+    History,
+    LockKeyhole,
+    Shield,
+    Clock,
+    CalendarPlus,
+    CalendarClock,
+} from 'lucide-vue-next';
 
 import { Bucket } from '@/types/buckets';
 import { useBucketsStore } from '@/store/modules/bucketsStore';
@@ -91,6 +152,7 @@ import { useConfigStore } from '@/store/modules/configStore';
 import { useNotify } from '@/utils/hooks';
 import { useLoading } from '@/composables/useLoading';
 import { AnalyticsErrorEventSource } from '@/utils/constants/analyticsEventNames';
+import { NO_MODE_SET } from '@/types/objectLock';
 
 const bucketsStore = useBucketsStore();
 const configStore = useConfigStore();
@@ -108,14 +170,27 @@ const model = defineModel<boolean>({ required: true });
 /**
  * Whether versioning has been enabled for current project.
  */
-const versioningUIEnabled = computed(() => projectsStore.versioningUIEnabled);
+const versioningUIEnabled = computed(() => configStore.state.config.versioningUIEnabled);
 
 /**
  * Whether object lock UI is enabled.
  */
-const objectLockUIEnabled = computed<boolean>(() => {
-    return configStore.objectLockUIEnabled
-      && projectsStore.objectLockUIEnabledForProject;
+const objectLockUIEnabled = computed<boolean>(() => configStore.state.config.objectLockUIEnabled);
+
+const defaultRetentionPeriod = computed(() => {
+    const { objectLockEnabled, defaultRetentionDays, defaultRetentionYears } = bucket.value;
+
+    if (!objectLockEnabled) return NO_MODE_SET;
+
+    if (defaultRetentionDays) {
+        return `${defaultRetentionDays} Day${defaultRetentionDays > 1 ? 's' : ''}`;
+    }
+
+    if (defaultRetentionYears) {
+        return `${defaultRetentionYears} Year${defaultRetentionYears > 1 ? 's' : ''}`;
+    }
+
+    return NO_MODE_SET;
 });
 
 const showRegionTag = computed<boolean>(() => {
@@ -123,7 +198,7 @@ const showRegionTag = computed<boolean>(() => {
 });
 
 /**
- * Fetch the bucket data if it's not avaliable
+ * Fetch the bucket data if it's not available.
  */
 async function loadBucketData() {
     if (!projectsStore.state.selectedProject.id) {
@@ -158,5 +233,4 @@ watch(model, (newValue) => {
         loadBucketData();
     }
 });
-
 </script>

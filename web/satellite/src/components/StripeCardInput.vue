@@ -29,6 +29,10 @@ import { useConfigStore } from '@/store/modules/configStore';
 const configStore = useConfigStore();
 const notify = useNotify();
 
+const emit = defineEmits<{
+    ready: [];
+}>();
+
 /**
  * Stripe elements is used to create 'Add Card' form.
  */
@@ -69,6 +73,9 @@ async function initStripe(): Promise<void> {
     }
 
     cardElement.value?.mount('#card-element');
+    cardElement.value?.on('ready', () => {
+        emit('ready');
+    });
     cardElement.value?.on('change', (event: StripeCardElementChangeEvent) => {
         const displayError: HTMLElement = document.getElementById('card-errors') as HTMLElement;
         if (event.error) {
@@ -119,6 +126,7 @@ onMounted(() => {
  */
 onBeforeUnmount(() => {
     cardElement.value?.off('change');
+    cardElement.value?.off('ready');
 });
 
 defineExpose({
@@ -131,7 +139,7 @@ defineExpose({
         box-sizing: border-box;
         width: 100%;
         padding: 13px 12px;
-        border: 1px solid var(--c-grey-2);
+        border: 1px solid #ebeef1;
         border-radius: 4px;
         background-color: white;
         box-shadow: 0 2px 5px 0 rgb(50 50 93 / 7%);
@@ -152,6 +160,6 @@ defineExpose({
     #card-errors {
         text-align: left;
         font-family: 'font-medium', sans-serif;
-        color: var(--c-red-2);
+        color: #ff1313;
     }
 </style>

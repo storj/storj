@@ -19,7 +19,7 @@ export default class BaseTable extends Vue {}
 <style lang="scss">
     .base-table {
         width: 100%;
-        border: 1px solid var(--c-gray--light);
+        border: 1px solid var(--v-border-base);
         border-radius: var(--br-table);
         font-family: 'font_semiBold', sans-serif;
         z-index: 997;
@@ -34,12 +34,12 @@ export default class BaseTable extends Vue {}
         }
 
         thead {
-            background: var(--c-block-gray);
+            background: var(--v-active-base);
 
             tr {
                 height: 40px;
                 font-size: 12px;
-                color: var(--c-gray);
+                color: var(--v-text-base);
                 border-radius: var(--br-table);
                 text-align: right;
             }
@@ -50,7 +50,7 @@ export default class BaseTable extends Vue {}
         height: 56px;
         text-align: right;
         font-size: 16px;
-        color: var(--c-line);
+        color: var(--v-header-base);
 
         th {
             box-sizing: border-box;
@@ -63,7 +63,7 @@ export default class BaseTable extends Vue {}
         }
 
         &:nth-of-type(even) {
-            background: var(--c-block-gray);
+            background: var(--v-active-base);
         }
 
         th:not(:first-of-type) {
@@ -75,12 +75,24 @@ export default class BaseTable extends Vue {}
         text-align: left;
     }
 
-    .online {
-        color: var(--c-success);
+    .Online {
+        color: var(--v-success-base);
     }
 
-    .offline {
-        color: var(--c-error);
+    .Offline {
+        color: var(--v-error-base);
+    }
+
+    [class='Not Reachable'] {
+        color: var(--v-warning-base);
+    }
+
+    .Unauthorized {
+        color: var(--v-warning-base);
+    }
+
+    [class='Internal Error'] {
+        color: var(--v-error-base);
     }
 
     .overflow-visible {

@@ -25,7 +25,6 @@ import (
 	"storj.io/storj/satellite/metabase"
 	"storj.io/storj/satellite/metabase/rangedloop"
 	"storj.io/storj/satellite/metrics"
-	"storj.io/storj/satellite/nodeselection"
 	"storj.io/storj/satellite/overlay"
 	"storj.io/storj/satellite/repair/checker"
 )
@@ -119,7 +118,7 @@ func NewRangedLoop(log *zap.Logger, db DB, metabaseDB *metabase.DB, config *Conf
 		peer.Accounting.NodeTallyObserver = nodetally.NewObserver(
 			log.Named("accounting:nodetally"),
 			db.StoragenodeAccounting(),
-			metabaseDB)
+			metabaseDB, config.NodeTally)
 	}
 
 	{ // setup piece tracker observer
@@ -149,20 +148,14 @@ func NewRangedLoop(log *zap.Logger, db DB, metabaseDB *metabase.DB, config *Conf
 	}
 
 	{ // setup
-		classes := map[string]func(node *nodeselection.SelectedNode) string{
-			"email": func(node *nodeselection.SelectedNode) string {
-				return node.Email
-			},
-			"wallet": func(node *nodeselection.SelectedNode) string {
-				return node.Wallet
-			},
-			"net": func(node *nodeselection.SelectedNode) string {
-				return node.LastNet
-			},
+		classes, err := config.Durability.CreateNodeClassifiers()
+		if err != nil {
+			return nil, err
 		}
+
 		for class, f := range classes {
 			cache := checker.NewReliabilityCache(peer.Overlay.Service, config.Checker.ReliabilityCacheStaleness)
-			peer.DurabilityReport.Observer = append(peer.DurabilityReport.Observer, durability.NewDurability(db.OverlayCache(), metabaseDB, cache, class, f, config.Metainfo.RS.Repair-config.Metainfo.RS.Min, config.RangedLoop.AsOfSystemInterval))
+			peer.DurabilityReport.Observer = append(peer.DurabilityReport.Observer, durability.NewDurability(db.OverlayCache(), metabaseDB, cache, class, f, config.RangedLoop.AsOfSystemInterval))
 		}
 	}
 
@@ -222,7 +215,7 @@ func NewRangedLoop(log *zap.Logger, db DB, metabaseDB *metabase.DB, config *Conf
 			observers = append(observers, rangedloop.NewSequenceObserver(sequenceObservers...))
 		}
 
-		segments := rangedloop.NewMetabaseRangeSplitter(metabaseDB, config.RangedLoop.AsOfSystemInterval, config.RangedLoop.SpannerStaleInterval, config.RangedLoop.BatchSize)
+		segments := rangedloop.NewMetabaseRangeSplitter(log.Named("rangedloop-metabase-range-splitter"), metabaseDB, config.RangedLoop)
 		peer.RangedLoop.Service = rangedloop.NewService(log.Named("rangedloop"), config.RangedLoop, segments, observers)
 
 		peer.Services.Add(lifecycle.Item{

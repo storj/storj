@@ -233,6 +233,7 @@ CREATE TABLE projects (
 	user_agent BYTES(MAX),
 	owner_id BYTES(MAX) NOT NULL,
 	salt BYTES(MAX),
+	status INT64 DEFAULT (1),
 	created_at TIMESTAMP NOT NULL,
 	default_placement INT64,
 	default_versioning INT64 NOT NULL DEFAULT (1),
@@ -423,6 +424,7 @@ CREATE TABLE stripecoinpayments_tx_conversion_rates (
 ) PRIMARY KEY ( tx_id ) ;
 CREATE TABLE users (
 	id BYTES(MAX) NOT NULL,
+	external_id STRING(MAX),
 	email STRING(MAX) NOT NULL,
 	normalized_email STRING(MAX) NOT NULL,
 	full_name STRING(MAX) NOT NULL,
@@ -514,6 +516,9 @@ CREATE TABLE bucket_metainfos (
 	user_agent BYTES(MAX),
 	versioning INT64 NOT NULL DEFAULT (0),
 	object_lock_enabled BOOL NOT NULL DEFAULT (false),
+	default_retention_mode INT64,
+	default_retention_days INT64,
+	default_retention_years INT64,
 	path_cipher INT64 NOT NULL,
 	created_at TIMESTAMP NOT NULL,
 	default_segment_size INT64 NOT NULL,
@@ -561,10 +566,6 @@ CREATE INDEX bucket_bandwidth_rollups_archive_action_interval_project_id_index O
 CREATE INDEX bucket_storage_tallies_project_id_interval_start_index ON bucket_storage_tallies ( project_id, interval_start ) ;
 CREATE INDEX bucket_storage_tallies_interval_start_index ON bucket_storage_tallies ( interval_start ) ;
 CREATE INDEX graceful_exit_segment_transfer_nid_dr_qa_fa_lfa_index ON graceful_exit_segment_transfer_queue ( node_id, durability_ratio, queued_at, finished_at, last_failed_at ) ;
-CREATE INDEX node_last_ip ON nodes ( last_net ) ;
-CREATE INDEX nodes_dis_unk_off_exit_fin_last_success_index ON nodes ( disqualified, unknown_audit_suspended, offline_suspended, exit_finished_at, last_contact_success ) ;
-CREATE INDEX nodes_last_cont_success_free_disk_ma_mi_patch_vetted_partial_index ON nodes ( last_contact_success, free_disk, major, minor, patch, vetted_at ) ;
-CREATE INDEX nodes_dis_unk_aud_exit_init_rel_last_cont_success_stored_index ON nodes ( disqualified, unknown_audit_suspended, exit_initiated_at, release, last_contact_success ) ;
 CREATE INDEX node_events_email_event_created_at_index ON node_events ( email, event, created_at ) ;
 CREATE INDEX oauth_clients_user_id_index ON oauth_clients ( user_id ) ;
 CREATE INDEX oauth_codes_user_id_index ON oauth_codes ( user_id ) ;
@@ -588,6 +589,7 @@ CREATE INDEX storjscan_wallets_wallet_address_index ON storjscan_wallets ( walle
 CREATE INDEX stripecoinpayments_invoice_project_records_unbilled_project_id_index ON stripecoinpayments_invoice_project_records ( project_id ) ;
 CREATE INDEX users_email_status_index ON users ( normalized_email, status ) ;
 CREATE INDEX trial_expiration_index ON users ( trial_expiration ) ;
+CREATE INDEX users_external_id_index ON users ( external_id ) ;
 CREATE INDEX webapp_sessions_user_id_index ON webapp_sessions ( user_id ) ;
 CREATE INDEX project_invitations_project_id_index ON project_invitations ( project_id ) ;
 CREATE INDEX project_invitations_email_index ON project_invitations ( email ) ;

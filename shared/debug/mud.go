@@ -12,7 +12,8 @@ import (
 	"go.uber.org/zap"
 
 	"storj.io/common/debug"
-	"storj.io/storj/private/mud"
+	"storj.io/storj/shared/modular"
+	"storj.io/storj/shared/mud"
 )
 
 // Wrapper combines the debug server and the listener.
@@ -30,13 +31,17 @@ func NewWrapper(logger *zap.Logger, config debug.Config, extensions []debug.Exte
 		return d, nil
 	}
 
+	namedLog := logger.Named("debug")
+
 	d.Listener, err = net.Listen("tcp", config.Addr)
 	if err != nil {
 		withoutStack := errs.New("%s", err.Error())
 		logger.Debug("failed to start debug endpoints", zap.Error(withoutStack))
+	} else {
+		namedLog.Info("debug server is started listening", zap.Stringer("addr", d.Listener.Addr()))
 	}
 
-	d.Server = debug.NewServer(logger.Named("debug"), d.Listener, monkit.Default, config, extensions...)
+	d.Server = debug.NewServer(namedLog, d.Listener, monkit.Default, config, extensions...)
 	return d, nil
 }
 
@@ -66,5 +71,5 @@ func Module(ball *mud.Ball) {
 	})
 	mud.Implementation[[]debug.Extension, *ModuleGraph](ball)
 	mud.RemoveTag[*ModuleGraph, mud.Optional](ball)
-
+	mud.Tag[Wrapper, modular.Service](ball, modular.Service{})
 }

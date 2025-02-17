@@ -78,5 +78,5 @@ func TestStatChore(t *testing.T) {
 		require.Equal(t, float64(0), stat["attempted=false,placement=0,scope=storj.io/storj/satellite/repair/repairer count"])
 		require.Equal(t, float64(1), stat["attempted=false,placement=1,scope=storj.io/storj/satellite/repair/repairer count"])
 		require.Equal(t, float64(2), stat["attempted=false,placement=2,scope=storj.io/storj/satellite/repair/repairer count"])
-	}, satellitedbtest.WithSpanner())
+	})
 }

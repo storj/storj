@@ -1,7 +1,7 @@
 // Copyright (C) 2023 Storj Labs, Inc.
 // See LICENSE for copying information.
 
-import { computed, reactive, UnwrapNestedRefs } from 'vue';
+import { computed, reactive, UnwrapNestedRefs, h } from 'vue';
 import { defineStore } from 'pinia';
 import {
     _Object,
@@ -39,10 +39,11 @@ import { AnalyticsErrorEventSource } from '@/utils/constants/analyticsEventNames
 import { useAppStore } from '@/store/modules/appStore';
 import { useNotificationsStore } from '@/store/modules/notificationsStore';
 import { DEFAULT_PAGE_LIMIT } from '@/types/pagination';
-import { ObjectDeleteError, DuplicateUploadError } from '@/utils/error';
+import { ObjectDeleteError } from '@/utils/error';
 import { useConfigStore } from '@/store/modules/configStore';
 import { LocalData } from '@/utils/localData';
 import { ObjectLockStatus, Retention } from '@/types/objectLock';
+import { NotifyRenderedUplinkCLIMessage } from '@/types/DelayedNotification';
 
 export type BrowserObject = {
     Key: string;
@@ -82,24 +83,29 @@ export type UploadingBrowserObject = BrowserObject & {
     Bucket: string;
     Body: File;
     failedMessage?: FailedUploadMessage;
-}
+};
 
 export type PreviewCache = {
     url: string,
     lastModified: number,
-}
+};
 
 export const MAX_KEY_COUNT = 500;
 
 export type ObjectBrowserCursor = {
     page: number,
     limit: number,
-}
+};
 
 export type ObjectRange = {
     start: number,
     end: number,
-}
+};
+
+export type FileToUpload = {
+    path: string,
+    file: File,
+};
 
 export class FilesState {
     s3: S3Client | null = null;
@@ -128,6 +134,8 @@ export class FilesState {
     // Local storage data changes are not reactive.
     // So we need to store this info here to make sure components rerender on changes.
     objectCountOfSelectedBucket = LocalData.getObjectCountOfSelectedBucket() ?? 0;
+
+    largeFileNotificationTimeout: ReturnType<typeof setTimeout> | undefined;
 }
 
 type InitializedFilesState = FilesState & {
@@ -159,6 +167,8 @@ export const useObjectBrowserStore = defineStore('objectBrowser', () => {
     const state = reactive<FilesState>(new FilesState());
 
     const configStore = useConfigStore();
+    const appStore = useAppStore();
+    const { notifyError, notifyWarning } = useNotificationsStore();
 
     // TODO: replace a hard-coded value with a config value?
     const isAltPagination = computed<boolean>(() => {
@@ -320,13 +330,13 @@ export const useObjectBrowserStore = defineStore('objectBrowser', () => {
         });
     }
 
-    async function countVersions(objectKey: string): Promise<string> {
+    async function countVersions(objectKey: string, maxKeys = 500): Promise<string> {
         assertIsInitialized(state);
         const response = await state.s3.send(new ListObjectVersionsCommand({
             Bucket: state.bucket,
             Delimiter: '/',
             Prefix: objectKey,
-            MaxKeys: 500,
+            MaxKeys: maxKeys,
         }));
         const { Versions, DeleteMarkers, CommonPrefixes } = response;
         const allVersions = [...Versions ?? [], ...DeleteMarkers ?? []].filter(isFileVisible);
@@ -558,7 +568,33 @@ export const useObjectBrowserStore = defineStore('objectBrowser', () => {
         }));
     }
 
-    async function upload({ e }: { e: DragEvent | Event }, ignoreDuplicate = false): Promise<void> {
+    // Low effort check for duplicates in files to upload. If files checked reaches 100, or duplicates found reaches 5, return.
+    function lazyDuplicateCheck(filesToUpload: FileToUpload[]): string[] {
+        assertIsInitialized(state);
+
+        const fileNames = state.files.map((file) => file.Key);
+        const duplicateFiles: string[] = [];
+        let traversedCount = 0;
+        for (const { path, file } of filesToUpload) {
+            const directories = path.split('/');
+            const fileName = path + file.name;
+            const hasDuplicate = fileNames.includes(directories[0]) || fileNames.includes(fileName);
+            if (duplicateFiles.length < 5 && hasDuplicate) {
+                duplicateFiles.push(fileName);
+                if (duplicateFiles.length === 5) {
+                    break;
+                }
+            }
+
+            traversedCount++;
+            if (traversedCount === 100) {
+                break;
+            }
+        }
+        return duplicateFiles;
+    }
+
+    async function getFilesToUpload({ e }: { e: DragEvent | Event }): Promise<FileToUpload[]> {
         assertIsInitialized(state);
 
         type Item = DataTransferItem | FileSystemEntry;
@@ -621,30 +657,14 @@ export const useObjectBrowserStore = defineStore('objectBrowser', () => {
             )
             .filter(isFileSystemEntry) as FileSystemEntry[];
 
-        const fileNames = state.files.map((file) => file.Key);
-        const files: { path: string, file: File }[] = [];
-        const duplicateFiles: string[] = [];
-        let traversedCount = 0;
+        const files: FileToUpload[] = [];
         for await (const { path, file } of traverse(iterator)) {
-            const directories = path.split('/');
-            const fileName = path + file.name;
-            const hasDuplicate = fileNames.includes(directories[0]) || fileNames.includes(fileName);
-            if (!ignoreDuplicate && duplicateFiles.length < 5 && hasDuplicate) {
-                duplicateFiles.push(fileName);
-                // if we have 5 duplicate files, or we have traversed 100 files, we stop the loop.
-                // and later throw DuplicateUploadError to notify the user of possible duplicates overwrites.
-                if (duplicateFiles.length === 5 || traversedCount === 100) {
-                    break;
-                }
-            }
             files.push({ path, file });
-            traversedCount++;
         }
+        return files;
+    }
 
-        if (duplicateFiles.length > 0) {
-            throw new DuplicateUploadError(duplicateFiles);
-        }
-
+    async function upload(files: FileToUpload[]): Promise<void> {
         for await (const { path, file } of files) {
             const directories = path.split('/');
             const fileName = directories.join('/') + file.name;
@@ -657,13 +677,11 @@ export const useObjectBrowserStore = defineStore('objectBrowser', () => {
     async function enqueueUpload(key: string, body: File): Promise<void> {
         assertIsInitialized(state);
 
-        const appStore = useAppStore();
-        const { notifyError } = useNotificationsStore();
-
         const params = {
             Bucket: state.bucket,
             Key: key,
             Body: body,
+            ContentType: body.type,
         };
 
         if (state.uploading.some(f => f.Key === key && f.status === UploadingStatus.InProgress)) {
@@ -691,7 +709,27 @@ export const useObjectBrowserStore = defineStore('objectBrowser', () => {
                 type: 'file',
             });
 
+            notifyError(() => {
+                return [
+                    h('span', {}, `${key}: the file size is too large. To upload large files, please use the `),
+                    ...NotifyRenderedUplinkCLIMessage,
+                ];
+            }, AnalyticsErrorEventSource.OBJECT_UPLOAD_ERROR, undefined);
+
             return;
+        }
+
+        // If file size exceeds 5 GB, show warning message.
+        if (body.size > (5 * 1024 * 1024 * 1024)) {
+            clearTimeout(state.largeFileNotificationTimeout);
+            state.largeFileNotificationTimeout = setTimeout(() => {
+                notifyWarning(() => {
+                    return [
+                        h('span', {}, `To upload large files, please consider using the `),
+                        ...NotifyRenderedUplinkCLIMessage,
+                    ];
+                }, undefined);
+            }, 100);
         }
 
         // Upload 4 parts at a time.
@@ -772,13 +810,20 @@ export const useObjectBrowserStore = defineStore('objectBrowser', () => {
         item.status = UploadingStatus.Failed;
         item.failedMessage = FailedUploadMessage.Failed;
 
-        const { notifyError } = useNotificationsStore();
-
         const limitExceededError = 'storage limit exceeded';
         if (error.message.includes(limitExceededError)) {
             notifyError(`Error: ${limitExceededError}`, AnalyticsErrorEventSource.OBJECT_UPLOAD_ERROR);
         } else {
             notifyError(error.message, AnalyticsErrorEventSource.OBJECT_UPLOAD_ERROR);
+        }
+
+        if (item.Body.size > (1024 * 1024 * 1024)) {
+            notifyWarning(() => {
+                return [
+                    h('span', {}, `To upload large files, please consider using the `),
+                    ...NotifyRenderedUplinkCLIMessage,
+                ];
+            }, undefined, 10000);
         }
     }
 
@@ -851,8 +896,8 @@ export const useObjectBrowserStore = defineStore('objectBrowser', () => {
         })).catch((error) => {
             if (
                 error.message.includes('object retention not found')
-               || error.message.includes('missing retention configuration')
-               || error.message.includes('object does not have a retention configuration')
+                || error.message.includes('missing retention configuration')
+                || error.message.includes('object does not have a retention configuration')
             ) {
                 return {} as GetObjectRetentionCommandOutput;
             }
@@ -1049,52 +1094,77 @@ export const useObjectBrowserStore = defineStore('objectBrowser', () => {
     async function deleteSelected(withVersions = false): Promise<number> {
         addFileToBeDeleted(...state.selectedFiles);
 
+        const promises: Promise<number>[] = [];
+        if (!withVersions) {
+            const files = state.selectedFiles.filter(file => file.type === 'file');
+            const folders = state.selectedFiles.filter(file => file.type === 'folder');
+
+            if (files.length) {
+                promises.push(bulkDeleteObjects(files));
+            }
+            if (folders.length) {
+                promises.push(...folders.map(selectedFile => deleteFolder(state.path, selectedFile)));
+            }
+        } else {
+            promises.push(...state.selectedFiles.map(selectedFile => {
+                if (selectedFile.type === 'file') {
+                    return deleteObjectWithVersions(state.path, selectedFile);
+                } else {
+                    return deleteFolderWithVersions(state.path, selectedFile);
+                }
+            }));
+        }
+
         try {
-            const promises: Promise<number>[] = [];
-            if (!withVersions) {
-                const files = state.selectedFiles.filter(file => file.type === 'file');
-                const folders = state.selectedFiles.filter(file => file.type === 'folder');
-
-                if (files.length) {
-                    promises.push(bulkDeleteObjects(files));
-                }
-                if (folders.length) {
-                    promises.push(...folders.map(selectedFile => deleteFolder(state.path, selectedFile)));
-                }
-            } else {
-                promises.push(...state.selectedFiles.map(selectedFile => {
-                    if (selectedFile.type === 'file') {
-                        return deleteObjectWithVersions(state.path, selectedFile);
-                    } else {
-                        return deleteFolderWithVersions(state.path, selectedFile);
-                    }
-                }));
-            }
-
-            const results = await Promise.allSettled(promises);
-
-            removeFileToBeDeleted(...state.selectedFiles);
-
-            const deletedCount = results.reduce((count, result) => {
-                if (result.status === 'fulfilled') {
-                    return count + result.value;
-                }
-                if (result.status === 'rejected') {
-                    const deleteError = (result as PromiseRejectedResult).reason as ObjectDeleteError;
-                    return count + deleteError.deletedCount || 0;
-                }
-                return count;
-            }, 0);
-            const rejection = results.find(result => result.status === 'rejected');
-            if (rejection) {
-                return Promise.reject(new ObjectDeleteError(deletedCount, (rejection as PromiseRejectedResult).reason.message));
-            }
-            return deletedCount;
+            return await finishDeleteSelected(promises);
         } catch (e) {
             return Promise.reject(e);
         } finally {
             removeFileToBeDeleted(...state.selectedFiles);
         }
+    }
+
+    async function deleteSelectedVersions(): Promise<number> {
+        addFileToBeDeleted(...state.selectedFiles);
+        const promises: Promise<number>[] = [];
+        const files = state.selectedFiles.filter(file => file.type === 'file');
+        const folders = state.selectedFiles.filter(file => file.type === 'folder');
+
+        if (files.length) {
+            promises.push(bulkDeleteObjects(files));
+        }
+        if (folders.length) {
+            promises.push(...folders.map(selectedFile => deleteFolderWithVersions(state.path, selectedFile)));
+        }
+        try {
+            return await finishDeleteSelected(promises);
+        } catch (e) {
+            return Promise.reject(e);
+        } finally {
+            removeFileToBeDeleted(...state.selectedFiles);
+        }
+    }
+
+    async function finishDeleteSelected(promises: Promise<number>[]) {
+        const results = await Promise.allSettled(promises);
+
+        removeFileToBeDeleted(...state.selectedFiles);
+
+        const deletedCount = results.reduce((count, result) => {
+            if (result.status === 'fulfilled') {
+                return count + result.value;
+            }
+            if (result.status === 'rejected') {
+                const deleteError = (result as PromiseRejectedResult).reason as ObjectDeleteError;
+                return count + deleteError.deletedCount || 0;
+            }
+            return count;
+        }, 0);
+        const rejection = results.find(result => result.status === 'rejected');
+        if (rejection) {
+            return Promise.reject(new ObjectDeleteError(deletedCount, (rejection as PromiseRejectedResult).reason.message));
+        }
+        return deletedCount;
     }
 
     /**
@@ -1103,7 +1173,7 @@ export const useObjectBrowserStore = defineStore('objectBrowser', () => {
      * @param _deleteRequest - the promise of the delete request.
      * @param _filesLabel - descriptive label of files deleted (versions/files).
      */
-    function handleDeleteObjectRequest(_deleteRequest: Promise<number>, _filesLabel = 'file'): void {
+    function handleDeleteObjectRequest(_deleteRequest: Promise<number>, _filesLabel = 'object'): void {
         /* empty */
     }
 
@@ -1115,18 +1185,32 @@ export const useObjectBrowserStore = defineStore('objectBrowser', () => {
         /* empty */
     }
 
-    async function getDownloadLink(file: BrowserObject): Promise<string> {
+    async function getDownloadLink(file: BrowserObject, options: {
+        contentDisposition?: string,
+        contentType?: string,
+    } | null = null): Promise<string> {
         assertIsInitialized(state);
+
+        // backwards compatibility for previewing pdfs
+        // with application/octet-stream content type
+        if (!options && file.Key.endsWith('.pdf')) {
+            options = {};
+            options.contentType = 'application/pdf';
+        }
 
         return await getSignedUrl(state.s3, new GetObjectCommand({
             Bucket: state.bucket,
             Key: state.path + file.Key,
             VersionId: file.VersionId,
+            ResponseContentDisposition: options?.contentDisposition,
+            ResponseContentType: options?.contentType,
         }));
     }
 
     async function download(file: BrowserObject): Promise<void> {
-        const url = await getDownloadLink(file);
+        const url = await getDownloadLink(file, {
+            contentDisposition: 'attachment',
+        });
         const downloadURL = function (data: string, fileName: string) {
             const a = document.createElement('a');
             a.href = data;
@@ -1229,6 +1313,8 @@ export const useObjectBrowserStore = defineStore('objectBrowser', () => {
         state.showObjectVersions = { value: false, userModified: false };
         state.versionsExpandedKeys = [];
         state.objectCountOfSelectedBucket = 0;
+        clearTimeout(state.largeFileNotificationTimeout);
+        state.largeFileNotificationTimeout = undefined;
     }
 
     return {
@@ -1249,6 +1335,8 @@ export const useObjectBrowserStore = defineStore('objectBrowser', () => {
         updateVersionsExpandedKeys,
         sort,
         upload,
+        getFilesToUpload,
+        lazyDuplicateCheck,
         restoreObject,
         createFolder,
         getObjectRetention,
@@ -1261,6 +1349,7 @@ export const useObjectBrowserStore = defineStore('objectBrowser', () => {
         deleteFolder,
         deleteFolderWithVersions,
         deleteSelected,
+        deleteSelectedVersions,
         handleDeleteObjectRequest,
         filesDeleted,
         getDownloadLink,

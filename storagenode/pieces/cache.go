@@ -5,7 +5,9 @@ package pieces
 
 import (
 	"context"
+	"errors"
 	"fmt"
+	"io/fs"
 	"os"
 	"path/filepath"
 	"sync"
@@ -301,7 +303,13 @@ func (blobs *BlobsUsageCache) SpaceUsedForTrash(ctx context.Context) (int64, err
 func (blobs *BlobsUsageCache) Delete(ctx context.Context, blobRef blobstore.BlobRef) error {
 	pieceTotal, pieceContentSize, err := blobs.pieceSizes(ctx, blobRef)
 	if err != nil {
-		return Error.Wrap(err)
+		if errors.Is(err, fs.ErrNotExist) {
+			// Already deleted; there won't be any byte amounts to update.
+			// Let the Delete call handle the error as it will.
+			pieceTotal, pieceContentSize = 0, 0
+		} else {
+			return Error.Wrap(err)
+		}
 	}
 
 	if err := blobs.Blobs.Delete(ctx, blobRef); err != nil {
@@ -331,7 +339,13 @@ func (blobs *BlobsUsageCache) DeleteWithStorageFormat(ctx context.Context, ref b
 		var err error
 		pieceTotal, pieceContentSize, err = blobs.pieceSizes(ctx, ref)
 		if err != nil {
-			return Error.Wrap(err)
+			if errors.Is(err, fs.ErrNotExist) {
+				// Already deleted; there won't be any byte amounts to update.
+				// Let the DeleteWithStorageFormat call handle the error as it will.
+				pieceTotal, pieceContentSize = 0, 0
+			} else {
+				return Error.Wrap(err)
+			}
 		}
 	}
 
@@ -396,7 +410,13 @@ func (blobs *BlobsUsageCache) ensurePositiveCacheValue(value *int64, name string
 func (blobs *BlobsUsageCache) Trash(ctx context.Context, blobRef blobstore.BlobRef, timestamp time.Time) error {
 	pieceTotal, pieceContentSize, err := blobs.pieceSizes(ctx, blobRef)
 	if err != nil {
-		return Error.Wrap(err)
+		if errors.Is(err, fs.ErrNotExist) {
+			// Already deleted; there won't be any byte amounts to update.
+			// Let the Trash call handle the error as it will.
+			pieceTotal, pieceContentSize = 0, 0
+		} else {
+			return Error.Wrap(err)
+		}
 	}
 
 	err = blobs.Blobs.Trash(ctx, blobRef, timestamp)
@@ -417,7 +437,13 @@ func (blobs *BlobsUsageCache) Trash(ctx context.Context, blobRef blobstore.BlobR
 func (blobs *BlobsUsageCache) TrashWithStorageFormat(ctx context.Context, blobRef blobstore.BlobRef, formatVer blobstore.FormatVersion, timestamp time.Time) error {
 	pieceTotal, pieceContentSize, err := blobs.pieceSizes(ctx, blobRef)
 	if err != nil {
-		return Error.Wrap(err)
+		if errors.Is(err, fs.ErrNotExist) {
+			// Already deleted; there won't be any byte amounts to update.
+			// Let the TrashWithStorageFormat call handle the error as it will.
+			pieceTotal, pieceContentSize = 0, 0
+		} else {
+			return Error.Wrap(err)
+		}
 	}
 
 	err = blobs.Blobs.TrashWithStorageFormat(ctx, blobRef, formatVer, timestamp)

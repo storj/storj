@@ -61,11 +61,11 @@
 # the number of concurrent api requests that can be made
 # analytics.hub-spot.concurrent-sends: 4
 
+# the hubspot form URL for cunoFS beta
+# analytics.hub-spot.cuno-fs-beta-form-url: ""
+
 # the default timeout for the hubspot http client
 # analytics.hub-spot.default-timeout: 10s
-
-# the prefix for the event name
-# analytics.hub-spot.event-prefix: ""
 
 # the hubspot lifecycle stage for new accounts
 # analytics.hub-spot.life-cycle-stage: ""
@@ -73,8 +73,11 @@
 # hubspot refresh token
 # analytics.hub-spot.refresh-token: ""
 
-# the hubspot form ID for signup
-# analytics.hub-spot.signup-form-id: ""
+# the event name for signup action
+# analytics.hub-spot.signup-event-name: ""
+
+# the hubspot form URL for signup
+# analytics.hub-spot.signup-form-url: ""
 
 # hubspot token refresh API
 # analytics.hub-spot.token-api: https://api.hubapi.com/oauth/v1/token
@@ -142,17 +145,14 @@
 # how stale reliable node cache can be
 # checker.reliability-cache-staleness: 5m0s
 
-# [DEPRECATED] comma-separated override values for repair threshold in the format k-threshold
-# checker.repair-overrides: ""
-
 # Number of damaged segments to buffer in-memory before flushing to the repair queue
 # checker.repair-queue-insert-batch-size: 100
 
 # comma-separated override values for repair success target in the format k-target
-# checker.repair-target-overrides: 29-65
+# checker.repair-target-overrides: ""
 
 # comma-separated override values for repair threshold in the format k-threshold
-# checker.repair-threshold-overrides: 29-52
+# checker.repair-threshold-overrides: ""
 
 # percent of held amount disposed to node after leaving withheld
 compensation.dispose-percent: 50
@@ -265,6 +265,9 @@ compensation.withheld-percents: 75,75,75,50,50,50,25,25,25,0,0,0,0,0,0
 # url link for for beta satellite support
 # console.beta-satellite-support-url: ""
 
+# whether billing add funds feature is enabled
+# console.billing-add-funds-enabled: false
+
 # indicates if billing features should be enabled
 # console.billing-features-enabled: true
 
@@ -325,6 +328,9 @@ compensation.withheld-percents: 75,75,75,50,50,50,25,25,25,0,0,0,0,0,0
 # bad captcha score threshold which is used to prevent bot user activity
 # console.captcha.score-cutoff-threshold: 0.8
 
+# whether to enable cloud GPU functionality
+# console.cloud-gpus-enabled: false
+
 # additional values for Content Security Policy connect-src, space separated
 # console.connect-src-suffix: '*.tardigradeshare.io *.storjshare.io *.storjapi.io *.storjsatelliteshare.io'
 
@@ -340,6 +346,12 @@ compensation.withheld-percents: 75,75,75,50,50,50,25,25,25,0,0,0,0,0,0
 # indicates if Content Security Policy is enabled
 # console.csp-enabled: true
 
+# whether CSRF protection is enabled for some of the endpoints
+# console.csrf-protection-enabled: false
+
+# whether prompt to join cunoFS beta is visible
+# console.cuno-fs-beta-enabled: false
+
 # days left before trial end notification
 # console.days-before-trial-end-notification: 3
 
@@ -354,6 +366,9 @@ compensation.withheld-percents: 75,75,75,50,50,50,25,25,25,0,0,0,0,0,0
 
 # whether domains page should be shown
 # console.domains-page-enabled: false
+
+# whether prefix (bucket/folder) download is enabled
+# console.download-prefix-enabled: false
 
 # whether change user email flow is enabled
 # console.email-change-flow-enabled: false
@@ -421,11 +436,20 @@ compensation.withheld-percents: 75,75,75,50,50,50,25,25,25,0,0,0,0,0,0
 # number of times user can try to login without penalty
 # console.login-attempts-without-penalty: 3
 
+# maximum amount (in cents) allowed to be added to an account balance.
+# console.max-add-funds-amount: 10000
+
+# defines the maximum number of characters allowed for long form fields, e.g. comment type fields
+# console.max-long-form-field-characters: 500
+
 # defines the maximum number of characters allowed for names, e.g. user first/last names and company names
 # console.max-name-characters: 100
 
 # additional values for Content Security Policy media-src, space separated
 # console.media-src-suffix: '*.tardigradeshare.io *.storjshare.io *.storjsatelliteshare.io'
+
+# minimum amount (in cents) allowed to be added to an account balance.
+# console.min-add-funds-amount: 100
 
 # indicates if storj native token payments system is enabled
 # console.native-token-payments-enabled: false
@@ -449,7 +473,7 @@ compensation.withheld-percents: 75,75,75,50,50,50,25,25,25,0,0,0,0,0,0
 # console.object-browser-key-name-prefix: .storj-web-file-browser-api-key-
 
 # whether object lock UI should be shown, regardless of whether the feature is enabled
-# console.object-lock-ui-enabled: false
+# console.object-lock-ui-enabled: true
 
 # enable open registration
 # console.open-registration-enabled: false
@@ -468,6 +492,12 @@ compensation.withheld-percents: 75,75,75,50,50,50,25,25,25,0,0,0,0,0,0
 
 # placement-specific edge service URL overrides in the format {"placementID": {"authService": "...", "publicLinksharing": "...", "internalLinksharing": "..."}, "placementID2": ...}
 # console.placement-edge-url-overrides: ""
+
+# whether self-serve placement selection feature is enabled
+# console.placement.self-serve-enabled: false
+
+# list of placements names allowed for self-serve selection
+# console.placement.self-serve-names: []
 
 # whether to allow purchasing pricing packages
 # console.pricing-packages-enabled: true
@@ -504,6 +534,9 @@ compensation.withheld-percents: 75,75,75,50,50,50,25,25,25,0,0,0,0,0,0
 
 # whether self-serve account delete flow is enabled
 # console.self-serve-account-delete-enabled: false
+
+# human-readable details for placements allowed for self serve placement in the format {"placementID": {"idName": "...", "name": "...", "title": "...", "description": "..."}}
+# console.self-serve-placement-details: ""
 
 # used to communicate with web crawlers and other web robots
 # console.seo: "User-agent: *\nDisallow: \nDisallow: /cgi-bin/"
@@ -571,6 +604,9 @@ compensation.withheld-percents: 75,75,75,50,50,50,25,25,25,0,0,0,0,0,0
 # whether to load templates on each request
 # console.watch: false
 
+# maximum number of objects allowed for a zip format download
+# console.zip-download-limit: 1000
+
 # url of the zkSync transaction block explorer
 # console.zk-sync-block-explorer-url: https://explorer.zksync.io/
 
@@ -633,6 +669,13 @@ contact.external-address: ""
 
 # whether to enable durability report (rangedloop observer)
 # durability-report.enabled: true
+
+# Node attributes used by the durability segment loop to classify risks
+# durability.classes:
+# - last_net
+# - last_ip
+# - wallet
+# - email
 
 # how often to send reminders to users who need to verify their email
 # email-reminders.chore-interval: 24h0m0s
@@ -746,7 +789,7 @@ contact.external-address: ""
 # garbage-collection-bf.bucket: ""
 
 # do not include expired pieces into bloom filter
-# garbage-collection-bf.exclude-expired-pieces: false
+# garbage-collection-bf.exclude-expired-pieces: true
 
 # how long bloom filters will remain in the bucket for gc/sender to consume before being automatically deleted
 # garbage-collection-bf.expire-in: 336h0m0s
@@ -892,6 +935,39 @@ identity.key-path: /root/.local/share/storj/identity/satellite/identity.key
 # the database connection string to use
 # metainfo.database-url: postgres://
 
+# the number of requests to allow bursts beyond the rate limit
+# metainfo.download-limiter.burst-limit: 3
+
+# whether rate limiting is enabled.
+# metainfo.download-limiter.enabled: true
+
+# the number of hash indexes to make into the rate limit map
+# metainfo.download-limiter.hash-count: 3
+
+# how often we can upload to the single object (the same location) per API instance
+# metainfo.download-limiter.single-object-limit: 1ms
+
+# two to this power is the amount of rate limits to store in ram. higher has less collisions.
+# metainfo.download-limiter.size-exponent: 21
+
+# the chance to skip a failure tracker generation bump
+# metainfo.failure-tracker-chance-to-skip: 0.6
+
+# how often to bump the generation in the node failure tracker
+# metainfo.failure-tracker-tick-duration: 5s
+
+# minimum number of items to query at a time
+# metainfo.list-objects.min-batch-size: 100
+
+# prefixes to skip before requerying
+# metainfo.list-objects.prefix-skip-requery: 1000
+
+# extra items to list for non-recursive queries
+# metainfo.list-objects.query-extra-for-non-recursive: 10
+
+# versions to skip before requerying
+# metainfo.list-objects.version-skip-requery: 1000
+
 # maximum time allowed to pass between creating and committing a segment
 # metainfo.max-commit-interval: 48h0m0s
 
@@ -920,7 +996,7 @@ identity.key-path: /root/.local/share/storj/identity/satellite/identity.key
 # metainfo.node-alias-cache-full-refresh: false
 
 # enable the use of bucket-level Object Lock
-# metainfo.object-lock-enabled: false
+# metainfo.object-lock-enabled: true
 
 # toggle flag if overlay is enabled
 # metainfo.overlay: true
@@ -943,6 +1019,9 @@ identity.key-path: /root/.local/share/storj/identity/satellite/identity.key
 # redundancy scheme configuration in the format k/m/o/n-sharesize
 # metainfo.rs: 29/35/80/110-256 B
 
+# send edge URL overrides through the GetProjectInfo endpoint
+# metainfo.send-edge-url-overrides: false
+
 # enable code for server-side copy, deprecated. please leave this to true.
 # metainfo.server-side-copy: true
 
@@ -955,8 +1034,11 @@ identity.key-path: /root/.local/share/storj/identity/satellite/identity.key
 # how often to bump the generation in the node success tracker
 # metainfo.success-tracker-tick-duration: 10m0s
 
-# list of trusted uplinks for success tracker
+# list of trusted uplinks for success tracker, deprecated. please use success-tracker-uplinks for uplinks that should get their own success tracker profiles and trusted-uplinks for uplinks that are trusted individually.
 # metainfo.success-tracker-trusted-uplinks: []
+
+# list of uplinks for success tracker
+# metainfo.success-tracker-uplinks: []
 
 # test the new query for non-recursive listing
 # metainfo.test-listing-query: false
@@ -964,8 +1046,8 @@ identity.key-path: /root/.local/share/storj/identity/satellite/identity.key
 # enables optimization for uploading objects with single inline segment
 # metainfo.test-optimized-inline-object-upload: false
 
-# which code path to use for precommit delete step for unversioned objects, 0 is the default (old) code path.
-# metainfo.testing-precommit-delete-mode: 0
+# list of trusted uplinks
+# metainfo.trusted-uplinks: []
 
 # number of object locations to cache.
 # metainfo.upload-limiter.cache-capacity: 10000
@@ -977,10 +1059,10 @@ identity.key-path: /root/.local/share/storj/identity/satellite/identity.key
 # metainfo.upload-limiter.single-object-limit: 1s
 
 # enable the use of bucket level object versioning
-# metainfo.use-bucket-level-object-versioning: false
+# metainfo.use-bucket-level-object-versioning: true
 
-# switch to iterator based implementation.
-# metainfo.use-list-objects-iterator: false
+# switch to new ListObjects implementation
+# metainfo.use-list-objects-for-listing: false
 
 # user info cache capacity
 # metainfo.user-info-validation.cache-capacity: 10000
@@ -1036,6 +1118,9 @@ identity.key-path: /root/.local/share/storj/identity/satellite/identity.key
 # how long the earliest instance of an event for a particular email should exist in the DB before it is selected
 # node-events.selection-wait-period: 5m0s
 
+# batch size for saving tallies into DB
+# node-tally.batch-size: 1000
+
 # how long to wait between sending Node Offline emails
 # offline-nodes.cooldown: 24h0m0s
 
@@ -1047,6 +1132,9 @@ identity.key-path: /root/.local/share/storj/identity/satellite/identity.key
 
 # max number of offline emails to send a node operator until the node comes back online
 # offline-nodes.max-emails: 3
+
+# determine if orders from storage nodes should be accepted
+# orders.accept-orders: true
 
 # how many nodes should be used for downloads for certain k. must be >= k. if not specified, this is calculated from long tail tolerance. format is comma separated like k-d,k-d,k-d e.g. 29-35,3-5.
 # orders.download-tail-tolerance-overrides: ""
@@ -1063,8 +1151,8 @@ identity.key-path: /root/.local/share/storj/identity/satellite/identity.key
 # how often to flush the rollups write cache to the database
 # orders.flush-interval: 1m0s
 
-# how many concurrent orders to process at once. zero is unlimited
-# orders.orders-semaphore-size: 2
+# stops validating orders received from trusted nodes
+# orders.trusted-orders: false
 
 # default AS OF SYSTEM TIME for service
 # overlay.as-of-system-time: -10s
@@ -1138,6 +1226,15 @@ identity.key-path: /root/.local/share/storj/identity/satellite/identity.key
 # semicolon-separated partner package plans in the format partner:price,credit. Price and credit are in cents USD.
 # payments.package-plans: ""
 
+# semicolon-separated list of partners to placement price overrides in the format: partner0[placement0:product0;placement1,placement2:product1];partner1[etc...] If a partner uses a placement not defined for them in this config, they will be charged according to --payments.placement-price-overrides.
+# payments.partners-placement-price-overrides: ""
+
+# semicolon-separated list of placement price overrides in the format: placement:product. Multiple placements may be mapped to a single product like so: p0,p1:product. Products must be defined by the --payments.products config, or the satellite will not start.
+# payments.placement-price-overrides: ""
+
+# semicolon-separated list of products and their product IDs and price structures in the format: product:productID,storage,egress,segment,egress_discount_ratio. The egress discount ratio is the ratio of free egress per unit-month of storage
+# payments.products: ""
+
 # payments provider to use
 # payments.provider: ""
 
@@ -1192,8 +1289,11 @@ identity.key-path: /root/.local/share/storj/identity/satellite/identity.key
 # stripe API secret key
 # payments.stripe-coin-payments.stripe-secret-key: ""
 
+# stripe webhookEvents secret token
+# payments.stripe-coin-payments.stripe-webhook-secret: ""
+
 # whether to use idempotency for create/update requests
-# payments.stripe-coin-payments.use-idempotency: false
+# payments.stripe-coin-payments.use-idempotency: true
 
 # semicolon-separated usage price overrides in the format partner:storage,egress,segment,egress_discount_ratio. The egress discount ratio is the ratio of free egress per unit-month of storage
 # payments.usage-price-overrides: ""
@@ -1411,6 +1511,15 @@ server.private-address: 127.0.0.1:7778
 # if true, uses peer ca whitelist checking
 # server.use-peer-ca-whitelist: true
 
+# semicolon-separated provider:email-regex as provided in oidc-provider-infos.
+# sso.email-provider-mappings: ""
+
+# whether SSO is enabled.
+# sso.enabled: false
+
+# semicolon-separated provider:client-id,client-secret,provider-url.
+# sso.oidc-provider-infos: ""
+
 # indicates whether the console API should be served as a standalone service
 # standalone-console-api-enabled: false
 
@@ -1440,6 +1549,9 @@ server.private-address: 127.0.0.1:7778
 
 # how large of batches GetBandwidthSince should process at a time
 # tally.read-rollup-batch-size: 10000
+
+# how many days to retain tallies or zero to retain indefinitely
+# tally.retention-days: 365
 
 # how large of batches SaveRollup should process at a time
 # tally.save-rollup-batch-size: 1000
@@ -1480,6 +1592,15 @@ server.private-address: 127.0.0.1:7778
 # Whether the private Userinfo rpc endpoint is enabled
 # userinfo.enabled: false
 
+# base url of valdi external API
+# valdi.api-base-url: https://api.valdi.ai
+
+# path to RSA private key for signing valdi requests
+# valdi.rsa-key-path: ""
+
+# the base email address for valdi satellite project email addresses. Important: once this has been used to create users, it should not be changed
+# valdi.satellite-email: ""
+
 # Interval to check the version
 # version.check-interval: 15m0s
 
@@ -1499,7 +1620,7 @@ server.private-address: 127.0.0.1:7778
 # zombie-deletion.inactive-for: 24h0m0s
 
 # the time between each attempt to go through the db and clean up zombie objects
-# zombie-deletion.interval: 12h0m0s
+# zombie-deletion.interval: 15h0m0s
 
 # how many objects to query in a batch
 # zombie-deletion.list-limit: 100

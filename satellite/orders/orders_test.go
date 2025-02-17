@@ -141,7 +141,7 @@ func TestUploadDownloadBandwidth(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
 		SatelliteCount: 1, StorageNodeCount: 6, UplinkCount: 1,
 		Reconfigure: testplanet.Reconfigure{
-			Satellite: testplanet.ReconfigureRS(2, 3, 4, 4),
+			Satellite: testplanet.ReconfigureRS(4, 4, 4, 4),
 		},
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 		now := time.Now()
@@ -357,7 +357,7 @@ func TestSettledAmountsMatch(t *testing.T) {
 func TestProjectBandwidthDailyRollups(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
 		SatelliteCount: 1, StorageNodeCount: 3, UplinkCount: 1,
-		EnableSpanner: true,
+
 		Reconfigure: testplanet.Reconfigure{
 			Satellite: testplanet.ReconfigureRS(3, 3, 3, 3),
 		},

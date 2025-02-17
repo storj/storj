@@ -33,16 +33,17 @@ export class ProjectsHttpApi implements ProjectsApi {
      * Creates project.
      *
      * @param projectFields - contains project information
+     * @param csrfProtectionToken - CSRF token
      * @throws Error
      */
-    public async create(projectFields: ProjectFields): Promise<Project> {
+    public async create(projectFields: ProjectFields, csrfProtectionToken: string): Promise<Project> {
         const data = {
             name: projectFields.name,
             description: projectFields.description,
             managePassphrase: projectFields.managePassphrase,
         };
 
-        const response = await this.http.post(this.ROOT_PATH, JSON.stringify(data));
+        const response = await this.http.post(this.ROOT_PATH, JSON.stringify(data), { csrfProtectionToken });
         const result = await response.json();
         if (response.ok) {
             return new Project(
@@ -54,6 +55,7 @@ export class ProjectsHttpApi implements ProjectsApi {
                 result.memberCount,
                 result.edgeURLOverrides,
                 getVersioning(result.versioning),
+                result.placement,
             );
         }
 
@@ -91,6 +93,7 @@ export class ProjectsHttpApi implements ProjectsApi {
             p.memberCount,
             p.edgeURLOverrides,
             getVersioning(p.versioning),
+            p.placement,
             p.storageUsed,
             p.bandwidthUsed,
         ));
@@ -101,7 +104,7 @@ export class ProjectsHttpApi implements ProjectsApi {
      *
      * @throws Error
      */
-    public async delete(projectId: string, step: DeleteProjectStep, data: string): Promise<ProjectDeletionData | null> {
+    public async delete(projectId: string, step: DeleteProjectStep, data: string, csrfProtectionToken: string): Promise<ProjectDeletionData | null> {
         const path = `${this.ROOT_PATH}/${projectId}`;
 
         const body = JSON.stringify({
@@ -109,7 +112,7 @@ export class ProjectsHttpApi implements ProjectsApi {
             data,
         });
 
-        const response = await this.http.delete(path, body);
+        const response = await this.http.delete(path, body, { csrfProtectionToken });
 
         if (response.ok) {
             return null;
@@ -145,13 +148,11 @@ export class ProjectsHttpApi implements ProjectsApi {
         const result = await response.json();
         if (response.ok) {
             return new ProjectConfig(
-                result.versioningUIEnabled,
-                result.promptForVersioningBeta,
                 result.hasManagedPassphrase,
                 result.passphrase ?? '',
                 result.isOwnerPaidTier,
                 result.role,
-                result.objectLockUIEnabled,
+                result.salt,
             );
         }
 
@@ -163,37 +164,16 @@ export class ProjectsHttpApi implements ProjectsApi {
     }
 
     /**
-     * Opt in or out of versioning beta.
-     *
-     * @param projectId - the project's ID
-     * @param status - the new opt-in status
-     * @throws Error
-     */
-    public async setVersioningOptInStatus(projectId: string, status: 'in' | 'out'): Promise<void> {
-        const path = `${this.ROOT_PATH}/${projectId}/versioning-opt-${status}`;
-        const response = await this.http.patch(path, null);
-        if (response.ok) {
-            return;
-        }
-
-        const result = await response.json();
-        throw new APIError({
-            status: response.status,
-            message: result.error || `Can not change opt in status`,
-            requestID: response.headers.get('x-request-id'),
-        });
-    }
-
-    /**
      * Update project name and description.
      *
      * @param projectId - project ID
      * @param projectFields - project fields
+     * @param csrfProtectionToken - CSRF token
      * @throws Error
      */
-    public async update(projectId: string, projectFields: UpdateProjectFields): Promise<void> {
+    public async update(projectId: string, projectFields: UpdateProjectFields, csrfProtectionToken: string): Promise<void> {
         const path = `${this.ROOT_PATH}/${projectId}`;
-        const response = await this.http.patch(path, JSON.stringify(projectFields));
+        const response = await this.http.patch(path, JSON.stringify(projectFields), { csrfProtectionToken });
         if (response.ok) {
             return;
         }
@@ -211,11 +191,12 @@ export class ProjectsHttpApi implements ProjectsApi {
      *
      * @param projectId - project ID
      * @param fields - project limits to update
+     * @param csrfProtectionToken - CSRF token
      * @throws Error
      */
-    public async updateLimits(projectId: string, fields: UpdateProjectLimitsFields): Promise<void> {
+    public async updateLimits(projectId: string, fields: UpdateProjectLimitsFields, csrfProtectionToken: string): Promise<void> {
         const path = `${this.ROOT_PATH}/${projectId}/limits`;
-        const response = await this.http.patch(path, JSON.stringify(fields));
+        const response = await this.http.patch(path, JSON.stringify(fields), { csrfProtectionToken });
         if (response.ok) {
             return;
         }
@@ -360,6 +341,11 @@ export class ProjectsHttpApi implements ProjectsApi {
                 date.setHours(0, 0, 0, 0);
                 return new DataStamp(el.value, date);
             }),
+            usage.settledBandwidthUsage.map(el => {
+                const date = new Date(el.date);
+                date.setHours(0, 0, 0, 0);
+                return new DataStamp(el.value, date);
+            }),
         );
     }
 
@@ -421,6 +407,7 @@ export class ProjectsHttpApi implements ProjectsApi {
                 p.memberCount,
                 p.edgeURLOverrides,
                 getVersioning(p.versioning),
+                p.placement,
             ));
 
         return new ProjectsPage(projects, page.limit, page.offset, page.pageCount, page.currentPage, page.totalCount);
@@ -458,10 +445,10 @@ export class ProjectsHttpApi implements ProjectsApi {
      *
      * @throws Error
      */
-    public async respondToInvitation(projectID: string, response: ProjectInvitationResponse): Promise<void> {
+    public async respondToInvitation(projectID: string, response: ProjectInvitationResponse, csrfProtectionToken: string): Promise<void> {
         const path = `${this.ROOT_PATH}/invitations/${projectID}/respond`;
         const body = { projectID, response };
-        const httpResponse = await this.http.post(path, JSON.stringify(body));
+        const httpResponse = await this.http.post(path, JSON.stringify(body), { csrfProtectionToken });
 
         if (httpResponse.ok) return;
 

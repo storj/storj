@@ -12,6 +12,8 @@ import (
 	"github.com/pquerna/otp"
 	"github.com/pquerna/otp/totp"
 	"github.com/zeebo/errs"
+
+	"storj.io/storj/private/post"
 )
 
 const (
@@ -114,6 +116,12 @@ func (s *Service) EnableUserMFA(ctx context.Context, passcode string, t time.Tim
 		return Error.Wrap(err)
 	}
 
+	s.mailService.SendRenderedAsync(
+		ctx,
+		[]post.Address{{Address: user.Email, Name: user.FullName}},
+		&MFAActivatedEmail{},
+	)
+
 	return nil
 }
 
@@ -171,6 +179,12 @@ func (s *Service) DisableUserMFA(ctx context.Context, passcode string, t time.Ti
 	if err != nil {
 		return Error.Wrap(err)
 	}
+
+	s.mailService.SendRenderedAsync(
+		ctx,
+		[]post.Address{{Address: user.Email, Name: user.FullName}},
+		&MFADisabledEmail{},
+	)
 
 	return nil
 }

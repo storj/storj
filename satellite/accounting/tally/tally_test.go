@@ -44,7 +44,7 @@ func TestDeleteTalliesBefore(t *testing.T) {
 	for _, tt := range tests {
 		test := tt
 		testplanet.Run(t, testplanet.Config{
-			SatelliteCount: 1, StorageNodeCount: 0, UplinkCount: 0, EnableSpanner: true,
+			SatelliteCount: 1, StorageNodeCount: 0, UplinkCount: 0,
 		}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 			nodeIDs := []storj.NodeID{{1}, {2}, {3}}
 			nodeBWAmounts := []float64{1000, 1000, 1000}
@@ -458,7 +458,7 @@ func TestBucketTallyCollectorListLimit(t *testing.T) {
 func TestTallySaveTalliesBatchSize(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
 		SatelliteCount: 1, StorageNodeCount: 0, UplinkCount: 1,
-		EnableSpanner: true,
+
 		Reconfigure: testplanet.Reconfigure{
 			Satellite: func(log *zap.Logger, index int, config *satellite.Config) {
 				config.Metainfo.ProjectLimits.MaxBuckets = 23
@@ -508,5 +508,58 @@ func TestTallySaveTalliesBatchSize(t *testing.T) {
 
 			require.ElementsMatch(t, expectedBucketLocations, bucketLocations)
 		}
+	})
+}
+
+func TestTallyPurge(t *testing.T) {
+	testplanet.Run(t, testplanet.Config{
+		SatelliteCount: 1, StorageNodeCount: 4, UplinkCount: 1,
+	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+		satellite := planet.Satellites[0]
+		projectID := planet.Uplinks[0].Projects[0].ID
+
+		tally := planet.Satellites[0].Accounting.Tally
+		tally.Loop.Pause()
+
+		var (
+			now        = time.Now().Truncate(time.Hour).UTC()
+			timeBefore = now.AddDate(0, 0, -366)
+			timeAt     = now.AddDate(0, 0, -365)
+			timeAfter  = now.AddDate(0, 0, -364)
+
+			tallyBefore = accounting.BucketTally{BucketLocation: metabase.BucketLocation{ProjectID: projectID, BucketName: "before"}}
+			tallyAt     = accounting.BucketTally{BucketLocation: metabase.BucketLocation{ProjectID: projectID, BucketName: "at"}}
+			tallyAfter  = accounting.BucketTally{BucketLocation: metabase.BucketLocation{ProjectID: projectID, BucketName: "after"}}
+		)
+
+		err := satellite.DB.ProjectAccounting().SaveTallies(ctx, timeBefore, map[metabase.BucketLocation]*accounting.BucketTally{
+			tallyBefore.BucketLocation: &tallyBefore,
+		})
+		require.NoError(t, err)
+
+		err = satellite.DB.ProjectAccounting().SaveTallies(ctx, timeAt, map[metabase.BucketLocation]*accounting.BucketTally{
+			tallyAt.BucketLocation: &tallyAt,
+		})
+		require.NoError(t, err)
+
+		err = satellite.DB.ProjectAccounting().SaveTallies(ctx, timeAfter, map[metabase.BucketLocation]*accounting.BucketTally{
+			tallyAfter.BucketLocation: &tallyAfter,
+		})
+		require.NoError(t, err)
+
+		// Capture the pre-purge state.
+		prePurge, err := satellite.DB.ProjectAccounting().GetTallies(ctx)
+		require.NoError(t, err)
+		require.ElementsMatch(t, []accounting.BucketTally{tallyBefore, tallyAt, tallyAfter}, prePurge)
+
+		// Inject now as the time and run the loop to initiate the purge.
+		tally.SetNow(func() time.Time { return now })
+		tally.Loop.TriggerWait()
+
+		// Capture the post-purge state and assert that the "before" tally
+		// has deleted.
+		postPurge, err := satellite.DB.ProjectAccounting().GetTallies(ctx)
+		require.NoError(t, err)
+		require.ElementsMatch(t, []accounting.BucketTally{tallyAt, tallyAfter}, postPurge)
 	})
 }

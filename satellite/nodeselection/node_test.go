@@ -86,6 +86,51 @@ func TestNodeAttribute(t *testing.T) {
 	require.ErrorContains(t, err, "should be defined")
 }
 
+func TestNodeValue(t *testing.T) {
+	must := func(a NodeValue, err error) NodeValue {
+		require.NoError(t, err)
+		return a
+	}
+
+	assert.Equal(t, 123.0, must(CreateNodeValue("free_disk"))(SelectedNode{
+		FreeDisk: 123.0,
+	}))
+
+	signerID := testidentity.MustPregeneratedIdentity(1, storj.LatestIDVersion()).ID
+	otherSignerID := testidentity.MustPregeneratedIdentity(2, storj.LatestIDVersion()).ID
+
+	assert.Equal(t, 12.0, must(CreateNodeValue(fmt.Sprintf("tag:%s/foo", signerID)))(SelectedNode{
+		Tags: NodeTags{
+			{
+				Signer: signerID,
+				Name:   "foo",
+				Value:  []byte("12.0"),
+			},
+		},
+	}))
+
+	assert.Equal(t, 0.0, must(CreateNodeValue(fmt.Sprintf("tag:%s/foo", signerID)))(SelectedNode{
+		Tags: NodeTags{
+			{
+				Signer: otherSignerID,
+				Name:   "foo",
+				Value:  []byte("bar"),
+			},
+		},
+	}))
+
+	assert.Equal(t, 13.0, must(CreateNodeValue(fmt.Sprintf("tag:%s/foo?13", signerID)))(SelectedNode{
+		Tags: NodeTags{
+			{
+				Signer: otherSignerID,
+				Name:   "foo",
+				Value:  []byte("bar"),
+			},
+		},
+	}))
+
+}
+
 func TestSubnet(t *testing.T) {
 	s := SelectedNode{
 		LastIPPort: "12.23.34.45:8888",
@@ -99,7 +144,7 @@ func BenchmarkSubnet(b *testing.B) {
 	for i := 0; i < b.N; i++ {
 		s = Subnet(25)(SelectedNode{
 			LastIPPort: fmt.Sprintf("%d.%d.%d.%d:1234", (i>>24)%256, (i>>16)%256, (i>>8)%256, i%256),
-		}).(string)
+		})
 		if strings.Contains(s, "error") {
 			b.Fatal(s)
 		}

@@ -36,8 +36,9 @@ var (
 	numberOfPieces = flag.Int("number-of-pieces", 100000, "")
 	lazywalker     = flag.Bool("lazywalker", false, "")
 
-	cpuprofile = flag.String("cpuprofile", "", "write a cpu profile")
-	memprofile = flag.String("memprofile", "", "write a memory profile")
+	cpuprofile    = flag.String("cpuprofile", "", "write a cpu profile")
+	memprofile    = flag.String("memprofile", "", "write a memory profile")
+	dedicatedDisk = flag.Bool("dedicated-disk", false, "assume the test setup is a dedicated disk node. This removes the usage cache layer on top of the blobstore.")
 )
 
 func main() {
@@ -51,11 +52,14 @@ func main() {
 	snDB := try.E1(storagenodedb.OpenNew(ctx, log, cfg.DatabaseConfig()))
 	try.E(snDB.MigrateToLatest(ctx))
 
-	blobsCache := pieces.NewBlobsUsageCache(log, snDB.Pieces())
-	filewalker := pieces.NewFileWalker(log, blobsCache, snDB.V0PieceInfo(),
+	blobStore := snDB.Pieces()
+	if !*dedicatedDisk {
+		blobStore = pieces.NewBlobsUsageCache(log, snDB.Pieces())
+	}
+	filewalker := pieces.NewFileWalker(log, blobStore, snDB.V0PieceInfo(),
 		snDB.GCFilewalkerProgress(), snDB.UsedSpacePerPrefix())
 
-	piecesStore := pieces.NewStore(log, filewalker, nil, blobsCache, snDB.V0PieceInfo(), snDB.PieceExpirationDB(), cfg.Pieces)
+	piecesStore := pieces.NewStore(log, filewalker, nil, blobStore, snDB.V0PieceInfo(), snDB.PieceExpirationDB(), cfg.Pieces)
 	testStore := pieces.StoreForTest{Store: piecesStore}
 
 	satelliteID := testrand.NodeID()

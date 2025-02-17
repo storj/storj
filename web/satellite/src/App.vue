@@ -20,8 +20,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed, onBeforeMount, ref, watch } from 'vue';
-import { useTheme } from 'vuetify';
+import { computed, onBeforeMount, onBeforeUnmount, ref, watch } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 
 import { useConfigStore } from '@/store/modules/configStore';
@@ -43,6 +42,8 @@ import { PricingPlanInfo } from '@/types/common';
 import { EdgeCredentials } from '@/types/accessGrants';
 import { useObjectBrowserStore } from '@/store/modules/objectBrowserStore';
 import { ProjectConfig } from '@/types/projects';
+import { PaymentStatus, PaymentWithConfirmations } from '@/types/payments';
+import { DARK_THEME_QUERY, useThemeStore } from '@/store/modules/themeStore';
 
 import Notifications from '@/layouts/default/Notifications.vue';
 import ErrorPage from '@/components/ErrorPage.vue';
@@ -55,6 +56,7 @@ const abTestingStore = useABTestingStore();
 const billingStore = useBillingStore();
 const bucketsStore = useBucketsStore();
 const configStore = useConfigStore();
+const themeStore = useThemeStore();
 const usersStore = useUsersStore();
 const obStore = useObjectBrowserStore();
 const projectsStore = useProjectsStore();
@@ -62,10 +64,18 @@ const analyticsStore = useAnalyticsStore();
 
 const notify = useNotify();
 const router = useRouter();
-const theme = useTheme();
 const route = useRoute();
 
 const isLoading = ref<boolean>(true);
+
+const darkThemeMediaQuery = window.matchMedia(DARK_THEME_QUERY);
+
+/**
+ * Returns pending payments from store.
+ */
+const pendingPayments = computed<PaymentWithConfirmations[]>(() => {
+    return billingStore.state.pendingPaymentsWithConfirmations;
+});
 
 /**
  * Indicates whether an error page should be shown in place of the router view.
@@ -167,16 +177,21 @@ async function setup() {
     isLoading.value = false;
 }
 
+function totalValueCounter(list: PaymentWithConfirmations[], field: keyof PaymentWithConfirmations): number {
+    return list.reduce((acc: number, curr: PaymentWithConfirmations) => {
+        return acc + (curr[field] as number);
+    }, 0);
+}
+
+function onThemeChange(e: MediaQueryListEvent) {
+    themeStore.setThemeLightness(!e.matches);
+}
+
 /**
  * Lifecycle hook before initial render.
  * Sets up variables from meta tags from config such satellite name, etc.
  */
 onBeforeMount(async (): Promise<void> => {
-    const savedTheme = localStorage.getItem('theme') || 'light';
-    if ((savedTheme === 'dark' && !theme.global.current.value.dark) || (savedTheme === 'light' && theme.global.current.value.dark)) {
-        theme.global.name.value = savedTheme;
-    }
-
     try {
         await configStore.getConfig();
     } catch (error) {
@@ -240,7 +255,7 @@ obStore.$onAction(({ name, after, args }) => {
     if (name === 'handleDeleteObjectRequest') {
         after(async (_) => {
             const request = args[0];
-            let label = args[1] ?? 'file';
+            let label = args[1] ?? 'object';
             let deletedCount = 0;
             try {
                 deletedCount = await request;
@@ -263,6 +278,42 @@ obStore.$onAction(({ name, after, args }) => {
         });
     }
 });
+
+const processedTXs = new Set<string>();
+
+watch(pendingPayments, async newPayments => {
+    if (!newPayments.length) return;
+
+    const unprocessedConfirmedPayments = newPayments.filter(p => p.status === PaymentStatus.Confirmed && !processedTXs.has(p.transaction));
+    if (!unprocessedConfirmedPayments.length) return;
+
+    const tokensSum = totalValueCounter(unprocessedConfirmedPayments, 'tokenValue');
+    if (tokensSum > 0) {
+        const bonusSum = totalValueCounter(unprocessedConfirmedPayments, 'bonusTokens');
+
+        notify.success(`Successful deposit of ${tokensSum} STORJ tokens. You received an additional bonus of ${bonusSum} STORJ tokens.`);
+
+        Promise.all([
+            billingStore.getBalance(),
+            billingStore.getWallet(),
+        ]).catch((_) => {});
+    }
+
+    unprocessedConfirmedPayments.forEach(p => processedTXs.add(p.transaction));
+
+    if (!user.value.paidTier) {
+        await usersStore.getUser();
+
+        if (user.value.paidTier) {
+            await Promise.all([
+                projectsStore.getProjectConfig(),
+                projectsStore.getProjectLimits(projectsStore.state.selectedProject.id),
+            ]).catch((_) => {});
+
+            notify.success('Account was successfully upgraded!');
+        }
+    }
+}, { deep: true, immediate: true });
 
 /**
  * reset pricing plans available when user upgrades to paid tier.
@@ -305,5 +356,18 @@ watch(() => projectsStore.state.selectedProject, async (project, oldProject) => 
     } catch (error) {
         notify.notifyError(error, AnalyticsErrorEventSource.OVERALL_APP_WRAPPER_ERROR);
     }
+});
+
+watch(() => themeStore.state.name, (theme) => {
+    if (theme === 'auto') {
+        darkThemeMediaQuery.addEventListener('change', onThemeChange);
+        return;
+    }
+    darkThemeMediaQuery.removeEventListener('change', onThemeChange);
+}, { immediate: true });
+
+onBeforeUnmount(() => {
+    billingStore.stopPaymentsPolling();
+    darkThemeMediaQuery.removeEventListener('change', onThemeChange);
 });
 </script>

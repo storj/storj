@@ -293,7 +293,7 @@ func BenchmarkProcess(b *testing.B) {
 			require.NoError(b, err)
 		}
 
-		observer := nodetally.NewObserver(zaptest.NewLogger(b), nil, planet.Satellites[0].Metabase.DB)
+		observer := nodetally.NewObserver(zaptest.NewLogger(b), nil, planet.Satellites[0].Metabase.DB, planet.Satellites[0].Config.NodeTally)
 
 		segments, err := planet.Satellites[0].Metabase.DB.TestingAllSegments(ctx)
 		require.NoError(b, err)

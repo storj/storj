@@ -19,6 +19,7 @@ import (
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap"
 
+	"storj.io/common/storj"
 	"storj.io/common/testcontext"
 	"storj.io/common/uuid"
 	"storj.io/storj/private/apigen"
@@ -26,7 +27,9 @@ import (
 	"storj.io/storj/satellite"
 	"storj.io/storj/satellite/accounting"
 	"storj.io/storj/satellite/console"
+	"storj.io/storj/satellite/nodeselection"
 	"storj.io/storj/satellite/payments"
+	"storj.io/storj/satellite/payments/paymentsconfig"
 	"storj.io/storj/satellite/payments/storjscan/blockchaintest"
 )
 
@@ -167,7 +170,6 @@ func TestAuth(t *testing.T) {
 				PartnerUpgradeBanner:     false,
 				ProjectMembersPassphrase: false,
 				UploadOverwriteWarning:   false,
-				VersioningBetaBanner:     false,
 			}
 
 			testGetSettings(expectedSettings{
@@ -186,7 +188,6 @@ func TestAuth(t *testing.T) {
 			noticeDismissal.PartnerUpgradeBanner = true
 			noticeDismissal.ProjectMembersPassphrase = true
 			noticeDismissal.UploadOverwriteWarning = true
-			noticeDismissal.VersioningBetaBanner = true
 			resp, _ := test.request(http.MethodPatch, "/auth/account/settings",
 				test.toJSON(map[string]interface{}{
 					"sessionDuration":  duration,
@@ -200,7 +201,6 @@ func TestAuth(t *testing.T) {
 						"partnerUpgradeBanner":     noticeDismissal.PartnerUpgradeBanner,
 						"projectMembersPassphrase": noticeDismissal.ProjectMembersPassphrase,
 						"uploadOverwriteWarning":   noticeDismissal.UploadOverwriteWarning,
-						"versioningBetaBanner":     noticeDismissal.VersioningBetaBanner,
 					},
 				}))
 
@@ -332,8 +332,50 @@ func TestAnalytics(t *testing.T) {
 }
 
 func TestPayments(t *testing.T) {
+	var (
+		product         = "product"
+		partner         = ""
+		placement       = storj.PlacementConstraint(10)
+		placementDetail = console.PlacementDetail{
+			ID:     10,
+			IdName: "placement10",
+		}
+		productPrice = paymentsconfig.ProductUsagePrice{
+			ProductID: 1,
+			ProjectUsagePrice: paymentsconfig.ProjectUsagePrice{
+				StorageTB: "4",
+				EgressTB:  "5",
+				Segment:   "6",
+			},
+		}
+	)
+	productModel, err := productPrice.ToModel()
+	require.NoError(t, err)
+
 	testplanet.Run(t, testplanet.Config{
 		SatelliteCount: 1, StorageNodeCount: 0, UplinkCount: 1,
+		Reconfigure: testplanet.Reconfigure{
+			Satellite: func(log *zap.Logger, index int, config *satellite.Config) {
+				config.Placement = nodeselection.ConfigurablePlacementRule{
+					PlacementRules: `10:annotation("location", "placement10")`,
+				}
+				config.Console.Placement.SelfServeEnabled = true
+				config.Console.Placement.SelfServeNames = []string{"placement10"}
+
+				config.Payments.Products.SetMap(map[string]paymentsconfig.ProductUsagePrice{
+					product: productPrice,
+				})
+				config.Payments.PlacementPriceOverrides.SetMap(map[int]string{int(placement): product})
+				config.Payments.PartnersPlacementPriceOverrides.SetMap(map[string]paymentsconfig.PlacementProductMap{
+					partner: config.Payments.PlacementPriceOverrides,
+				})
+				config.Console.SelfServePlacementDetails.SetMap(map[storj.PlacementConstraint]console.PlacementDetail{
+					0:         {ID: 0},
+					placement: placementDetail,
+				})
+				config.Console.BillingAddFundsEnabled = true
+			},
+		},
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 		test := newTest(t, ctx, planet)
 		user := test.defaultUser()
@@ -384,6 +426,31 @@ func TestPayments(t *testing.T) {
 			require.Equal(t, http.StatusOK, resp.StatusCode)
 		}
 
+		{ // Post_AddFunds
+			consoleCfg := test.planet.Satellites[0].Config.Console
+
+			makeRequest := func(cardID string, amount int) Response {
+				resp, _ := test.request(http.MethodPost, "/payments/add-funds", test.toJSON(map[string]any{
+					"cardID": cardID,
+					"amount": amount,
+				}))
+
+				return resp
+			}
+
+			response := makeRequest("", 100)
+			require.Equal(test.t, http.StatusBadRequest, response.StatusCode)
+
+			response = makeRequest("testID", consoleCfg.MaxAddFundsAmount+1)
+			require.Equal(test.t, http.StatusBadRequest, response.StatusCode)
+
+			response = makeRequest("testID", consoleCfg.MinAddFundsAmount-1)
+			require.Equal(test.t, http.StatusBadRequest, response.StatusCode)
+
+			response = makeRequest("testID", consoleCfg.MinAddFundsAmount)
+			require.Equal(test.t, http.StatusOK, response.StatusCode)
+		}
+
 		{ // Get_TaxCountries
 			resp, body := test.request(http.MethodGet, "/payments/countries", nil)
 			var countries []payments.TaxCountry
@@ -403,12 +470,43 @@ func TestPayments(t *testing.T) {
 			require.NoError(t, json.Unmarshal([]byte(body), &txs))
 			require.Equal(t, taxes, txs)
 		}
+
+		{ // Get_PlacementPricing
+			projectID := test.defaultProjectID()
+			resp, body := test.request(http.MethodGet, "/payments/placement-pricing?placementName="+placementDetail.IdName+"&projectID="+projectID, nil)
+			require.Equal(t, http.StatusOK, resp.StatusCode)
+
+			var model payments.ProjectUsagePriceModel
+			require.NoError(t, json.Unmarshal([]byte(body), &model))
+			require.Equal(t, productModel.EgressDiscountRatio, model.EgressDiscountRatio)
+			require.Equal(t, productModel.EgressMBCents.String(), model.EgressMBCents.String())
+			require.Equal(t, productModel.SegmentMonthCents.String(), model.SegmentMonthCents.String())
+			require.Equal(t, productModel.StorageMBMonthCents.String(), model.StorageMBMonthCents.String())
+		}
+
+		{ // Get_PlacementDetails
+			projectIdStr := test.defaultProjectID()
+			projectID, err := uuid.FromString(projectIdStr)
+			require.NoError(t, err)
+
+			project, err := planet.Satellites[0].DB.Console().Projects().Get(ctx, projectID)
+			require.NoError(t, err)
+			require.Empty(t, project.UserAgent)
+
+			resp, body := test.request(http.MethodGet, "/buckets/placement-details?projectID="+projectIdStr, nil)
+			require.Equal(t, http.StatusOK, resp.StatusCode)
+
+			var details []console.PlacementDetail
+			require.NoError(t, json.Unmarshal([]byte(body), &details))
+			require.Len(t, details, 1)
+			require.Equal(t, placementDetail, details[0])
+		}
 	})
 }
 
 func TestWalletPayments(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
-		SatelliteCount: 1, StorageNodeCount: 0, UplinkCount: 1, EnableSpanner: true,
+		SatelliteCount: 1, StorageNodeCount: 0, UplinkCount: 1,
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 		test := newTest(t, ctx, planet)
 		sat := planet.Satellites[0]
@@ -612,31 +710,6 @@ func TestProjects(t *testing.T) {
 					"name": "new name",
 				}))
 			require.Equal(t, http.StatusOK, resp.StatusCode)
-		}
-
-		{ // Versioning_Opt_In
-			projectID, err := uuid.FromString(test.defaultProjectID())
-			require.NoError(t, err)
-
-			checkVersioning := func(prompted bool, versioning console.DefaultVersioning) {
-				project, err := planet.Satellites[0].DB.Console().Projects().Get(ctx, projectID)
-				require.NoError(t, err)
-
-				require.Equal(t, prompted, project.PromptedForVersioningBeta)
-				require.Equal(t, versioning, project.DefaultVersioning)
-			}
-
-			checkVersioning(false, console.Unversioned)
-
-			resp, _ := test.request(http.MethodPatch, fmt.Sprintf("/projects/%s/versioning-opt-out", projectID), nil)
-			require.Equal(t, http.StatusOK, resp.StatusCode)
-
-			checkVersioning(true, console.VersioningUnsupported)
-
-			resp, _ = test.request(http.MethodPatch, fmt.Sprintf("/projects/%s/versioning-opt-in", projectID), nil)
-			require.Equal(t, http.StatusOK, resp.StatusCode)
-
-			checkVersioning(true, console.Unversioned)
 		}
 	})
 }

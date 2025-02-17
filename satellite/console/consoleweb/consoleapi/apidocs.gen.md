@@ -53,6 +53,7 @@ Creates new Project with given info
 	maxBuckets: number
 	createdAt: string // Date timestamp formatted as `2006-01-02T15:00:00Z`
 	memberCount: number
+	status: number
 	storageLimit: string // Amount of memory formatted as `15 GB`
 	bandwidthLimit: string // Amount of memory formatted as `15 GB`
 	userSpecifiedStorageLimit: string // Amount of memory formatted as `15 GB`
@@ -115,6 +116,7 @@ Updates project with given info
 	maxBuckets: number
 	createdAt: string // Date timestamp formatted as `2006-01-02T15:00:00Z`
 	memberCount: number
+	status: number
 	storageLimit: string // Amount of memory formatted as `15 GB`
 	bandwidthLimit: string // Amount of memory formatted as `15 GB`
 	userSpecifiedStorageLimit: string // Amount of memory formatted as `15 GB`
@@ -170,6 +172,7 @@ Gets all projects user has
 		maxBuckets: number
 		createdAt: string // Date timestamp formatted as `2006-01-02T15:00:00Z`
 		memberCount: number
+		status: number
 		storageLimit: string // Amount of memory formatted as `15 GB`
 		bandwidthLimit: string // Amount of memory formatted as `15 GB`
 		userSpecifiedStorageLimit: string // Amount of memory formatted as `15 GB`

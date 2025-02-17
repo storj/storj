@@ -19,7 +19,7 @@ type Config struct {
 	InitialPieces        int64       `help:"the initial number of pieces expected for a storage node to have, used for creating a filter" releaseDefault:"400000" devDefault:"10"`
 	FalsePositiveRate    float64     `help:"the false positive rate used for creating a garbage collection bloom filter" releaseDefault:"0.1" devDefault:"0.1"`
 	MaxBloomFilterSize   memory.Size `help:"maximum size of a single bloom filter" default:"2m"`
-	ExcludeExpiredPieces bool        `help:"do not include expired pieces into bloom filter" default:"false"`
+	ExcludeExpiredPieces bool        `help:"do not include expired pieces into bloom filter" default:"true"`
 
 	AccessGrant  string        `help:"Access Grant which will be used to upload bloom filters to the bucket" default:""`
 	Bucket       string        `help:"Bucket which will be used to upload bloom filters" default:"" testDefault:"gc-queue"` // TODO do we need full location?

@@ -8,8 +8,6 @@ import (
 	"context"
 	"sync"
 
-	"go.uber.org/zap"
-
 	"storj.io/common/errs2"
 	"storj.io/common/pb"
 	"storj.io/common/rpc/rpcstatus"
@@ -130,8 +128,7 @@ func (endpoint *Endpoint) tryUpdateBucketAttribution(ctx context.Context, header
 			return nil
 		}
 	} else if !attribution.ErrBucketNotAttributed.Has(err) {
-		endpoint.log.Error("error while getting attribution from DB", zap.Error(err))
-		return rpcstatus.Error(rpcstatus.Internal, "unable to get bucket attribution")
+		return endpoint.ConvertKnownErrWithMessage(err, "unable to get bucket attribution")
 	}
 
 	// checks if bucket exists before updates it or makes a new entry
@@ -140,8 +137,7 @@ func (endpoint *Endpoint) tryUpdateBucketAttribution(ctx context.Context, header
 		if buckets.ErrBucketNotFound.Has(err) {
 			return rpcstatus.Errorf(rpcstatus.NotFound, "bucket %q does not exist", bucketName)
 		}
-		endpoint.log.Error("error while getting bucket", zap.ByteString("bucketName", bucketName), zap.Error(err))
-		return rpcstatus.Error(rpcstatus.Internal, "unable to set bucket attribution")
+		return endpoint.ConvertKnownErrWithMessage(err, "error while getting bucket")
 	}
 
 	if attrInfo != nil {
@@ -155,8 +151,7 @@ func (endpoint *Endpoint) tryUpdateBucketAttribution(ctx context.Context, header
 
 	empty, err := endpoint.isBucketEmpty(ctx, projectID, bucketName)
 	if err != nil {
-		endpoint.log.Error("internal", zap.Error(err))
-		return rpcstatus.Error(rpcstatus.Internal, Error.Wrap(err).Error())
+		return endpoint.ConvertKnownErr(err)
 	}
 	if !empty {
 		return rpcstatus.Errorf(rpcstatus.AlreadyExists, "bucket %q is not empty, Partner %q cannot be attributed", bucketName, userAgent)
@@ -170,8 +165,7 @@ func (endpoint *Endpoint) tryUpdateBucketAttribution(ctx context.Context, header
 			UserAgent:  userAgent,
 		})
 		if err != nil {
-			endpoint.log.Error("error while inserting attribution to DB", zap.Error(err))
-			return rpcstatus.Error(rpcstatus.Internal, "unable to set bucket attribution")
+			return endpoint.ConvertKnownErrWithMessage(err, "unable to set bucket attribution")
 		}
 	}
 
@@ -179,8 +173,7 @@ func (endpoint *Endpoint) tryUpdateBucketAttribution(ctx context.Context, header
 	bucket.UserAgent = userAgent
 	_, err = endpoint.buckets.UpdateBucket(ctx, bucket)
 	if err != nil {
-		endpoint.log.Error("error while updating bucket", zap.ByteString("bucketName", bucketName), zap.Error(err))
-		return rpcstatus.Error(rpcstatus.Internal, "unable to set bucket attribution")
+		return endpoint.ConvertKnownErrWithMessage(err, "unable to set bucket attribution")
 	}
 
 	return nil

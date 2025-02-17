@@ -18,6 +18,8 @@ import (
 	"storj.io/common/identity"
 	"storj.io/common/storj"
 	"storj.io/storj/private/lifecycle"
+	"storj.io/storj/satellite/console/consoleauth"
+	"storj.io/storj/satellite/console/consoleauth/csrf"
 	"storj.io/storj/satellite/console/consoleweb"
 )
 
@@ -39,6 +41,10 @@ type UI struct {
 	Console struct {
 		Listener net.Listener
 		Server   *consoleweb.Server
+	}
+
+	CSRF struct {
+		Service *csrf.Service
 	}
 }
 
@@ -75,6 +81,13 @@ func NewUI(log *zap.Logger, full *identity.FullIdentity, config *Config, atomicL
 	{ // setup console
 		consoleConfig := config.Console
 
+		if consoleConfig.AuthTokenSecret == "" {
+			return nil, errs.New("Auth token secret required")
+		}
+
+		signer := &consoleauth.Hmac{Secret: []byte(consoleConfig.AuthTokenSecret)}
+		peer.CSRF.Service = csrf.NewService(signer)
+
 		peer.Console.Listener, err = net.Listen("tcp", consoleConfig.FrontendAddress)
 		if err != nil {
 			return nil, errs.Combine(err, peer.Close())
@@ -85,6 +98,7 @@ func NewUI(log *zap.Logger, full *identity.FullIdentity, config *Config, atomicL
 			consoleConfig,
 			peer.Console.Listener,
 			storj.NodeURL{ID: peer.ID(), Address: satelliteAddr},
+			peer.CSRF.Service,
 			config.Payments.StripeCoinPayments.StripePublicKey,
 		)
 		if err != nil {

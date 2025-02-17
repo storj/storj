@@ -11,6 +11,7 @@ import (
 
 	"storj.io/common/identity"
 	"storj.io/common/storj"
+	"storj.io/storj/storagenode/blobstore/filestore"
 )
 
 func usage() {
@@ -21,6 +22,7 @@ func usage() {
 func output(id storj.NodeID) {
 	fmt.Printf("base58 id: %s\n", id.String())
 	fmt.Printf("hex id: %x\n", id.Bytes())
+	fmt.Printf("blob id: %s\n", filestore.PathEncoding.EncodeToString(id.Bytes()))
 	fmt.Printf("version: %d\n", id.Version().Number)
 	diff, err := id.Difficulty()
 	if err != nil {
@@ -42,6 +44,15 @@ func main() {
 	}
 
 	idBytes, err := hex.DecodeString(os.Args[1])
+	if err == nil {
+		id, err := storj.NodeIDFromBytes(idBytes)
+		if err == nil {
+			output(id)
+			return
+		}
+	}
+
+	idBytes, err = filestore.PathEncoding.DecodeString(os.Args[1])
 	if err == nil {
 		id, err := storj.NodeIDFromBytes(idBytes)
 		if err == nil {

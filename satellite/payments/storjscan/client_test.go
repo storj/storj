@@ -4,6 +4,7 @@
 package storjscan_test
 
 import (
+	"errors"
 	"net/http"
 	"net/http/httptest"
 	"sort"
@@ -12,7 +13,6 @@ import (
 	"time"
 
 	"github.com/stretchr/testify/require"
-	"github.com/zeebo/errs"
 
 	"storj.io/common/currency"
 	"storj.io/common/testcontext"
@@ -135,7 +135,7 @@ func TestClientMockedUnauthorized(t *testing.T) {
 		_, err := client.AllPayments(ctx, nil)
 		require.Error(t, err)
 		require.True(t, storjscan.ClientErrUnauthorized.Has(err))
-		require.Equal(t, "identifier is invalid", errs.Unwrap(err).Error())
+		require.Equal(t, "identifier is invalid", errors.Unwrap(err).Error())
 	})
 
 	t.Run("invalid identifier", func(t *testing.T) {
@@ -143,7 +143,7 @@ func TestClientMockedUnauthorized(t *testing.T) {
 		_, err := client.AllPayments(ctx, nil)
 		require.Error(t, err)
 		require.True(t, storjscan.ClientErrUnauthorized.Has(err))
-		require.Equal(t, "identifier is invalid", errs.Unwrap(err).Error())
+		require.Equal(t, "identifier is invalid", errors.Unwrap(err).Error())
 	})
 
 	t.Run("invalid secret", func(t *testing.T) {
@@ -151,7 +151,7 @@ func TestClientMockedUnauthorized(t *testing.T) {
 		_, err := client.AllPayments(ctx, nil)
 		require.Error(t, err)
 		require.True(t, storjscan.ClientErrUnauthorized.Has(err))
-		require.Equal(t, "secret is invalid", errs.Unwrap(err).Error())
+		require.Equal(t, "secret is invalid", errors.Unwrap(err).Error())
 	})
 }
 

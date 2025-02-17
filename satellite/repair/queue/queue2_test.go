@@ -53,7 +53,7 @@ func TestUntilEmpty(t *testing.T) {
 		for _, selectCount := range idsMap {
 			assert.Equal(t, selectCount, 1)
 		}
-	}, satellitedbtest.WithSpanner())
+	})
 }
 
 func TestOrder(t *testing.T) {
@@ -122,7 +122,7 @@ func testorderHealthyPieces(t *testing.T, connStr string) {
 	defer ctx.Cleanup()
 
 	// create tempDB
-	tempDB, err := tempdb.OpenUnique(ctx, connStr, "orderhealthy")
+	tempDB, err := tempdb.OpenUnique(ctx, connStr, "orderhealthy", nil)
 	require.NoError(t, err)
 	defer func() { require.NoError(t, tempDB.Close()) }()
 
@@ -277,6 +277,6 @@ func TestCount(t *testing.T) {
 		count, err := repairQueue.Count(ctx)
 		require.NoError(t, err)
 		require.Equal(t, count, numSegments)
-	}, satellitedbtest.WithSpanner())
+	})
 
 }

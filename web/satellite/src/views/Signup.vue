@@ -11,7 +11,6 @@
                         <v-alert
                             variant="tonal"
                             color="info"
-                            rounded="lg"
                             density="comfortable"
                             border
                         >
@@ -67,40 +66,53 @@
                                 flat
                                 clearable
                                 required
+                                @update:model-value="checkSSO"
                             />
 
-                            <div class="pos-relative">
-                                <v-text-field
-                                    id="Password"
-                                    v-model="password"
-                                    class="mb-5"
-                                    label="Password"
-                                    placeholder="Enter a password"
-                                    color="secondary"
-                                    hide-details="auto"
-                                    :type="showPassword ? 'text' : 'password'"
-                                    :rules="passwordRules"
-                                    required
-                                    @update:focused="showPasswordStrength = !showPasswordStrength"
-                                >
-                                    <template #append-inner>
-                                        <password-input-eye-icons
-                                            :is-visible="showPassword"
-                                            type="password"
-                                            @toggleVisibility="showPassword = !showPassword"
+                            <div
+                                class="pos-relative"
+                                :class="{ hidden: !ssoUnavailable }"
+                            >
+                                <div class="password-field-container">
+                                    <v-text-field
+                                        id="Password"
+                                        v-model="password"
+                                        class="mb-5"
+                                        label="Password"
+                                        placeholder="Enter a password"
+                                        color="secondary"
+                                        hide-details="auto"
+                                        :type="showPassword ? 'text' : 'password'"
+                                        :rules="passwordRules"
+                                        required
+                                        @focus="showPasswordStrength = true"
+                                    >
+                                        <template #append-inner>
+                                            <password-input-eye-icons
+                                                :is-visible="showPassword"
+                                                type="password"
+                                                :aria-label="showPassword ? 'Hide password' : 'Show password'"
+                                                @toggle-visibility="showPassword = !showPassword"
+                                            />
+                                        </template>
+                                    </v-text-field>
+
+                                    <transition name="fade">
+                                        <password-strength
+                                            v-if="showPasswordStrength && password"
+                                            :email="email"
+                                            :password="password"
+                                            class="password-strength-indicator"
                                         />
-                                    </template>
-                                </v-text-field>
-                                <password-strength
-                                    v-if="showPasswordStrength"
-                                    :password="password"
-                                />
+                                    </transition>
+                                </div>
                             </div>
 
                             <v-text-field
                                 id="Retype Password"
                                 ref="repPasswordField"
                                 v-model="repPassword"
+                                :class="{ hidden: !ssoUnavailable }"
                                 label="Retype password"
                                 placeholder="Enter a password"
                                 color="secondary"
@@ -113,7 +125,7 @@
                                     <password-input-eye-icons
                                         :is-visible="showPassword"
                                         type="password"
-                                        @toggleVisibility="showPassword = !showPassword"
+                                        @toggle-visibility="showPassword = !showPassword"
                                     />
                                 </template>
                             </v-text-field>
@@ -123,7 +135,6 @@
                                 class="my-2"
                                 variant="tonal"
                                 color="warning"
-                                rounded="lg"
                                 density="comfortable"
                                 border
                             >
@@ -160,7 +171,7 @@
                                 required
                             >
                                 <template #label>
-                                    <p class="text-body-2">
+                                    <p class="text-body-2 terms-text">
                                         I agree to the
                                         <a class="link font-weight-medium" href="https://storj.io/terms-of-service/" target="_blank" rel="noopener">terms of service</a>
                                         and
@@ -171,6 +182,7 @@
 
                             <v-btn
                                 type="submit"
+                                :disabled="ssoEnabled && ssoUrl === SsoCheckState.NotChecked"
                                 :loading="isLoading"
                                 color="primary"
                                 size="large"
@@ -291,7 +303,7 @@ import { useRoute, useRouter } from 'vue-router';
 import { Check } from 'lucide-vue-next';
 
 import { useConfigStore } from '@/store/modules/configStore';
-import { EmailRule, RequiredRule, ValidationRule } from '@/types/common';
+import { EmailRule, RequiredRule } from '@/types/common';
 import { MultiCaptchaConfig } from '@/types/config.gen';
 import { PartnerConfig } from '@/types/partners';
 import { AuthHttpApi } from '@/api/auth';
@@ -299,6 +311,8 @@ import { useNotify } from '@/utils/hooks';
 import { useAnalyticsStore } from '@/store/modules/analyticsStore';
 import { AnalyticsEvent } from '@/utils/constants/analyticsEventNames';
 import { ROUTES } from '@/router';
+import { SsoCheckState } from '@/types/users';
+import { APIError } from '@/utils/error';
 
 import SignupConfirmation from '@/views/SignupConfirmation.vue';
 import PasswordInputEyeIcons from '@/components/PasswordInputEyeIcons.vue';
@@ -314,6 +328,7 @@ const notify = useNotify();
 const route = useRoute();
 
 const isLoading = ref<boolean>(false);
+const isCheckingSso = ref<boolean>(false);
 const formValid = ref<boolean>(false);
 const acceptedBetaTerms = ref(false);
 const acceptedTerms = ref(false);
@@ -325,6 +340,7 @@ const showPasswordStrength = ref(false);
 const signupID = ref('');
 const partner = ref('');
 const signupPromoCode = ref('');
+const ssoUrl = ref<string>(SsoCheckState.NotChecked);
 const captchaResponseToken = ref('');
 const email = ref('');
 const password = ref('');
@@ -339,6 +355,7 @@ const hcaptcha = ref<VueHcaptcha | null>(null);
 const form = ref<VForm | null>(null);
 const repPasswordField = ref<VTextField | null>(null);
 const partnerConfig = ref<PartnerConfig | null>(null);
+const ssoCheckTimeout = ref<NodeJS.Timeout>();
 
 const satellitesHints = [
     { satellite: 'Storj', hint: 'Recommended satellite.' },
@@ -348,27 +365,47 @@ const satellitesHints = [
     { satellite: 'AP1', hint: 'Recommended for Asia and Oceania' },
 ];
 
-const passwordRules: ValidationRule<string>[] = [
-    RequiredRule,
-    (value) => value.length < passMinLength.value || value.length > passMaxLength.value
-        ? `Password must be between ${passMinLength.value} and ${passMaxLength.value} characters`
-        : true,
-];
-
-const emailRules: ValidationRule<string>[] = [
+const emailRules: ((_: string) => boolean | string)[] = [
     RequiredRule,
     (value) => EmailRule(value, true),
 ];
 
-const repeatPasswordRules = computed<ValidationRule<string>[]>(() => [
-    ...passwordRules,
-    (value: string) => {
-        if (password.value !== value) {
-            return 'Passwords do not match';
-        }
-        return true;
-    },
-]);
+const ssoEnabled = computed(() => configStore.state.config.ssoEnabled);
+
+const passwordRules = computed(() => {
+    const rules = [
+        RequiredRule,
+        (value: string) => value.length < passMinLength.value || value.length > passMaxLength.value
+            ? `Password must be between ${passMinLength.value} and ${passMaxLength.value} characters`
+            : true,
+    ];
+    if (!ssoEnabled.value) {
+        return rules;
+    }
+    switch (ssoUrl.value) {
+    case SsoCheckState.None:
+    case SsoCheckState.Failed:
+    case SsoCheckState.NotChecked:
+        return rules;
+    default:
+        return [];
+    }
+});
+
+const repeatPasswordRules = computed(() => {
+    if (passwordRules.value.length === 0) {
+        return [];
+    }
+    return [
+        ...passwordRules.value,
+        (value: string) => {
+            if (password.value !== value) {
+                return 'Passwords do not match';
+            }
+            return true;
+        },
+    ];
+});
 
 /**
  * Returns the maximum password length from the store.
@@ -411,6 +448,12 @@ const satellites = computed(() => {
         const item = satellitesHints.find(item => item.satellite === satellite.name);
         return item ?? { satellite: satellite.name, hint: '' };
     });
+});
+
+const ssoUnavailable = computed(() => {
+    return !ssoEnabled.value || ssoUrl.value === SsoCheckState.None
+      || ssoUrl.value === SsoCheckState.Failed
+      || ssoUrl.value === SsoCheckState.NotChecked;
 });
 
 /**
@@ -470,22 +513,75 @@ function onCaptchaError(): void {
     captchaError.value = true;
 }
 
+function checkSSO(mail: string) {
+    if (!ssoEnabled.value) {
+        return;
+    }
+    clearTimeout(ssoCheckTimeout.value);
+    ssoUrl.value = SsoCheckState.NotChecked;
+    if (!emailRules.every(rule => rule(mail) === true)) {
+        return;
+    }
+    ssoCheckTimeout.value = setTimeout(async () => {
+        isCheckingSso.value = true;
+        let urlStr: string;
+        try {
+            urlStr = await auth.checkSSO(mail);
+        } catch (error) {
+            if (error instanceof APIError && error.status === 404) {
+                ssoUrl.value = SsoCheckState.None;
+                return;
+            }
+            ssoUrl.value = SsoCheckState.Failed;
+            notify.notifyError(error);
+            return;
+        } finally {
+            isCheckingSso.value = false;
+        }
+        try {
+        // check if the URL is valid.
+            new URL(urlStr);
+            ssoUrl.value = urlStr;
+        } catch {
+            ssoUrl.value = SsoCheckState.Failed;
+        }
+    }, 1000);
+}
+
 /**
  * Holds on login button click logic.
  */
 async function onSignupClick(): Promise<void> {
     form.value?.validate();
-    if (!formValid.value || isLoading.value) {
+    if (!formValid.value || isLoading.value || (ssoEnabled.value && ssoUrl.value === SsoCheckState.NotChecked)) {
         return;
+    }
+
+    async function triggerSignup() {
+        if (hcaptcha.value && !captchaResponseToken.value) {
+            hcaptcha.value?.execute();
+            return;
+        }
+        await signup();
     }
 
     isLoading.value = true;
-    if (hcaptcha.value && !captchaResponseToken.value) {
-        hcaptcha.value?.execute();
+    if (!ssoEnabled.value) {
+        await triggerSignup();
         return;
     }
 
-    await signup();
+    let url: URL;
+    switch (ssoUrl.value) {
+    case SsoCheckState.None:
+    case SsoCheckState.Failed:
+        await triggerSignup();
+        break;
+    default:
+        url = new URL(ssoUrl.value);
+        url.searchParams.set('email', email.value);
+        window.open(url.toString(), '_self');
+    }
 }
 
 /**
@@ -548,6 +644,10 @@ onBeforeMount(async () => {
         signupPromoCode.value = route.query.promo.toString();
     }
 
+    if (queryEmail.value) {
+        checkSSO(queryEmail.value);
+    }
+
     // If partner.value is true, attempt to load the partner-specific configuration
     if (partner.value) {
         try {
@@ -566,3 +666,27 @@ watch(password, () => {
     }
 });
 </script>
+
+<style scoped>
+.password-field-container {
+    position: relative;
+}
+
+.password-strength-indicator {
+    margin-top: 4px;
+}
+
+.fade-enter-active,
+.fade-leave-active {
+    transition: opacity 0.3s ease;
+}
+
+.fade-enter-from,
+.fade-leave-to {
+    opacity: 0;
+}
+
+.terms-text {
+    letter-spacing: -0.3px !important;
+}
+</style>
