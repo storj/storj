@@ -658,6 +658,15 @@ func (p *PostgresAdapter) PostgresMigration() *migrate.Migration {
 					`DROP TABLE IF EXISTS segment_copies`,
 				},
 			},
+			{
+				DB:          &db,
+				Description: "add column product_id to objects",
+				Version:     21,
+				Action: migrate.SQL{
+					`ALTER TABLE objects ADD COLUMN IF NOT EXISTS product_id INTEGER`,
+					`COMMENT ON COLUMN objects.product_id is 'product_id specifies which product the object is.';`,
+				},
+			},
 		},
 	}
 }
@@ -682,6 +691,14 @@ func (s *SpannerAdapter) SpannerMigration() *migrate.Migration {
 				Description: "initial setup",
 				Version:     1,
 				Action:      migrate.SQL(firstStepDDL),
+			},
+			{
+				DB:          &db,
+				Description: "add product_id to objects",
+				Version:     2,
+				Action: migrate.SQL{
+					`ALTER TABLE objects ADD COLUMN IF NOT EXISTS product_id INT64`,
+				},
 			},
 		},
 	}

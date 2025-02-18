@@ -38,7 +38,7 @@ func (p *PostgresAdapter) testMigrateToLatest(ctx context.Context) error {
 			{
 				DB:          &p.db,
 				Description: "Test snapshot",
-				Version:     20,
+				Version:     21,
 				Action: migrate.SQL{
 					`CREATE TABLE objects (
 						project_id   BYTEA NOT NULL,
@@ -46,6 +46,8 @@ func (p *PostgresAdapter) testMigrateToLatest(ctx context.Context) error {
 						object_key   BYTEA NOT NULL, -- using 'object_key' instead of 'key' to avoid reserved word
 						version      INT8  NOT NULL,
 						stream_id    BYTEA NOT NULL,
+						
+						product_id INTEGER,
 
 						created_at TIMESTAMPTZ NOT NULL default now(),
 						expires_at TIMESTAMPTZ,
@@ -77,6 +79,8 @@ func (p *PostgresAdapter) testMigrateToLatest(ctx context.Context) error {
 					COMMENT ON COLUMN objects.object_key  is 'object_key is an encrypted path of the object.';
 					COMMENT ON COLUMN objects.version     is 'version is a monotonically increasing number per object. currently unused.';
 					COMMENT ON COLUMN objects.stream_id   is 'stream_id is a random identifier for the content uploaded to the object.';
+
+					COMMENT ON COLUMN objects.product_id is 'product_id specifies which product the object is.';
 
 					COMMENT ON COLUMN objects.created_at  is 'created_at is the creation date of this object.';
 					COMMENT ON COLUMN objects.expires_at  is 'expires_at is the date when this object will be marked for deletion.';

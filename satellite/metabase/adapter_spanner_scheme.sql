@@ -39,6 +39,7 @@ CREATE TABLE IF NOT EXISTS objects
     zombie_deletion_deadline         TIMESTAMP,
     retention_mode                   INT64,
     retain_until                     TIMESTAMP,
+    product_id                       INT64,
 ) PRIMARY KEY (project_id, bucket_name, object_key, version);
 
 CREATE TABLE IF NOT EXISTS node_aliases
