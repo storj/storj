@@ -144,6 +144,9 @@ func TestDurability(t *testing.T) {
 	require.Equal(t, 0, c.healthStat[0][5].Buckets[0].SegmentCount)
 	require.Equal(t, 1, c.healthStat[0][5].Buckets[1].SegmentCount)
 
+	require.Equal(t, 1, c.healthMatrix.Find(5, 1, 1))
+	require.Equal(t, 2, c.healthMatrix.Find(0, 1, 1))
+	require.Equal(t, 1, c.healthMatrix.Find(0, 4, 4))
 	// usually called with c.Start()
 	c.resetStat()
 
