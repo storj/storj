@@ -529,6 +529,9 @@ compensation.withheld-percents: 75,75,75,50,50,50,25,25,25,0,0,0,0,0,0
 # number of clients whose rate limits we store
 # console.rate-limit.num-limits: 1000
 
+# whether the rest API keys UI is enabled
+# console.rest-api-keys-ui-enabled: false
+
 # indicates whether satellite managed encryption projects can be created.
 # console.satellite-managed-encryption-enabled: false
 

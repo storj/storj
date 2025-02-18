@@ -85,6 +85,7 @@ type FrontendConfig struct {
 	MinAddFundsAmount                 int                   `json:"minAddFundsAmount"`
 	DownloadPrefixEnabled             bool                  `json:"downloadPrefixEnabled"`
 	ZipDownloadLimit                  int                   `json:"zipDownloadLimit"`
+	RestAPIKeysUIEnabled              bool                  `json:"restAPIKeysUIEnabled"`
 }
 
 // Satellites is a configuration value that contains a list of satellite names and addresses.
