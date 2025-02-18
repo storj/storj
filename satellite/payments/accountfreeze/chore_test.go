@@ -1031,32 +1031,34 @@ func newFreezeTrackerMock(t *testing.T) *freezeTrackerMock {
 // The following functions are implemented from analytics.FreezeTracker.
 // They mock/test to make sure freeze events are sent just once.
 
-func (mock *freezeTrackerMock) TrackAccountFrozen(_ uuid.UUID, email string) {
+func (mock *freezeTrackerMock) TrackAccountFrozen(_ uuid.UUID, email string, _ *string) {
 	mock.freezeCounts[email]++
 	// make sure this tracker has not been called already for this email.
 	require.Equal(mock.t, 1, mock.freezeCounts[email])
 }
 
-func (mock *freezeTrackerMock) TrackAccountUnfrozen(_ uuid.UUID, email string) {
+func (mock *freezeTrackerMock) TrackAccountUnfrozen(_ uuid.UUID, email string, _ *string) {
 	mock.freezeCounts[email]--
 	// make sure this tracker has not been called already for this email.
 	require.Equal(mock.t, 0, mock.freezeCounts[email])
 }
 
-func (mock *freezeTrackerMock) TrackAccountUnwarned(_ uuid.UUID, email string) {
+func (mock *freezeTrackerMock) TrackAccountUnwarned(_ uuid.UUID, email string, _ *string) {
 	mock.warnCounts[email]--
 	// make sure this tracker has not been called already for this email.
 	require.Equal(mock.t, 0, mock.warnCounts[email])
 }
 
-func (mock *freezeTrackerMock) TrackAccountFreezeWarning(_ uuid.UUID, email string) {
+func (mock *freezeTrackerMock) TrackAccountFreezeWarning(_ uuid.UUID, email string, _ *string) {
 	mock.warnCounts[email]++
 	// make sure this tracker has not been called already for this email.
 	require.Equal(mock.t, 1, mock.warnCounts[email])
 }
 
-func (mock *freezeTrackerMock) TrackLargeUnpaidInvoice(_ string, _ uuid.UUID, _ string) {}
+func (mock *freezeTrackerMock) TrackLargeUnpaidInvoice(_ string, _ uuid.UUID, _ string, _ *string) {}
 
-func (mock *freezeTrackerMock) TrackStorjscanUnpaidInvoice(_ string, _ uuid.UUID, _ string) {}
+func (mock *freezeTrackerMock) TrackStorjscanUnpaidInvoice(_ string, _ uuid.UUID, _ string, _ *string) {
+}
 
-func (mock *freezeTrackerMock) TrackViolationFrozenUnpaidInvoice(_ string, _ uuid.UUID, _ string) {}
+func (mock *freezeTrackerMock) TrackViolationFrozenUnpaidInvoice(_ string, _ uuid.UUID, _ string, _ *string) {
+}

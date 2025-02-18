@@ -125,12 +125,13 @@ func TestOIDC(t *testing.T) {
 		require.NoError(t, err)
 
 		tokenInfo, err := sat.API.Console.Service.GenerateSessionToken(ctx, console.SessionTokenRequest{
-			UserID:         user.ID,
-			Email:          user.Email,
-			IP:             "",
-			UserAgent:      "",
-			AnonymousID:    "",
-			CustomDuration: nil,
+			UserID:          user.ID,
+			Email:           user.Email,
+			IP:              "",
+			UserAgent:       "",
+			AnonymousID:     "",
+			CustomDuration:  nil,
+			HubspotObjectID: user.HubspotObjectID,
 		})
 		require.NoError(t, err)
 

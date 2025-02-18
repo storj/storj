@@ -90,7 +90,7 @@ func (o *UpgradeUserObserver) Process(ctx context.Context, transaction billing.T
 		return err
 	}
 
-	o.analyticsService.TrackUserUpgraded(user.ID, user.Email, user.TrialExpiration)
+	o.analyticsService.TrackUserUpgraded(user.ID, user.Email, user.TrialExpiration, user.HubspotObjectID)
 
 	projects, err := o.consoleDB.Projects().GetOwn(ctx, user.ID)
 	if err != nil {

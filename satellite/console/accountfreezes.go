@@ -244,7 +244,7 @@ func (s *AccountFreezeService) BillingFreezeUser(ctx context.Context, userID uui
 				return err
 			}
 		}
-		s.tracker.TrackAccountFrozen(userID, user.Email)
+		s.tracker.TrackAccountFrozen(userID, user.Email, user.HubspotObjectID)
 
 		return nil
 	})
@@ -299,7 +299,7 @@ func (s *AccountFreezeService) BillingUnfreezeUser(ctx context.Context, userID u
 			}
 		}
 
-		s.tracker.TrackAccountUnfrozen(userID, user.Email)
+		s.tracker.TrackAccountUnfrozen(userID, user.Email, user.HubspotObjectID)
 
 		return nil
 	})
@@ -339,7 +339,7 @@ func (s *AccountFreezeService) BillingWarnUser(ctx context.Context, userID uuid.
 			return ErrAccountFreeze.Wrap(err)
 		}
 
-		s.tracker.TrackAccountFreezeWarning(userID, user.Email)
+		s.tracker.TrackAccountFreezeWarning(userID, user.Email, user.HubspotObjectID)
 
 		return nil
 	})
@@ -367,7 +367,7 @@ func (s *AccountFreezeService) BillingUnWarnUser(ctx context.Context, userID uui
 			return err
 		}
 
-		s.tracker.TrackAccountUnwarned(userID, user.Email)
+		s.tracker.TrackAccountUnwarned(userID, user.Email, user.HubspotObjectID)
 
 		return nil
 	})

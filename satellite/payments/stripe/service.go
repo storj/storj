@@ -1041,6 +1041,7 @@ func (service *Service) RemoveExpiredPackageCredit(ctx context.Context, customer
 	var balance int64
 	var gotBalance, foundOtherCredit bool
 	var tx *stripe.CustomerBalanceTransaction
+	var hubspotObjectID *string
 
 	for list.Next() {
 		tx = list.CustomerBalanceTransaction()
@@ -1065,7 +1066,12 @@ func (service *Service) RemoveExpiredPackageCredit(ctx context.Context, customer
 	// send analytics event to notify someone to handle removing credit if credit other than package exists.
 	if foundOtherCredit {
 		if service.analytics != nil {
-			service.analytics.TrackExpiredCreditNeedsRemoval(customer.UserID, customer.ID, *customer.PackagePlan)
+			user, err := service.usersDB.Get(ctx, customer.UserID)
+			if err == nil {
+				hubspotObjectID = user.HubspotObjectID
+			}
+
+			service.analytics.TrackExpiredCreditNeedsRemoval(customer.UserID, customer.ID, *customer.PackagePlan, hubspotObjectID)
 		}
 		return true, nil
 	}
@@ -1082,7 +1088,12 @@ func (service *Service) RemoveExpiredPackageCredit(ctx context.Context, customer
 			return false, Error.Wrap(err)
 		}
 		if service.analytics != nil {
-			service.analytics.TrackExpiredCreditRemoved(customer.UserID, customer.ID, *customer.PackagePlan)
+			user, err := service.usersDB.Get(ctx, customer.UserID)
+			if err == nil {
+				hubspotObjectID = user.HubspotObjectID
+			}
+
+			service.analytics.TrackExpiredCreditRemoved(customer.UserID, customer.ID, *customer.PackagePlan, hubspotObjectID)
 		}
 	}
 

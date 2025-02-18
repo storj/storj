@@ -180,7 +180,7 @@ func (chore *Chore) attemptBillingFreezeWarn(ctx context.Context) {
 			}
 			bypassedLargeMap[userID] = struct{}{}
 			infoLog("Ignoring invoice; amount exceeds threshold")
-			chore.analytics.TrackLargeUnpaidInvoice(invoice.ID, userID, user.Email)
+			chore.analytics.TrackLargeUnpaidInvoice(invoice.ID, userID, user.Email, user.HubspotObjectID)
 			continue
 		}
 
@@ -203,7 +203,7 @@ func (chore *Chore) attemptBillingFreezeWarn(ctx context.Context) {
 				if len(cachedPayments) > 0 {
 					bypassedTokenMap[userID] = struct{}{}
 					infoLog("Ignoring invoice; TX exists in storjscan")
-					chore.analytics.TrackStorjscanUnpaidInvoice(invoice.ID, userID, user.Email)
+					chore.analytics.TrackStorjscanUnpaidInvoice(invoice.ID, userID, user.Email, user.HubspotObjectID)
 					continue
 				}
 			}
@@ -217,13 +217,13 @@ func (chore *Chore) attemptBillingFreezeWarn(ctx context.Context) {
 
 		if freezes.ViolationFreeze != nil {
 			infoLog("Ignoring invoice; account already frozen due to violation")
-			chore.analytics.TrackViolationFrozenUnpaidInvoice(invoice.ID, userID, user.Email)
+			chore.analytics.TrackViolationFrozenUnpaidInvoice(invoice.ID, userID, user.Email, user.HubspotObjectID)
 			continue
 		}
 
 		if freezes.LegalFreeze != nil {
 			infoLog("Ignoring invoice; account already frozen for legal review")
-			chore.analytics.TrackLegalHoldUnpaidInvoice(invoice.ID, userID, user.Email)
+			chore.analytics.TrackLegalHoldUnpaidInvoice(invoice.ID, userID, user.Email, user.HubspotObjectID)
 			continue
 		}
 
