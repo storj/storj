@@ -877,7 +877,7 @@ func (server *Server) violationFreezeUser(w http.ResponseWriter, r *http.Request
 
 	for _, invoice := range invoices {
 		if invoice.Status == payments.InvoiceStatusOpen {
-			server.analytics.TrackViolationFrozenUnpaidInvoice(invoice.ID, u.ID, u.Email)
+			server.analytics.TrackViolationFrozenUnpaidInvoice(invoice.ID, u.ID, u.Email, u.HubspotObjectID)
 		}
 	}
 }
@@ -953,7 +953,7 @@ func (server *Server) legalFreezeUser(w http.ResponseWriter, r *http.Request) {
 
 	for _, invoice := range invoices {
 		if invoice.Status == payments.InvoiceStatusOpen {
-			server.analytics.TrackLegalHoldUnpaidInvoice(invoice.ID, u.ID, u.Email)
+			server.analytics.TrackLegalHoldUnpaidInvoice(invoice.ID, u.ID, u.Email, u.HubspotObjectID)
 		}
 	}
 }

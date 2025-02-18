@@ -212,12 +212,13 @@ func (a *Auth) AuthenticateSso(w http.ResponseWriter, r *http.Request) {
 	}
 
 	tokenInfo, err := a.service.GenerateSessionToken(ctx, console.SessionTokenRequest{
-		UserID:         user.ID,
-		Email:          user.Email,
-		IP:             ip,
-		UserAgent:      userAgent,
-		AnonymousID:    LoadAjsAnonymousID(r),
-		CustomDuration: nil,
+		UserID:          user.ID,
+		Email:           user.Email,
+		IP:              ip,
+		UserAgent:       userAgent,
+		AnonymousID:     LoadAjsAnonymousID(r),
+		CustomDuration:  nil,
+		HubspotObjectID: user.HubspotObjectID,
 	})
 	if err != nil {
 		a.log.Error("Failed to generate session token", zap.Error(err))
@@ -777,12 +778,13 @@ func (a *Auth) ActivateAccount(w http.ResponseWriter, r *http.Request) {
 	}
 
 	tokenInfo, err := a.service.GenerateSessionToken(ctx, console.SessionTokenRequest{
-		UserID:         user.ID,
-		Email:          user.Email,
-		IP:             ip,
-		UserAgent:      r.UserAgent(),
-		AnonymousID:    LoadAjsAnonymousID(r),
-		CustomDuration: nil,
+		UserID:          user.ID,
+		Email:           user.Email,
+		IP:              ip,
+		UserAgent:       r.UserAgent(),
+		AnonymousID:     LoadAjsAnonymousID(r),
+		CustomDuration:  nil,
+		HubspotObjectID: user.HubspotObjectID,
 	})
 	if err != nil {
 		a.serveJSONError(ctx, w, err)

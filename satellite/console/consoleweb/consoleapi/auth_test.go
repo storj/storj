@@ -49,12 +49,13 @@ func doRequestWithAuth(
 	fullURL := "http://" + sat.API.Console.Listener.Addr().String() + "/api/v0/" + endpoint
 
 	tokenInfo, err := sat.API.Console.Service.GenerateSessionToken(ctx, console.SessionTokenRequest{
-		UserID:         user.ID,
-		Email:          user.Email,
-		IP:             "",
-		UserAgent:      "",
-		AnonymousID:    "",
-		CustomDuration: nil,
+		UserID:          user.ID,
+		Email:           user.Email,
+		IP:              "",
+		UserAgent:       "",
+		AnonymousID:     "",
+		CustomDuration:  nil,
+		HubspotObjectID: user.HubspotObjectID,
 	})
 	if err != nil {
 		return nil, 0, err

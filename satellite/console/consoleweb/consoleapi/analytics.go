@@ -72,11 +72,11 @@ func (a *Analytics) EventTriggered(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if et.ErrorEventSource != "" {
-		a.analytics.TrackErrorEvent(user.ID, user.Email, et.ErrorEventSource)
+		a.analytics.TrackErrorEvent(user.ID, user.Email, et.ErrorEventSource, user.HubspotObjectID)
 	} else if et.Link != "" {
-		a.analytics.TrackLinkEvent(et.EventName, user.ID, user.Email, et.Link)
+		a.analytics.TrackLinkEvent(et.EventName, user.ID, user.Email, et.Link, user.HubspotObjectID)
 	} else {
-		a.analytics.TrackEvent(et.EventName, user.ID, user.Email, et.Props)
+		a.analytics.TrackEvent(et.EventName, user.ID, user.Email, et.Props, user.HubspotObjectID)
 	}
 	w.WriteHeader(http.StatusOK)
 }
@@ -103,7 +103,7 @@ func (a *Analytics) PageEventTriggered(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	a.analytics.PageVisitEvent(pv.PageName, user.ID, user.Email)
+	a.analytics.PageVisitEvent(pv.PageName, user.ID, user.Email, user.HubspotObjectID)
 
 	w.WriteHeader(http.StatusOK)
 }
