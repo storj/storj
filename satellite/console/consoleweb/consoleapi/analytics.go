@@ -8,10 +8,12 @@ import (
 	"encoding/json"
 	"io"
 	"net/http"
+	"time"
 
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 
+	"storj.io/common/uuid"
 	"storj.io/storj/private/web"
 	"storj.io/storj/satellite/analytics"
 	"storj.io/storj/satellite/console"
@@ -175,6 +177,67 @@ func (a *Analytics) JoinCunoFSBeta(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
+		a.serveJSONError(ctx, w, http.StatusInternalServerError, err)
+		return
+	}
+
+	w.WriteHeader(http.StatusOK)
+}
+
+// AccountObjectCreated handles the webhook from hubspot when an account object is created.
+func (a *Analytics) AccountObjectCreated(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	var err error
+	defer mon.Task()(&ctx)(&err)
+
+	signature := r.Header.Get("x-hubspot-signature-v3")
+	if signature == "" {
+		a.serveJSONError(ctx, w, http.StatusBadRequest, ErrAnalyticsAPI.New("missing request signature"))
+		return
+	}
+
+	timestampStr := r.Header.Get("x-hubspot-request-timestamp")
+	if timestampStr == "" {
+		a.serveJSONError(ctx, w, http.StatusBadRequest, ErrAnalyticsAPI.New("missing request timestamp"))
+		return
+	}
+
+	timestamp, err := time.Parse(time.RFC3339, timestampStr)
+	if err != nil {
+		a.serveJSONError(ctx, w, http.StatusBadRequest, ErrAnalyticsAPI.New("invalid request timestamp"))
+		return
+	}
+
+	var req analytics.AccountObjectCreatedRequest
+	err = json.NewDecoder(r.Body).Decode(&req)
+	if err != nil {
+		a.serveJSONError(ctx, w, http.StatusBadRequest, ErrAnalyticsAPI.Wrap(err))
+		return
+	}
+
+	if req.UserID == "" {
+		a.serveJSONError(ctx, w, http.StatusBadRequest, ErrAnalyticsAPI.New("missing user id"))
+		return
+	}
+	if req.ObjectID == "" {
+		a.serveJSONError(ctx, w, http.StatusBadRequest, ErrAnalyticsAPI.New("missing object id"))
+		return
+	}
+
+	userID, err := uuid.FromString(req.UserID)
+	if err != nil {
+		a.serveJSONError(ctx, w, http.StatusBadRequest, ErrAnalyticsAPI.New("invalid user id"))
+		return
+	}
+
+	err = a.analytics.ValidateAccountObjectCreatedRequestSignature(req, signature, timestamp)
+	if err != nil {
+		a.serveJSONError(ctx, w, http.StatusBadRequest, ErrAnalyticsAPI.Wrap(err))
+		return
+	}
+
+	err = a.service.UpdateUserHubspotObjectID(ctx, userID, req.ObjectID)
+	if err != nil {
 		a.serveJSONError(ctx, w, http.StatusInternalServerError, err)
 		return
 	}

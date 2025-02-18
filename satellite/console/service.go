@@ -1236,6 +1236,21 @@ func (s *Service) CreateUser(ctx context.Context, user CreateUser, tokenSecret R
 	return u, nil
 }
 
+// UpdateUserHubspotObjectID updates user's hubspot object ID value.
+func (s *Service) UpdateUserHubspotObjectID(ctx context.Context, userID uuid.UUID, objectID string) (err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	user, err := s.GetUser(ctx, userID)
+	if err != nil {
+		return Error.Wrap(err)
+	}
+
+	s.auditLog(ctx, "update user's hubspot object id", &user.ID, user.Email)
+
+	objectIDPtr := &objectID
+	return s.store.Users().Update(ctx, userID, UpdateUserRequest{HubspotObjectID: &objectIDPtr})
+}
+
 // UpdateUserOnSignup gets new password hash value and updates old inactive User.
 func (s *Service) UpdateUserOnSignup(ctx context.Context, inactiveUser *User, requestData CreateUser) (err error) {
 	defer mon.Task()(&ctx)(&err)

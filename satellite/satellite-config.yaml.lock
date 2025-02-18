@@ -52,6 +52,9 @@
 # whether account object created webhook is enabled
 # analytics.hub-spot.account-object-created-webhook-enabled: false
 
+# the endpoint for account object created webhook
+# analytics.hub-spot.account-object-created-webhook-endpoint: /api/v0/analytics/hubspot/account-object-created
+
 # the number of events that can be in the queue before dropping
 # analytics.hub-spot.channel-size: 1000
 

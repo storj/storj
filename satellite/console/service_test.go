@@ -581,6 +581,24 @@ func TestService(t *testing.T) {
 				require.Error(t, err)
 			})
 
+			t.Run("UpdateUserHubspotObjectID", func(t *testing.T) {
+				user, err := sat.AddUser(ctx, console.CreateUser{
+					FullName: "Random User",
+					Email:    "hubspot@mail.test",
+				}, 1)
+				require.NoError(t, err)
+
+				expectedObjectID := "hubspot-object-id"
+
+				err = service.UpdateUserHubspotObjectID(ctx, user.ID, expectedObjectID)
+				require.NoError(t, err)
+
+				user, err = service.GetUser(ctx, user.ID)
+				require.NoError(t, err)
+				require.NotNil(t, user.HubspotObjectID)
+				require.Equal(t, expectedObjectID, *user.HubspotObjectID)
+			})
+
 			t.Run("UpdateUserSpecifiedProjectLimits", func(t *testing.T) {
 				updatedStorageLimit := memory.Size(100)
 				updatedBandwidthLimit := memory.Size(100)

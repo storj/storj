@@ -5,7 +5,13 @@ package analytics
 
 import (
 	"context"
+	"crypto/hmac"
+	"crypto/sha256"
+	"encoding/base64"
+	"encoding/json"
 	"math"
+	"net/http"
+	"path"
 	"strings"
 	"time"
 
@@ -179,11 +185,12 @@ type LimitRequestInfo struct {
 //
 // architecture: Service
 type Service struct {
-	log           *zap.Logger
-	config        Config
-	satelliteName string
-	clientEvents  map[string]bool
-	sources       map[string]interface{}
+	log                      *zap.Logger
+	config                   Config
+	satelliteName            string
+	satelliteExternalAddress string
+	clientEvents             map[string]bool
+	sources                  map[string]interface{}
 
 	segment   segment.Client
 	hubspot   *HubSpotEvents
@@ -191,15 +198,16 @@ type Service struct {
 }
 
 // NewService creates new service for creating sending analytics.
-func NewService(log *zap.Logger, config Config, satelliteName string) *Service {
+func NewService(log *zap.Logger, config Config, satelliteName, satelliteExternalAddress string) *Service {
 	service := &Service{
-		log:           log,
-		config:        config,
-		satelliteName: satelliteName,
-		clientEvents:  make(map[string]bool),
-		sources:       make(map[string]interface{}),
-		hubspot:       NewHubSpotEvents(log.Named("hubspotclient"), config.HubSpot, satelliteName),
-		plausible:     newPlausibleService(log.Named("plausibleservice"), config.Plausible),
+		log:                      log,
+		config:                   config,
+		satelliteName:            satelliteName,
+		satelliteExternalAddress: satelliteExternalAddress,
+		clientEvents:             make(map[string]bool),
+		sources:                  make(map[string]interface{}),
+		hubspot:                  NewHubSpotEvents(log.Named("hubspotclient"), config.HubSpot, satelliteName),
+		plausible:                newPlausibleService(log.Named("plausibleservice"), config.Plausible),
 	}
 	if config.Enabled {
 		service.segment = segment.New(config.SegmentWriteKey)
@@ -1017,6 +1025,41 @@ func (service *Service) TrackUserUpgraded(userID uuid.UUID, email string, expira
 		Event:      eventUserUpgraded,
 		Properties: props,
 	})
+}
+
+// ValidateAccountObjectCreatedRequestSignature validates the signature of the AccountObjectCreatedRequest.
+func (service *Service) ValidateAccountObjectCreatedRequestSignature(
+	request AccountObjectCreatedRequest,
+	signatureHeader string,
+	timestampHeader time.Time,
+) error {
+	if !service.config.Enabled {
+		return nil
+	}
+
+	if time.Since(timestampHeader) > service.config.HubSpot.WebhookRequestLifetime {
+		return Error.New("webhook request is too old")
+	}
+
+	jsonBytes, err := json.Marshal(request)
+	if err != nil {
+		return Error.Wrap(err)
+	}
+
+	url := path.Join(service.satelliteExternalAddress, service.config.HubSpot.AccountObjectCreatedWebhookEndpoint)
+	rawString := http.MethodPost + url + string(jsonBytes) + timestampHeader.Format(time.RFC3339)
+
+	h := hmac.New(sha256.New, []byte(service.config.HubSpot.ClientSecret))
+	if _, err = h.Write([]byte(rawString)); err != nil {
+		return Error.Wrap(err)
+	}
+	hashedString := base64.StdEncoding.EncodeToString(h.Sum(nil))
+
+	if !hmac.Equal([]byte(hashedString), []byte(signatureHeader)) {
+		return Error.New("signature does not match: request is invalid")
+	}
+
+	return nil
 }
 
 func (service *Service) newPropertiesWithSatellite() segment.Properties {

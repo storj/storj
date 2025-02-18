@@ -38,8 +38,15 @@ type HubSpotConfig struct {
 	CunoFSBetaFormURL string        `help:"the hubspot form URL for cunoFS beta" default:""`
 	LifeCycleStage    string        `help:"the hubspot lifecycle stage for new accounts" default:""`
 
-	AccountObjectCreatedWebhookEnabled bool          `help:"whether account object created webhook is enabled" default:"false"`
-	WebhookRequestLifetime             time.Duration `help:"the lifetime of the webhook request" default:"5m"`
+	AccountObjectCreatedWebhookEnabled  bool          `help:"whether account object created webhook is enabled" default:"false"`
+	AccountObjectCreatedWebhookEndpoint string        `help:"the endpoint for account object created webhook" default:"/api/v0/analytics/hubspot/account-object-created"`
+	WebhookRequestLifetime              time.Duration `help:"the lifetime of the webhook request" default:"5m"`
+}
+
+// AccountObjectCreatedRequest is a configuration struct for receiving Account Object Created request from HubSpot.
+type AccountObjectCreatedRequest struct {
+	UserID   string `json:"userid"`
+	ObjectID string `json:"hs_object_id"`
 }
 
 // HubSpotEvent is a configuration struct for sending API request to HubSpot.
