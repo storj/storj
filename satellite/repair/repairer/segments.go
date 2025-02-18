@@ -580,7 +580,7 @@ func (repairer *SegmentRepairer) Repair(ctx context.Context, queueSegment queue.
 			return false, nil
 		}
 		// The segment's redundancy strategy is invalid, or else there was an internal error.
-		return true, repairReconstructError.New("segment could not be reconstructed: %w", err)
+		return false, repairReconstructError.New("segment could not be reconstructed: %w", err)
 	}
 	defer func() { err = errs.Combine(err, segmentReader.Close()) }()
 
@@ -626,7 +626,7 @@ func (repairer *SegmentRepairer) Repair(ctx context.Context, queueSegment queue.
 			return nil
 		}()
 		if err != nil {
-			return true, err
+			return false, err
 		}
 	}
 
