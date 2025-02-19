@@ -809,40 +809,6 @@ func TestCacheCreateDeleteAndTrash(t *testing.T) {
 	})
 }
 
-func TestCacheCreateMultipleSatellites(t *testing.T) {
-	t.Skip("flaky: V3-2416")
-	testplanet.Run(t, testplanet.Config{
-		SatelliteCount: 2, StorageNodeCount: 6, UplinkCount: 1,
-	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
-		satellite1 := planet.Satellites[0]
-		satellite2 := planet.Satellites[1]
-		uplink := planet.Uplinks[0]
-		// Setup: create data for the uplink to upload
-		expectedData := testrand.Bytes(5 * memory.KiB)
-		err := uplink.Upload(ctx, satellite1, "testbucket", "test/path", expectedData)
-		require.NoError(t, err)
-		err = uplink.Upload(ctx, satellite2, "testbucket", "test/path", expectedData)
-		require.NoError(t, err)
-
-		var total, total1, total2 int64
-		for _, sn := range planet.StorageNodes {
-			piecesTotal, _, err := sn.Storage2.BlobsCache.SpaceUsedForPieces(ctx)
-			require.NoError(t, err)
-			total += piecesTotal
-			totalBySA1, _, err := sn.Storage2.BlobsCache.SpaceUsedBySatellite(ctx, satellite1.Identity.ID)
-			require.NoError(t, err)
-			total1 += totalBySA1
-			totalBySA2, _, err := sn.Storage2.BlobsCache.SpaceUsedBySatellite(ctx, satellite2.Identity.ID)
-			require.NoError(t, err)
-			total2 += totalBySA2
-		}
-		require.Equal(t, int64(47104), total)
-		require.Equal(t, int64(23552), total1)
-		require.Equal(t, int64(23552), total2)
-	})
-
-}
-
 func TestConcurrency(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
 		SatelliteCount: 1, StorageNodeCount: 1, UplinkCount: 0,
@@ -852,10 +818,10 @@ func TestConcurrency(t *testing.T) {
 
 		var group errgroup.Group
 		group.Go(func() error {
-			node.Storage2.BlobsCache.Update(ctx, satellite.ID(), 2000, 1000, 0)
+			node.StorageOld.BlobsCache.Update(ctx, satellite.ID(), 2000, 1000, 0)
 			return nil
 		})
-		err := node.Storage2.CacheService.PersistCacheTotals(ctx)
+		err := node.StorageOld.CacheService.PersistCacheTotals(ctx)
 		require.NoError(t, err)
 		require.NoError(t, group.Wait())
 	})

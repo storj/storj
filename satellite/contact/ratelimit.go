@@ -33,8 +33,7 @@ func NewRateLimiter(interval time.Duration, burst, numLimits int) *RateLimiter {
 	}
 }
 
-// IsAllowed indicates if event is allowed to happen.
-func (rateLimiter *RateLimiter) IsAllowed(ctx context.Context, key string) bool {
+func (rateLimiter *RateLimiter) get(ctx context.Context, key string) *rate.Limiter {
 	limiter, err := rateLimiter.limiters.Get(ctx, key, func() (*rate.Limiter, error) {
 		return rate.NewLimiter(
 			rate.Limit(time.Second)/rate.Limit(rateLimiter.interval),
@@ -44,6 +43,17 @@ func (rateLimiter *RateLimiter) IsAllowed(ctx context.Context, key string) bool 
 	if err != nil {
 		panic(fmt.Sprintf("unreachable: %+v", err))
 	}
+	return limiter
+}
 
-	return limiter.Allow()
+// IsAllowed indicates if event is allowed to happen.
+func (rateLimiter *RateLimiter) IsAllowed(ctx context.Context, key string) bool {
+	return rateLimiter.get(ctx, key).Allow()
+
+}
+
+// BackOut undoes the rate limiting tracking of IsAllowed, in case it turns
+// out we do want to let the operation happen again soon after.
+func (rateLimiter *RateLimiter) BackOut(ctx context.Context, key string) {
+	rateLimiter.get(ctx, key).AllowN(time.Now(), -1)
 }

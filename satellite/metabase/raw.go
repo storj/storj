@@ -299,6 +299,12 @@ func (s *SpannerAdapter) TestingGetAllObjects(ctx context.Context) (_ []RawObjec
 func (db *DB) TestingBatchInsertObjects(ctx context.Context, objects []RawObject) (err error) {
 	objectsByAdapterType := make(map[reflect.Type][]RawObject)
 	for _, obj := range objects {
+		if obj.Status == 0 {
+			return Error.New("object status not set")
+		}
+		if obj.Version == 0 {
+			return Error.New("object version not set")
+		}
 		adapter := db.ChooseAdapter(obj.ProjectID)
 		adapterType := reflect.TypeOf(adapter)
 		objectsByAdapterType[adapterType] = append(objectsByAdapterType[adapterType], obj)

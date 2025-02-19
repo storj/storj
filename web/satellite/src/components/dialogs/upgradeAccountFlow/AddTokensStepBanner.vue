@@ -27,15 +27,16 @@
             <div v-if="isPending">
                 <p class="banner__message">
                     <b>{{ stillPendingTransactions.length }} transaction{{ stillPendingTransactions.length > 1 ? 's' : '' }} pending...</b>
-                    {{ txWithLeastConfirmations.confirmations }} of {{ neededConfirmations }} confirmations.
-                    <br>Expected value of {{ stillPendingUSDValue }}
+                    {{ totalValueCounter('confirmations', TXs.StillPending) }} of {{ totalConfirmations }} confirmations.
+                    <br>
+                    Expected value of {{ totalValueCounter('tokenValue', TXs.StillPending) }} STORJ tokens ~${{ totalValueCounter('usdValue', TXs.StillPending) }}.
                 </p>
             </div>
 
             <div v-if="isSuccess" class="banner__row">
                 <p class="banner__message">
-                    Successful deposit of {{ totalValueCounter('tokenValue') }} STORJ tokens.
-                    You received an additional bonus of {{ totalValueCounter('bonusTokens') }} STORJ tokens.
+                    Successful deposit of {{ totalValueCounter('tokenValue', TXs.All) }} STORJ tokens ~${{ totalValueCounter('usdValue', TXs.All) }}.
+                    You received an additional bonus of {{ totalValueCounter('bonusTokens', TXs.All) }} STORJ tokens.
                 </p>
             </div>
         </template>
@@ -59,31 +60,16 @@ const props = defineProps<{
     pendingPayments: PaymentWithConfirmations[]
 }>();
 
+enum TXs {
+    StillPending,
+    All,
+}
+
 /**
  * Returns an array of still pending transactions to correctly display confirmations count.
  */
 const stillPendingTransactions = computed((): PaymentWithConfirmations[] => {
     return props.pendingPayments.filter(p => p.status === PaymentStatus.Pending);
-});
-
-const stillPendingUSDValue = computed<string>(() => {
-    const totalValue = stillPendingTransactions.value.reduce((acc: number, curr: PaymentWithConfirmations) => {
-        return acc + curr.usdValue;
-    }, 0);
-
-    return `$${totalValue.toLocaleString(undefined, { maximumFractionDigits: 2 })}`;
-});
-
-/**
- * Returns transaction with the least confirmations count.
- */
-const txWithLeastConfirmations = computed((): PaymentWithConfirmations => {
-    return stillPendingTransactions.value.reduce((minTx: PaymentWithConfirmations, currentTx: PaymentWithConfirmations) => {
-        if (currentTx.confirmations < minTx.confirmations) {
-            return currentTx;
-        }
-        return minTx;
-    }, props.pendingPayments[0]);
 });
 
 /**
@@ -93,11 +79,22 @@ const neededConfirmations = computed((): number => {
     return configStore.state.config.neededTransactionConfirmations;
 });
 
+const totalConfirmations = computed((): number => {
+    return neededConfirmations.value * stillPendingTransactions.value.length;
+});
+
 /**
  * Calculates total count of provided payment field from the list (i.e. tokenValue or bonusTokens).
  */
-function totalValueCounter(field: keyof PaymentWithConfirmations): string {
-    return props.pendingPayments.reduce((acc: number, curr: PaymentWithConfirmations) => {
+function totalValueCounter(field: keyof PaymentWithConfirmations, txs: TXs): string {
+    let payments: PaymentWithConfirmations[];
+    if (txs === TXs.StillPending) {
+        payments = stillPendingTransactions.value;
+    } else {
+        payments = props.pendingPayments;
+    }
+
+    return payments.reduce((acc: number, curr: PaymentWithConfirmations) => {
         return acc + (curr[field] as number);
     }, 0).toLocaleString(undefined, { maximumFractionDigits: 2 });
 }

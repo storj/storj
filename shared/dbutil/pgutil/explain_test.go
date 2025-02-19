@@ -18,7 +18,7 @@ import (
 
 func TestExplain(t *testing.T) {
 	dbtest.Run(t, func(ctx *testcontext.Context, t *testing.T, connstr string) {
-		db, err := tempdb.OpenUnique(ctx, connstr, "explain")
+		db, err := tempdb.OpenUnique(ctx, connstr, "explain", nil)
 		require.NoError(t, err)
 		defer ctx.Check(db.Close)
 

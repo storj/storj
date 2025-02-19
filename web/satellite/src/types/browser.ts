@@ -24,6 +24,16 @@ import spreadsheetIcon from '@/assets/icon-spreadsheet-tonal.svg';
 import folderIcon from '@/assets/icon-folder-tonal.svg';
 import fileIcon from '@/assets/icon-file-tonal.svg';
 
+export enum DownloadPrefixType {
+    Folder = 'Folder',
+    Bucket = 'Bucket',
+}
+
+export enum DownloadPrefixFormat {
+    ZIP = 'zip',
+    TAR_GZ = 'tar.gz',
+}
+
 export enum ShareOptions {
     Reddit = 'Reddit',
     Facebook = 'Facebook',

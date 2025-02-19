@@ -95,11 +95,11 @@ PATH="$RELEASE_BIN":"$PATH" "$SCRIPTDIR""/steps.sh" -b release-network-release-u
 BRANCH_BIN="$STORJ_NETWORK_DIR/bin/branch"
 cd "$SCRIPTDIR"
   case $GOOS in
-    linux)    GOBIN=$BRANCH_BIN GOOS=linux GOARCH=$(go env GOARCH) go install -race -v storj.io/storj/cmd/storagenode >/dev/null 2>&1   ;;
-    *)        CGO_ENABLED=1  GOBIN=$BRANCH_BIN GOOS=linux GOARCH=$(go env GOARCH) CC=$STORJ_CC_TARGET CXX=$STORJ_CXX_TARGET go install -race -v storj.io/storj/cmd/storagenode >/dev/null 2>&1 ;;
+    linux)    GOBIN=$BRANCH_BIN GOOS=linux GOARCH=$(go env GOARCH) go install -race storj.io/storj/cmd/storagenode 2>&1   ;;
+    *)        CGO_ENABLED=1  GOBIN=$BRANCH_BIN GOOS=linux GOARCH=$(go env GOARCH) CC=$STORJ_CC_TARGET CXX=$STORJ_CXX_TARGET go install -race storj.io/storj/cmd/storagenode 2>&1 ;;
   esac
-GOBIN=$BRANCH_BIN GOOS=linux GOARCH=$(go env GOARCH) go install -race -v storj.io/storj/cmd/satellite >/dev/null 2>&1
-GOBIN=$BRANCH_BIN GOOS=$GOOS GOARCH=$(go env GOARCH) go install -race -v -ldflags "-X 'storj.io/uplink.maxSegmentSize=6MiB'" storj.io/storj/cmd/uplink >/dev/null 2>&1
+GOBIN=$BRANCH_BIN GOOS=linux GOARCH=$(go env GOARCH) go install -race storj.io/storj/cmd/satellite 2>&1
+GOBIN=$BRANCH_BIN GOOS=$GOOS GOARCH=$(go env GOARCH) go install -race -ldflags "-X 'storj.io/uplink.maxSegmentSize=6MiB'" storj.io/storj/cmd/uplink 2>&1
 
 #### setup the branch network ####
 cd "$STORJ_NETWORK_DIR"

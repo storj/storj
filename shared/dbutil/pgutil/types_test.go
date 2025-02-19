@@ -143,7 +143,7 @@ func TestPlacementConstraintArray(t *testing.T) {
 // database) and runs a test callback for each type of test database available.
 func withUniqueDB(t *testing.T, namePrefix string, cb func(ctx *testcontext.Context, t *testing.T, db *dbutil.TempDatabase)) {
 	dbtest.Run(t, func(ctx *testcontext.Context, t *testing.T, connStr string) {
-		db, err := tempdb.OpenUnique(ctx, connStr, namePrefix)
+		db, err := tempdb.OpenUnique(ctx, connStr, namePrefix, nil)
 		if err != nil {
 			t.Fatalf("encountered error: %v", err)
 		}

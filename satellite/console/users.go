@@ -101,25 +101,26 @@ type UserInfo struct {
 
 // CreateUser struct holds info for User creation.
 type CreateUser struct {
-	ExternalId       *string `json:"-"`
-	FullName         string  `json:"fullName"`
-	ShortName        string  `json:"shortName"`
-	Email            string  `json:"email"`
-	UserAgent        []byte  `json:"userAgent"`
-	Password         string  `json:"password"`
-	IsProfessional   bool    `json:"isProfessional"`
-	Position         string  `json:"position"`
-	CompanyName      string  `json:"companyName"`
-	WorkingOn        string  `json:"workingOn"`
-	EmployeeCount    string  `json:"employeeCount"`
-	HaveSalesContact bool    `json:"haveSalesContact"`
-	CaptchaResponse  string  `json:"captchaResponse"`
-	IP               string  `json:"ip"`
-	SignupPromoCode  string  `json:"signupPromoCode"`
-	ActivationCode   string  `json:"-"`
-	SignupId         string  `json:"-"`
-	AllowNoName      bool    `json:"-"`
-	PaidTier         bool    `json:"-"`
+	ExternalId       *string  `json:"-"`
+	FullName         string   `json:"fullName"`
+	ShortName        string   `json:"shortName"`
+	Email            string   `json:"email"`
+	UserAgent        []byte   `json:"userAgent"`
+	Password         string   `json:"password"`
+	IsProfessional   bool     `json:"isProfessional"`
+	Position         string   `json:"position"`
+	CompanyName      string   `json:"companyName"`
+	WorkingOn        string   `json:"workingOn"`
+	EmployeeCount    string   `json:"employeeCount"`
+	HaveSalesContact bool     `json:"haveSalesContact"`
+	CaptchaResponse  string   `json:"captchaResponse"`
+	IP               string   `json:"ip"`
+	SignupPromoCode  string   `json:"signupPromoCode"`
+	CaptchaScore     *float64 `json:"-"`
+	ActivationCode   string   `json:"-"`
+	SignupId         string   `json:"-"`
+	AllowNoName      bool     `json:"-"`
+	PaidTier         bool     `json:"-"`
 }
 
 // CreateSsoUser struct holds info for SSO User creation.
@@ -170,6 +171,7 @@ type AuthUser struct {
 	RememberForOneWeek bool   `json:"rememberForOneWeek"`
 	IP                 string `json:"-"`
 	UserAgent          string `json:"-"`
+	AnonymousID        string `json:"-"`
 }
 
 // TokenInfo holds info for user authentication token responses.
@@ -221,6 +223,11 @@ func (s UserStatus) String() string {
 // Value implements database/sql/driver.Valuer for UserStatus.
 func (s UserStatus) Value() (driver.Value, error) {
 	return int64(s), nil
+}
+
+// Valid checks if the user status is valid.
+func (s UserStatus) Valid() bool {
+	return s.String() != ""
 }
 
 // User is a database object that describes User entity.
@@ -280,6 +287,8 @@ type User struct {
 
 	NewUnverifiedEmail          *string `json:"-"`
 	EmailChangeVerificationStep int     `json:"-"`
+
+	HubspotObjectID *string `json:"-"`
 }
 
 // ResponseUser is an entity which describes db User and can be sent in response.
@@ -372,6 +381,8 @@ type UpdateUserRequest struct {
 
 	NewUnverifiedEmail          **string
 	EmailChangeVerificationStep *int
+
+	HubspotObjectID **string
 }
 
 // UserSettings contains configurations for a user.
@@ -402,7 +413,7 @@ type NoticeDismissal struct {
 	PartnerUpgradeBanner     bool `json:"partnerUpgradeBanner"`
 	ProjectMembersPassphrase bool `json:"projectMembersPassphrase"`
 	UploadOverwriteWarning   bool `json:"uploadOverwriteWarning"`
-	VersioningBetaBanner     bool `json:"versioningBetaBanner"`
+	CunoFSBetaJoined         bool `json:"cunoFSBetaJoined"`
 }
 
 // SetUpAccountRequest holds data for completing account setup.

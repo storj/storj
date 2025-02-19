@@ -2,11 +2,11 @@
 // See LICENSE for copying information.
 
 <template>
-    <v-card>
+    <v-card class="pa-2">
         <div class="h-100 d-flex flex-column justify-space-between">
             <v-card-item>
                 <div class="d-flex justify-space-between">
-                    <v-chip :color="item ? PROJECT_ROLE_COLORS[item.role] : 'primary'" variant="tonal" class="font-weight-bold my-2" size="small">
+                    <v-chip :color="item ? PROJECT_ROLE_COLORS[item.role] : 'primary'" variant="tonal" class="font-weight-bold mt-1 mb-2" size="small">
                         <component :is="Box" :size="12" class="mr-1" />
                         {{ item?.role || 'Project' }}
                     </v-chip>
@@ -24,18 +24,16 @@
                 </v-card-subtitle>
             </v-card-item>
             <v-card-text class="flex-grow-0">
-                <v-divider class="mt-1 mb-4" />
-                <v-btn v-if="!item" color="primary" size="small" class="mr-2" @click="emit('createClick')">
+                <v-btn v-if="!item" color="primary" class="mr-2" @click="emit('createClick')">
                     Create Project
                 </v-btn>
                 <template v-else-if="item?.role === ProjectRole.Invited">
-                    <v-btn color="primary" size="small" class="mr-2" :disabled="isDeclining" @click="emit('joinClick')">
+                    <v-btn color="primary" class="mr-2" :disabled="isDeclining" @click="emit('joinClick')">
                         Join Project
                     </v-btn>
                     <v-btn
                         variant="outlined"
                         color="default"
-                        size="small"
                         class="mr-2"
                         :loading="isDeclining"
                         @click="declineInvitation"
@@ -43,12 +41,48 @@
                         Decline
                     </v-btn>
                 </template>
-                <v-btn v-else color="primary" size="small" rounded="md" class="mr-2" @click="openProject">Open Project</v-btn>
-                <v-btn v-if="item?.role === ProjectRole.Owner" color="default" variant="outlined" size="small" rounded="md" density="comfortable" icon>
+                <v-btn v-else color="primary" class="mr-2" @click="openProject">Open Project</v-btn>
+                <v-btn v-if="item?.role === ProjectRole.Owner" color="default" variant="outlined" density="comfortable" icon>
                     <v-icon :icon="Ellipsis" />
 
                     <v-menu activator="parent" location="bottom" transition="fade-transition">
                         <v-list class="pa-1">
+                            <v-list-item link @click="() => editClick(FieldToChange.Name)">
+                                <template #prepend>
+                                    <component :is="FilePenLine" :size="18" />
+                                </template>
+                                <v-list-item-title class="text-body-2 ml-3">
+                                    Edit Name
+                                </v-list-item-title>
+                            </v-list-item>
+
+                            <v-list-item link @click="() => editClick(FieldToChange.Description)">
+                                <template #prepend>
+                                    <component :is="FilePenLine" :size="18" />
+                                </template>
+                                <v-list-item-title class="text-body-2 ml-3">
+                                    Edit Description
+                                </v-list-item-title>
+                            </v-list-item>
+
+                            <v-list-item v-if="isPaidTier" link @click="() => updateLimitsClick(LimitToChange.Storage)">
+                                <template #prepend>
+                                    <component :is="Cloud" :size="18" />
+                                </template>
+                                <v-list-item-title class="text-body-2 ml-3">
+                                    Update Storage Limit
+                                </v-list-item-title>
+                            </v-list-item>
+
+                            <v-list-item v-if="isPaidTier" link @click="() => updateLimitsClick(LimitToChange.Bandwidth)">
+                                <template #prepend>
+                                    <component :is="DownloadCloud" :size="18" />
+                                </template>
+                                <v-list-item-title class="text-body-2 ml-3">
+                                    Update Download Limit
+                                </v-list-item-title>
+                            </v-list-item>
+
                             <v-list-item link @click="() => onSettingsClick()">
                                 <template #prepend>
                                     <component :is="Settings" :size="18" />
@@ -57,8 +91,6 @@
                                     Project Settings
                                 </v-list-item-title>
                             </v-list-item>
-
-                            <v-divider class="my-1" />
 
                             <v-list-item link class="mt-1" @click="emit('inviteClick')">
                                 <template #prepend>
@@ -77,26 +109,32 @@
 </template>
 
 <script setup lang="ts">
-import { ref } from 'vue';
+import { computed, ref } from 'vue';
 import { useRouter } from 'vue-router';
 import {
+    VBtn,
     VCard,
     VCardItem,
+    VCardSubtitle,
+    VCardText,
+    VCardTitle,
     VChip,
-    VBtn,
+    VDivider,
     VIcon,
-    VMenu,
     VList,
     VListItem,
     VListItemTitle,
-    VDivider,
-    VCardTitle,
-    VCardSubtitle,
-    VCardText,
+    VMenu,
 } from 'vuetify/components';
-import { Ellipsis, Settings, UserPlus, Box } from 'lucide-vue-next';
+import { Box, Cloud, DownloadCloud, Ellipsis, FilePenLine, Settings, UserPlus } from 'lucide-vue-next';
 
-import { ProjectItemModel, PROJECT_ROLE_COLORS, ProjectInvitationResponse } from '@/types/projects';
+import {
+    FieldToChange,
+    LimitToChange,
+    PROJECT_ROLE_COLORS,
+    ProjectInvitationResponse,
+    ProjectItemModel,
+} from '@/types/projects';
 import { ProjectRole } from '@/types/projectMembers';
 import { useProjectsStore } from '@/store/modules/projectsStore';
 import { useAnalyticsStore } from '@/store/modules/analyticsStore';
@@ -104,6 +142,7 @@ import { AnalyticsErrorEventSource, AnalyticsEvent } from '@/utils/constants/ana
 import { useNotify } from '@/utils/hooks';
 import { ROUTES } from '@/router';
 import { useBucketsStore } from '@/store/modules/bucketsStore';
+import { useUsersStore } from '@/store/modules/usersStore';
 
 const props = defineProps<{
     item?: ProjectItemModel,
@@ -113,15 +152,20 @@ const emit = defineEmits<{
     joinClick: [];
     createClick: [];
     inviteClick: [];
+    editClick: [FieldToChange];
+    updateLimitsClick: [LimitToChange];
 }>();
 
 const analyticsStore = useAnalyticsStore();
 const bucketsStore = useBucketsStore();
 const projectsStore = useProjectsStore();
+const userStore = useUsersStore();
 const router = useRouter();
 const notify = useNotify();
 
 const isDeclining = ref<boolean>(false);
+
+const isPaidTier = computed(() => userStore.state.user.paidTier);
 
 /**
  * Selects the project and navigates to the project dashboard.
@@ -151,6 +195,16 @@ function onSettingsClick(): void {
         name: ROUTES.ProjectSettings.name,
         params: { id: projectsStore.state.selectedProject.urlId },
     });
+}
+
+function editClick(field: FieldToChange): void {
+    if (!props.item) return;
+    emit('editClick', field);
+}
+
+function updateLimitsClick(limit: LimitToChange): void {
+    if (!props.item) return;
+    emit('updateLimitsClick', limit);
 }
 
 /**

@@ -6,7 +6,6 @@
         closable
         variant="tonal"
         type="warning"
-        rounded="lg"
         class="mt-2 mb-4"
         border
     >

@@ -91,6 +91,7 @@ model project (
 	// note: suspended is not a valid state for new buckets
 	field default_versioning int (updatable, default 1)
 
+	// TODO: drop this column after we're out of schema freeze.
 	// whether a user has been prompted to join versioning open beta
 	field prompted_for_versioning_beta bool ( updatable, default false )
 

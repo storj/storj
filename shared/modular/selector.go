@@ -8,12 +8,12 @@ import (
 	"os"
 	"strings"
 
-	"storj.io/storj/private/mud"
+	"storj.io/storj/shared/mud"
 )
 
 var presets = map[string]string{
 	// storagenode with hashtable based storage, all services required only by standard storagenode are disabled.
-	"@hashstore": "storagenode.EndpointRegistration,contact.Endpoint,contact.Chore,bandwidth.Service,orders.Service,debug.Wrapper,piecestore.PieceBackend=piecestore.HashStoreBackend,piecestore.QueueRetain=retain.BloomFilterManager,!monitor.DiskVerification",
+	"@hashstore": "storagenode.EndpointRegistration,contact.Endpoint,contact.Chore,bandwidth.Service,orders.Service,debug.Wrapper,piecestore.PieceBackend=piecestore.HashStoreBackend,!retain.Service,!monitor.DiskVerification",
 }
 
 // CreateSelector create a custom component hierarchy selector based on environment variables.
@@ -62,6 +62,10 @@ func CreateSelectorFromString(ball *mud.Ball, selection string) mud.ComponentSel
 			}
 			mud.ReplaceDependencyOf(from[0], to[0])
 		default:
+			to := mud.Find(ball, includeType(s))
+			if len(to) != 1 {
+				panic(fmt.Sprintf("implementation selector %s should match one component", s))
+			}
 			selector = mud.Or(selector, includeType(s))
 		}
 	}

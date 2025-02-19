@@ -11,7 +11,6 @@
                             v-if="isActivationExpired"
                             variant="tonal"
                             color="error"
-                            rounded="lg"
                             density="comfortable"
                             border
                             closable

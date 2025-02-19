@@ -12,9 +12,10 @@ import (
 
 	"storj.io/common/cfgstruct"
 	"storj.io/common/process"
-	"storj.io/storj/private/mud"
 	"storj.io/storj/shared/modular"
+	"storj.io/storj/shared/modular/cli"
 	"storj.io/storj/shared/modular/config"
+	"storj.io/storj/shared/mud"
 	"storj.io/storj/storagenode"
 )
 
@@ -37,6 +38,11 @@ func newExecCmd(f *Factory) *cobra.Command {
 		RunE: func(cmd *cobra.Command, args []string) error {
 			ctx, cancel := process.Ctx(cmd)
 			stop.Cancel = cancel
+
+			err := cli.LoadConfig(cmd, ball, selector)
+			if err != nil {
+				return err
+			}
 			return cmdExec(ctx, ball, selector)
 		},
 	}
@@ -50,6 +56,7 @@ func newExecCmd(f *Factory) *cobra.Command {
 }
 
 func cmdExec(ctx context.Context, ball *mud.Ball, selector mud.ComponentSelector) (err error) {
+
 	err = modular.Initialize(ctx, ball, selector)
 	if err != nil {
 		return err

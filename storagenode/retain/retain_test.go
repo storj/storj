@@ -179,7 +179,7 @@ func TestRetainPieces(t *testing.T) {
 		require.Equal(t, numPieces, len(satellite0Pieces))
 
 		{
-			err = retainDisabled.Queue(satellite0.ID, req)
+			err = retainDisabled.Queue(ctx, satellite0.ID, req)
 			require.NoError(t, err)
 			retainDisabled.TestWaitUntilEmpty()
 
@@ -190,7 +190,7 @@ func TestRetainPieces(t *testing.T) {
 		}
 
 		{
-			err = retainStore.Queue(satellite0.ID, req)
+			err = retainStore.Queue(ctx, satellite0.ID, req)
 			require.NoError(t, err)
 
 			// check we have deleted nothing for satellite0
@@ -203,12 +203,12 @@ func TestRetainPieces(t *testing.T) {
 			require.Len(t, entries, 1)
 		}
 
-		err = retainDebug.Queue(satellite0.ID, req)
+		err = retainDebug.Queue(ctx, satellite0.ID, req)
 		require.NoError(t, err)
 		retainDebug.TestWaitUntilEmpty()
 
 		// expect that enabled endpoint deletes the correct pieces
-		err = retainEnabled.Queue(satellite0.ID, req)
+		err = retainEnabled.Queue(ctx, satellite0.ID, req)
 		require.NoError(t, err)
 		retainEnabled.TestWaitUntilEmpty()
 
@@ -361,7 +361,7 @@ func TestRetainPieces_lazyFilewalker(t *testing.T) {
 		}
 
 		// expect that enabled endpoint deletes the correct pieces
-		err = retainEnabled.Queue(satellite0.ID, req)
+		err = retainEnabled.Queue(ctx, satellite0.ID, req)
 		require.NoError(t, err)
 		retainEnabled.TestWaitUntilEmpty()
 

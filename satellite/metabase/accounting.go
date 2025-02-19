@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"cloud.google.com/go/spanner"
+	"cloud.google.com/go/spanner/apiv1/spannerpb"
 	"golang.org/x/exp/slices"
 
 	"storj.io/storj/shared/dbutil/spannerutil"
@@ -123,7 +124,9 @@ func (s *SpannerAdapter) CollectBucketTallies(ctx context.Context, opts CollectB
 	if err != nil {
 		return nil, Error.Wrap(err)
 	}
-	return spannerutil.CollectRows(s.client.Single().Query(ctx, spanner.Statement{
+
+	txn := s.client.Single().WithTimestampBound(spannerutil.MaxStalenessFromAOSI(opts.AsOfSystemInterval))
+	return spannerutil.CollectRows(txn.QueryWithOptions(ctx, spanner.Statement{
 		SQL: `
 			SELECT
 				project_id, bucket_name,
@@ -143,6 +146,8 @@ func (s *SpannerAdapter) CollectBucketTallies(ctx context.Context, opts CollectB
 			"to_bucket_name":   opts.To.BucketName,
 			"when":             opts.Now,
 		},
+	}, spanner.QueryOptions{
+		Priority: spannerpb.RequestOptions_PRIORITY_LOW,
 	}), func(row *spanner.Row, bucketTally *BucketTally) error {
 		return row.Columns(
 			&bucketTally.ProjectID, &bucketTally.BucketName,

@@ -10,7 +10,6 @@
                         <v-alert
                             variant="tonal"
                             color="error"
-                            rounded="lg"
                             density="comfortable"
                             border
                             closable

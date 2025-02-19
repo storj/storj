@@ -6,8 +6,8 @@ import '@fontsource-variable/inter';
 import { createVuetify } from 'vuetify';
 import { md3 } from 'vuetify/blueprints';
 import { aliases, mdi } from 'vuetify/iconsets/mdi-svg';
-
 import '@/styles/styles.scss';
+
 import { THEME_OPTIONS } from '@/utils/constants/theme';
 
 export default createVuetify({
@@ -27,25 +27,37 @@ export default createVuetify({
         VDataTable: {
             fixedHeader: true,
             noDataText: 'Results not found',
+            hover: true,
+            rounded: 'lg',
         },
         VBtn: {
             density: 'default',
-            rounded: 'lg',
+            rounded: 'md',
             class: 'text-none font-weight-bold',
             style: 'letter-spacing:0;',
         },
         VTooltip: {
+            location: 'top',
             transition: 'fade-transition',
             rounded: 'lg',
         },
         VSelect: {
-            // rounded: 'lg',
+            rounded: 'md',
             variant: 'outlined',
             color: 'secondary',
+            menuProps: { rounded: 'lg' },
         },
         VTextField: {
             rounded: 'md',
             variant: 'outlined',
+            color: 'secondary',
+        },
+        VTextarea: {
+            rounded: 'md',
+            variant: 'outlined',
+            color: 'secondary',
+        },
+        VAutoComplete: {
             color: 'secondary',
         },
         VList: {
@@ -59,23 +71,50 @@ export default createVuetify({
         },
         VCard: {
             border: true,
-            rounded: 'xlg',
+            rounded: 'lg',
         },
         VTable: {
-            class: 'elevation-0',
+            class: 'elevation-0 rounded-md',
+            hover: true,
         },
         VCheckbox: {
             color: 'primary',
             class: 'ml-n1',
+            hideDetails: 'auto',
         },
         VAlert: {
-            rounded: 'xlg',
+            rounded: 'lg',
         },
         VChip: {
             rounded: 'md',
         },
+        VChipGroup: {
+            color: 'primary',
+            variant: 'outlined',
+        },
         VRadio: {
             color: 'primary',
+            hideDetails: 'auto',
+        },
+        VSwitch: {
+            color: 'primary',
+            hideDetails: 'auto',
+            inset: true,
+        },
+        VPagination: {
+            rounded: 'lg',
+            density: 'comfortable',
+            activeColor: 'primary',
+        },
+        VMenu: {
+            rounded: 'lg',
+            transition: 'fade-transition',
+        },
+        VDialog: {
+            rounded: 'lg',
+            persistent: true,
+            scrollable: true,
+            transition: 'fade-transition',
         },
     },
 });

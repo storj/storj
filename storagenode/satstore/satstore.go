@@ -5,6 +5,8 @@ package satstore
 
 import (
 	"context"
+	"errors"
+	"io/fs"
 	"os"
 	"path/filepath"
 	"strings"
@@ -57,10 +59,10 @@ func (s *SatelliteStore) Set(ctx context.Context, satellite storj.NodeID, data [
 	if _, err := fh.Write(data); err != nil {
 		return errs.Wrap(err)
 	}
-	if err := fh.Close(); err != nil {
+	if err := fh.Sync(); err != nil {
 		return errs.Wrap(err)
 	}
-	if err := fh.Sync(); err != nil {
+	if err := fh.Close(); err != nil {
 		return errs.Wrap(err)
 	}
 	if err := os.Rename(tmpPath, dstPath); err != nil {
@@ -81,7 +83,9 @@ func (s *SatelliteStore) Range(cb func(storj.NodeID, []byte) error) (err error) 
 	defer s.mu.Unlock()
 
 	entries, err := os.ReadDir(s.dir)
-	if err != nil {
+	if errors.Is(err, fs.ErrNotExist) {
+		return nil
+	} else if err != nil {
 		return errs.Wrap(err)
 	}
 
@@ -120,6 +124,6 @@ func (s *SatelliteStore) Get(ctx context.Context, satellite storj.NodeID) (_ []b
 }
 
 func (s *SatelliteStore) getLocked(satellite storj.NodeID) ([]byte, error) {
-	data, err := os.ReadFile(filepath.Join(s.dir, satellite.String()))
+	data, err := os.ReadFile(filepath.Join(s.dir, satellite.String()+"."+s.ext))
 	return data, errs.Wrap(err)
 }

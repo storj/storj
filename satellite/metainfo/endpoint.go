@@ -24,7 +24,6 @@ import (
 	"storj.io/common/rpc/rpcstatus"
 	"storj.io/common/signing"
 	"storj.io/common/storj"
-	"storj.io/common/uuid"
 	"storj.io/eventkit"
 	"storj.io/storj/satellite/accounting"
 	"storj.io/storj/satellite/attribution"
@@ -38,6 +37,7 @@ import (
 	"storj.io/storj/satellite/orders"
 	"storj.io/storj/satellite/overlay"
 	"storj.io/storj/satellite/revocation"
+	"storj.io/storj/satellite/trust"
 	"storj.io/storj/shared/lrucache"
 )
 
@@ -90,13 +90,16 @@ type Endpoint struct {
 	userInfoCache                  *lrucache.ExpiringLRUOf[*console.UserInfo]
 	encInlineSegmentSize           int64 // max inline segment size + encryption overhead
 	revocations                    revocation.DB
-	config                         ExtendedConfig
+	config                         Config
+	migrationModeFlag              *MigrationModeFlagExtension
 	versionCollector               *versionCollector
 	zstdDecoder                    *zstd.Decoder
 	zstdEncoder                    *zstd.Encoder
 	successTrackers                *SuccessTrackers
 	failureTracker                 SuccessTracker
+	trustedUplinks                 *trust.TrustedPeersList
 	placement                      nodeselection.PlacementDefinitions
+	placementEdgeUrlOverrides      console.PlacementEdgeURLOverrides
 
 	// rateLimiterTime is a function that returns the time to check with the rate limiter.
 	// It's handy for testing purposes. It defaults to time.Now.
@@ -108,14 +111,11 @@ func NewEndpoint(log *zap.Logger, buckets *buckets.Service, metabaseDB *metabase
 	orders *orders.Service, cache *overlay.Service, attributions attribution.DB, peerIdentities overlay.PeerIdentities,
 	apiKeys APIKeys, projectUsage *accounting.Service, projects console.Projects, projectMembers console.ProjectMembers, users console.Users,
 	satellite signing.Signer, revocations revocation.DB, successTrackers *SuccessTrackers, failureTracker SuccessTracker,
-	config Config, placement nodeselection.PlacementDefinitions) (*Endpoint, error) {
+	trustedUplinks *trust.TrustedPeersList, config Config, migrationModeFlag *MigrationModeFlagExtension,
+	placement nodeselection.PlacementDefinitions, placementEdgeUrlOverrides console.PlacementEdgeURLOverrides, trustedOrders bool) (
+	*Endpoint, error) {
 
 	// TODO do something with too many params
-
-	extendedConfig, err := NewExtendedConfig(config)
-	if err != nil {
-		return nil, err
-	}
 
 	encInlineSegmentSize, err := encryption.CalcEncryptedSize(config.MaxInlineSegmentSize.Int64(), storj.EncryptionParameters{
 		CipherSuite: storj.EncAESGCM,
@@ -147,7 +147,7 @@ func NewEndpoint(log *zap.Logger, buckets *buckets.Service, metabaseDB *metabase
 		orders:              orders,
 		overlay:             cache,
 		attributions:        attributions,
-		pointerVerification: pointerverification.NewService(peerIdentities),
+		pointerVerification: pointerverification.NewService(peerIdentities, cache, trustedUplinks, trustedOrders),
 		apiKeys:             apiKeys,
 		projectUsage:        projectUsage,
 		projects:            projects,
@@ -172,24 +172,28 @@ func NewEndpoint(log *zap.Logger, buckets *buckets.Service, metabaseDB *metabase
 			Expiration: config.UserInfoValidation.CacheExpiration,
 			Capacity:   config.UserInfoValidation.CacheCapacity,
 		}),
-		encInlineSegmentSize: encInlineSegmentSize,
-		revocations:          revocations,
-		config:               extendedConfig,
-		versionCollector:     newVersionCollector(log),
-		zstdDecoder:          decoder,
-		zstdEncoder:          encoder,
-		successTrackers:      successTrackers,
-		failureTracker:       failureTracker,
-		placement:            placement,
-		rateLimiterTime:      time.Now,
+		encInlineSegmentSize:      encInlineSegmentSize,
+		revocations:               revocations,
+		config:                    config,
+		migrationModeFlag:         migrationModeFlag,
+		versionCollector:          newVersionCollector(log),
+		zstdDecoder:               decoder,
+		zstdEncoder:               encoder,
+		successTrackers:           successTrackers,
+		failureTracker:            failureTracker,
+		trustedUplinks:            trustedUplinks,
+		placement:                 placement,
+		placementEdgeUrlOverrides: placementEdgeUrlOverrides,
+		rateLimiterTime:           time.Now,
 	}, nil
 }
 
 // TestingNewAPIKeysEndpoint returns an endpoint suitable for testing api keys behaviour.
 func TestingNewAPIKeysEndpoint(log *zap.Logger, apiKeys APIKeys) *Endpoint {
 	return &Endpoint{
-		log:     log,
-		apiKeys: apiKeys,
+		log:               log,
+		apiKeys:           apiKeys,
+		migrationModeFlag: NewMigrationModeFlagExtension(Config{}),
 	}
 }
 
@@ -228,14 +232,9 @@ func (endpoint *Endpoint) TestSetUseBucketLevelVersioning(enabled bool) {
 	endpoint.config.UseBucketLevelObjectVersioning = enabled
 }
 
-// TestSetUseBucketLevelVersioningByProjectID sets whether bucket-level Object Versioning functionality should be enabled
-// for a specific project. Used for testing.
-func (endpoint *Endpoint) TestSetUseBucketLevelVersioningByProjectID(projectID uuid.UUID, enabled bool) {
-	if !enabled {
-		delete(endpoint.config.useBucketLevelObjectVersioningProjects, projectID)
-		return
-	}
-	endpoint.config.useBucketLevelObjectVersioningProjects[projectID] = struct{}{}
+// TestSelfServePlacementEnabled sets whether self-serve placement should be enabled.
+func (endpoint *Endpoint) TestSelfServePlacementEnabled(enabled bool) {
+	endpoint.config.SelfServePlacementSelectEnabled = enabled
 }
 
 // ProjectInfo returns allowed ProjectInfo for the provided API key.
@@ -257,11 +256,26 @@ func (endpoint *Endpoint) ProjectInfo(ctx context.Context, req *pb.ProjectInfoRe
 	if err != nil {
 		return nil, err
 	}
-
-	return &pb.ProjectInfoResponse{
+	info := &pb.ProjectInfoResponse{
 		ProjectPublicId: keyInfo.ProjectPublicID.Bytes(),
 		ProjectSalt:     salt,
-	}, nil
+	}
+
+	if endpoint.config.SendEdgeUrlOverrides {
+		project, err := endpoint.projects.Get(ctx, keyInfo.ProjectID)
+		if err != nil {
+			return nil, err
+		}
+		if edgeURLs, ok := endpoint.placementEdgeUrlOverrides.Get(project.DefaultPlacement); ok {
+			info.EdgeUrlOverrides = &pb.EdgeUrlOverrides{
+				AuthService:        []byte(edgeURLs.AuthService),
+				PublicLinksharing:  []byte(edgeURLs.PublicLinksharing),
+				PrivateLinksharing: []byte(edgeURLs.InternalLinksharing),
+			}
+		}
+	}
+
+	return info, nil
 }
 
 // RevokeAPIKey handles requests to revoke an api key.
@@ -282,8 +296,7 @@ func (endpoint *Endpoint) RevokeAPIKey(ctx context.Context, req *pb.RevokeAPIKey
 
 	err = endpoint.revocations.Revoke(ctx, macToRevoke.Tail(), keyInfo.ID[:])
 	if err != nil {
-		endpoint.log.Error("Failed to revoke API key", zap.Error(err))
-		return nil, rpcstatus.Error(rpcstatus.Internal, "Failed to revoke API key")
+		return nil, endpoint.ConvertKnownErrWithMessage(err, "Failed to revoke API key")
 	}
 
 	return &pb.RevokeAPIKeyResponse{}, nil
@@ -304,17 +317,17 @@ func (endpoint *Endpoint) packStreamID(ctx context.Context, satStreamID *interna
 
 	signedStreamID, err := SignStreamID(ctx, endpoint.satellite, satStreamID)
 	if err != nil {
-		return nil, rpcstatus.Error(rpcstatus.Internal, err.Error())
+		return nil, rpcstatus.Wrap(rpcstatus.Internal, err)
 	}
 
 	encodedStreamID, err := pb.Marshal(signedStreamID)
 	if err != nil {
-		return nil, rpcstatus.Error(rpcstatus.Internal, err.Error())
+		return nil, rpcstatus.Wrap(rpcstatus.Internal, err)
 	}
 
 	streamID, err = storj.StreamIDFromBytes(encodedStreamID)
 	if err != nil {
-		return nil, rpcstatus.Error(rpcstatus.Internal, err.Error())
+		return nil, rpcstatus.Wrap(rpcstatus.Internal, err)
 	}
 	return streamID, nil
 }
@@ -414,8 +427,19 @@ func (endpoint *Endpoint) unmarshalSatSegmentID(ctx context.Context, segmentID s
 	return satSegmentID, nil
 }
 
-// ConvertMetabaseErr converts domain errors from metabase to appropriate rpc statuses errors.
+// ConvertMetabaseErr converts known domain errors to appropriate rpc statuses errors.
 func (endpoint *Endpoint) ConvertMetabaseErr(err error) error {
+	return endpoint.ConvertKnownErrWithMessage(err, "internal error")
+}
+
+// ConvertKnownErr converts known domain errors to appropriate rpc statuses errors.
+func (endpoint *Endpoint) ConvertKnownErr(err error) error {
+	return endpoint.ConvertKnownErrWithMessage(err, "internal error")
+}
+
+// ConvertKnownErrWithMessage converts known domain errors to appropriate rpc statuses errors with
+// a custom message.
+func (endpoint *Endpoint) ConvertKnownErrWithMessage(err error, message string) error {
 	switch {
 	case err == nil:
 		return nil
@@ -454,8 +478,8 @@ func (endpoint *Endpoint) ConvertMetabaseErr(err error) error {
 		// TODO(spanner): it's far from perfect we should be handling this on lower level
 		return rpcstatus.Wrap(rpcstatus.Canceled, context.Canceled)
 	default:
-		endpoint.log.Error("internal", zap.Error(err))
-		return rpcstatus.Error(rpcstatus.Internal, "internal error")
+		endpoint.log.Error(message, zap.Error(err))
+		return rpcstatus.Error(rpcstatus.Internal, message)
 	}
 }
 

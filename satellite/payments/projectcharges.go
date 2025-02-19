@@ -36,3 +36,9 @@ type ProjectUsagePriceModel struct {
 	SegmentMonthCents   decimal.Decimal `json:"segmentMonthCents"`
 	EgressDiscountRatio float64         `json:"egressDiscountRatio"`
 }
+
+// ProductUsagePriceModel represents price model for product ID and usage price.
+type ProductUsagePriceModel struct {
+	ProductID int32 `json:"productID"`
+	ProjectUsagePriceModel
+}

@@ -49,7 +49,7 @@
                     type="number"
                     autofocus
                     maxlength="6"
-                    @update:modelValue="value => onValueChange(value)"
+                    @update:model-value="value => onValueChange(value)"
                 />
                 <v-form v-else v-model="formValid" class="pt-2" @submit.prevent="disable">
                     <v-text-field

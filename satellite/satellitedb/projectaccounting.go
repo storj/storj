@@ -11,6 +11,8 @@ import (
 	"time"
 
 	"cloud.google.com/go/civil"
+	"cloud.google.com/go/spanner"
+	"cloud.google.com/go/spanner/apiv1/spannerpb"
 	pgxerrcode "github.com/jackc/pgerrcode"
 	"github.com/jackc/pgx/v5"
 	"github.com/zeebo/errs"
@@ -195,10 +197,33 @@ func (db *ProjectAccounting) GetTallies(ctx context.Context) (tallies []accounti
 }
 
 // DeleteTalliesBefore deletes tallies with an interval start before the given time.
+//
+// Spanner implementation returns an estimated count of the number of rows deleted.
+// The actual number of affected rows may be greater than the estimate.
 func (db *ProjectAccounting) DeleteTalliesBefore(ctx context.Context, before time.Time) (_ int64, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	return db.db.Delete_BucketStorageTally_By_IntervalStart_Less(ctx, dbx.BucketStorageTally_IntervalStart(before))
+	switch db.db.impl {
+	case dbutil.Postgres, dbutil.Cockroach:
+		return db.db.Delete_BucketStorageTally_By_IntervalStart_Less(ctx, dbx.BucketStorageTally_IntervalStart(before))
+	case dbutil.Spanner:
+		var count int64
+		return count, spannerutil.UnderlyingClient(ctx, db.db, func(client *spanner.Client) error {
+			statement := spanner.Statement{
+				SQL: `DELETE FROM bucket_storage_tallies WHERE bucket_storage_tallies.interval_start < @before`,
+				Params: map[string]interface{}{
+					"before": before,
+				},
+			}
+			var err error
+			count, err = client.PartitionedUpdateWithOptions(ctx, statement, spanner.QueryOptions{
+				Priority: spannerpb.RequestOptions_PRIORITY_LOW,
+			})
+			return err
+		})
+	default:
+		return 0, errs.New("unsupported database dialect: %s", db.db.impl)
+	}
 }
 
 // CreateStorageTally creates a record in the bucket_storage_tallies accounting table.

@@ -19,7 +19,6 @@
                 v-if="!isSuccess && isVerifyError"
                 color="error"
                 variant="tonal"
-                border
                 class="mt-4"
                 title="Unable to verify domain"
                 text="DNS record not found. Please check your DNS configuration."
@@ -28,12 +27,12 @@
                 v-if="!isSuccess && isNotCorrectError"
                 color="error"
                 variant="tonal"
-                border class="mt-4"
+                class="mt-4"
                 :title="`${notCorrectRecordType} is not correct`"
                 :text="`Please update the following ${notCorrectRecordType} record:`"
             >
-                <v-text-field variant="solo-filled" flat class="mt-4" density="comfortable" label="Incorrect" :model-value="got" readonly hide-details />
-                <v-text-field variant="solo-filled" flat class="mt-4" density="comfortable" label="Correct" :model-value="expected" readonly hide-details />
+                <v-textarea :rows="notCorrectRecordType === 'TXT' ? 3 : 1" variant="solo-filled" flat class="mt-4" density="comfortable" label="Incorrect" :model-value="got" readonly hide-details />
+                <v-textarea :rows="notCorrectRecordType === 'TXT' ? 3 : 1" variant="solo-filled" flat class="mt-4" density="comfortable" label="Correct" :model-value="expected" readonly hide-details />
             </v-alert>
         </v-card-text>
     </v-form>
@@ -41,7 +40,7 @@
 
 <script setup lang="ts">
 import { ref } from 'vue';
-import { VBtn, VCardText, VForm, VAlert, VTextField } from 'vuetify/components';
+import { VBtn, VCardText, VForm, VAlert, VTextarea } from 'vuetify/components';
 
 import { useDomainsStore } from '@/store/modules/domainsStore';
 import { useNotify } from '@/utils/hooks';
@@ -96,8 +95,8 @@ function checkDNSRecords(): void {
 
                 return;
             case response.expectedTXT.length > 0 && response.gotTXT.length > 0:
-                expected.value = response.expectedTXT.join('\n');
-                got.value = response.gotTXT.join('\n');
+                expected.value = response.expectedTXT.join('\n\n');
+                got.value = response.gotTXT.join('\n\n');
                 notCorrectRecordType.value = 'TXT';
                 isNotCorrectError.value = true;
 

@@ -11,9 +11,8 @@
                 <PageSubtitleComponent subtitle="Connect Storj with third-party applications." link="https://www.storj.io/integrations" />
                 <v-chip-group
                     v-model="selectedChip"
-                    class="border rounded-xlg px-2 mt-4 bg-surface"
+                    class="border rounded-lg py-3 px-4 mt-4 bg-surface"
                     selected-class="font-weight-bold v-chip--variant-tonal"
-                    color="info"
                     mandatory
                     :max="1"
                     column
@@ -22,7 +21,6 @@
                         v-for="category in categories"
                         :key="category"
                         :value="category"
-                        color="info"
                         variant="text"
                         class="font-weight-medium"
                         filter
@@ -33,7 +31,7 @@
             </v-col>
         </v-row>
 
-        <v-card class="pa-2 mt-2 mb-6" variant="flat">
+        <v-card class="pa-4 mt-4 mb-4" variant="flat">
             <v-row align="center">
                 <v-col>
                     <v-text-field
@@ -75,17 +73,16 @@
                     </v-menu>
                     <v-btn-toggle
                         v-model="sortOrder"
-                        density="comfortable"
                         variant="outlined"
                         color="default"
-                        rounded="xl"
+                        rounded="md"
                         class="pa-1"
                         mandatory
                     >
-                        <v-btn size="x-small" value="asc" title="Ascending" variant="text" rounded="xl">
+                        <v-btn value="asc" title="Ascending" variant="text" rounded="md">
                             <v-icon :icon="ArrowDownNarrowWide" />
                         </v-btn>
-                        <v-btn size="x-small" value="desc" title="Descending" variant="text" rounded="xl">
+                        <v-btn value="desc" title="Descending" variant="text" rounded="md">
                             <v-icon :icon="ArrowUpNarrowWide" />
                         </v-btn>
                     </v-btn-toggle>

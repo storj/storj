@@ -87,10 +87,10 @@ func BenchmarkOverlay(b *testing.B) {
 			check = append(check, testrand.NodeID())
 		}
 
-		b.Run("GetNodes", func(b *testing.B) {
+		b.Run("GetActiveNodes", func(b *testing.B) {
 			onlineWindow := 1000 * time.Hour
 			for i := 0; i < b.N; i++ {
-				selectedNodes, err := overlaydb.GetNodes(ctx, check, onlineWindow, 0)
+				selectedNodes, err := overlaydb.GetActiveNodes(ctx, check, onlineWindow, 0)
 				require.NoError(b, err)
 				require.Len(b, selectedNodes, len(check))
 				foundOnline := 0

@@ -22,6 +22,7 @@ enum RouteName {
     Access = 'Access Keys',
     Team = 'Team',
     Domains = 'Domains',
+    CunoFS = 'cunoFS',
     Applications = 'Applications',
     ProjectSettings = 'Project Settings',
     Login = 'Login',
@@ -42,10 +43,11 @@ export abstract class ROUTES {
     public static Project = new NavigationLink(':id', RouteName.Project);
     public static Dashboard = new NavigationLink('dashboard', RouteName.Dashboard);
     public static Buckets = new NavigationLink('buckets', RouteName.Buckets);
-    public static Bucket = new NavigationLink(':browserPath+', RouteName.Bucket);
+    public static Bucket = new NavigationLink(':browserPath(.*)+', RouteName.Bucket);
     public static Access = new NavigationLink('access', RouteName.Access);
     public static Team = new NavigationLink('team', RouteName.Team);
     public static Domains = new NavigationLink('domains', RouteName.Domains);
+    public static CunoFSBeta = new NavigationLink('cuno-fs-beta', RouteName.CunoFS);
     public static Applications = new NavigationLink('applications', RouteName.Applications);
     public static ProjectSettings = new NavigationLink('settings', RouteName.ProjectSettings);
 
@@ -56,13 +58,6 @@ export abstract class ROUTES {
     public static PasswordResetConfirmation = new NavigationLink('/password-reset-confirmation', RouteName.PasswordResetConfirmation);
     public static PasswordRecovery = new NavigationLink('/password-recovery', RouteName.PasswordRecovery);
     public static Activate = new NavigationLink('/activate', RouteName.Activate);
-
-    public static DashboardAnalyticsLink = `${this.Projects.path}/${this.Dashboard.path}`;
-    public static ProjectSettingsAnalyticsLink = `${this.Projects.path}/${this.ProjectSettings.path}`;
-    public static AccessAnalyticsLink = `${this.Projects.path}/${this.Access.path}`;
-    public static ApplicationsAnalyticsLink = `${this.Projects.path}/${this.Applications.path}`;
-    public static TeamAnalyticsLink = `${this.Projects.path}/${this.Team.path}`;
-    public static BucketsAnalyticsLink = `${this.Projects.path}/${this.Buckets.path}`;
 }
 
 const routes: RouteRecordRaw[] = [
@@ -145,7 +140,6 @@ const routes: RouteRecordRaw[] = [
     },
     {
         path: ROUTES.Projects.with(ROUTES.Project).path,
-        name: RouteName.Project,
         component: () => import('@/layouts/default/Default.vue'),
         children: [
             {
@@ -180,6 +174,11 @@ const routes: RouteRecordRaw[] = [
                 path: ROUTES.Domains.path,
                 name: ROUTES.Domains.name,
                 component: () => import(/* webpackChunkName: "Domains" */ '@/views/Domains.vue'),
+            },
+            {
+                path: ROUTES.CunoFSBeta.path,
+                name: ROUTES.CunoFSBeta.name,
+                component: () => import(/* webpackChunkName: "CunoFS" */ '@/views/CunoFS.vue'),
             },
             {
                 path: ROUTES.Team.path,

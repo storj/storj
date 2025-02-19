@@ -14,9 +14,10 @@ export interface ProjectsApi {
      * Creates project.
      *
      * @param createProjectFields - contains project information
+     * @param csrfProtectionToken - CSRF token
      * @throws Error
      */
-    create(createProjectFields: ProjectFields): Promise<Project>;
+    create(createProjectFields: ProjectFields, csrfProtectionToken: string): Promise<Project>;
     /**
      * Fetch projects.
      *
@@ -31,9 +32,10 @@ export interface ProjectsApi {
      * @param projectId
      * @param step
      * @param data
+     * @param csrfProtectionToken
      * @throws Error
      */
-    delete(projectId: string, step: DeleteProjectStep, data: string): Promise<ProjectDeletionData | null>;
+    delete(projectId: string, step: DeleteProjectStep, data: string, csrfProtectionToken: string): Promise<ProjectDeletionData | null>;
 
     /**
      * Fetch config for project.
@@ -45,31 +47,24 @@ export interface ProjectsApi {
     getConfig(projectId: string): Promise<ProjectConfig>;
 
     /**
-     * Opt in or out of versioning beta.
-     *
-     * @param projectId - the project's ID
-     * @param status - the new opt-in status
-     * @throws Error
-     */
-    setVersioningOptInStatus(projectId: string, status: 'in' | 'out'): Promise<void>;
-
-    /**
      * Update project name and description.
      *
      * @param projectId - project ID
      * @param updateProjectFields - project fields to update
+     * @param csrfProtectionToken - CSRF token
      * @throws Error
      */
-    update(projectId: string, updateProjectFields: UpdateProjectFields): Promise<void>;
+    update(projectId: string, updateProjectFields: UpdateProjectFields, csrfProtectionToken: string): Promise<void>;
 
     /**
      * Update project user specified limits.
      *
      * @param projectId - project ID
      * @param fields - project limits to update
+     * @param csrfProtectionToken - CSRF token
      * @throws Error
      */
-    updateLimits(projectId: string, fields: UpdateProjectLimitsFields): Promise<void>;
+    updateLimits(projectId: string, fields: UpdateProjectLimitsFields, csrfProtectionToken: string): Promise<void>;
 
     /**
      * Get project limits.
@@ -145,7 +140,7 @@ export interface ProjectsApi {
      *
      * @throws Error
      */
-    respondToInvitation(projectID: string, response: ProjectInvitationResponse): Promise<void>;
+    respondToInvitation(projectID: string, response: ProjectInvitationResponse, csrfProtectionToken: string): Promise<void>;
 }
 
 /**
@@ -173,6 +168,7 @@ export class Project {
         public memberCount: number = 0,
         public edgeURLOverrides?: EdgeURLOverrides,
         public versioning: Versioning = Versioning.NotSupported,
+        public placement: number = 0,
         public storageUsed: number = 0,
         public bandwidthUsed: number = 0,
     ) {}
@@ -183,17 +179,11 @@ export class Project {
  */
 export class ProjectConfig {
     public constructor(
-        public versioningUIEnabled: boolean = false,
-        public promptForVersioningBeta: boolean = false,
         public hasManagedPassphrase: boolean = false,
         public passphrase: string = '',
         public isOwnerPaidTier: boolean = false,
         public _role: number = 1,
-        // This indicates whether a project has object lock enabled for it.
-        // In the background (satellite), it is dependent on whether the object
-        // lock feature is enabled for the satellite (metainfo) and whether
-        // the project has opted in for versioning (versioningUIEnabled).
-        public objectLockUIEnabled: boolean = false,
+        public salt: string = '',
     ) {}
 
     public get role(): ProjectItemRole {
@@ -341,6 +331,7 @@ export class ProjectsStorageBandwidthDaily {
     public constructor(
         public storage: DataStamp[] = [],
         public allocatedBandwidth: DataStamp[] = [],
+        public settledBandwidth: DataStamp[] = [],
     ) {}
 }
 
@@ -453,9 +444,9 @@ export type ProjectItemRole = Exclude<ProjectRole, ProjectRole.InviteExpired>;
  * PROJECT_ROLE_COLORS defines what colors project role tags should use.
  */
 export const PROJECT_ROLE_COLORS: Record<ProjectRole, string> = {
-    [ProjectRole.Admin]: 'primary',
+    [ProjectRole.Admin]: 'purple',
     [ProjectRole.Member]: 'success',
-    [ProjectRole.Owner]: 'secondary',
+    [ProjectRole.Owner]: 'primary',
     [ProjectRole.Invited]: 'warning',
     [ProjectRole.InviteExpired]: 'error',
 };

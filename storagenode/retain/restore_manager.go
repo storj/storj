@@ -27,6 +27,17 @@ func NewRestoreTimeManager(dir string) *RestoreTimeManager {
 	}
 }
 
+// TestingSetRestoreTime sets the restore timestamp for the given satellite allowing it to go
+// backwards.
+func (r *RestoreTimeManager) TestingSetRestoreTime(ctx context.Context, satellite storj.NodeID, now time.Time) (err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	r.mu.Lock()
+	defer r.mu.Unlock()
+
+	return r.setLocked(ctx, satellite, now)
+}
+
 // SetRestoreTime sets the restore timestamp for the given satellite.
 func (r *RestoreTimeManager) SetRestoreTime(ctx context.Context, satellite storj.NodeID, now time.Time) (err error) {
 	defer mon.Task()(&ctx)(&err)

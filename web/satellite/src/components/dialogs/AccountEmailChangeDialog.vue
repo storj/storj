@@ -8,6 +8,7 @@
         max-width="450px"
         transition="fade-transition"
         persistent
+        scrollable
     >
         <v-card rounded="xlg">
             <v-sheet>
@@ -19,7 +20,7 @@
                             height="40"
                             rounded="lg"
                         >
-                            <component :is="AtSign" :size="18" />
+                            <component :is="MailPlus" :size="18" />
                         </v-sheet>
                     </template>
                     <v-card-title class="font-weight-bold">
@@ -39,129 +40,131 @@
 
             <v-divider />
 
-            <v-window v-model="step">
-                <v-window-item :value="ChangeEmailStep.InitStep">
-                    <v-form class="pa-6" @submit.prevent>
-                        <v-row>
-                            <v-col>
-                                <p class="mb-4">You are about to change your email address associated with your Storj account.</p>
-                                <p>Account:</p>
-                                <v-chip
-                                    variant="tonal"
-                                    class="font-weight-bold mt-2"
-                                >
-                                    {{ user.email }}
-                                </v-chip>
-                            </v-col>
-                        </v-row>
-                    </v-form>
-                </v-window-item>
+            <v-card-text class="pa-0">
+                <v-window v-model="step">
+                    <v-window-item :value="ChangeEmailStep.InitStep">
+                        <v-form class="pa-6" @submit.prevent>
+                            <v-row>
+                                <v-col>
+                                    <p class="mb-4">You are about to change your email address associated with your Storj account.</p>
+                                    <p>Account:</p>
+                                    <v-chip
+                                        variant="tonal"
+                                        class="font-weight-bold mt-2"
+                                    >
+                                        {{ user.email }}
+                                    </v-chip>
+                                </v-col>
+                            </v-row>
+                        </v-form>
+                    </v-window-item>
 
-                <v-window-item :value="ChangeEmailStep.VerifyPasswordStep">
-                    <v-form ref="passwordForm" class="pa-6" @submit.prevent>
-                        <v-row>
-                            <v-col>
-                                <p>Enter your account password to continue.</p>
-                                <v-text-field
-                                    v-model="password"
-                                    type="password"
-                                    label="Password"
-                                    class="mt-6"
-                                    :rules="[RequiredRule]"
-                                    autofocus
-                                    required
-                                />
-                            </v-col>
-                        </v-row>
-                    </v-form>
-                </v-window-item>
+                    <v-window-item :value="ChangeEmailStep.VerifyPasswordStep">
+                        <v-form ref="passwordForm" class="pa-6" @submit.prevent>
+                            <v-row>
+                                <v-col>
+                                    <p>Enter your account password to continue.</p>
+                                    <v-text-field
+                                        v-model="password"
+                                        type="password"
+                                        label="Password"
+                                        class="mt-6"
+                                        :rules="[RequiredRule]"
+                                        autofocus
+                                        required
+                                    />
+                                </v-col>
+                            </v-row>
+                        </v-form>
+                    </v-window-item>
 
-                <v-window-item :value="ChangeEmailStep.Verify2faStep">
-                    <v-form class="pa-6" @submit.prevent>
-                        <v-row>
-                            <v-col>
-                                <p>Enter the code from your 2FA application.</p>
-                                <v-otp-input
-                                    ref="otpInput2fa"
-                                    :model-value="code2fa"
-                                    class="mt-6"
-                                    type="number"
-                                    maxlength="6"
-                                    :error="isOTPInputError"
-                                    @update:modelValue="value => onOTPValueChange(value)"
-                                />
-                            </v-col>
-                        </v-row>
-                    </v-form>
-                </v-window-item>
+                    <v-window-item :value="ChangeEmailStep.Verify2faStep">
+                        <v-form class="pa-6" @submit.prevent>
+                            <v-row>
+                                <v-col>
+                                    <p>Enter the code from your 2FA application.</p>
+                                    <v-otp-input
+                                        ref="otpInput2fa"
+                                        :model-value="code2fa"
+                                        class="mt-6"
+                                        type="number"
+                                        maxlength="6"
+                                        :error="isOTPInputError"
+                                        @update:model-value="value => onOTPValueChange(value)"
+                                    />
+                                </v-col>
+                            </v-row>
+                        </v-form>
+                    </v-window-item>
 
-                <v-window-item :value="ChangeEmailStep.VerifyOldEmailStep">
-                    <v-form class="pa-6" @submit.prevent>
-                        <v-row>
-                            <v-col>
-                                <p>Enter the code you received on your old email.</p>
-                                <v-otp-input
-                                    ref="otpInputVerifyOld"
-                                    :model-value="codeVerifyOld"
-                                    class="mt-6"
-                                    type="number"
-                                    maxlength="6"
-                                    :error="isOTPInputError"
-                                    @update:modelValue="value => onOTPValueChange(value)"
-                                />
-                            </v-col>
-                        </v-row>
-                    </v-form>
-                </v-window-item>
+                    <v-window-item :value="ChangeEmailStep.VerifyOldEmailStep">
+                        <v-form class="pa-6" @submit.prevent>
+                            <v-row>
+                                <v-col>
+                                    <p>Enter the code you received on your old email.</p>
+                                    <v-otp-input
+                                        ref="otpInputVerifyOld"
+                                        :model-value="codeVerifyOld"
+                                        class="mt-6"
+                                        type="number"
+                                        maxlength="6"
+                                        :error="isOTPInputError"
+                                        @update:model-value="value => onOTPValueChange(value)"
+                                    />
+                                </v-col>
+                            </v-row>
+                        </v-form>
+                    </v-window-item>
 
-                <v-window-item :value="ChangeEmailStep.SetNewEmailStep">
-                    <v-form ref="newEmailForm" class="pa-6" @submit.prevent>
-                        <v-row>
-                            <v-col>
-                                <p>Enter your new email address.</p>
-                                <v-text-field
-                                    v-model="newEmail"
-                                    type="email"
-                                    label="Email"
-                                    class="mt-6"
-                                    :rules="[RequiredRule, EmailRule]"
-                                    autofocus
-                                    required
-                                />
-                            </v-col>
-                        </v-row>
-                    </v-form>
-                </v-window-item>
+                    <v-window-item :value="ChangeEmailStep.SetNewEmailStep">
+                        <v-form ref="newEmailForm" class="pa-6" @submit.prevent>
+                            <v-row>
+                                <v-col>
+                                    <p>Enter your new email address.</p>
+                                    <v-text-field
+                                        v-model="newEmail"
+                                        type="email"
+                                        label="Email"
+                                        class="mt-6"
+                                        :rules="[RequiredRule, EmailRule]"
+                                        autofocus
+                                        required
+                                    />
+                                </v-col>
+                            </v-row>
+                        </v-form>
+                    </v-window-item>
 
-                <v-window-item :value="ChangeEmailStep.VerifyNewEmailStep">
-                    <v-form class="pa-6" @submit.prevent>
-                        <v-row>
-                            <v-col>
-                                <p>Enter the code you received on your new email.</p>
-                                <v-otp-input
-                                    ref="otpInputVerifyNew"
-                                    class="mt-6"
-                                    :model-value="codeVerifyNew"
-                                    type="number"
-                                    maxlength="6"
-                                    :error="isOTPInputError"
-                                    @update:modelValue="value => onOTPValueChange(value)"
-                                />
-                            </v-col>
-                        </v-row>
-                    </v-form>
-                </v-window-item>
+                    <v-window-item :value="ChangeEmailStep.VerifyNewEmailStep">
+                        <v-form class="pa-6" @submit.prevent>
+                            <v-row>
+                                <v-col>
+                                    <p>Enter the code you received on your new email.</p>
+                                    <v-otp-input
+                                        ref="otpInputVerifyNew"
+                                        class="mt-6"
+                                        :model-value="codeVerifyNew"
+                                        type="number"
+                                        maxlength="6"
+                                        :error="isOTPInputError"
+                                        @update:model-value="value => onOTPValueChange(value)"
+                                    />
+                                </v-col>
+                            </v-row>
+                        </v-form>
+                    </v-window-item>
 
-                <v-window-item :value="ChangeEmailStep.SuccessStep">
-                    <v-form class="pa-6" @submit.prevent>
-                        <v-row>
-                            <v-col>
-                                <p>Your email has been successfully updated.</p>
-                            </v-col>
-                        </v-row>
-                    </v-form>
-                </v-window-item>
-            </v-window>
+                    <v-window-item :value="ChangeEmailStep.SuccessStep">
+                        <v-form class="pa-6" @submit.prevent>
+                            <v-row>
+                                <v-col>
+                                    <p>Your email has been successfully updated.</p>
+                                </v-col>
+                            </v-row>
+                        </v-form>
+                    </v-window-item>
+                </v-window>
+            </v-card-text>
 
             <v-divider />
 
@@ -214,6 +217,7 @@ import {
     VCardActions,
     VCardItem,
     VCardTitle,
+    VCardText,
     VChip,
     VCol,
     VDialog,
@@ -226,7 +230,7 @@ import {
     VWindow,
     VWindowItem,
 } from 'vuetify/components';
-import { AtSign } from 'lucide-vue-next';
+import { MailPlus } from 'lucide-vue-next';
 
 import { ChangeEmailStep } from '@/types/accountActions';
 import { User } from '@/types/users';

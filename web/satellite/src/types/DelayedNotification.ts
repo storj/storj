@@ -1,7 +1,7 @@
 // Copyright (C) 2019 Storj Labs, Inc.
 // See LICENSE for copying information.
 
-import { VNode, createTextVNode } from 'vue';
+import { VNode, createTextVNode, h } from 'vue';
 
 import { getId } from '@/utils/idGenerator';
 
@@ -11,6 +11,10 @@ export enum NotificationType {
     Error = 'Error',
     Warning = 'Warning',
 }
+
+export const NotifyRenderedUplinkCLIMessage = [
+    h('a', { class: 'link', href: 'https://storj.dev/dcs/api/uplink-cli', target: '_blank', rel: 'noopener noreferrer' }, 'Uplink CLI'),
+];
 
 type RenderFunction = () => (string | VNode | (string | VNode)[]);
 export type NotificationMessage = string | RenderFunction;
@@ -27,13 +31,13 @@ export class DelayedNotification {
     public readonly title: string | undefined;
     public readonly messageNode: RenderFunction;
 
-    constructor(callback: () => void, type: NotificationType, message: NotificationMessage, title?: string) {
+    constructor(callback: () => void, type: NotificationType, message: NotificationMessage, title?: string, remainingTime = 3000) {
         this.callback = callback;
         this.type = type;
         this.title = title;
         this.messageNode = typeof message === 'string' ? () => createTextVNode(message) : message;
         this.id = getId();
-        this.remainingTime = 3000;
+        this.remainingTime = remainingTime;
         this.start();
     }
 

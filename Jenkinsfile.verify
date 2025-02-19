@@ -51,8 +51,6 @@ pipeline {
                     steps {
                         dir('.build') {
                             sh 'cockroach start-single-node --insecure --store=type=mem,size=3GiB --listen-addr=localhost:26256 --http-addr=localhost:8086 --cache 1024MiB --max-sql-memory 1024MiB --background'
-                            sh 'cockroach start-single-node --insecure --store=type=mem,size=3GiB --listen-addr=localhost:26257 --http-addr=localhost:8087 --cache 1024MiB --max-sql-memory 1024MiB --background'
-                            sh 'cockroach start-single-node --insecure --store=type=mem,size=3GiB --listen-addr=localhost:26258 --http-addr=localhost:8088 --cache 1024MiB --max-sql-memory 1024MiB --background'
                         }
                     }
                 }
@@ -115,7 +113,7 @@ pipeline {
                 }
                 stage('Other') {
                     steps {
-                        sh 'golangci-lint --config /go/ci/.golangci.yml -j=2 --timeout=4m run'
+                        sh 'golangci-lint --config /go/ci/.golangci.yml -j=2 --timeout=5m run --show-stats --verbose'
                         sh 'protolock status'
                         sh 'go vet ./...'
                         dir("testsuite/storjscan") {
@@ -123,10 +121,10 @@ pipeline {
                         }
                     }
                 }
-                stage('Storage Node 1.20') {
+                stage('Storage Node 1.20 (Windows)') {
                     steps {
                         sh './scripts/generate-gomod-for-storagenode-go1.20.sh go.mod .build/go.storagenode.mod'
-                        sh 'go.min vet -modfile .build/go.storagenode.mod ./...'
+                        sh 'GOOS=windows GOARCH=amd64 CGO_ENABLED=1 CC="zig cc -target x86_64-windows-gnu" go.min vet -modfile .build/go.storagenode.mod ./...'
                     }
                 }
             }
@@ -135,26 +133,29 @@ pipeline {
         stage('Tests') {
             environment {
                 STORJ_TEST_HOST = '127.0.0.20;127.0.0.21;127.0.0.22;127.0.0.23;127.0.0.24;127.0.0.25'
-                STORJ_TEST_COCKROACH = 'cockroach://root@localhost:26256/testcockroach?sslmode=disable|' +
-                    'cockroach://root@localhost:26257/testcockroach?sslmode=disable|'+
-                    'cockroach://root@localhost:26258/testcockroach?sslmode=disable'
+                STORJ_TEST_COCKROACH = 'omit'
                 STORJ_TEST_COCKROACH_NODROP = 'true'
                 STORJ_TEST_POSTGRES = 'omit'
                 STORJ_TEST_LOG_LEVEL = 'info'
                 COVERFLAGS = "${ env.BRANCH_NAME == 'main' ? '-coverprofile=.build/coverprofile -coverpkg=storj.io/storj/private/...,storj.io/storj/satellite/...,storj.io/storj/storagenode/...,storj.io/storj/versioncontrol/...' : ''}"
                 GOEXPERIMENT = 'nocoverageredesign'
-                STORJ_TEST_SPANNER = 'spanner://127.0.0.1:9010?emulator|spanner://127.0.0.1:9011?emulator|spanner://127.0.0.1:9012?emulator|spanner://127.0.0.1:9013?emulator'
+                STORJ_TEST_SPANNER = 'spanner://127.0.0.1:9010?emulator|' +
+                    'spanner://127.0.0.1:9011?emulator|' +
+                    'spanner://127.0.0.1:9012?emulator|' +
+                    'spanner://127.0.0.1:9013?emulator|' +
+                    'spanner://127.0.0.1:9014?emulator|' +
+                    'spanner://127.0.0.1:9015?emulator|' +
+                    'spanner://127.0.0.1:9016?emulator'
                 SPANNER_DISABLE_BUILTIN_METRICS = 'true'
             }
             steps {
-                sh 'cockroach sql --insecure --host=localhost:26256 -e \'create database testcockroach;\''
-                sh 'cockroach sql --insecure --host=localhost:26257 -e \'create database testcockroach;\''
-                sh 'cockroach sql --insecure --host=localhost:26258 -e \'create database testcockroach;\''
-
                 sh '/usr/local/bin/spanner_emulator --host_port 127.0.0.1:9010 &'
                 sh '/usr/local/bin/spanner_emulator --host_port 127.0.0.1:9011 &'
                 sh '/usr/local/bin/spanner_emulator --host_port 127.0.0.1:9012 &'
                 sh '/usr/local/bin/spanner_emulator --host_port 127.0.0.1:9013 &'
+                sh '/usr/local/bin/spanner_emulator --host_port 127.0.0.1:9014 &'
+                sh '/usr/local/bin/spanner_emulator --host_port 127.0.0.1:9015 &'
+                sh '/usr/local/bin/spanner_emulator --host_port 127.0.0.1:9016 &'
 
                 sh 'use-ports -from 1024 -to 10000 &'
 

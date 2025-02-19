@@ -11,10 +11,12 @@ import (
 	"github.com/spacemonkeygo/monkit/v3"
 	"github.com/zeebo/errs"
 
+	"storj.io/common/identity"
 	"storj.io/common/pb"
 	"storj.io/common/signing"
 	"storj.io/common/storj"
 	"storj.io/storj/satellite/overlay"
+	"storj.io/storj/satellite/trust"
 )
 
 var (
@@ -27,13 +29,19 @@ const pieceHashExpiration = 24 * time.Hour
 
 // Service is a service for verifying validity of pieces.
 type Service struct {
-	identities *IdentityCache
+	identities     *IdentityCache
+	overlay        *overlay.Service
+	trustedUplinks *trust.TrustedPeersList
+	trustedOrders  bool
 }
 
 // NewService returns a service using the provided database.
-func NewService(db overlay.PeerIdentities) *Service {
+func NewService(db overlay.PeerIdentities, overlay *overlay.Service, trustedUplinks *trust.TrustedPeersList, trustedOrders bool) *Service {
 	return &Service{
-		identities: NewIdentityCache(db),
+		identities:     NewIdentityCache(db),
+		overlay:        overlay,
+		trustedUplinks: trustedUplinks,
+		trustedOrders:  trustedOrders,
 	}
 }
 
@@ -77,30 +85,54 @@ type InvalidPiece struct {
 }
 
 // SelectValidPieces selects pieces that are have correct hashes and match the original limits.
-func (service *Service) SelectValidPieces(ctx context.Context, uploadResponses []*pb.SegmentPieceUploadResult, originalLimits []*pb.OrderLimit) (valid []*pb.SegmentPieceUploadResult, invalid []InvalidPiece, err error) {
+func (service *Service) SelectValidPieces(ctx context.Context, uplink *identity.PeerIdentity, uploadResponses []*pb.SegmentPieceUploadResult, originalLimits []*pb.OrderLimit) (valid []*pb.SegmentPieceUploadResult, invalid []InvalidPiece, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	nodeIDs := make([]storj.NodeID, 0, len(originalLimits))
-	for _, limit := range originalLimits {
-		if limit == nil {
-			continue
+	trustedOrders := service.trustedOrders && service.trustedUplinks.IsTrusted(uplink.ID)
+	untrustedNodeIDs := make([]storj.NodeID, 0, len(uploadResponses))
+	nodeTrustedByUploadResponse := make([]bool, len(uploadResponses))
+
+	for uploadResponseIdx, piece := range uploadResponses {
+		if trustedOrders {
+			if node, err := service.overlay.CachedGet(ctx, piece.NodeId); err == nil {
+				if tag, err := node.Tags.FindBySignerAndName(trust.TrustedOperatorSigner, "trusted_orders"); err == nil {
+					if string(tag.Value) == "true" {
+						nodeTrustedByUploadResponse[uploadResponseIdx] = true
+						continue
+					}
+				}
+			}
 		}
-		nodeIDs = append(nodeIDs, limit.StorageNodeId)
+		untrustedNodeIDs = append(untrustedNodeIDs, piece.NodeId)
 	}
 
-	err = service.identities.EnsureCached(ctx, nodeIDs)
-	if err != nil {
-		return nil, nil, Error.Wrap(err)
+	if len(untrustedNodeIDs) > 0 {
+		err = service.identities.EnsureCached(ctx, untrustedNodeIDs)
+		if err != nil {
+			return nil, nil, Error.Wrap(err)
+		}
 	}
 
-	for _, piece := range uploadResponses {
+	alreadyUsedPieceNum := map[int32]bool{}
+
+	for uploadResponseIdx, piece := range uploadResponses {
 		if int(piece.PieceNum) >= len(originalLimits) {
-			return nil, nil, Error.New("invalid piece number")
+			invalid = append(invalid, InvalidPiece{
+				NodeID:   piece.NodeId,
+				PieceNum: piece.PieceNum,
+				Reason:   Error.New("invalid piece number"),
+			})
+			continue
 		}
 
 		limit := originalLimits[piece.PieceNum]
 		if limit == nil {
-			return nil, nil, Error.New("limit missing for piece")
+			invalid = append(invalid, InvalidPiece{
+				NodeID:   piece.NodeId,
+				PieceNum: piece.PieceNum,
+				Reason:   Error.New("limit missing for piece"),
+			})
+			continue
 		}
 
 		// verify that the piece id, serial number etc. match in piece and limit.
@@ -113,36 +145,46 @@ func (service *Service) SelectValidPieces(ctx context.Context, uploadResponses [
 			continue
 		}
 
-		peerIdentity := service.identities.GetCached(ctx, piece.NodeId)
-		if peerIdentity == nil {
-			// This shouldn't happen due to the caching in the start of the func.
-			return nil, nil, Error.New("nil identity returned (%v)", piece.NodeId)
-		}
-		signee := signing.SigneeFromPeerIdentity(peerIdentity)
-
-		// verify the signature
-		err = signing.VerifyPieceHashSignature(ctx, signee, piece.Hash)
-		if err != nil {
-			// TODO: check whether the identity changed from what it was before.
-
-			// Maybe the cache has gone stale?
-			peerIdentity, err := service.identities.GetUpdated(ctx, piece.NodeId)
-			if err != nil {
-				return nil, nil, Error.Wrap(err)
+		if !nodeTrustedByUploadResponse[uploadResponseIdx] {
+			signee := service.identities.GetCached(ctx, piece.NodeId)
+			if signee == nil {
+				// This shouldn't happen due to the caching in the start of the func.
+				return nil, nil, Error.New("nil identity returned (%v)", piece.NodeId)
 			}
-			signee := signing.SigneeFromPeerIdentity(peerIdentity)
 
-			// let's check the signature again
+			// verify the signature
 			err = signing.VerifyPieceHashSignature(ctx, signee, piece.Hash)
 			if err != nil {
-				invalid = append(invalid, InvalidPiece{
-					NodeID:   piece.NodeId,
-					PieceNum: piece.PieceNum,
-					Reason:   err,
-				})
-				continue
+				// TODO: check whether the identity changed from what it was before.
+
+				// Maybe the cache has gone stale?
+				signee, err := service.identities.GetUpdated(ctx, piece.NodeId)
+				if err != nil {
+					return nil, nil, Error.Wrap(err)
+				}
+
+				// let's check the signature again
+				err = signing.VerifyPieceHashSignature(ctx, signee, piece.Hash)
+				if err != nil {
+					invalid = append(invalid, InvalidPiece{
+						NodeID:   piece.NodeId,
+						PieceNum: piece.PieceNum,
+						Reason:   err,
+					})
+					continue
+				}
 			}
 		}
+
+		if alreadyUsedPieceNum[piece.PieceNum] {
+			invalid = append(invalid, InvalidPiece{
+				NodeID:   piece.NodeId,
+				PieceNum: piece.PieceNum,
+				Reason:   Error.New("duplicate piece number"),
+			})
+			continue
+		}
+		alreadyUsedPieceNum[piece.PieceNum] = true
 
 		valid = append(valid, piece)
 	}

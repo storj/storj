@@ -4,21 +4,24 @@
 package hashstore
 
 import (
+	"container/heap"
 	"context"
 	"io"
 	"math"
 	"os"
 	"sync"
+	"sync/atomic"
 )
 
 // logFile represents a ref-counted handle to a log file that stores piece data.
 type logFile struct {
 	// immutable fields
-	fh *os.File
-	id uint64
+	fh  *os.File
+	id  uint64
+	ttl uint32
 
-	// mutable but unsynchronized fields
-	size uint64
+	// atomic fields
+	size atomic.Uint64
 
 	// mutable and synchronized fields
 	mu      sync.Mutex // protects the following fields
@@ -28,12 +31,10 @@ type logFile struct {
 	removed flag       // set when the file has been removed
 }
 
-func newLogFile(fh *os.File, id uint64, size uint64) *logFile {
-	return &logFile{
-		fh:   fh,
-		id:   id,
-		size: size,
-	}
+func newLogFile(fh *os.File, id uint64, ttl uint32, size uint64) *logFile {
+	lf := &logFile{fh: fh, id: id, ttl: ttl}
+	lf.size.Store(size)
+	return lf
 }
 
 // performIntents handles any resource cleanup when the ref count reaches zero.
@@ -95,7 +96,7 @@ func (l *logFile) Release() {
 type logHeap []*logFile
 
 func (h logHeap) Len() int           { return len(h) }
-func (h logHeap) Less(i, j int) bool { return h[i].size > h[j].size }
+func (h logHeap) Less(i, j int) bool { return h[i].size.Load() > h[j].size.Load() }
 func (h logHeap) Swap(i, j int)      { h[i], h[j] = h[j], h[i] }
 func (h *logHeap) Push(x any)        { *h = append(*h, x.(*logFile)) }
 func (h *logHeap) Pop() any {
@@ -103,6 +104,59 @@ func (h *logHeap) Pop() any {
 	x := (*h)[n-1]
 	*h = (*h)[:n-1]
 	return x
+}
+
+//
+// a collection of log files
+//
+
+type logCollection struct {
+	mu  sync.Mutex
+	lfs map[uint32]*logHeap
+}
+
+func newLogCollection() *logCollection {
+	return &logCollection{
+		lfs: make(map[uint32]*logHeap),
+	}
+}
+
+func (l *logCollection) Clear() {
+	l.mu.Lock()
+	defer l.mu.Unlock()
+
+	for ttl := range l.lfs {
+		delete(l.lfs, ttl)
+	}
+}
+
+func (l *logCollection) Include(lf *logFile) {
+	l.mu.Lock()
+	defer l.mu.Unlock()
+
+	// if the log is over the max log size, don't include it.
+	if lf.size.Load() >= compaction_MaxLogSize {
+		return
+	}
+
+	lfh := l.lfs[lf.ttl]
+	if lfh == nil {
+		lfh = new(logHeap)
+		l.lfs[lf.ttl] = lfh
+	}
+
+	heap.Push(lfh, lf)
+}
+
+func (l *logCollection) Acquire(ttl uint32) *logFile {
+	l.mu.Lock()
+	defer l.mu.Unlock()
+
+	lfh := l.lfs[ttl]
+	if lfh == nil || lfh.Len() == 0 {
+		return nil
+	}
+	return heap.Pop(lfh).(*logFile)
 }
 
 //
@@ -197,11 +251,11 @@ func (h *Writer) Size() int64 {
 
 func (h *Writer) done() {
 	// always replace the log file.
-	h.store.replaceLogFile(h.lf)
+	h.store.lfc.Include(h.lf)
 
 	// if we are not in manual mode, then we need to automatically unlock.
 	if !h.manual {
-		h.store.active.RUnlock()
+		h.store.activeMu.RUnlock()
 	}
 }
 
@@ -212,23 +266,22 @@ func (h *Writer) Close() (err error) {
 
 	// if we are not the first to close or we are canceled, do nothing.
 	h.mu.Lock()
-	if h.closed.set() || h.canceled.get() {
-		h.mu.Unlock()
+	closed := h.closed.set()
+	canceled := h.canceled.get()
+	h.mu.Unlock()
+
+	if canceled {
+		return Error.New("already canceled")
+	} else if closed {
 		return nil
 	}
-	h.mu.Unlock()
 
 	// always do cleanup.
 	defer h.done()
 
-	// we're about to write rSize bytes. if we can align the file to 4k after writing the record by
-	// writing less than 64 bytes, try to do so. we do this write separately from appending the
-	// record because otherwise we would have to allocate a variable width buffer causing an
-	// allocation on every Close instead of just on the calls that fix alignment.
-	var written int
-	if align := 4096 - ((uint64(h.rec.Length) + h.lf.size + RecordSize) % 4096); align > 0 && align < 64 {
-		written, _ = h.lf.fh.Write(make([]byte, align))
-	}
+	// load the size once. no one else can be mutating the log file at the same time so this is
+	// safe.
+	size := h.lf.size.Load()
 
 	// append the record to the log file for reconstruction.
 	var buf [RecordSize]byte
@@ -238,17 +291,22 @@ func (h *Writer) Close() (err error) {
 		// if we can't write the entry, we should abort the write operation so that we can always
 		// reconstruct the table from the log file. attempt to reclaim space by seeking backwards
 		// to the record offset.
-		_, _ = h.lf.fh.Seek(int64(h.lf.size), io.SeekStart)
+		_, _ = h.lf.fh.Seek(int64(size), io.SeekStart)
 		return Error.Wrap(err)
 	}
 
-	// increase our in-memory estimate of the size of the log file for sorting.
-	h.lf.size += uint64(h.rec.Length) + uint64(written) + RecordSize
-
 	// if we are not in manual mode, then we need to add the record.
 	if !h.manual {
-		return h.store.addRecord(ctx, h.rec)
+		if err := h.store.addRecord(ctx, h.rec); err != nil {
+			// if we can't add the record, we should abort the write operation and attempt to
+			// reclaim space by seeking backwards to the record offset.
+			_, _ = h.lf.fh.Seek(int64(size), io.SeekStart)
+			return Error.Wrap(err)
+		}
 	}
+
+	// increase our in-memory estimate of the size of the log file for sorting.
+	h.lf.size.Add(uint64(h.rec.Length) + RecordSize)
 
 	return nil
 }
@@ -260,11 +318,13 @@ func (h *Writer) Cancel() {
 
 	// if we are not the first to cancel or we are closed, do nothing.
 	h.mu.Lock()
-	if h.canceled.set() || h.closed.get() {
-		h.mu.Unlock()
+	closed := h.closed.get()
+	canceled := h.canceled.set()
+	h.mu.Unlock()
+
+	if closed || canceled {
 		return
 	}
-	h.mu.Unlock()
 
 	// always do cleanup.
 	defer h.done()

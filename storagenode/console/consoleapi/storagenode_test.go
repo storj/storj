@@ -71,7 +71,7 @@ func TestStorageNodeApi(t *testing.T) {
 			baseURL := fmt.Sprintf("http://%s/api/sno", console.Listener.Addr())
 
 			// pause node stats reputation cache because later tests assert a specific join date.
-			sno.NodeStats.Cache.Reputation.Pause()
+			sno.Reputation.Chore.Loop.Pause()
 			startingPoint := time.Now().UTC().Add(-2 * time.Hour)
 
 			for _, action := range actions {

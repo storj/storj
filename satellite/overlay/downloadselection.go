@@ -103,6 +103,21 @@ func (cache *DownloadSelectionCache) GetNodes(ctx context.Context, nodes []storj
 	return state.Nodes(nodes), nil
 }
 
+// GetNode gets a node by ID from the cache, and refreshes the cache if it is stale.
+func (cache *DownloadSelectionCache) GetNode(ctx context.Context, nodeID storj.NodeID) (_ *nodeselection.SelectedNode, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	state, err := cache.cache.Get(ctx, time.Now())
+	if err != nil {
+		return nil, Error.Wrap(err)
+	}
+	selected, ok := state.byID[nodeID]
+	if !ok {
+		return nil, Error.New("node not found")
+	}
+	return selected.Clone(), nil
+}
+
 // Size returns how many nodes are in the cache.
 func (cache *DownloadSelectionCache) Size(ctx context.Context) (int, error) {
 	state, err := cache.cache.Get(ctx, time.Now())

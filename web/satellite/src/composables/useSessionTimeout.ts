@@ -90,7 +90,7 @@ export function useSessionTimeout(opts: UseSessionTimeoutOptions) {
         await clearStoresAndTimers();
 
         try {
-            await auth.logout();
+            await auth.logout(configStore.state.config.csrfToken);
         } catch (error) {
             if (error instanceof ErrorUnauthorized) return;
 
@@ -181,7 +181,7 @@ export function useSessionTimeout(opts: UseSessionTimeoutOptions) {
         isSessionRefreshing.value = true;
 
         try {
-            LocalData.setSessionExpirationDate(await auth.refreshSession());
+            LocalData.setSessionExpirationDate(await auth.refreshSession(configStore.state.config.csrfToken));
             if (LocalData.getCustomSessionDuration()) {
                 LocalData.removeCustomSessionDuration();
             }

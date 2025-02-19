@@ -14,9 +14,11 @@ import (
 
 // OidcSsoClaims holds info for OIDC token claims.
 type OidcSsoClaims struct {
-	Sub   string `json:"sub"`
-	Email string `json:"email"`
-	Name  string `json:"name"`
+	Sub               string `json:"sub"`
+	Oid               string `json:"oid"`
+	PreferredUsername string `json:"preferred_username"`
+	Email             string `json:"email"`
+	Name              string `json:"name"`
 }
 
 // OidcSetup contains the configuration and Verifier
@@ -24,6 +26,7 @@ type OidcSsoClaims struct {
 type OidcSetup struct {
 	Config   OidcConfiguration
 	Verifier OidcTokenVerifier
+	Url      string
 }
 
 // OidcConfiguration is an interface for OIDC configuration.
