@@ -21,6 +21,7 @@ import (
 	"strconv"
 	"strings"
 	"time"
+	"unicode/utf8"
 
 	"github.com/spacemonkeygo/monkit/v3"
 	"github.com/spf13/pflag"
@@ -6254,7 +6255,7 @@ func (s *Service) TestToggleSsoEnabled(enabled bool, ssoService *sso.Service) {
 // exceeds the maximum length.
 func (s *Service) ValidateFreeFormFieldLengths(values ...*string) error {
 	for _, value := range values {
-		if value != nil && len(*value) > s.config.MaxNameCharacters {
+		if value != nil && utf8.RuneCountInString(*value) > s.config.MaxNameCharacters {
 			return ErrValidation.New("field length exceeds maximum length %d", s.config.MaxNameCharacters)
 		}
 	}
