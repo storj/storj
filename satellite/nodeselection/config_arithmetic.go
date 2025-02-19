@@ -13,7 +13,8 @@ import (
 	"storj.io/common/storj"
 )
 
-func convertType(b any, t reflect.Type) (any, error) {
+// ConvertType tries to convert a type for the most generic mathmetical type which supports math operations.
+func ConvertType(b any, t reflect.Type) (any, error) {
 	switch t {
 	case reflect.TypeOf(1):
 		switch bv := b.(type) {
@@ -107,14 +108,15 @@ func targetType(a any, b any) reflect.Type {
 	return reflect.TypeOf(1)
 }
 
-func addArithmetic(in map[any]interface{}) map[any]interface{} {
+// AddArithmetic defines generic math operation for various types.
+func AddArithmetic(in map[any]interface{}) map[any]interface{} {
 	in[mito.OpExp] = func(env map[any]any, a, b any) (val any, err error) {
 		targetType := targetType(a, b)
-		a, err = convertType(a, targetType)
+		a, err = ConvertType(a, targetType)
 		if err != nil {
 			return nil, err
 		}
-		b, err = convertType(b, targetType)
+		b, err = ConvertType(b, targetType)
 		if err != nil {
 			return nil, err
 		}
@@ -143,11 +145,11 @@ func addArithmetic(in map[any]interface{}) map[any]interface{} {
 	}
 	in[mito.OpAdd] = func(env map[any]any, a, b any) (val any, err error) {
 		targetType := targetType(a, b)
-		a, err = convertType(a, targetType)
+		a, err = ConvertType(a, targetType)
 		if err != nil {
 			return nil, err
 		}
-		b, err = convertType(b, targetType)
+		b, err = ConvertType(b, targetType)
 		if err != nil {
 			return nil, err
 		}
@@ -174,11 +176,11 @@ func addArithmetic(in map[any]interface{}) map[any]interface{} {
 	}
 	in[mito.OpSub] = func(env map[any]any, a, b any) (val any, err error) {
 		targetType := targetType(a, b)
-		a, err = convertType(a, targetType)
+		a, err = ConvertType(a, targetType)
 		if err != nil {
 			return nil, err
 		}
-		b, err = convertType(b, targetType)
+		b, err = ConvertType(b, targetType)
 		if err != nil {
 			return nil, err
 		}
@@ -205,11 +207,11 @@ func addArithmetic(in map[any]interface{}) map[any]interface{} {
 	}
 	in[mito.OpMul] = func(env map[any]any, a, b any) (val any, err error) {
 		targetType := targetType(a, b)
-		a, err = convertType(a, targetType)
+		a, err = ConvertType(a, targetType)
 		if err != nil {
 			return nil, err
 		}
-		b, err = convertType(b, targetType)
+		b, err = ConvertType(b, targetType)
 		if err != nil {
 			return nil, err
 		}
@@ -236,11 +238,11 @@ func addArithmetic(in map[any]interface{}) map[any]interface{} {
 	}
 	in[mito.OpDiv] = func(env map[any]any, a, b any) (val any, err error) {
 		targetType := targetType(a, b)
-		a, err = convertType(a, targetType)
+		a, err = ConvertType(a, targetType)
 		if err != nil {
 			return nil, err
 		}
-		b, err = convertType(b, targetType)
+		b, err = ConvertType(b, targetType)
 		if err != nil {
 			return nil, err
 		}

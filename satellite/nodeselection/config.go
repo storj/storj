@@ -406,7 +406,7 @@ func SelectorFromString(expr string, environment *PlacementConfigEnvironment) (N
 			}
 		},
 	}
-	env = addArithmetic(env)
+	env = AddArithmetic(env)
 	for k, v := range supportedFilters {
 		env[k] = v
 	}

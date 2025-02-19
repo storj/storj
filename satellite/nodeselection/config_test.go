@@ -200,7 +200,7 @@ func TestArithmetic(t *testing.T) {
 	env["uploadSuccessTracker"] = ScoreNodeFunc(func(uplink storj.NodeID, node *SelectedNode) float64 {
 		return 1.0
 	})
-	addArithmetic(env)
+	AddArithmetic(env)
 
 	t.Run("add", func(t *testing.T) {
 		res, err := mito.Eval("2 + 3", env)
