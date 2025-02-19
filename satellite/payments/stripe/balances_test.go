@@ -25,7 +25,7 @@ func TestBalances(t *testing.T) {
 		tx1Amount := int64(1000)
 		tx1Desc := "test description 1"
 
-		b, err := balances.ApplyCredit(ctx, userID, tx1Amount, tx1Desc)
+		b, err := balances.ApplyCredit(ctx, userID, tx1Amount, tx1Desc, "")
 		require.NoError(t, err)
 		require.Equal(t, decimal.NewFromInt(tx1Amount), b.Credits)
 
@@ -36,7 +36,7 @@ func TestBalances(t *testing.T) {
 		tx2Amount := int64(-1000)
 		tx2Desc := "test description 2"
 		endingBalance := tx1Amount + tx2Amount
-		b, err = balances.ApplyCredit(ctx, userID, tx2Amount, tx2Desc)
+		b, err = balances.ApplyCredit(ctx, userID, tx2Amount, tx2Desc, "")
 		require.NoError(t, err)
 		require.Equal(t, decimal.NewFromInt(endingBalance), b.Credits)
 
@@ -47,7 +47,7 @@ func TestBalances(t *testing.T) {
 		tx3Amount := int64(-1000)
 		tx3Desc := "test description 3"
 		endingBalance += tx3Amount
-		b, err = balances.ApplyCredit(ctx, userID, tx3Amount, tx3Desc)
+		b, err = balances.ApplyCredit(ctx, userID, tx3Amount, tx3Desc, "")
 		require.NoError(t, err)
 		require.Equal(t, decimal.NewFromInt(endingBalance), b.Credits)
 
@@ -65,7 +65,7 @@ func TestBalances(t *testing.T) {
 		require.Equal(t, tx1Amount, list[2].Amount)
 		require.Equal(t, tx1Desc, list[2].Description)
 
-		b, err = balances.ApplyCredit(ctx, userID, tx2Amount, stripe.MockCBTXsNewFailure)
+		b, err = balances.ApplyCredit(ctx, userID, tx2Amount, stripe.MockCBTXsNewFailure, "")
 		require.Error(t, err)
 		require.Nil(t, b)
 

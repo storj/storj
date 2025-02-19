@@ -788,9 +788,14 @@ func (payment Payments) handlePaymentIntentSucceeded(ctx context.Context, event 
 		return err
 	}
 
+	var idempotencyKey string
+	if dataID, ok := event.Data["id"].(string); ok {
+		idempotencyKey = fmt.Sprintf("%s:%s", dataID, event.Type)
+	}
+
 	description := fmt.Sprintf("Credit applied via webhook event: %s", event.ID)
 
-	_, err = payment.service.accounts.Balances().ApplyCredit(ctx, userID, int64(amount), description)
+	_, err = payment.service.accounts.Balances().ApplyCredit(ctx, userID, int64(amount), description, idempotencyKey)
 	if err != nil {
 		return err
 	}
@@ -5588,7 +5593,7 @@ func (payment Payments) ApplyCredit(ctx context.Context, amount int64, desc stri
 		}
 	}
 
-	_, err = payment.service.accounts.Balances().ApplyCredit(ctx, user.ID, amount, desc)
+	_, err = payment.service.accounts.Balances().ApplyCredit(ctx, user.ID, amount, desc, "")
 	if err != nil {
 		return Error.Wrap(err)
 	}

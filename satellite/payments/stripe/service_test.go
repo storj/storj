@@ -1828,7 +1828,7 @@ func TestRemoveExpiredPackageCredit(t *testing.T) {
 		})
 
 		t.Run("package not expired retains credit", func(t *testing.T) {
-			b, err := p.Accounts.Balances().ApplyCredit(ctx, u3, credit, pkgDesc)
+			b, err := p.Accounts.Balances().ApplyCredit(ctx, u3, credit, pkgDesc, "")
 			require.NoError(t, err)
 			require.Equal(t, decimal.NewFromInt(credit), b.Credits)
 
@@ -1837,12 +1837,12 @@ func TestRemoveExpiredPackageCredit(t *testing.T) {
 		})
 
 		t.Run("used all credit", func(t *testing.T) {
-			b, err := p.Accounts.Balances().ApplyCredit(ctx, u0, credit, pkgDesc)
+			b, err := p.Accounts.Balances().ApplyCredit(ctx, u0, credit, pkgDesc, "")
 			require.NoError(t, err)
 			require.Equal(t, decimal.NewFromInt(credit), b.Credits)
 
 			// remove credit as if they used it all
-			b, err = p.Accounts.Balances().ApplyCredit(ctx, u0, -credit, pkgDesc)
+			b, err = p.Accounts.Balances().ApplyCredit(ctx, u0, -credit, pkgDesc, "")
 			require.NoError(t, err)
 			require.Equal(t, decimal.NewFromInt(0), b.Credits)
 
@@ -1851,14 +1851,14 @@ func TestRemoveExpiredPackageCredit(t *testing.T) {
 		})
 
 		t.Run("has remaining credit but no credit source other than package", func(t *testing.T) {
-			b, err := p.Accounts.Balances().ApplyCredit(ctx, u1, credit, pkgDesc)
+			b, err := p.Accounts.Balances().ApplyCredit(ctx, u1, credit, pkgDesc, "")
 			require.NoError(t, err)
 			require.Equal(t, decimal.NewFromInt(credit), b.Credits)
 
 			// remove some credit, but not all, as if it were used
 			toRemove := credit / 2
 			remaining := credit - toRemove
-			b, err = p.Accounts.Balances().ApplyCredit(ctx, u1, -toRemove, pkgDesc)
+			b, err = p.Accounts.Balances().ApplyCredit(ctx, u1, -toRemove, pkgDesc, "")
 			require.NoError(t, err)
 			require.Equal(t, decimal.NewFromInt(remaining), b.Credits)
 
@@ -1867,13 +1867,13 @@ func TestRemoveExpiredPackageCredit(t *testing.T) {
 		})
 
 		t.Run("has additional credit source", func(t *testing.T) {
-			b, err := p.Accounts.Balances().ApplyCredit(ctx, u2, credit, pkgDesc)
+			b, err := p.Accounts.Balances().ApplyCredit(ctx, u2, credit, pkgDesc, "")
 			require.NoError(t, err)
 			require.Equal(t, decimal.NewFromInt(credit), b.Credits)
 
 			// give additional credit
 			additional := int64(2000)
-			b, err = p.Accounts.Balances().ApplyCredit(ctx, u2, additional, "additional credit")
+			b, err = p.Accounts.Balances().ApplyCredit(ctx, u2, additional, "additional credit", "")
 			require.NoError(t, err)
 			require.Equal(t, decimal.NewFromInt(credit+additional), b.Credits)
 
