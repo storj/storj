@@ -264,6 +264,102 @@ func AddArithmetic(in map[any]interface{}) map[any]interface{} {
 				return av / bv
 			}), nil
 		default:
+			return nil, errs.New("unsupported type for division: %T", a)
+		}
+	}
+	in["max"] = func(a, b any) (val any, err error) {
+		targetType := targetType(a, b)
+		a, err = ConvertType(a, targetType)
+		if err != nil {
+			return nil, err
+		}
+		b, err = ConvertType(b, targetType)
+		if err != nil {
+			return nil, err
+		}
+		switch targetType {
+		case reflect.TypeOf(1):
+			if a.(int) > b.(int) {
+				return a.(int), nil
+			}
+			return b.(int), nil
+		case reflect.TypeOf(int64(1)):
+			if a.(int64) > b.(int64) {
+				return a.(int64), nil
+			}
+			return b.(int64), nil
+		case reflect.TypeOf(float64(1)):
+			if a.(float64) > b.(float64) {
+				return a.(float64), nil
+			}
+			return b.(float64), nil
+		case reflect.TypeOf(NodeValue(nil)):
+			return NodeValue(func(node SelectedNode) float64 {
+				av := a.(NodeValue)(node)
+				bv := b.(NodeValue)(node)
+				if av > bv {
+					return av
+				}
+				return bv
+			}), nil
+		case reflect.TypeOf(new(ScoreNode)).Elem():
+			return ScoreNodeFunc(func(uplink storj.NodeID, node *SelectedNode) float64 {
+				av := a.(ScoreNode).Get(uplink)(node)
+				bv := b.(ScoreNode).Get(uplink)(node)
+				if av > bv {
+					return av
+				}
+				return bv
+			}), nil
+		default:
+			return nil, errs.New("unsupported type for exponentiation: %T", a)
+		}
+	}
+	in["min"] = func(a, b any) (val any, err error) {
+		targetType := targetType(a, b)
+		a, err = ConvertType(a, targetType)
+		if err != nil {
+			return nil, err
+		}
+		b, err = ConvertType(b, targetType)
+		if err != nil {
+			return nil, err
+		}
+		switch targetType {
+		case reflect.TypeOf(1):
+			if a.(int) < b.(int) {
+				return a.(int), nil
+			}
+			return b.(int), nil
+		case reflect.TypeOf(int64(1)):
+			if a.(int64) < b.(int64) {
+				return a.(int64), nil
+			}
+			return b.(int64), nil
+		case reflect.TypeOf(float64(1)):
+			if a.(float64) < b.(float64) {
+				return a.(float64), nil
+			}
+			return b.(float64), nil
+		case reflect.TypeOf(NodeValue(nil)):
+			return NodeValue(func(node SelectedNode) float64 {
+				av := a.(NodeValue)(node)
+				bv := b.(NodeValue)(node)
+				if av < bv {
+					return av
+				}
+				return bv
+			}), nil
+		case reflect.TypeOf(new(ScoreNode)).Elem():
+			return ScoreNodeFunc(func(uplink storj.NodeID, node *SelectedNode) float64 {
+				av := a.(ScoreNode).Get(uplink)(node)
+				bv := b.(ScoreNode).Get(uplink)(node)
+				if av < bv {
+					return av
+				}
+				return bv
+			}), nil
+		default:
 			return nil, errs.New("unsupported type for exponentiation: %T", a)
 		}
 	}

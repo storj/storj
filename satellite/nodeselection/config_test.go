@@ -232,6 +232,18 @@ func TestArithmetic(t *testing.T) {
 		require.Equal(t, 1.0, res.(NodeValue)(node))
 	})
 
+	t.Run("min", func(t *testing.T) {
+		res, err := mito.Eval("min(node_value(\"free_disk\"),1.0)", env)
+		require.NoError(t, err)
+		require.Equal(t, 1.0, res.(NodeValue)(node))
+	})
+
+	t.Run("max", func(t *testing.T) {
+		res, err := mito.Eval("max(node_value(\"free_disk\"),1.0)", env)
+		require.NoError(t, err)
+		require.Equal(t, 2.0, res.(NodeValue)(node))
+	})
+
 	t.Run("pow", func(t *testing.T) {
 		t.Run("integers", func(t *testing.T) {
 			res, err := mito.Eval("2 ^ 3", env)

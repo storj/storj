@@ -1165,9 +1165,9 @@ func TestMin(t *testing.T) {
 	tracker.slowNodes = append(tracker.slowNodes, node2)
 
 	env := map[interface{}]interface{}{
-		"min":     nodeselection.Min,
 		"tracker": tracker,
 	}
+	nodeselection.AddArithmetic(env)
 	test := func(expression string, node storj.NodeID, expected float64) {
 		evaluated, err := mito.Eval(expression, env)
 		require.NoError(t, err)

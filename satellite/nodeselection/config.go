@@ -381,7 +381,6 @@ func SelectorFromString(expr string, environment *PlacementConfigEnvironment) (N
 			}
 			return IfSelector(condition, trueAttr, falseAttr), nil
 		},
-		"min":                Min,
 		"dual":               DualSelector,
 		"choiceofnselection": ChoiceOfNSelection,
 		"lastbut":            LastBut,
