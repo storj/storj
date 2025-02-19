@@ -12,7 +12,7 @@ require (
 	storj.io/common v0.0.0-20250207214808-37afb3c7daeb
 	storj.io/storj v1.63.1
 	storj.io/storjscan v0.0.0-20220926140643-1623c3b391b0
-	storj.io/uplink v1.13.2-0.20241209213014-e5f3beed1a59
+	storj.io/uplink v1.13.2-0.20250218103408-3179c8d1ccdb
 )
 
 require (
