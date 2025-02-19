@@ -564,7 +564,10 @@ func (step IterateObjectsWithStatus) Check(ctx *testcontext.Context, t testing.T
 	err := db.IterateObjectsAllVersionsWithStatus(ctx, step.Opts, result.Add)
 	checkError(t, err, step.ErrClass, step.ErrText)
 
-	diff := cmp.Diff(step.Result, []metabase.ObjectEntry(result), DefaultTimeDiff())
+	diff := cmp.Diff(step.Result, []metabase.ObjectEntry(result), DefaultTimeDiff(),
+		// Iterators don't implement IsLatest.
+		cmpopts.IgnoreFields(metabase.ObjectEntry{}, "IsLatest"),
+	)
 	require.Zero(t, diff)
 }
 
@@ -584,7 +587,10 @@ func (step IterateObjectsWithStatusAscending) Check(ctx *testcontext.Context, t 
 	err := db.IterateObjectsAllVersionsWithStatusAscending(ctx, step.Opts, result.Add)
 	checkError(t, err, step.ErrClass, step.ErrText)
 
-	diff := cmp.Diff(step.Result, []metabase.ObjectEntry(result), DefaultTimeDiff())
+	diff := cmp.Diff(step.Result, []metabase.ObjectEntry(result), DefaultTimeDiff(),
+		// Iterators don't implement IsLatest.
+		cmpopts.IgnoreFields(metabase.ObjectEntry{}, "IsLatest"),
+	)
 	require.Zero(t, diff)
 }
 
@@ -735,6 +741,31 @@ func (step DeleteObjectLastCommitted) Check(ctx *testcontext.Context, t testing.
 	}
 
 	return result
+}
+
+// DeleteObjects contains options for testing the (*metabase.DB).DeleteObjects method.
+type DeleteObjects struct {
+	Opts   metabase.DeleteObjects
+	Result metabase.DeleteObjectsResult
+
+	ErrClass *errs.Class
+	ErrText  string
+}
+
+// Check runs the test.
+func (step DeleteObjects) Check(ctx *testcontext.Context, t testing.TB, db *metabase.DB) {
+	result, err := db.DeleteObjects(ctx, step.Opts)
+	checkError(t, err, step.ErrClass, step.ErrText)
+
+	// Marker stream IDs are internally generated, so we cannot upfront figure out what their values are.
+	for _, item := range result.Items {
+		if item.Marker != nil {
+			item.Marker.StreamVersionID.SetStreamID(uuid.UUID{})
+		}
+	}
+
+	diff := cmp.Diff(step.Result, result)
+	require.Zero(t, diff)
 }
 
 // CollectBucketTallies is for testing metabase.CollectBucketTallies.

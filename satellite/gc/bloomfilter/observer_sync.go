@@ -13,7 +13,6 @@ import (
 
 	"storj.io/common/storj"
 	"storj.io/storj/satellite/metabase/rangedloop"
-	"storj.io/storj/satellite/overlay"
 	"storj.io/storj/shared/bloomfilter"
 	"storj.io/storj/shared/nodeidmap"
 )
@@ -22,7 +21,7 @@ import (
 type SyncObserver struct {
 	log     *zap.Logger
 	config  Config
-	overlay overlay.DB
+	overlay Overlay
 	upload  *Upload
 
 	// The following fields are reset for each loop.
@@ -46,7 +45,7 @@ var _ (rangedloop.Observer) = (*SyncObserver)(nil)
 var _ (rangedloop.Partial) = (*SyncObserver)(nil)
 
 // NewSyncObserver creates a new instance of the gc rangedloop observer.
-func NewSyncObserver(log *zap.Logger, config Config, overlay overlay.DB) *SyncObserver {
+func NewSyncObserver(log *zap.Logger, config Config, overlay Overlay) *SyncObserver {
 	return &SyncObserver{
 		log:     log,
 		overlay: overlay,

@@ -10,7 +10,7 @@ import (
 
 	"storj.io/common/cfgstruct"
 	"storj.io/common/process"
-	"storj.io/storj/private/mud"
+	"storj.io/storj/shared/mud"
 )
 
 // Config is a mud annotation.

@@ -6,7 +6,9 @@
 package filestore
 
 import (
+	"errors"
 	"os"
+	"syscall"
 
 	"golang.org/x/sys/unix"
 
@@ -35,6 +37,16 @@ func DiskInfoFromPath(path string) (info blobstore.DiskInfo, err error) {
 // rename renames oldpath to newpath.
 func rename(oldpath, newpath string) error {
 	return os.Rename(oldpath, newpath)
+}
+
+// rmDir removes the directory named by path.
+func rmDir(path string) error {
+	for {
+		err := syscall.Rmdir(path)
+		if !errors.Is(err, syscall.EINTR) {
+			return err
+		}
+	}
 }
 
 // openFileReadOnly opens the file with read only.

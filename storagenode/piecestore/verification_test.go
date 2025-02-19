@@ -34,7 +34,7 @@ func TestOrderLimitPutValidation(t *testing.T) {
 		SatelliteCount: 1, StorageNodeCount: 1, UplinkCount: 1,
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 		for _, node := range planet.StorageNodes {
-			node.Storage2.CacheService.Loop.Pause()
+			node.StorageOld.CacheService.Loop.Pause()
 		}
 
 		for _, tt := range []struct {
@@ -302,7 +302,7 @@ func setSpace(ctx *testcontext.Context, t *testing.T, planet *testplanet.Planet,
 		err = os.MkdirAll(filepath.Join(blobsDir, "blobs", filestore.PathEncoding.EncodeToString(planet.Satellites[0].ID().Bytes())), 0755)
 		require.NoError(t, err)
 
-		err = storageNode.Storage2.CacheService.Init(ctx)
+		err = storageNode.StorageOld.CacheService.Init(ctx)
 		require.NoError(t, err)
 	}
 }

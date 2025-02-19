@@ -2,7 +2,7 @@
 // See LICENSE for copying information.
 
 <template>
-    <v-card v-if="!isAltPagination" class="pa-2 mb-6" :loading="isFetching">
+    <v-card v-if="!isAltPagination" class="pa-4 mb-6" :loading="isFetching">
         <v-row align="center">
             <v-col>
                 <v-text-field
@@ -15,8 +15,7 @@
                     hide-details
                     clearable
                     density="comfortable"
-                    rounded="lg"
-                    @update:modelValue="analyticsStore.eventTriggered(AnalyticsEvent.SEARCH_BUCKETS)"
+                    @update:model-value="analyticsStore.eventTriggered(AnalyticsEvent.SEARCH_BUCKETS)"
                 />
             </v-col>
             <v-col cols="auto">
@@ -46,60 +45,59 @@
                 </v-menu>
                 <v-btn-toggle
                     v-model="sortOrder"
-                    density="comfortable"
                     variant="outlined"
                     color="default"
-                    rounded="xl"
                     class="pa-1"
+                    rounded="md"
                     mandatory
                 >
-                    <v-btn size="small" value="asc" title="Ascending" variant="text" rounded="xl">
+                    <v-btn value="asc" title="Ascending" variant="text" rounded="md">
                         <v-icon :icon="ArrowDownNarrowWide" />
                     </v-btn>
-                    <v-btn size="small" value="desc" title="Descending" variant="text" rounded="xl">
+                    <v-btn value="desc" title="Descending" variant="text" rounded="md">
                         <v-icon :icon="ArrowUpNarrowWide" />
                     </v-btn>
                 </v-btn-toggle>
             </v-col>
         </v-row>
-    </v-card>
 
-    <v-data-iterator
-        :page="cursor.page"
-        :items-per-page="cursor.limit"
-        :items="isAltPagination ? allFiles : browserFiles"
-        :search="search"
-        :sort-by="sortBy"
-        :loading="isFetching"
-    >
-        <template #no-data>
-            <div class="d-flex justify-center">
-                <p class="text-body-2 cursor-pointer py-16 rounded-xlg w-100 text-center bg-light border" @click="emit('uploadClick')">
-                    {{ search ? 'No data found' : 'Drag and drop objects or folders here, or click to upload objects.' }}
-                </p>
-            </div>
-        </template>
+        <v-data-iterator
+            :page="cursor.page"
+            :items-per-page="cursor.limit"
+            :items="isAltPagination ? allFiles : browserFiles"
+            :search="search"
+            :sort-by="sortBy"
+            :loading="isFetching"
+            class="mt-1"
+        >
+            <template #no-data>
+                <div class="d-flex justify-center">
+                    <p class="text-body-2 cursor-pointer py-16 rounded-md w-100 text-center bg-light border mt-3" @click="emit('uploadClick')">
+                        {{ search ? 'No data found' : 'Drag and drop files or folders here, or click to upload files.' }}
+                    </p>
+                </div>
+            </template>
 
-        <template #default="fileProps">
-            <v-row>
-                <v-col v-for="item in fileProps.items" :key="item.raw.browserObject.Key" cols="12" sm="6" md="4" lg="3" xl="2">
-                    <file-card
-                        :item="item.raw"
-                        class="h-100"
-                        @preview-click="onFileClick(item.raw.browserObject)"
-                        @delete-file-click="onDeleteFileClick(item.raw.browserObject)"
-                        @share-click="onShareClick(item.raw.browserObject)"
-                        @lock-object-click="onLockObjectClick(item.raw.browserObject)"
-                        @legal-hold-click="onLegalHoldClick(item.raw.browserObject)"
-                        @locked-object-delete="(fullObject) => onLockedObjectDelete(fullObject)"
-                    />
-                </v-col>
-            </v-row>
-        </template>
+            <template #default="fileProps">
+                <v-row>
+                    <v-col v-for="item in fileProps.items" :key="item.raw.browserObject.Key" cols="12" sm="6" md="4" lg="3" xl="2">
+                        <file-card
+                            :item="item.raw"
+                            class="h-100"
+                            @preview-click="onFileClick(item.raw.browserObject)"
+                            @delete-file-click="onDeleteFileClick(item.raw.browserObject)"
+                            @share-click="onShareClick(item.raw.browserObject)"
+                            @lock-object-click="onLockObjectClick(item.raw.browserObject)"
+                            @legal-hold-click="onLegalHoldClick(item.raw.browserObject)"
+                            @download-folder-click="onDownloadFolder(item.raw.browserObject)"
+                            @locked-object-delete="(fullObject) => onLockedObjectDelete(fullObject)"
+                        />
+                    </v-col>
+                </v-row>
+            </template>
 
-        <template #footer>
-            <v-card class="pa-2 my-6">
-                <div class="d-flex align-center">
+            <template #footer>
+                <div class="d-flex align-center mt-4 rounded-md border pa-1">
                     <v-menu>
                         <template #activator="{ props: limitProps }">
                             <v-btn
@@ -147,9 +145,10 @@
                         @click="() => isAltPagination ? onNextPageClicked() : onPageChange(cursor.page + 1)"
                     />
                 </div>
-            </v-card>
-        </template>
-    </v-data-iterator>
+            </template>
+        </v-data-iterator>
+    </v-card>
+
     <file-preview-dialog
         v-model="previewDialog"
         v-model:current-file="fileToPreview"
@@ -189,6 +188,13 @@
         :file="lockActionFile"
         @content-removed="lockActionFile = null"
     />
+    <download-prefix-dialog
+        v-if="downloadPrefixEnabled"
+        v-model="isDownloadPrefixDialogShown"
+        :prefix-type="DownloadPrefixType.Folder"
+        :bucket="bucketName"
+        :prefix="folderToDownload"
+    />
 </template>
 
 <script setup lang="ts">
@@ -222,13 +228,22 @@ import { useProjectsStore } from '@/store/modules/projectsStore';
 import { useNotify } from '@/utils/hooks';
 import { AnalyticsErrorEventSource, AnalyticsEvent } from '@/utils/constants/analyticsEventNames';
 import { useBucketsStore } from '@/store/modules/bucketsStore';
-import { BrowserObjectTypeInfo, BrowserObjectWrapper, EXTENSION_INFOS, FILE_INFO, FOLDER_INFO } from '@/types/browser';
+import {
+    BrowserObjectTypeInfo,
+    BrowserObjectWrapper,
+    DownloadPrefixType,
+    EXTENSION_INFOS,
+    FILE_INFO,
+    FOLDER_INFO,
+} from '@/types/browser';
 import { useAnalyticsStore } from '@/store/modules/analyticsStore';
 import { ROUTES } from '@/router';
 import { BucketMetadata } from '@/types/buckets';
 import { Versioning } from '@/types/versioning';
 import { SortItem } from '@/types/common';
 import { usePreCheck } from '@/composables/usePreCheck';
+import { useLoading } from '@/composables/useLoading';
+import { useConfigStore } from '@/store/modules/configStore';
 
 import FilePreviewDialog from '@/components/dialogs/FilePreviewDialog.vue';
 import DeleteFileDialog from '@/components/dialogs/DeleteFileDialog.vue';
@@ -238,6 +253,7 @@ import DeleteVersionedFileDialog from '@/components/dialogs/DeleteVersionedFileD
 import LockObjectDialog from '@/components/dialogs/LockObjectDialog.vue';
 import LockedDeleteErrorDialog from '@/components/dialogs/LockedDeleteErrorDialog.vue';
 import LegalHoldObjectDialog from '@/components/dialogs/LegalHoldObjectDialog.vue';
+import DownloadPrefixDialog from '@/components/dialogs/DownloadPrefixDialog.vue';
 
 type SortKey = 'name' | 'type' | 'size' | 'date';
 
@@ -254,10 +270,12 @@ const analyticsStore = useAnalyticsStore();
 const obStore = useObjectBrowserStore();
 const projectsStore = useProjectsStore();
 const bucketsStore = useBucketsStore();
+const configStore = useConfigStore();
 
 const notify = useNotify();
 const router = useRouter();
 const { withTrialCheck } = usePreCheck();
+const { withLoading } = useLoading();
 
 const isFetching = ref<boolean>(false);
 const search = ref<string>('');
@@ -273,6 +291,8 @@ const isLockDialogShown = ref<boolean>(false);
 const isLegalHoldDialogShown = ref<boolean>(false);
 const isLockedObjectDeleteDialogShown = ref<boolean>(false);
 const routePageCache = new Map<string, number>();
+const isDownloadPrefixDialogShown = ref<boolean>(false);
+const folderToDownload = ref<string>('');
 
 let previewQueue: BrowserObjectWrapper[] = [];
 let processingPreview = false;
@@ -287,6 +307,8 @@ const pageSizes = [
     { title: '144', value: 144 },
 ];
 const collator = new Intl.Collator('en', { sensitivity: 'case' });
+
+const downloadPrefixEnabled = computed<boolean>(() => configStore.state.config.downloadPrefixEnabled);
 
 /**
  * Returns the selected files to the delete dialog.
@@ -501,25 +523,39 @@ function getFileTypeInfo(ext: string, type: BrowserObject['type']): BrowserObjec
 }
 
 /**
+ * Handles download bucket action.
+ */
+function onDownloadFolder(object: BrowserObject): void {
+    withTrialCheck(() => {
+        folderToDownload.value = `${object.path ?? ''}${object.Key}`;
+        isDownloadPrefixDialogShown.value = true;
+    });
+}
+
+/**
  * Handles file click.
  */
 function onFileClick(file: BrowserObject): void {
+    if (isFetching.value) return;
+
     withTrialCheck(() => {
-        if (!file.type) return;
+        withLoading(async () => {
+            if (!file.type) return;
 
-        if (file.type === 'folder') {
-            const uriParts = [file.Key];
-            if (filePath.value) {
-                uriParts.unshift(...filePath.value.split('/'));
+            if (file.type === 'folder') {
+                const uriParts = [file.Key];
+                if (filePath.value) {
+                    uriParts.unshift(...filePath.value.split('/'));
+                }
+                const pathAndKey = uriParts.map(part => encodeURIComponent(part)).join('/');
+                await router.push(`${ROUTES.Projects.path}/${projectsStore.state.selectedProject.urlId}/${ROUTES.Buckets.path}/${bucketName.value}/${pathAndKey}`);
+                return;
             }
-            const pathAndKey = uriParts.map(part => encodeURIComponent(part)).join('/');
-            router.push(`${ROUTES.Projects.path}/${projectsStore.state.selectedProject.urlId}/${ROUTES.Buckets.path}/${bucketName.value}/${pathAndKey}`);
-            return;
-        }
 
-        obStore.setObjectPathForModal((file.path ?? '') + file.Key);
-        fileToPreview.value = file;
-        previewDialog.value = true;
+            obStore.setObjectPathForModal((file.path ?? '') + file.Key);
+            fileToPreview.value = file;
+            previewDialog.value = true;
+        });
     });
 }
 

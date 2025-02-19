@@ -4,7 +4,6 @@
 package boltdb
 
 import (
-	"os"
 	"path/filepath"
 	"testing"
 
@@ -12,13 +11,7 @@ import (
 )
 
 func TestSuite(t *testing.T) {
-	tempdir, err := os.MkdirTemp("", "storj-bolt")
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer func() { _ = os.RemoveAll(tempdir) }()
-
-	dbname := filepath.Join(tempdir, "bolt.db")
+	dbname := filepath.Join(t.TempDir(), "bolt.db")
 	store, err := New(dbname, "bucket")
 	if err != nil {
 		t.Fatalf("failed to create db: %v", err)
@@ -33,13 +26,7 @@ func TestSuite(t *testing.T) {
 }
 
 func BenchmarkSuite(b *testing.B) {
-	tempdir, err := os.MkdirTemp("", "storj-bolt")
-	if err != nil {
-		b.Fatal(err)
-	}
-	defer func() { _ = os.RemoveAll(tempdir) }()
-
-	dbname := filepath.Join(tempdir, "bolt.db")
+	dbname := filepath.Join(b.TempDir(), "bolt.db")
 	store, err := New(dbname, "bucket")
 	if err != nil {
 		b.Fatalf("failed to create db: %v", err)

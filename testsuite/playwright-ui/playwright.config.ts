@@ -60,6 +60,7 @@ export default defineConfig({
                     // args: ["--headless","--no-sandbox","--use-angle=gl"]
                     args: ['--no-sandbox'],
                 },
+                permissions: ['clipboard-read', 'clipboard-write'],
             },
         },
         /*

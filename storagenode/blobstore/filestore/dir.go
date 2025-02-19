@@ -580,11 +580,11 @@ func (dir *Dir) EmptyTrashWithoutStat(ctx context.Context, namespace []byte, tra
 				}
 
 				// if directory is empty, remove it
-				_ = dir.removeButLogIfNotExist(trashPrefix)
+				_ = dir.removeDirButLogIfNotExist(trashPrefix)
 
 			}
 
-			_ = dir.removeButLogIfNotExist(trashPath)
+			_ = dir.removeDirButLogIfNotExist(trashPath)
 
 		}
 		return nil
@@ -661,7 +661,7 @@ func (dir *Dir) DeleteTrashNamespace(ctx context.Context, namespace []byte) (err
 	errorsEncountered.Add(err)
 	namespaceEncoded := PathEncoding.EncodeToString(namespace)
 	namespaceTrashDir := filepath.Join(dir.trashdir, namespaceEncoded)
-	err = dir.removeButLogIfNotExist(namespaceTrashDir)
+	err = dir.removeDirButLogIfNotExist(namespaceTrashDir)
 	errorsEncountered.Add(err)
 	return errorsEncountered.Err()
 }
@@ -743,6 +743,18 @@ func (dir *Dir) listTrashDayDirs(ctx context.Context, namespace []byte) (dirTime
 	}
 }
 
+func (dir *Dir) removeDirButLogIfNotExist(dirPath string) error {
+	err := rmDir(dirPath)
+	if err != nil {
+		if errors.Is(err, fs.ErrNotExist) {
+			dir.log.Debug("directory not found; nothing to remove", zap.String("dir", dirPath))
+			return nil
+		}
+		return err
+	}
+	return nil
+}
+
 func (dir *Dir) removeButLogIfNotExist(pathToRemove string) error {
 	err := os.Remove(pathToRemove)
 	if err != nil {
@@ -799,11 +811,11 @@ func (dir *Dir) deleteTrashDayDir(ctx context.Context, namespace []byte, dirTime
 	}
 	for _, entry := range dirEntries {
 		if entry.IsDir() && len(entry.Name()) == 2 {
-			err = dir.removeButLogIfNotExist(filepath.Join(trashDayDir, entry.Name()))
+			err = dir.removeDirButLogIfNotExist(filepath.Join(trashDayDir, entry.Name()))
 			errorsEncountered.Add(err)
 		}
 	}
-	err = dir.removeButLogIfNotExist(trashDayDir)
+	err = dir.removeDirButLogIfNotExist(trashDayDir)
 	errorsEncountered.Add(err)
 	return bytesEmptied, deletedKeys, errorsEncountered.Err()
 }

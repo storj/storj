@@ -42,6 +42,7 @@ type Observer struct {
 	nodesCache               *ReliabilityCache
 	overlayService           *overlay.Service
 	repairThresholdOverrides RepairThresholdOverrides
+	repairTargetOverrides    RepairTargetOverrides
 	nodeFailureRate          float64
 	repairQueueBatchSize     int
 	excludedCountryCodes     map[location.CountryCode]struct{}
@@ -83,6 +84,7 @@ func NewObserver(logger *zap.Logger, repairQueue queue.RepairQueue, overlay *ove
 		nodesCache:               NewReliabilityCache(overlay, config.ReliabilityCacheStaleness),
 		overlayService:           overlay,
 		repairThresholdOverrides: config.RepairThresholdOverrides,
+		repairTargetOverrides:    config.RepairTargetOverrides,
 		nodeFailureRate:          config.NodeFailureRate,
 		repairQueueBatchSize:     config.RepairQueueInsertBatchSize,
 		excludedCountryCodes:     excludedCountryCodes,
@@ -241,7 +243,7 @@ func (observer *Observer) getObserverStats(redundancy redundancyStyle) *observer
 
 	observerStats, exists := observer.statsCollector[redundancy]
 	if !exists {
-		rsString := getRSString(loadRedundancy(redundancy.Scheme, observer.repairThresholdOverrides))
+		rsString := getRSString(loadRedundancy(redundancy.Scheme, observer.repairThresholdOverrides, observer.repairTargetOverrides))
 		observerStats = &observerRSStats{aggregateStats{}, newIterationRSStats(rsString), newSegmentRSStats(rsString, redundancy.Placement)}
 		mon.Chain(observerStats)
 		observer.statsCollector[redundancy] = observerStats
@@ -250,14 +252,31 @@ func (observer *Observer) getObserverStats(redundancy redundancyStyle) *observer
 	return observerStats
 }
 
-func loadRedundancy(redundancy storj.RedundancyScheme, repairThresholdOverrides RepairThresholdOverrides) (int, int, int, int) {
+func loadRedundancy(redundancy storj.RedundancyScheme, repairThresholdOverrides RepairThresholdOverrides, repairTargetOverrides RepairTargetOverrides) (int, int, int, int) {
 	repair := int(redundancy.RepairShares)
+	optimal := int(redundancy.OptimalShares)
+	total := int(redundancy.TotalShares)
 
 	if overrideValue := repairThresholdOverrides.GetOverrideValue(redundancy); overrideValue != 0 {
 		repair = int(overrideValue)
 	}
 
-	return int(redundancy.RequiredShares), repair, int(redundancy.OptimalShares), int(redundancy.TotalShares)
+	if overrideValue := repairTargetOverrides.GetOverrideValue(redundancy); overrideValue != 0 {
+		optimal = int(overrideValue)
+	}
+
+	if optimal <= repair {
+		// if a segment has exactly repair segments, we consider it in need of
+		// repair. we don't want to upload a new object right into the state of
+		// needing repair, so we need at least one more, though arguably this is
+		// a misconfiguration.
+		optimal = repair + 1
+	}
+	if total < optimal {
+		total = optimal
+	}
+
+	return int(redundancy.RequiredShares), repair, optimal, total
 }
 
 // RefreshReliabilityCache forces refreshing node online status cache.
@@ -272,6 +291,7 @@ type observerFork struct {
 	overlayService           *overlay.Service
 	rsStats                  map[redundancyStyle]*partialRSStats
 	repairThresholdOverrides RepairThresholdOverrides
+	repairTargetOverrides    RepairTargetOverrides
 	nodeFailureRate          float64
 	getNodesEstimate         func(ctx context.Context) (int, error)
 	log                      *zap.Logger
@@ -300,6 +320,7 @@ func newObserverFork(observer *Observer) rangedloop.Partial {
 		overlayService:           observer.overlayService,
 		rsStats:                  make(map[redundancyStyle]*partialRSStats),
 		repairThresholdOverrides: observer.repairThresholdOverrides,
+		repairTargetOverrides:    observer.repairTargetOverrides,
 		nodeFailureRate:          observer.nodeFailureRate,
 		getNodesEstimate:         observer.getNodesEstimate,
 		log:                      observer.logger,
@@ -479,7 +500,7 @@ func (fork *observerFork) process(ctx context.Context, segment *rangedloop.Segme
 		stats.segmentStats.yearOldSegmentPiecesLostPerWeek.Observe(piecesLostPerWeek)
 	}
 
-	required, repairThreshold, successThreshold, _ := loadRedundancy(segment.Redundancy, fork.repairThresholdOverrides)
+	required, repairThreshold, successThreshold, _ := loadRedundancy(segment.Redundancy, fork.repairThresholdOverrides, fork.repairTargetOverrides)
 	segmentHealth := repair.SegmentHealth(numHealthy, required, totalNumNodes, fork.nodeFailureRate, piecesCheck.ForcingRepair.Count())
 	segmentHealthFloatVal.Observe(segmentHealth)
 	stats.segmentStats.segmentHealth.Observe(segmentHealth)

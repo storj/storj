@@ -15,11 +15,29 @@ const (
 	// RecordSize is the size of a serialized record in bytes.
 	RecordSize = 64
 
-	pageSize       = 4096
+	pageSize       = 512
 	recordsPerPage = pageSize / RecordSize
+
+	bigPageSize       = 256 * pageSize
+	recordsPerBigPage = bigPageSize / RecordSize
 
 	_ uintptr = -(pageSize % RecordSize) // ensure records evenly divide the page size
 )
+
+type bigPage [bigPageSize]byte
+
+func (p *bigPage) readRecord(n uint64, rec *Record) bool {
+	if b := p[(n*RecordSize)%bigPageSize:]; len(b) >= RecordSize {
+		return rec.ReadFrom((*[RecordSize]byte)(b))
+	}
+	return false
+}
+
+func (p *bigPage) writeRecord(n uint64, rec Record) {
+	if b := p[(n*RecordSize)%bigPageSize:]; len(b) >= RecordSize {
+		rec.WriteTo((*[RecordSize]byte)(b))
+	}
+}
 
 type page [pageSize]byte
 
@@ -96,9 +114,9 @@ func (r Record) String() string {
 		r.Log,
 		r.Length,
 		r.Created,
-		dateToTime(r.Created).Format(time.DateOnly),
+		DateToTime(r.Created).Format(time.DateOnly),
 		r.Expires.Time(),
-		dateToTime(r.Expires.Time()).Format(time.DateOnly),
+		DateToTime(r.Expires.Time()).Format(time.DateOnly),
 		r.Expires.Trash(),
 	)
 }

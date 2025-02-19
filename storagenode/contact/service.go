@@ -40,7 +40,8 @@ type Config struct {
 	ExternalAddress string `user:"true" help:"the public address of the node, useful for nodes behind NAT" default:""`
 
 	// Chore config values
-	Interval time.Duration `help:"how frequently the node contact chore should run" releaseDefault:"1h" devDefault:"30s"`
+	Interval       time.Duration `help:"how frequently the node contact chore should run" releaseDefault:"1h" devDefault:"30s"`
+	CheckInTimeout time.Duration `help:"timeout for the check-in request" releaseDefault:"10m" devDefault:"15s" testDefault:"5s"`
 
 	Tags           SignedTags `help:"protobuf serialized signed node tags in hex (base64) format"`
 	SelfSignedTags []string   `help:"coma separated key=value pairs, which will be self signed and used as tags"`
@@ -135,26 +136,26 @@ func NewService(log *zap.Logger, dialer rpc.Dialer, self NodeInfo, trust trust.T
 }
 
 // PingSatellites attempts to ping all satellites in trusted list until backoff reaches maxInterval.
-func (service *Service) PingSatellites(ctx context.Context, maxInterval time.Duration) (err error) {
+func (service *Service) PingSatellites(ctx context.Context, maxInterval, timeout time.Duration) (err error) {
 	defer mon.Task()(&ctx)(&err)
 	satellites := service.trust.GetSatellites(ctx)
 	var group errgroup.Group
 	for _, satellite := range satellites {
 		satellite := satellite
 		group.Go(func() error {
-			return service.pingSatellite(ctx, satellite, maxInterval)
+			return service.pingSatellite(ctx, satellite, maxInterval, timeout)
 		})
 	}
 	return group.Wait()
 }
 
-func (service *Service) pingSatellite(ctx context.Context, satellite storj.NodeID, maxInterval time.Duration) error {
+func (service *Service) pingSatellite(ctx context.Context, satellite storj.NodeID, maxInterval, timeout time.Duration) error {
 	interval := initialBackOff
 	attempts := 0
 	for {
 		mon.Meter("satellite_contact_request").Mark(1) //mon:locked
 
-		err := service.pingSatelliteOnce(ctx, satellite)
+		err := service.pingSatelliteOnce(ctx, satellite, timeout)
 		attempts++
 		if err == nil {
 			return nil
@@ -174,8 +175,11 @@ func (service *Service) pingSatellite(ctx context.Context, satellite storj.NodeI
 	}
 }
 
-func (service *Service) pingSatelliteOnce(ctx context.Context, id storj.NodeID) (err error) {
+func (service *Service) pingSatelliteOnce(ctx context.Context, id storj.NodeID, timeout time.Duration) (err error) {
 	defer mon.Task()(&ctx, id)(&err)
+
+	ctx, cancel := context.WithTimeout(ctx, timeout)
+	defer cancel()
 
 	conn, err := service.dialSatellite(ctx, id)
 	if err != nil {
@@ -188,6 +192,9 @@ func (service *Service) pingSatelliteOnce(ctx context.Context, id storj.NodeID) 
 	if self.FastOpen {
 		features |= uint64(pb.NodeAddress_TCP_FASTOPEN_ENABLED)
 	}
+
+	mon.IntVal("reported_capacity").Observe(self.Capacity.FreeDisk)
+
 	resp, err := pb.NewDRPCNodeClient(conn).CheckIn(ctx, &pb.CheckInRequest{
 		Address:             self.Address,
 		Version:             &self.Version,

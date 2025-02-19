@@ -48,7 +48,7 @@ func TestCreate_Sqlite(t *testing.T) {
 
 func TestCreate(t *testing.T) {
 	dbtest.Run(t, func(ctx *testcontext.Context, t *testing.T, connstr string) {
-		db, err := tempdb.OpenUnique(ctx, connstr, "create-")
+		db, err := tempdb.OpenUnique(ctx, connstr, "create-", nil)
 		if err != nil {
 			t.Fatal(err)
 		}

@@ -2,7 +2,7 @@
 // See LICENSE for copying information.
 
 <template>
-    <v-card>
+    <v-card class="pa-4">
         <v-text-field
             v-if="!isAltPagination"
             v-model="search"
@@ -14,9 +14,8 @@
             hide-details
             clearable
             density="comfortable"
-            rounded="lg"
-            class="mx-2 mt-2"
-            @update:modelValue="analyticsStore.eventTriggered(AnalyticsEvent.SEARCH_BUCKETS)"
+            class="mb-4"
+            @update:model-value="analyticsStore.eventTriggered(AnalyticsEvent.SEARCH_BUCKETS)"
         />
 
         <v-data-table-server
@@ -37,11 +36,11 @@
             :items-length="isAltPagination ? cursor.limit : totalObjectCount"
             :items-per-page-options="isAltPagination ? [] : tableSizeOptions(totalObjectCount, true)"
             @update:page="onPageChange"
-            @update:itemsPerPage="onLimitChange"
+            @update:items-per-page="onLimitChange"
         >
             <template #no-data>
                 <p class="text-body-2 cursor-pointer py-14 rounded-xlg my-4" @click="emit('uploadClick')">
-                    {{ search ? 'No data found' : 'Drag and drop objects or folders here, or click to upload objects.' }}
+                    {{ search ? 'No data found' : 'Drag and drop files or folders here, or click to upload files.' }}
                 </p>
             </template>
             <template #item="{ index, props: rowProps }">
@@ -99,6 +98,7 @@
                             @lock-object-click="onLockObjectClick((item as BrowserObjectWrapper).browserObject)"
                             @legal-hold-click="onLegalHoldClick((item as BrowserObjectWrapper).browserObject)"
                             @locked-object-delete="(fullObject) => onLockedObjectDelete(fullObject)"
+                            @download-folder-click="onDownloadFolder((item as BrowserObjectWrapper).browserObject)"
                         />
                     </template>
                 </v-data-table-row>
@@ -200,6 +200,13 @@
         :file="lockActionFile"
         @content-removed="lockActionFile = null"
     />
+    <download-prefix-dialog
+        v-if="downloadPrefixEnabled"
+        v-model="isDownloadPrefixDialogShown"
+        :prefix-type="DownloadPrefixType.Folder"
+        :bucket="bucketName"
+        :prefix="folderToDownload"
+    />
 </template>
 
 <script setup lang="ts">
@@ -233,7 +240,14 @@ import { Size } from '@/utils/bytesSize';
 import { AnalyticsErrorEventSource, AnalyticsEvent } from '@/utils/constants/analyticsEventNames';
 import { useBucketsStore } from '@/store/modules/bucketsStore';
 import { DataTableHeader, SortItem, tableSizeOptions } from '@/types/common';
-import { BrowserObjectTypeInfo, BrowserObjectWrapper, EXTENSION_INFOS, FILE_INFO, FOLDER_INFO } from '@/types/browser';
+import {
+    BrowserObjectTypeInfo,
+    BrowserObjectWrapper,
+    DownloadPrefixType,
+    EXTENSION_INFOS,
+    FILE_INFO,
+    FOLDER_INFO,
+} from '@/types/browser';
 import { useAnalyticsStore } from '@/store/modules/analyticsStore';
 import { useUsersStore } from '@/store/modules/usersStore';
 import { ROUTES } from '@/router';
@@ -242,6 +256,8 @@ import { BucketMetadata } from '@/types/buckets';
 import { DEFAULT_PAGE_LIMIT } from '@/types/pagination';
 import { Versioning } from '@/types/versioning';
 import { usePreCheck } from '@/composables/usePreCheck';
+import { useConfigStore } from '@/store/modules/configStore';
+import { useLoading } from '@/composables/useLoading';
 
 import BrowserRowActions from '@/components/BrowserRowActions.vue';
 import FilePreviewDialog from '@/components/dialogs/FilePreviewDialog.vue';
@@ -251,6 +267,7 @@ import DeleteVersionedFileDialog from '@/components/dialogs/DeleteVersionedFileD
 import LockObjectDialog from '@/components/dialogs/LockObjectDialog.vue';
 import LockedDeleteErrorDialog from '@/components/dialogs/LockedDeleteErrorDialog.vue';
 import LegalHoldObjectDialog from '@/components/dialogs/LegalHoldObjectDialog.vue';
+import DownloadPrefixDialog from '@/components/dialogs/DownloadPrefixDialog.vue';
 
 type SortKey = 'name' | 'type' | 'size' | 'date';
 
@@ -278,10 +295,12 @@ const obStore = useObjectBrowserStore();
 const projectsStore = useProjectsStore();
 const bucketsStore = useBucketsStore();
 const userStore = useUsersStore();
+const configStore = useConfigStore();
 
 const notify = useNotify();
 const router = useRouter();
 const { withTrialCheck } = usePreCheck();
+const { withLoading } = useLoading();
 
 const isFetching = ref<boolean>(false);
 const search = ref<string>('');
@@ -297,10 +316,14 @@ const isLockDialogShown = ref<boolean>(false);
 const isLegalHoldDialogShown = ref<boolean>(false);
 const isLockedObjectDeleteDialogShown = ref<boolean>(false);
 const routePageCache = new Map<string, number>();
+const isDownloadPrefixDialogShown = ref<boolean>(false);
+const folderToDownload = ref<string>('');
 
 const pageSizes = [DEFAULT_PAGE_LIMIT, 25, 50, 100];
 const sortBy: SortItem[] = [{ key: 'name', order: 'asc' }];
 const collator = new Intl.Collator('en', { sensitivity: 'case' });
+
+const downloadPrefixEnabled = computed<boolean>(() => configStore.state.config.downloadPrefixEnabled);
 
 /**
  * Indicates if alternative pagination should be used.
@@ -461,6 +484,16 @@ const filesToDelete = computed<BrowserObject[]>(() => {
 });
 
 /**
+ * Handles download bucket action.
+ */
+function onDownloadFolder(object: BrowserObject): void {
+    withTrialCheck(() => {
+        folderToDownload.value = `${object.path ?? ''}${object.Key}`;
+        isDownloadPrefixDialogShown.value = true;
+    });
+}
+
+/**
  * Handles previous page click for alternative pagination.
  */
 function onPreviousPageClick(): void {
@@ -554,23 +587,27 @@ function getFileInfo(file: BrowserObject): { name: string; ext: string; typeInfo
  * Handles file click.
  */
 function onFileClick(file: BrowserObject): void {
+    if (props.loading || isFetching.value) return;
+
     withTrialCheck(() => {
-        if (!file.type) return;
+        withLoading(async () => {
+            if (!file.type) return;
 
-        if (file.type === 'folder') {
-            const uriParts = [file.Key];
-            if (filePath.value) {
-                uriParts.unshift(...filePath.value.split('/'));
+            if (file.type === 'folder') {
+                const uriParts = [file.Key];
+                if (filePath.value) {
+                    uriParts.unshift(...filePath.value.split('/'));
+                }
+                const pathAndKey = uriParts.map(part => encodeURIComponent(part)).join('/');
+                await router.push(`${ROUTES.Projects.path}/${projectsStore.state.selectedProject.urlId}/${ROUTES.Buckets.path}/${bucketName.value}/${pathAndKey}`);
+                return;
             }
-            const pathAndKey = uriParts.map(part => encodeURIComponent(part)).join('/');
-            router.push(`${ROUTES.Projects.path}/${projectsStore.state.selectedProject.urlId}/${ROUTES.Buckets.path}/${bucketName.value}/${pathAndKey}`);
-            return;
-        }
 
-        obStore.setObjectPathForModal((file.path ?? '') + file.Key);
-        fileToPreview.value = file;
-        previewDialog.value = true;
-        dismissFileGuide();
+            obStore.setObjectPathForModal((file.path ?? '') + file.Key);
+            fileToPreview.value = file;
+            previewDialog.value = true;
+            dismissFileGuide();
+        });
     });
 }
 
@@ -692,7 +729,7 @@ watch(() => props.forceEmpty, v => !v && fetchFiles());
     }
 
     &__file-guide :deep(.v-overlay__content) {
-        color: var(--c-white) !important;
+        color: #fff !important;
         background-color: rgb(var(--v-theme-primary)) !important;
     }
 }

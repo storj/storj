@@ -104,6 +104,7 @@ type mockStripeState struct {
 
 	customers                   *mockCustomersState
 	paymentMethods              *mockPaymentMethods
+	paymentIntents              *mockPaymentIntents
 	invoices                    *mockInvoices
 	invoiceItems                *mockInvoiceItems
 	customerBalanceTransactions *mockCustomerBalanceTransactions
@@ -137,6 +138,7 @@ func NewStripeMock(customersDB CustomersDB, usersDB console.Users) Client {
 	state := &mockStripeState{}
 	state.customers = &mockCustomersState{}
 	state.paymentMethods = newMockPaymentMethods(state)
+	state.paymentIntents = &mockPaymentIntents{}
 	state.invoiceItems = newMockInvoiceItems(state)
 	state.invoices = newMockInvoices(state, state.invoiceItems)
 	state.customerBalanceTransactions = newMockCustomerBalanceTransactions(state)
@@ -167,6 +169,10 @@ func (m *mockStripeClient) Customers() Customers {
 
 func (m *mockStripeClient) PaymentMethods() PaymentMethods {
 	return m.paymentMethods
+}
+
+func (m *mockStripeClient) PaymentIntents() PaymentIntents {
+	return m.paymentIntents
 }
 
 func (m *mockStripeClient) Invoices() Invoices {
@@ -521,6 +527,32 @@ func (m *mockPaymentMethods) New(params *stripe.PaymentMethodParams) (*stripe.Pa
 	return newMethod, nil
 }
 
+func (m *mockPaymentMethods) Update(id string, params *stripe.PaymentMethodParams) (*stripe.PaymentMethod, error) {
+	if params.Card == nil || params.Card.ExpMonth == nil || params.Card.ExpYear == nil {
+		return nil, errors.New("missing required field")
+	}
+	card := &stripe.PaymentMethodCard{
+		ExpMonth: *params.Card.ExpMonth,
+		ExpYear:  *params.Card.ExpYear,
+	}
+
+	method, err := m.Get(id, nil)
+	if err != nil {
+		return nil, err
+	}
+	if method.Card == nil {
+		return nil, errors.New("payment method has no card")
+	}
+
+	m.root.mu.Lock()
+	defer m.root.mu.Unlock()
+
+	method.Card.ExpMonth = card.ExpMonth
+	method.Card.ExpYear = card.ExpYear
+
+	return method, nil
+}
+
 func (m *mockPaymentMethods) Attach(id string, params *stripe.PaymentMethodAttachParams) (*stripe.PaymentMethod, error) {
 	m.root.mu.Lock()
 	defer m.root.mu.Unlock()
@@ -560,6 +592,17 @@ func (m *mockPaymentMethods) Detach(id string, params *stripe.PaymentMethodDetac
 	}
 
 	return unattached, nil
+}
+
+type mockPaymentIntents struct {
+}
+
+func (m *mockPaymentIntents) New(params *stripe.PaymentIntentParams) (*stripe.PaymentIntent, error) {
+	return &stripe.PaymentIntent{
+		Status:   stripe.PaymentIntentStatusSucceeded,
+		Amount:   *params.Amount,
+		Metadata: params.Metadata,
+	}, nil
 }
 
 type mockInvoices struct {

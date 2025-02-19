@@ -167,7 +167,7 @@ const (
 
 // Queue adds a retain request to the queue.
 // true is returned if the request is added to the queue, false if queue is closed.
-func (s *Service) Queue(satelliteID storj.NodeID, req *pb.RetainRequest) error {
+func (s *Service) Queue(ctx context.Context, satelliteID storj.NodeID, req *pb.RetainRequest) error {
 	s.cond.L.Lock()
 	defer s.cond.L.Unlock()
 
@@ -411,6 +411,7 @@ func (s *Service) retainPieces(ctx context.Context, req Request) (err error) {
 	piecesToDeleteCount := 0
 	piecesCount, piecesSkipped, err := s.store.WalkSatellitePiecesToTrash(ctx, satelliteID, createdBefore, filter, func(pieceID storj.PieceID) error {
 		s.log.Debug("About to move piece to trash",
+			zap.String("BF", req.Filename),
 			zap.Stringer("Satellite ID", satelliteID),
 			zap.Stringer("Piece ID", pieceID),
 			zap.Stringer("Status", &s.config.Status))

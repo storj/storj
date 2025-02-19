@@ -166,10 +166,11 @@ const statusLabel = computed((): string => {
  * Returns upload progress.
  */
 const progress = computed((): number => {
-    return uploading.value.reduce((total: number, item: UploadingBrowserObject) => {
+    const activeUploads = uploading.value.filter(f => f.status === UploadingStatus.InProgress);
+    return activeUploads.reduce((total: number, item: UploadingBrowserObject) => {
         total += item.progress || 0;
         return total;
-    }, 0) / uploading.value.length;
+    }, 0) / activeUploads.length;
 });
 
 /**

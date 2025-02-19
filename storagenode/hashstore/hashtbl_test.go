@@ -5,6 +5,7 @@ package hashstore
 
 import (
 	"context"
+	"encoding/binary"
 	"math/rand"
 	"os"
 	"path/filepath"
@@ -16,15 +17,13 @@ import (
 )
 
 func TestHashtbl_BasicOperation(t *testing.T) {
-	const lrec = 14 // 16k records
-
 	ctx := context.Background()
-	h := newTestHashtbl(t, lrec)
+	h := newTestHashtbl(t, hashtbl_minLogSlots)
 	defer h.Close()
 
 	var keys []Key
 	var expLength uint64
-	for i := 0; i < 1<<lrec/2; i++ {
+	for i := 0; i < 1<<hashtbl_minLogSlots/2; i++ {
 		// insert the record.
 		r := h.AssertInsert()
 
@@ -46,7 +45,7 @@ func TestHashtbl_BasicOperation(t *testing.T) {
 
 	assert.Equal(t, h.Load(), 0.5)
 	stats := h.Stats()
-	assert.Equal(t, stats.NumSet, 1<<lrec/2)
+	assert.Equal(t, stats.NumSet, 1<<hashtbl_minLogSlots/2)
 	assert.Equal(t, stats.LenSet, expLength)
 
 	// reopen the hash table and search again
@@ -71,14 +70,13 @@ func TestHashtbl_BasicOperation(t *testing.T) {
 	_, err = h.Insert(ctx, newRecord(newKey()))
 	assert.Error(t, err)
 
-	h.Range(ctx, func(_ Record, err error) bool {
-		assert.Error(t, err)
-		return false
-	})
+	assert.Error(t, h.Range(ctx, func(context.Context, Record) (bool, error) {
+		panic("should not be called")
+	}))
 }
 
 func TestHashtbl_TrashStats(t *testing.T) {
-	h := newTestHashtbl(t, 6)
+	h := newTestHashtbl(t, hashtbl_minLogSlots)
 	defer h.Close()
 
 	rec := newRecord(newKey())
@@ -89,24 +87,15 @@ func TestHashtbl_TrashStats(t *testing.T) {
 	assert.Equal(t, stats.NumTrash, 1)
 	assert.Equal(t, stats.LenTrash, rec.Length)
 	assert.Equal(t, stats.AvgTrash, float64(rec.Length))
-
-	h.AssertReopen()
-
-	stats = h.Stats()
-	assert.Equal(t, stats.NumTrash, 1)
-	assert.Equal(t, stats.LenTrash, rec.Length)
-	assert.Equal(t, stats.AvgTrash, float64(rec.Length))
 }
 
 func TestHashtbl_Full(t *testing.T) {
-	const lrec = 10 // 1k records
-
 	ctx := context.Background()
-	h := newTestHashtbl(t, lrec)
+	h := newTestHashtbl(t, hashtbl_minLogSlots)
 	defer h.Close()
 
 	// fill the table completely.
-	for i := 0; i < 1<<lrec; i++ {
+	for i := 0; i < 1<<hashtbl_minLogSlots; i++ {
 		h.AssertInsert()
 	}
 	assert.Equal(t, h.Load(), 1.0)
@@ -123,27 +112,15 @@ func TestHashtbl_Full(t *testing.T) {
 }
 
 func TestHashtbl_LostPage(t *testing.T) {
-	const lrec = 8 // 256 records (4 pages)
-
-	assert.Equal(t, 1<<lrec, 4*recordsPerPage) // ensure it's 4 pages.
+	const lrec = 14 // 16k records (256 pages)
 
 	ctx := context.Background()
 	h := newTestHashtbl(t, lrec)
 	defer h.Close()
 
 	// create two keys that collide at the end of the first page.
-	k0 := Key{0: recordsPerPage - 1}
-	k1 := Key{0: recordsPerPage - 1, 31: 1}
-
-	// ensure the index for the first key is the last record of the first page.
-	pi0, ri0 := h.pageIndex(h.keyIndex(&k0))
-	assert.Equal(t, pi0, 0)
-	assert.Equal(t, ri0, recordsPerPage-1)
-
-	// ensure the index for the second key is the same.
-	pi1, ri1 := h.pageIndex(h.keyIndex(&k1))
-	assert.Equal(t, pi1, 0)
-	assert.Equal(t, ri1, recordsPerPage-1)
+	k0 := newKeyAt(h.HashTbl, 0, recordsPerPage-1, 0)
+	k1 := newKeyAt(h.HashTbl, 0, recordsPerPage-1, 1)
 
 	// insert the first key.
 	ok, err := h.Insert(ctx, newRecord(k0))
@@ -158,9 +135,8 @@ func TestHashtbl_LostPage(t *testing.T) {
 	h.AssertLookup(k1)
 
 	// zero out the first page manually and invalidate the page cache.
-	_, err = h.fh.WriteAt(make([]byte, pageSize), pageSize) // offset=pSize to skip the header page.
+	_, err = h.fh.WriteAt(make([]byte, pageSize), headerSize) // offset=headerSize to skip the header page.
 	assert.NoError(t, err)
-	h.invalidatePageCache()
 
 	// we should still be able to read the second key.
 	h.AssertLookup(k1)
@@ -172,25 +148,27 @@ func TestHashtbl_LostPage(t *testing.T) {
 }
 
 func TestHashtbl_SmallFileSizes(t *testing.T) {
+	ctx := context.Background()
+
 	fh, err := os.Create(filepath.Join(t.TempDir(), "tmp"))
 	assert.NoError(t, err)
 	defer func() { _ = fh.Close() }()
 
-	_, err = OpenHashtbl(fh)
+	_, err = OpenHashtbl(ctx, fh)
 	assert.Error(t, err)
 
-	assert.NoError(t, fh.Truncate(pageSize))
-	_, err = OpenHashtbl(fh)
+	assert.NoError(t, fh.Truncate(headerSize))
+	_, err = OpenHashtbl(ctx, fh)
 	assert.Error(t, err)
 
-	assert.NoError(t, fh.Truncate(pageSize+(pageSize-1)))
-	_, err = OpenHashtbl(fh)
+	assert.NoError(t, fh.Truncate(headerSize+(pageSize-1)))
+	_, err = OpenHashtbl(ctx, fh)
 	assert.Error(t, err)
 }
 
 func TestHashtbl_OverwriteMergeRecords(t *testing.T) {
 	ctx := context.Background()
-	h := newTestHashtbl(t, 10)
+	h := newTestHashtbl(t, hashtbl_minLogSlots)
 	defer h.Close()
 
 	// create a new record with a non-zero expiration.
@@ -241,7 +219,7 @@ func TestHashtbl_OverwriteMergeRecords(t *testing.T) {
 
 func TestHashtbl_RangeExitEarly(t *testing.T) {
 	ctx := context.Background()
-	h := newTestHashtbl(t, 10)
+	h := newTestHashtbl(t, hashtbl_minLogSlots)
 	defer h.Close()
 
 	// insert some records to range over.
@@ -251,52 +229,45 @@ func TestHashtbl_RangeExitEarly(t *testing.T) {
 
 	// only iterate through 10 records and then exit early.
 	n := 0
-	h.Range(ctx, func(r Record, err error) bool {
+	assert.NoError(t, h.Range(ctx, func(ctx context.Context, r Record) (bool, error) {
 		n++
-		return n < 10
-	})
+		return n < 10, nil
+	}))
 }
 
-func TestHashtbl_LRecTooLarge(t *testing.T) {
-	fh, err := os.CreateTemp(t.TempDir(), "hashtbl")
-	assert.NoError(t, err)
-	defer func() { _ = fh.Close() }()
+func TestHashtbl_LRecBounds(t *testing.T) {
+	ctx := context.Background()
 
-	_, err = CreateHashtbl(fh, 57, 0)
+	_, err := CreateHashtbl(ctx, nil, hashtbl_maxLogSlots+1, 0)
+	assert.Error(t, err)
+
+	_, err = CreateHashtbl(ctx, nil, hashtbl_minLogSlots-1, 0)
 	assert.Error(t, err)
 }
 
 func TestHashtbl_GrowthRetainsOrder(t *testing.T) {
-	h0 := newTestHashtbl(t, 8)
+	h0 := newTestHashtbl(t, 14)
 	defer h0.Close()
 
-	h1 := newTestHashtbl(t, 9)
+	h1 := newTestHashtbl(t, 15)
 	defer h1.Close()
 
 	for i := 0; i < 1000; i++ {
 		k := newKey()
-		k0 := h0.keyIndex(&k)
-		k1 := h1.keyIndex(&k)
+		k0 := h0.slotForKey(&k)
+		k1 := h1.slotForKey(&k)
 		assert.True(t, k1 == 2*k0 || k1 == 2*k0+1)
 	}
 }
 
 func TestHashtbl_Wraparound(t *testing.T) {
-	h := newTestHashtbl(t, 8)
+	h := newTestHashtbl(t, hashtbl_minLogSlots)
 	defer h.Close()
-
-	// newEndKey creates a key that has a keyIndex of 255.
-	newEndKey := func() Key {
-		k := newKey()
-		k[0] = 255
-		assert.Equal(t, h.keyIndex(&k), 255)
-		return k
-	}
 
 	// insert a bunch of keys that collide into the last slot.
 	var keys []Key
 	for i := 0; i < 10; i++ {
-		k := newEndKey()
+		k := newKeyAt(h.HashTbl, 1<<hashtbl_minLogSlots/recordsPerPage-1, recordsPerPage-1, uint8(i))
 		keys = append(keys, k)
 		h.AssertInsertRecord(newRecord(k))
 	}
@@ -305,6 +276,76 @@ func TestHashtbl_Wraparound(t *testing.T) {
 	for _, k := range keys {
 		h.AssertLookup(k)
 	}
+}
+
+func TestHashtbl_ResizeDoesNotBiasEstimate(t *testing.T) {
+	ctx := context.Background()
+	h0 := newTestHashtbl(t, hashtbl_minLogSlots)
+	defer h0.Close()
+
+	for i := 0; i < 1<<hashtbl_minLogSlots/2; i++ {
+		h0.AssertInsert()
+	}
+
+	h1 := newTestHashtbl(t, hashtbl_minLogSlots+1)
+	defer h1.Close()
+
+	assert.NoError(t, h0.Range(ctx, func(ctx context.Context, rec Record) (bool, error) {
+		ok, err := h1.Insert(ctx, rec)
+		assert.That(t, ok)
+		assert.NoError(t, err)
+		return true, nil
+	}))
+
+	h1.AssertReopen()
+	t.Logf("%v", h1.Load())
+	assert.That(t, h1.Load() >= 0.1)
+	assert.That(t, h1.Load() <= 0.3)
+}
+
+func TestHashtbl_RandomDistributionOfSequentialKeys(t *testing.T) {
+	h := newTestHashtbl(t, hashtbl_minLogSlots)
+	defer h.Close()
+
+	// load keys into the hash table that would be sequential with no hashing.
+	var k Key
+	for i := 0; i < 1<<hashtbl_minLogSlots/8; i++ {
+		binary.BigEndian.PutUint64(k[0:8], uint64(i)<<(64-hashtbl_minLogSlots))
+		h.AssertInsertRecord(newRecord(k))
+	}
+
+	// ensure no 4096 byte page is empty. the probability of any page being empty with a random distribution
+	// is less than 2^50.
+	var p [4096]byte
+	for offset := int64(headerSize); offset < int64(hashtblSize(hashtbl_minLogSlots)); offset += int64(len(p)) {
+		_, err := h.fh.ReadAt(p[:], offset)
+		assert.NoError(t, err)
+		if p == ([4096]byte{}) {
+			t.Fatal("empty page found")
+		}
+	}
+}
+
+func TestHashtbl_EstimateWithNonuniformTable(t *testing.T) {
+	h := newTestHashtbl(t, hashtbl_minLogSlots)
+	defer h.Close()
+
+	// completely fill the table.
+	for i := 0; i < 1<<hashtbl_minLogSlots; i++ {
+		h.AssertInsert()
+	}
+
+	// overwrite the first half of the table with zeros.
+	_, err := h.fh.WriteAt(make([]byte, (hashtblSize(hashtbl_minLogSlots)-headerSize)/2), headerSize)
+	assert.NoError(t, err)
+
+	// the load should be around 0.5 after recomputing the estimates. it's hard to get a good value
+	// for the load that won't fail sometimes, but the probability of all of the pages sampled are
+	// in the first (or second) half is ~1/2^2048 so this should never fail.
+	h.AssertReopen()
+	t.Logf("%v", h.Load())
+	assert.That(t, h.Load() != 0)
+	assert.That(t, h.Load() != 1)
 }
 
 //
@@ -364,11 +405,10 @@ func BenchmarkHashtbl(b *testing.B) {
 			h.AssertInsert()
 		}
 		var recs []Record
-		h.Range(ctx, func(rec Record, err error) bool {
-			assert.NoError(b, err)
+		assert.NoError(b, h.Range(ctx, func(ctx context.Context, rec Record) (bool, error) {
 			recs = append(recs, rec)
-			return true
-		})
+			return true, nil
+		}))
 
 		b.ReportAllocs()
 		b.ResetTimer()
@@ -376,9 +416,14 @@ func BenchmarkHashtbl(b *testing.B) {
 
 		for i := 0; i < b.N; i++ {
 			h := newTestHashtbl(b, lrec+1)
+			flush, _, err := h.ExpectOrdered(ctx)
+			assert.NoError(b, err)
+
 			for _, rec := range recs {
 				h.AssertInsertRecord(rec)
 			}
+
+			assert.NoError(b, flush())
 			h.Close()
 		}
 

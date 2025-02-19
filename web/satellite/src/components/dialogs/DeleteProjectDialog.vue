@@ -8,6 +8,7 @@
         max-width="450px"
         transition="fade-transition"
         persistent
+        scrollable
     >
         <v-card rounded="xlg">
             <v-sheet>
@@ -39,145 +40,147 @@
 
             <v-divider />
 
-            <v-window v-model="step">
-                <v-window-item :value="DeleteProjectStep.InitStep">
-                    <v-form class="pa-6" @submit.prevent>
-                        <v-row>
-                            <v-col>
-                                <p class="font-weight-bold mb-4">
-                                    You are about to delete your project.
-                                </p>
-                                <p>Project:</p>
-                                <v-chip variant="tonal">
-                                    {{ project.name }}
-                                </v-chip>
-                            </v-col>
-                        </v-row>
-                    </v-form>
-                </v-window-item>
+            <v-card-text class="pa-0">
+                <v-window v-model="step">
+                    <v-window-item :value="DeleteProjectStep.InitStep">
+                        <v-form class="pa-6" @submit.prevent>
+                            <v-row>
+                                <v-col>
+                                    <p class="font-weight-bold mb-4">
+                                        You are about to delete your project.
+                                    </p>
+                                    <p>Project:</p>
+                                    <v-chip variant="tonal">
+                                        {{ project.name }}
+                                    </v-chip>
+                                </v-col>
+                            </v-row>
+                        </v-form>
+                    </v-window-item>
 
-                <v-window-item :value="DeleteProjectStep.DeleteBucketsStep">
-                    <v-form class="pa-6">
-                        <v-row>
-                            <v-col>
-                                <p class="font-weight-bold mb-4">
-                                    Before we proceed with your project deletion request,
-                                    please delete all of your data and buckets.
-                                </p>
-                                <p class="font-weight-bold mb-4">Total buckets: <v-chip color="error">{{ buckets }}</v-chip></p>
-                                <v-alert variant="tonal" type="info">
-                                    Once you delete all of your buckets, then you can proceed with project deletion.
-                                </v-alert>
-                            </v-col>
-                        </v-row>
-                    </v-form>
-                </v-window-item>
+                    <v-window-item :value="DeleteProjectStep.DeleteBucketsStep">
+                        <v-form class="pa-6">
+                            <v-row>
+                                <v-col>
+                                    <p class="font-weight-bold mb-4">
+                                        Before we proceed with your project deletion request,
+                                        please delete all of your data and buckets.
+                                    </p>
+                                    <p class="font-weight-bold mb-4">Total buckets: <v-chip color="error">{{ buckets }}</v-chip></p>
+                                    <v-alert variant="tonal" type="info">
+                                        Once you delete all of your buckets, then you can proceed with project deletion.
+                                    </v-alert>
+                                </v-col>
+                            </v-row>
+                        </v-form>
+                    </v-window-item>
 
-                <v-window-item :value="DeleteProjectStep.DeleteAccessKeysStep">
-                    <v-form class="pa-6">
-                        <v-row>
-                            <v-col>
-                                <p class="font-weight-bold mb-4">
-                                    Before we proceed with your project deletion request,
-                                    please delete all of your access keys:
-                                </p>
-                                <p class="font-weight-bold mb-4">Total access keys: <v-chip color="error">{{ apiKeys }}</v-chip></p>
-                                <v-alert variant="tonal" type="info">
-                                    Once you delete all of your access keys, then you can proceed with project deletion.
-                                </v-alert>
-                            </v-col>
-                        </v-row>
-                    </v-form>
-                </v-window-item>
+                    <v-window-item :value="DeleteProjectStep.DeleteAccessKeysStep">
+                        <v-form class="pa-6">
+                            <v-row>
+                                <v-col>
+                                    <p class="font-weight-bold mb-4">
+                                        Before we proceed with your project deletion request,
+                                        please delete all of your access keys:
+                                    </p>
+                                    <p class="font-weight-bold mb-4">Total access keys: <v-chip color="error">{{ apiKeys }}</v-chip></p>
+                                    <v-alert variant="tonal" type="info">
+                                        Once you delete all of your access keys, then you can proceed with project deletion.
+                                    </v-alert>
+                                </v-col>
+                            </v-row>
+                        </v-form>
+                    </v-window-item>
 
-                <v-window-item :value="DeleteProjectStep.WaitForInvoicingStep">
-                    <v-form class="pa-6">
-                        <v-row>
-                            <v-col>
-                                <p class="font-weight-bold mb-4">
-                                    There's some recent usage in your project that hasn't been billed yet. To delete your project, please
-                                    follow these steps:
-                                </p>
-                                <p class="mb-4">1. Please wait until the end of the current billing cycle (typically the end of the month).</p>
-                                <p class="mb-4">2. We'll generate your invoice early in the following month (usually around the 4th day).</p>
-                            </v-col>
-                        </v-row>
-                    </v-form>
-                </v-window-item>
+                    <v-window-item :value="DeleteProjectStep.WaitForInvoicingStep">
+                        <v-form class="pa-6">
+                            <v-row>
+                                <v-col>
+                                    <p class="font-weight-bold mb-4">
+                                        There's some recent usage in your project that hasn't been billed yet. To delete your project, please
+                                        follow these steps:
+                                    </p>
+                                    <p class="mb-4">1. Please wait until the end of the current billing cycle (typically the end of the month).</p>
+                                    <p class="mb-4">2. We'll generate your invoice early in the following month (usually around the 4th day).</p>
+                                </v-col>
+                            </v-row>
+                        </v-form>
+                    </v-window-item>
 
-                <v-window-item :value="DeleteProjectStep.VerifyPasswordStep">
-                    <v-form ref="passwordForm" class="pa-6" @submit.prevent>
-                        <v-row>
-                            <v-col>
-                                <p>Enter your account password to continue.</p>
-                                <v-text-field
-                                    v-model="password"
-                                    type="password"
-                                    label="Password"
-                                    class="mt-6"
-                                    :rules="[RequiredRule]"
-                                    required
-                                />
-                            </v-col>
-                        </v-row>
-                    </v-form>
-                </v-window-item>
+                    <v-window-item :value="DeleteProjectStep.VerifyPasswordStep">
+                        <v-form ref="passwordForm" class="pa-6" @submit.prevent>
+                            <v-row>
+                                <v-col>
+                                    <p>Enter your account password to continue.</p>
+                                    <v-text-field
+                                        v-model="password"
+                                        type="password"
+                                        label="Password"
+                                        class="mt-6"
+                                        :rules="[RequiredRule]"
+                                        required
+                                    />
+                                </v-col>
+                            </v-row>
+                        </v-form>
+                    </v-window-item>
 
-                <v-window-item v-if="user.isMFAEnabled" :value="DeleteProjectStep.Verify2faStep">
-                    <v-form class="pa-6" @submit.prevent>
-                        <v-row>
-                            <v-col>
-                                <p>Enter the code from your 2FA application.</p>
-                                <v-otp-input
-                                    ref="otpInput2fa"
-                                    :model-value="code2fa"
-                                    class="mt-6"
-                                    type="number"
-                                    maxlength="6"
-                                    :error="isOTPInputError"
-                                    @update:modelValue="value => onOTPValueChange(value)"
-                                />
-                            </v-col>
-                        </v-row>
-                    </v-form>
-                </v-window-item>
+                    <v-window-item v-if="user.isMFAEnabled" :value="DeleteProjectStep.Verify2faStep">
+                        <v-form class="pa-6" @submit.prevent>
+                            <v-row>
+                                <v-col>
+                                    <p>Enter the code from your 2FA application.</p>
+                                    <v-otp-input
+                                        ref="otpInput2fa"
+                                        :model-value="code2fa"
+                                        class="mt-6"
+                                        type="number"
+                                        maxlength="6"
+                                        :error="isOTPInputError"
+                                        @update:model-value="value => onOTPValueChange(value)"
+                                    />
+                                </v-col>
+                            </v-row>
+                        </v-form>
+                    </v-window-item>
 
-                <v-window-item :value="DeleteProjectStep.VerifyEmailStep">
-                    <v-form class="pa-6" @submit.prevent>
-                        <v-row>
-                            <v-col>
-                                <p>Enter the 6-digit code you received on email.</p>
-                                <v-otp-input
-                                    ref="otpInputVerify"
-                                    :model-value="verifyEmailCode"
-                                    class="mt-6"
-                                    type="number"
-                                    maxlength="6"
-                                    :error="isOTPInputError"
-                                    @update:modelValue="value => onOTPValueChange(value)"
-                                />
-                            </v-col>
-                        </v-row>
-                    </v-form>
-                </v-window-item>
+                    <v-window-item :value="DeleteProjectStep.VerifyEmailStep">
+                        <v-form class="pa-6" @submit.prevent>
+                            <v-row>
+                                <v-col>
+                                    <p>Enter the 6-digit code you received on email.</p>
+                                    <v-otp-input
+                                        ref="otpInputVerify"
+                                        :model-value="verifyEmailCode"
+                                        class="mt-6"
+                                        type="number"
+                                        maxlength="6"
+                                        :error="isOTPInputError"
+                                        @update:model-value="value => onOTPValueChange(value)"
+                                    />
+                                </v-col>
+                            </v-row>
+                        </v-form>
+                    </v-window-item>
 
-                <v-window-item :value="DeleteProjectStep.ConfirmDeleteStep">
-                    <v-form class="pa-6" @submit.prevent>
-                        <v-row>
-                            <v-col>
-                                <p>Please confirm that you want to delete your project.</p>
-                                <v-chip
-                                    variant="tonal"
-                                    class="my-4 font-weight-bold"
-                                >
-                                    {{ project.name }}
-                                </v-chip>
-                                <v-checkbox-btn v-model="isDeleteConfirmed" label="I want to delete this project." density="compact" />
-                            </v-col>
-                        </v-row>
-                    </v-form>
-                </v-window-item>
-            </v-window>
+                    <v-window-item :value="DeleteProjectStep.ConfirmDeleteStep">
+                        <v-form class="pa-6" @submit.prevent>
+                            <v-row>
+                                <v-col>
+                                    <p>Please confirm that you want to delete your project.</p>
+                                    <v-chip
+                                        variant="tonal"
+                                        class="my-4 font-weight-bold"
+                                    >
+                                        {{ project.name }}
+                                    </v-chip>
+                                    <v-checkbox-btn v-model="isDeleteConfirmed" label="I want to delete this project." density="compact" />
+                                </v-col>
+                            </v-row>
+                        </v-form>
+                    </v-window-item>
+                </v-window>
+            </v-card-text>
 
             <v-divider />
 
@@ -256,6 +259,7 @@ import {
     VCardActions,
     VCardItem,
     VCardTitle,
+    VCardText,
     VCheckboxBtn,
     VChip,
     VCol,

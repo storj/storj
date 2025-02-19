@@ -1,7 +1,7 @@
 // Copyright (C) 2023 Storj Labs, Inc.
 // See LICENSE for copying information.
 
-import { reactive } from 'vue';
+import { computed, reactive } from 'vue';
 import { defineStore } from 'pinia';
 
 import {
@@ -16,6 +16,7 @@ import {
 import { ProjectMembersHttpApi } from '@/api/projectMembers';
 import { SortDirection } from '@/types/common';
 import { DEFAULT_PAGE_LIMIT } from '@/types/pagination';
+import { useConfigStore } from '@/store/modules/configStore';
 
 export class ProjectMembersState {
     public cursor: ProjectMemberCursor = new ProjectMemberCursor();
@@ -29,12 +30,15 @@ export const useProjectMembersStore = defineStore('projectMembers', () => {
 
     const api: ProjectMembersApi = new ProjectMembersHttpApi();
 
+    const configStore = useConfigStore();
+    const csrfToken = computed<string>(() => configStore.state.config.csrfToken);
+
     async function inviteMember(email: string, projectID: string): Promise<void> {
-        await api.invite(projectID, email);
+        await api.invite(projectID, email, csrfToken.value);
     }
 
     async function reinviteMembers(emails: string[], projectID: string): Promise<void> {
-        await api.reinvite(projectID, emails);
+        await api.reinvite(projectID, emails, csrfToken.value);
     }
 
     async function getInviteLink(email: string, projectID: string): Promise<string> {
@@ -46,7 +50,7 @@ export const useProjectMembersStore = defineStore('projectMembers', () => {
     }
 
     async function updateRole(projectID: string, memberID: string, role: ProjectRole): Promise<void> {
-        const updatedMember = await api.updateRole(projectID, memberID, role);
+        const updatedMember = await api.updateRole(projectID, memberID, role, csrfToken.value);
 
         state.page.projectMembers?.forEach(pr => {
             if (pr.id === updatedMember.id) pr.role = updatedMember.role;
@@ -55,11 +59,11 @@ export const useProjectMembersStore = defineStore('projectMembers', () => {
 
     async function deleteProjectMembers(projectID: string, customSelected?: string[]): Promise<void> {
         if (customSelected && customSelected.length) {
-            await api.delete(projectID, customSelected);
+            await api.delete(projectID, customSelected, csrfToken.value);
             return;
         }
 
-        await api.delete(projectID, state.selectedProjectMembersEmails);
+        await api.delete(projectID, state.selectedProjectMembersEmails, csrfToken.value);
 
         clearProjectMemberSelection();
     }

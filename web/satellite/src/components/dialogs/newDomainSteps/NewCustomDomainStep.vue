@@ -5,7 +5,7 @@
     <v-form ref="form" class="pa-7 pb-3" @submit.prevent="() => emit('submit')">
         <v-row>
             <v-col cols="12">
-                <p class="mb-3">Enter your domain name (URL)</p>
+                <p class="mb-4">Enter your domain name (URL)</p>
                 <v-text-field
                     v-model="domain"
                     label="Website URL"
@@ -18,7 +18,7 @@
             </v-col>
 
             <v-col>
-                <p class="mb-3">Select a bucket to share files</p>
+                <p class="mb-4">Select a bucket to share files</p>
                 <v-autocomplete
                     v-model="bucket"
                     :items="allBucketNames"

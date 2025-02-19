@@ -56,7 +56,7 @@ export type Application = {
     category: AppCategory
     src: string
     docs: string
-}
+};
 
 export const UplinkApp: Application = {
     name: 'Storj Uplink CLI',

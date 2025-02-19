@@ -16,6 +16,7 @@ import { useUsersStore } from '@/store/modules/usersStore';
 import { useNotificationsStore } from '@/store/modules/notificationsStore';
 import { useProjectsStore } from '@/store/modules/projectsStore';
 import { useObjectBrowserStore } from '@/store/modules/objectBrowserStore';
+import { useConfigStore } from '@/store/modules/configStore';
 
 export function useLogout() {
     const auth: AuthHttpApi = new AuthHttpApi();
@@ -31,6 +32,7 @@ export function useLogout() {
     const notificationsStore = useNotificationsStore();
     const projectsStore = useProjectsStore();
     const obStore = useObjectBrowserStore();
+    const configStore = useConfigStore();
 
     async function clearStores(): Promise<void> {
         await Promise.all([
@@ -49,7 +51,7 @@ export function useLogout() {
 
     async function logout(): Promise<void> {
         analyticsStore.eventTriggered(AnalyticsEvent.LOGOUT_CLICKED);
-        await auth.logout();
+        await auth.logout(configStore.state.config.csrfToken);
 
         await clearStores();
 

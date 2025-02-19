@@ -5,15 +5,11 @@ package migrate
 
 import (
 	"context"
-	"crypto/rand"
 	"database/sql"
-	"encoding/hex"
 	"errors"
 	"fmt"
-	"regexp"
 	"strings"
 
-	spannerdriver "github.com/googleapis/go-sql-spanner"
 	"github.com/zeebo/errs"
 
 	"storj.io/storj/shared/dbutil/txutil"
@@ -64,7 +60,7 @@ func Create(ctx context.Context, identifier string, db DBX) error {
 }
 
 // CreateSpanner creates the migration schema necessary to execute migrations in Spanner.
-func CreateSpanner(ctx context.Context, identifier string, db DBX, forEmulator bool) error {
+func CreateSpanner(ctx context.Context, identifier string, db DBX) error {
 	schema := strings.Join(db.Schema(), ";\n")
 
 	// Spanner does not support DDL in transactions https://github.com/googleapis/go-sql-spanner?tab=readme-ov-file#ddl-statements
@@ -90,42 +86,18 @@ func CreateSpanner(ctx context.Context, identifier string, db DBX, forEmulator b
 			}
 		}()
 
-		if err := conn.Raw(ctx, func(driverConn interface{}) error {
-			// Get the Spanner connection interface and start a DDL batch on the connection.
-			return driverConn.(spannerdriver.SpannerConn).StartBatchDDL()
-		}); err != nil {
-			return fmt.Errorf("conn.Raw failed: %w", err)
+		if _, err := conn.ExecContext(ctx, "START BATCH DDL"); err != nil {
+			return fmt.Errorf("START BATCH DDL failed: %w", err)
 		}
 
-		// TODO(spanner): workaround for bug in spanner emulator where
-		// sequence names collide between databases.
-		var uniqueSuffix string
-
 		for _, schemaDDL := range db.Schema() {
-			if forEmulator {
-				if uniqueSuffix == "" {
-					uniqueSuffix = generateUniqueSuffix()
-				}
-
-				if strings.Contains(schemaDDL, "SEQUENCE") {
-					schemaDDL = rxSpannerCreateSequence.ReplaceAllStringFunc(schemaDDL, func(match string) string {
-						return match + "_" + uniqueSuffix
-					})
-					schemaDDL = rxSpannerNextSequence.ReplaceAllStringFunc(schemaDDL, func(match string) string {
-						return match + "_" + uniqueSuffix
-					})
-				}
-			}
-
 			if _, err := conn.ExecContext(ctx, schemaDDL); err != nil {
 				return err
 			}
 		}
 
-		if err := conn.Raw(ctx, func(driverConn interface{}) error {
-			return driverConn.(spannerdriver.SpannerConn).RunBatch(ctx)
-		}); err != nil {
-			return Error.New("conn.Raw failed: %w", err)
+		if _, err := conn.ExecContext(ctx, "RUN BATCH"); err != nil {
+			return fmt.Errorf("RUN BATCH failed: %w", err)
 		}
 
 		if _, err := db.ExecContext(ctx, db.Rebind(`INSERT INTO table_schemas(id, schemaText) VALUES (?, ?);`), identifier, schema); err != nil {
@@ -144,14 +116,3 @@ func CreateSpanner(ctx context.Context, identifier string, db DBX, forEmulator b
 
 	return Error.Wrap(err)
 }
-
-func generateUniqueSuffix() string {
-	var uniqueSuffix [8]byte
-	_, _ = rand.Read(uniqueSuffix[:])
-	return hex.EncodeToString(uniqueSuffix[:])
-}
-
-var (
-	rxSpannerCreateSequence = regexp.MustCompile(`CREATE SEQUENCE ([a-zA-Z_]+)`)
-	rxSpannerNextSequence   = regexp.MustCompile(`GET_NEXT_SEQUENCE_VALUE\(SEQUENCE ([a-zA-Z_]+)`)
-)

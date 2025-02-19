@@ -2,7 +2,7 @@
 // See LICENSE for copying information.
 
 <template>
-    <v-card>
+    <v-card class="pa-4">
         <v-text-field
             v-model="search"
             label="Search"
@@ -13,9 +13,8 @@
             hide-details
             clearable
             density="comfortable"
-            rounded="lg"
             :maxlength="MAX_SEARCH_VALUE_LENGTH"
-            class="mx-2 mt-2"
+            class="mb-4"
         />
 
         <v-data-table-server
@@ -28,13 +27,14 @@
             :item-value="(item: AccessGrant) => item"
             no-data-text="No results found"
             select-strategy="page"
+            hover
             show-select
-            @update:itemsPerPage="onUpdateLimit"
+            @update:items-per-page="onUpdateLimit"
             @update:page="onUpdatePage"
-            @update:sortBy="onUpdateSortBy"
+            @update:sort-by="onUpdateSortBy"
         >
             <template #item.name="{ item }">
-                <span class="font-weight-bold">
+                <span class="font-weight-medium">
                     {{ item.name }}
                 </span>
             </template>
@@ -212,7 +212,7 @@ function onUpdatePage(page: number): void {
 /**
  * Handles update table sorting event.
  */
-function onUpdateSortBy(sortBy: {key: keyof AccessGrantsOrderBy, order: keyof SortDirection}[]): void {
+function onUpdateSortBy(sortBy: { key: keyof AccessGrantsOrderBy, order: keyof SortDirection }[]): void {
     if (!sortBy.length) return;
 
     const sorting = sortBy[0];

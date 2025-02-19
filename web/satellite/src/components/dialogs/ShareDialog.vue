@@ -45,36 +45,69 @@
                             Public link sharing. Allows anyone with the link to view your shared {{ shareText.toLowerCase() }}.
                         </v-alert>
                     </v-col>
-                    <v-col cols="12">
-                        <p class="text-subtitle-2 font-weight-bold mb-1">Share via</p>
-                        <v-chip-group class="mx-n1" column>
-                            <v-chip
-                                v-for="opt in ShareOptions"
-                                :key="opt"
-                                :color="SHARE_BUTTON_CONFIGS[opt].color"
-                                :href="SHARE_BUTTON_CONFIGS[opt].getLink(link)"
-                                target="_blank"
-                                rel="noopener noreferrer"
-                                link
-                                class="ma-1 font-weight-medium"
-                            >
-                                <component
-                                    :is="SHARE_BUTTON_CONFIGS[opt].icon"
-                                    class="share-dialog__content__icon"
-                                    size="16"
-                                />
-                                {{ opt }}
-                            </v-chip>
-                        </v-chip-group>
+                    <v-col v-if="showEmbedCode" cols="12">
+                        <v-tabs
+                            v-model="shareTab"
+                            color="primary"
+                            center-active
+                        >
+                            <v-tab>
+                                Share Link
+                            </v-tab>
+                            <v-tab>
+                                Embed Code
+                            </v-tab>
+                        </v-tabs>
                     </v-col>
+                    <v-col cols="12" class="pt-0">
+                        <v-window v-model="shareTab" :disabled="!showEmbedCode">
+                            <v-window-item :value="ShareTab.Link">
+                                <p class="text-subtitle-2 font-weight-bold mb-1">Share via</p>
+                                <v-chip-group class="mx-n1" column>
+                                    <v-chip
+                                        v-for="opt in ShareOptions"
+                                        :key="opt"
+                                        :color="SHARE_BUTTON_CONFIGS[opt].color"
+                                        :href="SHARE_BUTTON_CONFIGS[opt].getLink(link)"
+                                        target="_blank"
+                                        rel="noopener noreferrer"
+                                        link
+                                        class="ma-1 font-weight-medium"
+                                    >
+                                        <component
+                                            :is="SHARE_BUTTON_CONFIGS[opt].icon"
+                                            class="share-dialog__content__icon"
+                                            size="16"
+                                        />
+                                        {{ opt }}
+                                    </v-chip>
+                                </v-chip-group>
 
-                    <v-col cols="12">
-                        <p class="text-subtitle-2 font-weight-bold mb-2">Shared link</p>
-                        <v-textarea :model-value="link" variant="solo-filled" rounded="lg" hide-details="auto" rows="1" auto-grow no-resize flat readonly class="text-caption">
-                            <template #append-inner>
-                                <input-copy-button :value="link" />
-                            </template>
-                        </v-textarea>
+                                <p class="text-subtitle-2 font-weight-bold mb-2 mt-4">Shared link</p>
+                                <v-textarea :model-value="link" variant="solo-filled" rounded="lg" hide-details="auto" rows="1" auto-grow no-resize flat readonly class="text-caption">
+                                    <template #append-inner>
+                                        <input-copy-button :value="link" />
+                                    </template>
+                                </v-textarea>
+
+                                <template v-if="rawLink">
+                                    <p class="text-subtitle-2 font-weight-bold mb-2 mt-4">Direct link</p>
+                                    <v-textarea :model-value="rawLink" variant="solo-filled" rounded="lg" hide-details="auto" rows="1" auto-grow no-resize flat readonly class="text-caption">
+                                        <template #append-inner>
+                                            <input-copy-button :value="rawLink" />
+                                        </template>
+                                    </v-textarea>
+                                </template>
+                            </v-window-item>
+                            <v-window-item :value="ShareTab.Embed">
+                                <p class="text-subtitle-2 font-weight-bold mb-2">Embed code</p>
+                                <v-textarea :model-value="embedCode" variant="solo-filled" rounded="lg" hide-details="auto" rows="1" auto-grow no-resize flat readonly class="text-caption">
+                                    <template #append-inner>
+                                        <input-copy-button :value="embedCode" />
+                                    </template>
+                                </v-textarea>
+                            </v-window-item>
+                        </v-window>
                     </v-col>
                 </v-row>
             </div>
@@ -88,7 +121,7 @@
                             Close
                         </v-btn>
                     </v-col>
-                    <v-col>
+                    <v-col v-if="!rawLink">
                         <v-btn
                             :color="justCopied ? 'success' : 'primary'"
                             variant="flat"
@@ -122,7 +155,11 @@ import {
     VDivider,
     VRow,
     VSheet,
+    VTab,
+    VTabs,
     VTextarea,
+    VWindow,
+    VWindowItem,
 } from 'vuetify/components';
 import { Check, Copy, Share } from 'lucide-vue-next';
 
@@ -130,11 +167,16 @@ import { AnalyticsErrorEventSource, AnalyticsEvent } from '@/utils/constants/ana
 import { useAnalyticsStore } from '@/store/modules/analyticsStore';
 import { useNotify } from '@/utils/hooks';
 import { ShareType, useLinksharing } from '@/composables/useLinksharing';
-import { SHARE_BUTTON_CONFIGS, ShareOptions } from '@/types/browser';
+import { EXTENSION_PREVIEW_TYPES, PreviewType, SHARE_BUTTON_CONFIGS, ShareOptions } from '@/types/browser';
 import { BrowserObject } from '@/store/modules/objectBrowserStore';
 import { useBucketsStore } from '@/store/modules/bucketsStore';
 
 import InputCopyButton from '@/components/InputCopyButton.vue';
+
+enum ShareTab {
+    Link,
+    Embed,
+}
 
 const props = defineProps<{
     bucketName: string,
@@ -153,9 +195,11 @@ const bucketsStore = useBucketsStore();
 const notify = useNotify();
 const { generateBucketShareURL, generateFileOrFolderShareURL } = useLinksharing();
 
+const shareTab = ref<ShareTab>(ShareTab.Link);
 const innerContent = ref<VCard | null>(null);
 const isLoading = ref<boolean>(true);
 const link = ref<string>('');
+const rawLink = ref<string>('');
 
 const copiedTimeout = ref<ReturnType<typeof setTimeout> | null>(null);
 const justCopied = computed<boolean>(() => copiedTimeout.value !== null);
@@ -163,6 +207,39 @@ const justCopied = computed<boolean>(() => copiedTimeout.value !== null);
 const filePath = computed<string>(() => bucketsStore.state.fileComponentPath);
 
 const shareText = computed<string>(() => !props.file ? 'Bucket' : props.file.type === 'folder' ? 'Folder' : 'File');
+
+const fileType = computed<PreviewType>(() => {
+    if (!props.file) return PreviewType.None;
+
+    const dotIdx = props.file.Key.lastIndexOf('.');
+    if (dotIdx === -1) return PreviewType.None;
+
+    const ext = props.file.Key.toLowerCase().slice(dotIdx + 1);
+    for (const [exts, previewType] of EXTENSION_PREVIEW_TYPES) {
+        if (exts.includes(ext)) return previewType;
+    }
+
+    return PreviewType.None;
+});
+
+const showEmbedCode = computed<boolean>(() => {
+    return fileType.value === PreviewType.Video ||
+        fileType.value === PreviewType.Audio ||
+        fileType.value === PreviewType.Image;
+});
+
+const embedCode = computed<string>(() => {
+    switch (fileType.value) {
+    case PreviewType.Video:
+        return `<video src="${rawLink.value}" controls/>`;
+    case PreviewType.Audio:
+        return `<audio src="${rawLink.value}" controls/>`;
+    case PreviewType.Image:
+        return `<img src="${rawLink.value}" alt="Shared image" />`;
+    default:
+        return '';
+    }
+});
 
 /**
  * Saves link to clipboard.
@@ -182,12 +259,14 @@ function onCopy(): void {
  */
 watch(() => innerContent.value, async (comp: VCard | null): Promise<void> => {
     if (!comp) {
+        shareTab.value = ShareTab.Link;
         emit('contentRemoved');
         return;
     }
 
     isLoading.value = true;
     link.value = '';
+    rawLink.value = '';
     analyticsStore.eventTriggered(AnalyticsEvent.LINK_SHARED);
 
     try {
@@ -201,6 +280,9 @@ watch(() => innerContent.value, async (comp: VCard | null): Promise<void> => {
                 // TODO: replace magic string type of BrowserObject.type with some constant/enum.
                 props.file.type === 'folder' ? ShareType.Folder : ShareType.Object,
             );
+            // If the shared item is a file, generate a raw link.
+            // string.replace() replaces only the first occurrence of the substring.
+            if (props.file.type === 'file') rawLink.value = link.value.replace('/s/', '/raw/');
         }
     } catch (error) {
         error.message = `Unable to get sharing URL. ${error.message}`;

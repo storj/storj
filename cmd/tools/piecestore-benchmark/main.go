@@ -65,6 +65,8 @@ var (
 	flatFileTTLHandles = flag.Int("flat-ttl-max-handles", 1000, "max file handles to flat-file ttl store")
 	dedicatedDisk      = flag.Bool("dedicated-disk", false, "assume the test setup is a dedicated disk node")
 
+	backend = flag.String("backend", "", "empty|hash|hashstore")
+
 	cpuprofile = flag.String("cpuprofile", "", "write a cpu profile")
 	memprofile = flag.String("memprofile", "", "write a memory profile")
 	notrace    = flag.Bool("notrace", false, "disable tracing")
@@ -133,7 +135,7 @@ func createEndpoint(ctx context.Context, satIdent, snIdent *identity.FullIdentit
 	var expirationStore pieces.PieceExpirationDB
 	if *flatFileTTLStore {
 		cfg.Pieces.EnableFlatExpirationStore = true
-		expirationStore = try.E1(pieces.NewPieceExpirationStore(log.Named("piece-expiration"), nil, pieces.PieceExpirationConfig{
+		expirationStore = try.E1(pieces.NewPieceExpirationStore(log.Named("piece-expiration"), pieces.PieceExpirationConfig{
 			DataDir:               filepath.Join(cfg.Storage2.DatabaseDir, "pieceexpiration"),
 			ConcurrentFileHandles: *flatFileTTLHandles,
 		}))
@@ -150,16 +152,6 @@ func createEndpoint(ctx context.Context, satIdent, snIdent *identity.FullIdentit
 
 	contactService := contact.NewService(log, dialer, self, trustPool, contact.NewQUICStats(false), &pb.SignedNodeTagSets{})
 
-	var spaceReport monitor.SpaceReport
-
-	if *dedicatedDisk {
-		spaceReport = monitor.NewDedicatedDisk(log, cfg.Storage.Path, cfg.Storage2.Monitor.MinimumDiskSpace.Int64(), 100_000_000)
-	} else {
-		spaceReport = monitor.NewSharedDisk(log, piecesStore, cfg.Storage2.Monitor.MinimumDiskSpace.Int64(), 1<<40)
-	}
-
-	monitorService := monitor.NewService(log, piecesStore, contactService, time.Hour, spaceReport, cfg.Storage2.Monitor)
-
 	retainService := retain.NewService(log, piecesStore, cfg.Retain)
 
 	trashChore := pieces.NewTrashChore(log, 24*time.Hour, 7*24*time.Hour, trustPool, piecesStore)
@@ -169,7 +161,33 @@ func createEndpoint(ctx context.Context, satIdent, snIdent *identity.FullIdentit
 	usedSerials := usedserials.NewTable(cfg.Storage2.MaxUsedSerialsSize)
 
 	bandwidthdbCache := bandwidth.NewCache(snDB.Bandwidth())
-	endpoint := try.E1(piecestore.NewEndpoint(log, snIdent, trustPool, monitorService, retainService, new(contact.PingStats), piecestore.NewOldPieceBackend(piecesStore, trashChore, monitorService), ordersStore, bandwidthdbCache, usedSerials, cfg.Storage2))
+
+	bfm := try.E1(retain.NewBloomFilterManager("bfm", cfg.Retain.MaxTimeSkew))
+
+	rtm := retain.NewRestoreTimeManager("rtm")
+	hsb := try.E1(piecestore.NewHashStoreBackend(ctx, "hashstore", "", bfm, rtm, log))
+	mon.Chain(hsb)
+
+	var spaceReport monitor.SpaceReport
+	if *dedicatedDisk {
+		spaceReport = monitor.NewDedicatedDisk(log, cfg.Storage.Path, cfg.Storage2.Monitor.MinimumDiskSpace.Int64(), 100_000_000)
+	} else {
+		spaceReport = monitor.NewSharedDisk(log, piecesStore, hsb, cfg.Storage2.Monitor.MinimumDiskSpace.Int64(), 1<<40)
+	}
+
+	monitorService := monitor.NewService(log, piecesStore, contactService, spaceReport, cfg.Storage2.Monitor, cfg.Contact.CheckInTimeout)
+
+	opb := piecestore.NewOldPieceBackend(piecesStore, trashChore, monitorService)
+
+	var pieceBackend piecestore.PieceBackend
+	switch *backend {
+	case "hashstore", "hash":
+		pieceBackend = hsb
+	default:
+		pieceBackend = opb
+	}
+
+	endpoint := try.E1(piecestore.NewEndpoint(log, snIdent, trustPool, monitorService, []piecestore.QueueRetain{retainService, bfm}, new(contact.PingStats), pieceBackend, ordersStore, bandwidthdbCache, usedSerials, cfg.Storage2))
 	collectorService := collector.NewService(log, piecesStore, usedSerials, collector.Config{Interval: 1000 * time.Hour})
 
 	return endpoint, collectorService

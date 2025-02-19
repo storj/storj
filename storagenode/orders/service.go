@@ -96,7 +96,7 @@ type Service struct {
 
 	dialer      rpc.Dialer
 	ordersStore *FileStore
-	orders      DB
+
 	trustSource trust.TrustedSatelliteSource
 
 	Sender  *sync2.Cycle
@@ -104,12 +104,11 @@ type Service struct {
 }
 
 // NewService creates an order service.
-func NewService(log *zap.Logger, dialer rpc.Dialer, ordersStore *FileStore, orders DB, trustSource trust.TrustedSatelliteSource, config Config) *Service {
+func NewService(log *zap.Logger, dialer rpc.Dialer, ordersStore *FileStore, trustSource trust.TrustedSatelliteSource, config Config) *Service {
 	return &Service{
 		log:         log,
 		dialer:      dialer,
 		ordersStore: ordersStore,
-		orders:      orders,
 		config:      config,
 		trustSource: trustSource,
 
@@ -154,19 +153,13 @@ func (service *Service) CleanArchive(ctx context.Context, deleteBefore time.Time
 	defer mon.Task()(&ctx)(&err)
 	service.log.Debug("cleaning")
 
-	deleted, err := service.orders.CleanArchive(ctx, deleteBefore)
-	if err != nil {
-		service.log.Error("cleaning DB archive", zap.Error(err))
-		return nil
-	}
-
 	err = service.ordersStore.CleanArchive(deleteBefore)
 	if err != nil {
 		service.log.Error("cleaning filestore archive", zap.Error(err))
 		return nil
 	}
 
-	service.log.Debug("cleanup finished", zap.Int("items deleted", deleted))
+	service.log.Debug("cleanup finished")
 	return nil
 }
 

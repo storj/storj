@@ -4,11 +4,11 @@
 package hashstore
 
 import (
-	"context"
+	"io/fs"
 	"os"
 	"path/filepath"
+	"strconv"
 	"sync"
-	"sync/atomic"
 	"time"
 
 	"github.com/spacemonkeygo/monkit/v3"
@@ -29,23 +29,49 @@ func safeDivide(x, y float64) float64 {
 	return x / y
 }
 
+var signalClosed = Error.New("signal closed")
+
+func signalError(sig *drpcsignal.Signal) error {
+	if err, ok := sig.Get(); !ok {
+		return nil
+	} else if err != nil {
+		return err
+	}
+	return signalClosed
+}
+
 //
 // date/time helpers
 //
 
-// saturatingUint23 returns the uint32 value of x, saturating to the maximum if the conversion
-// would overflow or underflow. This is used to put a maximum date on expiration times and so that
-// if someone passes in an expiration way in the future it doesn't end up in the past.
-func saturatingUint23(x int64) uint32 {
-	if uint64(x) >= 1<<23-1 {
+// clampDate returns the uint32 value of d, saturating to the maximum if the conversion would
+// overflow and returning 1 if it is negative. This is used to put a maximum date on expiration
+// times and so that if someone passes in an expiration way in the future it doesn't end up in the
+// past, and if someone passes an expiration before 1970, it gets set to the minimum past value in
+// 1970.
+func clampDate(d int64) uint32 {
+	if d < 0 {
+		return 1
+	} else if uint64(d) >= 1<<23-1 {
 		return 1<<23 - 1
 	}
-	return uint32(x)
+	return uint32(d)
 }
 
-func timeToDateDown(t time.Time) uint32 { return saturatingUint23(t.Unix() / 86400) }
-func timeToDateUp(t time.Time) uint32   { return saturatingUint23((t.Unix() + 86400 - 1) / 86400) }
-func dateToTime(d uint32) time.Time     { return time.Unix(int64(d)*86400, 0).UTC() }
+// TimeToDateDown returns a number of days past the epoch that is less than or equal to t.
+func TimeToDateDown(t time.Time) uint32 { return clampDate(t.Unix() / 86400) }
+
+// TimeToDateUp returns a number of days past the epoch that is greater than or equal to t.
+func TimeToDateUp(t time.Time) uint32 { return clampDate((t.Unix() + 86400 - 1) / 86400) }
+
+// DateToTime returns the earliest time in the day for the given date.
+func DateToTime(d uint32) time.Time { return time.Unix(int64(d)*86400, 0).UTC() }
+
+// NormalizeTTL takes a time and returns a time that is an output of DateToTime that is larger than
+// or equal to the input time, for all times before the year 24937. In other words, it rounds up to
+// the closest time representable for a TTL, and rounds down if no such time is possible (i.e. times
+// after year 24937).
+func NormalizeTTL(t time.Time) time.Time { return DateToTime(TimeToDateUp(t)) }
 
 //
 // simple boolean flag that can be used to set once
@@ -60,6 +86,24 @@ func (f *flag) set() (old bool) {
 }
 
 //
+// helpers to get config values from the environment
+//
+
+func envFloat(name string, def float64) float64 {
+	if val, err := strconv.ParseFloat(os.Getenv(name), 64); err == nil {
+		return val
+	}
+	return def
+}
+
+func envInt(name string, def int64) int64 {
+	if val, err := strconv.ParseInt(os.Getenv(name), 10, 64); err == nil {
+		return val
+	}
+	return def
+}
+
+//
 // generic wrapper around sync.Map
 //
 
@@ -70,8 +114,12 @@ type atomicMap[K comparable, V any] struct {
 
 func (a *atomicMap[K, V]) Delete(k K)   { a.m.Delete(k) }
 func (a *atomicMap[K, V]) Set(k K, v V) { a.m.Store(k, v) }
-func (a *atomicMap[K, V]) Range(fn func(K, V) bool) {
-	a.m.Range(func(k, v any) bool { return fn(k.(K), v.(V)) })
+func (a *atomicMap[K, V]) Range(fn func(K, V) (bool, error)) (err error) {
+	a.m.Range(func(k, v any) (ok bool) {
+		ok, err = fn(k.(K), v.(V))
+		return ok && err == nil
+	})
+	return err
 }
 
 func (a *atomicMap[K, V]) LoadAndDelete(k K) (V, bool) {
@@ -88,120 +136,6 @@ func (a *atomicMap[K, V]) Lookup(k K) (V, bool) {
 		return *new(V), false
 	}
 	return v.(V), true
-}
-
-//
-// context/signal aware mutex
-//
-
-type mutex struct {
-	ch chan struct{}
-}
-
-func newMutex() *mutex {
-	return &mutex{ch: make(chan struct{}, 1)}
-}
-
-func (s *mutex) WaitLock() { s.ch <- struct{}{} }
-
-func (s *mutex) TryLock() bool {
-	select {
-	case s.ch <- struct{}{}:
-		return true
-	default:
-		return false
-	}
-}
-
-func (s *mutex) Lock(ctx context.Context, closed *drpcsignal.Signal) error {
-	if err := ctx.Err(); err != nil {
-		return err
-	} else if err := closed.Err(); err != nil {
-		return err
-	}
-	select {
-	case s.ch <- struct{}{}:
-		return nil
-	case <-closed.Signal():
-		return closed.Err()
-	case <-ctx.Done():
-		return ctx.Err()
-	}
-}
-
-func (s *mutex) Unlock() { <-s.ch }
-
-//
-// context/signal aware rw-mutex
-//
-
-type rwMutex struct {
-	wmu *mutex
-	rmu *mutex
-	rw  sync.RWMutex
-	rs  atomic.Int64
-}
-
-func newRWMutex() *rwMutex {
-	return &rwMutex{
-		wmu: newMutex(),
-		rmu: newMutex(),
-	}
-}
-
-func (m *rwMutex) RLock(ctx context.Context, closed *drpcsignal.Signal) error {
-	if err := ctx.Err(); err != nil {
-		return err
-	} else if err := closed.Err(); err != nil {
-		return err
-	}
-	for {
-		if m.rw.TryRLock() {
-			if m.rs.Add(1) == 1 {
-				m.rmu.WaitLock() // should not block because rs ensures we're the first reader.
-			}
-			return nil
-		}
-		if err := m.wmu.Lock(ctx, closed); err != nil {
-			return err
-		}
-		m.wmu.Unlock()
-	}
-}
-
-func (m *rwMutex) RUnlock() {
-	if m.rs.Add(-1) == 0 {
-		m.rmu.Unlock()
-	}
-	m.rw.RUnlock()
-}
-
-func (m *rwMutex) WaitLock() {
-	m.rw.Lock()
-	m.wmu.WaitLock()
-}
-
-func (m *rwMutex) Lock(ctx context.Context, closed *drpcsignal.Signal) error {
-	if err := ctx.Err(); err != nil {
-		return err
-	} else if err := closed.Err(); err != nil {
-		return err
-	}
-	for {
-		if m.rw.TryLock() {
-			m.wmu.WaitLock() // should not block because rwmutex is locked.
-			return nil
-		}
-		if err := m.rmu.Lock(ctx, closed); err != nil {
-			return err
-		}
-		m.rmu.Unlock()
-	}
-}
-
-func (m *rwMutex) Unlock() {
-	m.wmu.Unlock()
-	m.rw.Unlock()
 }
 
 //
@@ -223,6 +157,18 @@ func syncDirectory(dir string) {
 	}
 }
 
+// allFiles recursively collects all files in the given directory and returns
+// their full path.
+func allFiles(dir string) (paths []string, err error) {
+	err = filepath.WalkDir(dir, func(path string, d fs.DirEntry, err error) error {
+		if err == nil && !d.IsDir() {
+			paths = append(paths, path)
+		}
+		return err
+	})
+	return paths, Error.Wrap(err)
+}
+
 //
 // atomic file creation helper
 //
@@ -230,7 +176,7 @@ func syncDirectory(dir string) {
 type atomicFile struct {
 	*os.File
 
-	dir  string
+	tmp  string
 	name string
 
 	mu        sync.Mutex // protects the following fields
@@ -238,15 +184,18 @@ type atomicFile struct {
 	committed flag
 }
 
-func newAtomicFile(dir string, name string) (*atomicFile, error) {
-	fh, err := os.CreateTemp(dir, name+"-*.tmp")
+func newAtomicFile(name string) (*atomicFile, error) {
+	tmp := name + ".tmp"
+
+	fh, err := createFile(tmp)
 	if err != nil {
 		return nil, Error.Wrap(err)
 	}
+
 	return &atomicFile{
 		File: fh,
 
-		dir:  dir,
+		tmp:  tmp,
 		name: name,
 	}, nil
 }
@@ -255,22 +204,24 @@ func (a *atomicFile) Commit() (err error) {
 	a.mu.Lock()
 	defer a.mu.Unlock()
 
-	if a.committed.set() || a.canceled.get() {
+	if a.committed.set() {
 		return nil
+	} else if a.canceled.get() {
+		return Error.New("atomic file already canceled")
 	}
 
 	// attempt to unlink the temporary file if there are any commit errors.
 	defer func() {
 		if err != nil {
 			_ = a.Close()
-			_ = os.Remove(a.Name())
+			_ = os.Remove(a.tmp)
 		}
 	}()
 
 	if err := a.Sync(); err != nil {
 		return Error.Wrap(err)
 	}
-	if err := os.Rename(a.Name(), filepath.Join(a.dir, a.name)); err != nil {
+	if err := os.Rename(a.tmp, a.name); err != nil {
 		return Error.Wrap(err)
 	}
 
@@ -286,5 +237,5 @@ func (a *atomicFile) Cancel() {
 	}
 
 	_ = a.Close()
-	_ = os.Remove(a.Name())
+	_ = os.Remove(a.tmp)
 }

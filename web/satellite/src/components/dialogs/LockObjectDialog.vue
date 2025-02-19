@@ -90,7 +90,7 @@
                                 <v-chip-group
                                     v-model="lockType"
                                     class="mb-4"
-                                    selected-class="text-primary font-weight-bold"
+                                    selected-class="font-weight-bold"
                                     mandatory
                                     column
                                     filter
@@ -123,12 +123,12 @@
                             <v-chip-group
                                 v-model="selectedRange"
                                 class="mb-4"
-                                selected-class="text-primary font-weight-bold"
+                                selected-class="font-weight-bold"
                                 mandatory
                                 column
                                 filter
                             >
-                                <v-chip v-for="range in ranges" :key="range.label" :value="range" variant="outlined">
+                                <v-chip v-for="range in ranges" :key="range.label" :value="range">
                                     {{ range.label }}
                                 </v-chip>
                             </v-chip-group>
@@ -136,6 +136,7 @@
                             <v-date-picker
                                 v-if="selectedRange?.label == customRangeLabel.label"
                                 v-model="customUntilDate"
+                                :allowed-dates="allowDate"
                                 width="100%"
                                 header="Choose Date"
                                 show-adjacent-months
@@ -253,6 +254,7 @@ import {
     VWindowItem,
 } from 'vuetify/components';
 import { Lock } from 'lucide-vue-next';
+import { VDateInput } from 'vuetify/labs/components';
 
 import { BrowserObject, useObjectBrowserStore } from '@/store/modules/objectBrowserStore';
 import { useLoading } from '@/composables/useLoading';
@@ -356,6 +358,18 @@ function getFormattedExpiration(date: Date): string {
         Time.formattedDateWithGMTOffset(date)} at
         ${date.toLocaleTimeString('en-GB', { hour: 'numeric', minute: 'numeric' })}
     `;
+}
+
+function allowDate(date: unknown): boolean {
+    if (!date) return false;
+    const d = new Date(date as string);
+    if (isNaN(d.getTime())) return false;
+
+    d.setHours(0, 0, 0, 0);
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+
+    return d >= today;
 }
 
 function getModifiedCustomDate(): Date {

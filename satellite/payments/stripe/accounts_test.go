@@ -33,7 +33,7 @@ func TestSignupCouponCodes(t *testing.T) {
 		db := sat.DB
 		log := zaptest.NewLogger(t)
 
-		analyticsService := analytics.NewService(log, analytics.Config{}, "test-satellite")
+		analyticsService := analytics.NewService(log, analytics.Config{}, "test-satellite", sat.Config.Console.ExternalAddress)
 
 		redis, err := testredis.Mini(ctx)
 		require.NoError(t, err)
@@ -57,6 +57,8 @@ func TestSignupCouponCodes(t *testing.T) {
 
 		priceOverrides, err := pc.UsagePriceOverrides.ToModels()
 		require.NoError(t, err)
+		productPrices, err := pc.Products.ToModels()
+		require.NoError(t, err)
 
 		paymentsService, err := stripe.NewService(
 			log.Named("payments.stripe:service"),
@@ -73,6 +75,9 @@ func TestSignupCouponCodes(t *testing.T) {
 			db.ProjectAccounting(),
 			prices,
 			priceOverrides,
+			productPrices,
+			pc.PartnersPlacementPriceOverrides.ToMap(),
+			pc.PlacementPriceOverrides.ToMap(),
 			pc.PackagePlans.Packages,
 			pc.BonusRate,
 			nil,
@@ -107,6 +112,7 @@ func TestSignupCouponCodes(t *testing.T) {
 			false,
 			nodeselection.NewPlacementDefinitions(),
 			console.ObjectLockAndVersioningConfig{},
+			nil,
 			console.Config{PasswordCost: console.TestPasswordCost, DefaultProjectLimit: 5},
 		)
 

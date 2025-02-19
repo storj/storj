@@ -773,8 +773,8 @@ func (m *mockdb) Get(ctx context.Context, nodeID storj.NodeID) (*overlay.NodeDos
 	panic("implement me")
 }
 
-// GetNodes satisfies nodeevents.DB interface.
-func (m *mockdb) GetNodes(ctx context.Context, nodeIDs storj.NodeIDList, onlineWindow, asOfSystemInterval time.Duration) (_ []nodeselection.SelectedNode, err error) {
+// GetActiveNodes satisfies nodeevents.DB interface.
+func (m *mockdb) GetActiveNodes(ctx context.Context, nodeIDs storj.NodeIDList, onlineWindow, asOfSystemInterval time.Duration) (_ []nodeselection.SelectedNode, err error) {
 	panic("implement me")
 }
 

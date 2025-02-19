@@ -6,8 +6,14 @@ set -o pipefail
 # Ensure the directory exists
 mkdir -p release/$TAG/wasm/
 
+
 # Copy wasm helper file
-cp "$(go env GOROOT)/misc/wasm/wasm_exec.js" release/$TAG/wasm/
+LOCALGOROOT=$(GOTOOLCHAIN=local go env GOROOT)
+if test -f "$LOCALGOROOT/lib/wasm/wasm_exec.js"; then
+	cp "$LOCALGOROOT/lib/wasm/wasm_exec.js" release/$TAG/wasm/
+else
+	cp "$LOCALGOROOT/misc/wasm/wasm_exec.js" release/$TAG/wasm/
+fi
 
 # Take a hash of a wasm helper file
 helper_hash=$(sha256sum release/$TAG/wasm/wasm_exec.js | awk '{print $1}')

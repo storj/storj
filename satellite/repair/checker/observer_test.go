@@ -464,7 +464,7 @@ func TestRepairObserver(t *testing.T) {
 			service := rangedloop.NewService(planet.Log(), rangedloop.Config{
 				Parallelism: tc.Parallelism,
 				BatchSize:   tc.BatchSize,
-			}, rangedloop.NewMetabaseRangeSplitter(planet.Satellites[0].Metabase.DB, config.RangedLoop.AsOfSystemInterval, config.RangedLoop.SpannerStaleInterval, config.RangedLoop.BatchSize), []rangedloop.Observer{observer})
+			}, rangedloop.NewMetabaseRangeSplitter(planet.Log(), planet.Satellites[0].Metabase.DB, config.RangedLoop), []rangedloop.Observer{observer})
 
 			_, err = service.RunOnce(ctx)
 			require.NoError(t, err)
@@ -604,7 +604,9 @@ func TestObserver_PlacementCheck(t *testing.T) {
 			Satellite: testplanet.Combine(
 				testplanet.ReconfigureRS(1, 2, 4, 4),
 				func(log *zap.Logger, index int, config *satellite.Config) {
-					config.RangedLoop.Interval = 10 * time.Second
+					// we need ranged loop enabled, but we will trigger it manually (and wait for results)
+					// one day interval guarantees that it won't be executed meantime (which can drain repair queue messages)
+					config.RangedLoop.Interval = 24 * time.Hour
 				},
 			),
 		},

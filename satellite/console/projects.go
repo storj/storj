@@ -153,12 +153,11 @@ type Project struct {
 	RateLimitDelete  *int `json:"rateLimitDelete,omitempty"`
 	BurstLimitDelete *int `json:"burstLimitDelete,omitempty"`
 
-	DefaultPlacement          storj.PlacementConstraint `json:"defaultPlacement"`
-	DefaultVersioning         DefaultVersioning         `json:"defaultVersioning"`
-	PromptedForVersioningBeta bool                      `json:"-"`
-	PassphraseEnc             []byte                    `json:"-"`
-	PassphraseEncKeyID        *int                      `json:"-"`
-	PathEncryption            *bool                     `json:"-"`
+	DefaultPlacement   storj.PlacementConstraint `json:"defaultPlacement"`
+	DefaultVersioning  DefaultVersioning         `json:"defaultVersioning"`
+	PassphraseEnc      []byte                    `json:"-"`
+	PassphraseEncKeyID *int                      `json:"-"`
+	PathEncryption     *bool                     `json:"-"`
 }
 
 // ProjectStatus - is used to indicate status of the user's project.
@@ -191,16 +190,17 @@ type UpdateLimitsInfo struct {
 
 // ProjectInfo holds data sent via user facing http endpoints.
 type ProjectInfo struct {
-	ID               uuid.UUID         `json:"id"`
-	Name             string            `json:"name"`
-	OwnerID          uuid.UUID         `json:"ownerId"`
-	Description      string            `json:"description"`
-	MemberCount      int               `json:"memberCount"`
-	CreatedAt        time.Time         `json:"createdAt"`
-	EdgeURLOverrides *EdgeURLOverrides `json:"edgeURLOverrides,omitempty"`
-	StorageUsed      int64             `json:"storageUsed"`
-	BandwidthUsed    int64             `json:"bandwidthUsed"`
-	Versioning       DefaultVersioning `json:"versioning"`
+	ID               uuid.UUID                 `json:"id"`
+	Name             string                    `json:"name"`
+	OwnerID          uuid.UUID                 `json:"ownerId"`
+	Description      string                    `json:"description"`
+	MemberCount      int                       `json:"memberCount"`
+	CreatedAt        time.Time                 `json:"createdAt"`
+	EdgeURLOverrides *EdgeURLOverrides         `json:"edgeURLOverrides,omitempty"`
+	StorageUsed      int64                     `json:"storageUsed"`
+	BandwidthUsed    int64                     `json:"bandwidthUsed"`
+	Versioning       DefaultVersioning         `json:"versioning"`
+	Placement        storj.PlacementConstraint `json:"placement"`
 }
 
 // DefaultVersioning represents the default versioning state of a new bucket in the project.
@@ -261,15 +261,13 @@ type LimitRequestInfo struct {
 
 // ProjectConfig holds config for available "features" for a project.
 type ProjectConfig struct {
-	VersioningUIEnabled     bool `json:"versioningUIEnabled"`
-	ObjectLockUIEnabled     bool `json:"objectLockUIEnabled"`
-	PromptForVersioningBeta bool `json:"promptForVersioningBeta"`
 	// HasManagedPassphrase is a failsafe to prevent user-managed-encryption behavior in the UI if
 	// managed encryption is enabled for a project, but the satellite is unable to decrypt the passphrase.
 	HasManagedPassphrase bool              `json:"hasManagedPassphrase"`
 	Passphrase           string            `json:"passphrase,omitempty"`
 	IsOwnerPaidTier      bool              `json:"isOwnerPaidTier"`
 	Role                 ProjectMemberRole `json:"role"`
+	Salt                 string            `json:"salt"`
 }
 
 // DeleteProjectInfo holds data for project deletion UI flow.

@@ -470,7 +470,7 @@ func TestOverlayCache_GetNodes(t *testing.T) {
 			for i := range tc.QueryNodes {
 				ids[i] = tc.QueryNodes[i].id
 			}
-			selectedNodes, err := cache.GetNodes(ctx, ids, 1*time.Hour, 0)
+			selectedNodes, err := cache.GetActiveNodes(ctx, ids, 1*time.Hour, 0)
 			require.NoError(t, err)
 			require.Equal(t, len(tc.QueryNodes), len(selectedNodes))
 			var gotOnline []nodeselection.SelectedNode
@@ -492,7 +492,7 @@ func TestOverlayCache_GetNodes(t *testing.T) {
 		}
 
 		// test empty id list
-		_, err := cache.GetNodes(ctx, storj.NodeIDList{}, 1*time.Hour, 0)
+		_, err := cache.GetActiveNodes(ctx, storj.NodeIDList{}, 1*time.Hour, 0)
 		require.Error(t, err)
 
 		// test as of system time
@@ -501,7 +501,7 @@ func TestOverlayCache_GetNodes(t *testing.T) {
 			allIDs[i] = allNodes[i].id
 		}
 
-		selection, err := cache.GetNodes(ctx, allIDs, 1*time.Hour, -1*time.Microsecond)
+		selection, err := cache.GetActiveNodes(ctx, allIDs, 1*time.Hour, -1*time.Microsecond)
 		require.NoError(t, err)
 
 		require.Equal(t, "0x9b7488BF8b6A4FF21D610e3dd202723f705cD1C0", selection[0].Wallet)
@@ -729,7 +729,7 @@ func TestOverlayCache_KnownReliableTagHandling(t *testing.T) {
 		}
 
 		// WHEN
-		nodes, err := cache.GetNodes(ctx, ids, 1*time.Hour, 0)
+		nodes, err := cache.GetActiveNodes(ctx, ids, 1*time.Hour, 0)
 		require.NoError(t, err)
 
 		// THEN

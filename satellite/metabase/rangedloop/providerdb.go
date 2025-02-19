@@ -7,17 +7,18 @@ import (
 	"context"
 	"time"
 
+	"go.uber.org/zap"
+
 	"storj.io/common/uuid"
 	"storj.io/storj/satellite/metabase"
 )
 
 // MetabaseRangeSplitter implements RangeSplitter.
 type MetabaseRangeSplitter struct {
-	db *metabase.DB
+	log *zap.Logger
+	db  *metabase.DB
 
-	asOfSystemInterval   time.Duration
-	spannerStaleInterval time.Duration
-	batchSize            int
+	config Config
 }
 
 // MetabaseSegmentProvider implements SegmentProvider.
@@ -27,16 +28,16 @@ type MetabaseSegmentProvider struct {
 	uuidRange            UUIDRange
 	asOfSystemInterval   time.Duration
 	spannerReadTimestamp time.Time
+	spannerQueryType     string
 	batchSize            int
 }
 
 // NewMetabaseRangeSplitter creates the segment provider.
-func NewMetabaseRangeSplitter(db *metabase.DB, asOfSystemInterval time.Duration, spannerStaleInterval time.Duration, batchSize int) *MetabaseRangeSplitter {
+func NewMetabaseRangeSplitter(log *zap.Logger, db *metabase.DB, config Config) *MetabaseRangeSplitter {
 	return &MetabaseRangeSplitter{
-		db:                   db,
-		asOfSystemInterval:   asOfSystemInterval,
-		spannerStaleInterval: spannerStaleInterval,
-		batchSize:            batchSize,
+		log:    log,
+		db:     db,
+		config: config,
 	}
 }
 
@@ -48,8 +49,10 @@ func (provider *MetabaseRangeSplitter) CreateRanges(nRanges int, batchSize int) 
 	}
 
 	spannerReadTimestamp := time.Time{}
-	if provider.spannerStaleInterval > 0 {
-		spannerReadTimestamp = time.Now().Add(-provider.spannerStaleInterval)
+	if provider.config.SpannerStaleInterval > 0 {
+		spannerReadTimestamp = time.Now().Add(-provider.config.SpannerStaleInterval)
+
+		provider.log.Info("Setting Spanner stale read timestamp", zap.Time("timestamp", spannerReadTimestamp))
 	}
 
 	rangeProviders := []SegmentProvider{}
@@ -57,8 +60,9 @@ func (provider *MetabaseRangeSplitter) CreateRanges(nRanges int, batchSize int) 
 		rangeProviders = append(rangeProviders, &MetabaseSegmentProvider{
 			db:                   provider.db,
 			uuidRange:            uuidRange,
-			asOfSystemInterval:   provider.asOfSystemInterval,
+			asOfSystemInterval:   provider.config.AsOfSystemInterval,
 			spannerReadTimestamp: spannerReadTimestamp,
+			spannerQueryType:     provider.config.TestingSpannerQueryType,
 			batchSize:            batchSize,
 		})
 	}
@@ -89,6 +93,7 @@ func (provider *MetabaseSegmentProvider) Iterate(ctx context.Context, fn func([]
 		StartStreamID:        startStreamID,
 		EndStreamID:          endStreamID,
 		SpannerReadTimestamp: provider.spannerReadTimestamp,
+		SpannerQueryType:     provider.spannerQueryType,
 	}, func(ctx context.Context, iterator metabase.LoopSegmentsIterator) error {
 		segments := make([]Segment, 0, provider.batchSize)
 

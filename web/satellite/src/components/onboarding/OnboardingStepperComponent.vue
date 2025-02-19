@@ -11,27 +11,30 @@
             :lg="steps.length === ONBOARDING_STEPPER_STEPS.length ? 3 : 4"
             :xl="steps.length === ONBOARDING_STEPPER_STEPS.length ? 3 : 4"
         >
-            <v-card class="pa-5 pt-3">
-                <p class="text-overline">
-                    {{ step?.stepTxt }}
-                </p>
-                <h4>
-                    {{ step?.title }}
-                </h4>
-                <p class="mt-1 mb-2">
-                    {{ step?.description }}
-                </p>
-                <v-btn
-                    :color="step?.color"
-                    :variant="step?.variant"
-                    :disabled="step?.disabled"
-                    :prepend-icon="step?.prependIcon"
-                    :append-icon="step?.appendIcon"
-                    block
-                    @click="step?.onClick"
-                >
-                    {{ step?.buttonTxt }}
-                </v-btn>
+            <v-card class="pa-5 pt-3 h-100 d-flex flex-column">
+                <div class="flex-grow-1">
+                    <p class="text-overline text-medium-emphasis">
+                        {{ step?.stepTxt }}
+                    </p>
+                    <h4>
+                        {{ step?.title }}
+                    </h4>
+                    <p class="mt-1 mb-2">
+                        {{ step?.description }}
+                    </p>
+                </div>
+                <div class="flex-shrink-0">
+                    <v-btn
+                        :color="step?.color"
+                        :variant="step?.variant"
+                        :disabled="step?.disabled"
+                        :prepend-icon="step?.prependIcon"
+                        :append-icon="step?.appendIcon"
+                        @click="step?.onClick"
+                    >
+                        {{ step?.buttonTxt }}
+                    </v-btn>
+                </div>
             </v-card>
         </v-col>
     </v-row>
@@ -43,14 +46,13 @@
         @access-created="onAccessCreated"
     />
     <CreateBucketDialog
-        v-if="currentStep === OnboardingStep.CreateBucket"
         v-model="isBucketDialogOpen"
         @created="onBucketCreated"
     />
     <enter-bucket-passphrase-dialog
         v-if="currentStep === OnboardingStep.UploadFiles || currentStep === OnboardingStep.CreateAccess"
         v-model="isBucketPassphraseDialogOpen"
-        @passphraseEntered="passphraseDialogCallback"
+        @passphrase-entered="passphraseDialogCallback"
     />
     <manage-passphrase-dialog
         v-if="currentStep === OnboardingStep.EncryptionPassphrase"
@@ -158,8 +160,8 @@ const steps = computed<StepData[]>(() => {
         case OnboardingStep.UploadFiles:
             return {
                 ...data,
-                title: 'Upload Objects',
-                description: 'You are ready to upload objects in your bucket, and share with the world.',
+                title: 'Upload Files',
+                description: 'You are ready to upload files in your bucket, and share with the world.',
                 buttonTxt: 'Go to Upload',
                 color: uploadStepInfo.value.color,
                 variant: uploadStepInfo.value.variant as VBtn['$props']['variant'],
@@ -223,7 +225,7 @@ const isBucketDone = computed(() => {
 const accessStepInfo = computed(() => {
     const isRelevantStep = currentStep.value === OnboardingStep.CreateAccess
         || currentStep.value === OnboardingStep.UploadFiles;
-    const color = isRelevantStep ? 'primary' : 'default';
+    const color = 'default';
     const variant = isRelevantStep ? (onboardingInfo.value ? 'elevated' : 'outlined') : 'tonal';
     const disabled = !isRelevantStep;
     const appendIcon = onboardingInfo.value ? undefined : ArrowRight;

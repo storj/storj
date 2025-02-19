@@ -13,6 +13,7 @@ import (
 	"storj.io/common/testcontext"
 	"storj.io/storj/private/testplanet"
 	"storj.io/storj/satellite/console"
+	"storj.io/storj/satellite/payments"
 	"storj.io/storj/satellite/payments/stripe"
 )
 
@@ -219,6 +220,42 @@ func TestCreditCards_Remove(t *testing.T) {
 		require.NoError(t, err)
 		require.Len(t, cards, 1)
 		require.Equal(t, card2, cards[0])
+	})
+}
+
+func TestCreditCards_Update(t *testing.T) {
+	testplanet.Run(t, testplanet.Config{
+		SatelliteCount: 1, StorageNodeCount: 0, UplinkCount: 2,
+	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+		satellite := planet.Satellites[0]
+		userID := planet.Uplinks[0].Projects[0].Owner.ID
+
+		cardUpdateParams := payments.CardUpdateParams{
+			ExpMonth: 10,
+			ExpYear:  2025,
+		}
+
+		card1, err := satellite.API.Payments.Accounts.CreditCards().Add(ctx, userID, "test")
+		require.NoError(t, err)
+		require.NotEqualValues(t, cardUpdateParams.ExpMonth, card1.ExpMonth)
+		require.NotEqualValues(t, cardUpdateParams.ExpYear, card1.ExpYear)
+
+		err = satellite.API.Payments.Accounts.CreditCards().Update(ctx, userID, cardUpdateParams)
+		require.True(t, stripe.ErrCardNotFound.Has(err))
+
+		cardUpdateParams.CardID = card1.ID
+		err = satellite.API.Payments.Accounts.CreditCards().Update(ctx, userID, cardUpdateParams)
+		require.NoError(t, err)
+
+		cards, err := satellite.API.Payments.Accounts.CreditCards().List(ctx, userID)
+		require.NoError(t, err)
+		require.Len(t, cards, 1)
+		require.Equal(t, card1.ID, cards[0].ID)
+
+		card1 = cards[0]
+		require.NotEqual(t, cardUpdateParams.ExpMonth, card1.ExpMonth)
+		require.EqualValues(t, cardUpdateParams.ExpMonth, card1.ExpMonth)
+		require.EqualValues(t, cardUpdateParams.ExpYear, card1.ExpYear)
 	})
 }
 

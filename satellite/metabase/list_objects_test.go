@@ -4,11 +4,13 @@
 package metabase_test
 
 import (
+	"fmt"
 	"strconv"
 	"strings"
 	"testing"
 	"time"
 
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
 	"storj.io/common/testcontext"
@@ -110,7 +112,7 @@ func TestListObjects(t *testing.T) {
 						Status:    metabase.Prefix,
 					}
 				} else {
-					expected[i] = objectEntryFromRaw(obj)
+					expected[i] = objectEntryFromRawLatest(obj)
 				}
 			}
 
@@ -141,7 +143,7 @@ func TestListObjects(t *testing.T) {
 			expected := make([]metabase.ObjectEntry, limit)
 			objects := createObjects(ctx, t, db, numberOfObjects, uuid.UUID{1}, "mybucket")
 			for i, obj := range objects[:limit] {
-				expected[i] = objectEntryFromRaw(obj)
+				expected[i] = objectEntryFromRawLatest(obj)
 			}
 
 			for _, allVersions := range []bool{false, true} {
@@ -175,7 +177,7 @@ func TestListObjects(t *testing.T) {
 			objectsBucketB := createObjects(ctx, t, db, numberOfObjectsPerBucket, uuid.UUID{1}, "bucket-b")
 
 			for i, obj := range objectsBucketA {
-				expected[i] = objectEntryFromRaw(obj)
+				expected[i] = objectEntryFromRawLatest(obj)
 			}
 
 			for _, allVersions := range []bool{false, true} {
@@ -208,7 +210,7 @@ func TestListObjects(t *testing.T) {
 			objectsProject1 := createObjects(ctx, t, db, numberOfObjectsPerBucket, uuid.UUID{1}, "mybucket")
 			objectsProject2 := createObjects(ctx, t, db, numberOfObjectsPerBucket, uuid.UUID{2}, "mybucket")
 			for i, obj := range objectsProject1 {
-				expected[i] = objectEntryFromRaw(obj)
+				expected[i] = objectEntryFromRawLatest(obj)
 			}
 
 			for _, allVersions := range []bool{false, true} {
@@ -867,92 +869,6 @@ func TestListObjectsSkipCursor(t *testing.T) {
 
 const benchmarkBatchSize = 100
 
-func BenchmarkNonRecursiveObjectsListingOld(b *testing.B) {
-	metabasetest.Bench(b, func(ctx *testcontext.Context, b *testing.B, db *metabase.DB) {
-		obj, objects := generateBenchmarkData()
-		require.NoError(b, db.TestingBatchInsertObjects(ctx, objects))
-
-		b.Run("listing no prefix", func(b *testing.B) {
-			for i := 0; i < b.N; i++ {
-				result, err := db.ListObjectsWithIterator(ctx, metabase.ListObjects{
-					ProjectID:   obj.ProjectID,
-					BucketName:  obj.BucketName,
-					Pending:     false,
-					AllVersions: false,
-					Limit:       benchmarkBatchSize,
-				})
-				require.NoError(b, err)
-				for result.More {
-					result, err = db.ListObjectsWithIterator(ctx, metabase.ListObjects{
-						ProjectID:   obj.ProjectID,
-						BucketName:  obj.BucketName,
-						Cursor:      metabase.ListObjectsCursor{Key: result.Objects[len(result.Objects)-1].ObjectKey},
-						Pending:     false,
-						AllVersions: false,
-						Limit:       benchmarkBatchSize,
-					})
-					require.NoError(b, err)
-				}
-			}
-		})
-
-		b.Run("listing with prefix", func(b *testing.B) {
-			for i := 0; i < b.N; i++ {
-				result, err := db.ListObjectsWithIterator(ctx, metabase.ListObjects{
-					ProjectID:   obj.ProjectID,
-					BucketName:  obj.BucketName,
-					Prefix:      "foo/",
-					Pending:     false,
-					AllVersions: false,
-					Limit:       benchmarkBatchSize,
-				})
-				require.NoError(b, err)
-				for result.More {
-					cursorKey := "foo/" + result.Objects[len(result.Objects)-1].ObjectKey
-					result, err = db.ListObjectsWithIterator(ctx, metabase.ListObjects{
-						ProjectID:   obj.ProjectID,
-						BucketName:  obj.BucketName,
-						Prefix:      "foo/",
-						Cursor:      metabase.ListObjectsCursor{Key: cursorKey},
-						Pending:     false,
-						AllVersions: false,
-						Limit:       benchmarkBatchSize,
-					})
-					require.NoError(b, err)
-				}
-			}
-		})
-
-		b.Run("listing only prefix", func(b *testing.B) {
-			for i := 0; i < b.N; i++ {
-				result, err := db.ListObjectsWithIterator(ctx, metabase.ListObjects{
-					ProjectID:   obj.ProjectID,
-					BucketName:  obj.BucketName,
-					Prefix:      "boo/",
-					Pending:     false,
-					AllVersions: false,
-					Limit:       benchmarkBatchSize,
-				})
-				require.NoError(b, err)
-				for result.More {
-					cursorKey := "boo/" + result.Objects[len(result.Objects)-1].ObjectKey
-					result, err = db.ListObjectsWithIterator(ctx, metabase.ListObjects{
-						ProjectID:   obj.ProjectID,
-						BucketName:  obj.BucketName,
-						Prefix:      "boo/",
-						Cursor:      metabase.ListObjectsCursor{Key: cursorKey},
-						Pending:     false,
-						AllVersions: false,
-						Limit:       benchmarkBatchSize,
-					})
-					require.NoError(b, err)
-
-				}
-			}
-		})
-	})
-}
-
 func BenchmarkNonRecursiveObjectsListing(b *testing.B) {
 	metabasetest.Bench(b, func(ctx *testcontext.Context, b *testing.B, db *metabase.DB) {
 		obj, objects := generateBenchmarkData()
@@ -1151,8 +1067,8 @@ func TestListObjectsVersioned(t *testing.T) {
 				},
 				Result: metabase.ListObjectsResult{
 					Objects: []metabase.ObjectEntry{
-						objectEntryFromRaw(metabase.RawObject(objA0)),
-						objectEntryFromRaw(metabase.RawObject(objB1)),
+						objectEntryFromRawLatest(metabase.RawObject(objA0)),
+						objectEntryFromRawLatest(metabase.RawObject(objB1)),
 					},
 				}}.Check(ctx, t, db)
 
@@ -1168,8 +1084,8 @@ func TestListObjectsVersioned(t *testing.T) {
 				},
 				Result: metabase.ListObjectsResult{
 					Objects: []metabase.ObjectEntry{
-						objectEntryFromRaw(metabase.RawObject(objA0)),
-						objectEntryFromRaw(metabase.RawObject(objB1)),
+						objectEntryFromRawLatest(metabase.RawObject(objA0)),
+						objectEntryFromRawLatest(metabase.RawObject(objB1)),
 						objectEntryFromRaw(metabase.RawObject(objB0)),
 					},
 				}}.Check(ctx, t, db)
@@ -1221,8 +1137,8 @@ func TestListObjectsVersioned(t *testing.T) {
 				},
 				Result: metabase.ListObjectsResult{
 					Objects: []metabase.ObjectEntry{
-						objectEntryFromRaw(metabase.RawObject(objA0)),
-						objectEntryFromRaw(metabase.RawObject(objB1)),
+						objectEntryFromRawLatest(metabase.RawObject(objA0)),
+						objectEntryFromRawLatest(metabase.RawObject(objB1)),
 					},
 				}}.Check(ctx, t, db)
 
@@ -1238,8 +1154,8 @@ func TestListObjectsVersioned(t *testing.T) {
 				},
 				Result: metabase.ListObjectsResult{
 					Objects: []metabase.ObjectEntry{
-						objectEntryFromRaw(metabase.RawObject(objA0)),
-						objectEntryFromRaw(metabase.RawObject(objB1)),
+						objectEntryFromRawLatest(metabase.RawObject(objA0)),
+						objectEntryFromRawLatest(metabase.RawObject(objB1)),
 						objectEntryFromRaw(metabase.RawObject(objB0)),
 					},
 				}}.Check(ctx, t, db)
@@ -1442,8 +1358,8 @@ func TestListObjectsVersioned(t *testing.T) {
 				},
 				Result: metabase.ListObjectsResult{
 					Objects: []metabase.ObjectEntry{
-						objectEntryFromRaw(metabase.RawObject(objA1)),
-						objectEntryFromRaw(metabase.RawObject(objB1)),
+						objectEntryFromRawLatest(metabase.RawObject(objA1)),
+						objectEntryFromRawLatest(metabase.RawObject(objB1)),
 					},
 				}}.Check(ctx, t, db)
 
@@ -1459,9 +1375,9 @@ func TestListObjectsVersioned(t *testing.T) {
 				},
 				Result: metabase.ListObjectsResult{
 					Objects: []metabase.ObjectEntry{
-						objectEntryFromRaw(metabase.RawObject(objA1)),
+						objectEntryFromRawLatest(metabase.RawObject(objA1)),
 						objectEntryFromRaw(metabase.RawObject(objA0)),
-						objectEntryFromRaw(metabase.RawObject(objB1)),
+						objectEntryFromRawLatest(metabase.RawObject(objB1)),
 						objectEntryFromRaw(metabase.RawObject(objB0)),
 					},
 				}}.Check(ctx, t, db)
@@ -1533,7 +1449,7 @@ func TestListObjectsVersioned(t *testing.T) {
 				},
 				Result: metabase.ListObjectsResult{
 					Objects: []metabase.ObjectEntry{
-						objectEntryFromRaw(metabase.RawObject(objB1)),
+						objectEntryFromRawLatest(metabase.RawObject(objB1)),
 					},
 				}}.Check(ctx, t, db)
 
@@ -1549,10 +1465,10 @@ func TestListObjectsVersioned(t *testing.T) {
 				},
 				Result: metabase.ListObjectsResult{
 					Objects: []metabase.ObjectEntry{
-						objectEntryFromRaw(metabase.RawObject(deletionResult.Markers[0])),
+						objectEntryFromRawLatest(metabase.RawObject(deletionResult.Markers[0])),
 						objectEntryFromRaw(metabase.RawObject(objA1)),
 						objectEntryFromRaw(metabase.RawObject(objA0)),
-						objectEntryFromRaw(metabase.RawObject(objB1)),
+						objectEntryFromRawLatest(metabase.RawObject(objB1)),
 						objectEntryFromRaw(metabase.RawObject(objB0)),
 					},
 				}}.Check(ctx, t, db)
@@ -1703,11 +1619,11 @@ func TestListObjectsVersioned(t *testing.T) {
 				},
 				Result: metabase.ListObjectsResult{
 					Objects: []metabase.ObjectEntry{
-						objectEntryFromRaw(metabase.RawObject(deletionResultA1.Markers[0])),
+						objectEntryFromRawLatest(metabase.RawObject(deletionResultA1.Markers[0])),
 						objectEntryFromRaw(metabase.RawObject(objA1)),
 						objectEntryFromRaw(metabase.RawObject(deletionResultA0.Markers[0])),
 						objectEntryFromRaw(metabase.RawObject(objA0)),
-						objectEntryFromRaw(metabase.RawObject(deletionResultB1.Markers[0])),
+						objectEntryFromRawLatest(metabase.RawObject(deletionResultB1.Markers[0])),
 						objectEntryFromRaw(metabase.RawObject(objB1)),
 						objectEntryFromRaw(metabase.RawObject(deletionResultB0.Markers[0])),
 						objectEntryFromRaw(metabase.RawObject(objB0)),
@@ -1796,9 +1712,9 @@ func TestListObjectsVersioned(t *testing.T) {
 				},
 				Result: metabase.ListObjectsResult{
 					Objects: []metabase.ObjectEntry{
-						objectEntryFromRaw(metabase.RawObject(objA0)),
-						objectEntryFromRaw(metabase.RawObject(objB1)),
-						objectEntryFromRaw(metabase.RawObject(objC1)),
+						objectEntryFromRawLatest(metabase.RawObject(objA0)),
+						objectEntryFromRawLatest(metabase.RawObject(objB1)),
+						objectEntryFromRawLatest(metabase.RawObject(objC1)),
 					},
 				}}.Check(ctx, t, db)
 
@@ -1814,10 +1730,10 @@ func TestListObjectsVersioned(t *testing.T) {
 				},
 				Result: metabase.ListObjectsResult{
 					Objects: []metabase.ObjectEntry{
-						objectEntryFromRaw(metabase.RawObject(objA0)),
-						objectEntryFromRaw(metabase.RawObject(objB1)),
+						objectEntryFromRawLatest(metabase.RawObject(objA0)),
+						objectEntryFromRawLatest(metabase.RawObject(objB1)),
 						objectEntryFromRaw(metabase.RawObject(objB0)),
-						objectEntryFromRaw(metabase.RawObject(objC1)),
+						objectEntryFromRawLatest(metabase.RawObject(objC1)),
 						objectEntryFromRaw(metabase.RawObject(deletionResultC0.Markers[0])),
 						objectEntryFromRaw(metabase.RawObject(objC0)),
 					},
@@ -2488,5 +2404,100 @@ func TestListObjects_Stress(t *testing.T) {
 			Limit:       4,
 		})
 		require.NoError(t, err)
+	})
+}
+
+func TestListObjects_Requery(t *testing.T) {
+	metabasetest.Run(t, func(ctx *testcontext.Context, t *testing.T, db *metabase.DB) {
+		t.Run("unversioned", func(t *testing.T) {
+			defer metabasetest.DeleteAll{}.Check(ctx, t, db)
+			obj := metabasetest.RandObjectStream()
+
+			objects := []metabase.RawObject{}
+			for i := 0; i < 1; i++ {
+				for j := 0; j < 3; j++ {
+					for k := 0; k < 3; k++ {
+						objects = append(objects, metabase.RawObject{
+							ObjectStream: metabase.ObjectStream{
+								ProjectID:  obj.ProjectID,
+								BucketName: metabase.BucketName("bucket"),
+								ObjectKey:  metabase.ObjectKey(fmt.Sprintf("%d/%d/%d/object-%d", i, j, k, i+j+k)),
+								Version:    1,
+								StreamID:   uuid.UUID{1, byte(i), byte(k), byte(j)},
+							},
+							Status: metabase.CommittedUnversioned,
+						})
+					}
+				}
+			}
+
+			require.NoError(t, db.TestingBatchInsertObjects(ctx, objects))
+
+			result, err := db.ListObjects(ctx, metabase.ListObjects{
+				ProjectID:  obj.ProjectID,
+				BucketName: "bucket",
+				Recursive:  true,
+				Cursor: metabase.ListObjectsCursor{
+					Key:     "0/0/0/object-0",
+					Version: 1,
+				},
+				Params: metabase.ListObjectsParams{
+					MinBatchSize: 1,
+				},
+				Limit: len(objects) - 2,
+			})
+			require.NoError(t, err)
+			assert.Len(t, result.Objects, len(objects)-2)
+			require.True(t, result.More)
+		})
+
+		t.Run("versioned", func(t *testing.T) {
+			defer metabasetest.DeleteAll{}.Check(ctx, t, db)
+			obj := metabasetest.RandObjectStream()
+
+			objects := []metabase.RawObject{}
+			for i := 0; i < 11; i++ {
+				objects = append(objects, metabase.RawObject{
+					ObjectStream: metabase.ObjectStream{
+						ProjectID:  obj.ProjectID,
+						BucketName: metabase.BucketName("bucket"),
+						ObjectKey:  metabase.ObjectKey("0000"),
+						Version:    1 + metabase.Version(i),
+						StreamID:   uuid.UUID{1},
+					},
+					Status: metabase.CommittedVersioned,
+				})
+			}
+			for i := 0; i < 105; i++ {
+				objects = append(objects, metabase.RawObject{
+					ObjectStream: metabase.ObjectStream{
+						ProjectID:  obj.ProjectID,
+						BucketName: metabase.BucketName("bucket"),
+						ObjectKey:  metabase.ObjectKey(fmt.Sprintf("%04d", i+1)),
+						Version:    1,
+						StreamID:   uuid.UUID{1},
+					},
+					Status: metabase.CommittedVersioned,
+				})
+			}
+
+			require.NoError(t, db.TestingBatchInsertObjects(ctx, objects))
+
+			result, err := db.ListObjects(ctx, metabase.ListObjects{
+				ProjectID:   obj.ProjectID,
+				BucketName:  "bucket",
+				Recursive:   false,
+				Pending:     false,
+				AllVersions: false,
+				Cursor: metabase.ListObjectsCursor{
+					Key:     "0000",
+					Version: 1,
+				},
+				Limit: 100,
+			})
+			require.NoError(t, err)
+			t.Log(len(result.Objects))
+			require.True(t, result.More)
+		})
 	})
 }

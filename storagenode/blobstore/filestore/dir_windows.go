@@ -85,6 +85,19 @@ func rename(oldpath, newpath string) error {
 	return nil
 }
 
+// rmDir removes the directory named by path.
+func rmDir(path string) error {
+	pathp, err := windows.UTF16PtrFromString(tryFixLongPath(path))
+	if err != nil {
+		return &os.PathError{Op: "remove", Path: path, Err: err}
+	}
+	err = windows.RemoveDirectory(pathp)
+	if err != nil {
+		return &os.PathError{Op: "remove", Path: path, Err: err}
+	}
+	return nil
+}
+
 // openFileReadOnly opens the file with read only.
 // Custom implementation, because os.Open doesn't support specifying FILE_SHARE_DELETE.
 func openFileReadOnly(path string, perm os.FileMode) (*os.File, error) {
