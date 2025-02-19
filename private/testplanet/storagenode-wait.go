@@ -39,12 +39,3 @@ func (planet *Planet) storageNodeLiveRequestCount() int {
 	}
 	return total
 }
-
-// WaitForStorageNodeDeleters calls the Wait method on each storagenode's PieceDeleter.
-func (planet *Planet) WaitForStorageNodeDeleters(ctx context.Context) {
-	defer mon.Task()(&ctx)(nil)
-
-	for _, sn := range planet.StorageNodes {
-		sn.Peer.Storage2.PieceDeleter.Wait(ctx)
-	}
-}

@@ -102,8 +102,8 @@ func testDatabase(ctx context.Context, t *testing.T, cache overlay.DB) {
 		storj.NodeID{9},
 	}
 
-	t.Run("GetNodes", func(t *testing.T) {
-		selectedNodes, err := cache.GetNodes(ctx, nodeIds, time.Hour, 0)
+	t.Run("GetActiveNodes", func(t *testing.T) {
+		selectedNodes, err := cache.GetActiveNodes(ctx, nodeIds, time.Hour, 0)
 		require.NoError(t, err)
 		require.Len(t, selectedNodes, len(nodeIds))
 

@@ -12,19 +12,24 @@ import (
 
 	"storj.io/common/cfgstruct"
 	"storj.io/common/process"
-	"storj.io/storj/private/mud"
 	"storj.io/storj/shared/modular"
+	"storj.io/storj/shared/modular/cli"
 	"storj.io/storj/shared/modular/config"
+	"storj.io/storj/shared/mud"
 	"storj.io/storj/storagenode"
 )
 
 // newExecCmd creates a new exec command.
 func newExecCmd(f *Factory) *cobra.Command {
 	ball := &mud.Ball{}
-	mud.Provide[*zap.Logger](ball, zap.L)
+
+	mud.Provide[*zap.Logger](ball, func() (*zap.Logger, error) {
+		logger, _, err := process.NewLogger("storagenode")
+		return logger, err
+	})
 	modular.IdentityModule(ball)
 	storagenode.Module(ball)
-	selector := modular.CreateSelector()
+	selector := modular.CreateSelector(ball)
 	stop := &modular.StopTrigger{}
 	mud.Supply[*modular.StopTrigger](ball, stop)
 	cmd := &cobra.Command{
@@ -33,6 +38,11 @@ func newExecCmd(f *Factory) *cobra.Command {
 		RunE: func(cmd *cobra.Command, args []string) error {
 			ctx, cancel := process.Ctx(cmd)
 			stop.Cancel = cancel
+
+			err := cli.LoadConfig(cmd, ball, selector)
+			if err != nil {
+				return err
+			}
 			return cmdExec(ctx, ball, selector)
 		},
 	}
@@ -46,6 +56,7 @@ func newExecCmd(f *Factory) *cobra.Command {
 }
 
 func cmdExec(ctx context.Context, ball *mud.Ball, selector mud.ComponentSelector) (err error) {
+
 	err = modular.Initialize(ctx, ball, selector)
 	if err != nil {
 		return err

@@ -4,13 +4,22 @@
 package metainfo_test
 
 import (
+	"bytes"
+	"fmt"
+	"io"
+	"net/http"
 	"testing"
 
 	"github.com/stretchr/testify/require"
+	"go.uber.org/zap"
 
+	"storj.io/common/errs2"
 	"storj.io/common/memory"
+	"storj.io/common/rpc/rpcstatus"
+	"storj.io/common/testcontext"
 	"storj.io/common/testrand"
-	"storj.io/storj/satellite/console"
+	"storj.io/storj/private/testplanet"
+	"storj.io/storj/satellite"
 	"storj.io/storj/satellite/metainfo"
 )
 
@@ -99,107 +108,6 @@ func TestRSConfigValidation(t *testing.T) {
 	}
 }
 
-func TestExtendedConfig_UseBucketLevelObjectVersioning(t *testing.T) {
-	projectA := &console.Project{
-		ID: testrand.UUID(),
-	}
-	projectB := &console.Project{
-		ID: testrand.UUID(),
-	}
-
-	// 1. Versioning globally enabled
-	config, err := metainfo.NewExtendedConfig(metainfo.Config{
-		UseBucketLevelObjectVersioning: true,
-	})
-	require.NoError(t, err)
-	require.True(t, config.UseBucketLevelObjectVersioningByProject(projectA))
-	require.True(t, config.UseBucketLevelObjectVersioningByProject(projectB))
-
-	// 2.1. Versioning disabled globally, but enabled for project A (closed beta)
-	config, err = metainfo.NewExtendedConfig(metainfo.Config{
-		UseBucketLevelObjectVersioning: false,
-		UseBucketLevelObjectVersioningProjects: []string{
-			projectA.ID.String(),
-		},
-	})
-	require.NoError(t, err)
-	require.True(t, config.UseBucketLevelObjectVersioningByProject(projectA))
-	require.False(t, config.UseBucketLevelObjectVersioningByProject(projectB))
-
-	// 2.2. Versioning disabled globally, but enabled for project B (closed beta)
-	config, err = metainfo.NewExtendedConfig(metainfo.Config{
-		UseBucketLevelObjectVersioning: false,
-		UseBucketLevelObjectVersioningProjects: []string{
-			projectB.ID.String(),
-		},
-	})
-	require.NoError(t, err)
-	require.False(t, config.UseBucketLevelObjectVersioningByProject(projectA))
-	require.True(t, config.UseBucketLevelObjectVersioningByProject(projectB))
-
-	// 3. Versioning disabled globally
-	config, err = metainfo.NewExtendedConfig(metainfo.Config{
-		UseBucketLevelObjectVersioning: false,
-	})
-	require.NoError(t, err)
-
-	// 3.1. Project A is prompted for versioning beta, but has not opted in
-	projectA.PromptedForVersioningBeta = true
-	projectA.DefaultVersioning = console.VersioningUnsupported
-	// 3.2. Project B is prompted for versioning beta, and has opted in
-	projectB.PromptedForVersioningBeta = true
-	projectB.DefaultVersioning = console.Unversioned
-	require.False(t, config.UseBucketLevelObjectVersioningByProject(projectA))
-	require.True(t, config.UseBucketLevelObjectVersioningByProject(projectB))
-
-	// 3.3. Project A is not prompted for versioning beta
-	projectA.PromptedForVersioningBeta = false
-	projectA.DefaultVersioning = console.Unversioned
-	require.False(t, config.UseBucketLevelObjectVersioningByProject(projectA))
-}
-
-func TestExtendedConfig_ObjectLockSupported(t *testing.T) {
-	projectA := &console.Project{
-		ID: testrand.UUID(),
-	}
-	projectB := &console.Project{
-		ID: testrand.UUID(),
-	}
-
-	// 1. Versioning enabled && object lock disabled
-	config, err := metainfo.NewExtendedConfig(metainfo.Config{
-		UseBucketLevelObjectVersioning: true,
-	})
-	require.NoError(t, err)
-	require.False(t, config.ObjectLockEnabledByProject(projectA))
-
-	// 2. project A in versioning closed beta
-	config, err = metainfo.NewExtendedConfig(metainfo.Config{
-		ObjectLockEnabled: true,
-		UseBucketLevelObjectVersioningProjects: []string{
-			projectA.ID.String(),
-		},
-	})
-	require.NoError(t, err)
-	require.True(t, config.ObjectLockEnabledByProject(projectA))
-	require.False(t, config.ObjectLockEnabledByProject(projectB))
-
-	// 2.1 Versioning disabled globally
-	config, err = metainfo.NewExtendedConfig(metainfo.Config{
-		ObjectLockEnabled: true,
-	})
-	require.NoError(t, err)
-
-	// 2.2. Project A not in versioning beta
-	projectA.PromptedForVersioningBeta = true
-	projectA.DefaultVersioning = console.VersioningUnsupported
-	// 2.3. Project B is in versioning public beta
-	projectB.PromptedForVersioningBeta = true
-	projectB.DefaultVersioning = console.Unversioned
-	require.False(t, config.ObjectLockEnabledByProject(projectA))
-	require.True(t, config.ObjectLockEnabledByProject(projectB))
-}
-
 func TestUUIDsFlag(t *testing.T) {
 	var UUIDs metainfo.UUIDsFlag
 	err := UUIDs.Set("")
@@ -220,4 +128,63 @@ func TestUUIDsFlag(t *testing.T) {
 		testIDA: {},
 		testIDB: {},
 	}, UUIDs)
+}
+
+func TestMigrationModeFlag(t *testing.T) {
+	testplanet.Run(t, testplanet.Config{
+		SatelliteCount: 1, UplinkCount: 1,
+		Reconfigure: testplanet.Reconfigure{
+			Satellite: func(log *zap.Logger, index int, config *satellite.Config) {
+				config.Debug.Addr = "127.0.0.1:0"
+			},
+		},
+	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+		debugAddr := planet.Satellites[0].API.Debug.Listener.Addr().String()
+		req, err := http.NewRequestWithContext(ctx, http.MethodGet, fmt.Sprintf("http://%s/metainfo/flags/migration-mode", debugAddr), &bytes.Buffer{})
+		require.NoError(t, err)
+
+		res, err := http.DefaultClient.Do(req)
+		require.NoError(t, err)
+		defer func() {
+			require.NoError(t, res.Body.Close())
+		}()
+
+		require.Equal(t, http.StatusOK, res.StatusCode)
+		content, err := io.ReadAll(res.Body)
+		require.NoError(t, err)
+		require.Equal(t, "false", string(content))
+
+		err = planet.Uplinks[0].Upload(ctx, planet.Satellites[0], "testbucket", "testobject", testrand.Bytes(1*memory.KiB))
+		require.NoError(t, err)
+
+		req, err = http.NewRequestWithContext(ctx, http.MethodPut, fmt.Sprintf("http://%s/metainfo/flags/migration-mode", debugAddr), bytes.NewBuffer([]byte("true")))
+		require.NoError(t, err)
+
+		resp, err := http.DefaultClient.Do(req)
+		require.NoError(t, err)
+		defer func() {
+			require.NoError(t, resp.Body.Close())
+		}()
+
+		// we are rejecting write requests
+		err = planet.Uplinks[0].Upload(ctx, planet.Satellites[0], "testbucket", "testobject", testrand.Bytes(1*memory.KiB))
+		require.True(t, errs2.IsRPC(err, rpcstatus.ResourceExhausted))
+
+		// download should still work
+		_, err = planet.Uplinks[0].Download(ctx, planet.Satellites[0], "testbucket", "testobject")
+		require.NoError(t, err)
+
+		req, err = http.NewRequestWithContext(ctx, http.MethodPut, fmt.Sprintf("http://%s/metainfo/flags/migration-mode", debugAddr), bytes.NewBuffer([]byte("false")))
+		require.NoError(t, err)
+
+		resp, err = http.DefaultClient.Do(req)
+		require.NoError(t, err)
+		defer func() {
+			require.NoError(t, resp.Body.Close())
+		}()
+
+		// uploads are working again
+		err = planet.Uplinks[0].Upload(ctx, planet.Satellites[0], "testbucket", "testobject", testrand.Bytes(1*memory.KiB))
+		require.NoError(t, err)
+	})
 }

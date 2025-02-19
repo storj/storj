@@ -11,6 +11,7 @@ import (
 	"go.uber.org/zap/zaptest"
 
 	"storj.io/common/pb"
+	"storj.io/common/rpc"
 	"storj.io/common/storj"
 	"storj.io/common/testcontext"
 	"storj.io/common/testrand"
@@ -185,7 +186,7 @@ func TestServiceStore(t *testing.T) {
 		notificationsDB := db.Notifications()
 		log := zaptest.NewLogger(t)
 		notificationService := notifications.NewService(log, notificationsDB)
-		reputationService := reputation.NewService(log, reputationDB, storj.NodeID{}, notificationService)
+		reputationService := reputation.NewService(log, reputationDB, rpc.Dialer{}, nil, storj.NodeID{}, notificationService)
 
 		id := testrand.NodeID()
 		now := time.Now().AddDate(0, 0, -2)

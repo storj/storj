@@ -9,11 +9,13 @@
         variant="tonal"
         :title="bannerText[threshold].title"
         :type="bannerText[threshold].hundred ? 'error' : 'warning'"
-        rounded="lg"
         class="my-2"
         border
     >
-        <template v-if="isPaidTier && !reachedThresholds[threshold].includes(LimitType.Segment)" #text>
+        <template v-if="!isProjectOwner" #text>
+            Contact project owner to upgrade to avoid any service interruptions.
+        </template>
+        <template v-else-if="isPaidTier && !reachedThresholds[threshold].includes(LimitType.Segment)" #text>
             You can increase your limits
             <a class="text-decoration-underline text-cursor-pointer" @click="openLimitDialog(bannerText[threshold].limitType)">here</a>
             or in the
@@ -66,6 +68,13 @@ const router = useRouter();
 
 const isEditLimitDialogShown = ref(false);
 const limitToChange = ref(LimitToChange.Storage);
+
+/**
+ * Returns whether this project is owner by the current user
+ */
+const isProjectOwner = computed(() => {
+    return projectsStore.state.selectedProject.ownerId === usersStore.state.user.id;
+});
 
 /**
  * Returns which limit thresholds have been reached by which usage limit type.

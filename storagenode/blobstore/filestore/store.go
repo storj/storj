@@ -219,6 +219,12 @@ func (store *blobStore) TryRestoreTrashBlob(ctx context.Context, ref blobstore.B
 	return Error.Wrap(err)
 }
 
+// EmptyTrashWithoutStat removes files in trash that have been there since before trashedBefore.
+func (store *blobStore) EmptyTrashWithoutStat(ctx context.Context, namespace []byte, trashedBefore time.Time) (err error) {
+	defer mon.Task()(&ctx)(&err)
+	return store.dir.EmptyTrashWithoutStat(ctx, namespace, trashedBefore)
+}
+
 // EmptyTrash removes files in trash that have been there since before trashedBefore.
 func (store *blobStore) EmptyTrash(ctx context.Context, namespace []byte, trashedBefore time.Time) (bytesEmptied int64, keys [][]byte, err error) {
 	defer mon.Task()(&ctx)(&err)

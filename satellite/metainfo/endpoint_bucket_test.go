@@ -193,7 +193,7 @@ func TestDeleteBucket(t *testing.T) {
 		expectedObjects := map[string][]byte{
 			"single-segment-object":        testrand.Bytes(10 * memory.KiB),
 			"multi-segment-object":         testrand.Bytes(50 * memory.KiB),
-			"remote-segment-inline-object": testrand.Bytes(33 * memory.KiB),
+			"remote-segment-inline-object": testrand.Bytes(1 * memory.KiB),
 		}
 
 		uploadObjects := func(t *testing.T, bucketName metabase.BucketName) {
@@ -456,7 +456,139 @@ func TestBucketCreationWithDefaultPlacement(t *testing.T) {
 	})
 }
 
-func TestCraeteBucketWithCreatedBy(t *testing.T) {
+func TestBucketCreationSelfServePlacement(t *testing.T) {
+	testplanet.Run(t, testplanet.Config{
+		SatelliteCount: 1, UplinkCount: 1,
+		Reconfigure: testplanet.Reconfigure{
+			Satellite: func(log *zap.Logger, index int, config *satellite.Config) {
+				config.Placement = nodeselection.ConfigurablePlacementRule{
+					PlacementRules: "endpoint_bucket_test_placement.yaml",
+				}
+				config.Console.Placement.SelfServeEnabled = true
+				config.Console.Placement.SelfServeNames = []string{"Poland"}
+			},
+		},
+	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+		sat := planet.Satellites[0]
+		projectID := planet.Uplinks[0].Projects[0].ID
+		apiKey := planet.Uplinks[0].APIKey[planet.Satellites[0].ID()]
+		bucketName := "bucket"
+
+		// change the default_placement of the project
+		err := planet.Satellites[0].API.DB.Console().Projects().UpdateDefaultPlacement(ctx, projectID, storj.EU)
+		require.NoError(t, err)
+
+		_, err = sat.API.Metainfo.Endpoint.CreateBucket(ctx, &pb.CreateBucketRequest{
+			Header: &pb.RequestHeader{
+				ApiKey: apiKey.SerializeRaw(),
+			},
+			Name:      []byte(bucketName),
+			Placement: []byte("Poland"),
+		})
+		// cannot create bucket with custom placement if there is project default.
+		require.True(t, errs2.IsRPC(err, rpcstatus.PlacementConflictingValues))
+
+		_, err = sat.API.Metainfo.Endpoint.CreateBucket(ctx, &pb.CreateBucketRequest{
+			Header: &pb.RequestHeader{
+				ApiKey: apiKey.SerializeRaw(),
+			},
+			Name: []byte(bucketName),
+		})
+		require.NoError(t, err)
+
+		// check if placement is set to project default
+		placement, err := planet.Satellites[0].API.DB.Buckets().GetBucketPlacement(ctx, []byte(bucketName), projectID)
+		require.NoError(t, err)
+		require.Equal(t, storj.EU, placement)
+
+		// delete the bucket
+		err = planet.Satellites[0].API.DB.Buckets().DeleteBucket(ctx, []byte(bucketName), projectID)
+		require.NoError(t, err)
+
+		// change the default_placement of the project
+		err = planet.Satellites[0].API.DB.Console().Projects().UpdateDefaultPlacement(ctx, projectID, storj.DefaultPlacement)
+		require.NoError(t, err)
+
+		_, err = sat.API.Metainfo.Endpoint.CreateBucket(ctx, &pb.CreateBucketRequest{
+			Header: &pb.RequestHeader{
+				ApiKey: apiKey.SerializeRaw(),
+			},
+			Name:      []byte(bucketName),
+			Placement: []byte("Poland"),
+		})
+		require.NoError(t, err)
+
+		placement, err = planet.Satellites[0].API.DB.Buckets().GetBucketPlacement(ctx, []byte(bucketName), projectID)
+		require.NoError(t, err)
+		require.Equal(t, storj.PlacementConstraint(40), placement)
+
+		// delete the bucket
+		err = planet.Satellites[0].API.DB.Buckets().DeleteBucket(ctx, []byte(bucketName), projectID)
+		require.NoError(t, err)
+
+		_, err = sat.API.Metainfo.Endpoint.CreateBucket(ctx, &pb.CreateBucketRequest{
+			Header: &pb.RequestHeader{
+				ApiKey: apiKey.SerializeRaw(),
+			},
+			Name:      []byte(bucketName),
+			Placement: []byte("EU"), // invalid placement
+		})
+		require.True(t, errs2.IsRPC(err, rpcstatus.PlacementInvalidValue))
+
+		// disable self-serve placement
+		sat.API.Metainfo.Endpoint.TestSelfServePlacementEnabled(false)
+
+		// passing invalid placement should not fail if self-serve placement is disabled.
+		// This is for backward compatibility with integration tests that'll pass placements
+		// regardless of self-serve placement being enabled or not.
+		_, err = sat.API.Metainfo.Endpoint.CreateBucket(ctx, &pb.CreateBucketRequest{
+			Header: &pb.RequestHeader{
+				ApiKey: apiKey.SerializeRaw(),
+			},
+			Name:      []byte(bucketName),
+			Placement: []byte("EU"), // invalid placement
+		})
+		require.NoError(t, err)
+
+		// placement should be set to default event though a placement was passed
+		// because self-serve placement is disabled.
+		placement, err = planet.Satellites[0].API.DB.Buckets().GetBucketPlacement(ctx, []byte(bucketName), projectID)
+		require.NoError(t, err)
+		require.Equal(t, storj.DefaultPlacement, placement)
+	})
+}
+
+func TestCreateBucketOnDisabledProject(t *testing.T) {
+	testplanet.Run(t, testplanet.Config{
+		SatelliteCount: 1, UplinkCount: 1,
+	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+		sat := planet.Satellites[0]
+		service := sat.API.Console.Service
+		project := planet.Uplinks[0].Projects[0]
+
+		userCtx, err := sat.UserContext(ctx, project.Owner.ID)
+		require.NoError(t, err)
+
+		apiKeyInfo, apiKey, err := service.CreateAPIKey(userCtx, project.ID, "test key", macaroon.APIKeyVersionMin)
+		require.NoError(t, err)
+		require.NotNil(t, apiKey)
+		require.False(t, apiKeyInfo.CreatedBy.IsZero())
+
+		err = sat.API.DB.Console().Projects().UpdateStatus(ctx, project.ID, console.ProjectDisabled)
+		require.NoError(t, err)
+
+		bucketName := []byte("bucket")
+		_, err = sat.Metainfo.Endpoint.CreateBucket(ctx, &pb.BucketCreateRequest{
+			Header: &pb.RequestHeader{
+				ApiKey: apiKey.SerializeRaw(),
+			},
+			Name: bucketName,
+		})
+		require.True(t, errs2.IsRPC(err, rpcstatus.NotFound))
+	})
+}
+
+func TestCreateBucketWithCreatedBy(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
 		SatelliteCount: 1, UplinkCount: 1,
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
@@ -881,21 +1013,6 @@ func TestCreateBucketWithObjectLockEnabled(t *testing.T) {
 
 			_, err = endpoint.CreateBucket(ctx, req)
 			rpctest.RequireCode(t, err, rpcstatus.ObjectLockDisabledForProject)
-
-			endpoint.TestSetUseBucketLevelVersioningByProjectID(project.ID, true)
-
-			_, err = endpoint.CreateBucket(ctx, req)
-			require.NoError(t, err)
-
-			endpoint.TestSetUseBucketLevelVersioningByProjectID(project.ID, false)
-
-			req.Name = []byte(testrand.BucketName())
-			_, err = endpoint.CreateBucket(ctx, req)
-			rpctest.RequireCode(t, err, rpcstatus.ObjectLockDisabledForProject)
-
-			require.NoError(t, sat.API.Console.Service.UpdateVersioningOptInStatus(userCtx, project.ID, console.VersioningOptIn))
-			_, err = endpoint.CreateBucket(ctx, req)
-			require.NoError(t, err)
 		})
 	})
 }

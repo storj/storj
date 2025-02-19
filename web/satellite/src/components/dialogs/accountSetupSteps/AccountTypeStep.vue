@@ -16,7 +16,7 @@
         <v-row justify="center">
             <v-col cols="12" sm="8" md="6" lg="4">
                 <v-card variant="outlined" rounded="xlg" class="h-100">
-                    <div class="h-100 d-flex flex-column justify-space-between pa-8">
+                    <div class="h-100 d-flex flex-column justify-space-between pa-6 pa-sm-8">
                         <h3 class="font-weight-black mb-1">Free Trial</h3>
                         <p class="mb-2 text-body-2">Great to start using Storj.</p>
 
@@ -57,7 +57,7 @@
 
             <v-col cols="12" sm="8" md="6" lg="4">
                 <v-card variant="outlined" rounded="xlg" class="h-100">
-                    <div class="h-100 d-flex flex-column justify-space-between pa-8">
+                    <div class="h-100 d-flex flex-column justify-space-between pa-6 pa-sm-8">
                         <h3 class="font-weight-black mb-1">Pro Account</h3>
                         <p class="mb-2 text-body-2">
                             Only pay for what you use.

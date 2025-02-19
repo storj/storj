@@ -12,10 +12,8 @@ import (
 
 	"github.com/spacemonkeygo/monkit/v3"
 	"github.com/zeebo/errs"
-	"google.golang.org/grpc/codes"
-	"google.golang.org/grpc/status"
 
-	"storj.io/storj/shared/dbutil/pgutil/pgerrcode"
+	"storj.io/storj/shared/dbutil/retrydb"
 	"storj.io/storj/shared/tagsql"
 )
 
@@ -43,11 +41,7 @@ func WithTx(ctx context.Context, db tagsql.DB, txOpts *sql.TxOptions, fn func(co
 			if dur := time.Since(start); dur < 5*time.Minute && i < 10 {
 				// even though the resources (duration and count) allow us to issue a retry,
 				// we only should if the error claims we should.
-				if code := pgerrcode.FromError(err); code == "CR000" || code == "40001" {
-					continue
-				}
-				// this is the indication we get from Spanner when a retry is needed.
-				if status.Code(err) == codes.Aborted {
+				if retrydb.ShouldRetry(err) {
 					continue
 				}
 			} else {

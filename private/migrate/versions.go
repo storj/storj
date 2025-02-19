@@ -15,6 +15,7 @@ import (
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 
+	"storj.io/storj/shared/dbutil/spannerutil"
 	"storj.io/storj/shared/dbutil/txutil"
 	"storj.io/storj/shared/tagsql"
 )
@@ -173,6 +174,9 @@ func (migration *Migration) Run(ctx context.Context, log *zap.Logger) error {
 		if db == nil {
 			return Error.New("step.DB is nil for step %d", step.Version)
 		}
+		if db.Name() == "spanner" {
+			db = &spannerutil.MultiExecDBWrapper{DB: db}
+		}
 
 		err = migration.ensureVersionTable(ctx, log, db)
 		if err != nil {
@@ -197,7 +201,12 @@ func (migration *Migration) Run(ctx context.Context, log *zap.Logger) error {
 		}
 
 		err = withDDLTx(ctx, db, nil, func(ctx context.Context, tx tagsql.Tx) error {
-			err = step.Action.Run(ctx, stepLog, db, tx)
+			runTx := tx
+			if db.Name() == "spanner" {
+				// we can't do DDL in a transaction
+				runTx = nil
+			}
+			err = step.Action.Run(ctx, stepLog, db, runTx)
 			if err != nil {
 				return err
 			}
@@ -356,7 +365,11 @@ type SQL []string
 // Run runs the SQL statements.
 func (sql SQL) Run(ctx context.Context, log *zap.Logger, db tagsql.DB, tx tagsql.Tx) (err error) {
 	for _, query := range sql {
-		_, err := tx.Exec(ctx, rebind(db, query))
+		if tx == nil {
+			_, err = db.ExecContext(ctx, rebind(db, query))
+		} else {
+			_, err = tx.Exec(ctx, rebind(db, query))
+		}
 		if err != nil {
 			return errs.Wrap(err)
 		}

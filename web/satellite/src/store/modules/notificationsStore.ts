@@ -5,16 +5,17 @@ import { reactive } from 'vue';
 import { defineStore } from 'pinia';
 
 import { DelayedNotification, NotificationMessage, NotificationType } from '@/types/DelayedNotification';
-import { AnalyticsHttpApi } from '@/api/analytics';
 import { AnalyticsErrorEventSource } from '@/utils/constants/analyticsEventNames';
+import { useAnalyticsStore } from '@/store/modules/analyticsStore';
 
 export class NotificationsState {
     public notificationQueue: DelayedNotification[] = [];
-    public analytics: AnalyticsHttpApi = new AnalyticsHttpApi();
 }
 
 export const useNotificationsStore = defineStore('notifications', () => {
     const state = reactive<NotificationsState>(new NotificationsState());
+
+    const analyticsStore = useAnalyticsStore();
 
     function addNotification(notification: DelayedNotification) {
         state.notificationQueue.push(notification);
@@ -46,47 +47,53 @@ export const useNotificationsStore = defineStore('notifications', () => {
         }
     }
 
-    function notifySuccess(message: NotificationMessage, title?: string): void {
+    function notifySuccess(message: NotificationMessage, title?: string, remainingTime?: number): void {
         const notification = new DelayedNotification(
             () => deleteNotification(notification.id),
             NotificationType.Success,
             message,
             title,
+            remainingTime,
         );
 
         addNotification(notification);
     }
 
-    function notifyInfo(message: NotificationMessage, title?: string): void {
+    function notifyInfo(message: NotificationMessage, title?: string, remainingTime?: number): void {
         const notification = new DelayedNotification(
             () => deleteNotification(notification.id),
             NotificationType.Info,
             message,
             title,
+            remainingTime,
         );
 
         addNotification(notification);
     }
 
-    function notifyWarning(message: NotificationMessage): void {
+    function notifyWarning(message: NotificationMessage, title?: string, remainingTime?: number): void {
         const notification = new DelayedNotification(
-            () => deleteNotification(notification.id),
+            remainingTime ? () => deleteNotification(notification.id) : () => {},
             NotificationType.Warning,
             message,
+            title,
+            remainingTime,
         );
 
         addNotification(notification);
     }
 
-    function notifyError(message: NotificationMessage, source: AnalyticsErrorEventSource | null = null): void {
+    function notifyError(message: NotificationMessage, source: AnalyticsErrorEventSource | null = null, title?: string, remainingTime?: number): void {
         if (source) {
-            state.analytics.errorEventTriggered(source);
+            analyticsStore.errorEventTriggered(source);
         }
 
         const notification = new DelayedNotification(
-            () => deleteNotification(notification.id),
+            remainingTime ? () => deleteNotification(notification.id) : () => {},
             NotificationType.Error,
             message,
+            title,
+            remainingTime,
         );
 
         addNotification(notification);

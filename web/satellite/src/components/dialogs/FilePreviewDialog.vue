@@ -9,6 +9,7 @@
         fullscreen
         theme="dark"
         no-click-animation
+        :persistent="false"
     >
         <v-card class="preview-card">
             <v-toolbar
@@ -20,55 +21,52 @@
                     <p v-if="showingVersions && currentFile" class="text-caption text-medium-emphasis"> Version ID: {{ currentFile.VersionId }} </p>
                 </v-toolbar-title>
                 <template #append>
-                    <v-btn id="Download" :loading="isDownloading" icon size="small" color="white" @click="download">
+                    <v-btn id="Download" :loading="isDownloading" icon size="small" color="white" :title="$vuetify.display.smAndDown ? 'Download' : undefined" @click="download">
                         <component :is="Download" :size="20" />
                         <v-tooltip
                             activator="parent"
                             location="bottom"
                             theme="light"
+                            class="hidden-sm-and-down"
                         >
                             Download
                         </v-tooltip>
                     </v-btn>
-                    <v-btn v-if="showingVersions" id="Delete" :loading="isGettingRetention" icon size="small" color="red" @click="onDeleteFileClick">
+                    <v-btn v-if="showingVersions" id="Delete" :loading="isGettingRetention" icon size="small" color="red" :title="$vuetify.display.smAndDown ? 'Delete' : undefined" @click="onDeleteFileClick">
                         <component :is="Trash2" :size="20" />
                         <v-tooltip
                             activator="parent"
                             location="bottom"
                             theme="light"
+                            class="hidden-sm-and-down"
                         >
                             Delete
                         </v-tooltip>
                     </v-btn>
-                    <v-btn v-if="!showingVersions" id="Share" icon size="small" color="white" @click="isShareDialogShown = true">
+                    <v-btn v-if="!showingVersions" id="Share" icon size="small" color="white" :title="$vuetify.display.smAndDown ? 'Share' : undefined" @click="isShareDialogShown = true">
                         <component :is="Share" :size="19" />
                         <v-tooltip
                             activator="parent"
                             location="bottom"
                             theme="light"
+                            class="hidden-sm-and-down"
                         >
                             Share
                         </v-tooltip>
                     </v-btn>
-                    <v-btn v-if="!showingVersions" id="Distribution" icon size="small" color="white" @click="isGeographicDistributionDialogShown = true">
+                    <v-btn v-if="!showingVersions" id="Distribution" icon size="small" color="white" :title="$vuetify.display.smAndDown ? 'Geographic Distribution' : undefined" @click="isGeographicDistributionDialogShown = true">
                         <icon-distribution size="20" />
                         <v-tooltip
                             activator="parent"
                             location="bottom"
                             theme="light"
+                            class="hidden-sm-and-down"
                         >
                             Geographic Distribution
                         </v-tooltip>
                     </v-btn>
-                    <v-btn v-if="!showingVersions" icon size="small" color="white">
+                    <v-btn v-if="!showingVersions" icon size="small" color="white" title="More Actions">
                         <component :is="EllipsisVertical" :size="20" />
-                        <v-tooltip
-                            activator="parent"
-                            location="bottom"
-                            theme="light"
-                        >
-                            More
-                        </v-tooltip>
                         <v-menu activator="parent">
                             <v-list class="pa-1" theme="light">
                                 <v-list-item :disabled="isGettingRetention" density="comfortable" link base-color="error" @click="onDeleteFileClick">
@@ -83,12 +81,13 @@
                             </v-list>
                         </v-menu>
                     </v-btn>
-                    <v-btn id="close-preview" icon size="small" color="white" @click="model = false">
+                    <v-btn id="close-preview" icon size="small" color="white" :title="$vuetify.display.smAndDown ? 'Close Preview' : undefined" @click="model = false">
                         <component :is="X" :size="20" />
                         <v-tooltip
                             activator="parent"
                             location="bottom"
                             theme="light"
+                            class="hidden-sm-and-down"
                         >
                             Close
                         </v-tooltip>
@@ -261,9 +260,7 @@ const bucket = computed<BucketMetadata | undefined>(() => {
  * Whether object lock is enabled for current bucket.
  */
 const objectLockEnabledForBucket = computed<boolean>(() => {
-    return configStore.objectLockUIEnabled
-      && projectsStore.objectLockUIEnabledForProject
-      && !!bucket.value?.objectLockEnabled;
+    return configStore.state.config.objectLockUIEnabled && !!bucket.value?.objectLockEnabled;
 });
 
 /**

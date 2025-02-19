@@ -68,9 +68,19 @@ export class FrontendConfig {
     altObjBrowserPagingThreshold: number;
     domainsPageEnabled: boolean;
     activeSessionsViewEnabled: boolean;
+    versioningUIEnabled: boolean;
     objectLockUIEnabled: boolean;
     valdiSignUpURL: string;
     ssoEnabled: boolean;
+    selfServePlacementSelectEnabled: boolean;
+    selfServePlacementNames: string[] | null;
+    cunoFSBetaEnabled: boolean;
+    csrfToken: string;
+    billingAddFundsEnabled: boolean;
+    maxAddFundsAmount: number;
+    minAddFundsAmount: number;
+    downloadPrefixEnabled: boolean;
+    zipDownloadLimit: number;
 }
 
 export class MultiCaptchaConfig {

@@ -15,7 +15,7 @@ import (
 	"google.golang.org/grpc/codes"
 
 	"storj.io/storj/shared/dbutil"
-	"storj.io/storj/shared/dbutil/cockroachutil"
+	"storj.io/storj/shared/dbutil/retrydb"
 	"storj.io/storj/shared/dbutil/txutil"
 	"storj.io/storj/shared/tagsql"
 )
@@ -43,10 +43,11 @@ func init() {
 		return class.Wrap(e)
 	}
 	ShouldRetry = func(driver string, err error) bool {
-		if driver == "pgxcockroach" || driver == "cockroach" {
-			return cockroachutil.NeedsRetry(err)
-		}
-		return false
+		// TODO: if we find a good way to annotate queries with some sort of
+		// "idempotent" or "read-only" marker, we can plumb that through to the
+		// ShouldRetry function. Until then, we must assume no queries are
+		// idempotent.
+		return retrydb.ShouldRetry(err)
 	}
 }
 

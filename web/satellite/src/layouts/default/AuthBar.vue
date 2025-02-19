@@ -6,7 +6,7 @@
         <template #prepend>
             <div class="d-flex flex-row align-center ml-2 mr-1 mt-n1">
                 <img
-                    v-if="theme.global.current.value.dark"
+                    v-if="themeStore.globalTheme?.dark"
                     src="@/assets/logo-dark.svg"
                     height="23"
                     width="auto"
@@ -34,76 +34,103 @@
             </div>
         </template>
         <template #append>
-            <!-- Theme Toggle Light/Dark Mode -->
-            <v-btn-toggle
-                v-model="activeTheme"
-                mandatory
-                border
-                inset
-                density="comfortable"
-                class="pa-1 bg-surface mr-1"
-            >
-                <v-tooltip text="Light Theme" location="bottom">
-                    <template #activator="{ props }">
-                        <v-btn
-                            v-bind="props"
-                            rounded="xl"
-                            density="comfortable"
-                            size="x-small"
-                            class="px-4"
-                            :icon="Sun"
-                            aria-label="Toggle Light Theme"
-                            @click="toggleTheme('light')"
-                        />
-                    </template>
-                </v-tooltip>
+            <v-menu offset-y width="200" class="rounded-xl">
+                <template #activator="{ props: activatorProps }">
+                    <v-btn
+                        v-bind="activatorProps"
+                        variant="outlined"
+                        color="default"
+                        size="small"
+                        rounded="lg"
+                        :icon="activeThemeIcon"
+                    />
+                </template>
 
-                <v-tooltip text="Dark Theme" location="bottom">
-                    <template #activator="{ props }">
-                        <v-btn
-                            v-bind="props"
-                            rounded="xl"
-                            density="comfortable"
-                            size="x-small"
-                            class="px-4"
-                            :icon="MoonStar"
-                            aria-label="Toggle Dark Theme"
-                            @click="toggleTheme('dark')"
-                        />
-                    </template>
-                </v-tooltip>
-            </v-btn-toggle>
+                <v-list class="px-2 rounded-lg">
+                    <v-list-item :active="activeTheme === 0" class="px-2" @click="themeStore.setTheme('light')">
+                        <v-list-item-title class="text-body-2">
+                            <v-btn
+                                class="mr-2"
+                                variant="outlined"
+                                color="default"
+                                size="x-small"
+                                rounded="lg"
+                                :icon="Sun"
+                            />
+                            Light
+                        </v-list-item-title>
+                    </v-list-item>
+
+                    <v-list-item :active="activeTheme === 1" class="px-2" @click="themeStore.setTheme('dark')">
+                        <v-list-item-title class="text-body-2">
+                            <v-btn
+                                class="mr-2"
+                                variant="outlined"
+                                color="default"
+                                size="x-small"
+                                rounded="lg"
+                                :icon="MoonStar"
+                            />
+                            Dark
+                        </v-list-item-title>
+                    </v-list-item>
+
+                    <v-list-item :active="activeTheme === 2" class="px-2" @click="themeStore.setTheme('auto')">
+                        <v-list-item-title class="text-body-2">
+                            <v-btn
+                                class="mr-2"
+                                variant="outlined"
+                                color="default"
+                                size="x-small"
+                                rounded="lg"
+                                :icon="smAndDown ? Smartphone : Monitor"
+                            />
+                            System
+                        </v-list-item-title>
+                    </v-list-item>
+                </v-list>
+            </v-menu>
         </template>
     </v-app-bar>
 </template>
 
 <script setup lang="ts">
-import { onBeforeMount, ref, watch } from 'vue';
+import { computed, onBeforeMount, ref } from 'vue';
 import { useRoute } from 'vue-router';
-import { useTheme } from 'vuetify';
-import { VAppBar, VBtn, VBtnToggle, VTooltip } from 'vuetify/components';
-import { Sun, MoonStar } from 'lucide-vue-next';
+import { VAppBar, VBtn, VList, VListItem, VListItemTitle, VMenu } from 'vuetify/components';
+import { Sun, MoonStar, Monitor, Smartphone } from 'lucide-vue-next';
+import { useDisplay } from 'vuetify';
 
 import { PartnerConfig } from '@/types/partners';
 import { ROUTES } from '@/router';
+import { useThemeStore } from '@/store/modules/themeStore';
 
 const route = useRoute();
-const theme = useTheme();
+const themeStore = useThemeStore();
+const { smAndDown } = useDisplay();
 
-const activeTheme = ref(0);
 const partnerConfig = ref<PartnerConfig | null>(null);
 
-function toggleTheme(newTheme: string): void {
-    if ((newTheme === 'dark' && theme.global.current.value.dark) || (newTheme === 'light' && !theme.global.current.value.dark)) {
-        return;
+const activeTheme = computed<number>(() => {
+    switch (themeStore.state.name) {
+    case 'light':
+        return 0;
+    case 'dark':
+        return 1;
+    default:
+        return 2;
     }
-    theme.global.name.value = newTheme;
-    localStorage.setItem('theme', newTheme);  // Store the selected theme in localStorage
-}
+});
 
-onBeforeMount(() => {
-    // Check for stored theme in localStorage. If none, default to 'light'
-    toggleTheme(localStorage.getItem('theme') || 'light');
+const activeThemeIcon = computed(() => {
+    switch (themeStore.state.name) {
+    case 'light':
+        return Sun;
+    case 'dark':
+        return MoonStar;
+    default:
+        return themeStore.globalTheme?.dark ? MoonStar : Sun;
+    }
 });
 
 onBeforeMount(async () => {
@@ -123,9 +150,5 @@ onBeforeMount(async () => {
             // eslint-disable-next-line no-empty
         } catch {}
     }
-});
-
-watch(() => theme.global.current.value.dark, (newVal: boolean) => {
-    activeTheme.value = newVal ? 1 : 0;
 });
 </script>

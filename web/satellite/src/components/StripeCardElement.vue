@@ -8,7 +8,7 @@
 </template>
 
 <script setup lang="ts">
-import { onMounted, ref, watch } from 'vue';
+import { onBeforeUnmount, onMounted, ref, watch } from 'vue';
 import { loadStripe } from '@stripe/stripe-js/pure';
 import { Stripe, StripeElements, StripePaymentElement, StripeElementsOptionsMode } from '@stripe/stripe-js';
 import { useTheme } from 'vuetify';
@@ -21,6 +21,10 @@ const configStore = useConfigStore();
 
 const notify = useNotify();
 const theme = useTheme();
+
+const emit = defineEmits<{
+    ready: [];
+}>();
 
 /**
  * Stripe elements is used to create 'Add Card' form.
@@ -74,6 +78,10 @@ async function initStripe(): Promise<void> {
     }
 
     paymentElement.value?.mount('#payment-element');
+
+    paymentElement.value?.on('ready', () => {
+        emit('ready');
+    });
 }
 
 /**
@@ -84,7 +92,6 @@ async function initStripe(): Promise<void> {
  * @throws {Error}
  */
 async function onSubmit(): Promise<string> {
-
     if (!(stripe.value && elements.value && paymentElement.value)) {
         throw new Error('Stripe is not initialized');
     }
@@ -123,6 +130,10 @@ watch(() => theme.global.current.value.dark, isDarkTheme => {
  */
 onMounted(() => {
     initStripe();
+});
+
+onBeforeUnmount(() => {
+    paymentElement.value?.off('ready');
 });
 
 defineExpose({

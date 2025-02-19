@@ -13,7 +13,7 @@ import (
 	"storj.io/storj/satellite/console/consoleauth/sso"
 )
 
-func TestSamlInfoConfigValidation(t *testing.T) {
+func TestOidcInfoConfigValidation(t *testing.T) {
 	url1, err := url.Parse("https://metadata1.com")
 	require.NoError(t, err)
 	url2, err := url.Parse("https://metadata2.com")

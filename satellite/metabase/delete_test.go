@@ -208,6 +208,7 @@ func TestDeletePendingObject(t *testing.T) {
 							Encryption:   metabasetest.DefaultEncryption,
 						},
 					},
+					DeletedSegmentCount: 2,
 				},
 			}.Check(ctx, t, db)
 
@@ -254,6 +255,7 @@ func TestDeletePendingObject(t *testing.T) {
 							Encryption:   metabasetest.DefaultEncryption,
 						},
 					},
+					DeletedSegmentCount: 1,
 				},
 			}.Check(ctx, t, db)
 
@@ -397,7 +399,8 @@ func TestDeleteObjectExactVersion(t *testing.T) {
 					Version:        obj.Version,
 				},
 				Result: metabase.DeleteObjectResult{
-					Removed: []metabase.Object{object},
+					Removed:             []metabase.Object{object},
+					DeletedSegmentCount: 2,
 				},
 			}.Check(ctx, t, db)
 
@@ -441,14 +444,54 @@ func TestDeleteObjectExactVersion(t *testing.T) {
 					Version:        obj.Version,
 				},
 				Result: metabase.DeleteObjectResult{
-					Removed: []metabase.Object{object},
+					Removed:             []metabase.Object{object},
+					DeletedSegmentCount: 1,
 				},
 			}.Check(ctx, t, db)
 
 			metabasetest.Verify{}.Check(ctx, t, db)
 		})
 
-		t.Run("Delete object with retention", func(t *testing.T) {
+		t.Run("Using stream ID suffix", func(t *testing.T) {
+			defer metabasetest.DeleteAll{}.Check(ctx, t, db)
+
+			object, segments := metabasetest.CreateTestObject{
+				BeginObjectExactVersion: &metabase.BeginObjectExactVersion{
+					ObjectStream: obj,
+					Encryption:   metabasetest.DefaultEncryption,
+				},
+			}.Run(ctx, t, db, obj, 2)
+
+			metabasetest.DeleteObjectExactVersion{
+				Opts: metabase.DeleteObjectExactVersion{
+					ObjectLocation: location,
+					Version:        obj.Version,
+					StreamIDSuffix: metabase.StreamIDSuffix(testrand.Bytes(8)),
+				},
+				Result: metabase.DeleteObjectResult{
+					Removed: []metabase.Object{},
+				},
+			}.Check(ctx, t, db)
+
+			metabasetest.Verify{
+				Objects:  metabasetest.ObjectsToRaw(object),
+				Segments: metabasetest.SegmentsToRaw(segments),
+			}.Check(ctx, t, db)
+
+			metabasetest.DeleteObjectExactVersion{
+				Opts: metabase.DeleteObjectExactVersion{
+					ObjectLocation: location,
+					Version:        obj.Version,
+					StreamIDSuffix: obj.StreamIDSuffix(),
+				},
+				Result: metabase.DeleteObjectResult{
+					Removed:             []metabase.Object{object},
+					DeletedSegmentCount: 2,
+				},
+			}.Check(ctx, t, db)
+		})
+
+		t.Run("Delete committed object with retention", func(t *testing.T) {
 			metabasetest.ObjectLockDeletionTestRunner{
 				TestProtected: func(t *testing.T, testCase metabasetest.ObjectLockDeletionTestCase) {
 					defer metabasetest.DeleteAll{}.Check(ctx, t, db)
@@ -502,12 +545,52 @@ func TestDeleteObjectExactVersion(t *testing.T) {
 							},
 						},
 						Result: metabase.DeleteObjectResult{
-							Removed: []metabase.Object{object},
+							Removed:             []metabase.Object{object},
+							DeletedSegmentCount: 1,
 						},
 					}.Check(ctx, t, db)
 
 					metabasetest.Verify{}.Check(ctx, t, db)
 				},
+			}.Run(t)
+		})
+
+		t.Run("Delete partial object with retention", func(t *testing.T) {
+			test := func(t *testing.T, testCase metabasetest.ObjectLockDeletionTestCase) {
+				defer metabasetest.DeleteAll{}.Check(ctx, t, db)
+
+				object := metabasetest.BeginObjectExactVersion{
+					Opts: metabase.BeginObjectExactVersion{
+						ObjectStream: obj,
+						Encryption:   metabasetest.DefaultEncryption,
+						Retention:    testCase.Retention,
+						LegalHold:    testCase.LegalHold,
+					},
+				}.Check(ctx, t, db)
+
+				expected := object
+				expected.ZombieDeletionDeadline = nil
+
+				metabasetest.DeleteObjectExactVersion{
+					Opts: metabase.DeleteObjectExactVersion{
+						ObjectLocation: location,
+						Version:        obj.Version,
+						ObjectLock: metabase.ObjectLockDeleteOptions{
+							Enabled:          true,
+							BypassGovernance: testCase.BypassGovernance,
+						},
+					},
+					Result: metabase.DeleteObjectResult{
+						Removed: []metabase.Object{expected},
+					},
+				}.Check(ctx, t, db)
+
+				metabasetest.Verify{}.Check(ctx, t, db)
+			}
+
+			metabasetest.ObjectLockDeletionTestRunner{
+				TestProtected: test,
+				TestRemovable: test,
 			}.Run(t)
 		})
 	})
@@ -890,7 +973,8 @@ func TestDeleteCopyWithDuplicateMetadata(t *testing.T) {
 							Version:        copyObj.Version,
 						},
 						Result: metabase.DeleteObjectResult{
-							Removed: []metabase.Object{copyObj},
+							Removed:             []metabase.Object{copyObj},
+							DeletedSegmentCount: numberOfSegments,
 						},
 					}.Check(ctx, t, db)
 
@@ -929,7 +1013,8 @@ func TestDeleteCopyWithDuplicateMetadata(t *testing.T) {
 							Version:        copyObject1.Version,
 						},
 						Result: metabase.DeleteObjectResult{
-							Removed: []metabase.Object{copyObject1},
+							Removed:             []metabase.Object{copyObject1},
+							DeletedSegmentCount: numberOfSegments,
 						},
 					}.Check(ctx, t, db)
 
@@ -966,7 +1051,8 @@ func TestDeleteCopyWithDuplicateMetadata(t *testing.T) {
 							Version:        originalObj.Version,
 						},
 						Result: metabase.DeleteObjectResult{
-							Removed: []metabase.Object{originalObj},
+							Removed:             []metabase.Object{originalObj},
+							DeletedSegmentCount: numberOfSegments,
 						},
 					}.Check(ctx, t, db)
 
@@ -1121,7 +1207,8 @@ func TestDeleteObjectLastCommitted(t *testing.T) {
 					ObjectLocation: location,
 				},
 				Result: metabase.DeleteObjectResult{
-					Removed: []metabase.Object{object},
+					Removed:             []metabase.Object{object},
+					DeletedSegmentCount: 2,
 				},
 			}.Check(ctx, t, db)
 
@@ -1161,7 +1248,8 @@ func TestDeleteObjectLastCommitted(t *testing.T) {
 					ObjectLocation: location,
 				},
 				Result: metabase.DeleteObjectResult{
-					Removed: []metabase.Object{object},
+					Removed:             []metabase.Object{object},
+					DeletedSegmentCount: 1,
 				},
 			}.Check(ctx, t, db)
 
@@ -1297,6 +1385,7 @@ func TestDeleteObjectLastCommitted(t *testing.T) {
 									CreatedAt:    time.Now(),
 									Status:       metabase.DeleteMarkerUnversioned,
 								}},
+								DeletedSegmentCount: 1,
 							},
 						}.Check(ctx, t, db)
 
@@ -1360,7 +1449,8 @@ func TestDeleteObjectLastCommitted(t *testing.T) {
 								},
 							},
 							Result: metabase.DeleteObjectResult{
-								Removed: []metabase.Object{object},
+								Removed:             []metabase.Object{object},
+								DeletedSegmentCount: 1,
 							},
 						}.Check(ctx, t, db)
 

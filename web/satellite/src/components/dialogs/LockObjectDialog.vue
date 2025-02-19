@@ -90,12 +90,12 @@
                                 <v-chip-group
                                     v-model="lockType"
                                     class="mb-4"
-                                    selected-class="text-primary font-weight-bold"
+                                    selected-class="font-weight-bold"
                                     mandatory
                                     column
                                     filter
                                 >
-                                    <v-chip v-for="type in [GOVERNANCE_LOCK, COMPLIANCE_LOCK]" :key="type" :value="type">
+                                    <v-chip v-for="type in [GOVERNANCE_LOCK, COMPLIANCE_LOCK]" :key="type" :value="type" variant="outlined">
                                         {{ type.substring(0, 1) + type.substring(1).toLowerCase() }}
                                     </v-chip>
                                 </v-chip-group>
@@ -123,7 +123,7 @@
                             <v-chip-group
                                 v-model="selectedRange"
                                 class="mb-4"
-                                selected-class="text-primary font-weight-bold"
+                                selected-class="font-weight-bold"
                                 mandatory
                                 column
                                 filter
@@ -136,6 +136,7 @@
                             <v-date-picker
                                 v-if="selectedRange?.label == customRangeLabel.label"
                                 v-model="customUntilDate"
+                                :allowed-dates="allowDate"
                                 width="100%"
                                 header="Choose Date"
                                 show-adjacent-months
@@ -219,7 +220,7 @@
                         <v-btn
                             color="primary"
                             variant="flat"
-                            :disabled="!selectedRange?.date && !customUntilDate"
+                            :disabled="nextButtonDisabled"
                             :loading="isLoading"
                             block
                             @click="onLockOrExit"
@@ -253,6 +254,7 @@ import {
     VWindowItem,
 } from 'vuetify/components';
 import { Lock } from 'lucide-vue-next';
+import { VDateInput } from 'vuetify/labs/components';
 
 import { BrowserObject, useObjectBrowserStore } from '@/store/modules/objectBrowserStore';
 import { useLoading } from '@/composables/useLoading';
@@ -337,8 +339,13 @@ const nextButtonLabel = computed<string>(() => {
     return step.value === LockStep.Settings ? 'Set Lock' : 'Close';
 });
 
+const nextButtonDisabled = computed<boolean>(() => {
+    return (!existingRetention.value.active && !lockType.value) ||
+        (!selectedRange.value?.date && !customUntilDate.value);
+});
+
 const lockedUntil = computed<string>(() => {
-    const until = selectedRange.value?.label === customRangeLabel.label ? customUntilDate.value : selectedRange.value?.date;
+    const until = selectedRange.value?.label === customRangeLabel.label ? getModifiedCustomDate() : selectedRange.value?.date;
     if (!until) {
         return '';
     }
@@ -348,9 +355,34 @@ const lockedUntil = computed<string>(() => {
 
 function getFormattedExpiration(date: Date): string {
     return `${
-        date.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })} at
+        Time.formattedDateWithGMTOffset(date)} at
         ${date.toLocaleTimeString('en-GB', { hour: 'numeric', minute: 'numeric' })}
     `;
+}
+
+function allowDate(date: unknown): boolean {
+    if (!date) return false;
+    const d = new Date(date as string);
+    if (isNaN(d.getTime())) return false;
+
+    d.setHours(0, 0, 0, 0);
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+
+    return d >= today;
+}
+
+function getModifiedCustomDate(): Date {
+    if (!customUntilDate.value) {
+        return new Date();
+    }
+
+    const date = existingRetention.value ? new Date(existingRetention.value.retainUntil) : new Date();
+    date.setDate(customUntilDate.value.getDate());
+    date.setMonth(customUntilDate.value.getMonth());
+    date.setFullYear(customUntilDate.value.getFullYear());
+
+    return date;
 }
 
 function dateAfterDays(initDate: Date, days: number): Date {
@@ -426,7 +458,7 @@ function extendLock(): void {
 
 function selectLockDate(): Date | undefined {
     if (selectedRange.value?.label === customRangeLabel.label) {
-        return customUntilDate.value;
+        return getModifiedCustomDate();
     } else {
         return selectedRange.value?.date;
     }

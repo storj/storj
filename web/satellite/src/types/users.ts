@@ -14,9 +14,10 @@ export interface UsersApi {
      * Updates users full name and short name.
      *
      * @param user - contains information that should be updated
+     * @param csrfProtectionToken - CSRF protection token
      * @throws Error
      */
-    update(user: UpdatedUser): Promise<void>;
+    update(user: UpdatedUser, csrfProtectionToken: string): Promise<void>;
 
     /**
      * Fetch user.
@@ -54,62 +55,68 @@ export interface UsersApi {
      *
      * @throws Error
      */
-    invalidateSession(sessionID: string): Promise<void>
+    invalidateSession(sessionID: string, csrfProtectionToken: string): Promise<void>
 
     /**
      * Changes user's settings.
      *
      * @param data
+     * @param csrfProtectionToken
+     *
      * @returns UserSettings
      * @throws Error
      */
-    updateSettings(data: SetUserSettingsData): Promise<UserSettings>;
+    updateSettings(data: SetUserSettingsData, csrfProtectionToken: string): Promise<UserSettings>;
 
     /**
      * Changes user's email.
      *
      * @param step
      * @param data
+     * @param csrfProtectionToken
+     *
      * @throws Error
      */
-    changeEmail(step: ChangeEmailStep, data: string): Promise<void>;
+    changeEmail(step: ChangeEmailStep, data: string, csrfProtectionToken: string): Promise<void>;
 
     /**
      * Marks user's account for deletion.
      *
      * @param step
      * @param data
+     * @param csrfProtectionToken
+     *
      * @throws Error
      */
-    deleteAccount(step: DeleteAccountStep, data: string): Promise<AccountDeletionData | null>;
+    deleteAccount(step: DeleteAccountStep, data: string, csrfProtectionToken: string): Promise<AccountDeletionData | null>;
 
     /**
      * Enable user's MFA.
      *
      * @throws Error
      */
-    enableUserMFA(passcode: string): Promise<string[]>;
+    enableUserMFA(passcode: string, csrfProtectionToken: string): Promise<string[]>;
 
     /**
      * Disable user's MFA.
      *
      * @throws Error
      */
-    disableUserMFA(passcode: string, recoveryCode: string): Promise<void>;
+    disableUserMFA(passcode: string, recoveryCode: string, csrfProtectionToken: string): Promise<void>;
 
     /**
      * Generate user's MFA secret.
      *
      * @throws Error
      */
-    generateUserMFASecret(): Promise<string>;
+    generateUserMFASecret(csrfProtectionToken: string): Promise<string>;
 
     /**
      * Generate user's MFA recovery codes requiring a code.
      *
      * @throws Error
      */
-    regenerateUserMFARecoveryCodes(passcode?: string, recoveryCode?: string): Promise<string[]>;
+    regenerateUserMFARecoveryCodes(csrfProtectionToken: string, passcode?: string, recoveryCode?: string): Promise<string[]>;
 
     /**
      * Request increase for user's project limit.
@@ -125,6 +132,7 @@ export interface UsersApi {
 export class User {
     public constructor(
         public id: string = '',
+        public externalID: string = '',
         public fullName: string = '',
         public shortName: string = '',
         public email: string = '',
@@ -183,7 +191,7 @@ export class User {
 export type ExpirationInfo = {
     isCloseToExpiredTrial: boolean;
     days: number;
-}
+};
 
 /**
  * User class holds info for updating User.
@@ -272,7 +280,13 @@ export class UserSettings {
         public onboardingEnd = false,
         public passphrasePrompt = true,
         public onboardingStep: string | null = null,
-        public noticeDismissal: NoticeDismissal = { fileGuide: false, serverSideEncryption: false, partnerUpgradeBanner: false, projectMembersPassphrase: false },
+        public noticeDismissal: NoticeDismissal = {
+            fileGuide: false,
+            serverSideEncryption: false,
+            partnerUpgradeBanner: false,
+            projectMembersPassphrase: false,
+            cunoFSBetaJoined: false,
+        },
     ) { }
 
     public get sessionDuration(): Duration | null {
@@ -335,6 +349,7 @@ export interface NoticeDismissal {
     serverSideEncryption: boolean
     partnerUpgradeBanner: boolean
     projectMembersPassphrase: boolean
+    cunoFSBetaJoined: boolean
     uploadOverwriteWarning?: boolean;
     versioningBetaBanner?: boolean;
 }
@@ -370,8 +385,6 @@ export enum OnboardingStep {
     PaymentMethodSelection = 'PaymentMethodSelection',
     PricingPlanSelection = 'PricingPlanSelection',
     ManagedPassphraseOptIn = 'ManagedPassphraseOptIn',
-    PricingPlan = 'PricingPlan',
-    AddTokens = 'AddTokens',
     BusinessAccountForm = 'BusinessAccountForm',
     SetupComplete = 'SetupComplete',
     EncryptionPassphrase = 'EncryptionPassphrase',
@@ -394,8 +407,6 @@ export const ACCOUNT_SETUP_STEPS = [
     OnboardingStep.PlanTypeSelection,
     OnboardingStep.PaymentMethodSelection,
     OnboardingStep.PricingPlanSelection,
-    OnboardingStep.PricingPlan,
-    OnboardingStep.AddTokens,
     OnboardingStep.BusinessAccountForm,
     OnboardingStep.SetupComplete,
 ];

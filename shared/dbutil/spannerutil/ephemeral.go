@@ -32,24 +32,30 @@ func CreateEphemeralDB(ctx context.Context, connstr string, databasePrefix strin
 		return nil, errs.New("failed to parse connection string %q: %w", connstr, err)
 	}
 
-	if !params.Emulator && !params.AllDefined() {
-		return nil, errs.New("when not using an emulator specifying full database is required")
+	if !params.Emulator && params.Project == "" {
+		return nil, errs.New("when not using an emulator project is required")
 	}
 
 	if params.Project == "" {
-		params.Project = randomIdentifier("", 8)
+		params.Project = randomIdentifier("temp", 8)
 	}
 
 	var ephemeralInstance bool
 	if params.Instance == "" {
-		params.Instance = randomIdentifier("", 8)
+		params.Instance = randomIdentifier("temp", 8)
 		ephemeralInstance = true
 	}
 
 	var ephemeralDatabase bool
 	if params.Database == "" || params.Emulator {
-		params.Database = randomIdentifier(databasePrefix, 8)
+		params.Database = randomIdentifier("temp-"+databasePrefix, 8)
 		ephemeralDatabase = true
+	}
+
+	if !params.Emulator {
+		if !strings.Contains(params.Database, "test") && !strings.Contains(params.Database, "temp") {
+			return nil, errs.New("the database name must contain test or temp to run on Spanner")
+		}
 	}
 
 	admin := OpenEmulatorAdmin(params)
@@ -82,7 +88,7 @@ func CreateEphemeralDB(ctx context.Context, connstr string, databasePrefix strin
 
 // Close deletes the created the instance and database.
 func (db *EphemeralDB) Close(ctx context.Context) error {
-	ctx, cancel := context2.WithRetimeout(ctx, 15*time.Second)
+	ctx, cancel := context2.WithRetimeout(ctx, time.Minute)
 	defer cancel()
 
 	var errdrop error
@@ -90,8 +96,14 @@ func (db *EphemeralDB) Close(ctx context.Context) error {
 	case db.ephemeralInstance:
 		// dropping instance should get rid of any associated databases as well
 		errdrop = db.admin.DeleteInstance(ctx, db.Params)
+		if errdrop != nil {
+			errdrop = Error.New("deleting instance failed: %w", errdrop)
+		}
 	case db.ephemeralDatabase:
 		errdrop = db.admin.DropDatabase(ctx, db.Params)
+		if errdrop != nil {
+			errdrop = Error.New("dropping database failed: %w", errdrop)
+		}
 	}
 
 	return errors.Join(db.admin.Close(), errdrop)

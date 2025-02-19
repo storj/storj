@@ -71,22 +71,21 @@ func retainTest(t *testing.T, tableSize int) {
 		if tableSize > 0 {
 			observer.TestingForceTableSize(tableSize)
 		}
-		segments := rangedloop.NewMetabaseRangeSplitter(planet.Satellites[0].Metabase.DB, rangedloopConfig.AsOfSystemInterval, rangedloopConfig.SpannerStaleInterval, rangedloopConfig.BatchSize)
+		segments := rangedloop.NewMetabaseRangeSplitter(zap.NewNop(), planet.Satellites[0].Metabase.DB, rangedloopConfig)
 		rangedLoop := rangedloop.NewService(zap.NewNop(), planet.Satellites[0].Config.RangedLoop, segments,
 			[]rangedloop.Observer{observer})
 
 		_, err = rangedLoop.RunOnce(ctx)
 		require.NoError(t, err)
 
-		storageNode0 := planet.StorageNodes[0]
-		require.Zero(t, storageNode0.Peer.Storage2.RetainService.TestingHowManyQueued())
+		require.Zero(t, planet.StorageNodes[0].Storage2.BloomFilterManager.GetCreatedTime(planet.Satellites[0].ID()))
 
 		// send to storagenode
 		err = gcsender.RunOnce(ctx)
 		require.NoError(t, err)
 
 		require.Eventually(t, func() bool {
-			return storageNode0.Peer.Storage2.RetainService.TestingHowManyQueued() == 1
+			return !planet.StorageNodes[0].Storage2.BloomFilterManager.GetCreatedTime(planet.Satellites[0].ID()).IsZero()
 		}, 10*time.Second, 50*time.Millisecond)
 
 		// check that zip was moved to sent
@@ -152,7 +151,7 @@ func TestSendRetainFiltersDisqualifiedNode(t *testing.T) {
 		rangedloopConfig := planet.Satellites[0].Config.RangedLoop
 
 		observer := bloomfilter.NewObserver(zaptest.NewLogger(t), config, planet.Satellites[0].Overlay.DB)
-		segments := rangedloop.NewMetabaseRangeSplitter(planet.Satellites[0].Metabase.DB, rangedloopConfig.AsOfSystemInterval, rangedloopConfig.SpannerStaleInterval, rangedloopConfig.BatchSize)
+		segments := rangedloop.NewMetabaseRangeSplitter(zap.NewNop(), planet.Satellites[0].Metabase.DB, rangedloopConfig)
 		rangedLoop := rangedloop.NewService(zap.NewNop(), planet.Satellites[0].Config.RangedLoop, segments,
 			[]rangedloop.Observer{observer})
 
@@ -170,15 +169,11 @@ func TestSendRetainFiltersDisqualifiedNode(t *testing.T) {
 		})
 		require.NoError(t, err)
 
-		for _, node := range planet.StorageNodes {
-			require.Zero(t, node.Peer.Storage2.RetainService.TestingHowManyQueued())
-		}
-
 		// send to storagenodes
 		require.NoError(t, gcsender.RunOnce(ctx))
 
 		for _, node := range planet.StorageNodes {
-			require.Zero(t, node.Peer.Storage2.RetainService.TestingHowManyQueued())
+			require.Zero(t, node.Storage2.BloomFilterManager.GetCreatedTime(planet.Satellites[0].ID()))
 		}
 	})
 }

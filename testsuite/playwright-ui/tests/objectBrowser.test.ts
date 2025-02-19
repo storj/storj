@@ -3,12 +3,12 @@
 
 import test from '@lib/BaseTest';
 import { v4 as uuidv4 } from 'uuid';
+import { join } from 'path';
 
 test.describe('object browser + edge services', () => {
     test.beforeEach(async ({
         signupPage,
         loginPage,
-        allProjectsPage,
         navigationMenu,
     }) => {
         const name = 'John Doe';
@@ -50,18 +50,18 @@ test.describe('object browser + edge services', () => {
 
         // Checks if the link-sharing buttons work
         await objectBrowserPage.verifyObjectMapIsVisible();
-        await objectBrowserPage.verifyShareLink();
+        await objectBrowserPage.verifyShareObjectLink();
 
         // Checks for successful download
         await objectBrowserPage.downloadFromPreview();
-        await objectBrowserPage.closePreview(fileName);
+        await objectBrowserPage.closePreview();
 
         // Delete old file and upload new with the same file name
         await objectBrowserPage.deleteObjectByName(fileName, 'Text');
         await objectBrowserPage.uploadFile(fileName, 'text/csv');
         await objectBrowserPage.openObjectPreview(fileName, 'Text');
         await objectBrowserPage.verifyObjectMapIsVisible();
-        await objectBrowserPage.verifyShareLink();
+        await objectBrowserPage.verifyShareObjectLink();
     });
 
     test('Folder creation and folder drag and drop upload', async ({
@@ -70,8 +70,8 @@ test.describe('object browser + edge services', () => {
         navigationMenu,
     }) => {
         const bucketName = uuidv4();
-        const fileName = 'test.txt';
-        const folderName = 'test_folder';
+        const folderName = 'testdata';
+        const folderPath = join(__dirname, 'testdata');
 
         await navigationMenu.clickOnBuckets();
         await bucketsPage.createBucket(bucketName);
@@ -82,48 +82,24 @@ test.describe('object browser + edge services', () => {
         await objectBrowserPage.deleteObjectByName(folderName, 'Folder');
 
         // Folder creation with a file inside it
-        await objectBrowserPage.uploadFolder(folderName, fileName, 'text/csv');
+        await objectBrowserPage.uploadFolder(folderPath, folderName);
         await objectBrowserPage.deleteObjectByName(folderName, 'Folder');
     });
 
-    test('Share bucket and bucket details page', async ({
-        navigationMenu,
+    test('Folder double-click disallowed', async ({
         bucketsPage,
         objectBrowserPage,
+        navigationMenu,
     }) => {
         const bucketName = uuidv4();
-        const fileName = 'test1.jpeg';
+        const folderName = 'testdata';
 
         await navigationMenu.clickOnBuckets();
         await bucketsPage.createBucket(bucketName);
         await bucketsPage.openBucket(bucketName);
-        await objectBrowserPage.waitLoading();
-        await objectBrowserPage.uploadFile(fileName, 'image/jpeg');
-        await objectBrowserPage.openObjectPreview(fileName, 'Image');
 
-        // Checks the image preview of the tiny apple png file
-        await objectBrowserPage.verifyImagePreviewIsVisible();
-        await objectBrowserPage.closePreview(fileName);
-
-        // Checks for Bucket Detail Header and correct bucket name
-        await navigationMenu.clickOnBuckets();
-        await bucketsPage.openBucketSettings();
-        await bucketsPage.verifyBucketDetails(bucketName);
-
-        // Check Bucket Share, see if copy button changed to copied
-        await bucketsPage.openBucketSettings();
-        await bucketsPage.verifyShareBucket();
-    });
-
-    test('Create and delete bucket', async ({
-        navigationMenu,
-        bucketsPage,
-    }) => {
-        const bucketName = 'testdelete';
-
-        await navigationMenu.clickOnBuckets();
-        await bucketsPage.createBucket(bucketName);
-        await bucketsPage.openBucketSettings();
-        await bucketsPage.verifyDeleteBucket(bucketName);
+        await objectBrowserPage.createFolder(folderName);
+        await objectBrowserPage.doubleClickFolder(folderName);
+        await objectBrowserPage.checkSingleBreadcrumb('a', folderName);
     });
 });

@@ -5,13 +5,15 @@ package metainfo
 
 import (
 	"fmt"
+	"io"
+	"net/http"
 	"strconv"
 	"strings"
+	"sync/atomic"
 	"time"
 
 	"storj.io/common/memory"
 	"storj.io/common/uuid"
-	"storj.io/storj/satellite/console"
 	"storj.io/storj/satellite/metabase"
 	"storj.io/storj/satellite/nodeselection"
 	"storj.io/uplink/private/eestream"
@@ -148,6 +150,15 @@ type UploadLimiterConfig struct {
 	CacheCapacity int `help:"number of object locations to cache." releaseDefault:"10000" devDefault:"10" testDefault:"100"`
 }
 
+// DownloadLimiterConfig is a configuration struct for endpoint download limiting.
+type DownloadLimiterConfig struct {
+	Enabled           bool          `help:"whether rate limiting is enabled." releaseDefault:"true" devDefault:"true"`
+	SingleObjectLimit time.Duration `help:"how often we can upload to the single object (the same location) per API instance" default:"1ms"`
+	BurstLimit        int           `help:"the number of requests to allow bursts beyond the rate limit" default:"3"`
+	HashCount         int           `help:"the number of hash indexes to make into the rate limit map" default:"3"`
+	SizeExponent      int           `help:"two to this power is the amount of rate limits to store in ram. higher has less collisions." releaseDefault:"21" devDefault:"17" testDefault:"16"`
+}
+
 // ProjectLimitConfig is a configuration struct for default project limits.
 type ProjectLimitConfig struct {
 	MaxBuckets int `help:"max bucket count for a project." default:"100" testDefault:"10"`
@@ -167,108 +178,63 @@ type Config struct {
 	MaxInlineSegmentSize memory.Size `default:"4KiB" help:"maximum inline segment size"`
 	// we have such default value because max value for ObjectKey is 1024(1 Kib) but EncryptedObjectKey
 	// has encryption overhead 16 bytes. So overall size is 1024 + 16 * 16.
-	MaxEncryptedObjectKeyLength  int                 `default:"4000" help:"maximum encrypted object key length"`
-	MaxSegmentSize               memory.Size         `default:"64MiB" help:"maximum segment size"`
-	MaxMetadataSize              memory.Size         `default:"2KiB" help:"maximum segment metadata size"`
-	MaxCommitInterval            time.Duration       `default:"48h" testDefault:"1h" help:"maximum time allowed to pass between creating and committing a segment"`
-	MinPartSize                  memory.Size         `default:"5MiB" testDefault:"0" help:"minimum allowed part size (last part has no minimum size limit)"`
-	MaxNumberOfParts             int                 `default:"10000" help:"maximum number of parts object can contain"`
-	Overlay                      bool                `default:"true" help:"toggle flag if overlay is enabled"`
-	RS                           RSConfig            `releaseDefault:"29/35/80/110-256B" devDefault:"4/6/8/10-256B" help:"redundancy scheme configuration in the format k/m/o/n-sharesize"`
-	RateLimiter                  RateLimiterConfig   `help:"rate limiter configuration"`
-	UploadLimiter                UploadLimiterConfig `help:"object upload limiter configuration"`
-	ProjectLimits                ProjectLimitConfig  `help:"project limit configuration"`
-	SuccessTrackerKind           string              `default:"percent" help:"success tracker kind, bitshift or percent"`
-	SuccessTrackerTickDuration   time.Duration       `default:"10m" help:"how often to bump the generation in the node success tracker"`
-	SuccessTrackerTrustedUplinks []string            `help:"list of trusted uplinks for success tracker"`
+	MaxEncryptedObjectKeyLength  int                   `default:"4000" help:"maximum encrypted object key length"`
+	MaxSegmentSize               memory.Size           `default:"64MiB" help:"maximum segment size"`
+	MaxMetadataSize              memory.Size           `default:"2KiB" help:"maximum segment metadata size"`
+	MaxCommitInterval            time.Duration         `default:"48h" testDefault:"1h" help:"maximum time allowed to pass between creating and committing a segment"`
+	MinPartSize                  memory.Size           `default:"5MiB" testDefault:"0" help:"minimum allowed part size (last part has no minimum size limit)"`
+	MaxNumberOfParts             int                   `default:"10000" help:"maximum number of parts object can contain"`
+	Overlay                      bool                  `default:"true" help:"toggle flag if overlay is enabled"`
+	RS                           RSConfig              `releaseDefault:"29/35/80/110-256B" devDefault:"4/6/8/10-256B" help:"redundancy scheme configuration in the format k/m/o/n-sharesize"`
+	RateLimiter                  RateLimiterConfig     `help:"rate limiter configuration"`
+	UploadLimiter                UploadLimiterConfig   `help:"object upload limiter configuration"`
+	DownloadLimiter              DownloadLimiterConfig `help:"object download limiter configuration"`
+	ProjectLimits                ProjectLimitConfig    `help:"project limit configuration"`
+	SuccessTrackerKind           string                `default:"percent" help:"success tracker kind, bitshift or percent"`
+	SuccessTrackerTickDuration   time.Duration         `default:"10m" help:"how often to bump the generation in the node success tracker"`
+	FailureTrackerTickDuration   time.Duration         `default:"5s" help:"how often to bump the generation in the node failure tracker"`
+	SuccessTrackerTrustedUplinks []string              `help:"list of trusted uplinks for success tracker, deprecated. please use success-tracker-uplinks for uplinks that should get their own success tracker profiles and trusted-uplinks for uplinks that are trusted individually."`
+	SuccessTrackerUplinks        []string              `help:"list of uplinks for success tracker"`
+	FailureTrackerChanceToSkip   float64               `help:"the chance to skip a failure tracker generation bump" default:".6"`
+	TrustedUplinks               []string              `help:"list of trusted uplinks"`
 
 	// TODO remove this flag when server-side copy implementation will be finished
 	ServerSideCopy         bool `help:"enable code for server-side copy, deprecated. please leave this to true." default:"true"`
 	ServerSideCopyDisabled bool `help:"disable already enabled server-side copy. this is because once server side copy is enabled, delete code should stay changed, even if you want to disable server side copy" default:"false"`
-	UseListObjectsIterator bool `help:"switch to iterator based implementation." default:"false"`
 
 	NodeAliasCacheFullRefresh bool `help:"node alias cache does a full refresh when a value is missing" default:"false"`
 
-	UseBucketLevelObjectVersioning bool `help:"enable the use of bucket level object versioning" default:"false"`
-	// flag to simplify testing by enabling bucket level versioning feature only for specific projects
-	UseBucketLevelObjectVersioningProjects []string `help:"list of projects which will have UseBucketLevelObjectVersioning feature flag enabled" default:"" hidden:"true"`
+	UseBucketLevelObjectVersioning bool `help:"enable the use of bucket level object versioning" default:"true"`
 
-	ObjectLockEnabled bool `help:"enable the use of bucket-level Object Lock" default:"false"`
+	UseListObjectsForListing bool `help:"switch to new ListObjects implementation" default:"false" devDefault:"true" testDefault:"true"`
+
+	ListObjects ListObjectsFlags `help:"tuning parameters for list objects"`
+
+	ObjectLockEnabled bool `help:"enable the use of bucket-level Object Lock" default:"true"`
 
 	UserInfoValidation UserInfoValidationConfig `help:"Config for user info validation"`
+
+	SelfServePlacementSelectEnabled bool `help:"whether self-serve placement selection feature is enabled. Provided by console config." default:"false" hidden:"true"`
+
+	SendEdgeUrlOverrides bool `help:"send edge URL overrides through the GetProjectInfo endpoint" default:"false"`
 
 	// TODO remove when we benchmarking are done and decision is made.
 	TestListingQuery                bool      `default:"false" help:"test the new query for non-recursive listing"`
 	TestOptimizedInlineObjectUpload bool      `default:"false" devDefault:"true" help:"enables optimization for uploading objects with single inline segment"`
-	TestingPrecommitDeleteMode      int       `default:"0" help:"which code path to use for precommit delete step for unversioned objects, 0 is the default (old) code path."`
 	TestingSpannerProjects          UUIDsFlag `default:""  help:"list of project IDs for which Spanner metabase DB is enabled" hidden:"true"`
+	TestingMigrationMode            bool      `default:"false"  help:"sets metainfo API into migration mode, only read actions are allowed" hidden:"true"`
 }
 
 // Metabase constructs Metabase configuration based on Metainfo configuration with specific application name.
 func (c Config) Metabase(applicationName string) metabase.Config {
 	return metabase.Config{
-		ApplicationName:            applicationName,
-		MinPartSize:                c.MinPartSize,
-		MaxNumberOfParts:           c.MaxNumberOfParts,
-		ServerSideCopy:             c.ServerSideCopy,
-		NodeAliasCacheFullRefresh:  c.NodeAliasCacheFullRefresh,
-		TestingPrecommitDeleteMode: metabase.TestingPrecommitDeleteMode(c.TestingPrecommitDeleteMode),
-		TestingSpannerProjects:     c.TestingSpannerProjects,
+		ApplicationName:           applicationName,
+		MinPartSize:               c.MinPartSize,
+		MaxNumberOfParts:          c.MaxNumberOfParts,
+		ServerSideCopy:            c.ServerSideCopy,
+		NodeAliasCacheFullRefresh: c.NodeAliasCacheFullRefresh,
+		TestingSpannerProjects:    c.TestingSpannerProjects,
 	}
-}
-
-// ExtendedConfig extended config keeps additional helper fields and methods around Config.
-type ExtendedConfig struct {
-	Config
-
-	useBucketLevelObjectVersioningProjects map[uuid.UUID]struct{}
-}
-
-// NewExtendedConfig creates new instance of extended config.
-func NewExtendedConfig(config Config) (_ ExtendedConfig, err error) {
-	extendedConfig := ExtendedConfig{
-		Config:                                 config,
-		useBucketLevelObjectVersioningProjects: make(map[uuid.UUID]struct{}),
-	}
-	for _, projectIDString := range config.UseBucketLevelObjectVersioningProjects {
-		projectID, err := uuid.FromString(projectIDString)
-		if err != nil {
-			return ExtendedConfig{}, err
-		}
-		extendedConfig.useBucketLevelObjectVersioningProjects[projectID] = struct{}{}
-	}
-
-	return extendedConfig, nil
-}
-
-// UseBucketLevelObjectVersioningByProject checks if UseBucketLevelObjectVersioning should be enabled for specific project.
-func (ec ExtendedConfig) UseBucketLevelObjectVersioningByProject(project *console.Project) bool {
-	// if its globally enabled don't look at projects
-	if !ec.UseBucketLevelObjectVersioning {
-		if _, ok := ec.useBucketLevelObjectVersioningProjects[project.ID]; ok {
-			return true
-		}
-		// account for whether the project has opted in to versioning beta
-		if !project.PromptedForVersioningBeta {
-			return false
-		} else if project.PromptedForVersioningBeta && project.DefaultVersioning != console.VersioningUnsupported {
-			return true
-		} else {
-			return false
-		}
-	}
-
-	return true
-}
-
-// ObjectLockEnabledByProject checks if bucket-level Object Lock functionality
-// should be enabled for a specific project.
-func (ec ExtendedConfig) ObjectLockEnabledByProject(project *console.Project) bool {
-	// if its globally enabled don't look at projects
-	if !ec.ObjectLockEnabled {
-		return false
-	}
-	return ec.UseBucketLevelObjectVersioningByProject(project)
 }
 
 // UUIDsFlag is a configuration struct that keeps info about project IDs
@@ -313,4 +279,59 @@ func (m UUIDsFlag) String() string {
 		i++
 	}
 	return b.String()
+}
+
+// MigrationModeFlagExtension defines custom debug endpoint for metainfo migration mode flag.
+type MigrationModeFlagExtension struct {
+	migrationMode atomic.Bool
+}
+
+// NewMigrationModeFlagExtension creates a new instance of MigrationModeFlagExtension.
+func NewMigrationModeFlagExtension(config Config) *MigrationModeFlagExtension {
+	m := &MigrationModeFlagExtension{}
+	m.migrationMode.Store(config.TestingMigrationMode)
+	return m
+}
+
+// Description is a display name for the UI.
+func (m *MigrationModeFlagExtension) Description() string {
+	return "give ability to get or set state of metainfo TestingMigrationMode flag"
+}
+
+// Path is the unique HTTP path fragment.
+func (m *MigrationModeFlagExtension) Path() string {
+	return "/metainfo/flags/migration-mode"
+}
+
+// Handler is the HTTP handler for the path.
+func (m *MigrationModeFlagExtension) Handler(w http.ResponseWriter, r *http.Request) {
+
+	switch r.Method {
+	case http.MethodGet:
+		_, err := w.Write([]byte(strconv.FormatBool(m.migrationMode.Load())))
+		if err != nil {
+			w.WriteHeader(http.StatusInternalServerError)
+			_, _ = fmt.Fprintf(w, "internal error: %v", err)
+		}
+	case http.MethodPut:
+		body, err := io.ReadAll(r.Body)
+		if err != nil {
+			w.WriteHeader(http.StatusInternalServerError)
+			_, _ = fmt.Fprintf(w, "internal error: %v", err)
+		}
+		value, err := strconv.ParseBool(string(body))
+		if err != nil {
+			w.WriteHeader(http.StatusBadRequest)
+			_, _ = fmt.Fprintf(w, "internal error: %v", err)
+		}
+		m.migrationMode.Store(value)
+	default:
+		w.WriteHeader(http.StatusMethodNotAllowed)
+		_, _ = fmt.Fprintf(w, "Only GET or PUT are supported.")
+	}
+}
+
+// Enabled returns true if migration mode is enabled.
+func (m *MigrationModeFlagExtension) Enabled() bool {
+	return m.migrationMode.Load()
 }

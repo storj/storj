@@ -11,13 +11,44 @@ import (
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 
-	"storj.io/storj/private/mud"
 	"storj.io/storj/shared/dbutil/spannerutil"
+	"storj.io/storj/shared/mud"
 )
+
+// Module is a mud module.
+func Module(ball *mud.Ball) {
+	mud.Provide[*DB](ball, OpenDatabaseWithMigration)
+	mud.View[*DB, DB](ball, mud.Dereference[DB])
+}
+
+// DatabaseConfig is the minimum required configuration for metabase.
+type DatabaseConfig struct {
+	MigrationUnsafe string `help:"comma separated migration types to run during every startup (none: no migration, snapshot: creating db from latest test snapshot (for testing only), testdata: create testuser in addition to a migration, full: do the normal migration (equals to 'satellite run migration'" default:"none" hidden:"true"`
+	URL             string
+	Config
+}
+
+// OpenDatabaseWithMigration will open the database (and update schema, if required).
+func OpenDatabaseWithMigration(ctx context.Context, logger *zap.Logger, cfg DatabaseConfig) (*DB, error) {
+	metabaseDB, err := Open(ctx, logger, cfg.URL, Config{
+		ApplicationName:  cfg.ApplicationName,
+		MinPartSize:      cfg.MinPartSize,
+		MaxNumberOfParts: cfg.MaxNumberOfParts,
+	})
+	if err != nil {
+		return nil, errs.New("Error creating metabase connection on satellite api: %+v", err)
+	}
+
+	err = MigrateMetainfoDB(ctx, logger, metabaseDB, cfg.MigrationUnsafe)
+	if err != nil {
+		return nil, err
+	}
+	return metabaseDB, err
+}
 
 //go:embed adapter_spanner_scheme.sql
 var spannerDDL string
-var spannerDDLs = spannerutil.SplitDDL(spannerDDL)
+var spannerDDLs = spannerutil.MustSplitSQLStatements(spannerDDL)
 
 // SpannerTestModule adds all the required dependencies for Spanner migration and adapter.
 func SpannerTestModule(ball *mud.Ball, spannerConnection string) {

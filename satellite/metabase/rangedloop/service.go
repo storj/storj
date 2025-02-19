@@ -32,6 +32,8 @@ type Config struct {
 	AsOfSystemInterval   time.Duration `help:"as of system interval" releaseDefault:"-5m" devDefault:"-1us" testDefault:"-1us"`
 	Interval             time.Duration `help:"how often to run the loop" releaseDefault:"2h" devDefault:"10s" testDefault:"0"`
 	SpannerStaleInterval time.Duration `help:"sets spanner stale read timestamp as now()-interval" default:"0"`
+	// TODO: remove this flag when we will know which type is optimal for ranged loop
+	TestingSpannerQueryType string `help:"use to select query type which will be used to execute ranged loop (sql|read)" default:"" testDefault:"read" hidden:"true"`
 
 	SuspiciousProcessedRatio float64 `help:"ratio where to consider processed count as supicious" default:"0.03"`
 }
@@ -101,14 +103,8 @@ func (service *Service) Run(ctx context.Context) (err error) {
 	service.log.Info("ranged loop initialized")
 
 	return service.Loop.Run(ctx, func(ctx context.Context) error {
-		service.log.Info("ranged loop started",
-			zap.Int("parallelism", service.config.Parallelism),
-			zap.Int("batchSize", service.config.BatchSize),
-		)
 		_, err := service.RunOnce(ctx)
 		if err != nil {
-			service.log.Error("ranged loop failure", zap.Error(err))
-
 			if errs2.IsCanceled(err) {
 				return err
 			}
@@ -116,11 +112,8 @@ func (service *Service) Run(ctx context.Context) (err error) {
 			if ctx.Err() != nil {
 				return errs.Combine(err, ctx.Err())
 			}
-
-			mon.Event("rangedloop_error") //mon:locked
 		}
 
-		service.log.Info("ranged loop finished")
 		return nil
 	})
 }
@@ -128,6 +121,23 @@ func (service *Service) Run(ctx context.Context) (err error) {
 // RunOnce goes through one time and sends information to observers.
 func (service *Service) RunOnce(ctx context.Context) (observerDurations []ObserverDuration, err error) {
 	defer mon.Task()(&ctx)(&err)
+
+	service.log.Info("ranged loop started",
+		zap.Int("parallelism", service.config.Parallelism),
+		zap.Int("batch_size", service.config.BatchSize),
+		zap.Duration("asofsystem_interval", service.config.AsOfSystemInterval),
+		zap.Duration("spannerstale_interval", service.config.SpannerStaleInterval),
+	)
+
+	defer func() {
+		if err != nil {
+			service.log.Error("ranged loop failure", zap.Error(err))
+
+			mon.Event("rangedloop_error") //mon:locked
+		} else {
+			service.log.Info("ranged loop finished")
+		}
+	}()
 
 	observerStates, err := startObservers(ctx, service.log, service.observers)
 	if err != nil {

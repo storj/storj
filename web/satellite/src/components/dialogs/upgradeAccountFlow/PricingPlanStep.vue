@@ -18,10 +18,12 @@
             <StripeCardElement
                 v-if="paymentElementEnabled"
                 ref="stripeCardInput"
+                @ready="stripeReady = true"
             />
             <StripeCardInput
                 v-else
                 ref="stripeCardInput"
+                @ready="stripeReady = true"
             />
         </div>
 
@@ -30,6 +32,7 @@
                 id="activate"
                 block
                 :color="plan.type === 'partner' ? 'success' : 'primary'"
+                :disabled="!stripeReady && !isFree"
                 :loading="loading"
                 @click="onActivateClick"
             >
@@ -48,7 +51,7 @@
                 color="default"
                 :prepend-icon="ChevronLeft"
                 :disabled="loading"
-                @click="emit('back')"
+                @click="onBack"
             >
                 Back
             </v-btn>
@@ -124,6 +127,7 @@ const notify = useNotify();
 const isSuccess = ref<boolean>(false);
 
 const stripeCardInput = ref<StripeForm | null>(null);
+const stripeReady = ref<boolean>(false);
 
 const props = withDefaults(defineProps<{
     plan?: PricingPlanInfo;
@@ -154,6 +158,11 @@ const paymentElementEnabled = computed(() => {
 const isFree = computed((): boolean => {
     return props.plan?.type === PricingPlanType.FREE;
 });
+
+function onBack(): void {
+    stripeReady.value = false;
+    emit('back');
+}
 
 /**
  * Applies the selected pricing plan to the user.

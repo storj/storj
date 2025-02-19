@@ -4,14 +4,12 @@
 package audit_test
 
 import (
-	"io"
 	"testing"
 
 	"github.com/stretchr/testify/require"
 
 	"storj.io/common/memory"
 	"storj.io/common/pb"
-	"storj.io/common/storj"
 	"storj.io/common/testcontext"
 	"storj.io/common/testrand"
 	"storj.io/storj/private/testplanet"
@@ -133,8 +131,7 @@ func TestReverifyPieceWithPieceMissing(t *testing.T) {
 		missingPiece := segment.Pieces[0]
 		missingPieceNode := planet.FindNode(missingPiece.StorageNode)
 		missingPieceID := segment.RootPieceID.Derive(missingPiece.StorageNode, int32(missingPiece.Number))
-		err := missingPieceNode.Storage2.Store.Delete(ctx, satellite.ID(), missingPieceID)
-		require.NoError(t, err)
+		missingPieceNode.Storage2.PieceBackend.TestingDeletePiece(satellite.ID(), missingPieceID)
 
 		// see what happens when ReverifyPiece tries to hit that node
 		outcome, _ := satellite.Audit.Reverifier.ReverifyPiece(ctx, planet.Log().Named("reverifier"), &audit.PieceLocator{
@@ -170,7 +167,7 @@ func testReverifyRewrittenPiece(t *testing.T, mutator func(content []byte, heade
 		node := planet.FindNode(pieceToRewrite.StorageNode)
 		pieceID := segment.RootPieceID.Derive(pieceToRewrite.StorageNode, int32(pieceToRewrite.Number))
 
-		rewritePiece(t, ctx, node, satellite.ID(), pieceID, mutator)
+		node.Storage2.PieceBackend.TestingMutatePiece(satellite.ID(), pieceID, mutator)
 
 		outcome, _ := satellite.Audit.Reverifier.ReverifyPiece(ctx, planet.Log().Named("reverifier"), &audit.PieceLocator{
 			StreamID: segment.StreamID,
@@ -235,25 +232,4 @@ func uploadSomeData(t *testing.T, ctx *testcontext.Context, planet *testplanet.P
 	require.NoError(t, err)
 
 	return segments[0]
-}
-
-func rewritePiece(t *testing.T, ctx *testcontext.Context, node *testplanet.StorageNode, satelliteID storj.NodeID, pieceID storj.PieceID, mutator func(contents []byte, header *pb.PieceHeader)) {
-	reader, err := node.Storage2.Store.Reader(ctx, satelliteID, pieceID)
-	require.NoError(t, err)
-	pieceHeader, err := reader.GetPieceHeader()
-	require.NoError(t, err)
-	pieceContents, err := io.ReadAll(reader)
-	require.NoError(t, err)
-	err = reader.Close()
-	require.NoError(t, err)
-
-	mutator(pieceContents, pieceHeader)
-
-	writer, err := node.Storage2.Store.Writer(ctx, satelliteID, pieceID, pieceHeader.HashAlgorithm)
-	require.NoError(t, err)
-	n, err := writer.Write(pieceContents)
-	require.NoError(t, err)
-	require.Equal(t, len(pieceContents), n)
-	err = writer.Commit(ctx, pieceHeader)
-	require.NoError(t, err)
 }

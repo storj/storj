@@ -17,6 +17,8 @@ type Config struct {
 	Enabled               bool                  `help:"whether SSO is enabled." default:"false"`
 	OidcProviderInfos     OidcProviderInfos     `help:"semicolon-separated provider:client-id,client-secret,provider-url." default:""`
 	EmailProviderMappings EmailProviderMappings `help:"semicolon-separated provider:email-regex as provided in oidc-provider-infos." default:""`
+	MockSso               bool                  `help:"whether to mock SSO for testing purposes. This should never be true in production." default:"false" hidden:"true"`
+	MockEmail             string                `help:"mock email for successful SSO auth for testing purposes." default:"" hidden:"true"`
 }
 
 // Ensure that OidcProviderInfos implements pflag.Value.

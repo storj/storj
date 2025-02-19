@@ -12,7 +12,6 @@
                             variant="tonal"
                             color="error"
                             text="hCaptcha is required. If you are using a VPN, try disabling it."
-                            rounded="lg"
                             density="comfortable"
                             class="mt-2 mb-3"
                             border
@@ -23,7 +22,6 @@
                             :color="isActivatedError ? 'error' : 'success'"
                             :title="isActivatedError ? 'Oops!' :'Success!'"
                             :text="isActivatedError ? 'This account has already been verified.' : 'Account verified.'"
-                            rounded="lg"
                             density="comfortable"
                             class="mt-1 mb-3"
                             border
@@ -34,7 +32,6 @@
                             color="error"
                             title="Oops!"
                             text="The invite link you used has expired or is invalid."
-                            rounded="lg"
                             density="comfortable"
                             class="mt-1 mb-3"
                             border
@@ -45,7 +42,6 @@
                             color="error"
                             title="Single Sign-on Failed"
                             text="Single sign-on failed. Please check with your administrator."
-                            rounded="lg"
                             density="comfortable"
                             class="mt-1 mb-3"
                             border
@@ -58,7 +54,6 @@
                             text="Login failed. Please check if this is the correct satellite for your account. If you are
                             sure your credentials are correct, please check your email inbox for a notification with
                             further instructions."
-                            rounded="lg"
                             density="comfortable"
                             class="mt-1 mb-3"
                             border
@@ -88,6 +83,7 @@
                                 flat
                                 clearable
                                 required
+                                :disabled="!!pathEmail"
                                 @update:model-value="checkSSO"
                             />
 
@@ -107,7 +103,7 @@
                                     <password-input-eye-icons
                                         :is-visible="showPassword"
                                         type="password"
-                                        @toggleVisibility="showPassword = !showPassword"
+                                        @toggle-visibility="showPassword = !showPassword"
                                     />
                                 </template>
                             </v-text-field>
@@ -131,7 +127,7 @@
                                     </v-checkbox>
                                 </v-col>
 
-                                <v-col>
+                                <v-col v-if="ssoUnavailable">
                                     <p class="text-right mt-n2 mb-4">
                                         <router-link class="link" :to="ROUTES.ForgotPassword.path">
                                             Forgot Password
@@ -255,6 +251,8 @@ const emailRules: ((_: string) => boolean | string)[] = [
 
 const ssoEnabled = computed(() => configStore.state.config.ssoEnabled);
 
+const csrfToken = computed<string>(() => configStore.state.config.csrfToken);
+
 const passwordRules = computed(() => {
     if (!ssoEnabled.value) {
         return [ RequiredRule ];
@@ -339,8 +337,9 @@ function checkSSO(mail: string) {
     }
     ssoCheckTimeout.value = setTimeout(async () => {
         isCheckingSso.value = true;
+        let urlStr: string;
         try {
-            ssoUrl.value = await auth.checkSSO(mail);
+            urlStr = await auth.checkSSO(mail);
         } catch (error) {
             if (error instanceof APIError && error.status === 404) {
                 ssoUrl.value = SsoCheckState.None;
@@ -348,8 +347,16 @@ function checkSSO(mail: string) {
             }
             ssoUrl.value = SsoCheckState.Failed;
             notify.notifyError(error);
+            return;
         } finally {
             isCheckingSso.value = false;
+        }
+        try {
+            // check if the URL is valid.
+            new URL(urlStr);
+            ssoUrl.value = urlStr;
+        } catch {
+            ssoUrl.value = SsoCheckState.Failed;
         }
     }, 1000);
 }
@@ -377,13 +384,16 @@ async function onLoginClick(): Promise<void> {
         return;
     }
 
+    let url: URL;
     switch (ssoUrl.value) {
     case SsoCheckState.None:
     case SsoCheckState.Failed:
         await triggerLogin();
         break;
     default:
-        window.open(ssoUrl.value, '_self');
+        url = new URL(ssoUrl.value);
+        url.searchParams.set('email', email.value);
+        window.open(url.toString(), '_self');
     }
 }
 
@@ -393,7 +403,7 @@ async function onLoginClick(): Promise<void> {
  */
 async function login(): Promise<void> {
     try {
-        const tokenInfo: TokenInfo = await auth.token(email.value, password.value, captchaResponseToken.value, passcode.value, recoveryCode.value, rememberForOneWeek.value);
+        const tokenInfo: TokenInfo = await auth.token(email.value, password.value, captchaResponseToken.value, passcode.value, recoveryCode.value, csrfToken.value, rememberForOneWeek.value);
         LocalData.setSessionExpirationDate(tokenInfo.expiresAt);
         if (rememberForOneWeek.value) {
             LocalData.setCustomSessionDuration(604800); // 7 days in seconds.
@@ -449,6 +459,7 @@ onMounted(() => {
     pathEmail.value = route.query.email as string ?? null;
     if (pathEmail.value) {
         email.value = pathEmail.value.trim();
+        checkSSO(email.value);
     }
 
     ssoFailed.value = !!route.query.sso_failed;

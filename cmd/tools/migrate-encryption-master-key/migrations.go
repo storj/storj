@@ -11,8 +11,8 @@ import (
 	"go.uber.org/zap"
 
 	"storj.io/storj/satellite/kms"
-	"storj.io/storj/shared/dbutil/cockroachutil"
 	"storj.io/storj/shared/dbutil/pgutil"
+	"storj.io/storj/shared/dbutil/retrydb"
 )
 
 // MigrateEncryptionPassphrases updates the encryption key ID and encrypted passphrase of projects from a specified
@@ -108,7 +108,7 @@ func MigrateEncryptionPassphrases(ctx context.Context, log *zap.Logger, conn *pg
 			)
 			err := row.Scan(&updated)
 			if err != nil {
-				if cockroachutil.NeedsRetry(err) {
+				if retrydb.ShouldRetry(err) {
 					continue
 				} else if errs.Is(err, pgx.ErrNoRows) {
 					break

@@ -4,8 +4,6 @@
 package main
 
 import (
-	"strings"
-
 	"github.com/spacemonkeygo/monkit/v3"
 	"github.com/spf13/cobra"
 	"github.com/zeebo/errs"
@@ -46,29 +44,9 @@ func cmdAPIRun(cmd *cobra.Command, args []string) (err error) {
 		err = errs.Combine(err, db.Close())
 	}()
 
-	for _, migration := range strings.Split(runCfg.DatabaseOptions.MigrationUnsafe, ",") {
-		switch migration {
-		case fullMigration:
-			err = db.MigrateToLatest(ctx)
-			if err != nil {
-				return err
-			}
-		case snapshotMigration:
-			log.Info("MigrationUnsafe using latest snapshot. It's not for production", zap.String("db", "master"))
-			err = db.Testing().TestMigrateToLatest(ctx)
-			if err != nil {
-				return err
-			}
-		case testDataCreation:
-			err := createTestData(ctx, db)
-			if err != nil {
-				return err
-			}
-		case noMigration:
-		// noop
-		default:
-			return errs.New("unsupported migration type: %s, please try one of the: %s", migration, strings.Join(migrationTypes, ","))
-		}
+	err = satellitedb.MigrateSatelliteDB(ctx, log, db, runCfg.DatabaseOptions.MigrationUnsafe)
+	if err != nil {
+		return err
 	}
 
 	metabaseDB, err := metabase.Open(ctx, log.Named("metabase"), runCfg.Config.Metainfo.DatabaseURL,
@@ -80,24 +58,9 @@ func cmdAPIRun(cmd *cobra.Command, args []string) (err error) {
 		err = errs.Combine(err, metabaseDB.Close())
 	}()
 
-	for _, migration := range strings.Split(runCfg.DatabaseOptions.MigrationUnsafe, ",") {
-		switch migration {
-		case fullMigration:
-			err = metabaseDB.MigrateToLatest(ctx)
-			if err != nil {
-				return err
-			}
-		case snapshotMigration:
-			log.Info("MigrationUnsafe using latest snapshot. It's not for production", zap.String("db", "master"))
-			err = metabaseDB.TestMigrateToLatest(ctx)
-			if err != nil {
-				return err
-			}
-		case noMigration, testDataCreation:
-		// noop
-		default:
-			return errs.New("unsupported migration type: %s, please try one of the: %s", migration, strings.Join(migrationTypes, ","))
-		}
+	err = metabase.MigrateMetainfoDB(ctx, log, metabaseDB, runCfg.DatabaseOptions.MigrationUnsafe)
+	if err != nil {
+		return err
 	}
 
 	revocationDB, err := revocation.OpenDBFromCfg(ctx, runCfg.Config.Server.Config)

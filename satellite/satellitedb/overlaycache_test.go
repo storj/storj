@@ -5,9 +5,7 @@ package satellitedb_test
 
 import (
 	"context"
-	"encoding/binary"
 	"fmt"
-	"math/rand"
 	"net"
 	"strconv"
 	"strings"
@@ -292,80 +290,6 @@ func assertContained(ctx context.Context, t testing.TB, cache overlay.DB, args .
 	}
 }
 
-func TestGetNodesNetwork(t *testing.T) {
-	satellitedbtest.Run(t, func(ctx *testcontext.Context, t *testing.T, db satellite.DB) {
-		cache := db.OverlayCache()
-		const (
-			distinctNetworks = 10
-			netMask          = 28
-			nodesPerNetwork  = 1 << (32 - netMask)
-		)
-		mask := net.CIDRMask(netMask, 32)
-
-		nodes := make([]storj.NodeID, distinctNetworks*nodesPerNetwork)
-		ips := make([]net.IP, len(nodes))
-		lastNets := make([]string, len(nodes))
-		setOfNets := make(map[string]struct{})
-
-		for n := range nodes {
-			nodes[n] = testrand.NodeID()
-			ips[n] = make(net.IP, 4)
-			binary.BigEndian.PutUint32(ips[n], uint32(n))
-			lastNets[n] = ips[n].Mask(mask).String()
-			setOfNets[lastNets[n]] = struct{}{}
-
-			checkInInfo := overlay.NodeCheckInInfo{
-				IsUp:    true,
-				Address: &pb.NodeAddress{Address: ips[n].String()},
-				LastNet: lastNets[n],
-				Version: &pb.NodeVersion{Version: "v0.0.0"},
-				NodeID:  nodes[n],
-			}
-			err := cache.UpdateCheckIn(ctx, checkInInfo, time.Now().UTC(), overlay.NodeSelectionConfig{})
-			require.NoError(t, err)
-		}
-
-		t.Run("GetNodesNetwork", func(t *testing.T) {
-			gotLastNets, err := cache.GetNodesNetwork(ctx, nodes)
-			require.NoError(t, err)
-			require.Len(t, gotLastNets, len(nodes))
-			gotLastNetsSet := make(map[string]struct{})
-			for _, lastNet := range gotLastNets {
-				gotLastNetsSet[lastNet] = struct{}{}
-			}
-			require.Len(t, gotLastNetsSet, distinctNetworks)
-			for _, lastNet := range gotLastNets {
-				require.NotEmpty(t, lastNet)
-				delete(setOfNets, lastNet)
-			}
-			require.Empty(t, setOfNets) // indicates that all last_nets were seen in the result
-		})
-
-		t.Run("GetNodesNetworkInOrder", func(t *testing.T) {
-			nodesPlusOne := make([]storj.NodeID, len(nodes)+1)
-			copy(nodesPlusOne[:len(nodes)], nodes)
-			lastNetsPlusOne := make([]string, len(nodes)+1)
-			copy(lastNetsPlusOne[:len(nodes)], lastNets)
-			// add a node that the overlay cache doesn't know about
-			unknownNode := testrand.NodeID()
-			nodesPlusOne[len(nodes)] = unknownNode
-			lastNetsPlusOne[len(nodes)] = ""
-
-			// shuffle the order of the requested nodes, so we know output is in the right order
-			rand.Shuffle(len(nodesPlusOne), func(i, j int) {
-				nodesPlusOne[i], nodesPlusOne[j] = nodesPlusOne[j], nodesPlusOne[i]
-				lastNetsPlusOne[i], lastNetsPlusOne[j] = lastNetsPlusOne[j], lastNetsPlusOne[i]
-			})
-
-			gotLastNets, err := cache.GetNodesNetworkInOrder(ctx, nodesPlusOne)
-			require.NoError(t, err)
-			require.Len(t, gotLastNets, len(nodes)+1)
-
-			require.Equal(t, lastNetsPlusOne, gotLastNets)
-		})
-	})
-}
-
 func TestOverlayCache_SelectAllStorageNodesDownloadUpload(t *testing.T) {
 	satellitedbtest.Run(t, func(ctx *testcontext.Context, t *testing.T, db satellite.DB) {
 		tagSigner := testidentity.MustPregeneratedIdentity(0, storj.LatestIDVersion())
@@ -546,7 +470,7 @@ func TestOverlayCache_GetNodes(t *testing.T) {
 			for i := range tc.QueryNodes {
 				ids[i] = tc.QueryNodes[i].id
 			}
-			selectedNodes, err := cache.GetNodes(ctx, ids, 1*time.Hour, 0)
+			selectedNodes, err := cache.GetActiveNodes(ctx, ids, 1*time.Hour, 0)
 			require.NoError(t, err)
 			require.Equal(t, len(tc.QueryNodes), len(selectedNodes))
 			var gotOnline []nodeselection.SelectedNode
@@ -568,7 +492,7 @@ func TestOverlayCache_GetNodes(t *testing.T) {
 		}
 
 		// test empty id list
-		_, err := cache.GetNodes(ctx, storj.NodeIDList{}, 1*time.Hour, 0)
+		_, err := cache.GetActiveNodes(ctx, storj.NodeIDList{}, 1*time.Hour, 0)
 		require.Error(t, err)
 
 		// test as of system time
@@ -577,7 +501,7 @@ func TestOverlayCache_GetNodes(t *testing.T) {
 			allIDs[i] = allNodes[i].id
 		}
 
-		selection, err := cache.GetNodes(ctx, allIDs, 1*time.Hour, -1*time.Microsecond)
+		selection, err := cache.GetActiveNodes(ctx, allIDs, 1*time.Hour, -1*time.Microsecond)
 		require.NoError(t, err)
 
 		require.Equal(t, "0x9b7488BF8b6A4FF21D610e3dd202723f705cD1C0", selection[0].Wallet)
@@ -805,7 +729,7 @@ func TestOverlayCache_KnownReliableTagHandling(t *testing.T) {
 		}
 
 		// WHEN
-		nodes, err := cache.GetNodes(ctx, ids, 1*time.Hour, 0)
+		nodes, err := cache.GetActiveNodes(ctx, ids, 1*time.Hour, 0)
 		require.NoError(t, err)
 
 		// THEN

@@ -11,6 +11,8 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"net/http/cookiejar"
+	"net/url"
 	"regexp"
 	"strconv"
 	"strings"
@@ -46,7 +48,14 @@ func doRequestWithAuth(
 ) (responseBody []byte, statusCode int, err error) {
 	fullURL := "http://" + sat.API.Console.Listener.Addr().String() + "/api/v0/" + endpoint
 
-	tokenInfo, err := sat.API.Console.Service.GenerateSessionToken(ctx, user.ID, user.Email, "", "", nil)
+	tokenInfo, err := sat.API.Console.Service.GenerateSessionToken(ctx, console.SessionTokenRequest{
+		UserID:         user.ID,
+		Email:          user.Email,
+		IP:             "",
+		UserAgent:      "",
+		AnonymousID:    "",
+		CustomDuration: nil,
+	})
 	if err != nil {
 		return nil, 0, err
 	}
@@ -371,6 +380,196 @@ func TestTokenByAPIKeyEndpoint(t *testing.T) {
 		require.Len(t, cookies, 1)
 		require.Equal(t, "_tokenKey", cookies[0].Name)
 		require.NotEmpty(t, cookies[0].Value)
+	})
+}
+
+func TestSsoUserLoginWithPassword(t *testing.T) {
+	testplanet.Run(t, testplanet.Config{
+		SatelliteCount: 1, StorageNodeCount: 0, UplinkCount: 0,
+		Reconfigure: testplanet.Reconfigure{
+			Satellite: func(log *zap.Logger, index int, config *satellite.Config) {
+				config.SSO.Enabled = false
+				config.SSO.MockSso = true
+				config.SSO.MockEmail = "some@mail.test"
+				config.SSO.OidcProviderInfos = sso.OidcProviderInfos{
+					Values: map[string]sso.OidcProviderInfo{
+						"fakeProvider": {},
+					},
+				}
+				reg := regexp.MustCompile(`@mail.test`)
+				require.NotNil(t, reg)
+				config.SSO.EmailProviderMappings = sso.EmailProviderMappings{
+					Values: map[string]regexp.Regexp{
+						"fakeProvider": *reg,
+					},
+				}
+			},
+		},
+	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+		satellite := planet.Satellites[0]
+
+		user, err := satellite.AddUser(ctx, console.CreateUser{
+			FullName: "Test User",
+			Email:    "test@mail.test",
+		}, 1)
+		require.NoError(t, err)
+
+		require.NoError(t, satellite.API.Console.Service.UpdateExternalID(ctx, user, "test:1234"))
+
+		login := func(expectedCode int) {
+			body := console.AuthUser{
+				Email:    user.Email,
+				Password: user.FullName,
+			}
+
+			bodyBytes, err := json.Marshal(body)
+			require.NoError(t, err)
+			buf := bytes.NewBuffer(bodyBytes)
+
+			url := planet.Satellites[0].ConsoleURL() + "/api/v0/auth/token"
+			req, err := http.NewRequestWithContext(ctx, http.MethodPost, url, buf)
+			require.NoError(t, err)
+
+			response, err := http.DefaultClient.Do(req)
+			require.NoError(t, err)
+			require.NotEmpty(t, response)
+			require.Equal(t, expectedCode, response.StatusCode)
+
+			responseBody, err := io.ReadAll(response.Body)
+			require.NoError(t, err)
+			if expectedCode == http.StatusOK {
+				require.Contains(t, string(responseBody), "token")
+			} else {
+				require.NotContains(t, string(responseBody), "token")
+			}
+			require.NoError(t, response.Body.Close())
+		}
+
+		login(http.StatusOK)
+
+		// enable SSO
+		ssoService := sso.NewService(
+			satellite.ConsoleURL(),
+			satellite.API.Console.AuthTokens,
+			satellite.Config.SSO,
+		)
+		err = ssoService.Initialize(ctx)
+		require.NoError(t, err)
+		satellite.API.Console.Service.TestToggleSsoEnabled(true, ssoService)
+
+		login(http.StatusForbidden)
+
+		// remove user's provider from config
+		ssoConfig := satellite.Config.SSO
+		ssoConfig.EmailProviderMappings = sso.EmailProviderMappings{}
+		ssoService = sso.NewService(
+			satellite.ConsoleURL(),
+			satellite.API.Console.AuthTokens,
+			ssoConfig,
+		)
+		err = ssoService.Initialize(ctx)
+		require.NoError(t, err)
+		satellite.API.Console.Service.TestToggleSsoEnabled(true, ssoService)
+
+		// if sso is enabled but user's provider is no longer supported,
+		// allow user to login with password.
+		login(http.StatusOK)
+	})
+}
+
+func TestSsoUserForgotPassword(t *testing.T) {
+	testplanet.Run(t, testplanet.Config{
+		SatelliteCount: 1, StorageNodeCount: 0, UplinkCount: 0,
+		Reconfigure: testplanet.Reconfigure{
+			Satellite: func(log *zap.Logger, index int, config *satellite.Config) {
+				config.SSO.Enabled = false
+				config.SSO.MockSso = true
+				config.SSO.MockEmail = "some@mail.test"
+				config.SSO.OidcProviderInfos = sso.OidcProviderInfos{
+					Values: map[string]sso.OidcProviderInfo{
+						"fakeProvider": {},
+					},
+				}
+				reg := regexp.MustCompile(`@mail.test`)
+				require.NotNil(t, reg)
+				config.SSO.EmailProviderMappings = sso.EmailProviderMappings{
+					Values: map[string]regexp.Regexp{
+						"fakeProvider": *reg,
+					},
+				}
+			},
+		},
+	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+		satellite := planet.Satellites[0]
+
+		user, err := satellite.AddUser(ctx, console.CreateUser{
+			FullName: "Test User",
+			Email:    "test@mail.test",
+		}, 1)
+		require.NoError(t, err)
+
+		require.NoError(t, satellite.API.Console.Service.UpdateExternalID(ctx, user, "test:1234"))
+
+		body := console.AuthUser{
+			Email:    user.Email,
+			Password: user.FullName,
+		}
+
+		forgotPassword := func(expectedCode int) {
+			bodyBytes, err := json.Marshal(body)
+			require.NoError(t, err)
+			buf := bytes.NewBuffer(bodyBytes)
+
+			url := planet.Satellites[0].ConsoleURL() + "/api/v0/auth/forgot-password"
+			req, err := http.NewRequestWithContext(ctx, http.MethodPost, url, buf)
+			require.NoError(t, err)
+
+			response, err := http.DefaultClient.Do(req)
+			require.NoError(t, err)
+			require.Equal(t, expectedCode, response.StatusCode)
+			require.NoError(t, response.Body.Close())
+		}
+
+		forgotPassword(http.StatusOK)
+
+		token, err := satellite.DB.Console().ResetPasswordTokens().GetByOwnerID(ctx, user.ID)
+		require.NoError(t, err)
+		require.NotNil(t, token)
+
+		err = satellite.DB.Console().ResetPasswordTokens().Delete(ctx, token.Secret)
+		require.NoError(t, err)
+
+		// enable SSO
+		ssoService := sso.NewService(
+			satellite.ConsoleURL(),
+			satellite.API.Console.AuthTokens,
+			satellite.Config.SSO,
+		)
+		err = ssoService.Initialize(ctx)
+		require.NoError(t, err)
+		satellite.API.Console.Service.TestToggleSsoEnabled(true, ssoService)
+
+		forgotPassword(http.StatusForbidden)
+
+		token, err = satellite.DB.Console().ResetPasswordTokens().GetByOwnerID(ctx, user.ID)
+		require.Equal(t, sql.ErrNoRows, err)
+		require.Nil(t, token)
+
+		// remove user's provider from config
+		ssoConfig := satellite.Config.SSO
+		ssoConfig.EmailProviderMappings = sso.EmailProviderMappings{}
+		ssoService = sso.NewService(
+			satellite.ConsoleURL(),
+			satellite.API.Console.AuthTokens,
+			ssoConfig,
+		)
+		err = ssoService.Initialize(ctx)
+		require.NoError(t, err)
+		satellite.API.Console.Service.TestToggleSsoEnabled(true, ssoService)
+
+		// if sso is enabled but user's provider is no longer supported,
+		// allow user to reset password.
+		forgotPassword(http.StatusOK)
 	})
 }
 
@@ -1285,7 +1484,7 @@ func TestSsoMethods(t *testing.T) {
 
 		createUser1 := console.CreateSsoUser{
 			ExternalId: getExternalID("test"),
-			Email:      "test@mail.com",
+			Email:      "test@mail.test",
 			FullName:   "Test User",
 		}
 		user, err := service.CreateSsoUser(ctx, createUser1)
@@ -1296,7 +1495,7 @@ func TestSsoMethods(t *testing.T) {
 		require.Equal(t, console.Active, user.Status)
 		require.Empty(t, user.PasswordHash)
 
-		user = createUserFn("test2@mail.com")
+		user = createUserFn("test2@mail.test")
 		require.Equal(t, console.Inactive, user.Status)
 		require.Nil(t, user.ExternalID)
 
@@ -1315,7 +1514,7 @@ func TestSsoMethods(t *testing.T) {
 		require.Equal(t, console.Active, user.Status)
 		require.NotEmpty(t, user.PasswordHash)
 
-		user = createUserFn("test3@mail.com")
+		user = createUserFn("test3@mail.test")
 		require.NoError(t, err)
 		require.Equal(t, console.Inactive, user.Status)
 		require.Nil(t, user.ExternalID)
@@ -1331,7 +1530,7 @@ func TestSsoMethods(t *testing.T) {
 		// GetUserForSsoAuth should return the user if the external ID matches
 		ssoUser, err := service.GetUserForSsoAuth(ctx, sso.OidcSsoClaims{
 			Sub:   strings.TrimPrefix(*user.ExternalID, provider+":"),
-			Email: "some@mail.com",
+			Email: "some@mail.test",
 			Name:  "some name",
 		}, "provider", "", "")
 		require.NoError(t, err)
@@ -1339,7 +1538,7 @@ func TestSsoMethods(t *testing.T) {
 		require.Equal(t, user.ExternalID, ssoUser.ExternalID)
 		require.Equal(t, user.Email, ssoUser.Email)
 
-		user = createUserFn("test4@mail.com")
+		user = createUserFn("test4@mail.test")
 		require.NoError(t, err)
 		require.Equal(t, console.Inactive, user.Status)
 
@@ -1356,7 +1555,18 @@ func TestSsoMethods(t *testing.T) {
 		require.Equal(t, user.Email, ssoUser.Email)
 		require.Equal(t, console.Active, ssoUser.Status)
 
-		user = createUserFn("test5@mail.com")
+		// GetUserForSsoAuth should return the user if the email matches an existing user
+		// with a different external ID and associate the new external ID with the user.
+		ssoUser, err = service.GetUserForSsoAuth(ctx, sso.OidcSsoClaims{
+			Sub:   "newID",
+			Email: user.Email,
+			Name:  "some name",
+		}, provider, "", "")
+		require.NoError(t, err)
+		require.Equal(t, user.ID, ssoUser.ID)
+		require.Equal(t, getExternalID("newID"), *ssoUser.ExternalID)
+
+		user = createUserFn("test5@mail.test")
 		require.NoError(t, err)
 
 		err = service.SetAccountActive(ctx, user)
@@ -1377,14 +1587,114 @@ func TestSsoMethods(t *testing.T) {
 		// GetUserForSsoAuth should create a new user.
 		ssoUser, err = service.GetUserForSsoAuth(ctx, sso.OidcSsoClaims{
 			Sub:   "externalID",
-			Email: "external@mail.com",
+			Email: "external@mail.test",
 			Name:  "some name",
 		}, provider, "", "")
 		require.NoError(t, err)
 		require.Equal(t, getExternalID("externalID"), *ssoUser.ExternalID)
-		require.Equal(t, "external@mail.com", ssoUser.Email)
+		require.Equal(t, "external@mail.test", ssoUser.Email)
 		require.Equal(t, console.Active, ssoUser.Status)
 		require.Empty(t, ssoUser.PasswordHash)
+	})
+}
+
+func TestSsoFlow(t *testing.T) {
+	testplanet.Run(t, testplanet.Config{
+		SatelliteCount: 1, StorageNodeCount: 0, UplinkCount: 0,
+		Reconfigure: testplanet.Reconfigure{
+			Satellite: func(log *zap.Logger, index int, config *satellite.Config) {
+				config.SSO.Enabled = true
+				config.SSO.MockSso = true
+				config.SSO.MockEmail = "some@fake.test"
+				config.Console.RateLimit.Burst = 50
+				config.SSO.OidcProviderInfos = sso.OidcProviderInfos{
+					Values: map[string]sso.OidcProviderInfo{
+						"fakeProvider": {},
+					},
+				}
+				reg := regexp.MustCompile(`@fake.test`)
+				require.NotNil(t, reg)
+				config.SSO.EmailProviderMappings = sso.EmailProviderMappings{
+					Values: map[string]regexp.Regexp{
+						"fakeProvider": *reg,
+					},
+				}
+			},
+		},
+	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+		sat := planet.Satellites[0]
+
+		jar, err := cookiejar.New(&cookiejar.Options{PublicSuffixList: nil})
+		require.NoError(t, err)
+
+		client := &http.Client{Jar: jar}
+
+		getSsoURL := func(email string, expectedCode int) string {
+			ssoRootURL, err := url.JoinPath(sat.ConsoleURL(), "/sso")
+			require.NoError(t, err)
+
+			providerUrl, err := url.Parse(ssoRootURL)
+			require.NoError(t, err)
+
+			providerUrl = providerUrl.JoinPath("url")
+			q := providerUrl.Query()
+			q.Add("email", email)
+			providerUrl.RawQuery = q.Encode()
+
+			req, err := http.NewRequestWithContext(ctx, http.MethodGet, providerUrl.String(), nil)
+			require.NoError(t, err)
+
+			result, err := client.Do(req)
+			require.NoError(t, err)
+			require.Equal(t, expectedCode, result.StatusCode)
+
+			if expectedCode != http.StatusOK {
+				return ""
+			}
+
+			body, err := io.ReadAll(result.Body)
+			require.NoError(t, err)
+			require.NoError(t, result.Body.Close())
+
+			providerUrl, err = url.Parse(string(body))
+			require.NoError(t, err)
+
+			q = providerUrl.Query()
+			q.Add("email", email)
+			providerUrl.RawQuery = q.Encode()
+
+			return providerUrl.String()
+		}
+
+		req, err := http.NewRequestWithContext(ctx, http.MethodGet, getSsoURL("some@fake.test", http.StatusOK), nil)
+		require.NoError(t, err)
+
+		result, err := client.Do(req)
+		require.NoError(t, err)
+		// success should redirect to the satellite UI
+		require.Equal(t, sat.ConsoleURL()+"/", result.Request.URL.String())
+		require.NoError(t, result.Body.Close())
+
+		// user should be created
+		user, err := sat.API.DB.Console().Users().GetByEmail(ctx, "some@fake.test")
+		require.NoError(t, err)
+		// session should be created
+		sessions, err := sat.API.DB.Console().WebappSessions().GetAllByUserID(ctx, user.ID)
+		require.NoError(t, err)
+		require.Len(t, sessions, 1)
+
+		// try sso with an unknown email. this should fail
+		req, err = http.NewRequestWithContext(ctx, http.MethodGet, getSsoURL("another@fake.test", http.StatusOK), nil)
+		require.NoError(t, err)
+
+		result, err = http.DefaultClient.Do(req)
+		require.NoError(t, err)
+		// failure should redirect to the login page with an error
+		require.Contains(t, result.Request.URL.String(), "login?sso_failed=true")
+		require.NoError(t, result.Body.Close())
+
+		// getting the sso url for an email that doesn't match the provider should fail
+		getSsoURL("another@who.test", http.StatusNotFound)
 	})
 }
 

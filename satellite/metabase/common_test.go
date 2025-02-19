@@ -737,7 +737,7 @@ func TestStreamVersionID(t *testing.T) {
 	streamVersionID, err := metabase.StreamVersionIDFromBytes(encodedVersion)
 	require.NoError(t, err)
 	require.Equal(t, expectedVersion, streamVersionID.Version())
-	require.Equal(t, expectedStreamID[8:], streamVersionID.StreamIDSuffix())
+	require.EqualValues(t, expectedStreamID[8:], streamVersionID.StreamIDSuffix())
 
 	expectedVersion = metabase.Version(testrand.Int63n(math.MaxInt64))
 	expectedStreamID = testrand.UUID()
@@ -753,7 +753,7 @@ func TestStreamVersionID(t *testing.T) {
 	streamVersionID, err = metabase.StreamVersionIDFromBytes(encodedVersion)
 	require.NoError(t, err)
 	require.Equal(t, expectedVersion, streamVersionID.Version())
-	require.Equal(t, expectedStreamID[8:], streamVersionID.StreamIDSuffix())
+	require.EqualValues(t, expectedStreamID[8:], streamVersionID.StreamIDSuffix())
 }
 
 func BenchmarkSegmentPieceSize(b *testing.B) {

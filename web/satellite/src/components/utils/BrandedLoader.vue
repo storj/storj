@@ -9,7 +9,7 @@
 </template>
 
 <style scoped lang="scss">
-    @keyframes rotate {
+    @keyframes spin {
 
         from {
             transform: rotate(0deg);
@@ -20,24 +20,35 @@
         }
     }
 
+    @keyframes colors {
+
+        0% {
+            border-top-color: #0052ff;
+        }
+
+        100% {
+            border-top-color: #091c45;
+        }
+    }
+
     .loader {
         position: absolute;
         inset: 0;
+        backdrop-filter: blur(4px);
 
         &__spinner {
-            width: 90px;
-            height: 90px;
+            width: 140px;
+            height: 140px;
             margin: auto 0;
-            border: solid 4px var(--c-blue-3);
+            border: solid 1px transparent;
             border-radius: 50%;
-            border-right-color: transparent;
-            border-bottom-color: transparent;
-            border-left-color: transparent;
-            transition: all 0.5s ease-in;
-            animation-name: rotate;
-            animation-duration: 1s;
-            animation-iteration-count: infinite;
-            animation-timing-function: linear;
+            animation:
+                spin 0.7s linear infinite,
+                colors 1.5s ease-in-out infinite;
+            will-change: transform, border-top-color, box-shadow;
+            box-shadow: 0 0 400px rgb(0 82 255 / 10%);
+            transform: translateZ(0); // Hardware acceleration
+            backface-visibility: hidden; // Prevents flickering in some browsers
         }
 
         &__icon {

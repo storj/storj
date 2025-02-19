@@ -353,8 +353,8 @@ func TestGetNodes(t *testing.T) {
 		err = oc.TestSuspendNodeOffline(ctx, planet.StorageNodes[3].ID(), time.Now())
 		require.NoError(t, err)
 
-		// Check that the results of GetNodes match expectations.
-		selectedNodes, err := service.GetNodes(ctx, []storj.NodeID{
+		// Check that the results of GetActiveNodes match expectations.
+		selectedNodes, err := service.GetActiveNodes(ctx, []storj.NodeID{
 			planet.StorageNodes[0].ID(),
 			planet.StorageNodes[1].ID(),
 			planet.StorageNodes[2].ID(),
@@ -931,5 +931,57 @@ func TestInsertOfflineNodeEvents(t *testing.T) {
 		require.Equal(t, node2.Config.Operator.Email, ne.Email)
 		require.Equal(t, nodeevents.Offline, ne.Event)
 		require.Nil(t, ne.LastIPPort)
+	})
+}
+
+func TestAccountingNodeInfo(t *testing.T) {
+	satellitedbtest.Run(t, func(ctx *testcontext.Context, t *testing.T, db satellite.DB) {
+		cache := db.OverlayCache()
+
+		now := time.Now()
+
+		var ids storj.NodeIDList
+		var expect []overlay.NodeAccountingInfo
+		for i := 0; i < 6; i++ {
+			ids = append(ids, storj.NodeID{1, byte(i)})
+
+			var disqualified *time.Time
+			if i%2 == 1 {
+				disqualified = &now
+			}
+
+			expect = append(expect, overlay.NodeAccountingInfo{
+				NodeCreationDate: now,
+				Wallet:           fmt.Sprintf("0x9b7488BF8b6A4FF21D610e3dd202723f705cD1C%d", i),
+				Disqualified:     disqualified,
+			})
+		}
+
+		for i, id := range ids {
+			addr := fmt.Sprintf("127.0.0.%d", i)
+			require.NoError(t, cache.UpdateCheckIn(ctx, overlay.NodeCheckInInfo{
+				NodeID:     id,
+				Address:    &pb.NodeAddress{Address: addr},
+				LastIPPort: addr + ":9000",
+				LastNet:    "127.0.0",
+				Version:    &pb.NodeVersion{Version: "v1.0.0"},
+				IsUp:       true,
+				Operator: &pb.NodeOperator{
+					Wallet: expect[i].Wallet,
+				},
+			}, time.Now(), overlay.NodeSelectionConfig{}))
+
+			if expect[i].Disqualified != nil {
+				_, err := cache.DisqualifyNode(ctx, id, *expect[i].Disqualified, overlay.DisqualificationReasonAuditFailure)
+				require.NoError(t, err)
+			}
+		}
+
+		infos, err := cache.AccountingNodeInfo(ctx, ids)
+		require.NoError(t, err)
+
+		for i, id := range ids {
+			require.Empty(t, cmp.Diff(infos[id], expect[i], cmpopts.EquateApproxTime(15*time.Second)))
+		}
 	})
 }

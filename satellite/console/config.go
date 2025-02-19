@@ -10,7 +10,6 @@ import (
 	"github.com/spf13/pflag"
 
 	"storj.io/common/storj"
-	"storj.io/common/uuid"
 )
 
 // Config keeps track of core console service configuration parameters.
@@ -25,25 +24,36 @@ type Config struct {
 	UnregisteredInviteEmailsEnabled   bool                      `help:"indicates whether invitation emails can be sent to unregistered email addresses" default:"true"`
 	UserBalanceForUpgrade             int64                     `help:"amount of base units of US micro dollars needed to upgrade user's tier status" default:"10000000"`
 	PlacementEdgeURLOverrides         PlacementEdgeURLOverrides `help:"placement-specific edge service URL overrides in the format {\"placementID\": {\"authService\": \"...\", \"publicLinksharing\": \"...\", \"internalLinksharing\": \"...\"}, \"placementID2\": ...}"`
+	SelfServePlacementDetails         PlacementDetails          `help:"human-readable details for placements allowed for self serve placement in the format {\"placementID\": {\"idName\": \"...\", \"name\": \"...\", \"title\": \"...\", \"description\": \"...\"}}"`
 	BlockExplorerURL                  string                    `help:"url of the transaction block explorer" default:"https://etherscan.io/"`
 	ZkSyncBlockExplorerURL            string                    `help:"url of the zkSync transaction block explorer" default:"https://explorer.zksync.io/"`
 	BillingFeaturesEnabled            bool                      `help:"indicates if billing features should be enabled" default:"true"`
 	StripePaymentElementEnabled       bool                      `help:"indicates whether the stripe payment element should be used to collect card info" default:"true"`
+	MaxAddFundsAmount                 int                       `help:"maximum amount (in cents) allowed to be added to an account balance." default:"10000"`
+	MinAddFundsAmount                 int                       `help:"minimum amount (in cents) allowed to be added to an account balance." default:"100"`
 	SignupActivationCodeEnabled       bool                      `help:"indicates whether the whether account activation is done using activation code" default:"true" testDefault:"false" devDefault:"false"`
 	FreeTrialDuration                 time.Duration             `help:"duration for which users can access the system free of charge, 0 = unlimited time trial" default:"0"`
 	VarPartners                       []string                  `help:"list of partners whose users will not see billing UI." default:""`
 	ObjectBrowserKeyNamePrefix        string                    `help:"prefix for object browser API key names" default:".storj-web-file-browser-api-key-"`
 	ObjectBrowserKeyLifetime          time.Duration             `help:"duration for which the object browser API key remains valid" default:"72h"`
 	MaxNameCharacters                 int                       `help:"defines the maximum number of characters allowed for names, e.g. user first/last names and company names" default:"100"`
+	MaxLongFormFieldCharacters        int                       `help:"defines the maximum number of characters allowed for long form fields, e.g. comment type fields" default:"500"`
 	BillingInformationTabEnabled      bool                      `help:"indicates if billing information tab should be enabled" default:"false"`
 	SatelliteManagedEncryptionEnabled bool                      `help:"indicates whether satellite managed encryption projects can be created." default:"false"`
 	EmailChangeFlowEnabled            bool                      `help:"whether change user email flow is enabled" default:"false"`
 	DeleteProjectEnabled              bool                      `help:"whether project deletion from satellite UI is enabled" default:"false"`
 	SelfServeAccountDeleteEnabled     bool                      `help:"whether self-serve account delete flow is enabled" default:"false"`
+	Placement                         PlacementsConfig
 	UsageLimits                       UsageLimitsConfig
 	Captcha                           CaptchaConfig
 	Session                           SessionConfig
 	AccountFreeze                     AccountFreezeConfig
+}
+
+// PlacementsConfig contains configurations for self-serve placement logic.
+type PlacementsConfig struct {
+	SelfServeEnabled bool     `help:"whether self-serve placement selection feature is enabled" default:"false"`
+	SelfServeNames   []string `help:"list of placements names allowed for self-serve selection" default:""`
 }
 
 // CaptchaConfig contains configurations for login/registration captcha system.
@@ -79,10 +89,8 @@ type SessionConfig struct {
 
 // ObjectLockAndVersioningConfig contains configurations for object versioning.
 type ObjectLockAndVersioningConfig struct {
-	ObjectLockEnabled                      bool
-	UseBucketLevelObjectVersioning         bool
-	UseBucketLevelObjectVersioningProjects []string
-	projectMap                             map[uuid.UUID]struct{}
+	ObjectLockEnabled              bool
+	UseBucketLevelObjectVersioning bool
 }
 
 // EdgeURLOverrides contains edge service URL overrides.
@@ -140,4 +148,72 @@ func (ov *PlacementEdgeURLOverrides) Get(placement storj.PlacementConstraint) (o
 	}
 	overrides, ok = ov.overrideMap[placement]
 	return overrides, ok
+}
+
+// PlacementDetail represents human-readable details of a placement.
+type PlacementDetail struct {
+	ID          storj.PlacementConstraint `json:"id"`
+	IdName      string                    `json:"idName"`
+	Name        string                    `json:"name"`
+	Title       string                    `json:"title"`
+	Description string                    `json:"description"`
+}
+
+// PlacementDetails represents a mapping between placement IDs and their human-readable details.
+type PlacementDetails struct {
+	detailMap map[storj.PlacementConstraint]PlacementDetail
+}
+
+// Ensure that PlacementDetails implements pflag.Value.
+var _ pflag.Value = (*PlacementDetails)(nil)
+
+// Type implements pflag.Value.
+func (PlacementDetails) Type() string { return "console.PlacementDetails" }
+
+// String implements pflag.Value.
+func (pd *PlacementDetails) String() string {
+	if pd == nil || len(pd.detailMap) == 0 {
+		return ""
+	}
+
+	details, err := json.Marshal(pd.detailMap)
+	if err != nil {
+		return ""
+	}
+
+	return string(details)
+}
+
+// SetMap sets the internal mapping between a placement and detail.
+func (pd *PlacementDetails) SetMap(overrides map[storj.PlacementConstraint]PlacementDetail) {
+	pd.detailMap = overrides
+}
+
+// Set implements pflag.Value.
+func (pd *PlacementDetails) Set(s string) error {
+	if s == "" {
+		return nil
+	}
+
+	details := make(map[storj.PlacementConstraint]PlacementDetail)
+	err := json.Unmarshal([]byte(s), &details)
+	if err != nil {
+		return err
+	}
+	pd.detailMap = details
+	for constraint, detail := range details {
+		detail.ID = constraint
+		pd.detailMap[constraint] = detail
+	}
+
+	return nil
+}
+
+// Get returns the details for the given placement ID.
+func (pd *PlacementDetails) Get(placement storj.PlacementConstraint) (details PlacementDetail, ok bool) {
+	if pd == nil {
+		return PlacementDetail{}, false
+	}
+	details, ok = pd.detailMap[placement]
+	return details, ok
 }

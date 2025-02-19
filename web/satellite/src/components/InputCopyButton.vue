@@ -9,6 +9,7 @@
                 :icon="justCopied ? Check : Copy"
                 variant="text"
                 density="compact"
+                aria-roledescription="copy-btn"
                 :color="justCopied ? 'success' : 'default'"
                 @click="onCopy"
             />

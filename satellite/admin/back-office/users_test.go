@@ -61,6 +61,7 @@ func TestGetUser(t *testing.T) {
 			sat.DB.Console().Users().Update(ctx, consoleUser.ID, console.UpdateUserRequest{PaidTier: &consoleUser.PaidTier}),
 		)
 
+		// User is deactivated, so it cannot be retrieved by e-mail.
 		_, apiErr = service.GetUserByEmail(ctx, consoleUser.Email)
 		require.Equal(t, http.StatusNotFound, apiErr.Status)
 		require.Error(t, apiErr.Err)
@@ -123,7 +124,7 @@ func TestGetUser(t *testing.T) {
 
 			total := expectedTotal{}
 
-			for objNum := 0; objNum < projNum*10; objNum++ {
+			for objNum := 0; objNum < projNum; objNum++ {
 				obj := metabasetest.CreateObject(ctx, t, sat.Metabase.DB, metabase.ObjectStream{
 					ProjectID:  proj.ID,
 					BucketName: metabase.BucketName(bucket.Name),

@@ -2,13 +2,13 @@
 // See LICENSE for copying information.
 
 <template>
-    <v-card :subtitle="subtitle" :to="to">
+    <v-card :subtitle="subtitle" :to="to" class="pa-1">
         <template #title>
             <v-row class="ma-0 align-center">
                 <p class="v-card-title">{{ title }}</p>
                 <v-tooltip v-if="extraInfo" width="250" location="bottom">
                     <template #activator="activator">
-                        <v-icon v-bind="activator.props" size="16" :icon="Info" class="ml-2 text-medium-emphasis" />
+                        <v-icon v-bind="activator.props" size="12" :icon="Info" class="ml-2 text-medium-emphasis" />
                     </template>
                     <template #default>
                         <p>{{ extraInfo }}</p>

@@ -11,9 +11,24 @@ import (
 	"storj.io/storj/storagenode/pieces"
 )
 
+// HashStoreBackend is an interface describing the methods needed by SharedDisk
+// to correctly compute the space usage of the hash store.
+type HashStoreBackend interface {
+	SpaceUsage() SpaceUsage
+}
+
+// SpaceUsage describes the amount of space used by a PieceBackend.
+type SpaceUsage struct {
+	UsedTotal       int64 // total space used including metadata and unreferenced data
+	UsedForPieces   int64 // total space used by live pieces
+	UsedForTrash    int64 // total space used by trash pieces
+	UsedForMetadata int64 // total space used by metadata (hash tables and stuff)
+}
+
 // SharedDisk is the default way to check disk space (using usage-space walker).
 type SharedDisk struct {
 	store              *pieces.Store
+	hashStore          HashStoreBackend
 	allocatedDiskSpace int64
 	log                *zap.Logger
 	minimumDiskSpace   int64
@@ -22,10 +37,11 @@ type SharedDisk struct {
 var _ SpaceReport = (*SharedDisk)(nil)
 
 // NewSharedDisk creates a new SharedDisk.
-func NewSharedDisk(log *zap.Logger, store *pieces.Store, minimumDiskSpace, allocatedDiskSpace int64) *SharedDisk {
+func NewSharedDisk(log *zap.Logger, store *pieces.Store, hashStore HashStoreBackend, minimumDiskSpace, allocatedDiskSpace int64) *SharedDisk {
 	return &SharedDisk{
 		log:                log,
 		store:              store,
+		hashStore:          hashStore,
 		allocatedDiskSpace: allocatedDiskSpace,
 		minimumDiskSpace:   minimumDiskSpace,
 	}
@@ -83,6 +99,9 @@ func (s *SharedDisk) AvailableSpace(ctx context.Context) (_ int64, err error) {
 	if err != nil {
 		return 0, err
 	}
+	hashSpaceUsage := s.hashStore.SpaceUsage()
+
+	usedSpace += hashSpaceUsage.UsedTotal
 
 	diskStatus, err := s.store.StorageStatus(ctx)
 	if err != nil {
@@ -118,6 +137,7 @@ func (s *SharedDisk) DiskSpace(ctx context.Context) (_ DiskSpace, err error) {
 	if err != nil {
 		return DiskSpace{}, Error.Wrap(err)
 	}
+	hashSpaceUsage := s.hashStore.SpaceUsage()
 
 	storageStatus, err := s.store.StorageStatus(ctx)
 	if err != nil {
@@ -131,7 +151,7 @@ func (s *SharedDisk) DiskSpace(ctx context.Context) (_ DiskSpace, err error) {
 		allocated = storageStatus.DiskTotal
 	}
 
-	available := allocated - (usedForPieces + usedForTrash)
+	available := allocated - (usedForPieces + usedForTrash) - hashSpaceUsage.UsedTotal
 	if available < 0 {
 		overused = -available
 	}
@@ -142,8 +162,8 @@ func (s *SharedDisk) DiskSpace(ctx context.Context) (_ DiskSpace, err error) {
 	return DiskSpace{
 		Total:         storageStatus.DiskTotal,
 		Allocated:     allocated,
-		UsedForPieces: usedForPieces,
-		UsedForTrash:  usedForTrash,
+		UsedForPieces: usedForPieces + hashSpaceUsage.UsedForPieces,
+		UsedForTrash:  usedForTrash + hashSpaceUsage.UsedForTrash,
 		Free:          storageStatus.DiskFree,
 		Available:     available,
 		Overused:      overused,

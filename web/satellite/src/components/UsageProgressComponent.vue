@@ -2,14 +2,14 @@
 // See LICENSE for copying information.
 
 <template>
-    <v-card :title="title">
+    <v-card :title="title" class="pa-1">
         <template #title>
             <v-card-title class="d-flex align-center">
-                <component :is="iconComponents[icon]" v-if="icon" class="mr-2" width="16" height="16" bold />
+                <v-icon v-if="icon" :icon="iconComponents[icon]" size="small" class="mr-2" color="primary" />
                 {{ title }}
                 <v-tooltip v-if="extraInfo || slots.extraInfo" width="250" location="bottom">
                     <template #activator="activator">
-                        <v-icon v-bind="activator.props" size="16" :icon="Info" class="ml-2 text-medium-emphasis" />
+                        <v-icon v-bind="activator.props" size="12" :icon="Info" class="ml-2 text-medium-emphasis" />
                     </template>
                     <template #default>
                         <template v-if="slots.extraInfo">
@@ -33,11 +33,11 @@
         <v-card-item>
             <v-row>
                 <v-col>
-                    <h4>{{ used }}</h4>
+                    <p class="font-weight-bold text-body-2">{{ used }}</p>
                     <p class="text-medium-emphasis"><small>{{ limit }}</small></p>
                 </v-col>
                 <v-col>
-                    <h4 class="text-right">{{ available }}</h4>
+                    <p class="text-right font-weight-bold text-body-2">{{ available }}</p>
                     <p v-if="!hideCta" class="text-right text-medium-emphasis"><a class="link" role="button" @click="emit('ctaClick')"><small>{{ cta }}</small></a></p>
                 </v-col>
             </v-row>
@@ -48,11 +48,8 @@
 <script setup lang="ts">
 import { FunctionalComponent, computed } from 'vue';
 import { VCard, VCardItem, VProgressLinear, VRow, VCol, VCardTitle, VTooltip, VIcon } from 'vuetify/components';
-import { Info, ArrowDownToLine } from 'lucide-vue-next';
+import { Info, Cloud, CloudDownload, Puzzle, TicketPercent } from 'lucide-vue-next';
 
-import IconCloud from '@/components/icons/IconCloud.vue';
-import IconGlobe from '@/components/icons/IconGlobe.vue';
-import IconCircleCheck from '@/components/icons/IconCircleCheck.vue';
 import IconBucket from '@/components/icons/IconBucket.vue';
 
 const props = defineProps<{
@@ -77,11 +74,11 @@ const slots = defineSlots<{
 }>();
 
 const iconComponents = {
-    cloud: IconCloud,
-    'arrow-down': ArrowDownToLine,
-    globe: IconGlobe,
-    check: IconCircleCheck,
+    storage: Cloud,
+    download: CloudDownload,
+    segments: Puzzle,
     bucket: IconBucket,
+    coupon: TicketPercent,
 };
 
 const progressColor = computed(() => {
@@ -97,23 +94,7 @@ const progressColor = computed(() => {
 
 <style scoped lang="scss">
     .no-limit-progress {
-        background: linear-gradient(90deg,
-        #091C45,   /* Secondary blue */
-        #2338C0,   /* Dark blue */
-        #0052FF,   /* Primary blue */
-        #0052FF,   /* Primary blue */
-        #00c6ff,   /* Cyan */
-        #00ff6a,   /* Green */
-        #00C257,   /* Green 2 */
-        #ffb018,   /* Yellow */
-        #FF8E45,   /* Orange */
-        #ff4ed8,   /* Pink */
-        #882de3,   /* Purple */
-        #0052FF,   /* Primary blue */
-        #0052FF,   /* Primary blue */
-        #2338C0,   /* Dark blue */
-        #091C45,   /* Secondary blue*/
-    );
+        background: linear-gradient(90deg, #091C45, #2338C0, #0052FF, #0052FF, #00c6ff, #00ff6a, #00C257, #ffb018, #FF8E45, #ff4ed8, #882de3, #0052FF, #0052FF, #2338C0, #091C45);
         background-size: 200% 100%;
         animation: gradient-animation 12s linear infinite;
         transition: all 0.14s ease-in-out;

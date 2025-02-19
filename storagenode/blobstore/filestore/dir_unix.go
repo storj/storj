@@ -6,14 +6,17 @@
 package filestore
 
 import (
+	"errors"
 	"os"
+	"syscall"
 
 	"golang.org/x/sys/unix"
 
 	"storj.io/storj/storagenode/blobstore"
 )
 
-func diskInfoFromPath(path string) (info blobstore.DiskInfo, err error) {
+// DiskInfoFromPath returns the disk info for the given path.
+func DiskInfoFromPath(path string) (info blobstore.DiskInfo, err error) {
 	var stat unix.Statfs_t
 	err = unix.Statfs(path, &stat)
 	if err != nil {
@@ -34,6 +37,16 @@ func diskInfoFromPath(path string) (info blobstore.DiskInfo, err error) {
 // rename renames oldpath to newpath.
 func rename(oldpath, newpath string) error {
 	return os.Rename(oldpath, newpath)
+}
+
+// rmDir removes the directory named by path.
+func rmDir(path string) error {
+	for {
+		err := syscall.Rmdir(path)
+		if !errors.Is(err, syscall.EINTR) {
+			return err
+		}
+	}
 }
 
 // openFileReadOnly opens the file with read only.

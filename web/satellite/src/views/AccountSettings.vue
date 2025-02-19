@@ -8,56 +8,64 @@
                 <trial-expiration-banner v-if="isTrialExpirationBanner" :expired="isExpired" />
 
                 <PageTitleComponent title="Account Settings" />
+                <PageSubtitleComponent subtitle="Manage your profile, security preferences, and account details" />
+            </v-col>
+        </v-row>
+
+        <v-row>
+            <v-col>
+                <h3 class="mt-5">Profile Information</h3>
             </v-col>
         </v-row>
 
         <v-row>
             <v-col cols="12" sm="6" lg="4">
-                <v-card title="Name">
+                <v-card title="Name" class="pa-2">
                     <v-card-text>
-                        <v-chip color="default" variant="tonal" size="small" class="font-weight-bold">
+                        <v-chip variant="tonal" color="primary" size="small" class="font-weight-bold">
                             {{ user.getFullName() }}
                         </v-chip>
-                        <v-divider class="my-4" />
-                        <v-btn variant="outlined" color="default" size="small" rounded="md" @click="isChangeNameDialogShown = true">
+                        <v-divider class="my-4 border-0" />
+                        <v-btn variant="outlined" color="default" :prepend-icon="UserPen" @click="isChangeNameDialogShown = true">
                             Edit Name
                         </v-btn>
                     </v-card-text>
                 </v-card>
             </v-col>
             <v-col cols="12" sm="6" lg="4">
-                <v-card title="Email Address">
+                <v-card title="Email Address" class="pa-2">
                     <v-card-text>
-                        <v-chip color="default" variant="tonal" size="small" rounded="md" class="font-weight-bold">
+                        <v-chip color="primary" variant="tonal" size="small" class="font-weight-bold font-family-mono">
                             {{ user.email }}
                         </v-chip>
-                        <v-divider class="my-4" />
-                        <v-btn
-                            v-if="changeEmailEnabled"
-                            variant="outlined"
-                            color="default"
-                            size="small"
-                            rounded="md"
-                            @click="isChangeEmailDialogShown = true"
-                        >
-                            Change Email
-                        </v-btn>
-                        <div v-else>
-                            <v-tooltip
-                                activator="parent"
-                                location="top"
+                        <template v-if="!user.externalID">
+                            <v-divider class="my-4 border-0" />
+                            <v-btn
+                                v-if="changeEmailEnabled"
+                                variant="outlined"
+                                color="default"
+                                :prepend-icon="MailPlus"
+                                @click="isChangeEmailDialogShown = true"
                             >
-                                To change email, please <a href="https://supportdcs.storj.io/hc/en-us/requests/new?ticket_form_id=360000379291#" target="_blank">contact support</a>.
-                            </v-tooltip>
-                            <v-btn variant="outlined" color="default" size="small" rounded="md" disabled>
                                 Change Email
                             </v-btn>
-                        </div>
+                            <div v-else>
+                                <v-tooltip
+                                    activator="parent"
+                                    location="top"
+                                >
+                                    To change email, please <a href="https://supportdcs.storj.io/hc/en-us/requests/new?ticket_form_id=360000379291#" target="_blank">contact support</a>.
+                                </v-tooltip>
+                                <v-btn variant="outlined" color="default" disabled>
+                                    Change Email
+                                </v-btn>
+                            </div>
+                        </template>
                     </v-card-text>
                 </v-card>
             </v-col>
             <v-col v-if="billingEnabled" cols="12" sm="6" lg="4">
-                <v-card title="Account Type">
+                <v-card title="Account Type" class="pa-2">
                     <v-card-text>
                         <v-chip
                             class="font-weight-bold"
@@ -67,11 +75,11 @@
                         >
                             {{ isPaidTier ? 'Pro Account' : 'Free Trial' }}
                         </v-chip>
-                        <v-divider class="my-4" />
-                        <v-btn v-if="isPaidTier" variant="outlined" color="default" size="small" rounded="md" :to="ROUTES.Billing.path" :append-icon="ArrowRight">
+                        <v-divider class="my-4 border-0" />
+                        <v-btn v-if="isPaidTier" variant="outlined" color="default" :to="ROUTES.Billing.path" :append-icon="ArrowRight">
                             View Billing
                         </v-btn>
-                        <v-btn v-else color="primary" size="small" rounded="md" :append-icon="ArrowRight" @click="appStore.toggleUpgradeFlow(true)">
+                        <v-btn v-else color="primary" :append-icon="ArrowRight" @click="appStore.toggleUpgradeFlow(true)">
                             Upgrade
                         </v-btn>
                     </v-card-text>
@@ -81,49 +89,46 @@
 
         <v-row>
             <v-col>
-                <h3 class="mt-5">Security</h3>
+                <h3 class="mt-5">Security Settings</h3>
             </v-col>
         </v-row>
 
         <v-row>
-            <v-col cols="12" sm="6" lg="4">
-                <v-card title="Password" variant="outlined">
+            <v-col v-if="!user.externalID" cols="12" sm="6" lg="4">
+                <v-card title="Password" variant="outlined" class="pa-2">
                     <v-card-subtitle>
-                        **********
+                        ••••••••••
                     </v-card-subtitle>
                     <v-card-text>
-                        <v-divider class="mb-4" />
-                        <v-btn variant="outlined" color="default" size="small" rounded="md" @click="isChangePasswordDialogShown = true">
+                        <v-btn variant="outlined" color="default" :prepend-icon="Lock" @click="isChangePasswordDialogShown = true">
                             Change Password
                         </v-btn>
                     </v-card-text>
                 </v-card>
             </v-col>
 
-            <v-col cols="12" sm="6" lg="4">
-                <v-card title="Two-factor authentication">
+            <v-col v-if="!user.externalID" cols="12" sm="6" lg="4">
+                <v-card title="Two-factor authentication" class="pa-2">
                     <v-card-subtitle>
                         Improve security by enabling 2FA.
                     </v-card-subtitle>
                     <v-card-text>
-                        <v-divider class="mb-4" />
-                        <v-btn v-if="!user.isMFAEnabled" size="small" rounded="md" @click="toggleEnableMFADialog">Enable Two-factor</v-btn>
+                        <v-btn v-if="!user.isMFAEnabled" :prepend-icon="ShieldCheck" @click="toggleEnableMFADialog">Enable Two-factor</v-btn>
                         <template v-else>
-                            <v-btn class="mr-1" variant="outlined" color="default" size="small" rounded="md" @click="toggleRecoveryCodesDialog">Regenerate Recovery Codes</v-btn>
-                            <v-btn variant="outlined" color="default" size="small" rounded="md" @click="isDisableMFADialogShown = true">Disable Two-factor</v-btn>
+                            <v-btn class="mr-1" variant="outlined" color="default" @click="toggleRecoveryCodesDialog">Regenerate Recovery Codes</v-btn>
+                            <v-btn variant="outlined" color="default" :prepend-icon="ShieldOff" @click="isDisableMFADialogShown = true">Disable Two-factor</v-btn>
                         </template>
                     </v-card-text>
                 </v-card>
             </v-col>
 
             <v-col cols="12" sm="6" lg="4">
-                <v-card title="Session Timeout">
+                <v-card title="Session Timeout" class="pa-2">
                     <v-card-subtitle>
-                        Log out after {{ userSettings.sessionDuration?.shortString ?? Duration.MINUTES_15.shortString }}.
+                        Currently set to {{ userSettings.sessionDuration?.shortString ?? Duration.MINUTES_15.shortString }}.
                     </v-card-subtitle>
                     <v-card-text>
-                        <v-divider class="mb-4" />
-                        <v-btn variant="outlined" color="default" size="small" rounded="md" @click="isSetSessionTimeoutDialogShown = true">
+                        <v-btn variant="outlined" color="default" :prepend-icon="Timer" @click="isSetSessionTimeoutDialogShown = true">
                             Change Timeout
                         </v-btn>
                     </v-card-text>
@@ -131,13 +136,12 @@
             </v-col>
 
             <v-col cols="12" sm="6" lg="4">
-                <v-card title="Passphrase Preference">
+                <v-card title="Passphrase Preference" class="pa-2">
                     <v-card-subtitle>
                         {{ userSettings.passphrasePrompt ? 'Ask for passphrase when opening a project.' : 'Only ask for passphrase when necessary.' }}
                     </v-card-subtitle>
                     <v-card-text>
-                        <v-divider class="mb-4" />
-                        <v-btn variant="outlined" color="default" size="small" rounded="md" @click="isSetPassphrasePromptDialogShown = true">
+                        <v-btn variant="outlined" color="default" @click="isSetPassphrasePromptDialogShown = true">
                             {{ userSettings.passphrasePrompt ? 'Disable' : 'Enable' }}
                         </v-btn>
                     </v-card-text>
@@ -145,7 +149,7 @@
             </v-col>
         </v-row>
 
-        <template v-if="deleteAccountEnabled">
+        <template v-if="deleteAccountEnabled && !user.externalID">
             <v-row>
                 <v-col>
                     <h3 class="mt-5">Danger Zone</h3>
@@ -154,14 +158,13 @@
 
             <v-row>
                 <v-col cols="12" sm="6" lg="4">
-                    <v-card title="Delete Account">
+                    <v-card title="Delete Account" class="pa-2">
                         <v-card-subtitle>
                             Delete all of your own projects and data.
                         </v-card-subtitle>
                         <v-card-text>
-                            <v-divider class="mb-4" />
-                            <v-btn variant="outlined" color="error" size="small" rounded="md" @click="isAccountDeleteDialogShown = true">
-                                Delete
+                            <v-btn variant="outlined" color="error" :prepend-icon="UserRoundX" @click="isAccountDeleteDialogShown = true">
+                                Delete Account
                             </v-btn>
                         </v-card-text>
                     </v-card>
@@ -230,7 +233,7 @@ import {
     VTooltip,
     VChip,
 } from 'vuetify/components';
-import { ArrowRight } from 'lucide-vue-next';
+import { ArrowRight, ShieldCheck, ShieldOff, Lock, Timer, MailPlus, UserPen, UserRoundX } from 'lucide-vue-next';
 
 import { User, UserSettings } from '@/types/users';
 import { useAppStore } from '@/store/modules/appStore';
@@ -254,6 +257,7 @@ import SetPassphrasePromptDialog from '@/components/dialogs/SetPassphrasePromptD
 import AccountEmailChangeDialog from '@/components/dialogs/AccountEmailChangeDialog.vue';
 import AccountDeleteDialog from '@/components/dialogs/AccountDeleteDialog.vue';
 import ActiveSessionsTable from '@/components/ActiveSessionsTable.vue';
+import PageSubtitleComponent from '@/components/PageSubtitleComponent.vue';
 
 const appStore = useAppStore();
 const configStore = useConfigStore();

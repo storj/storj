@@ -4,6 +4,7 @@
 package satellitedb_test
 
 import (
+	"os"
 	"sort"
 	"sync"
 	"testing"
@@ -280,8 +281,13 @@ func TestRepairQueue_Select_Concurrently(t *testing.T) {
 		mu := sync.Mutex{}
 		selectedSegments := []queue.InjuredSegment{}
 
+		parallel := 5
+		if os.Getenv("STORJ_TEST_ENVIRONMENT") == "spanner-nightly" {
+			parallel = 2
+		}
+
 		group := errgroup.Group{}
-		for i := 0; i < 5; i++ {
+		for i := 0; i < parallel; i++ {
 			group.Go(func() error {
 				segments := []queue.InjuredSegment{}
 				for {
@@ -292,13 +298,16 @@ func TestRepairQueue_Select_Concurrently(t *testing.T) {
 						mu.Unlock()
 						return nil
 					}
-					require.NoError(t, err)
+					if err != nil {
+						return err
+					}
 
 					segments = append(segments, result...)
 				}
 			})
 		}
 		require.NoError(t, group.Wait())
+		require.Len(t, selectedSegments, len(expectedSegments))
 
 		for i := range segments {
 			segments[i].UpdatedAt = time.Time{}

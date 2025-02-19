@@ -25,7 +25,7 @@ type Endpoint struct {
 	log       *zap.Logger
 	pingStats *PingStats
 
-	trust *trust.Pool
+	trust trust.TrustedSatelliteSource
 }
 
 // PingStats contains information regarding when the node was last pinged.
@@ -35,7 +35,7 @@ type PingStats struct {
 }
 
 // NewEndpoint returns a new contact service endpoint.
-func NewEndpoint(log *zap.Logger, trust *trust.Pool, pingStats *PingStats) *Endpoint {
+func NewEndpoint(log *zap.Logger, trust trust.TrustedSatelliteSource, pingStats *PingStats) *Endpoint {
 	return &Endpoint{
 		log:       log,
 		pingStats: pingStats,

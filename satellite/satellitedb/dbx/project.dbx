@@ -73,6 +73,11 @@ model project (
 	// salt is used for salting the user passphrase for the content.
 	field salt                              blob      ( nullable )
 
+	// status is used to indicate status of the user's project.
+	// 0 - disabled or deleted by the user
+	// 1 - active
+	field status                            int       ( nullable, updatable, default 1 )
+
 	// created_at indicates when the project was created.
 	field created_at                        timestamp ( autoinsert )
 
@@ -86,6 +91,7 @@ model project (
 	// note: suspended is not a valid state for new buckets
 	field default_versioning int (updatable, default 1)
 
+	// TODO: drop this column after we're out of schema freeze.
 	// whether a user has been prompted to join versioning open beta
 	field prompted_for_versioning_beta bool ( updatable, default false )
 
@@ -188,6 +194,12 @@ read all (
 )
 read all (
 	select project
+	where project.owner_id = ?
+	where project.status = ?
+	orderby asc project.created_at
+)
+read all (
+	select project
 	join project.id = project_member.project_id
 	where project_member.member_id = ?
 	orderby asc project.name
@@ -268,6 +280,13 @@ read one (
 
 read all (
 	select project_invitation
+	where project_invitation.email = ?
+)
+
+read all (
+	select project_invitation
+	join project_invitation.project_id = project.id
+	where project.status = ?
 	where project_invitation.email = ?
 )
 

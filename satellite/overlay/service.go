@@ -58,12 +58,13 @@ type DB interface {
 
 	// Get looks up the node by nodeID
 	Get(ctx context.Context, nodeID storj.NodeID) (*NodeDossier, error)
-	// GetNodes gets records for all specified nodes as of the given system interval. The
-	// onlineWindow is used to determine whether each node is marked as Online. The results are
-	// returned in a slice of the same length as the input nodeIDs, and each index of the returned
-	// list corresponds to the same index in nodeIDs. If a node is not known, or is disqualified
-	// or exited, the corresponding returned SelectedNode will have a zero value.
-	GetNodes(ctx context.Context, nodeIDs storj.NodeIDList, onlineWindow, asOfSystemInterval time.Duration) (_ []nodeselection.SelectedNode, err error)
+	// GetActiveNodes gets records for nodes that have not exited or disqualified
+	// The onlineWindow is used to determine whether each node is marked as Online.
+	// The results are returned in a slice of the same length as the input nodeIDs,
+	// and each index of the returned list corresponds to the same index in nodeIDs.
+	// If a node is not known, or is disqualified or exited, the corresponding returned
+	// SelectedNode will have a zero value.
+	GetActiveNodes(ctx context.Context, nodeIDs storj.NodeIDList, onlineWindow, asOfSystemInterval time.Duration) (_ []nodeselection.SelectedNode, err error)
 	// GetParticipatingNodes returns all known participating nodes (this includes all known nodes
 	// excluding nodes that have been disqualified or gracefully exited).
 	GetParticipatingNodes(ctx context.Context, onlineWindow, asOfSystemInterval time.Duration) (_ []nodeselection.SelectedNode, err error)
@@ -95,10 +96,8 @@ type DB interface {
 	// GetExitStatus returns a node's graceful exit status.
 	GetExitStatus(ctx context.Context, nodeID storj.NodeID) (exitStatus *ExitStatus, err error)
 
-	// GetNodesNetwork returns the last_net subnet for each storage node, order is not guaranteed.
-	GetNodesNetwork(ctx context.Context, nodeIDs []storj.NodeID) (nodeNets []string, err error)
-	// GetNodesNetworkInOrder returns the last_net subnet for each storage node in order of the requested nodeIDs.
-	GetNodesNetworkInOrder(ctx context.Context, nodeIDs []storj.NodeID) (nodeNets []string, err error)
+	// AccountingNodeInfo gets records for all specified nodes for accounting.
+	AccountingNodeInfo(ctx context.Context, nodeIDs storj.NodeIDList) (_ map[storj.NodeID]NodeAccountingInfo, err error)
 
 	// DisqualifyNode disqualifies a storage node.
 	DisqualifyNode(ctx context.Context, nodeID storj.NodeID, disqualifiedAt time.Time, reason DisqualificationReason) (email string, err error)
@@ -291,6 +290,13 @@ type NodeReputation struct {
 	Reputation ReputationStatus
 }
 
+// NodeAccountingInfo contains wallet information necessary for paying nodes.
+type NodeAccountingInfo struct {
+	NodeCreationDate time.Time
+	Wallet           string
+	Disqualified     *time.Time
+}
+
 // Service is used to store and handle node information.
 //
 // architecture: Service
@@ -308,6 +314,7 @@ type Service struct {
 	DownloadSelectionCache *DownloadSelectionCache
 	LastNetFunc            LastNetFunc
 	placementDefinitions   nodeselection.PlacementDefinitions
+	placementLookup        map[string]storj.PlacementConstraint
 }
 
 // LastNetFunc is the type of a function that will be used to derive a network from an ip and port.
@@ -360,6 +367,10 @@ func NewService(log *zap.Logger, db DB, nodeEvents nodeevents.DB, placements nod
 		return nil, errs.Wrap(err)
 	}
 
+	placementLookup := make(map[string]storj.PlacementConstraint, len(placements))
+	for _, placement := range placements {
+		placementLookup[placement.Name] = placement.ID
+	}
 	return &Service{
 		log:                  log,
 		db:                   db,
@@ -376,6 +387,7 @@ func NewService(log *zap.Logger, db DB, nodeEvents nodeevents.DB, placements nod
 		LastNetFunc:            MaskOffLastNet,
 
 		placementDefinitions: placements,
+		placementLookup:      placementLookup,
 	}, nil
 }
 
@@ -405,6 +417,12 @@ func (service *Service) Get(ctx context.Context, nodeID storj.NodeID) (_ *NodeDo
 func (service *Service) CachedGetOnlineNodesForGet(ctx context.Context, nodeIDs []storj.NodeID) (_ map[storj.NodeID]*nodeselection.SelectedNode, err error) {
 	defer mon.Task()(&ctx)(&err)
 	return service.DownloadSelectionCache.GetNodes(ctx, nodeIDs)
+}
+
+// CachedGet returns a node from the download selection cache from the supplied nodeID.
+func (service *Service) CachedGet(ctx context.Context, nodeID storj.NodeID) (_ *nodeselection.SelectedNode, err error) {
+	defer mon.Task()(&ctx)(&err)
+	return service.DownloadSelectionCache.GetNode(ctx, nodeID)
 }
 
 // GetOnlineNodesForAuditRepair returns a map of nodes for the supplied nodeIDs.
@@ -502,16 +520,16 @@ func (service *Service) InsertOfflineNodeEvents(ctx context.Context, cooldown ti
 	return count, err
 }
 
-// GetNodes gets records for all specified nodes. The configured OnlineWindow is used to determine
-// whether each node is marked as Online. The results are returned in a slice of the same length as
-// the input nodeIDs, and each index of the returned list corresponds to the same index in nodeIDs.
+// GetActiveNodes gets records for all specified nodes that have not exited or been disqualified.
+// The configured OnlineWindow is used to determine whether each node is marked as Online.
+// The results are returned in a slice of the same length as the input nodeIDs,
+// and each index of the returned list corresponds to the same index in nodeIDs.
 // If a node is not known, or is disqualified or exited, the corresponding returned SelectedNode
 // will have a zero value.
-func (service *Service) GetNodes(ctx context.Context, nodeIDs storj.NodeIDList) (records []nodeselection.SelectedNode, err error) {
+func (service *Service) GetActiveNodes(ctx context.Context, nodeIDs storj.NodeIDList) (records []nodeselection.SelectedNode, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	// TODO add as of system time
-	return service.db.GetNodes(ctx, nodeIDs, service.config.Node.OnlineWindow, 0)
+	return service.db.GetActiveNodes(ctx, nodeIDs, service.config.Node.OnlineWindow, service.config.AsOfSystemTime)
 }
 
 // GetParticipatingNodes returns all known participating nodes (this includes all known nodes
@@ -572,7 +590,7 @@ func (service *Service) UpdateCheckIn(ctx context.Context, node NodeCheckInInfo,
 
 	oldInfo, err := service.Get(ctx, node.NodeID)
 	if err != nil && !ErrNodeNotFound.Has(err) {
-		return Error.New("failed to get node info from DB")
+		return Error.New("failed to get node info from DB: %w", err)
 	}
 
 	if oldInfo == nil {
@@ -741,6 +759,12 @@ func (service *Service) GetNodeTags(ctx context.Context, id storj.NodeID) (nodes
 // It comes from the name of the placement (or `nodeselection.Location` in case of legacy config).
 func (service *Service) GetLocationFromPlacement(placement storj.PlacementConstraint) string {
 	return service.placementDefinitions[placement].Name
+}
+
+// GetPlacementConstraintFromName returns the placement constraint given the placement name.
+func (service *Service) GetPlacementConstraintFromName(name string) (id storj.PlacementConstraint, exists bool) {
+	id, exists = service.placementLookup[name]
+	return id, exists
 }
 
 // ResolveIPAndNetwork resolves the target address and determines its IP and appropriate last_net, as indicated.

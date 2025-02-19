@@ -111,8 +111,7 @@ func Edge(t *testing.T, test EdgeTest) {
 			CertFile:          certFile.Name(),
 			KeyFile:           keyFile.Name(),
 			Node: badgerauth.Config{
-				FirstStart:          true,
-				ReplicationInterval: 5 * time.Second,
+				FirstStart: true,
 			},
 		}
 		authService, err := auth.New(ctx, zaptest.NewLogger(t).Named("auth"), authConfig, fpath.ApplicationDir("storj", "authservice"))

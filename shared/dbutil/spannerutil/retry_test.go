@@ -24,7 +24,7 @@ func TestQueryRetry(t *testing.T) {
 	// this will t.Skip() if no spanner database is configured via test settings
 	connURL := dbtest.PickSpanner(t)
 	ctx := testcontext.New(t)
-	db, err := tempdb.OpenUnique(ctx, connURL, "testqueryretry")
+	db, err := tempdb.OpenUnique(ctx, connURL, "testqueryretry", nil)
 	require.NoError(t, err)
 	defer ctx.Check(db.Close)
 

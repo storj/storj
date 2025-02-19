@@ -11,6 +11,7 @@ import (
 	"io"
 	"math/big"
 	"net/http"
+	"net/url"
 	"strconv"
 	"strings"
 	"time"
@@ -26,6 +27,7 @@ import (
 	"storj.io/storj/satellite/analytics"
 	"storj.io/storj/satellite/console"
 	"storj.io/storj/satellite/console/consoleauth"
+	"storj.io/storj/satellite/console/consoleauth/csrf"
 	"storj.io/storj/satellite/console/consoleauth/sso"
 	"storj.io/storj/satellite/console/consoleweb/consoleapi/utils"
 	"storj.io/storj/satellite/console/consoleweb/consolewebauth"
@@ -60,11 +62,12 @@ type Auth struct {
 	analytics                 *analytics.Service
 	mailService               *mailservice.Service
 	ssoService                *sso.Service
+	csrfService               *csrf.Service
 	cookieAuth                *consolewebauth.CookieAuth
 }
 
 // NewAuth is a constructor for api auth controller.
-func NewAuth(log *zap.Logger, service *console.Service, accountFreezeService *console.AccountFreezeService, mailService *mailservice.Service, cookieAuth *consolewebauth.CookieAuth, analytics *analytics.Service, ssoService *sso.Service, satelliteName, externalAddress, letUsKnowURL, termsAndConditionsURL, contactInfoURL, generalRequestURL string, activationCodeEnabled bool, badPasswords map[string]struct{}) *Auth {
+func NewAuth(log *zap.Logger, service *console.Service, accountFreezeService *console.AccountFreezeService, mailService *mailservice.Service, cookieAuth *consolewebauth.CookieAuth, analytics *analytics.Service, ssoService *sso.Service, csrfService *csrf.Service, satelliteName, externalAddress, letUsKnowURL, termsAndConditionsURL, contactInfoURL, generalRequestURL string, activationCodeEnabled bool, badPasswords map[string]struct{}) *Auth {
 	return &Auth{
 		log:                       log,
 		ExternalAddress:           externalAddress,
@@ -84,6 +87,7 @@ func NewAuth(log *zap.Logger, service *console.Service, accountFreezeService *co
 		analytics:                 analytics,
 		badPasswords:              badPasswords,
 		ssoService:                ssoService,
+		csrfService:               csrfService,
 	}
 }
 
@@ -106,6 +110,7 @@ func (a *Auth) Token(w http.ResponseWriter, r *http.Request) {
 		a.serveJSONError(ctx, w, err)
 		return
 	}
+	tokenRequest.AnonymousID = LoadAjsAnonymousID(r)
 
 	tokenInfo, err := a.service.Token(ctx, tokenRequest)
 	if err != nil {
@@ -140,12 +145,56 @@ func (a *Auth) AuthenticateSso(w http.ResponseWriter, r *http.Request) {
 
 	ssoFailedAddr := strings.TrimSuffix(a.ExternalAddress, "/") + "/login?sso_failed=true"
 
-	provider, claims, err := a.verifySsoAuth(r)
+	provider := mux.Vars(r)["provider"]
+
+	stateCookie, err := r.Cookie(a.cookieAuth.GetSSOStateCookieName())
+	if err != nil {
+		a.log.Error("Error verifying SSO auth", zap.Error(console.ErrValidation.New("missing state cookie")))
+		http.Redirect(w, r, ssoFailedAddr, http.StatusPermanentRedirect)
+		return
+	}
+	emailTokenCookie, err := r.Cookie(a.cookieAuth.GetSSOEmailTokenCookieName())
+	if err != nil {
+		a.log.Error("Error verifying SSO auth", zap.Error(console.ErrValidation.New("missing email token cookie")))
+		http.Redirect(w, r, ssoFailedAddr, http.StatusPermanentRedirect)
+		return
+	}
+
+	ssoState := r.URL.Query().Get("state")
+	if ssoState == "" {
+		a.log.Error("Error verifying SSO auth", zap.Error(console.ErrValidation.New("missing state value")))
+		http.Redirect(w, r, ssoFailedAddr, http.StatusPermanentRedirect)
+		return
+	}
+
+	if ssoState != stateCookie.Value {
+		a.log.Error("Error verifying SSO auth", zap.Error(sso.ErrInvalidState.New("")))
+		http.Redirect(w, r, ssoFailedAddr, http.StatusPermanentRedirect)
+		return
+	}
+
+	err = a.service.ValidateSecurityToken(ssoState)
+	if err != nil {
+		a.log.Error("Error verifying SSO auth", zap.Error(sso.ErrInvalidState.New("invalid signature")))
+		http.Redirect(w, r, ssoFailedAddr, http.StatusPermanentRedirect)
+		return
+	}
+
+	code := r.URL.Query().Get("code")
+	if code == "" {
+		a.log.Error("Error verifying SSO auth", zap.Error(console.ErrValidation.New("missing auth code")))
+		http.Redirect(w, r, ssoFailedAddr, http.StatusPermanentRedirect)
+		return
+	}
+
+	claims, err := a.ssoService.VerifySso(ctx, provider, emailTokenCookie.Value, code)
 	if err != nil {
 		a.log.Error("Error verifying SSO auth", zap.Error(err))
 		http.Redirect(w, r, ssoFailedAddr, http.StatusPermanentRedirect)
 		return
 	}
+
+	a.cookieAuth.RemoveSSOCookies(w)
 
 	ip, err := web.GetRequestIP(r)
 	if err != nil {
@@ -159,9 +208,17 @@ func (a *Auth) AuthenticateSso(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		a.log.Error("Error getting user for sso auth", zap.Error(err))
 		http.Redirect(w, r, ssoFailedAddr, http.StatusPermanentRedirect)
+		return
 	}
 
-	tokenInfo, err := a.service.GenerateSessionToken(ctx, user.ID, user.Email, ip, userAgent, nil)
+	tokenInfo, err := a.service.GenerateSessionToken(ctx, console.SessionTokenRequest{
+		UserID:         user.ID,
+		Email:          user.Email,
+		IP:             ip,
+		UserAgent:      userAgent,
+		AnonymousID:    LoadAjsAnonymousID(r),
+		CustomDuration: nil,
+	})
 	if err != nil {
 		a.log.Error("Failed to generate session token", zap.Error(err))
 		http.Redirect(w, r, ssoFailedAddr, http.StatusPermanentRedirect)
@@ -173,37 +230,73 @@ func (a *Auth) AuthenticateSso(w http.ResponseWriter, r *http.Request) {
 	http.Redirect(w, r, a.ExternalAddress, http.StatusFound)
 }
 
-// verifySsoAuth verifies the SSO authentication.
-func (a *Auth) verifySsoAuth(r *http.Request) (provider string, _ *sso.OidcSsoClaims, err error) {
+// GetSsoUrl returns the SSO URL for the given provider.
+func (a *Auth) GetSsoUrl(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
+	var err error
+	defer mon.Task()(&ctx)(&err)
 
-	provider = r.URL.Query().Get("state")
-	oidcSetup := a.ssoService.GetOidcSetupByProvider(provider)
+	provider := a.ssoService.GetProviderByEmail(r.URL.Query().Get("email"))
+	if provider == "" {
+		w.WriteHeader(http.StatusNotFound)
+		return
+	}
+	ssoUrl, err := url.JoinPath(a.ExternalAddress, "sso", provider)
+	if err != nil {
+		a.serveJSONError(ctx, w, err)
+		return
+	}
+	_, err = w.Write([]byte(ssoUrl))
+	if err != nil {
+		a.log.Error("failed to write response", zap.Error(err))
+	}
+}
+
+// BeginSsoFlow starts the SSO flow by redirecting to the OIDC provider.
+func (a *Auth) BeginSsoFlow(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	var err error
+	defer mon.Task()(&ctx)(&err)
+
+	ssoFailedAddr, err := url.JoinPath(a.ExternalAddress, "login?sso_failed=true")
+	if err != nil {
+		a.log.Error("failed to get sso failed url", zap.Error(err))
+		http.Redirect(w, r, ssoFailedAddr, http.StatusPermanentRedirect)
+		return
+	}
+
+	provider := mux.Vars(r)["provider"]
+	oidcSetup := a.ssoService.GetOidcSetupByProvider(ctx, provider)
 	if oidcSetup == nil {
-		return "", nil, console.ErrValidation.New("invalid provider state")
+		a.log.Error("invalid provider "+provider, zap.Error(console.ErrValidation.New("invalid provider")))
+		http.Redirect(w, r, ssoFailedAddr, http.StatusPermanentRedirect)
+		return
 	}
 
-	oauth2Token, err := oidcSetup.Config.Exchange(ctx, r.URL.Query().Get("code"))
+	email := r.URL.Query().Get("email")
+	if email == "" {
+		a.log.Error("email is required for SSO flow", zap.Error(console.ErrValidation.New("email is required")))
+		http.Redirect(w, r, ssoFailedAddr, http.StatusPermanentRedirect)
+		return
+	}
+
+	emailToken, err := a.ssoService.GetSsoEmailToken(email)
 	if err != nil {
-		return "", nil, console.ErrValidation.New("invalid code")
+		a.log.Error("failed to get security token", zap.Error(err))
+		http.Redirect(w, r, ssoFailedAddr, http.StatusPermanentRedirect)
+		return
 	}
 
-	rawIDToken, ok := oauth2Token.Extra("id_token").(string)
-	if !ok {
-		return "", nil, console.ErrValidation.New("missing id token")
-	}
-
-	idToken, err := oidcSetup.Verifier.Verify(ctx, rawIDToken)
+	state, err := a.csrfService.GenerateSecurityToken()
 	if err != nil {
-		return "", nil, console.ErrUnauthorized.New("Failed to verify ID token")
+		a.log.Error("failed to generate sso state", zap.Error(err))
+		http.Redirect(w, r, ssoFailedAddr, http.StatusPermanentRedirect)
+		return
 	}
 
-	var claims sso.OidcSsoClaims
-	if err = idToken.Claims(&claims); err != nil {
-		return "", nil, console.Error.New("failed to parse claims")
-	}
+	a.cookieAuth.SetSSOCookies(w, state, emailToken)
 
-	return provider, &claims, nil
+	http.Redirect(w, r, oidcSetup.Config.AuthCodeURL(state), http.StatusFound)
 }
 
 // TokenByAPIKey authenticates user by API key and returns auth token.
@@ -345,6 +438,27 @@ func (a *Auth) Register(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	ip, err := web.GetRequestIP(r)
+	if err != nil {
+		a.serveJSONError(ctx, w, err)
+		return
+	}
+
+	valid, captchaScore, err := a.service.VerifyRegistrationCaptcha(ctx, registerData.CaptchaResponse, ip)
+	if err != nil {
+		mon.Counter("create_user_captcha_error").Inc(1) //mon:locked
+		a.log.Error("captcha authorization failed", zap.Error(err))
+
+		a.serveJSONError(ctx, w, console.ErrCaptcha.Wrap(err))
+		return
+	}
+	if !valid {
+		mon.Counter("create_user_captcha_unsuccessful").Inc(1) //mon:locked
+
+		a.serveJSONError(ctx, w, console.ErrCaptcha.New("captcha validation unsuccessful"))
+		return
+	}
+
 	verified, unverified, err := a.service.GetUserByEmailWithUnverified(ctx, registerData.Email)
 	if err != nil && !console.ErrEmailNotFound.Has(err) {
 		a.serveJSONError(ctx, w, err)
@@ -370,9 +484,57 @@ func (a *Auth) Register(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	if registerData.Partner != "" {
+		registerData.UserAgent = []byte(registerData.Partner)
+	}
+
+	var code string
+	var requestID string
+	if a.ActivationCodeEnabled {
+		randNum, err := rand.Int(rand.Reader, big.NewInt(900000))
+		if err != nil {
+			a.serveJSONError(ctx, w, console.Error.Wrap(err))
+			return
+		}
+		randNum = randNum.Add(randNum, big.NewInt(100000))
+		code = randNum.String()
+
+		requestID = requestid.FromContext(ctx)
+	}
+
+	requestData := console.CreateUser{
+		FullName:         registerData.FullName,
+		ShortName:        registerData.ShortName,
+		Email:            registerData.Email,
+		UserAgent:        registerData.UserAgent,
+		Password:         registerData.Password,
+		IsProfessional:   registerData.IsProfessional,
+		Position:         registerData.Position,
+		CompanyName:      registerData.CompanyName,
+		EmployeeCount:    registerData.EmployeeCount,
+		HaveSalesContact: registerData.HaveSalesContact,
+		CaptchaResponse:  registerData.CaptchaResponse,
+		CaptchaScore:     captchaScore,
+		IP:               ip,
+		SignupPromoCode:  registerData.SignupPromoCode,
+		ActivationCode:   code,
+		SignupId:         requestID,
+		// the minimal signup from the v2 app doesn't require name.
+		AllowNoName: registerData.IsMinimal,
+	}
+
 	var user *console.User
 	if len(unverified) > 0 {
 		user = &unverified[0]
+
+		err = a.service.UpdateUserOnSignup(ctx, user, requestData)
+		if err != nil {
+			a.serveJSONError(ctx, w, err)
+			return
+		}
+
+		user.SignupId = requestData.SignupId
+		user.ActivationCode = requestData.ActivationCode
 	} else {
 		secret, err := console.RegistrationSecretFromBase64(registerData.SecretInput)
 		if err != nil {
@@ -380,77 +542,12 @@ func (a *Auth) Register(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
-		if registerData.Partner != "" {
-			registerData.UserAgent = []byte(registerData.Partner)
-		}
-
-		ip, err := web.GetRequestIP(r)
-		if err != nil {
-			a.serveJSONError(ctx, w, err)
-			return
-		}
-
-		var code string
-		var requestID string
-		if a.ActivationCodeEnabled {
-			randNum, err := rand.Int(rand.Reader, big.NewInt(900000))
-			if err != nil {
-				a.serveJSONError(ctx, w, console.Error.Wrap(err))
-				return
-			}
-			randNum = randNum.Add(randNum, big.NewInt(100000))
-			code = randNum.String()
-
-			requestID = requestid.FromContext(ctx)
-		}
-
-		user, err = a.service.CreateUser(ctx,
-			console.CreateUser{
-				FullName:         registerData.FullName,
-				ShortName:        registerData.ShortName,
-				Email:            registerData.Email,
-				UserAgent:        registerData.UserAgent,
-				Password:         registerData.Password,
-				IsProfessional:   registerData.IsProfessional,
-				Position:         registerData.Position,
-				CompanyName:      registerData.CompanyName,
-				EmployeeCount:    registerData.EmployeeCount,
-				HaveSalesContact: registerData.HaveSalesContact,
-				CaptchaResponse:  registerData.CaptchaResponse,
-				IP:               ip,
-				SignupPromoCode:  registerData.SignupPromoCode,
-				ActivationCode:   code,
-				SignupId:         requestID,
-				// the minimal signup from the v2 app doesn't require name.
-				AllowNoName: registerData.IsMinimal,
-			},
-			secret,
-		)
+		user, err = a.service.CreateUser(ctx, requestData, secret)
 		if err != nil {
 			if !console.ErrEmailUsed.Has(err) {
 				a.serveJSONError(ctx, w, err)
 			}
 			return
-		}
-
-		invites, err := a.service.GetInvitesByEmail(ctx, registerData.Email)
-		if err != nil {
-			a.log.Error("Could not get invitations", zap.String("email", registerData.Email), zap.Error(err))
-		} else if len(invites) > 0 {
-			var firstInvite console.ProjectInvitation
-			for _, inv := range invites {
-				if inv.InviterID != nil && (firstInvite.CreatedAt.IsZero() || inv.CreatedAt.Before(firstInvite.CreatedAt)) {
-					firstInvite = inv
-				}
-			}
-			if firstInvite.InviterID != nil {
-				inviter, err := a.service.GetUser(ctx, *firstInvite.InviterID)
-				if err != nil {
-					a.log.Error("Error getting inviter info", zap.String("ID", firstInvite.InviterID.String()), zap.Error(err))
-				} else {
-					a.analytics.TrackInviteLinkSignup(inviter.Email, registerData.Email)
-				}
-			}
 		}
 
 		// see if referrer was provided in URL query, otherwise use the Referer header in the request.
@@ -466,7 +563,7 @@ func (a *Auth) Register(w http.ResponseWriter, r *http.Request) {
 
 		trackCreateUserFields := analytics.TrackCreateUserFields{
 			ID:            user.ID,
-			AnonymousID:   loadSession(r),
+			AnonymousID:   LoadAjsAnonymousID(r),
 			FullName:      user.FullName,
 			Email:         user.Email,
 			Type:          analytics.Personal,
@@ -487,13 +584,27 @@ func (a *Auth) Register(w http.ResponseWriter, r *http.Request) {
 		a.analytics.TrackCreateUser(trackCreateUserFields)
 	}
 
-	if a.ActivationCodeEnabled {
-		*user, err = a.service.SetActivationCodeAndSignupID(ctx, *user)
-		if err != nil {
-			a.serveJSONError(ctx, w, err)
-			return
+	invites, err := a.service.GetInvitesByEmail(ctx, registerData.Email)
+	if err != nil {
+		a.log.Error("Could not get invitations", zap.String("email", registerData.Email), zap.Error(err))
+	} else if len(invites) > 0 {
+		var firstInvite console.ProjectInvitation
+		for _, inv := range invites {
+			if inv.InviterID != nil && (firstInvite.CreatedAt.IsZero() || inv.CreatedAt.Before(firstInvite.CreatedAt)) {
+				firstInvite = inv
+			}
 		}
+		if firstInvite.InviterID != nil {
+			inviter, err := a.service.GetUser(ctx, *firstInvite.InviterID)
+			if err != nil {
+				a.log.Error("Error getting inviter info", zap.String("ID", firstInvite.InviterID.String()), zap.Error(err))
+			} else {
+				a.analytics.TrackInviteLinkSignup(inviter.Email, registerData.Email)
+			}
+		}
+	}
 
+	if a.ActivationCodeEnabled {
 		a.mailService.SendRenderedAsync(
 			ctx,
 			[]post.Address{{Address: user.Email}},
@@ -501,9 +612,9 @@ func (a *Auth) Register(w http.ResponseWriter, r *http.Request) {
 				ActivationCode: user.ActivationCode,
 			},
 		)
-
 		return
 	}
+
 	token, err := a.service.GenerateActivationToken(ctx, user.ID, user.Email)
 	if err != nil {
 		a.serveJSONError(ctx, w, err)
@@ -665,7 +776,14 @@ func (a *Auth) ActivateAccount(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	tokenInfo, err := a.service.GenerateSessionToken(ctx, user.ID, user.Email, ip, r.UserAgent(), nil)
+	tokenInfo, err := a.service.GenerateSessionToken(ctx, console.SessionTokenRequest{
+		UserID:         user.ID,
+		Email:          user.Email,
+		IP:             ip,
+		UserAgent:      r.UserAgent(),
+		AnonymousID:    LoadAjsAnonymousID(r),
+		CustomDuration: nil,
+	})
 	if err != nil {
 		a.serveJSONError(ctx, w, err)
 		return
@@ -684,14 +802,14 @@ func (a *Auth) ActivateAccount(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-// loadSession looks for a cookie for the session id.
-// this cookie is set from the reverse proxy if the user opts into cookies from Storj.
-func loadSession(req *http.Request) string {
-	sessionCookie, err := req.Cookie("webtraf-sid")
+// LoadAjsAnonymousID looks for ajs_anonymous_id cookie.
+// this cookie is set from the website if the user opts into cookies from Storj.
+func LoadAjsAnonymousID(req *http.Request) string {
+	cookie, err := req.Cookie("ajs_anonymous_id")
 	if err != nil {
 		return ""
 	}
-	return sessionCookie.Value
+	return cookie.Value
 }
 
 // GetFreezeStatus checks to see if an account is frozen or warned.
@@ -860,6 +978,7 @@ func (a *Auth) GetAccount(w http.ResponseWriter, r *http.Request) {
 
 	var user struct {
 		ID                    uuid.UUID  `json:"id"`
+		ExternalID            string     `json:"externalID"`
 		FullName              string     `json:"fullName"`
 		ShortName             string     `json:"shortName"`
 		Email                 string     `json:"email"`
@@ -892,6 +1011,9 @@ func (a *Auth) GetAccount(w http.ResponseWriter, r *http.Request) {
 	user.FullName = consoleUser.FullName
 	user.Email = consoleUser.Email
 	user.ID = consoleUser.ID
+	if consoleUser.ExternalID != nil {
+		user.ExternalID = *consoleUser.ExternalID
+	}
 	if consoleUser.UserAgent != nil {
 		user.Partner = string(consoleUser.UserAgent)
 	}
@@ -1021,7 +1143,7 @@ func (a *Auth) ForgotPassword(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	recoveryToken, err := a.service.GeneratePasswordRecoveryToken(ctx, user.ID)
+	recoveryToken, err := a.service.GeneratePasswordRecoveryToken(ctx, user)
 	if err != nil {
 		a.serveJSONError(ctx, w, err)
 		return
@@ -1092,7 +1214,7 @@ func (a *Auth) ResendEmail(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if verified != nil {
-		recoveryToken, err := a.service.GeneratePasswordRecoveryToken(ctx, verified.ID)
+		recoveryToken, err := a.service.GeneratePasswordRecoveryToken(ctx, verified)
 		if err != nil {
 			a.serveJSONError(ctx, w, err)
 			return
@@ -1657,13 +1779,20 @@ func (a *Auth) getStatusCode(err error) int {
 	var maxBytesError *http.MaxBytesError
 
 	switch {
-	case console.ErrValidation.Has(err), console.ErrCaptcha.Has(err), console.ErrMFAMissing.Has(err), console.ErrMFAPasscode.Has(err), console.ErrMFARecoveryCode.Has(err), console.ErrChangePassword.Has(err), console.ErrInvalidProjectLimit.Has(err):
+	case console.ErrValidation.Has(err), console.ErrCaptcha.Has(err),
+		console.ErrMFAMissing.Has(err), console.ErrMFAPasscode.Has(err),
+		console.ErrMFARecoveryCode.Has(err), console.ErrChangePassword.Has(err),
+		console.ErrInvalidProjectLimit.Has(err), sso.ErrInvalidProvider.Has(err),
+		sso.ErrInvalidCode.Has(err), sso.ErrNoIdToken.Has(err):
 		return http.StatusBadRequest
-	case console.ErrUnauthorized.Has(err), console.ErrTokenExpiration.Has(err), console.ErrRecoveryToken.Has(err), console.ErrLoginCredentials.Has(err), console.ErrActivationCode.Has(err):
+	case console.ErrUnauthorized.Has(err), console.ErrTokenExpiration.Has(err),
+		console.ErrRecoveryToken.Has(err), console.ErrLoginCredentials.Has(err),
+		console.ErrActivationCode.Has(err), sso.ErrTokenVerification.Has(err),
+		sso.ErrInvalidState.Has(err):
 		return http.StatusUnauthorized
-	case console.ErrEmailUsed.Has(err), console.ErrMFAConflict.Has(err), console.ErrMFAEnabled.Has(err):
+	case console.ErrEmailUsed.Has(err), console.ErrMFAConflict.Has(err), console.ErrMFAEnabled.Has(err), console.ErrConflict.Has(err):
 		return http.StatusConflict
-	case console.ErrLoginRestricted.Has(err), console.ErrTooManyAttempts.Has(err), console.ErrForbidden.Has(err):
+	case console.ErrLoginRestricted.Has(err), console.ErrTooManyAttempts.Has(err), console.ErrForbidden.Has(err), console.ErrSsoUserRestricted.Has(err):
 		return http.StatusForbidden
 	case errors.Is(err, errNotImplemented):
 		return http.StatusNotImplemented
@@ -1706,7 +1835,9 @@ func (a *Auth) getUserErrorMessage(err error) string {
 		return "Your login credentials are incorrect, please try again"
 	case console.ErrLoginRestricted.Has(err):
 		return "You can't be authenticated. Please contact support"
-	case console.ErrValidation.Has(err), console.ErrChangePassword.Has(err), console.ErrInvalidProjectLimit.Has(err), console.ErrNotPaidTier.Has(err), console.ErrTooManyAttempts.Has(err), console.ErrMFAEnabled.Has(err), console.ErrForbidden.Has(err):
+	case console.ErrValidation.Has(err), console.ErrChangePassword.Has(err), console.ErrInvalidProjectLimit.Has(err),
+		console.ErrNotPaidTier.Has(err), console.ErrTooManyAttempts.Has(err), console.ErrMFAEnabled.Has(err),
+		console.ErrForbidden.Has(err), console.ErrConflict.Has(err):
 		return err.Error()
 	case errors.Is(err, errNotImplemented):
 		return "The server is incapable of fulfilling the request"

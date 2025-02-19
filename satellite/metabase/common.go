@@ -402,6 +402,11 @@ func (obj *ObjectStream) Location() ObjectLocation {
 	}
 }
 
+// StreamIDSuffix returns the object's stream ID suffix.
+func (obj *ObjectStream) StreamIDSuffix() StreamIDSuffix {
+	return StreamIDSuffix(obj.StreamID[8:])
+}
+
 // PendingObjectStream uniquely defines an pending object and stream.
 type PendingObjectStream struct {
 	ProjectID  uuid.UUID
@@ -476,9 +481,6 @@ const NextVersion = Version(0)
 // DefaultVersion represents default version 1.
 const DefaultVersion = Version(1)
 
-// PendingVersion represents version that is used for pending objects (with UsePendingObjects).
-const PendingVersion = Version(0)
-
 // MaxVersion represents maximum version.
 // Version in DB is represented as INT8.
 //
@@ -542,19 +544,38 @@ func (r *Retention) verifyWithoutGovernance() error {
 // avoid confusion.
 type StreamVersionID uuid.UUID
 
+// StreamIDSuffix is the last 8 bytes of an object's stream ID. It's used together with
+// an object's internal version ID to produce a version ID for the public API.
+type StreamIDSuffix [8]byte
+
+// IsZero returns whether all bytes in the StreamIDSuffix are 0.
+func (s StreamIDSuffix) IsZero() bool {
+	return s == StreamIDSuffix{}
+}
+
 // Version returns Version encoded into stream version id.
 func (s StreamVersionID) Version() Version {
 	return Version(binary.BigEndian.Uint64(s[:8]))
 }
 
 // StreamIDSuffix returns StreamID suffix encoded into stream version id.
-func (s StreamVersionID) StreamIDSuffix() []byte {
-	return s[8:]
+func (s StreamVersionID) StreamIDSuffix() StreamIDSuffix {
+	return StreamIDSuffix(s[8:])
+}
+
+// SetStreamID encodes the provided stream ID into the stream version ID.
+func (s *StreamVersionID) SetStreamID(streamID uuid.UUID) {
+	copy(s[8:], streamID[8:])
 }
 
 // Bytes returnes stream version id bytes.
 func (s StreamVersionID) Bytes() []byte {
 	return s[:]
+}
+
+// IsZero returns whether all bytes in the StreamVersionID are 0.
+func (s StreamVersionID) IsZero() bool {
+	return s == StreamVersionID{}
 }
 
 // NewStreamVersionID returns a new stream version id.
@@ -612,6 +633,7 @@ const (
 	Prefix = ObjectStatus(7)
 
 	// Constants that can be used while constructing SQL queries.
+
 	statusPending                 = "1"
 	statusCommittedUnversioned    = "3"
 	statusCommittedVersioned      = "4"

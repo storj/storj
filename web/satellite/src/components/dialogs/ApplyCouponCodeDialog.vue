@@ -11,7 +11,14 @@
         <v-card>
             <v-card-item class="pa-6">
                 <template #prepend>
-                    <component :is="TicketPercent" :size="18" />
+                    <v-sheet
+                        class="border-sm d-flex justify-center align-center"
+                        width="40"
+                        height="40"
+                        rounded="lg"
+                    >
+                        <component :is="TicketPercent" :size="18" />
+                    </v-sheet>
                 </template>
                 <v-card-title class="font-weight-bold">Apply New Coupon</v-card-title>
                 <template #append>
@@ -63,7 +70,7 @@
                     </v-col>
                     <v-col>
                         <v-btn
-                            color="primary"
+                            color="secondary"
                             variant="flat"
                             block
                             :loading="isLoading"
@@ -80,7 +87,7 @@
 
 <script setup lang="ts">
 import { ref, watch } from 'vue';
-import { VDialog, VCard, VRow, VCol, VTextField, VForm, VBtn, VCardItem, VCardTitle, VDivider, VCardActions } from 'vuetify/components';
+import { VDialog, VCard, VRow, VCol, VTextField, VForm, VBtn, VCardItem, VCardTitle, VDivider, VCardActions, VSheet } from 'vuetify/components';
 import { TicketPercent } from 'lucide-vue-next';
 
 import { RequiredRule } from '@/types/common';

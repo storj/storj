@@ -208,8 +208,7 @@ func (vq *verifyQueue) Next(ctx context.Context) (seg audit.Segment, err error) 
 				query := `DELETE FROM verification_audits
 				WHERE inserted_at = ?
 				 AND stream_id = ?
-				 AND position = ?
-				THEN RETURN  stream_id,position,expires_at, encrypted_size`
+				 AND position = ?`
 				_, err = tx.Tx.ExecContext(ctx, query, insertedAt, seg.StreamID, seg.Position)
 			}
 			return err

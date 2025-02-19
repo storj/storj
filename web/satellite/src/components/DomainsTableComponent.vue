@@ -2,7 +2,7 @@
 // See LICENSE for copying information.
 
 <template>
-    <v-card variant="outlined" border rounded="xlg">
+    <v-card class="pa-4">
         <v-text-field
             v-model="search"
             label="Search"
@@ -13,8 +13,7 @@
             hide-details
             clearable
             density="comfortable"
-            rounded="lg"
-            class="mx-2 mt-2"
+            class="mb-4"
         />
 
         <v-data-table
@@ -55,7 +54,7 @@ import { DataTableHeader } from '@/types/common';
 type SortItem = {
     key: keyof Domain;
     order: boolean | 'asc' | 'desc';
-}
+};
 
 const domainsStore = useDomainsStore();
 

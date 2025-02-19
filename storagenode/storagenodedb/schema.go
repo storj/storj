@@ -713,7 +713,7 @@ func Schema() map[string]*dbschema.Schema {
 			Tables: []*dbschema.Table{
 				{
 					Name:       "storage_usage",
-					PrimaryKey: []string{"satellite_id", "timestamp"},
+					PrimaryKey: []string{"timestamp", "satellite_id"},
 					Columns: []*dbschema.Column{
 						{
 							Name:       "at_rest_total",
@@ -744,7 +744,7 @@ func Schema() map[string]*dbschema.Schema {
 			Tables: []*dbschema.Table{
 				{
 					Name:       "used_space_per_prefix",
-					PrimaryKey: []string{"piece_prefix", "satellite_id"},
+					PrimaryKey: []string{"satellite_id", "piece_prefix"},
 					Columns: []*dbschema.Column{
 						{
 							Name:       "last_updated",

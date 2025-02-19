@@ -165,11 +165,11 @@ func getSettableFields(t reflect.Type) (settableFields, error) {
 		switch {
 		case field.Type.Implements(unmarshalCSVType):
 			setter = setUnmarshalCSVValue
-		case reflect.PtrTo(field.Type).Implements(unmarshalCSVType):
+		case reflect.PointerTo(field.Type).Implements(unmarshalCSVType):
 			setter = setUnmarshalCSVValue
 		case field.Type.Implements(unmarshalTextType):
 			setter = setUnmarshalTextValue
-		case reflect.PtrTo(field.Type).Implements(unmarshalTextType):
+		case reflect.PointerTo(field.Type).Implements(unmarshalTextType):
 			setter = setUnmarshalTextValue
 		default:
 			ft := field.Type

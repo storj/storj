@@ -4,9 +4,12 @@
 package spannerutil
 
 import (
+	"net/url"
 	"os"
+	"strconv"
 	"strings"
 
+	"golang.org/x/exp/maps"
 	"google.golang.org/api/option"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
@@ -21,6 +24,16 @@ type ConnParams struct {
 	Database string
 
 	Emulator bool
+
+	CreateInstance ConnParamsCreateInstance
+}
+
+// ConnParamsCreateInstance contains arguments for creating a new instance.
+type ConnParamsCreateInstance struct {
+	DisplayName     string
+	Config          string
+	NodeCount       int32
+	ProcessingUnits int32
 }
 
 // AllDefined returns whether project, instance and database are all defined.
@@ -47,12 +60,39 @@ func (params *ConnParams) DatabasePath() string {
 func (params *ConnParams) ConnStr() string {
 	s := "spanner://"
 	if params.Host != "" {
-		s += params.Host + "/"
+		s += params.Host
 	}
-	s += params.DatabasePath()
+	if params.Project != "" {
+		s += "/projects/" + params.Project
+	}
+	if params.Instance != "" {
+		s += "/instances/" + params.Instance
+	}
+	if params.Database != "" {
+		s += "/databases/" + params.Database
+	}
+
+	query := url.Values{}
 	if params.Emulator {
-		s += "?emulator"
+		query.Add("emulator", "")
 	}
+	if params.CreateInstance.DisplayName != "" {
+		query.Add("create-instance.display-name", params.CreateInstance.DisplayName)
+	}
+	if params.CreateInstance.Config != "" {
+		query.Add("create-instance.config", params.CreateInstance.Config)
+	}
+	if params.CreateInstance.NodeCount != 0 {
+		query.Add("create-instance.node-count", strconv.Itoa(int(params.CreateInstance.NodeCount)))
+	}
+	if params.CreateInstance.ProcessingUnits != 0 {
+		query.Add("create-instance.processing-units", strconv.Itoa(int(params.CreateInstance.ProcessingUnits)))
+	}
+
+	if len(query) > 0 {
+		s += "?" + query.Encode()
+	}
+
 	return s
 }
 
@@ -93,9 +133,51 @@ func ParseConnStr(full string) (params ConnParams, err error) {
 		return ConnParams{}, Error.New("invalid Spanner connection string %q", initial)
 	}
 
-	full, ok = strings.CutSuffix(full, "?emulator")
-	if ok {
-		params.Emulator = true
+	var query string
+	full, query, _ = strings.Cut(full, "?")
+
+	if query != "" {
+		q, err := url.ParseQuery(query)
+		if err != nil {
+			return ConnParams{}, Error.New("invalid Spanner connection string query %q", initial)
+		}
+
+		extract := func(key string) (string, bool) {
+			if q.Has(key) {
+				value := q.Get(key)
+				q.Del(key)
+				return value, true
+			}
+			return "", false
+		}
+
+		if _, ok := extract("emulator"); ok {
+			params.Emulator = true
+		}
+		if value, ok := extract("create-instance.display-name"); ok {
+			params.CreateInstance.DisplayName = value
+		}
+		if value, ok := extract("create-instance.config"); ok {
+			params.CreateInstance.Config = value
+		}
+		if value, ok := extract("create-instance.node-count"); ok {
+			v, err := strconv.Atoi(value)
+			if err != nil {
+				return ConnParams{}, Error.New("invalid Spanner connection string, invalid node-count: %q", initial)
+			}
+			params.CreateInstance.NodeCount = int32(v)
+		}
+		if value, ok := extract("create-instance.processing-units"); ok {
+			v, err := strconv.Atoi(value)
+			if err != nil {
+				return ConnParams{}, Error.New("invalid Spanner connection string, invalid processing-units: %q", initial)
+			}
+			params.CreateInstance.ProcessingUnits = int32(v)
+		}
+
+		if len(q) != 0 {
+			return ConnParams{}, Error.New("invalid Spanner connection string unknown query parameters %v, initial %q", maps.Keys(q), initial)
+		}
 	}
 
 	if !strings.HasPrefix(full, "projects") {

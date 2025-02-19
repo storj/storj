@@ -46,14 +46,14 @@ install_sim_noquic(){
     local bin_dir="$1"
     mkdir -p ${bin_dir}
 
-    go build -race -tags noquic -v -o ${bin_dir}/storagenode storj.io/storj/cmd/storagenode >/dev/null 2>&1
-    go build -race -tags noquic -v -o ${bin_dir}/satellite storj.io/storj/cmd/satellite >/dev/null 2>&1
-    go build -race -tags noquic -v -o ${bin_dir}/storj-sim storj.io/storj/cmd/storj-sim >/dev/null 2>&1
-    go build -race -tags noquic -v -o ${bin_dir}/versioncontrol storj.io/storj/cmd/versioncontrol >/dev/null 2>&1
+    go build -race -tags noquic -o ${bin_dir}/storagenode storj.io/storj/cmd/storagenode 2>&1
+    go build -race -tags noquic -o ${bin_dir}/satellite storj.io/storj/cmd/satellite 2>&1
+    go build -race -tags noquic -o ${bin_dir}/storj-sim storj.io/storj/cmd/storj-sim 2>&1
+    go build -race -tags noquic -o ${bin_dir}/versioncontrol storj.io/storj/cmd/versioncontrol 2>&1
 
-    go build -race -tags noquic -v -o ${bin_dir}/uplink storj.io/storj/cmd/uplink >/dev/null 2>&1
-    go build -race -tags noquic -v -o ${bin_dir}/identity storj.io/storj/cmd/identity >/dev/null 2>&1
-    go build -race -tags noquic -v -o ${bin_dir}/certificates storj.io/storj/cmd/certificates >/dev/null 2>&1
+    go build -race -tags noquic -o ${bin_dir}/uplink storj.io/storj/cmd/uplink 2>&1
+    go build -race -tags noquic -o ${bin_dir}/identity storj.io/storj/cmd/identity 2>&1
+    go build -race -tags noquic -o ${bin_dir}/certificates storj.io/storj/cmd/certificates 2>&1
 
     GOBIN=${bin_dir} go install -race -tags noquic storj.io/gateway@latest
 }

@@ -11,6 +11,8 @@ import (
 	"time"
 
 	"cloud.google.com/go/civil"
+	"cloud.google.com/go/spanner"
+	"cloud.google.com/go/spanner/apiv1/spannerpb"
 	pgxerrcode "github.com/jackc/pgerrcode"
 	"github.com/jackc/pgx/v5"
 	"github.com/zeebo/errs"
@@ -192,6 +194,36 @@ func (db *ProjectAccounting) GetTallies(ctx context.Context) (tallies []accounti
 	}
 
 	return tallies, nil
+}
+
+// DeleteTalliesBefore deletes tallies with an interval start before the given time.
+//
+// Spanner implementation returns an estimated count of the number of rows deleted.
+// The actual number of affected rows may be greater than the estimate.
+func (db *ProjectAccounting) DeleteTalliesBefore(ctx context.Context, before time.Time) (_ int64, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	switch db.db.impl {
+	case dbutil.Postgres, dbutil.Cockroach:
+		return db.db.Delete_BucketStorageTally_By_IntervalStart_Less(ctx, dbx.BucketStorageTally_IntervalStart(before))
+	case dbutil.Spanner:
+		var count int64
+		return count, spannerutil.UnderlyingClient(ctx, db.db, func(client *spanner.Client) error {
+			statement := spanner.Statement{
+				SQL: `DELETE FROM bucket_storage_tallies WHERE bucket_storage_tallies.interval_start < @before`,
+				Params: map[string]interface{}{
+					"before": before,
+				},
+			}
+			var err error
+			count, err = client.PartitionedUpdateWithOptions(ctx, statement, spanner.QueryOptions{
+				Priority: spannerpb.RequestOptions_PRIORITY_LOW,
+			})
+			return err
+		})
+	default:
+		return 0, errs.New("unsupported database dialect: %s", db.db.impl)
+	}
 }
 
 // CreateStorageTally creates a record in the bucket_storage_tallies accounting table.
@@ -533,32 +565,39 @@ func (db *ProjectAccounting) GetProjectDailyUsageByDateRange(ctx context.Context
 		})
 	case dbutil.Spanner:
 		err = db.db.WithTx(ctx, func(ctx context.Context, tx *dbx.Tx) error {
+			// TODO(spanner): remove TIMESTAMP_TRUNC, when spanner emulator gets fixed
+			//
+			// We need to do TIMESTAMP_TRUNC(interval_start, MICROSECOND, 'UTC') as interval_start
+			// To ensure that MAX(interval_start) == interval_start
+			//
+			// See https://github.com/GoogleCloudPlatform/cloud-spanner-emulator/issues/73 for details.
+
 			storageQuery := `
 			WITH
-  				project_usage AS (
-  				SELECT
-    				interval_start,
-    				CAST(interval_start AS DATE) AS interval_day,
-    				project_id,
-    				bucket_name,
-    				total_bytes
-				FROM bucket_storage_tallies
-				WHERE
-					project_id = ? AND
-					interval_start >= ? AND
-					interval_start <= ?
+				project_usage AS (
+					SELECT
+						TIMESTAMP_TRUNC(interval_start, MICROSECOND, 'UTC') as interval_start,
+						CAST(interval_start AS DATE) AS interval_day,
+						project_id,
+						bucket_name,
+						total_bytes
+					FROM bucket_storage_tallies
+					WHERE
+						project_id = ? AND
+						interval_start >= ? AND
+						interval_start <= ?
 				),
-			project_usage_distinct AS (
-  			SELECT
-    			project_id,
-				bucket_name,
-				MAX(interval_start) AS interval_start
-			FROM project_usage
-			GROUP BY
-				project_id,
-				bucket_name,
-				interval_day
-			)
+				project_usage_distinct AS (
+					SELECT
+						project_id,
+						bucket_name,
+						MAX(interval_start) AS interval_start
+					FROM project_usage
+					GROUP BY
+						project_id,
+						bucket_name,
+						interval_day
+				)
 			-- Sum all buckets usage in the same project.
 			SELECT
 				interval_day,
@@ -572,11 +611,8 @@ func (db *ProjectAccounting) GetProjectDailyUsageByDateRange(ctx context.Context
 					interval_start
 				FROM project_usage
 				WHERE
-					(bucket_name, project_id, interval_start) IN (
-					SELECT
-						(bucket_name, project_id, interval_start)
-					FROM project_usage_distinct)
-			) pu
+					(bucket_name, project_id, interval_start) IN (SELECT (bucket_name, project_id, interval_start) FROM project_usage_distinct)
+			)
 			GROUP BY
 				project_id,
 				interval_day`

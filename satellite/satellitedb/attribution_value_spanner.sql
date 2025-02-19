@@ -25,7 +25,7 @@ FROM (
                   -- Collapse entries by the latest record in the hour
                   -- If there are more than 1 records within the hour, only the latest will be considered
                   SELECT va.user_agent,
-                         timestamp_trunc(bst.interval_start, hour) as hours,
+                         timestamp_trunc(bst.interval_start, hour, "UTC") as hours,
                          bst.project_id,
                          bst.bucket_name,
                          MAX(bst.interval_start)                as max_interval
@@ -40,7 +40,7 @@ FROM (
                   GROUP BY va.user_agent,
                            bst.project_id,
                            bst.bucket_name,
-                           timestamp_trunc(bst.interval_start, hour)
+                           timestamp_trunc(bst.interval_start, hour, "UTC")
                   ORDER BY max_interval DESC) bsti
                   INNER JOIN bucket_storage_tallies bsto ON (
              bsto.project_id = bsti.project_id

@@ -292,3 +292,25 @@ func (b *BillingFreezeNotificationEmail) Subject() string {
 	}
 	return title + " - Act now to continue!"
 }
+
+// MFAActivatedEmail is an email sent to notify users of successful two-factor authentication activation.
+type MFAActivatedEmail struct{}
+
+// Template returns email template name.
+func (*MFAActivatedEmail) Template() string { return "MFAActivated" }
+
+// Subject gets email subject.
+func (*MFAActivatedEmail) Subject() string {
+	return "Two-factor authentication has been activated"
+}
+
+// MFADisabledEmail is an email sent to notify users of successful two-factor authentication deactivation.
+type MFADisabledEmail struct{}
+
+// Template returns email template name.
+func (*MFADisabledEmail) Template() string { return "MFADisabled" }
+
+// Subject gets email subject.
+func (*MFADisabledEmail) Subject() string {
+	return "Two-factor authentication has been disabled"
+}

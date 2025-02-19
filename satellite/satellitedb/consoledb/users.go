@@ -88,11 +88,12 @@ func (users *users) GetExpiredFreeTrialsAfter(ctx context.Context, after time.Ti
 	rows, err := users.db.QueryContext(ctx, users.db.Rebind(`
 		SELECT u.id, u.email FROM users AS u
 		LEFT JOIN account_freeze_events AS ae
-		    ON u.id = ae.user_id
+			ON u.id = ae.user_id
 		WHERE u.paid_tier = false
-		    AND u.trial_expiration < ?
-		    AND ae.user_id IS NULL
-		LIMIT ?;`), after, limit)
+			AND u.trial_expiration < ?
+			AND u.status > ?
+			AND ae.user_id IS NULL
+		LIMIT ?;`), after, console.Inactive, limit)
 	if err != nil {
 		if errs.Is(err, sql.ErrNoRows) {
 			return []console.User{}, nil
@@ -776,6 +777,12 @@ func toUpdateUser(request console.UpdateUserRequest) (*dbx.User_Update_Fields, e
 	if request.Status != nil {
 		update.Status = dbx.User_Status(int(*request.Status))
 	}
+	if request.UserAgent != nil {
+		update.UserAgent = dbx.User_UserAgent(request.UserAgent)
+	}
+	if request.SignupPromoCode != nil {
+		update.SignupPromoCode = dbx.User_SignupPromoCode(*request.SignupPromoCode)
+	}
 	if request.StatusUpdatedAt != nil {
 		update.StatusUpdatedAt = dbx.User_StatusUpdatedAt(*request.StatusUpdatedAt)
 	}
@@ -880,6 +887,13 @@ func toUpdateUser(request console.UpdateUserRequest) (*dbx.User_Update_Fields, e
 	if request.ExternalID != nil {
 		update.ExternalId = dbx.User_ExternalId(*request.ExternalID)
 	}
+	if request.HubspotObjectID != nil {
+		if *request.HubspotObjectID == nil {
+			update.HubspotObjectId = dbx.User_HubspotObjectId_Null()
+		} else {
+			update.HubspotObjectId = dbx.User_HubspotObjectId(**request.HubspotObjectID)
+		}
+	}
 
 	return &update, nil
 }
@@ -929,6 +943,7 @@ func UserFromDBX(ctx context.Context, user *dbx.User) (_ *console.User, err erro
 		NewUnverifiedEmail:          user.NewUnverifiedEmail,
 		EmailChangeVerificationStep: user.EmailChangeVerificationStep,
 		FinalInvoiceGenerated:       user.FinalInvoiceGenerated,
+		HubspotObjectID:             user.HubspotObjectId,
 	}
 
 	if user.DefaultPlacement != nil {

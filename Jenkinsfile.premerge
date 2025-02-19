@@ -243,7 +243,7 @@ pipeline {
                     steps {
                         dir(".build") {
                             sh 'cp -r ../satellite/console/wasm/tests/ .'
-                            sh 'cd tests && cp "$(go env GOROOT)/misc/wasm/wasm_exec.js" .'
+                            sh 'cd tests && ./copy-wasm.sh'
                             sh 'cd tests && npm install && npm run test'
                         }
                     }

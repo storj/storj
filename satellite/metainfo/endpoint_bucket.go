@@ -42,8 +42,7 @@ func (endpoint *Endpoint) GetBucket(ctx context.Context, req *pb.BucketGetReques
 		if buckets.ErrBucketNotFound.Has(err) {
 			return nil, rpcstatus.Error(rpcstatus.NotFound, err.Error())
 		}
-		endpoint.log.Error("internal", zap.Error(err))
-		return nil, rpcstatus.Error(rpcstatus.Internal, "unable to get bucket metadata")
+		return nil, endpoint.ConvertKnownErrWithMessage(err, "unable to get bucket metadata")
 	}
 
 	// override RS to fit satellite settings
@@ -79,8 +78,7 @@ func (endpoint *Endpoint) GetBucketLocation(ctx context.Context, req *pb.GetBuck
 		if buckets.ErrBucketNotFound.Has(err) {
 			return nil, rpcstatus.Error(rpcstatus.NotFound, err.Error())
 		}
-		endpoint.log.Error("internal", zap.Error(err))
-		return nil, rpcstatus.Error(rpcstatus.Internal, "unable to get the bucket's placement")
+		return nil, endpoint.ConvertKnownErrWithMessage(err, "unable to get the bucket's placement")
 	}
 
 	return &pb.GetBucketLocationResponse{
@@ -109,8 +107,7 @@ func (endpoint *Endpoint) GetBucketVersioning(ctx context.Context, req *pb.GetBu
 		if buckets.ErrBucketNotFound.Has(err) {
 			return nil, rpcstatus.Error(rpcstatus.NotFound, err.Error())
 		}
-		endpoint.log.Error("internal", zap.Error(err))
-		return nil, rpcstatus.Error(rpcstatus.Internal, "unable to get versioning state for the bucket")
+		return nil, endpoint.ConvertKnownErrWithMessage(err, "unable to get versioning state for the bucket")
 	}
 
 	return &pb.GetBucketVersioningResponse{
@@ -134,13 +131,8 @@ func (endpoint *Endpoint) SetBucketVersioning(ctx context.Context, req *pb.SetBu
 	}
 	endpoint.usageTracking(keyInfo, req.Header, fmt.Sprintf("%T", req))
 
-	project, err := endpoint.projects.Get(ctx, keyInfo.ProjectID)
-	if err != nil {
-		return nil, err
-	}
-
-	if !endpoint.config.UseBucketLevelObjectVersioningByProject(project) {
-		return nil, rpcstatus.Error(rpcstatus.PermissionDenied, "versioning not allowed for this project")
+	if !endpoint.config.UseBucketLevelObjectVersioning {
+		return nil, rpcstatus.Error(rpcstatus.PermissionDenied, "versioning not allowed")
 	}
 	if req.Versioning {
 		err = endpoint.buckets.EnableBucketVersioning(ctx, req.GetName(), keyInfo.ProjectID)
@@ -158,8 +150,7 @@ func (endpoint *Endpoint) SetBucketVersioning(ctx context.Context, req *pb.SetBu
 		case buckets.ErrUnavailable.Has(err):
 			return nil, rpcstatus.Error(rpcstatus.Unavailable, err.Error())
 		}
-		endpoint.log.Error("internal", zap.Error(err))
-		return nil, rpcstatus.Error(rpcstatus.Internal, "unable to set versioning state for the bucket")
+		return nil, endpoint.ConvertKnownErrWithMessage(err, "unable to set versioning state for the bucket")
 	}
 
 	return &pb.SetBucketVersioningResponse{}, nil
@@ -204,15 +195,18 @@ func (endpoint *Endpoint) CreateBucket(ctx context.Context, req *pb.BucketCreate
 		return nil, err
 	}
 
-	if req.ObjectLockEnabled && !endpoint.config.ObjectLockEnabledByProject(project) {
+	if project.Status != nil && *project.Status == console.ProjectDisabled {
+		return nil, rpcstatus.Error(rpcstatus.NotFound, "no such project")
+	}
+
+	if req.ObjectLockEnabled && !(endpoint.config.UseBucketLevelObjectVersioning && endpoint.config.ObjectLockEnabled) {
 		return nil, rpcstatus.Error(rpcstatus.ObjectLockDisabledForProject, projectNoLockErrMsg)
 	}
 
 	// checks if bucket exists before updates it or makes a new entry
 	exists, err := endpoint.buckets.HasBucket(ctx, req.GetName(), keyInfo.ProjectID)
 	if err != nil {
-		endpoint.log.Error("internal", zap.Error(err))
-		return nil, rpcstatus.Error(rpcstatus.Internal, "unable to check if bucket exists")
+		return nil, endpoint.ConvertKnownErrWithMessage(err, "unable to check if bucket exists")
 	} else if exists {
 		// When the bucket exists, try to set the attribution.
 		if err := endpoint.ensureAttribution(ctx, req.Header, keyInfo, req.GetName(), nil, true); err != nil {
@@ -238,9 +232,18 @@ func (endpoint *Endpoint) CreateBucket(ctx context.Context, req *pb.BucketCreate
 	if err != nil {
 		return nil, rpcstatus.Error(rpcstatus.InvalidArgument, err.Error())
 	}
-	bucketReq.Placement = project.DefaultPlacement
+	if endpoint.config.SelfServePlacementSelectEnabled && req.Placement != nil {
+		if project.DefaultPlacement != storj.DefaultPlacement {
+			return nil, rpcstatus.Error(rpcstatus.PlacementConflictingValues, "conflicting placement values")
+		}
+		if bucketReq.Placement, exists = endpoint.overlay.GetPlacementConstraintFromName(string(req.Placement)); !exists {
+			return nil, rpcstatus.Error(rpcstatus.PlacementInvalidValue, "invalid placement value")
+		}
+	} else {
+		bucketReq.Placement = project.DefaultPlacement
+	}
 
-	if endpoint.config.UseBucketLevelObjectVersioningByProject(project) {
+	if endpoint.config.UseBucketLevelObjectVersioning {
 		if bucketReq.ObjectLock.Enabled {
 			bucketReq.Versioning = buckets.VersioningEnabled
 		} else {
@@ -268,9 +271,7 @@ func (endpoint *Endpoint) CreateBucket(ctx context.Context, req *pb.BucketCreate
 		if buckets.ErrBucketAlreadyExists.Has(err) {
 			return nil, rpcstatus.Error(rpcstatus.AlreadyExists, "bucket already exists")
 		}
-
-		endpoint.log.Error("error while creating bucket", zap.String("bucketName", bucketReq.Name), zap.Error(err))
-		return nil, rpcstatus.Error(rpcstatus.Internal, "unable to create bucket")
+		return nil, endpoint.ConvertKnownErrWithMessage(err, "unable to create bucket")
 	}
 
 	// Once we have created the bucket, we can try setting the attribution.
@@ -284,8 +285,7 @@ func (endpoint *Endpoint) CreateBucket(ctx context.Context, req *pb.BucketCreate
 		CreatedAt: bucket.Created,
 	}, endpoint.getRSProto(bucket.Placement), endpoint.config.MaxSegmentSize)
 	if err != nil {
-		endpoint.log.Error("error while converting bucket to proto", zap.String("bucketName", bucket.Name), zap.Error(err))
-		return nil, rpcstatus.Error(rpcstatus.Internal, "unable to create bucket")
+		return nil, endpoint.ConvertKnownErrWithMessage(err, "unable to create bucket")
 	}
 
 	return &pb.BucketCreateResponse{
@@ -345,8 +345,7 @@ func (endpoint *Endpoint) DeleteBucket(ctx context.Context, req *pb.BucketDelete
 		if buckets.ErrBucketNotFound.Has(err) {
 			return nil, rpcstatus.Error(rpcstatus.NotFound, err.Error())
 		}
-		endpoint.log.Error("internal", zap.Error(err))
-		return nil, rpcstatus.Error(rpcstatus.Internal, "unable to get bucket")
+		return nil, endpoint.ConvertKnownErrWithMessage(err, "unable to get bucket")
 	}
 	lockEnabled := bucket.ObjectLock.Enabled
 
@@ -412,8 +411,7 @@ func (endpoint *Endpoint) DeleteBucket(ctx context.Context, req *pb.BucketDelete
 		if buckets.ErrBucketNotFound.Has(err) {
 			return &pb.BucketDeleteResponse{Bucket: convBucket}, nil
 		}
-		endpoint.log.Error("internal", zap.Error(err))
-		return nil, rpcstatus.Error(rpcstatus.Internal, "unable to delete bucket")
+		return nil, endpoint.ConvertKnownErrWithMessage(err, "unable to delete bucket")
 	}
 
 	return &pb.BucketDeleteResponse{Bucket: convBucket}, nil
@@ -448,8 +446,7 @@ func (endpoint *Endpoint) isBucketEmpty(ctx context.Context, projectID uuid.UUID
 func (endpoint *Endpoint) deleteBucketNotEmpty(ctx context.Context, projectID uuid.UUID, bucketName []byte) ([]byte, int64, error) {
 	deletedCount, err := endpoint.deleteAllBucketObjects(ctx, projectID, bucketName)
 	if err != nil {
-		endpoint.log.Error("internal", zap.Error(err))
-		return nil, 0, rpcstatus.Error(rpcstatus.Internal, "internal error")
+		return nil, 0, endpoint.ConvertKnownErrWithMessage(err, "internal error")
 	}
 
 	err = endpoint.deleteBucket(ctx, bucketName, projectID)
@@ -460,8 +457,7 @@ func (endpoint *Endpoint) deleteBucketNotEmpty(ctx context.Context, projectID uu
 		if buckets.ErrBucketNotFound.Has(err) {
 			return bucketName, 0, nil
 		}
-		endpoint.log.Error("internal", zap.Error(err))
-		return nil, deletedCount, rpcstatus.Error(rpcstatus.Internal, "internal error")
+		return nil, deletedCount, endpoint.ConvertKnownErrWithMessage(err, "internal error")
 	}
 
 	return bucketName, deletedCount, nil
@@ -562,8 +558,7 @@ func (endpoint *Endpoint) GetBucketObjectLockConfiguration(ctx context.Context, 
 		if buckets.ErrBucketNotFound.Has(err) {
 			return nil, rpcstatus.Error(rpcstatus.NotFound, err.Error())
 		}
-		endpoint.log.Error("internal", zap.Error(err))
-		return nil, rpcstatus.Error(rpcstatus.Internal, "unable to get bucket's Object Lock configuration")
+		return nil, endpoint.ConvertKnownErrWithMessage(err, "unable to get bucket's Object Lock configuration")
 	}
 
 	if !settings.Enabled {
@@ -617,8 +612,7 @@ func (endpoint *Endpoint) SetBucketObjectLockConfiguration(ctx context.Context, 
 		if buckets.ErrBucketNotFound.Has(err) {
 			return nil, rpcstatus.Errorf(rpcstatus.NotFound, "bucket not found: %s", req.Name)
 		}
-		endpoint.log.Error("unable to check bucket", zap.Error(err))
-		return nil, rpcstatus.Error(rpcstatus.Internal, "unable to set bucket's Object Lock configuration")
+		return nil, endpoint.ConvertKnownErrWithMessage(err, "unable to set bucket's Object Lock configuration")
 	}
 
 	if bucket.Versioning != buckets.VersioningEnabled {
@@ -638,8 +632,7 @@ func (endpoint *Endpoint) SetBucketObjectLockConfiguration(ctx context.Context, 
 		if buckets.ErrBucketNotFound.Has(err) {
 			return nil, rpcstatus.Errorf(rpcstatus.NotFound, "bucket not found: %s", req.Name)
 		}
-		endpoint.log.Error("internal", zap.Error(err))
-		return nil, rpcstatus.Error(rpcstatus.Internal, "unable to set bucket's Object Lock configuration")
+		return nil, endpoint.ConvertKnownErrWithMessage(err, "unable to set bucket's Object Lock configuration")
 	}
 
 	return &pb.SetBucketObjectLockConfigurationResponse{}, nil

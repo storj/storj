@@ -725,7 +725,9 @@ func (server *Server) deleteProject(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	err = server.db.Console().Projects().Delete(ctx, project.ID)
+	// We update status to disabled instead of deleting the project
+	// to not lose the historical project/user usage data.
+	err = server.db.Console().Projects().UpdateStatus(ctx, project.ID, console.ProjectDisabled)
 	if err != nil {
 		sendJSONError(w, "unable to delete project",
 			err.Error(), http.StatusInternalServerError)
@@ -777,7 +779,9 @@ func (server *Server) forceDeleteProject(ctx context.Context, projectID uuid.UUI
 		}
 	}
 
-	return server.db.Console().Projects().Delete(ctx, projectID)
+	// We update status to disabled instead of deleting the project
+	// to not lose the historical project/user usage data.
+	return server.db.Console().Projects().UpdateStatus(ctx, projectID, console.ProjectDisabled)
 }
 
 func (server *Server) _updateProjectsUserAgent(ctx context.Context, projectID uuid.UUID, newUserAgent []byte) (err error) {

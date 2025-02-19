@@ -449,6 +449,11 @@ func TestSegmentRepairPlacementNotEnoughNodes(t *testing.T) {
 			Satellite: testplanet.ReconfigureRS(1, 2, 4, 4),
 		},
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+		// disable pinging the Satellite so we can control storagenode placement
+		for _, node := range planet.StorageNodes {
+			node.Contact.Chore.Pause(ctx)
+		}
+
 		require.NoError(t, planet.Uplinks[0].CreateBucket(ctx, planet.Satellites[0], "testbucket"))
 
 		_, err := planet.Satellites[0].API.Buckets.Service.UpdateBucket(ctx, buckets.Bucket{
@@ -594,6 +599,10 @@ func TestSegmentRepairPlacementRestrictions(t *testing.T) {
 			),
 		},
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+		// disable pinging the Satellite so we can control storagenode placement
+		for _, node := range planet.StorageNodes {
+			node.Contact.Chore.Pause(ctx)
+		}
 
 		placement, err := planet.Satellites[0].Config.Placement.Parse(planet.Satellites[0].Config.Overlay.Node.CreateDefaultPlacement, nil)
 		require.NoError(t, err)

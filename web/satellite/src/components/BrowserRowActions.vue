@@ -32,7 +32,7 @@
             </v-btn>
 
             <v-btn
-                v-if="!isVersion && !file.isDeleteMarker"
+                v-if="(!isVersion && !file.isDeleteMarker) || file.isLatest"
                 variant="text"
                 color="default"
                 size="small"
@@ -128,6 +128,15 @@
                             </v-list-item>
                         </template>
 
+                        <v-list-item v-if="downloadPrefixEnabled && file.type === 'folder'" density="comfortable" link @click="emit('downloadFolderClick')">
+                            <template #prepend>
+                                <component :is="Download" :size="18" />
+                            </template>
+                            <v-list-item-title class="ml-3 text-body-2 font-weight-medium">
+                                Download
+                            </v-list-item-title>
+                        </v-list-item>
+
                         <v-list-item v-if="!isVersion && !file.isDeleteMarker" density="comfortable" link @click="emit('shareClick')">
                             <template #prepend>
                                 <component :is="Share" :size="18" />
@@ -207,6 +216,7 @@ const emit = defineEmits<{
     previewClick: [];
     deleteFileClick: [];
     shareClick: [];
+    downloadFolderClick: [];
     restoreObjectClick: [];
     lockObjectClick: [];
     legalHoldClick: [];
@@ -222,6 +232,8 @@ const alignClass = computed<string>(() => {
     return 'text-' + props.align;
 });
 
+const downloadPrefixEnabled = computed<boolean>(() => configStore.state.config.downloadPrefixEnabled);
+
 /**
  * Returns metadata of the current bucket.
  */
@@ -233,9 +245,7 @@ const bucket = computed<BucketMetadata | undefined>(() => {
  * Whether object lock is enabled for current bucket.
  */
 const objectLockEnabledForBucket = computed<boolean>(() => {
-    return configStore.objectLockUIEnabled
-        && projectsStore.objectLockUIEnabledForProject
-        && !!bucket.value?.objectLockEnabled;
+    return configStore.state.config.objectLockUIEnabled && !!bucket.value?.objectLockEnabled;
 });
 
 /**
@@ -285,7 +295,7 @@ async function onDeleteClick(): Promise<void> {
 }
 
 async function getLockStatus() {
-    if (!objectLockEnabledForBucket.value || props.file.type === 'folder') {
+    if (!objectLockEnabledForBucket.value || props.file.type === 'folder' || props.file.isDeleteMarker) {
         return;
     }
     if (isGettingLockStatus.value) {

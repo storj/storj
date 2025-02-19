@@ -70,6 +70,18 @@ type StorageNodeUsage struct {
 	IntervalEndTime time.Time
 }
 
+// NodePaymentInfo contains data for a node payment information.
+type NodePaymentInfo struct {
+	NodeID storj.NodeID
+
+	AtRestTotal    float64
+	GetRepairTotal int64
+	PutRepairTotal int64
+	GetAuditTotal  int64
+	PutTotal       int64
+	GetTotal       int64
+}
+
 // ProjectUsage consist of period total storage, egress
 // and objects count per hour for certain Project in bytes.
 type ProjectUsage struct {
@@ -240,8 +252,8 @@ type StoragenodeAccounting interface {
 	SaveRollup(ctx context.Context, latestTally time.Time, stats RollupStats) error
 	// LastTimestamp records and returns the latest last tallied time.
 	LastTimestamp(ctx context.Context, timestampType string) (time.Time, error)
-	// QueryPaymentInfo queries Nodes and Accounting_Rollup on nodeID
-	QueryPaymentInfo(ctx context.Context, start time.Time, end time.Time) ([]*CSVRow, error)
+	// QueryPaymentInfo queries accounting information and different usage.
+	QueryPaymentInfo(ctx context.Context, start time.Time, end time.Time) ([]NodePaymentInfo, error)
 	// QueryStorageNodePeriodUsage returns accounting statements for nodes for a given compensation period
 	QueryStorageNodePeriodUsage(ctx context.Context, period compensation.Period) ([]StorageNodePeriodUsage, error)
 	// QueryStorageNodeUsage returns slice of StorageNodeUsage for given period
@@ -264,8 +276,12 @@ type ProjectAccounting interface {
 	SaveTallies(ctx context.Context, intervalStart time.Time, bucketTallies map[metabase.BucketLocation]*BucketTally) error
 	// GetTallies retrieves all tallies ordered by interval start desc
 	GetTallies(ctx context.Context) ([]BucketTally, error)
+	// DeleteTalliesBefore deletes tallies with an interval start before the given time
+	DeleteTalliesBefore(ctx context.Context, before time.Time) (int64, error)
+
 	// CreateStorageTally creates a record for BucketStorageTally in the accounting DB table
 	CreateStorageTally(ctx context.Context, tally BucketStorageTally) error
+
 	// GetNonEmptyTallyBucketsInRange returns a list of bucket locations within the given range
 	// whose most recent tally does not represent empty usage.
 	GetNonEmptyTallyBucketsInRange(ctx context.Context, from, to metabase.BucketLocation, asOfSystemInterval time.Duration) ([]metabase.BucketLocation, error)

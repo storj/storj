@@ -5,6 +5,7 @@ package admin
 
 import (
 	"bytes"
+	"context"
 	"database/sql"
 	"encoding/csv"
 	"encoding/json"
@@ -396,22 +397,10 @@ func (server *Server) updateUser(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 
 	vars := mux.Vars(r)
-	userEmail, ok := vars["useremail"]
+	email, ok := vars["useremail"]
 	if !ok {
 		sendJSONError(w, "user-email missing",
 			"", http.StatusBadRequest)
-		return
-	}
-
-	user, err := server.db.Console().Users().GetByEmail(ctx, userEmail)
-	if errors.Is(err, sql.ErrNoRows) {
-		sendJSONError(w, fmt.Sprintf("user with email %q does not exist", userEmail),
-			"", http.StatusNotFound)
-		return
-	}
-	if err != nil {
-		sendJSONError(w, "failed to get user",
-			err.Error(), http.StatusInternalServerError)
 		return
 	}
 
@@ -446,17 +435,6 @@ func (server *Server) updateUser(w http.ResponseWriter, r *http.Request) {
 		updateRequest.ShortName = &shortNamePtr
 	}
 	if input.Email != "" {
-		existingUser, err := server.db.Console().Users().GetByEmail(ctx, input.Email)
-		if err != nil && !errors.Is(err, sql.ErrNoRows) {
-			sendJSONError(w, "failed to check for user email",
-				err.Error(), http.StatusInternalServerError)
-			return
-		}
-		if existingUser != nil {
-			sendJSONError(w, fmt.Sprintf("user with email already exists %s", input.Email),
-				"", http.StatusConflict)
-			return
-		}
 		updateRequest.Email = &input.Email
 	}
 	if len(input.PasswordHash) > 0 {
@@ -490,10 +468,53 @@ func (server *Server) updateUser(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	err = server.db.Console().Users().Update(ctx, user.ID, updateRequest)
-	if err != nil {
-		sendJSONError(w, "failed to update user",
-			err.Error(), http.StatusInternalServerError)
+	code, errMsg, details := server.updateUserData(ctx, email, updateRequest)
+	if code != 0 {
+		sendJSONError(w, errMsg, details, code)
+		return
+	}
+}
+
+func (server *Server) updateUserStatus(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+
+	vars := mux.Vars(r)
+	email, ok := vars["useremail"]
+	if !ok {
+		sendJSONError(w, "user-email missing",
+			"", http.StatusBadRequest)
+		return
+	}
+
+	var status console.UserStatus
+	{
+		s, ok := vars["userstatus"]
+		if !ok {
+			sendJSONError(w, "user status missing",
+				"", http.StatusBadRequest)
+			return
+		}
+
+		i, err := strconv.Atoi(s)
+		if err != nil {
+			sendJSONError(w, "invalid user status. int required",
+				"", http.StatusBadRequest)
+			return
+		}
+
+		status = console.UserStatus(i)
+		if !status.Valid() {
+			sendJSONError(w, "invalid user status. There isn't any status with this value",
+				"", http.StatusBadRequest)
+			return
+		}
+	}
+
+	updateRequest := console.UpdateUserRequest{}
+	updateRequest.Status = &status
+	code, errMsg, details := server.updateUserData(ctx, email, updateRequest)
+	if code != 0 {
+		sendJSONError(w, errMsg, details, code)
 		return
 	}
 }
@@ -1029,7 +1050,7 @@ func (server *Server) trialExpirationUnfreezeUser(w http.ResponseWriter, r *http
 		if errs.Is(err, console.ErrNoFreezeStatus) {
 			status = http.StatusNotFound
 		}
-		sendJSONError(w, "failed to legal unfreeze user",
+		sendJSONError(w, "failed to trial expiration unfreeze user",
 			err.Error(), status)
 		return
 	}
@@ -1058,14 +1079,14 @@ func (server *Server) deleteUser(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Ensure user has no own projects any longer
-	projects, err := server.db.Console().Projects().GetOwn(ctx, user.ID)
+	projects, err := server.db.Console().Projects().GetOwnActive(ctx, user.ID)
 	if err != nil {
-		sendJSONError(w, "unable to list projects",
+		sendJSONError(w, "unable to list active projects",
 			err.Error(), http.StatusInternalServerError)
 		return
 	}
 	if len(projects) > 0 {
-		sendJSONError(w, "some projects still exist",
+		sendJSONError(w, "some active projects still exist",
 			fmt.Sprintf("%v", projects), http.StatusConflict)
 		return
 	}
@@ -1300,4 +1321,35 @@ func (server *Server) updateFreeTrialExpiration(w http.ResponseWriter, r *http.R
 			err.Error(), http.StatusInternalServerError)
 		return
 	}
+}
+
+// updateUserData updates the user's data. It returns status codes is 0 when there isn't any error.
+func (server *Server) updateUserData(
+	ctx context.Context, email string, userUpdate console.UpdateUserRequest,
+) (statusCode int, errMsg, details string) {
+
+	user, err := server.db.Console().Users().GetByEmail(ctx, email)
+	if errors.Is(err, sql.ErrNoRows) {
+		return http.StatusNotFound, fmt.Sprintf("user with email %q does not exist", email), ""
+	}
+	if err != nil {
+		return http.StatusInternalServerError, "failed to get user", err.Error()
+	}
+
+	if userUpdate.Email != nil && *userUpdate.Email != "" {
+		existingUser, err := server.db.Console().Users().GetByEmail(ctx, *userUpdate.Email)
+		if err != nil && !errors.Is(err, sql.ErrNoRows) {
+			return http.StatusInternalServerError, "failed to check for user email", err.Error()
+		}
+		if existingUser != nil {
+			return http.StatusConflict, fmt.Sprintf("user with email already exists %s", *userUpdate.Email), ""
+		}
+	}
+
+	err = server.db.Console().Users().Update(ctx, user.ID, userUpdate)
+	if err != nil {
+		return http.StatusInternalServerError, "failed to update user", err.Error()
+	}
+
+	return 0, "", ""
 }

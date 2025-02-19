@@ -8,6 +8,7 @@
         max-width="450px"
         transition="fade-transition"
         persistent
+        scrollable
     >
         <v-card ref="innerContent">
             <v-sheet>
@@ -19,7 +20,12 @@
                             height="40"
                             rounded="lg"
                         >
-                            <img src="@/assets/icon-bucket.svg" alt="Bucket icon">
+                            <svg width="18" height="18" viewBox="0 0 18 18" fill="none" xmlns="http://www.w3.org/2000/svg">
+                                <path
+                                    d="M16.3549 7.54666C17.762 8.95376 17.7749 11.227 16.3778 12.624C15.8118 13.1901 15.1018 13.5247 14.3639 13.6289L14.1106 15.0638C14.092 16.1897 11.7878 17.1 8.94814 17.1C6.12547 17.1 3.83191 16.2006 3.78632 15.0841L3.78589 15.0638L1.84471 4.06597C1.82286 3.98819 1.80888 3.90946 1.8031 3.82992L1.80005 3.81221L1.80195 3.81231C1.80068 3.79028 1.80005 3.76818 1.80005 3.74602C1.80005 2.17422 5.00036 0.900024 8.94814 0.900024C12.8959 0.900024 16.0962 2.17422 16.0962 3.74602C16.0962 3.76818 16.0956 3.79028 16.0943 3.81231L16.0962 3.81221L16.0931 3.83111C16.0873 3.90975 16.0735 3.98759 16.052 4.06451L15.5749 6.76662L16.3549 7.54666ZM14.2962 5.63437C12.9868 6.22183 11.076 6.59202 8.94814 6.59202C6.82032 6.59202 4.90965 6.22185 3.6002 5.63443L5.00729 13.6077L5.23735 14.8286L5.25867 14.8452C5.37899 14.9354 5.56521 15.0371 5.80702 15.1351L5.85612 15.1546C6.63558 15.4594 7.74625 15.6439 8.94814 15.6439C10.157 15.6439 11.2733 15.4573 12.0528 15.1497C12.3338 15.0388 12.5432 14.9223 12.6661 14.8231L12.6761 14.8148L12.902 13.5348C12.3339 13.3787 11.7956 13.0812 11.3429 12.6429L11.3005 12.6011L8.37494 9.67559C8.09062 9.39127 8.09062 8.93029 8.37494 8.64597C8.65232 8.36859 9.09785 8.36182 9.38344 8.62568L9.40455 8.64597L12.3301 11.5715C12.5718 11.8132 12.8556 11.9861 13.157 12.0901L14.2962 5.63437ZM15.2661 8.51698L14.6409 12.0597C14.899 11.9575 15.1403 11.8024 15.3482 11.5944C16.1642 10.7784 16.1664 9.44942 15.355 8.60652L15.3253 8.57627L15.2661 8.51698ZM8.94814 2.35612C7.20131 2.35612 5.58131 2.62893 4.43229 3.08641C3.93857 3.28298 3.57123 3.49947 3.35982 3.69848C3.34635 3.71116 3.33405 3.72325 3.32289 3.73469L3.31227 3.74589L3.33148 3.76606L3.35982 3.79357C3.57123 3.99258 3.93857 4.20906 4.43229 4.40564C5.58131 4.86312 7.20131 5.13593 8.94814 5.13593C10.695 5.13593 12.315 4.86312 13.464 4.40564C13.9577 4.20906 14.325 3.99258 14.5365 3.79357C14.5499 3.78089 14.5622 3.7688 14.5734 3.75735L14.5841 3.74589L14.5648 3.72599L14.5365 3.69848C14.325 3.49947 13.9577 3.28298 13.464 3.08641C12.315 2.62893 10.695 2.35612 8.94814 2.35612Z"
+                                    fill="currentColor"
+                                />
+                            </svg>
                         </v-sheet>
                     </template>
 
@@ -46,180 +52,294 @@
 
             <v-divider />
 
-            <v-window v-model="step">
-                <v-window-item :value="CreateStep.Name">
-                    <v-form v-model="formValid" class="pa-6 pb-3">
-                        <v-row>
-                            <v-col>
-                                <p>Buckets are used to store and organize your objects. Enter a bucket name using lowercase characters.</p>
-                                <v-text-field
-                                    id="Bucket Name"
-                                    v-model="bucketName"
-                                    variant="outlined"
-                                    :rules="bucketNameRules"
-                                    label="Bucket name"
-                                    placeholder="my-bucket"
-                                    hint="Allowed characters [a-z] [0-9] [-.]"
-                                    :hide-details="false"
-                                    required
-                                    autofocus
-                                    class="mt-7 mb-3"
-                                    minlength="3"
-                                    maxlength="63"
-                                />
-                            </v-col>
-                        </v-row>
-                    </v-form>
-                </v-window-item>
+            <v-card-text class="pa-0">
+                <v-window v-model="step">
+                    <v-window-item :value="CreateStep.Name">
+                        <v-form v-model="formValid" class="pa-6 pb-3" @submit.prevent>
+                            <v-row>
+                                <v-col>
+                                    <p>
+                                        Buckets are used to store and organize your objects. Enter a bucket name using lowercase
+                                        characters.
+                                    </p>
+                                    <v-text-field
+                                        id="Bucket Name"
+                                        v-model="bucketName"
+                                        variant="outlined"
+                                        :rules="bucketNameRules"
+                                        label="Bucket name"
+                                        placeholder="my-bucket"
+                                        hint="Allowed characters [a-z] [0-9] [-.]"
+                                        :hide-details="false"
+                                        required
+                                        autofocus
+                                        class="mt-7 mb-3"
+                                        minlength="3"
+                                        maxlength="63"
+                                    />
+                                </v-col>
+                            </v-row>
+                        </v-form>
+                    </v-window-item>
 
-                <v-window-item :value="CreateStep.ObjectLock">
-                    <v-form v-model="formValid" class="pa-7">
-                        <v-row>
-                            <v-col>
-                                <p class="font-weight-bold mb-2">Do you need object lock?</p>
-                                <p>Enabling object lock will prevent objects from being deleted or overwritten for a specified period of time.</p>
-                                <v-chip-group
-                                    v-model="enableObjectLock"
-                                    filter
-                                    selected-class="font-weight-bold"
-                                    class="mt-2 mb-2"
-                                    mandatory
-                                >
-                                    <v-chip
-                                        variant="outlined"
+                    <v-window-item v-if="selfPlacementEnabled" :value="CreateStep.Location">
+                        <v-form v-model="formValid" class="pa-6" @submit.prevent>
+                            <v-row>
+                                <v-col cols="12">
+                                    <p class="font-weight-bold mb-2">
+                                        Choose Data Location
+                                    </p>
+                                    <p>
+                                        Allows you to select the whole world, or specific regions to store the data you upload in this
+                                        bucket.
+                                    </p>
+                                    <v-chip-group
+                                        v-model="bucketLocation"
                                         filter
-                                        color="default"
-                                        :value="false"
+                                        selected-class="font-weight-bold"
+                                        class="mt-2 mb-2"
+                                        mandatory
                                     >
-                                        No
-                                    </v-chip>
-                                    <v-chip
-                                        variant="outlined"
-                                        filter
-                                        color="default"
-                                        :value="true"
-                                    >
-                                        Yes
-                                    </v-chip>
-                                </v-chip-group>
-                                <v-alert v-if="enableObjectLock" variant="tonal" color="default">
-                                    <p class="font-weight-bold text-body-2 mb-1">Enable Object Lock (Compliance Mode)</p>
-                                    <p class="text-subtitle-2">No user, including the project owner can overwrite, delete, or alter object lock settings.</p>
-                                </v-alert>
-                                <v-alert v-else variant="tonal" color="default">
-                                    <p class="font-weight-bold text-body-2 mb-1">Object Lock Disabled (Default)</p>
-                                    <p class="text-subtitle-2">Objects can be deleted or overwritten.</p>
-                                </v-alert>
-                            </v-col>
-                        </v-row>
-                    </v-form>
-                </v-window-item>
+                                        <v-chip
+                                            v-for="placement in placementDetails"
+                                            :key="placement.id"
+                                            variant="outlined"
+                                            filter
+                                            :value="placement.idName"
+                                            color="primary"
+                                        >
+                                            {{ placement.name }}
+                                        </v-chip>
+                                    </v-chip-group>
 
-                <v-window-item :value="CreateStep.Versioning">
-                    <v-form v-model="formValid" class="pa-6">
-                        <v-row>
-                            <v-col>
-                                <p class="font-weight-bold mb-2">Do you want to enable versioning?</p>
-                                <p>Enabling object versioning allows you to preserve, retrieve, and restore previous versions of an object, offering protection against unintentional modifications or deletions.</p>
-                                <v-chip-group
-                                    v-model="enableVersioning"
-                                    :disabled="enableObjectLock"
-                                    filter
-                                    selected-class="font-weight-bold"
-                                    class="mt-2 mb-2"
-                                    mandatory
-                                >
-                                    <v-chip
-                                        v-if="!enableObjectLock"
-                                        variant="outlined"
+                                    <v-alert v-if="bucketLocation" variant="tonal" color="secondary" width="auto">
+                                        <template v-for="placement in placementDetails">
+                                            <template v-if="bucketLocation === placement.idName">
+                                                <div :key="placement.id">
+                                                    <p class="text-subtitle-2 font-weight-bold">{{ placement.title }}</p>
+                                                    <p class="text-subtitle-2 mb-2">{{ placement.description }}</p>
+                                                </div>
+                                            </template>
+                                        </template>
+                                        <v-chip v-if="pricingForLocation" variant="tonal" class="mr-1">
+                                            Storage {{ formatPrice(pricingForLocation.storageMBMonthCents) }}
+                                            <template v-if="isGettingPricing" #prepend>
+                                                <v-progress-circular indeterminate :size="20" />
+                                            </template>
+                                        </v-chip>
+                                        <v-chip v-if="pricingForLocation" variant="tonal">
+                                            Download {{ formatPrice(pricingForLocation.egressMBCents) }}
+                                            <template v-if="isGettingPricing" #prepend>
+                                                <v-progress-circular indeterminate :size="20" />
+                                            </template>
+                                        </v-chip>
+                                    </v-alert>
+                                </v-col>
+                            </v-row>
+                        </v-form>
+                    </v-window-item>
+
+                    <v-window-item :value="CreateStep.ObjectLock">
+                        <v-form v-model="formValid" class="pa-6" @submit.prevent>
+                            <v-row>
+                                <v-col>
+                                    <p class="font-weight-bold mb-2">Do you need object lock?</p>
+                                    <p>
+                                        Enabling object lock will prevent objects from being deleted or overwritten for a specified period
+                                        of time.
+                                    </p>
+                                    <v-chip-group
+                                        v-model="enableObjectLock"
                                         filter
-                                        :value="false"
+                                        selected-class="font-weight-bold"
+                                        class="mt-2 mb-2"
+                                        mandatory
                                     >
-                                        Disabled
-                                    </v-chip>
-                                    <v-chip
-                                        variant="outlined"
+                                        <v-chip
+                                            variant="outlined"
+                                            filter
+                                            color="info"
+                                            :value="false"
+                                        >
+                                            No
+                                        </v-chip>
+                                        <v-chip
+                                            variant="outlined"
+                                            filter
+                                            color="info"
+                                            :value="true"
+                                        >
+                                            Yes
+                                        </v-chip>
+                                    </v-chip-group>
+                                    <SetDefaultObjectLockConfig
+                                        v-if="enableObjectLock"
+                                        v-model:default-retention-period="defaultRetentionPeriod"
+                                        v-model:default-retention-mode="defaultRetentionMode"
+                                        v-model:period-unit="defaultRetentionPeriodUnit"
+                                    />
+                                    <v-alert v-else variant="tonal" color="default">
+                                        <p class="font-weight-bold text-body-2 mb-1">Object Lock Disabled (Default)</p>
+                                        <p class="text-subtitle-2">Objects can be deleted or overwritten.</p>
+                                    </v-alert>
+                                </v-col>
+                            </v-row>
+                        </v-form>
+                    </v-window-item>
+
+                    <v-window-item :value="CreateStep.Versioning">
+                        <v-form v-model="formValid" class="pa-6" @submit.prevent>
+                            <v-row>
+                                <v-col>
+                                    <p class="font-weight-bold mb-2">Do you want to enable versioning?</p>
+                                    <p>
+                                        Enabling object versioning allows you to preserve, retrieve, and restore previous versions of an
+                                        object, offering protection against unintentional modifications or deletions.
+                                    </p>
+                                    <v-chip-group
+                                        v-model="enableVersioning"
+                                        :disabled="enableObjectLock"
                                         filter
-                                        :value="true"
+                                        selected-class="font-weight-bold"
+                                        class="mt-2 mb-2"
+                                        mandatory
+                                    >
+                                        <v-chip
+                                            v-if="!enableObjectLock"
+                                            variant="outlined"
+                                            filter
+                                            color="info"
+                                            :value="false"
+                                        >
+                                            Disabled
+                                        </v-chip>
+                                        <v-chip
+                                            variant="outlined"
+                                            filter
+                                            color="info"
+                                            :value="true"
+                                        >
+                                            Enabled
+                                        </v-chip>
+                                    </v-chip-group>
+                                    <v-alert v-if="enableObjectLock" variant="tonal" color="default" class="mb-3">
+                                        <p class="text-subtitle-2 font-weight-bold">Versioning must be enabled for object lock to work.</p>
+                                    </v-alert>
+                                    <v-alert v-if="enableVersioning" variant="tonal" color="default">
+                                        <p class="text-subtitle-2">
+                                            Keep multiple versions of each object in the same bucket. Additional
+                                            storage costs apply for each version.
+                                        </p>
+                                    </v-alert>
+                                    <v-alert v-else variant="tonal" color="default">
+                                        <p class="text-subtitle-2">
+                                            Uploading an object with the same name will overwrite the existing object
+                                            in this bucket.
+                                        </p>
+                                    </v-alert>
+                                </v-col>
+                            </v-row>
+                        </v-form>
+                    </v-window-item>
+
+                    <v-window-item :value="CreateStep.Confirmation">
+                        <v-card-text class="pa-6">
+                            <v-row>
+                                <v-col>
+                                    <p class="mb-4">You are about to create a new bucket with the following settings:</p>
+                                    <p>Name:</p>
+                                    <v-chip
+                                        variant="tonal"
+                                        value="Disabled"
+                                        color="default"
+                                        class="mt-1 mb-4 font-weight-bold"
+                                    >
+                                        {{ bucketName }}
+                                    </v-chip>
+
+                                    <template v-if="selfPlacementEnabled">
+                                        <p>Location:</p>
+                                        <v-chip
+                                            variant="tonal"
+                                            value="Disabled"
+                                            color="default"
+                                            class="mt-1 mb-4 font-weight-bold"
+                                        >
+                                            {{ bucketLocationName }}
+                                        </v-chip>
+                                    </template>
+
+                                    <template v-if="objectLockUIEnabled">
+                                        <p>Object Lock:</p>
+                                        <v-chip
+                                            variant="tonal"
+                                            value="Disabled"
+                                            color="default"
+                                            class="mt-1 mb-4 font-weight-bold"
+                                        >
+                                            {{ enableObjectLock ? 'Enabled' : 'Disabled' }}
+                                        </v-chip>
+                                        <p>Default Retention Mode:</p>
+                                        <v-chip
+                                            variant="tonal"
+                                            color="default"
+                                            class="mt-1 mb-4 font-weight-bold text-capitalize"
+                                        >
+                                            {{ defaultRetentionMode?.toLowerCase() ?? NO_MODE_SET }}
+                                        </v-chip>
+                                        <p>Default Retention Period:</p>
+                                        <v-chip
+                                            variant="tonal"
+                                            color="default"
+                                            class="mt-1 mb-4 font-weight-bold"
+                                        >
+                                            {{ defaultRetPeriodResult }}
+                                        </v-chip>
+                                    </template>
+
+                                    <template v-if="versioningUIEnabled">
+                                        <p>Versioning:</p>
+                                        <v-chip
+                                            variant="tonal"
+                                            value="Disabled"
+                                            color="default"
+                                            class="mt-1 font-weight-bold"
+                                        >
+                                            {{ enableVersioning ? 'Enabled' : 'Disabled' }}
+                                        </v-chip>
+                                    </template>
+                                </v-col>
+                            </v-row>
+                        </v-card-text>
+                    </v-window-item>
+
+                    <v-window-item :value="CreateStep.Success">
+                        <v-card-text class="pa-6">
+                            <v-row>
+                                <v-col>
+                                    <p>
+                                        <strong>
+                                            <v-icon :icon="Check" size="small" />
+                                            Bucket successfully created.</strong>
+                                    </p>
+                                    <v-chip
+                                        variant="tonal"
+                                        value="Disabled"
                                         color="primary"
+                                        class="my-4 font-weight-bold"
                                     >
-                                        Enabled
+                                        {{ bucketName }}
                                     </v-chip>
-                                </v-chip-group>
-                                <v-alert v-if="enableObjectLock" variant="tonal" color="default" class="mb-3">
-                                    <p class="text-subtitle-2 font-weight-bold">Versioning must be enabled for object lock to work.</p>
-                                </v-alert>
-                                <v-alert v-if="enableVersioning" variant="tonal" color="default">
-                                    <p class="text-subtitle-2">Keep multiple versions of each object in the same bucket. Additional storage costs apply for each version.</p>
-                                </v-alert>
-                                <v-alert v-else variant="tonal" color="default">
-                                    <p class="text-subtitle-2">Uploading an object with the same name will overwrite the existing object in this bucket.</p>
-                                </v-alert>
-                            </v-col>
-                        </v-row>
-                    </v-form>
-                </v-window-item>
+                                    <p>
+                                        You can open the bucket to start uploading objects, or close this dialog to return to all buckets.
+                                    </p>
+                                </v-col>
+                            </v-row>
+                        </v-card-text>
+                    </v-window-item>
+                </v-window>
+            </v-card-text>
 
-                <v-window-item :value="CreateStep.Confirmation">
-                    <v-row class="pa-7">
-                        <v-col>
-                            <p class="mb-4">You are about to create a new bucket with the following settings:</p>
-                            <p>Name:</p>
-                            <v-chip
-                                variant="tonal"
-                                value="Disabled"
-                                color="default"
-                                class="mt-1 mb-4 font-weight-bold"
-                            >
-                                {{ bucketName }}
-                            </v-chip>
-
-                            <template v-if="objectLockUIEnabled">
-                                <p>Object Lock:</p>
-                                <v-chip
-                                    variant="tonal"
-                                    value="Disabled"
-                                    color="default"
-                                    class="mt-1 mb-4 font-weight-bold"
-                                >
-                                    {{ enableObjectLock ? 'Enabled' : 'Disabled' }}
-                                </v-chip>
-                            </template>
-
-                            <template v-if="versioningUIEnabled">
-                                <p>Versioning:</p>
-                                <v-chip
-                                    variant="tonal"
-                                    value="Disabled"
-                                    color="default"
-                                    class="mt-1 font-weight-bold"
-                                >
-                                    {{ enableVersioning ? 'Enabled' : 'Disabled' }}
-                                </v-chip>
-                            </template>
-                        </v-col>
-                    </v-row>
-                </v-window-item>
-
-                <v-window-item :value="CreateStep.Success">
-                    <div class="pa-7">
-                        <v-row>
-                            <v-col>
-                                <p><strong><v-icon :icon="Check" size="small" /> Bucket successfully created.</strong></p>
-                                <v-chip
-                                    variant="tonal"
-                                    value="Disabled"
-                                    color="primary"
-                                    class="my-4 font-weight-bold"
-                                >
-                                    {{ bucketName }}
-                                </v-chip>
-                                <p>You open the bucket and start uploading objects, or close this dialog and get back to view all buckets.</p>
-                            </v-col>
-                        </v-row>
-                    </div>
-                </v-window-item>
-            </v-window>
             <v-divider />
 
             <v-card-actions class="pa-6">
@@ -231,7 +351,7 @@
                     </v-col>
                     <v-col>
                         <v-btn
-                            :disabled="!formValid"
+                            :disabled="formInvalid"
                             :loading="isLoading"
                             :append-icon="ArrowRight"
                             color="primary"
@@ -258,38 +378,48 @@ import {
     VCardItem,
     VCardTitle,
     VCardSubtitle,
+    VCardText,
     VChip,
     VChipGroup,
     VCol,
     VDialog,
     VDivider,
     VForm,
+    VIcon,
     VRow,
     VSheet,
+    VProgressCircular,
     VTextField,
     VWindow,
     VWindowItem,
-    VIcon,
 } from 'vuetify/components';
 import { ArrowRight, Check } from 'lucide-vue-next';
 import { useRouter } from 'vue-router';
 
+import { formatPrice } from '@/utils/strings';
 import { useLoading } from '@/composables/useLoading';
 import { useConfigStore } from '@/store/modules/configStore';
 import { useNotify } from '@/utils/hooks';
 import { AnalyticsErrorEventSource, AnalyticsEvent } from '@/utils/constants/analyticsEventNames';
 import { useAccessGrantsStore } from '@/store/modules/accessGrantsStore';
 import { useProjectsStore } from '@/store/modules/projectsStore';
-import { useBucketsStore } from '@/store/modules/bucketsStore';
+import { ClientType, useBucketsStore } from '@/store/modules/bucketsStore';
 import { LocalData } from '@/utils/localData';
 import { useAnalyticsStore } from '@/store/modules/analyticsStore';
 import { AccessGrant, EdgeCredentials } from '@/types/accessGrants';
 import { StepInfo, ValidationRule } from '@/types/common';
 import { Versioning } from '@/types/versioning';
 import { ROUTES } from '@/router';
+import { DefaultObjectLockPeriodUnit, NO_MODE_SET, ObjLockMode } from '@/types/objectLock';
+import { useBillingStore } from '@/store/modules/billingStore';
+import { UsagePriceModel } from '@/types/payments';
+import { PlacementDetails } from '@/types/buckets';
+
+import SetDefaultObjectLockConfig from '@/components/dialogs/defaultBucketLockConfig/SetDefaultObjectLockConfig.vue';
 
 enum CreateStep {
     Name = 1,
+    Location,
     ObjectLock,
     Versioning,
     Confirmation,
@@ -301,6 +431,7 @@ const notify = useNotify();
 const router = useRouter();
 const agStore = useAccessGrantsStore();
 const projectsStore = useProjectsStore();
+const billingStore = useBillingStore();
 const bucketsStore = useBucketsStore();
 const analyticsStore = useAnalyticsStore();
 const configStore = useConfigStore();
@@ -308,6 +439,24 @@ const configStore = useConfigStore();
 const stepInfos = {
     [CreateStep.Name]: new StepInfo<CreateStep>({
         prev: undefined,
+        next: () => {
+            if (selfPlacementEnabled.value) return CreateStep.Location;
+            if (objectLockUIEnabled.value) return CreateStep.ObjectLock;
+            if (allowVersioningStep.value) return CreateStep.Versioning;
+            return CreateStep.Success;
+        },
+        beforeNext: async () => {
+            if (selfPlacementEnabled.value || objectLockUIEnabled.value || allowVersioningStep.value) return;
+            await onCreate();
+        },
+        validate: (): boolean => {
+            return formValid.value;
+        },
+        nextText: () => objectLockUIEnabled.value || allowVersioningStep.value ? 'Next' : 'Create Bucket',
+        noRef: true,
+    }),
+    [CreateStep.Location]: new StepInfo<CreateStep>({
+        prev: () => CreateStep.Name,
         next: () => {
             if (objectLockUIEnabled.value) return CreateStep.ObjectLock;
             if (allowVersioningStep.value) return CreateStep.Versioning;
@@ -318,12 +467,15 @@ const stepInfos = {
             await onCreate();
         },
         validate: (): boolean => {
-            return formValid.value;
+            return !!bucketLocation.value;
         },
         noRef: true,
     }),
     [CreateStep.ObjectLock]: new StepInfo<CreateStep>({
-        prev: () => CreateStep.Name,
+        prev: () => {
+            if (selfPlacementEnabled.value) return CreateStep.Location;
+            return CreateStep.Name;
+        },
         next: () => {
             if (allowVersioningStep.value) return CreateStep.Versioning;
             return CreateStep.Confirmation;
@@ -333,6 +485,7 @@ const stepInfos = {
     [CreateStep.Versioning]: new StepInfo<CreateStep>({
         prev: () => {
             if (objectLockUIEnabled.value) return CreateStep.ObjectLock;
+            if (selfPlacementEnabled.value) return CreateStep.Location;
             return CreateStep.Name;
         },
 
@@ -343,6 +496,7 @@ const stepInfos = {
         prev: () => {
             if (allowVersioningStep.value) return CreateStep.Versioning;
             if (objectLockUIEnabled.value) return CreateStep.ObjectLock;
+            if (selfPlacementEnabled.value) return CreateStep.Location;
             return CreateStep.Name;
         },
         beforeNext: onCreate,
@@ -374,30 +528,59 @@ const enableVersioning = ref<boolean>(false);
 const enableObjectLock = ref<boolean>(false);
 const bucketName = ref<string>('');
 const worker = ref<Worker | null>(null);
+const defaultRetentionMode = ref<ObjLockMode | typeof NO_MODE_SET>(NO_MODE_SET);
+const defaultRetentionPeriod = ref<number>(0);
+const defaultRetentionPeriodUnit = ref<DefaultObjectLockPeriodUnit>(DefaultObjectLockPeriodUnit.DAYS);
+const bucketLocation = ref<string>();
+const isGettingPricing = ref<boolean>(false);
+const pricingForLocation = ref<UsagePriceModel>();
 
 const project = computed(() => projectsStore.state.selectedProject);
+
+const defaultRetPeriodResult = computed<string>(() => {
+    if (defaultRetentionPeriod.value === 0) return NO_MODE_SET;
+
+    let unit = defaultRetentionPeriodUnit.value.toString();
+    if (defaultRetentionPeriod.value === 1) {
+        unit = unit.slice(0, -1);
+    }
+
+    return `${defaultRetentionPeriod.value} ${unit}`;
+});
+
+const selfPlacementEnabled = computed<boolean>(() => {
+    return configStore.state.config.selfServePlacementSelectEnabled && !project.value.placement;
+});
+
+const placementDetails = computed<PlacementDetails[]>(() => {
+    return bucketsStore.state.placementDetails;
+});
+
+const bucketLocationName = computed<string>(() => {
+    if (!bucketLocation.value) return '';
+    const placement = placementDetails.value.find(p => p.idName === bucketLocation.value);
+    return placement?.name ?? '';
+});
+
+const formInvalid = computed(() => !formValid.value || (selfPlacementEnabled.value && step.value === CreateStep.Location && !bucketLocation.value));
 
 /**
  * Whether versioning has been enabled for current project.
  */
-const versioningUIEnabled = computed<boolean>(() => {
-    return projectsStore.versioningUIEnabled;
-});
+const versioningUIEnabled = computed<boolean>(() => configStore.state.config.versioningUIEnabled);
 
 /**
  * Whether the versioning step should be shown.
  * Projects with versioning enabled as default should not have this step.
  */
 const allowVersioningStep = computed<boolean>(() => {
-    return versioningUIEnabled.value  && project.value.versioning !== Versioning.Enabled;
+    return versioningUIEnabled.value && project.value.versioning !== Versioning.Enabled;
 });
 
 /**
  * Whether object lock is enabled for current project.
  */
-const objectLockUIEnabled = computed<boolean>(() => {
-    return projectsStore.objectLockUIEnabledForProject && configStore.objectLockUIEnabled;
-});
+const objectLockUIEnabled = computed<boolean>(() => configStore.state.config.objectLockUIEnabled);
 
 const bucketNameRules = computed((): ValidationRule<string>[] => {
     return [
@@ -423,6 +606,8 @@ const stepName = computed<string>(() => {
     switch (step.value) {
     case CreateStep.Name:
         return 'Name';
+    case CreateStep.Location:
+        return 'Data Location';
     case CreateStep.ObjectLock:
         return 'Object Lock';
     case CreateStep.Versioning:
@@ -430,7 +615,7 @@ const stepName = computed<string>(() => {
     case CreateStep.Confirmation:
         return 'Confirmation';
     case CreateStep.Success:
-        return 'Bucket Created';
+        return 'Bucket Successfully Created';
     default:
         return '';
     }
@@ -523,7 +708,7 @@ function toNextStep(): void {
         return;
     }
     const info = stepInfos[step.value];
-    if (info.ref.value?.validate?.() === false) {
+    if (info?.validate?.() === false) {
         return;
     }
     withLoading(async () => {
@@ -554,6 +739,16 @@ async function openBucket(): Promise<void> {
     });
 }
 
+async function setObjectLockConfig(clientType: ClientType): Promise<void> {
+    await bucketsStore.setObjectLockConfig(bucketName.value, clientType, {
+        DefaultRetention: {
+            Mode: defaultRetentionMode.value === NO_MODE_SET ? undefined : defaultRetentionMode.value,
+            Days: defaultRetentionPeriodUnit.value === DefaultObjectLockPeriodUnit.DAYS ? defaultRetentionPeriod.value : undefined,
+            Years: defaultRetentionPeriodUnit.value === DefaultObjectLockPeriodUnit.YEARS ? defaultRetentionPeriod.value : undefined,
+        },
+    });
+}
+
 /**
  * Validates provided bucket's name and creates a bucket.
  */
@@ -569,7 +764,13 @@ async function onCreate(): Promise<void> {
         if (!edgeCredentials.value.accessKeyId) {
             await bucketsStore.setS3Client(projectID);
         }
-        await bucketsStore.createBucket(bucketName.value, enableObjectLock.value, enableVersioning.value);
+        await bucketsStore.createBucket({
+            name: bucketName.value,
+            enableObjectLock: enableObjectLock.value,
+            enableVersioning: enableVersioning.value,
+            placementName: bucketLocation.value,
+        });
+        if (enableObjectLock.value && defaultRetentionMode.value !== NO_MODE_SET) await setObjectLockConfig(ClientType.REGULAR);
         await bucketsStore.getBuckets(1, projectID);
         analyticsStore.eventTriggered(AnalyticsEvent.BUCKET_CREATED);
 
@@ -583,7 +784,13 @@ async function onCreate(): Promise<void> {
     }
 
     if (edgeCredentialsForCreate.value.accessKeyId) {
-        await bucketsStore.createBucketWithNoPassphrase(bucketName.value, enableObjectLock.value, enableVersioning.value);
+        await bucketsStore.createBucketWithNoPassphrase({
+            name: bucketName.value,
+            enableObjectLock: enableObjectLock.value,
+            enableVersioning: enableVersioning.value,
+            placementName: bucketLocation.value,
+        });
+        if (enableObjectLock.value && defaultRetentionMode.value !== NO_MODE_SET) await setObjectLockConfig(ClientType.FOR_CREATE);
         await bucketsStore.getBuckets(1, projectID);
         analyticsStore.eventTriggered(AnalyticsEvent.BUCKET_CREATED);
         if (!bucketWasCreated.value) {
@@ -612,6 +819,8 @@ async function onCreate(): Promise<void> {
         'isUpload': true,
         'isList': false,
         'isDelete': false,
+        'isPutObjectLockConfiguration': true,
+        'isGetObjectLockConfiguration': true,
         'notAfter': inOneHour.toISOString(),
         'buckets': JSON.stringify([]),
         'apiKey': apiKey.value,
@@ -652,7 +861,13 @@ async function onCreate(): Promise<void> {
 
     const creds: EdgeCredentials = await agStore.getEdgeCredentials(accessGrant);
     bucketsStore.setEdgeCredentialsForCreate(creds);
-    await bucketsStore.createBucketWithNoPassphrase(bucketName.value, enableObjectLock.value, enableVersioning.value);
+    await bucketsStore.createBucketWithNoPassphrase({
+        name: bucketName.value,
+        enableObjectLock: enableObjectLock.value,
+        enableVersioning: enableVersioning.value,
+        placementName: bucketLocation.value,
+    });
+    if (enableObjectLock.value && defaultRetentionMode.value !== NO_MODE_SET) await setObjectLockConfig(ClientType.FOR_CREATE);
     await bucketsStore.getBuckets(1, projectID);
     analyticsStore.eventTriggered(AnalyticsEvent.BUCKET_CREATED);
 
@@ -670,13 +885,39 @@ watchEffect(() => {
     }
 });
 
+watch(enableObjectLock, value => {
+    if (!value) {
+        enableVersioning.value = false;
+        defaultRetentionMode.value = NO_MODE_SET;
+        defaultRetentionPeriod.value = 0;
+        defaultRetentionPeriodUnit.value = DefaultObjectLockPeriodUnit.DAYS;
+    }
+});
+
+watch(bucketLocation, async (value) => {
+    if (!value) return;
+    isGettingPricing.value = true;
+    try {
+        pricingForLocation.value = await billingStore.getPriceModelForPlacement({
+            placementName: value,
+            projectID: project.value.id,
+        });
+    } catch (error) {
+        notify.notifyError(error, AnalyticsErrorEventSource.CREATE_BUCKET_MODAL);
+    }
+    isGettingPricing.value = false;
+}, { immediate: true });
+
 watch(innerContent, newContent => {
     if (newContent) {
         setWorker();
 
         withLoading(async () => {
             try {
-                await bucketsStore.getAllBucketsNames(project.value.id);
+                await Promise.all([
+                    bucketsStore.getAllBucketsNames(project.value.id),
+                    bucketsStore.getPlacementDetails(project.value.id),
+                ]);
             } catch (error) {
                 notify.notifyError(error, AnalyticsErrorEventSource.CREATE_BUCKET_MODAL);
             }
@@ -685,9 +926,14 @@ watch(innerContent, newContent => {
     }
     // dialog has been closed
     bucketName.value = '';
+    bucketLocation.value = '';
+    pricingForLocation.value = undefined;
     step.value = CreateStep.Name;
     stepNumber.value = 1;
     enableVersioning.value = false;
     enableObjectLock.value = false;
+    defaultRetentionMode.value = NO_MODE_SET;
+    defaultRetentionPeriod.value = 0;
+    defaultRetentionPeriodUnit.value = DefaultObjectLockPeriodUnit.DAYS;
 });
 </script>

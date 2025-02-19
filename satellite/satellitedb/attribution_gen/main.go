@@ -54,7 +54,7 @@ func spannerify(query string) string {
 
 func convertTimestampTrunc(src string) string {
 	pattern := `date_trunc\('hour',\s*(\w+\.\w+)\)`
-	replacement := "timestamp_trunc($1, hour)"
+	replacement := `timestamp_trunc($1, hour, "UTC")`
 
 	re := regexp.MustCompile(pattern)
 	return re.ReplaceAllString(src, replacement)

@@ -139,27 +139,37 @@ func NewSignerGracefulExit(service *Service, rootPieceID storj.PieceID, orderCre
 	return NewSigner(service, rootPieceID, time.Time{}, orderCreation, int64(shareSize), pb.PieceAction_PUT_REPAIR, bucket)
 }
 
+func (signer *Signer) createEncryptedMetadata() error {
+	if len(signer.EncryptedMetadata) != 0 {
+		return nil
+	}
+
+	encryptionKey := signer.Service.encryptionKeys.Default
+	if encryptionKey.IsZero() {
+		return ErrSigner.New("default encryption key is missing")
+	}
+
+	encrypted, err := encryptionKey.EncryptMetadata(
+		signer.Serial,
+		&internalpb.OrderLimitMetadata{
+			CompactProjectBucketPrefix: signer.Bucket.CompactPrefix(),
+		},
+	)
+	if err != nil {
+		return ErrSigner.Wrap(err)
+	}
+	signer.EncryptedMetadataKeyID = encryptionKey.ID[:]
+	signer.EncryptedMetadata = encrypted
+
+	return nil
+}
+
 // Sign signs an order limit for the specified node.
 func (signer *Signer) Sign(ctx context.Context, node *pb.Node, pieceNum int32) (_ *pb.AddressedOrderLimit, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	if len(signer.EncryptedMetadata) == 0 {
-		encryptionKey := signer.Service.encryptionKeys.Default
-		if encryptionKey.IsZero() {
-			return nil, ErrSigner.New("default encryption key is missing")
-		}
-
-		encrypted, err := encryptionKey.EncryptMetadata(
-			signer.Serial,
-			&internalpb.OrderLimitMetadata{
-				CompactProjectBucketPrefix: signer.Bucket.CompactPrefix(),
-			},
-		)
-		if err != nil {
-			return nil, ErrSigner.Wrap(err)
-		}
-		signer.EncryptedMetadataKeyID = encryptionKey.ID[:]
-		signer.EncryptedMetadata = encrypted
+	if err := signer.createEncryptedMetadata(); err != nil {
+		return nil, err
 	}
 
 	limit := &pb.OrderLimit{
@@ -187,6 +197,42 @@ func (signer *Signer) Sign(ctx context.Context, node *pb.Node, pieceNum int32) (
 
 	addressedLimit := &pb.AddressedOrderLimit{
 		Limit:              signedLimit,
+		StorageNodeAddress: node.Address,
+	}
+
+	signer.AddressedLimits = append(signer.AddressedLimits, addressedLimit)
+
+	return addressedLimit, nil
+}
+
+// SignLite signs an order limit for the specified node omitting any fields that differ per node except
+// for the node id, including the satellite signature.
+func (signer *Signer) SignLite(ctx context.Context, node *pb.Node, pieceNum int32) (_ *pb.AddressedOrderLimit, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	if err := signer.createEncryptedMetadata(); err != nil {
+		return nil, err
+	}
+
+	limit := &pb.OrderLimit{
+		SerialNumber:    signer.Serial,
+		SatelliteId:     signer.Service.satellite.ID(),
+		UplinkPublicKey: signer.PublicKey,
+		StorageNodeId:   node.Id,
+
+		Limit:  signer.Limit,
+		Action: signer.Action,
+
+		PieceExpiration: signer.PieceExpiration,
+		OrderCreation:   signer.OrderCreation,
+		OrderExpiration: signer.OrderExpiration,
+
+		EncryptedMetadataKeyId: signer.EncryptedMetadataKeyID,
+		EncryptedMetadata:      signer.EncryptedMetadata,
+	}
+
+	addressedLimit := &pb.AddressedOrderLimit{
+		Limit:              limit,
 		StorageNodeAddress: node.Address,
 	}
 

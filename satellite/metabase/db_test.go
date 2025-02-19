@@ -100,7 +100,11 @@ func TestChooseAdapter_Spanner(t *testing.T) {
 	if otherConnStr == "" || strings.EqualFold(otherConnStr, "omit") {
 		otherConnStr = dbtest.PickCockroachNoSkip()
 		if otherConnStr == "" || strings.EqualFold(otherConnStr, "omit") {
-			t.Fatal("Spanner and either Postgres or Cockroach is required to run this test.")
+			if strings.EqualFold(otherConnStr, "omit") {
+				t.Skip("Spanner and either Postgres or Cockroach is required to run this test.")
+			} else {
+				t.Fatal("Spanner and either Postgres or Cockroach is required to run this test.")
+			}
 		}
 	}
 

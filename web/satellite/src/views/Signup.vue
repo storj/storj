@@ -11,7 +11,6 @@
                         <v-alert
                             variant="tonal"
                             color="info"
-                            rounded="lg"
                             density="comfortable"
                             border
                         >
@@ -74,31 +73,39 @@
                                 class="pos-relative"
                                 :class="{ hidden: !ssoUnavailable }"
                             >
-                                <v-text-field
-                                    id="Password"
-                                    v-model="password"
-                                    class="mb-5"
-                                    label="Password"
-                                    placeholder="Enter a password"
-                                    color="secondary"
-                                    hide-details="auto"
-                                    :type="showPassword ? 'text' : 'password'"
-                                    :rules="passwordRules"
-                                    required
-                                    @update:focused="showPasswordStrength = !showPasswordStrength"
-                                >
-                                    <template #append-inner>
-                                        <password-input-eye-icons
-                                            :is-visible="showPassword"
-                                            type="password"
-                                            @toggleVisibility="showPassword = !showPassword"
+                                <div class="password-field-container">
+                                    <v-text-field
+                                        id="Password"
+                                        v-model="password"
+                                        class="mb-5"
+                                        label="Password"
+                                        placeholder="Enter a password"
+                                        color="secondary"
+                                        hide-details="auto"
+                                        :type="showPassword ? 'text' : 'password'"
+                                        :rules="passwordRules"
+                                        required
+                                        @focus="showPasswordStrength = true"
+                                    >
+                                        <template #append-inner>
+                                            <password-input-eye-icons
+                                                :is-visible="showPassword"
+                                                type="password"
+                                                :aria-label="showPassword ? 'Hide password' : 'Show password'"
+                                                @toggle-visibility="showPassword = !showPassword"
+                                            />
+                                        </template>
+                                    </v-text-field>
+
+                                    <transition name="fade">
+                                        <password-strength
+                                            v-if="showPasswordStrength && password"
+                                            :email="email"
+                                            :password="password"
+                                            class="password-strength-indicator"
                                         />
-                                    </template>
-                                </v-text-field>
-                                <password-strength
-                                    v-if="showPasswordStrength"
-                                    :password="password"
-                                />
+                                    </transition>
+                                </div>
                             </div>
 
                             <v-text-field
@@ -118,7 +125,7 @@
                                     <password-input-eye-icons
                                         :is-visible="showPassword"
                                         type="password"
-                                        @toggleVisibility="showPassword = !showPassword"
+                                        @toggle-visibility="showPassword = !showPassword"
                                     />
                                 </template>
                             </v-text-field>
@@ -128,7 +135,6 @@
                                 class="my-2"
                                 variant="tonal"
                                 color="warning"
-                                rounded="lg"
                                 density="comfortable"
                                 border
                             >
@@ -165,7 +171,7 @@
                                 required
                             >
                                 <template #label>
-                                    <p class="text-body-2">
+                                    <p class="text-body-2 terms-text">
                                         I agree to the
                                         <a class="link font-weight-medium" href="https://storj.io/terms-of-service/" target="_blank" rel="noopener">terms of service</a>
                                         and
@@ -297,7 +303,7 @@ import { useRoute, useRouter } from 'vue-router';
 import { Check } from 'lucide-vue-next';
 
 import { useConfigStore } from '@/store/modules/configStore';
-import { EmailRule, RequiredRule, ValidationRule } from '@/types/common';
+import { EmailRule, RequiredRule } from '@/types/common';
 import { MultiCaptchaConfig } from '@/types/config.gen';
 import { PartnerConfig } from '@/types/partners';
 import { AuthHttpApi } from '@/api/auth';
@@ -518,8 +524,9 @@ function checkSSO(mail: string) {
     }
     ssoCheckTimeout.value = setTimeout(async () => {
         isCheckingSso.value = true;
+        let urlStr: string;
         try {
-            ssoUrl.value = await auth.checkSSO(mail);
+            urlStr = await auth.checkSSO(mail);
         } catch (error) {
             if (error instanceof APIError && error.status === 404) {
                 ssoUrl.value = SsoCheckState.None;
@@ -527,8 +534,16 @@ function checkSSO(mail: string) {
             }
             ssoUrl.value = SsoCheckState.Failed;
             notify.notifyError(error);
+            return;
         } finally {
             isCheckingSso.value = false;
+        }
+        try {
+        // check if the URL is valid.
+            new URL(urlStr);
+            ssoUrl.value = urlStr;
+        } catch {
+            ssoUrl.value = SsoCheckState.Failed;
         }
     }, 1000);
 }
@@ -556,13 +571,16 @@ async function onSignupClick(): Promise<void> {
         return;
     }
 
+    let url: URL;
     switch (ssoUrl.value) {
     case SsoCheckState.None:
     case SsoCheckState.Failed:
         await triggerSignup();
         break;
     default:
-        window.open(ssoUrl.value, '_self');
+        url = new URL(ssoUrl.value);
+        url.searchParams.set('email', email.value);
+        window.open(url.toString(), '_self');
     }
 }
 
@@ -626,6 +644,10 @@ onBeforeMount(async () => {
         signupPromoCode.value = route.query.promo.toString();
     }
 
+    if (queryEmail.value) {
+        checkSSO(queryEmail.value);
+    }
+
     // If partner.value is true, attempt to load the partner-specific configuration
     if (partner.value) {
         try {
@@ -644,3 +666,27 @@ watch(password, () => {
     }
 });
 </script>
+
+<style scoped>
+.password-field-container {
+    position: relative;
+}
+
+.password-strength-indicator {
+    margin-top: 4px;
+}
+
+.fade-enter-active,
+.fade-leave-active {
+    transition: opacity 0.3s ease;
+}
+
+.fade-enter-from,
+.fade-leave-to {
+    opacity: 0;
+}
+
+.terms-text {
+    letter-spacing: -0.3px !important;
+}
+</style>

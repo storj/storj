@@ -102,7 +102,7 @@ var (
 	}
 	runConsoleAPICmd = &cobra.Command{
 		Use:   "console-api",
-		Short: "Run the satellite API",
+		Short: "Run the satellite console API",
 		RunE:  cmdConsoleAPIRun,
 	}
 	runUICmd = &cobra.Command{
@@ -361,6 +361,40 @@ var (
 		RunE:  cmdFixLastNets,
 	}
 
+	deleteDataCmd = &cobra.Command{
+		Use:   "delete-data",
+		Short: "Delete accounts and their objects",
+		Long: "Delete accounts including their objects/segments, buckets, projects, and the user's " +
+			"account",
+	}
+
+	deleteObjectsCmd = &cobra.Command{
+		Use:   "delete-objects",
+		Short: "Delete objects and their segments",
+		Long: "Delete from a list of users accounts their objects and segments.\nAccounts must be on " +
+			"'pending deletion' status, when not they are logged with an info message and skipped. " +
+			"Unexisting accounts are logged with an debug message and skipped.\nSystem errors exit the " +
+			"process with an error message.\nThe accounts are read from a CSV file with a single " +
+			"column that contains the email of the user's account; the first row is considered as " +
+			"header if it doesn't contain '@'",
+		Args: cobra.ExactArgs(1),
+		RunE: cmdDeleteObjects,
+	}
+
+	deleteAccountsCmd = &cobra.Command{
+		Use:   "delete-accounts",
+		Short: "Delete accounts and their associated entities",
+		Long: "From the list of users accounts it redacts the users' personal information and marks " +
+			"their accounts as deleted, deactivate their projects, and delete their API keys.\n The " +
+			"accounts must be on 'pending deletion' status and to not have any bucket, otherwise, they " +
+			"are logged with an info message and skipped. Unexisting accounts are logged with a debug  " +
+			"message and skipped.\nSystem errors exit the process with an error message.\nThe accounts " +
+			"are read from a CSV file with a single column that contains the email of the user's " +
+			"account; the first row is considered as header if it doesn't contain '@'",
+		Args: cobra.ExactArgs(1),
+		RunE: cmdDeleteAccounts,
+	}
+
 	runCfg   Satellite
 	setupCfg Satellite
 
@@ -384,7 +418,7 @@ var (
 	recordOneOffPaymentsCfg struct {
 		Database string `help:"satellite database connection string" releaseDefault:"postgres://" devDefault:"postgres://"`
 	}
-	partnerAttribtionCfg struct {
+	partnerAttributionCfg struct {
 		Database string `help:"satellite database connection string" releaseDefault:"postgres://" devDefault:"postgres://"`
 		Output   string `help:"destination of report output" default:""`
 	}
@@ -436,6 +470,7 @@ func init() {
 	rootCmd.AddCommand(fetchPiecesCmd)
 	rootCmd.AddCommand(repairSegmentCmd)
 	rootCmd.AddCommand(fixLastNetsCmd)
+	rootCmd.AddCommand(deleteDataCmd)
 	reportsCmd.AddCommand(nodeUsageCmd)
 	reportsCmd.AddCommand(partnerAttributionCmd)
 	reportsCmd.AddCommand(reportsGracefulExitCmd)
@@ -464,6 +499,8 @@ func init() {
 	billingCmd.AddCommand(completePendingInvoiceTokenPaymentCmd)
 	billingCmd.AddCommand(stripeCustomerCmd)
 	consistencyCmd.AddCommand(consistencyGECleanupCmd)
+	deleteDataCmd.AddCommand(deleteObjectsCmd)
+	deleteDataCmd.AddCommand(deleteAccountsCmd)
 	process.Bind(runCmd, &runCfg, defaults, cfgstruct.ConfDir(confDir), cfgstruct.IdentityDir(identityDir))
 	process.Bind(runMigrationCmd, &runCfg, defaults, cfgstruct.ConfDir(confDir), cfgstruct.IdentityDir(identityDir))
 	process.Bind(runAPICmd, &runCfg, defaults, cfgstruct.ConfDir(confDir), cfgstruct.IdentityDir(identityDir))
@@ -487,7 +524,7 @@ func init() {
 	process.Bind(recordOneOffPaymentsCmd, &recordOneOffPaymentsCfg, defaults, cfgstruct.ConfDir(confDir), cfgstruct.IdentityDir(identityDir))
 	process.Bind(reportsGracefulExitCmd, &reportsGracefulExitCfg, defaults, cfgstruct.ConfDir(confDir), cfgstruct.IdentityDir(identityDir))
 	process.Bind(reportsVerifyGEReceiptCmd, &reportsVerifyGracefulExitReceiptCfg, defaults, cfgstruct.ConfDir(confDir), cfgstruct.IdentityDir(identityDir))
-	process.Bind(partnerAttributionCmd, &partnerAttribtionCfg, defaults, cfgstruct.ConfDir(confDir), cfgstruct.IdentityDir(identityDir))
+	process.Bind(partnerAttributionCmd, &partnerAttributionCfg, defaults, cfgstruct.ConfDir(confDir), cfgstruct.IdentityDir(identityDir))
 	process.Bind(applyFreeTierCouponsCmd, &runCfg, defaults, cfgstruct.ConfDir(confDir), cfgstruct.IdentityDir(identityDir))
 	process.Bind(setInvoiceStatusCmd, &runCfg, defaults, cfgstruct.ConfDir(confDir), cfgstruct.IdentityDir(identityDir))
 	process.Bind(setInvoiceStatusCmd, &setInvoiceStatusCfg, defaults, cfgstruct.ConfDir(confDir), cfgstruct.IdentityDir(identityDir))
@@ -506,6 +543,8 @@ func init() {
 	process.Bind(stripeCustomerCmd, &runCfg, defaults, cfgstruct.ConfDir(confDir), cfgstruct.IdentityDir(identityDir))
 	process.Bind(consistencyGECleanupCmd, &consistencyGECleanupCfg, defaults, cfgstruct.ConfDir(confDir), cfgstruct.IdentityDir(identityDir))
 	process.Bind(fixLastNetsCmd, &runCfg, defaults, cfgstruct.ConfDir(confDir), cfgstruct.IdentityDir(identityDir))
+	process.Bind(deleteObjectsCmd, &runCfg, defaults, cfgstruct.ConfDir(confDir), cfgstruct.IdentityDir(identityDir))
+	process.Bind(deleteAccountsCmd, &runCfg, defaults, cfgstruct.ConfDir(confDir), cfgstruct.IdentityDir(identityDir))
 
 	if err := consistencyGECleanupCmd.MarkFlagRequired("before"); err != nil {
 		panic(err)
@@ -812,12 +851,12 @@ func cmdValueAttribution(cmd *cobra.Command, args []string) (err error) {
 	}
 
 	// send output to stdout
-	if partnerAttribtionCfg.Output == "" {
-		return reports.GenerateAttributionCSV(ctx, partnerAttribtionCfg.Database, start, end, userAgents, os.Stdout)
+	if partnerAttributionCfg.Output == "" {
+		return reports.GenerateAttributionCSV(ctx, partnerAttributionCfg.Database, start, end, userAgents, os.Stdout)
 	}
 
 	// send output to file
-	file, err := os.Create(partnerAttribtionCfg.Output)
+	file, err := os.Create(partnerAttributionCfg.Output)
 	if err != nil {
 		return err
 	}
@@ -826,13 +865,13 @@ func cmdValueAttribution(cmd *cobra.Command, args []string) (err error) {
 		err = errs.Combine(err, file.Close())
 		if err != nil {
 			log.Error("Error closing the output file after retrieving partner value attribution data.",
-				zap.String("Output File", partnerAttribtionCfg.Output),
+				zap.String("Output File", partnerAttributionCfg.Output),
 				zap.Error(err),
 			)
 		}
 	}()
 
-	return reports.GenerateAttributionCSV(ctx, partnerAttribtionCfg.Database, start, end, userAgents, file)
+	return reports.GenerateAttributionCSV(ctx, partnerAttributionCfg.Database, start, end, userAgents, file)
 }
 
 // cmdSetInvoiceStatus sets the status of all open invoices within the provided period to the provided status.
@@ -1041,6 +1080,7 @@ func cmdRestoreTrash(cmd *cobra.Command, args []string) error {
 
 	successes := new(int64)
 	failures := new(int64)
+	nonexistent := new(int64)
 
 	undelete := func(node *nodeselection.SelectedNode) {
 		log.Info("starting restore trash", zap.String("Node ID", node.ID.String()))
@@ -1089,11 +1129,15 @@ func cmdRestoreTrash(cmd *cobra.Command, args []string) error {
 		for _, nodeid := range args {
 			parsedNodeID, err := storj.NodeIDFromString(nodeid)
 			if err != nil {
-				return err
+				log.Error("unable to parse node id", zap.String("Node ID", nodeid), zap.Error(err))
+				atomic.AddInt64(nonexistent, 1)
+				continue
 			}
 			dossier, err := db.OverlayCache().Get(ctx, parsedNodeID)
 			if err != nil {
-				return err
+				log.Error("unable to find node id", zap.String("Node ID", nodeid), zap.Error(err))
+				atomic.AddInt64(nonexistent, 1)
+				continue
 			}
 			nodes = append(nodes, &nodeselection.SelectedNode{
 				ID:         dossier.Id,
@@ -1115,7 +1159,7 @@ func cmdRestoreTrash(cmd *cobra.Command, args []string) error {
 	}
 	limiter.Wait()
 
-	log.Sugar().Infof("restore trash complete. %d successes, %d failures", *successes, *failures)
+	log.Sugar().Infof("restore trash complete. %d successes, %d failures, %d nonexistent", *successes, *failures, *nonexistent)
 	return nil
 }
 

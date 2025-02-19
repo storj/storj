@@ -108,7 +108,7 @@ func TestMigratePostgres(t *testing.T) {
 	connStr := dbtest.PickPostgres(t)
 
 	// create tempDB
-	tempDB, err := tempdb.OpenUnique(ctx, connStr, "migrate")
+	tempDB, err := tempdb.OpenUnique(ctx, connStr, "migrate", nil)
 	require.NoError(t, err)
 	defer func() {
 		require.NoError(t, tempDB.Close())
@@ -194,7 +194,7 @@ func parseTestdataVersion(path string, impl string) int {
 
 // loadSnapshotFromSQLPostgres inserts script into connstr and loads snapshot for postgres db.
 func loadSnapshotFromSQLPostgres(ctx context.Context, connstr, script string) (_ *dbschema.Snapshot, err error) {
-	db, err := tempdb.OpenUnique(ctx, connstr, "load-schema")
+	db, err := tempdb.OpenUnique(ctx, connstr, "load-schema", nil)
 	if err != nil {
 		return nil, err
 	}
@@ -227,7 +227,7 @@ func loadSnapshotFromSQLPostgres(ctx context.Context, connstr, script string) (_
 
 // loadSchemaFromSQLPostgres inserts script into connstr and loads schema for postgres db.
 func loadSchemaFromSQLPostgres(ctx context.Context, connstr string, script []string) (_ *dbschema.Schema, err error) {
-	db, err := tempdb.OpenUnique(ctx, connstr, "load-schema")
+	db, err := tempdb.OpenUnique(ctx, connstr, "load-schema", nil)
 	if err != nil {
 		return nil, err
 	}

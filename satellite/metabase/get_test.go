@@ -1835,8 +1835,9 @@ func TestGetLatestObjectLastSegment(t *testing.T) {
 					Suspended:      true,
 				},
 				Result: metabase.DeleteObjectResult{
-					Markers: []metabase.Object{marker},
-					Removed: []metabase.Object{unversioned},
+					Markers:             []metabase.Object{marker},
+					Removed:             []metabase.Object{unversioned},
+					DeletedSegmentCount: 2,
 				},
 				OutputMarkerStreamID: &marker.StreamID,
 			}.Check(ctx, t, db)
