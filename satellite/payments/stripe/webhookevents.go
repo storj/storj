@@ -6,7 +6,7 @@ package stripe
 import (
 	"context"
 
-	wh "github.com/stripe/stripe-go/v75/webhook"
+	wh "github.com/stripe/stripe-go/v81/webhook"
 	"github.com/zeebo/errs"
 
 	"storj.io/storj/satellite/payments"

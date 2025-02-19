@@ -8,7 +8,7 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/require"
-	stripeLib "github.com/stripe/stripe-go/v75"
+	stripeLib "github.com/stripe/stripe-go/v81"
 
 	"storj.io/common/testcontext"
 	"storj.io/storj/private/testplanet"

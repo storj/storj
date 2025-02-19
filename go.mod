@@ -46,7 +46,7 @@ require (
 	github.com/spf13/pflag v1.0.5
 	github.com/spf13/viper v1.18.2
 	github.com/stretchr/testify v1.10.0
-	github.com/stripe/stripe-go/v75 v75.8.0
+	github.com/stripe/stripe-go/v81 v81.3.1
 	github.com/vbauerster/mpb/v8 v8.4.0
 	github.com/zeebo/assert v1.3.1
 	github.com/zeebo/blake3 v0.2.3

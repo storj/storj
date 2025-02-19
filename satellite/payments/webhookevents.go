@@ -6,7 +6,7 @@ package payments
 import (
 	"context"
 
-	"github.com/stripe/stripe-go/v75"
+	"github.com/stripe/stripe-go/v81"
 )
 
 // WebhookEvents exposes all needed functionality to handle a stripe webhook event.

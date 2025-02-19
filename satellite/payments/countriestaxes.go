@@ -3,7 +3,7 @@
 
 package payments
 
-import "github.com/stripe/stripe-go/v75"
+import "github.com/stripe/stripe-go/v81"
 
 // The countries and taxes lists are sourced from the Stripe Tax ID documentation
 // at https://docs.stripe.com/billing/customer/tax-ids#supported-tax-id .

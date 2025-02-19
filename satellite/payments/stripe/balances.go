@@ -7,7 +7,7 @@ import (
 	"context"
 
 	"github.com/shopspring/decimal"
-	"github.com/stripe/stripe-go/v75"
+	"github.com/stripe/stripe-go/v81"
 
 	"storj.io/common/uuid"
 	"storj.io/storj/satellite/payments"
