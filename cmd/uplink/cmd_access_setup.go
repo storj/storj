@@ -114,7 +114,18 @@ func (c *cmdAccessSetup) Execute(ctx context.Context) (err error) {
 		return nil
 	}
 
-	credentials, err := RegisterAccess(ctx, access, c.authService, false, "")
+	info, err := c.ex.GetEdgeUrlOverrides(ctx, access)
+	if err != nil {
+		return errs.New("could not get project info: %w", err)
+	}
+
+	authService := c.authService
+
+	if info.AuthService != "" {
+		authService = info.AuthService
+	}
+
+	credentials, err := RegisterAccess(ctx, access, authService, false, "")
 	if err != nil {
 		return errs.Wrap(err)
 	}
