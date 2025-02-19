@@ -73,18 +73,6 @@ const stillPendingTransactions = computed((): PaymentWithConfirmations[] => {
 });
 
 /**
- * Returns transaction with the least confirmations count.
- */
-const txWithLeastConfirmations = computed((): PaymentWithConfirmations => {
-    return stillPendingTransactions.value.reduce((minTx: PaymentWithConfirmations, currentTx: PaymentWithConfirmations) => {
-        if (currentTx.confirmations < minTx.confirmations) {
-            return currentTx;
-        }
-        return minTx;
-    }, props.pendingPayments[0]);
-});
-
-/**
  * Returns needed confirmations count for each transaction from config store.
  */
 const neededConfirmations = computed((): number => {

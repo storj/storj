@@ -22,7 +22,7 @@
                                 in helping shape the future of high-performance storage.
                             </p>
                         </v-card-text>
-                        <v-card class="pa-5 mt-5 mb-10">
+                        <v-card class="pa-5 mt-5 mb-10" variant="flat">
                             <h3 class="mb-2 font-weight-medium">
                                 What happens next?
                             </h3>
@@ -46,12 +46,12 @@
                             target="_blank"
                             rel="noopener noreferrer"
                         >
-                            CunoFS Install Guide
+                            cunoFS Install Guide
                         </v-btn>
                     </v-card-item>
                 </v-card>
                 <v-card v-else class="pa-4 pa-sm-8 mx-auto" max-width="800">
-                    <img src="@/assets/storj-plus-cuno.webp" alt="Storj + cunoFS" class="w-100 rounded-lg mb-4">
+                    <img src="@/assets/storj-plus-cuno.webp" alt="Storj + cunoFS" class="w-100 rounded-lg mb-3">
 
                     <h1 class="mb-2">
                         Join the Insider Beta for cunoFS
@@ -102,174 +102,164 @@
 
                     <v-form v-model="formValid" @submit.prevent="submitForm">
                         <v-text-field
-                            :model-value="userEmail"
+                            :model-value="user.email"
                             label="Email"
                             readonly
                             variant="outlined"
-                            class="mb-4"
+                            density="compact"
+                            class="mb-3"
+                        />
+
+                        <v-text-field
+                            v-model="formData.firstName"
+                            label="Enter your first name"
+                            variant="outlined"
+                            required
+                            :rules="[RequiredRule, MaxNameLengthRule]"
+                            density="compact"
+                            class="mb-3"
+                        />
+
+                        <v-text-field
+                            v-model="formData.lastName"
+                            label="Enter your last name"
+                            variant="outlined"
+                            required
+                            :rules="[RequiredRule, MaxNameLengthRule]"
+                            density="compact"
+                            class="mb-3"
                         />
 
                         <v-text-field
                             v-model="formData.organization"
-                            label="Organization"
-                            placeholder="Enter your organization name"
+                            label="Enter your organization name"
                             variant="outlined"
                             required
                             :rules="[RequiredRule, MaxNameLengthRule]"
-                            class="mb-4"
+                            density="compact"
+                            class="mb-3"
                         />
 
                         <v-select
                             v-model="formData.industry"
                             :items="industries"
-                            label="Industry/Use Case"
+                            label="Select your industry / use case"
                             variant="outlined"
                             required
                             :rules="[RequiredRule, MaxNameLengthRule]"
-                            class="mb-4"
+                            density="compact"
+                            class="mb-3"
                         />
                         <v-text-field
                             v-if="formData.industry === OtherLabel"
                             v-model="otherIndustry"
-                            label="Other Industry/Use Case"
+                            label="Enter other industry / use case"
                             variant="outlined"
                             required
                             :rules="[RequiredRule, MaxNameLengthRule]"
-                            class="mb-4"
+                            density="compact"
+                            class="mb-3"
                         />
 
                         <v-select
                             v-model="formData.operatingSystem"
                             :items="operatingSystems"
-                            label="Operating System"
+                            label="Select your operating system"
                             required
                             :rules="[RequiredRule]"
-                            class="mb-4"
+                            density="compact"
+                            class="mb-3"
                         />
 
                         <v-select
                             v-model="formData.teamSize"
                             :items="teamSizes"
-                            label="Team Size"
+                            label="Select your team size"
                             required
                             :rules="[RequiredRule]"
-                            class="mb-4"
+                            density="compact"
+                            class="mb-3"
                         />
 
                         <v-select
                             v-model="formData.storageUsage"
                             :items="storageRanges"
-                            label="Current Storage Usage"
+                            label="Select your current storage usage"
                             required
                             :rules="[RequiredRule]"
-                            class="mb-4"
+                            density="compact"
+                            class="mb-3"
                         />
 
-                        <v-card-text class="px-0">
-                            <div class="text-subtitle-1 mb-2 font-weight-bold">Infrastructure Type</div>
-                            <v-checkbox
-                                v-for="type in infrastructureTypes"
-                                :key="type"
-                                v-model="formData.infrastructureType"
-                                :label="type"
-                                :value="type"
-                                density="compact"
-                                hide-details
-                            />
-                        </v-card-text>
+                        <v-select
+                            v-model="formData.infrastructureType"
+                            :items="infrastructureTypes"
+                            label="Select your infrastructure types"
+                            multiple
+                            density="compact"
+                            class="mb-3"
+                        />
 
-                        <v-card-text class="px-0">
-                            <div class="text-subtitle-1 mb-2 font-weight-bold">Current Storage Backends</div>
-                            <v-checkbox
-                                v-for="backend in storageBackends"
-                                :key="backend"
-                                v-model="formData.storageBackend"
-                                :label="backend"
-                                :value="backend"
-                                density="compact"
-                                hide-details
-                            />
-                            <v-checkbox
-                                key="other-backend"
-                                v-model="isOtherStorageBackend"
-                                :label="OtherLabel"
-                                density="compact"
-                                hide-details
-                            />
-                            <v-text-field
-                                v-if="isOtherStorageBackend"
-                                v-model="otherStorageBackend"
-                                label="Other Storage Backend"
-                                variant="outlined"
-                                class="mt-4"
-                                :rules="[MaxNameLengthRule]"
-                                hide-details
-                            />
-                        </v-card-text>
+                        <v-select
+                            v-model="formData.storageBackend"
+                            :items="storageBackends"
+                            label="Select your current storage backends"
+                            multiple
+                            density="compact"
+                            class="mb-3"
+                        />
+                        <v-text-field
+                            v-if="formData.storageBackend.includes(OtherLabel)"
+                            v-model="otherStorageBackend"
+                            label="Enter other storage backend"
+                            variant="outlined"
+                            :rules="[MaxNameLengthRule]"
+                            density="compact"
+                            class="mb-3"
+                        />
 
-                        <v-card-text class="px-0">
-                            <div class="text-subtitle-1 mb-2 font-weight-bold">Current Storage Mount Solution</div>
-                            <v-checkbox
-                                v-for="solution in mountSolutions"
-                                :key="solution"
-                                v-model="formData.mountSolution"
-                                :label="solution"
-                                :value="solution"
-                                density="compact"
-                                hide-details
-                            />
-                            <v-checkbox
-                                key="other-solutions"
-                                v-model="isOtherMountSolution"
-                                :label="OtherLabel"
-                                density="compact"
-                                hide-details
-                            />
-                            <v-text-field
-                                v-if="isOtherMountSolution"
-                                v-model="otherMountSolution"
-                                label="Other Mount Solution"
-                                variant="outlined"
-                                class="mt-4"
-                                :rules="[MaxNameLengthRule]"
-                                hide-details
-                            />
-                        </v-card-text>
+                        <v-select
+                            v-model="formData.mountSolution"
+                            :items="mountSolutions"
+                            label="Select if you use any mount solutions"
+                            multiple
+                            density="compact"
+                            class="mb-3"
+                        />
+                        <v-text-field
+                            v-if="formData.mountSolution.includes(OtherLabel)"
+                            v-model="otherMountSolution"
+                            label="Enter other mount solution"
+                            variant="outlined"
+                            :rules="[MaxNameLengthRule]"
+                            density="compact"
+                            class="mb-3"
+                        />
 
-                        <v-card-text class="px-0">
-                            <div class="text-subtitle-1 mb-2 font-weight-bold">Desired Features</div>
-                            <v-checkbox
-                                v-for="feature in desiredFeatures"
-                                :key="feature"
-                                v-model="formData.desiredFeatures"
-                                :label="feature"
-                                :value="feature"
-                                density="compact"
-                                hide-details
-                            />
-                        </v-card-text>
+                        <v-select
+                            v-model="formData.desiredFeatures"
+                            :items="desiredFeatures"
+                            label="Select your desired features"
+                            multiple
+                            density="compact"
+                            class="mb-3"
+                        />
 
-                        <v-card-text class="px-0">
-                            <div class="text-subtitle-1 mb-2 font-weight-bold">Current Pain Points</div>
-                            <v-checkbox
-                                v-for="point in painPoints"
-                                :key="point"
-                                v-model="formData.painPoints"
-                                :label="point"
-                                :value="point"
-                                density="compact"
-                                hide-details
-                            />
-                        </v-card-text>
+                        <v-select
+                            v-model="formData.painPoints"
+                            :items="painPoints"
+                            label="Select any current pain points"
+                            multiple
+                            density="compact"
+                            class="mb-3"
+                        />
 
                         <v-textarea
                             v-model="formData.comments"
                             label="What specific tasks or workflows will you use cunoFS for?"
                             placeholder="What specific tasks or workflows will you use cunoFS for?"
                             variant="outlined"
-                            class="rounded-lg mt-4"
                             maxlength="500"
-                            rows="3"
                         />
 
                         <v-btn
@@ -299,7 +289,6 @@ import {
     VCardItem,
     VCardTitle,
     VCardText,
-    VCheckbox,
     VTextarea,
     VTextField,
     VSelect,
@@ -318,6 +307,7 @@ import { AnalyticsErrorEventSource, AnalyticsEvent } from '@/utils/constants/ana
 import { useLoading } from '@/composables/useLoading';
 import { useNotify } from '@/utils/hooks';
 import { useAnalyticsStore } from '@/store/modules/analyticsStore';
+import { User } from '@/types/users';
 
 const router = useRouter();
 const notify = useNotify();
@@ -329,6 +319,8 @@ const analyticsStore = useAnalyticsStore();
 
 type FormData = {
     organization: string;
+    firstName: string;
+    lastName: string;
     industry: string | null;
     operatingSystem: string | null;
     teamSize: string | null;
@@ -364,13 +356,13 @@ const teamSizes = [
 ];
 
 const storageRanges = [
-    'Less than 1TB',
-    '1TB - 10TB',
-    '10TB - 50TB',
-    '50TB - 100TB',
-    '100TB - 1PB',
-    '1PB - 10PB',
-    '10PB - 50PB',
+    'Less than 1 TB',
+    '1TB-10TB',
+    '10TB-50TB',
+    '50TB-100TB',
+    '100TB-1PB',
+    '1PB-10PB',
+    '10PB-50PB',
     '50PB+',
 ];
 
@@ -388,6 +380,7 @@ const storageBackends = [
     'Azure Blob Storage',
     'Local NAS/SAN',
     'S3-Compatible Object Storage',
+    OtherLabel,
 ];
 
 const mountSolutions = [
@@ -395,6 +388,7 @@ const mountSolutions = [
     'Mountain Duck',
     'NetApp Cloud Volumes',
     'None yet',
+    OtherLabel,
 ];
 
 const desiredFeatures = [
@@ -417,7 +411,7 @@ const desiredFeatures = [
 ];
 
 const painPoints = [
-    'Slow Download/Upload Times',
+    'Slow Download/Upload times',
     'File Version Conflicts',
     'Remote Collaboration Issues',
     'Limited Local Storage',
@@ -431,8 +425,12 @@ enum State {
     Success,
 }
 
+const user = computed<User>(() => usersStore.state.user);
+
 const formData = reactive<FormData>({
     organization: '',
+    firstName: user.value.fullName.split(' ')[0] ?? '',
+    lastName: user.value.fullName.split(' ')[1] ?? '',
     industry: null,
     operatingSystem: null,
     teamSize: null,
@@ -446,24 +444,45 @@ const formData = reactive<FormData>({
 });
 
 const formValid = ref<boolean>(false);
-const isOtherStorageBackend = ref<boolean>(false);
-const isOtherMountSolution = ref<boolean>(false);
 const otherIndustry = ref<string>('');
 const otherStorageBackend = ref<string>('');
 const otherMountSolution = ref<string>('');
 
-const userEmail = computed<string>(() => usersStore.state.user.email);
 const betaJoined = computed<boolean>(() => usersStore.state.settings.noticeDismissal.cunoFSBetaJoined);
 
 const state = ref<State>(betaJoined.value ? State.Success : State.Form);
 
 function submitForm(): void {
     withLoading(async () => {
-        if (!(formData.industry && formData.operatingSystem && formData.teamSize && formData.storageUsage)) return;
+        if (!(formData.industry && formData.firstName && formData.lastName && formData.operatingSystem && formData.teamSize && formData.storageUsage)) return;
 
         try {
-            const props = {
+            const hubspotData = {
+                companyName: formData.organization,
+                firstName: formData.firstName,
+                lastName: formData.lastName,
+                industryUseCase: formData.industry,
+                otherIndustryUseCase: otherIndustry.value,
+                operatingSystem: formData.operatingSystem,
+                teamSize: formData.teamSize,
+                currentStorageUsage: formData.storageUsage,
+                infraType: formData.infrastructureType.join(';'),
+                currentStorageBackends: formData.storageBackend.join(';'),
+                otherStorageBackend: otherStorageBackend.value,
+                currentStorageMountSolution: formData.mountSolution.join(';'),
+                otherStorageMountSolution: otherMountSolution.value,
+                desiredFeatures: formData.desiredFeatures.join(';'),
+                currentPainPoints: formData.painPoints.join(';'),
+                specificTasks: formData.comments,
+            };
+
+            // This is a specific hubspot event tracking for cunoFS beta form submission.
+            await analyticsStore.joinCunoFSBeta(hubspotData);
+
+            const segmentProps = {
                 organization: formData.organization,
+                firstName: formData.firstName,
+                lastName: formData.lastName,
                 industry: formData.industry === OtherLabel ? otherIndustry.value : formData.industry,
                 operatingSystem: formData.operatingSystem,
                 teamSize: formData.teamSize,
@@ -475,20 +494,17 @@ function submitForm(): void {
                 painPoints: formData.painPoints.join(', '),
                 comments: formData.comments,
             };
-
-            if (isOtherStorageBackend.value && otherStorageBackend.value) {
-                props.storageBackend = props.storageBackend ? `${props.storageBackend}, ${otherStorageBackend.value}` : otherStorageBackend.value;
+            if (formData.storageBackend.includes(OtherLabel) && otherStorageBackend.value) {
+                segmentProps.storageBackend = segmentProps.storageBackend ? `${segmentProps.storageBackend}, ${otherStorageBackend.value}` : otherStorageBackend.value;
             }
-            if (isOtherMountSolution.value && otherMountSolution.value) {
-                props.mountSolution = props.mountSolution ? `${props.mountSolution}, ${otherMountSolution.value}` : otherMountSolution.value;
+            if (formData.mountSolution.includes(OtherLabel) && otherMountSolution.value) {
+                segmentProps.mountSolution = segmentProps.mountSolution ? `${segmentProps.mountSolution}, ${otherMountSolution.value}` : otherMountSolution.value;
             }
 
-            await analyticsStore.ensureEventTriggered(AnalyticsEvent.JOIN_CUNO_FS_BETA_FORM_SUBMITTED, props);
+            // This is a specific segment event tracking for cunoFS beta form submission.
+            await analyticsStore.ensureEventTriggered(AnalyticsEvent.JOIN_CUNO_FS_BETA_FORM_SUBMITTED, segmentProps);
 
-            const noticeDismissal = { ...usersStore.state.settings.noticeDismissal };
-            noticeDismissal.cunoFSBetaJoined = true;
-            await usersStore.updateSettings({ noticeDismissal });
-
+            await usersStore.getSettings();
             state.value = State.Success;
         } catch (error) {
             notify.notifyError(error, AnalyticsErrorEventSource.CUNO_FS_BETA_FORM);

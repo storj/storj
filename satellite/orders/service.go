@@ -34,14 +34,17 @@ var (
 
 // Config is a configuration struct for orders Service.
 type Config struct {
-	EncryptionKeys      EncryptionKeys `help:"encryption keys to encrypt info in orders" default:""`
-	Expiration          time.Duration  `help:"how long until an order expires" default:"24h" testDefault:"168h"` // default is 1 day
-	FlushBatchSize      int            `help:"how many items in the rollups write cache before they are flushed to the database" devDefault:"20" releaseDefault:"1000" testDefault:"10"`
-	FlushInterval       time.Duration  `help:"how often to flush the rollups write cache to the database" devDefault:"30s" releaseDefault:"1m" testDefault:"$TESTINTERVAL"`
-	NodeStatusLogging   bool           `hidden:"true" help:"deprecated, log the offline/disqualification status of nodes" default:"false" testDefault:"true"`
-	OrdersSemaphoreSize int            `help:"how many concurrent orders to process at once. zero is unlimited" default:"2"`
+	EncryptionKeys    EncryptionKeys `help:"encryption keys to encrypt info in orders" default:""`
+	Expiration        time.Duration  `help:"how long until an order expires" default:"24h" testDefault:"168h"` // default is 1 day
+	FlushBatchSize    int            `help:"how many items in the rollups write cache before they are flushed to the database" devDefault:"20" releaseDefault:"1000" testDefault:"10"`
+	FlushInterval     time.Duration  `help:"how often to flush the rollups write cache to the database" devDefault:"30s" releaseDefault:"1m" testDefault:"$TESTINTERVAL"`
+	NodeStatusLogging bool           `hidden:"true" help:"deprecated, log the offline/disqualification status of nodes" default:"false" testDefault:"true"`
 
 	DownloadTailToleranceOverrides string `help:"how many nodes should be used for downloads for certain k. must be >= k. if not specified, this is calculated from long tail tolerance. format is comma separated like k-d,k-d,k-d e.g. 29-35,3-5." default:""`
+
+	// TODO (spanner): can be removed after the migration
+	AcceptOrders  bool `help:"determine if orders from storage nodes should be accepted" default:"true"`
+	TrustedOrders bool `help:"stops validating orders received from trusted nodes" default:"false"`
 }
 
 // Overlay defines the overlay dependency of orders.Service.
@@ -281,6 +284,26 @@ func getLimitByStorageNodeID(limits []*pb.AddressedOrderLimit, storageNodeID sto
 	return nil
 }
 
+// CreateLitePutOrderLimits creates AddressedOrderLimits with the minimal amount of information
+// necessary to reconstruct a full order limit if you had a signing key.
+func (service *Service) CreateLitePutOrderLimits(ctx context.Context, bucket metabase.BucketLocation, nodes []*nodeselection.SelectedNode, pieceExpiration time.Time, maxPieceSize int64) (_ storj.PieceID, _ []*pb.AddressedOrderLimit, privateKey storj.PiecePrivateKey, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	signer, err := NewSignerPut(service, pieceExpiration, time.Now(), maxPieceSize, bucket)
+	if err != nil {
+		return storj.PieceID{}, nil, storj.PiecePrivateKey{}, Error.Wrap(err)
+	}
+
+	for pieceNum, node := range nodes {
+		_, err := signer.SignLite(ctx, resolveStorageNode_Selected(node, true), int32(pieceNum))
+		if err != nil {
+			return storj.PieceID{}, nil, storj.PiecePrivateKey{}, Error.Wrap(err)
+		}
+	}
+
+	return signer.RootPieceID, signer.AddressedLimits, signer.PrivateKey, nil
+}
+
 // CreatePutOrderLimits creates the order limits for uploading pieces to nodes.
 func (service *Service) CreatePutOrderLimits(ctx context.Context, bucket metabase.BucketLocation, nodes []*nodeselection.SelectedNode, pieceExpiration time.Time, maxPieceSize int64) (_ storj.PieceID, _ []*pb.AddressedOrderLimit, privateKey storj.PiecePrivateKey, err error) {
 	defer mon.Task()(&ctx)(&err)
@@ -513,12 +536,16 @@ func (service *Service) CreateGetRepairOrderLimits(ctx context.Context, segment 
 }
 
 // CreatePutRepairOrderLimits creates the order limits for uploading the repaired pieces of segment to newNodes.
-func (service *Service) CreatePutRepairOrderLimits(ctx context.Context, segment metabase.Segment, getOrderLimits []*pb.AddressedOrderLimit, healthySet map[uint16]struct{}, newNodes []*nodeselection.SelectedNode) (_ []*pb.AddressedOrderLimit, _ storj.PiecePrivateKey, err error) {
+func (service *Service) CreatePutRepairOrderLimits(ctx context.Context, segment metabase.Segment, newRedundancy storj.RedundancyScheme, getOrderLimits []*pb.AddressedOrderLimit, healthySet map[uint16]struct{}, newNodes []*nodeselection.SelectedNode) (_ []*pb.AddressedOrderLimit, _ storj.PiecePrivateKey, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	// Create the order limits for being used to upload the repaired pieces
 	pieceSize := segment.PieceSize()
-	totalPieces := int(segment.Redundancy.TotalShares)
+	totalPieces := int(newRedundancy.TotalShares)
+
+	if segment.Redundancy.RequiredShares != newRedundancy.RequiredShares {
+		return nil, storj.PiecePrivateKey{}, Error.New("cannot change required share count during this style of repair")
+	}
 
 	var numRetrievablePieces int
 	for _, o := range getOrderLimits {

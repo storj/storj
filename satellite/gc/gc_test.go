@@ -127,7 +127,7 @@ func TestGarbageCollection(t *testing.T) {
 			rangedloopConfig := planet.Satellites[0].Config.RangedLoop
 
 			observer := makeObserver(config, planet)
-			mbSegments := rangedloop.NewMetabaseRangeSplitter(planet.Satellites[0].Metabase.DB, rangedloopConfig.AsOfSystemInterval, rangedloopConfig.SpannerStaleInterval, rangedloopConfig.BatchSize)
+			mbSegments := rangedloop.NewMetabaseRangeSplitter(zap.NewNop(), planet.Satellites[0].Metabase.DB, rangedloopConfig)
 			rangedLoop := rangedloop.NewService(zap.NewNop(), planet.Satellites[0].Config.RangedLoop, mbSegments, []rangedloop.Observer{observer})
 
 			_, err = rangedLoop.RunOnce(ctx)
@@ -212,7 +212,7 @@ func TestGarbageCollectionWithCopies(t *testing.T) {
 			rangedloopConfig := planet.Satellites[0].Config.RangedLoop
 
 			observer := makeObserver(config, planet)
-			segments := rangedloop.NewMetabaseRangeSplitter(planet.Satellites[0].Metabase.DB, rangedloopConfig.AsOfSystemInterval, rangedloopConfig.SpannerStaleInterval, rangedloopConfig.BatchSize)
+			segments := rangedloop.NewMetabaseRangeSplitter(zap.NewNop(), planet.Satellites[0].Metabase.DB, rangedloopConfig)
 			rangedLoop := rangedloop.NewService(zap.NewNop(), planet.Satellites[0].Config.RangedLoop, segments, []rangedloop.Observer{observer})
 
 			_, err = rangedLoop.RunOnce(ctx)
@@ -343,7 +343,7 @@ func TestGarbageCollectionWithCopiesWithDuplicateMetadata(t *testing.T) {
 			rangedloopConfig := planet.Satellites[0].Config.RangedLoop
 
 			observer := makeObserver(config, planet)
-			segments := rangedloop.NewMetabaseRangeSplitter(planet.Satellites[0].Metabase.DB, rangedloopConfig.AsOfSystemInterval, rangedloopConfig.SpannerStaleInterval, rangedloopConfig.BatchSize)
+			segments := rangedloop.NewMetabaseRangeSplitter(zap.NewNop(), planet.Satellites[0].Metabase.DB, rangedloopConfig)
 			rangedLoop := rangedloop.NewService(zap.NewNop(), planet.Satellites[0].Config.RangedLoop, segments, []rangedloop.Observer{observer})
 
 			_, err = rangedLoop.RunOnce(ctx)
@@ -444,7 +444,7 @@ func TestGarbageCollection_PendingObject(t *testing.T) {
 
 			observer := makeObserver(config, planet)
 			rangedloopConfig := planet.Satellites[0].Config.RangedLoop
-			provider := rangedloop.NewMetabaseRangeSplitter(planet.Satellites[0].Metabase.DB, rangedloopConfig.AsOfSystemInterval, rangedloopConfig.SpannerStaleInterval, rangedloopConfig.BatchSize)
+			provider := rangedloop.NewMetabaseRangeSplitter(zap.NewNop(), planet.Satellites[0].Metabase.DB, rangedloopConfig)
 			rangedLoop := rangedloop.NewService(zap.NewNop(), planet.Satellites[0].Config.RangedLoop, provider, []rangedloop.Observer{observer})
 
 			_, err = rangedLoop.RunOnce(ctx)

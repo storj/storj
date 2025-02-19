@@ -76,9 +76,10 @@ export class AuthHttpApi implements UsersApi {
      * @param mfaPasscode - MFA passcode
      * @param mfaRecoveryCode - MFA recovery code
      * @param rememberForOneWeek - flag to remember user
+     * @param csrfProtectionToken - CSRF token
      * @throws Error
      */
-    public async token(email: string, password: string, captchaResponse: string, mfaPasscode: string, mfaRecoveryCode: string, rememberForOneWeek = false): Promise<TokenInfo> {
+    public async token(email: string, password: string, captchaResponse: string, mfaPasscode: string, mfaRecoveryCode: string, csrfProtectionToken: string, rememberForOneWeek = false): Promise<TokenInfo> {
         const path = `${this.ROOT_PATH}/token`;
         const body = {
             email,
@@ -89,7 +90,7 @@ export class AuthHttpApi implements UsersApi {
             rememberForOneWeek,
         };
 
-        const response = await this.http.post(path, JSON.stringify(body));
+        const response = await this.http.post(path, JSON.stringify(body), { csrfProtectionToken });
         if (response.ok) {
             const result = await response.json();
             if (result.error) {
@@ -155,9 +156,9 @@ export class AuthHttpApi implements UsersApi {
      *
      * @throws Error
      */
-    public async logout(): Promise<void> {
+    public async logout(csrfProtectionToken: string): Promise<void> {
         const path = `${this.ROOT_PATH}/logout`;
-        const response = await this.http.post(path, null);
+        const response = await this.http.post(path, null, { csrfProtectionToken });
 
         if (response.ok) {
             return;
@@ -190,7 +191,7 @@ export class AuthHttpApi implements UsersApi {
      *
      * @throws Error
      */
-    public async changeEmail(step: ChangeEmailStep, data: string): Promise<void> {
+    public async changeEmail(step: ChangeEmailStep, data: string, csrfProtectionToken: string): Promise<void> {
         const path = `${this.ROOT_PATH}/change-email`;
 
         const body = JSON.stringify({
@@ -198,7 +199,7 @@ export class AuthHttpApi implements UsersApi {
             data,
         });
 
-        const response = await this.http.post(path, body);
+        const response = await this.http.post(path, body, { csrfProtectionToken });
         if (response.ok) {
             return;
         }
@@ -217,7 +218,7 @@ export class AuthHttpApi implements UsersApi {
      *
      * @throws Error
      */
-    public async deleteAccount(step: DeleteAccountStep, data: string): Promise<AccountDeletionData | null> {
+    public async deleteAccount(step: DeleteAccountStep, data: string, csrfProtectionToken: string): Promise<AccountDeletionData | null> {
         const path = `${this.ROOT_PATH}/account`;
 
         const body = JSON.stringify({
@@ -225,7 +226,7 @@ export class AuthHttpApi implements UsersApi {
             data,
         });
 
-        const response = await this.http.delete(path, body);
+        const response = await this.http.delete(path, body, { csrfProtectionToken });
 
         if (response.ok) {
             return null;
@@ -251,8 +252,6 @@ export class AuthHttpApi implements UsersApi {
             message: result.error || 'Can not delete account. Please try again later',
             requestID: response.headers.get('x-request-id'),
         });
-
-        return null;
     }
 
     /**
@@ -291,15 +290,16 @@ export class AuthHttpApi implements UsersApi {
      * Used to update user full and short name.
      *
      * @param userInfo - full name and short name of the user
+     * @param csrfProtectionToken - CSRF token
      * @throws Error
      */
-    public async update(userInfo: UpdatedUser): Promise<void> {
+    public async update(userInfo: UpdatedUser, csrfProtectionToken: string): Promise<void> {
         const path = `${this.ROOT_PATH}/account`;
         const body = {
             fullName: userInfo.fullName,
             shortName: userInfo.shortName,
         };
-        const response = await this.http.patch(path, JSON.stringify(body));
+        const response = await this.http.patch(path, JSON.stringify(body), { csrfProtectionToken });
         if (response.ok) {
             return;
         }
@@ -315,11 +315,12 @@ export class AuthHttpApi implements UsersApi {
      * Used to update user details after signup.
      *
      * @param userInfo - the information to be added to account.
+     * @param csrfProtectionToken - CSRF token
      * @throws Error
      */
-    public async setupAccount(userInfo: AccountSetupData): Promise<void> {
+    public async setupAccount(userInfo: AccountSetupData, csrfProtectionToken: string): Promise<void> {
         const path = `${this.ROOT_PATH}/account/setup`;
-        const response = await this.http.patch(path, JSON.stringify(userInfo));
+        const response = await this.http.patch(path, JSON.stringify(userInfo), { csrfProtectionToken });
         if (response.ok) {
             return;
         }
@@ -381,15 +382,16 @@ export class AuthHttpApi implements UsersApi {
      *
      * @param password - old password of the user
      * @param newPassword - new password of the user
+     * @param csrfProtectionToken - CSRF token
      * @throws Error
      */
-    public async changePassword(password: string, newPassword: string): Promise<void> {
+    public async changePassword(password: string, newPassword: string, csrfProtectionToken: string): Promise<void> {
         const path = `${this.ROOT_PATH}/account/change-password`;
         const body = {
             password: password,
             newPassword: newPassword,
         };
-        const response = await this.http.post(path, JSON.stringify(body));
+        const response = await this.http.post(path, JSON.stringify(body), { csrfProtectionToken });
         if (response.ok) {
             return;
         }
@@ -398,29 +400,6 @@ export class AuthHttpApi implements UsersApi {
         throw new APIError({
             status: response.status,
             message: result.error,
-            requestID: response.headers.get('x-request-id'),
-        });
-    }
-
-    /**
-     * Used to delete account.
-     *
-     * @param password - password of the user
-     * @throws Error
-     */
-    public async delete(password: string): Promise<void> {
-        const path = `${this.ROOT_PATH}/account/delete`;
-        const body = {
-            password: password,
-        };
-        const response = await this.http.post(path, JSON.stringify(body));
-        if (response.ok) {
-            return;
-        }
-
-        throw new APIError({
-            status: response.status,
-            message: 'Can not delete user',
             requestID: response.headers.get('x-request-id'),
         });
     }
@@ -483,12 +462,13 @@ export class AuthHttpApi implements UsersApi {
      * Changes user's settings.
      *
      * @param data
+     * @param csrfProtectionToken
      * @returns UserSettings
      * @throws Error
      */
-    public async updateSettings(data: SetUserSettingsData): Promise<UserSettings> {
+    public async updateSettings(data: SetUserSettingsData, csrfProtectionToken: string): Promise<UserSettings> {
         const path = `${this.ROOT_PATH}/account/settings`;
-        const response = await this.http.patch(path, JSON.stringify(data));
+        const response = await this.http.patch(path, JSON.stringify(data), { csrfProtectionToken });
         if (response.ok) {
             const responseData = await response.json();
 
@@ -564,9 +544,9 @@ export class AuthHttpApi implements UsersApi {
      *
      * @throws Error
      */
-    public async generateUserMFASecret(): Promise<string> {
+    public async generateUserMFASecret(csrfProtectionToken: string): Promise<string> {
         const path = `${this.ROOT_PATH}/mfa/generate-secret-key`;
-        const response = await this.http.post(path, null);
+        const response = await this.http.post(path, null, { csrfProtectionToken });
 
         if (response.ok) {
             return await response.json();
@@ -584,13 +564,13 @@ export class AuthHttpApi implements UsersApi {
      *
      * @throws Error
      */
-    public async enableUserMFA(passcode: string): Promise<string[]> {
+    public async enableUserMFA(passcode: string, csrfProtectionToken: string): Promise<string[]> {
         const path = `${this.ROOT_PATH}/mfa/enable`;
         const body = {
             passcode: passcode,
         };
 
-        const response = await this.http.post(path, JSON.stringify(body));
+        const response = await this.http.post(path, JSON.stringify(body), { csrfProtectionToken });
 
         if (response.ok) {
             return await response.json();
@@ -608,14 +588,14 @@ export class AuthHttpApi implements UsersApi {
      *
      * @throws Error
      */
-    public async disableUserMFA(passcode: string, recoveryCode: string): Promise<void> {
+    public async disableUserMFA(passcode: string, recoveryCode: string, csrfProtectionToken: string): Promise<void> {
         const path = `${this.ROOT_PATH}/mfa/disable`;
         const body = {
             passcode: passcode || null,
             recoveryCode: recoveryCode || null,
         };
 
-        const response = await this.http.post(path, JSON.stringify(body));
+        const response = await this.http.post(path, JSON.stringify(body), { csrfProtectionToken });
 
         if (response.ok) {
             return;
@@ -635,7 +615,7 @@ export class AuthHttpApi implements UsersApi {
      *
      * @throws Error
      */
-    public async regenerateUserMFARecoveryCodes(passcode?: string, recoveryCode?: string): Promise<string[]> {
+    public async regenerateUserMFARecoveryCodes(csrfProtectionToken: string, passcode?: string, recoveryCode?: string): Promise<string[]> {
         if (!passcode && !recoveryCode) {
             throw new Error('Either passcode or recovery code should be provided');
         }
@@ -645,7 +625,7 @@ export class AuthHttpApi implements UsersApi {
             recoveryCode: recoveryCode || null,
         };
 
-        const response = await this.http.post(path, JSON.stringify(body));
+        const response = await this.http.post(path, JSON.stringify(body), { csrfProtectionToken });
 
         if (response.ok) {
             return await response.json();
@@ -721,9 +701,9 @@ export class AuthHttpApi implements UsersApi {
      * @returns new expiration timestamp
      * @throws Error
      */
-    public async refreshSession(): Promise<Date> {
+    public async refreshSession(csrfProtectionToken: string): Promise<Date> {
         const path = `${this.ROOT_PATH}/refresh-session`;
-        const response = await this.http.post(path, null);
+        const response = await this.http.post(path, null, { csrfProtectionToken });
 
         if (response.ok) {
             return new Date(await response.json());
@@ -782,9 +762,9 @@ export class AuthHttpApi implements UsersApi {
      *
      * @throws Error
      */
-    public async invalidateSession(sessionID: string): Promise<void> {
+    public async invalidateSession(sessionID: string, csrfProtectionToken: string): Promise<void> {
         const path = `${this.ROOT_PATH}/invalidate-session/${sessionID}`;
-        const response = await this.http.post(path, null);
+        const response = await this.http.post(path, null, { csrfProtectionToken });
 
         if (!response.ok) {
             const result = await response.json();

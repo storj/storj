@@ -365,6 +365,7 @@ func (d PlacementDefinitions) AddPlacementFromString(definitions string) error {
 		}
 
 		placement.Name = GetAnnotation(placement.NodeFilter, Location)
+		placement.ID = storj.PlacementConstraint(id)
 
 		d[storj.PlacementConstraint(id)] = placement
 	}

@@ -22,7 +22,7 @@ func TestTempPostgresDB(t *testing.T) {
 	defer ctx.Cleanup()
 
 	prefix := "name#spaced/Test/DB"
-	testDB, err := tempdb.OpenUnique(ctx, connstr, prefix)
+	testDB, err := tempdb.OpenUnique(ctx, connstr, prefix, nil)
 	require.NoError(t, err)
 
 	// assert new test db exists and can be connected to again

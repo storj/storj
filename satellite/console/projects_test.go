@@ -116,11 +116,10 @@ func TestProjectsRepository(t *testing.T) {
 
 				// creating new project with updated values.
 				newProject := &console.Project{
-					ID:                        oldProject.ID,
-					Name:                      newName,
-					Description:               newDescription,
-					RateLimit:                 &newRateLimit,
-					PromptedForVersioningBeta: true,
+					ID:          oldProject.ID,
+					Name:        newName,
+					Description: newDescription,
+					RateLimit:   &newRateLimit,
 				}
 
 				err = projects.Update(ctx, newProject)
@@ -134,7 +133,6 @@ func TestProjectsRepository(t *testing.T) {
 				require.Equal(t, newDescription, newProject.Description)
 				require.Equal(t, newRateLimit, *newProject.RateLimit)
 				require.Equal(t, console.ProjectActive, *newProject.Status)
-				require.True(t, newProject.PromptedForVersioningBeta)
 
 				disabledStatus := console.ProjectDisabled
 				newProject.Status = &disabledStatus

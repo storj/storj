@@ -143,7 +143,7 @@ func TestUpdateSegmentPieces(t *testing.T) {
 					NewRedundancy: metabasetest.DefaultRedundancy,
 				},
 				ErrClass: &metabase.ErrInvalidRequest,
-				ErrText:  "number of new pieces is less than new redundancy repair shares value",
+				ErrText:  "number of pieces is less than redundancy required shares",
 			}.Check(ctx, t, db)
 		})
 

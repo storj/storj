@@ -8,6 +8,7 @@ import (
 	"context"
 	"crypto/rand"
 	"database/sql"
+	"encoding/base64"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -25,6 +26,7 @@ import (
 	"github.com/spf13/pflag"
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
+	"go.uber.org/zap/zapcore"
 	"golang.org/x/crypto/bcrypt"
 
 	"storj.io/common/cfgstruct"
@@ -32,6 +34,7 @@ import (
 	"storj.io/common/http/requestid"
 	"storj.io/common/macaroon"
 	"storj.io/common/memory"
+	"storj.io/common/storj"
 	"storj.io/common/uuid"
 	"storj.io/storj/private/api"
 	"storj.io/storj/private/blockchain"
@@ -42,6 +45,8 @@ import (
 	"storj.io/storj/satellite/console/consoleauth"
 	"storj.io/storj/satellite/console/consoleauth/sso"
 	"storj.io/storj/satellite/console/consoleweb/consoleapi/utils"
+	"storj.io/storj/satellite/console/valdi"
+	"storj.io/storj/satellite/console/valdi/valdiclient"
 	"storj.io/storj/satellite/emission"
 	"storj.io/storj/satellite/kms"
 	"storj.io/storj/satellite/mailservice"
@@ -91,16 +96,6 @@ const (
 	projInviteDoesntExistErrMsg          = "An invitation for '%s' does not exist"
 	contactSupportErrMsg                 = "Please contact support"
 	accountActionWrongStepOrderErrMsg    = "Wrong step order. Please restart the flow"
-)
-
-// VersioningOptInStatus is a type for versioning beta opt in status.
-type VersioningOptInStatus string
-
-const (
-	// VersioningOptIn is a status for opting in.
-	VersioningOptIn VersioningOptInStatus = "in"
-	// VersioningOptOut is a status for opting out.
-	VersioningOptOut VersioningOptInStatus = "out"
 )
 
 var (
@@ -207,6 +202,9 @@ var (
 
 	// ErrFailedToUpgrade occurs when a user can't be upgraded to paid tier.
 	ErrFailedToUpgrade = errs.Class("failed to upgrade user to paid tier")
+
+	// ErrPlacementNotFound occurs when a placement is not found.
+	ErrPlacementNotFound = errs.Class("placement not found")
 )
 
 // Service is handling accounts related logic.
@@ -220,6 +218,7 @@ type Service struct {
 	projectUsage               *accounting.Service
 	buckets                    buckets.DB
 	placements                 nodeselection.PlacementDefinitions
+	placementNameLookup        map[string]storj.PlacementConstraint
 	accounts                   payments.Accounts
 	depositWallets             payments.DepositWallets
 	billing                    billing.TransactionsDB
@@ -232,6 +231,7 @@ type Service struct {
 	emission                   *emission.Service
 	kmsService                 *kms.Service
 	ssoService                 *sso.Service
+	valdiService               *valdi.Service
 
 	satelliteAddress string
 	satelliteName    string
@@ -272,7 +272,7 @@ func NewService(log *zap.Logger, store DB, restKeys RESTKeys, projectAccounting 
 	billingDb billing.TransactionsDB, analytics *analytics.Service, tokens *consoleauth.Service, mailService *mailservice.Service,
 	accountFreezeService *AccountFreezeService, emission *emission.Service, kmsService *kms.Service, ssoService *sso.Service, satelliteAddress string,
 	satelliteName string, maxProjectBuckets int, ssoEnabled bool, placements nodeselection.PlacementDefinitions,
-	objectLockAndVersioningConfig ObjectLockAndVersioningConfig, config Config) (*Service, error) {
+	objectLockAndVersioningConfig ObjectLockAndVersioningConfig, valdiService *valdi.Service, config Config) (*Service, error) {
 	if store == nil {
 		return nil, errs.New("store can't be nil")
 	}
@@ -305,20 +305,16 @@ func NewService(log *zap.Logger, store DB, restKeys RESTKeys, projectAccounting 
 		partners[partner] = struct{}{}
 	}
 
-	objectLockAndVersioningConfig.projectMap = make(map[uuid.UUID]struct{}, len(objectLockAndVersioningConfig.UseBucketLevelObjectVersioningProjects))
-	for _, id := range objectLockAndVersioningConfig.UseBucketLevelObjectVersioningProjects {
-		projectID, err := uuid.FromString(id)
-		if err != nil {
-			return nil, Error.Wrap(err)
-		}
-		objectLockAndVersioningConfig.projectMap[projectID] = struct{}{}
-	}
-
 	paymentSourceChainIDs := make(map[int64]string)
 	for source, IDs := range billing.SourceChainIDs {
 		for _, ID := range IDs {
 			paymentSourceChainIDs[ID] = source
 		}
+	}
+
+	placementNameLookup := make(map[string]storj.PlacementConstraint, len(placements))
+	for _, placement := range placements {
+		placementNameLookup[placement.Name] = placement.ID
 	}
 
 	return &Service{
@@ -330,6 +326,7 @@ func NewService(log *zap.Logger, store DB, restKeys RESTKeys, projectAccounting 
 		projectUsage:                  projectUsage,
 		buckets:                       buckets,
 		placements:                    placements,
+		placementNameLookup:           placementNameLookup,
 		accounts:                      accounts,
 		depositWallets:                depositWallets,
 		billing:                       billingDb,
@@ -341,6 +338,7 @@ func NewService(log *zap.Logger, store DB, restKeys RESTKeys, projectAccounting 
 		accountFreezeService:          accountFreezeService,
 		emission:                      emission,
 		kmsService:                    kmsService,
+		valdiService:                  valdiService,
 		ssoService:                    ssoService,
 		satelliteAddress:              satelliteAddress,
 		satelliteName:                 satelliteName,
@@ -404,6 +402,44 @@ func (s *Service) getUserAndAuditLog(ctx context.Context, operation string, extr
 // Payments separates all payment related functionality.
 func (s *Service) Payments() Payments {
 	return Payments{service: s}
+}
+
+// GetValdiAPIKey gets a valdi API key. If one doesn't exist, it is created. If a valdi user needs to be created first, it creates that too.
+func (s *Service) GetValdiAPIKey(ctx context.Context, projectID uuid.UUID) (key *valdiclient.CreateAPIKeyResponse, status int, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	user, err := s.getUserAndAuditLog(ctx, "get valdi api key", zap.String("projectID", projectID.String()))
+	if err != nil {
+		return nil, http.StatusInternalServerError, Error.Wrap(err)
+	}
+
+	// TODO: all project members?
+	_, p, err := s.isProjectOwner(ctx, user.ID, projectID)
+	if err != nil {
+		status = http.StatusInternalServerError
+		if ErrUnauthorized.Has(err) || errs.Is(err, sql.ErrNoRows) {
+			status = http.StatusUnauthorized
+		}
+		return nil, status, Error.Wrap(err)
+	}
+
+	// shouldn't be nil if err is nil, but just check it anyway
+	if p == nil {
+		return nil, http.StatusInternalServerError, Error.Wrap(errs.New("nil project"))
+	}
+
+	key, status, err = s.valdiService.CreateAPIKey(ctx, p.PublicID)
+	if status != http.StatusNotFound {
+		return key, status, Error.Wrap(err)
+	}
+
+	status, err = s.valdiService.CreateUser(ctx, p.PublicID)
+	if err != nil {
+		return nil, status, Error.Wrap(err)
+	}
+
+	key, status, err = s.valdiService.CreateAPIKey(ctx, p.PublicID)
+	return key, status, Error.Wrap(err)
 }
 
 // SetupAccount creates payment account for authorized user.
@@ -481,11 +517,11 @@ func (payment Payments) RemoveTaxID(ctx context.Context, id string) (_ *payments
 	return newInfo, Error.Wrap(err)
 }
 
-// GetBillingInformation updates a user's billing information.
+// GetBillingInformation gets a user's billing information.
 func (payment Payments) GetBillingInformation(ctx context.Context) (information *payments.BillingInformation, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	user, err := payment.service.getUserAndAuditLog(ctx, "save billing information")
+	user, err := payment.service.getUserAndAuditLog(ctx, "get billing information")
 	if err != nil {
 		return nil, Error.Wrap(err)
 	}
@@ -541,6 +577,23 @@ func (payment Payments) AddCreditCard(ctx context.Context, creditCardToken strin
 	}
 
 	return card, nil
+}
+
+// UpdateCreditCard is used to update credit card details.
+func (payment Payments) UpdateCreditCard(ctx context.Context, params payments.CardUpdateParams) (err error) {
+	defer mon.Task()(&ctx, params.CardID)(&err)
+
+	user, err := payment.service.getUserAndAuditLog(ctx, "update credit card")
+	if err != nil {
+		return Error.Wrap(err)
+	}
+
+	err = payment.service.accounts.CreditCards().Update(ctx, user.ID, params)
+	if err != nil {
+		return Error.Wrap(err)
+	}
+
+	return nil
 }
 
 // AddCardByPaymentMethodID is used to save new credit card and attach it to payment account.
@@ -650,6 +703,98 @@ func (payment Payments) ProjectsCharges(ctx context.Context, since, before time.
 	}
 
 	return payment.service.accounts.ProjectCharges(ctx, user.ID, since, before)
+}
+
+// AddFunds starts the process of adding funds to the user's account.
+func (payment Payments) AddFunds(ctx context.Context, params payments.AddFundsParams) (response *payments.ChargeCardResponse, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	user, err := payment.service.getUserAndAuditLog(ctx, "add funds")
+	if err != nil {
+		return nil, ErrUnauthorized.Wrap(err)
+	}
+
+	if params.CardID == "" {
+		return nil, ErrValidation.New("card id is required")
+	}
+	if params.Amount < payment.service.config.MinAddFundsAmount {
+		return nil, ErrValidation.New("amount is too low")
+	}
+	if params.Amount > payment.service.config.MaxAddFundsAmount {
+		return nil, ErrValidation.New("amount is too high")
+	}
+
+	response, err = payment.service.accounts.PaymentIntents().ChargeCard(ctx, payments.ChargeCardRequest{
+		UserID:   user.ID,
+		CardID:   params.CardID,
+		Amount:   int64(params.Amount),
+		Metadata: map[string]string{"user_id": user.ID.String()},
+	})
+	if err != nil {
+		return nil, Error.Wrap(err)
+	}
+
+	return response, nil
+}
+
+// HandleWebhookEvent handles any event from payment provider.
+func (payment Payments) HandleWebhookEvent(ctx context.Context, signature string, payload []byte) (err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	event, err := payment.service.accounts.WebhookEvents().ParseEvent(ctx, signature, payload)
+	if err != nil {
+		return Error.Wrap(err)
+	}
+
+	// TODO: handle other events if needed.
+	if event.Type != payments.EventTypePaymentIntentSucceeded {
+		return nil
+	}
+
+	err = payment.handlePaymentIntentSucceeded(ctx, event)
+	if err != nil {
+		return Error.Wrap(err)
+	}
+
+	return nil
+}
+
+func (payment Payments) handlePaymentIntentSucceeded(ctx context.Context, event *payments.WebhookEvent) (err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	// Unlikely to happen, but just in case.
+	if event == nil {
+		return errs.New("webhook event is nil")
+	}
+
+	metadata, ok := event.Data["metadata"].(map[string]interface{})
+	if !ok {
+		return errs.New("webhook event metadata missing or invalid")
+	}
+
+	userIDStr, ok := metadata["user_id"].(string)
+	if !ok {
+		return errs.New("user_id missing in webhook event metadata")
+	}
+
+	amount, ok := event.Data["amount"].(float64)
+	if !ok {
+		return errs.New("amount missing in webhook event data")
+	}
+
+	userID, err := uuid.FromString(userIDStr)
+	if err != nil {
+		return err
+	}
+
+	description := fmt.Sprintf("Credit applied via webhook event: %s", event.ID)
+
+	_, err = payment.service.accounts.Balances().ApplyCredit(ctx, userID, int64(amount), description)
+	if err != nil {
+		return err
+	}
+
+	return nil
 }
 
 // ListCreditCards returns a list of credit cards for a given payment account.
@@ -952,22 +1097,29 @@ func (s *Service) VerifyRegistrationCaptcha(ctx context.Context, captchaResp, us
 	return true, nil, nil
 }
 
+// ValidateSecurityToken validates a signed security token.
+func (s *Service) ValidateSecurityToken(value string) error {
+	token, err := consoleauth.FromBase64URLString(value)
+	if err != nil {
+		return err
+	}
+
+	valid, err := s.tokens.ValidateToken(token)
+	if err != nil {
+		return err
+	}
+	if !valid {
+		return errs.New("Invalid security token")
+	}
+
+	return nil
+}
+
 // CreateUser gets password hash value and creates new inactive User.
 func (s *Service) CreateUser(ctx context.Context, user CreateUser, tokenSecret RegistrationSecret) (u *User, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	mon.Counter("create_user_attempt").Inc(1) //mon:locked
-
-	valid, captchaScore, err := s.VerifyRegistrationCaptcha(ctx, user.CaptchaResponse, user.IP)
-	if err != nil {
-		mon.Counter("create_user_captcha_error").Inc(1) //mon:locked
-		s.log.Error("captcha authorization failed", zap.Error(err))
-		return nil, ErrCaptcha.Wrap(err)
-	}
-	if !valid {
-		mon.Counter("create_user_captcha_unsuccessful").Inc(1) //mon:locked
-		return nil, ErrCaptcha.New("captcha validation unsuccessful")
-	}
 
 	if err := user.IsValid(user.AllowNoName); err != nil {
 		// NOTE: error is already wrapped with an appropriated class.
@@ -1004,7 +1156,7 @@ func (s *Service) CreateUser(ctx context.Context, user CreateUser, tokenSecret R
 			EmployeeCount:    user.EmployeeCount,
 			HaveSalesContact: user.HaveSalesContact,
 			SignupPromoCode:  user.SignupPromoCode,
-			SignupCaptcha:    captchaScore,
+			SignupCaptcha:    user.CaptchaScore,
 			ActivationCode:   user.ActivationCode,
 			SignupId:         user.SignupId,
 			PaidTier:         user.PaidTier,
@@ -1082,6 +1234,21 @@ func (s *Service) CreateUser(ctx context.Context, user CreateUser, tokenSecret R
 	mon.Counter("create_user_success").Inc(1) //mon:locked
 
 	return u, nil
+}
+
+// UpdateUserHubspotObjectID updates user's hubspot object ID value.
+func (s *Service) UpdateUserHubspotObjectID(ctx context.Context, userID uuid.UUID, objectID string) (err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	user, err := s.GetUser(ctx, userID)
+	if err != nil {
+		return Error.Wrap(err)
+	}
+
+	s.auditLog(ctx, "update user's hubspot object id", &user.ID, user.Email)
+
+	objectIDPtr := &objectID
+	return s.store.Users().Update(ctx, userID, UpdateUserRequest{HubspotObjectID: &objectIDPtr})
 }
 
 // UpdateUserOnSignup gets new password hash value and updates old inactive User.
@@ -1292,7 +1459,8 @@ func (s *Service) GetUserForSsoAuth(ctx context.Context, claims sso.OidcSsoClaim
 		}
 	}
 
-	if user.ExternalID == nil {
+	if user.ExternalID == nil || *user.ExternalID != externalID {
+		s.log.Info("updating external ID", zap.String("userID", user.ID.String()), zap.String("email", user.Email))
 		// associate existing user with this external ID.
 		err = s.UpdateExternalID(ctx, user, externalID)
 		if err != nil {
@@ -1345,8 +1513,18 @@ func (s *Service) GeneratePasswordRecoveryToken(ctx context.Context, user *User)
 	return resetPasswordToken.Secret.String(), nil
 }
 
+// SessionTokenRequest contains information needed to create a session token.
+type SessionTokenRequest struct {
+	UserID         uuid.UUID
+	Email          string
+	IP             string
+	UserAgent      string
+	AnonymousID    string
+	CustomDuration *time.Duration
+}
+
 // GenerateSessionToken creates a new session and returns the string representation of its token.
-func (s *Service) GenerateSessionToken(ctx context.Context, userID uuid.UUID, email, ip, userAgent string, customDuration *time.Duration) (_ *TokenInfo, err error) {
+func (s *Service) GenerateSessionToken(ctx context.Context, req SessionTokenRequest) (_ *TokenInfo, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	sessionID, err := uuid.New()
@@ -1355,10 +1533,10 @@ func (s *Service) GenerateSessionToken(ctx context.Context, userID uuid.UUID, em
 	}
 
 	duration := s.config.Session.Duration
-	if customDuration != nil {
-		duration = *customDuration
+	if req.CustomDuration != nil {
+		duration = *req.CustomDuration
 	} else if s.config.Session.InactivityTimerEnabled {
-		settings, err := s.store.Users().GetSettings(ctx, userID)
+		settings, err := s.store.Users().GetSettings(ctx, req.UserID)
 		if err != nil && !errs.Is(err, sql.ErrNoRows) {
 			return nil, Error.Wrap(err)
 		}
@@ -1370,7 +1548,7 @@ func (s *Service) GenerateSessionToken(ctx context.Context, userID uuid.UUID, em
 	}
 	expiresAt := time.Now().Add(duration)
 
-	_, err = s.store.WebappSessions().Create(ctx, sessionID, userID, ip, userAgent, expiresAt)
+	_, err = s.store.WebappSessions().Create(ctx, sessionID, req.UserID, req.IP, req.UserAgent, expiresAt)
 	if err != nil {
 		return nil, err
 	}
@@ -1383,9 +1561,9 @@ func (s *Service) GenerateSessionToken(ctx context.Context, userID uuid.UUID, em
 	}
 	token.Signature = signature
 
-	s.auditLog(ctx, "login", &userID, email)
+	s.auditLog(ctx, "login", &req.UserID, req.Email)
 
-	s.analytics.TrackSignedIn(userID, email)
+	s.analytics.TrackSignedIn(req.UserID, req.Email, req.AnonymousID)
 
 	return &TokenInfo{
 		Token:     token,
@@ -1752,7 +1930,14 @@ func (s *Service) Token(ctx context.Context, request AuthUser) (response *TokenI
 		weekDuration := 7 * 24 * time.Hour
 		customDurationPtr = &weekDuration
 	}
-	response, err = s.GenerateSessionToken(ctx, user.ID, user.Email, request.IP, request.UserAgent, customDurationPtr)
+	response, err = s.GenerateSessionToken(ctx, SessionTokenRequest{
+		UserID:         user.ID,
+		Email:          user.Email,
+		IP:             request.IP,
+		UserAgent:      request.UserAgent,
+		AnonymousID:    request.AnonymousID,
+		CustomDuration: customDurationPtr,
+	})
 	if err != nil {
 		return nil, err
 	}
@@ -1875,6 +2060,16 @@ func (s *Service) logInVerifyMFA(ctx context.Context, user *User, request AuthUs
 	return nil
 }
 
+// LoadAjsAnonymousID looks for ajs_anonymous_id cookie.
+// this cookie is set from the website if the user opts into cookies from Storj.
+func LoadAjsAnonymousID(req *http.Request) string {
+	cookie, err := req.Cookie("ajs_anonymous_id")
+	if err != nil {
+		return ""
+	}
+	return cookie.Value
+}
+
 // TokenByAPIKey authenticates User by API Key and returns session token.
 func (s *Service) TokenByAPIKey(ctx context.Context, userAgent string, ip string, apiKey string) (response *TokenInfo, err error) {
 	defer mon.Task()(&ctx)(&err)
@@ -1889,7 +2084,14 @@ func (s *Service) TokenByAPIKey(ctx context.Context, userAgent string, ip string
 		return nil, Error.New(failedToRetrieveUserErrMsg)
 	}
 
-	response, err = s.GenerateSessionToken(ctx, user.ID, user.Email, ip, userAgent, nil)
+	response, err = s.GenerateSessionToken(ctx, SessionTokenRequest{
+		UserID:         user.ID,
+		Email:          user.Email,
+		IP:             ip,
+		UserAgent:      userAgent,
+		AnonymousID:    "",
+		CustomDuration: nil,
+	})
 	if err != nil {
 		return nil, Error.New(generateSessionTokenErrMsg)
 	}
@@ -2679,6 +2881,11 @@ func (s *Service) UpdateAccount(ctx context.Context, fullName string, shortName 
 		return ErrValidation.Wrap(err)
 	}
 
+	err = s.ValidateFreeFormFieldLengths(&fullName, &shortName)
+	if err != nil {
+		return err
+	}
+
 	user.FullName = fullName
 	user.ShortName = shortName
 	shortNamePtr := &user.ShortName
@@ -2709,6 +2916,14 @@ func (s *Service) SetupAccount(ctx context.Context, requestData SetUpAccountRequ
 	companyName, err := s.getValidatedCompanyName(&requestData)
 	if err != nil {
 		return ErrValidation.Wrap(err)
+	}
+
+	err = s.ValidateFreeFormFieldLengths(
+		requestData.StorageUseCase, requestData.OtherUseCase,
+		requestData.Position, requestData.FunctionalArea,
+	)
+	if err != nil {
+		return err
 	}
 
 	err = s.store.Users().Update(ctx, user.ID, UpdateUserRequest{
@@ -2992,6 +3207,7 @@ func (s *Service) GetEmissionImpact(ctx context.Context, projectID uuid.UUID) (*
 func (s *Service) GetProjectConfig(ctx context.Context, projectID uuid.UUID) (*ProjectConfig, error) {
 	var err error
 	defer mon.Task()(&ctx)(&err)
+
 	user, err := s.getUserAndAuditLog(ctx, "get project config", zap.String("projectID", projectID.String()))
 	if err != nil {
 		return nil, ErrUnauthorized.Wrap(err)
@@ -3003,6 +3219,11 @@ func (s *Service) GetProjectConfig(ctx context.Context, projectID uuid.UUID) (*P
 	}
 
 	project := isMember.project
+
+	salt, err := s.store.Projects().GetSalt(ctx, project.ID)
+	if err != nil {
+		return nil, Error.Wrap(err)
+	}
 
 	isOwnerPaidTier, err := s.store.Users().GetUserPaidTier(ctx, project.OwnerID)
 	if err != nil {
@@ -3032,45 +3253,18 @@ func (s *Service) GetProjectConfig(ctx context.Context, projectID uuid.UUID) (*P
 		s.analytics.TrackManagedEncryptionError(user.ID, user.Email, project.ID, "kms service not enabled on satellite")
 	}
 
-	versioningUIEnabled, promptForVersioningBeta := s.GetObjectVersioningUIEnabledByProject(project)
 	return &ProjectConfig{
-		VersioningUIEnabled:     versioningUIEnabled,
-		ObjectLockUIEnabled:     s.objectLockAndVersioningConfig.ObjectLockEnabled && versioningUIEnabled,
-		PromptForVersioningBeta: promptForVersioningBeta && project.OwnerID == user.ID,
-		HasManagedPassphrase:    hasManagedPassphrase,
-		Passphrase:              string(passphrase),
-		IsOwnerPaidTier:         isOwnerPaidTier,
-		Role:                    isMember.membership.Role,
+		HasManagedPassphrase: hasManagedPassphrase,
+		Passphrase:           string(passphrase),
+		IsOwnerPaidTier:      isOwnerPaidTier,
+		Role:                 isMember.membership.Role,
+		Salt:                 base64.StdEncoding.EncodeToString(salt),
 	}, nil
 }
 
-// GetObjectLockUIEnabledByProject returns whether object lock is enabled for the project.
-func (s *Service) GetObjectLockUIEnabledByProject(project *Project) bool {
-	if !s.objectLockAndVersioningConfig.ObjectLockEnabled {
-		return false
-	}
-	versioningEnabled, _ := s.GetObjectVersioningUIEnabledByProject(project)
-	return versioningEnabled
-}
-
-// GetObjectVersioningUIEnabledByProject returns whether object versioning is enabled for the project.
-func (s *Service) GetObjectVersioningUIEnabledByProject(project *Project) (versioningUIEnabled bool, promptForVersioningBeta bool) {
-	versioningUIEnabled = true
-	promptForVersioningBeta = false
-	if !s.objectLockAndVersioningConfig.UseBucketLevelObjectVersioning {
-		if _, ok := s.objectLockAndVersioningConfig.projectMap[project.ID]; !ok {
-			if !project.PromptedForVersioningBeta {
-				promptForVersioningBeta = true
-				versioningUIEnabled = false
-			} else if project.PromptedForVersioningBeta && project.DefaultVersioning != VersioningUnsupported {
-				versioningUIEnabled = true
-			} else {
-				versioningUIEnabled = false
-			}
-		}
-	}
-
-	return versioningUIEnabled, promptForVersioningBeta
+// GetObjectLockUIEnabled returns whether object lock is enabled.
+func (s *Service) GetObjectLockUIEnabled() bool {
+	return s.objectLockAndVersioningConfig.UseBucketLevelObjectVersioning && s.objectLockAndVersioningConfig.ObjectLockEnabled
 }
 
 // GetUsersProjects is a method for querying all projects.
@@ -3110,6 +3304,7 @@ func (s *Service) GetMinimalProject(project *Project) ProjectInfo {
 		StorageUsed:   project.StorageUsed,
 		BandwidthUsed: project.BandwidthUsed,
 		Versioning:    project.DefaultVersioning,
+		Placement:     project.DefaultPlacement,
 	}
 
 	if edgeURLs, ok := s.config.PlacementEdgeURLOverrides.Get(project.DefaultPlacement); ok {
@@ -3161,6 +3356,51 @@ func (s *Service) GetUsersOwnedProjectsPage(ctx context.Context, cursor Projects
 	}
 
 	return page, nil
+}
+
+// JoinCunoFSBeta is a method for tracking user joined cunoFS beta.
+func (s *Service) JoinCunoFSBeta(ctx context.Context, data analytics.TrackJoinCunoFSBetaFields) (err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	user, err := s.getUserAndAuditLog(ctx, "join cunoFS beta")
+	if err != nil {
+		return ErrUnauthorized.Wrap(err)
+	}
+
+	if user.Status == PendingBotVerification {
+		return ErrBotUser.New(contactSupportErrMsg)
+	}
+
+	settings, err := s.store.Users().GetSettings(ctx, user.ID)
+	if err != nil {
+		if !errs.Is(err, sql.ErrNoRows) {
+			return Error.Wrap(err)
+		}
+	}
+
+	var noticeDismissal NoticeDismissal
+	betaJoined := false
+	if settings != nil {
+		betaJoined = settings.NoticeDismissal.CunoFSBetaJoined
+		noticeDismissal = settings.NoticeDismissal
+	}
+	if betaJoined {
+		return ErrConflict.New("user already joined cunoFS beta")
+	}
+
+	data.Email = user.Email
+
+	s.analytics.JoinCunoFSBeta(data)
+
+	noticeDismissal.CunoFSBetaJoined = true
+	err = s.store.Users().UpsertSettings(ctx, user.ID, UpsertUserSettingsRequest{
+		NoticeDismissal: &noticeDismissal,
+	})
+	if err != nil {
+		return errs.Combine(Error.New("Your submission was successfully received, but something else went wrong"), err)
+	}
+
+	return nil
 }
 
 // CreateProject is a method for creating new project.
@@ -3569,38 +3809,6 @@ func (s *Service) validateLimits(ctx context.Context, project *Project, updatedL
 	return nil
 }
 
-// UpdateVersioningOptInStatus updates the default versioning of a project.
-// It is intended to be used to opt projects into versioning beta i.e.:
-// console.VersioningUnsupported = opt out
-// console.Unversioned or console.VersioningEnabled = opt in.
-func (s *Service) UpdateVersioningOptInStatus(ctx context.Context, projectID uuid.UUID, optInStatus VersioningOptInStatus) error {
-	var err error
-	defer mon.Task()(&ctx)(&err)
-
-	user, err := s.getUserAndAuditLog(ctx, "update versioning opt-in status", zap.String("projectID", projectID.String()))
-	if err != nil {
-		return Error.Wrap(err)
-	}
-
-	_, project, err := s.isProjectOwner(ctx, user.ID, projectID)
-	if err != nil {
-		return Error.Wrap(err)
-	}
-
-	project.PromptedForVersioningBeta = true
-	err = s.store.Projects().Update(ctx, project)
-	if err != nil {
-		return Error.Wrap(err)
-	}
-
-	versioning := VersioningUnsupported
-	if optInStatus == VersioningOptIn {
-		versioning = Unversioned
-	}
-
-	return Error.Wrap(s.store.Projects().UpdateDefaultVersioning(ctx, project.ID, versioning))
-}
-
 // RequestLimitIncrease is a method for requesting limit increase for a project.
 func (s *Service) RequestLimitIncrease(ctx context.Context, projectID uuid.UUID, info LimitRequestInfo) (err error) {
 	defer mon.Task()(&ctx)(&err)
@@ -3896,7 +4104,7 @@ func (s *Service) DeleteProjectMembersAndInvitations(ctx context.Context, projec
 func (s *Service) UpdateProjectMemberRole(ctx context.Context, memberID, projectID uuid.UUID, newRole ProjectMemberRole) (pm *ProjectMember, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	user, err := s.getUserAndAuditLog(ctx, "update project member role", zap.String("projectID", projectID.String()))
+	user, err := s.getUserAndAuditLog(ctx, "update project member role", zap.String("projectID", projectID.String()), zap.String("updatedMemberID", memberID.String()), zap.String("newRole", newRole.String()))
 	if err != nil {
 		return nil, ErrUnauthorized.Wrap(err)
 	}
@@ -4436,6 +4644,8 @@ func (s *Service) GetSingleBucketTotals(ctx context.Context, projectID uuid.UUID
 		return nil, Error.Wrap(err)
 	}
 
+	usage.Location = s.placements[usage.DefaultPlacement].Name
+
 	return usage, nil
 }
 
@@ -4516,6 +4726,27 @@ func (s *Service) GetBucketMetadata(ctx context.Context, projectID uuid.UUID) (l
 	}
 
 	return list, nil
+}
+
+// GetPlacementDetails retrieves all placement with human-readable details available to a project's user agent.
+func (s *Service) GetPlacementDetails(ctx context.Context, projectID uuid.UUID) (_ []PlacementDetail, err error) {
+	user, err := GetUser(ctx)
+	if err != nil {
+		return nil, ErrUnauthorized.Wrap(err)
+	}
+	isMember, err := s.isProjectMember(ctx, user.ID, projectID)
+	if err != nil {
+		return nil, ErrUnauthorized.Wrap(err)
+	}
+
+	details := make([]PlacementDetail, 0)
+	placements := s.accounts.GetPartnerPlacements(string(isMember.project.UserAgent))
+	for _, placement := range placements {
+		if detail, ok := s.config.SelfServePlacementDetails.detailMap[placement]; ok {
+			details = append(details, detail)
+		}
+	}
+	return details, nil
 }
 
 // GetUsageReport retrieves usage rollups for every bucket of a single or all the user owned projects for a given period.
@@ -5055,6 +5286,14 @@ func (s *Service) isProjectMember(ctx context.Context, userID uuid.UUID, project
 	return isProjectMember{}, ErrNoMembership.New(unauthorizedErrMsg)
 }
 
+// GetPlacementByName returns the placement constraint by name.
+func (s *Service) GetPlacementByName(name string) (storj.PlacementConstraint, error) {
+	if placement, ok := s.placementNameLookup[name]; ok {
+		return placement, nil
+	}
+	return storj.DefaultPlacement, ErrPlacementNotFound.New("")
+}
+
 // WalletInfo contains all the information about a destination wallet assigned to a user.
 type WalletInfo struct {
 	Address blockchain.Address `json:"address"`
@@ -5357,6 +5596,19 @@ func (payment Payments) GetProjectUsagePriceModel(partner string) (_ *payments.P
 	return &model
 }
 
+// GetPartnerPlacementPriceModel returns the project usage price model for the project's user agent and placement.
+func (payment Payments) GetPartnerPlacementPriceModel(ctx context.Context, projectID uuid.UUID, placement storj.PlacementConstraint) (payments.ProjectUsagePriceModel, error) {
+	user, err := GetUser(ctx)
+	if err != nil {
+		return payments.ProjectUsagePriceModel{}, ErrUnauthorized.Wrap(err)
+	}
+	isMember, err := payment.service.isProjectMember(ctx, user.ID, projectID)
+	if err != nil {
+		return payments.ProjectUsagePriceModel{}, ErrUnauthorized.Wrap(err)
+	}
+	return payment.service.accounts.GetPartnerPlacementPriceModel(string(isMember.project.UserAgent), placement)
+}
+
 func findMembershipByProjectID(memberships []ProjectMember, projectID uuid.UUID) (ProjectMember, bool) {
 	for _, membership := range memberships {
 		if membership.ProjectID == projectID {
@@ -5505,7 +5757,19 @@ func (s *Service) GetUserSettings(ctx context.Context) (settings *UserSettings, 
 func (s *Service) SetUserSettings(ctx context.Context, request UpsertUserSettingsRequest) (settings *UserSettings, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	user, err := s.getUserAndAuditLog(ctx, "get user settings")
+	fields := []zapcore.Field{}
+
+	if request.OnboardingStart != nil {
+		fields = append(fields, zap.Bool("onboardingStart", *request.OnboardingStart))
+	}
+	if request.OnboardingEnd != nil {
+		fields = append(fields, zap.Bool("onboardingEnd", *request.OnboardingEnd))
+	}
+	if request.OnboardingStep != nil {
+		fields = append(fields, zap.String("onboardingStep", *request.OnboardingStep))
+	}
+
+	user, err := s.getUserAndAuditLog(ctx, "set user settings", fields...)
 	if err != nil {
 		return nil, Error.Wrap(err)
 	}
@@ -5966,22 +6230,6 @@ func (s *Service) ParseInviteToken(ctx context.Context, token string) (publicID 
 	return claims.ID, claims.Email, nil
 }
 
-// TestSetObjectLockAndVersioningConfig allows tests to switch the versioning config.
-func (s *Service) TestSetObjectLockAndVersioningConfig(config ObjectLockAndVersioningConfig) error {
-	config.projectMap = make(map[uuid.UUID]struct{}, len(config.UseBucketLevelObjectVersioningProjects))
-	for _, id := range config.UseBucketLevelObjectVersioningProjects {
-		projectID, err := uuid.FromString(id)
-		if err != nil {
-			return Error.Wrap(err)
-		}
-		config.projectMap[projectID] = struct{}{}
-	}
-
-	s.objectLockAndVersioningConfig = config
-
-	return nil
-}
-
 // TestSetNow allows tests to have the Service act as if the current time is whatever they want.
 func (s *Service) TestSetNow(now func() time.Time) {
 	s.nowFn = now
@@ -5996,4 +6244,26 @@ func (s *Service) TestToggleSatelliteManagedEncryption(b bool) {
 func (s *Service) TestToggleSsoEnabled(enabled bool, ssoService *sso.Service) {
 	s.ssoEnabled = enabled
 	s.ssoService = ssoService
+}
+
+// ValidateFreeFormFieldLengths checks if any of the given values
+// exceeds the maximum length.
+func (s *Service) ValidateFreeFormFieldLengths(values ...*string) error {
+	for _, value := range values {
+		if value != nil && len(*value) > s.config.MaxNameCharacters {
+			return ErrValidation.New("field length exceeds maximum length %d", s.config.MaxNameCharacters)
+		}
+	}
+	return nil
+}
+
+// ValidateLongFormInputLengths checks if any of the given values
+// exceeds the maximum length for long form fields.
+func (s *Service) ValidateLongFormInputLengths(values ...*string) error {
+	for _, value := range values {
+		if value != nil && len(*value) > s.config.MaxLongFormFieldCharacters {
+			return ErrValidation.New("field length exceeds maximum length %d", s.config.MaxLongFormFieldCharacters)
+		}
+	}
+	return nil
 }

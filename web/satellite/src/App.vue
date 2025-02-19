@@ -21,7 +21,6 @@
 
 <script setup lang="ts">
 import { computed, onBeforeMount, onBeforeUnmount, ref, watch } from 'vue';
-import { useTheme } from 'vuetify';
 import { useRoute, useRouter } from 'vue-router';
 
 import { useConfigStore } from '@/store/modules/configStore';
@@ -44,6 +43,7 @@ import { EdgeCredentials } from '@/types/accessGrants';
 import { useObjectBrowserStore } from '@/store/modules/objectBrowserStore';
 import { ProjectConfig } from '@/types/projects';
 import { PaymentStatus, PaymentWithConfirmations } from '@/types/payments';
+import { DARK_THEME_QUERY, useThemeStore } from '@/store/modules/themeStore';
 
 import Notifications from '@/layouts/default/Notifications.vue';
 import ErrorPage from '@/components/ErrorPage.vue';
@@ -56,6 +56,7 @@ const abTestingStore = useABTestingStore();
 const billingStore = useBillingStore();
 const bucketsStore = useBucketsStore();
 const configStore = useConfigStore();
+const themeStore = useThemeStore();
 const usersStore = useUsersStore();
 const obStore = useObjectBrowserStore();
 const projectsStore = useProjectsStore();
@@ -63,10 +64,11 @@ const analyticsStore = useAnalyticsStore();
 
 const notify = useNotify();
 const router = useRouter();
-const theme = useTheme();
 const route = useRoute();
 
 const isLoading = ref<boolean>(true);
+
+const darkThemeMediaQuery = window.matchMedia(DARK_THEME_QUERY);
 
 /**
  * Returns pending payments from store.
@@ -181,16 +183,15 @@ function totalValueCounter(list: PaymentWithConfirmations[], field: keyof Paymen
     }, 0);
 }
 
+function onThemeChange(e: MediaQueryListEvent) {
+    themeStore.setThemeLightness(!e.matches);
+}
+
 /**
  * Lifecycle hook before initial render.
  * Sets up variables from meta tags from config such satellite name, etc.
  */
 onBeforeMount(async (): Promise<void> => {
-    const savedTheme = localStorage.getItem('theme') || 'light';
-    if ((savedTheme === 'dark' && !theme.global.current.value.dark) || (savedTheme === 'light' && theme.global.current.value.dark)) {
-        theme.global.name.value = savedTheme;
-    }
-
     try {
         await configStore.getConfig();
     } catch (error) {
@@ -357,7 +358,16 @@ watch(() => projectsStore.state.selectedProject, async (project, oldProject) => 
     }
 });
 
+watch(() => themeStore.state.name, (theme) => {
+    if (theme === 'auto') {
+        darkThemeMediaQuery.addEventListener('change', onThemeChange);
+        return;
+    }
+    darkThemeMediaQuery.removeEventListener('change', onThemeChange);
+}, { immediate: true });
+
 onBeforeUnmount(() => {
     billingStore.stopPaymentsPolling();
+    darkThemeMediaQuery.removeEventListener('change', onThemeChange);
 });
 </script>

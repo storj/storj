@@ -7,6 +7,12 @@ export class BucketsPageObjects {
     static CLOSE_BUTTON_CREATE_BUCKET_FLOW_XPATH = `//button[span[text()='Close']]`;
     static NEXT_BUTTON_CREATE_BUCKET_FLOW_XPATH = `//button[span[text()='Next']]`;
     static CONFIRM_BUTTON_CREATE_BUCKET_FLOW_XPATH = `//button[span[text()='Create Bucket']]`;
+    static OBJECT_LOCK_TITLE_CREATE_BUCKET_FLOW_XPATH = `//p[text()='Do you need object lock?']`;
+    static VERSIONING_TITLE_CREATE_BUCKET_FLOW_XPATH = `//p[text()='Do you want to enable versioning?']`;
+    static YES_BUTTON_CREATE_BUCKET_FLOW_XPATH = `//span[div[text()=' Yes ']]`;
+    static ENABLE_BUTTON_CREATE_BUCKET_FLOW_XPATH = `//span[div[text()=' Enabled ']]`;
+    static ENABLE_LABEL_CREATE_BUCKET_FLOW_XPATH = `//div[text()='Enabled']`;
+    static CONFIRM_SUBTITLE_CREATE_BUCKET_FLOW_XPATH = `//p[text()='You are about to create a new bucket with the following settings:']`;
     static BUCKET_ROW_MORE_BUTTON_XPATH = `//button[@title='Bucket Actions']`;
     static VIEW_BUCKET_DETAILS_BUTTON_XPATH = `//div[div[div[text()=' Bucket Details ']]]`;
     static SHARE_BUCKET_BUTTON_XPATH = `//div[div[div[text()=' Share Bucket ']]]`;

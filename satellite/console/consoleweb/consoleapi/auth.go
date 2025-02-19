@@ -27,6 +27,7 @@ import (
 	"storj.io/storj/satellite/analytics"
 	"storj.io/storj/satellite/console"
 	"storj.io/storj/satellite/console/consoleauth"
+	"storj.io/storj/satellite/console/consoleauth/csrf"
 	"storj.io/storj/satellite/console/consoleauth/sso"
 	"storj.io/storj/satellite/console/consoleweb/consoleapi/utils"
 	"storj.io/storj/satellite/console/consoleweb/consolewebauth"
@@ -61,11 +62,12 @@ type Auth struct {
 	analytics                 *analytics.Service
 	mailService               *mailservice.Service
 	ssoService                *sso.Service
+	csrfService               *csrf.Service
 	cookieAuth                *consolewebauth.CookieAuth
 }
 
 // NewAuth is a constructor for api auth controller.
-func NewAuth(log *zap.Logger, service *console.Service, accountFreezeService *console.AccountFreezeService, mailService *mailservice.Service, cookieAuth *consolewebauth.CookieAuth, analytics *analytics.Service, ssoService *sso.Service, satelliteName, externalAddress, letUsKnowURL, termsAndConditionsURL, contactInfoURL, generalRequestURL string, activationCodeEnabled bool, badPasswords map[string]struct{}) *Auth {
+func NewAuth(log *zap.Logger, service *console.Service, accountFreezeService *console.AccountFreezeService, mailService *mailservice.Service, cookieAuth *consolewebauth.CookieAuth, analytics *analytics.Service, ssoService *sso.Service, csrfService *csrf.Service, satelliteName, externalAddress, letUsKnowURL, termsAndConditionsURL, contactInfoURL, generalRequestURL string, activationCodeEnabled bool, badPasswords map[string]struct{}) *Auth {
 	return &Auth{
 		log:                       log,
 		ExternalAddress:           externalAddress,
@@ -85,6 +87,7 @@ func NewAuth(log *zap.Logger, service *console.Service, accountFreezeService *co
 		analytics:                 analytics,
 		badPasswords:              badPasswords,
 		ssoService:                ssoService,
+		csrfService:               csrfService,
 	}
 }
 
@@ -107,6 +110,7 @@ func (a *Auth) Token(w http.ResponseWriter, r *http.Request) {
 		a.serveJSONError(ctx, w, err)
 		return
 	}
+	tokenRequest.AnonymousID = LoadAjsAnonymousID(r)
 
 	tokenInfo, err := a.service.Token(ctx, tokenRequest)
 	if err != nil {
@@ -143,9 +147,35 @@ func (a *Auth) AuthenticateSso(w http.ResponseWriter, r *http.Request) {
 
 	provider := mux.Vars(r)["provider"]
 
+	stateCookie, err := r.Cookie(a.cookieAuth.GetSSOStateCookieName())
+	if err != nil {
+		a.log.Error("Error verifying SSO auth", zap.Error(console.ErrValidation.New("missing state cookie")))
+		http.Redirect(w, r, ssoFailedAddr, http.StatusPermanentRedirect)
+		return
+	}
+	emailTokenCookie, err := r.Cookie(a.cookieAuth.GetSSOEmailTokenCookieName())
+	if err != nil {
+		a.log.Error("Error verifying SSO auth", zap.Error(console.ErrValidation.New("missing email token cookie")))
+		http.Redirect(w, r, ssoFailedAddr, http.StatusPermanentRedirect)
+		return
+	}
+
 	ssoState := r.URL.Query().Get("state")
 	if ssoState == "" {
-		a.log.Error("Error verifying SSO auth", zap.Error(console.ErrValidation.New("missing email hash")))
+		a.log.Error("Error verifying SSO auth", zap.Error(console.ErrValidation.New("missing state value")))
+		http.Redirect(w, r, ssoFailedAddr, http.StatusPermanentRedirect)
+		return
+	}
+
+	if ssoState != stateCookie.Value {
+		a.log.Error("Error verifying SSO auth", zap.Error(sso.ErrInvalidState.New("")))
+		http.Redirect(w, r, ssoFailedAddr, http.StatusPermanentRedirect)
+		return
+	}
+
+	err = a.service.ValidateSecurityToken(ssoState)
+	if err != nil {
+		a.log.Error("Error verifying SSO auth", zap.Error(sso.ErrInvalidState.New("invalid signature")))
 		http.Redirect(w, r, ssoFailedAddr, http.StatusPermanentRedirect)
 		return
 	}
@@ -157,12 +187,14 @@ func (a *Auth) AuthenticateSso(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	claims, err := a.ssoService.VerifySso(ctx, provider, ssoState, code)
+	claims, err := a.ssoService.VerifySso(ctx, provider, emailTokenCookie.Value, code)
 	if err != nil {
 		a.log.Error("Error verifying SSO auth", zap.Error(err))
 		http.Redirect(w, r, ssoFailedAddr, http.StatusPermanentRedirect)
 		return
 	}
+
+	a.cookieAuth.RemoveSSOCookies(w)
 
 	ip, err := web.GetRequestIP(r)
 	if err != nil {
@@ -179,7 +211,14 @@ func (a *Auth) AuthenticateSso(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	tokenInfo, err := a.service.GenerateSessionToken(ctx, user.ID, user.Email, ip, userAgent, nil)
+	tokenInfo, err := a.service.GenerateSessionToken(ctx, console.SessionTokenRequest{
+		UserID:         user.ID,
+		Email:          user.Email,
+		IP:             ip,
+		UserAgent:      userAgent,
+		AnonymousID:    LoadAjsAnonymousID(r),
+		CustomDuration: nil,
+	})
 	if err != nil {
 		a.log.Error("Failed to generate session token", zap.Error(err))
 		http.Redirect(w, r, ssoFailedAddr, http.StatusPermanentRedirect)
@@ -203,7 +242,7 @@ func (a *Auth) GetSsoUrl(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	ssoUrl, err := url.JoinPath(a.ExternalAddress, "sso", provider)
-	if provider == "" {
+	if err != nil {
 		a.serveJSONError(ctx, w, err)
 		return
 	}
@@ -238,14 +277,25 @@ func (a *Auth) BeginSsoFlow(w http.ResponseWriter, r *http.Request) {
 	if email == "" {
 		a.log.Error("email is required for SSO flow", zap.Error(console.ErrValidation.New("email is required")))
 		http.Redirect(w, r, ssoFailedAddr, http.StatusPermanentRedirect)
+		return
 	}
 
-	state, err := a.ssoService.GetSsoStateFromEmail(email)
+	emailToken, err := a.ssoService.GetSsoEmailToken(email)
 	if err != nil {
-		a.log.Error("failed to get sso state", zap.Error(err))
+		a.log.Error("failed to get security token", zap.Error(err))
 		http.Redirect(w, r, ssoFailedAddr, http.StatusPermanentRedirect)
 		return
 	}
+
+	state, err := a.csrfService.GenerateSecurityToken()
+	if err != nil {
+		a.log.Error("failed to generate sso state", zap.Error(err))
+		http.Redirect(w, r, ssoFailedAddr, http.StatusPermanentRedirect)
+		return
+	}
+
+	a.cookieAuth.SetSSOCookies(w, state, emailToken)
+
 	http.Redirect(w, r, oidcSetup.Config.AuthCodeURL(state), http.StatusFound)
 }
 
@@ -388,6 +438,27 @@ func (a *Auth) Register(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	ip, err := web.GetRequestIP(r)
+	if err != nil {
+		a.serveJSONError(ctx, w, err)
+		return
+	}
+
+	valid, captchaScore, err := a.service.VerifyRegistrationCaptcha(ctx, registerData.CaptchaResponse, ip)
+	if err != nil {
+		mon.Counter("create_user_captcha_error").Inc(1) //mon:locked
+		a.log.Error("captcha authorization failed", zap.Error(err))
+
+		a.serveJSONError(ctx, w, console.ErrCaptcha.Wrap(err))
+		return
+	}
+	if !valid {
+		mon.Counter("create_user_captcha_unsuccessful").Inc(1) //mon:locked
+
+		a.serveJSONError(ctx, w, console.ErrCaptcha.New("captcha validation unsuccessful"))
+		return
+	}
+
 	verified, unverified, err := a.service.GetUserByEmailWithUnverified(ctx, registerData.Email)
 	if err != nil && !console.ErrEmailNotFound.Has(err) {
 		a.serveJSONError(ctx, w, err)
@@ -417,12 +488,6 @@ func (a *Auth) Register(w http.ResponseWriter, r *http.Request) {
 		registerData.UserAgent = []byte(registerData.Partner)
 	}
 
-	ip, err := web.GetRequestIP(r)
-	if err != nil {
-		a.serveJSONError(ctx, w, err)
-		return
-	}
-
 	var code string
 	var requestID string
 	if a.ActivationCodeEnabled {
@@ -449,6 +514,7 @@ func (a *Auth) Register(w http.ResponseWriter, r *http.Request) {
 		EmployeeCount:    registerData.EmployeeCount,
 		HaveSalesContact: registerData.HaveSalesContact,
 		CaptchaResponse:  registerData.CaptchaResponse,
+		CaptchaScore:     captchaScore,
 		IP:               ip,
 		SignupPromoCode:  registerData.SignupPromoCode,
 		ActivationCode:   code,
@@ -497,7 +563,7 @@ func (a *Auth) Register(w http.ResponseWriter, r *http.Request) {
 
 		trackCreateUserFields := analytics.TrackCreateUserFields{
 			ID:            user.ID,
-			AnonymousID:   loadSession(r),
+			AnonymousID:   LoadAjsAnonymousID(r),
 			FullName:      user.FullName,
 			Email:         user.Email,
 			Type:          analytics.Personal,
@@ -710,7 +776,14 @@ func (a *Auth) ActivateAccount(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	tokenInfo, err := a.service.GenerateSessionToken(ctx, user.ID, user.Email, ip, r.UserAgent(), nil)
+	tokenInfo, err := a.service.GenerateSessionToken(ctx, console.SessionTokenRequest{
+		UserID:         user.ID,
+		Email:          user.Email,
+		IP:             ip,
+		UserAgent:      r.UserAgent(),
+		AnonymousID:    LoadAjsAnonymousID(r),
+		CustomDuration: nil,
+	})
 	if err != nil {
 		a.serveJSONError(ctx, w, err)
 		return
@@ -729,14 +802,14 @@ func (a *Auth) ActivateAccount(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-// loadSession looks for a cookie for the session id.
-// this cookie is set from the reverse proxy if the user opts into cookies from Storj.
-func loadSession(req *http.Request) string {
-	sessionCookie, err := req.Cookie("webtraf-sid")
+// LoadAjsAnonymousID looks for ajs_anonymous_id cookie.
+// this cookie is set from the website if the user opts into cookies from Storj.
+func LoadAjsAnonymousID(req *http.Request) string {
+	cookie, err := req.Cookie("ajs_anonymous_id")
 	if err != nil {
 		return ""
 	}
-	return sessionCookie.Value
+	return cookie.Value
 }
 
 // GetFreezeStatus checks to see if an account is frozen or warned.

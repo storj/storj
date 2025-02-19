@@ -2,7 +2,7 @@
 // See LICENSE for copying information.
 
 <template>
-    <v-card variant="outlined" border rounded="xlg">
+    <v-card variant="outlined">
         <v-data-table-server
             :headers="headers"
             :items="page.sessions"
@@ -11,12 +11,13 @@
             :items-per-page-options="tableSizeOptions(page.totalCount)"
             :item-value="(item: Session) => item"
             no-data-text="No results found"
-            @update:itemsPerPage="onUpdateLimit"
+            class="elevation-0 border-0"
+            @update:items-per-page="onUpdateLimit"
             @update:page="onUpdatePage"
-            @update:sortBy="onUpdateSortBy"
+            @update:sort-by="onUpdateSortBy"
         >
             <template #item.isCurrent="{ item }">
-                <v-chip :color="item.isCurrent ? 'success' : 'primary'" label>
+                <v-chip :color="item.isCurrent ? 'success' : 'primary'" class="font-weight-bold" size="small" label>
                     {{ item.isCurrent ? 'Yes' : 'No' }}
                 </v-chip>
             </template>
@@ -33,6 +34,7 @@
                         size="small"
                         class="mr-1 text-caption"
                         :loading="isLoading"
+                        :prepend-icon="LogOut"
                         @click="() => onInvalidate(item)"
                     >
                         {{ item.isCurrent ? 'Logout' : 'Invalidate' }}
@@ -46,6 +48,7 @@
 <script setup lang="ts">
 import { VBtn, VCard, VDataTableServer, VChip } from 'vuetify/components';
 import { computed, onMounted, ref } from 'vue';
+import { LogOut  } from 'lucide-vue-next';
 
 import { Session, SessionsCursor, SessionsOrderBy, SessionsPage } from '@/types/users';
 import { useNotify } from '@/utils/hooks';
@@ -100,7 +103,7 @@ function onUpdatePage(page: number): void {
     fetch(page, cursor.value.limit);
 }
 
-function onUpdateSortBy(sortBy: {key: keyof SessionsOrderBy, order: keyof SortDirection}[]): void {
+function onUpdateSortBy(sortBy: { key: keyof SessionsOrderBy, order: keyof SortDirection }[]): void {
     if (!sortBy.length) return;
 
     const sorting = sortBy[0];

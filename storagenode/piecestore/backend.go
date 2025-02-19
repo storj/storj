@@ -6,6 +6,7 @@ package piecestore
 import (
 	"context"
 	"encoding/binary"
+	"errors"
 	"hash"
 	"io"
 	"io/fs"
@@ -59,7 +60,9 @@ type PieceReader interface {
 
 // HashStoreBackend implements PieceBackend using the hashstore.
 type HashStoreBackend struct {
-	dir string
+	logsPath  string
+	tablePath string
+
 	bfm *retain.BloomFilterManager
 	rtm *retain.RestoreTimeManager
 	log *zap.Logger
@@ -71,19 +74,49 @@ type HashStoreBackend struct {
 // NewHashStoreBackend constructs a new HashStoreBackend with the provided values. The log and hash
 // directory are allowed to be the same.
 func NewHashStoreBackend(
-	dir string,
+	ctx context.Context,
+	logsPath string,
+	tablePath string,
 	bfm *retain.BloomFilterManager,
 	rtm *retain.RestoreTimeManager,
 	log *zap.Logger,
-) *HashStoreBackend {
-	return &HashStoreBackend{
-		dir: dir,
-		bfm: bfm,
-		rtm: rtm,
-		log: log,
+) (*HashStoreBackend, error) {
+
+	if tablePath == "" {
+		tablePath = logsPath
+	}
+
+	hsb := &HashStoreBackend{
+		logsPath:  logsPath,
+		tablePath: tablePath,
+		bfm:       bfm,
+		rtm:       rtm,
+		log:       log,
 
 		dbs: map[storj.NodeID]*hashstore.DB{},
 	}
+
+	// open any existing databases
+	entries, err := os.ReadDir(logsPath)
+	if errors.Is(err, fs.ErrNotExist) {
+		return hsb, nil
+	} else if err != nil {
+		return nil, errs.Wrap(err)
+	}
+	for _, entry := range entries {
+		if !entry.IsDir() {
+			continue
+		}
+		satellite, err := storj.NodeIDFromString(entry.Name())
+		if err != nil {
+			continue // ignore directories that aren't node IDs
+		}
+		if _, err := hsb.getDB(ctx, satellite); err != nil {
+			return nil, errs.Wrap(err)
+		}
+	}
+
+	return hsb, nil
 }
 
 // TestingCompact calls Compact on all of the hashstore databases.
@@ -100,14 +133,16 @@ func (hsb *HashStoreBackend) TestingCompact(ctx context.Context) error {
 }
 
 // Close closes the HashStoreBackend.
-func (hsb *HashStoreBackend) Close() {
+func (hsb *HashStoreBackend) Close() error {
 	hsb.mu.Lock()
 	defer hsb.mu.Unlock()
 
 	for _, db := range hsb.dbs {
 		db.Close()
 	}
+	return nil
 }
+
 func (hsb *HashStoreBackend) dbsCopy() map[storj.NodeID]*hashstore.DB {
 	hsb.mu.Lock()
 	defer hsb.mu.Unlock()
@@ -133,48 +168,22 @@ func (hsb *HashStoreBackend) Stats(cb func(key monkit.SeriesKey, field string, v
 	})
 
 	for _, iddb := range iddbs {
-		monkit.StatSourceFromStruct(
-			monkit.NewSeriesKey("hashstore").WithTag("satellite", iddb.id.String()),
-			iddb.db.Stats(),
-		).Stats(cb)
+		dbStat, s0Stat, s1Stat := iddb.db.Stats()
+		taggedSeries := monkit.NewSeriesKey("hashstore").WithTag("satellite", iddb.id.String())
+		monkit.StatSourceFromStruct(taggedSeries, dbStat).Stats(cb)
+		monkit.StatSourceFromStruct(taggedSeries.WithTag("db", "s0"), s0Stat).Stats(cb)
+		monkit.StatSourceFromStruct(taggedSeries.WithTag("db", "s1"), s1Stat).Stats(cb)
 	}
 }
 
-// SpaceUsage describes the amount of space used by a PieceBackend.
-type SpaceUsage struct {
-	UsedTotal       int64 // total space used including metadata and unreferenced data
-	UsedForPieces   int64 // total space used by live pieces
-	UsedForTrash    int64 // total space used by trash pieces
-	UsedForMetadata int64 // total space used by metadata (hash tables and stuff)
-}
-
-func (su *SpaceUsage) add(osu SpaceUsage) {
-	su.UsedTotal += osu.UsedTotal
-	su.UsedForPieces += osu.UsedForPieces
-	su.UsedForTrash += osu.UsedForTrash
-	su.UsedForMetadata += osu.UsedForMetadata
-}
-
-// SpaceUsageBySatellite describes an aggregate space usage and a space usage for each satellite
-// known about.
-type SpaceUsageBySatellite struct {
-	Aggregate   SpaceUsage
-	BySatellite map[storj.NodeID]SpaceUsage
-}
-
-// SpaceUsage gets a SpaceUsageBySatellite from the HashStoreBackend.
-func (hsb *HashStoreBackend) SpaceUsage() (subs SpaceUsageBySatellite) {
-	subs.BySatellite = make(map[storj.NodeID]SpaceUsage)
-	for id, db := range hsb.dbsCopy() {
-		stats := db.Stats()
-		su := SpaceUsage{
-			UsedTotal:       int64(stats.LenLogs + stats.TableSize),
-			UsedForPieces:   int64(stats.LenSet - stats.LenTrash),
-			UsedForTrash:    int64(stats.LenTrash),
-			UsedForMetadata: int64(stats.TableSize),
-		}
-		subs.BySatellite[id] = su
-		subs.Aggregate.add(su)
+// SpaceUsage gets a monitor.SpaceUsage from the HashStoreBackend.
+func (hsb *HashStoreBackend) SpaceUsage() (subs monitor.SpaceUsage) {
+	for _, db := range hsb.dbsCopy() {
+		stats, _, _ := db.Stats()
+		subs.UsedTotal += int64(stats.LenLogs + stats.TableSize)
+		subs.UsedForPieces += int64(stats.LenSet - stats.LenTrash)
+		subs.UsedForTrash += int64(stats.LenTrash)
+		subs.UsedForMetadata += int64(stats.TableSize)
 	}
 	return subs
 }
@@ -194,14 +203,19 @@ func (hsb *HashStoreBackend) ForgetSatellite(ctx context.Context, satellite stor
 
 	db.Close()
 
-	return os.RemoveAll(hsb.dbDir(satellite))
+	err = os.RemoveAll(filepath.Join(hsb.logsPath, satellite.String()))
+	if err != nil {
+		return errs.Wrap(err)
+	}
+
+	err = os.RemoveAll(filepath.Join(hsb.tablePath, satellite.String()))
+	if err != nil {
+		return errs.Wrap(err)
+	}
+	return nil
 }
 
-func (hsb *HashStoreBackend) dbDir(satellite storj.NodeID) string {
-	return filepath.Join(hsb.dir, satellite.String())
-}
-
-func (hsb *HashStoreBackend) getDB(satellite storj.NodeID) (*hashstore.DB, error) {
+func (hsb *HashStoreBackend) getDB(ctx context.Context, satellite storj.NodeID) (*hashstore.DB, error) {
 	hsb.mu.Lock()
 	defer hsb.mu.Unlock()
 
@@ -209,9 +223,13 @@ func (hsb *HashStoreBackend) getDB(satellite storj.NodeID) (*hashstore.DB, error
 		return db, nil
 	}
 
+	start := time.Now()
+
 	var log *zap.Logger
 	if hsb.log != nil {
 		log = hsb.log.With(zap.String("satellite", satellite.String()))
+	} else {
+		log = zap.NewNop()
 	}
 
 	var (
@@ -228,7 +246,9 @@ func (hsb *HashStoreBackend) getDB(satellite storj.NodeID) (*hashstore.DB, error
 	}
 
 	db, err := hashstore.New(
-		hsb.dbDir(satellite),
+		ctx,
+		filepath.Join(hsb.logsPath, satellite.String()),
+		filepath.Join(hsb.tablePath, satellite.String()),
 		log,
 		shouldTrash,
 		lastRestore,
@@ -239,6 +259,7 @@ func (hsb *HashStoreBackend) getDB(satellite storj.NodeID) (*hashstore.DB, error
 
 	hsb.dbs[satellite] = db
 
+	log.Info("hashstore opened successfully", zap.Duration("open_time", time.Since(start)))
 	return db, nil
 }
 
@@ -246,7 +267,7 @@ func (hsb *HashStoreBackend) getDB(satellite storj.NodeID) (*hashstore.DB, error
 func (hsb *HashStoreBackend) Writer(ctx context.Context, satellite storj.NodeID, pieceID storj.PieceID, hashAlgo pb.PieceHashAlgorithm, expires time.Time) (_ PieceWriter, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	db, err := hsb.getDB(satellite)
+	db, err := hsb.getDB(ctx, satellite)
 	if err != nil {
 		return nil, err
 	}
@@ -270,7 +291,7 @@ func (hsb *HashStoreBackend) Writer(ctx context.Context, satellite storj.NodeID,
 func (hsb *HashStoreBackend) Reader(ctx context.Context, satellite storj.NodeID, pieceID storj.PieceID) (_ PieceReader, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	db, err := hsb.getDB(satellite)
+	db, err := hsb.getDB(ctx, satellite)
 	if err != nil {
 		return nil, err
 	}
@@ -421,7 +442,7 @@ func (opb *OldPieceBackend) Reader(ctx context.Context, satellite storj.NodeID, 
 		}, nil
 	}
 	if !errs.Is(err, fs.ErrNotExist) {
-		return nil, rpcstatus.Wrap(rpcstatus.Internal, err)
+		return nil, rpcstatus.NamedWrap("old-piece-backend-open-fail", rpcstatus.Internal, err)
 	}
 
 	// check if the file is in trash, if so, restore it and
@@ -431,13 +452,13 @@ func (opb *OldPieceBackend) Reader(ctx context.Context, satellite storj.NodeID, 
 		opb.monitor.VerifyDirReadableLoop.TriggerWait()
 
 		// we want to return the original "file does not exist" error to the rpc client
-		return nil, rpcstatus.Wrap(rpcstatus.NotFound, err)
+		return nil, rpcstatus.NamedWrap("not-found", rpcstatus.NotFound, err)
 	}
 
 	// try to open the file again
 	reader, err = opb.store.Reader(ctx, satellite, pieceID)
 	if err != nil {
-		return nil, rpcstatus.Wrap(rpcstatus.Internal, err)
+		return nil, rpcstatus.NamedWrap("old-piece-backend-open-fail-after-trash-restore", rpcstatus.Internal, err)
 	}
 	return &oldPieceReader{
 		Reader:    reader,

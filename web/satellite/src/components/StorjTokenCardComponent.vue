@@ -2,11 +2,11 @@
 // See LICENSE for copying information.
 
 <template>
-    <v-card title="STORJ Token" variant="flat">
+    <v-card title="STORJ Token" class="pa-2">
         <v-card-text>
             <v-row class="ma-0 align-center">
-                <v-chip color="default" size="small" variant="tonal" class="font-weight-bold mr-2">STORJ</v-chip>
-                <v-chip color="info" size="small" variant="tonal" class="font-weight-bold">
+                <v-chip color="primary" size="small" variant="tonal" class="font-weight-bold mr-2">STORJ</v-chip>
+                <v-chip color="default" size="small" variant="tonal" class="font-weight-bold">
                     Default
                     <span class="d-inline-flex ml-1">
                         <v-icon class="text-cursor-pointer" :icon="Info" />
@@ -26,11 +26,11 @@
                     </span>
                 </v-chip>
             </v-row>
-            <v-divider class="my-4" />
+            <v-divider class="my-6 border-0" />
             <p>Deposit Address</p>
             <v-row class="ma-0 mt-2 align-center">
                 <v-chip color="default" variant="text" class="font-weight-bold px-0 mr-4" @click="copyAddress">
-                    {{ shortAddress || '-------' }}
+                    {{ shortAddress || '-' }}
                     <v-tooltip
                         v-if="wallet.address"
                         activator="parent"
@@ -41,13 +41,13 @@
                 </v-chip>
                 <input-copy-button v-if="wallet.address" :value="wallet.address" />
             </v-row>
-            <v-divider class="my-4" />
+            <v-divider class="my-6 border-0" />
             <p>Total Balance</p>
-            <v-chip color="success" variant="tonal" class="font-weight-bold mt-2">{{ balance || '------' }}</v-chip>
-            <v-divider class="mt-4 mb-2" />
-            <v-btn v-if="wallet.address" variant="flat" color="success" size="small" rounded="md" :loading="isLoading" class="mt-2 mr-2" @click="onAddTokens">+ Add STORJ Tokens</v-btn>
-            <v-btn v-else variant="flat" color="success" size="small" rounded="md" :loading="isLoading" class="mt-2" @click="claimWalletClick">Create New Wallet</v-btn>
-            <v-btn v-if="wallet.address" variant="outlined" color="default" size="small" rounded="md" :loading="isLoading" class="mt-2" @click="emit('historyClicked')">View Transactions</v-btn>
+            <v-chip variant="text" class="text-primary pl-0 font-weight-bold pt-2">{{ balance || '-' }}</v-chip>
+            <v-divider class="my-6 border-0" />
+            <v-btn v-if="wallet.address" variant="flat" color="primary" :loading="isLoading" class="mt-2 mr-2" @click="onAddTokens">+ Add STORJ Tokens</v-btn>
+            <v-btn v-else variant="flat" color="primary" :loading="isLoading" class="mt-2" @click="claimWalletClick">Generate Deposit Address</v-btn>
+            <v-btn v-if="wallet.address" variant="outlined" color="default" :loading="isLoading" class="mt-2" @click="emit('historyClicked')">View Transactions</v-btn>
         </v-card-text>
     </v-card>
 

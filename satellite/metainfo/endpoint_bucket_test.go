@@ -193,7 +193,7 @@ func TestDeleteBucket(t *testing.T) {
 		expectedObjects := map[string][]byte{
 			"single-segment-object":        testrand.Bytes(10 * memory.KiB),
 			"multi-segment-object":         testrand.Bytes(50 * memory.KiB),
-			"remote-segment-inline-object": testrand.Bytes(33 * memory.KiB),
+			"remote-segment-inline-object": testrand.Bytes(1 * memory.KiB),
 		}
 
 		uploadObjects := func(t *testing.T, bucketName metabase.BucketName) {
@@ -534,6 +534,27 @@ func TestBucketCreationSelfServePlacement(t *testing.T) {
 			Placement: []byte("EU"), // invalid placement
 		})
 		require.True(t, errs2.IsRPC(err, rpcstatus.PlacementInvalidValue))
+
+		// disable self-serve placement
+		sat.API.Metainfo.Endpoint.TestSelfServePlacementEnabled(false)
+
+		// passing invalid placement should not fail if self-serve placement is disabled.
+		// This is for backward compatibility with integration tests that'll pass placements
+		// regardless of self-serve placement being enabled or not.
+		_, err = sat.API.Metainfo.Endpoint.CreateBucket(ctx, &pb.CreateBucketRequest{
+			Header: &pb.RequestHeader{
+				ApiKey: apiKey.SerializeRaw(),
+			},
+			Name:      []byte(bucketName),
+			Placement: []byte("EU"), // invalid placement
+		})
+		require.NoError(t, err)
+
+		// placement should be set to default event though a placement was passed
+		// because self-serve placement is disabled.
+		placement, err = planet.Satellites[0].API.DB.Buckets().GetBucketPlacement(ctx, []byte(bucketName), projectID)
+		require.NoError(t, err)
+		require.Equal(t, storj.DefaultPlacement, placement)
 	})
 }
 
@@ -992,21 +1013,6 @@ func TestCreateBucketWithObjectLockEnabled(t *testing.T) {
 
 			_, err = endpoint.CreateBucket(ctx, req)
 			rpctest.RequireCode(t, err, rpcstatus.ObjectLockDisabledForProject)
-
-			endpoint.TestSetUseBucketLevelVersioningByProjectID(project.ID, true)
-
-			_, err = endpoint.CreateBucket(ctx, req)
-			require.NoError(t, err)
-
-			endpoint.TestSetUseBucketLevelVersioningByProjectID(project.ID, false)
-
-			req.Name = []byte(testrand.BucketName())
-			_, err = endpoint.CreateBucket(ctx, req)
-			rpctest.RequireCode(t, err, rpcstatus.ObjectLockDisabledForProject)
-
-			require.NoError(t, sat.API.Console.Service.UpdateVersioningOptInStatus(userCtx, project.ID, console.VersioningOptIn))
-			_, err = endpoint.CreateBucket(ctx, req)
-			require.NoError(t, err)
 		})
 	})
 }

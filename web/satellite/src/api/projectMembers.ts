@@ -21,10 +21,11 @@ export class ProjectMembersHttpApi implements ProjectMembersApi {
      *
      * @param projectId
      * @param emails
+     * @param csrfProtectionToken
      */
-    public async delete(projectId: string, emails: string[]): Promise<void> {
+    public async delete(projectId: string, emails: string[], csrfProtectionToken: string): Promise<void> {
         const path = `${this.ROOT_PATH}/${projectId}/members?emails=${encodeURIComponent(emails.toString())}`;
-        const response = await this.http.delete(path);
+        const response = await this.http.delete(path, null, { csrfProtectionToken });
         if (!response.ok) {
             const result = await response.json();
             throw new APIError({
@@ -61,9 +62,9 @@ export class ProjectMembersHttpApi implements ProjectMembersApi {
      *
      * @throws Error
      */
-    public async invite(projectID: string, email: string): Promise<void> {
+    public async invite(projectID: string, email: string, csrfProtectionToken: string): Promise<void> {
         const path = `${this.ROOT_PATH}/${projectID}/invite/${encodeURIComponent(email)}`;
-        const httpResponse = await this.http.post(path, null);
+        const httpResponse = await this.http.post(path, null, { csrfProtectionToken });
 
         if (httpResponse.ok) return;
 
@@ -108,10 +109,10 @@ export class ProjectMembersHttpApi implements ProjectMembersApi {
      *
      * @throws Error
      */
-    public async updateRole(projectID: string, memberID: string, role: ProjectRole): Promise<ProjectMember> {
+    public async updateRole(projectID: string, memberID: string, role: ProjectRole, csrfProtectionToken: string): Promise<ProjectMember> {
         const path = `${this.ROOT_PATH}/${projectID}/members/${memberID}`;
         const body = role === ProjectRole.Admin ? 0 : 1;
-        const response = await this.http.patch(path, body.toString());
+        const response = await this.http.patch(path, body.toString(), { csrfProtectionToken });
 
         const result = await response.json();
         if (!response.ok) {
@@ -137,10 +138,10 @@ export class ProjectMembersHttpApi implements ProjectMembersApi {
      *
      * @throws Error
      */
-    public async reinvite(projectID: string, emails: string[]): Promise<void> {
+    public async reinvite(projectID: string, emails: string[], csrfProtectionToken: string): Promise<void> {
         const path = `${this.ROOT_PATH}/${projectID}/reinvite`;
         const body = { emails };
-        const httpResponse = await this.http.post(path, JSON.stringify(body));
+        const httpResponse = await this.http.post(path, JSON.stringify(body), { csrfProtectionToken });
 
         if (httpResponse.ok) return;
 

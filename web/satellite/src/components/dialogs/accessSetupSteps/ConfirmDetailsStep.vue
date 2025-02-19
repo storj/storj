@@ -6,14 +6,21 @@
         <v-row>
             <v-col cols="12">
                 <p>Confirm that the access details are correct before creating.</p>
-                <v-list lines="one">
+                <v-list>
                     <v-list-item
                         v-for="item in items"
                         :key="item.title"
                         :title="item.title"
                         :subtitle="item.value"
-                        class="pl-0"
-                    />
+                        class="mb-2 pl-0"
+                    >
+                        <template #title>
+                            <p class="text-medium-emphasis text-body-2 mb-1">{{ item.title }}</p>
+                        </template>
+                        <template #subtitle>
+                            <p class="text-body-2">{{ item.value }}</p>
+                        </template>
+                    </v-list-item>
                 </v-list>
             </v-col>
         </v-row>

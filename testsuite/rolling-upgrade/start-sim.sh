@@ -101,25 +101,25 @@ install_sim(){
     local bin_dir="$2"
     mkdir -p ${bin_dir}
 
-    go build -race -v -o ${bin_dir}/storagenode storj.io/storj/cmd/storagenode >/dev/null 2>&1
-    go build -race -v -o ${bin_dir}/satellite storj.io/storj/cmd/satellite >/dev/null 2>&1
-    go build -race -v -o ${bin_dir}/storj-sim storj.io/storj/cmd/storj-sim >/dev/null 2>&1
-    go build -race -v -o ${bin_dir}/versioncontrol storj.io/storj/cmd/versioncontrol >/dev/null 2>&1
+    go build -race -o ${bin_dir}/storagenode storj.io/storj/cmd/storagenode 2>&1
+    go build -race -o ${bin_dir}/satellite storj.io/storj/cmd/satellite 2>&1
+    go build -race -o ${bin_dir}/storj-sim storj.io/storj/cmd/storj-sim 2>&1
+    go build -race -o ${bin_dir}/versioncontrol storj.io/storj/cmd/versioncontrol 2>&1
 
-    go build -race -v -o ${bin_dir}/uplink storj.io/storj/cmd/uplink >/dev/null 2>&1
-    go build -race -v -o ${bin_dir}/identity storj.io/storj/cmd/identity >/dev/null 2>&1
-    go build -race -v -o ${bin_dir}/certificates storj.io/storj/cmd/certificates >/dev/null 2>&1
+    go build -race -o ${bin_dir}/uplink storj.io/storj/cmd/uplink 2>&1
+    go build -race -o ${bin_dir}/identity storj.io/storj/cmd/identity 2>&1
+    go build -race -o ${bin_dir}/certificates storj.io/storj/cmd/certificates 2>&1
 
     if [ -d "${work_dir}/cmd/gateway" ]; then
         pushd ${work_dir}/cmd/gateway
-            go build -race -v -o ${bin_dir}/gateway storj.io/storj/cmd/gateway >/dev/null 2>&1
+            go build -race -o ${bin_dir}/gateway storj.io/storj/cmd/gateway 2>&1
         popd
     else
         GOBIN=${bin_dir} go install -race storj.io/gateway@latest
     fi
 
     if [ -d "${work_dir}/cmd/multinode" ]; then
-        go build -race -v -o ${bin_dir}/multinode storj.io/storj/cmd/multinode >/dev/null 2>&1
+        go build -race -o ${bin_dir}/multinode storj.io/storj/cmd/multinode 2>&1
     fi
 }
 
@@ -247,7 +247,7 @@ for version in ${unique_versions}; do
         pushd ${dir}
         mkdir -p ${bin_dir}
 
-        go build -race -v -o ${bin_dir}/uplink storj.io/storj/cmd/uplink >/dev/null 2>&1
+        go build -race -o ${bin_dir}/uplink storj.io/storj/cmd/uplink 2>&1
 
         popd
         echo "Finished installing. ${bin_dir}:" $(ls ${bin_dir})

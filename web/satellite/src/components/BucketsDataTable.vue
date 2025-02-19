@@ -2,7 +2,7 @@
 // See LICENSE for copying information.
 
 <template>
-    <v-card>
+    <v-card class="pa-4">
         <v-text-field
             v-model="search"
             label="Search"
@@ -13,9 +13,8 @@
             hide-details
             clearable
             density="comfortable"
-            rounded="lg"
-            :maxlength="MAX_SEARCH_VALUE_LENGTH"
-            class="mx-2 mt-2"
+            xl11 :maxlength="MAX_SEARCH_VALUE_LENGTH"
+            class="mb-4"
         />
 
         <v-data-table-server
@@ -28,10 +27,11 @@
             items-per-page-text="Buckets per page"
             :items-per-page-options="tableSizeOptions(page.totalCount)"
             no-data-text="No buckets found"
+            class="border"
             hover
-            @update:itemsPerPage="onUpdateLimit"
+            @update:items-per-page="onUpdateLimit"
             @update:page="onUpdatePage"
-            @update:sortBy="onUpdateSort"
+            @update:sort-by="onUpdateSort"
         >
             <template #item.name="{ item }">
                 <v-btn
@@ -43,7 +43,7 @@
                     @click="openBucket(item.name)"
                 >
                     <template #default>
-                        <img class="mr-3" src="../assets/icon-bucket-tonal.svg" alt="Bucket">
+                        <img class="mr-3" src="@/assets/icon-bucket-tonal.svg" alt="Bucket">
                         <div class="max-width">
                             <p class="font-weight-bold text-lowercase text-truncate">{{ item.name }}</p>
                         </div>
@@ -80,7 +80,7 @@
                     <v-icon size="28" class="mr-1 pa-1 rounded-lg border">
                         <component :is="item.location === 'global' ? Earth : LandPlot" :size="18" />
                     </v-icon>
-                    <v-chip variant="tonal" color="default" size="small" class="text-capitalize">
+                    <v-chip variant="tonal" :color="item.location === 'global' ? 'success' : 'primary'" size="small" class="text-capitalize">
                         {{ item.location || `unknown(${item.defaultPlacement})` }}
                     </v-chip>
                 </div>
@@ -92,8 +92,20 @@
                             <v-icon v-bind="props" size="28" :icon="getVersioningIcon(item.versioning)" class="mr-1 pa-1 rounded-lg border" />
                         </template>
                     </v-tooltip>
-                    <v-chip variant="tonal" color="default" size="small">
+                    <v-chip variant="tonal" :color="getVersioningChipColor(item.versioning)" size="small">
                         {{ item.versioning }}
+                    </v-chip>
+                </div>
+            </template>
+            <template #item.objectLockEnabled="{ item }">
+                <div class="text-no-wrap">
+                    <v-tooltip location="top" :text="getObjectLockInfo(item)">
+                        <template #activator="{ props }">
+                            <v-icon v-bind="props" size="28" :icon="item.objectLockEnabled ? LockKeyhole : LockKeyholeOpen" class="mr-1 pa-1 rounded-lg border" />
+                        </template>
+                    </v-tooltip>
+                    <v-chip variant="tonal" :color="item.objectLockEnabled ? 'success' : 'default'" size="small">
+                        {{ item.objectLockEnabled ? 'Enabled' : 'Disabled' }}
                     </v-chip>
                 </div>
             </template>
@@ -161,7 +173,7 @@
                                 <component :is="Lock" :size="18" />
                             </template>
                             <v-list-item-title class="ml-3">
-                                Object Lock
+                                {{ item.objectLockEnabled ? 'Lock Settings' : 'Enable Lock' }}
                             </v-list-item-title>
                         </v-list-item>
                         <v-list-item link @click="() => showShareBucketDialog(item.name)">
@@ -170,6 +182,14 @@
                             </template>
                             <v-list-item-title class="ml-3">
                                 Share Bucket
+                            </v-list-item-title>
+                        </v-list-item>
+                        <v-list-item v-if="downloadPrefixEnabled" link @click="() => onDownloadBucket(item.name)">
+                            <template #prepend>
+                                <component :is="DownloadIcon" :size="18" />
+                            </template>
+                            <v-list-item-title class="ml-3">
+                                Download Bucket
                             </v-list-item-title>
                         </v-list-item>
                         <v-list-item link @click="() => showBucketDetailsModal(item.name)">
@@ -195,11 +215,12 @@
         </v-data-table-server>
     </v-card>
     <delete-bucket-dialog v-model="isDeleteBucketDialogShown" :bucket-name="bucketToDelete" />
-    <enter-bucket-passphrase-dialog v-model="isBucketPassphraseDialogOpen" @passphraseEntered="passphraseDialogCallback" />
+    <enter-bucket-passphrase-dialog v-model="isBucketPassphraseDialogOpen" @passphrase-entered="passphraseDialogCallback" />
     <share-dialog v-model="isShareBucketDialogShown" :bucket-name="shareBucketName" />
     <bucket-details-dialog v-model="isBucketDetailsDialogShown" :bucket-name="bucketDetailsName" />
     <set-bucket-object-lock-config-dialog v-if="objectLockUIEnabled" v-model="isSetBucketObjectLockDialogShown" :bucket-name="bucketObjectLockName" />
     <toggle-versioning-dialog v-model="bucketToToggleVersioning" @toggle="fetchBuckets" />
+    <download-prefix-dialog v-if="downloadPrefixEnabled" v-model="isDownloadPrefixDialogShown" :prefix-type="DownloadPrefixType.Bucket" :bucket="bucketToDownload" />
 </template>
 
 <script setup lang="ts">
@@ -221,21 +242,24 @@ import {
     VTooltip,
 } from 'vuetify/components';
 import {
+    ArrowRight,
     CircleCheck,
     CircleHelp,
     CircleMinus,
     CirclePause,
     CircleX,
-    Ellipsis,
-    Search,
-    ReceiptText,
-    Share,
-    Trash2,
-    ArrowRight,
+    DownloadIcon,
     Earth,
+    Ellipsis,
     History,
     LandPlot,
     Lock,
+    LockKeyhole,
+    LockKeyholeOpen,
+    ReceiptText,
+    Search,
+    Share,
+    Trash2,
 } from 'lucide-vue-next';
 
 import { Memory, Size } from '@/utils/bytesSize';
@@ -246,13 +270,15 @@ import { useNotify } from '@/utils/hooks';
 import { AnalyticsErrorEventSource } from '@/utils/constants/analyticsEventNames';
 import { useProjectsStore } from '@/store/modules/projectsStore';
 import { DEFAULT_PAGE_LIMIT } from '@/types/pagination';
-import { tableSizeOptions, MAX_SEARCH_VALUE_LENGTH, DataTableHeader } from '@/types/common';
+import { DataTableHeader, MAX_SEARCH_VALUE_LENGTH, tableSizeOptions } from '@/types/common';
 import { EdgeCredentials } from '@/types/accessGrants';
 import { ROUTES } from '@/router';
 import { usePreCheck } from '@/composables/usePreCheck';
 import { Versioning } from '@/types/versioning';
 import { Time } from '@/utils/time';
 import { useObjectBrowserStore } from '@/store/modules/objectBrowserStore';
+import { capitalizedMode, NO_MODE_SET } from '@/types/objectLock';
+import { DownloadPrefixType } from '@/types/browser';
 
 import DeleteBucketDialog from '@/components/dialogs/DeleteBucketDialog.vue';
 import EnterBucketPassphraseDialog from '@/components/dialogs/EnterBucketPassphraseDialog.vue';
@@ -260,6 +286,7 @@ import ShareDialog from '@/components/dialogs/ShareDialog.vue';
 import BucketDetailsDialog from '@/components/dialogs/BucketDetailsDialog.vue';
 import ToggleVersioningDialog from '@/components/dialogs/ToggleVersioningDialog.vue';
 import SetBucketObjectLockConfigDialog from '@/components/dialogs/SetBucketObjectLockConfigDialog.vue';
+import DownloadPrefixDialog from '@/components/dialogs/DownloadPrefixDialog.vue';
 
 const bucketsStore = useBucketsStore();
 const obStore = useObjectBrowserStore();
@@ -283,6 +310,8 @@ const isBucketPassphraseDialogOpen = ref(false);
 const isShareBucketDialogShown = ref<boolean>(false);
 const isSetBucketObjectLockDialogShown = ref<boolean>(false);
 const isBucketDetailsDialogShown = ref<boolean>(false);
+const isDownloadPrefixDialogShown = ref<boolean>(false);
+const bucketToDownload = ref<string>('');
 const pageWidth = ref<number>(document.body.clientWidth);
 const sortBy = ref<SortItem[] | undefined>([{ key: 'name', order: 'asc' }]);
 const bucketToToggleVersioning = ref<BucketMetadata | null>(null);
@@ -292,7 +321,7 @@ let passphraseDialogCallback: () => void = () => {};
 type SortItem = {
     key: keyof Bucket;
     order: boolean | 'asc' | 'desc';
-}
+};
 
 const displayedItems = computed<Bucket[]>(() => {
     const items = page.value.buckets;
@@ -302,21 +331,21 @@ const displayedItems = computed<Bucket[]>(() => {
     return items;
 });
 
+const downloadPrefixEnabled = computed<boolean>(() => configStore.state.config.downloadPrefixEnabled);
+
 const showRegionTag = computed<boolean>(() => {
     return configStore.state.config.enableRegionTag;
 });
 
 /**
- * Whether versioning has been enabled for current project.
+ * Whether versioning is enabled for current project.
  */
-const versioningUIEnabled = computed(() => projectsStore.versioningUIEnabled);
+const versioningUIEnabled = computed(() => configStore.state.config.versioningUIEnabled);
 
 /**
  * Whether object lock is enabled for current project.
  */
-const objectLockUIEnabled = computed<boolean>(() => {
-    return projectsStore.objectLockUIEnabledForProject && configStore.objectLockUIEnabled;
-});
+const objectLockUIEnabled = computed<boolean>(() => configStore.state.config.objectLockUIEnabled);
 
 const isTableSortable = computed<boolean>(() => {
     return page.value.totalCount <= cursor.value.limit;
@@ -342,6 +371,10 @@ const headers = computed<DataTableHeader[]>(() => {
 
     if (versioningUIEnabled.value) {
         hdrs.push({ title: 'Versioning', key: 'versioning', sortable: isTableSortable.value });
+    }
+
+    if (objectLockUIEnabled.value) {
+        hdrs.push({ title: 'Lock', key: 'objectLockEnabled', sortable: isTableSortable.value });
     }
 
     hdrs.push(
@@ -477,6 +510,24 @@ function getVersioningInfo(status: Versioning): string {
 }
 
 /**
+ * Returns helper info based on object lock status.
+ */
+function getObjectLockInfo(bucket: Bucket): string {
+    switch (true) {
+    case !bucket.objectLockEnabled:
+        return 'Object lock not enabled.';
+    case bucket.defaultRetentionMode === NO_MODE_SET:
+        return 'Default Mode: None';
+    case bucket.defaultRetentionDays !== null:
+        return `Default Mode: ${capitalizedMode(bucket.defaultRetentionMode)} / ${bucket.defaultRetentionDays} day${ bucket.defaultRetentionDays > 1 ? 's' : '' } retention`;
+    case bucket.defaultRetentionYears !== null:
+        return `Default Mode: ${capitalizedMode(bucket.defaultRetentionMode)} / ${bucket.defaultRetentionYears} year${ bucket.defaultRetentionYears > 1 ? 's' : '' } retention`;
+    default:
+        return 'Unknown object lock status.';
+    }
+}
+
+/**
  * Returns icon based on versioning status.
  */
 function getVersioningIcon(status: Versioning): FunctionalComponent {
@@ -491,6 +542,20 @@ function getVersioningIcon(status: Versioning): FunctionalComponent {
         return CircleMinus;
     default:
         return CircleHelp;
+    }
+}
+
+/**
+ * Returns chip color based on versioning status.
+ */
+function getVersioningChipColor(status: Versioning): string {
+    switch (status) {
+    case Versioning.Enabled:
+        return 'success';
+    case Versioning.Suspended:
+        return 'warning';
+    default:
+        return 'default';
     }
 }
 
@@ -549,6 +614,32 @@ function openBucket(bucketName: string): void {
         passphraseDialogCallback = () => openBucket(selectedBucketName.value);
         isBucketPassphraseDialogOpen.value = true;
     });
+}
+
+/**
+ * Handles download bucket action.
+ */
+function onDownloadBucket(bucketName: string): void {
+    withTrialCheck(() => { withManagedPassphraseCheck(async () => {
+        if (!bucketName) {
+            return;
+        }
+
+        function setBucketDownload(): void {
+            bucketToDownload.value = bucketName;
+            isDownloadPrefixDialogShown.value = true;
+        }
+
+        if (promptForPassphrase.value) {
+            passphraseDialogCallback = setBucketDownload;
+
+            bucketsStore.setFileComponentBucketName(bucketName);
+            isBucketPassphraseDialogOpen.value = true;
+            return;
+        }
+
+        setBucketDownload();
+    });});
 }
 
 /**

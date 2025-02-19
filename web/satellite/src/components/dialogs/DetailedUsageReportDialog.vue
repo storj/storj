@@ -33,7 +33,7 @@
 
             <v-form class="pa-6">
                 <p class="text-subtitle-2 mb-2">Select date range to generate your report:</p>
-                <v-chip-group v-model="option" mandatory filter color="primary">
+                <v-chip-group v-model="option" mandatory filter>
                     <v-chip :value="Options.Month" variant="outlined">Past Month</v-chip>
                     <v-chip :value="Options.Year" variant="outlined">Past Year</v-chip>
                     <v-chip :value="Options.Custom" variant="outlined">Choose Dates</v-chip>
@@ -41,6 +41,7 @@
                 <v-date-picker
                     v-if="option === Options.Custom"
                     v-model="customRange"
+                    :allowed-dates="allowDate"
                     header="Choose Dates"
                     multiple="range"
                     show-adjacent-months
@@ -142,6 +143,18 @@ function setChooseDates(): void {
     before.value = undefined;
     option.value = Options.Custom;
     customRange.value = [];
+}
+
+function allowDate(date: unknown): boolean {
+    if (!date) return false;
+    const d = new Date(date as string);
+    if (isNaN(d.getTime())) return false;
+
+    d.setHours(0, 0, 0, 0);
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+
+    return d <= today;
 }
 
 function downloadReport(): void {

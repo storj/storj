@@ -12,6 +12,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/stretchr/testify/require"
 	"github.com/zeebo/assert"
 	"github.com/zeebo/mwc"
 )
@@ -23,28 +24,28 @@ func TestDB_BasicOperation(t *testing.T) {
 
 	var keys []Key
 
-	// add enough keys to ensure a background compaction.
-	for i := 0; i < 1<<store_minTableSize; i++ {
-		keys = append(keys, db.AssertCreate(time.Time{}))
+	// add keys and ensure we can read them back
+	for i := 0; i < 1000; i++ {
+		keys = append(keys, db.AssertCreate())
 	}
-
 	for _, key := range keys {
 		db.AssertRead(key)
 	}
 
 	// ensure the stats look like what we expect.
-	stats := db.Stats()
+	stats, _, _ := db.Stats()
 	t.Logf("%+v", stats)
-	assert.Equal(t, stats.NumSet, 1<<store_minTableSize)
+	assert.Equal(t, stats.NumSet, 1000)
 	assert.Equal(t, stats.LenSet, uint64(len(Key{})+RecordSize)*stats.NumSet)
-	assert.That(t, stats.LenSet <= stats.LenLogs) // <= because of optimistic alignment
+	assert.Equal(t, stats.LenSet, stats.LenLogs)
 
 	// should still have all the keys after manual compaction
 	db.AssertCompact()
 	for _, key := range keys {
 		db.AssertRead(key)
 	}
-	assert.That(t, db.Stats().Compactions >= stats.Compactions+2)
+	stats2, _, _ := db.Stats()
+	assert.That(t, stats2.Compactions >= stats.Compactions+2)
 
 	// should still have all the keys after reopen.
 	db.AssertReopen()
@@ -72,15 +73,21 @@ func TestDB_TrashStats(t *testing.T) {
 	defer db.Close()
 
 	// add keys until we are compacting, and then wait until we are not compacting.
-	for !db.Stats().Compacting {
-		db.AssertCreate(time.Time{})
-	}
-	for db.Stats().Compacting {
-		time.Sleep(time.Millisecond)
+	for {
+		db.AssertCreate()
+		stat, _, _ := db.Stats()
+		if stat.Compacting {
+			break
+		}
 	}
 
+	require.Eventually(t, func() bool {
+		stats, _, _ := db.Stats()
+		return !stats.Compacting
+	}, 1*time.Minute, time.Millisecond)
+
 	// ensure the trash stats are updated.
-	stats := db.Stats()
+	stats, _, _ := db.Stats()
 	assert.That(t, stats.NumTrash > 0)
 	assert.That(t, stats.LenTrash > 0)
 	assert.That(t, stats.AvgTrash > 0)
@@ -92,18 +99,18 @@ func TestDB_TTLStats(t *testing.T) {
 	defer db.Close()
 
 	// create an entry with a ttl.
-	db.AssertCreate(time.Now())
+	db.AssertCreate(WithTTL(time.Now()))
 
 	// ensure the ttl stats are updated.
-	stats := db.Stats()
+	stats, _, _ := db.Stats()
 	assert.Equal(t, stats.NumLogs, stats.NumLogsTTL)
 	assert.Equal(t, stats.LenLogs, stats.LenLogsTTL)
 
 	// create an entry without ttl.
-	db.AssertCreate(time.Time{})
+	db.AssertCreate()
 
 	// ensure the non-ttl stats are updated.
-	stats = db.Stats()
+	stats, _, _ = db.Stats()
 	assert.Equal(t, stats.NumLogs, 2*stats.NumLogsTTL)
 	assert.Equal(t, stats.LenLogs, 2*stats.LenLogsTTL)
 }
@@ -157,7 +164,7 @@ func TestDB_SlowCompactionCreatesBackpressure(t *testing.T) {
 	}()
 
 	for !done.Load() {
-		db.AssertCreate(time.Time{})
+		db.AssertCreate()
 	}
 }
 
@@ -271,6 +278,36 @@ func TestDB_BackgroundCompaction(t *testing.T) {
 	})
 }
 
+func TestDB_CompactCallWaitsForCurrentCompaction(t *testing.T) {
+	var done atomic.Bool
+	throttle := make(chan struct{})
+
+	db := newTestDB(t, func(ctx context.Context, key Key, created time.Time) bool {
+		done.Store(true)
+		for range throttle {
+		}
+		return false
+	}, nil)
+	defer db.Close()
+
+	// write entries until a background compaction has started.
+	for !done.Load() {
+		db.AssertCreate()
+	}
+
+	// wait for a Compact call to be blocked in select waiting for the previous compaction and then
+	// allow the compaction to proceed.
+	go func() {
+		waitForGoroutine(
+			"hashstore.(*DB).Compact",
+			"[select]",
+		)
+		close(throttle)
+	}()
+
+	assert.NoError(t, db.Compact(context.Background()))
+}
+
 //
 // benchmarks
 //
@@ -282,7 +319,7 @@ func BenchmarkDB(b *testing.B) {
 		buf := make([]byte, size)
 		_, _ = mwc.Rand().Read(buf)
 
-		db, err := New(b.TempDir(), nil, nil, nil)
+		db, err := New(ctx, b.TempDir(), "", nil, nil, nil)
 		assert.NoError(b, err)
 		defer db.Close()
 
@@ -308,7 +345,7 @@ func BenchmarkDB(b *testing.B) {
 		buf := make([]byte, size)
 		_, _ = mwc.Rand().Read(buf)
 
-		db, err := New(b.TempDir(), nil, nil, nil)
+		db, err := New(ctx, b.TempDir(), "", nil, nil, nil)
 		assert.NoError(b, err)
 		defer db.Close()
 
@@ -336,7 +373,7 @@ func BenchmarkDB(b *testing.B) {
 		buf := make([]byte, size)
 		_, _ = mwc.Rand().Read(buf)
 
-		db, err := New(b.TempDir(), nil, nil, nil)
+		db, err := New(ctx, b.TempDir(), "", nil, nil, nil)
 		assert.NoError(b, err)
 		defer db.Close()
 

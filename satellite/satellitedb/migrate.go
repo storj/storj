@@ -5,10 +5,7 @@ package satellitedb
 
 import (
 	"context"
-	"crypto/rand"
-	"encoding/hex"
 	"fmt"
-	"regexp"
 	"strings"
 
 	"github.com/zeebo/errs"
@@ -17,7 +14,6 @@ import (
 	"storj.io/storj/private/migrate"
 	"storj.io/storj/shared/dbutil"
 	"storj.io/storj/shared/dbutil/pgutil"
-	"storj.io/storj/shared/dbutil/spannerutil"
 	"storj.io/storj/shared/tagsql"
 )
 
@@ -83,9 +79,6 @@ func (db *satelliteDB) MigrateToLatest(ctx context.Context) error {
 				dbVersion, minDBVersion,
 			)
 		}
-		if db.isSpannerEmulator() {
-			fixupSpannerEmulatorMigration(migration)
-		}
 
 		return migration.Run(ctx, db.log.Named("migrate"))
 	default:
@@ -139,54 +132,10 @@ func (db *satelliteDBTesting) TestMigrateToLatest(ctx context.Context) error {
 		if dbVersion != -1 && dbVersion != testMigration.Steps[0].Version {
 			return ErrMigrateMinVersion.New("the database must be empty, or be on the latest version (%d)", dbVersion)
 		}
-		if db.isSpannerEmulator() {
-			fixupSpannerEmulatorMigration(testMigration)
-		}
 
 		return testMigration.Run(ctx, db.log.Named("migrate"))
 	default:
 		return migrate.Create(ctx, "database", db.DB)
-	}
-}
-
-func (db *satelliteDB) isSpannerEmulator() bool {
-	if db.impl != dbutil.Spanner {
-		return false
-	}
-
-	params, err := spannerutil.ParseConnStr(db.source)
-	if err != nil {
-		return false
-	}
-
-	return params.Emulator
-}
-
-// fixupSpannerEmulatorMigration fixes CREATE SEQUENCE for Spanner Emulator.
-// Spanner Emulator has a bug where you need to use unique sequence names globally,
-// because they share the same namespace.
-//
-// See https://github.com/GoogleCloudPlatform/cloud-spanner-emulator/issues/179 for more details.
-func fixupSpannerEmulatorMigration(migration *migrate.Migration) {
-	var uniqueSuffixBytes [8]byte
-	_, _ = rand.Read(uniqueSuffixBytes[:])
-	uniqueSuffix := hex.EncodeToString(uniqueSuffixBytes[:])
-
-	rxCreateSequence := regexp.MustCompile(`CREATE SEQUENCE (?:IF NOT EXISTS )?([a-zA-Z_]+)`)
-	rxNextSequence := regexp.MustCompile(`GET_NEXT_SEQUENCE_VALUE\(SEQUENCE ([a-zA-Z_]+)`)
-
-	for _, step := range migration.Steps {
-		if action, ok := step.Action.(migrate.SQL); ok {
-			for i, query := range action {
-				query = rxCreateSequence.ReplaceAllStringFunc(query, func(match string) string {
-					return match + "_" + uniqueSuffix
-				})
-				query = rxNextSequence.ReplaceAllStringFunc(query, func(match string) string {
-					return match + "_" + uniqueSuffix
-				})
-				action[i] = query
-			}
-		}
 	}
 }
 
@@ -927,6 +876,25 @@ func (db *satelliteDB) productionMigrationSpanner() *migrate.Migration {
 				Version:     284,
 				Action: migrate.SQL{
 					`ALTER TABLE projects ADD COLUMN status INT64 DEFAULT (1)`,
+				},
+			},
+			{
+				DB:          &db.migrationDB,
+				Description: "drop all nodes table indexes execept primary key",
+				Version:     285,
+				Action: migrate.SQL{
+					`DROP INDEX IF EXISTS nodes_last_cont_success_free_disk_ma_mi_patch_vetted_partial_index`,
+					`DROP INDEX IF EXISTS nodes_dis_unk_aud_exit_init_rel_last_cont_success_stored_index`,
+					`DROP INDEX IF EXISTS node_last_ip`,
+					`DROP INDEX IF EXISTS nodes_dis_unk_off_exit_fin_last_success_index`,
+				},
+			},
+			{
+				DB:          &db.migrationDB,
+				Description: "add hubspot_object_id column to users",
+				Version:     286,
+				Action: migrate.SQL{
+					`ALTER TABLE users ADD COLUMN hubspot_object_id STRING(MAX)`,
 				},
 			},
 			// NB: after updating testdata in `testdata`, run
@@ -3647,6 +3615,25 @@ func (db *satelliteDB) productionMigrationPostgres() *migrate.Migration {
 				Version:     284,
 				Action: migrate.SQL{
 					`ALTER TABLE projects ADD COLUMN status INTEGER DEFAULT 1;`,
+				},
+			},
+			{
+				DB:          &db.migrationDB,
+				Description: "drop all nodes table indexes execept primary key",
+				Version:     285,
+				Action: migrate.SQL{
+					`DROP INDEX IF EXISTS nodes_last_cont_success_free_disk_ma_mi_patch_vetted_partial_index`,
+					`DROP INDEX IF EXISTS nodes_dis_unk_aud_exit_init_rel_last_cont_success_stored_index`,
+					`DROP INDEX IF EXISTS node_last_ip`,
+					`DROP INDEX IF EXISTS nodes_dis_unk_off_exit_fin_last_success_index`,
+				},
+			},
+			{
+				DB:          &db.migrationDB,
+				Description: "add hubspot_object_id column to users",
+				Version:     286,
+				Action: migrate.SQL{
+					`ALTER TABLE users ADD COLUMN hubspot_object_id TEXT`,
 				},
 			},
 			// NB: after updating testdata in `testdata`, run

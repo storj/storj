@@ -72,15 +72,16 @@ const afterDatasetsDrawPlugin = computed((): Plugin => {
  */
 const chartOptions = computed((): ChartOptions => {
     return {
-        responsive: false,
+        responsive: true,
         maintainAspectRatio: false,
         animation: false,
         clip: false,
         layout: {
             padding: {
-                top: 20,
+                top: 25,
                 left: 10,
-                right: 10,
+                right: 40,
+                bottom: 15,
             },
         },
         elements: {

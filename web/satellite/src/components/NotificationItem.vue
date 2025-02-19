@@ -6,8 +6,7 @@
         closable
         variant="elevated"
         :title="item.title || item.type"
-        :type="item.type.toLowerCase() as 'error' | 'success' | 'warning' | 'info'"
-        rounded="lg"
+        :type="(item.type.toLowerCase() as 'error' | 'success' | 'warning' | 'info')"
         class="my-2"
         border
         @mouseover="() => onMouseOver(item.id)"

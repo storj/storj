@@ -1,9 +1,10 @@
-GO_VERSION ?= 1.23.3
+GO_VERSION ?= 1.23.5
 GO_VERSION_STORAGENODE_WINDOWS ?= 1.20.14
 GOOS ?= linux
 GOARCH ?= amd64
 GOPATH ?= $(shell go env GOPATH)
 NODE_VERSION ?= 20.10.0
+MODULAR_NODE_VERSION ?= $(shell git show -s --date='format:%Y.%m' --format='v%cd.%ct-%h' HEAD)
 COMPOSE_PROJECT_NAME := ${TAG}-$(shell git rev-parse --abbrev-ref HEAD)
 BRANCH_NAME ?= $(shell git rev-parse --abbrev-ref HEAD | sed "s!/!-!g")
 GIT_TAG := $(shell git rev-parse --short HEAD)
@@ -354,6 +355,73 @@ versioncontrol-image: versioncontrol_linux_arm versioncontrol_linux_arm64 versio
 		--build-arg=GOARCH=arm64 --build-arg=DOCKER_ARCH=arm64v8 \
 		-f cmd/versioncontrol/Dockerfile .
 
+.PHONY: modular-storagenode-image
+modular-storagenode-image: ## Build modular storagenode Docker image
+	${DOCKER_BUILDX} --load --pull=true -t ghcr.io/storj/storagenode:${MODULAR_NODE_VERSION} \
+		--platform=linux/amd64 \
+		--build-arg=GO_DOCKER_PLATFORM=linux/amd64 \
+		--build-arg=DOCKER_PLATFORM=linux/amd64 \
+		--build-arg=DOCKER_ARCH=amd64 \
+		--build-arg=BUILD_VERSION=${MODULAR_NODE_VERSION} \
+		-f storagenode/storagenode/Dockerfile .
+	${DOCKER_BUILDX} --load --pull=true -t ghcr.io/storj/storagenode:${MODULAR_NODE_VERSION} \
+		--platform=linux/arm64/v8 \
+		--build-arg=GO_DOCKER_PLATFORM=linux/arm64/v8 \
+		--build-arg=DOCKER_PLATFORM=linux/arm64/v8 \
+		--build-arg=DOCKER_ARCH=arm64v8 \
+		--build-arg=BUILD_VERSION=${MODULAR_NODE_VERSION} \
+		-f storagenode/storagenode/Dockerfile .
+	${DOCKER_BUILDX} --load --pull=true -t ghcr.io/storj/storagenode:${MODULAR_NODE_VERSION} \
+		--platform=linux/arm/v5 \
+		--build-arg=GO_DOCKER_PLATFORM=linux/arm/v7 \
+		--build-arg=DOCKER_PLATFORM=linux/arm/v5 \
+		--build-arg=DOCKER_ARCH=arm32v5 \
+		--build-arg=BUILD_VERSION=${MODULAR_NODE_VERSION} \
+		-f storagenode/storagenode/Dockerfile .
+
+.PHONY: darwin-binaries
+darwin-binaries:
+	echo "Building Darwin binaries (identity, uplink) for amd64, arm64"
+	@components="identity uplink"; \
+	arches="amd64 arm64"; \
+	for comp in $$components; do \
+		for arch in $$arches; do \
+			output_dir="release/$(TAG)"; \
+			bin_name="$$comp"_darwin_"$$arch$(FILEEXT)"; \
+			dest_path="$$output_dir/$$bin_name"; \
+			if [ -f "$$dest_path" ]; then \
+				echo "$$dest_path already exists, skipping..."; \
+				continue; \
+			fi; \
+			echo ""; \
+			echo "Building $$comp for Darwin/$$arch"; \
+			mkdir -p "$$output_dir"; \
+			mkdir -p /tmp/go-cache /tmp/go-pkg; \
+			\
+			docker run --rm -i \
+				-v "$$PWD":/go/src/storj.io/storj \
+				-e GO111MODULE=on \
+				-e GOOS=darwin \
+				-e GOARCH="$$arch" \
+				-e GOARM=6 \
+				-e CGO_ENABLED=1 \
+				-e GOCACHE=/tmp/.cache/go-build \
+				-e CGO_ENABLED=false \
+				-v /tmp/go-cache:/tmp/.cache/go-build \
+				-v /tmp/go-pkg:/go/pkg \
+				-w /go/src/storj.io/storj \
+				-e GOPROXY \
+				-u $(shell id -u):$(shell id -g) \
+				golang:$(GO_VERSION) \
+				scripts/release.sh build $(EXTRA_ARGS) \
+					-o "$$dest_path" \
+					storj.io/storj/cmd/$$comp; \
+			\
+			chmod 755 "$$dest_path"; \
+			rm -f "$${dest_path%.exe}.zip"; \
+		done; \
+	done
+
 .PHONY: binary
 binary: CUSTOMTAG = -${GOOS}-${GOARCH}
 binary:
@@ -408,7 +476,7 @@ certificates_%:
 .PHONY: identity_%
 identity_%:
 	$(MAKE) binary-check COMPONENT=identity GOARCH=$(word 3, $(subst _, ,$@)) GOOS=$(word 2, $(subst _, ,$@))
-.PHONE: multinode_%
+.PHONY: multinode_%
 multinode_%: multinode-console
 	$(MAKE) binary-check COMPONENT=multinode GOARCH=$(word 3, $(subst _, ,$@)) GOOS=$(word 2, $(subst _, ,$@))
 .PHONY: satellite_%

@@ -13,6 +13,7 @@ import (
 
 	"github.com/spacemonkeygo/monkit/v3"
 	"github.com/zeebo/errs"
+	"go.uber.org/zap"
 
 	"storj.io/common/pb"
 	"storj.io/common/storj"
@@ -34,8 +35,8 @@ type Migrator interface {
 	TryMigrateOne(sat storj.NodeID, piece storj.PieceID)
 }
 
-// MigratingBackend is a PieceBackend that can migrate pieces from and OldPieceBackend to a
-// HashStoreBackend.
+// MigratingBackend is a PieceBackend that can passively migrate pieces
+// from an OldPieceBackend to a HashStoreBackend.
 type MigratingBackend struct {
 	old      *OldPieceBackend
 	new      *HashStoreBackend
@@ -47,7 +48,10 @@ type MigratingBackend struct {
 }
 
 // NewMigratingBackend constructs a MigratingBackend with the given parameters.
-func NewMigratingBackend(old *OldPieceBackend, new *HashStoreBackend, store *satstore.SatelliteStore, migrator Migrator) *MigratingBackend {
+func NewMigratingBackend(log *zap.Logger, old *OldPieceBackend, new *HashStoreBackend, store *satstore.SatelliteStore, migrator Migrator) *MigratingBackend {
+	if log == nil {
+		log = zap.NewNop()
+	}
 	mb := &MigratingBackend{
 		old:      old,
 		new:      new,
@@ -56,12 +60,18 @@ func NewMigratingBackend(old *OldPieceBackend, new *HashStoreBackend, store *sat
 	}
 
 	states := make(map[storj.NodeID]MigrationState)
-	_ = store.Range(func(satellite storj.NodeID, data []byte) error {
+	err := store.Range(func(satellite storj.NodeID, data []byte) error {
 		var ms MigrationState
-		_ = json.Unmarshal(data, &ms)
+		err := json.Unmarshal(data, &ms)
+		if err != nil {
+			log.Warn("failed to unmarshal migration state", zap.Error(err), zap.Stringer("satellite", satellite))
+		}
 		states[satellite] = ms
-		return nil
+		return err
 	})
+	if err != nil {
+		log.Warn("failed to iterate over migration state directories", zap.Error(err))
+	}
 
 	mb.states.Store(&states)
 
@@ -70,34 +80,20 @@ func NewMigratingBackend(old *OldPieceBackend, new *HashStoreBackend, store *sat
 
 // Stats implements monkit.StatSource.
 func (m *MigratingBackend) Stats(cb func(key monkit.SeriesKey, field string, val float64)) {
-	type floatMigrationState struct {
-		PassiveMigrate float64
-		WriteToNew     float64
-		ReadNewFirst   float64
-	}
-
 	type IDState struct {
 		id    storj.NodeID
-		state floatMigrationState
+		state MigrationState
 	}
 
 	states := *m.states.Load()
 	idStates := make([]IDState, 0, len(states))
 	for id, state := range states {
-		b2f := func(b bool) float64 {
-			if b {
-				return 1
-			}
-			return 0
-		}
-		idStates = append(idStates, IDState{id, floatMigrationState{
-			PassiveMigrate: b2f(state.PassiveMigrate),
-			WriteToNew:     b2f(state.WriteToNew),
-			ReadNewFirst:   b2f(state.ReadNewFirst),
-		}})
+		idStates = append(idStates, IDState{id, state})
 	}
 
-	sort.Slice(idStates, func(i, j int) bool { return idStates[i].id.Less(idStates[j].id) })
+	sort.Slice(idStates, func(i, j int) bool {
+		return idStates[i].id.Less(idStates[j].id)
+	})
 
 	for _, idst := range idStates {
 		monkit.StatSourceFromStruct(

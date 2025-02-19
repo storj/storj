@@ -58,8 +58,8 @@ const chartData = computed((): ChartData => {
             pointBorderColor: '#c3c3c3',
             pointHoverBorderWidth: 3,
             hoverRadius: 8,
-            hitRadius: 3,
-            pointRadius: 2,
+            hitRadius: 8,
+            pointRadius: 4,
             pointBorderWidth: 1,
             pointBackgroundColor: '#FFFFFF',
             order: 0,
@@ -106,38 +106,56 @@ watch(() => props.width, () => {
 </script>
 
 <style lang="scss">
-    .allocated-tooltip {
-        margin: 8px;
-        position: relative;
-        border-radius: 100px;
-        padding-top: 8px;
-        width: 145px;
-        font-family: 'font_regular', sans-serif;
-        display: flex;
-        flex-direction: column;
-        align-items: center;
-        background-color: #e4e4e4;
-        box-shadow: rgb(0 0 0 / 3%) 0 1px 10px 10px !important;
+.allocated-tooltip {
+    margin: 8px;
+    position: relative;
+    padding-top: 8px;
+    width: 145px;
+    font-family: 'font_regular', sans-serif;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    background: rgb(var(--v-theme-surface)) !important;
+    color: rgb(var(--v-theme-on-surface)) !important;
+    border: 1px solid rgba(var(--v-theme-on-surface),0.2);
+    box-shadow: rgb(0 0 0 / 3%) 0 1px 4px 2px !important;
+    border-radius: 10px !important;
+    pointer-events: all !important;
 
-        &__value {
-            font-size: 14px;
-            line-height: 26px;
-            text-align: center;
-            color: #444;
-            white-space: nowrap;
+    &__value {
+        font-size: 14px;
+        line-height: 26px;
+        text-align: center;
+        color: rgb(var(--v-theme-on-background));
+        white-space: nowrap;
 
-            &__bold {
-                font-family: 'font_medium', sans-serif;
-            }
-        }
-
-        &__arrow {
-            width: 12px;
-            height: 12px;
-            border-radius: 8px 0 0;
-            transform: scale(1, 0.85) translate(0, 20%) rotate(45deg);
-            margin-bottom: -4px;
-            background-color: #e4e4e4;
+        &__bold {
+            font-family: 'font_medium', sans-serif;
         }
     }
+
+    &__arrow {
+        width: 12px;
+        height: 12px;
+        border-radius: 0;
+        transform: scale(1, 0.85) translate(0, 20%) rotate(45deg);
+        margin-bottom: -4px;
+        background-color: rgb(var(--v-theme-surface)) !important;
+        border-right: 1px solid rgba(var(--v-theme-on-surface), 0.2);
+        border-bottom: 1px solid rgba(var(--v-theme-on-surface), 0.2);
+        position: relative;
+        z-index: 1;
+
+        &:after {
+            content: '';
+            position: absolute;
+            top: -1px;
+            left: -1px;
+            width: calc(100% + 2px);
+            height: calc(100% + 2px);
+            background: rgb(var(--v-theme-surface));
+            clip-path: polygon(0 0, 100% 0, 0 100%);
+        }
+    }
+}
 </style>

@@ -4,7 +4,7 @@
 <template>
     <v-navigation-drawer v-model="model">
         <v-sheet>
-            <v-list class="px-2 py-1" color="default" variant="flat">
+            <v-list class="px-2 py-1" variant="flat" active-class="text-primary">
                 <!-- Back -->
                 <template v-if="pathBeforeAccountPage">
                     <navigation-item class="pa-4" title="Back" :to="pathBeforeAccountPage">

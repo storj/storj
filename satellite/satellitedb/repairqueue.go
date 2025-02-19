@@ -346,10 +346,10 @@ func (r *repairQueue) Select(ctx context.Context, n int, includedPlacements []st
 			) RETURNING stream_id, position, attempted_at, updated_at, inserted_at, segment_health, placement
 
 		`), n)
-		if err == nil {
-			err = scanSegments(rows)
+		if err != nil {
+			return nil, errs.Wrap(err)
 		}
-
+		err = scanSegments(rows)
 	case dbutil.Cockroach:
 		rows, err = r.db.QueryContext(ctx, r.db.Rebind(`
 			UPDATE repair_queue SET attempted_at = now()
@@ -359,37 +359,29 @@ func (r *repairQueue) Select(ctx context.Context, n int, includedPlacements []st
 			RETURNING stream_id, position, attempted_at, updated_at, inserted_at, segment_health, placement
 
 		`), n)
-
-		if err == nil {
-			err = scanSegments(rows)
+		if err != nil {
+			return nil, errs.Wrap(err)
 		}
+		err = scanSegments(rows)
 	case dbutil.Spanner:
 		// Note: Spanner sorts nulls first by default.
-		err = r.db.WithTx(ctx, func(ctx context.Context, tx *dbx.Tx) error {
-			rows, err = tx.QueryContext(ctx, `UPDATE repair_queue
-				SET attempted_at = CURRENT_TIMESTAMP()
-				WHERE (stream_id, position) IN (
-					SELECT (stream_id, position)
-					FROM (
-						SELECT stream_id, position
-						FROM repair_queue
-						WHERE (attempted_at IS NULL OR attempted_at < TIMESTAMP_SUB(CURRENT_TIMESTAMP(), INTERVAL 6 HOUR)) `+restriction+`
-						ORDER BY segment_health ASC, attempted_at ASC
-						LIMIT ?
-					) AS target_row
-				)
-				THEN RETURN stream_id, position, attempted_at, updated_at, inserted_at, segment_health, placement`, n)
-			if err != nil {
-				return errs.Wrap(err)
-			}
-			// important: clear segments in case this transaction is being retried
-			segments = segments[:0]
-			err = scanSegments(rows)
-			if err != nil {
-				return err
-			}
-			return err
-		})
+		rows, err = r.db.QueryContext(ctx, `UPDATE repair_queue
+			SET attempted_at = CURRENT_TIMESTAMP()
+			WHERE (stream_id, position) IN (
+				SELECT (stream_id, position)
+				FROM (
+					SELECT stream_id, position
+					FROM repair_queue
+					WHERE (attempted_at IS NULL OR attempted_at < TIMESTAMP_SUB(CURRENT_TIMESTAMP(), INTERVAL 6 HOUR)) `+restriction+`
+					ORDER BY segment_health ASC, attempted_at ASC
+					LIMIT ?
+				) AS target_row
+			)
+			THEN RETURN stream_id, position, attempted_at, updated_at, inserted_at, segment_health, placement`, n)
+		if err != nil {
+			return nil, errs.Wrap(err)
+		}
+		err = scanSegments(rows)
 	default:
 		return segments, errs.New("unhandled database: %v", r.db.impl)
 	}

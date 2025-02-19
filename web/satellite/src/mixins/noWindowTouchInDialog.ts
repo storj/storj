@@ -1,7 +1,7 @@
 // Copyright (C) 2024 Storj Labs, Inc.
 // See LICENSE for copying information.
 
-import { ComponentOptions } from '@vue/runtime-core';
+import { ComponentOptions } from 'vue';
 
 export const noWindowTouchInDialog: ComponentOptions = {
     beforeMount() {

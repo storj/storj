@@ -175,12 +175,15 @@ import { AuthHttpApi } from '@/api/auth';
 import { AnalyticsEvent } from '@/utils/constants/analyticsEventNames';
 import { MaxNameLengthRule, RequiredRule } from '@/types/common';
 import { useAnalyticsStore } from '@/store/modules/analyticsStore';
+import { useConfigStore } from '@/store/modules/configStore';
 
 import IconBusiness from '@/components/icons/IconBusiness.vue';
 
 const auth = new AuthHttpApi();
 
 const analyticsStore = useAnalyticsStore();
+const configStore = useConfigStore();
+
 const { smAndUp } = useDisplay();
 
 defineProps<{
@@ -220,7 +223,7 @@ async function setupAccount() {
         isProfessional: true,
         haveSalesContact: haveSalesContact.value,
         interestedInPartnering: interestedInPartnering.value,
-    });
+    }, configStore.state.config.csrfToken);
 
     analyticsStore.eventTriggered(AnalyticsEvent.BUSINESS_INFO_SUBMITTED);
 }

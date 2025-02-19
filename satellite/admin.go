@@ -152,7 +152,7 @@ func NewAdmin(log *zap.Logger, full *identity.FullIdentity, db DB, metabaseDB *m
 	}
 
 	{ // setup analytics
-		peer.Analytics.Service = analytics.NewService(peer.Log.Named("analytics:service"), config.Analytics, config.Console.SatelliteName)
+		peer.Analytics.Service = analytics.NewService(peer.Log.Named("analytics:service"), config.Analytics, config.Console.SatelliteName, config.Console.ExternalAddress)
 
 		peer.Services.Add(lifecycle.Item{
 			Name:  "analytics:service",
@@ -189,6 +189,11 @@ func NewAdmin(log *zap.Logger, full *identity.FullIdentity, db DB, metabaseDB *m
 			return nil, errs.Combine(err, peer.Close())
 		}
 
+		productPrices, err := pc.Products.ToModels()
+		if err != nil {
+			return nil, errs.Combine(err, peer.Close())
+		}
+
 		peer.FreezeAccounts.Service = console.NewAccountFreezeService(
 			db.Console(),
 			peer.Analytics.Service,
@@ -207,6 +212,9 @@ func NewAdmin(log *zap.Logger, full *identity.FullIdentity, db DB, metabaseDB *m
 			peer.DB.ProjectAccounting(),
 			prices,
 			priceOverrides,
+			productPrices,
+			pc.PartnersPlacementPriceOverrides.ToMap(),
+			pc.PlacementPriceOverrides.ToMap(),
 			pc.PackagePlans.Packages,
 			pc.BonusRate,
 			peer.Analytics.Service,

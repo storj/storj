@@ -887,6 +887,13 @@ func toUpdateUser(request console.UpdateUserRequest) (*dbx.User_Update_Fields, e
 	if request.ExternalID != nil {
 		update.ExternalId = dbx.User_ExternalId(*request.ExternalID)
 	}
+	if request.HubspotObjectID != nil {
+		if *request.HubspotObjectID == nil {
+			update.HubspotObjectId = dbx.User_HubspotObjectId_Null()
+		} else {
+			update.HubspotObjectId = dbx.User_HubspotObjectId(**request.HubspotObjectID)
+		}
+	}
 
 	return &update, nil
 }
@@ -936,6 +943,7 @@ func UserFromDBX(ctx context.Context, user *dbx.User) (_ *console.User, err erro
 		NewUnverifiedEmail:          user.NewUnverifiedEmail,
 		EmailChangeVerificationStep: user.EmailChangeVerificationStep,
 		FinalInvoiceGenerated:       user.FinalInvoiceGenerated,
+		HubspotObjectID:             user.HubspotObjectId,
 	}
 
 	if user.DefaultPlacement != nil {

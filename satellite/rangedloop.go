@@ -118,7 +118,7 @@ func NewRangedLoop(log *zap.Logger, db DB, metabaseDB *metabase.DB, config *Conf
 		peer.Accounting.NodeTallyObserver = nodetally.NewObserver(
 			log.Named("accounting:nodetally"),
 			db.StoragenodeAccounting(),
-			metabaseDB)
+			metabaseDB, config.NodeTally)
 	}
 
 	{ // setup piece tracker observer
@@ -215,7 +215,7 @@ func NewRangedLoop(log *zap.Logger, db DB, metabaseDB *metabase.DB, config *Conf
 			observers = append(observers, rangedloop.NewSequenceObserver(sequenceObservers...))
 		}
 
-		segments := rangedloop.NewMetabaseRangeSplitter(metabaseDB, config.RangedLoop.AsOfSystemInterval, config.RangedLoop.SpannerStaleInterval, config.RangedLoop.BatchSize)
+		segments := rangedloop.NewMetabaseRangeSplitter(log.Named("rangedloop-metabase-range-splitter"), metabaseDB, config.RangedLoop)
 		peer.RangedLoop.Service = rangedloop.NewService(log.Named("rangedloop"), config.RangedLoop, segments, observers)
 
 		peer.Services.Add(lifecycle.Item{

@@ -308,6 +308,46 @@ func TestUserUpdate(t *testing.T) {
 	})
 }
 
+func TestUserStatusUpdate(t *testing.T) {
+	testplanet.Run(t, testplanet.Config{
+		SatelliteCount:   1,
+		StorageNodeCount: 0,
+		UplinkCount:      1,
+		Reconfigure: testplanet.Reconfigure{
+			Satellite: func(_ *zap.Logger, _ int, config *satellite.Config) {
+				config.Admin.Address = "127.0.0.1:0"
+			},
+		},
+	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+		address := planet.Satellites[0].Admin.Admin.Listener.Addr()
+		user, err := planet.Satellites[0].DB.Console().Users().GetByEmail(ctx, planet.Uplinks[0].Projects[0].Owner.Email)
+		require.NoError(t, err)
+
+		t.Run("OK", func(t *testing.T) {
+			link := fmt.Sprintf("http://"+address.String()+"/api/users/%s/status/%d", user.Email, console.PendingDeletion)
+			responseBody := assertReq(ctx, t, link, http.MethodPut, "", http.StatusOK, "", planet.Satellites[0].Config.Console.AuthToken)
+			require.Len(t, responseBody, 0)
+
+			updatedUser, err := planet.Satellites[0].DB.Console().Users().Get(ctx, user.ID)
+			require.NoError(t, err)
+			require.NotEqual(t, user.Status, updatedUser.Status)
+			require.Equal(t, updatedUser.Status, console.PendingDeletion)
+		})
+
+		t.Run("invalid value", func(t *testing.T) {
+			link := fmt.Sprintf("http://"+address.String()+"/api/users/%s/status/not-int", user.Email)
+			responseBody := assertReq(ctx, t, link, http.MethodPut, "", http.StatusBadRequest, "", planet.Satellites[0].Config.Console.AuthToken)
+			require.Contains(t, string(responseBody), "invalid user status. int required")
+		})
+
+		t.Run("invalid status", func(t *testing.T) {
+			link := fmt.Sprintf("http://"+address.String()+"/api/users/%s/status/%d", user.Email, console.UserStatus(100))
+			responseBody := assertReq(ctx, t, link, http.MethodPut, "", http.StatusBadRequest, "", planet.Satellites[0].Config.Console.AuthToken)
+			require.Contains(t, string(responseBody), "invalid user status. There isn't any status with this value")
+		})
+	})
+}
+
 func TestUpdateUsersUserAgent(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
 		SatelliteCount:   1,
@@ -948,6 +988,86 @@ func TestUserDelete(t *testing.T) {
 				GetPagedWithInvitationsByProjectID(ctx, sharedProject.ID, console.ProjectMembersCursor{Limit: 2, Page: 1})
 			require.NoError(t, err)
 			require.EqualValues(t, 0, members.TotalCount)
+		})
+	})
+	t.Run("has active project", func(t *testing.T) {
+		testplanet.Run(t, testplanet.Config{
+			SatelliteCount:   1,
+			StorageNodeCount: 0,
+			UplinkCount:      1,
+			Reconfigure: testplanet.Reconfigure{
+				Satellite: func(_ *zap.Logger, _ int, config *satellite.Config) {
+					config.Admin.Address = "127.0.0.1:0"
+				},
+			},
+		}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+			dbconsole := planet.Satellites[0].DB.Console()
+			address := planet.Satellites[0].Admin.Admin.Listener.Addr()
+			user, err := dbconsole.Users().GetByEmail(ctx, planet.Uplinks[0].Projects[0].Owner.Email)
+			require.NoError(t, err)
+
+			p, err := dbconsole.Projects().GetOwnActive(ctx, user.ID)
+			require.NoError(t, err)
+			require.Len(t, p, 1)
+
+			// Deleting the user should fail, as active project exists for given user.
+			link := fmt.Sprintf("http://"+address.String()+"/api/users/%s", user.Email)
+			body := assertReq(
+				ctx,
+				t,
+				link,
+				http.MethodDelete,
+				"",
+				http.StatusConflict,
+				"",
+				planet.Satellites[0].Config.Console.AuthToken,
+			)
+			require.Greater(t, len(body), 0)
+
+			user, err = dbconsole.Users().Get(ctx, user.ID)
+			require.NoError(t, err)
+			require.NotContains(t, user.Email, "deactivated")
+		})
+	})
+	t.Run("has no active projects", func(t *testing.T) {
+		testplanet.Run(t, testplanet.Config{
+			SatelliteCount:   1,
+			StorageNodeCount: 0,
+			UplinkCount:      1,
+			Reconfigure: testplanet.Reconfigure{
+				Satellite: func(_ *zap.Logger, _ int, config *satellite.Config) {
+					config.Admin.Address = "127.0.0.1:0"
+				},
+			},
+		}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+			dbconsole := planet.Satellites[0].DB.Console()
+			address := planet.Satellites[0].Admin.Admin.Listener.Addr()
+			user, err := dbconsole.Users().GetByEmail(ctx, planet.Uplinks[0].Projects[0].Owner.Email)
+			require.NoError(t, err)
+
+			p, err := dbconsole.Projects().GetOwnActive(ctx, user.ID)
+			require.NoError(t, err)
+			require.Len(t, p, 1)
+
+			require.NoError(t, dbconsole.Projects().UpdateStatus(ctx, p[0].ID, console.ProjectDisabled))
+
+			// Deleting the user should pass, as no active project exists for given user.
+			link := fmt.Sprintf("http://"+address.String()+"/api/users/%s", user.Email)
+			body := assertReq(
+				ctx,
+				t,
+				link,
+				http.MethodDelete,
+				"",
+				http.StatusOK,
+				"",
+				planet.Satellites[0].Config.Console.AuthToken,
+			)
+			require.Len(t, body, 0)
+
+			user, err = dbconsole.Users().Get(ctx, user.ID)
+			require.NoError(t, err)
+			require.Contains(t, user.Email, "deactivated")
 		})
 	})
 }

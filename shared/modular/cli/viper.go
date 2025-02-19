@@ -13,8 +13,8 @@ import (
 	"github.com/spf13/viper"
 	"github.com/zeebo/structs"
 
-	"storj.io/storj/private/mud"
 	"storj.io/storj/shared/modular/config"
+	"storj.io/storj/shared/mud"
 )
 
 // LoadConfig loads configuration with vip, and binds it to the registered (and selected) Config components.
@@ -45,9 +45,19 @@ func LoadConfig(cmd *cobra.Command, ball *mud.Ball, selector mud.ComponentSelect
 	err = mud.ForEachDependency(ball, selector, func(c *mud.Component) error {
 		cfg, ok := mud.GetTagOf[config.Config](c)
 		if ok {
-			settings := allSettings[cfg.Prefix]
+
+			var settings map[string]interface{}
+
 			if cfg.Prefix == "" {
 				settings = allSettings
+			} else {
+				settings = allSettings
+				for _, sub := range strings.Split(cfg.Prefix, ".") {
+					settings = settings[sub].(map[string]interface{})
+					if settings == nil {
+						break
+					}
+				}
 			}
 			if c.Instance() != nil && settings != nil {
 				res := structs.Decode(settings, c.Instance())

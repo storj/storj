@@ -256,7 +256,7 @@ func (service *Service) Purge(ctx context.Context) (err error) {
 	}
 	monAccounting.IntVal("bucket_tallies_purged").Observe(count)
 	if count > 0 {
-		service.log.Info("Purged old bucket storage tallies", zap.Time("olderThan", olderThan), zap.Int64("count", count))
+		service.log.Info("Purged old bucket storage tallies", zap.Time("olderThan", olderThan), zap.Int64("count (estimation)", count))
 	}
 	return nil
 }

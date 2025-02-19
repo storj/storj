@@ -22,7 +22,7 @@ export interface AccessGrantsApi {
      * @returns AccessGrant
      * @throws Error
      */
-    create(projectId: string, name: string): Promise<AccessGrant>;
+    create(projectId: string, name: string, csrfProtectionToken: string): Promise<AccessGrant>;
 
     /**
      * Delete existing access grant
@@ -30,7 +30,7 @@ export interface AccessGrantsApi {
      * @returns null
      * @throws Error
      */
-    delete(ids: string[]): Promise<void>;
+    delete(ids: string[], csrfProtectionToken: string): Promise<void>;
 
     /**
      * Delete existing access grant by name and project id
@@ -38,7 +38,7 @@ export interface AccessGrantsApi {
      * @returns null
      * @throws Error
      */
-    deleteByNameAndProjectID(name: string, projectID: string): Promise<void>;
+    deleteByNameAndProjectID(name: string, projectID: string, csrfProtectionToken: string): Promise<void>;
 
     /**
      * Fetch all API key names.

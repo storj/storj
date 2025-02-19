@@ -85,7 +85,7 @@
                                         <h2>Activate your account</h2>
                                     </v-col>
                                 </v-row>
-                                <v-row justify="center" align="center">
+                                <v-row class="ma-0" justify="center" align="center">
                                     <v-col cols="12" sm="8" md="6" lg="4">
                                         <v-tabs
                                             v-if="isProPlan"
@@ -106,7 +106,7 @@
                                 </v-row>
                                 <v-window v-model="paymentTab">
                                     <v-window-item :value="PaymentOption.CreditCard">
-                                        <v-row justify="center" align="center">
+                                        <v-row class="ma-0" justify="center" align="center">
                                             <v-col cols="12" sm="8" md="6" lg="4">
                                                 <PricingPlanStep
                                                     v-model:loading="isLoading"
@@ -119,7 +119,7 @@
                                         </v-row>
                                     </v-window-item>
                                     <v-window-item :value="PaymentOption.StorjTokens">
-                                        <v-row justify="center" align="center" class="mt-2">
+                                        <v-row justify="center" align="center" class="ma-0 mt-2">
                                             <v-col cols="12" sm="8" md="6" lg="4">
                                                 <v-card :loading="isLoading" class="pa-1" :class="{'no-border pa-0': !isLoading}">
                                                     <AddTokensStep

@@ -19,6 +19,9 @@ type CreditCards interface {
 	// Add is used to save new credit card and attach it to payment account.
 	Add(ctx context.Context, userID uuid.UUID, cardToken string) (CreditCard, error)
 
+	// Update updates the credit card details.
+	Update(ctx context.Context, userID uuid.UUID, params CardUpdateParams) error
+
 	// AddByPaymentMethodID is used to save new credit card, attach it to payment account and make it default
 	// using the payment method id instead of the token. In this case, the payment method should already be
 	// created by the frontend using stripe elements for example.
@@ -44,4 +47,11 @@ type CreditCard struct {
 	Brand     string `json:"brand"`
 	Last4     string `json:"last4"`
 	IsDefault bool   `json:"isDefault"`
+}
+
+// CardUpdateParams holds the parameters needed to update a credit card.
+type CardUpdateParams struct {
+	CardID   string
+	ExpMonth int64
+	ExpYear  int64
 }

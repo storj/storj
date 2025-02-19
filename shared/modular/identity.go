@@ -6,8 +6,8 @@ package modular
 import (
 	"storj.io/common/identity"
 	"storj.io/common/storj"
-	"storj.io/storj/private/mud"
 	"storj.io/storj/shared/modular/config"
+	"storj.io/storj/shared/mud"
 )
 
 // IdentityModule provides identity related components for modular setup.

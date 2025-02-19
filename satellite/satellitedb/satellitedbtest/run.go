@@ -54,6 +54,8 @@ type Database struct {
 	Name    string
 	URL     string
 	Message string
+
+	ExtraStatements []string // TODO: only implemented for spanner at the moment.
 }
 
 // Databases returns default databases.
@@ -64,8 +66,8 @@ func Databases() []SatelliteDatabases {
 	if !strings.EqualFold(postgresConnStr, "omit") {
 		dbs = append(dbs, SatelliteDatabases{
 			Name:       "Postgres",
-			MasterDB:   Database{"Postgres", postgresConnStr, "Postgres flag missing, example: -postgres-test-db=" + dbtest.DefaultPostgres + " or use STORJ_TEST_POSTGRES environment variable."},
-			MetabaseDB: Database{"Postgres", postgresConnStr, ""},
+			MasterDB:   Database{"Postgres", postgresConnStr, "Postgres flag missing, example: -postgres-test-db=" + dbtest.DefaultPostgres + " or use STORJ_TEST_POSTGRES environment variable.", nil},
+			MetabaseDB: Database{"Postgres", postgresConnStr, "", nil},
 		})
 	}
 
@@ -73,8 +75,8 @@ func Databases() []SatelliteDatabases {
 	if !strings.EqualFold(cockroachConnStr, "omit") {
 		dbs = append(dbs, SatelliteDatabases{
 			Name:       "Cockroach",
-			MasterDB:   Database{"Cockroach", cockroachConnStr, "Cockroach flag missing, example: -cockroach-test-db=" + dbtest.DefaultCockroach + " or use STORJ_TEST_COCKROACH environment variable."},
-			MetabaseDB: Database{"Cockroach", cockroachConnStr, ""},
+			MasterDB:   Database{"Cockroach", cockroachConnStr, "Cockroach flag missing, example: -cockroach-test-db=" + dbtest.DefaultCockroach + " or use STORJ_TEST_COCKROACH environment variable.", nil},
+			MetabaseDB: Database{"Cockroach", cockroachConnStr, "", nil},
 		})
 	}
 
@@ -82,8 +84,8 @@ func Databases() []SatelliteDatabases {
 	if !strings.EqualFold(spanner, "omit") {
 		dbs = append(dbs, SatelliteDatabases{
 			Name:       "Spanner",
-			MasterDB:   Database{"Spanner", spanner, "Spanner flag missing, example: -spanner-test-db=" + dbtest.DefaultSpanner + " or use STORJ_TEST_SPANNER environment variable."},
-			MetabaseDB: Database{"Spanner", spanner, ""},
+			MasterDB:   Database{"Spanner", spanner, "Spanner flag missing, example: -spanner-test-db=" + dbtest.DefaultSpanner + " or use STORJ_TEST_SPANNER environment variable.", satellitedb.SpannerExtraStatements},
+			MetabaseDB: Database{"Spanner", spanner, "", nil},
 		})
 	}
 
@@ -136,7 +138,7 @@ func (db *tempMasterDB) Close() error {
 }
 
 // CreateMasterDB creates a new satellite database for testing.
-func CreateMasterDB(ctx context.Context, log *zap.Logger, name string, category string, index int, dbInfo Database, applicationName string) (db satellite.DB, err error) {
+func CreateMasterDB(ctx context.Context, log *zap.Logger, name string, category string, index int, dbInfo Database, options satellitedb.Options) (db satellite.DB, err error) {
 	if dbInfo.URL == "" {
 		return nil, fmt.Errorf("Database %s connection string not provided. %s", dbInfo.Name, dbInfo.Message)
 	}
@@ -145,7 +147,7 @@ func CreateMasterDB(ctx context.Context, log *zap.Logger, name string, category 
 	log.Debug("creating", zap.String("suffix", schemaSuffix))
 	schema := SchemaName(name, category, index, schemaSuffix)
 
-	tempDB, err := tempdb.OpenUnique(ctx, dbInfo.URL, schema)
+	tempDB, err := tempdb.OpenUnique(ctx, dbInfo.URL, schema, dbInfo.ExtraStatements)
 	if err != nil {
 		return nil, err
 	}
@@ -153,13 +155,13 @@ func CreateMasterDB(ctx context.Context, log *zap.Logger, name string, category 
 		tempDB.Cleanup = func(d tagsql.DB) error { return nil }
 	}
 
-	return CreateMasterDBOnTopOf(ctx, log, tempDB, applicationName)
+	return CreateMasterDBOnTopOf(ctx, log, tempDB, options)
 }
 
 // CreateMasterDBOnTopOf creates a new satellite database on top of an already existing
 // temporary database.
-func CreateMasterDBOnTopOf(ctx context.Context, log *zap.Logger, tempDB *dbutil.TempDatabase, applicationName string) (db satellite.DB, err error) {
-	masterDB, err := satellitedb.Open(ctx, log.Named("db"), tempDB.ConnStr, satellitedb.Options{ApplicationName: applicationName})
+func CreateMasterDBOnTopOf(ctx context.Context, log *zap.Logger, tempDB *dbutil.TempDatabase, options satellitedb.Options) (db satellite.DB, err error) {
+	masterDB, err := satellitedb.Open(ctx, log.Named("db"), tempDB.ConnStr, options)
 	return &tempMasterDB{DB: masterDB, tempDB: tempDB}, err
 }
 
@@ -181,7 +183,7 @@ func CreateTempDB(ctx context.Context, log *zap.Logger, tcfg TempDBSchemaConfig,
 
 	schema := SchemaName(tcfg.Name, tcfg.Category, tcfg.Index, schemaSuffix)
 
-	tempDB, err := tempdb.OpenUnique(ctx, dbInfo.URL, schema)
+	tempDB, err := tempdb.OpenUnique(ctx, dbInfo.URL, schema, dbInfo.ExtraStatements)
 	if err != nil {
 		return nil, err
 	}
@@ -233,7 +235,10 @@ func Run(t *testing.T, test func(ctx *testcontext.Context, t *testing.T, db sate
 
 			logger := zaptest.NewLogger(t)
 			applicationName := "satellite-satellitedb-test-" + pgutil.CreateRandomTestingSchemaName(6)
-			db, err := CreateMasterDB(ctx, logger, t.Name(), "T", 0, dbInfo.MasterDB, applicationName)
+
+			db, err := CreateMasterDB(ctx, logger, t.Name(), "T", 0, dbInfo.MasterDB, satellitedb.Options{
+				ApplicationName: applicationName,
+			})
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -267,7 +272,9 @@ func Bench(b *testing.B, bench func(ctx *testcontext.Context, b *testing.B, db s
 			ctx := testcontext.NewWithTimeout(b, 30*time.Minute)
 			defer ctx.Cleanup()
 
-			db, err := CreateMasterDB(ctx, zap.NewNop(), b.Name(), "X", 0, dbInfo.MasterDB, "satellite-satellitedb-bench")
+			db, err := CreateMasterDB(ctx, zap.NewNop(), b.Name(), "X", 0, dbInfo.MasterDB, satellitedb.Options{
+				ApplicationName: "satellite-satellitedb-bench",
+			})
 			if err != nil {
 				b.Fatal(err)
 			}

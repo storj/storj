@@ -43,7 +43,8 @@ func NewTrashRunOnce(log *zap.Logger, blobs blobstore.Blobs, trashExpiryInterval
 }
 
 // Run cleans up trashes.
-func (t *TrashRunOnce) Run(ctx context.Context) error {
+func (t *TrashRunOnce) Run(ctx context.Context) (err error) {
+	defer mon.Task()(&ctx)(&err)
 	namespaces, err := t.blobs.ListNamespaces(ctx)
 	if err != nil {
 		return errs.Wrap(err)
@@ -60,9 +61,9 @@ func (t *TrashRunOnce) Run(ctx context.Context) error {
 			_, _, err = t.blobs.EmptyTrash(ctx, namespace, trashedBefore)
 		}
 		if err != nil {
-			t.log.Error("emptying trash failed", zap.Error(err))
+			t.log.Error("emptying trash failed", zap.Error(err), zap.Stringer("satellite", satellite))
 		} else {
-			t.log.Info("emptying trash finished", zap.Stringer("Satellite ID", satellite), zap.Duration("elapsed", time.Since(timeStart)))
+			t.log.Info("emptying trash finished", zap.Stringer("satellite", satellite), zap.Duration("elapsed", time.Since(timeStart)))
 		}
 
 	}

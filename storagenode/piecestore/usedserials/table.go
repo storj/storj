@@ -4,6 +4,7 @@
 package usedserials
 
 import (
+	"context"
 	"encoding/binary"
 	"sync"
 	"time"
@@ -21,7 +22,10 @@ var (
 	// ErrSerialAlreadyExists defines an error class for duplicate usedserials.
 	ErrSerialAlreadyExists = errs.Class("used serial already exists in store")
 
-	mon = monkit.Package()
+	mon                   = monkit.Package()
+	monAdd                = mon.Task()
+	monDeleteExpired      = mon.Task()
+	monDeleteRandomSerial = mon.Task()
 )
 
 const (
@@ -80,7 +84,9 @@ func NewTable(maxMemory memory.Size) *Table {
 
 // Add adds a serial to the store, or returns an error if the serial number was already added.
 // It randomly deletes items from the store if the set maxMemory is exceeded.
-func (table *Table) Add(satelliteID storj.NodeID, serialNumber storj.SerialNumber, expiration time.Time) error {
+func (table *Table) Add(ctx context.Context, satelliteID storj.NodeID, serialNumber storj.SerialNumber, expiration time.Time) (err error) {
+	defer monAdd(&ctx)(&err)
+
 	table.mu.Lock()
 	defer table.mu.Unlock()
 
@@ -105,7 +111,7 @@ func (table *Table) Add(satelliteID storj.NodeID, serialNumber storj.SerialNumbe
 			list.partialSerials = map[Partial]struct{}{}
 		}
 
-		err := insertPartial(list.partialSerials, partialSerial)
+		err = insertPartial(list.partialSerials, partialSerial)
 		if err != nil {
 			return err
 		}
@@ -116,7 +122,7 @@ func (table *Table) Add(satelliteID storj.NodeID, serialNumber storj.SerialNumbe
 		if list.fullSerials == nil {
 			list.fullSerials = map[storj.SerialNumber]struct{}{}
 		}
-		err := insertSerial(list.fullSerials, serialNumber)
+		err = insertSerial(list.fullSerials, serialNumber)
 		if err != nil {
 			return err
 		}
@@ -128,7 +134,7 @@ func (table *Table) Add(satelliteID storj.NodeID, serialNumber storj.SerialNumbe
 	// Check to see if the structure exceeds the max allowed size.
 	// If so, delete random items until there is enough space.
 	for table.memoryUsed > table.maxMemory {
-		err := table.deleteRandomSerial()
+		err = table.deleteRandomSerial(ctx)
 		if err != nil {
 			return err
 		}
@@ -138,7 +144,9 @@ func (table *Table) Add(satelliteID storj.NodeID, serialNumber storj.SerialNumbe
 }
 
 // DeleteExpired deletes expired serial numbers if their expiration hour has passed.
-func (table *Table) DeleteExpired(now time.Time) {
+func (table *Table) DeleteExpired(ctx context.Context, now time.Time) {
+	defer monDeleteExpired(&ctx)(nil)
+
 	table.mu.Lock()
 	defer table.mu.Unlock()
 
@@ -195,8 +203,11 @@ func (table *Table) Count() int {
 
 // deleteRandomSerial deletes a random item.
 // It expects the mutex to be locked before being called.
-func (table *Table) deleteRandomSerial() error {
+func (table *Table) deleteRandomSerial(ctx context.Context) (err error) {
+	defer monDeleteRandomSerial(&ctx)(&err)
+
 	mon.Meter("delete_random_serial").Mark(1) //mon:locked
+
 	for _, satMap := range table.serials {
 		for _, serialList := range satMap {
 			if len(serialList.partialSerials) > 0 {

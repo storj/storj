@@ -14,12 +14,12 @@ import { NotificationMessage } from '@/types/DelayedNotification';
 export class Notificator {
     public constructor() {}
 
-    public success(message: NotificationMessage, title?: string): void {
+    public success(message: NotificationMessage, title?: string, remainingTime?: number): void {
         const notificationsStore = useNotificationsStore();
-        notificationsStore.notifySuccess(message, title);
+        notificationsStore.notifySuccess(message, title, remainingTime);
     }
 
-    public notifyError(error: Error, source?: AnalyticsErrorEventSource): void {
+    public notifyError(error: Error, source?: AnalyticsErrorEventSource, title?: string, remainingTime?: number): void {
         const notificationsStore = useNotificationsStore();
 
         let msg: NotificationMessage = error.message;
@@ -30,22 +30,22 @@ export class Notificator {
             ];
         }
 
-        notificationsStore.notifyError(msg, source);
+        notificationsStore.notifyError(msg, source, title, remainingTime);
     }
 
-    public error(message: NotificationMessage, source: AnalyticsErrorEventSource | null = null): void {
+    public error(message: NotificationMessage, source: AnalyticsErrorEventSource | null = null, title?: string, remainingTime?: number): void {
         const notificationsStore = useNotificationsStore();
-        notificationsStore.notifyError(message, source);
+        notificationsStore.notifyError(message, source, title, remainingTime);
     }
 
-    public notify(message: NotificationMessage, title?: string): void {
+    public notify(message: NotificationMessage, title?: string, remainingTime?: number): void {
         const notificationsStore = useNotificationsStore();
-        notificationsStore.notifyInfo(message, title);
+        notificationsStore.notifyInfo(message, title, remainingTime);
     }
 
-    public warning(message: NotificationMessage): void {
+    public warning(message: NotificationMessage, title?: string, remainingTime?: number): void {
         const notificationsStore = useNotificationsStore();
-        notificationsStore.notifyWarning(message);
+        notificationsStore.notifyWarning(message, title, remainingTime);
     }
 }
 

@@ -694,6 +694,7 @@ func TestFreezeEffects(t *testing.T) {
 				// disable limit caching
 				config.Metainfo.RateLimiter.CacheCapacity = 0
 			},
+			SatelliteDBOptions: testplanet.SatelliteDBDisableCaches,
 		},
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 		sat := planet.Satellites[0]

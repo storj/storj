@@ -78,7 +78,7 @@ func (obs *Observer) Start(ctx context.Context, startTime time.Time) (err error)
 		return err
 	}
 
-	obs.log.Debug("collecting bloom filters started")
+	obs.log.Info("Collecting bloom filters started")
 
 	// load last piece counts from overlay db
 	lastPieceCounts, err := obs.overlay.ActiveNodesPieceCounts(ctx)
@@ -129,6 +129,8 @@ func (obs *Observer) Join(ctx context.Context, partial rangedloop.Partial) (err 
 		return errs.Combine(failures...)
 	}
 
+	obs.log.Info("BF partial creation time", zap.Time("latest", obs.creationTime))
+
 	// find oldest from all latest creation time and GC observer start
 	for _, lct := range pieceTracker.latestCreationTime {
 		if lct != (time.Time{}) && lct.Before(obs.creationTime) {
@@ -147,14 +149,16 @@ func (obs *Observer) Join(ctx context.Context, partial rangedloop.Partial) (err 
 func (obs *Observer) Finish(ctx context.Context) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
+	obs.log.Info("Bloom filters creation time", zap.Time("selected", obs.creationTime))
+
 	if err := obs.upload.UploadBloomFilters(ctx, obs.creationTime, obs.retainInfos); err != nil {
 		return err
 	}
 
-	obs.log.Info("collecting bloom filters finished",
-		zap.Int("inline segments", obs.inlineCount),
-		zap.Int("expired segments", obs.expiredCount),
-		zap.Int("remote segments", obs.remoteCount))
+	obs.log.Info("Collecting bloom filters finished",
+		zap.Int("inline _segments", obs.inlineCount),
+		zap.Int("expired_segments", obs.expiredCount),
+		zap.Int("remote_segments", obs.remoteCount))
 
 	return nil
 }

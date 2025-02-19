@@ -42,6 +42,7 @@ import (
 	"storj.io/storj/storagenode/contact"
 	"storj.io/storj/storagenode/forgetsatellite"
 	"storj.io/storj/storagenode/gracefulexit"
+	"storj.io/storj/storagenode/hashstore"
 	"storj.io/storj/storagenode/healthcheck"
 	"storj.io/storj/storagenode/inspector"
 	"storj.io/storj/storagenode/internalpb"
@@ -53,6 +54,7 @@ import (
 	"storj.io/storj/storagenode/orders"
 	"storj.io/storj/storagenode/payouts"
 	"storj.io/storj/storagenode/payouts/estimatedpayouts"
+	"storj.io/storj/storagenode/piecemigrate"
 	"storj.io/storj/storagenode/pieces"
 	"storj.io/storj/storagenode/pieces/lazyfilewalker"
 	"storj.io/storj/storagenode/piecestore"
@@ -120,10 +122,13 @@ type Config struct {
 	Contact   contact.Config
 	Operator  operator.Config
 
+	Hashstore hashstore.Config
+
 	// TODO: flatten storage config and only keep the new one
-	Storage   piecestore.OldConfig
-	Storage2  piecestore.Config
-	Collector collector.Config
+	Storage           piecestore.OldConfig
+	Storage2          piecestore.Config
+	Storage2Migration piecemigrate.Config
+	Collector         collector.Config
 
 	Filestore filestore.Config
 
@@ -264,6 +269,7 @@ type Peer struct {
 		OldPieceBackend    *piecestore.OldPieceBackend
 		HashStoreBackend   *piecestore.HashStoreBackend
 		MigrationState     *satstore.SatelliteStore
+		MigrationChore     *piecemigrate.Chore
 		MigratingBackend   *piecestore.MigratingBackend
 		PieceBackend       *piecestore.TestingBackend
 		Endpoint           *piecestore.Endpoint
@@ -505,7 +511,7 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, revocationDB exten
 
 		peer.Contact.Service = contact.NewService(process.NamedLog(peer.Log, "contact:service"), peer.Dialer, self, peer.Storage2.Trust, peer.Contact.QUICStats, tags)
 
-		peer.Contact.Chore = contact.NewChore(process.NamedLog(peer.Log, "contact:chore"), config.Contact.Interval, peer.Contact.Service)
+		peer.Contact.Chore = contact.NewChore(process.NamedLog(peer.Log, "contact:chore"), config.Contact.Interval, config.Contact.CheckInTimeout, peer.Contact.Service)
 		peer.Services.Add(lifecycle.Item{
 			Name:  "contact:chore",
 			Run:   peer.Contact.Chore.Run,
@@ -549,36 +555,9 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, revocationDB exten
 			peer.StorageOld.LazyFileWalker = lazyfilewalker.NewSupervisor(process.NamedLog(peer.Log, "lazyfilewalker"), db.Config().LazyFilewalkerConfig(), executable)
 		}
 
-		var oldPieceExpiration pieces.PieceExpirationDB
-		if config.Pieces.EnableFlatExpirationStore {
-			flatFileStorePath := config.Pieces.FlatExpirationStorePath
-			if abs := filepath.IsAbs(flatFileStorePath); !abs {
-				if config.Storage2.DatabaseDir != "" {
-					flatFileStorePath = filepath.Join(config.Storage2.DatabaseDir, flatFileStorePath)
-				} else {
-					flatFileStorePath = filepath.Join(config.Storage.Path, flatFileStorePath)
-				}
-			}
-
-			var chainedStore pieces.PieceExpirationDB
-			if config.Pieces.FlatExpirationIncludeSQLite {
-				chainedStore = peer.DB.PieceExpirationDB()
-			}
-			pieceExpirationStore, err := pieces.NewPieceExpirationStore(process.NamedLog(peer.Log, "pieceexpiration"), chainedStore, pieces.PieceExpirationConfig{
-				DataDir:               flatFileStorePath,
-				ConcurrentFileHandles: config.Pieces.FlatExpirationStoreFileHandles,
-				MaxBufferTime:         config.Pieces.FlatExpirationStoreMaxBufferTime,
-			})
-			if err != nil {
-				return nil, errs.Combine(err, peer.Close())
-			}
-			peer.Services.Add(lifecycle.Item{
-				Name:  "pieceexpirationstore",
-				Close: pieceExpirationStore.Close,
-			})
-			oldPieceExpiration = pieceExpirationStore
-		} else {
-			oldPieceExpiration = peer.DB.PieceExpirationDB()
+		oldPieceExpiration, err := getPieceExpirationStore(process.NamedLog(log, "pieceexpiration"), db.PieceExpirationDB(), config.Storage, config.Storage2, config.Pieces)
+		if err != nil {
+			return nil, errs.Combine(err, peer.Close())
 		}
 
 		peer.StorageOld.Store = pieces.NewStore(process.NamedLog(peer.Log, "pieces"),
@@ -603,10 +582,40 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, revocationDB exten
 			Close: peer.StorageOld.TrashChore.Close,
 		})
 
+		logsPath, tablePath := config.Hashstore.Directories(config.Storage.Path)
+		metaDir := filepath.Join(logsPath, "meta")
+
+		peer.Storage2.MigrationState = satstore.NewSatelliteStore(metaDir, "migrate")
+		peer.Storage2.RestoreTimeManager = retain.NewRestoreTimeManager(metaDir)
+		peer.Storage2.BloomFilterManager, err = retain.NewBloomFilterManager(
+			metaDir,
+			config.Retain.MaxTimeSkew,
+		)
+		if err != nil {
+			peer.Log.Info("error encountered loading bloom filters", zap.Error(err))
+		}
+
+		peer.Storage2.HashStoreBackend, err = piecestore.NewHashStoreBackend(
+			context.Background(),
+			logsPath,
+			tablePath,
+			peer.Storage2.BloomFilterManager,
+			peer.Storage2.RestoreTimeManager,
+			process.NamedLog(peer.Log, "hashstore"),
+		)
+		if err != nil {
+			return nil, errs.Combine(err, peer.Close())
+		}
+		peer.Services.Add(lifecycle.Item{
+			Name:  "hashstore",
+			Close: peer.Storage2.HashStoreBackend.Close,
+		})
+		mon.Chain(peer.Storage2.HashStoreBackend)
+
 		if config.Storage2.Monitor.DedicatedDisk {
 			peer.Storage2.SpaceReport = monitor.NewDedicatedDisk(log, config.Storage.Path, config.Storage2.Monitor.MinimumDiskSpace.Int64(), config.Storage2.Monitor.ReservedBytes.Int64())
 		} else {
-			peer.Storage2.SpaceReport = monitor.NewSharedDisk(log, peer.StorageOld.Store, config.Storage2.Monitor.MinimumDiskSpace.Int64(), config.Storage.AllocatedDiskSpace.Int64())
+			peer.Storage2.SpaceReport = monitor.NewSharedDisk(log, peer.StorageOld.Store, peer.Storage2.HashStoreBackend, config.Storage2.Monitor.MinimumDiskSpace.Int64(), config.Storage.AllocatedDiskSpace.Int64())
 
 			// enable cache service only when using shared disk
 			peer.StorageOld.CacheService = pieces.NewService(
@@ -626,37 +635,13 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, revocationDB exten
 				debug.Cycle("Piecestore Cache", peer.StorageOld.CacheService.Loop))
 		}
 
-		hashStoreDir := filepath.Join(config.Storage.Path, "hashstore")
-		metaDir := filepath.Join(hashStoreDir, "meta")
-
-		peer.Storage2.MigrationState = satstore.NewSatelliteStore(metaDir, "migrate")
-		peer.Storage2.RestoreTimeManager = retain.NewRestoreTimeManager(metaDir)
-		peer.Storage2.BloomFilterManager, err = retain.NewBloomFilterManager(metaDir)
-		if err != nil {
-			peer.Log.Info("error encountered loading bloom filters", zap.Error(err))
-		}
-
-		peer.Storage2.HashStoreBackend = piecestore.NewHashStoreBackend(
-			hashStoreDir,
-			peer.Storage2.BloomFilterManager,
-			peer.Storage2.RestoreTimeManager,
-			process.NamedLog(peer.Log, "hashstore"),
-		)
-		mon.Chain(peer.Storage2.HashStoreBackend)
-
-		peer.Storage2.SpaceReport = newSpaceReportWithHashStore(
-			peer.Storage2.SpaceReport,
-			peer.Storage2.HashStoreBackend,
-		)
-
 		peer.Storage2.Monitor = monitor.NewService(
 			process.NamedLog(log, "piecestore:monitor"),
 			peer.StorageOld.Store,
 			peer.Contact.Service,
-			// TODO: use config.Storage.Monitor.Interval, but for some reason is not set
-			config.Storage.KBucketRefreshInterval,
 			peer.Storage2.SpaceReport,
 			config.Storage2.Monitor,
+			config.Contact.CheckInTimeout,
 		)
 		peer.Services.Add(lifecycle.Item{
 			Name:  "piecestore:monitor",
@@ -699,11 +684,29 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, revocationDB exten
 			peer.Storage2.Monitor,
 		)
 
+		peer.Storage2.MigrationChore = piecemigrate.NewChore(
+			process.NamedLog(peer.Log, "piecemigrate:chore"),
+			config.Storage2Migration,
+			satstore.NewSatelliteStore(metaDir, "migrate_chore"),
+			peer.StorageOld.Store,
+			peer.Storage2.HashStoreBackend,
+		)
+		mon.Chain(peer.Storage2.MigrationChore)
+
+		peer.Services.Add(lifecycle.Item{
+			Name:  "piecemigrate:chore",
+			Run:   peer.Storage2.MigrationChore.Run,
+			Close: peer.Storage2.MigrationChore.Close,
+		})
+		peer.Debug.Server.Panel.Add(
+			debug.Cycle("Piecemigrate Migration Chore", peer.Storage2.MigrationChore.Loop))
+
 		peer.Storage2.MigratingBackend = piecestore.NewMigratingBackend(
+			peer.Log,
 			peer.Storage2.OldPieceBackend,
 			peer.Storage2.HashStoreBackend,
 			peer.Storage2.MigrationState,
-			nil,
+			peer.Storage2.MigrationChore,
 		)
 		mon.Chain(peer.Storage2.MigratingBackend)
 
@@ -716,8 +719,10 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, revocationDB exten
 			peer.Identity,
 			peer.Storage2.Trust,
 			peer.Storage2.Monitor,
-			peer.StorageOld.RetainService,
-			peer.Storage2.BloomFilterManager,
+			[]piecestore.QueueRetain{
+				peer.StorageOld.RetainService,
+				peer.Storage2.BloomFilterManager,
+			},
 			peer.Contact.PingStats,
 			peer.Storage2.PieceBackend,
 			peer.OrdersStore,
@@ -854,9 +859,7 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, revocationDB exten
 		peer.Console.Service, err = console.NewService(
 			process.NamedLog(peer.Log, "console:service"),
 			peer.Bandwidth.Cache,
-			peer.StorageOld.Store, // TODO: update console to know about hashstore
 			peer.Version.Service,
-			config.Storage.AllocatedDiskSpace,
 			config.Operator.Wallet,
 			versionInfo,
 			peer.Storage2.Trust,
@@ -867,10 +870,10 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, revocationDB exten
 			peer.Contact.PingStats,
 			peer.Contact.Service,
 			peer.Estimation.Service,
-			peer.StorageOld.BlobsCache, // TODO: update console to know about hashstore
 			config.Operator.WalletFeatures,
 			port,
 			peer.Contact.QUICStats,
+			peer.Storage2.SpaceReport,
 		)
 		if err != nil {
 			return nil, errs.Combine(err, peer.Close())
@@ -1116,38 +1119,31 @@ func (peer *Peer) URL() storj.NodeURL { return storj.NodeURL{ID: peer.ID(), Addr
 // PrivateAddr returns the private address.
 func (peer *Peer) PrivateAddr() string { return peer.Server.PrivateAddr().String() }
 
-type spaceReportWithHashStore struct {
-	monitor.SpaceReport
-	hsb *piecestore.HashStoreBackend
-}
-
-func newSpaceReportWithHashStore(sr monitor.SpaceReport, hsb *piecestore.HashStoreBackend) monitor.SpaceReport {
-	return &spaceReportWithHashStore{SpaceReport: sr, hsb: hsb}
-}
-
-func (s *spaceReportWithHashStore) AvailableSpace(ctx context.Context) (int64, error) {
-	as, err := s.SpaceReport.AvailableSpace(ctx)
-	if err != nil {
-		return 0, err
+func getPieceExpirationStore(log *zap.Logger, expDB pieces.PieceExpirationDB, oldCfg piecestore.OldConfig, storeCfg piecestore.Config, cfg pieces.Config) (pieces.PieceExpirationDB, error) {
+	if !cfg.EnableFlatExpirationStore {
+		return expDB, nil
 	}
-	su := s.hsb.SpaceUsage()
 
-	as -= su.Aggregate.UsedTotal
-
-	return as, nil
-}
-
-func (s *spaceReportWithHashStore) DiskSpace(ctx context.Context) (monitor.DiskSpace, error) {
-	ds, err := s.SpaceReport.DiskSpace(ctx)
-	if err != nil {
-		return monitor.DiskSpace{}, err
+	flatFileStorePath := cfg.FlatExpirationStorePath
+	if abs := filepath.IsAbs(flatFileStorePath); !abs {
+		if storeCfg.DatabaseDir != "" {
+			flatFileStorePath = filepath.Join(storeCfg.DatabaseDir, flatFileStorePath)
+		} else {
+			flatFileStorePath = filepath.Join(oldCfg.Path, flatFileStorePath)
+		}
 	}
-	su := s.hsb.SpaceUsage()
+	flatExpStore, err := pieces.NewPieceExpirationStore(log, pieces.PieceExpirationConfig{
+		DataDir:               flatFileStorePath,
+		ConcurrentFileHandles: cfg.FlatExpirationStoreFileHandles,
+		MaxBufferTime:         cfg.FlatExpirationStoreMaxBufferTime,
+	})
 
-	ds.UsedForPieces += su.Aggregate.UsedForPieces
-	ds.UsedForTrash += su.Aggregate.UsedForTrash
-	ds.Available -= su.Aggregate.UsedTotal
-	ds.Free -= su.Aggregate.UsedTotal
+	if err != nil {
+		return nil, err
+	}
 
-	return ds, nil
+	if !cfg.FlatExpirationIncludeSQLite {
+		return flatExpStore, nil
+	}
+	return pieces.NewCombinedExpirationStore(log, expDB, flatExpStore), nil
 }

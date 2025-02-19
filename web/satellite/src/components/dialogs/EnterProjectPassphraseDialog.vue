@@ -67,7 +67,7 @@
                                     <password-input-eye-icons
                                         :is-visible="isPassphraseVisible"
                                         type="passphrase"
-                                        @toggleVisibility="isPassphraseVisible = !isPassphraseVisible"
+                                        @toggle-visibility="isPassphraseVisible = !isPassphraseVisible"
                                     />
                                 </template>
                             </v-text-field>

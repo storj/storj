@@ -23,7 +23,7 @@ export interface PaymentsApi {
      *
      * @throws Error
      */
-    setupAccount(): Promise<string>;
+    setupAccount(csrfProtectionToken: string): Promise<string>;
 
     /**
      * Get account balance
@@ -41,33 +41,58 @@ export interface PaymentsApi {
     /**
      * projectUsagePriceModel returns the project usage price model for the user.
      */
-    projectUsagePriceModel(): Promise<ProjectUsagePriceModel>;
+    projectUsagePriceModel(): Promise<UsagePriceModel>;
+
+    /**
+     * getPlacementPriceModel returns the usage price model for the user and placement.
+     */
+    getPlacementPriceModel(params: PriceModelForPlacementRequest): Promise<UsagePriceModel>;
 
     /**
      * Add credit card
      * @param token - stripe token used to add a credit card as a payment method
+     * @param csrfProtectionToken - CSRF token
      * @throws Error
      */
-    addCreditCard(token: string): Promise<void>;
+    addCreditCard(token: string, csrfProtectionToken: string): Promise<void>;
+
+    /**
+     * Add credit card
+     * @param cardID - the ID of the credit card to charge
+     * @param amount - the amount of funds to add, in cents
+     * @param csrfProtectionToken - CSRF token
+     * @throws Error
+     */
+    addFunds(cardID: string, amount: number, csrfProtectionToken: string): Promise<AddFundsResponse>;
+
+    /**
+     * Update credit card
+     * @param params - the parameters to update the card with.
+     * @param csrfProtectionToken - CSRF token
+     * @throws Error
+     */
+    updateCreditCard(params: UpdateCardParams, csrfProtectionToken: string): Promise<void>;
 
     /**
      * Add payment method.
      * @param pmID - stripe payment method id of the credit card
+     * @param csrfProtectionToken - CSRF token
      * @throws Error
      */
-    addCardByPaymentMethodID(pmID: string): Promise<void>;
+    addCardByPaymentMethodID(pmID: string, csrfProtectionToken: string): Promise<void>;
 
     /**
      * Attempt to pay overdue invoices.
      */
-    attemptPayments(): Promise<void>;
+    attemptPayments(csrfProtectionToken: string): Promise<void>;
 
     /**
      * Detach credit card from payment account.
      * @param cardId
+     * @param csrfProtectionToken
      * @throws Error
      */
-    removeCreditCard(cardId: string): Promise<void>;
+    removeCreditCard(cardId: string, csrfProtectionToken: string): Promise<void>;
 
     /**
      * Get list of user`s credit cards
@@ -80,9 +105,10 @@ export interface PaymentsApi {
     /**
      * Make credit card default
      * @param cardId
+     * @param csrfProtectionToken
      * @throws Error
      */
-    makeCreditCardDefault(cardId: string): Promise<void>;
+    makeCreditCardDefault(cardId: string, csrfProtectionToken: string): Promise<void>;
 
     /**
      * Returns a list of invoices, transactions and all others payments history items for payment account.
@@ -112,9 +138,10 @@ export interface PaymentsApi {
      * applyCouponCode applies a coupon code.
      *
      * @param couponCode
+     * @param csrfProtectionToken
      * @throws Error
      */
-    applyCouponCode(couponCode: string): Promise<Coupon>;
+    applyCouponCode(couponCode: string, csrfProtectionToken: string): Promise<Coupon>;
 
     /**
      * getCoupon returns the coupon applied to the user.
@@ -137,7 +164,7 @@ export interface PaymentsApi {
      * @returns wallet
      * @throws Error
      */
-    claimWallet(): Promise<Wallet>;
+    claimWallet(csrfProtectionToken: string): Promise<Wallet>;
 
     /**
      * get user's billing information.
@@ -150,17 +177,19 @@ export interface PaymentsApi {
      * add user's default invoice reference.
      *
      * @param reference - invoice reference to be shown on invoices
+     * @param csrfProtectionToken - CSRF token
      * @throws Error
      */
-    addInvoiceReference(reference: string): Promise<BillingInformation>;
+    addInvoiceReference(reference: string, csrfProtectionToken: string): Promise<BillingInformation>;
 
     /**
      * save user's billing information.
      *
      * @param address - billing information to save
+     * @param csrfProtectionToken - CSRF token
      * @throws Error
      */
-    saveBillingAddress(address: BillingAddress): Promise<BillingInformation>;
+    saveBillingAddress(address: BillingAddress, csrfProtectionToken: string): Promise<BillingInformation>;
 
     /**
      * get a list of countries whose taxes are supported.
@@ -180,26 +209,29 @@ export interface PaymentsApi {
      * add a tax ID to a user's account.
      *
      * @param taxID - the tax ID to save
+     * @param csrfProtectionToken - CSRF token
      * @throws Error
      */
-    addTaxID(taxID: TaxID): Promise<BillingInformation>;
+    addTaxID(taxID: TaxID, csrfProtectionToken: string): Promise<BillingInformation>;
 
     /**
      * remove a tax ID from a user's account.
      *
      * @param taxID - the tax ID to remove
+     * @param csrfProtectionToken - CSRF token
      * @throws Error
      */
-    removeTaxID(taxID: string): Promise<BillingInformation>;
+    removeTaxID(taxID: string, csrfProtectionToken: string): Promise<BillingInformation>;
 
     /**
      * Purchases the pricing package associated with the user's partner.
      *
      * @param dataStr - the Stripe payment method id or token of the credit card
      * @param isPMID - whether the dataStr is a payment method id or token
+     * @param csrfProtectionToken - CSRF token
      * @throws Error
      */
-    purchasePricingPackage(dataStr: string, isPMID: boolean): Promise<void>;
+    purchasePricingPackage(dataStr: string, isPMID: boolean, csrfProtectionToken: string): Promise<void>;
 
     /**
      * Returns whether there is a pricing package configured for the user's partner.
@@ -459,7 +491,7 @@ export class ProjectCharge {
  */
 type ProjectChargesJSON = {
     priceModels: {
-        [partner: string]: JSONRepresentable<ProjectUsagePriceModel>
+        [partner: string]: JSONRepresentable<UsagePriceModel>
     }
     charges: {
         [projectID: string]: {
@@ -477,7 +509,7 @@ type ProjectChargesJSON = {
  */
 export class ProjectCharges {
     private map = new Map<string, Map<string, ProjectCharge>>();
-    private priceModels = new Map<string, ProjectUsagePriceModel>();
+    private priceModels = new Map<string, UsagePriceModel>();
 
     /**
      * Set the usage charge for a project and partner.
@@ -498,7 +530,7 @@ export class ProjectCharges {
      * @param partner - The name of the partner.
      * @param model - The price model for the partner.
      */
-    public setUsagePriceModel(partner: string, model: ProjectUsagePriceModel): void {
+    public setUsagePriceModel(partner: string, model: UsagePriceModel): void {
         this.priceModels.set(partner, model);
     }
 
@@ -519,7 +551,7 @@ export class ProjectCharges {
      *
      * @param partner - The name of the partner.
      */
-    public getUsagePriceModel(partner: string): ProjectUsagePriceModel | undefined {
+    public getUsagePriceModel(partner: string): UsagePriceModel | undefined {
         return this.priceModels.get(partner);
     }
 
@@ -616,7 +648,7 @@ export class ProjectCharges {
         const charges = new ProjectCharges();
 
         Object.entries(json.priceModels).forEach(([partner, model]) => {
-            charges.setUsagePriceModel(partner, new ProjectUsagePriceModel(
+            charges.setUsagePriceModel(partner, new UsagePriceModel(
                 model.storageMBMonthCents,
                 model.egressMBCents,
                 model.segmentMonthCents,
@@ -689,7 +721,7 @@ export enum CouponDuration {
     /**
      * Indicates that a coupon is applied every billing period forever.
      */
-    Forever = 'forever'
+    Forever = 'forever',
 }
 
 /**
@@ -775,12 +807,18 @@ export class TokenAmount {
 /**
  * ProjectUsagePriceModel represents price model for project usage.
  */
-export class ProjectUsagePriceModel {
+export class UsagePriceModel {
     public constructor(
         public readonly storageMBMonthCents: string = '',
         public readonly egressMBCents: string = '',
         public readonly segmentMonthCents: string = '',
     ) { }
+}
+
+export interface AddFundsResponse {
+    success: boolean,
+    clientSecret: string,
+    paymentIntentID: string,
 }
 
 export interface TaxCountry {
@@ -815,4 +853,16 @@ export interface BillingInformation {
     address?: BillingAddress,
     taxIDs?: TaxID[],
     invoiceReference: string,
+}
+
+export interface UpdateCardParams {
+    cardID:  string
+    expMonth: number
+    expYear: number
+}
+
+export interface PriceModelForPlacementRequest {
+    placementName?: string;
+    placement?: number;
+    projectID: string;
 }

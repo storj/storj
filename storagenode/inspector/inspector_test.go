@@ -39,7 +39,9 @@ func TestInspectorStats(t *testing.T) {
 			assert.True(t, response.AvailableSpace > 0)
 
 			// assume that all storage node should have the same initial values
-			availableSpace = response.AvailableSpace
+			availableSpace, err = storageNode.Storage2.SpaceReport.AvailableSpace(ctx)
+			require.NoError(t, err)
+			assert.Equal(t, availableSpace, response.AvailableSpace)
 		}
 
 		expectedData := testrand.Bytes(100 * memory.KiB)
@@ -72,7 +74,10 @@ func TestInspectorStats(t *testing.T) {
 			if response.UsedSpace > 0 {
 				assert.NotZero(t, response.UsedBandwidth)
 				assert.Equal(t, response.UsedBandwidth, response.UsedIngress+response.UsedEgress)
-				assert.Equal(t, availableSpace-response.UsedSpace, response.AvailableSpace)
+
+				availableSpace, err := storageNode.Storage2.SpaceReport.AvailableSpace(ctx)
+				require.NoError(t, err)
+				assert.Equal(t, availableSpace, response.AvailableSpace)
 
 				assert.Equal(t, response.UsedIngress, response.UsedBandwidth-response.UsedEgress)
 				if response.UsedEgress > 0 {

@@ -411,6 +411,7 @@ func (s *Service) retainPieces(ctx context.Context, req Request) (err error) {
 	piecesToDeleteCount := 0
 	piecesCount, piecesSkipped, err := s.store.WalkSatellitePiecesToTrash(ctx, satelliteID, createdBefore, filter, func(pieceID storj.PieceID) error {
 		s.log.Debug("About to move piece to trash",
+			zap.String("BF", req.Filename),
 			zap.Stringer("Satellite ID", satelliteID),
 			zap.Stringer("Piece ID", pieceID),
 			zap.Stringer("Status", &s.config.Status))

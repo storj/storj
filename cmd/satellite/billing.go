@@ -64,6 +64,11 @@ func setupPayments(log *zap.Logger, db satellite.DB) (*stripe.Service, error) {
 		return nil, err
 	}
 
+	productPrices, err := pc.Products.ToModels()
+	if err != nil {
+		return nil, err
+	}
+
 	return stripe.NewService(
 		log.Named("payments.stripe:service"),
 		stripeClient,
@@ -76,9 +81,12 @@ func setupPayments(log *zap.Logger, db satellite.DB) (*stripe.Service, error) {
 		db.ProjectAccounting(),
 		prices,
 		priceOverrides,
+		productPrices,
+		pc.PartnersPlacementPriceOverrides.ToMap(),
+		pc.PlacementPriceOverrides.ToMap(),
 		pc.PackagePlans.Packages,
 		pc.BonusRate,
-		analytics.NewService(log.Named("analytics:service"), runCfg.Analytics, runCfg.Console.SatelliteName),
+		analytics.NewService(log.Named("analytics:service"), runCfg.Analytics, runCfg.Console.SatelliteName, runCfg.Console.ExternalAddress),
 		emission.NewService(runCfg.Emission),
 		runCfg.Console.SelfServeAccountDeleteEnabled,
 	)

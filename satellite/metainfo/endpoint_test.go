@@ -5,6 +5,7 @@ package metainfo_test
 
 import (
 	"crypto/tls"
+	"fmt"
 	"testing"
 	"time"
 
@@ -35,8 +36,30 @@ var (
 )
 
 func TestEndpoint_NoStorageNodes(t *testing.T) {
+	var (
+		authUrl             = "auth.storj.io"
+		publicLinksharing   = "public-link.storj.io"
+		internalLinksharing = "link.storj.io"
+	)
+
 	testplanet.Run(t, testplanet.Config{
 		SatelliteCount: 1, UplinkCount: 3,
+		Reconfigure: testplanet.Reconfigure{
+			SatelliteDBOptions: testplanet.SatelliteDBDisableCaches,
+			Satellite: func(log *zap.Logger, index int, config *satellite.Config) {
+				config.Metainfo.SendEdgeUrlOverrides = true
+				err := config.Console.PlacementEdgeURLOverrides.Set(
+					fmt.Sprintf(`{
+						"1": {
+							"authService": "%s",
+							"publicLinksharing": "%s",
+							"internalLinksharing": "%s"
+						}
+					}`, authUrl, publicLinksharing, internalLinksharing),
+				)
+				require.NoError(t, err)
+			},
+		},
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 		t.Run("revoke access", func(t *testing.T) {
 			accessIssuer := planet.Uplinks[0].Access[planet.Satellites[0].ID()]
@@ -309,25 +332,40 @@ func TestEndpoint_NoStorageNodes(t *testing.T) {
 		})
 
 		t.Run("get project info", func(t *testing.T) {
-			apiKey0 := planet.Uplinks[0].APIKey[planet.Satellites[0].ID()]
-			apiKey1 := planet.Uplinks[1].APIKey[planet.Satellites[0].ID()]
+			sat := planet.Satellites[0]
+			upl1 := planet.Uplinks[0]
+			apiKey0 := upl1.APIKey[sat.ID()]
+			apiKey1 := planet.Uplinks[1].APIKey[sat.ID()]
 
-			metainfo0, err := planet.Uplinks[0].DialMetainfo(ctx, planet.Satellites[0], apiKey0)
+			metainfo0, err := upl1.DialMetainfo(ctx, sat, apiKey0)
 			require.NoError(t, err)
 
-			metainfo1, err := planet.Uplinks[0].DialMetainfo(ctx, planet.Satellites[0], apiKey1)
+			metainfo1, err := upl1.DialMetainfo(ctx, sat, apiKey1)
 			require.NoError(t, err)
 
 			info0, err := metainfo0.GetProjectInfo(ctx)
 			require.NoError(t, err)
 			require.NotNil(t, info0.ProjectSalt)
+			require.Nil(t, info0.EdgeUrlOverrides)
 
 			info1, err := metainfo1.GetProjectInfo(ctx)
 			require.NoError(t, err)
 			require.NotNil(t, info1.ProjectSalt)
+			require.Nil(t, info0.EdgeUrlOverrides)
 
 			// Different projects should have different salts
 			require.NotEqual(t, info0.ProjectSalt, info1.ProjectSalt)
+
+			err = sat.API.DB.Console().Projects().UpdateDefaultPlacement(ctx, upl1.Projects[0].ID, storj.PlacementConstraint(1))
+			require.NoError(t, err)
+
+			info0, err = metainfo0.GetProjectInfo(ctx)
+			require.NoError(t, err)
+			require.NotNil(t, info0.ProjectSalt)
+			require.NotNil(t, info0.EdgeUrlOverrides)
+			require.Equal(t, authUrl, string(info0.EdgeUrlOverrides.AuthService))
+			require.Equal(t, publicLinksharing, string(info0.EdgeUrlOverrides.PublicLinksharing))
+			require.Equal(t, internalLinksharing, string(info0.EdgeUrlOverrides.PrivateLinksharing))
 		})
 
 		t.Run("check IDs", func(t *testing.T) {
@@ -579,6 +617,7 @@ func TestRateLimit_ProjectRateLimitOverrideCachedExpired(t *testing.T) {
 				config.Metainfo.RateLimiter.Rate = 2
 				config.Metainfo.RateLimiter.CacheExpiration = time.Second
 			},
+			SatelliteDBOptions: testplanet.SatelliteDBDisableCaches,
 		},
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 		ul := planet.Uplinks[0]
@@ -637,6 +676,7 @@ func TestRateLimit_ExceededBurstLimit(t *testing.T) {
 				config.Metainfo.RateLimiter.Rate = float64(burstLimit)
 				config.Metainfo.RateLimiter.CacheExpiration = 500 * time.Millisecond
 			},
+			SatelliteDBOptions: testplanet.SatelliteDBDisableCaches,
 		},
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 		ul := planet.Uplinks[0]
