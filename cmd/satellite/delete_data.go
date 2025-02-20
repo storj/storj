@@ -273,6 +273,12 @@ func deleteAccounts(
 				if usage.Storage > 0 || usage.Egress > 0 || usage.SegmentCount > 0 {
 					err = projectRecords.Check(ctx, p.ID, firstOfMonth.AddDate(0, -1, 0), firstOfMonth)
 					if !errors.Is(err, stripe.ErrProjectRecordExists) {
+						if err != nil {
+							return errs.New(
+								"error checking project record for project %q (user: %q): %+v", p.ID, user.Email, err,
+							)
+						}
+
 						log.Error(
 							"cannot mark as deleted the account because the project has usage last month and not invoiced yet",
 							zap.String("user_email", user.Email),
