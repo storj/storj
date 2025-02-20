@@ -7,6 +7,7 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"math"
 	"math/bits"
 	"os"
 	"path/filepath"
@@ -36,6 +37,10 @@ var (
 	// if the log file is not this alive, compact it.
 	compaction_AliveFraction     = envFloat("STORJ_HASHSTORE_COMPACTION_ALIVE_FRAC", 0.25)
 	compaction_ProbabilityFactor = compaction_AliveFraction / (1 - compaction_AliveFraction)
+
+	// power to rase the rewrite probability to. >1 means must be closer to the alive fraction
+	// to be compacted, <1 means the opposite.
+	compaction_ProbabilityPower = envFloat("STORJ_HASHSTORE_COMPACTION_PROBABILITY_POWER", 1.0)
 
 	// multiple of the hashtbl to rewrite in a single compaction.
 	compaction_RewriteMultiple = envFloat("STORJ_HASHSTORE_COMPACTION_REWRITE_MULTIPLE", 1)
@@ -828,8 +833,9 @@ func (s *Store) compactOnce(
 			if alive == 0 {
 				return true
 			}
-			// compute the probability factor and include it that frequently.
-			return mwc.Float64() < compaction_ProbabilityFactor*(1-alive)/alive
+			// compute the probability and include it that frequently.
+			prob := compaction_ProbabilityFactor * (1 - alive) / alive
+			return mwc.Float64() < math.Pow(prob, compaction_ProbabilityPower)
 		}() {
 			rewriteCandidates[id] = true
 		}
