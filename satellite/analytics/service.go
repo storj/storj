@@ -12,6 +12,7 @@ import (
 	"math"
 	"net/http"
 	"path"
+	"strconv"
 	"strings"
 	"time"
 
@@ -1031,14 +1032,18 @@ func (service *Service) TrackUserUpgraded(userID uuid.UUID, email string, expira
 // ValidateAccountObjectCreatedRequestSignature validates the signature of the AccountObjectCreatedRequest.
 func (service *Service) ValidateAccountObjectCreatedRequestSignature(
 	request AccountObjectCreatedRequest,
-	signatureHeader string,
-	timestampHeader time.Time,
+	signatureHeader, timestampHeader string,
 ) error {
 	if !service.config.Enabled {
 		return nil
 	}
 
-	if time.Since(timestampHeader) > service.config.HubSpot.WebhookRequestLifetime {
+	timestampInt, err := strconv.ParseInt(timestampHeader, 10, 64)
+	if err != nil {
+		return Error.New("invalid request timestamp")
+	}
+
+	if time.Since(time.UnixMilli(timestampInt)) > service.config.HubSpot.WebhookRequestLifetime {
 		return Error.New("webhook request is too old")
 	}
 
@@ -1048,7 +1053,7 @@ func (service *Service) ValidateAccountObjectCreatedRequestSignature(
 	}
 
 	url := path.Join(service.satelliteExternalAddress, service.config.HubSpot.AccountObjectCreatedWebhookEndpoint)
-	rawString := http.MethodPost + url + string(jsonBytes) + timestampHeader.Format(time.RFC3339)
+	rawString := http.MethodPost + url + string(jsonBytes) + timestampHeader
 
 	h := hmac.New(sha256.New, []byte(service.config.HubSpot.ClientSecret))
 	if _, err = h.Write([]byte(rawString)); err != nil {
