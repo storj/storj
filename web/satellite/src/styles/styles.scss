@@ -222,7 +222,7 @@ h1,h2,h3,h4,h5,h6 {
 }
 .v-list-item--nav {
   padding-inline: 16px !important;
-  
+
 }
 .v-list-item__prepend {
   opacity: 1 !important;
@@ -361,12 +361,17 @@ a.v-card:hover {
 // Breadcrumbs
 .v-breadcrumbs {
   min-height: 24px;
+  display: inline-flex;
+  flex-wrap: wrap;
+  max-width: 100%;
 }
 .v-breadcrumbs-item {
   padding: 0 !important;
+  word-break: break-all;
 }
 .v-breadcrumbs-item--disabled {
   opacity: 0.75;
+  margin-right: 12px !important;
 }
 
 // Snackbar
@@ -378,7 +383,7 @@ a.v-card:hover {
   border: 1px solid #a9b0b939;
 }
 
-// Table 
+// Table
 .v-data-table {
   border: 1px solid rgba(var(--v-border-color), var(--v-border-opacity));
 }
