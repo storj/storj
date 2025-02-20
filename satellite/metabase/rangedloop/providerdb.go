@@ -18,7 +18,8 @@ type MetabaseRangeSplitter struct {
 	log *zap.Logger
 	db  *metabase.DB
 
-	config Config
+	config                       Config
+	overrideSpannerReadTimestamp time.Time
 }
 
 // MetabaseSegmentProvider implements SegmentProvider.
@@ -34,10 +35,16 @@ type MetabaseSegmentProvider struct {
 
 // NewMetabaseRangeSplitter creates the segment provider.
 func NewMetabaseRangeSplitter(log *zap.Logger, db *metabase.DB, config Config) *MetabaseRangeSplitter {
+	return NewMetabaseRangeSplitterWithReadTimestamp(log, db, config, time.Time{})
+}
+
+// NewMetabaseRangeSplitterWithReadTimestamp creates the segment provider.
+func NewMetabaseRangeSplitterWithReadTimestamp(log *zap.Logger, db *metabase.DB, config Config, overrideSpannerReadTimestamp time.Time) *MetabaseRangeSplitter {
 	return &MetabaseRangeSplitter{
-		log:    log,
-		db:     db,
-		config: config,
+		log:                          log,
+		db:                           db,
+		config:                       config,
+		overrideSpannerReadTimestamp: overrideSpannerReadTimestamp,
 	}
 }
 
@@ -48,12 +55,12 @@ func (provider *MetabaseRangeSplitter) CreateRanges(nRanges int, batchSize int) 
 		return nil, err
 	}
 
-	spannerReadTimestamp := time.Time{}
-	if provider.config.SpannerStaleInterval > 0 {
+	spannerReadTimestamp := provider.overrideSpannerReadTimestamp
+	if spannerReadTimestamp.IsZero() && provider.config.SpannerStaleInterval > 0 {
 		spannerReadTimestamp = time.Now().Add(-provider.config.SpannerStaleInterval)
-
-		provider.log.Info("Setting Spanner stale read timestamp", zap.Time("timestamp", spannerReadTimestamp))
 	}
+
+	provider.log.Info("Setting Spanner stale read timestamp", zap.Time("timestamp", spannerReadTimestamp))
 
 	rangeProviders := []SegmentProvider{}
 	for _, uuidRange := range uuidRanges {

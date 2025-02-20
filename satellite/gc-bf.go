@@ -8,6 +8,7 @@ import (
 	"errors"
 	"net"
 	"runtime/pprof"
+	"time"
 
 	"github.com/spacemonkeygo/monkit/v3"
 	"github.com/zeebo/errs"
@@ -103,11 +104,22 @@ func NewGarbageCollectionBF(log *zap.Logger, db DB, metabaseDB *metabase.DB, rev
 			)
 		}
 
-		provider := rangedloop.NewMetabaseRangeSplitter(log.Named("rangedloop-metabase-range-splitter"), metabaseDB, config.RangedLoop)
-		peer.RangedLoop.Service = rangedloop.NewService(log.Named("rangedloop"), config.RangedLoop, provider, []rangedloop.Observer{
+		observers := []rangedloop.Observer{
 			rangedloop.NewLiveCountObserver(metabaseDB, config.RangedLoop.SuspiciousProcessedRatio, config.RangedLoop.AsOfSystemInterval),
 			observer,
-		})
+		}
+
+		spannerReadTimestamp := time.Time{}
+		// this observer will work correctly only when GC is executed in RunOnce mode.
+		if peer.GarbageCollection.Config.RunOnce && config.RangedLoop.SpannerStaleInterval > 0 {
+			spannerReadTimestamp = time.Now().Add(-config.RangedLoop.SpannerStaleInterval)
+
+			observers = append(observers, rangedloop.NewSegmentsCountValidation(log.Named("rangedloop"), metabaseDB, spannerReadTimestamp))
+		}
+
+		provider := rangedloop.NewMetabaseRangeSplitterWithReadTimestamp(log.Named("rangedloop-metabase-range-splitter"),
+			metabaseDB, config.RangedLoop, spannerReadTimestamp)
+		peer.RangedLoop.Service = rangedloop.NewService(log.Named("rangedloop"), config.RangedLoop, provider, observers)
 
 		if !peer.GarbageCollection.Config.RunOnce {
 			peer.Services.Add(lifecycle.Item{

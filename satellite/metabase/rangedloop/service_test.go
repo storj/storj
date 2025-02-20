@@ -594,3 +594,34 @@ func TestRangedLoop_SpannerStaleReads(t *testing.T) {
 		require.Equal(t, 1, countObserver.NumSegments)
 	})
 }
+
+func TestRangedLoop_SegmentsCountValidation(t *testing.T) {
+	// this test is far from perfect but main goal here is to verify nothing crashes
+	// it's more useful to run it locally and verify manually results.
+	metabasetest.Run(t, func(ctx *testcontext.Context, t *testing.T, db *metabase.DB) {
+		if db.Implementation() != dbutil.Spanner {
+			t.Skip("test requires Spanner")
+		}
+
+		for i := 0; i < 10; i++ {
+			metabasetest.CreateObject(ctx, t, db, metabasetest.RandObjectStream(), 1)
+		}
+
+		// Wait for the object to be definitely visible for the stale read.
+		time.Sleep(5 * time.Second)
+
+		spannerReadTimestamp := time.Now().Add(-1 * time.Second)
+
+		config := rangedloop.Config{
+			Parallelism: 1,
+			BatchSize:   1,
+		}
+
+		provider := rangedloop.NewMetabaseRangeSplitterWithReadTimestamp(zaptest.NewLogger(t), db, config, spannerReadTimestamp)
+		observer := rangedloop.NewSegmentsCountValidation(zaptest.NewLogger(t), db, spannerReadTimestamp)
+		service := rangedloop.NewService(zaptest.NewLogger(t), config, provider, []rangedloop.Observer{
+			observer})
+		_, err := service.RunOnce(ctx)
+		require.NoError(t, err)
+	})
+}
