@@ -10,6 +10,7 @@ import (
 	"math"
 	"math/rand"
 	"net"
+	"reflect"
 	"sort"
 	"strconv"
 	"testing"
@@ -19,10 +20,12 @@ import (
 	"github.com/google/go-cmp/cmp/cmpopts"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"github.com/zeebo/sudo"
 	"go.uber.org/zap"
 	"golang.org/x/exp/maps"
 	"golang.org/x/exp/slices"
 
+	"storj.io/common/encryption"
 	"storj.io/common/errs2"
 	"storj.io/common/identity"
 	"storj.io/common/identity/testidentity"
@@ -2386,6 +2389,108 @@ func TestEndpoint_Object_MoveObject(t *testing.T) {
 		defer ctx.Check(project.Close)
 
 		err = project.MoveObject(ctx, "multipleversions", "objectA", "multipleversions", "objectB", nil)
+		require.NoError(t, err)
+	})
+}
+
+func TestEndpoint_Object_MoveObject_PrefixRestricted(t *testing.T) {
+	testplanet.Run(t, testplanet.Config{
+		SatelliteCount: 1, StorageNodeCount: 4, UplinkCount: 1,
+	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+		expectedDataA := testrand.Bytes(7 * memory.KiB)
+
+		err := planet.Uplinks[0].Upload(ctx, planet.Satellites[0], "testbucket", "prefix1/prefix2/objectA", expectedDataA)
+		require.NoError(t, err)
+		err = planet.Uplinks[0].Upload(ctx, planet.Satellites[0], "testbucket", "prefix4/prefix2/objectA", expectedDataA)
+		require.NoError(t, err)
+
+		access := planet.Uplinks[0].Access[planet.Satellites[0].ID()]
+		restricted, err := access.Share(uplink.FullPermission(), uplink.SharePrefix{
+			Bucket: "testbucket",
+			Prefix: "prefix1/",
+		})
+		require.NoError(t, err)
+
+		// make sure we have an access grant with a full encryption store
+		// so that we're testing the satellite rejection and not the uplink
+		// rejection. we actually can't do this with exported types and must use
+		// sudo and reflect, because uplink.ParseAccess automatically restricts
+		// the parsed encryption store to whatever is in the macaroon, and there
+		// is no other way to make an access grant accepted by uplink.OpenProject
+		// besides through uplink.ParseAccess.
+		sudo.Sudo(reflect.ValueOf(restricted).Elem().FieldByName("encAccess")).Set(
+			sudo.Sudo(reflect.ValueOf(access).Elem().FieldByName("encAccess")))
+
+		project, err := uplink.OpenProject(ctx, restricted)
+		require.NoError(t, err)
+		defer ctx.Check(project.Close)
+
+		// make sure that the prefix restriction restricts the destination
+		err = project.MoveObject(ctx, "testbucket", "prefix1/prefix2/objectA", "testbucket", "prefix4/prefix3/objectB", nil)
+		require.Error(t, err)
+		require.ErrorIs(t, err, uplink.ErrPermissionDenied)
+		require.False(t, encryption.ErrMissingDecryptionBase.Has(err))
+		require.False(t, encryption.ErrMissingEncryptionBase.Has(err))
+
+		// make sure that the prefix restriction restricts the source
+		err = project.MoveObject(ctx, "testbucket", "prefix4/prefix2/objectA", "testbucket", "prefix1/prefix3/objectB", nil)
+		require.Error(t, err)
+		require.ErrorIs(t, err, uplink.ErrPermissionDenied)
+		require.False(t, encryption.ErrMissingDecryptionBase.Has(err))
+		require.False(t, encryption.ErrMissingEncryptionBase.Has(err))
+
+		err = project.MoveObject(ctx, "testbucket", "prefix1/prefix2/objectA", "testbucket", "prefix1/prefix3/objectB", nil)
+		require.NoError(t, err)
+	})
+}
+
+func TestEndpoint_Object_CopyObject_PrefixRestricted(t *testing.T) {
+	testplanet.Run(t, testplanet.Config{
+		SatelliteCount: 1, StorageNodeCount: 4, UplinkCount: 1,
+	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+		expectedDataA := testrand.Bytes(7 * memory.KiB)
+
+		err := planet.Uplinks[0].Upload(ctx, planet.Satellites[0], "testbucket", "prefix1/prefix2/objectA", expectedDataA)
+		require.NoError(t, err)
+		err = planet.Uplinks[0].Upload(ctx, planet.Satellites[0], "testbucket", "prefix4/prefix2/objectA", expectedDataA)
+		require.NoError(t, err)
+
+		access := planet.Uplinks[0].Access[planet.Satellites[0].ID()]
+		restricted, err := access.Share(uplink.FullPermission(), uplink.SharePrefix{
+			Bucket: "testbucket",
+			Prefix: "prefix1/",
+		})
+		require.NoError(t, err)
+
+		// make sure we have an access grant with a full encryption store
+		// so that we're testing the satellite rejection and not the uplink
+		// rejection. we actually can't do this with exported types and must use
+		// sudo and reflect, because uplink.ParseAccess automatically restricts
+		// the parsed encryption store to whatever is in the macaroon, and there
+		// is no other way to make an access grant accepted by uplink.OpenProject
+		// besides through uplink.ParseAccess.
+		sudo.Sudo(reflect.ValueOf(restricted).Elem().FieldByName("encAccess")).Set(
+			sudo.Sudo(reflect.ValueOf(access).Elem().FieldByName("encAccess")))
+
+		project, err := uplink.OpenProject(ctx, restricted)
+		require.NoError(t, err)
+		defer ctx.Check(project.Close)
+
+		// make sure that the prefix restriction restricts the destination
+		_, err = project.CopyObject(ctx, "testbucket", "prefix1/prefix2/objectA", "testbucket", "prefix4/prefix3/objectB", nil)
+		require.Error(t, err)
+		require.ErrorIs(t, err, uplink.ErrPermissionDenied)
+		require.False(t, encryption.ErrMissingDecryptionBase.Has(err))
+		require.False(t, encryption.ErrMissingEncryptionBase.Has(err))
+
+		// make sure that the prefix restriction restricts the source
+		_, err = project.CopyObject(ctx, "testbucket", "prefix4/prefix2/objectA", "testbucket", "prefix1/prefix3/objectB", nil)
+		require.Error(t, err)
+		require.ErrorIs(t, err, uplink.ErrPermissionDenied)
+		require.False(t, encryption.ErrMissingDecryptionBase.Has(err))
+		require.False(t, encryption.ErrMissingEncryptionBase.Has(err))
+
+		_, err = project.CopyObject(ctx, "testbucket", "prefix1/prefix2/objectA", "testbucket", "prefix1/prefix3/objectB", nil)
 		require.NoError(t, err)
 	})
 }

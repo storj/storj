@@ -2385,6 +2385,14 @@ func (endpoint *Endpoint) BeginMoveObject(ctx context.Context, req *pb.ObjectBeg
 		},
 		VerifyPermission{
 			Action: macaroon.Action{
+				Op:            macaroon.ActionDelete,
+				Bucket:        req.Bucket,
+				EncryptedPath: req.EncryptedObjectKey,
+				Time:          now,
+			},
+		},
+		VerifyPermission{
+			Action: macaroon.Action{
 				Op:            macaroon.ActionWrite,
 				Bucket:        req.NewBucket,
 				EncryptedPath: req.NewEncryptedObjectKey,
@@ -2533,7 +2541,7 @@ func (endpoint *Endpoint) FinishMoveObject(ctx context.Context, req *pb.ObjectFi
 			Action: macaroon.Action{
 				Op:            macaroon.ActionWrite,
 				Bucket:        req.NewBucket,
-				EncryptedPath: req.NewEncryptedMetadataKey,
+				EncryptedPath: req.NewEncryptedObjectKey,
 				Time:          now,
 			},
 		},
@@ -2541,7 +2549,7 @@ func (endpoint *Endpoint) FinishMoveObject(ctx context.Context, req *pb.ObjectFi
 			Action: macaroon.Action{
 				Op:            macaroon.ActionDelete,
 				Bucket:        req.NewBucket,
-				EncryptedPath: req.NewEncryptedMetadataKey,
+				EncryptedPath: req.NewEncryptedObjectKey,
 				Time:          now,
 			},
 			ActionPermitted: &canDelete,
@@ -2555,7 +2563,7 @@ func (endpoint *Endpoint) FinishMoveObject(ctx context.Context, req *pb.ObjectFi
 			Action: macaroon.Action{
 				Op:            macaroon.ActionPutObjectRetention,
 				Bucket:        req.NewBucket,
-				EncryptedPath: req.NewEncryptedMetadataKey,
+				EncryptedPath: req.NewEncryptedObjectKey,
 				Time:          now,
 			},
 		})
@@ -2565,7 +2573,7 @@ func (endpoint *Endpoint) FinishMoveObject(ctx context.Context, req *pb.ObjectFi
 			Action: macaroon.Action{
 				Op:            macaroon.ActionPutObjectLegalHold,
 				Bucket:        req.NewBucket,
-				EncryptedPath: req.NewEncryptedMetadataKey,
+				EncryptedPath: req.NewEncryptedObjectKey,
 				Time:          now,
 			},
 		})
@@ -2815,7 +2823,7 @@ func (endpoint *Endpoint) FinishCopyObject(ctx context.Context, req *pb.ObjectFi
 			Action: macaroon.Action{
 				Op:            macaroon.ActionWrite,
 				Bucket:        req.NewBucket,
-				EncryptedPath: req.NewEncryptedMetadataKey,
+				EncryptedPath: req.NewEncryptedObjectKey,
 				Time:          now,
 			},
 		},
@@ -2827,7 +2835,7 @@ func (endpoint *Endpoint) FinishCopyObject(ctx context.Context, req *pb.ObjectFi
 			Action: macaroon.Action{
 				Op:            macaroon.ActionPutObjectRetention,
 				Bucket:        req.NewBucket,
-				EncryptedPath: req.NewEncryptedMetadataKey,
+				EncryptedPath: req.NewEncryptedObjectKey,
 				Time:          now,
 			},
 		})
@@ -2837,7 +2845,7 @@ func (endpoint *Endpoint) FinishCopyObject(ctx context.Context, req *pb.ObjectFi
 			Action: macaroon.Action{
 				Op:            macaroon.ActionPutObjectLegalHold,
 				Bucket:        req.NewBucket,
-				EncryptedPath: req.NewEncryptedMetadataKey,
+				EncryptedPath: req.NewEncryptedObjectKey,
 				Time:          now,
 			},
 		})
