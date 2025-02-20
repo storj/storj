@@ -984,10 +984,12 @@ func TestUserDelete(t *testing.T) {
 			)
 			require.Len(t, body, 0)
 
+			// The user marked as deleted should remain as member of the project because we keep this information for
+			// historical data analysis.
 			members, err = dbconsole.ProjectMembers().
 				GetPagedWithInvitationsByProjectID(ctx, sharedProject.ID, console.ProjectMembersCursor{Limit: 2, Page: 1})
 			require.NoError(t, err)
-			require.EqualValues(t, 0, members.TotalCount)
+			require.EqualValues(t, 1, members.TotalCount)
 		})
 	})
 	t.Run("has active project", func(t *testing.T) {
