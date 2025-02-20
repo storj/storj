@@ -8,7 +8,6 @@ import (
 	"encoding/json"
 	"io"
 	"net/http"
-	"time"
 
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
@@ -196,15 +195,9 @@ func (a *Analytics) AccountObjectCreated(w http.ResponseWriter, r *http.Request)
 		return
 	}
 
-	timestampStr := r.Header.Get("x-hubspot-request-timestamp")
-	if timestampStr == "" {
+	timestamp := r.Header.Get("x-hubspot-request-timestamp")
+	if timestamp == "" {
 		a.serveJSONError(ctx, w, http.StatusBadRequest, ErrAnalyticsAPI.New("missing request timestamp"))
-		return
-	}
-
-	timestamp, err := time.Parse(time.RFC3339, timestampStr)
-	if err != nil {
-		a.serveJSONError(ctx, w, http.StatusBadRequest, ErrAnalyticsAPI.New("invalid request timestamp"))
 		return
 	}
 

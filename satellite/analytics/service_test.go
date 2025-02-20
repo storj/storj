@@ -8,6 +8,7 @@ import (
 	"crypto/sha256"
 	"encoding/base64"
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"path"
 	"testing"
@@ -37,25 +38,29 @@ func TestValidateAccountObjectCreatedRequestSignature(t *testing.T) {
 		hubspotConfig := sat.Config.Analytics.HubSpot
 		analyticsService := sat.API.Analytics.Service
 
-		now := time.Now()
 		request := analytics.AccountObjectCreatedRequest{
 			UserID:   "test-user-id",
 			ObjectID: "test-object-id",
 		}
 
+		now := time.Now()
+		nowMilliStr := fmt.Sprintf("%d", now.UnixMilli())
+		wrongTimestamp := now.Add(2 * time.Hour)
+		wrongMilliStr := fmt.Sprintf("%d", wrongTimestamp.UnixMilli())
+
 		// Wrong timestamp.
-		err := analyticsService.ValidateAccountObjectCreatedRequestSignature(request, "", now.Add(2*time.Hour))
+		err := analyticsService.ValidateAccountObjectCreatedRequestSignature(request, "", wrongMilliStr)
 		require.Error(t, err)
 
 		// Wrong signature.
-		err = analyticsService.ValidateAccountObjectCreatedRequestSignature(request, "", now)
+		err = analyticsService.ValidateAccountObjectCreatedRequestSignature(request, "", nowMilliStr)
 		require.Error(t, err)
 
 		jsonBytes, err := json.Marshal(request)
 		require.NoError(t, err)
 
 		url := path.Join(sat.Config.Console.ExternalAddress, hubspotConfig.AccountObjectCreatedWebhookEndpoint)
-		expectedRawString := http.MethodPost + url + string(jsonBytes) + now.Format(time.RFC3339)
+		expectedRawString := http.MethodPost + url + string(jsonBytes) + nowMilliStr
 
 		h := hmac.New(sha256.New, []byte(hubspotConfig.ClientSecret))
 		_, err = h.Write([]byte(expectedRawString))
@@ -64,7 +69,7 @@ func TestValidateAccountObjectCreatedRequestSignature(t *testing.T) {
 		expectedHashedString := base64.StdEncoding.EncodeToString(h.Sum(nil))
 
 		// Correct request.
-		err = analyticsService.ValidateAccountObjectCreatedRequestSignature(request, expectedHashedString, now)
+		err = analyticsService.ValidateAccountObjectCreatedRequestSignature(request, expectedHashedString, nowMilliStr)
 		require.NoError(t, err)
 	})
 }
