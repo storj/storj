@@ -106,17 +106,25 @@
                                     <span class="text-h5 font-weight-bold">{{ formattedAccountBalance }}</span>
                                 </div>
                                 <v-divider class="my-4 border-0" />
-                                <v-btn
-                                    v-if="addFundsEnabled"
-                                    variant="outlined"
-                                    color="default"
-                                    class="mr-2"
-                                    :prepend-icon="Plus"
-                                    :disabled="!creditCards.length"
-                                    @click="isAddFundsDialogShown = true"
-                                >
-                                    Add Funds
-                                </v-btn>
+                                <div v-if="addFundsEnabled" class="d-inline-block mr-2">
+                                    <v-btn
+                                        variant="outlined"
+                                        color="default"
+                                        :prepend-icon="Plus"
+                                        :disabled="!creditCards.length"
+                                        @click="isAddFundsDialogShown = true"
+                                    >
+                                        Add Funds
+                                    </v-btn>
+                                    <v-tooltip
+                                        v-if="!creditCards.length"
+                                        class="text-center"
+                                        activator="parent"
+                                        location="top"
+                                    >
+                                        Please add a credit card to proceed with adding funds.
+                                    </v-tooltip>
+                                </div>
                                 <v-btn variant="outlined" color="default" class="mr-2" :prepend-icon="Plus" @click="onAddTokensClicked">
                                     Add STORJ Tokens
                                 </v-btn>
