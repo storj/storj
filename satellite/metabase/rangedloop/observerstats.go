@@ -4,12 +4,16 @@
 package rangedloop
 
 import (
+	"context"
 	"fmt"
 	"sync"
+	"time"
 
 	"github.com/spacemonkeygo/monkit/v3"
+	"go.uber.org/zap"
 
 	"storj.io/eventkit"
+	"storj.io/storj/satellite/metabase"
 )
 
 var (
@@ -70,4 +74,87 @@ func observerName(o Observer) string {
 		name += fmt.Sprintf("[%s]", dr.GetClass())
 	}
 	return name
+}
+
+var _ Observer = (*segmentsCountValidation)(nil)
+var _ Partial = (*segmentsCountValidationFork)(nil)
+
+type segmentsCountValidation struct {
+	log            *zap.Logger
+	mb             *metabase.DB
+	checkTimestamp time.Time
+
+	initialStats metabase.SegmentsStats
+
+	processedSegments map[string]int64
+}
+
+// NewSegmentsCountValidation creates a new observer that validates the segments count.
+func NewSegmentsCountValidation(log *zap.Logger, mb *metabase.DB, checkTimestamp time.Time) Observer {
+	return &segmentsCountValidation{
+		log:               log,
+		mb:                mb,
+		checkTimestamp:    checkTimestamp,
+		processedSegments: make(map[string]int64),
+	}
+}
+
+func (s *segmentsCountValidation) Start(ctx context.Context, startTime time.Time) error {
+	s.log.Info("starting segments count validation", zap.Time("check timestamp", s.checkTimestamp))
+
+	stats, err := s.mb.CountSegments(ctx, s.checkTimestamp)
+	if err != nil {
+		return Error.Wrap(err)
+	}
+	s.initialStats = stats
+	return nil
+}
+
+func (s *segmentsCountValidation) Fork(ctx context.Context) (Partial, error) {
+	return &segmentsCountValidationFork{
+		count: make(map[string]int64),
+	}, nil
+}
+
+func (s *segmentsCountValidation) Join(ctx context.Context, partial Partial) error {
+	countPartial := partial.(*segmentsCountValidationFork)
+
+	for key, value := range countPartial.count {
+		s.processedSegments[key] += value
+	}
+	return nil
+}
+
+func (s *segmentsCountValidation) Finish(ctx context.Context) error {
+	finalStats, err := s.mb.CountSegments(ctx, s.checkTimestamp)
+	if err != nil {
+		return Error.Wrap(err)
+	}
+
+	var totalProcessed int64
+	for _, count := range s.processedSegments {
+		totalProcessed += count
+	}
+
+	if s.initialStats.SegmentCount != finalStats.SegmentCount || s.initialStats.SegmentCount != totalProcessed {
+		s.log.Warn("segments count validation failed",
+			zap.Int64("processed", totalProcessed),
+			zap.Any("processed by source", s.processedSegments),
+			zap.String("initial stats", fmt.Sprintf("%d %v", s.initialStats.SegmentCount, s.initialStats.PerAdapterSegmentCount)),
+			zap.String("final stats", fmt.Sprintf("%d %v", finalStats.SegmentCount, finalStats.PerAdapterSegmentCount)))
+	}
+
+	return nil
+}
+
+type segmentsCountValidationFork struct {
+	count map[string]int64
+}
+
+func (s *segmentsCountValidationFork) Process(ctx context.Context, segments []Segment) error {
+	// TODO this is not supper efficient but not sure if this code will stay here for long
+	for _, segment := range segments {
+		s.count[segment.Source]++
+	}
+	return nil
 }

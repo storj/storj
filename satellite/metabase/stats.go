@@ -8,6 +8,10 @@ import (
 	"database/sql"
 	"errors"
 	"time"
+
+	"cloud.google.com/go/spanner"
+	"cloud.google.com/go/spanner/apiv1/spannerpb"
+	"github.com/zeebo/errs"
 )
 
 const statsUpToDateThreshold = 8 * time.Hour
@@ -138,4 +142,53 @@ func (c *CockroachAdapter) UpdateTableStats(ctx context.Context) error {
 // UpdateTableStats forces an update of table statistics. Probably useful mostly in test scenarios.
 func (s *SpannerAdapter) UpdateTableStats(ctx context.Context) error {
 	return nil
+}
+
+// SegmentsStats contains information about the segments table.
+type SegmentsStats struct {
+	SegmentCount           int64
+	PerAdapterSegmentCount []int64
+}
+
+// CountSegments returns the number of segments in the segments table.
+func (db *DB) CountSegments(ctx context.Context, checkTimestamp time.Time) (result SegmentsStats, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	for _, adapter := range db.adapters {
+		count, err := adapter.CountSegments(ctx, checkTimestamp)
+		if err != nil {
+			return SegmentsStats{}, Error.Wrap(err)
+		}
+		result.SegmentCount += count
+		result.PerAdapterSegmentCount = append(result.PerAdapterSegmentCount, count)
+	}
+	return result, nil
+}
+
+// CountSegments returns the number of segments in the segments table.
+func (s *SpannerAdapter) CountSegments(ctx context.Context, checkTimestamp time.Time) (result int64, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	stmt := spanner.Statement{
+		SQL: `SELECT COUNT(1) FROM segments`,
+	}
+
+	iterator := s.client.Single().WithTimestampBound(spanner.ReadTimestamp(checkTimestamp)).QueryWithOptions(ctx, stmt, spanner.QueryOptions{
+		Priority: spannerpb.RequestOptions_PRIORITY_LOW,
+	})
+	defer iterator.Stop()
+
+	row, err := iterator.Next()
+	if err != nil {
+	}
+
+	if err := row.Columns(&result); err != nil {
+		return 0, Error.Wrap(err)
+	}
+	return result, nil
+}
+
+// CountSegments returns the number of segments in the segments table.
+func (p *PostgresAdapter) CountSegments(ctx context.Context, checkTimestamp time.Time) (result int64, err error) {
+	return 0, errs.New("not implemented")
 }

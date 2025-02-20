@@ -115,3 +115,18 @@ func TestGetTableStats(t *testing.T) {
 		}
 	})
 }
+
+func TestCountSegments(t *testing.T) {
+	metabasetest.Run(t, func(ctx *testcontext.Context, t *testing.T, db *metabase.DB) {
+		if db.Implementation() != dbutil.Spanner {
+			t.Skip("implemented only for spanner")
+		}
+
+		metabasetest.CreateTestObject{}.Run(ctx, t, db, metabasetest.RandObjectStream(), 4)
+
+		result, err := db.CountSegments(ctx, time.Now())
+		require.NoError(t, err)
+		require.EqualValues(t, 4, result.SegmentCount)
+		require.EqualValues(t, []int64{4}, result.PerAdapterSegmentCount)
+	})
+}
