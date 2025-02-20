@@ -83,9 +83,9 @@ export const useNotificationsStore = defineStore('notifications', () => {
         addNotification(notification);
     }
 
-    function notifyError(message: NotificationMessage, source: AnalyticsErrorEventSource | null = null, title?: string, remainingTime?: number): void {
+    function notifyError(message: NotificationMessage, source: AnalyticsErrorEventSource | null = null, title?: string, remainingTime?: number, requestID: string | null = null): void {
         if (source) {
-            analyticsStore.errorEventTriggered(source);
+            analyticsStore.errorEventTriggered(source, requestID);
         }
 
         const notification = new DelayedNotification(

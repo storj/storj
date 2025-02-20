@@ -23,14 +23,16 @@ export class Notificator {
         const notificationsStore = useNotificationsStore();
 
         let msg: NotificationMessage = error.message;
-        if (error instanceof APIError && error.requestID) {
+
+        const hasRequestID = error instanceof APIError && error.requestID;
+        if (hasRequestID) {
             msg = () => [
                 h('p', { class: 'message-title' }, error.message),
                 h('p', { class: 'message-footer' }, `Request ID: ${error.requestID}`),
             ];
         }
 
-        notificationsStore.notifyError(msg, source, title, remainingTime);
+        notificationsStore.notifyError(msg, source, title, remainingTime, hasRequestID ? error.requestID : null);
     }
 
     public error(message: NotificationMessage, source: AnalyticsErrorEventSource | null = null, title?: string, remainingTime?: number): void {

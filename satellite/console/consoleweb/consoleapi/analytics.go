@@ -38,10 +38,11 @@ func NewAnalytics(log *zap.Logger, service *console.Service, a *analytics.Servic
 }
 
 type eventTriggeredBody struct {
-	EventName        string            `json:"eventName"`
-	Link             string            `json:"link"`
-	ErrorEventSource string            `json:"errorEventSource"`
-	Props            map[string]string `json:"props"`
+	EventName           string            `json:"eventName"`
+	Link                string            `json:"link"`
+	ErrorEventSource    string            `json:"errorEventSource"`
+	ErrorEventRequestID string            `json:"errorEventRequestID"`
+	Props               map[string]string `json:"props"`
 }
 
 type pageVisitBody struct {
@@ -71,7 +72,7 @@ func (a *Analytics) EventTriggered(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if et.ErrorEventSource != "" {
-		a.analytics.TrackErrorEvent(user.ID, user.Email, et.ErrorEventSource, user.HubspotObjectID)
+		a.analytics.TrackErrorEvent(user.ID, user.Email, et.ErrorEventSource, et.ErrorEventRequestID, user.HubspotObjectID)
 	} else if et.Link != "" {
 		a.analytics.TrackLinkEvent(et.EventName, user.ID, user.Email, et.Link, user.HubspotObjectID)
 	} else {

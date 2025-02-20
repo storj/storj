@@ -57,8 +57,8 @@ export const useAnalyticsStore = defineStore('analytics', () => {
         analytics.pageView({ url, props: { source } });
     }
 
-    function errorEventTriggered(source: AnalyticsErrorEventSource): void {
-        analytics.errorEventTriggered(source, csrfToken.value).catch(_ => { });
+    function errorEventTriggered(source: AnalyticsErrorEventSource, requestID: string | null = null): void {
+        analytics.errorEventTriggered(source, csrfToken.value, requestID).catch(_ => { });
     }
 
     return {
