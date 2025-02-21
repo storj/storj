@@ -20,4 +20,5 @@ export class BucketsPageObjects {
     static CONFIRM_BUTTON_DELETE_BUCKET_FLOW_XPATH = `//button[span[text()=' Delete ']]`;
     static CLOSE_DETAILS_MODAL_BUTTON_XPATH = `//button[@id='close-bucket-details']`;
     static CONFIRM_DELETE_INPUT_FIELD_XPATH = `//input[@id='confirm-delete']`;
+    static BUCKET_ROWS_AMOUNT =  'tr';
 }
