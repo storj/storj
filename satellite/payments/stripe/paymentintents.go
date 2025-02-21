@@ -52,7 +52,7 @@ func (pi *paymentIntents) ChargeCard(ctx context.Context, request payments.Charg
 	}
 
 	if intent.Status != stripe.PaymentIntentStatusSucceeded {
-		return nil, Error.Wrap(errs.New("Payment was not successful."))
+		return nil, Error.New("Payment was not successful.")
 	}
 
 	return &payments.ChargeCardResponse{Success: true}, nil

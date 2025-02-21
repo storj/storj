@@ -729,7 +729,7 @@ func (payment Payments) AddFunds(ctx context.Context, params payments.AddFundsPa
 		UserID:   user.ID,
 		CardID:   params.CardID,
 		Amount:   int64(params.Amount),
-		Metadata: map[string]string{"user_id": user.ID.String()},
+		Metadata: map[string]string{"user_id": user.ID.String(), "add_funds": "1"},
 	})
 	if err != nil {
 		return nil, Error.Wrap(err)
@@ -773,14 +773,21 @@ func (payment Payments) handlePaymentIntentSucceeded(ctx context.Context, event 
 		return errs.New("webhook event metadata missing or invalid")
 	}
 
+	_, ok = metadata["add_funds"]
+	if !ok {
+		// We ignore this event if it's not related to adding funds.
+		// Most likely it's related to a paid invoice.
+		return nil
+	}
+
 	userIDStr, ok := metadata["user_id"].(string)
 	if !ok {
 		return errs.New("user_id missing in webhook event metadata")
 	}
 
-	amount, ok := event.Data["amount"].(float64)
+	amount, ok := event.Data["amount_received"].(float64)
 	if !ok {
-		return errs.New("amount missing in webhook event data")
+		return errs.New("amount_received missing in webhook event data")
 	}
 
 	userID, err := uuid.FromString(userIDStr)
