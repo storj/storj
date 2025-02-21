@@ -747,14 +747,15 @@ func (payment Payments) HandleWebhookEvent(ctx context.Context, signature string
 		return Error.Wrap(err)
 	}
 
-	// TODO: handle other events if needed.
-	if event.Type != payments.EventTypePaymentIntentSucceeded {
-		return nil
-	}
-
-	err = payment.handlePaymentIntentSucceeded(ctx, event)
-	if err != nil {
-		return Error.Wrap(err)
+	switch event.Type {
+	case payments.EventTypePaymentIntentSucceeded:
+		if err = payment.handlePaymentIntentSucceeded(ctx, event); err != nil {
+			return Error.Wrap(err)
+		}
+	case payments.EventTypePaymentIntentPaymentFailed:
+		payment.service.log.Warn("Payment intent payment failed", zap.String("event_id", event.ID))
+	default:
+		payment.service.log.Info("Unhandled event type", zap.String("event_type", string(event.Type)), zap.String("event_id", event.ID))
 	}
 
 	return nil

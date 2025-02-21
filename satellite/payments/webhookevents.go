@@ -23,6 +23,9 @@ type WebhookEventType string
 var (
 	// EventTypePaymentIntentSucceeded represents the payment intent succeeded event type.
 	EventTypePaymentIntentSucceeded = WebhookEventType(stripe.EventTypePaymentIntentSucceeded)
+
+	// EventTypePaymentIntentPaymentFailed represents the payment intent payment failed event type.
+	EventTypePaymentIntentPaymentFailed = WebhookEventType(stripe.EventTypePaymentIntentPaymentFailed)
 )
 
 // WebhookEvent represents a generic webhook event.
