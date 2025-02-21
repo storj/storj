@@ -10,7 +10,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
-	"path"
+	"net/url"
 	"testing"
 	"time"
 
@@ -40,7 +40,7 @@ func TestValidateAccountObjectCreatedRequestSignature(t *testing.T) {
 
 		request := analytics.AccountObjectCreatedRequest{
 			UserID:   "test-user-id",
-			ObjectID: "test-object-id",
+			ObjectID: "1234567890",
 		}
 
 		now := time.Now()
@@ -59,8 +59,10 @@ func TestValidateAccountObjectCreatedRequestSignature(t *testing.T) {
 		jsonBytes, err := json.Marshal(request)
 		require.NoError(t, err)
 
-		url := path.Join(sat.Config.Console.ExternalAddress, hubspotConfig.AccountObjectCreatedWebhookEndpoint)
-		expectedRawString := http.MethodPost + url + string(jsonBytes) + nowMilliStr
+		link, err := url.JoinPath(sat.Config.Console.ExternalAddress, hubspotConfig.AccountObjectCreatedWebhookEndpoint)
+		require.NoError(t, err)
+
+		expectedRawString := http.MethodPost + link + string(jsonBytes) + nowMilliStr
 
 		h := hmac.New(sha256.New, []byte(hubspotConfig.ClientSecret))
 		_, err = h.Write([]byte(expectedRawString))

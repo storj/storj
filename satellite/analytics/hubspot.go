@@ -45,8 +45,8 @@ type HubSpotConfig struct {
 
 // AccountObjectCreatedRequest is a configuration struct for receiving Account Object Created request from HubSpot.
 type AccountObjectCreatedRequest struct {
-	UserID   string `json:"userid"`
-	ObjectID string `json:"hs_object_id"`
+	UserID   string      `json:"userid"`
+	ObjectID json.Number `json:"hs_object_id"`
 }
 
 // HubSpotEvent is a configuration struct for sending API request to HubSpot.

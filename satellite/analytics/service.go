@@ -11,7 +11,7 @@ import (
 	"encoding/json"
 	"math"
 	"net/http"
-	"path"
+	"net/url"
 	"strconv"
 	"strings"
 	"time"
@@ -1056,8 +1056,12 @@ func (service *Service) ValidateAccountObjectCreatedRequestSignature(
 		return Error.Wrap(err)
 	}
 
-	url := path.Join(service.satelliteExternalAddress, service.config.HubSpot.AccountObjectCreatedWebhookEndpoint)
-	rawString := http.MethodPost + url + string(jsonBytes) + timestampHeader
+	link, err := url.JoinPath(service.satelliteExternalAddress, service.config.HubSpot.AccountObjectCreatedWebhookEndpoint)
+	if err != nil {
+		return Error.Wrap(err)
+	}
+
+	rawString := http.MethodPost + link + string(jsonBytes) + timestampHeader
 
 	h := hmac.New(sha256.New, []byte(service.config.HubSpot.ClientSecret))
 	if _, err = h.Write([]byte(rawString)); err != nil {
@@ -1070,6 +1074,11 @@ func (service *Service) ValidateAccountObjectCreatedRequestSignature(
 	}
 
 	return nil
+}
+
+// TestSetSatelliteExternalAddress sets the satellite external address for testing purposes.
+func (service *Service) TestSetSatelliteExternalAddress(address string) {
+	service.satelliteExternalAddress = address
 }
 
 func (service *Service) newPropertiesWithOpts(hubspotObjectID *string) segment.Properties {

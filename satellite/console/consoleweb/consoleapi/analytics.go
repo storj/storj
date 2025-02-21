@@ -230,7 +230,7 @@ func (a *Analytics) AccountObjectCreated(w http.ResponseWriter, r *http.Request)
 		return
 	}
 
-	err = a.service.UpdateUserHubspotObjectID(ctx, userID, req.ObjectID)
+	err = a.service.UpdateUserHubspotObjectID(ctx, userID, req.ObjectID.String())
 	if err != nil {
 		a.serveJSONError(ctx, w, http.StatusInternalServerError, err)
 		return
