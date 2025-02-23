@@ -34,8 +34,9 @@ func (lo *ListOptions) allVersions() bool { return lo != nil && lo.AllVersions }
 
 // RemoveOptions describes options to the Remove command.
 type RemoveOptions struct {
-	Version []byte
-	Pending bool
+	Version                   []byte
+	BypassGovernanceRetention bool
+	Pending                   bool
 }
 
 func (ro *RemoveOptions) isPending() bool { return ro != nil && ro.Pending }

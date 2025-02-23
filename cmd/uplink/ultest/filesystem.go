@@ -41,12 +41,13 @@ func newRemoteFilesystem() *remoteFilesystem {
 }
 
 type memFileData struct {
-	version        int64
-	contents       string
-	created        int64
-	expires        time.Time
-	metadata       map[string]string
-	isDeleteMarker bool
+	version          int64
+	contents         string
+	created          int64
+	expires          time.Time
+	metadata         map[string]string
+	isDeleteMarker   bool
+	governanceLocked bool
 }
 
 func (mf memFileData) expired() bool {
@@ -121,7 +122,8 @@ func (rfs *remoteFilesystem) Open(ctx context.Context, bucket, key string) (ulfs
 
 type createOpts struct {
 	ulfs.CreateOptions
-	versioned bool
+	versioned        bool
+	governanceLocked bool
 }
 
 func (rfs *remoteFilesystem) Create(ctx context.Context, bucket, key string, opts *ulfs.CreateOptions) (ulfs.MultiWriteHandle, error) {
@@ -144,12 +146,13 @@ func (rfs *remoteFilesystem) create(ctx context.Context, bucket, key string, opt
 
 	rfs.created++
 	wh := &memWriteHandle{
-		loc:       loc,
-		rfs:       rfs,
-		cre:       rfs.created,
-		expires:   opts.Expires,
-		metadata:  opts.Metadata,
-		versioned: opts.versioned,
+		loc:              loc,
+		rfs:              rfs,
+		cre:              rfs.created,
+		expires:          opts.Expires,
+		metadata:         opts.Metadata,
+		versioned:        opts.versioned,
+		governanceLocked: opts.governanceLocked,
 	}
 
 	rfs.pending[loc] = append(rfs.pending[loc], wh)
@@ -238,13 +241,19 @@ func (rfs *remoteFilesystem) Remove(ctx context.Context, bucket, key string, opt
 			version := int64(binary.BigEndian.Uint64(opts.Version))
 			files := rfs.files[loc]
 			for i, file := range files {
-				if file.version == version {
-					rfs.files[loc] = append(files[:i], files[i+1:]...)
-					if len(rfs.files[loc]) == 0 {
-						delete(rfs.files, loc)
-					}
-					return nil
+				if file.version != version {
+					continue
 				}
+				if file.governanceLocked && !opts.BypassGovernanceRetention {
+					return errs.New("file is protected by Object Lock settings")
+				}
+
+				rfs.files[loc] = append(files[:i], files[i+1:]...)
+				if len(rfs.files[loc]) == 0 {
+					delete(rfs.files, loc)
+				}
+
+				return nil
 			}
 			return errs.New("file does not exist: %q version %s", loc, hex.EncodeToString(opts.Version))
 		}
@@ -362,14 +371,15 @@ func (rfs *remoteFilesystem) Stat(ctx context.Context, bucket, key string) (*ulf
 //
 
 type memWriteHandle struct {
-	buf       []byte
-	loc       ulloc.Location
-	rfs       *remoteFilesystem
-	cre       int64
-	expires   time.Time
-	metadata  map[string]string
-	versioned bool
-	done      bool
+	buf              []byte
+	loc              ulloc.Location
+	rfs              *remoteFilesystem
+	cre              int64
+	expires          time.Time
+	metadata         map[string]string
+	versioned        bool
+	governanceLocked bool
+	done             bool
 }
 
 func (b *memWriteHandle) WriteAt(p []byte, off int64) (int, error) {
@@ -392,10 +402,11 @@ func (b *memWriteHandle) Commit() error {
 	}
 
 	file := memFileData{
-		contents: string(b.buf),
-		created:  b.cre,
-		expires:  b.expires,
-		metadata: b.metadata,
+		contents:         string(b.buf),
+		created:          b.cre,
+		expires:          b.expires,
+		metadata:         b.metadata,
+		governanceLocked: b.governanceLocked,
 	}
 
 	files := b.rfs.files[b.loc]

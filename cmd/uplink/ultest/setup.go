@@ -265,3 +265,39 @@ func WithDeleteMarker(location string) ExecuteOption {
 		t.Fatalf("Invalid remote location: %s", loc)
 	}}
 }
+
+// WithGovernanceLockedFile sets the command to execute with a file locked by
+// Object Lock governance-mode retention settings at the provided location.
+func WithGovernanceLockedFile(location string) ExecuteOption {
+	return ExecuteOption{func(t *testing.T, ctx context.Context, cs *callbackState) {
+		loc, err := ulloc.Parse(location)
+		require.NoError(t, err)
+
+		var (
+			bucket, key string
+			ok          bool
+		)
+		if bucket, key, ok = loc.RemoteParts(); !ok {
+			t.Fatalf("Invalid remote location: %s", loc)
+		}
+
+		cs.rfs.ensureBucket(bucket)
+		mwh, err := cs.rfs.create(ctx, bucket, key, createOpts{
+			versioned:        true,
+			governanceLocked: true,
+		})
+
+		require.NoError(t, err)
+		defer func() { _ = mwh.Abort(ctx) }()
+
+		wh, err := mwh.NextPart(ctx, -1)
+		require.NoError(t, err)
+		defer func() { _ = wh.Abort() }()
+
+		_, err = wh.Write([]byte(location))
+		require.NoError(t, err)
+
+		require.NoError(t, wh.Commit())
+		require.NoError(t, mwh.Commit(ctx))
+	}}
+}

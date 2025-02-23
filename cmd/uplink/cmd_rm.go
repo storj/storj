@@ -23,12 +23,13 @@ import (
 type cmdRm struct {
 	ex ulext.External
 
-	access      string
-	recursive   bool
-	parallelism int
-	encrypted   bool
-	pending     bool
-	version     []byte
+	access           string
+	recursive        bool
+	parallelism      int
+	encrypted        bool
+	pending          bool
+	version          []byte
+	bypassGovernance bool
 
 	location ulloc.Location
 }
@@ -62,6 +63,9 @@ func (c *cmdRm) Setup(params clingy.Parameters) {
 	c.version = params.Flag("version-id", "Version ID to remove (if the location is an object path)", nil,
 		clingy.Transform(hex.DecodeString),
 	).([]byte)
+	c.bypassGovernance = params.Flag("bypass-governance-retention", "Bypass Object Lock governance mode restrictions", false,
+		clingy.Transform(strconv.ParseBool), clingy.Boolean,
+	).(bool)
 
 	c.location = params.Arg("location", "Location to remove (sj://BUCKET[/KEY])",
 		clingy.Transform(ulloc.Parse),
@@ -92,8 +96,9 @@ func (c *cmdRm) Execute(ctx context.Context) (err error) {
 
 	if !c.recursive {
 		err := fs.Remove(ctx, c.location, &ulfs.RemoveOptions{
-			Pending: c.pending,
-			Version: c.version,
+			Pending:                   c.pending,
+			Version:                   c.version,
+			BypassGovernanceRetention: c.bypassGovernance,
 		})
 		if err != nil {
 			return err

@@ -94,6 +94,16 @@ func TestRmRemote(t *testing.T) {
 			ultest.File{Loc: "sj://user/file.txt", Version: 2},
 		)
 	})
+
+	t.Run("Version ID with Governance Locked File", func(t *testing.T) {
+		state := ultest.Setup(commands, ultest.WithGovernanceLockedFile("sj://user/file.txt"))
+
+		state.Fail(t, "rm", "sj://user/file.txt", "--version-id", "0000000000000000").RequireFiles(t,
+			ultest.File{Loc: "sj://user/file.txt", Version: 0},
+		)
+
+		state.Succeed(t, "rm", "sj://user/file.txt", "--version-id", "0000000000000000", "--bypass-governance-retention").RequireFiles(t)
+	})
 }
 
 func TestRmLocal(t *testing.T) {

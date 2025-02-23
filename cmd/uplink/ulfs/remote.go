@@ -90,8 +90,10 @@ func (r *Remote) Copy(ctx context.Context, oldbucket, oldkey, newbucket, newkey 
 // Remove deletes the object at the provided key and bucket.
 func (r *Remote) Remove(ctx context.Context, bucket, key string, opts *RemoveOptions) (err error) {
 	if !opts.isPending() {
-		if opts.Version != nil {
-			_, err = object.DeleteObject(ctx, r.project, bucket, key, opts.Version, nil)
+		if opts.Version != nil || opts.BypassGovernanceRetention {
+			_, err = object.DeleteObject(ctx, r.project, bucket, key, opts.Version, &object.DeleteObjectOptions{
+				BypassGovernanceRetention: opts.BypassGovernanceRetention,
+			})
 		} else {
 			_, err = r.project.DeleteObject(ctx, bucket, key)
 		}
