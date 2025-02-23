@@ -7,6 +7,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/binary"
+	"encoding/hex"
 	"io"
 	"sort"
 	"sync"
@@ -233,6 +234,20 @@ func (rfs *remoteFilesystem) Remove(ctx context.Context, bucket, key string, opt
 	loc := ulloc.NewRemote(bucket, key)
 
 	if opts == nil || !opts.Pending {
+		if opts.Version != nil {
+			version := int64(binary.BigEndian.Uint64(opts.Version))
+			files := rfs.files[loc]
+			for i, file := range files {
+				if file.version == version {
+					rfs.files[loc] = append(files[:i], files[i+1:]...)
+					if len(rfs.files[loc]) == 0 {
+						delete(rfs.files, loc)
+					}
+					return nil
+				}
+			}
+			return errs.New("file does not exist: %q version %s", loc, hex.EncodeToString(opts.Version))
+		}
 		delete(rfs.files, loc)
 	} else {
 		// TODO: Remove needs an API that understands that multiple pending files may exist
