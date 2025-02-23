@@ -465,3 +465,135 @@ func TestLsRelative(t *testing.T) {
 	})
 
 }
+
+func TestLsAllVersions(t *testing.T) {
+	t.Run("Local", func(t *testing.T) {
+		// Version ID should be blank for all local files.
+		state := ultest.Setup(commands, ultest.WithFile("/user/foo"))
+		expectedOutput{
+			tabbed: `
+				KIND    CREATED    SIZE    KEY    VERSION ID
+				OBJ                9       foo
+			`,
+			json: `
+				{"kind":"OBJ","created":"","size":9,"key":"foo"}
+			`,
+		}.check(t, state, "ls", "/user", "--all-versions", "--utc")
+	})
+
+	t.Run("Remote", func(t *testing.T) {
+		state := ultest.Setup(commands,
+			ultest.WithFile("sj://user/foo"),
+			ultest.WithFile("sj://user/foo/"),
+			ultest.WithFile("sj://user/foo/1"),
+			ultest.WithFile("sj://user/foo/1"),
+			ultest.WithFile("sj://user/foo/2"),
+			ultest.WithDeleteMarker("sj://user/foo/2"),
+			ultest.WithDeleteMarker("sj://user/foo/bar/baz/1"),
+
+			ultest.WithPendingFile("sj://user/invisible"),
+		)
+
+		t.Run("Recursive", func(t *testing.T) {
+			expectedOutput{
+				tabbed: `
+					KIND    CREATED                SIZE    KEY              VERSION ID
+					OBJ     1970-01-01 00:00:01    13      foo              0000000000000000
+					OBJ     1970-01-01 00:00:02    14      foo/             0000000000000000
+					OBJ     1970-01-01 00:00:03    15      foo/1            0000000000000000
+					OBJ     1970-01-01 00:00:04    15      foo/1            0000000000000001
+					OBJ     1970-01-01 00:00:05    15      foo/2            0000000000000000
+					MKR     1970-01-01 00:00:06            foo/2            0000000000000001
+					MKR     1970-01-01 00:00:07            foo/bar/baz/1    0000000000000000
+				`,
+				json: `
+					{"kind":"OBJ","created":"1970-01-01 00:00:01","size":13,"key":"foo","versionId":"0000000000000000"}
+					{"kind":"OBJ","created":"1970-01-01 00:00:02","size":14,"key":"foo/","versionId":"0000000000000000"}
+					{"kind":"OBJ","created":"1970-01-01 00:00:03","size":15,"key":"foo/1","versionId":"0000000000000000"}
+					{"kind":"OBJ","created":"1970-01-01 00:00:04","size":15,"key":"foo/1","versionId":"0000000000000001"}
+					{"kind":"OBJ","created":"1970-01-01 00:00:05","size":15,"key":"foo/2","versionId":"0000000000000000"}
+					{"kind":"MKR","created":"1970-01-01 00:00:06","key":"foo/2","versionId":"0000000000000001"}
+					{"kind":"MKR","created":"1970-01-01 00:00:07","key":"foo/bar/baz/1","versionId":"0000000000000000"}
+				`,
+			}.check(t, state, "ls", "sj://user", "--all-versions", "--recursive", "--utc")
+		})
+
+		t.Run("PartialPrefix", func(t *testing.T) {
+			expectedOutput{}.check(t, state, "ls", "sj://user/fo", "--all-versions")
+		})
+
+		t.Run("ExactPrefix", func(t *testing.T) {
+			expectedOutput{
+				tabbed: `
+					KIND    CREATED                SIZE    KEY     VERSION ID
+					OBJ     1970-01-01 00:00:01    13      foo     0000000000000000
+					PRE                                    foo/
+				`,
+				json: `
+					{"kind":"OBJ","created":"1970-01-01 00:00:01","size":13,"key":"foo","versionId":"0000000000000000"}
+					{"kind":"PRE","key":"foo/"}
+				`,
+			}.check(t, state, "ls", "sj://user/foo", "--all-versions", "--utc")
+		})
+
+		t.Run("ExactPrefixWithSlash", func(t *testing.T) {
+			expectedOutput{
+				tabbed: `
+					KIND    CREATED                SIZE    KEY     VERSION ID
+					OBJ     1970-01-01 00:00:02    14              0000000000000000
+					OBJ     1970-01-01 00:00:03    15      1       0000000000000000
+					OBJ     1970-01-01 00:00:04    15      1       0000000000000001
+					OBJ     1970-01-01 00:00:05    15      2       0000000000000000
+					MKR     1970-01-01 00:00:06            2       0000000000000001
+					PRE                                    bar/
+				`,
+				json: `
+					{"kind":"OBJ","created":"1970-01-01 00:00:02","size":14,"key":"","versionId":"0000000000000000"}
+					{"kind":"OBJ","created":"1970-01-01 00:00:03","size":15,"key":"1","versionId":"0000000000000000"}
+					{"kind":"OBJ","created":"1970-01-01 00:00:04","size":15,"key":"1","versionId":"0000000000000001"}
+					{"kind":"OBJ","created":"1970-01-01 00:00:05","size":15,"key":"2","versionId":"0000000000000000"}
+					{"kind":"MKR","created":"1970-01-01 00:00:06","key":"2","versionId":"0000000000000001"}
+					{"kind":"PRE","key":"bar/"}
+				`,
+			}.check(t, state, "ls", "sj://user/foo/", "--all-versions", "--utc")
+		})
+
+		t.Run("MultipleLayers", func(t *testing.T) {
+			expectedOutput{
+				tabbed: `
+					KIND    CREATED    SIZE    KEY     VERSION ID
+					PRE                        baz/
+				`,
+				json: `
+					{"kind":"PRE","key":"baz/"}
+				`,
+			}.check(t, state, "ls", "sj://user/foo/bar/", "--all-versions", "--utc")
+
+			expectedOutput{
+				tabbed: `
+					KIND    CREATED                SIZE    KEY    VERSION ID
+					MKR     1970-01-01 00:00:07            1      0000000000000000
+				`,
+				json: `
+					{"kind":"MKR","created":"1970-01-01 00:00:07","key":"1","versionId":"0000000000000000"}
+				`,
+			}.check(t, state, "ls", "sj://user/foo/bar/baz/", "--all-versions", "--utc")
+		})
+	})
+}
+
+type expectedOutput struct {
+	tabbed string
+	json   string
+}
+
+func (out expectedOutput) check(t *testing.T, state ultest.State, args ...string) {
+	t.Run("Tabbed Output", func(t *testing.T) {
+		state.Succeed(t, args...).RequireStdout(t, out.tabbed)
+	})
+	t.Run("JSON Output", func(t *testing.T) {
+		newArgs := append([]string(nil), args...)
+		newArgs = append(newArgs, "--output", "json")
+		state.Succeed(t, newArgs...).RequireStdout(t, out.json)
+	})
+}

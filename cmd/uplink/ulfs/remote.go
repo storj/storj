@@ -11,6 +11,7 @@ import (
 
 	"storj.io/storj/cmd/uplink/ulloc"
 	"storj.io/uplink"
+	"storj.io/uplink/private/object"
 )
 
 // Remote implements something close to a filesystem but backed by an uplink project.
@@ -125,24 +126,32 @@ func (r *Remote) List(ctx context.Context, bucket, prefix string, opts *ListOpti
 	}
 
 	var iter ObjectIterator
-	if opts.isPending() {
+	switch {
+	case opts.isPending():
 		iter = newUplinkUploadIterator(
 			bucket,
 			r.project.ListUploads(ctx, bucket, &uplink.ListUploadsOptions{
 				Prefix:    parentPrefix,
-				Recursive: opts.Recursive,
+				Recursive: opts.isRecursive(),
 				System:    true,
-				Custom:    opts.Expanded,
+				Custom:    opts.isExpanded(),
 			}),
 		)
-	} else {
+	case opts.allVersions():
+		iter = newVersionedUplinkObjectIterator(ctx, r.project, versionedUplinkObjectIteratorConfig{
+			Bucket:    bucket,
+			Prefix:    parentPrefix,
+			Recursive: opts.isRecursive(),
+			Custom:    opts.isExpanded(),
+		})
+	default:
 		iter = newUplinkObjectIterator(
 			bucket,
 			r.project.ListObjects(ctx, bucket, &uplink.ListObjectsOptions{
 				Prefix:    parentPrefix,
-				Recursive: opts.Recursive,
+				Recursive: opts.isRecursive(),
 				System:    true,
-				Custom:    opts.Expanded,
+				Custom:    opts.isExpanded(),
 			}),
 		)
 	}
@@ -192,4 +201,105 @@ func (u *uplinkUploadIterator) Next() bool { return u.iter.Next() }
 func (u *uplinkUploadIterator) Err() error { return u.iter.Err() }
 func (u *uplinkUploadIterator) Item() ObjectInfo {
 	return uplinkUploadInfoToObjectInfo(u.bucket, u.iter.Item())
+}
+
+// Ensure that versionedUplinkObjectIterator implements ObjectIterator.
+var _ ObjectIterator = (*versionedUplinkObjectIterator)(nil)
+
+// versionedUplinkObjectIterator is an ObjectIterator that iterates over object versions.
+type versionedUplinkObjectIterator struct {
+	ctx     context.Context
+	project *uplink.Project
+	config  versionedUplinkObjectIteratorConfig
+
+	items   []*object.VersionedObject
+	itemIdx int
+	cursor  struct {
+		key     string
+		version []byte
+	}
+	listingDone bool
+	done        bool
+	err         error
+}
+
+// versionedUplinkObjectIteratorConfig contains configuration options for a versionedUplinkObjectIterator.
+type versionedUplinkObjectIteratorConfig struct {
+	Bucket    string
+	Prefix    string
+	Recursive bool
+	Custom    bool
+}
+
+// newVersionedUplinkObjectIterator returns a new versionedUplinkObjectIterator.
+func newVersionedUplinkObjectIterator(ctx context.Context, project *uplink.Project, config versionedUplinkObjectIteratorConfig) *versionedUplinkObjectIterator {
+	return &versionedUplinkObjectIterator{
+		ctx:     ctx,
+		project: project,
+		config:  config,
+	}
+}
+
+// Next tries to advance the iterator to the next item and returns true if it was successful.
+func (iter *versionedUplinkObjectIterator) Next() bool {
+	if iter.done {
+		return false
+	}
+
+	if iter.itemIdx >= len(iter.items)-1 {
+		if iter.listingDone {
+			iter.done = true
+			return false
+		}
+
+		var more bool
+		iter.items, more, iter.err = object.ListObjectVersions(iter.ctx, iter.project, iter.config.Bucket, &object.ListObjectVersionsOptions{
+			Prefix:        iter.config.Prefix,
+			Recursive:     iter.config.Recursive,
+			System:        true,
+			Custom:        iter.config.Custom,
+			Cursor:        iter.cursor.key,
+			VersionCursor: iter.cursor.version,
+		})
+		iter.listingDone = !more
+
+		if iter.err != nil || len(iter.items) == 0 {
+			iter.done = true
+			return false
+		}
+
+		lastItem := iter.items[len(iter.items)-1]
+		iter.cursor.key = lastItem.Key
+		iter.cursor.version = lastItem.Version
+
+		iter.itemIdx = 0
+		return true
+	}
+
+	iter.itemIdx++
+	return true
+}
+
+// Item returns the current item in the iteration.
+// It panics if Next() was not called or if its return value was ignored.
+func (iter *versionedUplinkObjectIterator) Item() ObjectInfo {
+	if iter.done {
+		panic("iteration is done")
+	}
+	if iter.itemIdx >= len(iter.items) {
+		panic("iteration is out of bounds")
+	}
+
+	item := iter.items[iter.itemIdx]
+	info := uplinkObjectToObjectInfo(iter.config.Bucket, &item.Object)
+	info.Loc = ulloc.NewRemote(iter.config.Bucket, iter.config.Prefix+item.Key)
+	info.Version = item.Version
+	info.IsDeleteMarker = item.IsDeleteMarker
+
+	return info
+}
+
+// Err returns the error encountered during iteration.
+func (iter *versionedUplinkObjectIterator) Err() error {
+	return iter.err
 }

@@ -40,11 +40,12 @@ func newRemoteFilesystem() *remoteFilesystem {
 }
 
 type memFileData struct {
-	version  int64
-	contents string
-	created  int64
-	expires  time.Time
-	metadata map[string]string
+	version        int64
+	contents       string
+	created        int64
+	expires        time.Time
+	metadata       map[string]string
+	isDeleteMarker bool
 }
 
 func (mf memFileData) expired() bool {
@@ -155,6 +156,26 @@ func (rfs *remoteFilesystem) create(ctx context.Context, bucket, key string, opt
 	return ulfs.NewGenericMultiWriteHandle(wh), nil
 }
 
+func (rfs *remoteFilesystem) createDeleteMarker(ctx context.Context, bucket, key string) {
+	rfs.mu.Lock()
+	defer rfs.mu.Unlock()
+
+	loc := ulloc.NewRemote(bucket, key)
+
+	var version int64
+	files := rfs.files[loc]
+	if len(files) > 0 {
+		version = files[len(files)-1].version + 1
+	}
+
+	rfs.created++
+	rfs.files[loc] = append(files, memFileData{
+		version:        version,
+		isDeleteMarker: true,
+		created:        rfs.created,
+	})
+}
+
 func (rfs *remoteFilesystem) Move(ctx context.Context, oldbucket, oldkey string, newbucket, newkey string) error {
 	rfs.mu.Lock()
 	defer rfs.mu.Unlock()
@@ -241,9 +262,17 @@ func (rfs *remoteFilesystem) List(ctx context.Context, bucket, key string, opts 
 			continue
 		}
 
-		file := files[len(files)-1]
-		if !file.expired() {
-			infos = append(infos, memFileDataToObjectInfo(loc, file))
+		if opts.AllVersions {
+			for _, file := range files {
+				if !file.expired() {
+					infos = append(infos, memFileDataToObjectInfo(loc, file))
+				}
+			}
+		} else {
+			file := files[len(files)-1]
+			if !file.expired() && !file.isDeleteMarker {
+				infos = append(infos, memFileDataToObjectInfo(loc, file))
+			}
 		}
 	}
 
@@ -258,11 +287,12 @@ func (rfs *remoteFilesystem) List(ctx context.Context, bucket, key string, opts 
 
 func memFileDataToObjectInfo(loc ulloc.Location, mf memFileData) ulfs.ObjectInfo {
 	info := ulfs.ObjectInfo{
-		Loc:           loc,
-		Version:       make([]byte, 8),
-		ContentLength: int64(len(mf.contents)),
-		Created:       time.Unix(mf.created, 0),
-		Expires:       mf.expires,
+		Loc:            loc,
+		Version:        make([]byte, 8),
+		IsDeleteMarker: mf.isDeleteMarker,
+		ContentLength:  int64(len(mf.contents)),
+		Created:        time.Unix(mf.created, 0),
+		Expires:        mf.expires,
 	}
 	binary.BigEndian.PutUint64(info.Version, uint64(mf.version))
 	return info

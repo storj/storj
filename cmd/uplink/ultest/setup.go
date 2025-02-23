@@ -248,3 +248,20 @@ func WithPendingFile(location string) ExecuteOption {
 		require.NoError(t, err)
 	}}
 }
+
+// WithDeleteMarker sets the command to execute with a delete marker at the
+// provided location.
+func WithDeleteMarker(location string) ExecuteOption {
+	return ExecuteOption{func(t *testing.T, ctx context.Context, cs *callbackState) {
+		loc, err := ulloc.Parse(location)
+		require.NoError(t, err)
+
+		if bucket, key, ok := loc.RemoteParts(); ok {
+			cs.rfs.ensureBucket(bucket)
+			cs.rfs.createDeleteMarker(ctx, bucket, key)
+			return
+		}
+
+		t.Fatalf("Invalid remote location: %s", loc)
+	}}
+}
