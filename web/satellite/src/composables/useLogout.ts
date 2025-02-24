@@ -18,6 +18,7 @@ import { useProjectsStore } from '@/store/modules/projectsStore';
 import { useObjectBrowserStore } from '@/store/modules/objectBrowserStore';
 import { useConfigStore } from '@/store/modules/configStore';
 import { useAccessGrantWorker } from '@/composables/useAccessGrantWorker';
+import { useRestApiKeysStore } from '@/store/modules/apiKeysStore';
 
 export function useLogout() {
     const auth: AuthHttpApi = new AuthHttpApi();
@@ -34,6 +35,7 @@ export function useLogout() {
     const projectsStore = useProjectsStore();
     const obStore = useObjectBrowserStore();
     const configStore = useConfigStore();
+    const apiKeysStore = useRestApiKeysStore();
 
     async function clearStores(): Promise<void> {
         const { stop } = useAccessGrantWorker();
@@ -50,6 +52,7 @@ export function useLogout() {
             appStore.clear(),
             billingStore.clear(),
             obStore.clear(),
+            apiKeysStore.clear(),
         ]);
     }
 

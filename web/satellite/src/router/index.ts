@@ -13,6 +13,7 @@ import { useAnalyticsStore } from '@/store/modules/analyticsStore';
 enum RouteName {
     Account = 'Account',
     Billing = 'Billing',
+    APIKeys = 'API Keys',
     AccountSettings = 'Account Settings',
     Projects = 'Projects',
     Project = 'Project',
@@ -38,6 +39,7 @@ enum RouteName {
 export abstract class ROUTES {
     public static Account = new NavigationLink('/account', RouteName.Account);
     public static Billing = new NavigationLink('billing', RouteName.Billing);
+    public static APIKeys = new NavigationLink('api-keys', RouteName.APIKeys);
     public static AccountSettings = new NavigationLink('settings', RouteName.AccountSettings);
 
     public static Projects = new NavigationLink('/projects', RouteName.Projects);
@@ -131,6 +133,11 @@ const routes: RouteRecordRaw[] = [
                 path: ROUTES.Billing.path,
                 name: ROUTES.Billing.name,
                 component: () => import(/* webpackChunkName: "Billing" */ '@/views/Billing.vue'),
+            },
+            {
+                path: ROUTES.APIKeys.path,
+                name: ROUTES.APIKeys.name,
+                component: () => import(/* webpackChunkName: "Billing" */ '@/views/RestApiKeys.vue'),
             },
             {
                 path: ROUTES.AccountSettings.path,

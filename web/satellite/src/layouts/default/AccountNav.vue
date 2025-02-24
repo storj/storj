@@ -43,6 +43,12 @@
                     </template>
                 </navigation-item>
 
+                <navigation-item v-if="isPaidTier && apiKeysUiEnabled" title="API Keys" :to="ROUTES.Account.with(ROUTES.APIKeys).path" class="py-2">
+                    <template #prepend>
+                        <component :is="Key" :size="18" />
+                    </template>
+                </navigation-item>
+
                 <!-- Account Settings -->
                 <navigation-item title="Settings" :to="ROUTES.Account.with(ROUTES.AccountSettings).path" class="py-2">
                     <template #prepend>
@@ -150,6 +156,7 @@ import {
     MessagesSquare,
     MessageCircleQuestion,
     BookOpenText,
+    Key,
 } from 'lucide-vue-next';
 
 import { useAppStore } from '@/store/modules/appStore';
@@ -182,6 +189,11 @@ const isPaidTier = computed<boolean>(() => usersStore.state.user.paidTier ?? fal
  * Indicates if billing features are enabled.
  */
 const billingEnabled = computed<boolean>(() => configStore.getBillingEnabled(usersStore.state.user.hasVarPartner));
+
+/**
+ * Indicates if REST API keys UI are enabled.
+ */
+const apiKeysUiEnabled = computed<boolean>(() => configStore.state.config.restAPIKeysUIEnabled);
 
 /**
  * Returns the path to the most recent non-account-related page.
