@@ -3,7 +3,7 @@
 
 import { inject } from 'vue';
 
-import { Notificator } from '@/utils/plugins/notificator';
+import { Notificator } from '@/plugins/notificator';
 
 export function useNotify() {
     return inject('notify') as Notificator;
