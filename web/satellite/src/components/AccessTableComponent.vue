@@ -240,6 +240,10 @@ watch(() => search.value, () => {
     }, 500); // 500ms delay for every new call.
 });
 
+watch(isDeleteAccessDialogShown, (value) => {
+    if (!value) accessToDelete.value = undefined;
+});
+
 onMounted(() => {
     fetch();
 });

@@ -61,6 +61,8 @@ export enum AnalyticsEvent {
 export enum AnalyticsErrorEventSource {
     ACCESS_GRANTS_WEB_WORKER = 'Access grant web worker',
     ACCESS_GRANTS_PAGE = 'Access grants page',
+    API_KEYS_PAGE = 'REST API keys page',
+    CREATE_API_KEY_DIALOG = 'Create REST API keys dialog',
     ACCOUNT_PAGE = 'Account page',
     ACCOUNT_SETTINGS_AREA = 'Account settings area',
     ACCOUNT_SETUP_DIALOG = 'Account setup dialog',
