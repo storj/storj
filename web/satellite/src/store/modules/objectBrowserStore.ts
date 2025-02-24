@@ -714,7 +714,7 @@ export const useObjectBrowserStore = defineStore('objectBrowser', () => {
                     h('span', {}, `${key}: To upload files above 30GB, please use the `),
                     ...NotifyRenderedUplinkCLIMessage,
                 ];
-            }, AnalyticsErrorEventSource.OBJECT_UPLOAD_ERROR, undefined);
+            }, AnalyticsErrorEventSource.OBJECT_UPLOAD_ERROR);
 
             return;
         }

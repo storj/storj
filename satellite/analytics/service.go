@@ -783,7 +783,7 @@ func (service *Service) TrackEvent(eventName string, userID uuid.UUID, email str
 
 // TrackErrorEvent sends an arbitrary error event associated with user ID to Segment.
 // It is used for tracking occurrences of client-side errors.
-func (service *Service) TrackErrorEvent(userID uuid.UUID, email, source, requestID string, hubspotObjectID *string) {
+func (service *Service) TrackErrorEvent(userID uuid.UUID, email, source, requestID string, statusCode int, hubspotObjectID *string) {
 	if !service.config.Enabled {
 		return
 	}
@@ -794,6 +794,9 @@ func (service *Service) TrackErrorEvent(userID uuid.UUID, email, source, request
 
 	if requestID != "" {
 		props.Set("request_id", requestID)
+	}
+	if statusCode != 0 {
+		props.Set("status_code", statusCode)
 	}
 
 	service.enqueueMessage(segment.Track{

@@ -5,7 +5,6 @@ import { h } from 'vue';
 
 import { AnalyticsErrorEventSource } from '@/utils/constants/analyticsEventNames';
 import { useNotificationsStore } from '@/store/modules/notificationsStore';
-import { APIError } from '@/utils/error';
 import { NotificationMessage } from '@/types/DelayedNotification';
 
 /**
@@ -24,7 +23,7 @@ export class Notificator {
 
         let msg: NotificationMessage = error.message;
 
-        const hasRequestID = error instanceof APIError && error.requestID;
+        const hasRequestID = 'requestID' in error;
         if (hasRequestID) {
             msg = () => [
                 h('p', { class: 'message-title' }, error.message),
@@ -32,7 +31,14 @@ export class Notificator {
             ];
         }
 
-        notificationsStore.notifyError(msg, source, title, remainingTime, hasRequestID ? error.requestID : null);
+        notificationsStore.notifyError(
+            msg,
+            source,
+            title,
+            remainingTime,
+            hasRequestID ? error.requestID as string : null,
+            'status' in error ? error.status as number : undefined,
+        );
     }
 
     public error(message: NotificationMessage, source: AnalyticsErrorEventSource | null = null, title?: string, remainingTime?: number): void {
