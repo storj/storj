@@ -871,6 +871,9 @@ func (endpoint *Endpoint) sendData(ctx context.Context, log *zap.Logger, stream 
 		return true, nil
 	}
 	if err != nil {
+		if errs.Is(err, context.DeadlineExceeded) {
+			return true, rpcstatus.NamedWrap("send-fail", rpcstatus.DeadlineExceeded, err)
+		}
 		return true, rpcstatus.NamedWrap("send-fail", rpcstatus.Internal, err)
 	}
 	return false, nil
