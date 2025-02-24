@@ -254,7 +254,6 @@ import {
     VWindowItem,
 } from 'vuetify/components';
 import { Lock } from 'lucide-vue-next';
-import { VDateInput } from 'vuetify/labs/components';
 
 import { BrowserObject, useObjectBrowserStore } from '@/store/modules/objectBrowserStore';
 import { useLoading } from '@/composables/useLoading';

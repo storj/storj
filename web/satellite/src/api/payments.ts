@@ -1,9 +1,6 @@
 // Copyright (C) 2019 Storj Labs, Inc.
 // See LICENSE for copying information.
 
-import { ErrorConflict } from './errors/ErrorConflict';
-import { ErrorTooManyRequests } from './errors/ErrorTooManyRequests';
-
 import {
     AccountBalance,
     Coupon,
@@ -472,17 +469,22 @@ export class PaymentsHttpApi implements PaymentsApi {
     public async applyCouponCode(couponCode: string, csrfProtectionToken: string): Promise<Coupon> {
         const path = `${this.ROOT_PATH}/coupon/apply`;
         const response = await this.client.patch(path, couponCode, { csrfProtectionToken });
-        const errMsg = `Could not apply coupon code "${couponCode}"`;
+
+        const requestID = response.headers.get('x-request-id');
+        let errMsg = `Could not apply coupon code "${couponCode}"`;
 
         if (!response.ok) {
-            switch (response.status) {
-            case 409:
-                throw new ErrorConflict('You currently have an active coupon. Please try again when your coupon is no longer active, or contact Support for further help.');
-            case 429:
-                throw new ErrorTooManyRequests('You\'ve exceeded limit of attempts, try again in 5 minutes');
-            default:
-                throw new Error(errMsg);
+            if (response.status === 409) {
+                errMsg = 'You currently have an active coupon. Please try again when your coupon is no longer active, or contact Support for further help.';
+            } else if (response.status === 429) {
+                errMsg = 'You\'ve exceeded limit of attempts, try again in 5 minutes';
             }
+
+            throw new APIError({
+                status: response.status,
+                message: errMsg,
+                requestID: requestID,
+            });
         }
 
         const coupon = await response.json();
@@ -491,7 +493,7 @@ export class PaymentsHttpApi implements PaymentsApi {
             throw new APIError({
                 status: response.status,
                 message: errMsg,
-                requestID: response.headers.get('x-request-id'),
+                requestID: requestID,
             });
         }
 

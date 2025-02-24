@@ -5,7 +5,11 @@
  * ErrorBadRequest is a custom error type for performing invalid operations.
  */
 export class ErrorBadRequest extends Error {
-    public constructor(message = 'bad request') {
+    public readonly status = 400;
+    public requestID: string | null;
+
+    public constructor(message = 'bad request', requestID: string | null) {
         super(message);
+        this.requestID = requestID;
     }
 }

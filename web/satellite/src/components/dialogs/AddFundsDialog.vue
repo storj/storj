@@ -226,7 +226,7 @@ function proceed(): void {
                 notify.error('Failed to add funds', AnalyticsErrorEventSource.ADD_FUNDS_DIALOG);
             }
         } catch (error) {
-            notify.error(error.message, AnalyticsErrorEventSource.ADD_FUNDS_DIALOG);
+            notify.notifyError(error, AnalyticsErrorEventSource.ADD_FUNDS_DIALOG);
         }
     });
 }

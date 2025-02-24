@@ -148,7 +148,7 @@ function createFolder(): void {
         try {
             await obStore.createFolder(folder.value.trim());
         } catch (error) {
-            notify.error(error.message, AnalyticsErrorEventSource.CREATE_FOLDER_MODAL);
+            notify.notifyError(error, AnalyticsErrorEventSource.CREATE_FOLDER_MODAL);
         }
         model.value = false;
     });

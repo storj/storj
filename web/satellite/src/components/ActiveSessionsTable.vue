@@ -89,7 +89,7 @@ async function fetch(page = FIRST_PAGE, limit = DEFAULT_PAGE_LIMIT): Promise<voi
     try {
         await usersStore.getSessions(page, limit);
     } catch (error) {
-        notify.error(`Unable to fetch Active Sessions. ${error.message}`, AnalyticsErrorEventSource.ACCOUNT_SETTINGS_AREA);
+        notify.notifyError(error, AnalyticsErrorEventSource.ACCOUNT_SETTINGS_AREA);
     }
 
     isFetching.value = false;
@@ -124,7 +124,7 @@ async function onInvalidate(session: Session): Promise<void> {
                 await fetch(cursor.value.page, cursor.value.limit);
             }
         } catch (error) {
-            notify.error(`Unable to invalidate session. ${error.message}`, AnalyticsErrorEventSource.ACCOUNT_SETTINGS_AREA);
+            notify.notifyError(error, AnalyticsErrorEventSource.ACCOUNT_SETTINGS_AREA);
         }
     });
 }

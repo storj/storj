@@ -307,7 +307,7 @@ async function onSaveClick(): Promise<void> {
                 await projectsStore.updateProjectBandwidthLimit(input.value);
             }
         } catch (error) {
-            notify.error(error.message, AnalyticsErrorEventSource.EDIT_PROJECT_LIMIT);
+            notify.notifyError(error, AnalyticsErrorEventSource.EDIT_PROJECT_LIMIT);
             return;
         }
 

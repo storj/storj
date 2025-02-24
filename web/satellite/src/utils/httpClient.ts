@@ -40,7 +40,7 @@ export class HttpClient {
         const response = await fetch(path, request);
         if (response.status === 401) {
             await this.handleUnauthorized();
-            throw new ErrorUnauthorized();
+            throw new ErrorUnauthorized('Authorization required', response.headers.get('x-request-id'));
         }
 
         return response;

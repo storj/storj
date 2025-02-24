@@ -144,7 +144,7 @@ async function getMap(): Promise<void> {
             const blob = await getObjectDistributionMap(encodedFilePath.value);
             mapURL.value = URL.createObjectURL(blob);
         } catch (error) {
-            notify.error(`Failed to fetch a map. ${error.message}`, AnalyticsErrorEventSource.GALLERY_VIEW);
+            notify.notifyError(error, AnalyticsErrorEventSource.GALLERY_VIEW);
         }
     });
 }

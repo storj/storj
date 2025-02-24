@@ -450,8 +450,8 @@ watch(innerContent, async (comp: Component): Promise<void> => {
     isFetching.value = true;
 
     const projectID = projectsStore.state.selectedProject.id;
-    await bucketsStore.getAllBucketsNames(projectID).catch(err => {
-        notify.error(`Error fetching bucket grant names. ${err.message}`, AnalyticsErrorEventSource.NEW_DOMAIN_MODAL);
+    await bucketsStore.getAllBucketsNames(projectID).catch(error => {
+        notify.notifyError(error, AnalyticsErrorEventSource.NEW_DOMAIN_MODAL);
     });
 
     passphrase.value = bucketsStore.state.passphrase;

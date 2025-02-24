@@ -119,7 +119,6 @@ import {
     VCardText,
     VCardTitle,
     VChip,
-    VDivider,
     VIcon,
     VList,
     VListItem,

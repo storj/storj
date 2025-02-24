@@ -296,9 +296,9 @@ import {
     VAlert,
     VBtn,
     VCard,
-    VCardText,
     VCardActions,
     VCardItem,
+    VCardText,
     VCardTitle,
     VCheckboxBtn,
     VChip,
@@ -317,12 +317,13 @@ import { Trash2 } from 'lucide-vue-next';
 
 import { centsToDollars } from '@/utils/strings';
 import { DeleteAccountStep } from '@/types/accountActions';
-import { User, AccountDeletionData } from '@/types/users';
+import { AccountDeletionData, User } from '@/types/users';
 import { useLoading } from '@/composables/useLoading';
 import { useNotify } from '@/utils/hooks';
 import { ROUTES } from '@/router';
 import { useUsersStore } from '@/store/modules/usersStore';
 import { RequiredRule } from '@/types/common';
+import { AnalyticsErrorEventSource } from '@/utils/constants/analyticsEventNames';
 
 const router = useRouter();
 
@@ -453,7 +454,7 @@ async function proceed(): Promise<void> {
                 }
             }
         } catch (error) {
-            notify.error(error.message);
+            notify.notifyError(error, AnalyticsErrorEventSource.ACCOUNT_DELETE_DIALOG);
         }
     });
 }

@@ -54,17 +54,11 @@ export class AuthHttpApi implements UsersApi {
         }
 
         const result = await response.json();
-        const errMsg = result.error || 'Failed to send email';
-        switch (response.status) {
-        case 429:
-            throw new ErrorTooManyRequests(errMsg);
-        default:
-            throw new APIError({
-                status: response.status,
-                message: errMsg,
-                requestID: response.headers.get('x-request-id'),
-            });
-        }
+        throw new APIError({
+            status: response.status,
+            message: result.error || 'Failed to send email',
+            requestID: response.headers.get('x-request-id'),
+        });
     }
 
     /**
@@ -102,16 +96,17 @@ export class AuthHttpApi implements UsersApi {
 
         const result = await response.json();
         const errMsg = result.error || 'Failed to receive authentication token';
+        const requestID = response.headers.get('x-request-id');
         switch (response.status) {
         case 400:
-            throw new ErrorBadRequest(errMsg);
+            throw new ErrorBadRequest(errMsg, requestID);
         case 429:
-            throw new ErrorTooManyRequests(errMsg);
+            throw new ErrorTooManyRequests(errMsg, requestID);
         default:
             throw new APIError({
                 status: response.status,
                 message: errMsg,
-                requestID: response.headers.get('x-request-id'),
+                requestID: requestID,
             });
         }
     }
@@ -136,19 +131,11 @@ export class AuthHttpApi implements UsersApi {
             return new TokenInfo(result.token, new Date(result.expiresAt));
         }
 
-        const errMsg = result.error || 'Failed to activate account';
-        switch (response.status) {
-        case 400:
-            throw new ErrorBadRequest(errMsg);
-        case 429:
-            throw new ErrorTooManyRequests(errMsg);
-        default:
-            throw new APIError({
-                status: response.status,
-                message: errMsg,
-                requestID: response.headers.get('x-request-id'),
-            });
-        }
+        throw new APIError({
+            status: response.status,
+            message: result.error || 'Failed to activate account',
+            requestID: response.headers.get('x-request-id'),
+        });
     }
 
     /**
@@ -273,17 +260,11 @@ export class AuthHttpApi implements UsersApi {
         }
 
         const result = await response.json();
-        const errMsg = result.error || 'Failed to send password reset link';
-        switch (response.status) {
-        case 429:
-            throw new ErrorTooManyRequests(errMsg);
-        default:
-            throw new APIError({
-                status: response.status,
-                message: errMsg,
-                requestID: response.headers.get('x-request-id'),
-            });
-        }
+        throw new APIError({
+            status: response.status,
+            message: result.error || 'Failed to send password reset link',
+            requestID: response.headers.get('x-request-id'),
+        });
     }
 
     /**
@@ -524,19 +505,11 @@ export class AuthHttpApi implements UsersApi {
             return response.headers.get('x-request-id') ?? '';
         }
         const result = await response.json();
-        const errMsg = result.error || 'Cannot register user';
-        switch (response.status) {
-        case 400:
-            throw new ErrorBadRequest(errMsg);
-        case 429:
-            throw new ErrorTooManyRequests(errMsg);
-        default:
-            throw new APIError({
-                status: response.status,
-                message: errMsg,
-                requestID: response.headers.get('x-request-id'),
-            });
-        }
+        throw new APIError({
+            status: response.status,
+            message: result.error || 'Cannot register user',
+            requestID: response.headers.get('x-request-id'),
+        });
     }
 
     /**
@@ -683,16 +656,11 @@ export class AuthHttpApi implements UsersApi {
             return;
         }
 
-        switch (response.status) {
-        case 400:
-            throw new ErrorBadRequest(errMsg);
-        default:
-            throw new APIError({
-                status: response.status,
-                message: errMsg,
-                requestID: response.headers.get('x-request-id'),
-            });
-        }
+        throw new APIError({
+            status: response.status,
+            message: errMsg,
+            requestID: response.headers.get('x-request-id'),
+        });
     }
 
     /**

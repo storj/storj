@@ -196,27 +196,18 @@ import {
     VAppBar,
     VAppBarNavIcon,
     VAppBarTitle,
-    VImg,
-    VMenu,
-    VTooltip,
     VBtn,
+    VChip,
+    VImg,
     VList,
     VListItem,
-    VListItemTitle,
     VListItemSubtitle,
-    VChip,
+    VListItemTitle,
+    VMenu,
     VProgressLinear,
+    VTooltip,
 } from 'vuetify/components';
-import {
-    MoonStar,
-    Sun,
-    Settings2,
-    CreditCard,
-    CircleArrowUp,
-    LogOut,
-    Monitor,
-    Smartphone,
-} from 'lucide-vue-next';
+import { CircleArrowUp, CreditCard, LogOut, Monitor, MoonStar, Settings2, Smartphone, Sun } from 'lucide-vue-next';
 
 import { useAppStore } from '@/store/modules/appStore';
 import { useNotify } from '@/utils/hooks';
@@ -226,6 +217,7 @@ import { ROUTES } from '@/router';
 import { User } from '@/types/users';
 import { useLogout } from '@/composables/useLogout';
 import { useThemeStore } from '@/store/modules/themeStore';
+import { AnalyticsErrorEventSource } from '@/utils/constants/analyticsEventNames';
 
 import IconSatellite from '@/components/icons/IconSatellite.vue';
 import AccountSetupDialog from '@/components/dialogs/AccountSetupDialog.vue';
@@ -310,10 +302,9 @@ async function onLogout(): Promise<void> {
     try {
         await logout();
     } catch (error) {
-        notify.error(error.message);
+        notify.notifyError(error, AnalyticsErrorEventSource.APPLICATION_BAR);
     }
 }
-
 </script>
 
 <style scoped lang="scss">

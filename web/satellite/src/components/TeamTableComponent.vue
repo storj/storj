@@ -445,7 +445,7 @@ async function fetch(page = FIRST_PAGE, limit = DEFAULT_PAGE_LIMIT): Promise<voi
         try {
             await pmStore.getProjectMembers(page, selectedProject.value.id, limit);
         } catch (error) {
-            notify.error(`Unable to fetch Project Members. ${error.message}`, AnalyticsErrorEventSource.PROJECT_MEMBERS_PAGE);
+            notify.notifyError(error, AnalyticsErrorEventSource.PROJECT_MEMBERS_PAGE);
         }
     });
 }

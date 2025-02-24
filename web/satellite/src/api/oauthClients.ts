@@ -2,7 +2,7 @@
 // See LICENSE for copying information.
 
 import { HttpClient } from '@/utils/httpClient';
-import { ErrorTooManyRequests } from '@/api/errors/ErrorTooManyRequests';
+import { APIError } from '@/utils/error';
 
 export interface OAuthClient {
     id: string;
@@ -18,19 +18,26 @@ export class OAuthClientsAPI {
     public async get(id: string): Promise<OAuthClient> {
         const path = `${this.ROOT_PATH}/${id}`;
         const response = await this.http.get(path);
-        if (response.ok) {
-            return response.json().then((body) => body as OAuthClient);
-        }
+        const result = await response.json();
 
+        if (response.ok) return result;
+
+        let errMsg = result.error || 'Failed to lookup oauth client';
         switch (response.status) {
         case 400:
-            throw new Error('Invalid request for OAuth client');
+            errMsg = 'Invalid request for OAuth client';
+            break;
         case 404:
-            throw new Error('OAuth client was not found');
+            errMsg = 'OAuth client was not found';
+            break;
         case 429:
-            throw new ErrorTooManyRequests('API rate limit exceeded');
+            errMsg = 'API rate limit exceeded';
         }
 
-        throw new Error('Failed to lookup oauth client');
+        throw new APIError({
+            status: response.status,
+            message: errMsg,
+            requestID: response.headers.get('x-request-id'),
+        });
     }
 }

@@ -189,7 +189,7 @@ async function fetch(page = FIRST_PAGE, limit = DEFAULT_PAGE_LIMIT): Promise<voi
         await agStore.getAccessGrants(page, projectsStore.state.selectedProject.id, limit);
         if (areGrantsFetching.value) areGrantsFetching.value = false;
     } catch (error) {
-        notify.error(`Unable to fetch Access Grants. ${error.message}`, AnalyticsErrorEventSource.ACCESS_GRANTS_PAGE);
+        notify.notifyError(error, AnalyticsErrorEventSource.ACCESS_GRANTS_PAGE);
     }
 }
 

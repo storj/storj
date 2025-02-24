@@ -170,7 +170,6 @@ import {
     VList,
     VIcon,
     VListItemTitle,
-    VDivider,
     VDataTable,
 } from 'vuetify/components';
 import { Ellipsis, Search, UserPlus, Settings, Trash2, Cloud, DownloadCloud, FilePenLine } from 'lucide-vue-next';

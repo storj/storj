@@ -142,10 +142,8 @@ async function onSaveClick(): Promise<void> {
                 await projectsStore.updateProjectDescription(new ProjectFields('', input.value));
             }
         } catch (error) {
-            notify.error(
-                `Error updating project ${props.field.toLowerCase()}. ${error.message}`,
-                AnalyticsErrorEventSource.EDIT_PROJECT_DETAILS,
-            );
+            error.message = `Error updating project ${props.field.toLowerCase()}. ${error.message}`;
+            notify.notifyError(error, AnalyticsErrorEventSource.EDIT_PROJECT_DETAILS);
             return;
         }
 

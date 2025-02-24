@@ -28,6 +28,7 @@ import { VProgressCircular, VContainer, VSheet } from 'vuetify/components';
 import { useLoading } from '@/composables/useLoading';
 import { useNotify } from '@/utils/hooks';
 import { AnalyticsErrorEventSource } from '@/utils/constants/analyticsEventNames';
+import { APIError } from '@/utils/error';
 
 const theme = useTheme();
 const { isLoading, withLoading } = useLoading();
@@ -52,13 +53,13 @@ onMounted(async () => {
                 if (text.includes('limit exceeded')) {
                     message = `${message}, bandwidth limit exceeded`;
                 }
-                notify.error(message, AnalyticsErrorEventSource.GALLERY_VIEW);
+                notify.notifyError(new APIError({ message, status: response.status, requestID: null }), AnalyticsErrorEventSource.GALLERY_VIEW);
                 isError.value = true;
                 return;
             }
             content.value = text;
         } catch (error) {
-            notify.error(`Error fetching object. ${error.message}`, AnalyticsErrorEventSource.GALLERY_VIEW);
+            notify.notifyError(error, AnalyticsErrorEventSource.GALLERY_VIEW);
             isError.value = true;
         }
     });

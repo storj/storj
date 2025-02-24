@@ -437,7 +437,7 @@ async function fetchBuckets(page = FIRST_PAGE, limit = DEFAULT_PAGE_LIMIT): Prom
         await bucketsStore.getBuckets(page, projectsStore.state.selectedProject.id, limit);
         if (areBucketsFetching.value) areBucketsFetching.value = false;
     } catch (error) {
-        notify.error(`Unable to fetch buckets. ${error.message}`, AnalyticsErrorEventSource.BUCKET_TABLE);
+        notify.notifyError(error, AnalyticsErrorEventSource.BUCKET_TABLE);
     }
 }
 

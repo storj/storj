@@ -457,7 +457,7 @@ onMounted(async () => {
     try {
         await projectsStore.getProjectLimits(project.value.id);
     } catch (error) {
-        notify.error(`Error fetching project limits. ${error.message}`, AnalyticsErrorEventSource.PROJECT_SETTINGS_AREA);
+        notify.notifyError(error, AnalyticsErrorEventSource.PROJECT_SETTINGS_AREA);
     }
 });
 </script>

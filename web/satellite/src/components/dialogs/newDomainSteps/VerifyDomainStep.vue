@@ -105,7 +105,7 @@ function checkDNSRecords(): void {
                 notify.error('Cannot check DNS records', AnalyticsErrorEventSource.NEW_DOMAIN_MODAL);
             }
         } catch (error) {
-            notify.error(error.message, AnalyticsErrorEventSource.NEW_DOMAIN_MODAL);
+            notify.notifyError(error, AnalyticsErrorEventSource.NEW_DOMAIN_MODAL);
         }
     });
 }

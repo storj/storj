@@ -198,7 +198,8 @@ async function onDownload(): Promise<void> {
                 await downloadPrefix(props.bucket, props.prefix, downloadFormat.value);
                 model.value = false;
             } catch (error) {
-                notify.error(`Unable to download ${props.prefixType}. ${error.message}`, AnalyticsErrorEventSource.DOWNLOAD_PREFIX_DIALOG);
+                error.message = `Unable to download ${props.prefixType}. ${error.message}`;
+                notify.notifyError(error, AnalyticsErrorEventSource.DOWNLOAD_PREFIX_DIALOG);
             }
         });
     });});

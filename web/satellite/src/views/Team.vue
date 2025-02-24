@@ -93,7 +93,7 @@ onMounted(() => {
             const pm = await pmStore.getSingleMember(selectedProject.value.id, user.value.id);
             isUserAdmin.value = pm.role === ProjectRole.Admin;
         } catch (error) {
-            notify.error(error.message, AnalyticsErrorEventSource.PROJECT_MEMBERS_PAGE);
+            notify.notifyError(error, AnalyticsErrorEventSource.PROJECT_MEMBERS_PAGE);
         }
     });
 });

@@ -550,8 +550,8 @@ async function createAPIKey(): Promise<void> {
     const cleanAPIKey: AccessGrant = await agStore.createAccessGrant(name.value, projectID);
 
     if (route.name === ROUTES.Access.name) {
-        agStore.getAccessGrants(1, projectID).catch(err => {
-            notify.error(`Unable to fetch access grants. ${err.message}`, AnalyticsErrorEventSource.SETUP_ACCESS_MODAL);
+        agStore.getAccessGrants(1, projectID).catch(error => {
+            notify.notifyError(error, AnalyticsErrorEventSource.SETUP_ACCESS_MODAL);
         });
     }
 
@@ -729,11 +729,12 @@ watch(innerContent, async (comp?: VCard): Promise<void> => {
     isFetching.value = true;
 
     const projectID = projectsStore.state.selectedProject.id;
-    await agStore.getAllAGNames(projectID).catch(err => {
-        notify.error(`Error fetching access grant names. ${err.message}`, AnalyticsErrorEventSource.SETUP_ACCESS_MODAL);
-    });
-    await bucketsStore.getAllBucketsNames(projectID).catch(err => {
-        notify.error(`Error fetching bucket grant names. ${err.message}`, AnalyticsErrorEventSource.SETUP_ACCESS_MODAL);
+
+    await Promise.all([
+        agStore.getAllAGNames(projectID),
+        bucketsStore.getAllBucketsNames(projectID),
+    ]).catch(error => {
+        notify.notifyError(error, AnalyticsErrorEventSource.SETUP_ACCESS_MODAL);
     });
 
     passphrase.value = bucketsStore.state.passphrase;
