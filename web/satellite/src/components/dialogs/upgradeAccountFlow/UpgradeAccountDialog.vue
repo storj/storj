@@ -129,7 +129,7 @@ import {
 } from 'vuetify/components';
 
 import { useBillingStore } from '@/store/modules/billingStore';
-import { useNotify } from '@/utils/hooks';
+import { useNotify } from '@/composables/useNotify';
 import { AnalyticsErrorEventSource, AnalyticsEvent } from '@/utils/constants/analyticsEventNames';
 import { useAnalyticsStore } from '@/store/modules/analyticsStore';
 import { PricingPlanInfo } from '@/types/common';

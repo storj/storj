@@ -14,7 +14,7 @@ import { Stripe, StripeElements, StripePaymentElement, StripeElementsOptionsMode
 import { useTheme } from 'vuetify';
 
 import { AnalyticsErrorEventSource } from '@/utils/constants/analyticsEventNames';
-import { useNotify } from '@/utils/hooks';
+import { useNotify } from '@/composables/useNotify';
 import { useConfigStore } from '@/store/modules/configStore';
 
 const configStore = useConfigStore();

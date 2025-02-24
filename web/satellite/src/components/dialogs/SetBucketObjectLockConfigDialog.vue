@@ -107,7 +107,7 @@ import type { ObjectLockRule } from '@aws-sdk/client-s3';
 
 import { useLoading } from '@/composables/useLoading';
 import { AnalyticsErrorEventSource } from '@/utils/constants/analyticsEventNames';
-import { useNotify } from '@/utils/hooks';
+import { useNotify } from '@/composables/useNotify';
 import { DefaultObjectLockPeriodUnit, NO_MODE_SET, ObjLockMode } from '@/types/objectLock';
 import { Bucket } from '@/types/buckets';
 import { ClientType, useBucketsStore } from '@/store/modules/bucketsStore';

@@ -95,7 +95,7 @@ import { LockKeyhole } from 'lucide-vue-next';
 
 import { useUsersStore } from '@/store/modules/usersStore';
 import { useLoading } from '@/composables/useLoading';
-import { useNotify } from '@/utils/hooks';
+import { useNotify } from '@/composables/useNotify';
 import { AnalyticsErrorEventSource } from '@/utils/constants/analyticsEventNames';
 import { UserSettings } from '@/types/users';
 import { useProjectsStore } from '@/store/modules/projectsStore';

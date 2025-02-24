@@ -319,7 +319,7 @@ import { centsToDollars } from '@/utils/strings';
 import { DeleteAccountStep } from '@/types/accountActions';
 import { AccountDeletionData, User } from '@/types/users';
 import { useLoading } from '@/composables/useLoading';
-import { useNotify } from '@/utils/hooks';
+import { useNotify } from '@/composables/useNotify';
 import { ROUTES } from '@/router';
 import { useUsersStore } from '@/store/modules/usersStore';
 import { RequiredRule } from '@/types/common';

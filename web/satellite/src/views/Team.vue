@@ -45,7 +45,7 @@ import { usePreCheck } from '@/composables/usePreCheck';
 import { useLoading } from '@/composables/useLoading';
 import { useUsersStore } from '@/store/modules/usersStore';
 import { useProjectMembersStore } from '@/store/modules/projectMembersStore';
-import { useNotify } from '@/utils/hooks';
+import { useNotify } from '@/composables/useNotify';
 import { Project } from '@/types/projects';
 import { User } from '@/types/users';
 import { ProjectRole } from '@/types/projectMembers';

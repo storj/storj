@@ -134,7 +134,7 @@ import {
     AnalyticsErrorEventSource,
     AnalyticsEvent,
 } from '@/utils/constants/analyticsEventNames';
-import { useNotify } from '@/utils/hooks';
+import { useNotify } from '@/composables/useNotify';
 import { useUsersStore } from '@/store/modules/usersStore.js';
 
 import PasswordInputEyeIcons from '@/components/PasswordInputEyeIcons.vue';

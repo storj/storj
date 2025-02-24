@@ -101,7 +101,7 @@ import {
 } from 'vuetify/components';
 
 import { AnalyticsErrorEventSource } from '@/utils/constants/analyticsEventNames';
-import { useNotify } from '@/utils/hooks';
+import { useNotify } from '@/composables/useNotify';
 
 enum Expiration {
     No = 'No Expiration',

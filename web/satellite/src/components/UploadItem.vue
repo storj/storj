@@ -65,7 +65,7 @@ import {
     UploadingStatus,
     useObjectBrowserStore,
 } from '@/store/modules/objectBrowserStore';
-import { useNotify } from '@/utils/hooks';
+import { useNotify } from '@/composables/useNotify';
 import { AnalyticsErrorEventSource } from '@/utils/constants/analyticsEventNames';
 
 const obStore = useObjectBrowserStore();

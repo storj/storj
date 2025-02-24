@@ -80,7 +80,7 @@ import {
 
 import { useBillingStore } from '@/store/modules/billingStore';
 import { useLoading } from '@/composables/useLoading';
-import { useNotify } from '@/utils/hooks';
+import { useNotify } from '@/composables/useNotify';
 import { AnalyticsErrorEventSource } from '@/utils/constants/analyticsEventNames';
 import { CreditCard } from '@/types/payments';
 import { useUsersStore } from '@/store/modules/usersStore';

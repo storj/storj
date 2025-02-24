@@ -9,7 +9,7 @@ import { useConfigStore } from '@/store/modules/configStore';
 import { useObjectBrowserStore } from '@/store/modules/objectBrowserStore';
 import { useUsersStore } from '@/store/modules/usersStore';
 import { AnalyticsErrorEventSource } from '@/utils/constants/analyticsEventNames';
-import { useNotify } from '@/utils/hooks';
+import { useNotify } from '@/composables/useNotify';
 import { LocalData } from '@/utils/localData';
 import { useLogout } from '@/composables/useLogout';
 

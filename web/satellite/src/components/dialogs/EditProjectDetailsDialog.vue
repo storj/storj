@@ -91,7 +91,7 @@ import { Box } from 'lucide-vue-next';
 import { useLoading } from '@/composables/useLoading';
 import { AnalyticsErrorEventSource, AnalyticsEvent } from '@/utils/constants/analyticsEventNames';
 import { useAnalyticsStore } from '@/store/modules/analyticsStore';
-import { useNotify } from '@/utils/hooks';
+import { useNotify } from '@/composables/useNotify';
 import { useProjectsStore } from '@/store/modules/projectsStore';
 import { ValidationRule } from '@/types/common';
 import { FieldToChange, ProjectFields, MAX_NAME_LENGTH, MAX_DESCRIPTION_LENGTH } from '@/types/projects';

@@ -184,7 +184,7 @@ import { NewDomainFlowStep } from '@/types/domains';
 import { useBucketsStore } from '@/store/modules/bucketsStore';
 import { useProjectsStore } from '@/store/modules/projectsStore';
 import { useDomainsStore } from '@/store/modules/domainsStore';
-import { useNotify } from '@/utils/hooks';
+import { useNotify } from '@/composables/useNotify';
 import { AnalyticsErrorEventSource } from '@/utils/constants/analyticsEventNames';
 import { IDialogFlowStep } from '@/types/common';
 import { PassphraseOption } from '@/types/setupAccess';

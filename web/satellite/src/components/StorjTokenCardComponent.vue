@@ -63,7 +63,7 @@ import { Wallet } from '@/types/payments';
 import { useLoading } from '@/composables/useLoading';
 import { useBillingStore } from '@/store/modules/billingStore';
 import { AnalyticsErrorEventSource, AnalyticsEvent } from '@/utils/constants/analyticsEventNames';
-import { useNotify } from '@/utils/hooks';
+import { useNotify } from '@/composables/useNotify';
 import { useAppStore } from '@/store/modules/appStore';
 import { useAnalyticsStore } from '@/store/modules/analyticsStore';
 import { useUsersStore } from '@/store/modules/usersStore';

@@ -75,7 +75,7 @@ import { useBucketsStore } from '@/store/modules/bucketsStore';
 import { EdgeCredentials } from '@/types/accessGrants';
 import { AnalyticsErrorEventSource, AnalyticsEvent } from '@/utils/constants/analyticsEventNames';
 import { useAnalyticsStore } from '@/store/modules/analyticsStore';
-import { useNotify } from '@/utils/hooks';
+import { useNotify } from '@/composables/useNotify';
 import { ROUTES } from '@/router';
 import { OnboardingInfo } from '@/types/common';
 import { SetupStep } from '@/types/setupAccess';

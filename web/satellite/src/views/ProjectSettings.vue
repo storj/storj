@@ -221,7 +221,7 @@ import { useUsersStore } from '@/store/modules/usersStore';
 import { Memory, Size } from '@/utils/bytesSize';
 import { useConfigStore } from '@/store/modules/configStore';
 import { decimalShift } from '@/utils/strings';
-import { useNotify } from '@/utils/hooks';
+import { useNotify } from '@/composables/useNotify';
 import {
     AnalyticsErrorEventSource,
 } from '@/utils/constants/analyticsEventNames';

@@ -26,7 +26,7 @@ import { useTheme } from 'vuetify';
 import { VProgressCircular, VContainer, VSheet } from 'vuetify/components';
 
 import { useLoading } from '@/composables/useLoading';
-import { useNotify } from '@/utils/hooks';
+import { useNotify } from '@/composables/useNotify';
 import { AnalyticsErrorEventSource } from '@/utils/constants/analyticsEventNames';
 import { APIError } from '@/utils/error';
 

@@ -257,7 +257,7 @@ import { Lock } from 'lucide-vue-next';
 
 import { BrowserObject, useObjectBrowserStore } from '@/store/modules/objectBrowserStore';
 import { useLoading } from '@/composables/useLoading';
-import { useNotify } from '@/utils/hooks';
+import { useNotify } from '@/composables/useNotify';
 import { AnalyticsErrorEventSource } from '@/utils/constants/analyticsEventNames';
 import { Time } from '@/utils/time';
 import { COMPLIANCE_LOCK, GOVERNANCE_LOCK, ObjLockMode, Retention } from '@/types/objectLock';

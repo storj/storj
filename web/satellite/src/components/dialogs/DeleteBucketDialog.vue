@@ -158,7 +158,7 @@ import { useBucketsStore } from '@/store/modules/bucketsStore';
 import { useProjectsStore } from '@/store/modules/projectsStore';
 import { useConfigStore } from '@/store/modules/configStore';
 import { useLoading } from '@/composables/useLoading';
-import { useNotify } from '@/utils/hooks';
+import { useNotify } from '@/composables/useNotify';
 import { Bucket } from '@/types/buckets';
 import { Versioning } from '@/types/versioning';
 import { UploadingStatus, useObjectBrowserStore } from '@/store/modules/objectBrowserStore';

@@ -127,7 +127,7 @@ import {
     VAlert,
 } from 'vuetify/components';
 
-import { useNotify } from '@/utils/hooks';
+import { useNotify } from '@/composables/useNotify';
 import { AuthHttpApi } from '@/api/auth';
 import { useLoading } from '@/composables/useLoading';
 import { useConfigStore } from '@/store/modules/configStore';

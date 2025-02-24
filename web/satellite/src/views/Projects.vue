@@ -135,7 +135,7 @@ import { useAnalyticsStore } from '@/store/modules/analyticsStore';
 import { Dimensions, Size } from '@/utils/bytesSize';
 import { usePreCheck } from '@/composables/usePreCheck';
 import { AccountBalance, CreditCard } from '@/types/payments';
-import { useNotify } from '@/utils/hooks';
+import { useNotify } from '@/composables/useNotify';
 
 import ProjectCard from '@/components/ProjectCard.vue';
 import PageTitleComponent from '@/components/PageTitleComponent.vue';

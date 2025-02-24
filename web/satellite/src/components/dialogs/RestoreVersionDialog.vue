@@ -105,7 +105,7 @@ import {
 
 import { AnalyticsErrorEventSource } from '@/utils/constants/analyticsEventNames';
 import { useLoading } from '@/composables/useLoading';
-import { useNotify } from '@/utils/hooks';
+import { useNotify } from '@/composables/useNotify';
 import { Time } from '@/utils/time';
 import { BrowserObject, useObjectBrowserStore } from '@/store/modules/objectBrowserStore';
 

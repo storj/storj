@@ -111,7 +111,7 @@ import { Copy, Info } from 'lucide-vue-next';
 import { useBillingStore } from '@/store/modules/billingStore';
 import { useConfigStore } from '@/store/modules/configStore';
 import { useUsersStore } from '@/store/modules/usersStore';
-import { useNotify } from '@/utils/hooks';
+import { useNotify } from '@/composables/useNotify';
 import { PaymentStatus, PaymentWithConfirmations, Wallet } from '@/types/payments';
 import { AnalyticsErrorEventSource } from '@/utils/constants/analyticsEventNames';
 

@@ -43,7 +43,7 @@ import { ref } from 'vue';
 import { VBtn, VCardText, VForm, VAlert, VTextarea } from 'vuetify/components';
 
 import { useDomainsStore } from '@/store/modules/domainsStore';
-import { useNotify } from '@/utils/hooks';
+import { useNotify } from '@/composables/useNotify';
 import { useLoading } from '@/composables/useLoading';
 import { AnalyticsErrorEventSource } from '@/utils/constants/analyticsEventNames';
 import { CheckDNSResponse } from '@/types/domains';

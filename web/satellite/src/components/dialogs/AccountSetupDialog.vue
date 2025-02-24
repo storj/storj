@@ -196,7 +196,7 @@ import { useBillingStore } from '@/store/modules/billingStore';
 import { useProjectsStore } from '@/store/modules/projectsStore';
 import { ManagePassphraseMode } from '@/types/projects';
 import { AnalyticsErrorEventSource, AnalyticsEvent } from '@/utils/constants/analyticsEventNames';
-import { useNotify } from '@/utils/hooks';
+import { useNotify } from '@/composables/useNotify';
 import { useAnalyticsStore } from '@/store/modules/analyticsStore';
 import { Wallet } from '@/types/payments';
 

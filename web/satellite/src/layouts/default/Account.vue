@@ -24,7 +24,7 @@ import DefaultView from './View.vue';
 
 import { useAppStore } from '@/store/modules/appStore';
 import { useUsersStore } from '@/store/modules/usersStore';
-import { useNotify } from '@/utils/hooks';
+import { useNotify } from '@/composables/useNotify';
 import { AnalyticsErrorEventSource } from '@/utils/constants/analyticsEventNames';
 
 import SessionWrapper from '@/components/utils/SessionWrapper.vue';

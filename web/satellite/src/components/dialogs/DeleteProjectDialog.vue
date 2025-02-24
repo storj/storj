@@ -279,7 +279,7 @@ import { DeleteProjectStep } from '@/types/accountActions';
 import { User } from '@/types/users';
 import { Project, ProjectDeletionData } from '@/types/projects';
 import { useLoading } from '@/composables/useLoading';
-import { useNotify } from '@/utils/hooks';
+import { useNotify } from '@/composables/useNotify';
 import { ROUTES } from '@/router';
 import { useUsersStore } from '@/store/modules/usersStore';
 import { useProjectsStore } from '@/store/modules/projectsStore';

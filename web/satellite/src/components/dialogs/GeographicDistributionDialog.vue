@@ -104,7 +104,7 @@ import { SquareArrowOutUpRight } from 'lucide-vue-next';
 import { useBucketsStore } from '@/store/modules/bucketsStore';
 import { useObjectBrowserStore } from '@/store/modules/objectBrowserStore';
 import { useLoading } from '@/composables/useLoading';
-import { useNotify } from '@/utils/hooks';
+import { useNotify } from '@/composables/useNotify';
 import { useLinksharing } from '@/composables/useLinksharing';
 import { AnalyticsErrorEventSource } from '@/utils/constants/analyticsEventNames';
 

@@ -108,7 +108,7 @@ import { useUsersStore } from '@/store/modules/usersStore';
 import { UpdatedUser } from '@/types/users';
 import { AnalyticsErrorEventSource, AnalyticsEvent } from '@/utils/constants/analyticsEventNames';
 import { useAnalyticsStore } from '@/store/modules/analyticsStore';
-import { useNotify } from '@/utils/hooks';
+import { useNotify } from '@/composables/useNotify';
 
 const rules = [
     (value: string) => (!!value || 'Can\'t be empty'),

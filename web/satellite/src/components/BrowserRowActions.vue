@@ -186,7 +186,7 @@ import {
     FullBrowserObject,
     useObjectBrowserStore,
 } from '@/store/modules/objectBrowserStore';
-import { useNotify } from '@/utils/hooks';
+import { useNotify } from '@/composables/useNotify';
 import { AnalyticsErrorEventSource } from '@/utils/constants/analyticsEventNames';
 import { ProjectLimits } from '@/types/projects';
 import { useProjectsStore } from '@/store/modules/projectsStore';

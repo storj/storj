@@ -24,7 +24,7 @@ import { BrowserObject } from '@/store/modules/objectBrowserStore';
 import { Size } from '@/utils/bytesSize';
 import { ProjectLimits } from '@/types/projects';
 import { useProjectsStore } from '@/store/modules/projectsStore';
-import { useNotify } from '@/utils/hooks';
+import { useNotify } from '@/composables/useNotify';
 
 const projectsStore = useProjectsStore();
 

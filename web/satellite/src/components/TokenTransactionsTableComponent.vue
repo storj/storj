@@ -69,7 +69,7 @@ import { Search } from 'lucide-vue-next';
 import { Time } from '@/utils/time';
 import { AnalyticsErrorEventSource } from '@/utils/constants/analyticsEventNames';
 import { useLoading } from '@/composables/useLoading';
-import { useNotify } from '@/utils/hooks';
+import { useNotify } from '@/composables/useNotify';
 import { useBillingStore } from '@/store/modules/billingStore';
 import { DataTableHeader, SortItem, tableSizeOptions } from '@/types/common';
 

@@ -194,7 +194,7 @@ import { ChevronLeft, ChevronRight, Share, Trash2, Download, X, EllipsisVertical
 
 import { BrowserObject, FullBrowserObject, useObjectBrowserStore } from '@/store/modules/objectBrowserStore';
 import { useBucketsStore } from '@/store/modules/bucketsStore';
-import { useNotify } from '@/utils/hooks';
+import { useNotify } from '@/composables/useNotify';
 import { AnalyticsErrorEventSource } from '@/utils/constants/analyticsEventNames';
 import { ProjectLimits } from '@/types/projects';
 import { useProjectsStore } from '@/store/modules/projectsStore';

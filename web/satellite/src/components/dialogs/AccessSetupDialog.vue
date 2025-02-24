@@ -239,7 +239,7 @@ import {
 import { useBucketsStore } from '@/store/modules/bucketsStore';
 import { getUniqueName, IDialogFlowStep } from '@/types/common';
 import { AnalyticsErrorEventSource, AnalyticsEvent } from '@/utils/constants/analyticsEventNames';
-import { useNotify } from '@/utils/hooks';
+import { useNotify } from '@/composables/useNotify';
 import { useAccessGrantsStore } from '@/store/modules/accessGrantsStore';
 import { useProjectsStore } from '@/store/modules/projectsStore';
 import { AccessGrant, EdgeCredentials } from '@/types/accessGrants';

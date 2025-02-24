@@ -106,7 +106,7 @@ import { VAlert, VBtn, VCol, VIcon, VRow, VChip } from 'vuetify/components';
 import { Check, LockKeyhole, ChevronLeft } from 'lucide-vue-next';
 
 import { PricingPlanInfo, PricingPlanType } from '@/types/common';
-import { useNotify } from '@/utils/hooks';
+import { useNotify } from '@/composables/useNotify';
 import { useUsersStore } from '@/store/modules/usersStore';
 import { useBillingStore } from '@/store/modules/billingStore';
 import { useConfigStore } from '@/store/modules/configStore';

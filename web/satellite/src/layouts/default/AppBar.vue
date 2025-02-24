@@ -210,7 +210,7 @@ import {
 import { CircleArrowUp, CreditCard, LogOut, Monitor, MoonStar, Settings2, Smartphone, Sun } from 'lucide-vue-next';
 
 import { useAppStore } from '@/store/modules/appStore';
-import { useNotify } from '@/utils/hooks';
+import { useNotify } from '@/composables/useNotify';
 import { useUsersStore } from '@/store/modules/usersStore';
 import { useConfigStore } from '@/store/modules/configStore';
 import { ROUTES } from '@/router';

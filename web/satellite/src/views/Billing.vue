@@ -277,7 +277,7 @@ import { useRoute, useRouter } from 'vue-router';
 import { Calendar, Info, Plus, ArrowRight } from 'lucide-vue-next';
 
 import { useLoading } from '@/composables/useLoading';
-import { useNotify } from '@/utils/hooks';
+import { useNotify } from '@/composables/useNotify';
 import { useBillingStore } from '@/store/modules/billingStore';
 import { AccountBalance, Coupon, CouponDuration, CreditCard } from '@/types/payments';
 import { centsToDollars } from '@/utils/strings';

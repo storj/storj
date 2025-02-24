@@ -324,7 +324,7 @@ import { DataStamp, Emission, LimitToChange, Project, ProjectLimits } from '@/ty
 import { Dimensions, Size } from '@/utils/bytesSize';
 import { ChartUtils } from '@/utils/chart';
 import { AnalyticsErrorEventSource } from '@/utils/constants/analyticsEventNames';
-import { useNotify } from '@/utils/hooks';
+import { useNotify } from '@/composables/useNotify';
 import { useAppStore } from '@/store/modules/appStore';
 import { ProjectMembersPage, ProjectRole } from '@/types/projectMembers';
 import { AccessGrantsPage } from '@/types/accessGrants';

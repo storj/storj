@@ -177,7 +177,7 @@ import { ChevronDown, ChevronUp, Gauge } from 'lucide-vue-next';
 import { AnalyticsErrorEventSource, AnalyticsEvent } from '@/utils/constants/analyticsEventNames';
 import { useAnalyticsStore } from '@/store/modules/analyticsStore';
 import { useProjectsStore } from '@/store/modules/projectsStore';
-import { useNotify } from '@/utils/hooks';
+import { useNotify } from '@/composables/useNotify';
 import { useLoading } from '@/composables/useLoading';
 import { RequiredRule, ValidationRule } from '@/types/common';
 import { LimitToChange } from '@/types/projects';

@@ -307,7 +307,7 @@ import { EmailRule, RequiredRule } from '@/types/common';
 import { MultiCaptchaConfig } from '@/types/config.gen';
 import { PartnerConfig } from '@/types/partners';
 import { AuthHttpApi } from '@/api/auth';
-import { useNotify } from '@/utils/hooks';
+import { useNotify } from '@/composables/useNotify';
 import { useAnalyticsStore } from '@/store/modules/analyticsStore';
 import { AnalyticsEvent } from '@/utils/constants/analyticsEventNames';
 import { ROUTES } from '@/router';

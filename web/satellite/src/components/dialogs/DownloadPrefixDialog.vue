@@ -141,7 +141,7 @@ import { useDisplay } from 'vuetify';
 
 import { useLoading } from '@/composables/useLoading';
 import { usePreCheck } from '@/composables/usePreCheck';
-import { useNotify } from '@/utils/hooks';
+import { useNotify } from '@/composables/useNotify';
 import { useLinksharing } from '@/composables/useLinksharing';
 import { DownloadPrefixFormat, DownloadPrefixType } from '@/types/browser';
 import { AnalyticsErrorEventSource } from '@/utils/constants/analyticsEventNames';

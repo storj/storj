@@ -305,7 +305,7 @@ import { ROUTES } from '@/router';
 import { MaxNameLengthRule, RequiredRule } from '@/types/common';
 import { AnalyticsErrorEventSource, AnalyticsEvent } from '@/utils/constants/analyticsEventNames';
 import { useLoading } from '@/composables/useLoading';
-import { useNotify } from '@/utils/hooks';
+import { useNotify } from '@/composables/useNotify';
 import { useAnalyticsStore } from '@/store/modules/analyticsStore';
 import { User } from '@/types/users';
 
