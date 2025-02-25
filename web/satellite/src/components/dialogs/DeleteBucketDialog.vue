@@ -162,6 +162,7 @@ import { useNotify } from '@/composables/useNotify';
 import { Bucket } from '@/types/buckets';
 import { Versioning } from '@/types/versioning';
 import { UploadingStatus, useObjectBrowserStore } from '@/store/modules/objectBrowserStore';
+import { useAccessGrantWorker } from '@/composables/useAccessGrantWorker';
 
 const props = defineProps<{
     bucketName: string;
@@ -179,8 +180,7 @@ const obStore = useObjectBrowserStore();
 
 const { isLoading, withLoading } = useLoading();
 const notify = useNotify();
-
-const worker = ref<Worker| null>(null);
+const { setPermissions, generateAccess } = useAccessGrantWorker();
 
 const confirmDelete = ref<string>();
 const hasObjects = ref<boolean>(false);
@@ -202,11 +202,6 @@ const apiKey = computed((): string => {
 async function setCredentials(checkEmpty = false): Promise<void> {
     const projectID = projectsStore.state.selectedProject.id;
 
-    if (!worker.value) {
-        notify.error('Web worker is not initialized.', AnalyticsErrorEventSource.DELETE_BUCKET_MODAL);
-        return;
-    }
-
     const now = new Date();
 
     if (!apiKey.value) {
@@ -217,49 +212,20 @@ async function setCredentials(checkEmpty = false): Promise<void> {
 
     const inOneHour = new Date(now.setHours(now.getHours() + 1));
 
-    worker.value.postMessage({
-        'type': 'SetPermission',
-        'isDownload': false,
-        'isUpload': false,
-        'isList': true,
-        'isDelete': true,
-        'notAfter': inOneHour.toISOString(),
-        'buckets': JSON.stringify([props.bucketName]),
-        'apiKey': apiKey.value,
+    const macaroon = await setPermissions({
+        isDownload: false,
+        isUpload: false,
+        isList: true,
+        isDelete: true,
+        notAfter: inOneHour.toISOString(),
+        buckets: JSON.stringify([props.bucketName]),
+        apiKey: apiKey.value,
     });
 
-    const grantEvent: MessageEvent = await new Promise(resolve => {
-        if (worker.value) {
-            worker.value.onmessage = resolve;
-        }
-    });
-    if (grantEvent.data.error) {
-        notify.error(grantEvent.data.error, AnalyticsErrorEventSource.DELETE_BUCKET_MODAL);
-        return;
-    }
-
-    const salt = await projectsStore.getProjectSalt(projectsStore.state.selectedProject.id);
-    const satelliteNodeURL: string = configStore.state.config.satelliteNodeURL;
-
-    worker.value.postMessage({
-        'type': 'GenerateAccess',
-        'apiKey': grantEvent.data.value,
-        'passphrase': checkEmpty ? bucketsStore.state.passphrase : '',
-        'salt': salt,
-        'satelliteNodeURL': satelliteNodeURL,
-    });
-
-    const accessGrantEvent: MessageEvent = await new Promise(resolve => {
-        if (worker.value) {
-            worker.value.onmessage = resolve;
-        }
-    });
-    if (accessGrantEvent.data.error) {
-        notify.error(accessGrantEvent.data.error, AnalyticsErrorEventSource.DELETE_BUCKET_MODAL);
-        return;
-    }
-
-    const accessGrant = accessGrantEvent.data.value;
+    const accessGrant = await generateAccess({
+        apiKey: macaroon,
+        passphrase: checkEmpty ? bucketsStore.state.passphrase : '',
+    }, projectsStore.state.selectedProject.id);
 
     const edgeCredentials: EdgeCredentials = await agStore.getEdgeCredentials(accessGrant);
     bucketsStore.setEdgeCredentialsForDelete(edgeCredentials, bucket.value?.objectLockEnabled);
@@ -302,17 +268,7 @@ async function onDelete(): Promise<void> {
     });
 }
 
-/**
- * Sets local worker with worker instantiated in store.
- */
 watch(model, shown => {
-    if (!shown) {
-        confirmDelete.value = '';
-    }
-    worker.value = agStore.state.accessGrantsWebWorker;
-    if (!worker.value) return;
-    worker.value.onerror = (error: ErrorEvent) => {
-        notify.error(error.message, AnalyticsErrorEventSource.DELETE_BUCKET_MODAL);
-    };
+    if (!shown) confirmDelete.value = '';
 });
 </script>

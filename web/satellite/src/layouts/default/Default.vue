@@ -32,6 +32,7 @@ import { AnalyticsErrorEventSource } from '@/utils/constants/analyticsEventNames
 import { useNotify } from '@/composables/useNotify';
 import { ROUTES } from '@/router';
 import { useBucketsStore } from '@/store/modules/bucketsStore';
+import { useAccessGrantWorker } from '@/composables/useAccessGrantWorker';
 
 import SessionWrapper from '@/components/utils/SessionWrapper.vue';
 import UpgradeAccountDialog from '@/components/dialogs/upgradeAccountFlow/UpgradeAccountDialog.vue';
@@ -41,6 +42,7 @@ import BrandedLoader from '@/components/utils/BrandedLoader.vue';
 const router = useRouter();
 const route = useRoute();
 const notify = useNotify();
+const { start } = useAccessGrantWorker();
 
 const bucketsStore = useBucketsStore();
 const projectsStore = useProjectsStore();
@@ -106,7 +108,7 @@ onBeforeMount(async () => {
     await selectProject(route.params.id as string);
 
     try {
-        if (!agStore.state.accessGrantsWebWorker) await agStore.startWorker();
+        if (!agStore.state.accessGrantsWebWorker) await start();
     } catch (error) {
         notify.error('Unable to set access grants wizard. You may be able to fix this by doing a hard-refresh or clearing your cache.', AnalyticsErrorEventSource.OVERALL_APP_WRAPPER_ERROR);
         // We do this in case user goes to DevTools to check if anything is there.

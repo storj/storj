@@ -57,21 +57,3 @@ export enum BucketsOption {
     All = 'all',
     Select = 'select',
 }
-
-export interface PermissionsMessage {
-    type: string;
-    buckets: string;
-    apiKey: string;
-    isDownload: boolean;
-    isUpload: boolean;
-    isList: boolean;
-    isDelete: boolean;
-    notBefore: string;
-    isPutObjectRetention?: boolean;
-    isGetObjectRetention?: boolean;
-    isBypassGovernanceRetention?: boolean;
-    isPutObjectLegalHold?: boolean;
-    isGetObjectLegalHold?: boolean;
-    isPutObjectLockConfiguration?: boolean;
-    isGetObjectLockConfiguration?: boolean;
-}

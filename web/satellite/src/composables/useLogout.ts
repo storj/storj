@@ -17,6 +17,7 @@ import { useNotificationsStore } from '@/store/modules/notificationsStore';
 import { useProjectsStore } from '@/store/modules/projectsStore';
 import { useObjectBrowserStore } from '@/store/modules/objectBrowserStore';
 import { useConfigStore } from '@/store/modules/configStore';
+import { useAccessGrantWorker } from '@/composables/useAccessGrantWorker';
 
 export function useLogout() {
     const auth: AuthHttpApi = new AuthHttpApi();
@@ -35,11 +36,14 @@ export function useLogout() {
     const configStore = useConfigStore();
 
     async function clearStores(): Promise<void> {
+        const { stop } = useAccessGrantWorker();
+
+        stop();
+
         await Promise.all([
             pmStore.clear(),
             projectsStore.clear(),
             usersStore.clear(),
-            agStore.stopWorker(),
             agStore.clear(),
             notificationsStore.clear(),
             bucketsStore.clear(),

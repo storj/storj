@@ -30,10 +30,10 @@ import {
 import { BucketsHttpApi } from '@/api/buckets';
 import { AccessGrant, EdgeCredentials } from '@/types/accessGrants';
 import { useAccessGrantsStore } from '@/store/modules/accessGrantsStore';
-import { useProjectsStore } from '@/store/modules/projectsStore';
 import { useConfigStore } from '@/store/modules/configStore';
 import { DEFAULT_PAGE_LIMIT } from '@/types/pagination';
 import { Duration } from '@/utils/time';
+import { useAccessGrantWorker } from '@/composables/useAccessGrantWorker';
 
 const FIRST_PAGE = 1;
 
@@ -88,6 +88,8 @@ export const useBucketsStore = defineStore('buckets', () => {
     const state = reactive<BucketsState>(new BucketsState());
 
     const api: BucketsApi = new BucketsHttpApi();
+
+    const { setPermissions, generateAccess } = useAccessGrantWorker();
 
     function setBucketsSearch(search: string): void {
         state.cursor.search = search;
@@ -213,6 +215,8 @@ export const useBucketsStore = defineStore('buckets', () => {
     }
 
     async function setS3Client(projectID: string): Promise<void> {
+        if (!state.passphrase) throw new Error('Passphrase can\'t be empty');
+
         const agStore = useAccessGrantsStore();
         const { objectBrowserKeyNamePrefix, objectBrowserKeyLifetime } = useConfigStore().state.config;
         const now = new Date();
@@ -222,62 +226,29 @@ export const useBucketsStore = defineStore('buckets', () => {
             setApiKey(cleanAPIKey.secret);
         }
 
-        const worker = agStore.state.accessGrantsWebWorker;
-        if (!worker) {
-            throw new Error('Worker is not defined');
-        }
-
-        worker.onerror = (error: ErrorEvent) => {
-            throw new Error(error.message);
-        };
-
         const notAfter = new Date(now.setDate(now.getDate() + new Duration(objectBrowserKeyLifetime).days));
-        worker.postMessage({
-            'type': 'SetPermission',
-            'isDownload': true,
-            'isUpload': true,
-            'isList': true,
-            'isDelete': true,
-            'isPutObjectRetention': true,
-            'isGetObjectRetention': true,
-            'isPutObjectLegalHold': true,
-            'isGetObjectLegalHold': true,
-            'isPutObjectLockConfiguration': true,
-            'isGetObjectLockConfiguration': true,
-            'notAfter': notAfter.toISOString(),
-            'buckets': JSON.stringify([]),
-            'apiKey': state.apiKey,
+
+        const macaroon = await setPermissions({
+            isDownload: true,
+            isUpload: true,
+            isList: true,
+            isDelete: true,
+            isPutObjectRetention: true,
+            isGetObjectRetention: true,
+            isPutObjectLegalHold: true,
+            isGetObjectLegalHold: true,
+            isPutObjectLockConfiguration: true,
+            isGetObjectLockConfiguration: true,
+            notAfter: notAfter.toISOString(),
+            buckets: JSON.stringify([]),
+            apiKey: state.apiKey,
         });
 
-        const grantEvent: MessageEvent = await new Promise(resolve => worker.onmessage = resolve);
-        if (grantEvent.data.error) {
-            throw new Error(grantEvent.data.error);
-        }
+        const accessGrant = await generateAccess({
+            apiKey: macaroon,
+            passphrase: state.passphrase,
+        }, projectID);
 
-        const projectsStore = useProjectsStore();
-        const configStore = useConfigStore();
-
-        const salt = await projectsStore.getProjectSalt(projectID);
-        const satelliteNodeURL: string = configStore.state.config.satelliteNodeURL;
-
-        if (!state.passphrase) {
-            throw new Error('Passphrase can\'t be empty');
-        }
-
-        worker.postMessage({
-            'type': 'GenerateAccess',
-            'apiKey': grantEvent.data.value,
-            'passphrase': state.passphrase,
-            'salt': salt,
-            'satelliteNodeURL': satelliteNodeURL,
-        });
-
-        const accessGrantEvent: MessageEvent = await new Promise(resolve => worker.onmessage = resolve);
-        if (accessGrantEvent.data.error) {
-            throw new Error(accessGrantEvent.data.error);
-        }
-
-        const accessGrant = accessGrantEvent.data.value;
         state.edgeCredentials = await agStore.getEdgeCredentials(accessGrant);
 
         const s3Config: S3ClientConfig = {

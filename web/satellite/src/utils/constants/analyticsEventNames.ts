@@ -58,6 +58,7 @@ export enum AnalyticsEvent {
 }
 
 export enum AnalyticsErrorEventSource {
+    ACCESS_GRANTS_WEB_WORKER = 'Access grant web worker',
     ACCESS_GRANTS_PAGE = 'Access grants page',
     ACCOUNT_PAGE = 'Account page',
     ACCOUNT_SETTINGS_AREA = 'Account settings area',

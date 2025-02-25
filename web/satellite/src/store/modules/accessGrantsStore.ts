@@ -34,37 +34,8 @@ export const useAccessGrantsStore = defineStore('accessGrants', () => {
 
     const csrfToken = computed<string>(() => configStore.state.config.csrfToken);
 
-    async function startWorker(): Promise<void> {
-        // TODO(vitalii): create an issue here https://github.com/vitejs/vite
-        // about worker chunk being auto removed after rebuild in watch mode if using new URL constructor.
-        let worker: Worker;
-        if (import.meta.env.MODE === 'development') {
-            worker = new Worker('/static/src/utils/accessGrant.worker.js');
-        } else {
-            worker = new Worker(new URL('@/utils/accessGrant.worker.js', import.meta.url));
-        }
-
-        worker.postMessage({ 'type': 'Setup' });
-
-        const event: MessageEvent = await new Promise(resolve => worker.onmessage = resolve);
-        if (event.data.error) {
-            throw new Error(event.data.error);
-        }
-
-        if (event.data !== 'configured') {
-            throw new Error('Failed to configure access grants web worker');
-        }
-
-        worker.onerror = (error: ErrorEvent) => {
-            throw new Error(`Failed to configure access grants web worker. ${error.message}`);
-        };
-
+    function setWorker(worker: Worker | null): void {
         state.accessGrantsWebWorker = worker;
-    }
-
-    function stopWorker(): void {
-        state.accessGrantsWebWorker?.terminate();
-        state.accessGrantsWebWorker = null;
     }
 
     async function getAllAGNames(projectID: string): Promise<void> {
@@ -119,8 +90,7 @@ export const useAccessGrantsStore = defineStore('accessGrants', () => {
     return {
         state,
         getAllAGNames,
-        startWorker,
-        stopWorker,
+        setWorker,
         getAccessGrants,
         createAccessGrant,
         deleteAccessGrants,

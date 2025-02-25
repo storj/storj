@@ -15,8 +15,7 @@ import { AccessGrant, EdgeCredentials } from '@/types/accessGrants';
 import { Project } from '@/types/projects';
 import { Download } from '@/utils/download';
 import { DownloadPrefixFormat } from '@/types/browser';
-
-const WORKER_ERR_MSG = 'Worker is not defined';
+import { RestrictGrantMessage, useAccessGrantWorker } from '@/composables/useAccessGrantWorker';
 
 export enum ShareType {
     Object = 'object',
@@ -31,7 +30,7 @@ export function useLinksharing() {
     const bucketsStore = useBucketsStore();
     const objectBrowserStore = useObjectBrowserStore();
 
-    const worker = computed((): Worker | null => agStore.state.accessGrantsWebWorker);
+    const { generateAccess, restrictGrant } = useAccessGrantWorker();
 
     const selectedProject = computed<Project>(() => projectsStore.state.selectedProject);
 
@@ -52,8 +51,6 @@ export function useLinksharing() {
     }
 
     async function generateShareURL(bucketName: string, prefix: string, objectKey: string, type: ShareType): Promise<string> {
-        if (!worker.value) throw new Error(WORKER_ERR_MSG);
-
         let fullPath = bucketName;
         if (prefix) fullPath = `${fullPath}/${prefix}`;
         if (objectKey) fullPath = `${fullPath}/${objectKey}`;
@@ -140,57 +137,26 @@ export function useLinksharing() {
     }
 
     async function generatePublicCredentials(cleanAPIKey: string, path: string, expiration: Date | null, passphrase?: string): Promise<EdgeCredentials> {
-        if (!worker.value) throw new Error(WORKER_ERR_MSG);
-
-        const satelliteNodeURL = configStore.state.config.satelliteNodeURL;
-        const salt = await projectsStore.getProjectSalt(selectedProject.value.id);
         if (passphrase === undefined) passphrase = bucketsStore.state.passphrase;
 
-        worker.value.postMessage({
-            'type': 'GenerateAccess',
-            'apiKey': cleanAPIKey,
-            'passphrase': passphrase,
-            'salt': salt,
-            'satelliteNodeURL': satelliteNodeURL,
-        });
+        const macaroon = await generateAccess({
+            apiKey: cleanAPIKey,
+            passphrase: passphrase,
+        }, selectedProject.value.id);
 
-        const grantEvent: MessageEvent = await new Promise(resolve => {
-            if (worker.value) {
-                worker.value.onmessage = resolve;
-            }
-        });
-        const grantData = grantEvent.data;
-        if (grantData.error) {
-            throw new Error(grantData.error);
-        }
-
-        let permissionsMsg = {
-            'type': 'RestrictGrant',
-            'isDownload': true,
-            'isUpload': false,
-            'isList': true,
-            'isDelete': false,
-            'paths': [path],
-            'grant': grantData.value,
+        let permissionsMsg: RestrictGrantMessage = {
+            isDownload: true,
+            isUpload: false,
+            isList: true,
+            isDelete: false,
+            paths: [path],
+            grant: macaroon,
         };
+        if (expiration) permissionsMsg = Object.assign(permissionsMsg, { notAfter: expiration.toISOString() });
 
-        if (expiration) {
-            permissionsMsg = Object.assign(permissionsMsg, { 'notAfter': expiration.toISOString() });
-        }
+        const accessGrant = await restrictGrant(permissionsMsg);
 
-        worker.value.postMessage(permissionsMsg);
-
-        const event: MessageEvent = await new Promise(resolve => {
-            if (worker.value) {
-                worker.value.onmessage = resolve;
-            }
-        });
-        const data = event.data;
-        if (data.error) {
-            throw new Error(data.error);
-        }
-
-        return agStore.getEdgeCredentials(data.value, true);
+        return agStore.getEdgeCredentials(accessGrant, true);
     }
 
     return {
