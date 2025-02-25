@@ -61,7 +61,7 @@ func cmdDeleteObjects(cmd *cobra.Command, args []string) error {
 		err = errs.Combine(err, csvFile.Close())
 	}()
 
-	return deleteObjects(ctx, log, satDB, metabaseDB, csvFile)
+	return deleteObjects(ctx, log, satDB, metabaseDB, batchSizeDeleteObjects, csvFile)
 }
 
 func cmdDeleteAccounts(cmd *cobra.Command, args []string) error {
@@ -106,7 +106,8 @@ func cmdDeleteAccounts(cmd *cobra.Command, args []string) error {
 //
 // It returns an error when a system error is found or when the CSV file has an error.
 func deleteObjects(
-	ctx context.Context, log *zap.Logger, satDB satellite.DB, metabaseDB *metabase.DB, csvData io.Reader,
+	ctx context.Context, log *zap.Logger, satDB satellite.DB, metabaseDB *metabase.DB, batchSize int,
+	csvData io.Reader,
 ) error {
 	rows := CSVEmails{
 		Data:       csvData,
@@ -143,6 +144,7 @@ func deleteObjects(
 							ProjectID:  p.ID,
 							BucketName: metabase.BucketName(b.Name),
 						},
+						BatchSize: batchSize,
 					})
 					if err != nil {
 						return errs.New(

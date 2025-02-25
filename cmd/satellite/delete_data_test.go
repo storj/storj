@@ -134,7 +134,7 @@ func TestDeleteObjects(t *testing.T) {
 		}
 
 		// Delete all the data of the accounts.
-		require.NoError(t, deleteObjects(ctx, zaptest.NewLogger(t), sat.DB, sat.Metabase.DB, csvData))
+		require.NoError(t, deleteObjects(ctx, zaptest.NewLogger(t), sat.DB, sat.Metabase.DB, 20, csvData))
 
 		// Check that all the data was deleted.
 		objects, err = sat.Metabase.DB.TestingAllObjects(ctx)

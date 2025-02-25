@@ -368,7 +368,8 @@ var (
 			"account",
 	}
 
-	deleteObjectsCmd = &cobra.Command{
+	batchSizeDeleteObjects = 45
+	deleteObjectsCmd       = &cobra.Command{
 		Use:   "delete-objects",
 		Short: "Delete objects and their segments",
 		Long: "Delete from a list of users accounts their objects and segments.\nAccounts must be on " +
@@ -501,6 +502,7 @@ func init() {
 	billingCmd.AddCommand(stripeCustomerCmd)
 	consistencyCmd.AddCommand(consistencyGECleanupCmd)
 	deleteDataCmd.AddCommand(deleteObjectsCmd)
+	deleteObjectsCmd.Flags().IntVar(&batchSizeDeleteObjects, "batch-size", 45, "Number of objects/segments to delete in a single batch")
 	deleteDataCmd.AddCommand(deleteAccountsCmd)
 	process.Bind(runCmd, &runCfg, defaults, cfgstruct.ConfDir(confDir), cfgstruct.IdentityDir(identityDir))
 	process.Bind(runMigrationCmd, &runCfg, defaults, cfgstruct.ConfDir(confDir), cfgstruct.IdentityDir(identityDir))
