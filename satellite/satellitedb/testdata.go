@@ -5,9 +5,7 @@ package satellitedb
 
 import (
 	"context"
-	"crypto/sha256"
 	"database/sql"
-	"encoding/base64"
 	"errors"
 	"strings"
 
@@ -15,12 +13,10 @@ import (
 	"go.uber.org/zap"
 	"golang.org/x/crypto/bcrypt"
 
-	"storj.io/common/macaroon"
 	"storj.io/common/memory"
 	"storj.io/common/uuid"
 	"storj.io/storj/satellite"
 	"storj.io/storj/satellite/console"
-	"storj.io/storj/satellite/console/consolewasm"
 	"storj.io/storj/satellite/migration"
 )
 
@@ -140,22 +136,4 @@ func createTestData(ctx context.Context, db satellite.DB) error {
 		return err
 	}
 	return err
-}
-
-// GetTestApiKey can calculate an access grant for the predefined test users/project.
-func GetTestApiKey(satelliteId string) (string, error) {
-	key, err := macaroon.FromParts(head, secret)
-	if err != nil {
-		return "", errs.Wrap(err)
-	}
-
-	idHash := sha256.Sum256(projectID[:])
-	base64Salt := base64.StdEncoding.EncodeToString(idHash[:])
-
-	accessGrant, err := consolewasm.GenAccessGrant(satelliteId, key.Serialize(), password, base64Salt)
-	if err != nil {
-		return "", errs.Wrap(err)
-	}
-
-	return accessGrant, nil
 }
