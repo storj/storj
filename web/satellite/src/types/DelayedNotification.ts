@@ -3,8 +3,6 @@
 
 import { VNode, createTextVNode, h } from 'vue';
 
-import { getId } from '@/utils/idGenerator';
-
 export enum NotificationType {
     Success = 'Success',
     Info = 'Info',
@@ -36,7 +34,7 @@ export class DelayedNotification {
         this.type = type;
         this.title = title;
         this.messageNode = typeof message === 'string' ? () => createTextVNode(message) : message;
-        this.id = getId();
+        this.id = '_' + Math.random().toString(36).substr(2, 9);
         this.remainingTime = remainingTime;
         this.start();
     }

@@ -242,6 +242,5 @@ export function useSessionTimeout(opts: UseSessionTimeoutOptions) {
         debugTimerText,
         refreshSession,
         handleInactive,
-        clearStoresAndTimers,
     };
 }

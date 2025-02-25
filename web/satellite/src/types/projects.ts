@@ -215,28 +215,6 @@ export class ProjectFields {
         public ownerId: string = '',
         public managePassphrase: boolean = false,
     ) {}
-
-    /**
-     * checkName checks if project name is valid.
-     */
-    public checkName(): void {
-        this.nameIsNotEmpty();
-        this.nameHasLessThenTwentySymbols();
-    }
-
-    /**
-     * nameIsNotEmpty checks if project name is not empty.
-     */
-    private nameIsNotEmpty(): void {
-        if (this.name.length === 0) throw new Error('Project name can\'t be empty!');
-    }
-
-    /**
-     * nameHasLessThenTwentySymbols checks if project name has less then 20 symbols.
-     */
-    private nameHasLessThenTwentySymbols(): void {
-        if (this.name.length > MAX_NAME_LENGTH) throw new Error('Name should be less than 21 character!');
-    }
 }
 
 /**
@@ -357,14 +335,6 @@ export class ProjectInvitation {
         public inviterEmail: string,
         public createdAt: Date,
     ) {}
-
-    /**
-     * Returns created date as a local string.
-     */
-    public get invitedDate(): string {
-        const createdAt = new Date(this.createdAt);
-        return createdAt.toLocaleString('en-US', { year: 'numeric', month: '2-digit', day: 'numeric' });
-    }
 }
 
 /**

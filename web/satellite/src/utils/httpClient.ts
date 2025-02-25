@@ -2,7 +2,7 @@
 // See LICENSE for copying information.
 
 import { ErrorUnauthorized } from '@/api/errors/ErrorUnauthorized';
-import { RouteConfig } from '@/types/router';
+import { ROUTES } from '@/router';
 
 interface AdditionalHeaders {
     csrfProtectionToken?: string;
@@ -128,6 +128,6 @@ export class HttpClient {
     }
 
     private isAuthRoute(path: string): boolean {
-        return RouteConfig.AuthRoutes.some((route) => path.includes(route));
+        return ROUTES.AuthRoutes.some((route) => path.includes(route));
     }
 }

@@ -141,8 +141,4 @@ export class Duration {
 
         return timeString;
     }
-
-    public isEqualTo(other: Duration): boolean {
-        return this.nanoseconds === other.nanoseconds;
-    }
 }

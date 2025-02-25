@@ -34,7 +34,6 @@ import { useAnalyticsStore } from '@/store/modules/analyticsStore';
 import { useNotify } from '@/composables/useNotify';
 import { useBillingStore } from '@/store/modules/billingStore';
 import { AnalyticsErrorEventSource, AnalyticsEvent } from '@/utils/constants/analyticsEventNames';
-import { RouteConfig } from '@/types/router';
 import { ROUTES } from '@/router';
 import { User } from '@/types/users';
 import { useBucketsStore } from '@/store/modules/bucketsStore';
@@ -171,7 +170,7 @@ async function setup() {
             appStore.setErrorPage((error as APIError).status ?? 500, true);
         } else {
             await new Promise(resolve => setTimeout(resolve, 1000));
-            if (!RouteConfig.AuthRoutes.includes(route.path)) await router.push(ROUTES.Login.path);
+            if (!ROUTES.AuthRoutes.includes(route.path)) await router.push(ROUTES.Login.path);
         }
     }
     isLoading.value = false;

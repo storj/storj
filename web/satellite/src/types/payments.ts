@@ -1,7 +1,7 @@
 // Copyright (C) 2019 Storj Labs, Inc.
 // See LICENSE for copying information.
 
-import { formatPrice, decimalShift } from '@/utils/strings';
+import { formatPrice } from '@/utils/strings';
 import { JSONRepresentable } from '@/types/json';
 import { Time } from '@/utils/time';
 
@@ -262,14 +262,6 @@ export class AccountBalance {
         return parseFloat(this._credits);
     }
 
-    public get formattedCredits(): string {
-        return formatPrice(decimalShift(this._credits, 2));
-    }
-
-    public get formattedCoins(): string {
-        return formatPrice(this._coins);
-    }
-
     // Returns sum of storjscan and legacy (stripe) balances in cents.
     public get sum(): number {
         return this.credits + (this.coins * 100);
@@ -277,9 +269,6 @@ export class AccountBalance {
 
     public get formattedSum(): string {
         return formatPrice((this.sum / 100).toLocaleString(undefined, { maximumFractionDigits: 2 }));
-    }
-    public hasCredits(): boolean {
-        return parseFloat(this._credits) !== 0;
     }
 }
 
@@ -338,42 +327,12 @@ export class PaymentsHistoryItem {
         public readonly remaining: number = 0,
     ) { }
 
-    public get quantity(): Amount {
-        if (this.type === PaymentsHistoryItemType.Transaction) {
-            return new Amount('USD $', this.amountDollars(this.amount), this.amountDollars(this.received));
-        }
-
-        return new Amount('USD $', this.amountDollars(this.amount));
-    }
-
     public get formattedStatus(): string {
         return this.status.charAt(0).toUpperCase() + this.status.substring(1);
     }
 
     public get formattedStart(): string {
         return Time.formattedDate(this.start);
-    }
-
-    public get hasExpiration(): boolean {
-        // Go's zero date is passed in if the coupon does not expire
-        // Go's zero date is 0001-01-01 00:00:00 +0000 UTC
-        // Javascript's zero date is 1970-01-01 00:00:00 +0000 UTC
-        return this.end.valueOf() > 0;
-    }
-
-    /**
-     * RemainingAmountPercentage will return remaining amount of item in percentage.
-     */
-    public remainingAmountPercentage(): number {
-        if (this.amount === 0) {
-            return 0;
-        }
-
-        return this.remaining / this.amount * 100;
-    }
-
-    public amountDollars(amount): number {
-        return amount / 100;
     }
 
     public get label(): string {
@@ -383,13 +342,6 @@ export class PaymentsHistoryItem {
         default:
             return 'Invoice PDF';
         }
-    }
-
-    /**
-     * isTransactionOrDeposit indicates if payments history item type is transaction or deposit bonus.
-     */
-    public isTransactionOrDeposit(): boolean {
-        return this.type === PaymentsHistoryItemType.Transaction || this.type === PaymentsHistoryItemType.DepositBonus;
     }
 }
 
@@ -437,28 +389,6 @@ export enum PaymentsHistoryItemStatus {
      * This is to filter when the backend sends an item with an empty status.
      */
     Empty = '',
-}
-
-/**
- * TokenDeposit holds public information about token deposit.
- */
-export class TokenDeposit {
-    constructor(
-        public amount: number,
-        public address: string,
-        public link: string,
-    ) { }
-}
-
-/**
- * Amount holds information for displaying billing item payment.
- */
-class Amount {
-    public constructor(
-        public currency: string = '',
-        public total: number = 0,
-        public received: number = 0,
-    ) { }
 }
 
 /**
@@ -633,13 +563,6 @@ export class ProjectCharges {
     }
 
     /**
-     * Returns an array of all of the project IDs in the collection.
-     */
-    public getProjectIDs(): string[] {
-        return Array.from(this.map.keys()).sort();
-    }
-
-    /**
      * Returns a new ProjectPartnerCharges instance from a JSON representation.
      *
      * @param json - The JSON representation of the ProjectPartnerCharges.
@@ -751,13 +674,6 @@ export class NativePaymentHistoryItem {
 
     public get formattedStatus(): string {
         return this.status.charAt(0).toUpperCase() + this.status.substring(1);
-    }
-
-    public get formattedType(): string {
-        if (this.type.includes('bonus')) {
-            return 'Bonus';
-        }
-        return 'Deposit';
     }
 
     public get formattedAmount(): string {

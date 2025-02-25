@@ -28,10 +28,6 @@ export class NavigationLink {
         return this._path[0] !== '/';
     }
 
-    public withIcon(icon: string): NavigationLink {
-        return new NavigationLink(this._path, this._name, icon);
-    }
-
     public with(child: NavigationLink): NavigationLink {
         if (!child.isChild()) {
             throw new Error('provided child root is not defined');
