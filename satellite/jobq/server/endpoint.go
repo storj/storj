@@ -6,6 +6,7 @@ package server
 import (
 	"context"
 	"fmt"
+	"time"
 
 	"go.uber.org/zap"
 
@@ -178,6 +179,32 @@ func (se *JobqEndpoint) DestroyPlacementQueue(ctx context.Context, req *pb.JobQu
 		return nil, fmt.Errorf("failed to destroy queue: %w", err)
 	}
 	return &pb.JobQueueDestroyPlacementQueueResponse{}, nil
+}
+
+// Clean removes all jobs from the queue that were last updated before the
+// requested time. If the given placement is negative, all queues are cleaned.
+func (se *JobqEndpoint) Clean(ctx context.Context, req *pb.JobQueueCleanRequest) (*pb.JobQueueCleanResponse, error) {
+	if req.Placement < 0 {
+		return se.cleanAll(req.UpdatedBefore)
+	}
+	q := se.queues.GetQueue(storj.PlacementConstraint(req.Placement))
+	if q == nil {
+		return nil, fmt.Errorf("no queue for placement %v", req.Placement)
+	}
+	removedSegments := int32(q.Clean(req.UpdatedBefore))
+	return &pb.JobQueueCleanResponse{
+		RemovedSegments: removedSegments,
+	}, nil
+}
+
+func (se *JobqEndpoint) cleanAll(updatedBefore time.Time) (*pb.JobQueueCleanResponse, error) {
+	removedSegments := int32(0)
+	for _, q := range se.queues.GetAllQueues() {
+		removedSegments += int32(q.Clean(updatedBefore))
+	}
+	return &pb.JobQueueCleanResponse{
+		RemovedSegments: removedSegments,
+	}, nil
 }
 
 // NewEndpoint creates a new endpoint.

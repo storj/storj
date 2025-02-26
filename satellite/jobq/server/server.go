@@ -100,3 +100,12 @@ func (s *Server) Run(ctx context.Context) error {
 func (s *Server) Addr() net.Addr {
 	return s.listener.Addr()
 }
+
+// SetTimeFunc sets the time function for all queues in the server.
+// This is primarily used for testing to control the timestamps used in the queue.
+func (s *Server) SetTimeFunc(timeFunc func() time.Time) {
+	allQueues := s.queueMap.GetAllQueues()
+	for _, q := range allQueues {
+		q.Now = timeFunc
+	}
+}

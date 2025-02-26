@@ -325,3 +325,83 @@ func TestClientServerDestroyPlacementQueue(t *testing.T) {
 	cancel()
 	require.NoError(t, group.Wait())
 }
+
+func TestClientServerClean(t *testing.T) {
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	log := zaptest.NewLogger(t)
+	addr, err := net.ResolveTCPAddr("tcp", "127.0.0.1:0")
+	require.NoError(t, err)
+	srv, err := server.New(log, addr, nil, time.Hour, 1e8, 1e6)
+	require.NoError(t, err)
+
+	var group errgroup.Group
+	group.Go(func() error {
+		return srv.Run(ctx)
+	})
+
+	func() {
+		cli, err := jobq.Dial(srv.Addr())
+		require.NoError(t, err)
+		defer func() { require.NoError(t, cli.Close()) }()
+
+		// Add a placement queue
+		err = cli.AddPlacementQueue(ctx, 42)
+		require.NoError(t, err)
+
+		// Set up our time control
+		now := time.Now()
+		timeIncrement := time.Duration(0)
+		timeFunc := func() time.Time {
+			return now.Add(timeIncrement)
+		}
+		srv.SetTimeFunc(timeFunc)
+
+		// First batch of jobs with the current time
+		for i := 0; i < 3; i++ {
+			job := jobq.RepairJob{
+				ID:        jobq.SegmentIdentifier{StreamID: testrand.UUID(), Position: uint64(i)},
+				Priority:  float64(i),
+				Placement: 42,
+			}
+			_, err = cli.Push(ctx, job)
+			require.NoError(t, err)
+		}
+
+		// Move time forward 2 hours for the second batch
+		timeIncrement = 2 * time.Hour
+
+		// Push some "fresh" jobs with the new time
+		for i := 3; i < 5; i++ {
+			job := jobq.RepairJob{
+				ID:        jobq.SegmentIdentifier{StreamID: testrand.UUID(), Position: uint64(i)},
+				Priority:  float64(i),
+				Placement: 42,
+			}
+			_, err = cli.Push(ctx, job)
+			require.NoError(t, err)
+		}
+
+		// Verify we have all jobs in the queue
+		gotRepairLen, gotRetryLen, err := cli.Len(ctx, 42)
+		require.NoError(t, err)
+		require.Equal(t, int64(5), gotRepairLen)
+		require.Equal(t, int64(0), gotRetryLen)
+
+		// Clean jobs updated before 1 hour ago from current time
+		cutoffTime := timeFunc().Add(-1 * time.Hour)
+		removedSegments, err := cli.Clean(ctx, 42, cutoffTime)
+		require.NoError(t, err)
+		require.Equal(t, int32(3), removedSegments)
+
+		// Verify only fresh jobs remain
+		gotRepairLen, gotRetryLen, err = cli.Len(ctx, 42)
+		require.NoError(t, err)
+		require.Equal(t, int64(2), gotRepairLen)
+		require.Equal(t, int64(0), gotRetryLen)
+	}()
+
+	cancel()
+	require.NoError(t, group.Wait())
+}

@@ -20,6 +20,7 @@ service JobQueue {
     rpc Truncate(JobQueueTruncateRequest) returns (JobQueueTruncateResponse);
     rpc AddPlacementQueue(JobQueueAddPlacementQueueRequest) returns (JobQueueAddPlacementQueueResponse);
     rpc DestroyPlacementQueue(JobQueueDestroyPlacementQueueRequest) returns (JobQueueDestroyPlacementQueueResponse);
+    rpc Clean(JobQueueCleanRequest) returns (JobQueueCleanResponse);
 }
 
 message RepairJob {
@@ -103,4 +104,13 @@ message JobQueueInspectRequest {
 
 message JobQueueInspectResponse {
     RepairJob job = 1;
+}
+
+message JobQueueCleanRequest {
+    int32 placement = 1;
+    google.protobuf.Timestamp updated_before = 2 [(gogoproto.stdtime) = true, (gogoproto.nullable) = false];
+}
+
+message JobQueueCleanResponse {
+    int32 removed_segments = 1;
 }

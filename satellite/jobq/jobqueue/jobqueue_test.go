@@ -115,6 +115,134 @@ func TestQueueOfOneElement(t *testing.T) {
 	require.Zero(t, gotJob.Priority)
 }
 
+func TestQueueClean(t *testing.T) {
+	queue, err := jobqueue.NewQueue(zaptest.NewLogger(t), time.Hour, 100, 10)
+	require.NoError(t, err)
+	_ = queue.Start()
+	defer queue.Stop()
+
+	timeIncrement := time.Duration(0)
+	timeFunc := func() time.Time {
+		return time.Now().Add(timeIncrement)
+	}
+	queue.Now = timeFunc
+	startTime := uint64(time.Now().Unix())
+
+	// create and insert stream IDs
+	const numStreams = 100
+	jobs := make([]jobq.RepairJob, numStreams)
+	for i := range jobs {
+		jobs[i].ID.StreamID = mustUUID()
+		jobs[i].ID.Position = rand.Uint64()
+		jobs[i].Priority = rand.Float64()
+		jobs[i].Placement = 42
+		// let's have about half of them be in retry
+		if rand.Intn(2) == 0 {
+			jobs[i].LastAttemptedAt = uint64(time.Now().Add((-15*time.Minute + time.Duration(i)*time.Second)).Unix())
+		}
+		timeIncrement += time.Second
+	}
+	for _, job := range jobs {
+		wasNew := queue.Insert(job)
+		require.True(t, wasNew)
+	}
+
+	updateCutOff := timeFunc().Add(time.Second)
+	timeIncrement += 2 * time.Second
+
+	// update half of them to update LastUpdatedAt
+	for i := range jobs {
+		if i%2 == 0 {
+			wasNew := queue.Insert(jobs[i])
+			require.False(t, wasNew)
+		}
+	}
+
+	// clean out all elements not updated
+	queue.Clean(updateCutOff)
+
+	// put together what we expect to find
+	var expectedJobs []jobq.RepairJob
+	var jobsNeedingRetry []jobq.RepairJob
+	for i := range jobs {
+		if i%2 == 0 {
+			if jobs[i].LastAttemptedAt != 0 {
+				jobsNeedingRetry = append(jobsNeedingRetry, jobs[i])
+			} else {
+				expectedJobs = append(expectedJobs, jobs[i])
+			}
+		}
+	}
+	sort.Slice(expectedJobs, func(i, j int) bool {
+		return expectedJobs[i].Priority > expectedJobs[j].Priority
+	})
+	sort.Slice(jobsNeedingRetry, func(i, j int) bool {
+		return jobsNeedingRetry[i].LastAttemptedAt < jobsNeedingRetry[j].LastAttemptedAt
+	})
+
+	// pop all and check
+	for _, expectedJob := range expectedJobs {
+		gotJob := queue.Pop()
+		require.GreaterOrEqual(t, gotJob.UpdatedAt, uint64(updateCutOff.Unix()))
+		require.LessOrEqual(t, gotJob.UpdatedAt, uint64(timeFunc().Unix()))
+		require.LessOrEqual(t, gotJob.InsertedAt, uint64(updateCutOff.Unix()))
+		require.GreaterOrEqual(t, gotJob.InsertedAt, startTime)
+		expectedJob.UpdatedAt = gotJob.UpdatedAt
+		expectedJob.InsertedAt = gotJob.InsertedAt
+		require.Equal(t, expectedJob, gotJob)
+	}
+	// no elements left
+	gotJob := queue.Pop()
+	require.Zero(t, gotJob.ID.StreamID)
+	repairLen, retryLen := queue.Len()
+	require.Zero(t, repairLen)
+	require.NotZero(t, retryLen)
+
+	// until we twist the clock forward
+	timeIncrement += time.Hour
+	// and reset the queue timer so it knows about this change
+	err = queue.ResetTimer()
+	require.NoError(t, err)
+
+	// pop all the retry jobs now. they may come out in a complicated order
+	// because it's a pain to manage the clock finely enough to get them to come
+	// out only one at a time (in which case they would be sorted by
+	// LastAttemptedAt). Instead, if multiple jobs get moved to the repair queue
+	// at the same time, they'll be sorted by priority. For now we'll just pop
+	// them all and make sure they're all there. We'll do a better test of
+	// funnel timing mechanics in a jobqueue_sync_test.go.
+	gotJobs := make([]jobq.RepairJob, 0, len(jobsNeedingRetry))
+	for len(gotJobs) < len(jobsNeedingRetry) {
+		gotJob = queue.Pop()
+		if gotJob.ID.StreamID.IsZero() {
+			// give the funnel goroutine a moment more
+			time.Sleep(time.Microsecond)
+			continue
+		}
+		gotJobs = append(gotJobs, gotJob)
+	}
+
+	sort.Slice(gotJobs, func(i, j int) bool {
+		return gotJobs[i].LastAttemptedAt < gotJobs[j].LastAttemptedAt
+	})
+	for i, gotJob := range gotJobs {
+		require.GreaterOrEqual(t, gotJob.UpdatedAt, uint64(updateCutOff.Unix()))
+		require.LessOrEqual(t, gotJob.UpdatedAt, uint64(timeFunc().Unix()))
+		require.LessOrEqual(t, gotJob.InsertedAt, uint64(updateCutOff.Unix()))
+		require.GreaterOrEqual(t, gotJob.InsertedAt, startTime)
+		jobsNeedingRetry[i].UpdatedAt = gotJob.UpdatedAt
+		jobsNeedingRetry[i].InsertedAt = gotJob.InsertedAt
+		require.Equal(t, jobsNeedingRetry[i], gotJob)
+	}
+
+	// no elements left
+	gotJob = queue.Pop()
+	require.Zero(t, gotJob.ID.StreamID)
+	repairLen, retryLen = queue.Len()
+	require.Zero(t, repairLen)
+	require.Zero(t, retryLen)
+}
+
 func TestMemoryManagement(t *testing.T) {
 	queue, err := jobqueue.NewQueue(zaptest.NewLogger(t), time.Hour, 10, 5)
 	require.NoError(t, err)

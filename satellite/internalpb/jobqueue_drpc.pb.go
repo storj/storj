@@ -51,6 +51,7 @@ type DRPCJobQueueClient interface {
 	Truncate(ctx context.Context, in *JobQueueTruncateRequest) (*JobQueueTruncateResponse, error)
 	AddPlacementQueue(ctx context.Context, in *JobQueueAddPlacementQueueRequest) (*JobQueueAddPlacementQueueResponse, error)
 	DestroyPlacementQueue(ctx context.Context, in *JobQueueDestroyPlacementQueueRequest) (*JobQueueDestroyPlacementQueueResponse, error)
+	Clean(ctx context.Context, in *JobQueueCleanRequest) (*JobQueueCleanResponse, error)
 }
 
 type drpcJobQueueClient struct {
@@ -144,6 +145,15 @@ func (c *drpcJobQueueClient) DestroyPlacementQueue(ctx context.Context, in *JobQ
 	return out, nil
 }
 
+func (c *drpcJobQueueClient) Clean(ctx context.Context, in *JobQueueCleanRequest) (*JobQueueCleanResponse, error) {
+	out := new(JobQueueCleanResponse)
+	err := c.cc.Invoke(ctx, "/jobqueue.JobQueue/Clean", drpcEncoding_File_jobqueue_proto{}, in, out)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 type DRPCJobQueueServer interface {
 	Push(context.Context, *JobQueuePushRequest) (*JobQueuePushResponse, error)
 	PushBatch(context.Context, *JobQueuePushBatchRequest) (*JobQueuePushBatchResponse, error)
@@ -154,6 +164,7 @@ type DRPCJobQueueServer interface {
 	Truncate(context.Context, *JobQueueTruncateRequest) (*JobQueueTruncateResponse, error)
 	AddPlacementQueue(context.Context, *JobQueueAddPlacementQueueRequest) (*JobQueueAddPlacementQueueResponse, error)
 	DestroyPlacementQueue(context.Context, *JobQueueDestroyPlacementQueueRequest) (*JobQueueDestroyPlacementQueueResponse, error)
+	Clean(context.Context, *JobQueueCleanRequest) (*JobQueueCleanResponse, error)
 }
 
 type DRPCJobQueueUnimplementedServer struct{}
@@ -194,9 +205,13 @@ func (s *DRPCJobQueueUnimplementedServer) DestroyPlacementQueue(context.Context,
 	return nil, drpcerr.WithCode(errors.New("Unimplemented"), drpcerr.Unimplemented)
 }
 
+func (s *DRPCJobQueueUnimplementedServer) Clean(context.Context, *JobQueueCleanRequest) (*JobQueueCleanResponse, error) {
+	return nil, drpcerr.WithCode(errors.New("Unimplemented"), drpcerr.Unimplemented)
+}
+
 type DRPCJobQueueDescription struct{}
 
-func (DRPCJobQueueDescription) NumMethods() int { return 9 }
+func (DRPCJobQueueDescription) NumMethods() int { return 10 }
 
 func (DRPCJobQueueDescription) Method(n int) (string, drpc.Encoding, drpc.Receiver, interface{}, bool) {
 	switch n {
@@ -281,6 +296,15 @@ func (DRPCJobQueueDescription) Method(n int) (string, drpc.Encoding, drpc.Receiv
 						in1.(*JobQueueDestroyPlacementQueueRequest),
 					)
 			}, DRPCJobQueueServer.DestroyPlacementQueue, true
+	case 9:
+		return "/jobqueue.JobQueue/Clean", drpcEncoding_File_jobqueue_proto{},
+			func(srv interface{}, ctx context.Context, in1, in2 interface{}) (drpc.Message, error) {
+				return srv.(DRPCJobQueueServer).
+					Clean(
+						ctx,
+						in1.(*JobQueueCleanRequest),
+					)
+			}, DRPCJobQueueServer.Clean, true
 	default:
 		return "", nil, nil, nil, false
 	}
@@ -428,6 +452,22 @@ type drpcJobQueue_DestroyPlacementQueueStream struct {
 }
 
 func (x *drpcJobQueue_DestroyPlacementQueueStream) SendAndClose(m *JobQueueDestroyPlacementQueueResponse) error {
+	if err := x.MsgSend(m, drpcEncoding_File_jobqueue_proto{}); err != nil {
+		return err
+	}
+	return x.CloseSend()
+}
+
+type DRPCJobQueue_CleanStream interface {
+	drpc.Stream
+	SendAndClose(*JobQueueCleanResponse) error
+}
+
+type drpcJobQueue_CleanStream struct {
+	drpc.Stream
+}
+
+func (x *drpcJobQueue_CleanStream) SendAndClose(m *JobQueueCleanResponse) error {
 	if err := x.MsgSend(m, drpcEncoding_File_jobqueue_proto{}); err != nil {
 		return err
 	}
