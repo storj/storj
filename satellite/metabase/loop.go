@@ -353,7 +353,7 @@ func (it *spannerLoopSegmentIterator) doNextSQLQuery(ctx context.Context) (_ *sp
 	defer mon.Task()(&ctx)(nil)
 
 	stmt := spanner.Statement{
-		SQL: `
+		SQL: `@{SCAN_METHOD=BATCH}
 			SELECT
 				stream_id, position,
 				created_at, expires_at, repaired_at,
@@ -375,12 +375,6 @@ func (it *spannerLoopSegmentIterator) doNextSQLQuery(ctx context.Context) (_ *sp
 			"endstreamid": it.cursor.EndStreamID.Bytes(),
 			"batchsize":   it.batchSize,
 		}}
-
-	// emulator doesn't support this hint yet
-	if !it.db.connParams.Emulator {
-		// https://cloud.google.com/spanner/docs/sql-best-practices#enforce-scan-method
-		stmt.SQL = "@{SCAN_METHOD=BATCH}" + stmt.SQL
-	}
 
 	opts := spanner.QueryOptions{
 		Priority: spannerpb.RequestOptions_PRIORITY_LOW,
