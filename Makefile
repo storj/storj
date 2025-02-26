@@ -356,11 +356,11 @@ versioncontrol-image: versioncontrol_linux_arm versioncontrol_linux_arm64 versio
 
 .PHONY: modular-storagenode-image
 modular-storagenode-image: ## Build modular storagenode Docker image
-	./storagenode/storagenode/docker.sh build --arch amd64,arm64v8,arm32v5
+	./storagenode/storagenode/docker.sh build --arch amd64,arm64v8
 
 .PHONY: push-modular-storagenode-image
 push-modular-storagenode-image: ## Push modular storagenode Docker image
-	./storagenode/storagenode/docker.sh push --repo $(REPO) --unified-tag
+	./storagenode/storagenode/docker.sh push --repo $(REPO) --unified-tag --arch amd64,arm64v8
 
 .PHONY: darwin-binaries
 darwin-binaries:
