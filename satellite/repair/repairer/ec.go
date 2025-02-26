@@ -39,6 +39,9 @@ var (
 
 	// ErrDialFailed is the errs class when a failure happens during Dial.
 	ErrDialFailed = errs.Class("dial failure")
+
+	// ErrDownloadTimedOut is the errs class when a download times out.
+	ErrDownloadTimedOut = errs.Class("download timed out")
 )
 
 // ECRepairer allows the repairer to download, verify, and upload pieces from storagenodes.
@@ -200,7 +203,13 @@ func (ec *ECRepairer) Get(ctx context.Context, log *zap.Logger, limits []*pb.Add
 						return
 					}
 
-					pieceAudit := audit.PieceAuditFromErr(err)
+					var pieceAudit audit.PieceAudit
+					if ErrDownloadTimedOut.Has(err) {
+						pieceAudit = audit.PieceAuditContained
+					} else {
+						pieceAudit = audit.PieceAuditFromErr(err)
+					}
+
 					switch pieceAudit {
 					case audit.PieceAuditFailure:
 						log.Debug("Failed to download piece for repair: piece not found (audit failed)",
@@ -322,6 +331,9 @@ func (ec *ECRepairer) downloadAndVerifyPiece(ctx context.Context, limit *pb.Addr
 
 	downloader, err := ps.Download(downloadCtx, limit.GetLimit(), privateKey, 0, pieceSize)
 	if err != nil {
+		if errs.Is(err, context.DeadlineExceeded) {
+			return nil, nil, nil, ErrDownloadTimedOut.Wrap(err)
+		}
 		return nil, nil, nil, err
 	}
 	defer func() { err = errs.Combine(err, downloader.Close()) }()
