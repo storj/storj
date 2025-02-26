@@ -8,6 +8,7 @@ import (
 	"errors"
 	"fmt"
 	"net"
+	"time"
 
 	"storj.io/common/storj"
 	"storj.io/common/uuid"
@@ -160,6 +161,18 @@ func (c *Client) DestroyPlacementQueue(ctx context.Context, placement storj.Plac
 		Placement: int32(placement),
 	})
 	return err
+}
+
+// Clean removes all jobs with UpdatedAt time before the given cutoff.
+func (c *Client) Clean(ctx context.Context, placement storj.PlacementConstraint, updatedBefore time.Time) (removedSegments int32, err error) {
+	resp, err := c.client.Clean(ctx, &pb.JobQueueCleanRequest{
+		Placement:     int32(placement),
+		UpdatedBefore: updatedBefore,
+	})
+	if err != nil {
+		return 0, fmt.Errorf("could not clean jobs: %w", err)
+	}
+	return resp.RemovedSegments, nil
 }
 
 // Dial dials an address and creates a new client.
