@@ -17,18 +17,7 @@ import (
 	"storj.io/drpc/drpcsignal"
 )
 
-const (
-	invalidPage = 1<<64 - 1
-
-	headerSize = 4096
-
-	hashtbl_minLogSlots = 14 // log_2 of number of slots for smallest hash table
-	hashtbl_maxLogSlots = 56 // log_2 of number of slots for largest hash table
-
-	_ int64  = headerSize + 1<<hashtbl_maxLogSlots*RecordSize  // compiler error if overflows int64
-	_ uint64 = 1<<hashtbl_minLogSlots*RecordSize - bigPageSize // compiler error if negative
-
-)
+const hashtbl_invalidPage = 1<<64 - 1
 
 // HashTbl is an on disk hash table of records.
 type HashTbl struct {
@@ -45,11 +34,8 @@ type HashTbl struct {
 
 	buffer *rwBigPageCache // buffer for inserts
 
-	mu       sync.Mutex // protects the following fields
-	numSet   uint64     // estimated number of set records
-	lenSet   uint64     // sum of lengths in set records
-	numTrash uint64     // estimated number of set trash records
-	lenTrash uint64     // sum of lengths in set trash records
+	statsMu  sync.Mutex // protects the following fields
+	recStats recordStats
 }
 
 // hashtblSize returns the size in bytes of the hashtbl given an logSlots.
@@ -78,15 +64,17 @@ func (p bigPageIdxT) Offset() int64 { return headerSize + int64(p*bigPageSize) }
 func CreateHashtbl(ctx context.Context, fh *os.File, logSlots uint64, created uint32) (_ *HashTbl, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	if logSlots > hashtbl_maxLogSlots {
+	if logSlots > tbl_maxLogSlots {
 		return nil, Error.New("logSlots too large: logSlots=%d", logSlots)
-	} else if logSlots < hashtbl_minLogSlots {
+	} else if logSlots < tbl_minLogSlots {
 		return nil, Error.New("logSlots too small: logSlots=%d", logSlots)
 	}
 
 	header := TblHeader{
-		Created: created,
-		HashKey: true,
+		Created:  created,
+		HashKey:  true,
+		Kind:     kind_HashTbl,
+		LogSlots: logSlots,
 	}
 
 	// clear the file and truncate it to the correct length and write the header page.
@@ -132,6 +120,8 @@ func OpenHashtbl(ctx context.Context, fh *os.File) (_ *HashTbl, err error) {
 	header, err := ReadTblHeader(fh)
 	if err != nil {
 		return nil, Error.Wrap(err)
+	} else if header.Kind != kind_HashTbl {
+		return nil, Error.New("invalid kind: %d", header.Kind)
 	}
 
 	h := &HashTbl{
@@ -152,23 +142,24 @@ func OpenHashtbl(ctx context.Context, fh *os.File) (_ *HashTbl, err error) {
 
 // Stats returns a TblStats about the hash table.
 func (h *HashTbl) Stats() TblStats {
-	h.mu.Lock()
-	defer h.mu.Unlock()
+	h.statsMu.Lock()
+	defer h.statsMu.Unlock()
 
 	return TblStats{
-		NumSet: h.numSet,
-		LenSet: memory.Size(h.lenSet),
-		AvgSet: safeDivide(float64(h.lenSet), float64(h.numSet)),
+		NumSet: h.recStats.numSet,
+		LenSet: memory.Size(h.recStats.lenSet),
+		AvgSet: safeDivide(float64(h.recStats.lenSet), float64(h.recStats.numSet)),
 
-		NumTrash: h.numTrash,
-		LenTrash: memory.Size(h.lenTrash),
-		AvgTrash: safeDivide(float64(h.lenTrash), float64(h.numTrash)),
+		NumTrash: h.recStats.numTrash,
+		LenTrash: memory.Size(h.recStats.lenTrash),
+		AvgTrash: safeDivide(float64(h.recStats.lenTrash), float64(h.recStats.numTrash)),
 
 		NumSlots:  uint64(h.numSlots),
 		TableSize: memory.Size(hashtblSize(h.logSlots)),
-		Load:      safeDivide(float64(h.numSet), float64(h.numSlots)),
+		Load:      safeDivide(float64(h.recStats.numSet), float64(h.numSlots)),
 
 		Created: h.header.Created,
+		Kind:    h.header.Kind,
 	}
 }
 
@@ -236,10 +227,8 @@ func (h *HashTbl) ComputeEstimates(ctx context.Context) (err error) {
 	maxGroup := maxPages / pagesPerGroup
 
 	var (
-		numSet, lenSet     uint64
-		numTrash, lenTrash uint64
-
-		rng = mwc.Rand()
+		recStats recordStats
+		rng      = mwc.Rand()
 	)
 
 	var cache roPageCache
@@ -254,13 +243,7 @@ func (h *HashTbl) ComputeEstimates(ctx context.Context) (err error) {
 			if err != nil {
 				return Error.Wrap(err)
 			} else if valid {
-				numSet++
-				lenSet += uint64(rec.Length)
-
-				if rec.Expires.Trash() {
-					numTrash++
-					lenTrash += uint64(rec.Length)
-				}
+				recStats.include(rec)
 			}
 		}
 	}
@@ -268,27 +251,27 @@ func (h *HashTbl) ComputeEstimates(ctx context.Context) (err error) {
 	// scale the number found by the number of total pages divided by the number of sampled
 	// pages. because the hashtbl is always a power of 2 number of pages, we know that
 	// this evenly divides.
-	factor := maxPages / samplePages
+	recStats.scale(maxPages / samplePages)
 
-	numSet *= factor
-	lenSet *= factor
-	numTrash *= factor
-	lenTrash *= factor
-
-	h.mu.Lock()
-	h.numSet, h.lenSet = numSet, lenSet
-	h.numTrash, h.lenTrash = numTrash, lenTrash
-	h.mu.Unlock()
+	h.statsMu.Lock()
+	h.recStats = recStats
+	h.statsMu.Unlock()
 
 	return nil
 }
 
+// CompactLoad returns the load factor the tbl should be compacted at.
+func (h *HashTbl) CompactLoad() float64 { return 0.75 }
+
+// MaxLoad returns the load factor at which no more inserts should happen.
+func (h *HashTbl) MaxLoad() float64 { return 0.95 }
+
 // Load returns an estimate of what fraction of the hash table is occupied.
 func (h *HashTbl) Load() float64 {
-	h.mu.Lock()
-	defer h.mu.Unlock()
+	h.statsMu.Lock()
+	defer h.statsMu.Unlock()
 
-	return float64(h.numSet) / float64(h.numSlots)
+	return safeDivide(float64(h.recStats.numSet), float64(h.numSlots))
 }
 
 // Range iterates over the records in hash table order.
@@ -298,11 +281,7 @@ func (h *HashTbl) Range(ctx context.Context, fn func(context.Context, Record) (b
 	}
 	defer h.opMu.RUnlock()
 
-	var (
-		numSet, lenSet     uint64
-		numTrash, lenTrash uint64
-	)
-
+	var recStats recordStats
 	var cache roBigPageCache
 	cache.Init(h.fh)
 
@@ -317,20 +296,13 @@ func (h *HashTbl) Range(ctx context.Context, fn func(context.Context, Record) (b
 				return nil
 			}
 
-			numSet++
-			lenSet += uint64(rec.Length)
-
-			if rec.Expires.Trash() {
-				numTrash++
-				lenTrash += uint64(rec.Length)
-			}
+			recStats.include(rec)
 		}
 	}
 
-	h.mu.Lock()
-	h.numSet, h.lenSet = numSet, lenSet
-	h.numTrash, h.lenTrash = numTrash, lenTrash
-	h.mu.Unlock()
+	h.statsMu.Lock()
+	h.recStats = recStats
+	h.statsMu.Unlock()
 
 	return nil
 }
@@ -362,11 +334,11 @@ func (h *HashTbl) ExpectOrdered(ctx context.Context) (flush func() error, done f
 			defer h.opMu.Unlock()
 
 			if h.buffer == buffer {
-				err = h.buffer.Flush()
+				err = Error.Wrap(h.buffer.Flush())
 				h.buffer = nil
 			}
 
-			return Error.Wrap(err)
+			return err
 		}, func() {
 			h.opMu.WaitLock()
 			defer h.opMu.Unlock()
@@ -378,8 +350,8 @@ func (h *HashTbl) ExpectOrdered(ctx context.Context) (flush func() error, done f
 }
 
 // Insert adds a record to the hash table. It returns (true, nil) if the record was inserted, it
-// returns (false, nil) if the hash table is full, and (false, err) if any errors happened trying
-// to insert the record.
+// returns (false, nil) if the hash table is full, and (false, err) if any errors happened trying to
+// insert the record.
 func (h *HashTbl) Insert(ctx context.Context, rec Record) (_ bool, err error) {
 	if err := h.opMu.Lock(ctx, &h.closed); err != nil {
 		return false, err
@@ -457,17 +429,11 @@ func (h *HashTbl) Insert(ctx context.Context, rec Record) (_ bool, err error) {
 		// the estimate was too small. this technically means that in very rare scenarios, the
 		// amount considered trash could be off, but it will be fixed on the next Range call, Store
 		// compaction, or node restart.
-		h.mu.Lock()
 		if !valid {
-			h.numSet++
-			h.lenSet += uint64(rec.Length)
-
-			if rec.Expires.Trash() {
-				h.numTrash++
-				h.lenTrash += uint64(rec.Length)
-			}
+			h.statsMu.Lock()
+			h.recStats.include(rec)
+			h.statsMu.Unlock()
 		}
-		h.mu.Unlock()
 
 		return true, nil
 	}
@@ -526,13 +492,13 @@ type roPageCache struct {
 
 func (c *roPageCache) Init(fh *os.File) {
 	c.fh = fh
-	c.i = invalidPage
+	c.i = hashtbl_invalidPage
 }
 
 func (c *roPageCache) ReadRecord(slot slotIdxT) (rec Record, valid bool, err error) {
 	pi, ri := slot.PageIndexes()
 	if pi != c.i {
-		c.i = invalidPage // invalidate the page in case the read fails
+		c.i = hashtbl_invalidPage // invalidate the page in case the read fails
 		if _, err := c.fh.ReadAt(c.p[:], pi.Offset()); err != nil {
 			return Record{}, false, Error.Wrap(err)
 		}
@@ -550,13 +516,13 @@ type roBigPageCache struct {
 
 func (c *roBigPageCache) Init(fh *os.File) {
 	c.fh = fh
-	c.i = invalidPage
+	c.i = hashtbl_invalidPage
 }
 
 func (c *roBigPageCache) ReadRecord(slot slotIdxT) (rec Record, valid bool, err error) {
 	pi, ri := slot.BigPageIndexes()
 	if pi != c.i {
-		c.i = invalidPage // invalidate the page in case the read fails
+		c.i = hashtbl_invalidPage // invalidate the page in case the read fails
 		if _, err := c.fh.ReadAt(c.p[:], pi.Offset()); err != nil {
 			return Record{}, false, Error.Wrap(err)
 		}
@@ -578,14 +544,14 @@ type rwPageCache struct {
 
 func (c *rwPageCache) Init(fh *os.File) {
 	c.fh = fh
-	c.i = invalidPage
+	c.i = hashtbl_invalidPage
 }
 
 func (c *rwPageCache) setPage(pi pageIdxT) (err error) {
 	if c.i == pi {
 		return nil
 	}
-	c.i = invalidPage // invalidate the page in case the read fails
+	c.i = hashtbl_invalidPage // invalidate the page in case the read fails
 	if _, err := c.fh.ReadAt(c.p[:], pi.Offset()); err != nil {
 		return Error.Wrap(err)
 	}
@@ -612,7 +578,7 @@ func (c *rwPageCache) WriteRecord(slot slotIdxT, rec Record) (err error) {
 	// update or invalidate our in memory page
 	if pi, ri := slot.PageIndexes(); pi == c.i {
 		if err != nil {
-			c.i = invalidPage
+			c.i = hashtbl_invalidPage
 		} else {
 			c.p.writeRecord(ri, rec)
 		}
@@ -629,7 +595,7 @@ type rwBigPageCache struct {
 
 func (c *rwBigPageCache) Init(fh *os.File) {
 	c.fh = fh
-	c.i = invalidPage
+	c.i = hashtbl_invalidPage
 }
 
 func (c *rwBigPageCache) setPage(pi bigPageIdxT) (err error) {
@@ -638,7 +604,7 @@ func (c *rwBigPageCache) setPage(pi bigPageIdxT) (err error) {
 	} else if err := c.Flush(); err != nil {
 		return Error.Wrap(err)
 	}
-	c.i = invalidPage // invalidate the page in case the read fails
+	c.i = hashtbl_invalidPage // invalidate the page in case the read fails
 	if _, err := c.fh.ReadAt(c.p[:], pi.Offset()); err != nil {
 		return Error.Wrap(err)
 	}
@@ -665,7 +631,7 @@ func (c *rwBigPageCache) WriteRecord(slot slotIdxT, rec Record) (err error) {
 }
 
 func (c *rwBigPageCache) Flush() (err error) {
-	if c.i == invalidPage {
+	if c.i == hashtbl_invalidPage {
 		return nil
 	}
 	_, err = c.fh.WriteAt(c.p[:], c.i.Offset())

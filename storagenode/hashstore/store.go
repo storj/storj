@@ -231,7 +231,7 @@ func NewStore(ctx context.Context, logsPath string, tablePath string, log *zap.L
 				}
 				defer af.Cancel()
 
-				ntbl, err := CreateHashtbl(ctx, af.File, hashtbl_minLogSlots, s.today())
+				ntbl, err := CreateHashtbl(ctx, af.File, tbl_minLogSlots, s.today())
 				if err != nil {
 					return Error.Wrap(err)
 				}
@@ -789,8 +789,8 @@ func (s *Store) compactOnce(
 
 	// calculate a hash table size so that it targets just under a 0.5 load factor.
 	logSlots := uint64(bits.Len64(nset)) + 1
-	if logSlots < hashtbl_minLogSlots {
-		logSlots = hashtbl_minLogSlots
+	if logSlots < tbl_minLogSlots {
+		logSlots = tbl_minLogSlots
 	}
 
 	// using the information, determine which log files are candidates for rewriting.

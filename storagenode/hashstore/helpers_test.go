@@ -152,7 +152,7 @@ func (th *testHashTbl) AssertReopen() {
 
 	th.HashTbl.Close()
 
-	fh, err := os.Open(th.fh.Name())
+	fh, err := os.OpenFile(th.fh.Name(), os.O_RDWR, 0)
 	assert.NoError(th.t, err)
 
 	h, err := OpenHashtbl(context.Background(), fh)
@@ -169,10 +169,13 @@ func (th *testHashTbl) AssertInsertRecord(rec Record) {
 	assert.True(th.t, ok)
 }
 
-func (th *testHashTbl) AssertInsert() Record {
+func (th *testHashTbl) AssertInsert(opts ...any) Record {
 	th.t.Helper()
 
-	rec := newRecord(newKey())
+	key := newKey()
+	checkOptions(opts, func(t WithKey) { key = Key(t) })
+
+	rec := newRecord(key)
 	th.AssertInsertRecord(rec)
 	return rec
 }
@@ -184,6 +187,79 @@ func (th *testHashTbl) AssertLookup(k Key) Record {
 	assert.NoError(th.t, err)
 	assert.True(th.t, ok)
 	return r
+}
+
+//
+// memtbl
+//
+
+type testMemTbl struct {
+	t testing.TB
+	*MemTbl
+}
+
+func newTestMemtbl(t testing.TB, lrec uint64) *testMemTbl {
+	t.Helper()
+
+	fh, err := os.CreateTemp(t.TempDir(), "memtbl")
+	assert.NoError(t, err)
+
+	m, err := CreateMemtbl(context.Background(), fh, lrec, 0)
+	assert.NoError(t, err)
+
+	return &testMemTbl{t: t, MemTbl: m}
+}
+
+func (tm *testMemTbl) Close() { tm.MemTbl.Close() }
+
+func (tm *testMemTbl) AssertReopen() {
+	tm.t.Helper()
+
+	tm.MemTbl.Close()
+
+	fh, err := os.OpenFile(tm.fh.Name(), os.O_RDWR, 0)
+	assert.NoError(tm.t, err)
+
+	m, err := OpenMemtbl(context.Background(), fh)
+	assert.NoError(tm.t, err)
+
+	tm.MemTbl = m
+}
+
+func (tm *testMemTbl) AssertInsertRecord(rec Record) {
+	tm.t.Helper()
+
+	ok, err := tm.Insert(context.Background(), rec)
+	assert.NoError(tm.t, err)
+	assert.True(tm.t, ok)
+}
+
+func (tm *testMemTbl) AssertInsert(opts ...any) Record {
+	tm.t.Helper()
+
+	key := newKey()
+	checkOptions(opts, func(t WithKey) { key = Key(t) })
+
+	rec := newRecord(key)
+	tm.AssertInsertRecord(rec)
+	return rec
+}
+
+func (tm *testMemTbl) AssertLookup(k Key) Record {
+	tm.t.Helper()
+
+	r, ok, err := tm.Lookup(context.Background(), k)
+	assert.NoError(tm.t, err)
+	assert.True(tm.t, ok)
+	return r
+}
+
+func (tm *testMemTbl) AssertLookupMiss(k Key) {
+	tm.t.Helper()
+
+	_, ok, err := tm.Lookup(context.Background(), k)
+	assert.NoError(tm.t, err)
+	assert.False(tm.t, ok)
 }
 
 //

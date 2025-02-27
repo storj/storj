@@ -13,17 +13,35 @@ import (
 	"storj.io/common/memory"
 )
 
+const (
+	kind_HashTbl = 0
+	kind_MemTbl  = 1
+
+	headerSize = 4096
+
+	tbl_minLogSlots = 14 // log_2 of number of slots for smallest hash table
+	tbl_maxLogSlots = 56 // log_2 of number of slots for largest hash table
+
+	_ int64  = headerSize + 1<<tbl_maxLogSlots*RecordSize  // compiler error if overflows int64
+	_ uint64 = 1<<tbl_minLogSlots*RecordSize - bigPageSize // compiler error if negative
+)
+
 // Tbl describes a hash table for a store.
 type Tbl interface {
 	Close()
+
 	Handle() *os.File
 	Stats() TblStats
 	LogSlots() uint64
 	Header() TblHeader
-	ComputeEstimates(context.Context) error
+	CompactLoad() float64
+	MaxLoad() float64
 	Load() float64
-	Range(context.Context, func(context.Context, Record) (bool, error)) error
+
+	ComputeEstimates(context.Context) error
 	ExpectOrdered(context.Context) (func() error, func(), error)
+
+	Range(context.Context, func(context.Context, Record) (bool, error)) error
 	Insert(context.Context, Record) (bool, error)
 	Lookup(context.Context, Key) (Record, bool, error)
 }
@@ -43,27 +61,37 @@ type TblStats struct {
 	Load      float64     // percent of slots that are set.
 
 	Created uint32 // date that the hashtbl was created.
+	Kind    uint8  // kind of table
 }
 
 // TblHeader is the header at the start of a hash table.
 type TblHeader struct {
-	Created uint32 // when the hashtbl was created
-	HashKey bool   // if we apply a hash function to the key
+	Created  uint32 // when the hashtbl was created
+	HashKey  bool   // if we apply a hash function to the key
+	Kind     byte   // kind of table
+	LogSlots uint64 // number of expected logslots
+}
+
+func writeBool(x *byte, v bool) {
+	if v {
+		*x = 1
+	} else {
+		*x = 0
+	}
 }
 
 // WriteTblHeader writes the header page to the file handle.
 func WriteTblHeader(fh *os.File, header TblHeader) error {
 	var buf [headerSize]byte
 
-	copy(buf[0:4], "HTBL")
-	binary.BigEndian.PutUint32(buf[4:8], header.Created) // write the created field.
-	if header.HashKey {
-		buf[8] = 1 // write the hashKey field.
-	} else {
-		buf[8] = 0
-	}
+	copy(buf[0:4], "HTBL") // write the magic bytes.
 
-	// write the checksum
+	binary.BigEndian.PutUint32(buf[4:8], header.Created)    // write the created field.
+	writeBool(&buf[8], header.HashKey)                      // write the hashKey field.
+	buf[9] = header.Kind                                    // write the kind field.
+	binary.BigEndian.PutUint64(buf[10:18], header.LogSlots) // write the logSlots field.
+
+	// write the checksum.
 	binary.BigEndian.PutUint64(buf[headerSize-8:headerSize], xxh3.Hash(buf[:headerSize-8]))
 
 	// write the header page.
@@ -73,11 +101,14 @@ func WriteTblHeader(fh *os.File, header TblHeader) error {
 
 // ReadTblHeader reads the header page from the file handle.
 func ReadTblHeader(fh *os.File) (header TblHeader, err error) {
-	// read the magic bytes.
+	// read the header page.
 	var buf [headerSize]byte
 	if _, err := fh.ReadAt(buf[:], 0); err != nil {
 		return TblHeader{}, Error.New("unable to read header: %w", err)
-	} else if string(buf[0:4]) != "HTBL" {
+	}
+
+	// check the magic bytes.
+	if string(buf[0:4]) != "HTBL" {
 		return TblHeader{}, Error.New("invalid header: %q", buf[0:4])
 	}
 
@@ -87,8 +118,10 @@ func ReadTblHeader(fh *os.File) (header TblHeader, err error) {
 		return TblHeader{}, Error.New("invalid header checksum: %x != %x", hash, computed)
 	}
 
-	header.Created = binary.BigEndian.Uint32(buf[4:8]) // read the created field.
-	header.HashKey = buf[8] != 0                       // read the hashKey field.
+	header.Created = binary.BigEndian.Uint32(buf[4:8])    // read the created field.
+	header.HashKey = buf[8] != 0                          // read the hashKey field.
+	header.Kind = buf[9]                                  // read the kind field.
+	header.LogSlots = binary.BigEndian.Uint64(buf[10:18]) // read the logSlots field.
 
 	return header, nil
 }

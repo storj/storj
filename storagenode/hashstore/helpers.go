@@ -40,6 +40,30 @@ func signalError(sig *drpcsignal.Signal) error {
 	return signalClosed
 }
 
+type recordStats struct {
+	numSet   uint64 // number of set records
+	lenSet   uint64 // sum of lengths in set records
+	numTrash uint64 // number of set trash records
+	lenTrash uint64 // sum of lengths in set trash records
+}
+
+func (r *recordStats) scale(factor uint64) {
+	r.numSet *= factor
+	r.lenSet *= factor
+	r.numTrash *= factor
+	r.lenTrash *= factor
+}
+
+func (r *recordStats) include(rec Record) {
+	r.numSet++
+	r.lenSet += uint64(rec.Length)
+
+	if rec.Expires.Trash() {
+		r.numTrash++
+		r.lenTrash += uint64(rec.Length)
+	}
+}
+
 //
 // date/time helpers
 //
