@@ -189,6 +189,7 @@ func WithStdin(stdin string) ExecuteOption {
 }
 
 // WithFile sets the command to execute with a file created at the given location.
+// If no file contents are provided, the file will contain the location.
 func WithFile(location string, contents ...string) ExecuteOption {
 	contents = append([]string(nil), contents...)
 	return ExecuteOption{func(t *testing.T, ctx context.Context, cs *callbackState) {

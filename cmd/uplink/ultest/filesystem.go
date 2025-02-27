@@ -205,9 +205,10 @@ func (rfs *remoteFilesystem) List(ctx context.Context, bucket, key string, opts 
 	for loc, mf := range rfs.files {
 		if (loc.HasPrefix(prefixDir) || loc == prefix) && !mf.expired() {
 			infos = append(infos, ulfs.ObjectInfo{
-				Loc:     loc,
-				Created: time.Unix(mf.created, 0),
-				Expires: mf.expires,
+				Loc:           loc,
+				Created:       time.Unix(mf.created, 0),
+				ContentLength: int64(len(mf.contents)),
+				Expires:       mf.expires,
 			})
 		}
 	}
