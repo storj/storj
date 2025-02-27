@@ -155,6 +155,41 @@ func TestMemtbl_ShortCollision(t *testing.T) {
 	m.AssertLookup(k1)
 }
 
+func TestMemtbl_ExpectOrdered(t *testing.T) {
+	ctx := context.Background()
+	m := newTestMemtbl(t, tbl_minLogSlots)
+	defer m.Close()
+
+	commit, done, err := m.ExpectOrdered(ctx)
+	assert.NoError(t, err)
+	defer done()
+
+	// write records until an automatic flush happens
+	var recs []Record
+	for {
+		rec := m.AssertInsert()
+		recs = append(recs, rec)
+		size, err := fileSize(m.Handle())
+		assert.NoError(t, err)
+		if size > headerSize {
+			break
+		}
+	}
+
+	// write some more records and ensure they aren't immediately visible
+	for i := 0; i < 100; i++ {
+		rec := m.AssertInsert()
+		m.AssertLookupMiss(rec.Key)
+		recs = append(recs, rec)
+	}
+
+	// after a commit, all of them should be visible
+	assert.NoError(t, commit())
+	for _, rec := range recs {
+		m.AssertLookup(rec.Key)
+	}
+}
+
 //
 // benchmarks
 //

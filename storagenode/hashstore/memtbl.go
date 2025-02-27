@@ -32,9 +32,9 @@ type MemTbl struct {
 	fh     *os.File
 	header TblHeader
 
-	opMu rwMutex          // protects operations
-	idx  memtblIdx        // insert index
-	tmp  [RecordSize]byte // used to save allocations on Insert
+	opMu  rwMutex   // protects operations
+	idx   memtblIdx // insert index. always needs to match file length
+	align bool      // set when an error happened and an align is needed
 
 	entries    map[shortKey][4]byte
 	collisions map[Key][4]byte
@@ -42,7 +42,7 @@ type MemTbl struct {
 	closed drpcsignal.Signal // closed state
 	cloMu  sync.Mutex        // synchronizes closing
 
-	buffer *bufio.Writer // buffer for inserts
+	buffer *memtblBuffer // buffer for inserts
 
 	statsMu  sync.Mutex // protects the following fields
 	recStats recordStats
@@ -144,7 +144,7 @@ func (m *MemTbl) rangeWithIdxLocked(
 			break
 		} else if errors.Is(err, io.ErrUnexpectedEOF) {
 			// if we had a failed write, we could be unaligned. range should ignore the partially
-			// written final record. we ensure alignment and truncate at file open so this is the
+			// written final record. we ensure alignment and truncate at file open so that is the
 			// only time this should happen.
 			break
 		} else if err != nil {
@@ -219,6 +219,19 @@ func (m *MemTbl) insertKeyLocked(key Key, idx memtblIdx) error {
 	}
 
 	return nil
+}
+
+// deleteKeyLocked ensures the key is removed from the table.
+//
+// IMPORTANT! it is not safe to call on keys that you don't know for sure are in the table because
+// there may be a short key collision. this limitation is required so that it is not a fallible
+// operation for cleanup purposes.
+func (m *MemTbl) deleteKeyLocked(key Key) {
+	if _, ok := m.collisions[key]; ok {
+		delete(m.collisions, key)
+	} else {
+		delete(m.entries, *(*shortKey)(key[:]))
+	}
 }
 
 // keyIndexLocked returns the index associated with the key.
@@ -372,7 +385,7 @@ func (m *MemTbl) ExpectOrdered(ctx context.Context) (commit func() error, done f
 		return nil, nil, Error.New("buffer already exists")
 	}
 
-	buffer := bufio.NewWriterSize(m.fh, bigPageSize)
+	buffer := m.newMemtblBuffer()
 	m.buffer = buffer
 
 	return func() (err error) {
@@ -380,8 +393,8 @@ func (m *MemTbl) ExpectOrdered(ctx context.Context) (commit func() error, done f
 			defer m.opMu.Unlock()
 
 			if buffer == m.buffer {
-				err = Error.Wrap(m.buffer.Flush())
 				m.buffer = nil
+				err = m.writeBytesLocked(buffer.b)
 			}
 
 			return err
@@ -404,8 +417,13 @@ func (m *MemTbl) Insert(ctx context.Context, rec Record) (_ bool, err error) {
 	}
 	defer m.opMu.Unlock()
 
-	// if we already have this record, then we need to ensure they are equalish
-	// before allowing the update, and taking the larger expiration.
+	// before we do any writes we have to make sure the file is aligned to the correct size.
+	if err := m.ensureAlignedLocked(ctx); err != nil {
+		return false, err
+	}
+
+	// if we already have this record, then we need to ensure they are equalish before allowing the
+	// update, and taking the larger expiration.
 	tmp, existing, err := m.lookupLocked(rec.Key)
 	if err != nil {
 		return false, err
@@ -416,33 +434,19 @@ func (m *MemTbl) Insert(ctx context.Context, rec Record) (_ bool, err error) {
 		rec.Expires = MaxExpiration(rec.Expires, tmp.Expires)
 	}
 
-	// N.B. this is safe because opMu is exclusive. we do this because m.buffer is a bufio.Writer
-	// which virtual dispatches to any io.Writer, causing it to escape in the common case where
-	// it's not even set.
-	rec.WriteTo(&m.tmp)
+	var buf [RecordSize]byte
+	rec.WriteTo(&buf)
 
+	// now we add the record to the appropriate location. if we're buffering, put it there.
+	// otherwise we can write directly to the file.
 	if m.buffer != nil {
-		_, err = m.buffer.Write(m.tmp[:])
+		err = m.buffer.addRecord(&buf)
 	} else {
-		_, err = m.fh.Write(m.tmp[:])
+		err = m.writeBytesLocked(buf[:])
 	}
 	if err != nil {
-		// TODO: uh oh. we wrote some number of bytes. we should go into a mode where we try to fix
-		// what we did and set a flag if we can't to cause the next write to try to fix. this is an
-		// even bigger problem if m.buffer is set. we may just have to flag that to fail until it's
-		// unset.
-		return false, Error.New("unable to write record: %w", err)
-	}
-
-	if err := m.insertKeyLocked(rec.Key, m.idx); err != nil {
-		// TODO: uh oh. we wrote the record but we couldn't store it in memory because apparently
-		// the overflow check failed. is this a problem to have the record in the file? i dunno.
 		return false, err
 	}
-
-	// TODO: the idx needs to always be consistent with where we are going to write to into the file
-	// and this might not if we end up doing some recovery things.
-	m.idx++
 
 	// if we didn't have an existing record, we are adding a new key. we don't need to change the
 	// alive field on update because we ensure that the records are equalish above so the length
@@ -450,7 +454,12 @@ func (m *MemTbl) Insert(ctx context.Context, rec Record) (_ bool, err error) {
 	// very rare and doing it properly would require subtracting which may underflow in situations
 	// where the estimate was too small. this technically means that in very rare scenarios, the
 	// amount considered trash could be off, but it will be fixed on the next Range call, Store
-	// compaction, or node restart.
+	// compaction, or node restart. in the case we're buffering, the stats will be updated but the
+	// key will not yet be readable. it's possible the key will fail to flush eventually and then
+	// the stats will be wrong because we can't know if we should undo because we don't keep track
+	// of if it was existing, but buffering should only used for compaction and so we don't need to
+	// worry because any failures are critical and we throw the whole thing out. also, just like the
+	// prior reasons, statistics can be off by small amounts and be ok and will be fixed eventually.
 	if !existing {
 		m.statsMu.Lock()
 		m.recStats.include(rec)
@@ -470,4 +479,108 @@ func (m *MemTbl) Lookup(ctx context.Context, key Key) (rec Record, ok bool, err 
 	defer m.opMu.RUnlock()
 
 	return m.lookupLocked(key)
+}
+
+// ensureAlignedLocked ensures the file is aligned so that records are written aligned. it
+// dispatches to a slow function so that it can be inlined in the common case where alignment
+// is unnecessary.
+func (m *MemTbl) ensureAlignedLocked(ctx context.Context) error {
+	if !m.align {
+		return nil
+	}
+	return m.ensureAlignedLockedSlow(ctx)
+}
+
+// ensureAlignedLockedSlow ensures the file is aligned so that records are written aligned. it does
+// this by truncating off the unaligned end of the file.
+func (m *MemTbl) ensureAlignedLockedSlow(ctx context.Context) (err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	size, err := fileSize(m.fh)
+	if err != nil {
+		return Error.New("unable to determine file size: %w", err)
+	}
+
+	size -= size % RecordSize
+
+	if _, err := m.fh.Seek(size, io.SeekStart); err != nil {
+		return Error.New("unable to seek to aligned size: %w", err)
+	} else if err := m.fh.Truncate(size); err != nil {
+		return Error.New("unable to truncate to aligned size: %w", err)
+	}
+
+	m.align = false
+	return nil
+}
+
+// writeBytesLocked writes the sequence of records in the data slice to the file handle and adds
+// them to the in memory maps. it does so in a way that the in memory map stays consistent with
+// the file handle, even in the case of partial writes.
+func (m *MemTbl) writeBytesLocked(data []byte) (err error) {
+	if len(data)%RecordSize != 0 {
+		return Error.New("data not aligned to record size: len=%d", len(data))
+	}
+
+	inserted := 0
+	written := 0
+	defer func() {
+		if err != nil {
+			for deleted := written; deleted < inserted; deleted += RecordSize {
+				m.deleteKeyLocked(*(*Key)(data[deleted:]))
+				m.idx--
+			}
+		}
+	}()
+
+	for inserted < len(data) {
+		if err := m.insertKeyLocked(*(*Key)(data[inserted:]), m.idx); err != nil {
+			return err
+		}
+		inserted += RecordSize
+		m.idx++
+	}
+
+	written, err = m.fh.Write(data)
+	if err != nil {
+		written -= written % RecordSize // remove any partially written record
+		m.align = true
+		return Error.New("unable to write data: %w", err)
+	}
+
+	return nil
+}
+
+//
+// buffer type for EnsureOrdered
+//
+
+// memtblBuffer is a buffer of records that flushes when it is full.
+type memtblBuffer struct {
+	m *MemTbl
+	b []byte
+}
+
+// newMemtblBuffer creates a new memtblBuffer.
+func (m *MemTbl) newMemtblBuffer() *memtblBuffer {
+	return &memtblBuffer{
+		m: m,
+		b: make([]byte, 0, bigPageSize),
+	}
+}
+
+// addRecord adds the serialized record to the buffer. it is written this way so that the fast path
+// where we don't need to flush the data is inlined into the caller.
+func (m *memtblBuffer) addRecord(buf *[RecordSize]byte) error {
+	if len(m.b) < cap(m.b) {
+		m.b = append(m.b, buf[:]...)
+		return nil
+	}
+	return m.addRecordSlow(buf)
+}
+
+// addRecordSlow writes the buffered records to the file, resets the buffer, and appends it.
+func (m *memtblBuffer) addRecordSlow(buf *[RecordSize]byte) error {
+	err := m.m.writeBytesLocked(m.b)
+	m.b = append(m.b[:0], buf[:]...)
+	return err
 }
