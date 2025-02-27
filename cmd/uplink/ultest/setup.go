@@ -188,19 +188,28 @@ func WithStdin(stdin string) ExecuteOption {
 	}}
 }
 
-// WithFile sets the command to execute with a file created at the given location.
-// If no file contents are provided, the file will contain the location.
+// WithFile sets the command to execute with a file created at the provided location.
+// If no file contents are provided, the file will contain the location. The behavior
+// when a file already exists depends on the location's type. If the location is local,
+// then the preexisting file will be replaced. Otherwise, if the location is remote,
+// a new version of the file will be created with the provided contents.
 func WithFile(location string, contents ...string) ExecuteOption {
 	contents = append([]string(nil), contents...)
 	return ExecuteOption{func(t *testing.T, ctx context.Context, cs *callbackState) {
 		loc, err := ulloc.Parse(location)
 		require.NoError(t, err)
 
-		if bucket, _, ok := loc.RemoteParts(); ok {
+		var mwh ulfs.MultiWriteHandle
+
+		if bucket, key, ok := loc.RemoteParts(); ok {
 			cs.rfs.ensureBucket(bucket)
+			mwh, err = cs.rfs.create(ctx, bucket, key, createOpts{
+				versioned: true,
+			})
+		} else {
+			mwh, err = cs.fs.Create(ctx, loc, nil)
 		}
 
-		mwh, err := cs.fs.Create(ctx, loc, nil)
 		require.NoError(t, err)
 		defer func() { _ = mwh.Abort(ctx) }()
 

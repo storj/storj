@@ -6,6 +6,7 @@ package ultest
 import (
 	"bytes"
 	"context"
+	"encoding/binary"
 	"io"
 	"sort"
 	"sync"
@@ -23,7 +24,7 @@ import (
 
 type remoteFilesystem struct {
 	created int64
-	files   map[ulloc.Location]memFileData
+	files   map[ulloc.Location][]memFileData
 	pending map[ulloc.Location][]*memWriteHandle
 	buckets map[string]struct{}
 
@@ -32,13 +33,14 @@ type remoteFilesystem struct {
 
 func newRemoteFilesystem() *remoteFilesystem {
 	return &remoteFilesystem{
-		files:   make(map[ulloc.Location]memFileData),
+		files:   make(map[ulloc.Location][]memFileData),
 		pending: make(map[ulloc.Location][]*memWriteHandle),
 		buckets: make(map[string]struct{}),
 	}
 }
 
 type memFileData struct {
+	version  int64
 	contents string
 	created  int64
 	expires  time.Time
@@ -54,15 +56,18 @@ func (rfs *remoteFilesystem) ensureBucket(name string) {
 }
 
 func (rfs *remoteFilesystem) Files() (files []File) {
-	for loc, mf := range rfs.files {
-		if mf.expired() {
-			continue
+	for loc, fileVersions := range rfs.files {
+		for _, mf := range fileVersions {
+			if mf.expired() {
+				continue
+			}
+			files = append(files, File{
+				Loc:      loc.String(),
+				Version:  mf.version,
+				Contents: mf.contents,
+				Metadata: mf.metadata,
+			})
 		}
-		files = append(files, File{
-			Loc:      loc.String(),
-			Contents: mf.contents,
-			Metadata: mf.metadata,
-		})
 	}
 	sort.Slice(files, func(i, j int) bool { return files[i].less(files[j]) })
 	return files
@@ -104,15 +109,28 @@ func (rfs *remoteFilesystem) Open(ctx context.Context, bucket, key string) (ulfs
 
 	loc := ulloc.NewRemote(bucket, key)
 
-	mf, ok := rfs.files[loc]
-	if !ok {
+	files := rfs.files[loc]
+	if len(files) == 0 {
 		return nil, errs.New("file does not exist %q", loc)
 	}
 
-	return newMultiReadHandle(mf.contents), nil
+	return newMultiReadHandle(files[len(files)-1].contents), nil
 }
 
-func (rfs *remoteFilesystem) Create(ctx context.Context, bucket, key string, opts *ulfs.CreateOptions) (_ ulfs.MultiWriteHandle, err error) {
+type createOpts struct {
+	ulfs.CreateOptions
+	versioned bool
+}
+
+func (rfs *remoteFilesystem) Create(ctx context.Context, bucket, key string, opts *ulfs.CreateOptions) (ulfs.MultiWriteHandle, error) {
+	internalOpts := createOpts{}
+	if opts != nil {
+		internalOpts.CreateOptions = *opts
+	}
+	return rfs.create(ctx, bucket, key, internalOpts)
+}
+
+func (rfs *remoteFilesystem) create(ctx context.Context, bucket, key string, opts createOpts) (_ ulfs.MultiWriteHandle, err error) {
 	rfs.mu.Lock()
 	defer rfs.mu.Unlock()
 
@@ -122,20 +140,14 @@ func (rfs *remoteFilesystem) Create(ctx context.Context, bucket, key string, opt
 		return nil, errs.New("bucket %q does not exist", bucket)
 	}
 
-	var metadata map[string]string
-	expires := time.Time{}
-	if opts != nil {
-		expires = opts.Expires
-		metadata = opts.Metadata
-	}
-
 	rfs.created++
 	wh := &memWriteHandle{
-		loc:      loc,
-		rfs:      rfs,
-		cre:      rfs.created,
-		expires:  expires,
-		metadata: metadata,
+		loc:       loc,
+		rfs:       rfs,
+		cre:       rfs.created,
+		expires:   opts.Expires,
+		metadata:  opts.Metadata,
+		versioned: opts.versioned,
 	}
 
 	rfs.pending[loc] = append(rfs.pending[loc], wh)
@@ -150,12 +162,22 @@ func (rfs *remoteFilesystem) Move(ctx context.Context, oldbucket, oldkey string,
 	source := ulloc.NewRemote(oldbucket, oldkey)
 	dest := ulloc.NewRemote(newbucket, newkey)
 
-	mf, ok := rfs.files[source]
-	if !ok {
+	sourceFiles := rfs.files[source]
+	if len(sourceFiles) == 0 {
 		return errs.New("file does not exist %q", source)
 	}
+
+	file := sourceFiles[len(sourceFiles)-1]
+	file.version = 0
+
 	delete(rfs.files, source)
-	rfs.files[dest] = mf
+
+	if rfs.files[dest] != nil {
+		rfs.files[dest] = rfs.files[dest][:0]
+	}
+
+	rfs.files[dest] = append(rfs.files[dest], file)
+
 	return nil
 }
 
@@ -166,11 +188,20 @@ func (rfs *remoteFilesystem) Copy(ctx context.Context, oldbucket, oldkey string,
 	source := ulloc.NewRemote(oldbucket, oldkey)
 	dest := ulloc.NewRemote(newbucket, newkey)
 
-	mf, ok := rfs.files[source]
-	if !ok {
+	sourceFiles := rfs.files[source]
+	if len(sourceFiles) == 0 {
 		return errs.New("file does not exist %q", source)
 	}
-	rfs.files[dest] = mf
+
+	file := sourceFiles[len(sourceFiles)-1]
+	file.version = 0
+
+	if rfs.files[dest] != nil {
+		rfs.files[dest] = rfs.files[dest][:0]
+	}
+
+	rfs.files[dest] = append(rfs.files[dest], file)
+
 	return nil
 }
 
@@ -202,14 +233,17 @@ func (rfs *remoteFilesystem) List(ctx context.Context, bucket, key string, opts 
 	prefixDir := prefix.AsDirectoryish()
 
 	var infos []ulfs.ObjectInfo
-	for loc, mf := range rfs.files {
-		if (loc.HasPrefix(prefixDir) || loc == prefix) && !mf.expired() {
-			infos = append(infos, ulfs.ObjectInfo{
-				Loc:           loc,
-				Created:       time.Unix(mf.created, 0),
-				ContentLength: int64(len(mf.contents)),
-				Expires:       mf.expires,
-			})
+	for loc, files := range rfs.files {
+		if !loc.HasPrefix(prefixDir) && loc != prefix {
+			continue
+		}
+		if len(files) == 0 {
+			continue
+		}
+
+		file := files[len(files)-1]
+		if !file.expired() {
+			infos = append(infos, memFileDataToObjectInfo(loc, file))
 		}
 	}
 
@@ -220,6 +254,18 @@ func (rfs *remoteFilesystem) List(ctx context.Context, bucket, key string, opts 
 	}
 
 	return &objectInfoIterator{infos: infos}
+}
+
+func memFileDataToObjectInfo(loc ulloc.Location, mf memFileData) ulfs.ObjectInfo {
+	info := ulfs.ObjectInfo{
+		Loc:           loc,
+		Version:       make([]byte, 8),
+		ContentLength: int64(len(mf.contents)),
+		Created:       time.Unix(mf.created, 0),
+		Expires:       mf.expires,
+	}
+	binary.BigEndian.PutUint64(info.Version, uint64(mf.version))
+	return info
 }
 
 func (rfs *remoteFilesystem) listPending(ctx context.Context, prefix ulloc.Location, opts *ulfs.ListOptions) ulfs.ObjectIterator {
@@ -252,21 +298,18 @@ func (rfs *remoteFilesystem) Stat(ctx context.Context, bucket, key string) (*ulf
 
 	loc := ulloc.NewRemote(bucket, key)
 
-	mf, ok := rfs.files[loc]
-	if !ok {
+	files := rfs.files[loc]
+	if len(files) == 0 {
 		return nil, errs.New("file does not exist: %q", loc.Loc())
 	}
 
-	if mf.expired() {
+	file := files[len(files)-1]
+	if file.expired() {
 		return nil, errs.New("file does not exist: %q", loc.Loc())
 	}
 
-	return &ulfs.ObjectInfo{
-		Loc:           loc,
-		Created:       time.Unix(mf.created, 0),
-		Expires:       mf.expires,
-		ContentLength: int64(len(mf.contents)),
-	}, nil
+	info := memFileDataToObjectInfo(loc, file)
+	return &info, nil
 }
 
 //
@@ -274,13 +317,14 @@ func (rfs *remoteFilesystem) Stat(ctx context.Context, bucket, key string) (*ulf
 //
 
 type memWriteHandle struct {
-	buf      []byte
-	loc      ulloc.Location
-	rfs      *remoteFilesystem
-	cre      int64
-	expires  time.Time
-	metadata map[string]string
-	done     bool
+	buf       []byte
+	loc       ulloc.Location
+	rfs       *remoteFilesystem
+	cre       int64
+	expires   time.Time
+	metadata  map[string]string
+	versioned bool
+	done      bool
 }
 
 func (b *memWriteHandle) WriteAt(p []byte, off int64) (int, error) {
@@ -302,12 +346,24 @@ func (b *memWriteHandle) Commit() error {
 		return err
 	}
 
-	b.rfs.files[b.loc] = memFileData{
+	file := memFileData{
 		contents: string(b.buf),
 		created:  b.cre,
 		expires:  b.expires,
 		metadata: b.metadata,
 	}
+
+	files := b.rfs.files[b.loc]
+
+	if b.versioned {
+		if len(files) > 0 {
+			file.version = files[len(files)-1].version + 1
+		}
+	} else if files != nil {
+		files = files[:0]
+	}
+
+	b.rfs.files[b.loc] = append(files, file)
 
 	return nil
 }
@@ -373,9 +429,21 @@ func (li *objectInfoIterator) Item() ulfs.ObjectInfo {
 
 type objectInfos []ulfs.ObjectInfo
 
-func (ois objectInfos) Len() int               { return len(ois) }
-func (ois objectInfos) Swap(i int, j int)      { ois[i], ois[j] = ois[j], ois[i] }
-func (ois objectInfos) Less(i int, j int) bool { return ois[i].Loc.Less(ois[j].Loc) }
+func (ois objectInfos) Len() int          { return len(ois) }
+func (ois objectInfos) Swap(i int, j int) { ois[i], ois[j] = ois[j], ois[i] }
+func (ois objectInfos) Less(i int, j int) bool {
+	if ois[i].Loc == ois[j].Loc {
+		var versionI, versionJ int64
+		if ois[i].Version != nil {
+			versionI = int64(binary.BigEndian.Uint64(ois[i].Version))
+		}
+		if ois[j].Version != nil {
+			versionJ = int64(binary.BigEndian.Uint64(ois[j].Version))
+		}
+		return versionI < versionJ
+	}
+	return ois[i].Loc.Less(ois[j].Loc)
+}
 
 func collapseObjectInfos(prefix ulloc.Location, infos []ulfs.ObjectInfo) []ulfs.ObjectInfo {
 	collapsing := false

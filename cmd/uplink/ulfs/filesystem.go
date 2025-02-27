@@ -81,6 +81,7 @@ type FilesystemRemote interface {
 // uplink command needs that multiple types can be converted to.
 type ObjectInfo struct {
 	Loc           ulloc.Location
+	Version       []byte
 	IsPrefix      bool
 	Created       time.Time
 	ContentLength int64
