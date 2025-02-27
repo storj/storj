@@ -662,12 +662,17 @@ func (endpoint *Endpoint) Download(stream pb.DRPCPiecestore_DownloadStream) (err
 			log.Info("downloaded")
 		}
 		mon.IntVal("download_orders_amount", actionSeriesTag).Observe(largestOrder.Amount)
+
+		if pieceReader != nil && pieceReader.Trash() {
+			mon.Meter("download_file_in_trash", monkit.NewSeriesTag("namespace", limit.SatelliteId.String())).Mark(1)
+			filestore.MonFileInTrash(limit.SatelliteId[:]).Mark(1)
+			log.Warn("file found in trash")
+		}
 	}()
 	defer func() {
 		close(downloadedBytes)
 	}()
 
-	restoredFromTrash := false
 	pieceReader, err = endpoint.pieceBackend.Reader(ctx, limit.SatelliteId, limit.PieceId)
 	if err != nil {
 		if errs.Is(err, fs.ErrNotExist) {
@@ -685,12 +690,6 @@ func (endpoint *Endpoint) Download(stream pb.DRPCPiecestore_DownloadStream) (err
 			log.Error("failed to close piece reader", zap.Error(err))
 		}
 	}()
-	if pieceReader.Trash() {
-		restoredFromTrash = true
-		mon.Meter("download_file_in_trash", monkit.NewSeriesTag("namespace", limit.SatelliteId.String())).Mark(1)
-		filestore.MonFileInTrash(limit.SatelliteId[:]).Mark(1)
-		log.Warn("file found in trash")
-	}
 
 	// for repair traffic, send along the PieceHash and original OrderLimit for validation
 	// before sending the piece itself
@@ -706,19 +705,19 @@ func (endpoint *Endpoint) Download(stream pb.DRPCPiecestore_DownloadStream) (err
 				return nil, stream.Send(&pb.PieceDownloadResponse{
 					Hash:              &pieceHash,
 					Limit:             &orderLimit,
-					RestoredFromTrash: restoredFromTrash,
+					RestoredFromTrash: pieceReader.Trash(),
 				})
 			})
 		if err != nil {
 			log.Error("error sending hash and order limit", zap.Error(err))
 			return rpcstatus.NamedWrap("hash-and-order-send-failure", rpcstatus.Internal, err)
 		}
-	} else if restoredFromTrash {
+	} else if pieceReader.Trash() {
 		// notify that the piece was restored from trash
 		_, err = withTimeout(ctx, endpoint.config.StreamOperationTimeout, cancelStream,
 			func(ctx context.Context) (_ any, err error) {
 				return nil, stream.Send(&pb.PieceDownloadResponse{
-					RestoredFromTrash: restoredFromTrash,
+					RestoredFromTrash: pieceReader.Trash(),
 				})
 			})
 		if err != nil {
