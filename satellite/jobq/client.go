@@ -175,6 +175,18 @@ func (c *Client) Clean(ctx context.Context, placement storj.PlacementConstraint,
 	return resp.RemovedSegments, nil
 }
 
+// Trim removes all jobs with Priority less than the given threshold.
+func (c *Client) Trim(ctx context.Context, placement storj.PlacementConstraint, priorityLessThan float64) (removedSegments int32, err error) {
+	resp, err := c.client.Trim(ctx, &pb.JobQueueTrimRequest{
+		Placement:        int32(placement),
+		PriorityLessThan: priorityLessThan,
+	})
+	if err != nil {
+		return 0, err
+	}
+	return resp.RemovedSegments, nil
+}
+
 // Dial dials an address and creates a new client.
 func Dial(addr net.Addr) (*Client, error) {
 	rawConn, err := net.Dial(addr.Network(), addr.String())

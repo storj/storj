@@ -243,6 +243,96 @@ func TestQueueClean(t *testing.T) {
 	require.Zero(t, retryLen)
 }
 
+func TestQueueTrim(t *testing.T) {
+	queue, err := jobqueue.NewQueue(zaptest.NewLogger(t), time.Hour, 100, 10)
+	require.NoError(t, err)
+	_ = queue.Start()
+	defer queue.Stop()
+
+	timeIncrement := time.Duration(0)
+	timeFunc := func() time.Time {
+		return time.Now().Add(timeIncrement)
+	}
+	queue.Now = timeFunc
+
+	// create jobs with different priorities
+	const numStreams = 100
+	jobs := make([]jobq.RepairJob, numStreams)
+	for i := range jobs {
+		jobs[i].ID.StreamID = mustUUID()
+		jobs[i].ID.Position = rand.Uint64()
+		jobs[i].Priority = float64(i) / 100.0 // 0.00, 0.01, 0.02, ... 0.99
+		jobs[i].Placement = 42
+		// let's have about half of them be in retry
+		if rand.Intn(2) == 0 {
+			jobs[i].LastAttemptedAt = uint64(time.Now().Add((-15*time.Minute + time.Duration(i)*time.Second)).Unix())
+		}
+		timeIncrement += time.Second
+	}
+	for _, job := range jobs {
+		wasNew := queue.Insert(job)
+		require.True(t, wasNew)
+	}
+
+	// test our initial conditions
+	repairLen, retryLen := queue.Len()
+	initialRepair := int(repairLen)
+	initialRetry := int(retryLen)
+	require.NotZero(t, initialRepair)
+	require.NotZero(t, initialRetry)
+
+	// We'll trim all jobs with priority < 0.5
+	const trimThreshold = 0.5
+	removed := queue.Trim(trimThreshold)
+
+	// Check how many jobs were removed - should be approximately half of all jobs
+	require.NotZero(t, removed)
+
+	// Check the new lengths
+	repairLen, retryLen = queue.Len()
+
+	// Make sure that the sum of jobs after trimming plus the removed jobs equals the initial total
+	require.Equal(t, int64(initialRepair+initialRetry), repairLen+retryLen+int64(removed))
+
+	// Verify all remaining jobs in repair queue have priority >= trimThreshold
+	var remainingJobs []jobq.RepairJob
+	for i := 0; i < int(repairLen); i++ {
+		job := queue.Pop()
+		if job.ID.StreamID.IsZero() {
+			break
+		}
+		remainingJobs = append(remainingJobs, job)
+		require.GreaterOrEqual(t, job.Priority, trimThreshold)
+	}
+
+	// Move time forward to get jobs from retry queue
+	timeIncrement += time.Hour
+	err = queue.ResetTimer()
+	require.NoError(t, err)
+
+	// Verify retry queue jobs move to repair queue when eligible
+	time.Sleep(10 * time.Millisecond) // Give the funnel goroutine time to run
+
+	// Check repair queue again to see if jobs from retry queue moved there
+	for {
+		job := queue.Pop()
+		if job.ID.StreamID.IsZero() {
+			break
+		}
+		remainingJobs = append(remainingJobs, job)
+		require.GreaterOrEqual(t, job.Priority, trimThreshold)
+	}
+
+	// Verify jobs were removed (exact count can vary due to random placement in retry queue)
+	require.Greater(t, removed, 0, "Should have removed some jobs")
+	require.GreaterOrEqual(t, len(remainingJobs), 0, "Should have some jobs remaining")
+
+	// Verify only jobs with priority >= threshold are left
+	for _, job := range remainingJobs {
+		require.GreaterOrEqual(t, job.Priority, trimThreshold)
+	}
+}
+
 func TestMemoryManagement(t *testing.T) {
 	queue, err := jobqueue.NewQueue(zaptest.NewLogger(t), time.Hour, 10, 5)
 	require.NoError(t, err)

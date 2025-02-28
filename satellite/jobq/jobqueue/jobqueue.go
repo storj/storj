@@ -151,6 +151,28 @@ func (jq *jobQueue) cleanQueue(updatedBefore time.Time) (removed int) {
 	return removed
 }
 
+func (jq *jobQueue) trimQueue(priorityLessThan float64) (removed int) {
+	removed = 0
+	for i := 0; i < len(jq.priorityHeap); {
+		if jq.priorityHeap[i].Priority < priorityLessThan {
+			// remove item by swapping it with the end and shortening the slice
+			if i != len(jq.priorityHeap)-1 {
+				jq.priorityHeap[i], jq.priorityHeap[len(jq.priorityHeap)-1] = jq.priorityHeap[len(jq.priorityHeap)-1], jq.priorityHeap[i]
+			}
+			jq.priorityHeap = jq.priorityHeap[:len(jq.priorityHeap)-1]
+			removed++
+		} else {
+			i++
+		}
+	}
+	if jq.unmarkingError == nil {
+		jq.highWater, jq.unmarkingError = markUnused(jq.mem, jq.priorityHeap, len(jq.priorityHeap), jq.highWater, jq.memReleaseThreshold)
+	}
+	// must be followed up with a heap.Init() and a reindex of jq.indexByID to
+	// maintain heap properties
+	return removed
+}
+
 type repairPriorityQueue struct {
 	jobQueue
 }
@@ -385,6 +407,30 @@ func (q *Queue) Clean(updatedBefore time.Time) (removed int) {
 	maps.Clear(q.indexByID)
 	removed += q.pq.cleanQueue(updatedBefore)
 	removed += q.rq.cleanQueue(updatedBefore)
+	heap.Init(&q.pq)
+	heap.Init(&q.rq)
+	for i, item := range q.pq.priorityHeap {
+		q.indexByID[item.ID] = uint64(i) | q.pq.queueSelect
+	}
+	for i, item := range q.rq.priorityHeap {
+		q.indexByID[item.ID] = uint64(i) | q.rq.queueSelect
+	}
+	return removed
+}
+
+// Trim removes all items from the queues with priority less than the given value.
+// This is a relatively expensive operation at O(n). The queues for this placement
+// are left locked for the duration of the operation; all reads and writes to this
+// placement will block until this is complete.
+//
+// Returns the total number of items removed from the queues.
+func (q *Queue) Trim(priorityLessThan float64) (removed int) {
+	q.lock.Lock()
+	defer q.lock.Unlock()
+
+	maps.Clear(q.indexByID)
+	removed += q.pq.trimQueue(priorityLessThan)
+	removed += q.rq.trimQueue(priorityLessThan)
 	heap.Init(&q.pq)
 	heap.Init(&q.rq)
 	for i, item := range q.pq.priorityHeap {
