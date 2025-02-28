@@ -118,10 +118,99 @@ func TestAtomicFile(t *testing.T) {
 	}
 }
 
+//
+// test helpers
+//
+
 func temporarily[T any](loc *T, val T) func() {
 	old := *loc
 	*loc = val
 	return func() { *loc = old }
+}
+
+func forAllTables[T interface{ Run(string, func(T)) bool }](t T, fn func(T)) {
+	run := func(t T, kind TableKind) {
+		t.Run(kind.String(), func(t T) {
+			defer temporarily(&table_DefaultKind, kind)()
+			fn(t)
+		})
+	}
+
+	run(t, kind_HashTbl)
+	run(t, kind_MemTbl)
+}
+
+//
+// generic table
+//
+
+type testTbl struct {
+	t testing.TB
+	Tbl
+}
+
+func newTestTable(t testing.TB, lrec uint64) *testTbl {
+	t.Helper()
+
+	fh, err := os.CreateTemp(t.TempDir(), "tbl")
+	assert.NoError(t, err)
+
+	h, err := CreateTable(context.Background(), fh, lrec, 0, table_DefaultKind)
+	assert.NoError(t, err)
+
+	return &testTbl{t: t, Tbl: h}
+}
+
+func (tbl *testTbl) Close() { tbl.Tbl.Close() }
+
+func (tbl *testTbl) AssertReopen() {
+	tbl.t.Helper()
+
+	tbl.Tbl.Close()
+
+	fh, err := os.OpenFile(tbl.Handle().Name(), os.O_RDWR, 0)
+	assert.NoError(tbl.t, err)
+
+	h, err := OpenTable(context.Background(), fh)
+	assert.NoError(tbl.t, err)
+
+	tbl.Tbl = h
+}
+
+func (tbl *testTbl) AssertInsertRecord(rec Record) {
+	tbl.t.Helper()
+
+	ok, err := tbl.Insert(context.Background(), rec)
+	assert.NoError(tbl.t, err)
+	assert.True(tbl.t, ok)
+}
+
+func (tbl *testTbl) AssertInsert(opts ...any) Record {
+	tbl.t.Helper()
+
+	key := newKey()
+	checkOptions(opts, func(t WithKey) { key = Key(t) })
+
+	rec := newRecord(key)
+	tbl.AssertInsertRecord(rec)
+	return rec
+}
+
+func (tbl *testTbl) AssertLookup(k Key) Record {
+	tbl.t.Helper()
+
+	r, ok, err := tbl.Lookup(context.Background(), k)
+	assert.NoError(tbl.t, err)
+	assert.True(tbl.t, ok)
+	return r
+}
+
+func (tbl *testTbl) AssertLookupMiss(k Key) {
+	tbl.t.Helper()
+
+	_, ok, err := tbl.Lookup(context.Background(), k)
+	assert.NoError(tbl.t, err)
+	assert.False(tbl.t, ok)
 }
 
 //
@@ -187,6 +276,14 @@ func (th *testHashTbl) AssertLookup(k Key) Record {
 	assert.NoError(th.t, err)
 	assert.True(th.t, ok)
 	return r
+}
+
+func (th *testHashTbl) AssertLookupMiss(k Key) {
+	th.t.Helper()
+
+	_, ok, err := th.Lookup(context.Background(), k)
+	assert.NoError(th.t, err)
+	assert.False(th.t, ok)
 }
 
 //

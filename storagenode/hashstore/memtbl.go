@@ -9,6 +9,7 @@ import (
 	"encoding/binary"
 	"errors"
 	"io"
+	"math"
 	"os"
 	"sync"
 
@@ -333,10 +334,10 @@ func (m *MemTbl) ComputeEstimates(ctx context.Context) error {
 }
 
 // CompactLoad returns the load factor the tbl should be compacted at.
-func (m *MemTbl) CompactLoad() float64 { return 0.95 }
+func (m *MemTbl) CompactLoad() float64 { return 1.00 }
 
 // MaxLoad returns the load factor at which no more inserts should happen.
-func (m *MemTbl) MaxLoad() float64 { return 1.00 }
+func (m *MemTbl) MaxLoad() float64 { return math.NaN() }
 
 // Load returns an estimate of what fraction of the mem table is occupied.
 func (m *MemTbl) Load() float64 {

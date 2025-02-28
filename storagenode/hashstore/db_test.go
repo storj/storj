@@ -18,6 +18,9 @@ import (
 )
 
 func TestDB_BasicOperation(t *testing.T) {
+	forAllTables(t, testDB_BasicOperation)
+}
+func testDB_BasicOperation(t *testing.T) {
 	ctx := context.Background()
 	db := newTestDB(t, nil, nil)
 	defer db.Close()
@@ -69,6 +72,9 @@ func TestDB_BasicOperation(t *testing.T) {
 }
 
 func TestDB_TrashStats(t *testing.T) {
+	forAllTables(t, testDB_TrashStats)
+}
+func testDB_TrashStats(t *testing.T) {
 	db := newTestDB(t, alwaysTrash, nil)
 	defer db.Close()
 
@@ -95,6 +101,9 @@ func TestDB_TrashStats(t *testing.T) {
 }
 
 func TestDB_TTLStats(t *testing.T) {
+	forAllTables(t, testDB_TTLStats)
+}
+func testDB_TTLStats(t *testing.T) {
 	db := newTestDB(t, nil, nil)
 	defer db.Close()
 
@@ -116,17 +125,20 @@ func TestDB_TTLStats(t *testing.T) {
 }
 
 func TestDB_CompactionOnOpen(t *testing.T) {
+	forAllTables(t, testDB_CompactionOnOpen)
+}
+func testDB_CompactionOnOpen(t *testing.T) {
 	ctx := context.Background()
 	db := newTestDB(t, nil, nil)
 	defer db.Close()
 
 	// load up both the active and passive stores to somewhere between compact and max load.
-	for db.active.Load() < (db_CompactLoad+db_MaxLoad)/2 {
+	for !db.active.ShouldCompact() {
 		w, err := db.active.Create(ctx, newKey(), time.Time{})
 		assert.NoError(t, err)
 		assert.NoError(t, w.Close())
 	}
-	for db.passive.Load() < (db_CompactLoad+db_MaxLoad)/2 {
+	for !db.passive.ShouldCompact() {
 		w, err := db.passive.Create(ctx, newKey(), time.Time{})
 		assert.NoError(t, err)
 		assert.NoError(t, w.Close())
@@ -135,12 +147,15 @@ func TestDB_CompactionOnOpen(t *testing.T) {
 	// reopening the store should cause passive to eventually be compacted.
 	db.AssertReopen()
 
-	for db.passive.Load() > db_CompactLoad {
+	for db.passive.ShouldCompact() {
 		time.Sleep(time.Millisecond)
 	}
 }
 
 func TestDB_SlowCompactionCreatesBackpressure(t *testing.T) {
+	forAllTables(t, testDB_SlowCompactionCreatesBackpressure)
+}
+func testDB_SlowCompactionCreatesBackpressure(t *testing.T) {
 	var done atomic.Bool
 	throttle := make(chan struct{})
 
@@ -154,7 +169,7 @@ func TestDB_SlowCompactionCreatesBackpressure(t *testing.T) {
 	// allows compaction to proceed.
 	go func() {
 		waitForGoroutine(
-			"TestDB_SlowCompactionCreatesBackpressure",
+			"testDB_SlowCompactionCreatesBackpressure",
 			"Create",
 			"waitOnState",
 		)
@@ -169,6 +184,9 @@ func TestDB_SlowCompactionCreatesBackpressure(t *testing.T) {
 }
 
 func TestDB_CloseCancelsCompaction(t *testing.T) {
+	forAllTables(t, testDB_CloseCancelsCompaction)
+}
+func testDB_CloseCancelsCompaction(t *testing.T) {
 	var done atomic.Bool
 
 	db := newTestDB(t, blockOnContext, nil)
@@ -178,7 +196,7 @@ func TestDB_CloseCancelsCompaction(t *testing.T) {
 	// allows compaction to proceed.
 	go func() {
 		waitForGoroutine(
-			"TestDB_CloseCancelsCompaction",
+			"testDB_CloseCancelsCompaction",
 			"Create",
 			"waitOnState",
 		)
@@ -200,6 +218,9 @@ func TestDB_CloseCancelsCompaction(t *testing.T) {
 }
 
 func TestDB_ContextCancelsCreate(t *testing.T) {
+	forAllTables(t, testDB_ContextCancelsCreate)
+}
+func testDB_ContextCancelsCreate(t *testing.T) {
 	var done atomic.Bool
 
 	db := newTestDB(t, blockOnContext, nil)
@@ -212,7 +233,7 @@ func TestDB_ContextCancelsCreate(t *testing.T) {
 	// allows compaction to proceed.
 	go func() {
 		waitForGoroutine(
-			"TestDB_ContextCancelsCreate",
+			"testDB_ContextCancelsCreate",
 			"Create",
 			"waitOnState",
 		)
@@ -235,6 +256,9 @@ func TestDB_ContextCancelsCreate(t *testing.T) {
 }
 
 func TestDB_BackgroundCompaction(t *testing.T) {
+	forAllTables(t, testDB_BackgroundCompaction)
+}
+func testDB_BackgroundCompaction(t *testing.T) {
 	run := func(t *testing.T, getStore func(db *testDB) *Store) {
 		db := newTestDB(t, nil, nil)
 		defer db.Close()
@@ -279,6 +303,9 @@ func TestDB_BackgroundCompaction(t *testing.T) {
 }
 
 func TestDB_CompactCallWaitsForCurrentCompaction(t *testing.T) {
+	forAllTables(t, testDB_CompactCallWaitsForCurrentCompaction)
+}
+func testDB_CompactCallWaitsForCurrentCompaction(t *testing.T) {
 	var done atomic.Bool
 	throttle := make(chan struct{})
 
@@ -313,6 +340,9 @@ func TestDB_CompactCallWaitsForCurrentCompaction(t *testing.T) {
 //
 
 func BenchmarkDB(b *testing.B) {
+	forAllTables(b, benchmarkDB)
+}
+func benchmarkDB(b *testing.B) {
 	ctx := context.Background()
 
 	benchmarkSizes(b, "Create", func(b *testing.B, size uint64) {
@@ -337,34 +367,6 @@ func BenchmarkDB(b *testing.B) {
 			assert.NoError(b, err)
 			assert.NoError(b, wr.Close())
 		}
-
-		b.ReportMetric(float64(b.N)/time.Since(now).Seconds(), "pieces/sec")
-	})
-
-	benchmarkSizes(b, "CreateParallel", func(b *testing.B, size uint64) {
-		buf := make([]byte, size)
-		_, _ = mwc.Rand().Read(buf)
-
-		db, err := New(ctx, b.TempDir(), "", nil, nil, nil)
-		assert.NoError(b, err)
-		defer db.Close()
-
-		b.SetBytes(int64(size))
-		b.ReportAllocs()
-		b.ResetTimer()
-
-		now := time.Now()
-
-		b.RunParallel(func(pb *testing.PB) {
-			for pb.Next() {
-				wr, err := db.Create(ctx, newKey(), time.Time{})
-				assert.NoError(b, err)
-
-				_, err = wr.Write(buf)
-				assert.NoError(b, err)
-				assert.NoError(b, wr.Close())
-			}
-		})
 
 		b.ReportMetric(float64(b.N)/time.Since(now).Seconds(), "pieces/sec")
 	})

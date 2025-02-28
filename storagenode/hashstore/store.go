@@ -231,7 +231,7 @@ func NewStore(ctx context.Context, logsPath string, tablePath string, log *zap.L
 				}
 				defer af.Cancel()
 
-				ntbl, err := CreateHashtbl(ctx, af.File, tbl_minLogSlots, s.today())
+				ntbl, err := CreateTable(ctx, af.File, tbl_minLogSlots, s.today(), table_DefaultKind)
 				if err != nil {
 					return Error.Wrap(err)
 				}
@@ -250,7 +250,7 @@ func NewStore(ctx context.Context, logsPath string, tablePath string, log *zap.L
 			return nil, Error.Wrap(err)
 		}
 
-		ntbl, err := OpenHashtbl(ctx, fh)
+		ntbl, err := OpenTable(ctx, fh)
 		if err != nil {
 			return nil, Error.Wrap(err)
 		}
@@ -428,6 +428,23 @@ func (s *Store) Load() float64 {
 	defer s.rmu.RUnlock()
 
 	return s.tbl.Load()
+}
+
+// ShouldCompact returns true if the underlying table indicates that a compaction would be useful.
+func (s *Store) ShouldCompact() bool {
+	s.rmu.RLock()
+	defer s.rmu.RUnlock()
+
+	return s.tbl.Load() >= s.tbl.CompactLoad()
+}
+
+// Loads returns the estimated load factor of the hash table, the load it should be compacted at,
+// and the load that it should no longer be written to.
+func (s *Store) Loads() (load, compact, max float64) {
+	s.rmu.RLock()
+	defer s.rmu.RUnlock()
+
+	return s.tbl.Load(), s.tbl.CompactLoad(), s.tbl.MaxLoad()
 }
 
 // Close interrupts any compactions and closes the store.
@@ -881,8 +898,11 @@ func (s *Store) compactOnce(
 
 	// if there are no modifications to the hashtbl to remove expired records or flag records as
 	// trash, and we have no log file candidates to rewrite, and the hashtable would be the same
-	// size, we can exit early.
-	if !modifications && len(rewriteCandidates) == 0 && logSlots == s.tbl.LogSlots() {
+	// size, and it would be the same kind of table, we can exit early.
+	if !modifications &&
+		len(rewriteCandidates) == 0 &&
+		logSlots == s.tbl.LogSlots() &&
+		s.tbl.Header().Kind == table_DefaultKind {
 		return true, nil
 	}
 
@@ -897,7 +917,7 @@ func (s *Store) compactOnce(
 	}
 	defer af.Cancel()
 
-	ntbl, err := CreateHashtbl(ctx, af.File, logSlots, today)
+	ntbl, err := CreateTable(ctx, af.File, logSlots, today, table_DefaultKind)
 	if err != nil {
 		return false, Error.Wrap(err)
 	}

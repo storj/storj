@@ -27,11 +27,6 @@ var (
 	ErrCollision = errs.New("collision detected")
 )
 
-const (
-	db_MaxLoad     = 0.95 // maximum load factor of store before blocking new writes
-	db_CompactLoad = 0.75 // load factor before starting compaction
-)
-
 type compactState struct {
 	store  *Store
 	cancel func()
@@ -110,7 +105,7 @@ func New(
 
 	// if the passive store's load is too high, immediately begin compacting it. this will allow us
 	// to absorb writes more quickly if the active store becomes loaded.
-	if d.passive.Load() >= db_CompactLoad {
+	if d.passive.ShouldCompact() {
 		d.beginPassiveCompaction()
 	}
 
@@ -240,15 +235,15 @@ func (d *DB) Create(ctx context.Context, key Key, expires time.Time) (_ *Writer,
 
 	for {
 		// if our load is lower than the compact load, we're good to create.
-		load := d.active.Load()
-		if load < db_CompactLoad {
+		load, compact, max := d.active.Loads()
+		if load < compact {
 			break
 		}
 
 		// check if we have a compaction going.
 		if state := d.compact; state != nil {
 			// if the load is low enough, we can still insert into the active store.
-			if load < db_MaxLoad {
+			if load < max {
 				break
 			}
 

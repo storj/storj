@@ -6,74 +6,12 @@ package hashstore
 import (
 	"context"
 	"encoding/binary"
-	"math/rand"
 	"os"
 	"path/filepath"
 	"testing"
-	"time"
 
 	"github.com/zeebo/assert"
-	"github.com/zeebo/mwc"
 )
-
-func TestHashtbl_BasicOperation(t *testing.T) {
-	ctx := context.Background()
-	h := newTestHashtbl(t, tbl_minLogSlots)
-	defer h.Close()
-
-	var keys []Key
-	var expLength uint64
-	for i := 0; i < 1<<tbl_minLogSlots/2; i++ {
-		// insert the record.
-		r := h.AssertInsert()
-
-		// keep track of the key that was used.
-		keys = append(keys, r.Key)
-		expLength += uint64(r.Length)
-
-		// we should be able to find it.
-		h.AssertLookup(r.Key)
-
-		// reinsert should be fine.
-		ok, err := h.Insert(ctx, r)
-		assert.NoError(t, err)
-		assert.True(t, ok)
-
-		// we should still be able to find it.
-		h.AssertLookup(r.Key)
-	}
-
-	assert.Equal(t, h.Load(), 0.5)
-	stats := h.Stats()
-	assert.Equal(t, stats.NumSet, 1<<tbl_minLogSlots/2)
-	assert.Equal(t, stats.LenSet, expLength)
-
-	// reopen the hash table and search again
-	h.AssertReopen()
-	defer h.Close()
-
-	// shuffle the keys so that reads are not in the same order this time
-	rand.Shuffle(len(keys), func(i, j int) {
-		keys[i], keys[j] = keys[j], keys[i]
-	})
-
-	for _, k := range keys {
-		assert.Equal(t, h.AssertLookup(k), newRecord(k))
-	}
-
-	// insert, lookup, and range should fail after close.
-	h.Close()
-
-	_, _, err := h.Lookup(ctx, newKey())
-	assert.Error(t, err)
-
-	_, err = h.Insert(ctx, newRecord(newKey()))
-	assert.Error(t, err)
-
-	assert.Error(t, h.Range(ctx, func(context.Context, Record) (bool, error) {
-		panic("should not be called")
-	}))
-}
 
 func TestHashtbl_TrashStats(t *testing.T) {
 	h := newTestHashtbl(t, tbl_minLogSlots)
@@ -164,75 +102,6 @@ func TestHashtbl_SmallFileSizes(t *testing.T) {
 	assert.NoError(t, fh.Truncate(headerSize+(pageSize-1)))
 	_, err = OpenHashtbl(ctx, fh)
 	assert.Error(t, err)
-}
-
-func TestHashtbl_OverwriteMergeRecords(t *testing.T) {
-	ctx := context.Background()
-	h := newTestHashtbl(t, tbl_minLogSlots)
-	defer h.Close()
-
-	// create a new record with a non-zero expiration.
-	rec := newRecord(newKey())
-	rec.Expires = NewExpiration(1, true)
-
-	// insert the record.
-	ok, err := h.Insert(ctx, rec)
-	assert.NoError(t, err)
-	assert.True(t, ok)
-
-	// we should get back the record.
-	got, ok, err := h.Lookup(ctx, rec.Key)
-	assert.NoError(t, err)
-	assert.True(t, ok)
-	assert.Equal(t, got, rec)
-
-	// set the expiration to 0 and overwrite. this should be allowed.
-	rec.Expires = 0
-	ok, err = h.Insert(ctx, rec)
-	assert.NoError(t, err)
-	assert.True(t, ok)
-
-	// we should get back the record with no expiration because that's a larger expiration.
-	got, ok, err = h.Lookup(ctx, rec.Key)
-	assert.NoError(t, err)
-	assert.True(t, ok)
-	assert.Equal(t, got, rec)
-
-	// we should not be able to overwrite the record with a different log file.
-	rec.Log++
-	_, err = h.Insert(ctx, rec)
-	assert.Error(t, err)
-
-	// we should be able to try to overwrite the record with a smaller expiration
-	rec.Log--
-	rec.Expires = NewExpiration(2, true)
-	ok, err = h.Insert(ctx, rec)
-	assert.NoError(t, err)
-	assert.True(t, ok)
-
-	// we should get back the record with the larger expiration.
-	got2, ok, err := h.Lookup(ctx, rec.Key)
-	assert.NoError(t, err)
-	assert.True(t, ok)
-	assert.Equal(t, got2, got)
-}
-
-func TestHashtbl_RangeExitEarly(t *testing.T) {
-	ctx := context.Background()
-	h := newTestHashtbl(t, tbl_minLogSlots)
-	defer h.Close()
-
-	// insert some records to range over.
-	for i := 0; i < 100; i++ {
-		h.AssertInsert()
-	}
-
-	// only iterate through 10 records and then exit early.
-	n := 0
-	assert.NoError(t, h.Range(ctx, func(ctx context.Context, r Record) (bool, error) {
-		n++
-		return n < 10, nil
-	}))
 }
 
 func TestHashtbl_LRecBounds(t *testing.T) {
@@ -346,87 +215,4 @@ func TestHashtbl_EstimateWithNonuniformTable(t *testing.T) {
 	t.Logf("%v", h.Load())
 	assert.That(t, h.Load() != 0)
 	assert.That(t, h.Load() != 1)
-}
-
-//
-// benchmarks
-//
-
-func BenchmarkHashtbl(b *testing.B) {
-	benchmarkLRecs(b, "Lookup", func(b *testing.B, lrec uint64) {
-		h := newTestHashtbl(b, lrec)
-		defer h.Close()
-
-		var keys []Key
-		for i := 0; i < 1<<lrec/2; i++ {
-			rec := h.AssertInsert()
-			keys = append(keys, rec.Key)
-		}
-
-		b.ReportAllocs()
-		b.ResetTimer()
-		now := time.Now()
-
-		for i := 0; i < b.N; i++ {
-			h.AssertLookup(keys[mwc.Intn(len(keys))])
-		}
-
-		b.ReportMetric(float64(b.N)/time.Since(now).Seconds(), "keys/sec")
-	})
-
-	benchmarkLRecs(b, "Insert", func(b *testing.B, lrec uint64) {
-		inserts := 1 << lrec / 2
-
-		b.ReportAllocs()
-		b.ResetTimer()
-		now := time.Now()
-
-		for i := 0; i < b.N; i++ {
-			func() {
-				h := newTestHashtbl(b, lrec)
-				defer h.Close()
-				for i := 0; i < inserts; i++ {
-					h.AssertInsert()
-				}
-			}()
-		}
-
-		b.ReportMetric(float64(b.N)*float64(inserts)/time.Since(now).Seconds(), "keys/sec")
-	})
-
-	benchmarkLRecs(b, "Compact", func(b *testing.B, lrec uint64) {
-		inserts := 1 << lrec / 2
-
-		ctx := context.Background()
-		h := newTestHashtbl(b, lrec)
-		defer h.Close()
-
-		for i := 0; i < inserts; i++ {
-			h.AssertInsert()
-		}
-		var recs []Record
-		assert.NoError(b, h.Range(ctx, func(ctx context.Context, rec Record) (bool, error) {
-			recs = append(recs, rec)
-			return true, nil
-		}))
-
-		b.ReportAllocs()
-		b.ResetTimer()
-		now := time.Now()
-
-		for i := 0; i < b.N; i++ {
-			h := newTestHashtbl(b, lrec+1)
-			flush, _, err := h.ExpectOrdered(ctx)
-			assert.NoError(b, err)
-
-			for _, rec := range recs {
-				h.AssertInsertRecord(rec)
-			}
-
-			assert.NoError(b, flush())
-			h.Close()
-		}
-
-		b.ReportMetric(float64(b.N)*float64(inserts)/time.Since(now).Seconds(), "keys/sec")
-	})
 }
