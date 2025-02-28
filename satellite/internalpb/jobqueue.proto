@@ -21,6 +21,7 @@ service JobQueue {
     rpc AddPlacementQueue(JobQueueAddPlacementQueueRequest) returns (JobQueueAddPlacementQueueResponse);
     rpc DestroyPlacementQueue(JobQueueDestroyPlacementQueueRequest) returns (JobQueueDestroyPlacementQueueResponse);
     rpc Clean(JobQueueCleanRequest) returns (JobQueueCleanResponse);
+    rpc Trim(JobQueueTrimRequest) returns (JobQueueTrimResponse);
 }
 
 message RepairJob {
@@ -112,5 +113,14 @@ message JobQueueCleanRequest {
 }
 
 message JobQueueCleanResponse {
+    int32 removed_segments = 1;
+}
+
+message JobQueueTrimRequest {
+    int32 placement = 1;
+    double priority_less_than = 2;
+}
+
+message JobQueueTrimResponse {
     int32 removed_segments = 1;
 }

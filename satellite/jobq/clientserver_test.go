@@ -405,3 +405,84 @@ func TestClientServerClean(t *testing.T) {
 	cancel()
 	require.NoError(t, group.Wait())
 }
+
+func TestClientServerTrim(t *testing.T) {
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	log := zaptest.NewLogger(t)
+	addr, err := net.ResolveTCPAddr("tcp", "127.0.0.1:0")
+	require.NoError(t, err)
+	srv, err := server.New(log, addr, nil, time.Hour, 1e8, 1e6)
+	require.NoError(t, err)
+
+	var group errgroup.Group
+	group.Go(func() error {
+		return srv.Run(ctx)
+	})
+
+	func() {
+		cli, err := jobq.Dial(srv.Addr())
+		require.NoError(t, err)
+		defer func() { require.NoError(t, cli.Close()) }()
+
+		// Add a placement queue
+		err = cli.AddPlacementQueue(ctx, 42)
+		require.NoError(t, err)
+
+		// Set up our time control
+		now := time.Now()
+		timeIncrement := time.Duration(0)
+		timeFunc := func() time.Time {
+			return now.Add(timeIncrement)
+		}
+		srv.SetTimeFunc(timeFunc)
+
+		// Create and push jobs with different priorities
+		for i := 0; i < 5; i++ {
+			job := jobq.RepairJob{
+				ID:        jobq.SegmentIdentifier{StreamID: testrand.UUID(), Position: uint64(i)},
+				Priority:  float64(i),
+				Placement: 42,
+			}
+			_, err = cli.Push(ctx, job)
+			require.NoError(t, err)
+
+			// Small time increment to ensure distinct timestamps
+			timeIncrement += time.Second
+		}
+
+		// Verify we have all jobs in the queue
+		gotRepairLen, gotRetryLen, err := cli.Len(ctx, 42)
+		require.NoError(t, err)
+		require.Equal(t, int64(5), gotRepairLen)
+		require.Equal(t, int64(0), gotRetryLen)
+
+		// Trim jobs with priority < 3.0
+		removedSegments, err := cli.Trim(ctx, 42, 3.0)
+		require.NoError(t, err)
+		require.Equal(t, int32(3), removedSegments)
+
+		// Verify only high-priority jobs remain
+		gotRepairLen, gotRetryLen, err = cli.Len(ctx, 42)
+		require.NoError(t, err)
+		require.Equal(t, int64(2), gotRepairLen)
+		require.Equal(t, int64(0), gotRetryLen)
+
+		// Pop jobs to verify their priorities
+		job1, err := cli.Pop(ctx, nil, nil)
+		require.NoError(t, err)
+		require.GreaterOrEqual(t, job1.Priority, 3.0)
+
+		job2, err := cli.Pop(ctx, nil, nil)
+		require.NoError(t, err)
+		require.GreaterOrEqual(t, job2.Priority, 3.0)
+
+		// Queue should be empty now
+		_, err = cli.Pop(ctx, nil, nil)
+		require.ErrorIs(t, err, jobq.ErrQueueEmpty)
+	}()
+
+	cancel()
+	require.NoError(t, group.Wait())
+}

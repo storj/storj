@@ -207,6 +207,32 @@ func (se *JobqEndpoint) cleanAll(updatedBefore time.Time) (*pb.JobQueueCleanResp
 	}, nil
 }
 
+// Trim removes all jobs from the queue with priority less than the given value.
+// If the given placement is negative, all queues are trimmed.
+func (se *JobqEndpoint) Trim(ctx context.Context, req *pb.JobQueueTrimRequest) (*pb.JobQueueTrimResponse, error) {
+	if req.Placement < 0 {
+		return se.trimAll(req.PriorityLessThan)
+	}
+	q := se.queues.GetQueue(storj.PlacementConstraint(req.Placement))
+	if q == nil {
+		return nil, fmt.Errorf("no queue for placement %v", req.Placement)
+	}
+	removedSegments := q.Trim(req.PriorityLessThan)
+	return &pb.JobQueueTrimResponse{
+		RemovedSegments: int32(removedSegments),
+	}, nil
+}
+
+func (se *JobqEndpoint) trimAll(priorityLessThan float64) (*pb.JobQueueTrimResponse, error) {
+	removedSegments := int32(0)
+	for _, q := range se.queues.GetAllQueues() {
+		removedSegments += int32(q.Trim(priorityLessThan))
+	}
+	return &pb.JobQueueTrimResponse{
+		RemovedSegments: removedSegments,
+	}, nil
+}
+
 // NewEndpoint creates a new endpoint.
 func NewEndpoint(log *zap.Logger, queues *QueueMap) *JobqEndpoint {
 	return &JobqEndpoint{
