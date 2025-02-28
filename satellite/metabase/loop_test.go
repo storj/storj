@@ -372,6 +372,46 @@ func TestIterateLoopSegments(t *testing.T) {
 					require.NoError(t, err)
 				})
 
+				t.Run("batch size", func(t *testing.T) {
+					defer metabasetest.DeleteAll{}.Check(ctx, t, db)
+
+					segments := []metabase.RawSegment{}
+					expectedSegments := []metabase.LoopSegmentEntry{}
+					expectedSource := db.ChooseAdapter(uuid.UUID{}).Name()
+					for i := 0; i < 10; i++ {
+						segment := metabasetest.DefaultRawSegment(metabasetest.RandObjectStream(), metabase.SegmentPosition{})
+						segments = append(segments, segment)
+						expectedSegments = append(expectedSegments, metabase.LoopSegmentEntry{
+							StreamID:      segment.StreamID,
+							Position:      segment.Position,
+							CreatedAt:     segment.CreatedAt,
+							ExpiresAt:     segment.ExpiresAt,
+							RepairedAt:    segment.RepairedAt,
+							RootPieceID:   segment.RootPieceID,
+							EncryptedSize: segment.EncryptedSize,
+							PlainOffset:   segment.PlainOffset,
+							PlainSize:     segment.PlainSize,
+							Pieces:        segment.Pieces,
+							Redundancy:    segment.Redundancy,
+							Placement:     segment.Placement,
+							Source:        expectedSource,
+						})
+					}
+
+					err := db.TestingBatchInsertSegments(ctx, segments)
+					require.NoError(t, err)
+
+					for _, batchSize := range []int{0, 1, 2, 3, 8, 9, 2000} {
+						metabasetest.IterateLoopSegments{
+							Opts: metabase.IterateLoopSegments{
+								BatchSize:        batchSize,
+								SpannerQueryType: spannerQueryType,
+							},
+							Result: expectedSegments,
+						}.Check(ctx, t, db)
+					}
+				})
+
 				// TODO for some reason this test fails with Read API
 				if db.Implementation().String() == "spanner" && spannerQueryType == "sql" {
 					t.Run("spanner stale reads", func(t *testing.T) {
