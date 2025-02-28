@@ -39,6 +39,9 @@ var (
 
 	// multiple of the hashtbl to rewrite in a single compaction.
 	compaction_RewriteMultiple = envFloat("STORJ_HASHSTORE_COMPACTION_REWRITE_MULTIPLE", 1)
+
+	// if set, deletes all trash immediately instead of after the ttl.
+	compaction_DeleteTrashImmediately = envBool("STORJ_HASHSTORE_COMPACTION_DELETE_TRASH_IMMEDIATELY", false)
 )
 
 // Store is a hash table based key-value store with compaction.
@@ -685,6 +688,10 @@ func (s *Store) Compact(
 		// if the record does not have an expiration, it is not expired.
 		if e == 0 {
 			return false
+		}
+		// if we delete trash immediately and it is trash, it is expired.
+		if compaction_DeleteTrashImmediately && e.Trash() {
+			return true
 		}
 		// if it is not currently after the expiration time, it is not expired.
 		if today <= e.Time() {

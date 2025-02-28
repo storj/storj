@@ -186,6 +186,44 @@ func TestStore_CompactionEventuallyDeletes(t *testing.T) {
 	s.AssertNotExist(key)
 }
 
+func TestStore_DeleteTrashImmediately(t *testing.T) {
+	defer temporarily(&compaction_DeleteTrashImmediately, true)()
+
+	s := newTestStore(t)
+	defer s.Close()
+
+	// add an entry that does not expire.
+	key := s.AssertCreate()
+
+	// compact once. it should be deleted right away.
+	s.AssertCompact(alwaysTrash, time.Time{})
+	s.AssertNotExist(key)
+}
+
+func TestStore_DeleteTrashImmediately_ExistingTrash(t *testing.T) {
+	s := newTestStore(t)
+	defer s.Close()
+
+	// add an entry that does not expire.
+	key := s.AssertCreate()
+
+	// compact once. it should still exist.
+	s.AssertCompact(alwaysTrash, time.Time{})
+	s.AssertExist(key)
+
+	// go forward in time but not enough to expire the key and compact again. it should still exist.
+	s.today += compaction_ExpiresDays / 2
+	s.AssertCompact(alwaysTrash, time.Time{})
+	s.AssertExist(key)
+
+	// set immediate delete mode.
+	defer temporarily(&compaction_DeleteTrashImmediately, true)()
+
+	// now compaction should delete the key. it should not exist.
+	s.AssertCompact(alwaysTrash, time.Time{})
+	s.AssertNotExist(key)
+}
+
 func TestStore_CompactionRespectsRestoreTime(t *testing.T) {
 	s := newTestStore(t)
 	defer s.Close()

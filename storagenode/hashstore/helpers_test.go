@@ -118,6 +118,12 @@ func TestAtomicFile(t *testing.T) {
 	}
 }
 
+func temporarily[T any](loc *T, val T) func() {
+	old := *loc
+	*loc = val
+	return func() { *loc = old }
+}
+
 //
 // hashtbl
 //
@@ -280,6 +286,14 @@ func (ts *testStore) AssertNotExist(key Key) {
 	r, err := ts.Read(context.Background(), key)
 	assert.NoError(ts.t, err)
 	assert.Nil(ts.t, r)
+}
+
+func (ts *testStore) AssertExist(key Key) {
+	ts.t.Helper()
+
+	_, ok, err := ts.tbl.Lookup(context.Background(), key)
+	assert.NoError(ts.t, err)
+	assert.True(ts.t, ok)
 }
 
 //
