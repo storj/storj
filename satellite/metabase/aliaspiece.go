@@ -112,16 +112,23 @@ func (aliases AliasPieces) Bytes() ([]byte, error) {
 
 // SetBytes decompresses alias pieces from a slice of bytes.
 func (aliases *AliasPieces) SetBytes(data []byte) error {
-	*aliases = nil
 	if len(data) == 0 {
+		*aliases = nil
 		return nil
 	}
 	if data[0] != aliasPieceEncodingRLE {
+		*aliases = nil
 		return Error.New("unknown alias pieces header: %v", data[0])
 	}
 
-	// we're going to guess there's two alias pieces per two bytes of data
-	*aliases = make(AliasPieces, 0, len(data)/2)
+	if cap(*aliases) == 0 {
+		// we're going to guess there's one alias pieces per two bytes of data
+		*aliases = make(AliasPieces, 0, len(data)/2)
+	} else {
+		// if we have initial capacity, we can reuse the slice
+		// and avoid the allocation
+		*aliases = (*aliases)[:0]
+	}
 
 	p := 1
 	pieceNumber := uint16(0)
