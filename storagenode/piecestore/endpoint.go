@@ -296,18 +296,7 @@ func (endpoint *Endpoint) Upload(stream pb.DRPCPiecestore_UploadStream) (err err
 
 		// we may return with specific named code, even if the real error is just cancelled
 		if errs2.IsCanceled(err) {
-			name := ""
-			if named, hasName := err.(interface{ Name() (string, bool) }); hasName {
-				if errName, ok := named.Name(); ok {
-					name = errName
-				}
-			}
-			// rewrite name and status code if either
-			//   the status code doesn't reflect context.Cancelled,
-			//   or name doesn't "context-canceled"
-			if (rpcstatus.Code(err) != rpcstatus.Canceled && rpcstatus.Code(err) != rpcstatus.Aborted) || (name != "context-canceled") {
-				err = rpcstatus.NamedWrap("context-canceled", rpcstatus.Canceled, err)
-			}
+			err = rpcstatus.NamedWrap("context-canceled", rpcstatus.Canceled, err)
 		}
 
 		if (errs2.IsCanceled(err) || drpc.ClosedError.Has(err)) && !committed {
