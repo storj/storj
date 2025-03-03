@@ -72,6 +72,20 @@ func (node *SelectedNode) Clone() *SelectedNode {
 // can be used to group / label nodes.
 type NodeAttribute func(SelectedNode) string
 
+// NodeAttributes is a collection of multiple NodeAttribute.
+func NodeAttributes(attributes []NodeAttribute, separator string) func(node SelectedNode) string {
+	return func(node SelectedNode) string {
+		var result []string
+		for _, attr := range attributes {
+			val := attr(node)
+			if val != "" {
+				result = append(result, val)
+			}
+		}
+		return strings.Join(result, separator)
+	}
+}
+
 // NodeValue returns a numerical value for each node.
 type NodeValue func(node SelectedNode) float64
 
