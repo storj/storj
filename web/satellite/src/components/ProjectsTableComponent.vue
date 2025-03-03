@@ -2,166 +2,171 @@
 // See LICENSE for copying information.
 
 <template>
-    <v-card class="pa-4">
-        <v-text-field
-            v-model="search"
-            label="Search"
-            :prepend-inner-icon="Search"
-            single-line
-            variant="solo-filled"
-            flat
-            hide-details
-            clearable
-            density="comfortable"
-            rounded="lg"
-            class="mb-4"
-        />
+    <v-text-field
+        v-model="search"
+        label="Search"
+        :prepend-inner-icon="Search"
+        single-line
+        variant="solo-filled"
+        flat
+        hide-details
+        clearable
+        density="comfortable"
+        rounded="lg"
+        class="mb-4"
+    />
 
-        <v-data-table
-            :sort-by="sortBy"
-            :headers="headers"
-            :items="items"
-            items-per-page="10"
-            items-per-page-text="Projects per page"
-            :search="search"
-            no-data-text="No results found"
-            item-key="path"
-        >
-            <template #item.name="{ item }">
+    <v-data-table
+        :sort-by="sortBy"
+        :headers="headers"
+        :items="items"
+        items-per-page="10"
+        items-per-page-text="Projects per page"
+        :search="search"
+        no-data-text="No results found"
+        item-key="path"
+    >
+        <template #item.name="{ item }">
+            <v-btn
+                v-if="item.role !== ProjectRole.Invited"
+                class="rounded-lg pl-1 pr-4 ml-n1 justify-start font-weight-bold"
+                variant="text"
+                height="40"
+                color="default"
+                block
+                @click="openProject(item)"
+            >
+                <img src="@/assets/icon-project-tonal.svg" alt="Project" class="mr-3">
+                {{ item.name }}
+            </v-btn>
+            <div v-else class="pl-1 pr-4 ml-n1 d-flex align-center justify-start font-weight-bold">
+                <img src="@/assets/icon-project-tonal.svg" alt="Project" class="mr-3">
+                <span class="text-no-wrap">{{ item.name }}</span>
+            </div>
+        </template>
+
+        <template #item.role="{ item }">
+            <v-chip :color="PROJECT_ROLE_COLORS[item.role]" size="small" class="font-weight-bold">
+                {{ item.role }}
+            </v-chip>
+        </template>
+
+        <template #item.createdAt="{ item }">
+            <span class="text-no-wrap">
+                {{ Time.formattedDate(item.createdAt) }}
+            </span>
+        </template>
+
+        <template #item.actions="{ item }">
+            <div class="w-100 d-flex align-center justify-space-between">
                 <v-btn
-                    v-if="item.role !== ProjectRole.Invited"
-                    class="rounded-lg pl-1 pr-4 ml-n1 justify-start font-weight-bold"
-                    variant="text"
-                    height="40"
-                    color="default"
-                    block
-                    @click="openProject(item)"
+                    v-if="item.role === ProjectRole.Invited"
+                    color="primary"
+                    size="small"
+                    :disabled="decliningIds.has(item.id)"
+                    @click="emit('joinClick', item)"
                 >
-                    <img src="@/assets/icon-project-tonal.svg" alt="Project" class="mr-3">
-                    {{ item.name }}
+                    Join Project
                 </v-btn>
-                <div v-else class="pl-1 pr-4 ml-n1 d-flex align-center justify-start font-weight-bold">
-                    <img src="@/assets/icon-project-tonal.svg" alt="Project" class="mr-3">
-                    <span class="text-no-wrap">{{ item.name }}</span>
-                </div>
-            </template>
+                <v-btn v-else color="primary" size="small" rounded="md" @click="openProject(item)">Open Project</v-btn>
 
-            <template #item.role="{ item }">
-                <v-chip :color="PROJECT_ROLE_COLORS[item.role]" size="small" class="font-weight-bold">
-                    {{ item.role }}
-                </v-chip>
-            </template>
+                <v-btn
+                    v-if="item.role === ProjectRole.Owner || item.role === ProjectRole.Invited"
+                    class="ml-2"
+                    icon
+                    color="default"
+                    variant="outlined"
+                    size="small"
+                    rounded="md"
+                    density="comfortable"
+                    :loading="decliningIds.has(item.id)"
+                >
+                    <v-icon :icon="Ellipsis" size="18" />
+                    <v-menu activator="parent" location="bottom" transition="scale-transition">
+                        <v-list class="pa-1">
+                            <template v-if="item.role === ProjectRole.Owner">
 
-            <template #item.createdAt="{ item }">
-                <span class="text-no-wrap">
-                    {{ Time.formattedDate(item.createdAt) }}
-                </span>
-            </template>
-
-            <template #item.actions="{ item }">
-                <div class="w-100 d-flex align-center justify-space-between">
-                    <v-btn
-                        v-if="item.role === ProjectRole.Invited"
-                        color="primary"
-                        size="small"
-                        :disabled="decliningIds.has(item.id)"
-                        @click="emit('joinClick', item)"
-                    >
-                        Join Project
-                    </v-btn>
-                    <v-btn v-else color="primary" size="small" rounded="md" @click="openProject(item)">Open Project</v-btn>
-
-                    <v-btn
-                        v-if="item.role === ProjectRole.Owner || item.role === ProjectRole.Invited"
-                        class="ml-2"
-                        icon
-                        color="default"
-                        variant="outlined"
-                        size="small"
-                        rounded="md"
-                        density="comfortable"
-                        :loading="decliningIds.has(item.id)"
-                    >
-                        <v-icon :icon="Ellipsis" size="18" />
-                        <v-menu activator="parent" location="bottom" transition="scale-transition">
-                            <v-list class="pa-1">
-                                <template v-if="item.role === ProjectRole.Owner">
-                                    <v-list-item link @click="() => emit('editClick', item, FieldToChange.Name)">
-                                        <template #prepend>
-                                            <component :is="FilePenLine" :size="18" />
-                                        </template>
-                                        <v-list-item-title class="text-body-2 ml-3">
-                                            Edit Name
-                                        </v-list-item-title>
-                                    </v-list-item>
-
-                                    <v-list-item link @click="() => emit('editClick', item, FieldToChange.Description)">
-                                        <template #prepend>
-                                            <component :is="FilePenLine" :size="18" />
-                                        </template>
-                                        <v-list-item-title class="text-body-2 ml-3">
-                                            Edit Description
-                                        </v-list-item-title>
-                                    </v-list-item>
-
-                                    <v-list-item v-if="isPaidTier" link @click="() => emit('updateLimitsClick', item, LimitToChange.Storage)">
-                                        <template #prepend>
-                                            <component :is="Cloud" :size="18" />
-                                        </template>
-                                        <v-list-item-title class="text-body-2 ml-3">
-                                            Update Storage Limit
-                                        </v-list-item-title>
-                                    </v-list-item>
-
-                                    <v-list-item v-if="isPaidTier" link @click="() => emit('updateLimitsClick', item, LimitToChange.Bandwidth)">
-                                        <template #prepend>
-                                            <component :is="DownloadCloud" :size="18" />
-                                        </template>
-                                        <v-list-item-title class="text-body-2 ml-3">
-                                            Update Download Limit
-                                        </v-list-item-title>
-                                    </v-list-item>
-
-                                    <v-list-item link @click="() => onSettingsClick(item)">
-                                        <template #prepend>
-                                            <component :is="Settings" :size="18" />
-                                        </template>
-                                        <v-list-item-title class="text-body-2 ml-3">
-                                            Project Settings
-                                        </v-list-item-title>
-                                    </v-list-item>
-
-                                    <v-list-item link @click="emit('inviteClick', item)">
-                                        <template #prepend>
-                                            <component :is="UserPlus" :size="18" />
-                                        </template>
-                                        <v-list-item-title class="text-body-2 ml-3">
-                                            Add Members
-                                        </v-list-item-title>
-                                    </v-list-item>
-                                </template>
-                                <v-list-item v-else link @click="declineInvitation(item)">
+                                <v-list-item link @click="emit('inviteClick', item)">
                                     <template #prepend>
-                                        <component :is="Trash2" :size="18" />
+                                        <component :is="UserPlus" :size="18" />
                                     </template>
                                     <v-list-item-title class="text-body-2 ml-3">
-                                        Decline
+                                        Add Members
                                     </v-list-item-title>
                                 </v-list-item>
-                            </v-list>
-                        </v-menu>
-                    </v-btn>
-                </div>
-            </template>
-        </v-data-table>
-    </v-card>
+
+                                <v-divider />
+
+                                <v-list-item link @click="() => emit('editClick', item, FieldToChange.Name)">
+                                    <template #prepend>
+                                        <component :is="Pencil" :size="18" />
+                                    </template>
+                                    <v-list-item-title class="text-body-2 ml-3">
+                                        Edit Name
+                                    </v-list-item-title>
+                                </v-list-item>
+
+                                <v-list-item link @click="() => emit('editClick', item, FieldToChange.Description)">
+                                    <template #prepend>
+                                        <component :is="NotebookPen" :size="18" />
+                                    </template>
+                                    <v-list-item-title class="text-body-2 ml-3">
+                                        Edit Description
+                                    </v-list-item-title>
+                                </v-list-item>
+
+                                <v-divider  />
+
+                                <v-list-item v-if="isPaidTier" link @click="() => emit('updateLimitsClick', item, LimitToChange.Storage)">
+                                    <template #prepend>
+                                        <component :is="Cloud" :size="18" />
+                                    </template>
+                                    <v-list-item-title class="text-body-2 ml-3">
+                                        Edit Storage Limit
+                                    </v-list-item-title>
+                                </v-list-item>
+
+                                <v-list-item v-if="isPaidTier" link @click="() => emit('updateLimitsClick', item, LimitToChange.Bandwidth)">
+                                    <template #prepend>
+                                        <component :is="DownloadCloud" :size="18" />
+                                    </template>
+                                    <v-list-item-title class="text-body-2 ml-3">
+                                        Edit Download Limit
+                                    </v-list-item-title>
+                                </v-list-item>
+
+                                <v-divider />
+
+                                <v-list-item link @click="() => onSettingsClick(item)">
+                                    <template #prepend>
+                                        <component :is="Settings" :size="18" />
+                                    </template>
+                                    <v-list-item-title class="text-body-2 ml-3">
+                                        Project Settings
+                                    </v-list-item-title>
+                                </v-list-item>
+
+                            </template>
+                            <v-list-item v-else link @click="declineInvitation(item)">
+                                <template #prepend>
+                                    <component :is="Trash2" :size="18" />
+                                </template>
+                                <v-list-item-title class="text-body-2 ml-3">
+                                    Decline
+                                </v-list-item-title>
+                            </v-list-item>
+                        </v-list>
+                    </v-menu>
+                </v-btn>
+            </div>
+        </template>
+    </v-data-table>
 </template>
 
 <script setup lang="ts">
 import { computed, ref } from 'vue';
 import { useRouter } from 'vue-router';
 import {
-    VCard,
     VTextField,
     VListItem,
     VChip,
@@ -172,7 +177,7 @@ import {
     VListItemTitle,
     VDataTable,
 } from 'vuetify/components';
-import { Ellipsis, Search, UserPlus, Settings, Trash2, Cloud, DownloadCloud, FilePenLine } from 'lucide-vue-next';
+import { Ellipsis, Search, UserPlus, Settings, Trash2, Cloud, DownloadCloud, Pencil, NotebookPen } from 'lucide-vue-next';
 
 import { Time } from '@/utils/time';
 import {
@@ -222,7 +227,7 @@ const headers: DataTableHeader[] = [
     { title: 'Storage', key: 'storageUsed' },
     { title: 'Download', key: 'bandwidthUsed' },
     { title: 'Date Added', key: 'createdAt' },
-    { title: 'Actions', key: 'actions', sortable: false, width: '0' },
+    { title: '', key: 'actions', sortable: false, width: '0' },
 ];
 
 const isPaidTier = computed(() => userStore.state.user.paidTier);

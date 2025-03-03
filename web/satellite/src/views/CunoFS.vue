@@ -62,7 +62,7 @@
                     </p>
 
                     <v-row>
-                        <v-col>
+                        <v-col cols="auto">
                             <v-card class="pa-4 h-100" variant="outlined">
                                 <v-icon class="mb-3"><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-folder-check"><path d="M20 20a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.9a2 2 0 0 1-1.69-.9L9.6 3.9A2 2 0 0 0 7.93 3H4a2 2 0 0 0-2 2v13a2 2 0 0 0 2 2Z" /><path d="m9 13 2 2 4-4" /></svg></v-icon>
                                 <p class="text-subtitle-2">
@@ -70,7 +70,7 @@
                                 </p>
                             </v-card>
                         </v-col>
-                        <v-col>
+                        <v-col cols="auto">
                             <v-card class="pa-4 h-100" variant="outlined">
                                 <v-icon class="mb-3">
                                     <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-database-zap"><ellipse cx="12" cy="5" rx="9" ry="3" /><path d="M3 5V19A9 3 0 0 0 15 21.84" /><path d="M21 5V8" /><path d="M21 12L18 17H22L19 22" /><path d="M3 12A9 3 0 0 0 14.59 14.87" /></svg>
@@ -80,7 +80,7 @@
                                 </p>
                             </v-card>
                         </v-col>
-                        <v-col>
+                        <v-col cols="auto">
                             <v-card class="pa-4 h-100" variant="outlined">
                                 <v-icon class="mb-3">
                                     <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-cloud"><path d="M17.5 19H9a7 7 0 1 1 6.71-9h1.79a4.5 4.5 0 1 1 0 9Z" /></svg>

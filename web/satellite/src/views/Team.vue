@@ -12,7 +12,7 @@
         />
 
         <v-col>
-            <v-row class="mt-1 mb-3">
+            <v-row class="mt-1 mb-2">
                 <div class="d-inline">
                     <v-btn
                         :loading="isLoading"

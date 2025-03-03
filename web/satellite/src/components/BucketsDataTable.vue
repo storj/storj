@@ -2,218 +2,216 @@
 // See LICENSE for copying information.
 
 <template>
-    <v-card class="pa-4">
-        <v-text-field
-            v-model="search"
-            label="Search"
-            :prepend-inner-icon="Search"
-            single-line
-            variant="solo-filled"
-            flat
-            hide-details
-            clearable
-            density="comfortable"
-            xl11 :maxlength="MAX_SEARCH_VALUE_LENGTH"
-            class="mb-4"
-        />
+    <v-text-field
+        v-model="search"
+        label="Search"
+        :prepend-inner-icon="Search"
+        single-line
+        variant="solo-filled"
+        flat
+        hide-details
+        clearable
+        density="comfortable"
+        xl11 :maxlength="MAX_SEARCH_VALUE_LENGTH"
+        class="mb-5"
+    />
 
-        <v-data-table-server
-            :sort-by="sortBy"
-            :headers="headers"
-            :items="displayedItems"
-            :search="search"
-            :loading="areBucketsFetching"
-            :items-length="page.totalCount"
-            items-per-page-text="Buckets per page"
-            :items-per-page-options="tableSizeOptions(page.totalCount)"
-            no-data-text="No buckets found"
-            class="border"
-            hover
-            @update:items-per-page="onUpdateLimit"
-            @update:page="onUpdatePage"
-            @update:sort-by="onUpdateSort"
-        >
-            <template #item.name="{ item }">
-                <v-btn
-                    class="rounded-lg w-100 px-1 ml-n1 justify-start"
-                    variant="text"
-                    height="40"
-                    color="default"
-                    :disabled="bucketsBeingDeleted.has(item.name)"
-                    @click="openBucket(item.name)"
-                >
-                    <template #default>
-                        <img class="mr-3" src="@/assets/icon-bucket-tonal.svg" alt="Bucket">
-                        <div class="max-width">
-                            <p class="font-weight-bold text-lowercase text-truncate">{{ item.name }}</p>
-                        </div>
-                    </template>
-                </v-btn>
-            </template>
-            <template #item.storage="{ item }">
-                <span>
-                    {{ Size.toBase10String(item.storage * Memory.GB) }}
-                </span>
-            </template>
-            <template #item.egress="{ item }">
-                <span>
-                    {{ item.egress.toFixed(2) + 'GB' }}
-                </span>
-            </template>
-            <template #item.objectCount="{ item }">
-                <span>
-                    {{ item.objectCount.toLocaleString() }}
-                </span>
-            </template>
-            <template #item.segmentCount="{ item }">
-                <span>
-                    {{ item.segmentCount.toLocaleString() }}
-                </span>
-            </template>
-            <template #item.since="{ item }">
-                <span class="text-no-wrap">
-                    {{ Time.formattedDate(item.since) }}
-                </span>
-            </template>
-            <template #item.location="{ item }">
-                <div class="text-no-wrap">
-                    <v-icon size="28" class="mr-1 pa-1 rounded-lg border">
-                        <component :is="item.location === 'global' ? Earth : LandPlot" :size="18" />
-                    </v-icon>
-                    <v-chip variant="tonal" :color="item.location === 'global' ? 'success' : 'primary'" size="small" class="text-capitalize">
-                        {{ item.location || `unknown(${item.defaultPlacement})` }}
-                    </v-chip>
-                </div>
-            </template>
-            <template #item.versioning="{ item }">
-                <div class="text-no-wrap">
-                    <v-tooltip location="top" :text="getVersioningInfo(item.versioning)">
-                        <template #activator="{ props }">
-                            <v-icon v-bind="props" size="28" :icon="getVersioningIcon(item.versioning)" class="mr-1 pa-1 rounded-lg border" />
-                        </template>
-                    </v-tooltip>
-                    <v-chip variant="tonal" :color="getVersioningChipColor(item.versioning)" size="small">
-                        {{ item.versioning }}
-                    </v-chip>
-                </div>
-            </template>
-            <template #item.objectLockEnabled="{ item }">
-                <div class="text-no-wrap">
-                    <v-tooltip location="top" :text="getObjectLockInfo(item)">
-                        <template #activator="{ props }">
-                            <v-icon v-bind="props" size="28" :icon="item.objectLockEnabled ? LockKeyhole : LockKeyholeOpen" class="mr-1 pa-1 rounded-lg border" />
-                        </template>
-                    </v-tooltip>
-                    <v-chip variant="tonal" :color="item.objectLockEnabled ? 'success' : 'default'" size="small">
-                        {{ item.objectLockEnabled ? 'Enabled' : 'Disabled' }}
-                    </v-chip>
-                </div>
-            </template>
-            <template #item.actions="{ item }">
-                <v-tooltip v-if="bucketsBeingDeleted.has(item.name)" location="top" text="Deleting bucket">
+    <v-data-table-server
+        :sort-by="sortBy"
+        :headers="headers"
+        :items="displayedItems"
+        :search="search"
+        :loading="areBucketsFetching"
+        :items-length="page.totalCount"
+        items-per-page-text="Buckets per page"
+        :items-per-page-options="tableSizeOptions(page.totalCount)"
+        no-data-text="No buckets found"
+        class="border"
+        hover
+        @update:items-per-page="onUpdateLimit"
+        @update:page="onUpdatePage"
+        @update:sort-by="onUpdateSort"
+    >
+        <template #item.name="{ item }">
+            <v-btn
+                class="rounded-lg w-100 pl-1 pr-3 ml-n1 justify-start"
+                variant="text"
+                height="40"
+                color="default"
+                :disabled="bucketsBeingDeleted.has(item.name)"
+                @click="openBucket(item.name)"
+            >
+                <template #default>
+                    <img class="mr-3" src="@/assets/icon-bucket-tonal.svg" alt="Bucket">
+                    <div class="max-width">
+                        <p class="font-weight-bold text-lowercase text-truncate">{{ item.name }}</p>
+                    </div>
+                </template>
+            </v-btn>
+        </template>
+        <template #item.storage="{ item }">
+            <span>
+                {{ Size.toBase10String(item.storage * Memory.GB) }}
+            </span>
+        </template>
+        <template #item.egress="{ item }">
+            <span>
+                {{ item.egress.toFixed(2) + 'GB' }}
+            </span>
+        </template>
+        <template #item.objectCount="{ item }">
+            <span>
+                {{ item.objectCount.toLocaleString() }}
+            </span>
+        </template>
+        <template #item.segmentCount="{ item }">
+            <span>
+                {{ item.segmentCount.toLocaleString() }}
+            </span>
+        </template>
+        <template #item.since="{ item }">
+            <span class="text-no-wrap">
+                {{ Time.formattedDate(item.since) }}
+            </span>
+        </template>
+        <template #item.location="{ item }">
+            <div class="text-no-wrap">
+                <v-icon size="28" class="mr-1 pa-1 rounded-lg border">
+                    <component :is="item.location === 'global' ? Earth : LandPlot" :size="18" />
+                </v-icon>
+                <v-chip variant="tonal" :color="item.location === 'global' ? 'success' : 'primary'" size="small" class="text-capitalize">
+                    {{ item.location || `unknown(${item.defaultPlacement})` }}
+                </v-chip>
+            </div>
+        </template>
+        <template #item.versioning="{ item }">
+            <div class="text-no-wrap">
+                <v-tooltip location="top" :text="getVersioningInfo(item.versioning)">
                     <template #activator="{ props }">
-                        <v-progress-circular width="2" size="22" color="error" indeterminate v-bind="props" />
+                        <v-icon v-bind="props" size="28" :icon="getVersioningIcon(item.versioning)" class="mr-1 pa-1 rounded-lg border" />
                     </template>
                 </v-tooltip>
-                <v-menu v-else location="bottom end" transition="scale-transition">
-                    <template #activator="{ props: activatorProps }">
-                        <v-btn
-                            title="Bucket Actions"
-                            :icon="Ellipsis"
-                            color="default"
-                            variant="outlined"
-                            size="small"
-                            rounded="md"
-                            density="comfortable"
-                            v-bind="activatorProps"
-                        />
+                <v-chip variant="tonal" :color="getVersioningChipColor(item.versioning)" size="small">
+                    {{ item.versioning }}
+                </v-chip>
+            </div>
+        </template>
+        <template #item.objectLockEnabled="{ item }">
+            <div class="text-no-wrap">
+                <v-tooltip location="top" :text="getObjectLockInfo(item)">
+                    <template #activator="{ props }">
+                        <v-icon v-bind="props" size="28" :icon="item.objectLockEnabled ? LockKeyhole : LockKeyholeOpen" class="mr-1 pa-1 rounded-lg border" />
                     </template>
-                    <v-list class="pa-1">
+                </v-tooltip>
+                <v-chip variant="tonal" :color="item.objectLockEnabled ? 'success' : 'default'" size="small">
+                    {{ item.objectLockEnabled ? 'Enabled' : 'Disabled' }}
+                </v-chip>
+            </div>
+        </template>
+        <template #item.actions="{ item }">
+            <v-tooltip v-if="bucketsBeingDeleted.has(item.name)" location="top" text="Deleting bucket">
+                <template #activator="{ props }">
+                    <v-progress-circular width="2" size="22" color="error" indeterminate v-bind="props" />
+                </template>
+            </v-tooltip>
+            <v-menu v-else location="bottom end" transition="scale-transition">
+                <template #activator="{ props: activatorProps }">
+                    <v-btn
+                        title="Bucket Actions"
+                        :icon="Ellipsis"
+                        color="default"
+                        variant="outlined"
+                        size="small"
+                        rounded="md"
+                        density="comfortable"
+                        v-bind="activatorProps"
+                    />
+                </template>
+                <v-list class="pa-1">
+                    <v-list-item
+                        density="comfortable"
+                        link
+                        @click="openBucket(item.name)"
+                    >
+                        <template #prepend>
+                            <component :is="ArrowRight" :size="18" />
+                        </template>
+                        <v-list-item-title
+                            class="ml-3 text-body-2 font-weight-medium"
+                        >
+                            Open Bucket
+                        </v-list-item-title>
+                    </v-list-item>
+                    <div>
                         <v-list-item
+                            v-if="versioningUIEnabled && item.versioning !== Versioning.NotSupported"
                             density="comfortable"
                             link
-                            @click="openBucket(item.name)"
+                            :disabled="item.versioning === Versioning.Enabled && item.objectLockEnabled"
+                            @click="() => onToggleVersioning(item)"
                         >
                             <template #prepend>
-                                <component :is="ArrowRight" :size="18" />
-                            </template>
-                            <v-list-item-title
-                                class="ml-3 text-body-2 font-weight-medium"
-                            >
-                                Open Bucket
-                            </v-list-item-title>
-                        </v-list-item>
-                        <div>
-                            <v-list-item
-                                v-if="versioningUIEnabled && item.versioning !== Versioning.NotSupported"
-                                density="comfortable"
-                                link
-                                :disabled="item.versioning === Versioning.Enabled && item.objectLockEnabled"
-                                @click="() => onToggleVersioning(item)"
-                            >
-                                <template #prepend>
-                                    <component :is="History" v-if="item.versioning !== Versioning.Enabled" :size="18" />
-                                    <component :is="CirclePause" v-else :size="18" />
-                                </template>
-                                <v-list-item-title class="ml-3">
-                                    {{ item.versioning !== Versioning.Enabled ? 'Enable Versioning' : 'Suspend Versioning' }}
-                                </v-list-item-title>
-                            </v-list-item>
-                            <v-tooltip
-                                v-if="item.versioning === Versioning.Enabled && item.objectLockEnabled"
-                                activator="parent"
-                                location="left"
-                                max-width="300"
-                            >
-                                Versioning cannot be suspended on a bucket with object lock enabled
-                            </v-tooltip>
-                        </div>
-                        <v-list-item v-if="showLockActionItem(item)" link @click="() => showSetBucketObjectLockDialog(item.name)">
-                            <template #prepend>
-                                <component :is="Lock" :size="18" />
+                                <component :is="History" v-if="item.versioning !== Versioning.Enabled" :size="18" />
+                                <component :is="CirclePause" v-else :size="18" />
                             </template>
                             <v-list-item-title class="ml-3">
-                                {{ item.objectLockEnabled ? 'Lock Settings' : 'Enable Lock' }}
+                                {{ item.versioning !== Versioning.Enabled ? 'Enable Versioning' : 'Suspend Versioning' }}
                             </v-list-item-title>
                         </v-list-item>
-                        <v-list-item link @click="() => showShareBucketDialog(item.name)">
-                            <template #prepend>
-                                <component :is="Share" :size="18" />
-                            </template>
-                            <v-list-item-title class="ml-3">
-                                Share Bucket
-                            </v-list-item-title>
-                        </v-list-item>
-                        <v-list-item v-if="downloadPrefixEnabled" link @click="() => onDownloadBucket(item.name)">
-                            <template #prepend>
-                                <component :is="DownloadIcon" :size="18" />
-                            </template>
-                            <v-list-item-title class="ml-3">
-                                Download Bucket
-                            </v-list-item-title>
-                        </v-list-item>
-                        <v-list-item link @click="() => showBucketDetailsModal(item.name)">
-                            <template #prepend>
-                                <component :is="ReceiptText" :size="18" />
-                            </template>
-                            <v-list-item-title class="ml-3">
-                                Bucket Details
-                            </v-list-item-title>
-                        </v-list-item>
-                        <v-divider class="my-1" />
-                        <v-list-item class="text-error text-body-2" link @click="() => showDeleteBucketDialog(item.name)">
-                            <template #prepend>
-                                <component :is="Trash2" :size="18" />
-                            </template>
-                            <v-list-item-title class="ml-3">
-                                Delete Bucket
-                            </v-list-item-title>
-                        </v-list-item>
-                    </v-list>
-                </v-menu>
-            </template>
-        </v-data-table-server>
-    </v-card>
+                        <v-tooltip
+                            v-if="item.versioning === Versioning.Enabled && item.objectLockEnabled"
+                            activator="parent"
+                            location="left"
+                            max-width="300"
+                        >
+                            Versioning cannot be suspended on a bucket with object lock enabled
+                        </v-tooltip>
+                    </div>
+                    <v-list-item v-if="showLockActionItem(item)" link @click="() => showSetBucketObjectLockDialog(item.name)">
+                        <template #prepend>
+                            <component :is="Lock" :size="18" />
+                        </template>
+                        <v-list-item-title class="ml-3">
+                            {{ item.objectLockEnabled ? 'Lock Settings' : 'Enable Lock' }}
+                        </v-list-item-title>
+                    </v-list-item>
+                    <v-list-item link @click="() => showShareBucketDialog(item.name)">
+                        <template #prepend>
+                            <component :is="Share" :size="18" />
+                        </template>
+                        <v-list-item-title class="ml-3">
+                            Share Bucket
+                        </v-list-item-title>
+                    </v-list-item>
+                    <v-list-item v-if="downloadPrefixEnabled" link @click="() => onDownloadBucket(item.name)">
+                        <template #prepend>
+                            <component :is="DownloadIcon" :size="18" />
+                        </template>
+                        <v-list-item-title class="ml-3">
+                            Download Bucket
+                        </v-list-item-title>
+                    </v-list-item>
+                    <v-list-item link @click="() => showBucketDetailsModal(item.name)">
+                        <template #prepend>
+                            <component :is="ReceiptText" :size="18" />
+                        </template>
+                        <v-list-item-title class="ml-3">
+                            Bucket Details
+                        </v-list-item-title>
+                    </v-list-item>
+                    <v-divider class="my-1" />
+                    <v-list-item class="text-error text-body-2" link @click="() => showDeleteBucketDialog(item.name)">
+                        <template #prepend>
+                            <component :is="Trash2" :size="18" />
+                        </template>
+                        <v-list-item-title class="ml-3">
+                            Delete Bucket
+                        </v-list-item-title>
+                    </v-list-item>
+                </v-list>
+            </v-menu>
+        </template>
+    </v-data-table-server>
     <delete-bucket-dialog v-model="isDeleteBucketDialogShown" :bucket-name="bucketToDelete" />
     <enter-bucket-passphrase-dialog v-model="isBucketPassphraseDialogOpen" @passphrase-entered="passphraseDialogCallback" />
     <share-dialog v-model="isShareBucketDialogShown" :bucket-name="shareBucketName" />

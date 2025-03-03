@@ -17,7 +17,7 @@
                         height="40"
                         rounded="lg"
                     >
-                        <component :is="Box" :size="18" />
+                        <component :is="iconComponent" :size="18" />
                     </v-sheet>
                 </template>
                 <v-card-title class="font-weight-bold">Project {{ field }}</v-card-title>
@@ -86,7 +86,7 @@ import {
     VTextField,
     VSheet,
 } from 'vuetify/components';
-import { Box } from 'lucide-vue-next';
+import { Box, Pencil, NotebookPen } from 'lucide-vue-next';
 
 import { useLoading } from '@/composables/useLoading';
 import { AnalyticsErrorEventSource, AnalyticsEvent } from '@/utils/constants/analyticsEventNames';
@@ -163,4 +163,12 @@ watch(() => model.value, shown => {
     const project = projectsStore.state.selectedProject;
     input.value = props.field === FieldToChange.Name ? project.name : project.description;
 }, { immediate: true });
+
+const iconComponent = computed(() => {
+    if (props.field === FieldToChange.Name) {
+        return Pencil;
+    } else {
+        return NotebookPen;
+    }
+});
 </script>

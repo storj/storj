@@ -20,7 +20,7 @@
                         <icon-card />
                     </v-sheet>
                 </template>
-                <v-card-title class="font-weight-bold">Edit Default Card</v-card-title>
+                <v-card-title class="font-weight-bold">Set Default Card</v-card-title>
                 <template #append>
                     <v-btn
                         icon="$close"

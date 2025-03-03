@@ -53,7 +53,7 @@
                     </v-col>
                     <v-col v-if="(card.isDefault && moreThanOneCard) || !card.isDefault">
                         <v-btn v-if="card.isDefault && moreThanOneCard" color="primary" variant="flat" block :loading="isLoading" @click="onEditDefault">
-                            Edit Default Card
+                            Set Default Card
                         </v-btn>
                         <v-btn v-if="!card.isDefault" color="error" variant="flat" block :loading="isLoading" @click="onDelete">
                             Remove

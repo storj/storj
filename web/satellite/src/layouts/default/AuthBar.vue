@@ -4,7 +4,7 @@
 <template>
     <v-app-bar :elevation="0" border="0" class="bg-background no-shadow">
         <template #prepend>
-            <div class="d-flex flex-row align-center ml-2 mr-1 mt-n1">
+            <div class="d-flex flex-row align-center ml-2 ml-sm-3 mr-1 mt-n1">
                 <img
                     v-if="themeStore.globalTheme?.dark"
                     src="@/assets/logo-dark.svg"
@@ -40,8 +40,8 @@
                         v-bind="activatorProps"
                         variant="outlined"
                         color="default"
-                        size="small"
                         rounded="lg"
+                        class="mr-2"
                         :icon="activeThemeIcon"
                     />
                 </template>

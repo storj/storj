@@ -161,7 +161,7 @@ const steps = computed<StepData[]>(() => {
             return {
                 ...data,
                 title: 'Upload Files',
-                description: 'You are ready to upload files in your bucket, and share with the world.',
+                description: 'You are ready to upload files in the bucket you created.',
                 buttonTxt: 'Go to Upload',
                 color: uploadStepInfo.value.color,
                 variant: uploadStepInfo.value.variant as VBtn['$props']['variant'],

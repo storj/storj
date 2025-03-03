@@ -40,7 +40,6 @@
                         v-bind="activatorProps"
                         variant="outlined"
                         color="default"
-                        size="small"
                         rounded="lg"
                         :icon="activeThemeIcon"
                     />
@@ -97,7 +96,7 @@
                         v-bind="activatorProps"
                         variant="outlined"
                         color="default"
-                        class="ml-2 ml-sm-3 mr-sm-1 font-weight-medium"
+                        class="ml-2 ml-sm-3 mr-sm-2 font-weight-medium"
                     >
                         <template #append>
                             <img src="@/assets/icon-dropdown.svg" alt="Account Dropdown">

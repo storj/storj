@@ -49,7 +49,7 @@
                 variant="text"
                 color="default"
                 size="small"
-                class="mr-1 text-caption"
+                class="text-caption"
                 density="comfortable"
                 title="More Actions"
                 icon
