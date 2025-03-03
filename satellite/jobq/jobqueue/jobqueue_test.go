@@ -45,7 +45,7 @@ func TestQueue(t *testing.T) {
 	for i := range jobs {
 		jobs[i].ID.StreamID = mustUUID()
 		jobs[i].ID.Position = rand.Uint64()
-		jobs[i].Priority = float64(i)
+		jobs[i].Health = 1.0 / float64(i)
 		jobs[i].InsertedAt = uint64(time.Now().Unix())
 		jobs[i].Placement = 42
 	}
@@ -57,15 +57,15 @@ func TestQueue(t *testing.T) {
 	// update one in the middle
 	timeIncrement += time.Second
 	const specialStream = 25
-	const specialPriority = 500.0
+	const specialHealth = -1.0
 	specialJob := jobs[specialStream]
-	specialJob.Priority = specialPriority
+	specialJob.Health = specialHealth
 	wasNew := queue.Insert(specialJob)
 	require.False(t, wasNew)
 
 	// see if that one got sorted to first
 	gotJob := queue.Pop()
-	require.Equal(t, specialPriority, gotJob.Priority)
+	require.Equal(t, specialHealth, gotJob.Health)
 	require.Equal(t, specialJob.ID, gotJob.ID)
 	require.Greater(t, gotJob.UpdatedAt, gotJob.InsertedAt)
 	specialJob.UpdatedAt = gotJob.UpdatedAt
@@ -81,14 +81,14 @@ func TestQueue(t *testing.T) {
 		require.NotZero(t, gotJob.ID.StreamID)
 		require.Equal(t, jobs[i].ID.StreamID, gotJob.ID.StreamID, i)
 		require.Equal(t, jobs[i].ID.Position, gotJob.ID.Position, i)
-		require.Equal(t, float64(i), jobs[i].Priority, i)
+		require.Equal(t, 1.0/float64(i), jobs[i].Health, i)
 	}
 
 	// pop an empty queue
 	gotJob = queue.Pop()
 	require.Zero(t, gotJob.ID.StreamID)
 	require.Zero(t, gotJob.ID.Position)
-	require.Zero(t, gotJob.Priority)
+	require.Zero(t, gotJob.Health)
 }
 
 func TestQueueOfOneElement(t *testing.T) {
@@ -97,7 +97,7 @@ func TestQueueOfOneElement(t *testing.T) {
 
 	job := jobq.RepairJob{
 		ID:         jobq.SegmentIdentifier{StreamID: mustUUID(), Position: rand.Uint64()},
-		Priority:   1.0,
+		Health:     1.0,
 		InsertedAt: uint64(time.Now().Unix()),
 		Placement:  42,
 	}
@@ -107,12 +107,12 @@ func TestQueueOfOneElement(t *testing.T) {
 	gotJob := queue.Pop()
 	require.Equal(t, job.ID.StreamID, gotJob.ID.StreamID)
 	require.Equal(t, job.ID.Position, gotJob.ID.Position)
-	require.Equal(t, job.Priority, gotJob.Priority)
+	require.Equal(t, job.Health, gotJob.Health)
 
 	gotJob = queue.Pop()
 	require.Zero(t, gotJob.ID.StreamID)
 	require.Zero(t, gotJob.ID.Position)
-	require.Zero(t, gotJob.Priority)
+	require.Zero(t, gotJob.Health)
 }
 
 func TestQueueClean(t *testing.T) {
@@ -134,7 +134,7 @@ func TestQueueClean(t *testing.T) {
 	for i := range jobs {
 		jobs[i].ID.StreamID = mustUUID()
 		jobs[i].ID.Position = rand.Uint64()
-		jobs[i].Priority = rand.Float64()
+		jobs[i].Health = rand.Float64()
 		jobs[i].Placement = 42
 		// let's have about half of them be in retry
 		if rand.Intn(2) == 0 {
@@ -174,7 +174,7 @@ func TestQueueClean(t *testing.T) {
 		}
 	}
 	sort.Slice(expectedJobs, func(i, j int) bool {
-		return expectedJobs[i].Priority > expectedJobs[j].Priority
+		return expectedJobs[i].Health < expectedJobs[j].Health
 	})
 	sort.Slice(jobsNeedingRetry, func(i, j int) bool {
 		return jobsNeedingRetry[i].LastAttemptedAt < jobsNeedingRetry[j].LastAttemptedAt
@@ -208,7 +208,7 @@ func TestQueueClean(t *testing.T) {
 	// because it's a pain to manage the clock finely enough to get them to come
 	// out only one at a time (in which case they would be sorted by
 	// LastAttemptedAt). Instead, if multiple jobs get moved to the repair queue
-	// at the same time, they'll be sorted by priority. For now we'll just pop
+	// at the same time, they'll be sorted by health. For now we'll just pop
 	// them all and make sure they're all there. We'll do a better test of
 	// funnel timing mechanics in a jobqueue_sync_test.go.
 	gotJobs := make([]jobq.RepairJob, 0, len(jobsNeedingRetry))
@@ -261,7 +261,7 @@ func TestQueueTrim(t *testing.T) {
 	for i := range jobs {
 		jobs[i].ID.StreamID = mustUUID()
 		jobs[i].ID.Position = rand.Uint64()
-		jobs[i].Priority = float64(i) / 100.0 // 0.00, 0.01, 0.02, ... 0.99
+		jobs[i].Health = float64(i) / 100.0 // 0.00, 0.01, 0.02, ... 0.99
 		jobs[i].Placement = 42
 		// let's have about half of them be in retry
 		if rand.Intn(2) == 0 {
@@ -281,7 +281,7 @@ func TestQueueTrim(t *testing.T) {
 	require.NotZero(t, initialRepair)
 	require.NotZero(t, initialRetry)
 
-	// We'll trim all jobs with priority < 0.5
+	// We'll trim all jobs with health > 0.5
 	const trimThreshold = 0.5
 	removed := queue.Trim(trimThreshold)
 
@@ -294,7 +294,7 @@ func TestQueueTrim(t *testing.T) {
 	// Make sure that the sum of jobs after trimming plus the removed jobs equals the initial total
 	require.Equal(t, int64(initialRepair+initialRetry), repairLen+retryLen+int64(removed))
 
-	// Verify all remaining jobs in repair queue have priority >= trimThreshold
+	// Verify all remaining jobs in repair queue have health <= trimThreshold
 	var remainingJobs []jobq.RepairJob
 	for i := 0; i < int(repairLen); i++ {
 		job := queue.Pop()
@@ -302,7 +302,7 @@ func TestQueueTrim(t *testing.T) {
 			break
 		}
 		remainingJobs = append(remainingJobs, job)
-		require.GreaterOrEqual(t, job.Priority, trimThreshold)
+		require.LessOrEqual(t, job.Health, trimThreshold)
 	}
 
 	// Move time forward to get jobs from retry queue
@@ -320,16 +320,16 @@ func TestQueueTrim(t *testing.T) {
 			break
 		}
 		remainingJobs = append(remainingJobs, job)
-		require.GreaterOrEqual(t, job.Priority, trimThreshold)
+		require.LessOrEqual(t, job.Health, trimThreshold)
 	}
 
 	// Verify jobs were removed (exact count can vary due to random placement in retry queue)
 	require.Greater(t, removed, 0, "Should have removed some jobs")
 	require.GreaterOrEqual(t, len(remainingJobs), 0, "Should have some jobs remaining")
 
-	// Verify only jobs with priority >= threshold are left
+	// Verify only jobs with health <= threshold are left
 	for _, job := range remainingJobs {
-		require.GreaterOrEqual(t, job.Priority, trimThreshold)
+		require.LessOrEqual(t, job.Health, trimThreshold)
 	}
 }
 
@@ -344,7 +344,7 @@ func TestMemoryManagement(t *testing.T) {
 	for i := range jobs {
 		jobs[i] = jobq.RepairJob{
 			ID:         jobq.SegmentIdentifier{StreamID: mustUUID(), Position: rand.Uint64()},
-			Priority:   rand.Float64(),
+			Health:     rand.Float64(),
 			InsertedAt: uint64(time.Now().Unix()),
 			Placement:  42,
 		}
@@ -355,7 +355,7 @@ func TestMemoryManagement(t *testing.T) {
 	// sort the inserted jobs and make sure they come out intact and in the
 	// right order (ensuring memory was not overwritten or otherwise corrupted).
 	sort.Slice(jobs, func(i, j int) bool {
-		return jobs[i].Priority > jobs[j].Priority
+		return jobs[i].Health < jobs[j].Health
 	})
 	for i := range jobs {
 		gotJob := queue.Pop()
@@ -372,7 +372,7 @@ func BenchmarkQueue(b *testing.B) {
 	jobs := make([]jobq.RepairJob, b.N)
 	for i := range jobs {
 		jobs[i].ID.StreamID = mustUUID()
-		jobs[i].Priority = rand.Float64()
+		jobs[i].Health = rand.Float64()
 	}
 	// insert initially
 	for i := 0; i < b.N; i++ {
@@ -381,7 +381,7 @@ func BenchmarkQueue(b *testing.B) {
 	}
 	// update all to different values
 	for i := 0; i < b.N; i++ {
-		jobs[i].Priority = rand.Float64()
+		jobs[i].Health = rand.Float64()
 		wasNew := queue.Insert(jobs[i])
 		require.False(b, wasNew)
 	}
@@ -401,7 +401,7 @@ func BenchmarkQueueInsertionOnly(b *testing.B) {
 	jobs := make([]jobq.RepairJob, b.N)
 	for i := range jobs {
 		jobs[i].ID.StreamID = mustUUID()
-		jobs[i].Priority = rand.Float64()
+		jobs[i].Health = rand.Float64()
 	}
 	for i := 0; i < b.N; i++ {
 		queue.Insert(jobs[i])
@@ -414,14 +414,14 @@ func BenchmarkQueueUpdateOnly(b *testing.B) {
 	jobs := make([]jobq.RepairJob, b.N)
 	for i := range jobs {
 		jobs[i].ID.StreamID = mustUUID()
-		jobs[i].Priority = rand.Float64()
+		jobs[i].Health = rand.Float64()
 	}
 	for i := 0; i < b.N; i++ {
 		queue.Insert(jobs[i])
 	}
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		jobs[i].Priority = rand.Float64()
+		jobs[i].Health = rand.Float64()
 		queue.Insert(jobs[i])
 	}
 }
@@ -432,7 +432,7 @@ func BenchmarkQueuePopOnly(b *testing.B) {
 	jobs := make([]jobq.RepairJob, b.N)
 	for i := range jobs {
 		jobs[i].ID.StreamID = mustUUID()
-		jobs[i].Priority = rand.Float64()
+		jobs[i].Health = rand.Float64()
 	}
 	for i := 0; i < b.N; i++ {
 		queue.Insert(jobs[i])

@@ -27,7 +27,7 @@ service JobQueue {
 message RepairJob {
     bytes stream_id = 1;
     uint64 position = 2;
-    double priority = 3;
+    double health = 3;
     google.protobuf.Timestamp inserted_at = 4 [(gogoproto.stdtime) = true, (gogoproto.nullable) = true];
     google.protobuf.Timestamp last_attempted_at = 5 [(gogoproto.stdtime) = true, (gogoproto.nullable) = true];
     int32 num_attempts = 6;
@@ -118,7 +118,7 @@ message JobQueueCleanResponse {
 
 message JobQueueTrimRequest {
     int32 placement = 1;
-    double priority_less_than = 2;
+    double health_greater_than = 2;
 }
 
 message JobQueueTrimResponse {

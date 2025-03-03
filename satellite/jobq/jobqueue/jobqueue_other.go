@@ -26,9 +26,9 @@ func memFree(_ []byte) error {
 }
 
 func markUnused(mem []byte, index int, highWater, _ int) (newHighWater int, err error) {
-	// Zero out the bytes of the segmentPriority backing array at the given
-	// index (job index, not byte index). Since we do this after every Pop, this
-	// should result in the array containing all zero bytes after the end of the
+	// Zero out the bytes of the memory backing array at the given index (job
+	// index, not byte index). Since we do this after every Pop, this should
+	// result in the array containing all zero bytes after the end of the
 	// current slice.
 	//
 	// This may allow the OS to unmap, efficiently compress, or efficiently

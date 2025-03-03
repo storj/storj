@@ -151,10 +151,10 @@ func (jq *jobQueue) cleanQueue(updatedBefore time.Time) (removed int) {
 	return removed
 }
 
-func (jq *jobQueue) trimQueue(priorityLessThan float64) (removed int) {
+func (jq *jobQueue) trimQueue(healthGreaterThan float64) (removed int) {
 	removed = 0
 	for i := 0; i < len(jq.priorityHeap); {
-		if jq.priorityHeap[i].Priority < priorityLessThan {
+		if jq.priorityHeap[i].Health > healthGreaterThan {
 			// remove item by swapping it with the end and shortening the slice
 			if i != len(jq.priorityHeap)-1 {
 				jq.priorityHeap[i], jq.priorityHeap[len(jq.priorityHeap)-1] = jq.priorityHeap[len(jq.priorityHeap)-1], jq.priorityHeap[i]
@@ -178,9 +178,7 @@ type repairPriorityQueue struct {
 }
 
 func (rpq *repairPriorityQueue) Less(i, j int) bool {
-	// We want this to be a max-heap (highest priority popped first), so we use
-	// greater-than here instead of less.
-	return rpq.priorityHeap[i].Priority > rpq.priorityHeap[j].Priority
+	return rpq.priorityHeap[i].Health < rpq.priorityHeap[j].Health
 }
 
 var _ heap.Interface = &repairPriorityQueue{}
@@ -218,8 +216,8 @@ var _ heap.Interface = &repairRetryQueue{}
 
 // Queue is a priority queue of repair jobs paired with a priority queue of jobs
 // to be retried once they are eligible. A secondary index on streamID+position
-// is kept to allow updates to the priority of jobs already in one of the
-// queues.
+// is kept to allow updates to the health (priority) of jobs already in one of
+// the queues.
 type Queue struct {
 	lock sync.Mutex
 	log  *zap.Logger
@@ -256,7 +254,7 @@ func NewQueue(log *zap.Logger, retryAfter time.Duration, initialAlloc, memReleas
 	}, nil
 }
 
-// Insert adds a job to the queue with the given priority. If the segment
+// Insert adds a job to the queue with the given health. If the segment
 // is already in the repair queue or the retry queue, the job record is
 // updated and left in the queue (with its position updated as necessary)
 //
@@ -286,14 +284,14 @@ func (q *Queue) Insert(job jobq.RepairJob) (wasNew bool) {
 		}
 		fixNeeded := false
 		oldJob := targetQueue.priorityHeap[index]
-		if oldJob.Priority != job.Priority {
+		if oldJob.Health != job.Health {
 			fixNeeded = true
 		}
 		job.NumAttempts += oldJob.NumAttempts
 		job.InsertedAt = oldJob.InsertedAt
 		job.UpdatedAt = uint64(q.Now().Unix())
 		targetQueue.priorityHeap[index] = job
-		// only need to fix the position in the heap if the priority changed
+		// only need to fix the position in the heap if the health changed
 		if fixNeeded {
 			heap.Fix(targetHeap, index)
 		}
@@ -314,7 +312,7 @@ func (q *Queue) Insert(job jobq.RepairJob) (wasNew bool) {
 	return true
 }
 
-// Pop removes and returns the segment with the highest priority from the repair
+// Pop removes and returns the segment with the lowest health from the repair
 // queue. If there are no segments in the queue, it returns a zero job.
 func (q *Queue) Pop() jobq.RepairJob {
 	q.lock.Lock()
@@ -332,7 +330,7 @@ func (q *Queue) Pop() jobq.RepairJob {
 	return item
 }
 
-// Peek returns the segment with the highest priority without removing it from
+// Peek returns the segment with the lowest health without removing it from
 // the queue. If there are no segments in the queue, it returns a zero UUID and
 // position.
 func (q *Queue) Peek() jobq.RepairJob {
@@ -346,9 +344,9 @@ func (q *Queue) Peek() jobq.RepairJob {
 	return q.pq.priorityHeap[0]
 }
 
-// PeekRetry returns the segment with the highest priority in the retry queue
-// without removing it from the queue. If there are no segments in the queue, it
-// returns a zero UUID and position.
+// PeekRetry returns the segment with the smallest LastUpdatedAt value in the
+// retry queue without removing it from the queue. If there are no segments in
+// the queue, it returns a zero UUID and position.
 func (q *Queue) PeekRetry() jobq.RepairJob {
 	q.lock.Lock()
 	defer q.lock.Unlock()
@@ -418,19 +416,19 @@ func (q *Queue) Clean(updatedBefore time.Time) (removed int) {
 	return removed
 }
 
-// Trim removes all items from the queues with priority less than the given value.
-// This is a relatively expensive operation at O(n). The queues for this placement
-// are left locked for the duration of the operation; all reads and writes to this
-// placement will block until this is complete.
+// Trim removes all items from the queues with health greater than the given
+// value. This is a relatively expensive operation at O(n). The queues for this
+// placement are left locked for the duration of the operation; all reads and
+// writes to this placement will block until this is complete.
 //
 // Returns the total number of items removed from the queues.
-func (q *Queue) Trim(priorityLessThan float64) (removed int) {
+func (q *Queue) Trim(healthGreaterThan float64) (removed int) {
 	q.lock.Lock()
 	defer q.lock.Unlock()
 
 	maps.Clear(q.indexByID)
-	removed += q.pq.trimQueue(priorityLessThan)
-	removed += q.rq.trimQueue(priorityLessThan)
+	removed += q.pq.trimQueue(healthGreaterThan)
+	removed += q.rq.trimQueue(healthGreaterThan)
 	heap.Init(&q.pq)
 	heap.Init(&q.rq)
 	for i, item := range q.pq.priorityHeap {
