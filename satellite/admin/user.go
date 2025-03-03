@@ -1091,24 +1091,6 @@ func (server *Server) deleteUser(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Delete memberships in foreign projects
-	members, err := server.db.Console().ProjectMembers().GetByMemberID(ctx, user.ID)
-	if err != nil {
-		sendJSONError(w, "unable to search for user project memberships",
-			err.Error(), http.StatusInternalServerError)
-		return
-	}
-	if len(members) > 0 {
-		for _, project := range members {
-			err := server.db.Console().ProjectMembers().Delete(ctx, user.ID, project.ProjectID)
-			if err != nil {
-				sendJSONError(w, "unable to delete user project membership",
-					err.Error(), http.StatusInternalServerError)
-				return
-			}
-		}
-	}
-
 	// ensure no unpaid invoices exist.
 	invoices, err := server.payments.Invoices().List(ctx, user.ID)
 	if err != nil {
