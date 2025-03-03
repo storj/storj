@@ -9,7 +9,6 @@ import (
 	"math/rand"
 	"strconv"
 	"strings"
-	"sync"
 	"testing"
 	"time"
 
@@ -22,10 +21,8 @@ import (
 	"storj.io/common/memory"
 	"storj.io/common/pb"
 	"storj.io/common/storj"
-	"storj.io/common/sync2"
 	"storj.io/common/testcontext"
 	"storj.io/common/testrand"
-	"storj.io/common/version"
 	"storj.io/storj/private/testplanet"
 	"storj.io/storj/satellite"
 	"storj.io/storj/satellite/nodeselection"
@@ -133,38 +130,13 @@ func addNodesToNodesTable(ctx context.Context, t *testing.T, db overlay.DB, coun
 	return ids
 }
 
-type mockdb struct {
-	mu        sync.Mutex
-	callCount int
-	reputable []*nodeselection.SelectedNode
-	new       []*nodeselection.SelectedNode
-}
-
-func (m *mockdb) SelectAllStorageNodesUpload(ctx context.Context, selectionCfg overlay.NodeSelectionConfig) (reputable, new []*nodeselection.SelectedNode, err error) {
-	m.mu.Lock()
-	defer m.mu.Unlock()
-	sync2.Sleep(ctx, 500*time.Millisecond)
-	m.callCount++
-
-	reputable = make([]*nodeselection.SelectedNode, len(m.reputable))
-	for i, n := range m.reputable {
-		reputable[i] = n.Clone()
-	}
-	new = make([]*nodeselection.SelectedNode, len(m.new))
-	for i, n := range m.new {
-		new[i] = n.Clone()
-	}
-
-	return reputable, new, nil
-}
-
 func TestRefreshConcurrent(t *testing.T) {
 	ctx := testcontext.New(t)
 	defer ctx.Cleanup()
 
 	// concurrent cache.Refresh with high staleness, where high staleness means the
 	// cache should only be refreshed the first time we call cache.Refresh
-	mockDB := mockdb{}
+	mockDB := overlay.Mockdb{}
 	cache, err := overlay.NewUploadSelectionCache(zap.NewNop(),
 		&mockDB,
 		highStaleness,
@@ -187,11 +159,11 @@ func TestRefreshConcurrent(t *testing.T) {
 	})
 	require.NoError(t, group.Wait())
 
-	require.Equal(t, 1, mockDB.callCount)
+	require.Equal(t, 1, mockDB.CallCount)
 
 	// concurrent cache.Refresh with low staleness, where low staleness
 	// means that the cache will refresh *every time* cache.Refresh is called
-	mockDB = mockdb{}
+	mockDB = overlay.Mockdb{}
 	cache, err = overlay.NewUploadSelectionCache(zap.NewNop(),
 		&mockDB,
 		lowStaleness,
@@ -210,7 +182,7 @@ func TestRefreshConcurrent(t *testing.T) {
 	err = group.Wait()
 	require.NoError(t, err)
 
-	require.True(t, 1 <= mockDB.callCount && mockDB.callCount <= 2, "calls %d", mockDB.callCount)
+	require.True(t, 1 <= mockDB.CallCount && mockDB.CallCount <= 2, "calls %d", mockDB.CallCount)
 }
 
 func TestSelectNodes(t *testing.T) {
@@ -398,9 +370,9 @@ func TestGetNodesConcurrent(t *testing.T) {
 
 	// concurrent GetNodes with high staleness, where high staleness means the
 	// cache should only be refreshed the first time we call cache.GetNodes
-	mockDB := mockdb{
-		reputable: reputableNodes,
-		new:       newNodes,
+	mockDB := overlay.Mockdb{
+		Reputable: reputableNodes,
+		New:       newNodes,
 	}
 	cache, err := overlay.NewUploadSelectionCache(zap.NewNop(),
 		&mockDB,
@@ -441,13 +413,13 @@ func TestGetNodesConcurrent(t *testing.T) {
 
 	require.NoError(t, group.Wait())
 	// expect only one call to the db via cache.GetNodes
-	require.Equal(t, 1, mockDB.callCount)
+	require.Equal(t, 1, mockDB.CallCount)
 
 	// concurrent get nodes with low staleness, where low staleness means that
 	// the cache will refresh each time cache.GetNodes is called
-	mockDB = mockdb{
-		reputable: reputableNodes,
-		new:       newNodes,
+	mockDB = overlay.Mockdb{
+		Reputable: reputableNodes,
+		New:       newNodes,
 	}
 	cache, err = overlay.NewUploadSelectionCache(zap.NewNop(),
 		&mockDB,
@@ -485,7 +457,7 @@ func TestGetNodesConcurrent(t *testing.T) {
 	err = group.Wait()
 	require.NoError(t, err)
 	// expect up to two calls to the db via cache.GetNodes
-	require.True(t, 1 <= mockDB.callCount && mockDB.callCount <= 2, "calls %d", mockDB.callCount)
+	require.True(t, 1 <= mockDB.CallCount && mockDB.CallCount <= 2, "calls %d", mockDB.CallCount)
 }
 
 func TestGetNodesDistinct(t *testing.T) {
@@ -531,9 +503,9 @@ func TestGetNodesDistinct(t *testing.T) {
 		LastIPPort: "127.0.2.8:8000",
 	}}
 
-	mockDB := mockdb{
-		reputable: reputableNodes,
-		new:       newNodes,
+	mockDB := overlay.Mockdb{
+		Reputable: reputableNodes,
+		New:       newNodes,
 	}
 
 	{
@@ -606,7 +578,7 @@ func TestGetNodesError(t *testing.T) {
 	ctx := testcontext.New(t)
 	defer ctx.Cleanup()
 
-	mockDB := mockdb{}
+	mockDB := overlay.Mockdb{}
 	cache, err := overlay.NewUploadSelectionCache(zap.NewNop(),
 		&mockDB,
 		highStaleness,
@@ -764,194 +736,4 @@ func generatedSelectedNodes(b *testing.B, nodeNo int) []*nodeselection.SelectedN
 		nodes[i] = &node
 	}
 	return nodes
-}
-
-// GetOnlineNodesForAuditRepair satisfies nodeevents.DB interface.
-func (m *mockdb) GetOnlineNodesForAuditRepair(ctx context.Context, nodeIDs []storj.NodeID, onlineWindow time.Duration) (map[storj.NodeID]*overlay.NodeReputation, error) {
-	panic("implement me")
-}
-
-// SelectAllStorageNodesDownload satisfies nodeevents.DB interface.
-func (m *mockdb) SelectAllStorageNodesDownload(ctx context.Context, onlineWindow time.Duration, asOf overlay.AsOfSystemTimeConfig) ([]*nodeselection.SelectedNode, error) {
-	panic("implement me")
-}
-
-// Get satisfies nodeevents.DB interface.
-func (m *mockdb) Get(ctx context.Context, nodeID storj.NodeID) (*overlay.NodeDossier, error) {
-	panic("implement me")
-}
-
-// GetActiveNodes satisfies nodeevents.DB interface.
-func (m *mockdb) GetActiveNodes(ctx context.Context, nodeIDs storj.NodeIDList, onlineWindow, asOfSystemInterval time.Duration) (_ []nodeselection.SelectedNode, err error) {
-	panic("implement me")
-}
-
-// GetParticipatingNodes satisfies nodeevents.DB interface.
-func (m *mockdb) GetParticipatingNodes(ctx context.Context, onlineWindow, asOfSystemInterval time.Duration) (_ []nodeselection.SelectedNode, err error) {
-	panic("implement me")
-}
-
-// KnownReliable satisfies nodeevents.DB interface.
-func (m *mockdb) KnownReliable(ctx context.Context, nodeIDs storj.NodeIDList, onlineWindow, asOfSystemInterval time.Duration) (online []nodeselection.SelectedNode, offline []nodeselection.SelectedNode, err error) {
-	panic("implement me")
-}
-
-// Reliable satisfies nodeevents.DB interface.
-func (m *mockdb) Reliable(ctx context.Context, onlineWindow, asOfSystemInterval time.Duration) (online []nodeselection.SelectedNode, offline []nodeselection.SelectedNode, err error) {
-	panic("implement me")
-}
-
-// UpdateReputation satisfies nodeevents.DB interface.
-func (m *mockdb) UpdateReputation(ctx context.Context, id storj.NodeID, request overlay.ReputationUpdate) error {
-	panic("implement me")
-}
-
-// UpdateNodeInfo satisfies nodeevents.DB interface.
-func (m *mockdb) UpdateNodeInfo(ctx context.Context, node storj.NodeID, nodeInfo *overlay.InfoResponse) (stats *overlay.NodeDossier, err error) {
-	panic("implement me")
-}
-
-// UpdateCheckIn satisfies nodeevents.DB interface.
-func (m *mockdb) UpdateCheckIn(ctx context.Context, node overlay.NodeCheckInInfo, timestamp time.Time, config overlay.NodeSelectionConfig) (err error) {
-	panic("implement me")
-}
-
-// SetNodeContained satisfies nodeevents.DB interface.
-func (m *mockdb) SetNodeContained(ctx context.Context, node storj.NodeID, contained bool) (err error) {
-	panic("implement me")
-}
-
-// SetAllContainedNodes satisfies nodeevents.DB interface.
-func (m *mockdb) SetAllContainedNodes(ctx context.Context, containedNodes []storj.NodeID) (err error) {
-	panic("implement me")
-}
-
-// AllPieceCounts satisfies nodeevents.DB interface.
-func (m *mockdb) ActiveNodesPieceCounts(ctx context.Context) (pieceCounts map[storj.NodeID]int64, err error) {
-	panic("implement me")
-}
-
-// UpdatePieceCounts satisfies nodeevents.DB interface.
-func (m *mockdb) UpdatePieceCounts(ctx context.Context, pieceCounts map[storj.NodeID]int64) (err error) {
-	panic("implement me")
-}
-
-// UpdateExitStatus satisfies nodeevents.DB interface.
-func (m *mockdb) UpdateExitStatus(ctx context.Context, request *overlay.ExitStatusRequest) (_ *overlay.NodeDossier, err error) {
-	panic("implement me")
-}
-
-// GetExitingNodes satisfies nodeevents.DB interface.
-func (m *mockdb) GetExitingNodes(ctx context.Context) (exitingNodes []*overlay.ExitStatus, err error) {
-	panic("implement me")
-}
-
-// GetGracefulExitCompletedByTimeFrame satisfies nodeevents.DB interface.
-func (m *mockdb) GetGracefulExitCompletedByTimeFrame(ctx context.Context, begin, end time.Time) (exitedNodes storj.NodeIDList, err error) {
-	panic("implement me")
-}
-
-// GetGracefulExitIncompleteByTimeFrame satisfies nodeevents.DB interface.
-func (m *mockdb) GetGracefulExitIncompleteByTimeFrame(ctx context.Context, begin, end time.Time) (exitingNodes storj.NodeIDList, err error) {
-	panic("implement me")
-}
-
-// GetExitStatus satisfies nodeevents.DB interface.
-func (m *mockdb) GetExitStatus(ctx context.Context, nodeID storj.NodeID) (exitStatus *overlay.ExitStatus, err error) {
-	panic("implement me")
-}
-
-// DisqualifyNode satisfies nodeevents.DB interface.
-func (m *mockdb) DisqualifyNode(ctx context.Context, nodeID storj.NodeID, disqualifiedAt time.Time, reason overlay.DisqualificationReason) (email string, err error) {
-	panic("implement me")
-}
-
-// GetOfflineNodesForEmail satisfies nodeevents.DB interface.
-func (m *mockdb) GetOfflineNodesForEmail(ctx context.Context, offlineWindow time.Duration, cutoff time.Duration, cooldown time.Duration, limit int) (nodes map[storj.NodeID]string, err error) {
-	panic("implement me")
-}
-
-// UpdateLastOfflineEmail satisfies nodeevents.DB interface.
-func (m *mockdb) UpdateLastOfflineEmail(ctx context.Context, nodeIDs storj.NodeIDList, timestamp time.Time) (err error) {
-	panic("implement me")
-}
-
-// DQNodesLastSeenBefore satisfies nodeevents.DB interface.
-func (m *mockdb) DQNodesLastSeenBefore(ctx context.Context, cutoff time.Time, limit int) (nodeEmails map[storj.NodeID]string, count int, err error) {
-	panic("implement me")
-}
-
-// TestSuspendNodeUnknownAudit satisfies nodeevents.DB interface.
-func (m *mockdb) TestSuspendNodeUnknownAudit(ctx context.Context, nodeID storj.NodeID, suspendedAt time.Time) (err error) {
-	panic("implement me")
-}
-
-// TestUnsuspendNodeUnknownAudit satisfies nodeevents.DB interface.
-func (m *mockdb) TestUnsuspendNodeUnknownAudit(ctx context.Context, nodeID storj.NodeID) (err error) {
-	panic("implement me")
-}
-
-// TestAddNodes satisfies nodeevents.DB interface.
-func (m *mockdb) TestAddNodes(ctx context.Context, nodes []*overlay.NodeDossier) (err error) {
-	panic("implement me")
-}
-
-// TestVetNode satisfies nodeevents.DB interface.
-func (m *mockdb) TestVetNode(ctx context.Context, nodeID storj.NodeID) (vettedTime *time.Time, err error) {
-	panic("implement me")
-}
-
-// TestUnvetNode satisfies nodeevents.DB interface.
-func (m *mockdb) TestUnvetNode(ctx context.Context, nodeID storj.NodeID) (err error) {
-	panic("implement me")
-}
-
-// TestSuspendNodeOffline satisfies nodeevents.DB interface.
-func (m *mockdb) TestSuspendNodeOffline(ctx context.Context, nodeID storj.NodeID, suspendedAt time.Time) (err error) {
-	panic("implement me")
-}
-
-// TestNodeCountryCode satisfies nodeevents.DB interface.
-func (m *mockdb) TestNodeCountryCode(ctx context.Context, nodeID storj.NodeID, countryCode string) (err error) {
-	panic("implement me")
-}
-
-// TestUpdateCheckInDirectUpdate satisfies nodeevents.DB interface.
-func (m *mockdb) TestUpdateCheckInDirectUpdate(ctx context.Context, node overlay.NodeCheckInInfo, timestamp time.Time, semVer version.SemVer, walletFeatures string) (updated bool, err error) {
-	panic("implement me")
-}
-
-// OneTimeFixLastNets satisfies nodeevents.DB interface.
-func (m *mockdb) OneTimeFixLastNets(ctx context.Context) error {
-	panic("implement me")
-}
-
-// IterateAllContactedNodes satisfies nodeevents.DB interface.
-func (m *mockdb) IterateAllContactedNodes(ctx context.Context, f func(context.Context, *nodeselection.SelectedNode) error) error {
-	panic("implement me")
-}
-
-// IterateAllNodeDossiers satisfies nodeevents.DB interface.
-func (m *mockdb) IterateAllNodeDossiers(ctx context.Context, f func(context.Context, *overlay.NodeDossier) error) error {
-	panic("implement me")
-}
-
-// UpdateNodeTags satisfies nodeevents.DB interface.
-func (m *mockdb) UpdateNodeTags(ctx context.Context, tags nodeselection.NodeTags) error {
-	panic("implement me")
-}
-
-// GetNodeTags satisfies nodeevents.DB interface.
-func (m *mockdb) GetNodeTags(ctx context.Context, id storj.NodeID) (nodeselection.NodeTags, error) {
-	panic("implement me")
-}
-
-// GetLastIPPortByNodeTagNames gets last IP and port from nodes where node exists in node tags with a particular name.
-func (m *mockdb) GetLastIPPortByNodeTagNames(ctx context.Context, ids storj.NodeIDList, tagName []string) (lastIPPorts map[storj.NodeID]*string, err error) {
-	panic("implement me")
-}
-
-// AccountingNodeInfo gets records for all specified nodes for accounting.
-func (m *mockdb) AccountingNodeInfo(ctx context.Context, nodeIDs storj.NodeIDList) (_ map[storj.NodeID]overlay.NodeAccountingInfo, err error) {
-	panic("implement me")
 }
