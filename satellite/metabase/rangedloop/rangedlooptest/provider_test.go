@@ -12,6 +12,7 @@ import (
 
 	"github.com/stretchr/testify/require"
 
+	"storj.io/common/testcontext"
 	"storj.io/common/uuid"
 	"storj.io/storj/satellite/metabase"
 	"storj.io/storj/satellite/metabase/rangedloop"
@@ -22,6 +23,8 @@ var (
 )
 
 func TestSplitter(t *testing.T) {
+	ctx := testcontext.New(t)
+
 	mkseg := func(streamID byte, pos uint64) rangedloop.Segment {
 		return rangedloop.Segment{
 			StreamID: uuid.UUID{0: streamID},
@@ -122,7 +125,7 @@ func TestSplitter(t *testing.T) {
 
 			splitter := RangeSplitter{Segments: tt.segments}
 
-			providers, err := splitter.CreateRanges(tt.numRanges, batchSize)
+			providers, err := splitter.CreateRanges(ctx, tt.numRanges, batchSize)
 			require.NoError(t, err)
 
 			var actualRanges [][]rangedloop.Segment

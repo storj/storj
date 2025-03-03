@@ -144,7 +144,7 @@ func (service *Service) RunOnce(ctx context.Context) (observerDurations []Observ
 		return nil, err
 	}
 
-	rangeProviders, err := service.provider.CreateRanges(service.config.Parallelism, service.config.BatchSize)
+	rangeProviders, err := service.provider.CreateRanges(ctx, service.config.Parallelism, service.config.BatchSize)
 	if err != nil {
 		return nil, err
 	}

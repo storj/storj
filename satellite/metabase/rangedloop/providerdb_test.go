@@ -111,7 +111,7 @@ func runTest(ctx *testcontext.Context, t *testing.T, db *metabase.DB, in in, exp
 		SpannerStaleInterval: -1 * time.Microsecond,
 		BatchSize:            in.batchSize,
 	})
-	ranges, err := provider.CreateRanges(in.nRanges, in.batchSize)
+	ranges, err := provider.CreateRanges(ctx, in.nRanges, in.batchSize)
 	require.NoError(t, err)
 
 	nBatches := 0

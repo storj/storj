@@ -49,7 +49,7 @@ func NewMetabaseRangeSplitterWithReadTimestamp(log *zap.Logger, db *metabase.DB,
 }
 
 // CreateRanges splits the segment table into chunks.
-func (provider *MetabaseRangeSplitter) CreateRanges(nRanges int, batchSize int) ([]SegmentProvider, error) {
+func (provider *MetabaseRangeSplitter) CreateRanges(ctx context.Context, nRanges int, batchSize int) ([]SegmentProvider, error) {
 	uuidRanges, err := CreateUUIDRanges(uint32(nRanges))
 	if err != nil {
 		return nil, err
