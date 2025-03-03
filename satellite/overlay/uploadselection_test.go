@@ -13,6 +13,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/spacemonkeygo/monkit/v3"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap"
 	"golang.org/x/sync/errgroup"
@@ -83,6 +84,13 @@ func TestRefresh(t *testing.T) {
 
 		// confirm nodes are in the cache once
 		err = cache.Refresh(ctx)
+		monkit.Default.Stats(func(key monkit.SeriesKey, field string, val float64) {
+			if key.Measurement == "placement" && (field == "UploadCount" || field == "Count") {
+				require.Equal(t, float64(nodeCount), val)
+				require.Equal(t, float64(nodeCount), val)
+
+			}
+		})
 		require.NoError(t, err)
 	})
 }

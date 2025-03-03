@@ -5,10 +5,13 @@ package overlay
 
 import (
 	"context"
+	"fmt"
 	"time"
 
+	"github.com/spacemonkeygo/monkit/v3"
 	"go.uber.org/zap"
 
+	"storj.io/common/storj"
 	"storj.io/common/sync2"
 	"storj.io/storj/satellite/nodeselection"
 )
@@ -77,12 +80,53 @@ func (cache *UploadSelectionCache) read(ctx context.Context) (_ nodeselection.St
 		return nil, Error.Wrap(err)
 	}
 
-	mon.IntVal("refresh_cache_size_reputable").Observe(int64(len(reputableNodes)))
-	mon.IntVal("refresh_cache_size_new").Observe(int64(len(newNodes)))
-
 	var allNodes = append(append([]*nodeselection.SelectedNode{}, reputableNodes...), newNodes...)
+	reportMetrics(allNodes, cache.placements)
 	state := nodeselection.NewState(allNodes, cache.placements)
 	return state, nil
+}
+
+// PlacementMetrics is a struct that holds the metrics for a specific placement.
+// This is a workaround, as all other IntVal/FloatVal/etc registers too many unnecessary fields.
+type PlacementMetrics struct {
+	UploadCount    float64
+	Count          float64
+	UploadFreeDisk float64
+}
+
+func reportMetrics(nodes []*nodeselection.SelectedNode, placements nodeselection.PlacementDefinitions) {
+	reputable := 0
+	count := map[storj.PlacementConstraint]int64{}
+	uploadCount := map[storj.PlacementConstraint]int64{}
+	uploadFreeDisk := map[storj.PlacementConstraint]int64{}
+	for _, node := range nodes {
+		if node.Vetted {
+			reputable++
+		}
+		for _, placement := range placements {
+			if placement.NodeFilter == nil || placement.NodeFilter.Match(node) {
+				count[placement.ID]++
+				if placement.UploadFilter == nil || placement.UploadFilter.Match(node) {
+					uploadCount[placement.ID]++
+					uploadFreeDisk[placement.ID] += node.FreeDisk
+				}
+			}
+		}
+	}
+
+	mon.IntVal("refresh_cache_size_reputable").Observe(int64(reputable))
+	mon.IntVal("refresh_cache_size_new").Observe(int64(len(nodes) - reputable))
+
+	for _, placement := range placements {
+		mon.StructVal("placement",
+			monkit.NewSeriesTag("name", placement.Name),
+			monkit.NewSeriesTag("id", fmt.Sprintf("%d", placement.ID))).
+			Observe(PlacementMetrics{
+				UploadCount:    float64(uploadCount[placement.ID]),
+				Count:          float64(count[placement.ID]),
+				UploadFreeDisk: float64(uploadFreeDisk[placement.ID]),
+			})
+	}
 }
 
 // GetNodes selects nodes from the cache that will be used to upload a file.
