@@ -26,7 +26,7 @@ type SegmentIdentifier struct {
 // so it's more efficient if we use that whole space.
 type RepairJob struct {
 	ID                SegmentIdentifier
-	Priority          float64
+	Health            float64
 	InsertedAt        uint64
 	LastAttemptedAt   uint64
 	UpdatedAt         uint64
@@ -55,7 +55,7 @@ func ConvertJobToProtobuf(job RepairJob) *pb.RepairJob {
 	protoJob := &pb.RepairJob{
 		StreamId:          job.ID.StreamID[:],
 		Position:          job.ID.Position,
-		Priority:          job.Priority,
+		Health:            job.Health,
 		NumAttempts:       int32(job.NumAttempts),
 		Placement:         int32(job.Placement),
 		NumMissing:        int32(job.NumMissing),
@@ -89,7 +89,7 @@ func ConvertJobFromProtobuf(protoJob *pb.RepairJob) (RepairJob, error) {
 			StreamID: streamID,
 			Position: protoJob.Position,
 		},
-		Priority:          protoJob.Priority,
+		Health:            protoJob.Health,
 		NumAttempts:       uint16(protoJob.NumAttempts),
 		Placement:         uint16(protoJob.Placement),
 		NumMissing:        uint16(protoJob.NumMissing),
