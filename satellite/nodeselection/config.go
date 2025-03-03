@@ -32,6 +32,7 @@ type placementDefinition struct {
 	ID               storj.PlacementConstraint
 	Name             string
 	Filter           string
+	UploadFilter     string `yaml:"upload-filter"`
 	Invariant        string
 	Selector         string
 	DownloadSelector string
@@ -145,6 +146,12 @@ func LoadConfigFromString(config string, environment *PlacementConfigEnvironment
 		p.NodeFilter, err = FilterFromString(filter, environment)
 		if err != nil {
 			return placements, errs.New("Filter definition '%s' of placement %d is invalid: %v", filter, def.ID, err)
+		}
+
+		uploadFilter := resolveTemplates(def.UploadFilter)
+		p.UploadFilter, err = FilterFromString(uploadFilter, environment)
+		if err != nil {
+			return placements, errs.New("Upload filter definition '%s' of placement %d is invalid: %v", filter, def.ID, err)
 		}
 
 		invariant := resolveTemplates(def.Invariant)

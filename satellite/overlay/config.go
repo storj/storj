@@ -97,7 +97,7 @@ func (c NodeSelectionConfig) CreateDefaultPlacement() (nodeselection.Placement, 
 		if err != nil {
 			return nodeselection.Placement{}, err
 		}
-		placement.Selector = nodeselection.FilteredSelector(nodeselection.NewExcludeFilter(countryFilter), placement.Selector)
+		placement.UploadFilter = nodeselection.NewExcludeFilter(countryFilter)
 	}
 
 	return placement, nil

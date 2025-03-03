@@ -45,4 +45,7 @@ placements:
   - id: 12
     name: topology
     selector: topology(node_value("tag:$SIGNER_ZERO/weight?100") / 100,"3,2","tag:datacenter,tag:server", select("tag:surge","==", "true"))
-
+  - id: 13
+    name: uploadfilter
+    filter: country("EU")
+    upload-filter: exclude(country("DE"))

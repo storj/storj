@@ -25,6 +25,8 @@ type Placement struct {
 	Name string
 	// binding condition for filtering out nodes
 	NodeFilter NodeFilter
+	// binding condition for filtering out nodes, but only during uploads. Repair won't move nodes based on this.
+	UploadFilter NodeFilter
 	// Selector is the method how the nodes are selected from the full node space (eg. pick a subnet first, and pick a node from the subnet)
 	Selector NodeSelectorInit
 	// checked by repair job, applied to the full selection. Out of placement items will be replaced by new, selected by the Selector.
@@ -49,6 +51,11 @@ type ECParameters struct {
 // Match implements NodeFilter.
 func (p Placement) Match(node *SelectedNode) bool {
 	return p.NodeFilter.Match(node)
+}
+
+// MatchForUpload implements NodeFilter. It checks not just the global filter but also the filter for uploads.
+func (p Placement) MatchForUpload(node *SelectedNode) bool {
+	return p.NodeFilter.Match(node) && p.UploadFilter.Match(node)
 }
 
 // GetAnnotation implements NodeFilterWithAnnotation.

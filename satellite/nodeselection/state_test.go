@@ -14,6 +14,7 @@ import (
 	"storj.io/common/testcontext"
 	"storj.io/common/testrand"
 	"storj.io/storj/satellite/nodeselection"
+	"storj.io/storj/shared/location"
 )
 
 func TestState_SelectNonDistinct(t *testing.T) {
@@ -79,6 +80,48 @@ func TestState_SelectNonDistinct(t *testing.T) {
 	}
 }
 
+func TestState_UploadFilter(t *testing.T) {
+
+	nodes := func() []*nodeselection.SelectedNode {
+		nodes := joinNodes(
+			createRandomNodes(3, "1.0.1", true, true),
+			createRandomNodes(3, "1.0.2", true, true),
+			createRandomNodes(3, "1.0.3", true, true),
+		)
+		for i := 0; i < 3; i++ {
+			nodes[i].CountryCode = location.Germany
+			nodes[i+3].CountryCode = location.Austria
+			nodes[i+6].CountryCode = location.UnitedStates
+		}
+		return nodes
+	}()
+
+	deFilter, err := nodeselection.FilterFromString("country(\"DE\")", nil)
+	require.NoError(t, err)
+
+	euFilter, err := nodeselection.FilterFromString("country(\"EU\")", nil)
+	require.NoError(t, err)
+
+	state := nodeselection.NewState(nodes, map[storj.PlacementConstraint]nodeselection.Placement{
+		0: {
+			Selector:     nodeselection.RandomSelector(),
+			NodeFilter:   euFilter,
+			UploadFilter: nodeselection.NewExcludeFilter(deFilter),
+		},
+	})
+
+	for i := 0; i < 10; i++ {
+		selected, err := state.Select(storj.NodeID{}, 0, 3, nil, nil)
+		require.NoError(t, err)
+		require.Len(t, selected, 3)
+		for i := 0; i < len(selected); i++ {
+			// Germany is excluded by upload filter, US is not included in the normal filter
+			require.Equal(t, location.Austria, selected[i].CountryCode)
+		}
+	}
+
+}
+
 func TestState_SelectDistinct(t *testing.T) {
 	ctx := testcontext.New(t)
 	defer ctx.Cleanup()
@@ -96,7 +139,7 @@ func TestState_SelectDistinct(t *testing.T) {
 	lastNet, err := nodeselection.CreateNodeAttribute("last_net")
 	require.NoError(t, err)
 
-	t.Run("select 2 distinct subnet reputaable nodes", func(t *testing.T) {
+	t.Run("select 2 distinct subnet reputable nodes", func(t *testing.T) {
 		const selectCount = 2
 		state := nodeselection.NewState(nodes, map[storj.PlacementConstraint]nodeselection.Placement{
 			0: {

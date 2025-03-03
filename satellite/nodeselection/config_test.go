@@ -20,7 +20,7 @@ func TestParsedConfig(t *testing.T) {
 
 	config, err := LoadConfig("config_test.yaml", NewPlacementConfigEnvironment(mockTracker{}, nil))
 	require.NoError(t, err)
-	require.Len(t, config, 13)
+	require.Len(t, config, 14)
 
 	{
 		// checking filters
@@ -31,6 +31,27 @@ func TestParsedConfig(t *testing.T) {
 			CountryCode: location.Russia,
 		}))
 		require.Equal(t, "eu-1", config[1].Name)
+	}
+
+	{
+		// checking upload filters
+
+		// normal filter
+		require.True(t, config[13].NodeFilter.Match(&SelectedNode{
+			CountryCode: location.Germany,
+		}))
+		require.True(t, config[13].NodeFilter.Match(&SelectedNode{
+			CountryCode: location.Austria,
+		}))
+
+		// upload filter (further excludes DE)
+		require.False(t, config[13].UploadFilter.Match(&SelectedNode{
+			CountryCode: location.Germany,
+		}))
+		require.True(t, config[13].UploadFilter.Match(&SelectedNode{
+			CountryCode: location.Austria,
+		}))
+
 	}
 
 	{
@@ -113,7 +134,7 @@ func TestParsedConfigWithoutTracker(t *testing.T) {
 	// tracker is not available for certain microservices (like repair). Still the placement should work.
 	config, err := LoadConfig("config_test.yaml", NewPlacementConfigEnvironment(nil, nil))
 	require.NoError(t, err)
-	require.Len(t, config, 13)
+	require.Len(t, config, 14)
 
 	// smoketest for creating choice of two selector
 	selected, err := config[2].Selector(

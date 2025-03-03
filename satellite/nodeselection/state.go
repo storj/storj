@@ -23,7 +23,11 @@ func NewState(nodes []*SelectedNode, placements PlacementDefinitions) State {
 		if selector == nil {
 			selector = RandomSelector()
 		}
-		state[id] = selector(nodes, placement.NodeFilter)
+		var filter = placement.NodeFilter
+		if placement.UploadFilter != nil {
+			filter = NodeFilters{placement.NodeFilter, placement.UploadFilter}
+		}
+		state[id] = selector(nodes, filter)
 	}
 	return state
 }
