@@ -67,7 +67,7 @@
             </template>
         </v-row>
 
-        <v-row v-if="isTableView">
+        <v-row v-if="isTableView" class="mt-1">
             <v-col>
                 <ProjectsTableComponent
                     :items="items"

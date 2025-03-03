@@ -17,7 +17,7 @@
                         height="40"
                         rounded="lg"
                     >
-                        <component :is="Gauge" :size="18" />
+                        <component :is="iconComponent" :size="18" />
                     </v-sheet>
                 </template>
                 <v-card-title class="font-weight-bold">{{ hasCustomLimit ? 'Edit' : 'Set' }} {{ limitType }} Limit</v-card-title>
@@ -172,7 +172,7 @@ import {
     VAlert,
     VSheet,
 } from 'vuetify/components';
-import { ChevronDown, ChevronUp, Gauge } from 'lucide-vue-next';
+import { ChevronDown, ChevronUp, Gauge, Cloud, CloudDownload } from 'lucide-vue-next';
 
 import { AnalyticsErrorEventSource, AnalyticsEvent } from '@/utils/constants/analyticsEventNames';
 import { useAnalyticsStore } from '@/store/modules/analyticsStore';
@@ -351,6 +351,10 @@ watch(() => model.value, shown => {
 
 watch(() => activeMeasurement.value, unit => {
     inputText.value = (input.value / Memory[unit]).toString();
+});
+
+const iconComponent = computed(() => {
+    return props.limitType === LimitToChange.Storage ? Cloud : CloudDownload;
 });
 </script>
 

@@ -4,7 +4,7 @@
 <template>
     <v-card v-if="!isAltPagination" class="pa-4 mb-6" :loading="isFetching">
         <v-row align="center">
-            <v-col>
+            <v-col cols="12" sm class="flex-grow-1 flex-sm-grow-1">
                 <v-text-field
                     v-model="search"
                     label="Search"
@@ -18,7 +18,7 @@
                     @update:model-value="analyticsStore.eventTriggered(AnalyticsEvent.SEARCH_BUCKETS)"
                 />
             </v-col>
-            <v-col cols="auto">
+            <v-col cols="12" sm="auto" class="d-flex align-center">
                 <v-menu>
                     <template #activator="{ props: sortProps }">
                         <v-btn

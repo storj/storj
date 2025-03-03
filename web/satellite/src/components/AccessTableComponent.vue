@@ -2,74 +2,72 @@
 // See LICENSE for copying information.
 
 <template>
-    <v-card class="pa-4">
-        <v-text-field
-            v-model="search"
-            label="Search"
-            :prepend-inner-icon="Search"
-            single-line
-            variant="solo-filled"
-            flat
-            hide-details
-            clearable
-            density="comfortable"
-            :maxlength="MAX_SEARCH_VALUE_LENGTH"
-            class="mb-4"
-        />
+    <v-text-field
+        v-model="search"
+        label="Search"
+        :prepend-inner-icon="Search"
+        single-line
+        variant="solo-filled"
+        flat
+        hide-details
+        clearable
+        density="comfortable"
+        :maxlength="MAX_SEARCH_VALUE_LENGTH"
+        class="mb-5"
+    />
 
-        <v-data-table-server
-            v-model="selected"
-            :headers="headers"
-            :items="page.accessGrants"
-            :loading="areGrantsFetching"
-            :items-length="page.totalCount"
-            :items-per-page-options="tableSizeOptions(page.totalCount)"
-            :item-value="(item: AccessGrant) => item"
-            no-data-text="No results found"
-            select-strategy="page"
-            hover
-            show-select
-            @update:items-per-page="onUpdateLimit"
-            @update:page="onUpdatePage"
-            @update:sort-by="onUpdateSortBy"
-        >
-            <template #item.name="{ item }">
-                <span class="font-weight-medium">
-                    {{ item.name }}
-                </span>
-            </template>
-            <template #item.createdAt="{ item }">
-                <span class="text-no-wrap">
-                    {{ Time.formattedDate(item.createdAt) }}
-                </span>
-            </template>
-            <template #item.actions="{ item }">
-                <v-btn
-                    variant="outlined"
-                    color="default"
-                    size="small"
-                    rounded="md"
-                    class="mr-1 text-caption"
-                    density="comfortable"
-                    icon
-                >
-                    <v-icon :icon="Ellipsis" />
-                    <v-menu activator="parent">
-                        <v-list class="pa-1">
-                            <v-list-item class="text-error" density="comfortable" link @click="() => onDeleteClick(item)">
-                                <template #prepend>
-                                    <component :is="Trash2" :size="18" />
-                                </template>
-                                <v-list-item-title class="ml-3 text-body-2 font-weight-medium">
-                                    Delete Access
-                                </v-list-item-title>
-                            </v-list-item>
-                        </v-list>
-                    </v-menu>
-                </v-btn>
-            </template>
-        </v-data-table-server>
-    </v-card>
+    <v-data-table-server
+        v-model="selected"
+        :headers="headers"
+        :items="page.accessGrants"
+        :loading="areGrantsFetching"
+        :items-length="page.totalCount"
+        :items-per-page-options="tableSizeOptions(page.totalCount)"
+        :item-value="(item: AccessGrant) => item"
+        no-data-text="No results found"
+        select-strategy="page"
+        hover
+        show-select
+        @update:items-per-page="onUpdateLimit"
+        @update:page="onUpdatePage"
+        @update:sort-by="onUpdateSortBy"
+    >
+        <template #item.name="{ item }">
+            <span class="font-weight-medium">
+                {{ item.name }}
+            </span>
+        </template>
+        <template #item.createdAt="{ item }">
+            <span class="text-no-wrap">
+                {{ Time.formattedDate(item.createdAt) }}
+            </span>
+        </template>
+        <template #item.actions="{ item }">
+            <v-btn
+                variant="outlined"
+                color="default"
+                size="small"
+                rounded="md"
+                class="mr-1 text-caption"
+                density="comfortable"
+                icon
+            >
+                <v-icon :icon="Ellipsis" />
+                <v-menu activator="parent">
+                    <v-list class="pa-1">
+                        <v-list-item class="text-error" density="comfortable" link @click="() => onDeleteClick(item)">
+                            <template #prepend>
+                                <component :is="Trash2" :size="18" />
+                            </template>
+                            <v-list-item-title class="ml-3 text-body-2 font-weight-medium">
+                                Delete Access
+                            </v-list-item-title>
+                        </v-list-item>
+                    </v-list>
+                </v-menu>
+            </v-btn>
+        </template>
+    </v-data-table-server>
 
     <delete-access-dialog
         v-model="isDeleteAccessDialogShown"

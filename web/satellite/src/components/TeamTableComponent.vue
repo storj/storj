@@ -2,114 +2,112 @@
 // See LICENSE for copying information.
 
 <template>
-    <v-card class="pa-4">
-        <v-text-field
-            v-model="search"
-            label="Search"
-            :prepend-inner-icon="Search"
-            single-line
-            variant="solo-filled"
-            flat
-            hide-details
-            clearable
-            density="comfortable"
-            :maxlength="MAX_SEARCH_VALUE_LENGTH"
-            class="mb-4"
-        />
+    <v-text-field
+        v-model="search"
+        label="Search"
+        :prepend-inner-icon="Search"
+        single-line
+        variant="solo-filled"
+        flat
+        hide-details
+        clearable
+        density="comfortable"
+        :maxlength="MAX_SEARCH_VALUE_LENGTH"
+        class="mb-5"
+    />
 
-        <v-data-table-server
-            v-model="selectedMembers"
-            :search="search"
-            :headers="headers"
-            :items="projectMembers"
-            :loading="isLoading"
-            :items-length="page.totalCount"
-            items-per-page-text="Accounts per page"
-            :items-per-page-options="tableSizeOptions(page.totalCount)"
-            no-data-text="No results found"
-            :item-value="(item) => ({email: item.email, isInvite: hasInviteActionItem(item)})"
-            select-strategy="all"
-            item-selectable="selectable"
-            :show-select="isUserAdmin"
-            :hover="isUserAdmin"
-            @update:items-per-page="onUpdateLimit"
-            @update:page="onUpdatePage"
-            @update:sort-by="onUpdateSortBy"
-        >
-            <template #item.name="{ item }">
-                <span class="font-weight-bold">
-                    {{ item.name }}
-                </span>
-            </template>
-            <template #item.role="{ item }">
-                <v-chip :color="PROJECT_ROLE_COLORS[item.role]" variant="tonal" size="small" class="font-weight-bold">
-                    {{ item.role }}
-                </v-chip>
-            </template>
-            <template #item.actions="{ item }">
-                <v-btn
-                    v-if="hasActionMenu(item)"
-                    variant="outlined"
-                    color="default"
-                    size="small"
-                    rounded="md"
-                    class="mr-1 text-caption"
-                    density="comfortable"
-                    icon
-                >
-                    <v-icon :icon="Ellipsis" />
-                    <v-menu activator="parent">
-                        <v-list class="pa-1">
-                            <v-list-item
-                                v-if="hasChangeRoleActionItem(item)"
-                                density="comfortable"
-                                link
-                                @click="() => showChangeRoleDialog(item)"
-                            >
-                                <template #prepend>
-                                    <component :is="UserCog" :size="18" />
-                                </template>
-                                <v-list-item-title class="ml-3 text-body-2 font-weight-medium">
-                                    Change Role
-                                </v-list-item-title>
-                            </v-list-item>
-                            <v-list-item
-                                v-if="hasInviteActionItem(item)"
-                                density="comfortable"
-                                link
-                                @click="() => onResendOrCopyClick(item.expired, item.email)"
-                            >
-                                <template #prepend>
-                                    <component :is="Send" v-if="item.expired" :size="18" />
-                                    <component :is="Copy" v-else :size="18" />
-                                </template>
-                                <v-list-item-title class="ml-3 text-body-2 font-weight-medium">
-                                    {{ item.expired ? 'Resend Invite' : 'Copy Invite Link' }}
-                                </v-list-item-title>
-                            </v-list-item>
-                            <v-divider
-                                v-if="hasInviteActionItem(item) || hasChangeRoleActionItem(item)"
-                                class="my-1"
-                            />
-                            <v-list-item
-                                class="text-error"
-                                density="comfortable"
-                                link
-                                @click="() => onSingleDelete(item)"
-                            >
-                                <template #prepend>
-                                    <component :is="UserMinus" :size="18" />
-                                </template>
-                                <v-list-item-title class="ml-3 text-body-2 font-weight-medium">
-                                    {{ hasInviteActionItem(item) ? "Remove Invite" : "Remove Member" }}
-                                </v-list-item-title>
-                            </v-list-item>
-                        </v-list>
-                    </v-menu>
-                </v-btn>
-            </template>
-        </v-data-table-server>
-    </v-card>
+    <v-data-table-server
+        v-model="selectedMembers"
+        :search="search"
+        :headers="headers"
+        :items="projectMembers"
+        :loading="isLoading"
+        :items-length="page.totalCount"
+        items-per-page-text="Accounts per page"
+        :items-per-page-options="tableSizeOptions(page.totalCount)"
+        no-data-text="No results found"
+        :item-value="(item) => ({email: item.email, isInvite: hasInviteActionItem(item)})"
+        select-strategy="all"
+        item-selectable="selectable"
+        :show-select="isUserAdmin"
+        :hover="isUserAdmin"
+        @update:items-per-page="onUpdateLimit"
+        @update:page="onUpdatePage"
+        @update:sort-by="onUpdateSortBy"
+    >
+        <template #item.name="{ item }">
+            <span class="font-weight-bold">
+                {{ item.name }}
+            </span>
+        </template>
+        <template #item.role="{ item }">
+            <v-chip :color="PROJECT_ROLE_COLORS[item.role]" variant="tonal" size="small" class="font-weight-bold">
+                {{ item.role }}
+            </v-chip>
+        </template>
+        <template #item.actions="{ item }">
+            <v-btn
+                v-if="hasActionMenu(item)"
+                variant="outlined"
+                color="default"
+                size="small"
+                rounded="md"
+                class="mr-1 text-caption"
+                density="comfortable"
+                icon
+            >
+                <v-icon :icon="Ellipsis" />
+                <v-menu activator="parent">
+                    <v-list class="pa-1">
+                        <v-list-item
+                            v-if="hasChangeRoleActionItem(item)"
+                            density="comfortable"
+                            link
+                            @click="() => showChangeRoleDialog(item)"
+                        >
+                            <template #prepend>
+                                <component :is="UserCog" :size="18" />
+                            </template>
+                            <v-list-item-title class="ml-3 text-body-2 font-weight-medium">
+                                Change Role
+                            </v-list-item-title>
+                        </v-list-item>
+                        <v-list-item
+                            v-if="hasInviteActionItem(item)"
+                            density="comfortable"
+                            link
+                            @click="() => onResendOrCopyClick(item.expired, item.email)"
+                        >
+                            <template #prepend>
+                                <component :is="Send" v-if="item.expired" :size="18" />
+                                <component :is="Copy" v-else :size="18" />
+                            </template>
+                            <v-list-item-title class="ml-3 text-body-2 font-weight-medium">
+                                {{ item.expired ? 'Resend Invite' : 'Copy Invite Link' }}
+                            </v-list-item-title>
+                        </v-list-item>
+                        <v-divider
+                            v-if="hasInviteActionItem(item) || hasChangeRoleActionItem(item)"
+                            class="my-1"
+                        />
+                        <v-list-item
+                            class="text-error"
+                            density="comfortable"
+                            link
+                            @click="() => onSingleDelete(item)"
+                        >
+                            <template #prepend>
+                                <component :is="UserMinus" :size="18" />
+                            </template>
+                            <v-list-item-title class="ml-3 text-body-2 font-weight-medium">
+                                {{ hasInviteActionItem(item) ? "Remove Invite" : "Remove Member" }}
+                            </v-list-item-title>
+                        </v-list-item>
+                    </v-list>
+                </v-menu>
+            </v-btn>
+        </template>
+    </v-data-table-server>
 
     <remove-project-member-dialog
         v-model="isRemoveMembersDialogShown"

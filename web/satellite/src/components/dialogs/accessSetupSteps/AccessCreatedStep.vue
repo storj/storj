@@ -5,7 +5,7 @@
     <v-form class="pa-6">
         <v-row>
             <v-col>
-                <p>Copy and save the access credentials {{ app ? `for ${app.name}` : '' }} as they will only appear once.</p>
+                <p>Save the access keys {{ app ? `for ${app.name}` : '' }} as they will only appear once.</p>
                 <v-row class="mt-2">
                     <save-buttons :items="saveItems" :name="name" :type="accessType" />
                 </v-row>

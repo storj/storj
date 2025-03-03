@@ -2,64 +2,61 @@
 // See LICENSE for copying information.
 
 <template>
-    <v-card class="pa-4">
-        <v-text-field
-            v-model="search"
-            label="Search"
-            :prepend-inner-icon="Search"
-            single-line
-            variant="solo-filled"
-            flat
-            hide-details
-            clearable
-            density="comfortable"
-            class="mb-4"
-        />
-        <v-data-table
-            :sort-by="sortBy"
-            :loading="isLoading"
-            :items-length="nativePaymentHistoryItems.length"
-            :headers="headers"
-            :items="nativePaymentHistoryItems"
-            :items-per-page-options="tableSizeOptions(nativePaymentHistoryItems.length)"
-            :search="search"
-            :custom-key-sort="customSortFns"
-            no-data-text="No results found"
-        >
-            <template #item.timestamp="{ item }">
-                <p class="font-weight-bold">
-                    {{ Time.formattedDate(item.timestamp) }}
-                </p>
-                <p>
-                    {{ item.timestamp.toLocaleTimeString('en-US', { hour: 'numeric', minute: 'numeric' }) }}
-                </p>
-            </template>
-            <template #item.type="{ item }">
-                <p class="font-weight-bold">
-                    {{ item.type }}
-                </p>
-            </template>
-            <template #item.amount="{ item }">
-                <p class="font-weight-bold text-success">
-                    {{ item.amount }}
-                </p>
-            </template>
-            <template #item.status="{ item }">
-                <v-chip :color="getColor(item.status)" variant="tonal" size="small" class="font-weight-bold">
-                    {{ item.status }}
-                </v-chip>
-            </template>
-            <template #item.link="{ item }">
-                <a v-if="!item.type.includes('bonus')" :href="item.link" target="_blank" rel="noopener noreferrer" class="link">View</a>
-            </template>
-        </v-data-table>
-    </v-card>
+    <v-text-field
+        v-model="search"
+        label="Search"
+        :prepend-inner-icon="Search"
+        single-line
+        variant="solo-filled"
+        flat
+        hide-details
+        clearable
+        density="comfortable"
+        class="mb-4"
+    />
+    <v-data-table
+        :sort-by="sortBy"
+        :loading="isLoading"
+        :items-length="nativePaymentHistoryItems.length"
+        :headers="headers"
+        :items="nativePaymentHistoryItems"
+        :items-per-page-options="tableSizeOptions(nativePaymentHistoryItems.length)"
+        :search="search"
+        :custom-key-sort="customSortFns"
+        no-data-text="No results found"
+    >
+        <template #item.timestamp="{ item }">
+            <p class="font-weight-bold">
+                {{ Time.formattedDate(item.timestamp) }}
+            </p>
+            <p>
+                {{ item.timestamp.toLocaleTimeString('en-US', { hour: 'numeric', minute: 'numeric' }) }}
+            </p>
+        </template>
+        <template #item.type="{ item }">
+            <p class="font-weight-bold">
+                {{ item.type }}
+            </p>
+        </template>
+        <template #item.amount="{ item }">
+            <p class="font-weight-bold text-success">
+                {{ item.amount }}
+            </p>
+        </template>
+        <template #item.status="{ item }">
+            <v-chip :color="getColor(item.status)" variant="tonal" size="small" class="font-weight-bold">
+                {{ item.status }}
+            </v-chip>
+        </template>
+        <template #item.link="{ item }">
+            <a v-if="!item.type.includes('bonus')" :href="item.link" target="_blank" rel="noopener noreferrer" class="link">View</a>
+        </template>
+    </v-data-table>
 </template>
 
 <script setup lang="ts">
 import { computed, onMounted, ref } from 'vue';
 import {
-    VCard,
     VChip,
     VTextField,
     VDataTable,

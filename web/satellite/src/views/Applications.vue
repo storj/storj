@@ -15,7 +15,6 @@
                     selected-class="font-weight-bold v-chip--variant-tonal"
                     mandatory
                     :max="1"
-                    column
                 >
                     <v-chip
                         v-for="category in categories"
@@ -33,7 +32,7 @@
 
         <v-card class="pa-4 mt-4 mb-4" variant="flat">
             <v-row align="center">
-                <v-col>
+                <v-col cols="12" sm class="flex-grow-1 flex-sm-grow-1">
                     <v-text-field
                         v-model="search"
                         label="Search"
@@ -47,7 +46,7 @@
                         rounded="md"
                     />
                 </v-col>
-                <v-col cols="auto">
+                <v-col cols="12" sm="auto" class="d-flex align-center">
                     <v-menu>
                         <template #activator="{ props }">
                             <v-btn

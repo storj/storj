@@ -2,7 +2,7 @@
 // See LICENSE for copying information.
 
 <template>
-    <v-list-item :title="item.Key" class="px-6" height="54" :link="props.item.status === UploadingStatus.Finished">
+    <v-list-item :title="item.Key" class="px-4" height="54" :link="props.item.status === UploadingStatus.Finished">
         <template #append>
             <v-tooltip v-if="isBetween5GBand30GB" location="top">
                 <p>
@@ -29,7 +29,7 @@
                         v-bind="activatorProps"
                         :indeterminate="!item.progress"
                         :size="20"
-                        color="secondary"
+                        color="success"
                         :model-value="item.progress"
                     />
                     <v-icon

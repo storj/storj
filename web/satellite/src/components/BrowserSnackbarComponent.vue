@@ -20,7 +20,7 @@
                         color="default"
                         rounded="lg"
                     >
-                        <v-expansion-panel-title color="" class="pr-5">
+                        <v-expansion-panel-title class="pr-5">
                             <span>{{ statusLabel }}</span>
                             <template v-if="isClosable" #actions>
                                 <v-row class="ma-0 align-center">

@@ -11,7 +11,7 @@
 
         <browser-breadcrumbs-component />
         <v-col>
-            <v-row align="center" class="mt-2 mb-2 mb-sm-4">
+            <v-row align="center" class="mt-1 mb-2">
                 <v-menu v-model="menu" location="bottom" transition="scale-transition" offset="5">
                     <template #activator="{ props }">
                         <v-btn
