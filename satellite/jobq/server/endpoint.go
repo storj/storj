@@ -74,7 +74,7 @@ func (se *JobqEndpoint) PushBatch(ctx context.Context, req *pb.JobQueuePushBatch
 	}, nil
 }
 
-// Pop removes the most high-priority job from the queues for the requested
+// Pop removes the lowest-health job from the queues for the requested
 // placements.
 func (se *JobqEndpoint) Pop(ctx context.Context, req *pb.JobQueuePopRequest) (*pb.JobQueuePopResponse, error) {
 	if len(req.IncludedPlacements) == 1 {
@@ -87,7 +87,7 @@ func (se *JobqEndpoint) Pop(ctx context.Context, req *pb.JobQueuePopRequest) (*p
 		return &pb.JobQueuePopResponse{Job: jobq.ConvertJobToProtobuf(job)}, nil
 	}
 
-	// otherwise we need to check all requested queues for the highest priority match
+	// otherwise we need to check all requested queues for the lowest health match
 	queues := se.queues.GetAllQueues()
 	if len(req.IncludedPlacements) > 0 {
 		newQueues := make(map[storj.PlacementConstraint]*jobqueue.Queue)
@@ -106,14 +106,14 @@ func (se *JobqEndpoint) Pop(ctx context.Context, req *pb.JobQueuePopRequest) (*p
 	var bestResult jobq.RepairJob
 	for _, q := range queues {
 		job := q.Pop()
-		if !job.ID.StreamID.IsZero() && (bestResult.ID.StreamID.IsZero() || job.Priority > bestResult.Priority) {
+		if !job.ID.StreamID.IsZero() && (bestResult.ID.StreamID.IsZero() || job.Health < bestResult.Health) {
 			bestResult = job
 		}
 	}
 	return &pb.JobQueuePopResponse{Job: jobq.ConvertJobToProtobuf(bestResult)}, nil
 }
 
-// Peek returns the most high-priority job from the queues for the requested
+// Peek returns the lowest-health job from the queues for the requested
 // placements without removing the job from its queue.
 func (se *JobqEndpoint) Peek(ctx context.Context, req *pb.JobQueuePeekRequest) (*pb.JobQueuePeekResponse, error) {
 	q := se.queues.GetQueue(storj.PlacementConstraint(req.Placement))
@@ -207,26 +207,26 @@ func (se *JobqEndpoint) cleanAll(updatedBefore time.Time) (*pb.JobQueueCleanResp
 	}, nil
 }
 
-// Trim removes all jobs from the queue with priority less than the given value.
-// If the given placement is negative, all queues are trimmed.
+// Trim removes all jobs from the queue with health greater than the given
+// value. If the given placement is negative, all queues are trimmed.
 func (se *JobqEndpoint) Trim(ctx context.Context, req *pb.JobQueueTrimRequest) (*pb.JobQueueTrimResponse, error) {
 	if req.Placement < 0 {
-		return se.trimAll(req.PriorityLessThan)
+		return se.trimAll(req.HealthGreaterThan)
 	}
 	q := se.queues.GetQueue(storj.PlacementConstraint(req.Placement))
 	if q == nil {
 		return nil, fmt.Errorf("no queue for placement %v", req.Placement)
 	}
-	removedSegments := q.Trim(req.PriorityLessThan)
+	removedSegments := q.Trim(req.HealthGreaterThan)
 	return &pb.JobQueueTrimResponse{
 		RemovedSegments: int32(removedSegments),
 	}, nil
 }
 
-func (se *JobqEndpoint) trimAll(priorityLessThan float64) (*pb.JobQueueTrimResponse, error) {
+func (se *JobqEndpoint) trimAll(healthGreaterThan float64) (*pb.JobQueueTrimResponse, error) {
 	removedSegments := int32(0)
 	for _, q := range se.queues.GetAllQueues() {
-		removedSegments += int32(q.Trim(priorityLessThan))
+		removedSegments += int32(q.Trim(healthGreaterThan))
 	}
 	return &pb.JobQueueTrimResponse{
 		RemovedSegments: removedSegments,
