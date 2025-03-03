@@ -213,8 +213,8 @@ import {
     VCardActions,
     VCardItem,
     VCardSubtitle,
-    VCardTitle,
     VCardText,
+    VCardTitle,
     VCol,
     VDialog,
     VDivider,
@@ -396,13 +396,7 @@ const stepInfos: Record<SetupStep, StepInfo> = {
         SetupStep.ChooseFlowStep,
     ),
     [SetupStep.ChooseFlowStep]: new StepInfo(
-        () => {
-            if (accessType.value === AccessType.APIKey) {
-                return flowType.value === FlowType.FullAccess ? 'Create Access' : 'Next ->';
-            }
-
-            return promptForPassphrase.value || flowType.value === FlowType.Advanced ? 'Next ->' : 'Create Access';
-        },
+        'Next ->',
         () => props.defaultAccessType ? 'Cancel' : 'Back',
         () => {
             if (props.defaultAccessType) return undefined;
@@ -413,37 +407,49 @@ const stepInfos: Record<SetupStep, StepInfo> = {
         },
         () => {
             if (accessType.value === AccessType.APIKey) {
-                return flowType.value === FlowType.FullAccess ? SetupStep.AccessCreatedStep : SetupStep.ChoosePermissionsStep;
+                return flowType.value === FlowType.FullAccess ? SetupStep.ConfirmDetailsStep : SetupStep.ChoosePermissionsStep;
             }
 
             if (promptForPassphrase.value) return SetupStep.AccessEncryption;
 
-            return flowType.value === FlowType.FullAccess ? SetupStep.AccessCreatedStep : SetupStep.ChoosePermissionsStep;
+            return flowType.value === FlowType.FullAccess ? SetupStep.ConfirmDetailsStep : SetupStep.ChoosePermissionsStep;
         },
         async () => {
-            if (flowType.value === FlowType.FullAccess && (accessType.value === AccessType.APIKey || !promptForPassphrase.value)) {
-                await generate();
+            if (flowType.value === FlowType.FullAccess) {
+                permissions.value = [Permission.Read, Permission.Write, Permission.List, Permission.Delete];
+                objectLockPermissions.value = [
+                    ObjectLockPermission.PutObjectRetention,
+                    ObjectLockPermission.GetObjectRetention,
+                    ObjectLockPermission.PutObjectLegalHold,
+                    ObjectLockPermission.GetObjectLegalHold,
+                    ObjectLockPermission.PutObjectLockConfiguration,
+                    ObjectLockPermission.GetObjectLockConfiguration,
+                ];
             }
         },
     ),
     [SetupStep.AccessEncryption]: new StepInfo(
-        () => flowType.value === FlowType.FullAccess && passphraseOption.value === PassphraseOption.SetMyProjectPassphrase ? 'Create Access' : 'Next ->',
+        'Next ->',
         'Back',
         SetupStep.ChooseFlowStep,
         () => {
             if (passphraseOption.value === PassphraseOption.EnterNewPassphrase) return SetupStep.EnterNewPassphrase;
             if (passphraseOption.value === PassphraseOption.GenerateNewPassphrase) return SetupStep.PassphraseGenerated;
 
-            return flowType.value === FlowType.FullAccess ? SetupStep.AccessCreatedStep : SetupStep.ChoosePermissionsStep;
+            return flowType.value === FlowType.FullAccess ? SetupStep.ConfirmDetailsStep : SetupStep.ChoosePermissionsStep;
         },
         async () => {
-            if (
-                passphraseOption.value === PassphraseOption.EnterNewPassphrase ||
-                passphraseOption.value === PassphraseOption.GenerateNewPassphrase ||
-                flowType.value === FlowType.Advanced
-            ) return;
-
-            await generate();
+            if (flowType.value === FlowType.FullAccess) {
+                permissions.value = [Permission.Read, Permission.Write, Permission.List, Permission.Delete];
+                objectLockPermissions.value = [
+                    ObjectLockPermission.PutObjectRetention,
+                    ObjectLockPermission.GetObjectRetention,
+                    ObjectLockPermission.PutObjectLegalHold,
+                    ObjectLockPermission.GetObjectLegalHold,
+                    ObjectLockPermission.PutObjectLockConfiguration,
+                    ObjectLockPermission.GetObjectLockConfiguration,
+                ];
+            }
         },
     ),
     [SetupStep.PassphraseGenerated]: new StepInfo(
@@ -500,7 +506,10 @@ const stepInfos: Record<SetupStep, StepInfo> = {
     [SetupStep.ConfirmDetailsStep]: new StepInfo(
         'Create Access',
         'Back',
-        SetupStep.OptionalExpirationStep,
+        () => {
+            if (flowType.value === FlowType.FullAccess) return SetupStep.ChooseFlowStep;
+            return SetupStep.OptionalExpirationStep;
+        },
         SetupStep.AccessCreatedStep,
         generate,
     ),

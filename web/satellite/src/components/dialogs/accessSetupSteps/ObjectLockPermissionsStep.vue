@@ -39,6 +39,13 @@
                     </v-chip>
                 </v-chip-group>
 
+                <v-alert v-if="permissions.includes(ObjectLockPermission.BypassGovernanceRetention)" variant="tonal" color="warning">
+                    Warning: <b><i>BypassGovernanceRetention</i></b> allows users to delete or
+                    modify objects even when under retention policies. Only grant
+                    this permission when necessary, as it may lead to premature
+                    data deletion or compliance issues.
+                </v-alert>
+
                 <v-expansion-panels static>
                     <v-expansion-panel
                         title="Permissions Information"
@@ -66,6 +73,7 @@
 <script setup lang="ts">
 import { ref, watch } from 'vue';
 import {
+    VAlert,
     VChip,
     VChipGroup,
     VCol,
