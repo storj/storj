@@ -304,8 +304,14 @@ images: jobq-image #multinode-image satellite-image uplink-image versioncontrol-
 	echo Built version: ${TAG}
 
 .PHONY: multinode-image
-jobq-image: jobq_linux_amd64 ## Build jobq Docker image
+jobq-image: multinode_linux_arm multinode_linux_arm64 multinode_linux_amd64 ## Build jobq Docker image
 	${DOCKER_BUILD} --pull=true -t storjlabs/jobq:${TAG}${CUSTOMTAG}-amd64 \
+		-f cmd/jobq/Dockerfile .
+	${DOCKER_BUILD} --pull=true -t storjlabs/jobq:${TAG}${CUSTOMTAG}-arm32v5 \
+		--build-arg=GOARCH=arm --build-arg=DOCKER_ARCH=arm32v5 \
+		-f cmd/jobq/Dockerfile .
+	${DOCKER_BUILD} --pull=true -t storjlabs/jobq:${TAG}${CUSTOMTAG}-arm64v8 \
+		--build-arg=GOARCH=arm64 --build-arg=DOCKER_ARCH=arm64v8 \
 		-f cmd/jobq/Dockerfile .
 
 .PHONY: multinode-image
