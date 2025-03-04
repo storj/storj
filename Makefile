@@ -303,8 +303,8 @@ satellite-wasm:
 images: jobq-image #multinode-image satellite-image uplink-image versioncontrol-image storagenode-image modular-storagenode-image ## Build multinode, satellite and versioncontrol Docker images
 	echo Built version: ${TAG}
 
-.PHONY: multinode-image
-jobq-image: multinode_linux_arm multinode_linux_arm64 multinode_linux_amd64 ## Build jobq Docker image
+.PHONY: jobq-image
+jobq-image: jobq_linux_arm jobq_linux_arm64 jobq_linux_amd64 ## Build jobq Docker image
 	${DOCKER_BUILD} --pull=true -t storjlabs/jobq:${TAG}${CUSTOMTAG}-amd64 \
 		-f cmd/jobq/Dockerfile .
 	${DOCKER_BUILD} --pull=true -t storjlabs/jobq:${TAG}${CUSTOMTAG}-arm32v5 \
