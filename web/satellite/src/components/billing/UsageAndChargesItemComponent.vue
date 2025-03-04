@@ -7,20 +7,21 @@
             <v-expansion-panel min-height="64">
                 <v-expansion-panel-title>
                     <v-row justify="space-between" align="center">
-                        <v-col>
-                            <v-row align="center" no-gutters>
-                                <img src="@/assets/icon-project-tonal.svg" alt="Project" class="mr-3">
-                                <span class="font-weight-bold text-body-2">{{ projectName }}</span>
-                            </v-row>
+                        <v-col cols="auto" class="pr-2">
+                            <div class="d-flex align-center">
+                                <img src="@/assets/icon-project-tonal.svg" alt="Project" class="mr-2" style="min-width: 24px;">
+                                <span class="font-weight-bold text-body-2 text-truncate">{{ projectName }}</span>
+                            </div>
                         </v-col>
-                        <v-col class="text-start text-sm-end mr-2">
-                            <span class="align-end">
-                                Estimated Total &nbsp;
-                                <span
-                                    class="font-weight-bold"
-                                >{{ centsToDollars(projectCharges.getProjectPrice(projectId)) }}
+                        <v-col cols="auto" class="text-end ml-auto">
+                            <div class="d-flex align-center justify-end">
+                                <span class="d-none d-sm-inline text-body-2 text-medium-emphasis">
+                                    Estimated Total &nbsp;
                                 </span>
-                            </span>
+                                <span class="font-weight-bold">
+                                    {{ centsToDollars(projectCharges.getProjectPrice(projectId)) }}
+                                </span>
+                            </div>
                         </v-col>
                     </v-row>
                 </v-expansion-panel-title>

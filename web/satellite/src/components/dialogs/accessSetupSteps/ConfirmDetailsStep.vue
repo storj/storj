@@ -18,7 +18,21 @@
                             <p class="text-medium-emphasis text-body-2 mb-1">{{ item.title }}</p>
                         </template>
                         <template #subtitle>
-                            <p class="text-body-2">{{ item.value }}</p>
+                            <p v-if="item.title === 'Object Lock Permissions'" class="text-body-2">
+                                <span v-if="hasBypass">
+                                    <v-tooltip width="300" activator="parent">
+                                        Warning: <b><i>BypassGovernanceRetention</i></b> allows users to delete or
+                                        modify objects even when under retention policies. Only grant
+                                        this permission when necessary, as it may lead to premature
+                                        data deletion or compliance issues.
+                                    </v-tooltip>
+                                    ⚠️ {{ ObjectLockPermission.BypassGovernanceRetention }}
+                                </span>
+                                <!-- Add a comma if there are multiple object lock permissions -->
+                                <span v-if="hasBypass && objectLockPermissions.length > 1">,</span>
+                                {{ item.value }}
+                            </p>
+                            <p v-else class="text-body-2">{{ item.value }}</p>
                         </template>
                     </v-list-item>
                 </v-list>
@@ -29,9 +43,9 @@
 
 <script setup lang="ts">
 import { computed } from 'vue';
-import { VRow, VCol, VList, VListItem } from 'vuetify/components';
+import { VCol, VList, VListItem, VRow, VTooltip } from 'vuetify/components';
 
-import { Permission, AccessType, ObjectLockPermission } from '@/types/setupAccess';
+import { AccessType, ObjectLockPermission, Permission } from '@/types/setupAccess';
 
 interface Item {
     title: string;
@@ -59,12 +73,17 @@ const items = computed<Item[]>(() => {
         { title: 'Expiration Date', value: props.endDate ? props.endDate.toLocaleString() : 'No expiration date' },
     ];
 
-    if (props.objectLockPermissions.length) {
-        its.splice(2, 0, { title: 'Object Lock Permissions', value: props.objectLockPermissions.join(', ') });
+    if (!props.objectLockPermissions.length) {
+        return its;
     }
+
+    const lockPermissions = props.objectLockPermissions.filter(p => p !== ObjectLockPermission.BypassGovernanceRetention);
+    its.splice(2, 0, { title: 'Object Lock Permissions', value: lockPermissions.join(', ') });
 
     return its;
 });
+
+const hasBypass = computed(() => props.objectLockPermissions.includes(ObjectLockPermission.BypassGovernanceRetention));
 </script>
 
 <style scoped>

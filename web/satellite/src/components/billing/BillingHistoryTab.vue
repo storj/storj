@@ -2,64 +2,62 @@
 // See LICENSE for copying information.
 
 <template>
-    <v-card class="pa-4">
-        <v-data-table-server
-            :loading="isLoading"
-            :headers="headers"
-            :items="historyItems"
-            :items-length="historyItems.length"
-            :must-sort="false"
-            no-data-text="No results found"
-            hover
-        >
-            <template #item.amount="{ item }">
-                <span>
-                    {{ centsToDollars(item.amount) }}
-                </span>
-            </template>
-            <template #item.formattedStart="{ item }">
-                <span class="font-weight-bold">
-                    {{ item.formattedStart }}
-                </span>
-            </template>
-            <template #item.formattedStatus="{ item }">
-                <v-chip :color="getColor(item.formattedStatus)" variant="tonal" size="small" class="font-weight-bold">
-                    {{ item.formattedStatus }}
-                </v-chip>
-            </template>
-            <template #item.link="{ item }">
-                <v-btn v-if="item.link" variant="flat" size="small" :href="item.link">
-                    Download
-                </v-btn>
-            </template>
+    <v-data-table-server
+        :loading="isLoading"
+        :headers="headers"
+        :items="historyItems"
+        :items-length="historyItems.length"
+        :must-sort="false"
+        no-data-text="No results found"
+        hover
+    >
+        <template #item.amount="{ item }">
+            <span>
+                {{ centsToDollars(item.amount) }}
+            </span>
+        </template>
+        <template #item.formattedStart="{ item }">
+            <span class="font-weight-bold">
+                {{ item.formattedStart }}
+            </span>
+        </template>
+        <template #item.formattedStatus="{ item }">
+            <v-chip :color="getColor(item.formattedStatus)" variant="tonal" size="small" class="font-weight-bold">
+                {{ item.formattedStatus }}
+            </v-chip>
+        </template>
+        <template #item.link="{ item }">
+            <v-btn v-if="item.link" variant="flat" size="small" :href="item.link">
+                Download
+            </v-btn>
+        </template>
 
-            <template #bottom>
-                <div class="v-data-table-footer">
-                    <v-row justify="end" align="center" class="pa-2">
-                        <v-col cols="auto">
-                            <span class="caption">Items per page:</span>
-                        </v-col>
-                        <v-col cols="auto">
-                            <v-select
-                                v-model="limit"
-                                density="compact"
-                                :items="pageSizes"
-                                variant="outlined"
-                                hide-details
-                                @update:model-value="sizeChanged"
-                            />
-                        </v-col>
-                        <v-col cols="auto">
-                            <v-btn-group density="compact">
-                                <v-btn :disabled="!historyPage.hasPrevious" :icon="ChevronLeft" @click="previousClicked" />
-                                <v-btn :disabled="!historyPage.hasNext" :icon="ChevronRight" @click="nextClicked" />
-                            </v-btn-group>
-                        </v-col>
-                    </v-row>
-                </div>
-            </template>
-        </v-data-table-server>
-    </v-card>
+        <template #bottom>
+            <div class="v-data-table-footer">
+                <v-row justify="end" align="center" class="pa-2">
+                    <v-col cols="auto">
+                        <span class="caption">Items per page:</span>
+                    </v-col>
+                    <v-col cols="auto">
+                        <v-select
+                            v-model="limit"
+                            density="compact"
+                            :items="pageSizes"
+                            variant="outlined"
+                            hide-details
+                            @update:model-value="sizeChanged"
+                        />
+                    </v-col>
+                    <v-col cols="auto">
+                        <v-btn-group density="compact">
+                            <v-btn :disabled="!historyPage.hasPrevious" :icon="ChevronLeft" @click="previousClicked" />
+                            <v-btn :disabled="!historyPage.hasNext" :icon="ChevronRight" @click="nextClicked" />
+                        </v-btn-group>
+                    </v-col>
+                </v-row>
+            </div>
+        </template>
+    </v-data-table-server>
 </template>
 
 <script setup lang="ts">
@@ -67,7 +65,6 @@ import { computed, onMounted, ref } from 'vue';
 import {
     VBtn,
     VBtnGroup,
-    VCard,
     VChip,
     VCol,
     VRow,
@@ -78,7 +75,7 @@ import { ChevronLeft, ChevronRight } from 'lucide-vue-next';
 
 import { centsToDollars } from '@/utils/strings';
 import { useBillingStore } from '@/store/modules/billingStore';
-import { useNotify } from '@/utils/hooks';
+import { useNotify } from '@/composables/useNotify';
 import { AnalyticsErrorEventSource } from '@/utils/constants/analyticsEventNames';
 import { PaymentHistoryPage, PaymentsHistoryItem } from '@/types/payments';
 import { useLoading } from '@/composables/useLoading';

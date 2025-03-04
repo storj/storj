@@ -239,7 +239,7 @@ import { User, UserSettings } from '@/types/users';
 import { useAppStore } from '@/store/modules/appStore';
 import { useUsersStore } from '@/store/modules/usersStore';
 import { AnalyticsErrorEventSource } from '@/utils/constants/analyticsEventNames';
-import { useNotify } from '@/utils/hooks';
+import { useNotify } from '@/composables/useNotify';
 import { Duration } from '@/utils/time';
 import { ROUTES } from '@/router';
 import { useConfigStore } from '@/store/modules/configStore';

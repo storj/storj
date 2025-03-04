@@ -116,6 +116,9 @@ model user (
 	field trial_expiration timestamp ( updatable, nullable )
 	// upgrade_time is used to track when user upgraded to paid tier.
 	field upgrade_time timestamp ( updatable, nullable )
+
+	// hubspot_object_id is a HubSpot object ID corresponding to the current user.
+	field hubspot_object_id text ( updatable, nullable )
 )
 
 create user ( )

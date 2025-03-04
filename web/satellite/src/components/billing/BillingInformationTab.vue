@@ -95,7 +95,7 @@ import { computed, onMounted, ref } from 'vue';
 import { useBillingStore } from '@/store/modules/billingStore';
 import { BillingAddress, BillingInformation, TaxID } from '@/types/payments';
 import { useLoading } from '@/composables/useLoading';
-import { useNotify } from '@/utils/hooks';
+import { useNotify } from '@/composables/useNotify';
 import { useConfigStore } from '@/store/modules/configStore';
 
 import AddTaxIdDialog from '@/components/dialogs/AddTaxIdDialog.vue';

@@ -97,6 +97,7 @@ type Config struct {
 	PathwayOverviewEnabled          bool          `help:"indicates if the overview onboarding step should render with pathways" default:"true"`
 	LimitsAreaEnabled               bool          `help:"indicates whether limit card section of the UI is enabled" default:"true"`
 	GeneratedAPIEnabled             bool          `help:"indicates if generated console api should be used" default:"true"`
+	RestAPIKeysUIEnabled            bool          `help:"whether the rest API keys UI is enabled" default:"false"`
 	OptionalSignupSuccessURL        string        `help:"optional url to external registration success page" default:""`
 	HomepageURL                     string        `help:"url link to storj.io homepage" default:"https://www.storj.io"`
 	ValdiSignUpURL                  string        `help:"url link to Valdi sign up page" default:""`
@@ -468,6 +469,9 @@ func NewServer(logger *zap.Logger, config Config, service *console.Service, oidc
 
 	analyticsPath := "/api/v0/analytics"
 	router.HandleFunc(analyticsPath+"/pageview", analyticsController.PageViewTriggered).Methods(http.MethodPost, http.MethodOptions)
+	if analyticsConfig.HubSpot.AccountObjectCreatedWebhookEnabled {
+		router.HandleFunc(analyticsConfig.HubSpot.AccountObjectCreatedWebhookEndpoint, analyticsController.AccountObjectCreated).Methods(http.MethodPost, http.MethodOptions)
+	}
 	analyticsRouter := router.PathPrefix(analyticsPath).Subrouter()
 	analyticsRouter.Use(server.withCORS)
 	analyticsRouter.Use(server.withAuth)
@@ -1018,7 +1022,7 @@ func (server *Server) frontendConfigHandler(w http.ResponseWriter, r *http.Reque
 		MaxAddFundsAmount:                 server.config.MaxAddFundsAmount,
 		MinAddFundsAmount:                 server.config.MinAddFundsAmount,
 		DownloadPrefixEnabled:             server.config.DownloadPrefixEnabled,
-		ZipDownloadLimit:                  server.config.ZipDownloadLimit,
+		RestAPIKeysUIEnabled:              server.config.RestAPIKeysUIEnabled,
 	}
 
 	err := json.NewEncoder(w).Encode(&cfg)
@@ -1150,7 +1154,15 @@ func (server *Server) accountActivationHandler(w http.ResponseWriter, r *http.Re
 		return
 	}
 
-	tokenInfo, err := server.service.GenerateSessionToken(ctx, user.ID, user.Email, ip, r.UserAgent(), nil)
+	tokenInfo, err := server.service.GenerateSessionToken(ctx, console.SessionTokenRequest{
+		UserID:          user.ID,
+		Email:           user.Email,
+		IP:              ip,
+		UserAgent:       r.UserAgent(),
+		AnonymousID:     consoleapi.LoadAjsAnonymousID(r),
+		CustomDuration:  nil,
+		HubspotObjectID: user.HubspotObjectID,
+	})
 	if err != nil {
 		server.serveError(w, http.StatusInternalServerError)
 		return

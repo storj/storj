@@ -38,6 +38,10 @@ func (ex *external) OpenProject(ctx context.Context, access string, options ...u
 	return ex.project, nil
 }
 
+func (ex *external) GetEdgeUrlOverrides(ctx context.Context, access *uplink.Access) (_ ulext.EdgeURLOverrides, err error) {
+	return ulext.EdgeURLOverrides{}, nil
+}
+
 func (ex *external) OpenAccess(accessName string) (access *uplink.Access, err error) {
 	accessDefault, accesses, err := ex.GetAccessInfo(true)
 	if err != nil {

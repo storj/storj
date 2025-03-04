@@ -88,7 +88,7 @@ import { Trash2 } from 'lucide-vue-next';
 
 import { useAccessGrantsStore } from '@/store/modules/accessGrantsStore';
 import { useLoading } from '@/composables/useLoading';
-import { useNotify } from '@/utils/hooks';
+import { useNotify } from '@/composables/useNotify';
 import { AnalyticsErrorEventSource } from '@/utils/constants/analyticsEventNames';
 import { AccessGrant } from '@/types/accessGrants';
 

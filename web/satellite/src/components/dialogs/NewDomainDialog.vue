@@ -184,7 +184,7 @@ import { NewDomainFlowStep } from '@/types/domains';
 import { useBucketsStore } from '@/store/modules/bucketsStore';
 import { useProjectsStore } from '@/store/modules/projectsStore';
 import { useDomainsStore } from '@/store/modules/domainsStore';
-import { useNotify } from '@/utils/hooks';
+import { useNotify } from '@/composables/useNotify';
 import { AnalyticsErrorEventSource } from '@/utils/constants/analyticsEventNames';
 import { IDialogFlowStep } from '@/types/common';
 import { PassphraseOption } from '@/types/setupAccess';
@@ -450,8 +450,8 @@ watch(innerContent, async (comp: Component): Promise<void> => {
     isFetching.value = true;
 
     const projectID = projectsStore.state.selectedProject.id;
-    await bucketsStore.getAllBucketsNames(projectID).catch(err => {
-        notify.error(`Error fetching bucket grant names. ${err.message}`, AnalyticsErrorEventSource.NEW_DOMAIN_MODAL);
+    await bucketsStore.getAllBucketsNames(projectID).catch(error => {
+        notify.notifyError(error, AnalyticsErrorEventSource.NEW_DOMAIN_MODAL);
     });
 
     passphrase.value = bucketsStore.state.passphrase;

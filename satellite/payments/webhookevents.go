@@ -6,7 +6,7 @@ package payments
 import (
 	"context"
 
-	"github.com/stripe/stripe-go/v75"
+	"github.com/stripe/stripe-go/v81"
 )
 
 // WebhookEvents exposes all needed functionality to handle a stripe webhook event.
@@ -23,6 +23,9 @@ type WebhookEventType string
 var (
 	// EventTypePaymentIntentSucceeded represents the payment intent succeeded event type.
 	EventTypePaymentIntentSucceeded = WebhookEventType(stripe.EventTypePaymentIntentSucceeded)
+
+	// EventTypePaymentIntentPaymentFailed represents the payment intent payment failed event type.
+	EventTypePaymentIntentPaymentFailed = WebhookEventType(stripe.EventTypePaymentIntentPaymentFailed)
 )
 
 // WebhookEvent represents a generic webhook event.

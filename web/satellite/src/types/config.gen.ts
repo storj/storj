@@ -81,6 +81,7 @@ export class FrontendConfig {
     minAddFundsAmount: number;
     downloadPrefixEnabled: boolean;
     zipDownloadLimit: number;
+    restAPIKeysUIEnabled: boolean;
 }
 
 export class MultiCaptchaConfig {

@@ -33,6 +33,16 @@ export class ObjectBrowserPage {
         await uiTestFile.click();
     }
 
+    async doubleClickFolder(name: string): Promise<void> {
+        const folder = this.page.getByRole('button', { name: `Foldericon ${name}` });
+        await folder.dblclick();
+    }
+
+    async checkSingleBreadcrumb(tag: string, label: string): Promise<void> {
+        const items = await this.page.locator(`//${tag}[text()='${label}']`).all();
+        expect(items).toHaveLength(1);
+    }
+
     async closePreview(): Promise<void> {
         await this.page.locator(ObjectBrowserPageObjects.CLOSE_PREVIEW_MODAL_BUTTON_XPATH).click();
     }

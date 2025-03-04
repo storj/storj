@@ -10,12 +10,6 @@ import { Size } from '@/utils/bytesSize';
 export const CENTS_MB_TO_DOLLARS_GB_SHIFT = -1;
 
 /**
- * CENTS_MB_TO_DOLLARS_TB_SHIFT constant represents how many places to the left
- * a decimal point must be shifted to convert from cents/MB to dollars/TB.
- */
-export const CENTS_MB_TO_DOLLARS_TB_SHIFT = -4;
-
-/**
  * decimalShift shifts the decimal point of a number represented by the given string.
  * @param decimal - the string representation of the number
  * @param places - the amount that the decimal point is shifted left

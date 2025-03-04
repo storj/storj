@@ -9,6 +9,22 @@ import (
 	"storj.io/storj/cmd/uplink/ultest"
 )
 
+func TestRmErrors(t *testing.T) {
+	state := ultest.Setup(commands)
+
+	t.Run("Version ID with Pending", func(t *testing.T) {
+		state.Fail(t, "rm", "sj://user/file.txt", "--version-id", "0000000000000001", "--pending")
+	})
+
+	t.Run("Version ID with Recursive", func(t *testing.T) {
+		state.Fail(t, "rm", "sj://user/file.txt", "--version-id", "0000000000000001", "--recursive")
+	})
+
+	t.Run("Version ID with Local Location", func(t *testing.T) {
+		state.Fail(t, "rm", "/user/file.txt", "--version-id", "0000000000000001")
+	})
+}
+
 func TestRmRemote(t *testing.T) {
 	t.Run("Basic", func(t *testing.T) {
 		state := ultest.Setup(commands,
@@ -64,6 +80,29 @@ func TestRmRemote(t *testing.T) {
 		state.Succeed(t, "rm", "sj://user/files", "-r", "--pending").RequirePending(t,
 			ultest.File{Loc: "sj://user/other_file1.txt"},
 		)
+	})
+
+	t.Run("Version ID", func(t *testing.T) {
+		state := ultest.Setup(commands,
+			ultest.WithFile("sj://user/file.txt"),
+			ultest.WithFile("sj://user/file.txt"),
+			ultest.WithFile("sj://user/file.txt"),
+		)
+
+		state.Succeed(t, "rm", "sj://user/file.txt", "--version-id", "0000000000000001").RequireFiles(t,
+			ultest.File{Loc: "sj://user/file.txt", Version: 0},
+			ultest.File{Loc: "sj://user/file.txt", Version: 2},
+		)
+	})
+
+	t.Run("Version ID with Governance Locked File", func(t *testing.T) {
+		state := ultest.Setup(commands, ultest.WithGovernanceLockedFile("sj://user/file.txt"))
+
+		state.Fail(t, "rm", "sj://user/file.txt", "--version-id", "0000000000000000").RequireFiles(t,
+			ultest.File{Loc: "sj://user/file.txt", Version: 0},
+		)
+
+		state.Succeed(t, "rm", "sj://user/file.txt", "--version-id", "0000000000000000", "--bypass-governance-retention").RequireFiles(t)
 	})
 }
 

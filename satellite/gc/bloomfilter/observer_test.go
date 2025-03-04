@@ -428,5 +428,5 @@ type mockOverlay struct {
 }
 
 func (o *mockOverlay) ActiveNodesPieceCounts(ctx context.Context) (pieceCounts map[storj.NodeID]int64, err error) {
-	return pieceCounts, nil
+	return o.pieceCounts, nil
 }

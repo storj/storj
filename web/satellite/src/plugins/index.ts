@@ -7,7 +7,7 @@ import { createPinia, setActivePinia } from 'pinia';
 import vuetify from './vuetify';
 
 import { setupRouter } from '@/router';
-import NotificatorPlugin from '@/utils/plugins/notificator';
+import NotificatorPlugin from '@/plugins/notificator';
 
 const pinia = createPinia();
 setActivePinia(pinia);

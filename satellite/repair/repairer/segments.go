@@ -32,7 +32,6 @@ import (
 	"storj.io/storj/satellite/repair/queue"
 	"storj.io/storj/shared/location"
 	"storj.io/uplink/private/eestream"
-	"storj.io/uplink/private/piecestore"
 )
 
 var (
@@ -580,7 +579,7 @@ func (repairer *SegmentRepairer) Repair(ctx context.Context, queueSegment queue.
 			return false, nil
 		}
 		// The segment's redundancy strategy is invalid, or else there was an internal error.
-		return true, repairReconstructError.New("segment could not be reconstructed: %w", err)
+		return false, repairReconstructError.New("segment could not be reconstructed: %w", err)
 	}
 	defer func() { err = errs.Combine(err, segmentReader.Close()) }()
 
@@ -626,7 +625,7 @@ func (repairer *SegmentRepairer) Repair(ctx context.Context, queueSegment queue.
 			return nil
 		}()
 		if err != nil {
-			return true, err
+			return false, err
 		}
 	}
 
@@ -958,7 +957,7 @@ func (repairer *SegmentRepairer) AdminFetchPieces(ctx context.Context, log *zap.
 
 			pieceReadCloser, hash, originalLimit, err := repairer.ec.downloadAndVerifyPiece(ctx, limit, address, getPrivateKey, saveDir, pieceSize)
 			// if piecestore dial with last ip:port failed try again with node address
-			if triedLastIPPort && piecestore.Error.Has(err) {
+			if triedLastIPPort && ErrDialFailed.Has(err) {
 				if pieceReadCloser != nil {
 					_ = pieceReadCloser.Close()
 				}

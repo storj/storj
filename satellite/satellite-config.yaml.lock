@@ -49,6 +49,12 @@
 # enable analytics reporting
 # analytics.enabled: false
 
+# whether account object created webhook is enabled
+# analytics.hub-spot.account-object-created-webhook-enabled: false
+
+# the endpoint for account object created webhook
+# analytics.hub-spot.account-object-created-webhook-endpoint: /api/v0/analytics/hubspot/account-object-created
+
 # the number of events that can be in the queue before dropping
 # analytics.hub-spot.channel-size: 1000
 
@@ -61,14 +67,11 @@
 # the number of concurrent api requests that can be made
 # analytics.hub-spot.concurrent-sends: 4
 
-# the hubspot form ID for cunoFS beta
-# analytics.hub-spot.cuno-fs-beta-form-id: ""
+# the hubspot form URL for cunoFS beta
+# analytics.hub-spot.cuno-fs-beta-form-url: ""
 
 # the default timeout for the hubspot http client
 # analytics.hub-spot.default-timeout: 10s
-
-# the prefix for the event name
-# analytics.hub-spot.event-prefix: ""
 
 # the hubspot lifecycle stage for new accounts
 # analytics.hub-spot.life-cycle-stage: ""
@@ -76,11 +79,17 @@
 # hubspot refresh token
 # analytics.hub-spot.refresh-token: ""
 
-# the hubspot form ID for signup
-# analytics.hub-spot.signup-form-id: ""
+# the event name for signup action
+# analytics.hub-spot.signup-event-name: ""
+
+# the hubspot form URL for signup
+# analytics.hub-spot.signup-form-url: ""
 
 # hubspot token refresh API
 # analytics.hub-spot.token-api: https://api.hubapi.com/oauth/v1/token
+
+# the lifetime of the webhook request
+# analytics.hub-spot.webhook-request-lifetime: 5m0s
 
 # the url of the plausible API
 # analytics.plausible.api-url: https://plausible.io/api/event
@@ -520,6 +529,9 @@ compensation.withheld-percents: 75,75,75,50,50,50,25,25,25,0,0,0,0,0,0
 # number of clients whose rate limits we store
 # console.rate-limit.num-limits: 1000
 
+# whether the rest API keys UI is enabled
+# console.rest-api-keys-ui-enabled: false
+
 # indicates whether satellite managed encryption projects can be created.
 # console.satellite-managed-encryption-enabled: false
 
@@ -809,6 +821,9 @@ contact.external-address: ""
 # whether to use test GC SyncObserver with ranged loop
 # garbage-collection-bf.use-sync-observer: true
 
+# whether to use SyncObserverV2 for GC
+# garbage-collection-bf.use-sync-observer-v2: false
+
 # how many bloom filters will be packed in a single zip
 # garbage-collection-bf.zip-batch-size: 40
 
@@ -934,6 +949,9 @@ identity.key-path: /root/.local/share/storj/identity/satellite/identity.key
 
 # the database connection string to use
 # metainfo.database-url: postgres://
+
+# enable the use of the DeleteObjects endpoint
+# metainfo.delete-objects-enabled: false
 
 # the number of requests to allow bursts beyond the rate limit
 # metainfo.download-limiter.burst-limit: 3
@@ -1167,7 +1185,7 @@ identity.key-path: /root/.local/share/storj/identity/satellite/identity.key
 # overlay.minimum-new-node-id-difficulty: 36
 
 # the amount of time to wait before accepting a redundant check-in from a node (unmodified info since last check-in)
-# overlay.node-check-in-wait-period: 2h0m0s
+# overlay.node-check-in-wait-period: 1h10m0s
 
 # disable node cache
 # overlay.node-selection-cache.disabled: false

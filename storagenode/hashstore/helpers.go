@@ -103,6 +103,13 @@ func envInt(name string, def int64) int64 {
 	return def
 }
 
+func envBool(name string, def bool) bool {
+	if val, err := strconv.ParseBool(os.Getenv(name)); err == nil {
+		return val
+	}
+	return def
+}
+
 //
 // generic wrapper around sync.Map
 //

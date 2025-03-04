@@ -99,7 +99,7 @@ import { Versioning } from '@/types/versioning';
 import { useVersioning } from '@/composables/useVersioning';
 import { useLoading } from '@/composables/useLoading';
 import { AnalyticsErrorEventSource } from '@/utils/constants/analyticsEventNames';
-import { useNotify } from '@/utils/hooks';
+import { useNotify } from '@/composables/useNotify';
 
 import IconVersioningClock from '@/components/icons/IconVersioningClock.vue';
 

@@ -213,8 +213,8 @@ import {
     VCardActions,
     VCardItem,
     VCardSubtitle,
-    VCardTitle,
     VCardText,
+    VCardTitle,
     VCol,
     VDialog,
     VDivider,
@@ -233,13 +233,12 @@ import {
     ObjectLockPermission,
     PassphraseOption,
     Permission,
-    PermissionsMessage,
     SetupStep,
 } from '@/types/setupAccess';
 import { useBucketsStore } from '@/store/modules/bucketsStore';
 import { getUniqueName, IDialogFlowStep } from '@/types/common';
 import { AnalyticsErrorEventSource, AnalyticsEvent } from '@/utils/constants/analyticsEventNames';
-import { useNotify } from '@/utils/hooks';
+import { useNotify } from '@/composables/useNotify';
 import { useAccessGrantsStore } from '@/store/modules/accessGrantsStore';
 import { useProjectsStore } from '@/store/modules/projectsStore';
 import { AccessGrant, EdgeCredentials } from '@/types/accessGrants';
@@ -248,6 +247,7 @@ import { useAnalyticsStore } from '@/store/modules/analyticsStore';
 import { ROUTES } from '@/router';
 import { useUsersStore } from '@/store/modules/usersStore';
 import { Application } from '@/types/applications';
+import { useAccessGrantWorker, SetPermissionsMessage } from '@/composables/useAccessGrantWorker';
 
 import ChooseFlowStep from '@/components/dialogs/accessSetupSteps/ChooseFlowStep.vue';
 import ChooseAccessStep from '@/components/dialogs/accessSetupSteps/ChooseAccessStep.vue';
@@ -310,13 +310,13 @@ const userStore = useUsersStore();
 
 const notify = useNotify();
 const route = useRoute();
+const { setPermissions, generateAccess } = useAccessGrantWorker();
 
 const model = defineModel<boolean>({ required: true });
 
 const innerContent = ref<VCard>();
 const isCreating = ref<boolean>(false);
 const isFetching = ref<boolean>(true);
-const worker = ref<Worker | null>(null);
 
 const resets: (() => void)[] = [];
 function resettableRef<T>(value: T): Ref<T> {
@@ -396,13 +396,7 @@ const stepInfos: Record<SetupStep, StepInfo> = {
         SetupStep.ChooseFlowStep,
     ),
     [SetupStep.ChooseFlowStep]: new StepInfo(
-        () => {
-            if (accessType.value === AccessType.APIKey) {
-                return flowType.value === FlowType.FullAccess ? 'Create Access' : 'Next ->';
-            }
-
-            return promptForPassphrase.value || flowType.value === FlowType.Advanced ? 'Next ->' : 'Create Access';
-        },
+        'Next ->',
         () => props.defaultAccessType ? 'Cancel' : 'Back',
         () => {
             if (props.defaultAccessType) return undefined;
@@ -413,37 +407,49 @@ const stepInfos: Record<SetupStep, StepInfo> = {
         },
         () => {
             if (accessType.value === AccessType.APIKey) {
-                return flowType.value === FlowType.FullAccess ? SetupStep.AccessCreatedStep : SetupStep.ChoosePermissionsStep;
+                return flowType.value === FlowType.FullAccess ? SetupStep.ConfirmDetailsStep : SetupStep.ChoosePermissionsStep;
             }
 
             if (promptForPassphrase.value) return SetupStep.AccessEncryption;
 
-            return flowType.value === FlowType.FullAccess ? SetupStep.AccessCreatedStep : SetupStep.ChoosePermissionsStep;
+            return flowType.value === FlowType.FullAccess ? SetupStep.ConfirmDetailsStep : SetupStep.ChoosePermissionsStep;
         },
         async () => {
-            if (flowType.value === FlowType.FullAccess && (accessType.value === AccessType.APIKey || !promptForPassphrase.value)) {
-                await generate();
+            if (flowType.value === FlowType.FullAccess) {
+                permissions.value = [Permission.Read, Permission.Write, Permission.List, Permission.Delete];
+                objectLockPermissions.value = [
+                    ObjectLockPermission.PutObjectRetention,
+                    ObjectLockPermission.GetObjectRetention,
+                    ObjectLockPermission.PutObjectLegalHold,
+                    ObjectLockPermission.GetObjectLegalHold,
+                    ObjectLockPermission.PutObjectLockConfiguration,
+                    ObjectLockPermission.GetObjectLockConfiguration,
+                ];
             }
         },
     ),
     [SetupStep.AccessEncryption]: new StepInfo(
-        () => flowType.value === FlowType.FullAccess && passphraseOption.value === PassphraseOption.SetMyProjectPassphrase ? 'Create Access' : 'Next ->',
+        'Next ->',
         'Back',
         SetupStep.ChooseFlowStep,
         () => {
             if (passphraseOption.value === PassphraseOption.EnterNewPassphrase) return SetupStep.EnterNewPassphrase;
             if (passphraseOption.value === PassphraseOption.GenerateNewPassphrase) return SetupStep.PassphraseGenerated;
 
-            return flowType.value === FlowType.FullAccess ? SetupStep.AccessCreatedStep : SetupStep.ChoosePermissionsStep;
+            return flowType.value === FlowType.FullAccess ? SetupStep.ConfirmDetailsStep : SetupStep.ChoosePermissionsStep;
         },
         async () => {
-            if (
-                passphraseOption.value === PassphraseOption.EnterNewPassphrase ||
-                passphraseOption.value === PassphraseOption.GenerateNewPassphrase ||
-                flowType.value === FlowType.Advanced
-            ) return;
-
-            await generate();
+            if (flowType.value === FlowType.FullAccess) {
+                permissions.value = [Permission.Read, Permission.Write, Permission.List, Permission.Delete];
+                objectLockPermissions.value = [
+                    ObjectLockPermission.PutObjectRetention,
+                    ObjectLockPermission.GetObjectRetention,
+                    ObjectLockPermission.PutObjectLegalHold,
+                    ObjectLockPermission.GetObjectLegalHold,
+                    ObjectLockPermission.PutObjectLockConfiguration,
+                    ObjectLockPermission.GetObjectLockConfiguration,
+                ];
+            }
         },
     ),
     [SetupStep.PassphraseGenerated]: new StepInfo(
@@ -500,7 +506,10 @@ const stepInfos: Record<SetupStep, StepInfo> = {
     [SetupStep.ConfirmDetailsStep]: new StepInfo(
         'Create Access',
         'Back',
-        SetupStep.OptionalExpirationStep,
+        () => {
+            if (flowType.value === FlowType.FullAccess) return SetupStep.ChooseFlowStep;
+            return SetupStep.OptionalExpirationStep;
+        },
         SetupStep.AccessCreatedStep,
         generate,
     ),
@@ -544,53 +553,43 @@ async function generate(): Promise<void> {
  * Generates API Key.
  */
 async function createAPIKey(): Promise<void> {
-    if (!worker.value) throw new Error('Web worker is not initialized.');
-
     const projectID = projectsStore.state.selectedProject.id;
     const cleanAPIKey: AccessGrant = await agStore.createAccessGrant(name.value, projectID);
 
     if (route.name === ROUTES.Access.name) {
-        agStore.getAccessGrants(1, projectID).catch(err => {
-            notify.error(`Unable to fetch access grants. ${err.message}`, AnalyticsErrorEventSource.SETUP_ACCESS_MODAL);
+        agStore.getAccessGrants(1, projectID).catch(error => {
+            notify.notifyError(error, AnalyticsErrorEventSource.SETUP_ACCESS_MODAL);
         });
     }
 
     const noCaveats = flowType.value === FlowType.FullAccess;
 
-    let permissionsMsg: PermissionsMessage = {
-        'type': 'SetPermission',
-        'buckets': JSON.stringify(noCaveats ? [] : buckets.value),
-        'apiKey': cleanAPIKey.secret,
-        'isDownload': noCaveats || permissions.value.includes(Permission.Read),
-        'isUpload': noCaveats || permissions.value.includes(Permission.Write),
-        'isList': noCaveats || permissions.value.includes(Permission.List),
-        'isDelete': noCaveats || permissions.value.includes(Permission.Delete),
-        'notBefore': new Date().toISOString(),
+    let permissionsMsg: SetPermissionsMessage = {
+        buckets: JSON.stringify(noCaveats ? [] : buckets.value),
+        apiKey: cleanAPIKey.secret,
+        isDownload: noCaveats || permissions.value.includes(Permission.Read),
+        isUpload: noCaveats || permissions.value.includes(Permission.Write),
+        isList: noCaveats || permissions.value.includes(Permission.List),
+        isDelete: noCaveats || permissions.value.includes(Permission.Delete),
+        notBefore: new Date().toISOString(),
     };
 
     if (objectLockUIEnabled.value) {
         permissionsMsg = {
             ...permissionsMsg,
-            'isPutObjectRetention': noCaveats || objectLockPermissions.value.includes(ObjectLockPermission.PutObjectRetention),
-            'isGetObjectRetention': noCaveats || objectLockPermissions.value.includes(ObjectLockPermission.GetObjectRetention),
-            'isBypassGovernanceRetention': noCaveats || objectLockPermissions.value.includes(ObjectLockPermission.BypassGovernanceRetention),
-            'isPutObjectLegalHold': noCaveats || objectLockPermissions.value.includes(ObjectLockPermission.PutObjectLegalHold),
-            'isGetObjectLegalHold': noCaveats || objectLockPermissions.value.includes(ObjectLockPermission.GetObjectLegalHold),
-            'isPutObjectLockConfiguration': noCaveats || objectLockPermissions.value.includes(ObjectLockPermission.PutObjectLockConfiguration),
-            'isGetObjectLockConfiguration': noCaveats || objectLockPermissions.value.includes(ObjectLockPermission.GetObjectLockConfiguration),
+            isPutObjectRetention: noCaveats || objectLockPermissions.value.includes(ObjectLockPermission.PutObjectRetention),
+            isGetObjectRetention: noCaveats || objectLockPermissions.value.includes(ObjectLockPermission.GetObjectRetention),
+            isBypassGovernanceRetention: noCaveats || objectLockPermissions.value.includes(ObjectLockPermission.BypassGovernanceRetention),
+            isPutObjectLegalHold: noCaveats || objectLockPermissions.value.includes(ObjectLockPermission.PutObjectLegalHold),
+            isGetObjectLegalHold: noCaveats || objectLockPermissions.value.includes(ObjectLockPermission.GetObjectLegalHold),
+            isPutObjectLockConfiguration: noCaveats || objectLockPermissions.value.includes(ObjectLockPermission.PutObjectLockConfiguration),
+            isGetObjectLockConfiguration: noCaveats || objectLockPermissions.value.includes(ObjectLockPermission.GetObjectLockConfiguration),
         };
     }
 
-    if (endDate.value && !noCaveats) permissionsMsg = Object.assign(permissionsMsg, { 'notAfter': endDate.value.toISOString() });
+    if (endDate.value && !noCaveats) permissionsMsg = Object.assign(permissionsMsg, { notAfter: endDate.value.toISOString() });
 
-    worker.value.postMessage(permissionsMsg);
-
-    const grantEvent: MessageEvent = await new Promise(resolve => {
-        if (worker.value) worker.value.onmessage = resolve;
-    });
-    if (grantEvent.data.error) throw new Error(grantEvent.data.error);
-
-    cliAccess.value = grantEvent.data.value;
+    cliAccess.value = await setPermissions(permissionsMsg);
 
     if (accessType.value === AccessType.APIKey) analyticsStore.eventTriggered(AnalyticsEvent.API_ACCESS_CREATED);
 }
@@ -599,27 +598,12 @@ async function createAPIKey(): Promise<void> {
  * Generates access grant.
  */
 async function createAccessGrant(): Promise<void> {
-    if (!worker.value) throw new Error('Web worker is not initialized.');
     if (!passphrase.value) throw new Error('Passphrase can\'t be empty');
 
-    const satelliteNodeURL = configStore.state.config.satelliteNodeURL;
-
-    const salt = await projectsStore.getProjectSalt(projectsStore.state.selectedProject.id);
-
-    worker.value.postMessage({
-        'type': 'GenerateAccess',
-        'apiKey': cliAccess.value,
-        'passphrase': passphrase.value,
-        'salt': salt,
-        'satelliteNodeURL': satelliteNodeURL,
-    });
-
-    const accessEvent: MessageEvent = await new Promise(resolve => {
-        if (worker.value) worker.value.onmessage = resolve;
-    });
-    if (accessEvent.data.error) throw new Error(accessEvent.data.error);
-
-    accessGrant.value = accessEvent.data.value;
+    accessGrant.value = await generateAccess({
+        apiKey: cliAccess.value,
+        passphrase: passphrase.value,
+    }, projectsStore.state.selectedProject.id);
 
     if (accessType.value === AccessType.AccessGrant) analyticsStore.eventTriggered(AnalyticsEvent.ACCESS_GRANT_CREATED);
 }
@@ -719,21 +703,15 @@ watch(innerContent, async (comp?: VCard): Promise<void> => {
         return;
     }
 
-    worker.value = agStore.state.accessGrantsWebWorker;
-    if (worker.value) {
-        worker.value.onerror = (error: ErrorEvent) => {
-            notify.error(error.message, AnalyticsErrorEventSource.SETUP_ACCESS_MODAL);
-        };
-    }
-
     isFetching.value = true;
 
     const projectID = projectsStore.state.selectedProject.id;
-    await agStore.getAllAGNames(projectID).catch(err => {
-        notify.error(`Error fetching access grant names. ${err.message}`, AnalyticsErrorEventSource.SETUP_ACCESS_MODAL);
-    });
-    await bucketsStore.getAllBucketsNames(projectID).catch(err => {
-        notify.error(`Error fetching bucket grant names. ${err.message}`, AnalyticsErrorEventSource.SETUP_ACCESS_MODAL);
+
+    await Promise.all([
+        agStore.getAllAGNames(projectID),
+        bucketsStore.getAllBucketsNames(projectID),
+    ]).catch(error => {
+        notify.notifyError(error, AnalyticsErrorEventSource.SETUP_ACCESS_MODAL);
     });
 
     passphrase.value = bucketsStore.state.passphrase;

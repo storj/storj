@@ -86,7 +86,7 @@ import {
 } from 'vuetify/components';
 
 import { useLoading } from '@/composables/useLoading';
-import { useNotify } from '@/utils/hooks';
+import { useNotify } from '@/composables/useNotify';
 import { useBillingStore } from '@/store/modules/billingStore';
 
 const billingStore = useBillingStore();

@@ -5,6 +5,7 @@ package main
 
 import (
 	"context"
+	"encoding/hex"
 	"encoding/json"
 	"strconv"
 	"time"
@@ -21,13 +22,14 @@ import (
 type cmdLs struct {
 	ex ulext.External
 
-	access    string
-	recursive bool
-	encrypted bool
-	expanded  bool
-	pending   bool
-	utc       bool
-	output    string
+	access      string
+	allVersions bool
+	recursive   bool
+	encrypted   bool
+	expanded    bool
+	pending     bool
+	utc         bool
+	output      string
 
 	prefix *ulloc.Location
 }
@@ -38,6 +40,10 @@ func newCmdLs(ex ulext.External) *cmdLs {
 
 func (c *cmdLs) Setup(params clingy.Parameters) {
 	c.access = params.Flag("access", "Access name or value to use", "").(string)
+	c.allVersions = params.Flag("all-versions", "Show all object versions", false,
+		clingy.Short('a'),
+		clingy.Transform(strconv.ParseBool), clingy.Boolean,
+	).(bool)
 	c.recursive = params.Flag("recursive", "List recursively", false,
 		clingy.Short('r'),
 		clingy.Transform(strconv.ParseBool), clingy.Boolean,
@@ -109,9 +115,10 @@ func (c *cmdLs) listLocation(ctx context.Context, prefix ulloc.Location) (err er
 
 	// create the object iterator of either existing objects or pending multipart uploads
 	iter, err := fs.List(ctx, prefix, &ulfs.ListOptions{
-		Recursive: c.recursive,
-		Pending:   c.pending,
-		Expanded:  c.expanded,
+		Recursive:   c.recursive,
+		Pending:     c.pending,
+		Expanded:    c.expanded,
+		AllVersions: c.allVersions,
 	})
 	if err != nil {
 		return err
@@ -154,6 +161,9 @@ func (c *cmdLs) printJSONBucket(ctx context.Context, iter *uplink.BucketIterator
 
 func (c *cmdLs) printTabbedLocation(ctx context.Context, iter ulfs.ObjectIterator) (err error) {
 	headers := []string{"KIND", "CREATED", "SIZE", "KEY"}
+	if c.allVersions {
+		headers = append(headers, "VERSION ID")
+	}
 	if c.expanded {
 		headers = append(headers, "EXPIRES", "META")
 	}
@@ -165,14 +175,30 @@ func (c *cmdLs) printTabbedLocation(ctx context.Context, iter ulfs.ObjectIterato
 	for iter.Next() {
 		obj := iter.Item()
 
-		var parts []interface{}
-		if obj.IsPrefix {
+		parts := make([]interface{}, 0, len(headers))
+
+		switch {
+		case obj.IsPrefix:
 			parts = append(parts, "PRE", "", "", obj.Loc.Loc())
+			if c.allVersions {
+				parts = append(parts, "")
+			}
 			if c.expanded {
 				parts = append(parts, "", "")
 			}
-		} else {
+		case obj.IsDeleteMarker:
+			parts = append(parts, "MKR", formatTime(c.utc, obj.Created), "", obj.Loc.Loc())
+			if c.allVersions {
+				parts = append(parts, hex.EncodeToString(obj.Version))
+			}
+			if c.expanded {
+				parts = append(parts, "", "")
+			}
+		default:
 			parts = append(parts, "OBJ", formatTime(c.utc, obj.Created), obj.ContentLength, obj.Loc.Loc())
+			if c.allVersions {
+				parts = append(parts, hex.EncodeToString(obj.Version))
+			}
 			if c.expanded {
 				parts = append(parts, formatTime(c.utc, obj.Expires), sumMetadataSize(obj.Metadata))
 			}
@@ -189,20 +215,50 @@ func (c *cmdLs) printJSONLocation(ctx context.Context, iter ulfs.ObjectIterator)
 	for iter.Next() {
 		obj := iter.Item()
 
-		if obj.IsPrefix {
+		var versionID string
+		if !obj.IsPrefix && c.allVersions {
+			versionID = hex.EncodeToString(obj.Version)
+		}
+
+		switch {
+		case obj.IsPrefix:
 			err = jw.Encode(struct {
 				Kind string `json:"kind"`
 				Key  string `json:"key"`
-			}{"PRE", obj.Loc.Loc()})
-		} else {
+			}{
+				Kind: "PRE",
+				Key:  obj.Loc.Loc(),
+			})
+		case obj.IsDeleteMarker:
 			err = jw.Encode(struct {
-				Kind     string `json:"kind"`
-				Created  string `json:"created"`
-				Size     int64  `json:"size"`
-				Key      string `json:"key"`
-				Expires  string `json:"expires,omitempty"`
-				Metadata int    `json:"meta,omitempty"`
-			}{"OBJ", formatTime(c.utc, obj.Created), obj.ContentLength, obj.Loc.Loc(), formatTime(c.utc, obj.Expires), sumMetadataSize(obj.Metadata)})
+				Kind      string `json:"kind"`
+				Created   string `json:"created"`
+				Key       string `json:"key"`
+				VersionID string `json:"versionId,omitempty"`
+			}{
+				Kind:      "MKR",
+				Created:   formatTime(c.utc, obj.Created),
+				Key:       obj.Loc.Loc(),
+				VersionID: versionID,
+			})
+		default:
+			err = jw.Encode(struct {
+				Kind      string `json:"kind"`
+				Created   string `json:"created"`
+				Size      int64  `json:"size"`
+				Key       string `json:"key"`
+				VersionID string `json:"versionId,omitempty"`
+				Expires   string `json:"expires,omitempty"`
+				Metadata  int    `json:"meta,omitempty"`
+			}{
+				Kind:      "OBJ",
+				Created:   formatTime(c.utc, obj.Created),
+				Size:      obj.ContentLength,
+				Key:       obj.Loc.Loc(),
+				VersionID: versionID,
+				Expires:   formatTime(c.utc, obj.Expires),
+				Metadata:  sumMetadataSize(obj.Metadata),
+			})
 		}
 		if err != nil {
 			return err

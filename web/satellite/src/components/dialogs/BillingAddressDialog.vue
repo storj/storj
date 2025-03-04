@@ -65,7 +65,7 @@ import { VBtn, VCard, VCardActions, VCardItem, VCardTitle, VCol, VDialog, VDivid
 
 import { BillingAddress } from '@/types/payments';
 import { useLoading } from '@/composables/useLoading';
-import { useNotify } from '@/utils/hooks';
+import { useNotify } from '@/composables/useNotify';
 import { useBillingStore } from '@/store/modules/billingStore';
 
 import StripeAddressElement from '@/components/StripeAddressElement.vue';

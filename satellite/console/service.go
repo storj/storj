@@ -21,6 +21,7 @@ import (
 	"strconv"
 	"strings"
 	"time"
+	"unicode/utf8"
 
 	"github.com/spacemonkeygo/monkit/v3"
 	"github.com/spf13/pflag"
@@ -567,7 +568,7 @@ func (payment Payments) AddCreditCard(ctx context.Context, creditCardToken strin
 		return payments.CreditCard{}, Error.Wrap(err)
 	}
 
-	payment.service.analytics.TrackCreditCardAdded(user.ID, user.Email)
+	payment.service.analytics.TrackCreditCardAdded(user.ID, user.Email, user.HubspotObjectID)
 
 	if !user.PaidTier {
 		err = payment.upgradeToPaidTier(ctx, user)
@@ -615,7 +616,7 @@ func (payment Payments) AddCardByPaymentMethodID(ctx context.Context, pmID strin
 		return payments.CreditCard{}, Error.Wrap(err)
 	}
 
-	payment.service.analytics.TrackCreditCardAdded(user.ID, user.Email)
+	payment.service.analytics.TrackCreditCardAdded(user.ID, user.Email, user.HubspotObjectID)
 
 	if !user.PaidTier {
 		err = payment.upgradeToPaidTier(ctx, user)
@@ -654,7 +655,7 @@ func (payment Payments) upgradeToPaidTier(ctx context.Context, user *User) (err 
 	if err != nil {
 		return Error.Wrap(err)
 	}
-	payment.service.analytics.TrackUserUpgraded(user.ID, user.Email, user.TrialExpiration)
+	payment.service.analytics.TrackUserUpgraded(user.ID, user.Email, user.TrialExpiration, user.HubspotObjectID)
 
 	projects, err := payment.service.store.Projects().GetOwn(ctx, user.ID)
 	if err != nil {
@@ -728,7 +729,7 @@ func (payment Payments) AddFunds(ctx context.Context, params payments.AddFundsPa
 		UserID:   user.ID,
 		CardID:   params.CardID,
 		Amount:   int64(params.Amount),
-		Metadata: map[string]string{"user_id": user.ID.String()},
+		Metadata: map[string]string{"user_id": user.ID.String(), "add_funds": "1"},
 	})
 	if err != nil {
 		return nil, Error.Wrap(err)
@@ -746,14 +747,15 @@ func (payment Payments) HandleWebhookEvent(ctx context.Context, signature string
 		return Error.Wrap(err)
 	}
 
-	// TODO: handle other events if needed.
-	if event.Type != payments.EventTypePaymentIntentSucceeded {
-		return nil
-	}
-
-	err = payment.handlePaymentIntentSucceeded(ctx, event)
-	if err != nil {
-		return Error.Wrap(err)
+	switch event.Type {
+	case payments.EventTypePaymentIntentSucceeded:
+		if err = payment.handlePaymentIntentSucceeded(ctx, event); err != nil {
+			return Error.Wrap(err)
+		}
+	case payments.EventTypePaymentIntentPaymentFailed:
+		payment.service.log.Warn("Payment intent payment failed", zap.String("event_id", event.ID))
+	default:
+		payment.service.log.Info("Unhandled event type", zap.String("event_type", string(event.Type)), zap.String("event_id", event.ID))
 	}
 
 	return nil
@@ -772,14 +774,21 @@ func (payment Payments) handlePaymentIntentSucceeded(ctx context.Context, event 
 		return errs.New("webhook event metadata missing or invalid")
 	}
 
+	_, ok = metadata["add_funds"]
+	if !ok {
+		// We ignore this event if it's not related to adding funds.
+		// Most likely it's related to a paid invoice.
+		return nil
+	}
+
 	userIDStr, ok := metadata["user_id"].(string)
 	if !ok {
 		return errs.New("user_id missing in webhook event metadata")
 	}
 
-	amount, ok := event.Data["amount"].(float64)
+	amount, ok := event.Data["amount_received"].(float64)
 	if !ok {
-		return errs.New("amount missing in webhook event data")
+		return errs.New("amount_received missing in webhook event data")
 	}
 
 	userID, err := uuid.FromString(userIDStr)
@@ -787,9 +796,14 @@ func (payment Payments) handlePaymentIntentSucceeded(ctx context.Context, event 
 		return err
 	}
 
+	var idempotencyKey string
+	if dataID, ok := event.Data["id"].(string); ok {
+		idempotencyKey = fmt.Sprintf("%s:%s", dataID, event.Type)
+	}
+
 	description := fmt.Sprintf("Credit applied via webhook event: %s", event.ID)
 
-	_, err = payment.service.accounts.Balances().ApplyCredit(ctx, userID, int64(amount), description)
+	_, err = payment.service.accounts.Balances().ApplyCredit(ctx, userID, int64(amount), description, idempotencyKey)
 	if err != nil {
 		return err
 	}
@@ -1236,6 +1250,21 @@ func (s *Service) CreateUser(ctx context.Context, user CreateUser, tokenSecret R
 	return u, nil
 }
 
+// UpdateUserHubspotObjectID updates user's hubspot object ID value.
+func (s *Service) UpdateUserHubspotObjectID(ctx context.Context, userID uuid.UUID, objectID string) (err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	user, err := s.GetUser(ctx, userID)
+	if err != nil {
+		return Error.Wrap(err)
+	}
+
+	s.auditLog(ctx, "update user's hubspot object id", &user.ID, user.Email)
+
+	objectIDPtr := &objectID
+	return s.store.Users().Update(ctx, userID, UpdateUserRequest{HubspotObjectID: &objectIDPtr})
+}
+
 // UpdateUserOnSignup gets new password hash value and updates old inactive User.
 func (s *Service) UpdateUserOnSignup(ctx context.Context, inactiveUser *User, requestData CreateUser) (err error) {
 	defer mon.Task()(&ctx)(&err)
@@ -1498,8 +1527,19 @@ func (s *Service) GeneratePasswordRecoveryToken(ctx context.Context, user *User)
 	return resetPasswordToken.Secret.String(), nil
 }
 
+// SessionTokenRequest contains information needed to create a session token.
+type SessionTokenRequest struct {
+	UserID          uuid.UUID
+	Email           string
+	IP              string
+	UserAgent       string
+	AnonymousID     string
+	CustomDuration  *time.Duration
+	HubspotObjectID *string
+}
+
 // GenerateSessionToken creates a new session and returns the string representation of its token.
-func (s *Service) GenerateSessionToken(ctx context.Context, userID uuid.UUID, email, ip, userAgent string, customDuration *time.Duration) (_ *TokenInfo, err error) {
+func (s *Service) GenerateSessionToken(ctx context.Context, req SessionTokenRequest) (_ *TokenInfo, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	sessionID, err := uuid.New()
@@ -1508,10 +1548,10 @@ func (s *Service) GenerateSessionToken(ctx context.Context, userID uuid.UUID, em
 	}
 
 	duration := s.config.Session.Duration
-	if customDuration != nil {
-		duration = *customDuration
+	if req.CustomDuration != nil {
+		duration = *req.CustomDuration
 	} else if s.config.Session.InactivityTimerEnabled {
-		settings, err := s.store.Users().GetSettings(ctx, userID)
+		settings, err := s.store.Users().GetSettings(ctx, req.UserID)
 		if err != nil && !errs.Is(err, sql.ErrNoRows) {
 			return nil, Error.Wrap(err)
 		}
@@ -1523,7 +1563,7 @@ func (s *Service) GenerateSessionToken(ctx context.Context, userID uuid.UUID, em
 	}
 	expiresAt := time.Now().Add(duration)
 
-	_, err = s.store.WebappSessions().Create(ctx, sessionID, userID, ip, userAgent, expiresAt)
+	_, err = s.store.WebappSessions().Create(ctx, sessionID, req.UserID, req.IP, req.UserAgent, expiresAt)
 	if err != nil {
 		return nil, err
 	}
@@ -1536,9 +1576,9 @@ func (s *Service) GenerateSessionToken(ctx context.Context, userID uuid.UUID, em
 	}
 	token.Signature = signature
 
-	s.auditLog(ctx, "login", &userID, email)
+	s.auditLog(ctx, "login", &req.UserID, req.Email)
 
-	s.analytics.TrackSignedIn(userID, email)
+	s.analytics.TrackSignedIn(req.UserID, req.Email, req.AnonymousID, req.HubspotObjectID)
 
 	return &TokenInfo{
 		Token:     token,
@@ -1616,7 +1656,7 @@ func (s *Service) SetAccountActive(ctx context.Context, user *User) (err error) 
 	}
 
 	s.auditLog(ctx, "activate account", &user.ID, user.Email)
-	s.analytics.TrackAccountVerified(user.ID, user.Email)
+	s.analytics.TrackAccountVerified(user.ID, user.Email, user.HubspotObjectID)
 
 	return nil
 }
@@ -1905,7 +1945,15 @@ func (s *Service) Token(ctx context.Context, request AuthUser) (response *TokenI
 		weekDuration := 7 * 24 * time.Hour
 		customDurationPtr = &weekDuration
 	}
-	response, err = s.GenerateSessionToken(ctx, user.ID, user.Email, request.IP, request.UserAgent, customDurationPtr)
+	response, err = s.GenerateSessionToken(ctx, SessionTokenRequest{
+		UserID:          user.ID,
+		Email:           user.Email,
+		IP:              request.IP,
+		UserAgent:       request.UserAgent,
+		AnonymousID:     request.AnonymousID,
+		CustomDuration:  customDurationPtr,
+		HubspotObjectID: user.HubspotObjectID,
+	})
 	if err != nil {
 		return nil, err
 	}
@@ -2028,6 +2076,16 @@ func (s *Service) logInVerifyMFA(ctx context.Context, user *User, request AuthUs
 	return nil
 }
 
+// LoadAjsAnonymousID looks for ajs_anonymous_id cookie.
+// this cookie is set from the website if the user opts into cookies from Storj.
+func LoadAjsAnonymousID(req *http.Request) string {
+	cookie, err := req.Cookie("ajs_anonymous_id")
+	if err != nil {
+		return ""
+	}
+	return cookie.Value
+}
+
 // TokenByAPIKey authenticates User by API Key and returns session token.
 func (s *Service) TokenByAPIKey(ctx context.Context, userAgent string, ip string, apiKey string) (response *TokenInfo, err error) {
 	defer mon.Task()(&ctx)(&err)
@@ -2042,7 +2100,15 @@ func (s *Service) TokenByAPIKey(ctx context.Context, userAgent string, ip string
 		return nil, Error.New(failedToRetrieveUserErrMsg)
 	}
 
-	response, err = s.GenerateSessionToken(ctx, user.ID, user.Email, ip, userAgent, nil)
+	response, err = s.GenerateSessionToken(ctx, SessionTokenRequest{
+		UserID:          user.ID,
+		Email:           user.Email,
+		IP:              ip,
+		UserAgent:       userAgent,
+		AnonymousID:     "",
+		CustomDuration:  nil,
+		HubspotObjectID: user.HubspotObjectID,
+	})
 	if err != nil {
 		return nil, Error.New(generateSessionTokenErrMsg)
 	}
@@ -2890,9 +2956,10 @@ func (s *Service) SetupAccount(ctx context.Context, requestData SetUpAccountRequ
 	}
 
 	onboardingFields := analytics.TrackOnboardingInfoFields{
-		ID:       user.ID,
-		FullName: fullName,
-		Email:    user.Email,
+		ID:              user.ID,
+		HubspotObjectID: user.HubspotObjectID,
+		FullName:        fullName,
+		Email:           user.Email,
 	}
 
 	if requestData.StorageUseCase != nil {
@@ -3188,20 +3255,20 @@ func (s *Service) GetProjectConfig(ctx context.Context, projectID uuid.UUID) (*P
 	}
 	if project.PassphraseEnc != nil && s.kmsService != nil {
 		if project.PassphraseEncKeyID == nil {
-			s.analytics.TrackManagedEncryptionError(user.ID, user.Email, project.ID, "nil key ID for project in DB")
+			s.analytics.TrackManagedEncryptionError(user.ID, user.Email, project.ID, "nil key ID for project in DB", user.HubspotObjectID)
 			return nil, Error.New("Failed to retrieve passphrase")
 		}
 		passphrase, err = s.kmsService.DecryptPassphrase(ctx, *project.PassphraseEncKeyID, project.PassphraseEnc)
 		if err != nil {
 			s.log.Error("failed to decrypt passphrase", zap.Error(err))
-			s.analytics.TrackManagedEncryptionError(user.ID, user.Email, project.ID, err.Error())
+			s.analytics.TrackManagedEncryptionError(user.ID, user.Email, project.ID, err.Error(), user.HubspotObjectID)
 			return nil, Error.New("Failed to retrieve passphrase")
 		}
 	}
 
 	if len(passphrase) == 0 && hasManagedPassphrase {
 		// the UI handles this condition on its own, so we track an analytics event, but continue to send a valid response to the client.
-		s.analytics.TrackManagedEncryptionError(user.ID, user.Email, project.ID, "kms service not enabled on satellite")
+		s.analytics.TrackManagedEncryptionError(user.ID, user.Email, project.ID, "kms service not enabled on satellite", user.HubspotObjectID)
 	}
 
 	return &ProjectConfig{
@@ -3373,7 +3440,7 @@ func (s *Service) CreateProject(ctx context.Context, projectInfo UpsertProjectIn
 
 	currentProjectCount, err := s.checkProjectLimit(ctx, user.ID)
 	if err != nil {
-		s.analytics.TrackProjectLimitError(user.ID, user.Email)
+		s.analytics.TrackProjectLimitError(user.ID, user.Email, user.HubspotObjectID)
 		return nil, ErrProjLimit.Wrap(err)
 	}
 
@@ -3447,7 +3514,7 @@ func (s *Service) CreateProject(ctx context.Context, projectInfo UpsertProjectIn
 			}
 		}
 		if numBefore >= limit {
-			s.analytics.TrackProjectLimitError(user.ID, user.Email)
+			s.analytics.TrackProjectLimitError(user.ID, user.Email, user.HubspotObjectID)
 			return errs.Combine(ErrProjLimit.New(projLimitErrMsg), tx.Projects().Delete(ctx, p.ID))
 		}
 
@@ -3465,7 +3532,7 @@ func (s *Service) CreateProject(ctx context.Context, projectInfo UpsertProjectIn
 		return nil, Error.Wrap(err)
 	}
 
-	s.analytics.TrackProjectCreated(user.ID, user.Email, projectID, currentProjectCount+1, satManagedPassphrase)
+	s.analytics.TrackProjectCreated(user.ID, user.Email, projectID, currentProjectCount+1, satManagedPassphrase, user.HubspotObjectID)
 
 	return p, nil
 }
@@ -3779,7 +3846,7 @@ func (s *Service) RequestLimitIncrease(ctx context.Context, projectID uuid.UUID,
 		LimitType:    info.LimitType,
 		CurrentLimit: info.CurrentLimit.String(),
 		DesiredLimit: info.DesiredLimit.String(),
-	})
+	}, user.HubspotObjectID)
 
 	return nil
 }
@@ -3810,7 +3877,7 @@ func (s *Service) RequestProjectLimitIncrease(ctx context.Context, limit string)
 		LimitType:    "projects",
 		CurrentLimit: fmt.Sprint(user.ProjectLimit),
 		DesiredLimit: limit,
-	})
+	}, user.HubspotObjectID)
 
 	return nil
 }
@@ -3967,7 +4034,7 @@ func (s *Service) AddProjectMembers(ctx context.Context, projectID uuid.UUID, em
 		return nil, Error.Wrap(err)
 	}
 
-	s.analytics.TrackProjectMemberAddition(user.ID, user.Email)
+	s.analytics.TrackProjectMemberAddition(user.ID, user.Email, user.HubspotObjectID)
 
 	return users, nil
 }
@@ -4046,7 +4113,7 @@ func (s *Service) DeleteProjectMembersAndInvitations(ctx context.Context, projec
 		return nil
 	})
 
-	s.analytics.TrackProjectMemberDeletion(user.ID, user.Email)
+	s.analytics.TrackProjectMemberDeletion(user.ID, user.Email, user.HubspotObjectID)
 
 	return Error.Wrap(err)
 }
@@ -5534,7 +5601,7 @@ func (payment Payments) ApplyCredit(ctx context.Context, amount int64, desc stri
 		}
 	}
 
-	_, err = payment.service.accounts.Balances().ApplyCredit(ctx, user.ID, amount, desc)
+	_, err = payment.service.accounts.Balances().ApplyCredit(ctx, user.ID, amount, desc, "")
 	if err != nil {
 		return Error.Wrap(err)
 	}
@@ -6201,7 +6268,7 @@ func (s *Service) TestToggleSsoEnabled(enabled bool, ssoService *sso.Service) {
 // exceeds the maximum length.
 func (s *Service) ValidateFreeFormFieldLengths(values ...*string) error {
 	for _, value := range values {
-		if value != nil && len(*value) > s.config.MaxNameCharacters {
+		if value != nil && utf8.RuneCountInString(*value) > s.config.MaxNameCharacters {
 			return ErrValidation.New("field length exceeds maximum length %d", s.config.MaxNameCharacters)
 		}
 	}

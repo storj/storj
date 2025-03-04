@@ -889,6 +889,25 @@ func (db *satelliteDB) productionMigrationSpanner() *migrate.Migration {
 					`DROP INDEX IF EXISTS nodes_dis_unk_off_exit_fin_last_success_index`,
 				},
 			},
+			{
+				DB:          &db.migrationDB,
+				Description: "add hubspot_object_id column to users",
+				Version:     286,
+				Action: migrate.SQL{
+					`ALTER TABLE users ADD COLUMN hubspot_object_id STRING(MAX)`,
+				},
+			},
+			{
+				DB:          &db.migrationDB,
+				Description: "add product_id column to bucket_storage_tallies, bucket_bandwidth_rollups, project_bandwidth_daily_rollups, bucket_bandwidth_rollup_archives",
+				Version:     287,
+				Action: migrate.SQL{
+					`ALTER TABLE bucket_storage_tallies ADD COLUMN product_id INT64`,
+					`ALTER TABLE bucket_bandwidth_rollups ADD COLUMN product_id INT64`,
+					`ALTER TABLE project_bandwidth_daily_rollups ADD COLUMN product_id INT64`,
+					`ALTER TABLE bucket_bandwidth_rollup_archives ADD COLUMN product_id INT64`,
+				},
+			},
 			// NB: after updating testdata in `testdata`, run
 			//     `go generate` to update `migratez.go`.
 		},
@@ -3618,6 +3637,25 @@ func (db *satelliteDB) productionMigrationPostgres() *migrate.Migration {
 					`DROP INDEX IF EXISTS nodes_dis_unk_aud_exit_init_rel_last_cont_success_stored_index`,
 					`DROP INDEX IF EXISTS node_last_ip`,
 					`DROP INDEX IF EXISTS nodes_dis_unk_off_exit_fin_last_success_index`,
+				},
+			},
+			{
+				DB:          &db.migrationDB,
+				Description: "add hubspot_object_id column to users",
+				Version:     286,
+				Action: migrate.SQL{
+					`ALTER TABLE users ADD COLUMN hubspot_object_id TEXT`,
+				},
+			},
+			{
+				DB:          &db.migrationDB,
+				Description: "add product_id column to bucket_storage_tallies, bucket_bandwidth_rollups, bucket_bandwidth_rollup_archive, project_bandwidth_daily_rollups",
+				Version:     287,
+				Action: migrate.SQL{
+					`ALTER TABLE bucket_storage_tallies ADD COLUMN product_id INTEGER`,
+					`ALTER TABLE bucket_bandwidth_rollups ADD COLUMN product_id INTEGER`,
+					`ALTER TABLE bucket_bandwidth_rollup_archives ADD COLUMN product_id INTEGER`,
+					`ALTER TABLE project_bandwidth_daily_rollups ADD COLUMN product_id INTEGER`,
 				},
 			},
 			// NB: after updating testdata in `testdata`, run

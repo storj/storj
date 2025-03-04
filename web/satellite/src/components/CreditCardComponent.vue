@@ -61,7 +61,7 @@ import { VBtn, VCard, VCardText, VChip, VCol, VDivider, VRow } from 'vuetify/com
 import { CreditCard } from '@/types/payments';
 import { useLoading } from '@/composables/useLoading';
 import { useBillingStore } from '@/store/modules/billingStore';
-import { useNotify } from '@/utils/hooks';
+import { useNotify } from '@/composables/useNotify';
 import { AnalyticsErrorEventSource } from '@/utils/constants/analyticsEventNames';
 import { useUsersStore } from '@/store/modules/usersStore';
 

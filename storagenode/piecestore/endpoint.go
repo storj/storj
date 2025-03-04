@@ -294,6 +294,11 @@ func (endpoint *Endpoint) Upload(stream pb.DRPCPiecestore_UploadStream) (err err
 		}
 		uploadDuration := dt.Nanoseconds()
 
+		// we may return with specific named code, even if the real error is just cancelled
+		if errs2.IsCanceled(err) {
+			err = rpcstatus.NamedWrap("context-canceled", rpcstatus.Canceled, err)
+		}
+
 		if (errs2.IsCanceled(err) || drpc.ClosedError.Has(err)) && !committed {
 			mon.Counter("upload_cancel_count").Inc(1)
 			mon.Meter("upload_cancel_byte_meter").Mark64(uploadSize)
@@ -331,10 +336,6 @@ func (endpoint *Endpoint) Upload(stream pb.DRPCPiecestore_UploadStream) (err err
 
 	pieceWriter, err = endpoint.pieceBackend.Writer(ctx, limit.SatelliteId, limit.PieceId, hashAlgorithm, limit.PieceExpiration)
 	if err != nil {
-		if errs2.IsCanceled(err) {
-			return rpcstatus.NamedWrap("context-canceled", rpcstatus.Canceled, err)
-		}
-		endpoint.log.Error("upload internal error", zap.Error(err))
 		return rpcstatus.NamedWrap("disk-create-failure", rpcstatus.Internal, err)
 	}
 	defer func() {
@@ -400,7 +401,6 @@ func (endpoint *Endpoint) Upload(stream pb.DRPCPiecestore_UploadStream) (err err
 				return err
 			}()
 			if err != nil {
-				endpoint.log.Error("upload internal error", zap.Error(err))
 				return true, rpcstatus.NamedWrap("disk-write-failure", rpcstatus.Internal, err)
 			}
 		}
@@ -415,7 +415,6 @@ func (endpoint *Endpoint) Upload(stream pb.DRPCPiecestore_UploadStream) (err err
 
 		calculatedHash := pieceWriter.Hash()
 		if err := endpoint.VerifyPieceHash(ctx, limit, message.Done, calculatedHash); err != nil {
-			endpoint.log.Error("upload internal error", zap.Error(err))
 			return true, rpcstatus.NamedWrap("piece-hash-verify-fail", rpcstatus.Internal, err)
 		}
 		if message.Done.PieceSize != pieceWriter.Size() {
@@ -433,7 +432,6 @@ func (endpoint *Endpoint) Upload(stream pb.DRPCPiecestore_UploadStream) (err err
 				OrderLimit:    *limit,
 			}
 			if err := pieceWriter.Commit(ctx, info); err != nil {
-				endpoint.log.Error("upload internal error", zap.Error(err))
 				return true, rpcstatus.NamedWrap("commit-failure", rpcstatus.Internal, err)
 			}
 			committed = true
@@ -447,7 +445,6 @@ func (endpoint *Endpoint) Upload(stream pb.DRPCPiecestore_UploadStream) (err err
 			Timestamp:     time.Now(),
 		})
 		if err != nil {
-			endpoint.log.Error("upload internal error", zap.Error(err))
 			return true, rpcstatus.NamedWrap("sign-piece-hash-failure", rpcstatus.Internal, err)
 		}
 
@@ -665,12 +662,17 @@ func (endpoint *Endpoint) Download(stream pb.DRPCPiecestore_DownloadStream) (err
 			log.Info("downloaded")
 		}
 		mon.IntVal("download_orders_amount", actionSeriesTag).Observe(largestOrder.Amount)
+
+		if pieceReader != nil && pieceReader.Trash() {
+			mon.Meter("download_file_in_trash", monkit.NewSeriesTag("namespace", limit.SatelliteId.String())).Mark(1)
+			filestore.MonFileInTrash(limit.SatelliteId[:]).Mark(1)
+			log.Warn("file found in trash")
+		}
 	}()
 	defer func() {
 		close(downloadedBytes)
 	}()
 
-	restoredFromTrash := false
 	pieceReader, err = endpoint.pieceBackend.Reader(ctx, limit.SatelliteId, limit.PieceId)
 	if err != nil {
 		if errs.Is(err, fs.ErrNotExist) {
@@ -688,12 +690,6 @@ func (endpoint *Endpoint) Download(stream pb.DRPCPiecestore_DownloadStream) (err
 			log.Error("failed to close piece reader", zap.Error(err))
 		}
 	}()
-	if pieceReader.Trash() {
-		restoredFromTrash = true
-		mon.Meter("download_file_in_trash", monkit.NewSeriesTag("namespace", limit.SatelliteId.String())).Mark(1)
-		filestore.MonFileInTrash(limit.SatelliteId[:]).Mark(1)
-		log.Warn("file found in trash")
-	}
 
 	// for repair traffic, send along the PieceHash and original OrderLimit for validation
 	// before sending the piece itself
@@ -709,19 +705,19 @@ func (endpoint *Endpoint) Download(stream pb.DRPCPiecestore_DownloadStream) (err
 				return nil, stream.Send(&pb.PieceDownloadResponse{
 					Hash:              &pieceHash,
 					Limit:             &orderLimit,
-					RestoredFromTrash: restoredFromTrash,
+					RestoredFromTrash: pieceReader.Trash(),
 				})
 			})
 		if err != nil {
 			log.Error("error sending hash and order limit", zap.Error(err))
 			return rpcstatus.NamedWrap("hash-and-order-send-failure", rpcstatus.Internal, err)
 		}
-	} else if restoredFromTrash {
+	} else if pieceReader.Trash() {
 		// notify that the piece was restored from trash
 		_, err = withTimeout(ctx, endpoint.config.StreamOperationTimeout, cancelStream,
 			func(ctx context.Context) (_ any, err error) {
 				return nil, stream.Send(&pb.PieceDownloadResponse{
-					RestoredFromTrash: restoredFromTrash,
+					RestoredFromTrash: pieceReader.Trash(),
 				})
 			})
 		if err != nil {
@@ -874,6 +870,9 @@ func (endpoint *Endpoint) sendData(ctx context.Context, log *zap.Logger, stream 
 		return true, nil
 	}
 	if err != nil {
+		if errs.Is(err, context.DeadlineExceeded) {
+			return true, rpcstatus.NamedWrap("send-deadline-exceeded", rpcstatus.DeadlineExceeded, err)
+		}
 		return true, rpcstatus.NamedWrap("send-fail", rpcstatus.Internal, err)
 	}
 	return false, nil

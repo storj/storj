@@ -103,7 +103,7 @@ import { UserMinus } from 'lucide-vue-next';
 
 import { useProjectsStore } from '@/store/modules/projectsStore';
 import { useLoading } from '@/composables/useLoading';
-import { useNotify } from '@/utils/hooks';
+import { useNotify } from '@/composables/useNotify';
 import { useProjectMembersStore } from '@/store/modules/projectMembersStore';
 import { AnalyticsErrorEventSource } from '@/utils/constants/analyticsEventNames';
 

@@ -9,6 +9,7 @@ import (
 
 	"github.com/stretchr/testify/require"
 
+	"storj.io/common/storj"
 	"storj.io/common/testcontext"
 	"storj.io/common/testrand"
 	"storj.io/common/uuid"
@@ -20,15 +21,6 @@ func TestDeleteObjects(t *testing.T) {
 	metabasetest.Run(t, func(ctx *testcontext.Context, t *testing.T, db *metabase.DB) {
 		projectID := testrand.UUID()
 		bucketName := metabase.BucketName(testrand.BucketName())
-
-		createObject := func(t *testing.T, objStream metabase.ObjectStream, versioned bool) (metabase.Object, []metabase.Segment) {
-			return metabasetest.CreateTestObject{
-				CommitObject: &metabase.CommitObject{
-					ObjectStream: objStream,
-					Versioned:    versioned,
-				},
-			}.Run(ctx, t, db, objStream, 2)
-		}
 
 		randVersion := func() metabase.Version {
 			return metabase.Version(1 + (testrand.Int63n(math.MaxInt64) - 2))
@@ -44,7 +36,28 @@ func TestDeleteObjects(t *testing.T) {
 			}
 		}
 
-		t.Run("Unversioned", func(t *testing.T) {
+		createObject := func(t *testing.T, objStream metabase.ObjectStream, versioned bool) (metabase.Object, []metabase.Segment) {
+			return metabasetest.CreateTestObject{
+				CommitObject: &metabase.CommitObject{
+					ObjectStream: objStream,
+					Versioned:    versioned,
+				},
+			}.Run(ctx, t, db, objStream, 2)
+		}
+
+		createLockedObject := func(t *testing.T, testCase metabasetest.ObjectLockDeletionTestCase) (metabase.Object, []metabase.Segment) {
+			objStream := randObjectStream()
+			return metabasetest.CreateTestObject{
+				BeginObjectExactVersion: &metabase.BeginObjectExactVersion{
+					ObjectStream: objStream,
+					Encryption:   metabasetest.DefaultEncryption,
+					Retention:    testCase.Retention,
+					LegalHold:    testCase.LegalHold,
+				},
+			}.Run(ctx, t, db, objStream, 2)
+		}
+
+		runUnversionedTests := func(t *testing.T, objectLockEnabled bool) {
 			t.Run("Basic", func(t *testing.T) {
 				defer metabasetest.DeleteAll{}.Check(ctx, t, db)
 
@@ -75,11 +88,15 @@ func TestDeleteObjects(t *testing.T) {
 					Opts: metabase.DeleteObjects{
 						ProjectID:  projectID,
 						BucketName: bucketName,
+						ObjectLock: metabase.ObjectLockDeleteOptions{
+							Enabled: objectLockEnabled,
+						},
 						Items: []metabase.DeleteObjectsItem{
 							{
 								ObjectKey:       obj1.ObjectKey,
 								StreamVersionID: obj1.StreamVersionID(),
-							}, {
+							},
+							{
 								ObjectKey: obj2.ObjectKey,
 							},
 						},
@@ -92,15 +109,16 @@ func TestDeleteObjects(t *testing.T) {
 									StreamVersionID: obj2.StreamVersionID(),
 									Status:          metabase.CommittedUnversioned,
 								},
-								Status: metabase.DeleteStatusOK,
-							}, {
+								Status: storj.DeleteObjectsStatusOK,
+							},
+							{
 								ObjectKey:                obj1.ObjectKey,
 								RequestedStreamVersionID: obj1StreamVersionID,
 								Removed: &metabase.DeleteObjectsInfo{
 									StreamVersionID: obj1StreamVersionID,
 									Status:          metabase.CommittedUnversioned,
 								},
-								Status: metabase.DeleteStatusOK,
+								Status: storj.DeleteObjectsStatusOK,
 							},
 						},
 						DeletedSegmentCount: int64(obj1.SegmentCount + obj2.SegmentCount),
@@ -128,16 +146,22 @@ func TestDeleteObjects(t *testing.T) {
 					Opts: metabase.DeleteObjects{
 						ProjectID:  projectID,
 						BucketName: bucketName,
+						ObjectLock: metabase.ObjectLockDeleteOptions{
+							Enabled: objectLockEnabled,
+						},
 						Items: []metabase.DeleteObjectsItem{
 							{
 								ObjectKey:       key1,
 								StreamVersionID: streamVersionID1,
-							}, {
+							},
+							{
 								ObjectKey: key2,
-							}, {
+							},
+							{
 								ObjectKey:       obj.ObjectKey,
 								StreamVersionID: objStreamVersionID1,
-							}, {
+							},
+							{
 								ObjectKey:       obj.ObjectKey,
 								StreamVersionID: objStreamVersionID2,
 							},
@@ -147,19 +171,22 @@ func TestDeleteObjects(t *testing.T) {
 						Items: []metabase.DeleteObjectsResultItem{
 							{
 								ObjectKey: key2,
-								Status:    metabase.DeleteStatusNotFound,
-							}, {
+								Status:    storj.DeleteObjectsStatusNotFound,
+							},
+							{
 								ObjectKey:                key1,
 								RequestedStreamVersionID: streamVersionID1,
-								Status:                   metabase.DeleteStatusNotFound,
-							}, {
+								Status:                   storj.DeleteObjectsStatusNotFound,
+							},
+							{
 								ObjectKey:                obj.ObjectKey,
 								RequestedStreamVersionID: objStreamVersionID1,
-								Status:                   metabase.DeleteStatusNotFound,
-							}, {
+								Status:                   storj.DeleteObjectsStatusNotFound,
+							},
+							{
 								ObjectKey:                obj.ObjectKey,
 								RequestedStreamVersionID: objStreamVersionID2,
-								Status:                   metabase.DeleteStatusNotFound,
+								Status:                   storj.DeleteObjectsStatusNotFound,
 							},
 						},
 						DeletedSegmentCount: 0,
@@ -188,6 +215,9 @@ func TestDeleteObjects(t *testing.T) {
 					Opts: metabase.DeleteObjects{
 						ProjectID:  projectID,
 						BucketName: bucketName,
+						ObjectLock: metabase.ObjectLockDeleteOptions{
+							Enabled: objectLockEnabled,
+						},
 						Items: []metabase.DeleteObjectsItem{{
 							ObjectKey: obj.ObjectKey,
 						}},
@@ -195,7 +225,7 @@ func TestDeleteObjects(t *testing.T) {
 					Result: metabase.DeleteObjectsResult{
 						Items: []metabase.DeleteObjectsResultItem{{
 							ObjectKey: obj.ObjectKey,
-							Status:    metabase.DeleteStatusNotFound,
+							Status:    storj.DeleteObjectsStatusNotFound,
 						}},
 					},
 				}.Check(ctx, t, db)
@@ -211,6 +241,9 @@ func TestDeleteObjects(t *testing.T) {
 					Opts: metabase.DeleteObjects{
 						ProjectID:  projectID,
 						BucketName: bucketName,
+						ObjectLock: metabase.ObjectLockDeleteOptions{
+							Enabled: objectLockEnabled,
+						},
 						Items: []metabase.DeleteObjectsItem{{
 							ObjectKey:       obj.ObjectKey,
 							StreamVersionID: sv,
@@ -224,7 +257,7 @@ func TestDeleteObjects(t *testing.T) {
 								StreamVersionID: sv,
 								Status:          metabase.Pending,
 							},
-							Status: metabase.DeleteStatusOK,
+							Status: storj.DeleteObjectsStatusOK,
 						}},
 						DeletedSegmentCount: int64(len(segments)),
 					},
@@ -247,7 +280,10 @@ func TestDeleteObjects(t *testing.T) {
 					Opts: metabase.DeleteObjects{
 						ProjectID:  projectID,
 						BucketName: bucketName,
-						Items:      []metabase.DeleteObjectsItem{reqItem, reqItem},
+						ObjectLock: metabase.ObjectLockDeleteOptions{
+							Enabled: objectLockEnabled,
+						},
+						Items: []metabase.DeleteObjectsItem{reqItem, reqItem},
 					},
 					Result: metabase.DeleteObjectsResult{
 						Items: []metabase.DeleteObjectsResultItem{{
@@ -257,7 +293,7 @@ func TestDeleteObjects(t *testing.T) {
 								StreamVersionID: sv,
 								Status:          metabase.CommittedUnversioned,
 							},
-							Status: metabase.DeleteStatusOK,
+							Status: storj.DeleteObjectsStatusOK,
 						}},
 						DeletedSegmentCount: int64(obj.SegmentCount),
 					},
@@ -283,11 +319,15 @@ func TestDeleteObjects(t *testing.T) {
 					Opts: metabase.DeleteObjects{
 						ProjectID:  projectID,
 						BucketName: bucketName,
+						ObjectLock: metabase.ObjectLockDeleteOptions{
+							Enabled: objectLockEnabled,
+						},
 						Items: []metabase.DeleteObjectsItem{
 							{
 								ObjectKey:       obj.ObjectKey,
 								StreamVersionID: sv,
-							}, {
+							},
+							{
 								ObjectKey: obj.ObjectKey,
 							},
 						},
@@ -297,12 +337,13 @@ func TestDeleteObjects(t *testing.T) {
 							{
 								ObjectKey: obj.ObjectKey,
 								Removed:   expectedRemoved,
-								Status:    metabase.DeleteStatusOK,
-							}, {
+								Status:    storj.DeleteObjectsStatusOK,
+							},
+							{
 								ObjectKey:                obj.ObjectKey,
 								RequestedStreamVersionID: sv,
 								Removed:                  expectedRemoved,
-								Status:                   metabase.DeleteStatusOK,
+								Status:                   storj.DeleteObjectsStatusOK,
 							},
 						},
 						DeletedSegmentCount: int64(obj.SegmentCount),
@@ -320,9 +361,114 @@ func TestDeleteObjects(t *testing.T) {
 
 				metabasetest.Verify{}.Check(ctx, t, db)
 			})
+		}
+
+		t.Run("Unversioned", func(t *testing.T) {
+			runUnversionedTests(t, false)
 		})
 
-		t.Run("Versioned", func(t *testing.T) {
+		t.Run("Unversioned - Object Lock", func(t *testing.T) {
+			runUnversionedTests(t, true)
+
+			metabasetest.ObjectLockDeletionTestRunner{
+				TestProtected: func(t *testing.T, testCase metabasetest.ObjectLockDeletionTestCase) {
+					defer metabasetest.DeleteAll{}.Check(ctx, t, db)
+
+					exactVersionObj, exactVersionSegments := createLockedObject(t, testCase)
+					exactVersionStreamVersionID := exactVersionObj.StreamVersionID()
+
+					lastCommittedObj, lastCommittedSegments := createLockedObject(t, testCase)
+
+					metabasetest.DeleteObjects{
+						Opts: metabase.DeleteObjects{
+							ProjectID:  projectID,
+							BucketName: bucketName,
+							ObjectLock: metabase.ObjectLockDeleteOptions{
+								Enabled:          true,
+								BypassGovernance: testCase.BypassGovernance,
+							},
+							Items: []metabase.DeleteObjectsItem{
+								{
+									ObjectKey:       exactVersionObj.ObjectKey,
+									StreamVersionID: exactVersionStreamVersionID,
+								},
+								{
+									ObjectKey: lastCommittedObj.ObjectKey,
+								},
+							},
+						},
+						Result: metabase.DeleteObjectsResult{
+							Items: []metabase.DeleteObjectsResultItem{
+								{
+									ObjectKey: lastCommittedObj.ObjectKey,
+									Status:    storj.DeleteObjectsStatusLocked,
+								},
+								{
+									ObjectKey:                exactVersionObj.ObjectKey,
+									RequestedStreamVersionID: exactVersionStreamVersionID,
+									Status:                   storj.DeleteObjectsStatusLocked,
+								},
+							},
+						},
+					}.Check(ctx, t, db)
+
+					metabasetest.Verify{
+						Objects:  metabasetest.ObjectsToRaw(exactVersionObj, lastCommittedObj),
+						Segments: metabasetest.SegmentsToRaw(concat(exactVersionSegments, lastCommittedSegments)),
+					}.Check(ctx, t, db)
+				},
+				TestRemovable: func(t *testing.T, testCase metabasetest.ObjectLockDeletionTestCase) {
+					defer metabasetest.DeleteAll{}.Check(ctx, t, db)
+
+					exactVersionObj, _ := createLockedObject(t, testCase)
+					exactVersionStreamVersionID := exactVersionObj.StreamVersionID()
+
+					lastCommittedObj, _ := createLockedObject(t, testCase)
+
+					metabasetest.DeleteObjects{
+						Opts: metabase.DeleteObjects{
+							ProjectID:  projectID,
+							BucketName: bucketName,
+							Items: []metabase.DeleteObjectsItem{
+								{
+									ObjectKey:       exactVersionObj.ObjectKey,
+									StreamVersionID: exactVersionStreamVersionID,
+								},
+								{
+									ObjectKey: lastCommittedObj.ObjectKey,
+								},
+							},
+						},
+						Result: metabase.DeleteObjectsResult{
+							Items: []metabase.DeleteObjectsResultItem{
+								{
+									ObjectKey: lastCommittedObj.ObjectKey,
+									Removed: &metabase.DeleteObjectsInfo{
+										StreamVersionID: lastCommittedObj.StreamVersionID(),
+										Status:          metabase.CommittedUnversioned,
+									},
+									Status: storj.DeleteObjectsStatusOK,
+								},
+								{
+									ObjectKey:                exactVersionObj.ObjectKey,
+									RequestedStreamVersionID: exactVersionStreamVersionID,
+									Removed: &metabase.DeleteObjectsInfo{
+										StreamVersionID: exactVersionStreamVersionID,
+										Status:          metabase.CommittedUnversioned,
+									},
+									Status: storj.DeleteObjectsStatusOK,
+								},
+							},
+							DeletedSegmentCount: int64(exactVersionObj.SegmentCount + lastCommittedObj.SegmentCount),
+						},
+					}.Check(ctx, t, db)
+
+					metabasetest.Verify{}.Check(ctx, t, db)
+				},
+			}.Run(t)
+		})
+
+		runVersionedTests := func(t *testing.T, objectLockEnabled bool) {
 			t.Run("Basic", func(t *testing.T) {
 				defer metabasetest.DeleteAll{}.Check(ctx, t, db)
 
@@ -358,16 +504,22 @@ func TestDeleteObjects(t *testing.T) {
 						ProjectID:  projectID,
 						BucketName: bucketName,
 						Versioned:  true,
+						ObjectLock: metabase.ObjectLockDeleteOptions{
+							Enabled: objectLockEnabled,
+						},
 						Items: []metabase.DeleteObjectsItem{
 							{
 								ObjectKey:       obj1.ObjectKey,
 								StreamVersionID: obj1StreamVersionID,
-							}, {
+							},
+							{
 								ObjectKey:       obj2.ObjectKey,
 								StreamVersionID: obj2StreamVersionID,
-							}, {
+							},
+							{
 								ObjectKey: obj3.ObjectKey,
-							}, {
+							},
+							{
 								ObjectKey: obj4.ObjectKey,
 							},
 						},
@@ -380,30 +532,33 @@ func TestDeleteObjects(t *testing.T) {
 									StreamVersionID: metabase.NewStreamVersionID(obj3.Version+1, uuid.UUID{}),
 									Status:          metabase.DeleteMarkerVersioned,
 								},
-								Status: metabase.DeleteStatusOK,
-							}, {
+								Status: storj.DeleteObjectsStatusOK,
+							},
+							{
 								ObjectKey: obj4.ObjectKey,
 								Marker: &metabase.DeleteObjectsInfo{
 									StreamVersionID: metabase.NewStreamVersionID(obj4.Version+1, uuid.UUID{}),
 									Status:          metabase.DeleteMarkerVersioned,
 								},
-								Status: metabase.DeleteStatusOK,
-							}, {
+								Status: storj.DeleteObjectsStatusOK,
+							},
+							{
 								ObjectKey:                obj1.ObjectKey,
 								RequestedStreamVersionID: obj1StreamVersionID,
 								Removed: &metabase.DeleteObjectsInfo{
 									StreamVersionID: obj1StreamVersionID,
 									Status:          metabase.CommittedVersioned,
 								},
-								Status: metabase.DeleteStatusOK,
-							}, {
+								Status: storj.DeleteObjectsStatusOK,
+							},
+							{
 								ObjectKey:                obj2.ObjectKey,
 								RequestedStreamVersionID: obj2StreamVersionID,
 								Removed: &metabase.DeleteObjectsInfo{
 									StreamVersionID: obj2StreamVersionID,
 									Status:          metabase.CommittedVersioned,
 								},
-								Status: metabase.DeleteStatusOK,
+								Status: storj.DeleteObjectsStatusOK,
 							},
 						},
 						DeletedSegmentCount: int64(obj1.SegmentCount + obj2.SegmentCount),
@@ -456,16 +611,22 @@ func TestDeleteObjects(t *testing.T) {
 						ProjectID:  projectID,
 						BucketName: bucketName,
 						Versioned:  true,
+						ObjectLock: metabase.ObjectLockDeleteOptions{
+							Enabled: objectLockEnabled,
+						},
 						Items: []metabase.DeleteObjectsItem{
 							{
 								ObjectKey:       missingObjStream1.ObjectKey,
 								StreamVersionID: missingStreamVersionID,
-							}, {
+							},
+							{
 								ObjectKey: missingObjStream2.ObjectKey,
-							}, {
+							},
+							{
 								ObjectKey:       obj.ObjectKey,
 								StreamVersionID: badStreamVersionID1,
-							}, {
+							},
+							{
 								ObjectKey:       obj.ObjectKey,
 								StreamVersionID: badStreamVersionID2,
 							},
@@ -479,19 +640,22 @@ func TestDeleteObjects(t *testing.T) {
 									StreamVersionID: metabase.NewStreamVersionID(1, uuid.UUID{}),
 									Status:          metabase.DeleteMarkerVersioned,
 								},
-								Status: metabase.DeleteStatusOK,
-							}, {
+								Status: storj.DeleteObjectsStatusOK,
+							},
+							{
 								ObjectKey:                missingObjStream1.ObjectKey,
 								RequestedStreamVersionID: missingStreamVersionID,
-								Status:                   metabase.DeleteStatusNotFound,
-							}, {
+								Status:                   storj.DeleteObjectsStatusNotFound,
+							},
+							{
 								ObjectKey:                obj.ObjectKey,
 								RequestedStreamVersionID: badStreamVersionID1,
-								Status:                   metabase.DeleteStatusNotFound,
-							}, {
+								Status:                   storj.DeleteObjectsStatusNotFound,
+							},
+							{
 								ObjectKey:                obj.ObjectKey,
 								RequestedStreamVersionID: badStreamVersionID2,
-								Status:                   metabase.DeleteStatusNotFound,
+								Status:                   storj.DeleteObjectsStatusNotFound,
 							},
 						},
 					},
@@ -526,6 +690,9 @@ func TestDeleteObjects(t *testing.T) {
 						ProjectID:  projectID,
 						BucketName: bucketName,
 						Versioned:  true,
+						ObjectLock: metabase.ObjectLockDeleteOptions{
+							Enabled: objectLockEnabled,
+						},
 						Items: []metabase.DeleteObjectsItem{{
 							ObjectKey: pending.ObjectKey,
 						}},
@@ -537,7 +704,7 @@ func TestDeleteObjects(t *testing.T) {
 								StreamVersionID: metabase.NewStreamVersionID(pending.Version+1, uuid.UUID{}),
 								Status:          metabase.DeleteMarkerVersioned,
 							},
-							Status: metabase.DeleteStatusOK,
+							Status: storj.DeleteObjectsStatusOK,
 						}},
 					},
 				}.Check(ctx, t, db)
@@ -560,6 +727,9 @@ func TestDeleteObjects(t *testing.T) {
 						ProjectID:  projectID,
 						BucketName: bucketName,
 						Versioned:  true,
+						ObjectLock: metabase.ObjectLockDeleteOptions{
+							Enabled: objectLockEnabled,
+						},
 						Items: []metabase.DeleteObjectsItem{{
 							ObjectKey:       pending.ObjectKey,
 							StreamVersionID: sv,
@@ -573,7 +743,7 @@ func TestDeleteObjects(t *testing.T) {
 								StreamVersionID: sv,
 								Status:          metabase.Pending,
 							},
-							Status: metabase.DeleteStatusOK,
+							Status: storj.DeleteObjectsStatusOK,
 						}},
 						DeletedSegmentCount: int64(len(segments)),
 					},
@@ -604,7 +774,10 @@ func TestDeleteObjects(t *testing.T) {
 						ProjectID:  projectID,
 						BucketName: bucketName,
 						Versioned:  true,
-						Items:      []metabase.DeleteObjectsItem{reqItem1, reqItem1, reqItem2, reqItem2},
+						ObjectLock: metabase.ObjectLockDeleteOptions{
+							Enabled: objectLockEnabled,
+						},
+						Items: []metabase.DeleteObjectsItem{reqItem1, reqItem1, reqItem2, reqItem2},
 					},
 					Result: metabase.DeleteObjectsResult{
 						Items: []metabase.DeleteObjectsResultItem{
@@ -614,15 +787,16 @@ func TestDeleteObjects(t *testing.T) {
 									StreamVersionID: metabase.NewStreamVersionID(obj2.Version+1, uuid.UUID{}),
 									Status:          metabase.DeleteMarkerVersioned,
 								},
-								Status: metabase.DeleteStatusOK,
-							}, {
+								Status: storj.DeleteObjectsStatusOK,
+							},
+							{
 								ObjectKey:                obj1.ObjectKey,
 								RequestedStreamVersionID: obj1StreamVersionID,
 								Removed: &metabase.DeleteObjectsInfo{
 									StreamVersionID: obj1StreamVersionID,
 									Status:          metabase.CommittedVersioned,
 								},
-								Status: metabase.DeleteStatusOK,
+								Status: storj.DeleteObjectsStatusOK,
 							},
 						},
 						DeletedSegmentCount: int64(obj1.SegmentCount),
@@ -652,11 +826,15 @@ func TestDeleteObjects(t *testing.T) {
 						ProjectID:  projectID,
 						BucketName: bucketName,
 						Versioned:  true,
+						ObjectLock: metabase.ObjectLockDeleteOptions{
+							Enabled: objectLockEnabled,
+						},
 						Items: []metabase.DeleteObjectsItem{
 							{
 								ObjectKey:       obj.ObjectKey,
 								StreamVersionID: sv,
-							}, {
+							},
+							{
 								ObjectKey: obj.ObjectKey,
 							},
 						},
@@ -669,15 +847,16 @@ func TestDeleteObjects(t *testing.T) {
 									StreamVersionID: metabase.NewStreamVersionID(obj.Version+1, uuid.UUID{}),
 									Status:          metabase.DeleteMarkerVersioned,
 								},
-								Status: metabase.DeleteStatusOK,
-							}, {
+								Status: storj.DeleteObjectsStatusOK,
+							},
+							{
 								ObjectKey:                obj.ObjectKey,
 								RequestedStreamVersionID: sv,
 								Removed: &metabase.DeleteObjectsInfo{
 									StreamVersionID: sv,
 									Status:          metabase.CommittedVersioned,
 								},
-								Status: metabase.DeleteStatusOK,
+								Status: storj.DeleteObjectsStatusOK,
 							},
 						},
 						DeletedSegmentCount: int64(obj.SegmentCount),
@@ -711,9 +890,139 @@ func TestDeleteObjects(t *testing.T) {
 					Objects: metabasetest.ObjectsToRaw(deleteMarker),
 				}.Check(ctx, t, db)
 			})
+		}
+
+		t.Run("Versioned", func(t *testing.T) {
+			runVersionedTests(t, false)
 		})
 
-		t.Run("Suspended", func(t *testing.T) {
+		t.Run("Versioned - Object Lock", func(t *testing.T) {
+			runVersionedTests(t, true)
+
+			metabasetest.ObjectLockDeletionTestRunner{
+				TestProtected: func(t *testing.T, testCase metabasetest.ObjectLockDeletionTestCase) {
+					defer metabasetest.DeleteAll{}.Check(ctx, t, db)
+
+					exactVersionObj, exactVersionSegments := createLockedObject(t, testCase)
+					exactVersionStreamVersionID := exactVersionObj.StreamVersionID()
+
+					lastCommittedObj, lastCommittedSegments := createLockedObject(t, testCase)
+
+					metabasetest.DeleteObjects{
+						Opts: metabase.DeleteObjects{
+							ProjectID:  projectID,
+							BucketName: bucketName,
+							Versioned:  true,
+							ObjectLock: metabase.ObjectLockDeleteOptions{
+								Enabled:          true,
+								BypassGovernance: testCase.BypassGovernance,
+							},
+							Items: []metabase.DeleteObjectsItem{
+								{
+									ObjectKey:       exactVersionObj.ObjectKey,
+									StreamVersionID: exactVersionStreamVersionID,
+								},
+								{
+									ObjectKey: lastCommittedObj.ObjectKey,
+								},
+							},
+						},
+						Result: metabase.DeleteObjectsResult{
+							Items: []metabase.DeleteObjectsResultItem{
+								{
+									ObjectKey: lastCommittedObj.ObjectKey,
+									Marker: &metabase.DeleteObjectsInfo{
+										StreamVersionID: metabase.NewStreamVersionID(lastCommittedObj.Version+1, uuid.UUID{}),
+										Status:          metabase.DeleteMarkerVersioned,
+									},
+									Status: storj.DeleteObjectsStatusOK,
+								},
+								{
+									ObjectKey:                exactVersionObj.ObjectKey,
+									RequestedStreamVersionID: exactVersionStreamVersionID,
+									Status:                   storj.DeleteObjectsStatusLocked,
+								},
+							},
+						},
+					}.Check(ctx, t, db)
+
+					marker, err := db.GetObjectExactVersion(ctx, metabase.GetObjectExactVersion{
+						ObjectLocation: lastCommittedObj.Location(),
+						Version:        lastCommittedObj.Version + 1,
+					})
+					require.NoError(t, err)
+
+					metabasetest.Verify{
+						Objects:  metabasetest.ObjectsToRaw(exactVersionObj, lastCommittedObj, marker),
+						Segments: metabasetest.SegmentsToRaw(concat(exactVersionSegments, lastCommittedSegments)),
+					}.Check(ctx, t, db)
+				},
+				TestRemovable: func(t *testing.T, testCase metabasetest.ObjectLockDeletionTestCase) {
+					defer metabasetest.DeleteAll{}.Check(ctx, t, db)
+
+					exactVersionObj, _ := createLockedObject(t, testCase)
+					exactVersionStreamVersionID := exactVersionObj.StreamVersionID()
+
+					lastCommittedObj, lastCommittedSegments := createLockedObject(t, testCase)
+
+					metabasetest.DeleteObjects{
+						Opts: metabase.DeleteObjects{
+							ProjectID:  projectID,
+							BucketName: bucketName,
+							Versioned:  true,
+							ObjectLock: metabase.ObjectLockDeleteOptions{
+								Enabled:          true,
+								BypassGovernance: testCase.BypassGovernance,
+							},
+							Items: []metabase.DeleteObjectsItem{
+								{
+									ObjectKey:       exactVersionObj.ObjectKey,
+									StreamVersionID: exactVersionStreamVersionID,
+								},
+								{
+									ObjectKey: lastCommittedObj.ObjectKey,
+								},
+							},
+						},
+						Result: metabase.DeleteObjectsResult{
+							Items: []metabase.DeleteObjectsResultItem{
+								{
+									ObjectKey: lastCommittedObj.ObjectKey,
+									Marker: &metabase.DeleteObjectsInfo{
+										StreamVersionID: metabase.NewStreamVersionID(lastCommittedObj.Version+1, uuid.UUID{}),
+										Status:          metabase.DeleteMarkerVersioned,
+									},
+									Status: storj.DeleteObjectsStatusOK,
+								},
+								{
+									ObjectKey:                exactVersionObj.ObjectKey,
+									RequestedStreamVersionID: exactVersionStreamVersionID,
+									Removed: &metabase.DeleteObjectsInfo{
+										StreamVersionID: exactVersionStreamVersionID,
+										Status:          metabase.CommittedUnversioned,
+									},
+									Status: storj.DeleteObjectsStatusOK,
+								},
+							},
+							DeletedSegmentCount: int64(exactVersionObj.SegmentCount),
+						},
+					}.Check(ctx, t, db)
+
+					marker, err := db.GetObjectExactVersion(ctx, metabase.GetObjectExactVersion{
+						ObjectLocation: lastCommittedObj.Location(),
+						Version:        lastCommittedObj.Version + 1,
+					})
+					require.NoError(t, err)
+
+					metabasetest.Verify{
+						Objects:  metabasetest.ObjectsToRaw(lastCommittedObj, marker),
+						Segments: metabasetest.SegmentsToRaw(lastCommittedSegments),
+					}.Check(ctx, t, db)
+				},
+			}.Run(t)
+		})
+
+		runSuspendedTests := func(t *testing.T, objectLockEnabled bool) {
 			t.Run("Basic", func(t *testing.T) {
 				defer metabasetest.DeleteAll{}.Check(ctx, t, db)
 
@@ -752,16 +1061,22 @@ func TestDeleteObjects(t *testing.T) {
 						ProjectID:  projectID,
 						BucketName: bucketName,
 						Suspended:  true,
+						ObjectLock: metabase.ObjectLockDeleteOptions{
+							Enabled: objectLockEnabled,
+						},
 						Items: []metabase.DeleteObjectsItem{
 							{
 								ObjectKey:       exactVersionObj1.ObjectKey,
 								StreamVersionID: exactVersionObj1SVID,
-							}, {
+							},
+							{
 								ObjectKey:       exactVersionObj2.ObjectKey,
 								StreamVersionID: exactVersionObj2SVID,
-							}, {
+							},
+							{
 								ObjectKey: lastCommittedObj1.ObjectKey,
-							}, {
+							},
+							{
 								ObjectKey: lastCommittedObj2.ObjectKey,
 							},
 						},
@@ -778,30 +1093,33 @@ func TestDeleteObjects(t *testing.T) {
 									StreamVersionID: metabase.NewStreamVersionID(lastCommittedObj1.Version+1, uuid.UUID{}),
 									Status:          metabase.DeleteMarkerUnversioned,
 								},
-								Status: metabase.DeleteStatusOK,
-							}, {
+								Status: storj.DeleteObjectsStatusOK,
+							},
+							{
 								ObjectKey: lastCommittedObj2.ObjectKey,
 								Marker: &metabase.DeleteObjectsInfo{
 									StreamVersionID: metabase.NewStreamVersionID(lastCommittedObj2.Version+1, uuid.UUID{}),
 									Status:          metabase.DeleteMarkerUnversioned,
 								},
-								Status: metabase.DeleteStatusOK,
-							}, {
+								Status: storj.DeleteObjectsStatusOK,
+							},
+							{
 								ObjectKey:                exactVersionObj1.ObjectKey,
 								RequestedStreamVersionID: exactVersionObj1SVID,
 								Removed: &metabase.DeleteObjectsInfo{
 									StreamVersionID: exactVersionObj1SVID,
 									Status:          metabase.CommittedVersioned,
 								},
-								Status: metabase.DeleteStatusOK,
-							}, {
+								Status: storj.DeleteObjectsStatusOK,
+							},
+							{
 								ObjectKey:                exactVersionObj2.ObjectKey,
 								RequestedStreamVersionID: exactVersionObj2SVID,
 								Removed: &metabase.DeleteObjectsInfo{
 									StreamVersionID: exactVersionObj2SVID,
 									Status:          metabase.CommittedVersioned,
 								},
-								Status: metabase.DeleteStatusOK,
+								Status: storj.DeleteObjectsStatusOK,
 							},
 						},
 						DeletedSegmentCount: int64(exactVersionObj1.SegmentCount + exactVersionObj2.SegmentCount + lastCommittedObj1.SegmentCount),
@@ -852,16 +1170,22 @@ func TestDeleteObjects(t *testing.T) {
 						ProjectID:  projectID,
 						BucketName: bucketName,
 						Suspended:  true,
+						ObjectLock: metabase.ObjectLockDeleteOptions{
+							Enabled: objectLockEnabled,
+						},
 						Items: []metabase.DeleteObjectsItem{
 							{
 								ObjectKey:       missingObjStream1.ObjectKey,
 								StreamVersionID: missingStreamVersionID,
-							}, {
+							},
+							{
 								ObjectKey: missingObjStream2.ObjectKey,
-							}, {
+							},
+							{
 								ObjectKey:       obj.ObjectKey,
 								StreamVersionID: badStreamVersionID1,
-							}, {
+							},
+							{
 								ObjectKey:       obj.ObjectKey,
 								StreamVersionID: badStreamVersionID2,
 							},
@@ -871,19 +1195,22 @@ func TestDeleteObjects(t *testing.T) {
 						Items: []metabase.DeleteObjectsResultItem{
 							{
 								ObjectKey: missingObjStream2.ObjectKey,
-								Status:    metabase.DeleteStatusNotFound,
-							}, {
+								Status:    storj.DeleteObjectsStatusNotFound,
+							},
+							{
 								ObjectKey:                missingObjStream1.ObjectKey,
 								RequestedStreamVersionID: missingStreamVersionID,
-								Status:                   metabase.DeleteStatusNotFound,
-							}, {
+								Status:                   storj.DeleteObjectsStatusNotFound,
+							},
+							{
 								ObjectKey:                obj.ObjectKey,
 								RequestedStreamVersionID: badStreamVersionID1,
-								Status:                   metabase.DeleteStatusNotFound,
-							}, {
+								Status:                   storj.DeleteObjectsStatusNotFound,
+							},
+							{
 								ObjectKey:                obj.ObjectKey,
 								RequestedStreamVersionID: badStreamVersionID2,
-								Status:                   metabase.DeleteStatusNotFound,
+								Status:                   storj.DeleteObjectsStatusNotFound,
 							},
 						},
 					},
@@ -913,6 +1240,9 @@ func TestDeleteObjects(t *testing.T) {
 						ProjectID:  projectID,
 						BucketName: bucketName,
 						Suspended:  true,
+						ObjectLock: metabase.ObjectLockDeleteOptions{
+							Enabled: objectLockEnabled,
+						},
 						Items: []metabase.DeleteObjectsItem{{
 							ObjectKey: pending.ObjectKey,
 						}},
@@ -920,7 +1250,7 @@ func TestDeleteObjects(t *testing.T) {
 					Result: metabase.DeleteObjectsResult{
 						Items: []metabase.DeleteObjectsResultItem{{
 							ObjectKey: pending.ObjectKey,
-							Status:    metabase.DeleteStatusNotFound,
+							Status:    storj.DeleteObjectsStatusNotFound,
 						}},
 					},
 				}.Check(ctx, t, db)
@@ -935,6 +1265,9 @@ func TestDeleteObjects(t *testing.T) {
 						ProjectID:  projectID,
 						BucketName: bucketName,
 						Suspended:  true,
+						ObjectLock: metabase.ObjectLockDeleteOptions{
+							Enabled: objectLockEnabled,
+						},
 						Items: []metabase.DeleteObjectsItem{{
 							ObjectKey:       pending.ObjectKey,
 							StreamVersionID: sv,
@@ -948,7 +1281,7 @@ func TestDeleteObjects(t *testing.T) {
 								StreamVersionID: sv,
 								Status:          metabase.Pending,
 							},
-							Status: metabase.DeleteStatusOK,
+							Status: storj.DeleteObjectsStatusOK,
 						}},
 						DeletedSegmentCount: int64(len(segments)),
 					},
@@ -977,7 +1310,10 @@ func TestDeleteObjects(t *testing.T) {
 						ProjectID:  projectID,
 						BucketName: bucketName,
 						Suspended:  true,
-						Items:      []metabase.DeleteObjectsItem{reqItem1, reqItem1, reqItem2, reqItem2},
+						ObjectLock: metabase.ObjectLockDeleteOptions{
+							Enabled: objectLockEnabled,
+						},
+						Items: []metabase.DeleteObjectsItem{reqItem1, reqItem1, reqItem2, reqItem2},
 					},
 					Result: metabase.DeleteObjectsResult{
 						Items: []metabase.DeleteObjectsResultItem{
@@ -987,15 +1323,16 @@ func TestDeleteObjects(t *testing.T) {
 									StreamVersionID: metabase.NewStreamVersionID(obj2.Version+1, uuid.UUID{}),
 									Status:          metabase.DeleteMarkerUnversioned,
 								},
-								Status: metabase.DeleteStatusOK,
-							}, {
+								Status: storj.DeleteObjectsStatusOK,
+							},
+							{
 								ObjectKey:                obj1.ObjectKey,
 								RequestedStreamVersionID: obj1StreamVersionID,
 								Removed: &metabase.DeleteObjectsInfo{
 									StreamVersionID: obj1StreamVersionID,
 									Status:          metabase.CommittedVersioned,
 								},
-								Status: metabase.DeleteStatusOK,
+								Status: storj.DeleteObjectsStatusOK,
 							},
 						},
 						DeletedSegmentCount: int64(obj1.SegmentCount),
@@ -1025,11 +1362,15 @@ func TestDeleteObjects(t *testing.T) {
 						ProjectID:  projectID,
 						BucketName: bucketName,
 						Suspended:  true,
+						ObjectLock: metabase.ObjectLockDeleteOptions{
+							Enabled: objectLockEnabled,
+						},
 						Items: []metabase.DeleteObjectsItem{
 							{
 								ObjectKey:       obj.ObjectKey,
 								StreamVersionID: sv,
-							}, {
+							},
+							{
 								ObjectKey: obj.ObjectKey,
 							},
 						},
@@ -1042,15 +1383,16 @@ func TestDeleteObjects(t *testing.T) {
 									StreamVersionID: metabase.NewStreamVersionID(obj.Version+1, uuid.UUID{}),
 									Status:          metabase.DeleteMarkerUnversioned,
 								},
-								Status: metabase.DeleteStatusOK,
-							}, {
+								Status: storj.DeleteObjectsStatusOK,
+							},
+							{
 								ObjectKey:                obj.ObjectKey,
 								RequestedStreamVersionID: sv,
 								Removed: &metabase.DeleteObjectsInfo{
 									StreamVersionID: sv,
 									Status:          metabase.CommittedVersioned,
 								},
-								Status: metabase.DeleteStatusOK,
+								Status: storj.DeleteObjectsStatusOK,
 							},
 						},
 						DeletedSegmentCount: int64(obj.SegmentCount),
@@ -1084,6 +1426,129 @@ func TestDeleteObjects(t *testing.T) {
 					Objects: metabasetest.ObjectsToRaw(deleteMarker),
 				}.Check(ctx, t, db)
 			})
+		}
+
+		t.Run("Suspended", func(t *testing.T) {
+			runSuspendedTests(t, false)
+		})
+
+		t.Run("Suspended - Object Lock", func(t *testing.T) {
+			runSuspendedTests(t, false)
+
+			metabasetest.ObjectLockDeletionTestRunner{
+				TestProtected: func(t *testing.T, testCase metabasetest.ObjectLockDeletionTestCase) {
+					defer metabasetest.DeleteAll{}.Check(ctx, t, db)
+
+					exactVersionObj, exactVersionSegments := createLockedObject(t, testCase)
+					exactVersionStreamVersionID := exactVersionObj.StreamVersionID()
+
+					lastCommittedObj, lastCommittedSegments := createLockedObject(t, testCase)
+
+					metabasetest.DeleteObjects{
+						Opts: metabase.DeleteObjects{
+							ProjectID:  projectID,
+							BucketName: bucketName,
+							Suspended:  true,
+							ObjectLock: metabase.ObjectLockDeleteOptions{
+								Enabled:          true,
+								BypassGovernance: testCase.BypassGovernance,
+							},
+							Items: []metabase.DeleteObjectsItem{
+								{
+									ObjectKey:       exactVersionObj.ObjectKey,
+									StreamVersionID: exactVersionStreamVersionID,
+								},
+								{
+									ObjectKey: lastCommittedObj.ObjectKey,
+								},
+							},
+						},
+						Result: metabase.DeleteObjectsResult{
+							Items: []metabase.DeleteObjectsResultItem{
+								{
+									ObjectKey: lastCommittedObj.ObjectKey,
+									Status:    storj.DeleteObjectsStatusLocked,
+								},
+								{
+									ObjectKey:                exactVersionObj.ObjectKey,
+									RequestedStreamVersionID: exactVersionStreamVersionID,
+									Status:                   storj.DeleteObjectsStatusLocked,
+								},
+							},
+						},
+					}.Check(ctx, t, db)
+
+					metabasetest.Verify{
+						Objects:  metabasetest.ObjectsToRaw(exactVersionObj, lastCommittedObj),
+						Segments: metabasetest.SegmentsToRaw(concat(exactVersionSegments, lastCommittedSegments)),
+					}.Check(ctx, t, db)
+				},
+				TestRemovable: func(t *testing.T, testCase metabasetest.ObjectLockDeletionTestCase) {
+					defer metabasetest.DeleteAll{}.Check(ctx, t, db)
+
+					exactVersionObj, _ := createLockedObject(t, testCase)
+					exactVersionStreamVersionID := exactVersionObj.StreamVersionID()
+
+					lastCommittedObj, _ := createLockedObject(t, testCase)
+
+					metabasetest.DeleteObjects{
+						Opts: metabase.DeleteObjects{
+							ProjectID:  projectID,
+							BucketName: bucketName,
+							Suspended:  true,
+							ObjectLock: metabase.ObjectLockDeleteOptions{
+								Enabled:          true,
+								BypassGovernance: testCase.BypassGovernance,
+							},
+							Items: []metabase.DeleteObjectsItem{
+								{
+									ObjectKey:       exactVersionObj.ObjectKey,
+									StreamVersionID: exactVersionStreamVersionID,
+								},
+								{
+									ObjectKey: lastCommittedObj.ObjectKey,
+								},
+							},
+						},
+						Result: metabase.DeleteObjectsResult{
+							Items: []metabase.DeleteObjectsResultItem{
+								{
+									ObjectKey: lastCommittedObj.ObjectKey,
+									Removed: &metabase.DeleteObjectsInfo{
+										StreamVersionID: lastCommittedObj.StreamVersionID(),
+										Status:          metabase.CommittedUnversioned,
+									},
+									Marker: &metabase.DeleteObjectsInfo{
+										StreamVersionID: metabase.NewStreamVersionID(lastCommittedObj.Version+1, uuid.UUID{}),
+										Status:          metabase.DeleteMarkerUnversioned,
+									},
+									Status: storj.DeleteObjectsStatusOK,
+								},
+								{
+									ObjectKey:                exactVersionObj.ObjectKey,
+									RequestedStreamVersionID: exactVersionStreamVersionID,
+									Removed: &metabase.DeleteObjectsInfo{
+										StreamVersionID: exactVersionStreamVersionID,
+										Status:          metabase.CommittedUnversioned,
+									},
+									Status: storj.DeleteObjectsStatusOK,
+								},
+							},
+							DeletedSegmentCount: int64(exactVersionObj.SegmentCount + lastCommittedObj.SegmentCount),
+						},
+					}.Check(ctx, t, db)
+
+					deleteMarker, err := db.GetObjectExactVersion(ctx, metabase.GetObjectExactVersion{
+						ObjectLocation: lastCommittedObj.Location(),
+						Version:        lastCommittedObj.Version + 1,
+					})
+					require.NoError(t, err)
+
+					metabasetest.Verify{
+						Objects: metabasetest.ObjectsToRaw(deleteMarker),
+					}.Check(ctx, t, db)
+				},
+			}.Run(t)
 		})
 
 		t.Run("Invalid options", func(t *testing.T) {
@@ -1104,21 +1569,24 @@ func TestDeleteObjects(t *testing.T) {
 						Items:      []metabase.DeleteObjectsItem{validItem},
 					},
 					errMsg: "ProjectID missing",
-				}, {
+				},
+				{
 					name: "Bucket name missing",
 					opts: metabase.DeleteObjects{
 						ProjectID: projectID,
 						Items:     []metabase.DeleteObjectsItem{validItem},
 					},
 					errMsg: "BucketName missing",
-				}, {
+				},
+				{
 					name: "Items missing",
 					opts: metabase.DeleteObjects{
 						ProjectID:  projectID,
 						BucketName: bucketName,
 					},
 					errMsg: "Items missing",
-				}, {
+				},
+				{
 					name: "Too many items",
 					opts: metabase.DeleteObjects{
 						ProjectID:  projectID,
@@ -1126,7 +1594,8 @@ func TestDeleteObjects(t *testing.T) {
 						Items:      make([]metabase.DeleteObjectsItem, 1001),
 					},
 					errMsg: "Items is too long; expected <= 1000, but got 1001",
-				}, {
+				},
+				{
 					name: "Missing object key",
 					opts: metabase.DeleteObjects{
 						ProjectID:  projectID,
@@ -1136,7 +1605,8 @@ func TestDeleteObjects(t *testing.T) {
 						}},
 					},
 					errMsg: "Items[0].ObjectKey missing",
-				}, {
+				},
+				{
 					name: "Invalid version",
 					opts: metabase.DeleteObjects{
 						ProjectID:  projectID,

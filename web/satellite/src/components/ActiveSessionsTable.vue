@@ -51,7 +51,7 @@ import { computed, onMounted, ref } from 'vue';
 import { LogOut  } from 'lucide-vue-next';
 
 import { Session, SessionsCursor, SessionsOrderBy, SessionsPage } from '@/types/users';
-import { useNotify } from '@/utils/hooks';
+import { useNotify } from '@/composables/useNotify';
 import { DEFAULT_PAGE_LIMIT } from '@/types/pagination';
 import { AnalyticsErrorEventSource } from '@/utils/constants/analyticsEventNames';
 import { DataTableHeader, SortDirection, tableSizeOptions } from '@/types/common';
@@ -89,7 +89,7 @@ async function fetch(page = FIRST_PAGE, limit = DEFAULT_PAGE_LIMIT): Promise<voi
     try {
         await usersStore.getSessions(page, limit);
     } catch (error) {
-        notify.error(`Unable to fetch Active Sessions. ${error.message}`, AnalyticsErrorEventSource.ACCOUNT_SETTINGS_AREA);
+        notify.notifyError(error, AnalyticsErrorEventSource.ACCOUNT_SETTINGS_AREA);
     }
 
     isFetching.value = false;
@@ -124,7 +124,7 @@ async function onInvalidate(session: Session): Promise<void> {
                 await fetch(cursor.value.page, cursor.value.limit);
             }
         } catch (error) {
-            notify.error(`Unable to invalidate session. ${error.message}`, AnalyticsErrorEventSource.ACCOUNT_SETTINGS_AREA);
+            notify.notifyError(error, AnalyticsErrorEventSource.ACCOUNT_SETTINGS_AREA);
         }
     });
 }

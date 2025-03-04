@@ -104,7 +104,7 @@ import { SquareArrowOutUpRight } from 'lucide-vue-next';
 import { useBucketsStore } from '@/store/modules/bucketsStore';
 import { useObjectBrowserStore } from '@/store/modules/objectBrowserStore';
 import { useLoading } from '@/composables/useLoading';
-import { useNotify } from '@/utils/hooks';
+import { useNotify } from '@/composables/useNotify';
 import { useLinksharing } from '@/composables/useLinksharing';
 import { AnalyticsErrorEventSource } from '@/utils/constants/analyticsEventNames';
 
@@ -144,7 +144,7 @@ async function getMap(): Promise<void> {
             const blob = await getObjectDistributionMap(encodedFilePath.value);
             mapURL.value = URL.createObjectURL(blob);
         } catch (error) {
-            notify.error(`Failed to fetch a map. ${error.message}`, AnalyticsErrorEventSource.GALLERY_VIEW);
+            notify.notifyError(error, AnalyticsErrorEventSource.GALLERY_VIEW);
         }
     });
 }

@@ -185,7 +185,7 @@ import { AuthHttpApi } from '@/api/auth';
 import { useConfigStore } from '@/store/modules/configStore';
 import { useAppStore } from '@/store/modules/appStore';
 import { useUsersStore } from '@/store/modules/usersStore';
-import { useNotify } from '@/utils/hooks';
+import { useNotify } from '@/composables/useNotify';
 import { MultiCaptchaConfig } from '@/types/config.gen';
 import { LocalData } from '@/utils/localData';
 import { SsoCheckState, TokenInfo } from '@/types/users';
@@ -424,7 +424,7 @@ async function login(): Promise<void> {
 
         if (isMFARequired.value && !(error instanceof ErrorTooManyRequests)) {
             if (error instanceof ErrorBadRequest || error instanceof ErrorUnauthorized) {
-                notify.error(error.message);
+                notify.notifyError(error);
             }
 
             isMFAError.value = true;

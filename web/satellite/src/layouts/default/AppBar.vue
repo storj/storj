@@ -40,7 +40,6 @@
                         v-bind="activatorProps"
                         variant="outlined"
                         color="default"
-                        size="small"
                         rounded="lg"
                         :icon="activeThemeIcon"
                     />
@@ -97,7 +96,7 @@
                         v-bind="activatorProps"
                         variant="outlined"
                         color="default"
-                        class="ml-2 ml-sm-3 mr-sm-1 font-weight-medium"
+                        class="ml-2 ml-sm-3 mr-sm-2 font-weight-medium"
                     >
                         <template #append>
                             <img src="@/assets/icon-dropdown.svg" alt="Account Dropdown">
@@ -196,36 +195,28 @@ import {
     VAppBar,
     VAppBarNavIcon,
     VAppBarTitle,
-    VImg,
-    VMenu,
-    VTooltip,
     VBtn,
+    VChip,
+    VImg,
     VList,
     VListItem,
-    VListItemTitle,
     VListItemSubtitle,
-    VChip,
+    VListItemTitle,
+    VMenu,
     VProgressLinear,
+    VTooltip,
 } from 'vuetify/components';
-import {
-    MoonStar,
-    Sun,
-    Settings2,
-    CreditCard,
-    CircleArrowUp,
-    LogOut,
-    Monitor,
-    Smartphone,
-} from 'lucide-vue-next';
+import { CircleArrowUp, CreditCard, LogOut, Monitor, MoonStar, Settings2, Smartphone, Sun } from 'lucide-vue-next';
 
 import { useAppStore } from '@/store/modules/appStore';
-import { useNotify } from '@/utils/hooks';
+import { useNotify } from '@/composables/useNotify';
 import { useUsersStore } from '@/store/modules/usersStore';
 import { useConfigStore } from '@/store/modules/configStore';
 import { ROUTES } from '@/router';
 import { User } from '@/types/users';
 import { useLogout } from '@/composables/useLogout';
 import { useThemeStore } from '@/store/modules/themeStore';
+import { AnalyticsErrorEventSource } from '@/utils/constants/analyticsEventNames';
 
 import IconSatellite from '@/components/icons/IconSatellite.vue';
 import AccountSetupDialog from '@/components/dialogs/AccountSetupDialog.vue';
@@ -310,10 +301,9 @@ async function onLogout(): Promise<void> {
     try {
         await logout();
     } catch (error) {
-        notify.error(error.message);
+        notify.notifyError(error, AnalyticsErrorEventSource.APPLICATION_BAR);
     }
 }
-
 </script>
 
 <style scoped lang="scss">

@@ -90,7 +90,7 @@ import {
 import { Download } from '@/utils/download';
 import { AnalyticsErrorEventSource } from '@/utils/constants/analyticsEventNames';
 import { useProjectsStore } from '@/store/modules/projectsStore';
-import { useNotify } from '@/utils/hooks';
+import { useNotify } from '@/composables/useNotify';
 
 enum Options {
     Month = 0,

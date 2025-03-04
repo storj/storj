@@ -34,6 +34,7 @@ import (
 	"storj.io/storj/storagenode/cleanup"
 	"storj.io/storj/storagenode/collector"
 	"storj.io/storj/storagenode/contact"
+	"storj.io/storj/storagenode/hashstore"
 	"storj.io/storj/storagenode/healthcheck"
 	"storj.io/storj/storagenode/monitor"
 	"storj.io/storj/storagenode/nodestats"
@@ -240,7 +241,7 @@ func Module(ball *mud.Ball) {
 		mud.Provide[*contact.Service](ball, contact.NewService)
 
 		mud.Provide[*contact.Chore](ball, func(log *zap.Logger, contactConfig contact.Config, service *contact.Service) *contact.Chore {
-			return contact.NewChore(log, contactConfig.Interval, service)
+			return contact.NewChore(log, contactConfig.Interval, contactConfig.CheckInTimeout, service)
 		})
 		mud.Tag[*contact.Chore, modular.Service](ball, modular.Service{})
 
@@ -294,7 +295,9 @@ func Module(ball *mud.Ball) {
 		config.RegisterConfig[monitor.Config](ball, "monitor")
 
 		mud.RegisterInterfaceImplementation[monitor.DiskVerification, *pieces.Store](ball)
-		mud.Provide[*monitor.Service](ball, monitor.NewService)
+		mud.Provide[*monitor.Service](ball, func(log *zap.Logger, verifier monitor.DiskVerification, contactService *contact.Service, report monitor.SpaceReport, config monitor.Config, contactConfig contact.Config) *monitor.Service {
+			return monitor.NewService(log, verifier, contactService, report, config, contactConfig.CheckInTimeout)
+		})
 
 		mud.Provide[*retain.Service](ball, retain.NewService)
 		mud.Provide[*retain.RunOnce](ball, retain.NewRunOnce)
@@ -322,25 +325,23 @@ func Module(ball *mud.Ball) {
 		mud.RegisterImplementation[[]piecestore.QueueRetain](ball)
 		mud.Implementation[[]piecestore.QueueRetain, *retain.Service](ball)
 
-		mud.Provide[*satstore.SatelliteStore](ball, func(cfg piecestore.OldConfig) *satstore.SatelliteStore {
-			hashStoreDir := filepath.Join(cfg.Path, "hashstore")
-			metaDir := filepath.Join(hashStoreDir, "meta")
-			return satstore.NewSatelliteStore(metaDir, "migrate")
+		mud.Provide[*satstore.SatelliteStore](ball, func(cfg hashstore.Config, old piecestore.OldConfig) *satstore.SatelliteStore {
+			logsPath, _ := cfg.Directories(old.Path)
+			return satstore.NewSatelliteStore(filepath.Join(logsPath, "meta"), "migrate")
 		})
 		mud.Provide[*piecestore.OldPieceBackend](ball, piecestore.NewOldPieceBackend)
-		mud.Provide[*piecestore.HashStoreBackend](ball, func(ctx context.Context, cfg piecestore.OldConfig, bfm *retain.BloomFilterManager, rtm *retain.RestoreTimeManager, log *zap.Logger) (*piecestore.HashStoreBackend, error) {
-			dir := filepath.Join(cfg.Path, "hashstore")
-			backend, err := piecestore.NewHashStoreBackend(ctx, dir, bfm, rtm, log)
+		mud.Provide[*piecestore.HashStoreBackend](ball, func(ctx context.Context, cfg hashstore.Config, old piecestore.OldConfig, bfm *retain.BloomFilterManager, rtm *retain.RestoreTimeManager, log *zap.Logger) (*piecestore.HashStoreBackend, error) {
+			logsPath, tablePath := cfg.Directories(old.Path)
+			backend, err := piecestore.NewHashStoreBackend(ctx, logsPath, tablePath, bfm, rtm, log)
 			if err != nil {
 				return nil, err
 			}
 			mon.Chain(backend)
 			return backend, nil
 		})
-		mud.Provide[*piecemigrate.Chore](ball, func(log *zap.Logger, config piecemigrate.Config, old *pieces.Store, new *piecestore.HashStoreBackend, piecestoreOldConfig piecestore.OldConfig) *piecemigrate.Chore {
-			hashStoreDir := filepath.Join(piecestoreOldConfig.Path, "hashstore")
-			metaDir := filepath.Join(hashStoreDir, "meta")
-			chore := piecemigrate.NewChore(log, config, satstore.NewSatelliteStore(metaDir, "migrate_chore"), old, new)
+		mud.Provide[*piecemigrate.Chore](ball, func(log *zap.Logger, cfg piecemigrate.Config, config hashstore.Config, old *pieces.Store, new *piecestore.HashStoreBackend, piecestoreOldConfig piecestore.OldConfig) *piecemigrate.Chore {
+			logsPath, _ := config.Directories(piecestoreOldConfig.Path)
+			chore := piecemigrate.NewChore(log, cfg, satstore.NewSatelliteStore(filepath.Join(logsPath, "meta"), "migrate_chore"), old, new)
 			mon.Chain(chore)
 			return chore
 		})
@@ -349,20 +350,19 @@ func Module(ball *mud.Ball) {
 			mon.Chain(backend)
 			return backend
 		})
+		config.RegisterConfig[hashstore.Config](ball, "hashstore")
 
 		// default is the old one
 		mud.RegisterInterfaceImplementation[piecestore.PieceBackend, *piecestore.OldPieceBackend](ball)
 
-		mud.Provide[*retain.BloomFilterManager](ball, func(cfg piecestore.OldConfig, rcfg retain.Config) (*retain.BloomFilterManager, error) {
-			hashStoreDir := filepath.Join(cfg.Path, "hashstore")
-			metaDir := filepath.Join(hashStoreDir, "meta")
-			return retain.NewBloomFilterManager(metaDir, rcfg.MaxTimeSkew)
+		mud.Provide[*retain.BloomFilterManager](ball, func(cfg hashstore.Config, old piecestore.OldConfig, rcfg retain.Config) (*retain.BloomFilterManager, error) {
+			logsPath, _ := cfg.Directories(old.Path)
+			return retain.NewBloomFilterManager(filepath.Join(logsPath, "meta"), rcfg.MaxTimeSkew)
 		})
 		mud.Implementation[[]piecestore.QueueRetain, *retain.BloomFilterManager](ball)
-		mud.Provide[*retain.RestoreTimeManager](ball, func(cfg piecestore.OldConfig) *retain.RestoreTimeManager {
-			hashStoreDir := filepath.Join(cfg.Path, "hashstore")
-			metaDir := filepath.Join(hashStoreDir, "meta")
-			return retain.NewRestoreTimeManager(metaDir)
+		mud.Provide[*retain.RestoreTimeManager](ball, func(cfg hashstore.Config, old piecestore.OldConfig) *retain.RestoreTimeManager {
+			logsPath, _ := cfg.Directories(old.Path)
+			return retain.NewRestoreTimeManager(filepath.Join(logsPath, "meta"))
 		})
 
 		mud.Provide[*piecestore.Endpoint](ball, piecestore.NewEndpoint)

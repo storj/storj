@@ -14,28 +14,6 @@ export class APIError extends Error {
         this.message = data.message;
         this.requestID = data.requestID;
     }
-
-    /**
-     * Returns a new APIError with the same status and requestID but with a different message.
-     */
-    public withMessage(message: string): APIError {
-        return new APIError({
-            status: this.status,
-            message,
-            requestID: this.requestID,
-        });
-    }
-}
-
-/**
- *  A custom error class for reporting duplicate file uploads.
- */
-export class DuplicateUploadError extends Error {
-    constructor(
-        public files: string[],
-    ) {
-        super('Duplicate upload');
-    }
 }
 
 /**

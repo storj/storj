@@ -123,7 +123,7 @@ import { useBucketsStore } from '@/store/modules/bucketsStore';
 import { Bucket } from '@/types/buckets';
 import { useProjectsStore } from '@/store/modules/projectsStore';
 import { AnalyticsErrorEventSource } from '@/utils/constants/analyticsEventNames';
-import { useNotify } from '@/utils/hooks';
+import { useNotify } from '@/composables/useNotify';
 
 import PasswordInputEyeIcons from '@/components/PasswordInputEyeIcons.vue';
 

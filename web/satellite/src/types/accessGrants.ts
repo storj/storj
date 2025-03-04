@@ -108,23 +108,6 @@ export class AccessGrant {
     ) {
         this.isSelected = false;
     }
-
-    /**
-     * Returns created date as a local string.
-     */
-    public localDate(): string {
-        return this.createdAt.toLocaleString('en-US', { timeZone: 'UTC', timeZoneName: 'short' });
-    }
-}
-
-/**
- * DurationPermission class holds info for access grant's duration permission.
- */
-export class DurationPermission {
-    constructor(
-        public notBefore: Date | null = null,
-        public notAfter: Date | null = null,
-    ) {}
 }
 
 /**

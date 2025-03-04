@@ -86,32 +86,20 @@ test.describe('object browser + edge services', () => {
         await objectBrowserPage.deleteObjectByName(folderName, 'Folder');
     });
 
-    test('Share bucket and bucket details page', async ({
-        navigationMenu,
+    test('Folder double-click disallowed', async ({
         bucketsPage,
         objectBrowserPage,
+        navigationMenu,
     }) => {
         const bucketName = uuidv4();
-        const fileName = 'test1.jpeg';
+        const folderName = 'testdata';
 
         await navigationMenu.clickOnBuckets();
         await bucketsPage.createBucket(bucketName);
         await bucketsPage.openBucket(bucketName);
-        await objectBrowserPage.waitLoading();
-        await objectBrowserPage.uploadFile(fileName, 'image/jpeg');
-        await objectBrowserPage.openObjectPreview(fileName, 'Image');
 
-        // Checks the image preview of the tiny apple png file
-        await objectBrowserPage.verifyImagePreviewIsVisible();
-        await objectBrowserPage.closePreview();
-
-        // Checks for Bucket Detail Header and correct bucket name
-        await navigationMenu.clickOnBuckets();
-        await bucketsPage.openBucketSettings();
-        await bucketsPage.verifyBucketDetails(bucketName);
-
-        // Check Bucket Share, see if copy button changed to copied
-        await bucketsPage.openBucketSettings();
-        await bucketsPage.verifyShareBucket();
+        await objectBrowserPage.createFolder(folderName);
+        await objectBrowserPage.doubleClickFolder(folderName);
+        await objectBrowserPage.checkSingleBreadcrumb('a', folderName);
     });
 });

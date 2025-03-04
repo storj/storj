@@ -216,8 +216,8 @@ import {
     VCard,
     VCardActions,
     VCardItem,
-    VCardTitle,
     VCardText,
+    VCardTitle,
     VChip,
     VCol,
     VDialog,
@@ -237,7 +237,8 @@ import { User } from '@/types/users';
 import { EmailRule, RequiredRule } from '@/types/common';
 import { useUsersStore } from '@/store/modules/usersStore';
 import { useLoading } from '@/composables/useLoading';
-import { useNotify } from '@/utils/hooks';
+import { useNotify } from '@/composables/useNotify';
+import { AnalyticsErrorEventSource } from '@/utils/constants/analyticsEventNames';
 
 const userStore = useUsersStore();
 
@@ -325,7 +326,7 @@ async function proceed(): Promise<void> {
                 model.value = false;
             }
         } catch (error) {
-            notify.error(error.message);
+            notify.notifyError(error, AnalyticsErrorEventSource.CHANGE_EMAIL_DIALOG);
         }
     });
 }

@@ -110,6 +110,7 @@ func (a *Auth) Token(w http.ResponseWriter, r *http.Request) {
 		a.serveJSONError(ctx, w, err)
 		return
 	}
+	tokenRequest.AnonymousID = LoadAjsAnonymousID(r)
 
 	tokenInfo, err := a.service.Token(ctx, tokenRequest)
 	if err != nil {
@@ -210,7 +211,15 @@ func (a *Auth) AuthenticateSso(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	tokenInfo, err := a.service.GenerateSessionToken(ctx, user.ID, user.Email, ip, userAgent, nil)
+	tokenInfo, err := a.service.GenerateSessionToken(ctx, console.SessionTokenRequest{
+		UserID:          user.ID,
+		Email:           user.Email,
+		IP:              ip,
+		UserAgent:       userAgent,
+		AnonymousID:     LoadAjsAnonymousID(r),
+		CustomDuration:  nil,
+		HubspotObjectID: user.HubspotObjectID,
+	})
 	if err != nil {
 		a.log.Error("Failed to generate session token", zap.Error(err))
 		http.Redirect(w, r, ssoFailedAddr, http.StatusPermanentRedirect)
@@ -555,7 +564,7 @@ func (a *Auth) Register(w http.ResponseWriter, r *http.Request) {
 
 		trackCreateUserFields := analytics.TrackCreateUserFields{
 			ID:            user.ID,
-			AnonymousID:   loadSession(r),
+			AnonymousID:   LoadAjsAnonymousID(r),
 			FullName:      user.FullName,
 			Email:         user.Email,
 			Type:          analytics.Personal,
@@ -768,7 +777,15 @@ func (a *Auth) ActivateAccount(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	tokenInfo, err := a.service.GenerateSessionToken(ctx, user.ID, user.Email, ip, r.UserAgent(), nil)
+	tokenInfo, err := a.service.GenerateSessionToken(ctx, console.SessionTokenRequest{
+		UserID:          user.ID,
+		Email:           user.Email,
+		IP:              ip,
+		UserAgent:       r.UserAgent(),
+		AnonymousID:     LoadAjsAnonymousID(r),
+		CustomDuration:  nil,
+		HubspotObjectID: user.HubspotObjectID,
+	})
 	if err != nil {
 		a.serveJSONError(ctx, w, err)
 		return
@@ -787,14 +804,14 @@ func (a *Auth) ActivateAccount(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-// loadSession looks for a cookie for the session id.
-// this cookie is set from the reverse proxy if the user opts into cookies from Storj.
-func loadSession(req *http.Request) string {
-	sessionCookie, err := req.Cookie("webtraf-sid")
+// LoadAjsAnonymousID looks for ajs_anonymous_id cookie.
+// this cookie is set from the website if the user opts into cookies from Storj.
+func LoadAjsAnonymousID(req *http.Request) string {
+	cookie, err := req.Cookie("ajs_anonymous_id")
 	if err != nil {
 		return ""
 	}
-	return sessionCookie.Value
+	return cookie.Value
 }
 
 // GetFreezeStatus checks to see if an account is frozen or warned.

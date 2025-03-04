@@ -7,7 +7,7 @@ import (
 	"context"
 
 	"github.com/shopspring/decimal"
-	"github.com/stripe/stripe-go/v75"
+	"github.com/stripe/stripe-go/v81"
 
 	"storj.io/common/uuid"
 	"storj.io/storj/satellite/payments"
@@ -18,7 +18,7 @@ type balances struct {
 }
 
 // ApplyCredit applies a credit of `amount` to the user's stripe balance with a description of `desc`.
-func (balances *balances) ApplyCredit(ctx context.Context, userID uuid.UUID, amount int64, desc string) (b *payments.Balance, err error) {
+func (balances *balances) ApplyCredit(ctx context.Context, userID uuid.UUID, amount int64, desc, idempotencyKey string) (b *payments.Balance, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	customerID, err := balances.service.db.Customers().GetCustomerID(ctx, userID)
@@ -26,13 +26,19 @@ func (balances *balances) ApplyCredit(ctx context.Context, userID uuid.UUID, amo
 		return nil, Error.Wrap(err)
 	}
 
-	// NB: In stripe a negative amount means the customer is owed money.
-	cbtx, err := balances.service.stripeClient.CustomerBalanceTransactions().New(&stripe.CustomerBalanceTransactionParams{
+	params := &stripe.CustomerBalanceTransactionParams{
 		Customer:    stripe.String(customerID),
 		Description: stripe.String(desc),
 		Amount:      stripe.Int64(-amount),
 		Currency:    stripe.String(string(stripe.CurrencyUSD)),
-	})
+	}
+
+	if balances.service.useIdempotency && idempotencyKey != "" {
+		params.SetIdempotencyKey(idempotencyKey)
+	}
+
+	// NB: In stripe a negative amount means the customer is owed money.
+	cbtx, err := balances.service.stripeClient.CustomerBalanceTransactions().New(params)
 	if err != nil {
 		return nil, Error.Wrap(err)
 	}

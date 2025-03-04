@@ -26,7 +26,7 @@ import { VRow, VCol, VCheckbox } from 'vuetify/components';
 
 import { useUsersStore } from '@/store/modules/usersStore';
 import { AnalyticsErrorEventSource } from '@/utils/constants/analyticsEventNames';
-import { useNotify } from '@/utils/hooks';
+import { useNotify } from '@/composables/useNotify';
 
 const userStore = useUsersStore();
 

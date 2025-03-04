@@ -18,7 +18,7 @@ import { VCol, VRow } from 'vuetify/components';
 import { useDisplay } from 'vuetify';
 
 import { FREE_PLAN_INFO, PricingPlanInfo, PricingPlanType, PRO_PLAN_INFO } from '@/types/common';
-import { useNotify } from '@/utils/hooks';
+import { useNotify } from '@/composables/useNotify';
 import { useUsersStore } from '@/store/modules/usersStore';
 import { useBillingStore } from '@/store/modules/billingStore';
 

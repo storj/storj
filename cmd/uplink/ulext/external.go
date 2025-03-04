@@ -26,6 +26,7 @@ import (
 type External interface {
 	OpenFilesystem(ctx context.Context, accessName string, options ...Option) (ulfs.Filesystem, error)
 	OpenProject(ctx context.Context, accessName string, options ...Option) (*uplink.Project, error)
+	GetEdgeUrlOverrides(ctx context.Context, access *uplink.Access) (EdgeURLOverrides, error)
 
 	AccessInfoFile() string
 	OpenAccess(accessName string) (access *uplink.Access, err error)
@@ -39,6 +40,13 @@ type External interface {
 
 	PromptInput(ctx context.Context, prompt string) (input string, err error)
 	PromptSecret(ctx context.Context, prompt string) (secret string, err error)
+}
+
+// EdgeURLOverrides contains the URL overrides for the edge service.
+type EdgeURLOverrides struct {
+	AuthService         string
+	PublicLinksharing   string
+	InternalLinksharing string
 }
 
 // Options contains all of the possible options for opening a filesystem or project.

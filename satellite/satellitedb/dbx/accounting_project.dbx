@@ -23,6 +23,9 @@ model bucket_bandwidth_rollup (
 	// It is one of put = 1, get = 2, get audit = 3, get repair = 4, put repair = 5, delete = 6 or put graceful exit = 7.
 	field action           uint
 
+	// product_id identifies with which product the usage is associated.
+	field product_id int ( nullable )
+
 	// inline is the number of bytes of inline traffic.
 	field inline    uint64 ( updatable )
 	// allocated is the number of bytes that the satellite has budgeted for.
@@ -54,6 +57,9 @@ model bucket_bandwidth_rollup_archive (
 	// project_id is an UUID that refers to project.id.
 	field project_id        blob
 
+	// product_id identifies with which product the usage is associated.
+	field product_id int ( nullable )
+
 	// interval_start is when the measurement interval started.
 	field interval_start   timestamp
 	// interval_seconds is the duration of the measurement interval in seconds.
@@ -76,7 +82,7 @@ read paged (
 	where bucket_bandwidth_rollup_archive.interval_start >= ?
 )
 
-// project_bandwidth_daily_rollup contains the total traffic for a given project.
+// project_bandwidth_daily_rollup contains the total traffic for a given product and project.
 model project_bandwidth_daily_rollup (
 	key    project_id interval_day
 	index (
@@ -86,6 +92,10 @@ model project_bandwidth_daily_rollup (
 
 	// project_id is an UUID that refers to projects.id.
 	field project_id       blob
+
+	// product_id identifies with which product the usage is associated.
+	field product_id int ( nullable )
+
 	// interval_day is the total for a given day.
 	field interval_day     date
 	// egress_allocated is the total budgeted download traffic.
@@ -118,6 +128,9 @@ model bucket_storage_tally (
 	// interval_start is when the measurement started.
 	// The measurement is collected over several hours, so it is not consistent.
 	field interval_start   timestamp
+
+	// product_id identifies with which product the usage is associated.
+	field product_id int ( nullable )
 
 	// total_bytes is the total bytes at rest.
 	field total_bytes uint64 ( default 0)

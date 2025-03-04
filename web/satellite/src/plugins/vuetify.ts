@@ -74,7 +74,7 @@ export default createVuetify({
             rounded: 'lg',
         },
         VTable: {
-            class: 'elevation-0 rounded-md',
+            class: 'elevation-1 rounded-md',
             hover: true,
         },
         VCheckbox: {

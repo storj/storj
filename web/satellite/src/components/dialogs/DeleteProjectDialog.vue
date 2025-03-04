@@ -258,8 +258,8 @@ import {
     VCard,
     VCardActions,
     VCardItem,
-    VCardTitle,
     VCardText,
+    VCardTitle,
     VCheckboxBtn,
     VChip,
     VCol,
@@ -279,11 +279,12 @@ import { DeleteProjectStep } from '@/types/accountActions';
 import { User } from '@/types/users';
 import { Project, ProjectDeletionData } from '@/types/projects';
 import { useLoading } from '@/composables/useLoading';
-import { useNotify } from '@/utils/hooks';
+import { useNotify } from '@/composables/useNotify';
 import { ROUTES } from '@/router';
 import { useUsersStore } from '@/store/modules/usersStore';
 import { useProjectsStore } from '@/store/modules/projectsStore';
 import { RequiredRule } from '@/types/common';
+import { AnalyticsErrorEventSource } from '@/utils/constants/analyticsEventNames';
 
 const router = useRouter();
 
@@ -405,7 +406,7 @@ async function proceed(): Promise<void> {
                 }
             }
         } catch (error) {
-            notify.error(error.message);
+            notify.notifyError(error, AnalyticsErrorEventSource.PROJECT_DELETE_DIALOG);
         }
     });
 }

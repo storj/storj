@@ -11,7 +11,7 @@
 
         <browser-breadcrumbs-component />
         <v-col>
-            <v-row align="center" class="mt-2 mb-2 mb-sm-4">
+            <v-row align="center" class="mt-1 mb-2">
                 <v-menu v-model="menu" location="bottom" transition="scale-transition" offset="5">
                     <template #activator="{ props }">
                         <v-btn
@@ -284,7 +284,7 @@
         @proceed="upload(true)"
         @cancel="clearUpload"
     />
-    <download-prefix-dialog v-if="downloadPrefixEnabled" v-model="isDownloadPrefixDialogShown" :prefix-type="DownloadPrefixType.Bucket" :path="bucketToDownload" />
+    <download-prefix-dialog v-if="downloadPrefixEnabled" v-model="isDownloadPrefixDialogShown" :prefix-type="DownloadPrefixType.Bucket" :bucket="bucketToDownload" />
 </template>
 
 <script setup lang="ts">
@@ -330,7 +330,7 @@ import { useBucketsStore } from '@/store/modules/bucketsStore';
 import { FileToUpload, useObjectBrowserStore } from '@/store/modules/objectBrowserStore';
 import { useProjectsStore } from '@/store/modules/projectsStore';
 import { EdgeCredentials } from '@/types/accessGrants';
-import { useNotify } from '@/utils/hooks';
+import { useNotify } from '@/composables/useNotify';
 import { AnalyticsErrorEventSource, AnalyticsEvent } from '@/utils/constants/analyticsEventNames';
 import { useAnalyticsStore } from '@/store/modules/analyticsStore';
 import { useAppStore } from '@/store/modules/appStore';

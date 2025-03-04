@@ -171,6 +171,7 @@ type AuthUser struct {
 	RememberForOneWeek bool   `json:"rememberForOneWeek"`
 	IP                 string `json:"-"`
 	UserAgent          string `json:"-"`
+	AnonymousID        string `json:"-"`
 }
 
 // TokenInfo holds info for user authentication token responses.
@@ -286,6 +287,8 @@ type User struct {
 
 	NewUnverifiedEmail          *string `json:"-"`
 	EmailChangeVerificationStep int     `json:"-"`
+
+	HubspotObjectID *string `json:"-"`
 }
 
 // ResponseUser is an entity which describes db User and can be sent in response.
@@ -378,6 +381,8 @@ type UpdateUserRequest struct {
 
 	NewUnverifiedEmail          **string
 	EmailChangeVerificationStep *int
+
+	HubspotObjectID **string
 }
 
 // UserSettings contains configurations for a user.

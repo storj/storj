@@ -67,7 +67,7 @@ import { useDisplay } from 'vuetify';
 import { ArrowRight } from 'lucide-vue-next';
 
 import { useUsersStore } from '@/store/modules/usersStore';
-import { useNotify } from '@/utils/hooks';
+import { useNotify } from '@/composables/useNotify';
 import { usePreCheck } from '@/composables/usePreCheck';
 import { User } from '@/types/users';
 import { Size } from '@/utils/bytesSize';

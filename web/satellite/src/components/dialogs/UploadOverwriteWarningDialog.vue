@@ -50,7 +50,7 @@
                         {{ name }}
                     </v-chip>
                     <p />
-                    <v-alert color="default" border variant="tonal" class="my-4">
+                    <v-alert color="default" variant="tonal" class="my-4">
                         If you continue with the upload, the existing object(s) will be permanently overwritten, and previous versions cannot be recovered.
                     </v-alert>
                     <v-checkbox-btn v-model="dismissPermanently" density="comfortable" class="mb-2 ml-n2" label="Do not show this warning again." />
@@ -97,7 +97,7 @@ import {
 import { AnalyticsErrorEventSource } from '@/utils/constants/analyticsEventNames';
 import { useLoading } from '@/composables/useLoading';
 import { useUsersStore } from '@/store/modules/usersStore';
-import { useNotify } from '@/utils/hooks';
+import { useNotify } from '@/composables/useNotify';
 
 import IconInfo from '@/components/icons/IconInfo.vue';
 

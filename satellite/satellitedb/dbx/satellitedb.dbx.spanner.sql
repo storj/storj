@@ -48,6 +48,7 @@ CREATE TABLE bucket_bandwidth_rollups (
 	interval_start TIMESTAMP NOT NULL,
 	interval_seconds INT64 NOT NULL,
 	action INT64 NOT NULL,
+	product_id INT64,
 	inline INT64 NOT NULL,
 	allocated INT64 NOT NULL,
 	settled INT64 NOT NULL
@@ -55,6 +56,7 @@ CREATE TABLE bucket_bandwidth_rollups (
 CREATE TABLE bucket_bandwidth_rollup_archives (
 	bucket_name BYTES(MAX) NOT NULL,
 	project_id BYTES(MAX) NOT NULL,
+	product_id INT64,
 	interval_start TIMESTAMP NOT NULL,
 	interval_seconds INT64 NOT NULL,
 	action INT64 NOT NULL,
@@ -66,6 +68,7 @@ CREATE TABLE bucket_storage_tallies (
 	bucket_name BYTES(MAX) NOT NULL,
 	project_id BYTES(MAX) NOT NULL,
 	interval_start TIMESTAMP NOT NULL,
+	product_id INT64,
 	total_bytes INT64 NOT NULL DEFAULT (0),
 	inline INT64 NOT NULL,
 	remote INT64 NOT NULL,
@@ -244,6 +247,7 @@ CREATE TABLE projects (
 ) PRIMARY KEY ( id ) ;
 CREATE TABLE project_bandwidth_daily_rollups (
 	project_id BYTES(MAX) NOT NULL,
+	product_id INT64,
 	interval_day DATE NOT NULL,
 	egress_allocated INT64 NOT NULL,
 	egress_settled INT64 NOT NULL,
@@ -462,7 +466,8 @@ CREATE TABLE users (
 	activation_code STRING(MAX),
 	signup_id STRING(MAX),
 	trial_expiration TIMESTAMP,
-	upgrade_time TIMESTAMP
+	upgrade_time TIMESTAMP,
+	hubspot_object_id STRING(MAX)
 ) PRIMARY KEY ( id ) ;
 CREATE TABLE user_settings (
 	user_id BYTES(MAX) NOT NULL,

@@ -45,6 +45,7 @@ type Adapter interface {
 	SetObjectLastCommittedLegalHold(ctx context.Context, opts SetObjectLastCommittedLegalHold) error
 
 	GetTableStats(ctx context.Context, opts GetTableStats) (result TableStats, err error)
+	CountSegments(ctx context.Context, checkTimestamp time.Time) (result int64, err error)
 	UpdateTableStats(ctx context.Context) error
 	BucketEmpty(ctx context.Context, opts BucketEmpty) (empty bool, err error)
 

@@ -368,7 +368,8 @@ var (
 			"account",
 	}
 
-	deleteObjectsCmd = &cobra.Command{
+	batchSizeDeleteObjects = 45
+	deleteObjectsCmd       = &cobra.Command{
 		Use:   "delete-objects",
 		Short: "Delete objects and their segments",
 		Long: "Delete from a list of users accounts their objects and segments.\nAccounts must be on " +
@@ -386,11 +387,12 @@ var (
 		Short: "Delete accounts and their associated entities",
 		Long: "From the list of users accounts it redacts the users' personal information and marks " +
 			"their accounts as deleted, deactivate their projects, and delete their API keys.\n The " +
-			"accounts must be on 'pending deletion' status and to not have any bucket, otherwise, they " +
-			"are logged with an info message and skipped. Unexisting accounts are logged with a debug  " +
-			"message and skipped.\nSystem errors exit the process with an error message.\nThe accounts " +
-			"are read from a CSV file with a single column that contains the email of the user's " +
-			"account; the first row is considered as header if it doesn't contain '@'",
+			"accounts must be on 'pending deletion' status, otherwise they are logged with an info " +
+			"message and skipped. The accounts must not have data, othersise they are logged as an " +
+			"error message and skipped. Unexisting accounts are logged with a debug  message and " +
+			"skipped.\nSystem errors exit the process with an error message.\nThe accounts are read " +
+			"from a CSV file with a single column that contains the email of the user's account; the " +
+			"first row is considered as header if it doesn't contain '@'",
 		Args: cobra.ExactArgs(1),
 		RunE: cmdDeleteAccounts,
 	}
@@ -500,6 +502,7 @@ func init() {
 	billingCmd.AddCommand(stripeCustomerCmd)
 	consistencyCmd.AddCommand(consistencyGECleanupCmd)
 	deleteDataCmd.AddCommand(deleteObjectsCmd)
+	deleteObjectsCmd.Flags().IntVar(&batchSizeDeleteObjects, "batch-size", 45, "Number of objects/segments to delete in a single batch")
 	deleteDataCmd.AddCommand(deleteAccountsCmd)
 	process.Bind(runCmd, &runCfg, defaults, cfgstruct.ConfDir(confDir), cfgstruct.IdentityDir(identityDir))
 	process.Bind(runMigrationCmd, &runCfg, defaults, cfgstruct.ConfDir(confDir), cfgstruct.IdentityDir(identityDir))

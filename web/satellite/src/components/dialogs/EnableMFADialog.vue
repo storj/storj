@@ -175,7 +175,7 @@ import { useConfigStore } from '@/store/modules/configStore';
 import { useUsersStore } from '@/store/modules/usersStore';
 import { AnalyticsErrorEventSource, AnalyticsEvent } from '@/utils/constants/analyticsEventNames';
 import { useAnalyticsStore } from '@/store/modules/analyticsStore';
-import { useNotify } from '@/utils/hooks';
+import { useNotify } from '@/composables/useNotify';
 
 const analyticsStore = useAnalyticsStore();
 const { config } = useConfigStore().state;

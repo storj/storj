@@ -148,7 +148,7 @@ import { useConfigStore } from '@/store/modules/configStore';
 import { AuthHttpApi } from '@/api/auth';
 import { useAnalyticsStore } from '@/store/modules/analyticsStore';
 import { AnalyticsErrorEventSource, AnalyticsEvent } from '@/utils/constants/analyticsEventNames';
-import { useNotify } from '@/utils/hooks';
+import { useNotify } from '@/composables/useNotify';
 import { useUsersStore } from '@/store/modules/usersStore';
 
 import PasswordStrength from '@/components/PasswordStrength.vue';

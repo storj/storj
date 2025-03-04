@@ -399,7 +399,7 @@ import { useRouter } from 'vue-router';
 import { formatPrice } from '@/utils/strings';
 import { useLoading } from '@/composables/useLoading';
 import { useConfigStore } from '@/store/modules/configStore';
-import { useNotify } from '@/utils/hooks';
+import { useNotify } from '@/composables/useNotify';
 import { AnalyticsErrorEventSource, AnalyticsEvent } from '@/utils/constants/analyticsEventNames';
 import { useAccessGrantsStore } from '@/store/modules/accessGrantsStore';
 import { useProjectsStore } from '@/store/modules/projectsStore';
@@ -414,6 +414,7 @@ import { DefaultObjectLockPeriodUnit, NO_MODE_SET, ObjLockMode } from '@/types/o
 import { useBillingStore } from '@/store/modules/billingStore';
 import { UsagePriceModel } from '@/types/payments';
 import { PlacementDetails } from '@/types/buckets';
+import { useAccessGrantWorker } from '@/composables/useAccessGrantWorker';
 
 import SetDefaultObjectLockConfig from '@/components/dialogs/defaultBucketLockConfig/SetDefaultObjectLockConfig.vue';
 
@@ -426,9 +427,11 @@ enum CreateStep {
     Success,
 }
 
+const { setPermissions, generateAccess } = useAccessGrantWorker();
 const { isLoading, withLoading } = useLoading();
 const notify = useNotify();
 const router = useRouter();
+
 const agStore = useAccessGrantsStore();
 const projectsStore = useProjectsStore();
 const billingStore = useBillingStore();
@@ -527,7 +530,6 @@ const formValid = ref<boolean>(false);
 const enableVersioning = ref<boolean>(false);
 const enableObjectLock = ref<boolean>(false);
 const bucketName = ref<string>('');
-const worker = ref<Worker | null>(null);
 const defaultRetentionMode = ref<ObjLockMode | typeof NO_MODE_SET>(NO_MODE_SET);
 const defaultRetentionPeriod = ref<number>(0);
 const defaultRetentionPeriodUnit = ref<DefaultObjectLockPeriodUnit>(DefaultObjectLockPeriodUnit.DAYS);
@@ -669,18 +671,6 @@ const bucketWasCreated = computed((): boolean => {
 });
 
 /**
- * Sets local worker with worker instantiated in store.
- */
-function setWorker(): void {
-    worker.value = agStore.state.accessGrantsWebWorker;
-    if (worker.value) {
-        worker.value.onerror = (error: ErrorEvent) => {
-            notify.error(error.message, AnalyticsErrorEventSource.CREATE_BUCKET_MODAL);
-        };
-    }
-}
-
-/**
  * Conditionally close dialog or go to previous step.
  */
 function toPrevStep(): void {
@@ -753,11 +743,6 @@ async function setObjectLockConfig(clientType: ClientType): Promise<void> {
  * Validates provided bucket's name and creates a bucket.
  */
 async function onCreate(): Promise<void> {
-    if (!worker.value) {
-        notify.error('Worker is not defined', AnalyticsErrorEventSource.CREATE_BUCKET_MODAL);
-        return;
-    }
-
     const projectID = project.value.id;
 
     if (!promptForPassphrase.value) {
@@ -813,51 +798,22 @@ async function onCreate(): Promise<void> {
 
     const inOneHour = new Date(now.setHours(now.getHours() + 1));
 
-    worker.value.postMessage({
-        'type': 'SetPermission',
-        'isDownload': false,
-        'isUpload': true,
-        'isList': false,
-        'isDelete': false,
-        'isPutObjectLockConfiguration': true,
-        'isGetObjectLockConfiguration': true,
-        'notAfter': inOneHour.toISOString(),
-        'buckets': JSON.stringify([]),
-        'apiKey': apiKey.value,
+    const macaroon = await setPermissions({
+        isDownload: false,
+        isUpload: true,
+        isList: false,
+        isDelete: false,
+        isPutObjectLockConfiguration: true,
+        isGetObjectLockConfiguration: true,
+        notAfter: inOneHour.toISOString(),
+        buckets: JSON.stringify([]),
+        apiKey: apiKey.value,
     });
 
-    const grantEvent: MessageEvent = await new Promise(resolve => {
-        if (worker.value) {
-            worker.value.onmessage = resolve;
-        }
-    });
-    if (grantEvent.data.error) {
-        notify.error(grantEvent.data.error, AnalyticsErrorEventSource.CREATE_BUCKET_MODAL);
-        return;
-    }
-
-    const salt = await projectsStore.getProjectSalt(projectID);
-    const satelliteNodeURL: string = configStore.state.config.satelliteNodeURL;
-
-    worker.value.postMessage({
-        'type': 'GenerateAccess',
-        'apiKey': grantEvent.data.value,
-        'passphrase': '',
-        'salt': salt,
-        'satelliteNodeURL': satelliteNodeURL,
-    });
-
-    const accessGrantEvent: MessageEvent = await new Promise(resolve => {
-        if (worker.value) {
-            worker.value.onmessage = resolve;
-        }
-    });
-    if (accessGrantEvent.data.error) {
-        notify.error(accessGrantEvent.data.error, AnalyticsErrorEventSource.CREATE_BUCKET_MODAL);
-        return;
-    }
-
-    const accessGrant = accessGrantEvent.data.value;
+    const accessGrant = await generateAccess({
+        apiKey: macaroon,
+        passphrase: '',
+    }, projectID);
 
     const creds: EdgeCredentials = await agStore.getEdgeCredentials(accessGrant);
     bucketsStore.setEdgeCredentialsForCreate(creds);
@@ -910,8 +866,6 @@ watch(bucketLocation, async (value) => {
 
 watch(innerContent, newContent => {
     if (newContent) {
-        setWorker();
-
         withLoading(async () => {
             try {
                 await Promise.all([

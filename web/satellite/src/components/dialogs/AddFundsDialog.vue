@@ -143,7 +143,7 @@ import { CreditCard } from '@/types/payments';
 import { useBillingStore } from '@/store/modules/billingStore';
 import { RequiredRule, ValidationRule } from '@/types/common';
 import { useConfigStore } from '@/store/modules/configStore';
-import { useNotify } from '@/utils/hooks';
+import { useNotify } from '@/composables/useNotify';
 import { AnalyticsErrorEventSource } from '@/utils/constants/analyticsEventNames';
 
 type SelectValue = {
@@ -226,7 +226,7 @@ function proceed(): void {
                 notify.error('Failed to add funds', AnalyticsErrorEventSource.ADD_FUNDS_DIALOG);
             }
         } catch (error) {
-            notify.error(error.message, AnalyticsErrorEventSource.ADD_FUNDS_DIALOG);
+            notify.notifyError(error, AnalyticsErrorEventSource.ADD_FUNDS_DIALOG);
         }
     });
 }

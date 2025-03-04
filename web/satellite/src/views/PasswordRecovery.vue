@@ -90,7 +90,7 @@ import { ErrorMFARequired } from '@/api/errors/ErrorMFARequired';
 import { ErrorTokenExpired } from '@/api/errors/ErrorTokenExpired';
 import { ErrorTooManyAttempts } from '@/api/errors/ErrorTooManyAttempts';
 import { AuthHttpApi } from '@/api/auth';
-import { useNotify } from '@/utils/hooks';
+import { useNotify } from '@/composables/useNotify';
 import { useLoading } from '@/composables/useLoading';
 import { ROUTES } from '@/router';
 

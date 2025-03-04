@@ -3,9 +3,9 @@ module storj.io/storj
 go 1.23.5
 
 require (
-	cloud.google.com/go v0.118.0
+	cloud.google.com/go v0.118.2
 	cloud.google.com/go/secretmanager v1.14.3
-	cloud.google.com/go/spanner v1.74.0
+	cloud.google.com/go/spanner v1.75.0
 	github.com/alessio/shellescape v1.2.2
 	github.com/alicebob/miniredis/v2 v2.13.3
 	github.com/blang/semver v3.5.1+incompatible
@@ -21,7 +21,7 @@ require (
 	github.com/golang-jwt/jwt v3.2.1+incompatible
 	github.com/golang/mock v1.7.0-rc.1
 	github.com/google/go-cmp v0.6.0
-	github.com/googleapis/go-sql-spanner v1.10.1
+	github.com/googleapis/go-sql-spanner v1.11.1-0.20250214171559-1bccea5dfec5
 	github.com/gorilla/mux v1.8.0
 	github.com/gorilla/schema v1.2.0
 	github.com/jackc/pgerrcode v0.0.0-20201024163028-a0d42d470451
@@ -46,7 +46,7 @@ require (
 	github.com/spf13/pflag v1.0.5
 	github.com/spf13/viper v1.18.2
 	github.com/stretchr/testify v1.10.0
-	github.com/stripe/stripe-go/v75 v75.8.0
+	github.com/stripe/stripe-go/v81 v81.3.1
 	github.com/vbauerster/mpb/v8 v8.4.0
 	github.com/zeebo/assert v1.3.1
 	github.com/zeebo/blake3 v0.2.3
@@ -56,6 +56,7 @@ require (
 	github.com/zeebo/ini v0.0.0-20210514163846-cc8fbd8d9599
 	github.com/zeebo/mwc v0.0.6
 	github.com/zeebo/structs v1.0.3-0.20230601144555-f2db46069602
+	github.com/zeebo/sudo v1.0.2
 	github.com/zeebo/xxh3 v1.0.2
 	github.com/zyedidia/generic v1.2.1
 	go.etcd.io/bbolt v1.3.5
@@ -69,21 +70,21 @@ require (
 	golang.org/x/term v0.28.0
 	golang.org/x/text v0.21.0
 	golang.org/x/time v0.9.0
-	google.golang.org/api v0.219.0
+	google.golang.org/api v0.220.0
 	google.golang.org/grpc v1.70.0
-	google.golang.org/protobuf v1.36.4
+	google.golang.org/protobuf v1.36.5
 	gopkg.in/segmentio/analytics-go.v3 v3.1.0
 	gopkg.in/yaml.v3 v3.0.1
-	storj.io/common v0.0.0-20250207214808-37afb3c7daeb
+	storj.io/common v0.0.0-20250217095555-9d0434ee0343
 	storj.io/drpc v0.0.35-0.20240709171858-0075ac871661
 	storj.io/eventkit v0.0.0-20240415002644-1d9596fee086
 	storj.io/monkit-jaeger v0.0.0-20240221095020-52b0792fa6cd
-	storj.io/uplink v1.13.2-0.20241209213014-e5f3beed1a59
+	storj.io/uplink v1.13.2-0.20250218103408-3179c8d1ccdb
 )
 
 require (
 	cel.dev/expr v0.19.0 // indirect
-	cloud.google.com/go/auth v0.14.0 // indirect
+	cloud.google.com/go/auth v0.14.1 // indirect
 	cloud.google.com/go/auth/oauth2adapt v0.2.7 // indirect
 	cloud.google.com/go/bigquery v1.66.0 // indirect
 	cloud.google.com/go/compute/metadata v0.6.0 // indirect
@@ -174,7 +175,6 @@ require (
 	github.com/zeebo/float16 v0.1.0 // indirect
 	github.com/zeebo/goof v0.0.0-20230907150950-e9457bc94477 // indirect
 	github.com/zeebo/incenc v0.0.0-20180505221441-0d92902eec54 // indirect
-	github.com/zeebo/sudo v1.0.2 // indirect
 	go.opencensus.io v0.24.0 // indirect
 	go.opentelemetry.io/auto/sdk v1.1.0 // indirect
 	go.opentelemetry.io/contrib/detectors/gcp v1.33.0 // indirect
@@ -192,7 +192,7 @@ require (
 	golang.org/x/xerrors v0.0.0-20240903120638-7835f813f4da // indirect
 	google.golang.org/genproto v0.0.0-20250122153221-138b5a5a4fd4 // indirect
 	google.golang.org/genproto/googleapis/api v0.0.0-20250124145028-65684f501c47 // indirect
-	google.golang.org/genproto/googleapis/rpc v0.0.0-20250127172529-29210b9bc287 // indirect
+	google.golang.org/genproto/googleapis/rpc v0.0.0-20250207221924-e9438ea467c6 // indirect
 	gopkg.in/ini.v1 v1.67.0 // indirect
 	gopkg.in/yaml.v2 v2.4.0 // indirect
 	storj.io/infectious v0.0.2 // indirect

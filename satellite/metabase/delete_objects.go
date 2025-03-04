@@ -8,6 +8,7 @@ import (
 
 	"github.com/zeebo/errs"
 
+	"storj.io/common/storj"
 	"storj.io/common/uuid"
 )
 
@@ -40,8 +41,6 @@ func (opts DeleteObjects) Verify() error {
 	switch {
 	case opts.Versioned && opts.Suspended:
 		return ErrInvalidRequest.New("Versioned and Suspended must not be simultaneously enabled")
-	case opts.ObjectLock.Enabled:
-		return ErrInvalidRequest.New("deletion from buckets with Object Lock enabled is not yet supported")
 	case opts.ProjectID.IsZero():
 		return ErrInvalidRequest.New("ProjectID missing")
 	case opts.BucketName == "":
@@ -69,18 +68,6 @@ type DeleteObjectsResult struct {
 	DeletedSegmentCount int64
 }
 
-// DeleteObjectsStatus represents the success or failure status of an individual DeleteObjects deletion.
-type DeleteObjectsStatus int
-
-const (
-	// DeleteStatusUnprocessed indicates that the deletion was not processed due to an internal error.
-	DeleteStatusUnprocessed DeleteObjectsStatus = iota
-	// DeleteStatusNotFound indicates that the object could not be deleted because it didn't exist.
-	DeleteStatusNotFound
-	// DeleteStatusOK indicates that the object was successfully deleted.
-	DeleteStatusOK
-)
-
 // DeleteObjectsResultItem contains the result of an attempt to delete a specific object from a bucket.
 type DeleteObjectsResultItem struct {
 	ObjectKey                ObjectKey
@@ -89,7 +76,7 @@ type DeleteObjectsResultItem struct {
 	Removed *DeleteObjectsInfo
 	Marker  *DeleteObjectsInfo
 
-	Status DeleteObjectsStatus
+	Status storj.DeleteObjectsStatus
 }
 
 // DeleteObjectsInfo contains information about an object that was deleted or a delete marker that was inserted
@@ -100,8 +87,6 @@ type DeleteObjectsInfo struct {
 }
 
 // DeleteObjects deletes specific objects from a bucket.
-//
-// TODO: Support Object Lock.
 func (db *DB) DeleteObjects(ctx context.Context, opts DeleteObjects) (result DeleteObjectsResult, err error) {
 	defer mon.Task()(&ctx)(&err)
 
@@ -112,7 +97,7 @@ func (db *DB) DeleteObjects(ctx context.Context, opts DeleteObjects) (result Del
 	defer func() {
 		var deletedObjects int
 		for _, item := range result.Items {
-			if item.Status == DeleteStatusOK && item.Removed != nil {
+			if item.Status == storj.DeleteObjectsStatusOK && item.Removed != nil {
 				deletedObjects++
 			}
 		}
@@ -133,6 +118,7 @@ func (db *DB) DeleteObjects(ctx context.Context, opts DeleteObjects) (result Del
 				BucketName: opts.BucketName,
 				ObjectKey:  resultItem.ObjectKey,
 			},
+			ObjectLock: opts.ObjectLock,
 		}
 
 		var deleteObjectResult DeleteObjectResult
@@ -167,7 +153,7 @@ func (db *DB) DeleteObjects(ctx context.Context, opts DeleteObjects) (result Del
 				Status:          CommittedUnversioned,
 			}
 			resultItem.Removed = deleteInfo
-			resultItem.Status = DeleteStatusOK
+			resultItem.Status = storj.DeleteObjectsStatusOK
 
 			if !opts.Versioned {
 				// Handle the case where an object was specified twice in the deletion request:
@@ -178,7 +164,7 @@ func (db *DB) DeleteObjects(ctx context.Context, opts DeleteObjects) (result Del
 					StreamVersionID: sv,
 				}]; ok {
 					processedOpts.results[i].Removed = deleteInfo
-					processedOpts.results[i].Status = DeleteStatusOK
+					processedOpts.results[i].Status = storj.DeleteObjectsStatusOK
 				}
 			}
 		}
@@ -189,21 +175,26 @@ func (db *DB) DeleteObjects(ctx context.Context, opts DeleteObjects) (result Del
 				StreamVersionID: marker.StreamVersionID(),
 				Status:          marker.Status,
 			}
-			resultItem.Status = DeleteStatusOK
+			resultItem.Status = storj.DeleteObjectsStatusOK
 		}
 
 		if err != nil {
-			return result, err
+			if ErrObjectLock.Has(err) {
+				resultItem.Status = storj.DeleteObjectsStatusLocked
+				err = nil
+			} else {
+				return result, err
+			}
 		}
 
-		if resultItem.Status == DeleteStatusUnprocessed {
-			resultItem.Status = DeleteStatusNotFound
+		if resultItem.Status == storj.DeleteObjectsStatusInternalError {
+			resultItem.Status = storj.DeleteObjectsStatusNotFound
 		}
 	}
 
 	for i := processedOpts.lastCommittedCount; i < len(processedOpts.results); i++ {
 		resultItem := &processedOpts.results[i]
-		if resultItem.Status == DeleteStatusOK {
+		if resultItem.Status == storj.DeleteObjectsStatusOK {
 			continue
 		}
 
@@ -214,6 +205,7 @@ func (db *DB) DeleteObjects(ctx context.Context, opts DeleteObjects) (result Del
 			}]; ok {
 				marker := processedOpts.results[linkedItemIdx].Marker
 				if marker != nil && marker.StreamVersionID == resultItem.RequestedStreamVersionID {
+					resultItem.Status = storj.DeleteObjectsStatusNotFound
 					continue
 				}
 			}
@@ -228,12 +220,13 @@ func (db *DB) DeleteObjects(ctx context.Context, opts DeleteObjects) (result Del
 			},
 			Version:        resultItem.RequestedStreamVersionID.Version(),
 			StreamIDSuffix: resultItem.RequestedStreamVersionID.StreamIDSuffix(),
+			ObjectLock:     opts.ObjectLock,
 		})
 
 		result.DeletedSegmentCount += int64(deleteObjectResult.DeletedSegmentCount)
 
 		if len(deleteObjectResult.Removed) > 0 {
-			resultItem.Status = DeleteStatusOK
+			resultItem.Status = storj.DeleteObjectsStatusOK
 			resultItem.Removed = &DeleteObjectsInfo{
 				StreamVersionID: resultItem.RequestedStreamVersionID,
 				Status:          deleteObjectResult.Removed[0].Status,
@@ -241,11 +234,16 @@ func (db *DB) DeleteObjects(ctx context.Context, opts DeleteObjects) (result Del
 		}
 
 		if err != nil {
-			return result, err
+			if ErrObjectLock.Has(err) {
+				resultItem.Status = storj.DeleteObjectsStatusLocked
+				err = nil
+			} else {
+				return result, err
+			}
 		}
 
-		if resultItem.Status == DeleteStatusUnprocessed {
-			resultItem.Status = DeleteStatusNotFound
+		if resultItem.Status == storj.DeleteObjectsStatusInternalError {
+			resultItem.Status = storj.DeleteObjectsStatusNotFound
 		}
 	}
 

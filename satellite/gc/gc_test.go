@@ -5,13 +5,13 @@ package gc_test
 
 import (
 	"context"
+	"math/rand"
 	"sort"
 	"testing"
 	"time"
 
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap"
-	"go.uber.org/zap/zaptest"
 
 	"storj.io/common/memory"
 	"storj.io/common/storj"
@@ -21,31 +21,54 @@ import (
 	"storj.io/storj/satellite/gc/bloomfilter"
 	"storj.io/storj/satellite/metabase"
 	"storj.io/storj/satellite/metabase/rangedloop"
+	"storj.io/storj/satellite/metabase/rangedloop/rangedlooptest"
 	"storj.io/storj/storagenode"
 	"storj.io/uplink/private/testuplink"
 )
 
-func testGCWithObservers(t *testing.T, run func(t *testing.T, makeObserver func(bloomfilter.Config, *testplanet.Planet) rangedloop.Observer)) {
-	cases := []struct {
-		name    string
-		factory func(bloomfilter.Config, *testplanet.Planet) rangedloop.Observer
-	}{
+type observerConfiguration struct {
+	name string
+	f    func(*zap.Logger, bloomfilter.Config, bloomfilter.Overlay) rangedloop.Observer
+}
+
+func observerConfigurations() []observerConfiguration {
+	configurations := []observerConfiguration{
 		{
-			name: "Observer",
-			factory: func(config bloomfilter.Config, planet *testplanet.Planet) rangedloop.Observer {
-				return bloomfilter.NewObserver(zaptest.NewLogger(t), config, planet.Satellites[0].Overlay.DB)
+			name: "SyncObserverV2",
+			f: func(log *zap.Logger, config bloomfilter.Config, overlay bloomfilter.Overlay) rangedloop.Observer {
+				return bloomfilter.NewSyncObserverV2(log, config, overlay)
 			},
 		},
 		{
 			name: "SyncObserver",
-			factory: func(config bloomfilter.Config, planet *testplanet.Planet) rangedloop.Observer {
-				return bloomfilter.NewSyncObserver(zaptest.NewLogger(t), config, planet.Satellites[0].Overlay.DB)
+			f: func(log *zap.Logger, config bloomfilter.Config, overlay bloomfilter.Overlay) rangedloop.Observer {
+				return bloomfilter.NewSyncObserver(log, config, overlay)
+			},
+		},
+		{
+			name: "Observer",
+			f: func(log *zap.Logger, config bloomfilter.Config, overlay bloomfilter.Overlay) rangedloop.Observer {
+				return bloomfilter.NewObserver(log, config, overlay)
 			},
 		},
 	}
 
-	for _, tc := range cases {
-		t.Run(tc.name, func(t *testing.T) { run(t, tc.factory) })
+	rand.Shuffle(len(configurations), func(i, j int) {
+		configurations[i], configurations[j] = configurations[j], configurations[i]
+	})
+
+	return configurations
+}
+
+func testObservers(t *testing.T, run func(*testing.T, func(*zap.Logger, bloomfilter.Config, bloomfilter.Overlay) rangedloop.Observer)) {
+	for _, tt := range observerConfigurations() {
+		t.Run(tt.name, func(t *testing.T) { run(t, tt.f) })
+	}
+}
+
+func benchmarkObservers(b *testing.B, run func(*testing.B, func(*zap.Logger, bloomfilter.Config, bloomfilter.Overlay) rangedloop.Observer)) {
+	for _, tt := range observerConfigurations() {
+		b.Run(tt.name, func(b *testing.B) { run(b, tt.f) })
 	}
 }
 
@@ -58,7 +81,7 @@ func testGCWithObservers(t *testing.T, run func(t *testing.T, makeObserver func(
 // * Check that pieces of the deleted object are deleted on the storagenode
 // * Check that pieces of the kept object are not deleted on the storagenode.
 func TestGarbageCollection(t *testing.T) {
-	testGCWithObservers(t, func(t *testing.T, makeObserver func(bloomfilter.Config, *testplanet.Planet) rangedloop.Observer) {
+	testObservers(t, func(t *testing.T, makeObserver func(*zap.Logger, bloomfilter.Config, bloomfilter.Overlay) rangedloop.Observer) {
 		testplanet.Run(t, testplanet.Config{
 			SatelliteCount: 2, StorageNodeCount: 1, UplinkCount: 1,
 			Reconfigure: testplanet.Reconfigure{
@@ -126,7 +149,7 @@ func TestGarbageCollection(t *testing.T) {
 			// Wait for bloom filter observer to finish
 			rangedloopConfig := planet.Satellites[0].Config.RangedLoop
 
-			observer := makeObserver(config, planet)
+			observer := makeObserver(zap.NewNop(), config, satellite.Overlay.DB)
 			mbSegments := rangedloop.NewMetabaseRangeSplitter(zap.NewNop(), planet.Satellites[0].Metabase.DB, rangedloopConfig)
 			rangedLoop := rangedloop.NewService(zap.NewNop(), planet.Satellites[0].Config.RangedLoop, mbSegments, []rangedloop.Observer{observer})
 
@@ -159,7 +182,7 @@ func TestGarbageCollection(t *testing.T) {
 // TestGarbageCollectionWithCopies checkes that server-side copy elements are not
 // affecting GC and nothing unexpected was deleted from storage nodes.
 func TestGarbageCollectionWithCopies(t *testing.T) {
-	testGCWithObservers(t, func(t *testing.T, makeObserver func(bloomfilter.Config, *testplanet.Planet) rangedloop.Observer) {
+	testObservers(t, func(t *testing.T, makeObserver func(*zap.Logger, bloomfilter.Config, bloomfilter.Overlay) rangedloop.Observer) {
 		testplanet.Run(t, testplanet.Config{
 			SatelliteCount: 1, StorageNodeCount: 4, UplinkCount: 1,
 			Reconfigure: testplanet.Reconfigure{
@@ -211,7 +234,7 @@ func TestGarbageCollectionWithCopies(t *testing.T) {
 			// Wait for bloom filter observer to finish
 			rangedloopConfig := planet.Satellites[0].Config.RangedLoop
 
-			observer := makeObserver(config, planet)
+			observer := makeObserver(zap.NewNop(), config, satellite.Overlay.DB)
 			segments := rangedloop.NewMetabaseRangeSplitter(zap.NewNop(), planet.Satellites[0].Metabase.DB, rangedloopConfig)
 			rangedLoop := rangedloop.NewService(zap.NewNop(), planet.Satellites[0].Config.RangedLoop, segments, []rangedloop.Observer{observer})
 
@@ -287,7 +310,7 @@ func TestGarbageCollectionWithCopies(t *testing.T) {
 // TestGarbageCollectionWithCopies checks that server-side copy elements are not
 // affecting GC and nothing unexpected was deleted from storage nodes.
 func TestGarbageCollectionWithCopiesWithDuplicateMetadata(t *testing.T) {
-	testGCWithObservers(t, func(t *testing.T, makeObserver func(bloomfilter.Config, *testplanet.Planet) rangedloop.Observer) {
+	testObservers(t, func(t *testing.T, makeObserver func(*zap.Logger, bloomfilter.Config, bloomfilter.Overlay) rangedloop.Observer) {
 
 		testplanet.Run(t, testplanet.Config{
 			SatelliteCount: 1, StorageNodeCount: 4, UplinkCount: 1,
@@ -342,7 +365,7 @@ func TestGarbageCollectionWithCopiesWithDuplicateMetadata(t *testing.T) {
 			// Wait for bloom filter observer to finish
 			rangedloopConfig := planet.Satellites[0].Config.RangedLoop
 
-			observer := makeObserver(config, planet)
+			observer := makeObserver(zap.NewNop(), config, satellite.Overlay.DB)
 			segments := rangedloop.NewMetabaseRangeSplitter(zap.NewNop(), planet.Satellites[0].Metabase.DB, rangedloopConfig)
 			rangedLoop := rangedloop.NewService(zap.NewNop(), planet.Satellites[0].Config.RangedLoop, segments, []rangedloop.Observer{observer})
 
@@ -418,7 +441,7 @@ func TestGarbageCollectionWithCopiesWithDuplicateMetadata(t *testing.T) {
 // TestGarbageCollection_PendingObject verifies that segments from pending objects
 // are also processed by GC piece tracker.
 func TestGarbageCollection_PendingObject(t *testing.T) {
-	testGCWithObservers(t, func(t *testing.T, makeObserver func(bloomfilter.Config, *testplanet.Planet) rangedloop.Observer) {
+	testObservers(t, func(t *testing.T, makeObserver func(*zap.Logger, bloomfilter.Config, bloomfilter.Overlay) rangedloop.Observer) {
 		testplanet.Run(t, testplanet.Config{
 			SatelliteCount: 1, StorageNodeCount: 1, UplinkCount: 1,
 		}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
@@ -442,7 +465,7 @@ func TestGarbageCollection_PendingObject(t *testing.T) {
 			config.FalsePositiveRate = 0.000000001
 			config.InitialPieces = 10
 
-			observer := makeObserver(config, planet)
+			observer := makeObserver(zap.NewNop(), config, satellite.Overlay.DB)
 			rangedloopConfig := planet.Satellites[0].Config.RangedLoop
 			provider := rangedloop.NewMetabaseRangeSplitter(zap.NewNop(), planet.Satellites[0].Metabase.DB, rangedloopConfig)
 			rangedLoop := rangedloop.NewService(zap.NewNop(), planet.Satellites[0].Config.RangedLoop, provider, []rangedloop.Observer{observer})
@@ -503,4 +526,102 @@ func completeMultipartUpload(ctx context.Context, t *testing.T, uplink *testplan
 
 	_, err = project.CommitUpload(ctx, bucketName, path, streamID, nil)
 	require.NoError(t, err)
+}
+
+func BenchmarkGarbageCollection(b *testing.B) {
+	const (
+		storageNodesCount     = 100
+		segmentsCount         = 10000
+		piecesPerSegment      = 10
+		rangedLoopBatchSize   = 2500
+		rangedLoopParallelism = 40
+	)
+
+	ctx := testcontext.New(b)
+	defer ctx.Cleanup()
+
+	log := zap.NewNop()
+	defer ctx.Check(log.Sync)
+
+	segments, pieceCounts := randomSegments(storageNodesCount, segmentsCount, piecesPerSegment)
+
+	bfConfig := bloomfilter.Config{
+		AccessGrant: "access",
+		Bucket:      "bucket",
+	}
+
+	overlay := &mockOverlay{pieceCounts: pieceCounts}
+
+	rlConfig := rangedloop.Config{
+		BatchSize:   rangedLoopBatchSize,
+		Parallelism: rangedLoopParallelism,
+	}
+	provider := &rangedlooptest.RangeSplitter{
+		Segments: segments,
+	}
+
+	benchmarkObservers(b, func(b *testing.B, makeObserver func(*zap.Logger, bloomfilter.Config, bloomfilter.Overlay) rangedloop.Observer) {
+		observer := makeObserver(log, bfConfig, overlay)
+		rangedLoop := rangedloop.NewService(log, rlConfig, provider, []rangedloop.Observer{observer})
+
+		durations := make(map[rangedloop.Observer]time.Duration)
+
+		b.ResetTimer()
+
+		for i := 0; i < b.N; i++ {
+			d, err := rangedLoop.RunOnce(ctx)
+			require.NoError(b, err)
+
+			for _, d := range d {
+				durations[d.Observer] += d.Duration
+			}
+		}
+		observerDurations = durations
+
+		require.Len(b, observerDurations, 1)
+
+		// for _, d := range observerDurations {
+		// 	b.ReportMetric(float64(d.Nanoseconds())/float64(b.N), "ns/RunOnce")
+		// }
+	})
+}
+
+var observerDurations map[rangedloop.Observer]time.Duration
+
+type mockOverlay struct {
+	pieceCounts map[storj.NodeID]int64
+}
+
+func (o *mockOverlay) ActiveNodesPieceCounts(context.Context) (map[storj.NodeID]int64, error) {
+	return o.pieceCounts, nil
+}
+
+func randomSegments(nodesCount, segmentsCount, piecesPerSegment int) ([]rangedloop.Segment, map[storj.NodeID]int64) {
+	var nodes []storj.NodeID
+	for i := 0; i < nodesCount; i++ {
+		nodes = append(nodes, testrand.NodeID())
+	}
+
+	pieceCounts := make(map[storj.NodeID]int64)
+
+	startDate := time.Date(2000, time.August, 8, 0, 0, 0, 0, time.UTC)
+	var segments []rangedloop.Segment
+	for i := 0; i < segmentsCount; i++ {
+		var pieces []metabase.Piece
+		for j := 0; j < piecesPerSegment; j++ {
+			node := nodes[(i+j)%len(nodes)]
+			pieces = append(pieces, metabase.Piece{
+				Number:      uint16(j),
+				StorageNode: node,
+			})
+			pieceCounts[node]++
+		}
+		segments = append(segments, rangedloop.Segment{
+			CreatedAt:   startDate.Add(time.Hour * time.Duration(i)),
+			RootPieceID: testrand.PieceID(),
+			Pieces:      pieces,
+		})
+	}
+
+	return segments, pieceCounts
 }

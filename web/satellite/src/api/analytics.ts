@@ -155,17 +155,19 @@ export class AnalyticsHttpApi {
      *
      * @param source - place where event happened
      * @param csrfProtectionToken - CSRf token
+     * @param requestID - request ID if available
+     * @param statusCode = status code if available
      */
-    public async errorEventTriggered(source: AnalyticsErrorEventSource, csrfProtectionToken: string): Promise<void> {
+    public async errorEventTriggered(source: AnalyticsErrorEventSource, csrfProtectionToken: string, requestID: string | null = null, statusCode?: number): Promise<void> {
         try {
             const path = `${this.ROOT_PATH}/event`;
             const body = {
                 eventName: AnalyticsEvent.UI_ERROR,
+                errorEventSource: source,
             };
 
-            if (source) {
-                body['errorEventSource'] = source;
-            }
+            if (requestID) body['errorEventRequestID'] = requestID;
+            if (statusCode) body['errorEventStatusCode'] = statusCode;
 
             const response = await this.http.post(path, JSON.stringify(body), { csrfProtectionToken });
             if (response.ok) {

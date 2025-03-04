@@ -97,12 +97,12 @@ func TestStore_FileLocking(t *testing.T) {
 	defer s.Close()
 
 	// flock should stop a second store from being created with the same hashdir.
-	_, err := NewStore(ctx, s.dir, nil)
+	_, err := NewStore(ctx, s.logsPath, "", nil)
 	assert.Error(t, err)
 
 	// it should still be locked even after compact makes a new hashtbl file.
 	s.AssertCompact(nil, time.Time{})
-	_, err = NewStore(ctx, s.dir, nil)
+	_, err = NewStore(ctx, s.logsPath, "", nil)
 	assert.Error(t, err)
 }
 
@@ -183,6 +183,44 @@ func TestStore_CompactionEventuallyDeletes(t *testing.T) {
 	}
 
 	// grab a reader for the key. it should be deleted.
+	s.AssertNotExist(key)
+}
+
+func TestStore_DeleteTrashImmediately(t *testing.T) {
+	defer temporarily(&compaction_DeleteTrashImmediately, true)()
+
+	s := newTestStore(t)
+	defer s.Close()
+
+	// add an entry that does not expire.
+	key := s.AssertCreate()
+
+	// compact once. it should be deleted right away.
+	s.AssertCompact(alwaysTrash, time.Time{})
+	s.AssertNotExist(key)
+}
+
+func TestStore_DeleteTrashImmediately_ExistingTrash(t *testing.T) {
+	s := newTestStore(t)
+	defer s.Close()
+
+	// add an entry that does not expire.
+	key := s.AssertCreate()
+
+	// compact once. it should still exist.
+	s.AssertCompact(alwaysTrash, time.Time{})
+	s.AssertExist(key)
+
+	// go forward in time but not enough to expire the key and compact again. it should still exist.
+	s.today += compaction_ExpiresDays / 2
+	s.AssertCompact(alwaysTrash, time.Time{})
+	s.AssertExist(key)
+
+	// set immediate delete mode.
+	defer temporarily(&compaction_DeleteTrashImmediately, true)()
+
+	// now compaction should delete the key. it should not exist.
+	s.AssertCompact(alwaysTrash, time.Time{})
 	s.AssertNotExist(key)
 }
 
@@ -905,7 +943,7 @@ func TestStore_FallbackToNonTTLLogFile(t *testing.T) {
 	now := time.Now()
 	ttl := TimeToDateUp(now)
 	id := getLog(permKey) + 1
-	dir := filepath.Join(s.dir, fmt.Sprintf("%02x", byte(id)))
+	dir := filepath.Join(s.logsPath, fmt.Sprintf("%02x", byte(id)))
 	assert.NoError(t, os.MkdirAll(dir, 0755))
 	name := filepath.Join(dir, fmt.Sprintf("log-%016x-%08x", id, ttl))
 	fh, err := os.OpenFile(name, os.O_CREATE, 0)

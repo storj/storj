@@ -179,7 +179,7 @@
                     Select date range to view daily usage statistics.
                 </p>
             </v-col>
-            <v-col cols="auto" class="pt-0 mt-0 pt-md-7">
+            <v-col cols="auto" class="pt-0 mt-2 mt-md-0 pt-md-7">
                 <v-date-input
                     v-model="chartDateRange"
                     :allowed-dates="allowDate"
@@ -324,7 +324,7 @@ import { DataStamp, Emission, LimitToChange, Project, ProjectLimits } from '@/ty
 import { Dimensions, Size } from '@/utils/bytesSize';
 import { ChartUtils } from '@/utils/chart';
 import { AnalyticsErrorEventSource } from '@/utils/constants/analyticsEventNames';
-import { useNotify } from '@/utils/hooks';
+import { useNotify } from '@/composables/useNotify';
 import { useAppStore } from '@/store/modules/appStore';
 import { ProjectMembersPage, ProjectRole } from '@/types/projectMembers';
 import { AccessGrantsPage } from '@/types/accessGrants';

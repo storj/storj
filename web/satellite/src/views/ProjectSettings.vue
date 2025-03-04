@@ -221,7 +221,7 @@ import { useUsersStore } from '@/store/modules/usersStore';
 import { Memory, Size } from '@/utils/bytesSize';
 import { useConfigStore } from '@/store/modules/configStore';
 import { decimalShift } from '@/utils/strings';
-import { useNotify } from '@/utils/hooks';
+import { useNotify } from '@/composables/useNotify';
 import {
     AnalyticsErrorEventSource,
 } from '@/utils/constants/analyticsEventNames';
@@ -457,7 +457,7 @@ onMounted(async () => {
     try {
         await projectsStore.getProjectLimits(project.value.id);
     } catch (error) {
-        notify.error(`Error fetching project limits. ${error.message}`, AnalyticsErrorEventSource.PROJECT_SETTINGS_AREA);
+        notify.notifyError(error, AnalyticsErrorEventSource.PROJECT_SETTINGS_AREA);
     }
 });
 </script>

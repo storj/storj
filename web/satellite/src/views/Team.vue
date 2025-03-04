@@ -12,7 +12,7 @@
         />
 
         <v-col>
-            <v-row class="mt-1 mb-3">
+            <v-row class="mt-1 mb-2">
                 <div class="d-inline">
                     <v-btn
                         :loading="isLoading"
@@ -45,7 +45,7 @@ import { usePreCheck } from '@/composables/usePreCheck';
 import { useLoading } from '@/composables/useLoading';
 import { useUsersStore } from '@/store/modules/usersStore';
 import { useProjectMembersStore } from '@/store/modules/projectMembersStore';
-import { useNotify } from '@/utils/hooks';
+import { useNotify } from '@/composables/useNotify';
 import { Project } from '@/types/projects';
 import { User } from '@/types/users';
 import { ProjectRole } from '@/types/projectMembers';
@@ -93,7 +93,7 @@ onMounted(() => {
             const pm = await pmStore.getSingleMember(selectedProject.value.id, user.value.id);
             isUserAdmin.value = pm.role === ProjectRole.Admin;
         } catch (error) {
-            notify.error(error.message, AnalyticsErrorEventSource.PROJECT_MEMBERS_PAGE);
+            notify.notifyError(error, AnalyticsErrorEventSource.PROJECT_MEMBERS_PAGE);
         }
     });
 });

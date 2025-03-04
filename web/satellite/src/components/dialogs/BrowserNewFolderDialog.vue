@@ -111,7 +111,7 @@ import {
 } from 'vuetify/components';
 
 import { BrowserObject, useObjectBrowserStore } from '@/store/modules/objectBrowserStore';
-import { useNotify } from '@/utils/hooks';
+import { useNotify } from '@/composables/useNotify';
 import { AnalyticsErrorEventSource } from '@/utils/constants/analyticsEventNames';
 import { useLoading } from '@/composables/useLoading';
 
@@ -148,7 +148,7 @@ function createFolder(): void {
         try {
             await obStore.createFolder(folder.value.trim());
         } catch (error) {
-            notify.error(error.message, AnalyticsErrorEventSource.CREATE_FOLDER_MODAL);
+            notify.notifyError(error, AnalyticsErrorEventSource.CREATE_FOLDER_MODAL);
         }
         model.value = false;
     });

@@ -18,7 +18,7 @@
 import { VAlert } from 'vuetify/components';
 
 import { useUsersStore } from '@/store/modules/usersStore';
-import { useNotify } from '@/utils/hooks';
+import { useNotify } from '@/composables/useNotify';
 import { AnalyticsErrorEventSource } from '@/utils/constants/analyticsEventNames';
 
 const userStore = useUsersStore();

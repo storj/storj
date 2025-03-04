@@ -58,6 +58,16 @@ export abstract class ROUTES {
     public static PasswordResetConfirmation = new NavigationLink('/password-reset-confirmation', RouteName.PasswordResetConfirmation);
     public static PasswordRecovery = new NavigationLink('/password-recovery', RouteName.PasswordRecovery);
     public static Activate = new NavigationLink('/activate', RouteName.Activate);
+
+    public static AuthRoutes = [
+        ROUTES.Login.path,
+        ROUTES.Signup.path,
+        ROUTES.ForgotPassword.path,
+        ROUTES.Activate.path,
+        ROUTES.PasswordRecovery.path,
+        ROUTES.SignupConfirmation.path,
+        ROUTES.PasswordResetConfirmation.path,
+    ];
 }
 
 const routes: RouteRecordRaw[] = [

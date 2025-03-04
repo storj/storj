@@ -5,15 +5,14 @@ package metainfo_test
 
 import (
 	"bytes"
-	"context"
 	"crypto/tls"
 	"fmt"
 	"math"
 	"math/rand"
 	"net"
+	"reflect"
 	"sort"
 	"strconv"
-	"sync"
 	"testing"
 	"time"
 
@@ -21,11 +20,12 @@ import (
 	"github.com/google/go-cmp/cmp/cmpopts"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"github.com/zeebo/errs"
+	"github.com/zeebo/sudo"
 	"go.uber.org/zap"
 	"golang.org/x/exp/maps"
 	"golang.org/x/exp/slices"
 
+	"storj.io/common/encryption"
 	"storj.io/common/errs2"
 	"storj.io/common/identity"
 	"storj.io/common/identity/testidentity"
@@ -1976,213 +1976,6 @@ func createGeofencedBucket(t *testing.T, ctx *testcontext.Context, service *buck
 	require.Equal(t, placement, bucket.Placement)
 }
 
-func TestEndpoint_DeleteCommittedObject(t *testing.T) {
-	createObject := func(ctx context.Context, t *testing.T, planet *testplanet.Planet, bucket, key string, data []byte) {
-		err := planet.Uplinks[0].Upload(ctx, planet.Satellites[0], bucket, key, data)
-		require.NoError(t, err)
-	}
-	deleteObject := func(ctx context.Context, t *testing.T, planet *testplanet.Planet, bucket, encryptedKey string, streamID uuid.UUID) {
-		projectID := planet.Uplinks[0].Projects[0].ID
-
-		_, err := planet.Satellites[0].Metainfo.Endpoint.DeleteCommittedObject(ctx, metainfo.DeleteCommittedObject{
-			ObjectLocation: metabase.ObjectLocation{
-				ObjectKey:  metabase.ObjectKey(encryptedKey),
-				ProjectID:  projectID,
-				BucketName: metabase.BucketName(bucket),
-			},
-			Version: []byte{},
-		})
-		require.NoError(t, err)
-	}
-	testDeleteObject(t, createObject, deleteObject)
-}
-
-func testDeleteObject(t *testing.T,
-	createObject func(ctx context.Context, t *testing.T, planet *testplanet.Planet, bucket, key string, data []byte),
-	deleteObject func(ctx context.Context, t *testing.T, planet *testplanet.Planet, bucket, encryptedKey string, streamID uuid.UUID),
-) {
-	bucketName := "deleteobjects"
-	t.Run("all nodes up", func(t *testing.T) {
-		t.Parallel()
-
-		var testCases = []struct {
-			caseDescription string
-			objData         []byte
-			hasRemote       bool
-		}{
-			{caseDescription: "one remote segment", objData: testrand.Bytes(10 * memory.KiB)},
-			{caseDescription: "one inline segment", objData: testrand.Bytes(3 * memory.KiB)},
-			{caseDescription: "several segments (all remote)", objData: testrand.Bytes(50 * memory.KiB)},
-			{caseDescription: "several segments (remote + inline)", objData: testrand.Bytes(33 * memory.KiB)},
-		}
-
-		testplanet.Run(t, testplanet.Config{
-			SatelliteCount: 1, StorageNodeCount: 4, UplinkCount: 1,
-			Reconfigure: testplanet.Reconfigure{
-				// Reconfigure RS for ensuring that we don't have long-tail cancellations
-				// and the upload doesn't leave garbage in the SNs
-				Satellite: testplanet.Combine(
-					testplanet.ReconfigureRS(2, 2, 4, 4),
-					testplanet.MaxSegmentSize(13*memory.KiB),
-				),
-			},
-		}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
-			for _, tc := range testCases {
-				tc := tc
-				t.Run(tc.caseDescription, func(t *testing.T) {
-					createObject(ctx, t, planet, bucketName, tc.caseDescription, tc.objData)
-
-					// calculate the SNs total used space after data upload
-					var totalUsedSpace int64
-					for _, sn := range planet.StorageNodes {
-						report, err := sn.Storage2.Monitor.DiskSpace(ctx)
-						require.NoError(t, err)
-						totalUsedSpace += report.UsedForPieces
-					}
-
-					objects, err := planet.Satellites[0].Metabase.DB.TestingAllObjects(ctx)
-					require.NoError(t, err)
-					for _, object := range objects {
-						deleteObject(ctx, t, planet, bucketName, string(object.ObjectKey), object.StreamID)
-					}
-
-					// calculate the SNs used space after delete the pieces
-					var totalUsedSpaceAfterDelete int64
-					for _, sn := range planet.StorageNodes {
-						report, err := sn.Storage2.Monitor.DiskSpace(ctx)
-						require.NoError(t, err)
-						totalUsedSpaceAfterDelete += report.UsedForPieces
-					}
-
-					// we are not deleting data from SN right away so used space should be the same
-					require.Equal(t, totalUsedSpace, totalUsedSpaceAfterDelete)
-				})
-			}
-		})
-
-	})
-
-	t.Run("some nodes down", func(t *testing.T) {
-		t.Parallel()
-
-		var testCases = []struct {
-			caseDescription string
-			objData         []byte
-		}{
-			{caseDescription: "one remote segment", objData: testrand.Bytes(10 * memory.KiB)},
-			{caseDescription: "several segments (all remote)", objData: testrand.Bytes(50 * memory.KiB)},
-			{caseDescription: "several segments (remote + inline)", objData: testrand.Bytes(33 * memory.KiB)},
-		}
-
-		testplanet.Run(t, testplanet.Config{
-			SatelliteCount: 1, StorageNodeCount: 4, UplinkCount: 1,
-			Reconfigure: testplanet.Reconfigure{
-				// Reconfigure RS for ensuring that we don't have long-tail cancellations
-				// and the upload doesn't leave garbage in the SNs
-				Satellite: testplanet.Combine(
-					testplanet.ReconfigureRS(2, 2, 4, 4),
-					testplanet.MaxSegmentSize(13*memory.KiB),
-				),
-			},
-		}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
-			numToShutdown := 2
-
-			for _, tc := range testCases {
-				createObject(ctx, t, planet, bucketName, tc.caseDescription, tc.objData)
-			}
-
-			require.NoError(t, planet.WaitForStorageNodeEndpoints(ctx))
-
-			// Shutdown the first numToShutdown storage nodes before we delete the pieces
-			// and collect used space values for those nodes
-			snUsedSpace := make([]int64, len(planet.StorageNodes))
-			for i, node := range planet.StorageNodes {
-				report, err := node.Storage2.Monitor.DiskSpace(ctx)
-				require.NoError(t, err)
-				snUsedSpace[i] = report.UsedForPieces
-
-				if i < numToShutdown {
-					require.NoError(t, planet.StopPeer(node))
-				}
-			}
-
-			objects, err := planet.Satellites[0].Metabase.DB.TestingAllObjects(ctx)
-			require.NoError(t, err)
-			for _, object := range objects {
-				deleteObject(ctx, t, planet, bucketName, string(object.ObjectKey), object.StreamID)
-			}
-
-			// we are not deleting data from SN right away so used space should be the same
-			// for online and shutdown/offline node
-			for i, sn := range planet.StorageNodes {
-				report, err := sn.Storage2.Monitor.DiskSpace(ctx)
-				require.NoError(t, err)
-
-				require.Equal(t, snUsedSpace[i], report.UsedForPieces, "StorageNode #%d", i)
-			}
-		})
-	})
-
-	t.Run("all nodes down", func(t *testing.T) {
-		t.Parallel()
-
-		var testCases = []struct {
-			caseDescription string
-			objData         []byte
-		}{
-			{caseDescription: "one remote segment", objData: testrand.Bytes(10 * memory.KiB)},
-			{caseDescription: "several segments (all remote)", objData: testrand.Bytes(50 * memory.KiB)},
-			{caseDescription: "several segments (remote + inline)", objData: testrand.Bytes(33 * memory.KiB)},
-		}
-
-		testplanet.Run(t, testplanet.Config{
-			SatelliteCount: 1, StorageNodeCount: 4, UplinkCount: 1,
-			Reconfigure: testplanet.Reconfigure{
-				// Reconfigure RS for ensuring that we don't have long-tail cancellations
-				// and the upload doesn't leave garbage in the SNs
-				Satellite: testplanet.Combine(
-					testplanet.ReconfigureRS(2, 2, 4, 4),
-					testplanet.MaxSegmentSize(13*memory.KiB),
-				),
-			},
-		}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
-			for _, tc := range testCases {
-				createObject(ctx, t, planet, bucketName, tc.caseDescription, tc.objData)
-			}
-
-			// calculate the SNs total used space after data upload
-			var usedSpaceBeforeDelete int64
-			for _, sn := range planet.StorageNodes {
-				report, err := sn.Storage2.Monitor.DiskSpace(ctx)
-				require.NoError(t, err)
-				usedSpaceBeforeDelete += report.UsedForPieces
-			}
-
-			// Shutdown all the storage nodes before we delete the pieces
-			for _, sn := range planet.StorageNodes {
-				require.NoError(t, planet.StopPeer(sn))
-			}
-
-			objects, err := planet.Satellites[0].Metabase.DB.TestingAllObjects(ctx)
-			require.NoError(t, err)
-			for _, object := range objects {
-				deleteObject(ctx, t, planet, bucketName, string(object.ObjectKey), object.StreamID)
-			}
-
-			// Check that storage nodes that were offline when deleting the pieces
-			// they are still holding data
-			var totalUsedSpace int64
-			for _, sn := range planet.StorageNodes {
-				report, err := sn.Storage2.Monitor.DiskSpace(ctx)
-				require.NoError(t, err)
-				totalUsedSpace += report.UsedForPieces
-			}
-
-			require.Equal(t, usedSpaceBeforeDelete, totalUsedSpace, "totalUsedSpace")
-		})
-	})
-}
-
 func TestEndpoint_CopyObject(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
 		SatelliteCount: 1, StorageNodeCount: 0, UplinkCount: 4,
@@ -2433,106 +2226,6 @@ func TestEndpoint_CopyObject(t *testing.T) {
 	})
 }
 
-func TestEndpoint_ParallelDeletes(t *testing.T) {
-	t.Skip("to be fixed - creating deadlocks")
-	testplanet.Run(t, testplanet.Config{
-		SatelliteCount:   1,
-		StorageNodeCount: 4,
-		UplinkCount:      1,
-	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
-		project, err := planet.Uplinks[0].OpenProject(ctx, planet.Satellites[0])
-		require.NoError(t, err)
-		defer ctx.Check(project.Close)
-		testData := testrand.Bytes(5 * memory.KiB)
-		for i := 0; i < 50; i++ {
-			err := planet.Uplinks[0].Upload(ctx, planet.Satellites[0], "bucket", "object"+strconv.Itoa(i), testData)
-			require.NoError(t, err)
-			_, err = project.CopyObject(ctx, "bucket", "object"+strconv.Itoa(i), "bucket", "object"+strconv.Itoa(i)+"copy", nil)
-			require.NoError(t, err)
-		}
-		list := project.ListObjects(ctx, "bucket", nil)
-		keys := []string{}
-		for list.Next() {
-			item := list.Item()
-			keys = append(keys, item.Key)
-		}
-		require.NoError(t, list.Err())
-		var wg sync.WaitGroup
-		wg.Add(len(keys))
-		var errlist errs.Group
-
-		for i, name := range keys {
-			name := name
-			go func(toDelete string, index int) {
-				_, err := project.DeleteObject(ctx, "bucket", toDelete)
-				errlist.Add(err)
-				wg.Done()
-			}(name, i)
-		}
-		wg.Wait()
-
-		require.NoError(t, errlist.Err())
-
-		// check all objects have been deleted
-		listAfterDelete := project.ListObjects(ctx, "bucket", nil)
-		require.False(t, listAfterDelete.Next())
-		require.NoError(t, listAfterDelete.Err())
-
-		_, err = project.DeleteBucket(ctx, "bucket")
-		require.NoError(t, err)
-	})
-}
-
-func TestEndpoint_ParallelDeletesSameAncestor(t *testing.T) {
-	t.Skip("to be fixed - creating deadlocks")
-	testplanet.Run(t, testplanet.Config{
-		SatelliteCount:   1,
-		StorageNodeCount: 4,
-		UplinkCount:      1,
-	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
-		project, err := planet.Uplinks[0].OpenProject(ctx, planet.Satellites[0])
-		require.NoError(t, err)
-		defer ctx.Check(project.Close)
-		testData := testrand.Bytes(5 * memory.KiB)
-		err = planet.Uplinks[0].Upload(ctx, planet.Satellites[0], "bucket", "original-object", testData)
-		require.NoError(t, err)
-		for i := 0; i < 50; i++ {
-			_, err = project.CopyObject(ctx, "bucket", "original-object", "bucket", "copy"+strconv.Itoa(i), nil)
-			require.NoError(t, err)
-		}
-		list := project.ListObjects(ctx, "bucket", nil)
-		keys := []string{}
-		for list.Next() {
-			item := list.Item()
-			keys = append(keys, item.Key)
-		}
-		require.NoError(t, list.Err())
-		var wg sync.WaitGroup
-		wg.Add(len(keys))
-		var errlist errs.Group
-
-		for i, name := range keys {
-			name := name
-			go func(toDelete string, index int) {
-				_, err := project.DeleteObject(ctx, "bucket", toDelete)
-				errlist.Add(err)
-				wg.Done()
-			}(name, i)
-		}
-		wg.Wait()
-
-		require.NoError(t, errlist.Err())
-
-		// check all objects have been deleted
-		listAfterDelete := project.ListObjects(ctx, "bucket", nil)
-		require.False(t, listAfterDelete.Next())
-		require.NoError(t, listAfterDelete.Err())
-
-		_, err = project.DeleteBucket(ctx, "bucket")
-		require.NoError(t, err)
-	})
-}
-
 func TestEndpoint_UpdateObjectMetadata(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
 		SatelliteCount: 1, StorageNodeCount: 0, UplinkCount: 1,
@@ -2696,6 +2389,108 @@ func TestEndpoint_Object_MoveObject(t *testing.T) {
 		defer ctx.Check(project.Close)
 
 		err = project.MoveObject(ctx, "multipleversions", "objectA", "multipleversions", "objectB", nil)
+		require.NoError(t, err)
+	})
+}
+
+func TestEndpoint_Object_MoveObject_PrefixRestricted(t *testing.T) {
+	testplanet.Run(t, testplanet.Config{
+		SatelliteCount: 1, StorageNodeCount: 4, UplinkCount: 1,
+	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+		expectedDataA := testrand.Bytes(7 * memory.KiB)
+
+		err := planet.Uplinks[0].Upload(ctx, planet.Satellites[0], "testbucket", "prefix1/prefix2/objectA", expectedDataA)
+		require.NoError(t, err)
+		err = planet.Uplinks[0].Upload(ctx, planet.Satellites[0], "testbucket", "prefix4/prefix2/objectA", expectedDataA)
+		require.NoError(t, err)
+
+		access := planet.Uplinks[0].Access[planet.Satellites[0].ID()]
+		restricted, err := access.Share(uplink.FullPermission(), uplink.SharePrefix{
+			Bucket: "testbucket",
+			Prefix: "prefix1/",
+		})
+		require.NoError(t, err)
+
+		// make sure we have an access grant with a full encryption store
+		// so that we're testing the satellite rejection and not the uplink
+		// rejection. we actually can't do this with exported types and must use
+		// sudo and reflect, because uplink.ParseAccess automatically restricts
+		// the parsed encryption store to whatever is in the macaroon, and there
+		// is no other way to make an access grant accepted by uplink.OpenProject
+		// besides through uplink.ParseAccess.
+		sudo.Sudo(reflect.ValueOf(restricted).Elem().FieldByName("encAccess")).Set(
+			sudo.Sudo(reflect.ValueOf(access).Elem().FieldByName("encAccess")))
+
+		project, err := uplink.OpenProject(ctx, restricted)
+		require.NoError(t, err)
+		defer ctx.Check(project.Close)
+
+		// make sure that the prefix restriction restricts the destination
+		err = project.MoveObject(ctx, "testbucket", "prefix1/prefix2/objectA", "testbucket", "prefix4/prefix3/objectB", nil)
+		require.Error(t, err)
+		require.ErrorIs(t, err, uplink.ErrPermissionDenied)
+		require.False(t, encryption.ErrMissingDecryptionBase.Has(err))
+		require.False(t, encryption.ErrMissingEncryptionBase.Has(err))
+
+		// make sure that the prefix restriction restricts the source
+		err = project.MoveObject(ctx, "testbucket", "prefix4/prefix2/objectA", "testbucket", "prefix1/prefix3/objectB", nil)
+		require.Error(t, err)
+		require.ErrorIs(t, err, uplink.ErrPermissionDenied)
+		require.False(t, encryption.ErrMissingDecryptionBase.Has(err))
+		require.False(t, encryption.ErrMissingEncryptionBase.Has(err))
+
+		err = project.MoveObject(ctx, "testbucket", "prefix1/prefix2/objectA", "testbucket", "prefix1/prefix3/objectB", nil)
+		require.NoError(t, err)
+	})
+}
+
+func TestEndpoint_Object_CopyObject_PrefixRestricted(t *testing.T) {
+	testplanet.Run(t, testplanet.Config{
+		SatelliteCount: 1, StorageNodeCount: 4, UplinkCount: 1,
+	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+		expectedDataA := testrand.Bytes(7 * memory.KiB)
+
+		err := planet.Uplinks[0].Upload(ctx, planet.Satellites[0], "testbucket", "prefix1/prefix2/objectA", expectedDataA)
+		require.NoError(t, err)
+		err = planet.Uplinks[0].Upload(ctx, planet.Satellites[0], "testbucket", "prefix4/prefix2/objectA", expectedDataA)
+		require.NoError(t, err)
+
+		access := planet.Uplinks[0].Access[planet.Satellites[0].ID()]
+		restricted, err := access.Share(uplink.FullPermission(), uplink.SharePrefix{
+			Bucket: "testbucket",
+			Prefix: "prefix1/",
+		})
+		require.NoError(t, err)
+
+		// make sure we have an access grant with a full encryption store
+		// so that we're testing the satellite rejection and not the uplink
+		// rejection. we actually can't do this with exported types and must use
+		// sudo and reflect, because uplink.ParseAccess automatically restricts
+		// the parsed encryption store to whatever is in the macaroon, and there
+		// is no other way to make an access grant accepted by uplink.OpenProject
+		// besides through uplink.ParseAccess.
+		sudo.Sudo(reflect.ValueOf(restricted).Elem().FieldByName("encAccess")).Set(
+			sudo.Sudo(reflect.ValueOf(access).Elem().FieldByName("encAccess")))
+
+		project, err := uplink.OpenProject(ctx, restricted)
+		require.NoError(t, err)
+		defer ctx.Check(project.Close)
+
+		// make sure that the prefix restriction restricts the destination
+		_, err = project.CopyObject(ctx, "testbucket", "prefix1/prefix2/objectA", "testbucket", "prefix4/prefix3/objectB", nil)
+		require.Error(t, err)
+		require.ErrorIs(t, err, uplink.ErrPermissionDenied)
+		require.False(t, encryption.ErrMissingDecryptionBase.Has(err))
+		require.False(t, encryption.ErrMissingEncryptionBase.Has(err))
+
+		// make sure that the prefix restriction restricts the source
+		_, err = project.CopyObject(ctx, "testbucket", "prefix4/prefix2/objectA", "testbucket", "prefix1/prefix3/objectB", nil)
+		require.Error(t, err)
+		require.ErrorIs(t, err, uplink.ErrPermissionDenied)
+		require.False(t, encryption.ErrMissingDecryptionBase.Has(err))
+		require.False(t, encryption.ErrMissingEncryptionBase.Has(err))
+
+		_, err = project.CopyObject(ctx, "testbucket", "prefix1/prefix2/objectA", "testbucket", "prefix1/prefix3/objectB", nil)
 		require.NoError(t, err)
 	})
 }
@@ -5641,220 +5436,6 @@ func TestEndpoint_GetObjectWithLockConfiguration(t *testing.T) {
 				require.Nil(t, resp.Object.Retention)
 				require.Nil(t, resp.Object.LegalHold)
 			})
-		})
-	})
-}
-
-func TestEndpoint_DeleteLockedObject(t *testing.T) {
-	testplanet.Run(t, testplanet.Config{
-		SatelliteCount: 1, UplinkCount: 1,
-		Reconfigure: testplanet.Reconfigure{
-			Satellite: func(log *zap.Logger, index int, config *satellite.Config) {
-				config.Metainfo.ObjectLockEnabled = true
-				config.Metainfo.UseBucketLevelObjectVersioning = true
-			},
-		},
-	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
-		const unauthorizedErrMsg = "Unauthorized API credentials"
-
-		sat := planet.Satellites[0]
-		project := planet.Uplinks[0].Projects[0]
-		endpoint := sat.Metainfo.Endpoint
-		db := sat.Metabase.DB
-
-		userCtx, err := sat.UserContext(ctx, project.Owner.ID)
-		require.NoError(t, err)
-
-		_, apiKey, err := sat.API.Console.Service.CreateAPIKey(userCtx, project.ID, "test key", macaroon.APIKeyVersionObjectLock)
-		require.NoError(t, err)
-
-		getObject := func(bucketName, key string) metabase.Object {
-			objects, err := sat.Metabase.DB.TestingAllObjects(ctx)
-			require.NoError(t, err)
-			for _, o := range objects {
-				if o.Location() == (metabase.ObjectLocation{
-					ProjectID:  project.ID,
-					BucketName: metabase.BucketName(bucketName),
-					ObjectKey:  metabase.ObjectKey(key),
-				}) {
-					return o
-				}
-			}
-			return metabase.Object{}
-		}
-
-		requireObject := func(t *testing.T, bucketName, key string) {
-			obj := getObject(bucketName, key)
-			require.NotZero(t, obj)
-		}
-
-		requireNoObject := func(t *testing.T, bucketName, key string) {
-			obj := getObject(bucketName, key)
-			require.Zero(t, obj)
-		}
-
-		createBucket := func(t *testing.T, name string, lockEnabled bool) {
-			_, err := sat.DB.Buckets().CreateBucket(ctx, buckets.Bucket{
-				Name:       name,
-				ProjectID:  project.ID,
-				Versioning: buckets.VersioningEnabled,
-				ObjectLock: buckets.ObjectLockSettings{
-					Enabled: lockEnabled,
-				},
-			})
-			require.NoError(t, err)
-		}
-
-		type testOpts struct {
-			bucketName  string
-			testCase    metabasetest.ObjectLockDeletionTestCase
-			expectError bool
-		}
-
-		test := func(t *testing.T, opts testOpts) {
-			fn := func(useExactVersion bool) {
-				objStream := randObjectStream(project.ID, opts.bucketName)
-
-				object, _ := metabasetest.CreateTestObject{
-					BeginObjectExactVersion: &metabase.BeginObjectExactVersion{
-						ObjectStream: objStream,
-						Encryption:   metabasetest.DefaultEncryption,
-						Retention:    opts.testCase.Retention,
-						LegalHold:    opts.testCase.LegalHold,
-					},
-				}.Run(ctx, t, db, objStream, 0)
-
-				var version []byte
-				if useExactVersion {
-					version = object.StreamVersionID().Bytes()
-				}
-
-				_, err := endpoint.BeginDeleteObject(ctx, &pb.BeginDeleteObjectRequest{
-					Header:                    &pb.RequestHeader{ApiKey: apiKey.SerializeRaw()},
-					Bucket:                    []byte(objStream.BucketName),
-					EncryptedObjectKey:        []byte(objStream.ObjectKey),
-					ObjectVersion:             version,
-					BypassGovernanceRetention: opts.testCase.BypassGovernance,
-				})
-
-				if opts.expectError && useExactVersion {
-					require.Error(t, err)
-					rpctest.RequireStatus(t, err, rpcstatus.ObjectLockObjectProtected, objectLockedErrMsg)
-					requireObject(t, opts.bucketName, string(objStream.ObjectKey))
-					return
-				}
-				require.NoError(t, err)
-				if useExactVersion {
-					requireNoObject(t, opts.bucketName, string(objStream.ObjectKey))
-				} else {
-					requireObject(t, opts.bucketName, string(objStream.ObjectKey))
-				}
-			}
-
-			t.Run("Exact version", func(t *testing.T) { fn(true) })
-			t.Run("Last committed version", func(t *testing.T) { fn(false) })
-		}
-
-		t.Run("Object Lock enabled for bucket", func(t *testing.T) {
-			bucketName := testrand.BucketName()
-			createBucket(t, bucketName, true)
-
-			metabasetest.ObjectLockDeletionTestRunner{
-				TestProtected: func(t *testing.T, testCase metabasetest.ObjectLockDeletionTestCase) {
-					test(t, testOpts{
-						bucketName:  bucketName,
-						testCase:    testCase,
-						expectError: true,
-					})
-				},
-				TestRemovable: func(t *testing.T, testCase metabasetest.ObjectLockDeletionTestCase) {
-					test(t, testOpts{
-						bucketName:  bucketName,
-						testCase:    testCase,
-						expectError: false,
-					})
-				},
-			}.Run(t)
-
-			t.Run("Active retention - Pending", func(t *testing.T) {
-				objectKey := metabasetest.RandObjectKey()
-
-				beginResp, err := endpoint.BeginObject(ctx, &pb.BeginObjectRequest{
-					Header:             &pb.RequestHeader{ApiKey: apiKey.SerializeRaw()},
-					Bucket:             []byte(bucketName),
-					EncryptedObjectKey: []byte(objectKey),
-					EncryptionParameters: &pb.EncryptionParameters{
-						CipherSuite: pb.CipherSuite_ENC_AESGCM,
-					},
-					Retention: &pb.Retention{
-						Mode:        pb.Retention_COMPLIANCE,
-						RetainUntil: time.Now().Add(time.Hour),
-					},
-				})
-				require.NoError(t, err)
-
-				_, err = endpoint.BeginDeleteObject(ctx, &pb.BeginDeleteObjectRequest{
-					Header:             &pb.RequestHeader{ApiKey: apiKey.SerializeRaw()},
-					Bucket:             []byte(bucketName),
-					EncryptedObjectKey: []byte(objectKey),
-					StreamId:           &beginResp.StreamId,
-					Status:             int32(metabase.Pending),
-				})
-				require.NoError(t, err)
-
-				requireNoObject(t, bucketName, string(objectKey))
-			})
-
-			t.Run("Unauthorized API key - Governance bypass", func(t *testing.T) {
-				objStream := randObjectStream(project.ID, bucketName)
-				object, _ := metabasetest.CreateObjectWithRetention(ctx, t, db, objStream, 0, metabase.Retention{
-					Mode:        storj.GovernanceMode,
-					RetainUntil: time.Now().Add(time.Hour),
-				})
-
-				_, oldApiKey, err := sat.API.Console.Service.CreateAPIKey(userCtx, project.ID, "old key", macaroon.APIKeyVersionMin)
-				require.NoError(t, err)
-
-				req := &pb.BeginDeleteObjectRequest{
-					Header:                    &pb.RequestHeader{ApiKey: oldApiKey.SerializeRaw()},
-					Bucket:                    []byte(objStream.BucketName),
-					EncryptedObjectKey:        []byte(objStream.ObjectKey),
-					ObjectVersion:             object.StreamVersionID().Bytes(),
-					BypassGovernanceRetention: true,
-				}
-
-				_, err = endpoint.BeginDeleteObject(ctx, req)
-				require.Error(t, err)
-				rpctest.RequireStatus(t, err, rpcstatus.PermissionDenied, unauthorizedErrMsg)
-
-				restrictedApiKey, err := apiKey.Restrict(macaroon.Caveat{DisallowBypassGovernanceRetention: true})
-				require.NoError(t, err)
-
-				req.Header.ApiKey = restrictedApiKey.SerializeRaw()
-				_, err = endpoint.BeginDeleteObject(ctx, req)
-				require.Error(t, err)
-				rpctest.RequireStatus(t, err, rpcstatus.PermissionDenied, unauthorizedErrMsg)
-
-				requireObject(t, bucketName, string(objStream.ObjectKey))
-			})
-		})
-
-		t.Run("Object Lock disabled for bucket", func(t *testing.T) {
-			bucketName := testrand.BucketName()
-			createBucket(t, bucketName, false)
-
-			testFn := func(t *testing.T, testCase metabasetest.ObjectLockDeletionTestCase) {
-				test(t, testOpts{
-					bucketName:  bucketName,
-					testCase:    testCase,
-					expectError: false,
-				})
-			}
-
-			metabasetest.ObjectLockDeletionTestRunner{
-				TestProtected: testFn,
-				TestRemovable: testFn,
-			}.Run(t)
 		})
 	})
 }

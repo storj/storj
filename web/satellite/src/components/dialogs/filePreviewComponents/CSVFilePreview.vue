@@ -23,7 +23,7 @@ import { useTheme } from 'vuetify';
 import { VProgressCircular, VContainer } from 'vuetify/components';
 import Papa, { ParseResult } from 'papaparse';
 
-import { useNotify } from '@/utils/hooks';
+import { useNotify } from '@/composables/useNotify';
 import { AnalyticsErrorEventSource } from '@/utils/constants/analyticsEventNames';
 
 const theme = useTheme();

@@ -78,6 +78,7 @@
                 @lock-object-click="emit('lockObjectClick', item.browserObject)"
                 @legal-hold-click="emit('legalHoldClick', item.browserObject)"
                 @locked-object-delete="(fullObject) => emit('lockedObjectDelete', fullObject)"
+                @download-folder-click="emit('downloadFolderClick', item.browserObject)"
             />
             <v-card-item class="pt-0">
                 <v-card-title>
@@ -139,6 +140,7 @@ const emit = defineEmits<{
     lockObjectClick: [BrowserObject];
     legalHoldClick: [BrowserObject];
     lockedObjectDelete: [FullBrowserObject];
+    downloadFolderClick: [BrowserObject];
 }>();
 
 const videoEl = ref<HTMLVideoElement>();

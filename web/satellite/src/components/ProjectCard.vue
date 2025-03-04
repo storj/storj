@@ -47,9 +47,21 @@
 
                     <v-menu activator="parent" location="bottom" transition="fade-transition">
                         <v-list class="pa-1">
+
+                            <v-list-item link @click="emit('inviteClick')">
+                                <template #prepend>
+                                    <component :is="UserPlus" :size="18" />
+                                </template>
+                                <v-list-item-title class="text-body-2 ml-3">
+                                    Add Members
+                                </v-list-item-title>
+                            </v-list-item>
+
+                            <v-divider />
+
                             <v-list-item link @click="() => editClick(FieldToChange.Name)">
                                 <template #prepend>
-                                    <component :is="FilePenLine" :size="18" />
+                                    <component :is="Pencil" :size="18" />
                                 </template>
                                 <v-list-item-title class="text-body-2 ml-3">
                                     Edit Name
@@ -58,19 +70,21 @@
 
                             <v-list-item link @click="() => editClick(FieldToChange.Description)">
                                 <template #prepend>
-                                    <component :is="FilePenLine" :size="18" />
+                                    <component :is="NotebookPen" :size="18" />
                                 </template>
                                 <v-list-item-title class="text-body-2 ml-3">
                                     Edit Description
                                 </v-list-item-title>
                             </v-list-item>
 
+                            <v-divider />
+
                             <v-list-item v-if="isPaidTier" link @click="() => updateLimitsClick(LimitToChange.Storage)">
                                 <template #prepend>
                                     <component :is="Cloud" :size="18" />
                                 </template>
                                 <v-list-item-title class="text-body-2 ml-3">
-                                    Update Storage Limit
+                                    Edit Storage Limit
                                 </v-list-item-title>
                             </v-list-item>
 
@@ -79,9 +93,11 @@
                                     <component :is="DownloadCloud" :size="18" />
                                 </template>
                                 <v-list-item-title class="text-body-2 ml-3">
-                                    Update Download Limit
+                                    Edit Download Limit
                                 </v-list-item-title>
                             </v-list-item>
+
+                            <v-divider />
 
                             <v-list-item link @click="() => onSettingsClick()">
                                 <template #prepend>
@@ -92,14 +108,6 @@
                                 </v-list-item-title>
                             </v-list-item>
 
-                            <v-list-item link class="mt-1" @click="emit('inviteClick')">
-                                <template #prepend>
-                                    <component :is="UserPlus" :size="18" />
-                                </template>
-                                <v-list-item-title class="text-body-2 ml-3">
-                                    Add Members
-                                </v-list-item-title>
-                            </v-list-item>
                         </v-list>
                     </v-menu>
                 </v-btn>
@@ -119,14 +127,13 @@ import {
     VCardText,
     VCardTitle,
     VChip,
-    VDivider,
     VIcon,
     VList,
     VListItem,
     VListItemTitle,
     VMenu,
 } from 'vuetify/components';
-import { Box, Cloud, DownloadCloud, Ellipsis, FilePenLine, Settings, UserPlus } from 'lucide-vue-next';
+import { Box, Cloud, DownloadCloud, Ellipsis, Pencil, NotebookPen, Settings, UserPlus } from 'lucide-vue-next';
 
 import {
     FieldToChange,
@@ -139,7 +146,7 @@ import { ProjectRole } from '@/types/projectMembers';
 import { useProjectsStore } from '@/store/modules/projectsStore';
 import { useAnalyticsStore } from '@/store/modules/analyticsStore';
 import { AnalyticsErrorEventSource, AnalyticsEvent } from '@/utils/constants/analyticsEventNames';
-import { useNotify } from '@/utils/hooks';
+import { useNotify } from '@/composables/useNotify';
 import { ROUTES } from '@/router';
 import { useBucketsStore } from '@/store/modules/bucketsStore';
 import { useUsersStore } from '@/store/modules/usersStore';

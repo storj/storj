@@ -50,7 +50,7 @@ import { VForm, VRow, VCol, VTextField, VCheckbox } from 'vuetify/components';
 import { RequiredRule, DialogStepComponent } from '@/types/common';
 import { useBucketsStore } from '@/store/modules/bucketsStore';
 import { EdgeCredentials } from '@/types/accessGrants';
-import { useNotify } from '@/utils/hooks';
+import { useNotify } from '@/composables/useNotify';
 
 import PasswordInputEyeIcons from '@/components/PasswordInputEyeIcons.vue';
 

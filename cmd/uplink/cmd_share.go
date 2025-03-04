@@ -118,7 +118,21 @@ func (c *cmdShare) Execute(ctx context.Context) (err error) {
 	_, _ = fmt.Fprintf(clingy.Stdout(ctx), "Access       : %s\n", newAccessData)
 
 	if c.register {
-		credentials, err := RegisterAccess(ctx, access, c.authService, c.public, c.caCert)
+		info, err := c.ex.GetEdgeUrlOverrides(ctx, access)
+		if err != nil {
+			return errs.New("could not get project info: %w", err)
+		}
+
+		authService := c.authService
+		linksharingUrl := c.baseURL
+		if info.AuthService != "" {
+			authService = info.AuthService
+		}
+		if info.PublicLinksharing != "" {
+			linksharingUrl = info.PublicLinksharing
+		}
+
+		credentials, err := RegisterAccess(ctx, access, authService, c.public, c.caCert)
 		if err != nil {
 			return err
 		}
@@ -136,7 +150,7 @@ func (c *cmdShare) Execute(ctx context.Context) (err error) {
 				return errs.New("will only generate linksharing URL with readonly restrictions")
 			}
 
-			err = createURL(ctx, credentials.AccessKeyID, c.ap.prefixes, c.baseURL)
+			err = createURL(ctx, credentials.AccessKeyID, c.ap.prefixes, linksharingUrl)
 			if err != nil {
 				return err
 			}
@@ -147,7 +161,7 @@ func (c *cmdShare) Execute(ctx context.Context) (err error) {
 				return errs.New("will only generate DNS entries with readonly restrictions")
 			}
 
-			err = createDNS(ctx, credentials.AccessKeyID, c.ap.prefixes, c.baseURL, c.dns, c.tls)
+			err = createDNS(ctx, credentials.AccessKeyID, c.ap.prefixes, linksharingUrl, c.dns, c.tls)
 			if err != nil {
 				return err
 			}

@@ -122,7 +122,7 @@ import { useLoading } from '@/composables/useLoading';
 import { useUsersStore } from '@/store/modules/usersStore';
 import { DisableMFARequest } from '@/types/users';
 import { AnalyticsErrorEventSource } from '@/utils/constants/analyticsEventNames';
-import { useNotify } from '@/utils/hooks';
+import { useNotify } from '@/composables/useNotify';
 
 const usersStore = useUsersStore();
 const { isLoading, withLoading } = useLoading();

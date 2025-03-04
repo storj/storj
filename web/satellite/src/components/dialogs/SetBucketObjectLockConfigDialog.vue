@@ -107,7 +107,7 @@ import type { ObjectLockRule } from '@aws-sdk/client-s3';
 
 import { useLoading } from '@/composables/useLoading';
 import { AnalyticsErrorEventSource } from '@/utils/constants/analyticsEventNames';
-import { useNotify } from '@/utils/hooks';
+import { useNotify } from '@/composables/useNotify';
 import { DefaultObjectLockPeriodUnit, NO_MODE_SET, ObjLockMode } from '@/types/objectLock';
 import { Bucket } from '@/types/buckets';
 import { ClientType, useBucketsStore } from '@/store/modules/bucketsStore';
@@ -115,11 +115,13 @@ import { AccessGrant, EdgeCredentials } from '@/types/accessGrants';
 import { useProjectsStore } from '@/store/modules/projectsStore';
 import { useAccessGrantsStore } from '@/store/modules/accessGrantsStore';
 import { useConfigStore } from '@/store/modules/configStore';
+import { useAccessGrantWorker } from '@/composables/useAccessGrantWorker';
 
 import SetDefaultObjectLockConfig from '@/components/dialogs/defaultBucketLockConfig/SetDefaultObjectLockConfig.vue';
 
 const { isLoading, withLoading } = useLoading();
 const notify = useNotify();
+const { setPermissions, generateAccess } = useAccessGrantWorker();
 
 const bucketsStore = useBucketsStore();
 const projectsStore = useProjectsStore();
@@ -137,7 +139,6 @@ const formValid = ref<boolean>(false);
 const defaultRetentionMode = ref<ObjLockMode | typeof NO_MODE_SET>(NO_MODE_SET);
 const defaultRetentionPeriod = ref<number>(0);
 const defaultRetentionPeriodUnit = ref<DefaultObjectLockPeriodUnit>(DefaultObjectLockPeriodUnit.DAYS);
-const worker = ref<Worker | null>(null);
 
 const bucketData = computed<Bucket>(() => {
     return bucketsStore.state.page.buckets.find(bucket => bucket.name === props.bucketName) ?? new Bucket();
@@ -187,11 +188,6 @@ function onSetLock(): void {
                 return;
             }
 
-            if (!worker.value) {
-                notify.error('Worker is not defined', AnalyticsErrorEventSource.SET_BUCKET_OBJECT_LOCK_CONFIG_MODAL);
-                return;
-            }
-
             const now = new Date();
 
             if (!apiKey.value) {
@@ -202,49 +198,22 @@ function onSetLock(): void {
 
             const inOneHour = new Date(now.setHours(now.getHours() + 1));
 
-            worker.value.postMessage({
-                'type': 'SetPermission',
-                'isDownload': false,
-                'isUpload': true,
-                'isList': false,
-                'isDelete': false,
-                'isPutObjectLockConfiguration': true,
-                'isGetObjectLockConfiguration': true,
-                'notAfter': inOneHour.toISOString(),
-                'buckets': JSON.stringify([]),
-                'apiKey': apiKey.value,
+            const macaroon = await setPermissions({
+                isDownload: false,
+                isUpload: true,
+                isList: false,
+                isDelete: false,
+                isPutObjectLockConfiguration: true,
+                isGetObjectLockConfiguration: true,
+                notAfter: inOneHour.toISOString(),
+                buckets: JSON.stringify([]),
+                apiKey: apiKey.value,
             });
 
-            const grantEvent: MessageEvent = await new Promise(resolve => {
-                if (worker.value) worker.value.onmessage = resolve;
-            });
-            if (grantEvent.data.error) {
-                notify.error(grantEvent.data.error, AnalyticsErrorEventSource.SET_BUCKET_OBJECT_LOCK_CONFIG_MODAL);
-                return;
-            }
-
-            const salt = await projectsStore.getProjectSalt(projectID.value);
-            const satelliteNodeURL: string = configStore.state.config.satelliteNodeURL;
-
-            worker.value.postMessage({
-                'type': 'GenerateAccess',
-                'apiKey': grantEvent.data.value,
-                'passphrase': '',
-                'salt': salt,
-                'satelliteNodeURL': satelliteNodeURL,
-            });
-
-            const accessGrantEvent: MessageEvent = await new Promise(resolve => {
-                if (worker.value) {
-                    worker.value.onmessage = resolve;
-                }
-            });
-            if (accessGrantEvent.data.error) {
-                notify.error(accessGrantEvent.data.error, AnalyticsErrorEventSource.SET_BUCKET_OBJECT_LOCK_CONFIG_MODAL);
-                return;
-            }
-
-            const accessGrant = accessGrantEvent.data.value;
+            const accessGrant = await generateAccess({
+                apiKey: macaroon,
+                passphrase: '',
+            }, projectID.value);
 
             const creds: EdgeCredentials = await agStore.getEdgeCredentials(accessGrant);
             bucketsStore.setEdgeCredentialsForObjectLock(creds);
@@ -259,19 +228,8 @@ function onSetLock(): void {
     });
 }
 
-function setWorker(): void {
-    worker.value = agStore.state.accessGrantsWebWorker;
-    if (worker.value) {
-        worker.value.onerror = (error: ErrorEvent) => {
-            notify.error(error.message, AnalyticsErrorEventSource.SET_BUCKET_OBJECT_LOCK_CONFIG_MODAL);
-        };
-    }
-}
-
 watch(model, value => {
     if (value) {
-        setWorker();
-
         defaultRetentionMode.value = bucketData.value.defaultRetentionMode;
 
         if (bucketData.value.defaultRetentionYears) {

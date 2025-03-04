@@ -156,6 +156,17 @@ h1,h2,h3,h4,h5,h6 {
   height: 44px;
 }
 
+.v-btn--icon.v-btn--size-default {
+  width: 44px;
+  height: 44px;
+  font-size: 11px;
+}
+
+.v-btn--icon.v-btn--size-large {
+  width: 48px;
+  height: 48px;
+}
+
 // Button Icons
 .v-btn__append {
   margin-inline-start: calc(var(--v-btn-height) / 10);
@@ -222,7 +233,7 @@ h1,h2,h3,h4,h5,h6 {
 }
 .v-list-item--nav {
   padding-inline: 16px !important;
-  
+
 }
 .v-list-item__prepend {
   opacity: 1 !important;
@@ -361,12 +372,17 @@ a.v-card:hover {
 // Breadcrumbs
 .v-breadcrumbs {
   min-height: 24px;
+  display: inline-flex;
+  flex-wrap: wrap;
+  max-width: 100%;
 }
 .v-breadcrumbs-item {
   padding: 0 !important;
+  word-break: break-all;
 }
 .v-breadcrumbs-item--disabled {
   opacity: 0.75;
+  margin-right: 12px !important;
 }
 
 // Snackbar
@@ -378,7 +394,7 @@ a.v-card:hover {
   border: 1px solid #a9b0b939;
 }
 
-// Table 
+// Table
 .v-data-table {
   border: 1px solid rgba(var(--v-border-color), var(--v-border-opacity));
 }
@@ -390,7 +406,14 @@ a.v-card:hover {
 // Table Header
 .v-data-table__thead {
   background-color: rgb(var(--v-theme-background)) !important;
-  white-space: nowrap;
+  white-space: nowrap !important;
+  overflow: hidden !important;
+  text-overflow: ellipsis !important;
+}
+.v-data-table-header__content span {
+  white-space: nowrap !important;
+  overflow: hidden !important;
+  text-overflow: ellipsis !important;
 }
 .v-table.v-table--fixed-header>.v-table__wrapper>table>thead>tr>th {
   background: rgb(var(--v-theme-background)) !important;
@@ -413,16 +436,70 @@ table {
   overflow: visible;
 }
 
+.v-table > .v-table__wrapper > table > tbody > tr > td:first-child,
+.v-table > .v-table__wrapper > table > tbody > tr > th:first-child,
+.v-table > .v-table__wrapper > table > thead > tr > td:first-child,
+.v-table > .v-table__wrapper > table > thead > tr > th:first-child,
+.v-table > .v-table__wrapper > table > tfoot > tr > td:first-child,
+.v-table > .v-table__wrapper > table > tfoot > tr > th:first-child {
+  padding: 0 8px 0 16px;
+}
 
-.v-table>.v-table__wrapper>table>tbody>tr>td, .v-table>.v-table__wrapper>table>tbody>tr>th, .v-table>.v-table__wrapper>table>thead>tr>td, .v-table>.v-table__wrapper>table>thead>tr>th, .v-table>.v-table__wrapper>table>tfoot>tr>td, .v-table>.v-table__wrapper>table>tfoot>tr>th {
-  padding: 0 8px;
+.v-table > .v-table__wrapper > table > tbody > tr > td:not(:first-child):not(:last-child),
+.v-table > .v-table__wrapper > table > tbody > tr > th:not(:first-child):not(:last-child),
+.v-table > .v-table__wrapper > table > thead > tr > td:not(:first-child):not(:last-child),
+.v-table > .v-table__wrapper > table > thead > tr > th:not(:first-child):not(:last-child),
+.v-table > .v-table__wrapper > table > tfoot > tr > td:not(:first-child):not(:last-child),
+.v-table > .v-table__wrapper > table > tfoot > tr > th:not(:first-child):not(:last-child) {
+  padding: 0 8px !important;
+}
+
+.v-table > .v-table__wrapper > table > tbody > tr > td:last-child,
+.v-table > .v-table__wrapper > table > tbody > tr > th:last-child,
+.v-table > .v-table__wrapper > table > thead > tr > td:last-child,
+.v-table > .v-table__wrapper > table > thead > tr > th:last-child,
+.v-table > .v-table__wrapper > table > tfoot > tr > td:last-child,
+.v-table > .v-table__wrapper > table > tfoot > tr > th:last-child {
+  padding: 0 12px 0 8px;
+}
+
+.v-table > .v-table__wrapper > table > tbody > tr > td:last-child,
+.v-table > .v-table__wrapper > table > tbody > tr > th:last-child {
+  padding: 0 12px;
+  position: sticky !important;
+  right: 0 !important;
+  background: rgba(var(--v-theme-surface), 0.8) !important;
+  backdrop-filter: blur(5px) !important;
+  -webkit-backdrop-filter: blur(5px) !important;
+  z-index: 1 !important;
+}
+.v-table > .v-table__wrapper > table > thead > tr > td:last-child,
+.v-table > .v-table__wrapper > table > thead > tr > th:last-child,
+.v-table > .v-table__wrapper > table > tfoot > tr > td:last-child,
+.v-table > .v-table__wrapper > table > tfoot > tr > th:last-child {
+  padding: 0 12px;
+  position: sticky !important;
+  right: 0 !important;
+  background: rgba(var(--v-theme-background), 0.8) !important;
+  backdrop-filter: blur(5px) !important;
+  -webkit-backdrop-filter: blur(5px) !important;
+  z-index: 1 !important;
+
+
+}
+
+.v-data-table .v-table__wrapper>table>thead>tr>td.v-data-table-column--no-padding,
+.v-data-table .v-table__wrapper>table>thead>tr th.v-data-table-column--no-padding,
+.v-data-table .v-table__wrapper>table tbody>tr>td.v-data-table-column--no-padding,
+.v-data-table .v-table__wrapper>table tbody>tr th.v-data-table-column--no-padding {
+  padding: 0px 4px 0 8px !important;
 }
 
 // Table Footer
 .v-data-table-footer {
   font-size: 14px;
   justify-content: space-between !important;
-  padding: 8px 20px !important;
+  padding: 8px 16px !important;
   background-color: rgb(var(--v-theme-background));
   border-bottom-left-radius: 8px;
   border-bottom-right-radius: 8px;
@@ -639,6 +716,10 @@ table {
   font-weight: bold;
   color: rgb(var(--v-theme-info));
 }
+.v-expansion-panels.v-theme--dark .v-expansion-panel-title--active {
+  color: rgb(var(--v-theme-on-surface));
+}
+
 .v-expansion-panel-title--active .v-expansion-panel-title__overlay {
   opacity: 0.02;
 }
@@ -698,6 +779,14 @@ table {
 // https://github.com/vuetifyjs/vuetify/commit/a5254a2bada424c0bbdbc9d86fcea2afb6a86dc2
 .v-data-table-footer__info {
   min-width: unset !important;
+}
+
+// Shadow helper class
+.elevation-1.v-theme--light {
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.04) !important;
+}
+.elevation-1.v-theme--dark {
+  box-shadow: 0px 2px 4px rgba(0,0,0,0.19) !important;
 }
 
 // No shadow helper class

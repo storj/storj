@@ -202,14 +202,6 @@ export class UpdatedUser {
         public shortName: string = '',
     ) { }
 
-    public setFullName(value: string): void {
-        this.fullName = value.trim();
-    }
-
-    public setShortName(value: string): void {
-        this.shortName = value.trim();
-    }
-
     public isValid(): boolean {
         return !!this.fullName;
     }

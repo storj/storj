@@ -136,7 +136,7 @@ import { FileLock2 } from 'lucide-vue-next';
 
 import { BrowserObject, useObjectBrowserStore } from '@/store/modules/objectBrowserStore';
 import { useLoading } from '@/composables/useLoading';
-import { useNotify } from '@/utils/hooks';
+import { useNotify } from '@/composables/useNotify';
 import { AnalyticsErrorEventSource } from '@/utils/constants/analyticsEventNames';
 import { LEGAL_HOLD_OFF, LEGAL_HOLD_ON } from '@/types/objectLock';
 

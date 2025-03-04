@@ -75,7 +75,7 @@ import { useBucketsStore } from '@/store/modules/bucketsStore';
 import { EdgeCredentials } from '@/types/accessGrants';
 import { AnalyticsErrorEventSource, AnalyticsEvent } from '@/utils/constants/analyticsEventNames';
 import { useAnalyticsStore } from '@/store/modules/analyticsStore';
-import { useNotify } from '@/utils/hooks';
+import { useNotify } from '@/composables/useNotify';
 import { ROUTES } from '@/router';
 import { OnboardingInfo } from '@/types/common';
 import { SetupStep } from '@/types/setupAccess';
@@ -161,7 +161,7 @@ const steps = computed<StepData[]>(() => {
             return {
                 ...data,
                 title: 'Upload Files',
-                description: 'You are ready to upload files in your bucket, and share with the world.',
+                description: 'You are ready to upload files in the bucket you created.',
                 buttonTxt: 'Go to Upload',
                 color: uploadStepInfo.value.color,
                 variant: uploadStepInfo.value.variant as VBtn['$props']['variant'],

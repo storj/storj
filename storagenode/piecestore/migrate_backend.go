@@ -6,6 +6,7 @@ package piecestore
 import (
 	"context"
 	"encoding/json"
+	"io/fs"
 	"sort"
 	"sync"
 	"sync/atomic"
@@ -164,8 +165,9 @@ func (m *MigratingBackend) Reader(ctx context.Context, satellite storj.NodeID, p
 	// piece from old to new 3. check old and miss and oops we lost the piece. by checking new
 	// before and after, this can't happen.
 	if state.ReadNewFirst {
-		if r, err := m.new.Reader(ctx, satellite, pieceID); err == nil {
-			return r, nil
+		r, err := m.new.Reader(ctx, satellite, pieceID)
+		if err == nil || !errs.Is(err, fs.ErrNotExist) {
+			return r, err
 		}
 	}
 	if r, err := m.old.Reader(ctx, satellite, pieceID); err == nil {

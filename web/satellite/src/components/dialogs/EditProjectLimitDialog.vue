@@ -17,7 +17,7 @@
                         height="40"
                         rounded="lg"
                     >
-                        <component :is="Gauge" :size="18" />
+                        <component :is="iconComponent" :size="18" />
                     </v-sheet>
                 </template>
                 <v-card-title class="font-weight-bold">{{ hasCustomLimit ? 'Edit' : 'Set' }} {{ limitType }} Limit</v-card-title>
@@ -172,12 +172,12 @@ import {
     VAlert,
     VSheet,
 } from 'vuetify/components';
-import { ChevronDown, ChevronUp, Gauge } from 'lucide-vue-next';
+import { ChevronDown, ChevronUp, Gauge, Cloud, CloudDownload } from 'lucide-vue-next';
 
 import { AnalyticsErrorEventSource, AnalyticsEvent } from '@/utils/constants/analyticsEventNames';
 import { useAnalyticsStore } from '@/store/modules/analyticsStore';
 import { useProjectsStore } from '@/store/modules/projectsStore';
-import { useNotify } from '@/utils/hooks';
+import { useNotify } from '@/composables/useNotify';
 import { useLoading } from '@/composables/useLoading';
 import { RequiredRule, ValidationRule } from '@/types/common';
 import { LimitToChange } from '@/types/projects';
@@ -307,7 +307,7 @@ async function onSaveClick(): Promise<void> {
                 await projectsStore.updateProjectBandwidthLimit(input.value);
             }
         } catch (error) {
-            notify.error(error.message, AnalyticsErrorEventSource.EDIT_PROJECT_LIMIT);
+            notify.notifyError(error, AnalyticsErrorEventSource.EDIT_PROJECT_LIMIT);
             return;
         }
 
@@ -351,6 +351,10 @@ watch(() => model.value, shown => {
 
 watch(() => activeMeasurement.value, unit => {
     inputText.value = (input.value / Memory[unit]).toString();
+});
+
+const iconComponent = computed(() => {
+    return props.limitType === LimitToChange.Storage ? Cloud : CloudDownload;
 });
 </script>
 

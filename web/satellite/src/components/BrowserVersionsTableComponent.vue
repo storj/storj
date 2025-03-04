@@ -2,208 +2,207 @@
 // See LICENSE for copying information.
 
 <template>
-    <v-card class="pa-4">
-        <!-- We cast expandedFiles to type 'any' because of the weird Vuetify limitation/bug -->
-        <!-- https://github.com/vuetifyjs/vuetify/issues/20006 -->
-        <v-data-table-server
-            v-model="selectedFiles"
-            v-model:expanded="expandedFiles as any"
-            :loading="isFetching || loading"
-            :headers="headers"
-            :items="filesAndVersions"
-            select-strategy="page"
-            show-select
-            show-expand
-            :item-value="(item: BrowserObjectWrapper) => item.browserObject"
-            :items-length="allFiles.length"
-            :item-selectable="(item: BrowserObjectWrapper) => !item.browserObject.Versions?.length"
-            :must-sort="false"
-            hover
-        >
-            <!-- the key of the row is defined by :item-value="(item: BrowserObjectWrapper) => item.browserObject" above -->
-            <template #expanded-row="{ columns, item }">
-                <template v-if="!item.browserObject.Versions?.length">
-                    <tr>
-                        <td :colspan="columns.length">
-                            <p class="text-center">No older versions stored</p>
-                        </td>
-                    </tr>
-                </template>
-                <tr v-for="(file) in item.browserObject.Versions" v-else :key="file.VersionId" class="bg-altbg">
-                    <td class="v-data-table__td v-data-table-column--no-padding v-data-table-column--align-start">
-                        <v-checkbox-btn
-                            :model-value="selectedFiles.includes(file)"
-                            hide-details
-                            @update:model-value="(selected) => toggleSelectObjectVersion(selected as boolean, file)"
-                        />
-                    </td>
-                    <td>
-                        <v-btn
-                            class="text-caption pl-1 ml-n1 justify-start rounded-lg w-100"
-                            variant="text"
-                            color="default"
-                            block
-                            :disabled="filesBeingDeleted.has(file.path + file.Key + file.VersionId)"
-                            @click="() => onFileClick(file)"
-                        >
-                            <template #prepend>
-                                <icon-curve-right />
-                                <icon-versioning-clock class="ml-4 mr-3" size="32" dotted />
-                            </template>
-                            {{ file.Key }}
-                            <v-chip v-if="file.isLatest" class="ml-2" size="small" variant="tonal" color="primary">LATEST</v-chip>
-                        </v-btn>
-                    </td>
-                    <td>
-                        <p class="text-caption">
-                            <v-chip v-if="file.isDeleteMarker" size="small" variant="tonal" color="warning">Delete Marker</v-chip>
-                            <template v-else>
-                                {{ getFileInfo(file).typeInfo.title }}
-                            </template>
-                        </p>
-                    </td>
-                    <td>
-                        <span class="text-caption text-no-wrap">{{ getFormattedSize(file) }}</span>
-                    </td>
-                    <td>
-                        <span class="text-caption text-no-wrap">{{ getFormattedDate(file) }}</span>
-                    </td>
-                    <td>
-                        <p class="text-caption">
-                            <v-hover v-if="file.VersionId">
-                                <template #default="{ isHovering, props }">
-                                    <v-chip
-                                        v-bind="props"
-                                        size="small"
-                                        :variant="isHovering ? 'tonal' : 'text'"
-                                        class="cursor-pointer"
-                                        @click="() => copyToClipboard(file.VersionId)"
-                                    >
-                                        <template #append>
-                                            <v-icon class="ml-2" :class="{ 'invisible': !isHovering }" :icon="Copy" />
-                                        </template>
-                                        <template #default>
-                                            <span>{{ '...' + file.VersionId.slice(-9) }}</span>
-                                        </template>
-                                    </v-chip>
-                                </template>
-                            </v-hover>
-                        </p>
-                    </td>
-                    <td>
-                        <browser-row-actions
-                            :deleting="isBeingDeleted(file)"
-                            :file="file"
-                            is-version
-                            :is-file-deleted="item.browserObject.isDeleteMarker"
-                            align="right"
-                            @share-click="onShareClick(file)"
-                            @preview-click="onFileClick(file)"
-                            @delete-file-click="onDeleteFileClick(file)"
-                            @restore-object-click="onRestoreObjectClick(file)"
-                            @lock-object-click="onLockObjectClick(file)"
-                            @legal-hold-click="onLegalHoldClick(file)"
-                            @locked-object-delete="(fullObject) => onLockedObjectDelete(fullObject)"
-                        />
-                    </td>
-                    <td />
-                </tr>
-            </template>
-
-            <template #no-data>
-                <p class="text-body-2 cursor-pointer py-14 rounded-xlg my-4" @click="emit('uploadClick')">
-                    {{ search ? 'No data found' : 'Drag and drop files or folders here, or click to upload files.' }}
-                </p>
-            </template>
-
-            <template #item="{ props: { item } }">
-                <tr v-if="shouldRenderRow(item.raw.browserObject)">
-                    <td class="v-data-table__td v-data-table-column--no-padding v-data-table-column--align-start">
-                        <v-checkbox-btn
-                            :model-value="areAllVersionsSelected(item.raw.browserObject)"
-                            :indeterminate="areSomeVersionsSelected(item.raw.browserObject)"
-                            hide-details
-                            @update:model-value="(selected) => updateSelectedVersions(item.raw.browserObject, selected)"
-                        />
-                    </td>
-                    <td>
-                        <v-btn
-                            class="rounded-lg w-100 px-1 ml-n1 justify-start font-weight-bold"
-                            variant="text"
-                            height="40"
-                            color="default"
-                            block
-                            :disabled="filesBeingDeleted.has(item.raw.browserObject.path + item.raw.browserObject.Key)"
-                            @click="onFileClick(item.raw.browserObject)"
-                        >
-                            <img :src="item.raw.typeInfo.icon" :alt="item.raw.typeInfo.title + 'icon'" class="mr-3">
-                            {{ item.raw.browserObject.Key }}
-                        </v-btn>
-                    </td>
-                    <td>
-                        <p class="text-caption">
-                            <v-chip v-if="item.raw.browserObject.isDeleteMarker" size="small" variant="tonal" color="warning">Delete Marker</v-chip>
-                            <template v-else>
-                                {{ item.raw.typeInfo.title }}
-                            </template>
-                        </p>
-                    </td>
-                    <td />
-                    <td />
-                    <td />
-                    <td />
-                    <td class="text-right">
-                        <VBtn
-                            v-if="!isFolder(item.raw.browserObject)"
-                            :icon="getExpandOrCollapseIcon(item.raw.browserObject)"
-                            size="small"
-                            variant="text"
-                            @click="toggleFileExpanded(item.raw.browserObject)"
-                        />
-                        <browser-row-actions
-                            v-else
-                            :deleting="isBeingDeleted(item.raw.browserObject)"
-                            :file="item.raw.browserObject"
-                            align="right"
-                            @delete-file-click="onDeleteFileClick(item.raw.browserObject)"
-                        />
+    <!-- We cast expandedFiles to type 'any' because of the weird Vuetify limitation/bug -->
+    <!-- https://github.com/vuetifyjs/vuetify/issues/20006 -->
+    <v-data-table-server
+        v-model="selectedFiles"
+        v-model:expanded="expandedFiles as any"
+        :loading="isFetching || loading"
+        :headers="headers"
+        :items="filesAndVersions"
+        select-strategy="page"
+        show-select
+        show-expand
+        :item-value="(item: BrowserObjectWrapper) => item.browserObject"
+        :items-length="allFiles.length"
+        :item-selectable="(item: BrowserObjectWrapper) => !item.browserObject.Versions?.length"
+        :must-sort="false"
+        hover
+    >
+        <!-- the key of the row is defined by :item-value="(item: BrowserObjectWrapper) => item.browserObject" above -->
+        <template #expanded-row="{ columns, item }">
+            <template v-if="!item.browserObject.Versions?.length">
+                <tr>
+                    <td :colspan="columns.length">
+                        <p class="text-center">No older versions stored</p>
                     </td>
                 </tr>
             </template>
+            <tr v-for="(file) in item.browserObject.Versions" v-else :key="file.VersionId" class="bg-altbg">
+                <td class="v-data-table__td v-data-table-column--no-padding v-data-table-column--align-start">
+                    <v-checkbox-btn
+                        :model-value="selectedFiles.includes(file)"
+                        hide-details
+                        @update:model-value="(selected) => toggleSelectObjectVersion(selected as boolean, file)"
+                    />
+                </td>
+                <td>
+                    <v-btn
+                        class="text-caption pl-1 pr-3 ml-n1 justify-start rounded-lg w-100"
+                        variant="text"
+                        color="default"
+                        block
+                        :disabled="filesBeingDeleted.has(file.path + file.Key + file.VersionId)"
+                        @click="() => onFileClick(file)"
+                    >
+                        <template #prepend>
+                            <icon-curve-right />
+                            <icon-versioning-clock class="ml-4 mr-3" size="32" dotted />
+                        </template>
+                        {{ file.Key }}
+                        <v-chip v-if="file.isLatest" class="ml-2" size="small" variant="tonal" color="primary">LATEST</v-chip>
+                    </v-btn>
+                </td>
+                <td>
+                    <p class="text-caption">
+                        <v-chip v-if="file.isDeleteMarker" size="small" variant="tonal" color="warning">Delete Marker</v-chip>
+                        <template v-else>
+                            {{ getFileInfo(file).typeInfo.title }}
+                        </template>
+                    </p>
+                </td>
+                <td>
+                    <span class="text-caption text-no-wrap">{{ getFormattedSize(file) }}</span>
+                </td>
+                <td>
+                    <span class="text-caption text-no-wrap">{{ getFormattedDate(file) }}</span>
+                </td>
+                <td>
+                    <p class="text-caption">
+                        <v-hover v-if="file.VersionId">
+                            <template #default="{ isHovering, props }">
+                                <v-chip
+                                    v-bind="props"
+                                    size="small"
+                                    :variant="isHovering ? 'tonal' : 'text'"
+                                    class="cursor-pointer"
+                                    @click="() => copyToClipboard(file.VersionId)"
+                                >
+                                    <template #append>
+                                        <v-icon class="ml-2" :class="{ 'invisible': !isHovering }" :icon="Copy" />
+                                    </template>
+                                    <template #default>
+                                        <span>{{ '...' + file.VersionId.slice(-9) }}</span>
+                                    </template>
+                                </v-chip>
+                            </template>
+                        </v-hover>
+                    </p>
+                </td>
+                <td>
+                    <browser-row-actions
+                        :deleting="isBeingDeleted(file)"
+                        :file="file"
+                        is-version
+                        :is-file-deleted="item.browserObject.isDeleteMarker"
+                        align="right"
+                        @share-click="onShareClick(file)"
+                        @preview-click="onFileClick(file)"
+                        @delete-file-click="onDeleteFileClick(file)"
+                        @restore-object-click="onRestoreObjectClick(file)"
+                        @lock-object-click="onLockObjectClick(file)"
+                        @legal-hold-click="onLegalHoldClick(file)"
+                        @locked-object-delete="(fullObject) => onLockedObjectDelete(fullObject)"
+                    />
+                </td>
+                <td />
+            </tr>
+        </template>
 
-            <template #bottom>
-                <div class="v-data-table-footer">
-                    <v-row justify="end" align="center">
-                        <v-col cols="auto">
-                            <span class="caption">Items per page:</span>
-                        </v-col>
-                        <v-col cols="auto">
-                            <v-select
-                                v-model="cursor.limit"
-                                density="compact"
-                                :items="pageSizes"
-                                variant="outlined"
-                                hide-details
-                                @update:model-value="onLimitChange"
-                            />
-                        </v-col>
-                        <v-col cols="auto">
-                            <v-btn-group density="compact">
-                                <v-btn :disabled="cursor.page <= 1" :icon="ChevronLeft" @click="onPreviousPageClick" />
-                                <v-btn :disabled="!hasNextPage" :icon="ChevronRight" @click="onNextPageClick" />
-                            </v-btn-group>
-                        </v-col>
-                    </v-row>
-                </div>
-            </template>
-        </v-data-table-server>
+        <template #no-data>
+            <p class="text-body-2 cursor-pointer py-14 rounded-xlg my-4" @click="emit('uploadClick')">
+                {{ search ? 'No data found' : 'Drag and drop files or folders here, or click to upload files.' }}
+            </p>
+        </template>
 
-        <file-preview-dialog
-            v-model="previewDialog"
-            v-model:current-file="fileToPreview"
-            :versions="fileVersionsToPreview"
-        />
-    </v-card>
+        <template #item="{ props: { item } }">
+            <tr v-if="shouldRenderRow(item.raw.browserObject)">
+                <td class="v-data-table__td v-data-table-column--no-padding v-data-table-column--align-start">
+                    <v-checkbox-btn
+                        :model-value="areAllVersionsSelected(item.raw.browserObject)"
+                        :indeterminate="areSomeVersionsSelected(item.raw.browserObject)"
+                        hide-details
+                        @update:model-value="(selected) => updateSelectedVersions(item.raw.browserObject, selected)"
+                    />
+                </td>
+                <td>
+                    <v-btn
+                        class="rounded-lg w-100 pl-1 pr-3 ml-n1 justify-start font-weight-bold"
+                        variant="text"
+                        height="40"
+                        color="default"
+                        block
+                        :disabled="filesBeingDeleted.has(item.raw.browserObject.path + item.raw.browserObject.Key)"
+                        @click="onFileClick(item.raw.browserObject)"
+                    >
+                        <img :src="item.raw.typeInfo.icon" :alt="item.raw.typeInfo.title + 'icon'" class="mr-3">
+                        {{ item.raw.browserObject.Key }}
+                    </v-btn>
+                </td>
+                <td>
+                    <p class="text-caption">
+                        <v-chip v-if="item.raw.browserObject.isDeleteMarker" size="small" variant="tonal" color="warning">Delete Marker</v-chip>
+                        <template v-else>
+                            {{ item.raw.typeInfo.title }}
+                        </template>
+                    </p>
+                </td>
+                <td />
+                <td />
+                <td />
+                <td />
+                <td class="text-right">
+                    <VBtn
+                        v-if="!isFolder(item.raw.browserObject)"
+                        :icon="getExpandOrCollapseIcon(item.raw.browserObject)"
+                        size="small"
+                        variant="text"
+                        @click="toggleFileExpanded(item.raw.browserObject)"
+                    />
+                    <browser-row-actions
+                        v-else
+                        :deleting="isBeingDeleted(item.raw.browserObject)"
+                        :file="item.raw.browserObject"
+                        align="right"
+                        @delete-file-click="onDeleteFileClick(item.raw.browserObject)"
+                        @download-folder-click="onDownloadFolder(item.raw.browserObject)"
+                    />
+                </td>
+            </tr>
+        </template>
+
+        <template #bottom>
+            <div class="v-data-table-footer">
+                <v-row justify="end" align="center">
+                    <v-col cols="auto">
+                        <span class="caption">Items per page:</span>
+                    </v-col>
+                    <v-col cols="auto">
+                        <v-select
+                            v-model="cursor.limit"
+                            density="compact"
+                            :items="pageSizes"
+                            variant="outlined"
+                            hide-details
+                            @update:model-value="onLimitChange"
+                        />
+                    </v-col>
+                    <v-col cols="auto">
+                        <v-btn-group density="compact">
+                            <v-btn :disabled="cursor.page <= 1" :icon="ChevronLeft" @click="onPreviousPageClick" />
+                            <v-btn :disabled="!hasNextPage" :icon="ChevronRight" @click="onNextPageClick" />
+                        </v-btn-group>
+                    </v-col>
+                </v-row>
+            </div>
+        </template>
+    </v-data-table-server>
+
+    <file-preview-dialog
+        v-model="previewDialog"
+        v-model:current-file="fileToPreview"
+        :versions="fileVersionsToPreview"
+    />
 
     <v-snackbar
         rounded="lg"
@@ -267,6 +266,13 @@
         :file="lockActionFile"
         @content-removed="lockActionFile = null"
     />
+    <download-prefix-dialog
+        v-if="downloadPrefixEnabled"
+        v-model="isDownloadPrefixDialogShown"
+        :prefix-type="DownloadPrefixType.Folder"
+        :bucket="bucketName"
+        :prefix="folderToDownload"
+    />
 </template>
 
 <script setup lang="ts">
@@ -295,16 +301,25 @@ import {
     useObjectBrowserStore,
 } from '@/store/modules/objectBrowserStore';
 import { useProjectsStore } from '@/store/modules/projectsStore';
-import { useNotify } from '@/utils/hooks';
+import { useNotify } from '@/composables/useNotify';
 import { Size } from '@/utils/bytesSize';
 import { AnalyticsErrorEventSource } from '@/utils/constants/analyticsEventNames';
 import { useBucketsStore } from '@/store/modules/bucketsStore';
-import { BrowserObjectTypeInfo, BrowserObjectWrapper, EXTENSION_INFOS, FILE_INFO, FOLDER_INFO } from '@/types/browser';
+import {
+    BrowserObjectTypeInfo,
+    BrowserObjectWrapper,
+    DownloadPrefixType,
+    EXTENSION_INFOS,
+    FILE_INFO,
+    FOLDER_INFO,
+} from '@/types/browser';
 import { ROUTES } from '@/router';
 import { Time } from '@/utils/time';
 import { DEFAULT_PAGE_LIMIT } from '@/types/pagination';
 import { DataTableHeader } from '@/types/common';
 import { usePreCheck } from '@/composables/usePreCheck';
+import { useConfigStore } from '@/store/modules/configStore';
+import { useLoading } from '@/composables/useLoading';
 
 import BrowserRowActions from '@/components/BrowserRowActions.vue';
 import FilePreviewDialog from '@/components/dialogs/FilePreviewDialog.vue';
@@ -317,6 +332,7 @@ import DeleteVersionsDialog from '@/components/dialogs/DeleteVersionsDialog.vue'
 import LockObjectDialog from '@/components/dialogs/LockObjectDialog.vue';
 import LockedDeleteErrorDialog from '@/components/dialogs/LockedDeleteErrorDialog.vue';
 import LegalHoldObjectDialog from '@/components/dialogs/LegalHoldObjectDialog.vue';
+import DownloadPrefixDialog from '@/components/dialogs/DownloadPrefixDialog.vue';
 
 const compProps = defineProps<{
     forceEmpty?: boolean;
@@ -330,10 +346,12 @@ const emit = defineEmits<{
 const obStore = useObjectBrowserStore();
 const projectsStore = useProjectsStore();
 const bucketsStore = useBucketsStore();
+const configStore = useConfigStore();
 
 const notify = useNotify();
 const router = useRouter();
 const { withTrialCheck } = usePreCheck();
+const { withLoading } = useLoading();
 
 const isFetching = ref<boolean>(false);
 const search = ref<string>('');
@@ -350,6 +368,8 @@ const isRestoreDialogShown = ref<boolean>(false);
 const isLockDialogShown = ref<boolean>(false);
 const isLegalHoldDialogShown = ref<boolean>(false);
 const isLockedObjectDeleteDialogShown = ref<boolean>(false);
+const isDownloadPrefixDialogShown = ref<boolean>(false);
+const folderToDownload = ref<string>('');
 
 const pageSizes = [DEFAULT_PAGE_LIMIT, 25, 50, 100];
 
@@ -366,6 +386,8 @@ const headers = computed<DataTableHeader[]>(() => {
         { title: '', key: 'actions', sortable: false, width: 0 },
     ];
 });
+
+const downloadPrefixEnabled = computed<boolean>(() => configStore.state.config.downloadPrefixEnabled);
 
 /**
  * Returns the name of the selected bucket.
@@ -453,6 +475,16 @@ const filesToDelete = computed<BrowserObject[]>(() => {
 const continuationTokens = computed(() => obStore.state.continuationTokens);
 
 const hasNextPage = computed(() => !!continuationTokens.value.get(cursor.value.page + 1));
+
+/**
+ * Handles download bucket action.
+ */
+function onDownloadFolder(object: BrowserObject): void {
+    withTrialCheck(() => {
+        folderToDownload.value = `${object.path ?? ''}${object.Key}`;
+        isDownloadPrefixDialogShown.value = true;
+    });
+}
 
 /**
  * Handles previous page click for alternative pagination.
@@ -601,28 +633,32 @@ function isBeingDeleted(file: BrowserObject): boolean {
  * Handles file click.
  */
 function onFileClick(file: BrowserObject): void {
+    if (compProps.loading || isFetching.value) return;
+
     withTrialCheck(() => {
-        if (!file.type) return;
-        if (file.isDeleteMarker) return;
+        withLoading(async () => {
+            if (!file.type) return;
+            if (file.isDeleteMarker) return;
 
-        if (file.type === 'folder') {
-            const uriParts = [file.Key];
-            if (filePath.value) {
-                uriParts.unshift(...filePath.value.split('/'));
+            if (file.type === 'folder') {
+                const uriParts = [file.Key];
+                if (filePath.value) {
+                    uriParts.unshift(...filePath.value.split('/'));
+                }
+                const pathAndKey = uriParts.map(part => encodeURIComponent(part)).join('/');
+                await router.push(`${ROUTES.Projects.path}/${projectsStore.state.selectedProject.urlId}/${ROUTES.Buckets.path}/${bucketName.value}/${pathAndKey}`);
+                return;
             }
-            const pathAndKey = uriParts.map(part => encodeURIComponent(part)).join('/');
-            router.push(`${ROUTES.Projects.path}/${projectsStore.state.selectedProject.urlId}/${ROUTES.Buckets.path}/${bucketName.value}/${pathAndKey}`);
-            return;
-        }
-        if (!file.VersionId) {
-            return;
-        }
+            if (!file.VersionId) {
+                return;
+            }
 
-        obStore.setObjectPathForModal((file.path ?? '') + file.Key);
-        fileToPreview.value = file;
-        const parentFile = allFiles.value.find(f => f.browserObject.Key === file.Key && f.browserObject.path === file.path);
-        fileVersionsToPreview.value = parentFile?.browserObject?.Versions?.filter(v => !v.isDeleteMarker);
-        previewDialog.value = true;
+            obStore.setObjectPathForModal((file.path ?? '') + file.Key);
+            fileToPreview.value = file;
+            const parentFile = allFiles.value.find(f => f.browserObject.Key === file.Key && f.browserObject.path === file.path);
+            fileVersionsToPreview.value = parentFile?.browserObject?.Versions?.filter(v => !v.isDeleteMarker);
+            previewDialog.value = true;
+        });
     });
 }
 

@@ -7,7 +7,7 @@ import (
 	"context"
 	"errors"
 
-	"github.com/stripe/stripe-go/v75"
+	"github.com/stripe/stripe-go/v81"
 	"github.com/zeebo/errs"
 
 	"storj.io/storj/satellite/payments"
@@ -52,7 +52,7 @@ func (pi *paymentIntents) ChargeCard(ctx context.Context, request payments.Charg
 	}
 
 	if intent.Status != stripe.PaymentIntentStatusSucceeded {
-		return nil, Error.Wrap(errs.New("Payment was not successful."))
+		return nil, Error.New("Payment was not successful.")
 	}
 
 	return &payments.ChargeCardResponse{Success: true}, nil

@@ -20,7 +20,7 @@ import (
 
 	"github.com/shopspring/decimal"
 	"github.com/stretchr/testify/require"
-	stripeLib "github.com/stripe/stripe-go/v75"
+	stripeLib "github.com/stripe/stripe-go/v81"
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zaptest"
@@ -579,6 +579,24 @@ func TestService(t *testing.T) {
 
 				_, err = service.UpdateProject(userCtx1, disabledProject.ID, console.UpsertProjectInfo{Name: updatedName})
 				require.Error(t, err)
+			})
+
+			t.Run("UpdateUserHubspotObjectID", func(t *testing.T) {
+				user, err := sat.AddUser(ctx, console.CreateUser{
+					FullName: "Random User",
+					Email:    "hubspot@mail.test",
+				}, 1)
+				require.NoError(t, err)
+
+				expectedObjectID := "hubspot-object-id"
+
+				err = service.UpdateUserHubspotObjectID(ctx, user.ID, expectedObjectID)
+				require.NoError(t, err)
+
+				user, err = service.GetUser(ctx, user.ID)
+				require.NoError(t, err)
+				require.NotNil(t, user.HubspotObjectID)
+				require.Equal(t, expectedObjectID, *user.HubspotObjectID)
 			})
 
 			t.Run("UpdateUserSpecifiedProjectLimits", func(t *testing.T) {
@@ -2304,7 +2322,15 @@ func TestDeleteAccount(t *testing.T) {
 
 			require.NoError(t, sat.API.Buckets.Service.DeleteBucket(ctx, []byte(bucket.Name), p2.ID))
 
-			_, err = service.GenerateSessionToken(ctx, user.ID, user.Email, "", "", nil)
+			_, err = service.GenerateSessionToken(ctx, console.SessionTokenRequest{
+				UserID:          user.ID,
+				Email:           user.Email,
+				IP:              "",
+				UserAgent:       "",
+				AnonymousID:     "",
+				CustomDuration:  nil,
+				HubspotObjectID: user.HubspotObjectID,
+			})
 			require.NoError(t, err)
 
 			sessions, err := sat.DB.Console().WebappSessions().GetAllByUserID(ctx, user.ID)
@@ -3037,7 +3063,15 @@ func TestChangePassword(t *testing.T) {
 		require.NoError(t, err)
 
 		for i := 0; i < 2; i++ {
-			_, err = sat.API.Console.Service.GenerateSessionToken(userCtx, user.ID, user.Email, "", "", nil)
+			_, err = sat.API.Console.Service.GenerateSessionToken(userCtx, console.SessionTokenRequest{
+				UserID:          user.ID,
+				Email:           user.Email,
+				IP:              "",
+				UserAgent:       "",
+				AnonymousID:     "",
+				CustomDuration:  nil,
+				HubspotObjectID: user.HubspotObjectID,
+			})
 			require.NoError(t, err)
 		}
 		sessions, err := sat.DB.Console().WebappSessions().GetAllByUserID(ctx, user.ID)
@@ -3093,7 +3127,15 @@ func TestGenerateSessionToken(t *testing.T) {
 		require.NoError(t, err)
 
 		now := time.Now()
-		token1, err := srv.GenerateSessionToken(userCtx, user.ID, user.Email, "", "", nil)
+		token1, err := srv.GenerateSessionToken(userCtx, console.SessionTokenRequest{
+			UserID:          user.ID,
+			Email:           user.Email,
+			IP:              "",
+			UserAgent:       "",
+			AnonymousID:     "",
+			CustomDuration:  nil,
+			HubspotObjectID: user.HubspotObjectID,
+		})
 		require.NoError(t, err)
 		require.NotNil(t, token1)
 
@@ -3106,7 +3148,15 @@ func TestGenerateSessionToken(t *testing.T) {
 		}))
 
 		now = time.Now()
-		token2, err := srv.GenerateSessionToken(userCtx, user.ID, user.Email, "", "", nil)
+		token2, err := srv.GenerateSessionToken(userCtx, console.SessionTokenRequest{
+			UserID:          user.ID,
+			Email:           user.Email,
+			IP:              "",
+			UserAgent:       "",
+			AnonymousID:     "",
+			CustomDuration:  nil,
+			HubspotObjectID: user.HubspotObjectID,
+		})
 		require.NoError(t, err)
 		token2Duration := token2.ExpiresAt.Sub(now)
 		require.Greater(t, token2Duration, token1Duration)
@@ -3119,7 +3169,15 @@ func TestGenerateSessionToken(t *testing.T) {
 		}))
 
 		now = time.Now()
-		token3, err := srv.GenerateSessionToken(userCtx, user.ID, user.Email, "", "", nil)
+		token3, err := srv.GenerateSessionToken(userCtx, console.SessionTokenRequest{
+			UserID:          user.ID,
+			Email:           user.Email,
+			IP:              "",
+			UserAgent:       "",
+			AnonymousID:     "",
+			CustomDuration:  nil,
+			HubspotObjectID: user.HubspotObjectID,
+		})
 		require.NoError(t, err)
 		token3Duration := token3.ExpiresAt.Sub(now)
 		require.Less(t, token3Duration, token1Duration)
@@ -3127,7 +3185,15 @@ func TestGenerateSessionToken(t *testing.T) {
 		now = time.Now()
 		customDuration := 7 * 24 * time.Hour
 		inAWeek := now.Add(customDuration)
-		token4, err := srv.GenerateSessionToken(userCtx, user.ID, user.Email, "", "", &customDuration)
+		token4, err := srv.GenerateSessionToken(userCtx, console.SessionTokenRequest{
+			UserID:          user.ID,
+			Email:           user.Email,
+			IP:              "",
+			UserAgent:       "",
+			AnonymousID:     "",
+			CustomDuration:  &customDuration,
+			HubspotObjectID: user.HubspotObjectID,
+		})
 		require.NoError(t, err)
 		require.True(t, token4.ExpiresAt.After(inAWeek))
 	})
@@ -3153,7 +3219,15 @@ func TestRefreshSessionToken(t *testing.T) {
 		require.NoError(t, err)
 
 		now := time.Now()
-		token, err := srv.GenerateSessionToken(userCtx, user.ID, user.Email, "", "", nil)
+		token, err := srv.GenerateSessionToken(userCtx, console.SessionTokenRequest{
+			UserID:          user.ID,
+			Email:           user.Email,
+			IP:              "",
+			UserAgent:       "",
+			AnonymousID:     "",
+			CustomDuration:  nil,
+			HubspotObjectID: user.HubspotObjectID,
+		})
 		require.NoError(t, err)
 		require.NotNil(t, token)
 

@@ -112,7 +112,7 @@ import {
 
 import { Tax, TaxCountry } from '@/types/payments';
 import { useLoading } from '@/composables/useLoading';
-import { useNotify } from '@/utils/hooks';
+import { useNotify } from '@/composables/useNotify';
 import { useBillingStore } from '@/store/modules/billingStore';
 import { RequiredRule } from '@/types/common';
 

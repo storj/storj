@@ -15,7 +15,6 @@ import (
 	"storj.io/common/pb"
 	"storj.io/common/storj"
 	"storj.io/storj/satellite/internalpb"
-	"storj.io/storj/shared/nodeidmap"
 	"storj.io/uplink"
 )
 
@@ -48,7 +47,7 @@ func (bfu *Upload) CheckConfig() error {
 }
 
 // UploadBloomFilters stores a zipfile with multiple bloom filters in a bucket.
-func (bfu *Upload) UploadBloomFilters(ctx context.Context, creationDate time.Time, retainInfos nodeidmap.Map[*RetainInfo]) (err error) {
+func (bfu *Upload) UploadBloomFilters(ctx context.Context, creationDate time.Time, retainInfos MinimalRetainInfoMap) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	if retainInfos.IsEmpty() {

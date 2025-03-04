@@ -118,6 +118,12 @@ func TestAtomicFile(t *testing.T) {
 	}
 }
 
+func temporarily[T any](loc *T, val T) func() {
+	old := *loc
+	*loc = val
+	return func() { *loc = old }
+}
+
 //
 // hashtbl
 //
@@ -193,7 +199,7 @@ type testStore struct {
 func newTestStore(t testing.TB) *testStore {
 	t.Helper()
 
-	s, err := NewStore(context.Background(), t.TempDir(), nil)
+	s, err := NewStore(context.Background(), t.TempDir(), "", nil)
 	assert.NoError(t, err)
 
 	ts := &testStore{t: t, Store: s, today: s.today()}
@@ -210,7 +216,7 @@ func (ts *testStore) AssertReopen() {
 
 	ts.Store.Close()
 
-	s, err := NewStore(context.Background(), ts.dir, ts.log)
+	s, err := NewStore(context.Background(), ts.logsPath, ts.tablePath, ts.log)
 	assert.NoError(ts.t, err)
 
 	s.today = func() uint32 { return ts.today }
@@ -282,6 +288,14 @@ func (ts *testStore) AssertNotExist(key Key) {
 	assert.Nil(ts.t, r)
 }
 
+func (ts *testStore) AssertExist(key Key) {
+	ts.t.Helper()
+
+	_, ok, err := ts.tbl.Lookup(context.Background(), key)
+	assert.NoError(ts.t, err)
+	assert.True(ts.t, ok)
+}
+
 //
 // db
 //
@@ -297,7 +311,7 @@ func newTestDB(t testing.TB,
 ) *testDB {
 	t.Helper()
 
-	db, err := New(context.Background(), t.TempDir(), nil, dead, restore)
+	db, err := New(context.Background(), t.TempDir(), "", nil, dead, restore)
 	assert.NoError(t, err)
 
 	td := &testDB{t: t, DB: db}
@@ -312,7 +326,7 @@ func (td *testDB) AssertReopen() {
 
 	td.DB.Close()
 
-	db, err := New(context.Background(), td.dir, td.log, td.shouldTrash, td.lastRestore)
+	db, err := New(context.Background(), td.logsPath, td.tablePath, td.log, td.shouldTrash, td.lastRestore)
 	assert.NoError(td.t, err)
 
 	td.DB = db
@@ -444,16 +458,22 @@ func benchmarkSizes(b *testing.B, name string, run func(*testing.B, uint64)) {
 		b.Run("1KB", func(b *testing.B) { run(b, 1*1024) })
 		b.Run("4KB", func(b *testing.B) { run(b, 4*1024) })
 		b.Run("16KB", func(b *testing.B) { run(b, 16*1024) })
-		b.Run("64KB", func(b *testing.B) { run(b, 64*1024) })
-		b.Run("256KB", func(b *testing.B) { run(b, 256*1024) })
-		b.Run("1MB", func(b *testing.B) { run(b, 1*1024*1024) })
-		b.Run("2MB", func(b *testing.B) { run(b, 2*1024*1024) })
+		if !testing.Short() {
+			b.Run("64KB", func(b *testing.B) { run(b, 64*1024) })
+			b.Run("256KB", func(b *testing.B) { run(b, 256*1024) })
+			b.Run("1MB", func(b *testing.B) { run(b, 1*1024*1024) })
+			b.Run("2MB", func(b *testing.B) { run(b, 2*1024*1024) })
+		}
 	})
 }
 
 func benchmarkLRecs(b *testing.B, name string, run func(*testing.B, uint64)) {
 	b.Run(name, func(b *testing.B) {
-		for lrec := uint64(14); lrec < 20; lrec++ {
+		nrecs := uint64(20)
+		if testing.Short() {
+			nrecs = 16
+		}
+		for lrec := uint64(14); lrec < nrecs; lrec++ {
 			b.Run(fmt.Sprintf("lrec=%d", lrec), func(b *testing.B) { run(b, lrec) })
 		}
 	})

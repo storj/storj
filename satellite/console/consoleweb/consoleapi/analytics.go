@@ -12,6 +12,7 @@ import (
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 
+	"storj.io/common/uuid"
 	"storj.io/storj/private/web"
 	"storj.io/storj/satellite/analytics"
 	"storj.io/storj/satellite/console"
@@ -37,10 +38,12 @@ func NewAnalytics(log *zap.Logger, service *console.Service, a *analytics.Servic
 }
 
 type eventTriggeredBody struct {
-	EventName        string            `json:"eventName"`
-	Link             string            `json:"link"`
-	ErrorEventSource string            `json:"errorEventSource"`
-	Props            map[string]string `json:"props"`
+	EventName            string            `json:"eventName"`
+	Link                 string            `json:"link"`
+	ErrorEventSource     string            `json:"errorEventSource"`
+	ErrorEventRequestID  string            `json:"errorEventRequestID"`
+	ErrorEventStatusCode int               `json:"errorEventStatusCode"`
+	Props                map[string]string `json:"props"`
 }
 
 type pageVisitBody struct {
@@ -70,11 +73,11 @@ func (a *Analytics) EventTriggered(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if et.ErrorEventSource != "" {
-		a.analytics.TrackErrorEvent(user.ID, user.Email, et.ErrorEventSource)
+		a.analytics.TrackErrorEvent(user.ID, user.Email, et.ErrorEventSource, et.ErrorEventRequestID, et.ErrorEventStatusCode, user.HubspotObjectID)
 	} else if et.Link != "" {
-		a.analytics.TrackLinkEvent(et.EventName, user.ID, user.Email, et.Link)
+		a.analytics.TrackLinkEvent(et.EventName, user.ID, user.Email, et.Link, user.HubspotObjectID)
 	} else {
-		a.analytics.TrackEvent(et.EventName, user.ID, user.Email, et.Props)
+		a.analytics.TrackEvent(et.EventName, user.ID, user.Email, et.Props, user.HubspotObjectID)
 	}
 	w.WriteHeader(http.StatusOK)
 }
@@ -101,7 +104,7 @@ func (a *Analytics) PageEventTriggered(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	a.analytics.PageVisitEvent(pv.PageName, user.ID, user.Email)
+	a.analytics.PageVisitEvent(pv.PageName, user.ID, user.Email, user.HubspotObjectID)
 
 	w.WriteHeader(http.StatusOK)
 }
@@ -175,6 +178,61 @@ func (a *Analytics) JoinCunoFSBeta(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
+		a.serveJSONError(ctx, w, http.StatusInternalServerError, err)
+		return
+	}
+
+	w.WriteHeader(http.StatusOK)
+}
+
+// AccountObjectCreated handles the webhook from hubspot when an account object is created.
+func (a *Analytics) AccountObjectCreated(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	var err error
+	defer mon.Task()(&ctx)(&err)
+
+	signature := r.Header.Get("x-hubspot-signature-v3")
+	if signature == "" {
+		a.serveJSONError(ctx, w, http.StatusBadRequest, ErrAnalyticsAPI.New("missing request signature"))
+		return
+	}
+
+	timestamp := r.Header.Get("x-hubspot-request-timestamp")
+	if timestamp == "" {
+		a.serveJSONError(ctx, w, http.StatusBadRequest, ErrAnalyticsAPI.New("missing request timestamp"))
+		return
+	}
+
+	var req analytics.AccountObjectCreatedRequest
+	err = json.NewDecoder(r.Body).Decode(&req)
+	if err != nil {
+		a.serveJSONError(ctx, w, http.StatusBadRequest, ErrAnalyticsAPI.Wrap(err))
+		return
+	}
+
+	if req.UserID == "" {
+		a.serveJSONError(ctx, w, http.StatusBadRequest, ErrAnalyticsAPI.New("missing user id"))
+		return
+	}
+	if req.ObjectID == "" {
+		a.serveJSONError(ctx, w, http.StatusBadRequest, ErrAnalyticsAPI.New("missing object id"))
+		return
+	}
+
+	userID, err := uuid.FromString(req.UserID)
+	if err != nil {
+		a.serveJSONError(ctx, w, http.StatusBadRequest, ErrAnalyticsAPI.New("invalid user id"))
+		return
+	}
+
+	err = a.analytics.ValidateAccountObjectCreatedRequestSignature(req, signature, timestamp)
+	if err != nil {
+		a.serveJSONError(ctx, w, http.StatusBadRequest, ErrAnalyticsAPI.Wrap(err))
+		return
+	}
+
+	err = a.service.UpdateUserHubspotObjectID(ctx, userID, req.ObjectID.String())
+	if err != nil {
 		a.serveJSONError(ctx, w, http.StatusInternalServerError, err)
 		return
 	}

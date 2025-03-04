@@ -58,7 +58,8 @@
                                     v-model="name"
                                     variant="outlined"
                                     :rules="nameRules"
-                                    label="Project Name"
+                                    label="Name"
+                                    placeholder="Enter a name for your project"
                                     :counter="MAX_NAME_LENGTH"
                                     :maxlength="MAX_NAME_LENGTH"
                                     persistent-counter
@@ -66,26 +67,19 @@
                                     autofocus
                                     required
                                 />
-                                <v-btn
-                                    v-if="!isDescriptionShown"
-                                    variant="tonal"
-                                    color="primary"
-                                    :prepend-icon="Plus"
-                                    @click="isDescriptionShown = true"
-                                >
-                                    Add Description (Optional)
-                                </v-btn>
                             </v-col>
-                            <v-col v-if="isDescriptionShown" cols="12">
+                            <v-col cols="12">
                                 <v-text-field
                                     v-model="description"
                                     variant="outlined"
                                     :rules="descriptionRules"
                                     :hide-details="false"
-                                    label="Project Description (Optional)"
+                                    label="Description (optional)"
+                                    placeholder="Describe the project's purpose"
                                     :counter="MAX_DESCRIPTION_LENGTH"
                                     :maxlength="MAX_DESCRIPTION_LENGTH"
                                     persistent-counter
+                                    hint="This will appear on project cards."
                                 />
                             </v-col>
                         </v-row>
@@ -230,7 +224,7 @@
                             variant="flat"
                             :loading="isLoading"
                             block
-                            :append-icon="ArrowRight"
+                            :append-icon="buttonTitle !== 'Create Project' ? ArrowRight : ''"
                             @click="onPrimaryClick"
                         >
                             {{ buttonTitle }}
@@ -278,7 +272,7 @@ import { ManagePassphraseMode, MAX_DESCRIPTION_LENGTH, MAX_NAME_LENGTH, Project,
 import { useLoading } from '@/composables/useLoading';
 import { useProjectsStore } from '@/store/modules/projectsStore';
 import { useUsersStore } from '@/store/modules/usersStore';
-import { useNotify } from '@/utils/hooks';
+import { useNotify } from '@/composables/useNotify';
 import {
     AnalyticsErrorEventSource, AnalyticsEvent,
     PageVisitSource,

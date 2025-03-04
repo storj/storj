@@ -4,7 +4,7 @@
 <template>
     <v-card v-if="!isAltPagination" class="pa-4 mb-6" :loading="isFetching">
         <v-row align="center">
-            <v-col>
+            <v-col cols="12" sm class="flex-grow-1 flex-sm-grow-1">
                 <v-text-field
                     v-model="search"
                     label="Search"
@@ -18,7 +18,7 @@
                     @update:model-value="analyticsStore.eventTriggered(AnalyticsEvent.SEARCH_BUCKETS)"
                 />
             </v-col>
-            <v-col cols="auto">
+            <v-col cols="12" sm="auto" class="d-flex align-center">
                 <v-menu>
                     <template #activator="{ props: sortProps }">
                         <v-btn
@@ -89,6 +89,7 @@
                             @share-click="onShareClick(item.raw.browserObject)"
                             @lock-object-click="onLockObjectClick(item.raw.browserObject)"
                             @legal-hold-click="onLegalHoldClick(item.raw.browserObject)"
+                            @download-folder-click="onDownloadFolder(item.raw.browserObject)"
                             @locked-object-delete="(fullObject) => onLockedObjectDelete(fullObject)"
                         />
                     </v-col>
@@ -187,6 +188,13 @@
         :file="lockActionFile"
         @content-removed="lockActionFile = null"
     />
+    <download-prefix-dialog
+        v-if="downloadPrefixEnabled"
+        v-model="isDownloadPrefixDialogShown"
+        :prefix-type="DownloadPrefixType.Folder"
+        :bucket="bucketName"
+        :prefix="folderToDownload"
+    />
 </template>
 
 <script setup lang="ts">
@@ -217,16 +225,25 @@ import {
     useObjectBrowserStore,
 } from '@/store/modules/objectBrowserStore';
 import { useProjectsStore } from '@/store/modules/projectsStore';
-import { useNotify } from '@/utils/hooks';
+import { useNotify } from '@/composables/useNotify';
 import { AnalyticsErrorEventSource, AnalyticsEvent } from '@/utils/constants/analyticsEventNames';
 import { useBucketsStore } from '@/store/modules/bucketsStore';
-import { BrowserObjectTypeInfo, BrowserObjectWrapper, EXTENSION_INFOS, FILE_INFO, FOLDER_INFO } from '@/types/browser';
+import {
+    BrowserObjectTypeInfo,
+    BrowserObjectWrapper,
+    DownloadPrefixType,
+    EXTENSION_INFOS,
+    FILE_INFO,
+    FOLDER_INFO,
+} from '@/types/browser';
 import { useAnalyticsStore } from '@/store/modules/analyticsStore';
 import { ROUTES } from '@/router';
 import { BucketMetadata } from '@/types/buckets';
 import { Versioning } from '@/types/versioning';
 import { SortItem } from '@/types/common';
 import { usePreCheck } from '@/composables/usePreCheck';
+import { useLoading } from '@/composables/useLoading';
+import { useConfigStore } from '@/store/modules/configStore';
 
 import FilePreviewDialog from '@/components/dialogs/FilePreviewDialog.vue';
 import DeleteFileDialog from '@/components/dialogs/DeleteFileDialog.vue';
@@ -236,6 +253,7 @@ import DeleteVersionedFileDialog from '@/components/dialogs/DeleteVersionedFileD
 import LockObjectDialog from '@/components/dialogs/LockObjectDialog.vue';
 import LockedDeleteErrorDialog from '@/components/dialogs/LockedDeleteErrorDialog.vue';
 import LegalHoldObjectDialog from '@/components/dialogs/LegalHoldObjectDialog.vue';
+import DownloadPrefixDialog from '@/components/dialogs/DownloadPrefixDialog.vue';
 
 type SortKey = 'name' | 'type' | 'size' | 'date';
 
@@ -252,10 +270,12 @@ const analyticsStore = useAnalyticsStore();
 const obStore = useObjectBrowserStore();
 const projectsStore = useProjectsStore();
 const bucketsStore = useBucketsStore();
+const configStore = useConfigStore();
 
 const notify = useNotify();
 const router = useRouter();
 const { withTrialCheck } = usePreCheck();
+const { withLoading } = useLoading();
 
 const isFetching = ref<boolean>(false);
 const search = ref<string>('');
@@ -271,6 +291,8 @@ const isLockDialogShown = ref<boolean>(false);
 const isLegalHoldDialogShown = ref<boolean>(false);
 const isLockedObjectDeleteDialogShown = ref<boolean>(false);
 const routePageCache = new Map<string, number>();
+const isDownloadPrefixDialogShown = ref<boolean>(false);
+const folderToDownload = ref<string>('');
 
 let previewQueue: BrowserObjectWrapper[] = [];
 let processingPreview = false;
@@ -285,6 +307,8 @@ const pageSizes = [
     { title: '144', value: 144 },
 ];
 const collator = new Intl.Collator('en', { sensitivity: 'case' });
+
+const downloadPrefixEnabled = computed<boolean>(() => configStore.state.config.downloadPrefixEnabled);
 
 /**
  * Returns the selected files to the delete dialog.
@@ -499,25 +523,39 @@ function getFileTypeInfo(ext: string, type: BrowserObject['type']): BrowserObjec
 }
 
 /**
+ * Handles download bucket action.
+ */
+function onDownloadFolder(object: BrowserObject): void {
+    withTrialCheck(() => {
+        folderToDownload.value = `${object.path ?? ''}${object.Key}`;
+        isDownloadPrefixDialogShown.value = true;
+    });
+}
+
+/**
  * Handles file click.
  */
 function onFileClick(file: BrowserObject): void {
+    if (isFetching.value) return;
+
     withTrialCheck(() => {
-        if (!file.type) return;
+        withLoading(async () => {
+            if (!file.type) return;
 
-        if (file.type === 'folder') {
-            const uriParts = [file.Key];
-            if (filePath.value) {
-                uriParts.unshift(...filePath.value.split('/'));
+            if (file.type === 'folder') {
+                const uriParts = [file.Key];
+                if (filePath.value) {
+                    uriParts.unshift(...filePath.value.split('/'));
+                }
+                const pathAndKey = uriParts.map(part => encodeURIComponent(part)).join('/');
+                await router.push(`${ROUTES.Projects.path}/${projectsStore.state.selectedProject.urlId}/${ROUTES.Buckets.path}/${bucketName.value}/${pathAndKey}`);
+                return;
             }
-            const pathAndKey = uriParts.map(part => encodeURIComponent(part)).join('/');
-            router.push(`${ROUTES.Projects.path}/${projectsStore.state.selectedProject.urlId}/${ROUTES.Buckets.path}/${bucketName.value}/${pathAndKey}`);
-            return;
-        }
 
-        obStore.setObjectPathForModal((file.path ?? '') + file.Key);
-        fileToPreview.value = file;
-        previewDialog.value = true;
+            obStore.setObjectPathForModal((file.path ?? '') + file.Key);
+            fileToPreview.value = file;
+            previewDialog.value = true;
+        });
     });
 }
 

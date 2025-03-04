@@ -5,7 +5,14 @@ package analytics
 
 import (
 	"context"
+	"crypto/hmac"
+	"crypto/sha256"
+	"encoding/base64"
+	"encoding/json"
 	"math"
+	"net/http"
+	"net/url"
+	"strconv"
 	"strings"
 	"time"
 
@@ -145,26 +152,26 @@ type Config struct {
 // FreezeTracker is an interface for account freeze event tracking methods.
 type FreezeTracker interface {
 	// TrackAccountFrozen sends an account frozen event to Segment.
-	TrackAccountFrozen(userID uuid.UUID, email string)
+	TrackAccountFrozen(userID uuid.UUID, email string, hubspotObjectID *string)
 
 	// TrackAccountUnfrozen sends an account unfrozen event to Segment.
-	TrackAccountUnfrozen(userID uuid.UUID, email string)
+	TrackAccountUnfrozen(userID uuid.UUID, email string, hubspotObjectID *string)
 
 	// TrackAccountUnwarned sends an account unwarned event to Segment.
-	TrackAccountUnwarned(userID uuid.UUID, email string)
+	TrackAccountUnwarned(userID uuid.UUID, email string, hubspotObjectID *string)
 
 	// TrackAccountFreezeWarning sends an account freeze warning event to Segment.
-	TrackAccountFreezeWarning(userID uuid.UUID, email string)
+	TrackAccountFreezeWarning(userID uuid.UUID, email string, hubspotObjectID *string)
 
 	// TrackLargeUnpaidInvoice sends an event to Segment indicating that a user has not paid a large invoice.
-	TrackLargeUnpaidInvoice(invID string, userID uuid.UUID, email string)
+	TrackLargeUnpaidInvoice(invID string, userID uuid.UUID, email string, hubspotObjectID *string)
 
 	// TrackViolationFrozenUnpaidInvoice sends an event to Segment indicating that a user has not paid an invoice
 	// and has been frozen due to violating ToS.
-	TrackViolationFrozenUnpaidInvoice(invID string, userID uuid.UUID, email string)
+	TrackViolationFrozenUnpaidInvoice(invID string, userID uuid.UUID, email string, hubspotObjectID *string)
 
 	// TrackStorjscanUnpaidInvoice sends an event to Segment indicating that a user has not paid an invoice, but has storjscan transaction history.
-	TrackStorjscanUnpaidInvoice(invID string, userID uuid.UUID, email string)
+	TrackStorjscanUnpaidInvoice(invID string, userID uuid.UUID, email string, hubspotObjectID *string)
 }
 
 // LimitRequestInfo holds data needed to request limit increase.
@@ -179,11 +186,12 @@ type LimitRequestInfo struct {
 //
 // architecture: Service
 type Service struct {
-	log           *zap.Logger
-	config        Config
-	satelliteName string
-	clientEvents  map[string]bool
-	sources       map[string]interface{}
+	log                      *zap.Logger
+	config                   Config
+	satelliteName            string
+	satelliteExternalAddress string
+	clientEvents             map[string]bool
+	sources                  map[string]interface{}
 
 	segment   segment.Client
 	hubspot   *HubSpotEvents
@@ -191,15 +199,16 @@ type Service struct {
 }
 
 // NewService creates new service for creating sending analytics.
-func NewService(log *zap.Logger, config Config, satelliteName string) *Service {
+func NewService(log *zap.Logger, config Config, satelliteName, satelliteExternalAddress string) *Service {
 	service := &Service{
-		log:           log,
-		config:        config,
-		satelliteName: satelliteName,
-		clientEvents:  make(map[string]bool),
-		sources:       make(map[string]interface{}),
-		hubspot:       NewHubSpotEvents(log.Named("hubspotclient"), config.HubSpot, satelliteName),
-		plausible:     newPlausibleService(log.Named("plausibleservice"), config.Plausible),
+		log:                      log,
+		config:                   config,
+		satelliteName:            satelliteName,
+		satelliteExternalAddress: satelliteExternalAddress,
+		clientEvents:             make(map[string]bool),
+		sources:                  make(map[string]interface{}),
+		hubspot:                  NewHubSpotEvents(log.Named("hubspotclient"), config.HubSpot, satelliteName),
+		plausible:                newPlausibleService(log.Named("plausibleservice"), config.Plausible),
 	}
 	if config.Enabled {
 		service.segment = segment.New(config.SegmentWriteKey)
@@ -299,6 +308,7 @@ type TrackJoinCunoFSBetaFields struct {
 // TrackOnboardingInfoFields contains input data entered after first login.
 type TrackOnboardingInfoFields struct {
 	ID                     uuid.UUID
+	HubspotObjectID        *string
 	FullName               string
 	Email                  string
 	Type                   UserType
@@ -359,7 +369,7 @@ func (service *Service) TrackCreateUser(fields TrackCreateUserFields) {
 		Traits:      traits,
 	})
 
-	props := service.newPropertiesWithSatellite()
+	props := service.newPropertiesWithOpts(nil)
 	props.Set("email", fields.Email)
 	props.Set("name", fields.FullName)
 	props.Set("account_type", fields.Type)
@@ -451,7 +461,7 @@ func (service *Service) TrackUserOnboardingInfo(fields TrackOnboardingInfoFields
 		Traits: traits,
 	})
 
-	props := service.newPropertiesWithSatellite()
+	props := service.newPropertiesWithOpts(fields.HubspotObjectID)
 	props.Set("email", fields.Email)
 	props.Set("name", fields.FullName)
 	props.Set("account_type", fields.Type)
@@ -476,7 +486,7 @@ func (service *Service) TrackUserOnboardingInfo(fields TrackOnboardingInfoFields
 }
 
 // TrackSignedIn sends an "Signed In" event to Segment.
-func (service *Service) TrackSignedIn(userID uuid.UUID, email string) {
+func (service *Service) TrackSignedIn(userID uuid.UUID, email, anonymousID string, hubspotObjectID *string) {
 	if !service.config.Enabled {
 		return
 	}
@@ -485,11 +495,12 @@ func (service *Service) TrackSignedIn(userID uuid.UUID, email string) {
 	traits.SetEmail(email)
 
 	service.enqueueMessage(segment.Identify{
-		UserId: userID.String(),
-		Traits: traits,
+		UserId:      userID.String(),
+		AnonymousId: anonymousID,
+		Traits:      traits,
 	})
 
-	props := service.newPropertiesWithSatellite()
+	props := service.newPropertiesWithOpts(hubspotObjectID)
 	props.Set("email", email)
 
 	service.enqueueMessage(segment.Track{
@@ -500,12 +511,12 @@ func (service *Service) TrackSignedIn(userID uuid.UUID, email string) {
 }
 
 // TrackProjectCreated sends an "Project Created" event to Segment.
-func (service *Service) TrackProjectCreated(userID uuid.UUID, email string, projectID uuid.UUID, currentProjectCount int, managedPassphrase bool) {
+func (service *Service) TrackProjectCreated(userID uuid.UUID, email string, projectID uuid.UUID, currentProjectCount int, managedPassphrase bool, hubspotObjectID *string) {
 	if !service.config.Enabled {
 		return
 	}
 
-	props := service.newPropertiesWithSatellite()
+	props := service.newPropertiesWithOpts(hubspotObjectID)
 	props.Set("project_count", currentProjectCount)
 	props.Set("project_id", projectID.String())
 	props.Set("email", email)
@@ -524,12 +535,12 @@ func (service *Service) TrackProjectCreated(userID uuid.UUID, email string, proj
 }
 
 // TrackManagedEncryptionError sends an "Managed Encryption Error" event to Segment.
-func (service *Service) TrackManagedEncryptionError(userID uuid.UUID, email string, projectID uuid.UUID, reason string) {
+func (service *Service) TrackManagedEncryptionError(userID uuid.UUID, email string, projectID uuid.UUID, reason string, hubspotObjectID *string) {
 	if !service.config.Enabled {
 		return
 	}
 
-	props := service.newPropertiesWithSatellite()
+	props := service.newPropertiesWithOpts(hubspotObjectID)
 	props.Set("project_id", projectID.String())
 	props.Set("email", email)
 	props.Set("reason", reason)
@@ -542,12 +553,12 @@ func (service *Service) TrackManagedEncryptionError(userID uuid.UUID, email stri
 }
 
 // TrackAccountFrozen sends an account frozen event to Segment.
-func (service *Service) TrackAccountFrozen(userID uuid.UUID, email string) {
+func (service *Service) TrackAccountFrozen(userID uuid.UUID, email string, hubspotObjectID *string) {
 	if !service.config.Enabled {
 		return
 	}
 
-	props := service.newPropertiesWithSatellite()
+	props := service.newPropertiesWithOpts(hubspotObjectID)
 	props.Set("email", email)
 
 	service.enqueueMessage(segment.Track{
@@ -558,12 +569,12 @@ func (service *Service) TrackAccountFrozen(userID uuid.UUID, email string) {
 }
 
 // TrackRequestLimitIncrease sends a limit increase request to Segment.
-func (service *Service) TrackRequestLimitIncrease(userID uuid.UUID, email string, info LimitRequestInfo) {
+func (service *Service) TrackRequestLimitIncrease(userID uuid.UUID, email string, info LimitRequestInfo, hubspotObjectID *string) {
 	if !service.config.Enabled {
 		return
 	}
 
-	props := service.newPropertiesWithSatellite()
+	props := service.newPropertiesWithOpts(hubspotObjectID)
 	props.Set("email", email)
 	if info.ProjectName != "" {
 		props.Set("project", info.ProjectName)
@@ -580,12 +591,12 @@ func (service *Service) TrackRequestLimitIncrease(userID uuid.UUID, email string
 }
 
 // TrackAccountUnfrozen sends an account unfrozen event to Segment.
-func (service *Service) TrackAccountUnfrozen(userID uuid.UUID, email string) {
+func (service *Service) TrackAccountUnfrozen(userID uuid.UUID, email string, hubspotObjectID *string) {
 	if !service.config.Enabled {
 		return
 	}
 
-	props := service.newPropertiesWithSatellite()
+	props := service.newPropertiesWithOpts(hubspotObjectID)
 	props.Set("email", email)
 
 	service.enqueueMessage(segment.Track{
@@ -596,12 +607,12 @@ func (service *Service) TrackAccountUnfrozen(userID uuid.UUID, email string) {
 }
 
 // TrackAccountUnwarned sends an account unwarned event to Segment.
-func (service *Service) TrackAccountUnwarned(userID uuid.UUID, email string) {
+func (service *Service) TrackAccountUnwarned(userID uuid.UUID, email string, hubspotObjectID *string) {
 	if !service.config.Enabled {
 		return
 	}
 
-	props := service.newPropertiesWithSatellite()
+	props := service.newPropertiesWithOpts(hubspotObjectID)
 	props.Set("email", email)
 
 	service.enqueueMessage(segment.Track{
@@ -612,12 +623,12 @@ func (service *Service) TrackAccountUnwarned(userID uuid.UUID, email string) {
 }
 
 // TrackAccountFreezeWarning sends an account freeze warning event to Segment.
-func (service *Service) TrackAccountFreezeWarning(userID uuid.UUID, email string) {
+func (service *Service) TrackAccountFreezeWarning(userID uuid.UUID, email string, hubspotObjectID *string) {
 	if !service.config.Enabled {
 		return
 	}
 
-	props := service.newPropertiesWithSatellite()
+	props := service.newPropertiesWithOpts(hubspotObjectID)
 	props.Set("email", email)
 
 	service.enqueueMessage(segment.Track{
@@ -628,12 +639,12 @@ func (service *Service) TrackAccountFreezeWarning(userID uuid.UUID, email string
 }
 
 // TrackLargeUnpaidInvoice sends an event to Segment indicating that a user has not paid a large invoice.
-func (service *Service) TrackLargeUnpaidInvoice(invID string, userID uuid.UUID, email string) {
+func (service *Service) TrackLargeUnpaidInvoice(invID string, userID uuid.UUID, email string, hubspotObjectID *string) {
 	if !service.config.Enabled {
 		return
 	}
 
-	props := service.newPropertiesWithSatellite()
+	props := service.newPropertiesWithOpts(hubspotObjectID)
 	props.Set("email", email)
 	props.Set("invoice", invID)
 
@@ -645,12 +656,12 @@ func (service *Service) TrackLargeUnpaidInvoice(invID string, userID uuid.UUID, 
 }
 
 // TrackViolationFrozenUnpaidInvoice sends an event to Segment indicating that a violation frozen user has not paid an invoice.
-func (service *Service) TrackViolationFrozenUnpaidInvoice(invID string, userID uuid.UUID, email string) {
+func (service *Service) TrackViolationFrozenUnpaidInvoice(invID string, userID uuid.UUID, email string, hubspotObjectID *string) {
 	if !service.config.Enabled {
 		return
 	}
 
-	props := service.newPropertiesWithSatellite()
+	props := service.newPropertiesWithOpts(hubspotObjectID)
 	props.Set("email", email)
 	props.Set("invoice", invID)
 
@@ -663,12 +674,12 @@ func (service *Service) TrackViolationFrozenUnpaidInvoice(invID string, userID u
 
 // TrackLegalHoldUnpaidInvoice sends an event to Segment indicating that a user has not paid an invoice
 // but is in legal hold.
-func (service *Service) TrackLegalHoldUnpaidInvoice(invID string, userID uuid.UUID, email string) {
+func (service *Service) TrackLegalHoldUnpaidInvoice(invID string, userID uuid.UUID, email string, hubspotObjectID *string) {
 	if !service.config.Enabled {
 		return
 	}
 
-	props := service.newPropertiesWithSatellite()
+	props := service.newPropertiesWithOpts(hubspotObjectID)
 	props.Set("email", email)
 	props.Set("invoice", invID)
 
@@ -680,12 +691,12 @@ func (service *Service) TrackLegalHoldUnpaidInvoice(invID string, userID uuid.UU
 }
 
 // TrackStorjscanUnpaidInvoice sends an event to Segment indicating that a user has not paid an invoice, but has storjscan transaction history.
-func (service *Service) TrackStorjscanUnpaidInvoice(invID string, userID uuid.UUID, email string) {
+func (service *Service) TrackStorjscanUnpaidInvoice(invID string, userID uuid.UUID, email string, hubspotObjectID *string) {
 	if !service.config.Enabled {
 		return
 	}
 
-	props := service.newPropertiesWithSatellite()
+	props := service.newPropertiesWithOpts(hubspotObjectID)
 	props.Set("email", email)
 	props.Set("invoice", invID)
 
@@ -697,12 +708,12 @@ func (service *Service) TrackStorjscanUnpaidInvoice(invID string, userID uuid.UU
 }
 
 // TrackAccessGrantCreated sends an "Access Grant Created" event to Segment.
-func (service *Service) TrackAccessGrantCreated(userID uuid.UUID, email string) {
+func (service *Service) TrackAccessGrantCreated(userID uuid.UUID, email string, hubspotObjectID *string) {
 	if !service.config.Enabled {
 		return
 	}
 
-	props := service.newPropertiesWithSatellite()
+	props := service.newPropertiesWithOpts(hubspotObjectID)
 	props.Set("email", email)
 
 	service.enqueueMessage(segment.Track{
@@ -713,7 +724,7 @@ func (service *Service) TrackAccessGrantCreated(userID uuid.UUID, email string) 
 }
 
 // TrackAccountVerified sends an "Account Verified" event to Segment.
-func (service *Service) TrackAccountVerified(userID uuid.UUID, email string) {
+func (service *Service) TrackAccountVerified(userID uuid.UUID, email string, hubspotObjectID *string) {
 	if !service.config.Enabled {
 		return
 	}
@@ -726,7 +737,7 @@ func (service *Service) TrackAccountVerified(userID uuid.UUID, email string) {
 		Traits: traits,
 	})
 
-	props := service.newPropertiesWithSatellite()
+	props := service.newPropertiesWithOpts(hubspotObjectID)
 	props.Set("email", email)
 
 	service.enqueueMessage(segment.Track{
@@ -738,7 +749,7 @@ func (service *Service) TrackAccountVerified(userID uuid.UUID, email string) {
 
 // TrackEvent sends an arbitrary event associated with user ID to Segment.
 // It is used for tracking occurrences of client-side events.
-func (service *Service) TrackEvent(eventName string, userID uuid.UUID, email string, customProps map[string]string) {
+func (service *Service) TrackEvent(eventName string, userID uuid.UUID, email string, customProps map[string]string, hubspotObjectID *string) {
 	if !service.config.Enabled {
 		return
 	}
@@ -756,7 +767,7 @@ func (service *Service) TrackEvent(eventName string, userID uuid.UUID, email str
 		}
 	}
 
-	props := service.newPropertiesWithSatellite()
+	props := service.newPropertiesWithOpts(hubspotObjectID)
 	props.Set("email", email)
 
 	for key, value := range customProps {
@@ -772,14 +783,21 @@ func (service *Service) TrackEvent(eventName string, userID uuid.UUID, email str
 
 // TrackErrorEvent sends an arbitrary error event associated with user ID to Segment.
 // It is used for tracking occurrences of client-side errors.
-func (service *Service) TrackErrorEvent(userID uuid.UUID, email, source string) {
+func (service *Service) TrackErrorEvent(userID uuid.UUID, email, source, requestID string, statusCode int, hubspotObjectID *string) {
 	if !service.config.Enabled {
 		return
 	}
 
-	props := service.newPropertiesWithSatellite()
+	props := service.newPropertiesWithOpts(hubspotObjectID)
 	props.Set("email", email)
 	props.Set("source", source)
+
+	if requestID != "" {
+		props.Set("request_id", requestID)
+	}
+	if statusCode != 0 {
+		props.Set("status_code", statusCode)
+	}
 
 	service.enqueueMessage(segment.Track{
 		UserId:     userID.String(),
@@ -790,7 +808,7 @@ func (service *Service) TrackErrorEvent(userID uuid.UUID, email, source string) 
 
 // TrackLinkEvent sends an arbitrary event and link associated with user ID to Segment.
 // It is used for tracking occurrences of client-side events.
-func (service *Service) TrackLinkEvent(eventName string, userID uuid.UUID, email, link string) {
+func (service *Service) TrackLinkEvent(eventName string, userID uuid.UUID, email, link string, hubspotObjectID *string) {
 	if !service.config.Enabled {
 		return
 	}
@@ -801,7 +819,7 @@ func (service *Service) TrackLinkEvent(eventName string, userID uuid.UUID, email
 		return
 	}
 
-	props := service.newPropertiesWithSatellite()
+	props := service.newPropertiesWithOpts(hubspotObjectID)
 	props.Set("link", link)
 	props.Set("email", email)
 
@@ -813,12 +831,12 @@ func (service *Service) TrackLinkEvent(eventName string, userID uuid.UUID, email
 }
 
 // TrackCreditCardAdded sends an "Credit Card Added" event to Segment.
-func (service *Service) TrackCreditCardAdded(userID uuid.UUID, email string) {
+func (service *Service) TrackCreditCardAdded(userID uuid.UUID, email string, hubspotObjectID *string) {
 	if !service.config.Enabled {
 		return
 	}
 
-	props := service.newPropertiesWithSatellite()
+	props := service.newPropertiesWithOpts(hubspotObjectID)
 	props.Set("email", email)
 
 	service.enqueueMessage(segment.Track{
@@ -830,12 +848,12 @@ func (service *Service) TrackCreditCardAdded(userID uuid.UUID, email string) {
 
 // PageVisitEvent sends a page visit event associated with user ID to Segment.
 // It is used for tracking occurrences of client-side events.
-func (service *Service) PageVisitEvent(pageName string, userID uuid.UUID, email string) {
+func (service *Service) PageVisitEvent(pageName string, userID uuid.UUID, email string, hubspotObjectID *string) {
 	if !service.config.Enabled {
 		return
 	}
 
-	props := service.newPropertiesWithSatellite()
+	props := service.newPropertiesWithOpts(hubspotObjectID)
 	props.Set("email", email)
 	props.Set("path", pageName)
 	props.Set("user_id", userID.String())
@@ -857,12 +875,12 @@ func (service *Service) PageViewEvent(ctx context.Context, pv PageViewBody) erro
 }
 
 // TrackProjectLimitError sends an "Project Limit Error" event to Segment.
-func (service *Service) TrackProjectLimitError(userID uuid.UUID, email string) {
+func (service *Service) TrackProjectLimitError(userID uuid.UUID, email string, hubspotObjectID *string) {
 	if !service.config.Enabled {
 		return
 	}
 
-	props := service.newPropertiesWithSatellite()
+	props := service.newPropertiesWithOpts(hubspotObjectID)
 	props.Set("email", email)
 
 	service.enqueueMessage(segment.Track{
@@ -873,12 +891,12 @@ func (service *Service) TrackProjectLimitError(userID uuid.UUID, email string) {
 }
 
 // TrackStorjTokenAdded sends an "Storj Token Added" event to Segment.
-func (service *Service) TrackStorjTokenAdded(userID uuid.UUID, email string) {
+func (service *Service) TrackStorjTokenAdded(userID uuid.UUID, email string, hubspotObjectID *string) {
 	if !service.config.Enabled {
 		return
 	}
 
-	props := service.newPropertiesWithSatellite()
+	props := service.newPropertiesWithOpts(hubspotObjectID)
 	props.Set("email", email)
 
 	service.enqueueMessage(segment.Track{
@@ -889,12 +907,12 @@ func (service *Service) TrackStorjTokenAdded(userID uuid.UUID, email string) {
 }
 
 // TrackProjectMemberAddition sends an "Project Member Added" event to Segment.
-func (service *Service) TrackProjectMemberAddition(userID uuid.UUID, email string) {
+func (service *Service) TrackProjectMemberAddition(userID uuid.UUID, email string, hubspotObjectID *string) {
 	if !service.config.Enabled {
 		return
 	}
 
-	props := service.newPropertiesWithSatellite()
+	props := service.newPropertiesWithOpts(hubspotObjectID)
 	props.Set("email", email)
 
 	service.enqueueMessage(segment.Track{
@@ -905,12 +923,12 @@ func (service *Service) TrackProjectMemberAddition(userID uuid.UUID, email strin
 }
 
 // TrackProjectMemberDeletion sends an "Project Member Deleted" event to Segment.
-func (service *Service) TrackProjectMemberDeletion(userID uuid.UUID, email string) {
+func (service *Service) TrackProjectMemberDeletion(userID uuid.UUID, email string, hubspotObjectID *string) {
 	if !service.config.Enabled {
 		return
 	}
 
-	props := service.newPropertiesWithSatellite()
+	props := service.newPropertiesWithOpts(hubspotObjectID)
 	props.Set("email", email)
 
 	service.enqueueMessage(segment.Track{
@@ -921,12 +939,12 @@ func (service *Service) TrackProjectMemberDeletion(userID uuid.UUID, email strin
 }
 
 // TrackExpiredCreditNeedsRemoval sends an "Expired Credit Needs Removal" event to Segment.
-func (service *Service) TrackExpiredCreditNeedsRemoval(userID uuid.UUID, customerID, packagePlan string) {
+func (service *Service) TrackExpiredCreditNeedsRemoval(userID uuid.UUID, customerID, packagePlan string, hubspotObjectID *string) {
 	if !service.config.Enabled {
 		return
 	}
 
-	props := service.newPropertiesWithSatellite()
+	props := service.newPropertiesWithOpts(hubspotObjectID)
 	props.Set("customer ID", customerID)
 	props.Set("package plan", packagePlan)
 
@@ -938,12 +956,12 @@ func (service *Service) TrackExpiredCreditNeedsRemoval(userID uuid.UUID, custome
 }
 
 // TrackExpiredCreditRemoved sends an "Expired Credit Removed" event to Segment.
-func (service *Service) TrackExpiredCreditRemoved(userID uuid.UUID, customerID, packagePlan string) {
+func (service *Service) TrackExpiredCreditRemoved(userID uuid.UUID, customerID, packagePlan string, hubspotObjectID *string) {
 	if !service.config.Enabled {
 		return
 	}
 
-	props := service.newPropertiesWithSatellite()
+	props := service.newPropertiesWithOpts(hubspotObjectID)
 	props.Set("customer ID", customerID)
 	props.Set("package plan", packagePlan)
 
@@ -960,7 +978,7 @@ func (service *Service) TrackInviteLinkSignup(inviter, invitee string) {
 		return
 	}
 
-	props := service.newPropertiesWithSatellite()
+	props := service.newPropertiesWithOpts(nil)
 	props.Set("inviter", inviter)
 	props.Set("invitee", invitee)
 
@@ -976,7 +994,7 @@ func (service *Service) TrackInviteLinkClicked(inviter, invitee string) {
 		return
 	}
 
-	props := service.newPropertiesWithSatellite()
+	props := service.newPropertiesWithOpts(nil)
 	props.Set("inviter", inviter)
 	props.Set("invitee", invitee)
 
@@ -987,12 +1005,12 @@ func (service *Service) TrackInviteLinkClicked(inviter, invitee string) {
 }
 
 // TrackUserUpgraded sends a "User Upgraded" event to Segment.
-func (service *Service) TrackUserUpgraded(userID uuid.UUID, email string, expiration *time.Time) {
+func (service *Service) TrackUserUpgraded(userID uuid.UUID, email string, expiration *time.Time, hubspotObjectID *string) {
 	if !service.config.Enabled {
 		return
 	}
 
-	props := service.newPropertiesWithSatellite()
+	props := service.newPropertiesWithOpts(hubspotObjectID)
 	props.Set("email", email)
 
 	now := time.Now()
@@ -1018,8 +1036,60 @@ func (service *Service) TrackUserUpgraded(userID uuid.UUID, email string, expira
 	})
 }
 
-func (service *Service) newPropertiesWithSatellite() segment.Properties {
+// ValidateAccountObjectCreatedRequestSignature validates the signature of the AccountObjectCreatedRequest.
+func (service *Service) ValidateAccountObjectCreatedRequestSignature(
+	request AccountObjectCreatedRequest,
+	signatureHeader, timestampHeader string,
+) error {
+	if !service.config.Enabled {
+		return nil
+	}
+
+	timestampInt, err := strconv.ParseInt(timestampHeader, 10, 64)
+	if err != nil {
+		return Error.New("invalid request timestamp")
+	}
+
+	if time.Since(time.UnixMilli(timestampInt)) > service.config.HubSpot.WebhookRequestLifetime {
+		return Error.New("webhook request is too old")
+	}
+
+	jsonBytes, err := json.Marshal(request)
+	if err != nil {
+		return Error.Wrap(err)
+	}
+
+	link, err := url.JoinPath(service.satelliteExternalAddress, service.config.HubSpot.AccountObjectCreatedWebhookEndpoint)
+	if err != nil {
+		return Error.Wrap(err)
+	}
+
+	rawString := http.MethodPost + link + string(jsonBytes) + timestampHeader
+
+	h := hmac.New(sha256.New, []byte(service.config.HubSpot.ClientSecret))
+	if _, err = h.Write([]byte(rawString)); err != nil {
+		return Error.Wrap(err)
+	}
+	hashedString := base64.StdEncoding.EncodeToString(h.Sum(nil))
+
+	if !hmac.Equal([]byte(hashedString), []byte(signatureHeader)) {
+		return Error.New("signature does not match: request is invalid")
+	}
+
+	return nil
+}
+
+// TestSetSatelliteExternalAddress sets the satellite external address for testing purposes.
+func (service *Service) TestSetSatelliteExternalAddress(address string) {
+	service.satelliteExternalAddress = address
+}
+
+func (service *Service) newPropertiesWithOpts(hubspotObjectID *string) segment.Properties {
 	props := segment.NewProperties()
 	props.Set("satellite", service.satelliteName)
+	if hubspotObjectID != nil {
+		props.Set("hubspot_object_id", *hubspotObjectID)
+	}
+
 	return props
 }

@@ -50,7 +50,17 @@ func (c *cmdAccessRegister) Execute(ctx context.Context) (err error) {
 		return err
 	}
 
-	credentials, err := RegisterAccess(ctx, access, c.authService, c.public, c.caCert)
+	info, err := c.ex.GetEdgeUrlOverrides(ctx, access)
+	if err != nil {
+		return err
+	}
+
+	authService := c.authService
+
+	if info.AuthService != "" {
+		authService = info.AuthService
+	}
+	credentials, err := RegisterAccess(ctx, access, authService, c.public, c.caCert)
 	if err != nil {
 		return err
 	}

@@ -10,7 +10,7 @@
 
 <script setup lang="ts">
 import { DialogStepComponent } from '@/types/common';
-import { useNotify } from '@/utils/hooks';
+import { useNotify } from '@/composables/useNotify';
 import { useBucketsStore } from '@/store/modules/bucketsStore';
 
 const bucketsStore = useBucketsStore();

@@ -58,10 +58,13 @@ export enum AnalyticsEvent {
 }
 
 export enum AnalyticsErrorEventSource {
+    ACCESS_GRANTS_WEB_WORKER = 'Access grant web worker',
     ACCESS_GRANTS_PAGE = 'Access grants page',
     ACCOUNT_PAGE = 'Account page',
     ACCOUNT_SETTINGS_AREA = 'Account settings area',
     ACCOUNT_SETUP_DIALOG = 'Account setup dialog',
+    ACCOUNT_DELETE_DIALOG = 'Account delete dialog',
+    PROJECT_DELETE_DIALOG = 'Project delete dialog',
     BILLING_HISTORY_TAB = 'Billing history tab',
     BILLING_PAYMENT_METHODS_TAB = 'Billing payment methods tab',
     BILLING_APPLY_COUPON_CODE_INPUT = 'Billing apply coupon code input',
@@ -78,6 +81,7 @@ export enum AnalyticsErrorEventSource {
     UPGRADE_ACCOUNT_MODAL = 'Upgrade account modal',
     ADD_PROJECT_MEMBER_MODAL = 'Add project member modal',
     CHANGE_PASSWORD_MODAL = 'Change password modal',
+    CHANGE_EMAIL_DIALOG = 'Change email dialog',
     CREATE_PROJECT_MODAL = 'Create project modal',
     CREATE_PROJECT_PASSPHRASE_MODAL = 'Create project passphrase modal',
     CREATE_BUCKET_MODAL = 'Create bucket modal',
@@ -118,6 +122,7 @@ export enum AnalyticsErrorEventSource {
     LEGAL_HOLD_DIALOG = 'Legal Hold Dialog',
     ADD_FUNDS_DIALOG = 'Add Funds Dialog',
     DOWNLOAD_PREFIX_DIALOG = 'Download Prefix Dialog',
+    APPLICATION_BAR = 'Application bar',
 }
 
 export enum PageVisitSource {

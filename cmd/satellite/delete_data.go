@@ -8,9 +8,11 @@ import (
 	"database/sql"
 	"encoding/csv"
 	"errors"
+	"fmt"
 	"io"
 	"os"
 	"strings"
+	"time"
 
 	"github.com/spf13/cobra"
 	"github.com/zeebo/errs"
@@ -22,6 +24,8 @@ import (
 	"storj.io/storj/satellite/buckets"
 	"storj.io/storj/satellite/console"
 	"storj.io/storj/satellite/metabase"
+	"storj.io/storj/satellite/payments"
+	"storj.io/storj/satellite/payments/stripe"
 	"storj.io/storj/satellite/satellitedb"
 )
 
@@ -35,7 +39,7 @@ func cmdDeleteObjects(cmd *cobra.Command, args []string) error {
 		RevocationLRUOptions: runCfg.RevocationLRUOptions(),
 	})
 	if err != nil {
-		return errs.New("Error connecting to satellite database: %+v", err)
+		return errs.New("error connecting to satellite database: %+v", err)
 	}
 	defer func() {
 		err = errs.Combine(err, satDB.Close())
@@ -43,7 +47,7 @@ func cmdDeleteObjects(cmd *cobra.Command, args []string) error {
 
 	metabaseDB, err := metabase.Open(ctx, log.Named("metabase"), runCfg.Metainfo.DatabaseURL, runCfg.Metainfo.Metabase("satellite-rangedloop"))
 	if err != nil {
-		return errs.New("Error creating metabase connection: %+v", err)
+		return errs.New("error creating metabase connection: %+v", err)
 	}
 	defer func() {
 		err = errs.Combine(err, metabaseDB.Close())
@@ -57,12 +61,41 @@ func cmdDeleteObjects(cmd *cobra.Command, args []string) error {
 		err = errs.Combine(err, csvFile.Close())
 	}()
 
-	return deleteObjects(ctx, log, satDB, metabaseDB, csvFile)
+	return deleteObjects(ctx, log, satDB, metabaseDB, batchSizeDeleteObjects, csvFile)
 }
 
-func cmdDeleteAccounts(_ *cobra.Command, _ []string) error {
-	// TODO: implement it
-	panic("not implemented")
+func cmdDeleteAccounts(cmd *cobra.Command, args []string) error {
+	ctx, _ := process.Ctx(cmd)
+	log := zap.L()
+
+	satDB, err := satellitedb.Open(ctx, log.Named("db"), runCfg.Database, satellitedb.Options{
+		ApplicationName:      "satellite-delete-data",
+		APIKeysLRUOptions:    runCfg.APIKeysLRUOptions(),
+		RevocationLRUOptions: runCfg.RevocationLRUOptions(),
+	})
+	if err != nil {
+		return errs.New("error connecting to satellite database: %+v", err)
+	}
+	defer func() {
+		err = errs.Combine(err, satDB.Close())
+	}()
+
+	csvFile, err := os.Open(args[0])
+	if err != nil {
+		return errs.New("error opening CSV file: %+v", err)
+	}
+	defer func() {
+		err = errs.Combine(err, csvFile.Close())
+	}()
+
+	stripeService, err := setupPayments(log, satDB)
+	if err != nil {
+		return errs.New("error setting up Stripe service: %+v", err)
+	}
+
+	return deleteAccounts(
+		ctx, log, satDB, stripeService.Accounts().Invoices(), csvFile,
+	)
 }
 
 // deleteObjects for each user's account with the email in csvData, delete all the objects and
@@ -73,7 +106,8 @@ func cmdDeleteAccounts(_ *cobra.Command, _ []string) error {
 //
 // It returns an error when a system error is found or when the CSV file has an error.
 func deleteObjects(
-	ctx context.Context, log *zap.Logger, satDB satellite.DB, metabaseDB *metabase.DB, csvData io.Reader,
+	ctx context.Context, log *zap.Logger, satDB satellite.DB, metabaseDB *metabase.DB, batchSize int,
+	csvData io.Reader,
 ) error {
 	rows := CSVEmails{
 		Data:       csvData,
@@ -110,6 +144,7 @@ func deleteObjects(
 							ProjectID:  p.ID,
 							BucketName: metabase.BucketName(b.Name),
 						},
+						BatchSize: batchSize,
 					})
 					if err != nil {
 						return errs.New(
@@ -128,6 +163,184 @@ func deleteObjects(
 
 				blopts = blopts.NextPage(bcks)
 			}
+		}
+
+		return nil
+	})
+}
+
+// deleteAccounts for each user's account with the email in csvData, redacts the user's personal
+// information and mark the account as deleted, marks their associated projects as disabled, and
+// delete their API keys.
+//
+// The user's accounts that they fulfill the following requirements are skipped and logged with an
+// error message:
+//
+// - The account must be in "pending deletion" status.
+//
+// - If the account is in the paid tier:
+//
+//   - All the invoices must not be in "open" or "draft" status.
+//
+//   - There are no pending invoice items.
+//
+//   - All the projects must not have any usage in the current month.
+//
+//   - All the projects must not have any usage in the last month without a created invoice.
+//
+// - Its projects must not have any buckets.
+//
+// It returns an error when a system error is found or when the CSV file has an error.
+func deleteAccounts(
+	ctx context.Context, log *zap.Logger, satDB satellite.DB, invoices payments.Invoices,
+	csvData io.Reader,
+) error {
+	var (
+		projectAccounting = satDB.ProjectAccounting()
+		projectRecords    = satDB.StripeCoinPayments().ProjectRecords()
+	)
+
+	rows := CSVEmails{
+		Data:       csvData,
+		UserStatus: console.PendingDeletion,
+		Log:        log,
+		DB:         satDB.Console(),
+	}
+
+	return rows.ForEach(ctx, func(user *console.User, projects []console.Project) error {
+		if user.PaidTier {
+			{ // Check if the user has pending invoices.
+				list, err := invoices.List(ctx, user.ID)
+				if err != nil {
+					return errs.New(
+						"error listing invoices for user %q: %+v", user.Email, err,
+					)
+				}
+
+				for _, inv := range list {
+					if inv.Status == payments.InvoiceStatusOpen || inv.Status == payments.InvoiceStatusDraft {
+						log.Error(
+							"cannot mark as deleted the account because it has pending invoices ('open' or 'draft')",
+							zap.String("user_email", user.Email),
+						)
+						return nil
+					}
+				}
+			}
+
+			// Check if the user has pending invoice items.
+			hasPendingItems, err := invoices.CheckPendingItems(ctx, user.ID)
+			if err != nil {
+				return errs.New(
+					"error checking pending invoice items for user %q: %+v", user.Email, err,
+				)
+			}
+			if hasPendingItems {
+				log.Error(
+					"cannot mark as deleted the account because it has pending invoice items",
+					zap.String("user_email", user.Email),
+				)
+				return nil
+			}
+
+			now := time.Now().UTC()
+			year, month, _ := now.Date()
+			firstOfMonth := time.Date(year, month, 1, 0, 0, 0, 0, time.UTC)
+			for _, p := range projects {
+				// Check if there is usage this month.
+				usage, err := projectAccounting.GetProjectTotal(ctx, p.ID, firstOfMonth, now)
+				if err != nil {
+					return errs.New(
+						"error getting usage for project %q (user: %q): %+v", p.ID, user.Email, err,
+					)
+				}
+
+				if usage.Storage > 0 || usage.Egress > 0 || usage.SegmentCount > 0 {
+					log.Error(
+						"cannot mark as deleted the account because the project has usage",
+						zap.String("user_email", user.Email),
+						zap.String("project_id", p.ID.String()),
+					)
+					return nil
+				}
+
+				// Check usage for last month, if exists, ensure we have an invoice item created.
+				usage, err = projectAccounting.GetProjectTotal(
+					ctx, p.ID, firstOfMonth.AddDate(0, -1, 0), firstOfMonth.AddDate(0, 0, -1),
+				)
+				if err != nil {
+					return errs.New("error getting usage for project %q (user: %q): %+v", p.ID, user.Email, err)
+				}
+
+				if usage.Storage > 0 || usage.Egress > 0 || usage.SegmentCount > 0 {
+					err = projectRecords.Check(ctx, p.ID, firstOfMonth.AddDate(0, -1, 0), firstOfMonth)
+					if !errors.Is(err, stripe.ErrProjectRecordExists) {
+						if err != nil {
+							return errs.New(
+								"error checking project record for project %q (user: %q): %+v", p.ID, user.Email, err,
+							)
+						}
+
+						log.Error(
+							"cannot mark as deleted the account because the project has usage last month and not invoiced yet",
+							zap.String("user_email", user.Email),
+							zap.String("project_id", p.ID.String()),
+						)
+						return nil
+					}
+				}
+			}
+		}
+
+		for _, p := range projects {
+			bcks, err := satDB.Buckets().ListBuckets(ctx,
+				p.ID, buckets.ListOptions{
+					Direction: buckets.DirectionForward,
+					Limit:     1,
+				}, macaroon.AllowedBuckets{All: true})
+			if err != nil {
+				return errs.New(
+					"error listing buckets for project %q (user: %q): %+v", p.ID, user.Email, err,
+				)
+			}
+			if len(bcks.Items) > 0 {
+				log.Error(
+					"cannot mark as deleted the account because the project has buckets",
+					zap.String("email", user.Email),
+					zap.String("project", p.ID.String()),
+				)
+				return nil
+			}
+
+			if err := satDB.Console().APIKeys().DeleteAllByProjectID(ctx, p.ID); err != nil {
+				return errs.New(
+					"error deleting API keys for project %q (user: %q): %+v", p.ID, user.Email, err,
+				)
+			}
+
+			if err := satDB.Console().Projects().UpdateStatus(ctx, p.ID, console.ProjectDisabled); err != nil {
+				return errs.New(
+					"error updating project status %q (user: %q) to 'disabled': %+v", p.ID, user.Email, err,
+				)
+			}
+		}
+
+		emptyName := ""
+		emptyNamePtr := &emptyName
+		deactivatedEmail := fmt.Sprintf("deactivated+%s@storj.io", user.ID.String())
+		status := console.Deleted
+
+		err := satDB.Console().Users().Update(ctx, user.ID, console.UpdateUserRequest{
+			FullName:  &emptyName,
+			ShortName: &emptyNamePtr,
+			Email:     &deactivatedEmail,
+			Status:    &status,
+		})
+		if err != nil {
+			return errs.New(
+				"error updating user %q to redact its personal data and set it to 'deleted' status: %+v",
+				user.Email, err,
+			)
 		}
 
 		return nil

@@ -120,7 +120,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed } from 'vue';
+import { ref, computed, watch } from 'vue';
 import { FolderArchive, Check, Download } from 'lucide-vue-next';
 import {
     VDialog,
@@ -137,10 +137,11 @@ import {
     VSheet,
     VChip,
 } from 'vuetify/components';
+import { useDisplay } from 'vuetify';
 
 import { useLoading } from '@/composables/useLoading';
 import { usePreCheck } from '@/composables/usePreCheck';
-import { useNotify } from '@/utils/hooks';
+import { useNotify } from '@/composables/useNotify';
 import { useLinksharing } from '@/composables/useLinksharing';
 import { DownloadPrefixFormat, DownloadPrefixType } from '@/types/browser';
 import { AnalyticsErrorEventSource } from '@/utils/constants/analyticsEventNames';
@@ -149,15 +150,19 @@ import { useProjectsStore } from '@/store/modules/projectsStore';
 import { EdgeCredentials } from '@/types/accessGrants';
 import { useConfigStore } from '@/store/modules/configStore';
 
-const props = defineProps<{
+const props = withDefaults(defineProps<{
     prefixType: DownloadPrefixType
-    path: string
-}>();
+    bucket: string
+    prefix?: string
+}>(), {
+    prefix: '',
+});
 
 const notify = useNotify();
 const { withTrialCheck, withManagedPassphraseCheck } = usePreCheck();
 const { isLoading, withLoading } = useLoading();
 const { downloadPrefix } = useLinksharing();
+const { platform } = useDisplay();
 
 const bucketsStore = useBucketsStore();
 const projectsStore = useProjectsStore();
@@ -180,11 +185,6 @@ const edgeCredentials = computed((): EdgeCredentials => bucketsStore.state.edgeC
 async function onDownload(): Promise<void> {
     withTrialCheck(() => { withManagedPassphraseCheck(async () => {
         await withLoading(async () => {
-            if (!props.path) {
-                notify.error('Path is not provided', AnalyticsErrorEventSource.DOWNLOAD_PREFIX_DIALOG);
-                return;
-            }
-
             if (!edgeCredentials.value.accessKeyId) {
                 try {
                     await bucketsStore.setS3Client(projectsStore.state.selectedProject.id);
@@ -195,14 +195,25 @@ async function onDownload(): Promise<void> {
             }
 
             try {
-                await downloadPrefix(props.path, downloadFormat.value);
+                await downloadPrefix(props.bucket, props.prefix, downloadFormat.value);
                 model.value = false;
             } catch (error) {
-                notify.error(`Unable to download ${props.prefixType}. ${error.message}`, AnalyticsErrorEventSource.DOWNLOAD_PREFIX_DIALOG);
+                error.message = `Unable to download ${props.prefixType}. ${error.message}`;
+                notify.notifyError(error, AnalyticsErrorEventSource.DOWNLOAD_PREFIX_DIALOG);
             }
         });
     });});
 }
+
+watch(model, async newVal => {
+    if (newVal) {
+        if (platform.value.linux || platform.value.mac) {
+            downloadFormat.value = DownloadPrefixFormat.TAR_GZ;
+        } else {
+            downloadFormat.value = DownloadPrefixFormat.ZIP;
+        }
+    }
+});
 </script>
 
 <style scoped lang="scss">
