@@ -19,6 +19,10 @@ import (
 
 type shortKey = [5]byte
 
+func shortKeyFrom(k Key) shortKey {
+	return *(*shortKey)(k[len(Key{})-len(shortKey{}):])
+}
+
 type memtblIdx uint32 // index of a record in the memtbl (^0 means promoted)
 
 const memtbl_Promoted = ^memtblIdx(0)
@@ -185,7 +189,7 @@ func (m *MemTbl) loadEntries(ctx context.Context) (err error) {
 
 // insertKeyLocked associates the key with the memtbl index, promoting in case there is a collision.
 func (m *MemTbl) insertKeyLocked(key Key, idx memtblIdx) error {
-	short := *(*shortKey)(key[:])
+	short := shortKeyFrom(key)
 	value := memtblIdxToValue(idx)
 	exValue, ok := m.entries[short]
 	exIdx := valueToMemtblIdx(exValue)
@@ -231,7 +235,7 @@ func (m *MemTbl) deleteKeyLocked(key Key) {
 	if _, ok := m.collisions[key]; ok {
 		delete(m.collisions, key)
 	} else {
-		delete(m.entries, *(*shortKey)(key[:]))
+		delete(m.entries, shortKeyFrom(key))
 	}
 }
 
@@ -241,7 +245,7 @@ func (m *MemTbl) deleteKeyLocked(key Key) {
 // collision. It is the responsibility of the caller to read the record associated with that index
 // and check the equality of the keys.
 func (m *MemTbl) keyIndexLocked(key Key) (idx memtblIdx, ok bool) {
-	if value, ok := m.entries[*(*shortKey)(key[:])]; !ok {
+	if value, ok := m.entries[shortKeyFrom(key)]; !ok {
 		return 0, false
 	} else if idx = valueToMemtblIdx(value); idx != memtbl_Promoted {
 		return idx, true
