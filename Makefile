@@ -467,7 +467,6 @@ binary-check:
 .PHONY: jobq_%
 jobq_%:
 	$(MAKE) binary-check COMPONENT=jobq GOARCH=$(word 3, $(subst _, ,$@)) GOOS=$(word 2, $(subst _, ,$@))
-
 .PHONY: certificates_%
 certificates_%:
 	$(MAKE) binary-check COMPONENT=certificates GOARCH=$(word 3, $(subst _, ,$@)) GOOS=$(word 2, $(subst _, ,$@))
