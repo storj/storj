@@ -90,12 +90,10 @@ export class BucketsPage {
     }
 
     async verifyDeleteBucket(name: string): Promise<void> {
-        const amountBefore = await this.page.locator(BucketsPageObjects.BUCKET_ROWS_AMOUNT).count();
         await this.page.locator(BucketsPageObjects.DELETE_BUCKET_BUTTON_XPATH).click();
         await this.page.locator(BucketsPageObjects.CONFIRM_DELETE_INPUT_FIELD_XPATH).fill('DELETE');
         await this.page.locator(BucketsPageObjects.CONFIRM_BUTTON_DELETE_BUCKET_FLOW_XPATH).click();
         await expect(this.page.getByRole('button', { name: `Bucket ${name}` })).toBeHidden();
-        const amountAfter = await this.page.locator(BucketsPageObjects.BUCKET_ROWS_AMOUNT).count();
-        await expect(amountBefore).toBe(amountAfter);
+        await expect(await this.page.locator(BucketsPageObjects.BUCKET_ROWS).allTextContents()).toContain('No buckets found');
     }
 }
