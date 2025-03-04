@@ -512,8 +512,13 @@ func (planet *Planet) newSatellite(ctx context.Context, prefix string, index int
 		planet.config.Reconfigure.Satellite(log, index, &config)
 	}
 
+	metabaseConfig := config.Metainfo.Metabase("satellite-testplanet")
+	if planet.config.Reconfigure.SatelliteMetabaseDBConfig != nil {
+		planet.config.Reconfigure.SatelliteMetabaseDBConfig(log, index, &metabaseConfig)
+	}
+
 	metabaseDB, err := satellitedbtest.CreateMetabaseDB(context.TODO(), log.Named("metabase"), planet.config.Name, "M", index, databases.MetabaseDB,
-		config.Metainfo.Metabase("satellite-testplanet"))
+		metabaseConfig)
 	if err != nil {
 		return nil, errs.Wrap(err)
 	}

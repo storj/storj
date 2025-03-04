@@ -48,6 +48,7 @@ type Config struct {
 
 	TestingUniqueUnversioned bool
 	TestingSpannerProjects   map[uuid.UUID]struct{}
+	TestingWrapAdapter       func(Adapter) Adapter
 
 	Compression string
 }
@@ -148,6 +149,15 @@ func Open(ctx context.Context, log *zap.Logger, connstr string, config Config) (
 
 		if log.Level() == zap.DebugLevel {
 			log.Debug("Connected", zap.String("db source", logging.Redacted(connstr)), zap.Int("db adapter ordinal", i))
+		}
+	}
+
+	if db.config.TestingWrapAdapter != nil {
+		for i, adapter := range db.adapters {
+			db.adapters[i] = db.config.TestingWrapAdapter(adapter)
+		}
+		for projectID, adapter := range db.projectsAdapters {
+			db.projectsAdapters[projectID] = db.config.TestingWrapAdapter(adapter)
 		}
 	}
 

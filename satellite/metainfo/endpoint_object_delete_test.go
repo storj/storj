@@ -5,7 +5,9 @@ package metainfo_test
 
 import (
 	"context"
+	"errors"
 	"strconv"
+	"strings"
 	"sync"
 	"testing"
 	"time"
@@ -13,7 +15,9 @@ import (
 	"github.com/stretchr/testify/require"
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
+	"golang.org/x/exp/slices"
 
+	"storj.io/common/errs2"
 	"storj.io/common/macaroon"
 	"storj.io/common/memory"
 	"storj.io/common/pb"
@@ -26,6 +30,7 @@ import (
 	"storj.io/storj/private/testplanet"
 	"storj.io/storj/satellite"
 	"storj.io/storj/satellite/buckets"
+	"storj.io/storj/satellite/internalpb"
 	"storj.io/storj/satellite/metabase"
 	"storj.io/storj/satellite/metabase/metabasetest"
 	"storj.io/storj/satellite/metainfo"
@@ -550,4 +555,797 @@ func TestEndpoint_DeleteLockedObject(t *testing.T) {
 			}.Run(t)
 		})
 	})
+}
+
+func TestEndpoint_DeleteObjects(t *testing.T) {
+	const errorTriggerObjectKey = "internal-error"
+
+	testplanet.Run(t, testplanet.Config{
+		SatelliteCount: 1, UplinkCount: 1,
+		Reconfigure: testplanet.Reconfigure{
+			Satellite: func(log *zap.Logger, index int, config *satellite.Config) {
+				config.Metainfo.DeleteObjectsEnabled = true
+			},
+			SatelliteMetabaseDBConfig: func(log *zap.Logger, index int, config *metabase.Config) {
+				config.TestingWrapAdapter = func(adapter metabase.Adapter) metabase.Adapter {
+					return &deleteObjectsTestAdapter{
+						Adapter:               adapter,
+						errorTriggerObjectKey: errorTriggerObjectKey,
+					}
+				}
+			},
+		},
+	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+		sat := planet.Satellites[0]
+		project := planet.Uplinks[0].Projects[0]
+		endpoint := sat.Metainfo.Endpoint
+
+		userCtx, err := sat.UserContext(ctx, project.Owner.ID)
+		require.NoError(t, err)
+
+		_, apiKey, err := sat.API.Console.Service.CreateAPIKey(userCtx, project.ID, "test key", macaroon.APIKeyVersionObjectLock)
+		require.NoError(t, err)
+		apiKeyHeader := &pb.RequestHeader{ApiKey: apiKey.SerializeRaw()}
+
+		type minimalObject struct {
+			key     []byte
+			version []byte
+		}
+
+		createBucket := func(t *testing.T) string {
+			bucketName := testrand.BucketName()
+			_, err := endpoint.CreateBucket(ctx, &pb.CreateBucketRequest{
+				Header: apiKeyHeader,
+				Name:   []byte(bucketName),
+			})
+			require.NoError(t, err)
+			return bucketName
+		}
+
+		setBucketVersioning := func(t *testing.T, bucketName string, enabled bool) {
+			_, err := endpoint.SetBucketVersioning(ctx, &pb.SetBucketVersioningRequest{
+				Header:     apiKeyHeader,
+				Name:       []byte(bucketName),
+				Versioning: enabled,
+			})
+			require.NoError(t, err)
+		}
+
+		enableObjectLock := func(t *testing.T, bucketName string) {
+			_, err := endpoint.SetBucketObjectLockConfiguration(ctx, &pb.SetBucketObjectLockConfigurationRequest{
+				Header: apiKeyHeader,
+				Name:   []byte(bucketName),
+				Configuration: &pb.ObjectLockConfiguration{
+					Enabled: true,
+				},
+			})
+			require.NoError(t, err)
+		}
+
+		beginObject := func(t *testing.T, bucketName string, objectKey []byte) *pb.BeginObjectResponse {
+			beginResp, err := endpoint.BeginObject(ctx, &pb.BeginObjectRequest{
+				Header:             apiKeyHeader,
+				Bucket:             []byte(bucketName),
+				EncryptedObjectKey: objectKey,
+				EncryptionParameters: &pb.EncryptionParameters{
+					CipherSuite: pb.CipherSuite_ENC_AESGCM,
+				},
+			})
+			require.NoError(t, err)
+			return beginResp
+		}
+
+		createCommittedObjectWithKey := func(t *testing.T, bucketName string, objectKey []byte) minimalObject {
+			beginResp := beginObject(t, bucketName, objectKey)
+
+			commitResp, err := endpoint.CommitObject(ctx, &pb.CommitObjectRequest{
+				Header:   apiKeyHeader,
+				StreamId: beginResp.StreamId,
+			})
+			require.NoError(t, err)
+
+			return minimalObject{
+				key:     objectKey,
+				version: commitResp.Object.ObjectVersion,
+			}
+		}
+
+		createCommittedObject := func(t *testing.T, bucketName string) minimalObject {
+			return createCommittedObjectWithKey(t, bucketName, []byte(testrand.Path()))
+		}
+
+		createLockedCommittedObjectWithKey := func(t *testing.T, bucketName string, objectKey []byte, retention metabase.Retention, legalHold bool) minimalObject {
+			objStream := metabase.ObjectStream{
+				ProjectID:  project.ID,
+				BucketName: metabase.BucketName(bucketName),
+				ObjectKey:  metabase.ObjectKey(objectKey),
+				Version:    1,
+				StreamID:   testrand.UUID(),
+			}
+
+			metabasetest.CreateTestObject{
+				BeginObjectExactVersion: &metabase.BeginObjectExactVersion{
+					ObjectStream: objStream,
+					Retention:    retention,
+					LegalHold:    legalHold,
+					Encryption:   metabasetest.DefaultEncryption,
+				},
+				CommitObject: &metabase.CommitObject{
+					ObjectStream: objStream,
+					Versioned:    true,
+				},
+			}.Run(ctx, t, sat.Metabase.DB, objStream, 0)
+
+			return minimalObject{
+				key:     objectKey,
+				version: metabase.NewStreamVersionID(objStream.Version, objStream.StreamID).Bytes(),
+			}
+		}
+
+		createLockedCommittedObject := func(t *testing.T, bucketName string, retention metabase.Retention, legalHold bool) minimalObject {
+			return createLockedCommittedObjectWithKey(t, bucketName, []byte(testrand.Path()), retention, legalHold)
+		}
+
+		createPendingObject := func(t *testing.T, bucketName string) minimalObject {
+			objectKey := []byte(testrand.Path())
+			beginResp := beginObject(t, bucketName, objectKey)
+
+			satStreamID := &internalpb.StreamID{}
+			err = pb.Unmarshal(beginResp.StreamId, satStreamID)
+			require.NoError(t, err)
+
+			streamID, err := uuid.FromBytes(satStreamID.StreamId)
+			require.NoError(t, err)
+
+			return minimalObject{
+				key:     objectKey,
+				version: metabase.NewStreamVersionID(metabase.Version(satStreamID.Version), streamID).Bytes(),
+			}
+		}
+
+		committedObjectExists := func(t *testing.T, bucketName string, obj minimalObject) bool {
+			_, err := endpoint.GetObject(ctx, &pb.GetObjectRequest{
+				Header:             apiKeyHeader,
+				Bucket:             []byte(bucketName),
+				EncryptedObjectKey: obj.key,
+				ObjectVersion:      obj.version,
+			})
+			if errs2.IsRPC(err, rpcstatus.NotFound) {
+				return false
+			}
+			require.NoError(t, err)
+			return true
+		}
+
+		pendingObjectExists := func(t *testing.T, bucketName string, obj minimalObject) bool {
+			streamVersionID, err := metabase.StreamVersionIDFromBytes(obj.version)
+			require.NoError(t, err)
+
+			listResp, err := endpoint.ListObjects(ctx, &pb.ListObjectsRequest{
+				Header:          apiKeyHeader,
+				Bucket:          []byte(bucketName),
+				EncryptedCursor: obj.key,
+				VersionCursor:   metabase.NewStreamVersionID(streamVersionID.Version()-1, uuid.UUID{}).Bytes(),
+				Status:          pb.Object_UPLOADING,
+				Recursive:       true,
+				Limit:           1,
+			})
+			require.NoError(t, err)
+
+			switch {
+			case len(listResp.Items) == 0:
+				return false
+			case !slices.Equal(listResp.Items[0].EncryptedObjectKey, obj.key):
+				return false
+			case !slices.Equal(listResp.Items[0].ObjectVersion, obj.version):
+				return false
+			}
+			return true
+		}
+
+		randStreamVersionID := func() []byte {
+			return metabase.NewStreamVersionID(randVersion(), testrand.UUID()).Bytes()
+		}
+
+		prefixObjectKey := func(prefix []byte, objectKey []byte) []byte {
+			key := make([]byte, len(prefix)+len(objectKey)+1)
+			copy(key[0:], prefix)
+			key[len(prefix)] = '/'
+			copy(key[len(prefix)+1:], objectKey)
+			return key
+		}
+
+		randPrefixedObjectKey := func(prefix []byte) []byte {
+			return prefixObjectKey(prefix, []byte(testrand.Path()))
+		}
+
+		unversionedBucketName := createBucket(t)
+
+		versionedBucketName := createBucket(t)
+		setBucketVersioning(t, versionedBucketName, true)
+		enableObjectLock(t, versionedBucketName)
+
+		t.Run("Unversioned", func(t *testing.T) {
+			t.Run("Basic", func(t *testing.T) {
+				obj1 := createCommittedObject(t, unversionedBucketName)
+				obj2 := createCommittedObject(t, unversionedBucketName)
+
+				resp, err := endpoint.DeleteObjects(ctx, &pb.DeleteObjectsRequest{
+					Header: apiKeyHeader,
+					Bucket: []byte(unversionedBucketName),
+					Items: []*pb.DeleteObjectsRequestItem{
+						{
+							EncryptedObjectKey: obj1.key,
+							ObjectVersion:      obj1.version,
+						},
+						{
+							EncryptedObjectKey: obj2.key,
+						},
+					},
+				})
+				require.NoError(t, err)
+
+				require.ElementsMatch(t, []*pb.DeleteObjectsResponseItem{
+					{
+						EncryptedObjectKey:     obj1.key,
+						RequestedObjectVersion: obj1.version,
+						Removed: &pb.DeleteObjectsResponseItemInfo{
+							ObjectVersion: obj1.version,
+							Status:        pb.Object_COMMITTED_UNVERSIONED,
+						},
+						Status: pb.DeleteObjectsResponseItem_OK,
+					},
+					{
+						EncryptedObjectKey: obj2.key,
+						Removed: &pb.DeleteObjectsResponseItemInfo{
+							ObjectVersion: obj2.version,
+							Status:        pb.Object_COMMITTED_UNVERSIONED,
+						},
+						Status: pb.DeleteObjectsResponseItem_OK,
+					},
+				}, resp.Items)
+
+				require.False(t, committedObjectExists(t, unversionedBucketName, obj1))
+				require.False(t, committedObjectExists(t, unversionedBucketName, obj2))
+			})
+
+			t.Run("Not found", func(t *testing.T) {
+				object1Key, object2key := []byte(testrand.Path()), []byte(testrand.Path())
+				object1Version := randStreamVersionID()
+
+				resp, err := endpoint.DeleteObjects(ctx, &pb.DeleteObjectsRequest{
+					Header: apiKeyHeader,
+					Bucket: []byte(unversionedBucketName),
+					Items: []*pb.DeleteObjectsRequestItem{
+						{
+							EncryptedObjectKey: object1Key,
+							ObjectVersion:      object1Version,
+						},
+						{
+							EncryptedObjectKey: object2key,
+						},
+					},
+				})
+				require.NoError(t, err)
+
+				require.ElementsMatch(t, []*pb.DeleteObjectsResponseItem{
+					{
+						EncryptedObjectKey:     object1Key,
+						RequestedObjectVersion: object1Version,
+						Status:                 pb.DeleteObjectsResponseItem_NOT_FOUND,
+					},
+					{
+						EncryptedObjectKey: object2key,
+						Status:             pb.DeleteObjectsResponseItem_NOT_FOUND,
+					},
+				}, resp.Items)
+			})
+
+			t.Run("Pending object", func(t *testing.T) {
+				obj := createPendingObject(t, unversionedBucketName)
+
+				req := &pb.DeleteObjectsRequest{
+					Header: apiKeyHeader,
+					Bucket: []byte(unversionedBucketName),
+					Items: []*pb.DeleteObjectsRequestItem{{
+						EncryptedObjectKey: obj.key,
+					}},
+				}
+
+				resp, err := endpoint.DeleteObjects(ctx, req)
+				require.NoError(t, err)
+
+				require.Equal(t, &pb.DeleteObjectsResponse{
+					Items: []*pb.DeleteObjectsResponseItem{{
+						EncryptedObjectKey: obj.key,
+						Status:             pb.DeleteObjectsResponseItem_NOT_FOUND,
+					}},
+				}, resp)
+
+				require.True(t, pendingObjectExists(t, unversionedBucketName, obj))
+
+				req.Items[0].ObjectVersion = obj.version
+
+				resp, err = endpoint.DeleteObjects(ctx, req)
+				require.NoError(t, err)
+
+				require.Equal(t, []*pb.DeleteObjectsResponseItem{{
+					EncryptedObjectKey:     obj.key,
+					RequestedObjectVersion: obj.version,
+					Removed: &pb.DeleteObjectsResponseItemInfo{
+						ObjectVersion: obj.version,
+						Status:        pb.Object_UPLOADING,
+					},
+					Status: pb.DeleteObjectsResponseItem_OK,
+				}}, resp.Items)
+
+				require.False(t, pendingObjectExists(t, unversionedBucketName, obj))
+			})
+
+			t.Run("Duplicate deletion", func(t *testing.T) {
+				obj := createCommittedObject(t, unversionedBucketName)
+
+				reqItem := &pb.DeleteObjectsRequestItem{
+					EncryptedObjectKey: obj.key,
+					ObjectVersion:      obj.version,
+				}
+
+				resp, err := endpoint.DeleteObjects(ctx, &pb.DeleteObjectsRequest{
+					Header: apiKeyHeader,
+					Bucket: []byte(unversionedBucketName),
+					Items:  []*pb.DeleteObjectsRequestItem{reqItem, reqItem},
+				})
+				require.NoError(t, err)
+
+				require.Equal(t, []*pb.DeleteObjectsResponseItem{{
+					EncryptedObjectKey:     obj.key,
+					RequestedObjectVersion: obj.version,
+					Removed: &pb.DeleteObjectsResponseItemInfo{
+						ObjectVersion: obj.version,
+						Status:        pb.Object_COMMITTED_UNVERSIONED,
+					},
+					Status: pb.DeleteObjectsResponseItem_OK,
+				}}, resp.Items)
+
+				require.False(t, committedObjectExists(t, unversionedBucketName, obj))
+			})
+
+			// This tests the case where an object's last committed version is specified
+			// in the deletion request both indirectly and explicitly.
+			t.Run("Duplicate deletion (indirect)", func(t *testing.T) {
+				obj := createCommittedObject(t, unversionedBucketName)
+
+				expectedRemoved := &pb.DeleteObjectsResponseItemInfo{
+					ObjectVersion: obj.version,
+					Status:        pb.Object_COMMITTED_UNVERSIONED,
+				}
+
+				resp, err := endpoint.DeleteObjects(ctx, &pb.DeleteObjectsRequest{
+					Header: apiKeyHeader,
+					Bucket: []byte(unversionedBucketName),
+					Items: []*pb.DeleteObjectsRequestItem{
+						{
+							EncryptedObjectKey: obj.key,
+							ObjectVersion:      obj.version,
+						},
+						{
+							EncryptedObjectKey: obj.key,
+						},
+					},
+				})
+				require.NoError(t, err)
+
+				require.ElementsMatch(t, []*pb.DeleteObjectsResponseItem{
+					{
+						EncryptedObjectKey:     obj.key,
+						RequestedObjectVersion: obj.version,
+						Removed:                expectedRemoved,
+						Status:                 pb.DeleteObjectsResponseItem_OK,
+					},
+					{
+						EncryptedObjectKey: obj.key,
+						Removed:            expectedRemoved,
+						Status:             pb.DeleteObjectsResponseItem_OK,
+					},
+				}, resp.Items)
+
+				require.False(t, committedObjectExists(t, unversionedBucketName, obj))
+			})
+		})
+
+		t.Run("Quiet mode", func(t *testing.T) {
+			prefix := []byte(testrand.Path())
+
+			restrictedAPIKey, err := apiKey.Restrict(macaroon.Caveat{
+				AllowedPaths: []*macaroon.Caveat_Path{{
+					Bucket:              []byte(versionedBucketName),
+					EncryptedPathPrefix: prefix,
+				}},
+			})
+			require.NoError(t, err)
+
+			obj := createCommittedObjectWithKey(t, versionedBucketName, randPrefixedObjectKey(prefix))
+			lockedObj := createLockedCommittedObjectWithKey(t, versionedBucketName, randPrefixedObjectKey(prefix), metabase.Retention{}, true)
+			unauthorizedObj := createCommittedObject(t, versionedBucketName)
+			notFoundObj := minimalObject{
+				key:     randPrefixedObjectKey(prefix),
+				version: randStreamVersionID(),
+			}
+
+			resp, err := endpoint.DeleteObjects(ctx, &pb.DeleteObjectsRequest{
+				Header: &pb.RequestHeader{ApiKey: restrictedAPIKey.SerializeRaw()},
+				Bucket: []byte(versionedBucketName),
+				Quiet:  true,
+				Items: []*pb.DeleteObjectsRequestItem{
+					{
+						EncryptedObjectKey: obj.key,
+						ObjectVersion:      obj.version,
+					},
+					{
+						EncryptedObjectKey: unauthorizedObj.key,
+						ObjectVersion:      unauthorizedObj.version,
+					},
+					{
+						EncryptedObjectKey: notFoundObj.key,
+						ObjectVersion:      notFoundObj.version,
+					},
+					{
+						EncryptedObjectKey: lockedObj.key,
+						ObjectVersion:      lockedObj.version,
+					},
+				},
+			})
+			require.NoError(t, err)
+
+			require.ElementsMatch(t, []*pb.DeleteObjectsResponseItem{
+				{
+					EncryptedObjectKey:     unauthorizedObj.key,
+					RequestedObjectVersion: unauthorizedObj.version,
+					Status:                 pb.DeleteObjectsResponseItem_UNAUTHORIZED,
+				},
+				{
+					EncryptedObjectKey:     notFoundObj.key,
+					RequestedObjectVersion: notFoundObj.version,
+					Status:                 pb.DeleteObjectsResponseItem_NOT_FOUND,
+				},
+				{
+					EncryptedObjectKey:     lockedObj.key,
+					RequestedObjectVersion: lockedObj.version,
+					Status:                 pb.DeleteObjectsResponseItem_LOCKED,
+				},
+			}, resp.Items)
+
+			internalErrorObj := minimalObject{
+				key:     prefixObjectKey(prefix, []byte(errorTriggerObjectKey)),
+				version: randStreamVersionID(),
+			}
+
+			resp, err = endpoint.DeleteObjects(ctx, &pb.DeleteObjectsRequest{
+				Header: &pb.RequestHeader{ApiKey: restrictedAPIKey.SerializeRaw()},
+				Bucket: []byte(versionedBucketName),
+				Quiet:  true,
+				Items: []*pb.DeleteObjectsRequestItem{{
+					EncryptedObjectKey: internalErrorObj.key,
+					ObjectVersion:      internalErrorObj.version,
+				}},
+			})
+			require.NoError(t, err)
+
+			require.Equal(t, []*pb.DeleteObjectsResponseItem{{
+				EncryptedObjectKey:     internalErrorObj.key,
+				RequestedObjectVersion: internalErrorObj.version,
+				Status:                 pb.DeleteObjectsResponseItem_INTERNAL_ERROR,
+			}}, resp.Items)
+		})
+
+		t.Run("Missing bucket", func(t *testing.T) {
+			resp, err := endpoint.DeleteObjects(ctx, &pb.DeleteObjectsRequest{
+				Header: apiKeyHeader,
+				Bucket: []byte(testrand.BucketName()),
+				Items: []*pb.DeleteObjectsRequestItem{{
+					EncryptedObjectKey: []byte(testrand.Path()),
+					ObjectVersion:      randStreamVersionID(),
+				}},
+			})
+			require.Nil(t, resp)
+			rpctest.RequireCode(t, err, rpcstatus.BucketNotFound)
+		})
+
+		t.Run("Unauthorized API key", func(t *testing.T) {
+			t.Run("Prefix restriction", func(t *testing.T) {
+				prefix := []byte(testrand.Path())
+
+				restrictedAPIKey, err := apiKey.Restrict(macaroon.Caveat{
+					AllowedPaths: []*macaroon.Caveat_Path{{
+						Bucket:              []byte(unversionedBucketName),
+						EncryptedPathPrefix: prefix,
+					}},
+				})
+				require.NoError(t, err)
+
+				restrictedObj := createCommittedObject(t, unversionedBucketName)
+				allowedObj := createCommittedObjectWithKey(t, unversionedBucketName, randPrefixedObjectKey(prefix))
+
+				resp, err := endpoint.DeleteObjects(ctx, &pb.DeleteObjectsRequest{
+					Header: &pb.RequestHeader{ApiKey: restrictedAPIKey.SerializeRaw()},
+					Bucket: []byte(unversionedBucketName),
+					Items: []*pb.DeleteObjectsRequestItem{
+						{
+							EncryptedObjectKey: allowedObj.key,
+							ObjectVersion:      allowedObj.version,
+						},
+						{
+							EncryptedObjectKey: restrictedObj.key,
+							ObjectVersion:      restrictedObj.version,
+						},
+					},
+				})
+				require.NoError(t, err)
+
+				require.ElementsMatch(t, []*pb.DeleteObjectsResponseItem{
+					{
+						EncryptedObjectKey:     allowedObj.key,
+						RequestedObjectVersion: allowedObj.version,
+						Removed: &pb.DeleteObjectsResponseItemInfo{
+							ObjectVersion: allowedObj.version,
+							Status:        pb.Object_COMMITTED_UNVERSIONED,
+						},
+						Status: pb.DeleteObjectsResponseItem_OK,
+					},
+					{
+						EncryptedObjectKey:     restrictedObj.key,
+						RequestedObjectVersion: restrictedObj.version,
+						Status:                 pb.DeleteObjectsResponseItem_UNAUTHORIZED,
+					},
+				}, resp.Items)
+
+				require.True(t, committedObjectExists(t, unversionedBucketName, restrictedObj))
+				require.False(t, committedObjectExists(t, unversionedBucketName, allowedObj))
+			})
+
+			t.Run("Bucket restriction", func(t *testing.T) {
+				restrictedAPIKey, err := apiKey.Restrict(macaroon.Caveat{
+					AllowedPaths: []*macaroon.Caveat_Path{{
+						Bucket: []byte(testrand.BucketName()),
+					}},
+				})
+				require.NoError(t, err)
+
+				restrictedAPIKeyHeader := &pb.RequestHeader{
+					ApiKey: restrictedAPIKey.SerializeRaw(),
+				}
+
+				obj := createCommittedObject(t, unversionedBucketName)
+
+				req := &pb.DeleteObjectsRequest{
+					Header: restrictedAPIKeyHeader,
+					Bucket: []byte(unversionedBucketName),
+					Items: []*pb.DeleteObjectsRequestItem{{
+						EncryptedObjectKey: obj.key,
+						ObjectVersion:      obj.version,
+					}},
+				}
+
+				expectedResp := &pb.DeleteObjectsResponse{
+					Items: []*pb.DeleteObjectsResponseItem{{
+						EncryptedObjectKey:     obj.key,
+						RequestedObjectVersion: obj.version,
+						Status:                 pb.DeleteObjectsResponseItem_UNAUTHORIZED,
+					}},
+				}
+
+				resp, err := endpoint.DeleteObjects(ctx, req)
+				require.NoError(t, err)
+				require.Equal(t, expectedResp, resp)
+
+				// Ensure that we respond the same way for a nonexistent bucket.
+				req.Bucket = []byte(testrand.BucketName())
+				resp, err = endpoint.DeleteObjects(ctx, req)
+				require.NoError(t, err)
+				require.Equal(t, expectedResp, resp)
+
+				require.True(t, committedObjectExists(t, unversionedBucketName, obj))
+			})
+
+			t.Run("No delete permission", func(t *testing.T) {
+				restrictedAPIKey, err := apiKey.Restrict(macaroon.Caveat{
+					DisallowDeletes: true,
+				})
+				require.NoError(t, err)
+
+				obj := createCommittedObject(t, unversionedBucketName)
+
+				resp, err := endpoint.DeleteObjects(ctx, &pb.DeleteObjectsRequest{
+					Header: &pb.RequestHeader{ApiKey: restrictedAPIKey.SerializeRaw()},
+					Bucket: []byte(unversionedBucketName),
+					Items: []*pb.DeleteObjectsRequestItem{{
+						EncryptedObjectKey: obj.key,
+						ObjectVersion:      obj.version,
+					}},
+				})
+				require.NoError(t, err)
+
+				require.Equal(t, &pb.DeleteObjectsResponse{
+					Items: []*pb.DeleteObjectsResponseItem{{
+						EncryptedObjectKey:     obj.key,
+						RequestedObjectVersion: obj.version,
+						Status:                 pb.DeleteObjectsResponseItem_UNAUTHORIZED,
+					}},
+				}, resp)
+
+				require.True(t, committedObjectExists(t, unversionedBucketName, obj))
+			})
+
+			t.Run("No governance bypass permission", func(t *testing.T) {
+				test := func(t *testing.T, apiKey *macaroon.APIKey) {
+					obj := createCommittedObject(t, versionedBucketName)
+
+					lockedObj := createLockedCommittedObject(t, versionedBucketName, metabase.Retention{
+						Mode:        storj.GovernanceMode,
+						RetainUntil: time.Now().Add(time.Hour),
+					}, false)
+
+					resp, err := endpoint.DeleteObjects(ctx, &pb.DeleteObjectsRequest{
+						Header:                    &pb.RequestHeader{ApiKey: apiKey.SerializeRaw()},
+						Bucket:                    []byte(versionedBucketName),
+						BypassGovernanceRetention: true,
+						Items: []*pb.DeleteObjectsRequestItem{
+							{
+								EncryptedObjectKey: lockedObj.key,
+								ObjectVersion:      lockedObj.version,
+							},
+							{
+								EncryptedObjectKey: obj.key,
+								ObjectVersion:      obj.version,
+							},
+						},
+					})
+					require.NoError(t, err)
+
+					require.ElementsMatch(t, []*pb.DeleteObjectsResponseItem{
+						{
+							EncryptedObjectKey:     lockedObj.key,
+							RequestedObjectVersion: lockedObj.version,
+							Status:                 pb.DeleteObjectsResponseItem_UNAUTHORIZED,
+						},
+						{
+							// Ensure that we return UNAUTHORIZED for all objects
+							// as opposed to just the objects that are locked.
+							EncryptedObjectKey:     obj.key,
+							RequestedObjectVersion: obj.version,
+							Status:                 pb.DeleteObjectsResponseItem_UNAUTHORIZED,
+						},
+					}, resp.Items)
+
+					require.True(t, committedObjectExists(t, versionedBucketName, lockedObj))
+					require.True(t, committedObjectExists(t, versionedBucketName, obj))
+				}
+
+				t.Run("Old API key", func(t *testing.T) {
+					_, apiKey, err := sat.API.Console.Service.CreateAPIKey(userCtx, project.ID, "old key", macaroon.APIKeyVersionMin)
+					require.NoError(t, err)
+					test(t, apiKey)
+				})
+
+				t.Run("Restricted API key", func(t *testing.T) {
+					restrictedAPIKey, err := apiKey.Restrict(macaroon.Caveat{
+						DisallowBypassGovernanceRetention: true,
+					})
+					require.NoError(t, err)
+					test(t, restrictedAPIKey)
+				})
+			})
+		})
+
+		t.Run("Invalid request", func(t *testing.T) {
+			t.Run("No items", func(t *testing.T) {
+				_, err := endpoint.DeleteObjects(ctx, &pb.DeleteObjectsRequest{
+					Header: apiKeyHeader,
+					Bucket: []byte(unversionedBucketName),
+				})
+				rpctest.RequireCode(t, err, rpcstatus.DeleteObjectsNoItems)
+			})
+
+			t.Run("Too many items", func(t *testing.T) {
+				obj := createCommittedObject(t, unversionedBucketName)
+
+				items := make([]*pb.DeleteObjectsRequestItem, metabase.DeleteObjectsMaxItems+1)
+				for i := 0; i < len(items); i++ {
+					items[i] = &pb.DeleteObjectsRequestItem{
+						EncryptedObjectKey: obj.key,
+						ObjectVersion:      obj.version,
+					}
+				}
+
+				_, err := endpoint.DeleteObjects(ctx, &pb.DeleteObjectsRequest{
+					Header: apiKeyHeader,
+					Bucket: []byte(unversionedBucketName),
+					Items:  items,
+				})
+				rpctest.RequireCode(t, err, rpcstatus.DeleteObjectsTooManyItems)
+
+				require.True(t, committedObjectExists(t, unversionedBucketName, obj))
+			})
+
+			t.Run("Invalid object key", func(t *testing.T) {
+				objectKey := testrand.Bytes(memory.Size(sat.Config.Metainfo.MaxEncryptedObjectKeyLength + 1))
+				_, err := endpoint.DeleteObjects(ctx, &pb.DeleteObjectsRequest{
+					Header: apiKeyHeader,
+					Bucket: []byte(unversionedBucketName),
+					Items: []*pb.DeleteObjectsRequestItem{{
+						EncryptedObjectKey: objectKey,
+					}},
+				})
+				rpctest.RequireCode(t, err, rpcstatus.ObjectKeyTooLong)
+			})
+
+			t.Run("Invalid object version", func(t *testing.T) {
+				for _, tt := range []struct {
+					name    string
+					version []byte
+				}{
+					{name: "Too short", version: randStreamVersionID()[1:]},
+					{name: "Zero internal version ID", version: metabase.NewStreamVersionID(0, testrand.UUID()).Bytes()},
+					{name: "Negative internal version ID", version: metabase.NewStreamVersionID(-1, testrand.UUID()).Bytes()},
+				} {
+					_, err := endpoint.DeleteObjects(ctx, &pb.DeleteObjectsRequest{
+						Header: apiKeyHeader,
+						Bucket: []byte(unversionedBucketName),
+						Items: []*pb.DeleteObjectsRequestItem{{
+							EncryptedObjectKey: []byte(testrand.Path()),
+							ObjectVersion:      tt.version,
+						}},
+					})
+					rpctest.RequireCode(t, err, rpcstatus.ObjectVersionInvalid)
+				}
+			})
+		})
+	})
+}
+
+func TestEndpoint_DeleteObjectsDisabled(t *testing.T) {
+	testplanet.Run(t, testplanet.Config{
+		SatelliteCount: 1, UplinkCount: 1,
+		Reconfigure: testplanet.Reconfigure{
+			Satellite: func(log *zap.Logger, index int, config *satellite.Config) {
+				config.Metainfo.DeleteObjectsEnabled = false
+			},
+		},
+	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+		sat := planet.Satellites[0]
+		project := planet.Uplinks[0].Projects[0]
+		endpoint := sat.Metainfo.Endpoint
+
+		userCtx, err := sat.UserContext(ctx, project.Owner.ID)
+		require.NoError(t, err)
+
+		_, apiKey, err := sat.API.Console.Service.CreateAPIKey(userCtx, project.ID, "test key", macaroon.APIKeyVersionObjectLock)
+		require.NoError(t, err)
+
+		_, err = endpoint.DeleteObjects(ctx, &pb.DeleteObjectsRequest{
+			Header: &pb.RequestHeader{
+				ApiKey: apiKey.SerializeRaw(),
+			},
+			Bucket: randomBucketName,
+			Items: []*pb.DeleteObjectsRequestItem{{
+				EncryptedObjectKey: randomEncryptedKey,
+				ObjectVersion:      metabase.NewStreamVersionID(randVersion(), testrand.UUID()).Bytes(),
+			}},
+		})
+		rpctest.RequireCode(t, err, rpcstatus.Unimplemented)
+	})
+}
+
+var _ metabase.Adapter = (*deleteObjectsTestAdapter)(nil)
+
+type deleteObjectsTestAdapter struct {
+	metabase.Adapter
+	errorTriggerObjectKey metabase.ObjectKey
+}
+
+func (adapter *deleteObjectsTestAdapter) DeleteObjectExactVersion(ctx context.Context, opts metabase.DeleteObjectExactVersion) (metabase.DeleteObjectResult, error) {
+	if opts.ObjectKey == adapter.errorTriggerObjectKey || strings.HasSuffix(string(opts.ObjectKey), "/"+string(adapter.errorTriggerObjectKey)) {
+		return metabase.DeleteObjectResult{}, errors.New("internal error")
+	}
+	return adapter.Adapter.DeleteObjectExactVersion(ctx, opts)
 }

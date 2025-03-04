@@ -21,11 +21,12 @@ import (
 
 // Reconfigure allows to change node configurations.
 type Reconfigure struct {
-	SatelliteDB         func(log *zap.Logger, index int, db satellite.DB) (satellite.DB, error)
-	SatelliteDBOptions  func(log *zap.Logger, index int, options *satellitedb.Options)
-	SatelliteMetabaseDB func(log *zap.Logger, index int, db *metabase.DB) (*metabase.DB, error)
-	Satellite           func(log *zap.Logger, index int, config *satellite.Config)
-	Uplink              func(log *zap.Logger, index int, config *UplinkConfig)
+	SatelliteDB               func(log *zap.Logger, index int, db satellite.DB) (satellite.DB, error)
+	SatelliteDBOptions        func(log *zap.Logger, index int, options *satellitedb.Options)
+	SatelliteMetabaseDB       func(log *zap.Logger, index int, db *metabase.DB) (*metabase.DB, error)
+	SatelliteMetabaseDBConfig func(log *zap.Logger, index int, config *metabase.Config)
+	Satellite                 func(log *zap.Logger, index int, config *satellite.Config)
+	Uplink                    func(log *zap.Logger, index int, config *UplinkConfig)
 
 	StorageNodeDB func(index int, db storagenode.DB, log *zap.Logger) (storagenode.DB, error)
 	StorageNode   func(index int, config *storagenode.Config)

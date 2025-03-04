@@ -237,11 +237,6 @@ func (endpoint *Endpoint) TestSelfServePlacementEnabled(enabled bool) {
 	endpoint.config.SelfServePlacementSelectEnabled = enabled
 }
 
-// TestSetDeleteObjectsEnabled sets whether the DeleteObjects endpoint should be enabled.
-func (endpoint *Endpoint) TestSetDeleteObjectsEnabled(enabled bool) {
-	endpoint.config.DeleteObjectsEnabled = enabled
-}
-
 // ProjectInfo returns allowed ProjectInfo for the provided API key.
 func (endpoint *Endpoint) ProjectInfo(ctx context.Context, req *pb.ProjectInfoRequest) (_ *pb.ProjectInfoResponse, err error) {
 	defer mon.Task()(&ctx)(&err)
