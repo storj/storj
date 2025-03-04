@@ -300,7 +300,7 @@ satellite-wasm:
 	scripts/build-wasm.sh ;\
 
 .PHONY: images
-images: jobq-image #multinode-image satellite-image uplink-image versioncontrol-image storagenode-image modular-storagenode-image ## Build multinode, satellite and versioncontrol Docker images
+images: jobq-image #multinode-image satellite-image uplink-image versioncontrol-image storagenode-image modular-storagenode-image ## Build jobq, multinode, satellite and versioncontrol Docker images
 	echo Built version: ${TAG}
 
 .PHONY: jobq-image
@@ -574,6 +574,7 @@ binaries-clean: ## Remove all local release binaries (jenkins)
 
 .PHONY: clean-images
 clean-images:
+	-docker rmi storjlabs/jobq:${TAG}${CUSTOMTAG}
 	-docker rmi storjlabs/multinode:${TAG}${CUSTOMTAG}
 	-docker rmi storjlabs/satellite:${TAG}${CUSTOMTAG}
 	-docker rmi storjlabs/versioncontrol:${TAG}${CUSTOMTAG}
