@@ -47,8 +47,16 @@ func (c *concurrentRetainInfos) Load(nodeID storj.NodeID) (info *RetainInfo, ok 
 
 // Range implements MinimalRetainInfoMap.
 func (c *concurrentRetainInfos) Range(f func(nodeID storj.NodeID, info *RetainInfo) bool) {
-	c.m.Range(func(key, value interface{}) bool {
-		return f(key.(storj.NodeID), value.(*concurrentRetainInfo).info)
+	c.m.Range(func(key, value any) bool {
+		info := value.(*concurrentRetainInfo).info
+		if info == nil {
+			// We will inevitably have nil values in the map because we
+			// always add the locking information for storage nodes,
+			// even those we will not generate bloom filters for. In
+			// this case, we iterate further and ignore the nil value.
+			return true
+		}
+		return f(key.(storj.NodeID), info)
 	})
 }
 
