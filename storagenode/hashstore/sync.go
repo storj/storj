@@ -10,6 +10,11 @@ import (
 	"storj.io/drpc/drpcsignal"
 )
 
+var (
+	// controls if waiters are processed in LIFO or FIFO order. default is FIFO.
+	sync_RWMutexLIFO = envBool("STORJ_HASHSTORE_SYNC_LIFO", false)
+)
+
 //
 // context/signal aware mutex
 //
@@ -46,50 +51,99 @@ func (s *mutex) Unlock() { <-s.ch }
 // context/signal aware rw-mutex
 //
 
-type rwMutexSlot struct {
-	ch   chan struct{}
-	read bool // is a pending read lock
-	next *rwMutexSlot
-	prev *rwMutexSlot
+// rwMutexWaiter repesents a call to Lock or RLock waiting to acquire the lock. It is acquired when
+// the channel is sent on. It maintains a doubly linked list of other waiters to allow for efficient
+// removal.
+type rwMutexWaiter struct {
+	ch    chan struct{}
+	read  bool // is a pending read lock
+	newer *rwMutexWaiter
+	older *rwMutexWaiter
 }
 
-func (rw *rwMutexSlot) remove() {
-	prev, next := rw.prev, rw.next
-	if next != nil {
-		next.prev = prev
+// rwMutexWaiterList is a doubly linked list of rwMutexWaiters. It allows pushing a new waiter on to
+// the end of the list (making it the newest), and efficient removal of any waiter from the list.
+type rwMutexWaiterList struct {
+	oldest *rwMutexWaiter
+	newest *rwMutexWaiter
+}
+
+// pushWaiter pushes a waiter to the end of the list, making it the newest (and also potentially the
+// oldest if the list was empty).
+func (list *rwMutexWaiterList) pushWaiter(waiter *rwMutexWaiter) {
+	if list.oldest == nil {
+		list.oldest = waiter
+		list.newest = waiter
+	} else {
+		waiter.older = list.newest
+		list.newest.newer = waiter
+		list.newest = waiter
 	}
-	if prev != nil {
-		prev.next = next
+}
+
+// removeWaiter removes a waiter from the list. It is idempotent in that removing a waiter that was
+// already removed does nothing. It clears out the older and newer pointers of the waiter.
+func (list *rwMutexWaiterList) removeWaiter(waiter *rwMutexWaiter) {
+	if waiter.older != nil {
+		waiter.older.newer = waiter.newer
 	}
-	rw.prev, rw.next = nil, nil
+	if waiter.newer != nil {
+		waiter.newer.older = waiter.older
+	}
+	if list.oldest == waiter {
+		list.oldest = waiter.newer
+	}
+	if list.newest == waiter {
+		list.newest = waiter.older
+	}
+	waiter.older, waiter.newer = nil, nil
 }
 
-var rwMutexPool = sync.Pool{
-	New: func() any { return &rwMutexSlot{ch: make(chan struct{}, 1)} },
+// rwMutexWaiterPool is a sync.Pool of rwMutexWaiters to avoid allocations of the waiters in the
+// common case. The waiters do not outlive the stack frame of the lock function, but the compiler
+// isn't smart enough to be able to stack allocate them. This is the next best thing.
+var rwMutexWaiterPool = sync.Pool{
+	New: func() any { return &rwMutexWaiter{ch: make(chan struct{}, 1)} },
 }
 
-// rwMutex is a context-aware fair read/write mutex. The zero value is valid.
+// rwMutex is a context-aware fair read/write mutex. The zero value is valid and represents an
+// unlimited active read limit.
 type rwMutex struct {
-	mu     sync.Mutex
-	head   *rwMutexSlot
-	tail   *rwMutexSlot
-	reads  int
-	writes bool
+	mu              sync.Mutex
+	waiters         rwMutexWaiterList
+	activeReads     int
+	activeReadLimit int
+	pendingWrites   int
+	writeHeld       bool
 }
 
-func newRWMutex() *rwMutex { return &rwMutex{} }
+// newRWMutex allocates an rwMutex with the given active read limit. If the active read limit is
+// zero, then there is no limit to the number of active reads.
+func newRWMutex(activeReadLimit int) *rwMutex {
+	return &rwMutex{activeReadLimit: activeReadLimit}
+}
 
-func (rwm *rwMutex) Unlock()   { rwm.unlock(false) }
+// Unlock unlocks the rwMutex.
+func (rwm *rwMutex) Unlock() { rwm.unlock(false) }
+
+// WaitLock is like Lock but cannot be cancelled and so does not return an error.
 func (rwm *rwMutex) WaitLock() { _ = rwm.Lock(context.Background(), new(drpcsignal.Signal)) }
+
+// Lock locks the rwMutex.
 func (rwm *rwMutex) Lock(ctx context.Context, sig *drpcsignal.Signal) error {
 	return rwm.lock(ctx, sig, false)
 }
 
+// RUnlock unlocks the rwMutex for reading.
 func (rwm *rwMutex) RUnlock() { rwm.unlock(true) }
+
+// RLock locks the rwMutex for reading.
 func (rwm *rwMutex) RLock(ctx context.Context, sig *drpcsignal.Signal) error {
 	return rwm.lock(ctx, sig, true)
 }
 
+// lock blocks until the requested kind of mutex is acquired, returning an error if it was not
+// acquired due to the context being canceled or the signal being set.
 func (rwm *rwMutex) lock(ctx context.Context, sig *drpcsignal.Signal, read bool) (err error) {
 	if err := ctx.Err(); err != nil {
 		return err
@@ -97,45 +151,45 @@ func (rwm *rwMutex) lock(ctx context.Context, sig *drpcsignal.Signal, read bool)
 		return err
 	}
 
-	slot, _ := rwMutexPool.Get().(*rwMutexSlot)
-	defer rwMutexPool.Put(slot)
+	// acquire a waiter from the pool and set its read flag to the correct value.
+	waiter, _ := rwMutexWaiterPool.Get().(*rwMutexWaiter)
+	defer rwMutexWaiterPool.Put(waiter)
+	waiter.read = read
 
+	// while the lock is held, update our state, push the waiter to the newest slot in the list and
+	// process any mutexes that can be acquired.
 	rwm.mu.Lock()
-	slot.read = read
-
-	if rwm.head == nil { // the list is empty, set head and tail
-		rwm.head = slot
-		rwm.tail = slot
-	} else { // the list is not empty, append it to tail
-		slot.prev = rwm.tail
-		rwm.tail.next = slot
-		rwm.tail = slot
+	if !read {
+		rwm.pendingWrites++
 	}
-
+	rwm.waiters.pushWaiter(waiter)
 	rwm.processLocked()
 	rwm.mu.Unlock()
 
+	// wait for either the waiter to be told that the lock is acquired, the context to be canceled,
+	// or the signal to be set.
 	select {
-	case <-slot.ch:
+	case <-waiter.ch:
 	case <-ctx.Done():
 		err = ctx.Err()
 	case <-sig.Signal():
 		err = signalError(sig)
 	}
 
+	// remove the waiter from the list and update our state.
 	rwm.mu.Lock()
-	if rwm.head == slot {
-		rwm.head = slot.next
+	rwm.waiters.removeWaiter(waiter)
+	if !read {
+		rwm.pendingWrites--
 	}
-	if rwm.tail == slot {
-		rwm.tail = slot.prev
-	}
-	slot.remove()
 
-	// if we got an error but processLocked also signaled us that we acquired, then immediately drop
-	// to return the error.
-	if err != nil && len(slot.ch) == 1 {
-		<-slot.ch
+	// if we got an error but processLocked also told us that we acquired, then we should prefer the
+	// error condition so we have to clear out the channel and return the error. it is safe to look
+	// at the length of the channel because only processLocked sends on any of the waiter channels
+	// and it only does that while holding rwm.mu, and we're holding that mutex right now and the
+	// waiter has been removed from the list that processLocked looks at.
+	if err != nil && len(waiter.ch) == 1 {
+		<-waiter.ch
 		rwm.unlockLocked(read)
 	}
 	rwm.mu.Unlock()
@@ -143,43 +197,71 @@ func (rwm *rwMutex) lock(ctx context.Context, sig *drpcsignal.Signal, read bool)
 	return err
 }
 
+// unlock unlocks the requested mutex.
 func (rwm *rwMutex) unlock(read bool) {
 	rwm.mu.Lock()
 	rwm.unlockLocked(read)
 	rwm.mu.Unlock()
 }
 
+// unlockLocked is a helper function that does the unlock work that, like all functions named with
+// the suffix Locked, must only be called while holding rwm.mu.
 func (rwm *rwMutex) unlockLocked(read bool) {
 	if read {
-		rwm.reads--
+		rwm.activeReads--
 	} else {
-		rwm.writes = false
+		rwm.writeHeld = false
 	}
 	rwm.processLocked()
 }
 
+// processLocked is the function called during events that might change which mutexes can be
+// acquired: adding a new waiter or on unlock. it is responsible to maintain the invariant that
+// write locks are exclusive to all other locks and read locks are exclusive only to write locks
+// while signaling which waiters now have the lock. it can operate in either FIFO or LIFO mode which
+// is mostly the same except that LIFO prefers the newest added waiters over the oldest and some
+// special handling for when there is a pending writer.
 func (rwm *rwMutex) processLocked() {
-	for rwm.head != nil {
-		slot := rwm.head
+	slot := &rwm.waiters.oldest
+	if sync_RWMutexLIFO {
+		slot = &rwm.waiters.newest
+	}
 
-		// if we're trying to write and there are active reads or if we already have a write mutex
-		// then we're done.
-		if rwm.writes || (!slot.read && rwm.reads != 0) {
+	// we allow a batch of reads to proceed even if we have a write pending if we're in lifo mode
+	// and there are no active reads or writes. this is to prevent the situation where we have a
+	// very old and stubborn pending write that would then only allow a single read to proceed at
+	// a time, hurting read throughput.
+	batchReads := rwm.activeReads == 0 && !rwm.writeHeld
+
+	for *slot != nil {
+		waiter := *slot
+
+		// global properties that don't depend on the kind of lock
+		if rwm.writeHeld {
+			return
+		} else if rwm.activeReadLimit > 0 && rwm.activeReads >= rwm.activeReadLimit {
 			return
 		}
 
-		// the mutex is available so signal the next waiter and update the state.
-		slot.ch <- struct{}{}
-		if slot.read {
-			rwm.reads++
-		} else {
-			rwm.writes = true
+		// write locks are exclusive with active reads
+		if !waiter.read && rwm.activeReads > 0 {
+			return
 		}
 
-		// if we cleared out the head, then we also need to clear out the tail.
-		rwm.head = slot.next
-		if rwm.head == nil {
-			rwm.tail = nil
+		// if we have pending writes, we can't allow new reads unless we have no readers.
+		// we only need to do this check if we are in LIFO mode and we aren't batching reads.
+		if sync_RWMutexLIFO && !batchReads && waiter.read && rwm.pendingWrites > 0 && rwm.activeReads > 0 {
+			return
 		}
+
+		waiter.ch <- struct{}{}
+
+		if waiter.read {
+			rwm.activeReads++
+		} else {
+			rwm.writeHeld = true
+		}
+
+		rwm.waiters.removeWaiter(waiter) // N.B. this is idempotent
 	}
 }

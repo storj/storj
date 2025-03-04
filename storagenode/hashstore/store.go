@@ -42,6 +42,9 @@ var (
 
 	// if set, deletes all trash immediately instead of after the ttl.
 	compaction_DeleteTrashImmediately = envBool("STORJ_HASHSTORE_COMPACTION_DELETE_TRASH_IMMEDIATELY", false)
+
+	// controls the number of concurrent writers to log files.
+	store_WriterSemaphore = int(envInt("STORJ_HASHSTORE_STORE_WRITER_SEMAPHORE", 0))
 )
 
 // Store is a hash table based key-value store with compaction.
@@ -103,7 +106,7 @@ func NewStore(ctx context.Context, logsPath string, tablePath string, log *zap.L
 		today:     func() uint32 { return TimeToDateDown(time.Now()) },
 		lfc:       newLogCollection(),
 
-		activeMu:  newRWMutex(),
+		activeMu:  newRWMutex(store_WriterSemaphore),
 		compactMu: newMutex(),
 		reviveMu:  newMutex(),
 	}
