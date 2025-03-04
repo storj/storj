@@ -539,9 +539,9 @@ push-images: ## Push Docker images to Docker Hub (jenkins)
 			&& docker manifest push --purge storjlabs/$$c:$$t \
 		; done \
 	; done
-	docker push img.dev.storj.io/dev/storagenode:${TAG}${CUSTOMTAG}-amd64
-	REPO=storjlabs/storagenode-modular $(MAKE) push-modular-storagenode-image
-	REPO=ghcr.io/storj/storagenode-modular $(MAKE) push-modular-storagenode-image
+	//docker push img.dev.storj.io/dev/storagenode:${TAG}${CUSTOMTAG}-amd64
+	//REPO=storjlabs/storagenode-modular $(MAKE) push-modular-storagenode-image
+	//REPO=ghcr.io/storj/storagenode-modular $(MAKE) push-modular-storagenode-image
 
 .PHONY: binaries-upload
 binaries-upload: ## Upload binaries to Google Storage (jenkins)
