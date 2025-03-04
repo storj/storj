@@ -7,12 +7,15 @@ import (
 	"context"
 	"fmt"
 	"time"
+	"unsafe"
 
 	"go.uber.org/zap"
+	"golang.org/x/exp/slices"
 
 	"storj.io/common/macaroon"
 	"storj.io/common/pb"
 	"storj.io/common/rpc/rpcstatus"
+	"storj.io/common/storj"
 	"storj.io/common/uuid"
 	"storj.io/storj/satellite/buckets"
 	"storj.io/storj/satellite/console"
@@ -276,4 +279,241 @@ func (endpoint *Endpoint) deleteObjectResultToProto(ctx context.Context, result 
 	}
 
 	return deletedObjects, nil
+}
+
+// DeleteObjects deletes multiple objects from a bucket.
+func (endpoint *Endpoint) DeleteObjects(ctx context.Context, req *pb.DeleteObjectsRequest) (resp *pb.DeleteObjectsResponse, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	if !endpoint.config.DeleteObjectsEnabled {
+		return nil, rpcstatus.Error(rpcstatus.Unimplemented, "Unimplemented")
+	}
+
+	endpoint.versionCollector.collect(req.Header.UserAgent, mon.Func().ShortName())
+
+	if err = endpoint.validateDeleteObjectsRequestSimple(req); err != nil {
+		return nil, err
+	}
+
+	key, keyInfo, err := endpoint.validateBasic(ctx, req.Header, console.RateLimitDelete)
+	if err != nil {
+		return nil, err
+	}
+
+	if endpoint.migrationModeFlag.Enabled() {
+		if _, found := endpoint.config.TestingSpannerProjects[keyInfo.ProjectID]; !found {
+			return nil, rpcstatus.Error(rpcstatus.ResourceExhausted, "try again later")
+		}
+	}
+
+	endpoint.usageTracking(keyInfo, req.Header, fmt.Sprintf("%T", req))
+
+	deduplicateDeleteObjectsItems(req)
+
+	resp = &pb.DeleteObjectsResponse{
+		Items: make([]*pb.DeleteObjectsResponseItem, 0, len(req.Items)),
+	}
+
+	now := time.Now()
+
+	// Return early if the requester has no access to this bucket.
+	if key.Check(ctx, keyInfo.Secret, keyInfo.Version, macaroon.Action{
+		Op:     macaroon.ActionRead,
+		Bucket: req.Bucket,
+		Time:   now,
+	}, endpoint.revocations) != nil {
+		for _, item := range req.Items {
+			resp.Items = append(resp.Items, &pb.DeleteObjectsResponseItem{
+				EncryptedObjectKey:     item.EncryptedObjectKey,
+				RequestedObjectVersion: item.ObjectVersion,
+				Status:                 pb.DeleteObjectsResponseItem_UNAUTHORIZED,
+			})
+		}
+		return resp, nil
+	}
+
+	bucket, err := endpoint.buckets.GetBucket(ctx, req.Bucket, keyInfo.ProjectID)
+	if err != nil {
+		if buckets.ErrBucketNotFound.Has(err) {
+			return nil, rpcstatus.Error(rpcstatus.BucketNotFound, "The specified bucket was not found")
+		}
+		return nil, endpoint.ConvertKnownErrWithMessage(err, "unable to get bucket state")
+	}
+
+	allowedObjectKeys := make(map[string]bool, len(req.Items))
+	var numAllowedObjectKeys int
+	for _, item := range req.Items {
+		objectKey := unsafeBytesToString(item.EncryptedObjectKey)
+
+		allowed, ok := allowedObjectKeys[objectKey]
+		if !ok {
+			action := macaroon.Action{
+				Op:            macaroon.ActionDelete,
+				Bucket:        req.Bucket,
+				EncryptedPath: item.EncryptedObjectKey,
+				Time:          now,
+			}
+
+			// TODO: Every invocation of key.Check validates the macaroon, unmarshalls its caveats,
+			// and checks the revocation DB. These operations only need to occur once.
+			allowed = key.Check(ctx, keyInfo.Secret, keyInfo.Version, action, endpoint.revocations) == nil
+			if allowed && req.BypassGovernanceRetention {
+				action.Op = macaroon.ActionBypassGovernanceRetention
+				allowed = key.Check(ctx, keyInfo.Secret, keyInfo.Version, action, endpoint.revocations) == nil
+			}
+
+			allowedObjectKeys[objectKey] = allowed
+
+			if allowed {
+				numAllowedObjectKeys++
+			}
+		}
+
+		if !allowed {
+			resp.Items = append(resp.Items, &pb.DeleteObjectsResponseItem{
+				EncryptedObjectKey:     item.EncryptedObjectKey,
+				RequestedObjectVersion: item.ObjectVersion,
+				Status:                 pb.DeleteObjectsResponseItem_UNAUTHORIZED,
+			})
+		}
+	}
+
+	if numAllowedObjectKeys > 0 {
+		deleteObjectsOpts := metabase.DeleteObjects{
+			ProjectID:  keyInfo.ProjectID,
+			BucketName: metabase.BucketName(req.Bucket),
+
+			Versioned: bucket.Versioning == buckets.VersioningEnabled,
+			Suspended: bucket.Versioning == buckets.VersioningSuspended,
+			ObjectLock: metabase.ObjectLockDeleteOptions{
+				Enabled:          bucket.ObjectLock.Enabled,
+				BypassGovernance: req.BypassGovernanceRetention,
+			},
+
+			Items: make([]metabase.DeleteObjectsItem, 0, numAllowedObjectKeys),
+		}
+
+		for _, item := range req.Items {
+			objectKey := unsafeBytesToString(item.EncryptedObjectKey)
+			if !allowedObjectKeys[objectKey] {
+				continue
+			}
+
+			deleteObjectsItem := metabase.DeleteObjectsItem{
+				ObjectKey: metabase.ObjectKey(objectKey),
+			}
+			if len(item.ObjectVersion) != 0 {
+				deleteObjectsItem.StreamVersionID = metabase.StreamVersionID(item.ObjectVersion)
+			}
+			deleteObjectsOpts.Items = append(deleteObjectsOpts.Items, deleteObjectsItem)
+		}
+
+		deleteObjectsResult, err := endpoint.metabase.DeleteObjects(ctx, deleteObjectsOpts)
+		if err != nil {
+			endpoint.log.Error("error deleting objects",
+				zap.Stringer("Project ID", keyInfo.ProjectID),
+				zap.Stringer("Bucket", metabase.BucketName(req.Bucket)),
+				zap.Error(err),
+			)
+		}
+
+		addDeleteObjectsResultToProto(resp, deleteObjectsResult, req.Quiet)
+	}
+
+	return resp, nil
+}
+
+func addDeleteObjectsResultToProto(pbResult *pb.DeleteObjectsResponse, metabaseResult metabase.DeleteObjectsResult, quiet bool) {
+	for _, metabaseItem := range metabaseResult.Items {
+		if metabaseItem.Status == storj.DeleteObjectsStatusOK && quiet {
+			continue
+		}
+
+		pbResponseItem := &pb.DeleteObjectsResponseItem{
+			EncryptedObjectKey: unsafeStringToBytes(string(metabaseItem.ObjectKey)),
+			Status:             pb.DeleteObjectsResponseItem_Status(metabaseItem.Status),
+		}
+
+		if !metabaseItem.RequestedStreamVersionID.IsZero() {
+			pbResponseItem.RequestedObjectVersion = metabaseItem.RequestedStreamVersionID.Bytes()
+		}
+
+		if metabaseItem.Removed != nil {
+			pbResponseItem.Removed = &pb.DeleteObjectsResponseItemInfo{
+				ObjectVersion: metabaseItem.Removed.StreamVersionID.Bytes(),
+				Status:        pb.Object_Status(metabaseItem.Removed.Status),
+			}
+		}
+
+		if metabaseItem.Marker != nil {
+			pbResponseItem.Marker = &pb.DeleteObjectsResponseItemInfo{
+				ObjectVersion: metabaseItem.Marker.StreamVersionID.Bytes(),
+				Status:        pb.Object_Status(metabaseItem.Marker.Status),
+			}
+		}
+
+		pbResult.Items = append(pbResult.Items, pbResponseItem)
+	}
+}
+
+func deduplicateDeleteObjectsItems(req *pb.DeleteObjectsRequest) {
+	slices.SortStableFunc(req.Items, cmpDeleteObjectsRequestItem)
+
+	compacted := slices.CompactFunc(req.Items, func(a, b *pb.DeleteObjectsRequestItem) bool {
+		return cmpDeleteObjectsRequestItem(a, b) == 0
+	})
+
+	// Zero the pointers to the discarded items so that they can be garbage collected
+	for i := len(compacted); i < len(req.Items); i++ {
+		req.Items[i] = nil
+	}
+
+	req.Items = compacted
+}
+
+func cmpDeleteObjectsRequestItem(a, b *pb.DeleteObjectsRequestItem) int {
+	if cmp := cmpBytes(a.EncryptedObjectKey, b.EncryptedObjectKey); cmp != 0 {
+		return cmp
+	}
+	return cmpBytes(a.ObjectVersion, b.ObjectVersion)
+}
+
+// unsafeBytesToString returns a string backed by the given byte slice.
+// It can be used in cases where allocations should be minimized.
+// The byte slice is expected to remain constant throughout the string's lifetime.
+func unsafeBytesToString(b []byte) string {
+	numBytes := len(b)
+	if numBytes == 0 {
+		return ""
+	}
+	return unsafe.String(&b[0], numBytes)
+}
+
+// unsafeStringToBytes returns a byte slice aliasing the given string.
+// It can be used in cases where allocations should be minimized.
+// The byte slice should not be modified.
+func unsafeStringToBytes(s string) []byte {
+	return unsafe.Slice(unsafe.StringData(s), len(s))
+}
+
+// cmpBytes performs a shortlex comparison of the provided byte slices, returning -1, 0, or 1
+// if the first slice is less than, equal to, or greater than the second, respectively.
+func cmpBytes(a, b []byte) int {
+	if len(a) < len(b) {
+		return -1
+	}
+	if len(a) > len(b) {
+		return 1
+	}
+
+	for i := 0; i < len(a); i++ {
+		if a[i] < b[i] {
+			return -1
+		}
+		if a[i] > b[i] {
+			return 1
+		}
+	}
+
+	return 0
 }

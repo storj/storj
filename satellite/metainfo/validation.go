@@ -38,14 +38,19 @@ const (
 
 	maxRetentionDays  = 36500
 	maxRetentionYears = 10
+
+	minBucketNameLength = 3
+	maxBucketNameLength = 63
+
+	unauthorizedErrMsg = "Unauthorized API credentials"
+	bucketNameErrMsg   = "The specified bucket name must be at least %d and no more than %d characters long"
 )
 
 var (
-	ipRegexp           = regexp.MustCompile(`^(([0-9]|[1-9][0-9]|1[0-9]{2}|2[0-4][0-9]|25[0-5])\.){3}([0-9]|[1-9][0-9]|1[0-9]{2}|2[0-4][0-9]|25[0-5])$`)
-	unauthorizedErrMsg = "Unauthorized API credentials"
-)
+	ipRegexp = regexp.MustCompile(`^(([0-9]|[1-9][0-9]|1[0-9]{2}|2[0-4][0-9]|25[0-5])\.){3}([0-9]|[1-9][0-9]|1[0-9]{2}|2[0-4][0-9]|25[0-5])$`)
 
-var ek = eventkit.Package()
+	ek = eventkit.Package()
+)
 
 func getAPIKey(ctx context.Context, header *pb.RequestHeader) (key *macaroon.APIKey, err error) {
 	defer mon.Task()(&ctx)(&err)
@@ -402,8 +407,8 @@ func validateBucketNameLength(bucket []byte) (err error) {
 		return Error.Wrap(buckets.ErrNoBucket.New(""))
 	}
 
-	if len(bucket) < 3 || len(bucket) > 63 {
-		return Error.New("bucket name must be at least 3 and no more than 63 characters long")
+	if len(bucket) < minBucketNameLength || len(bucket) > maxBucketNameLength {
+		return Error.New(bucketNameErrMsg, minBucketNameLength, maxBucketNameLength)
 	}
 
 	return nil
@@ -825,6 +830,46 @@ func (endpoint *Endpoint) checkObjectUploadRate(ctx context.Context, projectID u
 	})
 	if limited {
 		return rpcstatus.Error(rpcstatus.ResourceExhausted, "Too Many Requests")
+	}
+
+	return nil
+}
+
+func (endpoint *Endpoint) validateDeleteObjectsRequestSimple(req *pb.DeleteObjectsRequest) (err error) {
+	bucketNameLen := len(req.Bucket)
+	if bucketNameLen == 0 {
+		return rpcstatus.Error(rpcstatus.BucketNameMissing, "A bucket name is required")
+	}
+	if err := validateBucketNameLength(req.Bucket); err != nil {
+		return rpcstatus.Error(rpcstatus.BucketNameInvalid, err.Error())
+	}
+
+	numItems := len(req.Items)
+	if numItems == 0 {
+		return rpcstatus.Error(rpcstatus.DeleteObjectsNoItems, "The list of objects must contain at least one item")
+	}
+	if numItems > metabase.DeleteObjectsMaxItems {
+		return rpcstatus.Error(rpcstatus.DeleteObjectsTooManyItems, "The list of objects contains too many items")
+	}
+
+	for _, item := range req.Items {
+		objectKeyLen := len(item.EncryptedObjectKey)
+		if objectKeyLen == 0 {
+			return rpcstatus.Error(rpcstatus.ObjectKeyMissing, "An object key was not provided")
+		}
+		if objectKeyLen > endpoint.config.MaxEncryptedObjectKeyLength {
+			return rpcstatus.Error(rpcstatus.ObjectKeyTooLong, "A provided object key is too long")
+		}
+
+		if versionLen := len(item.ObjectVersion); versionLen > 0 {
+			invalid := versionLen != len(metabase.StreamVersionID{})
+			if !invalid {
+				invalid = metabase.StreamVersionID(item.ObjectVersion).Version() <= 0
+			}
+			if invalid {
+				return rpcstatus.Error(rpcstatus.ObjectVersionInvalid, "A provided object version is invalid")
+			}
+		}
 	}
 
 	return nil

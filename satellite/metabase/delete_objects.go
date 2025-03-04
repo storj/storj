@@ -12,10 +12,9 @@ import (
 	"storj.io/common/uuid"
 )
 
-const (
-	deleteBatchsizeLimit  = intLimitRange(1000)
-	deleteObjectsMaxItems = 1000
-)
+// DeleteObjectsMaxItems is the maximum amount of items that are allowed
+// in a DeleteObjects request.
+const DeleteObjectsMaxItems = 1000
 
 // DeleteObjects contains options for deleting multiple committed objects from a bucket.
 type DeleteObjects struct {
@@ -47,8 +46,8 @@ func (opts DeleteObjects) Verify() error {
 		return ErrInvalidRequest.New("BucketName missing")
 	case itemCount == 0:
 		return ErrInvalidRequest.New("Items missing")
-	case itemCount > deleteObjectsMaxItems:
-		return ErrInvalidRequest.New("Items is too long; expected <= %d, but got %d", deleteObjectsMaxItems, itemCount)
+	case itemCount > DeleteObjectsMaxItems:
+		return ErrInvalidRequest.New("Items is too long; expected <= %d, but got %d", DeleteObjectsMaxItems, itemCount)
 	}
 	for i, item := range opts.Items {
 		if item.ObjectKey == "" {

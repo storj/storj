@@ -371,6 +371,17 @@ func (endpoint *Endpoint) Batch(ctx context.Context, req *pb.BatchRequest) (resp
 					ObjectFinishDelete: response,
 				},
 			})
+		case *pb.BatchRequestItem_ObjectsDelete:
+			singleRequest.ObjectsDelete.Header = req.Header
+			response, err := endpoint.DeleteObjects(ctx, singleRequest.ObjectsDelete)
+			if err != nil {
+				return resp, err
+			}
+			resp.Responses = append(resp.Responses, &pb.BatchResponseItem{
+				Response: &pb.BatchResponseItem_ObjectsDelete{
+					ObjectsDelete: response,
+				},
+			})
 		case *pb.BatchRequestItem_ObjectGetRetention:
 			singleRequest.ObjectGetRetention.Header = req.Header
 			response, err := endpoint.GetObjectRetention(ctx, singleRequest.ObjectGetRetention)
