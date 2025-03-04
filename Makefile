@@ -300,8 +300,13 @@ satellite-wasm:
 	scripts/build-wasm.sh ;\
 
 .PHONY: images
-images: multinode-image satellite-image uplink-image versioncontrol-image storagenode-image modular-storagenode-image ## Build multinode, satellite and versioncontrol Docker images
+images: jobq-image # multinode-image satellite-image uplink-image versioncontrol-image storagenode-image modular-storagenode-image ## Build multinode, satellite and versioncontrol Docker images
 	echo Built version: ${TAG}
+
+.PHONY: jobq-image
+jobq-image: jobq_linux_amd64 ## Build multinode Docker image
+	${DOCKER_BUILD} --pull=true -t storjlabs/jobq:${TAG}${CUSTOMTAG}-amd64 \
+		-f cmd/jobq/Dockerfile 
 
 .PHONY: multinode-image
 multinode-image: multinode_linux_arm multinode_linux_arm64 multinode_linux_amd64 ## Build multinode Docker image
@@ -453,6 +458,10 @@ binary-check:
 		$(MAKE) binary; \
 	fi
 
+.PHONY: jobq_%
+jobq_%:
+	$(MAKE) binary-check COMPONENT=jobq GOARCH=$(word 3, $(subst _, ,$@)) GOOS=$(word 2, $(subst _, ,$@))
+
 .PHONY: certificates_%
 certificates_%:
 	$(MAKE) binary-check COMPONENT=certificates GOARCH=$(word 3, $(subst _, ,$@)) GOOS=$(word 2, $(subst _, ,$@))
@@ -494,8 +503,8 @@ multinode_%: multinode-console
 	$(MAKE) binary-check COMPONENT=multinode GOARCH=$(word 3, $(subst _, ,$@)) GOOS=$(word 2, $(subst _, ,$@))
 
 
-COMPONENTLIST := certificates identity multinode satellite storagenode storagenode-updater uplink versioncontrol
-OSARCHLIST    := linux_amd64 linux_arm linux_arm64 windows_amd64 freebsd_amd64
+COMPONENTLIST := jobq #certificates identity multinode satellite storagenode storagenode-updater uplink versioncontrol
+OSARCHLIST    := linux_amd64 #linux_arm linux_arm64 windows_amd64 freebsd_amd64
 BINARIES      := $(foreach C,$(COMPONENTLIST),$(foreach O,$(OSARCHLIST),$C_$O))
 .PHONY: binaries
 binaries: ${BINARIES} ## Build certificates, identity, multinode, satellite, storagenode, uplink, versioncontrol and multinode binaries (jenkins)
