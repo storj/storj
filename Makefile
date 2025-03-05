@@ -300,8 +300,19 @@ satellite-wasm:
 	scripts/build-wasm.sh ;\
 
 .PHONY: images
-images: multinode-image satellite-image uplink-image versioncontrol-image storagenode-image modular-storagenode-image ## Build multinode, satellite and versioncontrol Docker images
+images: jobq-image multinode-image satellite-image uplink-image versioncontrol-image storagenode-image modular-storagenode-image ## Build jobq, multinode, satellite and versioncontrol Docker images
 	echo Built version: ${TAG}
+
+.PHONY: jobq-image
+jobq-image: jobq_linux_arm jobq_linux_arm64 jobq_linux_amd64 ## Build jobq Docker image
+	${DOCKER_BUILD} --pull=true -t storjlabs/jobq:${TAG}${CUSTOMTAG}-amd64 \
+		-f cmd/jobq/Dockerfile .
+	${DOCKER_BUILD} --pull=true -t storjlabs/jobq:${TAG}${CUSTOMTAG}-arm32v5 \
+		--build-arg=GOARCH=arm --build-arg=DOCKER_ARCH=arm32v5 \
+		-f cmd/jobq/Dockerfile .
+	${DOCKER_BUILD} --pull=true -t storjlabs/jobq:${TAG}${CUSTOMTAG}-arm64v8 \
+		--build-arg=GOARCH=arm64 --build-arg=DOCKER_ARCH=arm64v8 \
+		-f cmd/jobq/Dockerfile .
 
 .PHONY: multinode-image
 multinode-image: multinode_linux_arm multinode_linux_arm64 multinode_linux_amd64 ## Build multinode Docker image
@@ -453,6 +464,9 @@ binary-check:
 		$(MAKE) binary; \
 	fi
 
+.PHONY: jobq_%
+jobq_%:
+	$(MAKE) binary-check COMPONENT=jobq GOARCH=$(word 3, $(subst _, ,$@)) GOOS=$(word 2, $(subst _, ,$@))
 .PHONY: certificates_%
 certificates_%:
 	$(MAKE) binary-check COMPONENT=certificates GOARCH=$(word 3, $(subst _, ,$@)) GOOS=$(word 2, $(subst _, ,$@))
@@ -494,11 +508,11 @@ multinode_%: multinode-console
 	$(MAKE) binary-check COMPONENT=multinode GOARCH=$(word 3, $(subst _, ,$@)) GOOS=$(word 2, $(subst _, ,$@))
 
 
-COMPONENTLIST := certificates identity multinode satellite storagenode storagenode-updater uplink versioncontrol
+COMPONENTLIST := jobq certificates identity multinode satellite storagenode storagenode-updater uplink versioncontrol
 OSARCHLIST    := linux_amd64 linux_arm linux_arm64 windows_amd64 freebsd_amd64
 BINARIES      := $(foreach C,$(COMPONENTLIST),$(foreach O,$(OSARCHLIST),$C_$O))
 .PHONY: binaries
-binaries: ${BINARIES} ## Build certificates, identity, multinode, satellite, storagenode, uplink, versioncontrol and multinode binaries (jenkins)
+binaries: ${BINARIES} ## Build jobq certificates, identity, multinode, satellite, storagenode, uplink, versioncontrol and multinode binaries (jenkins)
 
 .PHONY: sign-windows-installer
 sign-windows-installer:
@@ -509,7 +523,7 @@ sign-windows-installer:
 .PHONY: push-images
 push-images: ## Push Docker images to Docker Hub (jenkins)
 	# images have to be pushed before a manifest can be created
-	set -x; for c in multinode satellite uplink versioncontrol ; do \
+	set -x; for c in jobq multinode satellite uplink versioncontrol ; do \
 		docker push storjlabs/$$c:${TAG}${CUSTOMTAG}-amd64 \
 		&& docker push storjlabs/$$c:${TAG}${CUSTOMTAG}-arm32v5 \
 		&& docker push storjlabs/$$c:${TAG}${CUSTOMTAG}-arm64v8 \
@@ -560,6 +574,7 @@ binaries-clean: ## Remove all local release binaries (jenkins)
 
 .PHONY: clean-images
 clean-images:
+	-docker rmi storjlabs/jobq:${TAG}${CUSTOMTAG}
 	-docker rmi storjlabs/multinode:${TAG}${CUSTOMTAG}
 	-docker rmi storjlabs/satellite:${TAG}${CUSTOMTAG}
 	-docker rmi storjlabs/versioncontrol:${TAG}${CUSTOMTAG}
