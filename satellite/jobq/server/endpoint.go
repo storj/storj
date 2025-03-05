@@ -184,7 +184,8 @@ func (se *JobqEndpoint) DestroyPlacementQueue(ctx context.Context, req *pb.JobQu
 // Clean removes all jobs from the queue that were last updated before the
 // requested time. If the given placement is negative, all queues are cleaned.
 func (se *JobqEndpoint) Clean(ctx context.Context, req *pb.JobQueueCleanRequest) (*pb.JobQueueCleanResponse, error) {
-	if req.Placement < 0 {
+	// req.Placement < 0 is deprecated; use AllPlacements
+	if req.Placement < 0 || req.AllPlacements {
 		return se.cleanAll(req.UpdatedBefore)
 	}
 	q := se.queues.GetQueue(storj.PlacementConstraint(req.Placement))
@@ -210,7 +211,8 @@ func (se *JobqEndpoint) cleanAll(updatedBefore time.Time) (*pb.JobQueueCleanResp
 // Trim removes all jobs from the queue with health greater than the given
 // value. If the given placement is negative, all queues are trimmed.
 func (se *JobqEndpoint) Trim(ctx context.Context, req *pb.JobQueueTrimRequest) (*pb.JobQueueTrimResponse, error) {
-	if req.Placement < 0 {
+	// req.Placement < 0 is deprecated; use AllPlacements
+	if req.Placement < 0 || req.AllPlacements {
 		return se.trimAll(req.HealthGreaterThan)
 	}
 	q := se.queues.GetQueue(storj.PlacementConstraint(req.Placement))

@@ -175,11 +175,37 @@ func (c *Client) Clean(ctx context.Context, placement storj.PlacementConstraint,
 	return resp.RemovedSegments, nil
 }
 
+// CleanAll removes all jobs with UpdatedAt time before the given cutoff from
+// all placement queues.
+func (c *Client) CleanAll(ctx context.Context, updatedBefore time.Time) (removedSegments int32, err error) {
+	resp, err := c.client.Clean(ctx, &pb.JobQueueCleanRequest{
+		UpdatedBefore: updatedBefore,
+		AllPlacements: true,
+	})
+	if err != nil {
+		return 0, fmt.Errorf("could not clean all jobs: %w", err)
+	}
+	return resp.RemovedSegments, nil
+}
+
 // Trim removes all jobs with Health greater than the given threshold.
 func (c *Client) Trim(ctx context.Context, placement storj.PlacementConstraint, healthGreaterThan float64) (removedSegments int32, err error) {
 	resp, err := c.client.Trim(ctx, &pb.JobQueueTrimRequest{
 		Placement:         int32(placement),
 		HealthGreaterThan: healthGreaterThan,
+	})
+	if err != nil {
+		return 0, err
+	}
+	return resp.RemovedSegments, nil
+}
+
+// TrimAll removes all jobs with UpdatedAt time before the given cutoff from
+// all placement queues.
+func (c *Client) TrimAll(ctx context.Context, healthGreaterThan float64) (removedSegments int32, err error) {
+	resp, err := c.client.Trim(ctx, &pb.JobQueueTrimRequest{
+		HealthGreaterThan: healthGreaterThan,
+		AllPlacements:     true,
 	})
 	if err != nil {
 		return 0, err

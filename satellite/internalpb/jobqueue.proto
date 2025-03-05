@@ -110,6 +110,7 @@ message JobQueueInspectResponse {
 message JobQueueCleanRequest {
     int32 placement = 1;
     google.protobuf.Timestamp updated_before = 2 [(gogoproto.stdtime) = true, (gogoproto.nullable) = false];
+    bool all_placements = 3;
 }
 
 message JobQueueCleanResponse {
@@ -119,6 +120,7 @@ message JobQueueCleanResponse {
 message JobQueueTrimRequest {
     int32 placement = 1;
     double health_greater_than = 2;
+    bool all_placements = 3;
 }
 
 message JobQueueTrimResponse {
