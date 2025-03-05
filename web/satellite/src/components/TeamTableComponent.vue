@@ -389,7 +389,7 @@ async function onResendOrCopyClick(expired: boolean, email: string): Promise<voi
  */
 async function resendInvite(email: string): Promise<void> {
     await withLoading(async () => {
-        analyticsStore.eventTriggered(AnalyticsEvent.RESEND_INVITE_CLICKED);
+        analyticsStore.eventTriggered(AnalyticsEvent.RESEND_INVITE_CLICKED, { project_id: selectedProject.value.id });
         try {
             await pmStore.reinviteMembers([email], selectedProject.value.id);
             if (configStore.state.config.unregisteredInviteEmailsEnabled) {

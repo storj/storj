@@ -757,7 +757,7 @@ async function onCreate(): Promise<void> {
         });
         if (enableObjectLock.value && defaultRetentionMode.value !== NO_MODE_SET) await setObjectLockConfig(ClientType.REGULAR);
         await bucketsStore.getBuckets(1, projectID);
-        analyticsStore.eventTriggered(AnalyticsEvent.BUCKET_CREATED);
+        analyticsStore.eventTriggered(AnalyticsEvent.BUCKET_CREATED, { project_id: projectID });
 
         if (!bucketWasCreated.value) {
             LocalData.setBucketWasCreatedStatus();
@@ -777,7 +777,7 @@ async function onCreate(): Promise<void> {
         });
         if (enableObjectLock.value && defaultRetentionMode.value !== NO_MODE_SET) await setObjectLockConfig(ClientType.FOR_CREATE);
         await bucketsStore.getBuckets(1, projectID);
-        analyticsStore.eventTriggered(AnalyticsEvent.BUCKET_CREATED);
+        analyticsStore.eventTriggered(AnalyticsEvent.BUCKET_CREATED, { project_id: projectID });
         if (!bucketWasCreated.value) {
             LocalData.setBucketWasCreatedStatus();
         }
@@ -825,7 +825,7 @@ async function onCreate(): Promise<void> {
     });
     if (enableObjectLock.value && defaultRetentionMode.value !== NO_MODE_SET) await setObjectLockConfig(ClientType.FOR_CREATE);
     await bucketsStore.getBuckets(1, projectID);
-    analyticsStore.eventTriggered(AnalyticsEvent.BUCKET_CREATED);
+    analyticsStore.eventTriggered(AnalyticsEvent.BUCKET_CREATED, { project_id: projectID });
 
     if (!bucketWasCreated.value) {
         LocalData.setBucketWasCreatedStatus();

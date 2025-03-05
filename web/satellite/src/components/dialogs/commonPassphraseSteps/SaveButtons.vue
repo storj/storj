@@ -35,6 +35,10 @@ import { SaveButtonsItem } from '@/types/common';
 import { Download } from '@/utils/download';
 import { useAnalyticsStore } from '@/store/modules/analyticsStore';
 import { AnalyticsEvent } from '@/utils/constants/analyticsEventNames';
+import { useProjectsStore } from '@/store/modules/projectsStore';
+
+const analyticsStore = useAnalyticsStore();
+const projectStore = useProjectsStore();
 
 const props = defineProps<{
     items: SaveButtonsItem[];
@@ -48,8 +52,6 @@ const downloadedTimeout = ref<ReturnType<typeof setTimeout> | null>(null);
 
 const justCopied = computed<boolean>(() => copiedTimeout.value !== null);
 const justDownloaded = computed<boolean>(() => downloadedTimeout.value !== null);
-
-const analyticsStore = useAnalyticsStore();
 
 /**
  * Saves items to clipboard.
@@ -72,7 +74,7 @@ function onDownload(): void {
         props.items.map(item => typeof item === 'string' ? item : `${item.name}:\n${item.value}`).join('\n\n'),
         `Storj-${props.type}-${props.name}-${new Date().toISOString()}.txt`,
     );
-    analyticsStore.eventTriggered(AnalyticsEvent.DOWNLOAD_TXT_CLICKED);
+    analyticsStore.eventTriggered(AnalyticsEvent.DOWNLOAD_TXT_CLICKED, { project_id: projectStore.state.selectedProject.id });
 
     if (downloadedTimeout.value) clearTimeout(downloadedTimeout.value);
     downloadedTimeout.value = setTimeout(() => {

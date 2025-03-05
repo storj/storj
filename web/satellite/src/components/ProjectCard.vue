@@ -223,7 +223,7 @@ async function declineInvitation(): Promise<void> {
 
     try {
         await projectsStore.respondToInvitation(props.item.id, ProjectInvitationResponse.Decline);
-        analyticsStore.eventTriggered(AnalyticsEvent.PROJECT_INVITATION_DECLINED);
+        analyticsStore.eventTriggered(AnalyticsEvent.PROJECT_INVITATION_DECLINED, { project_id: props.item.id });
     } catch (error) {
         error.message = `Failed to decline project invitation. ${error.message}`;
         notify.notifyError(error, AnalyticsErrorEventSource.PROJECT_INVITATION);

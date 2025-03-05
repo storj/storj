@@ -136,6 +136,7 @@ import {
 } from '@/utils/constants/analyticsEventNames';
 import { useNotify } from '@/composables/useNotify';
 import { useUsersStore } from '@/store/modules/usersStore.js';
+import { useProjectsStore } from '@/store/modules/projectsStore';
 
 import PasswordInputEyeIcons from '@/components/PasswordInputEyeIcons.vue';
 
@@ -143,6 +144,7 @@ const analyticsStore = useAnalyticsStore();
 const bucketsStore = useBucketsStore();
 const appStore = useAppStore();
 const usersStore = useUsersStore();
+const projectStore = useProjectsStore();
 
 const notify = useNotify();
 const { isLoading, withLoading } = useLoading();
@@ -177,6 +179,7 @@ function onSkip(confirmed = false): void {
 async function onContinue(): Promise<void> {
     analyticsStore.eventTriggered(AnalyticsEvent.PASSPHRASE_CREATED, {
         method: 'enter',
+        project_id: projectStore.state.selectedProject.id,
     });
 
     bucketsStore.setPassphrase(passphrase.value);

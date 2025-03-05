@@ -151,6 +151,7 @@ async function onSaveClick(): Promise<void> {
             props.field === FieldToChange.Name
                 ? AnalyticsEvent.PROJECT_NAME_UPDATED
                 : AnalyticsEvent.PROJECT_DESCRIPTION_UPDATED,
+            { project_id: projectsStore.state.selectedProject.id },
         );
         notify.success(`Project ${props.field.toLowerCase()} updated.`);
 

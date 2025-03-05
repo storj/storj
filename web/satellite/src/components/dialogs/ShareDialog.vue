@@ -170,6 +170,7 @@ import { ShareType, useLinksharing } from '@/composables/useLinksharing';
 import { EXTENSION_PREVIEW_TYPES, PreviewType, SHARE_BUTTON_CONFIGS, ShareOptions } from '@/types/browser';
 import { BrowserObject } from '@/store/modules/objectBrowserStore';
 import { useBucketsStore } from '@/store/modules/bucketsStore';
+import { useProjectsStore } from '@/store/modules/projectsStore';
 
 import InputCopyButton from '@/components/InputCopyButton.vue';
 
@@ -191,6 +192,7 @@ const model = defineModel<boolean>({ required: true });
 
 const analyticsStore = useAnalyticsStore();
 const bucketsStore = useBucketsStore();
+const projectStore = useProjectsStore();
 
 const notify = useNotify();
 const { generateBucketShareURL, generateFileOrFolderShareURL } = useLinksharing();
@@ -267,7 +269,7 @@ watch(() => innerContent.value, async (comp: VCard | null): Promise<void> => {
     isLoading.value = true;
     link.value = '';
     rawLink.value = '';
-    analyticsStore.eventTriggered(AnalyticsEvent.LINK_SHARED);
+    analyticsStore.eventTriggered(AnalyticsEvent.LINK_SHARED, { project_id: projectStore.state.selectedProject.id });
 
     try {
         if (!props.file) {

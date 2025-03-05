@@ -127,6 +127,7 @@ async function respondToInvitation(response: ProjectInvitationResponse): Promise
             accepted ?
                 AnalyticsEvent.PROJECT_INVITATION_ACCEPTED :
                 AnalyticsEvent.PROJECT_INVITATION_DECLINED,
+            { project_id: props.id },
         );
     } catch (error) {
         const action = accepted ? 'accept' : 'decline';

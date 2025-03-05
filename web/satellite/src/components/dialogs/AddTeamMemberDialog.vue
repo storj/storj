@@ -116,6 +116,7 @@ import { useProjectMembersStore } from '@/store/modules/projectMembersStore';
 import { useNotify } from '@/composables/useNotify';
 import { useLoading } from '@/composables/useLoading';
 import { useConfigStore } from '@/store/modules/configStore';
+import { useProjectsStore } from '@/store/modules/projectsStore';
 
 const props = defineProps<{
     projectId: string;
@@ -126,6 +127,7 @@ const model = defineModel<boolean>({ required: true });
 const analyticsStore = useAnalyticsStore();
 const pmStore = useProjectMembersStore();
 const configStore = useConfigStore();
+const projectStore = useProjectsStore();
 
 const notify = useNotify();
 const { isLoading, withLoading } = useLoading();
@@ -164,7 +166,7 @@ async function onPrimaryClick(): Promise<void> {
             return;
         }
 
-        analyticsStore.eventTriggered(AnalyticsEvent.PROJECT_MEMBERS_INVITE_SENT);
+        analyticsStore.eventTriggered(AnalyticsEvent.PROJECT_MEMBERS_INVITE_SENT, { project_id: projectStore.state.selectedProject.id });
 
         try {
             await pmStore.getProjectMembers(1, props.projectId);

@@ -468,7 +468,7 @@ async function buttonFileUpload(): Promise<void> {
         menu.value = false;
         const fileInputElement = fileInput.value as HTMLInputElement;
         fileInputElement.showPicker();
-        analyticsStore.eventTriggered(AnalyticsEvent.UPLOAD_FILE_CLICKED);
+        analyticsStore.eventTriggered(AnalyticsEvent.UPLOAD_FILE_CLICKED, { project_id: projectId.value });
     });
 }
 
@@ -496,7 +496,7 @@ async function buttonFolderUpload(): Promise<void> {
         menu.value = false;
         const folderInputElement = folderInput.value as HTMLInputElement;
         folderInputElement.showPicker();
-        analyticsStore.eventTriggered(AnalyticsEvent.UPLOAD_FOLDER_CLICKED);
+        analyticsStore.eventTriggered(AnalyticsEvent.UPLOAD_FOLDER_CLICKED, { project_id: projectId.value });
     });
 }
 
@@ -576,7 +576,7 @@ async function upload(ignoreDuplicate: boolean): Promise<void> {
     }
     await obStore.upload(filesToUpload.value);
     clearUpload();
-    analyticsStore.eventTriggered(AnalyticsEvent.OBJECT_UPLOADED);
+    analyticsStore.eventTriggered(AnalyticsEvent.OBJECT_UPLOADED, { project_id: projectId.value });
 }
 
 /**

@@ -315,6 +315,7 @@ async function onSaveClick(): Promise<void> {
             props.limitType === LimitToChange.Storage
                 ? AnalyticsEvent.PROJECT_STORAGE_LIMIT_UPDATED
                 : AnalyticsEvent.PROJECT_BANDWIDTH_LIMIT_UPDATED,
+            { project_id: projectsStore.state.selectedProject.id },
         );
         notify.success('Limit updated successfully.');
 

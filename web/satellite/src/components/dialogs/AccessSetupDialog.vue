@@ -591,7 +591,8 @@ async function createAPIKey(): Promise<void> {
 
     cliAccess.value = await setPermissions(permissionsMsg);
 
-    if (accessType.value === AccessType.APIKey) analyticsStore.eventTriggered(AnalyticsEvent.API_ACCESS_CREATED);
+    if (accessType.value === AccessType.APIKey)
+        analyticsStore.eventTriggered(AnalyticsEvent.API_ACCESS_CREATED, { project_id: projectID });
 }
 
 /**
@@ -605,7 +606,8 @@ async function createAccessGrant(): Promise<void> {
         passphrase: passphrase.value,
     }, projectsStore.state.selectedProject.id);
 
-    if (accessType.value === AccessType.AccessGrant) analyticsStore.eventTriggered(AnalyticsEvent.ACCESS_GRANT_CREATED);
+    if (accessType.value === AccessType.AccessGrant)
+        analyticsStore.eventTriggered(AnalyticsEvent.ACCESS_GRANT_CREATED, { project_id: projectsStore.state.selectedProject.id });
 }
 
 /**
@@ -613,7 +615,7 @@ async function createAccessGrant(): Promise<void> {
  */
 async function createEdgeCredentials(): Promise<void> {
     credentials.value = await agStore.getEdgeCredentials(accessGrant.value);
-    analyticsStore.eventTriggered(AnalyticsEvent.GATEWAY_CREDENTIALS_CREATED);
+    analyticsStore.eventTriggered(AnalyticsEvent.GATEWAY_CREDENTIALS_CREATED, { project_id: projectsStore.state.selectedProject.id });
 }
 
 /**

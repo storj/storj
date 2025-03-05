@@ -231,7 +231,7 @@ bucketsStore.$onAction(({ name, after, args }) => {
             const request = args[1];
             try {
                 await request;
-                analyticsStore.eventTriggered(AnalyticsEvent.BUCKET_DELETED);
+                analyticsStore.eventTriggered(AnalyticsEvent.BUCKET_DELETED, { project_id: projectsStore.state.selectedProject.id });
                 notify.success(`Successfully deleted ${bucketName}.`, 'Bucket Deleted');
             } catch (error) {
                 let message = `Failed to delete ${bucketName}.`;
