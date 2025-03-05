@@ -63,10 +63,11 @@ func TestMigrateEncryptionPassphrases(t *testing.T) {
 	require.NoError(t, err)
 
 	for _, satelliteDB := range satellitedbtest.Databases() {
-		if satelliteDB.Name == "Spanner" {
-			t.Skip("not implemented for spanner")
-		}
 		t.Run(satelliteDB.Name, func(t *testing.T) {
+			if satelliteDB.Name == "Spanner" {
+				t.Skip("not implemented for spanner")
+			}
+
 			schemaSuffix := satellitedbtest.SchemaSuffix()
 			schema := satellitedbtest.SchemaName(t.Name(), "category", 0, schemaSuffix)
 
