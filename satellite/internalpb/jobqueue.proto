@@ -21,12 +21,13 @@ service JobQueue {
     rpc AddPlacementQueue(JobQueueAddPlacementQueueRequest) returns (JobQueueAddPlacementQueueResponse);
     rpc DestroyPlacementQueue(JobQueueDestroyPlacementQueueRequest) returns (JobQueueDestroyPlacementQueueResponse);
     rpc Clean(JobQueueCleanRequest) returns (JobQueueCleanResponse);
+    rpc Trim(JobQueueTrimRequest) returns (JobQueueTrimResponse);
 }
 
 message RepairJob {
     bytes stream_id = 1;
     uint64 position = 2;
-    double priority = 3;
+    double health = 3;
     google.protobuf.Timestamp inserted_at = 4 [(gogoproto.stdtime) = true, (gogoproto.nullable) = true];
     google.protobuf.Timestamp last_attempted_at = 5 [(gogoproto.stdtime) = true, (gogoproto.nullable) = true];
     int32 num_attempts = 6;
@@ -112,5 +113,14 @@ message JobQueueCleanRequest {
 }
 
 message JobQueueCleanResponse {
+    int32 removed_segments = 1;
+}
+
+message JobQueueTrimRequest {
+    int32 placement = 1;
+    double health_greater_than = 2;
+}
+
+message JobQueueTrimResponse {
     int32 removed_segments = 1;
 }

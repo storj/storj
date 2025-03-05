@@ -43,7 +43,7 @@ func TestClientAndServer(t *testing.T) {
 
 		job := jobq.RepairJob{
 			ID:        jobq.SegmentIdentifier{StreamID: testrand.UUID(), Position: 2},
-			Priority:  3.0,
+			Health:    3.0,
 			Placement: 42,
 		}
 		wasNew, err := cli.Push(ctx, job)
@@ -66,7 +66,7 @@ func TestClientAndServer(t *testing.T) {
 		require.NoError(t, err)
 		require.Equal(t, job.ID.StreamID, gotJob.ID.StreamID)
 		require.Equal(t, uint64(2), gotJob.ID.Position)
-		require.Equal(t, 3.0, gotJob.Priority)
+		require.Equal(t, 3.0, gotJob.Health)
 		require.Equal(t, uint16(42), gotJob.Placement)
 
 		gotRepairLen, gotRetryLen, err = cli.Len(ctx, 42)
@@ -112,12 +112,12 @@ func TestClientServerPushBatch(t *testing.T) {
 		jobs := []jobq.RepairJob{
 			{
 				ID:        jobq.SegmentIdentifier{StreamID: testrand.UUID(), Position: 2},
-				Priority:  3.0,
+				Health:    4.0,
 				Placement: 42,
 			},
 			{
 				ID:        jobq.SegmentIdentifier{StreamID: testrand.UUID(), Position: 3},
-				Priority:  4.0,
+				Health:    3.0,
 				Placement: 42,
 			},
 		}
@@ -141,7 +141,7 @@ func TestClientServerPushBatch(t *testing.T) {
 		gotJob2, err := cli.Pop(ctx, nil, nil)
 		require.NoError(t, err)
 
-		// Higher priority job should come first
+		// Lower health job should come first
 		require.Equal(t, jobs[1].ID.StreamID, gotJob1.ID.StreamID)
 		require.Equal(t, jobs[0].ID.StreamID, gotJob2.ID.StreamID)
 	}()
@@ -177,7 +177,7 @@ func TestClientServerPeek(t *testing.T) {
 		// Create and push a job
 		job := jobq.RepairJob{
 			ID:        jobq.SegmentIdentifier{StreamID: testrand.UUID(), Position: 2},
-			Priority:  3.0,
+			Health:    3.0,
 			Placement: 42,
 		}
 		wasNew, err := cli.Push(ctx, job)
@@ -189,7 +189,7 @@ func TestClientServerPeek(t *testing.T) {
 		require.NoError(t, err)
 		require.Equal(t, job.ID.StreamID, peekedJob.ID.StreamID)
 		require.Equal(t, job.ID.Position, peekedJob.ID.Position)
-		require.Equal(t, job.Priority, peekedJob.Priority)
+		require.Equal(t, job.Health, peekedJob.Health)
 
 		// Verify the job is still in the queue after peeking
 		gotRepairLen, gotRetryLen, err := cli.Len(ctx, 42)
@@ -236,7 +236,7 @@ func TestClientServerTruncate(t *testing.T) {
 		for i := 0; i < 5; i++ {
 			job := jobq.RepairJob{
 				ID:        jobq.SegmentIdentifier{StreamID: testrand.UUID(), Position: uint64(i)},
-				Priority:  float64(i),
+				Health:    float64(i),
 				Placement: 42,
 			}
 			wasNew, err := cli.Push(ctx, job)
@@ -296,7 +296,7 @@ func TestClientServerDestroyPlacementQueue(t *testing.T) {
 		// Create and push a job
 		job := jobq.RepairJob{
 			ID:        jobq.SegmentIdentifier{StreamID: testrand.UUID(), Position: 2},
-			Priority:  3.0,
+			Health:    3.0,
 			Placement: 42,
 		}
 		wasNew, err := cli.Push(ctx, job)
@@ -362,7 +362,7 @@ func TestClientServerClean(t *testing.T) {
 		for i := 0; i < 3; i++ {
 			job := jobq.RepairJob{
 				ID:        jobq.SegmentIdentifier{StreamID: testrand.UUID(), Position: uint64(i)},
-				Priority:  float64(i),
+				Health:    float64(i),
 				Placement: 42,
 			}
 			_, err = cli.Push(ctx, job)
@@ -376,7 +376,7 @@ func TestClientServerClean(t *testing.T) {
 		for i := 3; i < 5; i++ {
 			job := jobq.RepairJob{
 				ID:        jobq.SegmentIdentifier{StreamID: testrand.UUID(), Position: uint64(i)},
-				Priority:  float64(i),
+				Health:    float64(i),
 				Placement: 42,
 			}
 			_, err = cli.Push(ctx, job)
@@ -400,6 +400,87 @@ func TestClientServerClean(t *testing.T) {
 		require.NoError(t, err)
 		require.Equal(t, int64(2), gotRepairLen)
 		require.Equal(t, int64(0), gotRetryLen)
+	}()
+
+	cancel()
+	require.NoError(t, group.Wait())
+}
+
+func TestClientServerTrim(t *testing.T) {
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	log := zaptest.NewLogger(t)
+	addr, err := net.ResolveTCPAddr("tcp", "127.0.0.1:0")
+	require.NoError(t, err)
+	srv, err := server.New(log, addr, nil, time.Hour, 1e8, 1e6)
+	require.NoError(t, err)
+
+	var group errgroup.Group
+	group.Go(func() error {
+		return srv.Run(ctx)
+	})
+
+	func() {
+		cli, err := jobq.Dial(srv.Addr())
+		require.NoError(t, err)
+		defer func() { require.NoError(t, cli.Close()) }()
+
+		// Add a placement queue
+		err = cli.AddPlacementQueue(ctx, 42)
+		require.NoError(t, err)
+
+		// Set up our time control
+		now := time.Now()
+		timeIncrement := time.Duration(0)
+		timeFunc := func() time.Time {
+			return now.Add(timeIncrement)
+		}
+		srv.SetTimeFunc(timeFunc)
+
+		// Create and push jobs with different health values
+		for i := 0; i < 5; i++ {
+			job := jobq.RepairJob{
+				ID:        jobq.SegmentIdentifier{StreamID: testrand.UUID(), Position: uint64(i)},
+				Health:    1.0 / float64(i),
+				Placement: 42,
+			}
+			_, err = cli.Push(ctx, job)
+			require.NoError(t, err)
+
+			// Small time increment to ensure distinct timestamps
+			timeIncrement += time.Second
+		}
+
+		// Verify we have all jobs in the queue
+		gotRepairLen, gotRetryLen, err := cli.Len(ctx, 42)
+		require.NoError(t, err)
+		require.Equal(t, int64(5), gotRepairLen)
+		require.Equal(t, int64(0), gotRetryLen)
+
+		// Trim jobs with health > 1/3
+		removedSegments, err := cli.Trim(ctx, 42, 1.0/3)
+		require.NoError(t, err)
+		require.Equal(t, int32(3), removedSegments)
+
+		// Verify only low-health jobs remain
+		gotRepairLen, gotRetryLen, err = cli.Len(ctx, 42)
+		require.NoError(t, err)
+		require.Equal(t, int64(2), gotRepairLen)
+		require.Equal(t, int64(0), gotRetryLen)
+
+		// Pop jobs to verify their health values
+		job1, err := cli.Pop(ctx, nil, nil)
+		require.NoError(t, err)
+		require.LessOrEqual(t, job1.Health, 1.0/3)
+
+		job2, err := cli.Pop(ctx, nil, nil)
+		require.NoError(t, err)
+		require.LessOrEqual(t, job2.Health, 1.0/3)
+
+		// Queue should be empty now
+		_, err = cli.Pop(ctx, nil, nil)
+		require.ErrorIs(t, err, jobq.ErrQueueEmpty)
 	}()
 
 	cancel()

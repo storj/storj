@@ -35,7 +35,7 @@ func (c *Client) Close() error {
 	return conn.Close()
 }
 
-// Push adds a new item to the job queue with the given priority.
+// Push adds a new item to the job queue with the given health.
 //
 // It returns an indication of whether the given segment was newly inserted or
 // if it already existed in the target queue.
@@ -50,7 +50,7 @@ func (c *Client) Push(ctx context.Context, job RepairJob) (wasNew bool, err erro
 }
 
 // PushBatch adds multiple items to the appropriate job queues with the given
-// priorities.
+// health values.
 //
 // It returns a slice of booleans indicating whether each segment was newly
 // inserted or if it already existed in the target queue.
@@ -68,8 +68,8 @@ func (c *Client) PushBatch(ctx context.Context, jobs []RepairJob) (wasNew []bool
 	return resp.NewlyInserted, nil
 }
 
-// Pop removes the most high-priority item from the job queue. If there are no
-// items in the queue, it returns ErrQueueEmpty.
+// Pop removes and returns the lowest-health item from the job queue. If there
+// are no items in the queue, it returns ErrQueueEmpty.
 func (c *Client) Pop(ctx context.Context, includedPlacements, excludedPlacements []storj.PlacementConstraint) (job RepairJob, err error) {
 	resp, err := c.client.Pop(ctx, &pb.JobQueuePopRequest{
 		IncludedPlacements: placementConstraintsToInt32Slice(includedPlacements),
@@ -88,7 +88,7 @@ func (c *Client) Pop(ctx context.Context, includedPlacements, excludedPlacements
 	return job, nil
 }
 
-// Peek returns the most high-priority item from the job queue without removing
+// Peek returns the lowest-health item from the job queue without removing
 // it. If there are no items in the queue, it returns ErrQueueEmpty.
 func (c *Client) Peek(ctx context.Context, placement storj.PlacementConstraint) (job RepairJob, err error) {
 	resp, err := c.client.Peek(ctx, &pb.JobQueuePeekRequest{
@@ -171,6 +171,18 @@ func (c *Client) Clean(ctx context.Context, placement storj.PlacementConstraint,
 	})
 	if err != nil {
 		return 0, fmt.Errorf("could not clean jobs: %w", err)
+	}
+	return resp.RemovedSegments, nil
+}
+
+// Trim removes all jobs with Health greater than the given threshold.
+func (c *Client) Trim(ctx context.Context, placement storj.PlacementConstraint, healthGreaterThan float64) (removedSegments int32, err error) {
+	resp, err := c.client.Trim(ctx, &pb.JobQueueTrimRequest{
+		Placement:         int32(placement),
+		HealthGreaterThan: healthGreaterThan,
+	})
+	if err != nil {
+		return 0, err
 	}
 	return resp.RemovedSegments, nil
 }
