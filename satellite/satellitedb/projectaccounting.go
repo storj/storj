@@ -864,6 +864,24 @@ func (db *ProjectAccounting) GetProjectTotal(ctx context.Context, projectID uuid
 
 // GetProjectTotalByPartner retrieves project usage for a given period categorized by partner name.
 // Unpartnered usage or usage for a partner not present in partnerNames is mapped to the empty string.
+//
+// Storage tallies are calculated on intervals of two consecutive entries by multiplying the hours
+// between the periods of the 2 entries by the bytes stored, number of segments, and number of
+// objects.
+// The consequences of calculating the storage tallies on intervals are:
+//
+//   - An interval with only one entry, will result in 0 storage (bytes, number of segments, and
+//     number of objects)
+//
+//   - The method picks all the storage entries between since and before (excluded) plus the entry
+//     with the time lower than since, but closes to since. The extra one is used as the lowest
+//     boundary to start the calculation.
+//
+//     This translates that when calculating a monthly storage for example since is 1st of March and
+//     before is 1st of April , it will include the last entry of February, but it won't calculate
+//     the storage since the last period of March until April, which will be included in the next
+//     monthly calculation (1st of April to 1st of May) as it happened with the last February entry
+//     for this period.
 func (db *ProjectAccounting) GetProjectTotalByPartner(ctx context.Context, projectID uuid.UUID, partnerNames []string, since, before time.Time) (usages map[string]accounting.ProjectUsage, err error) {
 	defer mon.Task()(&ctx)(&err)
 	since = timeTruncateDown(since)
@@ -872,22 +890,43 @@ func (db *ProjectAccounting) GetProjectTotalByPartner(ctx context.Context, proje
 		return nil, err
 	}
 
+	// we're going to get all tallies from the time range in question,
+	// but we're also going to get the tally that comes immediately before
+	// the time range in question, so we know how many hours to count the earliest
+	// tally span within the timerange in question for.
 	storageQuery := db.db.Rebind(`
 		SELECT
-			bucket_storage_tallies.interval_start,
-			bucket_storage_tallies.total_bytes,
-			bucket_storage_tallies.inline,
-			bucket_storage_tallies.remote,
-			bucket_storage_tallies.total_segments_count,
-			bucket_storage_tallies.object_count
+			bst1.interval_start,
+			bst1.total_bytes,
+			bst1.inline,
+			bst1.remote,
+			bst1.total_segments_count,
+			bst1.object_count
 		FROM
-			bucket_storage_tallies
+			bucket_storage_tallies bst1
 		WHERE
-			bucket_storage_tallies.project_id = ? AND
-			bucket_storage_tallies.bucket_name = ? AND
-			bucket_storage_tallies.interval_start >= ? AND
-			bucket_storage_tallies.interval_start < ?
-		ORDER BY bucket_storage_tallies.interval_start DESC
+			bst1.project_id = ? AND
+			bst1.bucket_name = ? AND
+			(
+				(
+					bst1.interval_start >= ? AND
+					bst1.interval_start < ?
+				)
+				OR
+				(
+					bst1.interval_start = (
+						SELECT
+							MAX(bst2.interval_start)
+						FROM
+							bucket_storage_tallies bst2
+						WHERE
+							bst2.project_id = bst1.project_id AND
+							bst2.bucket_name = bst1.bucket_name AND
+							bst2.interval_start < ?
+					)
+				)
+			)
+		ORDER BY bst1.interval_start DESC
 	`)
 
 	totalEgressQuery := db.db.Rebind(`
@@ -925,7 +964,7 @@ func (db *ProjectAccounting) GetProjectTotalByPartner(ctx context.Context, proje
 		}
 		usage := usages[partner]
 
-		storageTalliesRows, err := db.db.QueryContext(ctx, storageQuery, projectID[:], []byte(bucket), since, before)
+		storageTalliesRows, err := db.db.QueryContext(ctx, storageQuery, projectID[:], []byte(bucket), since, before, since)
 		if err != nil {
 			return nil, err
 		}
@@ -945,6 +984,9 @@ func (db *ProjectAccounting) GetProjectTotalByPartner(ctx context.Context, proje
 
 			if prevTally == nil {
 				prevTally = &tally
+				// this first (newest) tally's values are ignored and only used as a
+				// fencepost for the next tally we consider (which is older, since we
+				// consider these in decreasing order).
 				continue
 			}
 
