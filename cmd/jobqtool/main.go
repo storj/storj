@@ -26,7 +26,7 @@ import (
 // Config holds the toplevel configuration for jobqtool.
 type Config struct {
 	Identity identity.Config
-	Server   string `help:"address of the job queue server" default:"localhost:15781"`
+	Server   string `help:"address of the job queue server" default:"localhost:15781" testDefault:"$HOST:0"`
 	TLS      tlsopts.Config
 }
 

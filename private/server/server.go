@@ -56,8 +56,8 @@ const (
 // Config holds server specific configuration parameters.
 type Config struct {
 	tlsopts.Config
-	Address        string `user:"true" help:"public address to listen on" default:":7777"`
-	PrivateAddress string `user:"true" help:"private address to listen on" default:"127.0.0.1:7778"`
+	Address        string `user:"true" help:"public address to listen on" default:":7777" testDefault:"$HOST:0"`
+	PrivateAddress string `user:"true" help:"private address to listen on" default:"127.0.0.1:7778" testDefault:""`
 	DisableQUIC    bool   `help:"disable QUIC listener on a server" hidden:"true" default:"false"`
 
 	DisableTCP      bool `help:"disable TCP listener on a server" internal:"true"`

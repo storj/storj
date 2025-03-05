@@ -60,8 +60,8 @@ var (
 
 // Config contains configuration for console web server.
 type Config struct {
-	Address             string `help:"server address of the http api gateway and frontend app" devDefault:"127.0.0.1:0" releaseDefault:":10100"`
-	FrontendAddress     string `help:"server address of the front-end app" devDefault:"127.0.0.1:0" releaseDefault:":10200"`
+	Address             string `help:"server address of the http api gateway and frontend app" devDefault:"127.0.0.1:0" releaseDefault:":10100" testDefault:"$HOST:0"`
+	FrontendAddress     string `help:"server address of the front-end app" releaseDefault:":10200" devDefault:"127.0.0.1:0" testDefault:"$HOST:0"`
 	ExternalAddress     string `help:"external endpoint of the satellite if hosted" default:""`
 	FrontendEnable      bool   `help:"feature flag to toggle whether console back-end server should also serve front-end endpoints" default:"true"`
 	BackendReverseProxy string `help:"the target URL of console back-end reverse proxy for local development when running a UI server" default:""`

@@ -41,8 +41,8 @@ var (
 // AdminConf defines necessary configuration to run the storj-admin UI.
 type AdminConf struct {
 	AuthKey     string `help:"API authorization key" default:""`
-	Address     string `help:"address to start the web server on" default:":8080"`
-	EndpointURL string `help:"satellite admin endpoint" default:"localhost:7778"`
+	Address     string `help:"address to start the web server on" default:":8080" testDefault:"$HOST:0"`
+	EndpointURL string `help:"satellite admin endpoint" default:"localhost:7778" testDefault:"$HOST:0"`
 }
 
 func cmdSetup(cmd *cobra.Command, args []string) (err error) {

@@ -35,7 +35,7 @@ type Config struct {
 
 	Signer            identity.FullCAConfig
 	AuthorizationDB   authorization.DBConfig
-	AuthorizationAddr string `default:"127.0.0.1:9000" help:"address for authorization http proxy to listen on"`
+	AuthorizationAddr string `default:"127.0.0.1:9000" testDefault:"$HOST:0" help:"address for authorization http proxy to listen on"`
 
 	MinDifficulty uint `default:"36" help:"minimum difficulty of the requester's identity required to claim an authorization"`
 }

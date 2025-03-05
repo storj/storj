@@ -447,7 +447,9 @@ func (planet *Planet) newSatellite(ctx context.Context, prefix string, index int
 		cfgstruct.UseTestDefaults(),
 		cfgstruct.ConfDir(storageDir),
 		cfgstruct.IdentityDir(storageDir),
-		cfgstruct.ConfigVar("TESTINTERVAL", defaultInterval.String()))
+		cfgstruct.ConfigVar("TESTINTERVAL", defaultInterval.String()),
+		cfgstruct.ConfigVar("HOST", planet.config.Host),
+	)
 
 	// TODO: these are almost certainly mistakenly set to the zero value
 	// in tests due to a prior mismatch between testplanet config and

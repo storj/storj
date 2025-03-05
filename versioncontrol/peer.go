@@ -38,7 +38,7 @@ var (
 
 // Config is all the configuration parameters for a Version Control Server.
 type Config struct {
-	Address       string        `user:"true" help:"public address to listen on" default:":8080"`
+	Address       string        `user:"true" help:"public address to listen on" default:":8080" testDefault:"$HOST:0"`
 	SafeRate      float64       `user:"true" help:"the safe daily fractional increase for a rollout (a value of .5 means 0 to 50% in 24 hours). 0 means immediate rollout." default:".2"`
 	RegenInterval time.Duration `user:"true" help:"how long to go between recalculating the current cursors. 0 means on demand." default:"5m"`
 

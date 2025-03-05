@@ -33,7 +33,7 @@ type dashboardClient struct {
 }
 
 type dashboardCfg struct {
-	Address  string `default:"127.0.0.1:7778" help:"address for dashboard service"`
+	Address  string `default:"127.0.0.1:7778" testDefault:"$HOST:0" help:"address for dashboard service"`
 	Identity identity.Config
 	UseColor bool `internal:"true"`
 }

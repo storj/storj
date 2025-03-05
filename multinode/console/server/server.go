@@ -34,7 +34,7 @@ var (
 
 // Config contains configuration for Multinode Dashboard http server.
 type Config struct {
-	Address   string `json:"address" help:"server address of the api gateway and frontend app" default:"127.0.0.1:15002"`
+	Address   string `json:"address" help:"server address of the api gateway and frontend app" default:"127.0.0.1:15002" testDefault:"$HOST:0"`
 	StaticDir string `help:"path to static resources" default:""`
 }
 

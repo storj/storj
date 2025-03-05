@@ -39,7 +39,7 @@ type HealthCheck interface {
 // Config is the configuration for healthcheck server.
 type Config struct {
 	Enabled bool   `help:"Whether the health check server is enabled" default:"false"`
-	Address string `help:"The address to listen on for health check server" default:":10500"`
+	Address string `help:"The address to listen on for health check server" default:"localhost:10500" testDefault:"$HOST:0"`
 }
 
 // Server handles HTTP request for health Server.

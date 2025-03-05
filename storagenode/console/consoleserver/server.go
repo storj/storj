@@ -33,7 +33,7 @@ var (
 
 // Config contains configuration for storagenode console web server.
 type Config struct {
-	Address   string `help:"server address of the api gateway and frontend app" default:"127.0.0.1:14002"`
+	Address   string `help:"server address of the api gateway and frontend app" default:"127.0.0.1:14002" testDefault:"$HOST:0"`
 	StaticDir string `help:"path to static resources" default:""`
 }
 

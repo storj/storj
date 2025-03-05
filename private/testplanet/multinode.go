@@ -6,6 +6,7 @@ package testplanet
 import (
 	"context"
 	"fmt"
+	"net"
 	"os"
 	"path/filepath"
 	"runtime/pprof"
@@ -94,7 +95,7 @@ func (planet *Planet) newMultinode(ctx context.Context, prefix string, index int
 			Addr: "",
 		},
 		Console: server.Config{
-			Address:   "127.0.0.1:0",
+			Address:   net.JoinHostPort(planet.config.Host, "0"),
 			StaticDir: filepath.Join(developmentRoot, "web/multinode/"),
 		},
 	}

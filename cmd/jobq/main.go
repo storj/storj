@@ -26,7 +26,7 @@ import (
 // Config is the configuration for the job queue server.
 type Config struct {
 	Identity      identity.Config
-	ListenAddress string `help:"address to listen on" default:":15781"`
+	ListenAddress string `help:"address to listen on" default:":15781" testDefault:"$HOST:0"`
 	// InitAlloc is the initial allocation size for the job queue, in bytes.
 	// There is no special need to keep this low; unused parts of the queue
 	// allocation will not take up system memory until the queue grows to that
