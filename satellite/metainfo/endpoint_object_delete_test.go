@@ -1008,44 +1008,42 @@ func TestEndpoint_DeleteObjects(t *testing.T) {
 				obj4MarkerVersion, obj4MarkerStatus := getLastCommittedVersionAndStatus(t, versionedBucketName, obj4Key)
 				require.Equal(t, pb.Object_DELETE_MARKER_VERSIONED, obj4MarkerStatus)
 
-				require.Equal(t, &pb.DeleteObjectsResponse{
-					Items: []*pb.DeleteObjectsResponseItem{
-						{
-							EncryptedObjectKey: obj3Key,
-							Marker: &pb.DeleteObjectsResponseItemInfo{
-								ObjectVersion: obj3MarkerVersion,
-								Status:        pb.Object_DELETE_MARKER_VERSIONED,
-							},
-							Status: pb.DeleteObjectsResponseItem_OK,
+				require.ElementsMatch(t, []*pb.DeleteObjectsResponseItem{
+					{
+						EncryptedObjectKey:     obj1.key,
+						RequestedObjectVersion: obj1.version,
+						Removed: &pb.DeleteObjectsResponseItemInfo{
+							ObjectVersion: obj1.version,
+							Status:        pb.Object_COMMITTED_VERSIONED,
 						},
-						{
-							EncryptedObjectKey: obj4Key,
-							Marker: &pb.DeleteObjectsResponseItemInfo{
-								ObjectVersion: obj4MarkerVersion,
-								Status:        pb.Object_DELETE_MARKER_VERSIONED,
-							},
-							Status: pb.DeleteObjectsResponseItem_OK,
-						},
-						{
-							EncryptedObjectKey:     obj1.key,
-							RequestedObjectVersion: obj1.version,
-							Removed: &pb.DeleteObjectsResponseItemInfo{
-								ObjectVersion: obj1.version,
-								Status:        pb.Object_COMMITTED_VERSIONED,
-							},
-							Status: pb.DeleteObjectsResponseItem_OK,
-						},
-						{
-							EncryptedObjectKey:     obj2.key,
-							RequestedObjectVersion: obj2.version,
-							Removed: &pb.DeleteObjectsResponseItemInfo{
-								ObjectVersion: obj2.version,
-								Status:        pb.Object_COMMITTED_VERSIONED,
-							},
-							Status: pb.DeleteObjectsResponseItem_OK,
-						},
+						Status: pb.DeleteObjectsResponseItem_OK,
 					},
-				}, resp)
+					{
+						EncryptedObjectKey:     obj2.key,
+						RequestedObjectVersion: obj2.version,
+						Removed: &pb.DeleteObjectsResponseItemInfo{
+							ObjectVersion: obj2.version,
+							Status:        pb.Object_COMMITTED_VERSIONED,
+						},
+						Status: pb.DeleteObjectsResponseItem_OK,
+					},
+					{
+						EncryptedObjectKey: obj3Key,
+						Marker: &pb.DeleteObjectsResponseItemInfo{
+							ObjectVersion: obj3MarkerVersion,
+							Status:        pb.Object_DELETE_MARKER_VERSIONED,
+						},
+						Status: pb.DeleteObjectsResponseItem_OK,
+					},
+					{
+						EncryptedObjectKey: obj4Key,
+						Marker: &pb.DeleteObjectsResponseItemInfo{
+							ObjectVersion: obj4MarkerVersion,
+							Status:        pb.Object_DELETE_MARKER_VERSIONED,
+						},
+						Status: pb.DeleteObjectsResponseItem_OK,
+					},
+				}, resp.Items)
 
 				require.False(t, committedObjectExists(t, versionedBucketName, obj1))
 				require.False(t, committedObjectExists(t, versionedBucketName, obj2))
@@ -1073,23 +1071,21 @@ func TestEndpoint_DeleteObjects(t *testing.T) {
 				obj2MarkerVersion, obj2MarkerStatus := getLastCommittedVersionAndStatus(t, versionedBucketName, obj2Key)
 				require.Equal(t, pb.Object_DELETE_MARKER_VERSIONED, obj2MarkerStatus)
 
-				require.Equal(t, &pb.DeleteObjectsResponse{
-					Items: []*pb.DeleteObjectsResponseItem{
-						{
-							EncryptedObjectKey: obj2Key,
-							Marker: &pb.DeleteObjectsResponseItemInfo{
-								ObjectVersion: obj2MarkerVersion,
-								Status:        pb.Object_DELETE_MARKER_VERSIONED,
-							},
-							Status: pb.DeleteObjectsResponseItem_OK,
-						},
-						{
-							EncryptedObjectKey:     obj1Key,
-							RequestedObjectVersion: obj1Version,
-							Status:                 pb.DeleteObjectsResponseItem_NOT_FOUND,
-						},
+				require.ElementsMatch(t, []*pb.DeleteObjectsResponseItem{
+					{
+						EncryptedObjectKey:     obj1Key,
+						RequestedObjectVersion: obj1Version,
+						Status:                 pb.DeleteObjectsResponseItem_NOT_FOUND,
 					},
-				}, resp)
+					{
+						EncryptedObjectKey: obj2Key,
+						Marker: &pb.DeleteObjectsResponseItemInfo{
+							ObjectVersion: obj2MarkerVersion,
+							Status:        pb.Object_DELETE_MARKER_VERSIONED,
+						},
+						Status: pb.DeleteObjectsResponseItem_OK,
+					},
+				}, resp.Items)
 			})
 
 			t.Run("Pending object", func(t *testing.T) {
@@ -1115,16 +1111,14 @@ func TestEndpoint_DeleteObjects(t *testing.T) {
 				markerVersion, markerStatus := getLastCommittedVersionAndStatus(t, versionedBucketName, pending.key)
 				require.Equal(t, pb.Object_DELETE_MARKER_VERSIONED, markerStatus)
 
-				require.Equal(t, &pb.DeleteObjectsResponse{
-					Items: []*pb.DeleteObjectsResponseItem{{
-						EncryptedObjectKey: pending.key,
-						Marker: &pb.DeleteObjectsResponseItemInfo{
-							ObjectVersion: markerVersion,
-							Status:        pb.Object_DELETE_MARKER_VERSIONED,
-						},
-						Status: pb.DeleteObjectsResponseItem_OK,
-					}},
-				}, resp)
+				require.Equal(t, []*pb.DeleteObjectsResponseItem{{
+					EncryptedObjectKey: pending.key,
+					Marker: &pb.DeleteObjectsResponseItemInfo{
+						ObjectVersion: markerVersion,
+						Status:        pb.Object_DELETE_MARKER_VERSIONED,
+					},
+					Status: pb.DeleteObjectsResponseItem_OK,
+				}}, resp.Items)
 
 				require.True(t, pendingObjectExists(t, versionedBucketName, pending))
 
@@ -1133,17 +1127,15 @@ func TestEndpoint_DeleteObjects(t *testing.T) {
 				resp, err = endpoint.DeleteObjects(ctx, req)
 				require.NoError(t, err)
 
-				require.Equal(t, &pb.DeleteObjectsResponse{
-					Items: []*pb.DeleteObjectsResponseItem{{
-						EncryptedObjectKey:     pending.key,
-						RequestedObjectVersion: pending.version,
-						Removed: &pb.DeleteObjectsResponseItemInfo{
-							ObjectVersion: pending.version,
-							Status:        pb.Object_UPLOADING,
-						},
-						Status: pb.DeleteObjectsResponseItem_OK,
-					}},
-				}, resp)
+				require.Equal(t, []*pb.DeleteObjectsResponseItem{{
+					EncryptedObjectKey:     pending.key,
+					RequestedObjectVersion: pending.version,
+					Removed: &pb.DeleteObjectsResponseItemInfo{
+						ObjectVersion: pending.version,
+						Status:        pb.Object_UPLOADING,
+					},
+					Status: pb.DeleteObjectsResponseItem_OK,
+				}}, resp.Items)
 
 				require.False(t, pendingObjectExists(t, versionedBucketName, pending))
 			})
@@ -1170,27 +1162,25 @@ func TestEndpoint_DeleteObjects(t *testing.T) {
 				markerVersion, markerStatus := getLastCommittedVersionAndStatus(t, versionedBucketName, obj2.key)
 				require.Equal(t, pb.Object_DELETE_MARKER_VERSIONED, markerStatus)
 
-				require.Equal(t, &pb.DeleteObjectsResponse{
-					Items: []*pb.DeleteObjectsResponseItem{
-						{
-							EncryptedObjectKey: obj2.key,
-							Marker: &pb.DeleteObjectsResponseItemInfo{
-								ObjectVersion: markerVersion,
-								Status:        pb.Object_DELETE_MARKER_VERSIONED,
-							},
-							Status: pb.DeleteObjectsResponseItem_OK,
+				require.ElementsMatch(t, []*pb.DeleteObjectsResponseItem{
+					{
+						EncryptedObjectKey:     obj1.key,
+						RequestedObjectVersion: obj1.version,
+						Removed: &pb.DeleteObjectsResponseItemInfo{
+							ObjectVersion: obj1.version,
+							Status:        pb.Object_COMMITTED_VERSIONED,
 						},
-						{
-							EncryptedObjectKey:     obj1.key,
-							RequestedObjectVersion: obj1.version,
-							Removed: &pb.DeleteObjectsResponseItemInfo{
-								ObjectVersion: obj1.version,
-								Status:        pb.Object_COMMITTED_VERSIONED,
-							},
-							Status: pb.DeleteObjectsResponseItem_OK,
-						},
+						Status: pb.DeleteObjectsResponseItem_OK,
 					},
-				}, resp)
+					{
+						EncryptedObjectKey: obj2.key,
+						Marker: &pb.DeleteObjectsResponseItemInfo{
+							ObjectVersion: markerVersion,
+							Status:        pb.Object_DELETE_MARKER_VERSIONED,
+						},
+						Status: pb.DeleteObjectsResponseItem_OK,
+					},
+				}, resp.Items)
 
 				require.False(t, committedObjectExists(t, versionedBucketName, obj1))
 			})
@@ -1216,29 +1206,278 @@ func TestEndpoint_DeleteObjects(t *testing.T) {
 				markerVersion, markerStatus := getLastCommittedVersionAndStatus(t, versionedBucketName, obj.key)
 				require.Equal(t, pb.Object_DELETE_MARKER_VERSIONED, markerStatus)
 
-				require.Equal(t, &pb.DeleteObjectsResponse{
-					Items: []*pb.DeleteObjectsResponseItem{
-						{
-							EncryptedObjectKey: obj.key,
-							Marker: &pb.DeleteObjectsResponseItemInfo{
-								ObjectVersion: markerVersion,
-								Status:        pb.Object_DELETE_MARKER_VERSIONED,
-							},
-							Status: pb.DeleteObjectsResponseItem_OK,
+				require.ElementsMatch(t, []*pb.DeleteObjectsResponseItem{
+					{
+						EncryptedObjectKey:     obj.key,
+						RequestedObjectVersion: obj.version,
+						Removed: &pb.DeleteObjectsResponseItemInfo{
+							ObjectVersion: obj.version,
+							Status:        pb.Object_COMMITTED_VERSIONED,
 						},
-						{
-							EncryptedObjectKey:     obj.key,
-							RequestedObjectVersion: obj.version,
-							Removed: &pb.DeleteObjectsResponseItemInfo{
-								ObjectVersion: obj.version,
-								Status:        pb.Object_COMMITTED_VERSIONED,
-							},
-							Status: pb.DeleteObjectsResponseItem_OK,
-						},
+						Status: pb.DeleteObjectsResponseItem_OK,
 					},
-				}, resp)
+					{
+						EncryptedObjectKey: obj.key,
+						Marker: &pb.DeleteObjectsResponseItemInfo{
+							ObjectVersion: markerVersion,
+							Status:        pb.Object_DELETE_MARKER_VERSIONED,
+						},
+						Status: pb.DeleteObjectsResponseItem_OK,
+					},
+				}, resp.Items)
 
 				require.False(t, committedObjectExists(t, versionedBucketName, obj))
+			})
+		})
+
+		t.Run("Suspended", func(t *testing.T) {
+			t.Run("Basic", func(t *testing.T) {
+				suspendedBucketName := createBucket(t)
+
+				// Insert an unversioned object at this location to ensure that
+				// version-omitted deletion removes it and inserts a delete marker
+				// as the last version.
+				obj1 := createCommittedObject(t, suspendedBucketName)
+
+				setBucketVersioning(t, suspendedBucketName, true)
+
+				// Insert a versioned object at this location to ensure that
+				// version-omitted deletion preserves it and inserts a delete marker
+				// as the last version.
+				obj2 := createCommittedObject(t, suspendedBucketName)
+
+				setBucketVersioning(t, suspendedBucketName, false)
+
+				obj3 := createCommittedObject(t, suspendedBucketName)
+
+				resp, err := endpoint.DeleteObjects(ctx, &pb.DeleteObjectsRequest{
+					Header: apiKeyHeader,
+					Bucket: []byte(suspendedBucketName),
+					Items: []*pb.DeleteObjectsRequestItem{
+						{
+							EncryptedObjectKey: obj1.key,
+						},
+						{
+							EncryptedObjectKey: obj2.key,
+						},
+						{
+							EncryptedObjectKey: obj3.key,
+							ObjectVersion:      obj3.version,
+						},
+					},
+				})
+				require.NoError(t, err)
+
+				obj1MarkerVersion, obj1MarkerStatus := getLastCommittedVersionAndStatus(t, suspendedBucketName, obj1.key)
+				require.Equal(t, pb.Object_DELETE_MARKER_UNVERSIONED, obj1MarkerStatus)
+
+				obj2MarkerVersion, obj2MarkerStatus := getLastCommittedVersionAndStatus(t, suspendedBucketName, obj2.key)
+				require.Equal(t, pb.Object_DELETE_MARKER_UNVERSIONED, obj2MarkerStatus)
+
+				require.ElementsMatch(t, []*pb.DeleteObjectsResponseItem{
+					{
+						EncryptedObjectKey: obj1.key,
+						Removed: &pb.DeleteObjectsResponseItemInfo{
+							ObjectVersion: obj1.version,
+							Status:        pb.Object_COMMITTED_UNVERSIONED,
+						},
+						Marker: &pb.DeleteObjectsResponseItemInfo{
+							ObjectVersion: obj1MarkerVersion,
+							Status:        pb.Object_DELETE_MARKER_UNVERSIONED,
+						},
+						Status: pb.DeleteObjectsResponseItem_OK,
+					},
+					{
+						EncryptedObjectKey: obj2.key,
+						Marker: &pb.DeleteObjectsResponseItemInfo{
+							ObjectVersion: obj2MarkerVersion,
+							Status:        pb.Object_DELETE_MARKER_UNVERSIONED,
+						},
+						Status: pb.DeleteObjectsResponseItem_OK,
+					},
+					{
+						EncryptedObjectKey:     obj3.key,
+						RequestedObjectVersion: obj3.version,
+						Removed: &pb.DeleteObjectsResponseItemInfo{
+							ObjectVersion: obj3.version,
+							Status:        pb.Object_COMMITTED_UNVERSIONED,
+						},
+						Status: pb.DeleteObjectsResponseItem_OK,
+					},
+				}, resp.Items)
+			})
+
+			suspendedBucketName := createBucket(t)
+			setBucketVersioning(t, suspendedBucketName, true)
+			setBucketVersioning(t, suspendedBucketName, false)
+
+			t.Run("Not found", func(t *testing.T) {
+				object1Key, object2Key := []byte(testrand.Path()), []byte(testrand.Path())
+				object1Version := randStreamVersionID()
+
+				resp, err := endpoint.DeleteObjects(ctx, &pb.DeleteObjectsRequest{
+					Header: apiKeyHeader,
+					Bucket: []byte(suspendedBucketName),
+					Items: []*pb.DeleteObjectsRequestItem{
+						{
+							EncryptedObjectKey: object1Key,
+							ObjectVersion:      object1Version,
+						},
+						{
+							EncryptedObjectKey: object2Key,
+						},
+					},
+				})
+				require.NoError(t, err)
+
+				require.ElementsMatch(t, []*pb.DeleteObjectsResponseItem{
+					{
+						EncryptedObjectKey:     object1Key,
+						RequestedObjectVersion: object1Version,
+						Status:                 pb.DeleteObjectsResponseItem_NOT_FOUND,
+					},
+					{
+						EncryptedObjectKey: object2Key,
+						Status:             pb.DeleteObjectsResponseItem_NOT_FOUND,
+					},
+				}, resp.Items)
+			})
+
+			t.Run("Pending object", func(t *testing.T) {
+				obj := createPendingObject(t, suspendedBucketName)
+
+				req := &pb.DeleteObjectsRequest{
+					Header: apiKeyHeader,
+					Bucket: []byte(suspendedBucketName),
+					Items: []*pb.DeleteObjectsRequestItem{{
+						EncryptedObjectKey: obj.key,
+					}},
+				}
+
+				resp, err := endpoint.DeleteObjects(ctx, req)
+				require.NoError(t, err)
+
+				require.Equal(t, []*pb.DeleteObjectsResponseItem{{
+					EncryptedObjectKey: obj.key,
+					Status:             pb.DeleteObjectsResponseItem_NOT_FOUND,
+				}}, resp.Items)
+
+				require.True(t, pendingObjectExists(t, suspendedBucketName, obj))
+
+				req.Items[0].ObjectVersion = obj.version
+
+				resp, err = endpoint.DeleteObjects(ctx, req)
+				require.NoError(t, err)
+
+				require.Equal(t, []*pb.DeleteObjectsResponseItem{{
+					EncryptedObjectKey:     obj.key,
+					RequestedObjectVersion: obj.version,
+					Removed: &pb.DeleteObjectsResponseItemInfo{
+						ObjectVersion: obj.version,
+						Status:        pb.Object_UPLOADING,
+					},
+					Status: pb.DeleteObjectsResponseItem_OK,
+				}}, resp.Items)
+
+				require.False(t, pendingObjectExists(t, suspendedBucketName, obj))
+			})
+
+			t.Run("Duplicate deletion", func(t *testing.T) {
+				obj1 := createCommittedObject(t, suspendedBucketName)
+				reqItem1 := &pb.DeleteObjectsRequestItem{
+					EncryptedObjectKey: obj1.key,
+					ObjectVersion:      obj1.version,
+				}
+
+				obj2 := createCommittedObject(t, suspendedBucketName)
+				reqItem2 := &pb.DeleteObjectsRequestItem{
+					EncryptedObjectKey: obj2.key,
+				}
+
+				resp, err := endpoint.DeleteObjects(ctx, &pb.DeleteObjectsRequest{
+					Header: apiKeyHeader,
+					Bucket: []byte(suspendedBucketName),
+					Items:  []*pb.DeleteObjectsRequestItem{reqItem1, reqItem1, reqItem2, reqItem2},
+				})
+				require.NoError(t, err)
+
+				markerVersion, markerStatus := getLastCommittedVersionAndStatus(t, suspendedBucketName, obj2.key)
+				require.Equal(t, pb.Object_DELETE_MARKER_UNVERSIONED, markerStatus)
+
+				require.ElementsMatch(t, []*pb.DeleteObjectsResponseItem{
+					{
+						EncryptedObjectKey:     obj1.key,
+						RequestedObjectVersion: obj1.version,
+						Removed: &pb.DeleteObjectsResponseItemInfo{
+							ObjectVersion: obj1.version,
+							Status:        pb.Object_COMMITTED_UNVERSIONED,
+						},
+						Status: pb.DeleteObjectsResponseItem_OK,
+					},
+					{
+						EncryptedObjectKey: obj2.key,
+						Removed: &pb.DeleteObjectsResponseItemInfo{
+							ObjectVersion: obj2.version,
+							Status:        pb.Object_COMMITTED_UNVERSIONED,
+						},
+						Marker: &pb.DeleteObjectsResponseItemInfo{
+							ObjectVersion: markerVersion,
+							Status:        pb.Object_DELETE_MARKER_UNVERSIONED,
+						},
+						Status: pb.DeleteObjectsResponseItem_OK,
+					},
+				}, resp.Items)
+
+				require.False(t, committedObjectExists(t, suspendedBucketName, obj1))
+				require.False(t, committedObjectExists(t, suspendedBucketName, obj2))
+			})
+
+			t.Run("Duplicate deletion (indirect)", func(t *testing.T) {
+				obj := createCommittedObject(t, suspendedBucketName)
+
+				resp, err := endpoint.DeleteObjects(ctx, &pb.DeleteObjectsRequest{
+					Header: apiKeyHeader,
+					Bucket: []byte(suspendedBucketName),
+					Items: []*pb.DeleteObjectsRequestItem{
+						{
+							EncryptedObjectKey: obj.key,
+							ObjectVersion:      obj.version,
+						},
+						{
+							EncryptedObjectKey: obj.key,
+						},
+					},
+				})
+				require.NoError(t, err)
+
+				markerVersion, markerStatus := getLastCommittedVersionAndStatus(t, suspendedBucketName, obj.key)
+				require.Equal(t, pb.Object_DELETE_MARKER_UNVERSIONED, markerStatus)
+
+				require.ElementsMatch(t, []*pb.DeleteObjectsResponseItem{
+					{
+						EncryptedObjectKey:     obj.key,
+						RequestedObjectVersion: obj.version,
+						Removed: &pb.DeleteObjectsResponseItemInfo{
+							ObjectVersion: obj.version,
+							Status:        pb.Object_COMMITTED_UNVERSIONED,
+						},
+						Status: pb.DeleteObjectsResponseItem_OK,
+					},
+					{
+						EncryptedObjectKey: obj.key,
+						Removed: &pb.DeleteObjectsResponseItemInfo{
+							ObjectVersion: obj.version,
+							Status:        pb.Object_COMMITTED_UNVERSIONED,
+						},
+						Marker: &pb.DeleteObjectsResponseItemInfo{
+							ObjectVersion: markerVersion,
+							Status:        pb.Object_DELETE_MARKER_UNVERSIONED,
+						},
+						Status: pb.DeleteObjectsResponseItem_OK,
+					},
+				}, resp.Items)
+
+				require.False(t, committedObjectExists(t, suspendedBucketName, obj))
 			})
 		})
 
@@ -1258,13 +1497,11 @@ func TestEndpoint_DeleteObjects(t *testing.T) {
 					})
 					require.NoError(t, err)
 
-					require.Equal(t, &pb.DeleteObjectsResponse{
-						Items: []*pb.DeleteObjectsResponseItem{{
-							EncryptedObjectKey:     obj.key,
-							RequestedObjectVersion: obj.version,
-							Status:                 pb.DeleteObjectsResponseItem_LOCKED,
-						}},
-					}, resp)
+					require.Equal(t, []*pb.DeleteObjectsResponseItem{{
+						EncryptedObjectKey:     obj.key,
+						RequestedObjectVersion: obj.version,
+						Status:                 pb.DeleteObjectsResponseItem_LOCKED,
+					}}, resp.Items)
 
 					require.True(t, committedObjectExists(t, versionedBucketName, obj))
 				},
@@ -1282,17 +1519,15 @@ func TestEndpoint_DeleteObjects(t *testing.T) {
 					})
 					require.NoError(t, err)
 
-					require.Equal(t, &pb.DeleteObjectsResponse{
-						Items: []*pb.DeleteObjectsResponseItem{{
-							EncryptedObjectKey:     obj.key,
-							RequestedObjectVersion: obj.version,
-							Removed: &pb.DeleteObjectsResponseItemInfo{
-								ObjectVersion: obj.version,
-								Status:        pb.Object_COMMITTED_VERSIONED,
-							},
-							Status: pb.DeleteObjectsResponseItem_OK,
-						}},
-					}, resp)
+					require.Equal(t, []*pb.DeleteObjectsResponseItem{{
+						EncryptedObjectKey:     obj.key,
+						RequestedObjectVersion: obj.version,
+						Removed: &pb.DeleteObjectsResponseItemInfo{
+							ObjectVersion: obj.version,
+							Status:        pb.Object_COMMITTED_VERSIONED,
+						},
+						Status: pb.DeleteObjectsResponseItem_OK,
+					}}, resp.Items)
 
 					require.False(t, committedObjectExists(t, versionedBucketName, obj))
 				},
