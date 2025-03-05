@@ -208,6 +208,18 @@ func TestGetSingleBucketRollup(t *testing.T) {
 	)
 }
 
+// TestGetProjectTotal tests the GetProjectTotal function of the ProjectAccounting interface.
+// It creates mock storage tallies and bandwidth rollups for a project, then verifies that:
+//
+// 1. Storage and bandwidth metrics are correctly summed within the specified time range
+//
+// 2. The 'before' parameter is treated as exclusive for storage tallies
+//
+//  3. When querying with time ranges containing only bandwidth data (no storage tallies), storage
+//     metrics are zero while bandwidth is correctly reported
+//
+// Storage tallies are calculated between intervals of 2 entries, causing the 3rd case to result
+// in 0 storage. See documentation of ProjectAccounting.GetProjectTotalByPartner.
 func TestGetProjectTotal(t *testing.T) {
 	// Spanner only allows dates in the year range of [1, 9999], so a default value will fail.
 	since := time.Time{}.Add(24 * 365 * time.Hour)
@@ -265,6 +277,200 @@ func TestGetProjectTotal(t *testing.T) {
 			require.Equal(t, usage.Egress, rollups[0].Inline+rollups[0].Settled)
 			require.Equal(t, usage.Since, rollups[0].IntervalStart)
 			require.Equal(t, usage.Before, rollups[1].IntervalStart)
+		},
+	)
+}
+
+// TestGetProjectTotalTallies_monthly_storage tests the GetProjectTotal method of ProjectAccounting
+// for calculating monthly storage usage. It verifies that:
+//
+// 1. Storage byte-hours are correctly calculated across month boundaries
+//
+// 2. Object counts and segment counts are properly time-weighted
+//
+// 3. The method accurately handles tallies that span across different months
+//
+// The test creates storage tallies spanning multiple months (Dec-Apr) and verifies
+// calculation correctness for January, February, and March individually.
+// Each monthly calculation should include the appropriate time-weighted values
+// from the last tally of the previous month and all tallies within the target month
+// except the last tally of the month and the end of the month because the upper
+// bound tally falls on the next month.
+//
+// NOTE this test doesn't make any verification about bandwidth usage.
+func TestGetProjectTotalTallies_monthly_storage(t *testing.T) {
+	testplanet.Run(t, testplanet.Config{SatelliteCount: 1, StorageNodeCount: 0},
+		func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+			bucketName := testrand.BucketName()
+			projectID := testrand.UUID()
+			db := planet.Satellites[0].DB
+
+			// Create tallies spanning December 31st to April 2nd
+			var (
+				december31 = time.Date(2024, time.December, 31, 23, 0, 0, 0, time.UTC)
+				dec31Tally = accounting.BucketStorageTally{
+					BucketName:        bucketName,
+					ProjectID:         projectID,
+					IntervalStart:     december31,
+					TotalBytes:        200,
+					ObjectCount:       2,
+					TotalSegmentCount: 2,
+				}
+
+				january20  = time.Date(2025, time.January, 20, 12, 0, 0, 0, time.UTC)
+				jan20Tally = accounting.BucketStorageTally{
+					BucketName:        bucketName,
+					ProjectID:         projectID,
+					IntervalStart:     january20,
+					TotalBytes:        500,
+					ObjectCount:       5,
+					TotalSegmentCount: 5,
+				}
+
+				january31  = time.Date(2025, time.January, 31, 23, 0, 0, 0, time.UTC)
+				jan31Tally = accounting.BucketStorageTally{
+					BucketName:        bucketName,
+					ProjectID:         projectID,
+					IntervalStart:     january31,
+					TotalBytes:        1000,
+					ObjectCount:       10,
+					TotalSegmentCount: 10,
+				}
+
+				february1 = time.Date(2025, time.February, 1, 0, 0, 0, 0, time.UTC)
+				feb1Tally = accounting.BucketStorageTally{
+					BucketName:        bucketName,
+					ProjectID:         projectID,
+					IntervalStart:     february1,
+					TotalBytes:        2000,
+					ObjectCount:       20,
+					TotalSegmentCount: 20,
+				}
+
+				february15 = time.Date(2025, time.February, 15, 12, 0, 0, 0, time.UTC)
+				feb15Tally = accounting.BucketStorageTally{
+					BucketName:        bucketName,
+					ProjectID:         projectID,
+					IntervalStart:     february15,
+					TotalBytes:        3000,
+					ObjectCount:       30,
+					TotalSegmentCount: 30,
+				}
+
+				march1      = time.Date(2025, time.March, 1, 1, 0, 0, 0, time.UTC)
+				march1Tally = accounting.BucketStorageTally{
+					BucketName:        bucketName,
+					ProjectID:         projectID,
+					IntervalStart:     march1,
+					TotalBytes:        4000,
+					ObjectCount:       40,
+					TotalSegmentCount: 40,
+				}
+
+				april2      = time.Date(2025, time.April, 2, 0, 0, 0, 0, time.UTC)
+				april2Tally = accounting.BucketStorageTally{
+					BucketName:        bucketName,
+					ProjectID:         projectID,
+					IntervalStart:     april2,
+					TotalBytes:        5000,
+					ObjectCount:       50,
+					TotalSegmentCount: 50,
+				}
+			)
+
+			// Save all tallies
+			require.NoError(t, db.ProjectAccounting().CreateStorageTally(ctx, dec31Tally))
+			require.NoError(t, db.ProjectAccounting().CreateStorageTally(ctx, jan20Tally))
+			require.NoError(t, db.ProjectAccounting().CreateStorageTally(ctx, jan31Tally))
+			require.NoError(t, db.ProjectAccounting().CreateStorageTally(ctx, feb1Tally))
+			require.NoError(t, db.ProjectAccounting().CreateStorageTally(ctx, feb15Tally))
+			require.NoError(t, db.ProjectAccounting().CreateStorageTally(ctx, march1Tally))
+			require.NoError(t, db.ProjectAccounting().CreateStorageTally(ctx, april2Tally))
+
+			// epsilon is the acceptance tolerance when comparing expected and obtained storage totals
+			const epsilon = 1e-8
+
+			t.Run("storage january", func(t *testing.T) {
+				var (
+					janStart = time.Date(2025, time.January, 1, 0, 0, 0, 0, time.UTC)
+					febStart = time.Date(2025, time.February, 1, 0, 0, 0, 0, time.UTC)
+				)
+
+				usage, err := db.ProjectAccounting().GetProjectTotal(ctx, projectID, janStart, febStart)
+				require.NoError(t, err)
+
+				// Calculate expected storage based on the tallies
+				// - Dec 31 to Jan 20. It accounts the last entry of the previous month with the first one of
+				//   this month
+				// - Jan 20 to Jan 31. It accounts periods in between this month
+				// - Jan 31 to Feb 1. It isn't accounted because Feb 1 is excluded because febStart is designated
+				//   as before
+				decToJanHours := january20.Sub(december31).Hours()
+				jan20ToJan31Hours := january31.Sub(january20).Hours()
+				expectedStorage := float64(dec31Tally.TotalBytes)*decToJanHours +
+					float64(jan20Tally.TotalBytes)*jan20ToJan31Hours
+				expectedSegments := float64(dec31Tally.TotalSegmentCount)*decToJanHours +
+					float64(jan20Tally.TotalSegmentCount)*jan20ToJan31Hours
+				expectedObjects := float64(dec31Tally.ObjectCount)*decToJanHours +
+					float64(jan20Tally.ObjectCount)*jan20ToJan31Hours
+
+				require.InDelta(t, expectedStorage, usage.Storage, epsilon)
+				require.InDelta(t, expectedSegments, usage.SegmentCount, epsilon)
+				require.InDelta(t, expectedObjects, usage.ObjectCount, epsilon)
+			})
+
+			t.Run("storage february", func(t *testing.T) {
+				var (
+					febStart   = time.Date(2025, time.February, 1, 0, 0, 0, 0, time.UTC)
+					marchStart = time.Date(2025, time.March, 1, 0, 0, 0, 0, time.UTC)
+				)
+
+				usage, err := db.ProjectAccounting().GetProjectTotal(ctx, projectID, febStart, marchStart)
+				require.NoError(t, err)
+
+				// Calculate expected storage based on the tallies
+				// - Jan 31 to Feb 1. It accounts the last entry of the previous month with the first one of
+				//   this month
+				// - Feb 1 to Feb 15. It accounts periods in between this month
+				// - Feb 15 to March 1. It isn't accounted because Feb 1 is excluded because marchStart is
+				//   designated as before
+				janToFebHours := february1.Sub(january31).Hours()
+				feb1ToFeb15Hours := february15.Sub(february1).Hours()
+				expectedStorage := float64(jan31Tally.TotalBytes)*janToFebHours +
+					float64(feb1Tally.TotalBytes)*feb1ToFeb15Hours
+				expectedSegments := float64(jan31Tally.TotalSegmentCount)*janToFebHours +
+					float64(feb1Tally.TotalSegmentCount)*feb1ToFeb15Hours
+				expectedObjects := float64(jan31Tally.ObjectCount)*janToFebHours +
+					float64(feb1Tally.ObjectCount)*feb1ToFeb15Hours
+
+				require.InDelta(t, expectedStorage, usage.Storage, epsilon)
+				require.InDelta(t, expectedSegments, usage.SegmentCount, epsilon)
+				require.InDelta(t, expectedObjects, usage.ObjectCount, epsilon)
+			})
+
+			t.Run("storage march", func(t *testing.T) {
+				var (
+					marchStart = time.Date(2025, time.March, 1, 0, 0, 0, 0, time.UTC)
+					aprilStart = time.Date(2025, time.April, 1, 0, 0, 0, 0, time.UTC)
+				)
+
+				usage, err := db.ProjectAccounting().GetProjectTotal(ctx, projectID, marchStart, aprilStart)
+				require.NoError(t, err)
+
+				// Calculate expected storage based on the tallies
+				// -  Feb 15 to March 1. It accounts the last entry of the previous month with the first one of
+				//   this month
+				// - March 1 to April 2. It isn't accounted because Feb 1 is excluded because aprilStart is
+				//   designated as before
+				febToMarchbHours := march1.Sub(february15).Hours()
+				expectedStorage := float64(feb15Tally.TotalBytes) * febToMarchbHours
+				expectedSegments := float64(feb15Tally.TotalSegmentCount) * febToMarchbHours
+				expectedObjects := float64(feb15Tally.ObjectCount) * febToMarchbHours
+
+				require.InDelta(t, expectedStorage, usage.Storage, epsilon)
+				require.InDelta(t, expectedSegments, usage.SegmentCount, epsilon)
+				require.InDelta(t, expectedObjects, usage.ObjectCount, epsilon)
+			})
 		},
 	)
 }
