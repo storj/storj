@@ -394,8 +394,11 @@ func main() {
 			}
 		})
 
-		fmt.Printf("uploaded %d %s pieces in %s (%0.02f MiB/s, %0.02f pieces/s)\n",
-			*piecesToUpload, memory.Size(*pieceSize).Base10String(), duration,
+		fmt.Printf("BenchmarkUpload/%s-%d\t%d\t%0.02f ns/op\t%0.02f MiB/s\t%0.02f pieces/s\n",
+			strings.ReplaceAll(memory.Size(*pieceSize).Base10String(), " ", ""),
+			*workers,
+			*piecesToUpload,
+			float64(duration)/float64(*piecesToUpload),
 			float64((*pieceSize)*(*piecesToUpload))/(1024*1024*duration.Seconds()),
 			float64(*piecesToUpload)/duration.Seconds())
 	}
@@ -435,8 +438,11 @@ func main() {
 			}
 		})
 
-		fmt.Printf("downloaded %d %s pieces in %s (%0.02f MiB/s, %0.02f pieces/s)\n",
-			*piecesToUpload, memory.Size(*pieceSize).Base10String(), duration,
+		fmt.Printf("BenchmarkDownload/%s-%d\t%d\t%0.02f ns/op\t%0.02f MiB/s\t%0.02f pieces/s\n",
+			strings.ReplaceAll(memory.Size(*pieceSize).Base10String(), " ", ""),
+			*workers,
+			*piecesToUpload,
+			float64(duration)/float64(*piecesToUpload),
 			float64((*pieceSize)*(*piecesToUpload))/(1024*1024*duration.Seconds()),
 			float64(*piecesToUpload)/duration.Seconds())
 	}
@@ -446,8 +452,12 @@ func main() {
 			allSpans = append(allSpans, runCollector(ctx, collector))
 		})
 
-		fmt.Printf("collected %d pieces in %s (%0.02f MiB/s)\n", *piecesToUpload, duration,
-			float64((*pieceSize)*(*piecesToUpload))/(1024*1024*duration.Seconds()))
+		fmt.Printf("BenchmarkCollect/%s\t%d\t%0.04f ns/op\t%0.02f MiB/s\t%0.02f pieces/s\n",
+			strings.ReplaceAll(memory.Size(*pieceSize).Base10String(), " ", ""),
+			*piecesToUpload,
+			float64(duration)/float64(*piecesToUpload),
+			float64((*pieceSize)*(*piecesToUpload))/(1024*1024*duration.Seconds()),
+			float64(*piecesToUpload)/duration.Seconds())
 	}
 
 	if !*notrace {

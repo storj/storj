@@ -13,6 +13,7 @@ import (
 	"os"
 	"path/filepath"
 	"runtime/pprof"
+	"strings"
 	"sync"
 	"time"
 
@@ -158,9 +159,13 @@ func runBenchmark(cmd *cobra.Command, args []string) error {
 		}
 		uwg.Wait()
 	})
-	fmt.Printf("uploaded %d %s pieces in %s (%0.02f MiB/s, %0.02f pieces/s)\n",
-		benchmarkConfig.PiecesToUpload, memory.Size(pieceSize).Base10String(), duration,
-		float64((pieceSize)*int64(benchmarkConfig.PiecesToUpload))/(1024*1024*duration.Seconds()),
+
+	fmt.Printf("BenchmarkUpload/%s-%d\t%d\t%0.02f ns/op\t%0.02f MiB/s\t%0.02f pieces/s\n",
+		strings.ReplaceAll(memory.Size(pieceSize).Base10String(), " ", ""),
+		benchmarkConfig.Workers,
+		benchmarkConfig.PiecesToUpload,
+		float64(duration)/float64(benchmarkConfig.PiecesToUpload),
+		float64(pieceSize)*float64(benchmarkConfig.PiecesToUpload)/(1024*1024*duration.Seconds()),
 		float64(benchmarkConfig.PiecesToUpload)/duration.Seconds())
 
 	var dwg sync.WaitGroup
@@ -192,10 +197,14 @@ func runBenchmark(cmd *cobra.Command, args []string) error {
 
 	close(pieceIDQueue)
 
-	fmt.Printf("downloaded %d %s pieces in %s (%0.02f MiB/s, %0.02f pieces/s)\n",
-		benchmarkConfig.PiecesToUpload, memory.Size(pieceSize).Base10String(), duration,
-		float64((pieceSize)*int64(benchmarkConfig.PiecesToUpload))/(1024*1024*duration.Seconds()),
+	fmt.Printf("BenchmarkDownload/%s-%d\t%d\t%0.02f ns/op\t%0.02f MiB/s\t%0.02f pieces/s\n",
+		strings.ReplaceAll(memory.Size(pieceSize).Base10String(), " ", ""),
+		benchmarkConfig.Workers,
+		benchmarkConfig.PiecesToUpload,
+		float64(duration)/float64(benchmarkConfig.PiecesToUpload),
+		float64(pieceSize)*float64(benchmarkConfig.PiecesToUpload)/(1024*1024*duration.Seconds()),
 		float64(benchmarkConfig.PiecesToUpload)/duration.Seconds())
+
 	return nil
 }
 
