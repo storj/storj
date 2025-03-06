@@ -226,7 +226,11 @@ func (d *DB) Close() {
 	d.wg.Wait()
 }
 
-func (d *DB) getActive(ctx context.Context) (*Store, error) {
+// Create adds an entry to the database with the given key and expiration time. Close or Cancel
+// must be called on the Writer when done. It is safe to call either of them multiple times.
+func (d *DB) Create(ctx context.Context, key Key, expires time.Time) (_ *Writer, err error) {
+	defer mon.Task()(&ctx)(&err)
+
 	d.mu.Lock()
 	defer d.mu.Unlock()
 
@@ -267,7 +271,7 @@ func (d *DB) getActive(ctx context.Context) (*Store, error) {
 		d.beginPassiveCompaction()
 	}
 
-	return d.active, nil
+	return d.active.Create(ctx, key, expires)
 }
 
 func (d *DB) waitOnState(ctx context.Context, state *compactState) (err error) {
@@ -290,18 +294,6 @@ func (d *DB) waitOnState(ctx context.Context, state *compactState) (err error) {
 	}
 }
 
-// Create adds an entry to the database with the given key and expiration time. Close or Cancel
-// must be called on the Writer when done. It is safe to call either of them multiple times.
-func (d *DB) Create(ctx context.Context, key Key, expires time.Time) (_ *Writer, err error) {
-	defer mon.Task()(&ctx)(&err)
-
-	active, err := d.getActive(ctx)
-	if err != nil {
-		return nil, err
-	}
-	return active.Create(ctx, key, expires)
-}
-
 // Read returns a reader for the given key. If the key is not present the returned Reader will be
 // nil and the error will be a wrapped fs.ErrNotExist. Close must be called on the non-nil Reader
 // when done.
@@ -316,18 +308,46 @@ func (d *DB) Read(ctx context.Context, key Key) (_ *Reader, err error) {
 	first, second := d.active, d.passive
 	d.mu.Unlock()
 
-	r, err := first.Read(ctx, key)
+	rFirst, err := first.Read(ctx, key)
 	if err != nil {
 		return nil, err
-	} else if r != nil {
-		return r, nil
+	} else if rFirst != nil && !rFirst.Trash() {
+		return rFirst, nil
 	}
 
-	r, err = second.Read(ctx, key)
+	rSecond, err := second.Read(ctx, key)
 	if err != nil {
 		return nil, err
-	} else if r != nil {
-		return r, nil
+	} else if rSecond != nil && !rSecond.Trash() {
+		return rSecond, nil
+	}
+
+	// we either have no readers or at least one of them is trash. try to revive them before
+	// returning.
+
+	revive := func(r *Reader) {
+		if r == nil || !r.Trash() {
+			return
+		}
+		log := r.s.log.With(zap.String("record", r.rec.String()))
+		log.Warn("trashed record was read")
+		if err := r.Revive(ctx); err != nil {
+			log.Error("unable to revive record", zap.Error(err))
+		}
+	}
+
+	revive(rFirst)
+	revive(rSecond)
+
+	if rFirst != nil {
+		if rSecond != nil {
+			rSecond.Release()
+		}
+		return rFirst, nil
+	}
+
+	if rSecond != nil {
+		return rSecond, nil
 	}
 
 	return nil, Error.Wrap(fs.ErrNotExist)

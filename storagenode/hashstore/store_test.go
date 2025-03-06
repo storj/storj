@@ -445,7 +445,7 @@ func TestStore_ReadRevivesTrash(t *testing.T) {
 		s.AssertCompact(alwaysTrash, time.Time{})
 
 		// grab a reader for the key. it should still exist.
-		s.AssertRead(key)
+		s.AssertRead(key, WithRevive(true))
 
 		// move on to the next day.
 		s.today++
@@ -487,7 +487,7 @@ func TestStore_MergeRecordsWhenCompactingWithLostPage(t *testing.T) {
 	assert.NoError(t, err)
 
 	// reading k1 will cause it to revive, adding the duplicate entry for k1.
-	s.AssertRead(k1)
+	s.AssertRead(k1, WithRevive(true))
 
 	// ensure the only entries in the table are duplicate k1 entries and kl.
 	keys := []Key{k1, k1, kl}
@@ -557,7 +557,7 @@ func TestStore_ReviveDuringCompaction(t *testing.T) {
 		}()
 
 		// try to read the key which will attempt to revive it while compaction is running.
-		s.AssertRead(key)
+		s.AssertRead(key, WithRevive(true))
 
 		// compaction should finish without error.
 		assert.NoError(t, <-errCh)
@@ -621,6 +621,7 @@ func TestStore_MultipleReviveDuringCompaction(t *testing.T) {
 	// start functions reading the two keys that will do the revive.
 	read := func(k Key) {
 		r, err := s.Read(ctx, k)
+		_ = r.Revive(ctx)
 		_ = r.Close()
 		errCh <- err
 	}

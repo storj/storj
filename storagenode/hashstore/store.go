@@ -524,11 +524,11 @@ func (s *Store) Read(ctx context.Context, key Key) (_ *Reader, err error) {
 	} else if !ok {
 		return nil, nil
 	} else {
-		return s.readerForRecord(ctx, rec, true)
+		return s.readerForRecord(ctx, rec)
 	}
 }
 
-func (s *Store) readerForRecord(ctx context.Context, rec Record, revive bool) (_ *Reader, err error) {
+func (s *Store) readerForRecord(ctx context.Context, rec Record) (_ *Reader, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	lf, ok := s.lfs.Lookup(rec.Log)
@@ -538,20 +538,7 @@ func (s *Store) readerForRecord(ctx context.Context, rec Record, revive bool) (_
 		return nil, Error.New("unable to acquire log file for reading rec=%v", rec)
 	}
 
-	if revive && rec.Expires.Trash() {
-		s.log.Warn("trashed record was read",
-			zap.String("record", rec.String()),
-		)
-
-		if err := s.reviveRecord(ctx, lf, rec); err != nil {
-			s.log.Error("unable to revive record",
-				zap.String("record", rec.String()),
-				zap.Error(err),
-			)
-		}
-	}
-
-	return newLogReader(lf, rec), nil
+	return newLogReader(s, lf, rec), nil
 }
 
 func (s *Store) reviveRecord(ctx context.Context, lf *logFile, rec Record) (err error) {
@@ -561,17 +548,11 @@ func (s *Store) reviveRecord(ctx context.Context, lf *logFile, rec Record) (err 
 	// was trashed so we should revive it no matter what.
 	ctx = context2.WithoutCancellation(ctx)
 
-	// a compaction is potentially ongoing and we're still holding rmu, so we can't wait on the
-	// compaction because it could be trying to acquire rmu. fortunately, because we have a handle
-	// to the log file, we can always read the piece even if it gets fully deleted by compaction.
-	// the last tricky bit is to decide if we need to re-write the piece or if we can get away with
-	// updating the record. once we have acquired a write slot, we can be sure that no compaction is
-	// ongoing so we can check the table to see if the record matches as it usually will.
-
-	// 0. drop the mutex so compaction can proceed. this may invalidate the log file pointed at by
-	// rec but we have a handle to it so we'll still be able to read it.
-	s.rmu.RUnlock()
-	defer s.rmu.RLock()
+	// a compaction is potentially ongoing. fortunately, because we have a handle to the log file,
+	// we can always read the piece even if it gets fully deleted by compaction. the last tricky bit
+	// is to decide if we need to re-write the piece or if we can get away with updating the record.
+	// once we have acquired a write slot, we can be sure that no compaction is ongoing so we can
+	// check the table to see if the record matches as it usually will.
 
 	// 1. acquire the revive mutex.
 	if err := s.reviveMu.Lock(ctx, &s.closed); err != nil {
@@ -606,7 +587,7 @@ func (s *Store) reviveRecord(ctx context.Context, lf *logFile, rec Record) (err 
 	// to rewrite it. note that we purposefully do not close the log reader because after this
 	// function exits, a log reader will be created and returned to the user using the same log
 	// file.
-	_, err = io.Copy(w, newLogReader(lf, rec))
+	_, err = io.Copy(w, newLogReader(s, lf, rec))
 	if err != nil {
 		return Error.Wrap(err)
 	}
@@ -1098,7 +1079,7 @@ func (s *Store) compactOnce(
 }
 
 func (s *Store) rewriteRecord(ctx context.Context, rec Record, rewriteCandidates map[uint64]bool) (Record, error) {
-	r, err := s.readerForRecord(ctx, rec, false)
+	r, err := s.readerForRecord(ctx, rec)
 	if err != nil {
 		return rec, Error.Wrap(err)
 	}

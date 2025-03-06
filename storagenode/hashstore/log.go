@@ -165,17 +165,27 @@ func (l *logCollection) Acquire(ttl uint32) *logFile {
 
 // Reader is a type that reads a section from a log file.
 type Reader struct {
+	s   *Store
 	r   *io.SectionReader
 	lf  *logFile
 	rec Record
 }
 
-func newLogReader(lf *logFile, rec Record) *Reader {
+func newLogReader(s *Store, lf *logFile, rec Record) *Reader {
 	return &Reader{
+		s:   s,
 		r:   io.NewSectionReader(lf.fh, int64(rec.Offset), int64(rec.Length)),
 		lf:  lf,
 		rec: rec,
 	}
+}
+
+// Revive attempts to revive a trashed piece.
+func (l *Reader) Revive(ctx context.Context) error {
+	if !l.Trash() {
+		return nil
+	}
+	return l.s.reviveRecord(ctx, l.lf, l.rec)
 }
 
 // Key returns the key of thereader.

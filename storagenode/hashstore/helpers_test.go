@@ -277,6 +277,12 @@ func (ts *testStore) AssertRead(key Key, opts ...any) {
 	assert.Equal(ts.t, r.Size(), len(data))
 	assert.NoError(ts.t, iotest.TestReader(r, data))
 
+	checkOptions(opts, func(wr WithRevive) {
+		if wr {
+			assert.NoError(ts.t, r.Revive(context.Background()))
+		}
+	})
+
 	assert.NoError(ts.t, r.Close())
 }
 
@@ -379,6 +385,7 @@ type (
 	WithTTL     time.Time
 	WithData    []byte
 	WithKey     Key
+	WithRevive  bool
 )
 
 func checkOptions[T any](opts []any, cb func(T)) {
