@@ -284,7 +284,7 @@ func (p *PostgresAdapter) ListObjects(ctx context.Context, opts ListObjects) (re
 		}
 	}
 
-	panic("too many requeries")
+	return ListObjectsResult{}, errs.New("too many requeries")
 }
 
 // ListObjects lists objects.
@@ -499,7 +499,7 @@ func (s *SpannerAdapter) ListObjects(ctx context.Context, opts ListObjects) (res
 		}
 	}
 
-	panic("too many requeries")
+	return ListObjectsResult{}, errs.New("too many requeries")
 }
 
 func entryKeyMatchesCursor(prefix, entryKey, cursorKey ObjectKey) bool {
