@@ -53,7 +53,7 @@ type TblHeader struct {
 
 // WriteTblHeader writes the header page to the file handle.
 func WriteTblHeader(fh *os.File, header TblHeader) error {
-	var buf [pageSize]byte
+	var buf [headerSize]byte
 
 	copy(buf[0:4], "HTBL")
 	binary.BigEndian.PutUint32(buf[4:8], header.Created) // write the created field.
@@ -64,7 +64,7 @@ func WriteTblHeader(fh *os.File, header TblHeader) error {
 	}
 
 	// write the checksum
-	binary.BigEndian.PutUint64(buf[pageSize-8:pageSize], xxh3.Hash(buf[:pageSize-8]))
+	binary.BigEndian.PutUint64(buf[headerSize-8:headerSize], xxh3.Hash(buf[:headerSize-8]))
 
 	// write the header page.
 	_, err := fh.WriteAt(buf[:], 0)
@@ -74,7 +74,7 @@ func WriteTblHeader(fh *os.File, header TblHeader) error {
 // ReadTblHeader reads the header page from the file handle.
 func ReadTblHeader(fh *os.File) (header TblHeader, err error) {
 	// read the magic bytes.
-	var buf [pageSize]byte
+	var buf [headerSize]byte
 	if _, err := fh.ReadAt(buf[:], 0); err != nil {
 		return TblHeader{}, Error.New("unable to read header: %w", err)
 	} else if string(buf[0:4]) != "HTBL" {
@@ -82,8 +82,8 @@ func ReadTblHeader(fh *os.File) (header TblHeader, err error) {
 	}
 
 	// check the checksum.
-	hash := binary.BigEndian.Uint64(buf[pageSize-8 : pageSize])
-	if computed := xxh3.Hash(buf[:pageSize-8]); hash != computed {
+	hash := binary.BigEndian.Uint64(buf[headerSize-8 : headerSize])
+	if computed := xxh3.Hash(buf[:headerSize-8]); hash != computed {
 		return TblHeader{}, Error.New("invalid header checksum: %x != %x", hash, computed)
 	}
 
