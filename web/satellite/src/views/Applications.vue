@@ -93,7 +93,6 @@
             :items="filteredApps"
             :items-per-page="-1"
             :search="search"
-            :sort-by="sortBy"
         >
             <template #no-data>
                 <div class="d-flex justify-center">
@@ -102,7 +101,6 @@
             </template>
             <template #default="{ items }">
                 <v-row>
-                    <ApplicationItem v-if="showUplinkItem" :app="UplinkApp" />
                     <ApplicationItem v-for="app in items" :key="app.raw.name" :app="app.raw" />
                 </v-row>
             </template>
@@ -132,7 +130,6 @@ import { ArrowDownNarrowWide, ArrowUpDown, ArrowUpNarrowWide, ChevronDown, Searc
 
 import { AppCategory, Application, applications, UplinkApp } from '@/types/applications';
 import { usePreCheck } from '@/composables/usePreCheck';
-import { SortItem } from '@/types/common';
 
 import PageTitleComponent from '@/components/PageTitleComponent.vue';
 import PageSubtitleComponent from '@/components/PageSubtitleComponent.vue';
@@ -148,16 +145,6 @@ const sortOrder = ref<'asc' | 'desc'>('asc');
 const sortKeys = ['Name', 'Category'];
 
 /**
- * Indicates if uplink item should be shown.
- */
-const showUplinkItem = computed<boolean>(() => !search.value && selectedChip.value === AppCategory.All);
-
-/**
- * The sorting criteria to be used for the file list.
- */
-const sortBy = computed<SortItem[]>(() => [{ key: sortKey.value, order: sortOrder.value }]);
-
-/**
  * Returns all application categories.
  */
 const categories = computed<string[]>(() => {
@@ -170,8 +157,29 @@ const categories = computed<string[]>(() => {
  * Returns filtered apps based on selected category.
  */
 const filteredApps = computed<Application[]>(() => {
-    if (selectedChip.value === AppCategory.All) return applications;
+    let result: Application[];
+    if (selectedChip.value === AppCategory.All) {
+        result = [...applications];
+    } else {
+        result = applications.filter(app => selectedChip.value === app.category);
+    }
 
-    return applications.filter(app => selectedChip.value === app.category);
+    result.sort((a, b) => {
+        const aValue = (a[sortKey.value] || '').toLowerCase();
+        const bValue = (b[sortKey.value] || '').toLowerCase();
+        if (aValue < bValue) return sortOrder.value === 'asc' ? -1 : 1;
+        if (aValue > bValue) return sortOrder.value === 'asc' ? 1 : -1;
+        return 0;
+    });
+
+    if (selectedChip.value === AppCategory.All && !search.value) {
+        const index = result.findIndex(app => app.name === UplinkApp.name);
+        if (index > -1) {
+            const [uplink] = result.splice(index, 1);
+            result.unshift(uplink);
+        }
+    }
+
+    return result;
 });
 </script>

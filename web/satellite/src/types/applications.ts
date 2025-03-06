@@ -67,6 +67,7 @@ export const UplinkApp: Application = {
 };
 
 export const applications: Application[] = [
+    UplinkApp,
     {
         name: 'TrueNAS - iX Systems',
         description: 'TrueNAS is a network attached storage (NAS) solution that allows for an off-site backup to your Storj account.',
