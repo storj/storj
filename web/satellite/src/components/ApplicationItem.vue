@@ -6,20 +6,24 @@
         <v-card class="px-1 py-3 h-100 align-content-space-between flex-grow-1 d-flex flex-column">
             <v-card-item class="pb-0">
                 <img
+                    v-if="app"
                     :src="app.src"
                     :alt="app.name"
                     width="48"
                     height="48"
                     class="rounded-md border pa-2 bg-background mr-3"
                 >
+                <div v-else class="d-inline-flex align-center justify-center border rounded icon-wrap">
+                    <PlusIcon />
+                </div>
             </v-card-item>
 
             <v-card-item>
                 <h3 class="mb-2">
-                    {{ app.name }}
+                    {{ app?.name ?? 'Don\'t see your app?' }}
                 </h3>
                 <p class="text-high-emphasis">
-                    {{ app.description }}
+                    {{ app?.description ?? 'Create S3 credentials that work with any S3 compatible app.' }}
                 </p>
             </v-card-item>
 
@@ -31,7 +35,7 @@
                     variant="outlined"
                     color="default"
                     class="ml-2"
-                    :href="app.docs"
+                    :href="app?.docs ?? 'https://storj.dev/learn/concepts/s3-compatibility'"
                     :append-icon="SquareArrowOutUpRight"
                     target="_blank"
                     rel="noopener noreferrer"
@@ -45,18 +49,17 @@
     <AccessSetupDialog
         v-model="dialog"
         :app="app"
-        :access-name="app.name"
-        :docs-link="app.docs"
-        :default-step="SetupStep.ChooseFlowStep"
+        :access-name="app?.name"
+        :docs-link="app?.docs ?? 'https://docs.storj.io/dcs/access'"
+        :default-step="app ? SetupStep.ChooseFlowStep : SetupStep.ChooseAccessStep"
         :default-access-type="neededAccessType"
-        is-app-setup
     />
 </template>
 
 <script setup lang="ts">
 import { computed, ref } from 'vue';
 import { VBtn, VCard, VCardItem, VCol } from 'vuetify/components';
-import { ArrowRight, SquareArrowOutUpRight } from 'lucide-vue-next';
+import { ArrowRight, SquareArrowOutUpRight, PlusIcon } from 'lucide-vue-next';
 
 import { Application, UplinkApp } from '@/types/applications';
 import { AccessType, SetupStep } from '@/types/setupAccess';
@@ -67,7 +70,7 @@ import { AnalyticsEvent } from '@/utils/constants/analyticsEventNames';
 import AccessSetupDialog from '@/components/dialogs/AccessSetupDialog.vue';
 
 const props = defineProps<{
-    app: Application
+    app?: Application
 }>();
 
 const analyticsStore  = useAnalyticsStore();
@@ -80,7 +83,7 @@ const dialog = ref<boolean>(false);
  * Returns access type needed for current app.
  */
 const neededAccessType = computed<AccessType>(() => {
-    return props.app.name === UplinkApp.name ? AccessType.AccessGrant : AccessType.S3;
+    return props.app?.name === UplinkApp.name ? AccessType.AccessGrant : AccessType.S3;
 });
 
 /**
@@ -95,6 +98,13 @@ function onSetup(): void {
 }
 
 function sendAnalytics(e: AnalyticsEvent): void {
-    analyticsStore.eventTriggered(e, { application: props.app.name });
+    analyticsStore.eventTriggered(e, props.app && { application: props.app.name });
 }
 </script>
+
+<style scoped lang="scss">
+.icon-wrap {
+    width: 48px;
+    height: 48px;
+}
+</style>

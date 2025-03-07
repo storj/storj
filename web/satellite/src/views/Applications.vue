@@ -95,13 +95,12 @@
             :search="search"
         >
             <template #no-data>
-                <div class="d-flex justify-center">
-                    <p class="text-body-2">No data found</p>
-                </div>
+                <ApplicationItem />
             </template>
             <template #default="{ items }">
                 <v-row>
                     <ApplicationItem v-for="app in items" :key="app.raw.name" :app="app.raw" />
+                    <ApplicationItem />
                 </v-row>
             </template>
         </v-data-iterator>
