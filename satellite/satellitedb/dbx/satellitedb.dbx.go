@@ -998,6 +998,17 @@ func (obj *pgxDB) Schema() []string {
 	PRIMARY KEY ( member_id, project_id )
 )`,
 
+		`CREATE TABLE rest_api_keys (
+	id bytea NOT NULL,
+	user_id bytea NOT NULL REFERENCES users( id ) ON DELETE CASCADE,
+	token bytea NOT NULL,
+	name text NOT NULL,
+	expires_at timestamp with time zone,
+	created_at timestamp with time zone NOT NULL,
+	PRIMARY KEY ( id ),
+	UNIQUE ( token )
+)`,
+
 		`CREATE TABLE stripecoinpayments_apply_balance_intents (
 	tx_id text NOT NULL REFERENCES coinpayments_transactions( id ) ON DELETE CASCADE,
 	state integer NOT NULL,
@@ -1078,6 +1089,10 @@ func (obj *pgxDB) Schema() []string {
 		`CREATE INDEX project_invitations_email_index ON project_invitations ( email )`,
 
 		`CREATE INDEX project_members_project_id_index ON project_members ( project_id )`,
+
+		`CREATE INDEX rest_api_keys_user_id_index ON rest_api_keys ( user_id )`,
+
+		`CREATE INDEX rest_api_keys_name_index ON rest_api_keys ( name )`,
 	}
 }
 
@@ -1085,6 +1100,8 @@ func (obj *pgxDB) DropSchema() []string {
 	return []string{
 
 		`DROP TABLE IF EXISTS stripecoinpayments_apply_balance_intents`,
+
+		`DROP TABLE IF EXISTS rest_api_keys`,
 
 		`DROP TABLE IF EXISTS project_members`,
 
@@ -1925,6 +1942,17 @@ func (obj *pgxcockroachDB) Schema() []string {
 	PRIMARY KEY ( member_id, project_id )
 )`,
 
+		`CREATE TABLE rest_api_keys (
+	id bytea NOT NULL,
+	user_id bytea NOT NULL REFERENCES users( id ) ON DELETE CASCADE,
+	token bytea NOT NULL,
+	name text NOT NULL,
+	expires_at timestamp with time zone,
+	created_at timestamp with time zone NOT NULL,
+	PRIMARY KEY ( id ),
+	UNIQUE ( token )
+)`,
+
 		`CREATE TABLE stripecoinpayments_apply_balance_intents (
 	tx_id text NOT NULL REFERENCES coinpayments_transactions( id ) ON DELETE CASCADE,
 	state integer NOT NULL,
@@ -2005,6 +2033,10 @@ func (obj *pgxcockroachDB) Schema() []string {
 		`CREATE INDEX project_invitations_email_index ON project_invitations ( email )`,
 
 		`CREATE INDEX project_members_project_id_index ON project_members ( project_id )`,
+
+		`CREATE INDEX rest_api_keys_user_id_index ON rest_api_keys ( user_id )`,
+
+		`CREATE INDEX rest_api_keys_name_index ON rest_api_keys ( name )`,
 	}
 }
 
@@ -2012,6 +2044,8 @@ func (obj *pgxcockroachDB) DropSchema() []string {
 	return []string{
 
 		`DROP TABLE IF EXISTS stripecoinpayments_apply_balance_intents`,
+
+		`DROP TABLE IF EXISTS rest_api_keys`,
 
 		`DROP TABLE IF EXISTS project_members`,
 
@@ -2822,6 +2856,18 @@ func (obj *spannerDB) Schema() []string {
 	CONSTRAINT project_members_project_id_fkey FOREIGN KEY (project_id) REFERENCES projects (id) ON DELETE CASCADE 
 ) PRIMARY KEY ( member_id, project_id )`,
 
+		`CREATE TABLE rest_api_keys (
+	id BYTES(MAX) NOT NULL,
+	user_id BYTES(MAX) NOT NULL,
+	token BYTES(MAX) NOT NULL,
+	name STRING(MAX) NOT NULL,
+	expires_at TIMESTAMP,
+	created_at TIMESTAMP NOT NULL,
+	CONSTRAINT rest_api_keys_user_id_fkey FOREIGN KEY (user_id) REFERENCES users (id) ON DELETE CASCADE 
+) PRIMARY KEY ( id )`,
+
+		`CREATE UNIQUE INDEX index_rest_api_keys_token ON rest_api_keys ( token )`,
+
 		`CREATE TABLE stripecoinpayments_apply_balance_intents (
 	tx_id STRING(MAX) NOT NULL,
 	state INT64 NOT NULL,
@@ -2902,6 +2948,10 @@ func (obj *spannerDB) Schema() []string {
 		`CREATE INDEX project_invitations_email_index ON project_invitations ( email )`,
 
 		`CREATE INDEX project_members_project_id_index ON project_members ( project_id )`,
+
+		`CREATE INDEX rest_api_keys_user_id_index ON rest_api_keys ( user_id )`,
+
+		`CREATE INDEX rest_api_keys_name_index ON rest_api_keys ( name )`,
 	}
 }
 
@@ -2909,6 +2959,10 @@ func (obj *spannerDB) DropSchema() []string {
 	return []string{
 
 		`ALTER TABLE stripecoinpayments_apply_balance_intents DROP CONSTRAINT stripecoinpayments_apply_balance_intents_tx_id_fkey`,
+
+		`ALTER TABLE rest_api_keys DROP CONSTRAINT rest_api_keys_user_id_fkey`,
+
+		`DROP INDEX IF EXISTS index_rest_api_keys_token`,
 
 		`ALTER TABLE project_members DROP CONSTRAINT project_members_member_id_fkey`,
 
@@ -3012,11 +3066,21 @@ func (obj *spannerDB) DropSchema() []string {
 
 		`DROP INDEX IF EXISTS project_members_project_id_index`,
 
+		`DROP INDEX IF EXISTS rest_api_keys_user_id_index`,
+
+		`DROP INDEX IF EXISTS rest_api_keys_name_index`,
+
 		`ALTER TABLE  stripecoinpayments_apply_balance_intents ALTER tx_id SET DEFAULT (null)`,
 
 		`DROP SEQUENCE IF EXISTS stripecoinpayments_apply_balance_intents_tx_id`,
 
 		`DROP TABLE IF EXISTS stripecoinpayments_apply_balance_intents`,
+
+		`ALTER TABLE  rest_api_keys ALTER id SET DEFAULT (null)`,
+
+		`DROP SEQUENCE IF EXISTS rest_api_keys_id`,
+
+		`DROP TABLE IF EXISTS rest_api_keys`,
 
 		`ALTER TABLE  project_members ALTER member_id SET DEFAULT (null)`,
 
@@ -13914,6 +13978,140 @@ func (f ProjectMember_CreatedAt_Field) value() any {
 	return f._value
 }
 
+type RestApiKey struct {
+	Id        []byte
+	UserId    []byte
+	Token     []byte
+	Name      string
+	ExpiresAt *time.Time
+	CreatedAt time.Time
+}
+
+func (RestApiKey) _Table() string { return "rest_api_keys" }
+
+type RestApiKey_Create_Fields struct {
+	ExpiresAt RestApiKey_ExpiresAt_Field
+}
+
+type RestApiKey_Update_Fields struct {
+	ExpiresAt RestApiKey_ExpiresAt_Field
+}
+
+type RestApiKey_Id_Field struct {
+	_set   bool
+	_null  bool
+	_value []byte
+}
+
+func RestApiKey_Id(v []byte) RestApiKey_Id_Field {
+	return RestApiKey_Id_Field{_set: true, _value: v}
+}
+
+func (f RestApiKey_Id_Field) value() any {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+type RestApiKey_UserId_Field struct {
+	_set   bool
+	_null  bool
+	_value []byte
+}
+
+func RestApiKey_UserId(v []byte) RestApiKey_UserId_Field {
+	return RestApiKey_UserId_Field{_set: true, _value: v}
+}
+
+func (f RestApiKey_UserId_Field) value() any {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+type RestApiKey_Token_Field struct {
+	_set   bool
+	_null  bool
+	_value []byte
+}
+
+func RestApiKey_Token(v []byte) RestApiKey_Token_Field {
+	return RestApiKey_Token_Field{_set: true, _value: v}
+}
+
+func (f RestApiKey_Token_Field) value() any {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+type RestApiKey_Name_Field struct {
+	_set   bool
+	_null  bool
+	_value string
+}
+
+func RestApiKey_Name(v string) RestApiKey_Name_Field {
+	return RestApiKey_Name_Field{_set: true, _value: v}
+}
+
+func (f RestApiKey_Name_Field) value() any {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+type RestApiKey_ExpiresAt_Field struct {
+	_set   bool
+	_null  bool
+	_value *time.Time
+}
+
+func RestApiKey_ExpiresAt(v time.Time) RestApiKey_ExpiresAt_Field {
+	return RestApiKey_ExpiresAt_Field{_set: true, _value: &v}
+}
+
+func RestApiKey_ExpiresAt_Raw(v *time.Time) RestApiKey_ExpiresAt_Field {
+	if v == nil {
+		return RestApiKey_ExpiresAt_Null()
+	}
+	return RestApiKey_ExpiresAt(*v)
+}
+
+func RestApiKey_ExpiresAt_Null() RestApiKey_ExpiresAt_Field {
+	return RestApiKey_ExpiresAt_Field{_set: true, _null: true}
+}
+
+func (f RestApiKey_ExpiresAt_Field) isnull() bool { return !f._set || f._null || f._value == nil }
+
+func (f RestApiKey_ExpiresAt_Field) value() any {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+type RestApiKey_CreatedAt_Field struct {
+	_set   bool
+	_null  bool
+	_value time.Time
+}
+
+func RestApiKey_CreatedAt(v time.Time) RestApiKey_CreatedAt_Field {
+	return RestApiKey_CreatedAt_Field{_set: true, _value: v}
+}
+
+func (f RestApiKey_CreatedAt_Field) value() any {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
 type StripecoinpaymentsApplyBalanceIntent struct {
 	TxId      string
 	State     int
@@ -15858,6 +16056,42 @@ func (obj *pgxImpl) Create_ValueAttribution(ctx context.Context,
 		return nil, obj.makeErr(err)
 	}
 	return value_attribution, nil
+
+}
+
+func (obj *pgxImpl) CreateNoReturn_RestApiKey(ctx context.Context,
+	rest_api_key_id RestApiKey_Id_Field,
+	rest_api_key_user_id RestApiKey_UserId_Field,
+	rest_api_key_token RestApiKey_Token_Field,
+	rest_api_key_name RestApiKey_Name_Field,
+	optional RestApiKey_Create_Fields) (
+	err error) {
+	defer mon.Task()(&ctx)(&err)
+	if !obj.txn && txutil.IsInsideTx(ctx) {
+		panic("using DB when inside of a transaction")
+	}
+
+	__now := obj.db.Hooks.Now().UTC()
+	__id_val := rest_api_key_id.value()
+	__user_id_val := rest_api_key_user_id.value()
+	__token_val := rest_api_key_token.value()
+	__name_val := rest_api_key_name.value()
+	__expires_at_val := optional.ExpiresAt.value()
+	__created_at_val := __now
+
+	var __embed_stmt = __sqlbundle_Literal("INSERT INTO rest_api_keys ( id, user_id, token, name, expires_at, created_at ) VALUES ( ?, ?, ?, ?, ?, ? )")
+
+	var __values []any
+	__values = append(__values, __id_val, __user_id_val, __token_val, __name_val, __expires_at_val, __created_at_val)
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	_, err = obj.driver.ExecContext(ctx, __stmt, __values...)
+	if err != nil {
+		return obj.makeErr(err)
+	}
+	return nil
 
 }
 
@@ -19724,6 +19958,101 @@ func (obj *pgxImpl) Get_ValueAttribution_By_ProjectId_And_BucketName(ctx context
 		return (*ValueAttribution)(nil), obj.makeErr(err)
 	}
 	return value_attribution, nil
+
+}
+
+func (obj *pgxImpl) Get_RestApiKey_By_Id(ctx context.Context,
+	rest_api_key_id RestApiKey_Id_Field) (
+	rest_api_key *RestApiKey, err error) {
+	defer mon.Task()(&ctx)(&err)
+	if !obj.txn && txutil.IsInsideTx(ctx) {
+		panic("using DB when inside of a transaction")
+	}
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT rest_api_keys.id, rest_api_keys.user_id, rest_api_keys.token, rest_api_keys.name, rest_api_keys.expires_at, rest_api_keys.created_at FROM rest_api_keys WHERE rest_api_keys.id = ?")
+
+	var __values []any
+	__values = append(__values, rest_api_key_id.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	rest_api_key = &RestApiKey{}
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&rest_api_key.Id, &rest_api_key.UserId, &rest_api_key.Token, &rest_api_key.Name, &rest_api_key.ExpiresAt, &rest_api_key.CreatedAt)
+	if err != nil {
+		return (*RestApiKey)(nil), obj.makeErr(err)
+	}
+	return rest_api_key, nil
+
+}
+
+func (obj *pgxImpl) Get_RestApiKey_By_Token(ctx context.Context,
+	rest_api_key_token RestApiKey_Token_Field) (
+	rest_api_key *RestApiKey, err error) {
+	defer mon.Task()(&ctx)(&err)
+	if !obj.txn && txutil.IsInsideTx(ctx) {
+		panic("using DB when inside of a transaction")
+	}
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT rest_api_keys.id, rest_api_keys.user_id, rest_api_keys.token, rest_api_keys.name, rest_api_keys.expires_at, rest_api_keys.created_at FROM rest_api_keys WHERE rest_api_keys.token = ?")
+
+	var __values []any
+	__values = append(__values, rest_api_key_token.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	rest_api_key = &RestApiKey{}
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&rest_api_key.Id, &rest_api_key.UserId, &rest_api_key.Token, &rest_api_key.Name, &rest_api_key.ExpiresAt, &rest_api_key.CreatedAt)
+	if err != nil {
+		return (*RestApiKey)(nil), obj.makeErr(err)
+	}
+	return rest_api_key, nil
+
+}
+
+func (obj *pgxImpl) All_RestApiKey_By_UserId(ctx context.Context,
+	rest_api_key_user_id RestApiKey_UserId_Field) (
+	rows []*RestApiKey, err error) {
+	defer mon.Task()(&ctx)(&err)
+	if !obj.txn && txutil.IsInsideTx(ctx) {
+		panic("using DB when inside of a transaction")
+	}
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT rest_api_keys.id, rest_api_keys.user_id, rest_api_keys.token, rest_api_keys.name, rest_api_keys.expires_at, rest_api_keys.created_at FROM rest_api_keys WHERE rest_api_keys.user_id = ?")
+
+	var __values []any
+	__values = append(__values, rest_api_key_user_id.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	for {
+		rows, err = func() (rows []*RestApiKey, err error) {
+			__rows, err := obj.driver.QueryContext(ctx, __stmt, __values...)
+			if err != nil {
+				return nil, err
+			}
+			defer closeRows(__rows, &err)
+
+			for __rows.Next() {
+				rest_api_key := &RestApiKey{}
+				err = __rows.Scan(&rest_api_key.Id, &rest_api_key.UserId, &rest_api_key.Token, &rest_api_key.Name, &rest_api_key.ExpiresAt, &rest_api_key.CreatedAt)
+				if err != nil {
+					return nil, err
+				}
+				rows = append(rows, rest_api_key)
+			}
+			return rows, nil
+		}()
+		if err != nil {
+			if obj.shouldRetry(err) {
+				continue
+			}
+			return nil, obj.makeErr(err)
+		}
+		return rows, nil
+	}
 
 }
 
@@ -23652,6 +23981,36 @@ func (obj *pgxImpl) Delete_RepairQueue_By_UpdatedAt_Less(ctx context.Context,
 
 }
 
+func (obj *pgxImpl) Delete_RestApiKey_By_Id(ctx context.Context,
+	rest_api_key_id RestApiKey_Id_Field) (
+	deleted bool, err error) {
+	defer mon.Task()(&ctx)(&err)
+	if !obj.txn && txutil.IsInsideTx(ctx) {
+		panic("using DB when inside of a transaction")
+	}
+
+	var __embed_stmt = __sqlbundle_Literal("DELETE FROM rest_api_keys WHERE rest_api_keys.id = ?")
+
+	var __values []any
+	__values = append(__values, rest_api_key_id.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	__res, err := obj.driver.ExecContext(ctx, __stmt, __values...)
+	if err != nil {
+		return false, obj.makeErr(err)
+	}
+
+	__count, err := __res.RowsAffected()
+	if err != nil {
+		return false, obj.makeErr(err)
+	}
+
+	return __count > 0, nil
+
+}
+
 func (obj *pgxImpl) Delete_User_By_Id(ctx context.Context,
 	user_id User_Id_Field) (
 	deleted bool, err error) {
@@ -23881,6 +24240,16 @@ func (obj *pgxImpl) deleteAll(ctx context.Context) (count int64, err error) {
 	var __res sql.Result
 	var __count int64
 	__res, err = obj.driver.ExecContext(ctx, "DELETE FROM stripecoinpayments_apply_balance_intents;")
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+
+	__count, err = __res.RowsAffected()
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+	count += __count
+	__res, err = obj.driver.ExecContext(ctx, "DELETE FROM rest_api_keys;")
 	if err != nil {
 		return 0, obj.makeErr(err)
 	}
@@ -25703,6 +26072,42 @@ func (obj *pgxcockroachImpl) Create_ValueAttribution(ctx context.Context,
 		return nil, obj.makeErr(err)
 	}
 	return value_attribution, nil
+
+}
+
+func (obj *pgxcockroachImpl) CreateNoReturn_RestApiKey(ctx context.Context,
+	rest_api_key_id RestApiKey_Id_Field,
+	rest_api_key_user_id RestApiKey_UserId_Field,
+	rest_api_key_token RestApiKey_Token_Field,
+	rest_api_key_name RestApiKey_Name_Field,
+	optional RestApiKey_Create_Fields) (
+	err error) {
+	defer mon.Task()(&ctx)(&err)
+	if !obj.txn && txutil.IsInsideTx(ctx) {
+		panic("using DB when inside of a transaction")
+	}
+
+	__now := obj.db.Hooks.Now().UTC()
+	__id_val := rest_api_key_id.value()
+	__user_id_val := rest_api_key_user_id.value()
+	__token_val := rest_api_key_token.value()
+	__name_val := rest_api_key_name.value()
+	__expires_at_val := optional.ExpiresAt.value()
+	__created_at_val := __now
+
+	var __embed_stmt = __sqlbundle_Literal("INSERT INTO rest_api_keys ( id, user_id, token, name, expires_at, created_at ) VALUES ( ?, ?, ?, ?, ?, ? )")
+
+	var __values []any
+	__values = append(__values, __id_val, __user_id_val, __token_val, __name_val, __expires_at_val, __created_at_val)
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	_, err = obj.driver.ExecContext(ctx, __stmt, __values...)
+	if err != nil {
+		return obj.makeErr(err)
+	}
+	return nil
 
 }
 
@@ -29569,6 +29974,101 @@ func (obj *pgxcockroachImpl) Get_ValueAttribution_By_ProjectId_And_BucketName(ct
 		return (*ValueAttribution)(nil), obj.makeErr(err)
 	}
 	return value_attribution, nil
+
+}
+
+func (obj *pgxcockroachImpl) Get_RestApiKey_By_Id(ctx context.Context,
+	rest_api_key_id RestApiKey_Id_Field) (
+	rest_api_key *RestApiKey, err error) {
+	defer mon.Task()(&ctx)(&err)
+	if !obj.txn && txutil.IsInsideTx(ctx) {
+		panic("using DB when inside of a transaction")
+	}
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT rest_api_keys.id, rest_api_keys.user_id, rest_api_keys.token, rest_api_keys.name, rest_api_keys.expires_at, rest_api_keys.created_at FROM rest_api_keys WHERE rest_api_keys.id = ?")
+
+	var __values []any
+	__values = append(__values, rest_api_key_id.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	rest_api_key = &RestApiKey{}
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&rest_api_key.Id, &rest_api_key.UserId, &rest_api_key.Token, &rest_api_key.Name, &rest_api_key.ExpiresAt, &rest_api_key.CreatedAt)
+	if err != nil {
+		return (*RestApiKey)(nil), obj.makeErr(err)
+	}
+	return rest_api_key, nil
+
+}
+
+func (obj *pgxcockroachImpl) Get_RestApiKey_By_Token(ctx context.Context,
+	rest_api_key_token RestApiKey_Token_Field) (
+	rest_api_key *RestApiKey, err error) {
+	defer mon.Task()(&ctx)(&err)
+	if !obj.txn && txutil.IsInsideTx(ctx) {
+		panic("using DB when inside of a transaction")
+	}
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT rest_api_keys.id, rest_api_keys.user_id, rest_api_keys.token, rest_api_keys.name, rest_api_keys.expires_at, rest_api_keys.created_at FROM rest_api_keys WHERE rest_api_keys.token = ?")
+
+	var __values []any
+	__values = append(__values, rest_api_key_token.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	rest_api_key = &RestApiKey{}
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&rest_api_key.Id, &rest_api_key.UserId, &rest_api_key.Token, &rest_api_key.Name, &rest_api_key.ExpiresAt, &rest_api_key.CreatedAt)
+	if err != nil {
+		return (*RestApiKey)(nil), obj.makeErr(err)
+	}
+	return rest_api_key, nil
+
+}
+
+func (obj *pgxcockroachImpl) All_RestApiKey_By_UserId(ctx context.Context,
+	rest_api_key_user_id RestApiKey_UserId_Field) (
+	rows []*RestApiKey, err error) {
+	defer mon.Task()(&ctx)(&err)
+	if !obj.txn && txutil.IsInsideTx(ctx) {
+		panic("using DB when inside of a transaction")
+	}
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT rest_api_keys.id, rest_api_keys.user_id, rest_api_keys.token, rest_api_keys.name, rest_api_keys.expires_at, rest_api_keys.created_at FROM rest_api_keys WHERE rest_api_keys.user_id = ?")
+
+	var __values []any
+	__values = append(__values, rest_api_key_user_id.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	for {
+		rows, err = func() (rows []*RestApiKey, err error) {
+			__rows, err := obj.driver.QueryContext(ctx, __stmt, __values...)
+			if err != nil {
+				return nil, err
+			}
+			defer closeRows(__rows, &err)
+
+			for __rows.Next() {
+				rest_api_key := &RestApiKey{}
+				err = __rows.Scan(&rest_api_key.Id, &rest_api_key.UserId, &rest_api_key.Token, &rest_api_key.Name, &rest_api_key.ExpiresAt, &rest_api_key.CreatedAt)
+				if err != nil {
+					return nil, err
+				}
+				rows = append(rows, rest_api_key)
+			}
+			return rows, nil
+		}()
+		if err != nil {
+			if obj.shouldRetry(err) {
+				continue
+			}
+			return nil, obj.makeErr(err)
+		}
+		return rows, nil
+	}
 
 }
 
@@ -33497,6 +33997,36 @@ func (obj *pgxcockroachImpl) Delete_RepairQueue_By_UpdatedAt_Less(ctx context.Co
 
 }
 
+func (obj *pgxcockroachImpl) Delete_RestApiKey_By_Id(ctx context.Context,
+	rest_api_key_id RestApiKey_Id_Field) (
+	deleted bool, err error) {
+	defer mon.Task()(&ctx)(&err)
+	if !obj.txn && txutil.IsInsideTx(ctx) {
+		panic("using DB when inside of a transaction")
+	}
+
+	var __embed_stmt = __sqlbundle_Literal("DELETE FROM rest_api_keys WHERE rest_api_keys.id = ?")
+
+	var __values []any
+	__values = append(__values, rest_api_key_id.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	__res, err := obj.driver.ExecContext(ctx, __stmt, __values...)
+	if err != nil {
+		return false, obj.makeErr(err)
+	}
+
+	__count, err := __res.RowsAffected()
+	if err != nil {
+		return false, obj.makeErr(err)
+	}
+
+	return __count > 0, nil
+
+}
+
 func (obj *pgxcockroachImpl) Delete_User_By_Id(ctx context.Context,
 	user_id User_Id_Field) (
 	deleted bool, err error) {
@@ -33726,6 +34256,16 @@ func (obj *pgxcockroachImpl) deleteAll(ctx context.Context) (count int64, err er
 	var __res sql.Result
 	var __count int64
 	__res, err = obj.driver.ExecContext(ctx, "DELETE FROM stripecoinpayments_apply_balance_intents;")
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+
+	__count, err = __res.RowsAffected()
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+	count += __count
+	__res, err = obj.driver.ExecContext(ctx, "DELETE FROM rest_api_keys;")
 	if err != nil {
 		return 0, obj.makeErr(err)
 	}
@@ -35710,6 +36250,42 @@ func (obj *spannerImpl) Create_ValueAttribution(ctx context.Context,
 		return nil, obj.makeErr(err)
 	}
 	return value_attribution, nil
+
+}
+
+func (obj *spannerImpl) CreateNoReturn_RestApiKey(ctx context.Context,
+	rest_api_key_id RestApiKey_Id_Field,
+	rest_api_key_user_id RestApiKey_UserId_Field,
+	rest_api_key_token RestApiKey_Token_Field,
+	rest_api_key_name RestApiKey_Name_Field,
+	optional RestApiKey_Create_Fields) (
+	err error) {
+	defer mon.Task()(&ctx)(&err)
+	if !obj.txn && txutil.IsInsideTx(ctx) {
+		panic("using DB when inside of a transaction")
+	}
+
+	__now := obj.db.Hooks.Now().UTC()
+	__id_val := rest_api_key_id.value()
+	__user_id_val := rest_api_key_user_id.value()
+	__token_val := rest_api_key_token.value()
+	__name_val := rest_api_key_name.value()
+	__expires_at_val := optional.ExpiresAt.value()
+	__created_at_val := __now
+
+	var __embed_stmt = __sqlbundle_Literal("INSERT INTO rest_api_keys ( id, user_id, token, name, expires_at, created_at ) VALUES ( ?, ?, ?, ?, ?, ? )")
+
+	var __values []any
+	__values = append(__values, __id_val, __user_id_val, __token_val, __name_val, __expires_at_val, __created_at_val)
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	_, err = obj.driver.ExecContext(ctx, __stmt, __values...)
+	if err != nil {
+		return obj.makeErr(err)
+	}
+	return nil
 
 }
 
@@ -39687,6 +40263,101 @@ func (obj *spannerImpl) Get_ValueAttribution_By_ProjectId_And_BucketName(ctx con
 
 }
 
+func (obj *spannerImpl) Get_RestApiKey_By_Id(ctx context.Context,
+	rest_api_key_id RestApiKey_Id_Field) (
+	rest_api_key *RestApiKey, err error) {
+	defer mon.Task()(&ctx)(&err)
+	if !obj.txn && txutil.IsInsideTx(ctx) {
+		panic("using DB when inside of a transaction")
+	}
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT rest_api_keys.id, rest_api_keys.user_id, rest_api_keys.token, rest_api_keys.name, rest_api_keys.expires_at, rest_api_keys.created_at FROM rest_api_keys WHERE rest_api_keys.id = ?")
+
+	var __values []any
+	__values = append(__values, rest_api_key_id.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	rest_api_key = &RestApiKey{}
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&rest_api_key.Id, &rest_api_key.UserId, &rest_api_key.Token, &rest_api_key.Name, &rest_api_key.ExpiresAt, &rest_api_key.CreatedAt)
+	if err != nil {
+		return (*RestApiKey)(nil), obj.makeErr(err)
+	}
+	return rest_api_key, nil
+
+}
+
+func (obj *spannerImpl) Get_RestApiKey_By_Token(ctx context.Context,
+	rest_api_key_token RestApiKey_Token_Field) (
+	rest_api_key *RestApiKey, err error) {
+	defer mon.Task()(&ctx)(&err)
+	if !obj.txn && txutil.IsInsideTx(ctx) {
+		panic("using DB when inside of a transaction")
+	}
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT rest_api_keys.id, rest_api_keys.user_id, rest_api_keys.token, rest_api_keys.name, rest_api_keys.expires_at, rest_api_keys.created_at FROM rest_api_keys WHERE rest_api_keys.token = ?")
+
+	var __values []any
+	__values = append(__values, rest_api_key_token.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	rest_api_key = &RestApiKey{}
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&rest_api_key.Id, &rest_api_key.UserId, &rest_api_key.Token, &rest_api_key.Name, &rest_api_key.ExpiresAt, &rest_api_key.CreatedAt)
+	if err != nil {
+		return (*RestApiKey)(nil), obj.makeErr(err)
+	}
+	return rest_api_key, nil
+
+}
+
+func (obj *spannerImpl) All_RestApiKey_By_UserId(ctx context.Context,
+	rest_api_key_user_id RestApiKey_UserId_Field) (
+	rows []*RestApiKey, err error) {
+	defer mon.Task()(&ctx)(&err)
+	if !obj.txn && txutil.IsInsideTx(ctx) {
+		panic("using DB when inside of a transaction")
+	}
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT rest_api_keys.id, rest_api_keys.user_id, rest_api_keys.token, rest_api_keys.name, rest_api_keys.expires_at, rest_api_keys.created_at FROM rest_api_keys WHERE rest_api_keys.user_id = ?")
+
+	var __values []any
+	__values = append(__values, rest_api_key_user_id.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	for {
+		rows, err = func() (rows []*RestApiKey, err error) {
+			__rows, err := obj.driver.QueryContext(ctx, __stmt, __values...)
+			if err != nil {
+				return nil, err
+			}
+			defer closeRows(__rows, &err)
+
+			for __rows.Next() {
+				rest_api_key := &RestApiKey{}
+				err = __rows.Scan(&rest_api_key.Id, &rest_api_key.UserId, &rest_api_key.Token, &rest_api_key.Name, &rest_api_key.ExpiresAt, &rest_api_key.CreatedAt)
+				if err != nil {
+					return nil, err
+				}
+				rows = append(rows, rest_api_key)
+			}
+			return rows, nil
+		}()
+		if err != nil {
+			if obj.shouldRetry(err) {
+				continue
+			}
+			return nil, obj.makeErr(err)
+		}
+		return rows, nil
+	}
+
+}
+
 func (obj *spannerImpl) All_User_By_NormalizedEmail(ctx context.Context,
 	user_normalized_email User_NormalizedEmail_Field) (
 	rows []*User, err error) {
@@ -43339,6 +44010,36 @@ func (obj *spannerImpl) Delete_RepairQueue_By_UpdatedAt_Less(ctx context.Context
 
 }
 
+func (obj *spannerImpl) Delete_RestApiKey_By_Id(ctx context.Context,
+	rest_api_key_id RestApiKey_Id_Field) (
+	deleted bool, err error) {
+	defer mon.Task()(&ctx)(&err)
+	if !obj.txn && txutil.IsInsideTx(ctx) {
+		panic("using DB when inside of a transaction")
+	}
+
+	var __embed_stmt = __sqlbundle_Literal("DELETE FROM rest_api_keys WHERE rest_api_keys.id = ?")
+
+	var __values []any
+	__values = append(__values, rest_api_key_id.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	__res, err := obj.driver.ExecContext(ctx, __stmt, __values...)
+	if err != nil {
+		return false, obj.makeErr(err)
+	}
+
+	__count, err := __res.RowsAffected()
+	if err != nil {
+		return false, obj.makeErr(err)
+	}
+
+	return __count > 0, nil
+
+}
+
 func (obj *spannerImpl) Delete_User_By_Id(ctx context.Context,
 	user_id User_Id_Field) (
 	deleted bool, err error) {
@@ -43564,6 +44265,16 @@ func (obj *spannerImpl) deleteAll(ctx context.Context) (count int64, err error) 
 	var __res sql.Result
 	var __count int64
 	__res, err = obj.driver.ExecContext(ctx, "DELETE FROM stripecoinpayments_apply_balance_intents;")
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+
+	__count, err = __res.RowsAffected()
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+	count += __count
+	__res, err = obj.driver.ExecContext(ctx, "DELETE FROM rest_api_keys;")
 	if err != nil {
 		return 0, obj.makeErr(err)
 	}
@@ -44136,6 +44847,10 @@ type Methods interface {
 		project_member_member_id ProjectMember_MemberId_Field) (
 		rows []*Project, err error)
 
+	All_RestApiKey_By_UserId(ctx context.Context,
+		rest_api_key_user_id RestApiKey_UserId_Field) (
+		rows []*RestApiKey, err error)
+
 	All_StoragenodeBandwidthRollup_By_StoragenodeId_And_IntervalStart(ctx context.Context,
 		storagenode_bandwidth_rollup_storagenode_id StoragenodeBandwidthRollup_StoragenodeId_Field,
 		storagenode_bandwidth_rollup_interval_start StoragenodeBandwidthRollup_IntervalStart_Field) (
@@ -44224,6 +44939,14 @@ type Methods interface {
 		peer_identity_node_id PeerIdentity_NodeId_Field,
 		peer_identity_leaf_serial_number PeerIdentity_LeafSerialNumber_Field,
 		peer_identity_chain PeerIdentity_Chain_Field) (
+		err error)
+
+	CreateNoReturn_RestApiKey(ctx context.Context,
+		rest_api_key_id RestApiKey_Id_Field,
+		rest_api_key_user_id RestApiKey_UserId_Field,
+		rest_api_key_token RestApiKey_Token_Field,
+		rest_api_key_name RestApiKey_Name_Field,
+		optional RestApiKey_Create_Fields) (
 		err error)
 
 	CreateNoReturn_Revocation(ctx context.Context,
@@ -44483,6 +45206,10 @@ type Methods interface {
 		reset_password_token_secret ResetPasswordToken_Secret_Field) (
 		deleted bool, err error)
 
+	Delete_RestApiKey_By_Id(ctx context.Context,
+		rest_api_key_id RestApiKey_Id_Field) (
+		deleted bool, err error)
+
 	Delete_ReverificationAudits_By_NodeId_And_StreamId_And_Position(ctx context.Context,
 		reverification_audits_node_id ReverificationAudits_NodeId_Field,
 		reverification_audits_stream_id ReverificationAudits_StreamId_Field,
@@ -44719,6 +45446,14 @@ type Methods interface {
 	Get_ResetPasswordToken_By_Secret(ctx context.Context,
 		reset_password_token_secret ResetPasswordToken_Secret_Field) (
 		reset_password_token *ResetPasswordToken, err error)
+
+	Get_RestApiKey_By_Id(ctx context.Context,
+		rest_api_key_id RestApiKey_Id_Field) (
+		rest_api_key *RestApiKey, err error)
+
+	Get_RestApiKey_By_Token(ctx context.Context,
+		rest_api_key_token RestApiKey_Token_Field) (
+		rest_api_key *RestApiKey, err error)
 
 	Get_StoragenodePaystub_By_NodeId_And_Period(ctx context.Context,
 		storagenode_paystub_node_id StoragenodePaystub_NodeId_Field,

@@ -908,6 +908,25 @@ func (db *satelliteDB) productionMigrationSpanner() *migrate.Migration {
 					`ALTER TABLE bucket_bandwidth_rollup_archives ADD COLUMN product_id INT64`,
 				},
 			},
+			{
+				DB:          &db.migrationDB,
+				Description: "add rest api keys table",
+				Version:     288,
+				Action: migrate.SQL{
+					`CREATE TABLE rest_api_keys (
+						id BYTES(MAX) NOT NULL,
+						user_id BYTES(MAX) NOT NULL,
+						token BYTES(MAX) NOT NULL,
+						name STRING(MAX) NOT NULL,
+						expires_at TIMESTAMP,
+						created_at TIMESTAMP NOT NULL,
+						CONSTRAINT rest_api_keys_user_id_fkey FOREIGN KEY (user_id) REFERENCES users (id) ON DELETE CASCADE
+					) PRIMARY KEY ( id );`,
+					`CREATE UNIQUE INDEX index_rest_api_keys_token ON rest_api_keys ( token );`,
+					`CREATE INDEX rest_api_keys_user_id_index ON rest_api_keys ( user_id );`,
+					`CREATE INDEX rest_api_keys_name_index ON rest_api_keys ( name );`,
+				},
+			},
 			// NB: after updating testdata in `testdata`, run
 			//     `go generate` to update `migratez.go`.
 		},
@@ -3656,6 +3675,25 @@ func (db *satelliteDB) productionMigrationPostgres() *migrate.Migration {
 					`ALTER TABLE bucket_bandwidth_rollups ADD COLUMN product_id INTEGER`,
 					`ALTER TABLE bucket_bandwidth_rollup_archives ADD COLUMN product_id INTEGER`,
 					`ALTER TABLE project_bandwidth_daily_rollups ADD COLUMN product_id INTEGER`,
+				},
+			},
+			{
+				DB:          &db.migrationDB,
+				Description: "add rest api keys table",
+				Version:     288,
+				Action: migrate.SQL{
+					`CREATE TABLE rest_api_keys (
+						id bytea NOT NULL,
+						user_id bytea NOT NULL REFERENCES users( id ) ON DELETE CASCADE,
+						token bytea NOT NULL,
+						name text NOT NULL,
+						expires_at timestamp with time zone,
+						created_at timestamp with time zone NOT NULL,
+						PRIMARY KEY ( id ),
+    					UNIQUE ( token )
+					);`,
+					`CREATE INDEX rest_api_keys_user_id_index ON rest_api_keys ( user_id );`,
+					`CREATE INDEX rest_api_keys_name_index ON rest_api_keys ( name );`,
 				},
 			},
 			// NB: after updating testdata in `testdata`, run

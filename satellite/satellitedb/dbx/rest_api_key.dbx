@@ -1,0 +1,46 @@
+// rest_api_key contains information about account management API keys.
+model rest_api_key (
+	key id
+
+	index ( fields user_id )
+	index ( fields name )
+	unique token
+
+	// id is a uuid for the key.
+	field id blob
+
+	// user_id is the user.id that owns this key.
+	field user_id user.id cascade
+
+	// token is the secret value of an api key.
+	field token blob
+	// name is given by the user to identify the key.
+	field name text
+	// expires_at says when the key becomes invalid.
+   	field expires_at timestamp ( updatable, nullable )
+	// created_at is when the key was created.
+	field created_at timestamp ( autoinsert )
+)
+
+create rest_api_key (
+	noreturn
+)
+
+read one (
+	select rest_api_key
+	where rest_api_key.id = ?
+)
+
+read one (
+	select rest_api_key
+	where rest_api_key.token = ?
+)
+
+delete rest_api_key (
+	where rest_api_key.id = ?
+)
+
+read all (
+	select rest_api_key
+	where rest_api_key.user_id = ?
+)

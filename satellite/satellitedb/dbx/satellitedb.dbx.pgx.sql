@@ -594,6 +594,16 @@ CREATE TABLE project_members (
 	created_at timestamp with time zone NOT NULL,
 	PRIMARY KEY ( member_id, project_id )
 ) ;
+CREATE TABLE rest_api_keys (
+	id bytea NOT NULL,
+	user_id bytea NOT NULL REFERENCES users( id ) ON DELETE CASCADE,
+	token bytea NOT NULL,
+	name text NOT NULL,
+	expires_at timestamp with time zone,
+	created_at timestamp with time zone NOT NULL,
+	PRIMARY KEY ( id ),
+	UNIQUE ( token )
+) ;
 CREATE TABLE stripecoinpayments_apply_balance_intents (
 	tx_id text NOT NULL REFERENCES coinpayments_transactions( id ) ON DELETE CASCADE,
 	state integer NOT NULL,
@@ -636,4 +646,6 @@ CREATE INDEX users_external_id_index ON users ( external_id ) WHERE users.extern
 CREATE INDEX webapp_sessions_user_id_index ON webapp_sessions ( user_id ) ;
 CREATE INDEX project_invitations_project_id_index ON project_invitations ( project_id ) ;
 CREATE INDEX project_invitations_email_index ON project_invitations ( email ) ;
-CREATE INDEX project_members_project_id_index ON project_members ( project_id )
+CREATE INDEX project_members_project_id_index ON project_members ( project_id ) ;
+CREATE INDEX rest_api_keys_user_id_index ON rest_api_keys ( user_id ) ;
+CREATE INDEX rest_api_keys_name_index ON rest_api_keys ( name )

@@ -556,6 +556,16 @@ CREATE TABLE project_members (
 	CONSTRAINT project_members_member_id_fkey FOREIGN KEY (member_id) REFERENCES users (id) ON DELETE CASCADE ,
 	CONSTRAINT project_members_project_id_fkey FOREIGN KEY (project_id) REFERENCES projects (id) ON DELETE CASCADE 
 ) PRIMARY KEY ( member_id, project_id ) ;
+CREATE TABLE rest_api_keys (
+	id BYTES(MAX) NOT NULL,
+	user_id BYTES(MAX) NOT NULL,
+	token BYTES(MAX) NOT NULL,
+	name STRING(MAX) NOT NULL,
+	expires_at TIMESTAMP,
+	created_at TIMESTAMP NOT NULL,
+	CONSTRAINT rest_api_keys_user_id_fkey FOREIGN KEY (user_id) REFERENCES users (id) ON DELETE CASCADE 
+) PRIMARY KEY ( id ) ;
+CREATE UNIQUE INDEX index_rest_api_keys_token ON rest_api_keys ( token ) ;
 CREATE TABLE stripecoinpayments_apply_balance_intents (
 	tx_id STRING(MAX) NOT NULL,
 	state INT64 NOT NULL,
@@ -598,4 +608,6 @@ CREATE INDEX users_external_id_index ON users ( external_id ) ;
 CREATE INDEX webapp_sessions_user_id_index ON webapp_sessions ( user_id ) ;
 CREATE INDEX project_invitations_project_id_index ON project_invitations ( project_id ) ;
 CREATE INDEX project_invitations_email_index ON project_invitations ( email ) ;
-CREATE INDEX project_members_project_id_index ON project_members ( project_id )
+CREATE INDEX project_members_project_id_index ON project_members ( project_id ) ;
+CREATE INDEX rest_api_keys_user_id_index ON rest_api_keys ( user_id ) ;
+CREATE INDEX rest_api_keys_name_index ON rest_api_keys ( name )
