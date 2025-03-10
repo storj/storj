@@ -85,7 +85,7 @@ func TestOrder(t *testing.T) {
 		}
 		for _, item := range updateList {
 			rowsAffected, err := db.RepairQueue().TestingSetAttemptedTime(ctx,
-				item.streamID, metabase.SegmentPosition{}, item.attemptedAt)
+				0, item.streamID, metabase.SegmentPosition{}, item.attemptedAt)
 			require.NoError(t, err)
 			require.EqualValues(t, 1, rowsAffected)
 		}
@@ -174,7 +174,7 @@ func testorderHealthyPieces(t *testing.T, connStr string) {
 
 		// next, if applicable, update the "attempted at" timestamp
 		if !item.attempted.IsZero() {
-			rowsAffected, err := db.RepairQueue().TestingSetAttemptedTime(ctx, item.streamID, metabase.SegmentPosition{}, item.attempted)
+			rowsAffected, err := db.RepairQueue().TestingSetAttemptedTime(ctx, 0, item.streamID, metabase.SegmentPosition{}, item.attempted)
 			require.NoError(t, err)
 			require.EqualValues(t, 1, rowsAffected)
 		}

@@ -46,13 +46,16 @@ type DRPCJobQueueClient interface {
 	PushBatch(ctx context.Context, in *JobQueuePushBatchRequest) (*JobQueuePushBatchResponse, error)
 	Pop(ctx context.Context, in *JobQueuePopRequest) (*JobQueuePopResponse, error)
 	Peek(ctx context.Context, in *JobQueuePeekRequest) (*JobQueuePeekResponse, error)
+	Delete(ctx context.Context, in *JobQueueDeleteRequest) (*JobQueueDeleteResponse, error)
 	Len(ctx context.Context, in *JobQueueLengthRequest) (*JobQueueLengthResponse, error)
 	Inspect(ctx context.Context, in *JobQueueInspectRequest) (*JobQueueInspectResponse, error)
+	Stat(ctx context.Context, in *JobQueueStatRequest) (*JobQueueStatResponse, error)
 	Truncate(ctx context.Context, in *JobQueueTruncateRequest) (*JobQueueTruncateResponse, error)
 	AddPlacementQueue(ctx context.Context, in *JobQueueAddPlacementQueueRequest) (*JobQueueAddPlacementQueueResponse, error)
 	DestroyPlacementQueue(ctx context.Context, in *JobQueueDestroyPlacementQueueRequest) (*JobQueueDestroyPlacementQueueResponse, error)
 	Clean(ctx context.Context, in *JobQueueCleanRequest) (*JobQueueCleanResponse, error)
 	Trim(ctx context.Context, in *JobQueueTrimRequest) (*JobQueueTrimResponse, error)
+	TestingSetAttemptedTime(ctx context.Context, in *JobQueueTestingSetAttemptedTimeRequest) (*JobQueueTestingSetAttemptedTimeResponse, error)
 }
 
 type drpcJobQueueClient struct {
@@ -101,6 +104,15 @@ func (c *drpcJobQueueClient) Peek(ctx context.Context, in *JobQueuePeekRequest) 
 	return out, nil
 }
 
+func (c *drpcJobQueueClient) Delete(ctx context.Context, in *JobQueueDeleteRequest) (*JobQueueDeleteResponse, error) {
+	out := new(JobQueueDeleteResponse)
+	err := c.cc.Invoke(ctx, "/jobqueue.JobQueue/Delete", drpcEncoding_File_jobqueue_proto{}, in, out)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 func (c *drpcJobQueueClient) Len(ctx context.Context, in *JobQueueLengthRequest) (*JobQueueLengthResponse, error) {
 	out := new(JobQueueLengthResponse)
 	err := c.cc.Invoke(ctx, "/jobqueue.JobQueue/Len", drpcEncoding_File_jobqueue_proto{}, in, out)
@@ -113,6 +125,15 @@ func (c *drpcJobQueueClient) Len(ctx context.Context, in *JobQueueLengthRequest)
 func (c *drpcJobQueueClient) Inspect(ctx context.Context, in *JobQueueInspectRequest) (*JobQueueInspectResponse, error) {
 	out := new(JobQueueInspectResponse)
 	err := c.cc.Invoke(ctx, "/jobqueue.JobQueue/Inspect", drpcEncoding_File_jobqueue_proto{}, in, out)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *drpcJobQueueClient) Stat(ctx context.Context, in *JobQueueStatRequest) (*JobQueueStatResponse, error) {
+	out := new(JobQueueStatResponse)
+	err := c.cc.Invoke(ctx, "/jobqueue.JobQueue/Stat", drpcEncoding_File_jobqueue_proto{}, in, out)
 	if err != nil {
 		return nil, err
 	}
@@ -164,18 +185,30 @@ func (c *drpcJobQueueClient) Trim(ctx context.Context, in *JobQueueTrimRequest) 
 	return out, nil
 }
 
+func (c *drpcJobQueueClient) TestingSetAttemptedTime(ctx context.Context, in *JobQueueTestingSetAttemptedTimeRequest) (*JobQueueTestingSetAttemptedTimeResponse, error) {
+	out := new(JobQueueTestingSetAttemptedTimeResponse)
+	err := c.cc.Invoke(ctx, "/jobqueue.JobQueue/TestingSetAttemptedTime", drpcEncoding_File_jobqueue_proto{}, in, out)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 type DRPCJobQueueServer interface {
 	Push(context.Context, *JobQueuePushRequest) (*JobQueuePushResponse, error)
 	PushBatch(context.Context, *JobQueuePushBatchRequest) (*JobQueuePushBatchResponse, error)
 	Pop(context.Context, *JobQueuePopRequest) (*JobQueuePopResponse, error)
 	Peek(context.Context, *JobQueuePeekRequest) (*JobQueuePeekResponse, error)
+	Delete(context.Context, *JobQueueDeleteRequest) (*JobQueueDeleteResponse, error)
 	Len(context.Context, *JobQueueLengthRequest) (*JobQueueLengthResponse, error)
 	Inspect(context.Context, *JobQueueInspectRequest) (*JobQueueInspectResponse, error)
+	Stat(context.Context, *JobQueueStatRequest) (*JobQueueStatResponse, error)
 	Truncate(context.Context, *JobQueueTruncateRequest) (*JobQueueTruncateResponse, error)
 	AddPlacementQueue(context.Context, *JobQueueAddPlacementQueueRequest) (*JobQueueAddPlacementQueueResponse, error)
 	DestroyPlacementQueue(context.Context, *JobQueueDestroyPlacementQueueRequest) (*JobQueueDestroyPlacementQueueResponse, error)
 	Clean(context.Context, *JobQueueCleanRequest) (*JobQueueCleanResponse, error)
 	Trim(context.Context, *JobQueueTrimRequest) (*JobQueueTrimResponse, error)
+	TestingSetAttemptedTime(context.Context, *JobQueueTestingSetAttemptedTimeRequest) (*JobQueueTestingSetAttemptedTimeResponse, error)
 }
 
 type DRPCJobQueueUnimplementedServer struct{}
@@ -196,11 +229,19 @@ func (s *DRPCJobQueueUnimplementedServer) Peek(context.Context, *JobQueuePeekReq
 	return nil, drpcerr.WithCode(errors.New("Unimplemented"), drpcerr.Unimplemented)
 }
 
+func (s *DRPCJobQueueUnimplementedServer) Delete(context.Context, *JobQueueDeleteRequest) (*JobQueueDeleteResponse, error) {
+	return nil, drpcerr.WithCode(errors.New("Unimplemented"), drpcerr.Unimplemented)
+}
+
 func (s *DRPCJobQueueUnimplementedServer) Len(context.Context, *JobQueueLengthRequest) (*JobQueueLengthResponse, error) {
 	return nil, drpcerr.WithCode(errors.New("Unimplemented"), drpcerr.Unimplemented)
 }
 
 func (s *DRPCJobQueueUnimplementedServer) Inspect(context.Context, *JobQueueInspectRequest) (*JobQueueInspectResponse, error) {
+	return nil, drpcerr.WithCode(errors.New("Unimplemented"), drpcerr.Unimplemented)
+}
+
+func (s *DRPCJobQueueUnimplementedServer) Stat(context.Context, *JobQueueStatRequest) (*JobQueueStatResponse, error) {
 	return nil, drpcerr.WithCode(errors.New("Unimplemented"), drpcerr.Unimplemented)
 }
 
@@ -224,9 +265,13 @@ func (s *DRPCJobQueueUnimplementedServer) Trim(context.Context, *JobQueueTrimReq
 	return nil, drpcerr.WithCode(errors.New("Unimplemented"), drpcerr.Unimplemented)
 }
 
+func (s *DRPCJobQueueUnimplementedServer) TestingSetAttemptedTime(context.Context, *JobQueueTestingSetAttemptedTimeRequest) (*JobQueueTestingSetAttemptedTimeResponse, error) {
+	return nil, drpcerr.WithCode(errors.New("Unimplemented"), drpcerr.Unimplemented)
+}
+
 type DRPCJobQueueDescription struct{}
 
-func (DRPCJobQueueDescription) NumMethods() int { return 11 }
+func (DRPCJobQueueDescription) NumMethods() int { return 14 }
 
 func (DRPCJobQueueDescription) Method(n int) (string, drpc.Encoding, drpc.Receiver, interface{}, bool) {
 	switch n {
@@ -267,6 +312,15 @@ func (DRPCJobQueueDescription) Method(n int) (string, drpc.Encoding, drpc.Receiv
 					)
 			}, DRPCJobQueueServer.Peek, true
 	case 4:
+		return "/jobqueue.JobQueue/Delete", drpcEncoding_File_jobqueue_proto{},
+			func(srv interface{}, ctx context.Context, in1, in2 interface{}) (drpc.Message, error) {
+				return srv.(DRPCJobQueueServer).
+					Delete(
+						ctx,
+						in1.(*JobQueueDeleteRequest),
+					)
+			}, DRPCJobQueueServer.Delete, true
+	case 5:
 		return "/jobqueue.JobQueue/Len", drpcEncoding_File_jobqueue_proto{},
 			func(srv interface{}, ctx context.Context, in1, in2 interface{}) (drpc.Message, error) {
 				return srv.(DRPCJobQueueServer).
@@ -275,7 +329,7 @@ func (DRPCJobQueueDescription) Method(n int) (string, drpc.Encoding, drpc.Receiv
 						in1.(*JobQueueLengthRequest),
 					)
 			}, DRPCJobQueueServer.Len, true
-	case 5:
+	case 6:
 		return "/jobqueue.JobQueue/Inspect", drpcEncoding_File_jobqueue_proto{},
 			func(srv interface{}, ctx context.Context, in1, in2 interface{}) (drpc.Message, error) {
 				return srv.(DRPCJobQueueServer).
@@ -284,7 +338,16 @@ func (DRPCJobQueueDescription) Method(n int) (string, drpc.Encoding, drpc.Receiv
 						in1.(*JobQueueInspectRequest),
 					)
 			}, DRPCJobQueueServer.Inspect, true
-	case 6:
+	case 7:
+		return "/jobqueue.JobQueue/Stat", drpcEncoding_File_jobqueue_proto{},
+			func(srv interface{}, ctx context.Context, in1, in2 interface{}) (drpc.Message, error) {
+				return srv.(DRPCJobQueueServer).
+					Stat(
+						ctx,
+						in1.(*JobQueueStatRequest),
+					)
+			}, DRPCJobQueueServer.Stat, true
+	case 8:
 		return "/jobqueue.JobQueue/Truncate", drpcEncoding_File_jobqueue_proto{},
 			func(srv interface{}, ctx context.Context, in1, in2 interface{}) (drpc.Message, error) {
 				return srv.(DRPCJobQueueServer).
@@ -293,7 +356,7 @@ func (DRPCJobQueueDescription) Method(n int) (string, drpc.Encoding, drpc.Receiv
 						in1.(*JobQueueTruncateRequest),
 					)
 			}, DRPCJobQueueServer.Truncate, true
-	case 7:
+	case 9:
 		return "/jobqueue.JobQueue/AddPlacementQueue", drpcEncoding_File_jobqueue_proto{},
 			func(srv interface{}, ctx context.Context, in1, in2 interface{}) (drpc.Message, error) {
 				return srv.(DRPCJobQueueServer).
@@ -302,7 +365,7 @@ func (DRPCJobQueueDescription) Method(n int) (string, drpc.Encoding, drpc.Receiv
 						in1.(*JobQueueAddPlacementQueueRequest),
 					)
 			}, DRPCJobQueueServer.AddPlacementQueue, true
-	case 8:
+	case 10:
 		return "/jobqueue.JobQueue/DestroyPlacementQueue", drpcEncoding_File_jobqueue_proto{},
 			func(srv interface{}, ctx context.Context, in1, in2 interface{}) (drpc.Message, error) {
 				return srv.(DRPCJobQueueServer).
@@ -311,7 +374,7 @@ func (DRPCJobQueueDescription) Method(n int) (string, drpc.Encoding, drpc.Receiv
 						in1.(*JobQueueDestroyPlacementQueueRequest),
 					)
 			}, DRPCJobQueueServer.DestroyPlacementQueue, true
-	case 9:
+	case 11:
 		return "/jobqueue.JobQueue/Clean", drpcEncoding_File_jobqueue_proto{},
 			func(srv interface{}, ctx context.Context, in1, in2 interface{}) (drpc.Message, error) {
 				return srv.(DRPCJobQueueServer).
@@ -320,7 +383,7 @@ func (DRPCJobQueueDescription) Method(n int) (string, drpc.Encoding, drpc.Receiv
 						in1.(*JobQueueCleanRequest),
 					)
 			}, DRPCJobQueueServer.Clean, true
-	case 10:
+	case 12:
 		return "/jobqueue.JobQueue/Trim", drpcEncoding_File_jobqueue_proto{},
 			func(srv interface{}, ctx context.Context, in1, in2 interface{}) (drpc.Message, error) {
 				return srv.(DRPCJobQueueServer).
@@ -329,6 +392,15 @@ func (DRPCJobQueueDescription) Method(n int) (string, drpc.Encoding, drpc.Receiv
 						in1.(*JobQueueTrimRequest),
 					)
 			}, DRPCJobQueueServer.Trim, true
+	case 13:
+		return "/jobqueue.JobQueue/TestingSetAttemptedTime", drpcEncoding_File_jobqueue_proto{},
+			func(srv interface{}, ctx context.Context, in1, in2 interface{}) (drpc.Message, error) {
+				return srv.(DRPCJobQueueServer).
+					TestingSetAttemptedTime(
+						ctx,
+						in1.(*JobQueueTestingSetAttemptedTimeRequest),
+					)
+			}, DRPCJobQueueServer.TestingSetAttemptedTime, true
 	default:
 		return "", nil, nil, nil, false
 	}
@@ -402,6 +474,22 @@ func (x *drpcJobQueue_PeekStream) SendAndClose(m *JobQueuePeekResponse) error {
 	return x.CloseSend()
 }
 
+type DRPCJobQueue_DeleteStream interface {
+	drpc.Stream
+	SendAndClose(*JobQueueDeleteResponse) error
+}
+
+type drpcJobQueue_DeleteStream struct {
+	drpc.Stream
+}
+
+func (x *drpcJobQueue_DeleteStream) SendAndClose(m *JobQueueDeleteResponse) error {
+	if err := x.MsgSend(m, drpcEncoding_File_jobqueue_proto{}); err != nil {
+		return err
+	}
+	return x.CloseSend()
+}
+
 type DRPCJobQueue_LenStream interface {
 	drpc.Stream
 	SendAndClose(*JobQueueLengthResponse) error
@@ -428,6 +516,22 @@ type drpcJobQueue_InspectStream struct {
 }
 
 func (x *drpcJobQueue_InspectStream) SendAndClose(m *JobQueueInspectResponse) error {
+	if err := x.MsgSend(m, drpcEncoding_File_jobqueue_proto{}); err != nil {
+		return err
+	}
+	return x.CloseSend()
+}
+
+type DRPCJobQueue_StatStream interface {
+	drpc.Stream
+	SendAndClose(*JobQueueStatResponse) error
+}
+
+type drpcJobQueue_StatStream struct {
+	drpc.Stream
+}
+
+func (x *drpcJobQueue_StatStream) SendAndClose(m *JobQueueStatResponse) error {
 	if err := x.MsgSend(m, drpcEncoding_File_jobqueue_proto{}); err != nil {
 		return err
 	}
@@ -508,6 +612,22 @@ type drpcJobQueue_TrimStream struct {
 }
 
 func (x *drpcJobQueue_TrimStream) SendAndClose(m *JobQueueTrimResponse) error {
+	if err := x.MsgSend(m, drpcEncoding_File_jobqueue_proto{}); err != nil {
+		return err
+	}
+	return x.CloseSend()
+}
+
+type DRPCJobQueue_TestingSetAttemptedTimeStream interface {
+	drpc.Stream
+	SendAndClose(*JobQueueTestingSetAttemptedTimeResponse) error
+}
+
+type drpcJobQueue_TestingSetAttemptedTimeStream struct {
+	drpc.Stream
+}
+
+func (x *drpcJobQueue_TestingSetAttemptedTimeStream) SendAndClose(m *JobQueueTestingSetAttemptedTimeResponse) error {
 	if err := x.MsgSend(m, drpcEncoding_File_jobqueue_proto{}); err != nil {
 		return err
 	}

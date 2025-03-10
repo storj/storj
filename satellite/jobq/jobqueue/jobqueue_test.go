@@ -366,6 +366,50 @@ func TestMemoryManagement(t *testing.T) {
 	queue.Destroy()
 }
 
+func TestQueueDelete(t *testing.T) {
+	queue, err := jobqueue.NewQueue(zaptest.NewLogger(t), time.Hour, 100, 10)
+	require.NoError(t, err)
+
+	// create and insert stream IDs
+	const numStreams = 100
+	jobs := make([]jobq.RepairJob, numStreams)
+	for i := range jobs {
+		jobs[i].ID.StreamID = mustUUID()
+		jobs[i].ID.Position = rand.Uint64()
+		jobs[i].Health = rand.Float64()
+		jobs[i].Placement = 42
+	}
+	for _, job := range jobs {
+		wasNew := queue.Insert(job)
+		require.True(t, wasNew)
+	}
+
+	// delete a few jobs
+	for i := 0; i < 10; i++ {
+		queue.Delete(jobs[i].ID.StreamID, jobs[i].ID.Position)
+	}
+
+	sort.Slice(jobs[10:], func(i, j int) bool {
+		return jobs[10+i].Health < jobs[10+j].Health
+	})
+
+	// pop all and check
+	for i := 10; i < numStreams; i++ {
+		gotJob := queue.Pop()
+		require.NotZero(t, gotJob.ID.StreamID)
+		require.Equal(t, jobs[i].ID.StreamID, gotJob.ID.StreamID)
+		require.Equal(t, jobs[i].ID.Position, gotJob.ID.Position)
+		require.Equal(t, jobs[i].Health, gotJob.Health)
+	}
+
+	// no elements left
+	gotJob := queue.Pop()
+	require.Zero(t, gotJob)
+	repairLen, retryLen := queue.Len()
+	require.Zero(t, repairLen)
+	require.Zero(t, retryLen)
+}
+
 func BenchmarkQueue(b *testing.B) {
 	queue, err := jobqueue.NewQueue(zaptest.NewLogger(b), time.Hour, 100, 10)
 	require.NoError(b, err)

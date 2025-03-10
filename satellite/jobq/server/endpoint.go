@@ -147,6 +147,23 @@ func (se *JobqEndpoint) lenAll(ctx context.Context) (*pb.JobQueueLengthResponse,
 	return &pb.JobQueueLengthResponse{RepairLength: repairLen, RetryLength: retryLen}, nil
 }
 
+// Delete removes a specific job from the queue by its placement, streamID, and
+// position.
+func (se *JobqEndpoint) Delete(ctx context.Context, req *pb.JobQueueDeleteRequest) (*pb.JobQueueDeleteResponse, error) {
+	streamID, err := uuid.FromBytes(req.StreamId)
+	if err != nil {
+		return nil, fmt.Errorf("invalid stream id %x: %w", req.StreamId, err)
+	}
+	q := se.queues.GetQueue(storj.PlacementConstraint(req.Placement))
+	if q == nil {
+		return nil, fmt.Errorf("no queue for placement %v", req.Placement)
+	}
+	removed := q.Delete(streamID, req.Position)
+	return &pb.JobQueueDeleteResponse{
+		DidDelete: removed,
+	}, nil
+}
+
 // Inspect finds a particular job in the queue by its placement, streamID, and
 // position and returns all of the job information.
 func (se *JobqEndpoint) Inspect(ctx context.Context, req *pb.JobQueueInspectRequest) (*pb.JobQueueInspectResponse, error) {
@@ -194,6 +211,47 @@ func (se *JobqEndpoint) AddPlacementQueue(ctx context.Context, req *pb.JobQueueA
 	return &pb.JobQueueAddPlacementQueueResponse{}, nil
 }
 
+// Stat returns statistics about the queues for the requested placement.
+// Note: this is expensive! It requires a full scan of the target queues.
+func (se *JobqEndpoint) Stat(ctx context.Context, req *pb.JobQueueStatRequest) (*pb.JobQueueStatResponse, error) {
+	if req.AllPlacements {
+		return se.statAll(ctx)
+	}
+	placement := storj.PlacementConstraint(req.Placement)
+	q := se.queues.GetQueue(placement)
+	if q == nil {
+		return nil, fmt.Errorf("no queue for placement %v", req.Placement)
+	}
+	repairStat, retryStat, err := q.Stat(ctx)
+	if err != nil {
+		return nil, err
+	}
+	return &pb.JobQueueStatResponse{
+		Stats: []*pb.QueueStat{
+			{
+				Placement:        req.Placement,
+				Count:            repairStat.Count,
+				MaxInsertedAt:    repairStat.MaxInsertedAt,
+				MinInsertedAt:    repairStat.MinInsertedAt,
+				MaxAttemptedAt:   nil, // see statAll for an explanation of why these are nil
+				MinAttemptedAt:   nil,
+				MinSegmentHealth: repairStat.MinSegmentHealth,
+				MaxSegmentHealth: repairStat.MaxSegmentHealth,
+			},
+			{
+				Placement:        req.Placement,
+				Count:            retryStat.Count,
+				MaxInsertedAt:    retryStat.MaxInsertedAt,
+				MinInsertedAt:    retryStat.MinInsertedAt,
+				MaxAttemptedAt:   retryStat.MaxAttemptedAt,
+				MinAttemptedAt:   retryStat.MinAttemptedAt,
+				MinSegmentHealth: retryStat.MinSegmentHealth,
+				MaxSegmentHealth: retryStat.MaxSegmentHealth,
+			},
+		},
+	}, nil
+}
+
 // DestroyPlacementQueue removes the queue for the requested placement.
 func (se *JobqEndpoint) DestroyPlacementQueue(ctx context.Context, req *pb.JobQueueDestroyPlacementQueueRequest) (*pb.JobQueueDestroyPlacementQueueResponse, error) {
 	placement := storj.PlacementConstraint(req.Placement)
@@ -202,6 +260,46 @@ func (se *JobqEndpoint) DestroyPlacementQueue(ctx context.Context, req *pb.JobQu
 		return nil, fmt.Errorf("failed to destroy queue: %w", err)
 	}
 	return &pb.JobQueueDestroyPlacementQueueResponse{}, nil
+}
+
+func (se *JobqEndpoint) statAll(ctx context.Context) (*pb.JobQueueStatResponse, error) {
+	queues := se.queues.GetAllQueues()
+	pbStats := make([]*pb.QueueStat, 0, len(queues))
+	for placement, q := range queues {
+		repairStat, retryStat, err := q.Stat(ctx)
+		if err != nil {
+			return nil, fmt.Errorf("could not collect statistics from queue for placement %v: %w", placement, err)
+		}
+		// We must fudge this a little. Older repair code expects stats to be
+		// grouped by placement and by whether AttemptedAt is set. Jobq groups
+		// stats by placement and by whether the job is in the repair or retry
+		// queue. We think that it will be close enough to the intent of the old
+		// code if we show repairStats as having no AttemptedAt, and retryStats
+		// as having it set. This isn't perfect (it is in fact possible for
+		// repairStats to have AttemptedAt set), but it may be good enough.
+		pbStats = append(pbStats, &pb.QueueStat{
+			Placement:        int32(placement),
+			Count:            repairStat.Count,
+			MaxInsertedAt:    repairStat.MaxInsertedAt,
+			MinInsertedAt:    repairStat.MinInsertedAt,
+			MaxAttemptedAt:   nil,
+			MinAttemptedAt:   nil,
+			MinSegmentHealth: repairStat.MinSegmentHealth,
+			MaxSegmentHealth: repairStat.MaxSegmentHealth,
+		}, &pb.QueueStat{
+			Placement:        int32(placement),
+			Count:            retryStat.Count,
+			MaxInsertedAt:    retryStat.MaxInsertedAt,
+			MinInsertedAt:    retryStat.MinInsertedAt,
+			MaxAttemptedAt:   retryStat.MaxAttemptedAt,
+			MinAttemptedAt:   retryStat.MinAttemptedAt,
+			MinSegmentHealth: retryStat.MinSegmentHealth,
+			MaxSegmentHealth: retryStat.MaxSegmentHealth,
+		})
+	}
+	return &pb.JobQueueStatResponse{
+		Stats: pbStats,
+	}, nil
 }
 
 // Clean removes all jobs from the queue that were last updated before the
@@ -255,6 +353,23 @@ func (se *JobqEndpoint) trimAll(healthGreaterThan float64) (*pb.JobQueueTrimResp
 	}
 	return &pb.JobQueueTrimResponse{
 		RemovedSegments: removedSegments,
+	}, nil
+}
+
+// TestingSetAttemptedTime sets the attempted time for a specific job in the
+// queue. This is a testing-only method.
+func (se *JobqEndpoint) TestingSetAttemptedTime(ctx context.Context, req *pb.JobQueueTestingSetAttemptedTimeRequest) (*pb.JobQueueTestingSetAttemptedTimeResponse, error) {
+	q := se.queues.GetQueue(storj.PlacementConstraint(req.Placement))
+	if q == nil {
+		return nil, fmt.Errorf("no queue for placement %v", req.Placement)
+	}
+	streamID, err := uuid.FromBytes(req.StreamId)
+	if err != nil {
+		return nil, fmt.Errorf("invalid stream id %x: %w", req.StreamId, err)
+	}
+	updated := q.TestingSetAttemptedTime(streamID, req.Position, req.NewTime)
+	return &pb.JobQueueTestingSetAttemptedTimeResponse{
+		RowsAffected: int32(updated),
 	}, nil
 }
 

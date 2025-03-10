@@ -166,6 +166,64 @@ func (c *Client) DestroyPlacementQueue(ctx context.Context, placement storj.Plac
 	return err
 }
 
+// Delete removes a specific job from the indicated queue.
+func (c *Client) Delete(ctx context.Context, placement storj.PlacementConstraint, streamID uuid.UUID, position uint64) (wasDeleted bool, err error) {
+	resp, err := c.client.Delete(ctx, &pb.JobQueueDeleteRequest{
+		Placement: int32(placement),
+		StreamId:  streamID[:],
+		Position:  position,
+	})
+	if err != nil {
+		return false, err
+	}
+	return resp.DidDelete, nil
+}
+
+// Stat collects statistics about the indicated job queue.
+func (c *Client) Stat(ctx context.Context, placement storj.PlacementConstraint) (stat QueueStat, err error) {
+	resp, err := c.client.Stat(ctx, &pb.JobQueueStatRequest{
+		Placement: int32(placement),
+	})
+	if err != nil {
+		return stat, err
+	}
+	s := resp.Stats[0]
+	return QueueStat{
+		Placement:        storj.PlacementConstraint(s.Placement),
+		Count:            s.Count,
+		MaxInsertedAt:    s.MaxInsertedAt,
+		MinInsertedAt:    s.MinInsertedAt,
+		MaxAttemptedAt:   s.MaxAttemptedAt,
+		MinAttemptedAt:   s.MinAttemptedAt,
+		MinSegmentHealth: s.MinSegmentHealth,
+		MaxSegmentHealth: s.MaxSegmentHealth,
+	}, nil
+}
+
+// StatAll collects statistics about all job queues on a server.
+func (c *Client) StatAll(ctx context.Context) (stats []QueueStat, err error) {
+	resp, err := c.client.Stat(ctx, &pb.JobQueueStatRequest{
+		AllPlacements: true,
+	})
+	if err != nil {
+		return nil, err
+	}
+	stats = make([]QueueStat, 0, len(resp.Stats))
+	for _, s := range resp.Stats {
+		stats = append(stats, QueueStat{
+			Placement:        storj.PlacementConstraint(s.Placement),
+			Count:            s.Count,
+			MaxInsertedAt:    s.MaxInsertedAt,
+			MinInsertedAt:    s.MinInsertedAt,
+			MaxAttemptedAt:   s.MaxAttemptedAt,
+			MinAttemptedAt:   s.MinAttemptedAt,
+			MinSegmentHealth: s.MinSegmentHealth,
+			MaxSegmentHealth: s.MaxSegmentHealth,
+		})
+	}
+	return stats, nil
+}
+
 // Truncate removes all items from a job queue.
 func (c *Client) Truncate(ctx context.Context, placement storj.PlacementConstraint) error {
 	_, err := c.client.Truncate(ctx, &pb.JobQueueTruncateRequest{
@@ -230,6 +288,21 @@ func (c *Client) TrimAll(ctx context.Context, healthGreaterThan float64) (remove
 		return 0, err
 	}
 	return resp.RemovedSegments, nil
+}
+
+// TestingSetAttemptedTime sets the LastAttemptedAt field of a specific job.
+// This is only intended for testing scenarios.
+func (c *Client) TestingSetAttemptedTime(ctx context.Context, placement storj.PlacementConstraint, streamID uuid.UUID, position uint64, t time.Time) (rowsAffected int64, err error) {
+	resp, err := c.client.TestingSetAttemptedTime(ctx, &pb.JobQueueTestingSetAttemptedTimeRequest{
+		Placement: int32(placement),
+		StreamId:  streamID[:],
+		Position:  position,
+		NewTime:   t,
+	})
+	if err != nil {
+		return 0, err
+	}
+	return int64(resp.RowsAffected), nil
 }
 
 // Dial dials an address and creates a new client.

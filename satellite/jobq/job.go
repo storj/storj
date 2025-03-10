@@ -8,6 +8,7 @@ import (
 	"time"
 	"unsafe"
 
+	"storj.io/common/storj"
 	"storj.io/common/uuid"
 	pb "storj.io/storj/satellite/internalpb"
 )
@@ -126,4 +127,16 @@ func ConvertJobFromProtobuf(protoJob *pb.RepairJob) (RepairJob, error) {
 	}
 
 	return job, nil
+}
+
+// QueueStat contains statistics about a queue or set of queues.
+type QueueStat struct {
+	Placement        storj.PlacementConstraint
+	Count            int64
+	MaxInsertedAt    time.Time
+	MinInsertedAt    time.Time
+	MaxAttemptedAt   *time.Time
+	MinAttemptedAt   *time.Time
+	MinSegmentHealth float64
+	MaxSegmentHealth float64
 }

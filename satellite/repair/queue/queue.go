@@ -62,5 +62,5 @@ type RepairQueue interface {
 	Stat(ctx context.Context) ([]Stat, error)
 
 	// TestingSetAttemptedTime sets attempted time for a segment.
-	TestingSetAttemptedTime(ctx context.Context, streamID uuid.UUID, position metabase.SegmentPosition, t time.Time) (rowsAffected int64, err error)
+	TestingSetAttemptedTime(ctx context.Context, placement storj.PlacementConstraint, streamID uuid.UUID, position metabase.SegmentPosition, t time.Time) (rowsAffected int64, err error)
 }

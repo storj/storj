@@ -446,7 +446,7 @@ func (r *repairQueue) Count(ctx context.Context) (count int, err error) {
 }
 
 // TestingSetAttemptedTime sets attempted time for a segment.
-func (r *repairQueue) TestingSetAttemptedTime(ctx context.Context, streamID uuid.UUID,
+func (r *repairQueue) TestingSetAttemptedTime(ctx context.Context, _ storj.PlacementConstraint, streamID uuid.UUID,
 	position metabase.SegmentPosition, t time.Time) (rowsAffected int64, err error) {
 
 	defer mon.Task()(&ctx)(&err)

@@ -5,6 +5,7 @@ package jobqueue
 
 import (
 	"container/heap"
+	"context"
 	"fmt"
 	"sync"
 	"time"
@@ -367,6 +368,29 @@ func (q *Queue) Len() (inRepair, inRetry int64) {
 	return int64(q.pq.Len()), int64(q.rq.Len())
 }
 
+// Delete removes a segment from the queue by streamID and position, whether it
+// is in the repair queue or the retry queue. Returns true if the segment was
+// found and removed, and false if it was not found.
+func (q *Queue) Delete(streamID uuid.UUID, position uint64) (wasDeleted bool) {
+	q.lock.Lock()
+	defer q.lock.Unlock()
+
+	if i, ok := q.indexByID[jobq.SegmentIdentifier{StreamID: streamID, Position: position}]; ok {
+		index := int(i & indexMask)
+		targetQueue := &q.pq.jobQueue
+		var targetHeap heap.Interface = &q.pq
+		if i&queueSelectMask == inRetryQueue {
+			targetQueue = &q.rq.jobQueue
+			targetHeap = &q.rq
+		}
+		if index < targetQueue.Len() {
+			heap.Remove(targetHeap, index)
+		}
+		return true
+	}
+	return false
+}
+
 // Inspect finds a repair job in the queue by streamID and position and returns
 // all of the job information.
 func (q *Queue) Inspect(streamID uuid.UUID, position uint64) jobq.RepairJob {
@@ -380,6 +404,90 @@ func (q *Queue) Inspect(streamID uuid.UUID, position uint64) jobq.RepairJob {
 		return q.pq.priorityHeap[int(i&indexMask)]
 	}
 	return jobq.RepairJob{}
+}
+
+const checkForCancelEvery = 1000
+
+// Stat performs some analysis of the items in the queue and returns some
+// related statistics. This is a relatively expensive operation at O(n). The
+// queues for this placement are left locked for the duration of the operation;
+// all reads and writes to this queue will block until this is complete.
+func (q *Queue) Stat(ctx context.Context) (repairStat, retryStat jobq.QueueStat, err error) {
+	q.lock.Lock()
+	defer q.lock.Unlock()
+
+	repairStat.Count = int64(q.pq.Len())
+	retryStat.Count = int64(q.rq.Len())
+	var maxInsertedAt, minInsertedAt uint64
+	var maxAttemptedAt, minAttemptedAt *uint64
+	first := true
+	updateStat := func(item jobq.RepairJob, stat *jobq.QueueStat) {
+		if first || item.InsertedAt > maxInsertedAt {
+			maxInsertedAt = item.InsertedAt
+		}
+		if first || item.InsertedAt < minInsertedAt {
+			minInsertedAt = item.InsertedAt
+		}
+		if item.LastAttemptedAt != 0 && (maxAttemptedAt == nil || item.LastAttemptedAt > *maxAttemptedAt) {
+			t := item.LastAttemptedAt
+			maxAttemptedAt = &t
+		}
+		if item.LastAttemptedAt != 0 && (minAttemptedAt == nil || item.LastAttemptedAt < *minAttemptedAt) {
+			t := item.LastAttemptedAt
+			minAttemptedAt = &t
+		}
+		if first || item.Health > stat.MaxSegmentHealth {
+			stat.MaxSegmentHealth = item.Health
+		}
+		if first || item.Health < stat.MinSegmentHealth {
+			stat.MinSegmentHealth = item.Health
+		}
+	}
+
+	for i, item := range q.pq.priorityHeap {
+		updateStat(item, &repairStat)
+		first = false
+		if i%checkForCancelEvery == 0 {
+			if err := ctx.Err(); err != nil {
+				return repairStat, retryStat, err
+			}
+		}
+	}
+	repairStat.MaxInsertedAt = time.Unix(int64(maxInsertedAt), 0)
+	repairStat.MinInsertedAt = time.Unix(int64(minInsertedAt), 0)
+	if maxAttemptedAt != nil {
+		t := time.Unix(int64(*maxAttemptedAt), 0)
+		repairStat.MaxAttemptedAt = &t
+	}
+	if minAttemptedAt != nil {
+		t := time.Unix(int64(*minAttemptedAt), 0)
+		repairStat.MinAttemptedAt = &t
+	}
+
+	maxInsertedAt, minInsertedAt = 0, 0
+	maxAttemptedAt, minAttemptedAt = nil, nil
+	first = true
+	for i, item := range q.rq.priorityHeap {
+		updateStat(item, &retryStat)
+		first = false
+		if i%checkForCancelEvery == 0 {
+			if err := ctx.Err(); err != nil {
+				return repairStat, retryStat, err
+			}
+		}
+	}
+	retryStat.MaxInsertedAt = time.Unix(int64(maxInsertedAt), 0)
+	retryStat.MinInsertedAt = time.Unix(int64(minInsertedAt), 0)
+	if maxAttemptedAt != nil {
+		t := time.Unix(int64(*maxAttemptedAt), 0)
+		retryStat.MaxAttemptedAt = &t
+	}
+	if minAttemptedAt != nil {
+		t := time.Unix(int64(*minAttemptedAt), 0)
+		retryStat.MinAttemptedAt = &t
+	}
+
+	return repairStat, retryStat, nil
 }
 
 // Truncate removes all items currently in the queue.
@@ -438,6 +546,25 @@ func (q *Queue) Trim(healthGreaterThan float64) (removed int) {
 		q.indexByID[item.ID] = uint64(i) | q.rq.queueSelect
 	}
 	return removed
+}
+
+// TestingSetAttemptedTime sets the LastAttemptedAt field for a segment in the
+// queue by streamID and position. It returns the number of jobs affected (this
+// will be 0 or 1).
+func (q *Queue) TestingSetAttemptedTime(streamID uuid.UUID, position uint64, lastAttemptedAt time.Time) (rowsAffected int) {
+	q.lock.Lock()
+	defer q.lock.Unlock()
+
+	if i, ok := q.indexByID[jobq.SegmentIdentifier{StreamID: streamID, Position: position}]; ok {
+		index := int(i & indexMask)
+		targetQueue := &q.pq.jobQueue
+		if i&queueSelectMask == inRetryQueue {
+			targetQueue = &q.rq.jobQueue
+		}
+		targetQueue.priorityHeap[index].LastAttemptedAt = uint64(lastAttemptedAt.Unix())
+		return 1
+	}
+	return 0
 }
 
 // Start starts the queue's funnel goroutine, which moves items from the retry

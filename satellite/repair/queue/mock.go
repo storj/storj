@@ -68,7 +68,7 @@ func (m *MockRepairQueue) Count(ctx context.Context) (count int, err error) {
 }
 
 // TestingSetAttemptedTime implements RepairQueue.
-func (m *MockRepairQueue) TestingSetAttemptedTime(ctx context.Context, streamID uuid.UUID, position metabase.SegmentPosition, t time.Time) (rowsAffected int64, err error) {
+func (m *MockRepairQueue) TestingSetAttemptedTime(ctx context.Context, placement storj.PlacementConstraint, streamID uuid.UUID, position metabase.SegmentPosition, t time.Time) (rowsAffected int64, err error) {
 	panic("implement me")
 }
 
