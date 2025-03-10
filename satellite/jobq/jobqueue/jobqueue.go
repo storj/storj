@@ -400,17 +400,17 @@ func (q *Queue) Delete(streamID uuid.UUID, position uint64) (wasDeleted bool) {
 
 // Inspect finds a repair job in the queue by streamID and position and returns
 // all of the job information.
-func (q *Queue) Inspect(streamID uuid.UUID, position uint64) jobq.RepairJob {
+func (q *Queue) Inspect(streamID uuid.UUID, position uint64) (job jobq.RepairJob, ok bool) {
 	q.lock.Lock()
 	defer q.lock.Unlock()
 
 	if i, ok := q.indexByID[jobq.SegmentIdentifier{StreamID: streamID, Position: position}]; ok {
 		if i&queueSelectMask == inRetryQueue {
-			return q.rq.priorityHeap[int(i&indexMask)]
+			return q.rq.priorityHeap[int(i&indexMask)], true
 		}
-		return q.pq.priorityHeap[int(i&indexMask)]
+		return q.pq.priorityHeap[int(i&indexMask)], true
 	}
-	return jobq.RepairJob{}
+	return jobq.RepairJob{}, false
 }
 
 const checkForCancelEvery = 1000

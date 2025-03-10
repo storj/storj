@@ -53,7 +53,7 @@ func TestClientAndServer(t *testing.T) {
 		require.Equal(t, int64(1), gotRepairLen)
 		require.Equal(t, int64(0), gotRetryLen)
 
-		gotJob, err := cli.Inspect(ctx, 42, job.ID.StreamID, 2)
+		gotJob, err := cli.Inspect(ctx, 42, job.ID.StreamID, job.ID.Position)
 		require.NoError(t, err)
 		require.NotZero(t, gotJob.InsertedAt)
 		job.InsertedAt = gotJob.InsertedAt

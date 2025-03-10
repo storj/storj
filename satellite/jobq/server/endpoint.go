@@ -152,8 +152,11 @@ func (se *JobqEndpoint) Inspect(ctx context.Context, req *pb.JobQueueInspectRequ
 	if err != nil {
 		return nil, fmt.Errorf("failed to get queue for placement %d: %w", req.Placement, err)
 	}
-	job := q.Inspect(streamID, position)
-	return &pb.JobQueueInspectResponse{Job: jobq.ConvertJobToProtobuf(job)}, nil
+	job, ok := q.Inspect(streamID, position)
+	return &pb.JobQueueInspectResponse{
+		Job:   jobq.ConvertJobToProtobuf(job),
+		Found: ok,
+	}, nil
 }
 
 // Truncate removes all jobs from the queue for the requested placement. The

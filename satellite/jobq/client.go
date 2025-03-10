@@ -118,8 +118,9 @@ func (c *Client) Peek(ctx context.Context, limit int, includedPlacements, exclud
 	return jobs, errors.Join(errList...)
 }
 
-// Inspect finds a job in the queue by streamID and position and returns all of
-// the job information. If the job is not found, it returns ErrJobNotFound.
+// Inspect finds a job in the queue by streamID, position, and placement, and
+// returns all of the job information. If the job is not found, it returns
+// ErrJobNotFound.
 func (c *Client) Inspect(ctx context.Context, placement storj.PlacementConstraint, streamID uuid.UUID, position uint64) (job RepairJob, err error) {
 	resp, err := c.client.Inspect(ctx, &pb.JobQueueInspectRequest{
 		Placement: int32(placement),
@@ -129,12 +130,12 @@ func (c *Client) Inspect(ctx context.Context, placement storj.PlacementConstrain
 	if err != nil {
 		return RepairJob{}, fmt.Errorf("could not inspect repair job: %w", err)
 	}
+	if !resp.Found {
+		return job, ErrJobNotFound
+	}
 	job, err = ConvertJobFromProtobuf(resp.Job)
 	if err != nil {
 		return RepairJob{}, fmt.Errorf("invalid repair job: %w", err)
-	}
-	if job.ID.StreamID.IsZero() {
-		return job, ErrJobNotFound
 	}
 	return job, nil
 }

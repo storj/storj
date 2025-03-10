@@ -121,6 +121,7 @@ message JobQueueInspectRequest {
 
 message JobQueueInspectResponse {
     RepairJob job = 1;
+    bool found = 2;
 }
 
 message JobQueueStatRequest {
