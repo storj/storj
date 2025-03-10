@@ -272,6 +272,34 @@ func testStore_CompactionRespectsRestoreTime(t *testing.T) {
 	s.AssertRead(key)
 }
 
+func TestReader_ReviveOnNonTrash(t *testing.T) {
+	forAllTables(t, testReader_ReviveOnNonTrash)
+}
+func testReader_ReviveOnNonTrash(t *testing.T) {
+	ctx := context.Background()
+	s := newTestStore(t)
+	defer s.Close()
+
+	// Create a key that is not trashed
+	key := s.AssertCreate()
+
+	// Get a reader for the key
+	r, err := s.Read(ctx, key)
+	assert.NoError(t, err)
+	assert.NotNil(t, r)
+	defer r.Release()
+
+	// Verify that the reader is not in trash state
+	assert.False(t, r.Trash())
+
+	// Calling Revive on a non-trashed Reader should be safe and return nil
+	err = r.Revive(ctx)
+	assert.NoError(t, err)
+
+	// Verify that the key still exists and is not trashed
+	s.AssertRead(key, AssertTrash(false))
+}
+
 func TestStore_TTL(t *testing.T) {
 	forAllTables(t, testStore_TTL)
 }
