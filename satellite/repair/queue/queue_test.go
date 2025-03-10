@@ -35,7 +35,7 @@ func TestInsertSelect(t *testing.T) {
 		require.False(t, alreadyInserted)
 		segments, err := q.Select(ctx, 1, nil, nil)
 		require.NoError(t, err)
-		err = q.Delete(ctx, segments[0])
+		err = q.Release(ctx, segments[0], true)
 		require.NoError(t, err)
 		require.Equal(t, seg.StreamID, segments[0].StreamID)
 		require.Equal(t, seg.Position, segments[0].Position)
@@ -172,7 +172,7 @@ func TestSequential(t *testing.T) {
 			}
 			require.NoError(t, err)
 			require.Len(t, s, 1)
-			err = q.Delete(ctx, s[0])
+			err = q.Release(ctx, s[0], true)
 			require.NoError(t, err)
 
 			got = append(got, &s[0])
@@ -240,7 +240,7 @@ func TestParallel(t *testing.T) {
 					return errs.New("got %d segments, expected 1: %+v", len(s), s)
 				}
 
-				err = q.Delete(ctx, s[0])
+				err = q.Release(ctx, s[0], true)
 				if err != nil {
 					return err
 				}

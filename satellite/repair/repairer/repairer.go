@@ -231,9 +231,14 @@ func (service *Service) worker(ctx context.Context, seg queue.InjuredSegment) (e
 			log.Debug("removing repaired segment from repair queue")
 		}
 
-		delErr := service.queue.Delete(ctx, seg)
+		delErr := service.queue.Release(ctx, seg, true)
 		if delErr != nil {
 			err = errs.Combine(err, Error.New("failed to remove segment from queue: %v", delErr))
+		}
+	} else {
+		doneErr := service.queue.Release(ctx, seg, false)
+		if doneErr != nil {
+			err = errs.Combine(err, Error.New("failed to update segment in queue: %v", doneErr))
 		}
 	}
 	if err != nil {

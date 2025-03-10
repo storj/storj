@@ -47,6 +47,11 @@ func (m *MockRepairQueue) Select(context.Context, int, []storj.PlacementConstrai
 	panic("implement me")
 }
 
+// Release implements RepairQueue.
+func (m *MockRepairQueue) Release(ctx context.Context, s InjuredSegment, repaired bool) error {
+	panic("implement me")
+}
+
 // Delete implements RepairQueue.
 func (m *MockRepairQueue) Delete(ctx context.Context, s InjuredSegment) error {
 	panic("implement me")

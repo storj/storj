@@ -63,10 +63,13 @@ func TestRepairQueue(t *testing.T) {
 
 		rs1, err := rq.Select(ctx, 10, nil, nil)
 		require.NoError(t, err)
+		require.Len(t, rs1, 1)
 		require.Equal(t, testSegments[0].StreamID, rs1[0].StreamID)
 		require.Equal(t, storj.PlacementConstraint(99), rs1[0].Placement)
 		require.Equal(t, testSegments[0].Position, rs1[0].Position)
 		require.Equal(t, float64(12), rs1[0].SegmentHealth)
+		err = rq.Release(ctx, rs1[0], true)
+		require.NoError(t, err)
 
 		// empty queue (one record, but that's already attempted)
 		_, err = rq.Select(ctx, 1, nil, nil)
@@ -125,7 +128,10 @@ func TestRepairQueue_PlacementRestrictions(t *testing.T) {
 		}
 
 		// any random segment
-		_, err := rq.Select(ctx, 1, nil, nil)
+		randomSegments, err := rq.Select(ctx, 1, nil, nil)
+		require.NoError(t, err)
+		require.Len(t, randomSegments, 1)
+		err = rq.Release(ctx, randomSegments[0], true)
 		require.NoError(t, err)
 
 		for i := 0; i < 2; i++ {
@@ -133,14 +139,20 @@ func TestRepairQueue_PlacementRestrictions(t *testing.T) {
 			selected, err := rq.Select(ctx, 1, []storj.PlacementConstraint{1, 2}, nil)
 			require.NoError(t, err)
 			require.True(t, selected[0].Placement == 1 || selected[0].Placement == 2, "Expected placement 1 or 2 but was %d", selected[0].Placement)
+			err = rq.Release(ctx, selected[0], true)
+			require.NoError(t, err)
 
 			selected, err = rq.Select(ctx, 1, []storj.PlacementConstraint{3, 4}, []storj.PlacementConstraint{3})
 			require.NoError(t, err)
 			require.Equal(t, storj.PlacementConstraint(4), selected[0].Placement)
+			err = rq.Release(ctx, selected[0], true)
+			require.NoError(t, err)
 
 			selected, err = rq.Select(ctx, 1, nil, []storj.PlacementConstraint{0, 1, 2, 3, 4})
 			require.NoError(t, err)
 			require.True(t, selected[0].Placement > 4)
+			err = rq.Release(ctx, selected[0], true)
+			require.NoError(t, err)
 
 			// the Select above does not order by the primary key, so it may update the segment with placement constraint 9.
 			// if so, explicitly update a different segment that is not yet updated (such as 8)
@@ -151,6 +163,8 @@ func TestRepairQueue_PlacementRestrictions(t *testing.T) {
 			selected, err = rq.Select(ctx, 1, []storj.PlacementConstraint{singlePlacement}, []storj.PlacementConstraint{1, 2, 3, 4})
 			require.NoError(t, err)
 			require.Equal(t, singlePlacement, selected[0].Placement)
+			err = rq.Release(ctx, selected[0], true)
+			require.NoError(t, err)
 
 			_, err = rq.Select(ctx, 1, []storj.PlacementConstraint{11}, nil)
 			require.Error(t, err)
@@ -188,6 +202,8 @@ func TestRepairQueue_BatchInsert(t *testing.T) {
 			segments, err := rq.Select(ctx, 1, []storj.PlacementConstraint{storj.PlacementConstraint(i)}, nil)
 			require.NoError(t, err)
 			assert.Equal(t, storj.PlacementConstraint(segments[0].StreamID[0]), segments[0].Placement)
+			err = rq.Release(ctx, segments[0], false)
+			require.NoError(t, err)
 		}
 
 		// fresh inserts again
@@ -206,6 +222,8 @@ func TestRepairQueue_BatchInsert(t *testing.T) {
 			segments, err := rq.Select(ctx, 1, []storj.PlacementConstraint{storj.PlacementConstraint(i)}, nil)
 			require.NoError(t, err)
 			require.Equal(t, storj.PlacementConstraint(segments[0].StreamID[0]), segments[0].Placement+1)
+			err = rq.Release(ctx, segments[0], false)
+			require.NoError(t, err)
 		}
 	})
 }
@@ -235,7 +253,9 @@ func TestRepairQueue_Stat(t *testing.T) {
 		_, err := rq.InsertBatch(ctx, testSegments)
 		require.NoError(t, err)
 
-		_, err = rq.Select(ctx, 1, nil, nil)
+		job, err := rq.Select(ctx, 1, nil, nil)
+		require.NoError(t, err)
+		err = rq.Release(ctx, job[0], false)
 		require.NoError(t, err)
 
 		stat, err := rq.Stat(ctx)
@@ -298,6 +318,10 @@ func TestRepairQueue_Select_Concurrently(t *testing.T) {
 						mu.Unlock()
 						return nil
 					}
+					if err != nil {
+						return err
+					}
+					err = rq.Release(ctx, result[0], true)
 					if err != nil {
 						return err
 					}

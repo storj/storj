@@ -47,6 +47,8 @@ func TestUntilEmpty(t *testing.T) {
 				require.True(t, queue.ErrEmpty.Has(err))
 				break
 			}
+			err = repairQueue.Release(ctx, injuredSegs[0], true)
+			require.NoError(t, err)
 			idsMap[injuredSegs[0].StreamID]++
 		}
 
@@ -93,15 +95,21 @@ func TestOrder(t *testing.T) {
 		// segment with attempted = null should be selected first
 		injuredSegs, err := repairQueue.Select(ctx, 1, nil, nil)
 		require.NoError(t, err)
+		err = repairQueue.Release(ctx, injuredSegs[0], true)
+		require.NoError(t, err)
 		assert.Equal(t, nullID, injuredSegs[0].StreamID)
 
 		// segment with attempted = 8 hours ago should be selected next
 		injuredSegs, err = repairQueue.Select(ctx, 1, nil, nil)
 		require.NoError(t, err)
+		err = repairQueue.Release(ctx, injuredSegs[0], true)
+		require.NoError(t, err)
 		assert.Equal(t, olderID, injuredSegs[0].StreamID)
 
 		// segment with attempted = 7 hours ago should be selected next
 		injuredSegs, err = repairQueue.Select(ctx, 1, nil, nil)
+		require.NoError(t, err)
+		err = repairQueue.Release(ctx, injuredSegs[0], true)
 		require.NoError(t, err)
 		assert.Equal(t, oldID, injuredSegs[0].StreamID)
 
@@ -200,6 +208,8 @@ func testorderHealthyPieces(t *testing.T, connStr string) {
 		injuredSegs, err := repairQueue.Select(ctx, 1, nil, nil)
 		require.NoError(t, err)
 		assert.Equal(t, nextID, injuredSegs[0].StreamID)
+		err = repairQueue.Release(ctx, injuredSegs[0], true)
+		require.NoError(t, err)
 	}
 
 	// queue should be considered "empty" now
@@ -250,6 +260,8 @@ func TestOrderOverwrite(t *testing.T) {
 			injuredSegs, err := repairQueue.Select(ctx, 1, nil, nil)
 			require.NoError(t, err)
 			assert.Equal(t, nextStreamID, injuredSegs[0].StreamID)
+			err = repairQueue.Release(ctx, injuredSegs[0], true)
+			require.NoError(t, err)
 		}
 
 		// queue should be considered "empty" now

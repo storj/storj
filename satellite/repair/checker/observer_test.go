@@ -91,7 +91,7 @@ func TestIdentifyInjuredSegmentsObserver(t *testing.T) {
 		// and that the expired segment was ignored
 		injuredSegments, err := repairQueue.Select(ctx, 1, nil, nil)
 		require.NoError(t, err)
-		err = repairQueue.Delete(ctx, injuredSegments[0])
+		err = repairQueue.Release(ctx, injuredSegments[0], true)
 		require.NoError(t, err)
 
 		require.Equal(t, b0StreamID, injuredSegments[0].StreamID)
@@ -166,7 +166,9 @@ func TestIdentifyIrreparableSegmentsObserver(t *testing.T) {
 
 		// check that single irreparable segment was added repair queue
 		repairQueue := planet.Satellites[0].DB.RepairQueue()
-		_, err = repairQueue.Select(ctx, 1, nil, nil)
+		items, err := repairQueue.Select(ctx, 1, nil, nil)
+		require.NoError(t, err)
+		err = repairQueue.Release(ctx, items[0], false)
 		require.NoError(t, err)
 		count, err := repairQueue.Count(ctx)
 		require.NoError(t, err)
@@ -258,6 +260,8 @@ func TestObserver_CheckSegmentCopy(t *testing.T) {
 			injuredSegments, err := repairQueue.Select(ctx, 1, nil, nil)
 			require.NoError(t, err)
 			ensureExistsOnce(t, &injuredSegments[0])
+			err = repairQueue.Release(ctx, injuredSegments[0], false)
+			require.NoError(t, err)
 		}
 
 		injuredSegments, err := repairQueue.Count(ctx)
@@ -682,7 +686,7 @@ func TestObserver_PlacementCheck(t *testing.T) {
 
 				injuredSegments, err := repairQueue.Select(ctx, 1, nil, nil)
 				require.NoError(t, err)
-				err = repairQueue.Delete(ctx, injuredSegments[0])
+				err = repairQueue.Release(ctx, injuredSegments[0], true)
 				require.NoError(t, err)
 
 				require.Equal(t, segments[0].StreamID, injuredSegments[0].StreamID)

@@ -396,6 +396,14 @@ func (r *repairQueue) Select(ctx context.Context, n int, includedPlacements []st
 	return segments, nil
 }
 
+func (r *repairQueue) Release(ctx context.Context, seg queue.InjuredSegment, repaired bool) (err error) {
+	defer mon.Task()(&ctx)(&err)
+	if repaired {
+		return Error.Wrap(r.Delete(ctx, seg))
+	}
+	return nil
+}
+
 func (r *repairQueue) Delete(ctx context.Context, seg queue.InjuredSegment) (err error) {
 	defer mon.Task()(&ctx)(&err)
 	_, err = r.db.ExecContext(ctx, r.db.Rebind(`DELETE FROM repair_queue WHERE stream_id = ? AND position = ?`), seg.StreamID, seg.Position.Encode())

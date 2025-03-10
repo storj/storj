@@ -49,6 +49,10 @@ type RepairQueue interface {
 	InsertBatch(ctx context.Context, segments []*InjuredSegment) (newlyInsertedSegments []*InjuredSegment, err error)
 	// Select gets an injured segments.
 	Select(ctx context.Context, limit int, includedPlacements []storj.PlacementConstraint, excludedPlacements []storj.PlacementConstraint) ([]InjuredSegment, error)
+	// Release releases an injured segment record. This should be called after
+	// the segment is acquired by Select(), once the segment has been repaired
+	// or the repair has failed.
+	Release(ctx context.Context, s InjuredSegment, repaired bool) error
 	// Delete removes an injured segment.
 	Delete(ctx context.Context, s InjuredSegment) error
 	// Clean removes all segments last updated before a certain time
