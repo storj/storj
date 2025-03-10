@@ -126,11 +126,24 @@ func (se *JobqEndpoint) Peek(ctx context.Context, req *pb.JobQueuePeekRequest) (
 
 // Len returns the number of jobs in the queues for the requested placement.
 func (se *JobqEndpoint) Len(ctx context.Context, req *pb.JobQueueLengthRequest) (*pb.JobQueueLengthResponse, error) {
+	if req.AllPlacements {
+		return se.lenAll(ctx)
+	}
 	q := se.queues.GetQueue(storj.PlacementConstraint(req.Placement))
 	if q == nil {
 		return nil, fmt.Errorf("no queue for placement %v", req.Placement)
 	}
 	repairLen, retryLen := q.Len()
+	return &pb.JobQueueLengthResponse{RepairLength: repairLen, RetryLength: retryLen}, nil
+}
+
+func (se *JobqEndpoint) lenAll(ctx context.Context) (*pb.JobQueueLengthResponse, error) {
+	var repairLen, retryLen int64
+	for _, q := range se.queues.GetAllQueues() {
+		repair, retry := q.Len()
+		repairLen += repair
+		retryLen += retry
+	}
 	return &pb.JobQueueLengthResponse{RepairLength: repairLen, RetryLength: retryLen}, nil
 }
 
@@ -153,11 +166,21 @@ func (se *JobqEndpoint) Inspect(ctx context.Context, req *pb.JobQueueInspectRequ
 // Truncate removes all jobs from the queue for the requested placement. The
 // queue is not destroyed.
 func (se *JobqEndpoint) Truncate(ctx context.Context, req *pb.JobQueueTruncateRequest) (*pb.JobQueueTruncateResponse, error) {
+	if req.AllPlacements {
+		return se.truncateAll(ctx)
+	}
 	q := se.queues.GetQueue(storj.PlacementConstraint(req.Placement))
 	if q == nil {
 		return nil, fmt.Errorf("no queue for placement %v", req.Placement)
 	}
 	q.Truncate()
+	return &pb.JobQueueTruncateResponse{}, nil
+}
+
+func (se *JobqEndpoint) truncateAll(ctx context.Context) (*pb.JobQueueTruncateResponse, error) {
+	for _, q := range se.queues.GetAllQueues() {
+		q.Truncate()
+	}
 	return &pb.JobQueueTruncateResponse{}, nil
 }
 

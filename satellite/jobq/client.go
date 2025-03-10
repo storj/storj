@@ -128,7 +128,7 @@ func (c *Client) Inspect(ctx context.Context, placement storj.PlacementConstrain
 	return job, nil
 }
 
-// Len returns the number of items in the job queue.
+// Len returns the number of items in the indicated job queue.
 func (c *Client) Len(ctx context.Context, placement storj.PlacementConstraint) (repairLen, retryLen int64, err error) {
 	resp, err := c.client.Len(ctx, &pb.JobQueueLengthRequest{
 		Placement: int32(placement),
@@ -139,12 +139,15 @@ func (c *Client) Len(ctx context.Context, placement storj.PlacementConstraint) (
 	return resp.RepairLength, resp.RetryLength, nil
 }
 
-// Truncate removes all items from a job queue.
-func (c *Client) Truncate(ctx context.Context, placement storj.PlacementConstraint) error {
-	_, err := c.client.Truncate(ctx, &pb.JobQueueTruncateRequest{
-		Placement: int32(placement),
+// LenAll sums up the number of items in all queues on the server.
+func (c *Client) LenAll(ctx context.Context) (repairLen, retryLen int64, err error) {
+	resp, err := c.client.Len(ctx, &pb.JobQueueLengthRequest{
+		AllPlacements: true,
 	})
-	return err
+	if err != nil {
+		return 0, 0, err
+	}
+	return resp.RepairLength, resp.RetryLength, nil
 }
 
 // AddPlacementQueue adds a new queue for the given placement.
@@ -159,6 +162,22 @@ func (c *Client) AddPlacementQueue(ctx context.Context, placement storj.Placemen
 func (c *Client) DestroyPlacementQueue(ctx context.Context, placement storj.PlacementConstraint) error {
 	_, err := c.client.DestroyPlacementQueue(ctx, &pb.JobQueueDestroyPlacementQueueRequest{
 		Placement: int32(placement),
+	})
+	return err
+}
+
+// Truncate removes all items from a job queue.
+func (c *Client) Truncate(ctx context.Context, placement storj.PlacementConstraint) error {
+	_, err := c.client.Truncate(ctx, &pb.JobQueueTruncateRequest{
+		Placement: int32(placement),
+	})
+	return err
+}
+
+// TruncateAll removes all items from all job queues on a server.
+func (c *Client) TruncateAll(ctx context.Context) error {
+	_, err := c.client.Truncate(ctx, &pb.JobQueueTruncateRequest{
+		AllPlacements: true,
 	})
 	return err
 }

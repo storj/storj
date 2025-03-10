@@ -72,6 +72,7 @@ message JobQueuePeekResponse {
 
 message JobQueueLengthRequest {
     int32 placement = 1;
+    bool all_placements = 2;
 }
 
 message JobQueueLengthResponse {
@@ -81,6 +82,7 @@ message JobQueueLengthResponse {
 
 message JobQueueTruncateRequest {
     int32 placement = 1;
+    bool all_placements = 2;
 }
 
 message JobQueueTruncateResponse { }
