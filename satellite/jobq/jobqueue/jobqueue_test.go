@@ -12,6 +12,7 @@ import (
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap/zaptest"
 
+	"storj.io/common/storj"
 	"storj.io/common/uuid"
 	"storj.io/storj/satellite/jobq"
 	"storj.io/storj/satellite/jobq/jobqueue"
@@ -64,7 +65,8 @@ func TestQueue(t *testing.T) {
 	require.False(t, wasNew)
 
 	// see if that one got sorted to first
-	gotJob := queue.Pop()
+	gotJob, ok := queue.Pop()
+	require.True(t, ok)
 	require.Equal(t, specialHealth, gotJob.Health)
 	require.Equal(t, specialJob.ID, gotJob.ID)
 	require.Greater(t, gotJob.UpdatedAt, gotJob.InsertedAt)
@@ -77,15 +79,16 @@ func TestQueue(t *testing.T) {
 			// already popped this one
 			continue
 		}
-		gotJob = queue.Pop()
-		require.NotZero(t, gotJob.ID.StreamID)
+		gotJob, ok = queue.Pop()
+		require.True(t, ok)
 		require.Equal(t, jobs[i].ID.StreamID, gotJob.ID.StreamID, i)
 		require.Equal(t, jobs[i].ID.Position, gotJob.ID.Position, i)
 		require.Equal(t, 1.0/float64(i), jobs[i].Health, i)
 	}
 
 	// pop an empty queue
-	gotJob = queue.Pop()
+	gotJob, ok = queue.Pop()
+	require.False(t, ok)
 	require.Zero(t, gotJob.ID.StreamID)
 	require.Zero(t, gotJob.ID.Position)
 	require.Zero(t, gotJob.Health)
@@ -104,12 +107,14 @@ func TestQueueOfOneElement(t *testing.T) {
 	wasNew := queue.Insert(job)
 	require.True(t, wasNew)
 
-	gotJob := queue.Pop()
+	gotJob, ok := queue.Pop()
+	require.True(t, ok)
 	require.Equal(t, job.ID.StreamID, gotJob.ID.StreamID)
 	require.Equal(t, job.ID.Position, gotJob.ID.Position)
 	require.Equal(t, job.Health, gotJob.Health)
 
-	gotJob = queue.Pop()
+	gotJob, ok = queue.Pop()
+	require.False(t, ok)
 	require.Zero(t, gotJob.ID.StreamID)
 	require.Zero(t, gotJob.ID.Position)
 	require.Zero(t, gotJob.Health)
@@ -182,7 +187,8 @@ func TestQueueClean(t *testing.T) {
 
 	// pop all and check
 	for _, expectedJob := range expectedJobs {
-		gotJob := queue.Pop()
+		gotJob, ok := queue.Pop()
+		require.True(t, ok)
 		require.GreaterOrEqual(t, gotJob.UpdatedAt, uint64(updateCutOff.Unix()))
 		require.LessOrEqual(t, gotJob.UpdatedAt, uint64(timeFunc().Unix()))
 		require.LessOrEqual(t, gotJob.InsertedAt, uint64(updateCutOff.Unix()))
@@ -192,8 +198,8 @@ func TestQueueClean(t *testing.T) {
 		require.Equal(t, expectedJob, gotJob)
 	}
 	// no elements left
-	gotJob := queue.Pop()
-	require.Zero(t, gotJob.ID.StreamID)
+	_, ok := queue.Pop()
+	require.False(t, ok)
 	repairLen, retryLen := queue.Len()
 	require.Zero(t, repairLen)
 	require.NotZero(t, retryLen)
@@ -210,11 +216,11 @@ func TestQueueClean(t *testing.T) {
 	// LastAttemptedAt). Instead, if multiple jobs get moved to the repair queue
 	// at the same time, they'll be sorted by health. For now we'll just pop
 	// them all and make sure they're all there. We'll do a better test of
-	// funnel timing mechanics in a jobqueue_sync_test.go.
+	// funnel timing mechanics in jobqueue_sync_test.go.
 	gotJobs := make([]jobq.RepairJob, 0, len(jobsNeedingRetry))
 	for len(gotJobs) < len(jobsNeedingRetry) {
-		gotJob = queue.Pop()
-		if gotJob.ID.StreamID.IsZero() {
+		gotJob, ok := queue.Pop()
+		if !ok {
 			// give the funnel goroutine a moment more
 			time.Sleep(time.Microsecond)
 			continue
@@ -236,8 +242,8 @@ func TestQueueClean(t *testing.T) {
 	}
 
 	// no elements left
-	gotJob = queue.Pop()
-	require.Zero(t, gotJob.ID.StreamID)
+	_, ok = queue.Pop()
+	require.False(t, ok)
 	repairLen, retryLen = queue.Len()
 	require.Zero(t, repairLen)
 	require.Zero(t, retryLen)
@@ -297,8 +303,8 @@ func TestQueueTrim(t *testing.T) {
 	// Verify all remaining jobs in repair queue have health <= trimThreshold
 	var remainingJobs []jobq.RepairJob
 	for i := 0; i < int(repairLen); i++ {
-		job := queue.Pop()
-		if job.ID.StreamID.IsZero() {
+		job, ok := queue.Pop()
+		if !ok {
 			break
 		}
 		remainingJobs = append(remainingJobs, job)
@@ -315,8 +321,8 @@ func TestQueueTrim(t *testing.T) {
 
 	// Check repair queue again to see if jobs from retry queue moved there
 	for {
-		job := queue.Pop()
-		if job.ID.StreamID.IsZero() {
+		job, ok := queue.Pop()
+		if !ok {
 			break
 		}
 		remainingJobs = append(remainingJobs, job)
@@ -358,7 +364,8 @@ func TestMemoryManagement(t *testing.T) {
 		return jobs[i].Health < jobs[j].Health
 	})
 	for i := range jobs {
-		gotJob := queue.Pop()
+		gotJob, ok := queue.Pop()
+		require.True(t, ok)
 		require.Equal(t, jobs[i].ID, gotJob.ID)
 		inRepair, _ := queue.Len()
 		require.Equal(t, int64(len(jobs)-i-1), inRepair)
@@ -395,19 +402,65 @@ func TestQueueDelete(t *testing.T) {
 
 	// pop all and check
 	for i := 10; i < numStreams; i++ {
-		gotJob := queue.Pop()
-		require.NotZero(t, gotJob.ID.StreamID)
+		gotJob, ok := queue.Pop()
+		require.True(t, ok)
 		require.Equal(t, jobs[i].ID.StreamID, gotJob.ID.StreamID)
 		require.Equal(t, jobs[i].ID.Position, gotJob.ID.Position)
 		require.Equal(t, jobs[i].Health, gotJob.Health)
 	}
 
 	// no elements left
-	gotJob := queue.Pop()
-	require.Zero(t, gotJob)
+	_, ok := queue.Pop()
+	require.False(t, ok)
 	repairLen, retryLen := queue.Len()
 	require.Zero(t, repairLen)
 	require.Zero(t, retryLen)
+}
+
+func TestPeekNMultipleQueues(t *testing.T) {
+	queue, err := jobqueue.NewQueue(zaptest.NewLogger(t), time.Hour, 100, 10)
+	require.NoError(t, err)
+
+	// create and insert jobs
+	const numStreams = 100
+	jobs := make([]jobq.RepairJob, numStreams)
+	for i := range jobs {
+		jobs[i].ID.StreamID = mustUUID()
+		jobs[i].ID.Position = rand.Uint64()
+		jobs[i].Health = rand.Float64()
+		jobs[i].Placement = 42
+	}
+	for _, job := range jobs {
+		wasNew := queue.Insert(job)
+		require.True(t, wasNew)
+	}
+
+	// peek all and check
+	peekedJobs := jobqueue.PeekNMultipleQueues(1000, map[storj.PlacementConstraint]*jobqueue.Queue{42: queue})
+	require.Len(t, peekedJobs, numStreams)
+
+	sort.Slice(jobs, func(i, j int) bool {
+		return jobs[i].Health < jobs[j].Health
+	})
+	for i, peekedJob := range peekedJobs {
+		require.Equal(t, jobs[i].ID.StreamID, peekedJob.ID.StreamID)
+		require.Equal(t, jobs[i].ID.Position, peekedJob.ID.Position)
+		require.Equal(t, jobs[i].Health, peekedJob.Health)
+	}
+
+	// queue is unchanged
+	repairLen, retryLen := queue.Len()
+	require.Equal(t, int64(numStreams), repairLen)
+	require.Zero(t, retryLen)
+
+	// pop all and check
+	for i := 0; i < numStreams; i++ {
+		gotJob, ok := queue.Pop()
+		require.True(t, ok)
+		require.Equal(t, jobs[i].ID.StreamID, gotJob.ID.StreamID)
+		require.Equal(t, jobs[i].ID.Position, gotJob.ID.Position)
+		require.Equal(t, jobs[i].Health, gotJob.Health)
+	}
 }
 
 func BenchmarkQueue(b *testing.B) {

@@ -26,7 +26,7 @@ import (
 // Server represents a job queue DRPC server.
 type Server struct {
 	log      *zap.Logger
-	queueMap *QueueMap
+	QueueMap *QueueMap
 	endpoint pb.DRPCJobQueueServer
 	listener net.Listener
 	mux      *drpcmux.Mux
@@ -56,7 +56,7 @@ func New(log *zap.Logger, listenAddress net.Addr, tlsOpts *tlsopts.Options, retr
 
 	return &Server{
 		log:      log,
-		queueMap: queueMap,
+		QueueMap: queueMap,
 		endpoint: endpoint,
 		listener: listener,
 		mux:      mux,
@@ -87,7 +87,7 @@ func (s *Server) Run(ctx context.Context) error {
 	})
 
 	err := group.Wait()
-	s.queueMap.StopAll()
+	s.QueueMap.StopAll()
 
 	if err == nil || errors.Is(err, context.Canceled) {
 		s.log.Info("server closed", zap.Stringer("address", s.listener.Addr()))
@@ -101,10 +101,13 @@ func (s *Server) Addr() net.Addr {
 	return s.listener.Addr()
 }
 
-// SetTimeFunc sets the time function for all queues in the server.
-// This is primarily used for testing to control the timestamps used in the queue.
+// SetTimeFunc sets the time function for all queues currently initialized in
+// the server. This is primarily used for testing to control the timestamps used
+// in the queue.
+//
+// Importantly, this will not affect queues to be initialized after this point.
 func (s *Server) SetTimeFunc(timeFunc func() time.Time) {
-	allQueues := s.queueMap.GetAllQueues()
+	allQueues := s.QueueMap.GetAllQueues()
 	for _, q := range allQueues {
 		q.Now = timeFunc
 	}

@@ -59,18 +59,21 @@ message JobQueuePushBatchResponse {
 message JobQueuePopRequest {
     repeated int32 included_placements = 1;
     repeated int32 excluded_placements = 2;
+    int32 limit = 3;
 }
 
 message JobQueuePopResponse {
-    RepairJob job = 1;
+    repeated RepairJob jobs = 1;
 }
 
 message JobQueuePeekRequest {
-    int32 placement = 1;
+    repeated int32 included_placements = 1;
+    repeated int32 excluded_placements = 2;
+    int32 limit = 3;
 }
 
 message JobQueuePeekResponse {
-    RepairJob job = 1;
+    repeated RepairJob jobs = 1;
 }
 
 message JobQueueDeleteRequest {

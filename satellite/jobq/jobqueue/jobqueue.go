@@ -7,12 +7,14 @@ import (
 	"container/heap"
 	"context"
 	"fmt"
+	"sort"
 	"sync"
 	"time"
 
 	"go.uber.org/zap"
 	"golang.org/x/exp/maps"
 
+	"storj.io/common/storj"
 	"storj.io/common/uuid"
 	"storj.io/storj/satellite/jobq"
 )
@@ -148,7 +150,7 @@ func (jq *jobQueue) cleanQueue(updatedBefore time.Time) (removed int) {
 		jq.highWater, jq.unmarkingError = markUnused(jq.mem, jq.priorityHeap, len(jq.priorityHeap), jq.highWater, jq.memReleaseThreshold)
 	}
 	// must be followed up with a heap.Init() and a reindex of jq.indexByID to
-	// maintain heap properties
+	// maintain heap properties.
 	return removed
 }
 
@@ -170,7 +172,7 @@ func (jq *jobQueue) trimQueue(healthGreaterThan float64) (removed int) {
 		jq.highWater, jq.unmarkingError = markUnused(jq.mem, jq.priorityHeap, len(jq.priorityHeap), jq.highWater, jq.memReleaseThreshold)
 	}
 	// must be followed up with a heap.Init() and a reindex of jq.indexByID to
-	// maintain heap properties
+	// maintain heap properties.
 	return removed
 }
 
@@ -314,13 +316,18 @@ func (q *Queue) Insert(job jobq.RepairJob) (wasNew bool) {
 }
 
 // Pop removes and returns the segment with the lowest health from the repair
-// queue. If there are no segments in the queue, it returns a zero job.
-func (q *Queue) Pop() jobq.RepairJob {
+// queue. If there are no segments in the queue, it returns a zero job and
+// ok=false.
+func (q *Queue) Pop() (job jobq.RepairJob, ok bool) {
 	q.lock.Lock()
 	defer q.lock.Unlock()
 
+	return q.popLocked()
+}
+
+func (q *Queue) popLocked() (job jobq.RepairJob, ok bool) {
 	if q.pq.Len() == 0 {
-		return jobq.RepairJob{}
+		return jobq.RepairJob{}, false
 	}
 
 	unmarkingErrorBefore := q.pq.unmarkingError
@@ -328,21 +335,21 @@ func (q *Queue) Pop() jobq.RepairJob {
 	if unmarkingErrorBefore == nil && q.pq.unmarkingError != nil {
 		q.log.Error("failed to mark unused memory", zap.Error(q.pq.unmarkingError))
 	}
-	return item
+	return item, true
 }
 
 // Peek returns the segment with the lowest health without removing it from
 // the queue. If there are no segments in the queue, it returns a zero UUID and
 // position.
-func (q *Queue) Peek() jobq.RepairJob {
+func (q *Queue) Peek() (job jobq.RepairJob, ok bool) {
 	q.lock.Lock()
 	defer q.lock.Unlock()
 
 	if q.pq.Len() == 0 {
-		return jobq.RepairJob{}
+		return jobq.RepairJob{}, false
 	}
 
-	return q.pq.priorityHeap[0]
+	return q.pq.priorityHeap[0], true
 }
 
 // PeekRetry returns the segment with the smallest LastUpdatedAt value in the
@@ -669,4 +676,132 @@ func (q *Queue) funnelFromRetryToRepair(log *zap.Logger, headChan <-chan struct{
 			}
 		}
 	}
+}
+
+type queueAndPlacement struct {
+	*Queue
+	placement storj.PlacementConstraint
+}
+
+func sortQueueMap(queueMap map[storj.PlacementConstraint]*Queue) []queueAndPlacement {
+	queues := make([]queueAndPlacement, 0, len(queueMap))
+	for placement, queue := range queueMap {
+		queues = append(queues, queueAndPlacement{Queue: queue, placement: placement})
+	}
+	sort.Slice(queues, func(i, j int) bool {
+		return queues[i].placement < queues[j].placement
+	})
+	return queues
+}
+
+// PopNMultipleQueues removes and returns the 'limit' segments with the lowest
+// health from any of the given queues without removing them from the queues. If
+// there are fewer than 'limit' segments in all of the queues, it returns all
+// available. Checks only the repair queues, not the retry queues.
+//
+// This function is useful for combining multiple queues into a single view of
+// the lowest health segments across all of them. Older repair code expects a
+// single queue containing all placements and all jobs whether eligible for
+// retry or not, so this function allows similar usage. Hopefully soon we can
+// teach the repair workers to ask for jobs from each placement separately.
+func PopNMultipleQueues(limit int, queueMap map[storj.PlacementConstraint]*Queue) (jobs []jobq.RepairJob) {
+	// We must first lock _all_ of the target queues, as we need a consistent
+	// view of their heap arrays. Deadlock danger: if two goroutines are trying
+	// to do this and the queues are locked in a different order, they will
+	// deadlock. To ensure a common ordering, we sort the queues by their
+	// associated placement number.
+	queues := sortQueueMap(queueMap)
+
+	// lock all queues in order
+	for _, q := range queues {
+		q.lock.Lock()
+	}
+	defer func() {
+		for i := len(queues) - 1; i >= 0; i-- {
+			queues[i].lock.Unlock()
+		}
+	}()
+
+	jobs = make([]jobq.RepairJob, 0, limit)
+	for i := 0; i < limit; i++ {
+		// find the lowest health item across all queues
+		var lowestHealth float64
+		lowestIndex := -1
+		for j, q := range queues {
+			if len(q.pq.priorityHeap) == 0 {
+				continue
+			}
+			job := q.pq.priorityHeap[0]
+			if lowestIndex == -1 || job.Health < lowestHealth {
+				lowestIndex = j
+				lowestHealth = job.Health
+			}
+		}
+		if lowestIndex == -1 {
+			// all queues are empty
+			break
+		}
+		nextJob, _ := queues[lowestIndex].popLocked()
+		jobs = append(jobs, nextJob)
+	}
+	return jobs
+}
+
+// PeekNMultipleQueues returns the 'limit' segments with the lowest health from
+// any of the given queues without removing them from the queues. If there are
+// fewer than 'limit' segments in all of the queues, it returns all available.
+// Checks only the repair queues, not the retry queues.
+//
+// This function is useful for combining multiple queues into a single view of
+// the lowest health segments across all of them. Older repair code expects a
+// single queue containing all placements and all jobs whether eligible for
+// retry or not, so this function allows similar usage. This is not very
+// performant, but as far as I can tell we only need this in test situations.
+func PeekNMultipleQueues(limit int, queueMap map[storj.PlacementConstraint]*Queue) (jobs []jobq.RepairJob) {
+	// We must first lock _all_ of the target queues, as we need a consistent
+	// view of their heap arrays. Deadlock danger: if two goroutines are trying
+	// to do this and the queues are locked in a different order, they may
+	// deadlock. To ensure a common ordering, we sort the queues by their
+	// associated placement number.
+	queues := sortQueueMap(queueMap)
+
+	// lock all queues in order
+	for _, q := range queues {
+		q.lock.Lock()
+	}
+	defer func() {
+		for i := len(queues) - 1; i >= 0; i-- {
+			queues[i].lock.Unlock()
+		}
+	}()
+
+	// now we build "overlay heaps" for each queue
+	overlays := make([]*overlayHeap, len(queues))
+	for i, q := range queues {
+		overlays[i] = newOverlayHeap(q.pq.priorityHeap, q.pq.Less)
+	}
+
+	jobs = make([]jobq.RepairJob, 0, limit)
+	for i := 0; i < limit; i++ {
+		// find the lowest health item across all queues
+		var lowestHealth float64
+		lowestIndex := -1
+		for j, overlay := range overlays {
+			if overlay.Len() == 0 {
+				continue
+			}
+			job := overlay.Peek()
+			if lowestIndex == -1 || job.Health < lowestHealth {
+				lowestIndex = j
+				lowestHealth = job.Health
+			}
+		}
+		if lowestIndex == -1 {
+			// all queues are empty
+			break
+		}
+		nextJob := heap.Pop(overlays[lowestIndex]).(jobq.RepairJob)
+		jobs = append(jobs, nextJob)
+	}
+	return jobs
 }

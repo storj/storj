@@ -13,6 +13,7 @@ import (
 	"go.uber.org/zap/zaptest"
 	"golang.org/x/sync/errgroup"
 
+	"storj.io/common/storj"
 	"storj.io/common/testrand"
 	"storj.io/storj/satellite/jobq"
 	"storj.io/storj/satellite/jobq/server"
@@ -62,22 +63,22 @@ func TestClientAndServer(t *testing.T) {
 		job.UpdatedAt = gotJob.UpdatedAt
 		require.Equal(t, job, gotJob)
 
-		gotJob, err = cli.Pop(ctx, nil, nil)
+		gotJobs, err := cli.Pop(ctx, 1, nil, nil)
 		require.NoError(t, err)
-		require.Equal(t, job.ID.StreamID, gotJob.ID.StreamID)
-		require.Equal(t, uint64(2), gotJob.ID.Position)
-		require.Equal(t, 3.0, gotJob.Health)
-		require.Equal(t, uint16(42), gotJob.Placement)
+		require.Len(t, gotJobs, 1)
+		require.Equal(t, job.ID.StreamID, gotJobs[0].ID.StreamID)
+		require.Equal(t, uint64(2), gotJobs[0].ID.Position)
+		require.Equal(t, 3.0, gotJobs[0].Health)
+		require.Equal(t, uint16(42), gotJobs[0].Placement)
 
 		gotRepairLen, gotRetryLen, err = cli.Len(ctx, 42)
 		require.NoError(t, err)
 		require.Equal(t, int64(0), gotRepairLen)
 		require.Equal(t, int64(0), gotRetryLen)
 
-		gotJob, err = cli.Pop(ctx, nil, nil)
-		require.Error(t, err)
-		require.Empty(t, gotJob.ID)
-		require.ErrorIs(t, err, jobq.ErrQueueEmpty)
+		gotJobs, err = cli.Pop(ctx, 1, nil, nil)
+		require.NoError(t, err)
+		require.Len(t, gotJobs, 0)
 	}()
 
 	cancel()
@@ -136,14 +137,16 @@ func TestClientServerPushBatch(t *testing.T) {
 		require.Equal(t, int64(0), gotRetryLen)
 
 		// Pop jobs to verify they were inserted correctly
-		gotJob1, err := cli.Pop(ctx, nil, nil)
+		gotJobs1, err := cli.Pop(ctx, 1, nil, nil)
 		require.NoError(t, err)
-		gotJob2, err := cli.Pop(ctx, nil, nil)
+		require.Len(t, gotJobs1, 1)
+		gotJobs2, err := cli.Pop(ctx, 1, nil, nil)
 		require.NoError(t, err)
+		require.Len(t, gotJobs2, 1)
 
 		// Lower health job should come first
-		require.Equal(t, jobs[1].ID.StreamID, gotJob1.ID.StreamID)
-		require.Equal(t, jobs[0].ID.StreamID, gotJob2.ID.StreamID)
+		require.Equal(t, jobs[1].ID.StreamID, gotJobs1[0].ID.StreamID)
+		require.Equal(t, jobs[0].ID.StreamID, gotJobs2[0].ID.StreamID)
 	}()
 
 	cancel()
@@ -185,11 +188,12 @@ func TestClientServerPeek(t *testing.T) {
 		require.True(t, wasNew)
 
 		// Peek the job
-		peekedJob, err := cli.Peek(ctx, 42)
+		peekedJobs, err := cli.Peek(ctx, 1, []storj.PlacementConstraint{42}, nil)
 		require.NoError(t, err)
-		require.Equal(t, job.ID.StreamID, peekedJob.ID.StreamID)
-		require.Equal(t, job.ID.Position, peekedJob.ID.Position)
-		require.Equal(t, job.Health, peekedJob.Health)
+		require.Len(t, peekedJobs, 1)
+		require.Equal(t, job.ID.StreamID, peekedJobs[0].ID.StreamID)
+		require.Equal(t, job.ID.Position, peekedJobs[0].ID.Position)
+		require.Equal(t, job.Health, peekedJobs[0].Health)
 
 		// Verify the job is still in the queue after peeking
 		gotRepairLen, gotRetryLen, err := cli.Len(ctx, 42)
@@ -198,10 +202,11 @@ func TestClientServerPeek(t *testing.T) {
 		require.Equal(t, int64(0), gotRetryLen)
 
 		// Pop the job to ensure it's still there
-		gotJob, err := cli.Pop(ctx, nil, nil)
+		gotJobs, err := cli.Pop(ctx, 1, nil, nil)
 		require.NoError(t, err)
-		require.Equal(t, job.ID.StreamID, gotJob.ID.StreamID)
-		require.Equal(t, job.ID.Position, gotJob.ID.Position)
+		require.Len(t, gotJobs, 1)
+		require.Equal(t, job.ID.StreamID, gotJobs[0].ID.StreamID)
+		require.Equal(t, job.ID.Position, gotJobs[0].ID.Position)
 	}()
 
 	cancel()
@@ -261,8 +266,9 @@ func TestClientServerTruncate(t *testing.T) {
 		require.Equal(t, int64(0), gotRetryLen)
 
 		// Try to pop a job, should be empty
-		_, err = cli.Pop(ctx, nil, nil)
-		require.ErrorIs(t, err, jobq.ErrQueueEmpty)
+		gotJobs, err := cli.Pop(ctx, 1, nil, nil)
+		require.NoError(t, err)
+		require.Len(t, gotJobs, 0)
 	}()
 
 	cancel()
@@ -470,17 +476,20 @@ func TestClientServerTrim(t *testing.T) {
 		require.Equal(t, int64(0), gotRetryLen)
 
 		// Pop jobs to verify their health values
-		job1, err := cli.Pop(ctx, nil, nil)
+		jobs1, err := cli.Pop(ctx, 1, nil, nil)
 		require.NoError(t, err)
-		require.LessOrEqual(t, job1.Health, 1.0/3)
+		require.Len(t, jobs1, 1)
+		require.LessOrEqual(t, jobs1[0].Health, 1.0/3)
 
-		job2, err := cli.Pop(ctx, nil, nil)
+		jobs2, err := cli.Pop(ctx, 1, nil, nil)
 		require.NoError(t, err)
-		require.LessOrEqual(t, job2.Health, 1.0/3)
+		require.Len(t, jobs2, 1)
+		require.LessOrEqual(t, jobs2[0].Health, 1.0/3)
 
 		// Queue should be empty now
-		_, err = cli.Pop(ctx, nil, nil)
-		require.ErrorIs(t, err, jobq.ErrQueueEmpty)
+		jobs3, err := cli.Pop(ctx, 1, nil, nil)
+		require.NoError(t, err)
+		require.Len(t, jobs3, 0)
 	}()
 
 	cancel()

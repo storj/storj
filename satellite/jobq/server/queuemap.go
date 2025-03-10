@@ -88,6 +88,31 @@ func (qm *QueueMap) DestroyQueue(placement storj.PlacementConstraint) error {
 	return nil
 }
 
+// ChooseQueues returns a map of queues that match the given placement
+// constraints. If includedPlacements is non-empty, only queues for the given
+// placements are returned. If excludedPlacements is non-empty, queues for the
+// given placements are excluded.
+func (qm *QueueMap) ChooseQueues(includedPlacements, excludedPlacements []storj.PlacementConstraint) map[storj.PlacementConstraint]*jobqueue.Queue {
+	qm.lock.Lock()
+	defer qm.lock.Unlock()
+
+	queues := maps.Clone(qm.queues)
+	if len(includedPlacements) > 0 {
+		newQueues := make(map[storj.PlacementConstraint]*jobqueue.Queue)
+		for _, placement := range includedPlacements {
+			if q, ok := queues[placement]; ok {
+				newQueues[placement] = q
+			}
+		}
+		queues = newQueues
+	}
+	for _, placement := range excludedPlacements {
+		delete(queues, placement)
+	}
+
+	return queues
+}
+
 // StopAll stops and removes all queues.
 func (qm *QueueMap) StopAll() {
 	qm.lock.Lock()

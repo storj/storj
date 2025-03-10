@@ -26,7 +26,8 @@ func TestJobqueueRetry(t *testing.T) {
 		require.NoError(t, err)
 		startTime := time.Now()
 
-		queue.Start()
+		err = queue.Start()
+		require.NoError(t, err)
 		defer queue.Stop()
 
 		// create and insert stream IDs
@@ -49,8 +50,9 @@ func TestJobqueueRetry(t *testing.T) {
 		}
 
 		// pull out lowest health
-		firstJob := queue.Pop()
+		firstJob, ok := queue.Pop()
 		require.NotZero(t, firstJob.ID.StreamID)
+		require.True(t, ok)
 		jobs[lowestHealth].InsertedAt = firstJob.InsertedAt
 		jobs[lowestHealth].UpdatedAt = firstJob.UpdatedAt
 		require.Equal(t, jobs[lowestHealth], firstJob)
@@ -62,8 +64,9 @@ func TestJobqueueRetry(t *testing.T) {
 		// pull out the next few highest priorities (none of them should match the
 		// first because the first one should be in the retry queue)
 		for range 4 {
-			nextJob := queue.Pop()
+			nextJob, ok := queue.Pop()
 			require.NotZero(t, nextJob.ID.StreamID)
+			require.True(t, ok)
 			require.NotEqual(t, firstJob.ID, nextJob.ID)
 			time.Sleep(time.Second)
 		}
@@ -80,22 +83,25 @@ func TestJobqueueRetry(t *testing.T) {
 		queue.Insert(secondRetryJob)
 
 		// pull out next job; should still not be firstJob or secondRetryJob
-		nextJob := queue.Pop()
+		nextJob, ok := queue.Pop()
 		require.NotZero(t, nextJob.ID.StreamID)
+		require.True(t, ok)
 		require.NotEqual(t, firstJob.ID, nextJob.ID)
 		require.NotEqual(t, secondRetryJob.ID, nextJob.ID)
 
 		time.Sleep(retryTime/2 + 1)
 
 		// now secondRetryJob should be eligible for retry and it should have the lowest health
-		nextJob = queue.Pop()
+		nextJob, ok = queue.Pop()
+		require.True(t, ok)
 		require.NotZero(t, nextJob.ID.StreamID)
 		require.Equal(t, secondRetryJob.ID, nextJob.ID)
 
 		// pop the rest of the original jobs
 		for range 4 {
-			nextJob = queue.Pop()
+			nextJob, ok = queue.Pop()
 			require.NotZero(t, nextJob.ID.StreamID)
+			require.True(t, ok)
 			require.NotEqual(t, firstJob.ID, nextJob.ID)
 			require.NotEqual(t, secondRetryJob.ID, nextJob.ID)
 		}
@@ -104,8 +110,8 @@ func TestJobqueueRetry(t *testing.T) {
 		require.True(t, time.Now().Before(firstJob.LastAttemptedAtTime().Add(retryTime)))
 
 		for {
-			nextJob = queue.Pop()
-			if nextJob.ID.StreamID.IsZero() {
+			nextJob, ok = queue.Pop()
+			if !ok {
 				time.Sleep(retryTime / 30) // exact value not important
 				continue
 			}

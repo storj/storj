@@ -68,43 +68,54 @@ func (c *Client) PushBatch(ctx context.Context, jobs []RepairJob) (wasNew []bool
 	return resp.NewlyInserted, nil
 }
 
-// Pop removes and returns the lowest-health item from the job queue. If there
-// are no items in the queue, it returns ErrQueueEmpty.
-func (c *Client) Pop(ctx context.Context, includedPlacements, excludedPlacements []storj.PlacementConstraint) (job RepairJob, err error) {
+// Pop removes and returns the 'limit' lowest-health items from the indicated
+// job queues. If there are less than 'limit' items in the queue, it removes
+// and returns all of them.
+func (c *Client) Pop(ctx context.Context, limit int, includedPlacements, excludedPlacements []storj.PlacementConstraint) (jobs []RepairJob, err error) {
 	resp, err := c.client.Pop(ctx, &pb.JobQueuePopRequest{
 		IncludedPlacements: placementConstraintsToInt32Slice(includedPlacements),
 		ExcludedPlacements: placementConstraintsToInt32Slice(excludedPlacements),
+		Limit:              int32(limit),
 	})
 	if err != nil {
-		return RepairJob{}, fmt.Errorf("could not pop repair job: %w", err)
+		return nil, fmt.Errorf("could not pop repair jobs: %w", err)
 	}
-	job, err = ConvertJobFromProtobuf(resp.Job)
-	if err != nil {
-		return RepairJob{}, fmt.Errorf("invalid repair job: %w", err)
+	jobs = make([]RepairJob, 0, len(resp.Jobs))
+	var errList []error
+	for _, j := range resp.Jobs {
+		job, err := ConvertJobFromProtobuf(j)
+		if err != nil {
+			errList = append(errList, fmt.Errorf("invalid repair job: %w", err))
+			continue
+		}
+		jobs = append(jobs, job)
 	}
-	if job.ID.StreamID.IsZero() {
-		return job, ErrQueueEmpty
-	}
-	return job, nil
+	return jobs, errors.Join(errList...)
 }
 
-// Peek returns the lowest-health item from the job queue without removing
-// it. If there are no items in the queue, it returns ErrQueueEmpty.
-func (c *Client) Peek(ctx context.Context, placement storj.PlacementConstraint) (job RepairJob, err error) {
+// Peek returns the 'limit' lowest-health items from the indicated job queues
+// without removing them. If there are less than 'limit' items in all the
+// queues, it returns all of them.
+func (c *Client) Peek(ctx context.Context, limit int, includedPlacements, excludedPlacements []storj.PlacementConstraint) (jobs []RepairJob, err error) {
 	resp, err := c.client.Peek(ctx, &pb.JobQueuePeekRequest{
-		Placement: int32(placement),
+		IncludedPlacements: placementConstraintsToInt32Slice(includedPlacements),
+		ExcludedPlacements: placementConstraintsToInt32Slice(excludedPlacements),
+		Limit:              int32(limit),
 	})
 	if err != nil {
-		return RepairJob{}, fmt.Errorf("could not peek repair job: %w", err)
+		return nil, fmt.Errorf("could not peek repair jobs: %w", err)
 	}
-	job, err = ConvertJobFromProtobuf(resp.Job)
-	if err != nil {
-		return RepairJob{}, fmt.Errorf("invalid repair job: %w", err)
+	jobs = make([]RepairJob, 0, len(resp.Jobs))
+	var errList []error
+	for _, j := range resp.Jobs {
+		job, err := ConvertJobFromProtobuf(j)
+		if err != nil {
+			errList = append(errList, fmt.Errorf("invalid repair job: %w", err))
+			continue
+		}
+		jobs = append(jobs, job)
 	}
-	if job.ID.StreamID.IsZero() {
-		return job, ErrQueueEmpty
-	}
-	return job, nil
+	return jobs, errors.Join(errList...)
 }
 
 // Inspect finds a job in the queue by streamID and position and returns all of

@@ -74,54 +74,29 @@ func (se *JobqEndpoint) PushBatch(ctx context.Context, req *pb.JobQueuePushBatch
 	}, nil
 }
 
-// Pop removes the lowest-health job from the queues for the requested
-// placements.
+// Pop removes and returns the 'limit' lowest-health jobs from the queues for
+// the requested placements.
 func (se *JobqEndpoint) Pop(ctx context.Context, req *pb.JobQueuePopRequest) (*pb.JobQueuePopResponse, error) {
-	if len(req.IncludedPlacements) == 1 {
-		// we can optimize for this common case by going directly to that queue
-		q := se.queues.GetQueue(storj.PlacementConstraint(req.IncludedPlacements[0]))
-		if q == nil {
-			return nil, fmt.Errorf("no queue for placement %v", req.IncludedPlacements[0])
-		}
-		job := q.Pop()
-		return &pb.JobQueuePopResponse{Job: jobq.ConvertJobToProtobuf(job)}, nil
-	}
-
 	// otherwise we need to check all requested queues for the lowest health match
-	queues := se.queues.GetAllQueues()
-	if len(req.IncludedPlacements) > 0 {
-		newQueues := make(map[storj.PlacementConstraint]*jobqueue.Queue)
-		for _, placement := range req.IncludedPlacements {
-			if q, ok := queues[storj.PlacementConstraint(placement)]; ok {
-				newQueues[storj.PlacementConstraint(placement)] = q
-			}
-		}
-		queues = newQueues
-	} else {
-		for _, placement := range req.ExcludedPlacements {
-			delete(queues, storj.PlacementConstraint(placement))
-		}
+	queues := se.queues.ChooseQueues(int32SliceToPlacementConstraints(req.IncludedPlacements), int32SliceToPlacementConstraints(req.ExcludedPlacements))
+	jobs := jobqueue.PopNMultipleQueues(int(req.Limit), queues)
+	pbJobs := make([]*pb.RepairJob, len(jobs))
+	for i, j := range jobs {
+		pbJobs[i] = jobq.ConvertJobToProtobuf(j)
 	}
-
-	var bestResult jobq.RepairJob
-	for _, q := range queues {
-		job := q.Pop()
-		if !job.ID.StreamID.IsZero() && (bestResult.ID.StreamID.IsZero() || job.Health < bestResult.Health) {
-			bestResult = job
-		}
-	}
-	return &pb.JobQueuePopResponse{Job: jobq.ConvertJobToProtobuf(bestResult)}, nil
+	return &pb.JobQueuePopResponse{Jobs: pbJobs}, nil
 }
 
 // Peek returns the lowest-health job from the queues for the requested
-// placements without removing the job from its queue.
+// placement without removing the job from its queue.
 func (se *JobqEndpoint) Peek(ctx context.Context, req *pb.JobQueuePeekRequest) (*pb.JobQueuePeekResponse, error) {
-	q := se.queues.GetQueue(storj.PlacementConstraint(req.Placement))
-	if q == nil {
-		return nil, fmt.Errorf("no queue for placement %v", req.Placement)
+	queues := se.queues.ChooseQueues(int32SliceToPlacementConstraints(req.IncludedPlacements), int32SliceToPlacementConstraints(req.ExcludedPlacements))
+	jobs := jobqueue.PeekNMultipleQueues(int(req.Limit), queues)
+	pbJobs := make([]*pb.RepairJob, len(jobs))
+	for i, j := range jobs {
+		pbJobs[i] = jobq.ConvertJobToProtobuf(j)
 	}
-	job := q.Peek()
-	return &pb.JobQueuePeekResponse{Job: jobq.ConvertJobToProtobuf(job)}, nil
+	return &pb.JobQueuePeekResponse{Jobs: pbJobs}, nil
 }
 
 // Len returns the number of jobs in the queues for the requested placement.
@@ -379,4 +354,12 @@ func NewEndpoint(log *zap.Logger, queues *QueueMap) *JobqEndpoint {
 		log:    log,
 		queues: queues,
 	}
+}
+
+func int32SliceToPlacementConstraints(placements []int32) []storj.PlacementConstraint {
+	slice := make([]storj.PlacementConstraint, len(placements))
+	for i, p := range placements {
+		slice[i] = storj.PlacementConstraint(p)
+	}
+	return slice
 }
