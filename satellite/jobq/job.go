@@ -21,6 +21,12 @@ type SegmentIdentifier struct {
 	Position uint64
 }
 
+// ServerTimeNow is a flag indicating that the server should fill in its idea
+// of the current time for the indicated field. This must be a value that is
+// preserved through a uint64->time.Time->uint64 conversion round trip and is
+// unlikely to be used naturally.
+const ServerTimeNow uint64 = 123456789 // 1973-11-29T21:33:09Z
+
 // RepairJob represents the in-memory structure of a job in the queue. This
 // structure does not _need_ to be a multiple of 64 bits in size, but it's
 // probably going to be aligned to a multiple of 64 bits in memory either way,
@@ -100,12 +106,10 @@ func ConvertJobFromProtobuf(protoJob *pb.RepairJob) (RepairJob, error) {
 	var insertedAt time.Time
 	if protoJob.InsertedAt != nil {
 		insertedAt = *protoJob.InsertedAt
-	} else {
-		insertedAt = time.Now()
-	}
-	insertedAtUnix := insertedAt.Unix()
-	if insertedAtUnix > 0 {
-		job.InsertedAt = uint64(insertedAtUnix)
+		insertedAtUnix := insertedAt.Unix()
+		if insertedAtUnix > 0 {
+			job.InsertedAt = uint64(insertedAtUnix)
+		}
 	}
 
 	var lastAttemptedAt time.Time

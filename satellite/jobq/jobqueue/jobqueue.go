@@ -275,6 +275,12 @@ func (q *Queue) Insert(job jobq.RepairJob) (wasNew bool) {
 	q.lock.Lock()
 	defer q.lock.Unlock()
 
+	now := uint64(q.Now().Unix())
+	if job.LastAttemptedAt == jobq.ServerTimeNow {
+		job.LastAttemptedAt = now
+	}
+	job.UpdatedAt = now
+
 	// if the segment is already in the queue, we can't tell with the heap alone
 	// (without some O(N) searching). indexByID is here for this reason.
 	if i, ok := q.indexByID[job.ID]; ok {
@@ -292,7 +298,6 @@ func (q *Queue) Insert(job jobq.RepairJob) (wasNew bool) {
 		}
 		job.NumAttempts += oldJob.NumAttempts
 		job.InsertedAt = oldJob.InsertedAt
-		job.UpdatedAt = uint64(q.Now().Unix())
 		targetQueue.priorityHeap[index] = job
 		// only need to fix the position in the heap if the health changed
 		if fixNeeded {
@@ -300,10 +305,9 @@ func (q *Queue) Insert(job jobq.RepairJob) (wasNew bool) {
 		}
 		return false
 	}
-	if job.InsertedAt == 0 {
-		job.InsertedAt = uint64(q.Now().Unix())
+	if job.InsertedAt == 0 || job.InsertedAt == jobq.ServerTimeNow {
+		job.InsertedAt = now
 	}
-	job.UpdatedAt = uint64(q.Now().Unix())
 
 	if job.LastAttemptedAt != 0 && q.Now().Sub(job.LastAttemptedAtTime()) < q.RetryAfter {
 		// new job, but not eligible for retry yet
