@@ -104,7 +104,7 @@ func TestNodes(t *testing.T) {
 
 	for i := 0; i < 10000; i++ {
 		// select 3 datacenters, 2 servers from each datacenter, 1 node from each server (total 6 nodes)
-		selection := root.Select([]int{3, 2, 1}, []storj.NodeID{excluded})
+		selection := root.Select([]int{3, 2, 1}, 6, []storj.NodeID{excluded})
 		require.Len(t, selection, 6)
 		for _, s := range selection {
 			dcSelection[attributes[0](*s)]++
@@ -137,4 +137,50 @@ func TestNodes(t *testing.T) {
 	require.Equal(t, max, nodeSelection[high])
 	require.Equal(t, min, nodeSelection[low])
 	require.Equal(t, 0, nodeSelection[excluded])
+}
+
+func TestUnbalanced(t *testing.T) {
+	root := Nodes{}
+
+	var attributes []NodeAttribute
+	for _, attributeName := range []string{"tag:datacenter", "tag:server"} {
+		a, err := CreateNodeAttribute(attributeName)
+		require.NoError(t, err)
+		attributes = append(attributes, a)
+	}
+
+	for dc := 0; dc < 3; dc++ {
+		for server := 0; server < 10; server++ {
+			if dc == 0 && server > 0 {
+				continue
+			}
+			for instance := 0; instance < 16; instance++ {
+				root.Add(&SelectedNode{
+					ID: testrand.NodeID(),
+					Tags: NodeTags{
+						NodeTag{
+							Name:  "datacenter",
+							Value: []byte("dc" + strconv.Itoa(dc)),
+						},
+						NodeTag{
+							Name:  "server",
+							Value: []byte("s" + strconv.Itoa(server)),
+						},
+					},
+				}, attributes, 1)
+			}
+		}
+	}
+
+	// splits are just ratio
+	selection := root.Select([]int{3, 2}, 11, []storj.NodeID{})
+	require.Equal(t, 11, len(selection))
+
+	// we can always select 6, but will select more than one from a server
+	selection = root.Select([]int{3, 1024}, 6, []storj.NodeID{})
+	require.Equal(t, 6, len(selection))
+
+	// as one datacenter doesn't have 2 servers, we should select more from other datacenters
+	selection = root.Select([]int{3, 1024}, 6, []storj.NodeID{})
+	require.Equal(t, 6, len(selection))
 }

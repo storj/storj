@@ -52,7 +52,7 @@ func TopologySelector(weightFunc NodeValue, groups string, selections string, in
 		}
 
 		return func(requester storj.NodeID, n int, excluded []storj.NodeID, alreadySelected []*SelectedNode) ([]*SelectedNode, error) {
-			selection := root.Select(selectionPattern, excluded)
+			selection := root.Select(selectionPattern, n, excluded)
 			if len(selection) > n {
 				selection = selection[:n]
 			}
@@ -66,13 +66,15 @@ func TopologySelector(weightFunc NodeValue, groups string, selections string, in
 // Selection on each level are predefined (example: select 3 datacenters, 2 servers from each datacenter, 1 node from each server).
 // Selection is based on weight.
 type Nodes struct {
-	Name   string
-	Groups []*Nodes
-	Nodes  []*SelectedNode
-	Random WeightedRandom
+	Name         string
+	Groups       []*Nodes // if len(Groups) > 0, len(Nodes) == 0 and vice versa.
+	Nodes        []*SelectedNode
+	NodeSelector NodeSelector // nil if len(nodes) == 0
+	Random       WeightedRandom
 }
 
-// Add adds a node to the tree.
+// Add adds a node to the tree. Based on the attributes (like datacenter,server,...) we build a tree.
+// Note: weights are cumulative, on datacenter level, the weight is the sum of all the servers weights.
 func (n *Nodes) Add(node *SelectedNode, attributes []NodeAttribute, weight float64) {
 
 	// leaf, only nodes
@@ -107,19 +109,27 @@ func (n *Nodes) Add(node *SelectedNode, attributes []NodeAttribute, weight float
 
 // Select selects nodes based on the selection pattern. parameter defines the desired number of groups from each level.
 // Number of selected nodes will be the multiplication of all the nodes.
-func (n *Nodes) Select(i []int, excluded []storj.NodeID) (selection []*SelectedNode) {
-	// in case of leaf nodes
+func (n *Nodes) Select(splits []int, m int, excluded []storj.NodeID) (selection []*SelectedNode) {
+	// in case of leaf nodes, we have the instances, and we select based on the weights. No more sub-groups here.
 	if len(n.Groups) == 0 {
-		selectedIx := n.Random.Random(i[0], collectIndexes(n.Nodes, excluded))
+		selectedIx := n.Random.Random(m, collectIndexes(n.Nodes, excluded))
 		for _, ix := range selectedIx {
 			selection = append(selection, n.Nodes[ix])
 		}
 		return selection
 	}
 
-	selectedIx := n.Random.Random(i[0], []int{})
-	for _, ix := range selectedIx {
-		selection = append(selection, n.Groups[ix].Select(i[1:], excluded)...)
+	// we select the groups based on the weights
+	selectedIx := n.Random.Random(splits[0], []int{})
+	effectiveSplits := len(selectedIx) // either the requested split, or less if we don't have so many groups
+
+	// from each selected group, we select the nodes
+	for group, ix := range selectedIx {
+
+		// the remaining required is divided by the remaining groups
+		amount := (m - len(selection)) / (effectiveSplits - group)
+
+		selection = append(selection, n.Groups[ix].Select(splits[1:], amount, excluded)...)
 	}
 
 	return selection
