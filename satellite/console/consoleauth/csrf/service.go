@@ -45,10 +45,10 @@ func (s *Service) GenerateSecurityToken() (string, error) {
 }
 
 // SetCookie sets parametrized CSRF cookie that is not accessible from js.
-func (s *Service) SetCookie(w http.ResponseWriter) error {
-	token, err := s.GenerateSecurityToken()
+func (s *Service) SetCookie(w http.ResponseWriter) (token string, err error) {
+	token, err = s.GenerateSecurityToken()
 	if err != nil {
-		return err
+		return "", err
 	}
 
 	http.SetCookie(w, &http.Cookie{
@@ -59,5 +59,5 @@ func (s *Service) SetCookie(w http.ResponseWriter) error {
 		SameSite: http.SameSiteStrictMode,
 	})
 
-	return nil
+	return token, nil
 }

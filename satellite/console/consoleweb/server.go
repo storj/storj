@@ -776,12 +776,6 @@ func (server *Server) appHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if server.config.CSRFProtectionEnabled {
-		if err = server.csrfService.SetCookie(w); err != nil {
-			server.log.Error("Failed to set CSRF cookie", zap.Error(err))
-		}
-	}
-
 	http.ServeContent(w, r, path, info.ModTime(), file)
 }
 
@@ -943,10 +937,11 @@ func (server *Server) frontendConfigHandler(w http.ResponseWriter, r *http.Reque
 
 	csrfToken := ""
 	if server.config.CSRFProtectionEnabled {
-		if csrfCookie, err := r.Cookie(csrf.CookieName); err != nil {
-			server.log.Error("CSRF token cookie missing in config endpoint", zap.Error(err))
+		token, err := server.csrfService.SetCookie(w)
+		if err != nil {
+			server.log.Error("Failed to set CSRF cookie", zap.Error(err))
 		} else {
-			csrfToken = csrfCookie.Value
+			csrfToken = token
 		}
 	}
 
