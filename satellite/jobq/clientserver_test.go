@@ -39,9 +39,6 @@ func TestClientAndServer(t *testing.T) {
 		require.NoError(t, err)
 		defer func() { require.NoError(t, cli.Close()) }()
 
-		err = cli.AddPlacementQueue(ctx, 42)
-		require.NoError(t, err)
-
 		job := jobq.RepairJob{
 			ID:        jobq.SegmentIdentifier{StreamID: testrand.UUID(), Position: 2},
 			Health:    3.0,
@@ -104,10 +101,6 @@ func TestClientServerPushBatch(t *testing.T) {
 		cli, err := jobq.Dial(srv.Addr())
 		require.NoError(t, err)
 		defer func() { require.NoError(t, cli.Close()) }()
-
-		// Add a placement queue
-		err = cli.AddPlacementQueue(ctx, 42)
-		require.NoError(t, err)
 
 		// Create multiple jobs
 		jobs := []jobq.RepairJob{
@@ -173,10 +166,6 @@ func TestClientServerPeek(t *testing.T) {
 		require.NoError(t, err)
 		defer func() { require.NoError(t, cli.Close()) }()
 
-		// Add a placement queue
-		err = cli.AddPlacementQueue(ctx, 42)
-		require.NoError(t, err)
-
 		// Create and push a job
 		job := jobq.RepairJob{
 			ID:        jobq.SegmentIdentifier{StreamID: testrand.UUID(), Position: 2},
@@ -233,10 +222,6 @@ func TestClientServerTruncate(t *testing.T) {
 		require.NoError(t, err)
 		defer func() { require.NoError(t, cli.Close()) }()
 
-		// Add a placement queue
-		err = cli.AddPlacementQueue(ctx, 42)
-		require.NoError(t, err)
-
 		// Create and push a few jobs
 		for i := 0; i < 5; i++ {
 			job := jobq.RepairJob{
@@ -275,63 +260,6 @@ func TestClientServerTruncate(t *testing.T) {
 	require.NoError(t, group.Wait())
 }
 
-func TestClientServerDestroyPlacementQueue(t *testing.T) {
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
-
-	log := zaptest.NewLogger(t)
-	addr, err := net.ResolveTCPAddr("tcp", "127.0.0.1:0")
-	require.NoError(t, err)
-	srv, err := server.New(log, addr, nil, time.Hour, 1e8, 1e6)
-	require.NoError(t, err)
-
-	var group errgroup.Group
-	group.Go(func() error {
-		return srv.Run(ctx)
-	})
-
-	func() {
-		cli, err := jobq.Dial(srv.Addr())
-		require.NoError(t, err)
-		defer func() { require.NoError(t, cli.Close()) }()
-
-		// Add a placement queue
-		err = cli.AddPlacementQueue(ctx, 42)
-		require.NoError(t, err)
-
-		// Create and push a job
-		job := jobq.RepairJob{
-			ID:        jobq.SegmentIdentifier{StreamID: testrand.UUID(), Position: 2},
-			Health:    3.0,
-			Placement: 42,
-		}
-		wasNew, err := cli.Push(ctx, job)
-		require.NoError(t, err)
-		require.True(t, wasNew)
-
-		// Destroy the placement queue
-		err = cli.DestroyPlacementQueue(ctx, 42)
-		require.NoError(t, err)
-
-		// Try to get length - should fail because queue doesn't exist
-		_, _, err = cli.Len(ctx, 42)
-		require.Error(t, err)
-
-		// Add the placement queue again
-		err = cli.AddPlacementQueue(ctx, 42)
-		require.NoError(t, err)
-
-		// Verify it's empty
-		gotRepairLen, gotRetryLen, err := cli.Len(ctx, 42)
-		require.NoError(t, err)
-		require.Equal(t, int64(0), gotRepairLen)
-		require.Equal(t, int64(0), gotRetryLen)
-	}()
-
-	cancel()
-	require.NoError(t, group.Wait())
-}
-
 func TestClientServerClean(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
@@ -352,16 +280,16 @@ func TestClientServerClean(t *testing.T) {
 		require.NoError(t, err)
 		defer func() { require.NoError(t, cli.Close()) }()
 
-		// Add a placement queue
-		err = cli.AddPlacementQueue(ctx, 42)
-		require.NoError(t, err)
-
 		// Set up our time control
 		now := time.Now()
 		timeIncrement := time.Duration(0)
 		timeFunc := func() time.Time {
 			return now.Add(timeIncrement)
 		}
+		// make the queue for placement 42 get initialized now, so we can change
+		// its time function
+		_, err = srv.QueueMap.GetQueue(42)
+		require.NoError(t, err)
 		srv.SetTimeFunc(timeFunc)
 
 		// First batch of jobs with the current time
@@ -431,10 +359,6 @@ func TestClientServerTrim(t *testing.T) {
 		cli, err := jobq.Dial(srv.Addr())
 		require.NoError(t, err)
 		defer func() { require.NoError(t, cli.Close()) }()
-
-		// Add a placement queue
-		err = cli.AddPlacementQueue(ctx, 42)
-		require.NoError(t, err)
 
 		// Set up our time control
 		now := time.Now()

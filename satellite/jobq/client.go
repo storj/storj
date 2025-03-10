@@ -161,22 +161,6 @@ func (c *Client) LenAll(ctx context.Context) (repairLen, retryLen int64, err err
 	return resp.RepairLength, resp.RetryLength, nil
 }
 
-// AddPlacementQueue adds a new queue for the given placement.
-func (c *Client) AddPlacementQueue(ctx context.Context, placement storj.PlacementConstraint) error {
-	_, err := c.client.AddPlacementQueue(ctx, &pb.JobQueueAddPlacementQueueRequest{
-		Placement: int32(placement),
-	})
-	return err
-}
-
-// DestroyPlacementQueue truncates and removes the queue for the given placement.
-func (c *Client) DestroyPlacementQueue(ctx context.Context, placement storj.PlacementConstraint) error {
-	_, err := c.client.DestroyPlacementQueue(ctx, &pb.JobQueueDestroyPlacementQueueRequest{
-		Placement: int32(placement),
-	})
-	return err
-}
-
 // Delete removes a specific job from the indicated queue.
 func (c *Client) Delete(ctx context.Context, placement storj.PlacementConstraint, streamID uuid.UUID, position uint64) (wasDeleted bool, err error) {
 	resp, err := c.client.Delete(ctx, &pb.JobQueueDeleteRequest{

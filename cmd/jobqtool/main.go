@@ -126,24 +126,6 @@ func runCommand(cmd *cobra.Command, args []string) error {
 		if err != nil {
 			return fmt.Errorf("failed to truncate queue: %w", err)
 		}
-	case "add-queue":
-		placement, err := strconv.ParseInt(args[0], 10, 16)
-		if err != nil {
-			return fmt.Errorf("invalid placement %q: %w", args[0], err)
-		}
-		err = drpcConn.AddPlacementQueue(ctx, storj.PlacementConstraint(placement))
-		if err != nil {
-			return fmt.Errorf("failed to add queue: %w", err)
-		}
-	case "destroy-queue":
-		placement, err := strconv.ParseInt(args[0], 10, 16)
-		if err != nil {
-			return fmt.Errorf("invalid placement %q: %w", args[0], err)
-		}
-		err = drpcConn.DestroyPlacementQueue(ctx, storj.PlacementConstraint(placement))
-		if err != nil {
-			return fmt.Errorf("failed to destroy queue: %w", err)
-		}
 	default:
 		return fmt.Errorf("unrecognized command %q", cmd.Name())
 	}

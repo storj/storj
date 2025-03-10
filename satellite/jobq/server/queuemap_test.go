@@ -24,47 +24,39 @@ func TestQueueMap(t *testing.T) {
 		return jobqueue.NewQueue(log.Named(fmt.Sprintf("queue-for-placement-%d", pc)), time.Hour, 100, 10)
 	})
 	defer qm.StopAll()
-	err := qm.AddQueue(42)
+	q, err := qm.GetQueue(42)
 	require.NoError(t, err)
-	q := qm.GetQueue(42)
-	require.NotNil(t, q)
 	repairLen, retryLen := q.Len()
 	require.Zero(t, repairLen)
 	require.Zero(t, retryLen)
 
-	q = qm.GetQueue(43)
-	require.Nil(t, q)
+	q, err = qm.GetQueue(43)
+	require.NoError(t, err)
+	require.NotNil(t, q)
 
 	qs := qm.GetAllQueues()
-	require.Len(t, qs, 1)
+	require.Len(t, qs, 2)
 	require.NotNil(t, qs[42])
+	require.NotNil(t, qs[43])
 	clear(qs)
-	q = qm.GetQueue(42)
+	q, err = qm.GetQueue(42)
+	require.NoError(t, err)
 	require.NotNil(t, q)
 
 	var group errgroup.Group
 	for i := 0; i < 30; i++ {
 		i := i
 		group.Go(func() error {
-			err := qm.AddQueue(storj.PlacementConstraint(i))
+			q, err := qm.GetQueue(storj.PlacementConstraint(i))
 			if err != nil {
-				return errs.Wrap(err)
+				return err
 			}
-			q := qm.GetQueue(storj.PlacementConstraint(i))
 			if q == nil {
-				return errs.New("queue for placement %d not found", i)
+				return errs.New("returned queue is nil")
 			}
 			qs := qm.GetAllQueues()
 			if len(qs) < 2 {
 				return errs.New("returned queue map has too few queues (%d)", len(qs))
-			}
-			err = qm.DestroyQueue(storj.PlacementConstraint(i))
-			if err != nil {
-				return errs.Wrap(err)
-			}
-			q = qm.GetQueue(storj.PlacementConstraint(i))
-			if q != nil {
-				return errs.New("queue for placement %d not destroyed", i)
 			}
 			return nil
 		})
@@ -73,6 +65,6 @@ func TestQueueMap(t *testing.T) {
 	require.NoError(t, err)
 
 	qs = qm.GetAllQueues()
-	require.Len(t, qs, 1)
+	require.Len(t, qs, 30+2)
 	require.NotNil(t, qs[42])
 }

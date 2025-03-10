@@ -33,11 +33,23 @@ func NewQueueMap(log *zap.Logger, queueFactory func(storj.PlacementConstraint) (
 
 // GetQueue gets the queue for the given placement. If no queue exists for the
 // given placement, nil is returned.
-func (qm *QueueMap) GetQueue(placement storj.PlacementConstraint) *jobqueue.Queue {
+func (qm *QueueMap) GetQueue(placement storj.PlacementConstraint) (q *jobqueue.Queue, err error) {
 	qm.lock.Lock()
 	defer qm.lock.Unlock()
 
-	return qm.queues[placement]
+	q, ok := qm.queues[placement]
+	if !ok {
+		q, err = qm.queueFactory(placement)
+		if err != nil {
+			return nil, err
+		}
+		err = q.Start()
+		if err != nil {
+			return nil, fmt.Errorf("could not start queue for placement %d: %w", placement, err)
+		}
+		qm.queues[placement] = q
+	}
+	return q, nil
 }
 
 // GetAllQueues gets a copy of the current queue map. It is possible for another
@@ -49,43 +61,6 @@ func (qm *QueueMap) GetAllQueues() map[storj.PlacementConstraint]*jobqueue.Queue
 	defer qm.lock.Unlock()
 
 	return maps.Clone(qm.queues)
-}
-
-// AddQueue creates a new queue for the given placement. If a queue already
-// exists for the given placement, an error is returned.
-func (qm *QueueMap) AddQueue(placement storj.PlacementConstraint) error {
-	qm.lock.Lock()
-	defer qm.lock.Unlock()
-
-	if _, ok := qm.queues[placement]; ok {
-		return fmt.Errorf("queue for placement %d already exists", placement)
-	}
-	newQueue, err := qm.queueFactory(placement)
-	if err != nil {
-		return fmt.Errorf("placement %d: %w", placement, err)
-	}
-	if err := newQueue.Start(); err != nil {
-		return fmt.Errorf("programming error: %w", err)
-	}
-	qm.queues[placement] = newQueue
-	return nil
-}
-
-// DestroyQueue destroys the queue for the given placement. If no queue exists
-// for the given placement, an error is returned.
-func (qm *QueueMap) DestroyQueue(placement storj.PlacementConstraint) error {
-	qm.lock.Lock()
-	q, ok := qm.queues[placement]
-	if ok {
-		delete(qm.queues, placement)
-	}
-	qm.lock.Unlock()
-
-	if !ok {
-		return fmt.Errorf("no queue for placement %d", placement)
-	}
-	q.Destroy()
-	return nil
 }
 
 // ChooseQueues returns a map of queues that match the given placement

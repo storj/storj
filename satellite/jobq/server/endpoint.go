@@ -5,6 +5,7 @@ package server
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"time"
 
@@ -29,9 +30,9 @@ func (se *JobqEndpoint) Push(ctx context.Context, req *pb.JobQueuePushRequest) (
 	if reqJob == nil {
 		return nil, fmt.Errorf("missing job")
 	}
-	q := se.queues.GetQueue(storj.PlacementConstraint(reqJob.Placement))
-	if q == nil {
-		return nil, fmt.Errorf("no queue for placement %v", reqJob.Placement)
+	q, err := se.queues.GetQueue(storj.PlacementConstraint(reqJob.Placement))
+	if err != nil {
+		return nil, fmt.Errorf("failed to get queue for placement %d: %w", reqJob.Placement, err)
 	}
 
 	job, err := jobq.ConvertJobFromProtobuf(reqJob)
@@ -51,9 +52,9 @@ func (se *JobqEndpoint) PushBatch(ctx context.Context, req *pb.JobQueuePushBatch
 	nonNilErrors := false
 	wasNewList := make([]bool, len(req.Jobs))
 	for i, reqJob := range req.Jobs {
-		q := se.queues.GetQueue(storj.PlacementConstraint(reqJob.Placement))
-		if q == nil {
-			encounteredErrors = append(encounteredErrors, fmt.Errorf("no queue for placement %v", reqJob.Placement))
+		q, err := se.queues.GetQueue(storj.PlacementConstraint(reqJob.Placement))
+		if err != nil {
+			encounteredErrors = append(encounteredErrors, fmt.Errorf("failed to get queue for placement %d: %w", reqJob.Placement, err))
 			nonNilErrors = true
 			continue
 		}
@@ -67,7 +68,7 @@ func (se *JobqEndpoint) PushBatch(ctx context.Context, req *pb.JobQueuePushBatch
 		encounteredErrors = append(encounteredErrors, nil)
 	}
 	if nonNilErrors {
-		return nil, fmt.Errorf("could not push all jobs to queues: %v", encounteredErrors)
+		return nil, fmt.Errorf("could not push all jobs to queues: %w", errors.Join(encounteredErrors...))
 	}
 	return &pb.JobQueuePushBatchResponse{
 		NewlyInserted: wasNewList,
@@ -104,9 +105,9 @@ func (se *JobqEndpoint) Len(ctx context.Context, req *pb.JobQueueLengthRequest) 
 	if req.AllPlacements {
 		return se.lenAll(ctx)
 	}
-	q := se.queues.GetQueue(storj.PlacementConstraint(req.Placement))
-	if q == nil {
-		return nil, fmt.Errorf("no queue for placement %v", req.Placement)
+	q, err := se.queues.GetQueue(storj.PlacementConstraint(req.Placement))
+	if err != nil {
+		return nil, fmt.Errorf("failed to get queue for placement %d: %w", req.Placement, err)
 	}
 	repairLen, retryLen := q.Len()
 	return &pb.JobQueueLengthResponse{RepairLength: repairLen, RetryLength: retryLen}, nil
@@ -129,9 +130,9 @@ func (se *JobqEndpoint) Delete(ctx context.Context, req *pb.JobQueueDeleteReques
 	if err != nil {
 		return nil, fmt.Errorf("invalid stream id %x: %w", req.StreamId, err)
 	}
-	q := se.queues.GetQueue(storj.PlacementConstraint(req.Placement))
-	if q == nil {
-		return nil, fmt.Errorf("no queue for placement %v", req.Placement)
+	q, err := se.queues.GetQueue(storj.PlacementConstraint(req.Placement))
+	if err != nil {
+		return nil, fmt.Errorf("failed to get queue for placement %d: %w", req.Placement, err)
 	}
 	removed := q.Delete(streamID, req.Position)
 	return &pb.JobQueueDeleteResponse{
@@ -147,9 +148,9 @@ func (se *JobqEndpoint) Inspect(ctx context.Context, req *pb.JobQueueInspectRequ
 		return nil, fmt.Errorf("invalid stream id %x: %w", req.StreamId, err)
 	}
 	position := req.Position
-	q := se.queues.GetQueue(storj.PlacementConstraint(req.Placement))
-	if q == nil {
-		return nil, fmt.Errorf("no queue for placement %v", req.Placement)
+	q, err := se.queues.GetQueue(storj.PlacementConstraint(req.Placement))
+	if err != nil {
+		return nil, fmt.Errorf("failed to get queue for placement %d: %w", req.Placement, err)
 	}
 	job := q.Inspect(streamID, position)
 	return &pb.JobQueueInspectResponse{Job: jobq.ConvertJobToProtobuf(job)}, nil
@@ -159,31 +160,21 @@ func (se *JobqEndpoint) Inspect(ctx context.Context, req *pb.JobQueueInspectRequ
 // queue is not destroyed.
 func (se *JobqEndpoint) Truncate(ctx context.Context, req *pb.JobQueueTruncateRequest) (*pb.JobQueueTruncateResponse, error) {
 	if req.AllPlacements {
-		return se.truncateAll(ctx)
+		return se.truncateAll()
 	}
-	q := se.queues.GetQueue(storj.PlacementConstraint(req.Placement))
-	if q == nil {
-		return nil, fmt.Errorf("no queue for placement %v", req.Placement)
+	q, err := se.queues.GetQueue(storj.PlacementConstraint(req.Placement))
+	if err != nil {
+		return nil, fmt.Errorf("failed to get queue for placement %d: %w", req.Placement, err)
 	}
 	q.Truncate()
 	return &pb.JobQueueTruncateResponse{}, nil
 }
 
-func (se *JobqEndpoint) truncateAll(ctx context.Context) (*pb.JobQueueTruncateResponse, error) {
+func (se *JobqEndpoint) truncateAll() (*pb.JobQueueTruncateResponse, error) {
 	for _, q := range se.queues.GetAllQueues() {
 		q.Truncate()
 	}
 	return &pb.JobQueueTruncateResponse{}, nil
-}
-
-// AddPlacementQueue creates a new queue for the requested placement.
-func (se *JobqEndpoint) AddPlacementQueue(ctx context.Context, req *pb.JobQueueAddPlacementQueueRequest) (*pb.JobQueueAddPlacementQueueResponse, error) {
-	placement := storj.PlacementConstraint(req.Placement)
-	err := se.queues.AddQueue(placement)
-	if err != nil {
-		return nil, fmt.Errorf("failed to add queue: %w", err)
-	}
-	return &pb.JobQueueAddPlacementQueueResponse{}, nil
 }
 
 // Stat returns statistics about the queues for the requested placement.
@@ -193,9 +184,9 @@ func (se *JobqEndpoint) Stat(ctx context.Context, req *pb.JobQueueStatRequest) (
 		return se.statAll(ctx)
 	}
 	placement := storj.PlacementConstraint(req.Placement)
-	q := se.queues.GetQueue(placement)
-	if q == nil {
-		return nil, fmt.Errorf("no queue for placement %v", req.Placement)
+	q, err := se.queues.GetQueue(placement)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get queue for placement %d: %w", req.Placement, err)
 	}
 	repairStat, retryStat, err := q.Stat(ctx)
 	if err != nil {
@@ -227,23 +218,13 @@ func (se *JobqEndpoint) Stat(ctx context.Context, req *pb.JobQueueStatRequest) (
 	}, nil
 }
 
-// DestroyPlacementQueue removes the queue for the requested placement.
-func (se *JobqEndpoint) DestroyPlacementQueue(ctx context.Context, req *pb.JobQueueDestroyPlacementQueueRequest) (*pb.JobQueueDestroyPlacementQueueResponse, error) {
-	placement := storj.PlacementConstraint(req.Placement)
-	err := se.queues.DestroyQueue(placement)
-	if err != nil {
-		return nil, fmt.Errorf("failed to destroy queue: %w", err)
-	}
-	return &pb.JobQueueDestroyPlacementQueueResponse{}, nil
-}
-
 func (se *JobqEndpoint) statAll(ctx context.Context) (*pb.JobQueueStatResponse, error) {
 	queues := se.queues.GetAllQueues()
 	pbStats := make([]*pb.QueueStat, 0, len(queues))
 	for placement, q := range queues {
 		repairStat, retryStat, err := q.Stat(ctx)
 		if err != nil {
-			return nil, fmt.Errorf("could not collect statistics from queue for placement %v: %w", placement, err)
+			return nil, fmt.Errorf("could not collect statistics from queue for placement %d: %w", placement, err)
 		}
 		// We must fudge this a little. Older repair code expects stats to be
 		// grouped by placement and by whether AttemptedAt is set. Jobq groups
@@ -284,9 +265,9 @@ func (se *JobqEndpoint) Clean(ctx context.Context, req *pb.JobQueueCleanRequest)
 	if req.Placement < 0 || req.AllPlacements {
 		return se.cleanAll(req.UpdatedBefore)
 	}
-	q := se.queues.GetQueue(storj.PlacementConstraint(req.Placement))
-	if q == nil {
-		return nil, fmt.Errorf("no queue for placement %v", req.Placement)
+	q, err := se.queues.GetQueue(storj.PlacementConstraint(req.Placement))
+	if err != nil {
+		return nil, fmt.Errorf("failed to get queue for placement %d: %w", req.Placement, err)
 	}
 	removedSegments := int32(q.Clean(req.UpdatedBefore))
 	return &pb.JobQueueCleanResponse{
@@ -311,9 +292,9 @@ func (se *JobqEndpoint) Trim(ctx context.Context, req *pb.JobQueueTrimRequest) (
 	if req.Placement < 0 || req.AllPlacements {
 		return se.trimAll(req.HealthGreaterThan)
 	}
-	q := se.queues.GetQueue(storj.PlacementConstraint(req.Placement))
-	if q == nil {
-		return nil, fmt.Errorf("no queue for placement %v", req.Placement)
+	q, err := se.queues.GetQueue(storj.PlacementConstraint(req.Placement))
+	if err != nil {
+		return nil, fmt.Errorf("failed to get queue for placement %d: %w", req.Placement, err)
 	}
 	removedSegments := q.Trim(req.HealthGreaterThan)
 	return &pb.JobQueueTrimResponse{
@@ -334,9 +315,9 @@ func (se *JobqEndpoint) trimAll(healthGreaterThan float64) (*pb.JobQueueTrimResp
 // TestingSetAttemptedTime sets the attempted time for a specific job in the
 // queue. This is a testing-only method.
 func (se *JobqEndpoint) TestingSetAttemptedTime(ctx context.Context, req *pb.JobQueueTestingSetAttemptedTimeRequest) (*pb.JobQueueTestingSetAttemptedTimeResponse, error) {
-	q := se.queues.GetQueue(storj.PlacementConstraint(req.Placement))
-	if q == nil {
-		return nil, fmt.Errorf("no queue for placement %v", req.Placement)
+	q, err := se.queues.GetQueue(storj.PlacementConstraint(req.Placement))
+	if err != nil {
+		return nil, fmt.Errorf("failed to get queue for placement %d: %w", req.Placement, err)
 	}
 	streamID, err := uuid.FromBytes(req.StreamId)
 	if err != nil {

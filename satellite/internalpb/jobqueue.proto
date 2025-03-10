@@ -20,8 +20,6 @@ service JobQueue {
     rpc Stat(JobQueueStatRequest) returns (JobQueueStatResponse);
 
     rpc Truncate(JobQueueTruncateRequest) returns (JobQueueTruncateResponse);
-    rpc AddPlacementQueue(JobQueueAddPlacementQueueRequest) returns (JobQueueAddPlacementQueueResponse);
-    rpc DestroyPlacementQueue(JobQueueDestroyPlacementQueueRequest) returns (JobQueueDestroyPlacementQueueResponse);
     rpc Clean(JobQueueCleanRequest) returns (JobQueueCleanResponse);
     rpc Trim(JobQueueTrimRequest) returns (JobQueueTrimResponse);
     rpc TestingSetAttemptedTime(JobQueueTestingSetAttemptedTimeRequest) returns (JobQueueTestingSetAttemptedTimeResponse);

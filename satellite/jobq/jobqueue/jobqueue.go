@@ -512,6 +512,15 @@ func (q *Queue) Truncate() {
 // this placement are left locked for the duration of the operation; all reads
 // and writes to this placement will block until this is complete.
 //
+// This could conceivably take a context parameter and allow the cleanQueue
+// part of the operation to be canceled, but since the heap.Init and reindex
+// parts would still need to run to completion, that seems mostly unhelpful.
+// Alternatively, we could call heap.Init and update the index after every item
+// is removed. That would allow cancellation at any point, but would probably be
+// slower (potentially many more updates to the index map). Still, that is an
+// option if it turns out we need to be able to cancel Clean operations partway
+// through.
+//
 // Returns the total number of items removed from the queues.
 func (q *Queue) Clean(updatedBefore time.Time) (removed int) {
 	q.lock.Lock()
@@ -520,6 +529,8 @@ func (q *Queue) Clean(updatedBefore time.Time) (removed int) {
 	maps.Clear(q.indexByID)
 	removed += q.pq.cleanQueue(updatedBefore)
 	removed += q.rq.cleanQueue(updatedBefore)
+	// these are expensive operations, but must be completed to maintain heap
+	// properties, even if the context was canceled during the clean.
 	heap.Init(&q.pq)
 	heap.Init(&q.rq)
 	for i, item := range q.pq.priorityHeap {
@@ -535,6 +546,15 @@ func (q *Queue) Clean(updatedBefore time.Time) (removed int) {
 // value. This is a relatively expensive operation at O(n). The queues for this
 // placement are left locked for the duration of the operation; all reads and
 // writes to this placement will block until this is complete.
+//
+// This could conceivably take a context parameter and allow the trimQueue
+// part of the operation to be canceled, but since the heap.Init and reindex
+// parts would still need to run to completion, that seems mostly unhelpful.
+// Alternatively, we could call heap.Init and update the index after every item
+// is removed. That would allow cancellation at any point, but would probably be
+// slower (potentially many more updates to the index map). Still, that is an
+// option if it turns out we need to be able to cancel Trim operations partway
+// through.
 //
 // Returns the total number of items removed from the queues.
 func (q *Queue) Trim(healthGreaterThan float64) (removed int) {
