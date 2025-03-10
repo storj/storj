@@ -325,19 +325,26 @@ func (d *DB) Read(ctx context.Context, key Key) (_ *Reader, err error) {
 	// we either have no readers or at least one of them is trash. try to revive them before
 	// returning.
 
-	revive := func(r *Reader) {
+	revive := func(r *Reader, fallback *Reader) {
 		if r == nil || !r.Trash() {
 			return
 		}
 		log := r.s.log.With(zap.String("record", r.rec.String()))
-		log.Warn("trashed record was read")
+		// this is only problem, if the other hashtable doesn't have a live instance
+		// it's valid to restore from trash, if the other hashtable has a healthy piece
+		// it may be possible when piece is trashed, but uploaded again, while the other hashtable was active (e.g. by repair)
+		if fallback == nil || fallback.Trash() {
+			log.Warn("trashed record was read")
+		} else {
+			log.Debug("duplicated record was trashed")
+		}
 		if err := r.Revive(ctx); err != nil {
 			log.Error("unable to revive record", zap.Error(err))
 		}
 	}
 
-	revive(rFirst)
-	revive(rSecond)
+	revive(rFirst, rSecond)
+	revive(rSecond, rFirst)
 
 	if rFirst != nil {
 		if rSecond != nil {
