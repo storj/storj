@@ -175,6 +175,31 @@ func (s *Service) GetUserAndExpirationFromKey(ctx context.Context, apiKey string
 	return keyInfo.UserID, exp, err
 }
 
+// GetAll gets a list of REST keys for the user in context.
+func (s *Service) GetAll(ctx context.Context) (keys []restapikeys.Key, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	if !s.config.UseNewRestKeysTable {
+		return s.oauthRestKeys.GetAll(ctx)
+	}
+
+	user, err := s.getUserAndAuditLog(ctx, "get all rest keys")
+	if err != nil {
+		return keys, Error.Wrap(err)
+	}
+
+	if !user.PaidTier {
+		return keys, ErrNotPaidTier.New("Only Pro users have access to REST keys")
+	}
+
+	keys, err = s.restKeys.GetAll(ctx, user.ID)
+	if err != nil {
+		return keys, Error.Wrap(err)
+	}
+
+	return keys, nil
+}
+
 // RevokeByKeyNoAuth revokes an account management api key
 // this is meant for Admin use.
 func (s *Service) RevokeByKeyNoAuth(ctx context.Context, apiKey string) (err error) {
@@ -202,6 +227,34 @@ func (s *Service) RevokeByKeyNoAuth(ctx context.Context, apiKey string) (err err
 	err = s.restKeys.Revoke(ctx, restKey.ID)
 	if err != nil {
 		return Error.Wrap(err)
+	}
+	return nil
+}
+
+// RevokeByIDs revokes an account management api key by ID.
+func (s *Service) RevokeByIDs(ctx context.Context, ids []uuid.UUID) (err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	if !s.config.UseNewRestKeysTable {
+		return s.oauthRestKeys.RevokeByIDs(ctx, ids)
+	}
+
+	user, err := s.getUserAndAuditLog(ctx, "revoke rest key")
+	if err != nil {
+		return Error.Wrap(err)
+	}
+	if !user.PaidTier {
+		return ErrNotPaidTier.New("Only Pro users have access to REST keys")
+	}
+
+	for _, id := range ids {
+		err = s.restKeys.Revoke(ctx, id)
+		if err != nil {
+			if errors.Is(err, sql.ErrNoRows) {
+				continue
+			}
+			return Error.Wrap(err)
+		}
 	}
 	return nil
 }

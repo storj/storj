@@ -83,6 +83,43 @@ func (o *restApiKeysDB) GetByToken(ctx context.Context, token string) (key resta
 	return key, nil
 }
 
+// GetAll gets a list of REST API keys for the provided user.
+func (o *restApiKeysDB) GetAll(ctx context.Context, userID uuid.UUID) (keys []restapikeys.Key, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	rows, err := o.db.All_RestApiKey_By_UserId(
+		ctx,
+		dbx.RestApiKey_UserId(userID.Bytes()),
+	)
+	if err != nil {
+		return nil, err
+	}
+
+	keys = make([]restapikeys.Key, 0, len(rows))
+	for _, row := range rows {
+		ID, err := uuid.FromBytes(row.Id)
+		if err != nil {
+			return nil, err
+		}
+
+		userID, err := uuid.FromBytes(row.UserId)
+		if err != nil {
+			return nil, err
+		}
+
+		keys = append(keys, restapikeys.Key{
+			ID:        ID,
+			UserID:    userID,
+			Name:      row.Name,
+			Token:     string(row.Token),
+			CreatedAt: row.CreatedAt,
+			ExpiresAt: row.ExpiresAt,
+		})
+	}
+
+	return keys, nil
+}
+
 // Create creates a new RestAPIKey.
 func (o *restApiKeysDB) Create(ctx context.Context, key restapikeys.Key) (_ *restapikeys.Key, err error) {
 	defer mon.Task()(&ctx)(&err)

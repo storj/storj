@@ -19,6 +19,7 @@ import (
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap"
 
+	"storj.io/common/memory"
 	"storj.io/common/storj"
 	"storj.io/common/testcontext"
 	"storj.io/common/uuid"
@@ -27,6 +28,7 @@ import (
 	"storj.io/storj/satellite"
 	"storj.io/storj/satellite/accounting"
 	"storj.io/storj/satellite/console"
+	"storj.io/storj/satellite/console/restapikeys"
 	"storj.io/storj/satellite/nodeselection"
 	"storj.io/storj/satellite/payments"
 	"storj.io/storj/satellite/payments/paymentsconfig"
@@ -586,6 +588,12 @@ func TestBuckets(t *testing.T) {
 func TestAPIKeys(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
 		SatelliteCount: 1, StorageNodeCount: 0, UplinkCount: 1,
+		Reconfigure: testplanet.Reconfigure{
+			Satellite: func(log *zap.Logger, index int, config *satellite.Config) {
+				config.Console.RestAPIKeysUIEnabled = true
+				config.Console.UseNewRestKeysTable = true
+			},
+		},
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 		test := newTest(t, ctx, planet)
 		user := test.defaultUser()
@@ -632,6 +640,41 @@ func TestAPIKeys(t *testing.T) {
 				}))
 			require.Equal(t, http.StatusOK, resp.StatusCode)
 			require.Empty(t, body)
+		}
+
+		{ // REST API Keys
+			now := time.Now()
+			userId := planet.Uplinks[0].Projects[0].Owner.ID
+			err := planet.Satellites[0].API.DB.Console().Users().UpdatePaidTier(ctx, userId, true, memory.PB, memory.PB, 1000000, 3, &now)
+			require.NoError(t, err)
+
+			path := "/restkeys"
+			resp, body := test.request(http.MethodPost, path,
+				test.toJSON(map[string]interface{}{
+					"expiration": 1 * time.Hour,
+				}))
+			require.Equal(t, http.StatusCreated, resp.StatusCode)
+			require.NotEmpty(t, body)
+
+			var response []restapikeys.Key
+			resp, body = test.request(http.MethodGet, path+"?limit=10&page=1", nil)
+			require.Equal(t, http.StatusOK, resp.StatusCode)
+			require.NotEmpty(t, body)
+			err = json.Unmarshal([]byte(body), &response)
+			require.NoError(t, err)
+			require.Len(t, response, 1)
+
+			resp, _ = test.request(http.MethodDelete, path, test.toJSON(map[string]interface{}{
+				"ids": []uuid.UUID{response[0].ID},
+			}))
+			require.Equal(t, http.StatusOK, resp.StatusCode)
+
+			resp, body = test.request(http.MethodGet, path+"?limit=10&page=1", nil)
+			require.Equal(t, http.StatusOK, resp.StatusCode)
+			require.NotEmpty(t, body)
+			err = json.Unmarshal([]byte(body), &response)
+			require.NoError(t, err)
+			require.Empty(t, response)
 		}
 	})
 }

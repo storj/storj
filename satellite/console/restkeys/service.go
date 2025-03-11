@@ -14,6 +14,7 @@ import (
 	"github.com/zeebo/errs"
 
 	"storj.io/common/uuid"
+	"storj.io/storj/satellite/console/restapikeys"
 	"storj.io/storj/satellite/oidc"
 )
 
@@ -186,4 +187,14 @@ func (s *Service) Revoke(ctx context.Context, apiKey string) (err error) {
 // this is meant for Admin use.
 func (s *Service) RevokeByKeyNoAuth(ctx context.Context, apiKey string) (err error) {
 	return s.Revoke(ctx, apiKey)
+}
+
+// RevokeByIDs revokes an account management api key by ID.
+func (s *Service) RevokeByIDs(ctx context.Context, ids []uuid.UUID) (err error) {
+	return Error.New("RevokeByIDs is not implemented")
+}
+
+// GetAll gets a list of REST keys for the user in context.
+func (s *Service) GetAll(ctx context.Context) ([]restapikeys.Key, error) {
+	return nil, Error.New("GetAll is not implemented")
 }
