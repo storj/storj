@@ -512,12 +512,8 @@ func (planet *Planet) newSatellite(ctx context.Context, prefix string, index int
 		planet.config.Reconfigure.Satellite(log, index, &config)
 	}
 
-	metabaseDB, err := satellitedbtest.CreateMetabaseDB(context.TODO(), log.Named("metabase"), planet.config.Name, "M", index, databases.MetabaseDB, metabase.Config{
-		ApplicationName:  "satellite-testplanet",
-		MinPartSize:      config.Metainfo.MinPartSize,
-		MaxNumberOfParts: config.Metainfo.MaxNumberOfParts,
-		ServerSideCopy:   config.Metainfo.ServerSideCopy,
-	})
+	metabaseDB, err := satellitedbtest.CreateMetabaseDB(context.TODO(), log.Named("metabase"), planet.config.Name, "M", index, databases.MetabaseDB,
+		config.Metainfo.Metabase("satellite-testplanet"))
 	if err != nil {
 		return nil, errs.Wrap(err)
 	}
