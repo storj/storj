@@ -32,7 +32,10 @@ type Client struct {
 func (c *Client) Close() error {
 	conn := c.conn
 	c.conn = nil
-	return conn.Close()
+	if conn != nil {
+		return conn.Close()
+	}
+	return nil
 }
 
 // Push adds a new item to the job queue with the given health.
