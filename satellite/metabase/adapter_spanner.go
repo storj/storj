@@ -21,6 +21,7 @@ import (
 type SpannerConfig struct {
 	Database        string `help:"Database definition for spanner connection in the form  projects/P/instances/I/databases/DB"`
 	ApplicationName string `help:"Application name to be used in spanner client as a tag for queries and transactions"`
+	Compression     string `help:"Compression type to be used in spanner client for gRPC calls (gzip)"`
 }
 
 // SpannerAdapter implements Adapter for Google Spanner connections..
@@ -54,6 +55,7 @@ func NewSpannerAdapter(ctx context.Context, cfg SpannerConfig, log *zap.Logger) 
 			QueryOptions: spanner.QueryOptions{
 				RequestTag: "application_name=" + cfg.ApplicationName,
 			},
+			Compression:          cfg.Compression,
 			DisableRouteToLeader: false,
 		}, params.ClientOptions()...)
 	if err != nil {

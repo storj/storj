@@ -1004,6 +1004,9 @@ identity.key-path: /root/.local/share/storj/identity/satellite/identity.key
 # maximum segment size
 # metainfo.max-segment-size: 64.0 MiB
 
+# Compression type to be used in spanner client for gRPC calls, disabled by default (gzip)
+# metainfo.metabase-compression: ""
+
 # minimum allowed part size (last part has no minimum size limit)
 # metainfo.min-part-size: 5.0 MiB
 

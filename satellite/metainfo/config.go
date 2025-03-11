@@ -225,6 +225,9 @@ type Config struct {
 	TestOptimizedInlineObjectUpload bool      `default:"false" devDefault:"true" help:"enables optimization for uploading objects with single inline segment"`
 	TestingSpannerProjects          UUIDsFlag `default:""  help:"list of project IDs for which Spanner metabase DB is enabled" hidden:"true"`
 	TestingMigrationMode            bool      `default:"false"  help:"sets metainfo API into migration mode, only read actions are allowed" hidden:"true"`
+
+	// TODO we need to split this into separate config with other metabase related flags
+	MetabaseCompression string `help:"Compression type to be used in spanner client for gRPC calls, disabled by default (gzip)" default:"" devDefault:"gzip"`
 }
 
 // Metabase constructs Metabase configuration based on Metainfo configuration with specific application name.
@@ -236,6 +239,7 @@ func (c Config) Metabase(applicationName string) metabase.Config {
 		ServerSideCopy:            c.ServerSideCopy,
 		NodeAliasCacheFullRefresh: c.NodeAliasCacheFullRefresh,
 		TestingSpannerProjects:    c.TestingSpannerProjects,
+		Compression:               c.MetabaseCompression,
 	}
 }
 

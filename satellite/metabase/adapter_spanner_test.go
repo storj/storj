@@ -9,8 +9,10 @@ import (
 
 	"github.com/stretchr/testify/require"
 
+	"storj.io/common/testcontext"
 	"storj.io/common/testrand"
 	"storj.io/storj/satellite/metabase"
+	"storj.io/storj/satellite/metabase/metabasetest"
 	"storj.io/storj/shared/dbutil/dbtest"
 	"storj.io/storj/shared/mud"
 	"storj.io/storj/shared/mud/mudtest"
@@ -42,4 +44,14 @@ func TestBeginObjectSpanner(t *testing.T) {
 			require.Equal(t, metabase.Version(2), o.Version)
 
 		})
+}
+
+func TestSpannerClientCompression(t *testing.T) {
+	metabasetest.RunWithConfig(t, metabase.Config{
+		ApplicationName:  "test",
+		MaxNumberOfParts: 100,
+		Compression:      "gzip",
+	}, func(ctx *testcontext.Context, t *testing.T, db *metabase.DB) {
+		metabasetest.CreateObject(ctx, t, db, metabasetest.RandObjectStream(), 4)
+	})
 }

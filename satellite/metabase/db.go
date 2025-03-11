@@ -48,6 +48,8 @@ type Config struct {
 
 	TestingUniqueUnversioned bool
 	TestingSpannerProjects   map[uuid.UUID]struct{}
+
+	Compression string
 }
 
 // DB implements a database for storing objects and segments.
@@ -131,6 +133,7 @@ func Open(ctx context.Context, log *zap.Logger, connstr string, config Config) (
 			adapter, err := NewSpannerAdapter(ctx, SpannerConfig{
 				Database:        source,
 				ApplicationName: config.ApplicationName,
+				Compression:     config.Compression,
 			}, log)
 			if err != nil {
 				return nil, err
