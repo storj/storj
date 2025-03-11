@@ -3539,6 +3539,41 @@ func runRestKeysTest(t *testing.T, ctx *testcontext.Context, planet *testplanet.
 	nonexistent := testrand.UUID()
 	err = service.RevokeByKeyNoAuth(userCtx, nonexistent.String())
 	require.Error(t, err)
+
+	if !sat.Config.Console.UseNewRestKeysTable {
+		// GetAll should return an error when the new table is not used
+		_, err = service.GetAll(userCtx)
+		require.Error(t, err)
+
+		err = service.RevokeByIDs(userCtx, []uuid.UUID{})
+		require.Error(t, err)
+		return
+	}
+
+	keys, err := service.GetAll(userCtx)
+	require.NoError(t, err)
+	require.Empty(t, keys)
+
+	expires = 50 * time.Hour
+	_, _, err = service.Create(userCtx, "key1", &expires)
+	require.NoError(t, err)
+	_, _, err = service.Create(userCtx, "key2", &expires)
+	require.NoError(t, err)
+
+	keys, err = service.GetAll(userCtx)
+	require.NoError(t, err)
+	require.Len(t, keys, 2)
+
+	err = service.RevokeByIDs(userCtx, []uuid.UUID{keys[0].ID})
+	require.NoError(t, err)
+
+	keys, err = service.GetAll(userCtx)
+	require.NoError(t, err)
+	require.Len(t, keys, 1)
+
+	// test GetUserFromKey non-existent key
+	_, _, err = service.GetUserAndExpirationFromKey(ctx, testrand.UUID().String())
+	require.True(t, console.ErrInvalidKey.Has(err))
 }
 
 func TestRESTKeysExpiration(t *testing.T) {

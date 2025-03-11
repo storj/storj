@@ -97,6 +97,10 @@ func TestRestApiKeys(t *testing.T) {
 			require.ErrorIs(t, err, sql.ErrNoRows)
 		}
 
+		keys, err := apiKeys.GetAll(ctx, userID)
+		require.NoError(t, err)
+		require.Empty(t, keys)
+
 		_, err = apiKeys.Create(ctx, restapikeys.Key{
 			UserID:    userID,
 			Token:     "testToken",
@@ -113,5 +117,9 @@ func TestRestApiKeys(t *testing.T) {
 			ExpiresAt: pointerTime(start.Add(time.Hour)),
 		})
 		require.Error(t, err)
+
+		keys, err = apiKeys.GetAll(ctx, userID)
+		require.NoError(t, err)
+		require.Len(t, keys, 1)
 	})
 }

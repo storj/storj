@@ -469,6 +469,16 @@ func NewServer(logger *zap.Logger, config Config, service *console.Service, oidc
 	apiKeysRouter.HandleFunc("/list-paged", apiKeysController.GetProjectAPIKeys).Methods(http.MethodGet, http.MethodOptions)
 	apiKeysRouter.HandleFunc("/api-key-names", apiKeysController.GetAllAPIKeyNames).Methods(http.MethodGet, http.MethodOptions)
 
+	if server.config.RestAPIKeysUIEnabled && server.config.UseNewRestKeysTable {
+		restKeysController := consoleapi.NewRestAPIKeys(logger, service)
+		restKeysRouter := router.PathPrefix("/api/v0/restkeys").Subrouter()
+		restKeysRouter.Use(server.withCORS)
+		restKeysRouter.Use(server.withAuth)
+		restKeysRouter.Handle("", http.HandlerFunc(restKeysController.GetUserRestAPIKeys)).Methods(http.MethodGet, http.MethodOptions)
+		restKeysRouter.Handle("", server.withCSRFProtection(http.HandlerFunc(restKeysController.CreateRestKey))).Methods(http.MethodPost, http.MethodOptions)
+		restKeysRouter.Handle("", server.withCSRFProtection(http.HandlerFunc(restKeysController.RevokeRestKeys))).Methods(http.MethodDelete, http.MethodOptions)
+	}
+
 	analyticsController := consoleapi.NewAnalytics(logger, service, server.analytics)
 
 	analyticsPath := "/api/v0/analytics"
@@ -1025,8 +1035,8 @@ func (server *Server) frontendConfigHandler(w http.ResponseWriter, r *http.Reque
 		MaxAddFundsAmount:                 server.config.MaxAddFundsAmount,
 		MinAddFundsAmount:                 server.config.MinAddFundsAmount,
 		DownloadPrefixEnabled:             server.config.DownloadPrefixEnabled,
-		RestAPIKeysUIEnabled:              server.config.RestAPIKeysUIEnabled,
 		LiveCheckBadPasswords:             server.config.LiveCheckBadPasswords,
+		RestAPIKeysUIEnabled:              server.config.RestAPIKeysUIEnabled && server.config.UseNewRestKeysTable,
 	}
 
 	err := json.NewEncoder(w).Encode(&cfg)
