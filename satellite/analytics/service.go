@@ -330,7 +330,7 @@ func (service *Service) enqueueMessage(message segment.Message) {
 	}
 }
 
-// TrackCreateUser sends an "Account Created" event to Segment.
+// TrackCreateUser sends an "Account Created" event to Segment and Hubspot.
 func (service *Service) TrackCreateUser(fields TrackCreateUserFields) {
 	if !service.config.Enabled {
 		return
@@ -393,13 +393,7 @@ func (service *Service) TrackCreateUser(fields TrackCreateUserFields) {
 		Event:       eventAccountCreated,
 		Properties:  props,
 	})
-}
 
-// CreateContact creates a contact in hubspot for a user.
-func (service *Service) CreateContact(fields TrackCreateUserFields) {
-	if !service.config.Enabled {
-		return
-	}
 	service.hubspot.EnqueueCreateUserMinimal(fields)
 }
 
