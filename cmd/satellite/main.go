@@ -375,9 +375,11 @@ var (
 		Long: "Delete from a list of users accounts their objects and segments.\nAccounts must be on " +
 			"'pending deletion' status, when not they are logged with an info message and skipped. " +
 			"Unexisting accounts are logged with an debug message and skipped.\nSystem errors exit the " +
-			"process with an error message.\nThe accounts are read from a CSV file with a single " +
-			"column that contains the email of the user's account; the first row is considered as " +
-			"header if it doesn't contain '@'",
+			"process with an error message.\nThe command can operate on one account or on multiple " +
+			"accounts; when the passed possitional argmuent is a string that contains '@', the command " +
+			"considers that's the email address of the user to delete its data, otherwise it considers " +
+			"a path to a CSV file where the first column contains the email of the user's account and " +
+			"if the first row doesn't contain '@' is considered the header and skipped.",
 		Args: cobra.ExactArgs(1),
 		RunE: cmdDeleteObjects,
 	}
@@ -390,9 +392,12 @@ var (
 			"accounts must be on 'pending deletion' status, otherwise they are logged with an info " +
 			"message and skipped. The accounts must not have data, othersise they are logged as an " +
 			"error message and skipped. Unexisting accounts are logged with a debug  message and " +
-			"skipped.\nSystem errors exit the process with an error message.\nThe accounts are read " +
-			"from a CSV file with a single column that contains the email of the user's account; the " +
-			"first row is considered as header if it doesn't contain '@'",
+			"skipped.\nSystem errors exit the process with an error message.\nThe command can operate " +
+			"on one account or on multiple accounts; when the passed possitional argmuent is a string " +
+			"that contains '@', the command considers that's the email address of the user to delete " +
+			"its data, otherwise it considers a path to a CSV file where the first column contains the " +
+			"email of the user's account and if the first row doesn't contain '@' is considered the " +
+			"header and skipped.",
 		Args: cobra.ExactArgs(1),
 		RunE: cmdDeleteAccounts,
 	}

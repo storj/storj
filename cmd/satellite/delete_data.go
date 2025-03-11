@@ -20,6 +20,7 @@ import (
 
 	"storj.io/common/macaroon"
 	"storj.io/common/process"
+	"storj.io/common/uuid"
 	"storj.io/storj/satellite"
 	"storj.io/storj/satellite/buckets"
 	"storj.io/storj/satellite/console"
@@ -53,15 +54,22 @@ func cmdDeleteObjects(cmd *cobra.Command, args []string) error {
 		err = errs.Combine(err, metabaseDB.Close())
 	}()
 
-	csvFile, err := os.Open(args[0])
-	if err != nil {
-		return errs.New("error opening CSV file: %+v", err)
-	}
-	defer func() {
-		err = errs.Combine(err, csvFile.Close())
-	}()
+	var csvData io.Reader
+	if strings.Contains(args[0], "@") {
+		csvData = strings.NewReader(args[0])
+	} else {
+		csvFile, err := os.Open(args[0])
+		if err != nil {
+			return errs.New("error opening CSV file: %+v", err)
+		}
+		defer func() {
+			err = errs.Combine(err, csvFile.Close())
+		}()
 
-	return deleteObjects(ctx, log, satDB, metabaseDB, batchSizeDeleteObjects, csvFile)
+		csvData = csvFile
+	}
+
+	return deleteObjects(ctx, log, satDB, metabaseDB, batchSizeDeleteObjects, csvData)
 }
 
 func cmdDeleteAccounts(cmd *cobra.Command, args []string) error {
@@ -80,13 +88,20 @@ func cmdDeleteAccounts(cmd *cobra.Command, args []string) error {
 		err = errs.Combine(err, satDB.Close())
 	}()
 
-	csvFile, err := os.Open(args[0])
-	if err != nil {
-		return errs.New("error opening CSV file: %+v", err)
+	var csvData io.Reader
+	if strings.Contains(args[0], "@") {
+		csvData = strings.NewReader(args[0])
+	} else {
+		csvFile, err := os.Open(args[0])
+		if err != nil {
+			return errs.New("error opening CSV file: %+v", err)
+		}
+		defer func() {
+			err = errs.Combine(err, csvFile.Close())
+		}()
+
+		csvData = csvFile
 	}
-	defer func() {
-		err = errs.Combine(err, csvFile.Close())
-	}()
 
 	stripeService, err := setupPayments(log, satDB)
 	if err != nil {
@@ -94,7 +109,7 @@ func cmdDeleteAccounts(cmd *cobra.Command, args []string) error {
 	}
 
 	return deleteAccounts(
-		ctx, log, satDB, stripeService.Accounts().Invoices(), csvFile,
+		ctx, log, satDB, stripeService.Accounts().Invoices(), csvData,
 	)
 }
 
@@ -118,50 +133,9 @@ func deleteObjects(
 
 	return rows.ForEach(ctx, func(user *console.User, projects []console.Project) error {
 		for _, p := range projects {
-			var (
-				blopts = buckets.ListOptions{
-					Direction: buckets.DirectionForward,
-				}
-				bcks = buckets.List{
-					More: true, // Allows to start the first iteration of the loop of buckets.
-				}
-				err error
-			)
-
-			for bcks.More {
-				bcks, err = satDB.Buckets().ListBuckets(ctx,
-					p.ID, blopts, macaroon.AllowedBuckets{All: true},
-				)
-				if err != nil {
-					return errs.New(
-						"error listing buckets for project %q (user: %q): %+v", p.Name, user.Email, err,
-					)
-				}
-
-				for _, b := range bcks.Items {
-					_, err := metabaseDB.DeleteAllBucketObjects(ctx, metabase.DeleteAllBucketObjects{
-						Bucket: metabase.BucketLocation{
-							ProjectID:  p.ID,
-							BucketName: metabase.BucketName(b.Name),
-						},
-						BatchSize: batchSize,
-					})
-					if err != nil {
-						return errs.New(
-							"error deleting all objects from bucket %q (project: %q, user: %q): %+v",
-							b.Name, p.Name, user.Email, err,
-						)
-					}
-
-					if err := satDB.Buckets().DeleteBucket(ctx, []byte(b.Name), p.ID); err != nil {
-						return errs.New(
-							"error deleting bucket %q (project: %q, user: %q): %+v",
-							b.Name, p.Name, user.Email, err,
-						)
-					}
-				}
-
-				blopts = blopts.NextPage(bcks)
+			err := deleteAllBucketsAndObjects(ctx, satDB.Buckets(), metabaseDB, p.ID, batchSize)
+			if err != nil {
+				return errs.New("error deleting objects (%q): %w", user.Email, err)
 			}
 		}
 
@@ -409,6 +383,54 @@ func (ce *CSVEmails) ForEach(
 		if err := fn(user, projects); err != nil {
 			return err
 		}
+	}
+
+	return nil
+}
+
+func deleteAllBucketsAndObjects(
+	ctx context.Context, bucketsDB buckets.DB, metabaseDB *metabase.DB, projectID uuid.UUID,
+	batchSize int,
+) error {
+	var (
+		blopts = buckets.ListOptions{
+			Direction: buckets.DirectionForward,
+		}
+		bcks = buckets.List{
+			More: true, // Allows to start the first iteration of the loop of buckets.
+		}
+		err error
+	)
+
+	for bcks.More {
+		bcks, err = bucketsDB.ListBuckets(ctx,
+			projectID, blopts, macaroon.AllowedBuckets{All: true},
+		)
+		if err != nil {
+			return errs.New("error listing buckets for project %q: %+v", projectID, err)
+		}
+
+		for _, b := range bcks.Items {
+			_, err := metabaseDB.DeleteAllBucketObjects(ctx, metabase.DeleteAllBucketObjects{
+				Bucket: metabase.BucketLocation{
+					ProjectID:  projectID,
+					BucketName: metabase.BucketName(b.Name),
+				},
+				BatchSize: batchSize,
+			})
+			if err != nil {
+				return errs.New(
+					"error deleting all objects from bucket %q (project: %q): %+v",
+					b.Name, projectID, err,
+				)
+			}
+
+			if err := bucketsDB.DeleteBucket(ctx, []byte(b.Name), projectID); err != nil {
+				return errs.New("error deleting bucket %q (project: %q): %+v", b.Name, projectID, err)
+			}
+		}
+
+		blopts = blopts.NextPage(bcks)
 	}
 
 	return nil
