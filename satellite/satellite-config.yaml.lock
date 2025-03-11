@@ -1098,10 +1098,10 @@ identity.key-path: /root/.local/share/storj/identity/satellite/identity.key
 # metainfo.success-tracker-tick-duration: 10m0s
 
 # list of trusted uplinks for success tracker, deprecated. please use success-tracker-uplinks for uplinks that should get their own success tracker profiles and trusted-uplinks for uplinks that are trusted individually.
-# metainfo.success-tracker-trusted-uplinks: []
+# metainfo.success-tracker-trusted-uplinks: ""
 
 # list of uplinks for success tracker
-# metainfo.success-tracker-uplinks: []
+# metainfo.success-tracker-uplinks: ""
 
 # test the new query for non-recursive listing
 # metainfo.test-listing-query: false
@@ -1110,7 +1110,7 @@ identity.key-path: /root/.local/share/storj/identity/satellite/identity.key
 # metainfo.test-optimized-inline-object-upload: false
 
 # list of trusted uplinks
-# metainfo.trusted-uplinks: []
+# metainfo.trusted-uplinks: ""
 
 # number of object locations to cache.
 # metainfo.upload-limiter.cache-capacity: 10000

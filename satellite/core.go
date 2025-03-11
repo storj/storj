@@ -522,9 +522,6 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, metabaseDB *metaba
 			peer.Payments.StorjscanClient,
 			pc.Storjscan.Confirmations,
 			pc.BonusRate)
-		if err != nil {
-			return nil, errs.Combine(err, peer.Close())
-		}
 
 		peer.Payments.StorjscanChore = storjscan.NewChore(
 			peer.Log.Named("payments.storjscan:chore"),
