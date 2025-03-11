@@ -2501,3 +2501,60 @@ func TestListObjects_Requery(t *testing.T) {
 		})
 	})
 }
+
+func TestListObjects_Requery_DeleteMarkers(t *testing.T) {
+	metabasetest.Run(t, func(ctx *testcontext.Context, t *testing.T, db *metabase.DB) {
+		obj := metabasetest.RandObjectStream()
+
+		const limit = 1
+		const versionsPerObject = 20
+
+		objects := []metabase.RawObject{}
+		for i := 0; i < versionsPerObject; i++ {
+			for k := 0; k <= versionsPerObject; k++ {
+				obj := metabase.RawObject{
+					ObjectStream: metabase.ObjectStream{
+						ProjectID:  obj.ProjectID,
+						BucketName: metabase.BucketName("bucket"),
+						ObjectKey:  metabase.ObjectKey(fmt.Sprintf("o%03d", i)),
+						Version:    metabase.Version(k + 1),
+						StreamID:   uuid.UUID{1, byte(i), byte(k)},
+					},
+					Status: metabase.CommittedVersioned,
+				}
+				if k == versionsPerObject {
+					obj.Status = metabase.DeleteMarkerVersioned
+				}
+				objects = append(objects, obj)
+			}
+		}
+
+		require.NoError(t, db.TestingBatchInsertObjects(ctx, objects))
+
+		for _, recursive := range []bool{false, true} {
+			for _, pending := range []bool{false, true} {
+				for _, allversions := range []bool{false, true} {
+					name := fmt.Sprintf("recursive=%v,pending=%v,all=%v", recursive, pending, allversions)
+					t.Run(name, func(t *testing.T) {
+
+						opts := metabase.ListObjects{
+							ProjectID:   obj.ProjectID,
+							BucketName:  "bucket",
+							Recursive:   recursive,
+							Limit:       limit,
+							Pending:     pending,
+							AllVersions: allversions,
+						}
+						opts.Params.MinBatchSize = 1
+						opts.Params.QueryExtraForNonRecursive = 1
+
+						result, err := db.ListObjects(ctx, opts)
+						require.NoError(t, err)
+
+						t.Log(len(result.Objects))
+					})
+				}
+			}
+		}
+	})
+}

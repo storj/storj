@@ -182,6 +182,7 @@ func (p *PostgresAdapter) ListObjects(ctx context.Context, opts ListObjects) (re
 			return result, Error.Wrap(err)
 		}
 
+		foundDeleteMarker := false
 		scannedCount := 0
 		skipAhead := false
 	read_entries:
@@ -190,6 +191,7 @@ func (p *PostgresAdapter) ListObjects(ctx context.Context, opts ListObjects) (re
 			if err != nil {
 				return result, Error.Wrap(errs.Combine(err, rows.Err(), rows.Close()))
 			}
+
 			scannedCount++
 
 			// skip a duplicate prefix entry, which only happens with !opts.Recursive
@@ -242,6 +244,7 @@ func (p *PostgresAdapter) ListObjects(ctx context.Context, opts ListObjects) (re
 			// We don't want to include delete markers in the output, when we are listing only the latest version.
 			// We still set "lastEntry" so we skip any objects that are beyond the delete marker.
 			if !opts.AllVersions && entry.Status.IsDeleteMarker() {
+				foundDeleteMarker = true
 				continue
 			}
 
@@ -255,6 +258,13 @@ func (p *PostgresAdapter) ListObjects(ctx context.Context, opts ListObjects) (re
 
 		if err := errs.Combine(rows.Err(), rows.Close()); err != nil {
 			return result, Error.Wrap(err)
+		}
+
+		if foundDeleteMarker {
+			// Adjust requery limit for listings, which contain a delete marker.
+			// The protective requeryLimit cannot be pre-calculated for situations where
+			// there are a lot of deleted objects.
+			requeryLimit++
 		}
 
 		if scannedCount == 0 {
@@ -383,6 +393,7 @@ func (s *SpannerAdapter) ListObjects(ctx context.Context, opts ListObjects) (res
 		scannedCount := 0
 		skipAhead := false
 		foundLastItem := false
+		foundDeleteMarker := false
 
 		err := func() error {
 			rowIterator := s.client.Single().Query(ctx, stmt)
@@ -453,6 +464,7 @@ func (s *SpannerAdapter) ListObjects(ctx context.Context, opts ListObjects) (res
 				// We don't want to include delete markers in the output, when we are listing only the latest version.
 				// We still set "lastEntry" so we skip any objects that are beyond the delete marker.
 				if !opts.AllVersions && entry.Status.IsDeleteMarker() {
+					foundDeleteMarker = true
 					continue
 				}
 
@@ -470,6 +482,12 @@ func (s *SpannerAdapter) ListObjects(ctx context.Context, opts ListObjects) (res
 		}
 		if foundLastItem {
 			return result, nil
+		}
+		if foundDeleteMarker {
+			// Adjust requery limit for listings, which contain a delete marker.
+			// The protective requeryLimit cannot be pre-calculated for situations where
+			// there are a lot of deleted objects.
+			requeryLimit++
 		}
 
 		if scannedCount == 0 {
