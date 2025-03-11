@@ -22,12 +22,12 @@ func TestRESTKeys(t *testing.T) {
 		SatelliteCount: 1, StorageNodeCount: 0, UplinkCount: 1,
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 		sat := planet.Satellites[0]
-		service := sat.API.REST.Keys
+		service := restkeys.NewService(sat.DB.OIDC().OAuthTokens(), sat.Config.Console.RestAPIKeys.DefaultExpiration)
 
 		id := testrand.UUID()
 		now := time.Now()
 		expires := time.Hour
-		apiKey, _, err := service.Create(ctx, id, expires)
+		apiKey, _, err := service.CreateNoAuth(ctx, id, &expires)
 		require.NoError(t, err)
 
 		// test GetUserFromKey
@@ -69,7 +69,7 @@ func TestRESTKeysExpiration(t *testing.T) {
 		SatelliteCount: 1, StorageNodeCount: 0, UplinkCount: 1,
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 		sat := planet.Satellites[0]
-		service := sat.API.REST.Keys
+		service := restkeys.NewService(sat.DB.OIDC().OAuthTokens(), sat.Config.Console.RestAPIKeys.DefaultExpiration)
 		now := time.Now()
 
 		// test no expiration uses default
@@ -79,7 +79,7 @@ func TestRESTKeysExpiration(t *testing.T) {
 			Token:  "testhash0",
 		}, now, 0)
 		require.NoError(t, err)
-		require.Equal(t, now.Add(sat.Config.RESTKeys.DefaultExpiration), expiresAt)
+		require.Equal(t, now.Add(sat.Config.Console.RestAPIKeys.DefaultExpiration), expiresAt)
 
 		// test negative expiration uses default
 		expiresAt, err = service.InsertIntoDB(ctx, oidc.OAuthToken{
@@ -88,7 +88,7 @@ func TestRESTKeysExpiration(t *testing.T) {
 			Token:  "testhash1",
 		}, now, -10000)
 		require.NoError(t, err)
-		require.Equal(t, now.Add(sat.Config.RESTKeys.DefaultExpiration), expiresAt)
+		require.Equal(t, now.Add(sat.Config.Console.RestAPIKeys.DefaultExpiration), expiresAt)
 
 		// test regular expiration
 		expiration := 14 * time.Hour

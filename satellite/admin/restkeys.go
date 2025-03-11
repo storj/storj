@@ -79,7 +79,7 @@ func (server *Server) addRESTKey(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	apiKey, expiresAt, err := server.restKeys.Create(ctx, user.ID, expiration)
+	apiKey, expiresAt, err := server.restKeys.CreateNoAuth(ctx, user.ID, &expiration)
 	if err != nil {
 		sendJSONError(w, "api key creation failed",
 			err.Error(), http.StatusInternalServerError)
@@ -92,7 +92,7 @@ func (server *Server) addRESTKey(w http.ResponseWriter, r *http.Request) {
 	}
 
 	output.APIKey = apiKey
-	output.ExpiresAt = expiresAt
+	output.ExpiresAt = *expiresAt
 
 	data, err := json.Marshal(output)
 	if err != nil {
@@ -115,7 +115,7 @@ func (server *Server) revokeRESTKey(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	err := server.restKeys.Revoke(ctx, apiKey)
+	err := server.restKeys.RevokeByKeyNoAuth(ctx, apiKey)
 	if err != nil {
 		sendJSONError(w, "failed to revoke api key",
 			err.Error(), http.StatusNotFound)

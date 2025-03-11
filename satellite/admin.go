@@ -8,6 +8,7 @@ import (
 	"errors"
 	"net"
 	"runtime/pprof"
+	"time"
 
 	"github.com/spacemonkeygo/monkit/v3"
 	"github.com/zeebo/errs"
@@ -26,6 +27,7 @@ import (
 	"storj.io/storj/satellite/analytics"
 	"storj.io/storj/satellite/buckets"
 	"storj.io/storj/satellite/console"
+	"storj.io/storj/satellite/console/restapikeys"
 	"storj.io/storj/satellite/console/restkeys"
 	"storj.io/storj/satellite/emission"
 	"storj.io/storj/satellite/metabase"
@@ -77,7 +79,7 @@ type Admin struct {
 	}
 
 	REST struct {
-		Keys *restkeys.Service
+		Keys restapikeys.Service
 	}
 
 	FreezeAccounts struct {
@@ -111,7 +113,13 @@ func NewAdmin(log *zap.Logger, full *identity.FullIdentity, db DB, metabaseDB *m
 	}
 
 	{ // setup rest keys
-		peer.REST.Keys = restkeys.NewService(db.OIDC().OAuthTokens(), config.RESTKeys)
+		peer.REST.Keys = console.NewRestKeysService(
+			log.Named("restKeyService"),
+			db.Console().RestApiKeys(),
+			restkeys.NewService(peer.DB.OIDC().OAuthTokens(), config.Console.RestAPIKeys.DefaultExpiration),
+			time.Now,
+			config.Console.Config,
+		)
 	}
 
 	{ // setup debug

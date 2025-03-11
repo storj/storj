@@ -43,11 +43,18 @@ type Config struct {
 	EmailChangeFlowEnabled            bool                      `help:"whether change user email flow is enabled" default:"false"`
 	DeleteProjectEnabled              bool                      `help:"whether project deletion from satellite UI is enabled" default:"false"`
 	SelfServeAccountDeleteEnabled     bool                      `help:"whether self-serve account delete flow is enabled" default:"false"`
+	UseNewRestKeysTable               bool                      `help:"whether to use the new rest keys table" default:"false"`
+	RestAPIKeys                       RestAPIKeysConfig
 	Placement                         PlacementsConfig
 	UsageLimits                       UsageLimitsConfig
 	Captcha                           CaptchaConfig
 	Session                           SessionConfig
 	AccountFreeze                     AccountFreezeConfig
+}
+
+// RestAPIKeysConfig contains configurations for REST API keys.
+type RestAPIKeysConfig struct {
+	DefaultExpiration time.Duration `help:"expiration to use if user does not specify an rest key expiration" default:"720h"`
 }
 
 // PlacementsConfig contains configurations for self-serve placement logic.

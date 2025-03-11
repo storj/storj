@@ -40,6 +40,7 @@ import (
 	"storj.io/storj/satellite/console/consoleauth/csrf"
 	"storj.io/storj/satellite/console/consoleauth/sso"
 	"storj.io/storj/satellite/console/consoleweb"
+	"storj.io/storj/satellite/console/restapikeys"
 	"storj.io/storj/satellite/console/restkeys"
 	"storj.io/storj/satellite/console/userinfo"
 	"storj.io/storj/satellite/console/valdi"
@@ -143,13 +144,10 @@ type API struct {
 		StripeClient  stripe.Client
 	}
 
-	REST struct {
-		Keys *restkeys.Service
-	}
-
 	Console struct {
 		Listener   net.Listener
 		Service    *console.Service
+		RestKeys   restapikeys.Service
 		Endpoint   *consoleweb.Server
 		AuthTokens *consoleauth.Service
 	}
@@ -696,10 +694,6 @@ func NewAPI(log *zap.Logger, full *identity.FullIdentity, db DB,
 			peer.Payments.DepositWallets = peer.Payments.StorjscanService
 		}
 
-		{ // setup account management api keys
-			peer.REST.Keys = restkeys.NewService(peer.DB.OIDC().OAuthTokens(), config.RESTKeys)
-		}
-
 		{ // setup console
 			consoleConfig := config.Console
 			consoleConfig.SsoEnabled = config.SSO.Enabled
@@ -754,7 +748,8 @@ func NewAPI(log *zap.Logger, full *identity.FullIdentity, db DB,
 			peer.Console.Service, err = console.NewService(
 				peer.Log.Named("console:service"),
 				peer.DB.Console(),
-				peer.REST.Keys,
+				peer.DB.Console().RestApiKeys(),
+				restkeys.NewService(peer.DB.OIDC().OAuthTokens(), config.Console.RestAPIKeys.DefaultExpiration),
 				peer.DB.ProjectAccounting(),
 				peer.Accounting.ProjectUsage,
 				peer.Buckets.Service,
@@ -785,6 +780,8 @@ func NewAPI(log *zap.Logger, full *identity.FullIdentity, db DB,
 			}
 
 			peer.CSRF.Service = csrf.NewService(signer)
+			// setup account management api keys
+			peer.Console.RestKeys = peer.Console.Service
 
 			peer.Console.Endpoint = consoleweb.NewServer(
 				peer.Log.Named("console:endpoint"),

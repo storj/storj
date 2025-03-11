@@ -541,6 +541,9 @@ compensation.withheld-percents: 75,75,75,50,50,50,25,25,25,0,0,0,0,0,0
 # whether the rest API keys UI is enabled
 # console.rest-api-keys-ui-enabled: false
 
+# expiration to use if user does not specify an rest key expiration
+# console.rest-api-keys.default-expiration: 720h0m0s
+
 # indicates whether satellite managed encryption projects can be created.
 # console.satellite-managed-encryption-enabled: false
 
@@ -612,6 +615,9 @@ compensation.withheld-percents: 75,75,75,50,50,50,25,25,25,0,0,0,0,0,0
 
 # the default paid-tier storage usage limit
 # console.usage-limits.storage.paid: 100.00 TB
+
+# whether to use the new rest keys table
+# console.use-new-rest-keys-table: false
 
 # amount of base units of US micro dollars needed to upgrade user's tier status
 # console.user-balance-for-upgrade: 10000000
@@ -1501,9 +1507,6 @@ identity.key-path: /root/.local/share/storj/identity/satellite/identity.key
 
 # the forgetting factor used to update storage node reputation due to returning 'unknown' errors during audit'
 # reputation.unknown-audit-lambda: 0.95
-
-# expiration to use if user does not specify an rest key expiration
-# rest-keys.default-expiration: 720h0m0s
 
 # age at which a rollup is archived
 # rollup-archive.archive-age: 2160h0m0s

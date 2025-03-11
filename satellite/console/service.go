@@ -46,6 +46,7 @@ import (
 	"storj.io/storj/satellite/console/consoleauth"
 	"storj.io/storj/satellite/console/consoleauth/sso"
 	"storj.io/storj/satellite/console/consoleweb/consoleapi/utils"
+	"storj.io/storj/satellite/console/restapikeys"
 	"storj.io/storj/satellite/console/valdi"
 	"storj.io/storj/satellite/console/valdi/valdiclient"
 	"storj.io/storj/satellite/emission"
@@ -206,6 +207,10 @@ var (
 
 	// ErrPlacementNotFound occurs when a placement is not found.
 	ErrPlacementNotFound = errs.Class("placement not found")
+
+	// ErrInvalidKey is an error type that occurs when a user submits an API key
+	// that does not match anything in the database.
+	ErrInvalidKey = errs.Class("invalid key")
 )
 
 // Service is handling accounts related logic.
@@ -214,7 +219,8 @@ var (
 type Service struct {
 	log, auditLogger           *zap.Logger
 	store                      DB
-	restKeys                   RESTKeys
+	restKeys                   restapikeys.DB
+	oauthRestKeys              restapikeys.Service
 	projectAccounting          accounting.ProjectAccounting
 	projectUsage               *accounting.Service
 	buckets                    buckets.DB
@@ -268,7 +274,7 @@ type Payments struct {
 }
 
 // NewService returns new instance of Service.
-func NewService(log *zap.Logger, store DB, restKeys RESTKeys, projectAccounting accounting.ProjectAccounting,
+func NewService(log *zap.Logger, store DB, restKeys restapikeys.DB, oauthRestKeys restapikeys.Service, projectAccounting accounting.ProjectAccounting,
 	projectUsage *accounting.Service, buckets buckets.DB, accounts payments.Accounts, depositWallets payments.DepositWallets,
 	billingDb billing.TransactionsDB, analytics *analytics.Service, tokens *consoleauth.Service, mailService *mailservice.Service,
 	accountFreezeService *AccountFreezeService, emission *emission.Service, kmsService *kms.Service, ssoService *sso.Service, satelliteAddress string,
@@ -323,6 +329,7 @@ func NewService(log *zap.Logger, store DB, restKeys RESTKeys, projectAccounting 
 		auditLogger:                   log.Named("auditlog"),
 		store:                         store,
 		restKeys:                      restKeys,
+		oauthRestKeys:                 oauthRestKeys,
 		projectAccounting:             projectAccounting,
 		projectUsage:                  projectUsage,
 		buckets:                       buckets,
@@ -2090,7 +2097,7 @@ func LoadAjsAnonymousID(req *http.Request) string {
 func (s *Service) TokenByAPIKey(ctx context.Context, userAgent string, ip string, apiKey string) (response *TokenInfo, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	userID, _, err := s.restKeys.GetUserAndExpirationFromKey(ctx, apiKey)
+	userID, _, err := s.GetUserAndExpirationFromKey(ctx, apiKey)
 	if err != nil {
 		return nil, ErrUnauthorized.New(apiKeyCredentialsErrMsg)
 	}
@@ -4613,38 +4620,6 @@ func (s *Service) GetAPIKeys(ctx context.Context, reqProjectID uuid.UUID, cursor
 	return page, err
 }
 
-// CreateRESTKey creates a satellite rest key.
-func (s *Service) CreateRESTKey(ctx context.Context, expiration time.Duration) (apiKey string, expiresAt time.Time, err error) {
-	defer mon.Task()(&ctx)(&err)
-
-	user, err := s.getUserAndAuditLog(ctx, "create rest key")
-	if err != nil {
-		return "", time.Time{}, Error.Wrap(err)
-	}
-
-	apiKey, expiresAt, err = s.restKeys.Create(ctx, user.ID, expiration)
-	if err != nil {
-		return "", time.Time{}, Error.Wrap(err)
-	}
-	return apiKey, expiresAt, nil
-}
-
-// RevokeRESTKey revokes a satellite REST key.
-func (s *Service) RevokeRESTKey(ctx context.Context, apiKey string) (err error) {
-	defer mon.Task()(&ctx)(&err)
-
-	_, err = s.getUserAndAuditLog(ctx, "revoke rest key")
-	if err != nil {
-		return Error.Wrap(err)
-	}
-
-	err = s.restKeys.Revoke(ctx, apiKey)
-	if err != nil {
-		return Error.Wrap(err)
-	}
-	return nil
-}
-
 // GetProjectUsage retrieves project usage for a given period.
 func (s *Service) GetProjectUsage(ctx context.Context, projectID uuid.UUID, since, before time.Time) (_ *accounting.ProjectUsage, err error) {
 	defer mon.Task()(&ctx)(&err)
@@ -5158,7 +5133,7 @@ func (s *Service) KeyAuth(ctx context.Context, apikey string, authTime time.Time
 
 	ctx = consoleauth.WithAPIKey(ctx, []byte(apikey))
 
-	userID, exp, err := s.restKeys.GetUserAndExpirationFromKey(ctx, apikey)
+	userID, exp, err := s.GetUserAndExpirationFromKey(ctx, apikey)
 	if err != nil {
 		return nil, err
 	}

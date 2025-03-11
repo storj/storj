@@ -335,7 +335,8 @@ func TestGenCreateProjectProxy(t *testing.T) {
 		require.NoError(t, err)
 		require.NotNil(t, user)
 
-		apiKey, _, err := restService.Create(ctx, user.ID, time.Hour)
+		dur := time.Hour
+		apiKey, _, err := restService.CreateNoAuth(ctx, user.ID, &dur)
 		require.NoError(t, err)
 
 		client := http.Client{}

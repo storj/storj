@@ -39,13 +39,6 @@ type APIKeys interface {
 	DeleteExpiredByNamePrefix(ctx context.Context, lifetime time.Duration, prefix string, asOfSystemTimeInterval time.Duration, pageSize int) error
 }
 
-// RESTKeys is an interface for rest key operations.
-type RESTKeys interface {
-	Create(ctx context.Context, userID uuid.UUID, expiration time.Duration) (apiKey string, expiresAt time.Time, err error)
-	GetUserAndExpirationFromKey(ctx context.Context, apiKey string) (userID uuid.UUID, exp time.Time, err error)
-	Revoke(ctx context.Context, apiKey string) (err error)
-}
-
 // CreateAPIKeyRequest holds create API key info.
 type CreateAPIKeyRequest struct {
 	ProjectID string `json:"projectID"`
