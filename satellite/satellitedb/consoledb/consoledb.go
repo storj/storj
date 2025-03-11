@@ -11,6 +11,7 @@ import (
 
 	"storj.io/storj/satellite/console"
 	"storj.io/storj/satellite/console/consoleauth"
+	"storj.io/storj/satellite/console/restapikeys"
 	"storj.io/storj/satellite/satellitedb/dbx"
 	"storj.io/storj/shared/dbutil"
 	"storj.io/storj/shared/lrucache"
@@ -67,6 +68,11 @@ func (db *ConsoleDB) APIKeys() console.APIKeys {
 		lru:  db.apikeysCache,
 		impl: db.Impl,
 	}
+}
+
+// RestApiKeys returns the database for REST API keys.
+func (db *ConsoleDB) RestApiKeys() restapikeys.DB {
+	return &restApiKeysDB{db: db.Methods}
 }
 
 // RegistrationTokens is a getter for RegistrationTokens repository.

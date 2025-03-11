@@ -3476,35 +3476,113 @@ func TestSetActivationCodeAndSignupID(t *testing.T) {
 func TestRESTKeys(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
 		SatelliteCount: 1, StorageNodeCount: 0, UplinkCount: 1,
-	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
-		sat := planet.Satellites[0]
-		service := sat.API.Console.Service
+	}, runRestKeysTest)
+}
 
-		proj1, err := sat.API.DB.Console().Projects().Get(ctx, planet.Uplinks[0].Projects[0].ID)
-		require.NoError(t, err)
+func TestRESTKeys_WithNewTable(t *testing.T) {
+	testplanet.Run(t, testplanet.Config{
+		SatelliteCount: 1, StorageNodeCount: 0, UplinkCount: 1,
+		Reconfigure: testplanet.Reconfigure{
+			Satellite: func(log *zap.Logger, index int, config *satellite.Config) {
+				config.Console.UseNewRestKeysTable = true
+			},
+		},
+	}, runRestKeysTest)
+}
 
-		user, err := service.GetUser(ctx, proj1.OwnerID)
-		require.NoError(t, err)
+func runRestKeysTest(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+	sat := planet.Satellites[0]
+	consoleService := sat.API.Console.Service
+	service := sat.API.Console.RestKeys
 
-		userCtx, err := sat.UserContext(ctx, user.ID)
-		require.NoError(t, err)
+	proj1, err := sat.API.DB.Console().Projects().Get(ctx, planet.Uplinks[0].Projects[0].ID)
+	require.NoError(t, err)
 
-		now := time.Now()
-		expires := 5 * time.Hour
-		apiKey, expiresAt, err := service.CreateRESTKey(userCtx, expires)
+	user, err := consoleService.GetUser(ctx, proj1.OwnerID)
+	require.NoError(t, err)
+
+	now := time.Now()
+	err = sat.API.DB.Console().Users().UpdatePaidTier(ctx, user.ID, true, memory.PB, memory.PB, 1000000, 3, &now)
+	require.NoError(t, err)
+
+	userCtx, err := sat.UserContext(ctx, user.ID)
+	require.NoError(t, err)
+
+	expires := 5 * time.Hour
+	apiKey, expiresAt, err := service.Create(userCtx, "api key", &expires)
+	if sat.Config.Console.UseNewRestKeysTable {
 		require.NoError(t, err)
 		require.NotEmpty(t, apiKey)
 		require.True(t, expiresAt.After(now))
 		require.True(t, expiresAt.Before(now.Add(expires+time.Hour)))
-
-		// test revocation
-		require.NoError(t, service.RevokeRESTKey(userCtx, apiKey))
-
-		// test revoke non existent key
-		nonexistent := testrand.UUID()
-		err = service.RevokeRESTKey(userCtx, nonexistent.String())
+	} else {
+		// using Create when the new table is not used will return an error
 		require.Error(t, err)
-	})
+		apiKey, expiresAt, err = service.CreateNoAuth(ctx, user.ID, &expires)
+		require.NoError(t, err)
+		require.NotEmpty(t, apiKey)
+		require.True(t, expiresAt.After(now))
+		require.True(t, expiresAt.Before(now.Add(expires+time.Hour)))
+	}
+
+	// test GetUserFromKey
+	userID, exp, err := service.GetUserAndExpirationFromKey(ctx, apiKey)
+	require.NoError(t, err)
+	require.Equal(t, user.ID, userID)
+	require.False(t, exp.IsZero())
+	require.False(t, exp.Before(now))
+
+	// test revocation
+	require.NoError(t, service.RevokeByKeyNoAuth(userCtx, apiKey))
+
+	// test revoke non existent key
+	nonexistent := testrand.UUID()
+	err = service.RevokeByKeyNoAuth(userCtx, nonexistent.String())
+	require.Error(t, err)
+}
+
+func TestRESTKeysExpiration(t *testing.T) {
+	testplanet.Run(t, testplanet.Config{
+		SatelliteCount: 1, StorageNodeCount: 0, UplinkCount: 1,
+	}, runRestKeysExpirationTest)
+}
+
+func TestRESTKeysExpiration_WithNewTable(t *testing.T) {
+	testplanet.Run(t, testplanet.Config{
+		SatelliteCount: 1, StorageNodeCount: 0, UplinkCount: 1,
+	}, runRestKeysExpirationTest)
+}
+
+func runRestKeysExpirationTest(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+	sat := planet.Satellites[0]
+	service := sat.API.Console.RestKeys
+
+	user, err := sat.DB.Console().Users().GetByEmail(ctx, planet.Uplinks[0].User[sat.ID()].Email)
+	require.NoError(t, err)
+
+	now := time.Now()
+
+	dur := time.Duration(0)
+	// test no expiration uses default
+	_, expiresAt, err := service.CreateNoAuth(ctx, user.ID, &dur)
+	require.NoError(t, err)
+	require.WithinDuration(t, now.Add(sat.Config.Console.RestAPIKeys.DefaultExpiration), *expiresAt, time.Minute)
+
+	_, expiresAt, err = service.CreateNoAuth(ctx, user.ID, nil)
+	require.NoError(t, err)
+	require.WithinDuration(t, now.Add(sat.Config.Console.RestAPIKeys.DefaultExpiration), *expiresAt, time.Minute)
+
+	// test negative expiration uses default
+	dur = -1
+	_, expiresAt, err = service.CreateNoAuth(ctx, user.ID, &dur)
+	require.NoError(t, err)
+	require.WithinDuration(t, now.Add(sat.Config.Console.RestAPIKeys.DefaultExpiration), *expiresAt, time.Minute)
+
+	// test regular expiration
+	dur = 14 * time.Hour
+	_, expiresAt, err = service.CreateNoAuth(ctx, user.ID, &dur)
+	require.NoError(t, err)
+	require.WithinDuration(t, now.Add(dur), *expiresAt, time.Minute)
 }
 
 // TestLockAccount ensures user's gets locked when incorrect credentials are provided.

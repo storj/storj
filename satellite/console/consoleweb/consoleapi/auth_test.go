@@ -353,7 +353,7 @@ func TestTokenByAPIKeyEndpoint(t *testing.T) {
 		SatelliteCount: 1, StorageNodeCount: 0, UplinkCount: 0,
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 		satellite := planet.Satellites[0]
-		restKeys := satellite.API.REST.Keys
+		restKeys := satellite.API.Console.RestKeys
 
 		user, err := satellite.AddUser(ctx, console.CreateUser{
 			FullName: "Test User",
@@ -362,7 +362,7 @@ func TestTokenByAPIKeyEndpoint(t *testing.T) {
 		require.NoError(t, err)
 
 		expires := 5 * time.Hour
-		apiKey, _, err := restKeys.Create(ctx, user.ID, expires)
+		apiKey, _, err := restKeys.CreateNoAuth(ctx, user.ID, &expires)
 		require.NoError(t, err)
 		require.NotEmpty(t, apiKey)
 

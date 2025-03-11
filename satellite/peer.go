@@ -41,7 +41,6 @@ import (
 	"storj.io/storj/satellite/console/consoleweb"
 	"storj.io/storj/satellite/console/dbcleanup"
 	"storj.io/storj/satellite/console/emailreminders"
-	"storj.io/storj/satellite/console/restkeys"
 	"storj.io/storj/satellite/console/userinfo"
 	"storj.io/storj/satellite/console/valdi"
 	"storj.io/storj/satellite/contact"
@@ -218,7 +217,6 @@ type Config struct {
 
 	Payments paymentsconfig.Config
 
-	RESTKeys         restkeys.Config
 	Console          consoleweb.Config
 	Valdi            valdi.Config
 	ConsoleAuth      consoleauth.Config

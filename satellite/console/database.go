@@ -7,6 +7,7 @@ import (
 	"context"
 
 	"storj.io/storj/satellite/console/consoleauth"
+	"storj.io/storj/satellite/console/restapikeys"
 )
 
 // DB contains access to different satellite databases.
@@ -23,6 +24,8 @@ type DB interface {
 	ProjectInvitations() ProjectInvitations
 	// APIKeys is a getter for APIKeys repository.
 	APIKeys() APIKeys
+	// RestApiKeys returns the database for REST API keys.
+	RestApiKeys() restapikeys.DB
 	// RegistrationTokens is a getter for RegistrationTokens repository.
 	RegistrationTokens() RegistrationTokens
 	// ResetPasswordTokens is a getter for ResetPasswordTokens repository.

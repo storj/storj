@@ -89,7 +89,8 @@ func TestSignupCouponCodes(t *testing.T) {
 		service, err := console.NewService(
 			log.Named("console"),
 			db.Console(),
-			restkeys.NewService(db.OIDC().OAuthTokens(), planet.Satellites[0].Config.RESTKeys),
+			db.Console().RestApiKeys(),
+			restkeys.NewService(db.OIDC().OAuthTokens(), sat.Config.Console.RestAPIKeys.DefaultExpiration),
 			db.ProjectAccounting(),
 			projectUsage,
 			sat.API.Buckets.Service,

@@ -728,7 +728,6 @@ func createNewSystem(name string, log *zap.Logger, config satellite.Config, peer
 		system.API.ABTesting = consoleAPI.ABTesting
 		system.API.KeyManagement = consoleAPI.KeyManagement
 		system.API.Payments = consoleAPI.Payments
-		system.API.REST = consoleAPI.REST
 		system.API.HealthCheck = consoleAPI.HealthCheck
 		system.API.Userinfo = consoleAPI.Userinfo
 		system.API.Accounting = consoleAPI.Accounting
