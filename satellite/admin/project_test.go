@@ -882,6 +882,14 @@ func TestProjectDelete(t *testing.T) {
 		require.Equal(t, http.StatusOK, response.StatusCode)
 		require.Equal(t, "", response.Header.Get("Content-Type"))
 
+		// Ensure API keys are deleted.
+		apikeys, err = planet.Satellites[0].DB.Console().APIKeys().GetPagedByProjectID(ctx, projectID, console.APIKeyCursor{
+			Page:  1,
+			Limit: 1,
+		}, "")
+		require.NoError(t, err)
+		require.Len(t, apikeys.APIKeys, 0)
+
 		project, err := planet.Satellites[0].DB.Console().Projects().Get(ctx, projectID)
 		require.NoError(t, err)
 		require.Equal(t, console.ProjectDisabled, *project.Status)

@@ -720,6 +720,13 @@ func (server *Server) deleteProject(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	err = server.db.Console().APIKeys().DeleteAllByProjectID(ctx, project.ID)
+	if err != nil {
+		sendJSONError(w, "unable to delete api-keys",
+			err.Error(), http.StatusInternalServerError)
+		return
+	}
+
 	// if usage exist, return error to client and exit
 	if server.checkUsage(ctx, w, project.ID) {
 		return
@@ -777,6 +784,11 @@ func (server *Server) forceDeleteProject(ctx context.Context, projectID uuid.UUI
 		if errList.Err() != nil {
 			return errList.Err()
 		}
+	}
+
+	err = server.db.Console().APIKeys().DeleteAllByProjectID(ctx, projectID)
+	if err != nil {
+		return err
 	}
 
 	// We update status to disabled instead of deleting the project
