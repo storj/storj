@@ -2084,23 +2084,27 @@ func TestDeleteAccount(t *testing.T) {
 
 			require.NoError(t, service.DeleteAPIKeyByNameAndProjectID(userCtx, keys[0], p.PublicID))
 
-			// check for unpaid invoices
+			// check for unpaid invoices (open or draft).
 			// N.B. we no longer create invoices for free tier users, so technically this should be unnecessary in that case,
 			// but it seems better to check than not.
 			amountOwed := int64(1000)
-			invoice, err := sat.API.Payments.Accounts.Invoices().Create(ctx, user.ID, amountOwed, "test description")
+			invoice1, err := sat.API.Payments.Accounts.Invoices().Create(ctx, user.ID, amountOwed, "open invoice")
+			require.NoError(t, err)
+			invoice2, err := sat.API.Payments.Accounts.Invoices().Create(ctx, user.ID, amountOwed, "draft invoice")
 			require.NoError(t, err)
 
-			_, err = sat.API.Payments.StripeClient.Invoices().FinalizeInvoice(invoice.ID, nil)
+			_, err = sat.API.Payments.StripeClient.Invoices().FinalizeInvoice(invoice1.ID, nil)
 			require.NoError(t, err)
 
 			resp, err = service.DeleteAccount(userCtx, console.VerifyAccountMfaStep, "test")
 			require.NoError(t, err)
 			require.NotNil(t, resp)
-			require.Equal(t, 1, resp.UnpaidInvoices)
-			require.Equal(t, amountOwed, resp.AmountOwed)
+			require.Equal(t, 2, resp.UnpaidInvoices)
+			require.Equal(t, 2*amountOwed, resp.AmountOwed)
 
-			_, err = sat.API.Payments.Accounts.Invoices().Delete(ctx, invoice.ID)
+			_, err = sat.API.Payments.Accounts.Invoices().Delete(ctx, invoice1.ID)
+			require.NoError(t, err)
+			_, err = sat.API.Payments.Accounts.Invoices().Delete(ctx, invoice2.ID)
 			require.NoError(t, err)
 
 			// set time to middle of day to avoid usage being created in previous month

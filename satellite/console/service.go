@@ -2364,18 +2364,28 @@ func (s *Service) DeleteAccount(ctx context.Context, step AccountActionStep, dat
 		}
 	}
 
-	// check for unpaid invoices
+	// check for unpaid invoices.
 	invoices, err := s.accounts.Invoices().List(ctx, user.ID)
 	if err != nil {
 		return nil, Error.Wrap(err)
 	}
 
 	for _, invoice := range invoices {
-		if invoice.Status == payments.InvoiceStatusOpen {
+		if invoice.Status == payments.InvoiceStatusOpen || invoice.Status == payments.InvoiceStatusDraft {
 			deletionRestricted = true
 			resp.UnpaidInvoices++
 			resp.AmountOwed += invoice.Amount
 		}
+	}
+
+	// check for pending invoice items.
+	hasItems, err := s.accounts.Invoices().CheckPendingItems(ctx, user.ID)
+	if err != nil {
+		return nil, Error.Wrap(err)
+	}
+	if hasItems {
+		deletionRestricted = true
+		resp.InvoicingIncomplete = true
 	}
 
 	if deletionRestricted {

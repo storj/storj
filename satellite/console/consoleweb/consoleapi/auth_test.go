@@ -1870,11 +1870,15 @@ func TestAuth_DeleteAccount(t *testing.T) {
 			{
 				name: "has unpaid invoices",
 				prepare: func(user, project uuid.UUID) error {
-					invoice, err := sat.API.Payments.Accounts.Invoices().Create(ctx, user, 1000, "test description")
+					invoice1, err := sat.API.Payments.Accounts.Invoices().Create(ctx, user, 1000, "open invoice")
 					if err != nil {
 						return err
 					}
-					_, err = sat.API.Payments.StripeClient.Invoices().FinalizeInvoice(invoice.ID, nil)
+					_, err = sat.API.Payments.Accounts.Invoices().Create(ctx, user, 1000, "draft invoice")
+					if err != nil {
+						return err
+					}
+					_, err = sat.API.Payments.StripeClient.Invoices().FinalizeInvoice(invoice1.ID, nil)
 					return err
 				},
 				cleanup: func(user, project uuid.UUID) error {
@@ -1882,11 +1886,16 @@ func TestAuth_DeleteAccount(t *testing.T) {
 					if err != nil {
 						return err
 					}
-					_, err = sat.API.Payments.Accounts.Invoices().Delete(ctx, invoices[0].ID)
-					return err
+					for _, invoice := range invoices {
+						_, err = sat.API.Payments.Accounts.Invoices().Delete(ctx, invoice.ID)
+						if err != nil {
+							return err
+						}
+					}
+					return nil
 				},
 				req:                consoleapi.AccountActionData{Step: console.DeleteAccountInit, Data: ""},
-				expectedResp:       &console.DeleteAccountResponse{OwnedProjects: 1, UnpaidInvoices: 1, AmountOwed: int64(1000)},
+				expectedResp:       &console.DeleteAccountResponse{OwnedProjects: 1, UnpaidInvoices: 2, AmountOwed: 2 * int64(1000)},
 				proUserHttpStatus:  http.StatusConflict,
 				freeUserHttpStatus: http.StatusConflict,
 			},
