@@ -3,7 +3,7 @@
 &nbsp;
 
 ## Background
-This testplan is going to cover the changes to storagenode email notifications. It will go over the design doc seen here - [Storagenode Email Notification Design Doc](https://review.dev.storj.io/c/storj/storj/+/8353)
+This testplan is going to cover the changes to storagenode email notifications. It will go over the design doc seen here - [Storagenode Email Notification Design Doc](https://review.dev.storj.tools/c/storj/storj/+/8353)
 
 &nbsp;
 

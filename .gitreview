@@ -1,4 +1,4 @@
 [gerrit]
-host=review.dev.storj.io
+host=review.dev.storj.tools
 project=storj/storj
 defaultbranch=main
