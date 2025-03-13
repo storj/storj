@@ -14,7 +14,7 @@ active development. In addition to `storj-up`, you will need the following tools
 ## Version Control and Code Review
 
 All of our source code is hosted on [GitHub](https://github.com/storj) and most of our reviews are done in
-[Gerrit](https://review.dev.storj.io). Reviews require 2 `Code Review +2` and a passing build in order to be merged.
+[Gerrit](https://review.dev.storj.tools). Reviews require 2 `Code Review +2` and a passing build in order to be merged.
 
 ## Continuous Integration
 
@@ -32,9 +32,9 @@ repository, many engineers at Storj prefer Gerrit for code reviews. For an overv
 the [Intro to Gerrit Walkthrough][gerrit-walkthrough-link]. Be sure to [sign in][] to Gerrit before attempting to
 contribute any changes. You'll likely need to upload an SSH key in order to push any changes.
 
-[sign in]: https://review.dev.storj.io
-[gerrit-link]: https://review.dev.storj.io/Documentation/index.html
-[gerrit-walkthrough-link]: https://review.dev.storj.io/Documentation/intro-gerrit-walkthrough-github.html
+[sign in]: https://review.dev.storj.tools
+[gerrit-link]: https://review.dev.storj.tools/Documentation/index.html
+[gerrit-walkthrough-link]: https://review.dev.storj.tools/Documentation/intro-gerrit-walkthrough-github.html
 
 Below, you'll find several common workflows that I've used when contributing code.
 
