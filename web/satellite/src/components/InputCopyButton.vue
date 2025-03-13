@@ -10,7 +10,7 @@
                 variant="text"
                 density="compact"
                 aria-roledescription="copy-btn"
-                :color="justCopied ? 'success' : 'default'"
+                :color="justCopied ? 'success' : 'primary'"
                 @click="onCopy"
             />
         </template>

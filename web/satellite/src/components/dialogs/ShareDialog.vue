@@ -42,27 +42,61 @@
                 <v-row>
                     <v-col cols="12">
                         <v-alert type="info" variant="tonal">
-                            Public link sharing. Allows anyone with the link to view your shared {{ shareText.toLowerCase() }}.
+                            Public link sharing. Anyone with the link can view your shared {{ shareText.toLowerCase() }}. No sign-in required.
                         </v-alert>
                     </v-col>
-                    <v-col v-if="showEmbedCode" cols="12">
-                        <v-tabs
-                            v-model="shareTab"
-                            color="primary"
-                            center-active
-                        >
-                            <v-tab>
-                                Share Link
-                            </v-tab>
-                            <v-tab>
-                                Embed Code
-                            </v-tab>
+                    <v-col cols="12" class="pt-0">
+                        <v-tabs v-model="shareTab" color="primary" class="border-b-thin" center-active>
+                            <v-tab value="links"><component :is="Link" :size="16" class="mr-2" />Links</v-tab>
+                            <v-tab value="social"><component :is="Share2" :size="16" class="mr-2" />Social</v-tab>
+                            <v-tab v-if="showEmbedCode" value="embed"><component :is="Code2" :size="16" class="mr-2" />Embed</v-tab>
                         </v-tabs>
                     </v-col>
                     <v-col cols="12" class="pt-0">
-                        <v-window v-model="shareTab" :disabled="!showEmbedCode">
-                            <v-window-item :value="ShareTab.Link">
-                                <p class="text-subtitle-2 font-weight-bold mb-1">Share via</p>
+                        <v-window v-model="shareTab">
+                            <v-window-item value="links">
+                                <p class="text-subtitle-2 font-weight-bold mt-2 d-flex align-center">
+                                    <component :is="Eye" :size="16" class="mr-2" /> Interactive Preview Link
+                                </p>
+                                <p class="text-caption text-medium-emphasis mb-2">View the {{ shareText.toLowerCase() }} in a browser before downloading</p>
+                                <v-text-field
+                                    :model-value="link"
+                                    variant="solo-filled"
+                                    rounded="lg"
+                                    hide-details="auto"
+                                    flat
+                                    readonly
+                                    class="text-caption"
+                                >
+                                    <template #append-inner>
+                                        <input-copy-button :value="link" />
+                                    </template>
+                                </v-text-field>
+
+                                <template v-if="rawLink">
+                                    <p class="text-subtitle-2 font-weight-bold mt-4 d-flex align-center">
+                                        <component :is="Download" :size="16" class="mr-2" /> Direct Download Link
+                                    </p>
+                                    <p class="text-caption text-medium-emphasis mb-2">Download the file immediately without preview</p>
+                                    <v-text-field
+                                        :model-value="rawLink"
+                                        variant="solo-filled"
+                                        rounded="lg"
+                                        hide-details="auto"
+                                        readonly
+                                        flat
+                                        class="text-caption"
+                                    >
+                                        <template #append-inner>
+                                            <input-copy-button :value="rawLink" />
+                                        </template>
+                                    </v-text-field>
+                                </template>
+                            </v-window-item>
+
+                            <v-window-item value="social">
+                                <p class="text-subtitle-2 font-weight-bold mt-2">Share via</p>
+                                <p class="text-caption text-medium-emphasis mb-2">Share your link on social media or via email</p>
                                 <v-chip-group class="mx-n1" column>
                                     <v-chip
                                         v-for="opt in ShareOptions"
@@ -82,30 +116,24 @@
                                         {{ opt }}
                                     </v-chip>
                                 </v-chip-group>
-
-                                <p class="text-subtitle-2 font-weight-bold mb-2 mt-4">Shared link</p>
-                                <v-textarea :model-value="link" variant="solo-filled" rounded="lg" hide-details="auto" rows="1" auto-grow no-resize flat readonly class="text-caption">
-                                    <template #append-inner>
-                                        <input-copy-button :value="link" />
-                                    </template>
-                                </v-textarea>
-
-                                <template v-if="rawLink">
-                                    <p class="text-subtitle-2 font-weight-bold mb-2 mt-4">Direct link</p>
-                                    <v-textarea :model-value="rawLink" variant="solo-filled" rounded="lg" hide-details="auto" rows="1" auto-grow no-resize flat readonly class="text-caption">
-                                        <template #append-inner>
-                                            <input-copy-button :value="rawLink" />
-                                        </template>
-                                    </v-textarea>
-                                </template>
                             </v-window-item>
-                            <v-window-item :value="ShareTab.Embed">
-                                <p class="text-subtitle-2 font-weight-bold mb-2">Embed code</p>
-                                <v-textarea :model-value="embedCode" variant="solo-filled" rounded="lg" hide-details="auto" rows="1" auto-grow no-resize flat readonly class="text-caption">
+
+                            <v-window-item v-if="showEmbedCode" value="embed">
+                                <p class="text-subtitle-2 font-weight-bold mt-2">HTML Embed Code</p>
+                                <p class="text-caption text-medium-emphasis mb-2">Add this code to your website to embed the file</p>
+                                <v-text-field
+                                    :model-value="embedCode"
+                                    variant="solo-filled"
+                                    rounded="lg"
+                                    hide-details="auto"
+                                    readonly
+                                    flat
+                                    class="text-caption"
+                                >
                                     <template #append-inner>
                                         <input-copy-button :value="embedCode" />
                                     </template>
-                                </v-textarea>
+                                </v-text-field>
                             </v-window-item>
                         </v-window>
                     </v-col>
@@ -118,19 +146,7 @@
                 <v-row>
                     <v-col>
                         <v-btn variant="outlined" color="default" block :disabled="isLoading" @click="model = false">
-                            Close
-                        </v-btn>
-                    </v-col>
-                    <v-col v-if="!rawLink">
-                        <v-btn
-                            :color="justCopied ? 'success' : 'primary'"
-                            variant="flat"
-                            :prepend-icon="justCopied ? Check : Copy"
-                            :disabled="isLoading"
-                            block
-                            @click="onCopy"
-                        >
-                            {{ justCopied ? 'Copied' : 'Copy Link' }}
+                            Done
                         </v-btn>
                     </v-col>
                 </v-row>
@@ -157,11 +173,11 @@ import {
     VSheet,
     VTab,
     VTabs,
-    VTextarea,
+    VTextField,
     VWindow,
     VWindowItem,
 } from 'vuetify/components';
-import { Check, Copy, Share } from 'lucide-vue-next';
+import { Code2, Download, Eye, Link, Share, Share2 } from 'lucide-vue-next';
 
 import { AnalyticsErrorEventSource, AnalyticsEvent } from '@/utils/constants/analyticsEventNames';
 import { useAnalyticsStore } from '@/store/modules/analyticsStore';
@@ -174,10 +190,8 @@ import { useProjectsStore } from '@/store/modules/projectsStore';
 
 import InputCopyButton from '@/components/InputCopyButton.vue';
 
-enum ShareTab {
-    Link,
-    Embed,
-}
+// Define tab values as string literals for better type support
+type ShareTabType = 'links' | 'social' | 'embed';
 
 const props = defineProps<{
     bucketName: string,
@@ -197,7 +211,7 @@ const projectStore = useProjectsStore();
 const notify = useNotify();
 const { generateBucketShareURL, generateFileOrFolderShareURL } = useLinksharing();
 
-const shareTab = ref<ShareTab>(ShareTab.Link);
+const shareTab = ref<ShareTabType>('links');
 const innerContent = ref<VCard | null>(null);
 const isLoading = ref<boolean>(true);
 const link = ref<string>('');
@@ -261,7 +275,7 @@ function onCopy(): void {
  */
 watch(() => innerContent.value, async (comp: VCard | null): Promise<void> => {
     if (!comp) {
-        shareTab.value = ShareTab.Link;
+        shareTab.value = 'links';
         emit('contentRemoved');
         return;
     }
@@ -310,5 +324,9 @@ watch(() => innerContent.value, async (comp: VCard | null): Promise<void> => {
     &__icon {
         margin-right: 5.5px;
     }
+}
+
+:deep(.v-field__input) {
+    font-size: 0.875rem !important;
 }
 </style>
