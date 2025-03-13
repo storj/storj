@@ -295,11 +295,11 @@ const copyButtonText = computed<string>(() => {
  */
 function onCopy(): void {
     let contentToCopy = link.value;
-    
+
     if (shareTab.value === 'embed' && showEmbedCode.value) {
         contentToCopy = embedCode.value;
     }
-    
+
     navigator.clipboard.writeText(contentToCopy);
     analyticsStore.eventTriggered(AnalyticsEvent.COPY_TO_CLIPBOARD_CLICKED);
 
