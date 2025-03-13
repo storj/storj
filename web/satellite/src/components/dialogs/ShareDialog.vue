@@ -57,6 +57,15 @@
                             <v-window-item value="links">
                                 <p class="text-subtitle-2 font-weight-bold mt-2 d-flex align-center">
                                     <component :is="Eye" :size="16" class="mr-2" /> Interactive Preview Link
+                                    <v-chip
+                                        v-if="rawLink"
+                                        size="x-small"
+                                        variant="outlined"
+                                        color="default"
+                                        class="ml-2"
+                                    >
+                                        Default
+                                    </v-chip>
                                 </p>
                                 <p class="text-caption text-medium-emphasis mb-2">View the {{ shareText.toLowerCase() }} in a browser before downloading</p>
                                 <v-text-field
@@ -146,7 +155,19 @@
                 <v-row>
                     <v-col>
                         <v-btn variant="outlined" color="default" block :disabled="isLoading" @click="model = false">
-                            Done
+                            Close
+                        </v-btn>
+                    </v-col>
+                    <v-col>
+                        <v-btn
+                            :color="justCopied ? 'success' : 'primary'"
+                            variant="flat"
+                            :prepend-icon="justCopied ? Check : Copy"
+                            :disabled="isLoading"
+                            block
+                            @click="onCopy"
+                        >
+                            {{ justCopied ? 'Copied' : 'Copy ' + copyButtonText }}
                         </v-btn>
                     </v-col>
                 </v-row>
@@ -177,7 +198,7 @@ import {
     VWindow,
     VWindowItem,
 } from 'vuetify/components';
-import { Code2, Download, Eye, Link, Share, Share2 } from 'lucide-vue-next';
+import { Check, Copy, Code2, Download, Eye, Link, Share, Share2 } from 'lucide-vue-next';
 
 import { AnalyticsErrorEventSource, AnalyticsEvent } from '@/utils/constants/analyticsEventNames';
 import { useAnalyticsStore } from '@/store/modules/analyticsStore';
@@ -257,11 +278,29 @@ const embedCode = computed<string>(() => {
     }
 });
 
+const copyButtonText = computed<string>(() => {
+    switch (shareTab.value) {
+    case 'embed':
+        return 'Code';
+    case 'social':
+        return 'Link';
+    case 'links':
+    default:
+        return 'Link';
+    }
+});
+
 /**
- * Saves link to clipboard.
+ * Saves the link or embed code to clipboard based on active tab.
  */
 function onCopy(): void {
-    navigator.clipboard.writeText(link.value);
+    let contentToCopy = link.value;
+    
+    if (shareTab.value === 'embed' && showEmbedCode.value) {
+        contentToCopy = embedCode.value;
+    }
+    
+    navigator.clipboard.writeText(contentToCopy);
     analyticsStore.eventTriggered(AnalyticsEvent.COPY_TO_CLIPBOARD_CLICKED);
 
     if (copiedTimeout.value) clearTimeout(copiedTimeout.value);
