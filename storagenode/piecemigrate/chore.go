@@ -6,7 +6,6 @@ package piecemigrate
 import (
 	"bytes"
 	"context"
-	"io"
 	"io/fs"
 	"math/rand"
 	"strconv"
@@ -387,16 +386,8 @@ func (chore *Chore) copyPiece(ctx context.Context, src *pieces.Reader, sat storj
 		return 0, errs.New("committing: %w", err)
 	}
 	if errs.Is(err, hashstore.ErrCollision) {
-		chore.log.Debug("will attempt to remove a duplicate",
-			zap.Error(err),
-			zap.Stringer("sat", sat),
-			zap.Stringer("piece", piece))
-		if err = compareWithPiecestore(ctx, chore.new, sat, piece, hdr, src); err != nil {
-			return 0, errs.New("duplicate pieces differ: %w", err)
-		}
-		// the content matches. what most likely happened is the last
-		// time it was migrated, delete failed or was interrupted. we
-		// are free to delete it now.
+		// hashstore may legally contain a newer copy from repair.
+		return 0, nil
 	}
 
 	return size, nil
@@ -404,60 +395,6 @@ func (chore *Chore) copyPiece(ctx context.Context, src *pieces.Reader, sat storj
 
 func allEqual(a, b, c int64) bool {
 	return a == b && b == c
-}
-
-func compareWithPiecestore(
-	ctx context.Context,
-	backend piecestore.PieceBackend,
-	sat storj.NodeID,
-	piece storj.PieceID,
-	suspectHeader *pb.PieceHeader,
-	suspect *pieces.Reader,
-) error {
-	existing, err := backend.Reader(ctx, sat, piece)
-	if err != nil {
-		return errs.New("opening a reader: %w", err)
-	}
-	defer func() { _ = existing.Close() }()
-
-	existingHeader, err := existing.GetPieceHeader()
-	if err != nil {
-		return errs.New("getting the piece header: %w", err)
-	}
-
-	if !pb.Equal(existingHeader, suspectHeader) {
-		return errs.New("headers don't match; new=%s != old=%s", existingHeader, suspectHeader)
-	}
-
-	if _, err := suspect.Seek(0, io.SeekStart); err != nil {
-		return errs.New("couldn't rewind: %w", err)
-	}
-
-	if ok, err := compareReaders(existing, suspect); err != nil {
-		return errs.New("comparing readers: %w", err)
-	} else if !ok {
-		return errs.New("content mismatch")
-	}
-
-	return nil
-}
-
-func compareReaders(r1, r2 io.Reader) (bool, error) {
-	// NOTE(artur): this approach assumes that pieces are typically
-	// small and processing is sequential, making it unlikely that
-	// memory usage will become excessive by reading both entirely into
-	// memory. however, if the piece sizes increase significantly or
-	// parallel processing is introduced, this assumption should be
-	// reevaluated.
-	b1, err := io.ReadAll(r1)
-	if err != nil {
-		return false, err
-	}
-	b2, err := io.ReadAll(r2)
-	if err != nil {
-		return false, err
-	}
-	return bytes.Equal(b1, b2), nil
 }
 
 // Close shuts down the chore's loop and releases associated resources.
