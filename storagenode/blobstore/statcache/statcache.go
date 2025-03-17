@@ -63,6 +63,15 @@ func (b BlobInfo) Stat(ctx context.Context) (blobstore.FileInfo, error) {
 	return value, err
 }
 
+// Create implements blobstore.Blobs.
+func (s *CachedStatBlobstore) Create(ctx context.Context, ref blobstore.BlobRef) (blobstore.BlobWriter, error) {
+	err := s.cache.Delete(ctx, ref.Namespace, ref.Key)
+	if err != nil {
+		s.log.Warn("Couldn't delete blobstore cache entry", zap.Binary("namespace", ref.Namespace), zap.Binary("key", ref.Key), zap.Error(err))
+	}
+	return s.Blobs.Create(ctx, ref)
+}
+
 // Stat implements blobstore.Blobs.
 func (s *CachedStatBlobstore) Stat(ctx context.Context, ref blobstore.BlobRef) (blobstore.BlobInfo, error) {
 	original, err := s.Blobs.Stat(ctx, ref)
