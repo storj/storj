@@ -226,7 +226,6 @@ import { computed, FunctionalComponent, onBeforeUnmount, onMounted, ref, watch }
 import { useRouter } from 'vue-router';
 import {
     VBtn,
-    VCard,
     VChip,
     VDataTableServer,
     VDivider,

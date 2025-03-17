@@ -38,7 +38,6 @@
 import { computed, ref } from 'vue';
 import {
     VDataTable,
-    VCard,
     VTextField,
     VListItem,
 } from 'vuetify/components';

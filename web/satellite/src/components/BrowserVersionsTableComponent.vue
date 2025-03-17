@@ -281,7 +281,6 @@ import { useRouter } from 'vue-router';
 import {
     VBtn,
     VBtnGroup,
-    VCard,
     VCheckboxBtn,
     VChip,
     VCol,

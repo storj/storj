@@ -85,7 +85,6 @@
                     <v-menu activator="parent" location="bottom" transition="scale-transition">
                         <v-list class="pa-1">
                             <template v-if="item.role === ProjectRole.Owner">
-
                                 <v-list-item link @click="emit('inviteClick', item)">
                                     <template #prepend>
                                         <component :is="UserPlus" :size="18" />
@@ -115,7 +114,7 @@
                                     </v-list-item-title>
                                 </v-list-item>
 
-                                <v-divider  />
+                                <v-divider />
 
                                 <v-list-item v-if="isPaidTier" link @click="() => emit('updateLimitsClick', item, LimitToChange.Storage)">
                                     <template #prepend>
@@ -145,7 +144,6 @@
                                         Project Settings
                                     </v-list-item-title>
                                 </v-list-item>
-
                             </template>
                             <v-list-item v-else link @click="declineInvitation(item)">
                                 <template #prepend>
@@ -176,6 +174,7 @@ import {
     VIcon,
     VListItemTitle,
     VDataTable,
+    VDivider,
 } from 'vuetify/components';
 import { Ellipsis, Search, UserPlus, Settings, Trash2, Cloud, DownloadCloud, Pencil, NotebookPen } from 'lucide-vue-next';
 

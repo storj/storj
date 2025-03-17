@@ -47,7 +47,6 @@
 
                     <v-menu activator="parent" location="bottom" transition="fade-transition">
                         <v-list class="pa-1">
-
                             <v-list-item link @click="emit('inviteClick')">
                                 <template #prepend>
                                     <component :is="UserPlus" :size="18" />
@@ -107,7 +106,6 @@
                                     Project Settings
                                 </v-list-item-title>
                             </v-list-item>
-
                         </v-list>
                     </v-menu>
                 </v-btn>
@@ -132,6 +130,7 @@ import {
     VListItem,
     VListItemTitle,
     VMenu,
+    VDivider,
 } from 'vuetify/components';
 import { Box, Cloud, DownloadCloud, Ellipsis, Pencil, NotebookPen, Settings, UserPlus } from 'lucide-vue-next';
 

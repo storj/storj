@@ -116,7 +116,6 @@ import {
     VList,
     VListItem,
     VListItemTitle,
-    VCard,
     VRow,
     VSnackbar,
     VTextField,

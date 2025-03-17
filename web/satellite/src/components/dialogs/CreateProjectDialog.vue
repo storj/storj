@@ -265,7 +265,7 @@ import {
     VWindowItem,
     VSheet,
 } from 'vuetify/components';
-import { ArrowRight, Plus, Box, Gauge } from 'lucide-vue-next';
+import { ArrowRight, Box, Gauge } from 'lucide-vue-next';
 
 import { RequiredRule, ValidationRule } from '@/types/common';
 import { ManagePassphraseMode, MAX_DESCRIPTION_LENGTH, MAX_NAME_LENGTH, Project, ProjectFields } from '@/types/projects';

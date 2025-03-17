@@ -156,7 +156,6 @@
 import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue';
 import {
     VRow,
-    VCard,
     VCol,
     VTextField,
     VChip,

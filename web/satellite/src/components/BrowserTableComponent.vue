@@ -34,9 +34,9 @@
         :loading="isFetching || loading"
         :items-length="isAltPagination ? cursor.limit : totalObjectCount"
         :items-per-page-options="isAltPagination ? [] : tableSizeOptions(totalObjectCount, true)"
+        elevation="1"
         @update:page="onPageChange"
         @update:items-per-page="onLimitChange"
-        elevation="1"
     >
         <template #no-data>
             <p class="text-body-2 cursor-pointer py-14 rounded-xlg my-4" @click="emit('uploadClick')">
@@ -214,7 +214,6 @@ import { useRouter } from 'vue-router';
 import {
     VBtn,
     VBtnGroup,
-    VCard,
     VCol,
     VDataTableRow,
     VDataTableServer,
