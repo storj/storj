@@ -375,7 +375,7 @@ func (service *Service) InvoiceApplyProjectRecordsGrouped(ctx context.Context, p
 				for _, r := range records {
 					totalRecords.Add(1)
 
-					skipped, err := service.createInvoiceItems(ctx, c.BillingID, c.ID, projectNameMap[r.ProjectID], r, c.UserID, period)
+					skipped, err := service.processInvoiceItems(ctx, c.BillingID, c.ID, projectNameMap[r.ProjectID], r, c.UserID, period, false)
 					if err != nil {
 						addErr(&mu, err)
 						return
@@ -609,7 +609,7 @@ func (service *Service) applyToBeAggregatedProjectRecords(ctx context.Context, r
 		}
 
 		record := record
-		skipped, err := service.processProjectRecord(ctx, cusID, proj.Name, record, proj.OwnerID, period)
+		skipped, err := service.processInvoiceItems(ctx, nil, cusID, proj.Name, record, proj.OwnerID, period, true)
 		if err != nil {
 			return 0, errs.Wrap(err)
 		}
@@ -621,8 +621,24 @@ func (service *Service) applyToBeAggregatedProjectRecords(ctx context.Context, r
 	return skipCount, nil
 }
 
-// createInvoiceItems creates invoice line items for stripe customer.
-func (service *Service) createInvoiceItems(ctx context.Context, billingID *string, cusID, projName string, record ProjectRecord, userID uuid.UUID, period time.Time) (skipped bool, err error) {
+type usage int
+
+const (
+	storage usage = 0
+	egress  usage = 1
+	segment usage = 2
+)
+
+// processInvoiceItems creates or updates invoice line items for stripe customer.
+func (service *Service) processInvoiceItems(
+	ctx context.Context,
+	billingID *string,
+	cusID, projName string,
+	record ProjectRecord,
+	userID uuid.UUID,
+	period time.Time,
+	updateExisting bool,
+) (skipped bool, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	if !service.useIdempotency {
@@ -651,34 +667,34 @@ func (service *Service) createInvoiceItems(ctx context.Context, billingID *strin
 		return false, err
 	}
 
-	items := service.InvoiceItemsFromProjectUsage(projName, usages, false)
+	items := service.InvoiceItemsFromProjectUsage(projName, usages, updateExisting)
 
-	var invoiceID *string
-	if billingID == nil {
-		billingID = &cusID
+	if updateExisting {
+		existingItems, err := service.getExistingInvoiceItems(ctx, cusID)
+		if err != nil {
+			return false, err
+		}
+
+		if existingItems[segment] == nil || existingItems[storage] == nil || existingItems[egress] == nil {
+			err = service.createNewInvoiceItems(ctx, items, cusID, nil, record.ProjectID, to, from, period)
+		} else {
+			err = service.updateExistingInvoiceItems(ctx, existingItems, items, record.ProjectID, period)
+		}
+		if err != nil {
+			return false, err
+		}
 	} else {
-		// create parent invoice
-		invoiceID, err = service.createParentInvoice(ctx, *billingID, cusID, projName, period)
-	}
-	for _, item := range items {
-		item.Params = stripe.Params{Context: ctx}
-		item.Currency = stripe.String(string(stripe.CurrencyUSD))
-		item.Customer = stripe.String(*billingID)
-		item.Period = &stripe.InvoiceItemPeriodParams{
-			End:   stripe.Int64(to.Unix()),
-			Start: stripe.Int64(from.Unix()),
-		}
-		if invoiceID != nil {
-			item.Invoice = invoiceID
-		}
-		// TODO: do not expose regular project ID.
-		item.AddMetadata("projectID", record.ProjectID.String())
-
-		if service.useIdempotency {
-			item.SetIdempotencyKey(getIdempotencyKey(record.ProjectID, *item.Description, period))
+		var invoiceID *string
+		if billingID == nil {
+			billingID = &cusID
+		} else {
+			invoiceID, err = service.createParentInvoice(ctx, *billingID, cusID, projName, period)
+			if err != nil {
+				return false, err
+			}
 		}
 
-		_, err = service.stripeClient.InvoiceItems().New(item)
+		err = service.createNewInvoiceItems(ctx, items, *billingID, invoiceID, record.ProjectID, to, from, period)
 		if err != nil {
 			return false, err
 		}
@@ -693,88 +709,33 @@ func (service *Service) createInvoiceItems(ctx context.Context, billingID *strin
 	return false, nil
 }
 
-type usage int
-
-const (
-	storage usage = 0
-	egress  usage = 1
-	segment usage = 2
-)
-
-// processProjectRecord creates or updates invoice line items for stripe customer.
-// TODO: this method share quite common logic with the createInvoiceItems method;
-// consider refactoring.
-func (service *Service) processProjectRecord(ctx context.Context, cusID, projName string, record ProjectRecord, userID uuid.UUID, period time.Time) (skipped bool, err error) {
-	defer mon.Task()(&ctx)(&err)
-
-	if !service.useIdempotency {
-		if err = service.db.ProjectRecords().Consume(ctx, record.ID); err != nil {
-			return false, err
+// createNewInvoiceItems helper method to create new invoice items.
+func (service *Service) createNewInvoiceItems(ctx context.Context, items []*stripe.InvoiceItemParams, customerID string, invoiceID *string, projectID uuid.UUID, to, from, period time.Time) error {
+	for _, item := range items {
+		item.Params = stripe.Params{Context: ctx}
+		item.Currency = stripe.String(string(stripe.CurrencyUSD))
+		item.Customer = stripe.String(customerID)
+		item.Period = &stripe.InvoiceItemPeriodParams{
+			End:   stripe.Int64(to.Unix()),
+			Start: stripe.Int64(from.Unix()),
 		}
-	}
+		if invoiceID != nil {
+			item.Invoice = invoiceID
+		}
+		// TODO: do not expose regular project ID.
+		item.AddMetadata("projectID", projectID.String())
 
-	if service.skipEmptyInvoices && doesProjectRecordHaveNoUsage(record) {
 		if service.useIdempotency {
-			if err = service.db.ProjectRecords().Consume(ctx, record.ID); err != nil {
-				return false, err
-			}
+			item.SetIdempotencyKey(getIdempotencyKey(projectID, *item.Description, period))
 		}
 
-		return true, nil
-	}
-
-	from, to, err := service.getFromToDates(ctx, userID, record.PeriodStart, record.PeriodEnd)
-	if err != nil {
-		return false, err
-	}
-
-	usages, err := service.usageDB.GetProjectTotalByPartner(ctx, record.ProjectID, service.partnerNames, from, to)
-	if err != nil {
-		return false, err
-	}
-
-	newItems := service.InvoiceItemsFromProjectUsage(projName, usages, true)
-
-	existingItems, err := service.getExistingInvoiceItems(ctx, cusID)
-	if err != nil {
-		return false, err
-	}
-
-	if existingItems[segment] == nil || existingItems[storage] == nil || existingItems[egress] == nil {
-		for _, item := range newItems {
-			item.Params = stripe.Params{Context: ctx}
-			item.Currency = stripe.String(string(stripe.CurrencyUSD))
-			item.Customer = stripe.String(cusID)
-			item.Period = &stripe.InvoiceItemPeriodParams{
-				End:   stripe.Int64(to.Unix()),
-				Start: stripe.Int64(from.Unix()),
-			}
-			// TODO: do not expose regular project ID.
-			item.AddMetadata("projectID", record.ProjectID.String())
-
-			if service.useIdempotency {
-				item.SetIdempotencyKey(getIdempotencyKey(record.ProjectID, *item.Description, period))
-			}
-
-			_, err = service.stripeClient.InvoiceItems().New(item)
-			if err != nil {
-				return false, err
-			}
-		}
-	} else {
-		err = service.updateExistingInvoiceItems(ctx, existingItems, newItems, record.ProjectID, period)
+		_, err := service.stripeClient.InvoiceItems().New(item)
 		if err != nil {
-			return false, err
+			return err
 		}
 	}
 
-	if service.useIdempotency {
-		if err = service.db.ProjectRecords().Consume(ctx, record.ID); err != nil {
-			return false, err
-		}
-	}
-
-	return false, nil
+	return nil
 }
 
 // getIdempotencyKey creates new unique idempotency key for given invoice item.
