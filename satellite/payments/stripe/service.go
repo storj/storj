@@ -161,7 +161,7 @@ func (service *Service) Accounts() payments.Accounts {
 }
 
 // PrepareInvoiceProjectRecords iterates through all projects and creates invoice records if none exist.
-func (service *Service) PrepareInvoiceProjectRecords(ctx context.Context, period time.Time, shouldAggregate bool) (err error) {
+func (service *Service) PrepareInvoiceProjectRecords(ctx context.Context, period time.Time) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	now := service.nowFn().UTC()
@@ -190,7 +190,7 @@ func (service *Service) PrepareInvoiceProjectRecords(ctx context.Context, period
 		}
 		numberOfCustomers += len(customersPage.Customers)
 
-		records, err := service.processCustomers(ctx, customersPage.Customers, shouldAggregate, start, end)
+		records, err := service.processCustomers(ctx, customersPage.Customers, start, end)
 		if err != nil {
 			return Error.Wrap(err)
 		}
@@ -201,7 +201,7 @@ func (service *Service) PrepareInvoiceProjectRecords(ctx context.Context, period
 	return nil
 }
 
-func (service *Service) processCustomers(ctx context.Context, customers []Customer, shouldAggregate bool, start, end time.Time) (int, error) {
+func (service *Service) processCustomers(ctx context.Context, customers []Customer, start, end time.Time) (int, error) {
 	var regularRecords []CreateProjectRecord
 	var recordsToAggregate []CreateProjectRecord
 	for _, customer := range customers {
@@ -224,26 +224,28 @@ func (service *Service) processCustomers(ctx context.Context, customers []Custom
 
 		// We generate 3 invoice items for each user project which means,
 		// we can support only 83 projects in a single invoice (249 invoice items).
-		if shouldAggregate && len(projects) > 83 {
+		if len(projects) > 83 {
 			recordsToAggregate = append(recordsToAggregate, records...)
 		} else {
 			regularRecords = append(regularRecords, records...)
 		}
 	}
 
-	err := service.db.ProjectRecords().Create(ctx, regularRecords, start, end)
-	if err != nil {
-		return 0, Error.New("failed to create regular project records: %w", err)
+	var recordsCount int
+
+	if len(regularRecords) > 0 {
+		err := service.db.ProjectRecords().Create(ctx, regularRecords, start, end)
+		if err != nil {
+			return 0, Error.New("failed to create regular project records: %w", err)
+		}
+		recordsCount += len(regularRecords)
 	}
 
-	recordsCount := len(regularRecords)
-
-	if shouldAggregate {
-		err = service.db.ProjectRecords().CreateToBeAggregated(ctx, recordsToAggregate, start, end)
+	if len(recordsToAggregate) > 0 {
+		err := service.db.ProjectRecords().CreateToBeAggregated(ctx, recordsToAggregate, start, end)
 		if err != nil {
 			return 0, Error.New("failed to create aggregated project records: %w", err)
 		}
-
 		recordsCount += len(recordsToAggregate)
 	}
 
@@ -297,53 +299,6 @@ func (service *Service) createProjectRecords(ctx context.Context, customer *Cust
 	}
 
 	return records, nil
-}
-
-// InvoiceApplyProjectRecords iterates through unapplied invoice project records and creates invoice line items
-// for stripe customer.
-func (service *Service) InvoiceApplyProjectRecords(ctx context.Context, period time.Time) (err error) {
-	defer mon.Task()(&ctx)(&err)
-
-	now := service.nowFn().UTC()
-	utc := period.UTC()
-
-	start := time.Date(utc.Year(), utc.Month(), 1, 0, 0, 0, 0, time.UTC)
-	end := time.Date(utc.Year(), utc.Month()+1, 1, 0, 0, 0, 0, time.UTC)
-
-	if end.After(now) {
-		return Error.New("allowed for past periods only")
-	}
-
-	var totalRecords int
-	var totalSkipped int
-
-	for {
-		if err = ctx.Err(); err != nil {
-			return Error.Wrap(err)
-		}
-
-		// we are always starting from offset 0 because applyProjectRecords is changing project record state to applied
-		recordsPage, err := service.db.ProjectRecords().ListUnapplied(ctx, uuid.UUID{}, service.listingLimit, start, end)
-		if err != nil {
-			return Error.Wrap(err)
-		}
-		totalRecords += len(recordsPage.Records)
-
-		skipped, err := service.applyProjectRecords(ctx, recordsPage.Records, period)
-		if err != nil {
-			return Error.Wrap(err)
-		}
-		totalSkipped += skipped
-
-		if !recordsPage.Next {
-			break
-		}
-	}
-
-	service.log.Info("Processed regular project records.",
-		zap.Int("Total", totalRecords),
-		zap.Int("Skipped", totalSkipped))
-	return nil
 }
 
 // InvoiceApplyProjectRecordsGrouped iterates the customers and creates invoice items for each project and ensures line items are grouped by project.
@@ -619,72 +574,6 @@ func (service *Service) createTokenPaymentBillingTransaction(ctx context.Context
 		return 0, Error.Wrap(err)
 	}
 	return txIDs[0], nil
-}
-
-// applyProjectRecords applies invoice intents as invoice line items to stripe customer.
-func (service *Service) applyProjectRecords(ctx context.Context, records []ProjectRecord, period time.Time) (skipCount int, err error) {
-	defer mon.Task()(&ctx)(&err)
-
-	var mu sync.Mutex
-	var errGrp errs.Group
-	limiter := sync2.NewLimiter(service.maxParallelCalls)
-	ctx, cancel := context.WithCancel(ctx)
-	defer func() {
-		cancel()
-		limiter.Wait()
-	}()
-
-	for _, record := range records {
-		if err = ctx.Err(); err != nil {
-			return 0, errs.Wrap(err)
-		}
-
-		proj, err := service.projectsDB.Get(ctx, record.ProjectID)
-		if err != nil {
-			// This should never happen, but be sure to log info to further troubleshoot before exiting.
-			service.log.Error("project ID for corresponding project record not found", zap.Stringer("Record ID", record.ID), zap.Stringer("Project ID", record.ProjectID))
-			return 0, errs.Wrap(err)
-		}
-
-		if skip, err := service.mustSkipUser(ctx, proj.OwnerID); err != nil {
-			return 0, errs.Wrap(err)
-		} else if skip {
-			mu.Lock()
-			skipCount++
-			mu.Unlock()
-			continue
-		}
-
-		billingID, cusID, err := service.db.Customers().GetStripeIDs(ctx, proj.OwnerID)
-		if err != nil {
-			if errors.Is(err, ErrNoCustomer) {
-				service.log.Warn("Stripe customer does not exist for project owner.", zap.Stringer("Owner ID", proj.OwnerID), zap.Stringer("Project ID", proj.ID))
-				continue
-			}
-
-			return 0, errs.Wrap(err)
-		}
-
-		record := record
-		limiter.Go(ctx, func() {
-			skipped, err := service.createInvoiceItems(ctx, billingID, cusID, proj.Name, record, proj.OwnerID, period)
-			if err != nil {
-				mu.Lock()
-				errGrp.Add(errs.Wrap(err))
-				mu.Unlock()
-				return
-			}
-			if skipped {
-				mu.Lock()
-				skipCount++
-				mu.Unlock()
-			}
-		})
-	}
-
-	limiter.Wait()
-
-	return skipCount, errGrp.Err()
 }
 
 // applyToBeAggregatedProjectRecords applies to be aggregated invoice intents as invoice line items to stripe customer.
@@ -1202,7 +1091,7 @@ func (service *Service) applyFreeTierCoupon(ctx context.Context, cusID string) (
 }
 
 // CreateInvoices lists through all customers, removes expired credit if applicable, and creates invoices.
-func (service *Service) CreateInvoices(ctx context.Context, period time.Time, includeEmissionInfo bool) (err error) {
+func (service *Service) CreateInvoices(ctx context.Context, period time.Time) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	now := service.nowFn().UTC()
@@ -1233,7 +1122,7 @@ func (service *Service) CreateInvoices(ctx context.Context, period time.Time, in
 			}
 		}
 
-		scheduled, draft, err := service.createInvoices(ctx, cusPage.Customers, start, includeEmissionInfo)
+		scheduled, draft, err := service.createInvoices(ctx, cusPage.Customers, start)
 		if err != nil {
 			return Error.Wrap(err)
 		}
@@ -1251,107 +1140,85 @@ func (service *Service) CreateInvoices(ctx context.Context, period time.Time, in
 }
 
 // createInvoice creates invoice for Stripe customer.
-func (service *Service) createInvoice(ctx context.Context, cusID string, period time.Time, includeEmissionInfo bool) (stripeInvoice *stripe.Invoice, err error) {
+func (service *Service) createInvoice(ctx context.Context, cusID string, period time.Time) (stripeInvoice *stripe.Invoice, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	var footer *string
+	var (
+		lastItemID   string
+		totalStorage int64
+		hasItems     bool
+	)
 
-	if includeEmissionInfo {
-		var (
-			lastItemID   string
-			totalStorage int64
-			hasItems     bool
-		)
-
-		for {
-			params := &stripe.InvoiceItemListParams{
-				Customer: &cusID,
-				Pending:  stripe.Bool(true),
-				ListParams: stripe.ListParams{
-					Context: ctx,
-					Limit:   stripe.Int64(100), // Max limit per request
-				},
-			}
-			if lastItemID != "" {
-				params.ListParams.StartingAfter = stripe.String(lastItemID)
-			}
-
-			itemsIter := service.stripeClient.InvoiceItems().List(params)
-			for itemsIter.Next() {
-				if !hasItems {
-					hasItems = true
-				}
-
-				item := itemsIter.InvoiceItem()
-				if strings.Contains(item.Description, storageInvoiceItemDesc) {
-					totalStorage += item.Quantity
-				}
-
-				lastItemID = item.ID
-			}
-
-			if err = itemsIter.Err(); err != nil {
-				return nil, err
-			}
-			if !hasItems {
-				return nil, nil
-			}
-
-			// Use HasMore to determine if we should break the loop.
-			if !itemsIter.InvoiceItemList().HasMore {
-				break
-			}
-		}
-
-		impact, err := service.emission.CalculateImpact(&emission.CalculationInput{
-			AmountOfDataInTB: float64(totalStorage * hoursPerMonth / 1000000), // convert MB-month to TB-hour.
-			Duration:         time.Hour * hoursPerMonth,
-			IsTBDuration:     true,
-		})
-		if err != nil {
-			return nil, err
-		}
-
-		whitePaperLink := "https://www.storj.io/documents/storj-sustainability-whitepaper.pdf"
-		footerMsg := fmt.Sprintf(
-			"Estimated Storj Emissions: %.3f kgCO2e\nEstimated Hyperscaler Emissions: %.3f kgCO2e\nMore information on estimates: %s",
-			impact.EstimatedKgCO2eStorj,
-			impact.EstimatedKgCO2eHyperscaler,
-			whitePaperLink,
-		)
-
-		savedValue := impact.EstimatedKgCO2eHyperscaler - impact.EstimatedKgCO2eStorj
-		if savedValue < 0 {
-			savedValue = 0
-		}
-
-		savedTrees := service.emission.CalculateSavedTrees(savedValue)
-		if savedTrees > 0 {
-			treesCalcLink := "https://www.epa.gov/energy/greenhouse-gases-equivalencies-calculator-calculations-and-references#seedlings"
-			footerMsg += fmt.Sprintf("\nEstimated Trees Saved: %d\nMore information on trees saved: %s", savedTrees, treesCalcLink)
-		}
-
-		footerMsg += "\n\nNote: The carbon emissions displayed are estimated based on the total account usage, calculated for the dates of this invoice."
-
-		footer = stripe.String(footerMsg)
-	} else {
-		itemsIter := service.stripeClient.InvoiceItems().List(&stripe.InvoiceItemListParams{
+	for {
+		params := &stripe.InvoiceItemListParams{
 			Customer: &cusID,
 			Pending:  stripe.Bool(true),
 			ListParams: stripe.ListParams{
 				Context: ctx,
-				Limit:   stripe.Int64(1),
+				Limit:   stripe.Int64(100), // Max limit per request
 			},
-		})
+		}
+		if lastItemID != "" {
+			params.ListParams.StartingAfter = stripe.String(lastItemID)
+		}
 
-		hasItems := itemsIter.Next()
+		itemsIter := service.stripeClient.InvoiceItems().List(params)
+		for itemsIter.Next() {
+			if !hasItems {
+				hasItems = true
+			}
+
+			item := itemsIter.InvoiceItem()
+			if strings.Contains(item.Description, storageInvoiceItemDesc) {
+				totalStorage += item.Quantity
+			}
+
+			lastItemID = item.ID
+		}
+
 		if err = itemsIter.Err(); err != nil {
 			return nil, err
 		}
 		if !hasItems {
 			return nil, nil
 		}
+
+		// Use HasMore to determine if we should break the loop.
+		if !itemsIter.List().GetListMeta().HasMore {
+			break
+		}
 	}
+
+	impact, err := service.emission.CalculateImpact(&emission.CalculationInput{
+		AmountOfDataInTB: float64(totalStorage * hoursPerMonth / 1000000), // convert MB-month to TB-hour.
+		Duration:         time.Hour * hoursPerMonth,
+		IsTBDuration:     true,
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	whitePaperLink := "https://www.storj.io/documents/storj-sustainability-whitepaper.pdf"
+	footerMsg := fmt.Sprintf(
+		"Estimated Storj Emissions: %.3f kgCO2e\nEstimated Hyperscaler Emissions: %.3f kgCO2e\nMore information on estimates: %s",
+		impact.EstimatedKgCO2eStorj,
+		impact.EstimatedKgCO2eHyperscaler,
+		whitePaperLink,
+	)
+
+	savedValue := impact.EstimatedKgCO2eHyperscaler - impact.EstimatedKgCO2eStorj
+	if savedValue < 0 {
+		savedValue = 0
+	}
+
+	savedTrees := service.emission.CalculateSavedTrees(savedValue)
+	if savedTrees > 0 {
+		treesCalcLink := "https://www.epa.gov/energy/greenhouse-gases-equivalencies-calculator-calculations-and-references#seedlings"
+		footerMsg += fmt.Sprintf("\nEstimated Trees Saved: %d\nMore information on trees saved: %s", savedTrees, treesCalcLink)
+	}
+
+	footerMsg += "\n\nNote: The carbon emissions displayed are estimated based on the total account usage, calculated for the dates of this invoice."
+	footer := stripe.String(footerMsg)
 
 	description := fmt.Sprintf("Storj Cloud Storage for %s %d", period.Month(), period.Year())
 	stripeInvoice, err = service.stripeClient.Invoices().New(
@@ -1384,7 +1251,7 @@ func (service *Service) createInvoice(ctx context.Context, cusID string, period 
 }
 
 // createInvoices creates invoices for Stripe customers.
-func (service *Service) createInvoices(ctx context.Context, customers []Customer, period time.Time, includeEmissionInfo bool) (scheduled, draft int, err error) {
+func (service *Service) createInvoices(ctx context.Context, customers []Customer, period time.Time) (scheduled, draft int, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	limiter := sync2.NewLimiter(service.maxParallelCalls)
@@ -1403,7 +1270,7 @@ func (service *Service) createInvoices(ctx context.Context, customers []Customer
 				return
 			}
 
-			inv, err := service.createInvoice(ctx, cus.ID, period, includeEmissionInfo)
+			inv, err := service.createInvoice(ctx, cus.ID, period)
 			if err != nil {
 				mu.Lock()
 				errGrp.Add(err)
@@ -1602,38 +1469,29 @@ func (service *Service) CreateBalanceInvoiceItems(ctx context.Context) (err erro
 // GenerateInvoices performs tasks necessary to generate Stripe invoices.
 // This is equivalent to invoking PrepareInvoiceProjectRecords, InvoiceApplyProjectRecords,
 // and CreateInvoices in order.
-func (service *Service) GenerateInvoices(ctx context.Context, period time.Time, shouldAggregate, groupInvoiceItems, includeEmissionInfo bool) (err error) {
+func (service *Service) GenerateInvoices(ctx context.Context, period time.Time) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	service.log.Info("Preparing invoice project records")
-	err = service.PrepareInvoiceProjectRecords(ctx, period, shouldAggregate)
+	err = service.PrepareInvoiceProjectRecords(ctx, period)
 	if err != nil {
 		return err
 	}
 
 	service.log.Info("Applying invoice project records")
-	if groupInvoiceItems {
-		err = service.InvoiceApplyProjectRecordsGrouped(ctx, period)
-		if err != nil {
-			return err
-		}
-	} else {
-		err = service.InvoiceApplyProjectRecords(ctx, period)
-		if err != nil {
-			return err
-		}
+	err = service.InvoiceApplyProjectRecordsGrouped(ctx, period)
+	if err != nil {
+		return err
 	}
 
-	if shouldAggregate {
-		service.log.Info("Applying to be aggregated invoice project records")
-		err = service.InvoiceApplyToBeAggregatedProjectRecords(ctx, period)
-		if err != nil {
-			return err
-		}
+	service.log.Info("Applying to be aggregated invoice project records")
+	err = service.InvoiceApplyToBeAggregatedProjectRecords(ctx, period)
+	if err != nil {
+		return err
 	}
 
 	service.log.Info("Creating invoices")
-	err = service.CreateInvoices(ctx, period, includeEmissionInfo)
+	err = service.CreateInvoices(ctx, period)
 	if err != nil {
 		return err
 	}
