@@ -82,10 +82,10 @@
 
 <script setup lang="ts">
 import { VBtn, VCard, VCardText, VCol, VContainer, VForm, VRow, VTextField } from 'vuetify/components';
-import { computed, onMounted, ref, watch } from 'vue';
+import { computed, onBeforeMount, onMounted, ref, watch } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 
-import { RequiredRule, ValidationRule } from '@/types/common';
+import { GoodPasswordRule, RequiredRule, ValidationRule } from '@/types/common';
 import { ErrorMFARequired } from '@/api/errors/ErrorMFARequired';
 import { ErrorTokenExpired } from '@/api/errors/ErrorTokenExpired';
 import { ErrorTooManyAttempts } from '@/api/errors/ErrorTooManyAttempts';
@@ -93,12 +93,17 @@ import { AuthHttpApi } from '@/api/auth';
 import { useNotify } from '@/composables/useNotify';
 import { useLoading } from '@/composables/useLoading';
 import { ROUTES } from '@/router';
+import { useConfigStore } from '@/store/modules/configStore';
+import { useUsersStore } from '@/store/modules/usersStore';
 
 import MfaComponent from '@/views/MfaComponent.vue';
 import PasswordInputEyeIcons from '@/components/PasswordInputEyeIcons.vue';
 import PasswordStrength from '@/components/PasswordStrength.vue';
 
 const auth: AuthHttpApi = new AuthHttpApi();
+
+const configStore = useConfigStore();
+const usersStore = useUsersStore();
 
 const router = useRouter();
 const route = useRoute();
@@ -121,12 +126,25 @@ const token = ref<string>('');
 const form = ref<VForm | null>(null);
 const repPasswordField = ref<VTextField | null>(null);
 
-const passwordRules: ValidationRule<string>[] = [
-    RequiredRule,
-];
+const passMaxLength = computed<number>(() => configStore.state.config.passwordMaximumLength);
+const passMinLength = computed<number>(() => configStore.state.config.passwordMinimumLength);
+const badPasswords = computed<Set<string>>(() => usersStore.state.badPasswords);
+const liveCheckBadPassword = computed<boolean>(() => configStore.state.config.liveCheckBadPasswords);
+
+const passwordRules = computed<ValidationRule<string>[]>(() => {
+    const rules = [
+        RequiredRule,
+        (value: string) => value.length < passMinLength.value || value.length > passMaxLength.value
+            ? `Password must be between ${passMinLength.value} and ${passMaxLength.value} characters`
+            : true,
+    ];
+    if (liveCheckBadPassword.value) rules.push(GoodPasswordRule);
+
+    return rules;
+});
 
 const repeatPasswordRules = computed<ValidationRule<string>[]>(() => [
-    ...passwordRules,
+    ...passwordRules.value,
     (value: string) => {
         if (password.value !== value) {
             return 'Passwords do not match';
@@ -177,6 +195,12 @@ function onResetClick(): void {
         }
     });
 }
+
+onBeforeMount(() => {
+    if (liveCheckBadPassword.value && badPasswords.value.size === 0) {
+        usersStore.getBadPasswords().catch(() => {});
+    }
+});
 
 /**
  * Lifecycle hook after initial render.

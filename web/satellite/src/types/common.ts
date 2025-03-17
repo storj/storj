@@ -5,6 +5,7 @@ import { computed, ComputedRef, ref } from 'vue';
 
 import { Validator } from '@/utils/validation';
 import { useConfigStore } from '@/store/modules/configStore';
+import { useUsersStore } from '@/store/modules/usersStore';
 
 export enum SortDirection {
     asc = 1,
@@ -112,6 +113,12 @@ export function EmailRule(value: string, strict = false): string | boolean {
 
 export function DomainRule(value: string): string | boolean {
     return Validator.domainName(value) || 'Domain must be valid.';
+}
+
+export function GoodPasswordRule(value: unknown): string | boolean {
+    const badPasswords = useUsersStore().state.badPasswords;
+
+    return badPasswords.has(value as string) ? 'Password is on the list of disallowed passwords.' : true;
 }
 
 export function MaxNameLengthRule(value: string): string | boolean {

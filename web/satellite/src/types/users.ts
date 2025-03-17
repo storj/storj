@@ -28,6 +28,14 @@ export interface UsersApi {
     get(): Promise<User>;
 
     /**
+     * Fetches a list of encoded bad passwords.
+     *
+     * @returns Set<string>
+     * @throws Error
+     */
+    getBadPasswords(): Promise<Set<string>>;
+
+    /**
      * Fetches user frozen status.
      *
      * @returns boolean

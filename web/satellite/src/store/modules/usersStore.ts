@@ -33,6 +33,7 @@ export class UsersState {
     public userMFARecoveryCodes: string[] = [];
     public sessionsCursor: SessionsCursor = new SessionsCursor();
     public sessionsPage: SessionsPage = new SessionsPage();
+    public badPasswords: Set<string> = new Set();
 }
 
 export const useUsersStore = defineStore('users', () => {
@@ -62,6 +63,10 @@ export const useUsersStore = defineStore('users', () => {
 
     async function changeEmail(step: ChangeEmailStep, data: string): Promise<void> {
         await api.changeEmail(step, data, csrfToken.value);
+    }
+
+    async function getBadPasswords(): Promise<void> {
+        state.badPasswords = await api.getBadPasswords();
     }
 
     async function deleteAccount(step: DeleteAccountStep, data: string): Promise<AccountDeletionData | null> {
@@ -192,5 +197,6 @@ export const useUsersStore = defineStore('users', () => {
         updateSettings,
         getSettings,
         requestProjectLimitIncrease,
+        getBadPasswords,
     };
 });

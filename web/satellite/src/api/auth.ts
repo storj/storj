@@ -201,6 +201,31 @@ export class AuthHttpApi implements UsersApi {
     }
 
     /**
+     * Fetches a list of encoded bad passwords.
+     *
+     * @returns Set<string>
+     * @throws APIError
+     */
+    public async getBadPasswords(): Promise<Set<string>> {
+        const path = `${this.ROOT_PATH}/bad-passwords`;
+        const response = await this.http.get(path);
+
+        if (response.ok) {
+            const result = await response.text();
+            const decoded = atob(result);
+
+            return new Set(decoded.split('\n').map(pwd => pwd.trim()).filter(pwd => pwd !== ''));
+        }
+
+        const result = await response.json();
+        throw new APIError({
+            status: response.status,
+            message: result.error || 'Can not get bad passwords',
+            requestID: response.headers.get('x-request-id'),
+        });
+    }
+
+    /**
      * Used to mark user's account for deletion.
      *
      * @throws Error

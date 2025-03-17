@@ -303,7 +303,7 @@ import { useRoute, useRouter } from 'vue-router';
 import { Check } from 'lucide-vue-next';
 
 import { useConfigStore } from '@/store/modules/configStore';
-import { EmailRule, RequiredRule } from '@/types/common';
+import { EmailRule, GoodPasswordRule, RequiredRule } from '@/types/common';
 import { MultiCaptchaConfig } from '@/types/config.gen';
 import { PartnerConfig } from '@/types/partners';
 import { AuthHttpApi } from '@/api/auth';
@@ -313,6 +313,7 @@ import { AnalyticsEvent } from '@/utils/constants/analyticsEventNames';
 import { ROUTES } from '@/router';
 import { SsoCheckState } from '@/types/users';
 import { APIError } from '@/utils/error';
+import { useUsersStore } from '@/store/modules/usersStore';
 
 import SignupConfirmation from '@/views/SignupConfirmation.vue';
 import PasswordInputEyeIcons from '@/components/PasswordInputEyeIcons.vue';
@@ -322,6 +323,7 @@ const auth = new AuthHttpApi();
 
 const analyticsStore = useAnalyticsStore();
 const configStore = useConfigStore();
+const usersStore = useUsersStore();
 
 const router = useRouter();
 const notify = useNotify();
@@ -370,6 +372,9 @@ const emailRules: ((_: string) => boolean | string)[] = [
     (value) => EmailRule(value, true),
 ];
 
+const badPasswords = computed<Set<string>>(() => usersStore.state.badPasswords);
+const liveCheckBadPassword = computed<boolean>(() => configStore.state.config.liveCheckBadPasswords);
+
 const ssoEnabled = computed(() => configStore.state.config.ssoEnabled);
 
 const passwordRules = computed(() => {
@@ -379,6 +384,8 @@ const passwordRules = computed(() => {
             ? `Password must be between ${passMinLength.value} and ${passMaxLength.value} characters`
             : true,
     ];
+    if (liveCheckBadPassword.value) rules.push(GoodPasswordRule);
+
     if (!ssoEnabled.value) {
         return rules;
     }
@@ -636,6 +643,10 @@ async function detectBraveBrowser(): Promise<boolean> {
 }
 
 onBeforeMount(async () => {
+    if (liveCheckBadPassword.value && badPasswords.value.size === 0) {
+        usersStore.getBadPasswords().catch(() => {});
+    }
+
     if (route.query.partner) {
         partner.value = route.query.partner.toString();
     }

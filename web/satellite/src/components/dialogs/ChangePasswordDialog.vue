@@ -124,7 +124,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed, ref } from 'vue';
+import { computed, onBeforeMount, ref, watch } from 'vue';
 import {
     VDialog,
     VCard,
@@ -142,7 +142,7 @@ import {
 } from 'vuetify/components';
 import { Lock } from 'lucide-vue-next';
 
-import { RequiredRule } from '@/types/common';
+import { GoodPasswordRule, RequiredRule, ValidationRule } from '@/types/common';
 import { useLoading } from '@/composables/useLoading';
 import { useConfigStore } from '@/store/modules/configStore';
 import { AuthHttpApi } from '@/api/auth';
@@ -154,16 +154,31 @@ import { useUsersStore } from '@/store/modules/usersStore';
 import PasswordStrength from '@/components/PasswordStrength.vue';
 
 const auth: AuthHttpApi = new AuthHttpApi();
+
+const configStore = useConfigStore();
+const usersStore = useUsersStore();
+
+const badPasswords = computed<Set<string>>(() => usersStore.state.badPasswords);
+const liveCheckBadPassword = computed<boolean>(() => configStore.state.config.liveCheckBadPasswords);
+
 const oldRules = [
     RequiredRule,
 ];
-const newRules = [
-    RequiredRule,
-    (value: string) => (value && value.length >= config.passwordMinimumLength || `Invalid password. Use ${config.passwordMinimumLength} or more characters`),
-    (value: string) => (value && value.length <= config.passwordMaximumLength || `Invalid password. Use ${config.passwordMaximumLength} or fewer characters`),
-];
+
+const newRules = computed<ValidationRule<string>[]>(() => {
+    const rules = [
+        RequiredRule,
+        (value: string) => value.length < config.passwordMinimumLength || value.length > config.passwordMaximumLength
+            ? `Password must be between ${config.passwordMinimumLength} and ${config.passwordMaximumLength} characters`
+            : true,
+    ];
+    if (liveCheckBadPassword.value) rules.push(GoodPasswordRule);
+
+    return rules;
+});
+
 const repeatRules = [
-    ...newRules,
+    ...newRules.value,
     (value: string) => (value && value === newPassword.value || 'Passwords are not the same.'),
 ];
 
@@ -202,7 +217,22 @@ async function onChangePassword(): Promise<void> {
         model.value = false;
     });
 }
+
+onBeforeMount(() => {
+    if (liveCheckBadPassword.value && badPasswords.value.size === 0) {
+        usersStore.getBadPasswords().catch(() => {});
+    }
+});
+
+watch(model, val => {
+    if (!val) {
+        oldPassword.value = '';
+        newPassword.value = '';
+        formValid.value = false;
+    }
+});
 </script>
+
 <style scoped lang="scss">
 :deep(.v-overlay__content) {
     padding: 0 !important;
