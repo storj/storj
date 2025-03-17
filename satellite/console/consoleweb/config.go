@@ -86,6 +86,7 @@ type FrontendConfig struct {
 	DownloadPrefixEnabled             bool                  `json:"downloadPrefixEnabled"`
 	ZipDownloadLimit                  int                   `json:"zipDownloadLimit"`
 	RestAPIKeysUIEnabled              bool                  `json:"restAPIKeysUIEnabled"`
+	LiveCheckBadPasswords             bool                  `json:"liveCheckBadPasswords"`
 }
 
 // Satellites is a configuration value that contains a list of satellite names and addresses.

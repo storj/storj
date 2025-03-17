@@ -57,6 +57,7 @@ type Auth struct {
 	ActivationCodeEnabled     bool
 	SatelliteName             string
 	badPasswords              map[string]struct{}
+	badPasswordsEncoded       string
 	service                   *console.Service
 	accountFreezeService      *console.AccountFreezeService
 	analytics                 *analytics.Service
@@ -67,7 +68,7 @@ type Auth struct {
 }
 
 // NewAuth is a constructor for api auth controller.
-func NewAuth(log *zap.Logger, service *console.Service, accountFreezeService *console.AccountFreezeService, mailService *mailservice.Service, cookieAuth *consolewebauth.CookieAuth, analytics *analytics.Service, ssoService *sso.Service, csrfService *csrf.Service, satelliteName, externalAddress, letUsKnowURL, termsAndConditionsURL, contactInfoURL, generalRequestURL string, activationCodeEnabled bool, badPasswords map[string]struct{}) *Auth {
+func NewAuth(log *zap.Logger, service *console.Service, accountFreezeService *console.AccountFreezeService, mailService *mailservice.Service, cookieAuth *consolewebauth.CookieAuth, analytics *analytics.Service, ssoService *sso.Service, csrfService *csrf.Service, satelliteName, externalAddress, letUsKnowURL, termsAndConditionsURL, contactInfoURL, generalRequestURL string, activationCodeEnabled bool, badPasswords map[string]struct{}, badPasswordsEncoded string) *Auth {
 	return &Auth{
 		log:                       log,
 		ExternalAddress:           externalAddress,
@@ -86,6 +87,7 @@ func NewAuth(log *zap.Logger, service *console.Service, accountFreezeService *co
 		cookieAuth:                cookieAuth,
 		analytics:                 analytics,
 		badPasswords:              badPasswords,
+		badPasswordsEncoded:       badPasswordsEncoded,
 		ssoService:                ssoService,
 		csrfService:               csrfService,
 	}
@@ -947,6 +949,21 @@ func (a *Auth) SetupAccount(w http.ResponseWriter, r *http.Request) {
 
 	if err = a.service.SetupAccount(ctx, updatedInfo); err != nil {
 		a.serveJSONError(ctx, w, err)
+	}
+}
+
+// GetBadPasswords returns a list of encoded bad passwords.
+func (a *Auth) GetBadPasswords(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	var err error
+	defer mon.Task()(&ctx)(&err)
+
+	w.Header().Set("Cache-Control", "public, max-age=604800") // cache response for 7 days.
+	w.Header().Set("Content-Type", "text/plain")
+	w.Header().Set("Content-Disposition", "attachment; filename=\"bad-passwords.txt\"")
+
+	if _, err = w.Write([]byte(a.badPasswordsEncoded)); err != nil {
+		a.log.Error("could not write encoded bad passwords", zap.Error(ErrAuthAPI.Wrap(err)))
 	}
 }
 

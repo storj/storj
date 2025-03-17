@@ -82,6 +82,7 @@ export class FrontendConfig {
     downloadPrefixEnabled: boolean;
     zipDownloadLimit: number;
     restAPIKeysUIEnabled: boolean;
+    liveCheckBadPasswords: boolean;
 }
 
 export class MultiCaptchaConfig {

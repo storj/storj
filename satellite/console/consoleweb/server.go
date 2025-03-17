@@ -7,6 +7,7 @@ import (
 	"context"
 	"crypto/subtle"
 	_ "embed"
+	"encoding/base64"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -122,6 +123,7 @@ type Config struct {
 	BillingAddFundsEnabled          bool          `help:"whether billing add funds feature is enabled" default:"false"`
 	DownloadPrefixEnabled           bool          `help:"whether prefix (bucket/folder) download is enabled" default:"false"`
 	ZipDownloadLimit                int           `help:"maximum number of objects allowed for a zip format download" default:"1000"`
+	LiveCheckBadPasswords           bool          `help:"whether to check if provided password is in bad passwords list" default:"false"`
 
 	OauthCodeExpiry         time.Duration `help:"how long oauth authorization codes are issued for" default:"10m"`
 	OauthAccessTokenExpiry  time.Duration `help:"how long oauth access tokens are issued for" default:"24h"`
@@ -347,12 +349,12 @@ func NewServer(logger *zap.Logger, config Config, service *console.Service, oidc
 		valdiRouter.Handle("/api-keys/{project-id}", server.userIDRateLimiter.Limit(http.HandlerFunc(valdiController.GetAPIKey))).Methods(http.MethodGet, http.MethodOptions)
 	}
 
-	badPasswords, err := server.loadBadPasswords()
+	badPasswords, badPasswordsEncoded, err := server.loadBadPasswords()
 	if err != nil {
 		server.log.Error("unable to load bad passwords list", zap.Error(err))
 	}
 
-	authController := consoleapi.NewAuth(logger, service, accountFreezeService, mailService, server.cookieAuth, server.analytics, ssoService, csrfService, config.SatelliteName, server.config.ExternalAddress, config.LetUsKnowURL, config.TermsAndConditionsURL, config.ContactInfoURL, config.GeneralRequestURL, config.SignupActivationCodeEnabled, badPasswords)
+	authController := consoleapi.NewAuth(logger, service, accountFreezeService, mailService, server.cookieAuth, server.analytics, ssoService, csrfService, config.SatelliteName, server.config.ExternalAddress, config.LetUsKnowURL, config.TermsAndConditionsURL, config.ContactInfoURL, config.GeneralRequestURL, config.SignupActivationCodeEnabled, badPasswords, badPasswordsEncoded)
 	authRouter := router.PathPrefix("/api/v0/auth").Subrouter()
 	authRouter.Use(server.withCORS)
 	authRouter.Handle("/account", server.withAuth(http.HandlerFunc(authController.GetAccount))).Methods(http.MethodGet, http.MethodOptions)
@@ -371,6 +373,7 @@ func NewServer(logger *zap.Logger, config Config, service *console.Service, oidc
 	authRouter.Handle("/logout", server.withCSRFProtection(server.withAuth(http.HandlerFunc(authController.Logout)))).Methods(http.MethodPost, http.MethodOptions)
 	authRouter.Handle("/token", server.withCSRFProtection(server.ipRateLimiter.Limit(http.HandlerFunc(authController.Token)))).Methods(http.MethodPost, http.MethodOptions)
 	authRouter.Handle("/token-by-api-key", server.ipRateLimiter.Limit(http.HandlerFunc(authController.TokenByAPIKey))).Methods(http.MethodPost, http.MethodOptions)
+	authRouter.Handle("/bad-passwords", server.ipRateLimiter.Limit(http.HandlerFunc(authController.GetBadPasswords))).Methods(http.MethodGet, http.MethodOptions)
 	authRouter.Handle("/register", server.ipRateLimiter.Limit(http.HandlerFunc(authController.Register))).Methods(http.MethodPost, http.MethodOptions)
 	authRouter.Handle("/code-activation", server.ipRateLimiter.Limit(http.HandlerFunc(authController.ActivateAccount))).Methods(http.MethodPatch, http.MethodOptions)
 	authRouter.Handle("/forgot-password", server.ipRateLimiter.Limit(http.HandlerFunc(authController.ForgotPassword))).Methods(http.MethodPost, http.MethodOptions)
@@ -729,24 +732,26 @@ func (server *Server) setAppHeaders(w http.ResponseWriter, r *http.Request) {
 	header.Set("Referrer-Policy", "same-origin") // Only expose the referring url when navigating around the satellite itself.
 }
 
-// loadBadPasswords loads the bad passwords from a file into a map.
-func (server *Server) loadBadPasswords() (map[string]struct{}, error) {
+// loadBadPasswords loads the bad passwords from a file into a map and encoded string.
+func (server *Server) loadBadPasswords() (map[string]struct{}, string, error) {
 	if server.config.BadPasswordsFile == "" {
-		return nil, nil
+		return nil, "", nil
 	}
 
 	bytes, err := os.ReadFile(server.config.BadPasswordsFile)
 	if err != nil {
-		return nil, err
+		return nil, "", err
 	}
 
 	badPasswords := make(map[string]struct{})
 	parsedPasswords := strings.Split(string(bytes), "\n")
 	for _, p := range parsedPasswords {
-		badPasswords[p] = struct{}{}
+		if p != "" {
+			badPasswords[p] = struct{}{}
+		}
 	}
 
-	return badPasswords, nil
+	return badPasswords, base64.StdEncoding.EncodeToString(bytes), nil
 }
 
 // appHandler is web app http handler function.
@@ -1018,6 +1023,7 @@ func (server *Server) frontendConfigHandler(w http.ResponseWriter, r *http.Reque
 		MinAddFundsAmount:                 server.config.MinAddFundsAmount,
 		DownloadPrefixEnabled:             server.config.DownloadPrefixEnabled,
 		RestAPIKeysUIEnabled:              server.config.RestAPIKeysUIEnabled,
+		LiveCheckBadPasswords:             server.config.LiveCheckBadPasswords,
 	}
 
 	err := json.NewEncoder(w).Encode(&cfg)

@@ -442,6 +442,9 @@ compensation.withheld-percents: 75,75,75,50,50,50,25,25,25,0,0,0,0,0,0
 # url link for linksharing requests within the application
 # console.linksharing-url: https://link.storjsatelliteshare.io
 
+# whether to check if provided password is in bad passwords list
+# console.live-check-bad-passwords: false
+
 # number of times user can try to login without penalty
 # console.login-attempts-without-penalty: 3
 
