@@ -239,6 +239,7 @@ func (service *Service) Tally(ctx context.Context) (err error) {
 	monAccounting.IntVal("total_segments").Observe(total.Segments()) //mon:locked
 	monAccounting.IntVal("total_bytes").Observe(total.Bytes())       //mon:locked
 	monAccounting.IntVal("total_pending_objects").Observe(total.PendingObjectCount)
+	monAccounting.IntVal("total_metadata_size").Observe(total.MetadataSize)
 
 	return errAtRest.Err()
 }
