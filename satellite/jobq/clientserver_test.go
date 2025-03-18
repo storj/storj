@@ -6,6 +6,7 @@ package jobq_test
 import (
 	"context"
 	"net"
+	"sort"
 	"testing"
 	"time"
 
@@ -14,8 +15,10 @@ import (
 	"golang.org/x/sync/errgroup"
 
 	"storj.io/common/storj"
+	"storj.io/common/testcontext"
 	"storj.io/common/testrand"
 	"storj.io/storj/satellite/jobq"
+	"storj.io/storj/satellite/jobq/jobqtest"
 	"storj.io/storj/satellite/jobq/server"
 )
 
@@ -418,4 +421,150 @@ func TestClientServerTrim(t *testing.T) {
 
 	cancel()
 	require.NoError(t, group.Wait())
+}
+
+func TestStat(t *testing.T) {
+	jobqtest.WithServer(t, func(ctx *testcontext.Context, jobConfig jobq.Config) {
+		client, err := jobq.Dial(jobConfig.ServerNodeURL.Address)
+		require.NoError(t, err)
+		t.Cleanup(func() {
+			if err := client.Close(); err != nil {
+				t.Logf("failed to close client: %v", err)
+				t.Fail()
+			}
+		})
+
+		// Create and push a few jobs
+		for i := 0; i < 5; i++ {
+			job := jobq.RepairJob{
+				ID:         jobq.SegmentIdentifier{StreamID: testrand.UUID(), Position: uint64(i)},
+				Health:     float64(i),
+				Placement:  42,
+				InsertedAt: uint64(time.Now().Unix()),
+			}
+			_, err := client.Push(ctx, job)
+			require.NoError(t, err)
+		}
+
+		// Get stats for the queue
+		stat, err := client.Stat(ctx, storj.PlacementConstraint(42))
+		require.NoError(t, err)
+		require.Equal(t, jobq.QueueStat{
+			Placement:        42,
+			Count:            5,
+			MinInsertedAt:    stat.MinInsertedAt,
+			MaxInsertedAt:    stat.MaxInsertedAt,
+			MinAttemptedAt:   nil,
+			MaxAttemptedAt:   nil,
+			MinSegmentHealth: 0.0,
+			MaxSegmentHealth: 4.0,
+		}, stat)
+		require.GreaterOrEqual(t, stat.MaxInsertedAt, stat.MinInsertedAt)
+	})
+}
+
+func TestStatAll(t *testing.T) {
+	jobqtest.WithServer(t, func(ctx *testcontext.Context, jobConfig jobq.Config) {
+		client, err := jobq.Dial(jobConfig.ServerNodeURL.Address)
+		require.NoError(t, err)
+		t.Cleanup(func() {
+			if err := client.Close(); err != nil {
+				t.Logf("failed to close client: %v", err)
+				t.Fail()
+			}
+		})
+
+		// Create and push a few jobs
+		for i := 0; i < 5; i++ {
+			job := jobq.RepairJob{
+				ID:         jobq.SegmentIdentifier{StreamID: testrand.UUID(), Position: uint64(i)},
+				Health:     float64(i),
+				Placement:  42,
+				InsertedAt: uint64(time.Now().Unix()),
+			}
+			_, err := client.Push(ctx, job)
+			require.NoError(t, err)
+		}
+		job := jobq.RepairJob{
+			ID:         jobq.SegmentIdentifier{StreamID: testrand.UUID(), Position: 5},
+			Health:     10.0,
+			Placement:  43,
+			InsertedAt: uint64(time.Now().Unix()),
+		}
+		_, err = client.Push(ctx, job)
+		require.NoError(t, err)
+
+		// Get stats for the queue
+		stat, err := client.StatAll(ctx)
+		require.NoError(t, err)
+		require.Len(t, stat, 4)
+
+		sort.Slice(stat, func(i, j int) bool {
+			if stat[i].Placement < stat[j].Placement {
+				return true
+			}
+			if stat[i].Placement > stat[j].Placement {
+				return false
+			}
+			if stat[i].MinAttemptedAt == nil || stat[j].MinAttemptedAt != nil {
+				return true
+			}
+			if stat[i].MinAttemptedAt != nil || stat[j].MinAttemptedAt == nil {
+				return false
+			}
+			return stat[i].MinSegmentHealth < stat[j].MinSegmentHealth
+		})
+
+		// no jobs in retry for placement 42
+		require.Equal(t, jobq.QueueStat{
+			Placement:        42,
+			Count:            0,
+			MinInsertedAt:    time.Unix(0, 0).UTC(),
+			MaxInsertedAt:    time.Unix(0, 0).UTC(),
+			MinAttemptedAt:   nil,
+			MaxAttemptedAt:   nil,
+			MinSegmentHealth: 0.0,
+			MaxSegmentHealth: 0.0,
+		}, stat[0])
+
+		require.Equal(t, jobq.QueueStat{
+			Placement:        42,
+			Count:            5,
+			MinInsertedAt:    stat[1].MinInsertedAt.UTC(),
+			MaxInsertedAt:    stat[1].MaxInsertedAt.UTC(),
+			MinAttemptedAt:   nil,
+			MaxAttemptedAt:   nil,
+			MinSegmentHealth: 0.0,
+			MaxSegmentHealth: 4.0,
+		}, stat[1])
+		require.NotZero(t, stat[1].MinInsertedAt)
+		require.NotZero(t, stat[1].MaxInsertedAt)
+		require.LessOrEqual(t, stat[1].MinInsertedAt, stat[1].MaxInsertedAt)
+
+		// no jobs in retry for placement 43
+		require.Equal(t, jobq.QueueStat{
+			Placement:        43,
+			Count:            0,
+			MinInsertedAt:    time.Unix(0, 0).UTC(),
+			MaxInsertedAt:    time.Unix(0, 0).UTC(),
+			MinAttemptedAt:   nil,
+			MaxAttemptedAt:   nil,
+			MinSegmentHealth: 0.0,
+			MaxSegmentHealth: 0.0,
+		}, stat[2])
+
+		require.Equal(t, jobq.QueueStat{
+			Placement:        43,
+			Count:            1,
+			MinInsertedAt:    stat[3].MinInsertedAt.UTC(),
+			MaxInsertedAt:    stat[3].MaxInsertedAt.UTC(),
+			MinAttemptedAt:   nil,
+			MaxAttemptedAt:   nil,
+			MinSegmentHealth: 10.0,
+			MaxSegmentHealth: 10.0,
+		}, stat[3])
+		require.NotZero(t, stat[3].MinInsertedAt)
+		require.NotZero(t, stat[3].MaxInsertedAt)
+		require.LessOrEqual(t, stat[3].MinInsertedAt, stat[3].MaxInsertedAt)
+	})
 }
