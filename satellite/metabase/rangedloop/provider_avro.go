@@ -263,6 +263,17 @@ func segment(ctx context.Context, recMap map[string]any, aliasCache *metabase.No
 		return Segment{}, errs.Wrap(err)
 	}
 
+	redundancyInt64, err := toInt64(recMap["redundancy"])
+	if err != nil {
+		return Segment{}, errs.Wrap(err)
+	}
+
+	var redundancy storj.RedundancyScheme
+	err = redundancy.Scan(redundancyInt64)
+	if err != nil {
+		return Segment{}, errs.Wrap(err)
+	}
+
 	placement, err := toInt64(recMap["placement"])
 	if err != nil {
 		return Segment{}, errs.Wrap(err)
@@ -286,7 +297,7 @@ func segment(ctx context.Context, recMap map[string]any, aliasCache *metabase.No
 		PlainSize:     int32(plainSize), // TODO type check
 		AliasPieces:   aliasPieces,
 		Pieces:        pieces,
-		Redundancy:    storj.RedundancyScheme{},
+		Redundancy:    redundancy,
 		Placement:     storj.PlacementConstraint(placement),
 		Source:        "avro",
 	}, nil
