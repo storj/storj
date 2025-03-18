@@ -1176,6 +1176,64 @@ func testStore_CompactionRewritesLogsWhenNothingToDo(t *testing.T) {
 	s.AssertRead(ballast, WithData(data))
 }
 
+func TestStore_FlushSemaphore(t *testing.T) {
+	// Set the flush semaphore to 1 for testing
+	defer temporarily(&store_FlushSemaphore, 1)()
+
+	ctx := context.Background()
+	s := newTestStore(t)
+	defer s.Close()
+
+	// Channels to coordinate with the goroutines
+	acquired := make(chan struct{})
+	release := make(chan struct{})
+	errCh := make(chan error)
+
+	// Start a goroutine that will hold the flush lock
+	go func() {
+		// Acquire flush lock explicitly
+		err := s.flushMu.RLock(ctx, &s.closed)
+		if err != nil {
+			errCh <- err
+			return
+		}
+
+		// Signal we have acquired the lock
+		close(acquired)
+
+		// Wait until the test function indicates we should release the lock
+		<-release
+
+		// Release the lock
+		s.flushMu.RUnlock()
+
+		// Signal we're done without error
+		errCh <- nil
+	}()
+
+	// Wait for the goroutine to acquire the lock
+	<-acquired
+
+	// Start a goroutine that waits for the test to block on the flush semaphore
+	go func() {
+		waitForGoroutine(
+			"(*Writer).Close",
+			"(*rwMutex).RLock",
+		)
+		// Once we detect blocking, signal the first goroutine to release the lock
+		close(release)
+	}()
+
+	// Create a key and try to close a writer, which should block on the flush semaphore
+	key := s.AssertCreate()
+
+	// Wait for the first goroutine to finish without error
+	assert.NoError(t, <-errCh)
+
+	// Read back the data to ensure everything worked
+	s.AssertRead(key)
+}
+
 func TestStore_SwapDifferentBackends(t *testing.T) {
 	backends := []TableKind{kind_HashTbl, kind_MemTbl}
 

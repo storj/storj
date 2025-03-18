@@ -51,6 +51,9 @@ var (
 
 	// controls the number of concurrent writers to log files.
 	store_WriterSemaphore = int(envInt("STORJ_HASHSTORE_STORE_WRITER_SEMAPHORE", 0))
+
+	// controls the number of concurrent flushes to log files.
+	store_FlushSemaphore = int(envInt("STORJ_HASHSTORE_STORE_FLUSH_SEMAPHORE", 0))
 )
 
 // Store is a hash table based key-value store with compaction.
@@ -67,6 +70,7 @@ type Store struct {
 	cloMu  sync.Mutex        // synchronizes closing
 
 	activeMu  *rwMutex // semaphore of active writes to log files
+	flushMu   *rwMutex // semaphore of active flushes to log files
 	compactMu *mutex   // held during compaction to ensure only 1 compaction at a time
 	reviveMu  *mutex   // held during revival to ensure only 1 object is revived from trash at a time
 
@@ -113,6 +117,7 @@ func NewStore(ctx context.Context, logsPath string, tablePath string, log *zap.L
 		lfc:       newLogCollection(),
 
 		activeMu:  newRWMutex(store_WriterSemaphore),
+		flushMu:   newRWMutex(store_FlushSemaphore),
 		compactMu: newMutex(),
 		reviveMu:  newMutex(),
 	}
@@ -511,21 +516,9 @@ func (s *Store) Create(ctx context.Context, key Key, expires time.Time) (w *Writ
 		exp = NewExpiration(TimeToDateUp(expires), false)
 	}
 
-	// try to acquire the log file.
-	lf, err := s.acquireLogFile(exp.Time())
-	if err != nil {
-		return nil, Error.Wrap(err)
-	}
-
 	// return the automatic writer for the piece that unlocks and commits the record into the hash
 	// table on Close.
-	return newAutomaticWriter(ctx, s, lf, Record{
-		Key:     key,
-		Offset:  lf.size.Load(),
-		Log:     lf.id,
-		Created: s.today(),
-		Expires: exp,
-	}), nil
+	return newAutomaticWriter(ctx, s, key, exp), nil
 }
 
 // Read returns a Reader that reads data from the store. The Reader will be nil if the key does not
@@ -1142,13 +1135,7 @@ func (s *Store) rewriteRecord(ctx context.Context, rec Record, rewriteCandidates
 	// create a Writer to handle writing the entry into the log file. manual mode is set
 	// so that it doesn't attempt to add the record to the current hash table or unlock
 	// the active mutex upon Close or Cancel.
-	w := newManualWriter(ctx, s, into, Record{
-		Key:     rec.Key,
-		Offset:  into.size.Load(),
-		Log:     into.id,
-		Created: rec.Created,
-		Expires: rec.Expires,
-	})
+	w := newManualWriter(ctx, s, into, rec.Key, rec.Created, rec.Expires)
 	defer w.Cancel()
 
 	// copy the record data.

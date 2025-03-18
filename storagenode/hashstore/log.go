@@ -227,27 +227,44 @@ type Writer struct {
 	canceled flag
 	closed   flag
 	rec      Record
+	buf      []byte
 }
 
-func newAutomaticWriter(ctx context.Context, s *Store, lf *logFile, rec Record) *Writer {
+func newAutomaticWriter(ctx context.Context, s *Store,
+	key Key,
+	expires Expiration,
+) *Writer {
 	return &Writer{
 		ctx:    ctx,
 		store:  s,
-		lf:     lf,
 		manual: false,
 
-		rec: rec,
+		rec: Record{
+			Key:     key,
+			Created: s.today(),
+			Expires: expires,
+		},
 	}
 }
 
-func newManualWriter(ctx context.Context, s *Store, lf *logFile, rec Record) *Writer {
+func newManualWriter(ctx context.Context, s *Store, lf *logFile,
+	key Key,
+	created uint32,
+	expires Expiration,
+) *Writer {
 	return &Writer{
 		ctx:    ctx,
 		store:  s,
 		lf:     lf,
 		manual: true,
 
-		rec: rec,
+		rec: Record{
+			Key:     key,
+			Offset:  lf.size.Load(),
+			Log:     lf.id,
+			Created: created,
+			Expires: expires,
+		},
 	}
 }
 
@@ -260,8 +277,10 @@ func (h *Writer) Size() int64 {
 }
 
 func (h *Writer) done() {
-	// always replace the log file.
-	h.store.lfc.Include(h.lf)
+	// always replace the log file if we have one.
+	if h.lf != nil {
+		h.store.lfc.Include(h.lf)
+	}
 
 	// if we are not in manual mode, then we need to automatically unlock.
 	if !h.manual {
@@ -286,31 +305,57 @@ func (h *Writer) Close() (err error) {
 		return nil
 	}
 
+	// attempt to acquire the flush semaphore from the store. note that we want to call done before
+	// we release the RLock so that we replace the log file before we unlock. this ensures that if
+	// we have concurrent writers but limit flushes to 1, we still only ever write to 1 log file at
+	// a time.
+	if err := h.store.flushMu.RLock(h.ctx, &h.store.closed); err != nil {
+		h.done() // always do cleanup.
+		return Error.Wrap(err)
+	}
+	defer h.store.flushMu.RUnlock()
+
 	// always do cleanup.
 	defer h.done()
 
-	// load the size once. no one else can be mutating the log file at the same time so this is
-	// safe.
-	size := h.lf.size.Load()
+	// if we don't have a log file, try to acquire one.
+	if h.lf == nil {
+		lf, err := h.store.acquireLogFile(h.rec.Expires.Time())
+		if err != nil {
+			return Error.Wrap(err)
+		}
+		h.lf = lf
+
+		// update the record fields to point at the correct place in the log file.
+		h.rec.Log = h.lf.id
+		h.rec.Offset = h.lf.size.Load()
+	}
 
 	// append the record to the log file for reconstruction.
 	var buf [RecordSize]byte
 	h.rec.WriteTo(&buf)
 
-	if _, err := h.lf.fh.Write(buf[:]); err != nil {
-		// if we can't write the entry, we should abort the write operation so that we can always
-		// reconstruct the table from the log file. attempt to reclaim space by seeking backwards
-		// to the record offset.
-		_, _ = h.lf.fh.Seek(int64(size), io.SeekStart)
+	// if we have an in-memory buffer, append it there and flush it. otherwise, write it directly.
+	if len(h.buf) > 0 {
+		h.buf = append(h.buf, buf[:]...)
+		_, err = h.lf.fh.Write(h.buf)
+	} else {
+		_, err = h.lf.fh.Write(buf[:])
+	}
+	if err != nil {
+		// if we couldn't write the piece data or poentially just the record for reconstruction, we
+		// should abort the write operation and attempt to reclaim space by seeking backwards to the
+		// record offset.
+		_, _ = h.lf.fh.Seek(int64(h.rec.Offset), io.SeekStart)
 		return Error.Wrap(err)
 	}
 
-	// if we are not in manual mode, then we need to add the record.
+	// if we are not in manual mode, then we need to add the record to the store.
 	if !h.manual {
 		if err := h.store.addRecord(ctx, h.rec); err != nil {
 			// if we can't add the record, we should abort the write operation and attempt to
 			// reclaim space by seeking backwards to the record offset.
-			_, _ = h.lf.fh.Seek(int64(size), io.SeekStart)
+			_, _ = h.lf.fh.Seek(int64(h.rec.Offset), io.SeekStart)
 			return Error.Wrap(err)
 		}
 	}
@@ -340,7 +385,7 @@ func (h *Writer) Cancel() {
 	defer h.done()
 
 	// attempt to seek backwards the amount we have written to reclaim space.
-	if h.rec.Length != 0 {
+	if h.rec.Length != 0 && h.lf != nil {
 		_, _ = h.lf.fh.Seek(-int64(h.rec.Length), io.SeekCurrent)
 	}
 }
@@ -356,8 +401,18 @@ func (h *Writer) Write(p []byte) (n int, err error) {
 		return 0, Error.New("piece too large")
 	}
 
-	n, err = h.lf.fh.Write(p)
-	h.rec.Length += uint32(n)
+	if h.lf == nil {
+		if h.buf == nil {
+			// optimize for the common single piece data write + 512 byte footer + record
+			h.buf = make([]byte, len(p), len(p)+512+RecordSize)
+			n = copy(h.buf, p)
+		} else {
+			n, h.buf = len(p), append(h.buf, p...)
+		}
+	} else {
+		n, err = h.lf.fh.Write(p)
+	}
 
+	h.rec.Length += uint32(n)
 	return n, err
 }
