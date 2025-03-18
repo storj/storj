@@ -217,7 +217,7 @@ func (p *PostgresAdapter) ListVerifySegments(ctx context.Context, opts ListVerif
 				&seg.RepairedAt,
 
 				&seg.RootPieceID,
-				redundancyScheme{&seg.Redundancy},
+				&seg.Redundancy,
 				&seg.AliasPieces,
 			)
 			if err != nil {
@@ -252,7 +252,7 @@ func (s *SpannerAdapter) ListVerifySegments(ctx context.Context, opts ListVerify
 			&seg.RepairedAt,
 
 			&seg.RootPieceID,
-			redundancyScheme{&seg.Redundancy},
+			&seg.Redundancy,
 			&seg.AliasPieces,
 		)
 	})

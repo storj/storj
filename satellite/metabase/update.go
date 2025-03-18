@@ -153,7 +153,7 @@ func (p *PostgresAdapter) UpdateSegmentPieces(ctx context.Context, opts UpdateSe
 			stream_id     = $1 AND
 			position      = $2
 		RETURNING remote_alias_pieces
-		`, opts.StreamID, opts.Position, oldPieces, newPieces, redundancyScheme{&opts.NewRedundancy}, opts.NewRepairedAt, updateRepairAt).
+		`, opts.StreamID, opts.Position, oldPieces, newPieces, &opts.NewRedundancy, opts.NewRepairedAt, updateRepairAt).
 		Scan(&resultPieces)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
@@ -194,7 +194,7 @@ func (s *SpannerAdapter) UpdateSegmentPieces(ctx context.Context, opts UpdateSeg
 				"position":           opts.Position,
 				"old_pieces":         oldPieces,
 				"new_pieces":         newPieces,
-				"redundancy":         redundancyScheme{&opts.NewRedundancy},
+				"redundancy":         opts.NewRedundancy,
 				"new_repaired_at":    opts.NewRepairedAt,
 				"update_repaired_at": updateRepairAt,
 			},

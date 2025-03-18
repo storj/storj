@@ -388,7 +388,7 @@ func (p *PostgresAdapter) GetSegmentByPosition(ctx context.Context, opts GetSegm
 			&segment.RootPieceID, &segment.EncryptedKeyNonce, &segment.EncryptedKey,
 			&segment.EncryptedSize, &segment.PlainOffset, &segment.PlainSize,
 			&segment.EncryptedETag,
-			redundancyScheme{&segment.Redundancy},
+			&segment.Redundancy,
 			&segment.InlineData, &aliasPieces,
 			&segment.Placement,
 		)
@@ -427,7 +427,7 @@ func (s *SpannerAdapter) GetSegmentByPosition(ctx context.Context, opts GetSegme
 			&segment.RootPieceID, &segment.EncryptedKeyNonce, &segment.EncryptedKey,
 			spannerutil.Int(&segment.EncryptedSize), &segment.PlainOffset, spannerutil.Int(&segment.PlainSize),
 			&segment.EncryptedETag,
-			redundancyScheme{&segment.Redundancy},
+			&segment.Redundancy,
 			&segment.InlineData, &aliasPieces,
 			&segment.Placement,
 		))
@@ -502,7 +502,7 @@ func (p *PostgresAdapter) GetLatestObjectLastSegment(ctx context.Context, opts G
 			&segment.RootPieceID, &segment.EncryptedKeyNonce, &segment.EncryptedKey,
 			&segment.EncryptedSize, &segment.PlainOffset, &segment.PlainSize,
 			&segment.EncryptedETag,
-			redundancyScheme{&segment.Redundancy},
+			&segment.Redundancy,
 			&segment.InlineData, &aliasPieces,
 			&segment.Placement,
 		)
@@ -554,7 +554,7 @@ func (s *SpannerAdapter) GetLatestObjectLastSegment(ctx context.Context, opts Ge
 			&segment.RootPieceID, &segment.EncryptedKeyNonce, &segment.EncryptedKey,
 			spannerutil.Int(&segment.EncryptedSize), &segment.PlainOffset, spannerutil.Int(&segment.PlainSize),
 			&segment.EncryptedETag,
-			redundancyScheme{&segment.Redundancy},
+			&segment.Redundancy,
 			&segment.InlineData, &aliasPieces,
 			&segment.Placement,
 		))

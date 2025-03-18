@@ -259,7 +259,7 @@ func (it *tagsqlLoopSegmentIterator) scanItem(ctx context.Context, item *LoopSeg
 		&item.RootPieceID,
 		&item.EncryptedSize,
 		&item.PlainOffset, &item.PlainSize,
-		redundancyScheme{&item.Redundancy},
+		&item.Redundancy,
 		&item.AliasPieces,
 		&item.Placement,
 	)
@@ -489,7 +489,7 @@ func (it *spannerLoopSegmentIterator) scanSpannerItem(ctx context.Context, item 
 		&item.CreatedAt, &expiresAt, &repairedAt,
 		&item.RootPieceID,
 		&encryptedSize, &item.PlainOffset, &plainSize,
-		redundancyScheme{&item.Redundancy},
+		&item.Redundancy,
 		&aliasPieces,
 		&item.Placement,
 	); err != nil {

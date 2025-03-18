@@ -100,7 +100,7 @@ func (p *PostgresAdapter) ListSegments(ctx context.Context, opts ListSegments, a
 				&segment.RootPieceID, &segment.EncryptedKeyNonce, &segment.EncryptedKey,
 				&segment.EncryptedSize, &segment.PlainOffset, &segment.PlainSize,
 				&segment.EncryptedETag,
-				redundancyScheme{&segment.Redundancy},
+				&segment.Redundancy,
 				&segment.InlineData, &aliasPieces,
 				&segment.Placement,
 			)
@@ -194,7 +194,7 @@ func (s *SpannerAdapter) ListSegments(ctx context.Context, opts ListSegments, al
 				&segment.RootPieceID, &segment.EncryptedKeyNonce, &segment.EncryptedKey,
 				spannerutil.Int(&segment.EncryptedSize), &segment.PlainOffset, spannerutil.Int(&segment.PlainSize),
 				&segment.EncryptedETag,
-				redundancyScheme{&segment.Redundancy},
+				&segment.Redundancy,
 				&segment.InlineData, &aliasPieces,
 				&segment.Placement,
 			)

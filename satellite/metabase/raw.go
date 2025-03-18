@@ -503,7 +503,7 @@ func (p *PostgresAdapter) TestingGetAllSegments(ctx context.Context, aliasCache 
 			&seg.PlainSize,
 			&seg.EncryptedETag,
 
-			redundancyScheme{&seg.Redundancy},
+			&seg.Redundancy,
 
 			&seg.InlineData,
 			&aliasPieces,
@@ -553,7 +553,7 @@ func (s *SpannerAdapter) TestingGetAllSegments(ctx context.Context, aliasCache *
 			&segment.RootPieceID, &segment.EncryptedKeyNonce, &segment.EncryptedKey,
 			spannerutil.Int(&segment.EncryptedSize), &segment.PlainOffset, spannerutil.Int(&segment.PlainSize),
 			&segment.EncryptedETag,
-			redundancyScheme{&segment.Redundancy},
+			&segment.Redundancy,
 			&segment.InlineData, &aliasPieces,
 			&segment.Placement,
 		)
@@ -689,7 +689,7 @@ func (ctr *copyFromRawSegments) Values() ([]any, error) {
 		obj.PlainSize,
 		obj.PlainOffset,
 
-		redundancyScheme{&obj.Redundancy},
+		obj.Redundancy,
 		obj.InlineData,
 		aliasPieces,
 		obj.Placement,
@@ -726,7 +726,7 @@ func (s *SpannerAdapter) TestingBatchInsertSegments(ctx context.Context, aliasCa
 			int64(segment.PlainSize),
 			segment.PlainOffset,
 
-			redundancyScheme{&segment.Redundancy},
+			segment.Redundancy,
 			segment.InlineData,
 			aliasPieces,
 			int64(segment.Placement),
