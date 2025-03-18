@@ -32,12 +32,21 @@ func safeDivide(x, y float64) float64 {
 var signalClosed = Error.New("signal closed")
 
 func signalError(sig *drpcsignal.Signal) error {
-	if err, ok := sig.Get(); !ok {
+	if sig == nil {
+		return nil
+	} else if err, ok := sig.Get(); !ok {
 		return nil
 	} else if err != nil {
 		return err
 	}
 	return signalClosed
+}
+
+func signalChan(sig *drpcsignal.Signal) chan struct{} {
+	if sig == nil {
+		return nil
+	}
+	return sig.Signal()
 }
 
 type recordStats struct {

@@ -38,7 +38,7 @@ func (s *mutex) Lock(ctx context.Context, closed *drpcsignal.Signal) error {
 	select {
 	case s.ch <- struct{}{}:
 		return nil
-	case <-closed.Signal():
+	case <-signalChan(closed):
 		return signalError(closed)
 	case <-ctx.Done():
 		return ctx.Err()
@@ -127,27 +127,27 @@ func newRWMutex(activeReadLimit int) *rwMutex {
 func (rwm *rwMutex) Unlock() { rwm.unlock(false) }
 
 // WaitLock is like Lock but cannot be cancelled and so does not return an error.
-func (rwm *rwMutex) WaitLock() { _ = rwm.Lock(context.Background(), new(drpcsignal.Signal)) }
+func (rwm *rwMutex) WaitLock() { _ = rwm.Lock(context.Background(), nil) }
 
 // Lock locks the rwMutex.
-func (rwm *rwMutex) Lock(ctx context.Context, sig *drpcsignal.Signal) error {
-	return rwm.lock(ctx, sig, false)
+func (rwm *rwMutex) Lock(ctx context.Context, closed *drpcsignal.Signal) error {
+	return rwm.lock(ctx, closed, false)
 }
 
 // RUnlock unlocks the rwMutex for reading.
 func (rwm *rwMutex) RUnlock() { rwm.unlock(true) }
 
 // RLock locks the rwMutex for reading.
-func (rwm *rwMutex) RLock(ctx context.Context, sig *drpcsignal.Signal) error {
-	return rwm.lock(ctx, sig, true)
+func (rwm *rwMutex) RLock(ctx context.Context, closed *drpcsignal.Signal) error {
+	return rwm.lock(ctx, closed, true)
 }
 
 // lock blocks until the requested kind of mutex is acquired, returning an error if it was not
 // acquired due to the context being canceled or the signal being set.
-func (rwm *rwMutex) lock(ctx context.Context, sig *drpcsignal.Signal, read bool) (err error) {
+func (rwm *rwMutex) lock(ctx context.Context, closed *drpcsignal.Signal, read bool) (err error) {
 	if err := ctx.Err(); err != nil {
 		return err
-	} else if err := signalError(sig); err != nil {
+	} else if err := signalError(closed); err != nil {
 		return err
 	}
 
@@ -172,8 +172,8 @@ func (rwm *rwMutex) lock(ctx context.Context, sig *drpcsignal.Signal, read bool)
 	case <-waiter.ch:
 	case <-ctx.Done():
 		err = ctx.Err()
-	case <-sig.Signal():
-		err = signalError(sig)
+	case <-signalChan(closed):
+		err = signalError(closed)
 	}
 
 	// remove the waiter from the list and update our state.
