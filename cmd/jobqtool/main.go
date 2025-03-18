@@ -44,7 +44,7 @@ var (
 		Use:   "len [placement]",
 		Short: "query lengths of job queues (repair and retry) for the given placement",
 		RunE:  runCommand,
-		Args:  cobra.ExactArgs(1),
+		Args:  cobra.MaximumNArgs(1),
 	}
 	truncateCmd = &cobra.Command{
 		Use:   "truncate [placement]",
@@ -108,13 +108,21 @@ func runCommand(cmd *cobra.Command, args []string) error {
 
 	switch cmd.Name() {
 	case "len":
-		placement, err := strconv.ParseInt(args[0], 10, 16)
-		if err != nil {
-			return fmt.Errorf("invalid placement %q: %w", args[0], err)
-		}
-		repairLen, retryLen, err := drpcConn.Len(ctx, storj.PlacementConstraint(placement))
-		if err != nil {
-			return fmt.Errorf("querying queue length: %w", err)
+		var repairLen, retryLen int64
+		if len(args) > 0 {
+			placement, err := strconv.ParseInt(args[0], 10, 16)
+			if err != nil {
+				return fmt.Errorf("invalid placement %q: %w", args[0], err)
+			}
+			repairLen, retryLen, err = drpcConn.Len(ctx, storj.PlacementConstraint(placement))
+			if err != nil {
+				return fmt.Errorf("querying queue length: %w", err)
+			}
+		} else {
+			repairLen, retryLen, err = drpcConn.LenAll(ctx)
+			if err != nil {
+				return fmt.Errorf("querying queue lengths: %w", err)
+			}
 		}
 		fmt.Printf("repair %d\nretry %d\n", repairLen, retryLen)
 	case "truncate":
