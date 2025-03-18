@@ -134,6 +134,10 @@ const (
 	eventCloudGPUNavigationClicked    = "Cloud GPU Navigation Item Clicked"
 	eventCloudGPUSignupClicked        = "Cloud GPU Sign Up Clicked"
 	eventJoinCunoFSBetaSubmitted      = "Join CunoFS Beta Form Submitted"
+
+	// Generic account freeze event types.
+	eventAccountFreeze   = "Account Freeze"
+	eventAccountUnfreeze = "Account Unfreeze"
 )
 
 var (
@@ -172,6 +176,14 @@ type FreezeTracker interface {
 
 	// TrackStorjscanUnpaidInvoice sends an event to Segment indicating that a user has not paid an invoice, but has storjscan transaction history.
 	TrackStorjscanUnpaidInvoice(invID string, userID uuid.UUID, email string, hubspotObjectID *string)
+
+	// TrackGenericFreeze sends a generic account freeze event to Segment with the freeze type specified.
+	// The adminInitiated parameter specifies whether the freeze was initiated by an admin action or automatically.
+	TrackGenericFreeze(userID uuid.UUID, email, freezeType string, adminInitiated bool, hubspotObjectID *string)
+
+	// TrackGenericUnfreeze sends a generic account unfreeze event to Segment with the freeze type specified.
+	// The adminInitiated parameter specifies whether the unfreeze was initiated by an admin action or automatically.
+	TrackGenericUnfreeze(userID uuid.UUID, email, freezeType string, adminInitiated bool, hubspotObjectID *string)
 }
 
 // LimitRequestInfo holds data needed to request limit increase.
@@ -596,6 +608,42 @@ func (service *Service) TrackAccountUnfrozen(userID uuid.UUID, email string, hub
 	service.enqueueMessage(segment.Track{
 		UserId:     userID.String(),
 		Event:      eventAccountUnfrozen,
+		Properties: props,
+	})
+}
+
+// TrackGenericFreeze sends a generic account freeze event to Segment with the freeze type specified.
+func (service *Service) TrackGenericFreeze(userID uuid.UUID, email, freezeType string, adminInitiated bool, hubspotObjectID *string) {
+	if !service.config.Enabled {
+		return
+	}
+
+	props := service.newPropertiesWithOpts(hubspotObjectID)
+	props.Set("email", email)
+	props.Set("freeze_type", freezeType)
+	props.Set("admin_initiated", adminInitiated)
+
+	service.enqueueMessage(segment.Track{
+		UserId:     userID.String(),
+		Event:      eventAccountFreeze,
+		Properties: props,
+	})
+}
+
+// TrackGenericUnfreeze sends a generic account unfreeze event to Segment with the freeze type specified.
+func (service *Service) TrackGenericUnfreeze(userID uuid.UUID, email, freezeType string, adminInitiated bool, hubspotObjectID *string) {
+	if !service.config.Enabled {
+		return
+	}
+
+	props := service.newPropertiesWithOpts(hubspotObjectID)
+	props.Set("email", email)
+	props.Set("freeze_type", freezeType)
+	props.Set("admin_initiated", adminInitiated)
+
+	service.enqueueMessage(segment.Track{
+		UserId:     userID.String(),
+		Event:      eventAccountUnfreeze,
 		Properties: props,
 	})
 }

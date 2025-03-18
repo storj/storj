@@ -766,7 +766,8 @@ func (server *Server) billingFreezeUser(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 
-	err = server.freezeAccounts.BillingFreezeUser(ctx, u.ID)
+	// Use the admin version of BillingFreezeUser since this is admin-initiated
+	err = server.freezeAccounts.AdminBillingFreezeUser(ctx, u.ID)
 	if err != nil {
 		sendJSONError(w, "failed to billing freeze user",
 			err.Error(), http.StatusInternalServerError)
@@ -795,7 +796,8 @@ func (server *Server) billingUnfreezeUser(w http.ResponseWriter, r *http.Request
 		return
 	}
 
-	err = server.freezeAccounts.BillingUnfreezeUser(ctx, u.ID)
+	// Use the admin version of BillingUnfreezeUser since this is admin-initiated
+	err = server.freezeAccounts.AdminBillingUnfreezeUser(ctx, u.ID)
 	if err != nil {
 		status := http.StatusInternalServerError
 		if errs.Is(err, console.ErrNoFreezeStatus) {
@@ -829,7 +831,8 @@ func (server *Server) billingUnWarnUser(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 
-	if err = server.freezeAccounts.BillingUnWarnUser(ctx, u.ID); err != nil {
+	// Use the admin version of BillingUnWarnUser since this is admin-initiated
+	if err = server.freezeAccounts.AdminBillingUnWarnUser(ctx, u.ID); err != nil {
 		status := http.StatusInternalServerError
 		if errs.Is(err, console.ErrNoFreezeStatus) {
 			status = http.StatusNotFound
@@ -1014,7 +1017,8 @@ func (server *Server) trialExpirationFreezeUser(w http.ResponseWriter, r *http.R
 		return
 	}
 
-	err = server.freezeAccounts.TrialExpirationFreezeUser(ctx, u.ID)
+	// Use the admin version of TrialExpirationFreezeUser since this is admin-initiated
+	err = server.freezeAccounts.AdminTrialExpirationFreezeUser(ctx, u.ID)
 	if err != nil {
 		sendJSONError(w, "failed to trial expiration freeze user",
 			err.Error(), http.StatusInternalServerError)
@@ -1044,7 +1048,8 @@ func (server *Server) trialExpirationUnfreezeUser(w http.ResponseWriter, r *http
 		return
 	}
 
-	err = server.freezeAccounts.TrialExpirationUnfreezeUser(ctx, u.ID)
+	// Use the admin version of TrialExpirationUnfreezeUser since this is admin-initiated
+	err = server.freezeAccounts.AdminTrialExpirationUnfreezeUser(ctx, u.ID)
 	if err != nil {
 		status := http.StatusInternalServerError
 		if errs.Is(err, console.ErrNoFreezeStatus) {
