@@ -24,9 +24,6 @@ import (
 
 const loopIteratorBatchSizeLimit = intLimitRange(50000)
 
-// SegmentIterator returns the next segment.
-type SegmentIterator func(ctx context.Context, segment *LoopSegmentEntry) bool
-
 // LoopSegmentEntry contains information about segment metadata needed by metainfo loop.
 type LoopSegmentEntry struct {
 	StreamID      uuid.UUID
