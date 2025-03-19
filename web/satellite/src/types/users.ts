@@ -278,6 +278,7 @@ export class UserSettings {
             partnerUpgradeBanner: false,
             projectMembersPassphrase: false,
             cunoFSBetaJoined: false,
+            objectMountConsultationRequested: false,
         },
     ) { }
 
@@ -342,6 +343,7 @@ export interface NoticeDismissal {
     partnerUpgradeBanner: boolean
     projectMembersPassphrase: boolean
     cunoFSBetaJoined: boolean
+    objectMountConsultationRequested: boolean
     uploadOverwriteWarning?: boolean;
     versioningBetaBanner?: boolean;
 }
