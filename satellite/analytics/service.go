@@ -32,108 +32,109 @@ const (
 	// SourceTrialExpiredNotice is the trial expired notice source.
 	SourceTrialExpiredNotice = "trial_expired_notice"
 
-	eventInviteLinkClicked            = "Invite Link Clicked"
-	eventInviteLinkSignup             = "Invite Link Signup"
-	eventAccountCreated               = "Account Created"
-	eventAccountSetUp                 = "Account Set Up"
-	eventSignedIn                     = "Signed In"
-	eventProjectCreated               = "Project Created"
-	eventManagedEncryptionError       = "Managed Encryption Error"
-	eventAccessGrantCreated           = "Access Grant Created"
-	eventAccountVerified              = "Account Verified"
-	eventGatewayCredentialsCreated    = "Credentials Created"
-	eventPassphraseCreated            = "Passphrase Created"
-	eventExternalLinkClicked          = "External Link Clicked"
-	eventPathSelected                 = "Path Selected"
-	eventLinkShared                   = "Link Shared"
-	eventObjectUploaded               = "Object Uploaded"
-	eventAPIKeyGenerated              = "API Key Generated"
-	eventCreditCardAdded              = "Credit Card Added"
-	eventUpgradeBannerClicked         = "Upgrade Banner Clicked"
-	eventModalAddCard                 = "Credit Card Added In Modal"
-	eventModalAddTokens               = "Storj Token Added In Modal"
-	eventSearchBuckets                = "Search Buckets"
-	eventNavigateProjects             = "Navigate Projects"
-	eventManageProjectsClicked        = "Manage Projects Clicked"
-	eventCreateNewClicked             = "Create New Clicked"
-	eventViewDocsClicked              = "View Docs Clicked"
-	eventViewForumClicked             = "View Forum Clicked"
-	eventViewSupportClicked           = "View Support Clicked"
-	eventCreateAnAccessGrantClicked   = "Create an Access Grant Clicked"
-	eventUploadUsingCliClicked        = "Upload Using CLI Clicked"
-	eventUploadInWebClicked           = "Upload In Web Clicked"
-	eventNewProjectClicked            = "New Project Clicked"
-	eventLogoutClicked                = "Logout Clicked"
-	eventProfileUpdated               = "Profile Updated"
-	eventPasswordChanged              = "Password Changed"
-	eventMfaEnabled                   = "MFA Enabled"
-	eventBucketCreated                = "Bucket Created"
-	eventBucketDeleted                = "Bucket Deleted"
-	eventProjectLimitError            = "Project Limit Error"
-	eventAPIAccessCreated             = "API Access Created"
-	eventUploadFileClicked            = "Upload File Clicked"
-	eventUploadFolderClicked          = "Upload Folder Clicked"
-	eventStorjTokenAdded              = "Storj Token Added"
-	eventCreateKeysClicked            = "Create Keys Clicked"
-	eventDownloadTxtClicked           = "Download txt clicked"
-	eventEncryptMyAccessClicked       = "Encrypt My Access Clicked"
-	eventCopyToClipboardClicked       = "Copy to Clipboard Clicked"
-	eventCreateAccessGrantClicked     = "Create Access Grant Clicked"
-	eventCreateS3CredentialsClicked   = "Create S3 Credentials Clicked"
-	eventKeysForCLIClicked            = "Create Keys For CLI Clicked"
-	eventSeePaymentsClicked           = "See Payments Clicked"
-	eventEditPaymentMethodClicked     = "Edit Payment Method Clicked"
-	eventUsageDetailedInfoClicked     = "Usage Detailed Info Clicked"
-	eventAddNewPaymentMethodClicked   = "Add New Payment Method Clicked"
-	eventApplyNewCouponClicked        = "Apply New Coupon Clicked"
-	eventCreditCardRemoved            = "Credit Card Removed"
-	eventCouponCodeApplied            = "Coupon Code Applied"
-	eventInvoiceDownloaded            = "Invoice Downloaded"
-	eventCreditCardAddedFromBilling   = "Credit Card Added From Billing"
-	eventStorjTokenAddedFromBilling   = "Storj Token Added From Billing"
-	eventAddFundsClicked              = "Add Funds Clicked"
-	eventProjectMembersInviteSent     = "Project Members Invite Sent"
-	eventProjectMemberAdded           = "Project Member Added"
-	eventProjectMemberDeleted         = "Project Member Deleted"
-	eventError                        = "UI error occurred"
-	eventProjectNameUpdated           = "Project Name Updated"
-	eventProjectDescriptionUpdated    = "Project Description Updated"
-	eventProjectStorageLimitUpdated   = "Project Storage Limit Updated"
-	eventProjectBandwidthLimitUpdated = "Project Bandwidth Limit Updated"
-	eventAccountFrozen                = "Account Frozen"
-	eventAccountUnfrozen              = "Account Unfrozen"
-	eventAccountUnwarned              = "Account Unwarned"
-	eventAccountFreezeWarning         = "Account Freeze Warning"
-	eventUnpaidLargeInvoice           = "Large Invoice Unpaid"
-	eventUnpaidStorjscanInvoice       = "Storjscan Invoice Unpaid"
-	eventPendingDeletionUnpaidInvoice = "Pending Deletion Invoice Open"
-	eventLegalHoldUnpaidInvoice       = "Legal Hold Invoice Open"
-	eventExpiredCreditNeedsRemoval    = "Expired Credit Needs Removal"
-	eventExpiredCreditRemoved         = "Expired Credit Removed"
-	eventProjectInvitationAccepted    = "Project Invitation Accepted"
-	eventProjectInvitationDeclined    = "Project Invitation Declined"
-	eventGalleryViewClicked           = "Gallery View Clicked"
-	eventResendInviteClicked          = "Resend Invite Clicked"
-	eventCopyInviteLinkClicked        = "Copy Invite Link Clicked"
-	eventRemoveProjectMemberCLicked   = "Remove Member Clicked"
-	eventLimitIncreaseRequested       = "Limit Increase Requested"
-	eventUserSignUp                   = "User Sign Up"
-	eventPersonalInfoSubmitted        = "Personal Info Submitted"
-	eventBusinessInfoSubmitted        = "Business Info Submitted"
-	eventUseCaseSelected              = "Use Case Selected"
-	eventOnboardingCompleted          = "Onboarding Completed"
-	eventOnboardingAbandoned          = "Onboarding Abandoned"
-	eventPersonalSelected             = "Personal Selected"
-	eventBusinessSelected             = "Business Selected"
-	eventUserUpgraded                 = "User Upgraded"
-	eventUpgradeClicked               = "Upgrade Clicked"
-	eventArrivedFromSource            = "Arrived From Source"
-	eventApplicationsSetupClicked     = "Applications Setup Clicked"
-	eventApplicationsSetupCompleted   = "Applications Setup Completed"
-	eventApplicationsDocsClicked      = "Applications Docs Clicked"
-	eventCloudGPUNavigationClicked    = "Cloud GPU Navigation Item Clicked"
-	eventCloudGPUSignupClicked        = "Cloud GPU Sign Up Clicked"
-	eventJoinCunoFSBetaSubmitted      = "Join CunoFS Beta Form Submitted"
+	eventInviteLinkClicked                = "Invite Link Clicked"
+	eventInviteLinkSignup                 = "Invite Link Signup"
+	eventAccountCreated                   = "Account Created"
+	eventAccountSetUp                     = "Account Set Up"
+	eventSignedIn                         = "Signed In"
+	eventProjectCreated                   = "Project Created"
+	eventManagedEncryptionError           = "Managed Encryption Error"
+	eventAccessGrantCreated               = "Access Grant Created"
+	eventAccountVerified                  = "Account Verified"
+	eventGatewayCredentialsCreated        = "Credentials Created"
+	eventPassphraseCreated                = "Passphrase Created"
+	eventExternalLinkClicked              = "External Link Clicked"
+	eventPathSelected                     = "Path Selected"
+	eventLinkShared                       = "Link Shared"
+	eventObjectUploaded                   = "Object Uploaded"
+	eventAPIKeyGenerated                  = "API Key Generated"
+	eventCreditCardAdded                  = "Credit Card Added"
+	eventUpgradeBannerClicked             = "Upgrade Banner Clicked"
+	eventModalAddCard                     = "Credit Card Added In Modal"
+	eventModalAddTokens                   = "Storj Token Added In Modal"
+	eventSearchBuckets                    = "Search Buckets"
+	eventNavigateProjects                 = "Navigate Projects"
+	eventManageProjectsClicked            = "Manage Projects Clicked"
+	eventCreateNewClicked                 = "Create New Clicked"
+	eventViewDocsClicked                  = "View Docs Clicked"
+	eventViewForumClicked                 = "View Forum Clicked"
+	eventViewSupportClicked               = "View Support Clicked"
+	eventCreateAnAccessGrantClicked       = "Create an Access Grant Clicked"
+	eventUploadUsingCliClicked            = "Upload Using CLI Clicked"
+	eventUploadInWebClicked               = "Upload In Web Clicked"
+	eventNewProjectClicked                = "New Project Clicked"
+	eventLogoutClicked                    = "Logout Clicked"
+	eventProfileUpdated                   = "Profile Updated"
+	eventPasswordChanged                  = "Password Changed"
+	eventMfaEnabled                       = "MFA Enabled"
+	eventBucketCreated                    = "Bucket Created"
+	eventBucketDeleted                    = "Bucket Deleted"
+	eventProjectLimitError                = "Project Limit Error"
+	eventAPIAccessCreated                 = "API Access Created"
+	eventUploadFileClicked                = "Upload File Clicked"
+	eventUploadFolderClicked              = "Upload Folder Clicked"
+	eventStorjTokenAdded                  = "Storj Token Added"
+	eventCreateKeysClicked                = "Create Keys Clicked"
+	eventDownloadTxtClicked               = "Download txt clicked"
+	eventEncryptMyAccessClicked           = "Encrypt My Access Clicked"
+	eventCopyToClipboardClicked           = "Copy to Clipboard Clicked"
+	eventCreateAccessGrantClicked         = "Create Access Grant Clicked"
+	eventCreateS3CredentialsClicked       = "Create S3 Credentials Clicked"
+	eventKeysForCLIClicked                = "Create Keys For CLI Clicked"
+	eventSeePaymentsClicked               = "See Payments Clicked"
+	eventEditPaymentMethodClicked         = "Edit Payment Method Clicked"
+	eventUsageDetailedInfoClicked         = "Usage Detailed Info Clicked"
+	eventAddNewPaymentMethodClicked       = "Add New Payment Method Clicked"
+	eventApplyNewCouponClicked            = "Apply New Coupon Clicked"
+	eventCreditCardRemoved                = "Credit Card Removed"
+	eventCouponCodeApplied                = "Coupon Code Applied"
+	eventInvoiceDownloaded                = "Invoice Downloaded"
+	eventCreditCardAddedFromBilling       = "Credit Card Added From Billing"
+	eventStorjTokenAddedFromBilling       = "Storj Token Added From Billing"
+	eventAddFundsClicked                  = "Add Funds Clicked"
+	eventProjectMembersInviteSent         = "Project Members Invite Sent"
+	eventProjectMemberAdded               = "Project Member Added"
+	eventProjectMemberDeleted             = "Project Member Deleted"
+	eventError                            = "UI error occurred"
+	eventProjectNameUpdated               = "Project Name Updated"
+	eventProjectDescriptionUpdated        = "Project Description Updated"
+	eventProjectStorageLimitUpdated       = "Project Storage Limit Updated"
+	eventProjectBandwidthLimitUpdated     = "Project Bandwidth Limit Updated"
+	eventAccountFrozen                    = "Account Frozen"
+	eventAccountUnfrozen                  = "Account Unfrozen"
+	eventAccountUnwarned                  = "Account Unwarned"
+	eventAccountFreezeWarning             = "Account Freeze Warning"
+	eventUnpaidLargeInvoice               = "Large Invoice Unpaid"
+	eventUnpaidStorjscanInvoice           = "Storjscan Invoice Unpaid"
+	eventPendingDeletionUnpaidInvoice     = "Pending Deletion Invoice Open"
+	eventLegalHoldUnpaidInvoice           = "Legal Hold Invoice Open"
+	eventExpiredCreditNeedsRemoval        = "Expired Credit Needs Removal"
+	eventExpiredCreditRemoved             = "Expired Credit Removed"
+	eventProjectInvitationAccepted        = "Project Invitation Accepted"
+	eventProjectInvitationDeclined        = "Project Invitation Declined"
+	eventGalleryViewClicked               = "Gallery View Clicked"
+	eventResendInviteClicked              = "Resend Invite Clicked"
+	eventCopyInviteLinkClicked            = "Copy Invite Link Clicked"
+	eventRemoveProjectMemberCLicked       = "Remove Member Clicked"
+	eventLimitIncreaseRequested           = "Limit Increase Requested"
+	eventUserSignUp                       = "User Sign Up"
+	eventPersonalInfoSubmitted            = "Personal Info Submitted"
+	eventBusinessInfoSubmitted            = "Business Info Submitted"
+	eventUseCaseSelected                  = "Use Case Selected"
+	eventOnboardingCompleted              = "Onboarding Completed"
+	eventOnboardingAbandoned              = "Onboarding Abandoned"
+	eventPersonalSelected                 = "Personal Selected"
+	eventBusinessSelected                 = "Business Selected"
+	eventUserUpgraded                     = "User Upgraded"
+	eventUpgradeClicked                   = "Upgrade Clicked"
+	eventArrivedFromSource                = "Arrived From Source"
+	eventApplicationsSetupClicked         = "Applications Setup Clicked"
+	eventApplicationsSetupCompleted       = "Applications Setup Completed"
+	eventApplicationsDocsClicked          = "Applications Docs Clicked"
+	eventCloudGPUNavigationClicked        = "Cloud GPU Navigation Item Clicked"
+	eventCloudGPUSignupClicked            = "Cloud GPU Sign Up Clicked"
+	eventJoinCunoFSBetaSubmitted          = "Join CunoFS Beta Form Submitted"
+	eventObjectMountConsultationSubmitted = "Object Mount Consultation Submitted"
 
 	// Generic account freeze event types.
 	eventAccountFreeze   = "Account Freeze"
@@ -241,7 +242,7 @@ func NewService(log *zap.Logger, config Config, satelliteName, satelliteExternal
 		eventPersonalInfoSubmitted, eventBusinessInfoSubmitted, eventUseCaseSelected, eventOnboardingCompleted, eventOnboardingAbandoned,
 		eventPersonalSelected, eventBusinessSelected, eventUserUpgraded, eventUpgradeClicked, eventArrivedFromSource, eventApplicationsDocsClicked,
 		eventApplicationsSetupClicked, eventApplicationsSetupCompleted, eventCloudGPUNavigationClicked, eventCloudGPUSignupClicked,
-		eventJoinCunoFSBetaSubmitted} {
+		eventJoinCunoFSBetaSubmitted, eventObjectMountConsultationSubmitted} {
 		service.clientEvents[name] = true
 	}
 
@@ -315,6 +316,24 @@ type TrackJoinCunoFSBetaFields struct {
 	DesiredFeatures             string `json:"desiredFeatures"`
 	CurrentPainPoints           string `json:"currentPainPoints"`
 	SpecificTasks               string `json:"specificTasks"`
+}
+
+// TrackObjectMountConsultationFields contains input data for tracking an object mount consultation event.
+type TrackObjectMountConsultationFields struct {
+	Email                  string `json:"email"`
+	CompanyName            string `json:"companyName"`
+	FirstName              string `json:"firstName"`
+	LastName               string `json:"lastName"`
+	JobTitle               string `json:"jobTitle"`
+	PhoneNumber            string `json:"phoneNumber"`
+	IndustryUseCase        string `json:"industryUseCase"`
+	CompanySize            string `json:"companySize"`
+	CurrentStorageSolution string `json:"currentStorageSolution"`
+	KeyChallenges          string `json:"keyChallenges"`
+	SpecificInterests      string `json:"specificInterests"`
+	StorageNeeds           string `json:"storageNeeds"`
+	ImplementationTimeline string `json:"implementationTimeline"`
+	AdditionalInformation  string `json:"additionalInformation"`
 }
 
 // TrackOnboardingInfoFields contains input data entered after first login.
@@ -415,6 +434,14 @@ func (service *Service) JoinCunoFSBeta(fields TrackJoinCunoFSBetaFields) {
 		return
 	}
 	service.hubspot.EnqueueJoinCunoFSBeta(fields)
+}
+
+// RequestObjectMountConsultation sends an object mount consultation form to hubspot.
+func (service *Service) RequestObjectMountConsultation(fields TrackObjectMountConsultationFields) {
+	if !service.config.Enabled {
+		return
+	}
+	service.hubspot.EnqueueObjectMountConsultation(fields)
 }
 
 // ChangeContactEmail changes contact's email address.
