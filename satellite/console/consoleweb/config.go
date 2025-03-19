@@ -79,6 +79,7 @@ type FrontendConfig struct {
 	SelfServePlacementSelectEnabled   bool                  `json:"selfServePlacementSelectEnabled"`
 	SelfServePlacementNames           []string              `json:"selfServePlacementNames"`
 	CunoFSBetaEnabled                 bool                  `json:"cunoFSBetaEnabled"`
+	ObjectMountConsultationEnabled    bool                  `json:"objectMountConsultationEnabled"`
 	CSRFToken                         string                `json:"csrfToken"`
 	BillingAddFundsEnabled            bool                  `json:"billingAddFundsEnabled"`
 	MaxAddFundsAmount                 int                   `json:"maxAddFundsAmount"`
