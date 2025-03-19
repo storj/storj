@@ -122,11 +122,11 @@ func TestService_Success(t *testing.T) {
 
 	retryCSV, err := os.ReadFile(config.RetryPath)
 	require.NoError(t, err)
-	require.Equal(t, "stream id,position,found,not found,retry\n", string(retryCSV))
+	require.Equal(t, "stream id,position,required,found,not found,retry\n", string(retryCSV))
 
 	notFoundCSV, err := os.ReadFile(config.NotFoundPath)
 	require.NoError(t, err)
-	require.Equal(t, "stream id,position,found,not found,retry\n", string(notFoundCSV))
+	require.Equal(t, "stream id,position,required,found,not found,retry\n", string(notFoundCSV))
 }
 
 func TestService_Buckets_Success(t *testing.T) {
@@ -209,11 +209,11 @@ func TestService_Buckets_Success(t *testing.T) {
 
 	retryCSV, err := os.ReadFile(config.RetryPath)
 	require.NoError(t, err)
-	require.Equal(t, "stream id,position,found,not found,retry\n", string(retryCSV))
+	require.Equal(t, "stream id,position,required,found,not found,retry\n", string(retryCSV))
 
 	notFoundCSV, err := os.ReadFile(config.NotFoundPath)
 	require.NoError(t, err)
-	require.Equal(t, "stream id,position,found,not found,retry\n", string(notFoundCSV))
+	require.Equal(t, "stream id,position,required,found,not found,retry\n", string(notFoundCSV))
 }
 
 func TestService_Failures(t *testing.T) {
@@ -244,15 +244,24 @@ func TestService_Failures(t *testing.T) {
 
 		segments := []metabase.VerifySegment{
 			{
-				StreamID:    uuid.UUID{0x10, 0x10},
+				StreamID: uuid.UUID{0x10, 0x10},
+				Redundancy: storj.RedundancyScheme{
+					RequiredShares: 3,
+				},
 				AliasPieces: metabase.AliasPieces{{Number: 1, Alias: 8}, {Number: 3, Alias: 9}, {Number: 5, Alias: 10}, {Number: 0, Alias: 1}},
 			},
 			{
-				StreamID:    uuid.UUID{0x20, 0x20},
+				StreamID: uuid.UUID{0x20, 0x20},
+				Redundancy: storj.RedundancyScheme{
+					RequiredShares: 2,
+				},
 				AliasPieces: metabase.AliasPieces{{Number: 0, Alias: 2}, {Number: 1, Alias: 3}, {Number: 7, Alias: 4}},
 			},
 			{
-				StreamID:    uuid.UUID{0x30, 0x30},
+				StreamID: uuid.UUID{0x30, 0x30},
+				Redundancy: storj.RedundancyScheme{
+					RequiredShares: 2,
+				},
 				AliasPieces: metabase.AliasPieces{{Number: 0, Alias: 2}, {Number: 1, Alias: 3}, {Number: 7, Alias: 4}},
 			},
 		}
@@ -281,15 +290,15 @@ func TestService_Failures(t *testing.T) {
 	retryCSV, err := os.ReadFile(config.RetryPath)
 	require.NoError(t, err)
 	require.Equal(t, ""+
-		"stream id,position,found,not found,retry\n"+
-		"10100000-0000-0000-0000-000000000000,0,1,0,1\n",
+		"stream id,position,required,found,not found,retry\n"+
+		"10100000-0000-0000-0000-000000000000,0,3,1,0,1\n",
 		string(retryCSV))
 
 	notFoundCSV, err := os.ReadFile(config.NotFoundPath)
 	require.NoError(t, err)
 	require.Equal(t, ""+
-		"stream id,position,found,not found,retry\n"+
-		"20200000-0000-0000-0000-000000000000,0,0,2,0\n",
+		"stream id,position,required,found,not found,retry\n"+
+		"20200000-0000-0000-0000-000000000000,0,2,0,2,0\n",
 		string(notFoundCSV))
 }
 
