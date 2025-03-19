@@ -52,4 +52,12 @@ export class Validator {
     public static nameLength(value: string, maxLength: number): boolean {
         return value.length <= maxLength;
     }
+
+    /**
+     * Checks string to see if it contains typical phone number characters.
+     */
+    public static phoneNumber(value: string): boolean {
+        const rgx = /^\+?\d{1,15}(?:[\s.-]?\d{1,15})*$/;
+        return rgx.test(value);
+    }
 }
