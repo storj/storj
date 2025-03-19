@@ -76,6 +76,9 @@
 # the hubspot lifecycle stage for new accounts
 # analytics.hub-spot.life-cycle-stage: ""
 
+# the hubspot form URL for requesting object mount consultation
+# analytics.hub-spot.object-mount-consultation-form-url: ""
+
 # hubspot refresh token
 # analytics.hub-spot.refresh-token: ""
 
