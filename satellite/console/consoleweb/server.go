@@ -118,6 +118,7 @@ type Config struct {
 	ActiveSessionsViewEnabled       bool          `help:"whether active sessions table view should be shown" default:"false"`
 	ObjectLockUIEnabled             bool          `help:"whether object lock UI should be shown, regardless of whether the feature is enabled" default:"true"`
 	CunoFSBetaEnabled               bool          `help:"whether prompt to join cunoFS beta is visible" default:"false"`
+	ObjectMountConsultationEnabled  bool          `help:"whether object mount consultation request form is visible" default:"false"`
 	CSRFProtectionEnabled           bool          `help:"whether CSRF protection is enabled for some of the endpoints" default:"false" testDefault:"false"`
 	BillingAddFundsEnabled          bool          `help:"whether billing add funds feature is enabled" default:"false"`
 	DownloadPrefixEnabled           bool          `help:"whether prefix (bucket/folder) download is enabled" default:"false"`
@@ -479,6 +480,7 @@ func NewServer(logger *zap.Logger, config Config, service *console.Service, oidc
 	analyticsRouter.HandleFunc("/event", analyticsController.EventTriggered).Methods(http.MethodPost, http.MethodOptions)
 	analyticsRouter.HandleFunc("/page", analyticsController.PageEventTriggered).Methods(http.MethodPost, http.MethodOptions)
 	analyticsRouter.HandleFunc("/join-cunofs-beta", analyticsController.JoinCunoFSBeta).Methods(http.MethodPost, http.MethodOptions)
+	analyticsRouter.HandleFunc("/object-mount-consultation", analyticsController.RequestObjectMountConsultation).Methods(http.MethodPost, http.MethodOptions)
 
 	oidc := oidc.NewEndpoint(
 		server.nodeURL, server.config.ExternalAddress,
@@ -1012,6 +1014,7 @@ func (server *Server) frontendConfigHandler(w http.ResponseWriter, r *http.Reque
 		SelfServePlacementSelectEnabled:   server.config.Placement.SelfServeEnabled,
 		SelfServePlacementNames:           server.config.Placement.SelfServeNames,
 		CunoFSBetaEnabled:                 server.config.CunoFSBetaEnabled,
+		ObjectMountConsultationEnabled:    server.config.ObjectMountConsultationEnabled,
 		CSRFToken:                         csrfToken,
 		BillingAddFundsEnabled:            server.config.BillingAddFundsEnabled,
 		MaxAddFundsAmount:                 server.config.MaxAddFundsAmount,

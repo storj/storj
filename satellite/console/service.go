@@ -3461,6 +3461,8 @@ func (s *Service) RequestObjectMountConsultation(ctx context.Context, data analy
 		return ErrConflict.New("user already requested object mount consultation")
 	}
 
+	data.Email = user.Email
+
 	s.analytics.RequestObjectMountConsultation(data)
 
 	noticeDismissal.ObjectMountConsultationRequested = true
