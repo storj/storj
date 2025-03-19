@@ -61,6 +61,7 @@ func (csv *CSVWriter) Write(ctx context.Context, segments []*Segment) (err error
 		err := csv.wr.Write([]string{
 			"stream id",
 			"position",
+			"required",
 			"found",
 			"not found",
 			"retry",
@@ -80,6 +81,7 @@ func (csv *CSVWriter) Write(ctx context.Context, segments []*Segment) (err error
 		err := csv.wr.Write([]string{
 			seg.StreamID.String(),
 			fmt.Sprint(seg.Position.Encode()),
+			fmt.Sprint(seg.Redundancy.RequiredShares),
 			fmt.Sprint(seg.Status.Found),
 			fmt.Sprint(seg.Status.NotFound),
 			fmt.Sprint(seg.Status.Retry),
