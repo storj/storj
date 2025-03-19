@@ -127,6 +127,10 @@ export function MaxNameLengthRule(value: string): string | boolean {
     return Validator.nameLength(value, maxNameCharacters) || `The value must be less than or equal to ${maxNameCharacters}.`;
 }
 
+export function PhoneNumberRule(value: string): string | boolean {
+    return Validator.phoneNumber(value) || 'Phone number must be valid.';
+}
+
 export interface IDialogFlowStep {
     onEnter?: () => void;
     onExit?: (to: 'next' | 'prev') => void;

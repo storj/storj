@@ -6,7 +6,7 @@ import { computed } from 'vue';
 
 import { AnalyticsHttpApi } from '@/api/analytics';
 import { AnalyticsErrorEventSource, AnalyticsEvent } from '@/utils/constants/analyticsEventNames';
-import { JoinCunoFSBetaForm } from '@/types/analytics';
+import { JoinCunoFSBetaForm, ObjectMountConsultationForm } from '@/types/analytics';
 import { useConfigStore } from '@/store/modules/configStore';
 
 export const useAnalyticsStore = defineStore('analytics', () => {
@@ -21,6 +21,10 @@ export const useAnalyticsStore = defineStore('analytics', () => {
 
     async function joinCunoFSBeta(data: JoinCunoFSBetaForm): Promise<void> {
         await analytics.joinCunoFSBeta(data, csrfToken.value);
+    }
+
+    async function requestObjectMountConsultation(data: ObjectMountConsultationForm): Promise<void> {
+        await analytics.requestObjectMountConsultation(data, csrfToken.value);
     }
 
     function eventTriggered(eventName: AnalyticsEvent, props?: { [p: string]: string }): void {
@@ -68,5 +72,6 @@ export const useAnalyticsStore = defineStore('analytics', () => {
         linkEventTriggered,
         pageVisit,
         joinCunoFSBeta,
+        requestObjectMountConsultation,
     };
 });
