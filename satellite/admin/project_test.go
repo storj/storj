@@ -1248,7 +1248,7 @@ func TestProjectDelete_withUsageCurrentMonth(t *testing.T) {
 	})
 }
 
-// TestProjectDelete_withUsageCurrentMonthUncharged first tries to delete a last month used project of a paid tier user, which
+// TestProjectDelete_withUsagePreviousMonthUncharged first tries to delete a last month used project of a paid tier user, which
 // should fail and afterwards converts the user to free tier and tries the deletion again. That deletion should succeed.
 // This test ensures we bill paid tier users for past months usage and do not forget to do so.
 func TestProjectDelete_withUsagePreviousMonthUncharged(t *testing.T) {
@@ -1367,7 +1367,7 @@ func TestProjectDelete_withUsagePreviousMonthUncharged(t *testing.T) {
 	})
 }
 
-// TestProjectDelete_withUsageCurrentMonthCharged tries to delete a last month used project of a paid tier user, which
+// TestProjectDelete_withUsagePreviousMonthCharged tries to delete a last month used project of a paid tier user, which
 // should fail without an accommodating invoice record. This tests creates the corresponding entry and should afterwards
 // the deletion of the project.
 func TestProjectDelete_withUsagePreviousMonthCharged(t *testing.T) {
