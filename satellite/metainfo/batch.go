@@ -39,6 +39,10 @@ func (endpoint *Endpoint) CompressedBatch(ctx context.Context, req *pb.Compresse
 		return nil, errs.Wrap(err)
 	}
 
+	if len(unReq.Requests) == 0 {
+		return &pb.CompressedBatchResponse{}, nil
+	}
+
 	unResp, err := endpoint.Batch(ctx, &unReq)
 	if err != nil {
 		return nil, errs.Wrap(err)
@@ -57,6 +61,17 @@ func (endpoint *Endpoint) CompressedBatch(ctx context.Context, req *pb.Compresse
 		resp.Data = unrespData
 		resp.Selected = pb.CompressedBatchRequest_NONE
 	}
+
+	rpc := ""
+	for i, resp := range unResp.Responses {
+		rpc += fmt.Sprintf("%T", resp.Response)
+		if i >= 2 {
+			rpc += "..."
+			break
+		}
+	}
+
+	mon.IntVal("compressed_batch_response_sizes", monkit.NewSeriesTag("rpc", rpc)).Observe(int64(pb.Size(resp)))
 
 	return resp, nil
 }
