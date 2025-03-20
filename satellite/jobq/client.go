@@ -346,11 +346,7 @@ func DialAddr(addr net.Addr) (*Client, error) {
 }
 
 // DialTLS dials an address and creates a new client with TLS.
-func DialTLS(ctx context.Context, selfIdentity *identity.FullIdentity, serverURL string, tlsConfig tlsopts.Config) (*Client, error) {
-	serverNodeURL, err := storj.ParseNodeURL(serverURL)
-	if err != nil {
-		return nil, fmt.Errorf("failed to parse server \"node URL\": %w", err)
-	}
+func DialTLS(ctx context.Context, selfIdentity *identity.FullIdentity, serverURL storj.NodeURL, tlsConfig tlsopts.Config) (*Client, error) {
 	revocationDB, err := revocation.OpenDBFromCfg(ctx, tlsConfig)
 	if err != nil {
 		return nil, fmt.Errorf("creating revocation database: %w", err)
@@ -360,7 +356,7 @@ func DialTLS(ctx context.Context, selfIdentity *identity.FullIdentity, serverURL
 		return nil, fmt.Errorf("TLS options: %w", err)
 	}
 
-	tlsConn, err := tls.Dial("tcp", serverNodeURL.Address, tlsOpts.ClientTLSConfig(serverNodeURL.ID))
+	tlsConn, err := tls.Dial("tcp", serverURL.Address, tlsOpts.ClientTLSConfig(serverURL.ID))
 	if err != nil {
 		return nil, err
 	}

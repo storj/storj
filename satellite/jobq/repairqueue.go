@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"storj.io/common/identity"
+	"storj.io/common/peertls/tlsopts"
 	"storj.io/common/storj"
 	"storj.io/common/uuid"
 	"storj.io/storj/satellite/metabase"
@@ -18,8 +19,8 @@ import (
 
 // Config holds the Storj-style configuration for a job queue client.
 type Config struct {
-	Address        string `help:"address of the job queue server" default:"" testDefault:""`
-	ServerIdentity identity.PeerConfig
+	ServerNodeURL storj.NodeURL `help:"\"node URL\" of the job queue server" default:"" testDefault:""`
+	TLS           tlsopts.Config
 }
 
 // RepairJobQueue is a Storj-style repair queue, meant to be a near drop-in
@@ -43,6 +44,7 @@ func (rjq *RepairJobQueue) Insert(ctx context.Context, job *queue.InjuredSegment
 	if job.AttemptedAt != nil {
 		lastAttemptedAt = uint64(job.AttemptedAt.Unix())
 	}
+
 	wasNew, err := rjq.jobqClient.Push(ctx, RepairJob{
 		ID:              SegmentIdentifier{StreamID: job.StreamID, Position: job.Position.Encode()},
 		Health:          job.SegmentHealth,
@@ -60,6 +62,7 @@ func (rjq *RepairJobQueue) Insert(ctx context.Context, job *queue.InjuredSegment
 // newlyInsertedSegments is the list of segments that were added to the queue.
 func (rjq *RepairJobQueue) InsertBatch(ctx context.Context, segments []*queue.InjuredSegment) (newlyInsertedSegments []*queue.InjuredSegment, err error) {
 	jobs := make([]RepairJob, len(segments))
+
 	for i, segment := range segments {
 		lastAttemptedAt := uint64(0)
 		if segment.AttemptedAt != nil {
@@ -247,3 +250,20 @@ func (rjq *RepairJobQueue) Close() error {
 }
 
 var _ queue.RepairQueue = (*RepairJobQueue)(nil)
+
+// OpenJobQueue opens a connection to a job queue server.
+func OpenJobQueue(ctx context.Context, selfIdentity *identity.FullIdentity, config Config) (rq *RepairJobQueue, err error) {
+	var clientConn *Client
+	if selfIdentity == nil {
+		clientConn, err = Dial(config.ServerNodeURL.Address)
+	} else {
+		clientConn, err = DialTLS(ctx, selfIdentity, config.ServerNodeURL, config.TLS)
+	}
+	if err != nil {
+		return nil, err
+	}
+
+	return &RepairJobQueue{
+		jobqClient: clientConn,
+	}, nil
+}

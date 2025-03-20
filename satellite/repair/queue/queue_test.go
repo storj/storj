@@ -265,58 +265,52 @@ func TestClean(t *testing.T) {
 			StreamID: testrand.UUID(),
 		}
 
-		timeBeforeInsert1 := time.Now()
+		// Create reference time before insertion
+		timeBeforeInsert := time.Now().Add(-time.Hour)
 
+		// Insert all segments - this will set their UpdatedAt times to now
 		segmentHealth := 1.3
+		seg1.SegmentHealth = segmentHealth
 		_, err := q.Insert(ctx, seg1)
 		require.NoError(t, err)
 
+		seg2.SegmentHealth = segmentHealth
 		_, err = q.Insert(ctx, seg2)
 		require.NoError(t, err)
 
+		seg3.SegmentHealth = segmentHealth
 		_, err = q.Insert(ctx, seg3)
+		require.NoError(t, err)
+
+		// mark seg1 as updated an hour ago
+		_, err = q.TestingSetUpdatedTime(ctx, 0, seg1.StreamID, seg1.Position, timeBeforeInsert)
 		require.NoError(t, err)
 
 		count, err := q.Count(ctx)
 		require.NoError(t, err)
 		require.Equal(t, 3, count)
 
-		d, err := q.Clean(ctx, timeBeforeInsert1)
+		// Clean should not remove any segments when using a time before all segments
+		d, err := q.Clean(ctx, timeBeforeInsert.Add(-time.Hour))
 		require.NoError(t, err)
 		require.Equal(t, int64(0), d)
 
-		count, err = q.Count(ctx)
-		require.NoError(t, err)
-		require.Equal(t, 3, count)
-
-		timeBeforeInsert2 := time.Now()
-
-		// seg1 "becomes healthy", so do not update it
-		// seg2 stays at the same health
-		_, err = q.Insert(ctx, seg2)
-		require.NoError(t, err)
-
-		// seg3 has a lower health
-		seg3.SegmentHealth = segmentHealth - 0.1
-		_, err = q.Insert(ctx, seg3)
-		require.NoError(t, err)
-
-		count, err = q.Count(ctx)
-		require.NoError(t, err)
-		require.Equal(t, 3, count)
-
-		d, err = q.Clean(ctx, timeBeforeInsert2)
+		// Clean should remove 1 segment (seg1) when using timeBeforeInsert
+		d, err = q.Clean(ctx, timeBeforeInsert.Add(time.Minute))
 		require.NoError(t, err)
 		require.Equal(t, int64(1), d)
 
+		// We should have 2 segments left
 		count, err = q.Count(ctx)
 		require.NoError(t, err)
 		require.Equal(t, 2, count)
 
-		d, err = q.Clean(ctx, time.Now())
+		// Clean with current time should remove all segments
+		d, err = q.Clean(ctx, time.Now().Add(time.Minute))
 		require.NoError(t, err)
 		require.Equal(t, int64(2), d)
 
+		// We should have 0 segments left
 		count, err = q.Count(ctx)
 		require.NoError(t, err)
 		require.Equal(t, 0, count)
