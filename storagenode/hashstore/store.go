@@ -25,6 +25,7 @@ import (
 	"storj.io/common/context2"
 	"storj.io/common/memory"
 	"storj.io/drpc/drpcsignal"
+	"storj.io/storj/storagenode/hashstore/platform"
 )
 
 var (
@@ -138,7 +139,7 @@ func NewStore(ctx context.Context, logsPath string, tablePath string, log *zap.L
 		if err != nil {
 			return nil, Error.New("unable to create lock file: %w", err)
 		}
-		if err := optimisticFlock(s.lock); err != nil {
+		if err := platform.Flock(s.lock); err != nil {
 			return nil, Error.New("unable to flock: %w", err)
 		}
 	}
@@ -372,7 +373,7 @@ func (s *Store) createLogFile(ttl uint32) (*logFile, error) {
 	if err := os.MkdirAll(dir, 0755); err != nil {
 		return nil, Error.Wrap(err)
 	}
-	fh, err := createFile(path)
+	fh, err := platform.CreateFile(path)
 	if err != nil {
 		return nil, Error.Wrap(err)
 	}

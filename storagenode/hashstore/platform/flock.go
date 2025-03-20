@@ -1,15 +1,16 @@
 // Copyright (C) 2024 Storj Labs, Inc.
 // See LICENSE for copying information.
 
-package hashstore
+package platform
 
 import (
 	"os"
 	"path/filepath"
 )
 
-func optimisticFlock(fh *os.File) error {
-	if !flockSupported {
+// Flock attempts to flock the file if flock is supported on the platform.
+func Flock(fh *os.File) error {
+	if !FlockSupported {
 		return nil
 	}
 	tmp, err := os.CreateTemp(filepath.Dir(fh.Name()), "flock-test-*.tmp")

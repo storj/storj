@@ -15,6 +15,7 @@ import (
 
 	"storj.io/common/storj"
 	"storj.io/drpc/drpcsignal"
+	"storj.io/storj/storagenode/hashstore/platform"
 )
 
 var mon = monkit.Package()
@@ -227,7 +228,7 @@ type atomicFile struct {
 func newAtomicFile(name string) (*atomicFile, error) {
 	tmp := name + ".tmp"
 
-	fh, err := createFile(tmp)
+	fh, err := platform.CreateFile(tmp)
 	if err != nil {
 		return nil, Error.Wrap(err)
 	}

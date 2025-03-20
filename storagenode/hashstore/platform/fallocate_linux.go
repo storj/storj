@@ -3,7 +3,7 @@
 
 //go:build linux
 
-package hashstore
+package platform
 
 import (
 	"os"
@@ -11,7 +11,9 @@ import (
 	"syscall"
 )
 
-func fallocate(fh *os.File, size int64) error {
+// Fallocate preallocates space for a file. It is a no-op on platforms that do
+// not support it.
+func Fallocate(fh *os.File, size int64) error {
 	tmp, err := os.CreateTemp(filepath.Dir(fh.Name()), "fallocate-test-*.tmp")
 	if err != nil {
 		return Error.Wrap(err)

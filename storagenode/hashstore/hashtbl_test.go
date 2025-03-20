@@ -216,3 +216,26 @@ func TestHashtbl_EstimateWithNonuniformTable(t *testing.T) {
 	assert.That(t, h.Load() != 0)
 	assert.That(t, h.Load() != 1)
 }
+
+//
+// benchmarks
+//
+
+func BenchmarkHashTbl(b *testing.B) {
+	benchmarkLRecs(b, "ComputeEstimates", func(b *testing.B, lrec uint64) {
+		ctx := context.Background()
+		tbl := newTestTable(b, lrec)
+		defer tbl.Close()
+
+		for i := 0; i < 1<<lrec/2; i++ {
+			tbl.AssertInsert()
+		}
+
+		b.ReportAllocs()
+		b.ResetTimer()
+
+		for i := 0; i < b.N; i++ {
+			assert.NoError(b, tbl.ComputeEstimates(ctx))
+		}
+	})
+}

@@ -41,7 +41,7 @@ func TestPage_BasicOperation(t *testing.T) {
 	for i := uint64(0); i < recordsPerPage; i++ {
 		rec := newRecord(newKey())
 		recs = append(recs, rec)
-		p.writeRecord(i, rec)
+		p.writeRecord(i, &rec)
 	}
 
 	for i := uint64(0); i < recordsPerPage; i++ {

@@ -174,11 +174,9 @@ func testTable_ExpectOrdered(t *testing.T) {
 		}
 	}
 
-	// write some more records and ensure they aren't immediately visible
+	// write some more records
 	for i := 0; i < 100; i++ {
-		rec := tbl.AssertInsert()
-		tbl.AssertLookupMiss(rec.Key)
-		recs = append(recs, rec)
+		recs = append(recs, tbl.AssertInsert())
 	}
 
 	// after a commit, all of them should be visible

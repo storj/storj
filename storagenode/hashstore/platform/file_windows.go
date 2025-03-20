@@ -3,7 +3,7 @@
 
 //go:build windows
 
-package hashstore
+package platform
 
 import (
 	"os"
@@ -22,7 +22,8 @@ func tryFixLongPath(path string) string {
 	return `\\?\` + abspath
 }
 
-func createFile(path string) (*os.File, error) {
+// CreateFile creates a file in read/write mode that errors if it already exists.
+func CreateFile(path string) (*os.File, error) {
 	pathPtr, err := windows.UTF16PtrFromString(tryFixLongPath(path))
 	if err != nil {
 		return nil, err

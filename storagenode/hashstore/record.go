@@ -33,7 +33,7 @@ func (p *bigPage) readRecord(n uint64, rec *Record) bool {
 	return false
 }
 
-func (p *bigPage) writeRecord(n uint64, rec Record) {
+func (p *bigPage) writeRecord(n uint64, rec *Record) {
 	if b := p[(n*RecordSize)%bigPageSize:]; len(b) >= RecordSize {
 		rec.WriteTo((*[RecordSize]byte)(b))
 	}
@@ -48,7 +48,7 @@ func (p *page) readRecord(n uint64, rec *Record) bool {
 	return false
 }
 
-func (p *page) writeRecord(n uint64, rec Record) {
+func (p *page) writeRecord(n uint64, rec *Record) {
 	if b := p[(n*RecordSize)%pageSize:]; len(b) >= RecordSize {
 		rec.WriteTo((*[RecordSize]byte)(b))
 	}

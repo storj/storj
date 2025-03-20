@@ -15,6 +15,12 @@ import (
 
 	"storj.io/common/memory"
 	"storj.io/drpc/drpcsignal"
+	"storj.io/storj/storagenode/hashstore/platform"
+)
+
+var (
+	// if set, uses mmap to do reads and writes to the hashtbl.
+	hashtbl_MMAP = envBool("STORJ_HASHSTORE_HASHTBL_MMAP", false)
 )
 
 const hashtbl_invalidPage = 1<<64 - 1
@@ -33,6 +39,9 @@ type HashTbl struct {
 	cloMu  sync.Mutex        // synchronizes closing
 
 	buffer *rwBigPageCache // buffer for inserts
+
+	mmap      *mmapCache   // memory mapped file if in mmap mode
+	mmapClose func() error // close function for the mmap
 
 	statsMu  sync.Mutex // protects the following fields
 	recStats recordStats
@@ -85,7 +94,7 @@ func CreateHashtbl(ctx context.Context, fh *os.File, logSlots uint64, created ui
 		return nil, Error.New("unable to truncate hashtbl to 0: %w", err)
 	} else if err := fh.Truncate(size); err != nil {
 		return nil, Error.New("unable to truncate hashtbl to %d: %w", size, err)
-	} else if err := fallocate(fh, size); err != nil {
+	} else if err := platform.Fallocate(fh, size); err != nil {
 		return nil, Error.New("unable to fallocate hashtbl to %d: %w", size, err)
 	} else if err := WriteTblHeader(fh, header); err != nil {
 		return nil, Error.Wrap(err)
@@ -130,6 +139,14 @@ func OpenHashtbl(ctx context.Context, fh *os.File) (_ *HashTbl, err error) {
 		numSlots: 1 << logSlots,
 		slotMask: 1<<logSlots - 1,
 		header:   header,
+	}
+
+	if hashtbl_MMAP {
+		data, close, err := platform.MMAP(fh, int(size))
+		if err != nil {
+			return nil, Error.Wrap(err)
+		}
+		h.mmap, h.mmapClose = newMMAPCache(data), close
 	}
 
 	// estimate numSet, lenSet, numTrash and lenTrash.
@@ -185,6 +202,11 @@ func (h *HashTbl) Close() {
 	h.opMu.WaitLock()
 	defer h.opMu.Unlock()
 
+	if h.mmap != nil {
+		_ = h.mmapClose()
+		h.mmap, h.mmapClose = nil, nil
+	}
+
 	_ = h.fh.Close()
 }
 
@@ -229,17 +251,28 @@ func (h *HashTbl) ComputeEstimates(ctx context.Context) (err error) {
 	var (
 		recStats recordStats
 		rng      = mwc.Rand()
+
+		rec   Record
+		valid bool
 	)
 
-	var cache roPageCache
-	cache.Init(h.fh)
+	var cache *roPageCache
+	if h.mmap == nil {
+		cache = new(roPageCache)
+		cache.Init(h.fh)
+	}
 
 	for i := uint64(0); i < samplePageGroups; i++ {
 		groupIdx := rng.Uint64n(maxGroup)
 		pageIdx := groupIdx * pagesPerGroup
 		for recIdx := uint64(0); recIdx < recordsPerGroup; recIdx++ {
 			slot := slotIdxT(pageIdx*recordsPerPage + recIdx)
-			rec, valid, err := cache.ReadRecord(slot)
+
+			if cache != nil {
+				valid, err = cache.ReadRecord(slot, &rec)
+			} else {
+				valid, err = h.mmap.ReadRecord(slot, &rec)
+			}
 			if err != nil {
 				return Error.Wrap(err)
 			} else if valid {
@@ -275,18 +308,31 @@ func (h *HashTbl) Load() float64 {
 }
 
 // Range iterates over the records in hash table order.
-func (h *HashTbl) Range(ctx context.Context, fn func(context.Context, Record) (bool, error)) error {
+func (h *HashTbl) Range(ctx context.Context, fn func(context.Context, Record) (bool, error)) (err error) {
 	if err := h.opMu.RLock(ctx, &h.closed); err != nil {
 		return err
 	}
 	defer h.opMu.RUnlock()
 
-	var recStats recordStats
-	var cache roBigPageCache
-	cache.Init(h.fh)
+	var (
+		recStats recordStats
+
+		rec   Record
+		valid bool
+	)
+
+	var cache *roBigPageCache
+	if h.mmap == nil {
+		cache = new(roBigPageCache)
+		cache.Init(h.fh)
+	}
 
 	for slot := slotIdxT(0); slot < h.numSlots; slot++ {
-		rec, valid, err := cache.ReadRecord(slot)
+		if cache != nil {
+			valid, err = cache.ReadRecord(slot, &rec)
+		} else {
+			valid, err = h.mmap.ReadRecord(slot, &rec)
+		}
 		if err != nil {
 			return Error.Wrap(err)
 		} else if valid {
@@ -320,6 +366,12 @@ func (h *HashTbl) ExpectOrdered(ctx context.Context) (flush func() error, done f
 		return nil, nil, err
 	}
 	defer h.opMu.Unlock()
+
+	// mmap mode benchmarks faster than the rwBigPageCache, so if we're in mmap mode then we should
+	// just use that.
+	if h.mmap != nil {
+		return func() error { return nil }, func() {}, nil
+	}
 
 	if h.buffer != nil {
 		return nil, nil, Error.New("buffer already exists")
@@ -358,8 +410,16 @@ func (h *HashTbl) Insert(ctx context.Context, rec Record) (_ bool, err error) {
 	}
 	defer h.opMu.Unlock()
 
-	var cache rwPageCache
-	cache.Init(h.fh)
+	var (
+		tmp   Record
+		valid bool
+	)
+
+	var cache *rwPageCache
+	if h.mmap == nil {
+		cache = new(rwPageCache)
+		cache.Init(h.fh)
+	}
 
 	for slot, attempt := h.slotForKey(&rec.Key), slotIdxT(0); attempt < h.numSlots; slot, attempt = (slot+1)&h.slotMask, attempt+1 {
 		if err := ctx.Err(); err != nil {
@@ -381,16 +441,12 @@ func (h *HashTbl) Insert(ctx context.Context, rec Record) (_ bool, err error) {
 		// compaction and so we can error if the fields don't match except for the expiration field
 		// which we can take to be the longer lasting value.
 
-		var (
-			tmp   Record
-			valid bool
-			err   error
-		)
-
 		if h.buffer != nil {
-			tmp, valid, err = h.buffer.ReadRecord(slot)
+			valid, err = h.buffer.ReadRecord(slot, &tmp)
+		} else if cache != nil {
+			valid, err = cache.ReadRecord(slot, &tmp)
 		} else {
-			tmp, valid, err = cache.ReadRecord(slot)
+			valid, err = h.mmap.ReadRecord(slot, &tmp)
 		}
 		if err != nil {
 			return false, Error.Wrap(err)
@@ -414,9 +470,11 @@ func (h *HashTbl) Insert(ctx context.Context, rec Record) (_ bool, err error) {
 
 		// thus it is either invalid or the key matches and the record is updated, so we can write.
 		if h.buffer != nil {
-			err = h.buffer.WriteRecord(slot, rec)
+			err = h.buffer.WriteRecord(slot, &rec)
+		} else if cache != nil {
+			err = cache.WriteRecord(slot, &rec)
 		} else {
-			err = cache.WriteRecord(slot, rec)
+			err = h.mmap.WriteRecord(slot, &rec)
 		}
 		if err != nil {
 			return false, Error.Wrap(err)
@@ -450,8 +508,16 @@ func (h *HashTbl) Lookup(ctx context.Context, key Key) (_ Record, _ bool, err er
 	}
 	defer h.opMu.RUnlock()
 
-	var cache roPageCache
-	cache.Init(h.fh)
+	var (
+		rec   Record
+		valid bool
+	)
+
+	var cache *roPageCache
+	if h.mmap == nil {
+		cache = new(roPageCache)
+		cache.Init(h.fh)
+	}
 
 	for slot, attempt := h.slotForKey(&key), slotIdxT(0); attempt < h.numSlots; slot, attempt = (slot+1)&h.slotMask, attempt+1 {
 		if err := ctx.Err(); err != nil {
@@ -460,7 +526,11 @@ func (h *HashTbl) Lookup(ctx context.Context, key Key) (_ Record, _ bool, err er
 			return Record{}, false, err
 		}
 
-		rec, valid, err := cache.ReadRecord(slot)
+		if cache != nil {
+			valid, err = cache.ReadRecord(slot, &rec)
+		} else {
+			valid, err = h.mmap.ReadRecord(slot, &rec)
+		}
 		if err != nil {
 			return Record{}, false, Error.Wrap(err)
 		} else if !valid {
@@ -481,6 +551,33 @@ func (h *HashTbl) Lookup(ctx context.Context, key Key) (_ Record, _ bool, err er
 }
 
 //
+// mmap based pass through cache
+//
+
+type mmapCache struct{ data []byte }
+
+func newMMAPCache(data []byte) *mmapCache { return &mmapCache{data: data} }
+
+func (c *mmapCache) ReadRecord(slot slotIdxT, rec *Record) (valid bool, err error) {
+	start := uint64(slot.Offset())
+	end := start + RecordSize
+	if start < uint64(len(c.data)) && end <= uint64(len(c.data)) && start <= end {
+		return rec.ReadFrom((*[64]byte)(c.data[start:end])), nil
+	}
+	return false, Error.New("slot out of bounds: slot=%d", slot)
+}
+
+func (c *mmapCache) WriteRecord(slot slotIdxT, rec *Record) (err error) {
+	start := uint64(slot.Offset())
+	end := start + RecordSize
+	if start < uint64(len(c.data)) && end <= uint64(len(c.data)) && start <= end {
+		rec.WriteTo((*[64]byte)(c.data[start:end]))
+		return nil
+	}
+	return Error.New("slot out of bounds: slot=%d", slot)
+}
+
+//
 // read-only hashtbl page caches
 //
 
@@ -495,17 +592,16 @@ func (c *roPageCache) Init(fh *os.File) {
 	c.i = hashtbl_invalidPage
 }
 
-func (c *roPageCache) ReadRecord(slot slotIdxT) (rec Record, valid bool, err error) {
+func (c *roPageCache) ReadRecord(slot slotIdxT, rec *Record) (valid bool, err error) {
 	pi, ri := slot.PageIndexes()
 	if pi != c.i {
 		c.i = hashtbl_invalidPage // invalidate the page in case the read fails
 		if _, err := c.fh.ReadAt(c.p[:], pi.Offset()); err != nil {
-			return Record{}, false, Error.Wrap(err)
+			return false, Error.Wrap(err)
 		}
 		c.i = pi
 	}
-	valid = c.p.readRecord(ri, &rec)
-	return rec, valid, nil
+	return c.p.readRecord(ri, rec), nil
 }
 
 type roBigPageCache struct {
@@ -519,17 +615,16 @@ func (c *roBigPageCache) Init(fh *os.File) {
 	c.i = hashtbl_invalidPage
 }
 
-func (c *roBigPageCache) ReadRecord(slot slotIdxT) (rec Record, valid bool, err error) {
+func (c *roBigPageCache) ReadRecord(slot slotIdxT, rec *Record) (valid bool, err error) {
 	pi, ri := slot.BigPageIndexes()
 	if pi != c.i {
 		c.i = hashtbl_invalidPage // invalidate the page in case the read fails
 		if _, err := c.fh.ReadAt(c.p[:], pi.Offset()); err != nil {
-			return Record{}, false, Error.Wrap(err)
+			return false, Error.Wrap(err)
 		}
 		c.i = pi
 	}
-	valid = c.p.readRecord(ri, &rec)
-	return rec, valid, nil
+	return c.p.readRecord(ri, rec), nil
 }
 
 //
@@ -559,16 +654,15 @@ func (c *rwPageCache) setPage(pi pageIdxT) (err error) {
 	return nil
 }
 
-func (c *rwPageCache) ReadRecord(slot slotIdxT) (rec Record, valid bool, err error) {
+func (c *rwPageCache) ReadRecord(slot slotIdxT, rec *Record) (valid bool, err error) {
 	pi, ri := slot.PageIndexes()
 	if err := c.setPage(pi); err != nil {
-		return Record{}, false, Error.Wrap(err)
+		return false, Error.Wrap(err)
 	}
-	valid = c.p.readRecord(ri, &rec)
-	return rec, valid, nil
+	return c.p.readRecord(ri, rec), nil
 }
 
-func (c *rwPageCache) WriteRecord(slot slotIdxT, rec Record) (err error) {
+func (c *rwPageCache) WriteRecord(slot slotIdxT, rec *Record) (err error) {
 	// directly write the record because this page cache is used in situations where we expect only
 	// a single record to be written.
 	var buf [RecordSize]byte
@@ -612,16 +706,15 @@ func (c *rwBigPageCache) setPage(pi bigPageIdxT) (err error) {
 	return nil
 }
 
-func (c *rwBigPageCache) ReadRecord(slot slotIdxT) (rec Record, valid bool, err error) {
+func (c *rwBigPageCache) ReadRecord(slot slotIdxT, rec *Record) (valid bool, err error) {
 	pi, ri := slot.BigPageIndexes()
 	if err := c.setPage(pi); err != nil {
-		return Record{}, false, Error.Wrap(err)
+		return false, Error.Wrap(err)
 	}
-	valid = c.p.readRecord(ri, &rec)
-	return rec, valid, nil
+	return c.p.readRecord(ri, rec), nil
 }
 
-func (c *rwBigPageCache) WriteRecord(slot slotIdxT, rec Record) (err error) {
+func (c *rwBigPageCache) WriteRecord(slot slotIdxT, rec *Record) (err error) {
 	pi, ri := slot.BigPageIndexes()
 	if err := c.setPage(pi); err != nil {
 		return Error.Wrap(err)

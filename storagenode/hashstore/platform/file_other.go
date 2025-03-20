@@ -3,10 +3,11 @@
 
 //go:build !windows
 
-package hashstore
+package platform
 
 import "os"
 
-func createFile(path string) (*os.File, error) {
+// CreateFile creates a file in read/write mode that errors if it already exists.
+func CreateFile(path string) (*os.File, error) {
 	return os.OpenFile(path, os.O_CREATE|os.O_EXCL|os.O_RDWR, 0600)
 }

@@ -16,6 +16,8 @@ import (
 
 	"github.com/zeebo/assert"
 	"github.com/zeebo/mwc"
+
+	"storj.io/storj/storagenode/hashstore/platform"
 )
 
 func TestStore_BasicOperation(t *testing.T) {
@@ -97,7 +99,7 @@ func TestStore_FileLocking(t *testing.T) {
 	forAllTables(t, testStore_FileLocking)
 }
 func testStore_FileLocking(t *testing.T) {
-	if !flockSupported {
+	if !platform.FlockSupported {
 		t.Skip("flock not supported on this platform")
 	}
 

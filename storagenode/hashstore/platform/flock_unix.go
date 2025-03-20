@@ -3,14 +3,15 @@
 
 //go:build unix
 
-package hashstore
+package platform
 
 import (
 	"os"
 	"syscall"
 )
 
-const flockSupported = true
+// FlockSupported is a constant indicating if flock is supported on the platform.
+const FlockSupported = true
 
 func flock(fh *os.File) error {
 	return Error.Wrap(syscall.Flock(

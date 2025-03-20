@@ -3,10 +3,11 @@
 
 //go:build !unix && !windows
 
-package hashstore
+package platform
 
 import "os"
 
-const flockSupported = false
+// FlockSupported is a constant indicating if flock is supported on the platform.
+const FlockSupported = false
 
 func flock(fh *os.File) error { return nil }
