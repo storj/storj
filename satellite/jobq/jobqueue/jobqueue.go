@@ -181,7 +181,29 @@ type repairPriorityQueue struct {
 }
 
 func (rpq *repairPriorityQueue) Less(i, j int) bool {
-	return rpq.priorityHeap[i].Health < rpq.priorityHeap[j].Health
+	// We order by (Health, LastAttemptedAt (nulls first), InsertedAt). All that
+	// is really necessary is health, but the other fields are included to match
+	// the sql-based queue behavior and make tests pass.
+
+	if rpq.priorityHeap[i].Health < rpq.priorityHeap[j].Health {
+		return true
+	}
+	if rpq.priorityHeap[i].Health > rpq.priorityHeap[j].Health {
+		return false
+	}
+
+	if rpq.priorityHeap[i].LastAttemptedAt == 0 && rpq.priorityHeap[j].LastAttemptedAt != 0 {
+		return true
+	}
+	if rpq.priorityHeap[i].LastAttemptedAt != 0 && rpq.priorityHeap[j].LastAttemptedAt == 0 {
+		return false
+	}
+
+	if rpq.priorityHeap[i].LastAttemptedAt != 0 && rpq.priorityHeap[j].LastAttemptedAt != 0 {
+		return rpq.priorityHeap[i].LastAttemptedAt < rpq.priorityHeap[j].LastAttemptedAt
+	}
+
+	return rpq.priorityHeap[i].InsertedAt < rpq.priorityHeap[j].InsertedAt
 }
 
 var _ heap.Interface = &repairPriorityQueue{}
@@ -291,18 +313,12 @@ func (q *Queue) Insert(job jobq.RepairJob) (wasNew bool) {
 			targetQueue = &q.rq.jobQueue
 			targetHeap = &q.rq
 		}
-		fixNeeded := false
 		oldJob := targetQueue.priorityHeap[index]
-		if oldJob.Health != job.Health {
-			fixNeeded = true
-		}
 		job.NumAttempts += oldJob.NumAttempts
 		job.InsertedAt = oldJob.InsertedAt
+
 		targetQueue.priorityHeap[index] = job
-		// only need to fix the position in the heap if the health changed
-		if fixNeeded {
-			heap.Fix(targetHeap, index)
-		}
+		heap.Fix(targetHeap, index)
 		return false
 	}
 	if job.InsertedAt == 0 || job.InsertedAt == jobq.ServerTimeNow {
