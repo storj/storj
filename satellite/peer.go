@@ -51,6 +51,7 @@ import (
 	"storj.io/storj/satellite/gc/piecetracker"
 	"storj.io/storj/satellite/gc/sender"
 	"storj.io/storj/satellite/gracefulexit"
+	"storj.io/storj/satellite/jobq"
 	"storj.io/storj/satellite/kms"
 	"storj.io/storj/satellite/mailservice"
 	"storj.io/storj/satellite/mailservice/simulate"
@@ -198,6 +199,7 @@ type Config struct {
 	GarbageCollectionBF bloomfilter.Config
 
 	RepairQueueCheck repairer.QueueStatConfig
+	JobQueue         jobq.Config
 
 	RangedLoop rangedloop.Config
 	Durability durability.Config

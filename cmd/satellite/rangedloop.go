@@ -12,7 +12,9 @@ import (
 	"storj.io/common/process"
 	"storj.io/common/process/eventkitbq"
 	"storj.io/storj/satellite"
+	"storj.io/storj/satellite/jobq"
 	"storj.io/storj/satellite/metabase"
+	"storj.io/storj/satellite/repair/queue"
 	"storj.io/storj/satellite/satellitedb"
 )
 
@@ -36,7 +38,20 @@ func cmdRangedLoopRun(cmd *cobra.Command, args []string) (err error) {
 		err = errs.Combine(err, metabaseDB.Close())
 	}()
 
-	repairQueue := db.RepairQueue()
+	identity, err := runCfg.Identity.Load()
+	if err != nil {
+		return errs.New("Error loading identity: %+v", err)
+	}
+
+	var repairQueue queue.RepairQueue
+	if !runCfg.JobQueue.ServerNodeURL.IsZero() {
+		repairQueue, err = jobq.OpenJobQueue(ctx, identity, runCfg.JobQueue)
+		if err != nil {
+			return errs.New("Error opening repair queue: %+v", err)
+		}
+	} else {
+		repairQueue = db.RepairQueue()
+	}
 
 	peer, err := satellite.NewRangedLoop(log, db, metabaseDB, repairQueue, &runCfg.Config, process.AtomicLevel(cmd))
 	if err != nil {

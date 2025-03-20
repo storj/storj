@@ -884,6 +884,27 @@ identity.cert-path: /root/.local/share/storj/identity/satellite/identity.cert
 # path to the private key for this identity
 identity.key-path: /root/.local/share/storj/identity/satellite/identity.key
 
+# "node URL" of the job queue server
+# job-queue.server-node-url: ""
+
+# if true, client leaves may contain the most recent certificate revocation for the current certificate
+# job-queue.tls.extensions.revocation: true
+
+# if true, client leaves must contain a valid "signed certificate extension" (NB: verified against certs in the peer ca whitelist; i.e. if true, a whitelist must be provided)
+# job-queue.tls.extensions.whitelist-signed-leaf: false
+
+# path to the CA cert whitelist (peer identities must be signed by one these to be verified). this will override the default peer whitelist
+# job-queue.tls.peer-ca-whitelist-path: ""
+
+# identity version(s) the server will be allowed to talk to
+# job-queue.tls.peer-id-versions: latest
+
+# url for revocation database (e.g. bolt://some.db OR redis://127.0.0.1:6378?db=2&password=abc123)
+# job-queue.tls.revocation-dburl: bolt://testdata/revocations.db
+
+# if true, uses peer ca whitelist checking
+# job-queue.tls.use-peer-ca-whitelist: true
+
 # the key ID to use for passphrase encryption.
 # key-management.default-master-key: 1
 

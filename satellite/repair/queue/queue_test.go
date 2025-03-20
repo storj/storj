@@ -4,6 +4,7 @@
 package queue_test
 
 import (
+	"context"
 	"sort"
 	"testing"
 	"time"
@@ -266,7 +267,9 @@ func TestClean(t *testing.T) {
 		}
 
 		// Create reference time before insertion
-		timeBeforeInsert := time.Now().Add(-time.Hour)
+		t1 := time.Now().Add(-time.Hour)
+
+		timeBeforeInsert1 := t1
 
 		// Insert all segments - this will set their UpdatedAt times to now
 		segmentHealth := 1.3
@@ -282,21 +285,43 @@ func TestClean(t *testing.T) {
 		_, err = q.Insert(ctx, seg3)
 		require.NoError(t, err)
 
-		// mark seg1 as updated an hour ago
-		_, err = q.TestingSetUpdatedTime(ctx, 0, seg1.StreamID, seg1.Position, timeBeforeInsert)
-		require.NoError(t, err)
+		insert1Time := timeBeforeInsert1.Add(time.Second)
+		setUpdatedAtTimes(ctx, t, q, insert1Time, seg1, seg2, seg3)
 
 		count, err := q.Count(ctx)
 		require.NoError(t, err)
 		require.Equal(t, 3, count)
 
 		// Clean should not remove any segments when using a time before all segments
-		d, err := q.Clean(ctx, timeBeforeInsert.Add(-time.Hour))
+		d, err := q.Clean(ctx, timeBeforeInsert1)
 		require.NoError(t, err)
 		require.Equal(t, int64(0), d)
 
-		// Clean should remove 1 segment (seg1) when using timeBeforeInsert
-		d, err = q.Clean(ctx, timeBeforeInsert.Add(time.Minute))
+		count, err = q.Count(ctx)
+		require.NoError(t, err)
+		require.Equal(t, 3, count)
+
+		timeBeforeInsert2 := insert1Time.Add(time.Second)
+
+		// seg1 "becomes healthy", so do not update it
+		// seg2 stays at the same health
+		_, err = q.Insert(ctx, seg2)
+		require.NoError(t, err)
+
+		// seg3 has a lower health
+		seg3.SegmentHealth = segmentHealth - 0.1
+		_, err = q.Insert(ctx, seg3)
+		require.NoError(t, err)
+
+		insert2Time := timeBeforeInsert2.Add(time.Second)
+		setUpdatedAtTimes(ctx, t, q, insert2Time, seg2, seg3)
+
+		count, err = q.Count(ctx)
+		require.NoError(t, err)
+		require.Equal(t, 3, count)
+
+		// Clean should remove 1 segment (seg1) when using timeBeforeInsert2
+		d, err = q.Clean(ctx, timeBeforeInsert2)
 		require.NoError(t, err)
 		require.Equal(t, int64(1), d)
 
@@ -305,8 +330,10 @@ func TestClean(t *testing.T) {
 		require.NoError(t, err)
 		require.Equal(t, 2, count)
 
-		// Clean with current time should remove all segments
-		d, err = q.Clean(ctx, time.Now().Add(time.Minute))
+		timeAfterInserts := insert2Time.Add(time.Second)
+
+		// Clean with timeAfterInserts should remove all segments
+		d, err = q.Clean(ctx, timeAfterInserts)
 		require.NoError(t, err)
 		require.Equal(t, int64(2), d)
 
@@ -315,4 +342,13 @@ func TestClean(t *testing.T) {
 		require.NoError(t, err)
 		require.Equal(t, 0, count)
 	})
+}
+
+func setUpdatedAtTimes(ctx context.Context, t *testing.T, q queue.RepairQueue, updatedAt time.Time, segments ...*queue.InjuredSegment) {
+	for _, seg := range segments {
+		seg.UpdatedAt = updatedAt
+		rows, err := q.TestingSetUpdatedTime(ctx, seg.Placement, seg.StreamID, seg.Position, updatedAt)
+		require.NoError(t, err)
+		require.Equal(t, int64(1), rows)
+	}
 }

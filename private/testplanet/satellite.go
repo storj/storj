@@ -43,6 +43,7 @@ import (
 	"storj.io/storj/satellite/contact"
 	"storj.io/storj/satellite/gc/sender"
 	"storj.io/storj/satellite/gracefulexit"
+	"storj.io/storj/satellite/jobq"
 	"storj.io/storj/satellite/mailservice"
 	"storj.io/storj/satellite/metabase"
 	"storj.io/storj/satellite/metabase/zombiedeletion"
@@ -542,7 +543,15 @@ func (planet *Planet) newSatellite(ctx context.Context, prefix string, index int
 		return nil, errs.Wrap(err)
 	}
 
-	repairQueue := db.RepairQueue()
+	var repairQueue queue.RepairQueue
+	if !config.JobQueue.ServerNodeURL.IsZero() {
+		repairQueue, err = jobq.OpenJobQueue(ctx, nil, config.JobQueue)
+		if err != nil {
+			return nil, errs.Wrap(err)
+		}
+	} else {
+		repairQueue = db.RepairQueue()
+	}
 
 	planet.databases = append(planet.databases, revocationDB)
 
