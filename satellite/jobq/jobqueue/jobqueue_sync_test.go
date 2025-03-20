@@ -75,7 +75,7 @@ func TestJobqueueRetry(t *testing.T) {
 		// firstJob (to make sure the funnel goroutine adjusts its sleep)
 		secondRetryJob := jobq.RepairJob{
 			ID:              jobq.SegmentIdentifier{StreamID: testrand.UUID(), Position: rand.Uint64()},
-			Health:          1.1,
+			Health:          -1.0, // Negative health value to ensure highest priority
 			InsertedAt:      uint64(startTime.Add(-2 * retryTime).Unix()),
 			Placement:       42,
 			LastAttemptedAt: uint64(startTime.Add(-retryTime / 2).Unix()),
