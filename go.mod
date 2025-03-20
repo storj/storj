@@ -4,6 +4,7 @@ go 1.23.5
 
 require (
 	cloud.google.com/go v0.118.2
+	cloud.google.com/go/profiler v0.4.0
 	cloud.google.com/go/secretmanager v1.14.3
 	cloud.google.com/go/spanner v1.75.0
 	cloud.google.com/go/storage v1.50.0
@@ -93,7 +94,6 @@ require (
 	cloud.google.com/go/iam v1.3.1 // indirect
 	cloud.google.com/go/longrunning v0.6.4 // indirect
 	cloud.google.com/go/monitoring v1.23.0 // indirect
-	cloud.google.com/go/profiler v0.4.0 // indirect
 	github.com/GoogleCloudPlatform/grpc-gcp-go/grpcgcp v1.5.2 // indirect
 	github.com/GoogleCloudPlatform/opentelemetry-operations-go/detectors/gcp v1.25.0 // indirect
 	github.com/GoogleCloudPlatform/opentelemetry-operations-go/exporter/metric v0.49.0 // indirect

@@ -27,6 +27,7 @@ import (
 	sdebug "storj.io/storj/shared/debug"
 	"storj.io/storj/shared/modular"
 	"storj.io/storj/shared/modular/config"
+	"storj.io/storj/shared/modular/profiler"
 	"storj.io/storj/shared/mud"
 	"storj.io/storj/storagenode/bandwidth"
 	"storj.io/storj/storagenode/blobstore"
@@ -68,6 +69,7 @@ type RawBlobs interface {
 
 // Module is a mud Module (definition of the creation of the components).
 func Module(ball *mud.Ball) {
+	profiler.Module(ball)
 	config.RegisterConfig[contact.Config](ball, "contact")
 	config.RegisterConfig[server.Config](ball, "server")
 	config.RegisterConfig[preflight.Config](ball, "preflight")
