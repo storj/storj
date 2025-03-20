@@ -34,7 +34,7 @@ func Run(t *testing.T, test func(ctx *testcontext.Context, t *testing.T, rq queu
 		return srv.Run(srvCtx)
 	})
 
-	cli, err := jobq.Dial(srv.Addr())
+	cli, err := jobq.DialAddr(srv.Addr())
 	require.NoError(t, err)
 	t.Cleanup(func() { require.NoError(t, cli.Close()) })
 

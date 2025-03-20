@@ -5,14 +5,18 @@ package jobq
 
 import (
 	"context"
+	"crypto/tls"
 	"errors"
 	"fmt"
 	"net"
 	"time"
 
+	"storj.io/common/identity"
+	"storj.io/common/peertls/tlsopts"
 	"storj.io/common/storj"
 	"storj.io/common/uuid"
 	"storj.io/drpc/drpcconn"
+	"storj.io/storj/private/revocation"
 	pb "storj.io/storj/satellite/internalpb"
 )
 
@@ -319,13 +323,48 @@ func (c *Client) TestingSetUpdatedTime(ctx context.Context, placement storj.Plac
 	return int64(resp.RowsAffected), nil
 }
 
-// Dial dials an address and creates a new client.
-func Dial(addr net.Addr) (*Client, error) {
+// Dial dials an address (as a string) and creates a new client.
+func Dial(dest string) (*Client, error) {
+	addr, err := net.ResolveTCPAddr("tcp", dest)
+	if err != nil {
+		return nil, fmt.Errorf("resolving %q: %w", dest, err)
+	}
+	return DialAddr(addr)
+}
+
+// DialAddr dials an address and creates a new client.
+func DialAddr(addr net.Addr) (*Client, error) {
 	rawConn, err := net.Dial(addr.Network(), addr.String())
 	if err != nil {
 		return nil, fmt.Errorf("dialing %q: %w", addr, err)
 	}
 	conn := drpcconn.New(rawConn)
+	return &Client{
+		client: pb.NewDRPCJobQueueClient(conn),
+		conn:   conn,
+	}, nil
+}
+
+// DialTLS dials an address and creates a new client with TLS.
+func DialTLS(ctx context.Context, selfIdentity *identity.FullIdentity, serverURL string, tlsConfig tlsopts.Config) (*Client, error) {
+	serverNodeURL, err := storj.ParseNodeURL(serverURL)
+	if err != nil {
+		return nil, fmt.Errorf("failed to parse server \"node URL\": %w", err)
+	}
+	revocationDB, err := revocation.OpenDBFromCfg(ctx, tlsConfig)
+	if err != nil {
+		return nil, fmt.Errorf("creating revocation database: %w", err)
+	}
+	tlsOpts, err := tlsopts.NewOptions(selfIdentity, tlsConfig, revocationDB)
+	if err != nil {
+		return nil, fmt.Errorf("TLS options: %w", err)
+	}
+
+	tlsConn, err := tls.Dial("tcp", serverNodeURL.Address, tlsOpts.ClientTLSConfig(serverNodeURL.ID))
+	if err != nil {
+		return nil, err
+	}
+	conn := drpcconn.New(tlsConn)
 	return &Client{
 		client: pb.NewDRPCJobQueueClient(conn),
 		conn:   conn,

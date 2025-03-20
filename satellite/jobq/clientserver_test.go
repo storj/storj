@@ -35,7 +35,7 @@ func TestClientAndServer(t *testing.T) {
 	})
 
 	func() {
-		cli, err := jobq.Dial(srv.Addr())
+		cli, err := jobq.DialAddr(srv.Addr())
 		require.NoError(t, err)
 		defer func() { require.NoError(t, cli.Close()) }()
 
@@ -98,7 +98,7 @@ func TestClientServerPushBatch(t *testing.T) {
 	})
 
 	func() {
-		cli, err := jobq.Dial(srv.Addr())
+		cli, err := jobq.DialAddr(srv.Addr())
 		require.NoError(t, err)
 		defer func() { require.NoError(t, cli.Close()) }()
 
@@ -162,7 +162,7 @@ func TestClientServerPeek(t *testing.T) {
 	})
 
 	func() {
-		cli, err := jobq.Dial(srv.Addr())
+		cli, err := jobq.DialAddr(srv.Addr())
 		require.NoError(t, err)
 		defer func() { require.NoError(t, cli.Close()) }()
 
@@ -218,7 +218,7 @@ func TestClientServerTruncate(t *testing.T) {
 	})
 
 	func() {
-		cli, err := jobq.Dial(srv.Addr())
+		cli, err := jobq.DialAddr(srv.Addr())
 		require.NoError(t, err)
 		defer func() { require.NoError(t, cli.Close()) }()
 
@@ -276,7 +276,7 @@ func TestClientServerClean(t *testing.T) {
 	})
 
 	func() {
-		cli, err := jobq.Dial(srv.Addr())
+		cli, err := jobq.DialAddr(srv.Addr())
 		require.NoError(t, err)
 		defer func() { require.NoError(t, cli.Close()) }()
 
@@ -356,7 +356,7 @@ func TestClientServerTrim(t *testing.T) {
 	})
 
 	func() {
-		cli, err := jobq.Dial(srv.Addr())
+		cli, err := jobq.DialAddr(srv.Addr())
 		require.NoError(t, err)
 		defer func() { require.NoError(t, cli.Close()) }()
 

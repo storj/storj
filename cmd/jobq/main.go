@@ -7,6 +7,7 @@ import (
 	"context"
 	"fmt"
 	"net"
+	"os"
 	"time"
 
 	"github.com/spf13/cobra"
@@ -16,7 +17,9 @@ import (
 	"storj.io/common/fpath"
 	"storj.io/common/identity"
 	"storj.io/common/memory"
+	"storj.io/common/peertls"
 	"storj.io/common/peertls/tlsopts"
+	"storj.io/common/pkcrypto"
 	"storj.io/common/process"
 	"storj.io/storj/private/revocation"
 	"storj.io/storj/satellite/jobq"
@@ -43,8 +46,7 @@ type Config struct {
 	// ago, they will go into the retry queue instead of the repair queue, until
 	// they are eligible to go in the repair queue.
 	RetryAfter time.Duration `help:"time to wait before retrying a failed job" default:"1h"`
-	// TLS is the configuration for the server's TLS. If nil, no TLS will be
-	// used.
+	// TLS is the configuration for the server's TLS.
 	TLS tlsopts.Config
 }
 
@@ -90,6 +92,12 @@ func runJobQueue(cmd *cobra.Command, args []string) error {
 	if err != nil {
 		return fmt.Errorf("failed to create TLS options: %w", err)
 	}
+	// the tlsopts machinery does not apply the peer CA whitelist to the server
+	// side configuration, so we do it here.
+	err = applyPeerCAWhitelist(runCfg.TLS.UsePeerCAWhitelist, runCfg.TLS.PeerCAWhitelistPath, tlsOpts)
+	if err != nil {
+		return fmt.Errorf("failed to apply peer CA whitelist: %w", err)
+	}
 	initElements := uint64(runCfg.InitAlloc) / uint64(jobq.RecordSize)
 	memReleaseThrehsold := uint64(runCfg.MemReleaseThreshold) / uint64(jobq.RecordSize)
 	logger.Debug("initializing job queue", zap.Uint64("elements before queue resize", initElements), zap.Uint64("element mem release threshold", memReleaseThrehsold))
@@ -109,4 +117,22 @@ func main() {
 	zap.ReplaceGlobals(logger)
 
 	process.ExecCustomDebug(rootCmd)
+}
+
+func applyPeerCAWhitelist(usePeerCAWhitelist bool, peerCAWhitelistPath string, tlsOpts *tlsopts.Options) (err error) {
+	if usePeerCAWhitelist {
+		whitelist := []byte(tlsopts.DefaultPeerCAWhitelist)
+		if peerCAWhitelistPath != "" {
+			whitelist, err = os.ReadFile(peerCAWhitelistPath)
+			if err != nil {
+				return fmt.Errorf("unable to find whitelist file %v: %w", peerCAWhitelistPath, err)
+			}
+		}
+		tlsOpts.PeerCAWhitelist, err = pkcrypto.CertsFromPEM(whitelist)
+		if err != nil {
+			return err
+		}
+		tlsOpts.VerificationFuncs.ServerAdd(peertls.VerifyCAWhitelist(tlsOpts.PeerCAWhitelist))
+	}
+	return nil
 }
