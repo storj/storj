@@ -304,6 +304,21 @@ func (c *Client) TestingSetAttemptedTime(ctx context.Context, placement storj.Pl
 	return int64(resp.RowsAffected), nil
 }
 
+// TestingSetUpdatedTime sets the UpdatedAt field of a specific job.
+// This is only intended for testing scenarios.
+func (c *Client) TestingSetUpdatedTime(ctx context.Context, placement storj.PlacementConstraint, streamID uuid.UUID, position uint64, t time.Time) (rowsAffected int64, err error) {
+	resp, err := c.client.TestingSetUpdatedTime(ctx, &pb.JobQueueTestingSetUpdatedTimeRequest{
+		Placement: int32(placement),
+		StreamId:  streamID[:],
+		Position:  position,
+		NewTime:   t,
+	})
+	if err != nil {
+		return 0, fmt.Errorf("could not set updated time for job: %w", err)
+	}
+	return int64(resp.RowsAffected), nil
+}
+
 // Dial dials an address and creates a new client.
 func Dial(addr net.Addr) (*Client, error) {
 	rawConn, err := net.Dial(addr.Network(), addr.String())

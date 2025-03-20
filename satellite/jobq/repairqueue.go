@@ -234,6 +234,13 @@ func (rjq *RepairJobQueue) TestingSetAttemptedTime(ctx context.Context, placemen
 	return rjq.jobqClient.TestingSetAttemptedTime(ctx, placement, streamID, position.Encode(), t)
 }
 
+// TestingSetUpdatedTime is a testing-only method that sets the
+// UpdatedAt field of a segment in the repair queue. It is not intended
+// for production use.
+func (rjq *RepairJobQueue) TestingSetUpdatedTime(ctx context.Context, placement storj.PlacementConstraint, streamID uuid.UUID, position metabase.SegmentPosition, t time.Time) (rowsAffected int64, err error) {
+	return rjq.jobqClient.TestingSetUpdatedTime(ctx, placement, streamID, position.Encode(), t)
+}
+
 // Close closes the connection to the job queue server.
 func (rjq *RepairJobQueue) Close() error {
 	return rjq.jobqClient.Close()

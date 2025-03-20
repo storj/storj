@@ -468,3 +468,19 @@ func (r *repairQueue) TestingSetAttemptedTime(ctx context.Context, _ storj.Place
 	count, err := res.RowsAffected()
 	return count, Error.Wrap(err)
 }
+
+// TestingSetUpdatedTime sets updated time for a segment.
+func (r *repairQueue) TestingSetUpdatedTime(ctx context.Context, _ storj.PlacementConstraint, streamID uuid.UUID,
+	position metabase.SegmentPosition, t time.Time) (rowsAffected int64, err error) {
+
+	defer mon.Task()(&ctx)(&err)
+	res, err := r.db.ExecContext(ctx,
+		r.db.Rebind(`UPDATE repair_queue SET updated_at = ? WHERE stream_id = ? AND position = ?`),
+		t, streamID, position.Encode(),
+	)
+	if err != nil {
+		return 0, Error.Wrap(err)
+	}
+	count, err := res.RowsAffected()
+	return count, Error.Wrap(err)
+}

@@ -622,6 +622,39 @@ func (q *Queue) TestingSetAttemptedTime(streamID uuid.UUID, position uint64, las
 	return 0
 }
 
+// TestingSetUpdatedTime sets the UpdatedAt field for a segment in the
+// queue by streamID and position. It returns the number of jobs affected (this
+// will be 0 or 1).
+func (q *Queue) TestingSetUpdatedTime(streamID uuid.UUID, position uint64, updatedAt time.Time) (rowsAffected int) {
+	q.lock.Lock()
+	defer q.lock.Unlock()
+
+	var unixTime uint64
+	if !updatedAt.IsZero() {
+		unixTime = uint64(updatedAt.Unix())
+		if unixTime == jobq.ServerTimeNow {
+			updatedAt = q.Now()
+			unixTime = uint64(updatedAt.Unix())
+		}
+	}
+
+	if i, ok := q.indexByID[jobq.SegmentIdentifier{StreamID: streamID, Position: position}]; ok {
+		index := int(i & indexMask)
+		targetQueue := &q.pq.jobQueue
+		var targetHeap heap.Interface = &q.pq
+		if i&queueSelectMask == inRetryQueue {
+			targetQueue = &q.rq.jobQueue
+			targetHeap = &q.rq
+		}
+		targetQueue.priorityHeap[index].UpdatedAt = unixTime
+
+		// Update the heap in case the order changes
+		heap.Fix(targetHeap, index)
+		return 1
+	}
+	return 0
+}
+
 // Start starts the queue's funnel goroutine, which moves items from the retry
 // queue to the repair queue as they become eligible for retry (after RetryAfter).
 // If the queue is already running, it returns an error.

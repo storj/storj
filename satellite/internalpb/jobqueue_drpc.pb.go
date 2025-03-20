@@ -54,6 +54,7 @@ type DRPCJobQueueClient interface {
 	Clean(ctx context.Context, in *JobQueueCleanRequest) (*JobQueueCleanResponse, error)
 	Trim(ctx context.Context, in *JobQueueTrimRequest) (*JobQueueTrimResponse, error)
 	TestingSetAttemptedTime(ctx context.Context, in *JobQueueTestingSetAttemptedTimeRequest) (*JobQueueTestingSetAttemptedTimeResponse, error)
+	TestingSetUpdatedTime(ctx context.Context, in *JobQueueTestingSetUpdatedTimeRequest) (*JobQueueTestingSetUpdatedTimeResponse, error)
 }
 
 type drpcJobQueueClient struct {
@@ -174,6 +175,15 @@ func (c *drpcJobQueueClient) TestingSetAttemptedTime(ctx context.Context, in *Jo
 	return out, nil
 }
 
+func (c *drpcJobQueueClient) TestingSetUpdatedTime(ctx context.Context, in *JobQueueTestingSetUpdatedTimeRequest) (*JobQueueTestingSetUpdatedTimeResponse, error) {
+	out := new(JobQueueTestingSetUpdatedTimeResponse)
+	err := c.cc.Invoke(ctx, "/jobqueue.JobQueue/TestingSetUpdatedTime", drpcEncoding_File_jobqueue_proto{}, in, out)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 type DRPCJobQueueServer interface {
 	Push(context.Context, *JobQueuePushRequest) (*JobQueuePushResponse, error)
 	PushBatch(context.Context, *JobQueuePushBatchRequest) (*JobQueuePushBatchResponse, error)
@@ -187,6 +197,7 @@ type DRPCJobQueueServer interface {
 	Clean(context.Context, *JobQueueCleanRequest) (*JobQueueCleanResponse, error)
 	Trim(context.Context, *JobQueueTrimRequest) (*JobQueueTrimResponse, error)
 	TestingSetAttemptedTime(context.Context, *JobQueueTestingSetAttemptedTimeRequest) (*JobQueueTestingSetAttemptedTimeResponse, error)
+	TestingSetUpdatedTime(context.Context, *JobQueueTestingSetUpdatedTimeRequest) (*JobQueueTestingSetUpdatedTimeResponse, error)
 }
 
 type DRPCJobQueueUnimplementedServer struct{}
@@ -239,9 +250,13 @@ func (s *DRPCJobQueueUnimplementedServer) TestingSetAttemptedTime(context.Contex
 	return nil, drpcerr.WithCode(errors.New("Unimplemented"), drpcerr.Unimplemented)
 }
 
+func (s *DRPCJobQueueUnimplementedServer) TestingSetUpdatedTime(context.Context, *JobQueueTestingSetUpdatedTimeRequest) (*JobQueueTestingSetUpdatedTimeResponse, error) {
+	return nil, drpcerr.WithCode(errors.New("Unimplemented"), drpcerr.Unimplemented)
+}
+
 type DRPCJobQueueDescription struct{}
 
-func (DRPCJobQueueDescription) NumMethods() int { return 12 }
+func (DRPCJobQueueDescription) NumMethods() int { return 13 }
 
 func (DRPCJobQueueDescription) Method(n int) (string, drpc.Encoding, drpc.Receiver, interface{}, bool) {
 	switch n {
@@ -353,6 +368,15 @@ func (DRPCJobQueueDescription) Method(n int) (string, drpc.Encoding, drpc.Receiv
 						in1.(*JobQueueTestingSetAttemptedTimeRequest),
 					)
 			}, DRPCJobQueueServer.TestingSetAttemptedTime, true
+	case 12:
+		return "/jobqueue.JobQueue/TestingSetUpdatedTime", drpcEncoding_File_jobqueue_proto{},
+			func(srv interface{}, ctx context.Context, in1, in2 interface{}) (drpc.Message, error) {
+				return srv.(DRPCJobQueueServer).
+					TestingSetUpdatedTime(
+						ctx,
+						in1.(*JobQueueTestingSetUpdatedTimeRequest),
+					)
+			}, DRPCJobQueueServer.TestingSetUpdatedTime, true
 	default:
 		return "", nil, nil, nil, false
 	}
@@ -548,6 +572,22 @@ type drpcJobQueue_TestingSetAttemptedTimeStream struct {
 }
 
 func (x *drpcJobQueue_TestingSetAttemptedTimeStream) SendAndClose(m *JobQueueTestingSetAttemptedTimeResponse) error {
+	if err := x.MsgSend(m, drpcEncoding_File_jobqueue_proto{}); err != nil {
+		return err
+	}
+	return x.CloseSend()
+}
+
+type DRPCJobQueue_TestingSetUpdatedTimeStream interface {
+	drpc.Stream
+	SendAndClose(*JobQueueTestingSetUpdatedTimeResponse) error
+}
+
+type drpcJobQueue_TestingSetUpdatedTimeStream struct {
+	drpc.Stream
+}
+
+func (x *drpcJobQueue_TestingSetUpdatedTimeStream) SendAndClose(m *JobQueueTestingSetUpdatedTimeResponse) error {
 	if err := x.MsgSend(m, drpcEncoding_File_jobqueue_proto{}); err != nil {
 		return err
 	}

@@ -332,6 +332,23 @@ func (se *JobqEndpoint) TestingSetAttemptedTime(ctx context.Context, req *pb.Job
 	}, nil
 }
 
+// TestingSetUpdatedTime sets the updated time for a specific job in the
+// queue. This is a testing-only method.
+func (se *JobqEndpoint) TestingSetUpdatedTime(ctx context.Context, req *pb.JobQueueTestingSetUpdatedTimeRequest) (*pb.JobQueueTestingSetUpdatedTimeResponse, error) {
+	q, err := se.queues.GetQueue(storj.PlacementConstraint(req.Placement))
+	if err != nil {
+		return nil, fmt.Errorf("failed to get queue for placement %d: %w", req.Placement, err)
+	}
+	streamID, err := uuid.FromBytes(req.StreamId)
+	if err != nil {
+		return nil, fmt.Errorf("invalid stream id %x: %w", req.StreamId, err)
+	}
+	updated := q.TestingSetUpdatedTime(streamID, req.Position, req.NewTime)
+	return &pb.JobQueueTestingSetUpdatedTimeResponse{
+		RowsAffected: int32(updated),
+	}, nil
+}
+
 // NewEndpoint creates a new endpoint.
 func NewEndpoint(log *zap.Logger, queues *QueueMap) *JobqEndpoint {
 	return &JobqEndpoint{

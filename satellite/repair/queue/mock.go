@@ -77,6 +77,11 @@ func (m *MockRepairQueue) TestingSetAttemptedTime(ctx context.Context, placement
 	panic("implement me")
 }
 
+// TestingSetUpdatedTime implements RepairQueue.
+func (m *MockRepairQueue) TestingSetUpdatedTime(ctx context.Context, placement storj.PlacementConstraint, streamID uuid.UUID, position metabase.SegmentPosition, t time.Time) (rowsAffected int64, err error) {
+	panic("implement me")
+}
+
 // Stat implements RepairQueue.
 func (m *MockRepairQueue) Stat(ctx context.Context) ([]Stat, error) {
 	panic("implement me")

@@ -23,6 +23,7 @@ service JobQueue {
     rpc Clean(JobQueueCleanRequest) returns (JobQueueCleanResponse);
     rpc Trim(JobQueueTrimRequest) returns (JobQueueTrimResponse);
     rpc TestingSetAttemptedTime(JobQueueTestingSetAttemptedTimeRequest) returns (JobQueueTestingSetAttemptedTimeResponse);
+    rpc TestingSetUpdatedTime(JobQueueTestingSetUpdatedTimeRequest) returns (JobQueueTestingSetUpdatedTimeResponse);
 }
 
 message RepairJob {
@@ -172,5 +173,16 @@ message JobQueueTestingSetAttemptedTimeRequest {
 }
 
 message JobQueueTestingSetAttemptedTimeResponse {
+    int32 rows_affected = 1;
+}
+
+message JobQueueTestingSetUpdatedTimeRequest {
+    int32 placement = 1;
+    bytes stream_id = 2;
+    uint64 position = 3;
+    google.protobuf.Timestamp new_time = 4 [(gogoproto.stdtime) = true, (gogoproto.nullable) = false];
+}
+
+message JobQueueTestingSetUpdatedTimeResponse {
     int32 rows_affected = 1;
 }
