@@ -12,6 +12,9 @@ import (
 
 	"storj.io/common/testcontext"
 	"storj.io/storj/private/testmonkit"
+	"storj.io/storj/satellite"
+	"storj.io/storj/satellite/jobq"
+	"storj.io/storj/satellite/jobq/jobqtest"
 	"storj.io/storj/satellite/satellitedb/satellitedbtest"
 	"storj.io/storj/shared/dbutil/dbtest"
 	"storj.io/storj/shared/dbutil/pgutil"
@@ -71,6 +74,74 @@ func Run(t *testing.T, config Config, test func(t *testing.T, ctx *testcontext.C
 				}
 
 				test(t, ctx, planet)
+			})
+		})
+
+	}
+
+	// this whole block can go away if/when jobq is used by default.
+	if config.ExerciseJobq {
+		// pick the first available database set to use with jobq
+		var dbsToUse satellitedbtest.SatelliteDatabases
+		for _, satelliteDB := range databases {
+			satelliteDB := satelliteDB
+			if config.SkipSpanner && satelliteDB.Name == "Spanner" {
+				continue // test not enabled with spanner; don't use this set of dbs
+			}
+			if satelliteDB.MasterDB.URL == "" {
+				continue // connection string not provided; don't use this set of dbs
+			}
+			dbsToUse = satelliteDB
+			break
+		}
+		if dbsToUse.Name == "" {
+			t.Skipf("No database to use for jobq tests")
+		}
+
+		t.Run("jobq+"+dbsToUse.Name, func(t *testing.T) {
+			parallel := !config.NonParallel
+			if parallel {
+				t.Parallel()
+			}
+
+			planetConfig := config
+			if planetConfig.Name == "" {
+				planetConfig.Name = t.Name()
+			}
+
+			log := NewLogger(t)
+
+			testmonkit.Run(context.Background(), t, func(parent context.Context) {
+				pprof.Do(parent, pprof.Labels("test", t.Name()), func(parent context.Context) {
+					jobqtest.WithServer(t, func(ctx *testcontext.Context, jobqConfig jobq.Config) {
+						timeout := config.Timeout
+						if timeout == 0 {
+							timeout = testcontext.DefaultTimeout
+						}
+						ctx = testcontext.NewWithContextAndTimeout(ctx, t, timeout)
+
+						reconfig := func(log *zap.Logger, index int, config *satellite.Config) {
+							config.JobQueue = jobqConfig
+						}
+						planetConfig.applicationName = "testplanet" + pgutil.CreateRandomTestingSchemaName(6)
+						if planetConfig.Reconfigure.Satellite == nil {
+							planetConfig.Reconfigure.Satellite = reconfig
+						} else {
+							planetConfig.Reconfigure.Satellite = Combine(planetConfig.Reconfigure.Satellite, reconfig)
+						}
+						planet, err := NewCustom(ctx, log, planetConfig, dbsToUse)
+						if err != nil {
+							t.Fatalf("%+v", err)
+						}
+						defer ctx.Check(planet.Shutdown)
+
+						if err := planet.Start(ctx); err != nil {
+							t.Fatalf("planet failed to start: %+v", err)
+						}
+
+						test(t, ctx, planet)
+					})
+				})
 			})
 		})
 	}

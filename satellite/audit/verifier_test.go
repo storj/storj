@@ -1086,6 +1086,7 @@ func TestAuditRepairedSegmentInExcludedCountries(t *testing.T) {
 				testplanet.RepairExcludedCountryCodes([]string{"FR", "BE"}),
 			),
 		},
+		ExerciseJobq: true,
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 		uplinkPeer := planet.Uplinks[0]
 		satellite := planet.Satellites[0]

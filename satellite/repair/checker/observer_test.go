@@ -25,6 +25,7 @@ import (
 	"storj.io/storj/private/testplanet"
 	"storj.io/storj/satellite"
 	"storj.io/storj/satellite/buckets"
+	"storj.io/storj/satellite/jobq"
 	"storj.io/storj/satellite/metabase"
 	"storj.io/storj/satellite/metabase/rangedloop"
 	"storj.io/storj/satellite/nodeselection"
@@ -43,6 +44,7 @@ func TestIdentifyInjuredSegmentsObserver(t *testing.T) {
 				config.RangedLoop.BatchSize = 4
 			},
 		},
+		ExerciseJobq: true,
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 		repairQueue := planet.Satellites[0].Repair.Queue
 
@@ -111,6 +113,7 @@ func TestIdentifyIrreparableSegmentsObserver(t *testing.T) {
 				config.RangedLoop.BatchSize = 4
 			},
 		},
+		ExerciseJobq: true,
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 		rangeLoopService := planet.Satellites[0].RangedLoop.RangedLoop.Service
 
@@ -168,16 +171,20 @@ func TestIdentifyIrreparableSegmentsObserver(t *testing.T) {
 		repairQueue := planet.Satellites[0].Repair.Queue
 		items, err := repairQueue.Select(ctx, 1, nil, nil)
 		require.NoError(t, err)
+		require.Len(t, items, 1)
 		err = repairQueue.Release(ctx, items[0], false)
 		require.NoError(t, err)
 		count, err := repairQueue.Count(ctx)
 		require.NoError(t, err)
 		require.Equal(t, 1, count)
 
-		// check irreparable once again but wait a second
-		time.Sleep(1 * time.Second)
+		// check irreparable once again
 		_, err = rangeLoopService.RunOnce(ctx)
 		require.NoError(t, err)
+
+		count, err = repairQueue.Count(ctx)
+		require.NoError(t, err)
+		require.Equal(t, 1, count)
 
 		expectedLocation.ObjectKey = "piece"
 		_, err = planet.Satellites[0].Metabase.DB.DeleteObjectExactVersion(ctx, metabase.DeleteObjectExactVersion{
@@ -185,6 +192,13 @@ func TestIdentifyIrreparableSegmentsObserver(t *testing.T) {
 			Version:        metabase.DefaultVersion,
 		})
 		require.NoError(t, err)
+
+		// The repair checker runs a repair queue "Clean" operation when it has
+		// completed a full iteration. It removes all jobs that have not been
+		// changed since before the repair queue started. Sleeping here allows a
+		// separation of timestamps that makes the Clean work as expected.
+		// TODO: get rid of this.
+		time.Sleep(time.Second)
 
 		_, err = rangeLoopService.RunOnce(ctx)
 		require.NoError(t, err)
@@ -209,6 +223,7 @@ func TestObserver_CheckSegmentCopy(t *testing.T) {
 				config.Metainfo.RS.Total = 4
 			},
 		},
+		ExerciseJobq: true,
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 		satellite := planet.Satellites[0]
 		uplink := planet.Uplinks[0]
@@ -280,7 +295,21 @@ func TestCleanRepairQueueObserver(t *testing.T) {
 				config.RangedLoop.BatchSize = 4
 			},
 		},
+		ExerciseJobq: true,
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+		var sleepTime time.Duration
+		// note: jobq can not run this test normally, because it requires high
+		// resolution timestamps. We can make it work if we sleep for at least
+		// 1s in the middle of the test, but that's slow. We will skip the jobq
+		// test if short tests are requested.
+		if _, ok := planet.Satellites[0].Repair.Queue.(*jobq.RepairJobQueue); ok {
+			if testing.Short() {
+				t.Skip("skipping jobq test in short mode")
+			} else {
+				sleepTime = time.Second
+			}
+		}
+
 		rangedLoopService := planet.Satellites[0].RangedLoop.RangedLoop.Service
 		repairQueue := planet.Satellites[0].Repair.Queue
 		observer := planet.Satellites[0].RangedLoop.Repair.Observer
@@ -346,6 +375,11 @@ func TestCleanRepairQueueObserver(t *testing.T) {
 		require.NoError(t, observer.RefreshReliabilityCache(ctx))
 		require.NoError(t, planet.Satellites[0].RangedLoop.Overlay.Service.DownloadSelectionCache.Refresh(ctx))
 
+		// since this test relies on timestamps below this point being
+		// observably higher than timestamps before this point, we need to
+		// sleep here, up to the duration of the timestamp resolution.
+		time.Sleep(sleepTime)
+
 		// The checker will not insert/update the now healthy segments causing
 		// them to be removed from the queue at the end of the checker iteration
 		_, err = rangedLoopService.RunOnce(ctx)
@@ -377,6 +411,7 @@ func TestRepairObserver(t *testing.T) {
 				config.RangedLoop.BatchSize = 4
 			},
 		},
+		ExerciseJobq: true,
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 		rs := storj.RedundancyScheme{
 			RequiredShares: 2,
@@ -614,6 +649,7 @@ func TestObserver_PlacementCheck(t *testing.T) {
 				},
 			),
 		},
+		ExerciseJobq: true,
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 		planet.Satellites[0].RangedLoop.RangedLoop.Service.Loop.Pause()
 

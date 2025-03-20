@@ -69,6 +69,8 @@ type Config struct {
 
 	// SkipSpanner is a flag used to tell tests to skip Spanner tests.
 	SkipSpanner bool
+	// ExerciseJobq is a flag used to tell tests to exercise the jobq implementation of the repair queue.
+	ExerciseJobq bool
 }
 
 // DatabaseConfig defines connection strings for database.
