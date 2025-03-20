@@ -586,13 +586,37 @@ func (q *Queue) TestingSetAttemptedTime(streamID uuid.UUID, position uint64, las
 	q.lock.Lock()
 	defer q.lock.Unlock()
 
+	var unixTime uint64
+	if !lastAttemptedAt.IsZero() {
+		unixTime = uint64(lastAttemptedAt.Unix())
+		if unixTime == jobq.ServerTimeNow {
+			lastAttemptedAt = q.Now()
+			unixTime = uint64(lastAttemptedAt.Unix())
+		}
+	}
+
 	if i, ok := q.indexByID[jobq.SegmentIdentifier{StreamID: streamID, Position: position}]; ok {
 		index := int(i & indexMask)
 		targetQueue := &q.pq.jobQueue
+		var targetHeap heap.Interface = &q.pq
 		if i&queueSelectMask == inRetryQueue {
 			targetQueue = &q.rq.jobQueue
+			targetHeap = &q.rq
 		}
-		targetQueue.priorityHeap[index].LastAttemptedAt = uint64(lastAttemptedAt.Unix())
+		targetQueue.priorityHeap[index].LastAttemptedAt = unixTime
+
+		// we also have to allow for the possibility that this change moves the
+		// job from the repair queue to the retry queue, or vice versa, or it
+		// changes the priority within a queue.
+		if i&queueSelectMask == inRepairQueue && unixTime != 0 && q.Now().Sub(lastAttemptedAt) < q.RetryAfter {
+			item := heap.Remove(&q.pq, index).(jobq.RepairJob)
+			heap.Push(&q.rq, item)
+		} else if i&queueSelectMask == inRetryQueue && (unixTime == 0 || q.Now().Sub(lastAttemptedAt) >= q.RetryAfter) {
+			item := heap.Remove(&q.rq, index).(jobq.RepairJob)
+			heap.Push(&q.pq, item)
+		} else {
+			heap.Fix(targetHeap, index)
+		}
 		return 1
 	}
 	return 0
