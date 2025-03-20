@@ -693,18 +693,22 @@ func (q *Queue) Start() error {
 
 // Stop stops the queue's funnel goroutine.
 func (q *Queue) Stop() {
-	q.Truncate()
-
 	q.lock.Lock()
+	// Perform truncation while holding the lock instead of calling Truncate()
+	q.pq.Truncate()
+	q.rq.Truncate()
+	maps.Clear(q.indexByID)
+
 	if q.rq.headChan != nil {
 		close(q.rq.headChan)
 		q.rq.headChan = nil
 	}
+	stoppedChan := q.rq.stoppedChan
+	q.rq.stoppedChan = nil
 	q.lock.Unlock()
 
-	if q.rq.stoppedChan != nil {
-		<-q.rq.stoppedChan
-		q.rq.stoppedChan = nil
+	if stoppedChan != nil {
+		<-stoppedChan
 	}
 }
 
