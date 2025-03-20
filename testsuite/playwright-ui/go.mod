@@ -25,6 +25,7 @@ require (
 	cloud.google.com/go/iam v1.3.1 // indirect
 	cloud.google.com/go/longrunning v0.6.4 // indirect
 	cloud.google.com/go/monitoring v1.23.0 // indirect
+	cloud.google.com/go/profiler v0.4.0 // indirect
 	cloud.google.com/go/secretmanager v1.14.3 // indirect
 	cloud.google.com/go/spanner v1.75.0 // indirect
 	cloud.google.com/go/storage v1.50.0 // indirect
