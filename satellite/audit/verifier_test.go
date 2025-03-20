@@ -1124,7 +1124,7 @@ func TestAuditRepairedSegmentInExcludedCountries(t *testing.T) {
 		_, err = satellite.RangedLoop.RangedLoop.Service.RunOnce(ctx)
 		require.NoError(t, err)
 
-		count, err := satellite.DB.RepairQueue().Count(ctx)
+		count, err := satellite.Repair.Queue.Count(ctx)
 		require.NoError(t, err)
 		require.Equal(t, 1, count)
 
@@ -1134,7 +1134,7 @@ func TestAuditRepairedSegmentInExcludedCountries(t *testing.T) {
 		satellite.Repair.Repairer.WaitForPendingRepairs()
 
 		// Verify that the segment was removed
-		count, err = satellite.DB.RepairQueue().Count(ctx)
+		count, err = satellite.Repair.Queue.Count(ctx)
 		require.NoError(t, err)
 		require.Zero(t, count)
 

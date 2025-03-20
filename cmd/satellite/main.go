@@ -582,6 +582,8 @@ func cmdRun(cmd *cobra.Command, args []string) (err error) {
 		err = errs.Combine(err, revocationDB.Close())
 	}()
 
+	repairQueue := db.RepairQueue()
+
 	liveAccounting, err := live.OpenCache(ctx, log.Named("live-accounting"), runCfg.LiveAccounting)
 	if err != nil {
 		if !accounting.ErrSystemOrNetError.Has(err) || liveAccounting == nil {
@@ -596,7 +598,7 @@ func cmdRun(cmd *cobra.Command, args []string) (err error) {
 		err = errs.Combine(err, liveAccounting.Close())
 	}()
 
-	peer, err := satellite.New(log, identity, db, metabaseDB, revocationDB, liveAccounting, version.Build, &runCfg.Config, process.AtomicLevel(cmd))
+	peer, err := satellite.New(log, identity, db, metabaseDB, revocationDB, repairQueue, liveAccounting, version.Build, &runCfg.Config, process.AtomicLevel(cmd))
 	if err != nil {
 		return err
 	}
@@ -695,7 +697,9 @@ func cmdQDiag(cmd *cobra.Command, args []string) (err error) {
 		}
 	}()
 
-	list, err := database.RepairQueue().SelectN(context.Background(), qdiagCfg.QListLimit)
+	repairQueue := database.RepairQueue()
+
+	list, err := repairQueue.SelectN(context.Background(), qdiagCfg.QListLimit)
 	if err != nil {
 		return err
 	}

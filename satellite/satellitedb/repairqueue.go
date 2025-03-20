@@ -484,3 +484,8 @@ func (r *repairQueue) TestingSetUpdatedTime(ctx context.Context, _ storj.Placeme
 	count, err := res.RowsAffected()
 	return count, Error.Wrap(err)
 }
+
+// Implementation returns the database implementation.
+func (r *repairQueue) Implementation() dbutil.Implementation {
+	return r.db.impl
+}

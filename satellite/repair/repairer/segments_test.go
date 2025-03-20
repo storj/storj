@@ -696,7 +696,7 @@ func TestSegmentRepairPlacementRestrictions(t *testing.T) {
 			planet.Satellites[0].RangedLoop.RangedLoop.Service.Loop.TriggerWait()
 
 			// we should see both segments in repair queue
-			n, err := planet.Satellites[0].DB.RepairQueue().SelectN(ctx, 10)
+			n, err := planet.Satellites[0].Repair.Queue.SelectN(ctx, 10)
 			require.NoError(t, err)
 			require.Len(t, n, 2)
 		}
@@ -707,7 +707,7 @@ func TestSegmentRepairPlacementRestrictions(t *testing.T) {
 			planet.Satellites[0].Repairer.Repairer.WaitForPendingRepairs()
 
 			// one of the segments are repaired
-			n, err := planet.Satellites[0].DB.RepairQueue().SelectN(ctx, 10)
+			n, err := planet.Satellites[0].Repair.Queue.SelectN(ctx, 10)
 			require.NoError(t, err)
 			require.Len(t, n, 1)
 

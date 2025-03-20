@@ -17,15 +17,14 @@ import (
 	"storj.io/common/storj"
 	"storj.io/common/testcontext"
 	"storj.io/common/testrand"
-	"storj.io/storj/satellite"
 	"storj.io/storj/satellite/repair/queue"
 	"storj.io/storj/satellite/repair/repairer"
-	"storj.io/storj/satellite/satellitedb/satellitedbtest"
+	"storj.io/storj/satellite/repair/repairqueuetest"
 )
 
 func TestStatChore(t *testing.T) {
-	satellitedbtest.Run(t, func(ctx *testcontext.Context, t *testing.T, db satellite.DB) {
-		_, err := db.RepairQueue().InsertBatch(ctx, []*queue.InjuredSegment{
+	repairqueuetest.Run(t, func(ctx *testcontext.Context, t *testing.T, repairQueue queue.RepairQueue) {
+		_, err := repairQueue.InsertBatch(ctx, []*queue.InjuredSegment{
 			{
 				StreamID:  testrand.UUID(),
 				Placement: storj.PlacementConstraint(1),
@@ -42,7 +41,7 @@ func TestStatChore(t *testing.T) {
 		require.NoError(t, err)
 
 		registry := monkit.NewRegistry()
-		chore := repairer.NewQueueStat(zaptest.NewLogger(t), registry, []storj.PlacementConstraint{0, 1, 2}, db.RepairQueue(), 100*time.Hour)
+		chore := repairer.NewQueueStat(zaptest.NewLogger(t), registry, []storj.PlacementConstraint{0, 1, 2}, repairQueue, 100*time.Hour)
 
 		collectMonkitStat := func() map[string]float64 {
 			monkitValues := map[string]float64{}

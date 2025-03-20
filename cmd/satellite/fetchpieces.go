@@ -79,7 +79,7 @@ func cmdFetchPieces(cmd *cobra.Command, args []string) (err error) {
 		identity,
 		metabaseDB,
 		revocationDB,
-		db.RepairQueue(),
+		nil,
 		db.Buckets(),
 		db.OverlayCache(),
 		db.NodeEvents(),

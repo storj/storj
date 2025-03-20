@@ -49,6 +49,7 @@ import (
 	"storj.io/storj/satellite/payments/billing"
 	"storj.io/storj/satellite/payments/storjscan"
 	"storj.io/storj/satellite/payments/stripe"
+	"storj.io/storj/satellite/repair/queue"
 	"storj.io/storj/satellite/repair/repairer"
 	"storj.io/storj/satellite/reputation"
 )
@@ -151,13 +152,14 @@ type Core struct {
 	}
 
 	RepairQueueStat struct {
+		Queue queue.RepairQueue
 		Chore *repairer.QueueStat
 	}
 }
 
 // New creates a new satellite.
-func New(log *zap.Logger, full *identity.FullIdentity, db DB,
-	metabaseDB *metabase.DB, revocationDB extensions.RevocationDB,
+func New(log *zap.Logger, full *identity.FullIdentity, db DB, metabaseDB *metabase.DB,
+	revocationDB extensions.RevocationDB, repairQueue queue.RepairQueue,
 	liveAccounting accounting.Cache, versionInfo version.Info, config *Config,
 	atomicLogLevel *zap.AtomicLevel) (*Core, error) {
 	peer := &Core{
@@ -609,8 +611,10 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB,
 	}
 
 	{
+		peer.RepairQueueStat.Queue = repairQueue
+
 		if config.RepairQueueCheck.Interval.Seconds() > 0 {
-			peer.RepairQueueStat.Chore = repairer.NewQueueStat(log, monkit.Default, placement.SupportedPlacements(), db.RepairQueue(), config.RepairQueueCheck.Interval)
+			peer.RepairQueueStat.Chore = repairer.NewQueueStat(log, monkit.Default, placement.SupportedPlacements(), repairQueue, config.RepairQueueCheck.Interval)
 
 			peer.Services.Add(lifecycle.Item{
 				Name: "queue-stat",

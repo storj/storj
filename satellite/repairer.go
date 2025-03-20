@@ -69,6 +69,7 @@ type Repairer struct {
 
 	EcRepairer      *repairer.ECRepairer
 	SegmentRepairer *repairer.SegmentRepairer
+	Queue           queue.RepairQueue
 	Repairer        *repairer.Service
 }
 
@@ -241,6 +242,7 @@ func NewRepairer(log *zap.Logger, full *identity.FullIdentity,
 			config.Checker.RepairTargetOverrides,
 			config.Repairer,
 		)
+		peer.Queue = repairQueue
 		peer.Repairer = repairer.NewService(log.Named("repairer"), repairQueue, &config.Repairer, peer.SegmentRepairer)
 
 		peer.Services.Add(lifecycle.Item{

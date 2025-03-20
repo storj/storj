@@ -1363,7 +1363,7 @@ func TestRepairExpiredSegment(t *testing.T) {
 		require.NoError(t, err)
 
 		// Verify that the segment is on the repair queue
-		count, err := satellite.DB.RepairQueue().Count(ctx)
+		count, err := satellite.Repair.Queue.Count(ctx)
 		require.NoError(t, err)
 		require.Equal(t, 1, count)
 
@@ -1378,7 +1378,7 @@ func TestRepairExpiredSegment(t *testing.T) {
 		satellite.Repair.Repairer.WaitForPendingRepairs()
 
 		// Verify that the segment is not still in the queue
-		count, err = satellite.DB.RepairQueue().Count(ctx)
+		count, err = satellite.Repair.Queue.Count(ctx)
 		require.NoError(t, err)
 		require.Equal(t, 0, count)
 	})
@@ -1446,7 +1446,7 @@ func TestRemoveDeletedSegmentFromQueue(t *testing.T) {
 		require.NoError(t, err)
 
 		// Verify that the segment is on the repair queue
-		count, err := satellite.DB.RepairQueue().Count(ctx)
+		count, err := satellite.Repair.Queue.Count(ctx)
 		require.NoError(t, err)
 		require.Equal(t, count, 1)
 
@@ -1457,7 +1457,7 @@ func TestRemoveDeletedSegmentFromQueue(t *testing.T) {
 		satellite.Repair.Repairer.WaitForPendingRepairs()
 
 		// Verify that the segment was removed
-		count, err = satellite.DB.RepairQueue().Count(ctx)
+		count, err = satellite.Repair.Queue.Count(ctx)
 		require.NoError(t, err)
 		require.Equal(t, count, 0)
 	})
@@ -1524,7 +1524,7 @@ func TestSegmentDeletedDuringRepair(t *testing.T) {
 		_, err = satellite.RangedLoop.RangedLoop.Service.RunOnce(ctx)
 		require.NoError(t, err)
 
-		count, err := satellite.DB.RepairQueue().Count(ctx)
+		count, err := satellite.Repair.Queue.Count(ctx)
 		require.NoError(t, err)
 		require.Equal(t, 1, count)
 
@@ -1541,7 +1541,7 @@ func TestSegmentDeletedDuringRepair(t *testing.T) {
 		satellite.Repair.Repairer.WaitForPendingRepairs()
 
 		// Verify that the segment was removed
-		count, err = satellite.DB.RepairQueue().Count(ctx)
+		count, err = satellite.Repair.Queue.Count(ctx)
 		require.NoError(t, err)
 		require.Equal(t, 0, count)
 
@@ -1617,7 +1617,7 @@ func TestSegmentModifiedDuringRepair(t *testing.T) {
 		_, err = satellite.RangedLoop.RangedLoop.Service.RunOnce(ctx)
 		require.NoError(t, err)
 
-		count, err := satellite.DB.RepairQueue().Count(ctx)
+		count, err := satellite.Repair.Queue.Count(ctx)
 		require.NoError(t, err)
 		require.Equal(t, 1, count)
 
@@ -1640,7 +1640,7 @@ func TestSegmentModifiedDuringRepair(t *testing.T) {
 		satellite.Repair.Repairer.WaitForPendingRepairs()
 
 		// Verify that the segment was removed
-		count, err = satellite.DB.RepairQueue().Count(ctx)
+		count, err = satellite.Repair.Queue.Count(ctx)
 		require.NoError(t, err)
 		require.Equal(t, 0, count)
 
@@ -1708,7 +1708,7 @@ func TestIrreparableSegmentAccordingToOverlay(t *testing.T) {
 		}
 
 		// Verify that the segment is on the repair queue
-		count, err := satellite.DB.RepairQueue().Count(ctx)
+		count, err := satellite.Repair.Queue.Count(ctx)
 		require.NoError(t, err)
 		require.Equal(t, count, 1)
 
@@ -1719,7 +1719,7 @@ func TestIrreparableSegmentAccordingToOverlay(t *testing.T) {
 		satellite.Repair.Repairer.WaitForPendingRepairs()
 
 		// Verify that the irreparable segment is still in repair queue
-		count, err = satellite.DB.RepairQueue().Count(ctx)
+		count, err = satellite.Repair.Queue.Count(ctx)
 		require.NoError(t, err)
 		require.Equal(t, count, 1)
 	})
@@ -1777,7 +1777,7 @@ func TestIrreparableSegmentNodesOffline(t *testing.T) {
 		require.NoError(t, err)
 
 		// Verify that the segment is on the repair queue
-		count, err := satellite.DB.RepairQueue().Count(ctx)
+		count, err := satellite.Repair.Queue.Count(ctx)
 		require.NoError(t, err)
 		require.Equal(t, count, 1)
 
@@ -1802,7 +1802,7 @@ func TestIrreparableSegmentNodesOffline(t *testing.T) {
 		satellite.Repair.Repairer.WaitForPendingRepairs()
 
 		// Verify that the irreparable segment is still in repair queue
-		count, err = satellite.DB.RepairQueue().Count(ctx)
+		count, err = satellite.Repair.Queue.Count(ctx)
 		require.NoError(t, err)
 		require.Equal(t, 1, count)
 	})
@@ -1881,7 +1881,7 @@ func TestRepairTargetOverrides(t *testing.T) {
 				require.NoError(t, err)
 
 				// Ensure segment is in repair queue
-				count, err := satellite.DB.RepairQueue().Count(ctx)
+				count, err := satellite.Repair.Queue.Count(ctx)
 				require.NoError(t, err)
 				require.Equal(t, 1, count)
 
@@ -1892,7 +1892,7 @@ func TestRepairTargetOverrides(t *testing.T) {
 				satellite.Repair.Repairer.WaitForPendingRepairs()
 
 				// Verify repair queue is empty after repair
-				count, err = satellite.DB.RepairQueue().Count(ctx)
+				count, err = satellite.Repair.Queue.Count(ctx)
 				require.NoError(t, err)
 				require.Zero(t, count)
 
@@ -3119,7 +3119,7 @@ func TestSegmentInExcludedCountriesRepair(t *testing.T) {
 		_, err = satellite.RangedLoop.RangedLoop.Service.RunOnce(ctx)
 		require.NoError(t, err)
 
-		count, err := satellite.DB.RepairQueue().Count(ctx)
+		count, err := satellite.Repair.Queue.Count(ctx)
 		require.NoError(t, err)
 		require.Equal(t, 1, count)
 
@@ -3129,7 +3129,7 @@ func TestSegmentInExcludedCountriesRepair(t *testing.T) {
 		satellite.Repair.Repairer.WaitForPendingRepairs()
 
 		// Verify that the segment was removed from the repair queue
-		count, err = satellite.DB.RepairQueue().Count(ctx)
+		count, err = satellite.Repair.Queue.Count(ctx)
 		require.NoError(t, err)
 		require.Zero(t, count)
 
@@ -3227,7 +3227,7 @@ func TestSegmentInExcludedCountriesRepairIrreparable(t *testing.T) {
 		_, err = satellite.RangedLoop.RangedLoop.Service.RunOnce(ctx)
 		require.NoError(t, err)
 
-		count, err := satellite.DB.RepairQueue().Count(ctx)
+		count, err := satellite.Repair.Queue.Count(ctx)
 		require.NoError(t, err)
 		require.Equal(t, 1, count)
 
@@ -3237,7 +3237,7 @@ func TestSegmentInExcludedCountriesRepairIrreparable(t *testing.T) {
 		satellite.Repair.Repairer.WaitForPendingRepairs()
 
 		// Verify that the segment was removed
-		count, err = satellite.DB.RepairQueue().Count(ctx)
+		count, err = satellite.Repair.Queue.Count(ctx)
 		require.NoError(t, err)
 		require.Zero(t, count)
 
@@ -3312,7 +3312,7 @@ func TestRepairClumpedPieces(t *testing.T) {
 		_, err = satellite.RangedLoop.RangedLoop.Service.RunOnce(ctx)
 		require.NoError(t, err)
 
-		injuredSegments, err := satellite.DB.RepairQueue().Select(ctx, 1, nil, nil)
+		injuredSegments, err := satellite.Repair.Queue.Select(ctx, 1, nil, nil)
 		require.Error(t, err)
 		if !queue.ErrEmpty.Has(err) {
 			require.FailNow(t, "Should get ErrEmptyQueue, but got", err)
@@ -3423,7 +3423,7 @@ placements:
 		_, err = satellite.RangedLoop.RangedLoop.Service.RunOnce(ctx)
 		require.NoError(t, err)
 
-		injuredSegments, err := satellite.DB.RepairQueue().Select(ctx, 1, nil, nil)
+		injuredSegments, err := satellite.Repair.Queue.Select(ctx, 1, nil, nil)
 		require.Error(t, err)
 		if !queue.ErrEmpty.Has(err) {
 			require.FailNow(t, "Should get ErrEmptyQueue, but got", err)
@@ -3603,7 +3603,7 @@ func TestRepairRSOverride(t *testing.T) {
 		require.NoError(t, err)
 
 		// verify default segment is injured and added to repair queue.
-		injuredSegments, err := satellite.DB.RepairQueue().SelectN(ctx, 2)
+		injuredSegments, err := satellite.Repair.Queue.SelectN(ctx, 2)
 		require.NoError(t, err)
 		require.Equal(t, 1, len(injuredSegments))
 		require.Equal(t, segments[0].StreamID, injuredSegments[0].StreamID)
@@ -3628,7 +3628,7 @@ func TestRepairRSOverride(t *testing.T) {
 		require.NoError(t, err)
 
 		// verify the RS overridden segment is now injured and added to repair queue
-		injuredSegments, err = satellite.DB.RepairQueue().SelectN(ctx, 2)
+		injuredSegments, err = satellite.Repair.Queue.SelectN(ctx, 2)
 		require.NoError(t, err)
 		require.Equal(t, 2, len(injuredSegments))
 		slices.SortFunc(injuredSegments, func(a, b queue.InjuredSegment) int {

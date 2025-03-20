@@ -54,12 +54,14 @@ func cmdRepairerRun(cmd *cobra.Command, args []string) (err error) {
 		err = errs.Combine(err, revocationDB.Close())
 	}()
 
+	repairQueue := db.RepairQueue()
+
 	peer, err := satellite.NewRepairer(
 		log,
 		identity,
 		metabaseDB,
 		revocationDB,
-		db.RepairQueue(),
+		repairQueue,
 		db.Buckets(),
 		db.OverlayCache(),
 		db.NodeEvents(),

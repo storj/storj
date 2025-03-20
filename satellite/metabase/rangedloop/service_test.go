@@ -423,7 +423,7 @@ func TestAllInOne(t *testing.T) {
 			),
 			checker.NewObserver(
 				log.Named("repair:checker"),
-				satellite.DB.RepairQueue(),
+				satellite.Repair.Queue,
 				satellite.Overlay.Service,
 				nodeselection.TestPlacementDefinitions(),
 				satellite.Config.Checker,

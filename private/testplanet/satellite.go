@@ -55,6 +55,7 @@ import (
 	"storj.io/storj/satellite/overlay/offlinenodes"
 	"storj.io/storj/satellite/overlay/straynodes"
 	"storj.io/storj/satellite/payments/stripe"
+	"storj.io/storj/satellite/repair/queue"
 	"storj.io/storj/satellite/repair/repairer"
 	"storj.io/storj/satellite/reputation"
 	"storj.io/storj/satellite/satellitedb"
@@ -126,6 +127,7 @@ type Satellite struct {
 
 	Repair struct {
 		Repairer *repairer.Service
+		Queue    queue.RepairQueue
 	}
 
 	Audit struct {
@@ -540,6 +542,8 @@ func (planet *Planet) newSatellite(ctx context.Context, prefix string, index int
 		return nil, errs.Wrap(err)
 	}
 
+	repairQueue := db.RepairQueue()
+
 	planet.databases = append(planet.databases, revocationDB)
 
 	liveAccounting, err := live.OpenCache(ctx, log.Named("live-accounting"), config.LiveAccounting)
@@ -551,7 +555,7 @@ func (planet *Planet) newSatellite(ctx context.Context, prefix string, index int
 	config.Payments.Provider = "mock"
 	config.Payments.MockProvider = stripe.NewStripeMock(db.StripeCoinPayments().Customers(), db.Console().Users())
 
-	peer, err := satellite.New(log, identity, db, metabaseDB, revocationDB, liveAccounting, versionInfo, &config, nil)
+	peer, err := satellite.New(log, identity, db, metabaseDB, revocationDB, repairQueue, liveAccounting, versionInfo, &config, nil)
 	if err != nil {
 		return nil, errs.Wrap(err)
 	}
@@ -604,7 +608,7 @@ func (planet *Planet) newSatellite(ctx context.Context, prefix string, index int
 		return nil, errs.Wrap(err)
 	}
 
-	repairerPeer, err := planet.newRepairer(ctx, index, identity, db, metabaseDB, config, versionInfo)
+	repairerPeer, err := planet.newRepairer(ctx, index, identity, db, metabaseDB, repairQueue, config, versionInfo)
 	if err != nil {
 		return nil, errs.Wrap(err)
 	}
@@ -619,7 +623,7 @@ func (planet *Planet) newSatellite(ctx context.Context, prefix string, index int
 		return nil, errs.Wrap(err)
 	}
 
-	rangedLoopPeer, err := planet.newRangedLoop(ctx, index, db, metabaseDB, config)
+	rangedLoopPeer, err := planet.newRangedLoop(ctx, index, db, metabaseDB, repairQueue, config)
 	if err != nil {
 		return nil, errs.Wrap(err)
 	}
@@ -680,6 +684,7 @@ func createNewSystem(name string, log *zap.Logger, config satellite.Config, peer
 	system.Orders.Service = api.Orders.Service
 	system.Orders.Chore = api.Orders.Chore
 
+	system.Repair.Queue = repairerPeer.Queue
 	system.Repair.Repairer = repairerPeer.Repairer
 
 	system.Audit.VerifyQueue = auditorPeer.Audit.VerifyQueue
@@ -795,7 +800,7 @@ func (planet *Planet) newAdmin(ctx context.Context, index int, identity *identit
 	return satellite.NewAdmin(log, identity, db, metabaseDB, liveAccounting, versionInfo, &config, nil)
 }
 
-func (planet *Planet) newRepairer(ctx context.Context, index int, identity *identity.FullIdentity, db satellite.DB, metabaseDB *metabase.DB, config satellite.Config, versionInfo version.Info) (_ *satellite.Repairer, err error) {
+func (planet *Planet) newRepairer(ctx context.Context, index int, identity *identity.FullIdentity, db satellite.DB, metabaseDB *metabase.DB, repairQueue queue.RepairQueue, config satellite.Config, versionInfo version.Info) (_ *satellite.Repairer, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	prefix := "satellite-repairer" + strconv.Itoa(index)
@@ -807,7 +812,7 @@ func (planet *Planet) newRepairer(ctx context.Context, index int, identity *iden
 	}
 	planet.databases = append(planet.databases, revocationDB)
 
-	return satellite.NewRepairer(log, identity, metabaseDB, revocationDB, db.RepairQueue(), db.Buckets(), db.OverlayCache(), db.NodeEvents(), db.Reputation(), db.Containment(), versionInfo, &config, nil)
+	return satellite.NewRepairer(log, identity, metabaseDB, revocationDB, repairQueue, db.Buckets(), db.OverlayCache(), db.NodeEvents(), db.Reputation(), db.Containment(), versionInfo, &config, nil)
 }
 
 func (planet *Planet) newAuditor(ctx context.Context, index int, identity *identity.FullIdentity, db satellite.DB, metabaseDB *metabase.DB, config satellite.Config, versionInfo version.Info) (_ *satellite.Auditor, err error) {
@@ -847,12 +852,12 @@ func (planet *Planet) newGarbageCollectionBF(ctx context.Context, index int, db 
 	return satellite.NewGarbageCollectionBF(log, db, metabaseDB, revocationDB, versionInfo, &config, nil)
 }
 
-func (planet *Planet) newRangedLoop(ctx context.Context, index int, db satellite.DB, metabaseDB *metabase.DB, config satellite.Config) (_ *satellite.RangedLoop, err error) {
+func (planet *Planet) newRangedLoop(ctx context.Context, index int, db satellite.DB, metabaseDB *metabase.DB, repairQueue queue.RepairQueue, config satellite.Config) (_ *satellite.RangedLoop, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	prefix := "satellite-ranged-loop" + strconv.Itoa(index)
 	log := planet.log.Named(prefix)
-	return satellite.NewRangedLoop(log, db, metabaseDB, &config, nil)
+	return satellite.NewRangedLoop(log, db, metabaseDB, repairQueue, &config, nil)
 }
 
 // atLeastOne returns 1 if value < 1, or value otherwise.

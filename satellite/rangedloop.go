@@ -27,6 +27,7 @@ import (
 	"storj.io/storj/satellite/metrics"
 	"storj.io/storj/satellite/overlay"
 	"storj.io/storj/satellite/repair/checker"
+	"storj.io/storj/satellite/repair/queue"
 )
 
 // RangedLoop is the satellite ranged loop process.
@@ -57,6 +58,7 @@ type RangedLoop struct {
 	}
 
 	Repair struct {
+		Queue    queue.RepairQueue
 		Observer *checker.Observer
 	}
 
@@ -78,7 +80,7 @@ type RangedLoop struct {
 }
 
 // NewRangedLoop creates a new satellite ranged loop process.
-func NewRangedLoop(log *zap.Logger, db DB, metabaseDB *metabase.DB, config *Config, atomicLogLevel *zap.AtomicLevel) (_ *RangedLoop, err error) {
+func NewRangedLoop(log *zap.Logger, db DB, metabaseDB *metabase.DB, repairQueue queue.RepairQueue, config *Config, atomicLogLevel *zap.AtomicLevel) (_ *RangedLoop, err error) {
 	peer := &RangedLoop{
 		Log: log,
 		DB:  db,
@@ -169,9 +171,11 @@ func NewRangedLoop(log *zap.Logger, db DB, metabaseDB *metabase.DB, config *Conf
 			config.Checker.RepairExcludedCountryCodes = config.Overlay.RepairExcludedCountryCodes
 		}
 
+		peer.Repair.Queue = repairQueue
+
 		peer.Repair.Observer = checker.NewObserver(
 			peer.Log.Named("repair:checker"),
-			peer.DB.RepairQueue(),
+			peer.Repair.Queue,
 			peer.Overlay.Service,
 			placement,
 			config.Checker,

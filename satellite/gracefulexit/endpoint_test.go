@@ -378,7 +378,7 @@ func TestManyNodesGracefullyExiting(t *testing.T) {
 		// we expect ~78% of segments to be in the repair queue (the chance that a
 		// segment still has at least 3 pieces in not-exiting nodes). but since things
 		// will fluctuate, let's just expect half
-		count, err := satellite.DB.RepairQueue().Count(ctx)
+		count, err := satellite.Repair.Queue.Count(ctx)
 		require.NoError(t, err)
 		require.GreaterOrEqual(t, count, numObjects/2)
 

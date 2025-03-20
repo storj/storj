@@ -18,15 +18,12 @@ import (
 	"storj.io/common/testcontext"
 	"storj.io/common/testrand"
 	"storj.io/common/uuid"
-	"storj.io/storj/satellite"
 	"storj.io/storj/satellite/repair/queue"
-	"storj.io/storj/satellite/satellitedb/satellitedbtest"
+	"storj.io/storj/satellite/repair/repairqueuetest"
 )
 
 func TestInsertSelect(t *testing.T) {
-	satellitedbtest.Run(t, func(ctx *testcontext.Context, t *testing.T, db satellite.DB) {
-		q := db.RepairQueue()
-
+	repairqueuetest.Run(t, func(ctx *testcontext.Context, t *testing.T, q queue.RepairQueue) {
 		seg := createInjuredSegment()
 		seg.SegmentHealth = 0.4
 
@@ -46,9 +43,7 @@ func TestInsertSelect(t *testing.T) {
 }
 
 func TestInsertDuplicate(t *testing.T) {
-	satellitedbtest.Run(t, func(ctx *testcontext.Context, t *testing.T, db satellite.DB) {
-		q := db.RepairQueue()
-
+	repairqueuetest.Run(t, func(ctx *testcontext.Context, t *testing.T, q queue.RepairQueue) {
 		seg := createInjuredSegment()
 		alreadyInserted, err := q.Insert(ctx, seg)
 		require.NoError(t, err)
@@ -60,9 +55,7 @@ func TestInsertDuplicate(t *testing.T) {
 }
 
 func TestInsertBatchOfOne(t *testing.T) {
-	satellitedbtest.Run(t, func(ctx *testcontext.Context, t *testing.T, db satellite.DB) {
-		q := db.RepairQueue()
-
+	repairqueuetest.Run(t, func(ctx *testcontext.Context, t *testing.T, q queue.RepairQueue) {
 		writeSegments := []*queue.InjuredSegment{
 			createInjuredSegment(),
 		}
@@ -86,9 +79,7 @@ func TestInsertBatchOfOne(t *testing.T) {
 }
 
 func TestInsertOverlappingBatches(t *testing.T) {
-	satellitedbtest.Run(t, func(ctx *testcontext.Context, t *testing.T, db satellite.DB) {
-		q := db.RepairQueue()
-
+	repairqueuetest.Run(t, func(ctx *testcontext.Context, t *testing.T, q queue.RepairQueue) {
 		requireDbState := func(expectedSegments []queue.InjuredSegment) {
 			sort := func(segments []queue.InjuredSegment) {
 				sort.Slice(segments, func(i, j int) bool {
@@ -134,9 +125,7 @@ func TestInsertOverlappingBatches(t *testing.T) {
 }
 
 func TestDequeueEmptyQueue(t *testing.T) {
-	satellitedbtest.Run(t, func(ctx *testcontext.Context, t *testing.T, db satellite.DB) {
-		q := db.RepairQueue()
-
+	repairqueuetest.Run(t, func(ctx *testcontext.Context, t *testing.T, q queue.RepairQueue) {
 		_, err := q.Select(ctx, 1, nil, nil)
 		require.Error(t, err)
 		require.True(t, queue.ErrEmpty.Has(err), "error should of class EmptyQueue")
@@ -144,9 +133,7 @@ func TestDequeueEmptyQueue(t *testing.T) {
 }
 
 func TestSequential(t *testing.T) {
-	satellitedbtest.Run(t, func(ctx *testcontext.Context, t *testing.T, db satellite.DB) {
-		q := db.RepairQueue()
-
+	repairqueuetest.Run(t, func(ctx *testcontext.Context, t *testing.T, q queue.RepairQueue) {
 		const N = 20
 		var added []*queue.InjuredSegment
 		for i := 0; i < N; i++ {
@@ -192,8 +179,7 @@ func TestSequential(t *testing.T) {
 }
 
 func TestParallel(t *testing.T) {
-	satellitedbtest.Run(t, func(ctx *testcontext.Context, t *testing.T, db satellite.DB) {
-		q := db.RepairQueue()
+	repairqueuetest.Run(t, func(ctx *testcontext.Context, t *testing.T, q queue.RepairQueue) {
 		const N = 20
 
 		expectedSegments := make([]queue.InjuredSegment, N)
@@ -267,9 +253,8 @@ func TestParallel(t *testing.T) {
 }
 
 func TestClean(t *testing.T) {
-	satellitedbtest.Run(t, func(ctx *testcontext.Context, t *testing.T, db satellite.DB) {
-		q := db.RepairQueue()
-
+	repairqueuetest.Run(t, func(ctx *testcontext.Context, t *testing.T, q queue.RepairQueue) {
+		// Create three segments
 		seg1 := &queue.InjuredSegment{
 			StreamID: testrand.UUID(),
 		}
