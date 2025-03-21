@@ -83,6 +83,12 @@ var (
 		RunE:  cleanCommand,
 		Args:  cobra.RangeArgs(1, 2),
 	}
+	trimCmd = &cobra.Command{
+		Use:   "trim <healthThreshold> [<placement>]",
+		Short: "remove all jobs with health above the given threshold from the queue for the given placement. (If no placement given, trim all placements.)",
+		RunE:  trimCommand,
+		Args:  cobra.RangeArgs(1, 2),
+	}
 )
 
 func init() {
@@ -97,11 +103,13 @@ func init() {
 	process.Bind(statCmd, &runCfg, defaults, cfgstruct.ConfDir(confDir), cfgstruct.IdentityDir(identityDir))
 	process.Bind(importCmd, &importCfg, defaults, cfgstruct.ConfDir(confDir), cfgstruct.IdentityDir(identityDir))
 	process.Bind(cleanCmd, &runCfg, defaults, cfgstruct.ConfDir(confDir), cfgstruct.IdentityDir(identityDir))
+	process.Bind(trimCmd, &runCfg, defaults, cfgstruct.ConfDir(confDir), cfgstruct.IdentityDir(identityDir))
 	rootCmd.AddCommand(lenCmd)
 	rootCmd.AddCommand(truncateCmd)
 	rootCmd.AddCommand(statCmd)
 	rootCmd.AddCommand(importCmd)
 	rootCmd.AddCommand(cleanCmd)
+	rootCmd.AddCommand(trimCmd)
 }
 
 func prepareConnection(ctx context.Context) (*jobq.Client, error) {
@@ -369,6 +377,37 @@ func cleanCommand(cmd *cobra.Command, args []string) error {
 	}
 	if err != nil {
 		return fmt.Errorf("failed to clean: %w", err)
+	}
+	fmt.Printf("removed %d jobs\n", removed)
+	return nil
+}
+
+func trimCommand(cmd *cobra.Command, args []string) error {
+	ctx := context.Background()
+	drpcConn, err := prepareConnection(ctx)
+	if err != nil {
+		return err
+	}
+	defer func() { _ = drpcConn.Close() }()
+
+	healthThreshold, err := strconv.ParseFloat(args[0], 64)
+	if err != nil {
+		return fmt.Errorf("could not parse health threshold %q: %w", args[0], err)
+	}
+
+	var removed int32
+	if len(args) > 1 {
+		var placement int64
+		placement, err = strconv.ParseInt(args[1], 10, 16)
+		if err != nil {
+			return fmt.Errorf("invalid placement %q: %w", args[1], err)
+		}
+		removed, err = drpcConn.Trim(ctx, storj.PlacementConstraint(placement), healthThreshold)
+	} else {
+		removed, err = drpcConn.TrimAll(ctx, healthThreshold)
+	}
+	if err != nil {
+		return fmt.Errorf("failed to trim: %w", err)
 	}
 	fmt.Printf("removed %d jobs\n", removed)
 	return nil
