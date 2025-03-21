@@ -55,7 +55,7 @@ var (
 	}
 	lenCmd = &cobra.Command{
 		Use:   "len [<placement>]",
-		Short: "query lengths of job queues (repair and retry) for the given placement",
+		Short: "query lengths of job queues (repair and retry) for the given placement. (If no placement given, sum queues for all placements.)",
 		RunE:  lenCommand,
 		Args:  cobra.MaximumNArgs(1),
 	}
@@ -67,7 +67,7 @@ var (
 	}
 	statCmd = &cobra.Command{
 		Use:   "stat [<placement>]",
-		Short: "query statistics of job queues (repair and retry) for the given placement",
+		Short: "query statistics of job queues (repair and retry) for the given placement. (If no placement given, query all placements.)",
 		RunE:  statCommand,
 		Args:  cobra.MaximumNArgs(1),
 	}
@@ -76,6 +76,12 @@ var (
 		Short: "import jobs from a CSV file (format: <placement>,<streamID>,<position>,<segment_health>[,<last_attempted_at>])",
 		RunE:  importCommand,
 		Args:  cobra.ExactArgs(1),
+	}
+	cleanCmd = &cobra.Command{
+		Use:   "clean <timestamp> [<placement>]",
+		Short: "remove all jobs older than the given timestamp (given as relative duration '-24h') or ISO 8601. (If no placement given, clean queues for all placements.)",
+		RunE:  cleanCommand,
+		Args:  cobra.RangeArgs(1, 2),
 	}
 )
 
@@ -90,10 +96,12 @@ func init() {
 	process.Bind(truncateCmd, &runCfg, defaults, cfgstruct.ConfDir(confDir), cfgstruct.IdentityDir(identityDir))
 	process.Bind(statCmd, &runCfg, defaults, cfgstruct.ConfDir(confDir), cfgstruct.IdentityDir(identityDir))
 	process.Bind(importCmd, &importCfg, defaults, cfgstruct.ConfDir(confDir), cfgstruct.IdentityDir(identityDir))
+	process.Bind(cleanCmd, &runCfg, defaults, cfgstruct.ConfDir(confDir), cfgstruct.IdentityDir(identityDir))
 	rootCmd.AddCommand(lenCmd)
 	rootCmd.AddCommand(truncateCmd)
 	rootCmd.AddCommand(statCmd)
 	rootCmd.AddCommand(importCmd)
+	rootCmd.AddCommand(cleanCmd)
 }
 
 func prepareConnection(ctx context.Context) (*jobq.Client, error) {
@@ -316,6 +324,54 @@ func count(bools []bool) int {
 		}
 	}
 	return count
+}
+
+func cleanCommand(cmd *cobra.Command, args []string) error {
+	ctx := context.Background()
+	drpcConn, err := prepareConnection(ctx)
+	if err != nil {
+		return err
+	}
+	defer func() { _ = drpcConn.Close() }()
+
+	var timestamp time.Time
+	timestampStr := args[0]
+	if timestampStr[0] == '-' {
+		duration, err := time.ParseDuration(timestampStr)
+		if err != nil {
+			return fmt.Errorf("invalid relative duration %q: %w", timestampStr, err)
+		}
+		timestamp = time.Now().Add(duration)
+	} else {
+		timeFormats := []string{"2006-01-02T15:04:05Z0700", "2006-01-02 15:04:05Z0700", "2006-01-02"}
+		for _, format := range timeFormats {
+			t, err := time.Parse(format, timestampStr)
+			if err == nil {
+				timestamp = t
+				break
+			}
+		}
+		if timestamp.IsZero() {
+			return fmt.Errorf("could not parse timestamp %q", timestampStr)
+		}
+	}
+
+	var removed int32
+	if len(args) > 1 {
+		var placement int64
+		placement, err = strconv.ParseInt(args[1], 10, 16)
+		if err != nil {
+			return fmt.Errorf("invalid placement %q: %w", args[1], err)
+		}
+		removed, err = drpcConn.Clean(ctx, storj.PlacementConstraint(placement), timestamp)
+	} else {
+		removed, err = drpcConn.CleanAll(ctx, timestamp)
+	}
+	if err != nil {
+		return fmt.Errorf("failed to clean: %w", err)
+	}
+	fmt.Printf("removed %d jobs\n", removed)
+	return nil
 }
 
 func main() {
