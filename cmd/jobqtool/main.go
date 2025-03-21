@@ -6,9 +6,13 @@ package main
 import (
 	"context"
 	"crypto/tls"
+	"encoding/csv"
+	"errors"
 	"fmt"
+	"io"
 	"os"
 	"strconv"
+	"time"
 
 	"github.com/spf13/cobra"
 	"go.uber.org/zap"
@@ -19,6 +23,7 @@ import (
 	"storj.io/common/peertls/tlsopts"
 	"storj.io/common/process"
 	"storj.io/common/storj"
+	"storj.io/common/uuid"
 	"storj.io/storj/private/revocation"
 	"storj.io/storj/satellite/jobq"
 )
@@ -30,11 +35,18 @@ type Config struct {
 	TLS      tlsopts.Config
 }
 
+// ImportConfig holds the configuration for jobqtool's import subcommand.
+type ImportConfig struct {
+	Config
+	MaxImport int `help:"maximum number of jobs to import in a single batch" default:"1000"`
+}
+
 var (
 	confDir     string
 	identityDir string
 
-	runCfg Config
+	runCfg    Config
+	importCfg ImportConfig
 
 	rootCmd = &cobra.Command{
 		Use:          "jobqtool",
@@ -59,6 +71,12 @@ var (
 		RunE:  statCommand,
 		Args:  cobra.MaximumNArgs(1),
 	}
+	importCmd = &cobra.Command{
+		Use:   "import <file>",
+		Short: "import jobs from a CSV file (format: <placement>,<streamID>,<position>,<segment_health>[,<last_attempted_at>])",
+		RunE:  importCommand,
+		Args:  cobra.ExactArgs(1),
+	}
 )
 
 func init() {
@@ -71,9 +89,11 @@ func init() {
 	process.Bind(lenCmd, &runCfg, defaults, cfgstruct.ConfDir(confDir), cfgstruct.IdentityDir(identityDir))
 	process.Bind(truncateCmd, &runCfg, defaults, cfgstruct.ConfDir(confDir), cfgstruct.IdentityDir(identityDir))
 	process.Bind(statCmd, &runCfg, defaults, cfgstruct.ConfDir(confDir), cfgstruct.IdentityDir(identityDir))
+	process.Bind(importCmd, &importCfg, defaults, cfgstruct.ConfDir(confDir), cfgstruct.IdentityDir(identityDir))
 	rootCmd.AddCommand(lenCmd)
 	rootCmd.AddCommand(truncateCmd)
 	rootCmd.AddCommand(statCmd)
+	rootCmd.AddCommand(importCmd)
 }
 
 func prepareConnection(ctx context.Context) (*jobq.Client, error) {
@@ -195,6 +215,107 @@ func statCommand(cmd *cobra.Command, args []string) error {
 		fmt.Println("(no jobs)")
 	}
 	return nil
+}
+
+func importCommand(cmd *cobra.Command, args []string) error {
+	ctx := context.Background()
+	drpcConn, err := prepareConnection(ctx)
+	if err != nil {
+		return err
+	}
+	defer func() { _ = drpcConn.Close() }()
+
+	inputFile, err := os.Open(args[0])
+	if err != nil {
+		return fmt.Errorf("failed to open file: %w", err)
+	}
+	defer func() { _ = inputFile.Close() }()
+
+	csvReader := csv.NewReader(inputFile)
+	jobs := []jobq.RepairJob{}
+	totalPushed := 0
+	totalNew := 0
+
+	for {
+		record, err := csvReader.Read()
+		if err != nil {
+			if errors.Is(err, io.EOF) {
+				break
+			}
+			return fmt.Errorf("failed to read CSV record: %w", err)
+		}
+		if record[0] == "placement" && len(jobs) == 0 {
+			// it's a header; skip it
+			continue
+		}
+
+		if len(record) < 4 || len(record) > 5 {
+			return fmt.Errorf("invalid CSV record: %q", record)
+		}
+
+		placement, err := strconv.ParseInt(record[0], 10, 16)
+		if err != nil {
+			return fmt.Errorf("invalid placement %q: %w", record[0], err)
+		}
+		streamID, err := uuid.FromString(record[1])
+		if err != nil {
+			return fmt.Errorf("could not parse stream ID %q: %w", record[1], err)
+		}
+		position, err := strconv.ParseUint(record[2], 10, 64)
+		if err != nil {
+			return fmt.Errorf("invalid position %q: %w", record[2], err)
+		}
+		segmentHealth, err := strconv.ParseFloat(record[3], 64)
+		if err != nil {
+			return fmt.Errorf("invalid segment health %q: %w", record[3], err)
+		}
+		var lastAttemptedAt time.Time
+		if len(record) > 4 {
+			lastAttemptedAt, err = time.Parse(time.RFC3339, record[4])
+			if err != nil {
+				return fmt.Errorf("invalid last attempted at %q: %w", record[4], err)
+			}
+		}
+
+		jobs = append(jobs, jobq.RepairJob{
+			ID:              jobq.SegmentIdentifier{StreamID: streamID, Position: position},
+			Placement:       uint16(placement),
+			Health:          segmentHealth,
+			LastAttemptedAt: uint64(lastAttemptedAt.Unix()),
+		})
+
+		if len(jobs) == importCfg.MaxImport {
+			wasNew, err := drpcConn.PushBatch(ctx, jobs)
+			if err != nil {
+				return fmt.Errorf("failed to import jobs: %w", err)
+			}
+			totalPushed += len(jobs)
+			totalNew += count(wasNew)
+			jobs = jobs[:0]
+		}
+	}
+
+	if len(jobs) > 0 {
+		wasNew, err := drpcConn.PushBatch(ctx, jobs)
+		if err != nil {
+			return fmt.Errorf("failed to import jobs: %w", err)
+		}
+		totalPushed += len(jobs)
+		totalNew += count(wasNew)
+	}
+	fmt.Printf("imported %d jobs (%d were new, %d updated)\n", totalPushed, totalNew, totalPushed-totalNew)
+
+	return nil
+}
+
+func count(bools []bool) int {
+	var count int
+	for _, b := range bools {
+		if b {
+			count++
+		}
+	}
+	return count
 }
 
 func main() {
