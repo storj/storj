@@ -16,6 +16,10 @@ type EventType int
 const (
 	// EventTypeDB represents a database event.
 	EventTypeDB EventType = iota
+
+	// EventTypeCount represents the total number of event types.
+	// Always keep this last in the const block.
+	EventTypeCount
 )
 
 // String returns the string representation of the EventType.
@@ -45,7 +49,7 @@ func NewEvent(eventType EventType, skipCallers int) Event {
 		Type:      eventType,
 	}
 
-	runtime.Callers(skipCallers+1, ev.Stack[:]) // +1 to skip the runtime.Callers call itself.
+	runtime.Callers(skipCallers+2, ev.Stack[:]) // +2 to skip the runtime.Callers call itself and NewEvent.
 
 	return ev
 }

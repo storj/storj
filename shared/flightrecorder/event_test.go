@@ -23,7 +23,7 @@ func TestEvent(t *testing.T) {
 	})
 
 	t.Run("formatted stack", func(t *testing.T) {
-		ev := flightrecorder.NewEvent(flightrecorder.EventTypeDB, 0)
+		ev := flightrecorder.NewEvent(flightrecorder.EventTypeDB, -1)
 		formatted := ev.FormattedStack()
 		require.NotEmpty(t, formatted)
 		require.Contains(t, formatted, "NewEvent")
