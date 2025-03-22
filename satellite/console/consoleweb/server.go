@@ -1275,7 +1275,7 @@ func (server *Server) brotliMiddleware(fn http.Handler) http.Handler {
 //go:embed error_fallback.html
 var errorTemplateFallback string
 
-// loadTemplates is used to initialize the error page template.
+// loadErrorTemplate is used to initialize the error page template.
 func (server *Server) loadErrorTemplate() (_ *template.Template, err error) {
 	if server.errorTemplate == nil || server.config.Watch {
 		server.errorTemplate, err = template.ParseFiles(filepath.Join(server.config.StaticDir, "static", "errors", "error.html"))
