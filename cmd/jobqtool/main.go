@@ -41,12 +41,19 @@ type ImportConfig struct {
 	MaxImport int `help:"maximum number of jobs to import in a single batch" default:"1000"`
 }
 
+// PeekConfig holds the configuration for jobqtool's peek subcommand.
+type PeekConfig struct {
+	Config
+	Count int `help:"number of upcoming jobs to inspect" default:"20"`
+}
+
 var (
 	confDir     string
 	identityDir string
 
 	runCfg    Config
 	importCfg ImportConfig
+	peekCfg   PeekConfig
 
 	rootCmd = &cobra.Command{
 		Use:          "jobqtool",
@@ -69,6 +76,12 @@ var (
 		Use:   "stat [<placement>]",
 		Short: "query statistics of job queues (repair and retry) for the given placement. (If no placement given, query all placements.)",
 		RunE:  statCommand,
+		Args:  cobra.MaximumNArgs(1),
+	}
+	peekCmd = &cobra.Command{
+		Use:   "peek [<placement>]",
+		Short: "observe upcoming jobs in the queue for the given placement. Do not remove them from the queue(s). (If no placement given, get jobs from any placement.)",
+		RunE:  peekCommand,
 		Args:  cobra.MaximumNArgs(1),
 	}
 	importCmd = &cobra.Command{
@@ -101,12 +114,14 @@ func init() {
 	process.Bind(lenCmd, &runCfg, defaults, cfgstruct.ConfDir(confDir), cfgstruct.IdentityDir(identityDir))
 	process.Bind(truncateCmd, &runCfg, defaults, cfgstruct.ConfDir(confDir), cfgstruct.IdentityDir(identityDir))
 	process.Bind(statCmd, &runCfg, defaults, cfgstruct.ConfDir(confDir), cfgstruct.IdentityDir(identityDir))
+	process.Bind(peekCmd, &peekCfg, defaults, cfgstruct.ConfDir(confDir), cfgstruct.IdentityDir(identityDir))
 	process.Bind(importCmd, &importCfg, defaults, cfgstruct.ConfDir(confDir), cfgstruct.IdentityDir(identityDir))
 	process.Bind(cleanCmd, &runCfg, defaults, cfgstruct.ConfDir(confDir), cfgstruct.IdentityDir(identityDir))
 	process.Bind(trimCmd, &runCfg, defaults, cfgstruct.ConfDir(confDir), cfgstruct.IdentityDir(identityDir))
 	rootCmd.AddCommand(lenCmd)
 	rootCmd.AddCommand(truncateCmd)
 	rootCmd.AddCommand(statCmd)
+	rootCmd.AddCommand(peekCmd)
 	rootCmd.AddCommand(importCmd)
 	rootCmd.AddCommand(cleanCmd)
 	rootCmd.AddCommand(trimCmd)
@@ -332,6 +347,38 @@ func count(bools []bool) int {
 		}
 	}
 	return count
+}
+
+func peekCommand(cmd *cobra.Command, args []string) error {
+	ctx := context.Background()
+	drpcConn, err := prepareConnection(ctx)
+	if err != nil {
+		return err
+	}
+	defer func() { _ = drpcConn.Close() }()
+
+	var jobs []jobq.RepairJob
+	if len(args) > 0 {
+		var placement int64
+		placement, err = strconv.ParseInt(args[0], 10, 16)
+		if err != nil {
+			return fmt.Errorf("invalid placement %q: %w", args[0], err)
+		}
+		jobs, err = drpcConn.Peek(ctx, peekCfg.Count, []storj.PlacementConstraint{storj.PlacementConstraint(placement)}, nil)
+	} else {
+		jobs, err = drpcConn.Peek(ctx, peekCfg.Count, nil, nil)
+	}
+	if err != nil {
+		return fmt.Errorf("failed to peek upcoming jobs: %w", err)
+	}
+
+	fmt.Printf("%-5s | %-36s | %-20s | %-20s | %-20s | %s\n", "plcmt", "streamID", "position", "inserted_at", "attempted_at", "health")
+	for _, job := range jobs {
+		insertTime := time.Unix(int64(job.InsertedAt), 0).UTC().Format(time.RFC3339)
+		attemptTime := time.Unix(int64(job.LastAttemptedAt), 0).UTC().Format(time.RFC3339)
+		fmt.Printf("%5d | %36s | %20d | %20s | %20s | %f\n", job.Placement, job.ID.StreamID, job.ID.Position, insertTime, attemptTime, job.Health)
+	}
+	return nil
 }
 
 func cleanCommand(cmd *cobra.Command, args []string) error {
