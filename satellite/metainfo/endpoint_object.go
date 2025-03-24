@@ -917,7 +917,7 @@ func (endpoint *Endpoint) DownloadObject(ctx context.Context, req *pb.ObjectDown
 		return nil, err
 	}
 	if endpoint.config.DownloadLimiter.Enabled {
-		if !endpoint.singleObjectDownloadLimitCache.Allow(time.Now(),
+		if !endpoint.singleObjectDownloadLimitCache.Allow(endpoint.rateLimiterTime(),
 			bytes.Join([][]byte{keyInfo.ProjectID[:], req.Bucket, req.EncryptedObjectKey}, []byte{'/'})) {
 			return nil, rpcstatus.Error(rpcstatus.ResourceExhausted, "Too Many Requests")
 		}

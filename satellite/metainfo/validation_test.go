@@ -247,6 +247,8 @@ func TestEndpoint_checkRate(t *testing.T) {
 			Satellite: func(log *zap.Logger, index int, config *satellite.Config) {
 				// make global rate/burst limit 1
 				config.Metainfo.RateLimiter.Rate = 1
+				config.Metainfo.RateLimiter.CacheExpiration = time.Hour
+				config.Metainfo.DownloadLimiter.Enabled = false
 			},
 			SatelliteDBOptions: testplanet.SatelliteDBDisableCaches,
 		},
