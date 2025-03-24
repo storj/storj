@@ -190,6 +190,10 @@ func CreateNodeAttribute(attr string) (NodeAttribute, error) {
 		return func(node SelectedNode) string {
 			return node.LastNet
 		}, nil
+	case "id", "node_id":
+		return func(node SelectedNode) string {
+			return node.ID.String()
+		}, nil
 	case "last_ip_port":
 		return func(node SelectedNode) string {
 			return node.LastIPPort

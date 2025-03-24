@@ -79,6 +79,16 @@ func TestNodeAttribute(t *testing.T) {
 		Vetted: true,
 	}))
 
+	assert.Equal(t, "1aNZuRaYRSxJAGZMBrikdvqNEE6K9BK82DmZnTv6mTqiW5M4W4", must(CreateNodeAttribute("id"))(SelectedNode{
+		ID: testidentity.MustPregeneratedIdentity(1, storj.LatestIDVersion()).ID,
+	}))
+
+	assert.Equal(t, "1aNZuRaYRSxJAGZMBrikdvqNEE6K9BK82DmZnTv6mTqiW5M4W4", must(CreateNodeAttribute("node_id"))(SelectedNode{
+		ID: testidentity.MustPregeneratedIdentity(1, storj.LatestIDVersion()).ID,
+	}))
+
+	assert.Equal(t, "1111111111111111111111111111111112m1s9K", must(CreateNodeAttribute("node_id"))(SelectedNode{}))
+
 	_, err := CreateNodeAttribute("tag:xxx/foo")
 	require.ErrorContains(t, err, "has invalid NodeID")
 
