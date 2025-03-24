@@ -166,11 +166,23 @@ export class AuthHttpApi implements UsersApi {
         if (response.ok) {
             return await response.text();
         }
-        throw new APIError({
-            status: response.status,
-            message: 'Can not check SSO status. Please try again later',
-            requestID: response.headers.get('x-request-id'),
-        });
+
+        const requestID = response.headers.get('x-request-id');
+        if (response.status === 404) {
+            throw new APIError({
+                status: response.status,
+                message: 'not an SSO user',
+                requestID: requestID,
+            });
+        } else {
+            const result = await response.json();
+            const errMsg = result.error || 'Cannot check SSO status';
+            throw new APIError({
+                status: response.status,
+                message: errMsg,
+                requestID: requestID,
+            });
+        }
     }
 
     /**
