@@ -36,7 +36,7 @@ func TestTempCockroachDB(t *testing.T) {
 	connStrCopy := testDB.ConnStr
 
 	// assert new test db exists and can be connected to again
-	otherConn, err := tagsql.Open(ctx, driverCopy, connStrCopy)
+	otherConn, err := tagsql.Open(ctx, driverCopy, connStrCopy, nil)
 	require.NoError(t, err)
 	defer ctx.Check(otherConn.Close)
 
@@ -60,7 +60,7 @@ func TestTempCockroachDB(t *testing.T) {
 
 	// make a new connection back to the master connstr just to check that the our temp db
 	// really was dropped
-	plainDBConn, err := tagsql.Open(ctx, "cockroach", connstr)
+	plainDBConn, err := tagsql.Open(ctx, "cockroach", connstr, nil)
 	require.NoError(t, err)
 	defer ctx.Check(plainDBConn.Close)
 

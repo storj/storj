@@ -36,6 +36,7 @@ import (
 	"storj.io/storj/shared/dbutil"
 	"storj.io/storj/shared/dbutil/pgutil"
 	"storj.io/storj/shared/dbutil/spannerutil"
+	"storj.io/storj/shared/flightrecorder"
 	"storj.io/storj/shared/lrucache"
 	"storj.io/storj/shared/tagsql"
 )
@@ -76,6 +77,8 @@ type Options struct {
 	// How many storage node rollups to save/read in one batch.
 	SaveRollupBatchSize int
 	ReadRollupBatchSize int
+
+	FlightRecorder *flightrecorder.Box
 }
 
 var _ dbx.DBMethods = &satelliteDB{}
@@ -143,7 +146,7 @@ func open(ctx context.Context, log *zap.Logger, databaseURL string, opts Options
 		dbxSource = params.GoSqlSpannerConnStr()
 	}
 
-	dbxDB, err := dbx.Open(driver, dbxSource)
+	dbxDB, err := dbx.Open(driver, dbxSource, opts.FlightRecorder)
 	if err != nil {
 		return nil, Error.New("failed opening database via DBX at %q: %v", dbxSource, err)
 	}

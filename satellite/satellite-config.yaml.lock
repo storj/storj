@@ -812,6 +812,12 @@ contact.external-address: ""
 # how many expired objects to query in a batch
 # expired-deletion.list-limit: 100
 
+# capacity of the circular buffer for database stack frame events.
+# flight-recorder.db-stack-frame-capacity: 1000
+
+# enable flight recorder
+# flight-recorder.enabled: false
+
 # Access Grant which will be used to upload bloom filters to the bucket
 # garbage-collection-bf.access-grant: ""
 

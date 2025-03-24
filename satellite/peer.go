@@ -78,6 +78,7 @@ import (
 	"storj.io/storj/satellite/revocation"
 	"storj.io/storj/satellite/snopayouts"
 	"storj.io/storj/shared/dbutil"
+	"storj.io/storj/shared/flightrecorder"
 	"storj.io/storj/shared/tagsql"
 )
 
@@ -244,6 +245,8 @@ type Config struct {
 	SSO sso.Config
 
 	HealthCheck healthcheck.Config
+
+	FlightRecorder flightrecorder.Config
 
 	TagAuthorities string `help:"comma-separated paths of additional cert files, used to validate signed node tags"`
 

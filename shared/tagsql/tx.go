@@ -11,6 +11,7 @@ import (
 
 	"storj.io/common/leak"
 	"storj.io/common/traces"
+	"storj.io/storj/shared/flightrecorder"
 )
 
 // Tx is an interface for *sql.Tx-like transactions.
@@ -40,9 +41,11 @@ type sqlTx struct {
 	tx         *sql.Tx
 	useContext bool
 	tracker    leak.Ref
+	box        *flightrecorder.Box
 }
 
 func (s *sqlTx) Exec(ctx context.Context, query string, args ...interface{}) (_ sql.Result, err error) {
+	s.record()
 	traces.Tag(ctx, traces.TagDB)
 	defer mon.Task()(&ctx, query, args)(&err)
 
@@ -50,6 +53,7 @@ func (s *sqlTx) Exec(ctx context.Context, query string, args ...interface{}) (_ 
 }
 
 func (s *sqlTx) ExecContext(ctx context.Context, query string, args ...interface{}) (_ sql.Result, err error) {
+	s.record()
 	traces.Tag(ctx, traces.TagDB)
 	defer mon.Task()(&ctx, query, args)(&err)
 
@@ -72,6 +76,7 @@ func (s *sqlTx) Prepare(ctx context.Context, query string) (_ Stmt, err error) {
 		stmt:       stmt,
 		useContext: s.useContext,
 		tracker:    s.tracker.Child("sqlStmt", 1),
+		box:        s.box,
 	}, nil
 }
 
@@ -96,10 +101,12 @@ func (s *sqlTx) PrepareContext(ctx context.Context, query string) (_ Stmt, err e
 		stmt:       stmt,
 		useContext: s.useContext,
 		tracker:    s.tracker.Child("sqlStmt", 1),
+		box:        s.box,
 	}, err
 }
 
 func (s *sqlTx) Query(ctx context.Context, query string, args ...interface{}) (_ Rows, err error) {
+	s.record()
 	traces.Tag(ctx, traces.TagDB)
 	defer mon.Task()(&ctx, query, args)(&err)
 
@@ -107,6 +114,7 @@ func (s *sqlTx) Query(ctx context.Context, query string, args ...interface{}) (_
 }
 
 func (s *sqlTx) QueryContext(ctx context.Context, query string, args ...interface{}) (_ Rows, err error) {
+	s.record()
 	traces.Tag(ctx, traces.TagDB)
 	defer mon.Task()(&ctx, query, args)(&err)
 
@@ -117,6 +125,7 @@ func (s *sqlTx) QueryContext(ctx context.Context, query string, args ...interfac
 }
 
 func (s *sqlTx) QueryRow(ctx context.Context, query string, args ...interface{}) *sql.Row {
+	s.record()
 	traces.Tag(ctx, traces.TagDB)
 	defer mon.Task()(&ctx, query, args)(nil)
 
@@ -124,6 +133,7 @@ func (s *sqlTx) QueryRow(ctx context.Context, query string, args ...interface{})
 }
 
 func (s *sqlTx) QueryRowContext(ctx context.Context, query string, args ...interface{}) *sql.Row {
+	s.record()
 	traces.Tag(ctx, traces.TagDB)
 	defer mon.Task()(&ctx, query, args)(nil)
 
@@ -138,5 +148,14 @@ func (s *sqlTx) Commit() error {
 }
 
 func (s *sqlTx) Rollback() error {
+	s.record()
 	return errs.Combine(s.tracker.Close(), s.tx.Rollback())
+}
+
+func (s *sqlTx) record() {
+	if s.box == nil {
+		return
+	}
+
+	s.box.Enqueue(flightrecorder.EventTypeDB, 1) // 1 to skip record call.
 }

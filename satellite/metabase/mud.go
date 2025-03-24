@@ -12,6 +12,7 @@ import (
 	"go.uber.org/zap"
 
 	"storj.io/storj/shared/dbutil/spannerutil"
+	"storj.io/storj/shared/flightrecorder"
 	"storj.io/storj/shared/mud"
 )
 
@@ -60,6 +61,9 @@ func SpannerTestModule(ball *mud.Ball, spannerConnection string) {
 		return NewSpannerTestDatabase(ctx, logger, spannerConnection, true)
 	})
 	mud.Provide[SpannerConfig](ball, NewTestSpannerConfig)
+
+	mud.Provide[*flightrecorder.Box](ball, flightrecorder.NewBox)
+	mud.Provide[flightrecorder.Config](ball, flightrecorder.NewTestConfig)
 }
 
 // SpannerTestDatabase manages Spanner database and migration for tests.

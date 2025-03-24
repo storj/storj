@@ -23,7 +23,7 @@ func TestCreate_Sqlite(t *testing.T) {
 	ctx := testcontext.New(t)
 	defer ctx.Cleanup()
 
-	db, err := tagsql.Open(ctx, "sqlite3", ":memory:")
+	db, err := tagsql.Open(ctx, "sqlite3", ":memory:", nil)
 	if err != nil {
 		t.Fatal(err)
 	}

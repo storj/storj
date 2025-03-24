@@ -17,6 +17,7 @@ import (
 	"time"
 	"unicode"
 
+	"storj.io/storj/shared/flightrecorder"
 	"storj.io/storj/shared/dbutil/txutil"
 
 	"cloud.google.com/go/spanner"
@@ -174,7 +175,7 @@ type DB struct {
 	driver string
 }
 
-func Open(driver, source string) (db *DB, err error) {
+func Open(driver, source string, recorder *flightrecorder.Box) (db *DB, err error) {
 	var sql_db *sql.DB
 	switch driver {
 	case "pgx":
@@ -200,7 +201,7 @@ func Open(driver, source string) (db *DB, err error) {
 	}
 
 	db = &DB{
-		DB: tagsql.Wrap(sql_db),
+		DB: tagsql.WrapWithRecorder(sql_db, recorder),
 
 		driver: driver,
 	}

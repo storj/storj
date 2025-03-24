@@ -91,7 +91,7 @@ func execSQL(ctx context.Context, t *testing.T, db tagsql.DB, query string, args
 }
 
 func openMemDB(ctx context.Context, t *testing.T) tagsql.DB {
-	db, err := tagsql.Open(ctx, "sqlite3", ":memory:")
+	db, err := tagsql.Open(ctx, "sqlite3", ":memory:", nil)
 	require.NoError(t, err)
 	return db
 }

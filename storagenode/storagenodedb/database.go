@@ -385,7 +385,7 @@ func (db *DB) openDatabaseWithStat(ctx context.Context, dbName string, registerS
 		wal = "&_journal=MEMORY"
 	}
 
-	sqlDB, err := tagsql.Open(ctx, driver, "file:"+path+"?_busy_timeout=10000"+wal)
+	sqlDB, err := tagsql.Open(ctx, driver, "file:"+path+"?_busy_timeout=10000"+wal, nil)
 	if err != nil {
 		return ErrDatabase.New("%s opening file %q failed: %w", dbName, path, err)
 	}

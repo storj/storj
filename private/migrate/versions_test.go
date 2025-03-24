@@ -27,7 +27,7 @@ func TestBasicMigrationSqliteNoRebind(t *testing.T) {
 	ctx := testcontext.New(t)
 	defer ctx.Cleanup()
 
-	db, err := tagsql.Open(ctx, "sqlite3", ":memory:")
+	db, err := tagsql.Open(ctx, "sqlite3", ":memory:", nil)
 	require.NoError(t, err)
 	defer func() { assert.NoError(t, db.Close()) }()
 
@@ -38,7 +38,7 @@ func TestBasicMigrationSqlite(t *testing.T) {
 	ctx := testcontext.New(t)
 	defer ctx.Cleanup()
 
-	db, err := tagsql.Open(ctx, "sqlite3", ":memory:")
+	db, err := tagsql.Open(ctx, "sqlite3", ":memory:", nil)
 	require.NoError(t, err)
 	defer func() { assert.NoError(t, db.Close()) }()
 
@@ -139,7 +139,7 @@ func TestMultipleMigrationSqlite(t *testing.T) {
 	ctx := testcontext.New(t)
 	defer ctx.Cleanup()
 
-	db, err := tagsql.Open(ctx, "sqlite3", ":memory:")
+	db, err := tagsql.Open(ctx, "sqlite3", ":memory:", nil)
 	require.NoError(t, err)
 	defer func() { assert.NoError(t, db.Close()) }()
 
@@ -152,7 +152,7 @@ func TestMultipleMigrationPostgres(t *testing.T) {
 
 	connstr := dbtest.PickPostgres(t)
 
-	db, err := tagsql.Open(ctx, "pgx", connstr)
+	db, err := tagsql.Open(ctx, "pgx", connstr, nil)
 	require.NoError(t, err)
 	defer func() { assert.NoError(t, db.Close()) }()
 
@@ -218,7 +218,7 @@ func TestFailedMigrationSqlite(t *testing.T) {
 	ctx := testcontext.New(t)
 	defer ctx.Cleanup()
 
-	db, err := tagsql.Open(ctx, "sqlite3", ":memory:")
+	db, err := tagsql.Open(ctx, "sqlite3", ":memory:", nil)
 	require.NoError(t, err)
 	defer func() { assert.NoError(t, db.Close()) }()
 
@@ -231,7 +231,7 @@ func TestFailedMigrationPostgres(t *testing.T) {
 
 	connstr := dbtest.PickPostgres(t)
 
-	db, err := tagsql.Open(ctx, "pgx", connstr)
+	db, err := tagsql.Open(ctx, "pgx", connstr, nil)
 	require.NoError(t, err)
 	defer func() { assert.NoError(t, db.Close()) }()
 
