@@ -71,8 +71,14 @@ func NewECRepairer(dialer rpc.Dialer, satelliteSignee signing.Signee, dialTimeou
 }
 
 func (ec *ECRepairer) dialPiecestore(ctx context.Context, n storj.NodeURL) (*piecestore.Client, error) {
-	client, err := piecestore.Dial(rpcpool.WithForceDial(ctx), ec.dialer, n, piecestore.DefaultConfig)
-	return client, ErrDialFailed.Wrap(err)
+	ctx = rpcpool.WithForceDial(ctx)
+	hashAlgo := piecestore.GetPieceHashAlgo(ctx)
+	client, err := piecestore.Dial(ctx, ec.dialer, n, piecestore.DefaultConfig)
+	if err != nil {
+		return nil, ErrDialFailed.Wrap(err)
+	}
+	client.UploadHashAlgo = hashAlgo
+	return client, nil
 }
 
 // TestingSetMinFailures sets the minFailures attribute, which tells the Repair machinery that we _expect_
