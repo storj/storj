@@ -80,11 +80,11 @@ func (csv *CSVWriter) Write(ctx context.Context, segments []*Segment) (err error
 
 		err := csv.wr.Write([]string{
 			seg.StreamID.String(),
-			fmt.Sprint(seg.Position.Encode()),
-			fmt.Sprint(seg.Redundancy.RequiredShares),
-			fmt.Sprint(seg.Status.Found),
-			fmt.Sprint(seg.Status.NotFound),
-			fmt.Sprint(seg.Status.Retry),
+			strconv.FormatUint(seg.Position.Encode(), 10),
+			strconv.Itoa(int(seg.Redundancy.RequiredShares)),
+			strconv.Itoa(int(seg.Status.Found)),
+			strconv.Itoa(int(seg.Status.NotFound)),
+			strconv.Itoa(int(seg.Status.Retry)),
 		})
 		if err != nil {
 			return Error.Wrap(err)
@@ -159,9 +159,9 @@ func (csv *pieceCSVWriter) Write(
 
 	err = csv.wr.Write([]string{
 		segment.StreamID.String(),
-		fmt.Sprint(segment.Position.Encode()),
+		strconv.FormatUint(segment.Position.Encode(), 10),
 		nodeID.String(),
-		fmt.Sprint(pieceNum),
+		strconv.Itoa(pieceNum),
 		outcomeString(outcome),
 	})
 	return Error.Wrap(err)

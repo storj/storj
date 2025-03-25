@@ -7,7 +7,6 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
-	"fmt"
 	"io"
 	"net/http"
 	"strconv"
@@ -746,7 +745,7 @@ func (p *Payments) PurchasePackage(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	description := fmt.Sprintf("%s package plan", string(u.UserAgent))
+	description := string(u.UserAgent) + " package plan"
 	err = p.service.Payments().UpdatePackage(ctx, description, time.Now())
 	if err != nil {
 		if !console.ErrAlreadyHasPackage.Has(err) {

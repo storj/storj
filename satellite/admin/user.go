@@ -68,7 +68,7 @@ func (server *Server) addUser(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if existingUser != nil {
-		sendJSONError(w, fmt.Sprintf("user with email already exists %s", input.Email),
+		sendJSONError(w, "user with email already exists "+input.Email,
 			"", http.StatusConflict)
 		return
 	}
@@ -1329,7 +1329,7 @@ func (server *Server) updateUserData(
 			return http.StatusInternalServerError, "failed to check for user email", err.Error()
 		}
 		if existingUser != nil {
-			return http.StatusConflict, fmt.Sprintf("user with email already exists %s", *userUpdate.Email), ""
+			return http.StatusConflict, "user with email already exists " + *userUpdate.Email, ""
 		}
 	}
 

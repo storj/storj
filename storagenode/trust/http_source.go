@@ -58,7 +58,7 @@ func (source *HTTPSource) Static() bool { return false }
 func (source *HTTPSource) FetchEntries(ctx context.Context) (_ []Entry, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	req, err := http.NewRequestWithContext(ctx, "GET", source.url.String(), nil)
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, source.url.String(), nil)
 	if err != nil {
 		return nil, ErrHTTPSource.Wrap(err)
 	}

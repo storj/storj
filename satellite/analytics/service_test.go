@@ -8,9 +8,9 @@ import (
 	"crypto/sha256"
 	"encoding/base64"
 	"encoding/json"
-	"fmt"
 	"net/http"
 	"net/url"
+	"strconv"
 	"testing"
 	"time"
 
@@ -44,9 +44,9 @@ func TestValidateAccountObjectCreatedRequestSignature(t *testing.T) {
 		}
 
 		now := time.Now()
-		nowMilliStr := fmt.Sprintf("%d", now.UnixMilli())
+		nowMilliStr := strconv.FormatInt(now.UnixMilli(), 10)
 		wrongTimestamp := now.Add(2 * time.Hour)
-		wrongMilliStr := fmt.Sprintf("%d", wrongTimestamp.UnixMilli())
+		wrongMilliStr := strconv.FormatInt(wrongTimestamp.UnixMilli(), 10)
 
 		// Wrong timestamp.
 		err := analyticsService.ValidateAccountObjectCreatedRequestSignature(request, "", wrongMilliStr)

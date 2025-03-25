@@ -14,6 +14,7 @@ import (
 	"net/http"
 	"net/url"
 	"sort"
+	"strconv"
 	"strings"
 	"testing"
 	"time"
@@ -4172,7 +4173,7 @@ func TestPaymentsWalletPayments(t *testing.T) {
 		var transactions []stripe.Transaction
 		for i := 0; i < 5; i++ {
 			tx := stripe.Transaction{
-				ID:        coinpayments.TransactionID(fmt.Sprintf("%d", i)),
+				ID:        coinpayments.TransactionID(strconv.Itoa(i)),
 				AccountID: user.ID,
 				Address:   blockchaintest.NewAddress().Hex(),
 				Amount:    currency.AmountFromBaseUnits(1000000000, currency.StorjToken),
@@ -4280,7 +4281,7 @@ func TestPaymentsWalletPayments(t *testing.T) {
 			require.NoError(t, err)
 
 			expected = append(expected, console.PaymentInfo{
-				ID:        fmt.Sprint(txn.ID),
+				ID:        strconv.FormatInt(txn.ID, 10),
 				Type:      txn.Source,
 				Wallet:    meta.Wallet,
 				Amount:    txn.Amount,

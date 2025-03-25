@@ -4,7 +4,6 @@
 package main
 
 import (
-	"fmt"
 	"reflect"
 	"strconv"
 	"time"
@@ -129,6 +128,6 @@ func parseOverride(typ reflect.Type, value string) interface{} {
 		}
 		return val
 	default:
-		panic(fmt.Sprintf("invalid field type: %s", typ.String()))
+		panic("invalid field type: " + typ.String())
 	}
 }

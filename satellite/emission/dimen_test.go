@@ -4,7 +4,6 @@
 package emission
 
 import (
-	"fmt"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -32,7 +31,7 @@ func TestUnit_String(t *testing.T) {
 	}
 
 	for _, c := range cases {
-		t.Run(fmt.Sprintf("expected:%s", c.expected), func(t *testing.T) {
+		t.Run("expected:"+c.expected, func(t *testing.T) {
 			require.Equal(t, c.unit.String(), c.expected)
 		})
 	}

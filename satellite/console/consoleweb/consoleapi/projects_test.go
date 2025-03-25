@@ -10,6 +10,7 @@ import (
 	"fmt"
 	"net/http"
 	"net/url"
+	"strconv"
 	"strings"
 	"testing"
 	"time"
@@ -298,8 +299,8 @@ func TestGetProjectMembersAndInvitationsLimitAndPage(t *testing.T) {
 		for i := 0; i < 2; i++ {
 			endpoint := fmt.Sprintf("projects/%s/members?order=1&order-direction=1&", p.String())
 			params := url.Values{}
-			params.Add("limit", fmt.Sprint(limit))
-			params.Add("page", fmt.Sprint(page))
+			params.Add("limit", strconv.Itoa(limit))
+			params.Add("page", strconv.Itoa(page))
 			endpoint += params.Encode()
 
 			body, status, err := doRequestWithAuth(ctx, t, sat, user, http.MethodGet, endpoint, nil)
@@ -424,7 +425,7 @@ func TestDeleteProject(t *testing.T) {
 		}))
 
 		// test deleting project as non-owner fails
-		endpoint := fmt.Sprintf("projects/%s", p2.String())
+		endpoint := "projects/" + p2.String()
 
 		payload, err := json.Marshal(consoleapi.AccountActionData{Step: console.DeleteProjectInit, Data: ""})
 		require.NoError(t, err)
@@ -434,7 +435,7 @@ func TestDeleteProject(t *testing.T) {
 		require.Equal(t, http.StatusUnauthorized, status)
 		require.Contains(t, string(body), "error")
 
-		endpoint = fmt.Sprintf("projects/%s", p.String())
+		endpoint = "projects/" + p.String()
 
 		// account delete step out of range: lesser
 		payload, err = json.Marshal(consoleapi.AccountActionData{Step: -1, Data: ""})

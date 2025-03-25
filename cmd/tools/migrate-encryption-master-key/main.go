@@ -84,7 +84,7 @@ func (config *Config) AllKeyInfos() kms.KeyInfos {
 	return kms.KeyInfos{Values: infos}
 }
 
-// BindFlags adds bench flags to the the flagset.
+// BindFlags adds bench flags to the flagset.
 func (config *Config) BindFlags(flag *flag.FlagSet) {
 	flag.StringVar(&config.SatelliteDB, "satellitedb", "", "connection URL for satelliteDB")
 	flag.StringVar(&config.Provider, "provider", "gsm", "the provider of the passphrase encryption keys: 'gsm' for google, 'local' for local files")

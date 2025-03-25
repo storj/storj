@@ -429,7 +429,7 @@ func validateBucketName(bucket []byte) error {
 		}
 	}
 
-	if ipRegexp.MatchString(string(bucket)) {
+	if ipRegexp.Match(bucket) {
 		return Error.New("bucket name cannot be formatted as an IP address")
 	}
 

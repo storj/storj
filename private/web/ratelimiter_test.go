@@ -53,7 +53,7 @@ func TestNewIPRateLimiter(t *testing.T) {
 
 func testWithAddress(ctx context.Context, t *testing.T, remoteAddress string, burst int, handler http.Handler) {
 	// create HTTP request
-	req, err := http.NewRequestWithContext(ctx, "GET", "", nil)
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, "", nil)
 	require.NoError(t, err)
 	req.RemoteAddr = remoteAddress
 

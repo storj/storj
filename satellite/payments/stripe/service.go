@@ -934,7 +934,7 @@ func (service *Service) RemoveExpiredPackageCredit(ctx context.Context, customer
 			Customer:    stripe.String(customer.ID),
 			Amount:      stripe.Int64(-balance),
 			Currency:    stripe.String(string(stripe.CurrencyUSD)),
-			Description: stripe.String(fmt.Sprintf("%s expired", *customer.PackagePlan)),
+			Description: stripe.String(*customer.PackagePlan + " expired"),
 		})
 		if err != nil {
 			return false, Error.Wrap(err)
