@@ -324,7 +324,7 @@ func (ex *external) Wrap(ctx context.Context, cmd clingy.Command) (err error) {
 	// in this if statement. If we do ever start turning on trace samples by default, we
 	// will need to make sure we only do so if ex.analyticsEnabled().
 	if ex.tracing.traceAddress != "" && (ex.tracing.sample > 0 || ex.tracing.traceID > 0) {
-		versionName := fmt.Sprintf("uplink-release-%s", version.Build.Version.String())
+		versionName := "uplink-release-" + version.Build.Version.String()
 		if !version.Build.Release {
 			versionName = "uplink-dev"
 		}

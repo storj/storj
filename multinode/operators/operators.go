@@ -7,7 +7,7 @@ import (
 	"storj.io/common/storj"
 )
 
-// Operator contains contains SNO payouts contact details and amount of undistributed payouts.
+// Operator contains SNO payouts contact details and amount of undistributed payouts.
 type Operator struct {
 	NodeID         storj.NodeID `json:"nodeId"`
 	Email          string       `json:"email"`

@@ -187,9 +187,9 @@ func TestTotalUsageReport(t *testing.T) {
 			now              = time.Now()
 			inFiveMinutes    = now.Add(5 * time.Minute)
 			inAnHour         = now.Add(1 * time.Hour)
-			since            = fmt.Sprintf("%d", now.Unix())
-			before           = fmt.Sprintf("%d", inAnHour.Unix())
-			notAllowedBefore = fmt.Sprintf("%d", now.Add(satelliteSys.Config.Console.AllowedUsageReportDateRange+1*time.Second).Unix())
+			since            = strconv.FormatInt(now.Unix(), 10)
+			before           = strconv.FormatInt(inAnHour.Unix(), 10)
+			notAllowedBefore = strconv.FormatInt(now.Add(satelliteSys.Config.Console.AllowedUsageReportDateRange+1*time.Second).Unix(), 10)
 			expectedCSVValue = fmt.Sprintf("%f", float64(0))
 		)
 

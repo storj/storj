@@ -62,7 +62,7 @@ func TestParseTagPairs(t *testing.T) {
 			},
 		},
 		{
-			name:    "multiple tag pairs with with comma values and confirm flag",
+			name:    "multiple tag pairs with comma values and confirm flag",
 			args:    []string{"key1=value1", "key2=value2,value3"},
 			confirm: true,
 			expected: []*pb.Tag{
@@ -77,7 +77,7 @@ func TestParseTagPairs(t *testing.T) {
 			},
 		},
 		{
-			name:          "multiple tag pairs with with comma values without confirm flag",
+			name:          "multiple tag pairs with comma values without confirm flag",
 			args:          []string{"key1=value1", "key2=value2,value3"},
 			expectedError: "multiple tags should be separated by spaces instead of commas, or specify --confirm to enable commas in tag values",
 		},

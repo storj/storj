@@ -1398,7 +1398,7 @@ func TestConcurrentAuditsUnknownError(t *testing.T) {
 
 		// make ~half of the nodes time out on all responses
 		for n := 0; n < badNodes; n++ {
-			planet.StorageNodes[n].Storage2.PieceBackend.TestingSetError(fmt.Errorf("an unrecognized error"))
+			planet.StorageNodes[n].Storage2.PieceBackend.TestingSetError(errors.New("an unrecognized error"))
 		}
 
 		// do all the audits at the same time; at least some nodes will get more than one at the same time

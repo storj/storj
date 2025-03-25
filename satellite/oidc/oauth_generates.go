@@ -7,7 +7,6 @@ import (
 	"context"
 	"database/sql"
 	"errors"
-	"fmt"
 	"strings"
 
 	"github.com/go-oauth2/oauth2/v4"
@@ -116,7 +115,7 @@ func (a *MacaroonAccessGenerate) Token(ctx context.Context, data *oauth2.Generat
 		}
 
 		if info.Project == "" {
-			return access, refresh, fmt.Errorf("missing project")
+			return access, refresh, errors.New("missing project")
 		}
 
 		apiKey, err = a.apiKeyForProject(ctx, data, info.Project)
@@ -192,7 +191,7 @@ func parseScope(scope string) (UserInfo, macaroon.Caveat, error) {
 		switch {
 		case strings.HasPrefix(scopes[i], "project:"):
 			if info.Project != "" {
-				return info, perms, fmt.Errorf("multiple project scopes provided")
+				return info, perms, errors.New("multiple project scopes provided")
 			}
 
 			info.Project = strings.TrimPrefix(scopes[i], "project:")

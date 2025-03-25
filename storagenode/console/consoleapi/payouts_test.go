@@ -366,7 +366,7 @@ func TestHeldAmountApi(t *testing.T) {
 				require.NoError(t, err)
 
 				// should return all heldback history inserted earlier
-				url := fmt.Sprintf("%s/held-history", baseURL)
+				url := baseURL + "/held-history"
 				res, err := httpGet(ctx, url)
 				require.NoError(t, err)
 				require.NotNil(t, res)
@@ -399,7 +399,7 @@ func TestHeldAmountApi(t *testing.T) {
 			})
 
 			t.Run("Periods", func(t *testing.T) {
-				url := fmt.Sprintf("%s/periods", baseURL)
+				url := baseURL + "/periods"
 				res, err := httpGet(ctx, url)
 				require.NoError(t, err)
 				require.NotNil(t, res)

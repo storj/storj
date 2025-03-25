@@ -1022,7 +1022,7 @@ func TestIncreaseLimit(t *testing.T) {
 		}
 
 		for _, tt := range tests {
-			_, status, err := doRequestWithAuth(ctx, t, sat, tt.user, http.MethodPatch, endpoint, bytes.NewBuffer([]byte(tt.input)))
+			_, status, err := doRequestWithAuth(ctx, t, sat, tt.user, http.MethodPatch, endpoint, bytes.NewBufferString(tt.input))
 			require.NoError(t, err)
 			require.Equal(t, tt.expectedStatus, status)
 		}

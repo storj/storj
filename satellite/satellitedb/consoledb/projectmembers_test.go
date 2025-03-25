@@ -5,6 +5,7 @@ package consoledb_test
 
 import (
 	"fmt"
+	"strconv"
 	"testing"
 	"time"
 
@@ -111,7 +112,7 @@ func TestGetPagedWithInvitationsByProjectID(t *testing.T) {
 				memberIDs = append(memberIDs, id)
 
 				user := console.User{
-					FullName:     fmt.Sprintf("%d", i),
+					FullName:     strconv.Itoa(i),
 					Email:        fmt.Sprintf("%d@mail.test", (i+2)%3),
 					ID:           id,
 					PasswordHash: testrand.Bytes(8),

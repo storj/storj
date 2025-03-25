@@ -74,7 +74,7 @@ func TestService(t *testing.T) {
 		require.NoError(t, checksumMismatchKI.Set(checksumMismatchCfg))
 		require.NoError(t, emptyKeyDataKI.Set(emptyKeyDataCfg))
 
-		t.Run(fmt.Sprintf("%s_master key not set", p), func(t *testing.T) {
+		t.Run(p+"_master key not set", func(t *testing.T) {
 			service := kms.NewService(kms.Config{
 				Provider:         p,
 				MockClient:       true,
@@ -86,7 +86,7 @@ func TestService(t *testing.T) {
 			require.Contains(t, err.Error(), "master key not set")
 		})
 
-		t.Run(fmt.Sprintf("%s_encrypt/decrypt passphrases", p), func(t *testing.T) {
+		t.Run(p+"_encrypt/decrypt passphrases", func(t *testing.T) {
 			service := kms.NewService(kms.Config{
 				Provider:         p,
 				MockClient:       true,
@@ -152,7 +152,7 @@ func TestService(t *testing.T) {
 			require.NotEmpty(t, decryptedPassphrase)
 		})
 
-		t.Run(fmt.Sprintf("%s_checksum mismatch", p), func(t *testing.T) {
+		t.Run(p+"_checksum mismatch", func(t *testing.T) {
 			service := kms.NewService(kms.Config{
 				Provider:         p,
 				MockClient:       true,
@@ -164,7 +164,7 @@ func TestService(t *testing.T) {
 			require.Contains(t, err.Error(), "checksum mismatch")
 		})
 
-		t.Run(fmt.Sprintf("%s_key not found", p), func(t *testing.T) {
+		t.Run(p+"_key not found", func(t *testing.T) {
 			service := kms.NewService(kms.Config{
 				Provider:         p,
 				MockClient:       true,
@@ -181,7 +181,7 @@ func TestService(t *testing.T) {
 		})
 
 		if p == "local" {
-			t.Run(fmt.Sprintf("%s_error reading file", p), func(t *testing.T) {
+			t.Run(p+"_error reading file", func(t *testing.T) {
 				nonexistentFile := filepath.Join(ctx.Dir("testdir"), "nonexistent")
 				nonexistentFileCfg := fmt.Sprintf("%d:%s,11111", id1, nonexistentFile)
 				var nonexistentFileKI kms.KeyInfos

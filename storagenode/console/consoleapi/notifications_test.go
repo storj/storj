@@ -57,7 +57,7 @@ func TestNotificationsApi(t *testing.T) {
 
 			t.Run("ListNotifications", func(t *testing.T) {
 				// should return notifications list.
-				url := fmt.Sprintf("%s/list?limit=3&page=1", baseURL)
+				url := baseURL + "/list?limit=3&page=1"
 				res, err := httpGet(ctx, url)
 				require.NoError(t, err)
 				require.NotNil(t, res)
@@ -99,7 +99,7 @@ func TestNotificationsApi(t *testing.T) {
 
 			t.Run("ReadAllNotifications", func(t *testing.T) {
 				// should change status of notification by id to read.
-				url := fmt.Sprintf("%s/readall", baseURL)
+				url := baseURL + "/readall"
 				res, err := httpPost(ctx, url, "application/json", nil)
 				require.NoError(t, err)
 				require.NotNil(t, res)

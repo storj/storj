@@ -213,7 +213,7 @@ func CreateNodeAttribute(attr string) (NodeAttribute, error) {
 		}, nil
 	case "vetted":
 		return func(node SelectedNode) string {
-			return fmt.Sprintf("%t", node.Vetted)
+			return strconv.FormatBool(node.Vetted)
 		}, nil
 	default:
 		return nil, errors.New("Unsupported node attribute: " + attr)

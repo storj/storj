@@ -127,7 +127,7 @@ func TestDeleteObjects(t *testing.T) {
 		{
 			emails := "email"
 			for _, uplnk := range uplinks {
-				emails += fmt.Sprintf("\n%s", uplnk.User[sat.ID()].Email)
+				emails += "\n" + uplnk.User[sat.ID()].Email
 			}
 
 			csvData = bytes.NewBufferString(emails)
@@ -430,7 +430,7 @@ func TestDeleteAccounts(t *testing.T) {
 		{
 			emails := "email"
 			for _, uplnk := range uplinks {
-				emails += fmt.Sprintf("\n%s", uplnk.User[sat.ID()].Email)
+				emails += "\n" + uplnk.User[sat.ID()].Email
 			}
 
 			csvData = bytes.NewBufferString(emails)

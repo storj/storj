@@ -105,7 +105,7 @@ func TestHealthCheck(t *testing.T) {
 			require.NoError(t, resp.Body.Close())
 		}
 
-		request, err = http.NewRequestWithContext(ctx, http.MethodGet, fmt.Sprintf("%s/fake-check", root), nil)
+		request, err = http.NewRequestWithContext(ctx, http.MethodGet, root+"/fake-check", nil)
 		require.NoError(t, err)
 
 		resp, err = client.Do(request)

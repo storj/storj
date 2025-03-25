@@ -701,7 +701,7 @@ func (store *Store) SpaceUsedForPieces(ctx context.Context) (piecesTotal int64, 
 	return piecesTotal, piecesContentSize, nil
 }
 
-// SpaceUsedForTrash returns the total space used by the the piece store's
+// SpaceUsedForTrash returns the total space used by the piece store's
 // trash, including all headers.
 func (store *Store) SpaceUsedForTrash(ctx context.Context) (int64, error) {
 	// If the blobs is cached, it will return the cached value

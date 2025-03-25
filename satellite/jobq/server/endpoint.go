@@ -28,7 +28,7 @@ type JobqEndpoint struct {
 func (se *JobqEndpoint) Push(ctx context.Context, req *pb.JobQueuePushRequest) (*pb.JobQueuePushResponse, error) {
 	reqJob := req.GetJob()
 	if reqJob == nil {
-		return nil, fmt.Errorf("missing job")
+		return nil, errors.New("missing job")
 	}
 	q, err := se.queues.GetQueue(storj.PlacementConstraint(reqJob.Placement))
 	if err != nil {

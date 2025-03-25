@@ -5,7 +5,6 @@ package emailreminders
 
 import (
 	"context"
-	"fmt"
 	"strings"
 	"time"
 
@@ -146,7 +145,7 @@ func (chore *Chore) sendExpirationNotifications(ctx context.Context) (err error)
 	mon.IntVal("expiring_needing_reminder").Observe(int64(len(users)))
 
 	expirationWarning := &console.TrialExpirationReminderEmail{
-		SignInLink:          chore.address + fmt.Sprintf("login?source=%s", analytics.SourceTrialExpiringNotice),
+		SignInLink:          chore.address + "login?source=" + analytics.SourceTrialExpiringNotice,
 		Origin:              chore.address,
 		ContactInfoURL:      chore.supportURL,
 		ScheduleMeetingLink: chore.scheduleMeetingURL,
@@ -173,7 +172,7 @@ func (chore *Chore) sendExpirationNotifications(ctx context.Context) (err error)
 	mon.IntVal("expired_needing_notice").Observe(int64(len(users)))
 
 	expirationNotice := &console.TrialExpiredEmail{
-		SignInLink:          chore.address + fmt.Sprintf("login?source=%s", analytics.SourceTrialExpiredNotice),
+		SignInLink:          chore.address + "login?source=" + analytics.SourceTrialExpiredNotice,
 		Origin:              chore.address,
 		ContactInfoURL:      chore.supportURL,
 		ScheduleMeetingLink: chore.scheduleMeetingURL,
