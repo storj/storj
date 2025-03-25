@@ -39,7 +39,7 @@ func tryInitFastOpen(*zap.Logger) bool {
 				return sockOptErr
 			},
 		}).Listen(context.Background(), "tcp", "127.0.0.1:0"); err == nil {
-			listener.Close()
+			_ = listener.Close()
 			initFastOpenPossiblyEnabled = true
 		}
 	})
