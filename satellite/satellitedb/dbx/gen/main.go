@@ -22,7 +22,7 @@ func main() {
 	sort.Strings(globPaths) // sort so files are always in a specific order regardless of os
 	for _, p := range globPaths {
 		if p != "satellitedb.dbx" {
-			files = append(files, fmt.Sprintf("-i=%s", p))
+			files = append(files, "-i="+p)
 		}
 	}
 	files = append(files, "satellitedb.dbx", ".")

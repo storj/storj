@@ -457,7 +457,7 @@ func verifyData(ctx *testcontext.Context, t *testing.T, attributionDB attributio
 		assert.Equal(t, testData.expectedByteHours, r.ByteHours, testData.name)
 		assert.Equal(t, testData.expectedEgress, r.EgressData, testData.name)
 	}
-	require.NotEqual(t, 0, count, "Results were returned, but did not match all of the the projectIDs.")
+	require.NotEqual(t, 0, count, "Results were returned, but did not match all of the projectIDs.")
 }
 
 func verifyAllData(ctx *testcontext.Context, t *testing.T, attributionDB attribution.DB, testData []AttributionTestData, storageInEveryHour bool) {
@@ -490,7 +490,7 @@ func verifyAllData(ctx *testcontext.Context, t *testing.T, attributionDB attribu
 	}
 
 	require.Equal(t, len(testData), len(results))
-	require.NotEqual(t, 0, count, "Results were returned, but did not match all of the the projectIDs.")
+	require.NotEqual(t, 0, count, "Results were returned, but did not match all of the projectIDs.")
 }
 
 func createData(ctx *testcontext.Context, t *testing.T, db satellite.DB, testData *AttributionTestData) {

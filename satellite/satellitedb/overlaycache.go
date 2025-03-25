@@ -1664,7 +1664,7 @@ func (cache *overlaycache) updateCheckInDirectUpdate(ctx context.Context, node o
 	return affected > 0, nil
 }
 
-// UpdateCheckIn updates a single storagenode with info from when the the node last checked in.
+// UpdateCheckIn updates a single storagenode with info from when the node last checked in.
 func (cache *overlaycache) UpdateCheckIn(ctx context.Context, node overlay.NodeCheckInInfo, timestamp time.Time, config overlay.NodeSelectionConfig) (err error) {
 	defer mon.Task()(&ctx)(&err)
 

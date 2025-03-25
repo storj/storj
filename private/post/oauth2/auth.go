@@ -113,7 +113,7 @@ func RefreshToken(ctx context.Context, creds Credentials, refreshToken string) (
 		"refresh_token": {refreshToken},
 	}
 
-	req, err := http.NewRequestWithContext(ctx, "POST", creds.TokenURI, strings.NewReader(values.Encode()))
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, creds.TokenURI, strings.NewReader(values.Encode()))
 	if err != nil {
 		return nil, err
 	}

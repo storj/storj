@@ -105,7 +105,7 @@ func TestStorageNodeApi(t *testing.T) {
 
 			t.Run("EstimatedPayout", func(t *testing.T) {
 				// should return estimated payout for both satellites in current month and empty for previous
-				req, err := http.NewRequestWithContext(ctx, http.MethodGet, fmt.Sprintf("%s/estimated-payout", baseURL), nil)
+				req, err := http.NewRequestWithContext(ctx, http.MethodGet, baseURL+"/estimated-payout", nil)
 				require.NoError(t, err)
 
 				// setting now here to cache closest to api all timestamp, so service call

@@ -6,7 +6,6 @@ package stripe
 import (
 	"context"
 	"errors"
-	"fmt"
 	"sync"
 	"time"
 
@@ -487,7 +486,7 @@ func (m *mockPaymentMethods) Get(id string, params *stripe.PaymentMethodParams) 
 
 func (m *mockPaymentMethods) New(params *stripe.PaymentMethodParams) (*stripe.PaymentMethod, error) {
 	randID := testrand.BucketName()
-	id := fmt.Sprintf("pm_card_%s", randID)
+	id := "pm_card_" + randID
 	if params.Card.Token != nil {
 		switch *params.Card.Token {
 		case TestPaymentMethodsNewFailure:

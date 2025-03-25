@@ -2089,7 +2089,7 @@ func TestDataRepairOverride_HigherLimit(t *testing.T) {
 
 		segment := getRemoteSegment(ctx, t, satellite)
 
-		// calculate how many storagenodes to kill
+		// calculate how many storagenodes to kill.
 		// kill one nodes less than repair threshold to ensure we dont hit it.
 		remotePieces := segment.Pieces
 		numPieces := len(remotePieces)

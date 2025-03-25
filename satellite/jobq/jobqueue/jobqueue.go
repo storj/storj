@@ -6,6 +6,7 @@ package jobqueue
 import (
 	"container/heap"
 	"context"
+	"errors"
 	"fmt"
 	"sort"
 	"sync"
@@ -678,7 +679,7 @@ func (q *Queue) Start() error {
 	q.lock.Lock()
 	if q.rq.headChan != nil {
 		q.lock.Unlock()
-		return fmt.Errorf("the queue is already running")
+		return errors.New("the queue is already running")
 	}
 	stoppedChan := make(chan struct{})
 	headChan := make(chan struct{}, 10)
@@ -733,7 +734,7 @@ func (q *Queue) ResetTimer() error {
 		q.rq.headChan <- struct{}{}
 		return nil
 	}
-	return fmt.Errorf("the queue is not running")
+	return errors.New("the queue is not running")
 }
 
 // FunnelFromRetryToRepair moves items from the retry queue to the repair queue

@@ -146,7 +146,7 @@ func (planet *Planet) newUplink(ctx context.Context, index int, log *zap.Logger,
 
 		projectName := fmt.Sprintf("%s_%d", name, j)
 		user, err := satellite.AddUser(ctx, console.CreateUser{
-			FullName: fmt.Sprintf("User %s", projectName),
+			FullName: "User " + projectName,
 			Email:    fmt.Sprintf("user@%s.test", projectName),
 		}, 10)
 		if err != nil {

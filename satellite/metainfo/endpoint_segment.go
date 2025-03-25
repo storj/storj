@@ -374,10 +374,10 @@ func (endpoint *Endpoint) CommitSegment(ctx context.Context, req *pb.SegmentComm
 			len(invalidPieces),
 		)
 		if len(invalidPieces) > 0 {
-			errMsg = fmt.Sprintf("%s. Invalid Pieces:", errMsg)
+			errMsg += ". Invalid Pieces:"
 			for _, p := range invalidPieces {
-				errMsg = fmt.Sprintf("%s\nNodeID: %v, PieceNum: %d, Reason: %s",
-					errMsg, p.NodeID, p.PieceNum, p.Reason,
+				errMsg += fmt.Sprintf("\nNodeID: %v, PieceNum: %d, Reason: %s",
+					p.NodeID, p.PieceNum, p.Reason,
 				)
 			}
 		}

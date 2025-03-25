@@ -61,7 +61,7 @@ func (list *List) FetchURLs(ctx context.Context) ([]storj.NodeURL, error) {
 		if ok {
 			previous := entries[previousIdx]
 			// An entry with the same address has already been aggregated.
-			// If the entry is authoritative and the the previous entry was not
+			// If the entry is authoritative and the previous entry was not
 			// then replace the previous entry, otherwise ignore.
 			if entry.Authoritative && !previous.Authoritative {
 				entries[previousIdx] = entry

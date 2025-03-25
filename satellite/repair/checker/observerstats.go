@@ -5,6 +5,7 @@ package checker
 
 import (
 	"fmt"
+	"strconv"
 
 	"github.com/spacemonkeygo/monkit/v3"
 
@@ -132,7 +133,7 @@ type segmentRSStats struct {
 }
 
 func newSegmentRSStats(rs string, placement storj.PlacementConstraint) *segmentRSStats {
-	placementTag := fmt.Sprint(int(placement))
+	placementTag := strconv.Itoa(int(placement))
 	return &segmentRSStats{
 		segmentsBelowMinReq:         monkit.NewCounter(monkit.NewSeriesKey("tagged_repair_stats").WithTag("name", "checker_segments_below_min_req").WithTag("rs_scheme", rs).WithTag("placement", placementTag)),
 		segmentTotalCount:           monkit.NewIntVal(monkit.NewSeriesKey("tagged_repair_stats").WithTag("name", "checker_segment_total_count").WithTag("rs_scheme", rs).WithTag("placement", placementTag)),

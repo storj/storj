@@ -808,7 +808,7 @@ func (payment Payments) handlePaymentIntentSucceeded(ctx context.Context, event 
 		idempotencyKey = fmt.Sprintf("%s:%s", dataID, event.Type)
 	}
 
-	description := fmt.Sprintf("Credit applied via webhook event: %s", event.ID)
+	description := "Credit applied via webhook event: " + event.ID
 
 	_, err = payment.service.accounts.Balances().ApplyCredit(ctx, userID, int64(amount), description, idempotencyKey)
 	if err != nil {
@@ -2862,16 +2862,16 @@ func (s *Service) handleLockAccount(ctx context.Context, user *User, step Accoun
 		action += "_verify_new_email"
 	}
 
-	mon.Counter(fmt.Sprintf("%s_failed", action)).Inc(1)                                     //mon:locked
-	mon.IntVal(fmt.Sprintf("%s_failed_count", action)).Observe(int64(user.FailedLoginCount)) //mon:locked
+	mon.Counter(action + "_failed").Inc(1)                                     //mon:locked
+	mon.IntVal(action + "_failed_count").Observe(int64(user.FailedLoginCount)) //mon:locked
 
 	if user.FailedLoginCount == s.config.LoginAttemptsWithoutPenalty {
-		mon.Counter(fmt.Sprintf("%s_lockout_initiated", action)).Inc(1) //mon:locked
+		mon.Counter(action + "_lockout_initiated").Inc(1) //mon:locked
 		s.auditLog(ctx, fmt.Sprintf("account action: failed %s count reached maximum attempts", action), &user.ID, user.Email)
 	}
 
 	if user.FailedLoginCount > s.config.LoginAttemptsWithoutPenalty {
-		mon.Counter(fmt.Sprintf("%s_lockout_reinitiated", action)).Inc(1) //mon:locked
+		mon.Counter(action + "_lockout_reinitiated").Inc(1) //mon:locked
 		s.auditLog(ctx, fmt.Sprintf("account action: %s failed locked account", action), &user.ID, user.Email)
 	}
 
@@ -3937,7 +3937,7 @@ func (s *Service) RequestProjectLimitIncrease(ctx context.Context, limit string)
 
 	s.analytics.TrackRequestLimitIncrease(user.ID, user.Email, analytics.LimitRequestInfo{
 		LimitType:    "projects",
-		CurrentLimit: fmt.Sprint(user.ProjectLimit),
+		CurrentLimit: strconv.Itoa(user.ProjectLimit),
 		DesiredLimit: limit,
 	}, user.HubspotObjectID)
 
@@ -5493,7 +5493,7 @@ func (payment Payments) WalletPayments(ctx context.Context) (_ WalletPayments, e
 			return WalletPayments{}, Error.Wrap(err)
 		}
 		paymentInfos = append(paymentInfos, PaymentInfo{
-			ID:        fmt.Sprint(txn.ID),
+			ID:        strconv.FormatInt(txn.ID, 10),
 			Type:      txn.Source,
 			Wallet:    address.Hex(),
 			Amount:    txn.Amount,
@@ -6103,7 +6103,7 @@ func (s *Service) inviteProjectMembers(ctx context.Context, sender *User, projec
 		return nil, Error.Wrap(err)
 	}
 
-	baseLink := fmt.Sprintf("%s/invited", s.satelliteAddress)
+	baseLink := s.satelliteAddress + "/invited"
 	for _, invited := range users {
 		inviteLink := fmt.Sprintf("%s?invite=%s", baseLink, inviteTokens[invited.Email])
 
