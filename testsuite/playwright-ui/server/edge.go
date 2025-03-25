@@ -62,6 +62,7 @@ type EdgeTest func(t *testing.T, ctx *testcontext.Context, planet *EdgePlanet)
 
 var counter int64
 
+// Edge starts a new test which includes edge services.
 func Edge(t *testing.T, test EdgeTest) {
 	edgehost := os.Getenv("STORJ_TEST_EDGE_HOST")
 	if edgehost == "" {
