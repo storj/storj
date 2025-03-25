@@ -25,6 +25,7 @@ func (s *BucketTally) Combine(o *BucketTally) {
 	s.PendingObjectCount += o.PendingObjectCount
 	s.TotalSegments += o.TotalSegments
 	s.TotalBytes += o.TotalBytes
+	s.MetadataSize += o.MetadataSize
 }
 
 // Segments returns total number of segments.
