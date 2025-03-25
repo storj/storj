@@ -5,7 +5,7 @@ package consoledb_test
 
 import (
 	"database/sql"
-	"fmt"
+	"strconv"
 	"testing"
 	"time"
 
@@ -254,7 +254,7 @@ func TestGetActivePagedByUserID(t *testing.T) {
 
 		userSessionsCount := 5
 		for i := 0; i < userSessionsCount; i++ {
-			_, err = sessionsDB.Create(ctx, testrand.UUID(), ownerID, "", fmt.Sprintf("%d", i), now.Add(time.Duration(i+1)*time.Hour))
+			_, err = sessionsDB.Create(ctx, testrand.UUID(), ownerID, "", strconv.Itoa(i), now.Add(time.Duration(i+1)*time.Hour))
 			require.NoError(t, err)
 		}
 		// Add a session for another user.
@@ -286,7 +286,7 @@ func TestGetActivePagedByUserID(t *testing.T) {
 		})
 		require.NoError(t, err)
 		for i, session := range page.Sessions {
-			require.Equal(t, fmt.Sprintf("%d", i), session.UserAgent)
+			require.Equal(t, strconv.Itoa(i), session.UserAgent)
 		}
 
 		page, err = sessionsDB.GetPagedActiveByUserID(ctx, ownerID, now, consoleauth.WebappSessionsCursor{

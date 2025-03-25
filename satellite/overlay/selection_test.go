@@ -11,6 +11,7 @@ import (
 	"math/rand"
 	"net"
 	"runtime"
+	"strconv"
 	"strings"
 	"testing"
 	"time"
@@ -543,7 +544,7 @@ func TestDistinctIPs(t *testing.T) {
 	}
 
 	for i, tt := range tests {
-		t.Run(fmt.Sprintf("%d", i), func(t *testing.T) {
+		t.Run(strconv.Itoa(i), func(t *testing.T) {
 			ctx := testcontext.New(t)
 			config := overlayDefaultConfig(tt.newNodeFraction)
 			config.Node.DistinctIP = true

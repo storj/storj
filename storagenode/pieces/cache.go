@@ -6,7 +6,6 @@ package pieces
 import (
 	"context"
 	"errors"
-	"fmt"
 	"io/fs"
 	"os"
 	"path/filepath"
@@ -402,7 +401,7 @@ func (blobs *BlobsUsageCache) ensurePositiveCacheValue(value *int64, name string
 	if *value >= 0 {
 		return
 	}
-	blobs.log.Error(fmt.Sprintf("%s < 0", name), zap.Int64(name, *value))
+	blobs.log.Error(name+" < 0", zap.Int64(name, *value))
 	*value = 0
 }
 

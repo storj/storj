@@ -31,7 +31,7 @@ type APIKeys struct {
 	service *console.Service
 }
 
-// NewAPIKeys is a constructor for api api keys controller.
+// NewAPIKeys is a constructor for api keys controller.
 func NewAPIKeys(log *zap.Logger, service *console.Service) *APIKeys {
 	return &APIKeys{
 		log:     log,

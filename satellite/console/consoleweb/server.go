@@ -86,8 +86,8 @@ type Config struct {
 	ProjectLimitsIncreaseRequestURL string        `help:"url link to project limit increase request page" default:"https://supportdcs.storj.io/hc/en-us/requests/new?ticket_form_id=360000683212"`
 	GatewayCredentialsRequestURL    string        `help:"url link for gateway credentials requests" default:"https://auth.storjsatelliteshare.io" devDefault:"http://localhost:8000"`
 	IsBetaSatellite                 bool          `help:"indicates if satellite is in beta" default:"false"`
-	BetaSatelliteFeedbackURL        string        `help:"url link for for beta satellite feedback" default:""`
-	BetaSatelliteSupportURL         string        `help:"url link for for beta satellite support" default:""`
+	BetaSatelliteFeedbackURL        string        "help:\"url link for beta satellite feedback\" default:\"\""
+	BetaSatelliteSupportURL         string        "help:\"url link for beta satellite support\" default:\"\""
 	DocumentationURL                string        `help:"url link to documentation" default:"https://docs.storj.io/"`
 	CouponCodeBillingUIEnabled      bool          `help:"indicates if user is allowed to add coupon codes to account from billing" default:"true"`
 	CouponCodeSignupUIEnabled       bool          `help:"indicates if user is allowed to add coupon codes to account from signup" default:"false"`
@@ -1053,7 +1053,7 @@ func (server *Server) createRegistrationTokenHandler(w http.ResponseWriter, r *h
 		[]byte(server.config.AuthToken),
 	)
 	if equality != 1 {
-		w.WriteHeader(401)
+		w.WriteHeader(http.StatusUnauthorized)
 		response.Error = "unauthorized"
 		return
 	}

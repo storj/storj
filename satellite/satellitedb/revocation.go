@@ -55,7 +55,7 @@ func (db *revocationDB) Check(ctx context.Context, tails [][]byte) (bool, error)
 			case dbutil.Postgres, dbutil.Cockroach:
 				tailQuery += fmt.Sprintf("%s$%d", comma, i+1)
 			case dbutil.Spanner:
-				tailQuery += fmt.Sprintf("%s?", comma)
+				tailQuery += comma + "?"
 			default:
 				return false, errs.New("unsupported database dialect: %s", db.db.impl)
 			}

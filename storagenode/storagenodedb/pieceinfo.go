@@ -85,7 +85,7 @@ func (db *v0PieceInfoDB) getAllPiecesOwnedBy(ctx context.Context, blobStore blob
 // WalkSatelliteV0Pieces executes walkFunc for each locally stored piece, stored with storage
 // format V0 in the namespace of the given satellite. If walkFunc returns a non-nil error,
 // WalkSatelliteV0Pieces will stop iterating and return the error immediately. The ctx parameter
-// parameter is intended specifically to allow canceling iteration early.
+// is intended specifically to allow canceling iteration early.
 //
 // If blobStore is nil, the .Stat() and .FullPath() methods of the provided StoredPieceAccess
 // instances will not work, but otherwise everything should be ok.

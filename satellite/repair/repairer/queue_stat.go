@@ -6,6 +6,7 @@ package repairer
 import (
 	"context"
 	"fmt"
+	"strconv"
 	"sync"
 	"time"
 
@@ -87,7 +88,7 @@ func (c *QueueStat) Stats(cb func(key monkit.SeriesKey, field string, val float6
 		for _, attempted := range []bool{false, true} {
 			keyWithDefaultTags := monkit.NewSeriesKey("repair_queue").
 				WithTags(
-					monkit.NewSeriesTag("attempted", fmt.Sprintf("%v", attempted)),
+					monkit.NewSeriesTag("attempted", strconv.FormatBool(attempted)),
 					monkit.NewSeriesTag("placement", fmt.Sprintf("%d", placement)))
 
 			k := key(placement, attempted)

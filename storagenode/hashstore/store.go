@@ -597,7 +597,7 @@ func (s *Store) reviveRecord(ctx context.Context, lf *logFile, rec Record) (err 
 	// 3. find the current state of the record. if found, we can just update the expiration and be
 	// happy. as noted in 1, we're safe to do a lookup into s.tbl here even without the rmu held
 	// because we know no compaction is ongoing due to having a writer acquired, and compaction is
-	// the only thing that does anything other than than add entries to the hash table.
+	// the only thing that does anything other than add entries to the hash table.
 	if tmp, ok, err := s.tbl.Lookup(ctx, rec.Key); err == nil && ok {
 		if tmp.Expires == 0 {
 			return nil

@@ -4,6 +4,7 @@
 package spannerutil
 
 import (
+	"errors"
 	"fmt"
 	"strings"
 )
@@ -94,7 +95,7 @@ func SplitSQLStatements(s string) (statements []string, err error) {
 	case stateInLiteral:
 		return nil, fmt.Errorf("unterminated %q literal", rune(literalStart))
 	case stateInCStyleComment:
-		return nil, fmt.Errorf("unterminated C-style comment")
+		return nil, errors.New("unterminated C-style comment")
 	}
 	stmt := b.String()
 	if strings.TrimSpace(stmt) != "" {

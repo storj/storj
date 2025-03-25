@@ -699,7 +699,7 @@ func TestProjects(t *testing.T) {
 		}
 
 		{ // Post_ProjectRenameInvalid
-			resp, body := test.request(http.MethodPatch, fmt.Sprintf("/projects/%s", test.defaultProjectID()),
+			resp, body := test.request(http.MethodPatch, "/projects/"+test.defaultProjectID(),
 				test.toJSON(map[string]interface{}{
 					"name": "My Second Project with a long name",
 				}))
@@ -708,7 +708,7 @@ func TestProjects(t *testing.T) {
 		}
 
 		{ // Post_ProjectRename
-			resp, _ := test.request(http.MethodPatch, fmt.Sprintf("/projects/%s", test.defaultProjectID()),
+			resp, _ := test.request(http.MethodPatch, "/projects/"+test.defaultProjectID(),
 				test.toJSON(map[string]interface{}{
 					"name": "new name",
 				}))
@@ -836,7 +836,7 @@ func TestWrongUser(t *testing.T) {
 		}
 
 		for _, testCase := range testCases {
-			t.Run(fmt.Sprintf("Unauthorized on %s", testCase.endpoint), func(t *testing.T) {
+			t.Run("Unauthorized on "+testCase.endpoint, func(t *testing.T) {
 				resp, body = test.request(testCase.method, testCase.endpoint, test.toJSON(testCase.body))
 				require.Contains(t, body, "not authorized")
 				require.Equal(t, http.StatusUnauthorized, resp.StatusCode)
@@ -846,7 +846,7 @@ func TestWrongUser(t *testing.T) {
 		// login with correct user to make sure they have access.
 		test.login(authorizedUser.email, authorizedUser.password)
 		for _, testCase := range testCases {
-			t.Run(fmt.Sprintf("Authorized on %s", testCase.endpoint), func(t *testing.T) {
+			t.Run("Authorized on "+testCase.endpoint, func(t *testing.T) {
 				resp, body = test.request(testCase.method, testCase.endpoint, test.toJSON(testCase.body))
 				require.NotContains(t, body, "not authorized")
 				require.NotEqual(t, http.StatusUnauthorized, resp.StatusCode)

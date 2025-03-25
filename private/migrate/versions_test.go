@@ -6,7 +6,7 @@ package migrate_test
 import (
 	"context"
 	"database/sql"
-	"fmt"
+	"errors"
 	"os"
 	"strings"
 	"testing"
@@ -250,7 +250,7 @@ func failedMigration(ctx context.Context, t *testing.T, db tagsql.DB, testDB tag
 				Description: "Step 1",
 				Version:     1,
 				Action: migrate.Func(func(ctx context.Context, log *zap.Logger, _ tagsql.DB, tx tagsql.Tx) error {
-					return fmt.Errorf("migration failed")
+					return errors.New("migration failed")
 				}),
 			},
 		},

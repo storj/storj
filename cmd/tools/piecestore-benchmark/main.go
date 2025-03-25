@@ -8,6 +8,7 @@ import (
 	"crypto/rand"
 	"crypto/sha256"
 	"encoding/binary"
+	"errors"
 	"flag"
 	"fmt"
 	"io"
@@ -106,7 +107,7 @@ func createEndpoint(ctx context.Context, satIdent, snIdent *identity.FullIdentit
 		if url.ID == satIdent.ID {
 			return satIdent.PeerIdentity(), nil
 		}
-		return nil, fmt.Errorf("unknown peer id")
+		return nil, errors.New("unknown peer id")
 	})
 
 	try.E(cfg.Storage2.Trust.Sources.Set(fmt.Sprintf("%s@localhost:0", satIdent.ID)))

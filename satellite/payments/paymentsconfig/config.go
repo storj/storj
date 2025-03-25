@@ -312,7 +312,7 @@ func (p *PlacementProductMap) String() string {
 	productToPlacements := make(map[string][]string)
 	for placement, product := range p.placementProductMap {
 		placements := productToPlacements[product]
-		productToPlacements[product] = append(placements, fmt.Sprint(placement))
+		productToPlacements[product] = append(placements, strconv.Itoa(placement))
 	}
 
 	var kvs []string

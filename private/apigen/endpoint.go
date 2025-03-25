@@ -73,7 +73,7 @@ type Endpoint struct {
 // Validate validates the endpoint fields values are correct according to the documented constraints.
 func (e *Endpoint) Validate() error {
 	newErr := func(m string, a ...any) error {
-		e := fmt.Sprintf(". Endpoint: %s", e.Name)
+		e := ". Endpoint: " + e.Name
 		m += e
 		return errsEndpoint.New(m, a...)
 	}

@@ -6,6 +6,7 @@ package main
 import (
 	"bufio"
 	"context"
+	"encoding/hex"
 	"fmt"
 	"io"
 	"os"
@@ -236,7 +237,7 @@ func displayExitProgress(w io.Writer, progresses []*internalpb.ExitProgress) {
 			isSuccessful = "Y"
 		}
 		if progress.GetCompletionReceipt() != nil && len(progress.GetCompletionReceipt()) > 0 {
-			receipt = fmt.Sprintf("%x", progress.GetCompletionReceipt())
+			receipt = hex.EncodeToString(progress.GetCompletionReceipt())
 		}
 
 		_, _ = fmt.Fprintf(w, "%s\t%s\t%.2f%%\t%s\t%s\t\n", progress.GetDomainName(), progress.NodeId.String(), progress.GetPercentComplete(), isSuccessful, receipt)

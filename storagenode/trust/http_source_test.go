@@ -81,8 +81,8 @@ func TestHTTPSourceFetchEntries(t *testing.T) {
 
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		switch {
-		case r.Method != "GET":
-			http.Error(w, fmt.Sprintf("%s method not allowed", r.Method), http.StatusMethodNotAllowed)
+		case r.Method != http.MethodGet:
+			http.Error(w, r.Method+" method not allowed", http.StatusMethodNotAllowed)
 		case r.URL.Path == "/good":
 			_, _ = fmt.Fprintf(w, `
 				# Some comment

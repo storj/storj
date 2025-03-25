@@ -157,7 +157,7 @@ func TestMigrationModeFlag(t *testing.T) {
 		err = planet.Uplinks[0].Upload(ctx, planet.Satellites[0], "testbucket", "testobject", testrand.Bytes(1*memory.KiB))
 		require.NoError(t, err)
 
-		req, err = http.NewRequestWithContext(ctx, http.MethodPut, fmt.Sprintf("http://%s/metainfo/flags/migration-mode", debugAddr), bytes.NewBuffer([]byte("true")))
+		req, err = http.NewRequestWithContext(ctx, http.MethodPut, fmt.Sprintf("http://%s/metainfo/flags/migration-mode", debugAddr), bytes.NewBufferString("true"))
 		require.NoError(t, err)
 
 		resp, err := http.DefaultClient.Do(req)
@@ -174,7 +174,7 @@ func TestMigrationModeFlag(t *testing.T) {
 		_, err = planet.Uplinks[0].Download(ctx, planet.Satellites[0], "testbucket", "testobject")
 		require.NoError(t, err)
 
-		req, err = http.NewRequestWithContext(ctx, http.MethodPut, fmt.Sprintf("http://%s/metainfo/flags/migration-mode", debugAddr), bytes.NewBuffer([]byte("false")))
+		req, err = http.NewRequestWithContext(ctx, http.MethodPut, fmt.Sprintf("http://%s/metainfo/flags/migration-mode", debugAddr), bytes.NewBufferString("false"))
 		require.NoError(t, err)
 
 		resp, err = http.DefaultClient.Do(req)

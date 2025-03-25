@@ -8,7 +8,6 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
-	"fmt"
 	"io"
 	"net/http"
 	"time"
@@ -105,7 +104,7 @@ func RegisterAccess(ctx context.Context, access *uplink.Access, authService stri
 		Timeout: timeout,
 	}
 
-	req, err := http.NewRequestWithContext(ctx, http.MethodPost, fmt.Sprintf("%s/v1/access", authService), bytes.NewReader(postData))
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, authService+"/v1/access", bytes.NewReader(postData))
 	if err != nil {
 		return "", "", "", err
 	}

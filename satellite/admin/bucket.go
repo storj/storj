@@ -5,6 +5,7 @@ package admin
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"net/http"
 
@@ -18,18 +19,18 @@ import (
 func validateBucketPathParameters(vars map[string]string) (project uuid.NullUUID, bucket []byte, err error) {
 	projectUUIDString, ok := vars["project"]
 	if !ok {
-		return project, bucket, fmt.Errorf("project-uuid missing")
+		return project, bucket, errors.New("project-uuid missing")
 	}
 
 	project.UUID, err = uuidFromString(projectUUIDString)
 	if err != nil {
-		return project, bucket, fmt.Errorf("project-uuid is not a valid uuid")
+		return project, bucket, errors.New("project-uuid is not a valid uuid")
 	}
 	project.Valid = true
 
 	bucketName := vars["bucket"]
 	if len(bucketName) == 0 {
-		return project, bucket, fmt.Errorf("bucket name is missing")
+		return project, bucket, errors.New("bucket name is missing")
 	}
 
 	bucket = []byte(bucketName)
@@ -49,7 +50,7 @@ func parsePlacementConstraint(regionCode string) (storj.PlacementConstraint, err
 	case "NR":
 		return storj.NR, nil
 	case "":
-		return storj.DefaultPlacement, fmt.Errorf("missing region parameter")
+		return storj.DefaultPlacement, errors.New("missing region parameter")
 	default:
 		return storj.DefaultPlacement, fmt.Errorf("unrecognized region parameter: %s", regionCode)
 	}

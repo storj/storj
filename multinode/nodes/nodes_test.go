@@ -5,7 +5,7 @@ package nodes_test
 
 import (
 	"bytes"
-	"fmt"
+	"strconv"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -69,8 +69,8 @@ func TestNodesDB(t *testing.T) {
 				node := nodes.Node{
 					ID:            testrand.NodeID(),
 					APISecret:     multinodeauth.Secret{uint8(i)},
-					PublicAddress: fmt.Sprintf("%d", i),
-					Name:          fmt.Sprintf("%d", i),
+					PublicAddress: strconv.Itoa(i),
+					Name:          strconv.Itoa(i),
 				}
 				nodeList = append(nodeList, node)
 				err := nodesRepository.Add(ctx, node)

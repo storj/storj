@@ -6,7 +6,6 @@ package billing_test
 import (
 	"bytes"
 	"context"
-	"fmt"
 	"testing"
 	"time"
 
@@ -464,7 +463,7 @@ func makeFakeTransaction(userID uuid.UUID, source string, typ billing.Transactio
 	return billing.Transaction{
 		UserID:      userID,
 		Amount:      currency.AmountFromBaseUnits(amountUSD, currency.USDollars),
-		Description: fmt.Sprintf("%s transaction", source),
+		Description: source + " transaction",
 		Source:      source,
 		Status:      billing.TransactionStatusCompleted,
 		Type:        typ,

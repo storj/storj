@@ -271,10 +271,10 @@ compensation.withheld-percents: 75,75,75,50,50,50,25,25,25,0,0,0,0,0,0
 # path to a local file with bad passwords list, empty path == skip check
 # console.bad-passwords-file: ""
 
-# url link for for beta satellite feedback
+# url link for beta satellite feedback
 # console.beta-satellite-feedback-url: ""
 
-# url link for for beta satellite support
+# url link for beta satellite support
 # console.beta-satellite-support-url: ""
 
 # whether billing add funds feature is enabled
