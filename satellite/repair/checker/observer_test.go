@@ -652,6 +652,7 @@ func TestObserver_PlacementCheck(t *testing.T) {
 		ExerciseJobq: true,
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 		planet.Satellites[0].RangedLoop.RangedLoop.Service.Loop.Pause()
+		planet.Satellites[0].Repair.Repairer.Loop.Pause()
 
 		repairQueue := planet.Satellites[0].Repair.Queue
 
