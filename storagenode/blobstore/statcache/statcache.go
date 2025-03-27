@@ -65,10 +65,7 @@ func (b BlobInfo) Stat(ctx context.Context) (blobstore.FileInfo, error) {
 
 // Create implements blobstore.Blobs.
 func (s *CachedStatBlobstore) Create(ctx context.Context, ref blobstore.BlobRef) (blobstore.BlobWriter, error) {
-	err := s.cache.Delete(ctx, ref.Namespace, ref.Key)
-	if err != nil {
-		s.log.Warn("Couldn't delete blobstore cache entry", zap.Binary("namespace", ref.Namespace), zap.Binary("key", ref.Key), zap.Error(err))
-	}
+	s.tryDeleteCache(ctx, ref.Namespace, ref.Key)
 	return s.Blobs.Create(ctx, ref)
 }
 
@@ -102,19 +99,13 @@ func (s *CachedStatBlobstore) WalkNamespace(ctx context.Context, namespace []byt
 
 // Delete implements blobstore.Blobs.
 func (s *CachedStatBlobstore) Delete(ctx context.Context, ref blobstore.BlobRef) error {
-	err := s.cache.Delete(ctx, ref.Namespace, ref.Key)
-	if err != nil {
-		s.log.Warn("Couldn't delete blobstore cache entry", zap.Binary("namespace", ref.Namespace), zap.Binary("key", ref.Key), zap.Error(err))
-	}
+	s.tryDeleteCache(ctx, ref.Namespace, ref.Key)
 	return s.Blobs.Delete(ctx, ref)
 }
 
 // DeleteWithStorageFormat implements blobstore.Blobs.
 func (s *CachedStatBlobstore) DeleteWithStorageFormat(ctx context.Context, ref blobstore.BlobRef, formatVer blobstore.FormatVersion, sizeHint int64) error {
-	err := s.cache.Delete(ctx, ref.Namespace, ref.Key)
-	if err != nil {
-		s.log.Warn("Couldn't delete blobstore cache entry", zap.Binary("namespace", ref.Namespace), zap.Binary("key", ref.Key), zap.Error(err))
-	}
+	s.tryDeleteCache(ctx, ref.Namespace, ref.Key)
 	return s.Blobs.DeleteWithStorageFormat(ctx, ref, formatVer, sizeHint)
 }
 
@@ -125,10 +116,21 @@ func (s *CachedStatBlobstore) EmptyTrash(ctx context.Context, namespace []byte, 
 		return size, trashed, err
 	}
 	for _, k := range trashed {
-		err := s.cache.Delete(ctx, namespace, k)
-		if err != nil {
-			s.log.Warn("Couldn't delete blobstore cache entry", zap.Binary("namespace", namespace), zap.Binary("key", k), zap.Error(err))
-		}
+		s.tryDeleteCache(ctx, namespace, k)
 	}
 	return size, trashed, nil
+}
+
+// TryRestoreTrashBlob implements blobstore.Blobs.
+func (s *CachedStatBlobstore) TryRestoreTrashBlob(ctx context.Context, ref blobstore.BlobRef) error {
+	s.tryDeleteCache(ctx, ref.Namespace, ref.Key)
+	return s.Blobs.TryRestoreTrashBlob(ctx, ref)
+}
+
+// tryDeleteCache tries to delete a cache entry, but logs an error if it fails.
+func (s *CachedStatBlobstore) tryDeleteCache(ctx context.Context, namespace []byte, key []byte) {
+	err := s.cache.Delete(ctx, namespace, key)
+	if err != nil {
+		s.log.Warn("Couldn't delete blobstore cache entry", zap.Binary("namespace", namespace), zap.Binary("key", key), zap.Error(err))
+	}
 }
