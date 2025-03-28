@@ -94,10 +94,6 @@ func injectDefault(t *testing.T, val reflect.Value, workDir string) {
 					require.NoError(t, err, "Error in default configuration value injection for (%v).%v", val.Type(), fieldName)
 					field.Set(reflect.ValueOf(int64(iv)))
 				}
-			case reflect.TypeOf(time.Duration(1)).Kind():
-				duration, err := time.ParseDuration(defaultValue)
-				require.NoError(t, err, "Error in default configuration value injection for (%v).%v", val.Type(), fieldName)
-				field.Set(reflect.ValueOf(duration))
 			case reflect.Bool:
 				if strings.ToLower(defaultValue) == "true" {
 					field.SetBool(true)
@@ -106,6 +102,13 @@ func injectDefault(t *testing.T, val reflect.Value, workDir string) {
 				float, err := strconv.ParseFloat(defaultValue, 64)
 				require.NoError(t, err)
 				field.SetFloat(float)
+			case reflect.Slice:
+				switch field.Type().Elem().Kind() {
+				case reflect.String:
+					field.Set(reflect.ValueOf(strings.Split(defaultValue, ",")))
+				default:
+					require.Fail(t, fmt.Sprintf("Unsupported slice type for default configuration value injection: %s (for %v)", field.Type().Elem().Kind(), val.Type()))
+				}
 			default:
 				require.Fail(t, fmt.Sprintf("Unsupported type for default configuration value injection: %s (for %v)", field.Kind(), val.Type()))
 			}

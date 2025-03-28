@@ -43,6 +43,7 @@ type TestConfig struct {
 	ReleaseField     string        `releaseDefault:"production"`
 	MultipleDefaults string        `testDefault:"test" devDefault:"dev" default:"fallback"`
 	NestedStruct     NestedConfig
+	StringSlice      []string `default:"foo,bar"`
 }
 
 // Nested configuration struct.
@@ -74,6 +75,7 @@ func TestInjectDefault(t *testing.T) {
 	assert.Equal(t, "testing", cfg.TestField)
 	assert.Equal(t, "production", cfg.ReleaseField)
 	assert.Equal(t, "test", cfg.MultipleDefaults) // testDefault has highest priority
+	assert.Equal(t, []string{"foo", "bar"}, cfg.StringSlice)
 
 	// Verify nested struct fields
 	assert.Equal(t, "nested value", cfg.NestedStruct.NestedString)
