@@ -29,6 +29,7 @@ import (
 	"storj.io/storj/satellite/attribution"
 	"storj.io/storj/satellite/buckets"
 	"storj.io/storj/satellite/console"
+	"storj.io/storj/satellite/console/consoleweb"
 	"storj.io/storj/satellite/internalpb"
 	"storj.io/storj/satellite/metabase"
 	"storj.io/storj/satellite/metainfo/bloomrate"
@@ -112,9 +113,10 @@ func NewEndpoint(log *zap.Logger, buckets *buckets.Service, metabaseDB *metabase
 	apiKeys APIKeys, projectUsage *accounting.Service, projects console.Projects, projectMembers console.ProjectMembers, users console.Users,
 	satellite signing.Signer, revocations revocation.DB, successTrackers *SuccessTrackers, failureTracker SuccessTracker,
 	trustedUplinks *trust.TrustedPeersList, config Config, migrationModeFlag *MigrationModeFlagExtension,
-	placement nodeselection.PlacementDefinitions, placementEdgeUrlOverrides console.PlacementEdgeURLOverrides, trustedOrders bool) (
+	placement nodeselection.PlacementDefinitions, consoleConfig consoleweb.Config, ordersConfig orders.Config) (
 	*Endpoint, error) {
-
+	trustedOrders := ordersConfig.TrustedOrders
+	placementEdgeUrlOverrides := consoleConfig.Config.PlacementEdgeURLOverrides
 	// TODO do something with too many params
 
 	encInlineSegmentSize, err := encryption.CalcEncryptedSize(config.MaxInlineSegmentSize.Int64(), storj.EncryptionParameters{

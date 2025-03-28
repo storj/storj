@@ -6,6 +6,7 @@ package root
 import (
 	"storj.io/storj/satellite"
 	"storj.io/storj/satellite/satellitedb"
+	trustmud "storj.io/storj/satellite/trust/mud"
 	"storj.io/storj/shared/modular"
 	"storj.io/storj/shared/modular/logger"
 	"storj.io/storj/shared/mud"
@@ -17,5 +18,6 @@ func Module(ball *mud.Ball) {
 	modular.IdentityModule(ball)
 	satellitedb.Module(ball)
 	satellite.Module(ball)
+	trustmud.Module(ball)
 	mud.Provide[*modular.MonkitReport](ball, modular.NewMonkitReport)
 }
