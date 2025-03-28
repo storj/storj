@@ -68,7 +68,7 @@ export const useProjectsStore = defineStore('projects', () => {
         }, state.projects[0]);
     });
 
-    function getUsageReportLink(startUTC: Date, endUTC: Date, projectID = ''): string {
+    function getUsageReportLink(startUTC: Date, endUTC: Date, includeCost: boolean, projectSummary: boolean, projectID = ''): string {
         const since = Time.toUnixTimestamp(startUTC);
         const before = Time.toUnixTimestamp(endUTC);
 
@@ -78,7 +78,7 @@ export const useProjectsStore = defineStore('projects', () => {
             throw new Error(`Date range must be less than ${allowedDuration.shortString}`);
         }
 
-        return api.getTotalUsageReportLink(since, before, projectID);
+        return api.getTotalUsageReportLink(since, before, includeCost, projectSummary, projectID);
     }
 
     async function getProjects(): Promise<Project[]> {

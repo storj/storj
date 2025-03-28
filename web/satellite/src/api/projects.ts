@@ -302,8 +302,18 @@ export class ProjectsHttpApi implements ProjectsApi {
      *
      * @throws Error
      */
-    public getTotalUsageReportLink(start: number, end: number, projectID: string): string {
-        return `${this.ROOT_PATH}/usage-report?since=${start.toString()}&before=${end.toString()}&projectID=${projectID}`;
+    public getTotalUsageReportLink(start: number, end: number, includeCost: boolean, projectSummary: boolean, projectID: string): string {
+        let url = `${this.ROOT_PATH}/usage-report?since=${start.toString()}&before=${end.toString()}`;
+        if (projectID) {
+            url += `&projectID=${projectID}`;
+        }
+        if (includeCost) {
+            url += `&cost=true`;
+        }
+        if (projectSummary) {
+            url += `&project-summary=true`;
+        }
+        return url;
     }
 
     /**
