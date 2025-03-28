@@ -3,12 +3,25 @@
 
 package mud
 
+import "reflect"
+
 // Select is a component selector based on the specified type ([A]).
+// it checks first if the component exists, instead of selecting none of them.
 func Select[A any](ball *Ball) ComponentSelector {
 	t := typeOf[A]()
 	MustLookupComponent[A](ball)
 	return func(c *Component) bool {
 		return c.target == t
+	}
+}
+
+// SelectIfExists creates a component selector for the specified type.
+// The returned selector will match any component that matches the provided type T.
+// Most of the time you need Select instead of SelectIfExists, which includes validation.
+func SelectIfExists[T any]() ComponentSelector {
+	var t T
+	return func(c *Component) bool {
+		return c.GetTarget() == reflect.TypeOf(t)
 	}
 }
 

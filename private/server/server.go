@@ -310,7 +310,6 @@ func (p *Server) AddHTTPFallback(httpHandler http.HandlerFunc) {
 // Run will run the server and all of its services.
 func (p *Server) Run(ctx context.Context) (err error) {
 	defer mon.Task()(&ctx)(&err)
-
 	// Make sure the server isn't already closed. If it is, register
 	// ourselves in the wait group so that Close can wait on it.
 	p.mu.Lock()

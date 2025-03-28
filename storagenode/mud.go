@@ -185,6 +185,9 @@ func Module(ball *mud.Ball) {
 	{ // setup trust pool
 		mud.Provide[*trust.Pool](ball, func(log *zap.Logger, satDb satellites.DB, dialer rpc.Dialer, config trust.Config) (*trust.Pool, error) {
 			pool, err := trust.NewPool(log, trust.Dialer(dialer), config, satDb)
+			if err != nil {
+				return nil, err
+			}
 			pool.StartWithRefresh = true
 			return pool, err
 		})

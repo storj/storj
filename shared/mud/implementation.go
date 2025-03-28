@@ -13,7 +13,7 @@ func RegisterImplementation[L ~[]T, T any](ball *Ball) {
 		var instances L
 		component := lookup[L](ball)
 		for _, req := range component.requirements {
-			c, _ := lookupByType(ball, req)
+			c, _ := LookupByType(ball, req)
 			// only initialized instances are inject to the implementation list
 			if c.instance != nil {
 				instances = append(instances, c.instance.(T))

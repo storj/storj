@@ -48,7 +48,7 @@ func collectDependencies(ball *Ball, c *Component, result map[reflect.Type]struc
 
 	for _, dep := range c.requirements {
 		// ignore if optional
-		dc, found := lookupByType(ball, dep)
+		dc, found := LookupByType(ball, dep)
 		if !found {
 			panic(fmt.Sprintf("Dependency %s for %s is missing", dep, c.ID()))
 		}
