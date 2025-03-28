@@ -183,12 +183,12 @@ func TestTotalUsageReport(t *testing.T) {
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 		var (
 			satelliteSys     = planet.Satellites[0]
+			service          = satelliteSys.API.Console.Service
 			uplink           = planet.Uplinks[0]
 			now              = time.Now()
 			inFiveMinutes    = now.Add(5 * time.Minute)
 			inAnHour         = now.Add(1 * time.Hour)
 			since            = strconv.FormatInt(now.Unix(), 10)
-			before           = strconv.FormatInt(inAnHour.Unix(), 10)
 			notAllowedBefore = strconv.FormatInt(now.Add(satelliteSys.Config.Console.AllowedUsageReportDateRange+1*time.Second).Unix(), 10)
 			expectedCSVValue = fmt.Sprintf("%f", float64(0))
 		)
@@ -241,48 +241,115 @@ func TestTotalUsageReport(t *testing.T) {
 		err = satelliteSys.DB.ProjectAccounting().SaveTallies(ctx, inFiveMinutes, bucketTallies)
 		require.NoError(t, err)
 
-		endpoint = fmt.Sprintf("projects/usage-report?since=%s&before=%s&projectID=", since, before)
-		body, status, err := doRequestWithAuth(ctx, t, satelliteSys, user, http.MethodGet, endpoint, nil)
-		require.NoError(t, err)
-		require.Equal(t, http.StatusOK, status)
+		checkCSVContent := func(para console.GetUsageReportParam, newReportEnabled bool) {
+			endpoint = fmt.Sprintf(
+				"projects/usage-report?project-summary=%v&cost=%v&since=%s&before=%s&projectID=%s",
+				para.GroupByProject, para.IncludeCost,
+				strconv.FormatInt(para.Since.Unix(), 10),
+				strconv.FormatInt(para.Before.Unix(), 10),
+				para.ProjectID,
+			)
+			body, status, err := doRequestWithAuth(ctx, t, satelliteSys, user, http.MethodGet, endpoint, nil)
+			require.NoError(t, err)
+			require.Equal(t, http.StatusOK, status)
 
-		reader := csv.NewReader(strings.NewReader(string(body)))
-		records, err := reader.ReadAll()
-		require.NoError(t, err)
-		require.Len(t, records, 3)
+			reader := csv.NewReader(strings.NewReader(string(body)))
+			records, err := reader.ReadAll()
+			require.NoError(t, err)
+			require.Len(t, records, 3)
 
-		expectedHeaders := []string{"ProjectName", "ProjectID", "BucketName", "Storage GB-hour", "Egress GB", "ObjectCount objects-hour", "SegmentCount segments-hour", "Since", "Before"}
-		for i, header := range expectedHeaders {
-			require.Equal(t, header, records[0][i])
+			require.Contains(t, records[0][0], "Disclaimer")
+
+			expectedHeaders := service.GetUsageReportHeaders(para)
+			for i, header := range expectedHeaders {
+				require.Equal(t, header, records[1][i])
+			}
+
+			require.Equal(t, project1.Name, records[2][0])
+			require.Equal(t, project1.PublicID.String(), records[2][1])
+			if !newReportEnabled {
+				require.Equal(t, bucketName, records[2][2])
+				return
+			}
+			if !para.GroupByProject {
+				require.Equal(t, bucketName, records[2][2])
+			} else {
+				require.Equal(t, expectedCSVValue, records[2][2])
+			}
+
+			startIndex := 3
+			if para.GroupByProject {
+				startIndex = 2
+			}
+			for i := startIndex; i < len(expectedHeaders)-3; i++ {
+				require.Equal(t, expectedCSVValue, records[2][i])
+			}
 		}
 
-		require.Equal(t, project1.Name, records[1][0])
-		require.Equal(t, project2.Name, records[2][0])
-		require.Equal(t, project1.PublicID.String(), records[1][1])
-		require.Equal(t, project2.PublicID.String(), records[2][1])
-		require.Equal(t, bucketName, records[1][2])
-		require.Equal(t, bucketName, records[2][2])
-		for i := 3; i < 7; i++ {
-			require.Equal(t, expectedCSVValue, records[1][i])
-			require.Equal(t, expectedCSVValue, records[2][i])
+		reportTestConf := []struct {
+			name             string
+			newReportEnabled bool
+		}{
+			{
+				name:             "NewReportDisabled",
+				newReportEnabled: false,
+			},
+			{
+				name:             "NewReportEnabled",
+				newReportEnabled: true,
+			},
 		}
+		for _, conf := range reportTestConf {
+			t.Run(conf.name, func(t *testing.T) {
+				service.TestSetNewUsageReportEnabled(conf.newReportEnabled)
 
-		endpoint = fmt.Sprintf("projects/usage-report?since=%s&before=%s&projectID=%s", since, before, project1.PublicID)
-		body, status, err = doRequestWithAuth(ctx, t, satelliteSys, user, http.MethodGet, endpoint, nil)
-		require.NoError(t, err)
-		require.Equal(t, http.StatusOK, status)
+				param := console.GetUsageReportParam{
+					Since:  now,
+					Before: inAnHour,
+				}
 
-		reader = csv.NewReader(strings.NewReader(string(body)))
-		records, err = reader.ReadAll()
-		require.NoError(t, err)
-		require.Len(t, records, 2)
+				// test without projectID
+				endpoint = fmt.Sprintf(
+					"projects/usage-report?since=%s&before=%s&projectID=",
+					strconv.FormatInt(param.Since.Unix(), 10),
+					strconv.FormatInt(param.Before.Unix(), 10),
+				)
+				body, status, err := doRequestWithAuth(ctx, t, satelliteSys, user, http.MethodGet, endpoint, nil)
+				require.NoError(t, err)
+				require.Equal(t, http.StatusOK, status)
 
-		require.Equal(t, project1.Name, records[1][0])
-		require.Equal(t, project1.PublicID.String(), records[1][1])
-		require.Equal(t, bucketName, records[1][2])
+				reader := csv.NewReader(strings.NewReader(string(body)))
+				records, err := reader.ReadAll()
+				require.NoError(t, err)
+				require.Len(t, records, 4)
 
-		for i := 3; i < 7; i++ {
-			require.Equal(t, expectedCSVValue, records[1][i])
+				expectedHeaders := service.GetUsageReportHeaders(param)
+				for i, header := range expectedHeaders {
+					require.Equal(t, header, records[1][i])
+				}
+
+				require.Equal(t, project1.Name, records[2][0])
+				require.Equal(t, project2.Name, records[3][0])
+				require.Equal(t, project1.PublicID.String(), records[2][1])
+				require.Equal(t, project2.PublicID.String(), records[3][1])
+				require.Equal(t, bucketName, records[2][2])
+				require.Equal(t, bucketName, records[3][2])
+				for i := 3; i < 7; i++ {
+					require.Equal(t, expectedCSVValue, records[2][i])
+					require.Equal(t, expectedCSVValue, records[3][i])
+				}
+
+				// test with projectID
+				param.ProjectID = project1.ID
+
+				checkCSVContent(param, conf.newReportEnabled)
+
+				param.GroupByProject = true
+				checkCSVContent(param, conf.newReportEnabled)
+
+				param.IncludeCost = true
+				checkCSVContent(param, conf.newReportEnabled)
+			})
 		}
 	})
 }

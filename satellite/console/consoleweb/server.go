@@ -1036,6 +1036,7 @@ func (server *Server) frontendConfigHandler(w http.ResponseWriter, r *http.Reque
 		LiveCheckBadPasswords:             server.config.LiveCheckBadPasswords,
 		RestAPIKeysUIEnabled:              server.config.RestAPIKeysUIEnabled && server.config.UseNewRestKeysTable,
 		ZkSyncContractAddress:             server.config.ZkSyncContractAddress,
+		NewDetailedUsageReportEnabled:     server.config.NewDetailedUsageReportEnabled,
 	}
 
 	w.Header().Set(contentType, applicationJSON)

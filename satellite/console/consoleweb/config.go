@@ -88,6 +88,7 @@ type FrontendConfig struct {
 	RestAPIKeysUIEnabled              bool                  `json:"restAPIKeysUIEnabled"`
 	LiveCheckBadPasswords             bool                  `json:"liveCheckBadPasswords"`
 	ZkSyncContractAddress             string                `json:"zkSyncContractAddress"`
+	NewDetailedUsageReportEnabled     bool                  `json:"newDetailedUsageReportEnabled"`
 }
 
 // Satellites is a configuration value that contains a list of satellite names and addresses.

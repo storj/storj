@@ -145,7 +145,17 @@ func (ul *UsageLimits) UsageReport(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	usage, err := ul.service.GetUsageReport(ctx, since, before, projectID)
+	includeCost := r.URL.Query().Get("cost") == "true"
+	groupByProject := r.URL.Query().Get("project-summary") == "true"
+
+	param := console.GetUsageReportParam{
+		ProjectID:      projectID,
+		Since:          since,
+		Before:         before,
+		IncludeCost:    includeCost,
+		GroupByProject: groupByProject,
+	}
+	usage, err := ul.service.GetUsageReport(ctx, param)
 	if err != nil {
 		if console.ErrUnauthorized.Has(err) {
 			ul.serveJSONError(ctx, w, http.StatusUnauthorized, err)
@@ -164,8 +174,16 @@ func (ul *UsageLimits) UsageReport(w http.ResponseWriter, r *http.Request) {
 
 	wr := csv.NewWriter(w)
 
-	csvHeaders := []string{"ProjectName", "ProjectID", "BucketName", "Storage GB-hour", "Egress GB", "ObjectCount objects-hour", "SegmentCount segments-hour", "Since", "Before"}
+	csvHeaders := ul.service.GetUsageReportHeaders(param)
+	disclaimerRow := []string{"Disclaimer: The actual billed amount may differ due to custom billing, discounts, or coupons applied at the time of invoicing."}
+	// append empty columns so that disclaimerRow is the same length as csvHeaders
+	disclaimerRow = append(disclaimerRow, make([]string, len(csvHeaders)-1)...)
 
+	err = wr.Write(disclaimerRow)
+	if err != nil {
+		ul.serveJSONError(ctx, w, http.StatusInternalServerError, errs.New("Error writing CSV data"))
+		return
+	}
 	err = wr.Write(csvHeaders)
 	if err != nil {
 		ul.serveJSONError(ctx, w, http.StatusInternalServerError, errs.New("Error writing CSV data"))
@@ -173,7 +191,7 @@ func (ul *UsageLimits) UsageReport(w http.ResponseWriter, r *http.Request) {
 	}
 
 	for _, u := range usage {
-		err = wr.Write(u.ToStringSlice())
+		err = wr.Write(ul.service.GetReportRow(param, u))
 		if err != nil {
 			ul.serveJSONError(ctx, w, http.StatusInternalServerError, errs.New("Error writing CSV data"))
 			return

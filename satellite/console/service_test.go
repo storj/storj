@@ -50,6 +50,7 @@ import (
 	"storj.io/storj/satellite/payments"
 	"storj.io/storj/satellite/payments/billing"
 	"storj.io/storj/satellite/payments/coinpayments"
+	"storj.io/storj/satellite/payments/paymentsconfig"
 	"storj.io/storj/satellite/payments/storjscan"
 	"storj.io/storj/satellite/payments/storjscan/blockchaintest"
 	"storj.io/storj/satellite/payments/stripe"
@@ -1411,7 +1412,13 @@ func TestService(t *testing.T) {
 				inHalfAnHour := now.Add(30 * time.Minute)
 				inAnHour := now.Add(time.Hour)
 
-				items, err := service.GetUsageReport(userCtx2, now, inAnHour, pr1.PublicID)
+				params := console.GetUsageReportParam{
+					Since:     now,
+					Before:    inAnHour,
+					ProjectID: pr1.PublicID,
+				}
+
+				items, err := service.GetUsageReport(userCtx2, params)
 				require.True(t, console.ErrUnauthorized.Has(err))
 				require.Nil(t, items)
 
@@ -1421,25 +1428,28 @@ func TestService(t *testing.T) {
 				err = sat.DB.Orders().UpdateBucketBandwidthSettle(ctx, pr2.ID, []byte(bucket2.Name), pb.PieceAction_GET, amount.Int64(), 0, inHalfAnHour)
 				require.NoError(t, err)
 
-				items, err = service.GetUsageReport(usrCtx, now, inAnHour, pr1.PublicID)
+				items, err = service.GetUsageReport(usrCtx, params)
 				require.NoError(t, err)
 				require.Len(t, items, 1)
 				require.Equal(t, pr1.PublicID, items[0].ProjectID)
 				require.Equal(t, bucket1.Name, items[0].BucketName)
 				require.Equal(t, amount.GB(), items[0].Egress)
 
-				items, err = service.GetUsageReport(usrCtx, now, inAnHour, pr2.PublicID)
+				params.ProjectID = pr2.PublicID
+				items, err = service.GetUsageReport(usrCtx, params)
 				require.NoError(t, err)
 				require.Len(t, items, 1)
 				require.Equal(t, pr2.PublicID, items[0].ProjectID)
 				require.Equal(t, bucket2.Name, items[0].BucketName)
 				require.Equal(t, amount.GB(), items[0].Egress)
 
-				items, err = service.GetUsageReport(usrCtx, now, inAnHour, uuid.UUID{})
+				params.ProjectID = uuid.UUID{}
+				items, err = service.GetUsageReport(usrCtx, params)
 				require.NoError(t, err)
 				require.Len(t, items, 2)
 
-				_, err = service.GetUsageReport(userCtx1, now, inAnHour, disabledProject.ID)
+				params.ProjectID = disabledProject.ID
+				_, err = service.GetUsageReport(userCtx1, params)
 				require.True(t, console.ErrUnauthorized.Has(err))
 			})
 
@@ -1489,6 +1499,167 @@ func TestService(t *testing.T) {
 				require.True(t, console.ErrUnauthorized.Has(err))
 			})
 		})
+}
+
+func TestGetUsageReport(t *testing.T) {
+	// use large prices so that we can test the calculations with small usages
+	usagePrice := paymentsconfig.ProjectUsagePrice{
+		StorageTB: "100000",
+		EgressTB:  "100000",
+		Segment:   "100000",
+	}
+	testplanet.Run(t, testplanet.Config{
+		SatelliteCount: 1, StorageNodeCount: 1, UplinkCount: 1,
+		Reconfigure: testplanet.Reconfigure{
+			Satellite: func(log *zap.Logger, index int, config *satellite.Config) {
+				config.Payments.UsagePrice = usagePrice
+				config.Console.NewDetailedUsageReportEnabled = true
+			},
+		},
+	},
+		func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+			now := time.Now().UTC()
+			var (
+				sat       = planet.Satellites[0]
+				upl       = planet.Uplinks[0]
+				service   = sat.API.Console.Service
+				projectID = upl.Projects[0].ID
+			)
+
+			user, err := sat.DB.Console().Users().Get(ctx, upl.Projects[0].Owner.ID)
+			require.NoError(t, err)
+
+			usrCtx, err := sat.UserContext(ctx, user.ID)
+			require.NoError(t, err)
+
+			project, err := sat.DB.Console().Projects().Get(ctx, projectID)
+			require.NoError(t, err)
+
+			bucket1 := buckets.Bucket{
+				ID:        testrand.UUID(),
+				Name:      "testbucket",
+				ProjectID: projectID,
+			}
+			_, err = sat.API.Buckets.Service.CreateBucket(usrCtx, bucket1)
+			require.NoError(t, err)
+			bucket2 := buckets.Bucket{
+				ID:        testrand.UUID(),
+				Name:      "testbuckettwo",
+				ProjectID: projectID,
+			}
+			_, err = sat.API.Buckets.Service.CreateBucket(usrCtx, bucket2)
+			require.NoError(t, err)
+
+			inFiveMinutes := time.Now().Add(5 * time.Minute).UTC()
+
+			planet.Satellites[0].Orders.Chore.Loop.Pause()
+			sat.Accounting.Tally.Loop.Pause()
+
+			firstSegment := testrand.Bytes(30 * memory.MB)
+			secondSegment := testrand.Bytes(20 * memory.MB)
+
+			for _, bucket := range []buckets.Bucket{bucket1, bucket2} {
+				err = upl.Upload(ctx, sat, bucket.Name, "path", firstSegment)
+				require.NoError(t, err)
+
+				err = upl.Upload(ctx, sat, bucket.Name, "other_path", secondSegment)
+				require.NoError(t, err)
+
+				_, err = upl.Download(ctx, sat, bucket.Name, "path")
+				require.NoError(t, err)
+			}
+
+			require.NoError(t, planet.WaitForStorageNodeEndpoints(ctx))
+			planet.StorageNodes[0].Storage2.Orders.SendOrders(ctx, time.Now().Add(24*time.Hour))
+
+			sat.Orders.Chore.Loop.TriggerWait()
+			sat.Accounting.Tally.Loop.TriggerWait()
+			// We trigger tally one more time because the most recent tally is skipped in service method.
+			sat.Accounting.Tally.Loop.TriggerWait()
+
+			params := console.GetUsageReportParam{
+				Since:     now,
+				Before:    inFiveMinutes,
+				ProjectID: projectID,
+			}
+			items, err := service.GetUsageReport(usrCtx, params)
+			require.NoError(t, err)
+			require.Len(t, items, 2)
+			require.Equal(t, project.PublicID, items[0].ProjectID)
+
+			var item1, item2 accounting.ProjectReportItem
+			for _, item := range items {
+				if item.BucketName == bucket1.Name {
+					item1 = item
+					continue
+				}
+				item2 = item
+			}
+			require.NotZero(t, item1)
+			require.NotZero(t, item2)
+			require.Equal(t, bucket2.Name, item2.BucketName)
+
+			hoursPerMonth := decimal.NewFromInt(23 * 30)
+
+			checkUsages := func(rollup *accounting.BucketUsageRollup, item accounting.ProjectReportItem) {
+				require.Equal(t, rollup.GetEgress, item.Egress)
+				require.Equal(t, rollup.TotalSegments, item.SegmentCount)
+				require.Equal(t, rollup.ObjectCount, item.ObjectCount)
+				require.Equal(t, rollup.TotalStoredData, item.Storage)
+
+				egressTb, _ := decimal.NewFromFloat(rollup.GetEgress).Shift(3).Float64()
+				storageTbMonth, _ := decimal.NewFromFloat(rollup.TotalStoredData).Shift(3).Div(hoursPerMonth).Float64()
+				segmentCountMonth, _ := decimal.NewFromFloat(rollup.TotalSegments).Div(hoursPerMonth).Float64()
+
+				require.Equal(t, egressTb, item.EgressTb)
+				require.InDelta(t, segmentCountMonth, item.SegmentCountMonth, 1e-06)
+				require.InDelta(t, storageTbMonth, item.StorageTbMonth, 1e-06)
+			}
+
+			usage1, err := sat.DB.ProjectAccounting().GetSingleBucketUsageRollup(ctx, projectID, bucket1.Name, now, inFiveMinutes)
+			require.NoError(t, err)
+			checkUsages(usage1, item1)
+
+			usage2, err := sat.DB.ProjectAccounting().GetSingleBucketUsageRollup(ctx, projectID, bucket1.Name, now, inFiveMinutes)
+			require.NoError(t, err)
+			checkUsages(usage2, item2)
+
+			params.GroupByProject = true
+			items, err = service.GetUsageReport(usrCtx, params)
+			require.NoError(t, err)
+			require.Len(t, items, 1)
+
+			usageTotal := usage1
+			usageTotal.ObjectCount = usage1.ObjectCount + usage2.ObjectCount
+			usageTotal.TotalSegments = usage1.TotalSegments + usage2.TotalSegments
+			usageTotal.TotalStoredData = usage1.TotalStoredData + usage2.TotalStoredData
+			usageTotal.GetEgress = usage1.GetEgress + usage2.GetEgress
+			checkUsages(usageTotal, items[0])
+
+			params.IncludeCost = true
+			items, err = service.GetUsageReport(usrCtx, params)
+			require.NoError(t, err)
+			require.Len(t, items, 1)
+
+			priceModel := sat.API.Payments.Accounts.GetProjectUsagePriceModel("")
+			gbToMb := func(gig float64) decimal.Decimal {
+				return decimal.NewFromFloat(gig).Shift(-3)
+			}
+			hoursToMonth := func(hours decimal.Decimal) decimal.Decimal {
+				return hours.Div(hoursPerMonth).Round(0)
+			}
+			expectedStorageCost := priceModel.StorageMBMonthCents.Mul(hoursToMonth(gbToMb(usageTotal.TotalStoredData))).Round(0).IntPart()
+			expectedEgressCost := priceModel.EgressMBCents.Mul(gbToMb(usageTotal.GetEgress).Round(0)).Round(0).IntPart()
+			expectedSegmentCost := priceModel.SegmentMonthCents.Mul(hoursToMonth(decimal.NewFromFloat(usageTotal.TotalSegments))).Round(0).IntPart()
+			expectedTotalCost := expectedStorageCost + expectedEgressCost + expectedSegmentCost
+
+			require.InDelta(t, expectedStorageCost, items[0].StorageCost, 0.01)
+			require.InDelta(t, expectedEgressCost, items[0].EgressCost, 0.01)
+			require.InDelta(t, expectedSegmentCost, items[0].SegmentCost, 0.01)
+			require.InDelta(t, expectedSegmentCost, items[0].SegmentCost, 0.01)
+			require.InDelta(t, expectedTotalCost, items[0].TotalCost, 0.01)
+		},
+	)
 }
 
 func TestChangeEmail(t *testing.T) {

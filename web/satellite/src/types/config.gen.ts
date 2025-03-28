@@ -84,6 +84,7 @@ export class FrontendConfig {
     restAPIKeysUIEnabled: boolean;
     liveCheckBadPasswords: boolean;
     zkSyncContractAddress: string;
+    newDetailedUsageReportEnabled: boolean;
 }
 
 export class MultiCaptchaConfig {

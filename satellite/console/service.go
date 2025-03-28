@@ -23,6 +23,7 @@ import (
 	"time"
 	"unicode/utf8"
 
+	"github.com/shopspring/decimal"
 	"github.com/spacemonkeygo/monkit/v3"
 	"github.com/spf13/pflag"
 	"github.com/zeebo/errs"
@@ -66,6 +67,9 @@ const (
 
 	// TestPasswordCost is the hashing complexity to use for testing.
 	TestPasswordCost = bcrypt.MinCost
+
+	// hoursPerMonth is the number of hours in a month.
+	hoursPerMonth = 24 * 30
 )
 
 // Error messages.
@@ -4868,8 +4872,16 @@ func (s *Service) GetPlacementDetails(ctx context.Context, projectID uuid.UUID) 
 	return details, nil
 }
 
+// GetUsageReportParam contains parameters for GetUsageReport method.
+type GetUsageReportParam struct {
+	Since, Before  time.Time
+	ProjectID      uuid.UUID
+	GroupByProject bool
+	IncludeCost    bool
+}
+
 // GetUsageReport retrieves usage rollups for every bucket of a single or all the user owned projects for a given period.
-func (s *Service) GetUsageReport(ctx context.Context, since, before time.Time, projectID uuid.UUID) ([]accounting.ProjectReportItem, error) {
+func (s *Service) GetUsageReport(ctx context.Context, param GetUsageReportParam) ([]accounting.ProjectReportItem, error) {
 	var err error
 	defer mon.Task()(&ctx)(&err)
 
@@ -4880,7 +4892,7 @@ func (s *Service) GetUsageReport(ctx context.Context, since, before time.Time, p
 
 	var projects []Project
 
-	if projectID.IsZero() {
+	if param.ProjectID.IsZero() {
 		pr, err := s.store.Projects().GetOwnActive(ctx, user.ID)
 		if err != nil {
 			return nil, Error.Wrap(err)
@@ -4888,7 +4900,7 @@ func (s *Service) GetUsageReport(ctx context.Context, since, before time.Time, p
 
 		projects = append(projects, pr...)
 	} else {
-		_, pr, err := s.isProjectOwner(ctx, user.ID, projectID)
+		_, pr, err := s.isProjectOwner(ctx, user.ID, param.ProjectID)
 		if err != nil {
 			return nil, ErrUnauthorized.Wrap(err)
 		}
@@ -4899,13 +4911,14 @@ func (s *Service) GetUsageReport(ctx context.Context, since, before time.Time, p
 	usage := make([]accounting.ProjectReportItem, 0)
 
 	for _, p := range projects {
-		rollups, err := s.projectAccounting.GetBucketUsageRollups(ctx, p.ID, since, before)
+		rollups, err := s.projectAccounting.GetBucketUsageRollups(ctx, p.ID, param.Since, param.Before)
 		if err != nil {
 			return nil, Error.Wrap(err)
 		}
 
+		var aggregateItem accounting.ProjectReportItem
 		for _, r := range rollups {
-			usage = append(usage, accounting.ProjectReportItem{
+			item := accounting.ProjectReportItem{
 				ProjectName:  p.Name,
 				ProjectID:    p.PublicID,
 				BucketName:   r.BucketName,
@@ -4915,11 +4928,143 @@ func (s *Service) GetUsageReport(ctx context.Context, since, before time.Time, p
 				SegmentCount: r.TotalSegments,
 				Since:        r.Since,
 				Before:       r.Before,
-			})
+			}
+
+			if !s.config.NewDetailedUsageReportEnabled {
+				usage = append(usage, item)
+				continue
+			}
+
+			if !param.GroupByProject {
+				item = s.transformProjectReportItem(item, string(p.UserAgent), param.IncludeCost)
+				usage = append(usage, item)
+				continue
+			}
+
+			if aggregateItem == (accounting.ProjectReportItem{}) {
+				aggregateItem = item
+				continue
+			}
+			aggregateItem.Storage += item.Storage
+			aggregateItem.Egress += item.Egress
+			aggregateItem.ObjectCount += item.ObjectCount
+			aggregateItem.SegmentCount += item.SegmentCount
+		}
+		if param.GroupByProject && aggregateItem != (accounting.ProjectReportItem{}) {
+			aggregateItem = s.transformProjectReportItem(aggregateItem, string(p.UserAgent), param.IncludeCost)
+			aggregateItem.BucketName = ""
+			usage = append(usage, aggregateItem)
 		}
 	}
 
 	return usage, nil
+}
+
+// GetReportRow converts the report item into a row for the usage report.
+func (s *Service) GetReportRow(param GetUsageReportParam, reportItem accounting.ProjectReportItem) []string {
+	if !s.config.NewDetailedUsageReportEnabled {
+		return []string{
+			reportItem.ProjectName,
+			reportItem.ProjectID.String(),
+			reportItem.BucketName,
+			fmt.Sprintf("%f", reportItem.Storage),
+			fmt.Sprintf("%f", reportItem.Egress),
+			fmt.Sprintf("%f", reportItem.ObjectCount),
+			fmt.Sprintf("%f", reportItem.SegmentCount),
+			reportItem.Since.String(),
+			reportItem.Before.String(),
+		}
+	}
+	row := []string{
+		reportItem.ProjectName,
+		reportItem.ProjectID.String(),
+	}
+	if !param.GroupByProject {
+		row = append(row, reportItem.BucketName)
+	}
+	row = append(row, fmt.Sprintf("%f", reportItem.Storage))
+	row = append(row, fmt.Sprintf("%f", reportItem.StorageTbMonth))
+	if param.IncludeCost {
+		row = append(row, fmt.Sprintf("%f", reportItem.StorageCost))
+	}
+	row = append(row, fmt.Sprintf("%f", reportItem.Egress))
+	row = append(row, fmt.Sprintf("%f", reportItem.EgressTb))
+	if param.IncludeCost {
+		row = append(row, fmt.Sprintf("%f", reportItem.EgressCost))
+	}
+	row = append(row, fmt.Sprintf("%f", reportItem.ObjectCount))
+	row = append(row, fmt.Sprintf("%f", reportItem.SegmentCount))
+	row = append(row, fmt.Sprintf("%f", reportItem.SegmentCountMonth))
+	if param.IncludeCost {
+		row = append(row, fmt.Sprintf("%f", reportItem.SegmentCost))
+		row = append(row, fmt.Sprintf("%f", reportItem.TotalCost))
+	}
+	row = append(row, reportItem.Since.String())
+	row = append(row, reportItem.Before.String())
+
+	return row
+}
+
+// GetUsageReportHeaders returns headers for the usage report.
+func (s *Service) GetUsageReportHeaders(param GetUsageReportParam) []string {
+	if !s.config.NewDetailedUsageReportEnabled {
+		return []string{
+			"ProjectName", "ProjectID", "BucketName", "Storage GB-hour", "Egress GB",
+			"ObjectCount objects-hour", "SegmentCount segments-hour", "Since", "Before",
+		}
+	}
+	headers := []string{
+		"ProjectName", "ProjectID", "BucketName", "Storage GB-hour", "Storage TB-months",
+		"Storage Price (Estimated)", "Egress GB", "Egress TB", "Egress Price (Estimated)",
+		"ObjectCount objects-hour", "SegmentCount segments-hour", "Segment Months",
+		"Segment Price (Estimated)", "Estimated Total Amount", "Since", "Before",
+	}
+	if param.GroupByProject {
+		headerSlice := headers[:2]
+		headers = append(headerSlice, headers[3:]...)
+	}
+	if !param.IncludeCost {
+		updateHeaders := make([]string, 0, len(headers)-4)
+		for _, header := range headers {
+			if strings.Contains(header, "Estimated") {
+				continue
+			}
+			updateHeaders = append(updateHeaders, header)
+		}
+		headers = updateHeaders
+	}
+
+	return headers
+}
+
+// transformProjectReportItem modifies the project report item, converting GB values to TB and
+// hour values to month values. It includes cost if addCost is true.
+func (s *Service) transformProjectReportItem(item accounting.ProjectReportItem, userAgent string, addCost bool) accounting.ProjectReportItem {
+	hoursPerMonthDecimal := decimal.NewFromInt(hoursPerMonth)
+	if addCost {
+		priceModel := s.accounts.GetProjectUsagePriceModel(userAgent)
+		item.Egress -= math.Round(item.Storage / float64(hoursPerMonth) * priceModel.EgressDiscountRatio)
+		if item.Egress < 0 {
+			item.Egress = 0
+		}
+
+		gbToMb := func(gig float64) decimal.Decimal {
+			return decimal.NewFromFloat(gig).Shift(-3)
+		}
+		hoursToMonth := func(hours decimal.Decimal) decimal.Decimal {
+			return hours.Div(hoursPerMonthDecimal).Round(0)
+		}
+
+		item.EgressCost, _ = priceModel.EgressMBCents.Mul(gbToMb(item.Egress).Round(0)).Round(0).Float64()
+		item.StorageCost, _ = priceModel.StorageMBMonthCents.Mul(hoursToMonth(gbToMb(item.Storage))).Round(0).Float64()
+		item.SegmentCost, _ = priceModel.SegmentMonthCents.Mul(hoursToMonth(decimal.NewFromFloat(item.SegmentCount))).Round(0).Float64()
+		item.TotalCost = item.EgressCost + item.StorageCost + item.SegmentCost
+	}
+	item.EgressTb, _ = decimal.NewFromFloat(item.Egress).Shift(3).Float64()
+	item.StorageTbMonth, _ = decimal.NewFromFloat(item.Storage).Shift(3).Div(hoursPerMonthDecimal).Float64()
+	item.SegmentCountMonth, _ = decimal.NewFromFloat(item.SegmentCount).Div(hoursPerMonthDecimal).Float64()
+
+	return item
 }
 
 // GenGetBucketUsageRollups retrieves summed usage rollups for every bucket of particular project for a given period for generated api.
@@ -6363,6 +6508,11 @@ func (s *Service) TestToggleSatelliteManagedEncryption(b bool) {
 func (s *Service) TestToggleSsoEnabled(enabled bool, ssoService *sso.Service) {
 	s.ssoEnabled = enabled
 	s.ssoService = ssoService
+}
+
+// TestSetNewUsageReportEnabled is used in tests to toggle the new usage report.
+func (s *Service) TestSetNewUsageReportEnabled(enabled bool) {
+	s.config.NewDetailedUsageReportEnabled = enabled
 }
 
 // ValidateFreeFormFieldLengths checks if any of the given values

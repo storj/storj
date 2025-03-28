@@ -5,7 +5,6 @@ package accounting
 
 import (
 	"context"
-	"fmt"
 	"time"
 
 	"storj.io/common/memory"
@@ -205,29 +204,22 @@ type ProjectReportItem struct {
 	ProjectID   uuid.UUID
 	ProjectName string
 
-	BucketName   string
-	Storage      float64
-	Egress       float64
-	SegmentCount float64
-	ObjectCount  float64
+	BucketName        string
+	Storage           float64
+	StorageTbMonth    float64
+	Egress            float64
+	EgressTb          float64
+	SegmentCount      float64
+	SegmentCountMonth float64
+	ObjectCount       float64
+
+	StorageCost float64
+	EgressCost  float64
+	SegmentCost float64
+	TotalCost   float64
 
 	Since  time.Time `json:"since"`
 	Before time.Time `json:"before"`
-}
-
-// ToStringSlice converts report item values to a slice of strings.
-func (b *ProjectReportItem) ToStringSlice() []string {
-	return []string{
-		b.ProjectName,
-		b.ProjectID.String(),
-		b.BucketName,
-		fmt.Sprintf("%f", b.Storage),
-		fmt.Sprintf("%f", b.Egress),
-		fmt.Sprintf("%f", b.ObjectCount),
-		fmt.Sprintf("%f", b.SegmentCount),
-		b.Since.String(),
-		b.Before.String(),
-	}
 }
 
 // Usage contains project's usage split on segments and storage.
