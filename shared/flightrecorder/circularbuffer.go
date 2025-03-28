@@ -47,11 +47,14 @@ func (cb *CircularBuffer) Enqueue(event Event) {
 }
 
 // Dump returns a slice of events in the buffer in chronological order (oldest first).
+func (cb *CircularBuffer) Dump() []Event {
+	return cb.DumpTo(make([]Event, 0, cb.capacity))
+}
+
+// DumpTo appends events to the provided 'dst' slice in chronological order (oldest first).
 // It iterates over the entire fixed buffer, acquiring each slot to safely read the event,
 // and discards events that are zero (unused).
-func (cb *CircularBuffer) Dump() []Event {
-	events := make([]Event, 0, len(cb.buffer))
-
+func (cb *CircularBuffer) DumpTo(dst []Event) []Event {
 	for i := range cb.buffer {
 		for !cb.slots[i].CompareAndSwap(false, true) {
 			// spin until acquired.
@@ -61,13 +64,13 @@ func (cb *CircularBuffer) Dump() []Event {
 		cb.slots[i].Store(false)
 
 		if !ev.IsZero() {
-			events = append(events, ev)
+			dst = append(dst, ev)
 		}
 	}
 
-	sort.Slice(events, func(i, j int) bool {
-		return events[i].Timestamp < events[j].Timestamp
+	sort.Slice(dst, func(i, j int) bool {
+		return dst[i].Timestamp < dst[j].Timestamp
 	})
 
-	return events
+	return dst
 }

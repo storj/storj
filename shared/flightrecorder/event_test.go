@@ -4,6 +4,7 @@
 package flightrecorder_test
 
 import (
+	"fmt"
 	"strings"
 	"testing"
 	"time"
@@ -38,4 +39,27 @@ func TestEvent(t *testing.T) {
 		formatted := ev.FormattedStack()
 		require.Empty(t, strings.TrimSpace(formatted))
 	})
+}
+
+// This variable needs to be at package level
+// to ensure the compiler can't prove it's unused.
+var sinkEvent flightrecorder.Event
+
+func BenchmarkNewEvent(b *testing.B) {
+	b.Run("NewEvent", func(b *testing.B) {
+		for i := 0; i < b.N; i++ {
+			sinkEvent = flightrecorder.NewEvent(flightrecorder.EventTypeDB, 0)
+		}
+	})
+
+	for _, skipFrames := range []int{1, 3, 5} {
+		skipFrames := skipFrames
+		name := fmt.Sprintf("NewEvent/skipCallers=%d", skipFrames)
+
+		b.Run(name, func(b *testing.B) {
+			for i := 0; i < b.N; i++ {
+				sinkEvent = flightrecorder.NewEvent(flightrecorder.EventTypeDB, skipFrames)
+			}
+		})
+	}
 }
