@@ -1015,16 +1015,18 @@ func TestAutoFreezeChore_StorjscanExclusion(t *testing.T) {
 }
 
 type freezeTrackerMock struct {
-	t            *testing.T
-	freezeCounts map[string]int
-	warnCounts   map[string]int
+	t                   *testing.T
+	freezeCounts        map[string]int
+	warnCounts          map[string]int
+	genericFreezeCounts map[string]map[string]int
 }
 
 func newFreezeTrackerMock(t *testing.T) *freezeTrackerMock {
 	return &freezeTrackerMock{
-		t:            t,
-		freezeCounts: map[string]int{},
-		warnCounts:   map[string]int{},
+		t:                   t,
+		freezeCounts:        map[string]int{},
+		warnCounts:          map[string]int{},
+		genericFreezeCounts: map[string]map[string]int{},
 	}
 }
 
@@ -1053,6 +1055,43 @@ func (mock *freezeTrackerMock) TrackAccountFreezeWarning(_ uuid.UUID, email stri
 	mock.warnCounts[email]++
 	// make sure this tracker has not been called already for this email.
 	require.Equal(mock.t, 1, mock.warnCounts[email])
+}
+
+func (mock *freezeTrackerMock) TrackGenericFreeze(_ uuid.UUID, email, freezeType string, adminInitiated bool, _ *string) {
+	if _, ok := mock.genericFreezeCounts[email]; !ok {
+		mock.genericFreezeCounts[email] = make(map[string]int)
+	}
+	mock.genericFreezeCounts[email][freezeType]++
+	// make sure this tracker has not been called already for this email and freeze type.
+	require.Equal(mock.t, 1, mock.genericFreezeCounts[email][freezeType])
+
+	switch freezeType {
+	case console.BillingWarning.String(), console.BillingFreeze.String(), console.TrialExpirationFreeze.String(), console.BotFreeze.String(), console.DelayedBotFreeze.String():
+		require.Equal(mock.t, false, adminInitiated)
+	case console.LegalFreeze.String(), console.ViolationFreeze.String():
+		require.Equal(mock.t, true, adminInitiated)
+	default:
+		mock.t.Fail()
+	}
+
+}
+
+func (mock *freezeTrackerMock) TrackGenericUnfreeze(_ uuid.UUID, email, freezeType string, adminInitiated bool, _ *string) {
+	if _, ok := mock.genericFreezeCounts[email]; !ok {
+		mock.genericFreezeCounts[email] = make(map[string]int)
+	}
+	mock.genericFreezeCounts[email][freezeType]--
+	// make sure this tracker has not been called already for this email and freeze type.
+	require.Equal(mock.t, 0, mock.genericFreezeCounts[email][freezeType])
+
+	switch freezeType {
+	case console.BillingWarning.String(), console.BillingFreeze.String(), console.TrialExpirationFreeze.String():
+		require.Equal(mock.t, false, adminInitiated)
+	case console.LegalFreeze.String(), console.ViolationFreeze.String(), console.BotFreeze.String():
+		require.Equal(mock.t, true, adminInitiated)
+	default:
+		mock.t.Fail()
+	}
 }
 
 func (mock *freezeTrackerMock) TrackLargeUnpaidInvoice(_ string, _ uuid.UUID, _ string, _ *string) {}

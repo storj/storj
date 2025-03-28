@@ -179,7 +179,9 @@ func Run(t *testing.T, test Test) {
 				}
 				defer ctx.Check(planet.Shutdown)
 
-				planet.Start(ctx)
+				if err = planet.Start(ctx); err != nil {
+					t.Fatalf("%+v", err)
+				}
 				provisionUplinks(ctx, t, planet)
 
 				test(t, ctx, planet, &stack)

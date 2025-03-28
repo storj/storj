@@ -26,17 +26,18 @@ const (
 
 // HubSpotConfig is a configuration struct for Concurrent Sending of Events.
 type HubSpotConfig struct {
-	RefreshToken      string        `help:"hubspot refresh token" default:""`
-	TokenAPI          string        `help:"hubspot token refresh API" default:"https://api.hubapi.com/oauth/v1/token"`
-	ClientID          string        `help:"hubspot client ID" default:""`
-	ClientSecret      string        `help:"hubspot client secret" default:""`
-	ChannelSize       int           `help:"the number of events that can be in the queue before dropping" default:"1000"`
-	ConcurrentSends   int           `help:"the number of concurrent api requests that can be made" default:"4"`
-	DefaultTimeout    time.Duration `help:"the default timeout for the hubspot http client" default:"10s"`
-	SignupEventName   string        `help:"the event name for signup action" default:""`
-	SignupFormURL     string        `help:"the hubspot form URL for signup" default:""`
-	CunoFSBetaFormURL string        `help:"the hubspot form URL for cunoFS beta" default:""`
-	LifeCycleStage    string        `help:"the hubspot lifecycle stage for new accounts" default:""`
+	RefreshToken                   string        `help:"hubspot refresh token" default:""`
+	TokenAPI                       string        `help:"hubspot token refresh API" default:"https://api.hubapi.com/oauth/v1/token"`
+	ClientID                       string        `help:"hubspot client ID" default:""`
+	ClientSecret                   string        `help:"hubspot client secret" default:""`
+	ChannelSize                    int           `help:"the number of events that can be in the queue before dropping" default:"1000"`
+	ConcurrentSends                int           `help:"the number of concurrent api requests that can be made" default:"4"`
+	DefaultTimeout                 time.Duration `help:"the default timeout for the hubspot http client" default:"10s"`
+	SignupEventName                string        `help:"the event name for signup action" default:""`
+	SignupFormURL                  string        `help:"the hubspot form URL for signup" default:""`
+	CunoFSBetaFormURL              string        `help:"the hubspot form URL for cunoFS beta" default:""`
+	ObjectMountConsultationFormURL string        `help:"the hubspot form URL for requesting object mount consultation" default:""`
+	LifeCycleStage                 string        `help:"the hubspot lifecycle stage for new accounts" default:""`
 
 	AccountObjectCreatedWebhookEnabled  bool          `help:"whether account object created webhook is enabled" default:"false"`
 	AccountObjectCreatedWebhookEndpoint string        `help:"the endpoint for account object created webhook" default:"/api/v0/analytics/hubspot/account-object-created"`
@@ -225,6 +226,51 @@ func (q *HubSpotEvents) EnqueueJoinCunoFSBeta(fields TrackJoinCunoFSBetaFields) 
 	case q.events <- []HubSpotEvent{joinBetaEvent}:
 	default:
 		q.log.Error("join cunoFS beta hubspot event failed, event channel is full")
+	}
+}
+
+// EnqueueObjectMountConsultation is for tracking user object mount consultation request using hubspot form.
+func (q *HubSpotEvents) EnqueueObjectMountConsultation(fields TrackObjectMountConsultationFields) {
+	if q.config.ObjectMountConsultationFormURL == "" {
+		q.log.Warn("hubspot object mount consultation form URL is not set")
+		return
+	}
+
+	newField := func(name string, value string) map[string]string {
+		return map[string]string{
+			"name":  name,
+			"value": value,
+		}
+	}
+
+	formFields := []map[string]string{
+		newField("email", fields.Email),
+		newField("company", fields.CompanyName),
+		newField("firstname", fields.FirstName),
+		newField("lastname", fields.LastName),
+		newField("job_title", fields.JobTitle),
+		newField("phone", fields.PhoneNumber),
+		newField("industry_use_case", fields.IndustryUseCase),
+		newField("company_size_dropdown", fields.CompanySize),
+		newField("current_storage_solution", fields.CurrentStorageSolution),
+		newField("key_challenges", fields.KeyChallenges),
+		newField("specific_interests", fields.SpecificInterests),
+		newField("storage_needs", fields.StorageNeeds),
+		newField("implementation_timeline", fields.ImplementationTimeline),
+		newField("additional_information", fields.AdditionalInformation),
+	}
+
+	requestObjectMountConsultation := HubSpotEvent{
+		Endpoint: q.config.ObjectMountConsultationFormURL,
+		Data: map[string]interface{}{
+			"fields": formFields,
+		},
+	}
+
+	select {
+	case q.events <- []HubSpotEvent{requestObjectMountConsultation}:
+	default:
+		q.log.Error("request object mount consultation hubspot event failed, event channel is full")
 	}
 }
 

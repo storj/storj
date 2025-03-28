@@ -23,6 +23,7 @@ enum RouteName {
     Team = 'Team',
     Domains = 'Domains',
     CunoFS = 'cunoFS',
+    ObjectMount = 'Object Mount',
     Applications = 'Applications',
     ProjectSettings = 'Project Settings',
     Login = 'Login',
@@ -48,6 +49,7 @@ export abstract class ROUTES {
     public static Team = new NavigationLink('team', RouteName.Team);
     public static Domains = new NavigationLink('domains', RouteName.Domains);
     public static CunoFSBeta = new NavigationLink('cuno-fs-beta', RouteName.CunoFS);
+    public static ObjectMount = new NavigationLink('object-mount', RouteName.ObjectMount);
     public static Applications = new NavigationLink('applications', RouteName.Applications);
     public static ProjectSettings = new NavigationLink('settings', RouteName.ProjectSettings);
 
@@ -189,6 +191,11 @@ const routes: RouteRecordRaw[] = [
                 path: ROUTES.CunoFSBeta.path,
                 name: ROUTES.CunoFSBeta.name,
                 component: () => import(/* webpackChunkName: "CunoFS" */ '@/views/CunoFS.vue'),
+            },
+            {
+                path: ROUTES.ObjectMount.path,
+                name: ROUTES.ObjectMount.name,
+                component: () => import(/* webpackChunkName: "ObjectMount" */ '@/views/ObjectMount.vue'),
             },
             {
                 path: ROUTES.Team.path,

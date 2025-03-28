@@ -76,6 +76,9 @@
 # the hubspot lifecycle stage for new accounts
 # analytics.hub-spot.life-cycle-stage: ""
 
+# the hubspot form URL for requesting object mount consultation
+# analytics.hub-spot.object-mount-consultation-form-url: ""
+
 # hubspot refresh token
 # analytics.hub-spot.refresh-token: ""
 
@@ -483,6 +486,9 @@ compensation.withheld-percents: 75,75,75,50,50,50,25,25,25,0,0,0,0,0,0
 
 # whether object lock UI should be shown, regardless of whether the feature is enabled
 # console.object-lock-ui-enabled: true
+
+# whether object mount consultation request form is visible
+# console.object-mount-consultation-enabled: false
 
 # enable open registration
 # console.open-registration-enabled: false

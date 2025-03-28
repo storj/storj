@@ -54,7 +54,7 @@ func startAsService(cmd *cobra.Command) bool {
 
 	// Check if the 'run' command is invoked
 	if len(os.Args) < 2 || os.Args[1] != "run" {
-		log.Error(errorBadArguments, "run argument not specified for service")
+		_ = log.Error(errorBadArguments, "run argument not specified for service")
 		return false
 	}
 
@@ -64,7 +64,7 @@ func startAsService(cmd *cobra.Command) bool {
 		rootCmd: cmd,
 	})
 	if err != nil {
-		log.Error(errorServiceNotActive, fmt.Sprintf("Service failed: %+v", err))
+		_ = log.Error(errorServiceNotActive, fmt.Sprintf("Service failed: %+v", err))
 		zap.L().Fatal("Service failed.", zap.Error(err))
 	}
 
@@ -87,18 +87,18 @@ func (m *service) Execute(args []string, r <-chan svc.ChangeRequest, changes cha
 	}
 
 	if runCmd == nil {
-		m.log.Error(errorBadArguments, "runCmd not found on root")
+		_ = m.log.Error(errorBadArguments, "runCmd not found on root")
 		panic("Assertion is failed: 'run' sub-command is not found.")
 	}
 
-	m.log.Info(eventSuccess, "starting service")
+	_ = m.log.Info(eventSuccess, "starting service")
 	changes <- svc.Status{State: svc.StartPending}
 
 	var group errgroup.Group
 	group.Go(func() error {
 		defer func() {
 			if err := recover(); err != nil {
-				m.log.Error(errorServiceSpecificError, fmt.Sprintf("Panic: %+v", err))
+				_ = m.log.Error(errorServiceSpecificError, fmt.Sprintf("Panic: %+v", err))
 				zap.L().Error("PANIC", zap.Any("error", err))
 				panic(err) // re-panic
 			}
@@ -115,14 +115,14 @@ cmdloop:
 	for c := range r {
 		switch c.Cmd {
 		case svc.Interrogate:
-			m.log.Info(eventSuccess, "Interrogate request received")
+			_ = m.log.Info(eventSuccess, "Interrogate request received")
 			zap.L().Info("Interrogate request received.")
 			changes <- c.CurrentStatus
 		case svc.Stop, svc.Shutdown:
 			if c.Cmd == svc.Stop {
-				m.log.Info(eventSuccess, "Stop request received.")
+				_ = m.log.Info(eventSuccess, "Stop request received.")
 			} else {
-				m.log.Info(eventSuccess, "Shutdown request received.")
+				_ = m.log.Info(eventSuccess, "Shutdown request received.")
 			}
 			zap.L().Info("Stop/Shutdown request received.")
 
@@ -134,7 +134,7 @@ cmdloop:
 
 			break cmdloop
 		default:
-			m.log.Info(eventSuccess, fmt.Sprintf("Unexpected control request: %v", c.EventType))
+			_ = m.log.Info(eventSuccess, fmt.Sprintf("Unexpected control request: %v", c.EventType))
 			zap.L().Info("Unexpected control request.", zap.Uint32("Event Type", c.EventType))
 		}
 	}

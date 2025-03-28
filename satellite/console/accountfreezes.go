@@ -200,8 +200,9 @@ func (s *AccountFreezeService) IsUserFrozen(ctx context.Context, userID uuid.UUI
 	}
 }
 
-// BillingFreezeUser freezes the user specified by the given ID due to nonpayment of invoices.
-func (s *AccountFreezeService) BillingFreezeUser(ctx context.Context, userID uuid.UUID) (err error) {
+// billingFreezeUser is a private implementation function that freezes the user specified by the given ID due to nonpayment of invoices.
+// The adminInitiated parameter indicates whether this freeze was initiated by an admin or automatically by the satellite.
+func (s *AccountFreezeService) billingFreezeUser(ctx context.Context, userID uuid.UUID, adminInitiated bool) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	err = s.store.WithTx(ctx, func(ctx context.Context, tx DBTx) error {
@@ -244,7 +245,10 @@ func (s *AccountFreezeService) BillingFreezeUser(ctx context.Context, userID uui
 				return err
 			}
 		}
+
+		// Track using both the old specific method and the new generic method
 		s.tracker.TrackAccountFrozen(userID, user.Email, user.HubspotObjectID)
+		s.tracker.TrackGenericFreeze(userID, user.Email, BillingFreeze.String(), adminInitiated, user.HubspotObjectID)
 
 		return nil
 	})
@@ -252,8 +256,21 @@ func (s *AccountFreezeService) BillingFreezeUser(ctx context.Context, userID uui
 	return ErrAccountFreeze.Wrap(err)
 }
 
-// BillingUnfreezeUser reverses the billing freeze placed on the user specified by the given ID.
-func (s *AccountFreezeService) BillingUnfreezeUser(ctx context.Context, userID uuid.UUID) (err error) {
+// BillingFreezeUser freezes the user specified by the given ID due to nonpayment of invoices.
+// This is an automatically triggered freeze (not admin-initiated).
+func (s *AccountFreezeService) BillingFreezeUser(ctx context.Context, userID uuid.UUID) (err error) {
+	return s.billingFreezeUser(ctx, userID, false)
+}
+
+// AdminBillingFreezeUser freezes the user specified by the given ID due to nonpayment of invoices.
+// This is an admin-initiated freeze.
+func (s *AccountFreezeService) AdminBillingFreezeUser(ctx context.Context, userID uuid.UUID) (err error) {
+	return s.billingFreezeUser(ctx, userID, true)
+}
+
+// billingUnfreezeUser is a private implementation function that reverses the billing freeze placed on the user specified by the given ID.
+// The adminInitiated parameter indicates whether this unfreeze was initiated by an admin or automatically by the satellite.
+func (s *AccountFreezeService) billingUnfreezeUser(ctx context.Context, userID uuid.UUID, adminInitiated bool) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	err = s.store.WithTx(ctx, func(ctx context.Context, tx DBTx) error {
@@ -299,7 +316,9 @@ func (s *AccountFreezeService) BillingUnfreezeUser(ctx context.Context, userID u
 			}
 		}
 
+		// Track using both the old specific method and the new generic method
 		s.tracker.TrackAccountUnfrozen(userID, user.Email, user.HubspotObjectID)
+		s.tracker.TrackGenericUnfreeze(userID, user.Email, BillingFreeze.String(), adminInitiated, user.HubspotObjectID)
 
 		return nil
 	})
@@ -307,8 +326,21 @@ func (s *AccountFreezeService) BillingUnfreezeUser(ctx context.Context, userID u
 	return ErrAccountFreeze.Wrap(err)
 }
 
-// BillingWarnUser adds a billing warning event to the freeze events table.
-func (s *AccountFreezeService) BillingWarnUser(ctx context.Context, userID uuid.UUID) (err error) {
+// BillingUnfreezeUser reverses the billing freeze placed on the user specified by the given ID.
+// This is an automatically triggered unfreeze (not admin-initiated).
+func (s *AccountFreezeService) BillingUnfreezeUser(ctx context.Context, userID uuid.UUID) (err error) {
+	return s.billingUnfreezeUser(ctx, userID, false)
+}
+
+// AdminBillingUnfreezeUser reverses the billing freeze placed on the user specified by the given ID.
+// This is an admin-initiated unfreeze.
+func (s *AccountFreezeService) AdminBillingUnfreezeUser(ctx context.Context, userID uuid.UUID) (err error) {
+	return s.billingUnfreezeUser(ctx, userID, true)
+}
+
+// billingWarnUser is a private implementation function that adds a billing warning event to the freeze events table.
+// The adminInitiated parameter indicates whether this warning was initiated by an admin or automatically by the satellite.
+func (s *AccountFreezeService) billingWarnUser(ctx context.Context, userID uuid.UUID, adminInitiated bool) (err error) {
 	defer mon.Task()(&ctx)(&err)
 	err = s.store.WithTx(ctx, func(ctx context.Context, tx DBTx) error {
 		user, err := tx.Users().Get(ctx, userID)
@@ -339,7 +371,9 @@ func (s *AccountFreezeService) BillingWarnUser(ctx context.Context, userID uuid.
 			return ErrAccountFreeze.Wrap(err)
 		}
 
+		// Track using both the old specific method and the new generic method
 		s.tracker.TrackAccountFreezeWarning(userID, user.Email, user.HubspotObjectID)
+		s.tracker.TrackGenericFreeze(userID, user.Email, BillingWarning.String(), adminInitiated, user.HubspotObjectID)
 
 		return nil
 	})
@@ -347,8 +381,21 @@ func (s *AccountFreezeService) BillingWarnUser(ctx context.Context, userID uuid.
 	return err
 }
 
-// BillingUnWarnUser reverses the warning placed on the user specified by the given ID.
-func (s *AccountFreezeService) BillingUnWarnUser(ctx context.Context, userID uuid.UUID) (err error) {
+// BillingWarnUser adds a billing warning event to the freeze events table.
+// This is an automatically triggered warning (not admin-initiated).
+func (s *AccountFreezeService) BillingWarnUser(ctx context.Context, userID uuid.UUID) (err error) {
+	return s.billingWarnUser(ctx, userID, false)
+}
+
+// AdminBillingWarnUser adds a billing warning event to the freeze events table.
+// This is an admin-initiated warning.
+func (s *AccountFreezeService) AdminBillingWarnUser(ctx context.Context, userID uuid.UUID) (err error) {
+	return s.billingWarnUser(ctx, userID, true)
+}
+
+// billingUnWarnUser is a private implementation function that reverses the warning placed on the user specified by the given ID.
+// The adminInitiated parameter indicates whether this unwarning was initiated by an admin or automatically by the satellite.
+func (s *AccountFreezeService) billingUnWarnUser(ctx context.Context, userID uuid.UUID, adminInitiated bool) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	err = s.store.WithTx(ctx, func(ctx context.Context, tx DBTx) error {
@@ -367,7 +414,9 @@ func (s *AccountFreezeService) BillingUnWarnUser(ctx context.Context, userID uui
 			return err
 		}
 
+		// Track using both the old specific method and the new generic method
 		s.tracker.TrackAccountUnwarned(userID, user.Email, user.HubspotObjectID)
+		s.tracker.TrackGenericUnfreeze(userID, user.Email, BillingWarning.String(), adminInitiated, user.HubspotObjectID)
 
 		return nil
 	})
@@ -375,7 +424,20 @@ func (s *AccountFreezeService) BillingUnWarnUser(ctx context.Context, userID uui
 	return err
 }
 
+// BillingUnWarnUser reverses the warning placed on the user specified by the given ID.
+// This is an automatically triggered unwarn (not admin-initiated).
+func (s *AccountFreezeService) BillingUnWarnUser(ctx context.Context, userID uuid.UUID) (err error) {
+	return s.billingUnWarnUser(ctx, userID, false)
+}
+
+// AdminBillingUnWarnUser reverses the warning placed on the user specified by the given ID.
+// This is an admin-initiated unwarn.
+func (s *AccountFreezeService) AdminBillingUnWarnUser(ctx context.Context, userID uuid.UUID) (err error) {
+	return s.billingUnWarnUser(ctx, userID, true)
+}
+
 // ViolationFreezeUser freezes the user specified by the given ID due to ToS violation.
+// This is always an admin-initiated action.
 func (s *AccountFreezeService) ViolationFreezeUser(ctx context.Context, userID uuid.UUID) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
@@ -435,6 +497,9 @@ func (s *AccountFreezeService) ViolationFreezeUser(ctx context.Context, userID u
 			}
 		}
 
+		// Track the violation freeze using the generic method - always admin initiated
+		s.tracker.TrackGenericFreeze(userID, user.Email, ViolationFreeze.String(), true, user.HubspotObjectID)
+
 		return nil
 	})
 
@@ -442,10 +507,16 @@ func (s *AccountFreezeService) ViolationFreezeUser(ctx context.Context, userID u
 }
 
 // ViolationUnfreezeUser reverses the violation freeze placed on the user specified by the given ID.
+// This is always an admin-initiated action.
 func (s *AccountFreezeService) ViolationUnfreezeUser(ctx context.Context, userID uuid.UUID) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	err = s.store.WithTx(ctx, func(ctx context.Context, tx DBTx) error {
+		user, err := tx.Users().Get(ctx, userID)
+		if err != nil {
+			return err
+		}
+
 		event, err := tx.AccountFreezeEvents().Get(ctx, userID, ViolationFreeze)
 		if errors.Is(err, sql.ErrNoRows) {
 			return ErrNoFreezeStatus
@@ -481,6 +552,9 @@ func (s *AccountFreezeService) ViolationUnfreezeUser(ctx context.Context, userID
 			return err
 		}
 
+		// Track the violation unfreeze using the generic method - always admin initiated
+		s.tracker.TrackGenericUnfreeze(userID, user.Email, ViolationFreeze.String(), true, user.HubspotObjectID)
+
 		return nil
 	})
 
@@ -488,6 +562,7 @@ func (s *AccountFreezeService) ViolationUnfreezeUser(ctx context.Context, userID
 }
 
 // LegalFreezeUser freezes the user specified by the given ID for legal review.
+// This is always an admin-initiated action.
 func (s *AccountFreezeService) LegalFreezeUser(ctx context.Context, userID uuid.UUID) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
@@ -553,6 +628,9 @@ func (s *AccountFreezeService) LegalFreezeUser(ctx context.Context, userID uuid.
 			return err
 		}
 
+		// Track the legal freeze using the generic method - always admin initiated
+		s.tracker.TrackGenericFreeze(userID, user.Email, LegalFreeze.String(), true, user.HubspotObjectID)
+
 		return nil
 	})
 
@@ -560,6 +638,7 @@ func (s *AccountFreezeService) LegalFreezeUser(ctx context.Context, userID uuid.
 }
 
 // LegalUnfreezeUser reverses the legal freeze placed on the user specified by the given ID.
+// This is always an admin-initiated action.
 func (s *AccountFreezeService) LegalUnfreezeUser(ctx context.Context, userID uuid.UUID) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
@@ -606,6 +685,9 @@ func (s *AccountFreezeService) LegalUnfreezeUser(ctx context.Context, userID uui
 			}
 		}
 
+		// Track the legal unfreeze using the generic method - always admin initiated
+		s.tracker.TrackGenericUnfreeze(userID, user.Email, LegalFreeze.String(), true, user.HubspotObjectID)
+
 		return nil
 	})
 
@@ -613,8 +695,14 @@ func (s *AccountFreezeService) LegalUnfreezeUser(ctx context.Context, userID uui
 }
 
 // DelayedBotFreezeUser sets the user specified by the given ID for bot review with some delay.
+// This is automatically triggered by the satellite's bot detection, if enabled.
 func (s *AccountFreezeService) DelayedBotFreezeUser(ctx context.Context, userID uuid.UUID, days *int) (err error) {
 	defer mon.Task()(&ctx)(&err)
+
+	user, err := s.store.Users().Get(ctx, userID)
+	if err != nil {
+		return ErrAccountFreeze.Wrap(err)
+	}
 
 	_, err = s.store.AccountFreezeEvents().Upsert(ctx, &AccountFreezeEvent{
 		UserID:             userID,
@@ -625,10 +713,14 @@ func (s *AccountFreezeService) DelayedBotFreezeUser(ctx context.Context, userID 
 		return ErrAccountFreeze.Wrap(err)
 	}
 
+	// Track the delayed bot freeze using the generic method - not admin initiated
+	s.tracker.TrackGenericFreeze(userID, user.Email, DelayedBotFreeze.String(), false, user.HubspotObjectID)
+
 	return nil
 }
 
 // BotFreezeUser freezes the user specified by the given ID for bot review.
+// This is an automatically triggered action, not admin-initiated.
 func (s *AccountFreezeService) BotFreezeUser(ctx context.Context, userID uuid.UUID) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
@@ -690,6 +782,9 @@ func (s *AccountFreezeService) BotFreezeUser(ctx context.Context, userID uuid.UU
 			return err
 		}
 
+		// Track the bot freeze using the generic method
+		s.tracker.TrackGenericFreeze(userID, user.Email, BotFreeze.String(), false, user.HubspotObjectID)
+
 		return nil
 	})
 
@@ -697,10 +792,16 @@ func (s *AccountFreezeService) BotFreezeUser(ctx context.Context, userID uuid.UU
 }
 
 // BotUnfreezeUser reverses the bot freeze placed on the user specified by the given ID.
+// This is an automatically triggered action, not admin-initiated.
 func (s *AccountFreezeService) BotUnfreezeUser(ctx context.Context, userID uuid.UUID) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	err = s.store.WithTx(ctx, func(ctx context.Context, tx DBTx) error {
+		user, err := tx.Users().Get(ctx, userID)
+		if err != nil {
+			return err
+		}
+
 		event, err := tx.AccountFreezeEvents().Get(ctx, userID, BotFreeze)
 		if err != nil {
 			if errors.Is(err, sql.ErrNoRows) {
@@ -737,14 +838,18 @@ func (s *AccountFreezeService) BotUnfreezeUser(ctx context.Context, userID uuid.
 			return err
 		}
 
+		// Track the bot unfreeze using the generic method (this is always admin-initiated)
+		s.tracker.TrackGenericUnfreeze(userID, user.Email, BotFreeze.String(), true, user.HubspotObjectID)
+
 		return nil
 	})
 
 	return ErrAccountFreeze.Wrap(err)
 }
 
-// TrialExpirationFreezeUser freezes the user specified by the given ID due to expired free trial.
-func (s *AccountFreezeService) TrialExpirationFreezeUser(ctx context.Context, userID uuid.UUID) (err error) {
+// trialExpirationFreezeUser is a private implementation function that freezes the user specified by the given ID due to expired free trial.
+// The adminInitiated parameter indicates whether this freeze was initiated by an admin or automatically by the satellite.
+func (s *AccountFreezeService) trialExpirationFreezeUser(ctx context.Context, userID uuid.UUID, adminInitiated bool) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	err = s.store.WithTx(ctx, func(ctx context.Context, tx DBTx) error {
@@ -796,15 +901,31 @@ func (s *AccountFreezeService) TrialExpirationFreezeUser(ctx context.Context, us
 			return err
 		}
 
+		// Track the trial expiration freeze using the generic method
+		s.tracker.TrackGenericFreeze(userID, user.Email, TrialExpirationFreeze.String(), adminInitiated, user.HubspotObjectID)
+
 		return nil
 	})
 
 	return ErrAccountFreeze.Wrap(err)
 }
 
-// TrialExpirationUnfreezeUser reverses the trial expiration freeze placed on the user specified by the given ID.
+// TrialExpirationFreezeUser freezes the user specified by the given ID due to expired free trial.
+// This is an automatically triggered freeze (not admin-initiated).
+func (s *AccountFreezeService) TrialExpirationFreezeUser(ctx context.Context, userID uuid.UUID) (err error) {
+	return s.trialExpirationFreezeUser(ctx, userID, false)
+}
+
+// AdminTrialExpirationFreezeUser freezes the user specified by the given ID due to expired free trial.
+// This is an admin-initiated freeze.
+func (s *AccountFreezeService) AdminTrialExpirationFreezeUser(ctx context.Context, userID uuid.UUID) (err error) {
+	return s.trialExpirationFreezeUser(ctx, userID, true)
+}
+
+// trialExpirationUnfreezeUser is a private implementation function that reverses the trial expiration freeze placed on the user specified by the given ID.
 // It potentially upgrades a user, setting new limits.
-func (s *AccountFreezeService) TrialExpirationUnfreezeUser(ctx context.Context, userID uuid.UUID) (err error) {
+// The adminInitiated parameter indicates whether this unfreeze was initiated by an admin or automatically by the satellite.
+func (s *AccountFreezeService) trialExpirationUnfreezeUser(ctx context.Context, userID uuid.UUID, adminInitiated bool) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	err = s.store.WithTx(ctx, func(ctx context.Context, tx DBTx) error {
@@ -850,10 +971,27 @@ func (s *AccountFreezeService) TrialExpirationUnfreezeUser(ctx context.Context, 
 			}
 		}
 
+		// Track the trial expiration unfreeze using the generic method
+		s.tracker.TrackGenericUnfreeze(userID, user.Email, TrialExpirationFreeze.String(), adminInitiated, user.HubspotObjectID)
+
 		return nil
 	})
 
 	return ErrAccountFreeze.Wrap(err)
+}
+
+// TrialExpirationUnfreezeUser reverses the trial expiration freeze placed on the user specified by the given ID.
+// It potentially upgrades a user, setting new limits.
+// This is an automatically triggered unfreeze (not admin-initiated).
+func (s *AccountFreezeService) TrialExpirationUnfreezeUser(ctx context.Context, userID uuid.UUID) (err error) {
+	return s.trialExpirationUnfreezeUser(ctx, userID, false)
+}
+
+// AdminTrialExpirationUnfreezeUser reverses the trial expiration freeze placed on the user specified by the given ID.
+// It potentially upgrades a user, setting new limits.
+// This is an admin-initiated unfreeze.
+func (s *AccountFreezeService) AdminTrialExpirationUnfreezeUser(ctx context.Context, userID uuid.UUID) (err error) {
+	return s.trialExpirationUnfreezeUser(ctx, userID, true)
 }
 
 // Get returns an event of a specific type for a user.

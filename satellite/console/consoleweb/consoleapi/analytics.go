@@ -185,6 +185,54 @@ func (a *Analytics) JoinCunoFSBeta(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusOK)
 }
 
+// RequestObjectMountConsultation sends a consultation form data event to hubspot.
+func (a *Analytics) RequestObjectMountConsultation(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	var err error
+	defer mon.Task()(&ctx)(&err)
+
+	var data analytics.TrackObjectMountConsultationFields
+	err = json.NewDecoder(r.Body).Decode(&data)
+	if err != nil {
+		a.serveJSONError(ctx, w, http.StatusInternalServerError, err)
+	}
+
+	if err = a.service.ValidateFreeFormFieldLengths(
+		&data.FirstName, &data.LastName, &data.JobTitle, &data.CompanyName, &data.PhoneNumber,
+	); err != nil {
+		a.serveJSONError(ctx, w, http.StatusBadRequest, err)
+		return
+	}
+
+	if err = a.service.ValidateLongFormInputLengths(&data.CurrentStorageSolution, &data.KeyChallenges, &data.AdditionalInformation); err != nil {
+		a.serveJSONError(ctx, w, http.StatusBadRequest, ErrAnalyticsAPI.New("long-form input field exceeds max length"))
+		return
+	}
+
+	err = a.service.RequestObjectMountConsultation(ctx, data)
+	if err != nil {
+		if console.ErrUnauthorized.Has(err) {
+			a.serveJSONError(ctx, w, http.StatusUnauthorized, err)
+			return
+		}
+
+		if console.ErrBotUser.Has(err) {
+			a.serveJSONError(ctx, w, http.StatusForbidden, err)
+			return
+		}
+
+		if console.ErrConflict.Has(err) {
+			a.serveJSONError(ctx, w, http.StatusConflict, err)
+			return
+		}
+
+		a.serveJSONError(ctx, w, http.StatusInternalServerError, err)
+		return
+	}
+
+	w.WriteHeader(http.StatusOK)
+}
+
 // AccountObjectCreated handles the webhook from hubspot when an account object is created.
 func (a *Analytics) AccountObjectCreated(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()

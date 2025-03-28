@@ -17,3 +17,19 @@ export type JoinCunoFSBetaForm = {
     currentPainPoints: string;
     specificTasks: string;
 };
+
+export type ObjectMountConsultationForm = {
+    companyName: string;
+    firstName: string;
+    lastName: string;
+    jobTitle: string;
+    phoneNumber: string;
+    industryUseCase: string;
+    companySize: string;
+    currentStorageSolution: string;
+    keyChallenges: string;
+    specificInterests: string;
+    storageNeeds: string;
+    implementationTimeline: string;
+    additionalInformation: string;
+};

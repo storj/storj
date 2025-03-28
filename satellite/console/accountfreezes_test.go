@@ -187,6 +187,7 @@ func TestAccountBillingFreeze(t *testing.T) {
 		require.Error(t, service.BillingFreezeUser(ctx, user.ID))
 		require.NoError(t, service.LegalUnfreezeUser(ctx, user.ID))
 
+		// Test automatic billing freeze
 		require.NoError(t, service.BillingFreezeUser(ctx, user.ID))
 
 		user, err = usersDB.Get(ctx, user.ID)
@@ -213,6 +214,14 @@ func TestAccountBillingFreeze(t *testing.T) {
 		frozen, err = service.IsUserBillingFrozen(ctx, user.ID)
 		require.NoError(t, err)
 		require.True(t, frozen)
+
+		require.NoError(t, service.BillingUnfreezeUser(ctx, user.ID))
+		frozen, err = service.IsUserBillingFrozen(ctx, user.ID)
+		require.NoError(t, err)
+		require.False(t, frozen)
+
+		// Test admin billing freeze
+		require.NoError(t, service.AdminBillingFreezeUser(ctx, user.ID))
 
 		freezes, err := service.GetAll(ctx, user.ID)
 		require.NoError(t, err)

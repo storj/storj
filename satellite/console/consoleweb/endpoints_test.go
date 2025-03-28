@@ -165,11 +165,12 @@ func TestAuth(t *testing.T) {
 			}
 
 			noticeDismissal := console.NoticeDismissal{
-				FileGuide:                false,
-				ServerSideEncryption:     false,
-				PartnerUpgradeBanner:     false,
-				ProjectMembersPassphrase: false,
-				UploadOverwriteWarning:   false,
+				FileGuide:                        false,
+				ServerSideEncryption:             false,
+				PartnerUpgradeBanner:             false,
+				ProjectMembersPassphrase:         false,
+				UploadOverwriteWarning:           false,
+				ObjectMountConsultationRequested: false,
 			}
 
 			testGetSettings(expectedSettings{
@@ -188,6 +189,7 @@ func TestAuth(t *testing.T) {
 			noticeDismissal.PartnerUpgradeBanner = true
 			noticeDismissal.ProjectMembersPassphrase = true
 			noticeDismissal.UploadOverwriteWarning = true
+			noticeDismissal.ObjectMountConsultationRequested = true
 			resp, _ := test.request(http.MethodPatch, "/auth/account/settings",
 				test.toJSON(map[string]interface{}{
 					"sessionDuration":  duration,
@@ -196,11 +198,12 @@ func TestAuth(t *testing.T) {
 					"passphrasePrompt": false,
 					"onboardingStep":   step,
 					"noticeDismissal": map[string]bool{
-						"fileGuide":                noticeDismissal.FileGuide,
-						"serverSideEncryption":     noticeDismissal.ServerSideEncryption,
-						"partnerUpgradeBanner":     noticeDismissal.PartnerUpgradeBanner,
-						"projectMembersPassphrase": noticeDismissal.ProjectMembersPassphrase,
-						"uploadOverwriteWarning":   noticeDismissal.UploadOverwriteWarning,
+						"fileGuide":                        noticeDismissal.FileGuide,
+						"serverSideEncryption":             noticeDismissal.ServerSideEncryption,
+						"partnerUpgradeBanner":             noticeDismissal.PartnerUpgradeBanner,
+						"projectMembersPassphrase":         noticeDismissal.ProjectMembersPassphrase,
+						"uploadOverwriteWarning":           noticeDismissal.UploadOverwriteWarning,
+						"objectMountConsultationRequested": noticeDismissal.ObjectMountConsultationRequested,
 					},
 				}))
 
