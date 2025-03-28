@@ -34,6 +34,7 @@ func (s Segment) PieceSize() int64 {
 func (s Segment) MarshalLogObject(enc zapcore.ObjectEncoder) error {
 	enc.AddString("StreamID", s.StreamID.String())
 	enc.AddUint64("Position", s.Position.Encode())
+	enc.AddUint16("Placement", uint16(s.Placement))
 	return nil
 }
 
