@@ -224,7 +224,7 @@ func runWithParams[A any](ctx context.Context, ball *Ball, factory interface{}, 
 			continue
 		}
 
-		dep, ok := lookupByType(ball, ft.In(i))
+		dep, ok := LookupByType(ball, ft.In(i))
 		if ok {
 			if dep.instance == nil {
 				// we enable injection of nil value, if it's explicitly marked with Nullable tag.
@@ -353,7 +353,7 @@ func Provide[A any](ball *Ball, factory interface{}, options ...any) {
 	})
 
 	t := typeOf[A]()
-	component, _ := lookupByType(ball, t)
+	component, _ := LookupByType(ball, t)
 
 	// auto-detect Run method for Run stage
 	runF, found := t.MethodByName("Run")
@@ -478,7 +478,8 @@ func MustLookupComponent[T any](ball *Ball) *Component {
 	return c
 }
 
-func lookupByType(ball *Ball, tzpe reflect.Type) (*Component, bool) {
+// LookupByType returns with the registered component instance (or nil).
+func LookupByType(ball *Ball, tzpe reflect.Type) (*Component, bool) {
 	for _, c := range ball.registry {
 		if c.target == tzpe {
 			return c, true
@@ -488,7 +489,7 @@ func lookupByType(ball *Ball, tzpe reflect.Type) (*Component, bool) {
 }
 
 func mustLookupByType(ball *Ball, tzpe reflect.Type) *Component {
-	c, found := lookupByType(ball, tzpe)
+	c, found := LookupByType(ball, tzpe)
 	if !found {
 		panic("component is missing: " + tzpe.String())
 	}

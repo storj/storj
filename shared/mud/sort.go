@@ -50,7 +50,7 @@ func sortedComponents(ball *Ball) (sorted []*Component) {
 		s := next[0]
 		next = next[1:]
 
-		component, found := lookupByType(ball, s)
+		component, found := LookupByType(ball, s)
 		if !found {
 			panic("component is not registered " + s.String())
 		}

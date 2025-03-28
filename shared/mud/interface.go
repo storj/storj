@@ -37,7 +37,7 @@ func RegisterInterfaceImplementation[BASE any, DEP any](ball *Ball) {
 			var ret BASE
 			return ret, nil
 		}
-		c, _ := lookupByType(ball, base.requirements[0])
+		c, _ := LookupByType(ball, base.requirements[0])
 		if c.instance == nil {
 			panic(fmt.Sprintf("The registered depdenency is not yet initialized %v->%v", typeOf[BASE](), typeOf[DEP]()))
 		}
