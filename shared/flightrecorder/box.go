@@ -69,7 +69,7 @@ func (b *Box) DumpAndReset(mergeEventDumps bool) {
 		var allEvents []Event
 		for _, buf := range *oldBuffers {
 			if buf != nil {
-				allEvents = append(allEvents, buf.Dump()...)
+				allEvents = buf.DumpTo(allEvents)
 			}
 		}
 

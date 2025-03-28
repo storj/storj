@@ -4,7 +4,9 @@
 package flightrecorder_test
 
 import (
+	"fmt"
 	"sync"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -153,6 +155,149 @@ func TestCircularBuffer(t *testing.T) {
 
 		for i := 1; i < len(finalEvents); i++ {
 			require.LessOrEqual(t, finalEvents[i-1].Timestamp, finalEvents[i].Timestamp)
+		}
+	})
+}
+
+func BenchmarkCircularBuffer(b *testing.B) {
+	sizes := []int{200, 1000, 2000}
+
+	b.Run("enqueue sequential", func(b *testing.B) {
+		for _, size := range sizes {
+			b.Run(fmt.Sprintf("capacity=%d", size), func(b *testing.B) {
+				cb := flightrecorder.NewCircularBuffer(size)
+				evt := flightrecorder.NewEvent(flightrecorder.EventTypeDB, 0)
+
+				b.ResetTimer()
+				for i := 0; i < b.N; i++ {
+					cb.Enqueue(evt)
+				}
+			})
+		}
+	})
+
+	b.Run("enqueue parallel", func(b *testing.B) {
+		for _, size := range sizes {
+			b.Run(fmt.Sprintf("capacity=%d", size), func(b *testing.B) {
+				cb := flightrecorder.NewCircularBuffer(size)
+				evt := flightrecorder.NewEvent(flightrecorder.EventTypeDB, 0)
+
+				b.RunParallel(func(pb *testing.PB) {
+					for pb.Next() {
+						cb.Enqueue(evt)
+					}
+				})
+			})
+		}
+	})
+
+	b.Run("dump empty", func(b *testing.B) {
+		for _, size := range sizes {
+			b.Run(fmt.Sprintf("capacity=%d", size), func(b *testing.B) {
+				cb := flightrecorder.NewCircularBuffer(size)
+
+				dst := make([]flightrecorder.Event, 0, size)
+
+				b.ResetTimer()
+				for i := 0; i < b.N; i++ {
+					dst = cb.DumpTo(dst[:0])
+				}
+			})
+		}
+	})
+
+	b.Run("dump full", func(b *testing.B) {
+		for _, size := range sizes {
+			b.Run(fmt.Sprintf("capacity=%d", size), func(b *testing.B) {
+				cb := flightrecorder.NewCircularBuffer(size)
+				evt := flightrecorder.NewEvent(flightrecorder.EventTypeDB, 0)
+
+				for i := 0; i < size; i++ {
+					cb.Enqueue(evt)
+				}
+
+				dst := make([]flightrecorder.Event, 0, size)
+
+				b.ResetTimer()
+				for i := 0; i < b.N; i++ {
+					dst = cb.DumpTo(dst[:0])
+				}
+			})
+		}
+	})
+
+	b.Run("dump half full", func(b *testing.B) {
+		for _, size := range sizes {
+			b.Run(fmt.Sprintf("capacity=%d", size), func(b *testing.B) {
+				cb := flightrecorder.NewCircularBuffer(size)
+				evt := flightrecorder.NewEvent(flightrecorder.EventTypeDB, 0)
+
+				for i := 0; i < size/2; i++ {
+					cb.Enqueue(evt)
+				}
+
+				dst := make([]flightrecorder.Event, 0, size)
+
+				b.ResetTimer()
+				for i := 0; i < b.N; i++ {
+					dst = cb.DumpTo(dst[:0])
+				}
+			})
+		}
+	})
+
+	b.Run("enqueue/dump concurrent", func(b *testing.B) {
+		for _, size := range sizes {
+			b.Run(fmt.Sprintf("capacity=%d", size), func(b *testing.B) {
+				cb := flightrecorder.NewCircularBuffer(size)
+				evt := flightrecorder.NewEvent(flightrecorder.EventTypeDB, 0)
+				var counter uint32
+
+				b.ResetTimer()
+				b.RunParallel(func(pb *testing.PB) {
+					// Half of goroutines enqueue, half dump.
+					isEnqueuer := atomic.AddUint32(&counter, 1)%2 == 0
+
+					dst := make([]flightrecorder.Event, 0, size)
+
+					for pb.Next() {
+						if isEnqueuer {
+							cb.Enqueue(evt)
+						} else {
+							cb.DumpTo(dst[:0])
+						}
+					}
+				})
+			})
+		}
+	})
+
+	b.Run("high contention enqueue/dump", func(b *testing.B) {
+		capacity := 10
+		cb := flightrecorder.NewCircularBuffer(capacity)
+		evt := flightrecorder.NewEvent(flightrecorder.EventTypeDB, 0)
+
+		numWorkers := 8
+		opsPerWorker := 1000
+
+		dst := make([]flightrecorder.Event, 0, capacity)
+
+		b.ResetTimer()
+		for i := 0; i < b.N; i++ {
+			var wg sync.WaitGroup
+			wg.Add(numWorkers)
+
+			for k := 0; k < numWorkers; k++ {
+				go func() {
+					defer wg.Done()
+
+					for n := 0; n < opsPerWorker; n++ {
+						cb.Enqueue(evt)
+						cb.DumpTo(dst[:0])
+					}
+				}()
+			}
+			wg.Wait()
 		}
 	})
 }
