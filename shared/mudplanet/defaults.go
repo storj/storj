@@ -73,20 +73,31 @@ func injectDefault(t *testing.T, val reflect.Value, workDir string) {
 			if defaultValue == "" {
 				continue
 			}
+			defaultValue = strings.ReplaceAll(defaultValue, "$HOST", "127.0.0.1")
+			defaultValue = strings.ReplaceAll(defaultValue, "$CONFDIR", workDir)
+			defaultValue = strings.ReplaceAll(defaultValue, "${CONFDIR}", workDir)
+			defaultValue = strings.ReplaceAll(defaultValue, "$TESTINTERVAL", "30s")
 			switch field.Kind() {
 			case reflect.String:
-				defaultValue = strings.ReplaceAll(defaultValue, "$HOST", "127.0.0.1")
-				defaultValue = strings.ReplaceAll(defaultValue, "$CONFDIR", workDir)
-				defaultValue = strings.ReplaceAll(defaultValue, "${CONFDIR}", workDir)
 				field.SetString(defaultValue)
+			case reflect.Int:
+				iv, err := strconv.Atoi(defaultValue)
+				require.NoError(t, err, "Error in default configuration value injection for (%v).%v", val.Type(), fieldName)
+				field.Set(reflect.ValueOf(iv))
+			case reflect.Int64:
+				if field.Type() == reflect.TypeOf(time.Duration(0)) {
+					duration, err := time.ParseDuration(defaultValue)
+					require.NoError(t, err, "Error in default configuration value injection for (%v).%v", val.Type(), fieldName)
+					field.Set(reflect.ValueOf(duration))
+				} else {
+					iv, err := strconv.Atoi(defaultValue)
+					require.NoError(t, err, "Error in default configuration value injection for (%v).%v", val.Type(), fieldName)
+					field.Set(reflect.ValueOf(int64(iv)))
+				}
 			case reflect.TypeOf(time.Duration(1)).Kind():
 				duration, err := time.ParseDuration(defaultValue)
-				require.NoError(t, err)
+				require.NoError(t, err, "Error in default configuration value injection for (%v).%v", val.Type(), fieldName)
 				field.Set(reflect.ValueOf(duration))
-			case reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64:
-				iv, err := strconv.Atoi(defaultValue)
-				require.NoError(t, err)
-				field.Set(reflect.ValueOf(iv))
 			case reflect.Bool:
 				if strings.ToLower(defaultValue) == "true" {
 					field.SetBool(true)
@@ -95,7 +106,6 @@ func injectDefault(t *testing.T, val reflect.Value, workDir string) {
 				float, err := strconv.ParseFloat(defaultValue, 64)
 				require.NoError(t, err)
 				field.SetFloat(float)
-
 			default:
 				require.Fail(t, fmt.Sprintf("Unsupported type for default configuration value injection: %s (for %v)", field.Kind(), val.Type()))
 			}

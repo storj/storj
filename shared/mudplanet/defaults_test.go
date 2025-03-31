@@ -31,6 +31,7 @@ func (c *CustomFlag) Type() string {
 type TestConfig struct {
 	StringField      string        `default:"test string"`
 	IntField         int           `default:"42"`
+	Int64Field       int64         `default:"10000000"`
 	BoolField        bool          `default:"true"`
 	DurationField    time.Duration `default:"5m"`
 	FloatField       float64       `default:"3.14"`
@@ -62,6 +63,7 @@ func TestInjectDefault(t *testing.T) {
 	// Verify all fields have correct values
 	assert.Equal(t, "test string", cfg.StringField)
 	assert.Equal(t, 42, cfg.IntField)
+	assert.Equal(t, int64(10000000), cfg.Int64Field)
 	assert.Equal(t, true, cfg.BoolField)
 	assert.Equal(t, 5*time.Minute, cfg.DurationField)
 	assert.Equal(t, 3.14, cfg.FloatField)
