@@ -133,6 +133,12 @@ func OpenHashtbl(ctx context.Context, fh *os.File) (_ *HashTbl, err error) {
 		return nil, Error.New("invalid kind: %d", header.Kind)
 	}
 
+	// zero is allowed for backward compatibility. but if it's specified, it had better match the
+	// file size or we got truncated or something.
+	if header.LogSlots != 0 && header.LogSlots != logSlots {
+		return nil, Error.New("logSlots mismatch: header=%d file=%d", header.LogSlots, logSlots)
+	}
+
 	h := &HashTbl{
 		fh:       fh,
 		logSlots: logSlots,
