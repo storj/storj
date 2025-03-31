@@ -191,7 +191,9 @@ func NewSegmentRepairer(
 func (repairer *SegmentRepairer) Repair(ctx context.Context, queueSegment queue.InjuredSegment) (shouldDelete bool, err error) {
 	defer mon.Task()(&ctx, queueSegment.StreamID.String(), queueSegment.Position.Encode())(&err)
 
-	log := repairer.log.With(zap.Stringer("Stream ID", queueSegment.StreamID), zap.Uint64("Position", queueSegment.Position.Encode()))
+	log := repairer.log.With(zap.Stringer("Stream ID", queueSegment.StreamID), zap.Uint64("Position", queueSegment.Position.Encode()),
+		zap.Uint16("Placement", uint16(queueSegment.Placement)))
+
 	segment, err := repairer.metabase.GetSegmentByPosition(ctx, metabase.GetSegmentByPosition{
 		StreamID: queueSegment.StreamID,
 		Position: queueSegment.Position,
