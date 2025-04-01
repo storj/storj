@@ -32,10 +32,11 @@
                     Setup
                 </v-btn>
                 <v-btn
+                    v-if="app && app.docs"
                     variant="outlined"
                     color="default"
                     class="ml-2"
-                    :href="app?.docs ?? 'https://storj.dev/learn/concepts/s3-compatibility'"
+                    :href="app.docs"
                     :append-icon="SquareArrowOutUpRight"
                     target="_blank"
                     rel="noopener noreferrer"
