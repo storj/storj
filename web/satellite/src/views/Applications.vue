@@ -160,7 +160,7 @@ const filteredApps = computed<Application[]>(() => {
     if (selectedChip.value === AppCategory.All) {
         result = [...applications];
     } else {
-        result = applications.filter(app => selectedChip.value === app.category);
+        result = applications.filter(app => app.categories.includes(selectedChip.value));
     }
 
     result.sort((a, b) => {
