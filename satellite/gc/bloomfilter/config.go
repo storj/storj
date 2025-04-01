@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"storj.io/common/memory"
+	"storj.io/common/storj"
 )
 
 // Config contains configurable values for garbage collection.
@@ -26,4 +27,7 @@ type Config struct {
 	Bucket       string        `help:"Bucket which will be used to upload bloom filters" default:"" testDefault:"gc-queue"` // TODO do we need full location?
 	ZipBatchSize int           `help:"how many bloom filters will be packed in a single zip" default:"40" testDefault:"2"`
 	ExpireIn     time.Duration `help:"how long bloom filters will remain in the bucket for gc/sender to consume before being automatically deleted" default:"336h"`
+
+	CollectNodesPieceIDs    storj.NodeIDList `help:"list of node IDs for which we will collect raw list of piece IDs" default:""`
+	NodesPieceIDsBufferSize int              `help:"buffer size of piece IDs before will be uploaded" default:"1000000" devDefault:"100"`
 }
