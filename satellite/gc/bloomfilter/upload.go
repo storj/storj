@@ -5,7 +5,10 @@ package bloomfilter
 
 import (
 	"archive/zip"
+	"bufio"
 	"context"
+	"errors"
+	"fmt"
 	"strconv"
 	"time"
 
@@ -213,4 +216,58 @@ func (bfu *Upload) cleanup(ctx context.Context, project *uplink.Project, prefix 
 	}
 
 	return iterator.Err()
+}
+
+// UploadPieceIDs uploads piece IDs to the bucket.
+func (bfu *Upload) UploadPieceIDs(ctx context.Context, nodeID storj.NodeID, pieceIDs []storj.PieceID,
+	startTime time.Time, index int) (err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	if len(pieceIDs) == 0 {
+		return nil
+	}
+
+	accessGrant, err := uplink.ParseAccess(bfu.config.AccessGrant)
+	if err != nil {
+		return err
+	}
+
+	project, err := uplink.OpenProject(ctx, accessGrant)
+	if err != nil {
+		return err
+	}
+	defer func() {
+		err = errs.Combine(err, project.Close())
+	}()
+
+	_, err = project.EnsureBucket(ctx, bfu.config.Bucket)
+	if err != nil {
+		return err
+	}
+
+	objectKey := fmt.Sprintf("piece-ids/%s/start-time-%s/ids-%d-%d", nodeID.String(), startTime.Format("2006-01-02"), time.Now().Unix(), index)
+	expirationTime := time.Now().Add(bfu.config.ExpireIn)
+	upload, err := project.UploadObject(ctx, bfu.config.Bucket, objectKey, &uplink.UploadOptions{
+		Expires: expirationTime,
+	})
+	if err != nil {
+		return err
+	}
+	defer func() {
+		abortErr := upload.Abort()
+		if err != nil && !errors.Is(err, uplink.ErrUploadDone) {
+			err = errs.Combine(err, abortErr)
+		}
+	}()
+
+	// TODO consider compressing ids
+	writer := bufio.NewWriter(upload)
+	for _, pieceID := range pieceIDs {
+		_, err := writer.WriteString(pieceID.String() + "\n")
+		if err != nil {
+			return err
+		}
+	}
+
+	return upload.Commit()
 }

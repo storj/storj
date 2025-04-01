@@ -815,6 +815,9 @@ contact.external-address: ""
 # Bucket which will be used to upload bloom filters
 # garbage-collection-bf.bucket: ""
 
+# list of node IDs for which we will collect raw list of piece IDs
+# garbage-collection-bf.collect-nodes-piece-i-ds: ""
+
 # do not include expired pieces into bloom filter
 # garbage-collection-bf.exclude-expired-pieces: true
 
@@ -829,6 +832,9 @@ contact.external-address: ""
 
 # maximum size of a single bloom filter
 # garbage-collection-bf.max-bloom-filter-size: 2.00 MB
+
+# buffer size of piece IDs before will be uploaded
+# garbage-collection-bf.nodes-piece-i-ds-buffer-size: 1000000
 
 # set if garbage collection bloom filter process should only run once then exit
 # garbage-collection-bf.run-once: false

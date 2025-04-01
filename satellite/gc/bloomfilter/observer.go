@@ -5,6 +5,7 @@ package bloomfilter
 
 import (
 	"context"
+	"math/rand"
 	"time"
 
 	"github.com/spacemonkeygo/monkit/v3"
@@ -109,7 +110,7 @@ func (obs *Observer) Start(ctx context.Context, startTime time.Time) (err error)
 func (obs *Observer) Fork(ctx context.Context) (_ rangedloop.Partial, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	return newObserverFork(obs.log.Named("gc observer"), obs.config, obs.lastPieceCounts, obs.seed, obs.startTime, obs.forcedTableSize), nil
+	return newObserverFork(obs.log.Named("gc observer"), obs.upload, obs.config, obs.lastPieceCounts, obs.seed, obs.startTime, obs.forcedTableSize), nil
 }
 
 // Join merges the bloom filters gathered by each Partial.
@@ -149,6 +150,13 @@ func (obs *Observer) Join(ctx context.Context, partial rangedloop.Partial) (err 
 	obs.expiredCount += pieceTracker.expiredCount
 	obs.remoteCount += pieceTracker.remoteCount
 
+	pieceTracker.pieceIDs.Range(func(nodeID storj.NodeID, pieceIDs []storj.PieceID) bool {
+		if err := pieceTracker.upload.UploadPieceIDs(ctx, nodeID, pieceIDs, pieceTracker.startTime, pieceTracker.identifier); err != nil {
+			// we don't want to interrup main GC process if we fail to upload piece IDs
+			pieceTracker.log.Error("error uploading piece IDs", zap.Stringer("node", nodeID), zap.Int("identifier", pieceTracker.identifier), zap.Error(err))
+		}
+		return true
+	})
 	return nil
 }
 
@@ -186,8 +194,10 @@ func (obs *Observer) TestingCreationTime() time.Time {
 }
 
 type observerFork struct {
-	log    *zap.Logger
-	config Config
+	log        *zap.Logger
+	upload     *Upload
+	identifier int
+	config     Config
 	// TODO: should we use int or int64 consistently for piece count (db type is int64)?
 	pieceCounts map[storj.NodeID]int64
 	seed        byte
@@ -201,6 +211,8 @@ type observerFork struct {
 	// * choose the oldest one from all latest creation time and GC observer start time
 	latestCreationTime map[string]time.Time
 
+	pieceIDs nodeidmap.Map[[]storj.PieceID]
+
 	forcedTableSize int
 
 	inlineCount, expiredCount, remoteCount int
@@ -208,9 +220,18 @@ type observerFork struct {
 
 // newObserverFork instantiates a new observer fork to process different segment range.
 // The seed is passed so that it can be shared among all parallel forks.
-func newObserverFork(log *zap.Logger, config Config, pieceCounts map[storj.NodeID]int64, seed byte, startTime time.Time, forcedTableSize int) *observerFork {
+func newObserverFork(log *zap.Logger, upload *Upload, config Config, pieceCounts map[storj.NodeID]int64,
+	seed byte, startTime time.Time, forcedTableSize int) *observerFork {
+
+	pieceIDs := nodeidmap.MakeSized[[]storj.PieceID](len(config.CollectNodesPieceIDs))
+	for _, nodeID := range config.CollectNodesPieceIDs {
+		pieceIDs.Store(nodeID, make([]storj.PieceID, 0, config.NodesPieceIDsBufferSize))
+	}
+
 	return &observerFork{
 		log:                log,
+		upload:             upload,
+		identifier:         rand.Int(),
 		config:             config,
 		pieceCounts:        pieceCounts,
 		seed:               seed,
@@ -241,6 +262,9 @@ func (fork *observerFork) Process(ctx context.Context, segments []rangedloop.Seg
 		deriver := segment.RootPieceID.Deriver()
 		for _, piece := range segment.Pieces {
 			pieceID := deriver.Derive(piece.StorageNode, int32(piece.Number))
+
+			fork.addPieceID(ctx, piece.StorageNode, pieceID)
+
 			fork.add(piece.StorageNode, pieceID)
 		}
 	}
@@ -288,4 +312,25 @@ func (fork *observerFork) add(nodeID storj.NodeID, pieceID storj.PieceID) {
 
 	info.Filter.Add(pieceID)
 	info.Count++
+}
+
+func (fork *observerFork) addPieceID(ctx context.Context, nodeID storj.NodeID, pieceID storj.PieceID) {
+	pieceIDs, found := fork.pieceIDs.Load(nodeID)
+	if !found {
+		return
+	}
+
+	pieceIDs = append(pieceIDs, pieceID)
+
+	if len(pieceIDs) >= fork.config.NodesPieceIDsBufferSize {
+		err := fork.upload.UploadPieceIDs(ctx, nodeID, pieceIDs, fork.startTime, fork.identifier)
+		if err != nil {
+			// we don't want to interrup main GC process if we fail to upload piece IDs
+			fork.log.Error("error uploading piece IDs", zap.Stringer("node", nodeID), zap.Int("identifier", fork.identifier), zap.Error(err))
+		}
+
+		pieceIDs = pieceIDs[:0]
+	}
+
+	fork.pieceIDs.Store(nodeID, pieceIDs)
 }
