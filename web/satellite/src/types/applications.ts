@@ -38,7 +38,7 @@ import DuplicatiIcon from '@/assets/apps/duplicati.png';
 import ResticIcon from '@/assets/apps/restic.png';
 import StarfishIcon from '@/assets/apps/starfish.png';
 import CommvaultIcon from '@/assets/apps/commvault.png';
-import UplinkIcon from '@/assets/apps/uplink.svg';
+import StorjIcon from '@/assets/apps/storj.svg';
 import AdobeIcon from '@/assets/apps/adobepremiere.png';
 import AdSignalIcon from '@/assets/apps/adsignal.png';
 import AmoveIcon from '@/assets/apps/amove.png';
@@ -49,7 +49,6 @@ import HedgeIcon from '@/assets/apps/hedge.webp';
 import ImagineProductsIcon from '@/assets/apps/imagine.png';
 import OpenDrivesIcon from '@/assets/apps/opendrives.webp';
 import MasvIcon from '@/assets/apps/masv.jpeg';
-import ObjectMountIcon from '@/assets/apps/uplink.svg';
 import OrtanaIcon from '@/assets/apps/ortana.png';
 import SigniantIcon from '@/assets/apps/signiant.jpeg';
 import VarnishIcon from '@/assets/apps/varnish.webp';
@@ -77,7 +76,7 @@ export const UplinkApp: Application = {
     name: 'Storj Uplink CLI',
     description: 'Official Storj command-line application that allows you to access, upload, download, and manage your data.',
     categories: [AppCategory.Featured],
-    src: UplinkIcon,
+    src: StorjIcon,
     docs: 'https://docs.storj.io/dcs/api/uplink-cli/installation',
 };
 
@@ -353,7 +352,7 @@ export const applications: Application[] = [
         name: 'Storj Object Mount',
         description: 'Access files stored on Storj as if they were on local disk, allowing real-time editing without downloading entire files.',
         categories: [AppCategory.Media, AppCategory.FileManagement],
-        src: ObjectMountIcon,
+        src: StorjIcon,
         docs: '',
     },
     {
