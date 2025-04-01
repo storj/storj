@@ -42,7 +42,7 @@
                     <v-window-item :value="UpgradeAccountStep.Options">
                         <v-container>
                             <v-row justify="center" align="center">
-                                <v-col cols="12" sm="12" md="10" lg="8">
+                                <v-col cols="12" sm="12" md="12" lg="10">
                                     <v-tabs
                                         v-model="paymentTab"
                                         color="default"
@@ -62,7 +62,7 @@
                             <v-window v-model="paymentTab">
                                 <v-window-item :value="PaymentOption.CreditCard">
                                     <v-row class="ma-0" justify="center" align="center">
-                                        <v-col cols="12" sm="12" md="10" lg="8">
+                                        <v-col cols="12" sm="12" md="12" lg="10">
                                             <AddCreditCardStep
                                                 v-model:loading="loading"
                                                 @success="() => setStep(UpgradeAccountStep.Success)"
@@ -73,7 +73,7 @@
                                 </v-window-item>
                                 <v-window-item :value="PaymentOption.StorjTokens">
                                     <v-row justify="center" align="center" class="ma-0 mt-2">
-                                        <v-col cols="12" sm="12" md="10" lg="8">
+                                        <v-col cols="12" sm="12" md="12" lg="10">
                                             <v-card :loading="loading" class="pa-1" :class="{'no-border pa-0': !loading}">
                                                 <AddTokensStep
                                                     v-if="!loading"

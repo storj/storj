@@ -18,9 +18,21 @@
 
         <template #text>
             <p v-if="isDefault">
-                <span class="font-weight-bold d-block">Send STORJ tokens via the Ethereum network or zkSync Era.</span>
-                <span>
-                    If you send any other kind of token, or use any other network, you may lose your deposit.
+                <span class="font-weight-bold d-block">Remember: Only send STORJ tokens via approved networks.</span>
+                <span class="text-center">
+                    Compatible networks: Ethereum (L1) or zkSync Era (L2)
+                    <v-tooltip v-model="tooltipOpen">
+                        <template #activator="{ props: activatorProps }">
+                            <v-icon color="primary" v-bind="activatorProps" :icon="Info" size="16" />
+                        </template>
+                        STORJ zksync Era contract address:
+                        <br>
+                        {{ zkSyncContractAddress }}
+                    </v-tooltip>
+                    <br>
+                    Token type: ERC20 STORJ tokens only
+                    <br>
+                    You will receive a 10% bonus on your deposit
                 </span>
             </p>
 
@@ -44,8 +56,8 @@
 </template>
 
 <script setup lang="ts">
-import { computed } from 'vue';
-import { VAlert, VIcon } from 'vuetify/components';
+import { computed, ref } from 'vue';
+import { VAlert, VIcon, VTooltip } from 'vuetify/components';
 import { CircleCheck, Clock, Info } from 'lucide-vue-next';
 
 import { PaymentStatus, PaymentWithConfirmations } from '@/types/payments';
@@ -64,6 +76,15 @@ enum TXs {
     StillPending,
     All,
 }
+
+const tooltipOpen = ref(false);
+
+/**
+ * The STORJ token contract address on zkSync Era.
+ */
+const zkSyncContractAddress = computed((): string => {
+    return configStore.state.config.zkSyncContractAddress;
+});
 
 /**
  * Returns an array of still pending transactions to correctly display confirmations count.

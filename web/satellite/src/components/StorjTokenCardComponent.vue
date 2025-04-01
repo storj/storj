@@ -29,17 +29,23 @@
             <v-divider class="my-6 border-0" />
             <p>Deposit Address</p>
             <v-row class="ma-0 mt-2 align-center">
-                <v-chip color="default" variant="text" class="font-weight-bold px-0 mr-4" @click="copyAddress">
+                <v-chip color="default" variant="text" class="font-weight-bold px-0 mr-4" @click="isAddTokenDialogOpen = true">
                     {{ shortAddress || '-' }}
-                    <v-tooltip
-                        v-if="wallet.address"
-                        activator="parent"
-                        location="top"
-                    >
-                        {{ wallet.address }}
-                    </v-tooltip>
                 </v-chip>
-                <input-copy-button v-if="wallet.address" :value="wallet.address" />
+                <v-tooltip v-if="wallet.address" v-model="isCopyTooltip" location="start">
+                    <template #activator="{ props: activatorProps }">
+                        <v-btn
+                            v-bind="activatorProps"
+                            :icon="Copy"
+                            variant="text"
+                            density="compact"
+                            aria-roledescription="copy-btn"
+                            color="primary"
+                            @click="isAddTokenDialogOpen = true"
+                        />
+                    </template>
+                    Copy
+                </v-tooltip>
             </v-row>
             <v-divider class="my-6 border-0" />
             <p>Total Balance</p>
@@ -57,7 +63,7 @@
 <script setup lang="ts">
 import { VBtn, VCard, VCardText, VChip, VDivider, VTooltip, VRow, VIcon } from 'vuetify/components';
 import { computed, onMounted, ref } from 'vue';
-import { Info } from 'lucide-vue-next';
+import { Copy, Info } from 'lucide-vue-next';
 
 import { Wallet } from '@/types/payments';
 import { useLoading } from '@/composables/useLoading';
@@ -69,7 +75,6 @@ import { useAnalyticsStore } from '@/store/modules/analyticsStore';
 import { useUsersStore } from '@/store/modules/usersStore';
 
 import AddTokensDialog from '@/components/dialogs/AddTokensDialog.vue';
-import InputCopyButton from '@/components/InputCopyButton.vue';
 
 const analyticsStore = useAnalyticsStore();
 const appStore = useAppStore();
@@ -80,6 +85,7 @@ const notify = useNotify();
 const { isLoading, withLoading } = useLoading();
 
 const isAddTokenDialogOpen = ref<boolean>(false);
+const isCopyTooltip = ref<boolean>(false);
 
 const emit = defineEmits(['historyClicked']);
 
@@ -110,16 +116,6 @@ const balance = computed((): string => {
 const wallet = computed((): Wallet => {
     return billingStore.state.wallet as Wallet;
 });
-
-/**
- * Copies the wallet address.
- */
-function copyAddress(): void {
-    if (!wallet.value.address) {
-        return;
-    }
-    navigator.clipboard.writeText(wallet.value.address);
-}
 
 /**
  * getWallet tries to get an existing wallet for this user. this will not claim a wallet.

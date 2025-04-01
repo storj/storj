@@ -5,13 +5,13 @@
     <v-dialog
         v-model="model"
         scrollable
-        max-width="550px"
+        max-width="560px"
         transition="fade-transition"
         :persistent="loading"
     >
         <v-card ref="content">
             <v-card-item class="pa-6">
-                <v-card-title class="font-weight-bold"> Add Tokens </v-card-title>
+                <v-card-title class="font-weight-bold"> Add STORJ Tokens </v-card-title>
                 <template #append>
                     <v-btn
                         icon="$close"
@@ -30,6 +30,7 @@
                     <v-window-item :value="AddTokensDialogStep.AddTokens">
                         <AddTokensStep
                             is-root
+                            @close="model = false"
                             @success="() => setStep(AddTokensDialogStep.Success)"
                         />
                     </v-window-item>
