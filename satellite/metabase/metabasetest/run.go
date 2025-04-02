@@ -43,6 +43,7 @@ func RunWithConfigAndMigration(t *testing.T, config metabase.Config, fn func(ctx
 
 			db, err := satellitedbtest.CreateMetabaseDB(tctx, zaptest.NewLogger(t), t.Name(), "M", 0, dbinfo.MetabaseDB, config)
 			require.NoError(t, err)
+			defer tctx.Check(db.Close)
 
 			if err := migration(tctx, db); err != nil {
 				t.Fatal(err)
@@ -77,12 +78,14 @@ func Bench(b *testing.B, fn func(ctx *testcontext.Context, b *testing.B, db *met
 		b.Run(dbinfo.Name, func(b *testing.B) {
 			tctx := testcontext.New(b)
 			defer tctx.Cleanup()
+
 			db, err := satellitedbtest.CreateMetabaseDB(tctx, zaptest.NewLogger(b), b.Name(), "M", 0, dbinfo.MetabaseDB, metabase.Config{
 				ApplicationName:  "satellite-bench",
 				MinPartSize:      5 * memory.MiB,
 				MaxNumberOfParts: 10000,
 			})
 			require.NoError(b, err)
+			defer tctx.Check(db.Close)
 
 			if err := db.TestMigrateToLatest(tctx); err != nil {
 				b.Fatal(err)
