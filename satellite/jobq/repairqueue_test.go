@@ -4,6 +4,7 @@
 package jobq_test
 
 import (
+	"math/rand"
 	"os"
 	"sort"
 	"sync"
@@ -585,4 +586,86 @@ func createInjuredSegment() *queue.InjuredSegment {
 		SegmentHealth: 10,
 		Placement:     storj.PlacementConstraint(index % 3),
 	}
+}
+
+// TestRepairQueue_HealthOrder tests that segments are properly ordered by health,
+// including negative health values which can occur when nodes perform graceful exit,
+// are clumped together, or are out of placement. In these cases, the pieces can
+// still be downloaded but are considered unhealthy.
+func TestRepairQueue_HealthOrder(t *testing.T) {
+	jobqtest.Run(t, func(ctx *testcontext.Context, t *testing.T, rq queue.RepairQueue) {
+		segments := []*queue.InjuredSegment{
+			{
+				StreamID:      testrand.UUID(),
+				Position:      metabase.SegmentPosition{Part: 0},
+				SegmentHealth: -2.5, // Very negative health (highest priority)
+				Placement:     storj.PlacementConstraint(1),
+			},
+			{
+				StreamID:      testrand.UUID(),
+				Position:      metabase.SegmentPosition{Part: 1},
+				SegmentHealth: -0.5, // Slightly negative health
+				Placement:     storj.PlacementConstraint(1),
+			},
+			{
+				StreamID:      testrand.UUID(),
+				Position:      metabase.SegmentPosition{Part: 2},
+				SegmentHealth: 0.0, // Zero health
+				Placement:     storj.PlacementConstraint(1),
+			},
+			{
+				StreamID:      testrand.UUID(),
+				Position:      metabase.SegmentPosition{Part: 3},
+				SegmentHealth: 1.5, // Positive health
+				Placement:     storj.PlacementConstraint(1),
+			},
+			{
+				StreamID:      testrand.UUID(),
+				Position:      metabase.SegmentPosition{Part: 4},
+				SegmentHealth: 3.0, // Higher positive health
+				Placement:     storj.PlacementConstraint(1),
+			},
+		}
+
+		// Insert all segments in random order to ensure ordering is based on health
+		rand.Shuffle(len(segments), func(i, j int) {
+			segments[i], segments[j] = segments[j], segments[i]
+		})
+
+		_, err := rq.InsertBatch(ctx, segments)
+		require.NoError(t, err)
+
+		// Verify count
+		count, err := rq.Count(ctx)
+		require.NoError(t, err)
+		require.Equal(t, len(segments), count)
+
+		// Pop segments and verify order
+		var poppedSegments []queue.InjuredSegment
+		for i := 0; i < len(segments); i++ {
+			seg, err := rq.Select(ctx, 1, nil, nil)
+			require.NoError(t, err)
+			require.Len(t, seg, 1)
+			poppedSegments = append(poppedSegments, seg[0])
+			err = rq.Release(ctx, seg[0], true)
+			require.NoError(t, err)
+		}
+
+		// Verify segments were popped in order of ascending health
+		require.Equal(t, len(segments), len(poppedSegments))
+		for i := 1; i < len(poppedSegments); i++ {
+			require.GreaterOrEqual(t,
+				poppedSegments[i].SegmentHealth,
+				poppedSegments[i-1].SegmentHealth,
+				"segments should be popped in ascending health order")
+		}
+
+		// Verify specific health values for edge cases
+		require.Equal(t, -2.5, poppedSegments[0].SegmentHealth, "first segment should have lowest health")
+		require.Equal(t, 3.0, poppedSegments[len(poppedSegments)-1].SegmentHealth, "last segment should have highest health")
+
+		// Verify queue is empty
+		_, err = rq.Select(ctx, 1, nil, nil)
+		require.True(t, queue.ErrEmpty.Has(err))
+	})
 }
