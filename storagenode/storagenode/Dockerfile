@@ -1,7 +1,7 @@
 ARG DOCKER_PLATFORM
 ARG DOCKER_ARCH
 ARG GO_DOCKER_PLATFORM
-ARG GO_VERSION=1.23.5
+ARG GO_VERSION=1.24.2
 
 FROM --platform=${DOCKER_PLATFORM:-linux/amd64} ${DOCKER_ARCH:-amd64}/debian:bookworm-slim as base
 RUN apt-get update
