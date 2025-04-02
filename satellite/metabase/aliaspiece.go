@@ -193,10 +193,12 @@ func (aliases AliasPieces) Value() (driver.Value, error) {
 func (aliases *AliasPieces) DecodeSpanner(val any) (err error) {
 	// TODO(spanner) why spanner returns BYTES as base64
 	if v, ok := val.(string); ok {
-		val, err = base64.StdEncoding.DecodeString(v)
+		var buffer [256 + 128]byte
+		decoded, err := base64.StdEncoding.AppendDecode(buffer[:0], []byte(v))
 		if err != nil {
 			return err
 		}
+		return aliases.SetBytes(decoded)
 	}
 	return aliases.Scan(val)
 }

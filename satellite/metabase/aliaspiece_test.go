@@ -4,6 +4,7 @@
 package metabase_test
 
 import (
+	"encoding/base64"
 	"fmt"
 	"math/rand"
 	"sort"
@@ -149,28 +150,7 @@ func benchmarkAliasPiecesBytes(b *testing.B, repair, optimal, total int) {
 				Alias:  metabase.NodeAlias(0xFF + i),
 			}
 		}
-
-		var finalData []byte
-		b.Run("Bytes", func(b *testing.B) {
-			for k := 0; k < b.N; k++ {
-				data, err := aliases.Bytes()
-				if err != nil {
-					b.Fatal(err)
-				}
-				finalData = data
-			}
-		})
-		b.Run("SetBytes", func(b *testing.B) {
-			var aliases metabase.AliasPieces
-			for k := 0; k < b.N; k++ {
-				err := aliases.SetBytes(finalData)
-				if err != nil {
-					b.Fatal(err)
-				}
-			}
-		})
-
-		b.ReportMetric(float64(len(finalData)), "B")
+		benchmarkAliases(b, aliases)
 	})
 
 	b.Run(prefix+"/3byte", func(b *testing.B) {
@@ -181,28 +161,18 @@ func benchmarkAliasPiecesBytes(b *testing.B, repair, optimal, total int) {
 				Alias:  metabase.NodeAlias(0xFFFF + i),
 			}
 		}
+		benchmarkAliases(b, aliases)
+	})
 
-		var finalData []byte
-		b.Run("Bytes", func(b *testing.B) {
-			for k := 0; k < b.N; k++ {
-				data, err := aliases.Bytes()
-				if err != nil {
-					b.Fatal(err)
-				}
-				finalData = data
+	b.Run(prefix+"/4byte", func(b *testing.B) {
+		aliases := make(metabase.AliasPieces, optimal)
+		for i := range aliases {
+			aliases[i] = metabase.AliasPiece{
+				Number: uint16(i),
+				Alias:  metabase.NodeAlias(0xFFFFFF + i),
 			}
-		})
-		b.Run("SetBytes", func(b *testing.B) {
-			var aliases metabase.AliasPieces
-			for k := 0; k < b.N; k++ {
-				err := aliases.SetBytes(finalData)
-				if err != nil {
-					b.Fatal(err)
-				}
-			}
-		})
-
-		b.ReportMetric(float64(len(finalData)), "B")
+		}
+		benchmarkAliases(b, aliases)
 	})
 
 	b.Run(prefix+"/sim", func(b *testing.B) {
@@ -238,4 +208,57 @@ func benchmarkAliasPiecesBytes(b *testing.B, repair, optimal, total int) {
 		b.ReportMetric(float64(minBytes), "B/min")
 		b.ReportMetric(float64(maxBytes), "B/max")
 	})
+}
+
+var sinkBytes []byte
+var sinkValue any
+
+func benchmarkAliases(b *testing.B, aliases metabase.AliasPieces) {
+	b.Run("Bytes", func(b *testing.B) {
+		for k := 0; k < b.N; k++ {
+			data, err := aliases.Bytes()
+			if err != nil {
+				b.Fatal(err)
+			}
+			sinkBytes = data
+		}
+	})
+
+	encodedData, err := aliases.Bytes()
+	require.NoError(b, err)
+	b.Run("SetBytes", func(b *testing.B) {
+		b.ReportAllocs()
+		var aliases metabase.AliasPieces
+		for k := 0; k < b.N; k++ {
+			err := aliases.SetBytes(encodedData)
+			if err != nil {
+				b.Fatal(err)
+			}
+		}
+	})
+
+	b.Run("Value", func(b *testing.B) {
+		for k := 0; k < b.N; k++ {
+			data, err := aliases.Value()
+			if err != nil {
+				b.Fatal(err)
+			}
+			sinkValue = data
+		}
+	})
+
+	encodedBase64 := base64.StdEncoding.EncodeToString(encodedData)
+
+	b.Run("DecodeSpanner", func(b *testing.B) {
+		b.ReportAllocs()
+		var aliases metabase.AliasPieces
+		for k := 0; k < b.N; k++ {
+			err := aliases.DecodeSpanner(encodedBase64)
+			if err != nil {
+				b.Fatal(err)
+			}
+		}
+	})
+
+	b.ReportMetric(float64(len(encodedData)), "B")
 }
