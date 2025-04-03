@@ -116,7 +116,7 @@ func main() {
 	logger, _, _ := process.NewLogger("jobq")
 	zap.ReplaceGlobals(logger)
 
-	process.ExecCustomDebug(rootCmd)
+	process.Exec(rootCmd)
 }
 
 func applyPeerCAWhitelist(usePeerCAWhitelist bool, peerCAWhitelistPath string, tlsOpts *tlsopts.Options) (err error) {
