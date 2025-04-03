@@ -22,7 +22,7 @@ import (
 func TestJobqueueRetry(t *testing.T) {
 	synctest.Run(func() {
 		const retryTime = time.Hour
-		queue, err := jobqueue.NewQueue(zaptest.NewLogger(t), retryTime, 100, 10)
+		queue, err := jobqueue.NewQueue(zaptest.NewLogger(t), retryTime, 100, 0, 10)
 		require.NoError(t, err)
 		startTime := time.Now()
 

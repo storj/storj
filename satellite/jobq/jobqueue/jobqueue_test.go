@@ -31,7 +31,7 @@ func mustUUID() uuid.UUID {
 }
 
 func TestQueue(t *testing.T) {
-	queue, err := jobqueue.NewQueue(zaptest.NewLogger(t), time.Hour, 100, 10)
+	queue, err := jobqueue.NewQueue(zaptest.NewLogger(t), time.Hour, 100, 0, 10)
 	require.NoError(t, err)
 
 	timeIncrement := time.Duration(0)
@@ -95,7 +95,7 @@ func TestQueue(t *testing.T) {
 }
 
 func TestQueueOfOneElement(t *testing.T) {
-	queue, err := jobqueue.NewQueue(zaptest.NewLogger(t), time.Hour, 100, 10)
+	queue, err := jobqueue.NewQueue(zaptest.NewLogger(t), time.Hour, 100, 0, 10)
 	require.NoError(t, err)
 
 	job := jobq.RepairJob{
@@ -121,7 +121,7 @@ func TestQueueOfOneElement(t *testing.T) {
 }
 
 func TestQueueClean(t *testing.T) {
-	queue, err := jobqueue.NewQueue(zaptest.NewLogger(t), time.Hour, 100, 10)
+	queue, err := jobqueue.NewQueue(zaptest.NewLogger(t), time.Hour, 100, 0, 10)
 	require.NoError(t, err)
 	_ = queue.Start()
 	defer queue.Stop()
@@ -250,7 +250,7 @@ func TestQueueClean(t *testing.T) {
 }
 
 func TestQueueTrim(t *testing.T) {
-	queue, err := jobqueue.NewQueue(zaptest.NewLogger(t), time.Hour, 100, 10)
+	queue, err := jobqueue.NewQueue(zaptest.NewLogger(t), time.Hour, 100, 0, 10)
 	require.NoError(t, err)
 	_ = queue.Start()
 	defer queue.Stop()
@@ -340,7 +340,7 @@ func TestQueueTrim(t *testing.T) {
 }
 
 func TestMemoryManagement(t *testing.T) {
-	queue, err := jobqueue.NewQueue(zaptest.NewLogger(t), time.Hour, 10, 5)
+	queue, err := jobqueue.NewQueue(zaptest.NewLogger(t), time.Hour, 10, 0, 5)
 	require.NoError(t, err)
 
 	// grow the queue to 100 elements (which should entail several resizes)
@@ -374,7 +374,7 @@ func TestMemoryManagement(t *testing.T) {
 }
 
 func TestQueueDelete(t *testing.T) {
-	queue, err := jobqueue.NewQueue(zaptest.NewLogger(t), time.Hour, 100, 10)
+	queue, err := jobqueue.NewQueue(zaptest.NewLogger(t), time.Hour, 100, 0, 10)
 	require.NoError(t, err)
 
 	// create and insert stream IDs
@@ -418,7 +418,7 @@ func TestQueueDelete(t *testing.T) {
 }
 
 func TestPeekNMultipleQueues(t *testing.T) {
-	queue, err := jobqueue.NewQueue(zaptest.NewLogger(t), time.Hour, 100, 10)
+	queue, err := jobqueue.NewQueue(zaptest.NewLogger(t), time.Hour, 100, 0, 10)
 	require.NoError(t, err)
 
 	// create and insert jobs
@@ -464,7 +464,7 @@ func TestPeekNMultipleQueues(t *testing.T) {
 }
 
 func BenchmarkQueue(b *testing.B) {
-	queue, err := jobqueue.NewQueue(zaptest.NewLogger(b), time.Hour, 100, 10)
+	queue, err := jobqueue.NewQueue(zaptest.NewLogger(b), time.Hour, 100, 0, 10)
 	require.NoError(b, err)
 	jobs := make([]jobq.RepairJob, b.N)
 	for i := range jobs {
@@ -493,7 +493,7 @@ func BenchmarkQueue(b *testing.B) {
 }
 
 func BenchmarkQueueInsertionOnly(b *testing.B) {
-	queue, err := jobqueue.NewQueue(zaptest.NewLogger(b), time.Hour, 100, 10)
+	queue, err := jobqueue.NewQueue(zaptest.NewLogger(b), time.Hour, 100, 0, 10)
 	require.NoError(b, err)
 	jobs := make([]jobq.RepairJob, b.N)
 	for i := range jobs {
@@ -506,7 +506,7 @@ func BenchmarkQueueInsertionOnly(b *testing.B) {
 }
 
 func BenchmarkQueueUpdateOnly(b *testing.B) {
-	queue, err := jobqueue.NewQueue(zaptest.NewLogger(b), time.Hour, b.N, 10)
+	queue, err := jobqueue.NewQueue(zaptest.NewLogger(b), time.Hour, b.N, 0, 10)
 	require.NoError(b, err)
 	jobs := make([]jobq.RepairJob, b.N)
 	for i := range jobs {
@@ -524,7 +524,7 @@ func BenchmarkQueueUpdateOnly(b *testing.B) {
 }
 
 func BenchmarkQueuePopOnly(b *testing.B) {
-	queue, err := jobqueue.NewQueue(zaptest.NewLogger(b), time.Hour, b.N, 10)
+	queue, err := jobqueue.NewQueue(zaptest.NewLogger(b), time.Hour, b.N, 0, 10)
 	require.NoError(b, err)
 	jobs := make([]jobq.RepairJob, b.N)
 	for i := range jobs {

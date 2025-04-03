@@ -29,7 +29,7 @@ func TestClientAndServer(t *testing.T) {
 	log := zaptest.NewLogger(t)
 	addr, err := net.ResolveTCPAddr("tcp", "127.0.0.1:0")
 	require.NoError(t, err)
-	srv, err := server.New(log, addr, nil, time.Hour, 1e8, 1e6)
+	srv, err := server.New(log, addr, nil, time.Hour, 1e8, 0, 1e6)
 	require.NoError(t, err)
 
 	var group errgroup.Group
@@ -92,7 +92,7 @@ func TestClientServerPushBatch(t *testing.T) {
 	log := zaptest.NewLogger(t)
 	addr, err := net.ResolveTCPAddr("tcp", "127.0.0.1:0")
 	require.NoError(t, err)
-	srv, err := server.New(log, addr, nil, time.Hour, 1e8, 1e6)
+	srv, err := server.New(log, addr, nil, time.Hour, 1e8, 0, 1e6)
 	require.NoError(t, err)
 
 	var group errgroup.Group
@@ -156,7 +156,7 @@ func TestClientServerPeek(t *testing.T) {
 	log := zaptest.NewLogger(t)
 	addr, err := net.ResolveTCPAddr("tcp", "127.0.0.1:0")
 	require.NoError(t, err)
-	srv, err := server.New(log, addr, nil, time.Hour, 1e8, 1e6)
+	srv, err := server.New(log, addr, nil, time.Hour, 1e8, 0, 1e6)
 	require.NoError(t, err)
 
 	var group errgroup.Group
@@ -212,7 +212,7 @@ func TestClientServerTruncate(t *testing.T) {
 	log := zaptest.NewLogger(t)
 	addr, err := net.ResolveTCPAddr("tcp", "127.0.0.1:0")
 	require.NoError(t, err)
-	srv, err := server.New(log, addr, nil, time.Hour, 1e8, 1e6)
+	srv, err := server.New(log, addr, nil, time.Hour, 1e8, 0, 1e6)
 	require.NoError(t, err)
 
 	var group errgroup.Group
@@ -270,7 +270,7 @@ func TestClientServerClean(t *testing.T) {
 	log := zaptest.NewLogger(t)
 	addr, err := net.ResolveTCPAddr("tcp", "127.0.0.1:0")
 	require.NoError(t, err)
-	srv, err := server.New(log, addr, nil, time.Hour, 1e8, 1e6)
+	srv, err := server.New(log, addr, nil, time.Hour, 1e8, 0, 1e6)
 	require.NoError(t, err)
 
 	var group errgroup.Group
@@ -350,7 +350,7 @@ func TestClientServerTrim(t *testing.T) {
 	log := zaptest.NewLogger(t)
 	addr, err := net.ResolveTCPAddr("tcp", "127.0.0.1:0")
 	require.NoError(t, err)
-	srv, err := server.New(log, addr, nil, time.Hour, 1e8, 1e6)
+	srv, err := server.New(log, addr, nil, time.Hour, 1e8, 0, 1e6)
 	require.NoError(t, err)
 
 	var group errgroup.Group

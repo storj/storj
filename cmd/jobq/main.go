@@ -35,6 +35,12 @@ type Config struct {
 	// allocation will not take up system memory until the queue grows to that
 	// size.
 	InitAlloc memory.Size `help:"initial allocation size for the job queue, in bytes" default:"2GiB"`
+	// MaxMemPerPlacement is the maximum memory to be used per placement for
+	// storing jobs ready for repair, in bytes. The queue will not actually
+	// consume this amount of memory unless it is full. If full, lower-priority
+	// or longer-delayed jobs will be evicted from the queue when new jobs are
+	// added.
+	MaxMemPerPlacement memory.Size `help:"maximum memory per placement, in bytes" default:"4GiB"`
 	// MemReleaseThreshold is the memory release threshold for the job queue, in
 	// bytes. When the job queue has more than this amount of memory mapped to
 	// empty pages (because the queue shrunk considerably), the unused memory
@@ -99,9 +105,14 @@ func runJobQueue(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("failed to apply peer CA whitelist: %w", err)
 	}
 	initElements := uint64(runCfg.InitAlloc) / uint64(jobq.RecordSize)
-	memReleaseThrehsold := uint64(runCfg.MemReleaseThreshold) / uint64(jobq.RecordSize)
-	logger.Debug("initializing job queue", zap.Uint64("elements before queue resize", initElements), zap.Uint64("element mem release threshold", memReleaseThrehsold))
-	srv, err := server.New(logger, addr, tlsOpts, runCfg.RetryAfter, int(initElements), int(memReleaseThrehsold))
+	maxElements := uint64(runCfg.MaxMemPerPlacement) / uint64(jobq.RecordSize)
+	memReleaseThreshold := uint64(runCfg.MemReleaseThreshold) / uint64(jobq.RecordSize)
+	logger.Debug("initializing job queue",
+		zap.Uint64("elements before queue resize", initElements),
+		zap.Uint64("max elements per placement", maxElements),
+		zap.Uint64("element mem release threshold", memReleaseThreshold),
+	)
+	srv, err := server.New(logger, addr, tlsOpts, runCfg.RetryAfter, int(initElements), int(maxElements), int(memReleaseThreshold))
 	if err != nil {
 		return fmt.Errorf("failed to create server: %w", err)
 	}

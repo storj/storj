@@ -21,7 +21,7 @@ import (
 func TestQueueMap(t *testing.T) {
 	log := zaptest.NewLogger(t)
 	qm := server.NewQueueMap(log, func(pc storj.PlacementConstraint) (*jobqueue.Queue, error) {
-		return jobqueue.NewQueue(log.Named(fmt.Sprintf("queue-for-placement-%d", pc)), time.Hour, 100, 10)
+		return jobqueue.NewQueue(log.Named(fmt.Sprintf("queue-for-placement-%d", pc)), time.Hour, 100, 0, 10)
 	})
 	defer qm.StopAll()
 	q, err := qm.GetQueue(42)

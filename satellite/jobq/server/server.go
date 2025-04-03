@@ -38,9 +38,9 @@ type Server struct {
 }
 
 // New creates a new Server instance.
-func New(log *zap.Logger, listenAddress net.Addr, tlsOpts *tlsopts.Options, retryAfter time.Duration, initAlloc, memReleaseThreshold int) (*Server, error) {
+func New(log *zap.Logger, listenAddress net.Addr, tlsOpts *tlsopts.Options, retryAfter time.Duration, initAlloc, maxItems, memReleaseThreshold int) (*Server, error) {
 	queueFactory := func(placement storj.PlacementConstraint) (*jobqueue.Queue, error) {
-		return jobqueue.NewQueue(log.Named(fmt.Sprintf("placement-%d", placement)), retryAfter, initAlloc, memReleaseThreshold)
+		return jobqueue.NewQueue(log.Named(fmt.Sprintf("placement-%d", placement)), retryAfter, initAlloc, maxItems, memReleaseThreshold)
 	}
 	queueMap := NewQueueMap(log, queueFactory)
 	endpoint := NewEndpoint(log, queueMap)

@@ -31,7 +31,7 @@ func WithServer(t *testing.T, f func(ctx *testcontext.Context, config jobq.Confi
 	log := zaptest.NewLogger(t)
 	addr, err := net.ResolveTCPAddr("tcp", "127.0.0.1:0")
 	require.NoError(t, err)
-	srv, err := server.New(log, addr, nil, time.Hour, 1e8, 1e6)
+	srv, err := server.New(log, addr, nil, time.Hour, 1e8, 0, 1e6)
 	require.NoError(t, err)
 
 	var group errgroup.Group

@@ -78,7 +78,7 @@ type jobQueue struct {
 	queueSelect uint64
 }
 
-func newJobQueue(indexByID map[jobq.SegmentIdentifier]uint64, initAlloc int, memReleaseThreshold int, queueSelect uint64) (jobQueue, error) {
+func newJobQueue(indexByID map[jobq.SegmentIdentifier]uint64, initAlloc, memReleaseThreshold int, queueSelect uint64) (jobQueue, error) {
 	mem, heapAll, err := memAlloc(initAlloc)
 	if err != nil {
 		return jobQueue{}, err
@@ -265,12 +265,13 @@ type Queue struct {
 	// in (0 for repair, 1 for retry).
 	indexByID map[jobq.SegmentIdentifier]uint64
 
+	maxItems   int
 	RetryAfter time.Duration
 	Now        func() time.Time
 }
 
 // NewQueue creates a new Queue.
-func NewQueue(log *zap.Logger, retryAfter time.Duration, initialAlloc, memReleaseThreshold int) (*Queue, error) {
+func NewQueue(log *zap.Logger, retryAfter time.Duration, initialAlloc, maxItems, memReleaseThreshold int) (*Queue, error) {
 	indexByID := make(map[jobq.SegmentIdentifier]uint64)
 	pqJobQueue, err := newJobQueue(indexByID, initialAlloc, memReleaseThreshold, inRepairQueue)
 	if err != nil {
@@ -285,6 +286,7 @@ func NewQueue(log *zap.Logger, retryAfter time.Duration, initialAlloc, memReleas
 		pq:         repairPriorityQueue{jobQueue: pqJobQueue},
 		rq:         repairRetryQueue{jobQueue: rqJobQueue},
 		indexByID:  indexByID,
+		maxItems:   maxItems,
 		RetryAfter: retryAfter,
 		Now:        time.Now,
 	}, nil
@@ -374,9 +376,17 @@ func (q *Queue) Insert(job jobq.RepairJob) (wasNew bool) {
 
 	if job.LastAttemptedAt != 0 && q.Now().Sub(job.LastAttemptedAtTime()) < q.RetryAfter {
 		// new job, but not eligible for retry yet
+		for q.maxItems != 0 && (q.rq.Len()+q.pq.Len()) >= q.maxItems {
+			// pop the jobs with the farthest-away retry times as necessary to fit
+			minmaxheap.PopMax(&q.rq)
+		}
 		minmaxheap.Push(&q.rq, job)
 	} else {
 		// new job, can be repaired immediately
+		for q.maxItems != 0 && (q.rq.Len()+q.pq.Len()) >= q.maxItems {
+			// pop the jobs with the highest health as necessary to fit
+			minmaxheap.PopMax(&q.pq)
+		}
 		minmaxheap.Push(&q.pq, job)
 	}
 	return true
@@ -676,6 +686,9 @@ func (q *Queue) TestingSetAttemptedTime(streamID uuid.UUID, position uint64, las
 		// we also have to allow for the possibility that this change moves the
 		// job from the repair queue to the retry queue, or vice versa, or it
 		// changes the priority within a queue.
+		//
+		// Fortunately, we don't have to worry about maxItems here, because the
+		// sum number of jobs will stay the same.
 		if i&queueSelectMask == inRepairQueue && unixTime != 0 && q.Now().Sub(lastAttemptedAt) < q.RetryAfter {
 			item := minmaxheap.Remove(&q.pq, index).(jobq.RepairJob)
 			minmaxheap.Push(&q.rq, item)
@@ -814,6 +827,8 @@ func (q *Queue) funnelFromRetryToRepair(log *zap.Logger, headChan <-chan struct{
 				q.rq.headChan = nil
 				defer func() { q.rq.headChan = tmpChan }()
 
+				// Don't need to worry about maxItems here, as the sum number of
+				// items will remain the same.
 				item := minmaxheap.Pop(&q.rq).(jobq.RepairJob)
 				minmaxheap.Push(&q.pq, item)
 			}
