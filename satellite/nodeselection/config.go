@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"math"
 	"os"
+	"reflect"
 	"strings"
 
 	"github.com/jtolio/mito"
@@ -319,7 +320,18 @@ func SelectorFromString(expr string, environment *PlacementConfigEnvironment) (N
 		"choiceofn":   ChoiceOfN,
 		"choiceoftwo": ChoiceOfTwo,
 		// DEPRECATED: use choiceoftwo. It's only here for backward-compatibility.
-		"pow2": ChoiceOfTwo,
+		"pow2":   ChoiceOfTwo,
+		"stream": Stream,
+		"choiceofns": func(n int64, score any) func(NodeStream) NodeStream {
+			score, err := ConvertType(score, reflect.TypeOf(new(ScoreNode)).Elem())
+			if err != nil {
+				panic(err)
+			}
+			return ChoiceOfNStream(n, score.(ScoreNode))
+		},
+		"groupconstraint": GroupConstraint,
+		"streamfilter":    StreamFilter,
+		"randomstream":    RandomStream,
 		"balanced": func(attribute string) (NodeSelectorInit, error) {
 			attr, err := CreateNodeAttribute(attribute)
 			if err != nil {
