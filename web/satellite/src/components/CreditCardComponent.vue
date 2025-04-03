@@ -39,7 +39,7 @@
             <v-row class="ma-0 align-center">
                 <template v-if="!isEditing">
                     <v-btn variant="outlined" color="default" class="mr-2" @click="isEditing = true">Edit Card</v-btn>
-                    <v-btn variant="outlined" color="default" class="mr-2" @click="isEditDefaultCCDialog = true">Edit Default</v-btn>
+                    <v-btn v-if="isMultipleCards" variant="outlined" color="default" class="mr-2" @click="isEditDefaultCCDialog = true">Edit Default</v-btn>
                     <v-btn variant="outlined" color="default" @click="isRemoveCCDialog = true">Remove</v-btn>
                 </template>
                 <template v-else class="ma-0 align-center">
@@ -88,6 +88,8 @@ const expYear = ref<number>(props.card.expYear);
 const savingDisabled = computed(() => {
     return expMonth.value === props.card.expMonth && expYear.value === props.card.expYear;
 });
+
+const isMultipleCards = computed<boolean>(() => billingStore.state.creditCards.length > 1);
 
 async function saveCard() {
     await withLoading(async () => {
