@@ -226,6 +226,7 @@ require (
 	storj.io/drpc v0.0.35-0.20240709171858-0075ac871661 // indirect
 	storj.io/eventkit v0.0.0-20250407101305-1fc91e6bea89 // indirect
 	storj.io/infectious v0.0.2 // indirect
+	storj.io/minmaxheap v0.0.0-20250403032542-1e24a6fe9c16 // indirect
 	storj.io/monkit-jaeger v0.0.0-20240221095020-52b0792fa6cd // indirect
 	storj.io/picobuf v0.0.3 // indirect
 	storj.io/private v0.0.0-20240112163619-cfc17a2921bf // indirect

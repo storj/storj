@@ -4,7 +4,6 @@
 package jobqueue
 
 import (
-	"container/heap"
 	"context"
 	"errors"
 	"fmt"
@@ -19,6 +18,7 @@ import (
 
 	"storj.io/common/storj"
 	"storj.io/common/uuid"
+	"storj.io/minmaxheap"
 	"storj.io/storj/satellite/jobq"
 )
 
@@ -43,9 +43,9 @@ const (
 // jobQueue provides common functionality to repairPriorityQueue and
 // repairRetryQueue.
 type jobQueue struct {
-	// priorityHeap is a priority queue implemented as a heap. Code MUST NOT
-	// return this slice or slices of it callers of this library, as it may be
-	// over memory not managed by Go.
+	// priorityHeap is a priority queue implemented as a MinMax heap. Code MUST
+	// NOT return this slice or slices of it callers of this library, as it may
+	// be over memory not managed by Go.
 	priorityHeap []jobq.RepairJob
 	// mem points to an arbitrary byte slice, or nil, as determined by the
 	// platform-specific memory management code. It may point to the same memory
@@ -156,8 +156,8 @@ func (jq *jobQueue) cleanQueue(updatedBefore time.Time) (removed int) {
 	if jq.unmarkingError == nil {
 		jq.highWater, jq.unmarkingError = markUnused(jq.mem, jq.priorityHeap, len(jq.priorityHeap), jq.highWater, jq.memReleaseThreshold)
 	}
-	// must be followed up with a heap.Init() and a reindex of jq.indexByID to
-	// maintain heap properties.
+	// must be followed up with a minmaxheap.Init() and a reindex of
+	// jq.indexByID to maintain MinMax heap properties.
 	return removed
 }
 
@@ -178,8 +178,8 @@ func (jq *jobQueue) trimQueue(healthGreaterThan float64) (removed int) {
 	if jq.unmarkingError == nil {
 		jq.highWater, jq.unmarkingError = markUnused(jq.mem, jq.priorityHeap, len(jq.priorityHeap), jq.highWater, jq.memReleaseThreshold)
 	}
-	// must be followed up with a heap.Init() and a reindex of jq.indexByID to
-	// maintain heap properties.
+	// must be followed up with a minmaxheap.Init() and a reindex of
+	// jq.indexByID to maintain heap properties.
 	return removed
 }
 
@@ -213,7 +213,7 @@ func (rpq *repairPriorityQueue) Less(i, j int) bool {
 	return rpq.priorityHeap[i].InsertedAt < rpq.priorityHeap[j].InsertedAt
 }
 
-var _ heap.Interface = &repairPriorityQueue{}
+var _ minmaxheap.Interface = &repairPriorityQueue{}
 
 type repairRetryQueue struct {
 	jobQueue
@@ -244,7 +244,7 @@ func (rrq *repairRetryQueue) Push(x any) {
 	}
 }
 
-var _ heap.Interface = &repairRetryQueue{}
+var _ minmaxheap.Interface = &repairRetryQueue{}
 
 func placementTag(placement uint16) monkit.SeriesTag {
 	return monkit.NewSeriesTag("placement", strconv.Itoa(int(placement)))
@@ -323,9 +323,9 @@ func (q *Queue) Insert(job jobq.RepairJob) (wasNew bool) {
 	if i, ok := q.indexByID[job.ID]; ok {
 		index := int(i & indexMask)
 		var oldQueue *jobQueue
-		var oldHeap heap.Interface
+		var oldHeap minmaxheap.Interface
 		var newQueue *jobQueue
-		var newHeap heap.Interface
+		var newHeap minmaxheap.Interface
 
 		// Determine which queue the job is currently in
 		if i&queueSelectMask == inRetryQueue {
@@ -352,12 +352,12 @@ func (q *Queue) Insert(job jobq.RepairJob) (wasNew bool) {
 
 		// If the job needs to move queues, remove from old and add to new
 		if oldQueue != newQueue {
-			heap.Remove(oldHeap, index)
-			heap.Push(newHeap, job)
+			minmaxheap.Remove(oldHeap, index)
+			minmaxheap.Push(newHeap, job)
 		} else {
 			// Otherwise, just update in place
 			oldQueue.priorityHeap[index] = job
-			heap.Fix(oldHeap, index)
+			minmaxheap.Fix(oldHeap, index)
 		}
 		// jobq_update measures updates to the queue, as opposed to adds
 		mon.Meter("jobq_update").Mark(1)
@@ -374,10 +374,10 @@ func (q *Queue) Insert(job jobq.RepairJob) (wasNew bool) {
 
 	if job.LastAttemptedAt != 0 && q.Now().Sub(job.LastAttemptedAtTime()) < q.RetryAfter {
 		// new job, but not eligible for retry yet
-		heap.Push(&q.rq, job)
+		minmaxheap.Push(&q.rq, job)
 	} else {
 		// new job, can be repaired immediately
-		heap.Push(&q.pq, job)
+		minmaxheap.Push(&q.pq, job)
 	}
 	return true
 }
@@ -398,7 +398,7 @@ func (q *Queue) popLocked() (job jobq.RepairJob, ok bool) {
 	}
 
 	unmarkingErrorBefore := q.pq.unmarkingError
-	item := heap.Pop(&q.pq).(jobq.RepairJob)
+	item := minmaxheap.Pop(&q.pq).(jobq.RepairJob)
 	if unmarkingErrorBefore == nil && q.pq.unmarkingError != nil {
 		q.log.Error("failed to mark unused memory", zap.Error(q.pq.unmarkingError))
 	}
@@ -457,13 +457,13 @@ func (q *Queue) Delete(streamID uuid.UUID, position uint64) (wasDeleted bool) {
 	if i, ok := q.indexByID[jobq.SegmentIdentifier{StreamID: streamID, Position: position}]; ok {
 		index := int(i & indexMask)
 		targetQueue := &q.pq.jobQueue
-		var targetHeap heap.Interface = &q.pq
+		var targetHeap minmaxheap.Interface = &q.pq
 		if i&queueSelectMask == inRetryQueue {
 			targetQueue = &q.rq.jobQueue
 			targetHeap = &q.rq
 		}
 		if index < targetQueue.Len() {
-			heap.Remove(targetHeap, index)
+			minmaxheap.Remove(targetHeap, index)
 		}
 		return true
 	}
@@ -584,14 +584,14 @@ func (q *Queue) Truncate() {
 // this placement are left locked for the duration of the operation; all reads
 // and writes to this placement will block until this is complete.
 //
-// This could conceivably take a context parameter and allow the cleanQueue
-// part of the operation to be canceled, but since the heap.Init and reindex
+// This could conceivably take a context parameter and allow the cleanQueue part
+// of the operation to be canceled, but since the minmaxheap.Init and reindex
 // parts would still need to run to completion, that seems mostly unhelpful.
-// Alternatively, we could call heap.Init and update the index after every item
-// is removed. That would allow cancellation at any point, but would probably be
-// slower (potentially many more updates to the index map). Still, that is an
-// option if it turns out we need to be able to cancel Clean operations partway
-// through.
+// Alternatively, we could call minmaxheap.Init and update the index after every
+// item is removed. That would allow cancellation at any point, but would
+// probably be slower (potentially many more updates to the index map). Still,
+// that is an option if it turns out we need to be able to cancel Clean
+// operations partway through.
 //
 // Returns the total number of items removed from the queues.
 func (q *Queue) Clean(updatedBefore time.Time) (removed int) {
@@ -603,8 +603,8 @@ func (q *Queue) Clean(updatedBefore time.Time) (removed int) {
 	removed += q.rq.cleanQueue(updatedBefore)
 	// these are expensive operations, but must be completed to maintain heap
 	// properties, even if the context was canceled during the clean.
-	heap.Init(&q.pq)
-	heap.Init(&q.rq)
+	minmaxheap.Init(&q.pq)
+	minmaxheap.Init(&q.rq)
 	for i, item := range q.pq.priorityHeap {
 		q.indexByID[item.ID] = uint64(i) | q.pq.queueSelect
 	}
@@ -619,14 +619,14 @@ func (q *Queue) Clean(updatedBefore time.Time) (removed int) {
 // placement are left locked for the duration of the operation; all reads and
 // writes to this placement will block until this is complete.
 //
-// This could conceivably take a context parameter and allow the trimQueue
-// part of the operation to be canceled, but since the heap.Init and reindex
+// This could conceivably take a context parameter and allow the trimQueue part
+// of the operation to be canceled, but since the minmaxheap.Init and reindex
 // parts would still need to run to completion, that seems mostly unhelpful.
-// Alternatively, we could call heap.Init and update the index after every item
-// is removed. That would allow cancellation at any point, but would probably be
-// slower (potentially many more updates to the index map). Still, that is an
-// option if it turns out we need to be able to cancel Trim operations partway
-// through.
+// Alternatively, we could call minmaxheap.Init and update the index after every
+// item is removed. That would allow cancellation at any point, but would
+// probably be slower (potentially many more updates to the index map). Still,
+// that is an option if it turns out we need to be able to cancel Trim
+// operations partway through.
 //
 // Returns the total number of items removed from the queues.
 func (q *Queue) Trim(healthGreaterThan float64) (removed int) {
@@ -636,8 +636,8 @@ func (q *Queue) Trim(healthGreaterThan float64) (removed int) {
 	maps.Clear(q.indexByID)
 	removed += q.pq.trimQueue(healthGreaterThan)
 	removed += q.rq.trimQueue(healthGreaterThan)
-	heap.Init(&q.pq)
-	heap.Init(&q.rq)
+	minmaxheap.Init(&q.pq)
+	minmaxheap.Init(&q.rq)
 	for i, item := range q.pq.priorityHeap {
 		q.indexByID[item.ID] = uint64(i) | q.pq.queueSelect
 	}
@@ -666,7 +666,7 @@ func (q *Queue) TestingSetAttemptedTime(streamID uuid.UUID, position uint64, las
 	if i, ok := q.indexByID[jobq.SegmentIdentifier{StreamID: streamID, Position: position}]; ok {
 		index := int(i & indexMask)
 		targetQueue := &q.pq.jobQueue
-		var targetHeap heap.Interface = &q.pq
+		var targetHeap minmaxheap.Interface = &q.pq
 		if i&queueSelectMask == inRetryQueue {
 			targetQueue = &q.rq.jobQueue
 			targetHeap = &q.rq
@@ -677,13 +677,13 @@ func (q *Queue) TestingSetAttemptedTime(streamID uuid.UUID, position uint64, las
 		// job from the repair queue to the retry queue, or vice versa, or it
 		// changes the priority within a queue.
 		if i&queueSelectMask == inRepairQueue && unixTime != 0 && q.Now().Sub(lastAttemptedAt) < q.RetryAfter {
-			item := heap.Remove(&q.pq, index).(jobq.RepairJob)
-			heap.Push(&q.rq, item)
+			item := minmaxheap.Remove(&q.pq, index).(jobq.RepairJob)
+			minmaxheap.Push(&q.rq, item)
 		} else if i&queueSelectMask == inRetryQueue && (unixTime == 0 || q.Now().Sub(lastAttemptedAt) >= q.RetryAfter) {
-			item := heap.Remove(&q.rq, index).(jobq.RepairJob)
-			heap.Push(&q.pq, item)
+			item := minmaxheap.Remove(&q.rq, index).(jobq.RepairJob)
+			minmaxheap.Push(&q.pq, item)
 		} else {
-			heap.Fix(targetHeap, index)
+			minmaxheap.Fix(targetHeap, index)
 		}
 		return 1
 	}
@@ -709,7 +709,7 @@ func (q *Queue) TestingSetUpdatedTime(streamID uuid.UUID, position uint64, updat
 	if i, ok := q.indexByID[jobq.SegmentIdentifier{StreamID: streamID, Position: position}]; ok {
 		index := int(i & indexMask)
 		targetQueue := &q.pq.jobQueue
-		var targetHeap heap.Interface = &q.pq
+		var targetHeap minmaxheap.Interface = &q.pq
 		if i&queueSelectMask == inRetryQueue {
 			targetQueue = &q.rq.jobQueue
 			targetHeap = &q.rq
@@ -717,7 +717,7 @@ func (q *Queue) TestingSetUpdatedTime(streamID uuid.UUID, position uint64, updat
 		targetQueue.priorityHeap[index].UpdatedAt = unixTime
 
 		// Update the heap in case the order changes
-		heap.Fix(targetHeap, index)
+		minmaxheap.Fix(targetHeap, index)
 		return 1
 	}
 	return 0
@@ -814,8 +814,8 @@ func (q *Queue) funnelFromRetryToRepair(log *zap.Logger, headChan <-chan struct{
 				q.rq.headChan = nil
 				defer func() { q.rq.headChan = tmpChan }()
 
-				item := heap.Pop(&q.rq).(jobq.RepairJob)
-				heap.Push(&q.pq, item)
+				item := minmaxheap.Pop(&q.rq).(jobq.RepairJob)
+				minmaxheap.Push(&q.pq, item)
 			}
 		}()
 
@@ -953,7 +953,7 @@ func PeekNMultipleQueues(limit int, queueMap map[storj.PlacementConstraint]*Queu
 			// all queues are empty
 			break
 		}
-		nextJob := heap.Pop(overlays[lowestIndex]).(jobq.RepairJob)
+		nextJob := minmaxheap.Pop(overlays[lowestIndex]).(jobq.RepairJob)
 		jobs = append(jobs, nextJob)
 	}
 	return jobs

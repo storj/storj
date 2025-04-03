@@ -280,6 +280,7 @@ require (
 	storj.io/gateway v1.9.1-0.20241031140827-7668fbb4fe85 // indirect
 	storj.io/infectious v0.0.2 // indirect
 	storj.io/minio v0.0.0-20241031140034-abf5056d405a // indirect
+	storj.io/minmaxheap v0.0.0-20250403032542-1e24a6fe9c16 // indirect
 	storj.io/monkit-jaeger v0.0.0-20240221095020-52b0792fa6cd // indirect
 	storj.io/picobuf v0.0.3 // indirect
 	storj.io/uplink v1.13.2-0.20250218103408-3179c8d1ccdb // indirect
