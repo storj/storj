@@ -11,6 +11,7 @@ import (
 	"net"
 	"time"
 
+	"github.com/spacemonkeygo/monkit/v3"
 	"go.uber.org/zap"
 	"golang.org/x/sync/errgroup"
 
@@ -21,6 +22,10 @@ import (
 	"storj.io/drpc/drpcserver"
 	pb "storj.io/storj/satellite/internalpb"
 	"storj.io/storj/satellite/jobq/jobqueue"
+)
+
+var (
+	mon = monkit.Package()
 )
 
 // Server represents a job queue DRPC server.
@@ -64,7 +69,9 @@ func New(log *zap.Logger, listenAddress net.Addr, tlsOpts *tlsopts.Options, retr
 }
 
 // Run runs the server (accepting connections on the listener) until the context is canceled.
-func (s *Server) Run(ctx context.Context) error {
+func (s *Server) Run(ctx context.Context) (err error) {
+	mon.Task()(&ctx)(&err)
+
 	// allow connections with or without the DRPC connection header
 	lisMux := drpcmigrate.NewListenMux(s.listener, len(drpcmigrate.DRPCHeader))
 	drpcWithHeaderListener := lisMux.Route(drpcmigrate.DRPCHeader)
@@ -86,7 +93,7 @@ func (s *Server) Run(ctx context.Context) error {
 		return lisMux.Run(ctx)
 	})
 
-	err := group.Wait()
+	err = group.Wait()
 	s.QueueMap.StopAll()
 
 	if err == nil || errors.Is(err, context.Canceled) {

@@ -9,15 +9,21 @@ import (
 	"errors"
 	"fmt"
 	"sort"
+	"strconv"
 	"sync"
 	"time"
 
+	"github.com/spacemonkeygo/monkit/v3"
 	"go.uber.org/zap"
 	"golang.org/x/exp/maps"
 
 	"storj.io/common/storj"
 	"storj.io/common/uuid"
 	"storj.io/storj/satellite/jobq"
+)
+
+var (
+	mon = monkit.Package()
 )
 
 const (
@@ -240,6 +246,10 @@ func (rrq *repairRetryQueue) Push(x any) {
 
 var _ heap.Interface = &repairRetryQueue{}
 
+func placementTag(placement uint16) monkit.SeriesTag {
+	return monkit.NewSeriesTag("placement", strconv.Itoa(int(placement)))
+}
+
 // Queue is a priority queue of repair jobs paired with a priority queue of jobs
 // to be retried once they are eligible. A secondary index on streamID+position
 // is kept to allow updates to the health (priority) of jobs already in one of
@@ -304,6 +314,10 @@ func (q *Queue) Insert(job jobq.RepairJob) (wasNew bool) {
 	}
 	job.UpdatedAt = now
 
+	// jobq_insert measures inserts, including both adds and updates
+	mon.Meter("jobq_insert").Mark(1)
+	mon.Meter("jobq_insert_p", placementTag(job.Placement)).Mark(1)
+
 	// if the segment is already in the queue, we can't tell with the heap alone
 	// (without some O(N) searching). indexByID is here for this reason.
 	if i, ok := q.indexByID[job.ID]; ok {
@@ -345,11 +359,18 @@ func (q *Queue) Insert(job jobq.RepairJob) (wasNew bool) {
 			oldQueue.priorityHeap[index] = job
 			heap.Fix(oldHeap, index)
 		}
+		// jobq_update measures updates to the queue, as opposed to adds
+		mon.Meter("jobq_update").Mark(1)
+		mon.Meter("jobq_update_p", placementTag(job.Placement)).Mark(1)
 		return false
 	}
 	if job.InsertedAt == 0 || job.InsertedAt == jobq.ServerTimeNow {
 		job.InsertedAt = now
 	}
+
+	// jobq_push measures adds to the queue, as opposed to updates
+	mon.Meter("jobq_push").Mark(1)
+	mon.Meter("jobq_push_p", placementTag(job.Placement)).Mark(1)
 
 	if job.LastAttemptedAt != 0 && q.Now().Sub(job.LastAttemptedAtTime()) < q.RetryAfter {
 		// new job, but not eligible for retry yet
@@ -381,6 +402,8 @@ func (q *Queue) popLocked() (job jobq.RepairJob, ok bool) {
 	if unmarkingErrorBefore == nil && q.pq.unmarkingError != nil {
 		q.log.Error("failed to mark unused memory", zap.Error(q.pq.unmarkingError))
 	}
+	mon.Meter("jobq_pop").Mark(1)
+	mon.Meter("jobq_pop_p", placementTag(item.Placement)).Mark(1)
 	return item, true
 }
 
@@ -395,7 +418,10 @@ func (q *Queue) Peek() (job jobq.RepairJob, ok bool) {
 		return jobq.RepairJob{}, false
 	}
 
-	return q.pq.priorityHeap[0], true
+	item := q.pq.priorityHeap[0]
+	mon.Meter("jobq_peek").Mark(1)
+	mon.Meter("jobq_peek_p", placementTag(item.Placement)).Mark(1)
+	return item, true
 }
 
 // PeekRetry returns the segment with the smallest LastUpdatedAt value in the
