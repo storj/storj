@@ -852,3 +852,27 @@ func TestOverlayCache_GetLastIPPortByNodeTagName(t *testing.T) {
 		require.False(t, ok)
 	})
 }
+
+func TestOverlayCache_ActiveNodesPieceCounts(t *testing.T) {
+	satellitedbtest.Run(t, func(ctx *testcontext.Context, t *testing.T, db satellite.DB) {
+		overlay := db.OverlayCache()
+
+		onlineNode := addNode(ctx, t, overlay, "online           ", "127.0.0.1", time.Second, false, false, false, false, false)
+		offlineNode := addNode(ctx, t, overlay, "offline          ", "127.0.0.2", 2*time.Hour, false, false, false, false, false)
+
+		addNode(ctx, t, overlay, "disqualified     ", "127.0.0.3", 2*time.Hour, true, false, false, false, false)
+		addNode(ctx, t, overlay, "exiting          ", "127.0.0.5", 2*time.Hour, false, false, false, true, false)
+		addNode(ctx, t, overlay, "exited           ", "127.0.0.6", 2*time.Hour, false, false, false, false, true)
+
+		nodes, err := overlay.ActiveNodesPieceCounts(ctx)
+		require.NoError(t, err)
+
+		require.Len(t, nodes, 2)
+
+		_, found := nodes[onlineNode.id]
+		require.True(t, found)
+
+		_, found = nodes[offlineNode.id]
+		require.True(t, found)
+	})
+}

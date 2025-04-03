@@ -135,6 +135,8 @@ read paged (
 read all (
 	select node.id node.piece_count
 	where node.disqualified = null
+	where node.exit_initiated_at = null
+	where node.exit_finished_at = null
 )
 
 // node_api_version is a table for storing the supported API.

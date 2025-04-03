@@ -985,14 +985,14 @@ func (cache *overlaycache) TestUnsuspendNodeUnknownAudit(ctx context.Context, no
 }
 
 // ActiveNodesPieceCounts returns a map of node IDs to piece counts from the db. Returns only pieces for
-// nodes that are not disqualified.
+// nodes that are not disqualified and are not exiting.
 // NB: a valid, partial piece map can be returned even if node ID parsing error(s) are returned.
 func (cache *overlaycache) ActiveNodesPieceCounts(ctx context.Context) (_ map[storj.NodeID]int64, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	// NB: `All_Node_Id_Node_PieceCount_By_Disqualified_Is_Null` selects node
-	// ID and piece count from the nodes which are not disqualified.
-	rows, err := cache.db.All_Node_Id_Node_PieceCount_By_Disqualified_Is_Null(ctx)
+	// NB: `All_Node_Id_Node_PieceCount_By_Disqualified_Is_Null_And_ExitInitiatedAt_Is_Null_And_ExitFinishedAt_Is_Null` selects node
+	// ID and piece count from the nodes which are not disqualified and are not exiting.
+	rows, err := cache.db.All_Node_Id_Node_PieceCount_By_Disqualified_Is_Null_And_ExitInitiatedAt_Is_Null_And_ExitFinishedAt_Is_Null(ctx)
 	if err != nil {
 		return nil, Error.Wrap(err)
 	}
