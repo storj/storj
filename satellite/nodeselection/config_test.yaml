@@ -49,3 +49,6 @@ placements:
     name: uploadfilter
     filter: country("EU")
     upload-filter: exclude(country("DE"))
+  - id: 14
+    name: stream
+    selector: stream(randomstream, streamfilter(groupconstraint(node_attribute("last_ip"),1)), choiceofns(2,1 + node_value("free_disk") ^ 0.5 / 2500000))
