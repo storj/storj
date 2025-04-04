@@ -242,11 +242,15 @@ func NewStore(ctx context.Context, logsPath string, tablePath string, log *zap.L
 				}
 				defer af.Cancel()
 
-				ntbl, err := CreateTable(ctx, af.File, tbl_minLogSlots, s.today(), table_DefaultKind)
+				cons, err := CreateTable(ctx, af.File, tbl_minLogSlots, s.today(), table_DefaultKind)
 				if err != nil {
 					return Error.Wrap(err)
 				}
-				defer ntbl.Close()
+				tbl, err := cons.Done(ctx)
+				if err != nil {
+					return Error.Wrap(err)
+				}
+				defer tbl.Close()
 
 				return af.Commit()
 			}()
@@ -413,23 +417,31 @@ func (s *Store) addRecord(ctx context.Context, rec Record) error {
 	ok, err := s.tbl.Insert(ctx, rec)
 	if err != nil {
 		return Error.Wrap(err)
-	} else if !ok {
-		// if this happens, we're in some weird situation where our estimate of the load must be
-		// way off. as a last ditch effort, try to recompute the estimates, bump some counters, and
-		// loudly complain with some potentially helpful debugging information.
-		s.stats.tableFull.Add(1)
-		beforeLoad := s.tbl.Load()
-		estError := s.tbl.ComputeEstimates(ctx)
-		afterLoad := s.tbl.Load()
-		s.log.Error("hash table is full",
-			zap.NamedError("compute_estimates", estError),
-			zap.Float64("before_load", beforeLoad),
-			zap.Float64("after_load", afterLoad),
-		)
-		return Error.New("hash table is full")
-	} else {
+	} else if ok {
 		return nil
 	}
+
+	// if this happens, we're in some weird situation where our estimate of the load must be
+	// way off. as a last ditch effort, try to recompute the estimates, bump some counters, and
+	// loudly complain with some potentially helpful debugging information.
+	s.stats.tableFull.Add(1)
+
+	beforeStats := s.tbl.Stats()
+
+	if esti, ok := s.tbl.(interface{ ComputeEstimates(context.Context) error }); ok {
+		err = esti.ComputeEstimates(ctx)
+	} else {
+		err = Error.New("table does not support ComputeEstimates")
+	}
+
+	s.log.Error("hash table is full",
+		zap.NamedError("compute_estimates", err),
+		zap.Any("before_stats", beforeStats),
+		zap.Any("after_stats", s.tbl.Stats()),
+	)
+
+	return Error.New("hash table is full")
+
 }
 
 // Load returns the estimated load factor of the hash table. If it's too large, a Compact call is
@@ -439,23 +451,6 @@ func (s *Store) Load() float64 {
 	defer s.rmu.RUnlock()
 
 	return s.tbl.Load()
-}
-
-// ShouldCompact returns true if the underlying table indicates that a compaction would be useful.
-func (s *Store) ShouldCompact() bool {
-	s.rmu.RLock()
-	defer s.rmu.RUnlock()
-
-	return s.tbl.Load() >= s.tbl.CompactLoad()
-}
-
-// Loads returns the estimated load factor of the hash table, the load it should be compacted at,
-// and the load that it should no longer be written to.
-func (s *Store) Loads() (load, compact, max float64) {
-	s.rmu.RLock()
-	defer s.rmu.RUnlock()
-
-	return s.tbl.Load(), s.tbl.CompactLoad(), s.tbl.MaxLoad()
 }
 
 // Close interrupts any compactions and closes the store.
@@ -917,21 +912,11 @@ func (s *Store) compactOnce(
 	}
 	defer af.Cancel()
 
-	ntbl, err := CreateTable(ctx, af.File, logSlots, today, table_DefaultKind)
+	cons, err := CreateTable(ctx, af.File, logSlots, today, table_DefaultKind)
 	if err != nil {
 		return false, Error.Wrap(err)
 	}
-
-	// only expect ordered if both tables have the same key ordering and table kind.
-	flush := func() error { return nil }
-	if ntbl.Header().HashKey == s.tbl.Header().HashKey && ntbl.Header().Kind == s.tbl.Header().Kind {
-		var done func()
-		flush, done, err = ntbl.ExpectOrdered(ctx)
-		if err != nil {
-			return false, Error.Wrap(err)
-		}
-		defer done()
-	}
+	defer cons.Close()
 
 	// update the beginning of the write time for progress reporting.
 	s.stats.writeTime.Store(time.Now())
@@ -1017,7 +1002,7 @@ func (s *Store) compactOnce(
 		}
 
 		// insert the record into the new hash table.
-		if ok, err := ntbl.Insert(ctx, rec); err != nil {
+		if ok, err := cons.Append(ctx, rec); err != nil {
 			return false, Error.Wrap(err)
 		} else if !ok {
 			return false, Error.New("compaction hash table is full")
@@ -1031,7 +1016,8 @@ func (s *Store) compactOnce(
 		return false, err
 	}
 
-	if err := flush(); err != nil {
+	ntbl, err := cons.Done(ctx)
+	if err != nil {
 		return false, Error.Wrap(err)
 	}
 

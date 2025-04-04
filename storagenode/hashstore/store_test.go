@@ -1287,7 +1287,7 @@ func benchmarkStore(b *testing.B) {
 
 		for i := 0; i < b.N; i++ {
 			s.AssertCreate(WithData(buf))
-			if s.ShouldCompact() {
+			if s.Load() > db_CompactLoad {
 				s.AssertCompact(nil, time.Time{})
 			}
 		}
@@ -1301,7 +1301,7 @@ func benchmarkStore(b *testing.B) {
 
 		for i := uint64(0); i < 1<<lrec; i++ {
 			s.AssertCreate(WithData(nil))
-			if s.ShouldCompact() {
+			if s.Load() > db_CompactLoad {
 				s.AssertCompact(nil, time.Time{})
 			}
 		}

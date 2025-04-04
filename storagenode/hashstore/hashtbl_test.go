@@ -13,8 +13,8 @@ import (
 	"github.com/zeebo/assert"
 )
 
-func TestHashtbl_TrashStats(t *testing.T) {
-	h := newTestHashtbl(t, tbl_minLogSlots)
+func TestHashTbl_TrashStats(t *testing.T) {
+	h := newTestHashTbl(t, tbl_minLogSlots)
 	defer h.Close()
 
 	rec := newRecord(newKey())
@@ -27,9 +27,9 @@ func TestHashtbl_TrashStats(t *testing.T) {
 	assert.Equal(t, stats.AvgTrash, float64(rec.Length))
 }
 
-func TestHashtbl_Full(t *testing.T) {
+func TestHashTbl_Full(t *testing.T) {
 	ctx := context.Background()
-	h := newTestHashtbl(t, tbl_minLogSlots)
+	h := newTestHashTbl(t, tbl_minLogSlots)
 	defer h.Close()
 
 	// fill the table completely.
@@ -49,11 +49,11 @@ func TestHashtbl_Full(t *testing.T) {
 	assert.False(t, ok)
 }
 
-func TestHashtbl_LostPage(t *testing.T) {
+func TestHashTbl_LostPage(t *testing.T) {
 	const lrec = 14 // 16k records (256 pages)
 
 	ctx := context.Background()
-	h := newTestHashtbl(t, lrec)
+	h := newTestHashTbl(t, lrec)
 	defer h.Close()
 
 	// create two keys that collide at the end of the first page.
@@ -85,40 +85,40 @@ func TestHashtbl_LostPage(t *testing.T) {
 	assert.False(t, ok)
 }
 
-func TestHashtbl_SmallFileSizes(t *testing.T) {
+func TestHashTbl_SmallFileSizes(t *testing.T) {
 	ctx := context.Background()
 
 	fh, err := os.Create(filepath.Join(t.TempDir(), "tmp"))
 	assert.NoError(t, err)
 	defer func() { _ = fh.Close() }()
 
-	_, err = OpenHashtbl(ctx, fh)
+	_, err = OpenHashTbl(ctx, fh)
 	assert.Error(t, err)
 
 	assert.NoError(t, fh.Truncate(headerSize))
-	_, err = OpenHashtbl(ctx, fh)
+	_, err = OpenHashTbl(ctx, fh)
 	assert.Error(t, err)
 
 	assert.NoError(t, fh.Truncate(headerSize+(pageSize-1)))
-	_, err = OpenHashtbl(ctx, fh)
+	_, err = OpenHashTbl(ctx, fh)
 	assert.Error(t, err)
 }
 
-func TestHashtbl_LRecBounds(t *testing.T) {
+func TestHashTbl_LRecBounds(t *testing.T) {
 	ctx := context.Background()
 
-	_, err := CreateHashtbl(ctx, nil, tbl_maxLogSlots+1, 0)
+	_, err := CreateHashTbl(ctx, nil, tbl_maxLogSlots+1, 0)
 	assert.Error(t, err)
 
-	_, err = CreateHashtbl(ctx, nil, tbl_minLogSlots-1, 0)
+	_, err = CreateHashTbl(ctx, nil, tbl_minLogSlots-1, 0)
 	assert.Error(t, err)
 }
 
-func TestHashtbl_GrowthRetainsOrder(t *testing.T) {
-	h0 := newTestHashtbl(t, 14)
+func TestHashTbl_GrowthRetainsOrder(t *testing.T) {
+	h0 := newTestHashTbl(t, 14)
 	defer h0.Close()
 
-	h1 := newTestHashtbl(t, 15)
+	h1 := newTestHashTbl(t, 15)
 	defer h1.Close()
 
 	for i := 0; i < 1000; i++ {
@@ -129,8 +129,8 @@ func TestHashtbl_GrowthRetainsOrder(t *testing.T) {
 	}
 }
 
-func TestHashtbl_Wraparound(t *testing.T) {
-	h := newTestHashtbl(t, tbl_minLogSlots)
+func TestHashTbl_Wraparound(t *testing.T) {
+	h := newTestHashTbl(t, tbl_minLogSlots)
 	defer h.Close()
 
 	// insert a bunch of keys that collide into the last slot.
@@ -147,16 +147,16 @@ func TestHashtbl_Wraparound(t *testing.T) {
 	}
 }
 
-func TestHashtbl_ResizeDoesNotBiasEstimate(t *testing.T) {
+func TestHashTbl_ResizeDoesNotBiasEstimate(t *testing.T) {
 	ctx := context.Background()
-	h0 := newTestHashtbl(t, tbl_minLogSlots)
+	h0 := newTestHashTbl(t, tbl_minLogSlots)
 	defer h0.Close()
 
 	for i := 0; i < 1<<tbl_minLogSlots/2; i++ {
 		h0.AssertInsert()
 	}
 
-	h1 := newTestHashtbl(t, tbl_minLogSlots+1)
+	h1 := newTestHashTbl(t, tbl_minLogSlots+1)
 	defer h1.Close()
 
 	assert.NoError(t, h0.Range(ctx, func(ctx context.Context, rec Record) (bool, error) {
@@ -172,8 +172,8 @@ func TestHashtbl_ResizeDoesNotBiasEstimate(t *testing.T) {
 	assert.That(t, h1.Load() <= 0.3)
 }
 
-func TestHashtbl_RandomDistributionOfSequentialKeys(t *testing.T) {
-	h := newTestHashtbl(t, tbl_minLogSlots)
+func TestHashTbl_RandomDistributionOfSequentialKeys(t *testing.T) {
+	h := newTestHashTbl(t, tbl_minLogSlots)
 	defer h.Close()
 
 	// load keys into the hash table that would be sequential with no hashing.
@@ -195,8 +195,8 @@ func TestHashtbl_RandomDistributionOfSequentialKeys(t *testing.T) {
 	}
 }
 
-func TestHashtbl_EstimateWithNonuniformTable(t *testing.T) {
-	h := newTestHashtbl(t, tbl_minLogSlots)
+func TestHashTbl_EstimateWithNonuniformTable(t *testing.T) {
+	h := newTestHashTbl(t, tbl_minLogSlots)
 	defer h.Close()
 
 	// completely fill the table.
@@ -224,18 +224,18 @@ func TestHashtbl_EstimateWithNonuniformTable(t *testing.T) {
 func BenchmarkHashTbl(b *testing.B) {
 	benchmarkLRecs(b, "ComputeEstimates", func(b *testing.B, lrec uint64) {
 		ctx := context.Background()
-		tbl := newTestTable(b, lrec)
-		defer tbl.Close()
+		h := newTestHashTbl(b, lrec)
+		defer h.Close()
 
 		for i := 0; i < 1<<lrec/2; i++ {
-			tbl.AssertInsert()
+			h.AssertInsert()
 		}
 
 		b.ReportAllocs()
 		b.ResetTimer()
 
 		for i := 0; i < b.N; i++ {
-			assert.NoError(b, tbl.ComputeEstimates(ctx))
+			assert.NoError(b, h.ComputeEstimates(ctx))
 		}
 	})
 }

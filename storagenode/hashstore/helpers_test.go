@@ -11,6 +11,7 @@ import (
 	"path/filepath"
 	"runtime"
 	"strings"
+	"sync"
 	"testing"
 	"testing/iotest"
 	"time"
@@ -118,26 +119,50 @@ func TestAtomicFile(t *testing.T) {
 	}
 }
 
+func TestShortCollidingKeys(t *testing.T) {
+	k0, k1 := newShortCollidingKeys()
+	assert.Equal(t, shortKeyFrom(k0), shortKeyFrom(k1))
+	assert.NotEqual(t, k0, k1)
+}
+
 //
 // test helpers
 //
 
+var (
+	// since temporarily is used primarily to set global variables during tests, it might be called
+	// for the same variable multiple times. this is probably a bug, and so we keep track of which
+	// variables are already set and panic if they overlap.
+	temporarilyMutex    sync.Mutex
+	temporarilyAcquired = make(map[any]bool)
+)
+
 func temporarily[T any](loc *T, val T) func() {
+	temporarilyMutex.Lock()
+	defer temporarilyMutex.Unlock()
+
+	if temporarilyAcquired[loc] {
+		panic("overlapped temporarily calls")
+	}
+	temporarilyAcquired[loc] = true
+
 	old := *loc
 	*loc = val
-	return func() { *loc = old }
+	return func() { *loc = old; delete(temporarilyAcquired, loc) }
 }
 
 func forAllTables[T interface{ Run(string, func(T)) bool }](t T, fn func(T)) {
-	run := func(t T, kind TableKind) {
-		t.Run(kind.String(), func(t T) {
+	run := func(t T, kind TableKind, mmap bool) {
+		t.Run(fmt.Sprintf("tbl=%s/mmap=%v", kind, mmap), func(t T) {
 			defer temporarily(&table_DefaultKind, kind)()
+			defer temporarily(&hashtbl_MMAP, mmap)()
 			fn(t)
 		})
 	}
 
-	run(t, kind_HashTbl)
-	run(t, kind_MemTbl)
+	run(t, kind_HashTbl, false)
+	run(t, kind_HashTbl, true)
+	run(t, kind_MemTbl, false)
 }
 
 //
@@ -149,16 +174,19 @@ type testTbl struct {
 	Tbl
 }
 
-func newTestTable(t testing.TB, lrec uint64) *testTbl {
+func newTestTbl(t testing.TB, lrec uint64, opts ...any) *testTbl {
 	t.Helper()
 
 	fh, err := os.CreateTemp(t.TempDir(), "tbl")
 	assert.NoError(t, err)
 
-	h, err := CreateTable(context.Background(), fh, lrec, 0, table_DefaultKind)
+	cons, err := CreateTable(context.Background(), fh, lrec, 0, table_DefaultKind)
+	assert.NoError(t, err)
+	checkOptions(opts, func(tc WithConstructor) { tc(cons) })
+	tbl, err := cons.Done(context.Background())
 	assert.NoError(t, err)
 
-	return &testTbl{t: t, Tbl: h}
+	return &testTbl{t: t, Tbl: tbl}
 }
 
 func (tbl *testTbl) Close() { tbl.Tbl.Close() }
@@ -222,16 +250,19 @@ type testHashTbl struct {
 	*HashTbl
 }
 
-func newTestHashtbl(t testing.TB, lrec uint64) *testHashTbl {
+func newTestHashTbl(t testing.TB, lrec uint64, opts ...any) *testHashTbl {
 	t.Helper()
 
 	fh, err := os.CreateTemp(t.TempDir(), "hashtbl")
 	assert.NoError(t, err)
 
-	h, err := CreateHashtbl(context.Background(), fh, lrec, 0)
+	cons, err := CreateHashTbl(context.Background(), fh, lrec, 0)
+	assert.NoError(t, err)
+	checkOptions(opts, func(tc WithConstructor) { tc(cons) })
+	h, err := cons.Done(context.Background())
 	assert.NoError(t, err)
 
-	return &testHashTbl{t: t, HashTbl: h}
+	return &testHashTbl{t: t, HashTbl: h.(*HashTbl)}
 }
 
 func (th *testHashTbl) Close() { th.HashTbl.Close() }
@@ -244,7 +275,7 @@ func (th *testHashTbl) AssertReopen() {
 	fh, err := os.OpenFile(th.fh.Name(), os.O_RDWR, 0)
 	assert.NoError(th.t, err)
 
-	h, err := OpenHashtbl(context.Background(), fh)
+	h, err := OpenHashTbl(context.Background(), fh)
 	assert.NoError(th.t, err)
 
 	th.HashTbl = h
@@ -295,16 +326,19 @@ type testMemTbl struct {
 	*MemTbl
 }
 
-func newTestMemtbl(t testing.TB, lrec uint64) *testMemTbl {
+func newTestMemTbl(t testing.TB, lrec uint64, opts ...any) *testMemTbl {
 	t.Helper()
 
 	fh, err := os.CreateTemp(t.TempDir(), "memtbl")
 	assert.NoError(t, err)
 
-	m, err := CreateMemtbl(context.Background(), fh, lrec, 0)
+	cons, err := CreateMemTbl(context.Background(), fh, lrec, 0)
+	assert.NoError(t, err)
+	checkOptions(opts, func(tc WithConstructor) { tc(cons) })
+	m, err := cons.Done(context.Background())
 	assert.NoError(t, err)
 
-	return &testMemTbl{t: t, MemTbl: m}
+	return &testMemTbl{t: t, MemTbl: m.(*MemTbl)}
 }
 
 func (tm *testMemTbl) Close() { tm.MemTbl.Close() }
@@ -317,7 +351,7 @@ func (tm *testMemTbl) AssertReopen() {
 	fh, err := os.OpenFile(tm.fh.Name(), os.O_RDWR, 0)
 	assert.NoError(tm.t, err)
 
-	m, err := OpenMemtbl(context.Background(), fh)
+	m, err := OpenMemTbl(context.Background(), fh)
 	assert.NoError(tm.t, err)
 
 	tm.MemTbl = m
@@ -554,11 +588,12 @@ func (td *testDB) AssertCompact() {
 //
 
 type (
-	AssertTrash bool
-	WithTTL     time.Time
-	WithData    []byte
-	WithKey     Key
-	WithRevive  bool
+	AssertTrash     bool
+	WithTTL         time.Time
+	WithData        []byte
+	WithKey         Key
+	WithRevive      bool
+	WithConstructor func(TblConstructor)
 )
 
 func checkOptions[T any](opts []any, cb func(T)) {
@@ -571,6 +606,13 @@ func checkOptions[T any](opts []any, cb func(T)) {
 
 func newKey() (k Key) {
 	_, _ = mwc.Rand().Read(k[:])
+	return
+}
+
+func newShortCollidingKeys() (k0, k1 Key) {
+	_, _ = mwc.Rand().Read(k0[:])
+	k1 = k0
+	k1[0]++
 	return
 }
 
@@ -633,16 +675,16 @@ func waitForGoroutines(count int, frames ...string) {
 
 func benchmarkSizes(b *testing.B, name string, run func(*testing.B, uint64)) {
 	b.Run(name, func(b *testing.B) {
-		b.Run("0B", func(b *testing.B) { run(b, 0) })
-		b.Run("256B", func(b *testing.B) { run(b, 256) })
-		b.Run("1KB", func(b *testing.B) { run(b, 1*1024) })
-		b.Run("4KB", func(b *testing.B) { run(b, 4*1024) })
-		b.Run("16KB", func(b *testing.B) { run(b, 16*1024) })
+		b.Run("size=0B", func(b *testing.B) { run(b, 0) })
+		b.Run("size=256B", func(b *testing.B) { run(b, 256) })
+		b.Run("size=1KB", func(b *testing.B) { run(b, 1*1024) })
+		b.Run("size=4KB", func(b *testing.B) { run(b, 4*1024) })
+		b.Run("size=16KB", func(b *testing.B) { run(b, 16*1024) })
 		if !testing.Short() {
-			b.Run("64KB", func(b *testing.B) { run(b, 64*1024) })
-			b.Run("256KB", func(b *testing.B) { run(b, 256*1024) })
-			b.Run("1MB", func(b *testing.B) { run(b, 1*1024*1024) })
-			b.Run("2MB", func(b *testing.B) { run(b, 2*1024*1024) })
+			b.Run("size=64KB", func(b *testing.B) { run(b, 64*1024) })
+			b.Run("size=256KB", func(b *testing.B) { run(b, 256*1024) })
+			b.Run("size=1MB", func(b *testing.B) { run(b, 1*1024*1024) })
+			b.Run("size=2MB", func(b *testing.B) { run(b, 2*1024*1024) })
 		}
 	})
 }

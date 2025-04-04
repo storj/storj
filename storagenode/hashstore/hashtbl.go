@@ -68,9 +68,9 @@ func (s slotIdxT) Offset() int64    { return headerSize + int64(s*RecordSize) }
 func (p pageIdxT) Offset() int64    { return headerSize + int64(p*pageSize) }
 func (p bigPageIdxT) Offset() int64 { return headerSize + int64(p*bigPageSize) }
 
-// CreateHashtbl allocates a new hash table with the given log base 2 number of records and created
+// CreateHashTbl allocates a new hash table with the given log base 2 number of records and created
 // timestamp. The file is truncated and allocated to the correct size.
-func CreateHashtbl(ctx context.Context, fh *os.File, logSlots uint64, created uint32) (_ *HashTbl, err error) {
+func CreateHashTbl(ctx context.Context, fh *os.File, logSlots uint64, created uint32) (_ *HashTblConstructor, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	if logSlots > tbl_maxLogSlots {
@@ -102,11 +102,15 @@ func CreateHashtbl(ctx context.Context, fh *os.File, logSlots uint64, created ui
 
 	// this is a bit wasteful in the sense that we will do some stat calls, reread the header page,
 	// and compute estimates, but it reduces code paths and is not that expensive overall.
-	return OpenHashtbl(ctx, fh)
+	h, err := OpenHashTbl(ctx, fh)
+	if err != nil {
+		return nil, Error.Wrap(err)
+	}
+	return newHashTblConstructor(h), nil
 }
 
-// OpenHashtbl opens an existing hash table stored in the given file handle.
-func OpenHashtbl(ctx context.Context, fh *os.File) (_ *HashTbl, err error) {
+// OpenHashTbl opens an existing hash table stored in the given file handle.
+func OpenHashTbl(ctx context.Context, fh *os.File) (_ *HashTbl, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	// compute the number of records from the file size of the hash table.
@@ -299,12 +303,6 @@ func (h *HashTbl) ComputeEstimates(ctx context.Context) (err error) {
 	return nil
 }
 
-// CompactLoad returns the load factor the tbl should be compacted at.
-func (h *HashTbl) CompactLoad() float64 { return 0.75 }
-
-// MaxLoad returns the load factor at which no more inserts should happen.
-func (h *HashTbl) MaxLoad() float64 { return 0.95 }
-
 // Load returns an estimate of what fraction of the hash table is occupied.
 func (h *HashTbl) Load() float64 {
 	h.statsMu.Lock()
@@ -357,54 +355,6 @@ func (h *HashTbl) Range(ctx context.Context, fn func(context.Context, Record) (b
 	h.statsMu.Unlock()
 
 	return nil
-}
-
-// ExpectOrdered signals that incoming writes to the hashtbl will be ordered so that a large shared
-// buffer across Insert calls would be effective. This is useful when rewriting a hashtbl during a
-// Compaction, for instance. It returns a flush callback that both flushes any potentially buffered
-// records and disables the expectation. Additionally, Lookups may not find entries written until
-// after the flush callback is called. If flush returns an error there is no guarantee about what
-// records were written. It returns a done callback that discards any potentially buffered records
-// and disables the expectation. At least one of flush or done must be called. It returns an error
-// if called again before flush or done is called.
-func (h *HashTbl) ExpectOrdered(ctx context.Context) (flush func() error, done func(), err error) {
-	if err := h.opMu.Lock(ctx, &h.closed); err != nil {
-		return nil, nil, err
-	}
-	defer h.opMu.Unlock()
-
-	// mmap mode benchmarks faster than the rwBigPageCache, so if we're in mmap mode then we should
-	// just use that.
-	if h.mmap != nil {
-		return func() error { return nil }, func() {}, nil
-	}
-
-	if h.buffer != nil {
-		return nil, nil, Error.New("buffer already exists")
-	}
-
-	buffer := new(rwBigPageCache)
-	h.buffer = buffer
-	h.buffer.Init(h.fh)
-
-	return func() (err error) {
-			h.opMu.WaitLock()
-			defer h.opMu.Unlock()
-
-			if h.buffer == buffer {
-				err = Error.Wrap(h.buffer.Flush())
-				h.buffer = nil
-			}
-
-			return err
-		}, func() {
-			h.opMu.WaitLock()
-			defer h.opMu.Unlock()
-
-			if h.buffer == buffer {
-				h.buffer = nil
-			}
-		}, nil
 }
 
 // Insert adds a record to the hash table. It returns (true, nil) if the record was inserted, it
@@ -557,6 +507,80 @@ func (h *HashTbl) Lookup(ctx context.Context, key Key) (_ Record, _ bool, err er
 }
 
 //
+// hashtbl constructor
+//
+
+// HashTblConstructor constructs a HashTbl.
+type HashTblConstructor struct {
+	h   *HashTbl
+	err error
+}
+
+// newHashTblConstructor constructs a new HashTblConstructor.
+func newHashTblConstructor(h *HashTbl) *HashTblConstructor {
+	// set the hashtbl into big page buffer mode if we're not in mmap mode.
+	if h.mmap == nil {
+		h.buffer = new(rwBigPageCache)
+		h.buffer.Init(h.fh)
+	}
+
+	return &HashTblConstructor{h: h}
+}
+
+// valid is a helper function to convert failure conditions into an error. It is small enough to be
+// inlined.
+func (c *HashTblConstructor) valid() error {
+	if c.err != nil {
+		return c.err
+	} else if c.h == nil {
+		return Error.New("constructor already done")
+	}
+	return nil
+}
+
+// Close signals that we're done with the HashTblConstructor. It should always be called.
+func (c *HashTblConstructor) Close() {
+	if c.h != nil {
+		c.h.Close()
+		c.h = nil
+	}
+}
+
+// Append adds the record into the HashTbl. Errors are sticky and will prevent further appends.
+// Appending records in the "naural" order for the HashTbl will go faster than random order.
+func (c *HashTblConstructor) Append(ctx context.Context, r Record) (bool, error) {
+	if err := c.valid(); err != nil {
+		return false, err
+	}
+	var ok bool
+	ok, c.err = c.h.Insert(ctx, r)
+	return ok, c.err
+}
+
+// Done returns the constructed HashTbl or an error if there was a problem. The returned Tbl must be
+// closed if it is not nil.
+func (c *HashTblConstructor) Done(ctx context.Context) (t Tbl, err error) {
+	if err := c.valid(); err != nil {
+		return nil, err
+	}
+
+	if buf := c.h.buffer; buf != nil {
+		c.err = buf.Flush()
+		c.h.buffer = nil
+		if c.err != nil {
+			return nil, c.err
+		}
+	}
+
+	// valid returns an error if the memtbl field is nil, so we don't have to worry about putting
+	// a nil pointer in the interface.
+	h := c.h
+	c.h = nil
+
+	return h, nil
+}
+
+//
 // mmap based pass through cache
 //
 
@@ -634,7 +658,7 @@ func (c *roBigPageCache) ReadRecord(slot slotIdxT, rec *Record) (valid bool, err
 }
 
 //
-// write-back hashtbl page caches
+// write-back hashtbl page cache
 //
 
 type rwPageCache struct {
@@ -686,6 +710,10 @@ func (c *rwPageCache) WriteRecord(slot slotIdxT, rec *Record) (err error) {
 
 	return Error.Wrap(err)
 }
+
+//
+// write-back hashtbl big page cache
+//
 
 type rwBigPageCache struct {
 	fh *os.File

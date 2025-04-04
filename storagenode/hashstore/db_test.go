@@ -133,12 +133,12 @@ func testDB_CompactionOnOpen(t *testing.T) {
 	defer db.Close()
 
 	// load up both the active and passive stores to somewhere between compact and max load.
-	for !db.active.ShouldCompact() {
+	for db.active.Load() < (db_CompactLoad+db_MaxLoad)/2 {
 		w, err := db.active.Create(ctx, newKey(), time.Time{})
 		assert.NoError(t, err)
 		assert.NoError(t, w.Close())
 	}
-	for !db.passive.ShouldCompact() {
+	for db.passive.Load() < (db_CompactLoad+db_MaxLoad)/2 {
 		w, err := db.passive.Create(ctx, newKey(), time.Time{})
 		assert.NoError(t, err)
 		assert.NoError(t, w.Close())
@@ -147,7 +147,7 @@ func testDB_CompactionOnOpen(t *testing.T) {
 	// reopening the store should cause passive to eventually be compacted.
 	db.AssertReopen()
 
-	for db.passive.ShouldCompact() {
+	for db.passive.Load() > db_CompactLoad {
 		time.Sleep(time.Millisecond)
 	}
 }

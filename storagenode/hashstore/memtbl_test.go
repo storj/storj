@@ -4,21 +4,18 @@
 package hashstore
 
 import (
+	"context"
 	"testing"
 
 	"github.com/zeebo/assert"
 )
 
-func TestMemtbl_ShortCollision(t *testing.T) {
-	m := newTestMemtbl(t, tbl_minLogSlots)
+func TestMemTbl_ShortCollision(t *testing.T) {
+	m := newTestMemTbl(t, tbl_minLogSlots)
 	defer m.Close()
 
 	// make two keys that collide on short but are not equal.
-	k0 := newKey()
-	k1 := k0
-	k1[len(k1)-1]++
-	assert.Equal(t, *(*shortKey)(k0[:]), *(*shortKey)(k1[:]))
-	assert.NotEqual(t, k0, k1)
+	k0, k1 := newShortCollidingKeys()
 
 	// inserting with k0 doesn't return records for k1.
 	m.AssertInsert(WithKey(k0))
@@ -39,4 +36,21 @@ func TestMemtbl_ShortCollision(t *testing.T) {
 	m.AssertReopen()
 	m.AssertLookup(k0)
 	m.AssertLookup(k1)
+}
+
+func TestMemTbl_ConstructorSometimesFlushes(t *testing.T) {
+	newTestMemTbl(t, tbl_minLogSlots, WithConstructor(func(tc TblConstructor) {
+		// make two keys that collide on short but are not equal.
+		k0, k1 := newShortCollidingKeys()
+
+		assertAppend := func(ok bool, err error) {
+			assert.NoError(t, err)
+			assert.True(t, ok)
+		}
+
+		// inserting k1 will require reading the record for k0 because of the collision, and so it
+		// requires reading the record, which will error if we don't flush.
+		assertAppend(tc.Append(context.Background(), newRecord(k0)))
+		assertAppend(tc.Append(context.Background(), newRecord(k1)))
+	})).Close()
 }

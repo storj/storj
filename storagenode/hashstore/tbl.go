@@ -58,22 +58,24 @@ var (
 
 // Tbl describes a hash table for a store.
 type Tbl interface {
-	Close()
-
 	Handle() *os.File
-	Stats() TblStats
 	LogSlots() uint64
 	Header() TblHeader
-	CompactLoad() float64
-	MaxLoad() float64
-	Load() float64
 
-	ComputeEstimates(context.Context) error
-	ExpectOrdered(context.Context) (func() error, func(), error)
+	Load() float64
+	Stats() TblStats
 
 	Range(context.Context, func(context.Context, Record) (bool, error)) error
 	Insert(context.Context, Record) (bool, error)
 	Lookup(context.Context, Key) (Record, bool, error)
+	Close()
+}
+
+// TblConstructor is a constructor for a hash table.
+type TblConstructor interface {
+	Append(context.Context, Record) (bool, error)
+	Done(context.Context) (Tbl, error)
+	Close()
 }
 
 // TblStats contains statistics about a hash table.
@@ -118,21 +120,21 @@ func OpenTable(ctx context.Context, fh *os.File) (_ Tbl, err error) {
 	}
 	switch header.Kind {
 	case kind_HashTbl:
-		return OpenHashtbl(ctx, fh)
+		return OpenHashTbl(ctx, fh)
 	case kind_MemTbl:
-		return OpenMemtbl(ctx, fh)
+		return OpenMemTbl(ctx, fh)
 	default:
 		return nil, Error.New("unknown table kind: %d", header.Kind)
 	}
 }
 
 // CreateTable creates a new table of the given kind.
-func CreateTable(ctx context.Context, fh *os.File, logSlots uint64, created uint32, kind TableKind) (_ Tbl, err error) {
+func CreateTable(ctx context.Context, fh *os.File, logSlots uint64, created uint32, kind TableKind) (_ TblConstructor, err error) {
 	switch kind {
 	case kind_HashTbl:
-		return CreateHashtbl(ctx, fh, logSlots, created)
+		return CreateHashTbl(ctx, fh, logSlots, created)
 	case kind_MemTbl:
-		return CreateMemtbl(ctx, fh, logSlots, created)
+		return CreateMemTbl(ctx, fh, logSlots, created)
 	default:
 		return nil, Error.New("unknown table kind: %d", kind)
 	}

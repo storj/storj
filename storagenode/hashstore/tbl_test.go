@@ -18,7 +18,7 @@ func TestTable_BasicOperation(t *testing.T) {
 }
 func testTable_BasicOperation(t *testing.T) {
 	ctx := context.Background()
-	tbl := newTestTable(t, tbl_minLogSlots)
+	tbl := newTestTbl(t, tbl_minLogSlots)
 	defer tbl.Close()
 
 	var keys []Key
@@ -80,7 +80,7 @@ func TestTable_OverwriteRecords(t *testing.T) {
 }
 func testTable_OverwriteMergeRecords(t *testing.T) {
 	ctx := context.Background()
-	tbl := newTestTable(t, tbl_minLogSlots)
+	tbl := newTestTbl(t, tbl_minLogSlots)
 	defer tbl.Close()
 
 	// create a new record with a non-zero expiration.
@@ -134,7 +134,7 @@ func TestTable_RangeExitEarly(t *testing.T) {
 }
 func testTable_RangeExitEarly(t *testing.T) {
 	ctx := context.Background()
-	h := newTestHashtbl(t, tbl_minLogSlots)
+	h := newTestHashTbl(t, tbl_minLogSlots)
 	defer h.Close()
 
 	// insert some records to range over.
@@ -150,42 +150,6 @@ func testTable_RangeExitEarly(t *testing.T) {
 	}))
 }
 
-func TestTable_ExpectOrdered(t *testing.T) {
-	forAllTables(t, testTable_ExpectOrdered)
-}
-func testTable_ExpectOrdered(t *testing.T) {
-	ctx := context.Background()
-	tbl := newTestTable(t, tbl_minLogSlots)
-	defer tbl.Close()
-
-	commit, done, err := tbl.ExpectOrdered(ctx)
-	assert.NoError(t, err)
-	defer done()
-
-	// write records until an automatic flush happens
-	var recs []Record
-	for {
-		rec := tbl.AssertInsert()
-		recs = append(recs, rec)
-		size, err := fileSize(tbl.Handle())
-		assert.NoError(t, err)
-		if size > headerSize {
-			break
-		}
-	}
-
-	// write some more records
-	for i := 0; i < 100; i++ {
-		recs = append(recs, tbl.AssertInsert())
-	}
-
-	// after a commit, all of them should be visible
-	assert.NoError(t, commit())
-	for _, rec := range recs {
-		tbl.AssertLookup(rec.Key)
-	}
-}
-
 //
 // benchmarks
 //
@@ -195,7 +159,7 @@ func BenchmarkTable(b *testing.B) {
 }
 func benchmarkTable(b *testing.B) {
 	benchmarkLRecs(b, "Lookup", func(b *testing.B, lrec uint64) {
-		tbl := newTestTable(b, lrec)
+		tbl := newTestTbl(b, lrec)
 		defer tbl.Close()
 
 		var keys []Key
@@ -224,7 +188,7 @@ func benchmarkTable(b *testing.B) {
 
 		for i := 0; i < b.N; i++ {
 			func() {
-				tbl := newTestTable(b, lrec)
+				tbl := newTestTbl(b, lrec)
 				defer tbl.Close()
 				for i := 0; i < inserts; i++ {
 					tbl.AssertInsert()
@@ -239,33 +203,26 @@ func benchmarkTable(b *testing.B) {
 		inserts := 1 << lrec / 2
 
 		ctx := context.Background()
-		tbl := newTestTable(b, lrec)
+		tbl := newTestTbl(b, lrec)
 		defer tbl.Close()
 
 		for i := 0; i < inserts; i++ {
 			tbl.AssertInsert()
 		}
-		var recs []Record
-		assert.NoError(b, tbl.Range(ctx, func(ctx context.Context, rec Record) (bool, error) {
-			recs = append(recs, rec)
-			return true, nil
-		}))
 
 		b.ReportAllocs()
 		b.ResetTimer()
 		now := time.Now()
 
 		for i := 0; i < b.N; i++ {
-			tbl := newTestTable(b, lrec+1)
-			flush, _, err := tbl.ExpectOrdered(ctx)
-			assert.NoError(b, err)
-
-			for _, rec := range recs {
-				tbl.AssertInsertRecord(rec)
-			}
-
-			assert.NoError(b, flush())
-			tbl.Close()
+			newTestTbl(b, lrec+1, WithConstructor(func(tc TblConstructor) {
+				assert.NoError(b, tbl.Range(ctx, func(ctx context.Context, rec Record) (bool, error) {
+					ok, err := tc.Append(ctx, rec)
+					assert.NoError(b, err)
+					assert.That(b, ok)
+					return true, nil
+				}))
+			})).Close()
 		}
 
 		b.ReportMetric(float64(b.N)*float64(inserts)/time.Since(now).Seconds(), "keys/sec")

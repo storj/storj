@@ -9,7 +9,6 @@ import (
 	"encoding/binary"
 	"errors"
 	"io"
-	"math"
 	"os"
 	"sync"
 
@@ -27,10 +26,14 @@ type memtblIdx uint32 // index of a record in the memtbl (^0 means promoted)
 
 const memtbl_Promoted = ^memtblIdx(0)
 
-var le = binary.LittleEndian
+func memtblIdxToValue(idx memtblIdx) (b [4]byte) {
+	binary.LittleEndian.PutUint32(b[:], uint32(idx))
+	return
+}
 
-func memtblIdxToValue(idx memtblIdx) (b [4]byte) { le.PutUint32(b[:], uint32(idx)); return }
-func valueToMemtblIdx(b [4]byte) (idx memtblIdx) { return memtblIdx(le.Uint32(b[:])) }
+func valueToMemtblIdx(b [4]byte) (idx memtblIdx) {
+	return memtblIdx(binary.LittleEndian.Uint32(b[:]))
+}
 
 // MemTbl is an in-memory hash table of records with a file for persistence.
 type MemTbl struct {
@@ -47,15 +50,15 @@ type MemTbl struct {
 	closed drpcsignal.Signal // closed state
 	cloMu  sync.Mutex        // synchronizes closing
 
-	buffer *memtblBuffer // buffer for inserts
+	buffer []byte
 
 	statsMu  sync.Mutex // protects the following fields
 	recStats recordStats
 }
 
-// CreateMemtbl allocates a new mem table with the given log base 2 number of records and created
+// CreateMemTbl allocates a new mem table with the given log base 2 number of records and created
 // timestamp.
-func CreateMemtbl(ctx context.Context, fh *os.File, logSlots uint64, created uint32) (_ *MemTbl, err error) {
+func CreateMemTbl(ctx context.Context, fh *os.File, logSlots uint64, created uint32) (_ *MemTblConstructor, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	if logSlots > tbl_maxLogSlots {
@@ -82,19 +85,23 @@ func CreateMemtbl(ctx context.Context, fh *os.File, logSlots uint64, created uin
 
 	// this is a bit wasteful in the sense that we will do some stat calls, reread the header page,
 	// but it reduces code paths and is not that expensive overall.
-	return OpenMemtbl(ctx, fh)
+	m, err := OpenMemTbl(ctx, fh)
+	if err != nil {
+		return nil, Error.Wrap(err)
+	}
+	return newMemTblConstructor(m), nil
 }
 
-// OpenMemtbl opens an existing hash table stored in the given file handle.
-func OpenMemtbl(ctx context.Context, fh *os.File) (_ *MemTbl, err error) {
+// OpenMemTbl opens an existing hash table stored in the given file handle.
+func OpenMemTbl(ctx context.Context, fh *os.File) (_ *MemTbl, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	// ensure the file is appropriately aligned and seek it to the end for writes.
 	size, err := fh.Seek(0, io.SeekEnd)
 	if err != nil {
 		return nil, Error.New("unable to determine memtbl size: %w", err)
-	} else if size < headerSize || (size-headerSize)%RecordSize != 0 {
-		return nil, Error.New("memtbl size not aligned to record: size=%d", size)
+	} else if size < headerSize {
+		return nil, Error.New("memtbl size too small for header: size=%d", size)
 	}
 
 	// read the header information from the first page.
@@ -109,10 +116,15 @@ func OpenMemtbl(ctx context.Context, fh *os.File) (_ *MemTbl, err error) {
 		fh:     fh,
 		header: header,
 
-		idx: memtblIdx((size - headerSize) / RecordSize),
+		idx:   memtblIdx((size - headerSize) / RecordSize),
+		align: size%RecordSize != 0,
 
 		entries:    make(map[shortKey][4]byte, 1<<header.LogSlots),
 		collisions: make(map[Key][4]byte),
+	}
+
+	if err := h.ensureAlignedLocked(ctx); err != nil {
+		return nil, err
 	}
 
 	// read the entries from the file.
@@ -147,11 +159,6 @@ func (m *MemTbl) rangeWithIdxLocked(
 	for idx := memtblIdx(0); ; idx++ {
 		if _, err := io.ReadFull(br, buf[:]); errors.Is(err, io.EOF) {
 			break
-		} else if errors.Is(err, io.ErrUnexpectedEOF) {
-			// if we had a failed write, we could be unaligned. range should ignore the partially
-			// written final record. we ensure alignment and truncate at file open so that is the
-			// only time this should happen.
-			break
 		} else if err != nil {
 			return Error.New("unable to read record: %w", err)
 		}
@@ -183,12 +190,12 @@ func (m *MemTbl) loadEntries(ctx context.Context) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	return m.rangeWithIdxLocked(ctx, func(ctx context.Context, idx memtblIdx, rec Record) (bool, error) {
-		return true, m.insertKeyLocked(rec.Key, idx)
+		return true, m.insertKeyLocked(ctx, rec.Key, idx)
 	})
 }
 
 // insertKeyLocked associates the key with the memtbl index, promoting in case there is a collision.
-func (m *MemTbl) insertKeyLocked(key Key, idx memtblIdx) error {
+func (m *MemTbl) insertKeyLocked(ctx context.Context, key Key, idx memtblIdx) error {
 	short := shortKeyFrom(key)
 	value := memtblIdxToValue(idx)
 	exValue, ok := m.entries[short]
@@ -208,7 +215,7 @@ func (m *MemTbl) insertKeyLocked(key Key, idx memtblIdx) error {
 		// an existing key at short is already set. we need to promote it to the collisions map, but
 		// first we have to re-read its key from the entry at the existing index.
 		var rec Record
-		if err := m.readRecord(exIdx, &rec); err != nil {
+		if err := m.readRecord(ctx, exIdx, &rec); err != nil {
 			return Error.Wrap(err)
 		}
 
@@ -226,17 +233,34 @@ func (m *MemTbl) insertKeyLocked(key Key, idx memtblIdx) error {
 	return nil
 }
 
-// deleteKeyLocked ensures the key is removed from the table.
-//
-// IMPORTANT! it is not safe to call on keys that you don't know for sure are in the table because
-// there may be a short key collision. this limitation is required so that it is not a fallible
-// operation for cleanup purposes.
-func (m *MemTbl) deleteKeyLocked(key Key) {
-	if _, ok := m.collisions[key]; ok {
-		delete(m.collisions, key)
-	} else {
-		delete(m.entries, shortKeyFrom(key))
+// promoteIfNecessaryLocked ensures that the shortKey either does not exist in the map or is set to
+// the overflow marker, promoting the existing entry if necessary.
+func (m *MemTbl) promoteIfNecessaryLocked(ctx context.Context, sk shortKey) error {
+	if value, ok := m.entries[sk]; ok {
+		return m.promoteIfNecessaryLockedSlow(ctx, sk, value)
 	}
+	return nil
+}
+
+// promoteIfNecessaryLockedSlow does the work of promoteIfNecessary in the uncommon case that the
+// entry collides on the short key. This is outlined so that promoteIfNecessary can be inlined to
+// avoid the function call in the common case.
+func (m *MemTbl) promoteIfNecessaryLockedSlow(ctx context.Context, sk shortKey, value [4]byte) error {
+	idx := valueToMemtblIdx(value)
+
+	if idx == memtbl_Promoted {
+		return nil
+	}
+
+	var rec Record
+	if err := m.readRecord(ctx, idx, &rec); err != nil {
+		return Error.Wrap(err)
+	}
+
+	m.entries[sk] = memtblIdxToValue(memtbl_Promoted)
+	m.collisions[rec.Key] = value
+
+	return nil
 }
 
 // keyIndexLocked returns the index associated with the key.
@@ -257,7 +281,11 @@ func (m *MemTbl) keyIndexLocked(key Key) (idx memtblIdx, ok bool) {
 }
 
 // readRecord reads into rec the record written at the given index from the file.
-func (m *MemTbl) readRecord(idx memtblIdx, rec *Record) error {
+func (m *MemTbl) readRecord(ctx context.Context, idx memtblIdx, rec *Record) error {
+	if err := m.flushBufferLocked(ctx); err != nil {
+		return err
+	}
+
 	var buf [RecordSize]byte
 	if _, err := m.fh.ReadAt(buf[:], headerSize+int64(idx)*RecordSize); err != nil {
 		return Error.New("unable to read record %d: %w", idx, err)
@@ -268,10 +296,10 @@ func (m *MemTbl) readRecord(idx memtblIdx, rec *Record) error {
 }
 
 // lookupLocked returns the record associated with the key, if it exists.
-func (m *MemTbl) lookupLocked(key Key) (rec Record, ok bool, err error) {
+func (m *MemTbl) lookupLocked(ctx context.Context, key Key) (rec Record, ok bool, err error) {
 	if idx, ok := m.keyIndexLocked(key); !ok {
 		return Record{}, false, nil
-	} else if err := m.readRecord(idx, &rec); err != nil {
+	} else if err := m.readRecord(ctx, idx, &rec); err != nil {
 		return Record{}, false, err
 	} else {
 		return rec, rec.Key == key, nil
@@ -326,23 +354,6 @@ func (m *MemTbl) Stats() TblStats {
 	}
 }
 
-// ComputeEstimates doesn't do anything because the memtbl always has exact estimates.
-func (m *MemTbl) ComputeEstimates(ctx context.Context) error {
-	if err := m.opMu.Lock(ctx, &m.closed); err != nil {
-		return err
-	}
-	defer m.opMu.Unlock()
-
-	// memtbl is always exact :smug:
-	return nil
-}
-
-// CompactLoad returns the load factor the tbl should be compacted at.
-func (m *MemTbl) CompactLoad() float64 { return 1.00 }
-
-// MaxLoad returns the load factor at which no more inserts should happen.
-func (m *MemTbl) MaxLoad() float64 { return math.NaN() }
-
 // Load returns an estimate of what fraction of the mem table is occupied.
 func (m *MemTbl) Load() float64 {
 	m.statsMu.Lock()
@@ -370,49 +381,6 @@ func (m *MemTbl) Range(ctx context.Context, cb func(context.Context, Record) (bo
 	})
 }
 
-// ExpectOrdered signals that incoming writes to the memtbl will be ordered so that a large shared
-// buffer across Insert calls would be effective. This is useful when rewriting a memtbl during a
-// Compaction, for instance. It returns a flush callback that both flushes any potentially buffered
-// records and disables the expectation. Additionally, Lookups may not find entries written until
-// after the flush callback is called. If flush returns an error there is no guarantee about what
-// records were written. It returns a done callback that discards any potentially buffered records
-// and disables the expectation. At least one of flush or done must be called. It returns an error
-// if called again before flush or done is called.
-func (m *MemTbl) ExpectOrdered(ctx context.Context) (commit func() error, done func(), err error) {
-	defer mon.Task()(&ctx)(&err)
-
-	if err := m.opMu.Lock(ctx, &m.closed); err != nil {
-		return nil, nil, err
-	}
-	defer m.opMu.Unlock()
-
-	if m.buffer != nil {
-		return nil, nil, Error.New("buffer already exists")
-	}
-
-	buffer := m.newMemtblBuffer()
-	m.buffer = buffer
-
-	return func() (err error) {
-			m.opMu.WaitLock()
-			defer m.opMu.Unlock()
-
-			if buffer == m.buffer {
-				m.buffer = nil
-				err = m.writeBytesLocked(buffer.b)
-			}
-
-			return err
-		}, func() {
-			m.opMu.WaitLock()
-			defer m.opMu.Unlock()
-
-			if buffer == m.buffer {
-				m.buffer = nil
-			}
-		}, nil
-}
-
 // Insert adds a record to the mem table. It returns (true, nil) if the record was inserted, it
 // returns (false, nil) if the mem table is full, and (false, err) if any errors happened trying to
 // insert the record.
@@ -422,14 +390,19 @@ func (m *MemTbl) Insert(ctx context.Context, rec Record) (_ bool, err error) {
 	}
 	defer m.opMu.Unlock()
 
-	// before we do any writes we have to make sure the file is aligned to the correct size.
+	// before we do any writes we have to make sure the file is aligned to the correct size and we
+	// have room to insert.
 	if err := m.ensureAlignedLocked(ctx); err != nil {
 		return false, err
+	} else if m.idx == 0 && len(m.entries) > 0 { // overflow protection
+		return false, nil
+	} else if uint64(m.idx) > 1<<m.header.LogSlots { // full table condition
+		return false, nil
 	}
 
 	// if we already have this record, then we need to ensure they are equalish before allowing the
 	// update, and taking the larger expiration.
-	tmp, existing, err := m.lookupLocked(rec.Key)
+	tmp, existing, err := m.lookupLocked(ctx, rec.Key)
 	if err != nil {
 		return false, err
 	} else if existing {
@@ -439,19 +412,34 @@ func (m *MemTbl) Insert(ctx context.Context, rec Record) (_ bool, err error) {
 		rec.Expires = MaxExpiration(rec.Expires, tmp.Expires)
 	}
 
+	short := shortKeyFrom(rec.Key)
+
+	// we have to check if there's a collision on the short key and promote it if there is. we do
+	// this first because the data structure stays correct even if the write fails because it is
+	// fine to promote any key.
+	//
+	// TODO: we'd like to avoid doing multiple map lookups but this is sufficient for now.
+	if err := m.promoteIfNecessaryLocked(ctx, short); err != nil {
+		return false, err
+	}
+
 	var buf [RecordSize]byte
 	rec.WriteTo(&buf)
 
-	// now we add the record to the appropriate location. if we're buffering, put it there.
-	// otherwise we can write directly to the file.
-	if m.buffer != nil {
-		err = m.buffer.addRecord(&buf)
+	m.buffer = append(m.buffer, buf[:]...)
+	if len(m.buffer) == cap(m.buffer) {
+		if err := m.flushBufferLocked(ctx); err != nil {
+			return false, err
+		}
+	}
+
+	// we can insert being sure that if a value exists in entries it's already promoted.
+	if _, ok := m.entries[short]; ok {
+		m.collisions[rec.Key] = memtblIdxToValue(m.idx)
 	} else {
-		err = m.writeBytesLocked(buf[:])
+		m.entries[short] = memtblIdxToValue(m.idx)
 	}
-	if err != nil {
-		return false, err
-	}
+	m.idx++
 
 	// if we didn't have an existing record, we are adding a new key. we don't need to change the
 	// alive field on update because we ensure that the records are equalish above so the length
@@ -460,11 +448,7 @@ func (m *MemTbl) Insert(ctx context.Context, rec Record) (_ bool, err error) {
 	// where the estimate was too small. this technically means that in very rare scenarios, the
 	// amount considered trash could be off, but it will be fixed on the next Range call, Store
 	// compaction, or node restart. in the case we're buffering, the stats will be updated but the
-	// key will not yet be readable. it's possible the key will fail to flush eventually and then
-	// the stats will be wrong because we can't know if we should undo because we don't keep track
-	// of if it was existing, but buffering should only used for compaction and so we don't need to
-	// worry because any failures are critical and we throw the whole thing out. also, just like the
-	// prior reasons, statistics can be off by small amounts and be ok and will be fixed eventually.
+	// key will not yet be readable.
 	if !existing {
 		m.statsMu.Lock()
 		m.recStats.include(rec)
@@ -472,6 +456,24 @@ func (m *MemTbl) Insert(ctx context.Context, rec Record) (_ bool, err error) {
 	}
 
 	return true, nil
+}
+
+func (m *MemTbl) flushBufferLocked(ctx context.Context) error {
+	if len(m.buffer) == 0 {
+		return nil
+	}
+	return m.flushBufferLockedSlow(ctx)
+}
+
+func (m *MemTbl) flushBufferLockedSlow(ctx context.Context) error {
+	if err := m.ensureAlignedLocked(ctx); err != nil {
+		return err
+	}
+
+	_, err := m.fh.Write(m.buffer)
+	m.buffer = m.buffer[:0]
+	m.align = err != nil
+	return err
 }
 
 // Lookup returns the record for the given key if it exists in the mem table. It returns (rec, true,
@@ -483,7 +485,7 @@ func (m *MemTbl) Lookup(ctx context.Context, key Key) (rec Record, ok bool, err 
 	}
 	defer m.opMu.RUnlock()
 
-	return m.lookupLocked(key)
+	return m.lookupLocked(ctx, key)
 }
 
 // ensureAlignedLocked ensures the file is aligned so that records are written aligned. it
@@ -518,74 +520,70 @@ func (m *MemTbl) ensureAlignedLockedSlow(ctx context.Context) (err error) {
 	return nil
 }
 
-// writeBytesLocked writes the sequence of records in the data slice to the file handle and adds
-// them to the in memory maps. it does so in a way that the in memory map stays consistent with
-// the file handle, even in the case of partial writes.
-func (m *MemTbl) writeBytesLocked(data []byte) (err error) {
-	if len(data)%RecordSize != 0 {
-		return Error.New("data not aligned to record size: len=%d", len(data))
+//
+// memtbl constructor
+//
+
+// MemTblConstructor constructs a MemTbl.
+type MemTblConstructor struct {
+	m   *MemTbl
+	err error
+}
+
+// newMemTblConstructor is the constructor for MemTblConstructor.
+func newMemTblConstructor(m *MemTbl) *MemTblConstructor {
+	m.buffer = make([]byte, 0, bigPageSize)
+
+	return &MemTblConstructor{m: m}
+}
+
+// valid is a helper function to convert failure conditions into an error. It is small enough to be
+// inlined.
+func (c *MemTblConstructor) valid() error {
+	if c.err != nil {
+		return c.err
+	} else if c.m == nil {
+		return Error.New("constructor already done")
 	}
-
-	inserted := 0
-	written := 0
-	defer func() {
-		if err != nil {
-			for deleted := written; deleted < inserted; deleted += RecordSize {
-				m.deleteKeyLocked(*(*Key)(data[deleted:]))
-				m.idx--
-			}
-		}
-	}()
-
-	for inserted < len(data) {
-		if err := m.insertKeyLocked(*(*Key)(data[inserted:]), m.idx); err != nil {
-			return err
-		}
-		inserted += RecordSize
-		m.idx++
-	}
-
-	written, err = m.fh.Write(data)
-	if err != nil {
-		written -= written % RecordSize // remove any partially written record
-		m.align = true
-		return Error.New("unable to write data: %w", err)
-	}
-
 	return nil
 }
 
-//
-// buffer type for EnsureOrdered
-//
-
-// memtblBuffer is a buffer of records that flushes when it is full.
-type memtblBuffer struct {
-	m *MemTbl
-	b []byte
-}
-
-// newMemtblBuffer creates a new memtblBuffer.
-func (m *MemTbl) newMemtblBuffer() *memtblBuffer {
-	return &memtblBuffer{
-		m: m,
-		b: make([]byte, 0, bigPageSize),
+// Close signals that we're done with the MemTblConstructor. It should always be called.
+func (c *MemTblConstructor) Close() {
+	if m := c.m; m != nil {
+		m.Close()
+		c.m = nil
 	}
 }
 
-// addRecord adds the serialized record to the buffer. it is written this way so that the fast path
-// where we don't need to flush the data is inlined into the caller.
-func (m *memtblBuffer) addRecord(buf *[RecordSize]byte) error {
-	if len(m.b) < cap(m.b) {
-		m.b = append(m.b, buf[:]...)
-		return nil
+// Append adds the record into the MemTbl. Errors are sticky and will prevent further appends.
+func (c *MemTblConstructor) Append(ctx context.Context, r Record) (bool, error) {
+	if err := c.valid(); err != nil {
+		return false, err
 	}
-	return m.addRecordSlow(buf)
+	var ok bool
+	ok, c.err = c.m.Insert(ctx, r)
+	return ok, c.err
 }
 
-// addRecordSlow writes the buffered records to the file, resets the buffer, and appends it.
-func (m *memtblBuffer) addRecordSlow(buf *[RecordSize]byte) error {
-	err := m.m.writeBytesLocked(m.b)
-	m.b = append(m.b[:0], buf[:]...)
-	return err
+// Done returns the constructed MemTbl or an error if there was a problem. The returned Tbl must be
+// closed if it is not nil.
+func (c *MemTblConstructor) Done(ctx context.Context) (Tbl, error) {
+	if err := c.valid(); err != nil {
+		return nil, err
+	}
+
+	if err := c.m.flushBufferLocked(ctx); err != nil {
+		c.err = err
+		return nil, err
+	}
+
+	// valid returns an error if the memtbl field is nil, so we don't have to worry about putting
+	// a nil pointer in the interface.
+	m := c.m
+	c.m = nil
+
+	m.buffer = make([]byte, 0, RecordSize)
+
+	return m, nil
 }
