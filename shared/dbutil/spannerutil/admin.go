@@ -28,6 +28,9 @@ func OpenEmulatorAdmin(params ConnParams) *EmulatorAdmin {
 }
 
 func (admin *EmulatorAdmin) ensureInstances(ctx context.Context) error {
+	if admin.Instances != nil {
+		return nil
+	}
 	instanceClient, err := instance.NewInstanceAdminClient(ctx, admin.Params.ClientOptions()...)
 	if err != nil {
 		return fmt.Errorf("failed to create instance admin: %w", err)
@@ -37,6 +40,9 @@ func (admin *EmulatorAdmin) ensureInstances(ctx context.Context) error {
 }
 
 func (admin *EmulatorAdmin) ensureDatabases(ctx context.Context) error {
+	if admin.Databases != nil {
+		return nil
+	}
 	databaseClient, err := database.NewDatabaseAdminClient(ctx, admin.Params.ClientOptions()...)
 	if err != nil {
 		return fmt.Errorf("failed to create database admin: %w", err)
