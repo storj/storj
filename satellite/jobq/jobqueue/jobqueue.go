@@ -308,18 +308,43 @@ func (q *Queue) Insert(job jobq.RepairJob) (wasNew bool) {
 	// (without some O(N) searching). indexByID is here for this reason.
 	if i, ok := q.indexByID[job.ID]; ok {
 		index := int(i & indexMask)
-		targetQueue := &q.pq.jobQueue
-		var targetHeap heap.Interface = &q.pq
+		var oldQueue *jobQueue
+		var oldHeap heap.Interface
+		var newQueue *jobQueue
+		var newHeap heap.Interface
+
+		// Determine which queue the job is currently in
 		if i&queueSelectMask == inRetryQueue {
-			targetQueue = &q.rq.jobQueue
-			targetHeap = &q.rq
+			oldQueue = &q.rq.jobQueue
+			oldHeap = &q.rq
+		} else {
+			oldQueue = &q.pq.jobQueue
+			oldHeap = &q.pq
 		}
-		oldJob := targetQueue.priorityHeap[index]
+		oldJob := oldQueue.priorityHeap[index]
+
+		// Update job fields
 		job.NumAttempts += oldJob.NumAttempts
 		job.InsertedAt = oldJob.InsertedAt
 
-		targetQueue.priorityHeap[index] = job
-		heap.Fix(targetHeap, index)
+		// Determine which queue the job should be in
+		if job.LastAttemptedAt != 0 && q.Now().Sub(job.LastAttemptedAtTime()) < q.RetryAfter {
+			newQueue = &q.rq.jobQueue
+			newHeap = &q.rq
+		} else {
+			newQueue = &q.pq.jobQueue
+			newHeap = &q.pq
+		}
+
+		// If the job needs to move queues, remove from old and add to new
+		if oldQueue != newQueue {
+			heap.Remove(oldHeap, index)
+			heap.Push(newHeap, job)
+		} else {
+			// Otherwise, just update in place
+			oldQueue.priorityHeap[index] = job
+			heap.Fix(oldHeap, index)
+		}
 		return false
 	}
 	if job.InsertedAt == 0 || job.InsertedAt == jobq.ServerTimeNow {

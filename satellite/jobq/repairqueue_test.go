@@ -213,17 +213,17 @@ func TestRepairQueue_BatchInsert(t *testing.T) {
 		require.NoError(t, err)
 
 		for _, ts := range testSegments {
-			ts.StreamID[0] = byte(ts.Placement + 1)
+			ts.SegmentHealth = 5
 		}
 
-		// this time placement is changed between inserts.
+		// this time Health changed between inserts.
 		_, err = rq.InsertBatch(ctx, testSegments)
 		require.NoError(t, err)
 
 		for i := 0; i < len(testSegments); i++ {
 			segments, err := rq.Select(ctx, 1, []storj.PlacementConstraint{storj.PlacementConstraint(i)}, nil)
 			require.NoError(t, err)
-			require.Equal(t, storj.PlacementConstraint(segments[0].StreamID[0]), segments[0].Placement+1)
+			require.Equal(t, 5.0, segments[0].SegmentHealth)
 			err = rq.Release(ctx, segments[0], false)
 			require.NoError(t, err)
 		}
