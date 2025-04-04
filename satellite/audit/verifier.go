@@ -650,25 +650,30 @@ func recordStats(report Report, totalPieces int, verifyErr error) {
 		unknownPercentage = float64(numUnknown) / float64(totalAudited)
 	}
 
-	mon.Meter("audit_success_nodes_global").Mark(numSuccessful)     //mon:locked
-	mon.Meter("audit_fail_nodes_global").Mark(numFailed)            //mon:locked
-	mon.Meter("audit_offline_nodes_global").Mark(numOffline)        //mon:locked
-	mon.Meter("audit_contained_nodes_global").Mark(numContained)    //mon:locked
-	mon.Meter("audit_unknown_nodes_global").Mark(numUnknown)        //mon:locked
-	mon.Meter("audit_total_nodes_global").Mark(totalAudited)        //mon:locked
-	mon.Meter("audit_total_pointer_nodes_global").Mark(totalPieces) //mon:locked
+	tags := []monkit.SeriesTag{}
+	if report.Segment != nil {
+		tags = append(tags, monkit.NewSeriesTag("placement", strconv.FormatUint(uint64(report.Segment.Placement), 10)))
+	}
 
-	mon.IntVal("audit_success_nodes").Observe(int64(numSuccessful))           //mon:locked
-	mon.IntVal("audit_fail_nodes").Observe(int64(numFailed))                  //mon:locked
-	mon.IntVal("audit_offline_nodes").Observe(int64(numOffline))              //mon:locked
-	mon.IntVal("audit_contained_nodes").Observe(int64(numContained))          //mon:locked
-	mon.IntVal("audit_unknown_nodes").Observe(int64(numUnknown))              //mon:locked
-	mon.IntVal("audit_total_nodes").Observe(int64(totalAudited))              //mon:locked
-	mon.IntVal("audit_total_pointer_nodes").Observe(int64(totalPieces))       //mon:locked
-	mon.FloatVal("audited_percentage").Observe(auditedPercentage)             //mon:locked
-	mon.FloatVal("audit_offline_percentage").Observe(offlinePercentage)       //mon:locked
-	mon.FloatVal("audit_successful_percentage").Observe(successfulPercentage) //mon:locked
-	mon.FloatVal("audit_failed_percentage").Observe(failedPercentage)         //mon:locked
-	mon.FloatVal("audit_contained_percentage").Observe(containedPercentage)   //mon:locked
-	mon.FloatVal("audit_unknown_percentage").Observe(unknownPercentage)       //mon:locked
+	mon.Meter("audit_success_nodes_global", tags...).Mark(numSuccessful)     //mon:locked
+	mon.Meter("audit_fail_nodes_global", tags...).Mark(numFailed)            //mon:locked
+	mon.Meter("audit_offline_nodes_global", tags...).Mark(numOffline)        //mon:locked
+	mon.Meter("audit_contained_nodes_global", tags...).Mark(numContained)    //mon:locked
+	mon.Meter("audit_unknown_nodes_global", tags...).Mark(numUnknown)        //mon:locked
+	mon.Meter("audit_total_nodes_global", tags...).Mark(totalAudited)        //mon:locked
+	mon.Meter("audit_total_pointer_nodes_global", tags...).Mark(totalPieces) //mon:locked
+
+	mon.IntVal("audit_success_nodes", tags...).Observe(int64(numSuccessful))           //mon:locked
+	mon.IntVal("audit_fail_nodes", tags...).Observe(int64(numFailed))                  //mon:locked
+	mon.IntVal("audit_offline_nodes", tags...).Observe(int64(numOffline))              //mon:locked
+	mon.IntVal("audit_contained_nodes", tags...).Observe(int64(numContained))          //mon:locked
+	mon.IntVal("audit_unknown_nodes", tags...).Observe(int64(numUnknown))              //mon:locked
+	mon.IntVal("audit_total_nodes", tags...).Observe(int64(totalAudited))              //mon:locked
+	mon.IntVal("audit_total_pointer_nodes", tags...).Observe(int64(totalPieces))       //mon:locked
+	mon.FloatVal("audited_percentage", tags...).Observe(auditedPercentage)             //mon:locked
+	mon.FloatVal("audit_offline_percentage", tags...).Observe(offlinePercentage)       //mon:locked
+	mon.FloatVal("audit_successful_percentage", tags...).Observe(successfulPercentage) //mon:locked
+	mon.FloatVal("audit_failed_percentage", tags...).Observe(failedPercentage)         //mon:locked
+	mon.FloatVal("audit_contained_percentage", tags...).Observe(containedPercentage)   //mon:locked
+	mon.FloatVal("audit_unknown_percentage", tags...).Observe(unknownPercentage)       //mon:locked
 }
