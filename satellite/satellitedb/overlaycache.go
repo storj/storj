@@ -6,6 +6,7 @@ package satellitedb
 import (
 	"context"
 	"database/sql"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"sort"
@@ -457,56 +458,48 @@ func (cache *overlaycache) GetActiveNodes(ctx context.Context, nodeIDs storj.Nod
 
 	switch cache.db.impl {
 	case dbutil.Cockroach, dbutil.Postgres:
-
-		indexesToZero := []int{}
-
+		records = make([]nodeselection.SelectedNode, len(nodeIDs))
 		err = withRows(cache.db.Query(ctx, `
-			SELECT n.id, n.address, n.email, n.wallet, n.last_net, n.last_ip_port, n.country_code, n.piece_count, n.free_disk,
-				n.last_contact_success > $2 AS online,
-				(n.offline_suspended IS NOT NULL OR n.unknown_audit_suspended IS NOT NULL) AS suspended,
-				n.disqualified IS NOT NULL AS disqualified,
-				n.exit_initiated_at IS NOT NULL AS exiting,
-				n.exit_finished_at IS NOT NULL AS exited,
-				node_tags.name, node_tags.value, node_tags.signed_at, node_tags.signer,
-				n.vetted_at IS NOT NULL AS vetted
-			FROM unnest($1::bytea[]) WITH ORDINALITY AS input(node_id, ordinal)
-				LEFT OUTER JOIN nodes n ON input.node_id = n.id
-				LEFT JOIN node_tags on node_tags.node_id = n.id
-				`+cache.db.impl.AsOfSystemInterval(asOfSystemInterval)+`
-			ORDER BY input.ordinal
+			SELECT
+				id, address, email, wallet,
+				last_net, last_ip_port, country_code, piece_count, free_disk,
+				last_contact_success > $2 AS online,
+				(offline_suspended IS NOT NULL OR unknown_audit_suspended IS NOT NULL) AS suspended,
+				exit_initiated_at IS NOT NULL AS exiting,
+				vetted_at IS NOT NULL AS vetted,
+				(
+					SELECT array_to_json(array_agg(
+						json_build_object(
+							'Name', name,
+							'Value', encode(value, 'base64'),
+							'SignedAt', signed_at,
+							'Signer', encode(signer, 'base64')
+						)))
+					FROM node_tags WHERE node_id = id
+				) as node_tags_json
+			FROM nodes `+cache.db.impl.AsOfSystemInterval(asOfSystemInterval)+`
+			WHERE
+				id = any($1::BYTEA[]) AND
+				disqualified IS NULL AND
+				exit_finished_at IS NULL
 		`, pgutil.NodeIDArray(nodeIDs), time.Now().Add(-onlineWindow),
 		))(func(rows tagsql.Rows) error {
 			for rows.Next() {
-				node, tag, disqualifiedOrExited, err := scanSelectedNodeWithTag(rows)
+				node, err := scanSelectedNodeWithTags(rows)
 				if err != nil {
-					return err
+					return Error.Wrap(err)
 				}
 
-				// just a joined new tag to the previous entry
-				if len(records) > 0 && !tag.NodeID.IsZero() && records[len(records)-1].ID == tag.NodeID {
-					records[len(records)-1].Tags = append(records[len(records)-1].Tags, tag)
-					continue
-				}
-
-				if tag.Name != "" {
-					node.Tags = append(node.Tags, tag)
-				}
-
-				records = append(records, node)
-				if disqualifiedOrExited {
-					indexesToZero = append(indexesToZero, len(records)-1)
+				for i, id := range nodeIDs {
+					if id == node.ID {
+						records[i] = node
+						break
+					}
 				}
 			}
 			return nil
 		})
-
-		if err != nil {
-			return nil, Error.Wrap(err)
-		}
-		for _, i := range indexesToZero {
-			records[i] = nodeselection.SelectedNode{}
-		}
-		return records, nil
+		return records, Error.Wrap(err)
 
 	case dbutil.Spanner:
 		records = make([]nodeselection.SelectedNode, len(nodeIDs))
@@ -783,64 +776,56 @@ func scanSelectedNode(rows tagsql.Rows) (nodeselection.SelectedNode, error) {
 	return node, nil
 }
 
-func scanSelectedNodeWithTag(rows tagsql.Rows) (_ nodeselection.SelectedNode, _ nodeselection.NodeTag, disqualifiedOrExited bool, err error) {
+func scanSelectedNodeWithTags(rows tagsql.Rows) (_ nodeselection.SelectedNode, err error) {
 	var node nodeselection.SelectedNode
 	node.Address = &pb.NodeAddress{}
-	var nodeID nullNodeID
-	var address, wallet, email, lastNet, lastIPPort, countryCode sql.NullString
-	var online, suspended, disqualified, exiting, exited, vetted sql.NullBool
-	var pieceCount, freeDisk sql.NullInt64
 
-	var tag nodeselection.NodeTag
-	var name []byte
-	signedAt := &time.Time{}
-	signer := nullNodeID{}
+	var lastIPPort, countryCode sql.NullString
+	var tagsJSON []byte
 
-	err = rows.Scan(&nodeID, &address, &email, &wallet, &lastNet, &lastIPPort, &countryCode, &pieceCount, &freeDisk,
-		&online, &suspended, &disqualified, &exiting, &exited, &name, &tag.Value, &signedAt, &signer, &vetted)
+	err = rows.Scan(
+		&node.ID,
+		&node.Address.Address, &node.Email, &node.Wallet, &node.LastNet, &lastIPPort, &countryCode, &node.PieceCount, &node.FreeDisk,
+		&node.Online, &node.Suspended, &node.Exiting, &node.Vetted, &tagsJSON)
 	if err != nil {
-		return nodeselection.SelectedNode{}, nodeselection.NodeTag{}, true, err
+		return nodeselection.SelectedNode{}, Error.Wrap(err)
 	}
 
-	// If node ID was null, no record was found for the specified ID. For our purposes
-	// here, we will treat that as equivalent to a node being DQ'd or exited.
-	if !nodeID.Valid {
-		// return an empty record
-		return nodeselection.SelectedNode{}, nodeselection.NodeTag{}, true, nil
-	}
-	// nodeID was valid, so from here on we assume all the other non-null fields are valid, per database constraints
-	node.ID = nodeID.NodeID
-	node.Address.Address = address.String
-	node.Email = email.String
-	node.Wallet = wallet.String
-	node.LastNet = lastNet.String
 	if lastIPPort.Valid {
 		node.LastIPPort = lastIPPort.String
 	}
 	if countryCode.Valid {
 		node.CountryCode = location.ToCountryCode(countryCode.String)
 	}
-	if pieceCount.Valid {
-		node.PieceCount = pieceCount.Int64
-	}
-	if freeDisk.Valid {
-		node.FreeDisk = freeDisk.Int64
-	}
-	node.Online = online.Bool
-	node.Suspended = suspended.Bool
-	node.Exiting = exiting.Bool
-	node.Vetted = vetted.Bool
 
-	if len(name) > 0 {
-		tag.Name = string(name)
-		tag.SignedAt = *signedAt
-		if signer.Valid {
-			tag.Signer = signer.NodeID
+	if len(tagsJSON) > 0 {
+		var tags []struct {
+			SignedAt time.Time
+			Signer   []byte
+			Name     string
+			Value    []byte
 		}
-		tag.NodeID = node.ID
+		if err := json.Unmarshal(tagsJSON, &tags); err != nil {
+			return nodeselection.SelectedNode{}, Error.Wrap(err)
+		}
+
+		node.Tags = make([]nodeselection.NodeTag, len(tags))
+		for i, tag := range tags {
+			signer, err := storj.NodeIDFromBytes(tag.Signer)
+			if err != nil {
+				return node, Error.Wrap(err)
+			}
+			node.Tags[i] = nodeselection.NodeTag{
+				NodeID:   node.ID,
+				SignedAt: tag.SignedAt,
+				Signer:   signer,
+				Name:     tag.Name,
+				Value:    tag.Value,
+			}
+		}
 	}
 
-	return node, tag, disqualified.Bool || exited.Bool, nil
+	return node, nil
 }
 
 func (cache *overlaycache) addNodeTagsFromFullScan(ctx context.Context, nodes []*nodeselection.SelectedNode) error {
