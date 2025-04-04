@@ -176,7 +176,7 @@ func (p *PostgresAdapter) testMigrateToLatest(ctx context.Context) error {
 		migration.Steps = append(migration.Steps, &migrate.Step{
 			DB:          &p.db,
 			Description: "Constraint for ensuring our metabase correctness.",
-			Version:     21,
+			Version:     22,
 			Action: migrate.SQL{
 				`CREATE UNIQUE INDEX objects_one_unversioned_per_location ON objects (project_id, bucket_name, object_key) WHERE status IN ` + statusesUnversioned + `;`,
 			},
