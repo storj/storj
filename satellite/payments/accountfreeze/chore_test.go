@@ -604,6 +604,7 @@ func TestAutoFreezeChore(t *testing.T) {
 		})
 
 		t.Run("Bot user is frozen with delay", func(t *testing.T) {
+			service.TestChangeFreezeTracker(newFreezeTrackerMock(t))
 			// reset chore clock
 			chore.TestSetNow(time.Now)
 
@@ -679,6 +680,8 @@ func TestAutoFreezeChore(t *testing.T) {
 		})
 
 		t.Run("Free trial expiration freeze", func(t *testing.T) {
+			service.TestChangeFreezeTracker(newFreezeTrackerMock(t))
+
 			freeUser, err := sat.AddUser(ctx, console.CreateUser{
 				FullName: "Free User",
 				Email:    "free@mail.test",
@@ -800,6 +803,7 @@ func TestAutoFreezeChore(t *testing.T) {
 		})
 
 		t.Run("Email notifications for events", func(t *testing.T) {
+			service.TestChangeFreezeTracker(newFreezeTrackerMock(t))
 			// reset chore clock
 			chore.TestSetNow(time.Now)
 
