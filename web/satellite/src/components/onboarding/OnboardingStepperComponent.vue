@@ -198,10 +198,7 @@ const onboardingInfo = ref<OnboardingInfo>();
 const userSettings = computed(() => userStore.state.settings);
 
 const currentStep = computed<OnboardingStep>(() => {
-    if (!ONBOARDING_STEPPER_STEPS.find(s => userStore.state.settings.onboardingStep === s)) {
-        return ONBOARDING_STEPPER_STEPS[0];
-    }
-    return userSettings.value.onboardingStep as OnboardingStep;
+    return ONBOARDING_STEPPER_STEPS.find(s => s === userSettings.value.onboardingStep) ?? ONBOARDING_STEPPER_STEPS[0];
 });
 
 const currentStepIndex = computed(() => ONBOARDING_STEPPER_STEPS.findIndex(s => s === currentStep.value));

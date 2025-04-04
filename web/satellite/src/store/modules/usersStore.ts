@@ -2,7 +2,7 @@
 // See LICENSE for copying information.
 
 import { defineStore } from 'pinia';
-import { computed, DeepReadonly, reactive, readonly } from 'vue';
+import { computed, reactive } from 'vue';
 
 import {
     ACCOUNT_SETUP_STEPS,
@@ -24,11 +24,9 @@ import { ChangeEmailStep, DeleteAccountStep } from '@/types/accountActions';
 import { SortDirection } from '@/types/common';
 import { DEFAULT_PAGE_LIMIT } from '@/types/pagination';
 
-export const DEFAULT_USER_SETTINGS = readonly(new UserSettings());
-
 export class UsersState {
     public user: User = new User();
-    public settings: DeepReadonly<UserSettings> = DEFAULT_USER_SETTINGS;
+    public settings: UserSettings = new UserSettings();
     public userMFASecret = '';
     public userMFARecoveryCodes: string[] = [];
     public sessionsCursor: SessionsCursor = new SessionsCursor();
@@ -44,10 +42,6 @@ export const useUsersStore = defineStore('users', () => {
 
     const userName = computed(() => {
         return state.user.getFullName();
-    });
-
-    const shouldOnboard = computed(() => {
-        return !state.settings.onboardingStart || (state.settings.onboardingStart && !state.settings.onboardingEnd);
     });
 
     const noticeDismissal = computed(() => state.settings.noticeDismissal);
@@ -103,7 +97,7 @@ export const useUsersStore = defineStore('users', () => {
         user.freezeStatus = await api.getFrozenStatus();
         user.projectLimit ||= configStore.state.config.defaultProjectLimit;
 
-        setUser(user);
+        state.user = user;
     }
 
     function getShouldPromptPassphrase(isProjectOwner: boolean): boolean {
@@ -155,10 +149,6 @@ export const useUsersStore = defineStore('users', () => {
         state.settings = await api.updateSettings(update, csrfToken.value);
     }
 
-    function setUser(user: User): void {
-        state.user = user;
-    }
-
     async function requestProjectLimitIncrease(limit: string): Promise<void> {
         await api.requestProjectLimitIncrease(limit);
     }
@@ -168,7 +158,7 @@ export const useUsersStore = defineStore('users', () => {
 
     function clear() {
         state.user = new User();
-        state.settings = DEFAULT_USER_SETTINGS;
+        state.settings = new UserSettings();
         state.userMFASecret = '';
         state.userMFARecoveryCodes = [];
     }
@@ -176,7 +166,6 @@ export const useUsersStore = defineStore('users', () => {
     return {
         state,
         userName,
-        shouldOnboard,
         noticeDismissal,
         invalidateSession,
         getSessions,
@@ -193,7 +182,6 @@ export const useUsersStore = defineStore('users', () => {
         getShouldPromptPassphrase,
         clear,
         login,
-        setUser,
         updateSettings,
         getSettings,
         requestProjectLimitIncrease,

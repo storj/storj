@@ -376,7 +376,7 @@ const allowManagedPassphraseStep = computed<boolean>(() => satelliteManagedEncry
 const shouldShowSetupDialog = computed<boolean>(() => {
     // settings are fetched on the projects page.
     const onboardingEnd = userStore.state.settings.onboardingEnd;
-    if (onboardingEnd || !!ONBOARDING_STEPPER_STEPS.find(s => s === userSettings.value.onboardingStep)) {
+    if (onboardingEnd || ONBOARDING_STEPPER_STEPS.some(s => s === userSettings.value.onboardingStep)) {
         return false;
     }
 
@@ -450,7 +450,7 @@ async function toPrevStep(): Promise<void> {
  */
 onBeforeMount(() => {
     withLoading(async () => {
-        if (userSettings.value.onboardingEnd || !!ONBOARDING_STEPPER_STEPS.find(s => s === userSettings.value.onboardingStep)) {
+        if (userSettings.value.onboardingEnd || ONBOARDING_STEPPER_STEPS.some(s => s === userSettings.value.onboardingStep)) {
             return;
         }
 

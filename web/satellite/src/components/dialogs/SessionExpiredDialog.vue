@@ -73,8 +73,6 @@ const model = defineModel<boolean>({ required: true });
 function redirectToLogin(): void {
     router.push(ROUTES.Login.path);
     model.value = false;
-    // TODO this reload will be unnecessary once vuetify poc has its own login and/or becomes the primary app
-    location.reload();
 }
 </script>
 
