@@ -92,7 +92,7 @@ func (t *TrackerInfo) DumpSuccessTracker(ctx context.Context, success string) (s
 
 // DumpTracker prints out all scores for all nodes.
 func (t *TrackerInfo) DumpTracker(ctx context.Context, tracker SuccessTracker) (string, error) {
-	nodes, err := t.db.GetParticipatingNodes(ctx, 4*time.Hour, -1*time.Microsecond)
+	nodes, err := t.db.GetAllParticipatingNodes(ctx, 4*time.Hour, -1*time.Microsecond)
 	if err != nil {
 		return "", errs.Wrap(err)
 	}

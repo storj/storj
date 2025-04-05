@@ -179,7 +179,7 @@ func (p *PrometheusTracker) refreshScores(ctx context.Context) (prometheusScoreC
 
 func (p *PrometheusTracker) refreshNodes(ctx context.Context) (prometheusNodeCacheState, error) {
 	state := prometheusNodeCacheState{}
-	nodes, err := p.overlay.GetParticipatingNodes(ctx, 24*time.Hour, -10*time.Millisecond)
+	nodes, err := p.overlay.GetAllParticipatingNodes(ctx, 24*time.Hour, -10*time.Millisecond)
 	if err != nil {
 		return state, errs.Wrap(err)
 	}

@@ -232,13 +232,13 @@ func (repairer *SegmentRepairer) Repair(ctx context.Context, queueSegment queue.
 		allNodeIDs[i] = p.StorageNode
 	}
 
-	selectedNodes, err := repairer.overlay.GetActiveNodes(ctx, allNodeIDs)
+	selectedNodes, err := repairer.overlay.GetParticipatingNodes(ctx, allNodeIDs)
 	if err != nil {
 		return false, overlayQueryError.New("error identifying missing pieces: %w", err)
 	}
 	if len(selectedNodes) != len(segment.Pieces) {
-		log.Error("GetActiveNodes returned an invalid result", zap.Any("pieces", segment.Pieces), zap.Any("selectedNodes", selectedNodes))
-		return false, overlayQueryError.New("GetActiveNodes returned an invalid result")
+		log.Error("GetParticipatingNodes returned an invalid result", zap.Any("pieces", segment.Pieces), zap.Any("selectedNodes", selectedNodes))
+		return false, overlayQueryError.New("GetParticipatingNodes returned an invalid result")
 	}
 	pieces := segment.Pieces
 	piecesCheck := repair.ClassifySegmentPieces(pieces, selectedNodes, repairer.excludedCountryCodes, repairer.doPlacementCheck, repairer.doDeclumping, repairer.placements[segment.Placement])

@@ -108,7 +108,7 @@ func TestDownloadWithSomeNodesOffline(t *testing.T) {
 		}
 
 		// confirm that we marked the correct number of storage nodes as offline
-		allNodes, err := satellite.Overlay.Service.GetParticipatingNodes(ctx)
+		allNodes, err := satellite.Overlay.Service.GetAllParticipatingNodes(ctx)
 		require.NoError(t, err)
 		online := make([]nodeselection.SelectedNode, 0, len(allNodes))
 		for _, node := range allNodes {

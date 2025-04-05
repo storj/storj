@@ -56,13 +56,13 @@ func (m *Mockdb) Get(ctx context.Context, nodeID storj.NodeID) (*NodeDossier, er
 	panic("implement me")
 }
 
-// GetActiveNodes satisfies nodeevents.DB interface.
-func (m *Mockdb) GetActiveNodes(ctx context.Context, nodeIDs storj.NodeIDList, onlineWindow, asOfSystemInterval time.Duration) (_ []nodeselection.SelectedNode, err error) {
+// GetParticipatingNodes satisfies nodeevents.DB interface.
+func (m *Mockdb) GetParticipatingNodes(ctx context.Context, nodeIDs storj.NodeIDList, onlineWindow, asOfSystemInterval time.Duration) (_ []nodeselection.SelectedNode, err error) {
 	panic("implement me")
 }
 
-// GetParticipatingNodes satisfies nodeevents.DB interface.
-func (m *Mockdb) GetParticipatingNodes(ctx context.Context, onlineWindow, asOfSystemInterval time.Duration) (_ []nodeselection.SelectedNode, err error) {
+// GetAllParticipatingNodes satisfies nodeevents.DB interface.
+func (m *Mockdb) GetAllParticipatingNodes(ctx context.Context, onlineWindow, asOfSystemInterval time.Duration) (_ []nodeselection.SelectedNode, err error) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	var res []nodeselection.SelectedNode

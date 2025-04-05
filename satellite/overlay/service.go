@@ -58,16 +58,16 @@ type DB interface {
 
 	// Get looks up the node by nodeID
 	Get(ctx context.Context, nodeID storj.NodeID) (*NodeDossier, error)
-	// GetActiveNodes gets records for nodes that have not exited or disqualified
+	// GetParticipatingNodes gets records for nodes that have not exited or disqualified
 	// The onlineWindow is used to determine whether each node is marked as Online.
 	// The results are returned in a slice of the same length as the input nodeIDs,
 	// and each index of the returned list corresponds to the same index in nodeIDs.
 	// If a node is not known, or is disqualified or exited, the corresponding returned
 	// SelectedNode will have a zero value.
-	GetActiveNodes(ctx context.Context, nodeIDs storj.NodeIDList, onlineWindow, asOfSystemInterval time.Duration) (_ []nodeselection.SelectedNode, err error)
-	// GetParticipatingNodes returns all known participating nodes (this includes all known nodes
+	GetParticipatingNodes(ctx context.Context, nodeIDs storj.NodeIDList, onlineWindow, asOfSystemInterval time.Duration) (_ []nodeselection.SelectedNode, err error)
+	// GetAllParticipatingNodes returns all known participating nodes (this includes all known nodes
 	// excluding nodes that have been disqualified or gracefully exited).
-	GetParticipatingNodes(ctx context.Context, onlineWindow, asOfSystemInterval time.Duration) (_ []nodeselection.SelectedNode, err error)
+	GetAllParticipatingNodes(ctx context.Context, onlineWindow, asOfSystemInterval time.Duration) (_ []nodeselection.SelectedNode, err error)
 	// UpdateReputation updates the DB columns for all reputation fields in ReputationStatus.
 	UpdateReputation(ctx context.Context, id storj.NodeID, request ReputationUpdate) error
 	// UpdateNodeInfo updates node dossier with info requested from the node itself like node type, email, wallet, capacity, and version.
@@ -520,24 +520,25 @@ func (service *Service) InsertOfflineNodeEvents(ctx context.Context, cooldown ti
 	return count, err
 }
 
-// GetActiveNodes gets records for all specified nodes that have not exited or been disqualified.
+// GetParticipatingNodes returns all known participating nodes (this includes all known nodes
+// excluding nodes that have been disqualified or gracefully exited).
 // The configured OnlineWindow is used to determine whether each node is marked as Online.
 // The results are returned in a slice of the same length as the input nodeIDs,
 // and each index of the returned list corresponds to the same index in nodeIDs.
 // If a node is not known, or is disqualified or exited, the corresponding returned SelectedNode
 // will have a zero value.
-func (service *Service) GetActiveNodes(ctx context.Context, nodeIDs storj.NodeIDList) (records []nodeselection.SelectedNode, err error) {
+func (service *Service) GetParticipatingNodes(ctx context.Context, nodeIDs storj.NodeIDList) (records []nodeselection.SelectedNode, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	return service.db.GetActiveNodes(ctx, nodeIDs, service.config.Node.OnlineWindow, service.config.AsOfSystemTime)
+	return service.db.GetParticipatingNodes(ctx, nodeIDs, service.config.Node.OnlineWindow, service.config.AsOfSystemTime)
 }
 
-// GetParticipatingNodes returns all known participating nodes (this includes all known nodes
+// GetAllParticipatingNodes returns all known participating nodes (this includes all known nodes
 // excluding nodes that have been disqualified or gracefully exited).
-func (service *Service) GetParticipatingNodes(ctx context.Context) (records []nodeselection.SelectedNode, err error) {
+func (service *Service) GetAllParticipatingNodes(ctx context.Context) (records []nodeselection.SelectedNode, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	return service.db.GetParticipatingNodes(ctx, service.config.Node.OnlineWindow, service.config.AsOfSystemTime)
+	return service.db.GetAllParticipatingNodes(ctx, service.config.Node.OnlineWindow, service.config.AsOfSystemTime)
 }
 
 // UpdateReputation updates the DB columns for any of the reputation fields.

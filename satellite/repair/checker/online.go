@@ -124,7 +124,7 @@ func (cache *ReliabilityCache) Refresh(ctx context.Context) (err error) {
 func (cache *ReliabilityCache) refreshLocked(ctx context.Context) (_ *reliabilityState, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	selectedNodes, err := cache.overlay.GetParticipatingNodes(ctx)
+	selectedNodes, err := cache.overlay.GetAllParticipatingNodes(ctx)
 	if err != nil {
 		return nil, Error.Wrap(err)
 	}

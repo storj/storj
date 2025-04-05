@@ -237,7 +237,7 @@ func NewDurability(db overlay.DB, metabaseDB *metabase.DB, nodeGetter NodeGetter
 
 // Start implements rangedloop.Observer.
 func (c *Report) Start(ctx context.Context, startTime time.Time) (err error) {
-	c.nodes, err = c.db.GetParticipatingNodes(ctx, -12*time.Hour, c.asOfSystemInterval)
+	c.nodes, err = c.db.GetAllParticipatingNodes(ctx, -12*time.Hour, c.asOfSystemInterval)
 	if err != nil {
 		return errs.Wrap(err)
 	}

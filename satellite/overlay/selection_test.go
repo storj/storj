@@ -118,14 +118,14 @@ func TestOnlineOffline(t *testing.T) {
 		satellite := planet.Satellites[0]
 		service := satellite.Overlay.Service
 
-		selectedNodes, err := service.GetActiveNodes(ctx, []storj.NodeID{
+		selectedNodes, err := service.GetParticipatingNodes(ctx, []storj.NodeID{
 			planet.StorageNodes[0].ID(),
 		})
 		require.NoError(t, err)
 		require.Len(t, selectedNodes, 1)
 		require.True(t, selectedNodes[0].Online)
 
-		selectedNodes, err = service.GetActiveNodes(ctx, []storj.NodeID{
+		selectedNodes, err = service.GetParticipatingNodes(ctx, []storj.NodeID{
 			planet.StorageNodes[0].ID(),
 			planet.StorageNodes[1].ID(),
 			planet.StorageNodes[2].ID(),
@@ -138,7 +138,7 @@ func TestOnlineOffline(t *testing.T) {
 		}
 
 		unreliableNodeID := storj.NodeID{1, 2, 3, 4}
-		selectedNodes, err = service.GetActiveNodes(ctx, []storj.NodeID{
+		selectedNodes, err = service.GetParticipatingNodes(ctx, []storj.NodeID{
 			planet.StorageNodes[0].ID(),
 			unreliableNodeID,
 			planet.StorageNodes[2].ID(),

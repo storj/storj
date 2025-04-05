@@ -56,7 +56,7 @@ func TestReliabilityCache_Concurrent(t *testing.T) {
 type fakeOverlayDB struct{ overlay.DB }
 type fakeNodeEvents struct{ nodeevents.DB }
 
-func (fakeOverlayDB) GetParticipatingNodes(context.Context, time.Duration, time.Duration) ([]nodeselection.SelectedNode, error) {
+func (fakeOverlayDB) GetAllParticipatingNodes(context.Context, time.Duration, time.Duration) ([]nodeselection.SelectedNode, error) {
 	return []nodeselection.SelectedNode{
 		{ID: testrand.NodeID(), Online: true},
 		{ID: testrand.NodeID(), Online: true},

@@ -443,13 +443,13 @@ func (cache *overlaycache) UpdateLastOfflineEmail(ctx context.Context, nodeIDs s
 	return err
 }
 
-// GetActiveNodes gets records for nodes that have not exited or disqualified
+// GetParticipatingNodes gets records for nodes that have not exited or disqualified
 // The onlineWindow is used to determine whether each node is marked as Online.
 // The results are returned in a slice of the same length as the input nodeIDs,
 // and each index of the returned list corresponds to the same index in nodeIDs.
 // If a node is not known, or is disqualified or exited, the corresponding returned
 // SelectedNode will have a zero value.
-func (cache *overlaycache) GetActiveNodes(ctx context.Context, nodeIDs storj.NodeIDList, onlineWindow, asOfSystemInterval time.Duration) (records []nodeselection.SelectedNode, err error) {
+func (cache *overlaycache) GetParticipatingNodes(ctx context.Context, nodeIDs storj.NodeIDList, onlineWindow, asOfSystemInterval time.Duration) (records []nodeselection.SelectedNode, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	if len(nodeIDs) == 0 {
@@ -638,9 +638,9 @@ func (cache *overlaycache) AccountingNodeInfo(ctx context.Context, nodeIDs storj
 	return xs, Error.Wrap(err)
 }
 
-// GetParticipatingNodes returns all known participating nodes (this includes all known nodes
+// GetAllParticipatingNodes returns all known participating nodes (this includes all known nodes
 // excluding nodes that have been disqualified or gracefully exited).
-func (cache *overlaycache) GetParticipatingNodes(ctx context.Context, onlineWindow, asOfSystemInterval time.Duration) (records []nodeselection.SelectedNode, err error) {
+func (cache *overlaycache) GetAllParticipatingNodes(ctx context.Context, onlineWindow, asOfSystemInterval time.Duration) (records []nodeselection.SelectedNode, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	var nodes []*nodeselection.SelectedNode

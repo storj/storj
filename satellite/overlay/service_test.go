@@ -353,8 +353,8 @@ func TestGetNodes(t *testing.T) {
 		err = oc.TestSuspendNodeOffline(ctx, planet.StorageNodes[3].ID(), time.Now())
 		require.NoError(t, err)
 
-		// Check that the results of GetActiveNodes match expectations.
-		selectedNodes, err := service.GetActiveNodes(ctx, []storj.NodeID{
+		// Check that the results of GetParticipatingNodes match expectations.
+		selectedNodes, err := service.GetParticipatingNodes(ctx, []storj.NodeID{
 			planet.StorageNodes[0].ID(),
 			planet.StorageNodes[1].ID(),
 			planet.StorageNodes[2].ID(),
