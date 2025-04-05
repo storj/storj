@@ -645,67 +645,33 @@ func (cache *overlaycache) GetParticipatingNodes(ctx context.Context, onlineWind
 
 	var nodes []*nodeselection.SelectedNode
 
-	switch cache.db.impl {
-	case dbutil.Cockroach, dbutil.Postgres:
-		err = withRows(cache.db.Query(ctx, `
-			SELECT id, address, email, wallet, last_net, last_ip_port, country_code, piece_count, free_disk,
-				last_contact_success > $1 AS online,
-				(offline_suspended IS NOT NULL OR unknown_audit_suspended IS NOT NULL) AS suspended,
-				false AS disqualified,
-				exit_initiated_at IS NOT NULL AS exiting,
-				false AS exited,
-				vetted_at IS NOT NULL AS vetted
-			FROM nodes
-				`+cache.db.impl.AsOfSystemInterval(asOfSystemInterval)+`
-			WHERE disqualified IS NULL
-				AND exit_finished_at IS NULL
-		`, time.Now().Add(-onlineWindow),
-		))(func(rows tagsql.Rows) error {
-			for rows.Next() {
-				node, err := scanSelectedNode(rows)
-				if err != nil {
-					return err
-				}
-				nodes = append(nodes, &node)
+	err = withRows(cache.db.Query(ctx, cache.db.Rebind(`
+		SELECT id, address, email, wallet, last_net, last_ip_port, country_code, piece_count, free_disk,
+			last_contact_success > ? AS online,
+			(offline_suspended IS NOT NULL OR unknown_audit_suspended IS NOT NULL) AS suspended,
+			exit_initiated_at IS NOT NULL AS exiting,
+			vetted_at IS NOT NULL AS vetted
+		FROM nodes
+			`+cache.db.impl.AsOfSystemInterval(asOfSystemInterval)+`
+		WHERE disqualified IS NULL
+			AND exit_finished_at IS NULL
+		`), time.Now().Add(-onlineWindow),
+	))(func(rows tagsql.Rows) error {
+		for rows.Next() {
+			node, err := scanSelectedNode(rows)
+			if err != nil {
+				return err
 			}
-			return nil
-		})
-	case dbutil.Spanner:
-		err = withRows(cache.db.Query(ctx, `
-			SELECT id, address, email, wallet, last_net, last_ip_port, country_code, piece_count, free_disk,
-				last_contact_success > ? AS online,
-				(offline_suspended IS NOT NULL OR unknown_audit_suspended IS NOT NULL) AS suspended,
-				false AS disqualified,
-				exit_initiated_at IS NOT NULL AS exiting,
-				false AS exited,
-				vetted_at IS NOT NULL AS vetted
-			FROM nodes
-				`+cache.db.impl.AsOfSystemInterval(asOfSystemInterval)+`
-			WHERE disqualified IS NULL
-				AND exit_finished_at IS NULL
-		`, time.Now().Add(-onlineWindow),
-		))(func(rows tagsql.Rows) error {
-			for rows.Next() {
-				node, err := scanSelectedNode(rows)
-				if err != nil {
-					return err
-				}
-				nodes = append(nodes, &node)
-			}
-			return nil
-		})
-	default:
-		return nil, Error.New("unsupported implementation")
-	}
-
-	if err != nil {
-		return nil, Error.Wrap(err)
-	}
+			nodes = append(nodes, &node)
+		}
+		return nil
+	})
 
 	err = cache.addNodeTagsFromFullScan(ctx, nodes)
 	if err != nil {
 		return nil, Error.Wrap(err)
 	}
+
 	records = make([]nodeselection.SelectedNode, len(nodes))
 	for i := 0; i < len(nodes); i++ {
 		records[i] = *nodes[i]
@@ -714,65 +680,24 @@ func (cache *overlaycache) GetParticipatingNodes(ctx context.Context, onlineWind
 	return records, Error.Wrap(err)
 }
 
-// nullNodeID represents a NodeID that may be null.
-type nullNodeID struct {
-	NodeID storj.NodeID
-	Valid  bool
-}
-
-// Scan implements the sql.Scanner interface.
-func (n *nullNodeID) Scan(value any) error {
-	if value == nil {
-		n.NodeID = storj.NodeID{}
-		n.Valid = false
-		return nil
-	}
-	err := n.NodeID.Scan(value)
-	if err != nil {
-		n.Valid = false
-		return err
-	}
-	n.Valid = true
-	return nil
-}
-
 func scanSelectedNode(rows tagsql.Rows) (nodeselection.SelectedNode, error) {
 	var node nodeselection.SelectedNode
 	node.Address = &pb.NodeAddress{}
-	var nodeID nullNodeID
-	var address, email, wallet, lastNet, lastIPPort, countryCode sql.NullString
-	var online, suspended, disqualified, exiting, exited, vetted sql.NullBool
-	err := rows.Scan(&nodeID, &address, &email, &wallet, &lastNet, &lastIPPort, &countryCode, &node.PieceCount, &node.FreeDisk,
-		&online, &suspended, &disqualified, &exiting, &exited, &vetted)
+	var lastIPPort, countryCode sql.NullString
+	err := rows.Scan(
+		&node.ID,
+		&node.Address.Address, &node.Email, &node.Wallet, &node.LastNet, &lastIPPort, &countryCode, &node.PieceCount, &node.FreeDisk,
+		&node.Online, &node.Suspended, &node.Exiting, &node.Vetted)
 	if err != nil {
 		return nodeselection.SelectedNode{}, err
 	}
 
-	// If node ID was null, no record was found for the specified ID. For our purposes
-	// here, we will treat that as equivalent to a node being DQ'd or exited.
-	if !nodeID.Valid {
-		// return an empty record
-		return nodeselection.SelectedNode{}, nil
-	}
-	// nodeID was valid, so from here on we assume all the other non-null fields are valid, per database constraints
-	if disqualified.Bool || exited.Bool {
-		return nodeselection.SelectedNode{}, nil
-	}
-	node.ID = nodeID.NodeID
-	node.Address.Address = address.String
-	node.Email = email.String
-	node.Wallet = wallet.String
-	node.LastNet = lastNet.String
 	if lastIPPort.Valid {
 		node.LastIPPort = lastIPPort.String
 	}
 	if countryCode.Valid {
 		node.CountryCode = location.ToCountryCode(countryCode.String)
 	}
-	node.Online = online.Bool
-	node.Suspended = suspended.Bool
-	node.Exiting = exiting.Bool
-	node.Vetted = vetted.Bool
 	return node, nil
 }
 
