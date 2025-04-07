@@ -77,7 +77,6 @@ type FrontendConfig struct {
 	ValdiSignUpURL                    string                `json:"valdiSignUpURL"`
 	SsoEnabled                        bool                  `json:"ssoEnabled"`
 	SelfServePlacementSelectEnabled   bool                  `json:"selfServePlacementSelectEnabled"`
-	SelfServePlacementNames           []string              `json:"selfServePlacementNames"`
 	CunoFSBetaEnabled                 bool                  `json:"cunoFSBetaEnabled"`
 	ObjectMountConsultationEnabled    bool                  `json:"objectMountConsultationEnabled"`
 	CSRFToken                         string                `json:"csrfToken"`

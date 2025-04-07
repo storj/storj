@@ -59,8 +59,7 @@ type RestAPIKeysConfig struct {
 
 // PlacementsConfig contains configurations for self-serve placement logic.
 type PlacementsConfig struct {
-	SelfServeEnabled bool     `help:"whether self-serve placement selection feature is enabled" default:"false"`
-	SelfServeNames   []string `help:"list of placements names allowed for self-serve selection" default:""`
+	SelfServeEnabled bool `help:"whether self-serve placement selection feature is enabled" default:"false"`
 }
 
 // CaptchaConfig contains configurations for login/registration captcha system.

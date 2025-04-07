@@ -73,7 +73,6 @@ export class FrontendConfig {
     valdiSignUpURL: string;
     ssoEnabled: boolean;
     selfServePlacementSelectEnabled: boolean;
-    selfServePlacementNames: string[] | null;
     cunoFSBetaEnabled: boolean;
     objectMountConsultationEnabled: boolean;
     csrfToken: string;

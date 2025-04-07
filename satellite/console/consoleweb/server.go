@@ -1027,7 +1027,6 @@ func (server *Server) frontendConfigHandler(w http.ResponseWriter, r *http.Reque
 		ValdiSignUpURL:                    server.config.ValdiSignUpURL,
 		SsoEnabled:                        server.config.SsoEnabled,
 		SelfServePlacementSelectEnabled:   server.config.Placement.SelfServeEnabled,
-		SelfServePlacementNames:           server.config.Placement.SelfServeNames,
 		CunoFSBetaEnabled:                 server.config.CunoFSBetaEnabled,
 		ObjectMountConsultationEnabled:    server.config.ObjectMountConsultationEnabled,
 		CSRFToken:                         csrfToken,

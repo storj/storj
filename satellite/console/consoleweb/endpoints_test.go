@@ -365,7 +365,6 @@ func TestPayments(t *testing.T) {
 					PlacementRules: `10:annotation("location", "placement10")`,
 				}
 				config.Console.Placement.SelfServeEnabled = true
-				config.Console.Placement.SelfServeNames = []string{"placement10"}
 
 				config.Payments.Products.SetMap(map[string]paymentsconfig.ProductUsagePrice{
 					product: productPrice,
