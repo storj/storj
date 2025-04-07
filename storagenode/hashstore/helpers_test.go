@@ -165,6 +165,12 @@ func forAllTables[T interface{ Run(string, func(T)) bool }](t T, fn func(T)) {
 	run(t, kind_MemTbl, false)
 }
 
+func ifFailed(t testing.TB, fn func()) {
+	if t.Failed() {
+		fn()
+	}
+}
+
 //
 // generic table
 //
@@ -179,9 +185,11 @@ func newTestTbl(t testing.TB, lrec uint64, opts ...any) *testTbl {
 
 	fh, err := os.CreateTemp(t.TempDir(), "tbl")
 	assert.NoError(t, err)
+	defer ifFailed(t, func() { _ = fh.Close() })
 
 	cons, err := CreateTable(context.Background(), fh, lrec, 0, table_DefaultKind)
 	assert.NoError(t, err)
+	defer cons.Close()
 	checkOptions(opts, func(tc WithConstructor) { tc(cons) })
 	tbl, err := cons.Done(context.Background())
 	assert.NoError(t, err)
@@ -220,6 +228,8 @@ func (tbl *testTbl) AssertInsert(opts ...any) Record {
 	checkOptions(opts, func(t WithKey) { key = Key(t) })
 
 	rec := newRecord(key)
+	checkOptions(opts, func(t WithRecord) { rec = Record(t) })
+
 	tbl.AssertInsertRecord(rec)
 	return rec
 }
@@ -255,9 +265,11 @@ func newTestHashTbl(t testing.TB, lrec uint64, opts ...any) *testHashTbl {
 
 	fh, err := os.CreateTemp(t.TempDir(), "hashtbl")
 	assert.NoError(t, err)
+	defer ifFailed(t, func() { _ = fh.Close() })
 
 	cons, err := CreateHashTbl(context.Background(), fh, lrec, 0)
 	assert.NoError(t, err)
+	defer cons.Close()
 	checkOptions(opts, func(tc WithConstructor) { tc(cons) })
 	h, err := cons.Done(context.Background())
 	assert.NoError(t, err)
@@ -296,6 +308,8 @@ func (th *testHashTbl) AssertInsert(opts ...any) Record {
 	checkOptions(opts, func(t WithKey) { key = Key(t) })
 
 	rec := newRecord(key)
+	checkOptions(opts, func(t WithRecord) { rec = Record(t) })
+
 	th.AssertInsertRecord(rec)
 	return rec
 }
@@ -331,9 +345,11 @@ func newTestMemTbl(t testing.TB, lrec uint64, opts ...any) *testMemTbl {
 
 	fh, err := os.CreateTemp(t.TempDir(), "memtbl")
 	assert.NoError(t, err)
+	defer ifFailed(t, func() { _ = fh.Close() })
 
 	cons, err := CreateMemTbl(context.Background(), fh, lrec, 0)
 	assert.NoError(t, err)
+	defer cons.Close()
 	checkOptions(opts, func(tc WithConstructor) { tc(cons) })
 	m, err := cons.Done(context.Background())
 	assert.NoError(t, err)
@@ -372,6 +388,8 @@ func (tm *testMemTbl) AssertInsert(opts ...any) Record {
 	checkOptions(opts, func(t WithKey) { key = Key(t) })
 
 	rec := newRecord(key)
+	checkOptions(opts, func(t WithRecord) { rec = Record(t) })
+
 	tm.AssertInsertRecord(rec)
 	return rec
 }
@@ -592,6 +610,7 @@ type (
 	WithTTL         time.Time
 	WithData        []byte
 	WithKey         Key
+	WithRecord      Record
 	WithRevive      bool
 	WithConstructor func(TblConstructor)
 )
