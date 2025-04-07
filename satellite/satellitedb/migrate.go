@@ -927,6 +927,14 @@ func (db *satelliteDB) productionMigrationSpanner() *migrate.Migration {
 					`CREATE INDEX rest_api_keys_name_index ON rest_api_keys ( name );`,
 				},
 			},
+			{
+				DB:          &db.migrationDB,
+				Description: "drop table storagenode_bandwidth_rollups_phase2",
+				Version:     289,
+				Action: migrate.SQL{
+					`DROP TABLE IF EXISTS storagenode_bandwidth_rollups_phase2`,
+				},
+			},
 			// NB: after updating testdata in `testdata`, run
 			//     `go generate` to update `migratez.go`.
 		},
@@ -3694,6 +3702,14 @@ func (db *satelliteDB) productionMigrationPostgres() *migrate.Migration {
 					);`,
 					`CREATE INDEX rest_api_keys_user_id_index ON rest_api_keys ( user_id );`,
 					`CREATE INDEX rest_api_keys_name_index ON rest_api_keys ( name );`,
+				},
+			},
+			{
+				DB:          &db.migrationDB,
+				Description: "drop table storagenode_bandwidth_rollups_phase2",
+				Version:     289,
+				Action: migrate.SQL{
+					`DROP TABLE IF EXISTS storagenode_bandwidth_rollups_phase2`,
 				},
 			},
 			// NB: after updating testdata in `testdata`, run

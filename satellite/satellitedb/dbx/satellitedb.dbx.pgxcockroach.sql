@@ -362,15 +362,6 @@ CREATE TABLE storagenode_bandwidth_rollup_archives (
 	settled bigint NOT NULL,
 	PRIMARY KEY ( storagenode_id, interval_start, action )
 ) ;
-CREATE TABLE storagenode_bandwidth_rollups_phase2 (
-	storagenode_id bytea NOT NULL,
-	interval_start timestamp with time zone NOT NULL,
-	interval_seconds integer NOT NULL,
-	action integer NOT NULL,
-	allocated bigint DEFAULT 0,
-	settled bigint NOT NULL,
-	PRIMARY KEY ( storagenode_id, interval_start, action )
-) ;
 CREATE TABLE storagenode_payments (
 	id bigserial NOT NULL,
 	created_at timestamp with time zone NOT NULL,

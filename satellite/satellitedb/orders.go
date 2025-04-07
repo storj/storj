@@ -420,31 +420,21 @@ func (db *ordersDB) TestGetBucketBandwidth(ctx context.Context, projectID uuid.U
 func (db *ordersDB) GetStorageNodeBandwidth(ctx context.Context, nodeID storj.NodeID, from, to time.Time) (_ int64, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	var sum1, sum2 int64
+	var sum int64
 
-	err1 := db.db.QueryRow(ctx, db.db.Rebind(`
+	err = db.db.QueryRow(ctx, db.db.Rebind(`
 		SELECT COALESCE(SUM(settled), 0)
 		FROM storagenode_bandwidth_rollups
 		WHERE storagenode_id = ?
 			AND interval_start > ?
 			AND interval_start <= ?
-	`), nodeID, from.UTC(), to.UTC()).Scan(&sum1)
+	`), nodeID, from.UTC(), to.UTC()).Scan(&sum)
 
-	err2 := db.db.QueryRow(ctx, db.db.Rebind(`
-		SELECT COALESCE(SUM(settled), 0)
-		FROM storagenode_bandwidth_rollups_phase2
-		WHERE storagenode_id = ?
-			AND interval_start > ?
-			AND interval_start <= ?
-	`), nodeID, from.UTC(), to.UTC()).Scan(&sum2)
-
-	if err1 != nil && !errors.Is(err1, sql.ErrNoRows) {
-		return 0, err1
-	} else if err2 != nil && !errors.Is(err2, sql.ErrNoRows) {
-		return 0, err2
+	if err != nil && !errors.Is(err, sql.ErrNoRows) {
+		return 0, err
 	}
 
-	return sum1 + sum2, nil
+	return sum, nil
 }
 
 // UpdateBandwidthBatch updates bucket and project bandwidth rollups in the database.

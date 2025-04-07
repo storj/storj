@@ -98,34 +98,6 @@ read paged (
 	where storagenode_bandwidth_rollup_archive.interval_start >= ?
 )
 
-// storagenode_bandwidth_rollup_phase2 contains rolled up bandwidth information for a storage node.
-model storagenode_bandwidth_rollup_phase2 (
-	table storagenode_bandwidth_rollups_phase2 // make the pluralization consistent
-
-	key storagenode_id interval_start action
-
-	// storagenode_id refers to the storagenode storj.NodeID.
-	field storagenode_id   blob
-	// interval_start is when the total measurement started.
-	field interval_start   timestamp
-	// interval_seconds is the duration of the measurement interval in seconds.
-	field interval_seconds uint
-	// action is the bandwidth operation, which refers to storj.io/common/pb.PieceAction.
-	// It is one of put = 1, get = 2, get audit = 3, get repair = 4, put repair = 5, delete = 6 or put graceful exit = 7.
-	field action           uint
-
-	// allocated is the number of bytes that the satellite has budgeted for.
-	field allocated uint64 ( updatable, nullable, default 0 )
-	// settled is the number of bytes of traffic that the storagenodes have reported back to the satellite.
-	field settled   uint64 ( updatable )
-)
-
-read paged (
-	select storagenode_bandwidth_rollup_phase2
-	where storagenode_bandwidth_rollup_phase2.storagenode_id = ?
-	where storagenode_bandwidth_rollup_phase2.interval_start >= ?
-)
-
 // storagenode_storage_tally contains the calculated at rest data for storagenode.
 model storagenode_storage_tally (
 	// this primary key will enforce uniqueness on interval_end_time,node_id

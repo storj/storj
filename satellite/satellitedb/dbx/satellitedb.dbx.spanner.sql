@@ -333,14 +333,6 @@ CREATE TABLE storagenode_bandwidth_rollup_archives (
 	allocated INT64 DEFAULT (0),
 	settled INT64 NOT NULL
 ) PRIMARY KEY ( storagenode_id, interval_start, action ) ;
-CREATE TABLE storagenode_bandwidth_rollups_phase2 (
-	storagenode_id BYTES(MAX) NOT NULL,
-	interval_start TIMESTAMP NOT NULL,
-	interval_seconds INT64 NOT NULL,
-	action INT64 NOT NULL,
-	allocated INT64 DEFAULT (0),
-	settled INT64 NOT NULL
-) PRIMARY KEY ( storagenode_id, interval_start, action ) ;
 CREATE SEQUENCE storagenode_payments_id OPTIONS (sequence_kind='bit_reversed_positive') ;
 CREATE TABLE storagenode_payments (
 	id INT64 NOT NULL DEFAULT (GET_NEXT_SEQUENCE_VALUE(SEQUENCE storagenode_payments_id)),

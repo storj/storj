@@ -164,40 +164,6 @@ func (db *StoragenodeAccounting) getBandwidthByNodeSince(ctx context.Context, la
 	}
 }
 
-func (db *StoragenodeAccounting) getBandwidthPhase2ByNodeSince(ctx context.Context, latestRollup time.Time, nodeid []byte,
-	cb func(context.Context, *accounting.StoragenodeBandwidthRollup) error) (err error) {
-	defer mon.Task()(&ctx)(&err)
-
-	pageLimit := db.db.opts.ReadRollupBatchSize
-	if pageLimit <= 0 {
-		pageLimit = 10000
-	}
-
-	var cursor *dbx.Paged_StoragenodeBandwidthRollupPhase2_By_StoragenodeId_And_IntervalStart_GreaterOrEqual_Continuation
-	for {
-		rollups, next, err := db.db.Paged_StoragenodeBandwidthRollupPhase2_By_StoragenodeId_And_IntervalStart_GreaterOrEqual(ctx,
-			dbx.StoragenodeBandwidthRollupPhase2_StoragenodeId(nodeid), dbx.StoragenodeBandwidthRollupPhase2_IntervalStart(latestRollup),
-			pageLimit, cursor)
-		if err != nil {
-			return Error.Wrap(err)
-		}
-		cursor = next
-		for _, r := range rollups {
-			v, err := fromDBXStoragenodeBandwidthRollupPhase2(r)
-			if err != nil {
-				return Error.Wrap(err)
-			}
-			err = cb(ctx, &v)
-			if err != nil {
-				return err
-			}
-		}
-		if cursor == nil {
-			return nil
-		}
-	}
-}
-
 // GetBandwidthSince retrieves all storagenode_bandwidth_rollup entires since latestRollup.
 func (db *StoragenodeAccounting) GetBandwidthSince(ctx context.Context, latestRollup time.Time,
 	cb func(context.Context, *accounting.StoragenodeBandwidthRollup) error) (err error) {
@@ -220,11 +186,6 @@ func (db *StoragenodeAccounting) GetBandwidthSince(ctx context.Context, latestRo
 
 	for _, nodeid := range nodeids {
 		err = db.getBandwidthByNodeSince(ctx, latestRollup, nodeid, cb)
-		if err != nil {
-			return err
-		}
-
-		err = db.getBandwidthPhase2ByNodeSince(ctx, latestRollup, nodeid, cb)
 		if err != nil {
 			return err
 		}
@@ -924,19 +885,6 @@ func fromDBXStoragenodeStorageTally(r *dbx.StoragenodeStorageTally) (*accounting
 }
 
 func fromDBXStoragenodeBandwidthRollup(v *dbx.StoragenodeBandwidthRollup) (r accounting.StoragenodeBandwidthRollup, _ error) {
-	id, err := storj.NodeIDFromBytes(v.StoragenodeId)
-	if err != nil {
-		return r, Error.Wrap(err)
-	}
-	return accounting.StoragenodeBandwidthRollup{
-		NodeID:        id,
-		IntervalStart: v.IntervalStart,
-		Action:        v.Action,
-		Settled:       v.Settled,
-	}, nil
-}
-
-func fromDBXStoragenodeBandwidthRollupPhase2(v *dbx.StoragenodeBandwidthRollupPhase2) (r accounting.StoragenodeBandwidthRollup, _ error) {
 	id, err := storj.NodeIDFromBytes(v.StoragenodeId)
 	if err != nil {
 		return r, Error.Wrap(err)

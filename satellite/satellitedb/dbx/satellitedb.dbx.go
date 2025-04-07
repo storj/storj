@@ -748,16 +748,6 @@ func (obj *pgxDB) Schema() []string {
 	PRIMARY KEY ( storagenode_id, interval_start, action )
 )`,
 
-		`CREATE TABLE storagenode_bandwidth_rollups_phase2 (
-	storagenode_id bytea NOT NULL,
-	interval_start timestamp with time zone NOT NULL,
-	interval_seconds integer NOT NULL,
-	action integer NOT NULL,
-	allocated bigint DEFAULT 0,
-	settled bigint NOT NULL,
-	PRIMARY KEY ( storagenode_id, interval_start, action )
-)`,
-
 		`CREATE TABLE storagenode_payments (
 	id bigserial NOT NULL,
 	created_at timestamp with time zone NOT NULL,
@@ -1136,8 +1126,6 @@ func (obj *pgxDB) DropSchema() []string {
 		`DROP TABLE IF EXISTS storagenode_paystubs`,
 
 		`DROP TABLE IF EXISTS storagenode_payments`,
-
-		`DROP TABLE IF EXISTS storagenode_bandwidth_rollups_phase2`,
 
 		`DROP TABLE IF EXISTS storagenode_bandwidth_rollup_archives`,
 
@@ -1692,16 +1680,6 @@ func (obj *pgxcockroachDB) Schema() []string {
 	PRIMARY KEY ( storagenode_id, interval_start, action )
 )`,
 
-		`CREATE TABLE storagenode_bandwidth_rollups_phase2 (
-	storagenode_id bytea NOT NULL,
-	interval_start timestamp with time zone NOT NULL,
-	interval_seconds integer NOT NULL,
-	action integer NOT NULL,
-	allocated bigint DEFAULT 0,
-	settled bigint NOT NULL,
-	PRIMARY KEY ( storagenode_id, interval_start, action )
-)`,
-
 		`CREATE TABLE storagenode_payments (
 	id bigserial NOT NULL,
 	created_at timestamp with time zone NOT NULL,
@@ -2080,8 +2058,6 @@ func (obj *pgxcockroachDB) DropSchema() []string {
 		`DROP TABLE IF EXISTS storagenode_paystubs`,
 
 		`DROP TABLE IF EXISTS storagenode_payments`,
-
-		`DROP TABLE IF EXISTS storagenode_bandwidth_rollups_phase2`,
 
 		`DROP TABLE IF EXISTS storagenode_bandwidth_rollup_archives`,
 
@@ -2602,15 +2578,6 @@ func (obj *spannerDB) Schema() []string {
 ) PRIMARY KEY ( storagenode_id, interval_start, action )`,
 
 		`CREATE TABLE storagenode_bandwidth_rollup_archives (
-	storagenode_id BYTES(MAX) NOT NULL,
-	interval_start TIMESTAMP NOT NULL,
-	interval_seconds INT64 NOT NULL,
-	action INT64 NOT NULL,
-	allocated INT64 DEFAULT (0),
-	settled INT64 NOT NULL
-) PRIMARY KEY ( storagenode_id, interval_start, action )`,
-
-		`CREATE TABLE storagenode_bandwidth_rollups_phase2 (
 	storagenode_id BYTES(MAX) NOT NULL,
 	interval_start TIMESTAMP NOT NULL,
 	interval_seconds INT64 NOT NULL,
@@ -3223,20 +3190,6 @@ func (obj *spannerDB) DropSchema() []string {
 		`DROP SEQUENCE IF EXISTS storagenode_payments_id`,
 
 		`DROP TABLE IF EXISTS storagenode_payments`,
-
-		`ALTER TABLE  storagenode_bandwidth_rollups_phase2 ALTER storagenode_id SET DEFAULT (null)`,
-
-		`DROP SEQUENCE IF EXISTS storagenode_bandwidth_rollups_phase2_storagenode_id`,
-
-		`ALTER TABLE  storagenode_bandwidth_rollups_phase2 ALTER interval_start SET DEFAULT (null)`,
-
-		`DROP SEQUENCE IF EXISTS storagenode_bandwidth_rollups_phase2_interval_start`,
-
-		`ALTER TABLE  storagenode_bandwidth_rollups_phase2 ALTER action SET DEFAULT (null)`,
-
-		`DROP SEQUENCE IF EXISTS storagenode_bandwidth_rollups_phase2_action`,
-
-		`DROP TABLE IF EXISTS storagenode_bandwidth_rollups_phase2`,
 
 		`ALTER TABLE  storagenode_bandwidth_rollup_archives ALTER storagenode_id SET DEFAULT (null)`,
 
@@ -9919,145 +9872,6 @@ func (f StoragenodeBandwidthRollupArchive_Settled_Field) value() any {
 	return f._value
 }
 
-type StoragenodeBandwidthRollupPhase2 struct {
-	StoragenodeId   []byte
-	IntervalStart   time.Time
-	IntervalSeconds uint
-	Action          uint
-	Allocated       *uint64
-	Settled         uint64
-}
-
-func (StoragenodeBandwidthRollupPhase2) _Table() string {
-	return "storagenode_bandwidth_rollups_phase2"
-}
-
-type StoragenodeBandwidthRollupPhase2_Create_Fields struct {
-	Allocated StoragenodeBandwidthRollupPhase2_Allocated_Field
-}
-
-type StoragenodeBandwidthRollupPhase2_Update_Fields struct {
-	Allocated StoragenodeBandwidthRollupPhase2_Allocated_Field
-	Settled   StoragenodeBandwidthRollupPhase2_Settled_Field
-}
-
-type StoragenodeBandwidthRollupPhase2_StoragenodeId_Field struct {
-	_set   bool
-	_null  bool
-	_value []byte
-}
-
-func StoragenodeBandwidthRollupPhase2_StoragenodeId(v []byte) StoragenodeBandwidthRollupPhase2_StoragenodeId_Field {
-	return StoragenodeBandwidthRollupPhase2_StoragenodeId_Field{_set: true, _value: v}
-}
-
-func (f StoragenodeBandwidthRollupPhase2_StoragenodeId_Field) value() any {
-	if !f._set || f._null {
-		return nil
-	}
-	return f._value
-}
-
-type StoragenodeBandwidthRollupPhase2_IntervalStart_Field struct {
-	_set   bool
-	_null  bool
-	_value time.Time
-}
-
-func StoragenodeBandwidthRollupPhase2_IntervalStart(v time.Time) StoragenodeBandwidthRollupPhase2_IntervalStart_Field {
-	return StoragenodeBandwidthRollupPhase2_IntervalStart_Field{_set: true, _value: v}
-}
-
-func (f StoragenodeBandwidthRollupPhase2_IntervalStart_Field) value() any {
-	if !f._set || f._null {
-		return nil
-	}
-	return f._value
-}
-
-type StoragenodeBandwidthRollupPhase2_IntervalSeconds_Field struct {
-	_set   bool
-	_null  bool
-	_value uint
-}
-
-func StoragenodeBandwidthRollupPhase2_IntervalSeconds(v uint) StoragenodeBandwidthRollupPhase2_IntervalSeconds_Field {
-	return StoragenodeBandwidthRollupPhase2_IntervalSeconds_Field{_set: true, _value: v}
-}
-
-func (f StoragenodeBandwidthRollupPhase2_IntervalSeconds_Field) value() any {
-	if !f._set || f._null {
-		return nil
-	}
-	return f._value
-}
-
-type StoragenodeBandwidthRollupPhase2_Action_Field struct {
-	_set   bool
-	_null  bool
-	_value uint
-}
-
-func StoragenodeBandwidthRollupPhase2_Action(v uint) StoragenodeBandwidthRollupPhase2_Action_Field {
-	return StoragenodeBandwidthRollupPhase2_Action_Field{_set: true, _value: v}
-}
-
-func (f StoragenodeBandwidthRollupPhase2_Action_Field) value() any {
-	if !f._set || f._null {
-		return nil
-	}
-	return f._value
-}
-
-type StoragenodeBandwidthRollupPhase2_Allocated_Field struct {
-	_set   bool
-	_null  bool
-	_value *uint64
-}
-
-func StoragenodeBandwidthRollupPhase2_Allocated(v uint64) StoragenodeBandwidthRollupPhase2_Allocated_Field {
-	return StoragenodeBandwidthRollupPhase2_Allocated_Field{_set: true, _value: &v}
-}
-
-func StoragenodeBandwidthRollupPhase2_Allocated_Raw(v *uint64) StoragenodeBandwidthRollupPhase2_Allocated_Field {
-	if v == nil {
-		return StoragenodeBandwidthRollupPhase2_Allocated_Null()
-	}
-	return StoragenodeBandwidthRollupPhase2_Allocated(*v)
-}
-
-func StoragenodeBandwidthRollupPhase2_Allocated_Null() StoragenodeBandwidthRollupPhase2_Allocated_Field {
-	return StoragenodeBandwidthRollupPhase2_Allocated_Field{_set: true, _null: true}
-}
-
-func (f StoragenodeBandwidthRollupPhase2_Allocated_Field) isnull() bool {
-	return !f._set || f._null || f._value == nil
-}
-
-func (f StoragenodeBandwidthRollupPhase2_Allocated_Field) value() any {
-	if !f._set || f._null {
-		return nil
-	}
-	return f._value
-}
-
-type StoragenodeBandwidthRollupPhase2_Settled_Field struct {
-	_set   bool
-	_null  bool
-	_value uint64
-}
-
-func StoragenodeBandwidthRollupPhase2_Settled(v uint64) StoragenodeBandwidthRollupPhase2_Settled_Field {
-	return StoragenodeBandwidthRollupPhase2_Settled_Field{_set: true, _value: v}
-}
-
-func (f StoragenodeBandwidthRollupPhase2_Settled_Field) value() any {
-	if !f._set || f._null {
-		return nil
-	}
-	return f._value
-}
-
 type StoragenodePayment struct {
 	Id        int64
 	CreatedAt time.Time
@@ -14644,13 +14458,6 @@ type Paged_StoragenodeBandwidthRollupArchive_By_IntervalStart_GreaterOrEqual_Con
 	_set                  bool
 }
 
-type Paged_StoragenodeBandwidthRollupPhase2_By_StoragenodeId_And_IntervalStart_GreaterOrEqual_Continuation struct {
-	_value_storagenode_id []byte
-	_value_interval_start time.Time
-	_value_action         uint
-	_set                  bool
-}
-
 type Paged_StoragenodeBandwidthRollup_By_IntervalStart_GreaterOrEqual_Continuation struct {
 	_value_storagenode_id []byte
 	_value_interval_start time.Time
@@ -16714,67 +16521,6 @@ func (obj *pgxImpl) Paged_StoragenodeBandwidthRollupArchive_By_IntervalStart_Gre
 					return nil, nil, err
 				}
 				rows = append(rows, storagenode_bandwidth_rollup_archive)
-				next = &__continuation
-			}
-
-			return rows, next, nil
-		}()
-		if err != nil {
-			if obj.shouldRetry(err) {
-				continue
-			}
-			return nil, nil, obj.makeErr(err)
-		}
-		return rows, next, nil
-	}
-
-}
-
-func (obj *pgxImpl) Paged_StoragenodeBandwidthRollupPhase2_By_StoragenodeId_And_IntervalStart_GreaterOrEqual(ctx context.Context,
-	storagenode_bandwidth_rollup_phase2_storagenode_id StoragenodeBandwidthRollupPhase2_StoragenodeId_Field,
-	storagenode_bandwidth_rollup_phase2_interval_start_greater_or_equal StoragenodeBandwidthRollupPhase2_IntervalStart_Field,
-	limit int, start *Paged_StoragenodeBandwidthRollupPhase2_By_StoragenodeId_And_IntervalStart_GreaterOrEqual_Continuation) (
-	rows []*StoragenodeBandwidthRollupPhase2, next *Paged_StoragenodeBandwidthRollupPhase2_By_StoragenodeId_And_IntervalStart_GreaterOrEqual_Continuation, err error) {
-	defer mon.Task()(&ctx)(&err)
-	if !obj.txn && txutil.IsInsideTx(ctx) {
-		panic("using DB when inside of a transaction")
-	}
-
-	var __embed_stmt = __sqlbundle_Literal("SELECT storagenode_bandwidth_rollups_phase2.storagenode_id, storagenode_bandwidth_rollups_phase2.interval_start, storagenode_bandwidth_rollups_phase2.interval_seconds, storagenode_bandwidth_rollups_phase2.action, storagenode_bandwidth_rollups_phase2.allocated, storagenode_bandwidth_rollups_phase2.settled, storagenode_bandwidth_rollups_phase2.storagenode_id, storagenode_bandwidth_rollups_phase2.interval_start, storagenode_bandwidth_rollups_phase2.action FROM storagenode_bandwidth_rollups_phase2 WHERE storagenode_bandwidth_rollups_phase2.storagenode_id = ? AND storagenode_bandwidth_rollups_phase2.interval_start >= ? AND (storagenode_bandwidth_rollups_phase2.storagenode_id, storagenode_bandwidth_rollups_phase2.interval_start, storagenode_bandwidth_rollups_phase2.action) > (?, ?, ?) ORDER BY storagenode_bandwidth_rollups_phase2.storagenode_id, storagenode_bandwidth_rollups_phase2.interval_start, storagenode_bandwidth_rollups_phase2.action LIMIT ?")
-
-	var __embed_first_stmt = __sqlbundle_Literal("SELECT storagenode_bandwidth_rollups_phase2.storagenode_id, storagenode_bandwidth_rollups_phase2.interval_start, storagenode_bandwidth_rollups_phase2.interval_seconds, storagenode_bandwidth_rollups_phase2.action, storagenode_bandwidth_rollups_phase2.allocated, storagenode_bandwidth_rollups_phase2.settled, storagenode_bandwidth_rollups_phase2.storagenode_id, storagenode_bandwidth_rollups_phase2.interval_start, storagenode_bandwidth_rollups_phase2.action FROM storagenode_bandwidth_rollups_phase2 WHERE storagenode_bandwidth_rollups_phase2.storagenode_id = ? AND storagenode_bandwidth_rollups_phase2.interval_start >= ? ORDER BY storagenode_bandwidth_rollups_phase2.storagenode_id, storagenode_bandwidth_rollups_phase2.interval_start, storagenode_bandwidth_rollups_phase2.action LIMIT ?")
-
-	var __values []any
-	__values = append(__values, storagenode_bandwidth_rollup_phase2_storagenode_id.value(), storagenode_bandwidth_rollup_phase2_interval_start_greater_or_equal.value())
-
-	var __stmt string
-	if start != nil && start._set {
-		__values = append(__values, start._value_storagenode_id, start._value_interval_start, start._value_action, limit)
-		__stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
-	} else {
-		__values = append(__values, limit)
-		__stmt = __sqlbundle_Render(obj.dialect, __embed_first_stmt)
-	}
-	obj.logStmt(__stmt, __values...)
-
-	for {
-		rows, next, err = func() (rows []*StoragenodeBandwidthRollupPhase2, next *Paged_StoragenodeBandwidthRollupPhase2_By_StoragenodeId_And_IntervalStart_GreaterOrEqual_Continuation, err error) {
-			__rows, err := obj.driver.QueryContext(ctx, __stmt, __values...)
-			if err != nil {
-				return nil, nil, err
-			}
-			defer closeRows(__rows, &err)
-
-			var __continuation Paged_StoragenodeBandwidthRollupPhase2_By_StoragenodeId_And_IntervalStart_GreaterOrEqual_Continuation
-			__continuation._set = true
-
-			for __rows.Next() {
-				storagenode_bandwidth_rollup_phase2 := &StoragenodeBandwidthRollupPhase2{}
-				err = __rows.Scan(&storagenode_bandwidth_rollup_phase2.StoragenodeId, &storagenode_bandwidth_rollup_phase2.IntervalStart, &storagenode_bandwidth_rollup_phase2.IntervalSeconds, &storagenode_bandwidth_rollup_phase2.Action, &storagenode_bandwidth_rollup_phase2.Allocated, &storagenode_bandwidth_rollup_phase2.Settled, &__continuation._value_storagenode_id, &__continuation._value_interval_start, &__continuation._value_action)
-				if err != nil {
-					return nil, nil, err
-				}
-				rows = append(rows, storagenode_bandwidth_rollup_phase2)
 				next = &__continuation
 			}
 
@@ -24468,16 +24214,6 @@ func (obj *pgxImpl) deleteAll(ctx context.Context) (count int64, err error) {
 		return 0, obj.makeErr(err)
 	}
 	count += __count
-	__res, err = obj.driver.ExecContext(ctx, "DELETE FROM storagenode_bandwidth_rollups_phase2;")
-	if err != nil {
-		return 0, obj.makeErr(err)
-	}
-
-	__count, err = __res.RowsAffected()
-	if err != nil {
-		return 0, obj.makeErr(err)
-	}
-	count += __count
 	__res, err = obj.driver.ExecContext(ctx, "DELETE FROM storagenode_bandwidth_rollup_archives;")
 	if err != nil {
 		return 0, obj.makeErr(err)
@@ -26756,67 +26492,6 @@ func (obj *pgxcockroachImpl) Paged_StoragenodeBandwidthRollupArchive_By_Interval
 					return nil, nil, err
 				}
 				rows = append(rows, storagenode_bandwidth_rollup_archive)
-				next = &__continuation
-			}
-
-			return rows, next, nil
-		}()
-		if err != nil {
-			if obj.shouldRetry(err) {
-				continue
-			}
-			return nil, nil, obj.makeErr(err)
-		}
-		return rows, next, nil
-	}
-
-}
-
-func (obj *pgxcockroachImpl) Paged_StoragenodeBandwidthRollupPhase2_By_StoragenodeId_And_IntervalStart_GreaterOrEqual(ctx context.Context,
-	storagenode_bandwidth_rollup_phase2_storagenode_id StoragenodeBandwidthRollupPhase2_StoragenodeId_Field,
-	storagenode_bandwidth_rollup_phase2_interval_start_greater_or_equal StoragenodeBandwidthRollupPhase2_IntervalStart_Field,
-	limit int, start *Paged_StoragenodeBandwidthRollupPhase2_By_StoragenodeId_And_IntervalStart_GreaterOrEqual_Continuation) (
-	rows []*StoragenodeBandwidthRollupPhase2, next *Paged_StoragenodeBandwidthRollupPhase2_By_StoragenodeId_And_IntervalStart_GreaterOrEqual_Continuation, err error) {
-	defer mon.Task()(&ctx)(&err)
-	if !obj.txn && txutil.IsInsideTx(ctx) {
-		panic("using DB when inside of a transaction")
-	}
-
-	var __embed_stmt = __sqlbundle_Literal("SELECT storagenode_bandwidth_rollups_phase2.storagenode_id, storagenode_bandwidth_rollups_phase2.interval_start, storagenode_bandwidth_rollups_phase2.interval_seconds, storagenode_bandwidth_rollups_phase2.action, storagenode_bandwidth_rollups_phase2.allocated, storagenode_bandwidth_rollups_phase2.settled, storagenode_bandwidth_rollups_phase2.storagenode_id, storagenode_bandwidth_rollups_phase2.interval_start, storagenode_bandwidth_rollups_phase2.action FROM storagenode_bandwidth_rollups_phase2 WHERE storagenode_bandwidth_rollups_phase2.storagenode_id = ? AND storagenode_bandwidth_rollups_phase2.interval_start >= ? AND (storagenode_bandwidth_rollups_phase2.storagenode_id, storagenode_bandwidth_rollups_phase2.interval_start, storagenode_bandwidth_rollups_phase2.action) > (?, ?, ?) ORDER BY storagenode_bandwidth_rollups_phase2.storagenode_id, storagenode_bandwidth_rollups_phase2.interval_start, storagenode_bandwidth_rollups_phase2.action LIMIT ?")
-
-	var __embed_first_stmt = __sqlbundle_Literal("SELECT storagenode_bandwidth_rollups_phase2.storagenode_id, storagenode_bandwidth_rollups_phase2.interval_start, storagenode_bandwidth_rollups_phase2.interval_seconds, storagenode_bandwidth_rollups_phase2.action, storagenode_bandwidth_rollups_phase2.allocated, storagenode_bandwidth_rollups_phase2.settled, storagenode_bandwidth_rollups_phase2.storagenode_id, storagenode_bandwidth_rollups_phase2.interval_start, storagenode_bandwidth_rollups_phase2.action FROM storagenode_bandwidth_rollups_phase2 WHERE storagenode_bandwidth_rollups_phase2.storagenode_id = ? AND storagenode_bandwidth_rollups_phase2.interval_start >= ? ORDER BY storagenode_bandwidth_rollups_phase2.storagenode_id, storagenode_bandwidth_rollups_phase2.interval_start, storagenode_bandwidth_rollups_phase2.action LIMIT ?")
-
-	var __values []any
-	__values = append(__values, storagenode_bandwidth_rollup_phase2_storagenode_id.value(), storagenode_bandwidth_rollup_phase2_interval_start_greater_or_equal.value())
-
-	var __stmt string
-	if start != nil && start._set {
-		__values = append(__values, start._value_storagenode_id, start._value_interval_start, start._value_action, limit)
-		__stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
-	} else {
-		__values = append(__values, limit)
-		__stmt = __sqlbundle_Render(obj.dialect, __embed_first_stmt)
-	}
-	obj.logStmt(__stmt, __values...)
-
-	for {
-		rows, next, err = func() (rows []*StoragenodeBandwidthRollupPhase2, next *Paged_StoragenodeBandwidthRollupPhase2_By_StoragenodeId_And_IntervalStart_GreaterOrEqual_Continuation, err error) {
-			__rows, err := obj.driver.QueryContext(ctx, __stmt, __values...)
-			if err != nil {
-				return nil, nil, err
-			}
-			defer closeRows(__rows, &err)
-
-			var __continuation Paged_StoragenodeBandwidthRollupPhase2_By_StoragenodeId_And_IntervalStart_GreaterOrEqual_Continuation
-			__continuation._set = true
-
-			for __rows.Next() {
-				storagenode_bandwidth_rollup_phase2 := &StoragenodeBandwidthRollupPhase2{}
-				err = __rows.Scan(&storagenode_bandwidth_rollup_phase2.StoragenodeId, &storagenode_bandwidth_rollup_phase2.IntervalStart, &storagenode_bandwidth_rollup_phase2.IntervalSeconds, &storagenode_bandwidth_rollup_phase2.Action, &storagenode_bandwidth_rollup_phase2.Allocated, &storagenode_bandwidth_rollup_phase2.Settled, &__continuation._value_storagenode_id, &__continuation._value_interval_start, &__continuation._value_action)
-				if err != nil {
-					return nil, nil, err
-				}
-				rows = append(rows, storagenode_bandwidth_rollup_phase2)
 				next = &__continuation
 			}
 
@@ -34510,16 +34185,6 @@ func (obj *pgxcockroachImpl) deleteAll(ctx context.Context) (count int64, err er
 		return 0, obj.makeErr(err)
 	}
 	count += __count
-	__res, err = obj.driver.ExecContext(ctx, "DELETE FROM storagenode_bandwidth_rollups_phase2;")
-	if err != nil {
-		return 0, obj.makeErr(err)
-	}
-
-	__count, err = __res.RowsAffected()
-	if err != nil {
-		return 0, obj.makeErr(err)
-	}
-	count += __count
 	__res, err = obj.driver.ExecContext(ctx, "DELETE FROM storagenode_bandwidth_rollup_archives;")
 	if err != nil {
 		return 0, obj.makeErr(err)
@@ -37053,70 +36718,6 @@ func (obj *spannerImpl) Paged_StoragenodeBandwidthRollupArchive_By_IntervalStart
 					return nil, nil, err
 				}
 				rows = append(rows, storagenode_bandwidth_rollup_archive)
-				next = &__continuation
-			}
-
-			return rows, next, nil
-		}()
-		if err != nil {
-			if obj.shouldRetry(err) {
-				continue
-			}
-			return nil, nil, obj.makeErr(err)
-		}
-		return rows, next, nil
-	}
-
-}
-
-func (obj *spannerImpl) Paged_StoragenodeBandwidthRollupPhase2_By_StoragenodeId_And_IntervalStart_GreaterOrEqual(ctx context.Context,
-	storagenode_bandwidth_rollup_phase2_storagenode_id StoragenodeBandwidthRollupPhase2_StoragenodeId_Field,
-	storagenode_bandwidth_rollup_phase2_interval_start_greater_or_equal StoragenodeBandwidthRollupPhase2_IntervalStart_Field,
-	limit int, start *Paged_StoragenodeBandwidthRollupPhase2_By_StoragenodeId_And_IntervalStart_GreaterOrEqual_Continuation) (
-	rows []*StoragenodeBandwidthRollupPhase2, next *Paged_StoragenodeBandwidthRollupPhase2_By_StoragenodeId_And_IntervalStart_GreaterOrEqual_Continuation, err error) {
-	defer mon.Task()(&ctx)(&err)
-	if !obj.txn && txutil.IsInsideTx(ctx) {
-		panic("using DB when inside of a transaction")
-	}
-
-	var __embed_stmt = __sqlbundle_Literal("SELECT storagenode_bandwidth_rollups_phase2.storagenode_id, storagenode_bandwidth_rollups_phase2.interval_start, storagenode_bandwidth_rollups_phase2.interval_seconds, storagenode_bandwidth_rollups_phase2.action, storagenode_bandwidth_rollups_phase2.allocated, storagenode_bandwidth_rollups_phase2.settled, storagenode_bandwidth_rollups_phase2.storagenode_id, storagenode_bandwidth_rollups_phase2.interval_start, storagenode_bandwidth_rollups_phase2.action FROM storagenode_bandwidth_rollups_phase2 WHERE storagenode_bandwidth_rollups_phase2.storagenode_id = ? AND storagenode_bandwidth_rollups_phase2.interval_start >= ? AND (storagenode_bandwidth_rollups_phase2.storagenode_id > ? OR (storagenode_bandwidth_rollups_phase2.storagenode_id = ? AND (storagenode_bandwidth_rollups_phase2.interval_start > ? OR (storagenode_bandwidth_rollups_phase2.interval_start = ? AND storagenode_bandwidth_rollups_phase2.action > ?)))) ORDER BY storagenode_bandwidth_rollups_phase2.storagenode_id, storagenode_bandwidth_rollups_phase2.interval_start, storagenode_bandwidth_rollups_phase2.action LIMIT ?")
-
-	var __embed_first_stmt = __sqlbundle_Literal("SELECT storagenode_bandwidth_rollups_phase2.storagenode_id, storagenode_bandwidth_rollups_phase2.interval_start, storagenode_bandwidth_rollups_phase2.interval_seconds, storagenode_bandwidth_rollups_phase2.action, storagenode_bandwidth_rollups_phase2.allocated, storagenode_bandwidth_rollups_phase2.settled, storagenode_bandwidth_rollups_phase2.storagenode_id, storagenode_bandwidth_rollups_phase2.interval_start, storagenode_bandwidth_rollups_phase2.action FROM storagenode_bandwidth_rollups_phase2 WHERE storagenode_bandwidth_rollups_phase2.storagenode_id = ? AND storagenode_bandwidth_rollups_phase2.interval_start >= ? ORDER BY storagenode_bandwidth_rollups_phase2.storagenode_id, storagenode_bandwidth_rollups_phase2.interval_start, storagenode_bandwidth_rollups_phase2.action LIMIT ?")
-
-	var __values []any
-	__values = append(__values, storagenode_bandwidth_rollup_phase2_storagenode_id.value(), storagenode_bandwidth_rollup_phase2_interval_start_greater_or_equal.value())
-
-	var __stmt string
-	if start != nil && start._set {
-		__values = append(__values,
-			start._value_storagenode_id, start._value_storagenode_id, start._value_interval_start, start._value_interval_start, start._value_action,
-			limit,
-		)
-		__stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
-	} else {
-		__values = append(__values, limit)
-		__stmt = __sqlbundle_Render(obj.dialect, __embed_first_stmt)
-	}
-	obj.logStmt(__stmt, __values...)
-
-	for {
-		rows, next, err = func() (rows []*StoragenodeBandwidthRollupPhase2, next *Paged_StoragenodeBandwidthRollupPhase2_By_StoragenodeId_And_IntervalStart_GreaterOrEqual_Continuation, err error) {
-			__rows, err := obj.driver.QueryContext(ctx, __stmt, __values...)
-			if err != nil {
-				return nil, nil, err
-			}
-			defer closeRows(__rows, &err)
-
-			var __continuation Paged_StoragenodeBandwidthRollupPhase2_By_StoragenodeId_And_IntervalStart_GreaterOrEqual_Continuation
-			__continuation._set = true
-
-			for __rows.Next() {
-				storagenode_bandwidth_rollup_phase2 := &StoragenodeBandwidthRollupPhase2{}
-				err = __rows.Scan(&storagenode_bandwidth_rollup_phase2.StoragenodeId, &storagenode_bandwidth_rollup_phase2.IntervalStart, &storagenode_bandwidth_rollup_phase2.IntervalSeconds, &storagenode_bandwidth_rollup_phase2.Action, &storagenode_bandwidth_rollup_phase2.Allocated, &storagenode_bandwidth_rollup_phase2.Settled, &__continuation._value_storagenode_id, &__continuation._value_interval_start, &__continuation._value_action)
-				if err != nil {
-					return nil, nil, err
-				}
-				rows = append(rows, storagenode_bandwidth_rollup_phase2)
 				next = &__continuation
 			}
 
@@ -44659,16 +44260,6 @@ func (obj *spannerImpl) deleteAll(ctx context.Context) (count int64, err error) 
 		return 0, obj.makeErr(err)
 	}
 	count += __count
-	__res, err = obj.driver.ExecContext(ctx, "DELETE FROM storagenode_bandwidth_rollups_phase2;")
-	if err != nil {
-		return 0, obj.makeErr(err)
-	}
-
-	__count, err = __res.RowsAffected()
-	if err != nil {
-		return 0, obj.makeErr(err)
-	}
-	count += __count
 	__res, err = obj.driver.ExecContext(ctx, "DELETE FROM storagenode_bandwidth_rollup_archives;")
 	if err != nil {
 		return 0, obj.makeErr(err)
@@ -45820,12 +45411,6 @@ type Methods interface {
 		storagenode_bandwidth_rollup_archive_interval_start_greater_or_equal StoragenodeBandwidthRollupArchive_IntervalStart_Field,
 		limit int, start *Paged_StoragenodeBandwidthRollupArchive_By_IntervalStart_GreaterOrEqual_Continuation) (
 		rows []*StoragenodeBandwidthRollupArchive, next *Paged_StoragenodeBandwidthRollupArchive_By_IntervalStart_GreaterOrEqual_Continuation, err error)
-
-	Paged_StoragenodeBandwidthRollupPhase2_By_StoragenodeId_And_IntervalStart_GreaterOrEqual(ctx context.Context,
-		storagenode_bandwidth_rollup_phase2_storagenode_id StoragenodeBandwidthRollupPhase2_StoragenodeId_Field,
-		storagenode_bandwidth_rollup_phase2_interval_start_greater_or_equal StoragenodeBandwidthRollupPhase2_IntervalStart_Field,
-		limit int, start *Paged_StoragenodeBandwidthRollupPhase2_By_StoragenodeId_And_IntervalStart_GreaterOrEqual_Continuation) (
-		rows []*StoragenodeBandwidthRollupPhase2, next *Paged_StoragenodeBandwidthRollupPhase2_By_StoragenodeId_And_IntervalStart_GreaterOrEqual_Continuation, err error)
 
 	Paged_StoragenodeBandwidthRollup_By_IntervalStart_GreaterOrEqual(ctx context.Context,
 		storagenode_bandwidth_rollup_interval_start_greater_or_equal StoragenodeBandwidthRollup_IntervalStart_Field,
