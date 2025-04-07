@@ -661,17 +661,81 @@ func TestGetUnverifiedNeedingReminder(t *testing.T) {
 	})
 }
 
-func TestUserStatus_String(t *testing.T) {
-	for i := 0; i < console.UserStatusCount; i++ {
-		require.NotEmptyf(
-			t, console.UserStatus(i).String(), "status without associated string representation: %d", i,
+func TestUserStatus(t *testing.T) {
+	t.Run("String", func(t *testing.T) {
+		for i := 0; i < console.UserStatusCount; i++ {
+			status := console.UserStatus(i)
+			require.NotEmptyf(
+				t, status.String(), "status without associated string representation: %d", i,
+			)
+		}
+
+		// We add one to the highest value to verify it returns an empty string.
+		status := console.UserStatus(console.UserStatusCount)
+		require.Emptyf(t,
+			status.String(),
+			"invalid status should return empty string: %d", console.UserStatusCount,
 		)
-	}
+	})
 
-	// We add one to the highest value to verify it returns an empty string.
-	require.Emptyf(t,
-		console.UserStatus(console.UserStatusCount).String(),
-		"invalid status should return empty string: %d", console.UserStatusCount,
-	)
+	t.Run("Set", func(t *testing.T) {
+		tcases := []struct {
+			status   string
+			isValid  bool
+			expected console.UserStatus
+		}{
+			{
+				status:   "inactive",
+				isValid:  true,
+				expected: console.Inactive,
+			},
+			{
+				status:   "Active",
+				isValid:  true,
+				expected: console.Active,
+			},
+			{
+				status:   "DELETED",
+				isValid:  true,
+				expected: console.Deleted,
+			},
+			{
+				status:   "PendinG DeletioN",
+				isValid:  true,
+				expected: console.PendingDeletion,
+			},
+			{
+				status:   "Legal Hold",
+				isValid:  true,
+				expected: console.LegalHold,
+			},
+			{
+				status:   "pending bot verification",
+				isValid:  true,
+				expected: console.PendingBotVerification,
+			},
+			{
+				status:   "user requested Deletion",
+				isValid:  true,
+				expected: console.UserRequestedDeletion,
+			},
+			{
+				status:  "does not exists this status",
+				isValid: false,
+			},
+		}
 
+		var status console.UserStatus
+		for _, tcase := range tcases {
+			err := status.Set(tcase.status)
+			if err != nil {
+				require.False(t, tcase.isValid)
+				require.ErrorContains(t, err, tcase.status)
+			} else {
+				require.True(t, tcase.isValid)
+				require.NoError(t, err)
+				require.Equal(t, tcase.expected, status)
+			}
+		}
+	})
 }

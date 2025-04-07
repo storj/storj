@@ -7,6 +7,7 @@ import (
 	"bytes"
 	"fmt"
 	"io"
+	"math/rand"
 	"strconv"
 	"testing"
 	"time"
@@ -185,7 +186,7 @@ func TestDeleteAccounts(t *testing.T) {
 	// - 15) user status "active".
 	// - 16) user status "legal hold". NOTE: We don't check all the statuses, but we consider that
 	//       the "active" status is an usual one, so we check the "legal hold" as a differentiation.
-	const UplinkCount = 16
+	const uplinkCount = 16
 
 	testplanet.Run(t, testplanet.Config{
 		Reconfigure: testplanet.Reconfigure{
@@ -194,11 +195,11 @@ func TestDeleteAccounts(t *testing.T) {
 				testplanet.MaxSegmentSize(13*memory.KiB),
 			),
 		},
-		UplinkCount: UplinkCount, SatelliteCount: 1, StorageNodeCount: 4,
+		UplinkCount: uplinkCount, SatelliteCount: 1, StorageNodeCount: 4,
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 		sat := planet.Satellites[0]
 		uplinks := planet.Uplinks
-		require.Len(t, uplinks, UplinkCount)
+		require.Len(t, uplinks, uplinkCount)
 
 		{ // Add 4 API keys more to the 2nd uplink project.
 			userCtx, err := sat.UserContext(ctx, uplinks[1].Projects[0].Owner.ID)
@@ -532,4 +533,60 @@ func TestDeleteAccounts(t *testing.T) {
 		noDeleteVerification(14, console.Active)
 		noDeleteVerification(15, console.LegalHold)
 	})
+}
+
+func TestSetAccountStatus(t *testing.T) {
+	// We use as many uplinks as status because we want to have an account with each different status.
+	// We subtract one because we don't consider accounts in "inactive" status.
+	// TODO: Change implementation to treat accounts in "inactive" status.
+	const uplinkCount = console.UserStatusCount - 1
+	testplanet.Run(t, testplanet.Config{
+		UplinkCount: uplinkCount, SatelliteCount: 1, StorageNodeCount: 0,
+	},
+		func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+			sat := planet.Satellites[0]
+			uplinks := planet.Uplinks
+			require.Len(t, uplinks, uplinkCount)
+
+			// Set each user to a different status.
+			for i, uplink := range uplinks {
+				// "inactive" status is 0 and currently we cannot get inactive accounts by email.
+				// TODO: remove this restriction once the implementation can treat accounts in "inactive" status.
+				status := console.UserStatus(i + 1)
+				require.NoError(t,
+					sat.DB.Console().Users().Update(ctx, uplink.Projects[0].Owner.ID,
+						console.UpdateUserRequest{
+							Status: &status,
+						},
+					))
+			}
+
+			// Create a CSV with the users' emails to delete.
+			var csvData io.Reader
+			{
+				emails := "email"
+				for _, uplink := range uplinks {
+					emails += "\n" + uplink.User[sat.ID()].Email
+				}
+
+				csvData = bytes.NewBufferString(emails)
+			}
+
+			// Randomly choose one status to set to the accounts.
+			// TODO: Remove + 1 when the implementation can treat "inactive" accounts.
+			expStatus := console.UserStatus(rand.Intn(uplinkCount)) + 1
+			require.True(t, expStatus.Valid())
+			require.NoError(t, setAccountStatus(
+				ctx, zaptest.NewLogger(t), sat.DB, expStatus, csvData,
+			))
+
+			// Verify that all the accounts are set to the chosen status.
+			for _, uplink := range uplinks {
+				user, err := sat.DB.Console().Users().Get(ctx, uplink.Projects[0].Owner.ID)
+				require.NoError(t, err)
+				require.Equalf(t, expStatus, user.Status,
+					"user status. Expected: %q, Got: %q", expStatus.String(), user.Status.String(),
+				)
+			}
+		})
 }

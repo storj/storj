@@ -35,7 +35,7 @@ func cmdDeleteObjects(cmd *cobra.Command, args []string) error {
 	log := zap.L()
 
 	satDB, err := satellitedb.Open(ctx, log.Named("db"), runCfg.Database, satellitedb.Options{
-		ApplicationName:      "satellite-delete-data",
+		ApplicationName:      "satellite-users",
 		APIKeysLRUOptions:    runCfg.APIKeysLRUOptions(),
 		RevocationLRUOptions: runCfg.RevocationLRUOptions(),
 	})
@@ -77,7 +77,7 @@ func cmdDeleteAccounts(cmd *cobra.Command, args []string) error {
 	log := zap.L()
 
 	satDB, err := satellitedb.Open(ctx, log.Named("db"), runCfg.Database, satellitedb.Options{
-		ApplicationName:      "satellite-delete-data",
+		ApplicationName:      "satellite-users",
 		APIKeysLRUOptions:    runCfg.APIKeysLRUOptions(),
 		RevocationLRUOptions: runCfg.RevocationLRUOptions(),
 	})
@@ -113,11 +113,46 @@ func cmdDeleteAccounts(cmd *cobra.Command, args []string) error {
 	)
 }
 
+func cmdSetAccountStatus(cmd *cobra.Command, args []string) error {
+	ctx, _ := process.Ctx(cmd)
+	log := zap.L()
+
+	satDB, err := satellitedb.Open(ctx, log.Named("db"), runCfg.Database, satellitedb.Options{
+		ApplicationName:      "satellite-users",
+		APIKeysLRUOptions:    runCfg.APIKeysLRUOptions(),
+		RevocationLRUOptions: runCfg.RevocationLRUOptions(),
+	})
+	if err != nil {
+		return errs.New("error connecting to satellite database: %+v", err)
+	}
+	defer func() {
+		err = errs.Combine(err, satDB.Close())
+	}()
+
+	var csvData io.Reader
+	if strings.Contains(args[0], "@") {
+		csvData = strings.NewReader(args[0])
+	} else {
+		csvFile, err := os.Open(args[0])
+		if err != nil {
+			return errs.New("error opening CSV file: %+v", err)
+		}
+		defer func() {
+			err = errs.Combine(err, csvFile.Close())
+		}()
+
+		csvData = csvFile
+	}
+
+	return setAccountStatus(ctx, log, satDB, accountStatus, csvData)
+}
+
 // deleteObjects for each user's account with the email in csvData, delete all the objects and
 // buckets.
 //
-// Accounts must be in "pending deletion" status to be processed. An info message is logged when
-// an account doesn't have that status.
+// Accounts must exists and be in "pending deletion" status to be processed. A debug message is
+// logged when the account doesn't exist or is "inactive" status. An info message is logged when an
+// account isn't in "pending deletion" status.
 //
 // It returns an error when a system error is found or when the CSV file has an error.
 func deleteObjects(
@@ -125,13 +160,17 @@ func deleteObjects(
 	csvData io.Reader,
 ) error {
 	rows := CSVEmails{
-		Data:       csvData,
-		UserStatus: console.PendingDeletion,
-		Log:        log,
-		DB:         satDB.Console(),
+		Data: csvData,
+		Log:  log,
+		DB:   satDB.Console(),
 	}
 
-	return rows.ForEach(ctx, func(user *console.User, projects []console.Project) error {
+	return rows.ForEachWithProjects(ctx, func(user *console.User, projects []console.Project) error {
+		if user.Status != console.PendingDeletion {
+			log.Info("skipping not pending deletion user's account", zap.String("email", user.Email))
+			return nil
+		}
+
 		for _, p := range projects {
 			err := deleteAllBucketsAndObjects(ctx, satDB.Buckets(), metabaseDB, p.ID, batchSize)
 			if err != nil {
@@ -150,9 +189,12 @@ func deleteObjects(
 // The user's accounts that they fulfill the following requirements are skipped and logged with an
 // error message:
 //
-// - The account must be in "pending deletion" status.
+//   - The account must exists. Accounts in "inactive" status are returned as not exists. An info
+//     message is logged when it doesn't exist.
 //
-// - If the account is in the paid tier:
+//   - The account must be in "pending deletion" status.
+//
+//   - If the account is in the paid tier:
 //
 //   - All the invoices must not be in "open" or "draft" status.
 //
@@ -162,7 +204,7 @@ func deleteObjects(
 //
 //   - All the projects must not have any usage in the last month without a created invoice.
 //
-// - Its projects must not have any buckets.
+//   - Its projects must not have any buckets.
 //
 // It returns an error when a system error is found or when the CSV file has an error.
 func deleteAccounts(
@@ -175,13 +217,17 @@ func deleteAccounts(
 	)
 
 	rows := CSVEmails{
-		Data:       csvData,
-		UserStatus: console.PendingDeletion,
-		Log:        log,
-		DB:         satDB.Console(),
+		Data: csvData,
+		Log:  log,
+		DB:   satDB.Console(),
 	}
 
-	return rows.ForEach(ctx, func(user *console.User, projects []console.Project) error {
+	return rows.ForEachWithProjects(ctx, func(user *console.User, projects []console.Project) error {
+		if user.Status != console.PendingDeletion {
+			log.Info("skipping not pending deletion user's account", zap.String("email", user.Email))
+			return nil
+		}
+
 		if user.PaidTier {
 			{ // Check if the user has pending invoices.
 				list, err := invoices.List(ctx, user.ID)
@@ -321,26 +367,56 @@ func deleteAccounts(
 	})
 }
 
+// setAccountStatus for each user's account with the email in csvData, set its account status to
+// status.
+//
+// The account must exists, accounts in "inactive" status are considered as not exists. A debug
+// message is logged under those circumstances.
+//
+// It returns an error when a system error is found or when the CSV file has an error.
+func setAccountStatus(
+	ctx context.Context, log *zap.Logger, satDB satellite.DB, status console.UserStatus,
+	csvData io.Reader,
+) error {
+	rows := CSVEmails{
+		Data: csvData,
+		Log:  log,
+		DB:   satDB.Console(),
+	}
+
+	return rows.ForEach(ctx, func(user *console.User) error {
+		err := satDB.Console().Users().Update(ctx, user.ID,
+			console.UpdateUserRequest{
+				Status: &status,
+			},
+		)
+
+		if err != nil {
+			return errs.New("error updating the status of the user %q: %+v", user.Email, err)
+		}
+
+		return nil
+	})
+}
+
 // CSVEmails is a CSV file with user's emails.
 // If the first rown doesn't contain `@`, then its is considered a header and skipped.
 //
 // See the ForEach method for more details.
 type CSVEmails struct {
-	Data       io.Reader
-	UserStatus console.UserStatus
-	Log        *zap.Logger
-	DB         console.DB
+	Data io.Reader
+	Log  *zap.Logger
+	DB   console.DB
 }
 
-// ForEach gets the user and its projects for each email in the CSV and call fn.
+// ForEach gets the user for each email in the CSV and call fn.
 //
-// It skips the emails which don't match any user's account or their status aren't ce.UserStatus.
-// First case log a debug message and the second case log an info message.
+// It skips the emails which don't match any user's account or have "inactive" status, and logs a
+// debug message.
 //
 // It returns an error if there is an error in the CSV, retrieving the user or projects, a user's
 // account doesn't have the UserStatus, or the fn returns an error.
-func (ce *CSVEmails) ForEach(
-	ctx context.Context, fn func(user *console.User, projects []console.Project) error) error {
+func (ce *CSVEmails) ForEach(ctx context.Context, fn func(user *console.User) error) error {
 	firstRow := true
 	csvReader := csv.NewReader(ce.Data)
 	for {
@@ -361,31 +437,47 @@ func (ce *CSVEmails) ForEach(
 				continue
 			}
 		}
+
+		// TODO: User a method that returns the users in "inactive" status.
 		user, err := ce.DB.Users().GetByEmail(ctx, email)
 		if err != nil {
 			if errors.Is(err, sql.ErrNoRows) {
-				ce.Log.Debug("skipping not found user's account", zap.String("email", email))
+				ce.Log.Debug("skipping not found or 'inactive' user's account", zap.String("email", email))
 				continue
 			}
 			return errs.New("error getting user %q: %+v", email, err)
 		}
 
-		if user.Status != ce.UserStatus {
-			ce.Log.Info("skipping not pending deletion user's account", zap.String("email", email))
-			continue
-		}
-
-		projects, err := ce.DB.Projects().GetOwn(ctx, user.ID)
-		if err != nil {
-			return errs.New("error getting project from user %q: %+v", email, err)
-		}
-
-		if err := fn(user, projects); err != nil {
+		if err := fn(user); err != nil {
 			return err
 		}
 	}
 
 	return nil
+}
+
+// ForEachWithProjects gets the user and its projects for each email in the CSV and call fn.
+//
+// It skips the emails which don't match any user's account and logs a debug message.
+//
+// It returns an error if there is an error in the CSV, retrieving the user or projects, a user's
+// account doesn't have the UserStatus, or the fn returns an error.
+func (ce *CSVEmails) ForEachWithProjects(
+	ctx context.Context, fn func(user *console.User, projects []console.Project) error) error {
+
+	return ce.ForEach(ctx, func(user *console.User) error {
+		projects, err := ce.DB.Projects().GetOwn(ctx, user.ID)
+		if err != nil {
+			return errs.New("error getting project from user %q: %+v", user.Email, err)
+		}
+
+		if err := fn(user, projects); err != nil {
+			return err
+		}
+
+		return nil
+
+	})
 }
 
 func deleteAllBucketsAndObjects(

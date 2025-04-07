@@ -39,6 +39,7 @@ import (
 	"storj.io/storj/satellite/accounting"
 	"storj.io/storj/satellite/accounting/live"
 	"storj.io/storj/satellite/compensation"
+	"storj.io/storj/satellite/console"
 	"storj.io/storj/satellite/jobq"
 	"storj.io/storj/satellite/metabase"
 	"storj.io/storj/satellite/nodeselection"
@@ -353,11 +354,10 @@ var (
 		RunE:  cmdFixLastNets,
 	}
 
-	deleteDataCmd = &cobra.Command{
-		Use:   "delete-data",
-		Short: "Delete accounts and their objects",
-		Long: "Delete accounts including their objects/segments, buckets, projects, and the user's " +
-			"account",
+	usersCmd = &cobra.Command{
+		Use:   "user-accounts",
+		Short: "User accounts administration",
+		Long:  "Operations to administrate satellite users accounts",
 	}
 
 	batchSizeDeleteObjects = 45
@@ -392,6 +392,22 @@ var (
 			"header and skipped.",
 		Args: cobra.ExactArgs(1),
 		RunE: cmdDeleteAccounts,
+	}
+
+	accountStatus        = console.PendingDeletion
+	setAccountsStatusCmd = &cobra.Command{
+		Use:   "set-status",
+		Short: "Change the status of user accounts",
+		Long: "Change to the specified status of the provided list of users accounts.\nUnexisting " +
+			"accounts or accounts set to 'inactive' status are logged with a debug  message and skipped.\n" +
+			"System errors exit the process with an error message.\nThe command can operate on one" +
+			"account or on multiple accounts; when the passed possitional argmuent is a string that " +
+			"contains '@', the command considers that's the email address of the user to change its " +
+			"status, otherwise it considers a path to a CSV file where the first column contains the " +
+			"email of the user's account and if the first row doesn't contain '@' is considered the " +
+			"header and skipped.",
+		Args: cobra.ExactArgs(1),
+		RunE: cmdSetAccountStatus,
 	}
 
 	runCfg   Satellite
@@ -471,7 +487,7 @@ func init() {
 	rootCmd.AddCommand(fetchPiecesCmd)
 	rootCmd.AddCommand(repairSegmentCmd)
 	rootCmd.AddCommand(fixLastNetsCmd)
-	rootCmd.AddCommand(deleteDataCmd)
+	rootCmd.AddCommand(usersCmd)
 	reportsCmd.AddCommand(nodeUsageCmd)
 	reportsCmd.AddCommand(partnerAttributionCmd)
 	reportsCmd.AddCommand(reportsGracefulExitCmd)
@@ -494,9 +510,11 @@ func init() {
 	billingCmd.AddCommand(completePendingInvoiceTokenPaymentCmd)
 	billingCmd.AddCommand(stripeCustomerCmd)
 	consistencyCmd.AddCommand(consistencyGECleanupCmd)
-	deleteDataCmd.AddCommand(deleteObjectsCmd)
+	usersCmd.AddCommand(deleteObjectsCmd)
 	deleteObjectsCmd.Flags().IntVar(&batchSizeDeleteObjects, "batch-size", 45, "Number of objects/segments to delete in a single batch")
-	deleteDataCmd.AddCommand(deleteAccountsCmd)
+	usersCmd.AddCommand(deleteAccountsCmd)
+	setAccountsStatusCmd.Flags().Var(&accountStatus, "status", "The account status to set to provided accounts")
+	usersCmd.AddCommand(setAccountsStatusCmd)
 	process.Bind(runCmd, &runCfg, defaults, cfgstruct.ConfDir(confDir), cfgstruct.IdentityDir(identityDir))
 	process.Bind(runMigrationCmd, &runCfg, defaults, cfgstruct.ConfDir(confDir), cfgstruct.IdentityDir(identityDir))
 	process.Bind(runAPICmd, &runCfg, defaults, cfgstruct.ConfDir(confDir), cfgstruct.IdentityDir(identityDir))
