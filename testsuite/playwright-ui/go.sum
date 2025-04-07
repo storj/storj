@@ -2540,8 +2540,8 @@ storj.io/drpc v0.0.35-0.20240709171858-0075ac871661 h1:hLvEV2RMTscX3JHPd+LSQCeTt
 storj.io/drpc v0.0.35-0.20240709171858-0075ac871661/go.mod h1:Y9LZaa8esL1PW2IDMqJE7CFSNq7d5bQ3RI7mGPtmKMg=
 storj.io/edge v1.88.1-0.20241031202312-307d21da9acb h1:nm0xMuDS/JgsGVC0ttmMt1Ok6+wwH33UviAQytMctrE=
 storj.io/edge v1.88.1-0.20241031202312-307d21da9acb/go.mod h1:qwG42LJun5hxabxLO0n5qaf1IObvCTGG+wZQtLR6Gj4=
-storj.io/eventkit v0.0.0-20240415002644-1d9596fee086 h1:TkytkGUI6zGtH5Qx/O0VxQCcYJqOOiwRq0oMi4uM5Tg=
-storj.io/eventkit v0.0.0-20240415002644-1d9596fee086/go.mod h1:S6p41RzIBKoeGAdrziksWkiijnZXql9YcNsc23t0u+8=
+storj.io/eventkit v0.0.0-20250407101305-1fc91e6bea89 h1:suRqXy0VKK2Ef/tux8ffHan5rvtxYDNyMabvyl1FuRE=
+storj.io/eventkit v0.0.0-20250407101305-1fc91e6bea89/go.mod h1:CpnM6kfZV58dcq3lpbo/IQ4/KoutarnTSHY0GYVwnYw=
 storj.io/gateway v1.9.1-0.20241031140827-7668fbb4fe85 h1:oU4/l5oIQXy0uCEQ/eDza1WaVoAOxkbhPRwLfjcaHWo=
 storj.io/gateway v1.9.1-0.20241031140827-7668fbb4fe85/go.mod h1:1Aao6Dsw+xJ8D1w6Ppb1H57wU6/evZvroRb+GrvNQ0o=
 storj.io/infectious v0.0.2 h1:rGIdDC/6gNYAStsxsZU79D/MqFjNyJc1tsyyj9sTl7Q=
