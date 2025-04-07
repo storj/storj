@@ -82,7 +82,7 @@ require (
 	gopkg.in/yaml.v3 v3.0.1
 	storj.io/common v0.0.0-20250318112615-b9952c61d22f
 	storj.io/drpc v0.0.35-0.20240709171858-0075ac871661
-	storj.io/eventkit v0.0.0-20240415002644-1d9596fee086
+	storj.io/eventkit v0.0.0-20250407101305-1fc91e6bea89
 	storj.io/monkit-jaeger v0.0.0-20240221095020-52b0792fa6cd
 	storj.io/uplink v1.13.2-0.20250218103408-3179c8d1ccdb
 )
