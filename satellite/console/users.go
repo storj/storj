@@ -198,6 +198,11 @@ const (
 	PendingBotVerification UserStatus = 5
 	// UserRequestedDeletion is a status that user receives after account owner completed delete account flow.
 	UserRequestedDeletion UserStatus = 6
+
+	// UserStatusCount indicates how many user status are currently supported.
+	// It is mainly used as a control that some UserStatus tests are updated when when the UserStatus
+	// valid values defined in this const block are updated.
+	UserStatusCount int = 7
 )
 
 // String returns a string representation of the user status.
@@ -215,6 +220,8 @@ func (s UserStatus) String() string {
 		return "Legal Hold"
 	case PendingBotVerification:
 		return "Pending Bot Verification"
+	case UserRequestedDeletion:
+		return "User Requested Deletion"
 	default:
 		return ""
 	}

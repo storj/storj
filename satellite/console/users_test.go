@@ -660,3 +660,18 @@ func TestGetUnverifiedNeedingReminder(t *testing.T) {
 		require.True(t, sentSecondReminder)
 	})
 }
+
+func TestUserStatus_String(t *testing.T) {
+	for i := 0; i < console.UserStatusCount; i++ {
+		require.NotEmptyf(
+			t, console.UserStatus(i).String(), "status without associated string representation: %d", i,
+		)
+	}
+
+	// We add one to the highest value to verify it returns an empty string.
+	require.Emptyf(t,
+		console.UserStatus(console.UserStatusCount).String(),
+		"invalid status should return empty string: %d", console.UserStatusCount,
+	)
+
+}
