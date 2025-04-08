@@ -385,6 +385,19 @@ export class Admin {
 				}
 			},
 			{
+				name: 'update external ID',
+				desc: `Update user's external ID.`,
+				params: [
+					["user's email", new InputText('email', true)],
+					['external ID (string value or null)', new InputText('text', true)]
+				],
+				func: async (currentEmail: string, externalID: string): Promise<null> => {
+					return this.fetch('PATCH', `users/${currentEmail}/external-id`, null, {
+						externalID: externalID.toUpperCase() === 'NULL' ? null : externalID
+					}) as Promise<null>;
+				}
+			},
+			{
 				name: 'set pending deletion ',
 				desc: "Set the user to 'pending deletion' status",
 				params: [['email', new InputText('email', true)]],

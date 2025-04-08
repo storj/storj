@@ -34,6 +34,7 @@ Requires setting `Authorization` header for requests.
             * [DELETE /api/users/{user-email}/geofence - DEPRECATED](#delete-apiusersuser-emailgeofence---deprecated)
             * [PATCH /api/users/{user-email}/activate-account/disable-bot-restriction](#patch-apiusersuser-emailactivate-accountdisable-bot-restriction)
             * [PATCH /api/users/{user-email}/trial-expiration](#patch-apiusersuser-emailtrial-expiration)
+            * [PATCH /api/users/{user-email}/external-id](#patch-apiusersuser-emailexternal-id)
             * [PUT /api/users/{user-email}/status/{user-status}](#put-apiusersuser-emailstatususer-status)
         * [OAuth Client Management](#oauth-client-management)
             * [POST /api/oauth/clients](#post-apioauthclients)
@@ -308,6 +309,26 @@ or
 ```json
 {
   "trialExpiration": null
+}
+```
+
+#### PATCH /api/users/{user-email}/external-id
+
+Updates user's external ID.
+
+Example request:
+
+```json
+{
+  "externalID": "some-external-id"
+}
+```
+
+or
+
+```json
+{
+  "externalID": "null"
 }
 ```
 

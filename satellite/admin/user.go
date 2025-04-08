@@ -1312,6 +1312,54 @@ func (server *Server) updateFreeTrialExpiration(w http.ResponseWriter, r *http.R
 	}
 }
 
+func (server *Server) updateExternalID(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+
+	vars := mux.Vars(r)
+	userEmail, ok := vars["useremail"]
+	if !ok {
+		sendJSONError(w, "user-email missing",
+			"", http.StatusBadRequest)
+		return
+	}
+
+	user, err := server.db.Console().Users().GetByEmail(ctx, userEmail)
+	if errors.Is(err, sql.ErrNoRows) {
+		sendJSONError(w, fmt.Sprintf("user with email %q does not exist", userEmail),
+			"", http.StatusNotFound)
+		return
+	}
+	if err != nil {
+		sendJSONError(w, "failed to get user",
+			err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	body, err := io.ReadAll(r.Body)
+	if err != nil {
+		sendJSONError(w, "failed to read body",
+			err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	var input struct {
+		ExternalID *string `json:"externalID"`
+	}
+
+	err = json.Unmarshal(body, &input)
+	if err != nil {
+		sendJSONError(w, "failed to unmarshal request",
+			err.Error(), http.StatusBadRequest)
+		return
+	}
+
+	err = server.db.Console().Users().Update(ctx, user.ID, console.UpdateUserRequest{ExternalID: &input.ExternalID})
+	if err != nil {
+		sendJSONError(w, "failed to update user's external ID",
+			err.Error(), http.StatusInternalServerError)
+	}
+}
+
 // updateUserData updates the user's data. It returns status codes is 0 when there isn't any error.
 func (server *Server) updateUserData(
 	ctx context.Context, email string, userUpdate console.UpdateUserRequest,

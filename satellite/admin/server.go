@@ -154,6 +154,7 @@ func NewServer(
 	fullAccessAPI.HandleFunc("/users/{useremail}/geofence", server.createGeofenceForAccount).Methods("PATCH")
 	fullAccessAPI.HandleFunc("/users/{useremail}/geofence", server.deleteGeofenceForAccount).Methods("DELETE")
 	fullAccessAPI.HandleFunc("/users/{useremail}/trial-expiration", server.updateFreeTrialExpiration).Methods("PATCH")
+	fullAccessAPI.HandleFunc("/users/{useremail}/external-id", server.updateExternalID).Methods("PATCH")
 	fullAccessAPI.HandleFunc("/oauth/clients", server.createOAuthClient).Methods("POST")
 	fullAccessAPI.HandleFunc("/oauth/clients/{id}", server.updateOAuthClient).Methods("PUT")
 	fullAccessAPI.HandleFunc("/oauth/clients/{id}", server.deleteOAuthClient).Methods("DELETE")

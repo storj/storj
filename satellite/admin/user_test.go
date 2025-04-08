@@ -398,6 +398,57 @@ func TestUpdateUsersUserAgent(t *testing.T) {
 	})
 }
 
+func TestUpdateUsersExternalID(t *testing.T) {
+	testplanet.Run(t, testplanet.Config{
+		SatelliteCount:   1,
+		StorageNodeCount: 0,
+		UplinkCount:      1,
+		Reconfigure: testplanet.Reconfigure{
+			Satellite: func(_ *zap.Logger, _ int, config *satellite.Config) {
+				config.Admin.Address = "127.0.0.1:0"
+			},
+		},
+	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+		db := planet.Satellites[0].DB
+		address := planet.Satellites[0].Admin.Admin.Listener.Addr()
+		project := planet.Uplinks[0].Projects[0]
+		newExternalID := "some-id"
+
+		t.Run("OK", func(t *testing.T) {
+			url := fmt.Sprintf("http://"+address.String()+"/api/users/%s/external-id", project.Owner.Email)
+			body := strings.NewReader(fmt.Sprintf(`{"externalID":"%s"}`, newExternalID))
+			req, err := http.NewRequestWithContext(ctx, http.MethodPatch, url, body)
+			require.NoError(t, err)
+			req.Header.Set("Authorization", planet.Satellites[0].Config.Console.AuthToken)
+
+			response, err := http.DefaultClient.Do(req)
+			require.NoError(t, err)
+			require.Equal(t, http.StatusOK, response.StatusCode)
+			require.NoError(t, response.Body.Close())
+
+			updatedUser, err := db.Console().Users().Get(ctx, project.Owner.ID)
+			require.NoError(t, err)
+			require.NotNil(t, updatedUser.ExternalID)
+			require.Equal(t, newExternalID, *updatedUser.ExternalID)
+
+			// update to nil.
+			body = strings.NewReader(`{"externalID":null}`)
+			req, err = http.NewRequestWithContext(ctx, http.MethodPatch, url, body)
+			require.NoError(t, err)
+			req.Header.Set("Authorization", planet.Satellites[0].Config.Console.AuthToken)
+
+			response, err = http.DefaultClient.Do(req)
+			require.NoError(t, err)
+			require.Equal(t, http.StatusOK, response.StatusCode)
+			require.NoError(t, response.Body.Close())
+
+			updatedUser, err = db.Console().Users().Get(ctx, project.Owner.ID)
+			require.NoError(t, err)
+			require.Nil(t, updatedUser.ExternalID)
+		})
+	})
+}
+
 func TestDisableMFA(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
 		SatelliteCount:   1,
