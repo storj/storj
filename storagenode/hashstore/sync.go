@@ -151,6 +151,19 @@ func (rwm *rwMutex) lock(ctx context.Context, closed *drpcsignal.Signal, read bo
 		return err
 	}
 
+	// first do a fast path check to see if the mutex is unlocked which is the common case. if it is
+	// we can just barge in and take it immediately without doing any expensive waiter management.
+	rwm.mu.Lock()
+	if rwm.activeReads == 0 && !rwm.writeHeld {
+		if read {
+			rwm.activeReads++
+		} else {
+			rwm.writeHeld = true
+		}
+		rwm.mu.Unlock()
+		return nil
+	}
+
 	// acquire a waiter from the pool and set its read flag to the correct value.
 	waiter, _ := rwMutexWaiterPool.Get().(*rwMutexWaiter)
 	defer rwMutexWaiterPool.Put(waiter)
@@ -158,7 +171,6 @@ func (rwm *rwMutex) lock(ctx context.Context, closed *drpcsignal.Signal, read bo
 
 	// while the lock is held, update our state, push the waiter to the newest slot in the list and
 	// process any mutexes that can be acquired.
-	rwm.mu.Lock()
 	if !read {
 		rwm.pendingWrites++
 	}

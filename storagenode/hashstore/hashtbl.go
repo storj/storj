@@ -366,6 +366,10 @@ func (h *HashTbl) Insert(ctx context.Context, rec Record) (_ bool, err error) {
 	}
 	defer h.opMu.Unlock()
 
+	return h.insertLocked(ctx, rec)
+}
+
+func (h *HashTbl) insertLocked(ctx context.Context, rec Record) (_ bool, err error) {
 	var (
 		tmp   Record
 		valid bool
@@ -553,7 +557,7 @@ func (c *HashTblConstructor) Append(ctx context.Context, r Record) (bool, error)
 		return false, err
 	}
 	var ok bool
-	ok, c.err = c.h.Insert(ctx, r)
+	ok, c.err = c.h.insertLocked(ctx, r)
 	return ok, c.err
 }
 

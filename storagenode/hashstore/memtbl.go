@@ -150,6 +150,7 @@ func (m *MemTbl) rangeWithIdxLocked(
 	var recStats recordStats
 	var buf [RecordSize]byte
 	var rec Record
+
 	for idx := memtblIdx(0); ; idx++ {
 		if _, err := io.ReadFull(br, buf[:]); errors.Is(err, io.EOF) {
 			break
@@ -369,6 +370,10 @@ func (m *MemTbl) Insert(ctx context.Context, rec Record) (_ bool, err error) {
 	}
 	defer m.opMu.Unlock()
 
+	return m.insertLocked(ctx, rec)
+}
+
+func (m *MemTbl) insertLocked(ctx context.Context, rec Record) (_ bool, err error) {
 	// before we do any writes we have to make sure the file is aligned to the correct size and we
 	// have room to insert.
 	if err := m.ensureAlignedLocked(ctx); err != nil {
@@ -445,6 +450,9 @@ func (m *MemTbl) Insert(ctx context.Context, rec Record) (_ bool, err error) {
 	rec.WriteTo(&buf)
 	m.buffer = append(m.buffer, buf[:]...)
 
+	// if the buffer is full, we need to flush it. in every case it should be that when the buffer
+	// is full, len(m.buffer) == cap(m.buffer), but defensively we just check if there's less room
+	// than a record.
 	if cap(m.buffer)-len(m.buffer) < RecordSize {
 		if err := m.flushBufferLocked(ctx); err != nil {
 			return false, err
@@ -586,7 +594,7 @@ func (c *MemTblConstructor) Append(ctx context.Context, r Record) (bool, error) 
 		return false, err
 	}
 	var ok bool
-	ok, c.err = c.m.Insert(ctx, r)
+	ok, c.err = c.m.insertLocked(ctx, r)
 	return ok, c.err
 }
 
