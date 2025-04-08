@@ -364,6 +364,9 @@ func (users *users) Insert(ctx context.Context, user *console.User) (_ *console.
 		SignupPromoCode: dbx.User_SignupPromoCode(user.SignupPromoCode),
 		PaidTier:        dbx.User_PaidTier(user.PaidTier),
 	}
+	if user.PaidTier {
+		optional.Kind = dbx.User_Kind(int(console.PaidUser))
+	}
 	if user.ExternalID != nil {
 		optional.ExternalId = dbx.User_ExternalId(*user.ExternalID)
 	}
@@ -537,7 +540,12 @@ func (users *users) Update(ctx context.Context, userID uuid.UUID, updateRequest 
 func (users *users) UpdatePaidTier(ctx context.Context, id uuid.UUID, paidTier bool, projectBandwidthLimit, projectStorageLimit memory.Size, projectSegmentLimit int64, projectLimit int, upgradeTime *time.Time) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
+	userType := console.FreeUser
+	if paidTier {
+		userType = console.PaidUser
+	}
 	updateFields := dbx.User_Update_Fields{
+		Kind:                  dbx.User_Kind(int(userType)),
 		PaidTier:              dbx.User_PaidTier(paidTier),
 		ProjectLimit:          dbx.User_ProjectLimit(projectLimit),
 		ProjectBandwidthLimit: dbx.User_ProjectBandwidthLimit(projectBandwidthLimit.Int64()),
@@ -801,8 +809,17 @@ func toUpdateUser(request console.UpdateUserRequest) (*dbx.User_Update_Fields, e
 	if request.ProjectSegmentLimit != nil {
 		update.ProjectSegmentLimit = dbx.User_ProjectSegmentLimit(*request.ProjectSegmentLimit)
 	}
+	if request.Kind != nil {
+		update.Kind = dbx.User_Kind(int(*request.Kind))
+	}
 	if request.PaidTier != nil {
+		// TODO: remove this block after fully migrating from PaidTier to Kind.
 		update.PaidTier = dbx.User_PaidTier(*request.PaidTier)
+		if *request.PaidTier {
+			update.Kind = dbx.User_Kind(int(console.PaidUser))
+		} else {
+			update.Kind = dbx.User_Kind(int(console.FreeUser))
+		}
 	}
 	if request.MFAEnabled != nil {
 		update.MfaEnabled = dbx.User_MfaEnabled(*request.MFAEnabled)
@@ -935,7 +952,8 @@ func UserFromDBX(ctx context.Context, user *dbx.User) (_ *console.User, err erro
 		ProjectBandwidthLimit:       user.ProjectBandwidthLimit,
 		ProjectStorageLimit:         user.ProjectStorageLimit,
 		ProjectSegmentLimit:         user.ProjectSegmentLimit,
-		PaidTier:                    user.PaidTier,
+		PaidTier:                    console.UserKind(user.Kind) == console.PaidUser || user.PaidTier,
+		Kind:                        console.UserKind(user.Kind),
 		IsProfessional:              user.IsProfessional,
 		HaveSalesContact:            user.HaveSalesContact,
 		MFAEnabled:                  user.MfaEnabled,
@@ -948,6 +966,9 @@ func UserFromDBX(ctx context.Context, user *dbx.User) (_ *console.User, err erro
 		EmailChangeVerificationStep: user.EmailChangeVerificationStep,
 		FinalInvoiceGenerated:       user.FinalInvoiceGenerated,
 		HubspotObjectID:             user.HubspotObjectId,
+	}
+	if user.PaidTier && user.Kind == int(console.FreeUser) {
+		result.Kind = console.PaidUser
 	}
 
 	if user.DefaultPlacement != nil {

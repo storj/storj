@@ -262,6 +262,7 @@ func TestChore_UpgradeUserObserver(t *testing.T) {
 			user, err = db.Console().Users().Get(ctx, user.ID)
 			require.NoError(t, err)
 			require.False(t, user.PaidTier)
+			require.Equal(t, console.FreeUser, user.Kind)
 
 			projects, err := db.Console().Projects().GetOwn(ctx, user.ID)
 			require.NoError(t, err)
@@ -287,6 +288,7 @@ func TestChore_UpgradeUserObserver(t *testing.T) {
 			user, err = db.Console().Users().Get(ctx, user.ID)
 			require.NoError(t, err)
 			require.True(t, user.PaidTier)
+			require.Equal(t, console.PaidUser, user.Kind)
 			require.WithinDuration(t, now, *user.UpgradeTime, time.Minute)
 			require.Equal(t, usageLimitsConfig.Storage.Paid.Int64(), user.ProjectStorageLimit)
 			require.Equal(t, usageLimitsConfig.Bandwidth.Paid.Int64(), user.ProjectBandwidthLimit)
@@ -328,10 +330,12 @@ func TestChore_UpgradeUserObserver(t *testing.T) {
 			user, err = db.Console().Users().Get(ctx, user2.ID)
 			require.NoError(t, err)
 			require.False(t, user.PaidTier)
+			require.Equal(t, console.FreeUser, user.Kind)
 
 			user, err = db.Console().Users().Get(ctx, user3.ID)
 			require.NoError(t, err)
 			require.False(t, user.PaidTier)
+			require.Equal(t, console.FreeUser, user.Kind)
 		})
 	})
 }

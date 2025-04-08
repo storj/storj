@@ -1182,6 +1182,9 @@ func (s *Service) CreateUser(ctx context.Context, user CreateUser, tokenSecret R
 			SignupId:         user.SignupId,
 			PaidTier:         user.PaidTier,
 		}
+		if user.PaidTier {
+			newUser.Kind = PaidUser
+		}
 
 		if user.UserAgent != nil {
 			newUser.UserAgent = user.UserAgent

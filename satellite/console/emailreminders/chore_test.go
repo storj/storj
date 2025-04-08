@@ -234,18 +234,21 @@ func TestEmailChoreUpdatesTrialNotifications(t *testing.T) {
 		user1, err := users.Get(ctx, id1)
 		require.NoError(t, err)
 		require.True(t, user1.PaidTier)
+		require.Equal(t, console.PaidUser, user1.Kind)
 		require.Nil(t, user1.TrialExpiration)
 		require.Equal(t, int(console.NoTrialNotification), user1.TrialNotifications)
 
 		user2, err := users.Get(ctx, id2)
 		require.NoError(t, err)
 		require.False(t, user2.PaidTier)
+		require.Equal(t, console.FreeUser, user2.Kind)
 		require.Zero(t, cmp.Diff(user2.TrialExpiration.Truncate(time.Millisecond), tomorrow.Truncate(time.Millisecond), cmpopts.EquateApproxTime(0)))
 		require.Equal(t, int(console.NoTrialNotification), user2.TrialNotifications)
 
 		user3, err := users.Get(ctx, id3)
 		require.NoError(t, err)
 		require.False(t, user3.PaidTier)
+		require.Equal(t, console.FreeUser, user3.Kind)
 		require.Zero(t, cmp.Diff(user3.TrialExpiration.Truncate(time.Millisecond), yesterday.Truncate(time.Millisecond), cmpopts.EquateApproxTime(0)))
 		require.Equal(t, int(console.TrialExpirationReminder), user3.TrialNotifications)
 
