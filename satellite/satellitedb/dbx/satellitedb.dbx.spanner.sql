@@ -438,6 +438,7 @@ CREATE TABLE users (
 	project_storage_limit INT64 NOT NULL DEFAULT (0),
 	project_segment_limit INT64 NOT NULL DEFAULT (0),
 	paid_tier BOOL NOT NULL DEFAULT (false),
+	kind INT64 NOT NULL DEFAULT (0),
 	position STRING(MAX),
 	company_name STRING(MAX),
 	company_size INT64,
