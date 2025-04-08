@@ -27,6 +27,7 @@ type Config struct {
 	SelfServePlacementDetails         PlacementDetails          `help:"human-readable details for placements allowed for self serve placement in the format {\"placementID\": {\"idName\": \"...\", \"name\": \"...\", \"title\": \"...\", \"description\": \"...\"}}"`
 	BlockExplorerURL                  string                    `help:"url of the transaction block explorer" default:"https://etherscan.io/"`
 	ZkSyncBlockExplorerURL            string                    `help:"url of the zkSync transaction block explorer" default:"https://explorer.zksync.io/"`
+	ZkSyncContractAddress             string                    `help:"the STORJ zkSync Era contract address" default:"0xA0806DA7835a4E63dB2CE44A2b622eF8b73B5DB5"`
 	BillingFeaturesEnabled            bool                      `help:"indicates if billing features should be enabled" default:"true"`
 	StripePaymentElementEnabled       bool                      `help:"indicates whether the stripe payment element should be used to collect card info" default:"true"`
 	MaxAddFundsAmount                 int                       `help:"maximum amount (in cents) allowed to be added to an account balance." default:"10000"`

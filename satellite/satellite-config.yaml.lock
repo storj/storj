@@ -637,6 +637,9 @@ compensation.withheld-percents: 75,75,75,50,50,50,25,25,25,0,0,0,0,0,0
 # url of the zkSync transaction block explorer
 # console.zk-sync-block-explorer-url: https://explorer.zksync.io/
 
+# the STORJ zkSync Era contract address
+# console.zk-sync-contract-address: 0xA0806DA7835a4E63dB2CE44A2b622eF8b73B5DB5
+
 # allow private IPs in CheckIn and PingMe
 # contact.allow-private-ip: false
 

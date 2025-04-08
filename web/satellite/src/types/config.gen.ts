@@ -83,6 +83,7 @@ export class FrontendConfig {
     zipDownloadLimit: number;
     restAPIKeysUIEnabled: boolean;
     liveCheckBadPasswords: boolean;
+    zkSyncContractAddress: string;
 }
 
 export class MultiCaptchaConfig {

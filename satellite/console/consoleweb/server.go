@@ -1036,6 +1036,7 @@ func (server *Server) frontendConfigHandler(w http.ResponseWriter, r *http.Reque
 		DownloadPrefixEnabled:             server.config.DownloadPrefixEnabled,
 		LiveCheckBadPasswords:             server.config.LiveCheckBadPasswords,
 		RestAPIKeysUIEnabled:              server.config.RestAPIKeysUIEnabled && server.config.UseNewRestKeysTable,
+		ZkSyncContractAddress:             server.config.ZkSyncContractAddress,
 	}
 
 	err := json.NewEncoder(w).Encode(&cfg)
