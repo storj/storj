@@ -885,7 +885,11 @@ func toUpdateUser(request console.UpdateUserRequest) (*dbx.User_Update_Fields, e
 		update.EmailChangeVerificationStep = dbx.User_EmailChangeVerificationStep(*request.EmailChangeVerificationStep)
 	}
 	if request.ExternalID != nil {
-		update.ExternalId = dbx.User_ExternalId(*request.ExternalID)
+		if *request.ExternalID == nil {
+			update.ExternalId = dbx.User_ExternalId_Null()
+		} else {
+			update.ExternalId = dbx.User_ExternalId(**request.ExternalID)
+		}
 	}
 	if request.HubspotObjectID != nil {
 		if *request.HubspotObjectID == nil {

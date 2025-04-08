@@ -1406,7 +1406,8 @@ func (s *Service) CreateSsoUser(ctx context.Context, user CreateSsoUser) (u *Use
 		request := UpdateUserRequest{Status: &active}
 		if u.ExternalID == nil {
 			// u is one of the previously created unverified users.
-			request.ExternalID = &user.ExternalId
+			extID := &user.ExternalId
+			request.ExternalID = &extID
 		}
 		err = tx.Users().Update(ctx, u.ID, request)
 		if err != nil {
@@ -1434,7 +1435,8 @@ func (s *Service) CreateSsoUser(ctx context.Context, user CreateSsoUser) (u *Use
 func (s *Service) UpdateExternalID(ctx context.Context, user *User, externalID string) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	request := UpdateUserRequest{ExternalID: &externalID}
+	extID := &externalID
+	request := UpdateUserRequest{ExternalID: &extID}
 	if user.Status == Inactive {
 		active := Active
 		request.Status = &active
@@ -2689,6 +2691,8 @@ func (s *Service) handleDeleteAccountStep(ctx context.Context, user *User) (err 
 
 	deactivatedEmail := fmt.Sprintf("deactivated+%s@storj.io", user.ID.String())
 	status := Deleted
+	var externalID *string // nil - no external ID.
+
 	now := s.nowFn()
 
 	err = s.store.Users().Update(ctx, user.ID, UpdateUserRequest{
@@ -2697,6 +2701,8 @@ func (s *Service) handleDeleteAccountStep(ctx context.Context, user *User) (err 
 		Email:           &deactivatedEmail,
 		Status:          &status,
 		StatusUpdatedAt: &now,
+		// Self-serve account deletion isn't allowed for SSO users, but we keep this here as a precaution.
+		ExternalID: &externalID,
 	})
 	if err != nil {
 		return Error.Wrap(err)

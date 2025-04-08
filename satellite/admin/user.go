@@ -1129,12 +1129,14 @@ func (server *Server) deleteUser(w http.ResponseWriter, r *http.Request) {
 	emptyNamePtr := &emptyName
 	deactivatedEmail := fmt.Sprintf("deactivated+%s@storj.io", user.ID.String())
 	status := console.Deleted
+	var externalID *string // nil - no external ID.
 
 	err = server.db.Console().Users().Update(ctx, user.ID, console.UpdateUserRequest{
-		FullName:  &emptyName,
-		ShortName: &emptyNamePtr,
-		Email:     &deactivatedEmail,
-		Status:    &status,
+		FullName:   &emptyName,
+		ShortName:  &emptyNamePtr,
+		Email:      &deactivatedEmail,
+		Status:     &status,
+		ExternalID: &externalID,
 	})
 	if err != nil {
 		sendJSONError(w, "unable to delete user",

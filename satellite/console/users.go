@@ -338,7 +338,7 @@ func GetUser(ctx context.Context) (*User, error) {
 
 // UpdateUserRequest contains all columns which are optionally updatable by users.Update.
 type UpdateUserRequest struct {
-	ExternalID *string
+	ExternalID **string
 
 	FullName  *string
 	ShortName **string

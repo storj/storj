@@ -1072,6 +1072,54 @@ func TestUserDelete(t *testing.T) {
 			require.Contains(t, user.Email, "deactivated")
 		})
 	})
+
+	t.Run("external ID is set to nil", func(t *testing.T) {
+		testplanet.Run(t, testplanet.Config{
+			SatelliteCount:   1,
+			StorageNodeCount: 0,
+			UplinkCount:      1,
+			Reconfigure: testplanet.Reconfigure{
+				Satellite: func(_ *zap.Logger, _ int, config *satellite.Config) {
+					config.Admin.Address = "127.0.0.1:0"
+				},
+			},
+		}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+			dbconsole := planet.Satellites[0].DB.Console()
+			address := planet.Satellites[0].Admin.Admin.Listener.Addr()
+			user, err := dbconsole.Users().GetByEmail(ctx, planet.Uplinks[0].Projects[0].Owner.Email)
+			require.NoError(t, err)
+
+			require.NoError(t, dbconsole.Projects().UpdateStatus(ctx, planet.Uplinks[0].Projects[0].ID, console.ProjectDisabled))
+
+			externalID := "external-id"
+			externalIDPtr := &externalID
+			err = dbconsole.Users().Update(ctx, user.ID, console.UpdateUserRequest{ExternalID: &externalIDPtr})
+			require.NoError(t, err)
+
+			user, err = dbconsole.Users().Get(ctx, user.ID)
+			require.NoError(t, err)
+			require.NotNil(t, user.ExternalID)
+			require.Equal(t, externalID, *user.ExternalID)
+
+			link := fmt.Sprintf("http://"+address.String()+"/api/users/%s", user.Email)
+			body := assertReq(
+				ctx,
+				t,
+				link,
+				http.MethodDelete,
+				"",
+				http.StatusOK,
+				"",
+				planet.Satellites[0].Config.Console.AuthToken,
+			)
+			require.Len(t, body, 0)
+
+			user, err = dbconsole.Users().Get(ctx, user.ID)
+			require.NoError(t, err)
+			require.Contains(t, user.Email, "deactivated")
+			require.Nil(t, user.ExternalID)
+		})
+	})
 }
 
 func TestSetUsersGeofence(t *testing.T) {
