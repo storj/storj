@@ -104,7 +104,7 @@ func New(
 	// <= instead of < only because it slightly increases code coverage (we do the swap for empty
 	// databases) at ~zero cost.
 	if d.active.Load() <= d.passive.Load() {
-		d.active, d.passive = d.passive, d.active
+		d.swapStoresLocked()
 	}
 
 	// if the passive store's load is too high, immediately begin compacting it. this will allow us
@@ -120,6 +120,8 @@ func New(
 
 	return d, nil
 }
+
+func (d *DB) swapStoresLocked() { d.active, d.passive = d.passive, d.active }
 
 // DBStats is a collection of statistics about a database.
 type DBStats struct {
@@ -266,7 +268,7 @@ func (d *DB) Create(ctx context.Context, key Key, expires time.Time) (_ *Writer,
 
 		// no compaction in progress already when one is indicated by the load, so swap active and
 		// begin the compaction.
-		d.active, d.passive = d.passive, d.active
+		d.swapStoresLocked()
 		d.beginPassiveCompaction()
 	}
 
@@ -296,7 +298,7 @@ func (d *DB) waitOnState(ctx context.Context, state *compactState) (err error) {
 // Read returns a reader for the given key. If the key is not present the returned Reader will be
 // nil and the error will be a wrapped fs.ErrNotExist. Close must be called on the non-nil Reader
 // when done.
-func (d *DB) Read(ctx context.Context, key Key) (_ *Reader, err error) {
+func (d *DB) Read(ctx context.Context, key Key) (r *Reader, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	if err := signalError(&d.closed); err != nil {
@@ -313,6 +315,11 @@ func (d *DB) Read(ctx context.Context, key Key) (_ *Reader, err error) {
 	} else if rFirst != nil && !rFirst.Trash() {
 		return rFirst, nil
 	}
+	defer func() {
+		if r != rFirst && rFirst != nil {
+			rFirst.Release()
+		}
+	}()
 
 	rSecond, err := second.Read(ctx, key)
 	if err != nil {
@@ -320,35 +327,30 @@ func (d *DB) Read(ctx context.Context, key Key) (_ *Reader, err error) {
 	} else if rSecond != nil && !rSecond.Trash() {
 		return rSecond, nil
 	}
+	defer func() {
+		if r != rSecond && rSecond != nil {
+			rSecond.Release()
+		}
+	}()
 
 	// we either have no readers or at least one of them is trash. try to revive them before
 	// returning.
 
-	revive := func(r *Reader, fallback *Reader) {
+	revive := func(r *Reader) {
 		if r == nil || !r.Trash() {
 			return
 		}
 		log := r.s.log.With(zap.String("record", r.rec.String()))
-		// this is only problem, if the other hashtable doesn't have a live instance
-		// it's valid to restore from trash, if the other hashtable has a healthy piece
-		// it may be possible when piece is trashed, but uploaded again, while the other hashtable was active (e.g. by repair)
-		if fallback == nil || fallback.Trash() {
-			log.Warn("trashed record was read")
-		} else {
-			log.Debug("duplicated record was trashed")
-		}
+		log.Warn("trashed record was read")
 		if err := r.Revive(ctx); err != nil {
 			log.Error("unable to revive record", zap.Error(err))
 		}
 	}
 
-	revive(rFirst, rSecond)
-	revive(rSecond, rFirst)
+	revive(rFirst)
+	revive(rSecond)
 
 	if rFirst != nil {
-		if rSecond != nil {
-			rSecond.Release()
-		}
 		return rFirst, nil
 	}
 
@@ -479,7 +481,7 @@ func (d *DB) checkBackgroundCompactions() {
 	// spin doing nothing compacting the passive store forever and never attempt to compact the
 	// active store, defeating the point of background compactions.
 	if shouldCompact(d.active) {
-		d.active, d.passive = d.passive, d.active
+		d.swapStoresLocked()
 		d.beginPassiveCompaction()
 		return
 	}

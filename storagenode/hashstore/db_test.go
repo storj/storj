@@ -100,6 +100,44 @@ func testDB_TrashStats(t *testing.T) {
 	assert.That(t, stats.TrashPercent > 0)
 }
 
+func TestDB_ReadAllPossibleStates(t *testing.T) {
+	forAllTables(t, testDB_ReadAllPossibleStates)
+}
+func testDB_ReadAllPossibleStates(t *testing.T) {
+	db := newTestDB(t, alwaysTrash, nil)
+	defer db.Close()
+
+	create := func(key Key) { db.AssertCreate(WithKey(key)) }
+	compact := func(Key) { db.AssertCompact() }
+	swap := func(Key) { db.swapStoresLocked() }
+	read := func(key Key) { db.AssertRead(key) }
+
+	cases := []struct {
+		name string
+		ops  []func(Key)
+	}{
+		{"ActiveExist_PassiveNotExist", []func(Key){create, read}},
+		{"ActiveTrash_PassiveNotExist", []func(Key){create, compact, read}},
+
+		{"ActiveNotExist_PassiveExist", []func(Key){create, swap, read}},
+		{"ActiveExist_PassiveExist", []func(Key){create, swap, create, read}},
+		{"ActiveTrash_PassiveExist", []func(Key){create, compact, swap, create, swap, read}},
+
+		{"ActiveNotExist_PassiveTrash", []func(Key){create, compact, swap, read}},
+		{"ActiveExist_PassiveTrash", []func(Key){create, compact, swap, create, read}},
+		{"ActiveTrash_PassiveTrash", []func(Key){create, swap, create, compact, read}},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			key := newKey()
+			for _, op := range tc.ops {
+				op(key)
+			}
+		})
+	}
+}
+
 func TestDB_TTLStats(t *testing.T) {
 	forAllTables(t, testDB_TTLStats)
 }

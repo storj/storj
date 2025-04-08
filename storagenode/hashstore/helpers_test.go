@@ -181,8 +181,6 @@ type testTbl struct {
 }
 
 func newTestTbl(t testing.TB, lrec uint64, opts ...any) *testTbl {
-	defer ifFailed(t, t.Helper)
-
 	fh, err := os.CreateTemp(t.TempDir(), "tbl")
 	assert.NoError(t, err)
 	defer ifFailed(t, func() { _ = fh.Close() })
@@ -200,8 +198,6 @@ func newTestTbl(t testing.TB, lrec uint64, opts ...any) *testTbl {
 func (tbl *testTbl) Close() { tbl.Tbl.Close() }
 
 func (tbl *testTbl) AssertReopen() {
-	defer ifFailed(tbl.t, tbl.t.Helper)
-
 	tbl.Tbl.Close()
 
 	fh, err := os.OpenFile(tbl.Handle().Name(), os.O_RDWR, 0)
@@ -214,16 +210,12 @@ func (tbl *testTbl) AssertReopen() {
 }
 
 func (tbl *testTbl) AssertInsertRecord(rec Record) {
-	defer ifFailed(tbl.t, tbl.t.Helper)
-
 	ok, err := tbl.Insert(context.Background(), rec)
 	assert.NoError(tbl.t, err)
 	assert.True(tbl.t, ok)
 }
 
 func (tbl *testTbl) AssertInsert(opts ...any) Record {
-	defer ifFailed(tbl.t, tbl.t.Helper)
-
 	key := newKey()
 	checkOptions(opts, func(t WithKey) { key = Key(t) })
 
@@ -235,8 +227,6 @@ func (tbl *testTbl) AssertInsert(opts ...any) Record {
 }
 
 func (tbl *testTbl) AssertLookup(k Key) Record {
-	defer ifFailed(tbl.t, tbl.t.Helper)
-
 	r, ok, err := tbl.Lookup(context.Background(), k)
 	assert.NoError(tbl.t, err)
 	assert.True(tbl.t, ok)
@@ -244,8 +234,6 @@ func (tbl *testTbl) AssertLookup(k Key) Record {
 }
 
 func (tbl *testTbl) AssertLookupMiss(k Key) {
-	defer ifFailed(tbl.t, tbl.t.Helper)
-
 	_, ok, err := tbl.Lookup(context.Background(), k)
 	assert.NoError(tbl.t, err)
 	assert.False(tbl.t, ok)
@@ -261,8 +249,6 @@ type testHashTbl struct {
 }
 
 func newTestHashTbl(t testing.TB, lrec uint64, opts ...any) *testHashTbl {
-	defer ifFailed(t, t.Helper)
-
 	fh, err := os.CreateTemp(t.TempDir(), "hashtbl")
 	assert.NoError(t, err)
 	defer ifFailed(t, func() { _ = fh.Close() })
@@ -280,8 +266,6 @@ func newTestHashTbl(t testing.TB, lrec uint64, opts ...any) *testHashTbl {
 func (th *testHashTbl) Close() { th.HashTbl.Close() }
 
 func (th *testHashTbl) AssertReopen() {
-	defer ifFailed(th.t, th.t.Helper)
-
 	th.HashTbl.Close()
 
 	fh, err := os.OpenFile(th.fh.Name(), os.O_RDWR, 0)
@@ -294,16 +278,12 @@ func (th *testHashTbl) AssertReopen() {
 }
 
 func (th *testHashTbl) AssertInsertRecord(rec Record) {
-	defer ifFailed(th.t, th.t.Helper)
-
 	ok, err := th.Insert(context.Background(), rec)
 	assert.NoError(th.t, err)
 	assert.True(th.t, ok)
 }
 
 func (th *testHashTbl) AssertInsert(opts ...any) Record {
-	defer ifFailed(th.t, th.t.Helper)
-
 	key := newKey()
 	checkOptions(opts, func(t WithKey) { key = Key(t) })
 
@@ -315,8 +295,6 @@ func (th *testHashTbl) AssertInsert(opts ...any) Record {
 }
 
 func (th *testHashTbl) AssertLookup(k Key) Record {
-	defer ifFailed(th.t, th.t.Helper)
-
 	r, ok, err := th.Lookup(context.Background(), k)
 	assert.NoError(th.t, err)
 	assert.True(th.t, ok)
@@ -324,8 +302,6 @@ func (th *testHashTbl) AssertLookup(k Key) Record {
 }
 
 func (th *testHashTbl) AssertLookupMiss(k Key) {
-	defer ifFailed(th.t, th.t.Helper)
-
 	_, ok, err := th.Lookup(context.Background(), k)
 	assert.NoError(th.t, err)
 	assert.False(th.t, ok)
@@ -341,8 +317,6 @@ type testMemTbl struct {
 }
 
 func newTestMemTbl(t testing.TB, lrec uint64, opts ...any) *testMemTbl {
-	defer ifFailed(t, t.Helper)
-
 	fh, err := os.CreateTemp(t.TempDir(), "memtbl")
 	assert.NoError(t, err)
 	defer ifFailed(t, func() { _ = fh.Close() })
@@ -360,8 +334,6 @@ func newTestMemTbl(t testing.TB, lrec uint64, opts ...any) *testMemTbl {
 func (tm *testMemTbl) Close() { tm.MemTbl.Close() }
 
 func (tm *testMemTbl) AssertReopen() {
-	defer ifFailed(tm.t, tm.t.Helper)
-
 	tm.MemTbl.Close()
 
 	fh, err := os.OpenFile(tm.fh.Name(), os.O_RDWR, 0)
@@ -374,16 +346,12 @@ func (tm *testMemTbl) AssertReopen() {
 }
 
 func (tm *testMemTbl) AssertInsertRecord(rec Record) {
-	defer ifFailed(tm.t, tm.t.Helper)
-
 	ok, err := tm.Insert(context.Background(), rec)
 	assert.NoError(tm.t, err)
 	assert.True(tm.t, ok)
 }
 
 func (tm *testMemTbl) AssertInsert(opts ...any) Record {
-	defer ifFailed(tm.t, tm.t.Helper)
-
 	key := newKey()
 	checkOptions(opts, func(t WithKey) { key = Key(t) })
 
@@ -395,8 +363,6 @@ func (tm *testMemTbl) AssertInsert(opts ...any) Record {
 }
 
 func (tm *testMemTbl) AssertLookup(k Key) Record {
-	defer ifFailed(tm.t, tm.t.Helper)
-
 	r, ok, err := tm.Lookup(context.Background(), k)
 	assert.NoError(tm.t, err)
 	assert.True(tm.t, ok)
@@ -404,8 +370,6 @@ func (tm *testMemTbl) AssertLookup(k Key) Record {
 }
 
 func (tm *testMemTbl) AssertLookupMiss(k Key) {
-	defer ifFailed(tm.t, tm.t.Helper)
-
 	_, ok, err := tm.Lookup(context.Background(), k)
 	assert.NoError(tm.t, err)
 	assert.False(tm.t, ok)
@@ -422,8 +386,6 @@ type testStore struct {
 }
 
 func newTestStore(t testing.TB) *testStore {
-	defer ifFailed(t, t.Helper)
-
 	s, err := NewStore(context.Background(), t.TempDir(), "", nil)
 	assert.NoError(t, err)
 
@@ -437,8 +399,6 @@ func newTestStore(t testing.TB) *testStore {
 func (ts *testStore) Close() { ts.Store.Close() }
 
 func (ts *testStore) AssertReopen() {
-	defer ifFailed(ts.t, ts.t.Helper)
-
 	ts.Store.Close()
 
 	s, err := NewStore(context.Background(), ts.logsPath, ts.tablePath, ts.log)
@@ -453,14 +413,10 @@ func (ts *testStore) AssertCompact(
 	shouldTrash func(context.Context, Key, time.Time) bool,
 	restore time.Time,
 ) {
-	defer ifFailed(ts.t, ts.t.Helper)
-
 	assert.NoError(ts.t, ts.Compact(context.Background(), shouldTrash, restore))
 }
 
 func (ts *testStore) AssertCreate(opts ...any) Key {
-	defer ifFailed(ts.t, ts.t.Helper)
-
 	var expires time.Time
 	checkOptions(opts, func(t WithTTL) { expires = time.Time(t) })
 
@@ -472,20 +428,18 @@ func (ts *testStore) AssertCreate(opts ...any) Key {
 
 	wr, err := ts.Create(context.Background(), key, expires)
 	assert.NoError(ts.t, err)
-	assert.Equal(ts.t, wr.Size(), int64(0))
+	assert.Equal(ts.t, wr.Size(), 0)
 
 	_, err = wr.Write(data)
 	assert.NoError(ts.t, err)
 
-	assert.Equal(ts.t, wr.Size(), int64(len(data)))
+	assert.Equal(ts.t, wr.Size(), len(data))
 	assert.NoError(ts.t, wr.Close())
 
 	return key
 }
 
 func (ts *testStore) AssertRead(key Key, opts ...any) {
-	defer ifFailed(ts.t, ts.t.Helper)
-
 	r, err := ts.Read(context.Background(), key)
 	assert.NoError(ts.t, err)
 	assert.NotNil(ts.t, r)
@@ -512,16 +466,12 @@ func (ts *testStore) AssertRead(key Key, opts ...any) {
 }
 
 func (ts *testStore) AssertNotExist(key Key) {
-	defer ifFailed(ts.t, ts.t.Helper)
-
 	r, err := ts.Read(context.Background(), key)
 	assert.NoError(ts.t, err)
 	assert.Nil(ts.t, r)
 }
 
 func (ts *testStore) AssertExist(key Key) {
-	defer ifFailed(ts.t, ts.t.Helper)
-
 	_, ok, err := ts.tbl.Lookup(context.Background(), key)
 	assert.NoError(ts.t, err)
 	assert.True(ts.t, ok)
@@ -540,8 +490,6 @@ func newTestDB(t testing.TB,
 	dead func(context.Context, Key, time.Time) bool,
 	restore func(context.Context) time.Time,
 ) *testDB {
-	defer ifFailed(t, t.Helper)
-
 	db, err := New(context.Background(), t.TempDir(), "", nil, dead, restore)
 	assert.NoError(t, err)
 
@@ -553,8 +501,6 @@ func newTestDB(t testing.TB,
 func (td *testDB) Close() { td.DB.Close() }
 
 func (td *testDB) AssertReopen() {
-	defer ifFailed(td.t, td.t.Helper)
-
 	td.DB.Close()
 
 	db, err := New(context.Background(), td.logsPath, td.tablePath, td.log, td.shouldTrash, td.lastRestore)
@@ -563,41 +509,43 @@ func (td *testDB) AssertReopen() {
 	td.DB = db
 }
 
-func (td *testDB) AssertCreateKey(key Key, expires time.Time) {
-	defer ifFailed(td.t, td.t.Helper)
-
-	wr, err := td.Create(context.Background(), key, expires)
-	assert.NoError(td.t, err)
-	_, err = wr.Write(key[:])
-	assert.NoError(td.t, err)
-	assert.NoError(td.t, wr.Close())
-}
-
 func (td *testDB) AssertCreate(opts ...any) Key {
-	defer ifFailed(td.t, td.t.Helper)
-
 	var expires time.Time
 	checkOptions(opts, func(t WithTTL) { expires = time.Time(t) })
 
 	key := newKey()
-	td.AssertCreateKey(key, expires)
+	checkOptions(opts, func(t WithKey) { key = Key(t) })
+
+	data := key[:]
+	checkOptions(opts, func(t WithData) { data = []byte(t) })
+
+	wr, err := td.Create(context.Background(), key, expires)
+	assert.NoError(td.t, err)
+	assert.Equal(td.t, wr.Size(), 0)
+
+	_, err = wr.Write(data)
+	assert.NoError(td.t, err)
+
+	assert.Equal(td.t, wr.Size(), len(data))
+	assert.NoError(td.t, wr.Close())
+
 	return key
 }
 
-func (td *testDB) AssertRead(key Key) {
-	defer ifFailed(td.t, td.t.Helper)
-
+func (td *testDB) AssertRead(key Key, opts ...any) {
 	r, err := td.Read(context.Background(), key)
 	assert.NoError(td.t, err)
 	assert.NotNil(td.t, r)
+
+	checkOptions(opts, func(rt AssertTrash) {
+		assert.Equal(td.t, rt, r.Trash())
+	})
 
 	assert.NoError(td.t, iotest.TestReader(r, key[:]))
 	assert.NoError(td.t, r.Close())
 }
 
 func (td *testDB) AssertCompact() {
-	defer ifFailed(td.t, td.t.Helper)
-
 	assert.NoError(td.t, td.Compact(context.Background()))
 }
 

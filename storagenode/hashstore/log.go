@@ -343,7 +343,7 @@ func (h *Writer) Close() (err error) {
 		_, err = h.lf.fh.Write(buf[:])
 	}
 	if err != nil {
-		// if we couldn't write the piece data or poentially just the record for reconstruction, we
+		// if we couldn't write the piece data or potentially just the record for reconstruction, we
 		// should abort the write operation and attempt to reclaim space by seeking backwards to the
 		// record offset.
 		_, _ = h.lf.fh.Seek(int64(h.rec.Offset), io.SeekStart)

@@ -534,6 +534,44 @@ func testStore_ReadRevivesTrash(t *testing.T) {
 	assert.True(t, r.Trash())
 }
 
+func TestStore_LogFilesFull(t *testing.T) {
+	forAllTables(t, testStore_LogFilesFull)
+}
+func testStore_LogFilesFull(t *testing.T) {
+	// Set a very small MaxLogSize to force frequent log file creation
+	defer temporarily(&compaction_MaxLogSize, 256)()
+
+	s := newTestStore(t)
+	defer s.Close()
+
+	// Create enough data to fill multiple log files
+	var keys []Key
+	for i := 0; i < 100; i++ {
+		key := s.AssertCreate()
+		keys = append(keys, key)
+	}
+
+	// Verify all pieces can still be read
+	for _, key := range keys {
+		s.AssertRead(key)
+	}
+
+	// Create additional data after reads
+	for i := 0; i < 50; i++ {
+		key := s.AssertCreate()
+		keys = append(keys, key)
+	}
+
+	// Verify all pieces can still be read
+	for _, key := range keys {
+		s.AssertRead(key)
+	}
+
+	// Check stats to make sure we've used multiple log files
+	stats := s.Stats()
+	assert.That(t, stats.NumLogs > 1)
+}
+
 func TestStore_MergeRecordsWhenCompactingWithLostPage(t *testing.T) {
 	if table_DefaultKind != kind_HashTbl {
 		t.SkipNow()
@@ -1259,6 +1297,37 @@ func TestStore_SwapDifferentBackends(t *testing.T) {
 				s.AssertRead(key)
 			}
 		}()
+	}
+}
+
+func TestStore_WriteRandomSizes(t *testing.T) {
+	forAllTables(t, testStore_WriteRandomSizes)
+}
+func testStore_WriteRandomSizes(t *testing.T) {
+	ctx := context.Background()
+	s := newTestStore(t)
+	defer s.Close()
+
+	data := make([]byte, 1024)
+
+	for i := 0; i < 10; i++ {
+		key := newKey()
+		_, _ = mwc.Rand().Read(data)
+
+		w, err := s.Create(ctx, key, time.Time{})
+		assert.NoError(t, err)
+
+		for buf := data; len(buf) > 0; {
+			n := mwc.Intn(len(buf) + 1)
+			_, err := w.Write(buf[:n])
+			assert.NoError(t, err)
+			buf = buf[n:]
+		}
+
+		assert.Equal(t, w.Size(), len(data))
+		assert.NoError(t, w.Close())
+
+		s.AssertRead(key, WithData(data))
 	}
 }
 
