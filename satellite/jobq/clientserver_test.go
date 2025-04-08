@@ -182,9 +182,10 @@ func TestClientServerClean(t *testing.T) {
 		timeFunc := func() time.Time {
 			return now.Add(timeIncrement)
 		}
+
 		// make the queue for placement 42 get initialized now, so we can change
 		// its time function
-		_, err := srv.QueueMap.GetQueue(42)
+		_, err := srv.Jobq.QueueMap.GetQueue(42)
 		require.NoError(t, err)
 		srv.SetTimeFunc(timeFunc)
 

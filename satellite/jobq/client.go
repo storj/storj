@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"time"
 
+	"storj.io/common/peertls/tlsopts"
 	"storj.io/common/rpc"
 	"storj.io/common/storj"
 	"storj.io/common/uuid"
@@ -322,6 +323,17 @@ func WrapConn(conn *rpc.Conn) *Client {
 	return &Client{
 		client: pb.NewDRPCJobQueueClient(conn),
 	}
+}
+
+// NewDialer creates a new dialer for the job queue client.
+func NewDialer(tlsOpts *tlsopts.Options) rpc.Dialer {
+	dialer := rpc.NewDefaultDialer(tlsOpts)
+	dialer.Pool = rpc.NewDefaultConnectionPool()
+	dialer.DialTimeout = time.Hour
+	connector := rpc.NewHybridConnector()
+	connector.SetSendDRPCMuxHeader(true)
+	dialer.Connector = connector
+	return dialer
 }
 
 func placementConstraintsToInt32Slice(placements []storj.PlacementConstraint) []int32 {

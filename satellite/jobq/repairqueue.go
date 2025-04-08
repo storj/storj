@@ -9,7 +9,6 @@ import (
 
 	"storj.io/common/identity"
 	"storj.io/common/peertls/tlsopts"
-	"storj.io/common/rpc"
 	"storj.io/common/storj"
 	"storj.io/common/uuid"
 	"storj.io/storj/private/revocation"
@@ -270,7 +269,7 @@ func OpenJobQueue(ctx context.Context, fi *identity.FullIdentity, config Config)
 	if err != nil {
 		return nil, err
 	}
-	dialer := rpc.NewDefaultPooledDialer(tlsOpts)
+	dialer := NewDialer(tlsOpts)
 	rawConn, err := dialer.DialNodeURL(ctx, config.ServerNodeURL)
 	if err != nil {
 		return nil, err
