@@ -543,7 +543,11 @@ func (accounts *accounts) GetPartnerPlacementPriceModel(partner string, placemen
 // GetPartnerPlacements returns the placements for a partner.
 func (accounts *accounts) GetPartnerPlacements(partner string) []storj.PlacementConstraint {
 	placements := make([]storj.PlacementConstraint, 0)
-	placementMap := accounts.service.partnerPlacementMap[partner]
+	placementMap, ok := accounts.service.partnerPlacementMap[partner]
+	if !ok {
+		// fallback to placements for all partners
+		placementMap = accounts.service.placementProductMap
+	}
 	for placement := range placementMap {
 		placements = append(placements, storj.PlacementConstraint(placement))
 	}

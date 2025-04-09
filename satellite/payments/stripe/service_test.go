@@ -1612,9 +1612,14 @@ func TestPartnerPlacements(t *testing.T) {
 		product         = "product"
 		partner         = "partner"
 		placement       = storj.PlacementConstraint(10)
+		placement11     = storj.PlacementConstraint(11)
 		placementDetail = console.PlacementDetail{
 			ID:     10,
 			IdName: "placement10",
+		}
+		placementDetail11 = console.PlacementDetail{
+			ID:     11,
+			IdName: "placement11",
 		}
 		productPrice = paymentsconfig.ProductUsagePrice{
 			ProductID: 1,
@@ -1636,13 +1641,18 @@ func TestPartnerPlacements(t *testing.T) {
 				config.Payments.Products.SetMap(map[string]paymentsconfig.ProductUsagePrice{
 					product: productPrice,
 				})
-				config.Payments.PlacementPriceOverrides.SetMap(map[int]string{int(placement): product})
+				// global placement price overrides
+				config.Payments.PlacementPriceOverrides.SetMap(map[int]string{int(placement11): product})
+
+				placementProductMap := paymentsconfig.PlacementProductMap{}
+				placementProductMap.SetMap(map[int]string{int(placement): product})
 				config.Payments.PartnersPlacementPriceOverrides.SetMap(map[string]paymentsconfig.PlacementProductMap{
-					partner: config.Payments.PlacementPriceOverrides,
+					partner: placementProductMap,
 				})
 				config.Console.SelfServePlacementDetails.SetMap(map[storj.PlacementConstraint]console.PlacementDetail{
-					0:         {ID: 0},
-					placement: placementDetail,
+					0:           {ID: 0},
+					placement:   placementDetail,
+					placement11: placementDetail11,
 				})
 			},
 		},
@@ -1679,12 +1689,14 @@ func TestPartnerPlacements(t *testing.T) {
 		require.Len(t, details, 1)
 		require.Equal(t, placementDetail, details[0])
 
+		// empty user agent will fall back to global placement configs
 		err = sat.DB.Console().Projects().UpdateUserAgent(ctx, proj.ID, make([]byte, 0))
 		require.NoError(t, err)
 
 		details, err = sat.API.Console.Service.GetPlacementDetails(userCtx, proj.ID)
 		require.NoError(t, err)
-		require.Empty(t, details)
+		require.Len(t, details, 1)
+		require.Equal(t, placementDetail11, details[0])
 	})
 }
 

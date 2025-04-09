@@ -868,10 +868,17 @@ watch(innerContent, newContent => {
     if (newContent) {
         withLoading(async () => {
             try {
-                await Promise.all([
-                    bucketsStore.getAllBucketsNames(project.value.id),
-                    bucketsStore.getPlacementDetails(project.value.id),
-                ]);
+                const promises = [bucketsStore.getAllBucketsNames(project.value.id)];
+                if (selfPlacementEnabled.value) {
+                    promises.push(
+                        bucketsStore.getPlacementDetails(project.value.id).then(() => {
+                            if (!placementDetails.value.length) {
+                                notify.notifyError(new Error('Could not get available placements.'), AnalyticsErrorEventSource.CREATE_BUCKET_MODAL);
+                            }
+                        }),
+                    );
+                }
+                await Promise.all(promises);
             } catch (error) {
                 notify.notifyError(error, AnalyticsErrorEventSource.CREATE_BUCKET_MODAL);
             }
