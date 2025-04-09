@@ -1292,10 +1292,10 @@ identity.key-path: /root/.local/share/storj/identity/satellite/identity.key
 # semicolon-separated partner package plans in the format partner:price,credit. Price and credit are in cents USD.
 # payments.package-plans: ""
 
-# semicolon-separated list of partners to placement price overrides in the format: partner0[placement0:productID0;placement1,placement2:productID1];partner1[etc...] If a partner uses a placement not defined for them in this config, they will be charged according to --payments.placement-price-overrides.
+# a JSON mapping of partners to a mapping of product ID to placements in the format: {"partner0":{productID0:[placement0],productID1:[placement1,placement2]}}. If a partner uses a placement not defined for them in this config, they will be charged according to --payments.placement-price-overrides.
 # payments.partners-placement-price-overrides: ""
 
-# semicolon-separated list of placement price overrides in the format: placement:productID. Multiple placements may be mapped to a single product like so: p0,p1:productID. Products must be defined by the --payments.products config, or the satellite will not start.
+# a JSON mapping of product ID to placements in the format: {productID0:[placement0],productID1:[placement1,placement2]}. Products must be defined by the --payments.products config, or the satellite will not start.
 # payments.placement-price-overrides: ""
 
 # a JSON mapping of non-zero product IDs to their names and price structures in the format: {"productID": {"name": "...", "storage": "...", "egress": "...", "segment": "...", "egress_discount_ratio": "..."}}. The egress discount ratio is the ratio of free egress per unit-month of storage

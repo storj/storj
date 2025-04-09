@@ -1636,7 +1636,9 @@ func TestPartnerPlacements(t *testing.T) {
 		SatelliteCount: 1, StorageNodeCount: 0, UplinkCount: 0,
 		Reconfigure: testplanet.Reconfigure{
 			Satellite: func(log *zap.Logger, index int, config *satellite.Config) {
-				config.Placement = nodeselection.ConfigurablePlacementRule{PlacementRules: `10:annotation("location", "placement10")`}
+				config.Placement = nodeselection.ConfigurablePlacementRule{
+					PlacementRules: `10:annotation("location", "placement10");11:annotation("location", "placement11")`,
+				}
 				config.Payments.Products.SetMap(map[int32]paymentsconfig.ProductUsagePrice{
 					productID: productPrice,
 				})
