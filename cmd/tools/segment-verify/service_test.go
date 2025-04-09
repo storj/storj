@@ -5,6 +5,7 @@ package main_test
 
 import (
 	"context"
+	"encoding/hex"
 	"fmt"
 	"os"
 	"sort"
@@ -15,6 +16,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"github.com/zeebo/errs"
+	"golang.org/x/exp/slices"
 
 	"storj.io/common/pb"
 	"storj.io/common/storj"
@@ -149,10 +151,14 @@ func TestService_Buckets_Success(t *testing.T) {
 	err := os.WriteFile(config.PriorityNodesPath, []byte((storj.NodeID{1}).String()+"\n"), 0755)
 	require.NoError(t, err)
 
+	projectA := uuid.UUID{1}
+	projectB := uuid.UUID{2}
+
+	content := hex.EncodeToString(projectA[:]) + ",67616c617879\n" +
+		hex.EncodeToString(projectB[:]) + ",7368696e6f6269"
+
 	bucketListPath := ctx.File("buckets.csv")
-	err = os.WriteFile(bucketListPath, []byte(`
-	00000000000000000000000000000001,67616c617879
-	00000000000000000000000000000002,7368696e6f6269`), 0755)
+	err = os.WriteFile(bucketListPath, []byte(content), 0755)
 	require.NoError(t, err)
 
 	func() {
@@ -170,18 +176,18 @@ func TestService_Buckets_Success(t *testing.T) {
 				StreamID:    uuid.UUID{0x20, 0x20},
 				AliasPieces: metabase.AliasPieces{{Number: 0, Alias: 2}, {Number: 1, Alias: 3}, {Number: 7, Alias: 4}},
 			},
-			{ // this won't get processed due to the high limit
+			{ // this won't get processed because it's in non listed bucket
 				StreamID:    uuid.UUID{0x30, 0x30},
-				AliasPieces: metabase.AliasPieces{{Number: 0, Alias: 2}, {Number: 1, Alias: 3}, {Number: 7, Alias: 4}},
+				AliasPieces: metabase.AliasPieces{{Number: 0, Alias: 11}, {Number: 1, Alias: 12}, {Number: 7, Alias: 13}},
 			},
 		}
 
 		metabase := newMetabaseMock(nodes, segments...)
 		verifier := &verifierMock{allSuccess: true}
 
-		metabase.AddStreamIDToBucket(uuid.UUID{1}, "67616c617879", uuid.UUID{0x10, 0x10})
-		metabase.AddStreamIDToBucket(uuid.UUID{2}, "7368696e6f6269", uuid.UUID{0x20, 0x20})
-		metabase.AddStreamIDToBucket(uuid.UUID{2}, "7777777", uuid.UUID{0x30, 0x30})
+		metabase.AddStreamIDToBucket(projectA, "67616c617879", uuid.UUID{0x10, 0x10})
+		metabase.AddStreamIDToBucket(projectB, "7368696e6f6269", uuid.UUID{0x20, 0x20})
+		metabase.AddStreamIDToBucket(projectB, "7777777", uuid.UUID{0x30, 0x30})
 
 		service, err := segmentverify.NewService(log.Named("segment-verify"), metabase, verifier, metabase, config)
 		require.NoError(t, err)
@@ -204,6 +210,11 @@ func TestService_Buckets_Success(t *testing.T) {
 		// we should get two other checks against the nodes in segments[8-10]
 		assert.Equal(t, 2,
 			len(verifier.processed[nodes[8]])+len(verifier.processed[nodes[9]])+len(verifier.processed[nodes[10]]),
+		)
+
+		// we should NOT get anything from segments[2] as it is in a different bucket
+		assert.Equal(t, 0,
+			len(verifier.processed[nodes[11]])+len(verifier.processed[nodes[12]])+len(verifier.processed[nodes[13]]),
 		)
 	}()
 
@@ -454,6 +465,10 @@ func (db *metabaseMock) ListVerifySegments(ctx context.Context, opts metabase.Li
 			continue
 		}
 		if s.StreamID == opts.CursorStreamID && !opts.CursorPosition.Less(s.Position) {
+			continue
+		}
+
+		if len(opts.StreamIDs) > 0 && !slices.Contains(opts.StreamIDs, s.StreamID) {
 			continue
 		}
 

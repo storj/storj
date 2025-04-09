@@ -106,7 +106,6 @@ type Service struct {
 	ignoreNodes     NodeAliasSet
 	offlineNodes    *nodeAliasExpiringSet
 	offlineCount    map[metabase.NodeAlias]int
-	bucketList      BucketList
 	nodesVersionMap map[metabase.NodeAlias]string
 }
 
@@ -196,7 +195,7 @@ func (service *Service) loadOnlineNodes(ctx context.Context) (err error) {
 }
 
 // loadPriorityNodes loads the list of priority nodes.
-func (service *Service) loadPriorityNodes(ctx context.Context) (err error) {
+func (service *Service) loadPriorityNodes() (err error) {
 	if service.config.PriorityNodesPath == "" {
 		return nil
 	}
@@ -206,7 +205,7 @@ func (service *Service) loadPriorityNodes(ctx context.Context) (err error) {
 }
 
 // applyIgnoreNodes loads the list of nodes to ignore completely and modifies priority nodes.
-func (service *Service) applyIgnoreNodes(ctx context.Context) (err error) {
+func (service *Service) applyIgnoreNodes() (err error) {
 	if service.config.IgnoreNodesPath == "" {
 		return nil
 	}
@@ -280,12 +279,12 @@ func (service *Service) ProcessRange(ctx context.Context, low, high uuid.UUID) (
 		return Error.Wrap(err)
 	}
 
-	err = service.loadPriorityNodes(ctx)
+	err = service.loadPriorityNodes()
 	if err != nil {
 		return Error.Wrap(err)
 	}
 
-	err = service.applyIgnoreNodes(ctx)
+	err = service.applyIgnoreNodes()
 	if err != nil {
 		return Error.Wrap(err)
 	}
@@ -367,12 +366,12 @@ func (service *Service) ProcessBuckets(ctx context.Context, buckets []metabase.B
 		return Error.Wrap(err)
 	}
 
-	err = service.loadPriorityNodes(ctx)
+	err = service.loadPriorityNodes()
 	if err != nil {
 		return Error.Wrap(err)
 	}
 
-	err = service.applyIgnoreNodes(ctx)
+	err = service.applyIgnoreNodes()
 	if err != nil {
 		return Error.Wrap(err)
 	}
@@ -388,7 +387,7 @@ func (service *Service) ProcessBuckets(ctx context.Context, buckets []metabase.B
 
 		listStreamIDsResult, err := service.metabase.ListBucketsStreamIDs(ctx, metabase.ListBucketsStreamIDs{
 			BucketList: metabase.ListVerifyBucketList{
-				Buckets: service.bucketList.Buckets,
+				Buckets: buckets,
 			},
 			CursorBucket:   cursorBucket,
 			CursorStreamID: cursorStreamID,
@@ -399,6 +398,11 @@ func (service *Service) ProcessBuckets(ctx context.Context, buckets []metabase.B
 		if err != nil {
 			return Error.Wrap(err)
 		}
+		if len(listStreamIDsResult.StreamIDs) == 0 {
+			// No more stream IDs to process.
+			return nil
+		}
+
 		for {
 			// TODO loop for this
 			result, err := service.metabase.ListVerifySegments(ctx, metabase.ListVerifySegments{

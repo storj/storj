@@ -236,9 +236,7 @@ func verifySegmentsInContext(ctx context.Context, log *zap.Logger, cmd *cobra.Co
 	case "buckets":
 		verifyConfig = bucketsCfg.Verify
 		serviceConfig = bucketsCfg.Service
-		commandFunc = func(ctx context.Context, service *Service) error {
-			return verifySegmentsBuckets(ctx, service, bucketsCfg)
-		}
+		commandFunc = verifySegmentsBuckets
 	case "read-csv":
 		verifyConfig = readCSVCfg.Verify
 		serviceConfig = readCSVCfg.Service
@@ -284,7 +282,7 @@ func verifySegmentsRange(ctx context.Context, service *Service, rangeCfg RangeCo
 	return service.ProcessRange(ctx, low, high)
 }
 
-func verifySegmentsBuckets(ctx context.Context, service *Service, bucketCfg BucketConfig) error {
+func verifySegmentsBuckets(ctx context.Context, service *Service) error {
 	if bucketsCfg.BucketsCSV == "" {
 		return Error.New("bucket list file path not provided")
 	}
