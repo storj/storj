@@ -710,7 +710,7 @@ func TestSegmentRepairPlacementRestrictions(t *testing.T) {
 		{
 			// this should repair only one segment (where placement=1)
 			planet.Satellites[0].Repairer.Repairer.Loop.TriggerWait()
-			planet.Satellites[0].Repairer.Repairer.WaitForPendingRepairs()
+			require.NoError(t, planet.Satellites[0].Repairer.Repairer.WaitForPendingRepairs(ctx))
 
 			// one of the segments are repaired
 			n, err := planet.Satellites[0].Repair.Queue.SelectN(ctx, 10)

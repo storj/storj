@@ -16,6 +16,7 @@ import (
 	"go.uber.org/zap"
 	"golang.org/x/sync/semaphore"
 
+	"storj.io/common/context2"
 	"storj.io/common/storj"
 	"storj.io/common/sync2"
 	"storj.io/storj/satellite/repair/queue"
@@ -123,13 +124,17 @@ func (service *Service) Close() error { return nil }
 // NB: this assumes that service.config.MaxRepair will never be changed once this Service instance
 // is initialized. If that is not a valid assumption, we should keep a copy of its initial value to
 // use here instead.
-func (service *Service) WaitForPendingRepairs() {
+func (service *Service) WaitForPendingRepairs(ctx context.Context) error {
 	// Acquire and then release the entire capacity of the semaphore, ensuring that
 	// it is completely empty (or, at least it was empty at some point).
 	//
 	// No error return is possible here; context.Background() can't be canceled
-	_ = service.JobLimiter.Acquire(context.Background(), int64(service.config.MaxRepair))
+	err := service.JobLimiter.Acquire(ctx, int64(service.config.MaxRepair))
+	if err != nil {
+		return err
+	}
 	service.JobLimiter.Release(int64(service.config.MaxRepair))
+	return nil
 }
 
 // TestingSetMinFailures sets the minFailures attribute, which tells the Repair machinery that we _expect_
@@ -143,7 +148,9 @@ func (service *Service) Run(ctx context.Context) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	// Wait for all repairs to complete
-	defer service.WaitForPendingRepairs()
+	defer func() {
+		_ = service.WaitForPendingRepairs(context2.WithoutCancellation(ctx))
+	}()
 
 	return service.Loop.Run(ctx, service.processWhileQueueHasItems)
 }

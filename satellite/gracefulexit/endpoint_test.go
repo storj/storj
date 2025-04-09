@@ -387,7 +387,7 @@ func TestManyNodesGracefullyExiting(t *testing.T) {
 		satellite.Repair.Repairer.Loop.Restart()
 		satellite.Repair.Repairer.Loop.TriggerWait()
 		satellite.Repair.Repairer.Loop.Pause()
-		satellite.Repair.Repairer.WaitForPendingRepairs()
+		require.NoError(t, satellite.Repair.Repairer.WaitForPendingRepairs(ctx))
 
 		// turn off the exiting nodes entirely
 		for i := 0; i < len(planet.StorageNodes)/2; i++ {

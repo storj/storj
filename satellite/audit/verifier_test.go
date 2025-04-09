@@ -1132,7 +1132,7 @@ func TestAuditRepairedSegmentInExcludedCountries(t *testing.T) {
 		satellite.Repair.Repairer.Loop.Restart()
 		satellite.Repair.Repairer.Loop.TriggerWait()
 		satellite.Repair.Repairer.Loop.Pause()
-		satellite.Repair.Repairer.WaitForPendingRepairs()
+		require.NoError(t, satellite.Repair.Repairer.WaitForPendingRepairs(ctx))
 
 		// Verify that the segment was removed
 		count, err = satellite.Repair.Queue.Count(ctx)
