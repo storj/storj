@@ -361,21 +361,43 @@ func (d *DB) Read(ctx context.Context, key Key) (r *Reader, err error) {
 	return nil, Error.Wrap(fs.ErrNotExist)
 }
 
-// Compact waits for any background compaction to finish and then calls Compact on both stores.
-// After a call to Compact, you can be sure that each Store was fully compacted at least once.
+// Compact observes the result of compaction of both stores and returns the combined errors. If a
+// compaction is ongoing when it is called, it uses the result of that compaction.
 func (d *DB) Compact(ctx context.Context) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
-again:
 	if err := signalError(&d.closed); err != nil {
 		return err
 	}
 
-	d.mu.Lock()
-	if compact := d.compact; compact != nil {
-		// an active compaction is happening. we have to drop the mutex and wait for some event to
-		// let us proceed before trying again.
-		d.mu.Unlock()
+	var eg errs.Group
+	compacted := make(map[*Store]struct{})
+
+	for len(compacted) != 2 {
+		compact := func() *compactState {
+			d.mu.Lock()
+			defer d.mu.Unlock()
+
+			if compact := d.compact; compact != nil {
+				// if we have a compaction going, observe the result of that.
+				return compact
+			}
+
+			// otherwise, we want to compact the passive store. if we already have a result for the
+			// current passive store, swap it before beginning the compaction.
+			if _, ok := compacted[d.passive]; ok {
+				d.swapStoresLocked()
+			}
+
+			return d.beginPassiveCompaction()
+		}()
+
+		// we should always have a compaction ongoing at this point that we're waiting for. it's
+		// possible that it's for a store we have already observed, but that's ok. we'll just
+		// observe it again.
+		if compact == nil {
+			return Error.New("programmer error: could not begin passive compaction")
+		}
 
 		select {
 		case <-ctx.Done():
@@ -383,29 +405,20 @@ again:
 		case <-d.closed.Signal():
 			return signalError(&d.closed)
 		case <-compact.done.Signal():
+			eg.Add(compact.done.Err())
+			compacted[compact.store] = struct{}{}
 		}
-
-		goto again
 	}
-	// we have the lock with no active compaction, so we can compact the Stores. we drop the lock
-	// so that Close can still interrupt us. concurrent reads should be able to proceed with no
-	// problem, but concurrent writes may conflict with the compact call and take longer.
-	active, passive := d.active, d.passive
-	d.mu.Unlock()
 
-	lastRestore := d.lastRestore(ctx)
-	return errs.Combine(
-		active.Compact(ctx, d.shouldTrash, lastRestore),
-		passive.Compact(ctx, d.shouldTrash, lastRestore),
-	)
+	return eg.Err()
 }
 
-func (d *DB) beginPassiveCompaction() {
+func (d *DB) beginPassiveCompaction() *compactState {
 	// sanity check: don't overwrite an existing compaction. this is a programmer error. we don't
 	// panic or anything because the code kinda assumes that the stores are arbitrarily loaded in
 	// many places, so skipping this compaction isn't the end of the world.
 	if d.compact != nil {
-		return
+		return nil
 	}
 
 	ctx, cancel := context.WithCancel(context.Background())
@@ -414,6 +427,7 @@ func (d *DB) beginPassiveCompaction() {
 		cancel: cancel,
 	}
 	go d.performPassiveCompaction(ctx, d.compact)
+	return d.compact
 }
 
 // backgroundCompactions polls periodically while the db is not closed to compact stores if they

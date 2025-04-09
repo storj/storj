@@ -104,37 +104,68 @@ func TestDB_ReadAllPossibleStates(t *testing.T) {
 	forAllTables(t, testDB_ReadAllPossibleStates)
 }
 func testDB_ReadAllPossibleStates(t *testing.T) {
-	db := newTestDB(t, alwaysTrash, nil)
-	defer db.Close()
-
-	create := func(key Key) { db.AssertCreate(WithKey(key)) }
-	compact := func(Key) { db.AssertCompact() }
-	swap := func(Key) { db.swapStoresLocked() }
-	read := func(key Key) { db.AssertRead(key) }
+	const (
+		createActive = iota
+		createPassive
+		compact
+	)
 
 	cases := []struct {
-		name string
-		ops  []func(Key)
+		name  string
+		setup []int
 	}{
-		{"ActiveExist_PassiveNotExist", []func(Key){create, read}},
-		{"ActiveTrash_PassiveNotExist", []func(Key){create, compact, read}},
+		{"ActiveExist_PassiveNotExist", []int{createActive}},
+		{"ActiveTrash_PassiveNotExist", []int{createActive, compact}},
 
-		{"ActiveNotExist_PassiveExist", []func(Key){create, swap, read}},
-		{"ActiveExist_PassiveExist", []func(Key){create, swap, create, read}},
-		{"ActiveTrash_PassiveExist", []func(Key){create, compact, swap, create, swap, read}},
+		{"ActiveNotExist_PassiveExist", []int{createPassive}},
+		{"ActiveExist_PassiveExist", []int{createActive, createPassive}},
+		{"ActiveTrash_PassiveExist", []int{createActive, compact, createPassive}},
 
-		{"ActiveNotExist_PassiveTrash", []func(Key){create, compact, swap, read}},
-		{"ActiveExist_PassiveTrash", []func(Key){create, compact, swap, create, read}},
-		{"ActiveTrash_PassiveTrash", []func(Key){create, swap, create, compact, read}},
+		{"ActiveNotExist_PassiveTrash", []int{createPassive, compact}},
+		{"ActiveExist_PassiveTrash", []int{createPassive, compact, createActive}},
+		{"ActiveTrash_PassiveTrash", []int{createPassive, createActive, compact}},
+	}
+
+	runCase := func(t *testing.T, setup []int) {
+		db := newTestDB(t, alwaysTrash, nil)
+		defer db.Close()
+		key := newKey()
+
+		// keep track of which store starts off as active so that we can ensure we are creating and
+		// reading records from the correct store.
+		active := db.active
+		makeActive := func() {
+			if active != db.active {
+				db.swapStoresLocked()
+			}
+		}
+		makePassive := func() {
+			if active == db.active {
+				db.swapStoresLocked()
+			}
+		}
+
+		for _, op := range setup {
+			switch op {
+			case createActive:
+				makeActive()
+				db.AssertCreate(WithKey(key))
+
+			case createPassive:
+				makePassive()
+				db.AssertCreate(WithKey(key))
+
+			case compact:
+				db.AssertCompact()
+			}
+		}
+
+		makeActive()
+		db.AssertRead(key)
 	}
 
 	for _, tc := range cases {
-		t.Run(tc.name, func(t *testing.T) {
-			key := newKey()
-			for _, op := range tc.ops {
-				op(key)
-			}
-		})
+		t.Run(tc.name, func(t *testing.T) { runCase(t, tc.setup) })
 	}
 }
 
