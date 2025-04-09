@@ -219,9 +219,10 @@ func TestRollupOldOrders(t *testing.T) {
 				snAccountingDB = satellitePeer.DB.StoragenodeAccounting()
 			)
 			// Run rollup once to start so we add the correct accounting timestamps to the db
-			satellitePeer.Accounting.Rollup.Loop.TriggerWait()
 			satellitePeer.Accounting.Rollup.Loop.Pause()
 			satellitePeer.Accounting.Tally.Loop.Pause()
+
+			satellitePeer.Accounting.Rollup.Loop.TriggerWait()
 
 			nodeA := planet.StorageNodes[0]
 			nodeB := planet.StorageNodes[1]

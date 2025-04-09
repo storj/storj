@@ -154,9 +154,8 @@ func testDataRepair(t *testing.T, inMemoryRepair bool, hashAlgo pb.PieceHashAlgo
 
 		_, err = satellite.RangedLoop.RangedLoop.Service.RunOnce(ctx)
 		require.NoError(t, err)
-		satellite.Repair.Repairer.Loop.Restart()
+
 		satellite.Repair.Repairer.Loop.TriggerWait()
-		satellite.Repair.Repairer.Loop.Pause()
 		require.NoError(t, satellite.Repair.Repairer.WaitForPendingRepairs(ctx))
 
 		// repaired segment should not contain any piece in the killed and DQ nodes
@@ -321,9 +320,7 @@ func TestDataRepairPendingObject(t *testing.T) {
 
 		_, err = satellite.RangedLoop.RangedLoop.Service.RunOnce(ctx)
 		require.NoError(t, err)
-		satellite.Repair.Repairer.Loop.Restart()
 		satellite.Repair.Repairer.Loop.TriggerWait()
-		satellite.Repair.Repairer.Loop.Pause()
 		require.NoError(t, satellite.Repair.Repairer.WaitForPendingRepairs(ctx))
 
 		// repaired segment should not contain any piece in the killed and DQ nodes
@@ -433,9 +430,7 @@ func TestMinRequiredDataRepair(t *testing.T) {
 		// trigger checker with ranged loop to add segment to repair queue
 		_, err = satellite.RangedLoop.RangedLoop.Service.RunOnce(ctx)
 		require.NoError(t, err)
-		satellite.Repair.Repairer.Loop.Restart()
 		satellite.Repair.Repairer.Loop.TriggerWait()
-		satellite.Repair.Repairer.Loop.Pause()
 		require.NoError(t, satellite.Repair.Repairer.WaitForPendingRepairs(ctx))
 		err = satellite.Repairer.Reputation.TestFlushAllNodeInfo(ctx)
 		require.NoError(t, err)
@@ -552,9 +547,7 @@ func TestFailedDataRepair(t *testing.T) {
 		satellite.Repair.Repairer.TestingSetMinFailures(2) // expecting one erroring node, one offline node
 		_, err = satellite.RangedLoop.RangedLoop.Service.RunOnce(ctx)
 		require.NoError(t, err)
-		satellite.Repair.Repairer.Loop.Restart()
 		satellite.Repair.Repairer.Loop.TriggerWait()
-		satellite.Repair.Repairer.Loop.Pause()
 		require.NoError(t, satellite.Repair.Repairer.WaitForPendingRepairs(ctx))
 
 		nodesReputationAfter := make(map[storj.NodeID]reputation.Info)
@@ -668,9 +661,7 @@ func TestOfflineNodeDataRepair(t *testing.T) {
 		// trigger checker with ranged loop to add segment to repair queue
 		_, err = satellite.RangedLoop.RangedLoop.Service.RunOnce(ctx)
 		require.NoError(t, err)
-		satellite.Repair.Repairer.Loop.Restart()
 		satellite.Repair.Repairer.Loop.TriggerWait()
-		satellite.Repair.Repairer.Loop.Pause()
 		require.NoError(t, satellite.Repair.Repairer.WaitForPendingRepairs(ctx))
 
 		nodesReputationAfter := make(map[storj.NodeID]reputation.Info)
@@ -789,9 +780,7 @@ func TestUnknownErrorDataRepair(t *testing.T) {
 		satellite.Repair.Repairer.TestingSetMinFailures(1) // expecting one bad node
 		_, err = satellite.RangedLoop.RangedLoop.Service.RunOnce(ctx)
 		require.NoError(t, err)
-		satellite.Repair.Repairer.Loop.Restart()
 		satellite.Repair.Repairer.Loop.TriggerWait()
-		satellite.Repair.Repairer.Loop.Pause()
 		require.NoError(t, satellite.Repair.Repairer.WaitForPendingRepairs(ctx))
 
 		nodesReputationAfter := make(map[storj.NodeID]reputation.Info)
@@ -910,9 +899,7 @@ func TestMissingPieceDataRepair_Succeed(t *testing.T) {
 		// trigger checker with ranged loop to add segment to repair queue
 		_, err = satellite.RangedLoop.RangedLoop.Service.RunOnce(ctx)
 		require.NoError(t, err)
-		satellite.Repair.Repairer.Loop.Restart()
 		satellite.Repair.Repairer.Loop.TriggerWait()
-		satellite.Repair.Repairer.Loop.Pause()
 		require.NoError(t, satellite.Repair.Repairer.WaitForPendingRepairs(ctx))
 
 		nodesReputationAfter := make(map[storj.NodeID]reputation.Info)
@@ -1032,9 +1019,7 @@ func TestMissingPieceDataRepair(t *testing.T) {
 		satellite.Repair.Repairer.TestingSetMinFailures(1) // expect one missing piece
 		_, err = satellite.RangedLoop.RangedLoop.Service.RunOnce(ctx)
 		require.NoError(t, err)
-		satellite.Repair.Repairer.Loop.Restart()
 		satellite.Repair.Repairer.Loop.TriggerWait()
-		satellite.Repair.Repairer.Loop.Pause()
 		require.NoError(t, satellite.Repair.Repairer.WaitForPendingRepairs(ctx))
 
 		nodesReputationAfter := make(map[storj.NodeID]reputation.Info)
@@ -1284,9 +1269,7 @@ func TestCorruptDataRepair_Failed(t *testing.T) {
 		satellite.Repair.Repairer.TestingSetMinFailures(1) // expect one corrupted piece
 		_, err = satellite.RangedLoop.RangedLoop.Service.RunOnce(ctx)
 		require.NoError(t, err)
-		satellite.Repair.Repairer.Loop.Restart()
 		satellite.Repair.Repairer.Loop.TriggerWait()
-		satellite.Repair.Repairer.Loop.Pause()
 		require.NoError(t, satellite.Repair.Repairer.WaitForPendingRepairs(ctx))
 
 		nodesReputationAfter := make(map[storj.NodeID]reputation.Info)
@@ -1383,9 +1366,7 @@ func TestRepairExpiredSegment(t *testing.T) {
 		})
 
 		// Run the repairer
-		satellite.Repair.Repairer.Loop.Restart()
 		satellite.Repair.Repairer.Loop.TriggerWait()
-		satellite.Repair.Repairer.Loop.Pause()
 		require.NoError(t, satellite.Repair.Repairer.WaitForPendingRepairs(ctx))
 
 		// Verify that the segment is not still in the queue
@@ -1463,9 +1444,7 @@ func TestRemoveDeletedSegmentFromQueue(t *testing.T) {
 		require.Equal(t, count, 1)
 
 		// Run the repairer
-		satellite.Repair.Repairer.Loop.Restart()
 		satellite.Repair.Repairer.Loop.TriggerWait()
-		satellite.Repair.Repairer.Loop.Pause()
 		require.NoError(t, satellite.Repair.Repairer.WaitForPendingRepairs(ctx))
 
 		// Verify that the segment was removed
@@ -1548,9 +1527,7 @@ func TestSegmentDeletedDuringRepair(t *testing.T) {
 
 		}
 
-		satellite.Repair.Repairer.Loop.Restart()
 		satellite.Repair.Repairer.Loop.TriggerWait()
-		satellite.Repair.Repairer.Loop.Pause()
 		require.NoError(t, satellite.Repair.Repairer.WaitForPendingRepairs(ctx))
 
 		// Verify that the segment was removed
@@ -1648,9 +1625,7 @@ func TestSegmentModifiedDuringRepair(t *testing.T) {
 			require.NoError(t, err)
 		}
 
-		satellite.Repair.Repairer.Loop.Restart()
 		satellite.Repair.Repairer.Loop.TriggerWait()
-		satellite.Repair.Repairer.Loop.Pause()
 		require.NoError(t, satellite.Repair.Repairer.WaitForPendingRepairs(ctx))
 
 		// Verify that the segment was removed
@@ -1728,9 +1703,7 @@ func TestIrreparableSegmentAccordingToOverlay(t *testing.T) {
 		require.Equal(t, count, 1)
 
 		// Run the repairer
-		satellite.Repair.Repairer.Loop.Restart()
 		satellite.Repair.Repairer.Loop.TriggerWait()
-		satellite.Repair.Repairer.Loop.Pause()
 		require.NoError(t, satellite.Repair.Repairer.WaitForPendingRepairs(ctx))
 
 		// Verify that the irreparable segment is still in repair queue
@@ -1812,9 +1785,7 @@ func TestIrreparableSegmentNodesOffline(t *testing.T) {
 		}
 
 		// Run the repairer
-		satellite.Repair.Repairer.Loop.Restart()
 		satellite.Repair.Repairer.Loop.TriggerWait()
-		satellite.Repair.Repairer.Loop.Pause()
 		require.NoError(t, satellite.Repair.Repairer.WaitForPendingRepairs(ctx))
 
 		// Verify that the irreparable segment is still in repair queue
@@ -2119,9 +2090,7 @@ func TestDataRepairOverride_HigherLimit(t *testing.T) {
 		// trigger checker with ranged loop to add segment to repair queue
 		_, err = satellite.RangedLoop.RangedLoop.Service.RunOnce(ctx)
 		require.NoError(t, err)
-		satellite.Repair.Repairer.Loop.Restart()
 		satellite.Repair.Repairer.Loop.TriggerWait()
-		satellite.Repair.Repairer.Loop.Pause()
 		require.NoError(t, satellite.Repair.Repairer.WaitForPendingRepairs(ctx))
 
 		// repair should have been done, due to the override
@@ -2209,9 +2178,7 @@ func TestDataRepairOverride_LowerLimit(t *testing.T) {
 		_, err = satellite.RangedLoop.RangedLoop.Service.RunOnce(ctx)
 		require.NoError(t, err)
 
-		satellite.Repair.Repairer.Loop.Restart()
 		satellite.Repair.Repairer.Loop.TriggerWait()
-		satellite.Repair.Repairer.Loop.Pause()
 		require.NoError(t, satellite.Repair.Repairer.WaitForPendingRepairs(ctx))
 
 		// Increase offline count by the difference to trigger repair
@@ -2237,9 +2204,7 @@ func TestDataRepairOverride_LowerLimit(t *testing.T) {
 		_, err = satellite.RangedLoop.RangedLoop.Service.RunOnce(ctx)
 		require.NoError(t, err)
 
-		satellite.Repair.Repairer.Loop.Restart()
 		satellite.Repair.Repairer.Loop.TriggerWait()
-		satellite.Repair.Repairer.Loop.Pause()
 		require.NoError(t, satellite.Repair.Repairer.WaitForPendingRepairs(ctx))
 
 		// repair should have been done, due to the override
@@ -2343,9 +2308,7 @@ func TestDataRepairUploadLimit(t *testing.T) {
 		// trigger checker with ranged loop to add segment to repair queue
 		_, err = satellite.RangedLoop.RangedLoop.Service.RunOnce(ctx)
 		require.NoError(t, err)
-		satellite.Repair.Repairer.Loop.Restart()
 		satellite.Repair.Repairer.Loop.TriggerWait()
-		satellite.Repair.Repairer.Loop.Pause()
 		require.NoError(t, satellite.Repair.Repairer.WaitForPendingRepairs(ctx))
 
 		// Get the pointer after repair to check the nodes where the pieces are
@@ -3152,9 +3115,7 @@ func TestSegmentInExcludedCountriesRepair(t *testing.T) {
 		require.NoError(t, err)
 		require.Equal(t, 1, count)
 
-		satellite.Repair.Repairer.Loop.Restart()
 		satellite.Repair.Repairer.Loop.TriggerWait()
-		satellite.Repair.Repairer.Loop.Pause()
 		require.NoError(t, satellite.Repair.Repairer.WaitForPendingRepairs(ctx))
 
 		// Verify that the segment was removed from the repair queue
@@ -3261,9 +3222,7 @@ func TestSegmentInExcludedCountriesRepairIrreparable(t *testing.T) {
 		require.NoError(t, err)
 		require.Equal(t, 1, count)
 
-		satellite.Repair.Repairer.Loop.Restart()
 		satellite.Repair.Repairer.Loop.TriggerWait()
-		satellite.Repair.Repairer.Loop.Pause()
 		require.NoError(t, satellite.Repair.Repairer.WaitForPendingRepairs(ctx))
 
 		// Verify that the segment was removed

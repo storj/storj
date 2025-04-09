@@ -292,7 +292,6 @@ func TestEmptyProjectUpdatesLiveAccounting(t *testing.T) {
 		require.NoError(t, err)
 
 		planet.Satellites[0].Accounting.Tally.Loop.TriggerWait()
-		planet.Satellites[0].Accounting.Tally.Loop.Pause()
 
 		total, err := planet.Satellites[0].Accounting.ProjectUsage.GetProjectStorageTotals(ctx, project1)
 		require.NoError(t, err)
@@ -358,6 +357,8 @@ func TestTallyOnCopiedObject(t *testing.T) {
 
 		for _, tc := range testCases {
 			t.Run(tc.name, func(t *testing.T) {
+				planet.Satellites[0].Accounting.Tally.Loop.Pause()
+
 				err := planet.Uplinks[0].CreateBucket(ctx, planet.Satellites[0], tc.name)
 				require.NoError(t, err)
 
@@ -374,7 +375,6 @@ func TestTallyOnCopiedObject(t *testing.T) {
 				require.NoError(t, err)
 
 				planet.Satellites[0].Accounting.Tally.Loop.TriggerWait()
-				planet.Satellites[0].Accounting.Tally.Loop.Pause()
 
 				tallies, err := planet.Satellites[0].DB.ProjectAccounting().GetTallies(ctx)
 				require.NoError(t, err)
@@ -388,7 +388,6 @@ func TestTallyOnCopiedObject(t *testing.T) {
 				require.NoError(t, err)
 
 				planet.Satellites[0].Accounting.Tally.Loop.TriggerWait()
-				planet.Satellites[0].Accounting.Tally.Loop.Pause()
 
 				tallies, err = planet.Satellites[0].DB.ProjectAccounting().GetTallies(ctx)
 				require.NoError(t, err)

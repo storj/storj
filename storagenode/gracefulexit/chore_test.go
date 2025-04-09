@@ -70,8 +70,8 @@ func exitSatellite(ctx context.Context, t *testing.T, planet *testplanet.Planet,
 	require.Len(t, exitProgress, 1)
 
 	// initiate graceful exit on satellite side by running the SN chore.
-	exitingNode.GracefulExit.Chore.Loop.TriggerWait()
 	exitingNode.GracefulExit.Chore.Loop.Pause()
+	exitingNode.GracefulExit.Chore.Loop.TriggerWait()
 
 	// jump ahead in time (the +2 is to account for things like daylight savings shifts that may
 	// be happening in the next while, since we're not using AddDate here).

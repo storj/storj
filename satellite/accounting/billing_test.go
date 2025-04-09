@@ -418,7 +418,6 @@ func getTallies(ctx context.Context, t *testing.T, planet *testplanet.Planet, sa
 	t.Helper()
 	sat := planet.Satellites[satelliteIdx]
 	sat.Accounting.Tally.Loop.TriggerWait()
-	sat.Accounting.Tally.Loop.Pause()
 
 	tallies, err := sat.DB.ProjectAccounting().GetTallies(ctx)
 	require.NoError(t, err)

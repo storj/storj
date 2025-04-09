@@ -98,7 +98,6 @@ func TestChore(t *testing.T) {
 			require.NoError(t, err)
 
 			chore.Loop.TriggerWait()
-			chore.Loop.Pause()
 
 			// Expired key is removed.
 			createdKey1, err = db.Console().APIKeys().Get(ctx, createdKey1.ID)
@@ -117,7 +116,6 @@ func TestChore(t *testing.T) {
 			require.NoError(t, err)
 
 			chore.Loop.TriggerWait()
-			chore.Loop.Pause()
 
 			// Second expired key is removed.
 			createdKey2, err = db.Console().APIKeys().Get(ctx, createdKey2.ID)

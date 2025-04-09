@@ -384,9 +384,7 @@ func TestManyNodesGracefullyExiting(t *testing.T) {
 
 		// perform the repairs, which should get every piece so that it will still be
 		// reconstructable without the exiting nodes.
-		satellite.Repair.Repairer.Loop.Restart()
 		satellite.Repair.Repairer.Loop.TriggerWait()
-		satellite.Repair.Repairer.Loop.Pause()
 		require.NoError(t, satellite.Repair.Repairer.WaitForPendingRepairs(ctx))
 
 		// turn off the exiting nodes entirely
