@@ -424,6 +424,7 @@ func (ts *testStore) AssertCreate(opts ...any) Key {
 	checkOptions(opts, func(t WithKey) { key = Key(t) })
 
 	data := key[:]
+	checkOptions(opts, func(t WithDataSize) { data = make([]byte, t) })
 	checkOptions(opts, func(t WithData) { data = []byte(t) })
 
 	wr, err := ts.Create(context.Background(), key, expires)
@@ -451,6 +452,7 @@ func (ts *testStore) AssertRead(key Key, opts ...any) {
 	assert.Equal(ts.t, r.Key(), key)
 
 	data := key[:]
+	checkOptions(opts, func(t WithDataSize) { data = make([]byte, t) })
 	checkOptions(opts, func(t WithData) { data = []byte(t) })
 
 	assert.Equal(ts.t, r.Size(), len(data))
@@ -517,6 +519,7 @@ func (td *testDB) AssertCreate(opts ...any) Key {
 	checkOptions(opts, func(t WithKey) { key = Key(t) })
 
 	data := key[:]
+	checkOptions(opts, func(t WithDataSize) { data = make([]byte, t) })
 	checkOptions(opts, func(t WithData) { data = []byte(t) })
 
 	wr, err := td.Create(context.Background(), key, expires)
@@ -557,6 +560,7 @@ type (
 	AssertTrash     bool
 	WithTTL         time.Time
 	WithData        []byte
+	WithDataSize    int
 	WithKey         Key
 	WithRecord      Record
 	WithRevive      bool
