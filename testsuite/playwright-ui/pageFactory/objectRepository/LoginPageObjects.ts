@@ -11,7 +11,6 @@ export class LoginPageObjects {
     static PERSONAL_CARD_XPATH = `//div[@id='personal']`;
     static BUSINESS_CARD_XPATH = `//div[@id='business']`;
     static FREE_PLAN_XPATH = `//button[@id='free-plan']`;
-    static ACTIVATE_XPATH = `//button[@id='activate']`;
     static SETUP_SUCCESS_LABEL_XPATH = `//p[text()=' Account Complete ']`;
     static NAME_EDITBOX_ID = `//input[@id='Name']`;
     static FIRST_NAME_EDITBOX_ID = `//input[@id='First Name']`;

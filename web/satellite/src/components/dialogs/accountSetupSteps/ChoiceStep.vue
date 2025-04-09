@@ -75,10 +75,10 @@ import IconStorjLogo from '@/components/icons/IconStorjLogo.vue';
 const analyticsStore = useAnalyticsStore();
 
 const emit = defineEmits<{
-    select: [OnboardingStep];
+    select: [OnboardingStep.BusinessAccountForm | OnboardingStep.PersonalAccountForm];
 }>();
 
-function typeSelected(type: OnboardingStep) {
+function typeSelected(type: OnboardingStep.BusinessAccountForm | OnboardingStep.PersonalAccountForm) {
     emit('select', type);
 
     let event: AnalyticsEvent;

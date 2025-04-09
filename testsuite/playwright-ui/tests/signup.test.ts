@@ -40,7 +40,6 @@ test.describe('Sign up personal/business accounts', () => {
         const firstName = 'John';
         const lastName = 'Doe';
         const companyName = 'Storj Labs';
-        const jobRole = 'Software Developer';
         await loginPage.chooseBusinessAccSetup();
         await loginPage.fillBusinessSetupForm(firstName, lastName, companyName);
         await loginPage.selectFreeTrial();
