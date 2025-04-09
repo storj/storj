@@ -380,9 +380,7 @@ func (s *SpannerAdapter) ListBucketsStreamIDs(ctx context.Context, opts ListBuck
 		return result, Error.Wrap(err)
 	}
 
-	// get the list of stream_ids and segment counts from the objects table
-	// TODO(spanner): check if there is a performance penalty to using a STRUCT in this way.
-	err = s.client.Single().Query(ctx, spanner.Statement{
+	statement := spanner.Statement{
 		SQL: `
 			SELECT DISTINCT project_id, bucket_name, stream_id, segment_count
 			FROM objects
@@ -398,7 +396,14 @@ func (s *SpannerAdapter) ListBucketsStreamIDs(ctx context.Context, opts ListBuck
 			"cursor_stream_id":     opts.CursorStreamID,
 			"limit":                int64(opts.Limit),
 		},
-	}).Do(func(row *spanner.Row) error {
+	}
+
+	// get the list of stream_ids and segment counts from the objects table
+	// TODO(spanner): check if there is a performance penalty to using a STRUCT in this way.
+	err = s.client.Single().WithTimestampBound(spannerutil.MaxStalenessFromAOSI(opts.AsOfSystemInterval)).
+		QueryWithOptions(ctx, statement, spanner.QueryOptions{
+			Priority: spannerpb.RequestOptions_PRIORITY_LOW,
+		}).Do(func(row *spanner.Row) error {
 		var streamID uuid.UUID
 		var count int64
 		err := row.Columns(
