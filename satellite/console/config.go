@@ -24,7 +24,6 @@ type Config struct {
 	UnregisteredInviteEmailsEnabled   bool                      `help:"indicates whether invitation emails can be sent to unregistered email addresses" default:"true"`
 	UserBalanceForUpgrade             int64                     `help:"amount of base units of US micro dollars needed to upgrade user's tier status" default:"10000000"`
 	PlacementEdgeURLOverrides         PlacementEdgeURLOverrides `help:"placement-specific edge service URL overrides in the format {\"placementID\": {\"authService\": \"...\", \"publicLinksharing\": \"...\", \"internalLinksharing\": \"...\"}, \"placementID2\": ...}"`
-	SelfServePlacementDetails         PlacementDetails          `help:"human-readable details for placements allowed for self serve placement in the format {\"placementID\": {\"idName\": \"...\", \"name\": \"...\", \"title\": \"...\", \"description\": \"...\"}}"`
 	BlockExplorerURL                  string                    `help:"url of the transaction block explorer" default:"https://etherscan.io/"`
 	ZkSyncBlockExplorerURL            string                    `help:"url of the zkSync transaction block explorer" default:"https://explorer.zksync.io/"`
 	ZkSyncContractAddress             string                    `help:"the STORJ zkSync Era contract address" default:"0xA0806DA7835a4E63dB2CE44A2b622eF8b73B5DB5"`
@@ -60,7 +59,8 @@ type RestAPIKeysConfig struct {
 
 // PlacementsConfig contains configurations for self-serve placement logic.
 type PlacementsConfig struct {
-	SelfServeEnabled bool `help:"whether self-serve placement selection feature is enabled" default:"false"`
+	SelfServeEnabled bool             `help:"whether self-serve placement selection feature is enabled" default:"false"`
+	SelfServeDetails PlacementDetails `help:"human-readable details for placements allowed for self serve placement in the format {\"placementID\": {\"idName\": \"...\", \"name\": \"...\", \"title\": \"...\", \"description\": \"...\"}}"`
 }
 
 // CaptchaConfig contains configurations for login/registration captcha system.

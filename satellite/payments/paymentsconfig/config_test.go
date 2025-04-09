@@ -252,84 +252,84 @@ func TestPlacementPriceOverrides(t *testing.T) {
 		config    string
 		expectErr bool
 	}{
-		// N.B. to match PlacementProductMap.String(), the placements and placements:products defined in tt.config must be sorted in increasing order.
-		// PlacementProductMap.String() sorts the elements for a consistent result.
+		// N.B. to match PlacementProductIdMap.String(), the placements and placements:products defined in tt.config must be sorted in increasing order.
+		// PlacementProductIdMap.String() sorts the elements for a consistent result.
 		{
 			id:     "empty string",
 			config: "",
 		},
 		{
-			id:     "one placement, one product",
-			config: "0:product0",
+			id:     "one placement, one product ID",
+			config: "0:0",
 		},
 		{
-			id:     "multiple placements, one product",
-			config: "0,1,2:product0",
+			id:     "multiple placements, one product ID",
+			config: "0,1,2:0",
 		},
 		{
-			id:     "multiple placements, multiple products",
-			config: "0,1,2:product0;3:product1",
+			id:     "multiple placements, multiple product IDs",
+			config: "0,1,2:0;3:1",
 		},
 		{
 			id:     "trailing semi-colon",
-			config: "0,1:product0;",
+			config: "0,1:0;",
 		},
 		{
 			id:     "trailing double semi-colon",
-			config: "0,1:product0;;",
+			config: "0,1:0;;",
 		},
 		{
 			id:     "values separated by double semi-colon",
-			config: "0,1:product0;;2,3:product1",
+			config: "0,1:0;;2,3:1",
 		},
 		{
 			id:        "product duplicated across multiple key-value pairs",
-			config:    "0,1:product0;2,3:product0",
+			config:    "0,1:0;2,3:0",
 			expectErr: true,
 		},
 		{
 			id:        "invalid config: no placements",
-			config:    ":product0",
+			config:    ":0",
 			expectErr: true,
 		},
 		{
 			id:        "invalid config: no placements with comma",
-			config:    ",:product0",
+			config:    ",:0",
 			expectErr: true,
 		},
 		{
-			id:        "invalid config: placement assigned to multiple products",
-			config:    "0:product0;0,1:product1",
+			id:        "invalid config: placement assigned to multiple product IDs",
+			config:    "0:0;0,1:1",
 			expectErr: true,
 		},
 		{
 			id:        "invalid config: no colon",
-			config:    "product0",
+			config:    "0",
 			expectErr: true,
 		},
 		{
 			id:        "invalid config: double colon",
-			config:    "0,1::product0",
+			config:    "0,1::0",
 			expectErr: true,
 		},
 		{
 			id:        "invalid config: multiple colons",
-			config:    "0,1:product0:product1",
+			config:    "0,1:0:1",
 			expectErr: true,
 		},
 		{
 			id:        "invalid config: double comma",
-			config:    "0,,1:product0",
+			config:    "0,,1:0",
 			expectErr: true,
 		},
 		{
 			id:        "invalid config: single placement not int",
-			config:    "a:product0",
+			config:    "a:0",
 			expectErr: true,
 		},
 		{
 			id:        "invalid config: multiple placements, one not int",
-			config:    "0,a:product0",
+			config:    "0,a:0",
 			expectErr: true,
 		},
 	}
@@ -343,7 +343,7 @@ func TestPlacementPriceOverrides(t *testing.T) {
 				return
 			}
 
-			// *PlacementProductMap.Set ignores ';;' and trims trailing ';'.
+			// *PlacementProductIdMap.Set ignores ';;' and trims trailing ';'.
 			// Match this behavior to verify config string.
 			config := strings.ReplaceAll(tt.config, ";;", ";")
 			config = strings.TrimSuffix(config, ";")
@@ -352,7 +352,7 @@ func TestPlacementPriceOverrides(t *testing.T) {
 	}
 }
 
-func TestPartnerPlacementPriceOvrrides(t *testing.T) {
+func TestPartnerPlacementPriceOverrides(t *testing.T) {
 	tests := []struct {
 		id        string
 		config    string
@@ -364,116 +364,116 @@ func TestPartnerPlacementPriceOvrrides(t *testing.T) {
 		},
 		{
 			id:     "one partner, placment, and product",
-			config: "partner0[0:product0]",
+			config: "partner0[0:0]",
 		},
 		{
 			id:     "one partner, multiple placements, one product",
-			config: "partner0[0,1,2:product0]",
+			config: "partner0[0,1,2:0]",
 		},
 		{
 			id:     "one partner, multiple placements, multiple products",
-			config: "partner0[0,1,2:product0;3:product1]",
+			config: "partner0[0,1,2:0;3:1]",
 		},
 		{
 			id:     "multiple partners with one placment, one product",
-			config: "partner0[0:product0];partner1[0:product0]",
+			config: "partner0[0:0];partner1[0:0]",
 		},
 		{
 			id:     "multiple partners, multiple placements, one product",
-			config: "partner0[0,1,2:product0];partner1[0,1,2:product0]",
+			config: "partner0[0,1,2:0];partner1[0,1,2:0]",
 		},
 		{
 			id:     "multiple partners, multiple placements, multiple products",
-			config: "partner0[0,1,2:product0;3:product1];partner1[0,1,2:product0;3:product1]",
+			config: "partner0[0,1,2:0;3:1];partner1[0,1,2:0;3:1]",
 		},
 		{
 			id:     "trailing semi-colon after product",
-			config: "partner0[0,1:product0;]",
+			config: "partner0[0,1:0;]",
 		},
 		{
 			id:     "trailing double semi-colon after product",
-			config: "partner0[0,1:product0;;]",
+			config: "partner0[0,1:0;;]",
 		},
 		{
 			id:     "placement-product values separated by double semi-colon",
-			config: "partner0[0,1:product0;;2,3:product1]",
+			config: "partner0[0,1:0;;2,3:1]",
 		},
 		{
 			id:     "trailing semicolon after last partner",
-			config: "partner0[0:product0];partner1[0:product0];",
+			config: "partner0[0:0];partner1[0:0];",
 		},
 		{ // seems weird, but the separator is not needed for only one partner
 			id:     "no closing bracket",
-			config: "partner0[0:product0",
+			config: "partner0[0:0",
 		},
 		{
 			id:        "product duplicated across multiple key-value pairs",
-			config:    "partner0[0,1:product0;2,3:product0]",
+			config:    "partner0[0,1:0;2,3:0]",
 			expectErr: true,
 		},
 		{
 			id:        "invalid config: no placements",
-			config:    "partner0[:product0]",
+			config:    "partner0[:0]",
 			expectErr: true,
 		},
 		{
 			id:        "invalid config: no placements with comma",
-			config:    "partner0[,:product0]",
+			config:    "partner0[,:0]",
 			expectErr: true,
 		},
 		{
-			id:        "invalid config: placement assigned to multiple products",
-			config:    "partner[0:product0;0,1:product1]",
+			id:        "invalid config: placement assigned to multiple product IDs",
+			config:    "partner[0:0;0,1:1]",
 			expectErr: true,
 		},
 		{
 			id:        "invalid config: no colon",
-			config:    "partner0[product0]",
+			config:    "partner0[0]",
 			expectErr: true,
 		},
 		{
 			id:        "invalid config: double colon",
-			config:    "partner0[0,1::product0]",
+			config:    "partner0[0,1::0]",
 			expectErr: true,
 		},
 		{
 			id:        "invalid config: multiple colons",
-			config:    "partner0[0,1:product0:product1]",
+			config:    "partner0[0,1:0:1]",
 			expectErr: true,
 		},
 		{
 			id:        "invalid config: double comma",
-			config:    "partner0[0,,1:product0]",
+			config:    "partner0[0,,1:0]",
 			expectErr: true,
 		},
 		{
 			id:        "invalid config: single placement not int",
-			config:    "partner0[a:product0]",
+			config:    "partner0[a:0]",
 			expectErr: true,
 		},
 		{
 			id:        "invalid config: multiple placements, one not int",
-			config:    "partner0[0,a:product0]",
+			config:    "partner0[0,a:0]",
 			expectErr: true,
 		},
 		{
 			id:        "invalid config: missing open bracket",
-			config:    "partner00:product0]",
+			config:    "partner00:0]",
 			expectErr: true,
 		},
 		{
 			id:        "invalid config: missing closing bracket between partners",
-			config:    "partner0[0:product0partner1[0:product0]",
+			config:    "partner0[0:0partner1[0:0]",
 			expectErr: true,
 		},
 		{
 			id:        "invalid config: missing semicolon between partners",
-			config:    "partner0[0:product0]partner1[0:product0]",
+			config:    "partner0[0:0]partner1[0:0]",
 			expectErr: true,
 		},
 		{
 			id:        "invalid config: partner defined more than once",
-			config:    "partner0[0:product0];partner0[0:product1]",
+			config:    "partner0[0:0];partner0[0:1]",
 			expectErr: true,
 		},
 	}
@@ -488,7 +488,7 @@ func TestPartnerPlacementPriceOvrrides(t *testing.T) {
 				return
 			}
 
-			// *PlacementProductMap.Set ignores ';;' and trims trailing ';'.
+			// *PlacementProductIdMap.Set ignores ';;' and trims trailing ';'.
 			// *PartnersPlacementProductMap trims trailing ';'.
 			// Match this behavior to verify config string.
 			config := strings.ReplaceAll(tt.config, ";;", ";")
@@ -498,6 +498,46 @@ func TestPartnerPlacementPriceOvrrides(t *testing.T) {
 				config += "]"
 			}
 			require.Equal(t, config, mapFromCfg.String())
+		})
+	}
+}
+
+func TestProductPriceOverrides(t *testing.T) {
+	tests := []struct {
+		id        string
+		config    string
+		expectErr bool
+	}{
+		{
+			id:     "empty string",
+			config: "",
+		},
+		{
+			id:     "valid JSON",
+			config: `{"1":{"name":"product","storage":"4","egress":"2","segment":"2","egress_discount_ratio":"0.50"}}`,
+		},
+		{
+			id:        "invalid product ID",
+			config:    `{"0":{"name":"product","storage":"4","egress":"2","segment":"2","egress_discount_ratio":"0.50"}}`,
+			expectErr: true,
+		},
+		{
+			id:        "invalid JSON",
+			config:    `{"1":{"name":"product","storage":4,"egress":2,"segment":2,"egress_discount_ratio":0.50}}`,
+			expectErr: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.id, func(t *testing.T) {
+			mapFromCfg := &paymentsconfig.ProductPriceOverrides{}
+			err := mapFromCfg.Set(tt.config)
+			if tt.expectErr {
+				require.Error(t, err)
+				return
+			}
+			require.NoError(t, err)
+			require.Equal(t, tt.config, mapFromCfg.String())
 		})
 	}
 }

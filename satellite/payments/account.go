@@ -17,23 +17,24 @@ import (
 var ErrAccountNotSetup = errs.Class("payment account is not set up")
 
 // PartnersPlacementProductMap maps partners to placements to products map.
-type PartnersPlacementProductMap map[string]PlacementProductMap
+type PartnersPlacementProductMap map[string]PlacementProductIdMap
 
 // GetProductByPartnerAndPlacement returns the product mapped to the given partner and placement.
-func (p PartnersPlacementProductMap) GetProductByPartnerAndPlacement(partner string, placement int) string {
+func (p PartnersPlacementProductMap) GetProductByPartnerAndPlacement(partner string, placement int) (int32, bool) {
 	placementProductMap, ok := p[partner]
 	if !ok {
-		return ""
+		return 0, false
 	}
 	return placementProductMap.GetProductByPlacement(placement)
 }
 
-// PlacementProductMap maps placements to products.
-type PlacementProductMap map[int]string
+// PlacementProductIdMap maps placements to products.
+type PlacementProductIdMap map[int]int32
 
 // GetProductByPlacement returns the product mapped to the given placement.
-func (p PlacementProductMap) GetProductByPlacement(placement int) string {
-	return p[placement]
+func (p PlacementProductIdMap) GetProductByPlacement(placement int) (int32, bool) {
+	id, ok := p[placement]
+	return id, ok
 }
 
 // Accounts exposes all needed functionality to manage payment accounts.

@@ -1609,7 +1609,6 @@ func TestProjectUsagePrice(t *testing.T) {
 
 func TestPartnerPlacements(t *testing.T) {
 	var (
-		product         = "product"
 		partner         = "partner"
 		placement       = storj.PlacementConstraint(10)
 		placement11     = storj.PlacementConstraint(11)
@@ -1621,8 +1620,8 @@ func TestPartnerPlacements(t *testing.T) {
 			ID:     11,
 			IdName: "placement11",
 		}
+		productID    = int32(1)
 		productPrice = paymentsconfig.ProductUsagePrice{
-			ProductID: 1,
 			ProjectUsagePrice: paymentsconfig.ProjectUsagePrice{
 				StorageTB: "4",
 				EgressTB:  "5",
@@ -1638,18 +1637,18 @@ func TestPartnerPlacements(t *testing.T) {
 		Reconfigure: testplanet.Reconfigure{
 			Satellite: func(log *zap.Logger, index int, config *satellite.Config) {
 				config.Placement = nodeselection.ConfigurablePlacementRule{PlacementRules: `10:annotation("location", "placement10")`}
-				config.Payments.Products.SetMap(map[string]paymentsconfig.ProductUsagePrice{
-					product: productPrice,
+				config.Payments.Products.SetMap(map[int32]paymentsconfig.ProductUsagePrice{
+					productID: productPrice,
 				})
 				// global placement price overrides
-				config.Payments.PlacementPriceOverrides.SetMap(map[int]string{int(placement11): product})
+				config.Payments.PlacementPriceOverrides.SetMap(map[int]int32{int(placement11): productID})
 
 				placementProductMap := paymentsconfig.PlacementProductMap{}
-				placementProductMap.SetMap(map[int]string{int(placement): product})
+				placementProductMap.SetMap(map[int]int32{int(placement): productID})
 				config.Payments.PartnersPlacementPriceOverrides.SetMap(map[string]paymentsconfig.PlacementProductMap{
 					partner: placementProductMap,
 				})
-				config.Console.SelfServePlacementDetails.SetMap(map[storj.PlacementConstraint]console.PlacementDetail{
+				config.Console.Placement.SelfServeDetails.SetMap(map[storj.PlacementConstraint]console.PlacementDetail{
 					0:           {ID: 0},
 					placement:   placementDetail,
 					placement11: placementDetail11,
