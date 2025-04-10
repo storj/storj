@@ -1809,10 +1809,9 @@ func (s *Service) ResetPassword(ctx context.Context, resetPasswordToken, passwor
 	}
 
 	if user.FailedLoginCount != 0 {
-		resetFailedLoginCount := 0
 		resetLoginLockoutExpirationPtr := &time.Time{}
-		updateRequest.FailedLoginCount = &resetFailedLoginCount
 		updateRequest.LoginLockoutExpiration = &resetLoginLockoutExpirationPtr
+		updateRequest.FailedLoginCount = new(int)
 	}
 
 	err = s.store.Users().Update(ctx, user.ID, updateRequest)
@@ -2642,7 +2641,14 @@ func (s *Service) handleDeleteProjectStep(ctx context.Context, user *User, proje
 
 	// We update status to disabled instead of deleting the project
 	// to not lose the historical project/user usage data.
-	return s.store.Projects().UpdateStatus(ctx, projectID, ProjectDisabled)
+	err = s.store.Projects().UpdateStatus(ctx, projectID, ProjectDisabled)
+	if err != nil {
+		return err
+	}
+
+	// We need to reset the step value to prevent the possibility of bypassing steps
+	// in subsequent delete project requests.
+	return s.store.Users().Update(ctx, user.ID, UpdateUserRequest{EmailChangeVerificationStep: new(int)})
 }
 
 func (s *Service) handleDeleteAccountStep(ctx context.Context, user *User) (err error) {
@@ -2691,7 +2697,6 @@ func (s *Service) handleDeleteAccountStep(ctx context.Context, user *User) (err 
 
 	deactivatedEmail := fmt.Sprintf("deactivated+%s@storj.io", user.ID.String())
 	status := Deleted
-	var externalID *string // nil - no external ID.
 
 	now := s.nowFn()
 
@@ -2702,7 +2707,8 @@ func (s *Service) handleDeleteAccountStep(ctx context.Context, user *User) (err 
 		Status:          &status,
 		StatusUpdatedAt: &now,
 		// Self-serve account deletion isn't allowed for SSO users, but we keep this here as a precaution.
-		ExternalID: &externalID,
+		ExternalID:                  new(*string),
+		EmailChangeVerificationStep: new(int),
 	})
 	if err != nil {
 		return Error.Wrap(err)
@@ -2794,17 +2800,14 @@ func (s *Service) handleVerifyNewStep(ctx context.Context, user *User, data stri
 		return Error.New("new email is not set")
 	}
 
-	unsetInt := 0
-	unsetStr := ""
-	unsetStrPtr := &unsetStr
 	loginLockoutExpirationPtr := &time.Time{}
 	err = s.store.Users().Update(ctx, user.ID, UpdateUserRequest{
 		Email:                       user.NewUnverifiedEmail,
-		EmailChangeVerificationStep: &unsetInt,
-		FailedLoginCount:            &unsetInt,
+		EmailChangeVerificationStep: new(int),
+		FailedLoginCount:            new(int),
 		LoginLockoutExpiration:      &loginLockoutExpirationPtr,
-		ActivationCode:              &unsetStr,
-		NewUnverifiedEmail:          &unsetStrPtr,
+		ActivationCode:              new(string),
+		NewUnverifiedEmail:          new(*string),
 	})
 	if err != nil {
 		return Error.Wrap(err)
@@ -2885,12 +2888,11 @@ func (s *Service) handleLockAccount(ctx context.Context, user *User, step Accoun
 }
 
 func (s *Service) updateStep(ctx context.Context, userID uuid.UUID, step AccountActionStep, verificationCode string, newUnverifiedEmail *string) error {
-	failedLoginCount := 0
 	loginLockoutExpirationPtr := &time.Time{}
 
 	return s.store.Users().Update(ctx, userID, UpdateUserRequest{
 		EmailChangeVerificationStep: &step,
-		FailedLoginCount:            &failedLoginCount,
+		FailedLoginCount:            new(int),
 		LoginLockoutExpiration:      &loginLockoutExpirationPtr,
 		ActivationCode:              &verificationCode,
 		NewUnverifiedEmail:          &newUnverifiedEmail,

@@ -1664,7 +1664,7 @@ func TestChangeEmail(t *testing.T) {
 
 		_, user = updateContext()
 		require.Equal(t, 0, user.EmailChangeVerificationStep)
-		require.Equal(t, "", *user.NewUnverifiedEmail)
+		require.Nil(t, user.NewUnverifiedEmail)
 		require.Equal(t, validEmail, user.Email)
 		require.Empty(t, user.ActivationCode)
 
@@ -2354,7 +2354,7 @@ func TestDeleteAccount(t *testing.T) {
 			require.Nil(t, resp)
 
 			_, user = updateContext()
-			require.Equal(t, 3, user.EmailChangeVerificationStep)
+			require.Equal(t, 0, user.EmailChangeVerificationStep)
 			require.Equal(t, console.Deleted, user.Status)
 			require.WithinDuration(t, timestamp, *user.StatusUpdatedAt, time.Minute)
 			require.Empty(t, user.ActivationCode)
