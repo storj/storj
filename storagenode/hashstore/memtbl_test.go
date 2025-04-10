@@ -156,3 +156,35 @@ func TestMemtbl_UpdateCollisions(t *testing.T) {
 	m.AssertInsert(WithRecord(r(k1, 6)))
 	assert.Equal(t, m.AssertLookup(k1), r(k1, 6))
 }
+
+func TestMemTbl_MMAPWithUnalignedEntries(t *testing.T) {
+	defer temporarily(&memtbl_MMAP, true)()
+
+	ctx := context.Background()
+
+	var keys []Key
+	m := newTestMemTbl(t, tbl_minLogSlots, WithConstructor(func(tc TblConstructor) {
+		key := newKey()
+		ok, err := tc.Append(ctx, newRecord(key))
+		assert.NoError(t, err)
+		assert.True(t, ok)
+		keys = append(keys, key)
+	}))
+	defer m.Close()
+
+	for i := 0; i < 128; i++ {
+		keys = append(keys, m.AssertInsert().Key)
+
+		for _, key := range keys {
+			m.AssertLookup(key)
+		}
+
+		expect := keys
+		assert.NoError(t, m.Range(ctx, func(ctx context.Context, r Record) (bool, error) {
+			assert.Equal(t, r.Key, expect[0])
+			expect = expect[1:]
+			return true, nil
+		}))
+		assert.Equal(t, len(expect), 0)
+	}
+}

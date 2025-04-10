@@ -18,6 +18,8 @@ import (
 
 	"github.com/zeebo/assert"
 	"github.com/zeebo/mwc"
+
+	"storj.io/storj/storagenode/hashstore/platform"
 )
 
 func TestClampTTL(t *testing.T) {
@@ -152,17 +154,25 @@ func temporarily[T any](loc *T, val T) func() {
 }
 
 func forAllTables[T interface{ Run(string, func(T)) bool }](t T, fn func(T)) {
+	mmaps := map[TableKind]*bool{
+		kind_HashTbl: &hashtbl_MMAP,
+		kind_MemTbl:  &memtbl_MMAP,
+	}
+
 	run := func(t T, kind TableKind, mmap bool) {
 		t.Run(fmt.Sprintf("tbl=%s/mmap=%v", kind, mmap), func(t T) {
 			defer temporarily(&table_DefaultKind, kind)()
-			defer temporarily(&hashtbl_MMAP, mmap)()
+			defer temporarily(mmaps[kind], mmap)()
 			fn(t)
 		})
 	}
 
 	run(t, kind_HashTbl, false)
-	run(t, kind_HashTbl, true)
 	run(t, kind_MemTbl, false)
+	if platform.MmapSupported {
+		run(t, kind_HashTbl, true)
+		run(t, kind_MemTbl, true)
+	}
 }
 
 func ifFailed(t testing.TB, fn func()) {

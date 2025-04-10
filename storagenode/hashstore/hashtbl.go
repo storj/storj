@@ -20,7 +20,7 @@ import (
 
 var (
 	// if set, uses mmap to do reads and writes to the hashtbl.
-	hashtbl_MMAP = envBool("STORJ_HASHSTORE_HASHTBL_MMAP", false)
+	hashtbl_MMAP = envBool("STORJ_HASHSTORE_HASHTBL_MMAP", false) && platform.MmapSupported
 )
 
 const hashtbl_invalidPage = 1<<64 - 1
@@ -152,11 +152,15 @@ func OpenHashTbl(ctx context.Context, fh *os.File) (_ *HashTbl, err error) {
 	}
 
 	if hashtbl_MMAP {
-		data, close, err := platform.MMAP(fh, int(size))
+		data, close, err := platform.Mmap(fh, int(size))
 		if err != nil {
 			return nil, Error.Wrap(err)
 		}
 		h.mmap, h.mmapClose = newMMAPCache(data), close
+
+		// lookups do random access, and range is sequential but sets it itself, so default to
+		// random.
+		platform.AdviseRandom(data)
 	}
 
 	// estimate numSet, lenSet, numTrash and lenTrash.
@@ -317,6 +321,12 @@ func (h *HashTbl) Range(ctx context.Context, fn func(context.Context, Record) (b
 		return err
 	}
 	defer h.opMu.RUnlock()
+
+	// if we are in mmap mode, range is sequential, so advise that and then advise random after.
+	if h.mmap != nil {
+		platform.AdviseSequential(h.mmap.data)
+		defer platform.AdviseRandom(h.mmap.data)
+	}
 
 	var (
 		recStats recordStats

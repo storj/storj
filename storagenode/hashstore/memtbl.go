@@ -5,6 +5,7 @@ package hashstore
 
 import (
 	"bufio"
+	"bytes"
 	"context"
 	"encoding/binary"
 	"errors"
@@ -14,6 +15,12 @@ import (
 
 	"storj.io/common/memory"
 	"storj.io/drpc/drpcsignal"
+	"storj.io/storj/storagenode/hashstore/platform"
+)
+
+var (
+	// if set, uses mmap to do reads to the memtbl
+	memtbl_MMAP = envBool("STORJ_HASHSTORE_MEMTBL_MMAP", false) && platform.MmapSupported
 )
 
 type memtblIdx uint32 // index of a record in the memtbl (^0 means promoted)
@@ -40,6 +47,10 @@ type MemTbl struct {
 
 	entries    *flatMap
 	collisions map[Key][4]byte
+
+	mmap      []byte
+	mmapClose func() error
+	remap     bool
 
 	closed drpcsignal.Signal // closed state
 	cloMu  sync.Mutex        // synchronizes closing
@@ -121,6 +132,18 @@ func OpenMemTbl(ctx context.Context, fh *os.File) (_ *MemTbl, err error) {
 		return nil, err
 	}
 
+	if memtbl_MMAP {
+		data, close, err := platform.Mmap(fh, int(size-size%platform.PageSize))
+		if err != nil {
+			return nil, Error.Wrap(err)
+		}
+		h.mmap, h.mmapClose, h.remap = data, close, true
+
+		// N.B. we don't bother with a memory advise here because loadEntries will be sequential and
+		// defer setting it to random when it's done, so we don't want to confuse the kernel by
+		// saying random => sequential => random.
+	}
+
 	// read the entries from the file.
 	if err := h.loadEntries(ctx); err != nil {
 		return nil, Error.Wrap(err)
@@ -144,15 +167,35 @@ func (m *MemTbl) rangeWithIdxLocked(
 		return Error.New("file too small: size=%d", size)
 	}
 
-	// a bufio.Reader on a SectionReader so that it doesn't mess up the file pos for write calls.
-	br := bufio.NewReaderSize(io.NewSectionReader(m.fh, headerSize, size-headerSize), 1<<20)
+	// create the reader we use for the range. if we have mmap data, read from that first to avoid
+	// any syscalls and inform the kernel we'll be doing sequential reads. after reading all of the
+	// mmap data, go back to bufio.NewReader with an io.SectionReader so that we use ReadAt calls
+	// and avoid modifying the file pos for writes.
+	var r io.Reader
+	if len(m.mmap) < headerSize {
+		r = bufio.NewReaderSize(
+			io.NewSectionReader(m.fh, headerSize, size-headerSize),
+			1<<20,
+		)
+	} else {
+		platform.AdviseSequential(m.mmap)
+		defer platform.AdviseRandom(m.mmap)
+
+		r = io.MultiReader(
+			bytes.NewReader(m.mmap[headerSize:]),
+			bufio.NewReaderSize(
+				io.NewSectionReader(m.fh, int64(len(m.mmap)), size-int64(len(m.mmap))),
+				1<<20,
+			),
+		)
+	}
 
 	var recStats recordStats
 	var buf [RecordSize]byte
 	var rec Record
 
 	for idx := memtblIdx(0); ; idx++ {
-		if _, err := io.ReadFull(br, buf[:]); errors.Is(err, io.EOF) {
+		if _, err := io.ReadFull(r, buf[:]); errors.Is(err, io.EOF) {
 			break
 		} else if err != nil {
 			return Error.New("unable to read record: %w", err)
@@ -266,10 +309,26 @@ func (m *MemTbl) readRecord(ctx context.Context, idx memtblIdx, rec *Record) err
 		return err
 	}
 
-	var buf [RecordSize]byte
-	if _, err := m.fh.ReadAt(buf[:], headerSize+int64(idx)*RecordSize); err != nil {
-		return Error.New("unable to read record %d: %w", idx, err)
-	} else if !rec.ReadFrom(&buf) {
+	var (
+		valid bool
+		off   = headerSize + int64(idx)*RecordSize
+		b     = uint64(off)
+		e     = uint64(off + RecordSize)
+	)
+
+	// if the record we're reading is in the mmap portion, use that. otherwise
+	// make the syscall to read it from the file handle.
+	if mm := m.mmap; b < e && e <= uint64(len(mm)) {
+		valid = rec.ReadFrom((*[RecordSize]byte)(mm[b:e]))
+	} else {
+		var buf [RecordSize]byte
+		if _, err := m.fh.ReadAt(buf[:], off); err != nil {
+			return Error.New("unable to read record %d: %w", idx, err)
+		}
+		valid = rec.ReadFrom(&buf)
+	}
+
+	if !valid {
 		return Error.New("record %d checksum failed", idx)
 	}
 	return nil
@@ -298,6 +357,11 @@ func (m *MemTbl) Close() {
 	// grab the lock to ensure all operations have finished before closing the file handle.
 	m.opMu.WaitLock()
 	defer m.opMu.Unlock()
+
+	if m.mmap != nil {
+		_ = m.mmapClose()
+		m.mmap, m.mmapClose = nil, nil
+	}
 
 	_ = m.fh.Close()
 }
@@ -474,6 +538,11 @@ func (m *MemTbl) insertLocked(ctx context.Context, rec Record) (_ bool, err erro
 	// that write away, and so the idx not being incremented is correct.
 	m.idx++
 
+	// if we have mmap and the remap flag is true, we need to remap if needed.
+	if m.mmap != nil && m.remap {
+		m.remapIfNeeded()
+	}
+
 	// if we had an insert record, we are adding a new key. we don't need to change the alive field
 	// on update because we ensure that the records are equalish above so the length field could not
 	// have changed. we're ignoring the update case for trash because it should be very rare and
@@ -488,6 +557,20 @@ func (m *MemTbl) insertLocked(ctx context.Context, rec Record) (_ bool, err erro
 	}
 
 	return true, nil
+}
+
+func (m *MemTbl) remapIfNeeded() {
+	size := headerSize + int64(m.idx)*RecordSize
+	if size-int64(len(m.mmap)) >= platform.PageSize {
+		m.remapIfNeededSlow(size)
+	}
+}
+
+func (m *MemTbl) remapIfNeededSlow(size int64) {
+	data, err := platform.Mremap(m.mmap, int(size-size%platform.PageSize))
+	if err == nil {
+		m.mmap = data
+	}
 }
 
 func (m *MemTbl) flushBufferLocked(ctx context.Context) error {
@@ -565,6 +648,7 @@ type MemTblConstructor struct {
 // newMemTblConstructor is the constructor for MemTblConstructor.
 func newMemTblConstructor(m *MemTbl) *MemTblConstructor {
 	m.buffer = make([]byte, 0, bigPageSize)
+	m.remap = false
 
 	return &MemTblConstructor{m: m}
 }
@@ -605,9 +689,16 @@ func (c *MemTblConstructor) Done(ctx context.Context) (Tbl, error) {
 		return nil, err
 	}
 
+	// flush any remaining records in the buffer.
 	if err := c.m.flushBufferLocked(ctx); err != nil {
 		c.err = err
 		return nil, err
+	}
+
+	// if we have mmap, remap to the final size and set the remap flag.
+	if c.m.mmap != nil {
+		c.m.remapIfNeeded()
+		c.m.remap = true
 	}
 
 	// valid returns an error if the memtbl field is nil, so we don't have to worry about putting
