@@ -79,6 +79,12 @@ node('node') {
       echo "Current build result: ${currentBuild.result}"
     }
 
+    stage('Publish Modular Satellite Images') {
+          lastStage = env.STAGE_NAME
+          env.MODULE="SATELLITE"
+          sh './scripts/bake.sh -f docker-bake-main.hcl -f docker-bake.hcl satellite-modular --push'
+    }
+
     stage('Build Windows Installer') {
       lastStage = env.STAGE_NAME
       node('windows') {
