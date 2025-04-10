@@ -533,6 +533,16 @@ CREATE TABLE bucket_metainfos (
 	CONSTRAINT bucket_metainfos_project_id_fkey FOREIGN KEY (project_id) REFERENCES projects (id),
 	CONSTRAINT bucket_metainfos_created_by_fkey FOREIGN KEY (created_by) REFERENCES users (id)
 ) PRIMARY KEY ( project_id, name ) ;
+CREATE TABLE domains (
+	subdomain STRING(MAX) NOT NULL,
+	project_id BYTES(MAX) NOT NULL,
+	prefix STRING(MAX) NOT NULL,
+	access_id STRING(MAX) NOT NULL,
+	created_by BYTES(MAX) NOT NULL,
+	created_at TIMESTAMP NOT NULL,
+	CONSTRAINT domains_project_id_fkey FOREIGN KEY (project_id) REFERENCES projects (id),
+	CONSTRAINT domains_created_by_fkey FOREIGN KEY (created_by) REFERENCES users (id)
+) PRIMARY KEY ( project_id, subdomain ) ;
 CREATE TABLE project_invitations (
 	project_id BYTES(MAX) NOT NULL,
 	email STRING(MAX) NOT NULL,
