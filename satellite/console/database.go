@@ -34,6 +34,8 @@ type DB interface {
 	WebappSessions() consoleauth.WebappSessions
 	// AccountFreezeEvents is a getter for AccountFreezeEvents repository.
 	AccountFreezeEvents() AccountFreezeEvents
+	// Domains is a getter for Domains repository.
+	Domains() Domains
 
 	// WithTx is a method for executing transactions with retrying as necessary.
 	WithTx(ctx context.Context, fn func(ctx context.Context, tx DBTx) error) error

@@ -95,6 +95,11 @@ func (db *ConsoleDB) AccountFreezeEvents() console.AccountFreezeEvents {
 	return &accountFreezeEvents{db: db.Methods}
 }
 
+// Domains is a getter for Domains repository.
+func (db *ConsoleDB) Domains() console.Domains {
+	return &domains{db: db.Methods}
+}
+
 // WithTx is a method for executing and retrying transaction.
 func (db *ConsoleDB) WithTx(ctx context.Context, fn func(context.Context, console.DBTx) error) error {
 	if db.DB == nil {
