@@ -8,12 +8,16 @@ import (
 	"database/sql"
 	"errors"
 
+	"cloud.google.com/go/spanner"
+
 	"storj.io/common/macaroon"
 	"storj.io/common/storj"
 	"storj.io/common/uuid"
 	"storj.io/storj/satellite/buckets"
 	"storj.io/storj/satellite/metabase"
 	"storj.io/storj/satellite/satellitedb/dbx"
+	"storj.io/storj/shared/dbutil"
+	"storj.io/storj/shared/dbutil/spannerutil"
 )
 
 type bucketsDB struct {
@@ -99,19 +103,58 @@ func (db *bucketsDB) CreateBucket(ctx context.Context, bucket buckets.Bucket) (_
 }
 
 // GetBucket returns a bucket.
-func (db *bucketsDB) GetBucket(ctx context.Context, bucketName []byte, projectID uuid.UUID) (_ buckets.Bucket, err error) {
+func (db *bucketsDB) GetBucket(ctx context.Context, bucketName []byte, projectID uuid.UUID) (bucket buckets.Bucket, err error) {
 	defer mon.Task()(&ctx)(&err)
-	dbxBucket, err := db.db.Get_Bucket(ctx,
-		dbx.BucketMetainfo_ProjectId(projectID[:]),
-		dbx.BucketMetainfo_Name(bucketName),
-	)
-	if err != nil {
-		if errors.Is(err, sql.ErrNoRows) {
-			return buckets.Bucket{}, buckets.ErrBucketNotFound.New("%s", bucketName)
+
+	switch db.db.impl {
+	case dbutil.Cockroach, dbutil.Postgres:
+		dbxBucket, err := db.db.Get_Bucket(ctx,
+			dbx.BucketMetainfo_ProjectId(projectID[:]),
+			dbx.BucketMetainfo_Name(bucketName),
+		)
+		if err != nil {
+			if errors.Is(err, sql.ErrNoRows) {
+				return buckets.Bucket{}, buckets.ErrBucketNotFound.New("%s", bucketName)
+			}
+			return buckets.Bucket{}, buckets.ErrBucket.Wrap(err)
 		}
-		return buckets.Bucket{}, buckets.ErrBucket.Wrap(err)
+		return convertDBXtoBucket(projectID, string(bucketName), dbxBucket)
+	case dbutil.Spanner:
+		bucket.ProjectID = projectID
+		bucket.Name = string(bucketName)
+		var createdBy []byte
+		err = spannerutil.UnderlyingClient(ctx, db.db, func(client *spanner.Client) (err error) {
+			row, err := client.Single().ReadRow(ctx, "bucket_metainfos", spanner.Key{projectID[:], bucketName}, []string{
+				"id", "created_by", "user_agent", "created_at", "placement", "versioning",
+				"object_lock_enabled", "default_retention_mode", "default_retention_days",
+				"default_retention_years",
+			})
+			if err != nil {
+				return err
+			}
+
+			return row.Columns(&bucket.ID, &createdBy, &bucket.UserAgent, &bucket.Created, &bucket.Placement, spannerutil.Int(&bucket.Versioning),
+				&bucket.ObjectLock.Enabled, spannerutil.Int(&bucket.ObjectLock.DefaultRetentionMode), spannerutil.Int(&bucket.ObjectLock.DefaultRetentionDays),
+				spannerutil.Int(&bucket.ObjectLock.DefaultRetentionYears))
+		})
+		if err != nil {
+			if errors.Is(err, spanner.ErrRowNotFound) {
+				return buckets.Bucket{}, buckets.ErrBucketNotFound.New("%s", bucketName)
+			}
+			return buckets.Bucket{}, buckets.ErrBucket.Wrap(err)
+		}
+		// TODO add uuid.UUID support for nullable bytes
+		if createdBy != nil {
+			bucket.CreatedBy, err = uuid.FromBytes(createdBy)
+			if err != nil {
+				return buckets.Bucket{}, buckets.ErrBucket.Wrap(err)
+			}
+		}
+
+		return bucket, nil
+	default:
+		return buckets.Bucket{}, Error.New("unsupported implementation")
 	}
-	return convertDBXtoBucket(projectID, string(bucketName), dbxBucket)
 }
 
 // GetBucketPlacement returns with the placement constraint identifier.

@@ -23,6 +23,14 @@ type IntValueDecoder[T inty] struct {
 // DecodeSpanner decodes a value from a Spanner-stored type to the appropriate int type.
 // It implements spanner.Decoder.
 func (s IntValueDecoder[T]) DecodeSpanner(input any) error {
+	if sVal, ok := input.(*string); ok {
+		if sVal == nil {
+			*s.pointer = 0
+			return nil
+		}
+		input = *sVal
+	}
+
 	if sVal, ok := input.(string); ok {
 		iVal, err := strconv.ParseInt(sVal, 10, 64)
 		if err != nil {
