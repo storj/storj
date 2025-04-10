@@ -26,8 +26,5 @@ func mmap(fh *os.File, size int) ([]byte, func() error, error) {
 		return nil, nil, Error.Wrap(err)
 	}
 
-	// attempt to tell the kernel this is going to be random access.
-	_ = syscall.Madvise(data, syscall.MADV_RANDOM)
-
 	return data, func() error { return syscall.Munmap(data) }, nil
 }
