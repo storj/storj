@@ -180,7 +180,7 @@ const amountRules = computed<ValidationRule<string>[]>(() => {
         v => (parseInt(v) > 0) || 'Value must be a positive number',
         v => {
             if (parseInt(v) > maxAmount.value) return `Amount must be less than or equal to ${maxAmount.value}`;
-            if (parseInt(v) < minAmount.value) return `Amount must be less than or equal to ${minAmount.value}`;
+            if (parseInt(v) < minAmount.value) return `Amount must be more than or equal to ${minAmount.value}`;
             return true;
         },
     ];
