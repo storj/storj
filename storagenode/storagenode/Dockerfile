@@ -1,6 +1,3 @@
-ARG DOCKER_PLATFORM
-ARG DOCKER_ARCH
-ARG GO_DOCKER_PLATFORM
 ARG GO_VERSION=1.24.2
 
 FROM --platform=${DOCKER_PLATFORM:-linux/amd64} ${DOCKER_ARCH:-amd64}/debian:bookworm-slim AS base
@@ -10,20 +7,21 @@ FROM base AS ca-cert
 RUN apt-get install -y --no-install-recommends ca-certificates
 RUN update-ca-certificates
 
-FROM --platform=${GO_DOCKER_PLATFORM:-linux/amd64} golang:${GO_VERSION}-bookworm AS builder
-ARG CGO_ENABLED=1
-ARG BUILD_VERSION
-ARG BUILD_DATE
-ARG BUILD_COMMIT
+FROM golang:${GO_VERSION}-bookworm AS builder
 COPY go.mod go.sum ./
 RUN go mod download
+COPY --from=webui /var/www/html ./web/storagenode/dist
 COPY ./storagenode ./storagenode
-COPY ./web/storagenode ./web/storagenode
+COPY ./web/storagenode/assets.go ./web/storagenode/assets.go
 COPY ./shared ./shared
 COPY ./private ./private
 COPY ./certificate ./certificate
 COPY ./cmd ./cmd
 ENV GOCACHE=/root/.cache/go-build
+ARG CGO_ENABLED=1
+ARG BUILD_VERSION
+ARG BUILD_COMMIT
+ARG BUILD_DATE
 RUN --mount=type=cache,target="/root/.cache/go-build" \
     go install -ldflags "-X storj.io/common/version.buildRelease=true \
       -X storj.io/common/version.buildVersion=$BUILD_VERSION \

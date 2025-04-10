@@ -1,5 +1,4 @@
 #!/usr/bin/env bash
-
 # We need to identify the version based on the used directories.
 # Any change in the version will trigger new build for docker layer, therefore we don't need new version
 # if nothing has been changed.

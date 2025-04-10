@@ -21,11 +21,33 @@ target "storagenode-modular" {
 
   dockerfile = "./storagenode/storagenode/Dockerfile"
   context    = "."
+  contexts = {
+    webui = "target:storagenode-ui"
+  }
+
   target = "build"
   cache-from = [
     {
       type = "registry",
       ref  = "ghcr.io/storj/storagenode-modular-cache:main"
+    }
+  ]
+}
+
+target "storagenode-ui" {
+  args = {
+    BUILD_COMMIT  = "${BUILD_COMMIT}"
+    BUILD_VERSION = "${BUILD_VERSION}"
+    BUILD_DATE    = "${BUILD_DATE}"
+  }
+
+  dockerfile = "./web/storagenode/Dockerfile"
+  context    = "."
+  target = "ui"
+  cache-from = [
+    {
+      type = "registry",
+      ref  = "ghcr.io/storj/storagenode-ui-cache:main"
     }
   ]
 }

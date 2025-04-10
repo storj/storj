@@ -34,3 +34,18 @@ target "satellite-modular" {
   ]
 }
 
+target "storagenode-ui" {
+  cache-to = [
+    {
+      type = "registry",
+      mode = "min",
+      ref  = "ghcr.io/storj/satellite-ui-cache:main"
+    }
+  ]
+  output = [
+    {
+      type = "image"
+      name = "ghcr.io/storj/storagenode-ui:${BUILD_VERSION}"
+    }
+  ]
+}

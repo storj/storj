@@ -7,3 +7,12 @@ target "storagenode-modular" {
     }
   ]
 }
+
+target "storagenode-ui" {
+  output = [
+    {
+      type = "image"
+      name = "ghcr.io/storj/storagenode-ui:${BUILD_VERSION}-dev"
+    }
+  ]
+}
