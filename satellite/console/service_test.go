@@ -835,6 +835,32 @@ func TestService(t *testing.T) {
 				require.True(t, console.ErrUnauthorized.Has(err))
 			})
 
+			t.Run("CreateDomain", func(t *testing.T) {
+				domain := console.Domain{
+					ProjectPublicID: up2Proj.PublicID,
+					CreatedBy:       up2Proj.OwnerID,
+					Subdomain:       "test.example.com",
+					Prefix:          "test",
+					AccessID:        "test",
+				}
+
+				createdDomain, err := service.CreateDomain(userCtx2, domain)
+				require.NoError(t, err)
+				require.NotNil(t, createdDomain)
+				require.Equal(t, up2Proj.OwnerID, createdDomain.CreatedBy)
+
+				// Creating a domain with the same subdomain should fail.
+				createdDomain, err = service.CreateDomain(userCtx2, domain)
+				require.True(t, console.ErrSubdomainAlreadyExists.Has(err))
+				require.Nil(t, createdDomain)
+
+				domain.ProjectPublicID = disabledProject.PublicID
+				domain.CreatedBy = disabledProject.OwnerID
+
+				_, err = service.CreateDomain(userCtx1, domain)
+				require.True(t, console.ErrUnauthorized.Has(err))
+			})
+
 			t.Run("DeleteAPIKeys", func(t *testing.T) {
 				owner, err := sat.AddUser(ctx, console.CreateUser{
 					FullName: "Owner Name",

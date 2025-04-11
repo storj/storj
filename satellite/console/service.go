@@ -4398,6 +4398,27 @@ func (s *Service) GetProjectMembersAndInvitations(ctx context.Context, projectID
 	return
 }
 
+// CreateDomain creates new domain.
+func (s *Service) CreateDomain(ctx context.Context, domain Domain) (created *Domain, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	user, err := s.getUserAndAuditLog(ctx, "create domain", zap.String("projectPublicID", domain.ProjectPublicID.String()))
+	if err != nil {
+		return nil, ErrUnauthorized.Wrap(err)
+	}
+
+	isMember, err := s.isProjectMember(ctx, user.ID, domain.ProjectPublicID)
+	if err != nil {
+		return nil, ErrUnauthorized.Wrap(err)
+	}
+
+	domain.ProjectID = isMember.project.ID
+	domain.CreatedBy = user.ID
+
+	created, err = s.store.Domains().Create(ctx, domain)
+	return created, Error.Wrap(err)
+}
+
 // CreateAPIKey creates new api key.
 // projectID here may be project.PublicID or project.ID.
 func (s *Service) CreateAPIKey(ctx context.Context, projectID uuid.UUID, name string, version macaroon.APIKeyVersion) (_ *APIKeyInfo, _ *macaroon.APIKey, err error) {

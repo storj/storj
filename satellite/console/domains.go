@@ -7,8 +7,13 @@ import (
 	"context"
 	"time"
 
+	"github.com/zeebo/errs"
+
 	"storj.io/common/uuid"
 )
+
+// ErrSubdomainAlreadyExists is used to indicate that subdomain already exists.
+var ErrSubdomainAlreadyExists = errs.Class("subdomain already exists")
 
 // Domains is an interface for working with domains store.
 //
