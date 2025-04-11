@@ -127,6 +127,10 @@ func OpenHashTbl(ctx context.Context, fh *os.File) (_ *HashTbl, err error) {
 	// sanity check that our logSlots is correct.
 	if int64(hashtblSize(logSlots)) != size {
 		return nil, Error.New("logSlots calculation mismatch: size=%d logSlots=%d", size, logSlots)
+	} else if logSlots > tbl_maxLogSlots {
+		return nil, Error.New("logSlots too large: logSlots=%d", logSlots)
+	} else if logSlots < tbl_minLogSlots {
+		return nil, Error.New("logSlots too small: logSlots=%d", logSlots)
 	}
 
 	// read the header information from the first page.

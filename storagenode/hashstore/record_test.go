@@ -35,18 +35,33 @@ func TestRecord_MaxExpiration(t *testing.T) {
 }
 
 func TestPage_BasicOperation(t *testing.T) {
-	var p page
+	run := func(p interface {
+		writeRecord(uint64, *Record) bool
+		readRecord(uint64, *Record) bool
+	}, recordsPerPage uint64) {
+		var recs []Record
 
-	var recs []Record
-	for i := uint64(0); i < recordsPerPage; i++ {
-		rec := newRecord(newKey())
-		recs = append(recs, rec)
-		p.writeRecord(i, &rec)
+		// can write all of the in bounds records
+		for i := uint64(0); i < recordsPerPage; i++ {
+			rec := newRecord(newKey())
+			recs = append(recs, rec)
+			assert.True(t, p.writeRecord(i, &rec))
+		}
+
+		// out of bounds write returns false
+		assert.False(t, p.writeRecord(recordsPerPage, nil))
+
+		// can read all of the in bounds records
+		for i := uint64(0); i < recordsPerPage; i++ {
+			var tmp Record
+			assert.True(t, p.readRecord(i, &tmp))
+			assert.Equal(t, tmp, recs[i])
+		}
+
+		// out of bounds read returns false
+		assert.False(t, p.readRecord(recordsPerPage, nil))
 	}
 
-	for i := uint64(0); i < recordsPerPage; i++ {
-		var tmp Record
-		p.readRecord(i, &tmp)
-		assert.Equal(t, tmp, recs[i])
-	}
+	run(new(page), recordsPerPage)
+	run(new(bigPage), recordsPerBigPage)
 }
