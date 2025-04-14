@@ -470,6 +470,8 @@ func (endpoint *Endpoint) ConvertKnownErrWithMessage(err error, message string) 
 		return rpcstatus.Error(rpcstatus.InvalidArgument, err.Error())
 	case metabase.ErrFailedPrecondition.Has(err):
 		return rpcstatus.Error(rpcstatus.FailedPrecondition, err.Error())
+	case metabase.ErrUnimplemented.Has(err):
+		return rpcstatus.Error(rpcstatus.Unimplemented, err.Error())
 	case metabase.ErrObjectAlreadyExists.Has(err):
 		return rpcstatus.Error(rpcstatus.AlreadyExists, err.Error())
 	case metabase.ErrPendingObjectMissing.Has(err):

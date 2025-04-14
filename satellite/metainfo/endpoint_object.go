@@ -375,6 +375,8 @@ func (endpoint *Endpoint) CommitObject(ctx context.Context, req *pb.ObjectCommit
 		Versioned: streamID.Versioned,
 
 		MaxCommitDelay: maxCommitDelay,
+
+		IfNoneMatch: req.IfNoneMatch,
 	}
 	// uplink can send empty metadata with not empty key/nonce
 	// we need to fix it on uplink side but that part will be
@@ -663,6 +665,8 @@ func (endpoint *Endpoint) CommitInlineObject(ctx context.Context, beginObjectReq
 		DisallowDelete: !allowDelete,
 
 		Versioned: bucket.Versioning == buckets.VersioningEnabled,
+
+		IfNoneMatch: commitObjectReq.IfNoneMatch,
 	})
 	if err != nil {
 		return nil, nil, nil, endpoint.ConvertMetabaseErr(err)
@@ -2940,6 +2944,8 @@ func (endpoint *Endpoint) FinishCopyObject(ctx context.Context, req *pb.ObjectFi
 		VerifyLimits: func(encryptedObjectSize int64, nSegments int64) error {
 			return endpoint.addStorageUsageUpToLimit(ctx, keyInfo, encryptedObjectSize, nSegments)
 		},
+
+		IfNoneMatch: req.IfNoneMatch,
 	})
 	if err != nil {
 		return nil, endpoint.ConvertMetabaseErr(err)

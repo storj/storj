@@ -32,6 +32,8 @@ var (
 	ErrPermissionDenied = errs.Class("permission denied")
 	// ErrMethodNotAllowed general error when operation is not allowed.
 	ErrMethodNotAllowed = errs.Class("method not allowed")
+	// ErrUnimplemented is used to indicate an option was not implemented.
+	ErrUnimplemented = errs.Class("not implemented")
 )
 
 // Common constants for segment keys.
@@ -487,6 +489,34 @@ const DefaultVersion = Version(1)
 // It uses `MaxInt64 - 64` to avoid issues with `-MaxVersion`.
 const MaxVersion = Version(math.MaxInt64 - 64)
 
+// NullableVersion represents a nullable Version type.
+// TODO: replace with sql.Null[Version] when we can use Go 1.22+
+type NullableVersion struct {
+	Version Version
+	Valid   bool
+}
+
+// Scan implements sql.Scanner interface.
+func (v *NullableVersion) Scan(val any) error {
+	if val == nil {
+		v.Version, v.Valid = 0, false
+		return nil
+	}
+	v.Valid = true
+	return v.Version.Scan(val)
+}
+
+// Scan implements sql.Scanner interface.
+func (v *Version) Scan(val any) error {
+	switch value := val.(type) {
+	case int64:
+		*v = Version(value)
+		return nil
+	default:
+		return Error.New("unable to scan %T into Version", value)
+	}
+}
+
 // Retention represents an object version's Object Lock retention configuration.
 type Retention struct {
 	Mode        storj.RetentionMode
@@ -642,6 +672,7 @@ const (
 	statusDeleteMarkerUnversioned = "6"
 	statusesDeleteMarker          = "(" + statusDeleteMarkerUnversioned + "," + statusDeleteMarkerVersioned + ")"
 	statusesUnversioned           = "(" + statusCommittedUnversioned + "," + statusDeleteMarkerUnversioned + ")"
+	statusesVersioned             = "(" + statusCommittedVersioned + "," + statusDeleteMarkerVersioned + ")"
 
 	retentionModeNone                        = "0"
 	retentionModeCompliance                  = "1"
@@ -692,6 +723,37 @@ func (status ObjectStatus) String() string {
 		return "Prefix"
 	default:
 		return fmt.Sprintf("ObjectStatus(%d)", int(status))
+	}
+}
+
+// NullableObjectStatus represents a nullable ObjectStatus type.
+// TODO: replace with sql.Null[ObjectStatus] when we can use Go 1.22+
+type NullableObjectStatus struct {
+	ObjectStatus ObjectStatus
+	Valid        bool
+}
+
+// Scan implements sql.Scanner interface.
+func (v *NullableObjectStatus) Scan(val any) error {
+	if val == nil {
+		v.ObjectStatus, v.Valid = 0, false
+		return nil
+	}
+	v.Valid = true
+	return v.ObjectStatus.Scan(val)
+}
+
+// Scan implements sql.Scanner interface.
+func (status *ObjectStatus) Scan(val any) error {
+	switch value := val.(type) {
+	case int64:
+		if int64(ObjectStatus(value)) != value {
+			return Error.New("value out of bounds for ObjectStatus: %d", value)
+		}
+		*status = ObjectStatus(value)
+		return nil
+	default:
+		return Error.New("unable to scan %T into ObjectStatus", value)
 	}
 }
 
@@ -849,4 +911,34 @@ func (p Pieces) FindByNum(pieceNum int) (_ Piece, found bool) {
 		}
 	}
 	return Piece{}, false
+}
+
+// IfNoneMatch is an option for conditional writes.
+//
+// Currently it only supports a single value of "*" (all), which means the
+// commit should only succeed if the object doesn't exist, or is a delete marker.
+//
+// In future we may support other values like ETag.
+type IfNoneMatch []string
+
+// Verify verifies IfNoneMatch is correct.
+//
+// S3 returns unimplemented errors if requesting any value other than "*" or
+// empty for uploads, so we do the same here.
+func (i IfNoneMatch) Verify() error {
+	if len(i) == 0 {
+		return nil
+	}
+	if len(i) > 1 || i[0] != "*" {
+		return ErrUnimplemented.New("IfNoneMatch only supports a single value of '*'")
+	}
+	return nil
+}
+
+// All returns whether IfNoneMatch value is "*".
+func (i IfNoneMatch) All() bool {
+	if len(i) != 1 {
+		return false
+	}
+	return i[0] == "*"
 }

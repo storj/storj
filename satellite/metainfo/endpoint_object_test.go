@@ -6392,6 +6392,186 @@ func TestEndpoint_MoveObjectWithRetention(t *testing.T) {
 	})
 }
 
+func TestConditionalWrites(t *testing.T) {
+	testplanet.Run(t, testplanet.Config{
+		SatelliteCount: 1,
+		UplinkCount:    1,
+	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+		satellite := planet.Satellites[0]
+		project := planet.Uplinks[0].Projects[0]
+		apiKey := planet.Uplinks[0].APIKey[satellite.ID()]
+		endpoint := satellite.Metainfo.Endpoint
+
+		unversionedBucket := testrand.BucketName()
+		_, err := satellite.DB.Buckets().CreateBucket(ctx, buckets.Bucket{
+			Name:      unversionedBucket,
+			ProjectID: project.ID,
+		})
+		require.NoError(t, err)
+
+		versionedBucket := testrand.BucketName()
+		_, err = satellite.DB.Buckets().CreateBucket(ctx, buckets.Bucket{
+			Name:       versionedBucket,
+			ProjectID:  project.ID,
+			Versioning: buckets.VersioningEnabled,
+		})
+		require.NoError(t, err)
+
+		beginObjReq := func(bucket, key string) *pb.ObjectBeginRequest {
+			return &pb.ObjectBeginRequest{
+				Header: &pb.RequestHeader{
+					ApiKey: apiKey.SerializeRaw(),
+				},
+				Bucket:             []byte(bucket),
+				EncryptedObjectKey: []byte(key),
+				EncryptionParameters: &pb.EncryptionParameters{
+					CipherSuite: pb.CipherSuite_ENC_NULL,
+					BlockSize:   256,
+				},
+			}
+		}
+
+		createObject := func(bucket, key string, ifNoneMatch []string) (*pb.CommitObjectResponse, error) {
+			beginObjReq := beginObjReq(bucket, key)
+
+			beginResp, err := endpoint.BeginObject(ctx, beginObjReq)
+			require.NoError(t, err)
+
+			return endpoint.CommitObject(ctx, &pb.CommitObjectRequest{
+				Header: &pb.RequestHeader{
+					ApiKey: apiKey.SerializeRaw(),
+				},
+				StreamId:                      beginResp.StreamId,
+				EncryptedMetadataNonce:        testrand.Nonce(),
+				EncryptedMetadataEncryptedKey: randomEncryptedKey,
+				IfNoneMatch:                   ifNoneMatch,
+			})
+		}
+
+		t.Run("CommitObject not implemented", func(t *testing.T) {
+			_, err := createObject(unversionedBucket, testrand.Path(), []string{"somethingelse"})
+			rpctest.RequireCode(t, err, rpcstatus.Unimplemented)
+		})
+
+		t.Run("CommitInlineObject not implemented", func(t *testing.T) {
+			beginObjReq := beginObjReq(unversionedBucket, testrand.Path())
+
+			makeInlineSegment := &pb.MakeInlineSegmentRequest{
+				Header:              beginObjReq.Header,
+				Position:            &pb.SegmentPosition{},
+				EncryptedKey:        beginObjReq.EncryptedObjectKey,
+				EncryptedKeyNonce:   testrand.Nonce(),
+				PlainSize:           512,
+				EncryptedInlineData: testrand.Bytes(32),
+			}
+			commitObject := &pb.CommitObjectRequest{
+				Header:      beginObjReq.Header,
+				IfNoneMatch: []string{"somethingelse"},
+			}
+
+			_, _, _, err = endpoint.CommitInlineObject(ctx, beginObjReq, makeInlineSegment, commitObject)
+			rpctest.RequireCode(t, err, rpcstatus.Unimplemented)
+		})
+
+		t.Run("CommitObject", func(t *testing.T) {
+			key := testrand.Path()
+
+			_, err := createObject(unversionedBucket, key, []string{"*"})
+			require.NoError(t, err)
+
+			_, err = createObject(unversionedBucket, key, []string{"*"})
+			rpctest.RequireCode(t, err, rpcstatus.FailedPrecondition)
+		})
+
+		t.Run("CommitObject versioned", func(t *testing.T) {
+			key := testrand.Path()
+
+			_, err := createObject(versionedBucket, key, []string{"*"})
+			require.NoError(t, err)
+
+			_, err = createObject(versionedBucket, key, []string{"*"})
+			rpctest.RequireCode(t, err, rpcstatus.FailedPrecondition)
+		})
+
+		t.Run("CommitObject delete marker", func(t *testing.T) {
+			key := testrand.Path()
+
+			_, err := createObject(versionedBucket, key, []string{"*"})
+			require.NoError(t, err)
+
+			_, err = endpoint.DeleteCommittedObject(ctx, metainfo.DeleteCommittedObject{
+				ObjectLocation: metabase.ObjectLocation{
+					ObjectKey:  metabase.ObjectKey(key),
+					ProjectID:  project.ID,
+					BucketName: metabase.BucketName(versionedBucket),
+				},
+				Version: []byte{},
+			})
+			require.NoError(t, err)
+
+			_, err = createObject(versionedBucket, key, []string{"*"})
+			require.NoError(t, err)
+		})
+
+		t.Run("CommitInlineObject", func(t *testing.T) {
+			key := testrand.Path()
+
+			_, err = createObject(unversionedBucket, key, []string{"*"})
+
+			beginObjReq := beginObjReq(unversionedBucket, key)
+
+			makeInlineSegment := &pb.MakeInlineSegmentRequest{
+				Header:              beginObjReq.Header,
+				Position:            &pb.SegmentPosition{},
+				EncryptedKey:        beginObjReq.EncryptedObjectKey,
+				EncryptedKeyNonce:   testrand.Nonce(),
+				PlainSize:           512,
+				EncryptedInlineData: testrand.Bytes(32),
+			}
+			commitObject := &pb.CommitObjectRequest{
+				Header:      beginObjReq.Header,
+				IfNoneMatch: []string{"*"},
+			}
+
+			_, _, _, err = endpoint.CommitInlineObject(ctx, beginObjReq, makeInlineSegment, commitObject)
+			rpctest.RequireCode(t, err, rpcstatus.FailedPrecondition)
+		})
+
+		t.Run("CopyObject", func(t *testing.T) {
+			srcKey, dstKey := testrand.Path(), testrand.Path()
+
+			_, err := createObject(unversionedBucket, srcKey, nil)
+			require.NoError(t, err)
+
+			_, err = createObject(unversionedBucket, dstKey, nil)
+			require.NoError(t, err)
+
+			beginResp, err := endpoint.BeginCopyObject(ctx, &pb.ObjectBeginCopyRequest{
+				Header: &pb.RequestHeader{
+					ApiKey: apiKey.SerializeRaw(),
+				},
+				Bucket:                []byte(unversionedBucket),
+				EncryptedObjectKey:    []byte(srcKey),
+				NewBucket:             []byte(unversionedBucket),
+				NewEncryptedObjectKey: []byte(dstKey),
+			})
+			require.NoError(t, err)
+
+			_, err = endpoint.FinishCopyObject(ctx, &pb.FinishCopyObjectRequest{
+				Header: &pb.RequestHeader{
+					ApiKey: apiKey.SerializeRaw(),
+				},
+				StreamId:              beginResp.StreamId,
+				NewBucket:             []byte(unversionedBucket),
+				NewEncryptedObjectKey: []byte(dstKey),
+				NewSegmentKeys:        beginResp.SegmentKeys,
+				IfNoneMatch:           []string{"*"},
+			})
+			rpctest.RequireCode(t, err, rpcstatus.FailedPrecondition)
+		})
+	})
+}
+
 func randRetention(mode storj.RetentionMode) metabase.Retention {
 	randDur := time.Duration(rand.Int63n(1000 * int64(time.Hour)))
 	return metabase.Retention{

@@ -8,6 +8,11 @@ import (
 	"testing"
 	"time"
 
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
+	"github.com/zeebo/errs"
+	"golang.org/x/sync/errgroup"
+
 	"storj.io/common/memory"
 	"storj.io/common/storj"
 	"storj.io/common/testcontext"
@@ -5001,6 +5006,275 @@ func TestOverwriteLockedObject(t *testing.T) {
 					Segments: []metabase.RawSegment{getExpectedInlineSegment(inlineObj, commitInlineSeg)},
 				}.Check(ctx, t, db)
 			})
+		})
+	})
+}
+
+func TestConditionalWrites(t *testing.T) {
+	metabasetest.Run(t, func(ctx *testcontext.Context, t *testing.T, db *metabase.DB) {
+		commitObject := func(objStream metabase.ObjectStream, versioned bool, ifNoneMatch []string, expectedErrClass *errs.Class, expectedErrText string) metabase.Object {
+			return metabasetest.CommitObject{
+				Opts: metabase.CommitObject{
+					ObjectStream: objStream,
+					Versioned:    versioned,
+					IfNoneMatch:  ifNoneMatch,
+				},
+				ErrClass: expectedErrClass,
+				ErrText:  expectedErrText,
+			}.Check(ctx, t, db)
+		}
+
+		createObject := func(objStream metabase.ObjectStream, versioned bool, ifNoneMatch []string, expectedErrClass *errs.Class, expectedErrText string) metabase.Object {
+			metabasetest.CreatePendingObject(ctx, t, db, objStream, 0)
+			return commitObject(objStream, versioned, ifNoneMatch, expectedErrClass, expectedErrText)
+		}
+
+		commitInlineObject := func(objStream metabase.ObjectStream, ifNoneMatch []string, expectedErrClass *errs.Class, expectedErrText string) {
+			metabasetest.CommitInlineObject{
+				Opts: metabase.CommitInlineObject{
+					ObjectStream: objStream,
+					Encryption:   metabasetest.DefaultEncryption,
+					CommitInlineSegment: metabase.CommitInlineSegment{
+						EncryptedKey:      testrand.Bytes(32),
+						EncryptedKeyNonce: testrand.Bytes(32),
+						PlainSize:         512,
+						InlineData:        testrand.Bytes(100),
+					},
+					IfNoneMatch: ifNoneMatch,
+				},
+				ErrClass: expectedErrClass,
+				ErrText:  expectedErrText,
+			}.Check(ctx, t, db)
+		}
+
+		t.Run("CommitObject not implemented", func(t *testing.T) {
+			defer metabasetest.DeleteAll{}.Check(ctx, t, db)
+
+			objStream := metabasetest.RandObjectStream()
+			createObject(objStream, false, []string{"somethingelse"}, &metabase.ErrUnimplemented, "IfNoneMatch only supports a single value of '*'")
+		})
+
+		t.Run("CommitInlineObject not implemented", func(t *testing.T) {
+			defer metabasetest.DeleteAll{}.Check(ctx, t, db)
+
+			objStream := metabasetest.RandObjectStream()
+
+			metabasetest.CreatePendingObject(ctx, t, db, objStream, 0)
+			commitInlineObject(objStream, []string{"somethingelse"}, &metabase.ErrUnimplemented, "IfNoneMatch only supports a single value of '*'")
+		})
+
+		t.Run("CommitObject", func(t *testing.T) {
+			defer metabasetest.DeleteAll{}.Check(ctx, t, db)
+
+			objStream := metabasetest.RandObjectStream()
+			object := createObject(objStream, false, []string{"*"}, nil, "")
+			commitObject(objStream, false, []string{"*"}, &metabase.ErrFailedPrecondition, "object already exists")
+
+			metabasetest.Verify{
+				Objects: []metabase.RawObject{
+					metabase.RawObject(object),
+				},
+			}.Check(ctx, t, db)
+		})
+
+		t.Run("CommitObject versioned", func(t *testing.T) {
+			defer metabasetest.DeleteAll{}.Check(ctx, t, db)
+
+			objStream := metabasetest.RandObjectStream()
+			object := createObject(objStream, true, []string{"*"}, nil, "")
+
+			objStream.Version = object.Version + 1
+			pendingObject := metabasetest.CreatePendingObject(ctx, t, db, objStream, 0)
+			commitObject(objStream, true, []string{"*"}, &metabase.ErrFailedPrecondition, "object already exists")
+
+			metabasetest.Verify{
+				Objects: []metabase.RawObject{
+					metabase.RawObject(pendingObject),
+					metabase.RawObject(object),
+				},
+			}.Check(ctx, t, db)
+		})
+
+		t.Run("DisallowDelete", func(t *testing.T) {
+			defer metabasetest.DeleteAll{}.Check(ctx, t, db)
+
+			objStream := metabasetest.RandObjectStream()
+			object := createObject(objStream, false, []string{"*"}, nil, "")
+
+			metabasetest.CommitObject{
+				Opts: metabase.CommitObject{
+					ObjectStream:   objStream,
+					DisallowDelete: true,
+					IfNoneMatch:    []string{"*"},
+				},
+				ErrClass: &metabase.ErrFailedPrecondition,
+				ErrText:  "object already exists",
+			}.Check(ctx, t, db)
+
+			metabasetest.Verify{
+				Objects: []metabase.RawObject{
+					metabase.RawObject(object),
+				},
+			}.Check(ctx, t, db)
+		})
+
+		t.Run("CommitObject versioned delete marker", func(t *testing.T) {
+			defer metabasetest.DeleteAll{}.Check(ctx, t, db)
+
+			objStream := metabasetest.RandObjectStream()
+			object := createObject(objStream, true, []string{"*"}, nil, "")
+
+			now := time.Now()
+
+			marker := objStream
+			marker.Version = object.Version + 1
+
+			metabasetest.DeleteObjectLastCommitted{
+				Opts: metabase.DeleteObjectLastCommitted{
+					ObjectLocation: objStream.Location(),
+					Versioned:      true,
+				},
+				Result: metabase.DeleteObjectResult{
+					Markers: []metabase.Object{
+						{
+							ObjectStream: marker,
+							CreatedAt:    now,
+							Status:       metabase.DeleteMarkerVersioned,
+						},
+					},
+				},
+				OutputMarkerStreamID: &marker.StreamID,
+			}.Check(ctx, t, db)
+
+			newObjStream := objStream
+			newObjStream.Version = marker.Version + 1
+			object2 := createObject(newObjStream, true, []string{"*"}, nil, "")
+
+			metabasetest.Verify{
+				Objects: []metabase.RawObject{
+					{
+						ObjectStream: newObjStream,
+						CreatedAt:    object2.CreatedAt,
+						Status:       metabase.CommittedVersioned,
+						Encryption:   object2.Encryption,
+					},
+					{
+						ObjectStream: marker,
+						CreatedAt:    now,
+						Status:       metabase.DeleteMarkerVersioned,
+					},
+					{
+						ObjectStream: objStream,
+						CreatedAt:    object.CreatedAt,
+						Status:       metabase.CommittedVersioned,
+						Encryption:   object.Encryption,
+					},
+				},
+			}.Check(ctx, t, db)
+		})
+
+		t.Run("CommitInlineObject", func(t *testing.T) {
+			defer metabasetest.DeleteAll{}.Check(ctx, t, db)
+
+			objStream := metabasetest.RandObjectStream()
+			object := createObject(objStream, false, []string{"*"}, nil, "")
+			commitInlineObject(objStream, []string{"*"}, &metabase.ErrFailedPrecondition, "object already exists")
+
+			metabasetest.Verify{
+				Objects: []metabase.RawObject{
+					metabase.RawObject(object),
+				},
+			}.Check(ctx, t, db)
+		})
+
+		t.Run("CopyObject", func(t *testing.T) {
+			defer metabasetest.DeleteAll{}.Check(ctx, t, db)
+
+			projectID := testrand.UUID()
+
+			srcObjStream := metabasetest.RandObjectStream()
+			srcObjStream.ProjectID = projectID
+			srcObject := createObject(srcObjStream, false, nil, nil, "")
+
+			dstObjStream := metabasetest.RandObjectStream()
+			dstObjStream.ProjectID = projectID
+			dstObject := createObject(dstObjStream, false, nil, nil, "")
+
+			metabasetest.FinishCopyObject{
+				Opts: metabase.FinishCopyObject{
+					ObjectStream:                 srcObject.ObjectStream,
+					NewStreamID:                  dstObjStream.StreamID,
+					NewBucket:                    dstObjStream.BucketName,
+					NewEncryptedObjectKey:        dstObjStream.ObjectKey,
+					NewEncryptedMetadataKeyNonce: testrand.Nonce(),
+					NewEncryptedMetadataKey:      testrand.Bytes(32),
+					IfNoneMatch:                  []string{"*"},
+				},
+				ErrClass: &metabase.ErrFailedPrecondition,
+				ErrText:  "object already exists",
+			}.Check(ctx, t, db)
+
+			metabasetest.Verify{
+				Objects: []metabase.RawObject{
+					metabase.RawObject(srcObject),
+					metabase.RawObject(dstObject),
+				},
+			}.Check(ctx, t, db)
+		})
+
+		t.Run("Concurrent commits", func(t *testing.T) {
+			if db.Implementation() != dbutil.Spanner {
+				t.Skip("test requires Spanner")
+			}
+
+			requests := 10
+
+			objStreams := make([]metabase.ObjectStream, requests)
+			errors := make([]error, requests)
+
+			objStream := metabasetest.RandObjectStream()
+			objStream.Version = metabase.NextVersion
+
+			var group errgroup.Group
+
+			for i := 0; i < requests; i++ {
+				i := i
+
+				objStream.StreamID = testrand.UUID()
+				objStreams[i] = objStream
+
+				group.Go(func() error {
+					pendingObject, err := db.BeginObjectNextVersion(ctx, metabase.BeginObjectNextVersion{
+						ObjectStream: objStreams[i],
+						Encryption:   metabasetest.DefaultEncryption,
+					})
+					if err != nil {
+						return err
+					}
+					_, err = db.CommitObject(ctx, metabase.CommitObject{
+						ObjectStream: pendingObject.ObjectStream,
+						IfNoneMatch:  []string{"*"},
+					})
+					errors[i] = err
+					return nil
+				})
+			}
+
+			require.NoError(t, group.Wait())
+
+			var success, failed int
+
+			for _, err := range errors {
+				switch {
+				case err == nil:
+					success++
+				case metabase.ErrFailedPrecondition.Has(err):
+					failed++
+				}
+			}
+
+			assert.Equal(t, 1, success)
+			assert.Equal(t, requests-1, failed)
 		})
 	})
 }

@@ -22,7 +22,8 @@ import (
 
 type precommitTransactionAdapter interface {
 	precommitQueryHighest(ctx context.Context, loc ObjectLocation) (highest Version, err error)
-	precommitQueryHighestAndUnversioned(ctx context.Context, loc ObjectLocation) (highest Version, unversionedExists bool, err error)
+	precommitQueryHighestAndStatusUnversioned(ctx context.Context, loc ObjectLocation) (highest Version, committedStatus ObjectStatus, err error)
+	precommitQueryHighestAndStatusVersioned(ctx context.Context, loc ObjectLocation) (highest Version, committedStatus ObjectStatus, err error)
 	precommitDeleteUnversioned(ctx context.Context, loc ObjectLocation) (result PrecommitConstraintResult, err error)
 }
 
@@ -33,6 +34,7 @@ type PrecommitConstraint struct {
 
 	Versioned      bool
 	DisallowDelete bool
+	CheckExistence bool
 }
 
 // PrecommitConstraintResult returns the result of enforcing precommit constraint.
@@ -63,24 +65,38 @@ func (db *DB) PrecommitConstraint(ctx context.Context, opts PrecommitConstraint,
 	}
 
 	if opts.Versioned {
-		highest, err := adapter.precommitQueryHighest(ctx, opts.Location)
-		if err != nil {
-			return PrecommitConstraintResult{}, Error.Wrap(err)
+		var version Version
+		var status ObjectStatus
+		if opts.CheckExistence {
+			version, status, err = adapter.precommitQueryHighestAndStatusVersioned(ctx, opts.Location)
+		} else {
+			version, err = adapter.precommitQueryHighest(ctx, opts.Location)
 		}
-		result.HighestVersion = highest
+		if err != nil {
+			return result, Error.Wrap(err)
+		}
+		if opts.CheckExistence && status.IsCommitted() {
+			return result, ErrFailedPrecondition.New("object already exists")
+		}
+		result.HighestVersion = version
 		return result, nil
 	}
 
-	if opts.DisallowDelete {
-		highest, unversionedExists, err := adapter.precommitQueryHighestAndUnversioned(ctx, opts.Location)
+	if opts.DisallowDelete || opts.CheckExistence {
+		version, status, err := adapter.precommitQueryHighestAndStatusUnversioned(ctx, opts.Location)
 		if err != nil {
-			return PrecommitConstraintResult{}, Error.Wrap(err)
+			return result, Error.Wrap(err)
 		}
-		result.HighestVersion = highest
-		if unversionedExists {
-			return PrecommitConstraintResult{}, ErrPermissionDenied.New("no permissions to delete existing object")
+		if opts.CheckExistence && status.IsCommitted() {
+			return result, ErrFailedPrecondition.New("object already exists")
 		}
-		return result, nil
+		if opts.DisallowDelete && status.IsUnversioned() {
+			return result, ErrPermissionDenied.New("no permissions to delete existing object")
+		}
+		if opts.DisallowDelete {
+			result.HighestVersion = version
+			return result, nil
+		}
 	}
 
 	return adapter.precommitDeleteUnversioned(ctx, opts.Location)
@@ -135,59 +151,70 @@ func (stx *spannerTransactionAdapter) precommitQueryHighest(ctx context.Context,
 	return highest, nil
 }
 
-// precommitQueryHighestAndUnversioned queries the highest version for a given object and whether an unversioned object or delete marker exists.
-func (ptx *postgresTransactionAdapter) precommitQueryHighestAndUnversioned(ctx context.Context, loc ObjectLocation) (highest Version, unversionedExists bool, err error) {
+// precommitQueryHighestAndStatusUnversioned queries the highest version for a given object and the current unversioned committed status.
+func (ptx *postgresTransactionAdapter) precommitQueryHighestAndStatusUnversioned(ctx context.Context, loc ObjectLocation) (highest Version, status ObjectStatus, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	var version sql.NullInt64
+	var nullableVersion NullableVersion
+	var nullableObjectStatus NullableObjectStatus
 	err = ptx.tx.QueryRowContext(ctx, `
-		SELECT
-			(
-				SELECT version
-				FROM objects
-				WHERE (project_id, bucket_name, object_key) = ($1, $2, $3)
-				ORDER BY version DESC
-				LIMIT 1
-			),
-			(
-				SELECT EXISTS (
-					SELECT 1
-					FROM objects
-					WHERE (project_id, bucket_name, object_key) = ($1, $2, $3) AND
-						status IN `+statusesUnversioned+`
-				)
-			)
-	`, loc.ProjectID, loc.BucketName, loc.ObjectKey).Scan(&version, &unversionedExists)
-	if err != nil {
-		return 0, false, Error.Wrap(err)
-	}
-	if version.Valid {
-		highest = Version(version.Int64)
-	}
-
-	return highest, unversionedExists, nil
-}
-
-func (stx *spannerTransactionAdapter) precommitQueryHighestAndUnversioned(ctx context.Context, loc ObjectLocation) (highest Version, unversionedExists bool, err error) {
-	defer mon.Task()(&ctx)(&err)
-
-	err = stx.tx.Query(ctx, spanner.Statement{
-		SQL: `
+		WITH object_versions AS (
+			SELECT version, status
+			FROM objects
+			WHERE (project_id, bucket_name, object_key) = ($1, $2, $3)
+		)
 			SELECT
 				(
 					SELECT version
-					FROM objects
-					WHERE (project_id, bucket_name, object_key) = (@project_id, @bucket_name, @object_key)
+					FROM object_versions
 					ORDER BY version DESC
 					LIMIT 1
 				),
 				(
-					SELECT EXISTS (
-						SELECT 1
-						FROM objects
-						WHERE (project_id, bucket_name, object_key) = (@project_id, @bucket_name, @object_key) AND
-							status IN ` + statusesUnversioned + `
-					)
+					SELECT status
+					FROM object_versions
+					WHERE status IN `+statusesUnversioned+`
+					ORDER BY version DESC
+					LIMIT 1
+				)
+
+	`, loc.ProjectID, loc.BucketName, loc.ObjectKey).Scan(&nullableVersion, &nullableObjectStatus)
+	if err != nil {
+		return 0, status, Error.Wrap(err)
+	}
+	if nullableVersion.Valid {
+		highest = nullableVersion.Version
+	}
+	if nullableObjectStatus.Valid {
+		status = nullableObjectStatus.ObjectStatus
+	}
+
+	return highest, status, nil
+}
+
+func (stx *spannerTransactionAdapter) precommitQueryHighestAndStatusUnversioned(ctx context.Context, loc ObjectLocation) (highest Version, status ObjectStatus, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	err = stx.tx.Query(ctx, spanner.Statement{
+		SQL: `
+			WITH object_versions AS (
+				SELECT version, status
+				FROM objects
+				WHERE (project_id, bucket_name, object_key) = (@project_id, @bucket_name, @object_key)
+			)
+			SELECT
+				(
+					SELECT version
+					FROM object_versions
+					ORDER BY version DESC
+					LIMIT 1
+				),
+				(
+					SELECT status
+					FROM object_versions
+					WHERE status IN ` + statusesUnversioned + `
+					ORDER BY version DESC
+					LIMIT 1
 				)
 		`,
 		Params: map[string]interface{}{
@@ -197,20 +224,106 @@ func (stx *spannerTransactionAdapter) precommitQueryHighestAndUnversioned(ctx co
 		},
 	}).Do(func(row *spanner.Row) error {
 		var versionOptional *int64
-		err := Error.Wrap(row.Columns(&versionOptional, &unversionedExists))
+		err := Error.Wrap(row.Columns(&versionOptional, &status))
 		if err != nil {
 			return err
 		}
-
 		if versionOptional != nil {
 			highest = Version(*versionOptional)
 		}
 		return nil
 	})
 	if err != nil {
-		return 0, false, Error.Wrap(err)
+		return 0, status, Error.Wrap(err)
 	}
-	return highest, unversionedExists, nil
+	return highest, status, nil
+}
+
+// precommitQueryHighestAndStatusVersioned queries the highest version for a given object and the current versioned committed status.
+func (ptx *postgresTransactionAdapter) precommitQueryHighestAndStatusVersioned(ctx context.Context, loc ObjectLocation) (highest Version, status ObjectStatus, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	var nullableVersion NullableVersion
+	var nullableObjectStatus NullableObjectStatus
+	err = ptx.tx.QueryRowContext(ctx, `
+		WITH object_versions AS (
+			SELECT version, status
+			FROM objects
+			WHERE (project_id, bucket_name, object_key) = ($1, $2, $3)
+		)
+		SELECT
+			(
+				SELECT version
+				FROM object_versions
+				ORDER BY version DESC
+				LIMIT 1
+			),
+			(
+				SELECT status
+				FROM object_versions
+				WHERE status IN `+statusesVersioned+`
+				ORDER BY version DESC
+				LIMIT 1
+			)
+	`, loc.ProjectID, loc.BucketName, loc.ObjectKey).Scan(&nullableVersion, &nullableObjectStatus)
+	if err != nil {
+		return 0, status, Error.Wrap(err)
+	}
+	if nullableVersion.Valid {
+		highest = nullableVersion.Version
+	}
+	if nullableObjectStatus.Valid {
+		status = nullableObjectStatus.ObjectStatus
+	}
+
+	return highest, status, nil
+}
+
+func (stx *spannerTransactionAdapter) precommitQueryHighestAndStatusVersioned(ctx context.Context, loc ObjectLocation) (highest Version, status ObjectStatus, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	err = stx.tx.Query(ctx, spanner.Statement{
+		SQL: `
+			WITH object_versions AS (
+				SELECT version, status
+				FROM objects
+				WHERE (project_id, bucket_name, object_key) = (@project_id, @bucket_name, @object_key)
+			)
+			SELECT
+				(
+					SELECT version
+					FROM object_versions
+					ORDER BY version DESC
+					LIMIT 1
+				),
+				(
+					SELECT status
+					FROM object_versions
+					WHERE status IN ` + statusesVersioned + `
+					ORDER BY version DESC
+					LIMIT 1
+				)
+		`,
+		Params: map[string]interface{}{
+			"project_id":  loc.ProjectID,
+			"bucket_name": loc.BucketName,
+			"object_key":  loc.ObjectKey,
+		},
+	}).Do(func(row *spanner.Row) error {
+		var versionOptional *int64
+		err := Error.Wrap(row.Columns(&versionOptional, &status))
+		if err != nil {
+			return err
+		}
+		if versionOptional != nil {
+			highest = Version(*versionOptional)
+		}
+		return nil
+	})
+	if err != nil {
+		return 0, status, Error.Wrap(err)
+	}
+	return highest, status, nil
 }
 
 // precommitDeleteUnversioned deletes the unversioned object at loc and also returns the highest version.
@@ -221,12 +334,12 @@ func (ptx *postgresTransactionAdapter) precommitDeleteUnversioned(ctx context.Co
 
 	// TODO(ver): this scanning can probably simplified somehow.
 
-	var version sql.NullInt64
+	var version NullableVersion
 	var streamID uuid.NullUUID
 	var createdAt sql.NullTime
 	var segmentCount, fixedSegmentSize sql.NullInt32
 	var totalPlainSize, totalEncryptedSize sql.NullInt64
-	var status sql.NullByte
+	var status NullableObjectStatus
 	var encryptionParams nullableValue[encryptionParameters]
 	encryptionParams.value.EncryptionParameters = &deleted.Encryption
 
@@ -314,9 +427,9 @@ func (ptx *postgresTransactionAdapter) precommitDeleteUnversioned(ctx context.Co
 	deleted.ProjectID = loc.ProjectID
 	deleted.BucketName = loc.BucketName
 	deleted.ObjectKey = loc.ObjectKey
-	deleted.Version = Version(version.Int64)
+	deleted.Version = version.Version
 
-	deleted.Status = ObjectStatus(status.Byte)
+	deleted.Status = status.ObjectStatus
 	deleted.StreamID = streamID.UUID
 	deleted.CreatedAt = createdAt.Time
 	deleted.SegmentCount = segmentCount.Int32
@@ -496,12 +609,12 @@ func (ptx *postgresTransactionAdapter) precommitDeleteUnversionedWithNonPending(
 
 	// TODO(ver): this scanning can probably simplified somehow.
 
-	var version sql.NullInt64
+	var version NullableVersion
 	var streamID uuid.NullUUID
 	var createdAt sql.NullTime
 	var segmentCount, fixedSegmentSize sql.NullInt32
 	var totalPlainSize, totalEncryptedSize sql.NullInt64
-	var status sql.NullByte
+	var status NullableObjectStatus
 	var encryptionParams nullableValue[encryptionParameters]
 	encryptionParams.value.EncryptionParameters = &deleted.Encryption
 
@@ -582,9 +695,9 @@ func (ptx *postgresTransactionAdapter) precommitDeleteUnversionedWithNonPending(
 	deleted.ProjectID = loc.ProjectID
 	deleted.BucketName = loc.BucketName
 	deleted.ObjectKey = loc.ObjectKey
-	deleted.Version = Version(version.Int64)
+	deleted.Version = version.Version
 
-	deleted.Status = ObjectStatus(status.Byte)
+	deleted.Status = status.ObjectStatus
 	deleted.StreamID = streamID.UUID
 	deleted.CreatedAt = createdAt.Time
 	deleted.SegmentCount = segmentCount.Int32
