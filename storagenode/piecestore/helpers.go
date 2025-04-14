@@ -3,7 +3,14 @@
 
 package piecestore
 
-import "storj.io/common/pb"
+import (
+	"sync"
+	"time"
+
+	"github.com/spacemonkeygo/monkit/v3"
+
+	"storj.io/common/pb"
+)
 
 func pieceHashAndOrderLimitFromReader(reader PieceReader) (_ pb.PieceHash, _ pb.OrderLimit, err error) {
 	header, err := reader.GetPieceHeader()
@@ -18,4 +25,23 @@ func pieceHashAndOrderLimitFromReader(reader PieceReader) (_ pb.PieceHash, _ pb.
 		Timestamp:     header.GetCreationTime(),
 		Signature:     header.GetSignature(),
 	}, header.OrderLimit, nil
+}
+
+type timer struct {
+	dv    *monkit.DurationVal
+	start time.Time
+	once  sync.Once
+}
+
+func newTimer(dv *monkit.DurationVal) *timer {
+	return &timer{
+		dv:    dv,
+		start: time.Now(),
+	}
+}
+
+func (t *timer) Trigger() {
+	t.once.Do(func() {
+		t.dv.Observe(time.Since(t.start))
+	})
 }
