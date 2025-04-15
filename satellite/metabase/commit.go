@@ -961,6 +961,9 @@ type CommitObject struct {
 
 	// Versioned indicates whether an object is allowed to have multiple versions.
 	Versioned bool
+
+	// supported only by Spanner.
+	MaxCommitDelay *time.Duration
 }
 
 // Verify verifies request fields.
@@ -984,7 +987,7 @@ func (c *CommitObject) Verify() error {
 }
 
 // WithTx provides a TransactionAdapter for the context of a database transaction.
-func (p *PostgresAdapter) WithTx(ctx context.Context, f func(context.Context, TransactionAdapter) error) error {
+func (p *PostgresAdapter) WithTx(ctx context.Context, opts TransactionOptions, f func(context.Context, TransactionAdapter) error) error {
 	return txutil.WithTx(ctx, p.db, nil, func(ctx context.Context, tx tagsql.Tx) error {
 		txAdapter := &postgresTransactionAdapter{postgresAdapter: p, tx: tx}
 		return f(ctx, txAdapter)
@@ -992,10 +995,14 @@ func (p *PostgresAdapter) WithTx(ctx context.Context, f func(context.Context, Tr
 }
 
 // WithTx provides a TransactionAdapter for the context of a database transaction.
-func (s *SpannerAdapter) WithTx(ctx context.Context, f func(context.Context, TransactionAdapter) error) error {
-	_, err := s.client.ReadWriteTransaction(ctx, func(ctx context.Context, tx *spanner.ReadWriteTransaction) error {
+func (s *SpannerAdapter) WithTx(ctx context.Context, opts TransactionOptions, f func(context.Context, TransactionAdapter) error) error {
+	_, err := s.client.ReadWriteTransactionWithOptions(ctx, func(ctx context.Context, tx *spanner.ReadWriteTransaction) error {
 		txAdapter := &spannerTransactionAdapter{spannerAdapter: s, tx: tx}
 		return f(ctx, txAdapter)
+	}, spanner.TransactionOptions{
+		CommitOptions: spanner.CommitOptions{
+			MaxCommitDelay: opts.MaxCommitDelay,
+		},
 	})
 	return err
 }
@@ -1010,7 +1017,9 @@ func (db *DB) CommitObject(ctx context.Context, opts CommitObject) (object Objec
 	}
 
 	var precommit PrecommitConstraintResult
-	err = db.ChooseAdapter(opts.ProjectID).WithTx(ctx, func(ctx context.Context, adapter TransactionAdapter) error {
+	err = db.ChooseAdapter(opts.ProjectID).WithTx(ctx, TransactionOptions{
+		MaxCommitDelay: opts.MaxCommitDelay,
+	}, func(ctx context.Context, adapter TransactionAdapter) error {
 		segments, err := adapter.fetchSegmentsForCommit(ctx, opts.StreamID)
 		if err != nil {
 			return Error.New("failed to fetch segments: %w", err)
@@ -1404,7 +1413,7 @@ func (db *DB) CommitInlineObject(ctx context.Context, opts CommitInlineObject) (
 	}
 
 	var precommit PrecommitConstraintResult
-	err = db.ChooseAdapter(opts.ProjectID).WithTx(ctx, func(ctx context.Context, adapter TransactionAdapter) error {
+	err = db.ChooseAdapter(opts.ProjectID).WithTx(ctx, TransactionOptions{}, func(ctx context.Context, adapter TransactionAdapter) error {
 		precommit, err = db.PrecommitConstraint(ctx, PrecommitConstraint{
 			Location:       opts.Location(),
 			Versioned:      opts.Versioned,

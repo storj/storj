@@ -165,7 +165,7 @@ func (db *DB) FinishCopyObject(ctx context.Context, opts FinishCopyObject) (obje
 	var copyMetadata []byte
 
 	var precommit PrecommitConstraintResult
-	err = db.ChooseAdapter(opts.ProjectID).WithTx(ctx, func(ctx context.Context, adapter TransactionAdapter) error {
+	err = db.ChooseAdapter(opts.ProjectID).WithTx(ctx, TransactionOptions{}, func(ctx context.Context, adapter TransactionAdapter) error {
 		sourceObject, err := adapter.getObjectNonPendingExactVersion(ctx, opts)
 		if err != nil {
 			if ErrObjectNotFound.Has(err) {
