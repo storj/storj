@@ -475,6 +475,7 @@ CREATE TABLE value_attributions (
 	project_id BYTES(MAX) NOT NULL,
 	bucket_name BYTES(MAX) NOT NULL,
 	user_agent BYTES(MAX),
+	placement INT64,
 	last_updated TIMESTAMP NOT NULL
 ) PRIMARY KEY ( project_id, bucket_name ) ;
 CREATE TABLE verification_audits (
@@ -533,6 +534,16 @@ CREATE TABLE bucket_metainfos (
 	CONSTRAINT bucket_metainfos_project_id_fkey FOREIGN KEY (project_id) REFERENCES projects (id),
 	CONSTRAINT bucket_metainfos_created_by_fkey FOREIGN KEY (created_by) REFERENCES users (id)
 ) PRIMARY KEY ( project_id, name ) ;
+CREATE TABLE domains (
+	subdomain STRING(MAX) NOT NULL,
+	project_id BYTES(MAX) NOT NULL,
+	prefix STRING(MAX) NOT NULL,
+	access_id STRING(MAX) NOT NULL,
+	created_by BYTES(MAX) NOT NULL,
+	created_at TIMESTAMP NOT NULL,
+	CONSTRAINT domains_project_id_fkey FOREIGN KEY (project_id) REFERENCES projects (id),
+	CONSTRAINT domains_created_by_fkey FOREIGN KEY (created_by) REFERENCES users (id)
+) PRIMARY KEY ( project_id, subdomain ) ;
 CREATE TABLE project_invitations (
 	project_id BYTES(MAX) NOT NULL,
 	email STRING(MAX) NOT NULL,
@@ -697,7 +708,7 @@ INSERT INTO `graceful_exit_segment_transfer_queue` (`node_id`, `stream_id`, `pos
 
 INSERT INTO `segment_pending_audits` (`node_id`, `piece_id`, `stripe_index`, `share_size`, `expected_share_hash`, `reverify_count`, `stream_id`, position) VALUES (B'\\153\\313\\233\\074\\327\\177\\136\\070\\346\\001', B'\\363\\311\\033w\\222\\303Ci\\265\\343U\\303\\312\\204",', 5, 1024, B'\\070\\127\\144\\013\\332\\344\\102\\376\\306\\056\\303\\130\\106\\132\\321\\276\\321\\274\\170\\264\\054\\333\\221\\116\\154\\221\\335\\070\\220\\146\\344\\216', 1, B'\\x01\\x01\\x01', 1);
 
-INSERT INTO `users`(`id`, `full_name`, `short_name`, `email`, `normalized_email`, `password_hash`, `status`, `created_at`, `is_professional`, `project_limit`, `project_bandwidth_limit`, `project_storage_limit`, `paid_tier`, `project_segment_limit`) VALUES (B'\\363\\311\\033w\\222\\303Ci\\266\\342U\\303\\312\\204",', 'Noahson', 'William', '100email1@mail.test', '100EMAIL1@MAIL.TEST', B'some_readable_hash', 1, '2019-02-14 08:28:24.614594+00', false, 10, 100000000000000, 25000000000000, true, 100000000);
+INSERT INTO `users`(`id`, `full_name`, `short_name`, `email`, `normalized_email`, `password_hash`, `status`, `created_at`, `is_professional`, `project_limit`, `project_bandwidth_limit`, `project_storage_limit`, `paid_tier`, `kind`, `project_segment_limit`) VALUES (B'\\363\\311\\033w\\222\\303Ci\\266\\342U\\303\\312\\204",', 'Noahson', 'William', '100email1@mail.test', '100EMAIL1@MAIL.TEST', B'some_readable_hash', 1, '2019-02-14 08:28:24.614594+00', false, 10, 100000000000000, 25000000000000, true, 1, 100000000);
 
 INSERT INTO `repair_queue` (`stream_id`, `position`, `attempted_at`, `segment_health`, `updated_at`, `inserted_at`) VALUES (B'\\x01', 1, null, 1, '2020-09-01 00:00:00.000000+00', '2021-09-01 00:00:00.000000+00');
 
@@ -822,6 +833,10 @@ INSERT INTO `bucket_bandwidth_rollup_archives` (`bucket_name`, `project_id`, `in
 
 INSERT INTO `rest_api_keys` (id, user_id, token, name, expires_at, created_at) VALUES (B'\\363\\311\\033w\\222\\303Ci\\265\\343U\\303\\314\\225\\211",', B'\\363\\311\\033w\\222\\303Ci\\265\\343U\\303\\314\\225\\211",', B'\\363\\311\\033w\\222\\303Ci\\265\\343U\\303\\314\\225\\211",', 'some_name', '2021-08-14 09:13:44.614594+00', '2021-08-14 09:13:44.614594+00');
 
+INSERT INTO `users`(`id`, `full_name`, `short_name`, `email`, `normalized_email`, `password_hash`, `status`, `created_at`, `position`, `company_name`, `working_on`, `company_size`, `is_professional`, `project_limit`, `project_bandwidth_limit`, `project_storage_limit`, `paid_tier`, `kind`, `mfa_enabled`, `mfa_secret_key`, `mfa_recovery_codes`, `project_segment_limit`, `default_placement`, `activation_code`, `signup_id`, `trial_notifications`, `trial_expiration`, `upgrade_time`, `status_updated_at`, `final_invoice_generated`, `new_unverified_email`, `email_change_verification_step`) VALUES (B'\\363\\311\\033w\\222\\303Ci\\265\\343U\\303\\314\\225\\313",', 'Angela', 'Berg', 'eu@mail.test', 'eu@MAIL.TEST', B'some_readable_hash', 2, '2020-05-16 10:28:24.614594+00', 'engineer', 'storj', 'data storage', 55, true, 10, 50000000000, 50000000000, true, 1, false, NULL, NULL, 150000, 1, '223432', 'H2Oqwerty', 0, NULL, NUll, '2024-01-01 00:01:02', true, null, 0);
+
+INSERT INTO `domains`(`subdomain`, `project_id`, `prefix`, `access_id`, `created_by`, `created_at`) VALUES ('test.example.com', B'\\361\\342\\363\\371>+F\\256\\263\\300\\274|\\342N\\347\\017', 'test-bucket', 'jwzc3qlelsuwyj2am7ejayahchdq', B'\\363\\313\\033w\\222\\303Ci\\262\\343U\\303\\314\\225\\212",', '2025-04-08 08:00:00.000000')
+
 -- NEW DATA --
 
-INSERT INTO `users`(`id`, `full_name`, `short_name`, `email`, `normalized_email`, `password_hash`, `status`, `created_at`, `position`, `company_name`, `working_on`, `company_size`, `is_professional`, `project_limit`, `project_bandwidth_limit`, `project_storage_limit`, `paid_tier`, `kind`, `mfa_enabled`, `mfa_secret_key`, `mfa_recovery_codes`, `project_segment_limit`, `default_placement`, `activation_code`, `signup_id`, `trial_notifications`, `trial_expiration`, `upgrade_time`, `status_updated_at`, `final_invoice_generated`, `new_unverified_email`, `email_change_verification_step`) VALUES (B'\\363\\311\\033w\\222\\303Ci\\265\\343U\\303\\314\\225\\313",', 'Angela', 'Berg', 'eu@mail.test', 'eu@MAIL.TEST', B'some_readable_hash', 2, '2020-05-16 10:28:24.614594+00', 'engineer', 'storj', 'data storage', 55, true, 10, 50000000000, 50000000000, true, 1, false, NULL, NULL, 150000, 1, '223432', 'H2Oqwerty', 0, NULL, NUll, '2024-01-01 00:01:02', true, null, 0);
+INSERT INTO `value_attributions` (`project_id`, `bucket_name`, `user_agent`, `placement`, `last_updated`) VALUES (B'\\363\\311\\033w\\222\\303Ci\\255\\343U\\303\\312\\204",', B'testbucket', NULL, 42, '2019-02-14 08:07:31.028103+00');

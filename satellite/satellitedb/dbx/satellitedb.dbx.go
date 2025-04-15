@@ -910,6 +910,7 @@ func (obj *pgxDB) Schema() []string {
 	project_id bytea NOT NULL,
 	bucket_name bytea NOT NULL,
 	user_agent bytea,
+	placement integer,
 	last_updated timestamp with time zone NOT NULL,
 	PRIMARY KEY ( project_id, bucket_name )
 )`,
@@ -1855,6 +1856,7 @@ func (obj *pgxcockroachDB) Schema() []string {
 	project_id bytea NOT NULL,
 	bucket_name bytea NOT NULL,
 	user_agent bytea,
+	placement integer,
 	last_updated timestamp with time zone NOT NULL,
 	PRIMARY KEY ( project_id, bucket_name )
 )`,
@@ -2768,6 +2770,7 @@ func (obj *spannerDB) Schema() []string {
 	project_id BYTES(MAX) NOT NULL,
 	bucket_name BYTES(MAX) NOT NULL,
 	user_agent BYTES(MAX),
+	placement INT64,
 	last_updated TIMESTAMP NOT NULL
 ) PRIMARY KEY ( project_id, bucket_name )`,
 
@@ -12631,6 +12634,7 @@ type ValueAttribution struct {
 	ProjectId   []byte
 	BucketName  []byte
 	UserAgent   []byte
+	Placement   *int
 	LastUpdated time.Time
 }
 
@@ -12638,10 +12642,12 @@ func (ValueAttribution) _Table() string { return "value_attributions" }
 
 type ValueAttribution_Create_Fields struct {
 	UserAgent ValueAttribution_UserAgent_Field
+	Placement ValueAttribution_Placement_Field
 }
 
 type ValueAttribution_Update_Fields struct {
 	UserAgent ValueAttribution_UserAgent_Field
+	Placement ValueAttribution_Placement_Field
 }
 
 type ValueAttribution_ProjectId_Field struct {
@@ -12702,6 +12708,36 @@ func ValueAttribution_UserAgent_Null() ValueAttribution_UserAgent_Field {
 func (f ValueAttribution_UserAgent_Field) isnull() bool { return !f._set || f._null || f._value == nil }
 
 func (f ValueAttribution_UserAgent_Field) value() any {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+type ValueAttribution_Placement_Field struct {
+	_set   bool
+	_null  bool
+	_value *int
+}
+
+func ValueAttribution_Placement(v int) ValueAttribution_Placement_Field {
+	return ValueAttribution_Placement_Field{_set: true, _value: &v}
+}
+
+func ValueAttribution_Placement_Raw(v *int) ValueAttribution_Placement_Field {
+	if v == nil {
+		return ValueAttribution_Placement_Null()
+	}
+	return ValueAttribution_Placement(*v)
+}
+
+func ValueAttribution_Placement_Null() ValueAttribution_Placement_Field {
+	return ValueAttribution_Placement_Field{_set: true, _null: true}
+}
+
+func (f ValueAttribution_Placement_Field) isnull() bool { return !f._set || f._null || f._value == nil }
+
+func (f ValueAttribution_Placement_Field) value() any {
 	if !f._set || f._null {
 		return nil
 	}
@@ -16088,18 +16124,19 @@ func (obj *pgxImpl) Create_ValueAttribution(ctx context.Context,
 	__project_id_val := value_attribution_project_id.value()
 	__bucket_name_val := value_attribution_bucket_name.value()
 	__user_agent_val := optional.UserAgent.value()
+	__placement_val := optional.Placement.value()
 	__last_updated_val := __now
 
-	var __embed_stmt = __sqlbundle_Literal("INSERT INTO value_attributions ( project_id, bucket_name, user_agent, last_updated ) VALUES ( ?, ?, ?, ? ) RETURNING value_attributions.project_id, value_attributions.bucket_name, value_attributions.user_agent, value_attributions.last_updated")
+	var __embed_stmt = __sqlbundle_Literal("INSERT INTO value_attributions ( project_id, bucket_name, user_agent, placement, last_updated ) VALUES ( ?, ?, ?, ?, ? ) RETURNING value_attributions.project_id, value_attributions.bucket_name, value_attributions.user_agent, value_attributions.placement, value_attributions.last_updated")
 
 	var __values []any
-	__values = append(__values, __project_id_val, __bucket_name_val, __user_agent_val, __last_updated_val)
+	__values = append(__values, __project_id_val, __bucket_name_val, __user_agent_val, __placement_val, __last_updated_val)
 
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
 	obj.logStmt(__stmt, __values...)
 
 	value_attribution = &ValueAttribution{}
-	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&value_attribution.ProjectId, &value_attribution.BucketName, &value_attribution.UserAgent, &value_attribution.LastUpdated)
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&value_attribution.ProjectId, &value_attribution.BucketName, &value_attribution.UserAgent, &value_attribution.Placement, &value_attribution.LastUpdated)
 	if err != nil {
 		return nil, obj.makeErr(err)
 	}
@@ -19963,7 +20000,7 @@ func (obj *pgxImpl) Get_ValueAttribution_By_ProjectId_And_BucketName(ctx context
 		panic("using DB when inside of a transaction")
 	}
 
-	var __embed_stmt = __sqlbundle_Literal("SELECT value_attributions.project_id, value_attributions.bucket_name, value_attributions.user_agent, value_attributions.last_updated FROM value_attributions WHERE value_attributions.project_id = ? AND value_attributions.bucket_name = ?")
+	var __embed_stmt = __sqlbundle_Literal("SELECT value_attributions.project_id, value_attributions.bucket_name, value_attributions.user_agent, value_attributions.placement, value_attributions.last_updated FROM value_attributions WHERE value_attributions.project_id = ? AND value_attributions.bucket_name = ?")
 
 	var __values []any
 	__values = append(__values, value_attribution_project_id.value(), value_attribution_bucket_name.value())
@@ -19972,7 +20009,7 @@ func (obj *pgxImpl) Get_ValueAttribution_By_ProjectId_And_BucketName(ctx context
 	obj.logStmt(__stmt, __values...)
 
 	value_attribution = &ValueAttribution{}
-	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&value_attribution.ProjectId, &value_attribution.BucketName, &value_attribution.UserAgent, &value_attribution.LastUpdated)
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&value_attribution.ProjectId, &value_attribution.BucketName, &value_attribution.UserAgent, &value_attribution.Placement, &value_attribution.LastUpdated)
 	if err != nil {
 		return (*ValueAttribution)(nil), obj.makeErr(err)
 	}
@@ -23056,7 +23093,7 @@ func (obj *pgxImpl) Update_ValueAttribution_By_ProjectId_And_BucketName(ctx cont
 
 	var __sets = &__sqlbundle_Hole{}
 
-	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("UPDATE value_attributions SET "), __sets, __sqlbundle_Literal(" WHERE value_attributions.project_id = ? AND value_attributions.bucket_name = ? RETURNING value_attributions.project_id, value_attributions.bucket_name, value_attributions.user_agent, value_attributions.last_updated")}}
+	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("UPDATE value_attributions SET "), __sets, __sqlbundle_Literal(" WHERE value_attributions.project_id = ? AND value_attributions.bucket_name = ? RETURNING value_attributions.project_id, value_attributions.bucket_name, value_attributions.user_agent, value_attributions.placement, value_attributions.last_updated")}}
 
 	__sets_sql := __sqlbundle_Literals{Join: ", "}
 	var __values []any
@@ -23065,6 +23102,11 @@ func (obj *pgxImpl) Update_ValueAttribution_By_ProjectId_And_BucketName(ctx cont
 	if update.UserAgent._set {
 		__values = append(__values, update.UserAgent.value())
 		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("user_agent = ?"))
+	}
+
+	if update.Placement._set {
+		__values = append(__values, update.Placement.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("placement = ?"))
 	}
 
 	__now := obj.db.Hooks.Now().UTC()
@@ -23081,7 +23123,7 @@ func (obj *pgxImpl) Update_ValueAttribution_By_ProjectId_And_BucketName(ctx cont
 	obj.logStmt(__stmt, __values...)
 
 	value_attribution = &ValueAttribution{}
-	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&value_attribution.ProjectId, &value_attribution.BucketName, &value_attribution.UserAgent, &value_attribution.LastUpdated)
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&value_attribution.ProjectId, &value_attribution.BucketName, &value_attribution.UserAgent, &value_attribution.Placement, &value_attribution.LastUpdated)
 	if err == sql.ErrNoRows {
 		return nil, nil
 	}
@@ -26178,18 +26220,19 @@ func (obj *pgxcockroachImpl) Create_ValueAttribution(ctx context.Context,
 	__project_id_val := value_attribution_project_id.value()
 	__bucket_name_val := value_attribution_bucket_name.value()
 	__user_agent_val := optional.UserAgent.value()
+	__placement_val := optional.Placement.value()
 	__last_updated_val := __now
 
-	var __embed_stmt = __sqlbundle_Literal("INSERT INTO value_attributions ( project_id, bucket_name, user_agent, last_updated ) VALUES ( ?, ?, ?, ? ) RETURNING value_attributions.project_id, value_attributions.bucket_name, value_attributions.user_agent, value_attributions.last_updated")
+	var __embed_stmt = __sqlbundle_Literal("INSERT INTO value_attributions ( project_id, bucket_name, user_agent, placement, last_updated ) VALUES ( ?, ?, ?, ?, ? ) RETURNING value_attributions.project_id, value_attributions.bucket_name, value_attributions.user_agent, value_attributions.placement, value_attributions.last_updated")
 
 	var __values []any
-	__values = append(__values, __project_id_val, __bucket_name_val, __user_agent_val, __last_updated_val)
+	__values = append(__values, __project_id_val, __bucket_name_val, __user_agent_val, __placement_val, __last_updated_val)
 
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
 	obj.logStmt(__stmt, __values...)
 
 	value_attribution = &ValueAttribution{}
-	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&value_attribution.ProjectId, &value_attribution.BucketName, &value_attribution.UserAgent, &value_attribution.LastUpdated)
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&value_attribution.ProjectId, &value_attribution.BucketName, &value_attribution.UserAgent, &value_attribution.Placement, &value_attribution.LastUpdated)
 	if err != nil {
 		return nil, obj.makeErr(err)
 	}
@@ -30053,7 +30096,7 @@ func (obj *pgxcockroachImpl) Get_ValueAttribution_By_ProjectId_And_BucketName(ct
 		panic("using DB when inside of a transaction")
 	}
 
-	var __embed_stmt = __sqlbundle_Literal("SELECT value_attributions.project_id, value_attributions.bucket_name, value_attributions.user_agent, value_attributions.last_updated FROM value_attributions WHERE value_attributions.project_id = ? AND value_attributions.bucket_name = ?")
+	var __embed_stmt = __sqlbundle_Literal("SELECT value_attributions.project_id, value_attributions.bucket_name, value_attributions.user_agent, value_attributions.placement, value_attributions.last_updated FROM value_attributions WHERE value_attributions.project_id = ? AND value_attributions.bucket_name = ?")
 
 	var __values []any
 	__values = append(__values, value_attribution_project_id.value(), value_attribution_bucket_name.value())
@@ -30062,7 +30105,7 @@ func (obj *pgxcockroachImpl) Get_ValueAttribution_By_ProjectId_And_BucketName(ct
 	obj.logStmt(__stmt, __values...)
 
 	value_attribution = &ValueAttribution{}
-	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&value_attribution.ProjectId, &value_attribution.BucketName, &value_attribution.UserAgent, &value_attribution.LastUpdated)
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&value_attribution.ProjectId, &value_attribution.BucketName, &value_attribution.UserAgent, &value_attribution.Placement, &value_attribution.LastUpdated)
 	if err != nil {
 		return (*ValueAttribution)(nil), obj.makeErr(err)
 	}
@@ -33146,7 +33189,7 @@ func (obj *pgxcockroachImpl) Update_ValueAttribution_By_ProjectId_And_BucketName
 
 	var __sets = &__sqlbundle_Hole{}
 
-	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("UPDATE value_attributions SET "), __sets, __sqlbundle_Literal(" WHERE value_attributions.project_id = ? AND value_attributions.bucket_name = ? RETURNING value_attributions.project_id, value_attributions.bucket_name, value_attributions.user_agent, value_attributions.last_updated")}}
+	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("UPDATE value_attributions SET "), __sets, __sqlbundle_Literal(" WHERE value_attributions.project_id = ? AND value_attributions.bucket_name = ? RETURNING value_attributions.project_id, value_attributions.bucket_name, value_attributions.user_agent, value_attributions.placement, value_attributions.last_updated")}}
 
 	__sets_sql := __sqlbundle_Literals{Join: ", "}
 	var __values []any
@@ -33155,6 +33198,11 @@ func (obj *pgxcockroachImpl) Update_ValueAttribution_By_ProjectId_And_BucketName
 	if update.UserAgent._set {
 		__values = append(__values, update.UserAgent.value())
 		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("user_agent = ?"))
+	}
+
+	if update.Placement._set {
+		__values = append(__values, update.Placement.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("placement = ?"))
 	}
 
 	__now := obj.db.Hooks.Now().UTC()
@@ -33171,7 +33219,7 @@ func (obj *pgxcockroachImpl) Update_ValueAttribution_By_ProjectId_And_BucketName
 	obj.logStmt(__stmt, __values...)
 
 	value_attribution = &ValueAttribution{}
-	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&value_attribution.ProjectId, &value_attribution.BucketName, &value_attribution.UserAgent, &value_attribution.LastUpdated)
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&value_attribution.ProjectId, &value_attribution.BucketName, &value_attribution.UserAgent, &value_attribution.Placement, &value_attribution.LastUpdated)
 	if err == sql.ErrNoRows {
 		return nil, nil
 	}
@@ -36430,12 +36478,13 @@ func (obj *spannerImpl) Create_ValueAttribution(ctx context.Context,
 	__project_id_val := value_attribution_project_id.value()
 	__bucket_name_val := value_attribution_bucket_name.value()
 	__user_agent_val := optional.UserAgent.value()
+	__placement_val := optional.Placement.value()
 	__last_updated_val := __now
 
-	var __embed_stmt = __sqlbundle_Literal("INSERT INTO value_attributions ( project_id, bucket_name, user_agent, last_updated ) VALUES ( ?, ?, ?, ? ) THEN RETURN value_attributions.project_id, value_attributions.bucket_name, value_attributions.user_agent, value_attributions.last_updated")
+	var __embed_stmt = __sqlbundle_Literal("INSERT INTO value_attributions ( project_id, bucket_name, user_agent, placement, last_updated ) VALUES ( ?, ?, ?, ?, ? ) THEN RETURN value_attributions.project_id, value_attributions.bucket_name, value_attributions.user_agent, value_attributions.placement, value_attributions.last_updated")
 
 	var __values []any
-	__values = append(__values, __project_id_val, __bucket_name_val, __user_agent_val, __last_updated_val)
+	__values = append(__values, __project_id_val, __bucket_name_val, __user_agent_val, __placement_val, __last_updated_val)
 
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
 	obj.logStmt(__stmt, __values...)
@@ -36443,10 +36492,10 @@ func (obj *spannerImpl) Create_ValueAttribution(ctx context.Context,
 	value_attribution = &ValueAttribution{}
 	if !obj.txn {
 		err = obj.withTx(ctx, func(tx tagsql.Tx) error {
-			return tx.QueryRowContext(ctx, __stmt, __values...).Scan(&value_attribution.ProjectId, &value_attribution.BucketName, &value_attribution.UserAgent, &value_attribution.LastUpdated)
+			return tx.QueryRowContext(ctx, __stmt, __values...).Scan(&value_attribution.ProjectId, &value_attribution.BucketName, &value_attribution.UserAgent, &value_attribution.Placement, &value_attribution.LastUpdated)
 		})
 	} else {
-		err = obj.driver.QueryRowContext(ctx, __stmt, __values...).Scan(&value_attribution.ProjectId, &value_attribution.BucketName, &value_attribution.UserAgent, &value_attribution.LastUpdated)
+		err = obj.driver.QueryRowContext(ctx, __stmt, __values...).Scan(&value_attribution.ProjectId, &value_attribution.BucketName, &value_attribution.UserAgent, &value_attribution.Placement, &value_attribution.LastUpdated)
 	}
 	if err != nil {
 		return nil, obj.makeErr(err)
@@ -40419,7 +40468,7 @@ func (obj *spannerImpl) Get_ValueAttribution_By_ProjectId_And_BucketName(ctx con
 		panic("using DB when inside of a transaction")
 	}
 
-	var __embed_stmt = __sqlbundle_Literal("SELECT value_attributions.project_id, value_attributions.bucket_name, value_attributions.user_agent, value_attributions.last_updated FROM value_attributions WHERE value_attributions.project_id = ? AND value_attributions.bucket_name = ?")
+	var __embed_stmt = __sqlbundle_Literal("SELECT value_attributions.project_id, value_attributions.bucket_name, value_attributions.user_agent, value_attributions.placement, value_attributions.last_updated FROM value_attributions WHERE value_attributions.project_id = ? AND value_attributions.bucket_name = ?")
 
 	var __values []any
 	__values = append(__values, value_attribution_project_id.value(), value_attribution_bucket_name.value())
@@ -40428,7 +40477,7 @@ func (obj *spannerImpl) Get_ValueAttribution_By_ProjectId_And_BucketName(ctx con
 	obj.logStmt(__stmt, __values...)
 
 	value_attribution = &ValueAttribution{}
-	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&value_attribution.ProjectId, &value_attribution.BucketName, &value_attribution.UserAgent, &value_attribution.LastUpdated)
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&value_attribution.ProjectId, &value_attribution.BucketName, &value_attribution.UserAgent, &value_attribution.Placement, &value_attribution.LastUpdated)
 	if err != nil {
 		return (*ValueAttribution)(nil), obj.makeErr(err)
 	}
@@ -43284,7 +43333,7 @@ func (obj *spannerImpl) Update_ValueAttribution_By_ProjectId_And_BucketName(ctx 
 
 	var __sets = &__sqlbundle_Hole{}
 
-	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("UPDATE value_attributions SET "), __sets, __sqlbundle_Literal(" WHERE value_attributions.project_id = ? AND value_attributions.bucket_name = ? THEN RETURN value_attributions.project_id, value_attributions.bucket_name, value_attributions.user_agent, value_attributions.last_updated")}}
+	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("UPDATE value_attributions SET "), __sets, __sqlbundle_Literal(" WHERE value_attributions.project_id = ? AND value_attributions.bucket_name = ? THEN RETURN value_attributions.project_id, value_attributions.bucket_name, value_attributions.user_agent, value_attributions.placement, value_attributions.last_updated")}}
 
 	__sets_sql := __sqlbundle_Literals{Join: ", "}
 	var __values []any
@@ -43293,6 +43342,10 @@ func (obj *spannerImpl) Update_ValueAttribution_By_ProjectId_And_BucketName(ctx 
 	if update.UserAgent._set {
 		__values = append(__values, update.UserAgent.value())
 		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("user_agent = ?"))
+	}
+	if update.Placement._set {
+		__values = append(__values, update.Placement.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("placement = ?"))
 	}
 
 	__now := obj.db.Hooks.Now().UTC()
@@ -43309,7 +43362,7 @@ func (obj *spannerImpl) Update_ValueAttribution_By_ProjectId_And_BucketName(ctx 
 	obj.logStmt(__stmt, __values...)
 
 	value_attribution = &ValueAttribution{}
-	err = obj.driver.QueryRowContext(ctx, __stmt, __values...).Scan(&value_attribution.ProjectId, &value_attribution.BucketName, &value_attribution.UserAgent, &value_attribution.LastUpdated)
+	err = obj.driver.QueryRowContext(ctx, __stmt, __values...).Scan(&value_attribution.ProjectId, &value_attribution.BucketName, &value_attribution.UserAgent, &value_attribution.Placement, &value_attribution.LastUpdated)
 	if errors.Is(err, sql.ErrNoRows) {
 		return nil, nil
 	}
