@@ -113,7 +113,7 @@ func Run(t *testing.T, config Config, test func(t *testing.T, ctx *testcontext.C
 
 			testmonkit.Run(context.Background(), t, func(parent context.Context) {
 				pprof.Do(parent, pprof.Labels("test", t.Name()), func(parent context.Context) {
-					jobqtest.WithServer(t, func(ctx *testcontext.Context, jobqConfig jobq.Config) {
+					jobqtest.WithServer(t, nil, func(ctx *testcontext.Context, srv *jobqtest.TestServer) {
 						timeout := config.Timeout
 						if timeout == 0 {
 							timeout = testcontext.DefaultTimeout
@@ -121,7 +121,10 @@ func Run(t *testing.T, config Config, test func(t *testing.T, ctx *testcontext.C
 						ctx = testcontext.NewWithContextAndTimeout(ctx, t, timeout)
 
 						reconfig := func(log *zap.Logger, index int, config *satellite.Config) {
-							config.JobQueue = jobqConfig
+							config.JobQueue = jobq.Config{
+								ServerNodeURL: srv.NodeURL,
+								TLS:           srv.TLSOpts.Config,
+							}
 						}
 						planetConfig.applicationName = "testplanet" + pgutil.CreateRandomTestingSchemaName(6)
 						if planetConfig.Reconfigure.Satellite == nil {

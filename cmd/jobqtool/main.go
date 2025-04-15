@@ -5,7 +5,6 @@ package main
 
 import (
 	"context"
-	"crypto/tls"
 	"encoding/csv"
 	"errors"
 	"fmt"
@@ -22,6 +21,7 @@ import (
 	"storj.io/common/identity"
 	"storj.io/common/peertls/tlsopts"
 	"storj.io/common/process"
+	"storj.io/common/rpc"
 	"storj.io/common/storj"
 	"storj.io/common/uuid"
 	"storj.io/storj/private/revocation"
@@ -141,7 +141,13 @@ func prepareConnection(ctx context.Context) (*jobq.Client, error) {
 		return nil, fmt.Errorf("TLS options: %w", err)
 	}
 
-	conn, err := tls.Dial("tcp", runCfg.Server, tlsOpts.UnverifiedClientTLSConfig())
+	serverNodeURL, err := storj.ParseNodeURL(runCfg.Server)
+	if err != nil {
+		return nil, fmt.Errorf("invalid server URL %q: %w", runCfg.Server, err)
+	}
+	dialer := rpc.NewDefaultPooledDialer(tlsOpts)
+
+	conn, err := dialer.DialNodeURL(ctx, serverNodeURL)
 	if err != nil {
 		return nil, err
 	}

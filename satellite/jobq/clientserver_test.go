@@ -4,44 +4,21 @@
 package jobq_test
 
 import (
-	"context"
-	"net"
 	"sort"
 	"testing"
 	"time"
 
 	"github.com/stretchr/testify/require"
-	"go.uber.org/zap/zaptest"
-	"golang.org/x/sync/errgroup"
 
 	"storj.io/common/storj"
 	"storj.io/common/testcontext"
 	"storj.io/common/testrand"
 	"storj.io/storj/satellite/jobq"
 	"storj.io/storj/satellite/jobq/jobqtest"
-	"storj.io/storj/satellite/jobq/server"
 )
 
 func TestClientAndServer(t *testing.T) {
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
-
-	log := zaptest.NewLogger(t)
-	addr, err := net.ResolveTCPAddr("tcp", "127.0.0.1:0")
-	require.NoError(t, err)
-	srv, err := server.New(log, addr, nil, time.Hour, 1e8, 0, 1e6)
-	require.NoError(t, err)
-
-	var group errgroup.Group
-	group.Go(func() error {
-		return srv.Run(ctx)
-	})
-
-	func() {
-		cli, err := jobq.DialAddr(srv.Addr())
-		require.NoError(t, err)
-		defer func() { require.NoError(t, cli.Close()) }()
-
+	jobqtest.WithServerAndClient(t, nil, func(ctx *testcontext.Context, srv *jobqtest.TestServer, cli *jobq.Client) {
 		job := jobq.RepairJob{
 			ID:        jobq.SegmentIdentifier{StreamID: testrand.UUID(), Position: 2},
 			Health:    3.0,
@@ -79,32 +56,11 @@ func TestClientAndServer(t *testing.T) {
 		gotJobs, err = cli.Pop(ctx, 1, nil, nil)
 		require.NoError(t, err)
 		require.Len(t, gotJobs, 0)
-	}()
-
-	cancel()
-	require.NoError(t, group.Wait())
+	})
 }
 
 func TestClientServerPushBatch(t *testing.T) {
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
-
-	log := zaptest.NewLogger(t)
-	addr, err := net.ResolveTCPAddr("tcp", "127.0.0.1:0")
-	require.NoError(t, err)
-	srv, err := server.New(log, addr, nil, time.Hour, 1e8, 0, 1e6)
-	require.NoError(t, err)
-
-	var group errgroup.Group
-	group.Go(func() error {
-		return srv.Run(ctx)
-	})
-
-	func() {
-		cli, err := jobq.DialAddr(srv.Addr())
-		require.NoError(t, err)
-		defer func() { require.NoError(t, cli.Close()) }()
-
+	jobqtest.WithServerAndClient(t, nil, func(ctx *testcontext.Context, srv *jobqtest.TestServer, cli *jobq.Client) {
 		// Create multiple jobs
 		jobs := []jobq.RepairJob{
 			{
@@ -143,32 +99,11 @@ func TestClientServerPushBatch(t *testing.T) {
 		// Lower health job should come first
 		require.Equal(t, jobs[1].ID.StreamID, gotJobs1[0].ID.StreamID)
 		require.Equal(t, jobs[0].ID.StreamID, gotJobs2[0].ID.StreamID)
-	}()
-
-	cancel()
-	require.NoError(t, group.Wait())
+	})
 }
 
 func TestClientServerPeek(t *testing.T) {
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
-
-	log := zaptest.NewLogger(t)
-	addr, err := net.ResolveTCPAddr("tcp", "127.0.0.1:0")
-	require.NoError(t, err)
-	srv, err := server.New(log, addr, nil, time.Hour, 1e8, 0, 1e6)
-	require.NoError(t, err)
-
-	var group errgroup.Group
-	group.Go(func() error {
-		return srv.Run(ctx)
-	})
-
-	func() {
-		cli, err := jobq.DialAddr(srv.Addr())
-		require.NoError(t, err)
-		defer func() { require.NoError(t, cli.Close()) }()
-
+	jobqtest.WithServerAndClient(t, nil, func(ctx *testcontext.Context, srv *jobqtest.TestServer, cli *jobq.Client) {
 		// Create and push a job
 		job := jobq.RepairJob{
 			ID:        jobq.SegmentIdentifier{StreamID: testrand.UUID(), Position: 2},
@@ -199,32 +134,11 @@ func TestClientServerPeek(t *testing.T) {
 		require.Len(t, gotJobs, 1)
 		require.Equal(t, job.ID.StreamID, gotJobs[0].ID.StreamID)
 		require.Equal(t, job.ID.Position, gotJobs[0].ID.Position)
-	}()
-
-	cancel()
-	require.NoError(t, group.Wait())
+	})
 }
 
 func TestClientServerTruncate(t *testing.T) {
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
-
-	log := zaptest.NewLogger(t)
-	addr, err := net.ResolveTCPAddr("tcp", "127.0.0.1:0")
-	require.NoError(t, err)
-	srv, err := server.New(log, addr, nil, time.Hour, 1e8, 0, 1e6)
-	require.NoError(t, err)
-
-	var group errgroup.Group
-	group.Go(func() error {
-		return srv.Run(ctx)
-	})
-
-	func() {
-		cli, err := jobq.DialAddr(srv.Addr())
-		require.NoError(t, err)
-		defer func() { require.NoError(t, cli.Close()) }()
-
+	jobqtest.WithServerAndClient(t, nil, func(ctx *testcontext.Context, srv *jobqtest.TestServer, cli *jobq.Client) {
 		// Create and push a few jobs
 		for i := 0; i < 5; i++ {
 			job := jobq.RepairJob{
@@ -257,32 +171,11 @@ func TestClientServerTruncate(t *testing.T) {
 		gotJobs, err := cli.Pop(ctx, 1, nil, nil)
 		require.NoError(t, err)
 		require.Len(t, gotJobs, 0)
-	}()
-
-	cancel()
-	require.NoError(t, group.Wait())
+	})
 }
 
 func TestClientServerClean(t *testing.T) {
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
-
-	log := zaptest.NewLogger(t)
-	addr, err := net.ResolveTCPAddr("tcp", "127.0.0.1:0")
-	require.NoError(t, err)
-	srv, err := server.New(log, addr, nil, time.Hour, 1e8, 0, 1e6)
-	require.NoError(t, err)
-
-	var group errgroup.Group
-	group.Go(func() error {
-		return srv.Run(ctx)
-	})
-
-	func() {
-		cli, err := jobq.DialAddr(srv.Addr())
-		require.NoError(t, err)
-		defer func() { require.NoError(t, cli.Close()) }()
-
+	jobqtest.WithServerAndClient(t, nil, func(ctx *testcontext.Context, srv *jobqtest.TestServer, cli *jobq.Client) {
 		// Set up our time control
 		now := time.Now()
 		timeIncrement := time.Duration(0)
@@ -291,7 +184,7 @@ func TestClientServerClean(t *testing.T) {
 		}
 		// make the queue for placement 42 get initialized now, so we can change
 		// its time function
-		_, err = srv.QueueMap.GetQueue(42)
+		_, err := srv.QueueMap.GetQueue(42)
 		require.NoError(t, err)
 		srv.SetTimeFunc(timeFunc)
 
@@ -337,32 +230,11 @@ func TestClientServerClean(t *testing.T) {
 		require.NoError(t, err)
 		require.Equal(t, int64(2), gotRepairLen)
 		require.Equal(t, int64(0), gotRetryLen)
-	}()
-
-	cancel()
-	require.NoError(t, group.Wait())
+	})
 }
 
 func TestClientServerTrim(t *testing.T) {
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
-
-	log := zaptest.NewLogger(t)
-	addr, err := net.ResolveTCPAddr("tcp", "127.0.0.1:0")
-	require.NoError(t, err)
-	srv, err := server.New(log, addr, nil, time.Hour, 1e8, 0, 1e6)
-	require.NoError(t, err)
-
-	var group errgroup.Group
-	group.Go(func() error {
-		return srv.Run(ctx)
-	})
-
-	func() {
-		cli, err := jobq.DialAddr(srv.Addr())
-		require.NoError(t, err)
-		defer func() { require.NoError(t, cli.Close()) }()
-
+	jobqtest.WithServerAndClient(t, nil, func(ctx *testcontext.Context, srv *jobqtest.TestServer, cli *jobq.Client) {
 		// Set up our time control
 		now := time.Now()
 		timeIncrement := time.Duration(0)
@@ -378,7 +250,7 @@ func TestClientServerTrim(t *testing.T) {
 				Health:    1.0 / float64(i),
 				Placement: 42,
 			}
-			_, err = cli.Push(ctx, job)
+			_, err := cli.Push(ctx, job)
 			require.NoError(t, err)
 
 			// Small time increment to ensure distinct timestamps
@@ -417,23 +289,11 @@ func TestClientServerTrim(t *testing.T) {
 		jobs3, err := cli.Pop(ctx, 1, nil, nil)
 		require.NoError(t, err)
 		require.Len(t, jobs3, 0)
-	}()
-
-	cancel()
-	require.NoError(t, group.Wait())
+	})
 }
 
 func TestStat(t *testing.T) {
-	jobqtest.WithServer(t, func(ctx *testcontext.Context, jobConfig jobq.Config) {
-		client, err := jobq.Dial(jobConfig.ServerNodeURL.Address)
-		require.NoError(t, err)
-		t.Cleanup(func() {
-			if err := client.Close(); err != nil {
-				t.Logf("failed to close client: %v", err)
-				t.Fail()
-			}
-		})
-
+	jobqtest.WithServerAndClient(t, nil, func(ctx *testcontext.Context, server *jobqtest.TestServer, client *jobq.Client) {
 		// Create and push a few jobs
 		for i := 0; i < 5; i++ {
 			job := jobq.RepairJob{
@@ -464,16 +324,7 @@ func TestStat(t *testing.T) {
 }
 
 func TestStatAll(t *testing.T) {
-	jobqtest.WithServer(t, func(ctx *testcontext.Context, jobConfig jobq.Config) {
-		client, err := jobq.Dial(jobConfig.ServerNodeURL.Address)
-		require.NoError(t, err)
-		t.Cleanup(func() {
-			if err := client.Close(); err != nil {
-				t.Logf("failed to close client: %v", err)
-				t.Fail()
-			}
-		})
-
+	jobqtest.WithServerAndClient(t, nil, func(ctx *testcontext.Context, server *jobqtest.TestServer, client *jobq.Client) {
 		// Create and push a few jobs
 		for i := 0; i < 5; i++ {
 			job := jobq.RepairJob{
@@ -491,7 +342,7 @@ func TestStatAll(t *testing.T) {
 			Placement:  43,
 			InsertedAt: uint64(time.Now().Unix()),
 		}
-		_, err = client.Push(ctx, job)
+		_, err := client.Push(ctx, job)
 		require.NoError(t, err)
 
 		// Get stats for the queue

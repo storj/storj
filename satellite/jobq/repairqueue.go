@@ -9,8 +9,10 @@ import (
 
 	"storj.io/common/identity"
 	"storj.io/common/peertls/tlsopts"
+	"storj.io/common/rpc"
 	"storj.io/common/storj"
 	"storj.io/common/uuid"
+	"storj.io/storj/private/revocation"
 	"storj.io/storj/satellite/metabase"
 	"storj.io/storj/satellite/repair/queue"
 )
@@ -27,12 +29,6 @@ type Config struct {
 // replacement for the PostgreSQL arrangement.
 type RepairJobQueue struct {
 	jobqClient *Client
-}
-
-// NewRepairJobQueue creates a new RepairJobQueue. The caller should arrange for
-// Close to be called on the object when done.
-func NewRepairJobQueue(client *Client) *RepairJobQueue {
-	return &RepairJobQueue{jobqClient: client}
 }
 
 // Insert adds a segment to the appropriate repair queue. If the segment is
@@ -251,19 +247,35 @@ func (rjq *RepairJobQueue) Close() error {
 
 var _ queue.RepairQueue = (*RepairJobQueue)(nil)
 
-// OpenJobQueue opens a connection to a job queue server.
-func OpenJobQueue(ctx context.Context, selfIdentity *identity.FullIdentity, config Config) (rq *RepairJobQueue, err error) {
-	var clientConn *Client
-	if selfIdentity == nil {
-		clientConn, err = Dial(config.ServerNodeURL.Address)
-	} else {
-		clientConn, err = DialTLS(ctx, selfIdentity, config.ServerNodeURL, config.TLS)
+// WrapJobQueue wraps a jobq Client to become a RepairJobQueue.
+func WrapJobQueue(cli *Client) *RepairJobQueue {
+	return &RepairJobQueue{
+		jobqClient: cli,
 	}
+}
+
+// OpenJobQueue opens a RepairJobQueue with the given configuration.
+func OpenJobQueue(ctx context.Context, fi *identity.FullIdentity, config Config) (*RepairJobQueue, error) {
+	revocationDB, err := revocation.OpenDBFromCfg(ctx, config.TLS)
+	if err != nil {
+		return nil, err
+	}
+	if fi == nil {
+		fi, err = identity.NewFullIdentity(ctx, identity.NewCAOptions{})
+		if err != nil {
+			return nil, err
+		}
+	}
+	tlsOpts, err := tlsopts.NewOptions(fi, config.TLS, revocationDB)
+	if err != nil {
+		return nil, err
+	}
+	dialer := rpc.NewDefaultPooledDialer(tlsOpts)
+	rawConn, err := dialer.DialNodeURL(ctx, config.ServerNodeURL)
 	if err != nil {
 		return nil, err
 	}
 
-	return &RepairJobQueue{
-		jobqClient: clientConn,
-	}, nil
+	conn := WrapConn(rawConn)
+	return WrapJobQueue(conn), nil
 }

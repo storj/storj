@@ -112,7 +112,12 @@ func runJobQueue(cmd *cobra.Command, args []string) error {
 		zap.Uint64("max elements per placement", maxElements),
 		zap.Uint64("element mem release threshold", memReleaseThreshold),
 	)
-	srv, err := server.New(logger, addr, tlsOpts, runCfg.RetryAfter, int(initElements), int(maxElements), int(memReleaseThreshold))
+	listener, err := net.Listen(addr.Network(), addr.String())
+	if err != nil {
+		return fmt.Errorf("failed to listen on %q: %w", addr.String(), err)
+	}
+	defer func() { _ = listener.Close() }()
+	srv, err := server.New(logger, listener, tlsOpts, runCfg.RetryAfter, int(initElements), int(maxElements), int(memReleaseThreshold))
 	if err != nil {
 		return fmt.Errorf("failed to create server: %w", err)
 	}

@@ -34,11 +34,12 @@ type Server struct {
 	QueueMap *QueueMap
 	endpoint pb.DRPCJobQueueServer
 	listener net.Listener
+	tlsOpts  *tlsopts.Options
 	mux      *drpcmux.Mux
 }
 
 // New creates a new Server instance.
-func New(log *zap.Logger, listenAddress net.Addr, tlsOpts *tlsopts.Options, retryAfter time.Duration, initAlloc, maxItems, memReleaseThreshold int) (*Server, error) {
+func New(log *zap.Logger, listener net.Listener, tlsOpts *tlsopts.Options, retryAfter time.Duration, initAlloc, maxItems, memReleaseThreshold int) (*Server, error) {
 	queueFactory := func(placement storj.PlacementConstraint) (*jobqueue.Queue, error) {
 		return jobqueue.NewQueue(log.Named(fmt.Sprintf("placement-%d", placement)), retryAfter, initAlloc, maxItems, memReleaseThreshold)
 	}
@@ -50,20 +51,12 @@ func New(log *zap.Logger, listenAddress net.Addr, tlsOpts *tlsopts.Options, retr
 		return nil, fmt.Errorf("failed to register job queue implementation: %w", err)
 	}
 
-	listener, err := net.Listen(listenAddress.Network(), listenAddress.String())
-	if err != nil {
-		return nil, fmt.Errorf("failed to listen on %q: %w", listenAddress, err)
-	}
-
-	if tlsOpts != nil {
-		listener = tls.NewListener(listener, tlsOpts.ServerTLSConfig())
-	}
-
 	return &Server{
 		log:      log,
 		QueueMap: queueMap,
 		endpoint: endpoint,
 		listener: listener,
+		tlsOpts:  tlsOpts,
 		mux:      mux,
 	}, nil
 }
@@ -76,18 +69,31 @@ func (s *Server) Run(ctx context.Context) (err error) {
 	lisMux := drpcmigrate.NewListenMux(s.listener, len(drpcmigrate.DRPCHeader))
 	drpcWithHeaderListener := lisMux.Route(drpcmigrate.DRPCHeader)
 	drpcListener := lisMux.Default()
+	tlsConfig := s.tlsOpts.ServerTLSConfig()
 
 	s.log.Info("server listening", zap.Stringer("address", s.listener.Addr()))
 
 	var group errgroup.Group
 
 	group.Go(func() error {
-		srvWithHeader := drpcserver.New(s.mux)
-		return srvWithHeader.Serve(ctx, drpcWithHeaderListener)
+		log := s.log.Named("drpc-with-header")
+		srvWithHeader := drpcserver.NewWithOptions(s.mux, drpcserver.Options{
+			Log: func(err error) {
+				log.Error("accept error", zap.Error(err))
+			},
+		})
+		l := tls.NewListener(drpcWithHeaderListener, tlsConfig)
+		return srvWithHeader.Serve(ctx, l)
 	})
 	group.Go(func() error {
-		srvWithoutHeader := drpcserver.New(s.mux)
-		return srvWithoutHeader.Serve(ctx, drpcListener)
+		log := s.log.Named("drpc-no-header")
+		srvWithoutHeader := drpcserver.NewWithOptions(s.mux, drpcserver.Options{
+			Log: func(err error) {
+				log.Error("accept error", zap.Error(err))
+			},
+		})
+		l := tls.NewListener(drpcListener, tlsConfig)
+		return srvWithoutHeader.Serve(ctx, l)
 	})
 	group.Go(func() error {
 		return lisMux.Run(ctx)
