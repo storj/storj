@@ -2103,8 +2103,8 @@ func (cache *overlaycache) TestSuspendNodeOffline(ctx context.Context, nodeID st
 	return nil
 }
 
-// TestNodeCountryCode sets node country code.
-func (cache *overlaycache) TestNodeCountryCode(ctx context.Context, nodeID storj.NodeID, countryCode string) (err error) {
+// TestSetNodeCountryCode sets node country code.
+func (cache *overlaycache) TestSetNodeCountryCode(ctx context.Context, nodeID storj.NodeID, countryCode string) (err error) {
 	defer mon.Task()(&ctx)(&err)
 	updateFields := dbx.Node_Update_Fields{}
 	updateFields.CountryCode = dbx.Node_CountryCode(countryCode)

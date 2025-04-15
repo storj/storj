@@ -1407,7 +1407,7 @@ func TestEndpoint_Object_With_StorageNodes(t *testing.T) {
 
 			// set one node to US to filter it out from IP results
 			usNode := planet.FindNode(jonesSegments[0].Pieces[0].StorageNode)
-			require.NoError(t, planet.Satellites[0].Overlay.Service.TestNodeCountryCode(ctx, usNode.ID(), "US"))
+			require.NoError(t, planet.Satellites[0].Overlay.Service.TestSetNodeCountryCode(ctx, usNode.ID(), "US"))
 			require.NoError(t, planet.Satellites[0].API.Overlay.Service.DownloadSelectionCache.Refresh(ctx))
 
 			geoFencedIPs, err := object.GetObjectIPs(ctx, uplink.Config{}, access, bucketName, "jones")

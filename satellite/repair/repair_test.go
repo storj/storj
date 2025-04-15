@@ -3095,7 +3095,7 @@ func TestSegmentInExcludedCountriesRepair(t *testing.T) {
 		numExcluded := 5
 		var nodesInExcluded storj.NodeIDList
 		for i := 0; i < numExcluded; i++ {
-			err = planet.Satellites[0].Overlay.Service.TestNodeCountryCode(ctx, remotePieces[i].StorageNode, "FR")
+			err = planet.Satellites[0].Overlay.Service.TestSetNodeCountryCode(ctx, remotePieces[i].StorageNode, "FR")
 			require.NoError(t, err)
 			nodesInExcluded = append(nodesInExcluded, remotePieces[i].StorageNode)
 		}
@@ -3206,7 +3206,7 @@ func TestSegmentInExcludedCountriesRepairIrreparable(t *testing.T) {
 		remotePieces := segment.Pieces
 		require.GreaterOrEqual(t, len(remotePieces), int(segment.Redundancy.OptimalShares))
 
-		err = planet.Satellites[0].Overlay.Service.TestNodeCountryCode(ctx, remotePieces[1].StorageNode, "FR")
+		err = planet.Satellites[0].Overlay.Service.TestSetNodeCountryCode(ctx, remotePieces[1].StorageNode, "FR")
 		require.NoError(t, err)
 		nodeInExcluded := remotePieces[0].StorageNode
 		offlineNode := remotePieces[2].StorageNode

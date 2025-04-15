@@ -124,8 +124,8 @@ type DB interface {
 	TestUnvetNode(ctx context.Context, nodeID storj.NodeID) (err error)
 	// TestSuspendNodeOffline directly sets a node's offline_suspended timestamp to make testing easier
 	TestSuspendNodeOffline(ctx context.Context, nodeID storj.NodeID, suspendedAt time.Time) (err error)
-	// TestNodeCountryCode sets node country code.
-	TestNodeCountryCode(ctx context.Context, nodeID storj.NodeID, countryCode string) (err error)
+	// TestSetNodeCountryCode sets node country code.
+	TestSetNodeCountryCode(ctx context.Context, nodeID storj.NodeID, countryCode string) (err error)
 	// TestUpdateCheckInDirectUpdate tries to update a node info directly. Returns true if it succeeded, false if there were no node with the provided (used for testing).
 	TestUpdateCheckInDirectUpdate(ctx context.Context, node NodeCheckInInfo, timestamp time.Time, semVer version.SemVer, walletFeatures string) (updated bool, err error)
 	// OneTimeFixLastNets updates the last_net values for all node records to be equal to their
@@ -857,9 +857,9 @@ func (service *Service) TestUnvetNode(ctx context.Context, nodeID storj.NodeID) 
 	return nil
 }
 
-// TestNodeCountryCode directly sets a node's vetted_at timestamp to null to make testing easier.
-func (service *Service) TestNodeCountryCode(ctx context.Context, nodeID storj.NodeID, countryCode string) (err error) {
-	err = service.db.TestNodeCountryCode(ctx, nodeID, countryCode)
+// TestSetNodeCountryCode directly sets a node's vetted_at timestamp to null to make testing easier.
+func (service *Service) TestSetNodeCountryCode(ctx context.Context, nodeID storj.NodeID, countryCode string) (err error) {
+	err = service.db.TestSetNodeCountryCode(ctx, nodeID, countryCode)
 	if err != nil {
 		service.log.Warn("error updating node", zap.Stringer("node ID", nodeID), zap.Error(err))
 		return err

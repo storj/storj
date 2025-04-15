@@ -91,7 +91,7 @@ func TestSegmentRepairPlacement(t *testing.T) {
 
 			t.Run(fmt.Sprintf("oop_%d_ar_%d_off_%d", tc.piecesOutOfPlacement, tc.piecesAfterRepair, tc.piecesOutOfPlacementOffline), func(t *testing.T) {
 				for _, node := range planet.StorageNodes {
-					require.NoError(t, planet.Satellites[0].Overlay.Service.TestNodeCountryCode(ctx, node.ID(), defaultLocation.String()))
+					require.NoError(t, planet.Satellites[0].Overlay.Service.TestSetNodeCountryCode(ctx, node.ID(), defaultLocation.String()))
 				}
 
 				require.NoError(t, planet.Satellites[0].Repairer.Overlay.DownloadSelectionCache.Refresh(ctx))
@@ -118,7 +118,7 @@ func TestSegmentRepairPlacement(t *testing.T) {
 
 					if index < tc.piecesOutOfPlacement {
 						t.Logf("marking node %s as out of placement", node.ID())
-						require.NoError(t, planet.Satellites[0].Overlay.Service.TestNodeCountryCode(ctx, piece.StorageNode, "US"))
+						require.NoError(t, planet.Satellites[0].Overlay.Service.TestSetNodeCountryCode(ctx, piece.StorageNode, "US"))
 					}
 				}
 
@@ -380,14 +380,14 @@ func TestSegmentRepairPlacementAndClumped(t *testing.T) {
 		require.NoError(t, err)
 
 		for _, node := range planet.StorageNodes {
-			require.NoError(t, planet.Satellites[0].Overlay.Service.TestNodeCountryCode(ctx, node.ID(), "PL"))
+			require.NoError(t, planet.Satellites[0].Overlay.Service.TestSetNodeCountryCode(ctx, node.ID(), "PL"))
 		}
 
 		err = planet.Uplinks[0].Upload(ctx, planet.Satellites[0], "testbucket", "object", testrand.Bytes(5*memory.KiB))
 		require.NoError(t, err)
 
 		for _, node := range planet.StorageNodes {
-			require.NoError(t, planet.Satellites[0].Overlay.Service.TestNodeCountryCode(ctx, node.ID(), "PL"))
+			require.NoError(t, planet.Satellites[0].Overlay.Service.TestSetNodeCountryCode(ctx, node.ID(), "PL"))
 		}
 
 		require.NoError(t, planet.Satellites[0].Repairer.Overlay.DownloadSelectionCache.Refresh(ctx))
@@ -400,7 +400,7 @@ func TestSegmentRepairPlacementAndClumped(t *testing.T) {
 		// set nodes to the same placement/country and put all nodes into the same net to mark them as clumped
 		node0 := planet.FindNode(segments[0].Pieces[0].StorageNode)
 		for _, piece := range segments[0].Pieces {
-			require.NoError(t, planet.Satellites[0].Overlay.Service.TestNodeCountryCode(ctx, piece.StorageNode, "US"))
+			require.NoError(t, planet.Satellites[0].Overlay.Service.TestSetNodeCountryCode(ctx, piece.StorageNode, "US"))
 
 			local := node0.Contact.Service.Local()
 			checkInInfo := overlay.NodeCheckInInfo{
@@ -469,7 +469,7 @@ func TestSegmentRepairPlacementNotEnoughNodes(t *testing.T) {
 		require.NoError(t, err)
 
 		for _, node := range planet.StorageNodes {
-			require.NoError(t, planet.Satellites[0].Overlay.Service.TestNodeCountryCode(ctx, node.ID(), "PL"))
+			require.NoError(t, planet.Satellites[0].Overlay.Service.TestSetNodeCountryCode(ctx, node.ID(), "PL"))
 		}
 
 		err = planet.Uplinks[0].Upload(ctx, planet.Satellites[0], "testbucket", "object", testrand.Bytes(5*memory.KiB))
@@ -477,7 +477,7 @@ func TestSegmentRepairPlacementNotEnoughNodes(t *testing.T) {
 
 		// change all nodes location to US
 		for _, node := range planet.StorageNodes {
-			require.NoError(t, planet.Satellites[0].Overlay.Service.TestNodeCountryCode(ctx, node.ID(), "US"))
+			require.NoError(t, planet.Satellites[0].Overlay.Service.TestSetNodeCountryCode(ctx, node.ID(), "US"))
 		}
 
 		require.NoError(t, planet.Satellites[0].Repairer.Overlay.DownloadSelectionCache.Refresh(ctx))
@@ -641,7 +641,7 @@ func TestSegmentRepairPlacementRestrictions(t *testing.T) {
 				if ix > 3 {
 					l = badLocation
 				}
-				require.NoError(t, planet.Satellites[0].Overlay.Service.TestNodeCountryCode(ctx, node.ID(), l.String()))
+				require.NoError(t, planet.Satellites[0].Overlay.Service.TestSetNodeCountryCode(ctx, node.ID(), l.String()))
 
 			}
 			require.NoError(t, planet.Satellites[0].Repairer.Overlay.UploadSelectionCache.Refresh(ctx))
@@ -679,7 +679,7 @@ func TestSegmentRepairPlacementRestrictions(t *testing.T) {
 				if ix < 4 {
 					l = badLocation
 				}
-				require.NoError(t, planet.Satellites[0].Overlay.Service.TestNodeCountryCode(ctx, node.ID(), l.String()))
+				require.NoError(t, planet.Satellites[0].Overlay.Service.TestSetNodeCountryCode(ctx, node.ID(), l.String()))
 
 			}
 			require.NoError(t, planet.Satellites[0].Repairer.Overlay.UploadSelectionCache.Refresh(ctx))

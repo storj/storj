@@ -666,7 +666,7 @@ func TestObserver_PlacementCheck(t *testing.T) {
 		require.NoError(t, err)
 
 		for _, node := range planet.StorageNodes {
-			require.NoError(t, planet.Satellites[0].Overlay.Service.TestNodeCountryCode(ctx, node.ID(), "PL"))
+			require.NoError(t, planet.Satellites[0].Overlay.Service.TestSetNodeCountryCode(ctx, node.ID(), "PL"))
 		}
 
 		err = planet.Uplinks[0].Upload(ctx, planet.Satellites[0], "testbucket", "object", testrand.Bytes(5*memory.KiB))
@@ -692,7 +692,7 @@ func TestObserver_PlacementCheck(t *testing.T) {
 		} {
 			t.Run("#"+strconv.Itoa(i), func(t *testing.T) {
 				for _, node := range planet.StorageNodes {
-					require.NoError(t, planet.Satellites[0].Overlay.Service.TestNodeCountryCode(ctx, node.ID(), "PL"))
+					require.NoError(t, planet.Satellites[0].Overlay.Service.TestSetNodeCountryCode(ctx, node.ID(), "PL"))
 				}
 
 				require.NoError(t, planet.Satellites[0].Repairer.Overlay.DownloadSelectionCache.Refresh(ctx))
@@ -704,7 +704,7 @@ func TestObserver_PlacementCheck(t *testing.T) {
 
 				for index, piece := range segments[0].Pieces {
 					if index < tc.piecesOutOfPlacement {
-						require.NoError(t, planet.Satellites[0].Overlay.Service.TestNodeCountryCode(ctx, piece.StorageNode, "US"))
+						require.NoError(t, planet.Satellites[0].Overlay.Service.TestSetNodeCountryCode(ctx, piece.StorageNode, "US"))
 					}
 
 					// make node offline if needed

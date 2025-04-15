@@ -1109,7 +1109,7 @@ func TestAuditRepairedSegmentInExcludedCountries(t *testing.T) {
 		numExcluded := 5
 		var nodesInExcluded storj.NodeIDList
 		for i := 0; i < numExcluded; i++ {
-			err = planet.Satellites[0].Overlay.Service.TestNodeCountryCode(ctx, remotePieces[i].StorageNode, "FR")
+			err = planet.Satellites[0].Overlay.Service.TestSetNodeCountryCode(ctx, remotePieces[i].StorageNode, "FR")
 			require.NoError(t, err)
 			nodesInExcluded = append(nodesInExcluded, remotePieces[i].StorageNode)
 		}

@@ -195,8 +195,8 @@ func (m *Mockdb) TestSuspendNodeOffline(ctx context.Context, nodeID storj.NodeID
 	panic("implement me")
 }
 
-// TestNodeCountryCode satisfies nodeevents.DB interface.
-func (m *Mockdb) TestNodeCountryCode(ctx context.Context, nodeID storj.NodeID, countryCode string) (err error) {
+// TestSetNodeCountryCode satisfies nodeevents.DB interface.
+func (m *Mockdb) TestSetNodeCountryCode(ctx context.Context, nodeID storj.NodeID, countryCode string) (err error) {
 	panic("implement me")
 }
 
