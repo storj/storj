@@ -25,7 +25,7 @@ func TestPrecommitConstraint_Empty(t *testing.T) {
 				name := fmt.Sprintf("Versioned:%v,DisallowDelete:%v", versioned, disallowDelete)
 				t.Run(name, func(t *testing.T) {
 					var result metabase.PrecommitConstraintResult
-					err := db.ChooseAdapter(obj.Location().ProjectID).WithTx(ctx, func(ctx context.Context, adapter metabase.TransactionAdapter) error {
+					err := db.ChooseAdapter(obj.Location().ProjectID).WithTx(ctx, metabase.TransactionOptions{}, func(ctx context.Context, adapter metabase.TransactionAdapter) error {
 						var err error
 						result, err = db.PrecommitConstraint(ctx, metabase.PrecommitConstraint{
 							Location:       obj.Location(),
@@ -43,7 +43,7 @@ func TestPrecommitConstraint_Empty(t *testing.T) {
 		t.Run("with-non-pending", func(t *testing.T) {
 			adapter := db.ChooseAdapter(obj.ProjectID)
 			var result metabase.PrecommitConstraintWithNonPendingResult
-			err := adapter.WithTx(ctx, func(ctx context.Context, tx metabase.TransactionAdapter) error {
+			err := adapter.WithTx(ctx, metabase.TransactionOptions{}, func(ctx context.Context, tx metabase.TransactionAdapter) error {
 				var err error
 				result, err = tx.PrecommitDeleteUnversionedWithNonPending(ctx, metabase.PrecommitDeleteUnversionedWithNonPending{
 					ObjectLocation: obj.Location(),
@@ -59,7 +59,7 @@ func TestPrecommitConstraint_Empty(t *testing.T) {
 func TestDeleteUnversionedWithNonPendingUsingObjectLock(t *testing.T) {
 	metabasetest.Run(t, func(ctx *testcontext.Context, t *testing.T, db *metabase.DB) {
 		precommit := func(loc metabase.ObjectLocation, bypassGovernance bool) (result metabase.PrecommitConstraintWithNonPendingResult, err error) {
-			err = db.ChooseAdapter(loc.ProjectID).WithTx(ctx, func(ctx context.Context, tx metabase.TransactionAdapter) (err error) {
+			err = db.ChooseAdapter(loc.ProjectID).WithTx(ctx, metabase.TransactionOptions{}, func(ctx context.Context, tx metabase.TransactionAdapter) (err error) {
 				result, err = tx.PrecommitDeleteUnversionedWithNonPending(ctx, metabase.PrecommitDeleteUnversionedWithNonPending{
 					ObjectLocation: loc,
 					ObjectLock: metabase.ObjectLockDeleteOptions{
@@ -168,7 +168,7 @@ func BenchmarkPrecommitConstraint(b *testing.B) {
 		adapter := db.ChooseAdapter(baseObj.ProjectID)
 		b.Run("unversioned", func(b *testing.B) {
 			for i := 0; i < b.N; i++ {
-				err := adapter.WithTx(ctx, func(ctx context.Context, adapter metabase.TransactionAdapter) error {
+				err := adapter.WithTx(ctx, metabase.TransactionOptions{}, func(ctx context.Context, adapter metabase.TransactionAdapter) error {
 					_, err := db.PrecommitConstraint(ctx, metabase.PrecommitConstraint{
 						Location: metabase.ObjectLocation{
 							ProjectID:  baseObj.ProjectID,
@@ -186,7 +186,7 @@ func BenchmarkPrecommitConstraint(b *testing.B) {
 
 		b.Run("versioned", func(b *testing.B) {
 			for i := 0; i < b.N; i++ {
-				err := adapter.WithTx(ctx, func(ctx context.Context, adapter metabase.TransactionAdapter) error {
+				err := adapter.WithTx(ctx, metabase.TransactionOptions{}, func(ctx context.Context, adapter metabase.TransactionAdapter) error {
 					_, err := db.PrecommitConstraint(ctx, metabase.PrecommitConstraint{
 						Location: metabase.ObjectLocation{
 							ProjectID:  baseObj.ProjectID,
@@ -226,7 +226,7 @@ func BenchmarkPrecommitConstraintUnversioned(b *testing.B) {
 		b.Run("nooverwrite", func(b *testing.B) {
 			for i := 0; i < b.N; i++ {
 				objectKey := metabase.ObjectKey(fmt.Sprintf("nooverwrite/%d", i))
-				err := adapter.WithTx(ctx, func(ctx context.Context, adapter metabase.TransactionAdapter) error {
+				err := adapter.WithTx(ctx, metabase.TransactionOptions{}, func(ctx context.Context, adapter metabase.TransactionAdapter) error {
 					_, err := db.PrecommitConstraint(ctx, metabase.PrecommitConstraint{
 						Location: metabase.ObjectLocation{
 							ProjectID:  baseObj.ProjectID,
@@ -245,7 +245,7 @@ func BenchmarkPrecommitConstraintUnversioned(b *testing.B) {
 		b.Run("overwrite", func(b *testing.B) {
 			for i := 0; i < b.N; i++ {
 				objectKey := metabase.ObjectKey(fmt.Sprintf("overwrite/%d", i))
-				err := adapter.WithTx(ctx, func(ctx context.Context, adapter metabase.TransactionAdapter) error {
+				err := adapter.WithTx(ctx, metabase.TransactionOptions{}, func(ctx context.Context, adapter metabase.TransactionAdapter) error {
 					_, err := db.PrecommitConstraint(ctx, metabase.PrecommitConstraint{
 						Location: metabase.ObjectLocation{
 							ProjectID:  baseObj.ProjectID,

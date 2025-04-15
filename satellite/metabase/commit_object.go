@@ -62,7 +62,7 @@ func (db *DB) CommitObjectWithSegments(ctx context.Context, opts CommitObjectWit
 
 	var deletedSegmentCount int64
 	var precommit PrecommitConstraintResult
-	err = db.ChooseAdapter(opts.ProjectID).WithTx(ctx, func(ctx context.Context, adapter TransactionAdapter) error {
+	err = db.ChooseAdapter(opts.ProjectID).WithTx(ctx, TransactionOptions{}, func(ctx context.Context, adapter TransactionAdapter) error {
 		// TODO: should we prevent this from executing when the object has been committed
 		// currently this requires quite a lot of database communication, so invalid handling can be expensive.
 
