@@ -946,7 +946,7 @@ func (p *PostgresAdapter) DeleteObjectLastCommittedSuspended(ctx context.Context
 		Status: DeleteMarkerUnversioned,
 	}
 
-	err = p.WithTx(ctx, func(ctx context.Context, tx TransactionAdapter) (err error) {
+	err = p.WithTx(ctx, TransactionOptions{}, func(ctx context.Context, tx TransactionAdapter) (err error) {
 		result = DeleteObjectResult{}
 
 		precommit, err = tx.PrecommitDeleteUnversionedWithNonPending(ctx, PrecommitDeleteUnversionedWithNonPending{
@@ -1007,7 +1007,7 @@ func (s *SpannerAdapter) DeleteObjectLastCommittedSuspended(ctx context.Context,
 		Status: DeleteMarkerUnversioned,
 	}
 
-	err = s.WithTx(ctx, func(ctx context.Context, atx TransactionAdapter) error {
+	err = s.WithTx(ctx, TransactionOptions{}, func(ctx context.Context, atx TransactionAdapter) error {
 		result = DeleteObjectResult{}
 		stx := atx.(*spannerTransactionAdapter)
 

@@ -3197,6 +3197,31 @@ func TestCommitObject(t *testing.T) {
 				Objects: []metabase.RawObject{metabase.RawObject(object)},
 			}.Check(ctx, t, db)
 		})
+
+		t.Run("commit with delay", func(t *testing.T) {
+			defer metabasetest.DeleteAll{}.Check(ctx, t, db)
+
+			metabasetest.BeginObjectExactVersion{
+				Opts: metabase.BeginObjectExactVersion{
+					ObjectStream: obj,
+					Encryption:   metabasetest.DefaultEncryption,
+				},
+			}.Check(ctx, t, db)
+
+			maxCommitDelay := 50 * time.Millisecond
+			object := metabasetest.CommitObject{
+				Opts: metabase.CommitObject{
+					ObjectStream: obj,
+					Encryption:   metabasetest.DefaultEncryption,
+
+					MaxCommitDelay: &maxCommitDelay,
+				},
+			}.Check(ctx, t, db)
+
+			metabasetest.Verify{
+				Objects: []metabase.RawObject{metabase.RawObject(object)},
+			}.Check(ctx, t, db)
+		})
 	})
 }
 

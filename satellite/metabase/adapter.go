@@ -16,6 +16,12 @@ import (
 	"storj.io/storj/shared/tagsql"
 )
 
+// TransactionOptions contains options for transaction.
+type TransactionOptions struct {
+	// supported only by Spanner.
+	MaxCommitDelay *time.Duration
+}
+
 // Adapter is a low level extension point to use datasource related queries.
 // TODO: we may need separated adapter for segments/objects/etc.
 type Adapter interface {
@@ -49,7 +55,7 @@ type Adapter interface {
 	UpdateTableStats(ctx context.Context) error
 	BucketEmpty(ctx context.Context, opts BucketEmpty) (empty bool, err error)
 
-	WithTx(ctx context.Context, f func(context.Context, TransactionAdapter) error) error
+	WithTx(ctx context.Context, opts TransactionOptions, f func(context.Context, TransactionAdapter) error) error
 
 	CollectBucketTallies(ctx context.Context, opts CollectBucketTallies) (result []BucketTally, err error)
 

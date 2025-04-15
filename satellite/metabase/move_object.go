@@ -239,7 +239,7 @@ func (db *DB) FinishMoveObject(ctx context.Context, opts FinishMoveObject) (err 
 	}
 
 	var precommit PrecommitConstraintResult
-	err = db.ChooseAdapter(opts.ProjectID).WithTx(ctx, func(ctx context.Context, adapter TransactionAdapter) error {
+	err = db.ChooseAdapter(opts.ProjectID).WithTx(ctx, TransactionOptions{}, func(ctx context.Context, adapter TransactionAdapter) error {
 		precommit, err = db.PrecommitConstraint(ctx, PrecommitConstraint{
 			Location:       opts.NewLocation(),
 			Versioned:      opts.NewVersioned,
