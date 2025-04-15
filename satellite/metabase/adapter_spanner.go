@@ -54,7 +54,6 @@ func NewSpannerAdapter(ctx context.Context, cfg SpannerConfig, log *zap.Logger) 
 	poolConfig := spanner.DefaultSessionPoolConfig
 	poolConfig.HealthCheckWorkers = cfg.HealthCheckWorkers
 	poolConfig.HealthCheckInterval = cfg.HealthCheckInterval
-	poolConfig.TrackSessionHandles = true
 
 	client, err := spanner.NewClientWithConfig(ctx, params.DatabasePath(),
 		spanner.ClientConfig{
