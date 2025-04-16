@@ -63,7 +63,7 @@
 <script setup lang="ts">
 import { VBtn, VCard, VCardText, VChip, VDivider, VTooltip, VRow, VIcon } from 'vuetify/components';
 import { computed, onMounted, ref } from 'vue';
-import { Info, Plus } from 'lucide-vue-next';
+import { Info, Plus, Copy } from 'lucide-vue-next';
 
 import { Wallet } from '@/types/payments';
 import { useLoading } from '@/composables/useLoading';
