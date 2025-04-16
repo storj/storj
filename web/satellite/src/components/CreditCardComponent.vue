@@ -38,24 +38,24 @@
             <v-divider class="my-6 border-0" />
             <v-row class="ma-0 align-center">
                 <template v-if="!isEditing">
-                    <v-btn 
-                      variant="outlined" 
-                      color="default" 
-                      class="mr-2" 
-                      :prepend-icon="Edit" 
-                      @click="isEditing = true"
+                    <v-btn
+                        variant="outlined"
+                        color="default"
+                        class="mr-2"
+                        :prepend-icon="Edit"
+                        @click="isEditing = true"
                     >
-                      Edit
+                        Edit
                     </v-btn>
-                    <v-btn 
-                      v-if="isMultipleCards" 
-                      variant="outlined" 
-                      color="default" 
-                      class="mr-2" 
-                      :prepend-icon="Star" 
-                      @click="isEditDefaultCCDialog = true"
+                    <v-btn
+                        v-if="isMultipleCards"
+                        variant="outlined"
+                        color="default"
+                        class="mr-2"
+                        :prepend-icon="Star"
+                        @click="isEditDefaultCCDialog = true"
                     >
-                      Edit Default
+                        Edit Default
                     </v-btn>
                     <v-btn variant="outlined" color="default" :prepend-icon="X" @click="isRemoveCCDialog = true">Remove</v-btn>
                 </template>
@@ -74,6 +74,7 @@
 import { computed, ref } from 'vue';
 import { VNumberInput } from 'vuetify/labs/components';
 import { VBtn, VCard, VCardText, VChip, VCol, VDivider, VRow } from 'vuetify/components';
+import { X, Edit, Star } from 'lucide-vue-next';
 
 import { CreditCard } from '@/types/payments';
 import { useLoading } from '@/composables/useLoading';
@@ -84,7 +85,6 @@ import { useUsersStore } from '@/store/modules/usersStore';
 
 import RemoveCreditCardDialog from '@/components/dialogs/RemoveCreditCardDialog.vue';
 import EditDefaultCreditCardDialog from '@/components/dialogs/EditDefaultCreditCardDialog.vue';
-import { X, Edit, Star } from 'lucide-vue-next';
 
 const billingStore = useBillingStore();
 const notify = useNotify();

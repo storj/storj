@@ -125,10 +125,10 @@
                                         Please add a credit card first to proceed with adding funds.
                                     </v-tooltip>
                                 </div>
-                                <v-btn 
-                                    variant="outlined" 
-                                    color="default" 
-                                    class="mr-2" 
+                                <v-btn
+                                    variant="outlined"
+                                    color="default"
+                                    class="mr-2"
                                     :prepend-icon="Plus"
                                     @click="onAddTokensClicked"
                                 >
@@ -283,7 +283,7 @@ import {
     VIcon,
 } from 'vuetify/components';
 import { useRoute, useRouter } from 'vue-router';
-import { Calendar, Info, Plus, ArrowRight, } from 'lucide-vue-next';
+import { Calendar, Info, Plus, ArrowRight } from 'lucide-vue-next';
 
 import { useLoading } from '@/composables/useLoading';
 import { useNotify } from '@/composables/useNotify';

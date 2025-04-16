@@ -19,13 +19,13 @@
                         <p>{{ billingAddress.country.name }}</p>
                     </template>
                     <v-divider class="my-4 border-0" />
-                    <v-btn 
-                      variant="outlined" 
-                      color="default" 
-                      :prepend-icon="MapPin" 
-                      @click="isAddressDialogShown = true"
+                    <v-btn
+                        variant="outlined"
+                        color="default"
+                        :prepend-icon="MapPin"
+                        @click="isAddressDialogShown = true"
                     >
-                      Update Address
+                        Update Address
                     </v-btn>
                 </v-card-text>
             </v-card>
@@ -48,7 +48,7 @@
                 <v-card-text>
                     <p>{{ taxID.value }}</p>
                     <v-divider class="my-4 border-0" />
-                    <v-btn :loading="isLoading" class="mr-2" variant="outlined" color="error" size="small" :prepend-icon="X" @click="removeTaxID(taxID.id ?? '')">  
+                    <v-btn :loading="isLoading" class="mr-2" variant="outlined" color="error" size="small" :prepend-icon="X" @click="removeTaxID(taxID.id ?? '')">
                         Remove
                     </v-btn>
                     <v-btn v-if="index === taxIDs.length - 1" color="primary" :prepend-icon="Plus" @click="isTaxIdDialogShown = true">
@@ -65,7 +65,7 @@
                     </v-chip>
                     <p v-else>{{ invoiceReference }}</p>
                     <v-divider class="my-4 border-0" />
-                    <v-btn variant="outlined" color="default" :prepend-icon="ReceiptText" @click="isInvoiceReferenceDialogShown = true">    
+                    <v-btn variant="outlined" color="default" :prepend-icon="ReceiptText" @click="isInvoiceReferenceDialogShown = true">
                         {{ invoiceReference ? 'Update' : 'Add' }} Invoice Reference
                     </v-btn>
                 </v-card-text>

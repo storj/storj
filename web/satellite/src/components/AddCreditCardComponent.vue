@@ -78,6 +78,7 @@
 <script setup lang="ts">
 import { VBtn, VCard, VCardItem, VCardText, VCardTitle, VDialog } from 'vuetify/components';
 import { computed, ref } from 'vue';
+import { Plus } from 'lucide-vue-next';
 
 import { useUsersStore } from '@/store/modules/usersStore';
 import { useLoading } from '@/composables/useLoading';
@@ -91,7 +92,6 @@ import { useAppStore } from '@/store/modules/appStore';
 import StripeCardElement from '@/components/StripeCardElement.vue';
 import StripeCardInput from '@/components/StripeCardInput.vue';
 import SuccessStep from '@/components/dialogs/upgradeAccountFlow/SuccessStep.vue';
-import { Plus } from 'lucide-vue-next';
 
 interface StripeForm {
     onSubmit(): Promise<string>;
