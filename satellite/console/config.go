@@ -164,6 +164,10 @@ type PlacementDetail struct {
 	Name        string                    `json:"name"`
 	Title       string                    `json:"title"`
 	Description string                    `json:"description"`
+	// WaitlistURL is only parsed from configuration and not sent to the front-end.
+	WaitlistURL string `json:"waitlistURL,omitempty"`
+	// Pending indicates whether the placement has a waitlist - to be sent to the front-end.
+	Pending bool `json:"pending"`
 }
 
 // PlacementDetails represents a mapping between placement IDs and their human-readable details.

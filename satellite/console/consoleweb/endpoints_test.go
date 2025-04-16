@@ -341,8 +341,9 @@ func TestPayments(t *testing.T) {
 		partner         = ""
 		placement       = storj.PlacementConstraint(10)
 		placementDetail = console.PlacementDetail{
-			ID:     10,
-			IdName: "placement10",
+			ID:          10,
+			IdName:      "placement10",
+			WaitlistURL: "waitlist",
 		}
 		productID    = int32(1)
 		productPrice = paymentsconfig.ProductUsagePrice{
@@ -503,7 +504,10 @@ func TestPayments(t *testing.T) {
 			var details []console.PlacementDetail
 			require.NoError(t, json.Unmarshal([]byte(body), &details))
 			require.Len(t, details, 1)
-			require.Equal(t, placementDetail, details[0])
+			require.Equal(t, placementDetail.ID, details[0].ID)
+			require.Equal(t, placementDetail.IdName, details[0].IdName)
+			require.True(t, details[0].Pending)
+			require.Empty(t, details[0].WaitlistURL)
 		}
 	})
 }

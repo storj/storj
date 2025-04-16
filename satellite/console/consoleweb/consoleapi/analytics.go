@@ -185,6 +185,42 @@ func (a *Analytics) JoinCunoFSBeta(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusOK)
 }
 
+// JoinPlacementWaitlist sends a placement waitlist form event to hubspot.
+func (a *Analytics) JoinPlacementWaitlist(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	var err error
+	defer mon.Task()(&ctx)(&err)
+
+	var data analytics.TrackJoinPlacementWaitlistFields
+	err = json.NewDecoder(r.Body).Decode(&data)
+	if err != nil {
+		a.serveJSONError(ctx, w, http.StatusInternalServerError, err)
+	}
+
+	err = a.service.JoinPlacementWaitlist(ctx, data)
+	if err != nil {
+		if console.ErrUnauthorized.Has(err) {
+			a.serveJSONError(ctx, w, http.StatusUnauthorized, err)
+			return
+		}
+
+		if console.ErrBotUser.Has(err) {
+			a.serveJSONError(ctx, w, http.StatusForbidden, err)
+			return
+		}
+
+		if console.ErrConflict.Has(err) {
+			a.serveJSONError(ctx, w, http.StatusConflict, err)
+			return
+		}
+
+		a.serveJSONError(ctx, w, http.StatusInternalServerError, err)
+		return
+	}
+
+	w.WriteHeader(http.StatusOK)
+}
+
 // RequestObjectMountConsultation sends a consultation form data event to hubspot.
 func (a *Analytics) RequestObjectMountConsultation(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()

@@ -3449,6 +3449,66 @@ func (s *Service) JoinCunoFSBeta(ctx context.Context, data analytics.TrackJoinCu
 	return nil
 }
 
+// JoinPlacementWaitlist is a method for adding user to a placement waitlist.
+func (s *Service) JoinPlacementWaitlist(ctx context.Context, data analytics.TrackJoinPlacementWaitlistFields) (err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	if !s.config.Placement.SelfServeEnabled {
+		return Error.New("Self-serve placement is disabled")
+	}
+
+	user, err := s.getUserAndAuditLog(ctx, "join placement waitlist")
+	if err != nil {
+		return ErrUnauthorized.Wrap(err)
+	}
+
+	if user.Status == PendingBotVerification {
+		return ErrBotUser.New(contactSupportErrMsg)
+	}
+
+	settings, err := s.store.Users().GetSettings(ctx, user.ID)
+	if err != nil {
+		if !errs.Is(err, sql.ErrNoRows) {
+			return Error.Wrap(err)
+		}
+	}
+
+	var noticeDismissal NoticeDismissal
+	waitlistJoined := false
+	if settings != nil {
+		waitlistsJoined := settings.NoticeDismissal.PlacementWaitlistsJoined
+		for _, constraint := range waitlistsJoined {
+			if constraint == data.Placement {
+				waitlistJoined = true
+				break
+			}
+		}
+		noticeDismissal = settings.NoticeDismissal
+	}
+	if waitlistJoined {
+		return ErrConflict.New("user already joined waitlist")
+	}
+
+	data.Email = user.Email
+	placement, ok := s.config.Placement.SelfServeDetails.detailMap[data.Placement]
+	if !ok {
+		return ErrPlacementNotFound.New("")
+	}
+
+	data.WaitlistURL = placement.WaitlistURL
+	s.analytics.JoinPlacementWaitlist(data)
+
+	noticeDismissal.PlacementWaitlistsJoined = append(noticeDismissal.PlacementWaitlistsJoined, placement.ID)
+	err = s.store.Users().UpsertSettings(ctx, user.ID, UpsertUserSettingsRequest{
+		NoticeDismissal: &noticeDismissal,
+	})
+	if err != nil {
+		return errs.Combine(Error.New("Your submission was successfully received, but something else went wrong"), err)
+	}
+
+	return nil
+}
+
 // RequestObjectMountConsultation is a method for tracking user requested object mount consultation.
 func (s *Service) RequestObjectMountConsultation(ctx context.Context, data analytics.TrackObjectMountConsultationFields) (err error) {
 	defer mon.Task()(&ctx)(&err)
