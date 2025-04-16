@@ -88,6 +88,9 @@ h1,h2,h3,h4,h5,h6 {
 .rounded-xlg {
   border-radius: 12px !important;
 }
+.rounded-xxlg {
+  border-radius: 16px !important;
+}
 
 // Button Styles
 .v-btn.bg-primary:hover {
@@ -333,6 +336,11 @@ a.v-card:hover {
 // Fix dialog scroll
 .v-overlay .v-card .v-window {
   overflow-y: auto !important;
+}
+
+// Account Setup Dialog
+.account-setup-dialog {
+  border-radius: 0px !important;
 }
 
 // Align the checkboxes in the tables
@@ -800,6 +808,17 @@ table {
 
 .hidden {
   display: none !important;
+}
+
+// Target autofilled input fields in WebKit browsers (Chrome, Safari, Edge)
+input:-webkit-autofill,
+input:-webkit-autofill:hover, 
+input:-webkit-autofill:focus, 
+input:-webkit-autofill:active {
+    -webkit-box-shadow: 0 0 0 100px rgb(var(--v-theme-background)) inset !important;
+    box-shadow: 0 0 0 100px rgb(var(--v-theme-background)) inset !important;
+    -webkit-text-fill-color: inherit !important;
+    border-radius: 8px !important;
 }
 
 @media (max-width: 599px) {

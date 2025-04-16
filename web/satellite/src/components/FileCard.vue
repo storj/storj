@@ -47,7 +47,7 @@
                                 :src="item.typeInfo.icon"
                                 :alt="item.typeInfo.title + 'icon'"
                                 :aria-roledescription="item.typeInfo.title + 'icon'"
-                                class="bg-background rounded-xlg"
+                                class="bg-blue6 rounded-xxlg"
                                 height="70"
                             >
                             </div>

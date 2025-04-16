@@ -6,7 +6,7 @@
         <v-form v-model="formValid" @submit.prevent="emit('next')">
             <v-row justify="center">
                 <v-col class="text-center py-4">
-                    <icon-personal />
+                    <UserRound height="50" width="50" class="rounded-xlg bg-background pa-3 border" />
                     <p class="text-overline mt-2 mb-1">
                         Personal Account
                     </p>
@@ -31,7 +31,8 @@
                         label="Use Case (optional)"
                         placeholder="Select your use case"
                         variant="outlined"
-                        class="mt-1"
+                        class="my-1"
+                        hide-details="auto"
                         @update:model-value="(v) => analyticsStore.eventTriggered(AnalyticsEvent.USE_CASE_SELECTED, { useCase: v })"
                     />
                     <v-text-field
@@ -40,7 +41,8 @@
                         label="Specify Other Use Case"
                         variant="outlined"
                         autofocus
-                        class="mt-1"
+                        class="my-1"
+                        hide-details="auto"
                     />
                 </v-col>
             </v-row>
@@ -79,15 +81,13 @@
 <script setup lang="ts">
 import { VBtn, VCol, VContainer, VForm, VRow, VSelect, VTextField } from 'vuetify/components';
 import { ref } from 'vue';
-import { ChevronLeft, ChevronRight } from 'lucide-vue-next';
+import { ChevronLeft, ChevronRight, UserRound } from 'lucide-vue-next';
 
 import { MaxNameLengthRule, RequiredRule } from '@/types/common';
 import { AuthHttpApi } from '@/api/auth';
 import { AnalyticsEvent } from '@/utils/constants/analyticsEventNames';
 import { useAnalyticsStore } from '@/store/modules/analyticsStore';
 import { useConfigStore } from '@/store/modules/configStore';
-
-import IconPersonal from '@/components/icons/IconPersonal.vue';
 
 const auth = new AuthHttpApi();
 

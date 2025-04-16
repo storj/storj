@@ -2,8 +2,8 @@
 // See LICENSE for copying information.
 
 <template>
-    <v-dialog :model-value="shouldShowSetupDialog" height="100%" width="100%" persistent transition="fade-transition" scrollable>
-        <v-card>
+    <v-dialog :model-value="shouldShowSetupDialog" fullscreen persistent transition="fade-transition" scrollable>
+        <v-card ref="innerContent" class="account-setup-dialog">
             <v-card-item class="pa-1" :class="{ 'h-100': step === OnboardingStep.SetupComplete }">
                 <v-window v-model="step">
                     <!-- Choice step -->
@@ -78,7 +78,7 @@
                             <v-container>
                                 <v-row justify="center">
                                     <v-col class="text-center py-4">
-                                        <icon-storj-logo />
+                                        <icon-storj-logo height="50" width="50" class="rounded-xlg bg-background pa-2 border" />
                                         <div class="text-overline mt-2 mb-1">
                                             Account Setup
                                         </div>
@@ -86,13 +86,14 @@
                                     </v-col>
                                 </v-row>
                                 <v-row class="ma-0" justify="center" align="center">
-                                    <v-col cols="12" sm="8" md="6" lg="4">
+                                    <v-col cols="12" sm="10" md="8" lg="6" class="pb-0">
                                         <v-tabs
                                             v-if="isProPlan"
                                             v-model="paymentTab"
                                             color="default"
                                             center-active
                                             show-arrows
+                                            class="border-b-thin"
                                             grow
                                         >
                                             <v-tab>
@@ -107,7 +108,7 @@
                                 <v-window v-model="paymentTab">
                                     <v-window-item :value="PaymentOption.CreditCard">
                                         <v-row class="ma-0" justify="center" align="center">
-                                            <v-col cols="12" sm="8" md="6" lg="4">
+                                            <v-col cols="12" sm="10" md="8" lg="6">
                                                 <PricingPlanStep
                                                     v-model:loading="isLoading"
                                                     :plan="plan"
@@ -120,8 +121,8 @@
                                     </v-window-item>
                                     <v-window-item :value="PaymentOption.StorjTokens">
                                         <v-row justify="center" align="center" class="ma-0 mt-2">
-                                            <v-col cols="12" sm="8" md="6" lg="4">
-                                                <v-card :loading="isLoading" class="pa-1" :class="{'no-border pa-0': !isLoading}">
+                                            <v-col cols="12" sm="10" md="8" lg="6">
+                                                <v-card :loading="isLoading" class="pa-1" variant="flat" :class="{'no-border pa-0': !isLoading}">
                                                     <AddTokensStep
                                                         v-if="!isLoading"
                                                         @back="onBackFromTokens"

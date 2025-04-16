@@ -133,7 +133,7 @@
 
         <v-row justify="center" class="mt-8">
             <v-col cols="6" sm="4" md="3" lg="2">
-                <v-btn variant="text" :prepend-icon="ChevronLeft" color="default" block @click="emit('back')">Back</v-btn>
+                <v-btn variant="text" class="text-medium-emphasis" :prepend-icon="ChevronLeft" color="default" block @click="emit('back')">Back</v-btn>
             </v-col>
         </v-row>
     </v-container>

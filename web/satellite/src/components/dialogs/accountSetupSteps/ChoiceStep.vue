@@ -19,15 +19,15 @@
                 <v-card id="personal" class="px-3 py-5" @click="typeSelected(OnboardingStep.PersonalAccountForm)">
                     <v-card-item>
                         <div>
-                            <icon-personal />
+                            <UserRound height="50" width="50" class="rounded-xlg bg-background pa-3 border" />
 
                             <p class="text-overline mt-2 mb-1">
                                 Personal
                             </p>
-                            <p class="text-h6 mb-1">
+                            <p class="text-h6 mb-2">
                                 I'm using Storj for myself.
                             </p>
-                            <p class="text-caption">Securely store, backup, share, stream, and collaborate on files and media from any device.</p>
+                            <p class="text-body-2">Securely store, backup, share, stream, and collaborate on files and media from any device.</p>
                         </div>
                     </v-card-item>
                     <v-card-item>
@@ -40,15 +40,15 @@
                 <v-card id="business" class="px-3 py-5" @click="typeSelected(OnboardingStep.BusinessAccountForm)">
                     <v-card-item>
                         <div>
-                            <icon-business />
+                            <Building2 height="50" width="50" class="rounded-xlg bg-background pa-3 border" />
 
                             <p class="text-overline mt-2 mb-1">
                                 Business
                             </p>
-                            <p class="text-h6 mb-1">
+                            <p class="text-h6 mb-2">
                                 I'm using Storj for business.
                             </p>
-                            <p class="text-caption">Save your company 80% or more on cloud storage costs with better security and performance.</p>
+                            <p class="text-body-2 ">Save your company 80% or more on cloud storage costs with better security and performance.</p>
                         </div>
                     </v-card-item>
                     <v-card-item>
@@ -62,14 +62,12 @@
 
 <script setup lang="ts">
 import { VBtn, VCard, VCardItem, VCol, VContainer, VRow } from 'vuetify/components';
-import { ChevronRight } from 'lucide-vue-next';
+import { Building2, ChevronRight, UserRound } from 'lucide-vue-next';
 
 import { OnboardingStep } from '@/types/users';
 import { AnalyticsEvent } from '@/utils/constants/analyticsEventNames';
 import { useAnalyticsStore } from '@/store/modules/analyticsStore';
 
-import IconPersonal from '@/components/icons/IconPersonal.vue';
-import IconBusiness from '@/components/icons/IconBusiness.vue';
 import IconStorjLogo from '@/components/icons/IconStorjLogo.vue';
 
 const analyticsStore = useAnalyticsStore();
