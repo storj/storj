@@ -27,7 +27,7 @@
             </v-chip>
         </template>
         <template #item.link="{ item }">
-            <v-btn v-if="item.link" variant="flat" size="small" :href="item.link">
+            <v-btn v-if="item.link" variant="outlined" color="default" size="small" :href="item.link">
                 Download
             </v-btn>
         </template>

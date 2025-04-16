@@ -44,7 +44,7 @@
         <v-window v-model="tab">
             <v-window-item class="pb-2">
                 <v-row>
-                    <v-col cols="12" md="4">
+                    <v-col cols="12" sm="12" md="6" lg="6" xl="4">
                         <v-card
                             :subtitle="`For ${new Date().toLocaleString('en-US', { month: 'long', year: 'numeric' })}`"
                             class="pa-2"
@@ -79,7 +79,7 @@
                         </v-card>
                     </v-col>
 
-                    <v-col cols="12" md="4">
+                    <v-col cols="12" sm="12" md="6" lg="6" xl="4">
                         <v-card subtitle="Your Storj account balance" class="pa-2">
                             <template #title>
                                 <v-row class="align-center">
@@ -110,8 +110,8 @@
                                     <v-btn
                                         variant="outlined"
                                         color="default"
-                                        :prepend-icon="Plus"
                                         :disabled="!creditCards.length"
+                                        :prepend-icon="Plus"
                                         @click="isAddFundsDialogShown = true"
                                     >
                                         Add Funds
@@ -122,17 +122,23 @@
                                         activator="parent"
                                         location="top"
                                     >
-                                        Please add a credit card to proceed with adding funds.
+                                        Please add a credit card first to proceed with adding funds.
                                     </v-tooltip>
                                 </div>
-                                <v-btn variant="outlined" color="default" class="mr-2" :prepend-icon="Plus" @click="onAddTokensClicked">
+                                <v-btn 
+                                    variant="outlined" 
+                                    color="default" 
+                                    class="mr-2" 
+                                    :prepend-icon="Plus"
+                                    @click="onAddTokensClicked"
+                                >
                                     Add STORJ Tokens
                                 </v-btn>
                             </v-card-text>
                         </v-card>
                     </v-col>
 
-                    <v-col cols="12" md="4">
+                    <v-col cols="12" sm="12" md="6" lg="6" xl="4">
                         <v-card
                             v-if="isLoading"
                             class="d-flex align-center justify-center pa-2"
@@ -176,6 +182,7 @@
                             v-else-if="couponCodeBillingUIEnabled"
                             title="Coupon"
                             subtitle="Apply a new coupon to your account"
+                            height="100%"
                             class="pa-2"
                         >
                             <v-card-text>
@@ -196,15 +203,17 @@
                             </v-card-text>
                         </v-card>
                     </v-col>
-                </v-row>
 
-                <v-row>
-                    <v-col>
-                        <v-card title="Detailed Usage Report" subtitle="Get a complete usage report for all your projects." class="usage-report-card pa-2">
+                    <v-col cols="12" sm="12" md="6" lg="6" xl="4">
+                        <v-card title="Detailed Usage Report" subtitle="Get complete report of usage for your account" class="pa-2" height="100%">
                             <v-card-text>
+                                <v-chip color="default" variant="tonal" class="text-caption">
+                                    All Projects
+                                </v-chip>
+                                <v-divider class="my-4 border-0" />
                                 <v-btn variant="outlined" color="default" rounded="md" :prepend-icon="Calendar">
                                     <detailed-usage-report-dialog />
-                                    Detailed Account Report
+                                    Detailed Usage Report
                                 </v-btn>
                             </v-card-text>
                         </v-card>
@@ -221,15 +230,15 @@
 
             <v-window-item class="pb-2">
                 <v-row>
-                    <v-col cols="12" md="4" sm="6">
+                    <v-col cols="12" sm="12" md="6" lg="6" xl="4">
                         <StorjTokenCardComponent ref="tokenCardComponent" @history-clicked="tab = TABS.transactions" />
                     </v-col>
 
-                    <v-col v-for="(card, i) in creditCards" :key="i" cols="12" md="4" sm="6">
+                    <v-col v-for="(card, i) in creditCards" :key="i" cols="12" sm="12" md="6" lg="6" xl="4">
                         <CreditCardComponent :card="card" />
                     </v-col>
 
-                    <v-col cols="12" md="4" sm="6">
+                    <v-col cols="12" sm="12" md="6" lg="6" xl="4">
                         <AddCreditCardComponent />
                     </v-col>
                 </v-row>
@@ -274,7 +283,7 @@ import {
     VIcon,
 } from 'vuetify/components';
 import { useRoute, useRouter } from 'vue-router';
-import { Calendar, Info, Plus, ArrowRight } from 'lucide-vue-next';
+import { Calendar, Info, Plus, ArrowRight, } from 'lucide-vue-next';
 
 import { useLoading } from '@/composables/useLoading';
 import { useNotify } from '@/composables/useNotify';
@@ -467,28 +476,3 @@ onMounted(async () => {
     }
 });
 </script>
-
-<style scoped>
-.usage-report-card {
-    background-color: rgb(var(--v-theme-surface)) !important;
-    background-image: repeating-linear-gradient(
-        45deg,
-        rgba(var(--v-theme-primary), 0.02) 0,
-        rgba(var(--v-theme-primary), 0.02) 1px,
-        transparent 1px,
-        transparent 10px
-    );
-    background-size: 14px 14px;
-}
-
-.usage-report-card:hover {
-    background-image: repeating-linear-gradient(
-        45deg,
-        rgba(var(--v-theme-primary), 0.04) 0,
-        rgba(var(--v-theme-primary), 0.04) 1px,
-        transparent 1px,
-        transparent 10px
-    );
-    transition: background-image 0.3s ease;
-}
-</style>

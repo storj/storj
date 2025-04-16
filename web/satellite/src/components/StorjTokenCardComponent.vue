@@ -51,8 +51,8 @@
             <p>Total Balance</p>
             <v-chip variant="text" class="text-primary pl-0 font-weight-bold pt-2">{{ balance || '-' }}</v-chip>
             <v-divider class="my-6 border-0" />
-            <v-btn v-if="wallet.address" variant="flat" color="primary" :loading="isLoading" class="mt-2 mr-2" @click="onAddTokens">+ Add STORJ Tokens</v-btn>
-            <v-btn v-else variant="flat" color="primary" :loading="isLoading" class="mt-2" @click="claimWalletClick">Generate Deposit Address</v-btn>
+            <v-btn v-if="wallet.address" variant="flat" color="primary" :loading="isLoading" class="mt-2 mr-2" :prepend-icon="Plus" @click="onAddTokens">Add STORJ Tokens</v-btn>
+            <v-btn v-else variant="flat" color="primary" :loading="isLoading" class="mt-2" :prepend-icon="Plus" @click="claimWalletClick">Generate Deposit Address</v-btn>
             <v-btn v-if="wallet.address" variant="outlined" color="default" :loading="isLoading" class="mt-2" @click="emit('historyClicked')">View Transactions</v-btn>
         </v-card-text>
     </v-card>
@@ -63,7 +63,7 @@
 <script setup lang="ts">
 import { VBtn, VCard, VCardText, VChip, VDivider, VTooltip, VRow, VIcon } from 'vuetify/components';
 import { computed, onMounted, ref } from 'vue';
-import { Copy, Info } from 'lucide-vue-next';
+import { Info, Plus } from 'lucide-vue-next';
 
 import { Wallet } from '@/types/payments';
 import { useLoading } from '@/composables/useLoading';

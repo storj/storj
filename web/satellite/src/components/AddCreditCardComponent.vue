@@ -5,7 +5,7 @@
     <v-card title="Add New Card" subtitle="Add a new credit/debit card for payment." class="pa-2">
         <v-card-text>
             <div v-if="!isCardInputShown">
-                <v-btn variant="outlined" color="default" class="mr-2" @click="onShowCardInput">+ Add New Card</v-btn>
+                <v-btn variant="outlined" color="default" class="mr-2" :prepend-icon="Plus" @click="onShowCardInput">Add New Card</v-btn>
             </div>
 
             <template v-else>
@@ -91,6 +91,7 @@ import { useAppStore } from '@/store/modules/appStore';
 import StripeCardElement from '@/components/StripeCardElement.vue';
 import StripeCardInput from '@/components/StripeCardInput.vue';
 import SuccessStep from '@/components/dialogs/upgradeAccountFlow/SuccessStep.vue';
+import { Plus } from 'lucide-vue-next';
 
 interface StripeForm {
     onSubmit(): Promise<string>;

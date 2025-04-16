@@ -54,7 +54,7 @@
                 <v-row>
                     <v-col>
                         <v-btn
-                            :color="expired ? 'success' : 'warning'"
+                            :color="expired ? 'primary' : 'warning'"
                             :append-icon="ArrowRight"
                             variant="flat"
                             block
