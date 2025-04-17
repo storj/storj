@@ -14,9 +14,9 @@ import (
 // MmapSupported is true if mmap is supported on the platform.
 const MmapSupported = true
 
-func mmap(fh *os.File, size int) ([]byte, func() error, error) {
+func mmap(fh *os.File, size int) ([]byte, error) {
 	if size < 0 || uint64(size) > uint64(^uintptr(0)) {
-		return nil, nil, Error.New("size out of range")
+		return nil, Error.New("size out of range")
 	}
 
 	data, err := unix.Mmap(
@@ -27,14 +27,22 @@ func mmap(fh *os.File, size int) ([]byte, func() error, error) {
 		unix.MAP_SHARED,
 	)
 	if err != nil {
-		return nil, nil, Error.Wrap(err)
+		return nil, Error.Wrap(err)
 	}
 
-	return data, func() error { return unix.Munmap(data) }, nil
+	return data, nil
+}
+
+func munmap(data []byte) error {
+	return unix.Munmap(data)
 }
 
 func mremap(data []byte, size int) ([]byte, error) {
 	return unix.Mremap(data, size, unix.MREMAP_MAYMOVE)
+}
+
+func mlock(data []byte) error {
+	return unix.Mlock(data)
 }
 
 func adviseRandom(data []byte) {

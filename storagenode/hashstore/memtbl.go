@@ -21,6 +21,9 @@ import (
 var (
 	// if set, uses mmap to do reads to the memtbl
 	memtbl_MMAP = envBool("STORJ_HASHSTORE_MEMTBL_MMAP", false) && platform.MmapSupported
+
+	// if set, call mlock on any mmap/mremap'd data
+	memtbl_Mlock = envBool("STORJ_HASHSTORE_MEMTBL_MLOCK", true) && platform.MmapSupported
 )
 
 type memtblIdx uint32 // index of a record in the memtbl (^0 means promoted)
@@ -48,9 +51,8 @@ type MemTbl struct {
 	entries    *flatMap
 	collisions map[Key][4]byte
 
-	mmap      []byte
-	mmapClose func() error
-	remap     bool
+	mmap  []byte
+	remap bool
 
 	closed drpcsignal.Signal // closed state
 	cloMu  sync.Mutex        // synchronizes closing
@@ -142,11 +144,15 @@ func OpenMemTbl(ctx context.Context, fh *os.File) (_ *MemTbl, err error) {
 	}
 
 	if memtbl_MMAP {
-		data, close, err := platform.Mmap(fh, int(size-size%platform.PageSize))
+		data, err := platform.Mmap(fh, int(size-size%platform.PageSize))
 		if err != nil {
 			return nil, Error.Wrap(err)
 		}
-		m.mmap, m.mmapClose, m.remap = data, close, true
+		m.mmap, m.remap = data, true
+
+		if memtbl_Mlock {
+			_ = platform.Mlock(data)
+		}
 
 		// N.B. we don't bother with a memory advise here because loadEntries will be sequential and
 		// defer setting it to random when it's done, so we don't want to confuse the kernel by
@@ -358,8 +364,10 @@ func (m *MemTbl) Close() {
 	defer m.opMu.Unlock()
 
 	if m.mmap != nil {
-		_ = m.mmapClose()
-		m.mmap, m.mmapClose = nil, nil
+		if err := platform.Munmap(m.mmap); err != nil {
+			panic(err)
+		}
+		m.mmap = nil
 	}
 
 	_ = m.fh.Close()
@@ -569,6 +577,10 @@ func (m *MemTbl) remapIfNeededSlow(size int64) {
 	data, err := platform.Mremap(m.mmap, int(size-size%platform.PageSize))
 	if err == nil {
 		m.mmap = data
+
+		if memtbl_Mlock {
+			_ = platform.Mlock(data)
+		}
 	}
 }
 
