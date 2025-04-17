@@ -12,6 +12,7 @@ import (
 
 	"github.com/zeebo/assert"
 
+	"storj.io/common/sync2"
 	"storj.io/drpc/drpcsignal"
 )
 
@@ -47,6 +48,53 @@ func TestMutex(t *testing.T) {
 	{ // closed signal should fail acquire
 		closed.Set(nil)
 		assert.Error(t, mu.Lock(ctx, closed))
+	}
+}
+
+func TestMutex_LockBlocksUntilCanceled(t *testing.T) {
+	testCases := []struct {
+		name       string
+		cancelType string
+	}{
+		{name: "ContextCancel", cancelType: "context"},
+		{name: "SignalClose", cancelType: "signal"},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			mu := newMutex()
+			sig := new(drpcsignal.Signal)
+			ctx, cancel := context.WithCancel(context.Background())
+			defer cancel()
+
+			// Acquire the lock first
+			mu.WaitLock()
+			defer mu.Unlock()
+
+			// Channel to receive the error from the second lock attempt
+			errCh := make(chan error, 1)
+
+			go func() {
+				// Try to acquire another lock, which should block
+				errCh <- mu.Lock(ctx, sig)
+			}()
+
+			// Wait for the goroutine to reach the blocking state
+			waitForGoroutine(
+				"TestMutex_LockBlocksUntilCanceled",
+				"(*mutex).Lock(",
+				"select",
+			)
+
+			if tc.cancelType == "context" {
+				cancel() // Cancel the context after confirming we're blocked
+			} else {
+				sig.Set(nil) // Close the signal after confirming we're blocked
+			}
+
+			// We should get an error since we canceled the context or closed the signal
+			assert.Error(t, <-errCh)
+		})
 	}
 }
 
@@ -222,6 +270,47 @@ func TestRWMutex_Semaphore_Success(t *testing.T) {
 
 	// acquire the mutex again
 	assert.NoError(t, mu.RLock(ctx, closed))
+}
+
+func TestRWMutex_ReleaseCancelRace(t *testing.T) {
+	mu := newRWMutex(0)
+	sig := new(drpcsignal.Signal)
+
+	for i := 0; i < 100; i++ {
+		func() {
+			// Create new context for each iteration
+			ctx, cancel := context.WithCancel(context.Background())
+			defer cancel()
+
+			// Acquire write lock
+			mu.WaitLock()
+
+			// Create a wait group to track goroutines
+			var wg sync2.WorkGroup
+
+			wg.Go(func() {
+				// Try to acquire the lock and unlock if successful
+				if mu.Lock(ctx, sig) == nil {
+					mu.Unlock()
+				}
+			})
+
+			// Wait for goroutine to be blocked in select
+			waitForGoroutine(
+				"TestRWMutex_ReleaseCancelRace",
+				"(*rwMutex).Lock(",
+				"(*rwMutex).lock(",
+				"select",
+			)
+
+			// Race between releasing mutex and canceling context, keeping track of them.
+			wg.Go(mu.Unlock)
+			wg.Go(cancel)
+
+			// Wait for all the goroutines to finish before starting next iteration
+			wg.Wait()
+		}()
+	}
 }
 
 func TestRWMutex_PendingWriteDoesntPreventMultipleReads(t *testing.T) {

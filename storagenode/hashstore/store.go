@@ -868,8 +868,9 @@ func (s *Store) compactOnce(
 	}
 
 	// special case: if we have some values in rewriteCandidates but we have no files in rewrite we
-	// need to include one to ensure progress.
-	if len(rewriteCandidates) > 0 && len(rewrite) == 0 {
+	// need to include one to ensure progress, unless the RewriteMultiple is 0 so we don't want to
+	// do any rewriting.
+	if len(rewriteCandidates) > 0 && len(rewrite) == 0 && compaction_RewriteMultiple > 0 {
 		for id := range rewriteCandidates {
 			rewrite[id] = true
 			break
@@ -1085,8 +1086,9 @@ func (s *Store) compactOnce(
 	})
 
 	// if we rewrote every log file that we could potentially rewrite, then we're done. len is
-	// sufficient here because rewrite is a subset of rewriteCandidates.
-	return len(rewriteCandidates) == len(rewrite), nil
+	// sufficient here because rewrite is a subset of rewriteCandidates. also if our rewrite
+	// multiple is 0, then we're done because we unlinked all the fully dead log files already.
+	return len(rewriteCandidates) == len(rewrite) || compaction_RewriteMultiple == 0, nil
 }
 
 func (s *Store) rewriteRecord(ctx context.Context, rec Record, rewriteCandidates map[uint64]bool) (_ Record, err error) {

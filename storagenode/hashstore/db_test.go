@@ -100,6 +100,75 @@ func testDB_TrashStats(t *testing.T) {
 	assert.That(t, stats.TrashPercent > 0)
 }
 
+func TestDB_ReadAllPossibleStates(t *testing.T) {
+	forAllTables(t, testDB_ReadAllPossibleStates)
+}
+func testDB_ReadAllPossibleStates(t *testing.T) {
+	const (
+		createActive = iota
+		createPassive
+		compact
+	)
+
+	cases := []struct {
+		name  string
+		setup []int
+	}{
+		{"ActiveExist_PassiveNotExist", []int{createActive}},
+		{"ActiveTrash_PassiveNotExist", []int{createActive, compact}},
+
+		{"ActiveNotExist_PassiveExist", []int{createPassive}},
+		{"ActiveExist_PassiveExist", []int{createActive, createPassive}},
+		{"ActiveTrash_PassiveExist", []int{createActive, compact, createPassive}},
+
+		{"ActiveNotExist_PassiveTrash", []int{createPassive, compact}},
+		{"ActiveExist_PassiveTrash", []int{createPassive, compact, createActive}},
+		{"ActiveTrash_PassiveTrash", []int{createPassive, createActive, compact}},
+	}
+
+	runCase := func(t *testing.T, setup []int) {
+		db := newTestDB(t, alwaysTrash, nil)
+		defer db.Close()
+		key := newKey()
+
+		// keep track of which store starts off as active so that we can ensure we are creating and
+		// reading records from the correct store.
+		active := db.active
+		makeActive := func() {
+			if active != db.active {
+				db.swapStoresLocked()
+			}
+		}
+		makePassive := func() {
+			if active == db.active {
+				db.swapStoresLocked()
+			}
+		}
+
+		for _, op := range setup {
+			switch op {
+			case createActive:
+				makeActive()
+				db.AssertCreate(WithKey(key))
+
+			case createPassive:
+				makePassive()
+				db.AssertCreate(WithKey(key))
+
+			case compact:
+				db.AssertCompact()
+			}
+		}
+
+		makeActive()
+		db.AssertRead(key)
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) { runCase(t, tc.setup) })
+	}
+}
+
 func TestDB_TTLStats(t *testing.T) {
 	forAllTables(t, testDB_TTLStats)
 }

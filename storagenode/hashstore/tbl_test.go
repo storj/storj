@@ -360,6 +360,7 @@ func benchmarkTable(b *testing.B) {
 		}
 
 		b.ReportMetric(float64(b.N)*float64(inserts)/time.Since(now).Seconds(), "keys/sec")
+		b.ReportMetric(float64(time.Since(now))/float64(b.N)/float64(inserts), "ns/key")
 	})
 
 	benchmarkLRecs(b, "Compact", func(b *testing.B, lrec uint64) {
@@ -389,5 +390,6 @@ func benchmarkTable(b *testing.B) {
 		}
 
 		b.ReportMetric(float64(b.N)*float64(inserts)/time.Since(now).Seconds(), "keys/sec")
+		b.ReportMetric(float64(time.Since(now))/float64(b.N)/float64(inserts), "ns/key")
 	})
 }
