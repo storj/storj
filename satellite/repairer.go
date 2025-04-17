@@ -67,10 +67,11 @@ type Repairer struct {
 		Reporter audit.Reporter
 	}
 
-	EcRepairer      *repairer.ECRepairer
-	SegmentRepairer *repairer.SegmentRepairer
-	Queue           queue.RepairQueue
-	Repairer        *repairer.Service
+	EcRepairer              *repairer.ECRepairer
+	SegmentRepairer         *repairer.SegmentRepairer
+	ParticipatingNodesCache *repairer.ParticipatingNodesCache
+	Queue                   queue.RepairQueue
+	Repairer                *repairer.Service
 }
 
 // NewRepairer creates a new repairer peer.
@@ -230,7 +231,7 @@ func NewRepairer(log *zap.Logger, full *identity.FullIdentity,
 			config.Repairer.RepairExcludedCountryCodes = config.Overlay.RepairExcludedCountryCodes
 		}
 
-		peer.SegmentRepairer = repairer.NewSegmentRepairer(
+		peer.SegmentRepairer, err = repairer.NewSegmentRepairer(
 			log.Named("segment-repair"),
 			metabaseDB,
 			peer.Orders.Service,
@@ -242,6 +243,15 @@ func NewRepairer(log *zap.Logger, full *identity.FullIdentity,
 			config.Checker.RepairTargetOverrides,
 			config.Repairer,
 		)
+		if err != nil {
+			return nil, err
+		}
+		peer.Services.Add(lifecycle.Item{
+			Name:  "segment-repair",
+			Run:   peer.SegmentRepairer.Run,
+			Close: peer.Repairer.Close,
+		})
+
 		peer.Queue = repairQueue
 		peer.Repairer = repairer.NewService(log.Named("repairer"), repairQueue, &config.Repairer, peer.SegmentRepairer)
 

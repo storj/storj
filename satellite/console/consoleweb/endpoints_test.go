@@ -338,15 +338,15 @@ func TestAnalytics(t *testing.T) {
 
 func TestPayments(t *testing.T) {
 	var (
-		product         = "product"
 		partner         = ""
 		placement       = storj.PlacementConstraint(10)
 		placementDetail = console.PlacementDetail{
 			ID:     10,
 			IdName: "placement10",
 		}
+		productID    = int32(1)
 		productPrice = paymentsconfig.ProductUsagePrice{
-			ProductID: 1,
+			Name: "product",
 			ProjectUsagePrice: paymentsconfig.ProjectUsagePrice{
 				StorageTB: "4",
 				EgressTB:  "5",
@@ -366,14 +366,14 @@ func TestPayments(t *testing.T) {
 				}
 				config.Console.Placement.SelfServeEnabled = true
 
-				config.Payments.Products.SetMap(map[string]paymentsconfig.ProductUsagePrice{
-					product: productPrice,
+				config.Payments.Products.SetMap(map[int32]paymentsconfig.ProductUsagePrice{
+					productID: productPrice,
 				})
-				config.Payments.PlacementPriceOverrides.SetMap(map[int]string{int(placement): product})
+				config.Payments.PlacementPriceOverrides.SetMap(map[int]int32{int(placement): productID})
 				config.Payments.PartnersPlacementPriceOverrides.SetMap(map[string]paymentsconfig.PlacementProductMap{
 					partner: config.Payments.PlacementPriceOverrides,
 				})
-				config.Console.SelfServePlacementDetails.SetMap(map[storj.PlacementConstraint]console.PlacementDetail{
+				config.Console.Placement.SelfServeDetails.SetMap(map[storj.PlacementConstraint]console.PlacementDetail{
 					0:         {ID: 0},
 					placement: placementDetail,
 				})

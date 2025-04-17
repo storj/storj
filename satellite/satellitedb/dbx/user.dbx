@@ -63,8 +63,11 @@ model user (
 	field project_storage_limit    int64     ( updatable, default 0 )
 	// segment_limit is project default on how many segments can be stored in the project.
 	field project_segment_limit    int64     ( updatable, default 0 )
+
 	// paid_tier indicates whether user is paying for access.
 	field paid_tier                bool      ( updatable, default false )
+	// kind indicates the user kind. Free = 0, Paid = 1.
+	field kind                	   int      ( updatable, default 0 )
 
 	// position is user-specified position in a company.
 	field position           text      ( updatable, nullable )

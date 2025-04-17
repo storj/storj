@@ -100,6 +100,9 @@ func zapRS(fieldName string, redundancy storj.RedundancyScheme) zap.Field {
 	return zap.Stringer(fieldName, redundancySchemePrinter(redundancy))
 }
 
+// ParticipatingNodesCache alias for making the code a bit nicer below.
+type ParticipatingNodesCache = sync2.ReadCacheOf[map[storj.NodeID]*nodeselection.SelectedNode]
+
 // SegmentRepairer for segments.
 type SegmentRepairer struct {
 	log            *zap.Logger
@@ -110,6 +113,8 @@ type SegmentRepairer struct {
 	ec             *ECRepairer
 	timeout        time.Duration
 	reporter       audit.Reporter
+
+	participatingNodesCache *ParticipatingNodesCache
 
 	reputationUpdateEnabled bool
 	doDeclumping            bool
@@ -149,7 +154,7 @@ func NewSegmentRepairer(
 	repairThresholdOverrides checker.RepairThresholdOverrides,
 	repairTargetOverrides checker.RepairTargetOverrides,
 	config Config,
-) *SegmentRepairer {
+) (*SegmentRepairer, error) {
 
 	excessOptimalThreshold := config.MaxExcessRateOptimalThreshold
 	if excessOptimalThreshold < 0 {
@@ -163,7 +168,7 @@ func NewSegmentRepairer(
 		}
 	}
 
-	return &SegmentRepairer{
+	repairer := &SegmentRepairer{
 		log:                        log,
 		statsCollector:             newStatsCollector(),
 		metabase:                   metabase,
@@ -183,6 +188,22 @@ func NewSegmentRepairer(
 
 		nowFn: time.Now,
 	}
+
+	if config.ParticipatingNodeCacheEnabled {
+		var err error
+		repairer.participatingNodesCache, err = sync2.NewReadCache(config.ParticipatingNodeCacheInterval, config.ParticipatingNodeCacheStale, repairer.fetchParticipatingNodes)
+		return repairer, Error.Wrap(err)
+	}
+
+	return repairer, nil
+}
+
+// Run background services needed for segment repair.
+func (repairer *SegmentRepairer) Run(ctx context.Context) error {
+	if repairer.participatingNodesCache == nil {
+		return nil
+	}
+	return repairer.participatingNodesCache.Run(ctx)
 }
 
 // Repair retrieves an at-risk segment and repairs and stores lost pieces on new nodes
@@ -232,7 +253,7 @@ func (repairer *SegmentRepairer) Repair(ctx context.Context, queueSegment queue.
 		allNodeIDs[i] = p.StorageNode
 	}
 
-	selectedNodes, err := repairer.overlay.GetParticipatingNodes(ctx, allNodeIDs)
+	selectedNodes, err := repairer.getParticipatingNodes(ctx, allNodeIDs)
 	if err != nil {
 		return false, overlayQueryError.New("error identifying missing pieces: %w", err)
 	}
@@ -976,4 +997,49 @@ func (repairer *SegmentRepairer) AdminFetchPieces(ctx context.Context, log *zap.
 	limiter.Wait()
 
 	return pieceInfos, nil
+}
+
+func (repairer *SegmentRepairer) getParticipatingNodes(ctx context.Context, nodes []storj.NodeID) ([]nodeselection.SelectedNode, error) {
+	if repairer.participatingNodesCache == nil {
+		return repairer.overlay.GetParticipatingNodes(ctx, nodes)
+	}
+
+	cache, err := repairer.participatingNodesCache.Get(ctx, time.Now())
+	if err != nil {
+		return nil, Error.Wrap(err)
+	}
+
+	result := make([]nodeselection.SelectedNode, len(nodes))
+	for i, id := range nodes {
+		node, ok := cache[id]
+		if !ok {
+			continue
+		}
+		result[i] = *node
+	}
+
+	return result, nil
+}
+
+func (repairer *SegmentRepairer) fetchParticipatingNodes(ctx context.Context) (map[storj.NodeID]*nodeselection.SelectedNode, error) {
+	nodes, err := repairer.overlay.GetAllParticipatingNodes(ctx)
+	if err != nil {
+		return nil, Error.Wrap(err)
+	}
+
+	selected := make(map[storj.NodeID]*nodeselection.SelectedNode, len(nodes))
+	for i := range nodes {
+		selected[nodes[i].ID] = &nodes[i]
+	}
+
+	return selected, nil
+}
+
+// RefreshParticipatingNodesCache refreshes internal participating nodes cache.
+func (repairer *SegmentRepairer) RefreshParticipatingNodesCache(ctx context.Context) error {
+	if repairer.participatingNodesCache == nil {
+		return nil
+	}
+	_, err := repairer.participatingNodesCache.RefreshAndGet(ctx, time.Now())
+	return err
 }

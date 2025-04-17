@@ -122,7 +122,7 @@ func cmdRepairSegment(cmd *cobra.Command, args []string) (err error) {
 		config.Repairer.DownloadTimeout,
 		true, true) // force inmemory download and upload of pieces
 
-	segmentRepairer := repairer.NewSegmentRepairer(
+	segmentRepairer, err := repairer.NewSegmentRepairer(
 		log.Named("segment-repair"),
 		metabaseDB,
 		orders,
@@ -134,6 +134,9 @@ func cmdRepairSegment(cmd *cobra.Command, args []string) (err error) {
 		config.Checker.RepairTargetOverrides,
 		config.Repairer,
 	)
+	if err != nil {
+		return err
+	}
 
 	// TODO reorganize to avoid using peer.
 
@@ -145,6 +148,9 @@ func cmdRepairSegment(cmd *cobra.Command, args []string) (err error) {
 
 	cancelCtx, cancel := context.WithCancel(ctx)
 	group := errgroup.Group{}
+	group.Go(func() error {
+		return peer.SegmentRepairer.Run(cancelCtx)
+	})
 	group.Go(func() error {
 		return peer.Overlay.UploadSelectionCache.Run(cancelCtx)
 	})

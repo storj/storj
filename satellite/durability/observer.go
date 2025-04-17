@@ -200,7 +200,6 @@ type Report struct {
 	healthMatrix *HealthMatrix
 
 	classifier         NodeClassifier
-	aliasMap           *metabase.NodeAliasMap
 	nodes              []nodeselection.SelectedNode
 	db                 overlay.DB
 	metabaseDB         *metabase.DB
@@ -241,12 +240,12 @@ func (c *Report) Start(ctx context.Context, startTime time.Time) (err error) {
 	if err != nil {
 		return errs.Wrap(err)
 	}
-	c.aliasMap, err = c.metabaseDB.LatestNodesAliasMap(ctx)
+	aliasMap, err := c.metabaseDB.LatestNodesAliasMap(ctx)
 	if err != nil {
 		return errs.Wrap(err)
 	}
 	c.resetStat()
-	c.classifyNodeAliases()
+	c.classifyNodeAliases(aliasMap)
 	return nil
 }
 
@@ -256,16 +255,16 @@ func (c *Report) resetStat() {
 	}
 }
 
-func (c *Report) classifyNodeAliases() {
+func (c *Report) classifyNodeAliases(aliasMap *metabase.NodeAliasMap) {
 	classes := make(map[string]ClassID)
 	c.className = make(map[ClassID]string)
 
 	classes["unclassified"] = 0
 	c.className[0] = "unclassified"
 
-	c.classified = make([]ClassID, c.aliasMap.Max()+1)
+	c.classified = make([]ClassID, aliasMap.Max()+1)
 	for _, node := range c.nodes {
-		alias, ok := c.aliasMap.Alias(node.ID)
+		alias, ok := aliasMap.Alias(node.ID)
 		if !ok {
 			continue
 		}

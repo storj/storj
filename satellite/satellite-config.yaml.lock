@@ -514,6 +514,9 @@ compensation.withheld-percents: 75,75,75,50,50,50,25,25,25,0,0,0,0,0,0
 # placement-specific edge service URL overrides in the format {"placementID": {"authService": "...", "publicLinksharing": "...", "internalLinksharing": "..."}, "placementID2": ...}
 # console.placement-edge-url-overrides: ""
 
+# human-readable details for placements allowed for self serve placement in the format {"placementID": {"idName": "...", "name": "...", "title": "...", "description": "..."}}
+# console.placement.self-serve-details: ""
+
 # whether self-serve placement selection feature is enabled
 # console.placement.self-serve-enabled: false
 
@@ -558,9 +561,6 @@ compensation.withheld-percents: 75,75,75,50,50,50,25,25,25,0,0,0,0,0,0
 
 # whether self-serve account delete flow is enabled
 # console.self-serve-account-delete-enabled: false
-
-# human-readable details for placements allowed for self serve placement in the format {"placementID": {"idName": "...", "name": "...", "title": "...", "description": "..."}}
-# console.self-serve-placement-details: ""
 
 # used to communicate with web crawlers and other web robots
 # console.seo: "User-agent: *\nDisallow: \nDisallow: /cgi-bin/"
@@ -1292,13 +1292,13 @@ identity.key-path: /root/.local/share/storj/identity/satellite/identity.key
 # semicolon-separated partner package plans in the format partner:price,credit. Price and credit are in cents USD.
 # payments.package-plans: ""
 
-# semicolon-separated list of partners to placement price overrides in the format: partner0[placement0:product0;placement1,placement2:product1];partner1[etc...] If a partner uses a placement not defined for them in this config, they will be charged according to --payments.placement-price-overrides.
+# semicolon-separated list of partners to placement price overrides in the format: partner0[placement0:productID0;placement1,placement2:productID1];partner1[etc...] If a partner uses a placement not defined for them in this config, they will be charged according to --payments.placement-price-overrides.
 # payments.partners-placement-price-overrides: ""
 
-# semicolon-separated list of placement price overrides in the format: placement:product. Multiple placements may be mapped to a single product like so: p0,p1:product. Products must be defined by the --payments.products config, or the satellite will not start.
+# semicolon-separated list of placement price overrides in the format: placement:productID. Multiple placements may be mapped to a single product like so: p0,p1:productID. Products must be defined by the --payments.products config, or the satellite will not start.
 # payments.placement-price-overrides: ""
 
-# semicolon-separated list of products and their product IDs and price structures in the format: product:productID,storage,egress,segment,egress_discount_ratio. The egress discount ratio is the ratio of free egress per unit-month of storage
+# a JSON mapping of non-zero product IDs to their names and price structures in the format: {"productID": {"name": "...", "storage": "...", "egress": "...", "segment": "...", "egress_discount_ratio": "..."}}. The egress discount ratio is the ratio of free egress per unit-month of storage
 # payments.products: ""
 
 # payments provider to use
@@ -1441,6 +1441,15 @@ identity.key-path: /root/.local/share/storj/identity/satellite/identity.key
 
 # maximum segments that can be repaired concurrently
 # repairer.max-repair: 5
+
+# enable cache for participating nodes
+# repairer.participating-node-cache-enabled: false
+
+# how often participating nodes cache should be refreshed
+# repairer.participating-node-cache-interval: 5m0s
+
+# when does participating nodes cache start blocking
+# repairer.participating-node-cache-stale: 10m0s
 
 # whether the audit score of nodes should be updated as a part of repair
 # repairer.reputation-update-enabled: false

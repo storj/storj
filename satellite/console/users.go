@@ -206,6 +206,16 @@ const (
 	UserStatusCount int = 7
 )
 
+// UserKind - is used to indicate kind of the user's account.
+type UserKind int
+
+const (
+	// FreeUser is a kind of user that has free account.
+	FreeUser UserKind = 0
+	// PaidUser is a kind of user that has paid account.
+	PaidUser UserKind = 1
+)
+
 // String returns a string representation of the user status.
 func (s *UserStatus) String() string {
 	switch *s {
@@ -285,11 +295,12 @@ type User struct {
 
 	CreatedAt time.Time `json:"createdAt"`
 
-	ProjectLimit          int   `json:"projectLimit"`
-	ProjectStorageLimit   int64 `json:"projectStorageLimit"`
-	ProjectBandwidthLimit int64 `json:"projectBandwidthLimit"`
-	ProjectSegmentLimit   int64 `json:"projectSegmentLimit"`
-	PaidTier              bool  `json:"paidTier"`
+	ProjectLimit          int      `json:"projectLimit"`
+	ProjectStorageLimit   int64    `json:"projectStorageLimit"`
+	ProjectBandwidthLimit int64    `json:"projectBandwidthLimit"`
+	ProjectSegmentLimit   int64    `json:"projectSegmentLimit"`
+	PaidTier              bool     `json:"paidTier"`
+	Kind                  UserKind `json:"kind"`
 
 	IsProfessional bool   `json:"isProfessional"`
 	Position       string `json:"position"`
@@ -392,6 +403,7 @@ type UpdateUserRequest struct {
 	ProjectBandwidthLimit *int64
 	ProjectSegmentLimit   *int64
 	PaidTier              *bool
+	Kind                  *UserKind
 
 	MFAEnabled       *bool
 	MFASecretKey     **string

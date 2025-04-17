@@ -95,12 +95,12 @@ func TestDurability(t *testing.T) {
 		return node.LastNet
 	}, 0)
 
-	c.aliasMap = metabase.NewNodeAliasMap(aliases)
+	aliasMap := metabase.NewNodeAliasMap(aliases)
 	for _, node := range storageNodes {
 		c.nodes = append(c.nodes, *node)
 	}
 
-	c.classifyNodeAliases()
+	c.classifyNodeAliases(aliasMap)
 
 	fork, err := c.Fork(ctx)
 	require.NoError(t, err)

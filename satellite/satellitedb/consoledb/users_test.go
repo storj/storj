@@ -44,6 +44,7 @@ func TestGetExpiresBeforeWithStatus(t *testing.T) {
 		u, err := users.Get(ctx, proUser)
 		require.NoError(t, err)
 		require.True(t, u.PaidTier)
+		require.Equal(t, console.PaidUser, u.Kind)
 		require.Nil(t, u.TrialExpiration)
 		require.Zero(t, u.TrialNotifications)
 
@@ -194,6 +195,7 @@ func TestUpdateUser(t *testing.T) {
 			ProjectStorageLimit:    1,
 			ProjectSegmentLimit:    1,
 			PaidTier:               true,
+			Kind:                   console.PaidUser,
 			MFAEnabled:             true,
 			MFASecretKey:           "secretKey",
 			MFARecoveryCodes:       []string{"code1", "code2"},
@@ -220,6 +222,7 @@ func TestUpdateUser(t *testing.T) {
 		require.NotEqual(t, u.ProjectStorageLimit, newInfo.ProjectStorageLimit)
 		require.NotEqual(t, u.ProjectSegmentLimit, newInfo.ProjectSegmentLimit)
 		require.NotEqual(t, u.PaidTier, newInfo.PaidTier)
+		require.NotEqual(t, u.Kind, newInfo.Kind)
 		require.NotEqual(t, u.MFAEnabled, newInfo.MFAEnabled)
 		require.NotEqual(t, u.MFASecretKey, newInfo.MFASecretKey)
 		require.NotEqual(t, u.MFARecoveryCodes, newInfo.MFARecoveryCodes)
@@ -345,6 +348,7 @@ func TestUpdateUser(t *testing.T) {
 		require.NoError(t, err)
 
 		u.PaidTier = newInfo.PaidTier
+		u.Kind = newInfo.Kind
 		usersAreEqual(t, u, updatedUser)
 
 		// update just mfa enabled

@@ -1182,6 +1182,9 @@ func (s *Service) CreateUser(ctx context.Context, user CreateUser, tokenSecret R
 			SignupId:         user.SignupId,
 			PaidTier:         user.PaidTier,
 		}
+		if user.PaidTier {
+			newUser.Kind = PaidUser
+		}
 
 		if user.UserAgent != nil {
 			newUser.UserAgent = user.UserAgent
@@ -4798,7 +4801,7 @@ func (s *Service) GetPlacementDetails(ctx context.Context, projectID uuid.UUID) 
 	details := make([]PlacementDetail, 0)
 	placements := s.accounts.GetPartnerPlacements(string(isMember.project.UserAgent))
 	for _, placement := range placements {
-		if detail, ok := s.config.SelfServePlacementDetails.detailMap[placement]; ok {
+		if detail, ok := s.config.Placement.SelfServeDetails.detailMap[placement]; ok {
 			details = append(details, detail)
 		}
 	}

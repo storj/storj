@@ -95,6 +95,7 @@ func TestSegmentRepairPlacement(t *testing.T) {
 				}
 
 				require.NoError(t, planet.Satellites[0].Repairer.Overlay.DownloadSelectionCache.Refresh(ctx))
+				require.NoError(t, planet.Satellites[0].Repairer.SegmentRepairer.RefreshParticipatingNodesCache(ctx))
 
 				expectedData := testrand.Bytes(5 * memory.KiB)
 				err = planet.Uplinks[0].Upload(ctx, planet.Satellites[0], "testbucket", "object", expectedData)
@@ -132,6 +133,7 @@ func TestSegmentRepairPlacement(t *testing.T) {
 				require.False(t, ok)
 
 				require.NoError(t, planet.Satellites[0].Repairer.Overlay.DownloadSelectionCache.Refresh(ctx))
+				require.NoError(t, planet.Satellites[0].Repairer.SegmentRepairer.RefreshParticipatingNodesCache(ctx))
 
 				t.Log("starting repair")
 				_, err = planet.Satellites[0].Repairer.SegmentRepairer.Repair(ctx, queue.InjuredSegment{
@@ -153,6 +155,7 @@ func TestSegmentRepairPlacement(t *testing.T) {
 				require.True(t, ok)
 
 				require.NoError(t, planet.Satellites[0].API.Overlay.Service.DownloadSelectionCache.Refresh(ctx))
+				require.NoError(t, planet.Satellites[0].Repairer.SegmentRepairer.RefreshParticipatingNodesCache(ctx))
 
 				data, err := planet.Uplinks[0].Download(ctx, planet.Satellites[0], "testbucket", "object")
 				require.NoError(t, err)
@@ -187,6 +190,7 @@ func TestSegmentRepairInMemoryUpload(t *testing.T) {
 		require.Len(t, segments[0].Pieces, 2)
 
 		require.NoError(t, planet.StopNodeAndUpdate(ctx, planet.FindNode(segments[0].Pieces[0].StorageNode)))
+		require.NoError(t, planet.Satellites[0].Repairer.SegmentRepairer.RefreshParticipatingNodesCache(ctx))
 
 		_, err = planet.Satellites[0].Repairer.SegmentRepairer.Repair(ctx, queue.InjuredSegment{
 			StreamID: segments[0].StreamID,
@@ -288,6 +292,7 @@ func TestSegmentRepairWithNodeTags(t *testing.T) {
 			require.NoError(t, updateNodeStatus(ctx, planet.Satellites[0], planet.StorageNodes[22], true, location.Germany))
 
 			require.NoError(t, planet.Satellites[0].Overlay.Service.UploadSelectionCache.Refresh(ctx))
+			require.NoError(t, planet.Satellites[0].Repairer.SegmentRepairer.RefreshParticipatingNodesCache(ctx))
 		}
 
 		expectedData := testrand.Bytes(5 * memory.KiB)
@@ -328,6 +333,7 @@ func TestSegmentRepairWithNodeTags(t *testing.T) {
 			require.NoError(t, updateNodeStatus(ctx, planet.Satellites[0], planet.StorageNodes[22], false, location.Germany))
 
 			require.NoError(t, planet.Satellites[0].Repairer.Overlay.UploadSelectionCache.Refresh(ctx))
+			require.NoError(t, planet.Satellites[0].Repairer.SegmentRepairer.RefreshParticipatingNodesCache(ctx))
 		}
 
 		{
@@ -391,6 +397,7 @@ func TestSegmentRepairPlacementAndClumped(t *testing.T) {
 		}
 
 		require.NoError(t, planet.Satellites[0].Repairer.Overlay.DownloadSelectionCache.Refresh(ctx))
+		require.NoError(t, planet.Satellites[0].Repairer.SegmentRepairer.RefreshParticipatingNodesCache(ctx))
 
 		segments, err := planet.Satellites[0].Metabase.DB.TestingAllSegments(ctx)
 		require.NoError(t, err)
@@ -426,6 +433,7 @@ func TestSegmentRepairPlacementAndClumped(t *testing.T) {
 		require.False(t, ok)
 
 		require.NoError(t, planet.Satellites[0].Repairer.Overlay.DownloadSelectionCache.Refresh(ctx))
+		require.NoError(t, planet.Satellites[0].Repairer.SegmentRepairer.RefreshParticipatingNodesCache(ctx))
 
 		_, err = planet.Satellites[0].Repairer.SegmentRepairer.Repair(ctx, queue.InjuredSegment{
 			StreamID: segments[0].StreamID,
@@ -481,6 +489,7 @@ func TestSegmentRepairPlacementNotEnoughNodes(t *testing.T) {
 		}
 
 		require.NoError(t, planet.Satellites[0].Repairer.Overlay.DownloadSelectionCache.Refresh(ctx))
+		require.NoError(t, planet.Satellites[0].Repairer.SegmentRepairer.RefreshParticipatingNodesCache(ctx))
 
 		segments, err := planet.Satellites[0].Metabase.DB.TestingAllSegments(ctx)
 		require.NoError(t, err)
@@ -646,6 +655,7 @@ func TestSegmentRepairPlacementRestrictions(t *testing.T) {
 			}
 			require.NoError(t, planet.Satellites[0].Repairer.Overlay.UploadSelectionCache.Refresh(ctx))
 			require.NoError(t, planet.Satellites[0].Repairer.Overlay.DownloadSelectionCache.Refresh(ctx))
+			require.NoError(t, planet.Satellites[0].Repairer.SegmentRepairer.RefreshParticipatingNodesCache(ctx))
 		}
 
 		expectedData := testrand.Bytes(5 * memory.KiB)
@@ -683,6 +693,7 @@ func TestSegmentRepairPlacementRestrictions(t *testing.T) {
 
 			}
 			require.NoError(t, planet.Satellites[0].Repairer.Overlay.UploadSelectionCache.Refresh(ctx))
+			require.NoError(t, planet.Satellites[0].Repairer.SegmentRepairer.RefreshParticipatingNodesCache(ctx))
 		}
 
 		{

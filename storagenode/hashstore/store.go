@@ -1030,18 +1030,20 @@ func (s *Store) compactOnce(
 
 	// log information about important events that happened to records during the writing of the new
 	// hashtbl.
-	s.log.Info("hashtbl rewritten",
-		zap.Uint64("total records", totalRecords),
-		zap.String("total bytes", memory.FormatBytes(int64(totalBytes))),
-		zap.Uint64("rewritten records", rewrittenRecords),
-		zap.String("rewritten bytes", memory.FormatBytes(int64(rewrittenBytes))),
-		zap.Uint64("trashed records", trashedRecords),
-		zap.String("trashed bytes", memory.FormatBytes(int64(trashedBytes))),
-		zap.Uint64("restored records", restoredRecords),
-		zap.String("restored bytes", memory.FormatBytes(int64(restoredBytes))),
-		zap.Uint64("expired records", expiredRecords),
-		zap.String("expired bytes", memory.FormatBytes(int64(expiredBytes))),
-	)
+	if ce := s.log.Check(zapcore.InfoLevel, "hashtbl rewritten"); ce != nil {
+		ce.Write(
+			zap.Uint64("total records", totalRecords),
+			zap.String("total bytes", memory.FormatBytes(int64(totalBytes))),
+			zap.Uint64("rewritten records", rewrittenRecords),
+			zap.String("rewritten bytes", memory.FormatBytes(int64(rewrittenBytes))),
+			zap.Uint64("trashed records", trashedRecords),
+			zap.String("trashed bytes", memory.FormatBytes(int64(trashedBytes))),
+			zap.Uint64("restored records", restoredRecords),
+			zap.String("restored bytes", memory.FormatBytes(int64(restoredBytes))),
+			zap.Uint64("expired records", expiredRecords),
+			zap.String("expired bytes", memory.FormatBytes(int64(expiredBytes))),
+		)
+	}
 
 	// swap the new hash table in and collect the set of log files to remove. we don't close and
 	// remove the log files while holding the lock to avoid doing i/o while blocking readers.

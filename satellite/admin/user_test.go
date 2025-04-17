@@ -236,6 +236,7 @@ func TestUserUpdate(t *testing.T) {
 			require.Equal(t, updatedUser.ID, updatedUserStatusAndUsageLimits.ID)
 			require.Equal(t, updatedUser.Status, updatedUserStatusAndUsageLimits.Status)
 			require.True(t, updatedUserStatusAndUsageLimits.PaidTier)
+			require.Equal(t, console.PaidUser, updatedUserStatusAndUsageLimits.Kind)
 			require.Equal(t, newUsageLimit, updatedUserStatusAndUsageLimits.ProjectStorageLimit)
 			require.Equal(t, newUsageLimit, updatedUserStatusAndUsageLimits.ProjectBandwidthLimit)
 			require.Equal(t, newUsageLimit, updatedUserStatusAndUsageLimits.ProjectSegmentLimit)

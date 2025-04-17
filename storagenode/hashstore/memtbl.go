@@ -16,12 +16,6 @@ import (
 	"storj.io/drpc/drpcsignal"
 )
 
-type shortKey = [5]byte
-
-func shortKeyFrom(k Key) shortKey {
-	return *(*shortKey)(k[len(Key{})-len(shortKey{}):])
-}
-
 type memtblIdx uint32 // index of a record in the memtbl (^0 means promoted)
 
 const memtbl_Promoted = ^memtblIdx(0)
@@ -44,7 +38,7 @@ type MemTbl struct {
 	idx   memtblIdx // insert index. always needs to match file length
 	align bool      // set when an error happened and an align is needed
 
-	entries    map[shortKey][4]byte
+	entries    *flatMap
 	collisions map[Key][4]byte
 
 	closed drpcsignal.Signal // closed state
@@ -119,7 +113,7 @@ func OpenMemTbl(ctx context.Context, fh *os.File) (_ *MemTbl, err error) {
 		idx:   memtblIdx((size - headerSize) / RecordSize),
 		align: size%RecordSize != 0,
 
-		entries:    make(map[shortKey][4]byte, 1<<header.LogSlots),
+		entries:    newFlatMap(make([]byte, flatMapSize(1<<header.LogSlots))),
 		collisions: make(map[Key][4]byte),
 	}
 
@@ -156,6 +150,7 @@ func (m *MemTbl) rangeWithIdxLocked(
 	var recStats recordStats
 	var buf [RecordSize]byte
 	var rec Record
+
 	for idx := memtblIdx(0); ; idx++ {
 		if _, err := io.ReadFull(br, buf[:]); errors.Is(err, io.EOF) {
 			break
@@ -190,22 +185,37 @@ func (m *MemTbl) loadEntries(ctx context.Context) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	return m.rangeWithIdxLocked(ctx, func(ctx context.Context, idx memtblIdx, rec Record) (bool, error) {
-		return true, m.insertKeyLocked(ctx, rec.Key, idx)
+		ok, err := m.insertKeyLocked(ctx, rec.Key, idx)
+		if err != nil {
+			return false, err
+		} else if !ok {
+			return false, Error.New("memtbl mmap map filled up on load")
+		}
+		return true, nil
 	})
 }
 
 // insertKeyLocked associates the key with the memtbl index, promoting in case there is a collision.
-func (m *MemTbl) insertKeyLocked(ctx context.Context, key Key, idx memtblIdx) error {
+func (m *MemTbl) insertKeyLocked(ctx context.Context, key Key, idx memtblIdx) (bool, error) {
 	short := shortKeyFrom(key)
 	value := memtblIdxToValue(idx)
-	exValue, ok := m.entries[short]
+	op := m.entries.find(short)
+
+	switch {
+	case !op.Valid():
+		// if the op is invalid, the map is full.
+		return false, nil
+
+	case !op.Exists():
+		// the common case of no short collsion means we just store the entry.
+		op.set(value)
+		return true, nil
+	}
+
+	exValue := op.Value()
 	exIdx := valueToMemtblIdx(exValue)
 
 	switch {
-	case !ok:
-		// the common case of no short collision means we just store the entry.
-		m.entries[short] = value
-
 	case exIdx == memtbl_Promoted:
 		// already collided on the short key and has already been promoted, so we only need to
 		// insert into the full collisions map.
@@ -216,51 +226,21 @@ func (m *MemTbl) insertKeyLocked(ctx context.Context, key Key, idx memtblIdx) er
 		// first we have to re-read its key from the entry at the existing index.
 		var rec Record
 		if err := m.readRecord(ctx, exIdx, &rec); err != nil {
-			return Error.Wrap(err)
+			return false, Error.Wrap(err)
 		}
 
 		// um, actually, if it's the same key multiple times then we want to take the later one
 		// and there's no need to promote. otherwise, we do need to promote.
 		if rec.Key == key {
-			m.entries[short] = value
+			op.set(value)
 		} else {
-			m.entries[short] = memtblIdxToValue(memtbl_Promoted)
+			op.set(memtblIdxToValue(memtbl_Promoted))
 			m.collisions[rec.Key] = exValue
 			m.collisions[key] = value
 		}
 	}
 
-	return nil
-}
-
-// promoteIfNecessaryLocked ensures that the shortKey either does not exist in the map or is set to
-// the overflow marker, promoting the existing entry if necessary.
-func (m *MemTbl) promoteIfNecessaryLocked(ctx context.Context, sk shortKey) error {
-	if value, ok := m.entries[sk]; ok {
-		return m.promoteIfNecessaryLockedSlow(ctx, sk, value)
-	}
-	return nil
-}
-
-// promoteIfNecessaryLockedSlow does the work of promoteIfNecessary in the uncommon case that the
-// entry collides on the short key. This is outlined so that promoteIfNecessary can be inlined to
-// avoid the function call in the common case.
-func (m *MemTbl) promoteIfNecessaryLockedSlow(ctx context.Context, sk shortKey, value [4]byte) error {
-	idx := valueToMemtblIdx(value)
-
-	if idx == memtbl_Promoted {
-		return nil
-	}
-
-	var rec Record
-	if err := m.readRecord(ctx, idx, &rec); err != nil {
-		return Error.Wrap(err)
-	}
-
-	m.entries[sk] = memtblIdxToValue(memtbl_Promoted)
-	m.collisions[rec.Key] = value
-
-	return nil
+	return true, nil
 }
 
 // keyIndexLocked returns the index associated with the key.
@@ -269,11 +249,11 @@ func (m *MemTbl) promoteIfNecessaryLockedSlow(ctx context.Context, sk shortKey, 
 // collision. It is the responsibility of the caller to read the record associated with that index
 // and check the equality of the keys.
 func (m *MemTbl) keyIndexLocked(key Key) (idx memtblIdx, ok bool) {
-	if value, ok := m.entries[shortKeyFrom(key)]; !ok {
+	if op := m.entries.find(shortKeyFrom(key)); !op.Valid() || !op.Exists() {
 		return 0, false
-	} else if idx = valueToMemtblIdx(value); idx != memtbl_Promoted {
+	} else if idx = valueToMemtblIdx(op.Value()); idx != memtbl_Promoted {
 		return idx, true
-	} else if value, ok = m.collisions[key]; !ok {
+	} else if value, ok := m.collisions[key]; !ok {
 		return 0, false
 	} else {
 		return valueToMemtblIdx(value), true
@@ -390,66 +370,118 @@ func (m *MemTbl) Insert(ctx context.Context, rec Record) (_ bool, err error) {
 	}
 	defer m.opMu.Unlock()
 
+	return m.insertLocked(ctx, rec)
+}
+
+func (m *MemTbl) insertLocked(ctx context.Context, rec Record) (_ bool, err error) {
 	// before we do any writes we have to make sure the file is aligned to the correct size and we
 	// have room to insert.
 	if err := m.ensureAlignedLocked(ctx); err != nil {
 		return false, err
-	} else if m.idx == 0 && len(m.entries) > 0 { // overflow protection
+	} else if m.idx+1 == 0 { // overflow protection on memtbl idx
 		return false, nil
 	} else if uint64(m.idx) > 1<<m.header.LogSlots { // full table condition
 		return false, nil
 	}
 
-	// if we already have this record, then we need to ensure they are equalish before allowing the
-	// update, and taking the larger expiration.
-	tmp, existing, err := m.lookupLocked(ctx, rec.Key)
-	if err != nil {
-		return false, err
-	} else if existing {
-		if !RecordsEqualish(rec, tmp) {
-			return false, Error.New("put:%v != exist:%v: %w", rec, tmp, ErrCollision)
+	// we have to check if we already have the record, and also if we have a collision on the short
+	// key. if we have a collision on the short key, we need to promote it to the collisions map.
+	// if we already have the record we need to check if it is equalish to the existing record.
+	// we do this in one step for efficiency.
+	op := m.entries.find(shortKeyFrom(rec.Key))
+
+	// 1. if the table is full, we can't add anything anyway, so no need to do any more work. this\
+	// should never happen because of the earlier check, but it's defensive.
+	if !op.Valid() {
+		return false, nil
+	}
+
+	insert := true // keep track of if this is an insert or an update.
+
+	// 2. if the short key exists, we have to promote it. while promoting, we check if the records
+	// are equalish because then we won't need to promote and we also get the check out of the way.
+	if op.Exists() {
+		val := op.Value()
+		idx := valueToMemtblIdx(val)
+
+		if idx == memtbl_Promoted {
+			// if we're already promoted, we either are in the collisions map already and we need to
+			// check equalish. if we aren't, we'll just be doing an update into the collisions map.
+			if val, ok := m.collisions[rec.Key]; ok {
+				// if we are in the collisions map, we need to check if the record is equalish.
+				var tmp Record
+				if err := m.readRecord(ctx, valueToMemtblIdx(val), &tmp); err != nil {
+					return false, Error.Wrap(err)
+				}
+
+				if !RecordsEqualish(rec, tmp) {
+					return false, Error.New("put:%v != exist:%v: %w", rec, tmp, ErrCollision)
+				}
+				rec.Expires = MaxExpiration(rec.Expires, tmp.Expires)
+				insert = false
+			}
+		} else {
+			// if we're not promoted, then this was either a short collision or it was an update.
+			// if it's just an update, we don't want to promote. either way, we need to read the
+			// record at the current index and either check if it's equalish or promote it.
+			var tmp Record
+			if err := m.readRecord(ctx, idx, &tmp); err != nil {
+				return false, Error.Wrap(err)
+			}
+
+			// if this write is an update, enforce that it's equalish to the existing record.
+			// otherwise we need to promote the existing key.
+			if tmp.Key == rec.Key {
+				if !RecordsEqualish(rec, tmp) {
+					return false, Error.New("put:%v != exist:%v: %w", rec, tmp, ErrCollision)
+				}
+				rec.Expires = MaxExpiration(rec.Expires, tmp.Expires)
+				insert = false
+			} else {
+				m.collisions[tmp.Key] = val
+				op.set(memtblIdxToValue(memtbl_Promoted))
+			}
 		}
-		rec.Expires = MaxExpiration(rec.Expires, tmp.Expires)
 	}
 
-	short := shortKeyFrom(rec.Key)
-
-	// we have to check if there's a collision on the short key and promote it if there is. we do
-	// this first because the data structure stays correct even if the write fails because it is
-	// fine to promote any key.
-	//
-	// TODO: we'd like to avoid doing multiple map lookups but this is sufficient for now.
-	if err := m.promoteIfNecessaryLocked(ctx, short); err != nil {
-		return false, err
-	}
-
+	// 3. now that the entry is promoted and equal, we can do the flush because the rest of the
+	// operations are infallible.
 	var buf [RecordSize]byte
 	rec.WriteTo(&buf)
-
 	m.buffer = append(m.buffer, buf[:]...)
-	if len(m.buffer) == cap(m.buffer) {
+
+	// if the buffer is full, we need to flush it. in every case it should be that when the buffer
+	// is full, len(m.buffer) == cap(m.buffer), but defensively we just check if there's less room
+	// than a record.
+	if cap(m.buffer)-len(m.buffer) < RecordSize {
 		if err := m.flushBufferLocked(ctx); err != nil {
 			return false, err
 		}
 	}
 
 	// we can insert being sure that if a value exists in entries it's already promoted.
-	if _, ok := m.entries[short]; ok {
+	if op.Exists() && valueToMemtblIdx(op.Value()) == memtbl_Promoted {
 		m.collisions[rec.Key] = memtblIdxToValue(m.idx)
 	} else {
-		m.entries[short] = memtblIdxToValue(m.idx)
+		op.set(memtblIdxToValue(m.idx))
 	}
+
+	// increment our index for the next write. this is safe because if we flushed multiple records
+	// above we were in the constructor and so a single failure is sticky and will cause the entire
+	// memtbl to be thrown out. otherwise, we either wrote a single full record or a partial record.
+	// if we wrote a single full record, then a single increment is correct. if we wrote a partial
+	// record, then the error above happened and we will have the align flag set which will truncate
+	// that write away, and so the idx not being incremented is correct.
 	m.idx++
 
-	// if we didn't have an existing record, we are adding a new key. we don't need to change the
-	// alive field on update because we ensure that the records are equalish above so the length
-	// field could not have changed. we're ignoring the update case for trash because it should be
-	// very rare and doing it properly would require subtracting which may underflow in situations
-	// where the estimate was too small. this technically means that in very rare scenarios, the
-	// amount considered trash could be off, but it will be fixed on the next Range call, Store
-	// compaction, or node restart. in the case we're buffering, the stats will be updated but the
-	// key will not yet be readable.
-	if !existing {
+	// if we had an insert record, we are adding a new key. we don't need to change the alive field
+	// on update because we ensure that the records are equalish above so the length field could not
+	// have changed. we're ignoring the update case for trash because it should be very rare and
+	// doing it properly would require subtracting which may underflow in situations where the
+	// estimate was too small. this technically means that in very rare scenarios, the amount
+	// considered trash could be off, but it will be fixed on the next Range call, Store compaction,
+	// or node restart.
+	if insert {
 		m.statsMu.Lock()
 		m.recStats.include(rec)
 		m.statsMu.Unlock()
@@ -562,7 +594,7 @@ func (c *MemTblConstructor) Append(ctx context.Context, r Record) (bool, error) 
 		return false, err
 	}
 	var ok bool
-	ok, c.err = c.m.Insert(ctx, r)
+	ok, c.err = c.m.insertLocked(ctx, r)
 	return ok, c.err
 }
 

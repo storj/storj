@@ -6,6 +6,7 @@ package hashstore
 import (
 	"context"
 	"math/rand"
+	"os"
 	"testing"
 	"time"
 
@@ -148,6 +149,168 @@ func testTable_RangeExitEarly(t *testing.T) {
 		n++
 		return n < 10, nil
 	}))
+}
+
+func TestTable_Full(t *testing.T) {
+	forAllTables(t, testTable_Full)
+}
+func testTable_Full(t *testing.T) {
+	ctx := context.Background()
+	tbl := newTestTbl(t, tbl_minLogSlots)
+	defer tbl.Close()
+
+	// fill the table completely.
+	for i := 0; i < 1<<tbl_minLogSlots; i++ {
+		tbl.AssertInsert()
+	}
+	assert.Equal(t, tbl.Load(), 1.0)
+
+	// inserting a new record should fail.
+	ok, err := tbl.Insert(ctx, newRecord(newKey()))
+	assert.NoError(t, err)
+	assert.False(t, ok)
+
+	// looking up a key that does not exist should fail.
+	_, ok, err = tbl.Lookup(ctx, newKey())
+	assert.NoError(t, err)
+	assert.False(t, ok)
+}
+
+func TestTable_Load(t *testing.T) {
+	forAllTables(t, testTable_Load)
+}
+func testTable_Load(t *testing.T) {
+	ctx := context.Background()
+
+	// Create a new memtbl with the specified size
+	tbl := newTestTbl(t, tbl_minLogSlots)
+	defer tbl.Close()
+
+	check := func(expectedLoad float64, deep bool) {
+		if deep {
+			// Check that the Stats() function's Load field matches
+			stats := tbl.Stats()
+			assert.Equal(t, stats.Load, expectedLoad)
+
+			// The following conditions only work for the memtbl
+			if _, ok := tbl.Tbl.(*MemTbl); ok {
+				// Verify load is correct after reopening
+				tbl.AssertReopen()
+				assert.Equal(t, tbl.Load(), expectedLoad)
+			}
+		}
+
+		// Check that the Load() function returns the correct value
+		assert.Equal(t, tbl.Load(), expectedLoad)
+	}
+
+	// insert records until the table is full and check every time, doing a deep check periodically.
+	for i := 0; ; i++ {
+		ok, err := tbl.Insert(ctx, newRecord(newKey()))
+		assert.NoError(t, err)
+
+		if !ok {
+			break
+		}
+
+		check(float64(i+1)/float64(1<<tbl_minLogSlots), i%1000 == 0)
+	}
+
+	// do a final deep check when the table is full.
+	check(1.0, true)
+}
+
+func TestTable_TrashStats(t *testing.T) {
+	forAllTables(t, testTable_TrashStats)
+}
+func testTable_TrashStats(t *testing.T) {
+	tbl := newTestTbl(t, tbl_minLogSlots)
+	defer tbl.Close()
+
+	rec := newRecord(newKey())
+	rec.Expires = NewExpiration(1, true)
+	tbl.AssertInsertRecord(rec)
+
+	stats := tbl.Stats()
+	assert.Equal(t, stats.NumTrash, 1)
+	assert.Equal(t, stats.LenTrash, rec.Length)
+	assert.Equal(t, stats.AvgTrash, float64(rec.Length))
+}
+
+func TestTable_LRecBounds(t *testing.T) {
+	forAllTables(t, testTable_LRecBounds)
+}
+func testTable_LRecBounds(t *testing.T) {
+	ctx := context.Background()
+
+	_, err := CreateTable(ctx, nil, tbl_maxLogSlots+1, 0, table_DefaultKind)
+	assert.Error(t, err)
+
+	_, err = CreateTable(ctx, nil, tbl_minLogSlots-1, 0, table_DefaultKind)
+	assert.Error(t, err)
+}
+
+func TestTable_ConstructorAPIAfterClose(t *testing.T) {
+	forAllTables(t, testTable_ConstructorAPIAfterClose)
+}
+func testTable_ConstructorAPIAfterClose(t *testing.T) {
+	ctx := context.Background()
+
+	fh, err := os.CreateTemp(t.TempDir(), "tbl")
+	assert.NoError(t, err)
+	defer func() { _ = fh.Close() }()
+
+	cons, err := CreateTable(ctx, fh, tbl_minLogSlots, 0, table_DefaultKind)
+	assert.NoError(t, err)
+	defer cons.Close()
+
+	ok, err := cons.Append(ctx, newRecord(newKey()))
+	assert.NoError(t, err)
+	assert.True(t, ok)
+
+	// after closne, append and done should now error.
+	cons.Close()
+
+	ok, err = cons.Append(ctx, newRecord(newKey()))
+	assert.Error(t, err)
+	assert.False(t, ok)
+
+	tbl, err := cons.Done(ctx)
+	assert.Error(t, err)
+	assert.Nil(t, tbl)
+}
+
+func TestTable_ConstructorAPIAfterDone(t *testing.T) {
+	forAllTables(t, testTable_ConstructorAPIAfterDone)
+}
+func testTable_ConstructorAPIAfterDone(t *testing.T) {
+	ctx := context.Background()
+
+	fh, err := os.CreateTemp(t.TempDir(), "tbl")
+	assert.NoError(t, err)
+	defer func() { _ = fh.Close() }()
+
+	cons, err := CreateTable(ctx, fh, tbl_minLogSlots, 0, table_DefaultKind)
+	assert.NoError(t, err)
+	defer cons.Close()
+
+	ok, err := cons.Append(ctx, newRecord(newKey()))
+	assert.NoError(t, err)
+	assert.True(t, ok)
+
+	// after done, append and done should now error.
+	tbl, err := cons.Done(ctx)
+	assert.NoError(t, err)
+	assert.NotNil(t, tbl)
+	defer tbl.Close()
+
+	ok, err = cons.Append(ctx, newRecord(newKey()))
+	assert.Error(t, err)
+	assert.False(t, ok)
+
+	tbl, err = cons.Done(ctx)
+	assert.Error(t, err)
+	assert.Nil(t, tbl)
 }
 
 //

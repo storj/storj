@@ -46,6 +46,10 @@ type Config struct {
 	DoDeclumping                  bool          `help:"repair pieces on the same network to other nodes" default:"true"`
 	DoPlacementCheck              bool          `help:"repair pieces out of segment placement" default:"true"`
 
+	ParticipatingNodeCacheEnabled  bool          `help:"enable cache for participating nodes" default:"false" testDefault:"true"`
+	ParticipatingNodeCacheInterval time.Duration `help:"how often participating nodes cache should be refreshed" default:"5m"`
+	ParticipatingNodeCacheStale    time.Duration `help:"when does participating nodes cache start blocking" default:"10m"`
+
 	IncludedPlacements PlacementList `help:"comma separated placement IDs (numbers), which should checked by the repairer (other placements are ignored)" default:""`
 	ExcludedPlacements PlacementList `help:"comma separated placement IDs (numbers), placements which should be ignored by the repairer" default:""`
 }

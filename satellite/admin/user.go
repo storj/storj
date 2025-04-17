@@ -461,11 +461,14 @@ func (server *Server) updateUser(w http.ResponseWriter, r *http.Request) {
 		}
 
 		updateRequest.PaidTier = &status
+		userType := console.FreeUser
 
 		if status {
 			now := server.nowFn()
 			updateRequest.UpgradeTime = &now
+			userType = console.PaidUser
 		}
+		updateRequest.Kind = &userType
 	}
 
 	code, errMsg, details := server.updateUserData(ctx, email, updateRequest)

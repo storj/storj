@@ -4,90 +4,260 @@
 package hashstore
 
 import (
-	"fmt"
-	"runtime"
+	"encoding/binary"
 	"testing"
+	"time"
 
+	"github.com/zeebo/assert"
 	"github.com/zeebo/mwc"
-
-	"storj.io/common/memory"
 )
 
-// without preallocate
-//
-// nset        | [4]byte                   | [5]byte
-// ------------------------------------------------------------------
-// 6_319_580   | 93.7 MiB (15.5/8.05 per)  | 95.0 MiB (15.8/9.00 per)
-// 75_955_551  | 1.5 GiB  (21.1/8.56 per)  | 1.5 GiB  (21.2/9.00 per)
-// 400_000_000 | 8.3 GiB  (22.4/10.83 per) | 5.9 GiB  (15.8/9.01 per)
-//
-// with preallocate
-//
-// nset        | [4]byte                   | [5]byte
-// ------------------------------------------------------------------
-// 6_319_580   | 75.6 MiB (12.5/8.05 per)  | 80.3 MiB (13.3/9.00 per)
-// 75_955_551  | 1.2 GiB  (17.6/8.56 per)  | 1.3 GiB  (17.7/9.00 per)
-// 400_000_000 | 7.2 GiB  (19.3/10.8 per)  | 5.0 GiB  (13.5/9.01 per)
+func TestFlatMap_InsertAndLookup(t *testing.T) {
+	var val [4]byte
+	var keys []shortKey
 
-func TestMemoryBasicMap(t *testing.T) {
-	t.SkipNow()
+	m := newFlatMap(make([]byte, flatMapSize(1000)))
 
-	type shortKey = [4]byte
-
-	// const nset = 6_319_580
-	// const nset = 75_955_551
-	const nset = 400_000_000
-
-	stats := func() (ms runtime.MemStats) {
-		runtime.GC()
-		runtime.ReadMemStats(&ms)
-		return ms
+	for i := 0; i < 1000; i++ {
+		binary.LittleEndian.PutUint32(val[:], uint32(i))
+		key := shortKeyFrom(newKey())
+		keys = append(keys, key)
+		m.find(key).set(val)
 	}
 
-	rng := mwc.Rand()
-	newKey := func() (k Key) {
-		_, _ = rng.Read(k[:])
-		return k
+	for i := 0; i < 1000; i++ {
+		binary.LittleEndian.PutUint32(val[:], uint32(i))
+		assert.Equal(t, m.find(keys[i]).Value(), val)
 	}
+}
 
-	before := stats()
-	data := make(map[shortKey][4]byte, nset)
-	collisions := make(map[Key][4]byte)
-	for i := 0; i < nset; i++ {
-		key := newKey()
-		short := *(*shortKey)(key[:])
+func TestFlatMap_Update(t *testing.T) {
+	m := newFlatMap(make([]byte, flatMapSize(100)))
 
-		existing, ok := data[short]
-		switch {
-		case !ok:
-			data[short] = [4]byte{0: 1}
-
-		case existing == [4]byte{}:
-			collisions[key] = [4]byte{0: 1}
-
-		default:
-			data[short] = [4]byte{}
-			collisions[key] = [4]byte{0: 1}
-
-			exKey := newKey()
-			*(*shortKey)(exKey[:]) = short
-			collisions[exKey] = [4]byte{0: 1}
+	keys := make(map[shortKey]struct{})
+	uniqueKey := func() (s shortKey) {
+		for {
+			s = shortKeyFrom(newKey())
+			if _, exists := keys[s]; !exists {
+				keys[s] = struct{}{}
+				return s
+			}
 		}
 	}
-	after := stats()
 
-	runtime.KeepAlive(data)
-	runtime.KeepAlive(collisions)
+	// Insert initial values
+	for i := 0; i < 50; i++ {
+		key := uniqueKey()
 
-	used := after.HeapInuse - before.HeapInuse
-	opti := len(data)*(4+len(shortKey{})) + len(collisions)*(4+len(Key{}))
+		// Initial value
+		op := m.find(key)
+		op.set([4]byte{0: 1})
 
-	fmt.Println("used", memory.Size(used), used)
-	fmt.Println("opti", memory.Size(opti), opti)
-	fmt.Println("fact", float64(used)/float64(opti))
-	fmt.Println("nset", nset)
-	fmt.Println("ents", len(data))
-	fmt.Println("cols", len(collisions))
-	fmt.Println("per ", float64(used)/float64(nset))
-	fmt.Println("oper", float64(opti)/float64(nset))
+		// Verify it was inserted correctly
+		assert.Equal(t, m.find(key).Value(), [4]byte{0: 1})
+	}
+
+	// Update the values
+	for key := range keys {
+		// find the key
+		op := m.find(key)
+		assert.That(t, op.Exists())
+		assert.Equal(t, op.Value(), [4]byte{0: 1})
+
+		// update the value
+		op.set([4]byte{0: 2})
+
+		// Verify the update worked
+		assert.Equal(t, m.find(key).Value(), [4]byte{0: 2})
+	}
+}
+
+func TestFlatMap_LookupMissingKeys(t *testing.T) {
+	m := newFlatMap(make([]byte, flatMapSize(100)))
+
+	keys := make(map[shortKey]struct{})
+	uniqueKey := func() (s shortKey) {
+		for {
+			s = shortKeyFrom(newKey())
+			if _, exists := keys[s]; !exists {
+				keys[s] = struct{}{}
+				return s
+			}
+		}
+	}
+
+	// Insert some keys
+	for i := 0; i < 50; i++ {
+		m.find(uniqueKey()).set([4]byte{0: byte(i)})
+	}
+
+	// Verify that looking up missing keys works as expected
+	for i := 0; i < 50; i++ {
+		op := m.find(uniqueKey())
+		assert.That(t, !op.Exists())
+		assert.That(t, op.Valid())
+	}
+}
+
+func TestFlatMap_FullMap(t *testing.T) {
+	m := newFlatMap(make([]byte, flatMapSize(8)))
+
+	// Fill the map
+	for i := 0; i < 8; i++ {
+		op := m.find(shortKey{0: byte(i)})
+		assert.That(t, op.Valid())
+		op.set([4]byte{0: byte(i)})
+	}
+
+	// Verify all entries can be found
+	for i := 0; i < 8; i++ {
+		op := m.find(shortKey{0: byte(i)})
+		assert.That(t, op.Exists())
+		assert.Equal(t, op.Value(), [4]byte{0: byte(i)})
+	}
+
+	// This should fail because the map is full
+	op := m.find(shortKey{0: 8})
+	assert.That(t, !op.Valid())
+}
+
+func TestFlatMap_EdgeCases(t *testing.T) {
+	m := newFlatMap(make([]byte, flatMapSize(100)))
+
+	// Test with zero value
+	zeroKey := shortKey{}
+	zeroVal := [4]byte{}
+	op := m.find(zeroKey)
+	op.set(zeroVal)
+
+	// Verify zero key/value can be found
+	lookupOp := m.find(zeroKey)
+	assert.That(t, lookupOp.Exists())
+	assert.Equal(t, lookupOp.Value(), zeroVal)
+
+	// Test with repeated inserts of the same key
+	repeatedKey := [5]byte{5, 4, 3, 2, 1}
+	values := [][4]byte{
+		{1, 0, 0, 0},
+		{1, 2, 0, 0},
+		{1, 2, 3, 0},
+		{1, 2, 3, 4},
+	}
+
+	for _, val := range values {
+		op := m.find(repeatedKey)
+		assert.That(t, op.Valid())
+		op.set(val)
+
+		// Verify the updated value
+		lookup := m.find(repeatedKey)
+		assert.That(t, lookup.Exists())
+		assert.Equal(t, lookup.Value(), val)
+	}
+}
+
+func TestFlatMap_ZeroSizedMap(t *testing.T) {
+	// Create a zero-sized map
+	m := newFlatMap(make([]byte, 0))
+
+	// Test with any key
+	key := [5]byte{1, 2, 3, 4, 5}
+
+	// The find operation should be invalid
+	op := m.find(key)
+	assert.That(t, !op.Valid())
+}
+
+func TestFlatMap_RandomOperations(t *testing.T) {
+	m := newFlatMap(make([]byte, flatMapSize(1000)))
+	rng := mwc.Rand()
+	expect := make(map[shortKey][4]byte)
+
+	for i := 0; i < 5000; i++ {
+		key := shortKeyFrom(newKey())
+
+		switch rng.Uint64n(3) {
+		case 0, 1: // insert or update
+			var val [4]byte
+			_, _ = rng.Read(val[:])
+
+			op := m.find(key)
+
+			expectVal, exists := expect[key]
+			assert.Equal(t, op.Exists(), exists)
+			if exists {
+				assert.Equal(t, op.Value(), expectVal)
+			}
+
+			if op.Valid() {
+				op.set(val)
+				expect[key] = val
+			}
+
+		case 2: // lookup
+			op := m.find(key)
+
+			expectVal, exists := expect[key]
+			assert.Equal(t, op.Exists(), exists)
+			if exists {
+				assert.Equal(t, op.Value(), expectVal)
+			}
+		}
+	}
+}
+
+//
+// benchmarks
+//
+
+func BenchmarkMaps(b *testing.B) {
+	benchmarkLRecs(b, "flat", func(b *testing.B, u uint64) {
+		b.Run("Insert", func(b *testing.B) {
+			nrec := int(float64(uint64(1)<<u) * 0.85)
+			rng := mwc.Rand()
+			now := time.Now()
+
+			b.ReportAllocs()
+			b.ResetTimer()
+
+			for i := 0; i < b.N; i++ {
+				b.StopTimer()
+				m := newFlatMap(make([]byte, flatMapSize(1<<u)))
+				b.StartTimer()
+
+				var key shortKey
+				for j := 0; j < nrec; j++ {
+					_, _ = rng.Read(key[:])
+					m.find(key).set([4]byte{0xde, 0xad, 0xbe, 0xef})
+				}
+			}
+
+			b.ReportMetric(float64(nrec*b.N)/time.Since(now).Seconds(), "keys/sec")
+		})
+	})
+
+	benchmarkLRecs(b, "go", func(b *testing.B, u uint64) {
+		b.Run("Insert", func(b *testing.B) {
+			nrec := int(float64(uint64(1)<<u) * 0.85)
+			rng := mwc.Rand()
+			now := time.Now()
+
+			b.ReportAllocs()
+			b.ResetTimer()
+
+			for i := 0; i < b.N; i++ {
+				b.StopTimer()
+				m := make(map[shortKey][4]byte, nrec)
+				b.StartTimer()
+
+				var key shortKey
+				for j := 0; j < nrec; j++ {
+					_, _ = rng.Read(key[:])
+					m[key] = [4]byte{0xde, 0xad, 0xbe, 0xef}
+				}
+			}
+
+			b.ReportMetric(float64(nrec*b.N)/time.Since(now).Seconds(), "keys/sec")
+		})
+	})
 }

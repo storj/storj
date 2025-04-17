@@ -530,11 +530,11 @@ func (accounts *accounts) GetProjectUsagePriceModel(partner string) payments.Pro
 
 // GetPartnerPlacementPriceModel returns the usage price model for a partner and placement.
 func (accounts *accounts) GetPartnerPlacementPriceModel(partner string, placement storj.PlacementConstraint) (payments.ProjectUsagePriceModel, error) {
-	product := accounts.service.partnerPlacementMap.GetProductByPartnerAndPlacement(partner, int(placement))
-	if product == "" {
-		product = accounts.service.placementProductMap.GetProductByPlacement(int(placement))
+	productId, ok := accounts.service.partnerPlacementMap.GetProductByPartnerAndPlacement(partner, int(placement))
+	if !ok {
+		productId, _ = accounts.service.placementProductMap.GetProductByPlacement(int(placement))
 	}
-	if price, ok := accounts.service.productPriceMap[product]; ok {
+	if price, ok := accounts.service.productPriceMap[productId]; ok {
 		return price.ProjectUsagePriceModel, nil
 	}
 	return payments.ProjectUsagePriceModel{}, ErrPricingNotfound.New("pricing not found for partner %s and placement %d", partner, placement)
