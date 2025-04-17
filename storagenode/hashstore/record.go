@@ -27,31 +27,35 @@ const (
 type bigPage [bigPageSize]byte
 
 func (p *bigPage) readRecord(n uint64, rec *Record) bool {
-	if b := p[(n*RecordSize)%bigPageSize:]; len(b) >= RecordSize {
-		return rec.ReadFrom((*[RecordSize]byte)(b))
+	if n < recordsPerBigPage {
+		return rec.ReadFrom((*[RecordSize]byte)(p[n*RecordSize:]))
 	}
 	return false
 }
 
-func (p *bigPage) writeRecord(n uint64, rec *Record) {
-	if b := p[(n*RecordSize)%bigPageSize:]; len(b) >= RecordSize {
-		rec.WriteTo((*[RecordSize]byte)(b))
+func (p *bigPage) writeRecord(n uint64, rec *Record) bool {
+	if n < recordsPerBigPage {
+		rec.WriteTo((*[RecordSize]byte)(p[n*RecordSize:]))
+		return true
 	}
+	return false
 }
 
 type page [pageSize]byte
 
 func (p *page) readRecord(n uint64, rec *Record) bool {
-	if b := p[(n*RecordSize)%pageSize:]; len(b) >= RecordSize {
-		return rec.ReadFrom((*[RecordSize]byte)(b))
+	if n < recordsPerPage {
+		return rec.ReadFrom((*[RecordSize]byte)(p[n*RecordSize:]))
 	}
 	return false
 }
 
-func (p *page) writeRecord(n uint64, rec *Record) {
-	if b := p[(n*RecordSize)%pageSize:]; len(b) >= RecordSize {
-		rec.WriteTo((*[RecordSize]byte)(b))
+func (p *page) writeRecord(n uint64, rec *Record) bool {
+	if n < recordsPerPage {
+		rec.WriteTo((*[RecordSize]byte)(p[n*RecordSize:]))
+		return true
 	}
+	return false
 }
 
 // Expiration is a 23-bit timestamp with a 1-bit flag for trash.

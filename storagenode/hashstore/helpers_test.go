@@ -175,10 +175,46 @@ func forAllTables[T interface{ Run(string, func(T)) bool }](t T, fn func(T)) {
 	}
 }
 
+func forEachBool[T interface{ Run(string, func(T)) bool }](t T, name string, ptr *bool, fn func(T)) {
+	t.Run(name+"=false", func(t T) { defer temporarily(ptr, false)(); fn(t) })
+	t.Run(name+"=true", func(t T) { defer temporarily(ptr, true)(); fn(t) })
+}
+
 func ifFailed(t testing.TB, fn func()) {
 	if t.Failed() {
 		fn()
 	}
+}
+
+func withEntries(t *testing.T, entries int, keys *[]Key) WithConstructor {
+	return WithConstructor(func(tc TblConstructor) {
+		ctx := context.Background()
+		for i := 0; i < entries; i++ {
+			k := newKey()
+			ok, err := tc.Append(ctx, newRecord(k))
+			assert.NoError(t, err)
+			assert.True(t, ok)
+			if keys != nil {
+				*keys = append(*keys, k)
+			}
+		}
+	})
+}
+
+func withFilledTable(t *testing.T, keys *[]Key) WithConstructor {
+	return WithConstructor(func(tc TblConstructor) {
+		ctx := context.Background()
+		for {
+			k := newKey()
+			ok, err := tc.Append(ctx, newRecord(k))
+			assert.NoError(t, err)
+			if !ok {
+				break
+			} else if keys != nil {
+				*keys = append(*keys, k)
+			}
+		}
+	})
 }
 
 //

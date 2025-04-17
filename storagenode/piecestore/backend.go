@@ -295,6 +295,7 @@ func (hsb *HashStoreBackend) Reader(ctx context.Context, satellite storj.NodeID,
 	if err != nil {
 		return nil, err
 	}
+	ttfb := newTimer(mon.DurationVal("download_time_to_first_byte_read"))
 	reader, err := db.Read(ctx, pieceID)
 	if err != nil {
 		return nil, err
@@ -302,6 +303,7 @@ func (hsb *HashStoreBackend) Reader(ctx context.Context, satellite storj.NodeID,
 	return &hashStoreReader{
 		sr:     io.NewSectionReader(reader, 0, reader.Size()-512),
 		reader: reader,
+		ttfb:   ttfb,
 	}, nil
 }
 
@@ -360,9 +362,14 @@ func (hw *hashStoreWriter) Commit(ctx context.Context, header *pb.PieceHeader) (
 type hashStoreReader struct {
 	sr     *io.SectionReader
 	reader *hashstore.Reader
+	ttfb   *timer
 }
 
-func (hr *hashStoreReader) Read(p []byte) (int, error) { return hr.sr.Read(p) }
+func (hr *hashStoreReader) Read(p []byte) (int, error) {
+	defer hr.ttfb.Trigger()
+	return hr.sr.Read(p)
+}
+
 func (hr *hashStoreReader) Seek(offset int64, whence int) (int64, error) {
 	return hr.sr.Seek(offset, whence)
 }
@@ -373,6 +380,7 @@ func (hr *hashStoreReader) Size() int64  { return hr.reader.Size() - 512 }
 
 func (hr *hashStoreReader) GetPieceHeader() (_ *pb.PieceHeader, err error) {
 	data, err := io.ReadAll(io.NewSectionReader(hr.reader, hr.reader.Size()-512, 512))
+	hr.ttfb.Trigger()
 	if err != nil {
 		return nil, err
 	}

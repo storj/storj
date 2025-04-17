@@ -11,6 +11,9 @@ import (
 )
 
 func TestMemTbl_ShortCollision(t *testing.T) {
+	forEachBool(t, "mmap", &memtbl_MMAP, testMemTbl_ShortCollision)
+}
+func testMemTbl_ShortCollision(t *testing.T) {
 	m := newTestMemTbl(t, tbl_minLogSlots)
 	defer m.Close()
 
@@ -42,9 +45,19 @@ func TestMemTbl_ShortCollision(t *testing.T) {
 	m.AssertReopen()
 	m.AssertLookup(k0)
 	m.AssertLookup(k1)
+
+	// ensure that looking up a third key that collides is still a miss
+	k2 := k1
+	k2[0]++
+	assert.Equal(t, shortKeyFrom(k2), shortKeyFrom(k1))
+	m.AssertLookupMiss(k2)
 }
 
 func TestMemTbl_ConstructorSometimesFlushes(t *testing.T) {
+	forEachBool(t, "mmap", &memtbl_MMAP, testMemTbl_ConstructorSometimesFlushes)
+}
+func testMemTbl_ConstructorSometimesFlushes(t *testing.T) {
+	ctx := context.Background()
 	newTestMemTbl(t, tbl_minLogSlots, WithConstructor(func(tc TblConstructor) {
 		// make two keys that collide on short but are not equal.
 		k0, k1 := newShortCollidingKeys()
@@ -56,45 +69,47 @@ func TestMemTbl_ConstructorSometimesFlushes(t *testing.T) {
 
 		// inserting k1 will require reading the record for k0 because of the collision, and so it
 		// requires reading the record, which will error if we don't flush.
-		assertAppend(tc.Append(context.Background(), newRecord(k0)))
-		assertAppend(tc.Append(context.Background(), newRecord(k1)))
+		assertAppend(tc.Append(ctx, newRecord(k0)))
+		assertAppend(tc.Append(ctx, newRecord(k1)))
 	})).Close()
 }
 
-func TestMemtbl_LoadWithCollisions(t *testing.T) {
+func TestMemTbl_LoadWithCollisions(t *testing.T) {
+	forEachBool(t, "mmap", &memtbl_MMAP, testMemTbl_LoadWithCollisions)
+}
+func testMemTbl_LoadWithCollisions(t *testing.T) {
 	// Create a new memtbl
 	m := newTestMemTbl(t, tbl_minLogSlots)
 	defer m.Close()
 
-	totalSlots := uint64(1) << tbl_minLogSlots
-
 	// Insert some normal keys
-	normalCount := 1000
-	for i := 0; i < normalCount; i++ {
+	for i := 0; i < 100; i++ {
 		m.AssertInsert()
 	}
 
 	// Now insert some keys that will collide on their shortKey
-	collisionCount := 50
 	baseKey := newKey()
-	for i := 0; i < collisionCount; i++ {
+	for i := 0; i < 50; i++ {
 		collisionKey := baseKey
-		// Modify a byte that won't affect the shortKey
-		collisionKey[0] = byte(i)
+		collisionKey[0] = byte(i) // Modify a byte that won't affect the shortKey
+		assert.Equal(t, shortKeyFrom(collisionKey), shortKeyFrom(baseKey))
+
 		m.AssertInsert(WithKey(collisionKey))
 	}
 
-	// The total inserted record count should be normalCount + collisionCount
-	totalInserted := normalCount + collisionCount
-
-	// Calculate the expected load
-	expectedLoad := float64(totalInserted) / float64(totalSlots)
-
 	// Check that the Load() function returns the correct value
-	assert.Equal(t, m.Load(), expectedLoad)
+	totalSlots := float64(uint64(1) << tbl_minLogSlots)
+	assert.Equal(t, m.Load(), 150/totalSlots)
+
+	// Check that after reopen it still returns the correct value
+	m.AssertReopen()
+	assert.Equal(t, m.Load(), 150/totalSlots)
 }
 
-func TestMemtbl_UpdateCollisions(t *testing.T) {
+func TestMemTbl_UpdateCollisions(t *testing.T) {
+	forEachBool(t, "mmap", &memtbl_MMAP, testMemTbl_UpdateCollisions)
+}
+func testMemTbl_UpdateCollisions(t *testing.T) {
 	ctx := context.Background()
 	m := newTestMemTbl(t, tbl_minLogSlots)
 	defer m.Close()
@@ -163,13 +178,7 @@ func TestMemTbl_MMAPWithUnalignedEntries(t *testing.T) {
 	ctx := context.Background()
 
 	var keys []Key
-	m := newTestMemTbl(t, tbl_minLogSlots, WithConstructor(func(tc TblConstructor) {
-		key := newKey()
-		ok, err := tc.Append(ctx, newRecord(key))
-		assert.NoError(t, err)
-		assert.True(t, ok)
-		keys = append(keys, key)
-	}))
+	m := newTestMemTbl(t, tbl_minLogSlots, withEntries(t, 1, &keys))
 	defer m.Close()
 
 	for i := 0; i < 128; i++ {
@@ -187,4 +196,108 @@ func TestMemTbl_MMAPWithUnalignedEntries(t *testing.T) {
 		}))
 		assert.Equal(t, len(expect), 0)
 	}
+}
+
+func TestMemTbl_OpenUnaligned(t *testing.T) {
+	forEachBool(t, "mmap", &memtbl_MMAP, testMemTbl_OpenUnaligned)
+}
+func testMemTbl_OpenUnaligned(t *testing.T) {
+	// create a table with 128 records (8192 bytes of data) so that if we're in mmap mode it has
+	// some pages to read.
+	m := newTestMemTbl(t, tbl_minLogSlots, withEntries(t, 128, nil))
+	defer m.Close()
+
+	// insert a new record.
+	var keys []Key
+	keys = append(keys, m.AssertInsert().Key)
+
+	// unalign the table by every possible amount, reopen, and ensure we can still read all the keys
+	// including new ones we add after it realigns.
+	for i := 0; i < RecordSize; i++ {
+		_, err := m.fh.Write(make([]byte, i+1))
+		assert.NoError(t, err)
+
+		m.AssertReopen()
+
+		for _, key := range keys {
+			m.AssertLookup(key)
+		}
+		keys = append(keys, m.AssertInsert().Key)
+	}
+}
+
+func TestMemTbl_ConstructorFull(t *testing.T) {
+	forEachBool(t, "mmap", &memtbl_MMAP, testMemTbl_ConstructorFull)
+}
+func testMemTbl_ConstructorFull(t *testing.T) {
+	ctx := context.Background()
+
+	var keys []Key
+	m := newTestMemTbl(t, tbl_minLogSlots, withFilledTable(t, &keys))
+	defer m.Close()
+
+	// ensure we can read all of the keys we inserted.
+	for _, key := range keys {
+		m.AssertLookup(key)
+	}
+
+	// ensure we can't insert any more keys.
+	ok, err := m.Insert(ctx, newRecord(newKey()))
+	assert.NoError(t, err)
+	assert.False(t, ok)
+
+	// reopen the table.
+	m.AssertReopen()
+
+	// ensure we can still read all of the keys we inserted.
+	for _, key := range keys {
+		m.AssertLookup(key)
+	}
+
+	// ensure we can't insert any more keys.
+	ok, err = m.Insert(ctx, newRecord(newKey()))
+	assert.NoError(t, err)
+	assert.False(t, ok)
+}
+
+func TestMemTbl_ReopenWithCorruptRecord(t *testing.T) {
+	forEachBool(t, "mmap", &memtbl_MMAP, testMemTbl_ReopenWithCorruptRecord)
+}
+func testMemTbl_ReopenWithCorruptRecord(t *testing.T) {
+	m := newTestMemTbl(t, tbl_minLogSlots)
+	defer m.Close()
+
+	k0 := m.AssertInsert().Key
+	k1 := m.AssertInsert().Key
+
+	// ensure we can read both keys
+	m.AssertLookup(k0)
+	m.AssertLookup(k1)
+
+	// corrupt the record.
+	_, err := m.fh.WriteAt(make([]byte, RecordSize), headerSize)
+	assert.NoError(t, err)
+
+	// reopen the table.
+	m.AssertReopen()
+
+	// ensure we can't read the corrupted record, but can read the other one.
+	m.AssertLookupMiss(k0)
+	m.AssertLookup(k1)
+}
+
+func TestMemTbl_ReopenWithTooManyEntries(t *testing.T) {
+	m := newTestMemTbl(t, tbl_minLogSlots, withFilledTable(t, nil))
+	defer m.Close()
+
+	// add a record to the end of the log file directly.
+	var buf [RecordSize]byte
+	rec := newRecord(newKey())
+	rec.WriteTo(&buf)
+
+	_, err := m.fh.Write(buf[:])
+	assert.NoError(t, err)
+
+	_, err = OpenMemTbl(context.Background(), m.fh)
+	assert.Error(t, err)
 }

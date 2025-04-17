@@ -32,7 +32,7 @@ func memtblIdxToValue(idx memtblIdx) (b [4]byte) {
 	return
 }
 
-func valueToMemtblIdx(b [4]byte) (idx memtblIdx) {
+func valueToMemTblIdx(b [4]byte) (idx memtblIdx) {
 	return memtblIdx(binary.LittleEndian.Uint32(b[:]))
 }
 
@@ -115,9 +115,13 @@ func OpenMemTbl(ctx context.Context, fh *os.File) (_ *MemTbl, err error) {
 		return nil, Error.Wrap(err)
 	} else if header.Kind != kind_MemTbl {
 		return nil, Error.New("invalid kind: %d", header.Kind)
+	} else if header.LogSlots > tbl_maxLogSlots {
+		return nil, Error.New("logSlots too large: logSlots=%d", header.LogSlots)
+	} else if header.LogSlots < tbl_minLogSlots {
+		return nil, Error.New("logSlots too small: logSlots=%d", header.LogSlots)
 	}
 
-	h := &MemTbl{
+	m := &MemTbl{
 		fh:     fh,
 		header: header,
 
@@ -127,8 +131,13 @@ func OpenMemTbl(ctx context.Context, fh *os.File) (_ *MemTbl, err error) {
 		entries:    newFlatMap(make([]byte, flatMapSize(1<<header.LogSlots))),
 		collisions: make(map[Key][4]byte),
 	}
+	defer func() {
+		if err != nil {
+			m.Close()
+		}
+	}()
 
-	if err := h.ensureAlignedLocked(ctx); err != nil {
+	if err := m.ensureAlignedLocked(ctx); err != nil {
 		return nil, err
 	}
 
@@ -137,7 +146,7 @@ func OpenMemTbl(ctx context.Context, fh *os.File) (_ *MemTbl, err error) {
 		if err != nil {
 			return nil, Error.Wrap(err)
 		}
-		h.mmap, h.mmapClose, h.remap = data, close, true
+		m.mmap, m.mmapClose, m.remap = data, close, true
 
 		// N.B. we don't bother with a memory advise here because loadEntries will be sequential and
 		// defer setting it to random when it's done, so we don't want to confuse the kernel by
@@ -145,11 +154,11 @@ func OpenMemTbl(ctx context.Context, fh *os.File) (_ *MemTbl, err error) {
 	}
 
 	// read the entries from the file.
-	if err := h.loadEntries(ctx); err != nil {
+	if err := m.loadEntries(ctx); err != nil {
 		return nil, Error.Wrap(err)
 	}
 
-	return h, nil
+	return m, nil
 }
 
 // rangeWithIdxLocked reads the file handle calling the provided cb with all of the records that
@@ -228,62 +237,52 @@ func (m *MemTbl) loadEntries(ctx context.Context) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	return m.rangeWithIdxLocked(ctx, func(ctx context.Context, idx memtblIdx, rec Record) (bool, error) {
-		ok, err := m.insertKeyLocked(ctx, rec.Key, idx)
-		if err != nil {
-			return false, err
-		} else if !ok {
-			return false, Error.New("memtbl mmap map filled up on load")
+		key := rec.Key
+		short := shortKeyFrom(key)
+		value := memtblIdxToValue(idx)
+		op := m.entries.find(short)
+
+		switch {
+		case !op.Valid():
+			// if the op is invalid, the map is full.
+			return false, Error.New("memtbl memory map filled up on load")
+
+		case !op.Exists():
+			// the common case of no short collsion means we just store the entry.
+			op.set(value)
+			return true, nil
 		}
+
+		exValue := op.Value()
+		exIdx := valueToMemTblIdx(exValue)
+
+		switch {
+		case exIdx == memtbl_Promoted:
+			// already collided on the short key and has already been promoted, so we only need to
+			// insert into the full collisions map.
+			m.collisions[key] = value
+
+		default:
+			// an existing key at short is already set. we need to promote it to the collisions map, but
+			// first we have to re-read its key from the entry at the existing index.
+			var rec Record
+			if err := m.readRecord(ctx, exIdx, &rec); err != nil {
+				return false, Error.Wrap(err)
+			}
+
+			// um, actually, if it's the same key multiple times then we want to take the later one
+			// and there's no need to promote. otherwise, we do need to promote.
+			if rec.Key == key {
+				op.set(value)
+			} else {
+				op.set(memtblIdxToValue(memtbl_Promoted))
+				m.collisions[rec.Key] = exValue
+				m.collisions[key] = value
+			}
+		}
+
 		return true, nil
 	})
-}
-
-// insertKeyLocked associates the key with the memtbl index, promoting in case there is a collision.
-func (m *MemTbl) insertKeyLocked(ctx context.Context, key Key, idx memtblIdx) (bool, error) {
-	short := shortKeyFrom(key)
-	value := memtblIdxToValue(idx)
-	op := m.entries.find(short)
-
-	switch {
-	case !op.Valid():
-		// if the op is invalid, the map is full.
-		return false, nil
-
-	case !op.Exists():
-		// the common case of no short collsion means we just store the entry.
-		op.set(value)
-		return true, nil
-	}
-
-	exValue := op.Value()
-	exIdx := valueToMemtblIdx(exValue)
-
-	switch {
-	case exIdx == memtbl_Promoted:
-		// already collided on the short key and has already been promoted, so we only need to
-		// insert into the full collisions map.
-		m.collisions[key] = value
-
-	default:
-		// an existing key at short is already set. we need to promote it to the collisions map, but
-		// first we have to re-read its key from the entry at the existing index.
-		var rec Record
-		if err := m.readRecord(ctx, exIdx, &rec); err != nil {
-			return false, Error.Wrap(err)
-		}
-
-		// um, actually, if it's the same key multiple times then we want to take the later one
-		// and there's no need to promote. otherwise, we do need to promote.
-		if rec.Key == key {
-			op.set(value)
-		} else {
-			op.set(memtblIdxToValue(memtbl_Promoted))
-			m.collisions[rec.Key] = exValue
-			m.collisions[key] = value
-		}
-	}
-
-	return true, nil
 }
 
 // keyIndexLocked returns the index associated with the key.
@@ -294,12 +293,12 @@ func (m *MemTbl) insertKeyLocked(ctx context.Context, key Key, idx memtblIdx) (b
 func (m *MemTbl) keyIndexLocked(key Key) (idx memtblIdx, ok bool) {
 	if op := m.entries.find(shortKeyFrom(key)); !op.Valid() || !op.Exists() {
 		return 0, false
-	} else if idx = valueToMemtblIdx(op.Value()); idx != memtbl_Promoted {
+	} else if idx = valueToMemTblIdx(op.Value()); idx != memtbl_Promoted {
 		return idx, true
 	} else if value, ok := m.collisions[key]; !ok {
 		return 0, false
 	} else {
-		return valueToMemtblIdx(value), true
+		return valueToMemTblIdx(value), true
 	}
 }
 
@@ -466,7 +465,7 @@ func (m *MemTbl) insertLocked(ctx context.Context, rec Record) (_ bool, err erro
 	// are equalish because then we won't need to promote and we also get the check out of the way.
 	if op.Exists() {
 		val := op.Value()
-		idx := valueToMemtblIdx(val)
+		idx := valueToMemTblIdx(val)
 
 		if idx == memtbl_Promoted {
 			// if we're already promoted, we either are in the collisions map already and we need to
@@ -474,7 +473,7 @@ func (m *MemTbl) insertLocked(ctx context.Context, rec Record) (_ bool, err erro
 			if val, ok := m.collisions[rec.Key]; ok {
 				// if we are in the collisions map, we need to check if the record is equalish.
 				var tmp Record
-				if err := m.readRecord(ctx, valueToMemtblIdx(val), &tmp); err != nil {
+				if err := m.readRecord(ctx, valueToMemTblIdx(val), &tmp); err != nil {
 					return false, Error.Wrap(err)
 				}
 
@@ -524,7 +523,7 @@ func (m *MemTbl) insertLocked(ctx context.Context, rec Record) (_ bool, err erro
 	}
 
 	// we can insert being sure that if a value exists in entries it's already promoted.
-	if op.Exists() && valueToMemtblIdx(op.Value()) == memtbl_Promoted {
+	if op.Exists() && valueToMemTblIdx(op.Value()) == memtbl_Promoted {
 		m.collisions[rec.Key] = memtblIdxToValue(m.idx)
 	} else {
 		op.set(memtblIdxToValue(m.idx))

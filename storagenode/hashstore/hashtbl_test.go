@@ -217,6 +217,41 @@ func TestHashTbl_EstimateWithNonuniformTable(t *testing.T) {
 	assert.That(t, h.Load() != 1)
 }
 
+func TestMMAPCache(t *testing.T) {
+	data := make([]byte, headerSize+RecordSize)
+	c := newMMAPCache(data)
+
+	exp := newRecord(newKey())
+	got := Record{}
+
+	assert.NoError(t, c.WriteRecord(0, &exp))
+	ok, err := c.ReadRecord(0, &got)
+	assert.NoError(t, err)
+	assert.True(t, ok)
+	assert.Equal(t, exp, got)
+
+	data[headerSize]++
+	ok, err = c.ReadRecord(0, &got)
+	assert.NoError(t, err)
+	assert.False(t, ok)
+
+	assert.Error(t, c.WriteRecord(1, &exp))
+	ok, err = c.ReadRecord(1, &got)
+	assert.Error(t, err)
+	assert.False(t, ok)
+}
+
+func TestHashTbl_IncorrectLogSlots(t *testing.T) {
+	ctx := context.Background()
+	h := newTestHashTbl(t, tbl_minLogSlots)
+	defer h.Close()
+
+	assert.NoError(t, h.fh.Truncate(int64(hashtblSize(tbl_minLogSlots+1))))
+
+	_, err := OpenHashTbl(ctx, h.fh)
+	assert.Error(t, err)
+}
+
 //
 // benchmarks
 //

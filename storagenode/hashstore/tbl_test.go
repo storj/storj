@@ -313,6 +313,44 @@ func testTable_ConstructorAPIAfterDone(t *testing.T) {
 	assert.Nil(t, tbl)
 }
 
+func TestTable_InvalidHeaders(t *testing.T) {
+	fh, err := os.CreateTemp(t.TempDir(), "tbl")
+	assert.NoError(t, err)
+	defer func() { _ = fh.Close() }()
+
+	hdr := TblHeader{
+		Created:  1,
+		HashKey:  true,
+		Kind:     kind_HashTbl,
+		LogSlots: 4,
+	}
+
+	// ensure modifying every byte in the header is an error
+	for offset := int64(0); offset < headerSize; offset++ {
+		assert.NoError(t, WriteTblHeader(fh, hdr))
+		_, err = fh.WriteAt([]byte{0xde}, offset)
+		assert.NoError(t, err)
+		_, err = ReadTblHeader(fh)
+		assert.Error(t, err)
+	}
+}
+
+func TestTable_OpenIncorrectKind(t *testing.T) {
+	ctx := context.Background()
+
+	h := newTestHashTbl(t, tbl_minLogSlots)
+	defer h.Close()
+
+	m := newTestMemTbl(t, tbl_minLogSlots)
+	defer m.Close()
+
+	_, err := OpenMemTbl(ctx, h.fh)
+	assert.Error(t, err)
+
+	_, err = OpenHashTbl(ctx, m.fh)
+	assert.Error(t, err)
+}
+
 //
 // benchmarks
 //

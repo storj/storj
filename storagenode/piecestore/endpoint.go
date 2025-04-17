@@ -526,6 +526,8 @@ func (endpoint *Endpoint) Download(stream pb.DRPCPiecestore_DownloadStream) (err
 	defer monLiveRequests(&ctx)(&err)
 	defer mon.Task()(&ctx)(&err)
 
+	ttfb := newTimer(mon.DurationVal("download_time_to_first_byte_sent"))
+
 	if trace.IsEnabled() {
 		if tr, ok := drpcctx.Transport(ctx); ok {
 			if conn, ok := tr.(net.Conn); ok {
@@ -756,6 +758,7 @@ func (endpoint *Endpoint) Download(stream pb.DRPCPiecestore_DownloadStream) (err
 			}
 
 			done, err := endpoint.sendData(ctx, log, stream, pieceReader, currentOffset, chunkSize)
+			ttfb.Trigger()
 			if err != nil || done {
 				return err
 			}
