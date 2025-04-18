@@ -38,9 +38,26 @@
             <v-divider class="my-6 border-0" />
             <v-row class="ma-0 align-center">
                 <template v-if="!isEditing">
-                    <v-btn variant="outlined" color="default" class="mr-2" @click="isEditing = true">Edit Card</v-btn>
-                    <v-btn v-if="isMultipleCards" variant="outlined" color="default" class="mr-2" @click="isEditDefaultCCDialog = true">Edit Default</v-btn>
-                    <v-btn variant="outlined" color="default" @click="isRemoveCCDialog = true">Remove</v-btn>
+                    <v-btn
+                        variant="outlined"
+                        color="default"
+                        class="mr-2"
+                        :prepend-icon="Edit"
+                        @click="isEditing = true"
+                    >
+                        Edit
+                    </v-btn>
+                    <v-btn
+                        v-if="isMultipleCards"
+                        variant="outlined"
+                        color="default"
+                        class="mr-2"
+                        :prepend-icon="Star"
+                        @click="isEditDefaultCCDialog = true"
+                    >
+                        Edit Default
+                    </v-btn>
+                    <v-btn variant="outlined" color="default" :prepend-icon="X" @click="isRemoveCCDialog = true">Remove</v-btn>
                 </template>
                 <template v-else class="ma-0 align-center">
                     <v-btn variant="outlined" color="primary" class="mr-2" :loading="isLoading" :disabled="savingDisabled" @click="saveCard">Save</v-btn>
@@ -57,6 +74,7 @@
 import { computed, ref } from 'vue';
 import { VNumberInput } from 'vuetify/labs/components';
 import { VBtn, VCard, VCardText, VChip, VCol, VDivider, VRow } from 'vuetify/components';
+import { X, Edit, Star } from 'lucide-vue-next';
 
 import { CreditCard } from '@/types/payments';
 import { useLoading } from '@/composables/useLoading';

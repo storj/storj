@@ -111,7 +111,6 @@
                         <v-btn
                             variant="flat"
                             block
-                            link
                             :href="docsLink"
                             target="_blank"
                             @click="trackGoToDocs"

@@ -30,7 +30,7 @@
 
             <v-divider />
 
-            <v-card-item class="pa-4">
+            <v-card-item>
                 <v-window v-model="step">
                     <v-window-item :value="UpgradeAccountStep.Info">
                         <UpgradeInfoStep
@@ -40,52 +40,39 @@
                     </v-window-item>
 
                     <v-window-item :value="UpgradeAccountStep.Options">
-                        <v-container>
-                            <v-row justify="center" align="center">
-                                <v-col cols="12" sm="12" md="12" lg="10">
-                                    <v-tabs
-                                        v-model="paymentTab"
-                                        color="default"
-                                        center-active
-                                        show-arrows
-                                        grow
-                                    >
-                                        <v-tab>
-                                            Credit Card
-                                        </v-tab>
-                                        <v-tab>
-                                            STORJ tokens
-                                        </v-tab>
-                                    </v-tabs>
-                                </v-col>
-                            </v-row>
-                            <v-window v-model="paymentTab">
-                                <v-window-item :value="PaymentOption.CreditCard">
-                                    <v-row class="ma-0" justify="center" align="center">
-                                        <v-col cols="12" sm="12" md="12" lg="10">
-                                            <AddCreditCardStep
-                                                v-model:loading="loading"
-                                                @success="() => setStep(UpgradeAccountStep.Success)"
-                                                @back="() => setStep(UpgradeAccountStep.Info)"
-                                            />
-                                        </v-col>
-                                    </v-row>
-                                </v-window-item>
-                                <v-window-item :value="PaymentOption.StorjTokens">
-                                    <v-row justify="center" align="center" class="ma-0 mt-2">
-                                        <v-col cols="12" sm="12" md="12" lg="10">
-                                            <v-card :loading="loading" class="pa-1" :class="{'no-border pa-0': !loading}">
-                                                <AddTokensStep
-                                                    v-if="!loading"
-                                                    @back="() => setStep(UpgradeAccountStep.Info)"
-                                                    @success="onAddTokensSuccess"
-                                                />
-                                            </v-card>
-                                        </v-col>
-                                    </v-row>
-                                </v-window-item>
-                            </v-window>
-                        </v-container>
+                        <v-tabs
+                            v-model="paymentTab"
+                            color="primary"
+                            center-active
+                            show-arrows
+                            class="border-b-thin mb-3"
+                            grow
+                        >
+                            <v-tab>
+                                Credit Card
+                            </v-tab>
+                            <v-tab>
+                                STORJ Tokens
+                            </v-tab>
+                        </v-tabs>
+                        <v-window v-model="paymentTab">
+                            <v-window-item :value="PaymentOption.CreditCard">
+                                <AddCreditCardStep
+                                    v-model:loading="loading"
+                                    @success="() => setStep(UpgradeAccountStep.Success)"
+                                    @back="() => setStep(UpgradeAccountStep.Info)"
+                                />
+                            </v-window-item>
+                            <v-window-item :value="PaymentOption.StorjTokens">
+                                <v-card :loading="loading" class="pa-1" variant="flat" :class="{'no-border pa-0': !loading}">
+                                    <AddTokensStep
+                                        v-if="!loading"
+                                        @back="() => setStep(UpgradeAccountStep.Info)"
+                                        @success="onAddTokensSuccess"
+                                    />
+                                </v-card>
+                            </v-window-item>
+                        </v-window>
                     </v-window-item>
 
                     <v-window-item :value="UpgradeAccountStep.Success">
@@ -121,11 +108,8 @@ import {
     VDivider,
     VWindow,
     VWindowItem,
-    VRow,
-    VCol,
     VTabs,
     VTab,
-    VContainer,
 } from 'vuetify/components';
 
 import { useBillingStore } from '@/store/modules/billingStore';
@@ -183,7 +167,7 @@ const model = defineModel<boolean>({ required: true });
 const stepTitles = computed(() => {
     return {
         [UpgradeAccountStep.Info]: 'Upgrade',
-        [UpgradeAccountStep.Options]: 'Upgrade to Pro',
+        [UpgradeAccountStep.Options]: 'Add Payment Method',
         [UpgradeAccountStep.AddCC]: 'Add Credit Card',
         [UpgradeAccountStep.AddTokens]: 'Add Storj Tokens',
         [UpgradeAccountStep.Success]: 'Success',

@@ -5,7 +5,7 @@
     <v-card title="Add New Card" subtitle="Add a new credit/debit card for payment." class="pa-2">
         <v-card-text>
             <div v-if="!isCardInputShown">
-                <v-btn variant="outlined" color="default" class="mr-2" @click="onShowCardInput">+ Add New Card</v-btn>
+                <v-btn variant="outlined" color="default" class="mr-2" :prepend-icon="Plus" @click="onShowCardInput">Add New Card</v-btn>
             </div>
 
             <template v-else>
@@ -78,6 +78,7 @@
 <script setup lang="ts">
 import { VBtn, VCard, VCardItem, VCardText, VCardTitle, VDialog } from 'vuetify/components';
 import { computed, ref } from 'vue';
+import { Plus } from 'lucide-vue-next';
 
 import { useUsersStore } from '@/store/modules/usersStore';
 import { useLoading } from '@/composables/useLoading';

@@ -2,7 +2,7 @@
 // See LICENSE for copying information.
 
 <template>
-    <p class="my-4">
+    <p class="mt-2 mb-4 text-body-2">
         By saving your card information, you allow Storj to charge your card for future payments in accordance with
         the <a class="link font-weight-medium" href="https://storj.io/terms-of-service/" target="_blank" rel="noopener">terms of service</a>.
     </p>
@@ -18,7 +18,7 @@
         @ready="stripeReady = true"
     />
 
-    <v-row justify="center" class="mx-0 mt-4 mb-1">
+    <v-row justify="center" class="mx-0 mt-2 mb-1">
         <v-col class="pl-0">
             <v-btn
                 block
@@ -33,7 +33,6 @@
         <v-col class="px-0">
             <v-btn
                 block
-                color="success"
                 :loading="loading"
                 :disabled="!stripeReady"
                 :prepend-icon="LockKeyhole"

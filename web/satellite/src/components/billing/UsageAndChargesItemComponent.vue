@@ -90,7 +90,7 @@
                             </tr>
                         </tbody>
                     </v-table>
-                    <v-btn class="mt-4" :prepend-icon="Calendar">
+                    <v-btn :prepend-icon="Calendar" class="mt-2">
                         <detailed-usage-report-dialog :project-i-d="projectId" />
                         Detailed Project Report
                     </v-btn>

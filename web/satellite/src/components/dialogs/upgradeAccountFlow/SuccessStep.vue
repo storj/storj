@@ -6,7 +6,6 @@
 
     <v-btn
         block
-        color="success"
         class="mb-2"
         @click="emit('continue')"
     >

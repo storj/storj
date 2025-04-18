@@ -5,7 +5,7 @@
     <v-container>
         <v-row justify="center">
             <v-col class="text-center py-4">
-                <icon-business />
+                <Building2 height="50" width="50" class="rounded-xlg bg-background pa-3 border" />
                 <p class="text-overline mt-2 mb-1">
                     Business Account
                 </p>
@@ -16,8 +16,8 @@
 
         <v-form v-model="formValid" @submit.prevent="emit('next')">
             <v-row justify="center">
-                <v-col class="text-center pt-0">
-                    <p class="text-caption">Fields marked with * are required.</p>
+                <v-col class="text-center">
+                    <p class="text-caption text-medium-emphasis">Fields marked with * are required.</p>
                 </v-col>
             </v-row>
 
@@ -114,24 +114,26 @@
                         label="Specify Other Use Case"
                         variant="outlined"
                         autofocus
+                        hide-details="auto"
                     />
                 </v-col>
             </v-row>
 
             <v-row justify="center">
-                <v-col cols="12" sm="6" md="5" lg="4">
+                <v-col cols="12" sm="5" md="4" lg="3">
                     <v-checkbox id="sales" v-model="haveSalesContact" hide-details density="compact">
                         <template #label>
-                            <p class="text-body-2">Please have the Sales Team contact me</p>
-                        </template>
-                    </v-checkbox>
-                    <v-checkbox id="partnering" v-model="interestedInPartnering" hide-details density="compact">
-                        <template #label>
-                            <p class="text-body-2">I am interested in partnering with Storj</p>
+                            <p class="text-body-2">I'd like a Sales representative to contact me about my business needs.</p>
                         </template>
                     </v-checkbox>
                 </v-col>
-                <v-col v-if="smAndUp" cols="12" sm="4" md="3" lg="2" />
+                <v-col cols="12" sm="5" md="4" lg="3">
+                    <v-checkbox id="partnering" v-model="interestedInPartnering" hide-details density="compact">
+                        <template #label>
+                            <p class="text-body-2">I'm interested in exploring partnership opportunities with Storj for my business.</p>
+                        </template>
+                    </v-checkbox>
+                </v-col>
             </v-row>
 
             <v-row justify="center" class="mt-4">
@@ -169,15 +171,13 @@
 import { VBtn, VCheckbox, VCol, VContainer, VForm, VRow, VSelect, VTextField } from 'vuetify/components';
 import { ref } from 'vue';
 import { useDisplay } from 'vuetify';
-import { ChevronLeft, ChevronRight } from 'lucide-vue-next';
+import { Building2, ChevronLeft, ChevronRight } from 'lucide-vue-next';
 
 import { AuthHttpApi } from '@/api/auth';
 import { AnalyticsEvent } from '@/utils/constants/analyticsEventNames';
 import { MaxNameLengthRule, RequiredRule } from '@/types/common';
 import { useAnalyticsStore } from '@/store/modules/analyticsStore';
 import { useConfigStore } from '@/store/modules/configStore';
-
-import IconBusiness from '@/components/icons/IconBusiness.vue';
 
 const auth = new AuthHttpApi();
 

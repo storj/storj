@@ -13,7 +13,7 @@
             </v-col>
         </v-row>
 
-        <div v-if="!isFree" class="my-4">
+        <div v-if="!isFree" class="my-2">
             <p class="text-caption mb-2">Add Card Info</p>
             <StripeCardElement
                 v-if="paymentElementEnabled"
@@ -61,7 +61,7 @@
     <template v-else>
         <v-row class="ma-0" justify="center" align="center">
             <v-col cols="auto">
-                <v-btn density="comfortable" color="success" variant="tonal" icon>
+                <v-btn density="comfortable" variant="tonal" icon>
                     <v-icon :icon="Check" />
                 </v-btn>
             </v-col>
@@ -91,7 +91,6 @@
         </v-alert>
 
         <v-btn
-            color="success"
             block
             @click="emit('close')"
         >

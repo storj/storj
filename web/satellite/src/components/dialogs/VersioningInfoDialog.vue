@@ -107,6 +107,18 @@
                             Close
                         </v-btn>
                     </v-col>
+                    <v-col>
+                        <v-btn
+                            variant="flat"
+                            color="primary"
+                            block
+                            :href="docsLink"
+                            target="_blank"
+                            @click="trackGoToDocs"
+                        >
+                            Read Documentation
+                        </v-btn>
+                    </v-col>
                 </v-row>
             </v-card-actions>
         </v-card>
