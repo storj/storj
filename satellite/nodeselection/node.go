@@ -19,6 +19,8 @@ import (
 	"storj.io/storj/shared/location"
 )
 
+var errTagsNotFound = errs.New("tags not found")
+
 // NodeTag is a tag associated with a node (approved by signer).
 type NodeTag struct {
 	NodeID   storj.NodeID
@@ -38,7 +40,7 @@ func (n NodeTags) FindBySignerAndName(signer storj.NodeID, name string) (NodeTag
 			return tag, nil
 		}
 	}
-	return NodeTag{}, errs.New("tags not found")
+	return NodeTag{}, errTagsNotFound
 }
 
 // SelectedNode is used as a result for creating orders limits.
