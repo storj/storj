@@ -360,9 +360,10 @@ func (ptx *postgresTransactionAdapter) precommitDeleteUnversioned(ctx context.Co
 func (stx *spannerTransactionAdapter) precommitDeleteUnversioned(ctx context.Context, loc ObjectLocation) (result PrecommitConstraintResult, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	result.HighestVersion, err = spannerutil.CollectRow(stx.tx.Query(ctx, spanner.Statement{
+	var status ObjectStatus
+	err = stx.tx.Query(ctx, spanner.Statement{
 		SQL: `
-				SELECT version
+				SELECT version, status
 				FROM objects
 				WHERE (project_id, bucket_name, object_key) = (@project_id, @bucket_name, @object_key)
 				ORDER BY version DESC
@@ -373,9 +374,10 @@ func (stx *spannerTransactionAdapter) precommitDeleteUnversioned(ctx context.Con
 			"bucket_name": loc.BucketName,
 			"object_key":  loc.ObjectKey,
 		},
-	}), func(row *spanner.Row, item *Version) error {
-		return Error.Wrap(row.Columns(item))
+	}).Do(func(row *spanner.Row) error {
+		return Error.Wrap(row.Columns(&result.HighestVersion, &status))
 	})
+
 	// no previous versions found, return early
 	if errors.Is(err, iterator.Done) {
 		result.HighestVersion = 0
@@ -383,6 +385,13 @@ func (stx *spannerTransactionAdapter) precommitDeleteUnversioned(ctx context.Con
 	}
 	if err != nil {
 		return PrecommitConstraintResult{}, Error.Wrap(err)
+	}
+
+	// this is special case when we have no previous committed object under this location
+	// but we have a pending object for this upload. Because of that we know we don't have
+	// any previous object version to delete and we can just continue.
+	if result.HighestVersion == DefaultVersion && !status.IsCommitted() {
+		return result, nil
 	}
 
 	result.Deleted, err = collectDeletedObjectsSpanner(ctx, loc, stx.tx.Query(ctx, spanner.Statement{
