@@ -201,6 +201,7 @@ export class BucketsHttpApi implements BucketsApi {
             detail.name,
             detail.title,
             detail.description,
+            detail.pending,
         )) || [];
     }
 }

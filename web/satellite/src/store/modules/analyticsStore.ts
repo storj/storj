@@ -23,6 +23,10 @@ export const useAnalyticsStore = defineStore('analytics', () => {
         await analytics.joinCunoFSBeta(data, csrfToken.value);
     }
 
+    async function joinPlacementWaitlist(storageNeeds: string, placementID: number): Promise<void> {
+        await analytics.joinPlacementWaitlist(storageNeeds, placementID, csrfToken.value);
+    }
+
     async function requestObjectMountConsultation(data: ObjectMountConsultationForm): Promise<void> {
         await analytics.requestObjectMountConsultation(data, csrfToken.value);
     }
@@ -72,6 +76,7 @@ export const useAnalyticsStore = defineStore('analytics', () => {
         linkEventTriggered,
         pageVisit,
         joinCunoFSBeta,
+        joinPlacementWaitlist,
         requestObjectMountConsultation,
     };
 });
