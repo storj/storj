@@ -650,6 +650,8 @@ func (service *Service) TrackGenericFreeze(userID uuid.UUID, email, freezeType s
 	props.Set("freeze_type", freezeType)
 	props.Set("admin_initiated", adminInitiated)
 
+	service.log.Info("user frozen", zap.String("email", email), zap.String("user_id", userID.String()), zap.String("freezeType", freezeType), zap.Bool("adminInitiated", adminInitiated))
+
 	service.enqueueMessage(segment.Track{
 		UserId:     userID.String(),
 		Event:      eventAccountFreeze,
@@ -667,6 +669,8 @@ func (service *Service) TrackGenericUnfreeze(userID uuid.UUID, email, freezeType
 	props.Set("email", email)
 	props.Set("freeze_type", freezeType)
 	props.Set("admin_initiated", adminInitiated)
+
+	service.log.Info("user unfrozen", zap.String("email", email), zap.String("user_id", userID.String()), zap.String("freezeType", freezeType), zap.Bool("adminInitiated", adminInitiated))
 
 	service.enqueueMessage(segment.Track{
 		UserId:     userID.String(),
