@@ -301,6 +301,8 @@ type spannerLoopSegmentIterator struct {
 	// failErr is set when either scan or next query fails during iteration.
 	failErr    error
 	aliasCache *NodeAliasCache
+
+	scanSpannerItemArguments scanSpannerItemArguments
 }
 
 // Next returns true if there was another item and copy it in item.
@@ -457,6 +459,8 @@ func (s *SpannerAdapter) IterateLoopSegments(ctx context.Context, aliasCache *No
 		curIndex:         0,
 	}
 
+	it.scanSpannerItemArguments.init()
+
 	opts.SpannerQueryType = strings.ToLower(opts.SpannerQueryType)
 	switch {
 	case opts.SpannerQueryType == "sql" || opts.SpannerQueryType == "":
@@ -476,38 +480,53 @@ func (s *SpannerAdapter) IterateLoopSegments(ctx context.Context, aliasCache *No
 	return fn(ctx, it)
 }
 
+// scanSpannerItemArguments is a struct for containing all the necessary heap allocations in
+// scanSpannerItem func. If these arguments are initialized in the stack, then it ends up causing
+// heap allocations, which is not ideal for a very frequently called func.
+type scanSpannerItemArguments struct {
+	encryptedSize int64
+	plainSize     int64
+	arguments     []any
+}
+
+func (t *scanSpannerItemArguments) init() {
+	t.arguments = make([]any, 12)
+}
+
 func (it *spannerLoopSegmentIterator) scanSpannerItem(ctx context.Context, item *LoopSegmentEntry) (err error) {
-	var repairedAt, expiresAt spanner.NullTime
-	var encryptedSize, plainSize int64
+	t := &it.scanSpannerItemArguments
+	t.encryptedSize = 0
+	t.plainSize = 0
 
-	aliasPieces := it.batchAliasPieces[it.curIndex]
+	if it.curIndex >= len(it.batchAliasPieces) {
+		return Error.New("alias pieces batch index out of range")
+	}
 
-	if err := it.curRow.Columns(&item.StreamID, &item.Position,
-		&item.CreatedAt, &expiresAt, &repairedAt,
-		&item.RootPieceID,
-		&encryptedSize, &item.PlainOffset, &plainSize,
-		&item.Redundancy,
-		&aliasPieces,
-		&item.Placement,
-	); err != nil {
+	t.arguments[0] = &item.StreamID
+	t.arguments[1] = &item.Position
+
+	t.arguments[2] = &item.CreatedAt
+	t.arguments[3] = &item.ExpiresAt
+	t.arguments[4] = &item.RepairedAt
+
+	t.arguments[5] = &item.RootPieceID
+
+	t.arguments[6] = &t.encryptedSize
+	t.arguments[7] = &item.PlainOffset
+	t.arguments[8] = &t.plainSize
+
+	t.arguments[9] = &item.Redundancy
+	t.arguments[10] = &it.batchAliasPieces[it.curIndex]
+	t.arguments[11] = &item.Placement
+
+	if err := it.curRow.Columns(t.arguments...); err != nil {
 		return Error.New("failed to scan segment: %w", err)
 	}
 
-	if repairedAt.Valid {
-		item.RepairedAt = &repairedAt.Time
-	} else {
-		item.RepairedAt = nil
-	}
-	if expiresAt.Valid {
-		item.ExpiresAt = &expiresAt.Time
-	} else {
-		item.ExpiresAt = nil
-	}
+	item.EncryptedSize = int32(t.encryptedSize)
+	item.PlainSize = int32(t.plainSize)
 
-	item.EncryptedSize = int32(encryptedSize)
-	item.PlainSize = int32(plainSize)
-
-	item.AliasPieces = aliasPieces
+	item.AliasPieces = it.batchAliasPieces[it.curIndex]
 	// allocate new Pieces only if existing have not enough capacity
 	if cap(it.batchPieces[it.curIndex]) < len(item.AliasPieces) {
 		it.batchPieces[it.curIndex] = make(Pieces, len(item.AliasPieces))
@@ -521,6 +540,5 @@ func (it *spannerLoopSegmentIterator) scanSpannerItem(ctx context.Context, item 
 	}
 	item.Source = it.db.Name()
 
-	it.batchAliasPieces[it.curIndex] = aliasPieces
 	return nil
 }
