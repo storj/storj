@@ -43,7 +43,6 @@ export class LoginPage {
 
     async selectFreeTrial() {
         await this.page.locator(LoginPageObjects.FREE_PLAN_XPATH).click();
-        await this.page.locator(LoginPageObjects.ACTIVATE_XPATH).click();
     }
 
     async ensureSetupSuccess(): Promise<void> {

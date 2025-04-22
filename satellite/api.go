@@ -58,6 +58,7 @@ import (
 	"storj.io/storj/satellite/orders"
 	"storj.io/storj/satellite/overlay"
 	"storj.io/storj/satellite/payments"
+	"storj.io/storj/satellite/payments/paymentsconfig"
 	"storj.io/storj/satellite/payments/storjscan"
 	"storj.io/storj/satellite/payments/stripe"
 	"storj.io/storj/satellite/reputation"
@@ -636,6 +637,21 @@ func NewAPI(log *zap.Logger, full *identity.FullIdentity, db DB,
 			if err != nil {
 				return nil, errs.Combine(err, peer.Close())
 			}
+
+			placementOverrideMap := pc.PlacementPriceOverrides.ToMap()
+			err = paymentsconfig.ValidatePlacementOverrideMap(placementOverrideMap, productPrices, placements)
+			if err != nil {
+				return nil, errs.Combine(err, peer.Close())
+			}
+
+			partnerPlacementOverrideMap := pc.PartnersPlacementPriceOverrides.ToMap()
+			for _, overrideMap := range partnerPlacementOverrideMap {
+				err = paymentsconfig.ValidatePlacementOverrideMap(overrideMap, productPrices, placements)
+				if err != nil {
+					return nil, errs.Combine(err, peer.Close())
+				}
+			}
+
 			peer.Payments.StripeService, err = stripe.NewService(
 				peer.Log.Named("payments.stripe:service"),
 				stripeClient,
@@ -649,8 +665,8 @@ func NewAPI(log *zap.Logger, full *identity.FullIdentity, db DB,
 				prices,
 				priceOverrides,
 				productPrices,
-				pc.PartnersPlacementPriceOverrides.ToMap(),
-				pc.PlacementPriceOverrides.ToMap(),
+				partnerPlacementOverrideMap,
+				placementOverrideMap,
 				pc.PackagePlans.Packages,
 				pc.BonusRate,
 				peer.Analytics.Service,

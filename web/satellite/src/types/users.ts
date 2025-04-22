@@ -405,11 +405,11 @@ export const ONBOARDING_STEPPER_STEPS = [
 export const ACCOUNT_SETUP_STEPS = [
     OnboardingStep.AccountTypeSelection,
     OnboardingStep.PersonalAccountForm,
-    OnboardingStep.ManagedPassphraseOptIn,
+    OnboardingStep.BusinessAccountForm,
     OnboardingStep.PlanTypeSelection,
     OnboardingStep.PaymentMethodSelection,
     OnboardingStep.PricingPlanSelection,
-    OnboardingStep.BusinessAccountForm,
+    OnboardingStep.ManagedPassphraseOptIn,
     OnboardingStep.SetupComplete,
 ];
 

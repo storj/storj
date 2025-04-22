@@ -252,84 +252,17 @@ func TestPlacementPriceOverrides(t *testing.T) {
 		config    string
 		expectErr bool
 	}{
-		// N.B. to match PlacementProductIdMap.String(), the placements and placements:products defined in tt.config must be sorted in increasing order.
-		// PlacementProductIdMap.String() sorts the elements for a consistent result.
 		{
 			id:     "empty string",
 			config: "",
 		},
 		{
-			id:     "one placement, one product ID",
-			config: "0:0",
+			id:     "valid JSON",
+			config: `{"0":[0],"1":[2]}`,
 		},
 		{
-			id:     "multiple placements, one product ID",
-			config: "0,1,2:0",
-		},
-		{
-			id:     "multiple placements, multiple product IDs",
-			config: "0,1,2:0;3:1",
-		},
-		{
-			id:     "trailing semi-colon",
-			config: "0,1:0;",
-		},
-		{
-			id:     "trailing double semi-colon",
-			config: "0,1:0;;",
-		},
-		{
-			id:     "values separated by double semi-colon",
-			config: "0,1:0;;2,3:1",
-		},
-		{
-			id:        "product duplicated across multiple key-value pairs",
-			config:    "0,1:0;2,3:0",
-			expectErr: true,
-		},
-		{
-			id:        "invalid config: no placements",
-			config:    ":0",
-			expectErr: true,
-		},
-		{
-			id:        "invalid config: no placements with comma",
-			config:    ",:0",
-			expectErr: true,
-		},
-		{
-			id:        "invalid config: placement assigned to multiple product IDs",
-			config:    "0:0;0,1:1",
-			expectErr: true,
-		},
-		{
-			id:        "invalid config: no colon",
-			config:    "0",
-			expectErr: true,
-		},
-		{
-			id:        "invalid config: double colon",
-			config:    "0,1::0",
-			expectErr: true,
-		},
-		{
-			id:        "invalid config: multiple colons",
-			config:    "0,1:0:1",
-			expectErr: true,
-		},
-		{
-			id:        "invalid config: double comma",
-			config:    "0,,1:0",
-			expectErr: true,
-		},
-		{
-			id:        "invalid config: single placement not int",
-			config:    "a:0",
-			expectErr: true,
-		},
-		{
-			id:        "invalid config: multiple placements, one not int",
-			config:    "0,a:0",
+			id:        "invalid JSON",
+			config:    `{0:[0],1:[2]}`,
 			expectErr: true,
 		},
 	}
@@ -342,12 +275,8 @@ func TestPlacementPriceOverrides(t *testing.T) {
 				require.Error(t, err)
 				return
 			}
-
-			// *PlacementProductIdMap.Set ignores ';;' and trims trailing ';'.
-			// Match this behavior to verify config string.
-			config := strings.ReplaceAll(tt.config, ";;", ";")
-			config = strings.TrimSuffix(config, ";")
-			require.Equal(t, config, mapFromCfg.String())
+			require.NoError(t, err)
+			require.Equal(t, tt.config, mapFromCfg.String())
 		})
 	}
 }
@@ -363,117 +292,12 @@ func TestPartnerPlacementPriceOverrides(t *testing.T) {
 			config: "",
 		},
 		{
-			id:     "one partner, placment, and product",
-			config: "partner0[0:0]",
+			id:     "valid JSON",
+			config: `{"partner0":{"0":[1]}}`,
 		},
 		{
-			id:     "one partner, multiple placements, one product",
-			config: "partner0[0,1,2:0]",
-		},
-		{
-			id:     "one partner, multiple placements, multiple products",
-			config: "partner0[0,1,2:0;3:1]",
-		},
-		{
-			id:     "multiple partners with one placment, one product",
-			config: "partner0[0:0];partner1[0:0]",
-		},
-		{
-			id:     "multiple partners, multiple placements, one product",
-			config: "partner0[0,1,2:0];partner1[0,1,2:0]",
-		},
-		{
-			id:     "multiple partners, multiple placements, multiple products",
-			config: "partner0[0,1,2:0;3:1];partner1[0,1,2:0;3:1]",
-		},
-		{
-			id:     "trailing semi-colon after product",
-			config: "partner0[0,1:0;]",
-		},
-		{
-			id:     "trailing double semi-colon after product",
-			config: "partner0[0,1:0;;]",
-		},
-		{
-			id:     "placement-product values separated by double semi-colon",
-			config: "partner0[0,1:0;;2,3:1]",
-		},
-		{
-			id:     "trailing semicolon after last partner",
-			config: "partner0[0:0];partner1[0:0];",
-		},
-		{ // seems weird, but the separator is not needed for only one partner
-			id:     "no closing bracket",
-			config: "partner0[0:0",
-		},
-		{
-			id:        "product duplicated across multiple key-value pairs",
-			config:    "partner0[0,1:0;2,3:0]",
-			expectErr: true,
-		},
-		{
-			id:        "invalid config: no placements",
-			config:    "partner0[:0]",
-			expectErr: true,
-		},
-		{
-			id:        "invalid config: no placements with comma",
-			config:    "partner0[,:0]",
-			expectErr: true,
-		},
-		{
-			id:        "invalid config: placement assigned to multiple product IDs",
-			config:    "partner[0:0;0,1:1]",
-			expectErr: true,
-		},
-		{
-			id:        "invalid config: no colon",
-			config:    "partner0[0]",
-			expectErr: true,
-		},
-		{
-			id:        "invalid config: double colon",
-			config:    "partner0[0,1::0]",
-			expectErr: true,
-		},
-		{
-			id:        "invalid config: multiple colons",
-			config:    "partner0[0,1:0:1]",
-			expectErr: true,
-		},
-		{
-			id:        "invalid config: double comma",
-			config:    "partner0[0,,1:0]",
-			expectErr: true,
-		},
-		{
-			id:        "invalid config: single placement not int",
-			config:    "partner0[a:0]",
-			expectErr: true,
-		},
-		{
-			id:        "invalid config: multiple placements, one not int",
-			config:    "partner0[0,a:0]",
-			expectErr: true,
-		},
-		{
-			id:        "invalid config: missing open bracket",
-			config:    "partner00:0]",
-			expectErr: true,
-		},
-		{
-			id:        "invalid config: missing closing bracket between partners",
-			config:    "partner0[0:0partner1[0:0]",
-			expectErr: true,
-		},
-		{
-			id:        "invalid config: missing semicolon between partners",
-			config:    "partner0[0:0]partner1[0:0]",
-			expectErr: true,
-		},
-		{
-			id:        "invalid config: partner defined more than once",
-			config:    "partner0[0:0];partner0[0:1]",
+			id:        "invalid JSON",
+			config:    `{partner0:{"0":[1]}}`,
 			expectErr: true,
 		},
 	}
@@ -487,17 +311,8 @@ func TestPartnerPlacementPriceOverrides(t *testing.T) {
 				require.Error(t, err)
 				return
 			}
-
-			// *PlacementProductIdMap.Set ignores ';;' and trims trailing ';'.
-			// *PartnersPlacementProductMap trims trailing ';'.
-			// Match this behavior to verify config string.
-			config := strings.ReplaceAll(tt.config, ";;", ";")
-			config = strings.ReplaceAll(config, ";]", "]")
-			config = strings.TrimSuffix(config, ";")
-			if config != "" && !strings.HasSuffix(config, "]") {
-				config += "]"
-			}
-			require.Equal(t, config, mapFromCfg.String())
+			require.NoError(t, err)
+			require.Equal(t, tt.config, mapFromCfg.String())
 		})
 	}
 }

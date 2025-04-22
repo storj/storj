@@ -37,13 +37,11 @@ import { useRouter } from 'vue-router';
 import { useUsersStore } from '@/store/modules/usersStore';
 import { AnalyticsEvent } from '@/utils/constants/analyticsEventNames';
 import { ONBOARDING_STEPPER_STEPS } from '@/types/users';
-import { useAppStore } from '@/store/modules/appStore';
 import { useAnalyticsStore } from '@/store/modules/analyticsStore';
 import { ROUTES } from '@/router';
 import { useProjectsStore } from '@/store/modules/projectsStore';
 
 const analyticsStore = useAnalyticsStore();
-const appStore = useAppStore();
 const projectsStore = useProjectsStore();
 const userStore = useUsersStore();
 
@@ -51,6 +49,10 @@ const router = useRouter();
 
 defineProps<{
     loading: boolean,
+}>();
+
+const emit = defineEmits<{
+    finish: [];
 }>();
 
 async function finishSetup() {
@@ -64,7 +66,7 @@ async function finishSetup() {
     await userStore.updateSettings({ onboardingStep: ONBOARDING_STEPPER_STEPS[0] });
     await userStore.getUser();
 
-    appStore.toggleAccountSetup(false);
+    emit('finish');
 
     await nextTick();
     router.push({

@@ -18,7 +18,6 @@ class AppState {
     public isNavigationDrawerShown = true;
     public isUpgradeFlowDialogShown = false;
     public isExpirationDialogShown = false;
-    public isAccountSetupDialogShown = false;
     public isProjectPassphraseDialogShown = false;
     public managedPassphraseNotRetrievable = false;
     public managedPassphraseErrorDialogShown = false;
@@ -89,10 +88,6 @@ export const useAppStore = defineStore('app', () => {
         state.isExpirationDialogShown = isShown ?? !state.isExpirationDialogShown;
     }
 
-    function toggleAccountSetup(isShown?: boolean): void {
-        state.isAccountSetupDialogShown = isShown ?? !state.isAccountSetupDialogShown;
-    }
-
     function toggleProjectPassphraseDialog(isShown?: boolean): void {
         state.isProjectPassphraseDialogShown = isShown ?? !state.isProjectPassphraseDialogShown;
     }
@@ -130,7 +125,6 @@ export const useAppStore = defineStore('app', () => {
         state.isNavigationDrawerShown = true;
         state.isUpgradeFlowDialogShown = false;
         state.pathBeforeAccountPage = null;
-        state.isAccountSetupDialogShown = false;
         state.managedPassphraseNotRetrievable = false;
         state.managedPassphraseErrorDialogShown = false;
     }
@@ -150,7 +144,6 @@ export const useAppStore = defineStore('app', () => {
         removeErrorPage,
         toggleNavigationDrawer,
         toggleUpgradeFlow,
-        toggleAccountSetup,
         setPathBeforeAccountPage,
         setIsNavigating,
         clear,

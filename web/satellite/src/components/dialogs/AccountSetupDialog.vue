@@ -151,6 +151,7 @@
                         <success-step
                             :ref="stepInfos[OnboardingStep.SetupComplete].ref"
                             :loading="isLoading"
+                            @finish="isAccountSetup = false"
                         />
                     </v-window-item>
                 </v-window>
@@ -161,7 +162,6 @@
 
 <script setup lang="ts">
 import {
-    Component,
     computed,
     onBeforeMount,
     Ref,
@@ -184,14 +184,12 @@ import {
 import { useUsersStore } from '@/store/modules/usersStore';
 import {
     ACCOUNT_SETUP_STEPS,
-    ONBOARDING_STEPPER_STEPS,
     OnboardingStep,
     SetUserSettingsData,
     UserSettings,
 } from '@/types/users';
 import { FREE_PLAN_INFO, PricingPlanInfo, PricingPlanType, PRO_PLAN_INFO } from '@/types/common';
 import { useConfigStore } from '@/store/modules/configStore';
-import { useAppStore } from '@/store/modules/appStore';
 import { useLoading } from '@/composables/useLoading';
 import { useBillingStore } from '@/store/modules/billingStore';
 import { useProjectsStore } from '@/store/modules/projectsStore';
@@ -239,7 +237,6 @@ class StepInfo {
 }
 
 const analyticsStore = useAnalyticsStore();
-const appStore = useAppStore();
 const billingStore = useBillingStore();
 const configStore = useConfigStore();
 const projectsStore = useProjectsStore();
@@ -301,12 +298,32 @@ const stepInfos = {
         return info;
     })(),
     [OnboardingStep.PricingPlanSelection]: new StepInfo(
-        () => accountType.value || OnboardingStep.AccountTypeSelection,
-        OnboardingStep.PaymentMethodSelection,
+        () => accountType.value ?? OnboardingStep.AccountTypeSelection,
+        () => {
+            if (!isFreePlan.value) return OnboardingStep.PaymentMethodSelection;
+            return allowManagedPassphraseStep.value ? OnboardingStep.ManagedPassphraseOptIn : OnboardingStep.SetupComplete;
+        },
+        async () => {
+            if (isFreePlan.value) {
+                await userStore.updateSettings({
+                    onboardingStep: allowManagedPassphraseStep.value ? OnboardingStep.ManagedPassphraseOptIn : OnboardingStep.SetupComplete,
+                });
+            }
+        },
     ),
     [OnboardingStep.PlanTypeSelection]: new StepInfo(
-        () => accountType.value || OnboardingStep.AccountTypeSelection,
-        OnboardingStep.PaymentMethodSelection,
+        () => accountType.value ?? OnboardingStep.AccountTypeSelection,
+        () => {
+            if (!isFreePlan.value) return OnboardingStep.PaymentMethodSelection;
+            return allowManagedPassphraseStep.value ? OnboardingStep.ManagedPassphraseOptIn : OnboardingStep.SetupComplete;
+        },
+        async () => {
+            if (isFreePlan.value) {
+                await userStore.updateSettings({
+                    onboardingStep: allowManagedPassphraseStep.value ? OnboardingStep.ManagedPassphraseOptIn : OnboardingStep.SetupComplete,
+                });
+            }
+        },
     ),
     [OnboardingStep.PaymentMethodSelection]: new StepInfo(
         () => pkgAvailable.value ? OnboardingStep.PricingPlanSelection : OnboardingStep.PlanTypeSelection,
@@ -337,13 +354,13 @@ const stepInfos = {
     ),
 };
 
-const innerContent = ref<Component | null>(null);
 const step = ref<OnboardingStep>(OnboardingStep.AccountTypeSelection);
 const plan = ref<PricingPlanInfo>();
 const passphraseManageMode = ref<ManagePassphraseMode>('auto');
-const accountType = ref<OnboardingStep>();
+const accountType = ref<OnboardingStep.BusinessAccountForm | OnboardingStep.PersonalAccountForm>();
 const paymentTab = ref<PaymentOption>(PaymentOption.CreditCard);
 
+const isAccountSetup = ref<boolean>(false);
 const firstName = ref<string>('');
 const lastName = ref<string>('');
 const companyName = ref<string>('');
@@ -362,6 +379,8 @@ const pkgAvailable = computed<boolean>(() => billingStore.state.pricingPlansAvai
 
 const isProPlan = computed<boolean>(() => plan.value?.type === PricingPlanType.PRO);
 
+const isFreePlan = computed<boolean>(() => plan.value?.type === PricingPlanType.FREE);
+
 const wallet = computed<Wallet>(() => billingStore.state.wallet as Wallet);
 
 /**
@@ -377,16 +396,18 @@ const allowManagedPassphraseStep = computed<boolean>(() => satelliteManagedEncry
 const shouldShowSetupDialog = computed<boolean>(() => {
     // settings are fetched on the projects page.
     const onboardingEnd = userStore.state.settings.onboardingEnd;
-    if (onboardingEnd || ONBOARDING_STEPPER_STEPS.some(s => s === userSettings.value.onboardingStep)) {
+    const currentStep = userSettings.value.onboardingStep;
+
+    if (onboardingEnd || (currentStep && !ACCOUNT_SETUP_STEPS.some(s => s === currentStep))) {
         return false;
     }
 
-    return appStore.state.isAccountSetupDialogShown;
+    return isAccountSetup.value;
 });
 
 const userSettings = computed<UserSettings>(() => userStore.state.settings as UserSettings);
 
-function onChoiceSelect(s: OnboardingStep): void {
+function onChoiceSelect(s: OnboardingStep.BusinessAccountForm | OnboardingStep.PersonalAccountForm): void {
     accountType.value = s;
     toNextStep();
 }
@@ -447,50 +468,44 @@ async function toPrevStep(): Promise<void> {
 }
 
 /**
- * Figure out whether this dialog should show and the initial setup step.
+ * Figure out the initial setup step.
  */
 onBeforeMount(() => {
-    withLoading(async () => {
-        if (userSettings.value.onboardingEnd || ONBOARDING_STEPPER_STEPS.some(s => s === userSettings.value.onboardingStep)) {
-            return;
-        }
+    if (!satelliteManagedEncryptionEnabled.value) {
+        passphraseManageMode.value = 'manual';
+    }
 
-        if (userSettings.value.onboardingStep === OnboardingStep.SetupComplete) {
-            step.value = OnboardingStep.SetupComplete;
-            appStore.toggleAccountSetup(true);
-            return;
-        }
+    const currentStep = userSettings.value.onboardingStep;
 
-        firstName.value = userStore.userName || '';
+    if (userSettings.value.onboardingEnd || (currentStep && !ACCOUNT_SETUP_STEPS.some(s => s === currentStep))) {
+        return;
+    }
 
-        if (userSettings.value.onboardingStep === OnboardingStep.ManagedPassphraseOptIn && !allowManagedPassphraseStep.value) {
-            step.value = OnboardingStep.SetupComplete;
-        } else if (userSettings.value.onboardingStep === OnboardingStep.PricingPlanSelection && !pkgAvailable.value) {
-            step.value = allowManagedPassphraseStep.value ? OnboardingStep.ManagedPassphraseOptIn : OnboardingStep.SetupComplete;
-        } else if (ACCOUNT_SETUP_STEPS.find(s => s === userSettings.value.onboardingStep)) {
-            step.value = userSettings.value.onboardingStep as OnboardingStep;
-        } else if (!userStore.userName) {
-            step.value = OnboardingStep.AccountTypeSelection;
-        } else if (pkgAvailable.value) {
-            step.value = OnboardingStep.PricingPlanSelection;
-        }
+    firstName.value = userStore.userName || '';
 
-        appStore.toggleAccountSetup(true);
-    });
+    switch (true) {
+    case currentStep === OnboardingStep.SetupComplete ||
+        (currentStep === OnboardingStep.ManagedPassphraseOptIn && !allowManagedPassphraseStep.value):
+        step.value = OnboardingStep.SetupComplete;
+        break;
+    case currentStep === OnboardingStep.PricingPlanSelection && !pkgAvailable.value:
+        step.value = allowManagedPassphraseStep.value ? OnboardingStep.ManagedPassphraseOptIn : OnboardingStep.SetupComplete;
+        break;
+    case ACCOUNT_SETUP_STEPS.some(s => s === currentStep):
+        step.value = currentStep as OnboardingStep;
+        break;
+    case !userStore.userName:
+        step.value = OnboardingStep.AccountTypeSelection;
+        break;
+    case pkgAvailable.value:
+        step.value = OnboardingStep.PricingPlanSelection;
+    }
+
+    isAccountSetup.value = true;
 });
 
 watch(paymentTab, newTab => {
     if (newTab === PaymentOption.StorjTokens && !wallet.value.address) onAddTokens();
-});
-
-watch(innerContent, comp => {
-    if (comp) {
-        if (!satelliteManagedEncryptionEnabled.value) {
-            passphraseManageMode.value = 'manual';
-        }
-        return;
-    }
-    step.value = OnboardingStep.AccountTypeSelection;
 });
 </script>
 

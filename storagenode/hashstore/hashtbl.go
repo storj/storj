@@ -21,6 +21,9 @@ import (
 var (
 	// if set, uses mmap to do reads and writes to the hashtbl.
 	hashtbl_MMAP = envBool("STORJ_HASHSTORE_HASHTBL_MMAP", false) && platform.MmapSupported
+
+	// if set, call mlock on any mmap'd data
+	hashtbl_Mlock = envBool("STORJ_HASHSTORE_HASHTBL_MLOCK", true) && platform.MmapSupported
 )
 
 const hashtbl_invalidPage = 1<<64 - 1
@@ -40,8 +43,7 @@ type HashTbl struct {
 
 	buffer *rwBigPageCache // buffer for inserts
 
-	mmap      *mmapCache   // memory mapped file if in mmap mode
-	mmapClose func() error // close function for the mmap
+	mmap *mmapCache // memory mapped file if in mmap mode
 
 	statsMu  sync.Mutex // protects the following fields
 	recStats recordStats
@@ -156,11 +158,15 @@ func OpenHashTbl(ctx context.Context, fh *os.File) (_ *HashTbl, err error) {
 	}
 
 	if hashtbl_MMAP {
-		data, close, err := platform.Mmap(fh, int(size))
+		data, err := platform.Mmap(fh, int(size))
 		if err != nil {
 			return nil, Error.Wrap(err)
 		}
-		h.mmap, h.mmapClose = newMMAPCache(data), close
+		h.mmap = newMMAPCache(data)
+
+		if hashtbl_Mlock {
+			_ = platform.Mlock(data)
+		}
 
 		// lookups do random access, and range is sequential but sets it itself, so default to
 		// random.
@@ -221,8 +227,8 @@ func (h *HashTbl) Close() {
 	defer h.opMu.Unlock()
 
 	if h.mmap != nil {
-		_ = h.mmapClose()
-		h.mmap, h.mmapClose = nil, nil
+		_ = platform.Munmap(h.mmap.data)
+		h.mmap = nil
 	}
 
 	_ = h.fh.Close()
