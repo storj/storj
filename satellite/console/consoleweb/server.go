@@ -1034,6 +1034,7 @@ func (server *Server) frontendConfigHandler(w http.ResponseWriter, r *http.Reque
 		MaxAddFundsAmount:                 server.config.MaxAddFundsAmount,
 		MinAddFundsAmount:                 server.config.MinAddFundsAmount,
 		DownloadPrefixEnabled:             server.config.DownloadPrefixEnabled,
+		ZipDownloadLimit:                  server.config.ZipDownloadLimit,
 		LiveCheckBadPasswords:             server.config.LiveCheckBadPasswords,
 		RestAPIKeysUIEnabled:              server.config.RestAPIKeysUIEnabled && server.config.UseNewRestKeysTable,
 		ZkSyncContractAddress:             server.config.ZkSyncContractAddress,
