@@ -8,6 +8,7 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
+	"math"
 
 	"cloud.google.com/go/spanner"
 	"github.com/zeebo/errs"
@@ -338,17 +339,17 @@ func (ptx *postgresTransactionAdapter) fetchSegmentsForCommit(ctx context.Contex
 func (stx *spannerTransactionAdapter) fetchSegmentsForCommit(ctx context.Context, streamID uuid.UUID) (segments []segmentInfoForCommit, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	segments, err = spannerutil.CollectRows(stx.tx.Query(ctx, spanner.Statement{
-		SQL: `
-			SELECT position, encrypted_size, plain_offset, plain_size
-			FROM segments
-			WHERE stream_id = @stream_id
-			ORDER BY position
-		`,
-		Params: map[string]interface{}{
-			"stream_id": streamID,
-		},
-	}), func(row *spanner.Row, segment *segmentInfoForCommit) error {
+	const maxPosition = int64(math.MaxInt64)
+	keyRange := spanner.KeyRange{
+		// Key: StreamID, Position
+		Start: spanner.Key{streamID.Bytes()},
+		End:   spanner.Key{streamID.Bytes(), maxPosition},
+		Kind:  spanner.ClosedClosed, // both keys are included.
+	}
+
+	segments, err = spannerutil.CollectRows(stx.tx.Read(ctx, "segments", keyRange,
+		[]string{"position", "encrypted_size", "plain_offset", "plain_size"},
+	), func(row *spanner.Row, segment *segmentInfoForCommit) error {
 		return Error.Wrap(row.Columns(
 			&segment.Position, spannerutil.Int(&segment.EncryptedSize), &segment.PlainOffset, spannerutil.Int(&segment.PlainSize),
 		))
