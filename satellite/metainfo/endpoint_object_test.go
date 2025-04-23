@@ -1210,6 +1210,11 @@ func TestEndpoint_Object_With_StorageNodes(t *testing.T) {
 		require.NoError(t, err)
 		defer ctx.Check(metainfoClient.Close)
 
+		peerctx := rpcpeer.NewContext(ctx, &rpcpeer.Peer{
+			State: tls.ConnectionState{
+				PeerCertificates: planet.Uplinks[0].Identity.Chain(),
+			}})
+
 		project, err := planet.Uplinks[0].OpenProject(ctx, planet.Satellites[0])
 		require.NoError(t, err)
 		defer ctx.Check(project.Close)
@@ -1810,6 +1815,41 @@ func TestEndpoint_Object_With_StorageNodes(t *testing.T) {
 			require.Equal(t, expectedData, data)
 		})
 
+		t.Run("DownloadObject lite request", func(t *testing.T) {
+			defer ctx.Check(deleteBucket("bucket"))
+
+			require.NoError(t, planet.Uplinks[0].CreateBucket(ctx, planet.Satellites[0], "bucket"))
+
+			err = planet.Uplinks[0].Upload(ctx, planet.Satellites[0], "bucket", "lite-object", testrand.Bytes(11*memory.KiB))
+			require.NoError(t, err)
+
+			objects, err := planet.Satellites[0].Metabase.DB.TestingAllObjects(ctx)
+			require.NoError(t, err)
+			require.Len(t, objects, 1)
+
+			endpoint := planet.Satellites[0].Metainfo.Endpoint
+
+			response, err := endpoint.DownloadObject(peerctx, &pb.DownloadObjectRequest{
+				Header:             &pb.RequestHeader{ApiKey: apiKey.SerializeRaw()},
+				Bucket:             []byte("bucket"),
+				EncryptedObjectKey: []byte(objects[0].ObjectKey),
+				LiteRequest:        true,
+			})
+			require.NoError(t, err)
+
+			require.Len(t, response.SegmentDownload, 1)
+
+			// verify that signatures are not generated
+			checked := 0
+			for _, limit := range response.SegmentDownload[0].AddressedLimits {
+				if limit.Limit != nil {
+					require.Empty(t, limit.Limit.SatelliteSignature)
+					checked++
+				}
+			}
+			require.NotZero(t, checked)
+		})
+
 		t.Run("upload while RS changes", func(t *testing.T) {
 			defer ctx.Check(deleteBucket("bucket"))
 
@@ -1826,11 +1866,6 @@ func TestEndpoint_Object_With_StorageNodes(t *testing.T) {
 				},
 			})
 			require.NoError(t, err)
-
-			peerctx := rpcpeer.NewContext(ctx, &rpcpeer.Peer{
-				State: tls.ConnectionState{
-					PeerCertificates: planet.Uplinks[0].Identity.Chain(),
-				}})
 
 			beginSegResp, err := endpoint.BeginSegment(peerctx, &pb.BeginSegmentRequest{
 				Header:        &pb.RequestHeader{ApiKey: apiKey.SerializeRaw()},
@@ -1863,6 +1898,7 @@ func TestEndpoint_Object_With_StorageNodes(t *testing.T) {
 			})
 			require.NoError(t, err)
 		})
+
 	})
 }
 
