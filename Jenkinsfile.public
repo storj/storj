@@ -72,16 +72,15 @@ pipeline {
             }
         }
 
-        stage('Build') {
-            parallel {
-                stage('db') {
-                    steps {
-                        sh 'service postgresql start'
-                        dir('.build') {
-                            sh 'cockroach start-single-node --insecure --store=type=mem,size=3GiB --listen-addr=localhost:26256 --http-addr=localhost:8086 --cache 1024MiB --max-sql-memory 1024MiB --background'
-                            sh 'cockroach start-single-node --insecure --store=type=mem,size=3GiB --listen-addr=localhost:26257 --http-addr=localhost:8087 --cache 1024MiB --max-sql-memory 1024MiB --background'
-                            sh 'cockroach start-single-node --insecure --store=type=mem,size=3GiB --listen-addr=localhost:26258 --http-addr=localhost:8088 --cache 1024MiB --max-sql-memory 1024MiB --background'                        }
-                    }
+        stage('Start DB') {
+            steps {
+                sh 'service postgresql start'
+                dir('.build') {
+                    sh '''
+                        cockroach start-single-node --insecure --store=type=mem,size=3GiB \
+                        --listen-addr=localhost:26257 --http-addr=localhost:8087 \
+                        --cache 1024MiB --max-sql-memory 1024MiB --background
+                    '''
                 }
             }
         }
@@ -149,23 +148,22 @@ pipeline {
         stage('Tests') {
             environment {
                 STORJ_TEST_HOST = '127.0.0.20;127.0.0.21;127.0.0.22;127.0.0.23;127.0.0.24;127.0.0.25'
-                STORJ_TEST_COCKROACH = 'cockroach://root@localhost:26256/testcockroach?sslmode=disable|' +
-                    'cockroach://root@localhost:26257/testcockroach?sslmode=disable|'+
-                    'cockroach://root@localhost:26258/testcockroach?sslmode=disable'
+                STORJ_TEST_COCKROACH = 'omit'
                 STORJ_TEST_COCKROACH_NODROP = 'true'
                 STORJ_TEST_POSTGRES = 'omit'
                 STORJ_TEST_LOG_LEVEL = 'info'
                 COVERFLAGS = "${ env.BRANCH_NAME == 'main' ? '-coverprofile=.build/coverprofile -coverpkg=storj.io/storj/private/...,storj.io/storj/satellite/...,storj.io/storj/storagenode/...,storj.io/storj/versioncontrol/...' : ''}"
                 GOEXPERIMENT = 'nocoverageredesign'
-                STORJ_TEST_SPANNER = 'spanner://127.0.0.1:9010?emulator|spanner://127.0.0.1:9011?emulator|spanner://127.0.0.1:9012?emulator|spanner://127.0.0.1:9013?emulator|spanner://127.0.0.1:9014?emulator|spanner://127.0.0.1:9015?emulator'
+                STORJ_TEST_SPANNER = 'spanner://127.0.0.1:9010?emulator|' +
+                                     'spanner://127.0.0.1:9011?emulator|' +
+                                     'spanner://127.0.0.1:9012?emulator|' +
+                                     'spanner://127.0.0.1:9013?emulator|' +
+                                     'spanner://127.0.0.1:9014?emulator|' +
+                                     'spanner://127.0.0.1:9015?emulator'
                 GOCACHE = "${ env.BRANCH_NAME == 'main' ? '/root/.cache/go-build-main' : '/root/.cache/go-build'}"
                 SPANNER_DISABLE_BUILTIN_METRICS = 'true'
             }
             steps {
-                sh 'cockroach sql --insecure --host=localhost:26256 -e \'create database testcockroach;\''
-                sh 'cockroach sql --insecure --host=localhost:26257 -e \'create database testcockroach;\''
-                sh 'cockroach sql --insecure --host=localhost:26258 -e \'create database testcockroach;\''
-
                 sh '/usr/local/bin/spanner_emulator --host_port 127.0.0.1:9010 &'
                 sh '/usr/local/bin/spanner_emulator --host_port 127.0.0.1:9011 &'
                 sh '/usr/local/bin/spanner_emulator --host_port 127.0.0.1:9012 &'
@@ -176,6 +174,8 @@ pipeline {
                 sh 'use-ports -from 1024 -to 10000 &'
 
                 sh 'go test -parallel 6 -p 12 -vet=off $COVERFLAGS -timeout 32m -json -race ./... 2>&1 | tee .build/tests.json | xunit -out .build/tests.xml'
+
+                sh 'killall spanner_emulator'
             }
 
             post {
@@ -203,31 +203,46 @@ pipeline {
         stage('Check Benchmark') {
             environment {
                 STORJ_TEST_COCKROACH = 'omit'
-                STORJ_TEST_SPANNER = 'omit'
-                STORJ_TEST_POSTGRES = 'postgres://postgres@localhost/benchstorj?sslmode=disable'
-                 GOCACHE = '/root/.cache/go-build-benchmarks'
+                STORJ_TEST_SPANNER = 'spanner://127.0.0.1:9010?emulator|' +
+                                     'spanner://127.0.0.1:9011?emulator|' +
+                                     'spanner://127.0.0.1:9012?emulator|' +
+                                     'spanner://127.0.0.1:9013?emulator|' +
+                                     'spanner://127.0.0.1:9014?emulator|' +
+                                     'spanner://127.0.0.1:9015?emulator'
+                STORJ_TEST_POSTGRES = 'omit'
+                GOCACHE = '/root/.cache/go-build-benchmarks'
             }
             steps {
-                sh 'psql -U postgres -c \'create database benchstorj;\''
+                sh '/usr/local/bin/spanner_emulator --host_port 127.0.0.1:9010 &'
+                sh '/usr/local/bin/spanner_emulator --host_port 127.0.0.1:9011 &'
+                sh '/usr/local/bin/spanner_emulator --host_port 127.0.0.1:9012 &'
+                sh '/usr/local/bin/spanner_emulator --host_port 127.0.0.1:9013 &'
+                sh '/usr/local/bin/spanner_emulator --host_port 127.0.0.1:9014 &'
+                sh '/usr/local/bin/spanner_emulator --host_port 127.0.0.1:9015 &'
+
                 sh 'go test -parallel 1 -p 1 -vet=off -timeout 20m -short -run XYZXYZXYZXYZ -bench . -benchtime 1x ./...'
+
+                sh 'killall spanner_emulator'
             }
         }
 
         stage('Integration') {
             parallel {
-                stage('Postgres') {
+                stage('Spanner') {
                     environment {
                         // use different hostname to avoid port conflicts
                         STORJ_NETWORK_HOST4 = '127.0.0.2'
                         STORJ_NETWORK_HOST6 = '127.0.0.2'
 
-                        STORJ_SIM_POSTGRES = 'postgres://postgres@localhost/teststorj2?sslmode=disable'
+                        STORJ_SIM_POSTGRES = 'spanner://127.0.0.1:9010?emulator'
                     }
 
                     steps {
-                        sh 'psql -U postgres -c \'create database teststorj2;\''
+                        sh '/usr/local/bin/spanner_emulator --host_port 127.0.0.1:9010 &'
+
                         sh 'make test-sim'
 
+                        sh 'killall spanner_emulator'
                         // sh 'make test-certificates' // flaky
                     }
                 }
@@ -251,15 +266,29 @@ pipeline {
 
         stage('Satellite UI Tests') {
             environment {
-                STORJ_TEST_COCKROACH = 'cockroach://root@localhost:26256/uitestcockroach?sslmode=disable'
+                STORJ_TEST_COCKROACH = 'omit'
                 STORJ_TEST_COCKROACH_NODROP = 'true'
                 STORJ_TEST_POSTGRES = 'omit'
                 STORJ_TEST_LOG_LEVEL = 'debug'
+                STORJ_TEST_SPANNER = 'spanner://127.0.0.1:9010?emulator|' +
+                                     'spanner://127.0.0.1:9011?emulator|' +
+                                     'spanner://127.0.0.1:9012?emulator|' +
+                                     'spanner://127.0.0.1:9013?emulator|' +
+                                     'spanner://127.0.0.1:9014?emulator|' +
+                                     'spanner://127.0.0.1:9015?emulator'
             }
 
             steps {
-                sh 'cockroach sql --insecure --host=localhost:26256 -e \'create database uitestcockroach;\''
+                sh '/usr/local/bin/spanner_emulator --host_port 127.0.0.1:9010 &'
+                sh '/usr/local/bin/spanner_emulator --host_port 127.0.0.1:9011 &'
+                sh '/usr/local/bin/spanner_emulator --host_port 127.0.0.1:9012 &'
+                sh '/usr/local/bin/spanner_emulator --host_port 127.0.0.1:9013 &'
+                sh '/usr/local/bin/spanner_emulator --host_port 127.0.0.1:9014 &'
+                sh '/usr/local/bin/spanner_emulator --host_port 127.0.0.1:9015 &'
+
                 sh 'make test-satellite-ui'
+
+                sh 'killall spanner_emulator'
             }
 
             post {
@@ -272,7 +301,7 @@ pipeline {
 
         stage('Backwards Compatibility') {
             parallel {
-                stage('Postgres') {
+                stage('Spanner') {
                     environment {
                         STORJ_NETWORK_HOST4 = '127.0.0.3'
                         STORJ_NETWORK_HOST6 = '127.0.0.3'
