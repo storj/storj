@@ -4,6 +4,8 @@
 package satellitedb_test
 
 import (
+	"fmt"
+	"strings"
 	"testing"
 	"time"
 
@@ -648,6 +650,11 @@ func TestGetProjectTotalByPartner(t *testing.T) {
 			var beforeTotal expectedTotal
 
 			requireTotal := func(t *testing.T, expected expectedTotal, expectedSince, expectedBefore time.Time, actual accounting.ProjectUsage) {
+				t.Logf("Expected: storage=%.2f, segments=%.2f, objects=%.2f, egress=%d",
+					expected.storage, expected.segments, expected.objects, expected.egress)
+				t.Logf("Actual:   storage=%.2f, segments=%.2f, objects=%.2f, egress=%d",
+					actual.Storage, actual.SegmentCount, actual.ObjectCount, actual.Egress)
+
 				require.InDelta(t, expected.storage, actual.Storage, epsilon)
 				require.InDelta(t, expected.segments, actual.SegmentCount, epsilon)
 				require.InDelta(t, expected.objects, actual.ObjectCount, epsilon)
@@ -775,6 +782,200 @@ func TestGetProjectTotalByPartner(t *testing.T) {
 				require.Len(t, usages, 1)
 				require.Contains(t, usages, "")
 				requireTotal(t, beforeTotal, since, before, usages[""])
+			})
+		},
+	)
+}
+
+func TestGetProjectTotalByPartnerAndPlacement(t *testing.T) {
+	const (
+		epsilon          = 1e-8
+		usagePeriod      = time.Hour
+		tallyRollupCount = 2
+	)
+	// Spanner only allows dates in the year range of [1, 9999], so a default value will fail.
+	since := time.Time{}.Add(24 * 365 * time.Hour)
+	before := since.Add(2 * usagePeriod)
+
+	testplanet.Run(t, testplanet.Config{SatelliteCount: 1, StorageNodeCount: 1},
+		func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+			sat := planet.Satellites[0]
+
+			user, err := sat.AddUser(ctx, console.CreateUser{
+				FullName: "Test User",
+				Email:    "user@mail.test",
+			}, 1)
+			require.NoError(t, err)
+
+			project, err := sat.AddProject(ctx, user.ID, "testproject")
+			require.NoError(t, err)
+
+			type expectedTotal struct {
+				storage  float64
+				segments float64
+				objects  float64
+				egress   int64
+			}
+
+			// Keys are in the format "partner|placement"
+			expectedTotals := make(map[string]expectedTotal)
+
+			partnerNames := []string{"", "partner1", "partner2"}
+			placements := []storj.PlacementConstraint{storj.DefaultPlacement, storj.PlacementConstraint(1), storj.PlacementConstraint(2)}
+
+			// Create buckets for all combinations of partner and placement
+			for _, name := range partnerNames {
+				for _, placement := range placements {
+					key := fmt.Sprintf("%s|%d", name, placement)
+					expectedTotals[key] = expectedTotal{}
+
+					bucket := buckets.Bucket{
+						ID:        testrand.UUID(),
+						Name:      testrand.BucketName(),
+						ProjectID: project.ID,
+						Placement: placement,
+					}
+					if name != "" {
+						bucket.UserAgent = []byte(name)
+					}
+					_, err := sat.DB.Buckets().CreateBucket(ctx, bucket)
+					require.NoError(t, err)
+
+					placementPtr := placement
+					_, err = sat.DB.Attribution().Insert(ctx, &attribution.Info{
+						ProjectID:  project.ID,
+						BucketName: []byte(bucket.Name),
+						UserAgent:  bucket.UserAgent,
+						Placement:  &placementPtr,
+					})
+					require.NoError(t, err)
+
+					// We use multiple tallies and rollups to ensure that
+					// GetProjectTotalByPartnerAndPlacement is capable of summing them.
+					total := expectedTotals[key]
+					for i := 0; i <= tallyRollupCount; i++ {
+						// Create storage tallies with non-zero values that we can track
+						tally := accounting.BucketStorageTally{
+							BucketName:        bucket.Name,
+							ProjectID:         project.ID,
+							IntervalStart:     since.Add(time.Duration(i) * usagePeriod / tallyRollupCount),
+							TotalBytes:        100 + int64(i*10),
+							ObjectCount:       50 + int64(i*5),
+							TotalSegmentCount: 25 + int64(i*2),
+						}
+						require.NoError(t, sat.DB.ProjectAccounting().CreateStorageTally(ctx, tally))
+
+						// The last tally's usage data is unused.
+						usageHours := (usagePeriod / tallyRollupCount).Hours()
+						if i < tallyRollupCount {
+							total.storage += float64(tally.TotalBytes) * usageHours
+							total.objects += float64(tally.ObjectCount) * usageHours
+							total.segments += float64(tally.TotalSegmentCount) * usageHours
+						}
+					}
+
+					var rollups []orders.BucketBandwidthRollup
+					for i := 0; i < tallyRollupCount; i++ {
+						// Create rollups with predictable non-zero values
+						rollup := orders.BucketBandwidthRollup{
+							ProjectID:     project.ID,
+							BucketName:    bucket.Name,
+							IntervalStart: since.Add(time.Duration(i) * usagePeriod / tallyRollupCount),
+							Action:        pb.PieceAction_GET,
+							Inline:        100,
+							Settled:       100 + int64(i*10),
+						}
+						rollups = append(rollups, rollup)
+						total.egress += rollup.Inline + rollup.Settled
+					}
+					require.NoError(t, sat.DB.Orders().UpdateBandwidthBatch(ctx, rollups))
+
+					expectedTotals[key] = total
+				}
+			}
+
+			requireTotal := func(t *testing.T, expected expectedTotal, expectedSince, expectedBefore time.Time, actual accounting.ProjectUsage) {
+				t.Logf("Expected: storage=%.2f, segments=%.2f, objects=%.2f, egress=%d",
+					expected.storage, expected.segments, expected.objects, expected.egress)
+				t.Logf("Actual:   storage=%.2f, segments=%.2f, objects=%.2f, egress=%d",
+					actual.Storage, actual.SegmentCount, actual.ObjectCount, actual.Egress)
+
+				require.InDelta(t, expected.storage, actual.Storage, epsilon)
+				require.InDelta(t, expected.segments, actual.SegmentCount, epsilon)
+				require.InDelta(t, expected.objects, actual.ObjectCount, epsilon)
+				require.Equal(t, expected.egress, actual.Egress)
+				require.Equal(t, expectedSince, actual.Since)
+				require.Equal(t, expectedBefore, actual.Before)
+			}
+
+			t.Run("get usages by partner and placement", func(t *testing.T) {
+				ctx := testcontext.New(t)
+				// Debug first how GetProjectTotalByPartner works
+				usagesByPartner, err := sat.DB.ProjectAccounting().GetProjectTotalByPartner(ctx, project.ID, partnerNames, since, before)
+				require.NoError(t, err)
+				for key, usage := range usagesByPartner {
+					t.Logf("Partner '%s': storage=%.2f, segments=%.2f, objects=%.2f, egress=%d",
+						key, usage.Storage, usage.SegmentCount, usage.ObjectCount, usage.Egress)
+				}
+
+				// Now test our new function
+				usages, err := sat.DB.ProjectAccounting().GetProjectTotalByPartnerAndPlacement(ctx, project.ID, partnerNames, since, before)
+				require.NoError(t, err)
+
+				// Verify that entries exist and match expected values for all the keys
+				for key, expectedTotal := range expectedTotals {
+					require.Contains(t, usages, key, "Key %s should be in the results", key)
+					requireTotal(t, expectedTotal, since, before, usages[key])
+				}
+
+				// Every result key should be in our expected totals
+				for key := range usages {
+					require.Contains(t, expectedTotals, key, "Unexpected key %s in results", key)
+				}
+			})
+
+			t.Run("with specific partner subset", func(t *testing.T) {
+				ctx := testcontext.New(t)
+				// Only include one partner in the filter
+				filteredPartners := []string{partnerNames[1]}
+
+				// Debug first how GetProjectTotalByPartner works
+				usagesByPartner, err := sat.DB.ProjectAccounting().GetProjectTotalByPartner(ctx, project.ID, filteredPartners, since, before)
+				require.NoError(t, err)
+				for key, usage := range usagesByPartner {
+					t.Logf("Partner '%s': storage=%.2f, segments=%.2f, objects=%.2f, egress=%d",
+						key, usage.Storage, usage.SegmentCount, usage.ObjectCount, usage.Egress)
+				}
+
+				// Now test our new function
+				usages, err := sat.DB.ProjectAccounting().GetProjectTotalByPartnerAndPlacement(ctx, project.ID, filteredPartners, since, before)
+				require.NoError(t, err)
+
+				// Check specific entries
+				for _, placement := range placements {
+					// Selected partner should be in the results
+					partnerKey := fmt.Sprintf("%s|%d", filteredPartners[0], placement)
+					require.Contains(t, usages, partnerKey, "Selected partner key %s should be in results", partnerKey)
+					requireTotal(t, expectedTotals[partnerKey], since, before, usages[partnerKey])
+
+					// Empty partner should be in the results
+					emptyKey := fmt.Sprintf("|%d", placement)
+					require.Contains(t, usages, emptyKey, "Empty partner key %s should be in results", emptyKey)
+				}
+
+				// Partner not in the filter should not be in the results
+				for _, placement := range placements {
+					unwantedKey := fmt.Sprintf("%s|%d", partnerNames[2], placement)
+					require.NotContains(t, usages, unwantedKey, "Unwanted key %s should not be in results", unwantedKey)
+				}
+
+				// Verify that all keys in the results are expected
+				for key := range usages {
+					// The key should either be for the filtered partner or for empty partner
+					isFilteredPartner := strings.HasPrefix(key, filteredPartners[0]+"|")
+					isEmptyPartner := strings.HasPrefix(key, "|")
+					require.True(t, isFilteredPartner || isEmptyPartner, "Unexpected key %s in results", key)
+				}
 			})
 		},
 	)
