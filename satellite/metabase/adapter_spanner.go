@@ -57,12 +57,8 @@ func NewSpannerAdapter(ctx context.Context, cfg SpannerConfig, log *zap.Logger) 
 
 	client, err := spanner.NewClientWithConfig(ctx, params.DatabasePath(),
 		spanner.ClientConfig{
-			Logger:            zap.NewStdLog(log.Named("stdlog")),
-			SessionPoolConfig: poolConfig,
-			SessionLabels:     map[string]string{"application_name": cfg.ApplicationName},
-			QueryOptions: spanner.QueryOptions{
-				RequestTag: "application_name=" + cfg.ApplicationName,
-			},
+			Logger:               zap.NewStdLog(log.Named("stdlog")),
+			SessionPoolConfig:    poolConfig,
 			Compression:          cfg.Compression,
 			DisableRouteToLeader: false,
 		}, params.ClientOptions()...)
