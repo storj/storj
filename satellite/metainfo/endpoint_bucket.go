@@ -252,9 +252,9 @@ func (endpoint *Endpoint) CreateBucket(ctx context.Context, req *pb.BucketCreate
 				return nil, err
 			}
 			switch defaultVersioning {
-			case console.VersioningUnsupported:
-				bucketReq.Versioning = buckets.VersioningUnsupported
-			case console.Unversioned:
+			case console.VersioningUnsupported, console.Unversioned:
+				// since bucket level versioning is enabled, projects with
+				// unsupported versioning are also allowed to have versioning.
 				bucketReq.Versioning = buckets.Unversioned
 			case console.VersioningEnabled:
 				bucketReq.Versioning = buckets.VersioningEnabled
