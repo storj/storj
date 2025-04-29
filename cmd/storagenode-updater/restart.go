@@ -17,7 +17,7 @@ func cmdRestart(cmd *cobra.Command, args []string) error {
 	return nil
 }
 
-func restartService(ctx context.Context, restartMethod, service, binaryLocation, newVersionPath, backupPath string) (exit bool, err error) {
+func swapBinariesAndRestart(ctx context.Context, restartMethod, service, binaryLocation, newVersionPath, backupPath string) (exit bool, err error) {
 	if err := os.Rename(binaryLocation, backupPath); err != nil {
 		return false, errs.Wrap(err)
 	}

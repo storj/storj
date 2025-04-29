@@ -454,9 +454,6 @@ func (service *Service) FindStorageNodesForUpload(ctx context.Context, req FindS
 	defer mon.Task()(&ctx)(&err)
 
 	selectedNodes, err := service.UploadSelectionCache.GetNodes(ctx, req)
-	if err != nil {
-		return selectedNodes, err
-	}
 	if len(selectedNodes) < req.RequestedCount {
 
 		var alreadySelectedIDs []storj.NodeID
@@ -464,11 +461,16 @@ func (service *Service) FindStorageNodesForUpload(ctx context.Context, req FindS
 			alreadySelectedIDs = append(alreadySelectedIDs, e.ID)
 		}
 
+		var errMsg string
+		if err != nil {
+			errMsg = err.Error()
+		}
 		service.log.Warn("Not enough nodes are available from Node Cache",
 			zap.Stringers("excludedIDs", req.ExcludedIDs),
 			zap.Stringers("alreadySelected", alreadySelectedIDs),
 			zap.Int("requested", req.RequestedCount),
 			zap.Int("available", len(selectedNodes)),
+			zap.String("errmsg", errMsg),
 			zap.Uint16("placement", uint16(req.Placement)))
 	}
 	return selectedNodes, err

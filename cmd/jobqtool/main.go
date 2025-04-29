@@ -21,7 +21,6 @@ import (
 	"storj.io/common/identity"
 	"storj.io/common/peertls/tlsopts"
 	"storj.io/common/process"
-	"storj.io/common/rpc"
 	"storj.io/common/storj"
 	"storj.io/common/uuid"
 	"storj.io/storj/private/revocation"
@@ -145,7 +144,7 @@ func prepareConnection(ctx context.Context) (*jobq.Client, error) {
 	if err != nil {
 		return nil, fmt.Errorf("invalid server URL %q: %w", runCfg.Server, err)
 	}
-	dialer := rpc.NewDefaultPooledDialer(tlsOpts)
+	dialer := jobq.NewDialer(tlsOpts)
 
 	conn, err := dialer.DialNodeURL(ctx, serverNodeURL)
 	if err != nil {

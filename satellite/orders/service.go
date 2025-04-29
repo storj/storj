@@ -172,6 +172,15 @@ func (service *Service) DownloadNodes(scheme storj.RedundancyScheme) int32 {
 
 // CreateGetOrderLimits creates the order limits for downloading the pieces of a segment.
 func (service *Service) CreateGetOrderLimits(ctx context.Context, peer *identity.PeerIdentity, bucket metabase.BucketLocation, segment metabase.Segment, desiredNodes int32, overrideLimit int64) (_ []*pb.AddressedOrderLimit, privateKey storj.PiecePrivateKey, err error) {
+	return service.createGetOrderLimits(ctx, peer, bucket, segment, desiredNodes, overrideLimit, false)
+}
+
+// CreateLiteGetOrderLimits creates the order limits for downloading the pieces of a segment. Orders are unsigned.
+func (service *Service) CreateLiteGetOrderLimits(ctx context.Context, peer *identity.PeerIdentity, bucket metabase.BucketLocation, segment metabase.Segment, desiredNodes int32, overrideLimit int64) (_ []*pb.AddressedOrderLimit, privateKey storj.PiecePrivateKey, err error) {
+	return service.createGetOrderLimits(ctx, peer, bucket, segment, desiredNodes, overrideLimit, true)
+}
+
+func (service *Service) createGetOrderLimits(ctx context.Context, peer *identity.PeerIdentity, bucket metabase.BucketLocation, segment metabase.Segment, desiredNodes int32, overrideLimit int64, lite bool) (_ []*pb.AddressedOrderLimit, privateKey storj.PiecePrivateKey, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	orderLimit := segment.PieceSize()
@@ -220,7 +229,11 @@ func (service *Service) CreateGetOrderLimits(ctx context.Context, peer *identity
 			continue
 		}
 
-		_, err := signer.Sign(ctx, resolveStorageNode_Selected(node, true), int32(piece.Number))
+		if lite {
+			_, err = signer.SignLite(ctx, resolveStorageNode_Selected(node, true), int32(piece.Number))
+		} else {
+			_, err = signer.Sign(ctx, resolveStorageNode_Selected(node, true), int32(piece.Number))
+		}
 		if err != nil {
 			return nil, storj.PiecePrivateKey{}, Error.Wrap(err)
 		}

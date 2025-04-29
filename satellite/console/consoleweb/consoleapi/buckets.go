@@ -166,7 +166,13 @@ func (b *Buckets) GetPlacementDetails(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	err = json.NewEncoder(w).Encode(placementDetails)
+	details := make([]console.PlacementDetail, 0, len(placementDetails))
+	for _, detail := range placementDetails {
+		detail.Pending = detail.WaitlistURL != ""
+		detail.WaitlistURL = ""
+		details = append(details, detail)
+	}
+	err = json.NewEncoder(w).Encode(details)
 	if err != nil {
 		b.log.Error("failed to write placement details json", zap.Error(ErrBucketsAPI.Wrap(err)))
 	}

@@ -951,6 +951,23 @@ func (db *satelliteDB) productionMigrationSpanner() *migrate.Migration {
 					`UPDATE users SET kind = 1 WHERE paid_tier = true`,
 				},
 			},
+			{
+				DB:          &db.migrationDB,
+				Description: "add domains table",
+				Version:     292,
+				Action: migrate.SQL{
+					`CREATE TABLE IF NOT EXISTS domains (
+						project_id BYTES(MAX) NOT NULL,
+						subdomain STRING(MAX) NOT NULL,
+						prefix STRING(MAX) NOT NULL,
+						access_id STRING(MAX) NOT NULL,
+						created_by BYTES(MAX) NOT NULL,
+						created_at TIMESTAMP NOT NULL,
+						CONSTRAINT domains_project_id_fkey FOREIGN KEY (project_id) REFERENCES projects (id),
+						CONSTRAINT domains_created_by_fkey FOREIGN KEY (created_by) REFERENCES users (id)
+					) PRIMARY KEY ( project_id, subdomain )`,
+				},
+			},
 			// NB: after updating testdata in `testdata`, run
 			//     `go generate` to update `migratez.go`.
 		},
@@ -3742,6 +3759,22 @@ func (db *satelliteDB) productionMigrationPostgres() *migrate.Migration {
 				Version:     291,
 				Action: migrate.SQL{
 					`UPDATE users SET kind = 1 WHERE paid_tier = true`,
+				},
+			},
+			{
+				DB:          &db.migrationDB,
+				Description: "add domains table",
+				Version:     292,
+				Action: migrate.SQL{
+					`CREATE TABLE domains (
+						project_id bytea NOT NULL REFERENCES projects( id ),
+						subdomain text NOT NULL,
+						prefix text NOT NULL,
+						access_id text NOT NULL,
+						created_by bytea NOT NULL REFERENCES users( id ),
+						created_at timestamp with time zone NOT NULL,
+						PRIMARY KEY ( project_id, subdomain )
+					)`,
 				},
 			},
 			// NB: after updating testdata in `testdata`, run

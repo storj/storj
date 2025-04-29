@@ -229,6 +229,39 @@ func (q *HubSpotEvents) EnqueueJoinCunoFSBeta(fields TrackJoinCunoFSBetaFields) 
 	}
 }
 
+// EnqueueJoinPlacementWaitlist is for tracking user joining placement waitlist using hubspot form.
+func (q *HubSpotEvents) EnqueueJoinPlacementWaitlist(fields TrackJoinPlacementWaitlistFields) {
+	if fields.WaitlistURL == "" {
+		q.log.Warn("hubspot placement waitlist form URL is not set")
+		return
+	}
+
+	newField := func(name string, value string) map[string]string {
+		return map[string]string{
+			"name":  name,
+			"value": value,
+		}
+	}
+
+	formFields := []map[string]string{
+		newField("email", fields.Email),
+		newField("us_select_storage_interest", fields.StorageNeeds),
+	}
+
+	joinWaitlistEvent := HubSpotEvent{
+		Endpoint: fields.WaitlistURL,
+		Data: map[string]interface{}{
+			"fields": formFields,
+		},
+	}
+
+	select {
+	case q.events <- []HubSpotEvent{joinWaitlistEvent}:
+	default:
+		q.log.Error("join placement waitlist hubspot event failed, event channel is full")
+	}
+}
+
 // EnqueueObjectMountConsultation is for tracking user object mount consultation request using hubspot form.
 func (q *HubSpotEvents) EnqueueObjectMountConsultation(fields TrackObjectMountConsultationFields) {
 	if q.config.ObjectMountConsultationFormURL == "" {

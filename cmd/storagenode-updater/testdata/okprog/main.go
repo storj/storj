@@ -1,12 +1,14 @@
 // Copyright (C) 2025 Storj Labs, Inc.
 // See LICENSE for copying information.
 
-package server
+package main
 
 import (
-	"github.com/spacemonkeygo/monkit/v3"
+	"fmt"
+	"os"
 )
 
-var (
-	mon = monkit.Package()
-)
+func main() {
+	fmt.Println("ok")
+	os.Exit(0)
+}

@@ -120,7 +120,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, watch } from 'vue';
+import { ref, computed, h, watch } from 'vue';
 import { FolderArchive, Check, Download } from 'lucide-vue-next';
 import {
     VDialog,
@@ -197,6 +197,10 @@ async function onDownload(): Promise<void> {
             try {
                 await downloadPrefix(props.bucket, props.prefix, downloadFormat.value);
                 model.value = false;
+                notify.success(
+                    () => ['Keep this download link private.', h('br'), 'If you want to share, use the Share option.'],
+                    'Download started',
+                );
             } catch (error) {
                 error.message = `Unable to download ${props.prefixType}. ${error.message}`;
                 notify.notifyError(error, AnalyticsErrorEventSource.DOWNLOAD_PREFIX_DIALOG);

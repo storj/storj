@@ -133,6 +133,48 @@
                                                 <v-progress-circular indeterminate :size="20" />
                                             </template>
                                         </v-chip>
+
+                                        <template v-if="selectedPlacement?.pending">
+                                            <v-alert color="info" variant="tonal" density="comfortable" class="my-3">
+                                                <p class="text-body-2 font-weight-medium">
+                                                    {{ bucketLocationName }} is coming soon! Share your storage needs and we'll notify you when it becomes available for your account.
+                                                </p>
+                                            </v-alert>
+
+                                            <v-select
+                                                v-model="selectStorageNeeds"
+                                                :items="selectStorageOptions"
+                                                label="Expected Data Stored"
+                                                variant="outlined"
+                                                density="comfortable"
+                                                hide-details
+                                                class="mt-5"
+                                            />
+
+                                            <v-expand-transition>
+                                                <v-alert
+                                                    v-if="isWaitlistJoined(selectedPlacement.id)"
+                                                    color="success"
+                                                    variant="tonal"
+                                                    class="mt-3"
+                                                >
+                                                    Thanks for your interest! We'll notify you when Storj Select becomes available for your account.
+                                                </v-alert>
+                                            </v-expand-transition>
+
+                                            <v-btn
+                                                v-if="!isWaitlistJoined(selectedPlacement.id)"
+                                                block
+                                                color="primary"
+                                                variant="flat"
+                                                class="mt-4"
+                                                :loading="selectSubmitting"
+                                                :disabled="!selectStorageNeeds"
+                                                @click="joinPlacementWaitlist"
+                                            >
+                                                Notify Me When Available
+                                            </v-btn>
+                                        </template>
                                     </v-alert>
                                 </v-col>
                             </v-row>
@@ -342,7 +384,7 @@
 
             <v-divider />
 
-            <v-card-actions class="pa-6">
+            <v-card-actions v-if="!selectedPlacement?.pending" class="pa-6">
                 <v-row>
                     <v-col>
                         <v-btn :disabled="isLoading" variant="outlined" color="default" block @click="toPrevStep">
@@ -376,19 +418,21 @@ import {
     VCard,
     VCardActions,
     VCardItem,
-    VCardTitle,
     VCardSubtitle,
     VCardText,
+    VCardTitle,
     VChip,
     VChipGroup,
     VCol,
     VDialog,
     VDivider,
+    VExpandTransition,
     VForm,
     VIcon,
-    VRow,
-    VSheet,
     VProgressCircular,
+    VRow,
+    VSelect,
+    VSheet,
     VTextField,
     VWindow,
     VWindowItem,
@@ -415,6 +459,7 @@ import { useBillingStore } from '@/store/modules/billingStore';
 import { UsagePriceModel } from '@/types/payments';
 import { PlacementDetails } from '@/types/buckets';
 import { useAccessGrantWorker } from '@/composables/useAccessGrantWorker';
+import { useUsersStore } from '@/store/modules/usersStore';
 
 import SetDefaultObjectLockConfig from '@/components/dialogs/defaultBucketLockConfig/SetDefaultObjectLockConfig.vue';
 
@@ -433,6 +478,7 @@ const notify = useNotify();
 const router = useRouter();
 
 const agStore = useAccessGrantsStore();
+const userStore = useUsersStore();
 const projectsStore = useProjectsStore();
 const billingStore = useBillingStore();
 const bucketsStore = useBucketsStore();
@@ -537,6 +583,10 @@ const bucketLocation = ref<string>();
 const isGettingPricing = ref<boolean>(false);
 const pricingForLocation = ref<UsagePriceModel>();
 
+const selectSubmitting = ref(false);
+const selectStorageNeeds = ref<string>();
+const selectStorageOptions = ['< 1TB', '1-10TB', '10-50TB', '50-100TB', '> 100TB'];
+
 const project = computed(() => projectsStore.state.selectedProject);
 
 const defaultRetPeriodResult = computed<string>(() => {
@@ -558,10 +608,13 @@ const placementDetails = computed<PlacementDetails[]>(() => {
     return bucketsStore.state.placementDetails;
 });
 
+const selectedPlacement = computed<PlacementDetails | null>(() => {
+    if (!bucketLocation.value) return null;
+    return placementDetails.value.find(p => p.idName === bucketLocation.value) || null;
+});
+
 const bucketLocationName = computed<string>(() => {
-    if (!bucketLocation.value) return '';
-    const placement = placementDetails.value.find(p => p.idName === bucketLocation.value);
-    return placement?.name ?? '';
+    return selectedPlacement.value?.name ?? '';
 });
 
 const formInvalid = computed(() => !formValid.value || (selfPlacementEnabled.value && step.value === CreateStep.Location && !bucketLocation.value));
@@ -713,6 +766,31 @@ function toNextStep(): void {
             stepNumber.value++;
         }
     });
+}
+
+function isWaitlistJoined(placementID: number): boolean {
+    const placementWaitlistsJoined = userStore.state.settings.noticeDismissal.placementWaitlistsJoined || [];
+    return placementWaitlistsJoined.includes(placementID);
+}
+
+async function joinPlacementWaitlist(): Promise<void> {
+    if (!selectStorageNeeds.value) {
+        notify.error('Storage needs is required');
+    }
+    selectSubmitting.value = true;
+    try {
+        await analyticsStore.joinPlacementWaitlist(selectStorageNeeds.value || '', selectedPlacement.value?.id || 0);
+        await analyticsStore.ensureEventTriggered(AnalyticsEvent.JOIN_PLACEMENT_WAITLIST_FORM_SUBMITTED, {
+            storageNeeds: selectStorageNeeds.value || '',
+            placement: `${selectedPlacement.value?.id || 0}`,
+        });
+
+        await userStore.getSettings();
+    } catch (error) {
+        notify.notifyError(error, AnalyticsErrorEventSource.PLACEMENT_WAITLIST_FORM);
+    } finally {
+        selectSubmitting.value = false;
+    }
 }
 
 /**

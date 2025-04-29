@@ -494,6 +494,7 @@ func NewServer(logger *zap.Logger, config Config, service *console.Service, oidc
 	analyticsRouter.HandleFunc("/page", analyticsController.PageEventTriggered).Methods(http.MethodPost, http.MethodOptions)
 	analyticsRouter.HandleFunc("/join-cunofs-beta", analyticsController.JoinCunoFSBeta).Methods(http.MethodPost, http.MethodOptions)
 	analyticsRouter.HandleFunc("/object-mount-consultation", analyticsController.RequestObjectMountConsultation).Methods(http.MethodPost, http.MethodOptions)
+	analyticsRouter.HandleFunc("/join-placement-waitlist", analyticsController.JoinPlacementWaitlist).Methods(http.MethodPost, http.MethodOptions)
 
 	oidc := oidc.NewEndpoint(
 		server.nodeURL, server.config.ExternalAddress,
@@ -1034,6 +1035,7 @@ func (server *Server) frontendConfigHandler(w http.ResponseWriter, r *http.Reque
 		MaxAddFundsAmount:                 server.config.MaxAddFundsAmount,
 		MinAddFundsAmount:                 server.config.MinAddFundsAmount,
 		DownloadPrefixEnabled:             server.config.DownloadPrefixEnabled,
+		ZipDownloadLimit:                  server.config.ZipDownloadLimit,
 		LiveCheckBadPasswords:             server.config.LiveCheckBadPasswords,
 		RestAPIKeysUIEnabled:              server.config.RestAPIKeysUIEnabled && server.config.UseNewRestKeysTable,
 		ZkSyncContractAddress:             server.config.ZkSyncContractAddress,

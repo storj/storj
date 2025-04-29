@@ -973,6 +973,16 @@ func (obj *pgxDB) Schema() []string {
 	PRIMARY KEY ( project_id, name )
 )`,
 
+		`CREATE TABLE domains (
+	subdomain text NOT NULL,
+	project_id bytea NOT NULL REFERENCES projects( id ),
+	prefix text NOT NULL,
+	access_id text NOT NULL,
+	created_by bytea NOT NULL REFERENCES users( id ),
+	created_at timestamp with time zone NOT NULL,
+	PRIMARY KEY ( project_id, subdomain )
+)`,
+
 		`CREATE TABLE project_invitations (
 	project_id bytea NOT NULL REFERENCES projects( id ) ON DELETE CASCADE,
 	email text NOT NULL,
@@ -1097,6 +1107,8 @@ func (obj *pgxDB) DropSchema() []string {
 		`DROP TABLE IF EXISTS project_members`,
 
 		`DROP TABLE IF EXISTS project_invitations`,
+
+		`DROP TABLE IF EXISTS domains`,
 
 		`DROP TABLE IF EXISTS bucket_metainfos`,
 
@@ -1906,6 +1918,16 @@ func (obj *pgxcockroachDB) Schema() []string {
 	PRIMARY KEY ( project_id, name )
 )`,
 
+		`CREATE TABLE domains (
+	subdomain text NOT NULL,
+	project_id bytea NOT NULL REFERENCES projects( id ),
+	prefix text NOT NULL,
+	access_id text NOT NULL,
+	created_by bytea NOT NULL REFERENCES users( id ),
+	created_at timestamp with time zone NOT NULL,
+	PRIMARY KEY ( project_id, subdomain )
+)`,
+
 		`CREATE TABLE project_invitations (
 	project_id bytea NOT NULL REFERENCES projects( id ) ON DELETE CASCADE,
 	email text NOT NULL,
@@ -2030,6 +2052,8 @@ func (obj *pgxcockroachDB) DropSchema() []string {
 		`DROP TABLE IF EXISTS project_members`,
 
 		`DROP TABLE IF EXISTS project_invitations`,
+
+		`DROP TABLE IF EXISTS domains`,
 
 		`DROP TABLE IF EXISTS bucket_metainfos`,
 
@@ -2808,6 +2832,17 @@ func (obj *spannerDB) Schema() []string {
 	CONSTRAINT bucket_metainfos_created_by_fkey FOREIGN KEY (created_by) REFERENCES users (id)
 ) PRIMARY KEY ( project_id, name )`,
 
+		`CREATE TABLE domains (
+	subdomain STRING(MAX) NOT NULL,
+	project_id BYTES(MAX) NOT NULL,
+	prefix STRING(MAX) NOT NULL,
+	access_id STRING(MAX) NOT NULL,
+	created_by BYTES(MAX) NOT NULL,
+	created_at TIMESTAMP NOT NULL,
+	CONSTRAINT domains_project_id_fkey FOREIGN KEY (project_id) REFERENCES projects (id),
+	CONSTRAINT domains_created_by_fkey FOREIGN KEY (created_by) REFERENCES users (id)
+) PRIMARY KEY ( project_id, subdomain )`,
+
 		`CREATE TABLE project_invitations (
 	project_id BYTES(MAX) NOT NULL,
 	email STRING(MAX) NOT NULL,
@@ -2942,6 +2977,10 @@ func (obj *spannerDB) DropSchema() []string {
 
 		`ALTER TABLE project_invitations DROP CONSTRAINT project_invitations_inviter_id_fkey`,
 
+		`ALTER TABLE domains DROP CONSTRAINT domains_project_id_fkey`,
+
+		`ALTER TABLE domains DROP CONSTRAINT domains_created_by_fkey`,
+
 		`ALTER TABLE bucket_metainfos DROP CONSTRAINT bucket_metainfos_project_id_fkey`,
 
 		`ALTER TABLE bucket_metainfos DROP CONSTRAINT bucket_metainfos_created_by_fkey`,
@@ -3071,6 +3110,16 @@ func (obj *spannerDB) DropSchema() []string {
 		`DROP SEQUENCE IF EXISTS project_invitations_email`,
 
 		`DROP TABLE IF EXISTS project_invitations`,
+
+		`ALTER TABLE  domains ALTER project_id SET DEFAULT (null)`,
+
+		`DROP SEQUENCE IF EXISTS domains_project_id`,
+
+		`ALTER TABLE  domains ALTER subdomain SET DEFAULT (null)`,
+
+		`DROP SEQUENCE IF EXISTS domains_subdomain`,
+
+		`DROP TABLE IF EXISTS domains`,
 
 		`ALTER TABLE  bucket_metainfos ALTER project_id SET DEFAULT (null)`,
 
@@ -13629,6 +13678,124 @@ func (f BucketMetainfo_CreatedBy_Field) value() any {
 	return f._value
 }
 
+type Domain struct {
+	Subdomain string
+	ProjectId []byte
+	Prefix    string
+	AccessId  string
+	CreatedBy []byte
+	CreatedAt time.Time
+}
+
+func (Domain) _Table() string { return "domains" }
+
+type Domain_Update_Fields struct {
+	Prefix   Domain_Prefix_Field
+	AccessId Domain_AccessId_Field
+}
+
+type Domain_Subdomain_Field struct {
+	_set   bool
+	_null  bool
+	_value string
+}
+
+func Domain_Subdomain(v string) Domain_Subdomain_Field {
+	return Domain_Subdomain_Field{_set: true, _value: v}
+}
+
+func (f Domain_Subdomain_Field) value() any {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+type Domain_ProjectId_Field struct {
+	_set   bool
+	_null  bool
+	_value []byte
+}
+
+func Domain_ProjectId(v []byte) Domain_ProjectId_Field {
+	return Domain_ProjectId_Field{_set: true, _value: v}
+}
+
+func (f Domain_ProjectId_Field) value() any {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+type Domain_Prefix_Field struct {
+	_set   bool
+	_null  bool
+	_value string
+}
+
+func Domain_Prefix(v string) Domain_Prefix_Field {
+	return Domain_Prefix_Field{_set: true, _value: v}
+}
+
+func (f Domain_Prefix_Field) value() any {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+type Domain_AccessId_Field struct {
+	_set   bool
+	_null  bool
+	_value string
+}
+
+func Domain_AccessId(v string) Domain_AccessId_Field {
+	return Domain_AccessId_Field{_set: true, _value: v}
+}
+
+func (f Domain_AccessId_Field) value() any {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+type Domain_CreatedBy_Field struct {
+	_set   bool
+	_null  bool
+	_value []byte
+}
+
+func Domain_CreatedBy(v []byte) Domain_CreatedBy_Field {
+	return Domain_CreatedBy_Field{_set: true, _value: v}
+}
+
+func (f Domain_CreatedBy_Field) value() any {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+type Domain_CreatedAt_Field struct {
+	_set   bool
+	_null  bool
+	_value time.Time
+}
+
+func Domain_CreatedAt(v time.Time) Domain_CreatedAt_Field {
+	return Domain_CreatedAt_Field{_set: true, _value: v}
+}
+
+func (f Domain_CreatedAt_Field) value() any {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
 type ProjectInvitation struct {
 	ProjectId []byte
 	Email     string
@@ -15038,6 +15205,43 @@ func (obj *pgxImpl) CreateNoReturn_StorjscanPayment(ctx context.Context,
 		return obj.makeErr(err)
 	}
 	return nil
+
+}
+
+func (obj *pgxImpl) Create_Domain(ctx context.Context,
+	domain_subdomain Domain_Subdomain_Field,
+	domain_project_id Domain_ProjectId_Field,
+	domain_prefix Domain_Prefix_Field,
+	domain_access_id Domain_AccessId_Field,
+	domain_created_by Domain_CreatedBy_Field) (
+	domain *Domain, err error) {
+	defer mon.Task()(&ctx)(&err)
+	if !obj.txn && txutil.IsInsideTx(ctx) {
+		panic("using DB when inside of a transaction")
+	}
+
+	__now := obj.db.Hooks.Now().UTC()
+	__subdomain_val := domain_subdomain.value()
+	__project_id_val := domain_project_id.value()
+	__prefix_val := domain_prefix.value()
+	__access_id_val := domain_access_id.value()
+	__created_by_val := domain_created_by.value()
+	__created_at_val := __now
+
+	var __embed_stmt = __sqlbundle_Literal("INSERT INTO domains ( subdomain, project_id, prefix, access_id, created_by, created_at ) VALUES ( ?, ?, ?, ?, ?, ? ) RETURNING domains.subdomain, domains.project_id, domains.prefix, domains.access_id, domains.created_by, domains.created_at")
+
+	var __values []any
+	__values = append(__values, __subdomain_val, __project_id_val, __prefix_val, __access_id_val, __created_by_val, __created_at_val)
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	domain = &Domain{}
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&domain.Subdomain, &domain.ProjectId, &domain.Prefix, &domain.AccessId, &domain.CreatedBy, &domain.CreatedAt)
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	return domain, nil
 
 }
 
@@ -23434,6 +23638,67 @@ func (obj *pgxImpl) Delete_StorjscanPayment_By_Status(ctx context.Context,
 
 }
 
+func (obj *pgxImpl) Delete_Domain_By_ProjectId_And_Subdomain(ctx context.Context,
+	domain_project_id Domain_ProjectId_Field,
+	domain_subdomain Domain_Subdomain_Field) (
+	deleted bool, err error) {
+	defer mon.Task()(&ctx)(&err)
+	if !obj.txn && txutil.IsInsideTx(ctx) {
+		panic("using DB when inside of a transaction")
+	}
+
+	var __embed_stmt = __sqlbundle_Literal("DELETE FROM domains WHERE domains.project_id = ? AND domains.subdomain = ?")
+
+	var __values []any
+	__values = append(__values, domain_project_id.value(), domain_subdomain.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	__res, err := obj.driver.ExecContext(ctx, __stmt, __values...)
+	if err != nil {
+		return false, obj.makeErr(err)
+	}
+
+	__count, err := __res.RowsAffected()
+	if err != nil {
+		return false, obj.makeErr(err)
+	}
+
+	return __count > 0, nil
+
+}
+
+func (obj *pgxImpl) Delete_Domain_By_ProjectId(ctx context.Context,
+	domain_project_id Domain_ProjectId_Field) (
+	count int64, err error) {
+	defer mon.Task()(&ctx)(&err)
+	if !obj.txn && txutil.IsInsideTx(ctx) {
+		panic("using DB when inside of a transaction")
+	}
+
+	var __embed_stmt = __sqlbundle_Literal("DELETE FROM domains WHERE domains.project_id = ?")
+
+	var __values []any
+	__values = append(__values, domain_project_id.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	__res, err := obj.driver.ExecContext(ctx, __stmt, __values...)
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+
+	count, err = __res.RowsAffected()
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+
+	return count, nil
+
+}
+
 func (obj *pgxImpl) Delete_GracefulExitSegmentTransfer_By_NodeId(ctx context.Context,
 	graceful_exit_segment_transfer_node_id GracefulExitSegmentTransfer_NodeId_Field) (
 	count int64, err error) {
@@ -24089,6 +24354,16 @@ func (obj *pgxImpl) deleteAll(ctx context.Context) (count int64, err error) {
 	}
 	count += __count
 	__res, err = obj.driver.ExecContext(ctx, "DELETE FROM project_invitations;")
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+
+	__count, err = __res.RowsAffected()
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+	count += __count
+	__res, err = obj.driver.ExecContext(ctx, "DELETE FROM domains;")
 	if err != nil {
 		return 0, obj.makeErr(err)
 	}
@@ -25020,6 +25295,43 @@ func (obj *pgxcockroachImpl) CreateNoReturn_StorjscanPayment(ctx context.Context
 		return obj.makeErr(err)
 	}
 	return nil
+
+}
+
+func (obj *pgxcockroachImpl) Create_Domain(ctx context.Context,
+	domain_subdomain Domain_Subdomain_Field,
+	domain_project_id Domain_ProjectId_Field,
+	domain_prefix Domain_Prefix_Field,
+	domain_access_id Domain_AccessId_Field,
+	domain_created_by Domain_CreatedBy_Field) (
+	domain *Domain, err error) {
+	defer mon.Task()(&ctx)(&err)
+	if !obj.txn && txutil.IsInsideTx(ctx) {
+		panic("using DB when inside of a transaction")
+	}
+
+	__now := obj.db.Hooks.Now().UTC()
+	__subdomain_val := domain_subdomain.value()
+	__project_id_val := domain_project_id.value()
+	__prefix_val := domain_prefix.value()
+	__access_id_val := domain_access_id.value()
+	__created_by_val := domain_created_by.value()
+	__created_at_val := __now
+
+	var __embed_stmt = __sqlbundle_Literal("INSERT INTO domains ( subdomain, project_id, prefix, access_id, created_by, created_at ) VALUES ( ?, ?, ?, ?, ?, ? ) RETURNING domains.subdomain, domains.project_id, domains.prefix, domains.access_id, domains.created_by, domains.created_at")
+
+	var __values []any
+	__values = append(__values, __subdomain_val, __project_id_val, __prefix_val, __access_id_val, __created_by_val, __created_at_val)
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	domain = &Domain{}
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&domain.Subdomain, &domain.ProjectId, &domain.Prefix, &domain.AccessId, &domain.CreatedBy, &domain.CreatedAt)
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	return domain, nil
 
 }
 
@@ -33416,6 +33728,67 @@ func (obj *pgxcockroachImpl) Delete_StorjscanPayment_By_Status(ctx context.Conte
 
 }
 
+func (obj *pgxcockroachImpl) Delete_Domain_By_ProjectId_And_Subdomain(ctx context.Context,
+	domain_project_id Domain_ProjectId_Field,
+	domain_subdomain Domain_Subdomain_Field) (
+	deleted bool, err error) {
+	defer mon.Task()(&ctx)(&err)
+	if !obj.txn && txutil.IsInsideTx(ctx) {
+		panic("using DB when inside of a transaction")
+	}
+
+	var __embed_stmt = __sqlbundle_Literal("DELETE FROM domains WHERE domains.project_id = ? AND domains.subdomain = ?")
+
+	var __values []any
+	__values = append(__values, domain_project_id.value(), domain_subdomain.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	__res, err := obj.driver.ExecContext(ctx, __stmt, __values...)
+	if err != nil {
+		return false, obj.makeErr(err)
+	}
+
+	__count, err := __res.RowsAffected()
+	if err != nil {
+		return false, obj.makeErr(err)
+	}
+
+	return __count > 0, nil
+
+}
+
+func (obj *pgxcockroachImpl) Delete_Domain_By_ProjectId(ctx context.Context,
+	domain_project_id Domain_ProjectId_Field) (
+	count int64, err error) {
+	defer mon.Task()(&ctx)(&err)
+	if !obj.txn && txutil.IsInsideTx(ctx) {
+		panic("using DB when inside of a transaction")
+	}
+
+	var __embed_stmt = __sqlbundle_Literal("DELETE FROM domains WHERE domains.project_id = ?")
+
+	var __values []any
+	__values = append(__values, domain_project_id.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	__res, err := obj.driver.ExecContext(ctx, __stmt, __values...)
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+
+	count, err = __res.RowsAffected()
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+
+	return count, nil
+
+}
+
 func (obj *pgxcockroachImpl) Delete_GracefulExitSegmentTransfer_By_NodeId(ctx context.Context,
 	graceful_exit_segment_transfer_node_id GracefulExitSegmentTransfer_NodeId_Field) (
 	count int64, err error) {
@@ -34071,6 +34444,16 @@ func (obj *pgxcockroachImpl) deleteAll(ctx context.Context) (count int64, err er
 	}
 	count += __count
 	__res, err = obj.driver.ExecContext(ctx, "DELETE FROM project_invitations;")
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+
+	__count, err = __res.RowsAffected()
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+	count += __count
+	__res, err = obj.driver.ExecContext(ctx, "DELETE FROM domains;")
 	if err != nil {
 		return 0, obj.makeErr(err)
 	}
@@ -35059,6 +35442,49 @@ func (obj *spannerImpl) CreateNoReturn_StorjscanPayment(ctx context.Context,
 		return obj.makeErr(err)
 	}
 	return nil
+
+}
+
+func (obj *spannerImpl) Create_Domain(ctx context.Context,
+	domain_subdomain Domain_Subdomain_Field,
+	domain_project_id Domain_ProjectId_Field,
+	domain_prefix Domain_Prefix_Field,
+	domain_access_id Domain_AccessId_Field,
+	domain_created_by Domain_CreatedBy_Field) (
+	domain *Domain, err error) {
+	defer mon.Task()(&ctx)(&err)
+	if !obj.txn && txutil.IsInsideTx(ctx) {
+		panic("using DB when inside of a transaction")
+	}
+
+	__now := obj.db.Hooks.Now().UTC()
+	__subdomain_val := domain_subdomain.value()
+	__project_id_val := domain_project_id.value()
+	__prefix_val := domain_prefix.value()
+	__access_id_val := domain_access_id.value()
+	__created_by_val := domain_created_by.value()
+	__created_at_val := __now
+
+	var __embed_stmt = __sqlbundle_Literal("INSERT INTO domains ( subdomain, project_id, prefix, access_id, created_by, created_at ) VALUES ( ?, ?, ?, ?, ?, ? ) THEN RETURN domains.subdomain, domains.project_id, domains.prefix, domains.access_id, domains.created_by, domains.created_at")
+
+	var __values []any
+	__values = append(__values, __subdomain_val, __project_id_val, __prefix_val, __access_id_val, __created_by_val, __created_at_val)
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	domain = &Domain{}
+	if !obj.txn {
+		err = obj.withTx(ctx, func(tx tagsql.Tx) error {
+			return tx.QueryRowContext(ctx, __stmt, __values...).Scan(&domain.Subdomain, &domain.ProjectId, &domain.Prefix, &domain.AccessId, &domain.CreatedBy, &domain.CreatedAt)
+		})
+	} else {
+		err = obj.driver.QueryRowContext(ctx, __stmt, __values...).Scan(&domain.Subdomain, &domain.ProjectId, &domain.Prefix, &domain.AccessId, &domain.CreatedBy, &domain.CreatedAt)
+	}
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	return domain, nil
 
 }
 
@@ -43394,6 +43820,67 @@ func (obj *spannerImpl) Delete_StorjscanPayment_By_Status(ctx context.Context,
 
 }
 
+func (obj *spannerImpl) Delete_Domain_By_ProjectId_And_Subdomain(ctx context.Context,
+	domain_project_id Domain_ProjectId_Field,
+	domain_subdomain Domain_Subdomain_Field) (
+	deleted bool, err error) {
+	defer mon.Task()(&ctx)(&err)
+	if !obj.txn && txutil.IsInsideTx(ctx) {
+		panic("using DB when inside of a transaction")
+	}
+
+	var __embed_stmt = __sqlbundle_Literal("DELETE FROM domains WHERE domains.project_id = ? AND domains.subdomain = ?")
+
+	var __values []any
+	__values = append(__values, domain_project_id.value(), domain_subdomain.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	__res, err := obj.driver.ExecContext(ctx, __stmt, __values...)
+	if err != nil {
+		return false, obj.makeErr(err)
+	}
+
+	__count, err := __res.RowsAffected()
+	if err != nil {
+		return false, obj.makeErr(err)
+	}
+
+	return __count > 0, nil
+
+}
+
+func (obj *spannerImpl) Delete_Domain_By_ProjectId(ctx context.Context,
+	domain_project_id Domain_ProjectId_Field) (
+	count int64, err error) {
+	defer mon.Task()(&ctx)(&err)
+	if !obj.txn && txutil.IsInsideTx(ctx) {
+		panic("using DB when inside of a transaction")
+	}
+
+	var __embed_stmt = __sqlbundle_Literal("DELETE FROM domains WHERE domains.project_id = ?")
+
+	var __values []any
+	__values = append(__values, domain_project_id.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	__res, err := obj.driver.ExecContext(ctx, __stmt, __values...)
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+
+	count, err = __res.RowsAffected()
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+
+	return count, nil
+
+}
+
 func (obj *spannerImpl) Delete_GracefulExitSegmentTransfer_By_NodeId(ctx context.Context,
 	graceful_exit_segment_transfer_node_id GracefulExitSegmentTransfer_NodeId_Field) (
 	count int64, err error) {
@@ -44045,6 +44532,16 @@ func (obj *spannerImpl) deleteAll(ctx context.Context) (count int64, err error) 
 	}
 	count += __count
 	__res, err = obj.driver.ExecContext(ctx, "DELETE FROM project_invitations;")
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+
+	__count, err = __res.RowsAffected()
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+	count += __count
+	__res, err = obj.driver.ExecContext(ctx, "DELETE FROM domains;")
 	if err != nil {
 		return 0, obj.makeErr(err)
 	}
@@ -44774,6 +45271,14 @@ type Methods interface {
 		coinpayments_transaction_timeout CoinpaymentsTransaction_Timeout_Field) (
 		coinpayments_transaction *CoinpaymentsTransaction, err error)
 
+	Create_Domain(ctx context.Context,
+		domain_subdomain Domain_Subdomain_Field,
+		domain_project_id Domain_ProjectId_Field,
+		domain_prefix Domain_Prefix_Field,
+		domain_access_id Domain_AccessId_Field,
+		domain_created_by Domain_CreatedBy_Field) (
+		domain *Domain, err error)
+
 	Create_NodeEvent(ctx context.Context,
 		node_event_id NodeEvent_Id_Field,
 		node_event_email NodeEvent_Email_Field,
@@ -44900,6 +45405,15 @@ type Methods interface {
 	Delete_BucketStorageTally_By_IntervalStart_Less(ctx context.Context,
 		bucket_storage_tally_interval_start_less BucketStorageTally_IntervalStart_Field) (
 		count int64, err error)
+
+	Delete_Domain_By_ProjectId(ctx context.Context,
+		domain_project_id Domain_ProjectId_Field) (
+		count int64, err error)
+
+	Delete_Domain_By_ProjectId_And_Subdomain(ctx context.Context,
+		domain_project_id Domain_ProjectId_Field,
+		domain_subdomain Domain_Subdomain_Field) (
+		deleted bool, err error)
 
 	Delete_GracefulExitSegmentTransfer_By_NodeId(ctx context.Context,
 		graceful_exit_segment_transfer_node_id GracefulExitSegmentTransfer_NodeId_Field) (

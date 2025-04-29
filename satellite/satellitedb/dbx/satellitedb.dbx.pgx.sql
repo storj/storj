@@ -572,6 +572,15 @@ CREATE TABLE bucket_metainfos (
 	created_by bytea REFERENCES users( id ),
 	PRIMARY KEY ( project_id, name )
 ) ;
+CREATE TABLE domains (
+	subdomain text NOT NULL,
+	project_id bytea NOT NULL REFERENCES projects( id ),
+	prefix text NOT NULL,
+	access_id text NOT NULL,
+	created_by bytea NOT NULL REFERENCES users( id ),
+	created_at timestamp with time zone NOT NULL,
+	PRIMARY KEY ( project_id, subdomain )
+) ;
 CREATE TABLE project_invitations (
 	project_id bytea NOT NULL REFERENCES projects( id ) ON DELETE CASCADE,
 	email text NOT NULL,

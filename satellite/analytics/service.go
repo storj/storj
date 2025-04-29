@@ -21,6 +21,7 @@ import (
 	"go.uber.org/zap"
 	segment "gopkg.in/segmentio/analytics-go.v3"
 
+	"storj.io/common/storj"
 	"storj.io/common/uuid"
 )
 
@@ -134,6 +135,7 @@ const (
 	eventCloudGPUNavigationClicked        = "Cloud GPU Navigation Item Clicked"
 	eventCloudGPUSignupClicked            = "Cloud GPU Sign Up Clicked"
 	eventJoinCunoFSBetaSubmitted          = "Join CunoFS Beta Form Submitted"
+	eventJoinPlacementWaitlistSubmitted   = "Join Placement Waitlist Form Submitted"
 	eventObjectMountConsultationSubmitted = "Object Mount Consultation Submitted"
 
 	// Generic account freeze event types.
@@ -242,7 +244,7 @@ func NewService(log *zap.Logger, config Config, satelliteName, satelliteExternal
 		eventPersonalInfoSubmitted, eventBusinessInfoSubmitted, eventUseCaseSelected, eventOnboardingCompleted, eventOnboardingAbandoned,
 		eventPersonalSelected, eventBusinessSelected, eventUserUpgraded, eventUpgradeClicked, eventArrivedFromSource, eventApplicationsDocsClicked,
 		eventApplicationsSetupClicked, eventApplicationsSetupCompleted, eventCloudGPUNavigationClicked, eventCloudGPUSignupClicked,
-		eventJoinCunoFSBetaSubmitted, eventObjectMountConsultationSubmitted} {
+		eventJoinCunoFSBetaSubmitted, eventJoinPlacementWaitlistSubmitted, eventObjectMountConsultationSubmitted} {
 		service.clientEvents[name] = true
 	}
 
@@ -316,6 +318,14 @@ type TrackJoinCunoFSBetaFields struct {
 	DesiredFeatures             string `json:"desiredFeatures"`
 	CurrentPainPoints           string `json:"currentPainPoints"`
 	SpecificTasks               string `json:"specificTasks"`
+}
+
+// TrackJoinPlacementWaitlistFields contains input data for join placement waitlist event.
+type TrackJoinPlacementWaitlistFields struct {
+	Email        string                    `json:"email"`
+	StorageNeeds string                    `json:"storageNeeds"`
+	WaitlistURL  string                    `json:"-"`
+	Placement    storj.PlacementConstraint `json:"placement"`
 }
 
 // TrackObjectMountConsultationFields contains input data for tracking an object mount consultation event.
@@ -434,6 +444,14 @@ func (service *Service) JoinCunoFSBeta(fields TrackJoinCunoFSBetaFields) {
 		return
 	}
 	service.hubspot.EnqueueJoinCunoFSBeta(fields)
+}
+
+// JoinPlacementWaitlist sends a join placement waitlist form to hubspot.
+func (service *Service) JoinPlacementWaitlist(fields TrackJoinPlacementWaitlistFields) {
+	if !service.config.Enabled {
+		return
+	}
+	service.hubspot.EnqueueJoinPlacementWaitlist(fields)
 }
 
 // RequestObjectMountConsultation sends an object mount consultation form to hubspot.
@@ -650,6 +668,8 @@ func (service *Service) TrackGenericFreeze(userID uuid.UUID, email, freezeType s
 	props.Set("freeze_type", freezeType)
 	props.Set("admin_initiated", adminInitiated)
 
+	service.log.Info("user frozen", zap.String("email", email), zap.String("user_id", userID.String()), zap.String("freezeType", freezeType), zap.Bool("adminInitiated", adminInitiated))
+
 	service.enqueueMessage(segment.Track{
 		UserId:     userID.String(),
 		Event:      eventAccountFreeze,
@@ -667,6 +687,8 @@ func (service *Service) TrackGenericUnfreeze(userID uuid.UUID, email, freezeType
 	props.Set("email", email)
 	props.Set("freeze_type", freezeType)
 	props.Set("admin_initiated", adminInitiated)
+
+	service.log.Info("user unfrozen", zap.String("email", email), zap.String("user_id", userID.String()), zap.String("freezeType", freezeType), zap.Bool("adminInitiated", adminInitiated))
 
 	service.enqueueMessage(segment.Track{
 		UserId:     userID.String(),
