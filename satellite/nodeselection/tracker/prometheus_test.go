@@ -19,7 +19,7 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
-	"strconv"
+	"strings"
 	"testing"
 	"time"
 
@@ -106,10 +106,15 @@ func TestTracker(t *testing.T) {
 		},
 	}
 
-	certDir := t.TempDir()
-	certPath, keyPath := generateCert(t, certDir)
+	host := "127.0.0.1"
+	if hostlist := os.Getenv("STORJ_TEST_HOST"); hostlist != "" {
+		host, _, _ = strings.Cut(hostlist, ";")
+	}
 
-	p, err := NewPrometheusStub(certPath, keyPath, "foo", "bar")
+	certDir := t.TempDir()
+	certPath, keyPath := generateCert(t, host, certDir)
+
+	p, err := NewPrometheusStub(host, certPath, keyPath, "foo", "bar")
 	require.NoError(t, err)
 	defer func() {
 		_ = p.Close()
@@ -122,7 +127,7 @@ func TestTracker(t *testing.T) {
 	logger := zaptest.NewLogger(t)
 
 	tracker, err := NewPrometheusTracker(logger, db, PrometheusTrackerConfig{
-		URL:        "https://localhost:" + strconv.Itoa(p.Port),
+		URL:        "https://" + p.Addr(),
 		CaCertPath: certPath,
 		Username:   "foo",
 		Password:   "bar",
@@ -157,10 +162,9 @@ func TestTracker(t *testing.T) {
 	require.True(t, math.IsNaN(score(&nodeselection.SelectedNode{
 		ID: nodeID3,
 	})))
-
 }
 
-func generateCert(t *testing.T, dir string) (string, string) {
+func generateCert(t *testing.T, host, dir string) (string, string) {
 	certPath := filepath.Join(dir, "cert.pem")
 	keyPath := filepath.Join(dir, "key.pem")
 	privateKey, err := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
@@ -181,7 +185,7 @@ func generateCert(t *testing.T, dir string) (string, string) {
 		KeyUsage:              x509.KeyUsageKeyEncipherment | x509.KeyUsageDigitalSignature,
 		ExtKeyUsage:           []x509.ExtKeyUsage{x509.ExtKeyUsageServerAuth},
 		BasicConstraintsValid: true,
-		IPAddresses:           []net.IP{net.ParseIP("127.0.0.1")},
+		IPAddresses:           []net.IP{net.ParseIP(host)},
 		DNSNames:              []string{"localhost"},
 	}
 
@@ -211,7 +215,6 @@ func generateCert(t *testing.T, dir string) (string, string) {
 }
 
 type PrometheusStub struct {
-	Port     int
 	listener net.Listener
 	cert     string
 	key      string
@@ -219,25 +222,25 @@ type PrometheusStub struct {
 	password string
 }
 
-func NewPrometheusStub(cert string, key string, username string, password string) (*PrometheusStub, error) {
-
-	listener, err := net.Listen("tcp", "localhost:0")
+func NewPrometheusStub(host string, cert, key string, username string, password string) (*PrometheusStub, error) {
+	listener, err := net.Listen("tcp", net.JoinHostPort(host, "0"))
 	if err != nil {
 		return nil, errs.Wrap(err)
 	}
 
-	// Get the port that was assigned
-	port := listener.Addr().(*net.TCPAddr).Port
-
 	return &PrometheusStub{
 		listener: listener,
-		Port:     port,
 		cert:     cert,
 		key:      key,
 		username: username,
 		password: password,
 	}, nil
 }
+
+func (p *PrometheusStub) Addr() string {
+	return p.listener.Addr().String()
+}
+
 func (p *PrometheusStub) Run() error {
 	mux := http.NewServeMux()
 	mux.HandleFunc("/", p.handleRequest)

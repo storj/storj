@@ -113,7 +113,9 @@ func Run(t *testing.T, config Config, test func(t *testing.T, ctx *testcontext.C
 
 			testmonkit.Run(context.Background(), t, func(parent context.Context) {
 				pprof.Do(parent, pprof.Labels("test", t.Name()), func(parent context.Context) {
-					jobqtest.WithServer(t, nil, func(ctx *testcontext.Context, srv *jobqtest.TestServer) {
+					jobqtest.WithServer(t, &jobqtest.ServerOptions{
+						Host: planetConfig.Host,
+					}, func(ctx *testcontext.Context, srv *jobqtest.TestServer) {
 						timeout := config.Timeout
 						if timeout == 0 {
 							timeout = testcontext.DefaultTimeout

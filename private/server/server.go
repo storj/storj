@@ -183,11 +183,13 @@ func New(log *zap.Logger, tlsOptions *tlsopts.Options, config Config) (_ *Server
 		server.addr = server.publicUDPConn.LocalAddr()
 	}
 
-	privateTCPListener, err := net.Listen("tcp", config.PrivateAddress)
-	if err != nil {
-		return nil, errs.Combine(err, server.Close())
+	if config.PrivateAddress != "" {
+		privateTCPListener, err := net.Listen("tcp", config.PrivateAddress)
+		if err != nil {
+			return nil, errs.Combine(err, server.Close())
+		}
+		server.privateTCPListener = wrapListener(privateTCPListener)
 	}
-	server.privateTCPListener = wrapListener(privateTCPListener)
 
 	return server, nil
 }
@@ -389,7 +391,7 @@ func (p *Server) Run(ctx context.Context) (err error) {
 		})
 	}
 
-	{
+	if p.privateTCPListener != nil {
 		privateLMux := drpcmigrate.NewListenMux(p.privateTCPListener, len(drpcmigrate.DRPCHeader))
 		privateDRPCListener = privateLMux.Route(drpcmigrate.DRPCHeader)
 		privateDefaultListener = privateLMux.Default()

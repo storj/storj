@@ -5,6 +5,7 @@ package jobqtest
 
 import (
 	"context"
+	"net"
 	"runtime/pprof"
 	"testing"
 	"time"
@@ -26,6 +27,7 @@ import (
 
 // ServerOptions represents the options to be used for creating a new server.
 type ServerOptions struct {
+	Host                string
 	Identity            *identity.FullIdentity
 	TLS                 tlsopts.Config
 	RetryAfter          time.Duration
@@ -90,8 +92,13 @@ func WithServer(t *testing.T, options *ServerOptions, f func(ctx *testcontext.Co
 		options.MemReleaseThreshold = 1e6
 	}
 
+	host := options.Host
+	if host == "" {
+		host = "127.0.0.1"
+	}
+
 	peer, err := satellite.NewJobq(log, options.Identity, nil, &satellite.JobqConfig{
-		ListenAddress:       "127.0.0.1:0",
+		ListenAddress:       net.JoinHostPort(host, "0"),
 		TLS:                 options.TLS,
 		InitAlloc:           options.InitAlloc,
 		MaxMemPerPlacement:  options.MaxMemPerPlacement,
