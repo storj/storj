@@ -36,6 +36,28 @@ export class AnalyticsHttpApi {
     }
 
     /**
+     * Used to track user filled the form to join placement waitlist.
+     *
+     * @param storageNeeds - form data
+     * @param placement - the placement the form is for
+     * @param csrfProtectionToken - CSRF token
+     */
+    public async joinPlacementWaitlist(storageNeeds: string, placement: number, csrfProtectionToken: string): Promise<void> {
+        const path = `${this.ROOT_PATH}/join-placement-waitlist`;
+
+        const response = await this.http.post(path, JSON.stringify({ storageNeeds, placement }), { csrfProtectionToken });
+        if (!response.ok) {
+            const result = await response.json();
+
+            throw new APIError({
+                status: response.status,
+                message: result.error,
+                requestID: response.headers.get('x-request-id'),
+            });
+        }
+    }
+
+    /**
      * Used to request a consultation for object mount.
      *
      * @param data - consultation request data

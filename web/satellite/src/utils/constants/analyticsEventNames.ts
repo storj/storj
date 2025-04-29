@@ -55,6 +55,7 @@ export enum AnalyticsEvent {
     CLOUD_GPU_NAVIGATION_ITEM_CLICKED = 'Cloud GPU Navigation Item Clicked',
     CLOUD_GPU_SIGN_UP_CLICKED = 'Cloud GPU Sign Up Clicked',
     JOIN_CUNO_FS_BETA_FORM_SUBMITTED = 'Join CunoFS Beta Form Submitted',
+    JOIN_PLACEMENT_WAITLIST_FORM_SUBMITTED = 'Join Placement Waitlist Form Submitted',
     OBJECT_MOUNT_CONSULTATION_SUBMITTED = 'Object Mount Consultation Submitted',
 }
 
@@ -81,6 +82,7 @@ export enum AnalyticsErrorEventSource {
     FILE_BROWSER_ENTRY = 'File browser entry',
     FILE_BROWSER = 'File browser',
     CUNO_FS_BETA_FORM = 'CunoFS beta form',
+    PLACEMENT_WAITLIST_FORM = 'Placement waitlist form',
     OBJECT_MOUNT_CONSULTATION_FORM = 'Object Mount consultation form',
     UPGRADE_ACCOUNT_MODAL = 'Upgrade account modal',
     ADD_PROJECT_MEMBER_MODAL = 'Add project member modal',

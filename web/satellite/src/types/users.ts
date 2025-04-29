@@ -287,6 +287,7 @@ export class UserSettings {
             projectMembersPassphrase: false,
             cunoFSBetaJoined: false,
             objectMountConsultationRequested: false,
+            placementWaitlistsJoined: [],
         },
     ) { }
 
@@ -350,10 +351,11 @@ export interface NoticeDismissal {
     serverSideEncryption: boolean
     partnerUpgradeBanner: boolean
     projectMembersPassphrase: boolean
-    cunoFSBetaJoined: boolean
+    cunoFSBetaJoined: boolean;
     objectMountConsultationRequested: boolean
     uploadOverwriteWarning?: boolean;
     versioningBetaBanner?: boolean;
+    placementWaitlistsJoined: number[];
 }
 
 export interface SetUserSettingsData {

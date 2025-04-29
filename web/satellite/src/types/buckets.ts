@@ -120,10 +120,11 @@ export class BucketMetadata {
 
 export class PlacementDetails {
     public constructor(
-        public id: string = '',
+        public id: number = 0,
         public idName: string = '',
         public name: string = '',
         public title: string = '',
         public description: string = '',
+        public pending: boolean = false,
     ) { }
 }
