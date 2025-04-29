@@ -62,6 +62,9 @@ type BeginObjectNextVersion struct {
 
 	Retention Retention // optional
 	LegalHold bool
+
+	// supported only by Spanner.
+	MaxCommitDelay *time.Duration
 }
 
 // Verify verifies get object request fields.
@@ -171,7 +174,7 @@ func (p *PostgresAdapter) BeginObjectNextVersion(ctx context.Context, opts Begin
 
 // BeginObjectNextVersion implements Adapter.
 func (s *SpannerAdapter) BeginObjectNextVersion(ctx context.Context, opts BeginObjectNextVersion, object *Object) error {
-	_, err := s.client.ReadWriteTransaction(ctx, func(ctx context.Context, txn *spanner.ReadWriteTransaction) error {
+	_, err := s.client.ReadWriteTransactionWithOptions(ctx, func(ctx context.Context, txn *spanner.ReadWriteTransaction) error {
 		enc, err := encryptionParameters{&opts.Encryption}.Value()
 		if err != nil {
 			return Error.Wrap(err)
@@ -219,6 +222,10 @@ func (s *SpannerAdapter) BeginObjectNextVersion(ctx context.Context, opts BeginO
 		}).Do(func(row *spanner.Row) error {
 			return Error.Wrap(row.Columns(&object.Status, &object.Version, &object.CreatedAt))
 		}))
+	}, spanner.TransactionOptions{
+		CommitOptions: spanner.CommitOptions{
+			MaxCommitDelay: opts.MaxCommitDelay,
+		},
 	})
 	return err
 }
@@ -523,6 +530,9 @@ type CommitSegment struct {
 	Pieces Pieces
 
 	Placement storj.PlacementConstraint
+
+	// supported only by Spanner.
+	MaxCommitDelay *time.Duration
 }
 
 // CommitSegment commits segment to the database.
@@ -680,7 +690,7 @@ func (s *SpannerAdapter) CommitPendingObjectSegment(ctx context.Context, opts Co
 	defer mon.Task()(&ctx)(&err)
 
 	var numRows int64
-	_, err = s.client.ReadWriteTransaction(ctx, func(ctx context.Context, txn *spanner.ReadWriteTransaction) error {
+	_, err = s.client.ReadWriteTransactionWithOptions(ctx, func(ctx context.Context, txn *spanner.ReadWriteTransaction) error {
 		stmt := spanner.Statement{
 			SQL: `
 				INSERT OR UPDATE INTO segments (
@@ -729,6 +739,10 @@ func (s *SpannerAdapter) CommitPendingObjectSegment(ctx context.Context, opts Co
 		}
 		numRows, err = txn.Update(ctx, stmt)
 		return err
+	}, spanner.TransactionOptions{
+		CommitOptions: spanner.CommitOptions{
+			MaxCommitDelay: opts.MaxCommitDelay,
+		},
 	})
 	if err != nil {
 		if spanner.ErrCode(err) == codes.FailedPrecondition {
@@ -764,6 +778,9 @@ type CommitInlineSegment struct {
 	EncryptedETag []byte
 
 	InlineData []byte
+
+	// supported only by Spanner.
+	MaxCommitDelay *time.Duration
 }
 
 // Verify verifies commit inline segment reqest fields.
@@ -891,7 +908,7 @@ func (p *CockroachAdapter) CommitInlineSegment(ctx context.Context, opts CommitI
 
 // CommitInlineSegment commits inline segment to the database.
 func (s *SpannerAdapter) CommitInlineSegment(ctx context.Context, opts CommitInlineSegment) (err error) {
-	_, err = s.client.ReadWriteTransaction(ctx, func(ctx context.Context, txn *spanner.ReadWriteTransaction) error {
+	_, err = s.client.ReadWriteTransactionWithOptions(ctx, func(ctx context.Context, txn *spanner.ReadWriteTransaction) error {
 		_, err := txn.Update(ctx, spanner.Statement{
 			SQL: `
 				INSERT OR UPDATE INTO segments (
@@ -933,6 +950,10 @@ func (s *SpannerAdapter) CommitInlineSegment(ctx context.Context, opts CommitInl
 			},
 		})
 		return Error.Wrap(err)
+	}, spanner.TransactionOptions{
+		CommitOptions: spanner.CommitOptions{
+			MaxCommitDelay: opts.MaxCommitDelay,
+		},
 	})
 	if err != nil {
 		if code := spanner.ErrCode(err); code == codes.FailedPrecondition {

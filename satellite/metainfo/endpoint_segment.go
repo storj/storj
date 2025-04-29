@@ -401,6 +401,10 @@ func (endpoint *Endpoint) CommitSegment(ctx context.Context, req *pb.SegmentComm
 	if !streamID.ExpirationDate.IsZero() {
 		expiresAt = &streamID.ExpirationDate
 	}
+	var maxCommitDelay *time.Duration
+	if _, ok := endpoint.config.TestingProjectsWithCommitDelay[keyInfo.ProjectID]; ok {
+		maxCommitDelay = &endpoint.config.TestingMaxCommitDelay
+	}
 
 	mbCommitSegment := metabase.CommitSegment{
 		ObjectStream: metabase.ObjectStream{
@@ -427,6 +431,8 @@ func (endpoint *Endpoint) CommitSegment(ctx context.Context, req *pb.SegmentComm
 		Redundancy:  rs,
 		Pieces:      pieces,
 		Placement:   storj.PlacementConstraint(streamID.Placement),
+
+		MaxCommitDelay: maxCommitDelay,
 	}
 
 	err = endpoint.validateRemoteSegment(ctx, mbCommitSegment, originalLimits)
@@ -542,6 +548,11 @@ func (endpoint *Endpoint) MakeInlineSegment(ctx context.Context, req *pb.Segment
 		expiresAt = &streamID.ExpirationDate
 	}
 
+	var maxCommitDelay *time.Duration
+	if _, ok := endpoint.config.TestingProjectsWithCommitDelay[keyInfo.ProjectID]; ok {
+		maxCommitDelay = &endpoint.config.TestingMaxCommitDelay
+	}
+
 	err = endpoint.metabase.CommitInlineSegment(ctx, metabase.CommitInlineSegment{
 		ObjectStream: metabase.ObjectStream{
 			ProjectID:  keyInfo.ProjectID,
@@ -563,6 +574,8 @@ func (endpoint *Endpoint) MakeInlineSegment(ctx context.Context, req *pb.Segment
 		EncryptedETag: req.EncryptedETag,
 
 		InlineData: req.EncryptedInlineData,
+
+		MaxCommitDelay: maxCommitDelay,
 	})
 	if err != nil {
 		return nil, endpoint.ConvertMetabaseErr(err)

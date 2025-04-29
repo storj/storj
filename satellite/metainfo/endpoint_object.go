@@ -197,6 +197,11 @@ func (endpoint *Endpoint) BeginObject(ctx context.Context, req *pb.ObjectBeginRe
 		nonce = req.EncryptedMetadataNonce[:]
 	}
 
+	var maxCommitDelay *time.Duration
+	if _, ok := endpoint.config.TestingProjectsWithCommitDelay[keyInfo.ProjectID]; ok {
+		maxCommitDelay = &endpoint.config.TestingMaxCommitDelay
+	}
+
 	opts := metabase.BeginObjectNextVersion{
 		ObjectStream: metabase.ObjectStream{
 			ProjectID:  keyInfo.ProjectID,
@@ -213,6 +218,8 @@ func (endpoint *Endpoint) BeginObject(ctx context.Context, req *pb.ObjectBeginRe
 
 		Retention: retention,
 		LegalHold: req.LegalHold,
+
+		MaxCommitDelay: maxCommitDelay,
 	}
 	if !expiresAt.IsZero() {
 		opts.ExpiresAt = &expiresAt
