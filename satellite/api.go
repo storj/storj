@@ -287,6 +287,8 @@ func NewAPI(log *zap.Logger, full *identity.FullIdentity, db DB,
 
 	trackerInfo = metainfo.NewTrackerInfo(peer.SuccessTrackers, peer.FailureTracker, successTrackerUplinks, peer.Overlay.DB)
 
+	nodeSelectionStats := metainfo.NewNodeSelectionStats()
+
 	migrationModeFlag := metainfo.NewMigrationModeFlagExtension(config.Metainfo)
 
 	{ // setup debug
@@ -302,7 +304,7 @@ func NewAPI(log *zap.Logger, full *identity.FullIdentity, db DB,
 		debugConfig.ControlTitle = "API"
 
 		peer.Debug.Server = debug.NewServerWithAtomicLevel(log.Named("debug"), peer.Debug.Listener, monkit.Default,
-			debugConfig, atomicLogLevel, migrationModeFlag, trackerInfo)
+			debugConfig, atomicLogLevel, migrationModeFlag, trackerInfo, nodeSelectionStats)
 		peer.Servers.Add(lifecycle.Item{
 			Name:  "debug",
 			Run:   peer.Debug.Server.Run,
@@ -479,6 +481,7 @@ func NewAPI(log *zap.Logger, full *identity.FullIdentity, db DB,
 			placements,
 			config.Console,
 			config.Orders,
+			nodeSelectionStats,
 		)
 		if err != nil {
 			return nil, errs.Combine(err, peer.Close())
