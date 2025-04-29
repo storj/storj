@@ -101,6 +101,7 @@ type Endpoint struct {
 	trustedUplinks                 *trust.TrustedPeersList
 	placement                      nodeselection.PlacementDefinitions
 	placementEdgeUrlOverrides      console.PlacementEdgeURLOverrides
+	nodeSelectionStats             *NodeSelectionStats
 
 	// rateLimiterTime is a function that returns the time to check with the rate limiter.
 	// It's handy for testing purposes. It defaults to time.Now.
@@ -113,7 +114,7 @@ func NewEndpoint(log *zap.Logger, buckets *buckets.Service, metabaseDB *metabase
 	apiKeys APIKeys, projectUsage *accounting.Service, projects console.Projects, projectMembers console.ProjectMembers, users console.Users,
 	satellite signing.Signer, revocations revocation.DB, successTrackers *SuccessTrackers, failureTracker SuccessTracker,
 	trustedUplinks *trust.TrustedPeersList, config Config, migrationModeFlag *MigrationModeFlagExtension,
-	placement nodeselection.PlacementDefinitions, consoleConfig consoleweb.Config, ordersConfig orders.Config) (
+	placement nodeselection.PlacementDefinitions, consoleConfig consoleweb.Config, ordersConfig orders.Config, nodeSelectionStats *NodeSelectionStats) (
 	*Endpoint, error) {
 	trustedOrders := ordersConfig.TrustedOrders
 	placementEdgeUrlOverrides := consoleConfig.Config.PlacementEdgeURLOverrides
@@ -187,6 +188,7 @@ func NewEndpoint(log *zap.Logger, buckets *buckets.Service, metabaseDB *metabase
 		placement:                 placement,
 		placementEdgeUrlOverrides: placementEdgeUrlOverrides,
 		rateLimiterTime:           time.Now,
+		nodeSelectionStats:        nodeSelectionStats,
 	}, nil
 }
 

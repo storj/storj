@@ -50,4 +50,6 @@ func Module(ball *mud.Ball) {
 		return tracker
 	})
 
+	mud.Provide[*NodeSelectionStats](ball, NewNodeSelectionStats)
+
 }

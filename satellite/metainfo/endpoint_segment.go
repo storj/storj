@@ -96,6 +96,10 @@ func (endpoint *Endpoint) beginSegment(ctx context.Context, req *pb.SegmentBegin
 		Requester:      peer.ID,
 	})
 
+	for _, node := range nodes {
+		endpoint.nodeSelectionStats.IncrementInitial(node.ID)
+	}
+
 	if err != nil {
 		if overlay.ErrNotEnoughNodes.Has(err) {
 			return nil, rpcstatus.Error(rpcstatus.FailedPrecondition, err.Error())
@@ -263,6 +267,10 @@ func (endpoint *Endpoint) RetryBeginSegmentPieces(ctx context.Context, req *pb.R
 			return nil, rpcstatus.Error(rpcstatus.FailedPrecondition, err.Error())
 		}
 		return nil, endpoint.ConvertKnownErrWithMessage(err, err.Error())
+	}
+
+	for _, node := range nodes {
+		endpoint.nodeSelectionStats.IncrementRetry(node.ID)
 	}
 
 	addressedLimits, err := endpoint.orders.ReplacePutOrderLimits(ctx, segmentID.RootPieceId, segmentID.OriginalOrderLimits, nodes, req.RetryPieceNumbers)
