@@ -54,6 +54,9 @@ var (
 
 	// controls the number of concurrent flushes to log files.
 	store_FlushSemaphore = int(envInt("STORJ_HASHSTORE_STORE_FLUSH_SEMAPHORE", 0))
+
+	// controls if we collect records and sort them and rewrite them before the hashtbl.
+	compaction_OrderedRewrite = envBool("STORJ_HASHSTORE_COMPACTION_ORDERED_REWRITE", false)
 )
 
 // Store is a hash table based key-value store with compaction.
@@ -919,9 +922,6 @@ func (s *Store) compactOnce(
 	}
 	defer cons.Close()
 
-	// update the beginning of the write time for progress reporting.
-	s.stats.writeTime.Store(time.Now())
-
 	// keep track of statistics about some events that can happen to records during the compaction.
 	totalRecords := uint64(0)
 	totalBytes := uint64(0)
@@ -933,6 +933,79 @@ func (s *Store) compactOnce(
 	restoredBytes := uint64(0)
 	expiredRecords := uint64(0)
 	expiredBytes := uint64(0)
+
+	// keep track of all of the rewritten records
+	ri := new(rewrittenIndex)
+
+	// if we have any rewrite logs, then all of the records we will be rewriting when we create the
+	// next hashtbl so we can sort them and rewrite them early.
+	if len(rewrite) > 0 && compaction_OrderedRewrite {
+		rewriteStart := time.Now()
+
+		if err := s.tbl.Range(ctx, func(ctx context.Context, rec Record) (bool, error) {
+			if err := ctx.Err(); err != nil {
+				return false, err
+			}
+
+			// we can rewrite records without breaking anything and rather than call into all the
+			// shouldTrash/restored callbacks multiple times, we'll just grab an approximation
+			// and if we rewrite too many, fine. and if we rewrite too few, we just have to do
+			// some double checks in the next loop over the table. this should still be the vast
+			// majority of rewrites, so we'll still get mostly linear writes.
+			if rewrite[rec.Log] && !expired(rec.Expires) {
+				ri.add(rec)
+			}
+
+			return true, nil
+		}); err != nil {
+			return false, err
+		}
+
+		// sort by log and offset so that we can rewrite them in disk order.
+		ri.sortByLogOff()
+
+		// rewrite each record and update the record in the index.
+		for i := range ri.records {
+			err := func() error {
+				if err := ctx.Err(); err != nil {
+					return err
+				}
+
+				rec, err := s.rewriteRecord(ctx, ri.records[i], rewriteCandidates)
+				if err != nil {
+					return Error.Wrap(err)
+				}
+				ri.records[i] = rec
+
+				// bump the amount of data we rewrote.
+				s.stats.dataRewritten.Add(uint64(rec.Length) + RecordSize)
+
+				// keep track of the number of records and bytes we rewrote for logs.
+				rewrittenRecords++
+				rewrittenBytes += uint64(rec.Length)
+
+				return nil
+			}()
+			if err != nil {
+				return false, Error.Wrap(err)
+			}
+		}
+
+		// now sort by key so that we can efficiently look up if we rewrote them in the next loop.
+		ri.sortByKey()
+
+		// log about the time we took rewriting the records.
+		if ce := s.log.Check(zapcore.InfoLevel, "records rewritten"); ce != nil {
+			ce.Write(
+				zap.Uint64("records", rewrittenRecords),
+				zap.String("bytes", memory.FormatBytes(int64(rewrittenBytes))),
+				zap.Duration("duration", time.Since(rewriteStart)),
+			)
+		}
+	}
+
+	// update the beginning of the write time for progress reporting.
+	s.stats.writeTime.Store(time.Now())
 
 	// copy all of the entries from the hash table to the new table, skipping expired entries, and
 	// rewriting any entries that are in the log files that we are rewriting.
@@ -984,22 +1057,28 @@ func (s *Store) compactOnce(
 			return true, nil
 		}
 
-		// if the record is compacted, copy it into the new log file.
+		// if the log is being rewritten, copy the record into the a different log file.
 		if rewrite[rec.Log] {
-			// CAREFUL: we have to update the record to the value returned by rewrite record which
-			// contains all the updated info. don't use := here!
-			var err error
-			rec, err = s.rewriteRecord(ctx, rec, rewriteCandidates)
-			if err != nil {
-				return false, Error.Wrap(err)
+			// if we already rewrote the record earlier, then update the record to be the new
+			// rewritten one. otherwise, we have to rewrite it now. note that the above code may
+			// have changed some fields, so we only want to update the log and offset fields. the
+			// earlier loop ensures that only the log and offset fields are different.
+			if i, ok := ri.findKey(rec.Key); ok {
+				rec.Log, rec.Offset = ri.records[i].Log, ri.records[i].Offset
+			} else {
+				rewrittenRec, err := s.rewriteRecord(ctx, rec, rewriteCandidates)
+				if err != nil {
+					return false, Error.Wrap(err)
+				}
+				rec = rewrittenRec
+
+				// bump the amount of data we rewrote.
+				s.stats.dataRewritten.Add(uint64(rec.Length) + RecordSize)
+
+				// keep track of the number of records and bytes we rewrote for logs.
+				rewrittenRecords++
+				rewrittenBytes += uint64(rec.Length)
 			}
-
-			// bump the amount of data we rewrote.
-			s.stats.dataRewritten.Add(uint64(rec.Length) + RecordSize)
-
-			// keep track of the number of records and bytes we rewrote for logs.
-			rewrittenRecords++
-			rewrittenBytes += uint64(rec.Length)
 		}
 
 		// insert the record into the new hash table.
@@ -1016,6 +1095,10 @@ func (s *Store) compactOnce(
 	}); err != nil {
 		return false, err
 	}
+
+	// help out the compiler/runtime by explicitly clearing out the index now that it's not needed.
+	// it's possible the liveness analysis does this, but it's nice to not have to rely on that.
+	ri = nil
 
 	ntbl, err := cons.Done(ctx)
 	if err != nil {
@@ -1115,7 +1198,7 @@ func (s *Store) rewriteRecord(ctx context.Context, rec Record, rewriteCandidates
 	// acquire a log file to write the entry into. if we're rewriting that log file
 	// we have to pick a different one.
 	var into *logFile
-	for into == nil || rewriteCandidates[into.id] {
+	for into == nil || rewriteCandidates[into.id] || into.id == rec.Log {
 		into, err = s.acquireLogFile(rec.Expires.Time())
 		if err != nil {
 			return rec, Error.Wrap(err)
@@ -1138,6 +1221,10 @@ func (s *Store) rewriteRecord(ctx context.Context, rec Record, rewriteCandidates
 		return rec, Error.New("closing compacted log: %w", err)
 	}
 
-	// get the updated record information from the writer.
+	// get the updated record information from the writer and ensure the only thing that changed
+	// is the log and offset fields.
+	if !RecordsEqualExceptLocation(rec, w.rec) {
+		return rec, Error.New("rewritten record does not match original record. orig=%v new=%v", rec, w.rec)
+	}
 	return w.rec, nil
 }
