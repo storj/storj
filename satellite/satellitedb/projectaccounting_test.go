@@ -617,176 +617,6 @@ func TestGetSingleBucketTotal(t *testing.T) {
 	)
 }
 
-func TestGetProjectTotalByPartner(t *testing.T) {
-	const (
-		epsilon          = 1e-8
-		usagePeriod      = time.Hour
-		tallyRollupCount = 2
-	)
-	// Spanner only allows dates in the year range of [1, 9999], so a default value will fail.
-	since := time.Time{}.Add(24 * 365 * time.Hour)
-	before := since.Add(2 * usagePeriod)
-
-	testplanet.Run(t, testplanet.Config{SatelliteCount: 1, StorageNodeCount: 1},
-		func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
-			sat := planet.Satellites[0]
-
-			user, err := sat.AddUser(ctx, console.CreateUser{
-				FullName: "Test User",
-				Email:    "user@mail.test",
-			}, 1)
-			require.NoError(t, err)
-
-			project, err := sat.AddProject(ctx, user.ID, "testproject")
-			require.NoError(t, err)
-
-			type expectedTotal struct {
-				storage  float64
-				segments float64
-				objects  float64
-				egress   int64
-			}
-			expectedTotals := make(map[string]expectedTotal)
-			var beforeTotal expectedTotal
-
-			requireTotal := func(t *testing.T, expected expectedTotal, expectedSince, expectedBefore time.Time, actual accounting.ProjectUsage) {
-				t.Logf("Expected: storage=%.2f, segments=%.2f, objects=%.2f, egress=%d",
-					expected.storage, expected.segments, expected.objects, expected.egress)
-				t.Logf("Actual:   storage=%.2f, segments=%.2f, objects=%.2f, egress=%d",
-					actual.Storage, actual.SegmentCount, actual.ObjectCount, actual.Egress)
-
-				require.InDelta(t, expected.storage, actual.Storage, epsilon)
-				require.InDelta(t, expected.segments, actual.SegmentCount, epsilon)
-				require.InDelta(t, expected.objects, actual.ObjectCount, epsilon)
-				require.Equal(t, expected.egress, actual.Egress)
-				require.Equal(t, expectedSince, actual.Since)
-				require.Equal(t, expectedBefore, actual.Before)
-			}
-
-			partnerNames := []string{"", "partner1", "partner2"}
-			for _, name := range partnerNames {
-				total := expectedTotal{}
-
-				bucket := buckets.Bucket{
-					ID:        testrand.UUID(),
-					Name:      testrand.BucketName(),
-					ProjectID: project.ID,
-				}
-				if name != "" {
-					bucket.UserAgent = []byte(name)
-				}
-				_, err := sat.DB.Buckets().CreateBucket(ctx, bucket)
-				require.NoError(t, err)
-
-				_, err = sat.DB.Attribution().Insert(ctx, &attribution.Info{
-					ProjectID:  project.ID,
-					BucketName: []byte(bucket.Name),
-					UserAgent:  bucket.UserAgent,
-				})
-				require.NoError(t, err)
-
-				// We use multiple tallies and rollups to ensure that
-				// GetProjectTotalByPartner is capable of summing them.
-				for i := 0; i <= tallyRollupCount; i++ {
-					tally := randTally(bucket.Name, project.ID, since.Add(time.Duration(i)*usagePeriod/tallyRollupCount))
-					require.NoError(t, sat.DB.ProjectAccounting().CreateStorageTally(ctx, tally))
-
-					// The last tally's usage data is unused.
-					usageHours := (usagePeriod / tallyRollupCount).Hours()
-					if i < tallyRollupCount {
-						total.storage += float64(tally.Bytes()) * usageHours
-						total.objects += float64(tally.ObjectCount) * usageHours
-						total.segments += float64(tally.TotalSegmentCount) * usageHours
-					}
-
-					if i < tallyRollupCount-1 {
-						beforeTotal.storage += float64(tally.Bytes()) * usageHours
-						beforeTotal.objects += float64(tally.ObjectCount) * usageHours
-						beforeTotal.segments += float64(tally.TotalSegmentCount) * usageHours
-					}
-				}
-
-				var rollups []orders.BucketBandwidthRollup
-				for i := 0; i < tallyRollupCount; i++ {
-					rollup := randRollup(bucket.Name, project.ID, since.Add(time.Duration(i)*usagePeriod/tallyRollupCount))
-					rollups = append(rollups, rollup)
-					total.egress += rollup.Inline + rollup.Settled
-
-					if i < tallyRollupCount {
-						beforeTotal.egress += rollup.Inline + rollup.Settled
-					}
-				}
-				require.NoError(t, sat.DB.Orders().UpdateBandwidthBatch(ctx, rollups))
-
-				expectedTotals[name] = total
-			}
-
-			t.Run("sum all partner usages", func(t *testing.T) {
-				ctx := testcontext.New(t)
-				usages, err := sat.DB.ProjectAccounting().GetProjectTotalByPartner(ctx, project.ID, nil, since, before)
-				require.NoError(t, err)
-				require.Len(t, usages, 1)
-				require.Contains(t, usages, "")
-
-				var summedTotal expectedTotal
-				for _, total := range expectedTotals {
-					summedTotal.storage += total.storage
-					summedTotal.segments += total.segments
-					summedTotal.objects += total.objects
-					summedTotal.egress += total.egress
-				}
-
-				requireTotal(t, summedTotal, since, before, usages[""])
-			})
-
-			t.Run("individual partner usages", func(t *testing.T) {
-				ctx := testcontext.New(t)
-				usages, err := sat.DB.ProjectAccounting().GetProjectTotalByPartner(ctx, project.ID, partnerNames, since, before)
-				require.NoError(t, err)
-				require.Len(t, usages, len(expectedTotals))
-				for _, name := range partnerNames {
-					require.Contains(t, usages, name)
-				}
-
-				for partner, usage := range usages {
-					requireTotal(t, expectedTotals[partner], since, before, usage)
-				}
-			})
-
-			t.Run("select one partner usage and sum remaining usages", func(t *testing.T) {
-				ctx := testcontext.New(t)
-				partner := partnerNames[len(partnerNames)-1]
-				usages, err := sat.DB.ProjectAccounting().GetProjectTotalByPartner(ctx, project.ID, []string{partner}, since, before)
-				require.NoError(t, err)
-				require.Len(t, usages, 2)
-				require.Contains(t, usages, "")
-				require.Contains(t, usages, partner)
-
-				var summedTotal expectedTotal
-				for _, partner := range partnerNames[:len(partnerNames)-1] {
-					summedTotal.storage += expectedTotals[partner].storage
-					summedTotal.segments += expectedTotals[partner].segments
-					summedTotal.objects += expectedTotals[partner].objects
-					summedTotal.egress += expectedTotals[partner].egress
-				}
-
-				requireTotal(t, expectedTotals[partner], since, before, usages[partner])
-				requireTotal(t, summedTotal, since, before, usages[""])
-			})
-
-			t.Run("ensure the 'before' arg is exclusive", func(t *testing.T) {
-				ctx := testcontext.New(t)
-				before := since.Add(usagePeriod)
-				usages, err := sat.DB.ProjectAccounting().GetProjectTotalByPartner(ctx, project.ID, nil, since, before)
-				require.NoError(t, err)
-				require.Len(t, usages, 1)
-				require.Contains(t, usages, "")
-				requireTotal(t, beforeTotal, since, before, usages[""])
-			})
-		},
-	)
-}
-
 func TestGetProjectTotalByPartnerAndPlacement(t *testing.T) {
 	const (
 		epsilon          = 1e-8
@@ -910,15 +740,7 @@ func TestGetProjectTotalByPartnerAndPlacement(t *testing.T) {
 
 			t.Run("get usages by partner and placement", func(t *testing.T) {
 				ctx := testcontext.New(t)
-				// Debug first how GetProjectTotalByPartner works
-				usagesByPartner, err := sat.DB.ProjectAccounting().GetProjectTotalByPartner(ctx, project.ID, partnerNames, since, before)
-				require.NoError(t, err)
-				for key, usage := range usagesByPartner {
-					t.Logf("Partner '%s': storage=%.2f, segments=%.2f, objects=%.2f, egress=%d",
-						key, usage.Storage, usage.SegmentCount, usage.ObjectCount, usage.Egress)
-				}
 
-				// Now test our new function
 				usages, err := sat.DB.ProjectAccounting().GetProjectTotalByPartnerAndPlacement(ctx, project.ID, partnerNames, since, before)
 				require.NoError(t, err)
 
@@ -940,7 +762,7 @@ func TestGetProjectTotalByPartnerAndPlacement(t *testing.T) {
 				filteredPartners := []string{partnerNames[1]}
 
 				// Debug first how GetProjectTotalByPartner works
-				usagesByPartner, err := sat.DB.ProjectAccounting().GetProjectTotalByPartner(ctx, project.ID, filteredPartners, since, before)
+				usagesByPartner, err := sat.DB.ProjectAccounting().GetProjectTotalByPartnerAndPlacement(ctx, project.ID, filteredPartners, since, before)
 				require.NoError(t, err)
 				for key, usage := range usagesByPartner {
 					t.Logf("Partner '%s': storage=%.2f, segments=%.2f, objects=%.2f, egress=%d",

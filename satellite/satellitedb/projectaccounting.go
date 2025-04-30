@@ -862,8 +862,8 @@ func (db *ProjectAccounting) GetProjectTotal(ctx context.Context, projectID uuid
 	return &accounting.ProjectUsage{Since: since, Before: before}, nil
 }
 
-// GetProjectTotalByPartner retrieves project usage for a given period categorized by partner name and placement constraint.
-// Unpartnered usage or usage for a partner not present in partnerNames is mapped to the empty string.
+// GetProjectTotalByPartnerAndPlacement retrieves project usage for a given period categorized by partner name and placement constraint.
+// Unpartnered usage or usage for a partner not present in partnerNames is mapped to "|<placement>".
 //
 // Storage tallies are calculated on intervals of two consecutive entries by multiplying the hours
 // between the periods of the 2 entries by the bytes stored, number of segments, and number of
@@ -882,22 +882,7 @@ func (db *ProjectAccounting) GetProjectTotal(ctx context.Context, projectID uuid
 //     the storage since the last period of March until April, which will be included in the next
 //     monthly calculation (1st of April to 1st of May) as it happened with the last February entry
 //     for this period.
-//
-// For backward compatibility, the previous function name is preserved but calls this new function.
-func (db *ProjectAccounting) GetProjectTotalByPartner(ctx context.Context, projectID uuid.UUID, partnerNames []string, since, before time.Time) (usages map[string]accounting.ProjectUsage, err error) {
-	return db.getProjectTotalByPartnerAndPlacement(ctx, projectID, partnerNames, since, before, true)
-}
-
-// GetProjectTotalByPartnerAndPlacement retrieves project usage for a given period categorized by partner name and placement constraint.
-// Unpartnered usage or usage for a partner not present in partnerNames is mapped to the "|<placement>".
 func (db *ProjectAccounting) GetProjectTotalByPartnerAndPlacement(ctx context.Context, projectID uuid.UUID, partnerNames []string, since, before time.Time) (usages map[string]accounting.ProjectUsage, err error) {
-	return db.getProjectTotalByPartnerAndPlacement(ctx, projectID, partnerNames, since, before, false)
-}
-
-// getProjectTotalByPartnerAndPlacement retrieves project usage for a given period categorized by partner name and placement constraint.
-// Unpartnered usage or usage for a partner not present in partnerNames is mapped to the empty string "|<placement>".
-// TODO(moby): Remove `legacy` bool and private function once `GetProjectTotalByPartner` is fully deprecated.
-func (db *ProjectAccounting) getProjectTotalByPartnerAndPlacement(ctx context.Context, projectID uuid.UUID, partnerNames []string, since, before time.Time, legacy bool) (usages map[string]accounting.ProjectUsage, err error) {
 	defer mon.Task()(&ctx)(&err)
 	since = timeTruncateDown(since)
 	bucketNames, err := db.getBucketsSinceAndBefore(ctx, projectID, since, before)
@@ -987,13 +972,8 @@ func (db *ProjectAccounting) getProjectTotalByPartnerAndPlacement(ctx context.Co
 			}
 		}
 
-		// legacy behavior is to use partner with no placement
-		// TODO(moby): Migrate exclusively to partner+placement as key
-		key := partner
-		if !legacy {
-			// Create a key that combines partner and placement
-			key = fmt.Sprintf("%s|%d", partner, placement)
-		}
+		// Create a key that combines partner and placement
+		key := fmt.Sprintf("%s|%d", partner, placement)
 
 		if _, ok := usages[key]; !ok {
 			usages[key] = accounting.ProjectUsage{Since: since, Before: before}
@@ -1061,7 +1041,9 @@ func (db *ProjectAccounting) getProjectTotalByPartnerAndPlacement(ctx context.Co
 			if err != nil {
 				return nil, err
 			}
-			usages[partner] = accounting.ProjectUsage{}
+			// Use the standard partner|placement format with default placement 0
+			key := fmt.Sprintf("%s|%d", partner, 0)
+			usages[key] = accounting.ProjectUsage{}
 		}
 	}
 

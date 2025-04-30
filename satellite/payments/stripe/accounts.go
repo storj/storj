@@ -486,19 +486,23 @@ func (accounts *accounts) ProjectCharges(ctx context.Context, userID uuid.UUID, 
 	}
 
 	for _, project := range projects {
-		usages, err := accounts.service.usageDB.GetProjectTotalByPartner(ctx, project.ID, accounts.service.partnerNames, since, before)
+		usages, err := accounts.service.usageDB.GetProjectTotalByPartnerAndPlacement(ctx, project.ID, accounts.service.partnerNames, since, before)
 		if err != nil {
 			return nil, Error.Wrap(err)
 		}
 
 		partnerCharges := make(map[string]payments.ProjectCharge)
 
-		for partner, usage := range usages {
+		for key, usage := range usages {
+			// Split the key to extract partner and placement
+			parts := strings.Split(key, "|")
+			partner := parts[0]
+
 			priceModel := accounts.GetProjectUsagePriceModel(partner)
 			usage.Egress = applyEgressDiscount(usage, priceModel)
 			price := accounts.service.calculateProjectUsagePrice(usage, priceModel)
 
-			partnerCharges[partner] = payments.ProjectCharge{
+			partnerCharges[key] = payments.ProjectCharge{
 				ProjectUsage: usage,
 
 				EgressMBCents:       price.Egress.IntPart(),

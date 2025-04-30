@@ -96,7 +96,9 @@ type Service struct {
 	usagePrices         payments.ProjectUsagePriceModel
 	usagePriceOverrides map[string]payments.ProjectUsagePriceModel
 	packagePlans        map[string]payments.PackagePlan
-	partnerNames        []string
+	// partnerNames is a list of partner names that may appear as bucket "user agent", and are explicitly associated with custom pricing.
+	// If a bucket has a "partner"/"user agent" that does not appear in this list, it is treated as "unpartnered usage" from a billing perspective.
+	partnerNames []string
 	// BonusRate amount of percents
 	BonusRate int64
 	// Coupon Values
@@ -121,8 +123,21 @@ type Service struct {
 // NewService creates a Service instance.
 func NewService(log *zap.Logger, stripeClient Client, config Config, db DB, walletsDB storjscan.WalletsDB, billingDB billing.TransactionsDB, projectsDB console.Projects, usersDB console.Users, usageDB accounting.ProjectAccounting, usagePrices payments.ProjectUsagePriceModel, usagePriceOverrides map[string]payments.ProjectUsagePriceModel, productPriceMap map[int32]payments.ProductUsagePriceModel, partnerPlacementMap payments.PartnersPlacementProductMap, placementProductMap payments.PlacementProductIdMap, packagePlans map[string]payments.PackagePlan, bonusRate int64, analyticsService *analytics.Service, emissionService *emission.Service, deleteAccountEnabled bool) (*Service, error) {
 	var partners []string
+	addedPartners := make(map[string]struct{})
+	// partners relevant to billing may be defined as part of `usagePriceOverrides`, or `partnerPlacementMap`. Eventually, `usagePriceOverrides` will become legacy, and be replaced with `partnerPlacementMap`.
 	for partner := range usagePriceOverrides {
+		if _, ok := addedPartners[partner]; ok {
+			continue
+		}
 		partners = append(partners, partner)
+		addedPartners[partner] = struct{}{}
+	}
+	for partner := range partnerPlacementMap {
+		if _, ok := addedPartners[partner]; ok {
+			continue
+		}
+		partners = append(partners, partner)
+		addedPartners[partner] = struct{}{}
 	}
 
 	return &Service{
@@ -664,7 +679,7 @@ func (service *Service) processInvoiceItems(
 		return false, err
 	}
 
-	usages, err := service.usageDB.GetProjectTotalByPartner(ctx, record.ProjectID, service.partnerNames, from, to)
+	usages, err := service.usageDB.GetProjectTotalByPartnerAndPlacement(ctx, record.ProjectID, service.partnerNames, from, to)
 	if err != nil {
 		return false, err
 	}
@@ -828,21 +843,26 @@ func (service *Service) InvoiceItemsFromProjectUsage(projName string, partnerUsa
 		partners = []string{""}
 		partnerUsages = map[string]accounting.ProjectUsage{"": {}}
 	} else {
-		for partner := range partnerUsages {
-			partners = append(partners, partner)
+		for key := range partnerUsages {
+			partners = append(partners, key)
 		}
 		sort.Strings(partners)
 	}
 
-	for _, partner := range partners {
+	for _, key := range partners {
+		// Split the key to extract partner and placement
+		parts := strings.Split(key, "|")
+		partner := parts[0]
+
+		// Use the partner-only price model as before to maintain compatibility with tests
 		priceModel := service.Accounts().GetProjectUsagePriceModel(partner)
 
-		usage := partnerUsages[partner]
+		usage := partnerUsages[key]
 		usage.Egress = applyEgressDiscount(usage, priceModel)
 
 		prefix := "Project " + projName
 		if partner != "" {
-			prefix += " (" + partner + ")"
+			prefix += " (" + key + ")"
 		}
 
 		if aggregated {

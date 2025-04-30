@@ -306,9 +306,6 @@ type ProjectAccounting interface {
 	GetProjectLimits(ctx context.Context, projectID uuid.UUID) (ProjectLimits, error)
 	// GetProjectTotal returns project usage summary for specified period of time.
 	GetProjectTotal(ctx context.Context, projectID uuid.UUID, since, before time.Time) (*ProjectUsage, error)
-	// GetProjectTotalByPartner retrieves project usage for a given period categorized by partner name.
-	// Unpartnered usage or usage for a partner not present in partnerNames is mapped to the empty string.
-	GetProjectTotalByPartner(ctx context.Context, projectID uuid.UUID, partnerNames []string, since, before time.Time) (usages map[string]ProjectUsage, err error)
 	// GetProjectTotalByPartnerAndPlacement retrieves project usage for a given period categorized by partner name and placement constraint.
 	// Unpartnered usage or usage for a partner not present in partnerNames is mapped to the empty string.
 	GetProjectTotalByPartnerAndPlacement(ctx context.Context, projectID uuid.UUID, partnerNames []string, since, before time.Time) (usages map[string]ProjectUsage, err error)
