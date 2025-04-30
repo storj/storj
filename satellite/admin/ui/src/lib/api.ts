@@ -428,6 +428,27 @@ export class Admin {
 					return this.fetch('PUT', `restkeys/${apikey}/revoke`);
 				}
 			}
+		],
+		value_attributions: [
+			{
+				name: 'update bucket placement',
+				desc: 'Updates placement for a bucket (use integer value or NULL to unset)',
+				params: [
+					['Project ID', new InputText('text', true)],
+					['Bucket name', new InputText('text', true)],
+					['Placement', new InputText('text', true)]
+				],
+				func: async (projectId: string, bucketName: string, placement: number): Promise<null> => {
+					const query = this.urlQueryFromObject({
+						placement
+					});
+					return this.fetch(
+						'PUT',
+						`projects/${projectId}/buckets/${bucketName}/value-attributions`,
+						query
+					) as Promise<null>;
+				}
+			}
 		]
 	};
 

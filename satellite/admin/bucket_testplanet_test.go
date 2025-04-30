@@ -17,6 +17,7 @@ import (
 	"storj.io/common/uuid"
 	"storj.io/storj/private/testplanet"
 	"storj.io/storj/satellite"
+	"storj.io/storj/satellite/attribution"
 	"storj.io/storj/satellite/buckets"
 )
 
@@ -114,5 +115,44 @@ func TestAdminBucketGeofenceAPI(t *testing.T) {
 				assertReq(ctx, t, baseGeofenceURL, "DELETE", "", testCase.status, testCase.body, sat.Config.Console.AuthToken)
 			})
 		}
+	})
+}
+
+func TestAdminUpdateBucketValueAttributionPlacement(t *testing.T) {
+	testplanet.Run(t, testplanet.Config{
+		SatelliteCount:   1,
+		StorageNodeCount: 0,
+		UplinkCount:      1,
+		Reconfigure: testplanet.Reconfigure{
+			Satellite: func(_ *zap.Logger, _ int, config *satellite.Config) {
+				config.Admin.Address = "127.0.0.1:0"
+			},
+		},
+	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+		uplink := planet.Uplinks[0]
+		sat := planet.Satellites[0]
+		address := sat.Admin.Admin.Listener.Addr()
+
+		project, err := sat.DB.Console().Projects().Get(ctx, uplink.Projects[0].ID)
+		require.NoError(t, err)
+
+		bucketName := "test-bucket"
+		baseURL := fmt.Sprintf("http://%s/api/projects/%s/buckets/%s/value-attributions", address, project.ID, bucketName)
+
+		assertReq(ctx, t, baseURL+"?placement=1", "PUT", "", http.StatusNotFound, "", sat.Config.Console.AuthToken)
+
+		info, err := sat.DB.Attribution().Insert(ctx, &attribution.Info{
+			ProjectID:  project.ID,
+			BucketName: []byte(bucketName),
+			UserAgent:  []byte("test-user-agent"),
+		})
+		require.NoError(t, err)
+		require.NotNil(t, info)
+		require.Nil(t, info.Placement)
+
+		assertReq(ctx, t, baseURL+"?placement=-1", "PUT", "", http.StatusBadRequest, "", sat.Config.Console.AuthToken)
+		assertReq(ctx, t, baseURL+"?placement=EU", "PUT", "", http.StatusBadRequest, "", sat.Config.Console.AuthToken)
+		assertReq(ctx, t, baseURL+"?placement=1", "PUT", "", http.StatusOK, "", sat.Config.Console.AuthToken)
+		assertReq(ctx, t, baseURL+"?placement=null", "PUT", "", http.StatusOK, "", sat.Config.Console.AuthToken)
 	})
 }

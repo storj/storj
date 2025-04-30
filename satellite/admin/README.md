@@ -64,6 +64,8 @@ Requires setting `Authorization` header for requests.
             * [Geofencing](#geofencing)
                 * [POST /api/projects/{project-id}/buckets/{bucket-name}/geofence?region={value} - DEPRECATED](#post-apiprojectsproject-idbucketsbucket-namegeofenceregionvalue---deprecated)
                 * [DELETE /api/projects/{project-id}/buckets/{bucket-name}/geofence - DEPRECATED](#delete-apiprojectsproject-idbucketsbucket-namegeofence---deprecated)
+            * [Value Attributions](#value-attribution)
+                * [PUT /api/projects/{project-id}/buckets/{bucket-name}/value-attributions?placement={value}](#put-apiprojectsproject-idbucketsbucket-namevalue-attributionsplacementvalue)
         * [Project API Keys Management](#project-api-keys-management)
             * [GET /api/apikeys/{api-key}](#get-apiapikeysapi-key)
             * [DELETE /api/apikeys/{api-key}](#delete-apiapikeysapi-key)
@@ -591,6 +593,14 @@ values for the `region` parameter are:
 ##### DELETE /api/projects/{project-id}/buckets/{bucket-name}/geofence - DEPRECATED
 
 Removes the geofencing configuration for the specified bucket. The bucket MUST be empty in order for this to work.
+
+#### Value Attribution
+
+Manage value attribution for a given bucket.
+
+##### PUT /api/projects/{project-id}/buckets/{bucket-name}/value-attributions?placement={value}
+
+Updates placement value for a given bucket. The value must be a positive integer or NULL.
 
 ### Project API Keys Management
 

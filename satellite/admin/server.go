@@ -168,6 +168,7 @@ func NewServer(
 	fullAccessAPI.HandleFunc("/projects/{project}/buckets/{bucket}", server.getBucketInfo).Methods("GET")
 	fullAccessAPI.HandleFunc("/projects/{project}/buckets/{bucket}/geofence", server.createGeofenceForBucket).Methods("POST")
 	fullAccessAPI.HandleFunc("/projects/{project}/buckets/{bucket}/geofence", server.deleteGeofenceForBucket).Methods("DELETE")
+	fullAccessAPI.HandleFunc("/projects/{project}/buckets/{bucket}/value-attributions", server.updateBucketValueAttributionPlacement).Methods("PUT")
 	fullAccessAPI.HandleFunc("/projects/{project}/usage", server.checkProjectUsage).Methods("GET")
 	fullAccessAPI.HandleFunc("/projects/{project}/useragent", server.updateProjectsUserAgent).Methods("PATCH")
 	fullAccessAPI.HandleFunc("/projects/{project}/geofence", server.createGeofenceForProject).Methods("PUT")
