@@ -9,6 +9,7 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/require"
+	"github.com/zeebo/errs"
 
 	"storj.io/common/memory"
 	"storj.io/common/storj"
@@ -754,6 +755,32 @@ func TestStreamVersionID(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, expectedVersion, streamVersionID.Version())
 	require.EqualValues(t, expectedStreamID[8:], streamVersionID.StreamIDSuffix())
+}
+
+func TestIfNoneMatchVerify(t *testing.T) {
+	var testCases = []struct {
+		name     string
+		input    []string
+		errClass *errs.Class
+	}{
+		{"empty", []string{}, nil},
+		{"match all", []string{"*"}, nil},
+		{"match all with invalid value", []string{"*", "something"}, &metabase.ErrUnimplemented},
+		{"match all with invalid values", []string{"*", "something", "else"}, &metabase.ErrUnimplemented},
+		{"invalid value", []string{"something"}, &metabase.ErrUnimplemented},
+		{"invalue values", []string{"something", "else"}, &metabase.ErrUnimplemented},
+	}
+	for _, tt := range testCases {
+		tt := tt
+		t.Run(tt.name, func(t *testing.T) {
+			inm := metabase.IfNoneMatch(tt.input)
+			if tt.errClass != nil {
+				require.True(t, tt.errClass.Has(inm.Verify()))
+			} else {
+				require.NoError(t, inm.Verify())
+			}
+		})
+	}
 }
 
 func BenchmarkSegmentPieceSize(b *testing.B) {

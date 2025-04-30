@@ -76,6 +76,9 @@ type FinishCopyObject struct {
 	// if it turns out completing the copy would exceed a limit.
 	// It will be called only once.
 	VerifyLimits func(encryptedObjectSize int64, nSegments int64) error
+
+	// IfNoneMatch is an optional field for conditional writes.
+	IfNoneMatch IfNoneMatch
 }
 
 // NewLocation returns the new object location.
@@ -121,6 +124,10 @@ func (finishCopy FinishCopyObject) Verify() error {
 
 	if !finishCopy.NewVersioned && (finishCopy.Retention.Enabled() || finishCopy.LegalHold) {
 		return ErrObjectStatus.New(noLockOnUnversionedErrMsg)
+	}
+
+	if err := finishCopy.IfNoneMatch.Verify(); err != nil {
+		return err
 	}
 
 	return ErrInvalidRequest.Wrap(finishCopy.Retention.Verify())
@@ -220,6 +227,7 @@ func (db *DB) FinishCopyObject(ctx context.Context, opts FinishCopyObject) (obje
 			Location:       opts.NewLocation(),
 			Versioned:      opts.NewVersioned,
 			DisallowDelete: opts.NewDisallowDelete,
+			CheckExistence: opts.IfNoneMatch.All(),
 		}, adapter)
 		if err != nil {
 			return err

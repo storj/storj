@@ -39,7 +39,7 @@ func Open(ctx context.Context, driverName, dataSourceName string) (DB, error) {
 
 	err = sdb.PingContext(ctx)
 	if err != nil {
-		return nil, err
+		return nil, errs.Combine(err, sdb.Close())
 	}
 
 	return Wrap(sdb), nil

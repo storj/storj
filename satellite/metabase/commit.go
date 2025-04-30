@@ -964,6 +964,9 @@ type CommitObject struct {
 
 	// supported only by Spanner.
 	MaxCommitDelay *time.Duration
+
+	// IfNoneMatch is an optional field for conditional writes.
+	IfNoneMatch IfNoneMatch
 }
 
 // Verify verifies request fields.
@@ -983,7 +986,8 @@ func (c *CommitObject) Verify() error {
 			return ErrInvalidRequest.New("EncryptedMetadataNonce and EncryptedMetadataEncryptedKey must be set if EncryptedMetadata is set")
 		}
 	}
-	return nil
+
+	return c.IfNoneMatch.Verify()
 }
 
 // WithTx provides a TransactionAdapter for the context of a database transaction.
@@ -1061,6 +1065,7 @@ func (db *DB) CommitObject(ctx context.Context, opts CommitObject) (object Objec
 			Location:       opts.Location(),
 			Versioned:      opts.Versioned,
 			DisallowDelete: opts.DisallowDelete,
+			CheckExistence: opts.IfNoneMatch.All(),
 		}, adapter)
 		if err != nil {
 			return err
@@ -1365,6 +1370,9 @@ type CommitInlineObject struct {
 
 	// Versioned indicates whether an object is allowed to have multiple versions.
 	Versioned bool
+
+	// IfNoneMatch is an optional field for conditional writes.
+	IfNoneMatch IfNoneMatch
 }
 
 // Verify verifies reqest fields.
@@ -1400,7 +1408,7 @@ func (c *CommitInlineObject) Verify() error {
 		}
 	}
 
-	return nil
+	return c.IfNoneMatch.Verify()
 }
 
 // CommitInlineObject adds full inline object to the database. If another committed object is under target location
@@ -1418,6 +1426,7 @@ func (db *DB) CommitInlineObject(ctx context.Context, opts CommitInlineObject) (
 			Location:       opts.Location(),
 			Versioned:      opts.Versioned,
 			DisallowDelete: opts.DisallowDelete,
+			CheckExistence: opts.IfNoneMatch.All(),
 		}, adapter)
 		if err != nil {
 			return err
