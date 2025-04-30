@@ -475,6 +475,7 @@ func (accounts *accounts) GetPackageInfo(ctx context.Context, userID uuid.UUID) 
 }
 
 // ProjectCharges returns how much money current user will be charged for each project.
+// TODO update for "by product" invoicing
 func (accounts *accounts) ProjectCharges(ctx context.Context, userID uuid.UUID, since, before time.Time) (charges payments.ProjectChargesResponse, err error) {
 	defer mon.Task()(&ctx, userID, since, before)(&err)
 

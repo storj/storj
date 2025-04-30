@@ -22,8 +22,10 @@ import (
 	"github.com/stripe/stripe-go/v81"
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
+	"golang.org/x/exp/slices"
 
 	"storj.io/common/currency"
+	"storj.io/common/storj"
 	"storj.io/common/sync2"
 	"storj.io/common/uuid"
 	"storj.io/storj/private/healthcheck"
@@ -72,6 +74,7 @@ type Config struct {
 	MaxParallelCalls       int    `help:"the maximum number of concurrent Stripe API calls in invoicing methods" default:"10"`
 	RemoveExpiredCredit    bool   `help:"whether to remove expired package credit or not" default:"true"`
 	UseIdempotency         bool   `help:"whether to use idempotency for create/update requests" default:"true"`
+	ProductBasedInvoicing  bool   `help:"whether to use product-based invoicing" default:"false"`
 	Retries                RetryConfig
 }
 
@@ -107,17 +110,18 @@ type Service struct {
 	// Stripe Extended Features
 	AutoAdvance bool
 
-	listingLimit         int
-	skipEmptyInvoices    bool
-	maxParallelCalls     int
-	removeExpiredCredit  bool
-	useIdempotency       bool
-	deleteAccountEnabled bool
-	webhookSecret        string
-	nowFn                func() time.Time
-	partnerPlacementMap  payments.PartnersPlacementProductMap
-	placementProductMap  payments.PlacementProductIdMap
-	productPriceMap      map[int32]payments.ProductUsagePriceModel
+	listingLimit          int
+	skipEmptyInvoices     bool
+	maxParallelCalls      int
+	removeExpiredCredit   bool
+	useIdempotency        bool
+	productBasedInvoicing bool
+	deleteAccountEnabled  bool
+	webhookSecret         string
+	nowFn                 func() time.Time
+	partnerPlacementMap   payments.PartnersPlacementProductMap
+	placementProductMap   payments.PlacementProductIdMap
+	productPriceMap       map[int32]payments.ProductUsagePriceModel
 
 	minimumChargeAmount             int64
 	newUsersMinimumChargeCutoffDate *time.Time // nil means apply to all users
@@ -175,6 +179,7 @@ func NewService(log *zap.Logger, stripeClient Client, config Config, db DB, wall
 		maxParallelCalls:       config.MaxParallelCalls,
 		removeExpiredCredit:    config.RemoveExpiredCredit,
 		useIdempotency:         config.UseIdempotency,
+		productBasedInvoicing:  config.ProductBasedInvoicing,
 		webhookSecret:          config.StripeWebhookSecret,
 		partnerPlacementMap:    partnerPlacementMap,
 		placementProductMap:    placementProductMap,
@@ -256,9 +261,9 @@ func (service *Service) processCustomers(ctx context.Context, customers []Custom
 			return 0, Error.New("unable to create project records: %w", err)
 		}
 
-		// We generate 3 invoice items for each user project which means,
-		// we can support only 83 projects in a single invoice (249 invoice items).
-		if len(projects) > 83 {
+		// We can support only 83 projects in a single invoice (249 invoice items).
+		// We don't use legacy aggregation for product-based invoicing.
+		if !service.productBasedInvoicing && len(projects) > 83 {
 			recordsToAggregate = append(recordsToAggregate, records...)
 		} else {
 			regularRecords = append(regularRecords, records...)
@@ -406,16 +411,74 @@ func (service *Service) InvoiceApplyProjectRecordsGrouped(ctx context.Context, p
 					return
 				}
 
-				for _, r := range records {
-					totalRecords.Add(1)
+				if service.productBasedInvoicing {
+					// Create structures to aggregate all usage by product ID.
+					// Those maps are mutated per record.
+					productUsages := make(map[int32]accounting.ProjectUsage)
+					productInfos := make(map[int32]payments.ProductUsagePriceModel)
 
-					skipped, err := service.processInvoiceItems(ctx, c.BillingID, c.ID, projectNameMap[r.ProjectID], r, c.UserID, period, false)
+					from, to, err := service.getFromToDates(ctx, c.UserID, start, end)
 					if err != nil {
 						addErr(&mu, err)
 						return
 					}
-					if skipped {
-						totalSkipped.Add(1)
+
+					for _, r := range records {
+						totalRecords.Add(1)
+
+						skipped, err := service.ProcessRecord(ctx, r, productUsages, productInfos, from, to)
+						if err != nil {
+							addErr(&mu, err)
+							return
+						}
+						if skipped {
+							totalSkipped.Add(1)
+						}
+					}
+
+					items := service.InvoiceItemsFromTotalProjectUsages(productUsages, productInfos, period)
+					// Stripe allows 250 items per invoice.
+					// We should not have more than 249 new items.
+					// 1 is reserved for the unpaid usage from previous billing cycle.
+					if len(items) > 249 {
+						addErr(&mu, Error.New("too many invoice items for customer %s", c.ID))
+						return
+					}
+
+					for _, item := range items {
+						item.Params = stripe.Params{Context: ctx}
+						item.Currency = stripe.String(string(stripe.CurrencyUSD))
+						item.Customer = stripe.String(c.ID)
+						item.Period = &stripe.InvoiceItemPeriodParams{
+							End:   stripe.Int64(to.Unix()),
+							Start: stripe.Int64(from.Unix()),
+						}
+
+						_, err := service.stripeClient.InvoiceItems().New(item)
+						if err != nil {
+							addErr(&mu, err)
+							return
+						}
+					}
+
+					for _, r := range records {
+						if err = service.db.ProjectRecords().Consume(ctx, r.ID); err != nil {
+							addErr(&mu, err)
+							return
+						}
+					}
+				} else {
+					for _, r := range records {
+						totalRecords.Add(1)
+
+						skipped, err := service.processInvoiceItems(ctx, c.BillingID, c.ID, projectNameMap[r.ProjectID], r, c.UserID, period, false)
+						if err != nil {
+							addErr(&mu, err)
+							return
+						}
+						if skipped {
+							totalSkipped.Add(1)
+						}
 					}
 				}
 			})
@@ -741,6 +804,152 @@ func (service *Service) processInvoiceItems(
 	}
 
 	return false, nil
+}
+
+// ProcessRecord processes record and mutates overall customer usages.
+// Exported for testing.
+func (service *Service) ProcessRecord(
+	ctx context.Context,
+	record ProjectRecord,
+	productUsages map[int32]accounting.ProjectUsage,
+	productInfos map[int32]payments.ProductUsagePriceModel,
+	from, to time.Time,
+) (skipped bool, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	if service.skipEmptyInvoices && doesProjectRecordHaveNoUsage(record) {
+		// TODO: should we consider this as skipped?
+		return true, nil
+	}
+
+	usages, err := service.usageDB.GetProjectTotalByPartnerAndPlacement(ctx, record.ProjectID, service.partnerNames, from, to)
+	if err != nil {
+		return false, err
+	}
+
+	// Process each partner/placement usage entry.
+	for key, usage := range usages {
+		partner := ""
+		placement := int(storj.DefaultPlacement)
+
+		// Split the key to extract partner and placement.
+		parts := strings.Split(key, "|")
+		if len(parts) >= 1 {
+			partner = parts[0]
+		}
+		if len(parts) >= 2 {
+			placement64, err := strconv.ParseInt(parts[1], 10, 32)
+			if err == nil {
+				placement = int(placement64)
+			}
+		}
+
+		// Get price model for the partner and placement.
+		productID, priceModel, err := service.Accounts().GetPartnerPlacementPriceModel(partner, storj.PlacementConstraint(placement))
+		if err != nil {
+			service.log.Error("failed to get partner placement price model", zap.String("partner", partner), zap.Int("placement", placement), zap.Error(err))
+			// Use partner-only price model as a fallback.
+			// This should be removed once the tests are updated
+			priceModel = service.Accounts().GetProjectUsagePriceModel(partner)
+		}
+
+		// Create or update the product usage entry.
+		if existingUsage, ok := productUsages[productID]; ok {
+			// Add to existing usage.
+			existingUsage.Storage += usage.Storage
+			existingUsage.Egress += usage.Egress
+			existingUsage.SegmentCount += usage.SegmentCount
+			productUsages[productID] = existingUsage
+		} else {
+			// Initialize with this usage.
+			productUsages[productID] = usage
+
+			// Get product name.
+			var productName string
+			if product, ok := service.productPriceMap[productID]; ok {
+				productName = product.ProductName
+			} else {
+				service.log.Error("failed to get product for ID", zap.Int("productID", int(productID)))
+				// fall back to  "Product x" as the name for an "unknown" product.
+				productName = fmt.Sprintf("Product %d", productID)
+			}
+
+			// Initialize product info.
+			productInfos[productID] = payments.ProductUsagePriceModel{
+				ProductName:            productName,
+				ProjectUsagePriceModel: priceModel,
+			}
+		}
+	}
+
+	return false, nil
+}
+
+// InvoiceItemsFromTotalProjectUsages calculates per-product Stripe invoice items from total project usages.
+// Exported for testing.
+func (service *Service) InvoiceItemsFromTotalProjectUsages(productUsages map[int32]accounting.ProjectUsage, productInfos map[int32]payments.ProductUsagePriceModel, period time.Time) (result []*stripe.InvoiceItemParams) {
+	// Sort product IDs for consistent ordering.
+	var productIDs []int32
+	for productID := range productUsages {
+		productIDs = append(productIDs, productID)
+	}
+	slices.Sort(productIDs)
+
+	// Generate invoice items from aggregated product usage.
+	for _, productID := range productIDs {
+		usage := productUsages[productID]
+		info := productInfos[productID]
+		prefix := info.ProductName
+		productIDStr := strconv.Itoa(int(productID))
+
+		// Calculate egress discount.
+		discountedUsage := usage
+		discountedUsage.Egress = applyEgressDiscount(usage, info.ProjectUsagePriceModel)
+
+		// Create storage invoice item.
+		storageItem := &stripe.InvoiceItemParams{}
+		storageItem.Description = stripe.String(prefix + storageInvoiceItemDesc)
+		storageItem.Quantity = stripe.Int64(storageMBMonthDecimal(discountedUsage.Storage).IntPart())
+		storagePrice, _ := info.ProjectUsagePriceModel.StorageMBMonthCents.Float64()
+		storageItem.UnitAmountDecimal = stripe.Float64(storagePrice)
+		if service.useIdempotency {
+			storageItem.SetIdempotencyKey(getPerProductIdempotencyKey(productIDStr, "storage", period))
+		}
+
+		result = append(result, storageItem)
+
+		// Create egress invoice item.
+		egressItem := &stripe.InvoiceItemParams{}
+		egressItem.Description = stripe.String(prefix + egressInvoiceItemDesc)
+		egressItem.Quantity = stripe.Int64(egressMBDecimal(discountedUsage.Egress).IntPart())
+		egressPrice, _ := info.ProjectUsagePriceModel.EgressMBCents.Float64()
+		egressItem.UnitAmountDecimal = stripe.Float64(egressPrice)
+		if service.useIdempotency {
+			storageItem.SetIdempotencyKey(getPerProductIdempotencyKey(productIDStr, "egress", period))
+		}
+
+		result = append(result, egressItem)
+
+		// Create segment invoice item.
+		segmentItem := &stripe.InvoiceItemParams{}
+		segmentItem.Description = stripe.String(prefix + segmentInvoiceItemDesc)
+		segmentItem.Quantity = stripe.Int64(segmentMonthDecimal(discountedUsage.SegmentCount).IntPart())
+		segmentPrice, _ := info.ProjectUsagePriceModel.SegmentMonthCents.Float64()
+		segmentItem.UnitAmountDecimal = stripe.Float64(segmentPrice)
+		if service.useIdempotency {
+			storageItem.SetIdempotencyKey(getPerProductIdempotencyKey(productIDStr, "segment", period))
+		}
+
+		result = append(result, segmentItem)
+	}
+
+	service.log.Info("invoice items by product", zap.Any("result", result))
+	return result
+}
+
+func getPerProductIdempotencyKey(productID, identifier string, period time.Time) string {
+	key := fmt.Sprintf("%s-%s-%s", productID, identifier, period.Format("2006-01"))
+	return strings.ToLower(strings.ReplaceAll(key, " ", "-"))
 }
 
 // createNewInvoiceItems helper method to create new invoice items.
@@ -1813,7 +2022,7 @@ func (price projectUsagePrice) Total() decimal.Decimal {
 	return price.Storage.Add(price.Egress).Add(price.Segments)
 }
 
-// Total returns project usage price total.
+// TotalInt64 returns int64 value of project usage price total.
 func (price projectUsagePrice) TotalInt64() int64 {
 	return price.Storage.Add(price.Egress).Add(price.Segments).IntPart()
 }
