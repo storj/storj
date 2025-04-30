@@ -48,6 +48,8 @@ type DB interface {
 	Insert(ctx context.Context, info *Info) (*Info, error)
 	// UpdateUserAgent updates bucket attribution data.
 	UpdateUserAgent(ctx context.Context, projectID uuid.UUID, bucketName string, userAgent []byte) error
+	// UpdatePlacement updates bucket placement.
+	UpdatePlacement(ctx context.Context, projectID uuid.UUID, bucketName string, placement *storj.PlacementConstraint) error
 	// QueryAttribution queries partner bucket attribution data.
 	QueryAttribution(ctx context.Context, userAgent []byte, start time.Time, end time.Time) ([]*BucketUsage, error)
 	// QueryAllAttribution queries all partner bucket usage data.

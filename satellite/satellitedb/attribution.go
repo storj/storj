@@ -70,6 +70,25 @@ func (keys *attributionDB) UpdateUserAgent(ctx context.Context, projectID uuid.U
 	return err
 }
 
+// UpdatePlacement updates bucket placement.
+func (keys *attributionDB) UpdatePlacement(ctx context.Context, projectID uuid.UUID, bucketName string, placement *storj.PlacementConstraint) (err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	updateFields := dbx.ValueAttribution_Update_Fields{}
+	if placement == nil {
+		updateFields.Placement = dbx.ValueAttribution_Placement_Null()
+	} else {
+		updateFields.Placement = dbx.ValueAttribution_Placement(int(*placement))
+	}
+
+	_, err = keys.db.Update_ValueAttribution_By_ProjectId_And_BucketName(ctx,
+		dbx.ValueAttribution_ProjectId(projectID[:]),
+		dbx.ValueAttribution_BucketName([]byte(bucketName)),
+		updateFields)
+
+	return err
+}
+
 // Insert implements create partner info.
 func (keys *attributionDB) Insert(ctx context.Context, info *attribution.Info) (_ *attribution.Info, err error) {
 	defer mon.Task()(&ctx)(&err)
