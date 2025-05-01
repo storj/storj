@@ -87,6 +87,7 @@ type Store struct {
 
 		logsRewritten atomic.Uint64 // bumped when a log file is marked to be rewritten
 		dataRewritten atomic.Uint64 // bumped whenever a record is rewritten with the length of the record
+		dataReclaimed atomic.Uint64 // bumped whenever a log is unlinked with the length of the log
 
 		cached           atomic.Pointer[StoreStats] // set during compaction to maintain consistency of Stats calls
 		startTime        atomic.Value               // time of the start of the current compaction
@@ -303,6 +304,7 @@ type StoreStats struct {
 	LastCompact   uint32      // the date of the last compaction.
 	LogsRewritten uint64      // number of log files attempted to be rewritten.
 	DataRewritten memory.Size // number of bytes rewritten in the log files.
+	DataReclaimed memory.Size // number of bytes reclaimed in the log files.
 	Table         TblStats    // stats about the hash table.
 
 	Compaction struct { // stats about the current compaction
@@ -331,6 +333,10 @@ func (s *Store) Stats() StoreStats {
 		stats.Compaction.Remaining = remaining
 		stats.Compaction.TotalRecords = total
 		stats.Compaction.ProcessedRecords = processed
+
+		stats.LogsRewritten = s.stats.logsRewritten.Load()
+		stats.DataRewritten = memory.Size(s.stats.dataRewritten.Load())
+		stats.DataReclaimed = memory.Size(s.stats.dataReclaimed.Load())
 
 		return stats
 	}
@@ -374,6 +380,7 @@ func (s *Store) Stats() StoreStats {
 		LastCompact:   s.stats.lastCompact.Load(),
 		LogsRewritten: s.stats.logsRewritten.Load(),
 		DataRewritten: memory.Size(s.stats.dataRewritten.Load()),
+		DataReclaimed: memory.Size(s.stats.dataReclaimed.Load()),
 		Table:         stats,
 	}
 }
@@ -798,9 +805,6 @@ func (s *Store) compactOnce(
 		return false, err
 	}
 
-	// update the total number of records expected to be processed in this compaction.
-	s.stats.totalRecords.Store(nexist)
-
 	// calculate a hash table size so that it targets just under a 0.5 load factor.
 	logSlots := uint64(bits.Len64(nset)) + 1
 	if logSlots < tbl_minLogSlots {
@@ -933,6 +937,8 @@ func (s *Store) compactOnce(
 	restoredBytes := uint64(0)
 	expiredRecords := uint64(0)
 	expiredBytes := uint64(0)
+	reclaimedLogs := uint64(0)
+	reclaimedBytes := uint64(0)
 
 	// keep track of all of the rewritten records
 	ri := new(rewrittenIndex)
@@ -964,8 +970,14 @@ func (s *Store) compactOnce(
 		// sort by log and offset so that we can rewrite them in disk order.
 		ri.sortByLogOff()
 
+		// update the total number of records expected to be rewritten in this compaction.
+		s.stats.totalRecords.Store(uint64(len(ri.records)))
+		s.stats.processedRecords.Store(0)
+
 		// rewrite each record and update the record in the index.
 		for i := range ri.records {
+			s.stats.processedRecords.Add(1) // bump the number of records processed for progress reporting.
+
 			err := func() error {
 				if err := ctx.Err(); err != nil {
 					return err
@@ -1002,10 +1014,13 @@ func (s *Store) compactOnce(
 				zap.Duration("duration", time.Since(rewriteStart)),
 			)
 		}
+
 	}
 
-	// update the beginning of the write time for progress reporting.
+	// update the values for progress reporting.
 	s.stats.writeTime.Store(time.Now())
+	s.stats.totalRecords.Store(nexist)
+	s.stats.processedRecords.Store(0)
 
 	// copy all of the entries from the hash table to the new table, skipping expired entries, and
 	// rewriting any entries that are in the log files that we are rewriting.
@@ -1112,23 +1127,6 @@ func (s *Store) compactOnce(
 		return false, Error.New("unable to commit newly compacted hashtbl: %w", err)
 	}
 
-	// log information about important events that happened to records during the writing of the new
-	// hashtbl.
-	if ce := s.log.Check(zapcore.InfoLevel, "hashtbl rewritten"); ce != nil {
-		ce.Write(
-			zap.Uint64("total records", totalRecords),
-			zap.String("total bytes", memory.FormatBytes(int64(totalBytes))),
-			zap.Uint64("rewritten records", rewrittenRecords),
-			zap.String("rewritten bytes", memory.FormatBytes(int64(rewrittenBytes))),
-			zap.Uint64("trashed records", trashedRecords),
-			zap.String("trashed bytes", memory.FormatBytes(int64(trashedBytes))),
-			zap.Uint64("restored records", restoredRecords),
-			zap.String("restored bytes", memory.FormatBytes(int64(restoredBytes))),
-			zap.Uint64("expired records", expiredRecords),
-			zap.String("expired bytes", memory.FormatBytes(int64(expiredBytes))),
-		)
-	}
-
 	// swap the new hash table in and collect the set of log files to remove. we don't close and
 	// remove the log files while holding the lock to avoid doing i/o while blocking readers.
 	s.rmu.Lock()
@@ -1154,6 +1152,11 @@ func (s *Store) compactOnce(
 	for _, lf := range toRemove {
 		lf.Close()
 		lf.Remove()
+
+		s.stats.dataReclaimed.Add(lf.size.Load())
+
+		reclaimedLogs++
+		reclaimedBytes += lf.size.Load()
 	}
 
 	// best effort sync the directories now that we are done with mutations.
@@ -1167,6 +1170,26 @@ func (s *Store) compactOnce(
 		s.lfc.Include(lf)
 		return true, nil
 	})
+
+	// log information about important events that happened to records during the writing of the new
+	// hashtbl.
+	if ce := s.log.Check(zapcore.InfoLevel, "hashtbl rewritten"); ce != nil {
+		ce.Write(
+			zap.Duration("duration", time.Since(s.stats.writeTime.Load().(time.Time))),
+			zap.Uint64("total records", totalRecords),
+			zap.String("total bytes", memory.FormatBytes(int64(totalBytes))),
+			zap.Uint64("rewritten records", rewrittenRecords),
+			zap.String("rewritten bytes", memory.FormatBytes(int64(rewrittenBytes))),
+			zap.Uint64("trashed records", trashedRecords),
+			zap.String("trashed bytes", memory.FormatBytes(int64(trashedBytes))),
+			zap.Uint64("restored records", restoredRecords),
+			zap.String("restored bytes", memory.FormatBytes(int64(restoredBytes))),
+			zap.Uint64("expired records", expiredRecords),
+			zap.String("expired bytes", memory.FormatBytes(int64(expiredBytes))),
+			zap.Uint64("reclaimed logs", reclaimedLogs),
+			zap.String("reclaimed bytes", memory.FormatBytes(int64(reclaimedBytes))),
+		)
+	}
 
 	// if we rewrote every log file that we could potentially rewrite, then we're done. len is
 	// sufficient here because rewrite is a subset of rewriteCandidates. also if our rewrite
