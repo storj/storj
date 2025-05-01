@@ -132,13 +132,6 @@ func RecordsEqualish(a, b Record) bool {
 	return a == b
 }
 
-// RecordsEqualExceptLocation returns true if the records are equal except for the location.
-func RecordsEqualExceptLocation(a, b Record) bool {
-	a.Offset, b.Offset = 0, 0
-	a.Log, b.Log = 0, 0
-	return a == b
-}
-
 func checksumBuffer(buf *[RecordSize]byte) uint64 { return xxh3.Hash(buf[0:56]) >> 1 }
 
 // WriteTo stores the record and its checksum into the buffer.

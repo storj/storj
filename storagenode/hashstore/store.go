@@ -516,7 +516,7 @@ func (s *Store) Create(ctx context.Context, key Key, expires time.Time) (w *Writ
 
 	// return the automatic writer for the piece that unlocks and commits the record into the hash
 	// table on Close.
-	return newAutomaticWriter(ctx, s, key, exp), nil
+	return newWriter(ctx, s, key, exp), nil
 }
 
 // Read returns a Reader that reads data from the store. The Reader will be nil if the key does not
@@ -1192,7 +1192,7 @@ func (s *Store) rewriteRecord(ctx context.Context, rec Record, rewriteCandidates
 	// there is only one reader that uses the pos and it must be us.
 	var from io.Reader = r
 	if _, err := r.lf.fh.Seek(int64(rec.Offset), io.SeekStart); err == nil {
-		from = io.LimitReader(r.lf.fh, int64(rec.Length))
+		from = r.lf.fh // we use io.CopyN below so it will be limited by the length.
 	}
 
 	// acquire a log file to write the entry into. if we're rewriting that log file
@@ -1204,27 +1204,37 @@ func (s *Store) rewriteRecord(ctx context.Context, rec Record, rewriteCandidates
 			return rec, Error.Wrap(err)
 		}
 	}
+	defer s.lfc.Include(into)
 
-	// create a Writer to handle writing the entry into the log file. manual mode is set
-	// so that it doesn't attempt to add the record to the current hash table or unlock
-	// the active mutex upon Close or Cancel.
-	w := newManualWriter(ctx, s, into, rec.Key, rec.Created, rec.Expires)
-	defer w.Cancel()
+	// keep track of the log file offset so we can update the record later.
+	offset := into.size.Load()
 
 	// copy the record data.
-	if _, err := io.Copy(w, from); err != nil {
+	if _, err := io.CopyN(into.fh, from, int64(rec.Length)); err != nil {
+		// if we couldn't write the data, we should abort the write operation and attempt to reclaim
+		// space by seeking backwards to the record offset.
+		_, _ = into.fh.Seek(int64(offset), io.SeekStart)
 		return rec, Error.New("writing into compacted log: %w", err)
 	}
 
-	// finalize the data in the log file.
-	if err := w.Close(); err != nil {
-		return rec, Error.New("closing compacted log: %w", err)
+	// update the record location.
+	rec.Log = into.id
+	rec.Offset = offset
+
+	// append the record to the log file for reconstruction.
+	var buf [RecordSize]byte
+	rec.WriteTo(&buf)
+
+	if _, err := into.fh.Write(buf[:]); err != nil {
+		// if we can't add the record, we should abort the write operation and attempt to reclaim
+		// space by seeking backwards to the record offset.
+		_, _ = into.fh.Seek(int64(offset), io.SeekStart)
+		return rec, Error.New("writing record into compacted log: %w", err)
 	}
 
-	// get the updated record information from the writer and ensure the only thing that changed
-	// is the log and offset fields.
-	if !RecordsEqualExceptLocation(rec, w.rec) {
-		return rec, Error.New("rewritten record does not match original record. orig=%v new=%v", rec, w.rec)
-	}
-	return w.rec, nil
+	// increase our in-memory estimate of the size of the log file for sorting.
+	into.size.Add(uint64(rec.Length) + RecordSize)
+
+	// return the updated record.
+	return rec, nil
 }
