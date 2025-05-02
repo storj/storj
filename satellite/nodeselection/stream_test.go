@@ -4,16 +4,17 @@
 package nodeselection
 
 import (
+	"context"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
 	"storj.io/common/storj"
+	"storj.io/common/testcontext"
 )
 
 func TestGroupConstraint(t *testing.T) {
-
 	attribute := func(node SelectedNode) string {
 		return node.LastNet
 	}
@@ -32,6 +33,9 @@ func TestGroupConstraint(t *testing.T) {
 }
 
 func TestStreamFilter(t *testing.T) {
+	ctx := testcontext.New(t)
+	defer ctx.Cleanup()
+
 	// Create test nodes
 	nodes := []*SelectedNode{
 		{ID: storj.NodeID{1}, LastNet: "net1"},
@@ -42,9 +46,9 @@ func TestStreamFilter(t *testing.T) {
 	}
 
 	// Create a simple stream that returns nodes in order
-	baseStream := func(requester storj.NodeID, excluded []storj.NodeID, alreadySelected []*SelectedNode) NodeSequence {
+	baseStream := func(ctx context.Context, requester storj.NodeID, excluded []storj.NodeID, alreadySelected []*SelectedNode) NodeSequence {
 		i := 0
-		return func() *SelectedNode {
+		return func(ctx context.Context) *SelectedNode {
 			if i >= len(nodes) {
 				return nil
 			}
@@ -63,27 +67,30 @@ func TestStreamFilter(t *testing.T) {
 	filteredStream := StreamFilter(filter)(baseStream)
 
 	// Test the filtered stream
-	sequence := filteredStream(storj.NodeID{}, nil, nil)
+	sequence := filteredStream(ctx, storj.NodeID{}, nil, nil)
 
 	// We should get nodes 3, 4, and 5 (with LastNet != "net1")
-	node := sequence()
+	node := sequence(ctx)
 	require.NotNil(t, node)
 	assert.Equal(t, storj.NodeID{3}, node.ID)
 
-	node = sequence()
+	node = sequence(ctx)
 	require.NotNil(t, node)
 	assert.Equal(t, storj.NodeID{4}, node.ID)
 
-	node = sequence()
+	node = sequence(ctx)
 	require.NotNil(t, node)
 	assert.Equal(t, storj.NodeID{5}, node.ID)
 
 	// No more nodes
-	node = sequence()
+	node = sequence(ctx)
 	assert.Nil(t, node)
 }
 
 func TestStream(t *testing.T) {
+	ctx := testcontext.New(t)
+	defer ctx.Cleanup()
+
 	// Create test nodes
 	allNodes := []*SelectedNode{
 		{ID: storj.NodeID{1}},
@@ -95,9 +102,9 @@ func TestStream(t *testing.T) {
 
 	// Create a simple seed function
 	seed := func(nodes []*SelectedNode) NodeStream {
-		return func(requester storj.NodeID, excluded []storj.NodeID, alreadySelected []*SelectedNode) NodeSequence {
+		return func(ctx context.Context, requester storj.NodeID, excluded []storj.NodeID, alreadySelected []*SelectedNode) NodeSequence {
 			i := 0
-			return func() *SelectedNode {
+			return func(ctx context.Context) *SelectedNode {
 				if i >= len(nodes) {
 					return nil
 				}
@@ -112,10 +119,10 @@ func TestStream(t *testing.T) {
 	selector := Stream(seed)
 
 	// Initialize the selector with all nodes and no filter
-	nodeSelector := selector(allNodes, nil)
+	nodeSelector := selector(ctx, allNodes, nil)
 
 	// Test selecting 3 nodes
-	selected, err := nodeSelector(storj.NodeID{}, 3, nil, nil)
+	selected, err := nodeSelector(ctx, storj.NodeID{}, 3, nil, nil)
 	require.NoError(t, err)
 	require.Len(t, selected, 3)
 	assert.Equal(t, storj.NodeID{1}, selected[0].ID)
@@ -124,7 +131,7 @@ func TestStream(t *testing.T) {
 
 	// Test with exclusions
 	excluded := []storj.NodeID{{1}, {2}}
-	selected, err = nodeSelector(storj.NodeID{}, 3, excluded, nil)
+	selected, err = nodeSelector(ctx, storj.NodeID{}, 3, excluded, nil)
 	require.NoError(t, err)
 	require.Len(t, selected, 3)
 	assert.Equal(t, storj.NodeID{3}, selected[0].ID)
@@ -132,11 +139,14 @@ func TestStream(t *testing.T) {
 	assert.Equal(t, storj.NodeID{5}, selected[2].ID)
 
 	// Test requesting more nodes than available
-	_, err = nodeSelector(storj.NodeID{}, 6, nil, nil)
+	_, err = nodeSelector(ctx, storj.NodeID{}, 6, nil, nil)
 	require.Error(t, err)
 }
 
 func TestRandomStream(t *testing.T) {
+	ctx := testcontext.New(t)
+	defer ctx.Cleanup()
+
 	// Create test nodes
 	allNodes := []*SelectedNode{
 		{ID: storj.NodeID{1}},
@@ -148,12 +158,12 @@ func TestRandomStream(t *testing.T) {
 
 	// Create a random stream
 	stream := RandomStream(allNodes)
-	sequence := stream(storj.NodeID{}, nil, nil)
+	sequence := stream(ctx, storj.NodeID{}, nil, nil)
 
 	// Collect all nodes from the stream
 	var selectedNodes []*SelectedNode
 	for {
-		node := sequence()
+		node := sequence(ctx)
 		if node == nil {
 			break
 		}
@@ -165,11 +175,11 @@ func TestRandomStream(t *testing.T) {
 
 	// Test with exclusions
 	excluded := []storj.NodeID{{1}, {3}}
-	sequence = stream(storj.NodeID{}, excluded, nil)
+	sequence = stream(ctx, storj.NodeID{}, excluded, nil)
 
 	selectedNodes = nil
 	for {
-		node := sequence()
+		node := sequence(ctx)
 		if node == nil {
 			break
 		}
@@ -184,6 +194,9 @@ func TestRandomStream(t *testing.T) {
 }
 
 func TestChoiceOfNStream(t *testing.T) {
+	ctx := testcontext.New(t)
+	defer ctx.Cleanup()
+
 	// Create test nodes
 	allNodes := []*SelectedNode{
 		{ID: storj.NodeID{1}, LastNet: "net1"},
@@ -194,9 +207,9 @@ func TestChoiceOfNStream(t *testing.T) {
 	}
 
 	// Create a simple base stream
-	baseStream := func(requester storj.NodeID, excluded []storj.NodeID, alreadySelected []*SelectedNode) NodeSequence {
+	baseStream := func(ctx context.Context, requester storj.NodeID, excluded []storj.NodeID, alreadySelected []*SelectedNode) NodeSequence {
 		i := 0
-		return func() *SelectedNode {
+		return func(ctx context.Context) *SelectedNode {
 			if i >= len(allNodes) {
 				return nil
 			}
@@ -216,8 +229,8 @@ func TestChoiceOfNStream(t *testing.T) {
 	choiceStream := ChoiceOfNStream(3, scoreNode)(baseStream)
 
 	for i := 0; i < 100; i++ {
-		sequence := choiceStream(storj.NodeID{}, nil, nil)
-		node := sequence()
+		sequence := choiceStream(ctx, storj.NodeID{}, nil, nil)
+		node := sequence(ctx)
 		require.NotNil(t, node)
 		// even the worst case scenario (1,2,3 selected), the 3 is the best score
 		assert.Greater(t, int(node.ID[0]), 2)

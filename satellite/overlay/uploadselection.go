@@ -82,7 +82,7 @@ func (cache *UploadSelectionCache) read(ctx context.Context) (_ nodeselection.St
 
 	var allNodes = append(append([]*nodeselection.SelectedNode{}, reputableNodes...), newNodes...)
 	reportMetrics(allNodes, cache.placements)
-	state := nodeselection.NewState(allNodes, cache.placements)
+	state := nodeselection.InitState(ctx, allNodes, cache.placements)
 	return state, nil
 }
 
@@ -140,7 +140,7 @@ func (cache *UploadSelectionCache) GetNodes(ctx context.Context, req FindStorage
 		return nil, Error.Wrap(err)
 	}
 
-	nodes, err := state.Select(req.Requester, req.Placement, req.RequestedCount, req.ExcludedIDs, req.AlreadySelected)
+	nodes, err := state.Select(ctx, req.Requester, req.Placement, req.RequestedCount, req.ExcludedIDs, req.AlreadySelected)
 	if nodeselection.ErrNotEnoughNodes.Has(err) {
 		err = ErrNotEnoughNodes.Wrap(err)
 	}
