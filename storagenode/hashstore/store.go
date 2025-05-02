@@ -42,10 +42,10 @@ var (
 
 	// power to rase the rewrite probability to. >1 means must be closer to the alive fraction
 	// to be compacted, <1 means the opposite.
-	compaction_ProbabilityPower = envFloat("STORJ_HASHSTORE_COMPACTION_PROBABILITY_POWER", 1.0)
+	compaction_ProbabilityPower = envFloat("STORJ_HASHSTORE_COMPACTION_PROBABILITY_POWER", 2.0)
 
 	// multiple of the hashtbl to rewrite in a single compaction.
-	compaction_RewriteMultiple = envFloat("STORJ_HASHSTORE_COMPACTION_REWRITE_MULTIPLE", 1)
+	compaction_RewriteMultiple = envFloat("STORJ_HASHSTORE_COMPACTION_REWRITE_MULTIPLE", 10)
 
 	// if set, deletes all trash immediately instead of after the ttl.
 	compaction_DeleteTrashImmediately = envBool("STORJ_HASHSTORE_COMPACTION_DELETE_TRASH_IMMEDIATELY", false)
