@@ -11,12 +11,15 @@ import (
 
 	"storj.io/common/identity/testidentity"
 	"storj.io/common/storj"
+	"storj.io/common/testcontext"
 	"storj.io/common/testrand"
 	"storj.io/storj/satellite/metabase"
 	"storj.io/storj/shared/location"
 )
 
 func TestParsedConfig(t *testing.T) {
+	ctx := testcontext.New(t)
+	defer ctx.Cleanup()
 
 	config, err := LoadConfig("config_test.yaml", NewPlacementConfigEnvironment(mockTracker{}, nil))
 	require.NoError(t, err)
@@ -98,11 +101,11 @@ func TestParsedConfig(t *testing.T) {
 
 	{
 		// checking a selector
-		selected, err := config[0].Selector([]*SelectedNode{
+		selected, err := config[0].Selector(ctx, []*SelectedNode{
 			{
 				Vetted: false,
 			},
-		}, nil)(storj.NodeID{}, 1, nil, nil)
+		}, nil)(ctx, storj.NodeID{}, 1, nil, nil)
 
 		// having: new, requires: 0% unvetted = 100% vetted
 		require.Len(t, selected, 0)
@@ -111,7 +114,7 @@ func TestParsedConfig(t *testing.T) {
 
 	{
 		// smoketest for creating choice of two selector
-		selected, err := config[2].Selector(
+		selected, err := config[2].Selector(ctx,
 			[]*SelectedNode{
 				{
 					ID: testrand.NodeID(),
@@ -123,7 +126,7 @@ func TestParsedConfig(t *testing.T) {
 					ID: testrand.NodeID(),
 				},
 			}, nil,
-		)(storj.NodeID{}, 1, nil, nil)
+		)(ctx, storj.NodeID{}, 1, nil, nil)
 
 		require.Len(t, selected, 1)
 		require.NoError(t, err)
@@ -131,13 +134,16 @@ func TestParsedConfig(t *testing.T) {
 }
 
 func TestParsedConfigWithoutTracker(t *testing.T) {
+	ctx := testcontext.New(t)
+	defer ctx.Cleanup()
+
 	// tracker is not available for certain microservices (like repair). Still the placement should work.
 	config, err := LoadConfig("config_test.yaml", NewPlacementConfigEnvironment(nil, nil))
 	require.NoError(t, err)
 	require.Len(t, config, 15)
 
 	// smoketest for creating choice of two selector
-	selected, err := config[2].Selector(
+	selected, err := config[2].Selector(ctx,
 		[]*SelectedNode{
 			{
 				ID: testrand.NodeID(),
@@ -149,7 +155,7 @@ func TestParsedConfigWithoutTracker(t *testing.T) {
 				ID: testrand.NodeID(),
 			},
 		}, nil,
-	)(storj.NodeID{}, 1, nil, nil)
+	)(ctx, storj.NodeID{}, 1, nil, nil)
 
 	require.Len(t, selected, 1)
 	require.NoError(t, err)
@@ -170,6 +176,9 @@ func TestFilterFromString(t *testing.T) {
 }
 
 func TestSelectorFromString(t *testing.T) {
+	ctx := testcontext.New(t)
+	defer ctx.Cleanup()
+
 	selector, err := SelectorFromString(`filter(exclude(nodelist("filter_testdata.txt")),random())`, nil)
 	require.NoError(t, err)
 
@@ -181,10 +190,10 @@ func TestSelectorFromString(t *testing.T) {
 		})
 	}
 
-	initialized := selector(nodes, nil)
+	initialized := selector(ctx, nodes, nil)
 
 	for i := 0; i < 100; i++ {
-		selected, err := initialized(storj.NodeID{}, 1, []storj.NodeID{}, nil)
+		selected, err := initialized(ctx, storj.NodeID{}, 1, []storj.NodeID{}, nil)
 		require.NoError(t, err)
 		require.Len(t, selected, 1)
 		require.NotEqual(t, testidentity.MustPregeneratedIdentity(1, storj.LatestIDVersion()).ID, selected[0].ID)
