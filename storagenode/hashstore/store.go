@@ -11,6 +11,7 @@ import (
 	"math/bits"
 	"os"
 	"path/filepath"
+	"sort"
 	"strconv"
 	"strings"
 	"sync"
@@ -863,11 +864,21 @@ func (s *Store) compactOnce(
 		}
 	}
 
+	// sort the rewrite candidates by the amount of dead data in them. log files with more dead data
+	// reclaim more space per amount of data rewritten, so do them first to minimize cost.
+	rewriteCandidatesByDead := maps.Keys(rewriteCandidates)
+	sort.Slice(rewriteCandidatesByDead, func(i, j int) bool {
+		deadI := total[rewriteCandidatesByDead[i]] - alive[rewriteCandidatesByDead[i]]
+		deadJ := total[rewriteCandidatesByDead[j]] - alive[rewriteCandidatesByDead[j]]
+		return deadI > deadJ
+	})
+
 	// limit the number of log files we rewrite in a single compaction to so that we write around
-	// the amount of a size of the new hashtbl. this bounds the extra space necessary to compact.
+	// the amount of a size of the new hashtbl times the multiple. this bounds the extra space
+	// necessary to compact.
 	rewrite := make(map[uint64]bool)
 	target := uint64(float64(hashtblSize(logSlots)) * compaction_RewriteMultiple)
-	for id := range rewriteCandidates {
+	for _, id := range rewriteCandidatesByDead {
 		if alive[id] <= target {
 			rewrite[id] = true
 			target -= alive[id]
@@ -887,14 +898,19 @@ func (s *Store) compactOnce(
 	// log about the compaction read stats, skipping the construction of the slices for which logs
 	// we are rewriting if the log level is disabled.
 	if ce := s.log.Check(zapcore.InfoLevel, "compaction computed details"); ce != nil {
+		rewriteSorted := maps.Keys(rewrite)
+		sort.Slice(rewriteSorted, func(i, j int) bool {
+			return rewriteSorted[i] < rewriteSorted[j]
+		})
+
 		ce.Write(
 			zap.Uint64("nset", nset),
 			zap.Uint64("nexist", nexist),
 			zap.Bool("modifications", modifications),
 			zap.Uint64("curr logSlots", s.tbl.LogSlots()),
 			zap.Uint64("next logSlots", logSlots),
-			zap.Uint64s("candidates", maps.Keys(rewriteCandidates)),
-			zap.Uint64s("rewrite", maps.Keys(rewrite)),
+			zap.Uint64s("candidates", rewriteCandidatesByDead),
+			zap.Uint64s("rewrite", rewriteSorted),
 			zap.Duration("duration", time.Since(start)),
 		)
 	}
