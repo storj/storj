@@ -417,6 +417,72 @@ func TestQueueDelete(t *testing.T) {
 	require.Zero(t, retryLen)
 }
 
+func TestQueueFull(t *testing.T) {
+	const maxItems = 10
+	queue, err := jobqueue.NewQueue(zaptest.NewLogger(t), time.Hour, maxItems, maxItems, maxItems+1)
+	require.NoError(t, err)
+
+	// create and insert stream IDs
+	jobs := make([]jobq.RepairJob, maxItems)
+	for i := range jobs {
+		jobs[i].ID.StreamID = mustUUID()
+		jobs[i].ID.Position = rand.Uint64()
+		jobs[i].Health = float64(i)
+		jobs[i].Placement = 42
+	}
+	for _, job := range jobs {
+		wasNew := queue.Insert(job)
+		require.True(t, wasNew)
+	}
+	repairLen, _ := queue.Len()
+	require.Equal(t, int64(maxItems), repairLen)
+
+	// insert one more; the healthiest one (jobs[len(jobs)-1]) should be removed
+	// so we'll replace it here
+	jobs[len(jobs)-1] = jobq.RepairJob{
+		ID:        jobq.SegmentIdentifier{StreamID: mustUUID(), Position: rand.Uint64()},
+		Health:    float64(maxItems),
+		Placement: 42,
+	}
+	wasNew := queue.Insert(jobs[len(jobs)-1])
+	require.True(t, wasNew)
+
+	// should be maxItems items still
+	repairLen, _ = queue.Len()
+	require.Equal(t, int64(maxItems), repairLen)
+
+	// insert one job into the retry queue instead; the healthiest job from the
+	// repair queue should be evicted
+	retryJob := jobq.RepairJob{
+		ID:              jobq.SegmentIdentifier{StreamID: mustUUID(), Position: rand.Uint64()},
+		Health:          float64(maxItems + 1),
+		Placement:       42,
+		LastAttemptedAt: uint64(time.Now().Add(-time.Minute).Unix()),
+	}
+	wasNew = queue.Insert(retryJob)
+	require.True(t, wasNew)
+
+	repairLen, retryLen := queue.Len()
+	require.Equal(t, int64(9), repairLen)
+	require.Equal(t, int64(1), retryLen)
+
+	// pop all and check
+	for i := 0; i < maxItems-1; i++ {
+		gotJob, ok := queue.Pop()
+		require.True(t, ok)
+		require.Equal(t, jobs[i].ID.StreamID, gotJob.ID.StreamID)
+		require.Equal(t, jobs[i].ID.Position, gotJob.ID.Position)
+		require.Equal(t, jobs[i].Health, gotJob.Health)
+	}
+	_, ok := queue.Pop()
+	require.False(t, ok)
+
+	// combined len should still be 1 (1 in retry queue)
+	repairLen, retryLen = queue.Len()
+	require.Equal(t, int64(0), repairLen)
+	require.Equal(t, int64(1), retryLen)
+}
+
 func TestPeekNMultipleQueues(t *testing.T) {
 	queue, err := jobqueue.NewQueue(zaptest.NewLogger(t), time.Hour, 100, 0, 10)
 	require.NoError(t, err)
