@@ -8,7 +8,6 @@ import (
 	"encoding/hex"
 	"fmt"
 	"os"
-	"sort"
 	"sync"
 	"testing"
 	"time"
@@ -424,37 +423,12 @@ func (db *metabaseMock) GetSegmentByPosition(ctx context.Context, opts metabase.
 	return metabase.Segment{}, metabase.ErrSegmentNotFound.New("%v", opts)
 }
 
-func (db *metabaseMock) ListBucketsStreamIDs(ctx context.Context, opts metabase.ListBucketsStreamIDs) (metabase.ListBucketsStreamIDsResult, error) {
-	result := metabase.ListBucketsStreamIDsResult{}
-
-	for _, bucket := range opts.BucketList.Buckets {
-		if bucket.ProjectID.Compare(opts.CursorBucket.ProjectID) <= 0 {
-			continue
-		}
-		if bucket.BucketName <= opts.CursorBucket.BucketName {
-			continue
-		}
-		if opts.CursorStreamID.IsZero() {
-			result.StreamIDs = append(result.StreamIDs, db.streamIDsPerBucket[bucket]...)
-			continue
-		}
-		for cursorIndex, streamID := range db.streamIDsPerBucket[bucket] {
-			if opts.CursorStreamID.Less(streamID) {
-				result.StreamIDs = append(result.StreamIDs, db.streamIDsPerBucket[bucket][cursorIndex:]...)
-				break
-			}
-		}
-		if len(result.StreamIDs) > opts.Limit {
-			break
-		}
+func (db *metabaseMock) ListBucketStreamIDs(ctx context.Context, opts metabase.ListBucketStreamIDs, process func(ctx context.Context, streamIDs []uuid.UUID) error) (err error) {
+	streamIDs := db.streamIDsPerBucket[opts.Bucket]
+	if len(streamIDs) > 0 {
+		return process(ctx, streamIDs)
 	}
-	if len(result.StreamIDs) > opts.Limit {
-		result.StreamIDs = result.StreamIDs[:opts.Limit]
-	}
-	sort.Slice(result.StreamIDs, func(i, j int) bool {
-		return result.StreamIDs[i].Less(result.StreamIDs[j])
-	})
-	return result, nil
+	return nil
 }
 
 func (db *metabaseMock) ListVerifySegments(ctx context.Context, opts metabase.ListVerifySegments) (result metabase.ListVerifySegmentsResult, err error) {

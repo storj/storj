@@ -37,7 +37,7 @@ type Metabase interface {
 	LatestNodesAliasMap(ctx context.Context) (*metabase.NodeAliasMap, error)
 	GetSegmentByPosition(ctx context.Context, opts metabase.GetSegmentByPosition) (segment metabase.Segment, err error)
 	ListVerifySegments(ctx context.Context, opts metabase.ListVerifySegments) (result metabase.ListVerifySegmentsResult, err error)
-	ListBucketsStreamIDs(ctx context.Context, opts metabase.ListBucketsStreamIDs) (result metabase.ListBucketsStreamIDsResult, err error)
+	ListBucketStreamIDs(ctx context.Context, opts metabase.ListBucketStreamIDs, f func(ctx context.Context, streamIDs []uuid.UUID) error) (err error)
 }
 
 // Verifier verifies a batch of segments.
@@ -378,83 +378,67 @@ func (service *Service) ProcessBuckets(ctx context.Context, buckets []metabase.B
 
 	var progress int64
 
-	cursorBucket := metabase.BucketLocation{}
 	cursorStreamID := uuid.UUID{}
 	cursorPosition := metabase.SegmentPosition{} // Convert to struct that contains the status.
 	segmentsData := make([]Segment, service.config.BatchSize)
 	segments := make([]*Segment, service.config.BatchSize)
-	for {
 
-		listStreamIDsResult, err := service.metabase.ListBucketsStreamIDs(ctx, metabase.ListBucketsStreamIDs{
-			BucketList: metabase.ListVerifyBucketList{
-				Buckets: buckets,
-			},
-			CursorBucket:   cursorBucket,
-			CursorStreamID: cursorStreamID,
-			Limit:          service.config.BatchSize,
-
+	for _, bucket := range buckets {
+		err := service.metabase.ListBucketStreamIDs(ctx, metabase.ListBucketStreamIDs{
+			Bucket:             bucket,
 			AsOfSystemInterval: service.config.AsOfSystemInterval,
+		}, func(ctx context.Context, streamIDs []uuid.UUID) error {
+
+			for {
+				result, err := service.metabase.ListVerifySegments(ctx, metabase.ListVerifySegments{
+					StreamIDs:      streamIDs,
+					CursorStreamID: cursorStreamID,
+					CursorPosition: cursorPosition,
+					Limit:          service.config.BatchSize,
+
+					AsOfSystemInterval: service.config.AsOfSystemInterval,
+				})
+				if err != nil {
+					return Error.Wrap(err)
+				}
+
+				// All done?
+				if len(result.Segments) == 0 {
+					break
+				}
+
+				segmentsData = segmentsData[:len(result.Segments)]
+				segments = segments[:len(result.Segments)]
+
+				last := &result.Segments[len(result.Segments)-1]
+				cursorStreamID, cursorPosition = last.StreamID, last.Position
+
+				for i := range segments {
+					segmentsData[i].VerifySegment = result.Segments[i]
+					segments[i] = &segmentsData[i]
+				}
+
+				service.log.Info("processing segments",
+					zap.Int64("progress", progress),
+					zap.Int("count", len(segments)),
+					zap.Stringer("first", segments[0].StreamID),
+					zap.Stringer("last", segments[len(segments)-1].StreamID),
+				)
+				progress += int64(len(segments))
+
+				// Process the data.
+				err = service.ProcessSegments(ctx, segments)
+				if err != nil {
+					return Error.Wrap(err)
+				}
+			}
+			return nil
 		})
 		if err != nil {
 			return Error.Wrap(err)
 		}
-		if len(listStreamIDsResult.StreamIDs) == 0 {
-			// No more stream IDs to process.
-			return nil
-		}
-
-		for {
-			// TODO loop for this
-			result, err := service.metabase.ListVerifySegments(ctx, metabase.ListVerifySegments{
-				StreamIDs:      listStreamIDsResult.StreamIDs,
-				CursorStreamID: cursorStreamID,
-				CursorPosition: cursorPosition,
-				Limit:          service.config.BatchSize,
-
-				AsOfSystemInterval: service.config.AsOfSystemInterval,
-			})
-			if err != nil {
-				return Error.Wrap(err)
-			}
-
-			// All done?
-			if len(result.Segments) == 0 {
-				break
-			}
-
-			segmentsData = segmentsData[:len(result.Segments)]
-			segments = segments[:len(result.Segments)]
-
-			last := &result.Segments[len(result.Segments)-1]
-			cursorStreamID, cursorPosition = last.StreamID, last.Position
-
-			for i := range segments {
-				segmentsData[i].VerifySegment = result.Segments[i]
-				segments[i] = &segmentsData[i]
-			}
-
-			service.log.Info("processing segments",
-				zap.Int64("progress", progress),
-				zap.Int("count", len(segments)),
-				zap.Stringer("first", segments[0].StreamID),
-				zap.Stringer("last", segments[len(segments)-1].StreamID),
-			)
-			progress += int64(len(segments))
-
-			// Process the data.
-			err = service.ProcessSegments(ctx, segments)
-			if err != nil {
-				return Error.Wrap(err)
-			}
-		}
-
-		if len(listStreamIDsResult.StreamIDs) == 0 {
-			return nil
-		}
-
-		cursorBucket = listStreamIDsResult.LastBucket
-		// TODO remove processed project_ids and bucket_names?
 	}
+	return nil
 }
 
 // ProcessSegmentsFromCSV processes all segments from the specified CSV source, in

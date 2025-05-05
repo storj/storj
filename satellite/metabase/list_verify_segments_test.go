@@ -4,6 +4,7 @@
 package metabase_test
 
 import (
+	"context"
 	"testing"
 	"time"
 
@@ -274,17 +275,24 @@ func TestListVerifySegments(t *testing.T) {
 
 			}
 
-			opts := metabase.ListBucketsStreamIDs{
-				BucketList: bucketList,
-				Limit:      10,
+			allStreamIDs := []uuid.UUID{}
+
+			for _, bucket := range bucketList.Buckets {
+				opts := metabase.ListBucketStreamIDs{
+					Bucket: bucket,
+					Limit:  10,
+				}
+				err := db.ListBucketStreamIDs(ctx, opts, func(ctx context.Context, streamIDs []uuid.UUID) error {
+					allStreamIDs = append(allStreamIDs, streamIDs...)
+					return nil
+				})
+				require.NoError(t, err)
 			}
-			streamIDList, err := db.ListBucketsStreamIDs(ctx, opts)
-			require.NoError(t, err)
-			require.Len(t, streamIDList.StreamIDs, nbBuckets)
+			require.Len(t, allStreamIDs, nbBuckets)
 
 			metabasetest.ListVerifySegments{
 				Opts: metabase.ListVerifySegments{
-					StreamIDs: streamIDList.StreamIDs,
+					StreamIDs: allStreamIDs,
 					Limit:     5,
 				},
 				Result: metabase.ListVerifySegmentsResult{
@@ -365,13 +373,14 @@ func TestListVerifySegments(t *testing.T) {
 	})
 }
 
-func TestListBucketsStreamIDs(t *testing.T) {
+func TestListBucketStreamIDs(t *testing.T) {
 	metabasetest.Run(t, func(ctx *testcontext.Context, t *testing.T, db *metabase.DB) {
 		t.Run("many objects segments", func(t *testing.T) {
 			defer metabasetest.DeleteAll{}.Check(ctx, t, db)
 
 			nbBuckets := 3
 			bucketList := metabase.ListVerifyBucketList{}
+			expectedStreamIDs := []uuid.UUID{}
 			obj := metabasetest.RandObjectStream()
 			for i := 0; i < nbBuckets; i++ {
 				projectID := testrand.UUID()
@@ -382,25 +391,26 @@ func TestListBucketsStreamIDs(t *testing.T) {
 				obj.ProjectID = projectID
 				obj.BucketName = bucketName
 				obj.StreamID[0] = byte(i) // make StreamIDs ordered
-				_ = metabasetest.CreateObject(ctx, t, db, obj, 3)
+				object := metabasetest.CreateObject(ctx, t, db, obj, 3)
+				expectedStreamIDs = append(expectedStreamIDs, object.StreamID)
 				// create a un-related object
 				_ = metabasetest.CreateObject(ctx, t, db, metabasetest.RandObjectStream(), 2)
 
 			}
 
-			opts := metabase.ListBucketsStreamIDs{
-				BucketList: bucketList,
-
-				Limit: 10,
+			allStreamIDs := []uuid.UUID{}
+			for _, bucket := range bucketList.Buckets {
+				opts := metabase.ListBucketStreamIDs{
+					Bucket: bucket,
+					Limit:  10,
+				}
+				err := db.ListBucketStreamIDs(ctx, opts, func(ctx context.Context, streamIDs []uuid.UUID) error {
+					allStreamIDs = append(allStreamIDs, streamIDs...)
+					return nil
+				})
+				require.NoError(t, err)
 			}
-			listStreamIDsResult, err := db.ListBucketsStreamIDs(ctx, opts)
-			require.NoError(t, err)
-			require.Len(t, listStreamIDsResult.StreamIDs, nbBuckets)
-			require.Equal(t, obj.ProjectID, listStreamIDsResult.LastBucket.ProjectID)
-			require.Equal(t, obj.BucketName, listStreamIDsResult.LastBucket.BucketName)
-			require.Equal(t, obj.StreamID,
-				listStreamIDsResult.StreamIDs[len(listStreamIDsResult.StreamIDs)-1])
-			// TODO more test cases
+			require.Equal(t, expectedStreamIDs, allStreamIDs)
 		})
 	})
 }

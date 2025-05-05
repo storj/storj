@@ -271,155 +271,135 @@ func (list *ListVerifyBucketList) Add(projectID uuid.UUID, bucketName BucketName
 	})
 }
 
-// ListBucketsStreamIDsResult is the result of listing segments of a list of buckets.
-type ListBucketsStreamIDsResult struct {
-	StreamIDs  []uuid.UUID
-	Counts     []int
-	LastBucket BucketLocation
-}
+// ListBucketStreamIDs contains arguments necessary for listing stream segments from bucket.
+type ListBucketStreamIDs struct {
+	Bucket BucketLocation
+	Limit  int
 
-func (list *ListBucketsStreamIDsResult) addStreamID(streamID uuid.UUID, count int) {
-	list.StreamIDs = append(list.StreamIDs, streamID)
-	list.Counts = append(list.Counts, count)
-}
-
-// ListBucketsStreamIDs contains arguments necessary for listing stream segments from buckets.
-type ListBucketsStreamIDs struct {
-	BucketList     ListVerifyBucketList
-	CursorBucket   BucketLocation
-	CursorStreamID uuid.UUID
-	Limit          int
-
-	AsOfSystemTime     time.Time
 	AsOfSystemInterval time.Duration
 }
 
-// ListBucketsStreamIDs lists the streamIDs of a list of buckets.
-func (db *DB) ListBucketsStreamIDs(ctx context.Context, opts ListBucketsStreamIDs) (ListBucketsStreamIDsResult, error) {
+// ListBucketStreamIDs lists the streamIDs from a bucket.
+func (db *DB) ListBucketStreamIDs(ctx context.Context, opts ListBucketStreamIDs, f func(ctx context.Context, streamIDs []uuid.UUID) error) (err error) {
+	defer mon.Task()(&ctx)(&err)
 
 	if opts.Limit <= 0 {
-		return ListBucketsStreamIDsResult{}, ErrInvalidRequest.New("invalid limit: %d", opts.Limit)
+		return ErrInvalidRequest.New("invalid limit: %d", opts.Limit)
 	}
 	ListVerifyLimit.Ensure(&opts.Limit)
 
-	result := ListBucketsStreamIDsResult{}
-
-	bucketNamesBytes := [][]byte{}
-	projectIDs := []uuid.UUID{}
-	for _, bucket := range opts.BucketList.Buckets {
-		bucketNamesBytes = append(bucketNamesBytes, []byte(bucket.BucketName))
-		projectIDs = append(projectIDs, bucket.ProjectID)
-	}
-
 	for _, adapter := range db.adapters {
-		adapterResult, err := adapter.ListBucketsStreamIDs(ctx, opts, bucketNamesBytes, projectIDs)
-		if err != nil {
-			return ListBucketsStreamIDsResult{}, Error.Wrap(err)
-		}
-		result.StreamIDs = append(result.StreamIDs, adapterResult.StreamIDs...)
-		result.Counts = append(result.Counts, adapterResult.Counts...)
-		if adapterResult.LastBucket.Compare(result.LastBucket) > 0 {
-			result.LastBucket = adapterResult.LastBucket
+		if err := adapter.ListBucketStreamIDs(ctx, opts, f); err != nil {
+			return Error.Wrap(err)
 		}
 	}
 
-	return result, nil
+	return nil
 }
 
-// ListBucketsStreamIDs lists the streamIDs of a list of buckets.
-func (p *PostgresAdapter) ListBucketsStreamIDs(ctx context.Context, opts ListBucketsStreamIDs, bucketNamesBytes [][]byte, projectIDs []uuid.UUID) (result ListBucketsStreamIDsResult, err error) {
-	// get the list of stream_ids and segment counts from the objects table
-	err = withRows(p.db.QueryContext(ctx, `
-		SELECT DISTINCT project_id, bucket_name, stream_id, segment_count
+// ListBucketStreamIDs lists the streamIDs from a bucket.
+func (p *PostgresAdapter) ListBucketStreamIDs(ctx context.Context, opts ListBucketStreamIDs, process func(ctx context.Context, streamIDs []uuid.UUID) error) error {
+	streamIDs := make([]uuid.UUID, 0, opts.Limit)
+
+	// TODO this implementation is not efficient for large production buckets
+	// but for now it won't be used in production
+	err := withRows(p.db.QueryContext(ctx, `
+		SELECT stream_id
 		FROM objects
-		`+LimitedAsOfSystemTime(p.impl, time.Now(), opts.AsOfSystemTime, opts.AsOfSystemInterval)+`
+		`+p.impl.AsOfSystemInterval(opts.AsOfSystemInterval)+`
 		WHERE
-			 (project_id, bucket_name, stream_id) > ($4::BYTEA, $5::BYTEA, $6::BYTEA) AND
-		(project_id, bucket_name) IN (SELECT UNNEST($1::BYTEA[]),UNNEST($2::BYTEA[]))
-		ORDER BY project_id, bucket_name, stream_id ASC
-		LIMIT $3
-	`, pgutil.UUIDArray(projectIDs), pgutil.ByteaArray(bucketNamesBytes),
-		opts.Limit,
-		opts.CursorBucket.ProjectID, opts.CursorBucket.BucketName, opts.CursorStreamID,
+			 (project_id, bucket_name) = ($1::BYTEA, $2::BYTEA)
+	`, opts.Bucket.ProjectID, []byte(opts.Bucket.BucketName),
 	))(func(rows tagsql.Rows) error {
 		for rows.Next() {
 			var streamID uuid.UUID
-			var count int
-			err := rows.Scan(
-				&result.LastBucket.ProjectID,
-				&result.LastBucket.BucketName,
-				&streamID,
-				&count,
-			)
+			err := rows.Scan(&streamID)
 			if err != nil {
 				return Error.Wrap(err)
 			}
-			result.addStreamID(streamID, count)
+
+			streamIDs = append(streamIDs, streamID)
+			if len(streamIDs) >= opts.Limit {
+				if err := process(ctx, streamIDs); err != nil {
+					return Error.Wrap(err)
+				}
+				streamIDs = streamIDs[:0]
+			}
 		}
 		return nil
 	})
 	if err != nil {
-		return ListBucketsStreamIDsResult{}, err
+		return Error.Wrap(err)
 	}
-	return result, nil
+
+	if len(streamIDs) > 0 {
+		if err := process(ctx, streamIDs); err != nil {
+			return Error.Wrap(err)
+		}
+	}
+
+	return nil
 }
 
-// ListBucketsStreamIDs lists the streamIDs of a list of buckets.
-func (s *SpannerAdapter) ListBucketsStreamIDs(ctx context.Context, opts ListBucketsStreamIDs, bucketNamesBytes [][]byte, projectIDs []uuid.UUID) (result ListBucketsStreamIDsResult, err error) {
-	projectsAndBuckets := make([]struct {
-		ProjectID  uuid.UUID
-		BucketName BucketName
-	}, len(projectIDs))
-	for i, projectID := range projectIDs {
-		projectsAndBuckets[i].ProjectID = projectID
-		projectsAndBuckets[i].BucketName = BucketName(bucketNamesBytes[i])
-	}
-
-	tuple, err := spannerutil.TupleGreaterThanSQL([]string{"project_id", "bucket_name", "stream_id"}, []string{"@cursor_project_id", "@cursor_bucket_name", "@cursor_stream_id"}, false)
-	if err != nil {
-		return result, Error.Wrap(err)
-	}
-
+// ListBucketStreamIDs lists the streamIDs from a bucket.
+func (s *SpannerAdapter) ListBucketStreamIDs(ctx context.Context, opts ListBucketStreamIDs, process func(ctx context.Context, streamIDs []uuid.UUID) error) error {
 	statement := spanner.Statement{
 		SQL: `
-			SELECT DISTINCT project_id, bucket_name, stream_id, segment_count
+			SELECT stream_id
 			FROM objects
-			WHERE ` + tuple + `
-				AND STRUCT<ProjectID BYTES, BucketName STRING>(project_id, bucket_name) IN UNNEST(@projects_and_buckets)
-			ORDER BY project_id, bucket_name, stream_id
-			LIMIT @limit
+			WHERE project_id = @project_id AND bucket_name = @bucket_name
 		`,
 		Params: map[string]any{
-			"projects_and_buckets": projectsAndBuckets,
-			"cursor_project_id":    opts.CursorBucket.ProjectID,
-			"cursor_bucket_name":   opts.CursorBucket.BucketName,
-			"cursor_stream_id":     opts.CursorStreamID,
-			"limit":                int64(opts.Limit),
+			"project_id":  opts.Bucket.ProjectID,
+			"bucket_name": opts.Bucket.BucketName,
 		},
 	}
 
-	// get the list of stream_ids and segment counts from the objects table
-	// TODO(spanner): check if there is a performance penalty to using a STRUCT in this way.
-	err = s.client.Single().WithTimestampBound(spannerutil.MaxStalenessFromAOSI(opts.AsOfSystemInterval)).
-		QueryWithOptions(ctx, statement, spanner.QueryOptions{
-			Priority: spannerpb.RequestOptions_PRIORITY_LOW,
-		}).Do(func(row *spanner.Row) error {
-		var streamID uuid.UUID
-		var count int64
-		err := row.Columns(
-			&result.LastBucket.ProjectID,
-			&result.LastBucket.BucketName,
-			&streamID,
-			&count,
-		)
+	txn, err := s.client.BatchReadOnlyTransaction(ctx, spanner.StrongRead())
+	if err != nil {
+		return Error.Wrap(err)
+	}
+	defer txn.Close()
+
+	partitions, err := txn.PartitionQueryWithOptions(ctx, statement, spanner.PartitionOptions{
+		PartitionBytes: 0,
+		MaxPartitions:  0,
+	}, spanner.QueryOptions{
+		Priority: spannerpb.RequestOptions_PRIORITY_LOW,
+	})
+	if err != nil {
+		return Error.Wrap(err)
+	}
+
+	streamIDs := make([]uuid.UUID, 0, opts.Limit)
+
+	for _, partition := range partitions {
+		iter := txn.Execute(ctx, partition)
+		err := iter.Do(func(r *spanner.Row) error {
+			var streamID uuid.UUID
+			if err := r.Columns(&streamID); err != nil {
+				return Error.Wrap(err)
+			}
+
+			streamIDs = append(streamIDs, streamID)
+			if len(streamIDs) >= opts.Limit {
+				if err := process(ctx, streamIDs); err != nil {
+					return Error.Wrap(err)
+				}
+				streamIDs = streamIDs[:0]
+			}
+
+			return nil
+		})
 		if err != nil {
 			return Error.Wrap(err)
 		}
-		result.addStreamID(streamID, int(count))
-		return nil
-	})
-	if err != nil {
-		return ListBucketsStreamIDsResult{}, err
 	}
-	return result, nil
+
+	if len(streamIDs) > 0 {
+		if err := process(ctx, streamIDs); err != nil {
+			return Error.Wrap(err)
+		}
+	}
+	return nil
 }
