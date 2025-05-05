@@ -1114,13 +1114,17 @@ func TestService(t *testing.T) {
 					require.NoError(t, err)
 					require.Equal(t, i, int(b.Placement))
 				}
-				bt, err := service.GetBucketTotals(userCtx2, up2Proj.ID, accounting.BucketUsageCursor{Limit: 100, Page: 1}, time.Now())
+
+				before := time.Now()
+				since := before.Add(-time.Hour * 24)
+
+				bt, err := service.GetBucketTotals(userCtx2, up2Proj.ID, accounting.BucketUsageCursor{Limit: 100, Page: 1}, since, before)
 				require.NoError(t, err)
 				for _, b := range bt.BucketUsages {
 					require.Equal(t, placements[int(b.DefaultPlacement)], b.Location)
 				}
 
-				_, err = service.GetBucketTotals(userCtx1, disabledProject.ID, accounting.BucketUsageCursor{Limit: 100, Page: 1}, time.Now())
+				_, err = service.GetBucketTotals(userCtx1, disabledProject.ID, accounting.BucketUsageCursor{Limit: 100, Page: 1}, since, before)
 				require.True(t, console.ErrUnauthorized.Has(err))
 			})
 

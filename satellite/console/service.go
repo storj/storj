@@ -4718,7 +4718,7 @@ func (s *Service) GetProjectUsage(ctx context.Context, projectID uuid.UUID, sinc
 }
 
 // GetBucketTotals retrieves paged bucket total usages since project creation.
-func (s *Service) GetBucketTotals(ctx context.Context, projectID uuid.UUID, cursor accounting.BucketUsageCursor, before time.Time) (_ *accounting.BucketUsagePage, err error) {
+func (s *Service) GetBucketTotals(ctx context.Context, projectID uuid.UUID, cursor accounting.BucketUsageCursor, since, before time.Time) (_ *accounting.BucketUsagePage, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	user, err := s.getUserAndAuditLog(ctx, "get bucket totals", zap.String("projectID", projectID.String()))
@@ -4731,7 +4731,7 @@ func (s *Service) GetBucketTotals(ctx context.Context, projectID uuid.UUID, curs
 		return nil, ErrUnauthorized.Wrap(err)
 	}
 
-	usage, err := s.projectAccounting.GetBucketTotals(ctx, isMember.project.ID, cursor, before)
+	usage, err := s.projectAccounting.GetBucketTotals(ctx, isMember.project.ID, cursor, since, before)
 	if err != nil {
 		return nil, Error.Wrap(err)
 	}

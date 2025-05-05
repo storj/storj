@@ -197,6 +197,17 @@ func (b *Buckets) GetBucketTotals(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	sinceString := r.URL.Query().Get("since")
+	if sinceString == "" {
+		b.serveJSONError(ctx, w, http.StatusBadRequest, errs.New(missingParamErrMsg, "since"))
+		return
+	}
+	since, err := time.Parse(dateLayout, sinceString)
+	if err != nil {
+		b.serveJSONError(ctx, w, http.StatusBadRequest, errs.New(invalidParamErrMsg, sinceString, "since", err))
+		return
+	}
+
 	beforeString := r.URL.Query().Get("before")
 	if beforeString == "" {
 		b.serveJSONError(ctx, w, http.StatusBadRequest, errs.New(missingParamErrMsg, "before"))
@@ -236,7 +247,7 @@ func (b *Buckets) GetBucketTotals(w http.ResponseWriter, r *http.Request) {
 		Limit:  limit,
 		Search: r.URL.Query().Get("search"),
 		Page:   page,
-	}, before)
+	}, since, before)
 	if err != nil {
 		if console.ErrUnauthorized.Has(err) {
 			b.serveJSONError(ctx, w, http.StatusUnauthorized, err)

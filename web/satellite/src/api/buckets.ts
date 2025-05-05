@@ -27,9 +27,10 @@ export class BucketsHttpApi implements BucketsApi {
      * @returns BucketPage
      * @throws Error
      */
-    public async get(projectID: string, before: Date, cursor: BucketCursor): Promise<BucketPage> {
+    public async get(projectID: string, since: Date, before: Date, cursor: BucketCursor): Promise<BucketPage> {
         const paramsString = Object.entries({
             projectID,
+            since: since.toISOString(),
             before: before.toISOString(),
             limit: cursor.limit,
             search: encodeURIComponent(cursor.search),

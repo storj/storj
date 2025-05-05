@@ -16,7 +16,7 @@ export interface BucketsApi {
      * @returns BucketPage
      * @throws Error
      */
-    get(projectId: string, before: Date, cursor: BucketCursor): Promise<BucketPage>;
+    get(projectId: string, since: Date, before: Date, cursor: BucketCursor): Promise<BucketPage>;
 
     /**
      * Fetch single bucket data.

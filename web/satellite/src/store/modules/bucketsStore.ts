@@ -96,11 +96,18 @@ export const useBucketsStore = defineStore('buckets', () => {
     }
 
     async function getBuckets(page: number, projectID: string, limit = DEFAULT_PAGE_LIMIT): Promise<void> {
-        const before = new Date();
+        const now = new Date();
+        const since = new Date(Date.UTC(
+            now.getUTCFullYear(),
+            now.getUTCMonth(),
+            1,
+            0, 0, 0, 0,
+        ));
+
         state.cursor.page = page;
         state.cursor.limit = limit;
 
-        state.page = await api.get(projectID, before, state.cursor);
+        state.page = await api.get(projectID, since, now, state.cursor);
     }
 
     async function getSingleBucket(projectID: string, bucketName: string): Promise<Bucket> {

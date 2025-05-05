@@ -561,9 +561,13 @@ func TestBuckets(t *testing.T) {
 		}
 
 		{ // get bucket usages
+			now := time.Now()
+			beginningOfMonth := time.Date(now.Year(), now.Month(), 1, 0, 0, 0, 0, now.Location())
+
 			params := url.Values{
 				"projectID": {test.defaultProjectID()},
-				"before":    {time.Now().Add(time.Second).Format(apigen.DateFormat)},
+				"since":     {beginningOfMonth.Format(apigen.DateFormat)},
+				"before":    {now.Add(time.Second).Format(apigen.DateFormat)},
 				"limit":     {"1"},
 				"search":    {""},
 				"page":      {"1"},
@@ -806,6 +810,9 @@ func TestWrongUser(t *testing.T) {
 
 		test.login(unauthorizedUser.email, unauthorizedUser.password)
 
+		now := time.Now()
+		beginningOfMonth := time.Date(now.Year(), now.Month(), 1, 0, 0, 0, 0, now.Location())
+
 		testCases := []endpointTest{
 			{
 				endpoint: baseProjectIdUrl,
@@ -848,7 +855,7 @@ func TestWrongUser(t *testing.T) {
 				method:   http.MethodGet,
 			},
 			{
-				endpoint: "/buckets/usage-totals?limit=10&page=1&before=" + time.Now().Format(apigen.DateFormat) + "&projectID=" + test.defaultProjectID(),
+				endpoint: "/buckets/usage-totals?limit=10&page=1&since=" + beginningOfMonth.Format(apigen.DateFormat) + "&before=" + now.Format(apigen.DateFormat) + "&projectID=" + test.defaultProjectID(),
 				method:   http.MethodGet,
 			},
 			{
