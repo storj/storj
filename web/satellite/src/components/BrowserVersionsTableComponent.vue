@@ -164,6 +164,8 @@
                         :deleting="isBeingDeleted(item.raw.browserObject)"
                         :file="item.raw.browserObject"
                         align="right"
+                        @preview-click="onFileClick(item.raw.browserObject)"
+                        @share-click="onShareClick(item.raw.browserObject)"
                         @delete-file-click="onDeleteFileClick(item.raw.browserObject)"
                         @download-folder-click="onDownloadFolder(item.raw.browserObject)"
                     />

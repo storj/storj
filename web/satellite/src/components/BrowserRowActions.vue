@@ -128,14 +128,24 @@
                             </v-list-item>
                         </template>
 
-                        <v-list-item v-if="downloadPrefixEnabled && file.type === 'folder'" density="comfortable" link @click="emit('downloadFolderClick')">
-                            <template #prepend>
-                                <component :is="Download" :size="18" />
-                            </template>
-                            <v-list-item-title class="ml-3 text-body-2 font-weight-medium">
-                                Download
-                            </v-list-item-title>
-                        </v-list-item>
+                        <template v-if="file.type === 'folder'">
+                            <v-list-item density="comfortable" link @click="emit('previewClick')">
+                                <template #prepend>
+                                    <component :is="FolderOpen" :size="18" />
+                                </template>
+                                <v-list-item-title class="ml-3 text-body-2 font-weight-medium">
+                                    Open Folder
+                                </v-list-item-title>
+                            </v-list-item>
+                            <v-list-item v-if="downloadPrefixEnabled" density="comfortable" link @click="emit('downloadFolderClick')">
+                                <template #prepend>
+                                    <component :is="Download" :size="18" />
+                                </template>
+                                <v-list-item-title class="ml-3 text-body-2 font-weight-medium">
+                                    Download
+                                </v-list-item-title>
+                            </v-list-item>
+                        </template>
 
                         <v-list-item v-if="!isVersion && !file.isDeleteMarker" density="comfortable" link @click="emit('shareClick')">
                             <template #prepend>
@@ -179,7 +189,7 @@ import {
     VIcon,
     VBtn, VTooltip,
 } from 'vuetify/components';
-import { Ellipsis, Share, Download, ZoomIn, Trash2, Redo2, Lock, FileLock2 } from 'lucide-vue-next';
+import { Ellipsis, Share, Download, ZoomIn, Trash2, Redo2, Lock, FileLock2, FolderOpen } from 'lucide-vue-next';
 
 import {
     BrowserObject,
