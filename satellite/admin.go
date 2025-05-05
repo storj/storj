@@ -292,6 +292,7 @@ func NewAdmin(log *zap.Logger, full *identity.FullIdentity, db DB, metabaseDB *m
 			peer.Analytics.Service,
 			peer.Payments.Accounts,
 			peer.Admin.Service,
+			placement,
 			config.Console,
 			adminConfig,
 		)

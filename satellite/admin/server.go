@@ -30,6 +30,7 @@ import (
 	"storj.io/storj/satellite/console/consoleweb"
 	"storj.io/storj/satellite/console/restapikeys"
 	"storj.io/storj/satellite/metabase"
+	"storj.io/storj/satellite/nodeselection"
 	"storj.io/storj/satellite/oidc"
 	"storj.io/storj/satellite/payments"
 	"storj.io/storj/satellite/payments/stripe"
@@ -95,6 +96,8 @@ type Server struct {
 	analytics      *analytics.Service
 	freezeAccounts *console.AccountFreezeService
 
+	placement nodeselection.PlacementDefinitions
+
 	nowFn func() time.Time
 
 	console consoleweb.Config
@@ -113,6 +116,7 @@ func NewServer(
 	analyticsService *analytics.Service,
 	accounts payments.Accounts,
 	backOfficeService *backoffice.Service,
+	placement nodeselection.PlacementDefinitions,
 	console consoleweb.Config,
 	config Config,
 ) *Server {
@@ -128,6 +132,8 @@ func NewServer(
 		restKeys:       restKeys,
 		analytics:      analyticsService,
 		freezeAccounts: freezeAccounts,
+
+		placement: placement,
 
 		nowFn: time.Now,
 
@@ -151,8 +157,6 @@ func NewServer(
 	fullAccessAPI.HandleFunc("/users/{useremail}/activate-account/disable-bot-restriction", server.disableBotRestriction).
 		Methods("PATCH")
 	fullAccessAPI.HandleFunc("/users/{useremail}/useragent", server.updateUsersUserAgent).Methods("PATCH")
-	fullAccessAPI.HandleFunc("/users/{useremail}/geofence", server.createGeofenceForAccount).Methods("PATCH")
-	fullAccessAPI.HandleFunc("/users/{useremail}/geofence", server.deleteGeofenceForAccount).Methods("DELETE")
 	fullAccessAPI.HandleFunc("/users/{useremail}/trial-expiration", server.updateFreeTrialExpiration).Methods("PATCH")
 	fullAccessAPI.HandleFunc("/users/{useremail}/external-id", server.updateExternalID).Methods("PATCH")
 	fullAccessAPI.HandleFunc("/oauth/clients", server.createOAuthClient).Methods("POST")
@@ -171,8 +175,7 @@ func NewServer(
 	fullAccessAPI.HandleFunc("/projects/{project}/buckets/{bucket}/value-attributions", server.updateBucketValueAttributionPlacement).Methods("PUT")
 	fullAccessAPI.HandleFunc("/projects/{project}/usage", server.checkProjectUsage).Methods("GET")
 	fullAccessAPI.HandleFunc("/projects/{project}/useragent", server.updateProjectsUserAgent).Methods("PATCH")
-	fullAccessAPI.HandleFunc("/projects/{project}/geofence", server.createGeofenceForProject).Methods("PUT")
-	fullAccessAPI.HandleFunc("/projects/{project}/geofence", server.deleteGeofenceForProject).Methods("DELETE")
+	fullAccessAPI.HandleFunc("/projects/{project}/placement", server.updatePlacementForProject).Methods("PUT")
 	fullAccessAPI.HandleFunc("/apikeys/{apikey}", server.getAPIKey).Methods("GET")
 	fullAccessAPI.HandleFunc("/apikeys/{apikey}", server.deleteAPIKey).Methods("DELETE")
 	fullAccessAPI.HandleFunc("/restkeys/{useremail}", server.addRESTKey).Methods("POST")

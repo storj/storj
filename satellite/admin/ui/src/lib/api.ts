@@ -164,34 +164,15 @@ export class Admin {
 				}
 			},
 			{
-				name: 'Set geofence',
-				desc: 'Set geofence (NOTE: It will set it for empty and NON-empty projects)',
+				name: 'set placement',
+				desc: 'Set placement (NOTE: It will set it for empty and NON-empty projects)',
 				params: [
 					['Project ID', new InputText('text', true)],
-					[
-						'Region',
-						new Select(false, true, [
-							{ text: 'European Union', value: 'EU' },
-							{ text: 'European Economic Area', value: 'EEA' },
-							{ text: 'United States', value: 'US' },
-							{ text: 'Germany', value: 'DE' },
-							{ text: 'No Russia and/or other sanctioned country', value: 'NR' }
-						])
-					]
+					['Placement ID', new InputText('number', true)]
 				],
-				func: async (projectId: string, region: string): Promise<null> => {
-					const query = this.urlQueryFromObject({
-						region
-					});
-					return this.fetch('PUT', `projects/${projectId}/geofence`, query) as Promise<null>;
-				}
-			},
-			{
-				name: 'Unset geofence',
-				desc: 'Unset the geofence of a specific project',
-				params: [['Project ID', new InputText('text', true)]],
-				func: async (projectId: string): Promise<null> => {
-					return this.fetch('DELETE', `projects/${projectId}/geofence`) as Promise<null>;
+				func: async (projectId: string, id: string): Promise<null> => {
+					const query = this.urlQueryFromObject({ id });
+					return this.fetch('PUT', `projects/${projectId}/placement`, query) as Promise<null>;
 				}
 			}
 		],

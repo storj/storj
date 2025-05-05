@@ -12,6 +12,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"strconv"
 	"time"
 
 	"github.com/gorilla/mux"
@@ -918,23 +919,7 @@ func (server *Server) checkUsage(ctx context.Context, w http.ResponseWriter, pro
 	return server.checkInvoicing(ctx, w, projectID)
 }
 
-func (server *Server) createGeofenceForProject(w http.ResponseWriter, r *http.Request) {
-	placement, err := parsePlacementConstraint(r.URL.Query().Get("region"))
-	if err != nil {
-		sendJSONError(w, err.Error(), "available: EU, EEA, US, DE, NR", http.StatusBadRequest)
-		return
-	}
-
-	server.setGeofenceForProject(w, r, placement)
-}
-
-func (server *Server) deleteGeofenceForProject(w http.ResponseWriter, r *http.Request) {
-	server.setGeofenceForProject(w, r, storj.DefaultPlacement)
-}
-
-func (server *Server) setGeofenceForProject(w http.ResponseWriter, r *http.Request, placement storj.PlacementConstraint) {
-	ctx := r.Context()
-
+func (server *Server) updatePlacementForProject(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
 	projectUUIDString, ok := vars["project"]
 	if !ok {
@@ -942,6 +927,28 @@ func (server *Server) setGeofenceForProject(w http.ResponseWriter, r *http.Reque
 			"", http.StatusBadRequest)
 		return
 	}
+
+	placementID := r.URL.Query().Get("id")
+	if placementID == "" {
+		sendJSONError(w, "missing id parameter", "", http.StatusBadRequest)
+		return
+	}
+
+	parsed, err := strconv.ParseUint(placementID, 0, 16)
+	if err != nil {
+		sendJSONError(w, "invalid placement parameter", err.Error(), http.StatusBadRequest)
+		return
+	}
+
+	placement := storj.PlacementConstraint(parsed)
+
+	_, ok = server.placement[placement]
+	if !ok {
+		sendJSONError(w, "unknown placement parameter", "", http.StatusBadRequest)
+		return
+	}
+
+	ctx := r.Context()
 
 	project, err := server.getProjectByAnyID(ctx, projectUUIDString)
 	if errors.Is(err, sql.ErrNoRows) {
@@ -960,7 +967,6 @@ func (server *Server) setGeofenceForProject(w http.ResponseWriter, r *http.Reque
 	if err != nil {
 		sendJSONError(w, "unable to set geofence for project",
 			err.Error(), http.StatusInternalServerError)
-		return
 	}
 }
 

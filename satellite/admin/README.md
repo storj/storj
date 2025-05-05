@@ -30,8 +30,6 @@ Requires setting `Authorization` header for requests.
             * [DELETE /api/users/{user-email}/billing-warning](#delete-apiusersuser-emailbilling-warning)
             * [GET /api/users/deletion/pending](#get-apiusersdeletionpending)
             * [GET /api/users/deletion/requested-by-user](#get-apiusersdeletionrequested-by-user)
-            * [PATCH /api/users/{user-email}/geofence - DEPRECATED](#patch-apiusersuser-emailgeofence---deprecated)
-            * [DELETE /api/users/{user-email}/geofence - DEPRECATED](#delete-apiusersuser-emailgeofence---deprecated)
             * [PATCH /api/users/{user-email}/activate-account/disable-bot-restriction](#patch-apiusersuser-emailactivate-accountdisable-bot-restriction)
             * [PATCH /api/users/{user-email}/trial-expiration](#patch-apiusersuser-emailtrial-expiration)
             * [PATCH /api/users/{user-email}/external-id](#patch-apiusersuser-emailexternal-id)
@@ -57,8 +55,7 @@ Requires setting `Authorization` header for requests.
                 * [PUT /api/projects/{project-id}/limit?buckets={value} - DEPRECATED](#put-apiprojectsproject-idlimitbucketsvalue---deprecated)
                 * [PUT /api/projects/{project-id}/limit?burst={value} - DEPRECATED](#put-apiprojectsproject-idlimitburstvalue---deprecated)
                 * [PUT /api/projects/{project-id}/limit?segments={value} - DEPRECATED](#put-apiprojectsproject-idlimitsegmentsvalue---deprecated)
-            * [PUT /api/projects/{project-id}/geofence?region={value}](#put-apiprojectsproject-idgeofenceregionvalue)
-            * [DELETE /api/projects/{project-id}/geofence](#delete-apiprojectsproject-idgeofence)
+            * [PUT /api/projects/{project-id}/placement?id={value}](#put-apiprojectsproject-idplacementidvalue)
         * [Bucket Management](#bucket-management)
             * [GET /api/projects/{project-id}/buckets/{bucket-name} - DEPRECATED](#get-apiprojectsproject-idbucketsbucket-name---deprecated)
             * [Geofencing](#geofencing)
@@ -273,22 +270,6 @@ Returns a CSV of user account emails which were requested for deletion by users 
 Required parameters: `before`.
 
 Example: `/api/users/deletion/requested-by-user?before=2021-01-01T00:00:00.000Z`
-
-#### PATCH /api/users/{user-email}/geofence - DEPRECATED
-
-Sets the account level geofence for the user.
-
-Example request:
-
-```json
-{
-  "region": "US"
-}
-```
-
-#### DELETE /api/users/{user-email}/geofence - DEPRECATED
-
-Removes the account level geofence for the user.
 
 #### PATCH /api/users/{user-email}/activate-account/disable-bot-restriction
 
@@ -549,20 +530,10 @@ Accepts -1 to set to `nil`.
 
 Updates number of segments limit for a project.
 
-#### PUT /api/projects/{project-id}/geofence?region={value}
+#### PUT /api/projects/{project-id}/placement?id={value}
 
-Updates the geofence configuration for the specified project.
-
-If the project's geofence isn't set yet, this method will set it. If the project's geofence is
-already set and you want to unset it, you must use the DELETE method.
-
-`value` must be one of the following `EU`, `EEA`, `US`, `DE`, or `NR`.
-
-#### DELETE /api/projects/{project-id}/geofence
-
-Unset the geofence configuration for the specified project.
-
-If the project's geofence isn't set yet, this method won't return an error and will do nothing.
+Updates the default placement for the specified project.
+The `value` must be a positive integer or zero.
 
 ### Bucket Management
 

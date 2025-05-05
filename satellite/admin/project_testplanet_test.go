@@ -7,6 +7,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"strconv"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -19,7 +20,7 @@ import (
 	"storj.io/storj/satellite"
 )
 
-func TestAdminProjectGeofenceAPI(t *testing.T) {
+func TestAdminProjectPlacementAPI(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
 		SatelliteCount:   1,
 		StorageNodeCount: 0,
@@ -60,33 +61,21 @@ func TestAdminProjectGeofenceAPI(t *testing.T) {
 		for _, testCase := range testCases {
 			baseURL := fmt.Sprintf("http://%s/api/projects/%s", address, testCase.project)
 			t.Log(baseURL)
-			baseGeofenceURL := fmt.Sprintf("http://%s/api/projects/%s/geofence", address, testCase.project)
-			t.Log(baseGeofenceURL)
+			basePlacementURL := fmt.Sprintf("http://%s/api/projects/%s/placement", address, testCase.project)
+			t.Log(basePlacementURL)
 
 			t.Run(testCase.name, func(t *testing.T) {
-				assertReq(ctx, t, baseGeofenceURL+"?region=EU", "PUT", "", testCase.status, testCase.body, sat.Config.Console.AuthToken)
+				newPlacement := storj.PlacementConstraint(1)
+				assertReq(ctx, t, basePlacementURL+"?id="+strconv.Itoa(int(newPlacement)), "PUT", "", testCase.status, testCase.body, sat.Config.Console.AuthToken)
 
 				if testCase.status == http.StatusOK {
-
 					t.Run("Set", func(t *testing.T) {
 						project, err := sat.DB.Console().Projects().Get(ctx, testCase.project)
 						require.NoError(t, err)
-						require.Equal(t, storj.EU, project.DefaultPlacement)
+						require.Equal(t, newPlacement, project.DefaultPlacement)
 
 						expected, err := json.Marshal(project)
 						require.NoError(t, err, "failed to json encode expected bucket")
-
-						assertGet(ctx, t, baseURL, string(expected), sat.Config.Console.AuthToken)
-					})
-					t.Run("Delete", func(t *testing.T) {
-						assertReq(ctx, t, baseGeofenceURL, "DELETE", "", testCase.status, testCase.body, sat.Config.Console.AuthToken)
-
-						project, err := sat.DB.Console().Projects().Get(ctx, testCase.project)
-						require.NoError(t, err)
-						require.Equal(t, storj.DefaultPlacement, project.DefaultPlacement)
-
-						expected, err := json.Marshal(project)
-						require.NoError(t, err)
 
 						assertGet(ctx, t, baseURL, string(expected), sat.Config.Console.AuthToken)
 					})

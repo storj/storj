@@ -1154,40 +1154,6 @@ func (server *Server) deleteUser(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-func (server *Server) createGeofenceForAccount(w http.ResponseWriter, r *http.Request) {
-	body, err := io.ReadAll(r.Body)
-	if err != nil {
-		sendJSONError(w, "failed to read body",
-			err.Error(), http.StatusInternalServerError)
-		return
-	}
-
-	var input struct {
-		Region string `json:"region"`
-	}
-
-	err = json.Unmarshal(body, &input)
-	if err != nil {
-		sendJSONError(w, "failed to unmarshal request",
-			err.Error(), http.StatusBadRequest)
-		return
-	}
-
-	if input.Region == "" {
-		sendJSONError(w, "region was not provided",
-			"", http.StatusBadRequest)
-		return
-	}
-
-	placement, err := parsePlacementConstraint(input.Region)
-	if err != nil {
-		sendJSONError(w, err.Error(), "available: EU, EEA, US, DE, NR", http.StatusBadRequest)
-		return
-	}
-
-	server.setGeofenceForUser(w, r, placement)
-}
-
 func (server *Server) disableBotRestriction(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 
@@ -1223,45 +1189,6 @@ func (server *Server) disableBotRestriction(w http.ResponseWriter, r *http.Reque
 			status = http.StatusConflict
 		}
 		sendJSONError(w, "failed to unfreeze bot user", err.Error(), status)
-	}
-}
-
-func (server *Server) deleteGeofenceForAccount(w http.ResponseWriter, r *http.Request) {
-	server.setGeofenceForUser(w, r, storj.DefaultPlacement)
-}
-
-func (server *Server) setGeofenceForUser(w http.ResponseWriter, r *http.Request, placement storj.PlacementConstraint) {
-	ctx := r.Context()
-
-	vars := mux.Vars(r)
-	userEmail, ok := vars["useremail"]
-	if !ok {
-		sendJSONError(w, "user-email missing", "", http.StatusBadRequest)
-		return
-	}
-
-	user, err := server.db.Console().Users().GetByEmail(ctx, userEmail)
-	if errors.Is(err, sql.ErrNoRows) {
-		sendJSONError(w, fmt.Sprintf("user with email %q does not exist", userEmail),
-			"", http.StatusNotFound)
-		return
-	}
-	if err != nil {
-		sendJSONError(w, "failed to get user details",
-			err.Error(), http.StatusInternalServerError)
-		return
-	}
-
-	if user.DefaultPlacement == placement {
-		sendJSONError(w, "new placement is equal to user's current placement",
-			"", http.StatusBadRequest)
-		return
-	}
-
-	if err = server.db.Console().Users().UpdateDefaultPlacement(ctx, user.ID, placement); err != nil {
-		sendJSONError(w, "unable to set geofence for user",
-			err.Error(), http.StatusInternalServerError)
-		return
 	}
 }
 
