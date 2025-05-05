@@ -1,8 +1,8 @@
-# how long to wait between the billing freeze emails
-# account-freeze.billing-freeze-email-intervals: 720h0m0s,480h0m0s,216h0m0s
+# how long to wait after a freeze event to send reminder emails. E.g.: 1h,2h,3h will mean an email is sent 1h after the event, 2h after the event and 3h after the event
+# account-freeze.billing-freeze-email-intervals: 720h0m0s,1200h0m0s,1416h0m0s
 
-# how long to wait between the billing freeze warning emails
-# account-freeze.billing-warning-email-intervals: 240h0m0s,96h0m0s
+# how long to wait after a warning event to send reminder emails. E.g.: 1h,2h,3h will mean an email is sent 1h after the event, 2h after the event and 3h after the event
+# account-freeze.billing-warning-email-intervals: 240h0m0s,336h0m0s
 
 # whether to freeze event emails from this chore
 # account-freeze.emails-enabled: false

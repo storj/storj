@@ -37,8 +37,8 @@ type Config struct {
 	ExcludeStorjscan bool          `help:"whether to exclude storjscan-paying users from automatic warn/freeze" default:"false"`
 
 	EmailsEnabled                bool           `help:"whether to freeze event emails from this chore" default:"false"`
-	BillingWarningEmailIntervals EmailIntervals `help:"how long to wait between the billing freeze warning emails" default:"240h,96h"`
-	BillingFreezeEmailIntervals  EmailIntervals `help:"how long to wait between the billing freeze emails" default:"720h,480h,216h"`
+	BillingWarningEmailIntervals EmailIntervals `help:"how long to wait after a warning event to send reminder emails. E.g.: 1h,2h,3h will mean an email is sent 1h after the event, 2h after the event and 3h after the event" default:"240h,336h"`
+	BillingFreezeEmailIntervals  EmailIntervals `help:"how long to wait after a freeze event to send reminder emails. E.g.: 1h,2h,3h will mean an email is sent 1h after the event, 2h after the event and 3h after the event" default:"720h,1200h,1416h"`
 }
 
 // Chore is a chore that checks for unpaid invoices and potentially freezes corresponding accounts.

@@ -29,12 +29,12 @@ import (
 func TestAutoFreezeChore(t *testing.T) {
 	warnEmailsIntervals := accountfreeze.EmailIntervals{
 		240 * time.Hour,
-		96 * time.Hour,
+		336 * time.Hour,
 	}
 	freezeEmailsIntervals := accountfreeze.EmailIntervals{
 		720 * time.Hour,
-		480 * time.Hour,
-		216 * time.Hour,
+		1200 * time.Hour,
+		1416 * time.Hour,
 	}
 	testplanet.Run(t, testplanet.Config{
 		SatelliteCount: 1, StorageNodeCount: 0, UplinkCount: 1,
