@@ -43,7 +43,7 @@
                 {{ search ? 'No data found' : 'Drag and drop files or folders here, or click to upload files.' }}
             </p>
         </template>
-        <template #item="{ index, props: rowProps }">
+        <template #item="{ props: rowProps }">
             <v-data-table-row v-bind="rowProps">
                 <template #item.name="{ item }">
                     <v-btn
@@ -56,22 +56,7 @@
                         @click="onFileClick((item as BrowserObjectWrapper).browserObject)"
                     >
                         <img :src="(item as BrowserObjectWrapper).typeInfo.icon" :alt="(item as BrowserObjectWrapper).typeInfo.title + 'icon'" class="mr-3">
-                        <v-tooltip
-                            v-if="index === 0 && !fileGuideDismissed"
-                            :model-value="true"
-                            persistent
-                            no-click-animation
-                            location="bottom"
-                            class="browser-table__file-guide"
-                            content-class="py-2"
-                            @update:model-value="() => {}"
-                        >
-                            Click on the object name to preview.
-                            <template #activator="{ props: activatorProps }">
-                                <span v-bind="activatorProps">{{ (item as BrowserObjectWrapper).browserObject.Key }}</span>
-                            </template>
-                        </v-tooltip>
-                        <template v-else>{{ (item as BrowserObjectWrapper).browserObject.Key }}</template>
+                        {{ (item as BrowserObjectWrapper).browserObject.Key }}
                     </v-btn>
                 </template>
 
@@ -221,7 +206,6 @@ import {
     VSelect,
     VSnackbar,
     VTextField,
-    VTooltip,
 } from 'vuetify/components';
 import { ChevronLeft, ChevronRight, Search, Trash2 } from 'lucide-vue-next';
 
@@ -247,7 +231,6 @@ import {
     FOLDER_INFO,
 } from '@/types/browser';
 import { useAnalyticsStore } from '@/store/modules/analyticsStore';
-import { useUsersStore } from '@/store/modules/usersStore';
 import { ROUTES } from '@/router';
 import { Time } from '@/utils/time';
 import { BucketMetadata } from '@/types/buckets';
@@ -292,7 +275,6 @@ const analyticsStore = useAnalyticsStore();
 const obStore = useObjectBrowserStore();
 const projectsStore = useProjectsStore();
 const bucketsStore = useBucketsStore();
-const userStore = useUsersStore();
 const configStore = useConfigStore();
 
 const notify = useNotify();
@@ -350,11 +332,6 @@ const bucketName = computed<string>(() => bucketsStore.state.fileComponentBucket
  * Returns the current path within the selected bucket.
  */
 const filePath = computed<string>(() => bucketsStore.state.fileComponentPath);
-
-/**
- * Returns whether the file guide is permanently dismissed.
- */
-const fileGuideDismissed = computed(() => userStore.noticeDismissal.fileGuide);
 
 /**
  * Returns files being deleted from store.
@@ -604,7 +581,6 @@ function onFileClick(file: BrowserObject): void {
             obStore.setObjectPathForModal((file.path ?? '') + file.Key);
             fileToPreview.value = file;
             previewDialog.value = true;
-            dismissFileGuide();
         });
     });
 }
@@ -691,16 +667,6 @@ function onLockedObjectDelete(file: FullBrowserObject): void {
     isLockedObjectDeleteDialogShown.value = true;
 }
 
-async function dismissFileGuide() {
-    try {
-        const noticeDismissal = { ...userStore.state.settings.noticeDismissal };
-        noticeDismissal.fileGuide = true;
-        await userStore.updateSettings({ noticeDismissal });
-    } catch (error) {
-        notify.notifyError(error, AnalyticsErrorEventSource.FILE_BROWSER);
-    }
-}
-
 obStore.$onAction(({ name, after }) => {
     if (name === 'filesDeleted') {
         after((_) => {
@@ -724,11 +690,6 @@ watch(() => props.forceEmpty, v => !v && fetchFiles());
     &__loader-overlay :deep(.v-overlay__scrim) {
         opacity: 1;
         bottom: 0.8px;
-    }
-
-    &__file-guide :deep(.v-overlay__content) {
-        color: #fff !important;
-        background-color: rgb(var(--v-theme-primary)) !important;
     }
 }
 </style>
