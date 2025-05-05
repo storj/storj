@@ -410,6 +410,25 @@ export class Admin {
 				}
 			}
 		],
+		buckets: [
+			{
+				name: 'update bucket placement',
+				desc: 'Updates placement for a bucket metainfo and attribution (positive integer or zero)',
+				params: [
+					['Project ID', new InputText('text', true)],
+					['Bucket name', new InputText('text', true)],
+					['Placement ID', new InputText('number', true)]
+				],
+				func: async (projectId: string, bucketName: string, id: number): Promise<null> => {
+					const query = this.urlQueryFromObject({ id });
+					return this.fetch(
+						'PUT',
+						`projects/${projectId}/buckets/${bucketName}/placement`,
+						query
+					) as Promise<null>;
+				}
+			}
+		],
 		value_attributions: [
 			{
 				name: 'update bucket placement',

@@ -109,7 +109,7 @@ func NewAdmin(log *zap.Logger, full *identity.FullIdentity, db DB, metabaseDB *m
 	}
 
 	{
-		peer.Buckets.Service = buckets.NewService(db.Buckets(), metabaseDB)
+		peer.Buckets.Service = buckets.NewService(db.Buckets(), metabaseDB, db.Attribution())
 	}
 
 	{ // setup rest keys

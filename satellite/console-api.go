@@ -182,7 +182,7 @@ func NewConsoleAPI(log *zap.Logger, full *identity.FullIdentity, db DB,
 	}
 
 	{ // setup buckets service
-		peer.Buckets.Service = buckets.NewService(db.Buckets(), metabaseDB)
+		peer.Buckets.Service = buckets.NewService(db.Buckets(), metabaseDB, db.Attribution())
 	}
 
 	{ // setup debug

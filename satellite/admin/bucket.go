@@ -6,7 +6,6 @@ package admin
 import (
 	"encoding/json"
 	"errors"
-	"fmt"
 	"net/http"
 	"strconv"
 	"strings"
@@ -40,40 +39,54 @@ func validateBucketPathParameters(vars map[string]string) (project uuid.NullUUID
 	return
 }
 
-func parsePlacementConstraint(regionCode string) (storj.PlacementConstraint, error) {
-	switch regionCode {
-	case "EU":
-		return storj.EU, nil
-	case "EEA":
-		return storj.EEA, nil
-	case "US":
-		return storj.US, nil
-	case "DE":
-		return storj.DE, nil
-	case "NR":
-		return storj.NR, nil
-	case "":
-		return storj.DefaultPlacement, errors.New("missing region parameter")
-	default:
-		return storj.DefaultPlacement, fmt.Errorf("unrecognized region parameter: %s", regionCode)
+func (server *Server) updatePlacementForBucket(w http.ResponseWriter, r *http.Request) {
+	placementID := r.URL.Query().Get("id")
+	if placementID == "" {
+		sendJSONError(w, "missing id parameter", "", http.StatusBadRequest)
+		return
 	}
+
+	parsed, err := strconv.ParseUint(placementID, 0, 16)
+	if err != nil {
+		sendJSONError(w, "invalid placement parameter", err.Error(), http.StatusBadRequest)
+		return
+	}
+
+	placement := storj.PlacementConstraint(parsed)
+
+	if _, ok := server.placement[placement]; !ok {
+		sendJSONError(w, "unknown placement parameter", "", http.StatusBadRequest)
+		return
+	}
+
+	server.updateBucket(w, r, placement)
 }
 
 func (server *Server) updateBucket(w http.ResponseWriter, r *http.Request, placement storj.PlacementConstraint) {
-	ctx := r.Context()
-
 	project, bucket, err := validateBucketPathParameters(mux.Vars(r))
 	if err != nil {
 		sendJSONError(w, err.Error(), "", http.StatusBadRequest)
 		return
 	}
 
+	ctx := r.Context()
+
 	b, err := server.buckets.GetBucket(ctx, bucket, project.UUID)
 	if err != nil {
 		if buckets.ErrBucketNotFound.Has(err) {
-			sendJSONError(w, "bucket does not exist", "", http.StatusBadRequest)
+			sendJSONError(w, "bucket does not exist", "", http.StatusNotFound)
 		} else {
-			sendJSONError(w, "unable to create geofence for bucket", err.Error(), http.StatusInternalServerError)
+			sendJSONError(w, "unable to update placement for bucket", err.Error(), http.StatusInternalServerError)
+		}
+		return
+	}
+
+	_, err = server.db.Attribution().Get(ctx, project.UUID, bucket)
+	if err != nil {
+		if attribution.ErrBucketNotAttributed.Has(err) {
+			sendJSONError(w, "bucket attribution does not exist", "", http.StatusNotFound)
+		} else {
+			sendJSONError(w, "unable to update placement for bucket", err.Error(), http.StatusInternalServerError)
 		}
 		return
 	}
@@ -84,7 +97,7 @@ func (server *Server) updateBucket(w http.ResponseWriter, r *http.Request, place
 	if err != nil {
 		switch {
 		case buckets.ErrBucketNotFound.Has(err):
-			sendJSONError(w, "bucket does not exist", "", http.StatusBadRequest)
+			sendJSONError(w, "bucket does not exist", "", http.StatusNotFound)
 		case buckets.ErrBucketNotEmpty.Has(err):
 			sendJSONError(w, "bucket must be empty", "", http.StatusBadRequest)
 		default:
@@ -94,20 +107,6 @@ func (server *Server) updateBucket(w http.ResponseWriter, r *http.Request, place
 	}
 
 	w.WriteHeader(http.StatusOK)
-}
-
-func (server *Server) createGeofenceForBucket(w http.ResponseWriter, r *http.Request) {
-	placement, err := parsePlacementConstraint(r.URL.Query().Get("region"))
-	if err != nil {
-		sendJSONError(w, err.Error(), "available: EU, EEA, US, DE, NR", http.StatusBadRequest)
-		return
-	}
-
-	server.updateBucket(w, r, placement)
-}
-
-func (server *Server) deleteGeofenceForBucket(w http.ResponseWriter, r *http.Request) {
-	server.updateBucket(w, r, storj.DefaultPlacement)
 }
 
 func (server *Server) getBucketInfo(w http.ResponseWriter, r *http.Request) {
@@ -161,7 +160,13 @@ func (server *Server) updateBucketValueAttributionPlacement(w http.ResponseWrite
 			sendJSONError(w, "invalid placement parameter", err.Error(), http.StatusBadRequest)
 			return
 		}
+
 		placementVal := storj.PlacementConstraint(parsed)
+		if _, ok := server.placement[placementVal]; !ok {
+			sendJSONError(w, "unknown placement parameter", "", http.StatusBadRequest)
+			return
+		}
+
 		newPlacement = &placementVal
 	}
 

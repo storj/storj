@@ -7,6 +7,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"strconv"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -21,7 +22,7 @@ import (
 	"storj.io/storj/satellite/buckets"
 )
 
-func TestAdminBucketGeofenceAPI(t *testing.T) {
+func TestAdminBucketPlacementAPI(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
 		SatelliteCount:   1,
 		StorageNodeCount: 0,
@@ -35,23 +36,44 @@ func TestAdminBucketGeofenceAPI(t *testing.T) {
 		uplink := planet.Uplinks[0]
 		sat := planet.Satellites[0]
 		address := sat.Admin.Admin.Listener.Addr()
+		bucketsDB := sat.DB.Buckets()
+		attributionDB := sat.DB.Attribution()
+
 		project, err := sat.DB.Console().Projects().Get(ctx, uplink.Projects[0].ID)
 		require.NoError(t, err)
 
-		err = uplink.CreateBucket(ctx, sat, "filled")
+		filledBucket := "filled"
+		err = uplink.CreateBucket(ctx, sat, filledBucket)
 		require.NoError(t, err)
 
-		_, err = sat.DB.Buckets().UpdateBucket(ctx, buckets.Bucket{
-			Name:      "filled",
+		_, err = bucketsDB.UpdateBucket(ctx, buckets.Bucket{
+			Name:      filledBucket,
 			ProjectID: project.ID,
-			Placement: storj.EEA,
+			Placement: storj.DefaultPlacement,
 		})
 		require.NoError(t, err)
 
-		err = uplink.Upload(ctx, sat, "filled", "README.md", []byte("hello world"))
+		err = uplink.Upload(ctx, sat, filledBucket, "README.md", []byte("hello world"))
 		require.NoError(t, err)
 
-		err = uplink.CreateBucket(ctx, sat, "empty")
+		_, err = attributionDB.Insert(ctx, &attribution.Info{
+			ProjectID:  project.ID,
+			BucketName: []byte(filledBucket),
+		})
+		require.NoError(t, err)
+
+		emptyBucket := "empty"
+		err = uplink.CreateBucket(ctx, sat, emptyBucket)
+		require.NoError(t, err)
+
+		_, err = attributionDB.Insert(ctx, &attribution.Info{
+			ProjectID:  project.ID,
+			BucketName: []byte(emptyBucket),
+		})
+		require.NoError(t, err)
+
+		noAttributionBucket := "no-attribution"
+		err = uplink.CreateBucket(ctx, sat, noAttributionBucket)
 		require.NoError(t, err)
 
 		testCases := []struct {
@@ -66,20 +88,27 @@ func TestAdminBucketGeofenceAPI(t *testing.T) {
 				name:    "bucket does not exist",
 				project: project.ID,
 				bucket:  []byte("non-existent"),
-				status:  http.StatusBadRequest,
+				status:  http.StatusNotFound,
 				body:    `{"error":"bucket does not exist","detail":""}`,
 			},
 			{
 				name:    "bucket is not empty",
 				project: project.ID,
-				bucket:  []byte("filled"),
+				bucket:  []byte(filledBucket),
 				status:  http.StatusBadRequest,
 				body:    `{"error":"bucket must be empty","detail":""}`,
 			},
 			{
+				name:    "bucket with no attribution",
+				project: project.ID,
+				bucket:  []byte(noAttributionBucket),
+				status:  http.StatusNotFound,
+				body:    `{"error":"bucket attribution does not exist","detail":""}`,
+			},
+			{
 				name:    "validated",
 				project: project.ID,
-				bucket:  []byte("empty"),
+				bucket:  []byte(emptyBucket),
 				status:  http.StatusOK,
 				body:    "",
 			},
@@ -88,15 +117,22 @@ func TestAdminBucketGeofenceAPI(t *testing.T) {
 		for _, testCase := range testCases {
 			baseURL := fmt.Sprintf("http://%s/api/projects/%s/buckets/%s", address, testCase.project, string(testCase.bucket))
 			t.Log(baseURL)
-			baseGeofenceURL := fmt.Sprintf("http://%s/api/projects/%s/buckets/%s/geofence", address, testCase.project, string(testCase.bucket))
-			t.Log(baseGeofenceURL)
+			basePlacementURL := fmt.Sprintf("http://%s/api/projects/%s/buckets/%s/placement", address, testCase.project, string(testCase.bucket))
+			t.Log(basePlacementURL)
 
 			t.Run(testCase.name, func(t *testing.T) {
-				assertReq(ctx, t, baseGeofenceURL+"?region=EU", "POST", "", testCase.status, testCase.body, sat.Config.Console.AuthToken)
+				newPlacement := storj.PlacementConstraint(1)
+				assertReq(ctx, t, basePlacementURL+"?id="+strconv.Itoa(int(newPlacement)), http.MethodPut, "", testCase.status, testCase.body, sat.Config.Console.AuthToken)
 
 				if testCase.status == http.StatusOK {
-					b, err := sat.DB.Buckets().GetBucket(ctx, testCase.bucket, testCase.project)
+					b, err := bucketsDB.GetBucket(ctx, testCase.bucket, testCase.project)
 					require.NoError(t, err)
+
+					attr, err := attributionDB.Get(ctx, testCase.project, []byte(b.Name))
+					require.NoError(t, err)
+					require.NotNil(t, attr)
+					require.NotNil(t, attr.Placement)
+					require.Equal(t, newPlacement, *attr.Placement)
 
 					expected, err := json.Marshal(buckets.Bucket{
 						ID:         b.ID,
@@ -104,15 +140,13 @@ func TestAdminBucketGeofenceAPI(t *testing.T) {
 						ProjectID:  testCase.project,
 						Created:    b.Created,
 						CreatedBy:  b.CreatedBy,
-						Placement:  storj.EU,
+						Placement:  newPlacement,
 						Versioning: buckets.Unversioned,
 					})
 					require.NoError(t, err, "failed to json encode expected bucket")
 
 					assertGet(ctx, t, baseURL, string(expected), sat.Config.Console.AuthToken)
 				}
-
-				assertReq(ctx, t, baseGeofenceURL, "DELETE", "", testCase.status, testCase.body, sat.Config.Console.AuthToken)
 			})
 		}
 	})
@@ -139,12 +173,11 @@ func TestAdminUpdateBucketValueAttributionPlacement(t *testing.T) {
 		bucketName := "test-bucket"
 		baseURL := fmt.Sprintf("http://%s/api/projects/%s/buckets/%s/value-attributions", address, project.ID, bucketName)
 
-		assertReq(ctx, t, baseURL+"?placement=1", "PUT", "", http.StatusNotFound, "", sat.Config.Console.AuthToken)
+		assertReq(ctx, t, baseURL+"?placement=1", http.MethodPut, "", http.StatusNotFound, "", sat.Config.Console.AuthToken)
 
 		info, err := sat.DB.Attribution().Insert(ctx, &attribution.Info{
 			ProjectID:  project.ID,
 			BucketName: []byte(bucketName),
-			UserAgent:  []byte("test-user-agent"),
 		})
 		require.NoError(t, err)
 		require.NotNil(t, info)

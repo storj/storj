@@ -58,9 +58,7 @@ Requires setting `Authorization` header for requests.
             * [PUT /api/projects/{project-id}/placement?id={value}](#put-apiprojectsproject-idplacementidvalue)
         * [Bucket Management](#bucket-management)
             * [GET /api/projects/{project-id}/buckets/{bucket-name} - DEPRECATED](#get-apiprojectsproject-idbucketsbucket-name---deprecated)
-            * [Geofencing](#geofencing)
-                * [POST /api/projects/{project-id}/buckets/{bucket-name}/geofence?region={value} - DEPRECATED](#post-apiprojectsproject-idbucketsbucket-namegeofenceregionvalue---deprecated)
-                * [DELETE /api/projects/{project-id}/buckets/{bucket-name}/geofence - DEPRECATED](#delete-apiprojectsproject-idbucketsbucket-namegeofence---deprecated)
+            * [PUT /api/projects/{project-id}/buckets/{bucket-name}/placement?id={value}](#put-apiprojectsproject-idbucketsbucket-nameplacementidvalue)
             * [Value Attributions](#value-attribution)
                 * [PUT /api/projects/{project-id}/buckets/{bucket-name}/value-attributions?placement={value}](#put-apiprojectsproject-idbucketsbucket-namevalue-attributionsplacementvalue)
         * [Project API Keys Management](#project-api-keys-management)
@@ -535,6 +533,10 @@ Updates number of segments limit for a project.
 Updates the default placement for the specified project.
 The `value` must be a positive integer or zero.
 
+Examples:
+`id=0` will set the value attribution to `0` (default placement).
+`id=1` will set the value attribution to `1`.
+
 ### Bucket Management
 
 This set of APIs provide administrative functionality over bucket functionality.
@@ -543,27 +545,15 @@ This set of APIs provide administrative functionality over bucket functionality.
 
 Returns all the information of the specified bucket.
 
-#### Geofencing
+#### PUT /api/projects/{project-id}/buckets/{bucket-name}/placement?id={value}
 
-Manage geofencing capabilities for a given bucket.
+Updates placement for the specified bucket (metainfo and attribution).
+The bucket MUST be empty in order for this to work.
+`value` must be a positive integer or zero.
 
-##### POST /api/projects/{project-id}/buckets/{bucket-name}/geofence?region={value} - DEPRECATED
-
-Enables the geofencing configuration for the specified bucket. The bucket MUST be empty in order for this to work. Valid
-values for the `region` parameter are:
-
-- `EU` - restrict placement to data nodes that reside in the [European Union][]
-- `EEA` - restrict placement to data nodes that reside in the [European Economic Area][]
-- `US` - restricts placement to data nodes in the United States
-- `DE` - restricts placement to data nodes in Germany
-
-[European Union]: https://github.com/storj/common/blob/main/storj/location/region.go#L14
-
-[European Economic Area]: https://github.com/storj/common/blob/main/storj/location/region.go#L7
-
-##### DELETE /api/projects/{project-id}/buckets/{bucket-name}/geofence - DEPRECATED
-
-Removes the geofencing configuration for the specified bucket. The bucket MUST be empty in order for this to work.
+Examples:
+`id=0` will set the value attribution to `0` (default placement).
+`id=1` will set the value attribution to `1`.
 
 #### Value Attribution
 
@@ -571,7 +561,14 @@ Manage value attribution for a given bucket.
 
 ##### PUT /api/projects/{project-id}/buckets/{bucket-name}/value-attributions?placement={value}
 
-Updates placement value for a given bucket. The value must be a positive integer or NULL.
+Updates placement value for a given bucket. The `value` must be a positive integer, zero or NULL.
+
+Examples: 
+`placement=0` will set the value attribution to `0` (default placement).
+`placement=1` will set the value attribution to `1`.
+`placement=NULL` or `placement=null` will set the value attribution to `NULL` (no placement).
+
+Note: it does NOT update placement in the bucket_metainfos table.
 
 ### Project API Keys Management
 

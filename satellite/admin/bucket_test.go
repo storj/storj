@@ -8,7 +8,6 @@ import (
 
 	"github.com/stretchr/testify/require"
 
-	"storj.io/common/storj"
 	"storj.io/common/uuid"
 )
 
@@ -80,38 +79,6 @@ func TestValidateRequestParameters(t *testing.T) {
 
 			require.Equal(t, testCase.project, project)
 			require.Equal(t, testCase.bucket, bucket)
-
-			if len(testCase.err) > 0 {
-				require.Error(t, err)
-				require.Equal(t, testCase.err, err.Error())
-			} else {
-				require.NoError(t, err)
-			}
-		})
-	}
-}
-
-func TestParsePlacementConstraint(t *testing.T) {
-	testCases := []struct {
-		name      string
-		region    string
-		placement storj.PlacementConstraint
-		err       string
-	}{
-		{"invalid", "invalid", storj.EveryCountry, "unrecognized region parameter: invalid"},
-		{"empty", "", storj.EveryCountry, "missing region parameter"},
-		{"US", "US", storj.US, ""},
-		{"EU", "EU", storj.EU, ""},
-		{"EEA", "EEA", storj.EEA, ""},
-		{"DE", "DE", storj.DE, ""},
-		{"NR", "NR", storj.NR, ""},
-	}
-
-	for _, testCase := range testCases {
-		t.Run(testCase.name, func(t *testing.T) {
-			placement, err := parsePlacementConstraint(testCase.region)
-
-			require.Equal(t, testCase.placement, placement)
 
 			if len(testCase.err) > 0 {
 				require.Error(t, err)
