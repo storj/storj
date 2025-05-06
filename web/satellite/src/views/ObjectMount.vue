@@ -433,11 +433,12 @@ const timelineOptions = [
 ];
 
 const storageRanges = [
-    '1-50 TB',
-    '50-100 TB',
-    '100-500 TB',
-    '500 TB - 1 PB',
-    '1 PB+',
+    'Under 25 TB',
+    '25 TB - 50 TB',
+    '51 TB - 150 TB',
+    '151 TB - 250 TB',
+    '251 TB - 500 TB',
+    '501 TB and above',
 ];
 
 // Submit form function wrapped with loading state
