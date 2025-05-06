@@ -377,15 +377,23 @@ func (q *Queue) Insert(job jobq.RepairJob) (wasNew bool) {
 	if job.LastAttemptedAt != 0 && q.Now().Sub(job.LastAttemptedAtTime()) < q.RetryAfter {
 		// new job, but not eligible for retry yet
 		for q.maxItems != 0 && (q.rq.Len()+q.pq.Len()) >= q.maxItems {
-			// pop the jobs with the farthest-away retry times as necessary to fit
-			minmaxheap.PopMax(&q.rq)
+			// pop the jobs with the farthest-away retry time or highest health as necessary to fit
+			if q.rq.Len() > q.pq.Len() {
+				minmaxheap.PopMax(&q.rq)
+			} else {
+				minmaxheap.PopMax(&q.pq)
+			}
 		}
 		minmaxheap.Push(&q.rq, job)
 	} else {
 		// new job, can be repaired immediately
 		for q.maxItems != 0 && (q.rq.Len()+q.pq.Len()) >= q.maxItems {
-			// pop the jobs with the highest health as necessary to fit
-			minmaxheap.PopMax(&q.pq)
+			// pop the jobs with the highest health or farthest-away retry time as necessary to fit
+			if q.rq.Len() > q.pq.Len() {
+				minmaxheap.PopMax(&q.rq)
+			} else {
+				minmaxheap.PopMax(&q.pq)
+			}
 		}
 		minmaxheap.Push(&q.pq, job)
 	}
