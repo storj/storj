@@ -226,6 +226,7 @@ func (s *SpannerAdapter) BeginObjectNextVersion(ctx context.Context, opts BeginO
 		CommitOptions: spanner.CommitOptions{
 			MaxCommitDelay: opts.MaxCommitDelay,
 		},
+		TransactionTag: "begin-object-next-version",
 	})
 	return err
 }
@@ -366,7 +367,7 @@ func (p *PostgresAdapter) TestingBeginObjectExactVersion(ctx context.Context, op
 
 // TestingBeginObjectExactVersion implements Adapter.
 func (s *SpannerAdapter) TestingBeginObjectExactVersion(ctx context.Context, opts BeginObjectExactVersion, object *Object) error {
-	_, err := s.client.ReadWriteTransaction(ctx, func(ctx context.Context, txn *spanner.ReadWriteTransaction) error {
+	_, err := s.client.ReadWriteTransactionWithOptions(ctx, func(ctx context.Context, txn *spanner.ReadWriteTransaction) error {
 		err := txn.Query(ctx, spanner.Statement{
 			SQL: `INSERT INTO objects (
 				project_id, bucket_name, object_key, version, stream_id,
@@ -411,6 +412,8 @@ func (s *SpannerAdapter) TestingBeginObjectExactVersion(ctx context.Context, opt
 		}
 
 		return nil
+	}, spanner.TransactionOptions{
+		TransactionTag: "testing-begin-object-exact-version",
 	})
 	return err
 }
@@ -743,6 +746,7 @@ func (s *SpannerAdapter) CommitPendingObjectSegment(ctx context.Context, opts Co
 		CommitOptions: spanner.CommitOptions{
 			MaxCommitDelay: opts.MaxCommitDelay,
 		},
+		TransactionTag: "commit-pending-object-segment",
 	})
 	if err != nil {
 		if spanner.ErrCode(err) == codes.FailedPrecondition {
@@ -954,6 +958,7 @@ func (s *SpannerAdapter) CommitInlineSegment(ctx context.Context, opts CommitInl
 		CommitOptions: spanner.CommitOptions{
 			MaxCommitDelay: opts.MaxCommitDelay,
 		},
+		TransactionTag: "commit-inline-segment",
 	})
 	if err != nil {
 		if code := spanner.ErrCode(err); code == codes.FailedPrecondition {
@@ -1028,6 +1033,7 @@ func (s *SpannerAdapter) WithTx(ctx context.Context, opts TransactionOptions, f 
 		CommitOptions: spanner.CommitOptions{
 			MaxCommitDelay: opts.MaxCommitDelay,
 		},
+		TransactionTag: "metabase-withtx",
 	})
 	return err
 }
