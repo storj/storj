@@ -7,6 +7,7 @@ import (
 	"context"
 
 	"cloud.google.com/go/spanner"
+	"cloud.google.com/go/spanner/apiv1/spannerpb"
 
 	"storj.io/storj/shared/dbutil/spannerutil"
 )
@@ -167,6 +168,7 @@ func (s *SpannerAdapter) DeleteAllBucketObjects(ctx context.Context, opts Delete
 		}
 		return nil
 	}, spanner.TransactionOptions{
+		CommitPriority: spannerpb.RequestOptions_PRIORITY_MEDIUM,
 		TransactionTag: "delete-all-bucket-objects",
 	})
 	if err != nil {
