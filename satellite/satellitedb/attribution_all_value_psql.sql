@@ -35,6 +35,7 @@ FROM (
                            INNER JOIN value_attributions va ON (
                       bst.project_id = va.project_id
                           AND bst.bucket_name = va.bucket_name
+                          AND va.user_agent IS NOT NULL
                       )
                   WHERE bst.interval_start >= $1
                     AND bst.interval_start < $2
@@ -66,6 +67,7 @@ FROM (
                   INNER JOIN value_attributions va ON (
              bbr.project_id = va.project_id
                  AND bbr.bucket_name = va.bucket_name
+                 AND va.user_agent IS NOT NULL
              )
          WHERE bbr.interval_start >= $1
            AND bbr.interval_start < $2

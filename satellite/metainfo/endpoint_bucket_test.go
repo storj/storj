@@ -873,7 +873,7 @@ func TestDefaultBucketVersioning(t *testing.T) {
 				Name: []byte(bucketName),
 			})
 			require.NoError(t, err)
-			require.Equal(t, buckets.VersioningUnsupported, buckets.Versioning(getResponse.Versioning))
+			require.Equal(t, buckets.Unversioned, buckets.Versioning(getResponse.Versioning))
 		})
 
 		t.Run("default versioning - enabled", func(t *testing.T) {

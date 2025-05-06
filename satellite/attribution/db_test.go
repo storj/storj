@@ -12,6 +12,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"storj.io/common/pb"
+	"storj.io/common/storj"
 	"storj.io/common/testcontext"
 	"storj.io/common/testrand"
 	"storj.io/common/uuid"
@@ -34,6 +35,7 @@ type AttributionTestData struct {
 	projectID  uuid.UUID
 	bucketName []byte
 	bucketID   []byte
+	placement  *storj.PlacementConstraint
 
 	start        time.Time
 	end          time.Time
@@ -65,6 +67,9 @@ func (testData *AttributionTestData) init() {
 	testData.bwStart = time.Date(testData.start.Year(), testData.start.Month(), testData.start.Day(), -testData.padding, 0, 0, 0, testData.start.Location())
 }
 
+var p0 = storj.DefaultPlacement
+var p1 = storj.PlacementConstraint(1)
+
 func TestDB(t *testing.T) {
 	satellitedbtest.Run(t, func(ctx *testcontext.Context, t *testing.T, db satellite.DB) {
 		attributionDB := db.Attribution()
@@ -72,10 +77,11 @@ func TestDB(t *testing.T) {
 		agent1, agent2 := []byte("agent1"), []byte("agent2")
 
 		infos := []*attribution.Info{
-			{project1, []byte("alpha"), agent1, time.Time{}},
-			{project1, []byte("beta"), agent2, time.Time{}},
-			{project2, []byte("alpha"), agent2, time.Time{}},
-			{project2, []byte("beta"), agent1, time.Time{}},
+			{project1, []byte("alpha"), agent1, nil, time.Time{}},
+			{project1, []byte("beta"), agent2, &p0, time.Time{}},
+			{project2, []byte("alpha"), agent2, &p1, time.Time{}},
+			{project2, []byte("beta"), agent1, nil, time.Time{}},
+			{project2, []byte("gamma"), nil, &p0, time.Time{}},
 		}
 
 		for _, info := range infos {
@@ -90,6 +96,7 @@ func TestDB(t *testing.T) {
 			got, err := attributionDB.Get(ctx, info.ProjectID, info.BucketName)
 			require.NoError(t, err)
 			assert.Equal(t, info.UserAgent, got.UserAgent)
+			assert.Equal(t, info.Placement, got.Placement)
 		}
 	})
 }
@@ -122,6 +129,7 @@ func TestQueryAttribution(t *testing.T) {
 				userAgent:  userAgent,
 				projectID:  testrand.UUID(),
 				bucketName: alphaBucket,
+				placement:  &p0,
 
 				remoteSize: remoteSize / 2,
 				inlineSize: inlineSize / 2,
@@ -136,6 +144,7 @@ func TestQueryAttribution(t *testing.T) {
 				userAgent:  []byte("agent3"),
 				projectID:  projectID,
 				bucketName: betaBucket,
+				placement:  &p1,
 
 				remoteSize: remoteSize / 3,
 				inlineSize: inlineSize / 3,
@@ -163,7 +172,7 @@ func TestQueryAttribution(t *testing.T) {
 		for _, td := range testData {
 			td := td
 			td.init()
-			info := attribution.Info{td.projectID, td.bucketName, td.userAgent, time.Time{}}
+			info := attribution.Info{td.projectID, td.bucketName, td.userAgent, td.placement, time.Time{}}
 			_, err := db.Attribution().Insert(ctx, &info)
 			require.NoError(t, err)
 
@@ -190,6 +199,7 @@ func TestQueryAllAttribution(t *testing.T) {
 				userAgent:  []byte("agent2"),
 				projectID:  projectID,
 				bucketName: alphaBucket,
+				placement:  &p0,
 
 				remoteSize: remoteSize,
 				inlineSize: inlineSize,
@@ -204,6 +214,7 @@ func TestQueryAllAttribution(t *testing.T) {
 				userAgent:  userAgent,
 				projectID:  testrand.UUID(),
 				bucketName: alphaBucket,
+				placement:  &p1,
 
 				remoteSize: remoteSize / 2,
 				inlineSize: inlineSize / 2,
@@ -246,7 +257,7 @@ func TestQueryAllAttribution(t *testing.T) {
 			td := td
 			td.init()
 
-			info := attribution.Info{td.projectID, td.bucketName, td.userAgent, time.Time{}}
+			info := attribution.Info{td.projectID, td.bucketName, td.userAgent, td.placement, time.Time{}}
 			_, err := db.Attribution().Insert(ctx, &info)
 			require.NoError(t, err)
 			for i := 0; i < td.hoursOfData; i++ {
@@ -336,7 +347,7 @@ func TestQueryAllAttributionNoStorage(t *testing.T) {
 			td := td
 			td.init()
 
-			info := attribution.Info{td.projectID, td.bucketName, td.userAgent, time.Time{}}
+			info := attribution.Info{td.projectID, td.bucketName, td.userAgent, td.placement, time.Time{}}
 			_, err := db.Attribution().Insert(ctx, &info)
 			require.NoError(t, err)
 
@@ -423,7 +434,7 @@ func TestQueryAllAttributionNoBW(t *testing.T) {
 			td := td
 			td.init()
 
-			info := attribution.Info{td.projectID, td.bucketName, td.userAgent, time.Time{}}
+			info := attribution.Info{td.projectID, td.bucketName, td.userAgent, td.placement, time.Time{}}
 			_, err := db.Attribution().Insert(ctx, &info)
 			require.NoError(t, err)
 
@@ -433,6 +444,69 @@ func TestQueryAllAttributionNoBW(t *testing.T) {
 			testData[i] = td
 		}
 		verifyAllData(ctx, t, db.Attribution(), testData, true)
+	})
+}
+
+func TestQueryAllAttributionIgnoresNullUserAgent(t *testing.T) {
+	satellitedbtest.Run(t, func(ctx *testcontext.Context, t *testing.T, db satellite.DB) {
+		now := time.Now()
+
+		projectID := testrand.UUID()
+		userAgent := []byte("agent1")
+		alphaBucket := []byte("alpha")
+		betaBucket := []byte("beta")
+		testData := []AttributionTestData{
+			{
+				name:       "new userAgent, projectID, alpha",
+				userAgent:  userAgent,
+				projectID:  projectID,
+				bucketName: alphaBucket,
+				placement:  &p0,
+
+				remoteSize: remoteSize,
+				inlineSize: inlineSize,
+				egressSize: egressSize,
+
+				start:   time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, now.Location()),
+				end:     time.Date(now.Year(), now.Month(), now.Day()+1, 0, 0, 0, 0, now.Location()),
+				padding: 2,
+			},
+			{
+				name:       "nil userAgent, projectID, beta",
+				userAgent:  nil,
+				projectID:  projectID,
+				bucketName: betaBucket,
+				placement:  &p1,
+
+				remoteSize: remoteSize / 3,
+				inlineSize: inlineSize / 3,
+				egressSize: egressSize / 3,
+
+				start:   time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, now.Location()),
+				end:     time.Date(now.Year(), now.Month(), now.Day()+1, 0, 0, 0, 0, now.Location()),
+				padding: 2,
+			},
+		}
+
+		for i, td := range testData {
+			td := td
+			td.init()
+
+			info := attribution.Info{td.projectID, td.bucketName, td.userAgent, td.placement, time.Time{}}
+			_, err := db.Attribution().Insert(ctx, &info)
+			require.NoError(t, err)
+			for i := 0; i < td.hoursOfData; i++ {
+				if i < td.hoursOfData/2 {
+					createTallyData(ctx, t, db.ProjectAccounting(), &td)
+				} else {
+					createBWData(ctx, t, db.Orders(), &td)
+				}
+			}
+			testData[i] = td
+		}
+		// Only pass in first testData element. Second element is ignored in usage attribution due to nil userAgent,
+		// even though usage data was created.
+		verifyAllData(ctx, t, db.Attribution(), []AttributionTestData{testData[0]}, false)
 	})
 }
 

@@ -206,6 +206,8 @@ model value_attribution (
 	// unless the user signed up with a specific partner.
 	// note: this field is duplicated in bucket_metainfo.user_agent.
 	field user_agent	blob       ( updatable, nullable )
+	// placement is the bucket's default placement.
+	field placement int (nullable, updatable)
 	// last_updated is updated whenever the row changes.
 	field last_updated 	timestamp  ( autoinsert, autoupdate )
 )

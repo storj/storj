@@ -231,9 +231,23 @@ func NewAPI(log *zap.Logger, full *identity.FullIdentity, db DB,
 	var trackerInfo *metainfo.TrackerInfo
 	var successTrackerUplinks []storj.NodeID
 	{
-		successTrackerTrustedUplinks := config.Metainfo.SuccessTrackerTrustedUplinks
-		successTrackerUplinks = config.Metainfo.SuccessTrackerUplinks
-		trustedUplinkSlice := config.Metainfo.TrustedUplinks
+		successTrackerTrustedUplinks, err := parseNodeIDs(config.Metainfo.SuccessTrackerTrustedUplinks)
+		if err != nil {
+			log.Warn("Wrong uplink ID for the trusted list of the success trackers", zap.Error(err))
+			return nil, err
+		}
+
+		successTrackerUplinks, err = parseNodeIDs(config.Metainfo.SuccessTrackerUplinks)
+		if err != nil {
+			log.Warn("Wrong uplink ID for the list of the success trackers", zap.Error(err))
+			return nil, err
+		}
+
+		trustedUplinkSlice, err := parseNodeIDs(config.Metainfo.TrustedUplinks)
+		if err != nil {
+			log.Warn("Wrong uplink ID for the list of the trusted uplinks", zap.Error(err))
+			return nil, err
+		}
 
 		trustedUplinkSlice = append(trustedUplinkSlice, successTrackerTrustedUplinks...)
 		successTrackerUplinks = append(successTrackerUplinks, successTrackerTrustedUplinks...)
@@ -900,3 +914,15 @@ func (peer *API) URL() storj.NodeURL {
 
 // PrivateAddr returns the private address.
 func (peer *API) PrivateAddr() string { return peer.Server.PrivateAddr().String() }
+
+func parseNodeIDs(nodeIDs []string) ([]storj.NodeID, error) {
+	rv := make([]storj.NodeID, 0, len(nodeIDs))
+	for _, nodeID := range nodeIDs {
+		parsedID, err := storj.NodeIDFromString(nodeID)
+		if err != nil {
+			return nil, err
+		}
+		rv = append(rv, parsedID)
+	}
+	return rv, nil
+}

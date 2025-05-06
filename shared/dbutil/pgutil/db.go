@@ -34,7 +34,7 @@ func OpenUnique(ctx context.Context, connstr string, schemaPrefix string) (*dbut
 	schemaName := schemaPrefix + "-" + CreateRandomTestingSchemaName(8)
 	connStrWithSchema := ConnstrWithSchema(connstr, schemaName)
 
-	db, err := tagsql.Open(ctx, "pgx", connStrWithSchema)
+	db, err := tagsql.Open(ctx, "pgx", connStrWithSchema, nil)
 	if err == nil {
 		// check that connection actually worked before trying CreateSchema, to make
 		// troubleshooting (lots) easier

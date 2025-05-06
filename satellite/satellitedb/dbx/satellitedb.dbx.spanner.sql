@@ -475,6 +475,7 @@ CREATE TABLE value_attributions (
 	project_id BYTES(MAX) NOT NULL,
 	bucket_name BYTES(MAX) NOT NULL,
 	user_agent BYTES(MAX),
+	placement INT64,
 	last_updated TIMESTAMP NOT NULL
 ) PRIMARY KEY ( project_id, bucket_name ) ;
 CREATE TABLE verification_audits (

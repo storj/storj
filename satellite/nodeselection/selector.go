@@ -4,6 +4,8 @@
 package nodeselection
 
 import (
+	"context"
+	"fmt"
 	"math"
 	"math/rand"
 	"sort"
@@ -16,9 +18,14 @@ import (
 	"storj.io/common/storj"
 )
 
+var unvettedSelectorTask = mon.Task()
+var unvettedSelectorSelectionTask = mon.Task()
+
 // UnvettedSelector selects new nodes first based on newNodeFraction, and selects old nodes for the remaining.
 func UnvettedSelector(newNodeFraction float64, init NodeSelectorInit) NodeSelectorInit {
-	return func(nodes []*SelectedNode, filter NodeFilter) NodeSelector {
+	return func(ctx context.Context, nodes []*SelectedNode, filter NodeFilter) NodeSelector {
+		defer unvettedSelectorTask(&ctx)(nil)
+
 		var newNodes []*SelectedNode
 		var oldNodes []*SelectedNode
 		for _, node := range nodes {
@@ -29,11 +36,13 @@ func UnvettedSelector(newNodeFraction float64, init NodeSelectorInit) NodeSelect
 			}
 		}
 
-		newSelector := init(newNodes, filter)
-		oldSelector := init(oldNodes, filter)
-		return func(requester storj.NodeID, n int, excluded []storj.NodeID, alreadySelected []*SelectedNode) ([]*SelectedNode, error) {
+		newSelector := init(ctx, newNodes, filter)
+		oldSelector := init(ctx, oldNodes, filter)
+		return func(ctx context.Context, requester storj.NodeID, n int, excluded []storj.NodeID, alreadySelected []*SelectedNode) (_ []*SelectedNode, err error) {
+			defer unvettedSelectorSelectionTask(&ctx)(&err)
+
 			if math.IsNaN(newNodeFraction) || newNodeFraction <= 0 {
-				return oldSelector(requester, n, excluded, alreadySelected)
+				return oldSelector(ctx, requester, n, excluded, alreadySelected)
 			}
 
 			var newNodeCount int
@@ -42,7 +51,7 @@ func UnvettedSelector(newNodeFraction float64, init NodeSelectorInit) NodeSelect
 				// Add 1 to random result to return 100 if the random function returns 99 and avoid to
 				// always fail this condition if r is greater or equal than 0.99.
 				if int(r*100) > (rand.Intn(100) + 1) {
-					return oldSelector(requester, n, excluded, alreadySelected)
+					return oldSelector(ctx, requester, n, excluded, alreadySelected)
 				}
 
 				// Select one unvetted node.
@@ -53,13 +62,13 @@ func UnvettedSelector(newNodeFraction float64, init NodeSelectorInit) NodeSelect
 				newNodeCount = int(r)
 			}
 
-			selectedNewNodes, err := newSelector(requester, newNodeCount, excluded, alreadySelected)
+			selectedNewNodes, err := newSelector(ctx, requester, newNodeCount, excluded, alreadySelected)
 			if err != nil {
 				return selectedNewNodes, err
 			}
 
 			remaining := n - len(selectedNewNodes)
-			selectedOldNodes, err := oldSelector(requester, remaining, excluded, alreadySelected)
+			selectedOldNodes, err := oldSelector(ctx, requester, remaining, excluded, alreadySelected)
 			if err != nil {
 				return selectedNewNodes, err
 			}
@@ -68,22 +77,29 @@ func UnvettedSelector(newNodeFraction float64, init NodeSelectorInit) NodeSelect
 	}
 }
 
+var filteredSelectorTask = mon.Task()
+
 // FilteredSelector uses another selector on the filtered list of nodes.
 func FilteredSelector(preFilter NodeFilter, init NodeSelectorInit) NodeSelectorInit {
-	return func(nodes []*SelectedNode, filter NodeFilter) NodeSelector {
+	return func(ctx context.Context, nodes []*SelectedNode, filter NodeFilter) NodeSelector {
+		defer filteredSelectorTask(&ctx)(nil)
 		var filteredNodes []*SelectedNode
 		for _, node := range nodes {
 			if preFilter.Match(node) {
 				filteredNodes = append(filteredNodes, node)
 			}
 		}
-		return init(filteredNodes, filter)
+		return init(ctx, filteredNodes, filter)
 	}
 }
 
+var attributeGroupSelectorTask = mon.Task()
+var attributeGroupSelectorSelectionTask = mon.Task()
+
 // AttributeGroupSelector first selects a group with equal chance (like last_net) and choose node from the group randomly.
 func AttributeGroupSelector(attribute NodeAttribute) NodeSelectorInit {
-	return func(nodes []*SelectedNode, filter NodeFilter) NodeSelector {
+	return func(ctx context.Context, nodes []*SelectedNode, filter NodeFilter) NodeSelector {
+		defer attributeGroupSelectorTask(&ctx)(nil)
 		nodeByAttribute := make(map[string][]*SelectedNode)
 		for _, node := range nodes {
 			if filter != nil && !filter.Match(node) {
@@ -98,7 +114,8 @@ func AttributeGroupSelector(attribute NodeAttribute) NodeSelectorInit {
 			attributes = append(attributes, k)
 		}
 
-		return func(requester storj.NodeID, n int, excluded []storj.NodeID, alreadySelected []*SelectedNode) (selected []*SelectedNode, err error) {
+		return func(ctx context.Context, requester storj.NodeID, n int, excluded []storj.NodeID, alreadySelected []*SelectedNode) (selected []*SelectedNode, err error) {
+			defer attributeGroupSelectorSelectionTask(&ctx)(&err)
 			if n == 0 {
 				return selected, nil
 			}
@@ -167,9 +184,13 @@ func includedInNodes(alreadySelected []*SelectedNode, nodes ...*SelectedNode) bo
 	return false
 }
 
+var randomSelectorTask = mon.Task()
+var randomSelectorSelectionTask = mon.Task()
+
 // RandomSelector selects any nodes with equal chance.
 func RandomSelector() NodeSelectorInit {
-	return func(nodes []*SelectedNode, filter NodeFilter) NodeSelector {
+	return func(ctx context.Context, nodes []*SelectedNode, filter NodeFilter) NodeSelector {
+		defer randomSelectorTask(&ctx)(nil)
 
 		var filteredNodes []*SelectedNode
 		for _, node := range nodes {
@@ -179,7 +200,8 @@ func RandomSelector() NodeSelectorInit {
 			filteredNodes = append(filteredNodes, node)
 		}
 
-		return func(id storj.NodeID, n int, excluded []storj.NodeID, alreadySelected []*SelectedNode) (selected []*SelectedNode, err error) {
+		return func(ctx context.Context, id storj.NodeID, n int, excluded []storj.NodeID, alreadySelected []*SelectedNode) (selected []*SelectedNode, err error) {
+			defer randomSelectorSelectionTask(&ctx)(&err)
 			if n == 0 {
 				return selected, nil
 			}
@@ -201,24 +223,32 @@ func RandomSelector() NodeSelectorInit {
 	}
 }
 
+var filterSelectorTask = mon.Task()
+
 // FilterSelector is a specific selector, which can filter out nodes from the upload selection.
 // Note: this is different from the generic filter attribute of the NodeSelectorInit, as that is applied to all node selection (upload/download/repair).
 func FilterSelector(loadTimeFilter NodeFilter, init NodeSelectorInit) NodeSelectorInit {
-	return func(nodes []*SelectedNode, selectionFilter NodeFilter) NodeSelector {
+	return func(ctx context.Context, nodes []*SelectedNode, selectionFilter NodeFilter) NodeSelector {
+		defer filterSelectorTask(&ctx)(nil)
 		var filtered []*SelectedNode
 		for _, n := range nodes {
 			if loadTimeFilter.Match(n) {
 				filtered = append(filtered, n)
 			}
 		}
-		return init(filtered, selectionFilter)
+		return init(ctx, filtered, selectionFilter)
 	}
 }
+
+var balancedGroupBasedSelectorTask = mon.Task()
+var balancedGroupBasedSelectorSelectionTask = mon.Task()
 
 // BalancedGroupBasedSelector first selects a group with equal chance (like last_net) and choose one single node randomly. .
 // One group can be tried multiple times, and if the node is already selected, it will be ignored.
 func BalancedGroupBasedSelector(attribute NodeAttribute, uploadFilter NodeFilter) NodeSelectorInit {
-	return func(nodes []*SelectedNode, filter NodeFilter) NodeSelector {
+	return func(ctx context.Context, nodes []*SelectedNode, filter NodeFilter) NodeSelector {
+		defer balancedGroupBasedSelectorTask(&ctx)(nil)
+
 		mon.IntVal("selector_balanced_input_nodes").Observe(int64(len(nodes)))
 		nodeByAttribute := make(map[string][]*SelectedNode)
 		for _, node := range nodes {
@@ -241,7 +271,9 @@ func BalancedGroupBasedSelector(attribute NodeAttribute, uploadFilter NodeFilter
 			count += len(nodeList)
 		}
 		mon.IntVal("selector_balanced_filtered_nodes").Observe(int64(count))
-		return func(id storj.NodeID, n int, excluded []storj.NodeID, alreadySelected []*SelectedNode) (selected []*SelectedNode, err error) {
+		return func(ctx context.Context, id storj.NodeID, n int, excluded []storj.NodeID, alreadySelected []*SelectedNode) (selected []*SelectedNode, err error) {
+			defer balancedGroupBasedSelectorSelectionTask(&ctx)(&err)
+
 			if n == 0 {
 				return selected, nil
 			}
@@ -303,7 +335,33 @@ func ChoiceOfTwo(tracker ScoreNode, delegate NodeSelectorInit) NodeSelectorInit 
 	return ChoiceOfN(tracker, 2, delegate)
 }
 
-func choiceOfNReduction(getSuccessRate func(*SelectedNode) float64, n int, nodes []*SelectedNode, desired int) []*SelectedNode {
+var choiceOfNReductionTask = mon.Task()
+
+// choiceOfNBetter looks at two scores and returns true if the first argument
+// is "better" than the second one
+func choiceOfNBetter(score1, score2 float64) bool {
+	// score1 and score2 could both potentially be NaN. we want to prefer a node if
+	// it is NaN and if they are both NaN then it does not matter which we prefer (assuming the
+	// input list is randomly shuffled). note that ALL comparisons where one of the
+	// operands is NaN evaluate to false. thus for the following if statement, we have
+	// the following table:
+	//
+	//     score1 | score2 | result
+	//    --------|--------|-------
+	//        NaN |    NaN | node2
+	//        NaN | number | node1
+	//     number |    NaN | node2
+	//     number | number | whoever is larger
+	if math.IsNaN(score2) || score2 > score1 {
+		// score1 is not better.
+		return false
+	}
+	// score1 is better.
+	return true
+}
+
+func choiceOfNReduction(ctx context.Context, getSuccessRate func(*SelectedNode) float64, n int, nodes []*SelectedNode, desired int) []*SelectedNode {
+	defer choiceOfNReductionTask(&ctx)(nil)
 	// shuffle the nodes to ensure the pairwise matching is fair and unbiased when the
 	// totals for either node are 0 (we just pick the first node in the pair in that case)
 	rand.New(rand.NewSource(time.Now().UnixNano())).Shuffle(len(nodes), func(i, j int) {
@@ -325,25 +383,12 @@ func choiceOfNReduction(getSuccessRate func(*SelectedNode) float64, n int, nodes
 			success0 := getSuccessRate(nodes[0])
 			success1 := getSuccessRate(nodes[1])
 
-			// success0 and success1 could both potentially be NaN. we want to prefer a node if
-			// it is NaN and if they are both NaN then it does not matter which we prefer (the
-			// input list is randomly shuffled). note that ALL comparisons where one of the
-			// operands is NaN evaluate to false. thus for the following if statement, we have
-			// the following table:
-			//
-			//     success0 | success1 | result
-			//    ----------|----------|-------
-			//          NaN |      NaN | node1
-			//          NaN |   number | node0
-			//       number |      NaN | node1
-			//       number |   number | whoever is larger
-
-			if math.IsNaN(success1) || success1 > success0 {
-				// nodes[1] is selected
-				nodes = nodes[1:]
-			} else {
+			if choiceOfNBetter(success0, success1) {
 				// nodes[0] is selected
 				nodes[1] = nodes[0]
+				nodes = nodes[1:]
+			} else {
+				// nodes[1] is selected
 				nodes = nodes[1:]
 			}
 			toChooseBetween--
@@ -355,20 +400,39 @@ func choiceOfNReduction(getSuccessRate func(*SelectedNode) float64, n int, nodes
 	return nodes
 }
 
+var (
+	choiceOfNTask                                  = mon.Task()
+	choiceOfNInternalSelectionTask                 = mon.Task()
+	choiceOfNInternalSelectionExcludedCount        = mon.IntVal("choice-of-n-excluded-count")
+	choiceOfNInternalSelectionAlreadySelectedCount = mon.IntVal("choice-of-n-already-selected-count")
+)
+
 // ChoiceOfN will perform the selection for n*x nodes and choose the best node
 // from groups of n size. n is an int64 type due to a mito scripting shortcoming
 // but really an int16 should be fine.
 // NOTE: it may break other pre-conditions, like the results of the balanced selector...
 func ChoiceOfN(tracker ScoreNode, n int64, delegate NodeSelectorInit) NodeSelectorInit {
-	return func(allNodes []*SelectedNode, filter NodeFilter) NodeSelector {
-		selector := delegate(allNodes, filter)
-		return func(requester storj.NodeID, m int, excluded []storj.NodeID, alreadySelected []*SelectedNode) (selected []*SelectedNode, err error) {
-			nodes, err := selector(requester, int(n)*m, excluded, alreadySelected)
+	return func(ctx context.Context, allNodes []*SelectedNode, filter NodeFilter) NodeSelector {
+		defer choiceOfNTask(&ctx)(nil)
+		selector := delegate(ctx, allNodes, filter)
+		return func(ctx context.Context, requester storj.NodeID, m int, excluded []storj.NodeID, alreadySelected []*SelectedNode) (selected []*SelectedNode, err error) {
+			defer choiceOfNInternalSelectionTask(&ctx)(&err)
+			choiceOfNInternalSelectionExcludedCount.Observe(int64(len(excluded)))
+			choiceOfNInternalSelectionAlreadySelectedCount.Observe(int64(len(alreadySelected)))
+			nodes, err := selector(ctx, requester, int(n)*m, excluded, alreadySelected)
 			if err != nil {
 				return nil, err
 			}
+			// okay okay, let me talk about cardinality here - n is the value that
+			// is choice of n. it is configured at process start time, so, say, 3.
+			// n is likely some low number like 2 or 3 practically always.
+			// m is the reed solomon number we're trying to select. this also has
+			// very low cardinality. we have a handful of different rs settings
+			// across all the different products, maybe 3 or 4 active ones. so the
+			// result, n*m, has low cardinality.
+			mon.IntVal(fmt.Sprintf("choice-of-n-requested-%d-got", int(n)*m)).Observe(int64(len(nodes)))
 
-			return choiceOfNReduction(tracker.Get(requester), int(n), nodes, m), nil
+			return choiceOfNReduction(ctx, tracker.Get(requester), int(n), nodes, m), nil
 		}
 	}
 }
@@ -473,17 +537,22 @@ func MaxGroup(attr NodeAttribute) ScoreSelection {
 	}
 }
 
+var choiceOfNSelectionTask = mon.Task()
+var choiceOfNSelectionSelectionTask = mon.Task()
+
 // ChoiceOfNSelection is similar to ChoiceOfN, but doesn't break the pre-conditions of the original selector.
 // it chooses from selections, without mixing nodes. scoreSources are ar judging the selections in order.
 func ChoiceOfNSelection(n int64, delegate NodeSelectorInit, scoreSource ...ScoreSelection) NodeSelectorInit {
-	return func(allNodes []*SelectedNode, filter NodeFilter) NodeSelector {
-		selector := delegate(allNodes, filter)
-		return func(requester storj.NodeID, m int, excluded []storj.NodeID, alreadySelected []*SelectedNode) (selected []*SelectedNode, err error) {
+	return func(ctx context.Context, allNodes []*SelectedNode, filter NodeFilter) NodeSelector {
+		defer choiceOfNSelectionTask(&ctx)(nil)
+		selector := delegate(ctx, allNodes, filter)
+		return func(ctx context.Context, requester storj.NodeID, m int, excluded []storj.NodeID, alreadySelected []*SelectedNode) (selected []*SelectedNode, err error) {
+			defer choiceOfNSelectionSelectionTask(&ctx)(&err)
 			var bestSelection []*SelectedNode
 			var bestScores []float64
 
 			for i := 0; i < int(n); i++ {
-				nodes, err := selector(requester, m, excluded, alreadySelected)
+				nodes, err := selector(ctx, requester, m, excluded, alreadySelected)
 				if err != nil {
 					return nil, err
 				}
@@ -507,17 +576,20 @@ func ChoiceOfNSelection(n int64, delegate NodeSelectorInit, scoreSource ...Score
 	}
 }
 
+var downloadChoiceOfNTask = mon.Task()
+
 // DownloadChoiceOfN will take a set of nodes and winnow it down using choice
 // of n. n is an int64 type due to a mito scripting shortcoming but really an
 // int16 should be fine.
 func DownloadChoiceOfN(tracker UploadSuccessTracker, n int64) DownloadSelector {
-	return func(requester storj.NodeID, possibleNodes map[storj.NodeID]*SelectedNode, needed int) (map[storj.NodeID]*SelectedNode, error) {
+	return func(ctx context.Context, requester storj.NodeID, possibleNodes map[storj.NodeID]*SelectedNode, needed int) (_ map[storj.NodeID]*SelectedNode, err error) {
+		defer downloadChoiceOfNTask(&ctx)(&err)
 		nodeSlice := make([]*SelectedNode, 0, len(possibleNodes)+needed)
 		for _, node := range possibleNodes {
 			nodeSlice = append(nodeSlice, node)
 		}
 
-		nodeSlice = choiceOfNReduction(tracker.Get(requester), int(n), nodeSlice, needed)
+		nodeSlice = choiceOfNReduction(ctx, tracker.Get(requester), int(n), nodeSlice, needed)
 
 		result := make(map[storj.NodeID]*SelectedNode, needed)
 		for _, node := range nodeSlice {
@@ -527,9 +599,12 @@ func DownloadChoiceOfN(tracker UploadSuccessTracker, n int64) DownloadSelector {
 	}
 }
 
+var downloadBestTask = mon.Task()
+
 // DownloadBest will take a set of nodes and will return just the best nodes.
 func DownloadBest(tracker UploadSuccessTracker) DownloadSelector {
-	return func(requester storj.NodeID, possibleNodes map[storj.NodeID]*SelectedNode, needed int) (map[storj.NodeID]*SelectedNode, error) {
+	return func(ctx context.Context, requester storj.NodeID, possibleNodes map[storj.NodeID]*SelectedNode, needed int) (_ map[storj.NodeID]*SelectedNode, err error) {
+		defer downloadBestTask(&ctx)(&err)
 		nodeSlice := make([]*SelectedNode, 0, len(possibleNodes)+needed)
 		for _, node := range possibleNodes {
 			nodeSlice = append(nodeSlice, node)
@@ -559,6 +634,8 @@ func DownloadBest(tracker UploadSuccessTracker) DownloadSelector {
 	}
 }
 
+var filterBestTask = mon.Task()
+
 // FilterBest is a selector, which keeps only the best nodes (based on percentage, or fixed number of nodes).
 // this selector will permanently ban the worst nodes for the period of nodeselection cache refresh.
 func FilterBest(tracker UploadSuccessTracker, selection string, uplink string, delegate NodeSelectorInit) NodeSelectorInit {
@@ -582,7 +659,8 @@ func FilterBest(tracker UploadSuccessTracker, selection string, uplink string, d
 		panic(err)
 	}
 
-	return func(nodes []*SelectedNode, filter NodeFilter) NodeSelector {
+	return func(ctx context.Context, nodes []*SelectedNode, filter NodeFilter) NodeSelector {
+		defer filterBestTask(&ctx)(nil)
 		var filteredNodes []*SelectedNode
 		for _, node := range nodes {
 			if filter != nil && !filter.Match(node) {
@@ -621,19 +699,25 @@ func FilterBest(tracker UploadSuccessTracker, selection string, uplink string, d
 			targetNumber = len(nodes)
 		}
 		nodes = nodes[:targetNumber]
-		return delegate(nodes, filter)
+		return delegate(ctx, nodes, filter)
 	}
 }
 
+var bestOfNTask = mon.Task()
+var bestOfNSelectionTask = mon.Task()
+
 // BestOfN selects more nodes than the required one, and choose the fastest from those.
 func BestOfN(tracker ScoreNode, ratio float64, delegate NodeSelectorInit) NodeSelectorInit {
-	return func(nodes []*SelectedNode, filter NodeFilter) NodeSelector {
-		wrappedSelector := delegate(nodes, filter)
-		return func(requester storj.NodeID, n int, excluded []storj.NodeID, alreadySelected []*SelectedNode) ([]*SelectedNode, error) {
+	return func(ctx context.Context, nodes []*SelectedNode, filter NodeFilter) NodeSelector {
+		defer bestOfNTask(&ctx)(nil)
+
+		wrappedSelector := delegate(ctx, nodes, filter)
+		return func(ctx context.Context, requester storj.NodeID, n int, excluded []storj.NodeID, alreadySelected []*SelectedNode) (_ []*SelectedNode, err error) {
+			defer bestOfNSelectionTask(&ctx)(&err)
 			getSuccessRate := tracker.Get(requester)
 
 			nodesToSelect := int(ratio * float64(n))
-			selectedNodes, err := wrappedSelector(requester, nodesToSelect, excluded, alreadySelected)
+			selectedNodes, err := wrappedSelector(ctx, requester, nodesToSelect, excluded, alreadySelected)
 			if err != nil {
 				return selectedNodes, err
 			}
@@ -655,15 +739,20 @@ func BestOfN(tracker ScoreNode, ratio float64, delegate NodeSelectorInit) NodeSe
 	}
 }
 
+var enoughFastTask = mon.Task()
+var enoughFastSelectionTask = mon.Task()
+
 // EnoughFast will select `ratio` times more nodes. The fastest nodes (under splitLine) will be used the selectionRation nodes, remaining wil be chosen from the second part.
 func EnoughFast(tracker UploadSuccessTracker, ratio float64, splitLine float64, selectionRatio float64, delegate NodeSelectorInit) NodeSelectorInit {
-	return func(nodes []*SelectedNode, filter NodeFilter) NodeSelector {
-		wrappedSelector := delegate(nodes, filter)
-		return func(requester storj.NodeID, n int, excluded []storj.NodeID, alreadySelected []*SelectedNode) ([]*SelectedNode, error) {
+	return func(ctx context.Context, nodes []*SelectedNode, filter NodeFilter) NodeSelector {
+		defer enoughFastTask(&ctx)(nil)
+		wrappedSelector := delegate(ctx, nodes, filter)
+		return func(ctx context.Context, requester storj.NodeID, n int, excluded []storj.NodeID, alreadySelected []*SelectedNode) (_ []*SelectedNode, err error) {
+			defer enoughFastSelectionTask(&ctx)(&err)
 			getSuccessRate := tracker.Get(requester)
 
 			nodesToSelect := int(ratio * float64(n))
-			selectedNodes, err := wrappedSelector(requester, nodesToSelect, excluded, alreadySelected)
+			selectedNodes, err := wrappedSelector(ctx, requester, nodesToSelect, excluded, alreadySelected)
 			if err != nil {
 				return selectedNodes, err
 			}
@@ -702,29 +791,33 @@ func pickRandom(nodes []*SelectedNode, required int) (res []*SelectedNode) {
 	return res
 }
 
+var dualSelectorTask = mon.Task()
+var dualSelectorSelectionTask = mon.Task()
+
 // DualSelector selects fraction of nodes with first, and remaining with the second selector.
 func DualSelector(fraction float64, first NodeSelectorInit, second NodeSelectorInit) NodeSelectorInit {
-	return func(nodes []*SelectedNode, filter NodeFilter) NodeSelector {
+	return func(ctx context.Context, nodes []*SelectedNode, filter NodeFilter) NodeSelector {
+		defer dualSelectorTask(&ctx)(nil)
 		if math.IsNaN(fraction) || fraction < 0 || fraction > 1 {
 			panic("fraction is of the dual selector is invalid")
 		}
-		firstSelector := first(nodes, filter)
-		secondSelector := second(nodes, filter)
-		return func(requester storj.NodeID, n int, excluded []storj.NodeID, alreadySelected []*SelectedNode) ([]*SelectedNode, error) {
+		firstSelector := first(ctx, nodes, filter)
+		secondSelector := second(ctx, nodes, filter)
+		return func(ctx context.Context, requester storj.NodeID, n int, excluded []storj.NodeID, alreadySelected []*SelectedNode) (_ []*SelectedNode, err error) {
+			defer dualSelectorSelectionTask(&ctx)(&err)
 
 			firstSelectionCount := RoundWithProbability(float64(n) * fraction)
 
-			var err error
 			var selectedFirstNodes []*SelectedNode
 			if firstSelectionCount > 0 {
-				selectedFirstNodes, err = firstSelector(requester, firstSelectionCount, excluded, alreadySelected)
+				selectedFirstNodes, err = firstSelector(ctx, requester, firstSelectionCount, excluded, alreadySelected)
 				if err != nil {
 					mon.Counter("dual_selector_failure").Inc(1)
 				}
 			}
 
 			remaining := n - len(selectedFirstNodes)
-			selectedSecondNodes, err := secondSelector(requester, remaining, excluded, append(alreadySelected, selectedFirstNodes...))
+			selectedSecondNodes, err := secondSelector(ctx, requester, remaining, excluded, append(alreadySelected, selectedFirstNodes...))
 			if err != nil {
 				return selectedSecondNodes, err
 			}
@@ -743,13 +836,17 @@ func RoundWithProbability(r float64) int {
 	}
 }
 
+var weightedSelectorTask = mon.Task()
+var weightedSelectorSelectionTask = mon.Task()
+
 // WeightedSelector selects randomly from nodes, but supporting custom probabilities.
 // Each node value is raised to the valuePower power, and then added to
 // valueBallast.
 // Some nodes can be selected more often than others.
 // The implementation is based on Walker's alias method: https://www.youtube.com/watch?v=retAwpUv42E
 func WeightedSelector(weightFunc NodeValue, initFilter NodeFilter) NodeSelectorInit {
-	return func(nodes []*SelectedNode, filter NodeFilter) NodeSelector {
+	return func(ctx context.Context, nodes []*SelectedNode, filter NodeFilter) NodeSelector {
+		defer weightedSelectorTask(&ctx)(nil)
 		var filtered []*SelectedNode
 		for _, node := range nodes {
 			if filter != nil && !filter.Match(node) {
@@ -812,7 +909,8 @@ func WeightedSelector(weightFunc NodeValue, initFilter NodeFilter) NodeSelectorI
 				overfull = append(overfull, of)
 			}
 		}
-		return func(requester storj.NodeID, selectN int, excluded []storj.NodeID, alreadySelected []*SelectedNode) ([]*SelectedNode, error) {
+		return func(ctx context.Context, requester storj.NodeID, selectN int, excluded []storj.NodeID, alreadySelected []*SelectedNode) (_ []*SelectedNode, err error) {
+			defer weightedSelectorSelectionTask(&ctx)(&err)
 			var selected []*SelectedNode
 			if n == 0 {
 				return selected, nil

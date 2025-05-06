@@ -47,11 +47,13 @@ func main() {
 		log.Fatal(err)
 	}
 	replacer := strings.NewReplacer(
+		"\"storj.io/storj/shared/dbutil/txutil\"", "\"storj.io/storj/shared/flightrecorder\"\n\t\"storj.io/storj/shared/dbutil/txutil\"",
 		"*sql.Tx", "tagsql.Tx",
 		"*sql.Rows", "tagsql.Rows",
 		`_ "github.com/jackc/pgx/v5/stdlib"`, `"storj.io/storj/shared/tagsql"`,
 		"type DB struct {\n\t*sql.DB", "type DB struct {\n\ttagsql.DB",
-		"db = &DB{\n\t\tDB: sql_db", "db = &DB{\n\t\tDB: tagsql.Wrap(sql_db)",
+		"func Open(driver, source string)", "func Open(driver, source string, recorder *flightrecorder.Box)",
+		"db = &DB{\n\t\tDB: sql_db", "db = &DB{\n\t\tDB: tagsql.WrapWithRecorder(sql_db, recorder)",
 	)
 	newDBX := replacer.Replace(string(originalDBXBytes))
 	fileString := "//lint:file-ignore U1000,ST1012 generated file\n" + newDBX

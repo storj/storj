@@ -20,6 +20,7 @@ import (
 	"storj.io/storj/satellite/metabase"
 	"storj.io/storj/satellite/orders"
 	"storj.io/storj/satellite/satellitedb"
+	"storj.io/storj/shared/flightrecorder"
 )
 
 func cmdConsoleAPIRun(cmd *cobra.Command, args []string) (err error) {
@@ -36,10 +37,16 @@ func cmdConsoleAPIRun(cmd *cobra.Command, args []string) (err error) {
 		return errs.New("Failed to load identity: %+v", err)
 	}
 
+	var recorder *flightrecorder.Box
+	if runCfg.FlightRecorder.Enabled {
+		recorder = flightrecorder.NewBox(log.Named("flightrecorder"), runCfg.FlightRecorder)
+	}
+
 	db, err := satellitedb.Open(ctx, log.Named("db"), runCfg.Database, satellitedb.Options{
 		ApplicationName:      "satellite-console-api",
 		APIKeysLRUOptions:    runCfg.APIKeysLRUOptions(),
 		RevocationLRUOptions: runCfg.RevocationLRUOptions(),
+		FlightRecorder:       recorder,
 	})
 	if err != nil {
 		return errs.New("Error starting master database on satellite api: %+v", err)
@@ -48,8 +55,10 @@ func cmdConsoleAPIRun(cmd *cobra.Command, args []string) (err error) {
 		err = errs.Combine(err, db.Close())
 	}()
 
-	metabaseDB, err := metabase.Open(ctx, log.Named("metabase"), runCfg.Config.Metainfo.DatabaseURL,
-		runCfg.Config.Metainfo.Metabase("satellite-console-api"))
+	metabaseCfg := runCfg.Config.Metainfo.Metabase("satellite-console-api")
+	metabaseCfg.FlightRecorder = recorder
+
+	metabaseDB, err := metabase.Open(ctx, log.Named("metabase"), runCfg.Config.Metainfo.DatabaseURL, metabaseCfg)
 	if err != nil {
 		return errs.New("Error creating metabase connection on satellite console api: %+v", err)
 	}

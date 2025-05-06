@@ -5,6 +5,7 @@ package nodeselection
 
 import (
 	"bytes"
+	"context"
 	"os"
 	"strconv"
 	"strings"
@@ -77,12 +78,12 @@ var _ NodeFilter = Placement{}
 var _ NodeFilterWithAnnotation = Placement{}
 
 // NodeSelectorInit initializes a stateful NodeSelector when node cache is refreshed.
-type NodeSelectorInit func([]*SelectedNode, NodeFilter) NodeSelector
+type NodeSelectorInit func(context.Context, []*SelectedNode, NodeFilter) NodeSelector
 
 // NodeSelector pick random nodes based on a specific algorithm.
 // Nodes from excluded should never be used. Same is true for alreadySelected, but it may also trigger other restrictions
 // (for example, when a last_net is already selected, all the nodes from the same net should be excluded as well.
-type NodeSelector func(requester storj.NodeID, n int, excluded []storj.NodeID, alreadySelected []*SelectedNode) ([]*SelectedNode, error)
+type NodeSelector func(ctx context.Context, requester storj.NodeID, n int, excluded []storj.NodeID, alreadySelected []*SelectedNode) ([]*SelectedNode, error)
 
 // DownloadSelector will take a map of possible nodes to choose for a download.
 // It returns a new map of nodes to consider for selecting for the download.
@@ -90,17 +91,28 @@ type NodeSelector func(requester storj.NodeID, n int, excluded []storj.NodeID, a
 // element in result will have come from possibleNodes. 'needed' is a hint to
 // the selector of how many nodes are needed for return ideally, so many
 // selectors will try to return at least 'needed' nodes.
-type DownloadSelector func(requester storj.NodeID, possibleNodes map[storj.NodeID]*SelectedNode, needed int) (map[storj.NodeID]*SelectedNode, error)
+type DownloadSelector func(ctx context.Context, requester storj.NodeID, possibleNodes map[storj.NodeID]*SelectedNode, needed int) (map[storj.NodeID]*SelectedNode, error)
 
 // ExcludeAllDownloadSelector is a DownloadSelector that always returns an
 // empty map.
-var ExcludeAllDownloadSelector DownloadSelector = func(storj.NodeID, map[storj.NodeID]*SelectedNode, int) (map[storj.NodeID]*SelectedNode, error) {
+var ExcludeAllDownloadSelector DownloadSelector = excludeAllDownloadSelector
+
+var excludeAllDownloadSelectorTask = mon.Task()
+
+func excludeAllDownloadSelector(ctx context.Context, _ storj.NodeID, _ map[storj.NodeID]*SelectedNode, _ int) (_ map[storj.NodeID]*SelectedNode, err error) {
+	defer excludeAllDownloadSelectorTask(&ctx)(&err)
+
 	return map[storj.NodeID]*SelectedNode{}, nil
 }
 
 // DefaultDownloadSelector is a DownloadSelector that returns the set of
 // possibleNodes unchanged.
-var DefaultDownloadSelector DownloadSelector = func(_ storj.NodeID, possibleNodes map[storj.NodeID]*SelectedNode, _ int) (map[storj.NodeID]*SelectedNode, error) {
+var DefaultDownloadSelector DownloadSelector = defaultDownloadSelector
+
+var defaultDownloadSelectorTask = mon.Task()
+
+func defaultDownloadSelector(ctx context.Context, _ storj.NodeID, possibleNodes map[storj.NodeID]*SelectedNode, _ int) (_ map[storj.NodeID]*SelectedNode, err error) {
+	defer defaultDownloadSelectorTask(&ctx)(&err)
 	return possibleNodes, nil
 }
 

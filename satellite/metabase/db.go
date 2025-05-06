@@ -27,6 +27,7 @@ import (
 	"storj.io/storj/shared/dbutil"
 	"storj.io/storj/shared/dbutil/pgutil"
 	"storj.io/storj/shared/dbutil/spannerutil"
+	"storj.io/storj/shared/flightrecorder"
 	"storj.io/storj/shared/tagsql"
 )
 
@@ -51,6 +52,8 @@ type Config struct {
 	TestingWrapAdapter       func(Adapter) Adapter
 
 	Compression string
+
+	FlightRecorder *flightrecorder.Box
 }
 
 // DB implements a database for storing objects and segments.
@@ -98,7 +101,7 @@ func Open(ctx context.Context, log *zap.Logger, connstr string, config Config) (
 
 		switch impl {
 		case dbutil.Postgres:
-			rawdb, err := tagsql.Open(ctx, "pgx", connstr)
+			rawdb, err := tagsql.Open(ctx, "pgx", connstr, config.FlightRecorder)
 			if err != nil {
 				return nil, Error.Wrap(err)
 			}
@@ -113,7 +116,7 @@ func Open(ctx context.Context, log *zap.Logger, connstr string, config Config) (
 				testingUniqueUnversioned: config.TestingUniqueUnversioned,
 			}
 		case dbutil.Cockroach:
-			rawdb, err := tagsql.Open(ctx, "cockroach", connstr)
+			rawdb, err := tagsql.Open(ctx, "cockroach", connstr, config.FlightRecorder)
 			if err != nil {
 				return nil, Error.Wrap(err)
 			}
@@ -134,7 +137,7 @@ func Open(ctx context.Context, log *zap.Logger, connstr string, config Config) (
 				Database:        source,
 				ApplicationName: config.ApplicationName,
 				Compression:     config.Compression,
-			}, log)
+			}, log, config.FlightRecorder)
 			if err != nil {
 				return nil, err
 			}

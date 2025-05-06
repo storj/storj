@@ -10,6 +10,7 @@ import (
 
 	"github.com/zeebo/errs"
 
+	"storj.io/common/storj"
 	"storj.io/common/uuid"
 )
 
@@ -21,6 +22,7 @@ type Info struct {
 	ProjectID  uuid.UUID
 	BucketName []byte
 	UserAgent  []byte
+	Placement  *storj.PlacementConstraint
 	CreatedAt  time.Time
 }
 

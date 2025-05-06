@@ -22,12 +22,13 @@ import (
 	"storj.io/common/context2"
 	"storj.io/common/leak"
 	"storj.io/common/traces"
+	"storj.io/storj/shared/flightrecorder"
 )
 
 var mon = monkit.Package()
 
-// Open opens *sql.DB and wraps the implementation with tagging.
-func Open(ctx context.Context, driverName, dataSourceName string) (DB, error) {
+// Open opens *sql.DB and wraps the implementation with tagging and flight recorder.
+func Open(ctx context.Context, driverName, dataSourceName string, recorder *flightrecorder.Box) (DB, error) {
 	var sdb *sql.DB
 	var err error
 	pprof.Do(ctx, pprof.Labels("db", driverName), func(ctx context.Context) {
@@ -42,7 +43,7 @@ func Open(ctx context.Context, driverName, dataSourceName string) (DB, error) {
 		return nil, errs.Combine(err, sdb.Close())
 	}
 
-	return Wrap(sdb), nil
+	return WrapWithRecorder(sdb, recorder), nil
 }
 
 // Wrap turns a *sql.DB into a DB-matching interface.
@@ -59,6 +60,24 @@ func Wrap(db *sql.DB) DB {
 		useContext:   support.Basic(),
 		useTxContext: support.Transactions(),
 		tracker:      leak.Root(1),
+	}
+}
+
+// WrapWithRecorder turns a *sql.DB into a DB-matching interface including flight recorder.
+func WrapWithRecorder(db *sql.DB, recorder *flightrecorder.Box) DB {
+	support, err := DetectContextSupport(db)
+	if err != nil {
+		// When we reach here it is definitely a programmer error.
+		// Add any new database drivers into DetectContextSupport
+		panic(err)
+	}
+
+	return &sqlDB{
+		db:           db,
+		useContext:   support.Basic(),
+		useTxContext: support.Transactions(),
+		tracker:      leak.Root(1),
+		box:          recorder,
 	}
 }
 
@@ -120,6 +139,7 @@ type sqlDB struct {
 	useContext   bool
 	useTxContext bool
 	tracker      leak.Ref
+	box          *flightrecorder.Box
 }
 
 const (
@@ -170,6 +190,7 @@ func (s *sqlDB) Begin(ctx context.Context) (Tx, error) {
 		tx:         tx,
 		useContext: s.useContext && s.useTxContext,
 		tracker:    s.tracker.Child("sqlTx", 1),
+		box:        s.box,
 	}, err
 }
 
@@ -195,10 +216,12 @@ func (s *sqlDB) BeginTx(ctx context.Context, txOptions *sql.TxOptions) (Tx, erro
 		tx:         tx,
 		useContext: s.useContext && s.useTxContext,
 		tracker:    s.tracker.Child("sqlTx", 1),
+		box:        s.box,
 	}, err
 }
 
 func (s *sqlDB) Close() error {
+	s.record()
 	return errs.Combine(s.tracker.Close(), s.db.Close())
 }
 
@@ -229,6 +252,7 @@ func (s *sqlDB) Conn(ctx context.Context) (Conn, error) {
 }
 
 func (s *sqlDB) Exec(ctx context.Context, query string, args ...interface{}) (_ sql.Result, err error) {
+	s.record()
 	traces.Tag(ctx, traces.TagDB)
 	defer mon.Task()(&ctx, query, args)(&err)
 
@@ -236,6 +260,7 @@ func (s *sqlDB) Exec(ctx context.Context, query string, args ...interface{}) (_ 
 }
 
 func (s *sqlDB) ExecContext(ctx context.Context, query string, args ...interface{}) (_ sql.Result, err error) {
+	s.record()
 	traces.Tag(ctx, traces.TagDB)
 	defer mon.Task()(&ctx, query, args)(&err)
 
@@ -271,6 +296,7 @@ func (s *sqlDB) Prepare(ctx context.Context, query string) (_ Stmt, err error) {
 		stmt:       stmt,
 		useContext: s.useContext,
 		tracker:    s.tracker.Child("sqlStmt", 1),
+		box:        s.box,
 	}, nil
 }
 
@@ -295,10 +321,12 @@ func (s *sqlDB) PrepareContext(ctx context.Context, query string) (_ Stmt, err e
 		stmt:       stmt,
 		useContext: s.useContext,
 		tracker:    s.tracker.Child("sqlStmt", 1),
+		box:        s.box,
 	}, nil
 }
 
 func (s *sqlDB) Query(ctx context.Context, query string, args ...interface{}) (_ Rows, err error) {
+	s.record()
 	traces.Tag(ctx, traces.TagDB)
 	defer mon.Task()(&ctx, query, args)(&err)
 
@@ -306,6 +334,7 @@ func (s *sqlDB) Query(ctx context.Context, query string, args ...interface{}) (_
 }
 
 func (s *sqlDB) QueryContext(ctx context.Context, query string, args ...interface{}) (_ Rows, err error) {
+	s.record()
 	traces.Tag(ctx, traces.TagDB)
 	defer mon.Task()(&ctx, query, args)(&err)
 
@@ -316,6 +345,7 @@ func (s *sqlDB) QueryContext(ctx context.Context, query string, args ...interfac
 }
 
 func (s *sqlDB) QueryRow(ctx context.Context, query string, args ...interface{}) *sql.Row {
+	s.record()
 	traces.Tag(ctx, traces.TagDB)
 	defer mon.Task()(&ctx, query, args)(nil)
 
@@ -323,6 +353,7 @@ func (s *sqlDB) QueryRow(ctx context.Context, query string, args ...interface{})
 }
 
 func (s *sqlDB) QueryRowContext(ctx context.Context, query string, args ...interface{}) *sql.Row {
+	s.record()
 	traces.Tag(ctx, traces.TagDB)
 	defer mon.Task()(&ctx, query, args)(nil)
 
@@ -346,4 +377,12 @@ func (s *sqlDB) SetMaxOpenConns(n int) {
 
 func (s *sqlDB) Stats() sql.DBStats {
 	return s.db.Stats()
+}
+
+func (s *sqlDB) record() {
+	if s.box == nil {
+		return
+	}
+
+	s.box.Enqueue(flightrecorder.EventTypeDB, 1) // 1 to skip record call.
 }

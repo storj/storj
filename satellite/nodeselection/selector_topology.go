@@ -4,6 +4,7 @@
 package nodeselection
 
 import (
+	"context"
 	"math"
 	"strconv"
 	"strings"
@@ -12,6 +13,9 @@ import (
 
 	"storj.io/common/storj"
 )
+
+var topologySelectorTask = mon.Task()
+var topologySelectorSelectionTask = mon.Task()
 
 // TopologySelector selects nodes using weights and topology structure. Topology is a tree and defined by attributes. (eg. datacenter / server / instance).
 // Number of selected nodes should be defined for each level.
@@ -37,7 +41,8 @@ func TopologySelector(weightFunc NodeValue, groups string, selections string, in
 		attributes = append(attributes, a)
 	}
 
-	return func(nodes []*SelectedNode, filter NodeFilter) NodeSelector {
+	return func(ctx context.Context, nodes []*SelectedNode, filter NodeFilter) NodeSelector {
+		defer topologySelectorTask(&ctx)(nil)
 
 		root := &Nodes{}
 		for _, node := range nodes {
@@ -51,7 +56,8 @@ func TopologySelector(weightFunc NodeValue, groups string, selections string, in
 			root.Add(node, attributes, weightFunc(*node))
 		}
 
-		return func(requester storj.NodeID, n int, excluded []storj.NodeID, alreadySelected []*SelectedNode) ([]*SelectedNode, error) {
+		return func(ctx context.Context, requester storj.NodeID, n int, excluded []storj.NodeID, alreadySelected []*SelectedNode) (_ []*SelectedNode, err error) {
+			defer topologySelectorSelectionTask(&ctx)(&err)
 			selection := root.Select(selectionPattern, n, excluded)
 			if len(selection) > n {
 				selection = selection[:n]

@@ -968,6 +968,14 @@ func (db *satelliteDB) productionMigrationSpanner() *migrate.Migration {
 					) PRIMARY KEY ( project_id, subdomain )`,
 				},
 			},
+			{
+				DB:          &db.migrationDB,
+				Description: "add placement to value_attributions table",
+				Version:     293,
+				Action: migrate.SQL{
+					`ALTER TABLE value_attributions ADD COLUMN placement INT64`,
+				},
+			},
 			// NB: after updating testdata in `testdata`, run
 			//     `go generate` to update `migratez.go`.
 		},
@@ -3775,6 +3783,14 @@ func (db *satelliteDB) productionMigrationPostgres() *migrate.Migration {
 						created_at timestamp with time zone NOT NULL,
 						PRIMARY KEY ( project_id, subdomain )
 					)`,
+				},
+			},
+			{
+				DB:          &db.migrationDB,
+				Description: "add placement to value_attributions table",
+				Version:     293,
+				Action: migrate.SQL{
+					`ALTER TABLE value_attributions ADD COLUMN placement INTEGER`,
 				},
 			},
 			// NB: after updating testdata in `testdata`, run

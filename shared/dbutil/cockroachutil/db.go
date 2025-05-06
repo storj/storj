@@ -41,7 +41,7 @@ func OpenUnique(ctx context.Context, connStr string, schemaPrefix string) (db *d
 
 	schemaName := schemaPrefix + "-" + CreateRandomTestingSchemaName(8)
 
-	masterDB, err := tagsql.Open(ctx, "cockroach", connStr)
+	masterDB, err := tagsql.Open(ctx, "cockroach", connStr, nil)
 	if err != nil {
 		return nil, errs.Wrap(err)
 	}
@@ -86,7 +86,7 @@ func OpenUnique(ctx context.Context, connStr string, schemaPrefix string) (db *d
 		return nil, errs.Combine(err, cleanup(masterDB))
 	}
 
-	sqlDB, err := tagsql.Open(ctx, "cockroach", modifiedConnStr)
+	sqlDB, err := tagsql.Open(ctx, "cockroach", modifiedConnStr, nil)
 	if err != nil {
 		return nil, errs.Combine(errs.Wrap(err), cleanup(masterDB))
 	}

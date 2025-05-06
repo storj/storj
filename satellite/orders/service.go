@@ -211,7 +211,7 @@ func (service *Service) createGetOrderLimits(ctx context.Context, peer *identity
 		neededLimits = desiredNodes
 	}
 
-	selectedNodes, err := selector(peer.ID, nodes, int(neededLimits))
+	selectedNodes, err := selector(ctx, peer.ID, nodes, int(neededLimits))
 	if err != nil {
 		return nil, storj.PiecePrivateKey{}, Error.Wrap(err)
 	}

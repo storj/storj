@@ -14,7 +14,9 @@ import (
 	"go.uber.org/zap"
 
 	"storj.io/storj/shared/dbutil"
+	"storj.io/storj/shared/dbutil/recordeddb"
 	"storj.io/storj/shared/dbutil/spannerutil"
+	"storj.io/storj/shared/flightrecorder"
 	"storj.io/storj/shared/tagsql"
 )
 
@@ -31,7 +33,7 @@ type SpannerConfig struct {
 // SpannerAdapter implements Adapter for Google Spanner connections..
 type SpannerAdapter struct {
 	log         *zap.Logger
-	client      *spanner.Client
+	client      *recordeddb.RecordedSpannerClient
 	adminClient *database.DatabaseAdminClient
 	sqlClient   tagsql.DB
 
@@ -39,13 +41,15 @@ type SpannerAdapter struct {
 }
 
 // NewSpannerAdapter creates a new Spanner adapter.
-func NewSpannerAdapter(ctx context.Context, cfg SpannerConfig, log *zap.Logger) (*SpannerAdapter, error) {
+func NewSpannerAdapter(ctx context.Context, cfg SpannerConfig, log *zap.Logger, recorder *flightrecorder.Box) (*SpannerAdapter, error) {
 	params, err := spannerutil.ParseConnStr(cfg.Database)
 	if err != nil {
 		return nil, errs.Wrap(err)
 	}
 
-	adminClient, err := database.NewDatabaseAdminClient(ctx, params.ClientOptions()...)
+	opts := params.ClientOptions()
+
+	adminClient, err := database.NewDatabaseAdminClient(ctx, opts...)
 	if err != nil {
 		return nil, errs.Wrap(err)
 	}
@@ -55,16 +59,19 @@ func NewSpannerAdapter(ctx context.Context, cfg SpannerConfig, log *zap.Logger) 
 	poolConfig.HealthCheckWorkers = cfg.HealthCheckWorkers
 	poolConfig.HealthCheckInterval = cfg.HealthCheckInterval
 
-	client, err := spanner.NewClientWithConfig(ctx, params.DatabasePath(),
+	rawClient, err := spanner.NewClientWithConfig(ctx, params.DatabasePath(),
 		spanner.ClientConfig{
 			Logger:               zap.NewStdLog(log.Named("stdlog")),
 			SessionPoolConfig:    poolConfig,
 			Compression:          cfg.Compression,
 			DisableRouteToLeader: false,
-		}, params.ClientOptions()...)
+		}, opts...)
 	if err != nil {
 		return nil, errs.Wrap(err)
 	}
+
+	client := recordeddb.WrapSpannerClient(rawClient, recorder)
+
 	sqlClient, err := sql.Open("spanner", params.GoSqlSpannerConnStr())
 	if err != nil {
 		return nil, errs.Wrap(err)
@@ -73,7 +80,7 @@ func NewSpannerAdapter(ctx context.Context, cfg SpannerConfig, log *zap.Logger) 
 		client:      client,
 		connParams:  params,
 		adminClient: adminClient,
-		sqlClient:   tagsql.Wrap(sqlClient),
+		sqlClient:   tagsql.WrapWithRecorder(sqlClient, recorder),
 		log:         log,
 	}, nil
 }
@@ -90,7 +97,7 @@ func (s *SpannerAdapter) Name() string {
 }
 
 // UnderlyingDB returns a handle to the underlying DB.
-func (s *SpannerAdapter) UnderlyingDB() *spanner.Client {
+func (s *SpannerAdapter) UnderlyingDB() *recordeddb.RecordedSpannerClient {
 	return s.client
 }
 

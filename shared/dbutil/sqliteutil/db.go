@@ -17,7 +17,7 @@ import (
 
 // LoadSchemaFromSQL inserts script into connstr and loads schema.
 func LoadSchemaFromSQL(ctx context.Context, script []string) (_ *dbschema.Schema, err error) {
-	db, err := tagsql.Open(ctx, "sqlite3", ":memory:")
+	db, err := tagsql.Open(ctx, "sqlite3", ":memory:", nil)
 	if err != nil {
 		return nil, errs.Wrap(err)
 	}
@@ -33,7 +33,7 @@ func LoadSchemaFromSQL(ctx context.Context, script []string) (_ *dbschema.Schema
 
 // LoadSnapshotFromSQL inserts script into connstr and loads schema.
 func LoadSnapshotFromSQL(ctx context.Context, script string) (_ *dbschema.Snapshot, err error) {
-	db, err := tagsql.Open(ctx, "sqlite3", ":memory:")
+	db, err := tagsql.Open(ctx, "sqlite3", ":memory:", nil)
 	if err != nil {
 		return nil, errs.Wrap(err)
 	}

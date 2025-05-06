@@ -36,13 +36,13 @@ func TestState_SelectNonDistinct(t *testing.T) {
 	require.NoError(t, err)
 
 	{ // select 5 non-distinct subnet reputable nodes
-		state := nodeselection.NewState(nodes, map[storj.PlacementConstraint]nodeselection.Placement{
+		state := nodeselection.InitState(ctx, nodes, map[storj.PlacementConstraint]nodeselection.Placement{
 			0: {
 				Selector: nodeselection.UnvettedSelector(0, nodeselection.AttributeGroupSelector(lastNet)),
 			},
 		})
 		const selectCount = 5
-		selected, err := state.Select(storj.NodeID{}, 0, selectCount, nil, nil)
+		selected, err := state.Select(ctx, storj.NodeID{}, 0, selectCount, nil, nil)
 		require.NoError(t, err)
 		require.Len(t, selected, selectCount)
 	}
@@ -50,12 +50,12 @@ func TestState_SelectNonDistinct(t *testing.T) {
 	{ // select 6 non-distinct subnet reputable and new nodes (50%)
 		const selectCount = 6
 		const newFraction = 0.5
-		state := nodeselection.NewState(nodes, map[storj.PlacementConstraint]nodeselection.Placement{
+		state := nodeselection.InitState(ctx, nodes, map[storj.PlacementConstraint]nodeselection.Placement{
 			0: {
 				Selector: nodeselection.UnvettedSelector(0.5, nodeselection.AttributeGroupSelector(lastNet)),
 			},
 		})
-		selected, err := state.Select(storj.NodeID{}, 0, selectCount, nil, nil)
+		selected, err := state.Select(ctx, storj.NodeID{}, 0, selectCount, nil, nil)
 		require.NoError(t, err)
 		require.Len(t, selected, selectCount)
 		require.Len(t, intersectLists(selected, reputableNodes), selectCount*(1-newFraction))
@@ -65,13 +65,13 @@ func TestState_SelectNonDistinct(t *testing.T) {
 	{ // select 10 distinct subnet reputable and new nodes (100%), falling back to 5 reputable
 		const selectCount = 10
 		const newFraction = 1.0
-		state := nodeselection.NewState(nodes, map[storj.PlacementConstraint]nodeselection.Placement{
+		state := nodeselection.InitState(ctx, nodes, map[storj.PlacementConstraint]nodeselection.Placement{
 			0: {
 				Selector: nodeselection.UnvettedSelector(newFraction, nodeselection.AttributeGroupSelector(lastNet)),
 			},
 		})
 
-		selected, err := state.Select(storj.NodeID{}, 0, selectCount, nil, nil)
+		selected, err := state.Select(ctx, storj.NodeID{}, 0, selectCount, nil, nil)
 		require.NoError(t, err)
 
 		require.Len(t, selected, selectCount)
@@ -81,6 +81,8 @@ func TestState_SelectNonDistinct(t *testing.T) {
 }
 
 func TestState_UploadFilter(t *testing.T) {
+	ctx := testcontext.New(t)
+	defer ctx.Cleanup()
 
 	nodes := func() []*nodeselection.SelectedNode {
 		nodes := joinNodes(
@@ -102,7 +104,7 @@ func TestState_UploadFilter(t *testing.T) {
 	euFilter, err := nodeselection.FilterFromString("country(\"EU\")", nil)
 	require.NoError(t, err)
 
-	state := nodeselection.NewState(nodes, map[storj.PlacementConstraint]nodeselection.Placement{
+	state := nodeselection.InitState(ctx, nodes, map[storj.PlacementConstraint]nodeselection.Placement{
 		0: {
 			Selector:     nodeselection.RandomSelector(),
 			NodeFilter:   euFilter,
@@ -111,7 +113,7 @@ func TestState_UploadFilter(t *testing.T) {
 	})
 
 	for i := 0; i < 10; i++ {
-		selected, err := state.Select(storj.NodeID{}, 0, 3, nil, nil)
+		selected, err := state.Select(ctx, storj.NodeID{}, 0, 3, nil, nil)
 		require.NoError(t, err)
 		require.Len(t, selected, 3)
 		for i := 0; i < len(selected); i++ {
@@ -141,13 +143,13 @@ func TestState_SelectDistinct(t *testing.T) {
 
 	t.Run("select 2 distinct subnet reputable nodes", func(t *testing.T) {
 		const selectCount = 2
-		state := nodeselection.NewState(nodes, map[storj.PlacementConstraint]nodeselection.Placement{
+		state := nodeselection.InitState(ctx, nodes, map[storj.PlacementConstraint]nodeselection.Placement{
 			0: {
 				Selector: nodeselection.UnvettedSelector(0, nodeselection.AttributeGroupSelector(lastNet)),
 			},
 		})
 
-		selected, err := state.Select(storj.NodeID{}, 0, selectCount, nil, nil)
+		selected, err := state.Select(ctx, storj.NodeID{}, 0, selectCount, nil, nil)
 		require.NoError(t, err)
 
 		require.Len(t, selected, selectCount)
@@ -155,13 +157,13 @@ func TestState_SelectDistinct(t *testing.T) {
 
 	t.Run("try to select 5 distinct subnet reputable nodes, but there are only two 2 in the state", func(t *testing.T) {
 		const selectCount = 5
-		state := nodeselection.NewState(nodes, map[storj.PlacementConstraint]nodeselection.Placement{
+		state := nodeselection.InitState(ctx, nodes, map[storj.PlacementConstraint]nodeselection.Placement{
 			0: {
 				Selector: nodeselection.UnvettedSelector(0, nodeselection.AttributeGroupSelector(lastNet)),
 			},
 		})
 
-		selected, err := state.Select(storj.NodeID{}, 0, selectCount, nil, nil)
+		selected, err := state.Select(ctx, storj.NodeID{}, 0, selectCount, nil, nil)
 		require.Error(t, err)
 		require.Len(t, selected, 2)
 	})
@@ -169,13 +171,13 @@ func TestState_SelectDistinct(t *testing.T) {
 	t.Run("select 4 distinct subnet reputable and new nodes (50%)", func(t *testing.T) {
 		const selectCount = 4
 		const newFraction = 0.5
-		state := nodeselection.NewState(nodes, map[storj.PlacementConstraint]nodeselection.Placement{
+		state := nodeselection.InitState(ctx, nodes, map[storj.PlacementConstraint]nodeselection.Placement{
 			0: {
 				Selector: nodeselection.UnvettedSelector(newFraction, nodeselection.AttributeGroupSelector(lastNet)),
 			},
 		})
 
-		selected, err := state.Select(storj.NodeID{}, 0, selectCount, nil, nil)
+		selected, err := state.Select(ctx, storj.NodeID{}, 0, selectCount, nil, nil)
 		require.NoError(t, err)
 		require.Len(t, selected, selectCount, nil)
 		require.Len(t, intersectLists(selected, reputableNodes), selectCount*(1-newFraction))
@@ -198,7 +200,7 @@ func TestState_Select_Concurrent(t *testing.T) {
 
 	nodes := joinNodes(reputableNodes, newNodes)
 
-	state := nodeselection.NewState(nodes, map[storj.PlacementConstraint]nodeselection.Placement{
+	state := nodeselection.InitState(ctx, nodes, map[storj.PlacementConstraint]nodeselection.Placement{
 		0: {
 			Selector: nodeselection.UnvettedSelector(0.5, nodeselection.RandomSelector()),
 		},
@@ -207,14 +209,14 @@ func TestState_Select_Concurrent(t *testing.T) {
 	var group errgroup.Group
 	group.Go(func() error {
 		const selectCount = 5
-		nodes, err := state.Select(storj.NodeID{}, 0, selectCount, nil, nil)
+		nodes, err := state.Select(ctx, storj.NodeID{}, 0, selectCount, nil, nil)
 		require.Len(t, nodes, selectCount)
 		return err
 	})
 
 	group.Go(func() error {
 		const selectCount = 4
-		nodes, err := state.Select(storj.NodeID{}, 0, selectCount, nil, nil)
+		nodes, err := state.Select(ctx, storj.NodeID{}, 0, selectCount, nil, nil)
 		require.Len(t, nodes, selectCount)
 		return err
 	})

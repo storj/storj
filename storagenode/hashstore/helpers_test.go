@@ -127,6 +127,32 @@ func TestShortCollidingKeys(t *testing.T) {
 	assert.NotEqual(t, k0, k1)
 }
 
+func TestRewrittenIndex(t *testing.T) {
+	var ri rewrittenIndex
+	var recs []Record
+
+	for i := 0; i < 1000; i++ {
+		rec := newRecord(newKey())
+
+		ri.add(rec)
+		recs = append(recs, rec)
+	}
+
+	ri.sortByKey()
+
+	for _, rec := range recs {
+		i, ok := ri.findKey(rec.Key)
+		assert.True(t, ok)
+		assert.Equal(t, ri.records[i], rec)
+	}
+
+	for i := 0; i < 1000; i++ {
+		i, ok := ri.findKey(newKey())
+		assert.False(t, ok)
+		assert.Equal(t, i, -1)
+	}
+}
+
 //
 // test helpers
 //
@@ -138,6 +164,11 @@ var (
 	temporarilyMutex    sync.Mutex
 	temporarilyAcquired = make(map[any]bool)
 )
+
+func init() {
+	// enable ordered rewrite for all tests.
+	compaction_OrderedRewrite = true
+}
 
 func temporarily[T any](loc *T, val T) func() {
 	temporarilyMutex.Lock()

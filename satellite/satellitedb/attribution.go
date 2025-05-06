@@ -12,6 +12,7 @@ import (
 
 	"github.com/zeebo/errs"
 
+	"storj.io/common/storj"
 	"storj.io/common/uuid"
 	"storj.io/storj/satellite/attribution"
 	"storj.io/storj/satellite/satellitedb/dbx"
@@ -76,10 +77,10 @@ func (keys *attributionDB) Insert(ctx context.Context, info *attribution.Info) (
 	switch keys.db.impl {
 	case dbutil.Postgres, dbutil.Cockroach:
 		err = keys.db.QueryRowContext(ctx, `
-				INSERT INTO value_attributions (project_id, bucket_name, user_agent, last_updated) 
-				VALUES ($1, $2, $3, now())
+				INSERT INTO value_attributions (project_id, bucket_name, user_agent, placement, last_updated) 
+				VALUES ($1, $2, $3, $4, now())
 				ON CONFLICT (project_id, bucket_name) DO NOTHING
-				RETURNING last_updated`, info.ProjectID[:], info.BucketName, info.UserAgent).Scan(&info.CreatedAt)
+				RETURNING last_updated`, info.ProjectID[:], info.BucketName, info.UserAgent, info.Placement).Scan(&info.CreatedAt)
 		// TODO when sql.ErrNoRows is returned then CreatedAt is not set
 		if errors.Is(err, sql.ErrNoRows) {
 			return info, nil
@@ -89,9 +90,9 @@ func (keys *attributionDB) Insert(ctx context.Context, info *attribution.Info) (
 		}
 	case dbutil.Spanner:
 		err := keys.db.QueryRowContext(ctx, `
-			INSERT OR IGNORE INTO value_attributions (project_id, bucket_name, user_agent, last_updated)
-			VALUES (?, ?, ?, CURRENT_TIMESTAMP())
-			THEN RETURN last_updated`, info.ProjectID[:], info.BucketName, info.UserAgent).Scan(&info.CreatedAt)
+			INSERT OR IGNORE INTO value_attributions (project_id, bucket_name, user_agent, placement, last_updated)
+			VALUES (?, ?, ?, ?, CURRENT_TIMESTAMP())
+			THEN RETURN last_updated`, info.ProjectID[:], info.BucketName, info.UserAgent, info.Placement).Scan(&info.CreatedAt)
 		// TODO when sql.ErrNoRows is returned then CreatedAt is not set
 		if errors.Is(err, sql.ErrNoRows) {
 			return info, nil
@@ -197,11 +198,16 @@ func attributionFromDBX(info *dbx.ValueAttribution) (*attribution.Info, error) {
 	if err != nil {
 		return nil, Error.Wrap(err)
 	}
-
+	var placementPtr *storj.PlacementConstraint
+	if info.Placement != nil {
+		placementVal := storj.PlacementConstraint(*info.Placement)
+		placementPtr = &placementVal
+	}
 	return &attribution.Info{
 		ProjectID:  projectID,
 		BucketName: info.BucketName,
 		UserAgent:  userAgent,
+		Placement:  placementPtr,
 		CreatedAt:  info.LastUpdated,
 	}, nil
 }

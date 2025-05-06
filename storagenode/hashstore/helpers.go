@@ -7,6 +7,7 @@ import (
 	"io/fs"
 	"os"
 	"path/filepath"
+	"sort"
 	"strconv"
 	"sync"
 	"time"
@@ -279,4 +280,49 @@ func (a *atomicFile) Cancel() {
 
 	_ = a.Close()
 	_ = os.Remove(a.tmp)
+}
+
+//
+// rewrittenIndex is a helper to keep track of records rewritten during a compaction.
+//
+
+type rewrittenIndex struct {
+	records []Record
+}
+
+func (ri *rewrittenIndex) add(rec Record) {
+	ri.records = append(ri.records, rec)
+}
+
+func (ri *rewrittenIndex) sortByLogOff() {
+	sort.Slice(ri.records, func(i, j int) bool {
+		switch {
+		case ri.records[i].Log < ri.records[j].Log:
+			return true
+		case ri.records[i].Log > ri.records[j].Log:
+			return false
+		case ri.records[i].Offset < ri.records[j].Offset:
+			return true
+		case ri.records[i].Offset > ri.records[j].Offset:
+			return false
+		default:
+			return string(ri.records[i].Key[:]) < string(ri.records[j].Key[:])
+		}
+	})
+}
+
+func (ri *rewrittenIndex) sortByKey() {
+	sort.Slice(ri.records, func(i, j int) bool {
+		return string(ri.records[i].Key[:]) < string(ri.records[j].Key[:])
+	})
+}
+
+func (ri *rewrittenIndex) findKey(key Key) (int, bool) {
+	i := sort.Search(len(ri.records), func(i int) bool {
+		return string(ri.records[i].Key[:]) >= string(key[:])
+	})
+	if i < len(ri.records) && ri.records[i].Key == key {
+		return i, true
+	}
+	return -1, false
 }
