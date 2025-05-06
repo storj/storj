@@ -123,7 +123,7 @@ func (s *SpannerAdapter) DeleteAllBucketObjects(ctx context.Context, opts Delete
 	defer mon.Task()(&ctx)(&err)
 
 	// TODO(spanner): see if it would be better to avoid batching altogether here.
-	_, err = s.client.ReadWriteTransaction(ctx, func(ctx context.Context, tx *spanner.ReadWriteTransaction) error {
+	_, err = s.client.ReadWriteTransactionWithOptions(ctx, func(ctx context.Context, tx *spanner.ReadWriteTransaction) error {
 		streamIDs, err := spannerutil.CollectRows(tx.Query(ctx, spanner.Statement{
 			SQL: `
 				DELETE FROM objects
@@ -166,6 +166,8 @@ func (s *SpannerAdapter) DeleteAllBucketObjects(ctx context.Context, opts Delete
 			return err
 		}
 		return nil
+	}, spanner.TransactionOptions{
+		TransactionTag: "delete-all-bucket-objects",
 	})
 	if err != nil {
 		return 0, 0, err
