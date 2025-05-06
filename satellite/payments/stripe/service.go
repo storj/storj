@@ -56,6 +56,8 @@ const (
 	storageInvoiceItemDesc = " - Storage (MB-Month)"
 	egressInvoiceItemDesc  = " - Egress Bandwidth (MB)"
 	segmentInvoiceItemDesc = " - Segment Fee (Segment-Month)"
+
+	partnerMetadataKey = "partner"
 )
 
 // Config stores needed information for payment service initialization.
@@ -726,7 +728,7 @@ func (service *Service) createNewInvoiceItems(ctx context.Context, items []*stri
 		item.AddMetadata("projectID", projectID.String())
 
 		if service.useIdempotency {
-			item.SetIdempotencyKey(getIdempotencyKey(projectID, *item.Description, period))
+			item.SetIdempotencyKey(getIdempotencyKey(projectID, item.Metadata[partnerMetadataKey], *item.Description, period))
 		}
 
 		_, err := service.stripeClient.InvoiceItems().New(item)
@@ -739,7 +741,7 @@ func (service *Service) createNewInvoiceItems(ctx context.Context, items []*stri
 }
 
 // getIdempotencyKey creates new unique idempotency key for given invoice item.
-func getIdempotencyKey(projectID uuid.UUID, itemDesc string, period time.Time) string {
+func getIdempotencyKey(projectID uuid.UUID, partner, itemDesc string, period time.Time) string {
 	// We can't just use item.Description because it includes project name.
 	// There is a chance project name can be updated by the user during invoicing process.
 	itemIdentifier := itemDesc
@@ -751,7 +753,7 @@ func getIdempotencyKey(projectID uuid.UUID, itemDesc string, period time.Time) s
 		itemIdentifier = "segment"
 	}
 
-	key := fmt.Sprintf("%s-%s-%s", projectID, itemIdentifier, period.Format("2006-01"))
+	key := fmt.Sprintf("%s-%s-%s-%s", projectID, partner, itemIdentifier, period.Format("2006-01"))
 	key = strings.ToLower(strings.ReplaceAll(key, " ", "-"))
 
 	return key
@@ -807,7 +809,7 @@ func (service *Service) updateExistingInvoiceItems(ctx context.Context, existing
 		}
 
 		if service.useIdempotency {
-			params.SetIdempotencyKey(getIdempotencyKey(projectID, item.Description, period))
+			params.SetIdempotencyKey(getIdempotencyKey(projectID, item.Metadata[partnerMetadataKey], item.Description, period))
 		}
 
 		_, err = service.stripeClient.InvoiceItems().Update(item.ID, params)
@@ -852,6 +854,8 @@ func (service *Service) InvoiceItemsFromProjectUsage(projName string, partnerUsa
 		projectItem.Quantity = stripe.Int64(storageMBMonthDecimal(usage.Storage).IntPart())
 		storagePrice, _ := priceModel.StorageMBMonthCents.Float64()
 		projectItem.UnitAmountDecimal = stripe.Float64(storagePrice)
+		projectItem.AddMetadata(partnerMetadataKey, partner)
+
 		result = append(result, projectItem)
 
 		projectItem = &stripe.InvoiceItemParams{}
@@ -859,6 +863,8 @@ func (service *Service) InvoiceItemsFromProjectUsage(projName string, partnerUsa
 		projectItem.Quantity = stripe.Int64(egressMBDecimal(usage.Egress).IntPart())
 		egressPrice, _ := priceModel.EgressMBCents.Float64()
 		projectItem.UnitAmountDecimal = stripe.Float64(egressPrice)
+		projectItem.AddMetadata(partnerMetadataKey, partner)
+
 		result = append(result, projectItem)
 
 		projectItem = &stripe.InvoiceItemParams{}
@@ -866,6 +872,8 @@ func (service *Service) InvoiceItemsFromProjectUsage(projName string, partnerUsa
 		projectItem.Quantity = stripe.Int64(segmentMonthDecimal(usage.SegmentCount).IntPart())
 		segmentPrice, _ := priceModel.SegmentMonthCents.Float64()
 		projectItem.UnitAmountDecimal = stripe.Float64(segmentPrice)
+		projectItem.AddMetadata(partnerMetadataKey, partner)
+
 		result = append(result, projectItem)
 	}
 
