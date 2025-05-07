@@ -186,6 +186,9 @@ type BackendWrapper struct {
 	backend  stripe.Backend
 	retryCfg RetryConfig
 	clock    time2.Clock
+
+	// log is passed to backend and used for the logging errors that are retried.
+	log *zap.Logger
 }
 
 // NewBackendWrapper creates a new wrapper for a Stripe backend.
@@ -199,6 +202,7 @@ func NewBackendWrapper(log *zap.Logger, backendType stripe.SupportedBackend, ret
 	return &BackendWrapper{
 		retryCfg: retryCfg,
 		backend:  stripe.GetBackendWithConfig(backendType, backendConfig),
+		log:      log,
 	}
 }
 
@@ -280,6 +284,8 @@ func (w *BackendWrapper) withRetries(params stripe.ParamsContainer, call func() 
 		if !w.clock.Sleep(ctx, time.Duration(backoff)) {
 			return ctx.Err()
 		}
+
+		w.log.Warn("retrying stripe request", zap.Error(err))
 	}
 }
 
