@@ -327,9 +327,11 @@ func (s *SpannerAdapter) deleteObjectExactVersionWithTx(ctx context.Context, tx 
 func (s *SpannerAdapter) deleteObjectExactVersion(ctx context.Context, opts DeleteObjectExactVersion) (result DeleteObjectResult, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	_, err = s.client.ReadWriteTransaction(ctx, func(ctx context.Context, tx *spanner.ReadWriteTransaction) error {
+	_, err = s.client.ReadWriteTransactionWithOptions(ctx, func(ctx context.Context, tx *spanner.ReadWriteTransaction) error {
 		result, err = s.deleteObjectExactVersionWithTx(ctx, tx, opts)
 		return err
+	}, spanner.TransactionOptions{
+		TransactionTag: "delete-object-exact-version",
 	})
 	if err != nil {
 		return DeleteObjectResult{}, Error.Wrap(err)
@@ -340,7 +342,7 @@ func (s *SpannerAdapter) deleteObjectExactVersion(ctx context.Context, opts Dele
 func (s *SpannerAdapter) deleteObjectExactVersionUsingObjectLock(ctx context.Context, opts DeleteObjectExactVersion) (result DeleteObjectResult, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	_, err = s.client.ReadWriteTransaction(ctx, func(ctx context.Context, tx *spanner.ReadWriteTransaction) error {
+	_, err = s.client.ReadWriteTransactionWithOptions(ctx, func(ctx context.Context, tx *spanner.ReadWriteTransaction) error {
 		result = DeleteObjectResult{}
 
 		var (
@@ -389,6 +391,8 @@ func (s *SpannerAdapter) deleteObjectExactVersionUsingObjectLock(ctx context.Con
 
 		result, err = s.deleteObjectExactVersionWithTx(ctx, tx, opts)
 		return errs.Wrap(err)
+	}, spanner.TransactionOptions{
+		TransactionTag: "delete-object-exact-version-using-object-lock",
 	})
 	if err != nil {
 		if ErrObjectLock.Has(err) {
@@ -464,7 +468,7 @@ func (p *PostgresAdapter) DeletePendingObject(ctx context.Context, opts DeletePe
 
 // DeletePendingObject deletes a pending object with specified version and streamID.
 func (s *SpannerAdapter) DeletePendingObject(ctx context.Context, opts DeletePendingObject) (result DeleteObjectResult, err error) {
-	_, err = s.client.ReadWriteTransaction(ctx, func(ctx context.Context, tx *spanner.ReadWriteTransaction) error {
+	_, err = s.client.ReadWriteTransactionWithOptions(ctx, func(ctx context.Context, tx *spanner.ReadWriteTransaction) error {
 		result.Removed, err = collectDeletedObjectsSpanner(ctx, opts.Location(), tx.Query(ctx, spanner.Statement{
 			SQL: `
 				DELETE FROM objects
@@ -498,6 +502,8 @@ func (s *SpannerAdapter) DeletePendingObject(ctx context.Context, opts DeletePen
 			}
 		}
 		return errs.Wrap(err)
+	}, spanner.TransactionOptions{
+		TransactionTag: "delete-pending-object",
 	})
 	if err != nil {
 		return DeleteObjectResult{}, Error.Wrap(err)
@@ -805,7 +811,7 @@ func (s *SpannerAdapter) deleteObjectLastCommittedPlain(ctx context.Context, opt
 	defer mon.Task()(&ctx)(&err)
 	// TODO(ver): do we need to pretend here that `expires_at` matters?
 	// TODO(ver): should this report an error when the object doesn't exist?
-	_, err = s.client.ReadWriteTransaction(ctx, func(ctx context.Context, tx *spanner.ReadWriteTransaction) error {
+	_, err = s.client.ReadWriteTransactionWithOptions(ctx, func(ctx context.Context, tx *spanner.ReadWriteTransaction) error {
 		// TODO(spanner): is there a better way to combine these deletes from different tables?
 		result.Removed, err = collectDeletedObjectsSpanner(ctx, opts.ObjectLocation,
 			tx.Query(ctx, spanner.Statement{
@@ -843,6 +849,8 @@ func (s *SpannerAdapter) deleteObjectLastCommittedPlain(ctx context.Context, opt
 			}
 		}
 		return errs.Wrap(err)
+	}, spanner.TransactionOptions{
+		TransactionTag: "delete-object-last-committed-plain",
 	})
 	if err != nil {
 		return DeleteObjectResult{}, Error.Wrap(err)
@@ -859,7 +867,7 @@ func (s *SpannerAdapter) deleteObjectLastCommittedPlainUsingObjectLock(ctx conte
 		legalHold bool
 	}
 
-	_, err = s.client.ReadWriteTransaction(ctx, func(ctx context.Context, tx *spanner.ReadWriteTransaction) error {
+	_, err = s.client.ReadWriteTransactionWithOptions(ctx, func(ctx context.Context, tx *spanner.ReadWriteTransaction) error {
 		result = DeleteObjectResult{}
 
 		info, err := spannerutil.CollectRow(tx.Query(ctx, spanner.Statement{
@@ -909,6 +917,8 @@ func (s *SpannerAdapter) deleteObjectLastCommittedPlainUsingObjectLock(ctx conte
 			Version:        info.version,
 		})
 		return errs.Wrap(err)
+	}, spanner.TransactionOptions{
+		TransactionTag: "delete-object-last-committed-plain-using-object-lock",
 	})
 	if err != nil {
 		if ErrObjectLock.Has(err) {
@@ -1114,7 +1124,7 @@ func (p *PostgresAdapter) DeleteObjectLastCommittedVersioned(ctx context.Context
 
 // DeleteObjectLastCommittedVersioned deletes an object last committed version when opts.Versioned is true.
 func (s *SpannerAdapter) DeleteObjectLastCommittedVersioned(ctx context.Context, opts DeleteObjectLastCommitted, deleterMarkerStreamID uuid.UUID) (result DeleteObjectResult, err error) {
-	_, err = s.client.ReadWriteTransaction(ctx, func(ctx context.Context, tx *spanner.ReadWriteTransaction) error {
+	_, err = s.client.ReadWriteTransactionWithOptions(ctx, func(ctx context.Context, tx *spanner.ReadWriteTransaction) error {
 
 		deleted, err := spannerutil.CollectRow(
 			tx.Query(ctx, spanner.Statement{
@@ -1163,6 +1173,8 @@ func (s *SpannerAdapter) DeleteObjectLastCommittedVersioned(ctx context.Context,
 		result.Markers = []Object{deleted}
 
 		return nil
+	}, spanner.TransactionOptions{
+		TransactionTag: "delete-object-last-committed-versioned",
 	})
 	if err != nil {
 		if ErrObjectNotFound.Has(err) {
