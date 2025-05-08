@@ -33,7 +33,7 @@ type SpannerConfig struct {
 // SpannerAdapter implements Adapter for Google Spanner connections..
 type SpannerAdapter struct {
 	log         *zap.Logger
-	client      *recordeddb.RecordedSpannerClient
+	client      *recordeddb.SpannerClient
 	adminClient *database.DatabaseAdminClient
 	sqlClient   tagsql.DB
 
@@ -97,7 +97,7 @@ func (s *SpannerAdapter) Name() string {
 }
 
 // UnderlyingDB returns a handle to the underlying DB.
-func (s *SpannerAdapter) UnderlyingDB() *recordeddb.RecordedSpannerClient {
+func (s *SpannerAdapter) UnderlyingDB() *recordeddb.SpannerClient {
 	return s.client
 }
 
