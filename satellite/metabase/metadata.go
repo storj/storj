@@ -108,7 +108,7 @@ func (s *SpannerAdapter) UpdateObjectLastCommittedMetadata(ctx context.Context, 
 	// to CommitObject, they will need to account for them being optional.
 	// Leading to scenarios where uplink calls update metadata, but wants to clear them
 	// during commit object.
-	_, err = s.client.ReadWriteTransaction(ctx, func(ctx context.Context, tx *spanner.ReadWriteTransaction) error {
+	_, err = s.client.ReadWriteTransactionWithOptions(ctx, func(ctx context.Context, tx *spanner.ReadWriteTransaction) error {
 		affected, err = tx.Update(ctx, spanner.Statement{
 			SQL: `
 				UPDATE objects SET
@@ -141,6 +141,8 @@ func (s *SpannerAdapter) UpdateObjectLastCommittedMetadata(ctx context.Context, 
 			return Error.New("unable to update object metadata: %w", err)
 		}
 		return nil
+	}, spanner.TransactionOptions{
+		TransactionTag: "update-object-last-committed-metadata",
 	})
 
 	if err != nil {
