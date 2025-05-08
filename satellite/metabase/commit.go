@@ -188,7 +188,7 @@ func (s *SpannerAdapter) BeginObjectNextVersion(ctx context.Context, opts BeginO
 					encrypted_metadata, encrypted_metadata_nonce, encrypted_metadata_encrypted_key,
 					retention_mode, retain_until
 				) VALUES (
-                  	@project_id, @bucket_name, @object_key,
+					@project_id, @bucket_name, @object_key,
 					coalesce(
 						(SELECT version + 1
 						FROM objects
@@ -201,7 +201,7 @@ func (s *SpannerAdapter) BeginObjectNextVersion(ctx context.Context, opts BeginO
 					@encrypted_metadata, @encrypted_metadata_nonce, @encrypted_metadata_encrypted_key,
 					@retention_mode, @retain_until
 				)
-                THEN RETURN status,version,created_at`,
+				THEN RETURN status,version,created_at`,
 			Params: map[string]interface{}{
 				"project_id":                       opts.ProjectID.Bytes(),
 				"bucket_name":                      opts.BucketName,
@@ -1026,6 +1026,10 @@ func (p *PostgresAdapter) WithTx(ctx context.Context, opts TransactionOptions, f
 
 // WithTx provides a TransactionAdapter for the context of a database transaction.
 func (s *SpannerAdapter) WithTx(ctx context.Context, opts TransactionOptions, f func(context.Context, TransactionAdapter) error) error {
+	transactionTag := opts.TransactionTag
+	if transactionTag == "" {
+		transactionTag = "metabase-withtx"
+	}
 	_, err := s.client.ReadWriteTransactionWithOptions(ctx, func(ctx context.Context, tx *spanner.ReadWriteTransaction) error {
 		txAdapter := &spannerTransactionAdapter{spannerAdapter: s, tx: tx}
 		return f(ctx, txAdapter)
@@ -1033,7 +1037,7 @@ func (s *SpannerAdapter) WithTx(ctx context.Context, opts TransactionOptions, f 
 		CommitOptions: spanner.CommitOptions{
 			MaxCommitDelay: opts.MaxCommitDelay,
 		},
-		TransactionTag: "metabase-withtx",
+		TransactionTag: transactionTag,
 	})
 	return err
 }
@@ -1050,6 +1054,7 @@ func (db *DB) CommitObject(ctx context.Context, opts CommitObject) (object Objec
 	var precommit PrecommitConstraintResult
 	err = db.ChooseAdapter(opts.ProjectID).WithTx(ctx, TransactionOptions{
 		MaxCommitDelay: opts.MaxCommitDelay,
+		TransactionTag: "commit-object",
 	}, func(ctx context.Context, adapter TransactionAdapter) error {
 		segments, err := adapter.fetchSegmentsForCommit(ctx, opts.StreamID)
 		if err != nil {
@@ -1448,7 +1453,9 @@ func (db *DB) CommitInlineObject(ctx context.Context, opts CommitInlineObject) (
 	}
 
 	var precommit PrecommitConstraintResult
-	err = db.ChooseAdapter(opts.ProjectID).WithTx(ctx, TransactionOptions{}, func(ctx context.Context, adapter TransactionAdapter) error {
+	err = db.ChooseAdapter(opts.ProjectID).WithTx(ctx, TransactionOptions{
+		TransactionTag: "commit-inline-object",
+	}, func(ctx context.Context, adapter TransactionAdapter) error {
 		precommit, err = db.PrecommitConstraint(ctx, PrecommitConstraint{
 			Location:       opts.Location(),
 			Versioned:      opts.Versioned,

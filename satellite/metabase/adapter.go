@@ -20,6 +20,7 @@ import (
 type TransactionOptions struct {
 	// supported only by Spanner.
 	MaxCommitDelay *time.Duration
+	TransactionTag string
 }
 
 // Adapter is a low level extension point to use datasource related queries.
