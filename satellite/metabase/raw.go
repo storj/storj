@@ -747,7 +747,7 @@ func (p *PostgresAdapter) TestingSetObjectVersion(ctx context.Context, object Ob
 
 // TestingSetObjectVersion sets the version of the object to the given value.
 func (s *SpannerAdapter) TestingSetObjectVersion(ctx context.Context, object ObjectStream, randomVersion Version) (rowsAffected int64, err error) {
-	_, err = s.client.ReadWriteTransaction(ctx, func(ctx context.Context, tx *spanner.ReadWriteTransaction) error {
+	_, err = s.client.ReadWriteTransactionWithOptions(ctx, func(ctx context.Context, tx *spanner.ReadWriteTransaction) error {
 		// Spanner doesn't support to update primary key columns, so we need to delete and insert the objects.
 		// https://cloud.google.com/spanner/docs/reference/standard-sql/dml-syntax#update-statement
 		deletedRows := tx.Query(ctx, spanner.Statement{
@@ -811,6 +811,8 @@ func (s *SpannerAdapter) TestingSetObjectVersion(ctx context.Context, object Obj
 		}
 
 		return nil
+	}, spanner.TransactionOptions{
+		TransactionTag: "testing-set-object-version",
 	})
 	return rowsAffected, Error.Wrap(err)
 }
@@ -834,12 +836,14 @@ func (p *PostgresAdapter) TestingSetPlacementAllSegments(ctx context.Context, pl
 
 // TestingSetPlacementAllSegments sets the placement of all segments to the given value.
 func (s *SpannerAdapter) TestingSetPlacementAllSegments(ctx context.Context, placement storj.PlacementConstraint) (err error) {
-	_, err = s.client.ReadWriteTransaction(ctx, func(ctx context.Context, tx *spanner.ReadWriteTransaction) error {
+	_, err = s.client.ReadWriteTransactionWithOptions(ctx, func(ctx context.Context, tx *spanner.ReadWriteTransaction) error {
 		_, err := tx.Update(ctx, spanner.Statement{
 			SQL:    "UPDATE segments SET placement = @placement WHERE true",
 			Params: map[string]interface{}{"placement": placement},
 		})
 		return err
+	}, spanner.TransactionOptions{
+		TransactionTag: "testing-set-placement-all-segments",
 	})
 	return Error.Wrap(err)
 }
