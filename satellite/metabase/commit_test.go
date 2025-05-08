@@ -5300,7 +5300,7 @@ func BenchmarkCommitSegment(b *testing.B) {
 			for i := 0; i < b.N; i++ {
 				err := db.CommitSegment(ctx, metabase.CommitSegment{
 					ObjectStream: objectA.ObjectStream,
-					Position:     metabase.SegmentPosition{},
+					Position:     metabase.SegmentPosition{Index: uint32(i)},
 					RootPieceID:  testrand.PieceID(),
 					Pieces: []metabase.Piece{
 						{StorageNode: nodeA, Number: 1},
@@ -5330,7 +5330,7 @@ func BenchmarkCommitSegment(b *testing.B) {
 			for i := 0; i < b.N; i++ {
 				err := db.CommitSegment(ctx, metabase.CommitSegment{
 					ObjectStream: objectB.ObjectStream,
-					Position:     metabase.SegmentPosition{},
+					Position:     metabase.SegmentPosition{Index: uint32(i)},
 					RootPieceID:  testrand.PieceID(),
 					Pieces: []metabase.Piece{
 						{StorageNode: nodeA, Number: 1},
