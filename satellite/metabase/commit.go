@@ -536,6 +536,8 @@ type CommitSegment struct {
 
 	// supported only by Spanner.
 	MaxCommitDelay *time.Duration
+
+	TestingUseMutations bool
 }
 
 // CommitSegment commits segment to the database.
@@ -691,6 +693,65 @@ func (p *CockroachAdapter) CommitPendingObjectSegment(ctx context.Context, opts 
 // CommitPendingObjectSegment commits segment to the database.
 func (s *SpannerAdapter) CommitPendingObjectSegment(ctx context.Context, opts CommitSegment, aliasPieces AliasPieces) (err error) {
 	defer mon.Task()(&ctx)(&err)
+
+	if opts.TestingUseMutations {
+		_, err = s.client.ReadWriteTransactionWithOptions(ctx, func(ctx context.Context, txn *spanner.ReadWriteTransaction) error {
+
+			row, err := txn.ReadRow(ctx, "objects", spanner.Key{opts.ProjectID, opts.BucketName, opts.ObjectKey, int64(opts.Version)}, []string{"stream_id", "status"})
+			if err != nil {
+				if errors.Is(err, spanner.ErrRowNotFound) {
+					return ErrPendingObjectMissing.New("")
+				}
+				return ErrFailedPrecondition.Wrap(err)
+			}
+
+			var streamID uuid.UUID
+			var status int64
+			err = row.Columns(&streamID, &status)
+			if err != nil {
+				return Error.Wrap(err)
+			}
+
+			if streamID != opts.StreamID || status != int64(Pending) {
+				return ErrPendingObjectMissing.New("")
+			}
+
+			err = txn.BufferWrite([]*spanner.Mutation{
+				spanner.InsertOrUpdate("segments",
+					[]string{"stream_id", "position", "expires_at", "root_piece_id", "encrypted_key_nonce", "encrypted_key", "encrypted_size", "plain_offset", "plain_size", "encrypted_etag", "redundancy", "remote_alias_pieces", "placement", "inline_data"},
+					[]any{
+						opts.StreamID,
+						opts.Position,
+						opts.ExpiresAt,
+						opts.RootPieceID,
+						opts.EncryptedKeyNonce,
+						opts.EncryptedKey,
+						int64(opts.EncryptedSize),
+						opts.PlainOffset,
+						int64(opts.PlainSize),
+						opts.EncryptedETag,
+						opts.Redundancy,
+						aliasPieces,
+						opts.Placement,
+						// clear column in case it was inline segment before
+						nil,
+					},
+				),
+			})
+			if err != nil {
+				return Error.Wrap(err)
+			}
+
+			return nil
+		}, spanner.TransactionOptions{
+			CommitOptions: spanner.CommitOptions{
+				MaxCommitDelay: opts.MaxCommitDelay,
+			},
+			TransactionTag: "commit-pending-object-segment-second",
+		})
+
+		return Error.Wrap(err)
+	}
 
 	var numRows int64
 	_, err = s.client.ReadWriteTransactionWithOptions(ctx, func(ctx context.Context, txn *spanner.ReadWriteTransaction) error {

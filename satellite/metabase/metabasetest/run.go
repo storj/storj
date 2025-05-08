@@ -79,7 +79,7 @@ func Bench(b *testing.B, fn func(ctx *testcontext.Context, b *testing.B, db *met
 			tctx := testcontext.New(b)
 			defer tctx.Cleanup()
 
-			db, err := satellitedbtest.CreateMetabaseDB(tctx, zaptest.NewLogger(b), b.Name(), "M", 0, dbinfo.MetabaseDB, metabase.Config{
+			db, err := satellitedbtest.CreateMetabaseDB(tctx, zap.NewNop(), b.Name(), "M", 0, dbinfo.MetabaseDB, metabase.Config{
 				ApplicationName:  "satellite-bench",
 				MinPartSize:      5 * memory.MiB,
 				MaxNumberOfParts: 10000,

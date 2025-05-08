@@ -5278,3 +5278,76 @@ func TestConditionalWrites(t *testing.T) {
 		})
 	})
 }
+
+func BenchmarkCommitSegment(b *testing.B) {
+	metabasetest.Bench(b, func(ctx *testcontext.Context, b *testing.B, db *metabase.DB) {
+
+		objA := metabasetest.RandObjectStream()
+		objA.Version = metabase.NextVersion
+
+		objectA, err := db.BeginObjectNextVersion(ctx, metabase.BeginObjectNextVersion{
+			ObjectStream: objA,
+			Encryption:   metabasetest.DefaultEncryption,
+		})
+		require.NoError(b, err)
+
+		nodeA := testrand.NodeID()
+		nodeB := testrand.NodeID()
+		encryptedKey := testrand.Bytes(32)
+		encryptedKeyNonce := testrand.Bytes(32)
+
+		b.Run("SQL", func(b *testing.B) {
+			for i := 0; i < b.N; i++ {
+				err := db.CommitSegment(ctx, metabase.CommitSegment{
+					ObjectStream: objectA.ObjectStream,
+					Position:     metabase.SegmentPosition{},
+					RootPieceID:  testrand.PieceID(),
+					Pieces: []metabase.Piece{
+						{StorageNode: nodeA, Number: 1},
+						{StorageNode: nodeB, Number: 2},
+					},
+					EncryptedKey:      encryptedKey,
+					EncryptedKeyNonce: encryptedKeyNonce,
+					EncryptedSize:     512,
+					PlainSize:         512,
+					Redundancy:        metabasetest.DefaultRedundancy,
+				})
+				require.NoError(b, err)
+
+			}
+		})
+
+		objB := metabasetest.RandObjectStream()
+		objB.Version = metabase.NextVersion
+
+		objectB, err := db.BeginObjectNextVersion(ctx, metabase.BeginObjectNextVersion{
+			ObjectStream: objB,
+			Encryption:   metabasetest.DefaultEncryption,
+		})
+		require.NoError(b, err)
+
+		b.Run("Mutations", func(b *testing.B) {
+			for i := 0; i < b.N; i++ {
+				err := db.CommitSegment(ctx, metabase.CommitSegment{
+					ObjectStream: objectB.ObjectStream,
+					Position:     metabase.SegmentPosition{},
+					RootPieceID:  testrand.PieceID(),
+					Pieces: []metabase.Piece{
+						{StorageNode: nodeA, Number: 1},
+						{StorageNode: nodeB, Number: 2},
+					},
+					EncryptedKey:      encryptedKey,
+					EncryptedKeyNonce: encryptedKeyNonce,
+					EncryptedSize:     512,
+					PlainSize:         512,
+					Redundancy:        metabasetest.DefaultRedundancy,
+
+					TestingUseMutations: true,
+				})
+				require.NoError(b, err)
+
+			}
+		})
+
+	})
+}
