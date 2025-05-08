@@ -268,6 +268,7 @@ func (p ProductPriceOverrides) ToModels() (map[int32]payments.ProductUsagePriceM
 		}
 		models[key] = payments.ProductUsagePriceModel{
 			ProductID:              key,
+			ProductName:            prices.Name,
 			ProjectUsagePriceModel: projectUsageModel,
 		}
 	}

@@ -5860,15 +5860,15 @@ func (payment Payments) GetProjectUsagePriceModel(partner string) (_ *payments.P
 	return &model
 }
 
-// GetPartnerPlacementPriceModel returns the project usage price model for the project's user agent and placement.
-func (payment Payments) GetPartnerPlacementPriceModel(ctx context.Context, projectID uuid.UUID, placement storj.PlacementConstraint) (payments.ProjectUsagePriceModel, error) {
+// GetPartnerPlacementPriceModel returns the product ID and related project usage price model for the project's user agent and placement.
+func (payment Payments) GetPartnerPlacementPriceModel(ctx context.Context, projectID uuid.UUID, placement storj.PlacementConstraint) (productID int32, _ payments.ProjectUsagePriceModel, _ error) {
 	user, err := GetUser(ctx)
 	if err != nil {
-		return payments.ProjectUsagePriceModel{}, ErrUnauthorized.Wrap(err)
+		return 0, payments.ProjectUsagePriceModel{}, ErrUnauthorized.Wrap(err)
 	}
 	isMember, err := payment.service.isProjectMember(ctx, user.ID, projectID)
 	if err != nil {
-		return payments.ProjectUsagePriceModel{}, ErrUnauthorized.Wrap(err)
+		return 0, payments.ProjectUsagePriceModel{}, ErrUnauthorized.Wrap(err)
 	}
 	return payment.service.accounts.GetPartnerPlacementPriceModel(string(isMember.project.UserAgent), placement)
 }

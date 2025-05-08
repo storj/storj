@@ -1660,9 +1660,10 @@ func TestPartnerPlacements(t *testing.T) {
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 		sat := planet.Satellites[0]
 
-		model, err := sat.API.Payments.Accounts.GetPartnerPlacementPriceModel(partner, placement)
+		prodID, model, err := sat.API.Payments.Accounts.GetPartnerPlacementPriceModel(partner, placement)
 		require.NoError(t, err)
 		require.Equal(t, productModel, model)
+		require.Equal(t, productID, prodID)
 
 		user, err := sat.AddUser(ctx, console.CreateUser{
 			FullName:  "Test User",
@@ -1681,9 +1682,10 @@ func TestPartnerPlacements(t *testing.T) {
 		require.NoError(t, err)
 		require.Equal(t, partner, string(proj.UserAgent))
 
-		model, err = sat.API.Console.Service.Payments().GetPartnerPlacementPriceModel(userCtx, proj.ID, placement)
+		prodID, model, err = sat.API.Console.Service.Payments().GetPartnerPlacementPriceModel(userCtx, proj.ID, placement)
 		require.NoError(t, err)
 		require.Equal(t, productModel, model)
+		require.Equal(t, productID, prodID)
 
 		details, err := sat.API.Console.Service.GetPlacementDetails(userCtx, proj.ID)
 		require.NoError(t, err)

@@ -81,8 +81,8 @@ type Accounts interface {
 	// GetProjectUsagePriceModel returns the project usage price model for a partner name.
 	GetProjectUsagePriceModel(partner string) ProjectUsagePriceModel
 
-	// GetPartnerPlacementPriceModel returns the usage price model for a partner and placement.
-	GetPartnerPlacementPriceModel(partner string, placement storj.PlacementConstraint) (ProjectUsagePriceModel, error)
+	// GetPartnerPlacementPriceModel returns the productID and related usage price model for a partner and placement.
+	GetPartnerPlacementPriceModel(partner string, placement storj.PlacementConstraint) (productID int32, _ ProjectUsagePriceModel, _ error)
 
 	// GetPartnerPlacements returns the placements for a partner.
 	GetPartnerPlacements(partner string) []storj.PlacementConstraint

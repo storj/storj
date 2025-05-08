@@ -683,7 +683,7 @@ func (p *Payments) GetPartnerPlacementPriceModel(w http.ResponseWriter, r *http.
 		return
 	}
 
-	pricing, err := p.service.Payments().GetPartnerPlacementPriceModel(ctx, projectID, placement)
+	_, pricing, err := p.service.Payments().GetPartnerPlacementPriceModel(ctx, projectID, placement)
 	if err != nil {
 		if stripe.ErrPricingNotfound.Has(err) {
 			p.serveJSONError(ctx, w, http.StatusNotFound, err)

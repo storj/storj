@@ -39,6 +39,7 @@ type ProjectUsagePriceModel struct {
 
 // ProductUsagePriceModel represents price model for product ID and usage price.
 type ProductUsagePriceModel struct {
-	ProductID int32 `json:"productID"`
+	ProductID   int32  `json:"productID"`
+	ProductName string `json:"productName"`
 	ProjectUsagePriceModel
 }
