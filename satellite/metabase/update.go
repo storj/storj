@@ -168,7 +168,7 @@ func (p *PostgresAdapter) UpdateSegmentPieces(ctx context.Context, opts UpdateSe
 func (s *SpannerAdapter) UpdateSegmentPieces(ctx context.Context, opts UpdateSegmentPieces, oldPieces, newPieces AliasPieces) (resultPieces AliasPieces, err error) {
 	updateRepairAt := !opts.NewRepairedAt.IsZero()
 
-	_, err = s.client.ReadWriteTransaction(ctx, func(ctx context.Context, tx *spanner.ReadWriteTransaction) error {
+	_, err = s.client.ReadWriteTransactionWithOptions(ctx, func(ctx context.Context, tx *spanner.ReadWriteTransaction) error {
 		resultPieces, err = spannerutil.CollectRow(tx.Query(ctx, spanner.Statement{
 			SQL: `
 				UPDATE segments SET
@@ -214,6 +214,8 @@ func (s *SpannerAdapter) UpdateSegmentPieces(ctx context.Context, opts UpdateSeg
 		}
 
 		return nil
+	}, spanner.TransactionOptions{
+		TransactionTag: "update-segment-pieces",
 	})
 	if err != nil {
 		return nil, Error.Wrap(err)
@@ -312,7 +314,7 @@ func (p *PostgresAdapter) SetObjectExactVersionLegalHold(ctx context.Context, op
 func (s *SpannerAdapter) SetObjectExactVersionLegalHold(ctx context.Context, opts SetObjectExactVersionLegalHold) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	_, err = s.client.ReadWriteTransaction(ctx, func(ctx context.Context, tx *spanner.ReadWriteTransaction) error {
+	_, err = s.client.ReadWriteTransactionWithOptions(ctx, func(ctx context.Context, tx *spanner.ReadWriteTransaction) error {
 		result, err := spannerutil.CollectRow(tx.Query(ctx, spanner.Statement{
 			SQL: `
 				SELECT status, expires_at, retention_mode
@@ -349,6 +351,8 @@ func (s *SpannerAdapter) SetObjectExactVersionLegalHold(ctx context.Context, opt
 		}
 
 		return errs.Wrap(s.setObjectExactVersionLegalHold(ctx, tx, opts, result.Retention.Mode))
+	}, spanner.TransactionOptions{
+		TransactionTag: "set-object-exact-version-legal-hold",
 	})
 
 	if err != nil {
@@ -458,7 +462,7 @@ func (s *SpannerAdapter) SetObjectLastCommittedLegalHold(ctx context.Context, op
 		preUpdateRetentionInfo
 	}
 
-	_, err = s.client.ReadWriteTransaction(ctx, func(ctx context.Context, tx *spanner.ReadWriteTransaction) error {
+	_, err = s.client.ReadWriteTransactionWithOptions(ctx, func(ctx context.Context, tx *spanner.ReadWriteTransaction) error {
 		result, err := spannerutil.CollectRow(tx.Query(ctx, spanner.Statement{
 			SQL: `
 				SELECT status, version, expires_at, retention_mode
@@ -501,6 +505,8 @@ func (s *SpannerAdapter) SetObjectLastCommittedLegalHold(ctx context.Context, op
 			Version:        result.version,
 			Enabled:        opts.Enabled,
 		}, result.Retention.Mode))
+	}, spanner.TransactionOptions{
+		TransactionTag: "set-object-last-committed-legal-hold",
 	})
 
 	if err != nil {
@@ -661,7 +667,7 @@ func (s *SpannerAdapter) SetObjectExactVersionRetention(ctx context.Context, opt
 
 	now := time.Now()
 
-	_, err = s.client.ReadWriteTransaction(ctx, func(ctx context.Context, tx *spanner.ReadWriteTransaction) error {
+	_, err = s.client.ReadWriteTransactionWithOptions(ctx, func(ctx context.Context, tx *spanner.ReadWriteTransaction) error {
 		result, err := spannerutil.CollectRow(tx.Query(ctx, spanner.Statement{
 			SQL: `
 				SELECT status, expires_at, retention_mode, retain_until
@@ -694,6 +700,8 @@ func (s *SpannerAdapter) SetObjectExactVersionRetention(ctx context.Context, opt
 		}
 
 		return errs.Wrap(s.setObjectExactVersionRetention(ctx, tx, opts))
+	}, spanner.TransactionOptions{
+		TransactionTag: "set-object-exact-version-retention",
 	})
 
 	if err != nil {
@@ -870,7 +878,7 @@ func (s *SpannerAdapter) SetObjectLastCommittedRetention(ctx context.Context, op
 
 	now := time.Now()
 
-	_, err = s.client.ReadWriteTransaction(ctx, func(ctx context.Context, tx *spanner.ReadWriteTransaction) error {
+	_, err = s.client.ReadWriteTransactionWithOptions(ctx, func(ctx context.Context, tx *spanner.ReadWriteTransaction) error {
 		result, err := spannerutil.CollectRow(tx.Query(ctx, spanner.Statement{
 			SQL: `
 				SELECT status, version, expires_at, retention_mode, retain_until
@@ -911,6 +919,8 @@ func (s *SpannerAdapter) SetObjectLastCommittedRetention(ctx context.Context, op
 			Version:        result.version,
 			Retention:      opts.Retention,
 		}))
+	}, spanner.TransactionOptions{
+		TransactionTag: "update-object-last-committed-metadata",
 	})
 
 	if err != nil {

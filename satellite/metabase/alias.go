@@ -75,7 +75,7 @@ func (s *SpannerAdapter) EnsureNodeAliases(ctx context.Context, opts EnsureNodeA
 	// TODO(spanner): this is inefficient, but there's a benefit from having densely packed node_aliases
 
 	for _, id := range unique {
-		_, err := s.client.ReadWriteTransaction(ctx, func(ctx context.Context, txn *spanner.ReadWriteTransaction) error {
+		_, err := s.client.ReadWriteTransactionWithOptions(ctx, func(ctx context.Context, txn *spanner.ReadWriteTransaction) error {
 			_, err := txn.Update(ctx, spanner.Statement{
 				SQL: `INSERT INTO node_aliases (
 					node_id, node_alias
@@ -88,6 +88,8 @@ func (s *SpannerAdapter) EnsureNodeAliases(ctx context.Context, opts EnsureNodeA
 				},
 			})
 			return Error.Wrap(err)
+		}, spanner.TransactionOptions{
+			TransactionTag: "ensure-node-aliases",
 		})
 		if spanner.ErrCode(err) == codes.AlreadyExists {
 			continue
