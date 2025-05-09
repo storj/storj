@@ -7,11 +7,11 @@ import (
 	"bytes"
 	"fmt"
 	"io"
-	"math/rand"
 	"strconv"
 	"testing"
 	"time"
 
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"github.com/stripe/stripe-go/v81"
 	"go.uber.org/zap/zaptest"
@@ -20,6 +20,7 @@ import (
 	"storj.io/common/memory"
 	"storj.io/common/testcontext"
 	"storj.io/common/testrand"
+	"storj.io/common/uuid"
 	"storj.io/storj/private/testplanet"
 	"storj.io/storj/satellite/console"
 	"storj.io/storj/satellite/payments"
@@ -535,57 +536,168 @@ func TestDeleteAccounts(t *testing.T) {
 	})
 }
 
-func TestSetAccountStatus(t *testing.T) {
-	// We use as many uplinks as status because we want to have an account with each different status.
-	// We subtract one because we don't consider accounts in "inactive" status.
-	// TODO: Change implementation to treat accounts in "inactive" status.
-	const uplinkCount = console.UserStatusCount - 1
+func TestSetAccountsStatusPendingDeletion(t *testing.T) {
+	testCases := []struct {
+		name                string
+		expectedFinalStatus console.UserStatus
+		initialStatus       console.UserStatus
+		paidTier            bool
+		// -1 indicates no freeze event
+		expirationFreezeEvent              console.AccountFreezeEventType
+		expirationFreezeDaysTillEscalation int
+		memberOfThirdPartyProject          bool
+	}{
+		{
+			name:                  "Inactive status user",
+			expectedFinalStatus:   console.Inactive,
+			initialStatus:         console.Inactive,
+			expirationFreezeEvent: -1,
+		},
+		{
+			name:                  "Deleted status user",
+			expectedFinalStatus:   console.Deleted,
+			initialStatus:         console.Deleted,
+			expirationFreezeEvent: -1,
+		},
+		{
+			name:                  "PendingDeletion status user",
+			expectedFinalStatus:   console.PendingDeletion,
+			initialStatus:         console.PendingDeletion,
+			expirationFreezeEvent: -1,
+		},
+		{
+			name:                  "LegalHold status user",
+			expectedFinalStatus:   console.LegalHold,
+			initialStatus:         console.LegalHold,
+			expirationFreezeEvent: -1,
+		},
+		{
+			name:                  "PendingBotVerification status user",
+			expectedFinalStatus:   console.PendingBotVerification,
+			initialStatus:         console.PendingBotVerification,
+			expirationFreezeEvent: -1,
+		},
+		{
+			name:                  "UserRequestedDeletion status user",
+			expectedFinalStatus:   console.UserRequestedDeletion,
+			initialStatus:         console.UserRequestedDeletion,
+			expirationFreezeEvent: -1,
+		},
+		{
+			name:                  "Active status user ",
+			expectedFinalStatus:   console.Active,
+			initialStatus:         console.Active,
+			expirationFreezeEvent: -1,
+		},
+		{
+			name:                  "Active status user and paid tier",
+			expectedFinalStatus:   console.Active,
+			initialStatus:         console.Active,
+			paidTier:              true,
+			expirationFreezeEvent: -1,
+		},
+		{
+			name:                  "Active user with billing freeze",
+			expectedFinalStatus:   console.Active,
+			initialStatus:         console.Active,
+			expirationFreezeEvent: console.BillingFreeze,
+		},
+		{
+			name:                  "Active user with trial expiration freeze",
+			expectedFinalStatus:   console.PendingDeletion,
+			initialStatus:         console.Active,
+			expirationFreezeEvent: console.TrialExpirationFreeze,
+		},
+		{
+			name:                  "Active user and paid tier with trial expiration freeze",
+			expectedFinalStatus:   console.Active,
+			initialStatus:         console.Active,
+			paidTier:              true,
+			expirationFreezeEvent: console.TrialExpirationFreeze,
+		},
+		{
+			name:                               "Active user with trial expiration freeze with 1 day till escalation",
+			expectedFinalStatus:                console.Active,
+			initialStatus:                      console.Active,
+			expirationFreezeEvent:              console.TrialExpirationFreeze,
+			expirationFreezeDaysTillEscalation: 1,
+		},
+		{
+			name:                      "Active user with trial expiration freeze and member of third party project ",
+			expectedFinalStatus:       console.Active,
+			initialStatus:             console.Active,
+			expirationFreezeEvent:     console.TrialExpirationFreeze,
+			memberOfThirdPartyProject: true,
+		},
+	}
+
 	testplanet.Run(t, testplanet.Config{
-		UplinkCount: uplinkCount, SatelliteCount: 1, StorageNodeCount: 0,
+		UplinkCount: len(testCases), SatelliteCount: 1, StorageNodeCount: 0,
 	},
 		func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 			sat := planet.Satellites[0]
 			uplinks := planet.Uplinks
-			require.Len(t, uplinks, uplinkCount)
 
-			// Set each user to a different status.
-			for i, uplink := range uplinks {
-				// "inactive" status is 0 and currently we cannot get inactive accounts by email.
-				// TODO: remove this restriction once the implementation can treat accounts in "inactive" status.
-				status := console.UserStatus(i + 1)
-				require.NoError(t,
-					sat.DB.Console().Users().Update(ctx, uplink.Projects[0].Owner.ID,
-						console.UpdateUserRequest{
-							Status: &status,
-						},
-					))
+			var thirdPartyProject uuid.UUID
+			{
+				proj, err := sat.DB.Console().Projects().Insert(ctx, &console.Project{
+					Name:    "third-party-project",
+					OwnerID: uplinks[0].Projects[0].Owner.ID,
+				})
+				require.NoError(t, err)
+				thirdPartyProject = proj.ID
 			}
 
-			// Create a CSV with the users' emails to delete.
+			// Setup user statuses for all test cases
+			for i, tc := range testCases {
+				userID := uplinks[i].Projects[0].Owner.ID
+				require.NoError(t,
+					sat.DB.Console().Users().Update(ctx, userID, console.UpdateUserRequest{
+						Status:   &tc.initialStatus,
+						PaidTier: &tc.paidTier,
+					},
+					),
+				)
+
+				if tc.expirationFreezeEvent.String() != "" {
+					_, err := sat.DB.Console().AccountFreezeEvents().Upsert(ctx, &console.AccountFreezeEvent{
+						UserID:             userID,
+						Type:               tc.expirationFreezeEvent,
+						DaysTillEscalation: &tc.expirationFreezeDaysTillEscalation,
+					})
+					require.NoError(t, err)
+				}
+
+				if tc.memberOfThirdPartyProject {
+					_, err := sat.DB.Console().ProjectMembers().Insert(
+						ctx, userID, thirdPartyProject, console.RoleMember,
+					)
+					require.NoError(t, err)
+				}
+			}
+
+			// Create a CSV with all user emails
 			var csvData io.Reader
 			{
 				emails := "email"
 				for _, uplink := range uplinks {
 					emails += "\n" + uplink.User[sat.ID()].Email
 				}
-
 				csvData = bytes.NewBufferString(emails)
 			}
 
-			// Randomly choose one status to set to the accounts.
-			// TODO: Remove + 1 when the implementation can treat "inactive" accounts.
-			expStatus := console.UserStatus(rand.Intn(uplinkCount)) + 1
-			require.True(t, expStatus.Valid())
-			require.NoError(t, setAccountStatus(
-				ctx, zaptest.NewLogger(t), sat.DB, expStatus, csvData,
+			// Run the function under test
+			require.NoError(t, setAccountsStatusPendingDeletion(
+				ctx, zaptest.NewLogger(t), sat.DB, 0, csvData,
 			))
 
-			// Verify that all the accounts are set to the chosen status.
-			for _, uplink := range uplinks {
-				user, err := sat.DB.Console().Users().Get(ctx, uplink.Projects[0].Owner.ID)
+			// Verify all test cases
+			for i, tc := range testCases {
+				userID := uplinks[i].Projects[0].Owner.ID
+				user, err := sat.DB.Console().Users().Get(ctx, userID)
 				require.NoError(t, err)
-				require.Equalf(t, expStatus, user.Status,
-					"user status. Expected: %q, Got: %q", expStatus.String(), user.Status.String(),
+				assert.Equal(t, tc.expectedFinalStatus, user.Status,
+					"Test case (%d) '%s': expected status %v, got %v", i, tc.name, tc.expectedFinalStatus, user.Status,
 				)
 			}
 		})
