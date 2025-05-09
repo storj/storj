@@ -113,7 +113,7 @@ func cmdDeleteAccounts(cmd *cobra.Command, args []string) error {
 	)
 }
 
-func cmdSetAccountStatus(cmd *cobra.Command, args []string) error {
+func cmdSetAccountsStatusPendingDeletion(cmd *cobra.Command, args []string) error {
 	ctx, _ := process.Ctx(cmd)
 	log := zap.L()
 
@@ -144,7 +144,11 @@ func cmdSetAccountStatus(cmd *cobra.Command, args []string) error {
 		csvData = csvFile
 	}
 
-	return setAccountStatus(ctx, log, satDB, accountStatus, csvData)
+	// Truncate the duration to days.
+	defaultDaysTillEscalation := uint(
+		runCfg.Console.AccountFreeze.TrialExpirationFreezeGracePeriod.Hours() / 24,
+	)
+	return setAccountsStatusPendingDeletion(ctx, log, satDB, defaultDaysTillEscalation, csvData)
 }
 
 // deleteObjects for each user's account with the email in csvData, delete all the objects and
@@ -367,16 +371,18 @@ func deleteAccounts(
 	})
 }
 
-// setAccountStatus for each user's account with the email in csvData, set its account status to
-// status.
+// setAccountsStatusPendingDeletion sets accounts to "pending deletion" status, but only if:
+// 1. The account is currently in "active" status
+// 2. The account is NOT in the paid tier
+// 3. The account has an active "trial expiration freeze"
+// 4. The active "trial expiration freeze" is over
+// 5. The account is NOT a member of a third party project
 //
-// The account must exists, accounts in "inactive" status are considered as not exists. A debug
-// message is logged under those circumstances.
+// Any accounts that don't meet these criteria are logged and skipped.
 //
 // It returns an error when a system error is found or when the CSV file has an error.
-func setAccountStatus(
-	ctx context.Context, log *zap.Logger, satDB satellite.DB, status console.UserStatus,
-	csvData io.Reader,
+func setAccountsStatusPendingDeletion(
+	ctx context.Context, log *zap.Logger, satDB satellite.DB, defaultDaysTillEscalation uint, csvData io.Reader,
 ) error {
 	rows := CSVEmails{
 		Data: csvData,
@@ -385,14 +391,16 @@ func setAccountStatus(
 	}
 
 	return rows.ForEach(ctx, func(user *console.User) error {
-		err := satDB.Console().Users().Update(ctx, user.ID,
-			console.UpdateUserRequest{
-				Status: &status,
-			},
-		)
-
+		err := satDB.Console().Users().SetStatusPendingDeletion(ctx, user.ID, defaultDaysTillEscalation)
 		if err != nil {
-			return errs.New("error updating the status of the user %q: %+v", user.Email, err)
+			if !errors.Is(err, sql.ErrNoRows) {
+				return errs.New("error updating status to 'pending deletion' for user %q: %+v", user.Email, err)
+			}
+
+			log.Info(
+				"skipping account it doesn't fulfill requirements to be set to 'pending deletion' status",
+				zap.String("email", user.Email),
+			)
 		}
 
 		return nil

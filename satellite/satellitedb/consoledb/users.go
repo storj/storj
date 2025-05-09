@@ -773,6 +773,87 @@ func (users *users) UpsertSettings(ctx context.Context, userID uuid.UUID, settin
 	return err
 }
 
+// SetStatusPendingDeletion set the user to "pending deletion" status safely. It is implemented as
+// documented in the corresponding Users interface method that implements.
+func (users *users) SetStatusPendingDeletion(
+	ctx context.Context, userID uuid.UUID, defaultDaysTillEscalation uint,
+) (err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	var result sql.Result
+	switch users.impl {
+	case dbutil.Postgres, dbutil.Cockroach:
+		result, err = users.db.ExecContext(ctx, `
+					UPDATE users
+					SET status = $1,
+							status_updated_at = CURRENT_TIMESTAMP AT TIME ZONE 'UTC'
+					WHERE id = (
+						SELECT u.id
+						FROM users AS u JOIN account_freeze_events AS e
+							ON e.user_id = u.id
+						WHERE u.id = $2
+							AND u.status = $3
+							AND u.paid_tier = FALSE
+							AND e.event = $4
+							AND e.created_at + (COALESCE(e.days_till_escalation, $5) || 'days')::interval < NOW()
+							AND 0 = (
+								SELECT COUNT(1)
+								FROM project_members AS m
+								WHERE m.member_id = u.id
+									AND m.project_id NOT IN (
+										SELECT id FROM projects WHERE owner_id = u.id
+									)
+							)
+					)
+			`, console.PendingDeletion, userID.Bytes(), console.Active, console.TrialExpirationFreeze,
+			defaultDaysTillEscalation,
+		)
+	case dbutil.Spanner:
+		result, err = users.db.ExecContext(ctx, `
+					UPDATE users
+					SET status = ?,
+							status_updated_at = CURRENT_TIMESTAMP
+					WHERE id = (
+						SELECT u.id
+						FROM users AS u JOIN account_freeze_events AS e
+							ON u.id = e.user_id
+						WHERE u.id = ?
+							AND u.status = ?
+							AND u.paid_tier = FALSE
+							AND e.event = ?
+							AND TIMESTAMP_ADD(e.created_at, INTERVAL COALESCE(e.days_till_escalation, ?) DAY) < CURRENT_TIMESTAMP
+							AND 0 = (
+								SELECT COUNT(1)
+								FROM project_members AS m
+								WHERE m.member_id = u.id
+									AND m.project_id NOT IN (
+										SELECT id FROM projects WHERE owner_id = u.id
+									)
+							)
+					)
+			`, console.PendingDeletion, userID.Bytes(), console.Active, console.TrialExpirationFreeze,
+			defaultDaysTillEscalation,
+		)
+	default:
+		return errs.New("unsupported database dialect: %s", users.impl)
+	}
+
+	if err != nil {
+		return Error.Wrap(err)
+	}
+
+	n, err := result.RowsAffected()
+	if err != nil {
+		return Error.Wrap(err)
+	}
+
+	if n == 0 {
+		return sql.ErrNoRows
+	}
+
+	return nil
+}
+
 // toUpdateUser creates dbx.User_Update_Fields with only non-empty fields as updatable.
 func toUpdateUser(request console.UpdateUserRequest) (*dbx.User_Update_Fields, error) {
 	update := dbx.User_Update_Fields{}
