@@ -1815,6 +1815,45 @@ func TestEndpoint_Object_With_StorageNodes(t *testing.T) {
 			require.Equal(t, expectedData, data)
 		})
 
+		t.Run("DownloadObject no lite request", func(t *testing.T) {
+			defer ctx.Check(deleteBucket("bucket"))
+
+			require.NoError(t, planet.Uplinks[0].CreateBucket(ctx, planet.Satellites[0], "bucket"))
+
+			err = planet.Uplinks[0].Upload(ctx, planet.Satellites[0], "bucket", "lite-object", testrand.Bytes(11*memory.KiB))
+			require.NoError(t, err)
+
+			objects, err := planet.Satellites[0].Metabase.DB.TestingAllObjects(ctx)
+			require.NoError(t, err)
+			require.Len(t, objects, 1)
+
+			endpoint := planet.Satellites[0].Metainfo.Endpoint
+
+			response, err := endpoint.DownloadObject(peerctx, &pb.DownloadObjectRequest{
+				Header:             &pb.RequestHeader{ApiKey: apiKey.SerializeRaw()},
+				Bucket:             []byte("bucket"),
+				EncryptedObjectKey: []byte(objects[0].ObjectKey),
+			})
+			require.NoError(t, err)
+
+			require.Len(t, response.SegmentDownload, 1)
+
+			// verify that signatures are not generated
+			checked := 0
+			for _, limit := range response.SegmentDownload[0].AddressedLimits {
+				if limit.Limit != nil {
+					require.NotEmpty(t, limit.Limit.SatelliteSignature)
+					checked++
+				}
+			}
+			require.NotZero(t, checked)
+
+			// verify root piece ID is returned
+			for _, sd := range response.SegmentDownload {
+				require.Empty(t, sd.SegmentId, "segment ID must not be set")
+			}
+		})
+
 		t.Run("DownloadObject lite request", func(t *testing.T) {
 			defer ctx.Check(deleteBucket("bucket"))
 
@@ -1848,6 +1887,20 @@ func TestEndpoint_Object_With_StorageNodes(t *testing.T) {
 				}
 			}
 			require.NotZero(t, checked)
+
+			// verify root piece ID is returned
+			for _, sd := range response.SegmentDownload {
+				require.NotEmpty(t, sd.SegmentId, "segment ID must be set")
+
+				encodedSegID, err := storj.SegmentIDFromBytes(sd.SegmentId)
+				require.NoError(t, err)
+				require.False(t, encodedSegID.IsZero(), "segment ID cannot be 0")
+
+				var segID internalpb.SegmentID
+				err = pb.Unmarshal(encodedSegID, &segID)
+				require.NoError(t, err)
+				require.False(t, segID.RootPieceId.IsZero(), "segments must have the root piece ID")
+			}
 		})
 
 		t.Run("upload while RS changes", func(t *testing.T) {

@@ -1073,9 +1073,25 @@ func (endpoint *Endpoint) DownloadObject(ctx context.Context, req *pb.ObjectDown
 			}}, nil
 		}
 
-		var limits []*pb.AddressedOrderLimit
+		var (
+			limits []*pb.AddressedOrderLimit
+			// Only needed for lite requests.
+			encodedSegmentID []byte
+		)
 		var privateKey storj.PiecePrivateKey
 		if req.LiteRequest {
+			// Lite responses don't have signed orders limits and the piece ID because the lite request are
+			// only accepted by trusted clients. Clients will add the signature and reconstruct the piece ID,
+			// however, they need the root piece ID, which is provided through the segment ID.
+			// Because they don't need anything else from the segment ID, we only set the root piece ID.
+			segmentID := internalpb.SegmentID{
+				RootPieceId: segment.RootPieceID,
+			}
+			encodedSegmentID, err = endpoint.packSegmentID(ctx, &segmentID)
+			if err != nil {
+				return nil, endpoint.ConvertKnownErrWithMessage(err, "unable to create segment id")
+			}
+
 			limits, privateKey, err = endpoint.orders.CreateLiteGetOrderLimits(ctx, peer, object.Location().Bucket(), segment, req.GetDesiredNodes(), downloadSizes.orderLimit)
 		} else {
 			limits, privateKey, err = endpoint.orders.CreateGetOrderLimits(ctx, peer, object.Location().Bucket(), segment, req.GetDesiredNodes(), downloadSizes.orderLimit)
@@ -1125,6 +1141,8 @@ func (endpoint *Endpoint) DownloadObject(ctx context.Context, req *pb.ObjectDown
 				PartNumber: int32(segment.Position.Part),
 				Index:      int32(segment.Position.Index),
 			},
+
+			SegmentId: encodedSegmentID,
 		}}, nil
 	}()
 	if err != nil {
