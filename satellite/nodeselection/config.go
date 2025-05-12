@@ -80,36 +80,36 @@ func (n NoopSuccessTracker) Get(uplink storj.NodeID) func(node *SelectedNode) fl
 var _ UploadSuccessTracker = NoopSuccessTracker{}
 
 // PlacementConfigEnvironment includes all generic functions and variables, which can be used in the configuration.
-type PlacementConfigEnvironment struct {
-	successTracker UploadSuccessTracker
-	failureTracker UploadFailureTracker
-}
+type PlacementConfigEnvironment map[any]any
 
 // NewPlacementConfigEnvironment creates PlacementConfigEnvironment.
-func NewPlacementConfigEnvironment(successTracker UploadSuccessTracker, failureTracker UploadFailureTracker) *PlacementConfigEnvironment {
+// It initializes the environment with successTracker, failureTracker, and any additional key-value pairs provided in additionalEnv.
+func NewPlacementConfigEnvironment(successTracker UploadSuccessTracker, failureTracker UploadFailureTracker) PlacementConfigEnvironment {
+	env := make(PlacementConfigEnvironment)
+
 	if successTracker == nil {
 		successTracker = NoopSuccessTracker{}
 	}
 	if failureTracker == nil {
 		failureTracker = uploadFailureTrackerFunc(func(node *SelectedNode) float64 { return math.NaN() })
 	}
-	return &PlacementConfigEnvironment{
-		successTracker: successTracker,
-		failureTracker: failureTracker,
-	}
+
+	// Standard trackers
+	env["tracker"] = successTracker // backcompat
+	env["uploadSuccessTracker"] = successTracker
+	env["uploadFailureTracker"] = failureTracker
+
+	return env
 }
 
-func (e *PlacementConfigEnvironment) apply(env map[any]any) {
-	if e == nil {
-		return
+func (e PlacementConfigEnvironment) apply(targetEnv map[any]any) {
+	for k, v := range e {
+		targetEnv[k] = v
 	}
-	env["tracker"] = e.successTracker // backcompat
-	env["uploadSuccessTracker"] = e.successTracker
-	env["uploadFailureTracker"] = e.failureTracker
 }
 
 // LoadConfig loads the placement yaml file and creates the Placement definitions.
-func LoadConfig(configFile string, environment *PlacementConfigEnvironment) (PlacementDefinitions, error) {
+func LoadConfig(configFile string, environment PlacementConfigEnvironment) (PlacementDefinitions, error) {
 	data, err := os.ReadFile(configFile)
 	if err != nil {
 		return nil, errs.New("Couldn't read placement config file from %s: %v", configFile, err)
@@ -122,7 +122,7 @@ func LoadConfig(configFile string, environment *PlacementConfigEnvironment) (Pla
 }
 
 // LoadConfigFromString loads the placement YAML from a string and creates the Placement definitions.
-func LoadConfigFromString(config string, environment *PlacementConfigEnvironment) (PlacementDefinitions, error) {
+func LoadConfigFromString(config string, environment PlacementConfigEnvironment) (PlacementDefinitions, error) {
 	placements := make(PlacementDefinitions)
 
 	cfg := &placementConfig{}
@@ -269,7 +269,7 @@ var supportedFilters = map[any]any{
 }
 
 // FilterFromString parses complex node filter expressions from config lines.
-func FilterFromString(expr string, environment *PlacementConfigEnvironment) (NodeFilter, error) {
+func FilterFromString(expr string, environment PlacementConfigEnvironment) (NodeFilter, error) {
 	if expr == "" {
 		expr = "all()"
 	}
@@ -284,7 +284,7 @@ func FilterFromString(expr string, environment *PlacementConfigEnvironment) (Nod
 
 // DownloadSelectorFromString parses complex node download selection expressions
 // from config lines.
-func DownloadSelectorFromString(expr string, environment *PlacementConfigEnvironment) (DownloadSelector, error) {
+func DownloadSelectorFromString(expr string, environment PlacementConfigEnvironment) (DownloadSelector, error) {
 	if expr == "" {
 		expr = "random"
 	}
@@ -302,7 +302,7 @@ func DownloadSelectorFromString(expr string, environment *PlacementConfigEnviron
 }
 
 // SelectorFromString parses complex node selection rules from config lines.
-func SelectorFromString(expr string, environment *PlacementConfigEnvironment) (NodeSelectorInit, error) {
+func SelectorFromString(expr string, environment PlacementConfigEnvironment) (NodeSelectorInit, error) {
 	if expr == "" {
 		expr = "random()"
 	}

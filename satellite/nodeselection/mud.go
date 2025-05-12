@@ -16,7 +16,7 @@ type PlacementConfig struct {
 // Module is a mud module.
 func Module(ball *mud.Ball) {
 	// TODO: use trackers when we need them...
-	mud.Provide[*PlacementConfigEnvironment](ball, func() *PlacementConfigEnvironment {
+	mud.Provide[PlacementConfigEnvironment](ball, func() PlacementConfigEnvironment {
 		return NewPlacementConfigEnvironment(nil, nil)
 	})
 	mud.View[PlacementDefinitions, PlacementRules](ball, func(p PlacementDefinitions) PlacementRules {

@@ -148,7 +148,7 @@ func (c *ConfigurablePlacementRule) Type() string {
 
 // Parse creates the PlacementDefinitions from the string rules.
 // defaultPlacement is used to create the placement if no placement has been set.
-func (c ConfigurablePlacementRule) Parse(defaultPlacement func() (Placement, error), environment *PlacementConfigEnvironment) (PlacementDefinitions, error) {
+func (c ConfigurablePlacementRule) Parse(defaultPlacement func() (Placement, error), environment PlacementConfigEnvironment) (PlacementDefinitions, error) {
 	if environment == nil {
 		environment = NewPlacementConfigEnvironment(nil, nil)
 	}

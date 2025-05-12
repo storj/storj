@@ -62,7 +62,7 @@ func Module(ball *mud.Ball) {
 
 	{
 		// TODO: fix reversed dependency (nodeselection -> overlay).
-		mud.Provide[nodeselection.PlacementDefinitions](ball, func(config nodeselection.PlacementConfig, selectionConfig overlay.NodeSelectionConfig, env *nodeselection.PlacementConfigEnvironment) (nodeselection.PlacementDefinitions, error) {
+		mud.Provide[nodeselection.PlacementDefinitions](ball, func(config nodeselection.PlacementConfig, selectionConfig overlay.NodeSelectionConfig, env nodeselection.PlacementConfigEnvironment) (nodeselection.PlacementDefinitions, error) {
 			return config.Placement.Parse(selectionConfig.CreateDefaultPlacement, env)
 		})
 		nodeselection.Module(ball)
