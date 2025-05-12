@@ -53,6 +53,7 @@ import (
 	"storj.io/storj/satellite/metabase"
 	"storj.io/storj/satellite/metainfo"
 	"storj.io/storj/satellite/nodeselection"
+	"storj.io/storj/satellite/nodeselection/tracker"
 	"storj.io/storj/satellite/nodestats"
 	"storj.io/storj/satellite/oidc"
 	"storj.io/storj/satellite/orders"
@@ -266,7 +267,21 @@ func NewAPI(log *zap.Logger, full *identity.FullIdentity, db DB,
 
 	}
 
-	placements, err := config.Placement.Parse(config.Overlay.Node.CreateDefaultPlacement, nodeselection.NewPlacementConfigEnvironment(peer.SuccessTrackers, peer.FailureTracker))
+	environment := nodeselection.NewPlacementConfigEnvironment(peer.SuccessTrackers, peer.FailureTracker)
+
+	if config.PrometheusTracker.URL != "" {
+		prometheusTracker, err := tracker.NewPrometheusTracker(log.Named("prometheus-tracker"), peer.Overlay.DB, config.PrometheusTracker)
+		if err != nil {
+			return nil, errs.Combine(err, peer.Close())
+		}
+		peer.Services.Add(lifecycle.Item{
+			Name: "prometheus-tracker",
+			Run:  prometheusTracker.Run,
+		})
+		environment.AddPrometheusTracker(prometheusTracker)
+	}
+
+	placements, err := config.Placement.Parse(config.Overlay.Node.CreateDefaultPlacement, environment)
 	if err != nil {
 		return nil, err
 	}

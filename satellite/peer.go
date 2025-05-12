@@ -61,6 +61,7 @@ import (
 	"storj.io/storj/satellite/nodeapiversion"
 	"storj.io/storj/satellite/nodeevents"
 	"storj.io/storj/satellite/nodeselection"
+	"storj.io/storj/satellite/nodeselection/tracker"
 	"storj.io/storj/satellite/oidc"
 	"storj.io/storj/satellite/orders"
 	"storj.io/storj/satellite/overlay"
@@ -249,6 +250,8 @@ type Config struct {
 	FlightRecorder flightrecorder.Config
 
 	TagAuthorities string `help:"comma-separated paths of additional cert files, used to validate signed node tags"`
+
+	PrometheusTracker tracker.PrometheusTrackerConfig
 
 	DisableConsoleFromSatelliteAPI bool `help:"indicates whether the console API should not be served along with satellite API" default:"false"`
 

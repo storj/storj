@@ -1394,6 +1394,27 @@ identity.key-path: /root/.local/share/storj/identity/satellite/identity.key
 # number of months of project bandwidth rollups to retain, not including the current month
 # project-bw-cleanup.retain-months: 2
 
+# Node attributes to use for matching nodes with metrics
+# prometheus-tracker.attributes: []
+
+# Path to the CA certificate of the Prometheus server
+# prometheus-tracker.ca-cert-path: ""
+
+# Labels to use for matching nodes with metrics
+# prometheus-tracker.labels: []
+
+# Password for the basic auth of the Prometheus server
+# prometheus-tracker.password: ""
+
+# Prometheus query to get the scores
+# prometheus-tracker.query: ""
+
+# URL of the Prometheus server
+# prometheus-tracker.url: ""
+
+# Username for the basic auth of the Prometheus server
+# prometheus-tracker.username: ""
+
 # as of system interval
 # ranged-loop.as-of-system-interval: -5m0s
 
