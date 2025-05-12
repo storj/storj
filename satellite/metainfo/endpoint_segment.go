@@ -432,7 +432,8 @@ func (endpoint *Endpoint) CommitSegment(ctx context.Context, req *pb.SegmentComm
 		Pieces:      pieces,
 		Placement:   storj.PlacementConstraint(streamID.Placement),
 
-		MaxCommitDelay: maxCommitDelay,
+		MaxCommitDelay:      maxCommitDelay,
+		TestingUseMutations: endpoint.config.TestingCommitSegmentUseMutations,
 	}
 
 	err = endpoint.validateRemoteSegment(ctx, mbCommitSegment, originalLimits)
