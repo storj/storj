@@ -103,7 +103,7 @@ func NewPlacementConfigEnvironment(successTracker UploadSuccessTracker, failureT
 }
 
 // AddPrometheusTracker adds a Prometheus tracker to the environment.
-func (e PlacementConfigEnvironment) AddPrometheusTracker(tracker ScoreNode) PlacementConfigEnvironment {
+func (e PlacementConfigEnvironment) AddPrometheusTracker(tracker any) PlacementConfigEnvironment {
 	e["prometheusTracker"] = tracker
 	return e
 }

@@ -13,15 +13,17 @@ import (
 
 	"storj.io/common/debug"
 	"storj.io/common/storj"
+	"storj.io/storj/satellite/nodeselection"
 	"storj.io/storj/satellite/overlay"
 )
 
 // TrackerInfo is an interface that provides information about the current trackers.
 type TrackerInfo struct {
-	db              overlay.DB
-	successTrackers *SuccessTrackers
-	successUplinks  []storj.NodeID
-	failureTracker  SuccessTracker
+	db                overlay.DB
+	successTrackers   *SuccessTrackers
+	successUplinks    []storj.NodeID
+	failureTracker    SuccessTracker
+	prometheusTracker nodeselection.ScoreNode
 }
 
 // NewTrackerInfo creates a new TrackerInfo.
@@ -32,6 +34,12 @@ func NewTrackerInfo(successTrackers *SuccessTrackers, failureTracker SuccessTrac
 		successUplinks:  successUplinks,
 		failureTracker:  failureTracker,
 	}
+	return t
+}
+
+// WithPrometheusTracker adds the prometheus tracker to the TrackerInfo.
+func (t *TrackerInfo) WithPrometheusTracker(prometheusTracker nodeselection.ScoreNode) *TrackerInfo {
+	t.prometheusTracker = prometheusTracker
 	return t
 }
 
@@ -51,12 +59,20 @@ func (t *TrackerInfo) Path() string {
 func (t *TrackerInfo) Handler(writer http.ResponseWriter, request *http.Request) {
 	success := request.URL.Query().Get("success")
 	failure := request.URL.Query().Get("failure")
+	prometheus := request.URL.Query().Get("prometheus")
 	switch {
 	case success != "":
 		result, err := t.DumpSuccessTracker(request.Context(), success)
 		asText(writer, result, err)
 	case failure != "":
 		result, err := t.DumpTracker(request.Context(), t.failureTracker)
+		asText(writer, result, err)
+	case prometheus != "":
+		if t.prometheusTracker == nil {
+			asText(writer, "", fmt.Errorf("prometheus tracker not configured"))
+			return
+		}
+		result, err := t.DumpPrometheusTracker(request.Context())
 		asText(writer, result, err)
 	default:
 		result, err := t.ListTrackers(request.Context())
@@ -104,12 +120,30 @@ func (t *TrackerInfo) DumpTracker(ctx context.Context, tracker SuccessTracker) (
 	return output, nil
 }
 
+// DumpPrometheusTracker prints out all scores from the prometheus tracker.
+func (t *TrackerInfo) DumpPrometheusTracker(ctx context.Context) (string, error) {
+	nodes, err := t.db.GetAllParticipatingNodes(ctx, 4*time.Hour, -1*time.Microsecond)
+	if err != nil {
+		return "", errs.Wrap(err)
+	}
+	output := ""
+	scoreFunc := t.prometheusTracker.Get(storj.NodeID{})
+	for _, node := range nodes {
+		value := scoreFunc(&node)
+		output += fmt.Sprintf("%s %f\n", node.ID, value)
+	}
+	return output, nil
+}
+
 // ListTrackers prints out all available trackers.
 func (t *TrackerInfo) ListTrackers(ctx context.Context) (out string, err error) {
 	out += "/trackers?failure=true\n"
 	out += "/trackers?success=global\n"
 	for _, uplink := range t.successUplinks {
 		out += fmt.Sprintf("/trackers?success=%s\n", uplink)
+	}
+	if t.prometheusTracker != nil {
+		out += "/trackers?prometheus=true\n"
 	}
 	return out, err
 }

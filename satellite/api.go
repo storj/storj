@@ -281,19 +281,11 @@ func NewAPI(log *zap.Logger, full *identity.FullIdentity, db DB,
 
 	}
 
+	var prometheusTracker *tracker.PrometheusTracker
 	environment := nodeselection.NewPlacementConfigEnvironment(peer.SuccessTrackers, peer.FailureTracker)
-
-	if config.PrometheusTracker.URL != "" {
-		prometheusTracker, err := tracker.NewPrometheusTracker(log.Named("prometheus-tracker"), peer.Overlay.DB, config.PrometheusTracker)
-		if err != nil {
-			return nil, errs.Combine(err, peer.Close())
-		}
-		peer.Services.Add(lifecycle.Item{
-			Name: "prometheus-tracker",
-			Run:  prometheusTracker.Run,
-		})
-		environment.AddPrometheusTracker(prometheusTracker)
-	}
+	environment.AddPrometheusTracker(func() nodeselection.ScoreNode {
+		return prometheusTracker
+	})
 
 	placements, err := config.Placement.Parse(config.Overlay.Node.CreateDefaultPlacement, environment)
 	if err != nil {
@@ -317,6 +309,20 @@ func NewAPI(log *zap.Logger, full *identity.FullIdentity, db DB,
 	trackerInfo = metainfo.NewTrackerInfo(peer.SuccessTrackers, peer.FailureTracker, successTrackerUplinks, peer.Overlay.DB)
 
 	nodeSelectionStats := metainfo.NewNodeSelectionStats()
+
+	if config.PrometheusTracker.URL != "" {
+		var err error
+		prometheusTracker, err = tracker.NewPrometheusTracker(log.Named("prometheus-tracker"), peer.Overlay.DB, config.PrometheusTracker)
+		if err != nil {
+			return nil, errs.Combine(err, peer.Close())
+		}
+		peer.Services.Add(lifecycle.Item{
+			Name: "prometheus-tracker",
+			Run:  prometheusTracker.Run,
+		})
+		environment.AddPrometheusTracker(prometheusTracker)
+		trackerInfo = trackerInfo.WithPrometheusTracker(prometheusTracker)
+	}
 
 	migrationModeFlag := metainfo.NewMigrationModeFlagExtension(config.Metainfo)
 
