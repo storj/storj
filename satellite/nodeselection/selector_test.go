@@ -581,7 +581,7 @@ func TestChoiceOfTwo(t *testing.T) {
 		nodes = append(nodes, node)
 	}
 
-	selector := nodeselection.ChoiceOfTwo(tracker, nodeselection.RandomSelector())
+	selector := nodeselection.ChoiceOfTwo(nodeselection.Compare(tracker), nodeselection.RandomSelector())
 	initializedSelector := selector(ctx, nodes, nil)
 
 	for i := 0; i < 100; i++ {
@@ -633,7 +633,7 @@ func TestChoiceOfN(t *testing.T) {
 		nodes = append(nodes, node)
 	}
 
-	selector := nodeselection.ChoiceOfN(tracker, 3, nodeselection.RandomSelector())
+	selector := nodeselection.ChoiceOfN(nodeselection.Compare(tracker), 3, nodeselection.RandomSelector())
 	initializedSelector := selector(ctx, nodes, nil)
 
 	for i := 0; i < 100; i++ {

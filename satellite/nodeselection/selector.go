@@ -331,8 +331,49 @@ func BalancedGroupBasedSelector(attribute NodeAttribute, uploadFilter NodeFilter
 
 // ChoiceOfTwo will repeat the selection and choose the better node pair-wise.
 // NOTE: it may break other pre-conditions, like the results of the balanced selector...
-func ChoiceOfTwo(tracker ScoreNode, delegate NodeSelectorInit) NodeSelectorInit {
-	return ChoiceOfN(tracker, 2, delegate)
+func ChoiceOfTwo(comparer CompareNodes, delegate NodeSelectorInit) NodeSelectorInit {
+	return ChoiceOfN(comparer, 2, delegate)
+}
+
+// Compare creates a CompareNodes function from multiple ScoreNode parameters.
+// It compares nodes by evaluating each score in order and using the first non-equal result.
+// If all scores are equal, it returns 0.
+func Compare(scoreNodes ...ScoreNode) CompareNodes {
+	return func(uplink storj.NodeID) func(node1 *SelectedNode, node2 *SelectedNode) int {
+		scoreFuncs := make([]func(*SelectedNode) float64, len(scoreNodes))
+		for i, scoreNode := range scoreNodes {
+			scoreFuncs[i] = scoreNode.Get(uplink)
+		}
+
+		return func(node1 *SelectedNode, node2 *SelectedNode) int {
+			for _, scoreFunc := range scoreFuncs {
+				s1 := scoreFunc(node1)
+				s2 := scoreFunc(node2)
+
+				s1NaN := math.IsNaN(s1)
+				s2NaN := math.IsNaN(s2)
+
+				if s1NaN && s2NaN {
+					continue
+				}
+				if s1NaN {
+					return 1
+				}
+				if s2NaN {
+					return -1
+				}
+
+				if s1 > s2 {
+					return 1
+				}
+				if s2 > s1 {
+					return -1
+				}
+				// Equal numbers, continue to next score
+			}
+			return 0
+		}
+	}
 }
 
 var choiceOfNReductionTask = mon.Task()
@@ -360,7 +401,7 @@ func choiceOfNBetter(score1, score2 float64) bool {
 	return true
 }
 
-func choiceOfNReduction(ctx context.Context, getSuccessRate func(*SelectedNode) float64, n int, nodes []*SelectedNode, desired int) []*SelectedNode {
+func choiceOfNReduction(ctx context.Context, compare func(*SelectedNode, *SelectedNode) int, n int, nodes []*SelectedNode, desired int) []*SelectedNode {
 	defer choiceOfNReductionTask(&ctx)(nil)
 	// shuffle the nodes to ensure the pairwise matching is fair and unbiased when the
 	// totals for either node are 0 (we just pick the first node in the pair in that case)
@@ -380,16 +421,12 @@ func choiceOfNReduction(ctx context.Context, getSuccessRate func(*SelectedNode) 
 		}
 
 		for toChooseBetween > 1 {
-			success0 := getSuccessRate(nodes[0])
-			success1 := getSuccessRate(nodes[1])
-
-			if choiceOfNBetter(success0, success1) {
+			if compare(nodes[0], nodes[1]) > 0 {
 				// nodes[0] is selected
-				nodes[1] = nodes[0]
-				nodes = nodes[1:]
+				nodes[1] = nodes[0] // place the winner (nodes[0]) into nodes[1] slot
+				nodes = nodes[1:]   // discard the original nodes[0] slot, effectively keeping the winner
 			} else {
-				// nodes[1] is selected
-				nodes = nodes[1:]
+				nodes = nodes[1:] // discard nodes[0], effectively keeping nodes[1]
 			}
 			toChooseBetween--
 		}
@@ -411,7 +448,7 @@ var (
 // from groups of n size. n is an int64 type due to a mito scripting shortcoming
 // but really an int16 should be fine.
 // NOTE: it may break other pre-conditions, like the results of the balanced selector...
-func ChoiceOfN(tracker ScoreNode, n int64, delegate NodeSelectorInit) NodeSelectorInit {
+func ChoiceOfN(comparison CompareNodes, n int64, delegate NodeSelectorInit) NodeSelectorInit {
 	return func(ctx context.Context, allNodes []*SelectedNode, filter NodeFilter) NodeSelector {
 		defer choiceOfNTask(&ctx)(nil)
 		selector := delegate(ctx, allNodes, filter)
@@ -432,7 +469,7 @@ func ChoiceOfN(tracker ScoreNode, n int64, delegate NodeSelectorInit) NodeSelect
 			// result, n*m, has low cardinality.
 			mon.IntVal(fmt.Sprintf("choice-of-n-requested-%d-got", int(n)*m)).Observe(int64(len(nodes)))
 
-			return choiceOfNReduction(ctx, tracker.Get(requester), int(n), nodes, m), nil
+			return choiceOfNReduction(ctx, comparison(requester), int(n), nodes, m), nil
 		}
 	}
 }
@@ -444,6 +481,9 @@ type ScoreSelection func(uplink storj.NodeID, selected []*SelectedNode) float64
 type ScoreNode interface {
 	Get(uplink storj.NodeID) func(node *SelectedNode) float64
 }
+
+// CompareNodes compare two nodes for a specific client (uplink). Returns < 0 if node2 is better, returns > 0 if node1 is better, and returns 0 if both are equal.
+type CompareNodes func(uplink storj.NodeID) func(node1 *SelectedNode, node2 *SelectedNode) int
 
 // ScoreNodeFunc implements ScoreNode interface with a single func.
 type ScoreNodeFunc func(uplink storj.NodeID, node *SelectedNode) float64
@@ -581,7 +621,7 @@ var downloadChoiceOfNTask = mon.Task()
 // DownloadChoiceOfN will take a set of nodes and winnow it down using choice
 // of n. n is an int64 type due to a mito scripting shortcoming but really an
 // int16 should be fine.
-func DownloadChoiceOfN(tracker UploadSuccessTracker, n int64) DownloadSelector {
+func DownloadChoiceOfN(comparison CompareNodes, n int64) DownloadSelector {
 	return func(ctx context.Context, requester storj.NodeID, possibleNodes map[storj.NodeID]*SelectedNode, needed int) (_ map[storj.NodeID]*SelectedNode, err error) {
 		defer downloadChoiceOfNTask(&ctx)(&err)
 		nodeSlice := make([]*SelectedNode, 0, len(possibleNodes)+needed)
@@ -589,7 +629,7 @@ func DownloadChoiceOfN(tracker UploadSuccessTracker, n int64) DownloadSelector {
 			nodeSlice = append(nodeSlice, node)
 		}
 
-		nodeSlice = choiceOfNReduction(ctx, tracker.Get(requester), int(n), nodeSlice, needed)
+		nodeSlice = choiceOfNReduction(ctx, comparison(requester), int(n), nodeSlice, needed)
 
 		result := make(map[storj.NodeID]*SelectedNode, needed)
 		for _, node := range nodeSlice {
